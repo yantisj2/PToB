@@ -1,5 +1,10 @@
 # v12 numerical model — synthetic evidence
 
+The need for precision through passive reception drove v12 toward periodic
+advertising and informed the T096 R2 implementation. Read the
+[design background](../../../docs/V12_TO_R2.md) for that progression and the
+planned split between mesh services and phone/OS client services.
+
 This is the frozen **October 6 numerical proposal model**, not a firmware or
 Bluetooth-controller emulator. It uses declared synthetic clocks, loss, timing,
 source readiness, and scheduling. Its profiles are not current R2 profiles.

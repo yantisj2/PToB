@@ -1,42 +1,69 @@
 # PToB — Precision Time over BLE
 
-PToB explores precision time distribution over Bluetooth Low Energy: passive
-reception, explicit timestamp provenance, and clock quality appropriate to each
-device. This repository brings together the draft protocol proposal, research
-papers, and supporting evidence for public review.
+**[Explore PToB at ptob.dev](https://ptob.dev)** — the companion project website.
 
-**Research in progress.** These are drafts, not peer-reviewed papers or an adopted
-Bluetooth SIG or IEEE standard. Results apply to their stated experiment and
-implementation; simulation and hardware measurements are kept separate.
+PToB is a precision time protocol proposal for Bluetooth Low Energy. The goal is
+useful, traceable time at the receiving device: associate a physical radio event
+with its timestamp, account for correction delay, and make the clock's quality
+and availability explicit.
 
-| Paper | Edition | Read |
+This repository holds the draft papers, experimental evidence, and work toward a
+T096 R2 firmware example. It is intended for BLE implementers, timing specialists,
+and embedded engineers evaluating the protocol, its measurements, and its fit
+for real devices. All papers remain drafts; PToB is not an adopted Bluetooth SIG
+or IEEE standard.
+
+## From v12 to R2
+
+**Precision from passive reception drove v12.** That requirement pushed the
+project toward periodic advertising as the timing transport and made periodic
+advertising support a baseline requirement for participation in the PToB mesh.
+The v12 model explored the scheduling, correction, and coordination rules that
+informed the T096 R2 hardware implementation.
+
+The architecture separates **mesh services** for capable devices from **client
+services** for devices that cannot meet those requirements. A later GATT client
+service is planned for phones and conventional operating systems. That service
+is distinct from the GATT control traffic already exercised in R2 experiments;
+it does not imply the same precision or mesh role for every client.
+
+[Read the v12-to-R2 design background](docs/V12_TO_R2.md) for the service split,
+implementation boundaries, and questions still open for review.
+
+## Read the research
+
+| Draft | Focus | Edition |
 | --- | --- | --- |
-| Passive time service and protocol proposal | 2 October 2026 draft | [PDF](papers/ptob-proposal.pdf) |
-| Prospective edge calibration, causal publication, and service availability | 2 October 2026 preprint | [PDF](papers/ptob-preprint.pdf) |
-| Software clock discipline, native lock, and tunable-oscillator extension | 3 October 2026 amended draft; matching PDF exported 9 October | [PDF](papers/oscillator-pll-research-20261003.pdf) |
+| [Protocol proposal](papers/ptob-proposal.pdf) | Passive time services, timestamp association, authority, and forwarding | 2 October 2026 |
+| [Calibration and causal publication](papers/ptob-preprint.pdf) | Prospective edge calibration, delivered-clock error, and service availability | 2 October 2026 |
+| [Software clock discipline and oscillator control](papers/oscillator-pll-research-20261003.pdf) | Native software lock, retained failures, and a proposed tunable-oscillator extension | Amended 3 October; PDF exported 9 October 2026 |
 
-[Editable sources, edition history, and build instructions](papers/README.md)
-accompany the papers. Future draft revisions are preserved in Git.
+[Sources, citations, and revision history](papers/README.md) accompany each paper.
+These dated drafts document earlier research; the v12/R2 direction above does not
+retroactively change their wire formats, experiments, or conclusions.
 
-| Evidence collection | What it contains |
+## Inspect the evidence
+
+| Collection | What you can review |
 | --- | --- |
-| [Earlier paper evidence](evidence/papers/2026-10-02/README.md) | Original claim mappings, calibration, populations, and protocol/firmware identities at the October 2 cutoff |
-| [Oscillator/PLL evidence](evidence/papers/oscillator-pll-2026-10-03/README.md) | Separate hardware-derived cohorts, causal-error samples, sparse lock observations, and retained failures |
-| [v12 model](evidence/v12/model/README.md) | Frozen numerical model, tests, synthetic results, and experiment receipts |
-| [R2 simulation](evidence/v12/r2/simulation/README.md) | Connected-control and P1 controller/PHY simulation, including failed cases |
-| [R2 hardware](evidence/v12/r2/hardware/README.md) | Dated T096 installation, startup, UI, and service records with unresolved issues |
+| [October 2 paper evidence](evidence/papers/2026-10-02/README.md) | Claim mappings, calibration, populations, and original protocol/firmware identities |
+| [Oscillator/PLL evidence](evidence/papers/oscillator-pll-2026-10-03/README.md) | Hardware-derived samples, separate cohorts, and sampled lock states |
+| [v12 numerical model](evidence/v12/model/README.md) | Frozen model, executable tests, synthetic results, and retained failures |
+| [R2 controller simulation](evidence/v12/r2/simulation/README.md) | Control and precision-transport campaigns with explicit outcomes |
+| [R2 hardware records](evidence/v12/r2/hardware/README.md) | T096 startup, UI, and service observations with unresolved issues |
 
-Start with the [claim and evidence index](evidence/README.md) for scope and
-reproduction limits. Private raw captures are not included. Low relative timing
-error, software lock, and simulation success do not establish calibrated absolute
-UTC or independent electrical-output accuracy.
+The [evidence index](evidence/README.md) explains what can be reproduced from this
+checkout. Private raw captures are not included. Relative timing error, software
+lock, and simulated precision are distinct from calibrated UTC and independently
+measured electrical-output accuracy.
 
-The [T096 R2 firmware example](firmware/t096/README.md) is being prepared; a
-standalone buildable firmware release is not yet included.
+The [T096 R2 example](firmware/t096/README.md) is being prepared for standalone
+builds. Firmware source and a deployable release are not yet included here.
 
-Project website: [ptob.dev](https://ptob.dev). Review comments should identify the
-paper edition or repository commit and the relevant claim or evidence record.
+Reviews are welcome on controller support, physical timestamp association,
+clock discipline, service boundaries, and measurement design. Identify the draft
+edition or commit, the claim under discussion, and the evidence that would test it.
 
 By **Jonathan Yantis**, with [acknowledged Codex assistance](CREDITS.md).
-Original code is [MIT](LICENSE); papers, figures, and the included original
-evidence datasets are **CC BY 4.0**. See [licensing and attribution](LICENSING.md).
+Code is [MIT](LICENSE); papers, figures, and original evidence datasets are
+**CC BY 4.0**. See [licensing and attribution](LICENSING.md).

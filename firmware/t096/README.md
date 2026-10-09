@@ -1,6 +1,13 @@
 # T096 R2 firmware example
 
-Source import is pending. No buildable or deployable firmware is included yet.
+T096 R2 is the first firmware example being prepared for this repository. Its
+direction comes from v12: periodic advertising for the precision timing stream,
+with mesh participation separated from planned client services for less capable
+devices. See [the architectural background](../../docs/V12_TO_R2.md).
+
+**Source import is pending.** No buildable or deployable firmware is included yet.
+The [R2 evidence collections](../../evidence/v12/r2/README.md) contain dated
+experiment records; they are not a firmware distribution.
 
 The example will include the application, board definition, required patches,
 pinned dependencies, protocol tests, and build and recovery instructions.

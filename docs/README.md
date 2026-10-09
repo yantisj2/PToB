@@ -1,7 +1,9 @@
-# Project documentation
+# Design background
 
-This collection will contain the public current-status page, compatibility
-table, consequential design decisions, and contribution and release guidance.
+Start with [From passive precision to v12 and T096 R2](V12_TO_R2.md): why periodic
+advertising became a mesh requirement, how mesh and client services are being
+separated, and where the planned phone/OS GATT service fits.
 
-Current status must point to exact checkpoints. Historical documents retain
-their dates and scope rather than becoming implicit statements of current truth.
+Use the [papers](../papers/README.md) for dated research and the
+[evidence index](../evidence/README.md) for experiment-specific claims. Design
+direction, implemented behavior, and measured outcomes have different scopes.

@@ -1,5 +1,10 @@
 # R2 evidence
 
+R2 carries the v12 periodic-advertising direction into the T096 implementation
+effort. Read the [design background](../../../docs/V12_TO_R2.md) for why passive
+precision drove that choice and how the planned client service differs from
+mesh coordination. The records below establish only their stated outcomes.
+
 - [Controller/PHY simulation and codec checks](simulation/README.md)
 - [T096 hardware campaign records](hardware/README.md)
 

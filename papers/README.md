@@ -17,6 +17,10 @@ Yantis. See [the license notice](LICENSE.md) and [project credits](../CREDITS.md
 
 ## Scope and evidence
 
+For the later periodic-advertising direction and planned mesh/client service
+split, read [From v12 to R2](../docs/V12_TO_R2.md). That architectural note does
+not revise these draft editions or their experimental claims.
+
 The first two papers have evidence cutoff **2026-10-02T17:28:13.400616Z**. They
 describe the research and protocol at that cutoff; they do not establish current v12/R2
 firmware behavior or qualification. Later R2 findings require a new edition or
