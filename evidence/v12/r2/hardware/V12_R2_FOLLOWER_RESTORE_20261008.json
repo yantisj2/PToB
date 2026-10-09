@@ -1,0 +1,220 @@
+{
+  "schema": 1,
+  "status": "CANDIDATE03_INSTALLED_PAIR_UI_PASS_SERVICE_GAPS_TC03_STARTUP_UNKNOWN",
+  "candidate": {
+    "child_commit": "3f556f447a2af394e21299b146f42ce054bcdc49",
+    "source_sha256": "fd89b5008de59ecc1e26199a63bbed4da4e2f6743bd5705fcf2e9589c8fc83cd",
+    "artifact_class": "T096_V12_R2_NORMAL_SERVICE",
+    "build": "firmware/t096/build-v12-r2-follower-candidate-20261008-03",
+    "receipt_sha256": "a3c194fa169021ffeea2d2eb9563f68cbaa418558efabe7cecc809c0b1a4563f",
+    "uf2_sha256": "13553b98a3ee42c5c6bdfd2ef07ede54de037ecb8d40c7cf628609c970fa030c",
+    "committed_sources_verified": 100,
+    "dispatch": {
+      "install_candidate03.py": "895a143644949df5a027a5fd5daa9d26a28128df17afdea0d1278fe99537bd8c",
+      "enter_boot03.py": "ed553bd2efaf2bae9f0db85c735925546cf0db7d3f3aea0ee907a54f1d516d8a"
+    }
+  },
+  "changes": [
+    "Fresh authenticated unexpired GM BLE time overrides local GPS for followers",
+    "Followers without local GPS show the original analog face labeled BLE; no precision/PPS claim",
+    "Display transactions share one absolute250ms frame budget including commands; init500ms budget",
+    "Faulted display retains DMA buffers while button polling remains active"
+  ],
+  "validation": {
+    "candidate": {
+      "child_commit": "3f556f447a2af394e21299b146f42ce054bcdc49",
+      "source_sha256": "fd89b5008de59ecc1e26199a63bbed4da4e2f6743bd5705fcf2e9589c8fc83cd",
+      "artifact_class": "T096_V12_R2_NORMAL_SERVICE",
+      "build": "firmware/t096/build-v12-r2-follower-candidate-20261008-03",
+      "receipt_sha256": "a3c194fa169021ffeea2d2eb9563f68cbaa418558efabe7cecc809c0b1a4563f",
+      "uf2_sha256": "13553b98a3ee42c5c6bdfd2ef07ede54de037ecb8d40c7cf628609c970fa030c",
+      "committed_sources_verified": 100,
+      "dispatch": {
+        "install_candidate03.py": "895a143644949df5a027a5fd5daa9d26a28128df17afdea0d1278fe99537bd8c",
+        "enter_boot03.py": "ed553bd2efaf2bae9f0db85c735925546cf0db7d3f3aea0ee907a54f1d516d8a"
+      }
+    },
+    "host_actual_C": "host03 PASS ASan/UBSan incl delayedSPI completion beyond2ms, absolute250ms budget includingcommands, retainedDMA buffers, navigation/help/4sintent after displayfault",
+    "guard": "guard03 PASS14 relevant29 other-profile skips",
+    "simulator": {
+      "receipt_sha256": "3d6507deaf62b9b41e4caa0eecdd4219f4d234b40305ff40751db1fb31da888e",
+      "tests": [
+        {
+          "case": "network-3-23-0",
+          "seed": 23,
+          "rotation": 0,
+          "passed": true,
+          "nodes": 3,
+          "native_owner_and_UI": [
+            {
+              "node": 0,
+              "samples": 753,
+              "rx": 4243,
+              "authenticated": 3399,
+              "frames": 151,
+              "closed": true
+            },
+            {
+              "node": 1,
+              "samples": 753,
+              "rx": 4554,
+              "authenticated": 3774,
+              "frames": 151,
+              "closed": true
+            },
+            {
+              "node": 2,
+              "samples": 753,
+              "rx": 4590,
+              "authenticated": 3807,
+              "frames": 151,
+              "closed": true
+            }
+          ],
+          "precision": "UNKNOWN",
+          "association": "UNKNOWN_SYNTHETIC_COARSE_INPUT",
+          "modeled_radio_cost": [
+            {
+              "node": 0,
+              "phy_transmissions": 12046,
+              "modeled_tx_airtime_us": 5984556,
+              "modeled_tx_fraction_of_151s": 0.03963282119205298
+            },
+            {
+              "node": 1,
+              "phy_transmissions": 14645,
+              "modeled_tx_airtime_us": 6780060,
+              "modeled_tx_fraction_of_151s": 0.04490105960264901
+            },
+            {
+              "node": 2,
+              "phy_transmissions": 11641,
+              "modeled_tx_airtime_us": 5139375,
+              "modeled_tx_fraction_of_151s": 0.03403559602649007
+            }
+          ]
+        },
+        {
+          "case": "network-3-47-1",
+          "seed": 47,
+          "rotation": 1,
+          "passed": true,
+          "nodes": 3,
+          "native_owner_and_UI": [
+            {
+              "node": 0,
+              "samples": 753,
+              "rx": 4387,
+              "authenticated": 3631,
+              "frames": 151,
+              "closed": true
+            },
+            {
+              "node": 1,
+              "samples": 753,
+              "rx": 4484,
+              "authenticated": 3694,
+              "frames": 151,
+              "closed": true
+            },
+            {
+              "node": 2,
+              "samples": 753,
+              "rx": 4194,
+              "authenticated": 3493,
+              "frames": 151,
+              "closed": true
+            }
+          ],
+          "precision": "UNKNOWN",
+          "association": "UNKNOWN_SYNTHETIC_COARSE_INPUT",
+          "modeled_radio_cost": [
+            {
+              "node": 0,
+              "phy_transmissions": 9498,
+              "modeled_tx_airtime_us": 4843943,
+              "modeled_tx_fraction_of_151s": 0.03207909271523179
+            },
+            {
+              "node": 1,
+              "phy_transmissions": 9652,
+              "modeled_tx_airtime_us": 4857935,
+              "modeled_tx_fraction_of_151s": 0.032171754966887414
+            },
+            {
+              "node": 2,
+              "phy_transmissions": 11648,
+              "modeled_tx_airtime_us": 5099175,
+              "modeled_tx_fraction_of_151s": 0.03376937086092715
+            }
+          ]
+        }
+      ],
+      "path": "firmware/t096/build-v12-r2-sim-follower-20261008-02",
+      "status": "PASS_BOTH_150S_THREE_NODE_CASES",
+      "successor_delta": "Native display.c absolute transaction deadline and ui_service.c fault-only button polling changes; normal BLE, source-selection and protocol unchanged. host03 covers changed public SPI/UI fault path."
+    },
+    "preserved_failure": "sim-follower01 both cases failed stale follower role vs expired service lease, corrected in0178093; neverflashed; candidate02 TC01 physical UI SPI completion timeout at2ms, stoppedUI/buttons, BLE/mainalive; sealed failure retained.",
+    "scope": "BLE selected functional time and analog face; no new precision capture/RMS claims",
+    "TC03_freeze": "Power-cycle recovery passed startup; exported bank0 matches recovered boot; earlier freeze unresolved",
+    "physical": "TC01/02 startup and live event test PASS; TC03 repeated firstboot failure retained"
+  },
+  "installed": {
+    "TC-01": "Candidate03 runtime identity/startup/all UI pages PASS; event replacement/export PASS; BLE time selected when following TC02",
+    "TC-02": "Candidate03 runtime identity/startup/all UI pages PASS; event replacement/export PASS; serving GM in pair",
+    "TC-03": "Candidate03 recovered after operator power-cycle; startupcheck PASS run v12-r2-follower-tc03-20261008-03 sealed. Earlier freeze unresolved."
+  },
+  "precision_restoration": "Investigated by dedicated requested Astra Medium; results/V12_R2_PRECISION_RESTORE_20261008.json; implementation pending high-resolution capture/controller timing path",
+  "failed_runs": [
+    "v12-r2-follower-tc01-20261008-01",
+    "v12-r2-follower-tc03-20261008-02"
+  ],
+  "recovery_runs": [
+    "v12-r2-event-tc03-20261008-03",
+    "v12-r2-event-tc03-banks-20261008-01",
+    "v12-r2-follower-tc03-20261008-03"
+  ],
+  "evidence": {
+    "host03.log": "cb88d19a5b39d18a7e789777fa65d553471ae030dbb04dfa7434c829d8a5d7b2",
+    "guard03.log": "3fae72d6a07912fbb03122942429a961dbc97f30b7fef7cf64ace5ec736ea3e7",
+    "validation03.json": "f72ee1481f81459093453ace24118f007a6d1c15b2ba91ecbac581f4e69d2aa7"
+  },
+  "final_review": {
+    "result": "ACCEPTED_NORMAL_BLE_UI_SERVICE_PHYSICAL_UNKNOWN",
+    "report": "artifacts/v12-r2-follower-20261008-01/astra-review03.md",
+    "sha256": "65d355dacd089004da133ed6a702a017596327469382b0bdb63a1dc064c9a22f"
+  },
+  "event_campaign": {
+    "run": "v12-r2-follower-event-storage-pair-20261008-01",
+    "result": "PASS_EVENT_STORAGE_WITH_NORMAL_BLE",
+    "scope": "TC01_TC02_ONLY"
+  },
+  "normal_campaign": {
+    "run": "v12-r2-follower-normal-pair-20261008-01",
+    "harness_result": "PASS_NORMAL_SERVICE_OBSERVATION",
+    "scope": "TC01_TC02_ONLY",
+    "rows": 130,
+    "continuous_service_accepted": false,
+    "service_samples": {
+      "TC-01": 112,
+      "TC-02": 103
+    },
+    "interpretation": "Bounded observer UI/progress checks passed; row-level analysis exposes service-validity gaps despite stable root1/source epoch3. Not production continuity acceptance."
+  },
+  "full_three_unit_acceptance": false,
+  "continuity_successor": {
+    "child_commit": "4762a38",
+    "status": "HOST_BABBLESIM_GUARD_PASS_BUILT_NOT_FLASHED",
+    "changes": [
+      "Use newly received authenticated SERVICE original expiry rather than preceding sample expiry",
+      "Use original REPORT creation-based500ms role lease separately from250ms admission TTL; source/service remain independently bounded"
+    ],
+    "TTL_us": 250000,
+    "role_lease_us": 500000,
+    "host": "protocol-continuity05.log; all8 actual-C latency/topology variants pass; self-root zero gaps every2ms at2/6/16/30ms one-way latency",
+    "precision": "UNKNOWN",
+    "candidate": "artifacts/v12-r2-follower-20261008-01/candidate04.json",
+    "simulator": "Both150s3node service casesPASS; build-v12-r2-sim-continuity-20261008-01"
+  },
+  "next_release": "Combine with precision work per latest operator priority; no new flash yet"
+}

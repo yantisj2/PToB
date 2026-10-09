@@ -1,0 +1,132 @@
+{
+  "schema": 1,
+  "status": "INSTALLED_THREE_DEVICES_BOUNDED_SERVICE_PASS_LEFT_RUNNING",
+  "candidate": {
+    "build": "firmware/t096/build-v12-r2-standalone-candidate-20261009-05",
+    "version": "0.6.4",
+    "child_commit": "f0189953f07bcd588cd3cb07829a62094e7eeccf",
+    "source_sha256": "be88533e6baa2566caaf23e99574ab6e0495bf3c156c2d17662410de7ffdbc84",
+    "receipt_sha256": "491c68c5d050522156d0d1cbd74e75c228a71d93401d4b73eddb1c0599fc32be",
+    "uf2_sha256": "450fe9695736622839592958f20d507d23307158eac1d417abeff34a58b11c36",
+    "sources_verified": 113,
+    "cohort": [
+      "TC-01",
+      "TC-03",
+      "TC-02"
+    ],
+    "status": "REVIEW_ACCEPTED_FOR_SCOPED_INSTALLATION"
+  },
+  "scope": "Common TC-01/TC-03/TC-02 standalone GM and durable controller preparation",
+  "confirmed_fixes": [
+    "Standalone local GM does not require peer ACK",
+    "Fractional RMC coarse source admission",
+    "Early connection callback reference ownership"
+  ],
+  "recovery_policy": "Stock controller late-event cancellation; all other assertions retained",
+  "physical_overnight_root_cause": "UNKNOWN",
+  "physical_installs": [
+    {
+      "unit": "TC-01",
+      "installation_evidence": "artifacts/v12-r2-standalone-install-tc-01-20261009-01/result.json",
+      "service_capture": "runs/v12-r2-standalone-service-tc-01-20261009-01",
+      "boot": "b072cd0b9ead43a6",
+      "serving": true,
+      "follower": false,
+      "time_source": "GPS",
+      "follower_clock_valid": false,
+      "received_delta": 234,
+      "authenticated_delta": 202,
+      "service_receipt_delta": 0,
+      "stack_unused_main": 1696,
+      "stack_unused_sysworkq": 2576,
+      "left_running": true
+    },
+    {
+      "unit": "TC-03",
+      "installation_evidence": "artifacts/v12-r2-standalone-install-tc-03-20261009-01/result.json",
+      "service_capture": "runs/v12-r2-standalone-service-tc-03-20261009-01",
+      "boot": "ceffe0a207b84242",
+      "serving": false,
+      "follower": true,
+      "time_source": "BLE",
+      "follower_clock_valid": true,
+      "received_delta": 237,
+      "authenticated_delta": 204,
+      "service_receipt_delta": 102,
+      "stack_unused_main": 1688,
+      "stack_unused_sysworkq": 2600,
+      "left_running": true
+    },
+    {
+      "unit": "TC-02",
+      "installation_evidence": "artifacts/v12-r2-standalone-install-tc-02-20261009-01/result.json",
+      "service_capture": "runs/v12-r2-standalone-service-tc-02-20261009-01",
+      "boot": "147e44bb0e91663e",
+      "serving": false,
+      "follower": true,
+      "time_source": "BLE",
+      "follower_clock_valid": true,
+      "received_delta": 447,
+      "authenticated_delta": 383,
+      "service_receipt_delta": 77,
+      "stack_unused_main": 1696,
+      "stack_unused_sysworkq": 2576,
+      "left_running": true
+    }
+  ],
+  "precision": "UNKNOWN; radio capture/correction/RMS integration remains outstanding",
+  "validation": {
+    "host": "PASS",
+    "protocol": "PASS",
+    "guard": "19 passed,29 other profiles skipped",
+    "normal_sim": "PASS both151s cases:3:71:2 and3:23:0;no empty stable service bins;3s transition bins on continuing nodes",
+    "forced_stall": "PASS;52368us detection;original close deadline"
+  },
+  "evidence": {
+    "artifacts/v12-r2-tc03-20261009-01/candidate05.json": {
+      "sha256": "b052d1ebca1984f0fe06ec4677d82fcb2bc03da8c99e7472dd26bddc30dcacf1"
+    },
+    "artifacts/v12-r2-tc03-20261009-01/host03.log": {
+      "sha256": "564fc840a21346c0ebe104b130807ab9a8c238e8057766ff7ef02faf53e2d873"
+    },
+    "artifacts/v12-r2-tc03-20261009-01/protocol02.log": {
+      "sha256": "f38ad4e4012f6717bb72d8f8047189f90b7d3fb903f67dbe0a4c17c0b87493a8"
+    },
+    "artifacts/v12-r2-tc03-20261009-01/guard05.log": {
+      "sha256": "d0850f87ea38cef50f578947f345ea260530e0211c7232795d89f510f43ad449"
+    },
+    "artifacts/v12-r2-tc03-20261009-01/config-delta05.json": {
+      "sha256": "36a11accf07051883d0d27d30068d10b816d50dbfcb6c421ff4872bfab9e3913"
+    },
+    "artifacts/v12-r2-tc03-20261009-01/sim-source-parity05.json": {
+      "sha256": "e51fee5dcdf9d9ba866cb094a002bbca85134f3de117ded1ab85d9710794038f"
+    },
+    "artifacts/v12-r2-tc03-20261009-01/standalone-before.log": {
+      "sha256": "fd546259744116c87c81cd6a088a1ba9d630f3e675ccba130ead5f692c526669"
+    },
+    "artifacts/v12-r2-tc03-20261009-01/standalone-role-only.log": {
+      "sha256": "3c328cb9ac2fd4680ff197e599fb4fa8051ce3957205c8c933d069aaa0f3eaca"
+    },
+    "artifacts/v12-r2-tc03-20261009-01/standalone-after.log": {
+      "sha256": "0357393e0b50d08fb719d7f235c12bb137d39db45eb5df177f69c808a866427a"
+    },
+    "artifacts/v12-r2-tc03-20261009-01/install_candidate05.py": {
+      "sha256": "4542f5eeb320f3b8279411edc61cc287a17ba3f307a3eeef4a8802fed1d27ba6"
+    },
+    "artifacts/v12-r2-tc03-20261009-01/astra-final-review05.md": {
+      "sha256": "e6296987ef52b616d2ad011b06d7ca4f78325369f7d4d77d4aa79e56f15698e8"
+    },
+    "artifacts/v12-r2-tc03-20261009-01/primary-acceptance05.json": {
+      "sha256": "63d3837ec3aa0a44a5efd6fa22322553abc9ad3535765c54ef7c36bbb78a518e"
+    },
+    "artifacts/v12-r2-tc03-20261009-01/sim03-coverage.json": {
+      "sha256": "d1832a3789a4ea0c09f31777e46a84dd2150235945cec1c5115828c52b4e50a5"
+    },
+    "firmware/t096/build-v12-r2-sim-standalone-20261009-03/receipt.json": {
+      "sha256": "fbde208004ddb5bfc00a036ac1d2a326f0b5de5ca6af1bd6eedf5d30123df9ec"
+    },
+    "firmware/t096/build-v12-r2-sim-standalone-stall-20261009-01/receipt.json": {
+      "sha256": "262507e2d73ed3be72f8958c997b31996bcc65173d43c9adb2e6075b02c936d6"
+    }
+  }
+}

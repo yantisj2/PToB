@@ -7,7 +7,8 @@ Copyright (c) 2026 Jonathan Yantis.
 | Original software, scripts, and ordinary repository documentation | [MIT](LICENSE) |
 | Original research papers, proposal manuscripts, their LaTeX sources, and figures | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
 | Third-party material | Its existing license and attribution |
-| Research datasets | An explicit license recorded with each future import |
+| Included original evidence records and derived CSV datasets | [CC BY 4.0](evidence/LICENSE.md) |
+| Future third-party or differently licensed datasets | Explicit terms recorded with the import |
 
 The manuscript and figure license is Creative Commons Attribution 4.0
 International. Its [legal terms](https://creativecommons.org/licenses/by/4.0/legalcode)

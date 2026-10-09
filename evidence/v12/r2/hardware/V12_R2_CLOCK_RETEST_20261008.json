@@ -1,0 +1,238 @@
+{
+  "schema": 1,
+  "date": "2026-10-08",
+  "scope": "RF_OFF_GNSS_CLOCK_BASELINE_ONLY",
+  "child_commit": "b65017cf00c92ea4291f3e07a65517e7363818ff",
+  "version": "0.2.1",
+  "receipt_sha256": "057b391567582f718ee7f972950d66775668f902a83d7d1ad38ee31f24a51b5f",
+  "uf2_sha256": "9353ae1595df02153acbf6ceacff43de2959b01f6426212aa481b714e42750da",
+  "source_sha256": "d7725d9ccfbcc8cc470ab2bdfb16d0857534d864e35d7d29042867e1cdd8e26c",
+  "status": "REPEAT_THREE_UNIT_STARTUP_PASS_GNSS_INPUT_ISSUE_RETAINED",
+  "firmware_changed": false,
+  "final_review": "artifacts/v12-r2-clock-retest-20261008-01/astra-review.md",
+  "simulator": {
+    "executions": 30,
+    "corrected_boot_passes": 15,
+    "corrected_repeat_cycles": 60,
+    "corrected_bluetooth_lifecycles": 15,
+    "uncorrected_inherited_hangs": 10,
+    "uncorrected_clean_controls": 5,
+    "coverage": "Three deterministic cases repeated with five seeds; identical traces per case, not distinct schedules",
+    "verification": "artifacts/v12-r2-clock-retest-20261008-01/sim-results-reviewed.json",
+    "host_assertion_correction": "Old fixture lacked newer repeat extension. Original mistaken assertion preserved; existing logs reanalysed without rerun.",
+    "exact_binaries_reused": true
+  },
+  "devices": {
+    "TC-01": {
+      "startup": "PASS",
+      "new_boot": "f87c9127d8c017a8",
+      "silicon": "[REDACTED: local operational identifier]",
+      "clock": [
+        2,
+        0,
+        2,
+        2,
+        1,
+        1
+      ],
+      "completion_uptime_ms": 1,
+      "bluetooth": [
+        0,
+        0,
+        true,
+        1,
+        3
+      ],
+      "identity_attestation": "PASS",
+      "application_byte_readback": "WAIVED_NOT_PERFORMED",
+      "post_flash_fix": false,
+      "GNSS_parser_counts": [
+        9,
+        10,
+        11
+      ]
+    },
+    "TC-03": {
+      "startup": "PASS",
+      "new_boot": "6cf26046a8e88ee4",
+      "silicon": "[REDACTED: local operational identifier]",
+      "clock": [
+        2,
+        0,
+        2,
+        2,
+        1,
+        1
+      ],
+      "completion_uptime_ms": 1,
+      "bluetooth": [
+        0,
+        0,
+        true,
+        1,
+        3
+      ],
+      "identity_attestation": "PASS",
+      "application_byte_readback": "WAIVED_NOT_PERFORMED",
+      "post_flash_fix": false,
+      "GNSS_parser_counts": [
+        8,
+        9,
+        10
+      ]
+    },
+    "TC-02": {
+      "startup": "PASS",
+      "new_boot": "6942c4122dff6890",
+      "silicon": "[REDACTED: local operational identifier]",
+      "clock": [
+        2,
+        0,
+        2,
+        2,
+        1,
+        1
+      ],
+      "completion_uptime_ms": 1,
+      "bluetooth": [
+        0,
+        0,
+        true,
+        1,
+        3
+      ],
+      "identity_attestation": "PASS",
+      "application_byte_readback": "WAIVED_NOT_PERFORMED",
+      "post_flash_fix": false,
+      "GNSS_parser_counts": [
+        8,
+        9,
+        10
+      ]
+    }
+  },
+  "maintenance": {
+    "TC-03": {
+      "outcome": "SUPPORTED_SHUTDOWN_AND_BOUND_UF2_DISK_PASS",
+      "pre_update_uptime_ms": 1246749,
+      "shutdown": [
+        0,
+        true,
+        1247448
+      ],
+      "clock_snapshot": {
+        "source": "d7725d9ccfbcc8cc470ab2bdfb16d0857534d864e35d7d29042867e1cdd8e26c",
+        "boot": "02da211c9496f1c6",
+        "state": 2,
+        "valid": true,
+        "utc_us": 1791472369281006,
+        "mono_us": 1247098846,
+        "gps_age_us": 281006,
+        "pps_age_us": 328125,
+        "input_error": 0,
+        "rate_ppb": 0,
+        "phase_us": 0,
+        "rate_valid": false,
+        "source_available": false,
+        "generation": 944,
+        "source_epoch": 944,
+        "pairs": 0,
+        "accepted": 1143,
+        "rejected": 99,
+        "faults": 943,
+        "reason": 4,
+        "association": 0,
+        "pps_edges": 1144,
+        "pps_rejected": 11,
+        "pps_present": true,
+        "fix_active": true,
+        "sats_used": 22,
+        "gga_count": 1233,
+        "queue_drops": 0,
+        "precision": "UNKNOWN",
+        "timescale": "POSIX_UTC_ESTIMATE",
+        "uncertainty_us": null
+      },
+      "interpretation": "Coarse GPS/PPS input observation only. STALE fault counters and source generation churn retained; no qualified PPS association or precision."
+    },
+    "TC-02": {
+      "outcome": "SUPPORTED_SHUTDOWN_AND_BOUND_UF2_DISK_PASS",
+      "pre_update_uptime_ms": 1268543,
+      "shutdown": [
+        0,
+        true,
+        1269236
+      ],
+      "clock_snapshot": {
+        "source": "d7725d9ccfbcc8cc470ab2bdfb16d0857534d864e35d7d29042867e1cdd8e26c",
+        "boot": "9a2a601eb6fd5b91",
+        "state": 5,
+        "valid": true,
+        "utc_us": 1791472426786129,
+        "mono_us": 1268904998,
+        "gps_age_us": 788299,
+        "pps_age_us": 840820,
+        "input_error": 0,
+        "rate_ppb": 0,
+        "phase_us": 0,
+        "rate_valid": false,
+        "source_available": false,
+        "generation": 1078,
+        "source_epoch": 1078,
+        "pairs": 0,
+        "accepted": 1218,
+        "rejected": 37,
+        "faults": 1077,
+        "reason": 4,
+        "association": 0,
+        "pps_edges": 1230,
+        "pps_rejected": 3,
+        "pps_present": true,
+        "fix_active": false,
+        "sats_used": 28,
+        "gga_count": 1240,
+        "queue_drops": 0,
+        "precision": "UNKNOWN",
+        "timescale": "POSIX_UTC_ESTIMATE",
+        "uncertainty_us": null
+      },
+      "interpretation": "Coarse GPS/PPS input observation only. STALE fault counters and source generation churn retained; no qualified PPS association or precision."
+    }
+  },
+  "evidence": [
+    {
+      "run_id": "v12-r2-clock-handoff-tc01-20261008-02",
+      "seal_sha256": "1f2485eda8a39ed48d6e75d0171d090bbb09caf8b105250ef89a66c61cc0b44c",
+      "verified": true
+    },
+    {
+      "run_id": "v12-r2-clock-handoff-tc03-20261008-02",
+      "seal_sha256": "adceedec9fb7d94ec4be0a1f946efe44e954ac7da806efbd214eaea28100c198",
+      "verified": true
+    },
+    {
+      "run_id": "v12-r2-clock-handoff-tc02-20261008-02",
+      "seal_sha256": "73f807153d8530d2db15ed2d68028833174fc4f5f0f27106eb1b8b9cf41fea96",
+      "verified": true
+    },
+    {
+      "run_id": "v12-r2-clock-retest-maintenance-tc03-20261008-01",
+      "seal_sha256": "207009ec62fca63535c5ffaaadb42cd0677da8c4007271982a96d3e2a84f1e3a",
+      "verified": true
+    },
+    {
+      "run_id": "v12-r2-clock-retest-maintenance-tc02-20261008-01",
+      "seal_sha256": "312652aad83b1b9a04d5febc93b36db5573d73e971b2b5dc91fd2214ed866940",
+      "verified": true
+    }
+  ],
+  "RF": "OFF",
+  "precision": "UNKNOWN",
+  "full_protocol_suite": "HELD",
+  "cohort_ports_writers_closed": true,
+  "unresolved": [
+    "Long-running TC03/02 clock snapshots show stale-input fault counts943/1077 and source-generation churn. Causal input-age/queue investigation remains; startup success does not pass GNSS stability.",
+    "Native PPS-to-UTC association remains UNKNOWN; zero accepted pairs, source_available false.",
+    "Native BLE/GM/follower, dual radio, UI and precision unqualified."
+  ]
+}

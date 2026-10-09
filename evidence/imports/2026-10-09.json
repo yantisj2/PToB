@@ -1,0 +1,459 @@
+{
+  "schema_version": 1,
+  "import_id": "evidence-20261009",
+  "source_checkpoint": "853f1a0b74a44bd3fcf506e704ea6e3bc2b5fabe",
+  "source_state": "Selected working-tree bytes frozen by source_sha256; checkpoint alone is not the identity of each file.",
+  "selection": "Explicit dated paper, PLL, v12 model, R2 simulation and T096 hardware records; no raw archive or private Git history import.",
+  "license": "CC-BY-4.0 for original evidence records and datasets; MIT for snapshot code; third-party rights retained.",
+  "limitations": [
+    "Archived paths in records are provenance locators, not promises of included files.",
+    "Hashes and recorded PASS values are not new verification of private raw archives or physical claims.",
+    "Hardware records can contain supporting host/simulator checks; these remain their original evidence types.",
+    "Model snapshot is the exact historical recorded revision, not current R2 firmware."
+  ],
+  "files": [
+    {
+      "source_path": "paper/evidence.json",
+      "destination": "evidence/papers/2026-10-02/evidence.json",
+      "source_sha256": "3fcb634e48ee365544d637f1c82759ecabe8e0a4494ec979f9ed18207e51e9fe",
+      "sha256": "61ee5be3a9674e2723d3dbf132243438ca4794f67cedfee967bd6198cd8cc218",
+      "bytes": 180867,
+      "evidence_type": "historical-hardware-summary",
+      "transformation": "documented redactions",
+      "redactions": [
+        {
+          "path": "/curated_results/ptob-w12-sol-service-reacquisition-C2-normal600-20261002-08/C-2/views/incomplete_records/0/text",
+          "reason": "Raw console fragment omitted; incomplete-record metadata and denominator retained."
+        }
+      ]
+    },
+    {
+      "source_path": "paper/proposal-wire-manifest.json",
+      "destination": "evidence/papers/2026-10-02/proposal-wire-manifest.json",
+      "source_sha256": "bed686d4be2d3d9af10b4a928ef5f0f06511ae9c8773c859996d2a524692c401",
+      "sha256": "bed686d4be2d3d9af10b4a928ef5f0f06511ae9c8773c859996d2a524692c401",
+      "bytes": 4577,
+      "evidence_type": "historical-hardware-summary",
+      "transformation": "byte-identical",
+      "redactions": []
+    },
+    {
+      "source_path": "paper/provenance/manuscript-update-boundary-20261002.json",
+      "destination": "evidence/papers/2026-10-02/manuscript-boundary.json",
+      "source_sha256": "931b9c646f9619db8aac5ca33e0d3c3a53d809448b2d291648b1bb42076b6fcb",
+      "sha256": "931b9c646f9619db8aac5ca33e0d3c3a53d809448b2d291648b1bb42076b6fcb",
+      "bytes": 1222,
+      "evidence_type": "historical-hardware-summary",
+      "transformation": "byte-identical",
+      "redactions": []
+    },
+    {
+      "source_path": "paper/literature-check.json",
+      "destination": "evidence/papers/2026-10-02/literature-check.json",
+      "source_sha256": "12181818c57276344a0103557039f0e94417b1a562fb50b81b590b5b358541e4",
+      "sha256": "12181818c57276344a0103557039f0e94417b1a562fb50b81b590b5b358541e4",
+      "bytes": 4353,
+      "evidence_type": "historical-hardware-summary",
+      "transformation": "byte-identical",
+      "redactions": []
+    },
+    {
+      "source_path": "paper/provenance/paused-final-20261002/TC_ADDRESS_CALIBRATION_20261002.json",
+      "destination": "evidence/papers/2026-10-02/calibration.json",
+      "source_sha256": "765f24b3e0bc5f763d292a448165c18f3b0f0beab1074a943c30e7e7bd1d163c",
+      "sha256": "765f24b3e0bc5f763d292a448165c18f3b0f0beab1074a943c30e7e7bd1d163c",
+      "bytes": 4618,
+      "evidence_type": "historical-hardware-summary",
+      "transformation": "byte-identical",
+      "redactions": []
+    },
+    {
+      "source_path": "paper/provenance/paused-final-20261002/W12_SOL_REACQUISITION_EPISODES_20261002.json",
+      "destination": "evidence/papers/2026-10-02/reacquisition-episodes.json",
+      "source_sha256": "b55ae5236d2f5da23bdeb91d31859cebc66eb4d834dc081a87f01be433747ded",
+      "sha256": "b55ae5236d2f5da23bdeb91d31859cebc66eb4d834dc081a87f01be433747ded",
+      "bytes": 3928,
+      "evidence_type": "historical-hardware-summary",
+      "transformation": "byte-identical",
+      "redactions": []
+    },
+    {
+      "source_path": "paper/oscillator-pll-evidence-20261003.json",
+      "destination": "evidence/papers/oscillator-pll-2026-10-03/evidence.json",
+      "source_sha256": "1e4ce2bdbaacfef6f26d55679410a83b927af8166e5da3200f1a32dc9be450c7",
+      "sha256": "1e4ce2bdbaacfef6f26d55679410a83b927af8166e5da3200f1a32dc9be450c7",
+      "bytes": 1156706,
+      "evidence_type": "hardware-derived-analysis",
+      "transformation": "byte-identical",
+      "redactions": []
+    },
+    {
+      "source_path": "paper/provenance/oscillator-pll-literature-20261003.json",
+      "destination": "evidence/papers/oscillator-pll-2026-10-03/literature.json",
+      "source_sha256": "08b773c9bce01459fb63da941333a90ec3e598f7974dc963069c01e746265470",
+      "sha256": "08b773c9bce01459fb63da941333a90ec3e598f7974dc963069c01e746265470",
+      "bytes": 19260,
+      "evidence_type": "literature-review",
+      "transformation": "byte-identical",
+      "redactions": []
+    },
+    {
+      "source_path": "paper/figures/oscillator-pll-20261003/capture-metrics.csv",
+      "destination": "evidence/papers/oscillator-pll-2026-10-03/capture-metrics.csv",
+      "source_sha256": "cb1dcc38b31a11d82392f82cdc7399da63f9d84b96f6e2d6b2a220101bbbdc8d",
+      "sha256": "cb1dcc38b31a11d82392f82cdc7399da63f9d84b96f6e2d6b2a220101bbbdc8d",
+      "bytes": 1404,
+      "evidence_type": "hardware-derived-samples",
+      "transformation": "byte-identical",
+      "redactions": []
+    },
+    {
+      "source_path": "paper/figures/oscillator-pll-20261003/indexed-pair-samples.csv",
+      "destination": "evidence/papers/oscillator-pll-2026-10-03/indexed-pair-samples.csv",
+      "source_sha256": "be87c988d89620703c6d83aecac48f0abc86896a7bc745d013bec2d94413219a",
+      "sha256": "be87c988d89620703c6d83aecac48f0abc86896a7bc745d013bec2d94413219a",
+      "bytes": 1185634,
+      "evidence_type": "hardware-derived-samples",
+      "transformation": "byte-identical",
+      "redactions": []
+    },
+    {
+      "source_path": "paper/figures/oscillator-pll-20261003/final-sampled-status.csv",
+      "destination": "evidence/papers/oscillator-pll-2026-10-03/final-sampled-status.csv",
+      "source_sha256": "772330f51346336b7fb7f58dd9ae951ab43dcf6d7144e9e386c91fb9a6eed7e9",
+      "sha256": "772330f51346336b7fb7f58dd9ae951ab43dcf6d7144e9e386c91fb9a6eed7e9",
+      "bytes": 50954,
+      "evidence_type": "hardware-derived-samples",
+      "transformation": "byte-identical",
+      "redactions": []
+    },
+    {
+      "source_path": "results/V12_SIMULATOR_SUMMARY_20261006.json",
+      "destination": "evidence/v12/model/summary.json",
+      "source_sha256": "2ade32c31d591b97667b8b7a1b8c6fcc46479f2f0cb4f384231e6f3805a37099",
+      "sha256": "2ade32c31d591b97667b8b7a1b8c6fcc46479f2f0cb4f384231e6f3805a37099",
+      "bytes": 30992,
+      "evidence_type": "synthetic-model",
+      "transformation": "byte-identical",
+      "redactions": []
+    },
+    {
+      "source_path": "reviews/v10-model-20261005-01/outputs/v12-proof-09/sources/config/v12_four_unit_mesh_profile.json",
+      "destination": "evidence/v12/model/snapshot/config/v12_four_unit_mesh_profile.json",
+      "source_sha256": "cda9bb572f9a98637e9040195f474f382711951952cc952aae57ae1c236fb521",
+      "sha256": "cda9bb572f9a98637e9040195f474f382711951952cc952aae57ae1c236fb521",
+      "bytes": 1886,
+      "evidence_type": "frozen-synthetic-model-input",
+      "transformation": "byte-identical",
+      "redactions": []
+    },
+    {
+      "source_path": "reviews/v10-model-20261005-01/outputs/v12-proof-09/sources/config/v12_native_lab_profile.json",
+      "destination": "evidence/v12/model/snapshot/config/v12_native_lab_profile.json",
+      "source_sha256": "b6f8a2ea79f4c9d5509ee457c7d444ad9891acf60027bceabd9f1a714172ef75",
+      "sha256": "b6f8a2ea79f4c9d5509ee457c7d444ad9891acf60027bceabd9f1a714172ef75",
+      "bytes": 1887,
+      "evidence_type": "frozen-synthetic-model-input",
+      "transformation": "byte-identical",
+      "redactions": []
+    },
+    {
+      "source_path": "reviews/v10-model-20261005-01/outputs/v12-proof-09/sources/config/v12_offline_profile.json",
+      "destination": "evidence/v12/model/snapshot/config/v12_offline_profile.json",
+      "source_sha256": "019a577de3fd2ca55ce81427ab9989d95ea8309287f0726bbc572a09d835058f",
+      "sha256": "019a577de3fd2ca55ce81427ab9989d95ea8309287f0726bbc572a09d835058f",
+      "bytes": 1767,
+      "evidence_type": "frozen-synthetic-model-input",
+      "transformation": "byte-identical",
+      "redactions": []
+    },
+    {
+      "source_path": "reviews/v10-model-20261005-01/outputs/v12-proof-09/sources/config/v12_one_hop_profile.json",
+      "destination": "evidence/v12/model/snapshot/config/v12_one_hop_profile.json",
+      "source_sha256": "604db6930c06859c776d0f7bf3527d35699058784c6008c0f2d8d06d84b32cfe",
+      "sha256": "604db6930c06859c776d0f7bf3527d35699058784c6008c0f2d8d06d84b32cfe",
+      "bytes": 1766,
+      "evidence_type": "frozen-synthetic-model-input",
+      "transformation": "byte-identical",
+      "redactions": []
+    },
+    {
+      "source_path": "reviews/v10-model-20261005-01/outputs/v12-proof-09/sources/config/v12_quiet_client_profile.json",
+      "destination": "evidence/v12/model/snapshot/config/v12_quiet_client_profile.json",
+      "source_sha256": "b48e1a13afb560de10d8c26a46a05f25afe28e28df3f53c7deee378d624eaff3",
+      "sha256": "b48e1a13afb560de10d8c26a46a05f25afe28e28df3f53c7deee378d624eaff3",
+      "bytes": 1863,
+      "evidence_type": "frozen-synthetic-model-input",
+      "transformation": "byte-identical",
+      "redactions": []
+    },
+    {
+      "source_path": "reviews/v10-model-20261005-01/outputs/v12-proof-09/sources/docs/V12_MODEL_RULES.md",
+      "destination": "evidence/v12/model/snapshot/docs/V12_MODEL_RULES.md",
+      "source_sha256": "acb38d071685c3a52727d95a7003f489db4e8f6054d2d4316fe0c2bbafcf77c9",
+      "sha256": "acb38d071685c3a52727d95a7003f489db4e8f6054d2d4316fe0c2bbafcf77c9",
+      "bytes": 11646,
+      "evidence_type": "frozen-synthetic-model-input",
+      "transformation": "byte-identical",
+      "redactions": []
+    },
+    {
+      "source_path": "reviews/v10-model-20261005-01/outputs/v12-proof-09/sources/protocol/v12_model_contract.json",
+      "destination": "evidence/v12/model/snapshot/protocol/v12_model_contract.json",
+      "source_sha256": "71bfd89691d8b2e17711196f9d49c2457ec2521331d8e94a61adfb4ea4d4edaf",
+      "sha256": "71bfd89691d8b2e17711196f9d49c2457ec2521331d8e94a61adfb4ea4d4edaf",
+      "bytes": 8283,
+      "evidence_type": "frozen-synthetic-model-input",
+      "transformation": "byte-identical",
+      "redactions": []
+    },
+    {
+      "source_path": "reviews/v10-model-20261005-01/outputs/v12-proof-09/sources/protocol/v12_model_vectors.json",
+      "destination": "evidence/v12/model/snapshot/protocol/v12_model_vectors.json",
+      "source_sha256": "9267debb6cb22ae1ac2681e0ee800132fe6b16392683ae3577a33e3df1947c9a",
+      "sha256": "9267debb6cb22ae1ac2681e0ee800132fe6b16392683ae3577a33e3df1947c9a",
+      "bytes": 5633,
+      "evidence_type": "frozen-synthetic-model-input",
+      "transformation": "byte-identical",
+      "redactions": []
+    },
+    {
+      "source_path": "reviews/v10-model-20261005-01/outputs/v12-proof-09/sources/tests/test_v12_model.py",
+      "destination": "evidence/v12/model/snapshot/tests/test_v12_model.py",
+      "source_sha256": "146989eb9dcd7bd40ce12984f4729870528f940b9906017e9bf21b13a2eb5de0",
+      "sha256": "146989eb9dcd7bd40ce12984f4729870528f940b9906017e9bf21b13a2eb5de0",
+      "bytes": 24234,
+      "evidence_type": "frozen-synthetic-model-input",
+      "transformation": "byte-identical",
+      "redactions": []
+    },
+    {
+      "source_path": "reviews/v10-model-20261005-01/outputs/v12-proof-09/sources/tools/v12_model.py",
+      "destination": "evidence/v12/model/snapshot/tools/v12_model.py",
+      "source_sha256": "5aabb8c6a656b45b98ae32e95c8d11b4b1e16f928f6cb6f27f256ded55d38299",
+      "sha256": "5aabb8c6a656b45b98ae32e95c8d11b4b1e16f928f6cb6f27f256ded55d38299",
+      "bytes": 67260,
+      "evidence_type": "frozen-synthetic-model-input",
+      "transformation": "byte-identical",
+      "redactions": []
+    },
+    {
+      "source_path": "reviews/v10-model-20261005-01/outputs/v12-proof-09/sources/tools/v12_sim.py",
+      "destination": "evidence/v12/model/snapshot/tools/v12_sim.py",
+      "source_sha256": "95fd7d1777dbb7bd18adf2c27e6dcd73bfe8d5df1b96745487992aa63dce58fa",
+      "sha256": "95fd7d1777dbb7bd18adf2c27e6dcd73bfe8d5df1b96745487992aa63dce58fa",
+      "bytes": 22744,
+      "evidence_type": "frozen-synthetic-model-input",
+      "transformation": "byte-identical",
+      "redactions": []
+    },
+    {
+      "source_path": "reviews/v10-model-20261005-01/outputs/v12-combined-current-01/receipt.json",
+      "destination": "evidence/v12/model/receipts/v12-combined-current-01.json",
+      "source_sha256": "d96c8fbc21420e1d2cc1f2b07d46fb3cd625b88546410a235188ab74a7cf5d63",
+      "sha256": "d96c8fbc21420e1d2cc1f2b07d46fb3cd625b88546410a235188ab74a7cf5d63",
+      "bytes": 1930,
+      "evidence_type": "synthetic-model-receipt",
+      "transformation": "byte-identical",
+      "redactions": []
+    },
+    {
+      "source_path": "reviews/v10-model-20261005-01/outputs/v12-four-unit-loss-soak-01/receipt.json",
+      "destination": "evidence/v12/model/receipts/v12-four-unit-loss-soak-01.json",
+      "source_sha256": "7cda06bb7de8e045c058bf48d4eec61f6099f4a6374e7f90d13b2e57e4ce0c3f",
+      "sha256": "7cda06bb7de8e045c058bf48d4eec61f6099f4a6374e7f90d13b2e57e4ce0c3f",
+      "bytes": 2207,
+      "evidence_type": "synthetic-model-receipt",
+      "transformation": "byte-identical",
+      "redactions": []
+    },
+    {
+      "source_path": "reviews/v10-model-20261005-01/outputs/v12-four-unit-soak-01/receipt.json",
+      "destination": "evidence/v12/model/receipts/v12-four-unit-soak-01.json",
+      "source_sha256": "46c3a379c66e41b29f708f5b0ece716a909d3f1d3aba38b4bae47dd72124bf53",
+      "sha256": "46c3a379c66e41b29f708f5b0ece716a909d3f1d3aba38b4bae47dd72124bf53",
+      "bytes": 2024,
+      "evidence_type": "synthetic-model-receipt",
+      "transformation": "byte-identical",
+      "redactions": []
+    },
+    {
+      "source_path": "reviews/v10-model-20261005-01/outputs/v12-proof-09/receipt.json",
+      "destination": "evidence/v12/model/receipts/v12-proof-09.json",
+      "source_sha256": "0edafbb17b5b6456101ee8383f28b0e6ec8830088c40b7a0622e197da9fb1c38",
+      "sha256": "0edafbb17b5b6456101ee8383f28b0e6ec8830088c40b7a0622e197da9fb1c38",
+      "bytes": 1922,
+      "evidence_type": "synthetic-model-receipt",
+      "transformation": "byte-identical",
+      "redactions": []
+    },
+    {
+      "source_path": "reviews/v10-model-20261005-01/outputs/v12-qualification-03/receipt.json",
+      "destination": "evidence/v12/model/receipts/v12-qualification-03.json",
+      "source_sha256": "03c8c137d0c16432c428c0b72704f22da3bbaefebb4d8c2a7ab006e6e3571249",
+      "sha256": "03c8c137d0c16432c428c0b72704f22da3bbaefebb4d8c2a7ab006e6e3571249",
+      "bytes": 1989,
+      "evidence_type": "synthetic-model-receipt",
+      "transformation": "byte-identical",
+      "redactions": []
+    },
+    {
+      "source_path": "reviews/v10-model-20261005-01/outputs/v12-stress-05/receipt.json",
+      "destination": "evidence/v12/model/receipts/v12-stress-05.json",
+      "source_sha256": "891717c0efcc640ebd4437132b6a8c7a1578b0b131489a882d24ca73e9135b3f",
+      "sha256": "891717c0efcc640ebd4437132b6a8c7a1578b0b131489a882d24ca73e9135b3f",
+      "bytes": 2008,
+      "evidence_type": "synthetic-model-receipt",
+      "transformation": "byte-identical",
+      "redactions": []
+    },
+    {
+      "source_path": "results/V12_R2_CONNECTED_SIM_20261008.json",
+      "destination": "evidence/v12/r2/simulation/V12_R2_CONNECTED_SIM_20261008.json",
+      "source_sha256": "a5892ef53378561d16a1f07cb48a6694b0dea7deec2894d3201a711395194d90",
+      "sha256": "a5892ef53378561d16a1f07cb48a6694b0dea7deec2894d3201a711395194d90",
+      "bytes": 47045,
+      "evidence_type": "controller-simulation-or-codec-check",
+      "transformation": "byte-identical",
+      "redactions": []
+    },
+    {
+      "source_path": "results/R2_RF_LAB_20261009.json",
+      "destination": "evidence/v12/r2/simulation/R2_RF_LAB_20261009.json",
+      "source_sha256": "e4fa39072626f8024fbb04ffbfba8cc1ec8b8e44a0ddf2597e25f9148732e204",
+      "sha256": "e4fa39072626f8024fbb04ffbfba8cc1ec8b8e44a0ddf2597e25f9148732e204",
+      "bytes": 16084,
+      "evidence_type": "controller-simulation-or-codec-check",
+      "transformation": "byte-identical",
+      "redactions": []
+    },
+    {
+      "source_path": "results/R2_WIRE_FREEZE_20261009.json",
+      "destination": "evidence/v12/r2/simulation/R2_WIRE_FREEZE_20261009.json",
+      "source_sha256": "d2a026c9159bc8fb6c8d9e1ba4fd604e165be03daad726d4e4b05249d48fd279",
+      "sha256": "d2a026c9159bc8fb6c8d9e1ba4fd604e165be03daad726d4e4b05249d48fd279",
+      "bytes": 2884,
+      "evidence_type": "controller-simulation-or-codec-check",
+      "transformation": "byte-identical",
+      "redactions": []
+    },
+    {
+      "source_path": "results/V12_R2_CLOCK_RETEST_20261008.json",
+      "destination": "evidence/v12/r2/hardware/V12_R2_CLOCK_RETEST_20261008.json",
+      "source_sha256": "edf2e7ba908c9dbf19b9803aa4cb74c9fb0979cc021ccb2df079f3cf072bf367",
+      "sha256": "5657145d1e2bd9bfe623d87c3c897496e300e0dbbadfc4d2485793f18e9e1693",
+      "bytes": 7053,
+      "evidence_type": "hardware-campaign-record-with-separate-build-and-simulation-sections",
+      "transformation": "documented redactions",
+      "redactions": [
+        {
+          "path": "/devices/TC-01/silicon",
+          "reason": "Local operational identifier; cohort aliases retained."
+        },
+        {
+          "path": "/devices/TC-03/silicon",
+          "reason": "Local operational identifier; cohort aliases retained."
+        },
+        {
+          "path": "/devices/TC-02/silicon",
+          "reason": "Local operational identifier; cohort aliases retained."
+        }
+      ]
+    },
+    {
+      "source_path": "results/V12_R2_UI_20261008.json",
+      "destination": "evidence/v12/r2/hardware/V12_R2_UI_20261008.json",
+      "source_sha256": "7b10de2b5f301ed87f383ec8e401e89f8d7facf1e03e82e6e8bc794ea79ae26b",
+      "sha256": "e4edf3a3a3581e950deb1f9c5c80b8b8af3eb03ec98d211892d2731f11df6619",
+      "bytes": 9255,
+      "evidence_type": "hardware-campaign-record-with-separate-build-and-simulation-sections",
+      "transformation": "documented redactions",
+      "redactions": [
+        {
+          "path": "/hardware/TC-01/silicon",
+          "reason": "Local operational identifier; cohort aliases retained."
+        },
+        {
+          "path": "/hardware/TC-03/silicon",
+          "reason": "Local operational identifier; cohort aliases retained."
+        },
+        {
+          "path": "/hardware/TC-02/silicon",
+          "reason": "Local operational identifier; cohort aliases retained."
+        }
+      ]
+    },
+    {
+      "source_path": "results/V12_R2_GM_20261008.json",
+      "destination": "evidence/v12/r2/hardware/V12_R2_GM_20261008.json",
+      "source_sha256": "1a8944dee2ba3e5ad63508d1f0ae5ec7b40357380a9cef48971d8072e4f187b1",
+      "sha256": "d51d759c4e26339ba12d71ace03cb6768b318d7f09e62633e123d28844ae1c0e",
+      "bytes": 11212,
+      "evidence_type": "hardware-campaign-record-with-separate-build-and-simulation-sections",
+      "transformation": "documented redactions",
+      "redactions": [
+        {
+          "path": "/installed_candidate/build",
+          "reason": "Removed private checkout prefix or local serial-port path; artifact-relative reference retained where possible."
+        },
+        {
+          "path": "/prior_campaign/installed_candidate/build",
+          "reason": "Removed private checkout prefix or local serial-port path; artifact-relative reference retained where possible."
+        },
+        {
+          "path": "/prior_campaign/successor_candidate/build",
+          "reason": "Removed private checkout prefix or local serial-port path; artifact-relative reference retained where possible."
+        }
+      ]
+    },
+    {
+      "source_path": "results/V12_R2_FOLLOWER_RESTORE_20261008.json",
+      "destination": "evidence/v12/r2/hardware/V12_R2_FOLLOWER_RESTORE_20261008.json",
+      "source_sha256": "328c08b5cd5fd2a4cb457727bd052e1fb9406788da653b7586c1c6ca644203d1",
+      "sha256": "54b78f58b0558b91b24b379552f0f6e483b2956eca00d7271f881bfca97caad7",
+      "bytes": 9476,
+      "evidence_type": "hardware-campaign-record-with-separate-build-and-simulation-sections",
+      "transformation": "documented redactions",
+      "redactions": [
+        {
+          "path": "/candidate/build",
+          "reason": "Removed private checkout prefix or local serial-port path; artifact-relative reference retained where possible."
+        },
+        {
+          "path": "/validation/candidate/build",
+          "reason": "Removed private checkout prefix or local serial-port path; artifact-relative reference retained where possible."
+        }
+      ]
+    },
+    {
+      "source_path": "results/V12_R2_PRECISION_RESTORE_20261008.json",
+      "destination": "evidence/v12/r2/hardware/V12_R2_PRECISION_RESTORE_20261008.json",
+      "source_sha256": "3378ee7bae88b8dcd9108180a4e7c5fee37febed60810338c4e924cfff8dd84c",
+      "sha256": "52cae243004681ceacbb392c91b5a15a4230b789dbd0b2977706d36805acbef4",
+      "bytes": 5918,
+      "evidence_type": "hardware-campaign-record-with-separate-build-and-simulation-sections",
+      "transformation": "documented redactions",
+      "redactions": [
+        {
+          "path": "/next_candidate/build",
+          "reason": "Removed private checkout prefix or local serial-port path; artifact-relative reference retained where possible."
+        }
+      ]
+    },
+    {
+      "source_path": "results/V12_R2_STANDALONE_GM_20261009.json",
+      "destination": "evidence/v12/r2/hardware/V12_R2_STANDALONE_GM_20261009.json",
+      "source_sha256": "26ba0d8c663ff32d89cda7ab7ae5bc8d46d71beb7835ffdd24b3be6d7c668343",
+      "sha256": "f49c3f7084f733deae81c502d9b5f8a4079354218f1d6171655bf9a18bc3d97b",
+      "bytes": 5545,
+      "evidence_type": "hardware-campaign-record-with-separate-build-and-simulation-sections",
+      "transformation": "documented redactions",
+      "redactions": [
+        {
+          "path": "/candidate/build",
+          "reason": "Removed private checkout prefix or local serial-port path; artifact-relative reference retained where possible."
+        }
+      ]
+    }
+  ]
+}

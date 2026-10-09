@@ -1,0 +1,3732 @@
+{
+  "schema": 3,
+  "scope": "Paused final finite campaign; local papers only. Physical PPS shadow, internal compare and W12 predictions are distinct. No external GPIO/energy/standards acceptance.",
+  "cutoff_utc": "2026-10-02T17:28:13.400616Z",
+  "parent_git_at_read": "9297f77129a9e86872fc2c0437f58310be6bc48a",
+  "predecessor": {
+    "morning_evidence": "paper/evidence-predecessor-20261002-morning.json",
+    "original_evidence": "paper/evidence-predecessor-20260930.json",
+    "boundary": "paper/provenance/manuscript-update-boundary-20261002.json",
+    "previous_outputs_sha256": {
+      "paper/ptob-proposal.tex": "7e7cf614adb7690ad23176fd895245e56132f2db45f488a6112d3d2e9605e6fd",
+      "paper/ptob-proposal.pdf": "7085ec2d5cc83bd4c59e107552a620e2ff73e7334708fefd7c5f8fa2ceec138a",
+      "paper/ptob-preprint.tex": "e172187b687cf28163fb1e77ea9caf2426536ae2c16dc08cd2b05c46924f5ef4",
+      "paper/ptob-preprint.pdf": "8865076289b7b8fa56a8a310db657eabe27cb9fcf0557dc89954de6d57e40ea4",
+      "paper/evidence.json": "ba7d6d9deb5a44b305d4fd9f795e5d869149a2b9550bcbe17e5a109959f85a79",
+      "paper/proposal-wire-manifest.json": "e45ce41eea98a43a31250d5ebfd94332fc22bc194cc17499badd8595e82866dc",
+      "paper/build-manifest.json": "5805f4937d35908349c32ec4eaaea0313da13628b39aa0125aae246a2504782b",
+      "paper/proposal-build-manifest.json": "c4bd715d982bad6f9cd9e9be9a34cae68d1402147b2e0a5df295d304acba9ff4",
+      "paper/qa-manifest.json": "7f2f17d47e3aad9a60cad66716021a89a323eb2b07dbbd28989ae7f4ac6aecae"
+    }
+  },
+  "source_hashes": {
+    "results/STATUS.md": "88ecc81b7b320233f64370457389b2bee1be3cc8b8f3cdc026812c1d1f6e2ea5",
+    "results/TC_MICROSYNC_COMPARISON_20261002.md": "7cb5ce2767fa4421b5b306c45b6e56696b4509ab19f507d1af588132a6e77dd0",
+    "results/TC_ADDRESS_CALIBRATION_20261002.json": "765f24b3e0bc5f763d292a448165c18f3b0f0beab1074a943c30e7e7bd1d163c",
+    "results/TC_PRECISION_FINAL_PROVENANCE_20261002.json": "77306e5fb7f790f5048a4abd2365e8d8aa37b80e125c2b087fe527c772b8dc6a",
+    "results/TC_ENGINEER_PAUSE_HANDOFF_20261002.md": "dfe2dccd7d03f9f229840864d9456b20b8a30ab154b0ac02f55941298e07eb51",
+    "results/W12_SOL_RESUMED_GAPS_20261002.md": "8ba129ea2d070def7aa8281e2cb97ef27bbe876e416862736ccca2c6fa2d0cf1",
+    "results/W12_SOL_RESUMED_PROVENANCE_20261002.json": "244fab1cbb18a5cf421953e2f7ad1b4d1687e4324d7c338fe15fe844e7b89f4b",
+    "results/W12_SOL_REACQUISITION_EPISODES_20261002.json": "b55ae5236d2f5da23bdeb91d31859cebc66eb4d834dc081a87f01be433747ded",
+    "CREDITS.md": "bcbd8bf90dbec18c71b70ae129297fcb8b02a5fc73b57f40428ee26a43d1262b",
+    "docs/PTOB_GM_V3_ELIGIBILITY.md": "5ab96fcfb195cd69e6741abf0ee631bc7d2d411bc5dcca2e4db70ff9ae308e73",
+    "docs/DUAL_RADIO_REQUIREMENTS.md": "3aba8cc878a18305e963e1623050f70892d92f0bc4e0f603b47666110d92513f",
+    "docs/ACCEPTANCE.md": "e3bff698348e33310c2eb1f1658913eb7fdc58219018d67e497e828377ab1593"
+  },
+  "checkpoints": {
+    "TC_parent_checkpoint": "9429115",
+    "W12_parent_checkpoint": "30f4067",
+    "root_handoff": "9297f77"
+  },
+  "runs": {
+    "ptob-tc01-tc03-edge10516-prospective600-20261002-14": {
+      "seal_sha256": "045d1e681284c0e233bfaf9c324c5c887f4a0271914d31d7f2903f04d1be5f6e",
+      "archive": "results/archives/ptob-tc01-tc03-edge10516-prospective600-20261002-14",
+      "full_inventory_source": "results/TC_PRECISION_FINAL_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "77306e5fb7f790f5048a4abd2365e8d8aa37b80e125c2b087fe527c772b8dc6a",
+      "review_status": "REVIEWED",
+      "capture_status": "complete",
+      "review_files": {
+        "results/archives/ptob-tc01-tc03-edge10516-prospective600-20261002-14/review/reference_bias.json": "bc0c0a731d243466fc553e4a48837a7207d7a88788da0fa70ab7965b54b182d1",
+        "results/archives/ptob-tc01-tc03-edge10516-prospective600-20261002-14/review/authority_and_coverage.json": "71e6b6204c2fe3e4925b59c046afe66a8218544e36862fea76f2015637b4094e",
+        "results/archives/ptob-tc01-tc03-edge10516-prospective600-20261002-14/review/INDEX.md": "e880c1cce80f72dd4e8c48e8c05a3bd7010e51812ac4e62583b01861e8b38013",
+        "results/archives/ptob-tc01-tc03-edge10516-prospective600-20261002-14/review/review.json": "5a2f875cfb6bec547d7d2bdd237ceaeb7f96f30c1d389af44ac27eaa73e1a939"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-tc03-tc01-edge10516-prospective600-repeat-20261002-18": {
+      "seal_sha256": "3e14c8fe91094aacb82d4ce1ffaeb6807d21d9038491f109909a153d93661868",
+      "archive": "results/archives/ptob-tc03-tc01-edge10516-prospective600-repeat-20261002-18",
+      "full_inventory_source": "results/TC_PRECISION_FINAL_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "77306e5fb7f790f5048a4abd2365e8d8aa37b80e125c2b087fe527c772b8dc6a",
+      "review_status": "REVIEWED",
+      "capture_status": "complete",
+      "review_files": {
+        "results/archives/ptob-tc03-tc01-edge10516-prospective600-repeat-20261002-18/review/unscoreable_PPS.json": "fdadfd5bd6b5c5ce53135e6c73391bfb7c169beb0f30619882d08898dc8c161b",
+        "results/archives/ptob-tc03-tc01-edge10516-prospective600-repeat-20261002-18/review/reference_bias.json": "2f320a1e081fb405c1b84aed1ea6d963c77a3927c0e423f590732890e69912d1",
+        "results/archives/ptob-tc03-tc01-edge10516-prospective600-repeat-20261002-18/review/authority_and_coverage.json": "a41ddc826788d6ba66ff43da13170811eaf35e063c34d68e687bd0f2b51fe53b",
+        "results/archives/ptob-tc03-tc01-edge10516-prospective600-repeat-20261002-18/review/INDEX.md": "5858e2e9ca47f784a6ed4c27442e27c02e328ce811d877b5e079a72a40042be2",
+        "results/archives/ptob-tc03-tc01-edge10516-prospective600-repeat-20261002-18/review/review.json": "8961cc50516b921ad3a20af55c2e78243f8e2e1da512970c550498f5fbcee116"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-tc03-tc01-edge10516-review-final-20261002-16": {
+      "seal_sha256": "647c9199a79cb962281a829dc4d9b99dee97388a1083bd48f74b23a492c75263",
+      "archive": "results/archives/ptob-tc03-tc01-edge10516-review-final-20261002-16",
+      "full_inventory_source": "results/TC_PRECISION_FINAL_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "77306e5fb7f790f5048a4abd2365e8d8aa37b80e125c2b087fe527c772b8dc6a",
+      "review_status": "FAILED",
+      "capture_status": "complete",
+      "review_files": {
+        "results/archives/ptob-tc03-tc01-edge10516-review-final-20261002-16/review/unscoreable_PPS.json": "59853ecfe462ac2725d2fac429f04d454d20e4055eac0572690eefc20a750498",
+        "results/archives/ptob-tc03-tc01-edge10516-review-final-20261002-16/review/reference_bias.json": "a679cad25d0de3e86dce4d8d765e79dd4043ca2992f0bcf9ccbf21bd81748f99",
+        "results/archives/ptob-tc03-tc01-edge10516-review-final-20261002-16/review/authority_and_coverage.json": "6f9831e1769a4cdbd41dad94232c36784790a2327ba72e8398709ef43a68410b",
+        "results/archives/ptob-tc03-tc01-edge10516-review-final-20261002-16/review/INDEX.md": "a481145011d715aa2c4899f7deb21358e31212b184e68187a2604fccc1a96f2d",
+        "results/archives/ptob-tc03-tc01-edge10516-review-final-20261002-16/review/review.json": "b191b9d0b2c901b8c91ae236e6d300f6c203046354eba0daad8dc3db71a7600b"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-tc-source-normal-overlap660-20261002-17": {
+      "seal_sha256": "75d46d78727b1935ec9092bf037de8d595e52a1489530dc378fd8f9d9b503cc4",
+      "archive": "results/archives/ptob-tc-source-normal-overlap660-20261002-17",
+      "full_inventory_source": "results/TC_PRECISION_FINAL_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "77306e5fb7f790f5048a4abd2365e8d8aa37b80e125c2b087fe527c772b8dc6a",
+      "review_status": "REVIEWED",
+      "capture_status": "complete",
+      "review_files": {
+        "results/archives/ptob-tc-source-normal-overlap660-20261002-17/review/INDEX.md": "5249731e561bd4e5a8cf4b0be99aba6917731ef2bbffda76b6345b9ebf05b1b0",
+        "results/archives/ptob-tc-source-normal-overlap660-20261002-17/review/source_summary.json": "b18f6b286e99cde35a9ad7a7d00562ecd978c8adbd597cfabf9dc74ba942b6b1"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-tc-post-repeat18-peer45-20261002-20": {
+      "seal_sha256": "7e5de635bbc5ca8da752926c44a2d6178998d742692f4bc2eacb25d9b333ffaf",
+      "archive": "results/archives/ptob-tc-post-repeat18-peer45-20261002-20",
+      "full_inventory_source": "results/TC_PRECISION_FINAL_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "77306e5fb7f790f5048a4abd2365e8d8aa37b80e125c2b087fe527c772b8dc6a",
+      "review_status": "REVIEWED",
+      "capture_status": "complete",
+      "review_files": {
+        "results/archives/ptob-tc-post-repeat18-peer45-20261002-20/review/peer_bracket.json": "379b6ad20fbd305de6d07b15aac555d6333448f0dbc04b2b22feed9dde3208a0",
+        "results/archives/ptob-tc-post-repeat18-peer45-20261002-20/review/INDEX.md": "e3cef43e1c8b1b27581eab3fda03640d93aeac79515e481430781456ca3c4df7"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-tc03-tc01-edge10516-prospective600-20261002-15": {
+      "seal_sha256": "d3bf33f65d481ebefa944ddfa277fbc5a799732c8da73e2dea508191067a5e0b",
+      "archive": "results/archives/ptob-tc03-tc01-edge10516-prospective600-20261002-15",
+      "full_inventory_source": "results/TC_PRECISION_FINAL_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "77306e5fb7f790f5048a4abd2365e8d8aa37b80e125c2b087fe527c772b8dc6a",
+      "review_status": "INCOMPLETE",
+      "capture_status": "incomplete",
+      "review_files": {
+        "results/archives/ptob-tc03-tc01-edge10516-prospective600-20261002-15/review/INDEX.md": "094f9cddfde585b25eda4bfcf4b3a56220b657aa6a14e68968d1619818f9586a"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-tc02-commission-20261001-01": {
+      "seal_sha256": "882eab4680f0a5fdaa03b3db7840ba0f094b0ed4ee2352373b95cc4b8ae88a6f",
+      "archive": "results/archives/ptob-tc02-commission-20261001-01",
+      "full_inventory_source": "results/TC_PRECISION_FINAL_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "77306e5fb7f790f5048a4abd2365e8d8aa37b80e125c2b087fe527c772b8dc6a",
+      "review_status": "EXPLORATORY",
+      "capture_status": "complete",
+      "review_files": {
+        "results/archives/ptob-tc02-commission-20261001-01/review/metrics.json": "3f3801c5094ba227b6fae93021850aa84e466129ec7dda99558430c9c92091e2",
+        "results/archives/ptob-tc02-commission-20261001-01/review/INDEX.md": "cd7b9c7ed922cc6eb4d887c4c0aa63b34b02570a9c11a7a80f7a522fabc9598b"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-tc03-five-startup-20261001-01": {
+      "seal_sha256": "28fefdfe3fd6981192e51c2304f7faf39f95f0c11cddb933f83752505c5410de",
+      "archive": "results/archives/ptob-tc03-five-startup-20261001-01",
+      "full_inventory_source": "results/TC_PRECISION_FINAL_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "77306e5fb7f790f5048a4abd2365e8d8aa37b80e125c2b087fe527c772b8dc6a",
+      "review_status": "REVIEWED",
+      "capture_status": "complete",
+      "review_files": {
+        "results/archives/ptob-tc03-five-startup-20261001-01/review/INDEX.md": "f087c4db3b6575f06b384ac9a98c37f1a9e999d52a3b9d320ef271b6264213c5",
+        "results/archives/ptob-tc03-five-startup-20261001-01/review/run.json": "26398cc87bd4135d2938519cdedbed728d4d3f6e2ffe6b5e0e134134a3ced83c"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-tc02-return-gnss-20261001-01": {
+      "seal_sha256": "9b9786c609aaf1ccbc852f571152c03b84e49c9b37f00c08c4495de93a18717e",
+      "archive": "results/archives/ptob-tc02-return-gnss-20261001-01",
+      "full_inventory_source": "results/TC_PRECISION_FINAL_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "77306e5fb7f790f5048a4abd2365e8d8aa37b80e125c2b087fe527c772b8dc6a",
+      "review_status": "EXPLORATORY",
+      "capture_status": "complete",
+      "review_files": {
+        "results/archives/ptob-tc02-return-gnss-20261001-01/review/metrics.json": "3713d91743521268640f6b083c0b13e024a0d44b119f73659d4c1f2b9740d1f1",
+        "results/archives/ptob-tc02-return-gnss-20261001-01/review/INDEX.md": "bcd6e076deb8eeef6d53b3d8ffd38e721d5e2501738c7a0938d338adb0823193"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-tc-w12-header-diagnostic-20261001-01": {
+      "seal_sha256": "cf53919bd98f57ccb4da995a7585a002c8f49d3f79d7c6ffd502d56c06924e3d",
+      "archive": "results/archives/ptob-tc-w12-header-diagnostic-20261001-01",
+      "full_inventory_source": "results/TC_PRECISION_FINAL_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "77306e5fb7f790f5048a4abd2365e8d8aa37b80e125c2b087fe527c772b8dc6a",
+      "review_status": "EXPLORATORY",
+      "capture_status": "complete",
+      "review_files": {
+        "results/archives/ptob-tc-w12-header-diagnostic-20261001-01/review/metrics.json": "9618d239db755a1998ed2f6b55d2692296ad145eafe1de52366dd33d38aa3a77",
+        "results/archives/ptob-tc-w12-header-diagnostic-20261001-01/review/INDEX.md": "f4a48d5508f0cda474087e8d5fe617d476c53a244e8bc9167509f6d6d00e8497"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-tc03-return-runtime-20261001-01": {
+      "seal_sha256": "08c2cedbde4dcaf743aebf65608a87802dd465c1e1ce7e83117c8507fcb6a272",
+      "archive": "results/archives/ptob-tc03-return-runtime-20261001-01",
+      "full_inventory_source": "results/TC_PRECISION_FINAL_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "77306e5fb7f790f5048a4abd2365e8d8aa37b80e125c2b087fe527c772b8dc6a",
+      "review_status": "EXPLORATORY",
+      "capture_status": "complete",
+      "review_files": {
+        "results/archives/ptob-tc03-return-runtime-20261001-01/review/metrics.json": "93a70e3938050342a6ca823f0e13f80825b5d3885ceaffa43dfb02dfe895a90d",
+        "results/archives/ptob-tc03-return-runtime-20261001-01/review/INDEX.md": "f4dc774579e177c87d7be591feeaacf70f9a433bbc64ee31a4f28b83e8236491"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-tc01-utc-w12-overlap-20261001-01": {
+      "seal_sha256": "8ce83b50c8531e1fa3847ade647ebb2d7786058d71f0e33124d5e39828de09f7",
+      "archive": "results/archives/ptob-tc01-utc-w12-overlap-20261001-01",
+      "full_inventory_source": "results/TC_PRECISION_FINAL_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "77306e5fb7f790f5048a4abd2365e8d8aa37b80e125c2b087fe527c772b8dc6a",
+      "review_status": "EXPLORATORY",
+      "capture_status": "complete",
+      "review_files": {
+        "results/archives/ptob-tc01-utc-w12-overlap-20261001-01/review/summary.json": "0f6a2d6dd9674a13291af31f097e8e9c2408c6a43a6e9be6868a0753dd75072e",
+        "results/archives/ptob-tc01-utc-w12-overlap-20261001-01/review/INDEX.md": "b02d032f2f42ecb7e64ad461ab4c772d1b99e7440e8c14b2efa6847452297bc3"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-tc03-utc-w12-overlap-20261001-01": {
+      "seal_sha256": "162f375c13977f438ce04b54497b5cf8f37934934072e12093937f11989a32dd",
+      "archive": "results/archives/ptob-tc03-utc-w12-overlap-20261001-01",
+      "full_inventory_source": "results/TC_PRECISION_FINAL_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "77306e5fb7f790f5048a4abd2365e8d8aa37b80e125c2b087fe527c772b8dc6a",
+      "review_status": "EXPLORATORY",
+      "capture_status": "complete",
+      "review_files": {
+        "results/archives/ptob-tc03-utc-w12-overlap-20261001-01/review/summary.json": "a0f30a50a31534f772c5224cebe429b2274fd21dc9133ec55fceb06135747421",
+        "results/archives/ptob-tc03-utc-w12-overlap-20261001-01/review/INDEX.md": "0e65da34b25812bab5bed776c67c29b183e1ba282146d12130633857166d352b"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-tc-usage-ready-20261002-05": {
+      "seal_sha256": "47b4746c3d7614197a8de7484ef863c5ce1e96b2f663a86421727dc05e22b41a",
+      "archive": "results/archives/ptob-tc-usage-ready-20261002-05",
+      "full_inventory_source": "results/TC_PRECISION_FINAL_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "77306e5fb7f790f5048a4abd2365e8d8aa37b80e125c2b087fe527c772b8dc6a",
+      "review_status": "EXPLORATORY",
+      "capture_status": "complete",
+      "review_files": {},
+      "retain_all_populations": true
+    },
+    "ptob-tc01-tc03-usage-v1-smoke-20261002-05": {
+      "seal_sha256": "bfd568796bbc329b7292456f532afaa2d523ddc5fe8d817651442cbbff5c37d2",
+      "archive": "results/archives/ptob-tc01-tc03-usage-v1-smoke-20261002-05",
+      "full_inventory_source": "results/TC_PRECISION_FINAL_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "77306e5fb7f790f5048a4abd2365e8d8aa37b80e125c2b087fe527c772b8dc6a",
+      "review_status": "FAILED",
+      "capture_status": "complete",
+      "review_files": {
+        "results/archives/ptob-tc01-tc03-usage-v1-smoke-20261002-05/review/summary.json": "f07f5c4c8e1d0e9ba360c2ef85afa2351a5aa02735cc13b13e40473ebf42fc75",
+        "results/archives/ptob-tc01-tc03-usage-v1-smoke-20261002-05/review/INDEX.md": "cceeacaf81d8e259b4823446de29a0ee6b9478ae06a0a583c1c5db5d56f2fd9c"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-tc01-tc03-usage-v1-probes-20261002-05": {
+      "seal_sha256": "b1586b707ab239a1e43dfedd240a021a7b96c6c26d79064cc33c8ce5dee640af",
+      "archive": "results/archives/ptob-tc01-tc03-usage-v1-probes-20261002-05",
+      "full_inventory_source": "results/TC_PRECISION_FINAL_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "77306e5fb7f790f5048a4abd2365e8d8aa37b80e125c2b087fe527c772b8dc6a",
+      "review_status": "EXPLORATORY",
+      "capture_status": "complete",
+      "review_files": {
+        "results/archives/ptob-tc01-tc03-usage-v1-probes-20261002-05/review/summary.json": "75c46e3fd0b5b7fdd7d7e4f95f4c8ad005f5c538f684b765bd17ed40d5a6e720",
+        "results/archives/ptob-tc01-tc03-usage-v1-probes-20261002-05/review/INDEX.md": "cceeacaf81d8e259b4823446de29a0ee6b9478ae06a0a583c1c5db5d56f2fd9c"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-tc01-tc03-gm-rf-utc-normal600-20261002-05": {
+      "seal_sha256": "d518ff346b868655c3abe34469f50c53c5ed0cb1e8fef3234ace75c324fcbdbc",
+      "archive": "results/archives/ptob-tc01-tc03-gm-rf-utc-normal600-20261002-05",
+      "full_inventory_source": "results/TC_PRECISION_FINAL_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "77306e5fb7f790f5048a4abd2365e8d8aa37b80e125c2b087fe527c772b8dc6a",
+      "review_status": "INCOMPLETE",
+      "capture_status": "interrupted",
+      "review_files": {
+        "results/archives/ptob-tc01-tc03-gm-rf-utc-normal600-20261002-05/review/summary.json": "cce9d1e428e91588436de0f1e0321fad6054dfefde173d65dc9d0f9c30b1a1bf",
+        "results/archives/ptob-tc01-tc03-gm-rf-utc-normal600-20261002-05/review/INDEX.md": "23de9e4be985a43f0d67e72efa7c047636d4d65ebc8a26ceb98e81d03a3ea252"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-tc-three-6e-deploy-20261002-05": {
+      "seal_sha256": "405fc9d904f6eb045bf194018e4feef7a6c9873fadf81e4040a28bc8480c0b9a",
+      "archive": "results/archives/ptob-tc-three-6e-deploy-20261002-05",
+      "full_inventory_source": "results/TC_PRECISION_FINAL_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "77306e5fb7f790f5048a4abd2365e8d8aa37b80e125c2b087fe527c772b8dc6a",
+      "review_status": "EXPLORATORY",
+      "capture_status": "complete",
+      "review_files": {},
+      "retain_all_populations": true
+    },
+    "ptob-tc03-gm-e1-cold70-20261002-06": {
+      "seal_sha256": "c8b41a2eae2a4c85dd394fc60a892426b69cc253f834063cff4f151450216dd6",
+      "archive": "results/archives/ptob-tc03-gm-e1-cold70-20261002-06",
+      "full_inventory_source": "results/TC_PRECISION_FINAL_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "77306e5fb7f790f5048a4abd2365e8d8aa37b80e125c2b087fe527c772b8dc6a",
+      "review_status": "FAILED",
+      "capture_status": "complete",
+      "review_files": {
+        "results/archives/ptob-tc03-gm-e1-cold70-20261002-06/review/summary.json": "1a55a9c54f2ff81d7bc77a9d221dc8892ba62c257116dd6d35e887fa2ae00df8",
+        "results/archives/ptob-tc03-gm-e1-cold70-20261002-06/review/INDEX.md": "9c8998f03376f71ca10490db470d9925d6fb2484fb2ab7ddbf799b6b1836145a"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-tc01-gm-e1-cold70-20261002-07": {
+      "seal_sha256": "f7620dfde35b538b6349be5457b681f9f7adda23e9f11233504e0addb0ffb875",
+      "archive": "results/archives/ptob-tc01-gm-e1-cold70-20261002-07",
+      "full_inventory_source": "results/TC_PRECISION_FINAL_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "77306e5fb7f790f5048a4abd2365e8d8aa37b80e125c2b087fe527c772b8dc6a",
+      "review_status": "REVIEWED",
+      "capture_status": "complete",
+      "review_files": {
+        "results/archives/ptob-tc01-gm-e1-cold70-20261002-07/review/summary.json": "82eedd2717f016da393c7f6885ec282d297d51ec1a97331b7415e05e2b872349",
+        "results/archives/ptob-tc01-gm-e1-cold70-20261002-07/review/INDEX.md": "297303564419a726e69ca261e3270a39d3460a866217c7061ba06a736fbf54b0"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-tc01-dec0-deploy-20261002-07": {
+      "seal_sha256": "e75741bfae627b482fd2eeb31d2ad54e9314d112a8e6dcd03cd3ba2225c318d7",
+      "archive": "results/archives/ptob-tc01-dec0-deploy-20261002-07",
+      "full_inventory_source": "results/TC_PRECISION_FINAL_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "77306e5fb7f790f5048a4abd2365e8d8aa37b80e125c2b087fe527c772b8dc6a",
+      "review_status": "REVIEWED",
+      "capture_status": "COMPLETE_GUARDED_APP_COPY_READBACK_PENDING",
+      "review_files": {
+        "results/archives/ptob-tc01-dec0-deploy-20261002-07/review/INDEX.md": "e385ccc06d58e6fd49f4a43204cf13cb326b42c1b4ddc007f16e494e2788da82"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-tc01-gm-e1-incumbent6-20261002-07": {
+      "seal_sha256": "82bc2cd43543ddb4b3009ca92c4962ef52d0732cea58dda04ae5b2fa73f697fc",
+      "archive": "results/archives/ptob-tc01-gm-e1-incumbent6-20261002-07",
+      "full_inventory_source": "results/TC_PRECISION_FINAL_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "77306e5fb7f790f5048a4abd2365e8d8aa37b80e125c2b087fe527c772b8dc6a",
+      "review_status": "REVIEWED",
+      "capture_status": "complete",
+      "review_files": {
+        "results/archives/ptob-tc01-gm-e1-incumbent6-20261002-07/review/summary.json": "a94dfa16aa4188c7fd4296c98563ade76a2533a7f15cc70c42ea8afb82f8b580",
+        "results/archives/ptob-tc01-gm-e1-incumbent6-20261002-07/review/INDEX.md": "48145fd7393fc68651feab9f2c0fa28b0f284d265f43a0f1208a65ba2a7bdc25"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-tc01-tc03-gm-e1-peer5-20261002-07": {
+      "seal_sha256": "f2fad5640ac740c9e34c844db71943b06f319067c66f33327b48246fc1e7156a",
+      "archive": "results/archives/ptob-tc01-tc03-gm-e1-peer5-20261002-07",
+      "full_inventory_source": "results/TC_PRECISION_FINAL_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "77306e5fb7f790f5048a4abd2365e8d8aa37b80e125c2b087fe527c772b8dc6a",
+      "review_status": "REVIEWED",
+      "capture_status": "complete",
+      "review_files": {
+        "results/archives/ptob-tc01-tc03-gm-e1-peer5-20261002-07/review/summary.json": "2be98b39df72075db486c41a95ccd61a8fcb758103efa930c13d89ce18f5c280",
+        "results/archives/ptob-tc01-tc03-gm-e1-peer5-20261002-07/review/INDEX.md": "48145fd7393fc68651feab9f2c0fa28b0f284d265f43a0f1208a65ba2a7bdc25"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-tc02-gm-e1-startup5-20261002-07": {
+      "seal_sha256": "89899acdc0ac110c0dbe1143004319ad93a37913b6f5024cd8621215ba948bc6",
+      "archive": "results/archives/ptob-tc02-gm-e1-startup5-20261002-07",
+      "full_inventory_source": "results/TC_PRECISION_FINAL_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "77306e5fb7f790f5048a4abd2365e8d8aa37b80e125c2b087fe527c772b8dc6a",
+      "review_status": "REVIEWED",
+      "capture_status": "complete",
+      "review_files": {
+        "results/archives/ptob-tc02-gm-e1-startup5-20261002-07/review/summary.json": "5fc4d9a2ff84f261eccc8a1a6a641ba5fae92a28653de4e40639ca75b22e3879",
+        "results/archives/ptob-tc02-gm-e1-startup5-20261002-07/review/INDEX.md": "a8eb8179a54a260093eb311adab91134d63d2dd8792c459b84df1112a809dbb2"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-tc02-dec0-deploy-20261002-07": {
+      "seal_sha256": "9cde795d7664e735166a01657eae0b824ffeb7598903db852c08a0cf9803edde",
+      "archive": "results/archives/ptob-tc02-dec0-deploy-20261002-07",
+      "full_inventory_source": "results/TC_PRECISION_FINAL_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "77306e5fb7f790f5048a4abd2365e8d8aa37b80e125c2b087fe527c772b8dc6a",
+      "review_status": "REVIEWED",
+      "capture_status": "COMPLETE_GUARDED_COPY_READBACK_PENDING_FIELD_RELEASED",
+      "review_files": {
+        "results/archives/ptob-tc02-dec0-deploy-20261002-07/review/INDEX.md": "b403b4c4fa613a9b566ee6c26eda0e288db70212f7cac2975e5d0ab79ed55416"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-tc03-dec0-deploy-20261002-07": {
+      "seal_sha256": "77fc7234144f1518e1ee9c49d1d09c0d504d7fd1ebba3b538ec74eae53eb6258",
+      "archive": "results/archives/ptob-tc03-dec0-deploy-20261002-07",
+      "full_inventory_source": "results/TC_PRECISION_FINAL_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "77306e5fb7f790f5048a4abd2365e8d8aa37b80e125c2b087fe527c772b8dc6a",
+      "review_status": "REVIEWED",
+      "capture_status": "COMPLETE_GUARDED_COPY_NEW_READBACK_PENDING",
+      "review_files": {
+        "results/archives/ptob-tc03-dec0-deploy-20261002-07/review/INDEX.md": "6e4eae2848690332ec8716307b899b757d2c03fd81f8bdf79144de1e7a688905"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-tc01-tc03-gm-e1-cold360-20261002-07": {
+      "seal_sha256": "6c123a216627b7d39d4a515614a125dc6a27894f7e518ccad18fa348de199c0c",
+      "archive": "results/archives/ptob-tc01-tc03-gm-e1-cold360-20261002-07",
+      "full_inventory_source": "results/TC_PRECISION_FINAL_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "77306e5fb7f790f5048a4abd2365e8d8aa37b80e125c2b087fe527c772b8dc6a",
+      "review_status": "REVIEWED",
+      "capture_status": "complete",
+      "review_files": {
+        "results/archives/ptob-tc01-tc03-gm-e1-cold360-20261002-07/review/summary.json": "acd8e2029c0c6056e273c60dad75ea090e72c7f93762d89faae1be8546541a23",
+        "results/archives/ptob-tc01-tc03-gm-e1-cold360-20261002-07/review/INDEX.md": "e5eb3b72c1affee56d8f98e615f1817002fb2c88fc62a0304d17e0946435f96d"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-tc01-dec0-reapply-deploy-20261002-08": {
+      "seal_sha256": "b9383f540b934e4d569c5d624da0913225c2f8602de0bf6f6b717f0ab8ce72ba",
+      "archive": "results/archives/ptob-tc01-dec0-reapply-deploy-20261002-08",
+      "full_inventory_source": "results/TC_PRECISION_FINAL_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "77306e5fb7f790f5048a4abd2365e8d8aa37b80e125c2b087fe527c772b8dc6a",
+      "review_status": "REVIEWED",
+      "capture_status": "COMPLETE_GUARDED_SAME_RELEASE_REAPPLICATION_NEW_READBACK_PENDING",
+      "review_files": {
+        "results/archives/ptob-tc01-dec0-reapply-deploy-20261002-08/review/INDEX.md": "50898de427bbb069ef3dd249b44b6ccf4d05ff2760af6deefa0decb84b5adf2e"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-tc01-tc03-gm-e1-reapply360-20261002-08": {
+      "seal_sha256": "a39a9237e7686a3a3d740fa98b266a66f543794035451140084854364e423166",
+      "archive": "results/archives/ptob-tc01-tc03-gm-e1-reapply360-20261002-08",
+      "full_inventory_source": "results/TC_PRECISION_FINAL_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "77306e5fb7f790f5048a4abd2365e8d8aa37b80e125c2b087fe527c772b8dc6a",
+      "review_status": "REVIEWED",
+      "capture_status": "complete",
+      "review_files": {
+        "results/archives/ptob-tc01-tc03-gm-e1-reapply360-20261002-08/review/summary.json": "eeb2c1412878f479ae39f852e1cb0b1f982eb5804cab84f608eca8e22a8727d1",
+        "results/archives/ptob-tc01-tc03-gm-e1-reapply360-20261002-08/review/INDEX.md": "6043e972a951293f8d84318f98f49cc0d58125ba89d54c6ffacfcb0a275dda6b"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-tc01-tc03-gm-e1-loss180-20261002-08": {
+      "seal_sha256": "62ffdecdea975343d62c39354a89b175130b77da74a2bb529e965948b0988f86",
+      "archive": "results/archives/ptob-tc01-tc03-gm-e1-loss180-20261002-08",
+      "full_inventory_source": "results/TC_PRECISION_FINAL_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "77306e5fb7f790f5048a4abd2365e8d8aa37b80e125c2b087fe527c772b8dc6a",
+      "review_status": "REVIEWED",
+      "capture_status": "complete",
+      "review_files": {
+        "results/archives/ptob-tc01-tc03-gm-e1-loss180-20261002-08/review/summary.json": "aa6b161463760a2cec41fc5c8c2923c61b56d69e52849eaa33d8921bcfa6897a",
+        "results/archives/ptob-tc01-tc03-gm-e1-loss180-20261002-08/review/INDEX.md": "9af84e326c2495b5c533141a06221e41eea7eeb45e23d790cc5588e96f3b75cb"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-tc01-tc03-bench-pps600-20261002-08": {
+      "seal_sha256": "eadc27316ac726728b669e24d8eef35eaac77295ef7d02be653434f79a386171",
+      "archive": "results/archives/ptob-tc01-tc03-bench-pps600-20261002-08",
+      "full_inventory_source": "results/TC_PRECISION_FINAL_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "77306e5fb7f790f5048a4abd2365e8d8aa37b80e125c2b087fe527c772b8dc6a",
+      "review_status": "INCOMPLETE",
+      "capture_status": "incomplete",
+      "review_files": {
+        "results/archives/ptob-tc01-tc03-bench-pps600-20261002-08/review/INDEX.md": "35b1b16c361b4c4422ca772665a8d5badc2bf0b372ad221df7ff11de6b7de617"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-tc01-tc03-bench-pps600-20261002-09": {
+      "seal_sha256": "f77644a1aed444378ebcbe213491ea7954b96a7f8a1d76962ed4cf294d9e7955",
+      "archive": "results/archives/ptob-tc01-tc03-bench-pps600-20261002-09",
+      "full_inventory_source": "results/TC_PRECISION_FINAL_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "77306e5fb7f790f5048a4abd2365e8d8aa37b80e125c2b087fe527c772b8dc6a",
+      "review_status": "INCOMPLETE",
+      "capture_status": "incomplete",
+      "review_files": {
+        "results/archives/ptob-tc01-tc03-bench-pps600-20261002-09/review/INDEX.md": "d678198f52558d95fa5d27635c418d5676193717b7374fb8b76f0d7caea1188b"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-tc01-tc03-bench-pps600-20261002-10": {
+      "seal_sha256": "369e14126598ae0b175e3222dbc57bcee1c3357c37b455a8d1f525efdcce86e8",
+      "archive": "results/archives/ptob-tc01-tc03-bench-pps600-20261002-10",
+      "full_inventory_source": "results/TC_PRECISION_FINAL_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "77306e5fb7f790f5048a4abd2365e8d8aa37b80e125c2b087fe527c772b8dc6a",
+      "review_status": "FAILED",
+      "capture_status": "complete",
+      "review_files": {
+        "results/archives/ptob-tc01-tc03-bench-pps600-20261002-10/review/authority_phases.json": "98ab12a095bf032b3e189271fa0848fd11214122ebc6e151dabd04a297787c82",
+        "results/archives/ptob-tc01-tc03-bench-pps600-20261002-10/review/reference_bias.json": "511b9b94db3477446c38dccaa201459738befa73c6589b789449b1559cdb27b3",
+        "results/archives/ptob-tc01-tc03-bench-pps600-20261002-10/review/INDEX.md": "a8cc48fd7e4778abe925e6152cb8b3787000794758365c540cc43d8d4ec367fe",
+        "results/archives/ptob-tc01-tc03-bench-pps600-20261002-10/review/review.json": "39541d3c9496269525de2953bcaf5d8aa2f5529002b1774e820491d35186ab55"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-tc03-tc01-bench-pps600-20261002-11": {
+      "seal_sha256": "cc03769415d2331989a3627eaee886eab2162d38eb6a0de107dcb899951d2f4e",
+      "archive": "results/archives/ptob-tc03-tc01-bench-pps600-20261002-11",
+      "full_inventory_source": "results/TC_PRECISION_FINAL_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "77306e5fb7f790f5048a4abd2365e8d8aa37b80e125c2b087fe527c772b8dc6a",
+      "review_status": "FAILED",
+      "capture_status": "complete",
+      "review_files": {
+        "results/archives/ptob-tc03-tc01-bench-pps600-20261002-11/review/authority_phases.json": "4c9593ecc8c4f465b3fdf767bb175af7dcab8cfa5a4fc40cfdcdcd4725efe87f",
+        "results/archives/ptob-tc03-tc01-bench-pps600-20261002-11/review/reference_bias.json": "beb4e3034bd0c0d9d5f71be802b0a0b30c5d1535fbc88d13aed8316b1442c5c4",
+        "results/archives/ptob-tc03-tc01-bench-pps600-20261002-11/review/INDEX.md": "fc319dbbe1e8beae96bd7a74a1e929403701b8bffe35729ce79fee330e12f9c2",
+        "results/archives/ptob-tc03-tc01-bench-pps600-20261002-11/review/review.json": "ab94f5cc5f1e29073615a38ea205a33de6c9485bdb35b25ae1f8317cfb5f307b"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-tc03-precision-deploy-20261002-13": {
+      "seal_sha256": "4a369c7d35ca1457e29576576a6cadb35420f0a23cb423bcdad66a7409471324",
+      "archive": "results/archives/ptob-tc03-precision-deploy-20261002-13",
+      "full_inventory_source": "results/TC_PRECISION_FINAL_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "77306e5fb7f790f5048a4abd2365e8d8aa37b80e125c2b087fe527c772b8dc6a",
+      "review_status": "REVIEWED",
+      "capture_status": "complete",
+      "review_files": {
+        "results/archives/ptob-tc03-precision-deploy-20261002-13/review/deployment.json": "4603e15bf7e97fcc9e70e429300795d5d17c98dcb2b38290c3e2ca0562cb8fc1",
+        "results/archives/ptob-tc03-precision-deploy-20261002-13/review/INDEX.md": "363c44281abc4589f4a67f761d56e284db42b07a54dc12dd2269c30884ed908a"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-tc01-precision-deploy-20261002-13": {
+      "seal_sha256": "3b48085cbabb4bc1ab2d8f3bc1c01e6d8b12da47bba41e3d08645ed79ec894c5",
+      "archive": "results/archives/ptob-tc01-precision-deploy-20261002-13",
+      "full_inventory_source": "results/TC_PRECISION_FINAL_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "77306e5fb7f790f5048a4abd2365e8d8aa37b80e125c2b087fe527c772b8dc6a",
+      "review_status": "REVIEWED",
+      "capture_status": "complete",
+      "review_files": {
+        "results/archives/ptob-tc01-precision-deploy-20261002-13/review/deployment.json": "62364c4c9de3438724b9ce96fea23c9202fced7c807ff3562e2414a99bbcd548",
+        "results/archives/ptob-tc01-precision-deploy-20261002-13/review/INDEX.md": "363c44281abc4589f4a67f761d56e284db42b07a54dc12dd2269c30884ed908a"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-tc01-tc03-precision-cold360-20261002-13": {
+      "seal_sha256": "c595fd2727a73cb9255817a95eb094c353b34cf655adc7d30c3220d112c782ad",
+      "archive": "results/archives/ptob-tc01-tc03-precision-cold360-20261002-13",
+      "full_inventory_source": "results/TC_PRECISION_FINAL_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "77306e5fb7f790f5048a4abd2365e8d8aa37b80e125c2b087fe527c772b8dc6a",
+      "review_status": "REVIEWED",
+      "capture_status": "complete",
+      "review_files": {
+        "results/archives/ptob-tc01-tc03-precision-cold360-20261002-13/review/summary.json": "85ee5f6d6b0a0776599e02875821fb6d164724a075d64766ecc1d526d0ca0850",
+        "results/archives/ptob-tc01-tc03-precision-cold360-20261002-13/review/INDEX.md": "60044a000a1ba10ba4d75b693e1823a12cfef0b6030424580c6bd4d83a00ed88"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-tc01-tc03-edge10516-prospective600-20261002-13": {
+      "seal_sha256": "939ed869e246f452ea1c095cc3c075de17730d7c565c705761acfd685e60cea8",
+      "archive": "results/archives/ptob-tc01-tc03-edge10516-prospective600-20261002-13",
+      "full_inventory_source": "results/TC_PRECISION_FINAL_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "77306e5fb7f790f5048a4abd2365e8d8aa37b80e125c2b087fe527c772b8dc6a",
+      "review_status": "INCOMPLETE",
+      "capture_status": "incomplete",
+      "review_files": {
+        "results/archives/ptob-tc01-tc03-edge10516-prospective600-20261002-13/review/summary.json": "56223a97ed9927c1a6bd9dc573304556bb901010dd4496ebd8371359d1076ecf",
+        "results/archives/ptob-tc01-tc03-edge10516-prospective600-20261002-13/review/INDEX.md": "e9ef770f7026f7e5a3943c3e3b3f744fe213ebb70018589ca8fe98ada8da41bd"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-tc03-tc01-edge10516-prospective600-20261002-16": {
+      "seal_sha256": "011b787582b02433e991916e519c9ab120925c5824209e3caecd6b8b9ac23ebb",
+      "archive": "results/archives/ptob-tc03-tc01-edge10516-prospective600-20261002-16",
+      "full_inventory_source": "results/TC_PRECISION_FINAL_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "77306e5fb7f790f5048a4abd2365e8d8aa37b80e125c2b087fe527c772b8dc6a",
+      "review_status": "REVIEWED",
+      "capture_status": "complete",
+      "review_files": {
+        "results/archives/ptob-tc03-tc01-edge10516-prospective600-20261002-16/review/reference_bias.json": "a679cad25d0de3e86dce4d8d765e79dd4043ca2992f0bcf9ccbf21bd81748f99",
+        "results/archives/ptob-tc03-tc01-edge10516-prospective600-20261002-16/review/authority_and_coverage.json": "708df36f711ad8cae1bb613107de337158722fae65a0b570d511f394e649dbe4",
+        "results/archives/ptob-tc03-tc01-edge10516-prospective600-20261002-16/review/INDEX.md": "dea42484da78aeb29bcba0a4d9a0276cf0d3b399f86f78b621d7e9906c93f8da",
+        "results/archives/ptob-tc03-tc01-edge10516-prospective600-20261002-16/review/review.json": "b191b9d0b2c901b8c91ae236e6d300f6c203046354eba0daad8dc3db71a7600b"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-tc03-tc01-edge10516-review-correction-20261002-16": {
+      "seal_sha256": "27628f9aae2da4e16c8250993e63a2cac20416c9d521be9b87cc0e8d3210b2a9",
+      "archive": "results/archives/ptob-tc03-tc01-edge10516-review-correction-20261002-16",
+      "full_inventory_source": "results/TC_PRECISION_FINAL_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "77306e5fb7f790f5048a4abd2365e8d8aa37b80e125c2b087fe527c772b8dc6a",
+      "review_status": "FAILED",
+      "capture_status": "complete",
+      "review_files": {
+        "results/archives/ptob-tc03-tc01-edge10516-review-correction-20261002-16/review/unscoreable_PPS.json": "59853ecfe462ac2725d2fac429f04d454d20e4055eac0572690eefc20a750498",
+        "results/archives/ptob-tc03-tc01-edge10516-review-correction-20261002-16/review/reference_bias.json": "a679cad25d0de3e86dce4d8d765e79dd4043ca2992f0bcf9ccbf21bd81748f99",
+        "results/archives/ptob-tc03-tc01-edge10516-review-correction-20261002-16/review/authority_and_coverage.json": "6f9831e1769a4cdbd41dad94232c36784790a2327ba72e8398709ef43a68410b",
+        "results/archives/ptob-tc03-tc01-edge10516-review-correction-20261002-16/review/INDEX.md": "87f9ccc2432b192bcbc43266fe2830ded1c62537dc869e0396157230321ffa86",
+        "results/archives/ptob-tc03-tc01-edge10516-review-correction-20261002-16/review/review.json": "b191b9d0b2c901b8c91ae236e6d300f6c203046354eba0daad8dc3db71a7600b"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-w12-sol-resume-commissioning600-20261002-05": {
+      "seal_sha256": "d3e6cf7a3405215018af8b75042329b4ee6d6e3a60afc3e9f490d75aeee4cdf4",
+      "archive": "results/archives/ptob-w12-sol-resume-commissioning600-20261002-05",
+      "full_inventory_source": "results/W12_SOL_RESUMED_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "244fab1cbb18a5cf421953e2f7ad1b4d1687e4324d7c338fe15fe844e7b89f4b",
+      "review_status": "EXPLORATORY",
+      "capture_status": "complete",
+      "review_files": {
+        "results/archives/ptob-w12-sol-resume-commissioning600-20261002-05/review/metrics.json": "54281f4556b81407fa467653f6314df3f584c84223785911c4616cc25a3526b2",
+        "results/archives/ptob-w12-sol-resume-commissioning600-20261002-05/review/INDEX.md": "920fe6ce95c38250d24688328c941b0c81eeae4f023df9f7feb157f4c0b8f3d0",
+        "results/archives/ptob-w12-sol-resume-commissioning600-20261002-05/review/feedback.json": "79644fd38df279c7d2eaabc3f1bd1ffab85714c7913499680604c9e75c463d03",
+        "results/archives/ptob-w12-sol-resume-commissioning600-20261002-05/review/physical/metrics.json": "be0fd2dc1dadbc3b1146e05671fb170c771f29f53b22d40e07286ccb9c632a06",
+        "results/archives/ptob-w12-sol-resume-commissioning600-20261002-05/review/physical/pairs.json": "1ccbdee0e48da6a5935feb185b48b46e7018d102d90f6160db91cdb98da79cd2",
+        "results/archives/ptob-w12-sol-resume-commissioning600-20261002-05/review/physical/INDEX.md": "cd1b7f7c419ccfd19a853e781a8359e0a5f488d73fd9992305f44d848e376a77"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-w12-sol-bench-passive300-20261002-05": {
+      "seal_sha256": "359d414f4a9e5eb7b41a1506d7464e4dd1cbcd264bbbcc282d837444506685a9",
+      "archive": "results/archives/ptob-w12-sol-bench-passive300-20261002-05",
+      "full_inventory_source": "results/W12_SOL_RESUMED_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "244fab1cbb18a5cf421953e2f7ad1b4d1687e4324d7c338fe15fe844e7b89f4b",
+      "review_status": "EXPLORATORY",
+      "capture_status": "complete",
+      "review_files": {
+        "results/archives/ptob-w12-sol-bench-passive300-20261002-05/review/metrics.json": "9f2b4c87f08b5108ac7a989c7243aeaeb620b608ca0a48362b7c2b8e1d5a63aa",
+        "results/archives/ptob-w12-sol-bench-passive300-20261002-05/review/INDEX.md": "30a309b63ea7d69e47b14323f3057ea6c5ecd46e4cf480774769048b9cfa7ac9",
+        "results/archives/ptob-w12-sol-bench-passive300-20261002-05/review/feedback.json": "d7d053eea03d3143794e6127fe35683f47e1901f091cf6108925de3a40ea7822",
+        "results/archives/ptob-w12-sol-bench-passive300-20261002-05/review/physical/metrics.json": "5107cac25f29c81182d615c279ab4c3c732dea46ac2568d5415a0cc79f9ec88e",
+        "results/archives/ptob-w12-sol-bench-passive300-20261002-05/review/physical/pairs.json": "d2986e81102a30fbd1d6dc19037fcf7919c685f3247ba97579c9152901cc5b86",
+        "results/archives/ptob-w12-sol-bench-passive300-20261002-05/review/physical/INDEX.md": "11f9735e262a7547f861c542eff4e6896de4dd92f7ded5c4bf7f4e75b7935ffb"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-w12-sol-cadence-C2-cold90-20261002-05": {
+      "seal_sha256": "1fb054d70db7aaa1eda22f2ff5021279c538c113643a9d9378ccd866b5bf3d93",
+      "archive": "results/archives/ptob-w12-sol-cadence-C2-cold90-20261002-05",
+      "full_inventory_source": "results/W12_SOL_RESUMED_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "244fab1cbb18a5cf421953e2f7ad1b4d1687e4324d7c338fe15fe844e7b89f4b",
+      "review_status": "EXPLORATORY",
+      "capture_status": "complete",
+      "review_files": {
+        "results/archives/ptob-w12-sol-cadence-C2-cold90-20261002-05/review/metrics.json": "54262d52fd75ad8228cd318e4e761600fec6aca6c2cbeddd0b58f7d83f8365aa",
+        "results/archives/ptob-w12-sol-cadence-C2-cold90-20261002-05/review/INDEX.md": "a2997abfac52ba17172480abd795e05c2c6deaa3803716c5f561fabed84f95db",
+        "results/archives/ptob-w12-sol-cadence-C2-cold90-20261002-05/review/feedback.json": "3b1e90b332a861ded3edc9890afdcd834f3991595668ae11315a4900e2322274",
+        "results/archives/ptob-w12-sol-cadence-C2-cold90-20261002-05/review/physical/metrics.json": "19f1bcfde346eaac381c1b5c78116a4219a49c93083fc25e2e46285265400dd9",
+        "results/archives/ptob-w12-sol-cadence-C2-cold90-20261002-05/review/physical/pairs.json": "32ff58da63ac1adc3d05c1334533253f255705abc2fdf2144df597677da1ed94",
+        "results/archives/ptob-w12-sol-cadence-C2-cold90-20261002-05/review/physical/INDEX.md": "c383165c2aaff9a9c6b83651edeaea296283ed1d8a71c5a3c6798c95ebf53c44"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-w12-sol-cadence-C1-cold90-20261002-05": {
+      "seal_sha256": "8689ecef1a1118eaaaeb5498cc0364f7ecacb18361c6cdd08ca94e9c42c74b1c",
+      "archive": "results/archives/ptob-w12-sol-cadence-C1-cold90-20261002-05",
+      "full_inventory_source": "results/W12_SOL_RESUMED_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "244fab1cbb18a5cf421953e2f7ad1b4d1687e4324d7c338fe15fe844e7b89f4b",
+      "review_status": "EXPLORATORY",
+      "capture_status": "complete",
+      "review_files": {
+        "results/archives/ptob-w12-sol-cadence-C1-cold90-20261002-05/review/metrics.json": "2a5af5c6ca64499d4b1be3693b1c2fc7799a9c44592fecfce78c1eae16d592a7",
+        "results/archives/ptob-w12-sol-cadence-C1-cold90-20261002-05/review/INDEX.md": "7d5b639b19d34156394f0190352ab803ea4f1d9ebf6e2bb435d8ea690d91292d",
+        "results/archives/ptob-w12-sol-cadence-C1-cold90-20261002-05/review/feedback.json": "29ca7ba1079a0aeebc0a459b2843b6496759679f6b38da2d90288e52b7f87e92",
+        "results/archives/ptob-w12-sol-cadence-C1-cold90-20261002-05/review/physical/metrics.json": "579b9b0fbd8550ff5c4aa55569cc4e582f90845a3dbc00fe6c59fd0cfd903883",
+        "results/archives/ptob-w12-sol-cadence-C1-cold90-20261002-05/review/physical/pairs.json": "da113217f2c6fef7f653fe98445ff01ade69a5f6d4ba683639ca4285d90d32f6",
+        "results/archives/ptob-w12-sol-cadence-C1-cold90-20261002-05/review/physical/INDEX.md": "13d854ddd4d399d584bc33ed07b6a1ef0b2ee64ef40a6205d842033214e816ec"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-w12-sol-cadence-normal600-20261002-05": {
+      "seal_sha256": "111f677e92aa5536e4381f4b00fd67e4bae99c75fb6d4aa3aaff8e5e6549f828",
+      "archive": "results/archives/ptob-w12-sol-cadence-normal600-20261002-05",
+      "full_inventory_source": "results/W12_SOL_RESUMED_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "244fab1cbb18a5cf421953e2f7ad1b4d1687e4324d7c338fe15fe844e7b89f4b",
+      "review_status": "EXPLORATORY",
+      "capture_status": "complete",
+      "review_files": {
+        "results/archives/ptob-w12-sol-cadence-normal600-20261002-05/review/metrics.json": "2741bfc3d634d40d155e271d8a907e29f866dd9cfcfe588d4bdebd6903317d1d",
+        "results/archives/ptob-w12-sol-cadence-normal600-20261002-05/review/INDEX.md": "0fe709f984c4c8da08ab5a3571d3d5ba47fb013a2c32a469bccfc13bfd4891ae",
+        "results/archives/ptob-w12-sol-cadence-normal600-20261002-05/review/feedback.json": "d749946d51a1ecd6a90dbdba9781409a897765712d65e64fa1203bb842b15049",
+        "results/archives/ptob-w12-sol-cadence-normal600-20261002-05/review/physical/metrics.json": "e15bed911f9610ed91a7da9712f3f1261e2458c5ff42224a275bc48569bc9924",
+        "results/archives/ptob-w12-sol-cadence-normal600-20261002-05/review/physical/pairs.json": "74414fd48f7c6e453a15ddd1410c827ec1f206bb9c3b6a8ad3860d6d28bf6e5e",
+        "results/archives/ptob-w12-sol-cadence-normal600-20261002-05/review/physical/INDEX.md": "a2f073355def67f9d59ecbb154a62a9a3c8b90607f1d354ffaf4021b88bd33a9"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-w12-sol-freshness-C2-cold90-20261002-06": {
+      "seal_sha256": "d44a96e97d184e4ea02fd0b26fad9b234bc4ea09462d8c652e0c635076521444",
+      "archive": "results/archives/ptob-w12-sol-freshness-C2-cold90-20261002-06",
+      "full_inventory_source": "results/W12_SOL_RESUMED_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "244fab1cbb18a5cf421953e2f7ad1b4d1687e4324d7c338fe15fe844e7b89f4b",
+      "review_status": "FAILED",
+      "capture_status": "complete",
+      "review_files": {
+        "results/archives/ptob-w12-sol-freshness-C2-cold90-20261002-06/review/metrics.json": "0d5eafe2add28959e90e5f219e74c7569ed6bb21c58c23d9ccff3aa41bda1204",
+        "results/archives/ptob-w12-sol-freshness-C2-cold90-20261002-06/review/INDEX.md": "fb1c03443892c83dfd680f32da1b83d2098d7b22eec2d003ec4ec2e284d63fe4",
+        "results/archives/ptob-w12-sol-freshness-C2-cold90-20261002-06/review/feedback.json": "00f4a1e16dbb24a3d4b2fd85331f942f17b7ffd22897dc8ef5e7850aee3f19d2",
+        "results/archives/ptob-w12-sol-freshness-C2-cold90-20261002-06/review/physical/metrics.json": "8150242cca42b5085f8a79b18a7b9b29afeab193f021f1497e3aa52e3de206fe",
+        "results/archives/ptob-w12-sol-freshness-C2-cold90-20261002-06/review/physical/pairs.json": "8ee526ddd2e60eb651291eb429f569ad37cfa1b875fa8597680e936fbb8e306a",
+        "results/archives/ptob-w12-sol-freshness-C2-cold90-20261002-06/review/physical/INDEX.md": "e1e14a6ddab745811a8a5084f36594e8aa35351122ed2eabe2560cabbe684ffc"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-w12-sol-newsource-cal-passive580-20261002-06": {
+      "seal_sha256": "975eb6fa6b8e174e2b8390ef0bea195b114e601becca0a401810935260285090",
+      "archive": "results/archives/ptob-w12-sol-newsource-cal-passive580-20261002-06",
+      "full_inventory_source": "results/W12_SOL_RESUMED_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "244fab1cbb18a5cf421953e2f7ad1b4d1687e4324d7c338fe15fe844e7b89f4b",
+      "review_status": "FAILED",
+      "capture_status": "complete",
+      "review_files": {
+        "results/archives/ptob-w12-sol-newsource-cal-passive580-20261002-06/review/metrics.json": "ab197ee75a86034327353c9cfd064b575d50f316d35d28215006e2e686733c44",
+        "results/archives/ptob-w12-sol-newsource-cal-passive580-20261002-06/review/INDEX.md": "2aa3eaa0743f2e6f7e87f3f0ae48cbb3e3350154a4db021fbe0a119a86b650da",
+        "results/archives/ptob-w12-sol-newsource-cal-passive580-20261002-06/review/feedback.json": "0d9b9d6adad5b6b3608cfd37c7c22a472fdafb55da001d96e371c5181d0363cc",
+        "results/archives/ptob-w12-sol-newsource-cal-passive580-20261002-06/review/physical/metrics.json": "f167b46d665472ab730d16de6a4f6612037ea652ec499f378f0f59eacd21e55a",
+        "results/archives/ptob-w12-sol-newsource-cal-passive580-20261002-06/review/physical/pairs.json": "db883bb5d55f01eb5730b795e526c6ddf4c095b7c6f24c3a9997faea76f836f7",
+        "results/archives/ptob-w12-sol-newsource-cal-passive580-20261002-06/review/physical/INDEX.md": "9bc947c246e0ea506412f58b419356822c3390211625aec098be4f235c2a4263",
+        "results/archives/ptob-w12-sol-newsource-cal-passive580-20261002-06/review/tc-window/metrics.json": "16e3a8cb4577821e22c98ac457642ce709c1e8bde5ee7f7a77ba3a81fee9e577",
+        "results/archives/ptob-w12-sol-newsource-cal-passive580-20261002-06/review/tc-window/INDEX.md": "acee93ed44dac7eafe360c7a3e60dcd67842d2aad147af16f3eab88256340743"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-w12-sol-freshness-C1-cold90-20261002-06": {
+      "seal_sha256": "6912b75d2970127d185193798b16e73b24591785462cdfd32fa9852c14fc0980",
+      "archive": "results/archives/ptob-w12-sol-freshness-C1-cold90-20261002-06",
+      "full_inventory_source": "results/W12_SOL_RESUMED_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "244fab1cbb18a5cf421953e2f7ad1b4d1687e4324d7c338fe15fe844e7b89f4b",
+      "review_status": "FAILED",
+      "capture_status": "complete",
+      "review_files": {
+        "results/archives/ptob-w12-sol-freshness-C1-cold90-20261002-06/review/metrics.json": "1c5c739db3bb9e02ec5b295f6cad3fc67f16d0bac4d655b0242dacf09ffac9ac",
+        "results/archives/ptob-w12-sol-freshness-C1-cold90-20261002-06/review/INDEX.md": "e387159ca6a0f76f98aa850bed5ff93c23ef74dd00b6a48aaaf905b04d0d483d",
+        "results/archives/ptob-w12-sol-freshness-C1-cold90-20261002-06/review/feedback.json": "2f3f88d54db3f94741b745395dc720dcc1f06ef29643ef547caeb056bd85b704",
+        "results/archives/ptob-w12-sol-freshness-C1-cold90-20261002-06/review/physical-complete/metrics.json": "ab2358d7543244962995901f19be91ea716d61ef2cb1ad17804fd3b6cadd6286",
+        "results/archives/ptob-w12-sol-freshness-C1-cold90-20261002-06/review/physical-complete/pairs.json": "5dc73d2d12be4f306fc3c6b4273024a83e54debca02279a901a6ad7e4d290c57",
+        "results/archives/ptob-w12-sol-freshness-C1-cold90-20261002-06/review/physical-complete/INDEX.md": "da0d341e68b788e06bd2d4b79221e8d05825f3c193760813ea3257246fc482ad"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-w12-sol-newsource-reverse-passive730-20261002-06": {
+      "seal_sha256": "8b4d11653f0af0362f15d1b82586fca32e983595eb74a70f8201d2fbf83806fd",
+      "archive": "results/archives/ptob-w12-sol-newsource-reverse-passive730-20261002-06",
+      "full_inventory_source": "results/W12_SOL_RESUMED_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "244fab1cbb18a5cf421953e2f7ad1b4d1687e4324d7c338fe15fe844e7b89f4b",
+      "review_status": "FAILED",
+      "capture_status": "complete",
+      "review_files": {
+        "results/archives/ptob-w12-sol-newsource-reverse-passive730-20261002-06/review/metrics.json": "814b61f2bce24a113acc52f8cea1fff9868687140365b1a0a137b18c58041ecc",
+        "results/archives/ptob-w12-sol-newsource-reverse-passive730-20261002-06/review/INDEX.md": "0e81b8fa47ab9f3087c036828f19b0461923775e336020494995abc52a472751",
+        "results/archives/ptob-w12-sol-newsource-reverse-passive730-20261002-06/review/feedback.json": "7b049148e206555c0716501f7f6be6fe0dafd2cbfa341502bca00bfb03dc989f",
+        "results/archives/ptob-w12-sol-newsource-reverse-passive730-20261002-06/review/physical/metrics.json": "6687d6a96c9fd678c49e09f2a41099493ddc578d12885be874ce83136a50c292",
+        "results/archives/ptob-w12-sol-newsource-reverse-passive730-20261002-06/review/physical/pairs.json": "398f8c26ef1295a633b3110e8d283ec104b88517b4b0aaf38e93dbe27dc128ee",
+        "results/archives/ptob-w12-sol-newsource-reverse-passive730-20261002-06/review/physical/INDEX.md": "8a9f1762f32f9ab201ffda63755ddea6d9a387a544b23386f9bacf87b4e91c85",
+        "results/archives/ptob-w12-sol-newsource-reverse-passive730-20261002-06/review/tc-window/metrics.json": "0545a51c9cf7e8e1addbfdf2c610de8f0799eacbfa37c879f932109f951a0acb",
+        "results/archives/ptob-w12-sol-newsource-reverse-passive730-20261002-06/review/tc-window/INDEX.md": "96cf8a309a3b66c280dfcfb6bc42b08f3314cc9dc5660fbc859edae76055b96f"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-w12-sol-restart-preflight30-20261002-07": {
+      "seal_sha256": "76a68e0e3d8c436780e130a8da73998ee1c7985819b77f01792be03abbcc5186",
+      "archive": "results/archives/ptob-w12-sol-restart-preflight30-20261002-07",
+      "full_inventory_source": "results/W12_SOL_RESUMED_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "244fab1cbb18a5cf421953e2f7ad1b4d1687e4324d7c338fe15fe844e7b89f4b",
+      "review_status": "EXPLORATORY",
+      "capture_status": "complete",
+      "review_files": {
+        "results/archives/ptob-w12-sol-restart-preflight30-20261002-07/review/metrics.json": "0822308b02fefa7619968ec65a5fefba6ea68b2c3e8b36767897beb26e4cd950",
+        "results/archives/ptob-w12-sol-restart-preflight30-20261002-07/review/INDEX.md": "0cdbb013a0dba2b2c82b00cbfa647adde541a9127e8899af39bfd79ed0b1451c",
+        "results/archives/ptob-w12-sol-restart-preflight30-20261002-07/review/feedback.json": "373c7de1b4ed40ad7c50acae4486d958da56c00dc1069f836801badd075820f4",
+        "results/archives/ptob-w12-sol-restart-preflight30-20261002-07/review/physical/metrics.json": "300cd2b52ebf6888f2711873353d297228f117f3c56c26a0d7177f1c593908cc",
+        "results/archives/ptob-w12-sol-restart-preflight30-20261002-07/review/physical/pairs.json": "ba23f154a3983d12115db4af89019759c5110d098cb34d245704cc77d538b72c",
+        "results/archives/ptob-w12-sol-restart-preflight30-20261002-07/review/physical/INDEX.md": "cb72b6aec3915b68fe693e80dcb8d0d6192032208e300fe1a001ea621c1d1144"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-w12-sol-normal600-restart-20261002-07": {
+      "seal_sha256": "5c23166460c9698c343a52b2af0b76f392d8317f32638c419b4f48f0506d8664",
+      "archive": "results/archives/ptob-w12-sol-normal600-restart-20261002-07",
+      "full_inventory_source": "results/W12_SOL_RESUMED_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "244fab1cbb18a5cf421953e2f7ad1b4d1687e4324d7c338fe15fe844e7b89f4b",
+      "review_status": "FAILED",
+      "capture_status": "complete",
+      "review_files": {
+        "results/archives/ptob-w12-sol-normal600-restart-20261002-07/review/metrics.json": "78186b40f7d58136decdc9ad88247a334d6810eecf40ff1077d86fe6334d8c6f",
+        "results/archives/ptob-w12-sol-normal600-restart-20261002-07/review/INDEX.md": "508957a4964ae9f157324f220118732f5c0e2d445f0f1cb277d314393f5adc60",
+        "results/archives/ptob-w12-sol-normal600-restart-20261002-07/review/feedback.json": "ba63fbe628ac3f093c99deed9e0a223525a3e00a6980b6303e541a5d845a1569",
+        "results/archives/ptob-w12-sol-normal600-restart-20261002-07/review/physical/metrics.json": "7a6f8dfcbfb6084eb431e9cc492db69d3ce06ddfe91715b3a394c32d097f00d6",
+        "results/archives/ptob-w12-sol-normal600-restart-20261002-07/review/physical/pairs.json": "85d4075b248565651633f6bd7e1e5f1f821cc90855e588956bd114a5d8ddfdf0",
+        "results/archives/ptob-w12-sol-normal600-restart-20261002-07/review/physical/INDEX.md": "5d9f6c5a73348891b0e2a2d4914f3ca904b75656799156a603fa35d47c4b0f6c"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-w12-sol-service-reacquisition-C2-cold90-20261002-08": {
+      "seal_sha256": "4c69d23e822df9be8a13099fa7157af42288ba647a979cc3914d148e2957d0f8",
+      "archive": "results/archives/ptob-w12-sol-service-reacquisition-C2-cold90-20261002-08",
+      "full_inventory_source": "results/W12_SOL_RESUMED_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "244fab1cbb18a5cf421953e2f7ad1b4d1687e4324d7c338fe15fe844e7b89f4b",
+      "review_status": "FAILED",
+      "capture_status": "complete",
+      "review_files": {
+        "results/archives/ptob-w12-sol-service-reacquisition-C2-cold90-20261002-08/review/metrics.json": "42b2e4a93588a29eb00bd47af03f1534a852994ad9fd1f3132f1cf2bfda3edd1",
+        "results/archives/ptob-w12-sol-service-reacquisition-C2-cold90-20261002-08/review/INDEX.md": "0de59165d898f1720f1f158a3a12dd0cdabda6705a8ceee785f317a40590589c",
+        "results/archives/ptob-w12-sol-service-reacquisition-C2-cold90-20261002-08/review/feedback.json": "62dec7598a2ced0660564c902a000155f2b9587e8921c6ca6920753f773aadaf",
+        "results/archives/ptob-w12-sol-service-reacquisition-C2-cold90-20261002-08/review/physical/INDEX.md": "30192e5331be030c46a0c3a17d1e194cbbc227489e16f488974f46003ea9ef68"
+      },
+      "retain_all_populations": true
+    },
+    "ptob-w12-sol-service-reacquisition-C2-normal600-20261002-08": {
+      "seal_sha256": "79a5e34d93c616fd69666b4067141cefc73099c6434c4eb65601172a5e370599",
+      "archive": "results/archives/ptob-w12-sol-service-reacquisition-C2-normal600-20261002-08",
+      "full_inventory_source": "results/W12_SOL_RESUMED_PROVENANCE_20261002.json",
+      "full_inventory_source_sha256": "244fab1cbb18a5cf421953e2f7ad1b4d1687e4324d7c338fe15fe844e7b89f4b",
+      "review_status": "FAILED",
+      "capture_status": "complete",
+      "review_files": {
+        "results/archives/ptob-w12-sol-service-reacquisition-C2-normal600-20261002-08/review/metrics.json": "c613b89e0d062248cbe8eaaca540d3d003baf44ddd0cea835940129e94cb063b",
+        "results/archives/ptob-w12-sol-service-reacquisition-C2-normal600-20261002-08/review/INDEX.md": "f6304cb618955a6333c18637fa35cbf003399b9a1fb78b8d5bd6a0a18bbf1bed",
+        "results/archives/ptob-w12-sol-service-reacquisition-C2-normal600-20261002-08/review/feedback.json": "78b153d66ae73169593a751c9a53ce5546bd330de6db0834c47ead4909ef997c",
+        "results/archives/ptob-w12-sol-service-reacquisition-C2-normal600-20261002-08/review/physical/INDEX.md": "30192e5331be030c46a0c3a17d1e194cbbc227489e16f488974f46003ea9ef68"
+      },
+      "retain_all_populations": true
+    }
+  },
+  "curated_results": {
+    "ptob-tc01-tc03-edge10516-prospective600-20261002-14": {
+      "pps_total": 600,
+      "matched": 600,
+      "unmatched": 0,
+      "coverage": 1.0,
+      "all_matched_clock": {
+        "n": 600,
+        "signed_bias_ns": -11.136666666666667,
+        "mae_ns": 57.263333333333335,
+        "rms_ns": 70.19700848326801,
+        "population_sd_ns": 69.30796963954113,
+        "abs_p95_ns": 132,
+        "abs_p99_ns": 158,
+        "max_abs_ns": 192,
+        "min_signed_ns": -192,
+        "max_signed_ns": 173
+      },
+      "raw_parallel_BLE_clock": {
+        "n": 600,
+        "signed_bias_ns": -10527.136666666667,
+        "mae_ns": 10527.136666666667,
+        "rms_ns": 10527.364817148371,
+        "population_sd_ns": 69.30796963954113,
+        "abs_p95_ns": 10637,
+        "abs_p99_ns": 10673,
+        "max_abs_ns": 10708,
+        "min_signed_ns": -10708,
+        "max_signed_ns": -10343
+      },
+      "frozen_internal_compare_to_adjacent_pps": {
+        "n": 599,
+        "signed_bias_ns": 104.84641068447412,
+        "mae_ns": 109.70784641068447,
+        "rms_ns": 127.6992305738315,
+        "population_sd_ns": 72.89940778724592,
+        "abs_p95_ns": 234,
+        "abs_p99_ns": 250,
+        "max_abs_ns": 313,
+        "min_signed_ns": -78,
+        "max_signed_ns": 313
+      },
+      "compare_raw_count": 600,
+      "compare_invalid_joins": 0,
+      "clock_groups": {
+        "1/4135130224/7548485/4135130224/0/1/37": {
+          "n": 228,
+          "signed_bias_ns": -4.1798245614035086,
+          "mae_ns": 54.6359649122807,
+          "rms_ns": 67.71946129877652,
+          "population_sd_ns": 67.59034328387732,
+          "abs_p95_ns": 133,
+          "abs_p99_ns": 156,
+          "max_abs_ns": 180,
+          "min_signed_ns": -180,
+          "max_signed_ns": 156
+        },
+        "1/4135130224/7548485/4135130224/0/1/38": {
+          "n": 159,
+          "signed_bias_ns": -2.79874213836478,
+          "mae_ns": 56.34591194968554,
+          "rms_ns": 69.29415015196462,
+          "population_sd_ns": 69.23760746679481,
+          "abs_p95_ns": 131,
+          "abs_p99_ns": 173,
+          "max_abs_ns": 184,
+          "min_signed_ns": -184,
+          "max_signed_ns": 173
+        },
+        "1/4135130224/7548485/4135130224/0/1/39": {
+          "n": 213,
+          "signed_bias_ns": -24.8075117370892,
+          "mae_ns": 60.76056338028169,
+          "rms_ns": 73.39883971400026,
+          "population_sd_ns": 69.07949791925014,
+          "abs_p95_ns": 135,
+          "abs_p99_ns": 157,
+          "max_abs_ns": 192,
+          "min_signed_ns": -192,
+          "max_signed_ns": 144
+        }
+      },
+      "last_status": {
+        "tick": 22289175776,
+        "bench_epoch": 1,
+        "enabled": 0,
+        "remaining_ms": 0,
+        "armed": 0,
+        "records": 600,
+        "pps_rows": 600,
+        "pps_matches": 600,
+        "compare_joins": 599,
+        "missed": 0,
+        "pending_drops": 0,
+        "work_max_ticks": 96162,
+        "log_drops": 699,
+        "duration_s": 1200,
+        "phase_ns": 250000000,
+        "ack": 1
+      },
+      "authority_and_coverage": {
+        "gate_result": "PASS",
+        "violations": [],
+        "bench_ON_ACK_s": 100.56623708299999,
+        "bench_OFF_ACK_s": 700.259203833,
+        "bench_ACK_duration_s": 599.69296675,
+        "unit_summary": {
+          "TC-01": {
+            "E1_rows": 540,
+            "actual_serving_rows": 540,
+            "roots": [
+              "4135130224"
+            ],
+            "source_epochs": [
+              "2"
+            ],
+            "control_sessions": 17,
+            "quality_classes": [
+              "5"
+            ],
+            "radio_off_rows": 0,
+            "last_status": null
+          },
+          "TC-03": {
+            "E1_rows": 119,
+            "actual_serving_rows": 0,
+            "roots": [
+              "4135130224"
+            ],
+            "source_epochs": [
+              "2"
+            ],
+            "control_sessions": 18,
+            "quality_classes": [
+              "4"
+            ],
+            "radio_off_rows": 0,
+            "last_status": {
+              "tick": "22289175776",
+              "bench_epoch": "1",
+              "enabled": "0",
+              "remaining_ms": "0",
+              "armed": "0",
+              "records": "600",
+              "pps_rows": "600",
+              "pps_matches": "600",
+              "compare_joins": "599",
+              "missed": "0",
+              "pending_drops": "0",
+              "work_max_ticks": "96162",
+              "log_drops": "699",
+              "duration_s": "1200",
+              "phase_ns": "250000000",
+              "instrument": "INTERNAL_COMPARE",
+              "GPIO": "UNCONNECTED",
+              "calibration": "EXPLICIT_EDGE_OR_ZERO",
+              "reference": "GNSS_SHADOW",
+              "GNSS_training": "NONE",
+              "PTS": "OFF",
+              "WiFi": "OFF",
+              "ack": "1",
+              "_host_s": 730.213831458
+            },
+            "first_enabled_status": {
+              "tick": "12214774405",
+              "bench_epoch": "1",
+              "enabled": "1",
+              "remaining_ms": "1200000",
+              "armed": "0",
+              "records": "0",
+              "pps_rows": "0",
+              "pps_matches": "0",
+              "compare_joins": "0",
+              "missed": "0",
+              "pending_drops": "0",
+              "work_max_ticks": "0",
+              "log_drops": "669",
+              "duration_s": "1200",
+              "phase_ns": "250000000",
+              "instrument": "INTERNAL_COMPARE",
+              "GPIO": "UNCONNECTED",
+              "calibration": "EXPLICIT_EDGE_OR_ZERO",
+              "reference": "GNSS_SHADOW",
+              "GNSS_training": "NONE",
+              "PTS": "OFF",
+              "WiFi": "OFF",
+              "ack": "1",
+              "_host_s": 100.56621987499999
+            },
+            "first_OFF_status": {
+              "tick": "21809698364",
+              "bench_epoch": "1",
+              "enabled": "0",
+              "remaining_ms": "0",
+              "armed": "0",
+              "records": "600",
+              "pps_rows": "600",
+              "pps_matches": "600",
+              "compare_joins": "599",
+              "missed": "0",
+              "pending_drops": "0",
+              "work_max_ticks": "96162",
+              "log_drops": "669",
+              "duration_s": "1200",
+              "phase_ns": "250000000",
+              "instrument": "INTERNAL_COMPARE",
+              "GPIO": "UNCONNECTED",
+              "calibration": "EXPLICIT_EDGE_OR_ZERO",
+              "reference": "GNSS_SHADOW",
+              "GNSS_training": "NONE",
+              "PTS": "OFF",
+              "WiFi": "OFF",
+              "ack": "1",
+              "_host_s": 700.259175541
+            },
+            "bench_log_drop_increment": 0,
+            "post_bench_log_drop_increment": 30
+          }
+        },
+        "PPS_exported": 600,
+        "max_PPS_export_gap_s": 0.99999725,
+        "source_age_max_ms": 7244,
+        "source_age_p95_ms": 3000,
+        "correction_ns_counts": {
+          "10516": 600
+        },
+        "corrected_minus_parallel_raw_ns_counts": {
+          "10516": 600
+        },
+        "compare_capture_minus_plan_ticks": {
+          "1": 600
+        },
+        "physical_publication_records": 389,
+        "publication_available_minus_RF_max_ticks": 2657111,
+        "calibration_refit": false,
+        "limits": [
+          "Physical PPS shadow/shared local TIMER; external GPIO UNCONNECTED",
+          "No prospective fitting/centering/per-channel correction; raw shadowBLE only",
+          "600scheduledcomparecaptures/599adjacentPPSjoins, finaljoin end-censored",
+          "Source full-status rows can drop; actual source guard fresh and accepted physical UTC with freshauthenticatedauthority at eachPPS",
+          "All3channels retained; placement/RSSI/temperature notmeasured in thisarm",
+          "W12C1d77/C2faf3 unchanged duringONarm; fixedmixedreceiverfirmware",
+          "NoGNSSconfigurationwrites; historical25ns sourcePPS workingassumption, pair/path uncertainty unknown"
+        ]
+      }
+    },
+    "ptob-tc03-tc01-edge10516-prospective600-repeat-20261002-18": {
+      "pps_total": 599,
+      "matched": 598,
+      "unmatched": 1,
+      "coverage": 0.998330550918197,
+      "all_matched_clock": {
+        "n": 598,
+        "signed_bias_ns": 23.99163879598662,
+        "mae_ns": 60.376254180602004,
+        "rms_ns": 76.35948469581257,
+        "population_sd_ns": 72.49256631471218,
+        "abs_p95_ns": 153,
+        "abs_p99_ns": 219,
+        "max_abs_ns": 257,
+        "min_signed_ns": -176,
+        "max_signed_ns": 257
+      },
+      "raw_parallel_BLE_clock": {
+        "n": 598,
+        "signed_bias_ns": -10492.008361204013,
+        "mae_ns": 10492.008361204013,
+        "rms_ns": 10492.258795118705,
+        "population_sd_ns": 72.49256631471218,
+        "abs_p95_ns": 10609,
+        "abs_p99_ns": 10643,
+        "max_abs_ns": 10692,
+        "min_signed_ns": -10692,
+        "max_signed_ns": -10259
+      },
+      "frozen_internal_compare_to_adjacent_pps": {
+        "n": 598,
+        "signed_bias_ns": 69.57692307692308,
+        "mae_ns": 85.04180602006689,
+        "rms_ns": 102.23720696641861,
+        "population_sd_ns": 74.90993434413251,
+        "abs_p95_ns": 188,
+        "abs_p99_ns": 234,
+        "max_abs_ns": 250,
+        "min_signed_ns": -172,
+        "max_signed_ns": 250
+      },
+      "compare_raw_count": 600,
+      "compare_invalid_joins": 1,
+      "clock_groups": {
+        "2/2766948752/1516737/2766948752/0/1/38": {
+          "n": 178,
+          "signed_bias_ns": 22.54494382022472,
+          "mae_ns": 62.46629213483146,
+          "rms_ns": 78.41000710038959,
+          "population_sd_ns": 75.09896618213901,
+          "abs_p95_ns": 160,
+          "abs_p99_ns": 230,
+          "max_abs_ns": 244,
+          "min_signed_ns": -165,
+          "max_signed_ns": 244
+        },
+        "2/2766948752/1516737/2766948752/0/1/37": {
+          "n": 219,
+          "signed_bias_ns": 33.461187214611876,
+          "mae_ns": 62.666666666666664,
+          "rms_ns": 79.01782932729913,
+          "population_sd_ns": 71.58328227866384,
+          "abs_p95_ns": 155,
+          "abs_p99_ns": 219,
+          "max_abs_ns": 257,
+          "min_signed_ns": -162,
+          "max_signed_ns": 257
+        },
+        "2/2766948752/1516737/2766948752/0/1/39": {
+          "n": 201,
+          "signed_bias_ns": 14.955223880597014,
+          "mae_ns": 56.02985074626866,
+          "rms_ns": 71.4121246168223,
+          "population_sd_ns": 69.82859601173274,
+          "abs_p95_ns": 135,
+          "abs_p99_ns": 196,
+          "max_abs_ns": 241,
+          "min_signed_ns": -176,
+          "max_signed_ns": 241
+        }
+      },
+      "last_status": {
+        "tick": 79707710247,
+        "bench_epoch": 2,
+        "enabled": 0,
+        "remaining_ms": 0,
+        "armed": 0,
+        "records": 600,
+        "pps_rows": 599,
+        "pps_matches": 598,
+        "compare_joins": 598,
+        "missed": 0,
+        "pending_drops": 0,
+        "work_max_ticks": 95619,
+        "log_drops": 2219,
+        "duration_s": 1200,
+        "phase_ns": 250000000,
+        "ack": 1
+      },
+      "authority_and_coverage": {
+        "source_role_gate": "PASS",
+        "violations": [],
+        "bench_ON_ACK_s": 100.441204166,
+        "bench_OFF_ACK_s": 700.233106375,
+        "bench_ACK_duration_s": 599.791902209,
+        "restoration": "acknowledged",
+        "units": {
+          "TC-01": {
+            "E1_rows": 119,
+            "actual_serving_rows": 0,
+            "roots": [
+              "2766948752"
+            ],
+            "independent_epochs": [
+              "2"
+            ],
+            "control_sessions": 17,
+            "quality_classes": [
+              "5"
+            ],
+            "first_enabled_status": {
+              "tick": "69631186988",
+              "bench_epoch": "2",
+              "enabled": "1",
+              "remaining_ms": "1200000",
+              "armed": "0",
+              "records": "0",
+              "pps_rows": "0",
+              "pps_matches": "0",
+              "compare_joins": "0",
+              "missed": "0",
+              "pending_drops": "0",
+              "work_max_ticks": "0",
+              "log_drops": "2188",
+              "duration_s": "1200",
+              "phase_ns": "250000000",
+              "instrument": "INTERNAL_COMPARE",
+              "GPIO": "UNCONNECTED",
+              "calibration": "EXPLICIT_EDGE_OR_ZERO",
+              "reference": "GNSS_SHADOW",
+              "GNSS_training": "NONE",
+              "PTS": "OFF",
+              "WiFi": "OFF",
+              "ack": "1",
+              "_host_s": 100.441180333
+            },
+            "first_OFF_status": {
+              "tick": "79227702594",
+              "bench_epoch": "2",
+              "enabled": "0",
+              "remaining_ms": "0",
+              "armed": "0",
+              "records": "600",
+              "pps_rows": "599",
+              "pps_matches": "598",
+              "compare_joins": "598",
+              "missed": "0",
+              "pending_drops": "0",
+              "work_max_ticks": "95619",
+              "log_drops": "2188",
+              "duration_s": "1200",
+              "phase_ns": "250000000",
+              "instrument": "INTERNAL_COMPARE",
+              "GPIO": "UNCONNECTED",
+              "calibration": "EXPLICIT_EDGE_OR_ZERO",
+              "reference": "GNSS_SHADOW",
+              "GNSS_training": "NONE",
+              "PTS": "OFF",
+              "WiFi": "OFF",
+              "ack": "1",
+              "_host_s": 700.233078208
+            },
+            "bench_log_drop_increment": 0,
+            "post_bench_log_drop_increment": 31
+          },
+          "TC-03": {
+            "E1_rows": 540,
+            "actual_serving_rows": 540,
+            "roots": [],
+            "independent_epochs": [
+              "2"
+            ],
+            "control_sessions": 0,
+            "quality_classes": []
+          }
+        },
+        "PPS_exported": 599,
+        "source_age_max_ms": 7131,
+        "source_age_p95_ms": 3155,
+        "correction_ns_counts": {
+          "10516": 599
+        },
+        "corrected_minus_raw_ns_counts": {
+          "10516": 598
+        },
+        "compare_capture_minus_plan_ticks": {
+          "1": 600
+        },
+        "physical_publication_records": 389,
+        "publication_available_minus_RF_max_ticks": 2535934,
+        "calibration_refit": false,
+        "full_service_available": false,
+        "unscoreable_reason_counts": {
+          "FUTURE_PUBLICATION_UNQUERYABLE": 1
+        },
+        "TC02": "HUMAN_OFF_NO_FIELD_ACCESS_BASELINE_AND_POST_PEER_COUNTERS_SEPARATE"
+      }
+    },
+    "ptob-tc03-tc01-edge10516-review-final-20261002-16": {
+      "pps_total": 600,
+      "matched": 594,
+      "unmatched": 6,
+      "coverage": 0.99,
+      "all_matched_clock": {
+        "n": 594,
+        "signed_bias_ns": -66.39393939393939,
+        "mae_ns": 108.87542087542087,
+        "rms_ns": 420.2670988114991,
+        "population_sd_ns": 414.98949282504526,
+        "abs_p95_ns": 170,
+        "abs_p99_ns": 1726,
+        "max_abs_ns": 6011,
+        "min_signed_ns": -6011,
+        "max_signed_ns": 176
+      },
+      "raw_parallel_BLE_clock": {
+        "n": 594,
+        "signed_bias_ns": -10582.321548821548,
+        "mae_ns": 10582.321548821548,
+        "rms_ns": 10590.45589857824,
+        "population_sd_ns": 415.00214105199007,
+        "abs_p95_ns": 10679,
+        "abs_p99_ns": 12242,
+        "max_abs_ns": 16527,
+        "min_signed_ns": -16527,
+        "max_signed_ns": -10340
+      },
+      "frozen_internal_compare_to_adjacent_pps": {
+        "n": 598,
+        "signed_bias_ns": 174.58026755852842,
+        "mae_ns": 180.3829431438127,
+        "rms_ns": 531.7628331336641,
+        "population_sd_ns": 502.28820499941446,
+        "abs_p95_ns": 281,
+        "abs_p99_ns": 2156,
+        "max_abs_ns": 6891,
+        "min_signed_ns": -109,
+        "max_signed_ns": 6891
+      },
+      "compare_raw_count": 598,
+      "compare_invalid_joins": 0,
+      "clock_groups": {
+        "1/2766948752/16208049/2766948752/0/1/39": {
+          "n": 199,
+          "signed_bias_ns": -30.668341708542712,
+          "mae_ns": 67.58291457286433,
+          "rms_ns": 84.18569448415148,
+          "population_sd_ns": 78.40079063776687,
+          "abs_p95_ns": 163,
+          "abs_p99_ns": 213,
+          "max_abs_ns": 226,
+          "min_signed_ns": -226,
+          "max_signed_ns": 176
+        },
+        "1/2766948752/16208049/2766948752/0/1/38": {
+          "n": 162,
+          "signed_bias_ns": 1.4691358024691359,
+          "mae_ns": 59.49382716049383,
+          "rms_ns": 74.36081538147313,
+          "population_sd_ns": 74.34630121392344,
+          "abs_p95_ns": 148,
+          "abs_p99_ns": 171,
+          "max_abs_ns": 188,
+          "min_signed_ns": -188,
+          "max_signed_ns": 171
+        },
+        "1/2766948752/16208049/2766948752/0/1/37": {
+          "n": 193,
+          "signed_bias_ns": -18.875647668393782,
+          "mae_ns": 54.10880829015544,
+          "rms_ns": 66.85763236296472,
+          "population_sd_ns": 64.13776524232823,
+          "abs_p95_ns": 126,
+          "abs_p99_ns": 167,
+          "max_abs_ns": 173,
+          "min_signed_ns": -173,
+          "max_signed_ns": 167
+        },
+        "1/2766948752/10051436/2766948752/0/1/38": {
+          "n": 16,
+          "signed_bias_ns": -778.5,
+          "mae_ns": 831.125,
+          "rms_ns": 1715.0131559262163,
+          "population_sd_ns": 1528.13869625764,
+          "abs_p95_ns": 5422,
+          "abs_p99_ns": 5422,
+          "max_abs_ns": 5422,
+          "min_signed_ns": -5422,
+          "max_signed_ns": 167
+        },
+        "1/2766948752/10051436/2766948752/0/1/37": {
+          "n": 16,
+          "signed_bias_ns": -903.4375,
+          "mae_ns": 926.5625,
+          "rms_ns": 1806.9265860847806,
+          "population_sd_ns": 1564.8592176594514,
+          "abs_p95_ns": 6011,
+          "abs_p99_ns": 6011,
+          "max_abs_ns": 6011,
+          "min_signed_ns": -6011,
+          "max_signed_ns": 58
+        },
+        "1/2766948752/10051436/2766948752/0/1/39": {
+          "n": 8,
+          "signed_bias_ns": -377.375,
+          "mae_ns": 377.375,
+          "rms_ns": 552.9478953753238,
+          "population_sd_ns": 404.15279830158295,
+          "abs_p95_ns": 1336,
+          "abs_p99_ns": 1336,
+          "max_abs_ns": 1336,
+          "min_signed_ns": -1336,
+          "max_signed_ns": -49
+        }
+      },
+      "last_status": {
+        "tick": 47417939271,
+        "bench_epoch": 1,
+        "enabled": 0,
+        "remaining_ms": 0,
+        "armed": 0,
+        "records": 598,
+        "pps_rows": 600,
+        "pps_matches": 594,
+        "compare_joins": 598,
+        "missed": 0,
+        "pending_drops": 0,
+        "work_max_ticks": 96044,
+        "log_drops": 1494,
+        "duration_s": 1200,
+        "phase_ns": 250000000,
+        "ack": 1
+      },
+      "authority_and_coverage": {
+        "gate_result": "FAIL",
+        "violations": [
+          [
+            "TC-03",
+            "WRONG_ROLE",
+            {
+              "tick": "46448298511",
+              "policy": "GM_E1",
+              "state": "QUALIFIED_READY",
+              "boot_age_ms": "2903018",
+              "source_age_ms": "2890544",
+              "join_age_ms": "0",
+              "isolation_age_ms": "0",
+              "independent_epoch": "2",
+              "time_valid": "1",
+              "boot_quiet_complete": "1",
+              "source_stable": "1",
+              "mesh_stable": "0",
+              "isolated": "0",
+              "eligible": "1",
+              "control_tx_allowed": "1",
+              "source_tx_allowed": "0",
+              "relay_tx_allowed": "0",
+              "actual_serving": "0",
+              "qualified_claim": "0",
+              "ch37_RX_age_ms": "0",
+              "ch38_RX_age_ms": "48",
+              "ch39_RX_age_ms": "17",
+              "receive_gap_faults": "0",
+              "provenance": "FRESH_GNSS_ONLY",
+              "RTC_adapter": "ABSENT",
+              "mesh_independent": "0",
+              "observation": "SAMPLED_ACTUAL_RX",
+              "total_bound": "UNKNOWN",
+              "_host_s": 650.174581417
+            }
+          ],
+          [
+            "TC-03",
+            "INVALID_SOURCE_GATES",
+            {
+              "tick": "46448298511",
+              "policy": "GM_E1",
+              "state": "QUALIFIED_READY",
+              "boot_age_ms": "2903018",
+              "source_age_ms": "2890544",
+              "join_age_ms": "0",
+              "isolation_age_ms": "0",
+              "independent_epoch": "2",
+              "time_valid": "1",
+              "boot_quiet_complete": "1",
+              "source_stable": "1",
+              "mesh_stable": "0",
+              "isolated": "0",
+              "eligible": "1",
+              "control_tx_allowed": "1",
+              "source_tx_allowed": "0",
+              "relay_tx_allowed": "0",
+              "actual_serving": "0",
+              "qualified_claim": "0",
+              "ch37_RX_age_ms": "0",
+              "ch38_RX_age_ms": "48",
+              "ch39_RX_age_ms": "17",
+              "receive_gap_faults": "0",
+              "provenance": "FRESH_GNSS_ONLY",
+              "RTC_adapter": "ABSENT",
+              "mesh_independent": "0",
+              "observation": "SAMPLED_ACTUAL_RX",
+              "total_bound": "UNKNOWN",
+              "_host_s": 650.174581417
+            }
+          ],
+          [
+            "TC-03",
+            "WRONG_ROLE",
+            {
+              "tick": "46461723828",
+              "policy": "GM_E1",
+              "state": "QUALIFIED_READY",
+              "boot_age_ms": "2903857",
+              "source_age_ms": "2891383",
+              "join_age_ms": "0",
+              "isolation_age_ms": "0",
+              "independent_epoch": "2",
+              "time_valid": "1",
+              "boot_quiet_complete": "1",
+              "source_stable": "1",
+              "mesh_stable": "0",
+              "isolated": "0",
+              "eligible": "1",
+              "control_tx_allowed": "1",
+              "source_tx_allowed": "0",
+              "relay_tx_allowed": "0",
+              "actual_serving": "0",
+              "qualified_claim": "0",
+              "ch37_RX_age_ms": "8",
+              "ch38_RX_age_ms": "41",
+              "ch39_RX_age_ms": "10",
+              "receive_gap_faults": "0",
+              "provenance": "FRESH_GNSS_ONLY",
+              "RTC_adapter": "ABSENT",
+              "mesh_independent": "0",
+              "observation": "SAMPLED_ACTUAL_RX",
+              "total_bound": "UNKNOWN",
+              "_host_s": 651.021044292
+            }
+          ],
+          [
+            "TC-03",
+            "INVALID_SOURCE_GATES",
+            {
+              "tick": "46461723828",
+              "policy": "GM_E1",
+              "state": "QUALIFIED_READY",
+              "boot_age_ms": "2903857",
+              "source_age_ms": "2891383",
+              "join_age_ms": "0",
+              "isolation_age_ms": "0",
+              "independent_epoch": "2",
+              "time_valid": "1",
+              "boot_quiet_complete": "1",
+              "source_stable": "1",
+              "mesh_stable": "0",
+              "isolated": "0",
+              "eligible": "1",
+              "control_tx_allowed": "1",
+              "source_tx_allowed": "0",
+              "relay_tx_allowed": "0",
+              "actual_serving": "0",
+              "qualified_claim": "0",
+              "ch37_RX_age_ms": "8",
+              "ch38_RX_age_ms": "41",
+              "ch39_RX_age_ms": "10",
+              "receive_gap_faults": "0",
+              "provenance": "FRESH_GNSS_ONLY",
+              "RTC_adapter": "ABSENT",
+              "mesh_independent": "0",
+              "observation": "SAMPLED_ACTUAL_RX",
+              "total_bound": "UNKNOWN",
+              "_host_s": 651.021044292
+            }
+          ],
+          [
+            "TC-03",
+            "WRONG_ROLE",
+            {
+              "tick": "46477724483",
+              "policy": "GM_E1",
+              "state": "QUALIFIED_READY",
+              "boot_age_ms": "2904857",
+              "source_age_ms": "2892383",
+              "join_age_ms": "0",
+              "isolation_age_ms": "0",
+              "independent_epoch": "2",
+              "time_valid": "1",
+              "boot_quiet_complete": "1",
+              "source_stable": "1",
+              "mesh_stable": "0",
+              "isolated": "0",
+              "eligible": "1",
+              "control_tx_allowed": "1",
+              "source_tx_allowed": "0",
+              "relay_tx_allowed": "0",
+              "actual_serving": "0",
+              "qualified_claim": "0",
+              "ch37_RX_age_ms": "35",
+              "ch38_RX_age_ms": "8",
+              "ch39_RX_age_ms": "65",
+              "receive_gap_faults": "0",
+              "provenance": "FRESH_GNSS_ONLY",
+              "RTC_adapter": "ABSENT",
+              "mesh_independent": "0",
+              "observation": "SAMPLED_ACTUAL_RX",
+              "total_bound": "UNKNOWN",
+              "_host_s": 652.022210917
+            }
+          ],
+          [
+            "TC-03",
+            "INVALID_SOURCE_GATES",
+            {
+              "tick": "46477724483",
+              "policy": "GM_E1",
+              "state": "QUALIFIED_READY",
+              "boot_age_ms": "2904857",
+              "source_age_ms": "2892383",
+              "join_age_ms": "0",
+              "isolation_age_ms": "0",
+              "independent_epoch": "2",
+              "time_valid": "1",
+              "boot_quiet_complete": "1",
+              "source_stable": "1",
+              "mesh_stable": "0",
+              "isolated": "0",
+              "eligible": "1",
+              "control_tx_allowed": "1",
+              "source_tx_allowed": "0",
+              "relay_tx_allowed": "0",
+              "actual_serving": "0",
+              "qualified_claim": "0",
+              "ch37_RX_age_ms": "35",
+              "ch38_RX_age_ms": "8",
+              "ch39_RX_age_ms": "65",
+              "receive_gap_faults": "0",
+              "provenance": "FRESH_GNSS_ONLY",
+              "RTC_adapter": "ABSENT",
+              "mesh_independent": "0",
+              "observation": "SAMPLED_ACTUAL_RX",
+              "total_bound": "UNKNOWN",
+              "_host_s": 652.022210917
+            }
+          ],
+          [
+            "TC-03",
+            "WRONG_ROLE",
+            {
+              "tick": "46493725117",
+              "policy": "GM_E1",
+              "state": "QUALIFIED_READY",
+              "boot_age_ms": "2905857",
+              "source_age_ms": "2893383",
+              "join_age_ms": "0",
+              "isolation_age_ms": "0",
+              "independent_epoch": "2",
+              "time_valid": "1",
+              "boot_quiet_complete": "1",
+              "source_stable": "1",
+              "mesh_stable": "0",
+              "isolated": "0",
+              "eligible": "1",
+              "control_tx_allowed": "1",
+              "source_tx_allowed": "0",
+              "relay_tx_allowed": "0",
+              "actual_serving": "0",
+              "qualified_claim": "0",
+              "ch37_RX_age_ms": "0",
+              "ch38_RX_age_ms": "61",
+              "ch39_RX_age_ms": "30",
+              "receive_gap_faults": "0",
+              "provenance": "FRESH_GNSS_ONLY",
+              "RTC_adapter": "ABSENT",
+              "mesh_independent": "0",
+              "observation": "SAMPLED_ACTUAL_RX",
+              "total_bound": "UNKNOWN",
+              "_host_s": 653.021024375
+            }
+          ],
+          [
+            "TC-03",
+            "INVALID_SOURCE_GATES",
+            {
+              "tick": "46493725117",
+              "policy": "GM_E1",
+              "state": "QUALIFIED_READY",
+              "boot_age_ms": "2905857",
+              "source_age_ms": "2893383",
+              "join_age_ms": "0",
+              "isolation_age_ms": "0",
+              "independent_epoch": "2",
+              "time_valid": "1",
+              "boot_quiet_complete": "1",
+              "source_stable": "1",
+              "mesh_stable": "0",
+              "isolated": "0",
+              "eligible": "1",
+              "control_tx_allowed": "1",
+              "source_tx_allowed": "0",
+              "relay_tx_allowed": "0",
+              "actual_serving": "0",
+              "qualified_claim": "0",
+              "ch37_RX_age_ms": "0",
+              "ch38_RX_age_ms": "61",
+              "ch39_RX_age_ms": "30",
+              "receive_gap_faults": "0",
+              "provenance": "FRESH_GNSS_ONLY",
+              "RTC_adapter": "ABSENT",
+              "mesh_independent": "0",
+              "observation": "SAMPLED_ACTUAL_RX",
+              "total_bound": "UNKNOWN",
+              "_host_s": 653.021024375
+            }
+          ],
+          [
+            "TC-03",
+            "WRONG_ROLE",
+            {
+              "tick": "46509728099",
+              "policy": "GM_E1",
+              "state": "QUALIFIED_READY",
+              "boot_age_ms": "2906858",
+              "source_age_ms": "2894384",
+              "join_age_ms": "0",
+              "isolation_age_ms": "0",
+              "independent_epoch": "2",
+              "time_valid": "1",
+              "boot_quiet_complete": "1",
+              "source_stable": "1",
+              "mesh_stable": "0",
+              "isolated": "0",
+              "eligible": "1",
+              "control_tx_allowed": "1",
+              "source_tx_allowed": "0",
+              "relay_tx_allowed": "0",
+              "actual_serving": "0",
+              "qualified_claim": "0",
+              "ch37_RX_age_ms": "54",
+              "ch38_RX_age_ms": "23",
+              "ch39_RX_age_ms": "0",
+              "receive_gap_faults": "0",
+              "provenance": "FRESH_GNSS_ONLY",
+              "RTC_adapter": "ABSENT",
+              "mesh_independent": "0",
+              "observation": "SAMPLED_ACTUAL_RX",
+              "total_bound": "UNKNOWN",
+              "_host_s": 654.021117417
+            }
+          ],
+          [
+            "TC-03",
+            "INVALID_SOURCE_GATES",
+            {
+              "tick": "46509728099",
+              "policy": "GM_E1",
+              "state": "QUALIFIED_READY",
+              "boot_age_ms": "2906858",
+              "source_age_ms": "2894384",
+              "join_age_ms": "0",
+              "isolation_age_ms": "0",
+              "independent_epoch": "2",
+              "time_valid": "1",
+              "boot_quiet_complete": "1",
+              "source_stable": "1",
+              "mesh_stable": "0",
+              "isolated": "0",
+              "eligible": "1",
+              "control_tx_allowed": "1",
+              "source_tx_allowed": "0",
+              "relay_tx_allowed": "0",
+              "actual_serving": "0",
+              "qualified_claim": "0",
+              "ch37_RX_age_ms": "54",
+              "ch38_RX_age_ms": "23",
+              "ch39_RX_age_ms": "0",
+              "receive_gap_faults": "0",
+              "provenance": "FRESH_GNSS_ONLY",
+              "RTC_adapter": "ABSENT",
+              "mesh_independent": "0",
+              "observation": "SAMPLED_ACTUAL_RX",
+              "total_bound": "UNKNOWN",
+              "_host_s": 654.021117417
+            }
+          ],
+          [
+            "TC-03",
+            "WRONG_ROLE",
+            {
+              "tick": "46525730177",
+              "policy": "GM_E1",
+              "state": "QUALIFIED_READY",
+              "boot_age_ms": "2907858",
+              "source_age_ms": "2895384",
+              "join_age_ms": "0",
+              "isolation_age_ms": "0",
+              "independent_epoch": "2",
+              "time_valid": "1",
+              "boot_quiet_complete": "1",
+              "source_stable": "1",
+              "mesh_stable": "0",
+              "isolated": "0",
+              "eligible": "1",
+              "control_tx_allowed": "1",
+              "source_tx_allowed": "0",
+              "relay_tx_allowed": "0",
+              "actual_serving": "0",
+              "qualified_claim": "0",
+              "ch37_RX_age_ms": "27",
+              "ch38_RX_age_ms": "0",
+              "ch39_RX_age_ms": "58",
+              "receive_gap_faults": "0",
+              "provenance": "FRESH_GNSS_ONLY",
+              "RTC_adapter": "ABSENT",
+              "mesh_independent": "0",
+              "observation": "SAMPLED_ACTUAL_RX",
+              "total_bound": "UNKNOWN",
+              "_host_s": 655.02134325
+            }
+          ],
+          [
+            "TC-03",
+            "INVALID_SOURCE_GATES",
+            {
+              "tick": "46525730177",
+              "policy": "GM_E1",
+              "state": "QUALIFIED_READY",
+              "boot_age_ms": "2907858",
+              "source_age_ms": "2895384",
+              "join_age_ms": "0",
+              "isolation_age_ms": "0",
+              "independent_epoch": "2",
+              "time_valid": "1",
+              "boot_quiet_complete": "1",
+              "source_stable": "1",
+              "mesh_stable": "0",
+              "isolated": "0",
+              "eligible": "1",
+              "control_tx_allowed": "1",
+              "source_tx_allowed": "0",
+              "relay_tx_allowed": "0",
+              "actual_serving": "0",
+              "qualified_claim": "0",
+              "ch37_RX_age_ms": "27",
+              "ch38_RX_age_ms": "0",
+              "ch39_RX_age_ms": "58",
+              "receive_gap_faults": "0",
+              "provenance": "FRESH_GNSS_ONLY",
+              "RTC_adapter": "ABSENT",
+              "mesh_independent": "0",
+              "observation": "SAMPLED_ACTUAL_RX",
+              "total_bound": "UNKNOWN",
+              "_host_s": 655.02134325
+            }
+          ],
+          [
+            "TC-03",
+            "WRONG_ROLE",
+            {
+              "tick": "46541732281",
+              "policy": "GM_E1",
+              "state": "QUALIFIED_READY",
+              "boot_age_ms": "2908858",
+              "source_age_ms": "2896384",
+              "join_age_ms": "0",
+              "isolation_age_ms": "0",
+              "independent_epoch": "2",
+              "time_valid": "1",
+              "boot_quiet_complete": "1",
+              "source_stable": "1",
+              "mesh_stable": "0",
+              "isolated": "0",
+              "eligible": "1",
+              "control_tx_allowed": "1",
+              "source_tx_allowed": "0",
+              "relay_tx_allowed": "0",
+              "actual_serving": "0",
+              "qualified_claim": "0",
+              "ch37_RX_age_ms": "0",
+              "ch38_RX_age_ms": "63",
+              "ch39_RX_age_ms": "31",
+              "receive_gap_faults": "0",
+              "provenance": "FRESH_GNSS_ONLY",
+              "RTC_adapter": "ABSENT",
+              "mesh_independent": "0",
+              "observation": "SAMPLED_ACTUAL_RX",
+              "total_bound": "UNKNOWN",
+              "_host_s": 656.021456417
+            }
+          ],
+          [
+            "TC-03",
+            "INVALID_SOURCE_GATES",
+            {
+              "tick": "46541732281",
+              "policy": "GM_E1",
+              "state": "QUALIFIED_READY",
+              "boot_age_ms": "2908858",
+              "source_age_ms": "2896384",
+              "join_age_ms": "0",
+              "isolation_age_ms": "0",
+              "independent_epoch": "2",
+              "time_valid": "1",
+              "boot_quiet_complete": "1",
+              "source_stable": "1",
+              "mesh_stable": "0",
+              "isolated": "0",
+              "eligible": "1",
+              "control_tx_allowed": "1",
+              "source_tx_allowed": "0",
+              "relay_tx_allowed": "0",
+              "actual_serving": "0",
+              "qualified_claim": "0",
+              "ch37_RX_age_ms": "0",
+              "ch38_RX_age_ms": "63",
+              "ch39_RX_age_ms": "31",
+              "receive_gap_faults": "0",
+              "provenance": "FRESH_GNSS_ONLY",
+              "RTC_adapter": "ABSENT",
+              "mesh_independent": "0",
+              "observation": "SAMPLED_ACTUAL_RX",
+              "total_bound": "UNKNOWN",
+              "_host_s": 656.021456417
+            }
+          ],
+          [
+            "TC-03",
+            "WRONG_ROLE",
+            {
+              "tick": "46557732993",
+              "policy": "GM_E1",
+              "state": "QUALIFIED_READY",
+              "boot_age_ms": "2909858",
+              "source_age_ms": "2897384",
+              "join_age_ms": "0",
+              "isolation_age_ms": "0",
+              "independent_epoch": "2",
+              "time_valid": "1",
+              "boot_quiet_complete": "1",
+              "source_stable": "1",
+              "mesh_stable": "0",
+              "isolated": "0",
+              "eligible": "1",
+              "control_tx_allowed": "1",
+              "source_tx_allowed": "0",
+              "relay_tx_allowed": "0",
+              "actual_serving": "0",
+              "qualified_claim": "0",
+              "ch37_RX_age_ms": "62",
+              "ch38_RX_age_ms": "31",
+              "ch39_RX_age_ms": "0",
+              "receive_gap_faults": "0",
+              "provenance": "FRESH_GNSS_ONLY",
+              "RTC_adapter": "ABSENT",
+              "mesh_independent": "0",
+              "observation": "SAMPLED_ACTUAL_RX",
+              "total_bound": "UNKNOWN",
+              "_host_s": 657.021486375
+            }
+          ],
+          [
+            "TC-03",
+            "INVALID_SOURCE_GATES",
+            {
+              "tick": "46557732993",
+              "policy": "GM_E1",
+              "state": "QUALIFIED_READY",
+              "boot_age_ms": "2909858",
+              "source_age_ms": "2897384",
+              "join_age_ms": "0",
+              "isolation_age_ms": "0",
+              "independent_epoch": "2",
+              "time_valid": "1",
+              "boot_quiet_complete": "1",
+              "source_stable": "1",
+              "mesh_stable": "0",
+              "isolated": "0",
+              "eligible": "1",
+              "control_tx_allowed": "1",
+              "source_tx_allowed": "0",
+              "relay_tx_allowed": "0",
+              "actual_serving": "0",
+              "qualified_claim": "0",
+              "ch37_RX_age_ms": "62",
+              "ch38_RX_age_ms": "31",
+              "ch39_RX_age_ms": "0",
+              "receive_gap_faults": "0",
+              "provenance": "FRESH_GNSS_ONLY",
+              "RTC_adapter": "ABSENT",
+              "mesh_independent": "0",
+              "observation": "SAMPLED_ACTUAL_RX",
+              "total_bound": "UNKNOWN",
+              "_host_s": 657.021486375
+            }
+          ],
+          [
+            "TC-03",
+            "WRONG_ROLE",
+            {
+              "tick": "46564415995",
+              "policy": "GM_E1",
+              "state": "QUALIFIED_READY",
+              "boot_age_ms": "2910275",
+              "source_age_ms": "2897801",
+              "join_age_ms": "0",
+              "isolation_age_ms": "0",
+              "independent_epoch": "2",
+              "time_valid": "1",
+              "boot_quiet_complete": "1",
+              "source_stable": "1",
+              "mesh_stable": "0",
+              "isolated": "0",
+              "eligible": "1",
+              "control_tx_allowed": "1",
+              "source_tx_allowed": "1",
+              "relay_tx_allowed": "0",
+              "actual_serving": "0",
+              "qualified_claim": "0",
+              "ch37_RX_age_ms": "10",
+              "ch38_RX_age_ms": "0",
+              "ch39_RX_age_ms": "41",
+              "receive_gap_faults": "0",
+              "provenance": "FRESH_GNSS_ONLY",
+              "RTC_adapter": "ABSENT",
+              "mesh_independent": "0",
+              "observation": "SAMPLED_ACTUAL_RX",
+              "total_bound": "UNKNOWN",
+              "_host_s": 657.444261542
+            }
+          ],
+          [
+            "TC-03",
+            "INVALID_SOURCE_GATES",
+            {
+              "tick": "46564415995",
+              "policy": "GM_E1",
+              "state": "QUALIFIED_READY",
+              "boot_age_ms": "2910275",
+              "source_age_ms": "2897801",
+              "join_age_ms": "0",
+              "isolation_age_ms": "0",
+              "independent_epoch": "2",
+              "time_valid": "1",
+              "boot_quiet_complete": "1",
+              "source_stable": "1",
+              "mesh_stable": "0",
+              "isolated": "0",
+              "eligible": "1",
+              "control_tx_allowed": "1",
+              "source_tx_allowed": "1",
+              "relay_tx_allowed": "0",
+              "actual_serving": "0",
+              "qualified_claim": "0",
+              "ch37_RX_age_ms": "10",
+              "ch38_RX_age_ms": "0",
+              "ch39_RX_age_ms": "41",
+              "receive_gap_faults": "0",
+              "provenance": "FRESH_GNSS_ONLY",
+              "RTC_adapter": "ABSENT",
+              "mesh_independent": "0",
+              "observation": "SAMPLED_ACTUAL_RX",
+              "total_bound": "UNKNOWN",
+              "_host_s": 657.444261542
+            }
+          ],
+          [
+            "TC-03",
+            "WRONG_ROLE",
+            {
+              "tick": "47195071562",
+              "policy": "GM_E1",
+              "state": "QUALIFIED_READY",
+              "boot_age_ms": "2949691",
+              "source_age_ms": "2937217",
+              "join_age_ms": "0",
+              "isolation_age_ms": "0",
+              "independent_epoch": "2",
+              "time_valid": "1",
+              "boot_quiet_complete": "1",
+              "source_stable": "1",
+              "mesh_stable": "0",
+              "isolated": "0",
+              "eligible": "1",
+              "control_tx_allowed": "1",
+              "source_tx_allowed": "0",
+              "relay_tx_allowed": "0",
+              "actual_serving": "0",
+              "qualified_claim": "0",
+              "ch37_RX_age_ms": "48",
+              "ch38_RX_age_ms": "17",
+              "ch39_RX_age_ms": "3",
+              "receive_gap_faults": "0",
+              "provenance": "FRESH_GNSS_ONLY",
+              "RTC_adapter": "ABSENT",
+              "mesh_independent": "0",
+              "observation": "SAMPLED_ACTUAL_RX",
+              "total_bound": "UNKNOWN",
+              "_host_s": 696.847511
+            }
+          ],
+          [
+            "TC-03",
+            "INVALID_SOURCE_GATES",
+            {
+              "tick": "47195071562",
+              "policy": "GM_E1",
+              "state": "QUALIFIED_READY",
+              "boot_age_ms": "2949691",
+              "source_age_ms": "2937217",
+              "join_age_ms": "0",
+              "isolation_age_ms": "0",
+              "independent_epoch": "2",
+              "time_valid": "1",
+              "boot_quiet_complete": "1",
+              "source_stable": "1",
+              "mesh_stable": "0",
+              "isolated": "0",
+              "eligible": "1",
+              "control_tx_allowed": "1",
+              "source_tx_allowed": "0",
+              "relay_tx_allowed": "0",
+              "actual_serving": "0",
+              "qualified_claim": "0",
+              "ch37_RX_age_ms": "48",
+              "ch38_RX_age_ms": "17",
+              "ch39_RX_age_ms": "3",
+              "receive_gap_faults": "0",
+              "provenance": "FRESH_GNSS_ONLY",
+              "RTC_adapter": "ABSENT",
+              "mesh_independent": "0",
+              "observation": "SAMPLED_ACTUAL_RX",
+              "total_bound": "UNKNOWN",
+              "_host_s": 696.847511
+            }
+          ],
+          [
+            "TC-03",
+            "WRONG_ROLE",
+            {
+              "tick": "47203789138",
+              "policy": "GM_E1",
+              "state": "QUALIFIED_READY",
+              "boot_age_ms": "2950236",
+              "source_age_ms": "2937762",
+              "join_age_ms": "0",
+              "isolation_age_ms": "0",
+              "independent_epoch": "2",
+              "time_valid": "1",
+              "boot_quiet_complete": "1",
+              "source_stable": "1",
+              "mesh_stable": "0",
+              "isolated": "0",
+              "eligible": "1",
+              "control_tx_allowed": "1",
+              "source_tx_allowed": "0",
+              "relay_tx_allowed": "0",
+              "actual_serving": "0",
+              "qualified_claim": "0",
+              "ch37_RX_age_ms": "31",
+              "ch38_RX_age_ms": "8",
+              "ch39_RX_age_ms": "63",
+              "receive_gap_faults": "0",
+              "provenance": "FRESH_GNSS_ONLY",
+              "RTC_adapter": "ABSENT",
+              "mesh_independent": "0",
+              "observation": "SAMPLED_ACTUAL_RX",
+              "total_bound": "UNKNOWN",
+              "_host_s": 697.399999584
+            }
+          ],
+          [
+            "TC-03",
+            "INVALID_SOURCE_GATES",
+            {
+              "tick": "47203789138",
+              "policy": "GM_E1",
+              "state": "QUALIFIED_READY",
+              "boot_age_ms": "2950236",
+              "source_age_ms": "2937762",
+              "join_age_ms": "0",
+              "isolation_age_ms": "0",
+              "independent_epoch": "2",
+              "time_valid": "1",
+              "boot_quiet_complete": "1",
+              "source_stable": "1",
+              "mesh_stable": "0",
+              "isolated": "0",
+              "eligible": "1",
+              "control_tx_allowed": "1",
+              "source_tx_allowed": "0",
+              "relay_tx_allowed": "0",
+              "actual_serving": "0",
+              "qualified_claim": "0",
+              "ch37_RX_age_ms": "31",
+              "ch38_RX_age_ms": "8",
+              "ch39_RX_age_ms": "63",
+              "receive_gap_faults": "0",
+              "provenance": "FRESH_GNSS_ONLY",
+              "RTC_adapter": "ABSENT",
+              "mesh_independent": "0",
+              "observation": "SAMPLED_ACTUAL_RX",
+              "total_bound": "UNKNOWN",
+              "_host_s": 697.399999584
+            }
+          ],
+          [
+            "TC-03",
+            "WRONG_ROLE",
+            {
+              "tick": "47219777360",
+              "policy": "GM_E1",
+              "state": "FOLLOWER_STABILIZING",
+              "boot_age_ms": "2951236",
+              "source_age_ms": "2938762",
+              "join_age_ms": "912",
+              "isolation_age_ms": "0",
+              "independent_epoch": "2",
+              "time_valid": "1",
+              "boot_quiet_complete": "1",
+              "source_stable": "1",
+              "mesh_stable": "0",
+              "isolated": "0",
+              "eligible": "1",
+              "control_tx_allowed": "1",
+              "source_tx_allowed": "0",
+              "relay_tx_allowed": "0",
+              "actual_serving": "0",
+              "qualified_claim": "0",
+              "ch37_RX_age_ms": "0",
+              "ch38_RX_age_ms": "56",
+              "ch39_RX_age_ms": "25",
+              "receive_gap_faults": "0",
+              "provenance": "FRESH_GNSS_ONLY",
+              "RTC_adapter": "ABSENT",
+              "mesh_independent": "0",
+              "observation": "SAMPLED_ACTUAL_RX",
+              "total_bound": "UNKNOWN",
+              "_host_s": 698.4026713750001
+            }
+          ],
+          [
+            "TC-03",
+            "INVALID_SOURCE_GATES",
+            {
+              "tick": "47219777360",
+              "policy": "GM_E1",
+              "state": "FOLLOWER_STABILIZING",
+              "boot_age_ms": "2951236",
+              "source_age_ms": "2938762",
+              "join_age_ms": "912",
+              "isolation_age_ms": "0",
+              "independent_epoch": "2",
+              "time_valid": "1",
+              "boot_quiet_complete": "1",
+              "source_stable": "1",
+              "mesh_stable": "0",
+              "isolated": "0",
+              "eligible": "1",
+              "control_tx_allowed": "1",
+              "source_tx_allowed": "0",
+              "relay_tx_allowed": "0",
+              "actual_serving": "0",
+              "qualified_claim": "0",
+              "ch37_RX_age_ms": "0",
+              "ch38_RX_age_ms": "56",
+              "ch39_RX_age_ms": "25",
+              "receive_gap_faults": "0",
+              "provenance": "FRESH_GNSS_ONLY",
+              "RTC_adapter": "ABSENT",
+              "mesh_independent": "0",
+              "observation": "SAMPLED_ACTUAL_RX",
+              "total_bound": "UNKNOWN",
+              "_host_s": 698.4026713750001
+            }
+          ],
+          [
+            "TC-03",
+            "WRONG_ROLE",
+            {
+              "tick": "47235784438",
+              "policy": "GM_E1",
+              "state": "FOLLOWER_STABILIZING",
+              "boot_age_ms": "2952236",
+              "source_age_ms": "2939762",
+              "join_age_ms": "1912",
+              "isolation_age_ms": "0",
+              "independent_epoch": "2",
+              "time_valid": "1",
+              "boot_quiet_complete": "1",
+              "source_stable": "1",
+              "mesh_stable": "0",
+              "isolated": "0",
+              "eligible": "1",
+              "control_tx_allowed": "1",
+              "source_tx_allowed": "0",
+              "relay_tx_allowed": "0",
+              "actual_serving": "0",
+              "qualified_claim": "0",
+              "ch37_RX_age_ms": "61",
+              "ch38_RX_age_ms": "31",
+              "ch39_RX_age_ms": "0",
+              "receive_gap_faults": "0",
+              "provenance": "FRESH_GNSS_ONLY",
+              "RTC_adapter": "ABSENT",
+              "mesh_independent": "0",
+              "observation": "SAMPLED_ACTUAL_RX",
+              "total_bound": "UNKNOWN",
+              "_host_s": 699.4031898750001
+            }
+          ],
+          [
+            "TC-03",
+            "INVALID_SOURCE_GATES",
+            {
+              "tick": "47235784438",
+              "policy": "GM_E1",
+              "state": "FOLLOWER_STABILIZING",
+              "boot_age_ms": "2952236",
+              "source_age_ms": "2939762",
+              "join_age_ms": "1912",
+              "isolation_age_ms": "0",
+              "independent_epoch": "2",
+              "time_valid": "1",
+              "boot_quiet_complete": "1",
+              "source_stable": "1",
+              "mesh_stable": "0",
+              "isolated": "0",
+              "eligible": "1",
+              "control_tx_allowed": "1",
+              "source_tx_allowed": "0",
+              "relay_tx_allowed": "0",
+              "actual_serving": "0",
+              "qualified_claim": "0",
+              "ch37_RX_age_ms": "61",
+              "ch38_RX_age_ms": "31",
+              "ch39_RX_age_ms": "0",
+              "receive_gap_faults": "0",
+              "provenance": "FRESH_GNSS_ONLY",
+              "RTC_adapter": "ABSENT",
+              "mesh_independent": "0",
+              "observation": "SAMPLED_ACTUAL_RX",
+              "total_bound": "UNKNOWN",
+              "_host_s": 699.4031898750001
+            }
+          ],
+          [
+            "TC-03",
+            "WRONG_ROLE",
+            {
+              "tick": "47251789686",
+              "policy": "GM_E1",
+              "state": "FOLLOWER_STABILIZING",
+              "boot_age_ms": "2953236",
+              "source_age_ms": "2940762",
+              "join_age_ms": "2912",
+              "isolation_age_ms": "0",
+              "independent_epoch": "2",
+              "time_valid": "1",
+              "boot_quiet_complete": "1",
+              "source_stable": "1",
+              "mesh_stable": "0",
+              "isolated": "0",
+              "eligible": "1",
+              "control_tx_allowed": "1",
+              "source_tx_allowed": "0",
+              "relay_tx_allowed": "0",
+              "actual_serving": "0",
+              "qualified_claim": "0",
+              "ch37_RX_age_ms": "28",
+              "ch38_RX_age_ms": "0",
+              "ch39_RX_age_ms": "60",
+              "receive_gap_faults": "0",
+              "provenance": "FRESH_GNSS_ONLY",
+              "RTC_adapter": "ABSENT",
+              "mesh_independent": "0",
+              "observation": "SAMPLED_ACTUAL_RX",
+              "total_bound": "UNKNOWN",
+              "_host_s": 700.403385917
+            }
+          ],
+          [
+            "TC-03",
+            "INVALID_SOURCE_GATES",
+            {
+              "tick": "47251789686",
+              "policy": "GM_E1",
+              "state": "FOLLOWER_STABILIZING",
+              "boot_age_ms": "2953236",
+              "source_age_ms": "2940762",
+              "join_age_ms": "2912",
+              "isolation_age_ms": "0",
+              "independent_epoch": "2",
+              "time_valid": "1",
+              "boot_quiet_complete": "1",
+              "source_stable": "1",
+              "mesh_stable": "0",
+              "isolated": "0",
+              "eligible": "1",
+              "control_tx_allowed": "1",
+              "source_tx_allowed": "0",
+              "relay_tx_allowed": "0",
+              "actual_serving": "0",
+              "qualified_claim": "0",
+              "ch37_RX_age_ms": "28",
+              "ch38_RX_age_ms": "0",
+              "ch39_RX_age_ms": "60",
+              "receive_gap_faults": "0",
+              "provenance": "FRESH_GNSS_ONLY",
+              "RTC_adapter": "ABSENT",
+              "mesh_independent": "0",
+              "observation": "SAMPLED_ACTUAL_RX",
+              "total_bound": "UNKNOWN",
+              "_host_s": 700.403385917
+            }
+          ]
+        ],
+        "bench_ON_ACK_s": 100.229430459,
+        "bench_OFF_ACK_s": 700.411156792,
+        "bench_ACK_duration_s": 600.181726333,
+        "unit_summary": {
+          "TC-01": {
+            "E1_rows": 120,
+            "actual_serving_rows": 0,
+            "roots": [
+              "2766948752",
+              "2905517393"
+            ],
+            "source_epochs": [
+              "2"
+            ],
+            "control_sessions": 18,
+            "quality_classes": [
+              "5"
+            ],
+            "radio_off_rows": 0,
+            "last_status": {
+              "tick": "47417939271",
+              "bench_epoch": "1",
+              "enabled": "0",
+              "remaining_ms": "0",
+              "armed": "0",
+              "records": "598",
+              "pps_rows": "600",
+              "pps_matches": "594",
+              "compare_joins": "598",
+              "missed": "0",
+              "pending_drops": "0",
+              "work_max_ticks": "96044",
+              "log_drops": "1494",
+              "duration_s": "1200",
+              "phase_ns": "250000000",
+              "instrument": "INTERNAL_COMPARE",
+              "GPIO": "UNCONNECTED",
+              "calibration": "EXPLICIT_EDGE_OR_ZERO",
+              "reference": "GNSS_SHADOW",
+              "GNSS_training": "NONE",
+              "PTS": "OFF",
+              "WiFi": "OFF",
+              "ack": "1",
+              "_host_s": 730.2819638340001
+            },
+            "first_enabled_status": {
+              "tick": "37337061126",
+              "bench_epoch": "1",
+              "enabled": "1",
+              "remaining_ms": "1200000",
+              "armed": "0",
+              "records": "0",
+              "pps_rows": "0",
+              "pps_matches": "0",
+              "compare_joins": "0",
+              "missed": "0",
+              "pending_drops": "0",
+              "work_max_ticks": "0",
+              "log_drops": "1464",
+              "duration_s": "1200",
+              "phase_ns": "250000000",
+              "instrument": "INTERNAL_COMPARE",
+              "GPIO": "UNCONNECTED",
+              "calibration": "EXPLICIT_EDGE_OR_ZERO",
+              "reference": "GNSS_SHADOW",
+              "GNSS_training": "NONE",
+              "PTS": "OFF",
+              "WiFi": "OFF",
+              "ack": "1",
+              "_host_s": 100.229415667
+            },
+            "first_OFF_status": {
+              "tick": "46939823529",
+              "bench_epoch": "1",
+              "enabled": "0",
+              "remaining_ms": "0",
+              "armed": "0",
+              "records": "598",
+              "pps_rows": "600",
+              "pps_matches": "594",
+              "compare_joins": "598",
+              "missed": "0",
+              "pending_drops": "0",
+              "work_max_ticks": "96044",
+              "log_drops": "1464",
+              "duration_s": "1200",
+              "phase_ns": "250000000",
+              "instrument": "INTERNAL_COMPARE",
+              "GPIO": "UNCONNECTED",
+              "calibration": "EXPLICIT_EDGE_OR_ZERO",
+              "reference": "GNSS_SHADOW",
+              "GNSS_training": "NONE",
+              "PTS": "OFF",
+              "WiFi": "OFF",
+              "ack": "1",
+              "_host_s": 700.411142834
+            },
+            "bench_log_drop_increment": 0,
+            "post_bench_log_drop_increment": 30
+          },
+          "TC-03": {
+            "E1_rows": 544,
+            "actual_serving_rows": 530,
+            "roots": [
+              "2766948752",
+              "2905517393"
+            ],
+            "source_epochs": [
+              "2"
+            ],
+            "control_sessions": 2,
+            "quality_classes": [
+              "4"
+            ],
+            "radio_off_rows": 0,
+            "last_status": null
+          }
+        },
+        "PPS_exported": 600,
+        "max_PPS_export_gap_s": 0.99999525,
+        "source_age_max_ms": 9417,
+        "source_age_p95_ms": 3282,
+        "correction_ns_counts": {
+          "10516": 600
+        },
+        "corrected_minus_parallel_raw_ns_counts": {
+          "10512": 1,
+          "10515": 11,
+          "10513": 4,
+          "10511": 2,
+          "10514": 3,
+          "10516": 573
+        },
+        "compare_capture_minus_plan_ticks": {
+          "1": 598
+        },
+        "physical_publication_records": 361,
+        "publication_available_minus_RF_max_ticks": 2521379,
+        "calibration_refit": false,
+        "limits": [
+          "Physical PPS shadow/shared local TIMER; external GPIO UNCONNECTED",
+          "No prospective fitting/centering/per-channel correction; raw shadowBLE only",
+          "Unscoreable PPS rows retained; latest publication may be available after the physical PPS but before processing; no retrospective future-value query",
+          "All3channels retained; placement/RSSI/temperature notmeasured in thisarm",
+          "BothW12faf3 unchanged duringONarm; exactreadbacksreportedbyexclusiveW12owner",
+          "NoGNSSconfigurationwrites; historical25ns sourcePPS workingassumption, pair/path uncertainty unknown",
+          "600PPS fullyexported;594scoreable;598scheduledcompareevents and598adjacentPPSjoins, two unavailable scheduling opportunities retained",
+          "SourceTC03 withdrew14/544observedE1rows under latefieldTC02authority; sourceUTCsessions16208049 and10051436 are separated; no steady-only precision pass",
+          "MAC/root/auth availability and capture causality gaps are distinct from GPIOaccuracy"
+        ]
+      }
+    },
+    "ptob-w12-sol-service-reacquisition-C2-cold90-20261002-08": {
+      "C-2": {
+        "phases": {
+          "NORMAL": {
+            "observations": 57,
+            "paired": 47,
+            "warm_or_unavailable": 10,
+            "affine": {
+              "n": 47,
+              "mean_ns": 1342.872340425532,
+              "mae_ns": 1348.404255319149,
+              "rms_ns": 1490.7735889856049,
+              "p95_ns": 2326,
+              "p99_ns": 2474,
+              "max_ns": 2474
+            },
+            "curve": {
+              "n": 47,
+              "mean_ns": 1342.9574468085107,
+              "mae_ns": 1348.4468085106382,
+              "rms_ns": 1490.86087511081,
+              "p95_ns": 2326,
+              "p99_ns": 2473,
+              "max_ns": 2473
+            },
+            "published": {
+              "n": 47,
+              "mean_ns": 1342.8936170212767,
+              "mae_ns": 1348.4255319148936,
+              "rms_ns": 1490.770984309654,
+              "p95_ns": 2326,
+              "p99_ns": 2474,
+              "max_ns": 2474
+            },
+            "causal_error_trend_ppb": {
+              "affine": 24.507983619986557,
+              "curve": 24.511902336097616,
+              "published": 24.506666476354265
+            },
+            "selected_rows": 0,
+            "fit_rows": 51,
+            "work_max_us": 2771,
+            "work_mean_us": 1668.877192982456,
+            "rate_ppm_first": 0.0,
+            "rate_ppm_last": -7.474212,
+            "views": 180,
+            "valid_views": 165,
+            "invalid_views": 15,
+            "invalid_nonzero_views": 0,
+            "last_view": {
+              "tick": 1912228448,
+              "valid": 1,
+              "utc_ns": 1790961410295538332,
+              "second": 1790961410,
+              "root": 2766948752,
+              "age_us": 1903227,
+              "source_local": 0,
+              "accepted": 57,
+              "expired": 139,
+              "conflict": 0,
+              "rejected": 0,
+              "queue_drop": 0,
+              "raw_utc_ns": 1790961410295553987,
+              "published_utc_ns": 1790961410295538332,
+              "model_utc_ns": 1790961410295538332,
+              "output_phase_ns": 0,
+              "hold_guard_mppb": 50000,
+              "causal_p95_ns": 4294967295,
+              "causal_p99_ns": 4294967295,
+              "causal_n": 47,
+              "hold_p95_ms": 0,
+              "hold_p99_ms": 0,
+              "hold_trials": 17,
+              "precision_fresh": 1,
+              "display_channel": 39,
+              "display_age_s": 1
+            }
+          }
+        },
+        "views": {
+          "phases": {
+            "NORMAL": {
+              "views": 180,
+              "valid_views": 165,
+              "unavailable_views": 15,
+              "map_pairs": 57
+            }
+          },
+          "raw_sha256": "a52df9eae433c14345a41b314c8e80b6e7b852adfbec88bada75e70c6c077d5b",
+          "view_bindings": {
+            "UNAVAILABLE": 15,
+            "UTC_LITE_ORIGINAL": 21,
+            "UTC_LITE_PUBLISHED": 144
+          },
+          "map_pairs": 57,
+          "descriptor_pairs": 57,
+          "callback_pairs": 0,
+          "views": 180,
+          "valid_views": 165,
+          "unavailable_views": 15,
+          "inherited_mapping_unverifiable_valid_views": 0,
+          "arithmetic_verified_valid_views": 165,
+          "incomplete_records": [],
+          "unterminated_eof": true,
+          "arithmetic_faults": [],
+          "root_transitions": 0,
+          "same_provider_map_gaps_s": {
+            "n": 56,
+            "max": 4.52187675,
+            "median": 1.099129175
+          },
+          "longest_unavailable_s": 7.52409395,
+          "exact_source_pairs": 0,
+          "source_ns_difference": [],
+          "faults": [],
+          "physical_screen_observation": "NOT_RUN",
+          "absolute_accuracy": "UNKNOWN",
+          "actual_RX_duty": "UNMEASURED",
+          "CPU_BUSY": "UNMEASURED",
+          "energy": "UNMEASURED"
+        },
+        "channel_source_populations": {
+          "NORMAL/peer4/session1516737/ch38": {
+            "targets": 17,
+            "published": {
+              "n": 13,
+              "mean_ns": 1276.3846153846155,
+              "mae_ns": 1276.3846153846155,
+              "rms_ns": 1446.8505584411746,
+              "p95_ns": 2131,
+              "p99_ns": 2131,
+              "max_ns": 2131
+            },
+            "published_unavailable": 4,
+            "fit_rows": 14
+          },
+          "NORMAL/peer4/session1516737/ch37": {
+            "targets": 20,
+            "published": {
+              "n": 17,
+              "mean_ns": 1209.3529411764705,
+              "mae_ns": 1224.6470588235295,
+              "rms_ns": 1354.3844922846602,
+              "p95_ns": 2244,
+              "p99_ns": 2244,
+              "max_ns": 2244
+            },
+            "published_unavailable": 3,
+            "fit_rows": 17
+          },
+          "NORMAL/peer4/session1516737/ch39": {
+            "targets": 20,
+            "published": {
+              "n": 17,
+              "mean_ns": 1527.2941176470588,
+              "mae_ns": 1527.2941176470588,
+              "rms_ns": 1645.9351355956392,
+              "p95_ns": 2474,
+              "p99_ns": 2474,
+              "max_ns": 2474
+            },
+            "published_unavailable": 3,
+            "fit_rows": 20
+          }
+        }
+      }
+    },
+    "ptob-w12-sol-service-reacquisition-C2-normal600-20261002-08": {
+      "C-2": {
+        "phases": {
+          "NORMAL": {
+            "observations": 359,
+            "paired": 359,
+            "warm_or_unavailable": 0,
+            "affine": {
+              "n": 359,
+              "mean_ns": 154.61281337047353,
+              "mae_ns": 246.40111420612814,
+              "rms_ns": 320.55815702213255,
+              "p95_ns": 666,
+              "p99_ns": 930,
+              "max_ns": 1010
+            },
+            "curve": {
+              "n": 359,
+              "mean_ns": 11.406685236768801,
+              "mae_ns": 179.98050139275767,
+              "rms_ns": 223.87647683538088,
+              "p95_ns": 455,
+              "p99_ns": 526,
+              "max_ns": 597
+            },
+            "published": {
+              "n": 359,
+              "mean_ns": 148.7465181058496,
+              "mae_ns": 244.54038997214485,
+              "rms_ns": 319.52514384434056,
+              "p95_ns": 666,
+              "p99_ns": 930,
+              "max_ns": 1010
+            },
+            "causal_error_trend_ppb": {
+              "affine": -0.7883372926805312,
+              "curve": 0.09686911316843988,
+              "published": -0.7867132964705467
+            },
+            "selected_rows": 93,
+            "fit_rows": 359,
+            "work_max_us": 3121,
+            "work_mean_us": 2184.4428969359333,
+            "rate_ppm_first": -7.214457,
+            "rate_ppm_last": -6.941268,
+            "views": 1198,
+            "valid_views": 1141,
+            "invalid_views": 57,
+            "invalid_nonzero_views": 0,
+            "last_view": {
+              "tick": 15560904043,
+              "valid": 1,
+              "utc_ns": 1790962092724527078,
+              "second": 1790962092,
+              "root": 2766948752,
+              "age_us": 532201,
+              "source_local": 0,
+              "accepted": 468,
+              "expired": 1289,
+              "conflict": 0,
+              "rejected": 0,
+              "queue_drop": 0,
+              "raw_utc_ns": 1790962092724530687,
+              "published_utc_ns": 1790962092724527078,
+              "model_utc_ns": 1790962092724527078,
+              "output_phase_ns": 0,
+              "hold_guard_mppb": 50000,
+              "causal_p95_ns": 456,
+              "causal_p99_ns": 549,
+              "causal_n": 178,
+              "hold_p95_ms": 1600,
+              "hold_p99_ms": 1600,
+              "hold_trials": 64,
+              "precision_fresh": 1,
+              "display_channel": 37,
+              "display_age_s": 0
+            }
+          }
+        },
+        "views": {
+          "phases": {
+            "NORMAL": {
+              "views": 1198,
+              "valid_views": 1141,
+              "unavailable_views": 57,
+              "map_pairs": 359
+            }
+          },
+          "raw_sha256": "0cb7161b4eb12101585b3d1ca4d8e3e272b768a9095b5909935d9e44648f888d",
+          "view_bindings": {
+            "UTC_LITE_PUBLISHED": 1123,
+            "UTC_LITE_ORIGINAL": 18,
+            "UNAVAILABLE": 57
+          },
+          "map_pairs": 359,
+          "descriptor_pairs": 359,
+          "callback_pairs": 0,
+          "views": 1198,
+          "valid_views": 1141,
+          "unavailable_views": 57,
+          "inherited_mapping_unverifiable_valid_views": 3,
+          "arithmetic_verified_valid_views": 1138,
+          "incomplete_records": [
+            {
+              "line": 44123,
+              "missing": [
+                "second",
+                "root"
+              ],
+              "at_unterminated_eof": true,
+              "text": "[OMITTED: raw console fragment]"
+            }
+          ],
+          "unterminated_eof": true,
+          "arithmetic_faults": [],
+          "root_transitions": 8,
+          "same_provider_map_gaps_s": {
+            "n": 358,
+            "max": 20.6890072,
+            "median": 1.1279841
+          },
+          "longest_unavailable_s": 11.50295305,
+          "exact_source_pairs": 0,
+          "source_ns_difference": [],
+          "faults": [],
+          "physical_screen_observation": "NOT_RUN",
+          "absolute_accuracy": "UNKNOWN",
+          "actual_RX_duty": "UNMEASURED",
+          "CPU_BUSY": "UNMEASURED",
+          "energy": "UNMEASURED"
+        },
+        "channel_source_populations": {
+          "NORMAL/peer4/session1516737/ch38": {
+            "targets": 114,
+            "published": {
+              "n": 114,
+              "mean_ns": 139.99122807017545,
+              "mae_ns": 231.28947368421052,
+              "rms_ns": 299.24095495571294,
+              "p95_ns": 671,
+              "p99_ns": 788,
+              "max_ns": 918
+            },
+            "published_unavailable": 0,
+            "fit_rows": 114
+          },
+          "NORMAL/peer4/session1516737/ch39": {
+            "targets": 120,
+            "published": {
+              "n": 120,
+              "mean_ns": 165.34166666666667,
+              "mae_ns": 257.64166666666665,
+              "rms_ns": 335.20435309424806,
+              "p95_ns": 645,
+              "p99_ns": 1001,
+              "max_ns": 1010
+            },
+            "published_unavailable": 0,
+            "fit_rows": 120
+          },
+          "NORMAL/peer4/session1516737/ch37": {
+            "targets": 125,
+            "published": {
+              "n": 125,
+              "mean_ns": 140.8,
+              "mae_ns": 244.048,
+              "rms_ns": 322.0061614317341,
+              "p95_ns": 660,
+              "p99_ns": 843,
+              "max_ns": 999
+            },
+            "published_unavailable": 0,
+            "fit_rows": 125
+          }
+        }
+      }
+    },
+    "ptob-w12-sol-normal600-restart-20261002-07": {
+      "C-1": {
+        "phases": {
+          "NORMAL": {
+            "observations": 315,
+            "paired": 312,
+            "warm_or_unavailable": 3,
+            "affine": {
+              "n": 312,
+              "mean_ns": 102.44871794871794,
+              "mae_ns": 198.35256410256412,
+              "rms_ns": 243.1769562505503,
+              "p95_ns": 493,
+              "p99_ns": 577,
+              "max_ns": 657
+            },
+            "curve": {
+              "n": 312,
+              "mean_ns": 46.83974358974359,
+              "mae_ns": 199.12179487179486,
+              "rms_ns": 238.63997666262554,
+              "p95_ns": 449,
+              "p99_ns": 577,
+              "max_ns": 693
+            },
+            "published": {
+              "n": 312,
+              "mean_ns": 102.4326923076923,
+              "mae_ns": 198.36217948717947,
+              "rms_ns": 243.1932794175163,
+              "p95_ns": 493,
+              "p99_ns": 577,
+              "max_ns": 657
+            },
+            "causal_error_trend_ppb": {
+              "affine": -0.08058146241037267,
+              "curve": 0.0201571877023989,
+              "published": -0.0805455622650205
+            },
+            "selected_rows": 0,
+            "fit_rows": 315,
+            "work_max_us": 2994,
+            "work_mean_us": 2137.542857142857,
+            "rate_ppm_first": 0.059624,
+            "rate_ppm_last": 0.227139,
+            "views": 1198,
+            "valid_views": 923,
+            "invalid_views": 275,
+            "invalid_nonzero_views": 0,
+            "last_view": {
+              "tick": 48837821611,
+              "valid": 1,
+              "utc_ns": 1790960200432514711,
+              "second": 1790960200,
+              "root": 2766948752,
+              "age_us": 381573,
+              "source_local": 0,
+              "accepted": 1441,
+              "expired": 3975,
+              "conflict": 0,
+              "rejected": 0,
+              "queue_drop": 0,
+              "raw_utc_ns": 1790960200432514612,
+              "published_utc_ns": 1790960200432514711,
+              "model_utc_ns": 1790960200432514712,
+              "output_phase_ns": 1,
+              "hold_guard_mppb": 50000,
+              "causal_p95_ns": 417,
+              "causal_p99_ns": 548,
+              "causal_n": 170,
+              "hold_p95_ms": 6500,
+              "hold_p99_ms": 6169,
+              "hold_trials": 62,
+              "precision_fresh": 1,
+              "display_channel": 38,
+              "display_age_s": 0
+            }
+          }
+        },
+        "views": {
+          "phases": {
+            "NORMAL": {
+              "views": 1198,
+              "valid_views": 923,
+              "unavailable_views": 275,
+              "map_pairs": 315
+            }
+          },
+          "raw_sha256": "c1da1f1bc575463e3ddcb5f0b14089b6c80f7e0617b441122ea518ab0fba170f",
+          "view_bindings": {
+            "UTC_LITE_PUBLISHED": 902,
+            "UNAVAILABLE": 275,
+            "UTC_LITE_ORIGINAL": 21
+          },
+          "map_pairs": 315,
+          "descriptor_pairs": 315,
+          "callback_pairs": 0,
+          "views": 1198,
+          "valid_views": 923,
+          "unavailable_views": 275,
+          "inherited_mapping_unverifiable_valid_views": 2,
+          "arithmetic_verified_valid_views": 921,
+          "incomplete_records": [],
+          "unterminated_eof": true,
+          "arithmetic_faults": [],
+          "root_transitions": 10,
+          "same_provider_map_gaps_s": {
+            "n": 314,
+            "max": 32.2277592,
+            "median": 1.1225174
+          },
+          "longest_unavailable_s": 30.0127031,
+          "exact_source_pairs": 0,
+          "source_ns_difference": [],
+          "faults": [],
+          "physical_screen_observation": "NOT_RUN",
+          "absolute_accuracy": "UNKNOWN",
+          "actual_RX_duty": "UNMEASURED",
+          "CPU_BUSY": "UNMEASURED",
+          "energy": "UNMEASURED"
+        },
+        "channel_source_populations": {
+          "NORMAL/peer4/session1516737/ch39": {
+            "targets": 111,
+            "published": {
+              "n": 109,
+              "mean_ns": 106.19266055045871,
+              "mae_ns": 197.62385321100916,
+              "rms_ns": 245.20960889324462,
+              "p95_ns": 494,
+              "p99_ns": 577,
+              "max_ns": 657
+            },
+            "published_unavailable": 2,
+            "fit_rows": 111
+          },
+          "NORMAL/peer4/session1516737/ch37": {
+            "targets": 111,
+            "published": {
+              "n": 111,
+              "mean_ns": 84.09909909909909,
+              "mae_ns": 190.13513513513513,
+              "rms_ns": 229.943412545289,
+              "p95_ns": 476,
+              "p99_ns": 533,
+              "max_ns": 555
+            },
+            "published_unavailable": 0,
+            "fit_rows": 111
+          },
+          "NORMAL/peer4/session1516737/ch38": {
+            "targets": 93,
+            "published": {
+              "n": 92,
+              "mean_ns": 120.09782608695652,
+              "mae_ns": 209.16304347826087,
+              "rms_ns": 256.0076213199776,
+              "p95_ns": 497,
+              "p99_ns": 641,
+              "max_ns": 641
+            },
+            "published_unavailable": 1,
+            "fit_rows": 93
+          }
+        }
+      },
+      "C-2": {
+        "phases": {
+          "NORMAL": {
+            "observations": 353,
+            "paired": 353,
+            "warm_or_unavailable": 0,
+            "affine": {
+              "n": 353,
+              "mean_ns": 97.58923512747876,
+              "mae_ns": 206.37677053824362,
+              "rms_ns": 248.2499482924326,
+              "p95_ns": 475,
+              "p99_ns": 651,
+              "max_ns": 713
+            },
+            "curve": {
+              "n": 353,
+              "mean_ns": 49.25495750708215,
+              "mae_ns": 204.38243626062322,
+              "rms_ns": 248.1016252074841,
+              "p95_ns": 465,
+              "p99_ns": 653,
+              "max_ns": 713
+            },
+            "published": {
+              "n": 353,
+              "mean_ns": 97.57790368271955,
+              "mae_ns": 206.3484419263456,
+              "rms_ns": 248.2438888041595,
+              "p95_ns": 475,
+              "p99_ns": 651,
+              "max_ns": 714
+            },
+            "causal_error_trend_ppb": {
+              "affine": -0.16345036704325278,
+              "curve": 0.031530201953266945,
+              "published": -0.1634676638979497
+            },
+            "selected_rows": 0,
+            "fit_rows": 353,
+            "work_max_us": 3076,
+            "work_mean_us": 2262.2521246458923,
+            "rate_ppm_first": -6.761142,
+            "rate_ppm_last": -6.594912,
+            "views": 1198,
+            "valid_views": 1078,
+            "invalid_views": 120,
+            "invalid_nonzero_views": 0,
+            "last_view": {
+              "tick": 74151753834,
+              "valid": 1,
+              "utc_ns": 1790960200761024187,
+              "second": 1790960200,
+              "root": 2766948752,
+              "age_us": 710087,
+              "source_local": 0,
+              "accepted": 2229,
+              "expired": 6040,
+              "conflict": 0,
+              "rejected": 0,
+              "queue_drop": 0,
+              "raw_utc_ns": 1790960200761029162,
+              "published_utc_ns": 1790960200761024187,
+              "model_utc_ns": 1790960200761024187,
+              "output_phase_ns": 0,
+              "hold_guard_mppb": 50000,
+              "causal_p95_ns": 456,
+              "causal_p99_ns": 547,
+              "causal_n": 171,
+              "hold_p95_ms": 4500,
+              "hold_p99_ms": 4500,
+              "hold_trials": 66,
+              "precision_fresh": 1,
+              "display_channel": 38,
+              "display_age_s": 0
+            }
+          }
+        },
+        "views": {
+          "phases": {
+            "NORMAL": {
+              "views": 1198,
+              "valid_views": 1078,
+              "unavailable_views": 120,
+              "map_pairs": 353
+            }
+          },
+          "raw_sha256": "3b81750cca2ad84c6b884cc909bd060326bbecbedaf2f8454654433712e2cb49",
+          "view_bindings": {
+            "UTC_LITE_PUBLISHED": 1066,
+            "UNAVAILABLE": 120,
+            "UTC_LITE_ORIGINAL": 12
+          },
+          "map_pairs": 353,
+          "descriptor_pairs": 353,
+          "callback_pairs": 0,
+          "views": 1198,
+          "valid_views": 1078,
+          "unavailable_views": 120,
+          "inherited_mapping_unverifiable_valid_views": 3,
+          "arithmetic_verified_valid_views": 1075,
+          "incomplete_records": [],
+          "unterminated_eof": false,
+          "arithmetic_faults": [],
+          "root_transitions": 4,
+          "same_provider_map_gaps_s": {
+            "n": 352,
+            "max": 15.5996165,
+            "median": 1.128847425
+          },
+          "longest_unavailable_s": 30.0083272,
+          "exact_source_pairs": 0,
+          "source_ns_difference": [],
+          "faults": [],
+          "physical_screen_observation": "NOT_RUN",
+          "absolute_accuracy": "UNKNOWN",
+          "actual_RX_duty": "UNMEASURED",
+          "CPU_BUSY": "UNMEASURED",
+          "energy": "UNMEASURED"
+        },
+        "channel_source_populations": {
+          "NORMAL/peer4/session1516737/ch37": {
+            "targets": 127,
+            "published": {
+              "n": 127,
+              "mean_ns": 95.4724409448819,
+              "mae_ns": 214.88976377952756,
+              "rms_ns": 259.47583444594085,
+              "p95_ns": 482,
+              "p99_ns": 651,
+              "max_ns": 653
+            },
+            "published_unavailable": 0,
+            "fit_rows": 127
+          },
+          "NORMAL/peer4/session1516737/ch39": {
+            "targets": 132,
+            "published": {
+              "n": 132,
+              "mean_ns": 98.78787878787878,
+              "mae_ns": 206.34848484848484,
+              "rms_ns": 245.73695594100516,
+              "p95_ns": 441,
+              "p99_ns": 518,
+              "max_ns": 703
+            },
+            "published_unavailable": 0,
+            "fit_rows": 132
+          },
+          "NORMAL/peer4/session1516737/ch38": {
+            "targets": 94,
+            "published": {
+              "n": 94,
+              "mean_ns": 98.72340425531915,
+              "mae_ns": 194.80851063829786,
+              "rms_ns": 235.922318625288,
+              "p95_ns": 466,
+              "p99_ns": 714,
+              "max_ns": 714
+            },
+            "published_unavailable": 0,
+            "fit_rows": 94
+          }
+        }
+      }
+    }
+  },
+  "claim_map": {
+    "research abstract / Table 1 / proposal demonstrated profile": {
+      "runs": [
+        "ptob-tc01-tc03-edge10516-prospective600-20261002-14",
+        "ptob-tc03-tc01-edge10516-prospective600-repeat-20261002-18",
+        "ptob-tc03-tc01-edge10516-review-final-20261002-16"
+      ],
+      "source_fields": [
+        "all_matched_clock",
+        "pps_total"
+      ],
+      "definition": "actual published BLE clock queried at hardware local PPS; all scoreable, no centering; unmatched retained"
+    },
+    "research Table 2": {
+      "runs": [
+        "ptob-tc01-tc03-edge10516-prospective600-20261002-14",
+        "ptob-tc03-tc01-edge10516-prospective600-repeat-20261002-18"
+      ],
+      "field": "frozen_internal_compare_to_adjacent_pps",
+      "denominator": "compare_raw_count",
+      "limit": "shared 16MHz counter TIMER/PPI; one-tick capture/grid retained; GPIO unconnected"
+    },
+    "research Table 3 / Figure 1 / proposal W12": {
+      "runs": [
+        "ptob-w12-sol-service-reacquisition-C2-cold90-20261002-08",
+        "ptob-w12-sol-service-reacquisition-C2-normal600-20261002-08"
+      ],
+      "fields": [
+        "phases.NORMAL.published",
+        "views.view_bindings"
+      ],
+      "figure_order": [
+        "fine",
+        "coarse",
+        "unavailable"
+      ],
+      "figure_counts": {
+        "cold90": [
+          144,
+          21,
+          15
+        ],
+        "normal600": [
+          1123,
+          18,
+          57
+        ]
+      },
+      "limit": "physical-target errors versus sampled view coverage; different denominators"
+    },
+    "preceding dual-W12": {
+      "run": "ptob-w12-sol-normal600-restart-20261002-07",
+      "separate_profile": true,
+      "no_pooling": true
+    },
+    "SERVING-only recovery": {
+      "source": "results/W12_SOL_REACQUISITION_EPISODES_20261002.json",
+      "definition": "monotonic selected-nonserving fallback to authority return, separate from view outage",
+      "duration_s": [
+        1.99951655,
+        2.00164755,
+        3.367305,
+        2.0001441
+      ]
+    },
+    "historical blackout and early data": {
+      "source_manifest": "paper/evidence-predecessor-20261002-morning.json",
+      "scope": "retained historical failure/inspiration, not overridden by warm precision results"
+    },
+    "MicroSync comparison": {
+      "primary": "https://da.lib.kobe-u.ac.jp/da/kernel/0100491658/0100491658.pdf",
+      "MAE_ns": 272,
+      "reported_SD_ns": 319.2,
+      "reported_99pct_CDF_ns": 591.25,
+      "RMS": "NOT_REPORTED",
+      "metrology": "external800MHzGPIO; different from PToB PPS shadow/internal compare",
+      "MCU_only_power_uW": 252.1,
+      "PToB_power": "UNMEASURED"
+    }
+  },
+  "methods": {
+    "tools/evidence.py": "a097090e903e7db549c8060915ea786f6f08a31c553b33fd8f9d2ddd85e13070",
+    "firmware/w12/tools/review_utc_feedback.py": "6b13843448f8484dd9817e4ed55d44a66b99bc5c4a76129693d3873164aedd2d",
+    "firmware/w12/tools/review_utc_field.py": "4201e3e17e75190e0b56bbb7478af176e421b828a0ff3f5d088614e8bf6c454d",
+    "paper/provenance/proposal-wire-check.c": "18282d8ff96ee36b04ea7fa4b3e4144509f0ed2dd648d31a12f4e296ffd2a237",
+    "results/archives/ptob-tc01-tc03-edge10516-prospective600-20261002-14/tools/review_boundary_trial.py": "fb09b6844b14c9643ef4ea230b4ddc6c93b5c39ec65125241843cab7300f938c",
+    "results/archives/ptob-tc01-tc03-edge10516-prospective600-20261002-14/tools/log_review.py": "3b5d560eb0249279e735259228b215af0f100161ac411a447f471e4446aa96fe",
+    "results/archives/ptob-tc01-tc03-edge10516-prospective600-20261002-14/tools/review_w12_tc_window_sol.py": "62e8a2df5dc5ce841700969da0292c4a434cc59770925173872b6a2cb4836966",
+    "results/archives/ptob-tc01-tc03-edge10516-prospective600-20261002-14/tools/review_copy_transport.py": "74dbe86636bf621bed9eac7f58be9dd8966db6ca397906a669eefa718fb61cbb",
+    "results/archives/ptob-tc01-tc03-edge10516-prospective600-20261002-14/tools/review_trial.py": "d65f2b920ebf63427a43de9088a5de4302c6bb2817c7beaee707bdf5370e90b9",
+    "results/archives/ptob-tc01-tc03-edge10516-prospective600-20261002-14/tools/review_planner_crossover.py": "1ab78864c53b59198ca05bc6821e563609b1b12a04d3cdaf23ad3e0dc0caf2eb",
+    "results/archives/ptob-tc01-tc03-edge10516-prospective600-20261002-14/tools/review_parity_receipt.py": "af9c0c1f34f329d5c5f9ea07b3add949cf718a24f3a760ac3c6eac52d0a320d2",
+    "results/archives/ptob-tc01-tc03-edge10516-prospective600-20261002-14/tools/ptob_review.py": "ed958468a3e3191d03510830425865a6c561126d322dfe92fc323ef9fa320fc2",
+    "results/archives/ptob-tc01-tc03-edge10516-prospective600-20261002-14/tools/review_lab_diagnostic.py": "ea4a91b46007e2dd667e6883ad02f58ea70dd2418cde14eaa7fafcf76bab3064",
+    "results/archives/ptob-tc01-tc03-edge10516-prospective600-20261002-14/tools/review_shared_age.py": "e955c7fcbaaa3c089507e7e5c19760f61fa93c06598138449da268dc8ec71fc3",
+    "results/archives/ptob-tc01-tc03-edge10516-prospective600-20261002-14/tools/review_copy_windows.py": "831ef848672f20377e28f763e681e91654b15e92a814b26c3e4c2f5ab5346f6a",
+    "results/archives/ptob-tc01-tc03-edge10516-prospective600-20261002-14/tools/review_independent_shadow.py": "d33a44f5c1b94516037d216737d28954957410821ec636a20930fd6c32b1d067",
+    "results/archives/ptob-tc01-tc03-edge10516-prospective600-20261002-14/tools/review_basic.py": "ddab98a58c6cbc965bd642aa088af463aacf36615c3894f86c9d8f938dba0d68",
+    "results/archives/ptob-tc01-tc03-edge10516-prospective600-20261002-14/tools/review_delivery_shadow.py": "8dc8e3378bcab3d64ce849f9c400f1370d83f47fe4a99fcbe398c474a8ec4bf4",
+    "results/archives/ptob-tc01-tc03-edge10516-prospective600-20261002-14/tools/review_w12_boot_curvature_sol.py": "9d5e8936f9d35255ed3d53c8a0cb7c5ce75c5ec9582766b66a85219ab787cf2f",
+    "results/archives/ptob-tc01-tc03-edge10516-prospective600-20261002-14/tools/review_parity_loss.py": "040ca131bedf83f99687c0f5f12adba46bb5070484ace985e37c31f62cb6e0ab",
+    "results/archives/ptob-tc01-tc03-edge10516-prospective600-20261002-14/tools/review_tc_reference_bias.py": "7fb00b5bcf3fec5196e5951536b2c1b09a22c7fbd0b9a64368cf099babbac13b",
+    "results/archives/ptob-tc01-tc03-edge10516-prospective600-20261002-14/tools/review_shared_rate.py": "8306fa6dbcf26c57c25ba2a27c3f72a9c15728214157b2948793325799d72000",
+    "results/archives/ptob-tc01-tc03-edge10516-prospective600-20261002-14/tools/review_scan_interval.py": "04b37e050c4b8a60cc81592b0356d058030b0e2b29550c7b25faa0f750387328",
+    "results/archives/ptob-tc01-tc03-edge10516-prospective600-20261002-14/tools/review_mapper_pair.py": "3b8771144b6b42e9be113249f7587edfb5d7388498ab55e0cae510d37f63cbc6",
+    "results/archives/ptob-tc01-tc03-edge10516-prospective600-20261002-14/tools/review_tc_bench.py": "7b7f1239b52e647c3de6cdc61b8c6f0be6defbe9cc53d9ee456a298a73edde85",
+    "results/archives/ptob-tc01-tc03-edge10516-prospective600-20261002-14/tools/review_live_shadow.py": "c2a9279826f9c3c8d81f9d8368baa0400733941890c958453519a1717c13f36f",
+    "results/archives/ptob-tc01-tc03-edge10516-prospective600-20261002-14/tools/review_age_shadow.py": "cf14ab9814809cf9472ea9a155ca2806fba202c6b2bfc342cd3ed3797fab8ec9",
+    "results/archives/ptob-tc01-tc03-edge10516-prospective600-20261002-14/tools/review_tc_usage.py": "f1624b1c9b505b01e5727f6ed0e362b67cddad11dde9e42b75a5717f07a0c2ef",
+    "results/archives/ptob-tc01-tc03-edge10516-prospective600-20261002-14/tools/review_copy_duplicates.py": "e0641b9aad6ae7d85983fc46048e76da1956d5b7ff465851ca44cb58cf5f3980",
+    "results/archives/ptob-tc01-tc03-edge10516-prospective600-20261002-14/tools/review_gm_trial.py": "baaf94aa62fa66d2e297d68327cd385778308d740c476f4ab886d2cf86b2e67a",
+    "results/archives/ptob-tc01-tc03-edge10516-prospective600-20261002-14/tools/review_copy.py": "30ec09359b435cf8fb18c00a798342e11b7d84a02d06b1fc2c04c36fc71b12ab",
+    "results/archives/ptob-tc03-tc01-edge10516-prospective600-repeat-20261002-18/tools/review_boundary_trial.py": "fb09b6844b14c9643ef4ea230b4ddc6c93b5c39ec65125241843cab7300f938c",
+    "results/archives/ptob-tc03-tc01-edge10516-prospective600-repeat-20261002-18/tools/log_review.py": "3b5d560eb0249279e735259228b215af0f100161ac411a447f471e4446aa96fe",
+    "results/archives/ptob-tc03-tc01-edge10516-prospective600-repeat-20261002-18/tools/review_w12_tc_window_sol.py": "62e8a2df5dc5ce841700969da0292c4a434cc59770925173872b6a2cb4836966",
+    "results/archives/ptob-tc03-tc01-edge10516-prospective600-repeat-20261002-18/tools/review_copy_transport.py": "74dbe86636bf621bed9eac7f58be9dd8966db6ca397906a669eefa718fb61cbb",
+    "results/archives/ptob-tc03-tc01-edge10516-prospective600-repeat-20261002-18/tools/review_trial.py": "d65f2b920ebf63427a43de9088a5de4302c6bb2817c7beaee707bdf5370e90b9",
+    "results/archives/ptob-tc03-tc01-edge10516-prospective600-repeat-20261002-18/tools/review_planner_crossover.py": "1ab78864c53b59198ca05bc6821e563609b1b12a04d3cdaf23ad3e0dc0caf2eb",
+    "results/archives/ptob-tc03-tc01-edge10516-prospective600-repeat-20261002-18/tools/review_parity_receipt.py": "af9c0c1f34f329d5c5f9ea07b3add949cf718a24f3a760ac3c6eac52d0a320d2",
+    "results/archives/ptob-tc03-tc01-edge10516-prospective600-repeat-20261002-18/tools/ptob_review.py": "ed958468a3e3191d03510830425865a6c561126d322dfe92fc323ef9fa320fc2",
+    "results/archives/ptob-tc03-tc01-edge10516-prospective600-repeat-20261002-18/tools/review_lab_diagnostic.py": "ea4a91b46007e2dd667e6883ad02f58ea70dd2418cde14eaa7fafcf76bab3064",
+    "results/archives/ptob-tc03-tc01-edge10516-prospective600-repeat-20261002-18/tools/review_shared_age.py": "e955c7fcbaaa3c089507e7e5c19760f61fa93c06598138449da268dc8ec71fc3",
+    "results/archives/ptob-tc03-tc01-edge10516-prospective600-repeat-20261002-18/tools/review_copy_windows.py": "831ef848672f20377e28f763e681e91654b15e92a814b26c3e4c2f5ab5346f6a",
+    "results/archives/ptob-tc03-tc01-edge10516-prospective600-repeat-20261002-18/tools/review_independent_shadow.py": "d33a44f5c1b94516037d216737d28954957410821ec636a20930fd6c32b1d067",
+    "results/archives/ptob-tc03-tc01-edge10516-prospective600-repeat-20261002-18/tools/review_basic.py": "ddab98a58c6cbc965bd642aa088af463aacf36615c3894f86c9d8f938dba0d68",
+    "results/archives/ptob-tc03-tc01-edge10516-prospective600-repeat-20261002-18/tools/review_delivery_shadow.py": "8dc8e3378bcab3d64ce849f9c400f1370d83f47fe4a99fcbe398c474a8ec4bf4",
+    "results/archives/ptob-tc03-tc01-edge10516-prospective600-repeat-20261002-18/tools/review_w12_boot_curvature_sol.py": "df66e5207940544fbe43df984fe80dd33221b8385db52368e6ed859435a5fd82",
+    "results/archives/ptob-tc03-tc01-edge10516-prospective600-repeat-20261002-18/tools/review_parity_loss.py": "040ca131bedf83f99687c0f5f12adba46bb5070484ace985e37c31f62cb6e0ab",
+    "results/archives/ptob-tc03-tc01-edge10516-prospective600-repeat-20261002-18/tools/review_tc_reference_bias.py": "7fb00b5bcf3fec5196e5951536b2c1b09a22c7fbd0b9a64368cf099babbac13b",
+    "results/archives/ptob-tc03-tc01-edge10516-prospective600-repeat-20261002-18/tools/review_shared_rate.py": "8306fa6dbcf26c57c25ba2a27c3f72a9c15728214157b2948793325799d72000",
+    "results/archives/ptob-tc03-tc01-edge10516-prospective600-repeat-20261002-18/tools/review_scan_interval.py": "04b37e050c4b8a60cc81592b0356d058030b0e2b29550c7b25faa0f750387328",
+    "results/archives/ptob-tc03-tc01-edge10516-prospective600-repeat-20261002-18/tools/review_mapper_pair.py": "3b8771144b6b42e9be113249f7587edfb5d7388498ab55e0cae510d37f63cbc6",
+    "results/archives/ptob-tc03-tc01-edge10516-prospective600-repeat-20261002-18/tools/review_tc_bench.py": "7b7f1239b52e647c3de6cdc61b8c6f0be6defbe9cc53d9ee456a298a73edde85",
+    "results/archives/ptob-tc03-tc01-edge10516-prospective600-repeat-20261002-18/tools/review_live_shadow.py": "c2a9279826f9c3c8d81f9d8368baa0400733941890c958453519a1717c13f36f",
+    "results/archives/ptob-tc03-tc01-edge10516-prospective600-repeat-20261002-18/tools/review_age_shadow.py": "cf14ab9814809cf9472ea9a155ca2806fba202c6b2bfc342cd3ed3797fab8ec9",
+    "results/archives/ptob-tc03-tc01-edge10516-prospective600-repeat-20261002-18/tools/review_tc_usage.py": "f1624b1c9b505b01e5727f6ed0e362b67cddad11dde9e42b75a5717f07a0c2ef",
+    "results/archives/ptob-tc03-tc01-edge10516-prospective600-repeat-20261002-18/tools/review_copy_duplicates.py": "e0641b9aad6ae7d85983fc46048e76da1956d5b7ff465851ca44cb58cf5f3980",
+    "results/archives/ptob-tc03-tc01-edge10516-prospective600-repeat-20261002-18/tools/review_gm_trial.py": "baaf94aa62fa66d2e297d68327cd385778308d740c476f4ab886d2cf86b2e67a",
+    "results/archives/ptob-tc03-tc01-edge10516-prospective600-repeat-20261002-18/tools/review_copy.py": "30ec09359b435cf8fb18c00a798342e11b7d84a02d06b1fc2c04c36fc71b12ab",
+    "results/archives/ptob-tc03-tc01-edge10516-prospective600-repeat-20261002-18/attachments/final_review.py": "07f6d853c7dd7a45ae01f514cbc9f30904940c2a067a30ff14aae40082bcbaba",
+    "results/archives/ptob-tc03-tc01-edge10516-review-final-20261002-16/tools/review_boundary_trial.py": "fb09b6844b14c9643ef4ea230b4ddc6c93b5c39ec65125241843cab7300f938c",
+    "results/archives/ptob-tc03-tc01-edge10516-review-final-20261002-16/tools/log_review.py": "3b5d560eb0249279e735259228b215af0f100161ac411a447f471e4446aa96fe",
+    "results/archives/ptob-tc03-tc01-edge10516-review-final-20261002-16/tools/review_w12_tc_window_sol.py": "62e8a2df5dc5ce841700969da0292c4a434cc59770925173872b6a2cb4836966",
+    "results/archives/ptob-tc03-tc01-edge10516-review-final-20261002-16/tools/review_copy_transport.py": "74dbe86636bf621bed9eac7f58be9dd8966db6ca397906a669eefa718fb61cbb",
+    "results/archives/ptob-tc03-tc01-edge10516-review-final-20261002-16/tools/review_trial.py": "d65f2b920ebf63427a43de9088a5de4302c6bb2817c7beaee707bdf5370e90b9",
+    "results/archives/ptob-tc03-tc01-edge10516-review-final-20261002-16/tools/review_planner_crossover.py": "1ab78864c53b59198ca05bc6821e563609b1b12a04d3cdaf23ad3e0dc0caf2eb",
+    "results/archives/ptob-tc03-tc01-edge10516-review-final-20261002-16/tools/review_parity_receipt.py": "af9c0c1f34f329d5c5f9ea07b3add949cf718a24f3a760ac3c6eac52d0a320d2",
+    "results/archives/ptob-tc03-tc01-edge10516-review-final-20261002-16/tools/ptob_review.py": "ed958468a3e3191d03510830425865a6c561126d322dfe92fc323ef9fa320fc2",
+    "results/archives/ptob-tc03-tc01-edge10516-review-final-20261002-16/tools/review_lab_diagnostic.py": "ea4a91b46007e2dd667e6883ad02f58ea70dd2418cde14eaa7fafcf76bab3064",
+    "results/archives/ptob-tc03-tc01-edge10516-review-final-20261002-16/tools/review_shared_age.py": "e955c7fcbaaa3c089507e7e5c19760f61fa93c06598138449da268dc8ec71fc3",
+    "results/archives/ptob-tc03-tc01-edge10516-review-final-20261002-16/tools/review_copy_windows.py": "831ef848672f20377e28f763e681e91654b15e92a814b26c3e4c2f5ab5346f6a",
+    "results/archives/ptob-tc03-tc01-edge10516-review-final-20261002-16/tools/review_independent_shadow.py": "d33a44f5c1b94516037d216737d28954957410821ec636a20930fd6c32b1d067",
+    "results/archives/ptob-tc03-tc01-edge10516-review-final-20261002-16/tools/review_basic.py": "ddab98a58c6cbc965bd642aa088af463aacf36615c3894f86c9d8f938dba0d68",
+    "results/archives/ptob-tc03-tc01-edge10516-review-final-20261002-16/tools/review_delivery_shadow.py": "8dc8e3378bcab3d64ce849f9c400f1370d83f47fe4a99fcbe398c474a8ec4bf4",
+    "results/archives/ptob-tc03-tc01-edge10516-review-final-20261002-16/tools/review_w12_boot_curvature_sol.py": "33cdd6b72b9dca02f8babc48138d53f8fe5c424c94ed4675233fe62b10376026",
+    "results/archives/ptob-tc03-tc01-edge10516-review-final-20261002-16/tools/review_parity_loss.py": "040ca131bedf83f99687c0f5f12adba46bb5070484ace985e37c31f62cb6e0ab",
+    "results/archives/ptob-tc03-tc01-edge10516-review-final-20261002-16/tools/review_tc_reference_bias.py": "7fb00b5bcf3fec5196e5951536b2c1b09a22c7fbd0b9a64368cf099babbac13b",
+    "results/archives/ptob-tc03-tc01-edge10516-review-final-20261002-16/tools/review_shared_rate.py": "8306fa6dbcf26c57c25ba2a27c3f72a9c15728214157b2948793325799d72000",
+    "results/archives/ptob-tc03-tc01-edge10516-review-final-20261002-16/tools/review_scan_interval.py": "04b37e050c4b8a60cc81592b0356d058030b0e2b29550c7b25faa0f750387328",
+    "results/archives/ptob-tc03-tc01-edge10516-review-final-20261002-16/tools/review_mapper_pair.py": "3b8771144b6b42e9be113249f7587edfb5d7388498ab55e0cae510d37f63cbc6",
+    "results/archives/ptob-tc03-tc01-edge10516-review-final-20261002-16/tools/review_tc_bench.py": "7b7f1239b52e647c3de6cdc61b8c6f0be6defbe9cc53d9ee456a298a73edde85",
+    "results/archives/ptob-tc03-tc01-edge10516-review-final-20261002-16/tools/review_live_shadow.py": "c2a9279826f9c3c8d81f9d8368baa0400733941890c958453519a1717c13f36f",
+    "results/archives/ptob-tc03-tc01-edge10516-review-final-20261002-16/tools/review_age_shadow.py": "cf14ab9814809cf9472ea9a155ca2806fba202c6b2bfc342cd3ed3797fab8ec9",
+    "results/archives/ptob-tc03-tc01-edge10516-review-final-20261002-16/tools/review_tc_usage.py": "f1624b1c9b505b01e5727f6ed0e362b67cddad11dde9e42b75a5717f07a0c2ef",
+    "results/archives/ptob-tc03-tc01-edge10516-review-final-20261002-16/tools/review_copy_duplicates.py": "e0641b9aad6ae7d85983fc46048e76da1956d5b7ff465851ca44cb58cf5f3980",
+    "results/archives/ptob-tc03-tc01-edge10516-review-final-20261002-16/tools/review_gm_trial.py": "baaf94aa62fa66d2e297d68327cd385778308d740c476f4ab886d2cf86b2e67a",
+    "results/archives/ptob-tc03-tc01-edge10516-review-final-20261002-16/tools/review_copy.py": "30ec09359b435cf8fb18c00a798342e11b7d84a02d06b1fc2c04c36fc71b12ab",
+    "results/archives/ptob-tc03-tc01-edge10516-review-final-20261002-16/attachments/review_authority_seal.py": "3ef9b869c9179fb1449ed28792c896a6f1af2eac5a00fb88a3af24368f1c818f",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-cold90-20261002-08/tools/review_boundary_trial.py": "fb09b6844b14c9643ef4ea230b4ddc6c93b5c39ec65125241843cab7300f938c",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-cold90-20261002-08/tools/log_review.py": "3b5d560eb0249279e735259228b215af0f100161ac411a447f471e4446aa96fe",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-cold90-20261002-08/tools/review_w12_tc_window_sol.py": "62e8a2df5dc5ce841700969da0292c4a434cc59770925173872b6a2cb4836966",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-cold90-20261002-08/tools/review_copy_transport.py": "74dbe86636bf621bed9eac7f58be9dd8966db6ca397906a669eefa718fb61cbb",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-cold90-20261002-08/tools/review_trial.py": "d65f2b920ebf63427a43de9088a5de4302c6bb2817c7beaee707bdf5370e90b9",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-cold90-20261002-08/tools/review_planner_crossover.py": "1ab78864c53b59198ca05bc6821e563609b1b12a04d3cdaf23ad3e0dc0caf2eb",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-cold90-20261002-08/tools/review_parity_receipt.py": "af9c0c1f34f329d5c5f9ea07b3add949cf718a24f3a760ac3c6eac52d0a320d2",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-cold90-20261002-08/tools/ptob_review.py": "ed958468a3e3191d03510830425865a6c561126d322dfe92fc323ef9fa320fc2",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-cold90-20261002-08/tools/review_lab_diagnostic.py": "ea4a91b46007e2dd667e6883ad02f58ea70dd2418cde14eaa7fafcf76bab3064",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-cold90-20261002-08/tools/review_shared_age.py": "e955c7fcbaaa3c089507e7e5c19760f61fa93c06598138449da268dc8ec71fc3",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-cold90-20261002-08/tools/review_copy_windows.py": "831ef848672f20377e28f763e681e91654b15e92a814b26c3e4c2f5ab5346f6a",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-cold90-20261002-08/tools/review_independent_shadow.py": "d33a44f5c1b94516037d216737d28954957410821ec636a20930fd6c32b1d067",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-cold90-20261002-08/tools/review_basic.py": "ddab98a58c6cbc965bd642aa088af463aacf36615c3894f86c9d8f938dba0d68",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-cold90-20261002-08/tools/review_delivery_shadow.py": "8dc8e3378bcab3d64ce849f9c400f1370d83f47fe4a99fcbe398c474a8ec4bf4",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-cold90-20261002-08/tools/review_w12_boot_curvature_sol.py": "df66e5207940544fbe43df984fe80dd33221b8385db52368e6ed859435a5fd82",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-cold90-20261002-08/tools/review_parity_loss.py": "040ca131bedf83f99687c0f5f12adba46bb5070484ace985e37c31f62cb6e0ab",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-cold90-20261002-08/tools/review_tc_reference_bias.py": "7fb00b5bcf3fec5196e5951536b2c1b09a22c7fbd0b9a64368cf099babbac13b",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-cold90-20261002-08/tools/review_shared_rate.py": "8306fa6dbcf26c57c25ba2a27c3f72a9c15728214157b2948793325799d72000",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-cold90-20261002-08/tools/review_scan_interval.py": "04b37e050c4b8a60cc81592b0356d058030b0e2b29550c7b25faa0f750387328",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-cold90-20261002-08/tools/review_mapper_pair.py": "3b8771144b6b42e9be113249f7587edfb5d7388498ab55e0cae510d37f63cbc6",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-cold90-20261002-08/tools/review_tc_bench.py": "7b7f1239b52e647c3de6cdc61b8c6f0be6defbe9cc53d9ee456a298a73edde85",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-cold90-20261002-08/tools/review_live_shadow.py": "c2a9279826f9c3c8d81f9d8368baa0400733941890c958453519a1717c13f36f",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-cold90-20261002-08/tools/review_age_shadow.py": "cf14ab9814809cf9472ea9a155ca2806fba202c6b2bfc342cd3ed3797fab8ec9",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-cold90-20261002-08/tools/review_tc_usage.py": "f1624b1c9b505b01e5727f6ed0e362b67cddad11dde9e42b75a5717f07a0c2ef",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-cold90-20261002-08/tools/review_copy_duplicates.py": "e0641b9aad6ae7d85983fc46048e76da1956d5b7ff465851ca44cb58cf5f3980",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-cold90-20261002-08/tools/review_gm_trial.py": "baaf94aa62fa66d2e297d68327cd385778308d740c476f4ab886d2cf86b2e67a",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-cold90-20261002-08/tools/review_copy.py": "30ec09359b435cf8fb18c00a798342e11b7d84a02d06b1fc2c04c36fc71b12ab",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-cold90-20261002-08/attachments/review_utc_physical_copies_sol.py": "6abba9612effbcde94792b300773097dd5102c51c51e5e0886d2993db8d9a0cf",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-cold90-20261002-08/attachments/review_utc_feedback.py": "6b13843448f8484dd9817e4ed55d44a66b99bc5c4a76129693d3873164aedd2d",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-cold90-20261002-08/attachments/review_utc_field.py": "4201e3e17e75190e0b56bbb7478af176e421b828a0ff3f5d088614e8bf6c454d",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-normal600-20261002-08/tools/review_boundary_trial.py": "fb09b6844b14c9643ef4ea230b4ddc6c93b5c39ec65125241843cab7300f938c",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-normal600-20261002-08/tools/log_review.py": "3b5d560eb0249279e735259228b215af0f100161ac411a447f471e4446aa96fe",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-normal600-20261002-08/tools/review_w12_tc_window_sol.py": "62e8a2df5dc5ce841700969da0292c4a434cc59770925173872b6a2cb4836966",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-normal600-20261002-08/tools/review_copy_transport.py": "74dbe86636bf621bed9eac7f58be9dd8966db6ca397906a669eefa718fb61cbb",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-normal600-20261002-08/tools/review_trial.py": "d65f2b920ebf63427a43de9088a5de4302c6bb2817c7beaee707bdf5370e90b9",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-normal600-20261002-08/tools/review_planner_crossover.py": "1ab78864c53b59198ca05bc6821e563609b1b12a04d3cdaf23ad3e0dc0caf2eb",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-normal600-20261002-08/tools/review_parity_receipt.py": "af9c0c1f34f329d5c5f9ea07b3add949cf718a24f3a760ac3c6eac52d0a320d2",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-normal600-20261002-08/tools/ptob_review.py": "ed958468a3e3191d03510830425865a6c561126d322dfe92fc323ef9fa320fc2",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-normal600-20261002-08/tools/review_lab_diagnostic.py": "ea4a91b46007e2dd667e6883ad02f58ea70dd2418cde14eaa7fafcf76bab3064",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-normal600-20261002-08/tools/review_shared_age.py": "e955c7fcbaaa3c089507e7e5c19760f61fa93c06598138449da268dc8ec71fc3",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-normal600-20261002-08/tools/review_copy_windows.py": "831ef848672f20377e28f763e681e91654b15e92a814b26c3e4c2f5ab5346f6a",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-normal600-20261002-08/tools/review_independent_shadow.py": "d33a44f5c1b94516037d216737d28954957410821ec636a20930fd6c32b1d067",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-normal600-20261002-08/tools/review_basic.py": "ddab98a58c6cbc965bd642aa088af463aacf36615c3894f86c9d8f938dba0d68",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-normal600-20261002-08/tools/review_delivery_shadow.py": "8dc8e3378bcab3d64ce849f9c400f1370d83f47fe4a99fcbe398c474a8ec4bf4",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-normal600-20261002-08/tools/review_w12_boot_curvature_sol.py": "df66e5207940544fbe43df984fe80dd33221b8385db52368e6ed859435a5fd82",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-normal600-20261002-08/tools/review_parity_loss.py": "040ca131bedf83f99687c0f5f12adba46bb5070484ace985e37c31f62cb6e0ab",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-normal600-20261002-08/tools/review_tc_reference_bias.py": "7fb00b5bcf3fec5196e5951536b2c1b09a22c7fbd0b9a64368cf099babbac13b",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-normal600-20261002-08/tools/review_shared_rate.py": "8306fa6dbcf26c57c25ba2a27c3f72a9c15728214157b2948793325799d72000",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-normal600-20261002-08/tools/review_scan_interval.py": "04b37e050c4b8a60cc81592b0356d058030b0e2b29550c7b25faa0f750387328",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-normal600-20261002-08/tools/review_mapper_pair.py": "3b8771144b6b42e9be113249f7587edfb5d7388498ab55e0cae510d37f63cbc6",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-normal600-20261002-08/tools/review_tc_bench.py": "7b7f1239b52e647c3de6cdc61b8c6f0be6defbe9cc53d9ee456a298a73edde85",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-normal600-20261002-08/tools/review_live_shadow.py": "c2a9279826f9c3c8d81f9d8368baa0400733941890c958453519a1717c13f36f",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-normal600-20261002-08/tools/review_age_shadow.py": "cf14ab9814809cf9472ea9a155ca2806fba202c6b2bfc342cd3ed3797fab8ec9",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-normal600-20261002-08/tools/review_tc_usage.py": "f1624b1c9b505b01e5727f6ed0e362b67cddad11dde9e42b75a5717f07a0c2ef",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-normal600-20261002-08/tools/review_copy_duplicates.py": "e0641b9aad6ae7d85983fc46048e76da1956d5b7ff465851ca44cb58cf5f3980",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-normal600-20261002-08/tools/review_gm_trial.py": "baaf94aa62fa66d2e297d68327cd385778308d740c476f4ab886d2cf86b2e67a",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-normal600-20261002-08/tools/review_copy.py": "30ec09359b435cf8fb18c00a798342e11b7d84a02d06b1fc2c04c36fc71b12ab",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-normal600-20261002-08/attachments/review_utc_physical_copies_sol.py": "6abba9612effbcde94792b300773097dd5102c51c51e5e0886d2993db8d9a0cf",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-normal600-20261002-08/attachments/review_utc_feedback.py": "6b13843448f8484dd9817e4ed55d44a66b99bc5c4a76129693d3873164aedd2d",
+    "results/archives/ptob-w12-sol-service-reacquisition-C2-normal600-20261002-08/attachments/review_utc_field.py": "4201e3e17e75190e0b56bbb7478af176e421b828a0ff3f5d088614e8bf6c454d"
+  },
+  "cutoff_copies": {
+    "results/STATUS.md": {
+      "path": "paper/provenance/paused-final-20261002/STATUS.md",
+      "sha256": "88ecc81b7b320233f64370457389b2bee1be3cc8b8f3cdc026812c1d1f6e2ea5"
+    },
+    "results/TC_MICROSYNC_COMPARISON_20261002.md": {
+      "path": "paper/provenance/paused-final-20261002/TC_MICROSYNC_COMPARISON_20261002.md",
+      "sha256": "7cb5ce2767fa4421b5b306c45b6e56696b4509ab19f507d1af588132a6e77dd0"
+    },
+    "results/TC_ADDRESS_CALIBRATION_20261002.json": {
+      "path": "paper/provenance/paused-final-20261002/TC_ADDRESS_CALIBRATION_20261002.json",
+      "sha256": "765f24b3e0bc5f763d292a448165c18f3b0f0beab1074a943c30e7e7bd1d163c"
+    },
+    "results/TC_ENGINEER_PAUSE_HANDOFF_20261002.md": {
+      "path": "paper/provenance/paused-final-20261002/TC_ENGINEER_PAUSE_HANDOFF_20261002.md",
+      "sha256": "dfe2dccd7d03f9f229840864d9456b20b8a30ab154b0ac02f55941298e07eb51"
+    },
+    "results/W12_SOL_RESUMED_GAPS_20261002.md": {
+      "path": "paper/provenance/paused-final-20261002/W12_SOL_RESUMED_GAPS_20261002.md",
+      "sha256": "8ba129ea2d070def7aa8281e2cb97ef27bbe876e416862736ccca2c6fa2d0cf1"
+    },
+    "results/W12_SOL_REACQUISITION_EPISODES_20261002.json": {
+      "path": "paper/provenance/paused-final-20261002/W12_SOL_REACQUISITION_EPISODES_20261002.json",
+      "sha256": "b55ae5236d2f5da23bdeb91d31859cebc66eb4d834dc081a87f01be433747ded"
+    }
+  },
+  "hardware": {
+    "TC_installed": {
+      "source": "f83778e8e31cca725cf78d37a76d8be596d30dcb",
+      "UF2_SHA256": "b87f33db0ce2c28635c5f7c405d87e101ab043d552a1b2f4c4e87092c735cad9",
+      "app_bytes": 133513,
+      "static_bytes": 43761,
+      "units": [
+        "TC-01",
+        "TC-03"
+      ],
+      "new_CURRENT_readback": "PENDING_NEXT_NECESSARY_UF2",
+      "prior_CURRENT": "EXACT_A019",
+      "protected_blocks_per_unit": 672,
+      "rollback": "RETAINED",
+      "TC02": "FIELD_LAST_DEC0_A019_NO_BENCH_ACCESS"
+    },
+    "TC_prepared_not_measured": "3c1fbf77129b189dd7695389f753ca241d2497c9",
+    "W12_installed": {
+      "C-1": {
+        "ownership": "FIELD/no bench access",
+        "source": "faf3be6c177318f983dcc9de934ba38075d8d446",
+        "application_sha256": "aa1879e8c26cd1ef60c7b7c6186f83538ef602afa0b004d90c7541a4b9a8a305",
+        "current_field_coverage": "UNOBSERVED",
+        "c8_candidate": "NOT_DEPLOYED_UNTESTED"
+      },
+      "C-2": {
+        "ownership": "LAB/consoles closed",
+        "source": "c8e5bb202bce7233e9e3edb752f537664aca08b2",
+        "application_sha256": "9e8d31e58e7bdda2b89aaa5b2ef9d4d9857af6c7168721018cc48dad9822a83f",
+        "flags": "candidate/force/relay/isolate0 radioON observerOFF PTSWiFiOFF"
+      }
+    }
+  },
+  "calibration": {
+    "schema": 1,
+    "profile_id": "TC_NRF52840_BLE1M_ADDRESS_EDGE_10516_V1",
+    "frozen_utc": "2026-10-02T15:50:49.606417+00:00",
+    "delay_ns": 10516,
+    "sign": "ADD_TO_SOURCE_UTC_AT_RAW_RX_ADDRESS_FOR_FUTURE_PUBLICATION",
+    "estimator": "ROUND_HALF_SUM_OF_DIRECTIONAL_PHYSICAL_ADDRESS_PAIR_MEANS",
+    "unrounded_half_sum_ns": 10516.163063816442,
+    "calibration_data": [
+      {
+        "run_id": "ptob-tc01-tc03-bench-pps600-20261002-10",
+        "seal_sha256": "369e14126598ae0b175e3222dbc57bcee1c3357c37b455a8d1f525efdcce86e8",
+        "reference_bias_sha256": "511b9b94db3477446c38dccaa201459738befa73c6589b789449b1559cdb27b3",
+        "physical_pairs": 361,
+        "mean_RX_minus_TX_ADDRESS_ns": 10529.839335180055,
+        "channels": {
+          "11257794/39": {
+            "n": 130,
+            "signed_bias_ns": 10543.038461538461,
+            "mae_ns": 10543.038461538461,
+            "rms_ns": 10543.243034503917,
+            "population_sd_ns": 65.67863530932014,
+            "abs_p95_ns": 10665,
+            "abs_p99_ns": 10685,
+            "max_abs_ns": 10713,
+            "min_signed_ns": 10400,
+            "max_signed_ns": 10713
+          },
+          "11257794/37": {
+            "n": 136,
+            "signed_bias_ns": 10525.029411764706,
+            "mae_ns": 10525.029411764706,
+            "rms_ns": 10525.212349401792,
+            "population_sd_ns": 62.05547105525244,
+            "abs_p95_ns": 10618,
+            "abs_p99_ns": 10652,
+            "max_abs_ns": 10668,
+            "min_signed_ns": 10356,
+            "max_signed_ns": 10668
+          },
+          "11257794/38": {
+            "n": 95,
+            "signed_bias_ns": 10518.663157894736,
+            "mae_ns": 10518.663157894736,
+            "rms_ns": 10518.834662792162,
+            "population_sd_ns": 60.066911905117735,
+            "abs_p95_ns": 10632,
+            "abs_p99_ns": 10702,
+            "max_abs_ns": 10702,
+            "min_signed_ns": 10360,
+            "max_signed_ns": 10702
+          }
+        }
+      },
+      {
+        "run_id": "ptob-tc03-tc01-bench-pps600-20261002-11",
+        "seal_sha256": "cc03769415d2331989a3627eaee886eab2162d38eb6a0de107dcb899951d2f4e",
+        "reference_bias_sha256": "beb4e3034bd0c0d9d5f71be802b0a0b30c5d1535fbc88d13aed8316b1442c5c4",
+        "physical_pairs": 265,
+        "mean_RX_minus_TX_ADDRESS_ns": 10502.48679245283,
+        "channels": {
+          "4192692/37": {
+            "n": 116,
+            "signed_bias_ns": 10505,
+            "mae_ns": 10505,
+            "rms_ns": 10505.169211163255,
+            "population_sd_ns": 59.62512199076655,
+            "abs_p95_ns": 10611,
+            "abs_p99_ns": 10639,
+            "max_abs_ns": 10645,
+            "min_signed_ns": 10351,
+            "max_signed_ns": 10645
+          },
+          "4192692/39": {
+            "n": 64,
+            "signed_bias_ns": 10501.734375,
+            "mae_ns": 10501.734375,
+            "rms_ns": 10501.949697704946,
+            "population_sd_ns": 67.25005627030639,
+            "abs_p95_ns": 10605,
+            "abs_p99_ns": 10674,
+            "max_abs_ns": 10674,
+            "min_signed_ns": 10344,
+            "max_signed_ns": 10674
+          },
+          "4192692/38": {
+            "n": 85,
+            "signed_bias_ns": 10499.623529411765,
+            "mae_ns": 10499.623529411765,
+            "rms_ns": 10499.841140534965,
+            "population_sd_ns": 67.59968264293558,
+            "abs_p95_ns": 10625,
+            "abs_p99_ns": 10687,
+            "max_abs_ns": 10687,
+            "min_signed_ns": 10366,
+            "max_signed_ns": 10687
+          }
+        }
+      }
+    ],
+    "validation_data_used": false,
+    "source_epoch_or_usrDelay_changed": false,
+    "scope": "DIRECT_PHYSICAL_UTC_ORIGINAL_EXACT_SELECTED_ROOT_BLE1M_TX_RX_ADDRESS",
+    "default_enabled": false,
+    "persistence": "VOLATILE_EXPLICIT_SERIAL_ONLY",
+    "passive_client_transmission_required": false,
+    "GNSS_training": "NONE_AT_RUNTIME_CALIBRATION_PPS_SHADOW_OFFLINE_ONLY",
+    "mechanism_primary_source": "https://devzone.nordicsemi.com/f/nordic-q-a/83778/undocumented-tx---rx-radio-delay/570863",
+    "uncertainties": [
+      "PPS pair offset cancels in directional half-sum only if stable across arms",
+      "Path asymmetry, signal-quality dependence, quantization and per-board drift remain unknown",
+      "TC GPIO is unconnected; not independently measured output",
+      "No per-channel tuning, no delivered-error mean fit, no scoring-data centering",
+      "Prospective actual delivered-clock and internal compare full populations must validate"
+    ],
+    "prospective_plan": "TC01 qualified source -> TC03 gmOFF/root-bound cal10516;600s physical PPS and internalcompare, parallel rawBLE sameinputs; retain all unmatched/authority/gap/drop states; freeze persists unchanged across reverse/reboot trials"
+  },
+  "selection_recovery": {
+    "scope": "Captured monotonic W12 clock ticks, not independent output/RF duty. All unavailable episodes retained. No post-hoc trimming.",
+    "nonserving_incumbent_episodes": [
+      {
+        "fallback_line": 10722,
+        "fallback_tick": "6457252202",
+        "return_line": 10855,
+        "return_tick": "6497242533",
+        "duration_s": 1.99951655
+      },
+      {
+        "fallback_line": 17379,
+        "fallback_tick": "8250742048",
+        "return_line": 17506,
+        "return_tick": "8290774999",
+        "duration_s": 2.00164755
+      },
+      {
+        "fallback_line": 32125,
+        "fallback_tick": "12265283516",
+        "return_line": 32333,
+        "return_tick": "12332629616",
+        "duration_s": 3.367305
+      },
+      {
+        "fallback_line": 40860,
+        "fallback_tick": "14681880776",
+        "return_line": 40989,
+        "return_tick": "14721883658",
+        "duration_s": 2.0001441
+      }
+    ],
+    "unavailable_view_episodes": [
+      {
+        "first_unavailable_line": 7990,
+        "return_valid_line": 8794,
+        "duration_s": 11.0039564,
+        "first_root": "2766948752",
+        "return_root": "2766948752",
+        "first_original_age_us": "10112565"
+      },
+      {
+        "first_unavailable_line": 10768,
+        "return_valid_line": 10919,
+        "duration_s": 2.00085105,
+        "first_root": "4135130224",
+        "return_root": "2766948752",
+        "first_original_age_us": "18446744073709551615"
+      },
+      {
+        "first_unavailable_line": 17397,
+        "return_valid_line": 17521,
+        "duration_s": 2.0006124,
+        "first_root": "4135130224",
+        "return_root": "2766948752",
+        "first_original_age_us": "18446744073709551615"
+      },
+      {
+        "first_unavailable_line": 32135,
+        "return_valid_line": 32886,
+        "duration_s": 11.50295305,
+        "first_root": "4135130224",
+        "return_root": "2766948752",
+        "first_original_age_us": "18446744073709551615"
+      },
+      {
+        "first_unavailable_line": 40902,
+        "return_valid_line": 41043,
+        "duration_s": 2.00050645,
+        "first_root": "4135130224",
+        "return_root": "2766948752",
+        "first_original_age_us": "18446744073709551615"
+      }
+    ],
+    "safe_flags_all_observed": true,
+    "last_status": {
+      "tick": "15565238917",
+      "unit": "W12-2",
+      "node": "1991120760",
+      "root": "2766948752",
+      "root_generation": "9",
+      "candidate": "0",
+      "forced": "0",
+      "priority": "3",
+      "relay_request": "0",
+      "isolated": "0",
+      "control_rx": "1698",
+      "auth_reject": "0",
+      "control_tx": "1436",
+      "tx_failed": "0",
+      "queue_drop": "0",
+      "replay_or_duplicate": "1071",
+      "retired_epoch": "0",
+      "adv_owned": "0",
+      "adv_active": "0",
+      "adv_stops": "1436",
+      "adv_stop_failed": "0",
+      "adv_wall_max_us": "73124",
+      "request": "STATUS",
+      "ack": "1",
+      "policy": "GM_E1",
+      "admission": "WAIT_TIME",
+      "local_eligible": "0",
+      "local_time_valid": "0",
+      "boot_age_ms": "778261",
+      "mesh_join_age_ms": "0",
+      "boot_listen_ms": "60000",
+      "mesh_stabilize_ms": "60000",
+      "receive_healthy": "0",
+      "winner_quality_class": "4",
+      "winner_flags": "84",
+      "winner_control_session": "3572946",
+      "winner_utc_usable": "1",
+      "winner_utc_session": "1516737",
+      "winner_utc_age_ms": "748",
+      "source_qualified": "0",
+      "source_quality_class": "7",
+      "source_stability": "INVALID",
+      "static_priority": "LAB_DIAGNOSTIC_ONLY",
+      "profile": "GM_LAB_V3",
+      "source": "NO_VALIDATED_ROOT_TIME",
+      "precision": "UNKNOWN",
+      "PTS": "OFF",
+      "WiFi": "OFF"
+    },
+    "raw_sha256": "0cb7161b4eb12101585b3d1ca4d8e3e272b768a9095b5909935d9e44648f888d",
+    "derivation": "duration=(return_tick-fallback_tick)/20000000; complete captured transitions/views only, all episodes retained; raw line references immutable in sealed archive",
+    "parent_run_id": "ptob-w12-sol-service-reacquisition-C2-normal600-20261002-08",
+    "parent_seal_sha256": "79a5e34d93c616fd69666b4067141cefc73099c6434c4eb65601172a5e370599"
+  },
+  "seal_verification": {
+    "ptob-tc01-tc03-edge10516-prospective600-20261002-14": "PASS: empty mismatch list",
+    "ptob-tc03-tc01-edge10516-prospective600-repeat-20261002-18": "PASS: empty mismatch list",
+    "ptob-tc03-tc01-edge10516-review-final-20261002-16": "PASS: empty mismatch list",
+    "ptob-w12-sol-service-reacquisition-C2-cold90-20261002-08": "PASS: empty mismatch list",
+    "ptob-w12-sol-service-reacquisition-C2-normal600-20261002-08": "PASS: empty mismatch list"
+  }
+}

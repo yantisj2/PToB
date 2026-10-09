@@ -1,0 +1,80 @@
+{
+  "checked": "2026-10-02",
+  "sources": [
+    {
+      "id": "micro",
+      "url": "https://da.lib.kobe-u.ac.jp/da/kernel/0100491658/0100491658.pdf",
+      "doi": "10.1109/ACCESS.2024.3446668",
+      "verified": "MAE 272 ns, SD 319.2 ns, 99% CDF 591.25 ns, MCU-only 252.1 uW; low-power MAE 796.4 ns and 141.8 uW; connected nRF52840 central/3 peripherals, PA/LNA, bidirectional, GPIO output, PPK2 excludes peripherals",
+      "locator": "IEEE pages 124479, 124487-124489; repository PDF pages 3, 11-13",
+      "newly_reverified": "equation4 premeasured hard-coded d; external800MHz GPIO; no RMS reported, SD is not substituted for RMS; primary sectionsV and figures18/19"
+    },
+    {
+      "id": "blue",
+      "url": "https://backend.production.deepblue-documents.lib.umich.edu/server/api/core/bitstreams/1818d96c-dce0-4612-97a7-2bf5d074174c/content",
+      "retrieval": "curl HTTPS successful; browser PDF fetch failed",
+      "sha256": "05733ea6341fa11e051616d3a112c472cadc66c4f4fbf492b2f4c41722ede786",
+      "author": "Farzad Asgarian",
+      "title": "Low-Power Low-Error Wireless Sensor Network for Health and Usage Monitoring Systems",
+      "verified": "Chapter 2: single-channel BLE, PPI capture, subsequent packet timestamp and physical output comparisons. No quantitative superiority comparison used.",
+      "locator": "printed pp. 21-24 and 35-38"
+    },
+    {
+      "id": "cheep",
+      "url": "https://arxiv.org/pdf/1501.06479",
+      "verified": "author preprint revised 2016; passive Android listeners, custom-radio advertisements and preceding transmission correction; approximately 10 us range"
+    },
+    {
+      "id": "ftsp",
+      "url": "https://archive.isis.vanderbilt.edu/sites/default/files/Maroti_M_11_3_2004_The_Floodi.pdf",
+      "doi": "10.1145/1031495.1031501",
+      "verified": "primary SenSys paper, MAC timestamps and skew regression"
+    },
+    {
+      "id": "nordic",
+      "url": "https://devzone.nordicsemi.com/guides/short-range-guides/b/bluetooth-low-energy/posts/wireless-timer-synchronization-among-nrf5-devices",
+      "verified": "proprietary timeslot packet reference design, chain delay and physical output; not arbitrary advertisement API"
+    },
+    {
+      "id": "sig",
+      "url": "https://www.bluetooth.com/bluetooth-le-primer/",
+      "locator": "7.8.3",
+      "verified": "SyncInfo timing/channel offset, periodic train, channel selection algorithm 2"
+    },
+    {
+      "id": "cs",
+      "url": "https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core_v6.3/out/en/low-energy-controller/channel-sounding.html",
+      "locator": "4.3, 4.3.1",
+      "verified": "mode 0 frequency offset, mode 1 RTT, mode 2 phase and mode 3 RTT/phase; inference is optional diagnostics, not clock API"
+    },
+    {
+      "id": "uwb",
+      "url": "https://www.qorvo.com/products/p/DW3110",
+      "verified": "official DW3110 802.15.4z product/data-sheet/application-note index; APS014 is DW1000-specific. No accuracy transfer or numerical timestamp-resolution claim.",
+      "limits": "individual application-note retrieval unavailable; cited index only"
+    },
+    {
+      "id": "ptp",
+      "url": "https://www.nist.gov/el/intelligent-systems-division-73500/meanings-common-terms-used-ieee-1588",
+      "verified": "official terminology; no PToB profile/conformance claim"
+    },
+    {
+      "id": "smpte",
+      "url": "https://pub.smpte.org/pub/st2059-1/st2059-1-2021.pdf",
+      "verified": "publisher document, epoch/interface alignment; used to motivate explicit timecode mapping and distinct output phase"
+    },
+    {
+      "id": "zhou2026",
+      "url": "https://arxiv.org/html/2604.07199v1",
+      "doi": "10.48550/arXiv.2604.07199",
+      "verified": "proprietary MPSL radio timeslots; approximately20ns at1000Hz without communication-stack activity; BLE-active is distinct condition, not passive legacy-advertisement record",
+      "locator": "abstract and sectionII; no generic all-time BLE record inference"
+    },
+    {
+      "id": "nordic-edge",
+      "url": "https://devzone.nordicsemi.com/f/nordic-q-a/83778/undocumented-tx---rx-radio-delay/570863",
+      "verified": "hardware-team response says RX ADDRESS follows decoding, signal quality affects reference; only qualitative context, measured10516 comes from own training"
+    }
+  ],
+  "paused_update_checked": "2026-10-02"
+}

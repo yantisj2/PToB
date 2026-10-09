@@ -1,0 +1,61 @@
+{
+  "schema": 1,
+  "freeze_id": "R2_WIRE_FREEZE_20261009_1",
+  "contract_sha256": "90ed29264edffea60da262379ca630cf90543f3c37a45a4c2877c4fe626bbcfd",
+  "scope": "wire freeze, offline codec lab, RF receipt binding, analyzer materials; no firmware edits or new physical/PHY campaign",
+  "profiles": {
+    "r2-control": "installed 0.6.4 f018995 config1",
+    "r2-p1": "uninstalled October9 snapshot config2 plus P1 AD"
+  },
+  "codec_check": {
+    "receipt": "artifacts/r2-wire-freeze-20261009-04/receipt.json",
+    "result": "PASS",
+    "vectors": 29,
+    "sanitizers": [
+      "address",
+      "undefined"
+    ]
+  },
+  "rf_receipt_binding": {
+    "installed": "artifacts/r2-wire-freeze-20261009-03/installed-rf.json",
+    "candidate": "artifacts/r2-wire-freeze-20261009-03/candidate-rf.json",
+    "installed_result": "PASS wire binding and existing run outcome",
+    "candidate_result": "FAIL existing device/PHY outcome retained"
+  },
+  "analyzer": {
+    "views": 148,
+    "historical_unchanged": 144,
+    "r2_fixture_views": 4,
+    "default": "r2-control-direct-full-0",
+    "qualification": "UNKNOWN",
+    "browser_checked": [
+      "installed profile",
+      "P1 switch",
+      "P1 corrections and decoded fields",
+      "390px viewport fits without horizontal document overflow"
+    ]
+  },
+  "site_checks": {
+    "astro": "0 errors / 0 warnings",
+    "build": "PASS",
+    "server_tests": "13 PASS with loopback access; original sandbox attempt cancelled EPERM"
+  },
+  "retained_failures": [
+    "artifacts/r2-wire-freeze-20261009-01/failure.json",
+    "artifacts/r2-wire-freeze-20261009-02/failure.json"
+  ],
+  "source_hashes": {
+    "protocol/r2_wire_v1/manifest.json": "90ed29264edffea60da262379ca630cf90543f3c37a45a4c2877c4fe626bbcfd",
+    "protocol/r2_wire_v1/vectors.json": "450d6e470fa81f4f30e8e57580df1e84b6dc5043150dfffd7ea1bc0e981a782f",
+    "tools/r2_wire.py": "7da1a5288f789690a15c72d188512b48e2ba83ac46d84f93c023017acdbc6cb3",
+    "tools/r2_wire_lab.py": "92f86354c173329a9dbabb329d4ba630f8b5f1ad10d8c9d362b2916ac494def1",
+    "tools/r2_rf_lab.py": "6f3463dee44f99233e5e932541127bb267dffe4f5489a3b91fe84fec8cd3601a",
+    "tools/r2_trace_export.py": "38f0fc4c09db8ed12dfc9128edb77aad1437ed0e6e8fc6b93a6e012863d7c27c",
+    "tools/v12_trace_export.py": "61d4026bc9ecc80872fab814b18b3836d32b5c69dfe4b8de431ece9db0945b71",
+    "site/src/scripts/packet-explorer.js": "e75de374662410ec240b4eaf4196a756fe18d2e4f091c34fc61b8958c7f94f22",
+    "site/src/scripts/packet-protocol.js": "c2909f47d2175bf550596ac0143294309cb54fce9e2add6aa9caebe628f9e386",
+    "site/tools/prepare-packet-explorer.mjs": "8c03a7b69b4e828f690a355934d63d42334a19888420eff0a93edc3705f33305",
+    "docs/R2_WIRE_FREEZE_20261009.md": "266722e00ae7431281bc59674044065460e31e8d24ae71087d230e6f06ebb9f1"
+  },
+  "python_checks": "7 wire/trace regression tests PASS; syntax compilation PASS with temporary cache"
+}

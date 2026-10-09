@@ -1,0 +1,1695 @@
+{
+  "schema": 1,
+  "date": "2026-10-08",
+  "status": "CONNECTED_COARSE_PROTOCOL_SIMULATOR_PASS_NOT_FLASHABLE",
+  "implementation_commit": "e68662fffa01699a8f13308f77d0e1d1acf82de5",
+  "hardware_accessed": false,
+  "hardware_flashed": false,
+  "native_image": "Existing R2 clock entry point remains RF-OFF; no protocol-enabled native image produced",
+  "full_v12_precision_qualification": false,
+  "independent_physical_suite": "HELD",
+  "w12_revision_unchanged": "68729414a955fd828be562aafdc107f338a63c0d",
+  "simulator": {
+    "run": "firmware/t096/build-v12-r2-sim-network-20261008-22",
+    "receipt_sha256": "ef849865a038aa3a03595a2cb98d3e7a8c7c2f2536fda0a0f20d2d58e9c81797",
+    "source_sha256": "7ff14b8202f249974bc8bf63d59e4b09941c407285629c51088eed85014a7d1d",
+    "snapshot_matches_committed_files": true,
+    "identity_note": "Frozen source predates commit creation; all snapshot files match the implementation commit. Original embedded previous HEAD and dirty provenance remain in receipt.",
+    "container_image": "sha256:f3143da7ce64657846af03f9f8eb2196c073f78bd9d50f780117d55bb59b5975",
+    "board": "nrf52_bsim (nRF52833 model)",
+    "tests": [
+      {
+        "case": "network-2-23-0",
+        "seed": 23,
+        "rotation": 0,
+        "passed": true,
+        "nodes": 2,
+        "source_roots_seen": [
+          1
+        ],
+        "synthetic_coarse_follower_max_error_us": 14262,
+        "inputs": [
+          "d_00:  R2_NETWORK_INPUT node=0 seed=23 rank=0 ppm=-215 acquire=6 stable=14",
+          "d_01:  R2_NETWORK_INPUT node=1 seed=23 rank=1 ppm=-85 acquire=3 stable=8"
+        ],
+        "closure": [
+          "d_00:  R2_NETWORK_DONE node=0 rx=2369 errors=0 corrupt=1 replay=1 closed=1",
+          "d_01:  R2_NETWORK_DONE node=1 rx=2496 errors=0 corrupt=1 replay=1 closed=1"
+        ],
+        "coverage": [
+          {
+            "node": 0,
+            "stable_half_second_windows": 46,
+            "missing_usable_update_windows": []
+          },
+          {
+            "node": 1,
+            "stable_half_second_windows": 46,
+            "missing_usable_update_windows": []
+          }
+        ],
+        "single_serving_GM_transition_check": true,
+        "control_only_overlap_events": [],
+        "modeled_radio_cost": [
+          {
+            "node": 0,
+            "phy_transmissions": 7565,
+            "modeled_tx_airtime_us": 2944160,
+            "modeled_tx_fraction_of_100s": 0.0294416
+          },
+          {
+            "node": 1,
+            "phy_transmissions": 7804,
+            "modeled_tx_airtime_us": 2861200,
+            "modeled_tx_fraction_of_100s": 0.028612
+          }
+        ]
+      },
+      {
+        "case": "network-3-23-0",
+        "seed": 23,
+        "rotation": 0,
+        "passed": true,
+        "nodes": 3,
+        "source_roots_seen": [
+          1,
+          2
+        ],
+        "synthetic_coarse_follower_max_error_us": 28653,
+        "inputs": [
+          "d_00:  R2_NETWORK_INPUT node=0 seed=23 rank=0 ppm=-215 acquire=6 stable=14",
+          "d_01:  R2_NETWORK_INPUT node=1 seed=23 rank=1 ppm=-85 acquire=3 stable=8",
+          "d_02:  R2_NETWORK_INPUT node=2 seed=23 rank=2 ppm=61 acquire=15 stable=18"
+        ],
+        "closure": [
+          "d_00:  R2_NETWORK_DONE node=0 rx=5140 errors=0 corrupt=1 replay=1 closed=1",
+          "d_01:  R2_NETWORK_DONE node=1 rx=2860 errors=0 corrupt=1 replay=1 closed=1",
+          "d_02:  R2_NETWORK_DONE node=2 rx=2908 errors=0 corrupt=1 replay=1 closed=1"
+        ],
+        "coverage": [
+          {
+            "node": 0,
+            "stable_half_second_windows": 82,
+            "missing_usable_update_windows": []
+          },
+          {
+            "node": 1,
+            "stable_half_second_windows": 82,
+            "missing_usable_update_windows": []
+          },
+          {
+            "node": 2,
+            "stable_half_second_windows": 82,
+            "missing_usable_update_windows": []
+          }
+        ],
+        "single_serving_GM_transition_check": true,
+        "control_only_overlap_events": [],
+        "modeled_radio_cost": [
+          {
+            "node": 0,
+            "phy_transmissions": 15528,
+            "modeled_tx_airtime_us": 7297430,
+            "modeled_tx_fraction_of_100s": 0.0729743
+          },
+          {
+            "node": 1,
+            "phy_transmissions": 8955,
+            "modeled_tx_airtime_us": 4697952,
+            "modeled_tx_fraction_of_100s": 0.04697952
+          },
+          {
+            "node": 2,
+            "phy_transmissions": 8062,
+            "modeled_tx_airtime_us": 3227968,
+            "modeled_tx_fraction_of_100s": 0.03227968
+          }
+        ]
+      },
+      {
+        "case": "network-3-47-1",
+        "seed": 47,
+        "rotation": 1,
+        "passed": true,
+        "nodes": 3,
+        "source_roots_seen": [
+          0,
+          1
+        ],
+        "synthetic_coarse_follower_max_error_us": 48501,
+        "inputs": [
+          "d_00:  R2_NETWORK_INPUT node=0 seed=47 rank=1 ppm=-79 acquire=4 stable=7",
+          "d_01:  R2_NETWORK_INPUT node=1 seed=47 rank=2 ppm=230 acquire=12 stable=20",
+          "d_02:  R2_NETWORK_INPUT node=2 seed=47 rank=0 ppm=385 acquire=4 stable=8"
+        ],
+        "closure": [
+          "d_00:  R2_NETWORK_DONE node=0 rx=2728 errors=0 corrupt=1 replay=1 closed=1",
+          "d_01:  R2_NETWORK_DONE node=1 rx=2756 errors=0 corrupt=1 replay=1 closed=1",
+          "d_02:  R2_NETWORK_DONE node=2 rx=4890 errors=0 corrupt=1 replay=1 closed=1"
+        ],
+        "coverage": [
+          {
+            "node": 0,
+            "stable_half_second_windows": 82,
+            "missing_usable_update_windows": []
+          },
+          {
+            "node": 1,
+            "stable_half_second_windows": 82,
+            "missing_usable_update_windows": []
+          },
+          {
+            "node": 2,
+            "stable_half_second_windows": 82,
+            "missing_usable_update_windows": []
+          }
+        ],
+        "single_serving_GM_transition_check": true,
+        "control_only_overlap_events": [],
+        "modeled_radio_cost": [
+          {
+            "node": 0,
+            "phy_transmissions": 8187,
+            "modeled_tx_airtime_us": 3823053,
+            "modeled_tx_fraction_of_100s": 0.03823053
+          },
+          {
+            "node": 1,
+            "phy_transmissions": 8490,
+            "modeled_tx_airtime_us": 4274544,
+            "modeled_tx_fraction_of_100s": 0.04274544
+          },
+          {
+            "node": 2,
+            "phy_transmissions": 11129,
+            "modeled_tx_airtime_us": 5797182,
+            "modeled_tx_fraction_of_100s": 0.05797182
+          }
+        ]
+      },
+      {
+        "case": "network-3-91-2",
+        "seed": 91,
+        "rotation": 2,
+        "passed": true,
+        "nodes": 3,
+        "source_roots_seen": [
+          0,
+          2
+        ],
+        "synthetic_coarse_follower_max_error_us": 33943,
+        "inputs": [
+          "d_00:  R2_NETWORK_INPUT node=0 seed=91 rank=2 ppm=-298 acquire=13 stable=19",
+          "d_01:  R2_NETWORK_INPUT node=1 seed=91 rank=0 ppm=-8 acquire=8 stable=17",
+          "d_02:  R2_NETWORK_INPUT node=2 seed=91 rank=1 ppm=332 acquire=3 stable=6"
+        ],
+        "closure": [
+          "d_00:  R2_NETWORK_DONE node=0 rx=2913 errors=0 corrupt=1 replay=1 closed=1",
+          "d_01:  R2_NETWORK_DONE node=1 rx=5222 errors=0 corrupt=1 replay=1 closed=1",
+          "d_02:  R2_NETWORK_DONE node=2 rx=2920 errors=0 corrupt=1 replay=1 closed=1"
+        ],
+        "coverage": [
+          {
+            "node": 0,
+            "stable_half_second_windows": 82,
+            "missing_usable_update_windows": []
+          },
+          {
+            "node": 1,
+            "stable_half_second_windows": 82,
+            "missing_usable_update_windows": []
+          },
+          {
+            "node": 2,
+            "stable_half_second_windows": 82,
+            "missing_usable_update_windows": []
+          }
+        ],
+        "single_serving_GM_transition_check": true,
+        "control_only_overlap_events": [],
+        "modeled_radio_cost": [
+          {
+            "node": 0,
+            "phy_transmissions": 7965,
+            "modeled_tx_airtime_us": 3517528,
+            "modeled_tx_fraction_of_100s": 0.03517528
+          },
+          {
+            "node": 1,
+            "phy_transmissions": 13839,
+            "modeled_tx_airtime_us": 6736277,
+            "modeled_tx_fraction_of_100s": 0.06736277
+          },
+          {
+            "node": 2,
+            "phy_transmissions": 7979,
+            "modeled_tx_airtime_us": 3648480,
+            "modeled_tx_fraction_of_100s": 0.0364848
+          }
+        ]
+      },
+      {
+        "case": "network-4-23-0",
+        "seed": 23,
+        "rotation": 0,
+        "passed": true,
+        "nodes": 4,
+        "source_roots_seen": [
+          1,
+          2
+        ],
+        "synthetic_coarse_follower_max_error_us": 38395,
+        "inputs": [
+          "d_00:  R2_NETWORK_INPUT node=0 seed=23 rank=0 ppm=-215 acquire=6 stable=14",
+          "d_01:  R2_NETWORK_INPUT node=1 seed=23 rank=1 ppm=-85 acquire=3 stable=8",
+          "d_02:  R2_NETWORK_INPUT node=2 seed=23 rank=2 ppm=61 acquire=15 stable=18",
+          "d_03:  R2_NETWORK_INPUT node=3 seed=23 rank=3 ppm=287 acquire=16 stable=22"
+        ],
+        "closure": [
+          "d_00:  R2_NETWORK_DONE node=0 rx=7516 errors=0 corrupt=1 replay=1 closed=1",
+          "d_01:  R2_NETWORK_DONE node=1 rx=3003 errors=0 corrupt=1 replay=1 closed=1",
+          "d_02:  R2_NETWORK_DONE node=2 rx=2910 errors=0 corrupt=1 replay=1 closed=1",
+          "d_03:  R2_NETWORK_DONE node=3 rx=2723 errors=0 corrupt=1 replay=1 closed=1"
+        ],
+        "coverage": [
+          {
+            "node": 0,
+            "stable_half_second_windows": 82,
+            "missing_usable_update_windows": []
+          },
+          {
+            "node": 1,
+            "stable_half_second_windows": 82,
+            "missing_usable_update_windows": []
+          },
+          {
+            "node": 2,
+            "stable_half_second_windows": 82,
+            "missing_usable_update_windows": []
+          },
+          {
+            "node": 3,
+            "stable_half_second_windows": 82,
+            "missing_usable_update_windows": []
+          }
+        ],
+        "single_serving_GM_transition_check": true,
+        "control_only_overlap_events": [],
+        "modeled_radio_cost": [
+          {
+            "node": 0,
+            "phy_transmissions": 23254,
+            "modeled_tx_airtime_us": 10962914,
+            "modeled_tx_fraction_of_100s": 0.10962914
+          },
+          {
+            "node": 1,
+            "phy_transmissions": 9236,
+            "modeled_tx_airtime_us": 3894428,
+            "modeled_tx_fraction_of_100s": 0.03894428
+          },
+          {
+            "node": 2,
+            "phy_transmissions": 8739,
+            "modeled_tx_airtime_us": 4821672,
+            "modeled_tx_fraction_of_100s": 0.04821672
+          },
+          {
+            "node": 3,
+            "phy_transmissions": 7937,
+            "modeled_tx_airtime_us": 3862856,
+            "modeled_tx_fraction_of_100s": 0.03862856
+          }
+        ]
+      },
+      {
+        "case": "network-4-47-1",
+        "seed": 47,
+        "rotation": 1,
+        "passed": true,
+        "nodes": 4,
+        "source_roots_seen": [
+          0,
+          1
+        ],
+        "synthetic_coarse_follower_max_error_us": 39130,
+        "inputs": [
+          "d_00:  R2_NETWORK_INPUT node=0 seed=47 rank=1 ppm=-79 acquire=4 stable=7",
+          "d_01:  R2_NETWORK_INPUT node=1 seed=47 rank=2 ppm=230 acquire=12 stable=20",
+          "d_02:  R2_NETWORK_INPUT node=2 seed=47 rank=3 ppm=385 acquire=11 stable=15",
+          "d_03:  R2_NETWORK_INPUT node=3 seed=47 rank=0 ppm=-198 acquire=9 stable=12"
+        ],
+        "closure": [
+          "d_00:  R2_NETWORK_DONE node=0 rx=2666 errors=0 corrupt=1 replay=1 closed=1",
+          "d_01:  R2_NETWORK_DONE node=1 rx=2871 errors=0 corrupt=1 replay=1 closed=1",
+          "d_02:  R2_NETWORK_DONE node=2 rx=2719 errors=0 corrupt=1 replay=1 closed=1",
+          "d_03:  R2_NETWORK_DONE node=3 rx=7511 errors=0 corrupt=1 replay=1 closed=1"
+        ],
+        "coverage": [
+          {
+            "node": 0,
+            "stable_half_second_windows": 82,
+            "missing_usable_update_windows": []
+          },
+          {
+            "node": 1,
+            "stable_half_second_windows": 82,
+            "missing_usable_update_windows": []
+          },
+          {
+            "node": 2,
+            "stable_half_second_windows": 82,
+            "missing_usable_update_windows": []
+          },
+          {
+            "node": 3,
+            "stable_half_second_windows": 82,
+            "missing_usable_update_windows": []
+          }
+        ],
+        "single_serving_GM_transition_check": true,
+        "control_only_overlap_events": [
+          {
+            "node": 0,
+            "t": 73031219,
+            "ready": 1,
+            "gm": 1,
+            "serving": 0,
+            "root": 0,
+            "coord": 0
+          },
+          {
+            "node": 2,
+            "t": 74473846,
+            "ready": 1,
+            "gm": 0,
+            "serving": 0,
+            "root": 255,
+            "coord": 1
+          },
+          {
+            "node": 2,
+            "t": 74535186,
+            "ready": 1,
+            "gm": 0,
+            "serving": 0,
+            "root": 1,
+            "coord": 1
+          },
+          {
+            "node": 1,
+            "t": 74625854,
+            "ready": 1,
+            "gm": 1,
+            "serving": 1,
+            "root": 1,
+            "coord": 1
+          },
+          {
+            "node": 1,
+            "t": 74830566,
+            "ready": 1,
+            "gm": 1,
+            "serving": 0,
+            "root": 1,
+            "coord": 1
+          },
+          {
+            "node": 1,
+            "t": 74836700,
+            "ready": 1,
+            "gm": 1,
+            "serving": 1,
+            "root": 1,
+            "coord": 1
+          },
+          {
+            "node": 1,
+            "t": 74920532,
+            "ready": 1,
+            "gm": 1,
+            "serving": 0,
+            "root": 1,
+            "coord": 1
+          },
+          {
+            "node": 1,
+            "t": 74945068,
+            "ready": 1,
+            "gm": 1,
+            "serving": 1,
+            "root": 1,
+            "coord": 1
+          },
+          {
+            "node": 1,
+            "t": 75018676,
+            "ready": 1,
+            "gm": 1,
+            "serving": 0,
+            "root": 1,
+            "coord": 1
+          },
+          {
+            "node": 1,
+            "t": 75061614,
+            "ready": 1,
+            "gm": 1,
+            "serving": 1,
+            "root": 1,
+            "coord": 1
+          },
+          {
+            "node": 1,
+            "t": 75184295,
+            "ready": 1,
+            "gm": 1,
+            "serving": 0,
+            "root": 1,
+            "coord": 1
+          },
+          {
+            "node": 1,
+            "t": 75210876,
+            "ready": 1,
+            "gm": 1,
+            "serving": 1,
+            "root": 1,
+            "coord": 1
+          },
+          {
+            "node": 1,
+            "t": 75249725,
+            "ready": 1,
+            "gm": 1,
+            "serving": 0,
+            "root": 1,
+            "coord": 1
+          },
+          {
+            "node": 1,
+            "t": 75306976,
+            "ready": 1,
+            "gm": 1,
+            "serving": 1,
+            "root": 1,
+            "coord": 1
+          },
+          {
+            "node": 1,
+            "t": 75401031,
+            "ready": 1,
+            "gm": 1,
+            "serving": 0,
+            "root": 1,
+            "coord": 1
+          },
+          {
+            "node": 1,
+            "t": 75480773,
+            "ready": 1,
+            "gm": 1,
+            "serving": 1,
+            "root": 1,
+            "coord": 1
+          },
+          {
+            "node": 1,
+            "t": 76030792,
+            "ready": 1,
+            "gm": 1,
+            "serving": 0,
+            "root": 1,
+            "coord": 1
+          },
+          {
+            "node": 1,
+            "t": 76036926,
+            "ready": 1,
+            "gm": 1,
+            "serving": 1,
+            "root": 1,
+            "coord": 1
+          },
+          {
+            "node": 1,
+            "t": 76092132,
+            "ready": 1,
+            "gm": 1,
+            "serving": 0,
+            "root": 1,
+            "coord": 1
+          },
+          {
+            "node": 1,
+            "t": 76145294,
+            "ready": 1,
+            "gm": 1,
+            "serving": 1,
+            "root": 1,
+            "coord": 1
+          },
+          {
+            "node": 1,
+            "t": 76192321,
+            "ready": 1,
+            "gm": 1,
+            "serving": 0,
+            "root": 1,
+            "coord": 1
+          },
+          {
+            "node": 1,
+            "t": 76261840,
+            "ready": 1,
+            "gm": 1,
+            "serving": 1,
+            "root": 1,
+            "coord": 1
+          },
+          {
+            "node": 1,
+            "t": 76374298,
+            "ready": 1,
+            "gm": 1,
+            "serving": 0,
+            "root": 1,
+            "coord": 1
+          },
+          {
+            "node": 1,
+            "t": 76443817,
+            "ready": 1,
+            "gm": 1,
+            "serving": 1,
+            "root": 1,
+            "coord": 1
+          },
+          {
+            "node": 1,
+            "t": 76456085,
+            "ready": 1,
+            "gm": 1,
+            "serving": 0,
+            "root": 1,
+            "coord": 1
+          },
+          {
+            "node": 1,
+            "t": 76490844,
+            "ready": 1,
+            "gm": 1,
+            "serving": 1,
+            "root": 1,
+            "coord": 1
+          },
+          {
+            "node": 1,
+            "t": 77327362,
+            "ready": 1,
+            "gm": 1,
+            "serving": 0,
+            "root": 1,
+            "coord": 1
+          },
+          {
+            "node": 1,
+            "t": 77329406,
+            "ready": 1,
+            "gm": 1,
+            "serving": 1,
+            "root": 1,
+            "coord": 1
+          },
+          {
+            "node": 1,
+            "t": 77634063,
+            "ready": 1,
+            "gm": 1,
+            "serving": 0,
+            "root": 1,
+            "coord": 1
+          },
+          {
+            "node": 1,
+            "t": 77642242,
+            "ready": 1,
+            "gm": 1,
+            "serving": 1,
+            "root": 1,
+            "coord": 1
+          },
+          {
+            "node": 1,
+            "t": 77693359,
+            "ready": 1,
+            "gm": 1,
+            "serving": 0,
+            "root": 1,
+            "coord": 1
+          },
+          {
+            "node": 1,
+            "t": 77750610,
+            "ready": 1,
+            "gm": 1,
+            "serving": 1,
+            "root": 1,
+            "coord": 1
+          },
+          {
+            "node": 1,
+            "t": 77793548,
+            "ready": 1,
+            "gm": 1,
+            "serving": 0,
+            "root": 1,
+            "coord": 1
+          },
+          {
+            "node": 1,
+            "t": 77805816,
+            "ready": 1,
+            "gm": 1,
+            "serving": 1,
+            "root": 1,
+            "coord": 1
+          },
+          {
+            "node": 1,
+            "t": 77893737,
+            "ready": 1,
+            "gm": 1,
+            "serving": 0,
+            "root": 1,
+            "coord": 1
+          },
+          {
+            "node": 1,
+            "t": 77930541,
+            "ready": 1,
+            "gm": 1,
+            "serving": 1,
+            "root": 1,
+            "coord": 1
+          },
+          {
+            "node": 1,
+            "t": 77993927,
+            "ready": 1,
+            "gm": 1,
+            "serving": 0,
+            "root": 1,
+            "coord": 1
+          },
+          {
+            "node": 3,
+            "t": 78000396,
+            "ready": 0,
+            "gm": 0,
+            "serving": 0,
+            "root": 255,
+            "coord": 255
+          },
+          {
+            "node": 1,
+            "t": 78061401,
+            "ready": 1,
+            "gm": 1,
+            "serving": 1,
+            "root": 1,
+            "coord": 1
+          },
+          {
+            "node": 1,
+            "t": 78092071,
+            "ready": 1,
+            "gm": 1,
+            "serving": 0,
+            "root": 1,
+            "coord": 1
+          },
+          {
+            "node": 1,
+            "t": 78120697,
+            "ready": 1,
+            "gm": 1,
+            "serving": 1,
+            "root": 1,
+            "coord": 1
+          },
+          {
+            "node": 1,
+            "t": 78194305,
+            "ready": 1,
+            "gm": 1,
+            "serving": 0,
+            "root": 1,
+            "coord": 1
+          },
+          {
+            "node": 1,
+            "t": 78210662,
+            "ready": 1,
+            "gm": 1,
+            "serving": 1,
+            "root": 1,
+            "coord": 1
+          },
+          {
+            "node": 1,
+            "t": 78296539,
+            "ready": 1,
+            "gm": 1,
+            "serving": 0,
+            "root": 1,
+            "coord": 1
+          },
+          {
+            "node": 1,
+            "t": 78316986,
+            "ready": 1,
+            "gm": 1,
+            "serving": 1,
+            "root": 1,
+            "coord": 1
+          }
+        ],
+        "modeled_radio_cost": [
+          {
+            "node": 0,
+            "phy_transmissions": 8003,
+            "modeled_tx_airtime_us": 3991928,
+            "modeled_tx_fraction_of_100s": 0.03991928
+          },
+          {
+            "node": 1,
+            "phy_transmissions": 8555,
+            "modeled_tx_airtime_us": 3588962,
+            "modeled_tx_fraction_of_100s": 0.03588962
+          },
+          {
+            "node": 2,
+            "phy_transmissions": 8062,
+            "modeled_tx_airtime_us": 4011808,
+            "modeled_tx_fraction_of_100s": 0.04011808
+          },
+          {
+            "node": 3,
+            "phy_transmissions": 18473,
+            "modeled_tx_airtime_us": 9087799,
+            "modeled_tx_fraction_of_100s": 0.09087799
+          }
+        ]
+      }
+    ],
+    "stable_half_second_windows": 1486,
+    "missing_stable_windows": 0,
+    "maximum_synthetic_coarse_follower_error_us": 48501,
+    "closure_audit": {
+      "passed": true,
+      "implementation_commit": "e68662fffa01699a8f13308f77d0e1d1acf82de5",
+      "receipt_sha256": "ef849865a038aa3a03595a2cb98d3e7a8c7c2f2536fda0a0f20d2d58e9c81797",
+      "source_snapshot_matches_commit": true,
+      "coordinator_loss_closure": [
+        {
+          "case": "network-2-23-0",
+          "coordinator": 0,
+          "first_closed_connection_snapshot_us": 70135375,
+          "tx_after_loss_deadline": false
+        },
+        {
+          "case": "network-3-23-0",
+          "coordinator": 0,
+          "first_closed_connection_snapshot_us": 70136047,
+          "tx_after_loss_deadline": false
+        },
+        {
+          "case": "network-3-47-1",
+          "coordinator": 2,
+          "first_closed_connection_snapshot_us": 70735656,
+          "tx_after_loss_deadline": false
+        },
+        {
+          "case": "network-3-91-2",
+          "coordinator": 1,
+          "first_closed_connection_snapshot_us": 70134765,
+          "tx_after_loss_deadline": false
+        },
+        {
+          "case": "network-4-23-0",
+          "coordinator": 0,
+          "first_closed_connection_snapshot_us": 71137756,
+          "tx_after_loss_deadline": false
+        },
+        {
+          "case": "network-4-47-1",
+          "coordinator": 3,
+          "first_closed_connection_snapshot_us": 70735656,
+          "tx_after_loss_deadline": false
+        }
+      ],
+      "note": "Connections drained before original two-second loss deadline; PHY TX intervals checked separately. Not a physical RX-quiet or hardware shutdown measurement."
+    }
+  },
+  "host": {
+    "run": "firmware/t096/build-v12-r2-network-host-20261008-01",
+    "seal_sha256": "0a08a7a7438881cd51a83388883e9c2d4d5e8f14d51edb66b8d040f88aa3e40d",
+    "protocol_assertions": 14984,
+    "encoded_core_deliveries": 1188,
+    "network_one_way_delay_us": [
+      2000,
+      6000,
+      16000,
+      30000
+    ],
+    "clock_assertions": 1352,
+    "independent_golden_vectors": 4,
+    "sanitizers": [
+      "ASan",
+      "UBSan"
+    ],
+    "final_logs": [
+      "host-protocol-18.log",
+      "host-clock-01.log",
+      "vectors-01.log"
+    ]
+  },
+  "gps_pps_simulator_recheck": {
+    "run": "firmware/t096/build-v12-r2-sim-clock-recheck-20261008-01",
+    "seal_sha256": "8d34ee7d9783e2e9426137ab81b15f89815076499f9eb10780b974a84096ef2d",
+    "unchanged_binary_replayed": true,
+    "clock_source_match_sha256": "48046f8e88a1d988b91cccb1a79fa8e76e45fbcc8fd0ef10b555330b27141cb1",
+    "tests": [
+      {
+        "case": "clock_normal",
+        "passed": true,
+        "frames": 6,
+        "synthetic_error_us": [
+          -179.5
+        ],
+        "final_generation": 2,
+        "final_queue_drops": 0
+      },
+      {
+        "case": "clock_loss",
+        "passed": true,
+        "frames": 6,
+        "synthetic_error_us": [
+          -99.5,
+          -86.5
+        ],
+        "final_generation": 3,
+        "final_queue_drops": 0
+      },
+      {
+        "case": "clock_faults",
+        "passed": true,
+        "frames": 13,
+        "synthetic_error_us": [
+          -18.5,
+          -178.5,
+          -91.75,
+          -9.25,
+          -88.0,
+          -89.75
+        ],
+        "final_generation": 7,
+        "final_queue_drops": 4
+      },
+      {
+        "case": "clock_unbound",
+        "passed": true,
+        "frames": 5,
+        "synthetic_error_us": [],
+        "final_generation": 2,
+        "final_queue_drops": 0
+      },
+      {
+        "case": "clock_pps_only",
+        "passed": true,
+        "frames": 5,
+        "synthetic_error_us": [],
+        "final_generation": 2,
+        "final_queue_drops": 0
+      },
+      {
+        "case": "clock_gps_only",
+        "passed": true,
+        "frames": 5,
+        "synthetic_error_us": [],
+        "final_generation": 2,
+        "final_queue_drops": 0
+      },
+      {
+        "case": "clock_void",
+        "passed": true,
+        "frames": 5,
+        "synthetic_error_us": [],
+        "final_generation": 17,
+        "final_queue_drops": 0
+      }
+    ]
+  },
+  "prior_iterations": [
+    {
+      "run": "firmware/t096/build-v12-r2-sim-network-20261008-01",
+      "interpretation": "Compile failure",
+      "sealed_logs_sha256": "e877838d07a0894cdf573d6585bb6f1c76cd0bf5afdd745a82e3db90ecf5dbdd"
+    },
+    {
+      "run": "firmware/t096/build-v12-r2-sim-network-20261008-02",
+      "interpretation": "Compile failure",
+      "sealed_logs_sha256": "44987ff45853d1c06c981318cd20e1efcf5925f165cbb9ec2b0804e23154c7fc"
+    },
+    {
+      "run": "firmware/t096/build-v12-r2-sim-network-20261008-03",
+      "interpretation": "Buffer configuration compile failure",
+      "sealed_logs_sha256": "35a90462aa1a87d0f85ad27e815fcec3fd559946a982f6364c19986636531472"
+    },
+    {
+      "run": "firmware/t096/build-v12-r2-sim-network-20261008-04",
+      "interpretation": "Stock controller prepare assertion; no assertion disabled",
+      "sealed_logs_sha256": "ff75d2988c95a9563534a1e653559d359f3f08bd2eeab4fe9599426aa60175f6",
+      "receipt_sha256": "0ddb51ee905608569e97d6863d1c04148d67ed7363ac989c060af1a992a3c307",
+      "recorded_outcomes": [
+        {
+          "case": "network-3-23-0",
+          "passed": false,
+          "error": "device/PHY failed",
+          "missing_windows": {}
+        }
+      ]
+    },
+    {
+      "run": "firmware/t096/build-v12-r2-sim-network-20261008-05",
+      "interpretation": "Unsuccessful low-latency connection profile",
+      "sealed_logs_sha256": "1ebdf43249ecb321aa3f3020ca88519016d78c4fc329a81eb5d180e9a616e484",
+      "receipt_sha256": "662755c0c16e3e654acca1d3ceb73e8f5712391eedfc3c758f60a1cb0166b057",
+      "recorded_outcomes": [
+        {
+          "case": "network-3-23-0",
+          "passed": false,
+          "error": "device/PHY failed",
+          "missing_windows": {}
+        }
+      ]
+    },
+    {
+      "run": "firmware/t096/build-v12-r2-sim-network-20261008-06",
+      "interpretation": "No completed GATT links in low-latency profile",
+      "sealed_logs_sha256": "ceed5ce3ac05fbb57678997995cdac7fd590008ee68ae5e5a9403a503c4cc1b9",
+      "receipt_sha256": "51606981b30e377e4826a8e54a4e2e5ffb697e48ebb1cd9349600e53b08b393a",
+      "recorded_outcomes": [
+        {
+          "case": "network-3-23-0",
+          "passed": false,
+          "error": "device/PHY failed",
+          "missing_windows": {}
+        }
+      ]
+    },
+    {
+      "run": "firmware/t096/build-v12-r2-sim-network-20261008-07",
+      "interpretation": "Intermediate-cache copy failure; original evidence retained",
+      "sealed_logs_sha256": "7753bff7f8904c164df539294bb5c7ec1d4cde3c917bc325474fc06c0128fa7d"
+    },
+    {
+      "run": "firmware/t096/build-v12-r2-sim-network-20261008-08",
+      "interpretation": "Full-mesh authentication starvation and cross-incarnation fixture assertion",
+      "sealed_logs_sha256": "5e7d9eb71142a1e1673cfd1de26e05584f38a7ac1e353c952f75e700f34c2832",
+      "receipt_sha256": "dd900f2e4047229112d39bd8bba3b286a9b0c50cf7d8286f1f35be5ce716bf22",
+      "recorded_outcomes": [
+        {
+          "case": "network-3-23-0",
+          "passed": false,
+          "error": "device/PHY failed",
+          "missing_windows": {}
+        }
+      ]
+    },
+    {
+      "run": "firmware/t096/build-v12-r2-sim-network-20261008-09",
+      "interpretation": "Full-mesh source/serving failover failure",
+      "sealed_logs_sha256": "bb0d47ebe41d9e873eedd493d943f127aff87def67b578d02385f286a5fcd958",
+      "receipt_sha256": "40cbd0063a8cca82a4a3da3a33312d2b44c715fec3e11dd91c2a087f4fbd1279",
+      "recorded_outcomes": [
+        {
+          "case": "network-3-23-0",
+          "passed": false,
+          "error": "no source failover",
+          "missing_windows": {}
+        }
+      ]
+    },
+    {
+      "run": "firmware/t096/build-v12-r2-sim-network-20261008-10",
+      "interpretation": "Earlier focused functional checks only; no strict coverage claim",
+      "sealed_logs_sha256": "977b7bb0f03d0128875b4c187eb89e439784e043cbf1ee2b3069d6f2cf2f0b08",
+      "receipt_sha256": "242a739a418c33b75bf8f254eaf633f65c893523831ad41edfe5d4b8f2102c0a",
+      "recorded_outcomes": [
+        {
+          "case": "network-3-23-0",
+          "passed": true,
+          "missing_windows": {}
+        }
+      ]
+    },
+    {
+      "run": "firmware/t096/build-v12-r2-sim-network-20261008-11",
+      "interpretation": "Earlier focused functional checks only; no strict coverage claim",
+      "sealed_logs_sha256": "467a1e5f0114f86c702d712b422038c33cbb7f4af9e1434be92c4e3fae527982",
+      "receipt_sha256": "d15b984ac7601dc2e8085d244b9c085ce71b256c23ecf15af93010c6817139ee",
+      "recorded_outcomes": [
+        {
+          "case": "network-3-23-0",
+          "passed": true,
+          "missing_windows": {}
+        }
+      ]
+    },
+    {
+      "run": "firmware/t096/build-v12-r2-sim-network-20261008-12",
+      "interpretation": "Earlier functional/per-second checks; not final half-second coverage",
+      "sealed_logs_sha256": "f357d271b94d747254eb6992a3ff2448071c79b81401c314aeeba31f7a024099",
+      "receipt_sha256": "48c7e1eabea69ae72c7bb754ab1697e1a55d595c0b1eb9a20e1b5c6b81ed0420",
+      "recorded_outcomes": [
+        {
+          "case": "network-3-23-0",
+          "passed": true,
+          "missing_windows": {}
+        }
+      ]
+    },
+    {
+      "run": "firmware/t096/build-v12-r2-sim-network-20261008-13",
+      "interpretation": "Functional matrix passed but reported missing half-second updates; not strict acceptance",
+      "sealed_logs_sha256": "96407923a23242f9092078a72338db5303ad72130a9aef529ca65edcde9387a5",
+      "receipt_sha256": "9d411be83a5441c6c9cdb42992b34dead40a5d89e6a3402dc2b9a74866ad5711",
+      "recorded_outcomes": [
+        {
+          "case": "network-2-23-0",
+          "passed": true,
+          "missing_windows": {
+            "0": [
+              100,
+              101,
+              102,
+              103,
+              104,
+              105,
+              106,
+              107,
+              108,
+              109,
+              110,
+              111,
+              112,
+              113,
+              114,
+              115,
+              116,
+              117,
+              118,
+              119,
+              120,
+              121,
+              122,
+              123,
+              124,
+              125,
+              126,
+              127,
+              128,
+              129,
+              130,
+              131
+            ],
+            "1": [
+              100,
+              101,
+              102,
+              103,
+              104,
+              105,
+              106,
+              107,
+              108,
+              109,
+              110,
+              111,
+              112,
+              113,
+              114,
+              115,
+              116,
+              117,
+              118,
+              119,
+              120,
+              121,
+              122,
+              123,
+              124,
+              125,
+              126,
+              127,
+              128,
+              129,
+              130,
+              131
+            ]
+          }
+        },
+        {
+          "case": "network-3-23-0",
+          "passed": true,
+          "missing_windows": {
+            "1": [
+              175,
+              185
+            ],
+            "2": [
+              63,
+              69
+            ]
+          }
+        },
+        {
+          "case": "network-3-47-1",
+          "passed": true,
+          "missing_windows": {}
+        },
+        {
+          "case": "network-3-91-2",
+          "passed": true,
+          "missing_windows": {}
+        },
+        {
+          "case": "network-4-23-0",
+          "passed": true,
+          "missing_windows": {
+            "1": [
+              172
+            ],
+            "2": [
+              115,
+              118,
+              124,
+              132,
+              133,
+              134,
+              135,
+              171,
+              172,
+              174,
+              177,
+              178,
+              179,
+              182,
+              184,
+              187,
+              188,
+              193,
+              195,
+              196
+            ],
+            "3": [
+              106,
+              108,
+              113,
+              114,
+              115,
+              118,
+              119,
+              123,
+              124,
+              125,
+              129,
+              131
+            ]
+          }
+        },
+        {
+          "case": "network-4-47-1",
+          "passed": true,
+          "missing_windows": {
+            "0": [
+              176,
+              187,
+              191
+            ],
+            "1": [
+              170,
+              171,
+              172,
+              173,
+              175,
+              176,
+              177,
+              178,
+              179,
+              180,
+              182,
+              183,
+              184,
+              185,
+              186,
+              187,
+              188,
+              190,
+              191,
+              192,
+              193,
+              194,
+              196,
+              197
+            ],
+            "2": [
+              176,
+              182,
+              183,
+              187,
+              192,
+              194
+            ],
+            "3": [
+              182
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "run": "firmware/t096/build-v12-r2-sim-network-20261008-14",
+      "interpretation": "Focused three-node strict pass; four-node missed updates",
+      "sealed_logs_sha256": "c8b8669683900fd508be2875af28122c8649fad4aeaf03ca788fbeaabc885cd4",
+      "receipt_sha256": "aa858972655afed2ab65e261a869719b62c588d68649a921f3e3e2aef7d3d457",
+      "recorded_outcomes": [
+        {
+          "case": "network-3-23-0",
+          "passed": true,
+          "missing_windows": {}
+        },
+        {
+          "case": "network-4-23-0",
+          "passed": false,
+          "missing_windows": {
+            "1": [
+              192,
+              193,
+              194,
+              195,
+              196,
+              197
+            ],
+            "2": [
+              111,
+              113,
+              114,
+              189
+            ],
+            "3": [
+              132
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "run": "firmware/t096/build-v12-r2-sim-network-20261008-15",
+      "interpretation": "Control-role overlap and scheduling failure; distinction from serving roles subsequently documented",
+      "sealed_logs_sha256": "54fe90019a474a8e6e43a23f72abac091cbea532175919effbec7287864f0896",
+      "receipt_sha256": "66aea522171b495d4b73dd7cf4d4f828567c304322e2f7bafa3463cf7b07ce68",
+      "recorded_outcomes": [
+        {
+          "case": "network-4-23-0",
+          "passed": false,
+          "error": "('overlapping GM roles', {'node': 2, 't': 57109375, 'ready': 1, 'gm': 1, 'serving': 0, 'root': 2, 'coord': 2}, {0: 0, 1: 0, 2: 1, 3: 1})",
+          "missing_windows": {}
+        },
+        {
+          "case": "network-3-23-0",
+          "passed": true,
+          "missing_windows": {}
+        }
+      ]
+    },
+    {
+      "run": "firmware/t096/build-v12-r2-sim-network-20261008-16",
+      "interpretation": "Control-only overlap during rediscovery; retained as failed under original checker",
+      "sealed_logs_sha256": "b99a60aca349c71111f8c83d7befaf8140258b6580114109d75c09dd9c457c8d",
+      "receipt_sha256": "847bbc3a39c851cdff1515d0e18f3b0e27aa87b283855b3b84a89e10ff1b6749",
+      "recorded_outcomes": [
+        {
+          "case": "network-4-23-0",
+          "passed": false,
+          "error": "('overlapping GM roles', {'node': 3, 't': 71060791, 'ready': 1, 'gm': 1, 'serving': 0, 'root': 3, 'coord': 3}, {0: 0, 1: 1, 2: 0, 3: 1})",
+          "missing_windows": {}
+        }
+      ]
+    },
+    {
+      "run": "firmware/t096/build-v12-r2-sim-network-20261008-17",
+      "interpretation": "Missed updates and control-only overlap under original checker",
+      "sealed_logs_sha256": "51d07850d912a16c5ecd1594587d552ed2c80457a1b2ab739d030042dc9eb610",
+      "receipt_sha256": "20a385c3eabf31e26a6c7f39bef0644ca79998973015705a44e116d24634fb93",
+      "recorded_outcomes": [
+        {
+          "case": "network-4-23-0",
+          "passed": false,
+          "missing_windows": {
+            "1": [
+              193
+            ],
+            "2": [
+              194,
+              195,
+              196,
+              197
+            ],
+            "3": [
+              104,
+              111
+            ]
+          }
+        },
+        {
+          "case": "network-4-47-1",
+          "passed": false,
+          "error": "('overlapping GM roles', {'node': 1, 't': 73039184, 'ready': 1, 'gm': 1, 'serving': 0, 'root': 1, 'coord': 1}, {0: 1, 1: 1, 2: 0, 3: 0})",
+          "missing_windows": {}
+        },
+        {
+          "case": "network-3-23-0",
+          "passed": false,
+          "missing_windows": {
+            "1": [
+              189
+            ]
+          }
+        },
+        {
+          "case": "network-3-47-1",
+          "passed": true,
+          "missing_windows": {}
+        },
+        {
+          "case": "network-3-91-2",
+          "passed": true,
+          "missing_windows": {}
+        },
+        {
+          "case": "network-2-23-0",
+          "passed": true,
+          "missing_windows": {}
+        }
+      ]
+    },
+    {
+      "run": "firmware/t096/build-v12-r2-sim-network-20261008-18",
+      "interpretation": "Longer connection interval worsened coverage and was rejected",
+      "sealed_logs_sha256": "55520a9d17bad0bb2d03fb96f2382da7049801879d192fb2f4619faf7e69a267",
+      "receipt_sha256": "2a8324d915ac5d52092fff9efd334d11c0afd02a1f99c8e8a11321d75e03c3a3",
+      "recorded_outcomes": [
+        {
+          "case": "network-4-23-0",
+          "passed": false,
+          "missing_windows": {
+            "0": [
+              66,
+              67,
+              68
+            ],
+            "1": [
+              60,
+              63,
+              65,
+              66,
+              67,
+              68,
+              69,
+              80,
+              82,
+              83,
+              85,
+              100,
+              103,
+              105,
+              107,
+              112,
+              113,
+              114,
+              115,
+              120,
+              121,
+              124,
+              125,
+              128,
+              130,
+              131,
+              133,
+              135,
+              170,
+              173,
+              176,
+              178,
+              179,
+              181,
+              183,
+              184,
+              186,
+              188,
+              189,
+              191,
+              192,
+              193,
+              195,
+              197
+            ],
+            "2": [
+              66,
+              67,
+              68,
+              173,
+              175,
+              177,
+              180,
+              182,
+              184,
+              187,
+              189,
+              190,
+              192,
+              194,
+              196,
+              197
+            ],
+            "3": [
+              61,
+              63,
+              66,
+              67,
+              68,
+              69,
+              81,
+              82,
+              83,
+              84,
+              86,
+              101,
+              103,
+              104,
+              106,
+              109,
+              113,
+              114,
+              116,
+              118,
+              121,
+              123,
+              125,
+              127,
+              129,
+              132,
+              135
+            ]
+          }
+        },
+        {
+          "case": "network-4-47-1",
+          "passed": false,
+          "error": "('overlapping GM roles', {'node': 2, 't': 73059173, 'ready': 1, 'gm': 1, 'serving': 0, 'root': 2, 'coord': 2}, {0: 1, 1: 0, 2: 1, 3: 0})",
+          "missing_windows": {}
+        }
+      ]
+    },
+    {
+      "run": "firmware/t096/build-v12-r2-sim-network-20261008-19",
+      "interpretation": "Lower traffic alone did not resolve forwarding phase failures",
+      "sealed_logs_sha256": "f9a53ca7257427fc96ebb69554de497d2531c9f52b11307ce55f234413f90367",
+      "receipt_sha256": "067b1e893137c8180d253ca83d576d59ee88a508ed5661320806efce2a6bb696",
+      "recorded_outcomes": [
+        {
+          "case": "network-4-23-0",
+          "passed": false,
+          "missing_windows": {
+            "2": [
+              176,
+              178,
+              180,
+              181,
+              184,
+              186,
+              189,
+              192,
+              195
+            ],
+            "3": [
+              104,
+              114,
+              123,
+              128
+            ]
+          }
+        },
+        {
+          "case": "network-4-47-1",
+          "passed": false,
+          "missing_windows": {
+            "0": [
+              133,
+              174
+            ],
+            "1": [
+              64,
+              83,
+              84
+            ],
+            "2": [
+              100,
+              101,
+              107,
+              108,
+              116,
+              126,
+              127
+            ]
+          }
+        },
+        {
+          "case": "network-3-23-0",
+          "passed": true,
+          "missing_windows": {}
+        },
+        {
+          "case": "network-3-47-1",
+          "passed": false,
+          "missing_windows": {
+            "0": [
+              133,
+              134,
+              135
+            ],
+            "1": [
+              66,
+              83,
+              84,
+              85,
+              86,
+              87
+            ]
+          }
+        },
+        {
+          "case": "network-3-91-2",
+          "passed": false,
+          "missing_windows": {
+            "0": [
+              67
+            ]
+          }
+        },
+        {
+          "case": "network-2-23-0",
+          "passed": true,
+          "missing_windows": {}
+        }
+      ]
+    },
+    {
+      "run": "firmware/t096/build-v12-r2-sim-network-20261008-20",
+      "interpretation": "Both focused four-node cases passed; not the final full matrix",
+      "sealed_logs_sha256": "0c944e8565e1ccb9dcf049fc88186917bb343a9286ec2f29ae363f556a10f80b",
+      "receipt_sha256": "ddfd7555f8babf016a4398fa6d3cf8ef58808535d29753024727ddfe1300ca34",
+      "recorded_outcomes": [
+        {
+          "case": "network-4-23-0",
+          "passed": true,
+          "missing_windows": {}
+        },
+        {
+          "case": "network-4-47-1",
+          "passed": true,
+          "missing_windows": {}
+        }
+      ]
+    },
+    {
+      "run": "firmware/t096/build-v12-r2-sim-network-20261008-21",
+      "interpretation": "One four-node half-second miss traced to calibration/liveness coupling",
+      "sealed_logs_sha256": "4f314fe875744b617e8f0e6286f3ae0f06bda7f6b3d999498cd268d3189d8cb9",
+      "receipt_sha256": "4c3420bf9b1390f85c3911659f92c81659c41523b3f8f1e497bd98478475792a",
+      "recorded_outcomes": [
+        {
+          "case": "network-2-23-0",
+          "passed": true,
+          "missing_windows": {}
+        },
+        {
+          "case": "network-3-23-0",
+          "passed": true,
+          "missing_windows": {}
+        },
+        {
+          "case": "network-3-47-1",
+          "passed": true,
+          "missing_windows": {}
+        },
+        {
+          "case": "network-3-91-2",
+          "passed": true,
+          "missing_windows": {}
+        },
+        {
+          "case": "network-4-23-0",
+          "passed": false,
+          "missing_windows": {
+            "2": [
+              62
+            ]
+          }
+        },
+        {
+          "case": "network-4-47-1",
+          "passed": true,
+          "missing_windows": {}
+        }
+      ]
+    }
+  ],
+  "scope_notes": [
+    "Actual stock GATT/PHY carries control and SERVICE messages; test enrollment, oscillator and GPS/PPS inputs are synthetic.",
+    "Malformed/replayed copies are injected at the decoder boundary after real GATT reception.",
+    "Control-only overlap is reported separately from actual serving GM overlap; no partition/quorum proof is claimed.",
+    "All model clock errors and PHY airtime values are synthetic, not hardware measurements."
+  ],
+  "remaining_gates": [
+    "Periodic precision timing/correction trains",
+    "Half-duty public clients and one-hop precision extension",
+    "Production enrollment and native application integration",
+    "Physical PPS/UTC association and output precision",
+    "Native RAM/stack/CPU/airtime and shutdown evidence",
+    "LoRa, native UI and bounded on-flash diagnostics"
+  ]
+}

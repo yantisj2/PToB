@@ -1,0 +1,34 @@
+{
+  "PTS": "OFF",
+  "baseline_identity": {
+    "label": "r3-ffdb20239a47-70dc6452932e-e5fe44320f27b",
+    "manifest": "r3-ffdb20239a47-70dc6452932e-e5fe44320f27b-manifest.json",
+    "root": "snapshot/r3-ffdb20239a47-70dc6452932e-e5fe44320f27b"
+  },
+  "baseline_registry_sha256": "20f043f8da7c52eb0825e3c4d8bce8be44605703267a0f9903095cdbbc05b456",
+  "clock_source": "integer virtual scheduler with declared clock/map/capture inputs",
+  "command": [
+    "proof",
+    "--out",
+    "reviews/v10-model-20261005-01/outputs/v12-proof-09"
+  ],
+  "execution": "SYNTHETIC_OFFLINE_ONLY",
+  "files": {
+    "config/v12_four_unit_mesh_profile.json": "cda9bb572f9a98637e9040195f474f382711951952cc952aae57ae1c236fb521",
+    "config/v12_native_lab_profile.json": "b6f8a2ea79f4c9d5509ee457c7d444ad9891acf60027bceabd9f1a714172ef75",
+    "config/v12_offline_profile.json": "019a577de3fd2ca55ce81427ab9989d95ea8309287f0726bbc572a09d835058f",
+    "config/v12_one_hop_profile.json": "604db6930c06859c776d0f7bf3527d35699058784c6008c0f2d8d06d84b32cfe",
+    "config/v12_quiet_client_profile.json": "b48e1a13afb560de10d8c26a46a05f25afe28e28df3f53c7deee378d624eaff3",
+    "docs/V12_MODEL_RULES.md": "acb38d071685c3a52727d95a7003f489db4e8f6054d2d4316fe0c2bbafcf77c9",
+    "protocol/v12_model_contract.json": "71bfd89691d8b2e17711196f9d49c2457ec2521331d8e94a61adfb4ea4d4edaf",
+    "protocol/v12_model_vectors.json": "9267debb6cb22ae1ac2681e0ee800132fe6b16392683ae3577a33e3df1947c9a",
+    "tests/test_v12_model.py": "146989eb9dcd7bd40ce12984f4729870528f940b9906017e9bf21b13a2eb5de0",
+    "tools/v12_model.py": "5aabb8c6a656b45b98ae32e95c8d11b4b1e16f928f6cb6f27f256ded55d38299",
+    "tools/v12_sim.py": "95fd7d1777dbb7bd18adf2c27e6dcd73bfe8d5df1b96745487992aa63dce58fa"
+  },
+  "independent_precision": null,
+  "physical_actions": false,
+  "quality": "UNKNOWN",
+  "schema": 1,
+  "wire_status": "proposal fixture; no production firmware codec assertion"
+}

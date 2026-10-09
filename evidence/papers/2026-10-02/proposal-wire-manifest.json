@@ -1,0 +1,76 @@
+{
+  "schema": 2,
+  "purpose": "Expanded protocol specification retained and matched to current canonical/production headers; no firmware or wire mutation",
+  "date": "2026-10-02",
+  "parent_revision_at_start": "9297f77129a9e86872fc2c0437f58310be6bc48a",
+  "canonical_inputs": {
+    "protocol/ptob_basic_v1.h": "9c1d16d826c86edb69f783166a6d8979396c43164a585f5cea906e922151ea1b",
+    "protocol/ptob_copy_v2.h": "26004cba865aa8f88c82fab57ed1f8b28459349595d589b756cc2ed59cd0c606",
+    "protocol/ptob_copy_v3.h": "942787261f86156f1d7ba75b5c32db441375c494b709c21e8e4054c659bd8658",
+    "protocol/ptob_utc_lite_v1.h": "f264ce1f463f677e1190521fcb5a64f029a87c8df9b4a2471436cb56e5eb248a",
+    "protocol/ptob_gm_v3.h": "3816145d6f8bffcd22624f1a1bc5b1c99c700f20299456b9a2d18e2d232ba8c4",
+    "protocol/ptob_mesh_v1.h": "db6788ae7f915f5e3e295707b31135f3be402ee89efec5fd17d8b394318ac465",
+    "protocol/ptob_gm_eligibility.h": "e24da2a7f261160ac79c201aa72d00aaaf03a71c202b5db0b94d62f394975be3",
+    "protocol/ptob_source_quality.h": "8d233d906af9930f4d04cbefc0f451cd0d9e03767d3bbab9fd4edb68bffb01a4",
+    "protocol/ptob_precision_capability.h": "f33e914b0ddb916ffc0ebaf2aa3079751ce5fbfc3172860d0d4273bab7c719fa",
+    "docs/PTOB_COPY_V3_CONTRACT.md": "fa366f8b206510c8eef747789a4f95f7dd88ba4091c143c985d49340d84a0ad4",
+    "docs/PTOB_UTC_LITE_V1_CONTRACT.md": "4e9231b5ad795d9b7bfb66483c3988e7f281bb61f606aad1255f44dfa2f1a37e",
+    "docs/PTOB_MESH_V1_CONTRACT.md": "9812f9d4ddf7e3ee40246c3a68c13f6b20f4a54494dddecb7b28c98d4813fa7a",
+    "docs/PTOB_GM_V3_ELIGIBILITY.md": "5ab96fcfb195cd69e6741abf0ee631bc7d2d411bc5dcca2e4db70ff9ae308e73",
+    "protocol/ptob_gm_v3_vectors.json": "1fd5c269b21a4f47961f1aa2d80e3e6bd67ba05b8967e867f120c3e9a1e432c4"
+  },
+  "examples": {
+    "EVENT": "1e21c3a8d4087e0d7491f24ca553dd1ff59503701479f67b000000c8010000",
+    "SECONDS": "1e21c3a8d4087e0d7491f24ca553dd1ff595077b000000c80100007075be6a",
+    "FRACTION": "1e21c3a8d4087e0d7491f24ca553dd1ff5950b7b000000c801000015cd5b07",
+    "PARITY": "1e21c3a8d4087e0d7491f24ca553dd1ff5950f7b000000c801000065b8e56d",
+    "LITE_BEACON": "1e21c1d44a79813b6799044d326db774298801070000000100000000f15365",
+    "LITE_CORRECTION": "1e21c1d44a79813b6799044d326db77429880d0700000001000000648c8647"
+  },
+  "example_check": "Generated with canonical C encoders; decoded successfully using the matching C decoders; S XOR P and F XOR P identities asserted",
+  "reference_c_fixture_sha256": "18282d8ff96ee36b04ea7fa4b3e4144509f0ed2dd648d31a12f4e296ffd2a237",
+  "precision_example": {
+    "publisher": 4135130224,
+    "session": 123,
+    "event": 456,
+    "target_channel": 37,
+    "second": 1790866800,
+    "fraction_ns": 123456789,
+    "parity": 1843771493
+  },
+  "lite_example": {
+    "session": 7,
+    "sequence": 1,
+    "target_channel": 37,
+    "coarse_second": 1700000000,
+    "delta_ns": 1200000100,
+    "reconstructed_tx_ns": 1700000001200000100
+  },
+  "limits": [
+    "Codec fixtures are not RF, output-accuracy, power or standards-qualification evidence",
+    "No transparent residence or numeric known-uncertainty extension format is assigned",
+    "Profile cadence calculations exclude other services, missed slots and processing",
+    "Public services are unauthenticated; compact control security is a laboratory profile"
+  ],
+  "example_check_source": "paper/provenance/proposal-wire-check.c",
+  "production_GM_headers": {
+    "firmware/t096/include/ptob_gm_v3.h": "3816145d6f8bffcd22624f1a1bc5b1c99c700f20299456b9a2d18e2d232ba8c4",
+    "firmware/w12/main/ptob_gm_v3.h": "3816145d6f8bffcd22624f1a1bc5b1c99c700f20299456b9a2d18e2d232ba8c4"
+  },
+  "previous_frozen_research_files": {
+    "ptob-preprint.tex": "e172187b687cf28163fb1e77ea9caf2426536ae2c16dc08cd2b05c46924f5ef4",
+    "ptob-preprint.pdf": "8865076289b7b8fa56a8a310db657eabe27cb9fcf0557dc89954de6d57e40ea4",
+    "build-manifest.json": "5805f4937d35908349c32ec4eaaea0313da13628b39aa0125aae246a2504782b",
+    "evidence.json": "ba7d6d9deb5a44b305d4fd9f795e5d869149a2b9550bcbe17e5a109959f85a79"
+  },
+  "research_update_authorized": true,
+  "current_policy": "Long10s dwell/30s tenure requires live qualified authenticated SERVING incumbent; nonserving candidate uses1.5s/2s; no wire/MAC/TTL/rank/admission change",
+  "validation": {
+    "six_encode_decode_fixtures": "PASS unchanged",
+    "xor_any_two_identities": "PASS",
+    "GM_codec_vectors": 800,
+    "GM_policy_checks_UBSan": 22844,
+    "production_headers_identical": true,
+    "retained_counterexample": "forgotten historical random epoch can regain authority; far-mesh/reboot replay not qualified"
+  }
+}

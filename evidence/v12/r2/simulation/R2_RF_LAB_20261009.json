@@ -1,0 +1,480 @@
+{
+  "date": "2026-10-09",
+  "overall": "FAILED",
+  "scope": "Bounded offline R2 P1 controller/PHY service cases; no hardware or independent full-suite qualification",
+  "normal": {
+    "wire_audit": {
+      "profile": "r2-p1",
+      "contract_sha256": "90ed29264edffea60da262379ca630cf90543f3c37a45a4c2877c4fe626bbcfd",
+      "wire_sources_match": true,
+      "mismatches": [],
+      "run_tests_passed": false,
+      "run_artifacts_match": true,
+      "passed": false,
+      "scope": "Wire binding and recorded run outcome only; not full-suite or precision acceptance",
+      "precision": "UNKNOWN"
+    },
+    "scope": "Actual controller/PHY with synthetic sources; hardware accuracy UNKNOWN. Additional stable bins are reported separately from runner acceptance.",
+    "cases": [
+      {
+        "case": "network-3-23-0",
+        "recorded_pass": false,
+        "recorded_error": "follower never acquired a causal precision map",
+        "nodes": [
+          {
+            "node": 0,
+            "rank": 0,
+            "log": "network-3-23-0/node0.log",
+            "service_samples": 753,
+            "rx_max": 4069,
+            "auth_max": 3326,
+            "error_samples": 0,
+            "mapped_valid_samples": 13,
+            "follower_samples": 285,
+            "authorized_follower_samples": 267,
+            "mapped_invalid_samples": 7,
+            "follower_rms_ns_range": [
+              0,
+              0
+            ],
+            "captures_max": 1114,
+            "stable_half_seconds_observed": 30,
+            "stable_half_seconds_expected": 30,
+            "missing_service_half_seconds": [],
+            "service_done": true,
+            "failure_lines": [],
+            "phy_incomplete_tx_rows": 0,
+            "phy_tx_intervals": 10720,
+            "last_phy_tx_end_us": 71000214,
+            "tx_after_coordinator_stop_deadline": false,
+            "tx_after_final_deadline": false
+          },
+          {
+            "node": 1,
+            "rank": 1,
+            "log": "network-3-23-0/node1.log",
+            "service_samples": 753,
+            "rx_max": 4555,
+            "auth_max": 3626,
+            "error_samples": 0,
+            "mapped_valid_samples": 0,
+            "follower_samples": 108,
+            "authorized_follower_samples": 102,
+            "mapped_invalid_samples": 1,
+            "follower_rms_ns_range": null,
+            "captures_max": 3580,
+            "stable_half_seconds_observed": 160,
+            "stable_half_seconds_expected": 160,
+            "missing_service_half_seconds": [],
+            "service_done": true,
+            "failure_lines": [],
+            "phy_incomplete_tx_rows": 0,
+            "phy_tx_intervals": 20130,
+            "last_phy_tx_end_us": 151009592,
+            "tx_after_coordinator_stop_deadline": null,
+            "tx_after_final_deadline": false
+          },
+          {
+            "node": 2,
+            "rank": 2,
+            "log": "network-3-23-0/node2.log",
+            "service_samples": 753,
+            "rx_max": 4615,
+            "auth_max": 3738,
+            "error_samples": 0,
+            "mapped_valid_samples": 289,
+            "follower_samples": 534,
+            "authorized_follower_samples": 509,
+            "mapped_invalid_samples": 6,
+            "follower_rms_ns_range": [
+              0,
+              0
+            ],
+            "captures_max": 3056,
+            "stable_half_seconds_observed": 160,
+            "stable_half_seconds_expected": 160,
+            "missing_service_half_seconds": [],
+            "service_done": true,
+            "failure_lines": [],
+            "phy_incomplete_tx_rows": 0,
+            "phy_tx_intervals": 11459,
+            "last_phy_tx_end_us": 151009838,
+            "tx_after_coordinator_stop_deadline": null,
+            "tx_after_final_deadline": false
+          }
+        ]
+      },
+      {
+        "case": "network-3-71-2",
+        "recorded_pass": false,
+        "recorded_error": "no sustained GM plus all precision followers",
+        "nodes": [
+          {
+            "node": 0,
+            "rank": 2,
+            "log": "network-3-71-2/node0.log",
+            "service_samples": 753,
+            "rx_max": 4640,
+            "auth_max": 3820,
+            "error_samples": 0,
+            "mapped_valid_samples": 291,
+            "follower_samples": 544,
+            "authorized_follower_samples": 521,
+            "mapped_invalid_samples": 6,
+            "follower_rms_ns_range": [
+              0,
+              0
+            ],
+            "captures_max": 3283,
+            "stable_half_seconds_observed": 160,
+            "stable_half_seconds_expected": 160,
+            "missing_service_half_seconds": [],
+            "service_done": true,
+            "failure_lines": [],
+            "phy_incomplete_tx_rows": 0,
+            "phy_tx_intervals": 12214,
+            "last_phy_tx_end_us": 151024977,
+            "tx_after_coordinator_stop_deadline": null,
+            "tx_after_final_deadline": false
+          },
+          {
+            "node": 1,
+            "rank": 0,
+            "log": "network-3-71-2/node1.log",
+            "service_samples": 753,
+            "rx_max": 4256,
+            "auth_max": 3507,
+            "error_samples": 0,
+            "mapped_valid_samples": 24,
+            "follower_samples": 287,
+            "authorized_follower_samples": 270,
+            "mapped_invalid_samples": 5,
+            "follower_rms_ns_range": [
+              0,
+              0
+            ],
+            "captures_max": 1174,
+            "stable_half_seconds_observed": 30,
+            "stable_half_seconds_expected": 30,
+            "missing_service_half_seconds": [],
+            "service_done": true,
+            "failure_lines": [],
+            "phy_incomplete_tx_rows": 0,
+            "phy_tx_intervals": 10435,
+            "last_phy_tx_end_us": 70032714,
+            "tx_after_coordinator_stop_deadline": false,
+            "tx_after_final_deadline": false
+          },
+          {
+            "node": 2,
+            "rank": 1,
+            "log": "network-3-71-2/node2.log",
+            "service_samples": 753,
+            "rx_max": 4597,
+            "auth_max": 3813,
+            "error_samples": 0,
+            "mapped_valid_samples": 9,
+            "follower_samples": 117,
+            "authorized_follower_samples": 113,
+            "mapped_invalid_samples": 6,
+            "follower_rms_ns_range": [
+              0,
+              0
+            ],
+            "captures_max": 3633,
+            "stable_half_seconds_observed": 160,
+            "stable_half_seconds_expected": 160,
+            "missing_service_half_seconds": [],
+            "service_done": true,
+            "failure_lines": [],
+            "phy_incomplete_tx_rows": 0,
+            "phy_tx_intervals": 19363,
+            "last_phy_tx_end_us": 151011635,
+            "tx_after_coordinator_stop_deadline": null,
+            "tx_after_final_deadline": false
+          }
+        ]
+      },
+      {
+        "case": "network-4-47-1",
+        "recorded_pass": false,
+        "recorded_error": "300s campaign case deadline",
+        "nodes": [
+          {
+            "node": 0,
+            "rank": 1,
+            "log": "network-4-47-1/node0.log",
+            "service_samples": 683,
+            "rx_max": 5132,
+            "auth_max": 3950,
+            "error_samples": 0,
+            "mapped_valid_samples": 0,
+            "follower_samples": 119,
+            "authorized_follower_samples": 104,
+            "mapped_invalid_samples": 0,
+            "follower_rms_ns_range": null,
+            "captures_max": 2283,
+            "stable_half_seconds_observed": 133,
+            "stable_half_seconds_expected": 160,
+            "missing_service_half_seconds": [],
+            "service_done": false,
+            "failure_lines": [],
+            "phy_incomplete_tx_rows": 1,
+            "phy_tx_intervals": 16856,
+            "last_phy_tx_end_us": 136764739,
+            "tx_after_coordinator_stop_deadline": null,
+            "tx_after_final_deadline": null
+          },
+          {
+            "node": 1,
+            "rank": 2,
+            "log": "network-4-47-1/node1.log",
+            "service_samples": 683,
+            "rx_max": 3957,
+            "auth_max": 3073,
+            "error_samples": 0,
+            "mapped_valid_samples": 0,
+            "follower_samples": 404,
+            "authorized_follower_samples": 338,
+            "mapped_invalid_samples": 0,
+            "follower_rms_ns_range": null,
+            "captures_max": 1425,
+            "stable_half_seconds_observed": 133,
+            "stable_half_seconds_expected": 160,
+            "missing_service_half_seconds": [],
+            "service_done": false,
+            "failure_lines": [],
+            "phy_incomplete_tx_rows": 1,
+            "phy_tx_intervals": 10327,
+            "last_phy_tx_end_us": 136740570,
+            "tx_after_coordinator_stop_deadline": null,
+            "tx_after_final_deadline": null
+          },
+          {
+            "node": 2,
+            "rank": 3,
+            "log": "network-4-47-1/node2.log",
+            "service_samples": 683,
+            "rx_max": 3590,
+            "auth_max": 2468,
+            "error_samples": 0,
+            "mapped_valid_samples": 0,
+            "follower_samples": 445,
+            "authorized_follower_samples": 311,
+            "mapped_invalid_samples": 0,
+            "follower_rms_ns_range": null,
+            "captures_max": 749,
+            "stable_half_seconds_observed": 133,
+            "stable_half_seconds_expected": 160,
+            "missing_service_half_seconds": [
+              187,
+              205,
+              206,
+              253,
+              261,
+              263,
+              264
+            ],
+            "service_done": false,
+            "failure_lines": [],
+            "phy_incomplete_tx_rows": 0,
+            "phy_tx_intervals": 8566,
+            "last_phy_tx_end_us": 136762837,
+            "tx_after_coordinator_stop_deadline": null,
+            "tx_after_final_deadline": null
+          },
+          {
+            "node": 3,
+            "rank": 0,
+            "log": "network-4-47-1/node3.log",
+            "service_samples": 687,
+            "rx_max": 5696,
+            "auth_max": 4407,
+            "error_samples": 0,
+            "mapped_valid_samples": 22,
+            "follower_samples": 268,
+            "authorized_follower_samples": 242,
+            "mapped_invalid_samples": 6,
+            "follower_rms_ns_range": [
+              0,
+              0
+            ],
+            "captures_max": 799,
+            "stable_half_seconds_observed": 30,
+            "stable_half_seconds_expected": 30,
+            "missing_service_half_seconds": [],
+            "service_done": false,
+            "failure_lines": [],
+            "phy_incomplete_tx_rows": 0,
+            "phy_tx_intervals": 11322,
+            "last_phy_tx_end_us": 69974671,
+            "tx_after_coordinator_stop_deadline": false,
+            "tx_after_final_deadline": null
+          }
+        ]
+      }
+    ]
+  },
+  "stall": {
+    "wire_audit": {
+      "profile": "r2-p1",
+      "contract_sha256": "90ed29264edffea60da262379ca630cf90543f3c37a45a4c2877c4fe626bbcfd",
+      "wire_sources_match": true,
+      "mismatches": [],
+      "run_tests_passed": true,
+      "run_artifacts_match": true,
+      "passed": true,
+      "scope": "Wire binding and recorded run outcome only; not full-suite or precision acceptance",
+      "precision": "UNKNOWN"
+    },
+    "scope": "Actual controller/PHY with synthetic sources; hardware accuracy UNKNOWN. Additional stable bins are reported separately from runner acceptance.",
+    "cases": [
+      {
+        "case": "network-3-23-0",
+        "recorded_pass": true,
+        "recorded_error": null,
+        "nodes": [
+          {
+            "log": "network-3-23-0/node0.log",
+            "deadline": [
+              {
+                "node": 0,
+                "detection_us": 52368,
+                "stall_us": 89996,
+                "closed": 1
+              }
+            ],
+            "service_samples": 0
+          },
+          {
+            "log": "network-3-23-0/node1.log",
+            "deadline": [
+              {
+                "node": 1,
+                "detection_us": 52368,
+                "stall_us": 89996,
+                "closed": 1
+              }
+            ],
+            "service_samples": 0
+          },
+          {
+            "log": "network-3-23-0/node2.log",
+            "deadline": [
+              {
+                "node": 2,
+                "detection_us": 52368,
+                "stall_us": 89996,
+                "closed": 1
+              }
+            ],
+            "service_samples": 0
+          }
+        ]
+      }
+    ]
+  },
+  "wire_lab": {
+    "path": "artifacts/r2-wire-live-lab-20261009-01/receipt.json",
+    "sha256": "3eac236427da3f5e7f5ec281546ce720ccb313809a927994918712378a1aee75",
+    "vectors": 29,
+    "result": "PASS"
+  },
+  "explorer": {
+    "formats": [
+      "r2-p1"
+    ],
+    "loss_scenarios": [
+      0,
+      0.1
+    ],
+    "site_check": "PASS: zero errors/warnings/hints",
+    "production_build": "PASS",
+    "browser": "Current-only selector and rendered packet timeline verified",
+    "regression_tests": "4 PASS"
+  },
+  "runs": [
+    {
+      "path": "firmware/t096/artifacts/r2-wire-lab-frozen-20261009-01/build-v12-r2-sim-current-03",
+      "source_sha": "d111456ceb9a7a17650ce836e90a87800ca039a255484928b9733f1ad0b7d310",
+      "container_image": "sha256:f3143da7ce64657846af03f9f8eb2196c073f78bd9d50f780117d55bb59b5975",
+      "tests": [
+        {
+          "case": "network-3-23-0",
+          "passed": false,
+          "error": "follower never acquired a causal precision map"
+        },
+        {
+          "case": "network-3-71-2",
+          "passed": false,
+          "error": "no sustained GM plus all precision followers"
+        },
+        {
+          "case": "network-4-47-1",
+          "passed": false,
+          "error": "300s campaign case deadline"
+        }
+      ],
+      "receipt_sha256": "4c7353610f615a51037347ce0819180f11aa3db52ecf4ace8a82a3ff5e5c6cb3",
+      "logs_manifest_sha256": "a6702875c8dc9fd43d5425763711c4563d65bd38cc65bec83b334b660f339d73"
+    },
+    {
+      "path": "firmware/t096/artifacts/r2-wire-lab-frozen-20261009-01/build-v12-r2-sim-stall-01",
+      "source_sha": "d111456ceb9a7a17650ce836e90a87800ca039a255484928b9733f1ad0b7d310",
+      "container_image": "sha256:f3143da7ce64657846af03f9f8eb2196c073f78bd9d50f780117d55bb59b5975",
+      "tests": [
+        {
+          "case": "network-3-23-0",
+          "seed": 23,
+          "rotation": 0,
+          "passed": true,
+          "nodes": 3,
+          "expected_worker_timeout": true,
+          "ISR_preempted_cooperative_work": [
+            {
+              "node": 0,
+              "detection_us": 52368,
+              "stall_us": 89996,
+              "closed": 1
+            },
+            {
+              "node": 1,
+              "detection_us": 52368,
+              "stall_us": 89996,
+              "closed": 1
+            },
+            {
+              "node": 2,
+              "detection_us": 52368,
+              "stall_us": 89996,
+              "closed": 1
+            }
+          ],
+          "modeled_radio_cost": [
+            {
+              "node": 0,
+              "phy_transmissions": 288,
+              "modeled_tx_airtime_us": 73936
+            },
+            {
+              "node": 1,
+              "phy_transmissions": 423,
+              "modeled_tx_airtime_us": 68960
+            },
+            {
+              "node": 2,
+              "phy_transmissions": 353,
+              "modeled_tx_airtime_us": 54144
+            }
+          ]
+        }
+      ],
+      "receipt_sha256": "99fa60f4a608b39bb0243859d033401ee76916ad6431b7f7d73695f9ccd731c7",
+      "logs_manifest_sha256": "b90e2596c6b52b23ee3daff9acf37d67b11e5468e798a9711b0caafef9792197"
+    }
+  ],
+  "setup_failures_retained": [
+    "build-v12-r2-sim-current-01: dependency forced rebuild collided with existing output directories",
+    "build-v12-r2-sim-current-02: forced optional cryptography build failed; normal pinned procedure restored"
+  ]
+}

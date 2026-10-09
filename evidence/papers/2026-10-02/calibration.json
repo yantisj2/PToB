@@ -1,0 +1,117 @@
+{
+  "schema": 1,
+  "profile_id": "TC_NRF52840_BLE1M_ADDRESS_EDGE_10516_V1",
+  "frozen_utc": "2026-10-02T15:50:49.606417+00:00",
+  "delay_ns": 10516,
+  "sign": "ADD_TO_SOURCE_UTC_AT_RAW_RX_ADDRESS_FOR_FUTURE_PUBLICATION",
+  "estimator": "ROUND_HALF_SUM_OF_DIRECTIONAL_PHYSICAL_ADDRESS_PAIR_MEANS",
+  "unrounded_half_sum_ns": 10516.163063816442,
+  "calibration_data": [
+    {
+      "run_id": "ptob-tc01-tc03-bench-pps600-20261002-10",
+      "seal_sha256": "369e14126598ae0b175e3222dbc57bcee1c3357c37b455a8d1f525efdcce86e8",
+      "reference_bias_sha256": "511b9b94db3477446c38dccaa201459738befa73c6589b789449b1559cdb27b3",
+      "physical_pairs": 361,
+      "mean_RX_minus_TX_ADDRESS_ns": 10529.839335180055,
+      "channels": {
+        "11257794/39": {
+          "n": 130,
+          "signed_bias_ns": 10543.038461538461,
+          "mae_ns": 10543.038461538461,
+          "rms_ns": 10543.243034503917,
+          "population_sd_ns": 65.67863530932014,
+          "abs_p95_ns": 10665,
+          "abs_p99_ns": 10685,
+          "max_abs_ns": 10713,
+          "min_signed_ns": 10400,
+          "max_signed_ns": 10713
+        },
+        "11257794/37": {
+          "n": 136,
+          "signed_bias_ns": 10525.029411764706,
+          "mae_ns": 10525.029411764706,
+          "rms_ns": 10525.212349401792,
+          "population_sd_ns": 62.05547105525244,
+          "abs_p95_ns": 10618,
+          "abs_p99_ns": 10652,
+          "max_abs_ns": 10668,
+          "min_signed_ns": 10356,
+          "max_signed_ns": 10668
+        },
+        "11257794/38": {
+          "n": 95,
+          "signed_bias_ns": 10518.663157894736,
+          "mae_ns": 10518.663157894736,
+          "rms_ns": 10518.834662792162,
+          "population_sd_ns": 60.066911905117735,
+          "abs_p95_ns": 10632,
+          "abs_p99_ns": 10702,
+          "max_abs_ns": 10702,
+          "min_signed_ns": 10360,
+          "max_signed_ns": 10702
+        }
+      }
+    },
+    {
+      "run_id": "ptob-tc03-tc01-bench-pps600-20261002-11",
+      "seal_sha256": "cc03769415d2331989a3627eaee886eab2162d38eb6a0de107dcb899951d2f4e",
+      "reference_bias_sha256": "beb4e3034bd0c0d9d5f71be802b0a0b30c5d1535fbc88d13aed8316b1442c5c4",
+      "physical_pairs": 265,
+      "mean_RX_minus_TX_ADDRESS_ns": 10502.48679245283,
+      "channels": {
+        "4192692/37": {
+          "n": 116,
+          "signed_bias_ns": 10505,
+          "mae_ns": 10505,
+          "rms_ns": 10505.169211163255,
+          "population_sd_ns": 59.62512199076655,
+          "abs_p95_ns": 10611,
+          "abs_p99_ns": 10639,
+          "max_abs_ns": 10645,
+          "min_signed_ns": 10351,
+          "max_signed_ns": 10645
+        },
+        "4192692/39": {
+          "n": 64,
+          "signed_bias_ns": 10501.734375,
+          "mae_ns": 10501.734375,
+          "rms_ns": 10501.949697704946,
+          "population_sd_ns": 67.25005627030639,
+          "abs_p95_ns": 10605,
+          "abs_p99_ns": 10674,
+          "max_abs_ns": 10674,
+          "min_signed_ns": 10344,
+          "max_signed_ns": 10674
+        },
+        "4192692/38": {
+          "n": 85,
+          "signed_bias_ns": 10499.623529411765,
+          "mae_ns": 10499.623529411765,
+          "rms_ns": 10499.841140534965,
+          "population_sd_ns": 67.59968264293558,
+          "abs_p95_ns": 10625,
+          "abs_p99_ns": 10687,
+          "max_abs_ns": 10687,
+          "min_signed_ns": 10366,
+          "max_signed_ns": 10687
+        }
+      }
+    }
+  ],
+  "validation_data_used": false,
+  "source_epoch_or_usrDelay_changed": false,
+  "scope": "DIRECT_PHYSICAL_UTC_ORIGINAL_EXACT_SELECTED_ROOT_BLE1M_TX_RX_ADDRESS",
+  "default_enabled": false,
+  "persistence": "VOLATILE_EXPLICIT_SERIAL_ONLY",
+  "passive_client_transmission_required": false,
+  "GNSS_training": "NONE_AT_RUNTIME_CALIBRATION_PPS_SHADOW_OFFLINE_ONLY",
+  "mechanism_primary_source": "https://devzone.nordicsemi.com/f/nordic-q-a/83778/undocumented-tx---rx-radio-delay/570863",
+  "uncertainties": [
+    "PPS pair offset cancels in directional half-sum only if stable across arms",
+    "Path asymmetry, signal-quality dependence, quantization and per-board drift remain unknown",
+    "TC GPIO is unconnected; not independently measured output",
+    "No per-channel tuning, no delivered-error mean fit, no scoring-data centering",
+    "Prospective actual delivered-clock and internal compare full populations must validate"
+  ],
+  "prospective_plan": "TC01 qualified source -> TC03 gmOFF/root-bound cal10516;600s physical PPS and internalcompare, parallel rawBLE sameinputs; retain all unmatched/authority/gap/drop states; freeze persists unchanged across reverse/reboot trials"
+}

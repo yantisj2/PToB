@@ -1,0 +1,8 @@
+run_id,cohort,capture,retained_pair_rows,unavailable_delivered_rows,n,mean,rms,min,max,max_abs,p95_abs,p99_abs,status_rows,sampled_qualified_lock_rows,sampled_green_zero_rows,original_gap_gt3s
+oscillator-ui-v5-research-20261003-01,simultaneous_three_device,segments/TC-01-0001/capture,384,30,354,-462.90677966101697,1075.6792322688318,-3103,1012,3103,2631,3072,59,0,0,24
+oscillator-ui-v5-research-20261003-02,quiet_pair,segments/TC-01-0001/capture,1144,0,1144,9.698426573426573,69.13564122876049,-178,222,222,134,174,116,109,102,0
+oscillator-ui-v5-research-20261003-02,quiet_pair,segments/TC-01-0001/capture-0002,728,1,727,19.66162310866575,68.10597373852075,-172,218,218,130,165,74,50,41,2
+oscillator-ui-v5-research-20261003-03,delayed_field_join,segments/TC-01-0001/capture,1106,0,1106,6.5768535262206145,66.50989402800636,-187,186,187,129,159,118,93,85,2
+oscillator-ui-v5-research-20261003-03,delayed_field_join,segments/TC-01-0001/capture-0002,383,0,383,5.590078328981723,72.71671490539059,-387,170,387,138,179,40,30,27,2
+oscillator-ui-v5-research-20261003-04,field_departure_final_extension,segments/TC-01-0001/capture,1062,0,1062,-15.271186440677965,231.1049361771049,-1413,255,1413,382,1209,128,64,48,5
+oscillator-ui-v5-research-20261003-04,field_departure_final_extension,segments/TC-01-0001/capture-0002,2517,0,2517,3.8609455701231625,79.8960588173229,-313,272,313,159,219,281,256,228,2

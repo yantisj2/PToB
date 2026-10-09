@@ -1,0 +1,41 @@
+{
+  "date": "2026-10-09",
+  "python": "3.9.6",
+  "evidence_hash_check": {
+    "command": "python3 tools/verify_evidence.py",
+    "files": 38,
+    "result": "PASS"
+  },
+  "pll_derived_metric_recheck": {
+    "separate_captures": 7,
+    "scoreable_rows": 7293,
+    "unavailable_rows": 31,
+    "result": "PASS",
+    "scope": "Included derived CSVs only; not raw extraction or physical accuracy."
+  },
+  "v12_frozen_model_tests": {
+    "working_directory": "evidence/v12/model/snapshot",
+    "command": "python3 -m unittest discover -s tests -p test_v12_model.py -v",
+    "tests": 50,
+    "result": "PASS"
+  },
+  "pll_manuscript": {
+    "native_compile": "success",
+    "export_pages": 17,
+    "rendered_pages_inspected": 17,
+    "receipt": "papers/imports/oscillator-pll-2026-10-09.json"
+  },
+  "not_run": [
+    "Historical full model sweeps and long soaks",
+    "R2 controller/PHY campaigns",
+    "Hardware experiments or raw-archive seal verification"
+  ],
+  "scope": "Local public-checkout import verification; no push or publication.",
+  "v12_short_reproduction": {
+    "virtual_seconds": 30,
+    "profile": "v12_four_unit_mesh_profile.json",
+    "result": "PASS",
+    "safety_checks_passed": 8,
+    "scope": "Fresh synthetic smoke run; not a repeat of long historical campaigns."
+  }
+}

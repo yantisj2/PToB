@@ -1,0 +1,346 @@
+{
+  "schema": 2,
+  "status": "FINITE_GM_TWO_FOLLOWERS_AND_DIAGNOSTICS_PASS_CONTINUITY_OPEN",
+  "scope": "FINITE_CONNECTED_COARSE_BLE_GM_BENCH",
+  "GM": "TC-01",
+  "followers": [
+    "TC-02",
+    "TC-03"
+  ],
+  "installed_candidate": {
+    "build": "firmware/t096/build-v12-r2-ble-candidate-20261008-05",
+    "child_commit": "25ff86b13959ff12cdc626590059a8e4614683b6",
+    "source_sha256": "1deae26d22c1336897c75338ed28ab482c2722095495d780059181b27171aa29",
+    "receipt_sha256": "5b214a4442463ff5c0f6d3277f853588c75624fa84a617cde3d91b5a35214ea8",
+    "uf2_sha256": "b7fa9e3ce32eba8364844bd63fca5c42c96d1dabdb1c4696816ccb380dfcb382",
+    "committed_sources_verified": 95,
+    "install_script": "install_candidate05.py",
+    "install_script_sha256": "265c24741c96ed0b92798ef35aeee1413258ed9308dd2d68125efe102b690f51"
+  },
+  "physical_run": "runs/v12-r2-three-gm-20261008-03",
+  "duration_seconds_per_device": 90,
+  "harness_result": "PASS_FINITE_GM_TWO_FOLLOWERS",
+  "source_before_RF": {
+    "TC-01": {
+      "source": "1deae26d22c1336897c75338ed28ab482c2722095495d780059181b27171aa29",
+      "boot": "8048269870bbb798",
+      "state": 2,
+      "valid": true,
+      "utc_us": 1791502815121948,
+      "mono_us": 287373168,
+      "gps_age_us": 121948,
+      "pps_age_us": 157775,
+      "input_error": 0,
+      "rate_ppb": 0,
+      "phase_us": 0,
+      "rate_valid": false,
+      "source_available": false,
+      "generation": 191,
+      "source_epoch": 191,
+      "pairs": 0,
+      "accepted": 97,
+      "rejected": 190,
+      "faults": 190,
+      "reason": 8,
+      "association": 0,
+      "pps_edges": 99,
+      "pps_rejected": 1,
+      "pps_present": true,
+      "fix_active": true,
+      "sats_used": 12,
+      "gga_count": 287,
+      "queue_drops": 0,
+      "precision": "UNKNOWN",
+      "timescale": "POSIX_UTC_ESTIMATE",
+      "uncertainty_us": null
+    },
+    "TC-02": {
+      "source": "1deae26d22c1336897c75338ed28ab482c2722095495d780059181b27171aa29",
+      "boot": "5fe9d09d1ad4f165",
+      "state": 0,
+      "valid": false,
+      "utc_us": 0,
+      "mono_us": 184108093,
+      "gps_age_us": -1,
+      "pps_age_us": -1,
+      "input_error": 0,
+      "rate_ppb": 0,
+      "phase_us": 0,
+      "rate_valid": false,
+      "source_available": false,
+      "generation": 185,
+      "source_epoch": 185,
+      "pairs": 0,
+      "accepted": 1,
+      "rejected": 184,
+      "faults": 184,
+      "reason": 3,
+      "association": 0,
+      "pps_edges": 2,
+      "pps_rejected": 1,
+      "pps_present": false,
+      "fix_active": false,
+      "sats_used": 0,
+      "gga_count": 185,
+      "queue_drops": 0,
+      "precision": "UNKNOWN",
+      "timescale": "POSIX_UTC_ESTIMATE",
+      "uncertainty_us": null
+    },
+    "TC-03": {
+      "source": "1deae26d22c1336897c75338ed28ab482c2722095495d780059181b27171aa29",
+      "boot": "8d0b598be295ba9e",
+      "state": 0,
+      "valid": false,
+      "utc_us": 0,
+      "mono_us": 223501495,
+      "gps_age_us": -1,
+      "pps_age_us": -1,
+      "input_error": 0,
+      "rate_ppb": 0,
+      "phase_us": 0,
+      "rate_valid": false,
+      "source_available": false,
+      "generation": 224,
+      "source_epoch": 224,
+      "pairs": 0,
+      "accepted": 0,
+      "rejected": 223,
+      "faults": 223,
+      "reason": 3,
+      "association": 0,
+      "pps_edges": 2,
+      "pps_rejected": 1,
+      "pps_present": false,
+      "fix_active": false,
+      "sats_used": 0,
+      "gga_count": 223,
+      "queue_drops": 0,
+      "precision": "UNKNOWN",
+      "timescale": "POSIX_UTC_ESTIMATE",
+      "uncertainty_us": null
+    }
+  },
+  "diagnostics": {
+    "TC-01": {
+      "bank": 0,
+      "sha256": "ca4d307283c30c3926789b1862fe00d7adfbe40224279c997eaadd2057baed7a",
+      "samples": 90,
+      "commands": 92
+    },
+    "TC-02": {
+      "bank": 0,
+      "sha256": "91c504a0e4aea76db9b78fece8561a0a1cdff9d1b1b9ae86c28ea183ef971dec",
+      "samples": 90,
+      "commands": 93
+    },
+    "TC-03": {
+      "bank": 0,
+      "sha256": "419fe60f4f04cd5dd9d2e28fb7c93701d18ed97b10b9eefd2f9948594badbbb6",
+      "samples": 90,
+      "commands": 93
+    }
+  },
+  "shutdown": {
+    "TC-01": {
+      "service_closed_at_us": 380431152,
+      "deadline_us": 382423004,
+      "platform_close": [
+        0,
+        true,
+        380447
+      ]
+    },
+    "TC-02": {
+      "service_closed_at_us": 276991180,
+      "deadline_us": 278979003,
+      "platform_close": [
+        0,
+        true,
+        277009
+      ]
+    },
+    "TC-03": {
+      "service_closed_at_us": 316162536,
+      "deadline_us": 318162414,
+      "platform_close": [
+        0,
+        true,
+        316168
+      ]
+    }
+  },
+  "physical_functional_observations": {
+    "rounds": 87,
+    "observed_common_root_two_followers": 62,
+    "units": {
+      "TC-01": {
+        "service_receipts": 0,
+        "authenticated": 2650,
+        "drops": 0,
+        "transport_errors": 0,
+        "worker_max_us": 1617,
+        "on_flash_samples": 90,
+        "on_flash_serving_samples": 84,
+        "on_flash_follower_samples": 0,
+        "final_diagnostic_error": 0,
+        "sample_overflows": 0,
+        "command_overflows": 0
+      },
+      "TC-02": {
+        "service_receipts": 993,
+        "authenticated": 4444,
+        "drops": 0,
+        "transport_errors": 0,
+        "worker_max_us": 2960,
+        "on_flash_samples": 90,
+        "on_flash_serving_samples": 0,
+        "on_flash_follower_samples": 85,
+        "final_diagnostic_error": 0,
+        "sample_overflows": 0,
+        "command_overflows": 0
+      },
+      "TC-03": {
+        "service_receipts": 1240,
+        "authenticated": 2235,
+        "drops": 0,
+        "transport_errors": 0,
+        "worker_max_us": 1801,
+        "on_flash_samples": 90,
+        "on_flash_serving_samples": 0,
+        "on_flash_follower_samples": 59,
+        "final_diagnostic_error": 0,
+        "sample_overflows": 0,
+        "command_overflows": 0
+      }
+    }
+  },
+  "open_findings": [
+    {
+      "id": "TC03_FOLLOWER_CONTINUITY",
+      "status": "UNRESOLVED",
+      "evidence": "TC03 valid follower in59/90 on-flash1Hz samples (startup/shutdown included);19 console samples had active root TC01 but follower=false.62/87 sampled whole-cohort rounds had serving GM plus both live followers. Sparse samples cannot measure exact gap durations. No transport errors/drops, but these do not prove continuous delivery.",
+      "next_step": "Instrument/service-lease and coordinator-forwarding timing reproduction in simulator; retain source/role fencing and original deadlines. Full continuity acceptance remains open."
+    }
+  ],
+  "prior_campaign": {
+    "schema": 1,
+    "status": "GM_TWO_FOLLOWERS_OBSERVED_DIAGNOSTIC_STAGE_FAILED",
+    "scope": "FINITE_CONNECTED_COARSE_BLE_GM_BENCH",
+    "GM": "TC-02",
+    "followers": [
+      "TC-01",
+      "TC-03"
+    ],
+    "installed_candidate": {
+      "build": "firmware/t096/build-v12-r2-ble-candidate-20261008-04",
+      "child_commit": "38c56e7c77231e94b7bee36afc556cf6f7b1a0c9",
+      "source_sha256": "fb08a3df1f30ad13479f8d0919aef5a30d0822018731f5e1f71a1bdf8afd2bf5",
+      "receipt_sha256": "f30c01428572bcb728a61fa8b2978d0a8a1b264f68add0c98a1cbc2c6278e7cf",
+      "uf2_sha256": "877f36cc58a51b7b0b9a5f7db76ad3f35afe699c3bbd860b655329ac206ec5c1",
+      "committed_sources_verified": 90,
+      "install_script": "install_candidate04.py",
+      "install_script_sha256": "b75d47aee950f249dec3815ccaf102410b1d1c10fda63bb721321b455dee8853"
+    },
+    "physical_functional_observations": {
+      "rounds": 91,
+      "observed_common_root_two_followers": 76,
+      "units": {
+        "TC-01": {
+          "max_service_receipts": 834,
+          "rx": 2560,
+          "authenticated": 2102,
+          "rejected": 19,
+          "transport_errors": 0,
+          "drops": 0,
+          "worker_max_us": 1342
+        },
+        "TC-02": {
+          "max_service_receipts": 0,
+          "rx": 4672,
+          "authenticated": 3794,
+          "rejected": 1,
+          "transport_errors": 0,
+          "drops": 0,
+          "worker_max_us": 2228
+        },
+        "TC-03": {
+          "max_service_receipts": 845,
+          "rx": 2156,
+          "authenticated": 1692,
+          "rejected": 24,
+          "transport_errors": 0,
+          "drops": 0,
+          "worker_max_us": 1160
+        }
+      }
+    },
+    "physical_run": "runs/v12-r2-three-gm-20261008-01",
+    "duration_seconds_per_device": 90,
+    "source_before_RF": {
+      "TC-01": {
+        "fix_active": true,
+        "pps_present": true,
+        "sats_used": 11
+      },
+      "TC-02": {
+        "fix_active": true,
+        "pps_present": true,
+        "sats_used": 9
+      },
+      "TC-03": {
+        "fix_active": false,
+        "pps_present": false,
+        "sats_used": 0
+      }
+    },
+    "failed_stage": {
+      "diagnostic_state": -116,
+      "meaning": "Zephyr ETIMEDOUT",
+      "units": [
+        "TC-01",
+        "TC-02",
+        "TC-03"
+      ],
+      "on_flash_current_boot_package": "NOT_RETRIEVED_NOT_ACCEPTED",
+      "upstream_issue": "https://github.com/zephyrproject-rtos/zephyr/issues/91428",
+      "upstream_fix": "https://github.com/zephyrproject-rtos/zephyr/pull/91430"
+    },
+    "subsequent_diagnostics": {
+      "TC-01": "Fresh identity-bound os.open33.39s exceeds original20s capture; failed closed capture retained",
+      "TC-02": "Fresh identity-bound os.open33.23s exceeds original20s capture; failed closed capture retained",
+      "TC-03": "No extra serial open attempted after same diagnostic timeout"
+    },
+    "successor_candidate": {
+      "build": "firmware/t096/build-v12-r2-ble-candidate-20261008-05",
+      "child_commit": "25ff86b13959ff12cdc626590059a8e4614683b6",
+      "source_sha256": "1deae26d22c1336897c75338ed28ab482c2722095495d780059181b27171aa29",
+      "receipt_sha256": "5b214a4442463ff5c0f6d3277f853588c75624fa84a617cde3d91b5a35214ea8",
+      "uf2_sha256": "b7fa9e3ce32eba8364844bd63fca5c42c96d1dabdb1c4696816ccb380dfcb382",
+      "committed_sources_verified": 95,
+      "install_script": "install_candidate05.py",
+      "install_script_sha256": "265c24741c96ed0b92798ef35aeee1413258ed9308dd2d68125efe102b690f51"
+    },
+    "successor_status": "BUILT_TESTED_PENDING_FINAL_REVIEW_AND_RECOVERY_FLASH",
+    "simulator_final": "firmware/t096/build-v12-r2-sim-service-20261008-11",
+    "physical_precision": "UNKNOWN",
+    "PPS_UTC_association": "UNKNOWN",
+    "continuous_autonomous_service": "NOT_IMPLEMENTED",
+    "LoRa": "OFF_DEFERRED",
+    "W12": "HELD",
+    "independent_full_suite": "HELD",
+    "evidence": "All closed installation, original GM console segments and failed TC01/TC02 read-only captures sealed through review_trial/evidence; raw archives local/private"
+  },
+  "no_source_preflight": {
+    "run": "runs/v12-r2-three-gm-20261008-02",
+    "status": "INCOMPLETE_NO_SOURCE_RF_NOT_ARMED",
+    "recovery": "Fresh later TC01 bounded probe observed valid GNSS/PPS with9 satellites; new run ID used"
+  },
+  "evidence": "Constituent raw segments and full campaign/diagnostic binaries sealed locally; catalog is only an index",
+  "physical_precision": "UNKNOWN",
+  "PPS_UTC_association": "UNKNOWN",
+  "continuous_autonomous_service": "NOT_IMPLEMENTED",
+  "LoRa": "OFF_DEFERRED",
+  "W12": "HELD",
+  "independent_full_suite": "HELD"
+}

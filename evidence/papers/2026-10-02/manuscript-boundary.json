@@ -1,0 +1,19 @@
+{
+  "parent_git": "9297f77129a9e86872fc2c0437f58310be6bc48a",
+  "predecessor_sha256": {
+    "paper/ptob-proposal.tex": "7e7cf614adb7690ad23176fd895245e56132f2db45f488a6112d3d2e9605e6fd",
+    "paper/ptob-proposal.pdf": "7085ec2d5cc83bd4c59e107552a620e2ff73e7334708fefd7c5f8fa2ceec138a",
+    "paper/ptob-preprint.tex": "e172187b687cf28163fb1e77ea9caf2426536ae2c16dc08cd2b05c46924f5ef4",
+    "paper/ptob-preprint.pdf": "8865076289b7b8fa56a8a310db657eabe27cb9fcf0557dc89954de6d57e40ea4",
+    "paper/evidence.json": "ba7d6d9deb5a44b305d4fd9f795e5d869149a2b9550bcbe17e5a109959f85a79",
+    "paper/proposal-wire-manifest.json": "e45ce41eea98a43a31250d5ebfd94332fc22bc194cc17499badd8595e82866dc",
+    "paper/build-manifest.json": "5805f4937d35908349c32ec4eaaea0313da13628b39aa0125aae246a2504782b",
+    "paper/proposal-build-manifest.json": "c4bd715d982bad6f9cd9e9be9a34cae68d1402147b2e0a5df295d304acba9ff4",
+    "paper/qa-manifest.json": "7f2f17d47e3aad9a60cad66716021a89a323eb2b07dbbd28989ae7f4ac6aecae"
+  },
+  "TC_parent_checkpoint": "9429115",
+  "W12_parent_checkpoint": "30f4067",
+  "root_handoff": "9297f77",
+  "cutoff_utc": "2026-10-02T17:28:13.400616Z",
+  "scope": "paper outputs only; no hardware or engineering changes"
+}

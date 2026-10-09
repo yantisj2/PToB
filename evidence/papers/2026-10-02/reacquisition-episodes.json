@@ -1,0 +1,130 @@
+{
+  "scope": "Captured monotonic W12 clock ticks, not independent output/RF duty. All unavailable episodes retained. No post-hoc trimming.",
+  "nonserving_incumbent_episodes": [
+    {
+      "fallback_line": 10722,
+      "fallback_tick": "6457252202",
+      "return_line": 10855,
+      "return_tick": "6497242533",
+      "duration_s": 1.99951655
+    },
+    {
+      "fallback_line": 17379,
+      "fallback_tick": "8250742048",
+      "return_line": 17506,
+      "return_tick": "8290774999",
+      "duration_s": 2.00164755
+    },
+    {
+      "fallback_line": 32125,
+      "fallback_tick": "12265283516",
+      "return_line": 32333,
+      "return_tick": "12332629616",
+      "duration_s": 3.367305
+    },
+    {
+      "fallback_line": 40860,
+      "fallback_tick": "14681880776",
+      "return_line": 40989,
+      "return_tick": "14721883658",
+      "duration_s": 2.0001441
+    }
+  ],
+  "unavailable_view_episodes": [
+    {
+      "first_unavailable_line": 7990,
+      "return_valid_line": 8794,
+      "duration_s": 11.0039564,
+      "first_root": "2766948752",
+      "return_root": "2766948752",
+      "first_original_age_us": "10112565"
+    },
+    {
+      "first_unavailable_line": 10768,
+      "return_valid_line": 10919,
+      "duration_s": 2.00085105,
+      "first_root": "4135130224",
+      "return_root": "2766948752",
+      "first_original_age_us": "18446744073709551615"
+    },
+    {
+      "first_unavailable_line": 17397,
+      "return_valid_line": 17521,
+      "duration_s": 2.0006124,
+      "first_root": "4135130224",
+      "return_root": "2766948752",
+      "first_original_age_us": "18446744073709551615"
+    },
+    {
+      "first_unavailable_line": 32135,
+      "return_valid_line": 32886,
+      "duration_s": 11.50295305,
+      "first_root": "4135130224",
+      "return_root": "2766948752",
+      "first_original_age_us": "18446744073709551615"
+    },
+    {
+      "first_unavailable_line": 40902,
+      "return_valid_line": 41043,
+      "duration_s": 2.00050645,
+      "first_root": "4135130224",
+      "return_root": "2766948752",
+      "first_original_age_us": "18446744073709551615"
+    }
+  ],
+  "safe_flags_all_observed": true,
+  "last_status": {
+    "tick": "15565238917",
+    "unit": "W12-2",
+    "node": "1991120760",
+    "root": "2766948752",
+    "root_generation": "9",
+    "candidate": "0",
+    "forced": "0",
+    "priority": "3",
+    "relay_request": "0",
+    "isolated": "0",
+    "control_rx": "1698",
+    "auth_reject": "0",
+    "control_tx": "1436",
+    "tx_failed": "0",
+    "queue_drop": "0",
+    "replay_or_duplicate": "1071",
+    "retired_epoch": "0",
+    "adv_owned": "0",
+    "adv_active": "0",
+    "adv_stops": "1436",
+    "adv_stop_failed": "0",
+    "adv_wall_max_us": "73124",
+    "request": "STATUS",
+    "ack": "1",
+    "policy": "GM_E1",
+    "admission": "WAIT_TIME",
+    "local_eligible": "0",
+    "local_time_valid": "0",
+    "boot_age_ms": "778261",
+    "mesh_join_age_ms": "0",
+    "boot_listen_ms": "60000",
+    "mesh_stabilize_ms": "60000",
+    "receive_healthy": "0",
+    "winner_quality_class": "4",
+    "winner_flags": "84",
+    "winner_control_session": "3572946",
+    "winner_utc_usable": "1",
+    "winner_utc_session": "1516737",
+    "winner_utc_age_ms": "748",
+    "source_qualified": "0",
+    "source_quality_class": "7",
+    "source_stability": "INVALID",
+    "static_priority": "LAB_DIAGNOSTIC_ONLY",
+    "profile": "GM_LAB_V3",
+    "source": "NO_VALIDATED_ROOT_TIME",
+    "precision": "UNKNOWN",
+    "PTS": "OFF",
+    "WiFi": "OFF"
+  },
+  "raw_sha256": "0cb7161b4eb12101585b3d1ca4d8e3e272b768a9095b5909935d9e44648f888d",
+  "derivation": "duration=(return_tick-fallback_tick)/20000000; complete captured transitions/views only, all episodes retained; raw line references immutable in sealed archive",
+  "parent_run_id": "ptob-w12-sol-service-reacquisition-C2-normal600-20261002-08",
+  "parent_seal_sha256": "79a5e34d93c616fd69666b4067141cefc73099c6434c4eb65601172a5e370599"
+}

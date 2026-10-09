@@ -1,0 +1,153 @@
+{
+  "schema": 1,
+  "revision": 12,
+  "status": "OFFLINE_PROPOSAL_ONLY",
+  "installed_firmware": false,
+  "key_material": "PUBLIC TEST FIXTURE ONLY",
+  "control": {
+    "record_size": 110,
+    "body_size": 102,
+    "endianness": "little",
+    "struct_format": "<BBBBQQQQQBQIQQQQQIB",
+    "fields": [
+      "version:u8",
+      "kind:u8",
+      "sender:u8",
+      "target:u8",
+      "sender_boot:u64",
+      "coordinator_boot:u64",
+      "connection_challenge:u64",
+      "sequence:u64",
+      "decision:u64",
+      "root:u8",
+      "root_boot:u64",
+      "source_epoch:u32",
+      "source_second:u64",
+      "original_evidence_us:u64",
+      "created_us:u64",
+      "expires_us:u64",
+      "permit_until_us:u64",
+      "config_epoch:u32",
+      "flags:u8",
+      "MAC64:8B"
+    ],
+    "kinds": {
+      "REPORT": 1,
+      "PREPARE": 2,
+      "READY": 3,
+      "COMMIT": 4,
+      "ACTIVE": 5,
+      "STOP": 6,
+      "STOPPED": 7
+    },
+    "mac": "SipHash-2-4(domain PTOB12C\\x01 + body), per sender public fixture keys",
+    "admission": "Complete authenticated record; participant role, boot/coordinator/challenge/config, monotonic sequence and original age. Public timing has no control admission. No counter wrap.",
+    "authority": "Fixed TC-03 coordinator, independent candidate source, 60s source readiness and 3 advancing qualified reports in 6s; healthy incumbent retained.",
+    "handoff": "PREPARE/READY after old fence; COMMIT/ACTIVE. STOP/STOPPED retires old decisions. Uncertain ACTIVE stops renewal until original permit+drain fence expires.",
+    "deadline": "3s maximum initial permit, 1Hz renewal. Conservative deadline conversion through known clock map, timer-rate and controller-drain bounds. Original deadline never restarted by reception/retry.",
+    "reboot": "Fresh boot and authenticated challenge binding; coordinator waits at least max outstanding lease+drain after reboot. No passive election fallback.",
+    "record_ttl_us": 250000,
+    "app_ack_target_us": 250000,
+    "mtu_proposal": 185,
+    "connection_interval_us": 30000,
+    "connection_latency": 0,
+    "control_queue_records_per_direction": 8,
+    "scope_limit": "Non-Byzantine provisioned peers; no arbitrary keyholder, unauthenticated reconnect, indefinite RF-loss availability or quorum guarantee.",
+    "max_participating_GMs": 4,
+    "cap_scope": "Includes fixed coordinator; deterministic authorized slots. Overflow forced client. Each GM requires direct authenticated coordinator connection; no GM record forwarding over time relays."
+  },
+  "precision": {
+    "transport": "Periodic Advertising without Responses (PADVB), LE1M,62.5ms; two500ms-spaced precision groups",
+    "discovery": "Recurring extended discovery advertising containing SyncInfo; separate 5ms model phase, 250ms model cadence",
+    "modeled_AD_bytes": "Root 118+20*n <=198; one-hop 118+24+20*n <=222. Actual production packing unresolved.",
+    "correction_history": 4,
+    "reference": "Exact unique captured physical original, scoped publisher/root boot/train/source epoch/event ID",
+    "counter": "PA event counter modulo16-bit alone is insufficient; bind unambiguous extended ID/train generation; repeated controller payloads cannot create new originals",
+    "lifetime_us": 3000000,
+    "public_reception": true,
+    "quality": "UNKNOWN; independent precision null; PTS/WiFi OFF",
+    "legacy_fixture": "A/C use declared paired 31B original then correction20ms later, no claim to emulate V11 scheduler. Baseline native headers remain existing lab latest.",
+    "estimator_ready": {
+      "references": 4,
+      "minimum_span_us": 250000,
+      "status": "Proposal minimum; physical uncertainty/qualification still required"
+    }
+  },
+  "evidence_limits": [
+    "Source readiness is a declared model input, not GNSS qualification.",
+    "Clock map and controller stop bounds must be physically measured before exclusive service.",
+    "Virtual radio reservations include guards, discovery and empty ACL events; not observed RF/CPU/energy.",
+    "Synthetic causal output reports RMS/P99/max with bias retained; unavailable intervals and acquisition retained.",
+    "Production controller ABI, timestamp hooks, connection establishment/security, packet fragmentation, logging resources, absolute UTC and output qualification remain open."
+  ],
+  "one_hop": {
+    "depth": 1,
+    "relay_GM_authority": false,
+    "GM_record_forwarding": false,
+    "root_origin_preserved": true,
+    "scope": "root/root boot/source epoch plus relay boot/train/physical original",
+    "relative_phase_us": 31250,
+    "parent_mode": "Direct periodic root only; relay-of-relay rejected",
+    "source_age_limit_us": 500000,
+    "permission": "Declared verified root extension token observed on direct root train; expires at original conservative root deadline. Renewal cannot restart received deadline. Actual public-verifiable token/precision encoding pending.",
+    "causality": "Root-derived affine projection at captured relay TX reference with mapping/residence error retained; far client correction after relay RX/work; no second-hop authority.",
+    "modeled_AD_bytes": 222,
+    "history": 4,
+    "extension_uncertainty": "UNKNOWN physically; root plus mapping/residence/capture/output uncertainty must be accumulated",
+    "precision_scope": "Unqualified synthetic boundary time extension, not verified transparent-clock forwarding"
+  },
+  "quiet_client_profile": {
+    "BLE_window_us": 400000,
+    "contiguous_quiet_us": 600000,
+    "run_groups_per_second": 2,
+    "run_spacing_us": 500000,
+    "periodic_interval_us": 62500,
+    "original_slots_per_run": [
+      0,
+      62500,
+      125000,
+      187500,
+      250000,
+      312500,
+      375000,
+      437500
+    ],
+    "correction_only_slots_per_run": [],
+    "alignment": "Client follows either run group; window anchored to advertised root run phase, with1ms lead. Same coordinated window for one-hop far clients.",
+    "target": "At least one corrected usable precision update per warmed second; count missed seconds separately from offered-packet coverage and held/fresh output.",
+    "guards": "No periodic RX outside chosen window; all RX guards must fit before quiet start.",
+    "quality": "Quiet held output synthetic only; PTS/WiFi remain OFF until total held error plus uncertainty <=500ns for actual blackout plus margins.",
+    "relay_limit": "Original500ms freshness and immutable permission enforced on TX and correction; local held output preserves age and UNKNOWN quality, expires1.5s after reference and creates no publication authority.",
+    "GM_limit": "Every GM and time relay stays online throughout each1s cycle. Only public clients may go quiet; full clients and GM followers observe both groups. No GM control over relay.",
+    "sync_timeout_us": 5000000,
+    "held_horizon_us": 1500000,
+    "maintenance_slots_per_run": [
+      375000,
+      437500
+    ],
+    "maintenance": "Last two slots also capture physical originals to keep always-online relay mapping fresh under loss, while carrying repeated correction history; half clients may skip them."
+  },
+  "model_revision": 2,
+  "native_W12_lab_treatment": {
+    "native_periodic_API_required": true,
+    "legacy_admin_duty_caps_removed_for_always_online_roles": true,
+    "half_duty_client_gate_retained": true,
+    "half_duplex_retained": true,
+    "controller_ABI_and_precision_gates_retained": true,
+    "PTS_WiFi": "OFF",
+    "migration_budget": "Separate measured profile, freeze before paired RF runs; no partition resizing",
+    "units": [
+      "TC-01",
+      "TC-03",
+      "C-1",
+      "C-3"
+    ],
+    "TC-02": "Retain existing field image; excluded from lab writes and GM control"
+  },
+  "model_goals": {
+    "nominal": "Every warmed client second has a corrected usable reference; full clients and GM followers have one per complete500ms source window; causal full available output RMS<400ns and max<=1000ns including held cells",
+    "loss10": "At least99.9percent per predeclared treatment/path/mode reception denominator; actual missed seconds and missed windows retained",
+    "faults": "Safety and explicit refusal/unavailability, not uninterrupted precision",
+    "physical_status": "UNKNOWN; no native event association/quiet/output qualification from synthetic tests"
+  }
+}

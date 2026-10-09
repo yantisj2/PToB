@@ -1,0 +1,6 @@
+# Preserve archived evidence bytes across platforms: manifests hash exact files.
+evidence/** -text
+papers/*.tex -text
+papers/*.pdf binary
+# Original CSV exports use CRLF; retain those bytes without false whitespace errors.
+evidence/**/*.csv whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol

@@ -1,0 +1,378 @@
+{
+  "schema": 1,
+  "status": "PRIMARY_SOURCE_REVIEW_FOR_LOCAL_DRAFT",
+  "reviewed_utc": "2026-10-03T18:13:31.925406+00:00",
+  "scope": "Read primary papers, author implementations, patent text and official manufacturer/NIST documents; no secondary technical claims relied on.",
+  "source_policy": {
+    "verbatim_body_quotes_used": 0,
+    "quote_provenance": "No verbatim body quotation is used. Document titles identify sources; all body claims are paraphrases or explicitly original derivations.",
+    "metrics": "Published metric names/units/populations retained; SD, RMS, period jitter, phase deviation, MAE and CDF are not interchanged.",
+    "unidentified_thesis": "Leoben-area CC1101/Si5341 thesis remains unverified and is deliberately omitted under operator authorization."
+  },
+  "primary_sources": [
+    {
+      "citation_key": "ntp",
+      "title": "Network Time Protocol Version 4: Protocol and Algorithms Specification",
+      "authors": "D. Mills, J. Martin, J. Burbank, W. Kasch",
+      "version": "2010 RFC 5905",
+      "urls": [
+        "https://www.rfc-editor.org/rfc/rfc5905.html"
+      ],
+      "read_locators": [
+        "11.3 clock discipline",
+        "12 clock state machine; figures 26-27"
+      ],
+      "used_claim": "Software VFO, PLL/FLL discipline and poll-time scaling.",
+      "limitations": "NTP constants and seconds-based measurements are not gains for this radio actuator.",
+      "retrieval": "Fetched and read in this research session through browsing; blue and windup primary PDFs also downloaded/read in temporary local storage.",
+      "direct_body_quotes": []
+    },
+    {
+      "citation_key": "linuxptp",
+      "title": "LinuxPTP primary PI servo and default configuration",
+      "authors": "R. Cochran and contributors",
+      "version": "Mutable primary implementation accessed 2026-10-03",
+      "urls": [
+        "https://github.com/richardcochran/linuxptp/blob/master/pi.c",
+        "https://www.linuxptp.org/documentation/default/"
+      ],
+      "read_locators": [
+        "pi_sample: initial frequency from two offsets and time delta, command clamp, conditional drift update",
+        "sync_interval gain normalization; max_frequency and stable-offset configuration"
+      ],
+      "used_claim": "Primary example of interval-aware PI, bounded commands and explicit stable-state semantics.",
+      "limitations": "No installed LinuxPTP code or borrowed gains; web master is mutable and is cited by access date.",
+      "retrieval": "Fetched and read in this research session through browsing; blue and windup primary PDFs also downloaded/read in temporary local storage.",
+      "direct_body_quotes": []
+    },
+    {
+      "citation_key": "tosato",
+      "title": "A Software-based Low-Jitter Servo Clock for Inexpensive Phasor Measurement Units",
+      "authors": "P. Tosato, D. Macii, D. Fontanelli, D. Brunelli, D. Laverty",
+      "version": "arXiv:1902.09912v1, 2019",
+      "urls": [
+        "https://arxiv.org/pdf/1902.09912"
+      ],
+      "read_locators": [
+        "III equations 1-6: normalized generator, backward-Euler PI and stability/noise assumptions",
+        "II PRU timer architecture"
+      ],
+      "used_claim": "PI design must state detector, generator and discretization units.",
+      "limitations": "Wired PPS, PRU programmable timer and reported timing SD differ from our packet detector and software map.",
+      "retrieval": "Fetched and read in this research session through browsing; blue and windup primary PDFs also downloaded/read in temporary local storage.",
+      "direct_body_quotes": []
+    },
+    {
+      "citation_key": "freris",
+      "title": "Model-based clock synchronization protocol",
+      "authors": "N. M. Freris, V. S. Borkar, P. R. Kumar",
+      "version": "arXiv:1311.6914v1; PDF footer 2021-09-08; arXiv posted 2013-11-27",
+      "urls": [
+        "https://arxiv.org/pdf/1311.6914"
+      ],
+      "read_locators": [
+        "Abstract: asynchronous clock skew/offset estimation",
+        "IV equations 31-33; VI discrete/asynchronous implementation"
+      ],
+      "used_claim": "Stochastic clock estimation can incorporate asynchronous timestamp measurements under specified models.",
+      "limitations": "Our two-state propagation and applied-command integral are original design equations, not that paper's exact nonlinear/log-skew filter.",
+      "retrieval": "Fetched and read in this research session through browsing; blue and windup primary PDFs also downloaded/read in temporary local storage.",
+      "direct_body_quotes": []
+    },
+    {
+      "citation_key": "patent",
+      "title": "Wireless Time and Frequency Lock Loop",
+      "authors": "Joshua C. Park; Glen Wolverton",
+      "version": "US10856242B2, published 2020-12-01",
+      "urls": [
+        "https://patents.google.com/patent/US10856242B2/en"
+      ],
+      "read_locators": [
+        "Figures 3-7 and accompanying four-timestamp, digital-filter and tunable-crystal description"
+      ],
+      "used_claim": "Reciprocal timestamp/frequency architecture and separate phase/frequency actuation inform the proposed extension.",
+      "limitations": "Design disclosure is not a measured current-device result, generic asymmetry solution or legal opinion.",
+      "retrieval": "Fetched and read in this research session through browsing; blue and windup primary PDFs also downloaded/read in temporary local storage.",
+      "direct_body_quotes": []
+    },
+    {
+      "citation_key": "airclock",
+      "title": "Poster: Clock Synchronization for Distributed Wireless Protocols at the Physical Layer",
+      "authors": "O. Abari; H. Rahul; D. Katabi",
+      "version": "MobiCom 2014",
+      "urls": [
+        "https://people.csail.mit.edu/rahul/papers/clocksync-mobicom2014.pdf"
+      ],
+      "read_locators": [
+        "Three-page poster: two-tone self-multiplication and bandpass difference-frequency extraction"
+      ],
+      "used_claim": "A recovered hardware reference is a different actuator from numerical packet-clock discipline.",
+      "limitations": "No performance value is transferred; frequency recovery alone does not supply our epoch/path calibration.",
+      "retrieval": "Fetched and read in this research session through browsing; blue and windup primary PDFs also downloaded/read in temporary local storage.",
+      "direct_body_quotes": []
+    },
+    {
+      "citation_key": "rfclock",
+      "title": "RFClock: Timing, Phase and Frequency Synchronization for Distributed Wireless Networks",
+      "authors": "K. Alemdar; D. Varshey; S. Mohanti; U. Muncuk; K. Chowdhury",
+      "version": "MobiCom 2021; DOI 10.1145/3447993.3448623",
+      "urls": [
+        "https://genesys-lab.org/papers/RFCLOCK_MOBICOM2021.pdf"
+      ],
+      "read_locators": [
+        "4 recovered reference and PLL",
+        "5.1 10K-pulse period-jitter measurement",
+        "5.2 UWB ToF, TDC and output delay alignment",
+        "6.1 evaluation"
+      ],
+      "used_claim": "Frequency recovery, time alignment and output period jitter have separate hardware and metrics.",
+      "limitations": "Abstract frequency-offset and phase-deviation claims are not our causal-map RMS, and period jitter is not network phase error.",
+      "retrieval": "Fetched and read in this research session through browsing; blue and windup primary PDFs also downloaded/read in temporary local storage.",
+      "direct_body_quotes": [],
+      "published_metric_provenance": [
+        {
+          "metric": "mean frequency offset",
+          "value": "<0.107",
+          "unit": "Hz",
+          "locator": "Abstract",
+          "denominator": "not stated in abstract; no RMS conversion"
+        },
+        {
+          "metric": "phase/time deviation",
+          "value": "within5",
+          "unit": "ns",
+          "locator": "Abstract and evaluation",
+          "limit": "Different output/reference from our map"
+        },
+        {
+          "metric": "PPS period jitter RMS",
+          "value": 20,
+          "unit": "ps",
+          "locator": "5.1 PDF pp7-8",
+          "population": "10K exported pulses; exact interval count not stated"
+        }
+      ]
+    },
+    {
+      "citation_key": "cheep",
+      "title": "CheepSync: A Time Synchronization Service for Resource Constrained Bluetooth LE Advertisers",
+      "authors": "S. Sridhar; P. Misra; J. Warrior",
+      "version": "arXiv:1501.06479, 2015; revised 2016",
+      "urls": [
+        "https://arxiv.org/pdf/1501.06479"
+      ],
+      "read_locators": [
+        "Abstract and timing method: low-level TX timestamps, subsequent timing and passive Android reception"
+      ],
+      "used_claim": "Passive BLE and preceding-transmission timing are established precedents.",
+      "limitations": "No transport/output-matched quantitative superiority comparison.",
+      "retrieval": "Fetched and read in this research session through browsing; blue and windup primary PDFs also downloaded/read in temporary local storage.",
+      "direct_body_quotes": []
+    },
+    {
+      "citation_key": "blue",
+      "title": "Low-Power Low-Error Wireless Sensor Network for Health and Usage Monitoring Systems",
+      "authors": "Farzad Asgarian",
+      "version": "University of Michigan PhD dissertation, 2022",
+      "urls": [
+        "https://backend.production.deepblue-documents.lib.umich.edu/server/api/core/bitstreams/1818d96c-dce0-4612-97a7-2bf5d074174c/content"
+      ],
+      "read_locators": [
+        "Chapter 2 printed pp22-24: PPI event capture and subsequent-packet timestamps",
+        "Printed pp36-38: physical output comparison"
+      ],
+      "used_claim": "BlueSync supplies primary event-capture/follow-up and output-metrology precedent.",
+      "limitations": "Dissertation is used directly; no numerical BlueSync accuracy claim is imported.",
+      "retrieval": "Fetched and read in this research session through browsing; blue and windup primary PDFs also downloaded/read in temporary local storage.",
+      "direct_body_quotes": [],
+      "download_snapshot": {
+        "sha256": "05733ea6341fa11e051616d3a112c472cadc66c4f4fbf492b2f4c41722ede786",
+        "bytes": 12697942,
+        "retention": "Temporary local reading copy, not a repository redistribution or durable archive"
+      }
+    },
+    {
+      "citation_key": "nordic",
+      "title": "Wireless timer synchronization among nRF5 devices",
+      "authors": "Nordic Semiconductor",
+      "version": "Primary reference design accessed 2026-10-03",
+      "urls": [
+        "https://devzone.nordicsemi.com/guides/short-range-guides/b/bluetooth-low-energy/posts/wireless-timer-synchronization-among-nrf5-devices"
+      ],
+      "read_locators": [
+        "Proprietary timeslot event capture and output synchronization measurement"
+      ],
+      "used_claim": "Radio-event capture and actual output-pin metrology are distinct.",
+      "limitations": "Reference timeslots are not proof of our raw experimental profile's compliant controller behavior.",
+      "retrieval": "Fetched and read in this research session through browsing; blue and windup primary PDFs also downloaded/read in temporary local storage.",
+      "direct_body_quotes": []
+    },
+    {
+      "citation_key": "micro",
+      "title": "MicroSync: Sub-Micro Second Accuracy Wireless Time Synchronization Service",
+      "authors": "R. Ohara; S. Izumi; S. Imanaka; T. Yamamura; T. Ishii; H. Kawaguchi",
+      "version": "IEEE Access 12:124478-124494, 2024; DOI 10.1109/ACCESS.2024.3446668",
+      "urls": [
+        "https://da.lib.kobe-u.ac.jp/da/kernel/0100491658/0100491658.pdf"
+      ],
+      "read_locators": [
+        "V.A-C evaluation; high-accuracy MAE/SD/CDF",
+        "External 800MHz GPIO analyzer and PPK2 MCU-only power setup"
+      ],
+      "used_claim": "Connected nRF52840 external-output study provides a comparator with different statistic definitions.",
+      "limitations": "Published MAE, SD and CDF are not our RMS; differing transport/reference/instrument/population prevents matched superiority.",
+      "retrieval": "Fetched and read in this research session through browsing; blue and windup primary PDFs also downloaded/read in temporary local storage.",
+      "direct_body_quotes": [],
+      "published_metric_provenance": [
+        {
+          "metric": "high-accuracy MAE",
+          "value": 272,
+          "unit": "ns",
+          "locator": "V and summary"
+        },
+        {
+          "metric": "reported SD",
+          "value": 319.2,
+          "unit": "ns",
+          "locator": "V and summary"
+        },
+        {
+          "metric": "99percent CDF",
+          "value": 591.25,
+          "unit": "ns",
+          "locator": "V high-accuracy CDF"
+        },
+        {
+          "metric": "MCU-only power",
+          "value": 252.1,
+          "unit": "uW",
+          "locator": "PPK2 setup excludes LEDs/peripherals"
+        }
+      ]
+    },
+    {
+      "citation_key": "windup",
+      "title": "Integrator Windup and How to Avoid It",
+      "authors": "K. J. Astrom; L. Rundqwist",
+      "version": "ACC 1989 pp1693-1698; DOI 10.23919/ACC.1989.4790464",
+      "urls": [
+        "https://lup.lub.lu.se/search/publication/8517647",
+        "https://cse.lab.imtlucca.it/~bemporad/teaching/controllodigitale/pdf/Astrom-ACC89.pdf"
+      ],
+      "read_locators": [
+        "Printed p1695, PDF page3 inspected as rendered pixels: conditional integration and tracking actual saturated command"
+      ],
+      "used_claim": "Conditional integration and back-calculation address saturation in proposed PI control.",
+      "limitations": "Our normalized frequency-contribution equation and actuator-specific limits require independent design/validation.",
+      "retrieval": "Fetched and read in this research session through browsing; blue and windup primary PDFs also downloaded/read in temporary local storage.",
+      "direct_body_quotes": [],
+      "download_snapshot": {
+        "sha256": "e1240e9f0b4b511b5f11050e52408504ae99aa87f530e182d7e8b6691ecdbc61",
+        "bytes": 846999,
+        "retention": "Temporary local reading copy, not a repository redistribution or durable archive"
+      }
+    },
+    {
+      "citation_key": "vcxo",
+      "title": "Voltage-Controlled Crystal Oscillators (VCXO)",
+      "authors": "Microchip Technology",
+      "version": "Official component documentation accessed 2026-10-03",
+      "urls": [
+        "https://www.microchip.com/en-us/products/clock-and-timing/components/oscillators/vcxo"
+      ],
+      "read_locators": [
+        "VCXO control by variable crystal loading; OC/VCXO option description"
+      ],
+      "used_claim": "Crystal pulling is a hardware control capability; an oven alone does not expose control.",
+      "limitations": "No current board trim interface or OCXO holdover performance established.",
+      "retrieval": "Fetched and read in this research session through browsing; blue and windup primary PDFs also downloaded/read in temporary local storage.",
+      "direct_body_quotes": []
+    },
+    {
+      "citation_key": "apvv",
+      "title": "APVV CMOS/PECL/LVDS VCXO datasheet",
+      "authors": "Abracon",
+      "version": "CMOS table revised 2013-01-17; 7-page PDF",
+      "urls": [
+        "https://abracon.com/Oscillators/APVV.pdf"
+      ],
+      "read_locators": [
+        "PDF page1 CMOS table: control voltage, pullability, transfer sign, linearity, aging"
+      ],
+      "used_claim": "Example analog pull interface for dimensional gain and ideal DAC-spacing calculation.",
+      "limitations": "Calculated 200ppm/3.3V and 16-bit spacing are illustrative, not a calibrated transfer function, selected build or performance bound.",
+      "retrieval": "Fetched and read in this research session through browsing; blue and windup primary PDFs also downloaded/read in temporary local storage.",
+      "direct_body_quotes": [],
+      "manufacturer_table_values": {
+        "control_voltage_V": [
+          0,
+          3.3
+        ],
+        "positive_transfer": true,
+        "pullability_ppm": "+/-100",
+        "linearity_percent": "+/-10",
+        "aging_ppm_first_year": "+/-3",
+        "scope": "3.3V CMOS table; options and conditions apply"
+      }
+    },
+    {
+      "citation_key": "si5341",
+      "title": "Si5341/Si5340 Rev D Family Reference Manual",
+      "authors": "Skyworks Solutions",
+      "version": "Revision1.3, 2021-12-07",
+      "urls": [
+        "https://www.skyworksinc.com/-/media/Skyworks/SL/documents/public/reference-manuals/Si5341-40-D-RM.pdf"
+      ],
+      "read_locators": [
+        "6 frequency adjustment; 6.1.1 divider-step/phase behavior"
+      ],
+      "used_claim": "Frequency-plan-dependent divider actuation and phase behavior must be declared.",
+      "limitations": "No generic accuracy inferred from command resolution; outer/inner plant and output epoch need validation.",
+      "retrieval": "Fetched and read in this research session through browsing; blue and windup primary PDFs also downloaded/read in temporary local storage.",
+      "direct_body_quotes": []
+    },
+    {
+      "citation_key": "ad9545",
+      "title": "AD9545 Quad Input, 10-Output, Dual DPLL/IEEE1588 Synchronizer and Jitter Cleaner datasheet",
+      "authors": "Analog Devices",
+      "version": "Revision C, 173 pages",
+      "urls": [
+        "https://www.analog.com/media/en/technical-documentation/data-sheets/AD9545.pdf"
+      ],
+      "read_locators": [
+        "p94 DPLL/NCO and holdover history",
+        "p99 frequency/phase-lock detection",
+        "pp104-105 phase slew"
+      ],
+      "used_claim": "A clean-up DPLL/NCO is a distinct actuator with bandwidth, lock and holdover semantics.",
+      "limitations": "Reference oscillator persists in holdover; inner lock and product title do not confer our wireless output quality or conformance.",
+      "retrieval": "Fetched and read in this research session through browsing; blue and windup primary PDFs also downloaded/read in temporary local storage.",
+      "direct_body_quotes": []
+    },
+    {
+      "citation_key": "nist",
+      "title": "Handbook of Frequency Stability Analysis",
+      "authors": "W. J. Riley",
+      "version": "NIST SP1065, 2008",
+      "urls": [
+        "https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication1065.pdf"
+      ],
+      "read_locators": [
+        "10.4-10.10 data preprocessing, phase/frequency data, gaps and uneven sampling"
+      ],
+      "used_claim": "Independent stability analysis needs documented output sampling and deliberate gap treatment.",
+      "limitations": "No Allan deviation or TDEV computed from irregular radio proxy errors, and no absolute phase bound from stability alone.",
+      "retrieval": "Fetched and read in this research session through browsing; blue and windup primary PDFs also downloaded/read in temporary local storage.",
+      "direct_body_quotes": []
+    }
+  ],
+  "original_derivations": [
+    "one-way rank deficiency and reciprocal asymmetry interval",
+    "normalized continuous PI units and ideal natural frequency/damping",
+    "explicit held-command Euler state matrix and Jury conditions",
+    "observation-to-actuation applied-command integral",
+    "normalized anti-windup tracking law",
+    "illustrative bandwidth/settling and DAC-spacing calculations",
+    "holdover uncertainty relation with dimensional conversion"
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "import_id": "oscillator-pll-20261009",
+  "status": "draft",
+  "author": "Jonathan Yantis",
+  "license": "CC-BY-4.0",
+  "manuscript_date": "2026-10-03",
+  "export_date": "2026-10-09",
+  "source_repository_checkpoint": "853f1a0b74a44bd3fcf506e704ea6e3bc2b5fabe",
+  "source": {
+    "path": "papers/oscillator-pll-research-20261003.tex",
+    "sha256": "53e809b31da1428892e35829b19a9814d2868561331b34c214c7243d2bcb4a1e",
+    "bytes": 358366,
+    "import": "Unchanged amended October 3 source; includes virtual LOCKED definition and proposed SoftPLL extension."
+  },
+  "pdf": {
+    "path": "papers/oscillator-pll-research-20261003.pdf",
+    "sha256": "decde2e3b312823002f998948888095a20de45e6836f147409e1036bac2d63bf",
+    "bytes": 193017,
+    "pages": 17,
+    "matches_current_source": true
+  },
+  "preceding_pdf": {
+    "sha256": "38ed1b8aa7e69eb39488594e506799e2b05dd50e5c14c5ac67b8bf0cfa50507a",
+    "source_sha256": "2d5e235114e9f391a27dfe102157fe39b54469d958436cd509cbde7a1d255eed",
+    "pages": 16,
+    "included": false,
+    "reason": "Preceding export did not contain the source amendments; retained in the original archive, not presented as current."
+  },
+  "build": {
+    "engine": "Tectonic 0.17.0",
+    "engine_binary_sha256": "b52b5a730e2b0b33087304f7720f649603953f270a6b1c88bb031e1ae01f7f9c",
+    "command": "tectonic --only-cached --outdir artifacts/oscillator-pll-import --keep-logs papers/oscillator-pll-research-20261003.tex",
+    "log_sha256": "5a6f01c3526ea28d6d514294fc8c4799f8b1037f5f2e43e5748d33628c2d3eca",
+    "native_compile": "success",
+    "typesetting": "10 unique underfull hbox warnings, repeated across two TeX passes; no overfull boxes or compiler errors reported.",
+    "visual_review": "All 17 exported pages rendered and inspected; no visible clipping, overlap or missing figures.",
+    "cache_bundle_ids": [
+      "6ffe055852f8faf66c0acbe1a7fb27f87b869a90bad1204f3bf4d9683f597c7c"
+    ]
+  },
+  "evidence": {
+    "path": "evidence/papers/oscillator-pll-2026-10-03/evidence.json",
+    "sha256": "1e4ce2bdbaacfef6f26d55679410a83b927af8166e5da3200f1a32dc9be450c7",
+    "installed_t096_source": "28ee7d8120e2c479dce52e7a39cb44bb7b338885",
+    "scope": "October 3 raw-radio software-map experiment; distinct from October 2 PPS-shadow results and later R2 evidence."
+  },
+  "changes": "PDF reconciled to existing amended source. No research results, source content, protocol, or firmware changed."
+}

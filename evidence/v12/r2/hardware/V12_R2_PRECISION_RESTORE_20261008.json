@@ -1,0 +1,95 @@
+{
+  "schema": 1,
+  "status": "FLASH_HELD_OVERNIGHT_FREEZE_INVESTIGATION",
+  "investigator": "Dedicated Astra Medium, explicitly requested by operator",
+  "report": "artifacts/v12-r2-follower-20261008-01/astra-precision-investigation.md",
+  "report_sha256": "4cc060effc3688b57f65915d81a1e6c6d974a0dde8265ba06c0811be0b6daf92",
+  "legacy_references": {
+    "approved_UI": "a35b032",
+    "V10_R3": "168677c9881c8609fb839b996f29aa08a0905fcd",
+    "immediate_pre_native": "ffdb20239a471cd51d7cb8ea1fce5524eec3590d",
+    "PPS_discipline": "firmware/t096/src/time_core.c",
+    "follower_precision_servo": "firmware/t096/include/ptob_tc_oscillator.h, V4 branch"
+  },
+  "findings": [
+    "R2 physical PPS edge detection is GPIO callback timing, not precise hardware capture",
+    "Current GATT service has no exact per-packet radio event timestamp/precision train",
+    "Legacy TIMER3 ran at16MHz with peripheral PPS/RADIO captures; its raw peripheral allocations cannot be transplanted into Zephyr",
+    "Legacy GM BEAT FRQ was300s mean absolute phase-change rate in ppb, not RMS",
+    "Follower delivered-map RMS must score the prior output before updating it and retain constant bias and tails"
+  ],
+  "required_metrics": {
+    "GM": "Actual associated radio beat event minus frozen source-clock target; label BEAT RMS",
+    "follower": "Actual received original/correction event against prior delivered clock; label SYNC RMS",
+    "units": "ns below1000ns; us at/above1000ns",
+    "drift": "Raw measured oscillator rate with explicit sign",
+    "trim": "Software mapping correction, distinct from raw drift",
+    "unavailable": "No numeric RMS from callback/USB arrival times or missing capture evidence",
+    "absolute_accuracy": "Separate unqualified quantity; RMS is not an absolute UTC certificate"
+  },
+  "stages": [
+    {
+      "id": "P1",
+      "work": "Port pure fixed-point PPS fit, causal delivered-map estimator/statistics and unit formatting; synthetic capture regression tests",
+      "status": "HOST_SANITIZERS_AND_SOURCE_MAP_TESTS_PASS"
+    },
+    {
+      "id": "P2",
+      "work": "Audit exact Zephyr resource masks and add continuously running high-resolution hardware PPS capture with bounded HF ownership and wrap handling",
+      "status": "IMMUTABLE_NATIVE_BUILD_AND_GUARD_PASS_NOT_FLASHED"
+    },
+    {
+      "id": "P3",
+      "work": "Controller-owned TX/RX event metadata plus authenticated periodic original/correction association; no legacy raw RADIO scheduling",
+      "status": "REQUIRED"
+    },
+    {
+      "id": "P4",
+      "work": "Bind measured drift/trim/GM beat/follower synchronization RMS into existing UI and validate physical timing provenance",
+      "status": "REQUIRED"
+    }
+  ],
+  "unresolved": [
+    "TC03 first-install freeze recovered by power cycle; causal fault unavailable",
+    "Receiver PPS/UTC association and independent absolute precision remain unknown"
+  ],
+  "follower_UI_fix": "Separate0.6.1 candidate fixes BLE selection/analog face, not precision capture",
+  "working_files": [
+    "firmware/t096/v12_r2/include/precision_servo.h",
+    "firmware/t096/v12_r2/src/precision.c",
+    "firmware/t096/v12_r2/src/capture.c"
+  ],
+  "validation": {
+    "precision_host03": "artifacts/v12-r2-follower-20261008-01/precision-host03.log",
+    "native_development": "firmware/t096/build-v12-r2-precision-dev-20261008-01",
+    "native_compile": "Incremental03 ELF links; uncommitteddevelopment and incomplete original receipt NOTFLASHABLE",
+    "cases": "PPS +/-20ppm fit/trim,241captures,causal RMS bias500ns/tail100us,ns/usformat; native capture12 resource/lifecycle/wrap/delay cases; capturetime independentofcallback/queue delay",
+    "precision_host06": "artifacts/v12-r2-follower-20261008-01/precision-host06.log",
+    "native_immutable": "firmware/t096/build-v12-r2-precision-candidate-20261008-02",
+    "guard": "17 passed;29 other-profile skips; artifacts/v12-r2-follower-20261008-01/precision-guard02.log",
+    "simulator": "firmware/t096/build-v12-r2-sim-precision-20261008-02/receipt.json",
+    "simulator_scope": "11 baseline/GPS/PPS lifecycle/PHY cases PASS; modeled PPS captures independent of owner processing; not native PPI or precision RF qualification",
+    "source_map": "Owner availability boundary, continuous rate changes,8 retained map generations,original1.5s expiry,delayed events/wrong epoch/history expiry tested"
+  },
+  "controller_plan": "artifacts/v12-r2-follower-20261008-01/astra-controller-capture-proposal.md",
+  "operator_priority": "Focus precision timing; TC01/TC03 each intermittentfreezeonce, currentlyallrunning, no reproduciblerebootfailure. Retain without expanding freeze investigation.",
+  "next_candidate": {
+    "child_commit": "b5bcda1703f8c14feba2c50ebb9ce0d09c20b313",
+    "source_sha256": "1d58e3bef8159b4dcd1fc84900dcf429ee583f3b063eac58271164d3478b0027",
+    "artifact_class": "T096_V12_R2_NORMAL_SERVICE",
+    "build": "firmware/t096/build-v12-r2-precision-candidate-20261008-02",
+    "receipt_sha256": "c5f63c51d60a7f82f7556b5b340118686ea826628568d274c3dfc3ebbe41dd68",
+    "uf2_sha256": "f610a9fc29fbf231936d73ae2b94b2a131c5e60d343b1f72a075e468f1be7828",
+    "committed_sources_verified": 109,
+    "flash_status": "HELD_NEW_OVERNIGHT_FAILURE",
+    "precision_scope": "PPS hardware capture and relative rate-map foundation; BLE radio RMS not implemented"
+  },
+  "operator_pause": "Prepare next flash then wait; no device access, reset, shutdown or flash during preparation.",
+  "review": {
+    "path": "artifacts/v12-r2-follower-20261008-01/astra-precision-candidate02-review.md",
+    "sha256": "d62caed04a42dcc8f2e4aa857daedb1b3bd3d13925710eb3608e427acd7c0346",
+    "decision": "ACCEPTED_FOR_PREPARATION_NO_BLOCKER",
+    "scope": "No hardware dispatch before operator return; physical PPS/coexistence remains unmeasured; BLE radio RMS absent"
+  },
+  "overnight_investigation": "docs/V12_R2_OVERNIGHT_FREEZE_20261009.md"
+}

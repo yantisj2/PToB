@@ -24,11 +24,15 @@ unreviewed imports out of tracked files.
   a sibling private checkout or private credentials for ordinary verification.
 - Licensing rule: original code and ordinary repository documentation use MIT;
   original papers (PDF and LaTeX) and their figures use CC BY 4.0. Credit Jonathan
-  Yantis. Preserve third-party terms. See LICENSING.md. Dataset licensing must be
-  explicitly recorded when datasets are imported.
+  Yantis. Original imported evidence records and derived CSV datasets use CC BY
+  4.0; snapshot code uses MIT. Preserve third-party terms. See LICENSING.md.
+  Record any future dataset license explicitly.
 - Papers remain drafts until explicitly promoted. Develop their sources here,
   preserve prior editions in Git, and commit source/PDF updates with matching
   manifests and a changelog entry. Never silently overwrite a reviewed edition.
+- Use evidence/README.md to select the appropriate historical collection. Frozen
+  model documents and historical experiment records are context, not current
+  operating instructions or hardware authorization. Do not rewrite their hashes.
 - Validate changes with relevant checks; document checks that cannot yet run.
 - Do not push, publish releases, deploy, operate hardware, or alter the private
   laboratory as part of repository preparation unless separately authorized.
