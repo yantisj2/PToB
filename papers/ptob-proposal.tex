@@ -1,0 +1,356 @@
+\documentclass[11pt,letterpaper]{article}
+\usepackage[margin=0.85in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{mathptmx,amsmath,booktabs,array,ragged2e,xcolor,microtype,hyperref,fancyhdr}
+\hypersetup{colorlinks=true,urlcolor=blue!45!black,citecolor=blue!45!black,linkcolor=black,pdfauthor={Jonathan Yantis}}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{4pt}
+\setlength{\headheight}{14pt}
+\setlength{\emergencystretch}{2em}
+\pagestyle{fancy}\fancyhf{}
+\fancyhead[L]{\small PToB: Precision Time over BLE}
+\fancyhead[R]{\small Local review draft, 2 October 2026}
+\fancyfoot[C]{\small\thepage}
+\newcommand{\ns}{\,\mathrm{ns}}
+\newcommand{\us}{\,\mu\mathrm{s}}
+\newcommand{\page}{\clearpage}
+
+\newcolumntype{L}[1]{>{\RaggedRight\arraybackslash}p{#1}}
+\newcommand{\must}{\textsc{must}}
+\newcommand{\mustnot}{\textsc{must not}}
+\newcommand{\should}{\textsc{should}}
+\newcommand{\unknown}{\texttt{UNKNOWN}}
+\newcommand{\hex}[1]{\texttt{#1}}
+\begin{document}
+\thispagestyle{plain}
+\begin{center}
+{\LARGE\bfseries PToB: A Passive Time Service for Diverse BLE Edge Devices\par}
+\vspace{7pt}{\large Candidate protocol specification and profile proposal\par}
+\vspace{9pt}Jonathan Yantis (Engineer)\par
+{\small 2 October 2026 --- standards-facing discussion draft}
+\end{center}
+\begin{abstract}
+Precision Time over BLE (PToB) proposes public, passive time acquisition for devices with different timestamp, computation and power capabilities. Coarse UTC, lightweight original-transmit correction and a physical-event precision stream are separately decodable services. Enhanced diagnostics, elections and relay roles require separate authorization. This draft specifies advertising envelopes, header bits, field widths, timestamp references, physical-copy matching, erasure recovery, freshness, clock publication, authority admission and bounded mesh forwarding. Legacy advertising on channels 37, 38 and 39 is the selected transport. Numerical precision and power are device-profile results, not properties inferred from a packet format. Prospective fixed-edge calibration demonstrates tens-of-nanoseconds RMS in warm PPS-shadow validation; external delivered output, transparent residence correction and coordinated low-duty operation remain qualification goals.
+\end{abstract}
+
+\section{Purpose, scope and conformance}
+A consumer clock or sensor should obtain useful time without pairing, enrollment, acknowledgments or a private diagnostic transaction. A hardware-stamped event recorder may refine that time; a host callback listener remains useful at its measured capability. The service separates epoch validity, relative synchronization, availability, trust and precision rather than assigning every listener the best laboratory result.
+
+\must, \mustnot\ and \should\ express requirements of this \emph{candidate} specification. They do not assert that every experimental adapter has passed them. Exact wire layouts below reproduce the selected canonical codecs; behavioral requirements also define the acceptance contract. Values called \emph{profile parameters} are frozen for a particular device/test profile, not universal BLE constants. Proposed extensions are identified separately and have no assigned wire format here.
+
+This is neither an adopted IEEE/Bluetooth SIG standard nor an IEEE 1588 Best Master Clock Algorithm or established PTP profile. Supported controller operation, interoperability and demonstrated output accuracy are separate qualification steps. The public service is unauthenticated; reading it grants no authority to become a provider. Symmetric laboratory control authentication is not public time authentication.
+
+FTSP, BlueSync and CheepSync establish important broadcast, timestamp and follow-up precedents; MicroSync supplies a connected accuracy--energy comparison with physical output measurement \cite{ftsp,blue,micro,cheep}. The contribution proposed for review is a compact service contract for heterogeneous passive clients, exact physical-event association and honest quality under loss, source changes and bounded observation.
+
+\page
+\section{Transport envelope and service registry}\label{sec:envelope}
+The selected transport is LE 1M nonconnectable, nonscannable legacy advertising, with the same immutable advertising data and address across the used copies on primary channels 37/38/39. A listener need not transmit. Standard controller advertising behavior, including advertising delay and resource ownership, \must\ be preserved \cite{sig}. A capture adapter \mustnot\ seize resources owned by an active controller or infer compliance from a valid CRC. Custom capture/radio implementations require separate qualification.
+
+Every record in this profile occupies exactly 31 advertising-data bytes. Offsets below are zero-based within \emph{AdvData}, excluding the link-layer header and AdvA. Payload offset $p0$ equals AdvData offset 18. All multibyte integers are unsigned little-endian (LE), unless explicitly stated otherwise. The UUID's displayed string and its serialized bytes have different ordering.
+
+\begin{center}\small
+\begin{tabular}{@{}L{0.16\linewidth}L{0.15\linewidth}L{0.60\linewidth}@{}}\toprule
+AD offsets & Bytes & Meaning \\\midrule
+0 & 1 & Length = 30, excluding this length byte \\
+1 & 1 & AD type \hex{0x21}: Service Data, 128-bit UUID \\
+2--17 & 16 & Service UUID serialized least-significant byte first \\
+18--30 & 13 & Service-specific control/header and payload \\\bottomrule
+\end{tabular}
+\end{center}
+There is no remaining space for a GAP Flags AD, name or another service in the same 31-byte record. Such data requires another advertising event or a separately specified transport. A parser \must\ validate the full UUID, declared length, version, reserved bits and field ranges before affecting a clock. Unrelated services may be ignored; recognized malformed records \mustnot\ refresh time or leases.
+
+\begin{center}\small
+\begin{tabular}{@{}L{0.23\linewidth}L{0.69\linewidth}@{}}\toprule
+Service & Displayed custom UUID \\\midrule
+BASIC coarse UTC & \texttt{2bf85697-a997-49b2-87f6-34aae674ad2f} \\
+Precision event stream & \texttt{95f51fdd-53a5-4cf2-9174-0d7e08d4a8c3} \\
+UTC-Lite correction & \texttt{882974b7-6d32-4d04-9967-3b81794ad4c1} \\
+Boundary provenance & \texttt{c1800f61-4b28-a8a0-894b-d0a20ee696e1} \\
+Authorized GM control & \texttt{f670e167-6b09-5ead-b34d-8c510683a29d} \\\bottomrule
+\end{tabular}
+\end{center}
+Sessions identify time incarnations, not wall-clock values. Senders rotate before counter reuse, reboot, genuine source-map discontinuity or domain change; incomplete rows cannot cross incarnations. Precision EVENT IDs advance without reuse within a 32-bit session. Lite uses forward 32-bit half-range sequence order; boundary events use 16-bit half-range order and a new session before wrap. Reserved zero IDs and saturating ages never become valid sequence values. Providers retain address/type identity throughout an assembly; address rotation requires a fresh binding.
+
+These are project-specific identifiers, not SIG-assigned services. A public listener implements BASIC, UTC-Lite or the precision stream according to need; it need not implement control or relaying. An authorized provider additionally implements the authority contract. Periodic advertising synchronization is not required or encoded by this legacy profile.
+
+\page
+\section{BASIC: passive coarse UTC}\label{sec:basic}
+BASIC is a seconds-resolution discovery and display service. Its timestamp is POSIX UTC seconds at \emph{software preparation}, not a measured RF edge. Callback latency, preparation-to-transmit latency, propagation and total error are \unknown. The local-reference flag is an unauthenticated source assertion, not a capability or accuracy certificate.
+
+\begin{center}\small
+\begin{tabular}{@{}L{0.16\linewidth}L{0.23\linewidth}L{0.52\linewidth}@{}}\toprule
+AD offsets & Field & Required meaning \\\midrule
+18 & Flags & Bits 0--1 = 1; bit 2 VALID; bit 3 LOCAL\_REFERENCE; bits 4--5 state; bits 6--7 zero \\
+19--22 & Publisher, 32 bits & Nonzero publisher ID; bind to full address/type context \\
+23--26 & Session, 32 bits & Nonzero time-service incarnation \\
+27--30 & Second, 32 bits & Preparation-time POSIX seconds; \hex{0xffffffff} means invalid \\\bottomrule
+\end{tabular}
+\end{center}
+State values are 0 ACQUIRE, 1 TRACK, 2 HOLDOVER, 3 STALE. TRACK and HOLDOVER \must\ set VALID and supply a nonsentinel second. ACQUIRE and STALE \must\ clear VALID and supply the invalid sentinel. BASIC carries no fraction, TAI--UTC offset, leap indicator, numeric uncertainty or authenticated root/path. These omissions \mustnot\ be represented as zero error or implicit support for a continuous industrial timescale.
+
+A logical record is identified by publisher/session/second. Identical channel copies \mustnot\ renew freshness. Within a session, older valid seconds are rejected; contradictory state, validity or reference flags for the same second withdraw validity until a different validated session. A source change \must\ reset association and preserve any delivered-time discontinuity information.
+
+For the selected coarse profile, age is measured from the first accepted callback of a new valid logical record: TRACK before 4 s, HOLDOVER from 4 s and STALE at 5 s. An explicit invalid STALE record withdraws time immediately. A coarse UI may project
+\begin{equation}
+\widehat S(t)=S_{\rm prep}+\left\lfloor (t-t_{\rm first})/1\,\mathrm{s}\right\rfloor,
+\end{equation}
+but \mustnot\ expose this as a fractional RF timestamp. Projection stops on monotonic-counter regression, sentinel/overflow, conflict or expiry. Replacing a source with an earlier epoch \mustnot\ silently move an already delivered coordinate backward.
+
+POSIX seconds here do not encode leap-second handling or a TAI offset; continuous-timescale applications require a declared external mapping or a future extension. Wide reconstruction arithmetic does not extend the on-air 32-bit epoch range.
+
+Nominal coarse publication is approximately once per second, subject to complete advertising-event scheduling and other services. Cadence is not freshness evidence: only a new valid logical record advances age. Clients lacking precise captures can use this service immediately and report coarse validity while fine precision is unavailable.
+
+\page
+\section{Precision stream: exact physical-event follow-up}\label{sec:precision}
+The precision service records each actual transmission of an original EVENT, then distributes its seconds, fraction and XOR parity. It is application-layer erasure recovery, not Bluetooth link-layer FEC. Control bits 0--1 equal 3 and define the selected \emph{unknown-precision parity profile}; kind 3 is parity and \mustnot\ be interpreted as an uncertainty bound. Numeric format discriminators specify decoding, not a release-history narrative.
+
+\begin{center}\small
+\begin{tabular}{@{}L{0.16\linewidth}L{0.75\linewidth}@{}}\toprule
+AD18 bits & Meaning \\\midrule
+0--1 & Format discriminator = 3 \\
+2--3 & Kind: 0 EVENT, 1 SECONDS ($S$), 2 FRACTION ($F$), 3 PARITY ($P$) \\
+4 & SOURCE\_LOCAL: 1 relative source-timer domain; 0 POSIX UTC domain \\
+5--6 & EVENT: zero. Metadata: target original channel 37/38/39 encoded 0/1/2; 3 reserved \\
+7 & Reserved, zero \\\bottomrule
+\end{tabular}
+\vspace{5pt}
+\begin{tabular}{@{}L{0.17\linewidth}L{0.32\linewidth}L{0.42\linewidth}@{}}\toprule
+AD offsets & EVENT & Metadata: SECONDS / FRACTION / PARITY \\\midrule
+19--22 & Publisher ID, 32 bits & Source session, 32 bits \\
+23--26 & Source session, 32 bits & Logical event ID, 32 bits \\
+27--30 & Logical event ID, 32 bits & $S$, $F$ or $P$, 32 bits \\\bottomrule
+\end{tabular}
+\end{center}
+Publisher, session and event are nonzero. Metadata omits the publisher: association \must\ recover it from a matching original EVENT under the same full AdvA/address-type and source context. $F<10^9$ ns. $S$ is nonsentinel; the selected UTC codec accepts seconds at or after 1704067200, while SOURCE\_LOCAL may start at zero. This UTC range check is a profile validity fence, not an epoch-conversion rule. $P=S\mathbin{\mathrm{XOR}}F$ is an unrestricted 32-bit word; its validity depends on matched assembly.
+
+The original EVENT payload is identical across channels. Its three physical TX timestamps differ. For each copy, the source \must\ capture the actual transmission edge, freeze its clock map for the event and encode $T_{\rm TX}=10^9S+F$. The selected physical reference is RADIO ADDRESS completion on LE 1M; adapters using another edge \must\ declare and calibrate the conversion. Scheduled launch, callback entry and metadata TX time are not interchangeable references. SOURCE\_LOCAL \mustnot\ be displayed as UTC or used as proof of an independent UTC epoch.
+
+\page
+\subsection{Transaction, matching and erasure recovery}\label{sec:assembly}
+One complete precision transaction uses ten advertising events: one original EVENT and nine metadata events. Each advertising event carries one immutable record on all three primary channels, for 30 physical PDUs if all copies transmit. The metadata order rotates among target channels for fairness. A representative order is:
+\begin{center}\small
+\begin{tabular}{@{}L{0.13\linewidth}L{0.78\linewidth}@{}}\toprule
+Stage & Advertising-data record, replicated on channels 37/38/39 \\\midrule
+0 & EVENT; capture the three original physical transmissions \\
+1--3 & SECONDS, FRACTION, PARITY targeting original channel $c_0$ \\
+4--6 & SECONDS, FRACTION, PARITY targeting original channel $c_1$ \\
+7--9 & SECONDS, FRACTION, PARITY targeting original channel $c_2$ \\\bottomrule
+\end{tabular}
+\end{center}
+In the selected test schedule, $c_i=37+((i+(e-1)\bmod3)\bmod3)$ for event $e$. A target-37 page received on carrier channel 39 still corrects the original channel-37 event. A receiver \mustnot\ replace the target with the metadata's carrier channel.
+
+The assembly key is full AdvA/type, service/profile, domain, publisher, session, event, original physical channel and PHY. An unambiguous original RX capture is mandatory for a physical precision observation. Any two distinct metadata kinds reconstruct the third:
+\begin{equation}
+F=S\mathbin{\mathrm{XOR}}P,\qquad S=F\mathbin{\mathrm{XOR}}P.
+\end{equation}
+Reconstructed seconds/fraction \must\ pass the same range checks. All three received pages \must\ satisfy $P=S\mathbin{\mathrm{XOR}}F$. Parity cannot recover a missing original capture or two missing metadata kinds. Repeated pages are not additional observations, and XOR is not authentication or general corruption detection.
+
+Rows expire 3 s after first creation; duplicates do not renew that deadline, the original age or a delivered sample. Each original channel has its own increasing event watermark. The selected assembler has 64 rows; the documented capacity profile limits original transactions to at most 5/s. Overflow drops/reports observations rather than guessing associations. Session retirement is bounded and does not provide indefinite replay protection.
+
+Sample availability is the latest callback needed for the earliest sufficient original-plus-two-page set. A fitted clock becomes usable only after actual fit/publication completion. Later pages \mustnot\ backdate either. Conflicting duplicates, domain/profile changes under one identity, invalid reconstruction or late contradiction quarantine that source session and withdraw quality. Already delivered errors remain in the evidence. A different validated session is required to clear a latched session conflict.
+
+\page
+\section{UTC-Lite: a short original/correction exchange}\label{sec:lite}
+UTC-Lite serves clients that want more than a preparation-time second with less metadata than the full precision stream. One transaction is an original beacon and three target-channel corrections: four advertising events, normally twelve physical PDUs. A listener can store an original and its matching correction without transmitting; actual wake duration still depends on controller delay, target order, interference, clock drift and recovery.
+
+\begin{center}\small
+\begin{tabular}{@{}L{0.16\linewidth}L{0.75\linewidth}@{}}\toprule
+AD offsets & Field and required meaning \\\midrule
+18 & Bits 0--1 = 1; bit 2 CORRECTION; bits 3--4 target; bit 5 HOLD; bit 6 SOURCE\_LOCAL; bit 7 zero \\
+19--22 & Nonzero time-service session, 32 bits \\
+23--26 & Nonzero sequence, 32 bits \\
+27--30 & Beacon: coarse second $S_0$, nonsentinel. Correction: original-TX delta $D$ in unsigned ns \\\bottomrule
+\end{tabular}
+\end{center}
+Beacon target bits are zero. Correction target codes 1/2/3 identify original channel 37/38/39; zero is invalid. The session, sequence, HOLD, source domain and full address/type context \must\ match. No publisher field fits in this payload; public discovery or provisioning supplies provider context. Public time bytes remain unauthenticated even when the receiver separately knows the elected publisher.
+
+Before the original, the source freezes its epoch/rate map. Each actual original ADDRESS capture is mapped through that frozen state. The correction is
+\begin{equation}
+D=T_{{\rm TX},c}-10^9 S_0,\qquad T_{{\rm TX},c}=10^9S_0+D.
+\end{equation}
+$D$ includes integer-second carry and spans 0 through 4294967295 ns. A missing capture or negative/overflowing delta \must\ suppress the correction. Reconstruction uses wide integer arithmetic; $D$ \mustnot\ be mistaken for a fraction restricted below one second. At 16 MHz, source ticks have a 62.5 ns grid; selected Lite encoding floors fractional half-nanoseconds, while external-delta conversion to a receiver tick has its own rounding cost. Resolution is not an output-accuracy bound.
+
+Receivers retain the original RX tick and target channel; correction reception does not become the original. First-use expiry is 3 s. An original must precede correction reception, and duplicates cannot refresh origin or time age. The selected bounded implementation retains two pending and two delivered rows per provider, with two retired sessions. Contradiction quarantines the session. Sequence reuse, source/domain/HOLD transition or source promotion requires a new session.
+
+A callback-only client may still refine coarse interpretation, but without unique original-channel/capture association it \must\ retain the copy-span and callback-latency ambiguity. Unknown total uncertainty is implicit in this format; a completed exchange does not advertise a submicrosecond guarantee. No Periodic SyncInfo, receive-window negotiation or RTT response is encoded here.
+
+\page
+\section{Receiver clock and delivered-time contract}\label{sec:clock}
+A valid decoded time, a scoreable event and a usable delivered clock are distinct outputs. The estimator may use a centered affine map $M(x)=a+b(x-x_0)$ and per-channel calibration. The source relation at the receiver's physical edge is
+\begin{equation}
+M(x_{{\rm RX},c})=T_{{\rm TX},c}+d_c,
+\end{equation}
+where $d_c$ contains propagation and any reference-edge/path correction. One-way reception alone cannot distinguish fixed link delay from clock offset. A diagnostic four-timestamp exchange would use actual event/copy references for request TX/RX and response TX/RX, expose turnaround and asymmetry, and require an authorized role. No diagnostic RTT packet layout is assigned in this draft. The T096 profile separately demonstrates a fixed 10,516 ns edge correction trained before validation and applied identically in both directions/channels. It does not alter source UTC, physical stamps or wire fields. That demonstrated profile is distinct from the unimplemented RTT extension and from independently calibrated GPIO output.
+
+A read at local tick $x$ advances the accepted model to $x$; it does not return the historical transmit instant. The implementation \must\ separate raw source mapping from a monotonic delivered coordinate, record continuity offsets and report epoch/domain changes. A follower's own GPS is an independent diagnostic reference and \mustnot\ discipline its selected BLE clock. Fit rejection \mustnot\ erase rejected populations, losses, stale intervals or contradictory evidence.
+
+\begin{center}\small
+\begin{tabular}{@{}L{0.22\linewidth}L{0.69\linewidth}@{}}\toprule
+Clock state & Required observable behavior \\\midrule
+ACQUIRE / unavailable & Retain observations; no fine-clock validity claim. Valid coarse UTC may be shown separately. \\
+TRACK & Causal published model, valid source context, declared capture provenance and age. State alone conveys no accuracy; report separately measured profile evidence and remaining uncertainty. \\
+HOLDOVER & Extrapolate the frozen or explicitly evolved output model; increase age/error budget and retain the last original's reference. \\
+STALE / fault & Withdraw the affected validity/quality; retain diagnostic numerical history with its unavailable label. \\
+RECOVERY & Revalidate source, epoch and channel models; preserve measured settling and continuity behavior. \\\bottomrule
+\end{tabular}
+\end{center}
+Loss of one metadata page is handled by parity; longer loss enters bounded holdover. Rejected outliers cannot refresh source freshness merely because traffic arrived. Recovery \should\ avoid unnecessary total reset for an isolated loss, but must not reuse a conflicted session or publish a model before its causal availability. Thresholds and robust estimators are device-profile choices tested against the entire service population.
+
+The proposed \emph{local client API}, not an additional on-air header, returns time/domain, epoch validity, publisher/root/provider and session, original channel/PHY, stamp origin, reference age, model availability, TRACK/HOLDOVER/fault status and uncertainty with a known/unknown discriminator. Hardware adapters also expose timer rate/wrap, capture edge, association result and calibration provenance. A nanosecond integer is a representation, not a certified capability. Callback entry \mustnot\ be relabeled as hardware RX.
+
+\page
+\section{Authorized GM control and replay rules}\label{sec:control}
+Control is independent of public acquisition. A provisioned node has an immutable ID, exact six-byte advertising address, permitted GM/relay roles and a private per-peer key. The selected compact laboratory authentication is SipHash-2-4 with a 64-bit tag. This format is not a general deployment security recommendation or public source signature.
+
+\begin{center}\small
+\begin{tabular}{@{}L{0.17\linewidth}L{0.74\linewidth}@{}}\toprule
+AD offsets & Field \\\midrule
+18 & Bits 0--1 = 3; bit 2 ELIGIBLE; bit 3 FORCE; bit 4 RELAY\_REQUEST; bits 5--7 source-quality class \\
+19--21 & Nonzero control session, 24 bits \\
+22 & Low 7 bits: sequence 1--63; bit 7: qualified actual SERVING claim \\
+23--30 & SipHash-2-4 tag, 64 bits LE \\\bottomrule
+\end{tabular}
+\end{center}
+The tag input is the concatenation of 16 serialized UUID bytes, 6 provisioned address bytes, immutable node ID (32-bit LE), and AD18--22: exactly 31 bytes. The address type remains required association context but is not an extra byte in this tag input. Unknown provision, wrong role, address mismatch, invalid field or bad tag rejects the record. ELIGIBLE asserts independently valid admitted root capability; no separate independence bit is serialized. A relay request is permission/request evidence, not proof of actual service.
+
+Class 7 means provisional/unknown. Classes 0--6 rank a selected independent-source stability score in ppb; they are not nanosecond error bounds. The reference policy uses $|\mathrm{drift}|+\mathrm{P95\ interval\ scatter}$, thresholds 16/64/256/1024/4096/16384 ppb, at least 28 intervals in a 30-interval history, fresh PPS and a ready source fit after stabilization. Entry into a better bin needs 25\% margin; degradation is immediate. Another platform must freeze its equivalent quality profile before interoperability testing.
+
+Nominal control cadence is 500 ms. Only a newly accepted forward sequence renews its 4 s lease; identical channel copies do not. Forward order is tested modulo the 7-bit sequence space with delta 1--63; the sender rotates the 24-bit session before sequence reuse. Two retired sessions reject recent replay. Control sessions and time-service sessions are distinct: routine control rollover must neither reset a stable source fit nor renew public-time age.
+
+Qualified SERVING requires admitted, elected, recently actual publication; class 7 \mustnot\ set it. A class-7 remote authority also needs fresh, advancing coarse UTC evidence bound to that publisher, not its MAC/ID alone. Bounded retirement does not prevent cold-boot or long-history replay. Key lifecycle, address privacy/rotation, anti-replay persistence and public-source authentication require a separately reviewed deployment security profile.
+
+\page
+\section{Election admission and state transitions}\label{sec:admission}
+Valid time precedes ranking. A real advancing RTC, independently valid GNSS UTC or selected mesh epoch may satisfy time validity; build time, uptime or an unanchored oscillator may not. Only an independent valid source can become a new root. A mesh-derived clock may relay its root after stable joining, but cannot rename network holdover as independent authority.
+
+\begin{center}\small
+\begin{tabular}{@{}L{0.25\linewidth}L{0.66\linewidth}@{}}\toprule
+State & Admission / serving condition \\\midrule
+BOOT\_QUIET & At least 60 s continuous local monotonic time; passive acquisition, UI and local diagnostics allowed; no unsolicited election/source TX. \\
+WAIT\_TIME & Wait for a valid advancing epoch; elapsed time alone never promotes. \\
+FOLLOWER\_STABILIZING & Discipline/display valid received time immediately; authorized serving waits for at least 60 s continuous stable join and applicable role guards. \\
+PROVISIONAL\_READY & Valid RTC/coarse independent UTC, at least 60 s source stability, completed boot quiet and at least 60 s healthy isolation observation. \\
+QUALIFIED\_READY & Valid independent source, completed boot quiet/stability and profile-specific fit/freshness/quality requirements. \\
+SERVING & Elected and authorized; every relevant predicate rechecked before queued and actual publication. \\
+RECEIVE\_FAULT & Withdraw isolation-based promotion; healthy observation must restart. \\\bottomrule
+\end{tabular}
+\end{center}
+Continuous waits may overlap. Reboot clears admission and serving; genuine epoch/counter discontinuity or broken joining restarts relevant stability. A stopped receiver, depleted duty budget or unknown channel coverage \mustnot\ count as isolated silence. Detection of a usable authority restarts the isolation timer. Provisional startup may not displace an established valid source by lower ID or force. A platform without a validated RTC adapter has no RTC fallback capability.
+
+One authoritative admission result \must\ gate candidacy, selection, control assertions, queued/actual source TX, relay service and UI. FORCE is a diagnostic request and cannot bypass admission or incumbent protection. The selected policy retains one qualified actual serving incumbent among equal-quality candidates. Long 10 s dwell/30 s selected-tenure protection applies only when the current live qualified incumbent asserts authenticated SERVING. A qualified but nonpublishing fallback receives the ordinary 1.5 s dwell/2 s tenure, so candidate quality alone cannot prolong unavailable service. This narrows incumbent protection without changing wire bytes, MAC verification, lease, ranking, force exclusion or valid-time admission. Expired authority bypasses dead-incumbent waiting. Equal eligible sources and multiple serving partitions use deterministic quality/ID ranking under finite dwell.
+
+Selection is conditional on an observable connected component: no RF protocol can promise one globally visible GM across disconnected partitions. Reunion tests \must\ retain simultaneous serving duration, convergence, rejected claims and actual RF evidence. Authenticated class-7 peers lacking valid advancing UTC cannot win. A front-page Grandmaster label denotes actual serving, not GPS lock or provisional candidacy.
+
+\page
+\section{Small-mesh boundary record and transparent extension}\label{sec:mesh}
+The selected compact relay record describes \emph{boundary regeneration}: a provider prepares time from its upstream-disciplined clock and preserves root provenance. It does not encode measured transparent residence. Its timestamp reference and cumulative error are explicitly unknown for precision qualification. Boundary and transparent clocks have different requirements \cite{ptp}.
+
+AD18 bits 5--7 equal 1, bit 4 UNKNOWN\_TX\_REFERENCE equals 1, bit 3 SOURCE\_LOCAL gives the domain and bits 0--2 select page 0--4. AD19--21 contain a nonzero 24-bit provider session; AD22--23 a nonzero 16-bit event. AD24--30 contain the following seven bytes:
+\begin{center}\small
+\begin{tabular}{@{}L{0.07\linewidth}L{0.84\linewidth}@{}}\toprule
+Page & Payload fields in serialization order \\\midrule
+0 & Second: 32 bits; fraction: 24 bits in 16 MHz ticks, less than 16000000. Reference is software preparation before page-0 submission. \\
+1 & Root node ID: 32 bits nonzero; root time session: 24 bits nonzero. \\
+2 & Root generation: 32 bits nonzero; path bitmap: 8 bits (upper 3 zero); intermediary depth: 8 bits, 0--2; state: 8 bits, 0 ACQUIRE / 1 TRACK / 2 HOLDOVER. \\
+3 & Cumulative bound: 32 bits, mandatory \hex{0xffffffff}; root-source age: 24-bit milliseconds, saturating. \\
+4 & Provider node ID: 32 bits nonzero; reserved: 24 bits zero. \\\bottomrule
+\end{tabular}
+\end{center}
+All five pages \must\ agree on full address/type, session, event and domain. First-use assembly expires after 3 s; duplicate pages cannot renew it. Page 0's callback is a declared callback reference, and complete availability is the last contributing page. Missing pages do not authorize partial delivery. Conflicts quarantine that provider session. Provider/root identity, increasing sequence and retained sessions must be checked before delivery.
+
+Depth 0 means root provider; depth 1 means one intermediary/two radio links; depth 2 means two intermediaries/three links. The path contains root and providers, with population count depth+1; the receiving node cannot already be in it. Unknown roots/providers, absent required bits or loops reject the path. The five-node bitmap is a bounded laboratory profile, not a scalable global identifier. Expansion requires a new explicitly specified path/identity encoding.
+
+An authorized relay requires stable joining, fresh selected-root data, depth below the limit and its own bit absent upstream. It \must\ withdraw stale serving rights and preserve root/source age. A precision transparent extension will require same-event ingress/egress timestamps, measured residence correction, link-delay treatment and root-authentication forwarding. Those fields have no assigned format here. Numeric end-to-end bounds \mustnot\ be fabricated while TX reference, residence or path terms remain unknown; a 62.5 ns fraction grid is not such a bound.
+
+\page
+\section{Timing, power and device profiles}\label{sec:profiles}
+The selected experiment uses a 20 ms advertising interval plus independently generated 0--10 ms advertising delay, with one copy per used primary channel and no more than 10 ms between adjacent copy starts. These transport parameters require controller/RF verification, not inference from a decoder. Service interleaving, skipped events and deadlines add to follow-up time.
+
+With no intervening services, the ten-event precision transaction spans nine 20--30 ms intervals: about 180--270 ms from original to final metadata; the first target's sufficient $S/F$ pair follows two intervals. Its maximum isolated cadence is 5 transactions/s before delays and other services. UTC-Lite uses three intervals to its last correction, about 60--90 ms in that same schedule. These are schedule calculations, not measured receive windows or guarantees. Nominal approximately 1 Hz Lite/coarse publication and control traffic share the event budget; actual usable gaps and per-channel coverage must be measured.
+
+\begin{center}\small
+\begin{tabular}{@{}L{0.34\linewidth}L{0.25\linewidth}L{0.32\linewidth}@{}}\toprule
+Profile item & Selected value & Meaning / limit \\\midrule
+Assembly expiry & 3 s first use & Duplicates never extend it \\
+BASIC hold / stale & 4 s / 5 s & Coarse validity, not precision bound \\
+Control lease / cadence & 4 s / nominal 500 ms & New authenticated sequence only \\
+Boot / stable admission & At least 60 s each & Continuous monotonic predicates \\
+Precision assembler & 64 rows, at most 5 events/s & Bounded receiver capacity profile \\
+Future dual-radio service & Actual BLE RX at most 50\% & Must include switches, guards and recovery \\\bottomrule
+\end{tabular}
+\end{center}
+An economy follower may choose 1 Hz, 0.5 Hz or slower observations and a requested target such as $10\us$. It \must\ report whether that target is feasible at current source age, oscillator state and observation cost. Commanded caps are not actual RF duty, and reduced client sampling does not reduce source emissions automatically. CPU busy percentage, high-frequency-clock retention, display/peripherals, logging, memory and joules must be accounted separately.
+
+For planning, $U(h)\le U_0+U_fh+\tfrac12U_ah^2+U_{\rm switch}+U_{\rm path}$, where $h$ includes full reference age and blackout. This becomes a bound only after its terms are qualified. Before a GM participant enables PTS, each unit must prove total held delivered-time error within $\pm500\ns$ through actual blackout plus switching/synchronization margins, at no more than 50\% actual BLE listening. No percentile-only or post-hoc shadow result waives this gate. Coordinated windows and Periodic SyncInfo are future transport/profile options.
+
+\page
+\section{Conformance tests, evidence and extension agenda}\label{sec:review}
+Codec acceptance, role correctness, service accuracy and standards qualification require separate results. At minimum, interoperable implementations must test full UUID/envelope validation; all flags and sentinels; original/correction targets on every carrier channel; any-two recovery and two erasures; order, duplicate and conflict handling; expiry without duplicate renewal; session rollover/replay; callback versus physical capture; and causal availability. Known-answer examples in Appendix~\ref{sec:examples} are generated and decoded by the canonical C codecs.
+
+State-machine acceptance includes cold boot with invalid time, valid isolated RTC, boot beside an established source, 0/59/60 s stable joining, late authority during isolation, stopped receiver/duty exhaustion, reboot and source discontinuity, routine control rollover, force/equal-quality return, simultaneous partitions/reunion and actual serving withdrawal. Mesh tests force direct-path rejection and an authorized one-hop provider, verify path/root age, then test a second intermediary only under the corresponding profile. UI, claims and actual source TX must agree.
+
+Accuracy trials freeze the image, rate, transport, calibration and logging profile; retain cold, warm, stale, recovery, rejected and unavailable populations separately. Report signed bias, RMS, P95/P99/max, received/reconstructed counts, eligible sample denominators, coverage by unit/channel and usable gaps. Independently compare delivered GPIO/output time against a reference. Event residuals, internal predictions and post-hoc shadow fits are not that measurement. Frozen blackout tests score the actual held output throughout, including age before blackout and recovery afterward.
+
+\page
+\subsection{Demonstrated profiles and their limits}
+Separate bidirectional T096 ADDRESS/PPS training froze a common 10,516 ns edge correction before prospective validation. It is applied to future receiver-clock publication, with no per-channel tuning, validation refit, mean removal, outlier deletion or receiver-GPS training. Forward PPS-shadow validation matched 600/600 physical PPS: bias $-11.137\ns$, MAE 57.263 ns, uncentered RMS 70.197 ns, SD 69.308 ns and absolute P95/P99/max 132/158/192 ns. Clean reverse matched 598/599: bias $+23.992\ns$, MAE 60.376 ns, RMS 76.359 ns, SD 72.493 ns and tails 153/219/257 ns. The one unscoreable causal query remains in the denominator \cite{evidence}.
+
+These results establish the fixed-correction mechanism in the tested warm profile. Both matched MAE/SD/P99 populations are numerically lower than MicroSync's reported 272/319.2/591.25 ns; MicroSync reports no RMS. Its external 800 MHz GPIO measurements and PPK2 MCU-only power differ from our PPS-shadow/shared-counter metrology, so no matched independent-output or energy superiority follows \cite{micro}. Frozen internal TIMER/PPI compare has 599/600 and 598/600 joins, RMS 127.699/102.237 ns and maximum 313/250 ns; its one-tick 62.5 ns capture delay/grid term is retained. GPIO is unconnected. Source PPS 25 ns remains a working assumption, not independently recertified here.
+
+A retained reverse arm with returning field authority gives 594/600 scoreable PPS, RMS 420.267 ns, P99 1726 ns and maximum 6011 ns. Clean warm runs do not prove cold/reboot/loss/holdover/temperature performance. The latest W12 C2 normal 600 s profile scores all 359 physical targets: mean $+148.7\ns$, RMS 319.5 ns, MAE 244.5 ns and P95/P99/max 666/930/1010 ns. Fine/coarse/unavailable views are 1123/18/57 of 1198; longest unavailable time is 11.503 s. Its separate app-boot 90 s population scores 47/57 targets at RMS 1490.8 ns/max 2474 ns. These are internal predictions and sampled states, not continuous independent-output acceptance.
+
+Four observed nonserving fallback episodes are 2.000/2.002/3.367/2.000 s versus the earlier approximately 30 s. This demonstrates shorter source-selection recovery under SERVING-only long protection. Remaining physical-original/correction/publication gaps are separate. Earlier dual-W12 normal results, cold failures and interrupted populations remain distinct in provenance. Actual RF listening/airtime, CPU percentage and whole-device energy remain unmeasured; measured observer maxima near 6 ms are not negligible by assertion. PTS remains off until the total held-error/listening gates pass. Repeated matched 30-minute runs and a 24-hour soak are proposed qualification studies, not standard-prescribed certification.
+
+
+Home/SMB clocks and sensor correlation remain the first application priority. Industrial adapters must specify the wired PTP profile/domain, timescale, gateway delay, uncertainty and discontinuities. Broadcast adapters additionally need rational frame-rate, drop-frame and epoch correlation; timecode is not genlock qualification \cite{ptp,smpte}. Medical timestamp correlation is a future use case after power/reliability validation, with no clinical claim. Public trust, TAI/leap signaling, scalable paths, numeric quality, coordinated windows, RTT and transparent residence need explicit extension formats rather than repurposed reserved bits. BLE Channel Sounding and UWB may support later calibrated diagnostics, but do not supply a universal passive nanosecond clock \cite{cs,uwb}.
+
+\paragraph{Acknowledgment.} Jonathan Yantis supplies hardware, original firmware, direction and research decisions. OpenAI Codex assisted protocol review, tooling, analysis and drafting. Human review and responsibility for any eventual submission remain with the author, consistent with the project credits.
+
+\page
+\appendix
+\section{Known-answer precision and UTC-Lite exchanges}\label{sec:examples}
+These byte examples are protocol fixtures, not measured timing results. Each row below contains the entire 31-byte AD record as hexadecimal, split after the common 18-byte envelope. The precision envelope is
+\begin{center}\small\texttt{1e21c3a8d4087e0d7491f24ca553dd1ff595}\end{center}
+and the following 13-byte payloads are generated by the selected encoder:
+\begin{center}\small
+\begin{tabular}{@{}L{0.22\linewidth}L{0.68\linewidth}@{}}\toprule
+Kind & Payload (AD18--30), hexadecimal \\\midrule
+EVENT & \texttt{03701479f67b000000c8010000} \\
+SECONDS, target 37 & \texttt{077b000000c80100007075be6a} \\
+FRACTION, target 37 & \texttt{0b7b000000c801000015cd5b07} \\
+PARITY, target 37 & \texttt{0f7b000000c801000065b8e56d} \\\bottomrule
+\end{tabular}
+\end{center}
+Decoded publisher is \hex{0xf6791470}, session 123, event 456; SOURCE\_LOCAL is clear. $S=1790866800$, $F=123456789$ ns and $P=\hex{0x6de5b865}$. Thus $T_{{\rm TX},37}=1790866800.123456789$ POSIX seconds. Receiving S and P reconstructs F exactly; F and P reconstruct S exactly. Without the uniquely captured original channel-37 EVENT, neither pair produces a physical RX/TX observation. A page received on channel 38 still targets 37.
+
+The UTC-Lite envelope is
+\begin{center}\small\texttt{1e21c1d44a79813b6799044d326db7742988}\end{center}
+with these payloads:
+\begin{center}\small
+\begin{tabular}{@{}L{0.22\linewidth}L{0.68\linewidth}@{}}\toprule
+Kind & Payload (AD18--30), hexadecimal \\\midrule
+Original beacon & \texttt{01070000000100000000f15365} \\
+Correction, target 37 & \texttt{0d0700000001000000648c8647} \\\bottomrule
+\end{tabular}
+\end{center}
+Session 7, sequence 1, $S_0=1700000000$ and $D=1200000100$ ns yield $T_{{\rm TX},37}=1700000001.200000100$ s, including the carry. Advancing that historical time to a present read requires the receiver's accepted clock model and declared delay treatment.
+
+The repository's \texttt{protocol/} headers define the codecs, and \texttt{paper/proposal-wire-manifest.json} pins their hashes, source-contract inputs, checked vectors and manuscript isolation checks. Byte-valid parity may still contradict its companions; therefore individual codec success does not replace assembly tests. Protocol revisions must change the format discriminator or service when interpretation changes, retain old evidence and publish new known-answer vectors. Reserved bits are not a silent negotiation mechanism.
+
+\page
+\begin{thebibliography}{99}\small\raggedright
+\bibitem{ftsp} M. Mar\'oti, B. Kusy, G. Simon and \'A. L\'edeczi, ``The Flooding Time Synchronization Protocol,'' SenSys, pp. 39--49, 2004. \href{https://doi.org/10.1145/1031495.1031501}{doi:10.1145/1031495.1031501}. \href{https://archive.isis.vanderbilt.edu/sites/default/files/Maroti_M_11_3_2004_The_Floodi.pdf}{Author-institution paper}.
+\bibitem{blue} F. Asgarian and K. Najafi, ``BlueSync: Time Synchronization in Bluetooth Low Energy With Energy-Efficient Calculations,'' IEEE Internet of Things Journal, 2022 (online 2021). \href{https://ieeexplore.ieee.org/document/9555832/}{Publisher record}. See also F. Asgarian, doctoral dissertation, University of Michigan, 2022, ch. 2, \href{https://deepblue.lib.umich.edu/handle/2027.42/174171}{institutional repository}.
+\bibitem{micro} R. Ohara, S. Izumi, S. Imanaka, T. Yamamura, T. Ishii and H. Kawaguchi, ``MicroSync: Sub-Micro Second Accuracy Wireless Time Synchronization Service,'' IEEE Access, vol. 12, pp. 124478--124494, 2024. \href{https://doi.org/10.1109/ACCESS.2024.3446668}{doi:10.1109/ACCESS.2024.3446668}. \href{https://da.lib.kobe-u.ac.jp/da/kernel/0100491658/0100491658.pdf}{Author-university version of record}.
+\bibitem{cheep} S. Sridhar, P. Misra and J. Warrior, ``CheepSync: A Time Synchronization Service for Resource Constrained Bluetooth LE Advertisers,'' 2015, revised 2016. \href{https://arxiv.org/abs/1501.06479}{arXiv:1501.06479}.
+\bibitem{nordic} Nordic Semiconductor, ``Wireless timer synchronization among nRF5 devices,'' 2016. \href{https://devzone.nordicsemi.com/guides/short-range-guides/b/bluetooth-low-energy/posts/wireless-timer-synchronization-among-nrf5-devices}{Reference design and output measurements}.
+\bibitem{sig} Bluetooth SIG, ``The Bluetooth Low Energy primer.'' \href{https://www.bluetooth.com/bluetooth-le-primer/}{Official primer}; Bluetooth Core Specification, Link Layer and advertising procedures. Accessed 2 October 2026.
+\bibitem{cs} Bluetooth SIG, Core Specification 6.3, Vol. 6, Part H, ``Channel Sounding.'' \href{https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core_v6.3/out/en/low-energy-controller/channel-sounding.html}{Official specification}. Accessed 2 October 2026.
+\bibitem{uwb} Qorvo, ``DW3110,'' product documentation and linked data sheet; APS014, ``Antenna Delay Calibration of DW1000-Based Products and Systems.'' \href{https://www.qorvo.com/products/p/DW3110}{Official product and application-note index}. Accessed 2 October 2026. The calibration note concerns DW1000; it is methodological context, not a DW3110 calibration result.
+\bibitem{ptp} NIST, ``Meanings of common terms used in IEEE 1588.'' \href{https://www.nist.gov/el/intelligent-systems-division-73500/meanings-common-terms-used-ieee-1588}{Clock and timing terminology}. IEEE 1588 Working Group, \href{https://sagroups.ieee.org/1588/}{official working-group site}.
+\bibitem{smpte} SMPTE, ST 2059-1:2021, ``Generation and Alignment of Interface Signals to the SMPTE Epoch.'' \href{https://pub.smpte.org/pub/st2059-1/st2059-1-2021.pdf}{Publisher document}. Edition and application profile must be selected for an interoperability trial.
+\bibitem{zhou} Z. Zhou, T. Cao, C. Shen, J. Zhang, Y. Liu and H.-W. Huang, ``Multiprotocol Wireless Timer Synchronization for IoT Systems,'' 2026. \href{https://doi.org/10.48550/arXiv.2604.07199}{arXiv:2604.07199}. Proprietary radio timeslots; stack-inactive and BLE-active conditions are distinct.
+\bibitem{edge} Nordic Semiconductor, hardware-team response, ``Undocumented TX--RX radio delay.'' \href{https://devzone.nordicsemi.com/f/nordic-q-a/83778/undocumented-tx---rx-radio-delay/570863}{Official engineering discussion of ADDRESS decoding and TX-chain latency}. Accessed 2 October 2026; qualitative mechanism, not this study's calibration constant.
+\bibitem{evidence} J. Yantis with OpenAI Codex assistance, PToB local research archive, evidence cutoff 2 October 2026. Companion \texttt{paper/evidence.json} provides run IDs, seals, source hashes, metric populations and claim mappings; \texttt{paper/README.md} provides offline reproduction instructions. Private raw captures are not distributed with these drafts.
+\end{thebibliography}
+\end{document}

@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "import_id": "papers-initial-20261009",
+  "import_date": "2026-10-09",
+  "edition_status": "draft",
+  "source_repository_checkpoint": "853f1a0b74a44bd3fcf506e704ea6e3bc2b5fabe",
+  "selected_source_files_clean_at_import": true,
+  "evidence_cutoff": "2026-10-02T17:28:13.400616Z",
+  "scope": "Byte-preserving import of the proposal and principal research preprint; no scientific or typesetting edits.",
+  "documents": [
+    {
+      "id": "ptob-proposal",
+      "title": "PToB: A Passive Time Service for Diverse BLE Edge Devices",
+      "author": "Jonathan Yantis",
+      "status": "draft",
+      "edition_date": "2026-10-02",
+      "license": "CC-BY-4.0",
+      "pages": 15,
+      "files": {
+        "ptob-proposal.tex": {
+          "sha256": "a91cf8217ac649d4d758255765d28a0b25a6ca65f7f6b0dad960ca6f7d4f1f3c",
+          "bytes": 46235
+        },
+        "ptob-proposal.pdf": {
+          "sha256": "47a58d6078a6b34b91317e9efc5870886cb393266c92951695dba2276c6f8b6f",
+          "bytes": 79051
+        }
+      },
+      "source_path": "paper/ptob-proposal.tex",
+      "pdf_path": "paper/ptob-proposal.pdf",
+      "original_build_manifest_sha256": "ce711407a60fe563dede828b7f8aa6b1bb060e5f1e3997ae3d17e811386b8aaa",
+      "original_build_engine": "Tectonic 0.17.0",
+      "original_evidence_manifest_sha256": "3fcb634e48ee365544d637f1c82759ecabe8e0a4494ec979f9ed18207e51e9fe",
+      "source_pdf_binding": "Both hashes match original build manifest; PDF matches website asset at import."
+    },
+    {
+      "id": "ptob-preprint",
+      "title": "Passive Precision Time over BLE: Prospective Edge Calibration, Causal Publication, and Service Availability",
+      "author": "Jonathan Yantis",
+      "status": "draft",
+      "edition_date": "2026-10-02",
+      "license": "CC-BY-4.0",
+      "pages": 10,
+      "files": {
+        "ptob-preprint.tex": {
+          "sha256": "9ebbe9ef663cc39ede8d8a47985566a81761d4798d2948e7a7312e1bd712c0a0",
+          "bytes": 33799
+        },
+        "ptob-preprint.pdf": {
+          "sha256": "1ab6304e5dc51bec82b8c576ec57381b428d3127bef084657296d76846bacd1f",
+          "bytes": 63745
+        }
+      },
+      "source_path": "paper/ptob-preprint.tex",
+      "pdf_path": "paper/ptob-preprint.pdf",
+      "original_build_manifest_sha256": "598a33d1d273f19871c1a4d234b9a552c837d0601c688edcf6fd0e85774e1a71",
+      "original_build_engine": "Tectonic 0.17.0",
+      "original_evidence_manifest_sha256": "3fcb634e48ee365544d637f1c82759ecabe8e0a4494ec979f9ed18207e51e9fe",
+      "source_pdf_binding": "Both hashes match original build manifest; PDF matches website asset at import."
+    }
+  ],
+  "limitations": [
+    "Original evidence manifests, raw datasets, protocol headers and firmware are not included in this import.",
+    "Historical paper/ paths in the manuscripts refer to the original research archive, not this repository.",
+    "Existing source/PDF binding was checked against original build records; this import does not revalidate scientific claims.",
+    "The separate oscillator/PLL follow-up is not included."
+  ],
+  "history_policy": "This is an immutable import receipt. Future editions use new manifests; Git retains the imported bytes.",
+  "import_checks": {
+    "native_latex_compile": {
+      "ptob-proposal": "success",
+      "ptob-preprint": "success"
+    },
+    "pdf_review": "All 25 pages rendered with Poppler and inspected in contact sheets; no obvious clipping, overlap, or broken layout observed. Original PDF bytes retained.",
+    "local_markdown_links": "verified",
+    "scientific_revalidation": "not performed"
+  }
+}
