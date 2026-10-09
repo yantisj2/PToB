@@ -1,0 +1,22 @@
+# Internal planning and unpublished work; never force-add this directory.
+/.internal/
+
+# Local credentials and environment overrides.
+.env
+.env.*
+!.env.example
+env.local
+*.pem
+*.key
+*private-enrollment*.json
+
+# Generated output and local tooling.
+/artifacts/
+/runs/
+**/build/
+**/build-*/
+**/__pycache__/
+*.py[cod]
+.venv/
+node_modules/
+.DS_Store
