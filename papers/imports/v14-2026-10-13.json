@@ -1,0 +1,361 @@
+{
+  "schema_version": 1,
+  "import_id": "v14-research-20261013",
+  "import_date": "2026-10-13",
+  "edition_date": "2026-10-12",
+  "status": "draft",
+  "author": "Jonathan Yantis",
+  "source_repository_checkpoint": "a24c483ca8360c0217ee76a37ae41b2c9e9e54f0",
+  "selected_source_files_clean_at_import": true,
+  "evidence_cutoff": "2026-10-12T18:26:44.293859Z",
+  "specification_freeze": "7995249",
+  "research_firmware": {
+    "commit": "566ea2029c7ffc84a7d321df427c5c811fac2730",
+    "version": "0.14.43",
+    "scope": "Historical research identity; no current installation or firmware acceptance inferred."
+  },
+  "files": [
+    {
+      "source": "paper/ptob-v14-preprint.tex",
+      "sha256": "bea2c7ea55b2842296871de9073554e0ad0bca84b3780afd966145b263365abe",
+      "bytes": 139879,
+      "destination": "papers/ptob-v14-preprint.tex",
+      "license": "CC-BY-4.0",
+      "kind": "manuscript",
+      "transformations": []
+    },
+    {
+      "source": "paper/ptob-v14-preprint.pdf",
+      "sha256": "892fe477bfa8d01183711e7dc530d442dabd47a58e172dd5f77f51311e71fd7a",
+      "bytes": 209713,
+      "destination": "papers/ptob-v14-preprint.pdf",
+      "license": "CC-BY-4.0",
+      "kind": "manuscript",
+      "transformations": []
+    },
+    {
+      "source": "paper/ptob-v14-sig-proposal.tex",
+      "sha256": "134da2e33284b320e93f49f1c1066c22a3a8746cd7e2c2d0e168fb11124f251f",
+      "bytes": 65170,
+      "destination": "papers/ptob-v14-sig-proposal.tex",
+      "license": "CC-BY-4.0",
+      "kind": "manuscript",
+      "transformations": []
+    },
+    {
+      "source": "paper/ptob-v14-sig-proposal.pdf",
+      "sha256": "d484bcc8e5891dd9f2b45e64b7bd4861a9e109419c08b91ec61d51e6e81a78e4",
+      "bytes": 89031,
+      "destination": "papers/ptob-v14-sig-proposal.pdf",
+      "license": "CC-BY-4.0",
+      "kind": "manuscript",
+      "transformations": []
+    },
+    {
+      "source": "paper/ptob-v14-evidence.json",
+      "sha256": "7474437ed23e64ed7a16599e082de95024a38d67927113fafa814de2c0666562",
+      "bytes": 18477,
+      "destination": "evidence/v14/2026-10-12/ptob-v14-evidence.json",
+      "license": "CC-BY-4.0",
+      "kind": "historical-provenance",
+      "transformations": []
+    },
+    {
+      "source": "paper/ptob-v14-review.txt",
+      "sha256": "9987d0302478b0ef68471ed9f7aed357180bb5e20e900fafb75a91ad12d86400",
+      "bytes": 4722,
+      "destination": "evidence/v14/2026-10-12/ptob-v14-review.txt",
+      "license": "CC-BY-4.0",
+      "kind": "historical-provenance",
+      "transformations": []
+    },
+    {
+      "source": "paper/ptob-v14-sig-review.txt",
+      "sha256": "a439e32fff3815fd600badd06bd0b84da8bcbc4c4958885adad0feb82b8e3ba6",
+      "bytes": 5013,
+      "destination": "evidence/v14/2026-10-12/ptob-v14-sig-review.txt",
+      "license": "CC-BY-4.0",
+      "kind": "historical-provenance",
+      "transformations": []
+    },
+    {
+      "source": "paper/provenance/ptob-v14-build.json",
+      "sha256": "470066e21c848f270ea9f6b922327a86c2a4868abbef9eeda5be7e272a37ad03",
+      "bytes": 979,
+      "destination": "evidence/v14/2026-10-12/provenance/ptob-v14-build.json",
+      "license": "CC-BY-4.0",
+      "kind": "historical-provenance",
+      "transformations": []
+    },
+    {
+      "source": "paper/provenance/ptob-v14-qa.json",
+      "sha256": "3a141a214fee857b6ea72de60c64d1dc2c42f57c25b88b6b814c5f5e5ee33dd2",
+      "bytes": 5314,
+      "destination": "evidence/v14/2026-10-12/provenance/ptob-v14-qa.json",
+      "license": "CC-BY-4.0",
+      "kind": "historical-provenance",
+      "transformations": []
+    },
+    {
+      "source": "paper/provenance/ptob-v14-literature.json",
+      "sha256": "970daadad501a4f7a58a78b27433358d1ee3ebded96fa61c3619144195bf8d80",
+      "bytes": 8225,
+      "destination": "evidence/v14/2026-10-12/provenance/ptob-v14-literature.json",
+      "license": "CC-BY-4.0",
+      "kind": "historical-provenance",
+      "transformations": []
+    },
+    {
+      "source": "paper/provenance/ptob-v14-sha256.json",
+      "sha256": "3e0841528a41e1e19ec7f9524d92d4c443021f0f84cb38063b302273adee8e0d",
+      "bytes": 3433,
+      "destination": "evidence/v14/2026-10-12/provenance/ptob-v14-sha256.json",
+      "license": "CC-BY-4.0",
+      "kind": "historical-provenance",
+      "transformations": []
+    },
+    {
+      "source": "paper/provenance/ptob-v14-sig-build.json",
+      "sha256": "dc61389bcfe30e221803932ec25c64e1427eacc94d250ac9aa91b5c9e570a044",
+      "bytes": 965,
+      "destination": "evidence/v14/2026-10-12/provenance/ptob-v14-sig-build.json",
+      "license": "CC-BY-4.0",
+      "kind": "historical-provenance",
+      "transformations": []
+    },
+    {
+      "source": "paper/provenance/ptob-v14-sig-evidence.json",
+      "sha256": "b706594a3277bade34a0908899a3cc7b73b38b70e0950f43b2315f58af053b90",
+      "bytes": 2797,
+      "destination": "evidence/v14/2026-10-12/provenance/ptob-v14-sig-evidence.json",
+      "license": "CC-BY-4.0",
+      "kind": "historical-provenance",
+      "transformations": []
+    },
+    {
+      "source": "paper/provenance/ptob-v14-sig-issues.json",
+      "sha256": "69dbda42c8b94c5275affce65ce378177321d092109f4f174431ba067d0a382e",
+      "bytes": 3090,
+      "destination": "evidence/v14/2026-10-12/provenance/ptob-v14-sig-issues.json",
+      "license": "CC-BY-4.0",
+      "kind": "historical-provenance",
+      "transformations": []
+    },
+    {
+      "source": "paper/provenance/ptob-v14-sig-literature.json",
+      "sha256": "20dd784f5b20306cf35cc2429c477347691a7723095838843a3034b8e4a92f1c",
+      "bytes": 3038,
+      "destination": "evidence/v14/2026-10-12/provenance/ptob-v14-sig-literature.json",
+      "license": "CC-BY-4.0",
+      "kind": "historical-provenance",
+      "transformations": []
+    },
+    {
+      "source": "paper/provenance/ptob-v14-sig-sha256.json",
+      "sha256": "008f6c82faa6a3ee028758bd0c8d04cd9c08249199ab01aedbb35e37fd2a4264",
+      "bytes": 2064,
+      "destination": "evidence/v14/2026-10-12/provenance/ptob-v14-sig-sha256.json",
+      "license": "CC-BY-4.0",
+      "kind": "historical-provenance",
+      "transformations": []
+    },
+    {
+      "source": "paper/provenance/ptob-v14-sig-visual-review.json",
+      "sha256": "49fccd726644b25e794e801621c90cdcd75f871b7a9ce705e5a4c0db039c92ef",
+      "bytes": 10003,
+      "destination": "evidence/v14/2026-10-12/provenance/ptob-v14-sig-visual-review.json",
+      "license": "CC-BY-4.0",
+      "kind": "historical-provenance",
+      "transformations": []
+    },
+    {
+      "source": "paper/provenance/ptob-v14-sig-wire.json",
+      "sha256": "5b2a6b704f0892d495b641d1c7ca51134d98b95d870423d001fcab8be93a20b0",
+      "bytes": 24536,
+      "destination": "evidence/v14/2026-10-12/provenance/ptob-v14-sig-wire.json",
+      "license": "CC-BY-4.0",
+      "kind": "historical-provenance",
+      "transformations": []
+    },
+    {
+      "source": "paper/figures/v14-20261012/derivation-manifest.json",
+      "sha256": "39f0672c45f2904ec4c165d30ecf1d400dba928d5b8cd0926b3c18a94d3f15e1",
+      "bytes": 2791,
+      "destination": "evidence/v14/2026-10-12/derivation-manifest.json",
+      "license": "CC-BY-4.0",
+      "kind": "scientific-export",
+      "transformations": []
+    },
+    {
+      "source": "paper/figures/v14-20261012/diagnostic-sanitized.csv",
+      "sha256": "68acc8d2a70e9211a54968107caee5043c73c86c070c98e56b5da400d823d436",
+      "bytes": 2675,
+      "destination": "evidence/v14/2026-10-12/diagnostic-sanitized.csv",
+      "license": "CC-BY-4.0",
+      "kind": "scientific-export",
+      "transformations": []
+    },
+    {
+      "source": "paper/figures/v14-20261012/pps-sanitized.csv",
+      "sha256": "55139bf0cfe729064b5942fccb94a36b1ea6ff36c5414bf2d1a9eceb006b103f",
+      "bytes": 26200,
+      "destination": "evidence/v14/2026-10-12/pps-sanitized.csv",
+      "license": "CC-BY-4.0",
+      "kind": "scientific-export",
+      "transformations": []
+    },
+    {
+      "source": "paper/figures/v14-20261012/summary.json",
+      "sha256": "a4ecdefdd9e8f08f266a15ce3ab09bc5419d535cbf02633bd6d7fcd10aca4e4b",
+      "bytes": 2382,
+      "destination": "evidence/v14/2026-10-12/summary.json",
+      "license": "CC-BY-4.0",
+      "kind": "scientific-export",
+      "transformations": []
+    },
+    {
+      "source": "paper/figures/v14-20261012/result-table.csv",
+      "sha256": "ab6d97d8aec62e8bbcd81625faf43295bbb0881ba2d6808b06a6a11dd647f936",
+      "bytes": 289,
+      "destination": "evidence/v14/2026-10-12/result-table.csv",
+      "license": "CC-BY-4.0",
+      "kind": "scientific-export",
+      "transformations": []
+    },
+    {
+      "source": "paper/figures/v14-20261012/wire-layouts.csv",
+      "sha256": "77361cfa3931c516c585bc3e0b2511bb996adcd393ad22edc5bbc238a56ca8c6",
+      "bytes": 5221,
+      "destination": "evidence/v14/2026-10-12/wire-layouts.csv",
+      "license": "CC-BY-4.0",
+      "kind": "scientific-export",
+      "transformations": []
+    },
+    {
+      "source": "paper/figures/v14-20261012/phase-availability-inline.tex",
+      "sha256": "4fcac338a2da25e2a8ddf7b027a90159132a0d51f028b515649c1bfa46e09147",
+      "bytes": 64431,
+      "destination": "evidence/v14/2026-10-12/phase-availability-inline.tex",
+      "license": "CC-BY-4.0",
+      "kind": "scientific-export",
+      "transformations": []
+    },
+    {
+      "source": "paper/figures/v14-20261012/phase-availability.pdf",
+      "sha256": "00666191e025ac795727838bdd1bf973187fe28c6804423bb1ffb28a4cda38f6",
+      "bytes": 26322,
+      "destination": "evidence/v14/2026-10-12/phase-availability.pdf",
+      "license": "CC-BY-4.0",
+      "kind": "scientific-export",
+      "transformations": []
+    },
+    {
+      "source": "paper/figures/v14-20261012/phase-availability.png",
+      "sha256": "dbe20fc47820097a720bcd0ecaa2b0e02105ae3a157cc7e18813cef4775ceca0",
+      "bytes": 97988,
+      "destination": "evidence/v14/2026-10-12/phase-availability.png",
+      "license": "CC-BY-4.0",
+      "kind": "scientific-export",
+      "transformations": []
+    },
+    {
+      "source": "paper/figures/v14-20261012/renewal-expiry-inline.tex",
+      "sha256": "52dc285edc53da8511935114309269a2fb9549fed08892432041e4c6a228b4be",
+      "bytes": 4177,
+      "destination": "evidence/v14/2026-10-12/renewal-expiry-inline.tex",
+      "license": "CC-BY-4.0",
+      "kind": "scientific-export",
+      "transformations": []
+    },
+    {
+      "source": "paper/figures/v14-20261012/renewal-expiry.pdf",
+      "sha256": "2c7eabc267e5fe395fb6b9a96b09d48811d57aa6d6ea3a01c8d2ced320483e26",
+      "bytes": 17286,
+      "destination": "evidence/v14/2026-10-12/renewal-expiry.pdf",
+      "license": "CC-BY-4.0",
+      "kind": "scientific-export",
+      "transformations": []
+    },
+    {
+      "source": "paper/figures/v14-20261012/renewal-expiry.png",
+      "sha256": "faeca9cc155f5575bd06316e68a4e607b8aa33ed2400f988601c2c6b0973a4c7",
+      "bytes": 46022,
+      "destination": "evidence/v14/2026-10-12/renewal-expiry.png",
+      "license": "CC-BY-4.0",
+      "kind": "scientific-export",
+      "transformations": []
+    },
+    {
+      "source": "protocol/v14_rc1/contract.json",
+      "sha256": "a122e61032fde317a709654ce58d83e08e4c254d3ae0eddb8b5b574f168b3ec0",
+      "bytes": 26158,
+      "destination": "protocol/v14_rc1/contract.json",
+      "license": "MIT",
+      "kind": "protocol-contract-and-synthetic-vectors",
+      "transformations": []
+    },
+    {
+      "source": "protocol/v14_rc1/vectors.json",
+      "sha256": "5dfcc25e90dd279bcafa44eb19d6df487dfd69cbcadda681c321290543c60e27",
+      "bytes": 16166,
+      "destination": "protocol/v14_rc1/vectors.json",
+      "license": "MIT",
+      "kind": "protocol-contract-and-synthetic-vectors",
+      "transformations": []
+    },
+    {
+      "source": "docs/V14_CLOCK_SPEC_RC1.md",
+      "sha256": "b8da8ea84f66540749485c2fec5a89068d6179c9223c93178209ca48e9b94bd9",
+      "bytes": 17205,
+      "destination": "docs/V14_CLOCK_SPEC_RC1.md",
+      "license": "MIT",
+      "kind": "specification-document",
+      "transformations": []
+    }
+  ],
+  "omitted": [
+    "Private raw captures, enrollment, installed images, rollback binaries, and build trees.",
+    "Existing private ZIP review packages; selected contents are listed explicitly instead.",
+    "Private raw extraction and lab-specific paper builders; public offline reproduction adapters are supplied separately.",
+    "Firmware source and private Git history."
+  ],
+  "source_adapters": [
+    {
+      "source": "paper/provenance/check_v14_sig_document.py",
+      "sha256": "3898f31efccaf76197a95bb188721fc2042deaf6b8253a62c52833ad0f5ec713",
+      "bytes": 4598
+    },
+    {
+      "source": "paper/figures/v14-20261012/derive.py",
+      "sha256": "63dc91758becd7be6045c1c821e6ea290db79b02b987a7bf1734cc606311d395",
+      "bytes": 11216
+    }
+  ],
+  "historical_provenance_notice": "Paths and unavailable hashes in imported provenance records identify original archive inputs. They are not live public paths. Original receipts remain unchanged, including the older PLL PDF hash; this repository has a separately reconciled PLL edition.",
+  "history_policy": "Immutable receipt; subsequent editions require new receipts. Older editions remain unchanged.",
+  "website_copy_identity": "Both V14 PDFs matched the website copies at import; no website change or publication was performed.",
+  "public_adapters": [
+    {
+      "path": "tools/check_v14_document.py",
+      "sha256_at_import": "290c8fa1cb890e29e4108a9cdaab5ce37d7bcfbabe9c785a4e5c753227b51c3a",
+      "license": "MIT",
+      "original_source": {
+        "source": "paper/provenance/check_v14_sig_document.py",
+        "sha256": "3898f31efccaf76197a95bb188721fc2042deaf6b8253a62c52833ad0f5ec713",
+        "bytes": 4598
+      },
+      "transformation": "Adapted repository paths; added MIT author notice. Checks unchanged."
+    },
+    {
+      "path": "tools/derive_v14_figures.py",
+      "sha256_at_import": "797ae808faf549fdc2f44898a9359fa6f8cadc99d5e729c4a5a5ad7345059015",
+      "license": "MIT",
+      "original_source": {
+        "source": "paper/figures/v14-20261012/derive.py",
+        "sha256": "63dc91758becd7be6045c1c821e6ea290db79b02b987a7bf1734cc606311d395",
+        "bytes": 11216
+      },
+      "transformation": "Removed private raw extraction; read included sanitized inputs; require fresh output directory; added MIT author notice."
+    }
+  ]
+}

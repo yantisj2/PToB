@@ -1,0 +1,154 @@
+{
+  "schema_version": 1,
+  "import_id": "v14-research-20261013",
+  "verification_date": "2026-10-13",
+  "status": "PASS_INCLUDED_DOCUMENTS_AND_DERIVATIVES_ONLY",
+  "imported_file_hashes": 33,
+  "manuscript_binding": {
+    "original_build_receipts_match_source_and_pdf": true,
+    "website_pdf_bytes_match_at_freeze": true,
+    "reviewed_original_pdf_bytes_retained": true,
+    "historical_manuscript_files_unchanged": [
+      "papers/ptob-proposal.tex",
+      "papers/ptob-proposal.pdf",
+      "papers/ptob-preprint.tex",
+      "papers/ptob-preprint.pdf",
+      "papers/oscillator-pll-research-20261003.tex",
+      "papers/oscillator-pll-research-20261003.pdf"
+    ]
+  },
+  "compile": {
+    "desktop_compiler": {
+      "preprint": "success",
+      "proposal": "success"
+    },
+    "local_export": {
+      "engine": "Tectonic 0.17.0",
+      "engine_binary_sha256": "b52b5a730e2b0b33087304f7720f649603953f270a6b1c88bb031e1ae01f7f9c",
+      "only_cached_public_tex_bundle": true,
+      "warnings": [],
+      "reexported_pdf_text_and_all_41_page_renders_match": true,
+      "initial_environment_failures": "Default cache location was unwritable; prior local cache lacked line/circle fonts. Retried in writable ignored cache with the two cached public fonts; both exports succeeded.",
+      "logs": {
+        "preprint": "ba2e7c84216ffa9aca2f814aab1ece037fab452fe8cb211917e3366955ee28ab",
+        "proposal": "99d9e16d4af84caa6dc1098c885e265ee00e070682c08f36fd37d74e2acbb53c"
+      }
+    }
+  },
+  "visual_review": {
+    "pages": 41,
+    "all_original_pages_inspected_in_contact_sheets": true,
+    "standalone_scientific_figures_inspected": true,
+    "findings": "No visible clipping, overlap, missing graphics, or broken tables observed.",
+    "rendered_page_sha256": {
+      "preprint-01.png": "0e19fd01bec4c7408a236765268a636badcc8d5b2fab752e4abc2d2af383ea75",
+      "preprint-02.png": "0f7df6d46cf71c66f72a1f1c53f11bc6e6d0802e6b4584831f7d0982e5b789ce",
+      "preprint-03.png": "d6ec05cbfa33afbeeebb120e70e52ee60e7565c155acd0ec9b19e5661fec2aa2",
+      "preprint-04.png": "f1c7896a1288565eff02a398578db1d607a37d49fdc7691796486cd6de341b50",
+      "preprint-05.png": "10a15a7c60becd59b7da964dc283c6e3cc325c0b0a1f326e1326079de4dfa17b",
+      "preprint-06.png": "5cd0ff267d30eff753c991f4f62b34838df036bbd0224d90c2b813583690edf0",
+      "preprint-07.png": "e29ae2522db2c557e6ef9dfbf3b1a1041519298676336e52a8a8dd1923ee3efd",
+      "preprint-08.png": "b863c7279d286b06eedb74674ac06f1dde340d93ee13e802655805633db8857e",
+      "preprint-09.png": "969885b3ec64507784a1025d4d33e05b25013de6930fd92f1eb3959c5bfef54f",
+      "preprint-10.png": "a7afdf5bb42c5e01854a1064c85e6b4aa8bc3bd73c171d6d4650c93f0752f301",
+      "preprint-11.png": "9179710706ad3aad1d3953ebe72071273c5be277709b795f49a1ab9bcfaba958",
+      "preprint-12.png": "f9edc2aabaac30184797aa8c9b829d10402abcbeb1d04933c1ac23e971f29018",
+      "preprint-13.png": "f2de2d7fce4dfa311cef010e34d2233363ec0ad3c59aeabc3a417a5302429cdc",
+      "preprint-14.png": "1eed74f1d2ba2cb8f5c94a3f5e1ca5d98045cb7d7bb0896df424d54d88b121c7",
+      "preprint-15.png": "6d4639245181b7e8cba70e723a505c138c2c4364f39690e6e91e6073fd05fb95",
+      "preprint-16.png": "bc42139c191d3020e91e010e7c2715828030217d8414209007cd34cb65e8904a",
+      "preprint-17.png": "5f3fd897b912a186970ab6b574a00ce3397da2e7cdd259bd817d6b37eb5049dc",
+      "preprint-18.png": "dac59b4b7cb3c23ba05e415f1763121a1e4a90f1d7aa64a85cee7081369a88c8",
+      "preprint-19.png": "e74e76c1d7e6d1c8760ef3b474f20b1f01c417ece59d51efb3813088f0e40f0e",
+      "proposal-01.png": "334ccef11f669126110c83e00da157a94dd4b06c97a775faaad974b0e609206b",
+      "proposal-02.png": "c5c5be890c5d21d230dc96e3251ae2d56269b99e890c9a14f7ba76a5f598ccfc",
+      "proposal-03.png": "090635d81bc5d652fb8fb6888eefbcafd7df62fbdc0eec74d1093466651736b6",
+      "proposal-04.png": "273b4de62274193fcb4b475bb333c544f0662e494da781d8017224d8962875a7",
+      "proposal-05.png": "6ea9b53df1232972f8dd03b8b86e7427d87eda69f7fec88e1625594eb4c77c57",
+      "proposal-06.png": "322613e4a415cf7be9fbd5f186a36219e25e74749fad21b339a2a961e90fcbf2",
+      "proposal-07.png": "57fb1afd36318f3324e8de4bf4f6a696ee32243199ed02420205229186616870",
+      "proposal-08.png": "f540bb29c93de16c6bf7c54430c5f83d042b19a82188c6dbcfd8158e1afe5871",
+      "proposal-09.png": "a1e16a421e0be9630fe312f0c4977046813fe23fc386a151d51825da503a2485",
+      "proposal-10.png": "306730e34e42891e74b7426820ce97ceacd37a47ac8e1e0d17edc767c3c1fb50",
+      "proposal-11.png": "e60190963b0e45d5e84e66ed5681cbc6553c5c97f9433cf9aa88bd681503ee44",
+      "proposal-12.png": "0a97dcbc703b1dec55833ad3c686fffbc369398a8a7d18d715303653a77ecbd1",
+      "proposal-13.png": "6f59412b5015f1925e0ef5b525a1de32f1aced216eb5efd89fe033de61d1dea1",
+      "proposal-14.png": "64fe88b2770b43972b9c5ac15c15d0fa6cc143c717da9271f95c6b02a99bd790",
+      "proposal-15.png": "6698058bd721f65a215efb8e14d850538b7031dd823cc01d23321a7da3468756",
+      "proposal-16.png": "3f25ba2c147fdcfe09d3bf709fcac71782dc50d52ff21928358116bff956a1c2",
+      "proposal-17.png": "f430e24004d1ba4b6513fe869661a9b6e2b99f3723aaa47afc75339ce1db3ff8",
+      "proposal-18.png": "b5144ed770886dfc70719778b395c9ded81ca27d6466d1da3220933582a23d94",
+      "proposal-19.png": "de58931cffc6d50bcd22921bc17c88525d52184a48a9cac49b1f819113611896",
+      "proposal-20.png": "2c17e8e439afad6080a52f956b3663e0f92de6cc0b777df02c9aade866596d2a",
+      "proposal-21.png": "ee13a7795fb8296c39363c442c7fc5a7603663b1f037a707db0fa6babc75605b",
+      "proposal-22.png": "f64fa00372022b7685d2ac53950c82c6e117c3e29fcafc5b75d9439789f7e6f6"
+    }
+  },
+  "offline_recomputation": {
+    "reference_valid_causal_samples": 436,
+    "all_causal_samples": 501,
+    "invalid_reference_edges": 65,
+    "reference_valid_expired_edges": 3,
+    "conservative_unobserved_opportunities": 98,
+    "conservative_nominal_boundaries": 602,
+    "full_denominators_gaps_quantiles_and_sampled_diagnostic_deltas": "PASS",
+    "printed_wire_fields": 181,
+    "printed_examples": 6,
+    "document_hmac_padding_units_tables_citations": "PASS",
+    "scientific_figure_and_table_regeneration": [
+      {
+        "file": "phase-availability-inline.tex",
+        "byte_identical": true
+      },
+      {
+        "file": "renewal-expiry-inline.tex",
+        "byte_identical": true
+      },
+      {
+        "file": "phase-availability.pdf",
+        "byte_identical": true
+      },
+      {
+        "file": "phase-availability.png",
+        "byte_identical": true
+      },
+      {
+        "file": "renewal-expiry.pdf",
+        "byte_identical": true
+      },
+      {
+        "file": "renewal-expiry.png",
+        "byte_identical": true
+      },
+      {
+        "file": "result-table.csv",
+        "byte_identical": true
+      }
+    ],
+    "numpy": "2.5.4",
+    "matplotlib": "3.11.2",
+    "figure_adapter_has_no_raw_extraction_mode": true
+  },
+  "privacy_review": {
+    "selected_text_json_csv_files_scanned": 27,
+    "sensitive_absolute_paths_serial_factory_identifier_or_private_key_patterns": "none found",
+    "private_enrollment_or_raw_console": "not imported",
+    "public_fixture_key": "Only synthetic protocol test-key material; no deployment authority."
+  },
+  "not_rerun": [
+    "Private raw extraction and training calibration.",
+    "Historical 33-vector C/ASan/UBSan checks and focused decoder counterexamples.",
+    "Private archive seals and exact installed image or current hardware state.",
+    "Independent electrical output, UTC association, reference calibration or full protocol suite."
+  ],
+  "licensing": "Jonathan Yantis; CC BY 4.0 manuscripts, scientific figures and evidence; MIT tools, ordinary documentation and protocol fixtures.",
+  "clean_public_export": {
+    "staged_public_tree_exported_without_git_or_private_working_directory": true,
+    "v14_verifier": "PASS",
+    "historical_evidence_verifier": "PASS",
+    "dependencies": "Python standard library only; neither verifier accesses a private sibling.",
+    "staged_allowlist_files": 50,
+    "local_markdown_links": "PASS",
+    "git_diff_check": "PASS"
+  }
+}

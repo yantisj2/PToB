@@ -1,7 +1,33 @@
 # Research papers — drafts
 
-These are working drafts by **Jonathan Yantis**. The proposal and principal
-research preprint retain their unchanged **2 October 2026** editions. The
+These are working drafts by **Jonathan Yantis**. The latest proposal and research
+preprint are explicit **12 October 2026 V14 successors**, imported on October 13.
+They remain local discussion/research drafts, without standards adoption or
+firmware qualification. Their source and reviewed PDF bytes are unchanged.
+
+| Latest draft | Read | Edit |
+| --- | --- | --- |
+| Passive Precision Time over BLE: V14-RC1 Candidate Service and Profile Proposal | [PDF](ptob-v14-sig-proposal.pdf) | [LaTeX](ptob-v14-sig-proposal.tex) |
+| Passive Precision Time over BLE: V14 Boundary Clocks, Causal Timestamping, and Prospective One-Relay Validation | [PDF](ptob-v14-preprint.pdf) | [LaTeX](ptob-v14-preprint.tex) |
+
+The V14 evidence cutoff is **2026-10-12T18:26:44.293859Z**, with specification
+freeze `7995249` and selected application **0.14.43** at
+`566ea2029c7ffc84a7d321df427c5c811fac2730`. The [edition receipt](imports/v14-2026-10-13.json)
+records exact source/PDF identity, original build/review records, rights, selected
+scientific exports, and exclusions. Both PDFs matched the website copies when
+imported; no website deployment was performed.
+
+The [V14 evidence collection](../evidence/v14/2026-10-12/README.md) provides
+sanitized samples, figure/table exports, claim provenance, and offline checks.
+It retains invalid references, expired maps, and missing opportunities. The
+proposal's [known normative issues](../evidence/v14/2026-10-12/provenance/ptob-v14-sig-issues.json)
+remain open. [Research status](../docs/V14_RESEARCH_STATUS.md) distinguishes those
+results from current firmware and calibrated output accuracy.
+
+## Historical drafts
+
+The earlier proposal and principal research preprint retain their unchanged
+**2 October 2026** editions. The
 oscillator/PLL follow-up uses the amended **3 October 2026** source and a matching
 PDF exported on **9 October 2026**. None is a stable paper, peer-reviewed
 publication, or adopted standard.
@@ -12,7 +38,7 @@ publication, or adopted standard.
 | Passive Precision Time over BLE: Prospective Edge Calibration, Causal Publication, and Service Availability | [PDF](ptob-preprint.pdf) | [LaTeX](ptob-preprint.tex) |
 | Causal Software Clock Discipline over Wireless Physical Events: Native Lock Evidence, Operating Tiers, and a Tunable-Oscillator Extension | [PDF](oscillator-pll-research-20261003.pdf) | [LaTeX](oscillator-pll-research-20261003.tex) |
 
-All three papers and their original figures are **CC BY 4.0**, attributed to Jonathan
+All five papers and their original figures are **CC BY 4.0**, attributed to Jonathan
 Yantis. See [the license notice](LICENSE.md) and [project credits](../CREDITS.md).
 
 ## Scope and evidence
@@ -52,7 +78,8 @@ references describe their edition, not the current repository layout or status.
 
 ## Work on the next draft here
 
-These LaTeX files are now the working manuscript sources for this repository.
+The V14 LaTeX files are the working successor sources for this repository;
+earlier editions retain their historical scope.
 Make future paper edits here and preserve changes in Git; do not silently replace
 them with later private copies. Import private findings as reviewed, attributed
 changes with their evidence. Keep the baseline import receipt immutable.
@@ -82,15 +109,24 @@ mkdir -p artifacts/papers
 tectonic --outdir artifacts/papers papers/ptob-proposal.tex
 tectonic --outdir artifacts/papers papers/ptob-preprint.tex
 tectonic --outdir artifacts/papers papers/oscillator-pll-research-20261003.tex
+tectonic --outdir artifacts/papers papers/ptob-v14-sig-proposal.tex
+tectonic --outdir artifacts/papers papers/ptob-v14-preprint.tex
 ```
 
 Tectonic may download its public TeX bundle on first use. Inspect the generated
 PDFs before replacing the checked-in copies. Different TeX engines or bundle
-versions may change pagination or PDF bytes. The proposal and main preprint
+versions may change pagination or PDF bytes. The October 2 and V14 proposals/preprints
 retain original exports. The oscillator/PLL PDF was regenerated during migration
 to match its existing amended source.
 
 ## Cite a draft
+
+Jonathan Yantis. *Passive Precision Time over BLE: V14-RC1 Candidate Service and
+Profile Proposal.* Discussion draft, 12 October 2026.
+
+Jonathan Yantis. *Passive Precision Time over BLE: V14 Boundary Clocks, Causal
+Timestamping, and Prospective One-Relay Validation.* Research preprint, draft,
+12 October 2026.
 
 Jonathan Yantis. *PToB: A Passive Time Service for Diverse BLE Edge Devices.*
 Candidate protocol specification and profile proposal, draft, 2 October 2026.

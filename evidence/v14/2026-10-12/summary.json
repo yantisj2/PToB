@@ -1,0 +1,90 @@
+{
+  "duration_s": 601.5761865,
+  "nominal_boundaries": 602,
+  "observed_edges": 504,
+  "reference_valid_causal": {
+    "n": 436,
+    "bias_ns": -18.41743119266055,
+    "rms_including_bias_ns": 62.50387143972866,
+    "jitter_rms_ns": 59.72882196408818,
+    "abs_p50_ns": 43.0,
+    "abs_p95_ns": 123.25,
+    "abs_p99_ns": 160.2499999999999,
+    "abs_max_ns": 191
+  },
+  "all_causal": {
+    "n": 501,
+    "bias_ns": 822982.9481037924,
+    "rms_including_bias_ns": 3929463.788051649,
+    "jitter_rms_ns": 3842315.022058916,
+    "abs_p50_ns": 46.0,
+    "abs_p95_ns": 175.0,
+    "abs_p99_ns": 19016178.0,
+    "abs_max_ns": 19752827
+  },
+  "invalid_reference": 65,
+  "reference_valid_expired": 3,
+  "unobserved_conservative": 98,
+  "max_witness_gap_s": 59.0171903125,
+  "calibration": {
+    "advance_client_ns": 10543,
+    "valid_reference_samples": 520,
+    "observed_samples": 531,
+    "nominal_expected_pps_edges": 600,
+    "raw_reference_valid": {
+      "n": 520,
+      "bias_ns": -10542.636538461538,
+      "rms_including_bias_ns": 10542.760418063777,
+      "jitter_rms_ns": 51.10822426985452,
+      "abs_p50_ns": 10540.0,
+      "abs_p95_ns": 10625.05,
+      "abs_p99_ns": 10646.43,
+      "abs_max_ns": 10705
+    },
+    "training_residual_after_constant": {
+      "n": 520,
+      "bias_ns": 0.36346153846153845,
+      "rms_including_bias_ns": 51.109516651086544,
+      "jitter_rms_ns": 51.108224269854524,
+      "abs_p50_ns": 36.0,
+      "abs_p95_ns": 95.0,
+      "abs_p99_ns": 125.80999999999995,
+      "abs_max_ns": 162
+    },
+    "block_mean_standard_error_ns": 5.39042944226115,
+    "approx95pct_bias_interval_ns": [
+      -10553.20178016837,
+      -10532.071296754706
+    ]
+  },
+  "continuity": {
+    "RC": {
+      "network_snapshots": 20,
+      "renewal_first_last": [
+        1,
+        3
+      ],
+      "interval_precision_counter_deltas": {
+        "accepted": 6086,
+        "holdover_expiries": 6,
+        "holdover_recoveries": 6
+      },
+      "discipline_gap_max_us": 686834,
+      "normal_service_left_running": true
+    },
+    "leaf": {
+      "network_snapshots": 20,
+      "renewal_first_last": [
+        1,
+        3
+      ],
+      "interval_precision_counter_deltas": {
+        "accepted": 8318,
+        "holdover_expiries": 11,
+        "holdover_recoveries": 11
+      },
+      "discipline_gap_max_us": 1183478,
+      "normal_service_left_running": true
+    }
+  }
+}

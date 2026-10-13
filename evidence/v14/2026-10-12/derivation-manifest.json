@@ -1,0 +1,43 @@
+{
+  "schema": 1,
+  "metric": "causal_signed_modulo_second_PPS_phase",
+  "quantile": "numpy linear interpolation (n-1)p",
+  "input_hashes": {
+    "artifacts/rc-tc01-chain-10min-20261012-01/review/pps.csv": "130ab1ebf220eaabaa3fce57ae62133eeec2ad0c343a23b1cdbdfcf36e18048d",
+    "artifacts/rc-tc01-chain-10min-20261012-01/review/metrics.json": "a47b2027b360a36d850bceb4f45c509b28197d97c75f733a588bb7f0e4cfc35d",
+    "artifacts/rc-tc01-chain-10min-20261012-01/review/continuity.json": "61dc5e27a58d944d9d3299b5a1ee08175cba87cdae8efadd31b058e755a8f073",
+    "artifacts/rc-tc01-chain-10min-20261012-01/TC-03/shadow.jsonl": "df1bc7614cece20079f01252ad89e63c25871699f31b6e1373ca56525c5d9b80",
+    "artifacts/rc-tc01-chain-10min-20261012-01/TC-02/diagnostics.jsonl": "bb8963f4e04b80fa948eb734971b8a4f11d144c518a2c8927a412daaebcc6faf",
+    "artifacts/rc-tc01-chain-10min-20261012-01/TC-03/diagnostics.jsonl": "74c205e97358ddc51eb8a06f4678041d9e695a0dcba3dc2aac38657fa4371425",
+    "protocol/v14_rc1/contract.json": "a122e61032fde317a709654ce58d83e08e4c254d3ae0eddb8b5b574f168b3ec0"
+  },
+  "outputs": {
+    "derive.py": "63dc91758becd7be6045c1c821e6ea290db79b02b987a7bf1734cc606311d395",
+    "diagnostic-sanitized.csv": "68acc8d2a70e9211a54968107caee5043c73c86c070c98e56b5da400d823d436",
+    "phase-availability-inline.tex": "4fcac338a2da25e2a8ddf7b027a90159132a0d51f028b515649c1bfa46e09147",
+    "phase-availability.pdf": "00666191e025ac795727838bdd1bf973187fe28c6804423bb1ffb28a4cda38f6",
+    "phase-availability.png": "dbe20fc47820097a720bcd0ecaa2b0e02105ae3a157cc7e18813cef4775ceca0",
+    "pps-sanitized.csv": "55139bf0cfe729064b5942fccb94a36b1ea6ff36c5414bf2d1a9eceb006b103f",
+    "renewal-expiry-inline.tex": "52dc285edc53da8511935114309269a2fb9549fed08892432041e4c6a228b4be",
+    "renewal-expiry.pdf": "2c7eabc267e5fe395fb6b9a96b09d48811d57aa6d6ea3a01c8d2ced320483e26",
+    "renewal-expiry.png": "faeca9cc155f5575bd06316e68a4e607b8aa33ed2400f988601c2c6b0973a4c7",
+    "result-table.csv": "ab6d97d8aec62e8bbcd81625faf43295bbb0881ba2d6808b06a6a11dd647f936",
+    "summary.json": "a4ecdefdd9e8f08f266a15ce3ab09bc5419d535cbf02633bd6d7fcd10aca4e4b",
+    "wire-layouts.csv": "77361cfa3931c516c585bc3e0b2511bb996adcd393ad22edc5bbc238a56ca8c6"
+  },
+  "python": "3.12.14 (main, Aug 25 2026, 13:50:33) [Clang 22.1.3 ]",
+  "numpy": "2.5.4",
+  "matplotlib": "3.11.2",
+  "calculated": {
+    "n": 436,
+    "bias_ns": -18.41743119266055,
+    "rms_including_bias_ns": 62.50387143972866,
+    "jitter_rms_ns": 59.72882196408818,
+    "abs_p50_ns": 43.0,
+    "abs_p95_ns": 123.25,
+    "abs_p99_ns": 160.2499999999999,
+    "abs_max_ns": 191.0
+  },
+  "sanitization": "No silicon, boots, factory MAC, absolute epoch, private path, enrollment or console record exported",
+  "no_interpolation_of_missing_output": true
+}

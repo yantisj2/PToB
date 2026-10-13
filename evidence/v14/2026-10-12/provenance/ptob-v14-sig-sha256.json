@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "status": "FROZEN_LOCAL_REVIEW_PACKAGE",
+  "target": "V14-RC1 at7995249",
+  "source_sha256": "134da2e33284b320e93f49f1c1066c22a3a8746cd7e2c2d0e168fb11124f251f",
+  "pdf_sha256": "d484bcc8e5891dd9f2b45e64b7bd4861a9e109419c08b91ec61d51e6e81a78e4",
+  "review_package": {
+    "path": "paper/ptob-v14-sig-review-package.zip",
+    "sha256": "91bcf512eec89cdfa715c5dc890c9727f94528c6f2487d30ea6c450c2876547e",
+    "bytes": 5749063,
+    "inventory_sha256": "a2431ed45eaf9c254ea2c62d6e2a1ce24e1d5250c47b4b5ead8079fde085ce3a",
+    "files": 42,
+    "zip_integrity": "PASS",
+    "all_entries_sha256_verified": true,
+    "portable_focused_checker": "PASS"
+  },
+  "document_artifacts": {
+    "paper/build_v14_sig_proposal.py": "92ab93f3845bb2078e30aa44d255d918ff13584dbc92da3f2e43c3a40fd3ebaf",
+    "paper/provenance/check_v14_sig_document.py": "3898f31efccaf76197a95bb188721fc2042deaf6b8253a62c52833ad0f5ec713",
+    "paper/provenance/ptob-v14-sig-build.json": "dc61389bcfe30e221803932ec25c64e1427eacc94d250ac9aa91b5c9e570a044",
+    "paper/provenance/ptob-v14-sig-evidence.json": "b706594a3277bade34a0908899a3cc7b73b38b70e0950f43b2315f58af053b90",
+    "paper/provenance/ptob-v14-sig-issues.json": "69dbda42c8b94c5275affce65ce378177321d092109f4f174431ba067d0a382e",
+    "paper/provenance/ptob-v14-sig-literature.json": "20dd784f5b20306cf35cc2429c477347691a7723095838843a3034b8e4a92f1c",
+    "paper/provenance/ptob-v14-sig-visual-review.json": "49fccd726644b25e794e801621c90cdcd75f871b7a9ce705e5a4c0db039c92ef",
+    "paper/provenance/ptob-v14-sig-wire.json": "5b2a6b704f0892d495b641d1c7ca51134d98b95d870423d001fcab8be93a20b0",
+    "paper/ptob-v14-sig-proposal.pdf": "d484bcc8e5891dd9f2b45e64b7bd4861a9e109419c08b91ec61d51e6e81a78e4",
+    "paper/ptob-v14-sig-proposal.tex": "134da2e33284b320e93f49f1c1066c22a3a8746cd7e2c2d0e168fb11124f251f",
+    "paper/ptob-v14-sig-review.txt": "a439e32fff3815fd600badd06bd0b84da8bcbc4c4958885adad0feb82b8e3ba6"
+  },
+  "protected_inputs_unchanged": true,
+  "private_raw_or_operational_identifiers": false,
+  "published": false
+}

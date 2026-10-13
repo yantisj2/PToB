@@ -1,0 +1,1249 @@
+{
+  "schema": 1,
+  "id": "V14-RC1",
+  "status": "SPECIFICATION_CANDIDATE",
+  "frozen_date": "2026-10-12",
+  "specification": "docs/V14_CLOCK_SPEC_RC1.md",
+  "byte_order": "little",
+  "signed_encoding": "twos_complement",
+  "roles": [
+    "GM",
+    "COORDINATOR",
+    "STANDBY",
+    "RC",
+    "CLIENT"
+  ],
+  "gm_control_cap": 4,
+  "election_order": [
+    "priority1",
+    "clock_class",
+    "accuracy",
+    "variance",
+    "priority2",
+    "stable_identity"
+  ],
+  "timing": {
+    "frame_ns": 62500000,
+    "rate_hz": 16,
+    "slots_ns": [
+      0,
+      15625000,
+      31250000,
+      46875000
+    ],
+    "corrections_per_packet_max": 2,
+    "physical_reference": "captured_original_event_not_followup_callback",
+    "gm_timestamp_unit_ns": 62.5,
+    "rc_timestamp_unit_ns": 1
+  },
+  "fixed_route_profile": {
+    "max_table_entries": 8,
+    "max_rc_intermediaries": 2,
+    "max_rc_slots": 3,
+    "dynamic_slot_allocation": false,
+    "renewal_us": 300000000,
+    "max_local_lease_us": 360000000,
+    "transaction_us": 2000000,
+    "local_holdover_us": 500000,
+    "local_expiry_comparison": "age >= limit => unavailable",
+    "holdover_anchor": "last_accepted_discipline_availability",
+    "cumulative_age": "inherited_age_plus_local_elapsed_never_reset_by_renewal",
+    "physical_precision_bound_ns": null
+  },
+  "separate_policies": {
+    "gm_source_permission_max_us": 1650000,
+    "rc_admission_representation_max_us": 360000000,
+    "legacy_windowed_leaf_reference_max_us": 1500000,
+    "constrained_listening_cap_percent": 50,
+    "half_duty_acceptance": "SEPARATE_PENDING",
+    "healthy_service_timeout": null
+  },
+  "authentication": {
+    "algorithm": "HMAC-SHA256-128",
+    "key_bytes": 32,
+    "context_version": 1,
+    "context_fields": [
+      {
+        "name": "version",
+        "bytes": 1
+      },
+      {
+        "name": "group_id",
+        "bytes": 8
+      },
+      {
+        "name": "group_epoch",
+        "bytes": 4
+      }
+    ],
+    "route_digest_bytes": 8,
+    "route_table_bytes": 97,
+    "route_entry_bytes": 12,
+    "trust": "symmetric_group_membership_not_individual_attestation",
+    "public_keyless_verification": false
+  },
+  "wire": {
+    "GR3": {
+      "bytes": 190,
+      "kind": "complete_AD",
+      "magic": "GR",
+      "version": 3,
+      "domains": {
+        "origin": "PTOBG3O3",
+        "packet": "PTOBG3R3"
+      },
+      "origin_authenticated_range": [
+        14,
+        60
+      ],
+      "packet_authenticated_range": [
+        0,
+        174
+      ],
+      "fields": [
+        {
+          "name": "AD_length",
+          "offset": 0,
+          "bytes": 1
+        },
+        {
+          "name": "AD_type",
+          "offset": 1,
+          "bytes": 1
+        },
+        {
+          "name": "experimental_manufacturer",
+          "offset": 2,
+          "bytes": 2
+        },
+        {
+          "name": "magic",
+          "offset": 4,
+          "bytes": 2
+        },
+        {
+          "name": "wire_version",
+          "offset": 6,
+          "bytes": 1
+        },
+        {
+          "name": "correction_count",
+          "offset": 7,
+          "bytes": 1
+        },
+        {
+          "name": "interval_1250us",
+          "offset": 8,
+          "bytes": 2
+        },
+        {
+          "name": "group_epoch",
+          "offset": 10,
+          "bytes": 4
+        },
+        {
+          "name": "root_identity",
+          "offset": 14,
+          "bytes": 8
+        },
+        {
+          "name": "hold_horizon_us",
+          "offset": 22,
+          "bytes": 4
+        },
+        {
+          "name": "hold_budget_ns",
+          "offset": 26,
+          "bytes": 4
+        },
+        {
+          "name": "root_boot",
+          "offset": 30,
+          "bytes": 8
+        },
+        {
+          "name": "root_source_epoch",
+          "offset": 38,
+          "bytes": 4
+        },
+        {
+          "name": "source_issued_ns",
+          "offset": 42,
+          "bytes": 8
+        },
+        {
+          "name": "source_expires_ns",
+          "offset": 50,
+          "bytes": 8
+        },
+        {
+          "name": "root_frame_ns",
+          "offset": 58,
+          "bytes": 8
+        },
+        {
+          "name": "utc_offset_ns",
+          "offset": 66,
+          "bytes": 8
+        },
+        {
+          "name": "origin_mac",
+          "offset": 74,
+          "bytes": 16
+        },
+        {
+          "name": "transmitter_identity",
+          "offset": 90,
+          "bytes": 8
+        },
+        {
+          "name": "parent_identity",
+          "offset": 98,
+          "bytes": 8
+        },
+        {
+          "name": "relay_depth",
+          "offset": 106,
+          "bytes": 1
+        },
+        {
+          "name": "slot",
+          "offset": 107,
+          "bytes": 1
+        },
+        {
+          "name": "transmitter_boot",
+          "offset": 108,
+          "bytes": 8
+        },
+        {
+          "name": "train",
+          "offset": 116,
+          "bytes": 4
+        },
+        {
+          "name": "publication",
+          "offset": 120,
+          "bytes": 4
+        },
+        {
+          "name": "capture_epoch",
+          "offset": 124,
+          "bytes": 4
+        },
+        {
+          "name": "map_generation",
+          "offset": 128,
+          "bytes": 4
+        },
+        {
+          "name": "bound_ns",
+          "offset": 132,
+          "bytes": 4
+        },
+        {
+          "name": "correction_0",
+          "offset": 136,
+          "bytes": 19
+        },
+        {
+          "name": "correction_1",
+          "offset": 155,
+          "bytes": 19
+        },
+        {
+          "name": "packet_mac",
+          "offset": 174,
+          "bytes": 16
+        }
+      ],
+      "correction_fields": [
+        {
+          "name": "publication",
+          "offset": 0,
+          "bytes": 4
+        },
+        {
+          "name": "event",
+          "offset": 4,
+          "bytes": 2
+        },
+        {
+          "name": "channel",
+          "offset": 6,
+          "bytes": 1
+        },
+        {
+          "name": "tx_ticks_16MHz",
+          "offset": 7,
+          "bytes": 8
+        },
+        {
+          "name": "map_generation",
+          "offset": 15,
+          "bytes": 4
+        }
+      ],
+      "constraints": {
+        "source_lifetime_max_ns": 1650000000,
+        "hold_horizon_max_us": 10000000,
+        "hold_horizon_budget_zero_together": true,
+        "hold_budget_unknown_refused": true,
+        "unused_corrections_zero": true
+      }
+    },
+    "RC5": {
+      "bytes": 190,
+      "kind": "complete_AD",
+      "magic": "RC",
+      "version": 5,
+      "profile": 3,
+      "domains": {
+        "route": "RC5ROUTE",
+        "origin": "RC5ORIGN",
+        "packet": "RC5PACKT"
+      },
+      "origin_authenticated_body": "route_digest_8 || wire[12:72]",
+      "packet_authenticated_range": [
+        0,
+        174
+      ],
+      "fields": [
+        {
+          "name": "AD_length",
+          "offset": 0,
+          "bytes": 1
+        },
+        {
+          "name": "AD_type",
+          "offset": 1,
+          "bytes": 1
+        },
+        {
+          "name": "experimental_manufacturer",
+          "offset": 2,
+          "bytes": 2
+        },
+        {
+          "name": "magic",
+          "offset": 4,
+          "bytes": 2
+        },
+        {
+          "name": "wire_version",
+          "offset": 6,
+          "bytes": 1
+        },
+        {
+          "name": "correction_count",
+          "offset": 7,
+          "bytes": 1
+        },
+        {
+          "name": "group_epoch",
+          "offset": 8,
+          "bytes": 4
+        },
+        {
+          "name": "root_identity",
+          "offset": 12,
+          "bytes": 8
+        },
+        {
+          "name": "root_boot",
+          "offset": 20,
+          "bytes": 8
+        },
+        {
+          "name": "root_source_epoch",
+          "offset": 28,
+          "bytes": 4
+        },
+        {
+          "name": "source_issued_ns",
+          "offset": 32,
+          "bytes": 8
+        },
+        {
+          "name": "source_expires_ns",
+          "offset": 40,
+          "bytes": 8
+        },
+        {
+          "name": "utc_offset_ns",
+          "offset": 48,
+          "bytes": 8
+        },
+        {
+          "name": "root_frame_ns",
+          "offset": 56,
+          "bytes": 8
+        },
+        {
+          "name": "hold_horizon_us",
+          "offset": 64,
+          "bytes": 4
+        },
+        {
+          "name": "hold_budget_ns",
+          "offset": 68,
+          "bytes": 4
+        },
+        {
+          "name": "origin_mac",
+          "offset": 72,
+          "bytes": 16
+        },
+        {
+          "name": "route_digest",
+          "offset": 88,
+          "bytes": 8
+        },
+        {
+          "name": "sender_route_index",
+          "offset": 96,
+          "bytes": 1
+        },
+        {
+          "name": "depth_slot",
+          "offset": 97,
+          "bytes": 1
+        },
+        {
+          "name": "transmitter_boot",
+          "offset": 98,
+          "bytes": 8
+        },
+        {
+          "name": "train",
+          "offset": 106,
+          "bytes": 4
+        },
+        {
+          "name": "publication",
+          "offset": 110,
+          "bytes": 4
+        },
+        {
+          "name": "capture_epoch",
+          "offset": 114,
+          "bytes": 4
+        },
+        {
+          "name": "correction_0",
+          "offset": 118,
+          "bytes": 27
+        },
+        {
+          "name": "correction_1",
+          "offset": 145,
+          "bytes": 27
+        },
+        {
+          "name": "profile",
+          "offset": 172,
+          "bytes": 1
+        },
+        {
+          "name": "reserved",
+          "offset": 173,
+          "bytes": 1
+        },
+        {
+          "name": "packet_mac",
+          "offset": 174,
+          "bytes": 16
+        }
+      ],
+      "correction_fields": [
+        {
+          "name": "publication",
+          "offset": 0,
+          "bytes": 4
+        },
+        {
+          "name": "event",
+          "offset": 4,
+          "bytes": 2
+        },
+        {
+          "name": "channel",
+          "offset": 6,
+          "bytes": 1
+        },
+        {
+          "name": "map_generation",
+          "offset": 7,
+          "bytes": 4
+        },
+        {
+          "name": "cumulative_age_us",
+          "offset": 11,
+          "bytes": 4
+        },
+        {
+          "name": "tx_ns",
+          "offset": 15,
+          "bytes": 8
+        },
+        {
+          "name": "bound_ns",
+          "offset": 23,
+          "bytes": 4
+        }
+      ],
+      "constraints": {
+        "provenance_admission_lifetime_max_ns": 360000000000,
+        "hold_horizon_max_us": 10000000,
+        "hold_horizon_budget_zero_together": true,
+        "hold_budget_unknown_refused": true,
+        "unused_corrections_zero": true,
+        "reserved_zero": true
+      }
+    },
+    "RQ5": {
+      "bytes": 136,
+      "kind": "local_service_record_AD_framing",
+      "magic": "RQ",
+      "version": 5,
+      "profile": 3,
+      "domains": {
+        "route": "RC5ROUTE",
+        "record": "RC5LOCAL"
+      },
+      "record_authenticated_range": [
+        0,
+        120
+      ],
+      "kinds": {
+        "CAPABILITY": 1,
+        "REQUEST": 2,
+        "RESPONSE": 3
+      },
+      "fields": [
+        {
+          "name": "AD_length",
+          "offset": 0,
+          "bytes": 1
+        },
+        {
+          "name": "AD_type",
+          "offset": 1,
+          "bytes": 1
+        },
+        {
+          "name": "experimental_manufacturer",
+          "offset": 2,
+          "bytes": 2
+        },
+        {
+          "name": "magic",
+          "offset": 4,
+          "bytes": 2
+        },
+        {
+          "name": "wire_version",
+          "offset": 6,
+          "bytes": 1
+        },
+        {
+          "name": "kind",
+          "offset": 7,
+          "bytes": 1
+        },
+        {
+          "name": "sender_index",
+          "offset": 8,
+          "bytes": 1
+        },
+        {
+          "name": "target_index",
+          "offset": 9,
+          "bytes": 1
+        },
+        {
+          "name": "ready",
+          "offset": 10,
+          "bytes": 1
+        },
+        {
+          "name": "profile",
+          "offset": 11,
+          "bytes": 1
+        },
+        {
+          "name": "group_epoch",
+          "offset": 12,
+          "bytes": 4
+        },
+        {
+          "name": "sender_boot",
+          "offset": 16,
+          "bytes": 8
+        },
+        {
+          "name": "target_boot",
+          "offset": 24,
+          "bytes": 8
+        },
+        {
+          "name": "challenge",
+          "offset": 32,
+          "bytes": 8
+        },
+        {
+          "name": "nonce",
+          "offset": 40,
+          "bytes": 8
+        },
+        {
+          "name": "sequence",
+          "offset": 48,
+          "bytes": 4
+        },
+        {
+          "name": "train",
+          "offset": 52,
+          "bytes": 4
+        },
+        {
+          "name": "capture_epoch",
+          "offset": 56,
+          "bytes": 4
+        },
+        {
+          "name": "publication_floor",
+          "offset": 60,
+          "bytes": 4
+        },
+        {
+          "name": "root_boot",
+          "offset": 64,
+          "bytes": 8
+        },
+        {
+          "name": "root_source_epoch",
+          "offset": 72,
+          "bytes": 4
+        },
+        {
+          "name": "coarse_root_lower_ns",
+          "offset": 76,
+          "bytes": 8
+        },
+        {
+          "name": "coarse_root_upper_ns",
+          "offset": 84,
+          "bytes": 8
+        },
+        {
+          "name": "admission_expires_ns",
+          "offset": 92,
+          "bytes": 8
+        },
+        {
+          "name": "lease_us",
+          "offset": 100,
+          "bytes": 4
+        },
+        {
+          "name": "next_challenge",
+          "offset": 104,
+          "bytes": 8
+        },
+        {
+          "name": "route_digest",
+          "offset": 112,
+          "bytes": 8
+        },
+        {
+          "name": "record_mac",
+          "offset": 120,
+          "bytes": 16
+        }
+      ]
+    },
+    "JOIN4": {
+      "bytes": 164,
+      "kind": "connected_control_record",
+      "type": 14,
+      "version": 4,
+      "domains": {
+        "record": "PTOBG4J4"
+      },
+      "record_authenticated_range": [
+        0,
+        148
+      ],
+      "fields": [
+        {
+          "name": "type",
+          "offset": 0,
+          "bytes": 1
+        },
+        {
+          "name": "kind",
+          "offset": 1,
+          "bytes": 1
+        },
+        {
+          "name": "wire_version",
+          "offset": 2,
+          "bytes": 1
+        },
+        {
+          "name": "capabilities",
+          "offset": 3,
+          "bytes": 1
+        },
+        {
+          "name": "group_epoch",
+          "offset": 4,
+          "bytes": 4
+        },
+        {
+          "name": "sender_identity",
+          "offset": 8,
+          "bytes": 8
+        },
+        {
+          "name": "receiver_identity",
+          "offset": 16,
+          "bytes": 8
+        },
+        {
+          "name": "sender_boot",
+          "offset": 24,
+          "bytes": 8
+        },
+        {
+          "name": "receiver_boot",
+          "offset": 32,
+          "bytes": 8
+        },
+        {
+          "name": "client_nonce",
+          "offset": 40,
+          "bytes": 8
+        },
+        {
+          "name": "server_nonce",
+          "offset": 48,
+          "bytes": 8
+        },
+        {
+          "name": "sequence",
+          "offset": 56,
+          "bytes": 8
+        },
+        {
+          "name": "created_us",
+          "offset": 64,
+          "bytes": 8
+        },
+        {
+          "name": "echo_us",
+          "offset": 72,
+          "bytes": 8
+        },
+        {
+          "name": "root_identity",
+          "offset": 80,
+          "bytes": 8
+        },
+        {
+          "name": "root_boot",
+          "offset": 88,
+          "bytes": 8
+        },
+        {
+          "name": "source_epoch",
+          "offset": 96,
+          "bytes": 4
+        },
+        {
+          "name": "publication",
+          "offset": 100,
+          "bytes": 4
+        },
+        {
+          "name": "utc_us",
+          "offset": 104,
+          "bytes": 8
+        },
+        {
+          "name": "remaining_us",
+          "offset": 112,
+          "bytes": 4
+        },
+        {
+          "name": "source_flags",
+          "offset": 116,
+          "bytes": 1
+        },
+        {
+          "name": "name_length",
+          "offset": 117,
+          "bytes": 1
+        },
+        {
+          "name": "name_utf8_zero_padded",
+          "offset": 118,
+          "bytes": 24
+        },
+        {
+          "name": "control",
+          "offset": 142,
+          "bytes": 1
+        },
+        {
+          "name": "demand",
+          "offset": 143,
+          "bytes": 1
+        },
+        {
+          "name": "source_bound_us",
+          "offset": 144,
+          "bytes": 4
+        },
+        {
+          "name": "record_mac",
+          "offset": 148,
+          "bytes": 16
+        }
+      ],
+      "kinds": {
+        "REQUEST": 1,
+        "CHALLENGE": 2,
+        "PROOF": 3,
+        "ACCEPT": 4,
+        "BUSY": 5
+      },
+      "constraints": {
+        "capabilities_max": 7,
+        "control_max": 1,
+        "demand_max": 4,
+        "name_utf8_bytes_min": 1,
+        "name_utf8_bytes_max": 24,
+        "time_extraction_max_rtt_us": 250000,
+        "exchange_lifetime_us": 5000000,
+        "coarse_source_remaining_max_us": 1500000
+      }
+    },
+    "GC17": {
+      "bytes": 168,
+      "kind": "connected_control_record",
+      "type": 17,
+      "config_epoch": 5,
+      "domains": {
+        "record": "PTOBG3C4"
+      },
+      "record_authenticated_range": [
+        0,
+        152
+      ],
+      "fields": [
+        {
+          "name": "type",
+          "offset": 0,
+          "bytes": 1
+        },
+        {
+          "name": "kind",
+          "offset": 1,
+          "bytes": 1
+        },
+        {
+          "name": "sender_index",
+          "offset": 2,
+          "bytes": 1
+        },
+        {
+          "name": "target_index",
+          "offset": 3,
+          "bytes": 1
+        },
+        {
+          "name": "sender_boot",
+          "offset": 4,
+          "bytes": 8
+        },
+        {
+          "name": "coordinator_boot",
+          "offset": 12,
+          "bytes": 8
+        },
+        {
+          "name": "challenge",
+          "offset": 20,
+          "bytes": 8
+        },
+        {
+          "name": "sequence",
+          "offset": 28,
+          "bytes": 8
+        },
+        {
+          "name": "decision",
+          "offset": 36,
+          "bytes": 8
+        },
+        {
+          "name": "root_index",
+          "offset": 44,
+          "bytes": 1
+        },
+        {
+          "name": "root_boot",
+          "offset": 45,
+          "bytes": 8
+        },
+        {
+          "name": "source_epoch",
+          "offset": 53,
+          "bytes": 4
+        },
+        {
+          "name": "source_second",
+          "offset": 57,
+          "bytes": 8
+        },
+        {
+          "name": "evidence_us",
+          "offset": 65,
+          "bytes": 8
+        },
+        {
+          "name": "created_us",
+          "offset": 73,
+          "bytes": 8
+        },
+        {
+          "name": "expires_us",
+          "offset": 81,
+          "bytes": 8
+        },
+        {
+          "name": "permit_until_us",
+          "offset": 89,
+          "bytes": 8
+        },
+        {
+          "name": "config_epoch",
+          "offset": 97,
+          "bytes": 4
+        },
+        {
+          "name": "flags",
+          "offset": 101,
+          "bytes": 1
+        },
+        {
+          "name": "priority1",
+          "offset": 102,
+          "bytes": 1
+        },
+        {
+          "name": "clock_class",
+          "offset": 103,
+          "bytes": 1
+        },
+        {
+          "name": "accuracy",
+          "offset": 104,
+          "bytes": 1
+        },
+        {
+          "name": "priority2",
+          "offset": 105,
+          "bytes": 1
+        },
+        {
+          "name": "variance",
+          "offset": 106,
+          "bytes": 2
+        },
+        {
+          "name": "boot_age_ms",
+          "offset": 108,
+          "bytes": 4
+        },
+        {
+          "name": "source_age_ms",
+          "offset": 112,
+          "bytes": 4
+        },
+        {
+          "name": "group_epoch",
+          "offset": 116,
+          "bytes": 4
+        },
+        {
+          "name": "sender_dictionary",
+          "offset": 120,
+          "bytes": 32
+        },
+        {
+          "name": "record_mac",
+          "offset": 152,
+          "bytes": 16
+        }
+      ],
+      "kinds": {
+        "SERVICE": 8,
+        "ACK": 9,
+        "HELLO": 10,
+        "PREPARE": 11,
+        "READY": 12,
+        "COMMIT": 13
+      },
+      "constraints": {
+        "original_record_lifetime_max_us": 250000,
+        "flags_allowed_mask": 7,
+        "dictionary_entries": 4,
+        "dictionary_is_sender_local": true,
+        "name_utf8_bytes_max": 24,
+        "hello_capabilities_max": 3
+      }
+    },
+    "GC17_HELLO": {
+      "bytes": 223,
+      "kind": "connected_control_record",
+      "type": 17,
+      "config_epoch": 5,
+      "domains": {
+        "record": "PTOBG3C4"
+      },
+      "record_authenticated_range": [
+        0,
+        207
+      ],
+      "fields": [
+        {
+          "name": "type",
+          "offset": 0,
+          "bytes": 1
+        },
+        {
+          "name": "kind",
+          "offset": 1,
+          "bytes": 1
+        },
+        {
+          "name": "sender_index",
+          "offset": 2,
+          "bytes": 1
+        },
+        {
+          "name": "target_index",
+          "offset": 3,
+          "bytes": 1
+        },
+        {
+          "name": "sender_boot",
+          "offset": 4,
+          "bytes": 8
+        },
+        {
+          "name": "coordinator_boot",
+          "offset": 12,
+          "bytes": 8
+        },
+        {
+          "name": "challenge",
+          "offset": 20,
+          "bytes": 8
+        },
+        {
+          "name": "sequence",
+          "offset": 28,
+          "bytes": 8
+        },
+        {
+          "name": "decision",
+          "offset": 36,
+          "bytes": 8
+        },
+        {
+          "name": "root_index",
+          "offset": 44,
+          "bytes": 1
+        },
+        {
+          "name": "root_boot",
+          "offset": 45,
+          "bytes": 8
+        },
+        {
+          "name": "source_epoch",
+          "offset": 53,
+          "bytes": 4
+        },
+        {
+          "name": "source_second",
+          "offset": 57,
+          "bytes": 8
+        },
+        {
+          "name": "evidence_us",
+          "offset": 65,
+          "bytes": 8
+        },
+        {
+          "name": "created_us",
+          "offset": 73,
+          "bytes": 8
+        },
+        {
+          "name": "expires_us",
+          "offset": 81,
+          "bytes": 8
+        },
+        {
+          "name": "permit_until_us",
+          "offset": 89,
+          "bytes": 8
+        },
+        {
+          "name": "config_epoch",
+          "offset": 97,
+          "bytes": 4
+        },
+        {
+          "name": "flags",
+          "offset": 101,
+          "bytes": 1
+        },
+        {
+          "name": "priority1",
+          "offset": 102,
+          "bytes": 1
+        },
+        {
+          "name": "clock_class",
+          "offset": 103,
+          "bytes": 1
+        },
+        {
+          "name": "accuracy",
+          "offset": 104,
+          "bytes": 1
+        },
+        {
+          "name": "priority2",
+          "offset": 105,
+          "bytes": 1
+        },
+        {
+          "name": "variance",
+          "offset": 106,
+          "bytes": 2
+        },
+        {
+          "name": "boot_age_ms",
+          "offset": 108,
+          "bytes": 4
+        },
+        {
+          "name": "source_age_ms",
+          "offset": 112,
+          "bytes": 4
+        },
+        {
+          "name": "pair_root_index",
+          "offset": 116,
+          "bytes": 1
+        },
+        {
+          "name": "pair_standby_index",
+          "offset": 117,
+          "bytes": 1
+        },
+        {
+          "name": "pair_root_boot",
+          "offset": 118,
+          "bytes": 8
+        },
+        {
+          "name": "pair_standby_boot",
+          "offset": 126,
+          "bytes": 8
+        },
+        {
+          "name": "pair_epoch",
+          "offset": 134,
+          "bytes": 4
+        },
+        {
+          "name": "pair_until_us",
+          "offset": 138,
+          "bytes": 8
+        },
+        {
+          "name": "group_epoch",
+          "offset": 146,
+          "bytes": 4
+        },
+        {
+          "name": "sender_dictionary",
+          "offset": 150,
+          "bytes": 32
+        },
+        {
+          "name": "name_length_capabilities",
+          "offset": 182,
+          "bytes": 1
+        },
+        {
+          "name": "name_utf8_zero_padded",
+          "offset": 183,
+          "bytes": 24
+        },
+        {
+          "name": "record_mac",
+          "offset": 207,
+          "bytes": 16
+        }
+      ],
+      "kinds": {
+        "SERVICE": 8,
+        "ACK": 9,
+        "HELLO": 10,
+        "PREPARE": 11,
+        "READY": 12,
+        "COMMIT": 13
+      },
+      "constraints": {
+        "original_record_lifetime_max_us": 250000,
+        "flags_allowed_mask": 7,
+        "dictionary_entries": 4,
+        "dictionary_is_sender_local": true,
+        "name_utf8_bytes_max": 24,
+        "hello_capabilities_max": 3
+      }
+    }
+  },
+  "uncertainty_unknown_u32": 4294967295,
+  "release_gates": {
+    "spec_freeze": "THIS_CANDIDATE",
+    "implementation_conformance": "SEPARATE",
+    "physical_one_rc": "MEASUREMENT_SCOPE_ONLY",
+    "physical_two_rc": "PENDING",
+    "continuous_precision": "PENDING",
+    "absolute_utc": "UNQUALIFIED",
+    "public_signature_profile": "DEFERRED",
+    "standards_conformance": "NOT_CLAIMED"
+  },
+  "time_coordinates": {
+    "root_fields": "selected_root_clock_nanoseconds",
+    "utc_mapping": "root_coordinate_plus_authenticated_signed_offset",
+    "time_scale": "POSIX_UTC_ESTIMATE",
+    "absolute_qualification": false,
+    "offset_trains_relative_oscillator": false
+  },
+  "takeover_defaults": {
+    "root_health_suspicion_us": 2000000,
+    "source_change_fence_us": 3000000,
+    "map_loss_is_root_failure": false
+  }
+}

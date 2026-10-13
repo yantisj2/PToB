@@ -1,0 +1,84 @@
+{
+  "schema": 1,
+  "cutoff_utc": "2026-10-12T18:26:44.293859Z",
+  "target_commit": "7995249",
+  "selected_source_commit": "566ea2029c7ffc84a7d321df427c5c811fac2730",
+  "selected_version": "0.14.43",
+  "companion_inputs": {
+    "paper/ptob-v14-preprint.tex": "bea2c7ea55b2842296871de9073554e0ad0bca84b3780afd966145b263365abe",
+    "paper/ptob-v14-preprint.pdf": "892fe477bfa8d01183711e7dc530d442dabd47a58e172dd5f77f51311e71fd7a",
+    "paper/ptob-v14-evidence.json": "7474437ed23e64ed7a16599e082de95024a38d67927113fafa814de2c0666562",
+    "paper/provenance/ptob-v14-qa.json": "3a141a214fee857b6ea72de60c64d1dc2c42f57c25b88b6b814c5f5e5ee33dd2"
+  },
+  "main_population": {
+    "duration_s": 601.5761865,
+    "nominal_boundaries": 602,
+    "observed_edges": 504,
+    "reference_valid_causal": {
+      "n": 436,
+      "bias_ns": -18.41743119266055,
+      "rms_including_bias_ns": 62.50387143972866,
+      "jitter_rms_ns": 59.72882196408818,
+      "abs_p50_ns": 43.0,
+      "abs_p95_ns": 123.25,
+      "abs_p99_ns": 160.2499999999999,
+      "abs_max_ns": 191
+    },
+    "all_causal": {
+      "n": 501,
+      "bias_ns": 822982.9481037924,
+      "rms_including_bias_ns": 3929463.788051649,
+      "jitter_rms_ns": 3842315.022058916,
+      "abs_p50_ns": 46.0,
+      "abs_p95_ns": 175.0,
+      "abs_p99_ns": 19016178.0,
+      "abs_max_ns": 19752827
+    },
+    "invalid_reference": 65,
+    "reference_valid_expired": 3,
+    "unobserved_conservative": 98,
+    "max_witness_gap_s": 59.0171903125,
+    "continuity": {
+      "RC": {
+        "network_snapshots": 20,
+        "renewal_first_last": [
+          1,
+          3
+        ],
+        "interval_precision_counter_deltas": {
+          "accepted": 6086,
+          "holdover_expiries": 6,
+          "holdover_recoveries": 6
+        },
+        "discipline_gap_max_us": 686834,
+        "normal_service_left_running": true
+      },
+      "leaf": {
+        "network_snapshots": 20,
+        "renewal_first_last": [
+          1,
+          3
+        ],
+        "interval_precision_counter_deltas": {
+          "accepted": 8318,
+          "holdover_expiries": 11,
+          "holdover_recoveries": 11
+        },
+        "discipline_gap_max_us": 1183478,
+        "normal_service_left_running": true
+      }
+    }
+  },
+  "metric": "CAUSAL_FRACTIONAL_PPS_SHADOW_PHASE_NOT_ABSOLUTE_OR_CONTINUOUS_OUTPUT",
+  "claims": {
+    "wire": "six-layout offline checked",
+    "physical": "oneRC only",
+    "twoRC": "simulator/target; physical pending",
+    "W12": "directGR3 separate; RC5 portability pending",
+    "half_duty": "pending retained failures",
+    "absolute_UTC": "UNQUALIFIED",
+    "continuous_precision": "NOT_PASSED",
+    "formal_qualification": "NOT_CLAIMED"
+  },
+  "scope": "Read-only source/evidence review and new local proposal artifacts; no raw data included"
+}

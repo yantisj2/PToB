@@ -1,0 +1,12 @@
+quantity,value
+n,436
+bias_ns,-18.41743119266055
+rms_including_bias_ns,62.50387143972866
+jitter_rms_ns,59.72882196408818
+abs_p50_ns,43.0
+abs_p95_ns,123.25
+abs_p99_ns,160.2499999999999
+abs_max_ns,191.0
+observed_edges,504
+nominal_boundaries,602
+usable_coverage,0.7242524916943521

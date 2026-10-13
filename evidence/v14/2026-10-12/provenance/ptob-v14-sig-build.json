@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "source_sha256": "134da2e33284b320e93f49f1c1066c22a3a8746cd7e2c2d0e168fb11124f251f",
+  "pdf_sha256": "d484bcc8e5891dd9f2b45e64b7bd4861a9e109419c08b91ec61d51e6e81a78e4",
+  "builder_sha256": "92ab93f3845bb2078e30aa44d255d918ff13584dbc92da3f2e43c3a40fd3ebaf",
+  "engine_version": "Tectonic 0.17.0",
+  "engine_binary_sha256": "b52b5a730e2b0b33087304f7720f649603953f270a6b1c88bb031e1ae01f7f9c",
+  "standalone": true,
+  "local_only": true,
+  "input_manifests": {
+    "paper/provenance/ptob-v14-sig-wire.json": "5b2a6b704f0892d495b641d1c7ca51134d98b95d870423d001fcab8be93a20b0",
+    "paper/provenance/ptob-v14-sig-evidence.json": "b706594a3277bade34a0908899a3cc7b73b38b70e0950f43b2315f58af053b90",
+    "paper/provenance/ptob-v14-sig-literature.json": "20dd784f5b20306cf35cc2429c477347691a7723095838843a3034b8e4a92f1c"
+  },
+  "command": [
+    "tectonic",
+    "--outdir",
+    "LOCAL_EXPORT",
+    "--keep-logs",
+    "paper/ptob-v14-sig-proposal.tex"
+  ]
+}

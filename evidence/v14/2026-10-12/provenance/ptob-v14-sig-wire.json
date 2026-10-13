@@ -1,0 +1,1037 @@
+{
+  "schema": 1,
+  "target": "V14-RC1",
+  "frozen_commit": "7995249",
+  "byte_order": "little",
+  "signed_fields": [
+    "utc_offset_ns"
+  ],
+  "inputs": {
+    "protocol/v14_rc1/contract.json": "a122e61032fde317a709654ce58d83e08e4c254d3ae0eddb8b5b574f168b3ec0",
+    "protocol/v14_rc1/vectors.json": "5dfcc25e90dd279bcafa44eb19d6df487dfd69cbcadda681c321290543c60e27",
+    "results/V14_SPEC_RC1_20261012.json": "dab4177c5ce5db39e5caab052d3413457dd63922994a6d074c2cc5d07de667c5"
+  },
+  "table_rows": {
+    "GR3": [
+      [
+        "0",
+        "1",
+        "AD_length",
+        "Record bytes minus 1: 189 for timing; 135 for RQ."
+      ],
+      [
+        "1",
+        "1",
+        "AD_type",
+        "0xff manufacturer-specific AD."
+      ],
+      [
+        "2--3",
+        "2",
+        "experimental_manufacturer",
+        "0xffff, experimental identifier; not production assignment."
+      ],
+      [
+        "4--5",
+        "2",
+        "magic",
+        "ASCII GR, RC or RQ as selected."
+      ],
+      [
+        "6",
+        "1",
+        "wire_version",
+        "Exact selected version; no heuristic fallback."
+      ],
+      [
+        "7",
+        "1",
+        "correction_count",
+        "0--2 earlier physical-copy corrections."
+      ],
+      [
+        "8--9",
+        "2",
+        "interval_1250us",
+        "50 units of 1.25 ms = 62.5 ms."
+      ],
+      [
+        "10--13",
+        "4",
+        "group_epoch",
+        "Current authenticated group epoch, u32."
+      ],
+      [
+        "14--21",
+        "8",
+        "root_identity",
+        "Nonzero stable independently sourced root identity, u64."
+      ],
+      [
+        "22--25",
+        "4",
+        "hold_horizon_us",
+        "Authenticated precision hold horizon, us; maximum 10,000,000."
+      ],
+      [
+        "26--29",
+        "4",
+        "hold_budget_ns",
+        "Authenticated held-precision budget, ns; zero with zero horizon."
+      ],
+      [
+        "30--37",
+        "8",
+        "root_boot",
+        "Nonzero root boot incarnation, u64."
+      ],
+      [
+        "38--41",
+        "4",
+        "root_source_epoch",
+        "Nonzero root-source epoch, u32."
+      ],
+      [
+        "42--49",
+        "8",
+        "source_issued_ns",
+        "Original issuance in selected root coordinate, ns."
+      ],
+      [
+        "50--57",
+        "8",
+        "source_expires_ns",
+        "Original expiry in root coordinate, ns; not renewed by forwarding."
+      ],
+      [
+        "58--65",
+        "8",
+        "root_frame_ns",
+        "Root frame provenance, ns; no later than issuance."
+      ],
+      [
+        "66--73",
+        "8",
+        "utc_offset_ns",
+        "SIGNED i64 ns: add to root coordinate for POSIX UTC estimate."
+      ],
+      [
+        "74--89",
+        "16",
+        "origin_mac",
+        "16-byte origin HMAC under distinct selected domain."
+      ],
+      [
+        "90--97",
+        "8",
+        "transmitter_identity",
+        "Stable identity of this physical transmitter, u64."
+      ],
+      [
+        "98--105",
+        "8",
+        "parent_identity",
+        "Selected parent identity; root itself for a root packet."
+      ],
+      [
+        "106",
+        "1",
+        "relay_depth",
+        "GR route depth 0/1; core downstream uses RC5."
+      ],
+      [
+        "107",
+        "1",
+        "slot",
+        "Root 0; legacy GR depth1 slot 1--3."
+      ],
+      [
+        "108--115",
+        "8",
+        "transmitter_boot",
+        "Nonzero transmitter boot incarnation, u64."
+      ],
+      [
+        "116--119",
+        "4",
+        "train",
+        "Nonzero periodic-train incarnation, u32."
+      ],
+      [
+        "120--123",
+        "4",
+        "publication",
+        "Nonzero original publication ID, u32; corrections name earlier IDs."
+      ],
+      [
+        "124--127",
+        "4",
+        "capture_epoch",
+        "Nonzero capture/timebase association epoch, u32."
+      ],
+      [
+        "128--131",
+        "4",
+        "map_generation",
+        "Nonzero immutable map generation, u32."
+      ],
+      [
+        "132--135",
+        "4",
+        "bound_ns",
+        "u32 uncertainty in ns; 0xffffffff is UNKNOWN."
+      ],
+      [
+        "136--154",
+        "19",
+        "correction_0",
+        "First complete correction block; zero if count=0."
+      ],
+      [
+        "155--173",
+        "19",
+        "correction_1",
+        "Second block; all zero if count<2."
+      ],
+      [
+        "174--189",
+        "16",
+        "packet_mac",
+        "16-byte HMAC over complete preceding packet body."
+      ]
+    ],
+    "RC5": [
+      [
+        "0",
+        "1",
+        "AD_length",
+        "Record bytes minus 1: 189 for timing; 135 for RQ."
+      ],
+      [
+        "1",
+        "1",
+        "AD_type",
+        "0xff manufacturer-specific AD."
+      ],
+      [
+        "2--3",
+        "2",
+        "experimental_manufacturer",
+        "0xffff, experimental identifier; not production assignment."
+      ],
+      [
+        "4--5",
+        "2",
+        "magic",
+        "ASCII GR, RC or RQ as selected."
+      ],
+      [
+        "6",
+        "1",
+        "wire_version",
+        "Exact selected version; no heuristic fallback."
+      ],
+      [
+        "7",
+        "1",
+        "correction_count",
+        "0--2 earlier physical-copy corrections."
+      ],
+      [
+        "8--11",
+        "4",
+        "group_epoch",
+        "Current authenticated group epoch, u32."
+      ],
+      [
+        "12--19",
+        "8",
+        "root_identity",
+        "Nonzero stable independently sourced root identity, u64."
+      ],
+      [
+        "20--27",
+        "8",
+        "root_boot",
+        "Nonzero root boot incarnation, u64."
+      ],
+      [
+        "28--31",
+        "4",
+        "root_source_epoch",
+        "Nonzero root-source epoch, u32."
+      ],
+      [
+        "32--39",
+        "8",
+        "source_issued_ns",
+        "Original issuance in selected root coordinate, ns."
+      ],
+      [
+        "40--47",
+        "8",
+        "source_expires_ns",
+        "Original expiry in root coordinate, ns; not renewed by forwarding."
+      ],
+      [
+        "48--55",
+        "8",
+        "utc_offset_ns",
+        "SIGNED i64 ns: add to root coordinate for POSIX UTC estimate."
+      ],
+      [
+        "56--63",
+        "8",
+        "root_frame_ns",
+        "Root frame provenance, ns; no later than issuance."
+      ],
+      [
+        "64--67",
+        "4",
+        "hold_horizon_us",
+        "Authenticated precision hold horizon, us; maximum 10,000,000."
+      ],
+      [
+        "68--71",
+        "4",
+        "hold_budget_ns",
+        "Authenticated held-precision budget, ns; zero with zero horizon."
+      ],
+      [
+        "72--87",
+        "16",
+        "origin_mac",
+        "16-byte origin HMAC under distinct selected domain."
+      ],
+      [
+        "88--95",
+        "8",
+        "route_digest",
+        "First 8 HMAC bytes of full authenticated route table."
+      ],
+      [
+        "96",
+        "1",
+        "sender_route_index",
+        "u8 index into authenticated route table; must transmit."
+      ],
+      [
+        "97",
+        "1",
+        "depth_slot",
+        "High nibble depth; low nibble slot, exact route match."
+      ],
+      [
+        "98--105",
+        "8",
+        "transmitter_boot",
+        "Nonzero transmitter boot incarnation, u64."
+      ],
+      [
+        "106--109",
+        "4",
+        "train",
+        "Nonzero periodic-train incarnation, u32."
+      ],
+      [
+        "110--113",
+        "4",
+        "publication",
+        "Nonzero original publication ID, u32; corrections name earlier IDs."
+      ],
+      [
+        "114--117",
+        "4",
+        "capture_epoch",
+        "Nonzero capture/timebase association epoch, u32."
+      ],
+      [
+        "118--144",
+        "27",
+        "correction_0",
+        "First complete correction block; zero if count=0."
+      ],
+      [
+        "145--171",
+        "27",
+        "correction_1",
+        "Second block; all zero if count<2."
+      ],
+      [
+        "172",
+        "1",
+        "profile",
+        "Exactly 3 in RC5/RQ5."
+      ],
+      [
+        "173",
+        "1",
+        "reserved",
+        "Exactly zero."
+      ],
+      [
+        "174--189",
+        "16",
+        "packet_mac",
+        "16-byte HMAC over complete preceding packet body."
+      ]
+    ],
+    "RQ5": [
+      [
+        "0",
+        "1",
+        "AD_length",
+        "Record bytes minus 1: 189 for timing; 135 for RQ."
+      ],
+      [
+        "1",
+        "1",
+        "AD_type",
+        "0xff manufacturer-specific AD."
+      ],
+      [
+        "2--3",
+        "2",
+        "experimental_manufacturer",
+        "0xffff, experimental identifier; not production assignment."
+      ],
+      [
+        "4--5",
+        "2",
+        "magic",
+        "ASCII GR, RC or RQ as selected."
+      ],
+      [
+        "6",
+        "1",
+        "wire_version",
+        "Exact selected version; no heuristic fallback."
+      ],
+      [
+        "7",
+        "1",
+        "kind",
+        "Exact record operation enum (see accompanying text)."
+      ],
+      [
+        "8",
+        "1",
+        "sender_index",
+        "Sender-local dictionary/route index, u8."
+      ],
+      [
+        "9",
+        "1",
+        "target_index",
+        "Target dictionary/route index; RQ capability uses 255."
+      ],
+      [
+        "10",
+        "1",
+        "ready",
+        "0/1 timing-admission discriminator, not precision quality."
+      ],
+      [
+        "11",
+        "1",
+        "profile",
+        "Exactly 3 in RC5/RQ5."
+      ],
+      [
+        "12--15",
+        "4",
+        "group_epoch",
+        "Current authenticated group epoch, u32."
+      ],
+      [
+        "16--23",
+        "8",
+        "sender_boot",
+        "Nonzero sender boot incarnation, u64."
+      ],
+      [
+        "24--31",
+        "8",
+        "target_boot",
+        "Nonzero bound peer boot; zero for RQ capability."
+      ],
+      [
+        "32--39",
+        "8",
+        "challenge",
+        "Fresh transaction challenge, u64."
+      ],
+      [
+        "40--47",
+        "8",
+        "nonce",
+        "Fresh peer transaction nonce, u64."
+      ],
+      [
+        "48--51",
+        "4",
+        "sequence",
+        "Forward sequence, u32 in RQ; u64 in JOIN/GC."
+      ],
+      [
+        "52--55",
+        "4",
+        "train",
+        "Nonzero periodic-train incarnation, u32."
+      ],
+      [
+        "56--59",
+        "4",
+        "capture_epoch",
+        "Nonzero capture/timebase association epoch, u32."
+      ],
+      [
+        "60--63",
+        "4",
+        "publication_floor",
+        "Admission replay floor for selected parent stream, u32."
+      ],
+      [
+        "64--71",
+        "8",
+        "root_boot",
+        "Nonzero root boot incarnation, u64."
+      ],
+      [
+        "72--75",
+        "4",
+        "root_source_epoch",
+        "Nonzero root-source epoch, u32."
+      ],
+      [
+        "76--83",
+        "8",
+        "coarse_root_lower_ns",
+        "Lower coarse root-coordinate admission limit, ns."
+      ],
+      [
+        "84--91",
+        "8",
+        "coarse_root_upper_ns",
+        "Upper coarse root-coordinate admission limit, ns."
+      ],
+      [
+        "92--99",
+        "8",
+        "admission_expires_ns",
+        "Coarse admission horizon, ns; distinct from local clock age."
+      ],
+      [
+        "100--103",
+        "4",
+        "lease_us",
+        "Local demand lease, us; maximum 360,000,000."
+      ],
+      [
+        "104--111",
+        "8",
+        "next_challenge",
+        "Fresh next challenge; zero in REQUEST."
+      ],
+      [
+        "112--119",
+        "8",
+        "route_digest",
+        "First 8 HMAC bytes of full authenticated route table."
+      ],
+      [
+        "120--135",
+        "16",
+        "record_mac",
+        "Final 16-byte record HMAC; see coverage table."
+      ]
+    ],
+    "JOIN4": [
+      [
+        "0",
+        "1",
+        "type",
+        "JOIN=14; GM management=17."
+      ],
+      [
+        "1",
+        "1",
+        "kind",
+        "Exact record operation enum (see accompanying text)."
+      ],
+      [
+        "2",
+        "1",
+        "wire_version",
+        "Exact selected version; no heuristic fallback."
+      ],
+      [
+        "3",
+        "1",
+        "capabilities",
+        "u8 mask: bit0 GM control, bit1 independent-source capability, bit2 relay demand; bits3--7 zero."
+      ],
+      [
+        "4--7",
+        "4",
+        "group_epoch",
+        "Current authenticated group epoch, u32."
+      ],
+      [
+        "8--15",
+        "8",
+        "sender_identity",
+        "Nonzero stable sender identity, u64."
+      ],
+      [
+        "16--23",
+        "8",
+        "receiver_identity",
+        "Nonzero peer identity, different from sender."
+      ],
+      [
+        "24--31",
+        "8",
+        "sender_boot",
+        "Nonzero sender boot incarnation, u64."
+      ],
+      [
+        "32--39",
+        "8",
+        "receiver_boot",
+        "Peer boot incarnation; zero permitted in initial REQUEST."
+      ],
+      [
+        "40--47",
+        "8",
+        "client_nonce",
+        "Nonzero client nonce, u64."
+      ],
+      [
+        "48--55",
+        "8",
+        "server_nonce",
+        "Nonzero after REQUEST; initial REQUEST may use zero."
+      ],
+      [
+        "56--63",
+        "8",
+        "sequence",
+        "Forward sequence, u32 in RQ; u64 in JOIN/GC."
+      ],
+      [
+        "64--71",
+        "8",
+        "created_us",
+        "Sender monotonic creation instant, us."
+      ],
+      [
+        "72--79",
+        "8",
+        "echo_us",
+        "Echo of peer causal send instant, us; not UTC."
+      ],
+      [
+        "80--87",
+        "8",
+        "root_identity",
+        "Nonzero stable independently sourced root identity, u64."
+      ],
+      [
+        "88--95",
+        "8",
+        "root_boot",
+        "Nonzero root boot incarnation, u64."
+      ],
+      [
+        "96--99",
+        "4",
+        "source_epoch",
+        "Selected source epoch, u32."
+      ],
+      [
+        "100--103",
+        "4",
+        "publication",
+        "Nonzero original publication ID, u32; corrections name earlier IDs."
+      ],
+      [
+        "104--111",
+        "8",
+        "utc_us",
+        "Coarse POSIX UTC estimate, us; bootstrap only."
+      ],
+      [
+        "112--115",
+        "4",
+        "remaining_us",
+        "Remaining original coarse permission, us; max 1,500,000."
+      ],
+      [
+        "116",
+        "1",
+        "source_flags",
+        "Bit0 coarse source statement present; bits1--7 zero."
+      ],
+      [
+        "117",
+        "1",
+        "name_length",
+        "UTF-8 byte count 1--24; no implicit terminator."
+      ],
+      [
+        "118--141",
+        "24",
+        "name_utf8_zero_padded",
+        "24-byte name buffer; unused suffix all zero."
+      ],
+      [
+        "142",
+        "1",
+        "control",
+        "0/1 direct control admission; requires GM capability."
+      ],
+      [
+        "143",
+        "1",
+        "demand",
+        "0 none, 1 request, 2 accepted, 3 refused, 4 pending."
+      ],
+      [
+        "144--147",
+        "4",
+        "source_bound_us",
+        "Coarse source uncertainty, us; present 1--50,000, otherwise zero."
+      ],
+      [
+        "148--163",
+        "16",
+        "record_mac",
+        "Final 16-byte record HMAC; see coverage table."
+      ]
+    ],
+    "GC17": [
+      [
+        "0",
+        "1",
+        "type",
+        "JOIN=14; GM management=17."
+      ],
+      [
+        "1",
+        "1",
+        "kind",
+        "Exact record operation enum (see accompanying text)."
+      ],
+      [
+        "2",
+        "1",
+        "sender_index",
+        "Sender-local dictionary/route index, u8."
+      ],
+      [
+        "3",
+        "1",
+        "target_index",
+        "Target dictionary/route index; RQ capability uses 255."
+      ],
+      [
+        "4--11",
+        "8",
+        "sender_boot",
+        "Nonzero sender boot incarnation, u64."
+      ],
+      [
+        "12--19",
+        "8",
+        "coordinator_boot",
+        "Bound coordinator incarnation; HELLO uses sender own boot."
+      ],
+      [
+        "20--27",
+        "8",
+        "challenge",
+        "Fresh transaction challenge, u64."
+      ],
+      [
+        "28--35",
+        "8",
+        "sequence",
+        "Forward sequence, u32 in RQ; u64 in JOIN/GC."
+      ],
+      [
+        "36--43",
+        "8",
+        "decision",
+        "u64 decision/publication/management-generation statement; kind-specific."
+      ],
+      [
+        "44",
+        "1",
+        "root_index",
+        "Sender-dictionary root index; 255 for no selected root."
+      ],
+      [
+        "45--52",
+        "8",
+        "root_boot",
+        "Nonzero root boot incarnation, u64."
+      ],
+      [
+        "53--56",
+        "4",
+        "source_epoch",
+        "Selected source epoch, u32."
+      ],
+      [
+        "57--64",
+        "8",
+        "source_second",
+        "u64 seconds in SERVICE; ACK sequence / management hash in respective kinds."
+      ],
+      [
+        "65--72",
+        "8",
+        "evidence_us",
+        "Source evidence instant in sender monotonic us, no later than creation."
+      ],
+      [
+        "73--80",
+        "8",
+        "created_us",
+        "Sender monotonic creation instant, us."
+      ],
+      [
+        "81--88",
+        "8",
+        "expires_us",
+        "Record deadline in sender monotonic us; lifetime <=250,000."
+      ],
+      [
+        "89--96",
+        "8",
+        "permit_until_us",
+        "Kind-specific source/management permission, sender monotonic us."
+      ],
+      [
+        "97--100",
+        "4",
+        "config_epoch",
+        "Exactly 5 (u32)."
+      ],
+      [
+        "101",
+        "1",
+        "flags",
+        "u8 kind-specific status; allowed mask 0x07; see bit table."
+      ],
+      [
+        "102",
+        "1",
+        "priority1",
+        "u8 first administrative priority; lower preferred."
+      ],
+      [
+        "103",
+        "1",
+        "clock_class",
+        "u8 actual clock class; eligibility precedes ranking."
+      ],
+      [
+        "104",
+        "1",
+        "accuracy",
+        "u8 evidence-backed quality code; unknown stays unknown."
+      ],
+      [
+        "105",
+        "1",
+        "priority2",
+        "u8 second administrative priority."
+      ],
+      [
+        "106--107",
+        "2",
+        "variance",
+        "u16 ranking variance metric; not ns uncertainty."
+      ],
+      [
+        "108--111",
+        "4",
+        "boot_age_ms",
+        "u32 age of current boot observation, ms."
+      ],
+      [
+        "112--115",
+        "4",
+        "source_age_ms",
+        "u32 stable source-evidence age, ms."
+      ],
+      [
+        "116--119",
+        "4",
+        "group_epoch",
+        "Current authenticated group epoch, u32."
+      ],
+      [
+        "120--151",
+        "32",
+        "sender_dictionary",
+        "Four sender-local u64 identities; zero means unused, nonzero entries unique."
+      ],
+      [
+        "152--167",
+        "16",
+        "record_mac",
+        "Final 16-byte record HMAC; see coverage table."
+      ]
+    ],
+    "GC17_HELLO": [
+      [
+        "108--111",
+        "4",
+        "boot_age_ms",
+        "u32 age of current boot observation, ms."
+      ],
+      [
+        "112--115",
+        "4",
+        "source_age_ms",
+        "u32 stable source-evidence age, ms."
+      ],
+      [
+        "116",
+        "1",
+        "pair_root_index",
+        "u8 standby-pair root index; zero when no pair hint."
+      ],
+      [
+        "117",
+        "1",
+        "pair_standby_index",
+        "u8 standby-pair partner index; distinct if hint live."
+      ],
+      [
+        "118--125",
+        "8",
+        "pair_root_boot",
+        "u64 pair root boot; zero when hint absent."
+      ],
+      [
+        "126--133",
+        "8",
+        "pair_standby_boot",
+        "u64 partner boot; zero when hint absent."
+      ],
+      [
+        "134--137",
+        "4",
+        "pair_epoch",
+        "u32 pair decision epoch; zero when absent."
+      ],
+      [
+        "138--145",
+        "8",
+        "pair_until_us",
+        "Pair hint expiry in sender monotonic us; zero absent."
+      ],
+      [
+        "146--149",
+        "4",
+        "group_epoch",
+        "Current authenticated group epoch, u32."
+      ],
+      [
+        "150--181",
+        "32",
+        "sender_dictionary",
+        "Four sender-local u64 identities; zero means unused, nonzero entries unique."
+      ],
+      [
+        "182",
+        "1",
+        "name_length_capabilities",
+        "Bits0--4 name byte length; bits5--6 capabilities; bit7 zero."
+      ],
+      [
+        "183--206",
+        "24",
+        "name_utf8_zero_padded",
+        "24-byte name buffer; unused suffix all zero."
+      ],
+      [
+        "207--222",
+        "16",
+        "record_mac",
+        "Final 16-byte record HMAC; see coverage table."
+      ]
+    ]
+  },
+  "selected_examples": {
+    "GR3-1": {
+      "id": "GR3-1",
+      "profile": "GR3",
+      "accepted": true,
+      "corrections": 1,
+      "hex": "bdffffff47520301320009000000e90300000000000000000000000000006500000000000000070000006400000000000000e40059620000000064000000000000002efbfffffffffffffe2d70592987996bdc23d6cbb76927eae903000000000000e9030000000000000000650000000000000001000000020000000100000064000000ffffffff01000000ffff24006a18000000000064000000000000000000000000000000000000000000001628eb79ae36e5be8b25971e5d2557e4"
+    },
+    "RC5-1": {
+      "id": "RC5-1",
+      "profile": "RC5",
+      "accepted": true,
+      "corrections": 1,
+      "hex": "bdffffff5243050109000000e9030000000000006500000000000000070000006400000000000000e4005962000000002efbffffffffffff640000000000000000000000000000002281584cbb96674e1c1f79e14e8df86defa54f1029363e330000650000000000000001000000020000000100000001000000ffff246400000040e2010000e1f50500000000ffffffff0000000000000000000000000000000000000000000000000000000300147473776228f351a79f54c05fc0a9f5"
+    },
+    "RQ5-ready": {
+      "id": "RQ5-ready",
+      "profile": "RQ5",
+      "accepted": true,
+      "hex": "87ffffff525105030001010309000000650000000000000066000000000000000100000000000000020000000000000001000000010000000100000000000000650000000000000007000000000000000000000064000000000000000010acd153000000002a75150300000000000000efa54f1029363e3363549aa67f720a796fb913713dd2fc1c"
+    },
+    "JOIN4-request": {
+      "id": "JOIN4-request",
+      "profile": "JOIN4",
+      "accepted": true,
+      "hex": "0e01040009000000e903000000000000292300000000000065000000000000000000000000000000010000000000000000000000000000000100000000000000e8030000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000673616d706c650000000000000000000000000000000000000000000000004be43fa1a72b6bb48afc136d5b6218ec"
+    },
+    "GC17-kind8": {
+      "id": "GC17-kind8",
+      "profile": "GC17",
+      "accepted": true,
+      "hex": "11080001650000000000000066000000000000000100000000000000010000000000000001000000000000000065000000000000000700000064000000000000008403000000000000e803000000000000d007000000000000d007000000000000050000000080f8fe80ffff60ea00000a00000009000000e90300000000000029230000000000006942000000000000a9610000000000002f68d235a348c4f170ce6f18df9c9510"
+    },
+    "GC17-kind10": {
+      "id": "GC17-kind10",
+      "profile": "GC17",
+      "accepted": true,
+      "hex": "110a0001650000000000000066000000000000000100000000000000010000000000000001000000000000000065000000000000000700000064000000000000008403000000000000e803000000000000d007000000000000d007000000000000050000000080f8fe80ffff60ea00000a00000000000000000000000000000000000000000000000000000000000000000009000000e90300000000000029230000000000006942000000000000a9610000000000006673616d706c6500000000000000000000000000000000000098928301c69205218b7e2f04e91f585c"
+    }
+  },
+  "prior_validation": {
+    "layouts": 6,
+    "valid": 14,
+    "invalid": 19,
+    "sanitizers": [
+      "ASan",
+      "UBSan"
+    ],
+    "rerun": false
+  },
+  "issues": [
+    {
+      "id": "I-01",
+      "issue": "GR3 origin range ambiguous [14,60]",
+      "disposition": "start=14,length=60; explicit [14:74], vectors and immutable C agree; frozen bytes unchanged"
+    },
+    {
+      "id": "I-02",
+      "issue": "Pinned GR3 validator lacks explicit preceding-publication and duplicate checks required by RC1",
+      "disposition": "retain target rejection requirements; current pipeline conformance pending"
+    },
+    {
+      "id": "I-03",
+      "issue": "GC bit1 mask allowed without portable meaning",
+      "disposition": "no authority inferred; production semantics pending"
+    }
+  ]
+}

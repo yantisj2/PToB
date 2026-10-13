@@ -1,5 +1,16 @@
 # Manuscript history
 
+## 2026-10-13 — V14 successor papers and research
+
+- Added the October 12 V14-RC1 proposal (22 pages) and V14 research preprint
+  (19 pages), preserving their source/PDF bytes and draft status.
+- Added an immutable import receipt and separate V14 scientific exports,
+  literature/build/review provenance, and the frozen RC1 contract and vectors.
+- Preserved all observed PPS classifications, missing opportunities, expiry
+  counters, and normative implementation issues; no precision claim was upgraded.
+- Added public offline population/document checks and figure reproduction that
+  require no private checkout. Earlier manuscripts and manifests are unchanged.
+
 ## 2026-10-09 — oscillator/PLL and evidence import
 
 - Added the amended October 3 oscillator/PLL source unchanged.

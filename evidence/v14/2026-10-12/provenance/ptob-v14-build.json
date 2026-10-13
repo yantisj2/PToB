@@ -1,0 +1,22 @@
+{
+  "source_sha256": "bea2c7ea55b2842296871de9073554e0ad0bca84b3780afd966145b263365abe",
+  "pdf_sha256": "892fe477bfa8d01183711e7dc530d442dabd47a58e172dd5f77f51311e71fd7a",
+  "builder_sha256": "74dfa7f5c714801d053c82bd905b856999b42734f0bae8628c4b858afd2cbcaa",
+  "engine_binary_sha256": "b52b5a730e2b0b33087304f7720f649603953f270a6b1c88bb031e1ae01f7f9c",
+  "engine_version": "Tectonic 0.17.0",
+  "standalone": true,
+  "source_includes_vectors": true,
+  "local_only": true,
+  "input_manifests": {
+    "paper/ptob-v14-evidence.json": "7474437ed23e64ed7a16599e082de95024a38d67927113fafa814de2c0666562",
+    "paper/provenance/ptob-v14-literature.json": "970daadad501a4f7a58a78b27433358d1ee3ebded96fa61c3619144195bf8d80",
+    "paper/figures/v14-20261012/derivation-manifest.json": "39f0672c45f2904ec4c165d30ecf1d400dba928d5b8cd0926b3c18a94d3f15e1"
+  },
+  "command": [
+    "tectonic",
+    "--outdir",
+    "PRIVATE_QA_EXPORT",
+    "--keep-logs",
+    "paper/ptob-v14-preprint.tex"
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "schema": 1,
+  "status": "CONFIRMED_IMPLEMENTATION_GAP",
+  "source_commit": "566ea2029c7ffc84a7d321df427c5c811fac2730",
+  "scope": "two focused normative counterexamples, not full suite",
+  "sanitizers": [
+    "ASan",
+    "UBSan"
+  ],
+  "tests": [
+    {
+      "id": "nonpreceding",
+      "hex": "bdffffff47520301320009000000e90300000000000000000000000000006500000000000000070000006400000000000000e40059620000000064000000000000002efbfffffffffffffe2d70592987996bdc23d6cbb76927eae903000000000000e9030000000000000000650000000000000001000000020000000100000064000000ffffffff02000000ffff24006a1800000000006400000000000000000000000000000000000000000000edcf19edacea6fac772edcf71c0a2945",
+      "normative_rc1": "REJECT",
+      "observed_decoder": "ACCEPT"
+    },
+    {
+      "id": "duplicate",
+      "hex": "bdffffff47520302320009000000e90300000000000000000000000000006500000000000000070000006400000000000000e40059620000000064000000000000002efbfffffffffffffe2d70592987996bdc23d6cbb76927eae903000000000000e9030000000000000000650000000000000001000000020000000100000064000000ffffffff01000000ffff24006a1800000000006400000001000000ffff24006a1800000000006400000019951bc7109c6ce285176d66401aa1cb",
+      "normative_rc1": "REJECT",
+      "observed_decoder": "ACCEPT"
+    }
+  ],
+  "check_sha256": "115a1678eec4513a306a00bafa6450c5e4e25285acfb5cd9b4eb5324549f8cbc",
+  "source_set_sha256": {
+    "include/rc_boundary.h": "110d5c0ba6ab06ad451d320c1a1a9b544eefb6a77ae0e5b5801237760d3586d7",
+    "src/rc_boundary.c": "507b728ec67c23a4e2b7367f08a15e519c98b3944b640e245e61975f3c1a2366",
+    "protocol/group_auth.h": "959a6b7fed23100448ac7de442d38806a146897b4c53038a0087fce298caaf87",
+    "protocol/group_auth.c": "a84826aaea8cacb85156fbaae5a51e382b708215ebfa97c3a29f846b4b334ab3",
+    "protocol/group_precision.h": "dec2476c053485a7b1587442ccfe9dbd49489c91fce02d751f1565eb1dcec83d",
+    "protocol/group_precision.c": "a4ef2cbe361201451fa87c6fb168db336c0de4c29cb1583a0582b78e7389faf3",
+    "protocol/precision_codec.h": "c1a518ac78632f0d779d42f68c81439ff1dacd2b9834c399105d56ce267d8f0e",
+    "protocol/precision_codec.c": "ca6378fef7424ce8834745bd0594fa0e9cb807f9e6d2aa58ea6436e8441e229c",
+    "protocol/relay_codec.h": "f5a6798b5e84d1656040f1c757447b0228eb51aaeb6157d4ddfe2e9f2e4aa4f6",
+    "protocol/relay_codec.c": "3fd89655032fa5c444515c58a184aaf1d63d89382271b2facf14ac50bb65a936",
+    "protocol/group_join.h": "936692d3b9c8d0023a4debc06a9d1bc9e7b61a393a8c91fd6f57b04f2f8aa037",
+    "protocol/group_join.c": "1148108f3da126f6bc567f5e57cf147d26fe8a1e0715b1932e461052ab0c9c6d",
+    "protocol/authority_codec.h": "c882375d7186d6e371097c5675c590b86f524b0460c03d2eb21d885027d76c6d",
+    "protocol/authority_codec.c": "8f7e90ad5f6d0b1f64b4d795bc0312b1a233e5083929628ad3a664352820b351",
+    "protocol/group_control.h": "03cf2f69ae73fa9e959a28041110180ea397410e4ca9d6108c93fde1c69fec84",
+    "protocol/group_control.c": "da0d1a4e04fada44228970fab9f0fe92aa3092b7d035ca8ab8aeadc22afb3e58"
+  },
+  "compile_exit": 0,
+  "run_exit": 0,
+  "disposition": "RC1 requirement retained; firmware and frozen contract untouched"
+}

@@ -1,0 +1,75 @@
+V14 successor preprint: direct research and artifact review, 12 October 2026
+
+Disposition: completed local research manuscript and reproducible scientific
+exports, pending Jonathan Yantis's scientific and publication review. This is
+not a firmware release, independent protocol-suite signoff, arXiv submission,
+public dataset release, or standards qualification.
+
+Evidence cutoff: 2026-10-12T18:26:44.293859Z. Root launch checkpoint 417c1b8;
+V14-RC1 specification freeze 7995249. Selected native firmware is immutable
+566ea2029c7ffc84a7d321df427c5c811fac2730, application 0.14.43. Later UI,
+installation and source changes in other work are outside this manuscript.
+
+Supported main result: prospective GM -> one RC -> PPS-shadow leaf over
+601.5761865 s, with 436 reference-valid causal samples, signed mean -18.417431 ns,
+uncentered RMS 62.503871 ns, demeaned jitter 59.728822 ns, absolute P95/P99/max
+123.25/160.25/191 ns. Retain all 504 observed edges and 602 conservative nominal
+boundaries: 436 usable, 65 invalid-reference, 3 valid-reference expired maps,
+98 unobserved (97 using the lower 601 convention). Usable coverage 72.425%.
+Renewal/persistence passes have their own scope; six RC and eleven leaf
+expiry/recovery increments and the 59.017190 s witness gap remain reported.
+
+Validation performed:
+- Built-in desktop LaTeX compiler passed the final standalone source.
+- Established local Tectonic 0.17.0 export passed without TeX warnings.
+- All 19 final pages, all 4 embedded figures and all 5 tables were visually
+  inspected; standalone scientific figure PDF/PNG exports were also checked.
+- Recomputed all 504 original PPS records through the frozen causal analyzer;
+  both 436-reference-valid and 501-all-causal statistics match sealed metrics.
+- Independently regenerated sanitized figures/tables and checked causal order,
+  denominators and linear-interpolation quantiles. No mean removal from RMS.
+- Rehashed 24 sealed archives  / 14,113 files and 16 selected immutable reference
+  source blobs. Rechecked earlier manuscript/PDF/manifest and frozen-spec
+  hashes; all remain unchanged.
+- Checked primary literature and manufacturer tables. The UC6580 brochure's
+ 20 ns RMS and datasheetR1.7's 5 ns RMS conflict; neither provides this board's
+ calibrated uncertainty or complete timing-test conditions. The old 25 ns
+ assumption and 29.474 ns root own-PPS diagnostic remain distinct.
+- Public scientific exports contain no factory MAC/silicon/boot IDs, absolute
+ operational timestamps, enrollment keys, private raw logs or build paths.
+
+Remaining qualification and publication requirements:
+1. Resolve exact installed UC6580 suffix/firmware/PPS settings and the vendor
+   timing-spec discrepancy. Calibrate common-edge/RF detector, propagation,
+   receiver/cable/reference delays and direction/channel/signal-level effects.
+2. Measure actual delivered electrical output with an independent calibrated
+   time-interval instrument, absolute-second association and uncertainty budget,
+   retaining all opportunities and unavailable output between PPS samples.
+3. Repeat warm/cold/outage/recovery, thermal/coexistence and observer-effect
+   studies; physically validate two RCs, complete GM/standby/partition conformance,
+   W12 RC5 portability and half-duty cancellation/listening/coverage. The
+   independent full suite remains held for its existing review workflow.
+4. Measure CPU, physical RF/listening and whole-device energy in matched profiles.
+   PTS/WiFi remain OFF; the 500 ns whole-blackout precision gate remains unqualified.
+5. Obtain human claim/author review, choose venue/profile, verify durable external
+   evidence backup, curate/licence the publication dataset and check venue AI
+   disclosure. Obtain applicable Bluetooth/IEEE qualification separately.
+
+Reproduction (no devices, serial access or RF):
+  python3 paper/figures/v14-20261012/derive.py
+  python3 paper/build_v14_preprint.py --engine PATH_TO_TECTONIC
+The figure script needs Python, NumPy and Matplotlib; exact versions are in
+its derivation manifest. The manuscript itself embeds vector figures and the
+bibliography and is standalone. The builder follows the existing local export
+workflow and writes only the distinct successor PDF/provenance files.
+PDF creation metadata can vary between builds; figures omit variable dates.
+
+Manifests:
+  paper/ptob-v14-evidence.json
+  paper/provenance/ptob-v14-literature.json
+  paper/provenance/ptob-v14-build.json
+  paper/provenance/ptob-v14-qa.json
+  paper/provenance/ptob-v14-sha256.json
+  paper/figures/v14-20261012/derivation-manifest.json
+Private frozen input copies and review traces remain in the ignored research
+workspace and are excluded from the portable manuscript package.

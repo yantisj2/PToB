@@ -1,0 +1,71 @@
+PToB V14-RC1 SIG-facing successor proposal: completed local review, 12 October 2026
+
+Disposition: completed 22-page candidate service/profile specification and portable
+local review package. Human standards/publication review remains pending. No SIG
+submission, adoption, product qualification or IEEE profile conformance is claimed.
+Original October2 proposal and separate finalized V14 research preprint are unchanged.
+
+Target: immutable V14-RC1, root commit7995249. All eight designated RC1 inputs match
+that commit. Selected implementation evidence is source566ea2029c7ffc84a7d321df427c5c811fac2730,
+application0.14.43, with companion-preprint cutoff2026-10-12T18:26:44.293859Z.
+
+Changes from the original proposal:
+- Universal passive time service leads; legacy31-byte coarse/Lite/parity/multipart
+  records remain separate compatibility profiles, not V14 examples.
+- Complete periodic GR3 and RC5/profile3 precision; RQ5/profile3 local service;
+  JOIN4 and direct GC17/C4/Config5 connected management, including223-byte HELLO.
+- Independent-source GM eligibility before ranking, cap4 direct coordination,
+  coordinator/standby/HOT distinction and partition-local convergence/fencing.
+- Dedicated boundary-clock regeneration, immutable causal map generations,
+  exact original-event association, preserved root provenance and explicit GM
+  wire-unit conversion; fixed routes/slots and separate two-RC target evidence.
+- Symmetric group trust versus public reception; separate source permission,
+  demand/admission, local/inherited/root age and quality. Exactly500ms local
+  functional expiry is distinct from300s renewal/360s context and legacy1.5s policy.
+- Persistent normal service, bounded actual drain/resource ownership, UNKNOWN
+  uncertainty and the separate total500ns dual-bearer gate remain explicit.
+- Requirement/evidence matrix and nonnormative one-RC results retain72.425%
+  coverage, invalid-reference/missing observations and expiry/recovery intervals.
+
+Checks completed:
+- Built-in LaTeX compiler passed the final standalone source; established local
+  Tectonic0.17.0 export passed with no overfull/underfull/undefined warnings.
+- All22 final pages were visually inspected; every changed page was reinspected.
+  Exact rendered-page hashes are recorded in the visual-review manifest.
+- All181 frozen layout fields cover their exact six record byte ranges. Checked
+  printed offsets/widths/names, inherited HELLO header and both correction layouts.
+- Six full printed examples match immutable synthetic vectors. Independently
+  checked packet/origin/route HMACs, signed offset, GM-to-RC units, reserved bytes
+  and unused correction/name padding. Ten citations resolve; eight external PDF
+  link annotations match source URLs.
+- Existing14-valid/19-malformed ASan/UBSan evidence is retained by hash, without
+  rerunning that broad check. Two focused new ASan/UBSan counterexamples confirmed
+  the pinned GR3 decoder accepts a nonpreceding correction and a duplicate tuple.
+  This is an implementation gap, not a target-spec pass.
+- Rehashed all21 protected manuscript/manifest/spec inputs; unchanged. Public
+  proposal artifacts contain no factory IDs, enrollment material or private paths.
+- Portable ZIP contents are byte-verified against their SHA256 inventory.
+
+Normative dispositions and remaining standards work:
+I-01: GR3 origin range [14,60] is ambiguous. Vectors/reference authenticate start14,
+      length60, i.e.[14:74]. Proposal uses explicit notation; frozen contract untouched.
+I-02: Preserve required duplicate/nonpreceding rejection; pipeline conformance remains
+      pending. Focused counterexamples and reference hashes are in the issues manifest.
+I-03: GC flags bit1 is within the codec mask without a portable RC1 meaning; do not
+      infer authority. Production kind/capability semantics need completion.
+Further work: production identifiers and connected-bearer binding, supported controller
+capture/slot APIs, cross-vendor RC5/RQ5 interoperability, production security and durable
+replay/public authentication, physical two-RC and constrained-listening validation,
+complete GM/recovery suite, calibrated absolute/electrical output and full uncertainty,
+thermal/coexistence/energy evidence, and applicable SIG/IEEE qualification. UC6580
+brochure20ns vs datasheetR1.7 5ns RMS discrepancy remains explicit; neither is a board bound.
+
+Reproduction after extracting the package at a clean root:
+  python3 paper/provenance/check_v14_sig_document.py
+  python3 paper/build_v14_sig_proposal.py --engine PATH_TO_TECTONIC
+The source embeds tables/examples/bibliography and needs no project include files.
+Tectonic requires its TeX bundle/cache. Rebuilding may change PDF metadata/pagination;
+render and review after a rebuild. Frozen hashes identify the reviewed bytes, not a
+claim of metadata-independent PDF reproducibility. No devices, firmware edits, serial,
+flash, RF, independent full suite, website edits, publication or other-chat messages
+were performed for this task.

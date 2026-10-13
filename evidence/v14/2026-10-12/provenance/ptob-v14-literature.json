@@ -1,0 +1,168 @@
+{
+  "schema": 1,
+  "items": [
+    {
+      "bibliography_key": "ftsp",
+      "url": "https://archive.isis.vanderbilt.edu/sites/default/files/Maroti_M_11_3_2004_The_Floodi.pdf",
+      "title": "The Flooding Time Synchronization Protocol",
+      "checked_utc_date": "2026-10-12",
+      "primary_source": true,
+      "locator": "Abstract; sections 4-5",
+      "verified": "MAC-level timestamps, skew regression, multihop flooding; authors/title verified",
+      "limits": "Mica2 sensor network; not BLE metrology"
+    },
+    {
+      "bibliography_key": "cheep",
+      "url": "https://arxiv.org/abs/1501.06479v2",
+      "title": "CheepSync",
+      "checked_utc_date": "2026-10-12",
+      "primary_source": true,
+      "locator": "SectionIII introduction; version2 full text, publisher/index metadata",
+      "verified": "Passive BLE listeners and aggregate previous-packet transmission delay are in sectionIII; Sridhar first author",
+      "limits": "Abstract-page metadata lists Gill; version2 full-text heading lists Sridhar/Misra/Warrior. Bibliography uses et al. rather than asserting a reconciled full author list. No performance ranking.",
+      "additional_primary_url": "https://arxiv.org/html/1501.06479v2"
+    },
+    {
+      "bibliography_key": "blue",
+      "url": "https://ieeexplore.ieee.org/document/9555832/",
+      "title": "BlueSync",
+      "checked_utc_date": "2026-10-12",
+      "primary_source": true,
+      "locator": "Publisher abstract and issue metadata",
+      "verified": "Beacon-based BLE, drift-management tradeoffs, 320 ns per60 s average single-hop selected result; DOI10.1109/JIOT.2021.3116921",
+      "limits": "2021 online /2022 vol9 no11 pp8633-8645; no maximum-bound inference; institutional thesis fetch blocked"
+    },
+    {
+      "bibliography_key": "micro",
+      "url": "https://da.lib.kobe-u.ac.jp/da/kernel/0100491658/0100491658.pdf",
+      "title": "MicroSync",
+      "checked_utc_date": "2026-10-12",
+      "primary_source": true,
+      "locator": "Section V, pages124487-124489; Eq4",
+      "verified": "272 ns MAE, reported319.2 ns SD, 591.25 ns99% cumulative point,252.1uW MCU power,800MHz logic analyzer",
+      "limits": "Connected electrical output; no RMS reported; incomparable endpoint/population; power excludes peripherals"
+    },
+    {
+      "bibliography_key": "ntp",
+      "url": "https://www.rfc-editor.org/rfc/rfc5905.html",
+      "title": "NTPv4",
+      "checked_utc_date": "2026-10-12",
+      "primary_source": true,
+      "locator": "Clock discipline; sections11-12",
+      "verified": "Software time/frequency oscillator and discipline state",
+      "limits": "No transfer of gains or performance"
+    },
+    {
+      "bibliography_key": "linuxptp",
+      "url": "https://github.com/richardcochran/linuxptp/blob/v4.4/pi.c",
+      "title": "LinuxPTP PI servo",
+      "checked_utc_date": "2026-10-12",
+      "primary_source": true,
+      "locator": "Fixed tag v4.4, pi_sample/pi_sync_interval",
+      "verified": "Initial frequency estimation, max-frequency clamp, conditional integration, interval-dependent gains",
+      "limits": "Algorithm precedent; V14 is not deployed PI and gains not copied"
+    },
+    {
+      "bibliography_key": "nistterms",
+      "url": "https://www.nist.gov/el/intelligent-systems-division-73500/meanings-common-terms-used-ieee-1588",
+      "title": "IEEE1588 terminology",
+      "checked_utc_date": "2026-10-12",
+      "primary_source": true,
+      "locator": "Boundary clock and timestamp point definitions",
+      "verified": "Clock/path separation supports architectural terminology",
+      "limits": "No IEEE profile conformance follows"
+    },
+    {
+      "bibliography_key": "ble",
+      "url": "https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core-61/out/en/low-energy-controller/link-layer-specification.html",
+      "title": "Bluetooth Core6.1 Link Layer",
+      "checked_utc_date": "2026-10-12",
+      "primary_source": true,
+      "locator": "4.4.2.12;4.5.8.3",
+      "verified": "Periodic event counter and channel selection algorithm#2",
+      "limits": "Fixed edition; no newest-version claim or qualification assertion"
+    },
+    {
+      "bibliography_key": "hmac",
+      "url": "https://www.rfc-editor.org/rfc/rfc2104.html",
+      "title": "HMAC",
+      "checked_utc_date": "2026-10-12",
+      "primary_source": true,
+      "locator": "Sections2,5",
+      "verified": "Keyed hash construction and truncation",
+      "limits": "Protocol-specific SHA256128 body/domain from frozen RC1 contract, not invented by RFC"
+    },
+    {
+      "bibliography_key": "timer",
+      "url": "https://docs.nordicsemi.com/r/bundle/ps_nrf52840/page/timer.html",
+      "title": "nRF52840 TIMER",
+      "checked_utc_date": "2026-10-12",
+      "primary_source": true,
+      "locator": "Frequency, capture, compare and bitmode sections",
+      "verified": "16MHz divided by2^prescaler; capture latches counter; electrical compare remains grid-resolved",
+      "limits": "One tick is not a calibrated error distribution"
+    },
+    {
+      "bibliography_key": "heltec",
+      "url": "https://wiki.heltec.org/docs/devices/open-source-hardware/nrf52840-series/t096/",
+      "title": "Mesh Node T096",
+      "checked_utc_date": "2026-10-12",
+      "primary_source": true,
+      "locator": "Product overview",
+      "verified": "Declared nRF52840/UC6580 board family",
+      "limits": "Installed receiver suffix, firmware and PPS delay settings unknown"
+    },
+    {
+      "bibliography_key": "ucbrochure",
+      "url": "https://en.unicorecomm.com/uploads/file/Products%20Brochure%20of%20Unicore%202026_En.pdf",
+      "title": "Unicore Products Brochure2026",
+      "checked_utc_date": "2026-10-12",
+      "primary_source": true,
+      "locator": "Printedp28, PDFpage29 visually checked",
+      "verified": "UC6580 family Time Accuracy(RMS)20ns, separate30nspeak-to-peak24h",
+      "limits": "No complete timing-test envelope; not an observed board input; conflict with datasheet retained",
+      "retrieved_file_sha256": "da29c9287fa5669d86ecc657ea9affb6659baa38c24771059644a7bcd2faf86c"
+    },
+    {
+      "bibliography_key": "ucproduct",
+      "url": "https://en.unicorecomm.com/products/dual-band-gps-chip-uc6580/",
+      "title": "UC6580 English product table",
+      "checked_utc_date": "2026-10-12",
+      "primary_source": true,
+      "locator": "Technical specifications primary indexed text",
+      "verified": "Time Accuracy(RMS)20ns, separate30nspeak-to-peak24h",
+      "limits": "Direct fetch timed out; primary search content corroborated by downloaded brochure; timing conditions incomplete"
+    },
+    {
+      "bibliography_key": "ucdata",
+      "url": "https://en.unicorecomm.com/uploads/file/UC6580x-00_Datasheet_EN_R1.7.pdf",
+      "title": "UC6580x-00 datasheetR1.7",
+      "checked_utc_date": "2026-10-12",
+      "primary_source": true,
+      "locator": "Printedp7, PDFpage8; adjacent footnotes visually/textually checked",
+      "verified": "Time Accuracy(RMS)5ns;30nspeak-to-peak24h",
+      "limits": "Does NOT support20ns as its own figure; no timing-specific conditions or board uncertainty; discrepancy unresolved",
+      "retrieved_file_sha256": "292d731f7f4260111cbf95fe63100c52e3e9a9f7b29cc5b2450b5d13e30a5fc6"
+    }
+  ],
+  "all_manufacturer_conditions_checked": true,
+  "gnss_resolution": {
+    "component_family": "UC6580",
+    "installed_suffix": "UNKNOWN",
+    "installed_receiver_firmware": "UNKNOWN",
+    "installed_pps_configuration": "UNKNOWN",
+    "brochure_rms_ns": 20,
+    "datasheet_rms_ns": 5,
+    "historical_assumption_ns": 25,
+    "root_own_pps_diagnostic_rms_ns": 29.473834099955916,
+    "source_input_measured_rms_ns": null,
+    "qualification": "UNKNOWN_UNQUALIFIED"
+  },
+  "retrieval_failures_retained": [
+    "UC6580R1.5/R1.7 web fetch timeouts",
+    "wrong-host HTML response rejected as PDF",
+    "institutional thesis403",
+    "restricted local network dependency/font fetch failures"
+  ],
+  "retrieval_notes": "Public Unicore PDFs downloaded from exact manufacturer URLs after TLS hostname mismatch; content independently corroborated against primary product/document tables and visually inspected; hashes identify retrieved bytes, not a signed authenticity certificate."
+}

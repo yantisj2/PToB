@@ -8,7 +8,7 @@ with its timestamp, account for correction delay, and make the clock's quality
 and availability explicit.
 
 This repository holds the draft papers, experimental evidence, and work toward a
-T096 R2 firmware example. It is intended for BLE implementers, timing specialists,
+T096 firmware example. It is intended for BLE implementers, timing specialists,
 and embedded engineers evaluating the protocol, its measurements, and its fit
 for real devices. All papers remain drafts; PToB is not an adopted Bluetooth SIG
 or IEEE standard.
@@ -34,18 +34,24 @@ implementation boundaries, and questions still open for review.
 
 | Draft | Focus | Edition |
 | --- | --- | --- |
-| [Protocol proposal](papers/ptob-proposal.pdf) | Passive time services, timestamp association, authority, and forwarding | 2 October 2026 |
-| [Calibration and causal publication](papers/ptob-preprint.pdf) | Prospective edge calibration, delivered-clock error, and service availability | 2 October 2026 |
-| [Software clock discipline and oscillator control](papers/oscillator-pll-research-20261003.pdf) | Native software lock, retained failures, and a proposed tunable-oscillator extension | Amended 3 October; PDF exported 9 October 2026 |
+| [V14-RC1 service and profile proposal](papers/ptob-v14-sig-proposal.pdf) | GM authority, boundary-clock regeneration, six wire layouts, and conformance targets | 12 October 2026 |
+| [V14 boundary-clock research](papers/ptob-v14-preprint.pdf) | Causal timestamps, prospective one-relay PPS-shadow validation, and full availability accounting | 12 October 2026 |
 
 [Sources, citations, and revision history](papers/README.md) accompany each paper.
-These dated drafts document earlier research; the v12/R2 direction above does not
-retroactively change their wire formats, experiments, or conclusions.
+The [October 2 proposal and calibration preprint, and October 3 oscillator study](papers/README.md#historical-drafts)
+remain available with their original evidence boundaries.
+
+V14 separates independently sourced grandmasters from dedicated relay clocks
+that regenerate downstream events through their local disciplined maps. Read the
+[research status and remaining conformance gaps](docs/V14_RESEARCH_STATUS.md)
+and [frozen RC1 specification](docs/V14_CLOCK_SPEC_RC1.md). RC1 is a specification
+candidate; later firmware changes do not inherit its research results.
 
 ## Inspect the evidence
 
 | Collection | What you can review |
 | --- | --- |
+| [V14 October 12 research](evidence/v14/2026-10-12/README.md) | All 504 observed PPS edges, separate validity populations, renewal samples, and wire issues |
 | [October 2 paper evidence](evidence/papers/2026-10-02/README.md) | Claim mappings, calibration, populations, and original protocol/firmware identities |
 | [Oscillator/PLL evidence](evidence/papers/oscillator-pll-2026-10-03/README.md) | Hardware-derived samples, separate cohorts, and sampled lock states |
 | [v12 numerical model](evidence/v12/model/README.md) | Frozen model, executable tests, synthetic results, and retained failures |
@@ -57,8 +63,9 @@ checkout. Private raw captures are not included. Relative timing error, software
 lock, and simulated precision are distinct from calibrated UTC and independently
 measured electrical-output accuracy.
 
-The [T096 R2 example](firmware/t096/README.md) is being prepared for standalone
-builds. Firmware source and a deployable release are not yet included here.
+The [T096 example](firmware/t096/README.md), developed from R2, is being prepared
+for standalone builds. Firmware source and a deployable release are not yet
+included here.
 
 Reviews are welcome on controller support, physical timestamp association,
 clock discipline, service boundaries, and measurement design. Identify the draft

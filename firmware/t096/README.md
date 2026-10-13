@@ -1,11 +1,16 @@
-# T096 R2 firmware example
+# T096 firmware example
 
-T096 R2 is the first firmware example being prepared for this repository. Its
-direction comes from v12: periodic advertising for the precision timing stream,
+T096 firmware, developed from the R2 application, is the first example being
+prepared for this repository. Its direction comes from v12: periodic advertising
+for the precision timing stream,
 with mesh participation separated from planned client services for less capable
 devices. See [the architectural background](../../docs/V12_TO_R2.md).
 
 **Source import is pending.** No buildable or deployable firmware is included yet.
+The [V14 papers](../../papers/README.md) and [RC1 contract](../../protocol/v14_rc1/README.md)
+are now included. Their selected 0.14.43 research source is a historical identity,
+not the migration baseline or a statement about current installed firmware.
+
 The [R2 evidence collections](../../evidence/v12/r2/README.md) contain dated
 experiment records; they are not a firmware distribution.
 

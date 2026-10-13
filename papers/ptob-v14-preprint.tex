@@ -1,0 +1,1585 @@
+\documentclass[11pt,letterpaper]{article}
+\usepackage[margin=0.85in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{mathptmx,amsmath,booktabs,array,ragged2e,xcolor,microtype,hyperref,fancyhdr}
+\hypersetup{colorlinks=true,urlcolor=blue!45!black,citecolor=blue!45!black,linkcolor=black,pdfauthor={Jonathan Yantis},pdftitle={Passive Precision Time over BLE: V14 Boundary Clocks, Causal Timestamping, and Prospective One-Relay Validation}}
+\setlength{\parindent}{1em}\setlength{\parskip}{3pt}\setlength{\headheight}{14pt}\setlength{\emergencystretch}{2em}
+\widowpenalty=10000\clubpenalty=10000
+\renewcommand{\floatpagefraction}{0.8}\renewcommand{\topfraction}{0.9}\renewcommand{\textfraction}{0.08}
+\pagestyle{fancy}\fancyhf{}\fancyhead[L]{\small Passive Precision Time over BLE: V14}\fancyhead[R]{\small Research preprint, 12 October 2026}\fancyfoot[C]{\small\thepage}
+\newcommand{\ns}{\,\mathrm{ns}}\newcommand{\us}{\,\mu\mathrm{s}}\newcommand{\ms}{\,\mathrm{ms}}\newcommand{\ppb}{\,\mathrm{ppb}}\newcommand{\code}[1]{\texttt{#1}}\newcolumntype{L}[1]{>{\RaggedRight\arraybackslash}p{#1}}
+\begin{document}\thispagestyle{plain}
+\begin{center}
+{\LARGE\bfseries Passive Precision Time over BLE:\\V14 Boundary Clocks, Causal Timestamping,\\and Prospective One-Relay Validation\par}
+\vspace{9pt}Jonathan Yantis (Engineer)\par
+{\small Standalone research preprint for local review --- 12 October 2026}
+\end{center}
+\begin{abstract}
+Passive Precision Time over BLE (PToB) distributes a software clock through broadcast physical-event observations and later timestamp corrections. V14 extends the original passive protocol into an authenticated clock-distribution architecture that separates independently sourced grandmasters, direct coordination and standby, dedicated relay clocks, and clients. A relay disciplines its local counter-to-time map and regenerates downstream events independently of the arrival of each upstream correction, preserving root provenance and inherited age. Complete 190-byte periodic records replace multipart timing assembly, while occasional authenticated admission renewals preserve passive steady reception. We describe the frozen V14-RC1 protocol, its six validated byte layouts and 33 offline vectors, and the engineering corrections that enabled physical boundary-clock service. A direct calibration on 520 valid causal PPS samples fixed a provisional $+10543\ns$ receive correction per link before a separate one-relay experiment. Over 601.576 s, the leaf's already-available delivered map measured $-18.417\ns$ signed mean phase, $62.504\ns$ uncentered RMS and $59.729\ns$ demeaned jitter against an independent local PPS witness, with absolute P95/P99/maximum 123.25/160.25/191 ns. The 436 usable samples are reported against 504 observed edges and 602 conservative nominal boundaries, giving 72.425\% coverage; reference gaps and map expiries remain part of the result. Smooth renewal and continued normal service demonstrate a working distribution mechanism. These internal fractional-second measurements support the architecture under the recorded profile; calibrated electrical-output accuracy, absolute UTC association, continuous precision and physical two-relay performance require additional metrology.
+\end{abstract}
+
+\section{Introduction and contributions}
+A clock service becomes useful when a device can ask for time between packets, survive finite reception gaps, identify its source, and withdraw an invalid coordinate clearly. PToB pursues that service over BLE without a routine exchange for every timestamp. It serves a range of intended endpoints, from display clocks and sensor event recorders to hardware-stamped followers. Passive reception is the steady timing path; membership and demand negotiation are occasional control operations in V14.
+
+The original project established prospective compensation of a repeatable timing-edge offset and a causal distinction between fitting timestamps and publishing a clock. Later development exposed a second problem: distributing good time through a relay requires more than forwarding a source packet. The relay needs its own running clock, controller resources, admission lifetime and causal history. V14 makes these dependencies explicit and implements boundary-clock regeneration: each relay observes upstream events and independently timestamps downstream events through its disciplined local map.
+
+The contributions of this successor paper are fourfold. First, it presents a portable V14 architecture and wire description that separates GM authority, local service admission, clock validity and provenance. Second, it explains exact original/follow-up association and immutable map activation as the foundation for both relay transmission and causal measurement. Third, it documents a separately calibrated, prospective physical one-relay result with complete measurement and availability denominators. Fourth, it connects retained implementation failures to concrete corrections, yielding a reproducible research account rather than a collection of favorable lock indicators. The universal description in Sections~\ref{sec:architecture}--\ref{sec:hold} is separate from the implementation and experimental methods beginning in Section~\ref{sec:methods}.
+
+\section{Related work and measurement vocabulary}
+Low-level timestamping and skew estimation are established tools in wireless synchronization. FTSP combines MAC-layer timestamps, delay compensation and regression with multihop flooding on sensor platforms \cite{ftsp}. CheepSync demonstrates passive BLE timing using prior-transmission information \cite{cheep}. BlueSync studies beacon-based BLE synchronization, timer adjustment and drift-management tradeoffs, reporting average single-hop synchronization error as low as 320 ns per 60 s in its selected settings \cite{blue}. These precedents motivate PToB's causal event contract; passive reception and follow-up timestamping themselves are not claims of novelty.
+
+MicroSync provides a particularly useful comparator because it measures electrical synchronization pins and power on connected nRF52840 devices. Its high-accuracy result is 272 ns MAE, reported SD 319.2 ns, and a 591.25 ns 99\% cumulative point, with MCU power 252.1 $\mu$W. The evaluation uses an 800 MHz logic analyzer and a separately measured delay parameter \cite{micro}. PToB's selected V14 result instead measures a delivered software map at a local physical PPS edge after two wireless links. The two experiments have different endpoints, references, transports and populations. We use the comparator to identify missing output and energy measurements, without constructing a numerical performance ranking from unlike statistics.
+
+NTP's clock discipline treats time and frequency through a software oscillator \cite{ntp}; LinuxPTP exposes explicit PI servo state, gain scaling and frequency limiting \cite{linuxptp}. PToB likewise distinguishes estimation, the applied actuator and readiness. Its current boards discipline numerical counter-to-time maps; they do not physically tune a crystal or establish carrier phase coherence. Boundary-clock terminology describes regeneration from a local clock, consistent with the separation of paths in timing systems \cite{nistterms}. V14 is an experimental BLE protocol, rather than an implementation of the IEEE 1588 packet/profile contract.
+
+A \emph{fit residual} evaluates a model at fitted observations. A \emph{causal prediction} uses a map already available before its target. A \emph{PPS shadow} evaluates that delivered map at an independently captured local PPS edge. An \emph{electrical-output measurement} includes the actual pad transition and instrument path. \emph{Absolute UTC accuracy} additionally needs valid second association and calibrated source/reference uncertainty. Those categories are kept separate throughout the paper. Sparse status samples establish observed states; they do not establish their durations between samples.
+
+\section{Development from the original passive protocol to V14}\label{sec:history}
+The October 2 manuscripts described a public coarse service, a lightweight original/correction service, and a legacy advertising precision stream. The precision stream used seconds, fraction and XOR parity pages for each original physical copy; any two metadata kinds could reconstruct the timestamp. That work supplied exact-copy association, bounded assembly, explicit age, and a prospective calibration/validation split. A separately trained 10,516 ns correction produced 70.197/76.359 ns uncentered PPS-shadow RMS in two clean direct directions, while an interrupted reverse population retained a 420.267 ns RMS and a 6011 ns maximum \cite{prior}. Those historical results belong to their own firmware, transport and October 2 cutoff.
+
+The October 3 oscillator study developed a numerical affine-rate and phase-slew actuator with causal histories and distinct lock and presentation states. It retained a failed 71-capture overnight population, including 38 incomplete captures, before later native convergence. Quiet-pair and delayed-join distributions were useful, while simultaneous three-device activity and recovery tails exposed service weaknesses \cite{oscprior}. That work established software-clock control as a separate layer from timestamp fitting. It did not demonstrate a tunable physical oscillator.
+
+V12 explored complete periodic packets, directly connected GM coordination capped at four participants, and coordinated listening windows. Its offline proposal used a different cadence and one-hop policy from the present fixed-route service. V14's later dedicated relay architecture removed tight coupling between an outgoing event and the most recent parent correction. The relay could then transmit from a running causal local map while reporting increasing inherited age. This change made downstream progress possible through bounded upstream interruptions, subject to the selected clock policy.
+
+The V14-RC1 freeze of 12 October specifies a 16 Hz frame, distinct GM and RC precision formats, fixed authenticated routes and separate service/clock lifetimes \cite{v14}. The physical source selected here is application 0.14.43 at immutable commit \code{566ea2029c7ffc84a7d321df427c5c811fac2730}. The root repository checkpoint is \code{417c1b8}; specification freeze is \code{7995249}. The older canonical submodule and later unreviewed UI/source changes do not inherit the selected run's results. Earlier papers remain historical local manuscripts; no submission or publication status is inferred from their existence.
+
+\section{Universal protocol architecture}\label{sec:architecture}
+V14 separates five functions: an independently sourced GM, a coordinator, a standby, a dedicated relay clock (RC), and a client. Capabilities, configured profile, admitted participation, selected role, actual serving and clock quality are distinct. A control role does not supply time, and a good held clock does not create an independent source. Figure~\ref{fig:architecture} shows the two distribution planes.
+
+\begin{figure}[htbp]\centering
+\setlength{\unitlength}{1pt}
+\begin{picture}(454,165)
+\put(4,113){\framebox(123,35){\shortstack{\small Independent GM\\\scriptsize Eligible source; actual serving}}}
+\put(169,113){\framebox(135,35){\shortstack{\small Coordinator / standby\\\scriptsize Direct authenticated GM control}}}
+\put(127,131){\vector(1,0){42}}\put(169,126){\vector(-1,0){42}}
+\put(62,113){\vector(0,-1){35}}
+\put(4,41){\framebox(123,37){\shortstack{\small Dedicated RC\\\scriptsize Parent discipline; local clock}}}
+\put(164,41){\framebox(123,37){\shortstack{\small Optional second RC\\\scriptsize New captured downstream events}}}
+\put(324,41){\framebox(123,37){\shortstack{\small Passive client\\\scriptsize Delivered map / held / unavailable}}}
+\put(127,59){\vector(1,0){37}}\put(287,59){\vector(1,0){37}}
+\put(4,87){\makebox(145,10)[l]{\scriptsize Upstream originals + corrections}}
+\put(145,87){\makebox(300,10)[l]{\scriptsize Root provenance remains; GM control does not traverse RCs}}
+\put(4,11){\makebox(444,13){\scriptsize One-RC physical result: GM $\rightarrow$ RC $\rightarrow$ leaf; two RCs are a separate target}}
+\end{picture}
+\caption{V14 separates direct GM coordination from boundary-clock timing distribution. Each RC generates its own events through a local disciplined map. The optional second RC depicts the target architecture, not the selected physical topology.}\label{fig:architecture}
+\end{figure}
+
+\subsection{GM, coordinator and standby profiles}
+GM control is capped at four participants including the coordinator. Every remote GM needs a direct authenticated coordinator connection; ordinary clients are outside this cap. Relay-only and overflow nodes cannot use an RC path to obtain GM membership. Eligible sources are ordered lexicographically by priority1, clock class, accuracy, variance, priority2 and stable identity, with smaller values preferred. Eligibility is evaluated before ranking, and unknown quality cannot become favorable through a numeric default.
+
+The preferred eligible candidate is GM. A second eligible candidate supplies the coordinator/standby assignment; HOT additionally requires actual synchronization and current takeover authorization. Coordinator and GM are separate functions even when a platform supports both. Singleton operation needs an explicit local management path. Each connected partition may select its own eligible GM; merger converges by authenticated evidence and fencing rather than promising global consensus across disconnected radios.
+
+Startup requires at least 60 s of receive observation and 60 s of stable eligible-source evidence; these waits may overlap. Source epoch change, evidence expiry, receive fault or invalid local time resets affected admission. Takeover begins suspicion after 2 s without fresh authenticated root health and includes a 3 s local source-change fence before replacement serving. Scheduling and actual source eligibility still apply, so the sum is not a guaranteed recovery deadline. Loss of a client map alone is not proof that the root has failed.
+
+\subsection{Dedicated RC and client profiles}
+An RC has one selected authenticated timing parent, a monotonic counter, and a causal map. It originates a new downstream train without waiting for a fresh upstream correction before every transmission. RC operation has no GM, coordinator or HOT entitlement. Profile transitions that change authority fence the previous scope before new admission.
+
+The fixed-route contract supports an authenticated acyclic table of at most eight entries, root slot zero, three distinct RC positions, and at most two consecutive RC intermediaries. A transmitting child occupies a later slot and has depth one greater than its parent. A nontransmitting leaf inherits its parent's relay depth. Routes and slots are configured policy; actual peer addresses, boots and train incarnations are discovered and authenticated. RC1 provides neither a dynamic slot allocator nor unrestricted mesh routing. A relay-only client cannot silently fall back to direct GM or local GNSS when its declared path disappears.
+
+
+\begin{table}[htbp]\centering\small
+\caption{Separate authority and timing transitions. Preconditions, rather than clock names or fit quality alone, control progression.}
+\begin{tabular}{@{}L{0.19\linewidth}L{0.36\linewidth}L{0.35\linewidth}@{}}\toprule
+Profile & Progression & Withdrawal or refusal\\\midrule
+GM & Observe/stabilize $\rightarrow$ independently eligible $\rightarrow$ elected/admitted $\rightarrow$ serving & Source expiry, receive fault, epoch change, role loss: fence old authority\\
+Coordinator / standby & Direct authenticated member $\rightarrow$ assignment; standby synchronized + permitted $\rightarrow$ HOT & Missing independent source or sync cannot grant takeover; root-health suspicion precedes reselection\\
+RC & Demand/admission $\rightarrow$ acquisition $\rightarrow$ causal tracking; reception gap $\rightarrow$ HELD & Local age $\ge500$ ms or scope fault $\rightarrow$ unavailable; new accepted discipline permits recovery\\
+Client & Admitted parent $\rightarrow$ delivered map $\rightarrow$ tracking/held & No valid map $\rightarrow$ unavailable; discovery may continue\\\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Universal wire format and scheduling}\label{sec:wire}
+The core frame is 62.5 ms, or 16 Hz, with nominal positions 0, 15.625, 31.250 and 46.875 ms. The controller owns actual placement and RX/TX reservations. A missed preparation position advances by whole frames instead of fabricating a timestamp for the requested launch. Periodic trains use BLE channel selection; hopping does not make overlapping independent trains orthogonal or give a single radio simultaneous RX and TX \cite{ble}.
+
+\begin{table}[htbp]\centering\small
+\caption{The six frozen RC1 byte layouts. Sizes include the full record, not just timing payload. The last two use connected management.}\label{tab:wire}
+\begin{tabular}{@{}llrl@{}}\toprule
+Layout & Discriminator & Bytes & Function\\\midrule
+GR3 & GR, version 3 &190&GM precision AD\\
+RC5 & RC, version 5, profile 3 &190&RC precision AD\\
+RQ5 & RQ, version 5, profile 3 &136&Local service capability/request/response\\
+JOIN4 & Type 14, version 4 &164&GM/client membership and demand\\
+GC17 & Type 17, Config5/C4 &168&Direct GM management\\
+GC17 HELLO & Extended management &223&Pair/dictionary/name information\\\bottomrule
+\end{tabular}
+\end{table}
+
+Each precision advertisement is a complete 190-byte AD record, containing an original publication identity and zero, one or two corrections for \emph{earlier} physical copies. The original cannot contain a prediction for its own future transmission. Repetition supplies correction redundancy; it does not create independent samples. GR3 stores corrected TX time in 16 MHz units (62.5 ns). RC5 stores TX nanoseconds plus per-correction map generation and cumulative age. The wire unit does not require a physical 16 MHz oscillator, and a nanosecond integer does not imply nanosecond accuracy.
+
+All multibyte integers are little-endian; signed fields use two's complement. The manufacturer AD identifier \code{0xffff} is experimental. Unused correction entries and reserved bytes are zero. Required zero identities/incarnations, invalid routes, more than two corrections, duplicated correction identities, nonpreceding publications and out-of-range channels are rejected. Counter/sequence exhaustion requires fencing and a fresh authenticated scope rather than reuse of a live identity.
+
+The root envelope carries identity, boot, source epoch, issuance/expiry, frame provenance and signed UTC offset. An RC additionally carries sender boot, train, publication and capture scope, and each correction carries its own map generation and inherited age. GR3 and RC5 have different layouts and authentication domains; conversion authenticates the incoming record, preserves the root values and converts timestamp units explicitly. The re-signed RC statement remains a group-authenticated provenance statement, not a fresh root observation or individually verifiable GM signature.
+
+Source coordinates and UTC mapping stay separate from oscillator training. RC1 uses a POSIX UTC estimate; leap-second and absolute-UTC qualification are additional work. Uncertainty \code{0xffffffff} means UNKNOWN. Hold-horizon/budget zero/zero supplies no bounded held-precision grant. A nonzero pair needs separately justified uncertainty and never overrides the selected functional hold policy. Appendix~\ref{sec:annex} gives compact precision offsets; the machine-readable annex supplies all six layouts and their synthetic examples \cite{v14}.
+
+\section{Causal physical-event association and regeneration}\label{sec:causal}
+Let publication $k$ physically transmit at local counter $x_k^{\rm TX}$ and be received at $x_k^{\rm RX}$ on its actual periodic event and channel. The sender selects the map effective at that captured TX event and saves its immutable generation. A later packet carries the correction for $k$. The receiver matches that correction to the saved RX capture of the \emph{original}; the later packet's capture and worker time are not substitutes.
+
+A conceptual association key is the admitted group/route and source scope together with transmitter boot, train incarnation, capture epoch, publication, periodic event and physical channel. Exact scope agreement and the full authenticated original are checked before training. A wrong channel, wrong event, retired boot/train, conflicting original or ambiguous capture is refused. The publication/event tuple names a physical copy; metadata received later on another channel does not change that copy's channel.
+
+For a receiver map $M_g$ and a profile-specific link correction $d$, an accepted pair supplies an anchor
+\begin{equation}
+ M_g(x_k^{\rm RX}) \longleftarrow T_k^{\rm TX}+d .\label{eq:anchor}
+\end{equation}
+The usable correction becomes available at $a_k$, after reception, decoding, authentication and processing. A newly published map cannot take effect before $a_k$. A read at an earlier edge must use an older map or be unavailable. Advancing from the original anchor to the present read handles elapsed time; adding follow-up latency to the original timestamp would instead corrupt the anchor.
+
+\begin{figure}[htbp]\centering
+\setlength{\unitlength}{1pt}
+\begin{picture}(454,147)
+\put(65,117){\vector(1,0){380}}\put(65,73){\vector(1,0){380}}\put(65,29){\vector(1,0){380}}
+\put(0,112){\makebox(60,10)[r]{\small Parent}}\put(0,68){\makebox(60,10)[r]{\small Receiver}}\put(0,24){\makebox(60,10)[r]{\small New map}}
+\put(99,117){\circle*{4}}\put(107,73){\circle*{4}}\put(279,117){\circle*{4}}\put(291,73){\circle*{4}}\put(343,29){\circle*{4}}
+\qbezier(99,117)(103,95)(107,73)\qbezier(279,117)(285,95)(291,73)\put(343,29){\line(0,1){42}}
+\put(67,131){\makebox(119,10){\scriptsize Original $k$: captured TX}}\put(76,52){\makebox(130,10){\scriptsize Saved original RX $x_k$}}
+\put(215,131){\makebox(210,10){\scriptsize Later correction names original $k$}}
+\put(208,52){\makebox(220,10){\scriptsize Verify + match; availability $a_k$}}
+\put(112,7){\makebox(303,10){\scriptsize Historical queries retain old maps; new map effective at or after $a_k$}}
+\end{picture}
+\caption{Original physical coordinates and correction availability are distinct. An RC follows this process upstream, then captures its own downstream TX through the map effective at that event. Horizontal spacing is explanatory, not measured latency.}\label{fig:causal}
+\end{figure}
+
+Boundary regeneration follows directly. At an RC's independently scheduled downstream TX, it computes $T_j=M_g(x_j^{\rm TX})$ using the historical generation actually effective then. A future fit cannot rewrite $T_j$. Root identity, boot, source epoch and issuance remain attached, while age increases across regeneration. Transparent forwarding measures the residence of a forwarded event and requires a separate profile.
+
+\section{Software oscillator discipline and immutable maps}\label{sec:osc}
+The universal clock model is a monotonic local counter with immutable counter-to-time segments. An affine approximation can be expressed as
+\begin{equation}
+ M_g(x)=A_g+b_g(x-X_g)+s_g(x),\qquad x\ge a_g ,\label{eq:map}
+\end{equation}
+where $a_g$ is the generation's activation boundary, $b_g$ is a rate conversion, and $s_g$ is a declared bounded phase evolution. The representation and estimator are implementation choices; the protocol obligations are causality, checked arithmetic, monotonicity within a valid continuous scope, and explicit withdrawal on scope change or expiry.
+
+This separates three operations. The estimator learns phase/rate from accepted physical pairs. The actuator creates the coordinate returned by a query. The quality monitor scores prior delivered coordinates and tracks age, coverage and uncertainty. Small estimator scatter cannot retroactively improve actuator error. A fitting routine that includes a target before scoring it gives a different metric from a causal delivered-clock test.
+
+\section{Authentication, authority and service admission}\label{sec:auth}
+RC1 uses a provisioned 32-byte shared group PSK, group identity and epoch. Its record authentication is
+\begin{equation}
+ \mathrm{tag}=\mathrm{first}_{16}\!\left(\mathrm{HMAC\!\!\!-SHA256}
+ (K, D_8\Vert C_{13}\Vert B)\right),\label{eq:mac}
+\end{equation}
+where $D_8$ is the record-specific eight-byte domain, $C_{13}$ is version byte 1 followed by little-endian group ID64 and group epoch32, and $B$ is the specified body. Fresh challenges, both boots, sequences and stream floors bind local admission and replay context. Route authentication covers one count byte and eight zero-padded 12-byte entries (identity64, parent8, slot8, depth8, transmitter8); its first eight HMAC bytes form the route digest. The exact body ranges and domains are frozen in the annex \cite{v14}; HMAC follows the established construction \cite{hmac}.
+
+Every PSK holder shares the same symmetric trust boundary and can generate authenticated statements. Authentication here proves group membership/integrity, not unique hardware authorship, public verifiability or correctness of a compromised member. Keyless listeners can receive and parse the advertisements but cannot verify this trust profile. Delay attacks and replay after arbitrary state loss require further defenses. Coarse bootstrap establishes freshness/replay context and cannot train the precision estimator or confer source candidacy.
+
+Local request/response service may activate acquisition before a usable timing map exists. Responses distinguish admitted demand from timing readiness. Fixed-route renewal is approximately every 300 s, with a maximum 360 s local lease and a bounded 2 s transaction. Downstream live demand conservatively sustains upstream demand. Same-scope renewal preserves still-valid maps, pending originals and periodic synchronization where resources allow. It neither rebases clock age nor supplies fresh source evidence.
+
+This is the operational meaning of passive V14 timing: no routine request/response is needed for each correction, while authenticated exchanges establish or renew service. It is a change from the earlier fully public legacy service proposal, whose unauthenticated reception and symmetric control had different boundaries. Admission, source permission, discovery, downstream demand and output validity are separate states in the implementation and API.
+
+\section{Local and inherited holdover; persistent service}\label{sec:hold}
+The fixed-route profile permits a map for strictly less than 500 ms after the last accepted discipline availability. At exactly 500 ms, output is unavailable. That is a provisional functional policy, not a measured oscillator bound. Rejected originals, replay, status reads, retransmissions and admission renewals cannot reset it.
+
+A child's fresh accepted RC correction can renew the child's local map while carrying an older inherited reference. For local elapsed time $h$, inherited age evolves schematically as $A_{\rm child}=A_{\rm parent}+h+\text{declared mapping contributions}$. It cannot reset to zero merely because another RC transmitted. Thus two 500 ms local policies do not establish a 500 ms end-to-end age or accuracy bound. GR3's at-most-1.65 s source permission and RC5's up-to-360 s admission/provenance representation have different meanings; the latter is not 360 s of fresh GM authority.
+
+The earlier windowed leaf policy permits at most 1.5 s reference age clipped by original permission. It is a separate compatibility profile. A receiver selects one declared policy rather than mixing the most permissive limits. Optional half-duty reception must include acquisition, recovery and shutdown within at most 50\% listening; RC1 fixed-route service does not establish that pass.
+
+A qualified hold budget would require terms such as
+\begin{equation}
+ U(h)\le U_0+U_fh+\tfrac12 U_ah^2+U_{\rm capture}+U_{\rm path}+U_{\rm output},\label{eq:budget}
+\end{equation}
+under validated units and operating conditions. Unknown terms propagate as UNKNOWN. A chosen timeout cannot make them known. Functional UNAVAILABLE, TRACKING and HELD states describe service validity; quality separately describes supported precision. Scope change, revocation, counter fault, overflow or reboot fences affected maps.
+
+Normal installed service autostarts and continues after diagnostic capture closes. Healthy service has no diagnostic shutdown timer. Explicit stop, fault containment, update drain and demand expiry retain bounded closure. Bounded queues/histories expose overflow and exhaustion. Capture callbacks avoid allocation, formatting, unbounded work and flash writes. Controller conflicts or an undrained transmitter are hard faults for the affected resource. Other bearer/output profiles, including LoRa, WiFi and PTS, require their own evidence; none is enabled by the BLE result here.
+
+\section{Implementation and experimental methods}\label{sec:methods}
+\subsection{Evidence freeze and hardware provenance}
+This manuscript freezes local source/evidence inputs at \textbf{2026-10-12 18:26:44.293859 UTC}. Literature retrieval and document QA occur afterward and are versioned separately. The frozen universal specification is V14-RC1; the physical result uses immutable native 0.14.43, rather than a later dirty checkout. Source-set SHA-256 is \code{36a871b92529207950657e701f4e06f950e112dfbba3a5065b21fe926e596e4d}. Companion manifests pin exact code, images, analysis and selected evidence \cite{evidence}. No hardware or RF operation was performed for this paper.
+
+The physical platform is Heltec T096/HT-n5262G with nRF52840 and UC6580-family GNSS, as declared by the board manufacturer \cite{heltec}. The experimental counter runs at 16 MHz. PPS uses a GPIOTE/PPI capture path; radio ADDRESS uses a separate hardware capture. The native periodic BLE 1M adapter preserves controller ownership and associates latched captures with actual selected/received PDUs, event counters and channels. Ambiguous, conflicting or unsupported captures are refused. The exact PHY/reference and installed receiver pulse configuration matter; board family alone does not establish calibrated electrical delays.
+
+\subsection{Native clock-map adapter}
+In the selected native RC implementation, a rate-normalized counter map includes an anchor, effective tick, inherited age and generation. In ideal real arithmetic, its conversion is
+\begin{equation}
+ \tau=\frac{q(x-X_g)}{1+r_g10^{-9}},\qquad
+ M_g(x)=A_g+\tau+P_g\min(\tau/1\,\mathrm{s},1),\label{eq:rcmap}
+\end{equation}
+with $q=62.5\ns$/tick, native rate convention $r_g$ in ppb, and phase adjustment $P_g$ in ns. The frozen code uses bounded integer arithmetic. Continuous handover evaluates old and candidate maps at availability, reanchors to the old delivered value and slews the small difference over one second. A larger than 1000 ns reacquisition difference fences continuity and leaves quality unqualified; historical maps remain intact. Rate checks and this transition threshold belong to the selected adapter, not universal clock constants.
+
+The selected source path separately slews its own PPS phase, preventing a root map from accumulating an offset while rate fitting remains numerically good. Physical crystal frequency is not adjusted by either path. Software trim, functional TRACKING/LOCKED, observed causal RMS, remaining phase, and a calibrated physical-output bound therefore have separate meanings. The historical software PLL paper's fixed-quartz result and proposed tunable-actuator extension remain distinct \cite{oscprior}.
+
+\subsection{Direct calibration before prospective validation}
+The separate direct calibration fixed a nominal 600 s observation before selecting the receive correction. It retrieved 531 PPS edges: 529 had a causal map, two were activation races, and nine evaluated edges lacked a valid reference. The 520 reference-valid causal samples had mean $-10542.636538\ns$, total RMS $10542.760418\ns$ and demeaned jitter $51.108224\ns$. All valid causal samples entered the offset estimate without residual trimming. Against 600 nominal opportunities, 69 edges were missing and usable calibration coverage was 86.667\%.
+
+The rounded client advance was fixed as $d=+10543\ns$ per received link before the chain validation. It is applied once in each received-link map and leaves source own-PPS mapping, raw captures and wire timestamps unchanged. Two received links therefore contribute $+21086\ns$. This is an empirical method parameter for the tested T096 BLE1M profile, not a V14 constant or identified propagation delay.
+
+On the \emph{same training data}, the shifted mean is $+0.363462\ns$ and RMS $51.109517\ns$; these are descriptive training residuals. Ten-second block means give a 5.390 ns standard error and an approximate statistical 95\% mean interval of $\pm10.565\ns$. Correlation beyond the chosen blocks and all systematic receiver/radio/path delays are outside that estimate. The first corrected direct verification returned zero physical PPS edges, leaving accuracy unavailable; that failure remains separate from the successful later chain.
+
+\subsection{One-relay topology and causal witness isolation}
+The prospective chain is source/GM $\rightarrow$ one dedicated RC $\rightarrow$ leaf. The leaf rejects both direct-source timing and local-GNSS delivered-time fallback. Its local PPS is an independent shadow witness: witness GNSS and feedback are excluded from the delivered estimator and peer aiding. Upstream corrections discipline the RC; its own captured transmissions discipline the leaf. The RC has no usable independent PPS witness in this run, so there is no independently measured per-link error decomposition.
+
+The shadow record captures a physical leaf PPS edge and selects only a delivered map whose actual activation precedes that edge. It retains capture epoch, map generation, accepted-discipline age, parent/root scope and reference-validity metadata. Unknown UTC association leaves an integer-second ambiguity; the result is signed modulo-one-second phase. Negative error means delivered time lags the local nominal PPS boundary. Future PPS bracketing can be a diagnostic reference, but cannot train or backdate delivered output.
+
+Collectors retain device-counter times, not host-arrival timing as metrology. All writers and owners close before sealing. The selected compact index was read before metrics, continuity and event-referenced records. Analysis independently recomputes phase statistics and quantiles from all 504 rows, and checks causal activation/age. The new sanitized scientific export removes factory identifiers, boot values, absolute operational epochs, enrollment material and console text; private originals remain intact.
+
+\subsection{Metrics and denominator conventions}
+For the $n$ causal, reference-valid signed phases $e_i$, define
+\begin{equation}
+ \bar e=\frac{1}{n}\sum e_i,\quad R=\sqrt{\frac{1}{n}\sum e_i^2},\quad
+ J=\sqrt{\frac{1}{n}\sum(e_i-\bar e)^2}.\label{eq:metrics}
+\end{equation}
+Total RMS $R$ retains bias and satisfies $R^2=\bar e^2+J^2$. Absolute P95/P99 use linear interpolation at index $(n-1)p$ of the sorted absolute values, matching the sealed analyzer. Earlier manuscripts used their own documented quantile conventions; populations are not recomputed or pooled under a new convention. No validation centering, affine detrending, residual-dependent exclusion or post-hoc calibration is applied.
+
+Three denominators answer different questions: observed physical edges, causal/reference-valid edges, and nominal opportunities over the complete capture. For the 601.5761865 s device-counter interval, unknown starting phase gives 601--602 nominal 1 Hz boundaries. We choose 602 conservatively. Missing intervals are shown as gaps, without inventing edge values or output validity inside them. Reference validity is based on contemporaneous receiver/fix/PPS metadata, not on whether an error is small.
+
+\section{Prospective one-relay results}\label{sec:results}
+The selected run demonstrates delivered boundary-clock time across two wireless links with a calibration frozen beforehand. Table~\ref{tab:main} reports the conditional phase distribution and its complete opportunity accounting. The 436 valid causal samples have $62.504\ns$ total RMS and $-18.417\ns$ mean; the 59.729 ns jitter is separately demeaned. The sample maximum of 191 ns is the maximum in this named population, with no continuous worst-case extrapolation.
+
+\begin{table}[htbp]\centering\small
+\caption{One-RC prospective PPS-shadow result, source 0.14.43. Errors are ns unless stated; no bias removal from RMS.}\label{tab:main}
+\begin{tabular}{@{}L{0.62\linewidth}r@{}}\toprule
+Quantity & Result\\\midrule
+Actual device-counter capture span (s)&601.5761865\\
+Nominal 1 Hz boundaries, conservative / range&602 / 601--602\\
+Observed physical PPS edges&504\\
+Causal map available at edge&501\\
+Reference-valid edges, including expired maps&439\\
+Reference-valid causal samples&436\\
+Signed mean phase&$-18.417431$\\
+Uncentered RMS including bias&62.503871\\
+Demeaned RMS jitter&59.728822\\
+Absolute median / P95 / P99 / maximum&43 / 123.25 / 160.25 / 191\\\midrule
+Usable / nominal coverage&436/602 = 72.425\%\\
+Usable / observed-edge coverage&436/504 = 86.508\%\\
+Map available / nominal coverage&501/602 = 83.223\%\\
+Observed reference-invalid edges&65\\
+Reference-valid edges with expired map&3\\
+Unobserved nominal boundaries&97--98\\
+Maximum physical witness gap (s)&59.017190\\
+Telemetry sequence gaps / queue drops / duplicates&0 / 0 / 0\\\bottomrule
+\end{tabular}
+\end{table}
+
+The accounting is complete under the conservative convention:
+\begin{equation}
+ 602=436\ \text{usable}+65\ \text{invalid reference}
+       +3\ \text{expired map}+98\ \text{unobserved}.\label{eq:denom}
+\end{equation}
+A lower 601-boundary convention changes only the final term to 97. The analyzer's 88 missing-edge estimate \emph{between retrieved edges} is a different, interior-only count; it excludes capture-end opportunity uncertainty and does not replace the full-span denominator.
+
+All 501 causal-map observations, including invalid-reference observations, remain available as a separate population: mean 822,982.948 ns, RMS 3,929,463.788 ns and absolute maximum 19,752,827 ns. These large excursions are retained as observations with invalid reference metadata; their physical cause is not uniquely established. They do not belong to the reference-valid precision estimate, and they are not silently deleted. Figure~\ref{fig:phase} uses a separate millisecond scale for them so they remain legible.
+
+The root's own-PPS diagnostic is also separate: 58 sampled edges gave mean $-3.5\ns$, RMS $29.474\ns$ and maximum 61 ns against its \emph{own} PPS. It supports the source-phase correction mechanism under that internal path. It is neither the independent leaf distribution nor a measured GNSS source-input RMS. The short prerequisite chain run (22/22 usable edges over 21.569 s, mean $-5.818\ns$, jitter 59.529 ns, maximum 142 ns) stays distinct and is not added to the main sample count.
+
+\begin{figure}[p]\centering
+\setlength{\unitlength}{1pt}
+\begin{picture}(454,282)
+\put(161.915,158){\color{gray!15}\rule{4.469pt}{94pt}}
+\put(252.321,158){\color{gray!15}\rule{1.285pt}{94pt}}
+\put(256.777,158){\color{gray!15}\rule{1.922pt}{94pt}}
+\put(262.507,158){\color{gray!15}\rule{37.574pt}{94pt}}
+\put(310.893,158){\color{gray!15}\rule{1.285pt}{94pt}}
+\put(312.803,158){\color{gray!15}\rule{1.923pt}{94pt}}
+\put(330.629,158){\color{gray!15}\rule{6.378pt}{94pt}}
+\put(338.269,158){\color{gray!15}\rule{1.922pt}{94pt}}
+\put(359.916,158){\color{gray!15}\rule{1.922pt}{94pt}}
+\put(369.466,158){\color{gray!15}\rule{1.285pt}{94pt}}
+\put(375.196,158){\color{gray!15}\rule{1.921pt}{94pt}}
+\put(382.199,158){\color{gray!15}\rule{1.285pt}{94pt}}
+\put(431.221,158){\color{gray!15}\rule{1.286pt}{94pt}}
+{\color{black}\linethickness{0.5pt}\qbezier(62.000,158.000)(253.500,158.000)(445.000,158.000)}
+{\color{black}\linethickness{0.5pt}\qbezier(62.000,158.000)(62.000,205.000)(62.000,252.000)}
+\put(161.915,91){\color{gray!15}\rule{4.469pt}{43pt}}
+\put(252.321,91){\color{gray!15}\rule{1.285pt}{43pt}}
+\put(256.777,91){\color{gray!15}\rule{1.922pt}{43pt}}
+\put(262.507,91){\color{gray!15}\rule{37.574pt}{43pt}}
+\put(310.893,91){\color{gray!15}\rule{1.285pt}{43pt}}
+\put(312.803,91){\color{gray!15}\rule{1.923pt}{43pt}}
+\put(330.629,91){\color{gray!15}\rule{6.378pt}{43pt}}
+\put(338.269,91){\color{gray!15}\rule{1.922pt}{43pt}}
+\put(359.916,91){\color{gray!15}\rule{1.922pt}{43pt}}
+\put(369.466,91){\color{gray!15}\rule{1.285pt}{43pt}}
+\put(375.196,91){\color{gray!15}\rule{1.921pt}{43pt}}
+\put(382.199,91){\color{gray!15}\rule{1.285pt}{43pt}}
+\put(431.221,91){\color{gray!15}\rule{1.286pt}{43pt}}
+{\color{black}\linethickness{0.5pt}\qbezier(62.000,91.000)(253.500,91.000)(445.000,91.000)}
+{\color{black}\linethickness{0.5pt}\qbezier(62.000,91.000)(62.000,112.500)(62.000,134.000)}
+\put(161.915,29){\color{gray!15}\rule{4.469pt}{43pt}}
+\put(252.321,29){\color{gray!15}\rule{1.285pt}{43pt}}
+\put(256.777,29){\color{gray!15}\rule{1.922pt}{43pt}}
+\put(262.507,29){\color{gray!15}\rule{37.574pt}{43pt}}
+\put(310.893,29){\color{gray!15}\rule{1.285pt}{43pt}}
+\put(312.803,29){\color{gray!15}\rule{1.923pt}{43pt}}
+\put(330.629,29){\color{gray!15}\rule{6.378pt}{43pt}}
+\put(338.269,29){\color{gray!15}\rule{1.922pt}{43pt}}
+\put(359.916,29){\color{gray!15}\rule{1.922pt}{43pt}}
+\put(369.466,29){\color{gray!15}\rule{1.285pt}{43pt}}
+\put(375.196,29){\color{gray!15}\rule{1.921pt}{43pt}}
+\put(382.199,29){\color{gray!15}\rule{1.285pt}{43pt}}
+\put(431.221,29){\color{gray!15}\rule{1.286pt}{43pt}}
+{\color{black}\linethickness{0.5pt}\qbezier(62.000,29.000)(253.500,29.000)(445.000,29.000)}
+{\color{black}\linethickness{0.5pt}\qbezier(62.000,29.000)(62.000,50.500)(62.000,72.000)}
+{\color{black}\linethickness{0.5pt}\qbezier(62.000,29.000)(62.000,27.000)(62.000,25.000)}
+\put(47.000,11.000){\makebox(30,10)[c]{\scriptsize 0}}
+{\color{black}\linethickness{0.5pt}\qbezier(125.666,29.000)(125.666,27.000)(125.666,25.000)}
+\put(110.666,11.000){\makebox(30,10)[c]{\scriptsize 100}}
+{\color{black}\linethickness{0.5pt}\qbezier(189.332,29.000)(189.332,27.000)(189.332,25.000)}
+\put(174.332,11.000){\makebox(30,10)[c]{\scriptsize 200}}
+{\color{black}\linethickness{0.5pt}\qbezier(252.998,29.000)(252.998,27.000)(252.998,25.000)}
+\put(237.998,11.000){\makebox(30,10)[c]{\scriptsize 300}}
+{\color{black}\linethickness{0.5pt}\qbezier(316.664,29.000)(316.664,27.000)(316.664,25.000)}
+\put(301.664,11.000){\makebox(30,10)[c]{\scriptsize 400}}
+{\color{black}\linethickness{0.5pt}\qbezier(380.330,29.000)(380.330,27.000)(380.330,25.000)}
+\put(365.330,11.000){\makebox(30,10)[c]{\scriptsize 500}}
+{\color{black}\linethickness{0.5pt}\qbezier(443.997,29.000)(443.997,27.000)(443.997,25.000)}
+\put(428.997,11.000){\makebox(30,10)[c]{\scriptsize 600}}
+\put(18.000,157.273){\makebox(37,10)[r]{\scriptsize -200}}
+{\color{gray!35}\linethickness{0.3pt}\qbezier(62.000,162.273)(253.500,162.273)(445.000,162.273)}
+\put(18.000,200.000){\makebox(37,10)[r]{\scriptsize 0}}
+{\color{gray!35}\linethickness{0.3pt}\qbezier(62.000,205.000)(253.500,205.000)(445.000,205.000)}
+\put(18.000,242.727){\makebox(37,10)[r]{\scriptsize 200}}
+{\color{gray!35}\linethickness{0.3pt}\qbezier(62.000,247.727)(253.500,247.727)(445.000,247.727)}
+\put(62.597,220.382){\color{blue!65!black}\circle*{1.65}}
+\put(63.233,203.505){\color{blue!65!black}\circle*{1.65}}
+\put(63.870,190.045){\color{blue!65!black}\circle*{1.65}}
+\put(64.507,193.036){\color{blue!65!black}\circle*{1.65}}
+\put(65.143,198.164){\color{blue!65!black}\circle*{1.65}}
+\put(65.780,193.464){\color{blue!65!black}\circle*{1.65}}
+\put(66.417,215.468){\color{blue!65!black}\circle*{1.65}}
+\put(67.053,190.045){\color{blue!65!black}\circle*{1.65}}
+\put(67.690,205.427){\color{blue!65!black}\circle*{1.65}}
+\put(68.326,203.505){\color{blue!65!black}\circle*{1.65}}
+\put(68.963,187.909){\color{blue!65!black}\circle*{1.65}}
+\put(69.600,199.232){\color{blue!65!black}\circle*{1.65}}
+\put(70.236,195.814){\color{blue!65!black}\circle*{1.65}}
+\put(70.873,186.627){\color{blue!65!black}\circle*{1.65}}
+\put(71.510,222.305){\color{blue!65!black}\circle*{1.65}}
+\put(72.146,211.623){\color{blue!65!black}\circle*{1.65}}
+\put(72.783,197.309){\color{blue!65!black}\circle*{1.65}}
+\put(73.420,204.145){\color{blue!65!black}\circle*{1.65}}
+\put(74.056,207.777){\color{blue!65!black}\circle*{1.65}}
+\put(74.693,205.427){\color{blue!65!black}\circle*{1.65}}
+\put(75.330,189.618){\color{blue!65!black}\circle*{1.65}}
+\put(75.966,206.495){\color{blue!65!black}\circle*{1.65}}
+\put(76.603,198.377){\color{blue!65!black}\circle*{1.65}}
+\put(77.240,221.877){\color{blue!65!black}\circle*{1.65}}
+\put(77.876,215.682){\color{blue!65!black}\circle*{1.65}}
+\put(78.513,202.436){\color{blue!65!black}\circle*{1.65}}
+\put(79.150,203.718){\color{blue!65!black}\circle*{1.65}}
+\put(79.786,205.641){\color{blue!65!black}\circle*{1.65}}
+\put(80.423,206.923){\color{blue!65!black}\circle*{1.65}}
+\put(81.060,207.564){\color{blue!65!black}\circle*{1.65}}
+\put(81.696,207.991){\color{blue!65!black}\circle*{1.65}}
+\put(82.333,203.291){\color{blue!65!black}\circle*{1.65}}
+\put(82.970,200.300){\color{blue!65!black}\circle*{1.65}}
+\put(83.606,189.405){\color{blue!65!black}\circle*{1.65}}
+\put(84.243,206.282){\color{blue!65!black}\circle*{1.65}}
+\put(84.880,196.455){\color{blue!65!black}\circle*{1.65}}
+\put(85.516,202.864){\color{blue!65!black}\circle*{1.65}}
+\put(86.153,212.905){\color{blue!65!black}\circle*{1.65}}
+\put(86.790,193.677){\color{blue!65!black}\circle*{1.65}}
+\put(87.426,193.891){\color{blue!65!black}\circle*{1.65}}
+\put(88.063,211.836){\color{blue!65!black}\circle*{1.65}}
+\put(88.700,217.605){\color{blue!65!black}\circle*{1.65}}
+\put(89.336,182.782){\color{blue!65!black}\circle*{1.65}}
+\put(89.973,190.900){\color{blue!65!black}\circle*{1.65}}
+\put(90.610,202.009){\color{blue!65!black}\circle*{1.65}}
+\put(91.246,191.541){\color{blue!65!black}\circle*{1.65}}
+\put(91.883,187.909){\color{blue!65!black}\circle*{1.65}}
+\put(92.519,181.927){\color{blue!65!black}\circle*{1.65}}
+\put(93.156,197.309){\color{blue!65!black}\circle*{1.65}}
+\put(93.793,219.527){\color{blue!65!black}\circle*{1.65}}
+\put(94.429,202.223){\color{blue!65!black}\circle*{1.65}}
+\put(95.066,219.314){\color{blue!65!black}\circle*{1.65}}
+\put(95.703,209.700){\color{blue!65!black}\circle*{1.65}}
+\put(96.339,202.864){\color{blue!65!black}\circle*{1.65}}
+\put(96.976,197.309){\color{blue!65!black}\circle*{1.65}}
+\put(97.613,199.445){\color{blue!65!black}\circle*{1.65}}
+\put(98.249,183.209){\color{blue!65!black}\circle*{1.65}}
+\put(98.886,209.059){\color{blue!65!black}\circle*{1.65}}
+\put(99.523,213.545){\color{blue!65!black}\circle*{1.65}}
+\put(100.159,174.877){\color{blue!65!black}\circle*{1.65}}
+\put(100.796,181.927){\color{blue!65!black}\circle*{1.65}}
+\put(101.433,214.186){\color{blue!65!black}\circle*{1.65}}
+\put(102.069,198.591){\color{blue!65!black}\circle*{1.65}}
+\put(102.706,179.791){\color{blue!65!black}\circle*{1.65}}
+\put(103.343,227.005){\color{blue!65!black}\circle*{1.65}}
+\put(103.979,204.359){\color{blue!65!black}\circle*{1.65}}
+\put(104.616,167.400){\color{blue!65!black}\circle*{1.65}}
+\put(105.253,207.350){\color{blue!65!black}\circle*{1.65}}
+\put(105.889,217.818){\color{blue!65!black}\circle*{1.65}}
+\put(106.526,216.109){\color{blue!65!black}\circle*{1.65}}
+\put(107.163,195.386){\color{blue!65!black}\circle*{1.65}}
+\put(107.799,235.336){\color{blue!65!black}\circle*{1.65}}
+\put(108.436,234.482){\color{blue!65!black}\circle*{1.65}}
+\put(109.073,206.709){\color{blue!65!black}\circle*{1.65}}
+\put(110.346,193.677){\color{blue!65!black}\circle*{1.65}}
+\put(110.983,187.055){\color{blue!65!black}\circle*{1.65}}
+\put(111.619,178.723){\color{blue!65!black}\circle*{1.65}}
+\put(112.256,185.559){\color{blue!65!black}\circle*{1.65}}
+\put(112.893,218.032){\color{blue!65!black}\circle*{1.65}}
+\put(113.529,204.145){\color{blue!65!black}\circle*{1.65}}
+\put(114.166,212.264){\color{blue!65!black}\circle*{1.65}}
+\put(114.803,198.805){\color{blue!65!black}\circle*{1.65}}
+\put(115.439,195.814){\color{blue!65!black}\circle*{1.65}}
+\put(116.076,210.982){\color{blue!65!black}\circle*{1.65}}
+\put(116.712,208.205){\color{blue!65!black}\circle*{1.65}}
+\put(117.349,204.145){\color{blue!65!black}\circle*{1.65}}
+\put(117.986,194.532){\color{blue!65!black}\circle*{1.65}}
+\put(118.622,196.668){\color{blue!65!black}\circle*{1.65}}
+\put(119.259,200.727){\color{blue!65!black}\circle*{1.65}}
+\put(119.896,226.364){\color{blue!65!black}\circle*{1.65}}
+\put(120.532,210.341){\color{blue!65!black}\circle*{1.65}}
+\put(121.169,201.795){\color{blue!65!black}\circle*{1.65}}
+\put(121.806,185.986){\color{blue!65!black}\circle*{1.65}}
+\put(122.442,198.591){\color{blue!65!black}\circle*{1.65}}
+\put(123.079,203.291){\color{blue!65!black}\circle*{1.65}}
+\put(123.716,216.109){\color{blue!65!black}\circle*{1.65}}
+\put(124.352,191.755){\color{blue!65!black}\circle*{1.65}}
+\put(124.989,208.205){\color{blue!65!black}\circle*{1.65}}
+\put(125.626,223.586){\color{blue!65!black}\circle*{1.65}}
+\put(126.262,188.550){\color{blue!65!black}\circle*{1.65}}
+\put(126.899,204.573){\color{blue!65!black}\circle*{1.65}}
+\put(127.536,194.105){\color{blue!65!black}\circle*{1.65}}
+\put(128.172,194.745){\color{blue!65!black}\circle*{1.65}}
+\put(128.809,197.309){\color{blue!65!black}\circle*{1.65}}
+\put(129.446,195.173){\color{blue!65!black}\circle*{1.65}}
+\put(130.082,219.314){\color{blue!65!black}\circle*{1.65}}
+\put(130.719,228.286){\color{blue!65!black}\circle*{1.65}}
+\put(131.356,210.982){\color{blue!65!black}\circle*{1.65}}
+\put(131.992,202.864){\color{blue!65!black}\circle*{1.65}}
+\put(132.629,214.614){\color{blue!65!black}\circle*{1.65}}
+\put(133.266,215.468){\color{blue!65!black}\circle*{1.65}}
+\put(133.902,201.795){\color{blue!65!black}\circle*{1.65}}
+\put(134.539,200.727){\color{blue!65!black}\circle*{1.65}}
+\put(135.176,198.805){\color{blue!65!black}\circle*{1.65}}
+\put(135.812,216.964){\color{blue!65!black}\circle*{1.65}}
+\put(136.449,212.050){\color{blue!65!black}\circle*{1.65}}
+\put(137.086,196.241){\color{blue!65!black}\circle*{1.65}}
+\put(137.722,202.650){\color{blue!65!black}\circle*{1.65}}
+\put(138.359,207.350){\color{blue!65!black}\circle*{1.65}}
+\put(138.996,202.650){\color{blue!65!black}\circle*{1.65}}
+\put(139.632,213.545){\color{blue!65!black}\circle*{1.65}}
+\put(140.269,210.768){\color{blue!65!black}\circle*{1.65}}
+\put(140.905,203.718){\color{blue!65!black}\circle*{1.65}}
+\put(141.542,192.395){\color{blue!65!black}\circle*{1.65}}
+\put(142.179,203.077){\color{blue!65!black}\circle*{1.65}}
+\put(142.815,184.491){\color{blue!65!black}\circle*{1.65}}
+\put(143.452,182.141){\color{blue!65!black}\circle*{1.65}}
+\put(144.089,192.609){\color{blue!65!black}\circle*{1.65}}
+\put(144.725,205.000){\color{blue!65!black}\circle*{1.65}}
+\put(145.362,194.532){\color{blue!65!black}\circle*{1.65}}
+\put(145.999,200.727){\color{blue!65!black}\circle*{1.65}}
+\put(146.635,190.259){\color{blue!65!black}\circle*{1.65}}
+\put(147.272,173.168){\color{blue!65!black}\circle*{1.65}}
+\put(147.909,187.695){\color{blue!65!black}\circle*{1.65}}
+\put(148.545,190.900){\color{blue!65!black}\circle*{1.65}}
+\put(149.182,202.223){\color{blue!65!black}\circle*{1.65}}
+\put(149.819,206.709){\color{blue!65!black}\circle*{1.65}}
+\put(152.365,185.132){\color{blue!65!black}\circle*{1.65}}
+\put(153.002,175.732){\color{blue!65!black}\circle*{1.65}}
+\put(153.639,209.914){\color{blue!65!black}\circle*{1.65}}
+\put(154.275,194.532){\color{blue!65!black}\circle*{1.65}}
+\put(154.912,191.114){\color{blue!65!black}\circle*{1.65}}
+\put(157.459,179.577){\color{blue!65!black}\circle*{1.65}}
+\put(158.095,193.464){\color{blue!65!black}\circle*{1.65}}
+\put(158.732,217.605){\color{blue!65!black}\circle*{1.65}}
+\put(159.369,205.641){\color{blue!65!black}\circle*{1.65}}
+\put(160.005,203.718){\color{blue!65!black}\circle*{1.65}}
+\put(160.642,182.568){\color{blue!65!black}\circle*{1.65}}
+\put(161.279,186.841){\color{blue!65!black}\circle*{1.65}}
+\put(167.645,193.677){\color{blue!65!black}\circle*{1.65}}
+\put(168.282,199.873){\color{blue!65!black}\circle*{1.65}}
+\put(168.918,190.045){\color{blue!65!black}\circle*{1.65}}
+\put(169.555,186.414){\color{blue!65!black}\circle*{1.65}}
+\put(170.192,206.068){\color{blue!65!black}\circle*{1.65}}
+\put(170.828,194.105){\color{blue!65!black}\circle*{1.65}}
+\put(171.465,187.482){\color{blue!65!black}\circle*{1.65}}
+\put(172.102,175.732){\color{blue!65!black}\circle*{1.65}}
+\put(172.738,173.168){\color{blue!65!black}\circle*{1.65}}
+\put(173.375,170.391){\color{blue!65!black}\circle*{1.65}}
+\put(174.012,196.882){\color{blue!65!black}\circle*{1.65}}
+\put(175.285,176.373){\color{blue!65!black}\circle*{1.65}}
+\put(175.922,171.459){\color{blue!65!black}\circle*{1.65}}
+\put(176.558,164.195){\color{blue!65!black}\circle*{1.65}}
+\put(177.195,203.505){\color{blue!65!black}\circle*{1.65}}
+\put(177.832,195.814){\color{blue!65!black}\circle*{1.65}}
+\put(178.468,189.405){\color{blue!65!black}\circle*{1.65}}
+\put(179.742,210.341){\color{blue!65!black}\circle*{1.65}}
+\put(180.378,201.582){\color{blue!65!black}\circle*{1.65}}
+\put(181.015,191.541){\color{blue!65!black}\circle*{1.65}}
+\put(181.652,185.345){\color{blue!65!black}\circle*{1.65}}
+\put(182.288,200.300){\color{blue!65!black}\circle*{1.65}}
+\put(182.925,200.941){\color{blue!65!black}\circle*{1.65}}
+\put(183.562,210.555){\color{blue!65!black}\circle*{1.65}}
+\put(184.198,178.936){\color{blue!65!black}\circle*{1.65}}
+\put(184.835,211.836){\color{blue!65!black}\circle*{1.65}}
+\put(185.472,226.150){\color{blue!65!black}\circle*{1.65}}
+\put(186.108,214.614){\color{blue!65!black}\circle*{1.65}}
+\put(186.745,188.336){\color{blue!65!black}\circle*{1.65}}
+\put(187.381,206.709){\color{blue!65!black}\circle*{1.65}}
+\put(188.018,197.950){\color{blue!65!black}\circle*{1.65}}
+\put(188.655,217.391){\color{blue!65!black}\circle*{1.65}}
+\put(189.291,190.900){\color{blue!65!black}\circle*{1.65}}
+\put(189.928,219.314){\color{blue!65!black}\circle*{1.65}}
+\put(190.565,212.691){\color{blue!65!black}\circle*{1.65}}
+\put(191.201,210.982){\color{blue!65!black}\circle*{1.65}}
+\put(191.838,210.768){\color{blue!65!black}\circle*{1.65}}
+\put(192.475,191.327){\color{blue!65!black}\circle*{1.65}}
+\put(193.111,197.950){\color{blue!65!black}\circle*{1.65}}
+\put(193.748,199.232){\color{blue!65!black}\circle*{1.65}}
+\put(194.385,220.809){\color{blue!65!black}\circle*{1.65}}
+\put(195.021,195.600){\color{blue!65!black}\circle*{1.65}}
+\put(195.658,192.395){\color{blue!65!black}\circle*{1.65}}
+\put(196.295,200.727){\color{blue!65!black}\circle*{1.65}}
+\put(196.931,203.718){\color{blue!65!black}\circle*{1.65}}
+\put(197.568,191.755){\color{blue!65!black}\circle*{1.65}}
+\put(198.205,196.455){\color{blue!65!black}\circle*{1.65}}
+\put(198.841,202.864){\color{blue!65!black}\circle*{1.65}}
+\put(199.478,186.200){\color{blue!65!black}\circle*{1.65}}
+\put(200.115,193.677){\color{blue!65!black}\circle*{1.65}}
+\put(200.751,180.859){\color{blue!65!black}\circle*{1.65}}
+\put(201.388,191.327){\color{blue!65!black}\circle*{1.65}}
+\put(202.025,209.486){\color{blue!65!black}\circle*{1.65}}
+\put(202.661,189.191){\color{blue!65!black}\circle*{1.65}}
+\put(203.298,202.650){\color{blue!65!black}\circle*{1.65}}
+\put(203.935,191.114){\color{blue!65!black}\circle*{1.65}}
+\put(204.571,194.532){\color{blue!65!black}\circle*{1.65}}
+\put(205.208,201.582){\color{blue!65!black}\circle*{1.65}}
+\put(205.845,187.055){\color{blue!65!black}\circle*{1.65}}
+\put(206.481,187.482){\color{blue!65!black}\circle*{1.65}}
+\put(207.118,205.427){\color{blue!65!black}\circle*{1.65}}
+\put(207.755,195.386){\color{blue!65!black}\circle*{1.65}}
+\put(208.391,194.105){\color{blue!65!black}\circle*{1.65}}
+\put(209.028,197.736){\color{blue!65!black}\circle*{1.65}}
+\put(209.665,199.232){\color{blue!65!black}\circle*{1.65}}
+\put(210.301,206.495){\color{blue!65!black}\circle*{1.65}}
+\put(210.938,199.659){\color{blue!65!black}\circle*{1.65}}
+\put(211.574,214.186){\color{blue!65!black}\circle*{1.65}}
+\put(214.121,198.591){\color{blue!65!black}\circle*{1.65}}
+\put(214.758,209.914){\color{blue!65!black}\circle*{1.65}}
+\put(215.394,184.918){\color{blue!65!black}\circle*{1.65}}
+\put(216.031,179.577){\color{blue!65!black}\circle*{1.65}}
+\put(216.668,204.573){\color{blue!65!black}\circle*{1.65}}
+\put(219.214,199.445){\color{blue!65!black}\circle*{1.65}}
+\put(219.851,209.059){\color{blue!65!black}\circle*{1.65}}
+\put(220.488,193.036){\color{blue!65!black}\circle*{1.65}}
+\put(221.124,194.959){\color{blue!65!black}\circle*{1.65}}
+\put(221.761,218.886){\color{blue!65!black}\circle*{1.65}}
+\put(222.398,197.309){\color{blue!65!black}\circle*{1.65}}
+\put(223.034,219.100){\color{blue!65!black}\circle*{1.65}}
+\put(223.671,189.405){\color{blue!65!black}\circle*{1.65}}
+\put(224.308,184.918){\color{blue!65!black}\circle*{1.65}}
+\put(224.944,207.350){\color{blue!65!black}\circle*{1.65}}
+\put(225.581,198.591){\color{blue!65!black}\circle*{1.65}}
+\put(226.218,221.664){\color{blue!65!black}\circle*{1.65}}
+\put(226.854,217.177){\color{blue!65!black}\circle*{1.65}}
+\put(227.491,198.591){\color{blue!65!black}\circle*{1.65}}
+\put(228.128,175.732){\color{blue!65!black}\circle*{1.65}}
+\put(228.764,193.891){\color{blue!65!black}\circle*{1.65}}
+\put(229.401,209.059){\color{blue!65!black}\circle*{1.65}}
+\put(230.038,210.341){\color{blue!65!black}\circle*{1.65}}
+\put(230.674,193.036){\color{blue!65!black}\circle*{1.65}}
+\put(231.311,172.527){\color{blue!65!black}\circle*{1.65}}
+\put(231.948,189.618){\color{blue!65!black}\circle*{1.65}}
+\put(232.584,190.473){\color{blue!65!black}\circle*{1.65}}
+\put(233.221,191.755){\color{blue!65!black}\circle*{1.65}}
+\put(233.858,184.918){\color{blue!65!black}\circle*{1.65}}
+\put(234.494,179.577){\color{blue!65!black}\circle*{1.65}}
+\put(235.131,182.355){\color{blue!65!black}\circle*{1.65}}
+\put(235.767,205.000){\color{blue!65!black}\circle*{1.65}}
+\put(236.404,204.786){\color{blue!65!black}\circle*{1.65}}
+\put(237.041,199.018){\color{blue!65!black}\circle*{1.65}}
+\put(237.677,205.000){\color{blue!65!black}\circle*{1.65}}
+\put(238.314,224.227){\color{blue!65!black}\circle*{1.65}}
+\put(238.951,213.332){\color{blue!65!black}\circle*{1.65}}
+\put(239.587,211.623){\color{blue!65!black}\circle*{1.65}}
+\put(240.224,200.941){\color{blue!65!black}\circle*{1.65}}
+\put(240.861,197.309){\color{blue!65!black}\circle*{1.65}}
+\put(241.497,207.136){\color{blue!65!black}\circle*{1.65}}
+\put(242.134,226.791){\color{blue!65!black}\circle*{1.65}}
+\put(242.771,209.700){\color{blue!65!black}\circle*{1.65}}
+\put(243.407,190.473){\color{blue!65!black}\circle*{1.65}}
+\put(244.044,194.318){\color{blue!65!black}\circle*{1.65}}
+\put(244.681,205.214){\color{blue!65!black}\circle*{1.65}}
+\put(245.317,215.468){\color{blue!65!black}\circle*{1.65}}
+\put(245.954,208.205){\color{blue!65!black}\circle*{1.65}}
+\put(246.591,218.886){\color{blue!65!black}\circle*{1.65}}
+\put(247.227,192.609){\color{blue!65!black}\circle*{1.65}}
+\put(247.864,216.323){\color{blue!65!black}\circle*{1.65}}
+\put(248.501,212.905){\color{blue!65!black}\circle*{1.65}}
+\put(249.137,206.282){\color{blue!65!black}\circle*{1.65}}
+\put(249.774,205.214){\color{blue!65!black}\circle*{1.65}}
+\put(250.411,213.545){\color{blue!65!black}\circle*{1.65}}
+\put(251.047,202.223){\color{blue!65!black}\circle*{1.65}}
+\put(251.684,215.468){\color{blue!65!black}\circle*{1.65}}
+\put(261.234,218.245){\color{blue!65!black}\circle*{1.65}}
+\put(261.870,205.855){\color{blue!65!black}\circle*{1.65}}
+\put(301.980,196.027){\color{blue!65!black}\circle*{1.65}}
+\put(302.617,206.495){\color{blue!65!black}\circle*{1.65}}
+\put(303.253,212.264){\color{blue!65!black}\circle*{1.65}}
+\put(303.890,194.959){\color{blue!65!black}\circle*{1.65}}
+\put(304.527,202.864){\color{blue!65!black}\circle*{1.65}}
+\put(305.163,213.759){\color{blue!65!black}\circle*{1.65}}
+\put(305.800,190.900){\color{blue!65!black}\circle*{1.65}}
+\put(306.436,213.545){\color{blue!65!black}\circle*{1.65}}
+\put(307.073,212.264){\color{blue!65!black}\circle*{1.65}}
+\put(307.710,193.036){\color{blue!65!black}\circle*{1.65}}
+\put(308.346,210.341){\color{blue!65!black}\circle*{1.65}}
+\put(308.983,223.373){\color{blue!65!black}\circle*{1.65}}
+\put(309.620,210.555){\color{blue!65!black}\circle*{1.65}}
+\put(310.256,211.409){\color{blue!65!black}\circle*{1.65}}
+\put(315.986,207.350){\color{blue!65!black}\circle*{1.65}}
+\put(316.623,198.591){\color{blue!65!black}\circle*{1.65}}
+\put(317.260,198.805){\color{blue!65!black}\circle*{1.65}}
+\put(317.896,213.332){\color{blue!65!black}\circle*{1.65}}
+\put(318.533,222.305){\color{blue!65!black}\circle*{1.65}}
+\put(319.170,215.041){\color{blue!65!black}\circle*{1.65}}
+\put(319.806,218.673){\color{blue!65!black}\circle*{1.65}}
+\put(320.443,193.250){\color{blue!65!black}\circle*{1.65}}
+\put(321.080,198.377){\color{blue!65!black}\circle*{1.65}}
+\put(321.716,217.391){\color{blue!65!black}\circle*{1.65}}
+\put(322.353,212.691){\color{blue!65!black}\circle*{1.65}}
+\put(322.990,202.864){\color{blue!65!black}\circle*{1.65}}
+\put(323.626,209.914){\color{blue!65!black}\circle*{1.65}}
+\put(324.263,213.759){\color{blue!65!black}\circle*{1.65}}
+\put(324.900,201.795){\color{blue!65!black}\circle*{1.65}}
+\put(325.536,205.000){\color{blue!65!black}\circle*{1.65}}
+\put(326.173,215.895){\color{blue!65!black}\circle*{1.65}}
+\put(326.810,206.068){\color{blue!65!black}\circle*{1.65}}
+\put(327.446,186.841){\color{blue!65!black}\circle*{1.65}}
+\put(328.083,206.068){\color{blue!65!black}\circle*{1.65}}
+\put(328.720,196.668){\color{blue!65!black}\circle*{1.65}}
+\put(329.356,208.845){\color{blue!65!black}\circle*{1.65}}
+\put(329.993,200.514){\color{blue!65!black}\circle*{1.65}}
+\put(341.453,191.755){\color{blue!65!black}\circle*{1.65}}
+\put(342.089,177.441){\color{blue!65!black}\circle*{1.65}}
+\put(342.726,188.764){\color{blue!65!black}\circle*{1.65}}
+\put(343.363,213.332){\color{blue!65!black}\circle*{1.65}}
+\put(343.999,230.209){\color{blue!65!black}\circle*{1.65}}
+\put(344.636,242.386){\color{blue!65!black}\circle*{1.65}}
+\put(345.273,219.741){\color{blue!65!black}\circle*{1.65}}
+\put(345.909,185.773){\color{blue!65!black}\circle*{1.65}}
+\put(346.546,183.209){\color{blue!65!black}\circle*{1.65}}
+\put(347.183,222.518){\color{blue!65!black}\circle*{1.65}}
+\put(347.819,226.364){\color{blue!65!black}\circle*{1.65}}
+\put(348.456,191.968){\color{blue!65!black}\circle*{1.65}}
+\put(349.093,184.491){\color{blue!65!black}\circle*{1.65}}
+\put(349.729,193.250){\color{blue!65!black}\circle*{1.65}}
+\put(350.366,214.827){\color{blue!65!black}\circle*{1.65}}
+\put(351.003,199.659){\color{blue!65!black}\circle*{1.65}}
+\put(351.639,193.036){\color{blue!65!black}\circle*{1.65}}
+\put(352.276,198.591){\color{blue!65!black}\circle*{1.65}}
+\put(352.912,187.055){\color{blue!65!black}\circle*{1.65}}
+\put(353.549,189.618){\color{blue!65!black}\circle*{1.65}}
+\put(354.186,209.700){\color{blue!65!black}\circle*{1.65}}
+\put(354.822,206.068){\color{blue!65!black}\circle*{1.65}}
+\put(355.459,191.755){\color{blue!65!black}\circle*{1.65}}
+\put(356.096,179.791){\color{blue!65!black}\circle*{1.65}}
+\put(356.732,196.882){\color{blue!65!black}\circle*{1.65}}
+\put(357.369,188.336){\color{blue!65!black}\circle*{1.65}}
+\put(358.006,197.523){\color{blue!65!black}\circle*{1.65}}
+\put(363.099,211.409){\color{blue!65!black}\circle*{1.65}}
+\put(363.736,193.464){\color{blue!65!black}\circle*{1.65}}
+\put(364.372,200.941){\color{blue!65!black}\circle*{1.65}}
+\put(365.009,188.977){\color{blue!65!black}\circle*{1.65}}
+\put(365.646,197.309){\color{blue!65!black}\circle*{1.65}}
+\put(366.282,190.259){\color{blue!65!black}\circle*{1.65}}
+\put(366.919,203.077){\color{blue!65!black}\circle*{1.65}}
+\put(367.556,220.809){\color{blue!65!black}\circle*{1.65}}
+\put(368.192,212.905){\color{blue!65!black}\circle*{1.65}}
+\put(368.829,223.586){\color{blue!65!black}\circle*{1.65}}
+\put(372.012,193.250){\color{blue!65!black}\circle*{1.65}}
+\put(374.559,212.050){\color{blue!65!black}\circle*{1.65}}
+\put(378.379,185.559){\color{blue!65!black}\circle*{1.65}}
+\put(379.015,192.182){\color{blue!65!black}\circle*{1.65}}
+\put(379.652,200.727){\color{blue!65!black}\circle*{1.65}}
+\put(380.289,203.718){\color{blue!65!black}\circle*{1.65}}
+\put(380.925,194.532){\color{blue!65!black}\circle*{1.65}}
+\put(381.562,177.227){\color{blue!65!black}\circle*{1.65}}
+\put(384.745,210.555){\color{blue!65!black}\circle*{1.65}}
+\put(385.382,205.855){\color{blue!65!black}\circle*{1.65}}
+\put(386.019,200.086){\color{blue!65!black}\circle*{1.65}}
+\put(386.655,193.464){\color{blue!65!black}\circle*{1.65}}
+\put(387.292,193.464){\color{blue!65!black}\circle*{1.65}}
+\put(387.929,197.095){\color{blue!65!black}\circle*{1.65}}
+\put(388.565,228.073){\color{blue!65!black}\circle*{1.65}}
+\put(389.202,197.950){\color{blue!65!black}\circle*{1.65}}
+\put(389.839,212.905){\color{blue!65!black}\circle*{1.65}}
+\put(390.475,201.582){\color{blue!65!black}\circle*{1.65}}
+\put(391.112,212.050){\color{blue!65!black}\circle*{1.65}}
+\put(391.749,205.641){\color{blue!65!black}\circle*{1.65}}
+\put(392.385,196.455){\color{blue!65!black}\circle*{1.65}}
+\put(393.022,181.073){\color{blue!65!black}\circle*{1.65}}
+\put(393.659,178.509){\color{blue!65!black}\circle*{1.65}}
+\put(394.295,207.564){\color{blue!65!black}\circle*{1.65}}
+\put(394.932,205.214){\color{blue!65!black}\circle*{1.65}}
+\put(395.569,193.891){\color{blue!65!black}\circle*{1.65}}
+\put(396.205,191.968){\color{blue!65!black}\circle*{1.65}}
+\put(396.842,215.255){\color{blue!65!black}\circle*{1.65}}
+\put(397.479,202.223){\color{blue!65!black}\circle*{1.65}}
+\put(398.115,197.736){\color{blue!65!black}\circle*{1.65}}
+\put(398.752,199.018){\color{blue!65!black}\circle*{1.65}}
+\put(399.389,196.455){\color{blue!65!black}\circle*{1.65}}
+\put(400.025,209.486){\color{blue!65!black}\circle*{1.65}}
+\put(400.662,207.991){\color{blue!65!black}\circle*{1.65}}
+\put(401.298,208.845){\color{blue!65!black}\circle*{1.65}}
+\put(401.935,194.745){\color{blue!65!black}\circle*{1.65}}
+\put(402.572,207.564){\color{blue!65!black}\circle*{1.65}}
+\put(403.208,204.359){\color{blue!65!black}\circle*{1.65}}
+\put(403.845,191.755){\color{blue!65!black}\circle*{1.65}}
+\put(404.482,188.977){\color{blue!65!black}\circle*{1.65}}
+\put(405.118,209.059){\color{blue!65!black}\circle*{1.65}}
+\put(405.755,202.864){\color{blue!65!black}\circle*{1.65}}
+\put(406.392,193.250){\color{blue!65!black}\circle*{1.65}}
+\put(407.028,188.977){\color{blue!65!black}\circle*{1.65}}
+\put(407.665,177.014){\color{blue!65!black}\circle*{1.65}}
+\put(408.302,212.905){\color{blue!65!black}\circle*{1.65}}
+\put(408.938,223.586){\color{blue!65!black}\circle*{1.65}}
+\put(409.575,208.632){\color{blue!65!black}\circle*{1.65}}
+\put(410.212,197.950){\color{blue!65!black}\circle*{1.65}}
+\put(410.848,194.959){\color{blue!65!black}\circle*{1.65}}
+\put(411.485,205.000){\color{blue!65!black}\circle*{1.65}}
+\put(412.122,202.650){\color{blue!65!black}\circle*{1.65}}
+\put(412.758,205.214){\color{blue!65!black}\circle*{1.65}}
+\put(413.395,195.173){\color{blue!65!black}\circle*{1.65}}
+\put(414.032,200.727){\color{blue!65!black}\circle*{1.65}}
+\put(414.668,184.277){\color{blue!65!black}\circle*{1.65}}
+\put(415.305,204.573){\color{blue!65!black}\circle*{1.65}}
+\put(415.942,201.795){\color{blue!65!black}\circle*{1.65}}
+\put(416.578,216.750){\color{blue!65!black}\circle*{1.65}}
+\put(417.215,226.791){\color{blue!65!black}\circle*{1.65}}
+\put(417.852,200.941){\color{blue!65!black}\circle*{1.65}}
+\put(418.488,196.027){\color{blue!65!black}\circle*{1.65}}
+\put(419.125,193.464){\color{blue!65!black}\circle*{1.65}}
+\put(419.762,194.105){\color{blue!65!black}\circle*{1.65}}
+\put(420.398,214.186){\color{blue!65!black}\circle*{1.65}}
+\put(421.035,222.945){\color{blue!65!black}\circle*{1.65}}
+\put(421.672,211.623){\color{blue!65!black}\circle*{1.65}}
+\put(422.308,216.536){\color{blue!65!black}\circle*{1.65}}
+\put(422.945,218.032){\color{blue!65!black}\circle*{1.65}}
+\put(423.582,186.841){\color{blue!65!black}\circle*{1.65}}
+\put(424.218,175.732){\color{blue!65!black}\circle*{1.65}}
+\put(424.855,174.664){\color{blue!65!black}\circle*{1.65}}
+\put(425.491,188.550){\color{blue!65!black}\circle*{1.65}}
+\put(426.128,212.691){\color{blue!65!black}\circle*{1.65}}
+\put(426.765,167.614){\color{blue!65!black}\circle*{1.65}}
+\put(427.401,189.618){\color{blue!65!black}\circle*{1.65}}
+\put(428.038,224.014){\color{blue!65!black}\circle*{1.65}}
+\put(430.585,196.882){\color{blue!65!black}\circle*{1.65}}
+\put(433.768,218.032){\color{blue!65!black}\circle*{1.65}}
+\put(434.405,225.936){\color{blue!65!black}\circle*{1.65}}
+\put(435.041,209.273){\color{blue!65!black}\circle*{1.65}}
+\put(435.678,210.982){\color{blue!65!black}\circle*{1.65}}
+\put(436.315,191.755){\color{blue!65!black}\circle*{1.65}}
+\put(436.951,184.491){\color{blue!65!black}\circle*{1.65}}
+\put(437.588,198.164){\color{blue!65!black}\circle*{1.65}}
+\put(438.225,196.882){\color{blue!65!black}\circle*{1.65}}
+\put(18.000,87.000){\makebox(37,10)[r]{\scriptsize 0}}
+{\color{gray!35}\linethickness{0.3pt}\qbezier(62.000,92.000)(253.500,92.000)(445.000,92.000)}
+\put(18.000,107.000){\makebox(37,10)[r]{\scriptsize 10}}
+{\color{gray!35}\linethickness{0.3pt}\qbezier(62.000,112.000)(253.500,112.000)(445.000,112.000)}
+\put(18.000,127.000){\makebox(37,10)[r]{\scriptsize 20}}
+{\color{gray!35}\linethickness{0.3pt}\qbezier(62.000,132.000)(253.500,132.000)(445.000,132.000)}
+\put(150.455,92.000){\color{red!60!black}\circle*{1.65}}
+\put(151.104,129.369){\color{red!60!black}\circle*{1.65}}
+\put(151.729,92.000){\color{red!60!black}\circle*{1.65}}
+\put(155.549,92.000){\color{red!60!black}\circle*{1.65}}
+\put(156.197,129.080){\color{red!60!black}\circle*{1.65}}
+\put(156.822,92.000){\color{red!60!black}\circle*{1.65}}
+\put(161.915,92.000){\color{red!60!black}\circle*{1.65}}
+\put(166.384,130.124){\color{red!60!black}\circle*{1.65}}
+\put(167.008,92.000){\color{red!60!black}\circle*{1.65}}
+\put(212.211,92.000){\color{red!60!black}\circle*{1.65}}
+\put(212.860,129.765){\color{red!60!black}\circle*{1.65}}
+\put(213.484,92.000){\color{red!60!black}\circle*{1.65}}
+\put(217.304,92.000){\color{red!60!black}\circle*{1.65}}
+\put(217.953,130.589){\color{red!60!black}\circle*{1.65}}
+\put(218.578,92.000){\color{red!60!black}\circle*{1.65}}
+\put(252.321,92.000){\color{red!60!black}\circle*{1.65}}
+\put(253.605,127.663){\color{red!60!black}\circle*{1.65}}
+\put(254.231,92.000){\color{red!60!black}\circle*{1.65}}
+\put(254.867,92.000){\color{red!60!black}\circle*{1.65}}
+\put(255.515,127.674){\color{red!60!black}\circle*{1.65}}
+\put(256.141,92.000){\color{red!60!black}\circle*{1.65}}
+\put(256.777,92.000){\color{red!60!black}\circle*{1.65}}
+\put(258.699,130.032){\color{red!60!black}\circle*{1.65}}
+\put(259.324,92.000){\color{red!60!black}\circle*{1.65}}
+\put(259.972,129.461){\color{red!60!black}\circle*{1.65}}
+\put(260.597,92.000){\color{red!60!black}\circle*{1.65}}
+\put(262.507,92.000){\color{red!60!black}\circle*{1.65}}
+\put(300.081,126.956){\color{red!60!black}\circle*{1.65}}
+\put(300.707,92.000){\color{red!60!black}\circle*{1.65}}
+\put(301.343,92.000){\color{red!60!black}\circle*{1.65}}
+\put(310.893,92.000){\color{red!60!black}\circle*{1.65}}
+\put(312.179,130.010){\color{red!60!black}\circle*{1.65}}
+\put(312.803,92.000){\color{red!60!black}\circle*{1.65}}
+\put(314.726,131.359){\color{red!60!black}\circle*{1.65}}
+\put(315.350,92.000){\color{red!60!black}\circle*{1.65}}
+\put(330.629,92.000){\color{red!60!black}\circle*{1.65}}
+\put(337.008,129.122){\color{red!60!black}\circle*{1.65}}
+\put(337.633,92.000){\color{red!60!black}\circle*{1.65}}
+\put(338.269,92.000){\color{red!60!black}\circle*{1.65}}
+\put(340.191,129.474){\color{red!60!black}\circle*{1.65}}
+\put(340.816,92.000){\color{red!60!black}\circle*{1.65}}
+\put(358.642,92.000){\color{red!60!black}\circle*{1.65}}
+\put(359.291,129.417){\color{red!60!black}\circle*{1.65}}
+\put(359.916,92.000){\color{red!60!black}\circle*{1.65}}
+\put(361.838,131.061){\color{red!60!black}\circle*{1.65}}
+\put(362.462,92.000){\color{red!60!black}\circle*{1.65}}
+\put(369.466,92.000){\color{red!60!black}\circle*{1.65}}
+\put(370.751,129.686){\color{red!60!black}\circle*{1.65}}
+\put(371.376,92.000){\color{red!60!black}\circle*{1.65}}
+\put(372.649,92.000){\color{red!60!black}\circle*{1.65}}
+\put(373.298,130.013){\color{red!60!black}\circle*{1.65}}
+\put(373.922,92.000){\color{red!60!black}\circle*{1.65}}
+\put(375.196,92.000){\color{red!60!black}\circle*{1.65}}
+\put(377.117,127.024){\color{red!60!black}\circle*{1.65}}
+\put(377.742,92.000){\color{red!60!black}\circle*{1.65}}
+\put(382.199,92.000){\color{red!60!black}\circle*{1.65}}
+\put(383.484,129.635){\color{red!60!black}\circle*{1.65}}
+\put(384.109,92.000){\color{red!60!black}\circle*{1.65}}
+\put(428.675,92.000){\color{red!60!black}\circle*{1.65}}
+\put(429.323,129.626){\color{red!60!black}\circle*{1.65}}
+\put(429.948,92.000){\color{red!60!black}\circle*{1.65}}
+\put(431.221,92.000){\color{red!60!black}\circle*{1.65}}
+\put(432.507,131.506){\color{red!60!black}\circle*{1.65}}
+\put(433.131,92.000){\color{red!60!black}\circle*{1.65}}
+\put(438.861,92.000){\color{red!60!black}\circle*{1.65}}
+\put(18.000,24.000){\makebox(37,10)[r]{\scriptsize 0}}
+{\color{gray!35}\linethickness{0.3pt}\qbezier(62.000,29.000)(253.500,29.000)(445.000,29.000)}
+\put(18.000,41.917){\makebox(37,10)[r]{\scriptsize 500}}
+{\color{gray!35}\linethickness{0.3pt}\qbezier(62.000,46.917)(253.500,46.917)(445.000,46.917)}
+\put(18.000,59.833){\makebox(37,10)[r]{\scriptsize 1000}}
+{\color{gray!35}\linethickness{0.3pt}\qbezier(62.000,64.833)(253.500,64.833)(445.000,64.833)}
+\put(62.597,32.026){\color{blue!65!black}\circle*{1.65}}
+\put(63.233,30.331){\color{blue!65!black}\circle*{1.65}}
+\put(63.870,30.358){\color{blue!65!black}\circle*{1.65}}
+\put(64.507,30.348){\color{blue!65!black}\circle*{1.65}}
+\put(65.143,30.339){\color{blue!65!black}\circle*{1.65}}
+\put(65.780,30.354){\color{blue!65!black}\circle*{1.65}}
+\put(66.417,30.342){\color{blue!65!black}\circle*{1.65}}
+\put(67.053,30.317){\color{blue!65!black}\circle*{1.65}}
+\put(67.690,31.879){\color{blue!65!black}\circle*{1.65}}
+\put(68.326,31.808){\color{blue!65!black}\circle*{1.65}}
+\put(68.963,30.319){\color{blue!65!black}\circle*{1.65}}
+\put(69.600,30.314){\color{blue!65!black}\circle*{1.65}}
+\put(70.236,30.301){\color{blue!65!black}\circle*{1.65}}
+\put(70.873,30.338){\color{blue!65!black}\circle*{1.65}}
+\put(71.510,45.983){\color{blue!65!black}\circle*{1.65}}
+\put(72.146,30.306){\color{blue!65!black}\circle*{1.65}}
+\put(72.783,30.323){\color{blue!65!black}\circle*{1.65}}
+\put(73.420,30.335){\color{blue!65!black}\circle*{1.65}}
+\put(74.056,30.328){\color{blue!65!black}\circle*{1.65}}
+\put(74.693,30.316){\color{blue!65!black}\circle*{1.65}}
+\put(75.330,30.315){\color{blue!65!black}\circle*{1.65}}
+\put(75.966,30.188){\color{blue!65!black}\circle*{1.65}}
+\put(76.603,30.324){\color{blue!65!black}\circle*{1.65}}
+\put(77.240,30.312){\color{blue!65!black}\circle*{1.65}}
+\put(77.876,30.311){\color{blue!65!black}\circle*{1.65}}
+\put(78.513,37.029){\color{blue!65!black}\circle*{1.65}}
+\put(79.150,31.990){\color{blue!65!black}\circle*{1.65}}
+\put(79.786,30.306){\color{blue!65!black}\circle*{1.65}}
+\put(80.423,30.171){\color{blue!65!black}\circle*{1.65}}
+\put(81.060,30.315){\color{blue!65!black}\circle*{1.65}}
+\put(81.696,30.313){\color{blue!65!black}\circle*{1.65}}
+\put(82.333,30.299){\color{blue!65!black}\circle*{1.65}}
+\put(82.970,30.335){\color{blue!65!black}\circle*{1.65}}
+\put(83.606,30.306){\color{blue!65!black}\circle*{1.65}}
+\put(84.243,30.309){\color{blue!65!black}\circle*{1.65}}
+\put(84.880,30.303){\color{blue!65!black}\circle*{1.65}}
+\put(85.516,30.300){\color{blue!65!black}\circle*{1.65}}
+\put(86.153,30.303){\color{blue!65!black}\circle*{1.65}}
+\put(86.790,30.269){\color{blue!65!black}\circle*{1.65}}
+\put(87.426,34.781){\color{blue!65!black}\circle*{1.65}}
+\put(88.063,30.289){\color{blue!65!black}\circle*{1.65}}
+\put(88.700,30.315){\color{blue!65!black}\circle*{1.65}}
+\put(89.336,30.264){\color{blue!65!black}\circle*{1.65}}
+\put(89.973,30.302){\color{blue!65!black}\circle*{1.65}}
+\put(90.610,30.291){\color{blue!65!black}\circle*{1.65}}
+\put(91.246,31.980){\color{blue!65!black}\circle*{1.65}}
+\put(91.883,30.294){\color{blue!65!black}\circle*{1.65}}
+\put(92.519,34.779){\color{blue!65!black}\circle*{1.65}}
+\put(93.156,30.288){\color{blue!65!black}\circle*{1.65}}
+\put(93.793,30.302){\color{blue!65!black}\circle*{1.65}}
+\put(94.429,30.289){\color{blue!65!black}\circle*{1.65}}
+\put(95.066,30.285){\color{blue!65!black}\circle*{1.65}}
+\put(95.703,30.273){\color{blue!65!black}\circle*{1.65}}
+\put(96.339,30.290){\color{blue!65!black}\circle*{1.65}}
+\put(96.976,30.270){\color{blue!65!black}\circle*{1.65}}
+\put(97.613,30.284){\color{blue!65!black}\circle*{1.65}}
+\put(98.249,32.452){\color{blue!65!black}\circle*{1.65}}
+\put(98.886,30.271){\color{blue!65!black}\circle*{1.65}}
+\put(99.523,31.830){\color{blue!65!black}\circle*{1.65}}
+\put(100.159,30.278){\color{blue!65!black}\circle*{1.65}}
+\put(100.796,30.275){\color{blue!65!black}\circle*{1.65}}
+\put(101.433,30.257){\color{blue!65!black}\circle*{1.65}}
+\put(102.069,30.273){\color{blue!65!black}\circle*{1.65}}
+\put(102.706,30.291){\color{blue!65!black}\circle*{1.65}}
+\put(103.343,30.269){\color{blue!65!black}\circle*{1.65}}
+\put(103.979,30.267){\color{blue!65!black}\circle*{1.65}}
+\put(104.616,30.259){\color{blue!65!black}\circle*{1.65}}
+\put(105.253,30.276){\color{blue!65!black}\circle*{1.65}}
+\put(105.889,30.250){\color{blue!65!black}\circle*{1.65}}
+\put(106.526,30.256){\color{blue!65!black}\circle*{1.65}}
+\put(107.163,30.263){\color{blue!65!black}\circle*{1.65}}
+\put(107.799,30.260){\color{blue!65!black}\circle*{1.65}}
+\put(108.436,30.246){\color{blue!65!black}\circle*{1.65}}
+\put(109.073,30.266){\color{blue!65!black}\circle*{1.65}}
+\put(109.709,63.852){\color{blue!65!black}\circle*{1.65}}
+\put(110.346,30.355){\color{blue!65!black}\circle*{1.65}}
+\put(110.983,30.364){\color{blue!65!black}\circle*{1.65}}
+\put(111.619,30.379){\color{blue!65!black}\circle*{1.65}}
+\put(112.256,30.356){\color{blue!65!black}\circle*{1.65}}
+\put(112.893,30.348){\color{blue!65!black}\circle*{1.65}}
+\put(113.529,30.337){\color{blue!65!black}\circle*{1.65}}
+\put(114.166,30.335){\color{blue!65!black}\circle*{1.65}}
+\put(114.803,30.322){\color{blue!65!black}\circle*{1.65}}
+\put(115.439,30.315){\color{blue!65!black}\circle*{1.65}}
+\put(116.076,30.328){\color{blue!65!black}\circle*{1.65}}
+\put(116.712,30.332){\color{blue!65!black}\circle*{1.65}}
+\put(117.349,30.336){\color{blue!65!black}\circle*{1.65}}
+\put(117.986,30.318){\color{blue!65!black}\circle*{1.65}}
+\put(118.622,30.313){\color{blue!65!black}\circle*{1.65}}
+\put(119.259,30.326){\color{blue!65!black}\circle*{1.65}}
+\put(119.896,30.326){\color{blue!65!black}\circle*{1.65}}
+\put(120.532,30.334){\color{blue!65!black}\circle*{1.65}}
+\put(121.169,30.333){\color{blue!65!black}\circle*{1.65}}
+\put(121.806,30.330){\color{blue!65!black}\circle*{1.65}}
+\put(122.442,30.329){\color{blue!65!black}\circle*{1.65}}
+\put(123.079,30.316){\color{blue!65!black}\circle*{1.65}}
+\put(123.716,30.326){\color{blue!65!black}\circle*{1.65}}
+\put(124.352,32.597){\color{blue!65!black}\circle*{1.65}}
+\put(124.989,30.310){\color{blue!65!black}\circle*{1.65}}
+\put(125.626,30.329){\color{blue!65!black}\circle*{1.65}}
+\put(126.262,30.359){\color{blue!65!black}\circle*{1.65}}
+\put(126.899,30.344){\color{blue!65!black}\circle*{1.65}}
+\put(127.536,30.308){\color{blue!65!black}\circle*{1.65}}
+\put(128.172,30.329){\color{blue!65!black}\circle*{1.65}}
+\put(128.809,30.347){\color{blue!65!black}\circle*{1.65}}
+\put(129.446,30.336){\color{blue!65!black}\circle*{1.65}}
+\put(130.082,30.322){\color{blue!65!black}\circle*{1.65}}
+\put(130.719,30.346){\color{blue!65!black}\circle*{1.65}}
+\put(131.356,30.340){\color{blue!65!black}\circle*{1.65}}
+\put(131.992,30.345){\color{blue!65!black}\circle*{1.65}}
+\put(132.629,30.326){\color{blue!65!black}\circle*{1.65}}
+\put(133.266,30.323){\color{blue!65!black}\circle*{1.65}}
+\put(133.902,30.325){\color{blue!65!black}\circle*{1.65}}
+\put(134.539,30.341){\color{blue!65!black}\circle*{1.65}}
+\put(135.176,30.301){\color{blue!65!black}\circle*{1.65}}
+\put(135.812,30.303){\color{blue!65!black}\circle*{1.65}}
+\put(136.449,30.310){\color{blue!65!black}\circle*{1.65}}
+\put(137.086,30.307){\color{blue!65!black}\circle*{1.65}}
+\put(137.722,30.277){\color{blue!65!black}\circle*{1.65}}
+\put(138.359,30.293){\color{blue!65!black}\circle*{1.65}}
+\put(138.996,30.326){\color{blue!65!black}\circle*{1.65}}
+\put(139.632,30.300){\color{blue!65!black}\circle*{1.65}}
+\put(140.269,30.297){\color{blue!65!black}\circle*{1.65}}
+\put(140.905,30.299){\color{blue!65!black}\circle*{1.65}}
+\put(141.542,30.303){\color{blue!65!black}\circle*{1.65}}
+\put(142.179,30.313){\color{blue!65!black}\circle*{1.65}}
+\put(142.815,30.289){\color{blue!65!black}\circle*{1.65}}
+\put(143.452,30.286){\color{blue!65!black}\circle*{1.65}}
+\put(144.089,32.535){\color{blue!65!black}\circle*{1.65}}
+\put(144.725,30.294){\color{blue!65!black}\circle*{1.65}}
+\put(145.362,30.280){\color{blue!65!black}\circle*{1.65}}
+\put(145.999,30.291){\color{blue!65!black}\circle*{1.65}}
+\put(146.635,32.536){\color{blue!65!black}\circle*{1.65}}
+\put(147.272,30.306){\color{blue!65!black}\circle*{1.65}}
+\put(147.909,30.287){\color{blue!65!black}\circle*{1.65}}
+\put(148.545,30.287){\color{blue!65!black}\circle*{1.65}}
+\put(149.182,30.282){\color{blue!65!black}\circle*{1.65}}
+\put(149.819,30.275){\color{blue!65!black}\circle*{1.65}}
+\put(150.455,30.271){\color{blue!65!black}\circle*{1.65}}
+\put(151.104,30.942){\color{blue!65!black}\circle*{1.65}}
+\put(151.729,36.978){\color{blue!65!black}\circle*{1.65}}
+\put(152.365,30.266){\color{blue!65!black}\circle*{1.65}}
+\put(153.002,30.251){\color{blue!65!black}\circle*{1.65}}
+\put(153.639,30.277){\color{blue!65!black}\circle*{1.65}}
+\put(154.275,30.267){\color{blue!65!black}\circle*{1.65}}
+\put(154.912,30.293){\color{blue!65!black}\circle*{1.65}}
+\put(155.549,30.276){\color{blue!65!black}\circle*{1.65}}
+\put(156.197,30.946){\color{blue!65!black}\circle*{1.65}}
+\put(156.822,30.309){\color{blue!65!black}\circle*{1.65}}
+\put(157.459,30.287){\color{blue!65!black}\circle*{1.65}}
+\put(158.095,30.303){\color{blue!65!black}\circle*{1.65}}
+\put(158.732,30.304){\color{blue!65!black}\circle*{1.65}}
+\put(159.369,32.517){\color{blue!65!black}\circle*{1.65}}
+\put(160.005,32.529){\color{blue!65!black}\circle*{1.65}}
+\put(160.642,31.779){\color{blue!65!black}\circle*{1.65}}
+\put(161.279,30.308){\color{blue!65!black}\circle*{1.65}}
+\put(161.915,32.549){\color{blue!65!black}\circle*{1.65}}
+\put(166.384,30.958){\color{blue!65!black}\circle*{1.65}}
+\put(167.008,30.264){\color{blue!65!black}\circle*{1.65}}
+\put(167.645,30.261){\color{blue!65!black}\circle*{1.65}}
+\put(168.282,30.263){\color{blue!65!black}\circle*{1.65}}
+\put(168.918,32.510){\color{blue!65!black}\circle*{1.65}}
+\put(169.555,30.273){\color{blue!65!black}\circle*{1.65}}
+\put(170.192,30.256){\color{blue!65!black}\circle*{1.65}}
+\put(170.828,30.263){\color{blue!65!black}\circle*{1.65}}
+\put(171.465,32.503){\color{blue!65!black}\circle*{1.65}}
+\put(172.102,30.251){\color{blue!65!black}\circle*{1.65}}
+\put(172.738,31.820){\color{blue!65!black}\circle*{1.65}}
+\put(173.375,32.523){\color{blue!65!black}\circle*{1.65}}
+\put(174.012,36.999){\color{blue!65!black}\circle*{1.65}}
+\put(174.648,48.193){\color{blue!65!black}\circle*{1.65}}
+\put(175.285,30.248){\color{blue!65!black}\circle*{1.65}}
+\put(175.922,30.592){\color{blue!65!black}\circle*{1.65}}
+\put(176.558,30.589){\color{blue!65!black}\circle*{1.65}}
+\put(177.195,30.589){\color{blue!65!black}\circle*{1.65}}
+\put(177.832,30.606){\color{blue!65!black}\circle*{1.65}}
+\put(178.468,30.591){\color{blue!65!black}\circle*{1.65}}
+\put(179.105,48.503){\color{blue!65!black}\circle*{1.65}}
+\put(179.742,30.594){\color{blue!65!black}\circle*{1.65}}
+\put(180.378,30.586){\color{blue!65!black}\circle*{1.65}}
+\put(181.015,30.600){\color{blue!65!black}\circle*{1.65}}
+\put(181.652,30.571){\color{blue!65!black}\circle*{1.65}}
+\put(182.288,30.573){\color{blue!65!black}\circle*{1.65}}
+\put(182.925,30.586){\color{blue!65!black}\circle*{1.65}}
+\put(183.562,30.592){\color{blue!65!black}\circle*{1.65}}
+\put(184.198,30.598){\color{blue!65!black}\circle*{1.65}}
+\put(184.835,35.070){\color{blue!65!black}\circle*{1.65}}
+\put(185.472,30.586){\color{blue!65!black}\circle*{1.65}}
+\put(186.108,30.611){\color{blue!65!black}\circle*{1.65}}
+\put(186.745,30.580){\color{blue!65!black}\circle*{1.65}}
+\put(187.381,30.550){\color{blue!65!black}\circle*{1.65}}
+\put(188.018,30.601){\color{blue!65!black}\circle*{1.65}}
+\put(188.655,30.590){\color{blue!65!black}\circle*{1.65}}
+\put(189.291,30.573){\color{blue!65!black}\circle*{1.65}}
+\put(189.928,30.562){\color{blue!65!black}\circle*{1.65}}
+\put(190.565,30.577){\color{blue!65!black}\circle*{1.65}}
+\put(191.201,30.566){\color{blue!65!black}\circle*{1.65}}
+\put(191.838,30.557){\color{blue!65!black}\circle*{1.65}}
+\put(192.475,30.555){\color{blue!65!black}\circle*{1.65}}
+\put(193.111,30.535){\color{blue!65!black}\circle*{1.65}}
+\put(193.748,30.568){\color{blue!65!black}\circle*{1.65}}
+\put(194.385,30.573){\color{blue!65!black}\circle*{1.65}}
+\put(195.021,30.569){\color{blue!65!black}\circle*{1.65}}
+\put(195.658,30.552){\color{blue!65!black}\circle*{1.65}}
+\put(196.295,30.555){\color{blue!65!black}\circle*{1.65}}
+\put(196.931,30.591){\color{blue!65!black}\circle*{1.65}}
+\put(197.568,30.565){\color{blue!65!black}\circle*{1.65}}
+\put(198.205,30.592){\color{blue!65!black}\circle*{1.65}}
+\put(198.841,30.541){\color{blue!65!black}\circle*{1.65}}
+\put(199.478,30.551){\color{blue!65!black}\circle*{1.65}}
+\put(200.115,30.572){\color{blue!65!black}\circle*{1.65}}
+\put(200.751,30.589){\color{blue!65!black}\circle*{1.65}}
+\put(201.388,30.547){\color{blue!65!black}\circle*{1.65}}
+\put(202.025,30.560){\color{blue!65!black}\circle*{1.65}}
+\put(202.661,30.552){\color{blue!65!black}\circle*{1.65}}
+\put(203.298,30.586){\color{blue!65!black}\circle*{1.65}}
+\put(203.935,30.540){\color{blue!65!black}\circle*{1.65}}
+\put(204.571,30.552){\color{blue!65!black}\circle*{1.65}}
+\put(205.208,30.566){\color{blue!65!black}\circle*{1.65}}
+\put(205.845,30.577){\color{blue!65!black}\circle*{1.65}}
+\put(206.481,30.546){\color{blue!65!black}\circle*{1.65}}
+\put(207.118,30.537){\color{blue!65!black}\circle*{1.65}}
+\put(207.755,30.536){\color{blue!65!black}\circle*{1.65}}
+\put(208.391,30.536){\color{blue!65!black}\circle*{1.65}}
+\put(209.028,30.566){\color{blue!65!black}\circle*{1.65}}
+\put(209.665,30.529){\color{blue!65!black}\circle*{1.65}}
+\put(210.301,30.549){\color{blue!65!black}\circle*{1.65}}
+\put(210.938,30.559){\color{blue!65!black}\circle*{1.65}}
+\put(211.574,30.543){\color{blue!65!black}\circle*{1.65}}
+\put(212.211,30.516){\color{blue!65!black}\circle*{1.65}}
+\put(212.860,31.234){\color{blue!65!black}\circle*{1.65}}
+\put(213.484,30.540){\color{blue!65!black}\circle*{1.65}}
+\put(214.121,30.523){\color{blue!65!black}\circle*{1.65}}
+\put(214.758,32.775){\color{blue!65!black}\circle*{1.65}}
+\put(215.394,30.520){\color{blue!65!black}\circle*{1.65}}
+\put(216.031,30.545){\color{blue!65!black}\circle*{1.65}}
+\put(216.668,30.530){\color{blue!65!black}\circle*{1.65}}
+\put(217.304,30.544){\color{blue!65!black}\circle*{1.65}}
+\put(217.953,31.214){\color{blue!65!black}\circle*{1.65}}
+\put(218.578,30.514){\color{blue!65!black}\circle*{1.65}}
+\put(219.214,30.479){\color{blue!65!black}\circle*{1.65}}
+\put(219.851,32.767){\color{blue!65!black}\circle*{1.65}}
+\put(220.488,30.521){\color{blue!65!black}\circle*{1.65}}
+\put(221.124,30.505){\color{blue!65!black}\circle*{1.65}}
+\put(221.761,30.486){\color{blue!65!black}\circle*{1.65}}
+\put(222.398,30.491){\color{blue!65!black}\circle*{1.65}}
+\put(223.034,30.497){\color{blue!65!black}\circle*{1.65}}
+\put(223.671,30.494){\color{blue!65!black}\circle*{1.65}}
+\put(224.308,30.481){\color{blue!65!black}\circle*{1.65}}
+\put(224.944,30.461){\color{blue!65!black}\circle*{1.65}}
+\put(225.581,32.717){\color{blue!65!black}\circle*{1.65}}
+\put(226.218,30.493){\color{blue!65!black}\circle*{1.65}}
+\put(226.854,30.453){\color{blue!65!black}\circle*{1.65}}
+\put(227.491,30.479){\color{blue!65!black}\circle*{1.65}}
+\put(228.128,30.485){\color{blue!65!black}\circle*{1.65}}
+\put(228.764,30.477){\color{blue!65!black}\circle*{1.65}}
+\put(229.401,30.500){\color{blue!65!black}\circle*{1.65}}
+\put(230.038,30.470){\color{blue!65!black}\circle*{1.65}}
+\put(230.674,30.485){\color{blue!65!black}\circle*{1.65}}
+\put(231.311,30.510){\color{blue!65!black}\circle*{1.65}}
+\put(231.948,30.486){\color{blue!65!black}\circle*{1.65}}
+\put(232.584,30.475){\color{blue!65!black}\circle*{1.65}}
+\put(233.221,30.481){\color{blue!65!black}\circle*{1.65}}
+\put(233.858,30.477){\color{blue!65!black}\circle*{1.65}}
+\put(234.494,30.473){\color{blue!65!black}\circle*{1.65}}
+\put(235.131,30.461){\color{blue!65!black}\circle*{1.65}}
+\put(235.767,30.443){\color{blue!65!black}\circle*{1.65}}
+\put(236.404,30.495){\color{blue!65!black}\circle*{1.65}}
+\put(237.041,30.487){\color{blue!65!black}\circle*{1.65}}
+\put(237.677,30.477){\color{blue!65!black}\circle*{1.65}}
+\put(238.314,30.462){\color{blue!65!black}\circle*{1.65}}
+\put(238.951,30.491){\color{blue!65!black}\circle*{1.65}}
+\put(239.587,30.483){\color{blue!65!black}\circle*{1.65}}
+\put(240.224,32.712){\color{blue!65!black}\circle*{1.65}}
+\put(240.861,30.456){\color{blue!65!black}\circle*{1.65}}
+\put(241.497,30.460){\color{blue!65!black}\circle*{1.65}}
+\put(242.134,30.461){\color{blue!65!black}\circle*{1.65}}
+\put(242.771,30.462){\color{blue!65!black}\circle*{1.65}}
+\put(243.407,30.448){\color{blue!65!black}\circle*{1.65}}
+\put(244.044,30.469){\color{blue!65!black}\circle*{1.65}}
+\put(244.681,32.687){\color{blue!65!black}\circle*{1.65}}
+\put(245.317,30.464){\color{blue!65!black}\circle*{1.65}}
+\put(245.954,30.465){\color{blue!65!black}\circle*{1.65}}
+\put(246.591,30.451){\color{blue!65!black}\circle*{1.65}}
+\put(247.227,30.480){\color{blue!65!black}\circle*{1.65}}
+\put(247.864,30.473){\color{blue!65!black}\circle*{1.65}}
+\put(248.501,30.466){\color{blue!65!black}\circle*{1.65}}
+\put(249.137,30.454){\color{blue!65!black}\circle*{1.65}}
+\put(249.774,30.458){\color{blue!65!black}\circle*{1.65}}
+\put(250.411,30.452){\color{blue!65!black}\circle*{1.65}}
+\put(251.047,30.449){\color{blue!65!black}\circle*{1.65}}
+\put(251.684,30.432){\color{blue!65!black}\circle*{1.65}}
+\put(252.321,30.447){\color{blue!65!black}\circle*{1.65}}
+\put(253.605,31.059){\color{blue!65!black}\circle*{1.65}}
+\put(254.231,30.438){\color{blue!65!black}\circle*{1.65}}
+\put(254.867,30.410){\color{blue!65!black}\circle*{1.65}}
+\put(255.515,31.089){\color{blue!65!black}\circle*{1.65}}
+\put(256.141,30.444){\color{blue!65!black}\circle*{1.65}}
+\put(256.777,30.450){\color{blue!65!black}\circle*{1.65}}
+\put(258.699,31.134){\color{blue!65!black}\circle*{1.65}}
+\put(259.324,30.447){\color{blue!65!black}\circle*{1.65}}
+\put(259.972,31.135){\color{blue!65!black}\circle*{1.65}}
+\put(260.597,46.122){\color{blue!65!black}\circle*{1.65}}
+\put(261.234,30.438){\color{blue!65!black}\circle*{1.65}}
+\put(261.870,30.440){\color{blue!65!black}\circle*{1.65}}
+\put(262.507,30.420){\color{blue!65!black}\circle*{1.65}}
+\put(300.081,30.965){\color{blue!65!black}\circle*{1.65}}
+\put(300.707,30.329){\color{blue!65!black}\circle*{1.65}}
+\put(301.343,37.052){\color{blue!65!black}\circle*{1.65}}
+\put(301.980,30.342){\color{blue!65!black}\circle*{1.65}}
+\put(302.617,32.554){\color{blue!65!black}\circle*{1.65}}
+\put(303.253,32.565){\color{blue!65!black}\circle*{1.65}}
+\put(303.890,30.325){\color{blue!65!black}\circle*{1.65}}
+\put(304.527,30.342){\color{blue!65!black}\circle*{1.65}}
+\put(305.163,30.323){\color{blue!65!black}\circle*{1.65}}
+\put(305.800,32.575){\color{blue!65!black}\circle*{1.65}}
+\put(306.436,30.324){\color{blue!65!black}\circle*{1.65}}
+\put(307.073,30.321){\color{blue!65!black}\circle*{1.65}}
+\put(307.710,30.335){\color{blue!65!black}\circle*{1.65}}
+\put(308.346,30.305){\color{blue!65!black}\circle*{1.65}}
+\put(308.983,30.322){\color{blue!65!black}\circle*{1.65}}
+\put(309.620,30.335){\color{blue!65!black}\circle*{1.65}}
+\put(310.256,30.322){\color{blue!65!black}\circle*{1.65}}
+\put(310.893,30.305){\color{blue!65!black}\circle*{1.65}}
+\put(312.179,31.012){\color{blue!65!black}\circle*{1.65}}
+\put(312.803,30.314){\color{blue!65!black}\circle*{1.65}}
+\put(314.726,31.033){\color{blue!65!black}\circle*{1.65}}
+\put(315.350,30.316){\color{blue!65!black}\circle*{1.65}}
+\put(315.986,30.298){\color{blue!65!black}\circle*{1.65}}
+\put(316.623,30.312){\color{blue!65!black}\circle*{1.65}}
+\put(317.260,37.023){\color{blue!65!black}\circle*{1.65}}
+\put(317.896,30.302){\color{blue!65!black}\circle*{1.65}}
+\put(318.533,32.563){\color{blue!65!black}\circle*{1.65}}
+\put(319.170,30.318){\color{blue!65!black}\circle*{1.65}}
+\put(319.806,30.317){\color{blue!65!black}\circle*{1.65}}
+\put(320.443,30.302){\color{blue!65!black}\circle*{1.65}}
+\put(321.080,30.317){\color{blue!65!black}\circle*{1.65}}
+\put(321.716,34.781){\color{blue!65!black}\circle*{1.65}}
+\put(322.353,30.299){\color{blue!65!black}\circle*{1.65}}
+\put(322.990,30.296){\color{blue!65!black}\circle*{1.65}}
+\put(323.626,30.298){\color{blue!65!black}\circle*{1.65}}
+\put(324.263,30.301){\color{blue!65!black}\circle*{1.65}}
+\put(324.900,30.302){\color{blue!65!black}\circle*{1.65}}
+\put(325.536,30.308){\color{blue!65!black}\circle*{1.65}}
+\put(326.173,32.544){\color{blue!65!black}\circle*{1.65}}
+\put(326.810,30.300){\color{blue!65!black}\circle*{1.65}}
+\put(327.446,30.303){\color{blue!65!black}\circle*{1.65}}
+\put(328.083,30.277){\color{blue!65!black}\circle*{1.65}}
+\put(328.720,30.280){\color{blue!65!black}\circle*{1.65}}
+\put(329.356,30.286){\color{blue!65!black}\circle*{1.65}}
+\put(329.993,30.302){\color{blue!65!black}\circle*{1.65}}
+\put(330.629,30.277){\color{blue!65!black}\circle*{1.65}}
+\put(337.008,30.958){\color{blue!65!black}\circle*{1.65}}
+\put(337.633,30.265){\color{blue!65!black}\circle*{1.65}}
+\put(338.269,30.260){\color{blue!65!black}\circle*{1.65}}
+\put(340.191,30.932){\color{blue!65!black}\circle*{1.65}}
+\put(340.816,32.510){\color{blue!65!black}\circle*{1.65}}
+\put(341.453,30.257){\color{blue!65!black}\circle*{1.65}}
+\put(342.089,30.281){\color{blue!65!black}\circle*{1.65}}
+\put(342.726,30.290){\color{blue!65!black}\circle*{1.65}}
+\put(343.363,30.295){\color{blue!65!black}\circle*{1.65}}
+\put(343.999,30.294){\color{blue!65!black}\circle*{1.65}}
+\put(344.636,30.311){\color{blue!65!black}\circle*{1.65}}
+\put(345.273,30.298){\color{blue!65!black}\circle*{1.65}}
+\put(345.909,30.297){\color{blue!65!black}\circle*{1.65}}
+\put(346.546,43.734){\color{blue!65!black}\circle*{1.65}}
+\put(347.183,30.273){\color{blue!65!black}\circle*{1.65}}
+\put(347.819,30.295){\color{blue!65!black}\circle*{1.65}}
+\put(348.456,30.287){\color{blue!65!black}\circle*{1.65}}
+\put(349.093,30.267){\color{blue!65!black}\circle*{1.65}}
+\put(349.729,30.289){\color{blue!65!black}\circle*{1.65}}
+\put(350.366,30.311){\color{blue!65!black}\circle*{1.65}}
+\put(351.003,30.282){\color{blue!65!black}\circle*{1.65}}
+\put(351.639,30.264){\color{blue!65!black}\circle*{1.65}}
+\put(352.276,36.999){\color{blue!65!black}\circle*{1.65}}
+\put(352.912,30.302){\color{blue!65!black}\circle*{1.65}}
+\put(353.549,30.272){\color{blue!65!black}\circle*{1.65}}
+\put(354.186,32.493){\color{blue!65!black}\circle*{1.65}}
+\put(354.822,30.260){\color{blue!65!black}\circle*{1.65}}
+\put(355.459,32.494){\color{blue!65!black}\circle*{1.65}}
+\put(356.096,30.542){\color{blue!65!black}\circle*{1.65}}
+\put(356.732,30.571){\color{blue!65!black}\circle*{1.65}}
+\put(357.369,32.786){\color{blue!65!black}\circle*{1.65}}
+\put(358.006,30.550){\color{blue!65!black}\circle*{1.65}}
+\put(358.642,30.537){\color{blue!65!black}\circle*{1.65}}
+\put(359.291,31.223){\color{blue!65!black}\circle*{1.65}}
+\put(359.916,30.540){\color{blue!65!black}\circle*{1.65}}
+\put(361.838,29.016){\color{blue!65!black}\circle*{1.65}}
+\put(362.462,30.554){\color{blue!65!black}\circle*{1.65}}
+\put(363.099,32.771){\color{blue!65!black}\circle*{1.65}}
+\put(363.736,35.025){\color{blue!65!black}\circle*{1.65}}
+\put(364.372,30.553){\color{blue!65!black}\circle*{1.65}}
+\put(365.009,30.543){\color{blue!65!black}\circle*{1.65}}
+\put(365.646,30.499){\color{blue!65!black}\circle*{1.65}}
+\put(366.282,30.526){\color{blue!65!black}\circle*{1.65}}
+\put(366.919,30.528){\color{blue!65!black}\circle*{1.65}}
+\put(367.556,30.515){\color{blue!65!black}\circle*{1.65}}
+\put(368.192,30.526){\color{blue!65!black}\circle*{1.65}}
+\put(368.829,30.548){\color{blue!65!black}\circle*{1.65}}
+\put(369.466,30.507){\color{blue!65!black}\circle*{1.65}}
+\put(370.751,31.193){\color{blue!65!black}\circle*{1.65}}
+\put(371.376,30.533){\color{blue!65!black}\circle*{1.65}}
+\put(372.012,30.538){\color{blue!65!black}\circle*{1.65}}
+\put(372.649,30.512){\color{blue!65!black}\circle*{1.65}}
+\put(373.298,31.151){\color{blue!65!black}\circle*{1.65}}
+\put(373.922,30.530){\color{blue!65!black}\circle*{1.65}}
+\put(374.559,30.516){\color{blue!65!black}\circle*{1.65}}
+\put(375.196,30.510){\color{blue!65!black}\circle*{1.65}}
+\put(377.117,31.139){\color{blue!65!black}\circle*{1.65}}
+\put(377.742,30.495){\color{blue!65!black}\circle*{1.65}}
+\put(378.379,30.516){\color{blue!65!black}\circle*{1.65}}
+\put(379.015,30.514){\color{blue!65!black}\circle*{1.65}}
+\put(379.652,30.516){\color{blue!65!black}\circle*{1.65}}
+\put(380.289,30.512){\color{blue!65!black}\circle*{1.65}}
+\put(380.925,30.489){\color{blue!65!black}\circle*{1.65}}
+\put(381.562,30.515){\color{blue!65!black}\circle*{1.65}}
+\put(382.199,32.742){\color{blue!65!black}\circle*{1.65}}
+\put(383.484,31.158){\color{blue!65!black}\circle*{1.65}}
+\put(384.109,30.481){\color{blue!65!black}\circle*{1.65}}
+\put(384.745,30.480){\color{blue!65!black}\circle*{1.65}}
+\put(385.382,30.495){\color{blue!65!black}\circle*{1.65}}
+\put(386.019,30.463){\color{blue!65!black}\circle*{1.65}}
+\put(386.655,30.482){\color{blue!65!black}\circle*{1.65}}
+\put(387.292,30.472){\color{blue!65!black}\circle*{1.65}}
+\put(387.929,30.495){\color{blue!65!black}\circle*{1.65}}
+\put(388.565,30.467){\color{blue!65!black}\circle*{1.65}}
+\put(389.202,30.454){\color{blue!65!black}\circle*{1.65}}
+\put(389.839,32.715){\color{blue!65!black}\circle*{1.65}}
+\put(390.475,30.458){\color{blue!65!black}\circle*{1.65}}
+\put(391.112,30.474){\color{blue!65!black}\circle*{1.65}}
+\put(391.749,30.460){\color{blue!65!black}\circle*{1.65}}
+\put(392.385,30.484){\color{blue!65!black}\circle*{1.65}}
+\put(393.022,30.464){\color{blue!65!black}\circle*{1.65}}
+\put(393.659,30.379){\color{blue!65!black}\circle*{1.65}}
+\put(394.295,30.442){\color{blue!65!black}\circle*{1.65}}
+\put(394.932,30.310){\color{blue!65!black}\circle*{1.65}}
+\put(395.569,30.455){\color{blue!65!black}\circle*{1.65}}
+\put(396.205,30.445){\color{blue!65!black}\circle*{1.65}}
+\put(396.842,30.428){\color{blue!65!black}\circle*{1.65}}
+\put(397.479,30.441){\color{blue!65!black}\circle*{1.65}}
+\put(398.115,30.448){\color{blue!65!black}\circle*{1.65}}
+\put(398.752,30.426){\color{blue!65!black}\circle*{1.65}}
+\put(399.389,30.415){\color{blue!65!black}\circle*{1.65}}
+\put(400.025,30.422){\color{blue!65!black}\circle*{1.65}}
+\put(400.662,30.425){\color{blue!65!black}\circle*{1.65}}
+\put(401.298,30.420){\color{blue!65!black}\circle*{1.65}}
+\put(401.935,30.410){\color{blue!65!black}\circle*{1.65}}
+\put(402.572,30.422){\color{blue!65!black}\circle*{1.65}}
+\put(403.208,30.394){\color{blue!65!black}\circle*{1.65}}
+\put(403.845,32.649){\color{blue!65!black}\circle*{1.65}}
+\put(404.482,30.393){\color{blue!65!black}\circle*{1.65}}
+\put(405.118,34.883){\color{blue!65!black}\circle*{1.65}}
+\put(405.755,30.409){\color{blue!65!black}\circle*{1.65}}
+\put(406.392,30.396){\color{blue!65!black}\circle*{1.65}}
+\put(407.028,30.380){\color{blue!65!black}\circle*{1.65}}
+\put(407.665,30.396){\color{blue!65!black}\circle*{1.65}}
+\put(408.302,30.391){\color{blue!65!black}\circle*{1.65}}
+\put(408.938,30.387){\color{blue!65!black}\circle*{1.65}}
+\put(409.575,30.383){\color{blue!65!black}\circle*{1.65}}
+\put(410.212,30.366){\color{blue!65!black}\circle*{1.65}}
+\put(410.848,30.405){\color{blue!65!black}\circle*{1.65}}
+\put(411.485,30.370){\color{blue!65!black}\circle*{1.65}}
+\put(412.122,30.372){\color{blue!65!black}\circle*{1.65}}
+\put(412.758,30.383){\color{blue!65!black}\circle*{1.65}}
+\put(413.395,30.363){\color{blue!65!black}\circle*{1.65}}
+\put(414.032,30.383){\color{blue!65!black}\circle*{1.65}}
+\put(414.668,30.372){\color{blue!65!black}\circle*{1.65}}
+\put(415.305,30.384){\color{blue!65!black}\circle*{1.65}}
+\put(415.942,30.360){\color{blue!65!black}\circle*{1.65}}
+\put(416.578,30.365){\color{blue!65!black}\circle*{1.65}}
+\put(417.215,30.370){\color{blue!65!black}\circle*{1.65}}
+\put(417.852,30.352){\color{blue!65!black}\circle*{1.65}}
+\put(418.488,30.358){\color{blue!65!black}\circle*{1.65}}
+\put(419.125,32.589){\color{blue!65!black}\circle*{1.65}}
+\put(419.762,30.365){\color{blue!65!black}\circle*{1.65}}
+\put(420.398,30.370){\color{blue!65!black}\circle*{1.65}}
+\put(421.035,30.339){\color{blue!65!black}\circle*{1.65}}
+\put(421.672,30.352){\color{blue!65!black}\circle*{1.65}}
+\put(422.308,30.297){\color{blue!65!black}\circle*{1.65}}
+\put(422.945,30.357){\color{blue!65!black}\circle*{1.65}}
+\put(423.582,30.350){\color{blue!65!black}\circle*{1.65}}
+\put(424.218,30.349){\color{blue!65!black}\circle*{1.65}}
+\put(424.855,30.361){\color{blue!65!black}\circle*{1.65}}
+\put(425.491,30.356){\color{blue!65!black}\circle*{1.65}}
+\put(426.128,32.609){\color{blue!65!black}\circle*{1.65}}
+\put(426.765,30.361){\color{blue!65!black}\circle*{1.65}}
+\put(427.401,30.362){\color{blue!65!black}\circle*{1.65}}
+\put(428.038,30.368){\color{blue!65!black}\circle*{1.65}}
+\put(428.675,30.352){\color{blue!65!black}\circle*{1.65}}
+\put(429.323,31.042){\color{blue!65!black}\circle*{1.65}}
+\put(429.948,30.356){\color{blue!65!black}\circle*{1.65}}
+\put(430.585,30.348){\color{blue!65!black}\circle*{1.65}}
+\put(431.221,30.339){\color{blue!65!black}\circle*{1.65}}
+\put(432.507,31.048){\color{blue!65!black}\circle*{1.65}}
+\put(433.131,30.347){\color{blue!65!black}\circle*{1.65}}
+\put(433.768,37.052){\color{blue!65!black}\circle*{1.65}}
+\put(434.405,30.360){\color{blue!65!black}\circle*{1.65}}
+\put(435.041,30.313){\color{blue!65!black}\circle*{1.65}}
+\put(435.678,30.340){\color{blue!65!black}\circle*{1.65}}
+\put(436.315,30.340){\color{blue!65!black}\circle*{1.65}}
+\put(436.951,32.558){\color{blue!65!black}\circle*{1.65}}
+\put(437.588,30.287){\color{blue!65!black}\circle*{1.65}}
+\put(438.225,30.342){\color{blue!65!black}\circle*{1.65}}
+\put(438.861,30.323){\color{blue!65!black}\circle*{1.65}}
+{\color{red!70!black}\linethickness{0.7pt}\qbezier(62.000,46.917)(253.500,46.917)(445.000,46.917)}
+\put(109.709,63.852){\color{black}\circle*{3.7}}
+\put(174.648,48.193){\color{black}\circle*{3.7}}
+\put(179.105,48.503){\color{black}\circle*{3.7}}
+\put(62.000,264.000){\makebox(340,10)[l]{\scriptsize (a) Valid-reference causal phase (ns): 436 samples}}
+\put(62.000,139.000){\makebox(360,10)[l]{\scriptsize (b) Reference-invalid phase (ms): 65 causal samples}}
+\put(62.000,76.000){\makebox(380,10)[l]{\scriptsize (c) Local update age (ms); black = three expired edges}}
+\put(100.000,-3.000){\makebox(350,10)[l]{\scriptsize Leaf hardware-counter elapsed time (s); gray = gaps between observed edges}}
+\end{picture}
+
+\caption{The complete 504-edge prospective leaf record. (a) Signed phase for 436 causal, reference-valid samples, with bias retained. (b) The separate 65 causal observations whose reference was invalid, including millisecond excursions. (c) Local accepted-update age; the 500 ms policy line and three expired edges are explicit. Gray spans are intervals between observed edges separated by more than 1.5 s, not interpolated output or a proved RF-loss cause. The capture spans 601.576 s; whole-second association and reference uncertainty remain unknown.}\label{fig:phase}
+\vspace{8pt}
+\setlength{\unitlength}{1pt}
+\begin{picture}(454,205)
+{\color{black}\linethickness{0.5pt}\qbezier(62.000,120.000)(253.500,120.000)(445.000,120.000)}
+\put(0.000,142.000){\makebox(30,10)[l]{\scriptsize RC}}
+\put(62.000,120.000){\color{blue!65!black}\circle*{3}}
+\put(80.041,120.000){\color{blue!65!black}\circle*{3}}
+\put(100.000,124.583){\color{blue!65!black}\circle*{3}}
+\put(118.649,124.583){\color{blue!65!black}\circle*{3}}
+\put(137.490,124.583){\color{blue!65!black}\circle*{3}}
+\put(155.314,124.583){\color{blue!65!black}\circle*{3}}
+\put(174.627,124.583){\color{blue!65!black}\circle*{3}}
+\put(193.469,124.583){\color{blue!65!black}\circle*{3}}
+\put(211.345,124.583){\color{blue!65!black}\circle*{3}}
+\put(230.685,124.583){\color{blue!65!black}\circle*{3}}
+\put(249.568,129.167){\color{blue!65!black}\circle*{3}}
+\put(267.830,129.167){\color{blue!65!black}\circle*{3}}
+\put(287.298,129.167){\color{blue!65!black}\circle*{3}}
+\put(305.435,133.750){\color{blue!65!black}\circle*{3}}
+\put(323.558,133.750){\color{blue!65!black}\circle*{3}}
+\put(342.637,142.917){\color{blue!65!black}\circle*{3}}
+\put(361.174,142.917){\color{blue!65!black}\circle*{3}}
+\put(380.136,142.917){\color{blue!65!black}\circle*{3}}
+\put(398.761,147.500){\color{blue!65!black}\circle*{3}}
+\put(417.947,147.500){\color{blue!65!black}\circle*{3}}
+{\color{gray}\linethickness{0.8pt}\qbezier(136.860,120.000)(136.860,147.500)(136.860,175.000)}
+\put(108.860,177.000){\makebox(60,10)[c]{\scriptsize bind 2}}
+{\color{gray}\linethickness{0.8pt}\qbezier(323.795,120.000)(323.795,147.500)(323.795,175.000)}
+\put(295.795,177.000){\makebox(60,10)[c]{\scriptsize bind 3}}
+\put(38.000,115.000){\makebox(20,10)[r]{\scriptsize 0}}
+\put(38.000,142.500){\makebox(20,10)[r]{\scriptsize 6}}
+\put(38.000,170.000){\makebox(20,10)[r]{\scriptsize 12}}
+{\color{black}\linethickness{0.5pt}\qbezier(62.000,35.000)(253.500,35.000)(445.000,35.000)}
+\put(0.000,57.000){\makebox(30,10)[l]{\scriptsize leaf}}
+\put(62.000,35.000){\color{red!60!black}\circle*{3}}
+\put(82.031,44.167){\color{red!60!black}\circle*{3}}
+\put(101.806,44.167){\color{red!60!black}\circle*{3}}
+\put(121.855,48.750){\color{red!60!black}\circle*{3}}
+\put(141.106,48.750){\color{red!60!black}\circle*{3}}
+\put(160.711,57.917){\color{red!60!black}\circle*{3}}
+\put(179.513,71.667){\color{red!60!black}\circle*{3}}
+\put(198.784,71.667){\color{red!60!black}\circle*{3}}
+\put(217.770,71.667){\color{red!60!black}\circle*{3}}
+\put(237.347,71.667){\color{red!60!black}\circle*{3}}
+\put(256.119,71.667){\color{red!60!black}\circle*{3}}
+\put(275.116,71.667){\color{red!60!black}\circle*{3}}
+\put(294.160,71.667){\color{red!60!black}\circle*{3}}
+\put(314.451,76.250){\color{red!60!black}\circle*{3}}
+\put(334.009,76.250){\color{red!60!black}\circle*{3}}
+\put(352.977,85.417){\color{red!60!black}\circle*{3}}
+\put(372.142,85.417){\color{red!60!black}\circle*{3}}
+\put(391.070,85.417){\color{red!60!black}\circle*{3}}
+\put(409.662,85.417){\color{red!60!black}\circle*{3}}
+\put(428.673,85.417){\color{red!60!black}\circle*{3}}
+{\color{gray}\linethickness{0.8pt}\qbezier(141.113,35.000)(141.113,62.500)(141.113,90.000)}
+\put(113.113,92.000){\makebox(60,10)[c]{\scriptsize bind 2}}
+{\color{gray}\linethickness{0.8pt}\qbezier(334.010,35.000)(334.010,62.500)(334.010,90.000)}
+\put(306.010,92.000){\makebox(60,10)[c]{\scriptsize bind 3}}
+\put(38.000,30.000){\makebox(20,10)[r]{\scriptsize 0}}
+\put(38.000,57.500){\makebox(20,10)[r]{\scriptsize 6}}
+\put(38.000,85.000){\makebox(20,10)[r]{\scriptsize 12}}
+\put(62.000,191.000){\makebox(392,10)[l]{\scriptsize Sampled expiry/recovery counter increments; vertical marks = new admission receipts}}
+\put(47.000,19.000){\makebox(30,10)[c]{\scriptsize 0}}
+\put(108.774,19.000){\makebox(30,10)[c]{\scriptsize 100}}
+\put(170.548,19.000){\makebox(30,10)[c]{\scriptsize 200}}
+\put(232.323,19.000){\makebox(30,10)[c]{\scriptsize 300}}
+\put(294.097,19.000){\makebox(30,10)[c]{\scriptsize 400}}
+\put(355.871,19.000){\makebox(30,10)[c]{\scriptsize 500}}
+\put(417.645,19.000){\makebox(30,10)[c]{\scriptsize 600}}
+\put(95.000,1.000){\makebox(340,10)[l]{\scriptsize Device-counter elapsed since first diagnostic of each type (s)}}
+\end{picture}
+
+\caption{Sparse device-counter diagnostics retain six RC and eleven leaf expiry/recovery increments between first/last precision snapshots. Vertical marks indicate the first sampled appearance of admission receipts 2 and 3. Each row uses elapsed device time since its first diagnostic of that type; rows are not a common externally synchronized timeline. Dots show sampled counters, so transition times and unavailable durations between dots are not inferred.}\label{fig:renewal}
+\end{figure}
+
+\section{Service continuity, simulator scope and conformance}\label{sec:availability}
+Renewal and precision availability measure different parts of the service. Both downstream admission counts advanced from 1 to 3 without replacing root scope or resetting maps merely for renewal. All 20 sampled network states on each unit were active with error zero; all 20 root snapshots reported serving with fresh source fix/PPS. The collectors closed serial handles, guards, locks and streams, and post-run reads confirmed active service and usable follower maps. All three clocks were left running. These observations establish successful renewal and persistence through capture closure, not a long-duration availability guarantee.
+
+Between first and last precision snapshots, the RC accepted 6086 corrections and recorded six expiry/recovery increments; the leaf accepted 8318 and recorded eleven. Lifetime maximum discipline gaps were 0.686834 s and 1.183478 s, respectively; these are lifetime maxima, not newly attributed interval-only maxima. Three expiries intersected observed reference-valid PPS edges. The final lifetime counters (RC 7/7 and leaf 13/13) include pre-capture history; interval deltas are the appropriate result for this capture. Map validity at 1 Hz cannot establish precision between edges, and normal active service does not imply that every output query was available.
+
+Exactly 504 device edge-count increments match the 504 retrieved records. Queue drops, duplicates and telemetry sequence gaps were zero. The rolling result-ring overwritten counter also advanced 504, reflecting normal eviction of old history while records were retrieved; it is not additional lost telemetry. The 59.017 s witness gap and 65 invalid-reference edges remain measurement-availability limitations. No unobserved interval is filled using interpolation or the root's valid own-PPS status.
+
+\subsection{Portable two-RC simulation is a separate result}
+The earlier simulator exercised one- and two-RC boundary service, renewal and parent outages with actual modeled PHY activity. Its nominal 370 s cases reported leaf RMS/max 38.12/95 ns for one RC and 43.83/162 ns for two RCs, on modeled clock reads under its capture-observation assumptions. Outage cases delivered 320 new downstream corrections during 20 s parent loss while retaining increasing inherited age. Those cases used different source revisions and hold policies; their continuous held-clock availability does not predict current 500 ms physical availability. Reported modeled RX/TX activity is not a hardware energy measurement.
+
+The simulator demonstrates implemented regeneration, routing and renewal mechanisms in its model, while the present physical run establishes only one RC and one independently witnessed leaf. A second physical RC, independent end witness, transition-complete loss/recovery and longer repeated trials remain needed. No physical two-RC result is inferred by renaming the modeled topology.
+
+\subsection{Wire validation and remaining suite coverage}
+The RC1 checker independently constructs bytes/HMACs, verifies exact layout coverage, decodes semantic fields through immutable reference C, rejects malformed records and re-encodes accepted records under ASan/UBSan. It passes six layouts and 33 vectors: 14 valid and 19 rejected. The initial dependency-warning compiler failure and an invalid zero-issuance/frame synthetic fixture remain retained. These are focused offline codec checks, not physical acceptance or an independent protocol suite.
+
+Broader conformance includes replay across state loss, boot/train/source fencing, role rotation, multi-GM takeover/merge, admission without time, local expiry boundaries, inherited age, slot/resource conflict, and persistent closure behavior. The independent full suite remains held. The manuscript does not broaden that authorization or replace a release review with a passing static vector.
+
+\section{Heterogeneous clients and historical result context}\label{sec:w12}
+W12/ESP32-S3 work at the cutoff follows direct GR3 and has its own implementation/evidence lineage. A protocol-alignment preparation separated relative physical-tick oscillator learning from authenticated UTC offset, and preserved old-origin HOLD through a locator change within the original budget while removing old live authority. Its selected steady segment reported 276 ns prior-model relative RMS versus 1286 ns nominal-rate RMS, but the whole run retained a 52.4 $\us$ startup tail and 100 missed corrected windows out of 600. The prepared successor was refused before device open under a desktop-lock condition; host review does not establish its installed behavior.
+
+The later continuous BLE100\% client retained its periodic owner across logical seconds. Two finite captures observed corrected updates in 181/181 and 591/591 logical seconds without new API/quiet faults, resets or recorded capture loss. Independent review nevertheless retained missing physical associations and originals lacking later corrections. Frozen ten-second-map predictions measured 316 ns RMS on 7981 endpoints, with a 1094 ns maximum. A 1 $\us$ screen or displayed hold estimate therefore did not establish a valid horizon.
+
+An optimistic MAX-envelope forecast was disproved: exact UI scoring found eight raw-horizon failures up to 1176.5 ns and three displayed-horizon failures up to 1047 ns. The conservative successor retained worst causal tails and current phase but still failed stable useful lock/hold presentation. A further fitted-phase successor steered toward an epoch estimated from accepted history, scored new raw errors before training and included a rate-change growth guard. Its final observed interval was incomplete after USB disappearance: 32 complete statuses over 19.34 s and 37 exact screen records, all LOCK\_EST with positive 1024--5254 ms hold. Prior-display forecasts had a 720.5 ns maximum on overlapping predictions. This is encouraging short-interval software evidence; overlap, interruption and missing final state prevent a completed long-term or calibrated blackout claim.
+
+The continuous treatment does not repair the retained half-duty cancellation defect. C1's distinct BLE50\% successor was preparation at the frozen checkpoint, and its installed image was preserved pending a separately authorized installation. W12 RC5 decoding/relay parity and full half-duty corrected-per-second coverage remain undemonstrated. No W12 result is pooled with the native one-RC PPS population or labeled as calibrated V14 relay accuracy.
+
+\begin{table}[htbp]\centering\small
+\caption{Selected historical populations kept separate from V14. Values are reported in their original metric classes and cutoffs.}\label{tab:history}
+\begin{tabular}{@{}L{0.34\linewidth}L{0.18\linewidth}L{0.39\linewidth}@{}}\toprule
+Population & Scoreable / opportunities & Result and measurement class\\\midrule
+October 2 clean direct forward &600/600 PPS&70.197 ns total RMS; prospective PPS shadow\\
+October 2 clean direct reverse &598/599 PPS&76.359 ns total RMS; one causal query unavailable\\
+October 2 interrupted reverse &594/600 PPS&420.267 ns RMS; 6011 ns maximum, retained recovery\\
+October 2 W12 normal client &359/359 targets&319.5 ns internal prediction RMS; 57/1198 unavailable views\\
+October 3 quiet pair, two captures &1144/1144; 727/728 originals&69.136/68.106 ns earlier-delivered raw-map RMS\\
+October 3 simultaneous three &354/384 originals&1075.679 ns RMS; zero lock in 59 sampled statuses\\\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:history} preserves the original contributions and the failed populations that explain subsequent design choices. Differences in raw-counter versus PPS coordinates, controller/transport, estimator, calibration and availability prohibit a pooled precision figure or a causal ranking of protocol versions. The progress is concrete at the mechanism level: complete periodic records, a functioning boundary-clock path, authenticated smooth renewal, and a delivered causal map with measured one-RC phase.
+
+\section{Hardware resolution and error-budget analysis}\label{sec:hardware}
+\subsection{What 62.5 ns represents}
+The selected 16 MHz event counter has period $q=62.5\ns$. Nordic documents the TIMER frequency/bit-mode choices and capture mechanism \cite{timer}. This local sampling grid is independent of the GM wire representation's nominal 16 MHz unit; it is also independent of nanosecond RC fields and regression coefficient precision. Averaging samples at varying quantizer phases can estimate a mean or slope below one tick, but it does not create an electrical edge at every estimated fraction of a tick.
+
+For an ideal independent nearest-rounded quantizer, the zero-mean error is uniform on $[-q/2,q/2]$, giving
+\begin{equation}
+ \sigma_q=\frac{q}{\sqrt{12}}=18.042\ns,\qquad
+ \sigma_{q_1-q_2}=\frac{q}{\sqrt6}=25.516\ns .\label{eq:quant}
+\end{equation}
+These are conditional calculations, not measured noise floors. Integer flooring of a continuous timestamp instead has mean $-q/2$ and uncentered RMS $q/\sqrt3=36.084\ns$ before downstream integer conversion. GR3's floor-to-tick encoding therefore has a potentially biased rounding term; it cannot automatically be modeled as a zero-mean independent source. Actual detector phase, common counters, clock fitting and deterministic schedules can correlate quantization errors.
+
+The radio hardware captures the local ADDRESS detector event. That removes worker latency from the coordinate, but does not prove TX and RX events correspond to the same point on the RF waveform. Propagation, signal-level-dependent receive detection, source/receiver PPS delay and timestamp conversion remain separate terms. The empirical 10.543 $\us$ compensation is much larger than a 62.5 ns tick and cannot be attributed to quantization or follow-up processing alone.
+
+\subsection{The approximately 20 ns GNSS figure}
+The exact declared receiver family is \textbf{Unicore UC6580}; the installed chip suffix, receiver firmware and pulse-delay configuration are not established by this dataset. Heltec identifies that family on T096 \cite{heltec}. Unicore's 2026 brochure (UC6580 page 28) and English product table report \emph{Time Accuracy (RMS)} of 20 ns and separately list 30 ns peak-to-peak over 24 h \cite{ucbrochure,ucproduct}. The retrieved UC6580x-00 datasheet R1.7, printed page 7, instead lists 5 ns RMS with the same peak-to-peak figure \cite{ucdata}. The table gives no complete timing-test envelope, reference, confidence level or applicable pulse/firmware settings; adjacent velocity, sensitivity and power conditions are not timing conditions.
+
+Thus approximately 20 ns is supported as a \emph{manufacturer family-level specification}, not as measured source-input RMS for these boards. The discrepancy with the datasheet must be resolved against the installed suffix/firmware and intended conditions before using either number in a qualification budget. The earlier papers' 25 ns working assumption stays historical. The root's measured 29.474 ns own-PPS map diagnostic is a fourth quantity with a different definition; it is not a replacement for any manufacturer specification.
+
+\subsection{Comparison with supported hardware expectations}
+Under an explicitly hypothetical model with 20 ns independent source RMS and two independent 62.5 ns capture quantizers, quadrature gives $\sqrt{20^2+2(62.5^2/12)}=32.421\ns$. Adding a second independent 20 ns PPS-reference term gives 38.096 ns. These illustrations show that several tens of ns are a plausible scale before extra mapping, radio, relay and output terms. They are not predictions of the actual two-link experiment: distribution, independence, reference calibration and number of effective terms are unverified.
+
+The measured 62.504 ns uncentered RMS and 59.729 ns jitter are compatible with useful timing at roughly the counter-grid scale without establishing a fundamental floor. The map has statistical sub-tick coefficients while the captures and any timer-driven pad remain hardware-resolved. We do not subtract $20^2$, $25^2$ or the root diagnostic variance from measured variance to estimate a purified relay noise. Shared GNSS errors, correlated quantizers, unknown systematic bias and different reference paths invalidate such a decomposition without additional experiments.
+
+A qualified end-to-end budget must include source-to-UTC error, source/PPS mapping, each physical capture and conversion, radio/path asymmetry, calibration uncertainty and portability, estimator/actuator aging, output handoff, pad/cable delays and instrument uncertainty. In the chain, using one common correction twice can create correlated systematic error; two links do not turn that error into independent samples. The calibration mean interval is statistical, while these systematic terms remain UNKNOWN. This distinction allows a strong internal phase result to be reported without turning it into an unsupported total bound.
+
+\section{Retained failures and engineering lessons}\label{sec:failures}
+The route to working service involved specific failures that changed the design. Early native releases exposed console backpressure delaying queued status/stop responses. Shutdown then needed output-independent control; a responsive logger could not be the radio safety mechanism. Source/UI work likewise had to bind actual GNSS/PPS observations to functional source candidacy and time display rather than treating satellite count or renderer activity as source readiness.
+
+Relay timing first suffered long correction stalls, rapid train restarts and a narrow 200 $\us$ start polling aperture under worker load. Moving publication before scheduled PA start removed repeated restart bursts; bounded prepare/quiesce/whole-frame placement replaced the narrow polling approach. Supported controller phase recentering still caused sync loss/reacquisition. Later local 500 ms expiry withdrew stale fit/lock/display claims as intended, while retained physical runs showed gaps as long as 10.244 s. Smooth renewal alone therefore did not establish continuity.
+
+Timestamp investigation distinguished root phase from link offset. A root could show a good rate fit while its prior-map phase at own PPS drifted; a source-phase slew corrected that mechanism. An attempted theoretical 10 $\us$ ADDRESS-air normalization reduced the observed residual mathematically, but the hardware interpretation was stronger than the evidence. The unaccepted 10.75 $\us$ midpoint proposal remained unflashed. The corrected raw diagnostic removed unsupported constants, preserved original TX/RX tuples and then used the separately authorized empirical calibration. The cause of the raw offset remains unresolved.
+
+The raw diagnostic capture itself ended incomplete on its original console deadline. Fourteen complete paired tuples retained exact encoded/decoded TX and saved original RX, with 5--54 ns wire quantization, while missing tuples and telemetry sequence gaps remained. An initial analyzer compared source revisions with wire train generations and reported false mismatches; separately versioned reanalysis corrected that namespace error. These diagnostics support original/follow-up association, not physical event-reference equivalence.
+
+Reference isolation also required repair: older shadow profiles could receive peer GNSS acquisition aid. The selected profile excludes witness feedback and local GNSS from delivered timing. Historical aided runs remain weaker evidence and are not silently reinterpreted as independent validation. Later UI code and measurements retain their own source boundaries. Build/fixture refusals, mistaken receipt arguments caught before port open, and incomplete captures remain in the local inventory.
+
+The central lesson is that a timing service has a chain of correctness obligations: physical event identity, clock discipline, admission, controller scheduling, causal availability and output observation. Correcting one stage produces a real engineering gain while leaving other stages measurable. That is why the successful prospective phase distribution appears alongside rather than in place of the retained gaps and failures.
+
+\section{Limitations, external validation and publication readiness}\label{sec:limits}
+The physical one-RC experiment is a single approximately ten-minute treatment under the recorded indoor/lab profile. Geometry, thermal envelope, receiver configuration, antenna/cable delay and signal-level calibration are incomplete. PPS samples can be serially correlated. Their empirical tails are descriptive, and a sparse maximum is not a total worst-case bound. Reference metadata exclusion is predefined by validity, but it also means the precision estimate is conditional on a usable witness; the 602-boundary denominator makes that conditioning visible.
+
+Absolute UTC second association, total reference uncertainty and calibrated electrical output remain unqualified. A one-way empirical offset combines TX/RX detector delay, propagation, source-map error and the difference between two receiver PPS paths. Adding an unknown shift to one component and subtracting it from another leaves the observed phase unchanged. Unique attribution needs a calibrated common edge or RF/output observation; a smaller compensated residual does not identify the cause. Portability across boards, directions, channels, power levels and temperatures remains a hypothesis.
+
+Functional one-RC delivery and renewal do not establish physical two-RC precision, all-second continuity, adversarial robustness, full GM failover/partition merging, W12 RC5 parity or half-duty compliance. Firmware qualification must remain tied to exact reviewed source and installed artifacts. Bounded diagnostics and active status do not measure whole-device energy, CPU busy fraction, RF airtime/listening, thermal stability or negligible observer cost. Model PHY duty is a separate population from hardware cost.
+
+The next decisive metrology step is an independently calibrated time-interval instrument observing named source/reference and delivered pad edges, with safe test points, cable delays and uncertainty. It should record a prospective regular grid including unavailable output, startup, outages and recovery. A calibrated common-edge/RF experiment should first resolve the detector/PPS offset ambiguity, then freeze any revised correction before independent validation. Repeated warm/cold and thermal/coexistence trials with paired logging-on/off observations would quantify reproducibility and observer effects.
+
+Before external publication, the human author must review claims, bibliography, contribution disclosure, dataset privacy/licensing and venue requirements. Complete sealed archives need a verified durable backup beyond their present same-host integrity seals. A curated dataset should preserve metric definitions, denominator conventions and failure populations while excluding provisioning and operational identifiers. This manuscript is a completed local research artifact; it carries no arXiv identifier, DOI, submission, acceptance or new affiliation.
+
+Bluetooth qualification and any chosen IEEE timing/media profile conformance require their own applicable processes. Neither supported controller APIs nor accurate internal timestamps establish those outcomes. The separate BLE/PTS total held-time gate remains $\pm500\ns$ through the entire actual blackout plus margins with at most 50\% listening; PTS remains off until it is qualified. This is an affected future precision claim, not a restriction on reporting the achieved BLE research result.
+
+\section{Future work and conclusion}
+V14 now supplies a concrete platform for additional work: physical two-RC validation; complete multi-GM/standby loss, restart and merge campaigns; low-duty clients with measured acquisition/recovery costs; robust inherited-age and output uncertainty; and broader controller/MCU portability. Public signatures, durable replay protection, production identifiers, explicit continuous-timescale/leap mapping and scalable dynamic routing need separately versioned protocol work. Tunable oscillator/synthesizer output remains a hardware extension, with calibrated actuator gain, delay, saturation and phase alignment beyond the demonstrated software map.
+
+A matched comparison with the earlier protocol should hold hardware, geometry, reference, calibration, observation grid and cost metrology fixed. It can then test whether complete packets and boundary regeneration improve availability or energy without hiding earlier populations. Prospective holdover studies should freeze each delivered actuator before the entire blackout and score all intermediate outputs; overlapping future-pair forecasts are useful diagnostics but not independent blackout trials. Planned experiments remain proposals, with no new device activity performed here.
+
+The achieved result is a functioning authenticated boundary-clock timing path: a source GM disciplines one dedicated RC, the RC regenerates actual timestamped downstream events, and a passive leaf evaluates a causal delivered map against an isolated PPS witness. Separately trained per-link compensation yields $62.504\ns$ RMS including bias on 436 valid causal samples over 601.576 s, while the full 602-boundary accounting retains 72.425\% usable coverage, invalid references and map expiries. Smooth admission renewals and service persistence show that protocol lifecycle and timing delivery can operate together. The frozen six-layout wire annex and retained engineering history make that mechanism inspectable and reproducible. Calibrated output, broader continuity and external qualification are the next evidence steps from this demonstrated service to a deployable precision profile.
+
+\section*{Acknowledgments and AI-assistance disclosure}
+Jonathan Yantis (Engineer) supplied the hardware, original protocol/firmware, prior timing achievement, experimental direction and research decisions. OpenAI Codex assisted protocol/evidence review, implementation and test tooling in the project, and this manuscript's read-only analysis, literature checking, figure/table generation, writing and LaTeX preparation. This disclosure follows \code{CREDITS.md}. No AI system is listed as a human coauthor. Human review and responsibility for any eventual submission remain with the author; no affiliation is invented.
+
+\section*{Data and reproducibility}
+The successor has independent source, PDF, figure/table exports and provenance records. The main evidence manifest binds the selected run and calibration, immutable source/image hashes, analysis fingerprints, metric definitions, seals and historical manuscripts. A separate literature manifest records primary-source retrieval, including the conflicting UC6580 figures and incompletely specified timing conditions. Scientific CSVs retain all observed PPS classifications; the derivation regenerates figures/tables without live devices. The standalone LaTeX embeds the figure vectors and bibliography, so the editor compiler needs no project dependencies. Private evidence and enrollment records are excluded from the manuscript dataset. Earlier sources/PDFs and their cutoffs remain intact.
+
+\appendix
+\section{Precision wire offsets and reproducibility anchors}\label{sec:annex}
+Offsets are zero-based in the complete 190-byte AD record. GR3 and RC5 packet MACs cover bytes 0--173 and occupy 174--189. GR3 origin authentication covers bytes 14--73; RC5 origin authentication covers route digest followed by bytes 12--71. The wire annex's authenticated ranges use start/length for GR3 and start/end for its packet range as declared in the contract; the explicit byte descriptions below remove that notation ambiguity.
+
+\begin{table}[htbp]\centering\small
+\caption{Compact precision record regions. Exact field rows for all six layouts are reproduced in the companion wire-layout CSV.}
+\begin{tabular}{@{}L{0.22\linewidth}L{0.32\linewidth}L{0.35\linewidth}@{}}\toprule
+Region & GR3 & RC5/profile3\\\midrule
+Envelope/discriminator &0--13; interval and group epoch&0--11; group epoch\\
+Root/source statement &14--73; identity, hold grant, boot, epoch, issuance/expiry, frame, UTC offset&12--71; identity, boot, epoch, issuance/expiry, UTC offset, frame, hold grant\\
+Origin MAC &74--89&72--87\\
+Sender/route scope &90--135; sender, parent, depth, slot, boot, train, publication, capture epoch, map gen., bound&88--117; route digest/index, depth/slot, boot, train, publication, capture epoch\\
+Two corrections &136--154 and 155--173; 19 bytes each&118--144 and 145--171; 27 bytes each\\
+Profile/reserved &Encoded by GR3 discriminator&172 = profile 3; 173 = zero\\
+Packet MAC &174--189&174--189\\\bottomrule
+\end{tabular}
+\end{table}
+
+A GR3 correction contains publication32, periodic event16, channel8, TX ticks64 and map generation32. An RC5 correction contains publication32, event16, channel8, map generation32, cumulative age32 (microseconds), TX time64 (nanoseconds) and bound32. All use little-endian integers. These field widths and the two MAC domains explain why equal record length does not imply interchangeable semantics.
+
+\begin{samepage}
+The fixed RC1 SHA-256 fingerprints are:
+\begin{quote}\small
+Specification: \\ \code{b8da8ea84f66540749485c2fec5a89068d6179c9223c93178209ca48e9b94bd9}\\
+Contract: \\ \code{a122e61032fde317a709654ce58d83e08e4c254d3ae0eddb8b5b574f168b3ec0}.
+\end{quote}
+\end{samepage}
+The companion manifest carries full selected metrics/continuity, analyzer, source and build hashes with reproducibility instructions; these hashes establish input identity, not calibration. The portable RC1 archive is separately pinned and remains a specification candidate rather than a firmware release.
+
+\begin{thebibliography}{99}\small\raggedright
+\bibitem{ftsp} M. Mar\'oti, B. Kusy, G. Simon and \'A. L\'edeczi, ``The Flooding Time Synchronization Protocol,'' SenSys, 2004, pp. 39--49, doi:10.1145/1031495.1031501. \href{https://archive.isis.vanderbilt.edu/sites/default/files/Maroti_M_11_3_2004_The_Floodi.pdf}{Author-institution paper}.
+\bibitem{cheep} S. Sridhar et al., ``CheepSync: A Time Synchronization Service for Resource Constrained Bluetooth Low Energy Advertisers,'' arXiv:1501.06479, 2015, revised 2016. \url{https://arxiv.org/abs/1501.06479}.
+\bibitem{blue} F. Asgarian and K. Najafi, ``BlueSync: Time Synchronization in Bluetooth Low Energy With Energy-Efficient Calculations,'' IEEE Internet of Things Journal, vol. 9, no. 11, 2022, pp. 8633--8645, online 2021, doi:10.1109/JIOT.2021.3116921. \url{https://ieeexplore.ieee.org/document/9555832/}.
+\bibitem{micro} R. Ohara, S. Izumi, S. Imanaka, T. Yamamura, T. Ishii and H. Kawaguchi, ``MicroSync: Sub-Micro Second Accuracy Wireless Time Synchronization Service,'' IEEE Access, vol. 12, 2024, pp. 124478--124494, doi:10.1109/ACCESS.2024.3446668. \href{https://da.lib.kobe-u.ac.jp/da/kernel/0100491658/0100491658.pdf}{University-hosted version of record}, Sec. V.
+\bibitem{ntp} D. Mills, J. Martin, J. Burbank and W. Kasch, ``Network Time Protocol Version 4: Protocol and Algorithms Specification,'' RFC 5905, 2010. \url{https://www.rfc-editor.org/rfc/rfc5905.html}.
+\bibitem{linuxptp} R. Cochran and LinuxPTP contributors, primary PI servo implementation, v4.4 \code{pi.c}, retrieved 12 October 2026. \url{https://github.com/richardcochran/linuxptp/blob/v4.4/pi.c}. The literature manifest pins the reviewed revision.
+\bibitem{nistterms} NIST, ``Meanings of common terms used in IEEE 1588.'' \url{https://www.nist.gov/el/intelligent-systems-division-73500/meanings-common-terms-used-ieee-1588}. Accessed 12 October 2026.
+\bibitem{ble} Bluetooth SIG, Bluetooth Core Specification 6.1, Vol. 6, Part B, Link Layer, Secs. 4.4.2.12 and 4.5.8.3. \href{https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core-61/out/en/low-energy-controller/link-layer-specification.html}{Official fixed-edition specification}. Used for periodic event/channel behavior, not a claim about a current newest edition.
+\bibitem{hmac} H. Krawczyk, M. Bellare and R. Canetti, ``HMAC: Keyed-Hashing for Message Authentication,'' RFC 2104, 1997. \url{https://www.rfc-editor.org/rfc/rfc2104.html}.
+\bibitem{timer} Nordic Semiconductor, nRF52840 Product Specification, ``TIMER---Timer/counter.'' \url{https://docs.nordicsemi.com/r/bundle/ps_nrf52840/page/timer.html}. Accessed 12 October 2026.
+\bibitem{heltec} Heltec Automation, ``Mesh Node T096,'' official board documentation. \url{https://wiki.heltec.org/docs/devices/open-source-hardware/nrf52840-series/t096/}. Accessed 12 October 2026; establishes declared nRF52840/UC6580 family.
+\bibitem{ucbrochure} Unicore Communications, \emph{Products Brochure 2026}, UC6580, printed p. 28. \href{https://en.unicorecomm.com/uploads/file/Products%20Brochure%20of%20Unicore%202026_En.pdf}{Official brochure}. Retrieved and visually checked 12 October 2026.
+\bibitem{ucproduct} Unicore Communications, ``UFirebird II UC6580,'' English product specifications. \url{https://en.unicorecomm.com/products/dual-band-gps-chip-uc6580/}. Primary table checked 12 October 2026.
+\bibitem{ucdata} Unicore Communications, \emph{UC6580x-00 Datasheet}, R1.7, printed p. 7 and adjacent notes. \href{https://en.unicorecomm.com/uploads/file/UC6580x-00_Datasheet_EN_R1.7.pdf}{Official datasheet}. Retrieved and visually checked 12 October 2026; conflicts with 20 ns brochure figure as discussed in Section~\ref{sec:hardware}.
+\bibitem{prior} J. Yantis with disclosed OpenAI Codex assistance, \emph{Passive Precision Time over BLE: Prospective Edge Calibration, Causal Publication, and Service Availability}, and \emph{PToB: A Passive Time Service for Diverse BLE Edge Devices}, local manuscripts, 2 October 2026. Preserved source/PDF hashes and evidence cutoff in the companion provenance manifest; not claimed submitted or published.
+\bibitem{oscprior} J. Yantis with disclosed OpenAI Codex assistance, \emph{Causal Software Clock Discipline over Wireless Physical Events: Native Lock Evidence, Operating Tiers, and a Tunable-Oscillator Extension}, local manuscript, 3 October 2026. Source and previously exported PDF revisions are distinguished in the companion manifest.
+\bibitem{v14} J. Yantis with OpenAI Codex assistance, \emph{V14-RC1 Clock Protocol Specification and Wire Annex}, frozen 12 October 2026, root commit 7995249. Six-layout contract, synthetic vectors, reconciliation and publication brief; local specification candidate.
+\bibitem{evidence} J. Yantis with OpenAI Codex assistance, PToB V14 research provenance, frozen local evidence inputs 12 October 2026 at 18:26:44.293859 UTC. Companion \path{paper/ptob-v14-evidence.json}, \path{paper/provenance/ptob-v14-literature.json}, and \path{paper/figures/v14-20261012/derive.py}. Private raw records are excluded from the publication dataset.
+\end{thebibliography}
+\end{document}

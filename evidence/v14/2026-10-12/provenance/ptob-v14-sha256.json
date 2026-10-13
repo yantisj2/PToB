@@ -1,0 +1,89 @@
+{
+  "schema": 1,
+  "files": {
+    "paper/ptob-v14-preprint.tex": {
+      "sha256": "bea2c7ea55b2842296871de9073554e0ad0bca84b3780afd966145b263365abe",
+      "bytes": 139879
+    },
+    "paper/ptob-v14-preprint.pdf": {
+      "sha256": "892fe477bfa8d01183711e7dc530d442dabd47a58e172dd5f77f51311e71fd7a",
+      "bytes": 209713
+    },
+    "paper/build_v14_preprint.py": {
+      "sha256": "74dfa7f5c714801d053c82bd905b856999b42734f0bae8628c4b858afd2cbcaa",
+      "bytes": 1795
+    },
+    "paper/ptob-v14-review.txt": {
+      "sha256": "9987d0302478b0ef68471ed9f7aed357180bb5e20e900fafb75a91ad12d86400",
+      "bytes": 4722
+    },
+    "paper/ptob-v14-evidence.json": {
+      "sha256": "7474437ed23e64ed7a16599e082de95024a38d67927113fafa814de2c0666562",
+      "bytes": 18477
+    },
+    "paper/provenance/ptob-v14-literature.json": {
+      "sha256": "970daadad501a4f7a58a78b27433358d1ee3ebded96fa61c3619144195bf8d80",
+      "bytes": 8225
+    },
+    "paper/provenance/ptob-v14-build.json": {
+      "sha256": "470066e21c848f270ea9f6b922327a86c2a4868abbef9eeda5be7e272a37ad03",
+      "bytes": 979
+    },
+    "paper/provenance/ptob-v14-qa.json": {
+      "sha256": "3a141a214fee857b6ea72de60c64d1dc2c42f57c25b88b6b814c5f5e5ee33dd2",
+      "bytes": 5314
+    },
+    "paper/figures/v14-20261012/derivation-manifest.json": {
+      "sha256": "39f0672c45f2904ec4c165d30ecf1d400dba928d5b8cd0926b3c18a94d3f15e1",
+      "bytes": 2791
+    },
+    "paper/figures/v14-20261012/derive.py": {
+      "sha256": "63dc91758becd7be6045c1c821e6ea290db79b02b987a7bf1734cc606311d395",
+      "bytes": 11216
+    },
+    "paper/figures/v14-20261012/diagnostic-sanitized.csv": {
+      "sha256": "68acc8d2a70e9211a54968107caee5043c73c86c070c98e56b5da400d823d436",
+      "bytes": 2675
+    },
+    "paper/figures/v14-20261012/phase-availability-inline.tex": {
+      "sha256": "4fcac338a2da25e2a8ddf7b027a90159132a0d51f028b515649c1bfa46e09147",
+      "bytes": 64431
+    },
+    "paper/figures/v14-20261012/phase-availability.pdf": {
+      "sha256": "00666191e025ac795727838bdd1bf973187fe28c6804423bb1ffb28a4cda38f6",
+      "bytes": 26322
+    },
+    "paper/figures/v14-20261012/phase-availability.png": {
+      "sha256": "dbe20fc47820097a720bcd0ecaa2b0e02105ae3a157cc7e18813cef4775ceca0",
+      "bytes": 97988
+    },
+    "paper/figures/v14-20261012/pps-sanitized.csv": {
+      "sha256": "55139bf0cfe729064b5942fccb94a36b1ea6ff36c5414bf2d1a9eceb006b103f",
+      "bytes": 26200
+    },
+    "paper/figures/v14-20261012/renewal-expiry-inline.tex": {
+      "sha256": "52dc285edc53da8511935114309269a2fb9549fed08892432041e4c6a228b4be",
+      "bytes": 4177
+    },
+    "paper/figures/v14-20261012/renewal-expiry.pdf": {
+      "sha256": "2c7eabc267e5fe395fb6b9a96b09d48811d57aa6d6ea3a01c8d2ced320483e26",
+      "bytes": 17286
+    },
+    "paper/figures/v14-20261012/renewal-expiry.png": {
+      "sha256": "faeca9cc155f5575bd06316e68a4e607b8aa33ed2400f988601c2c6b0973a4c7",
+      "bytes": 46022
+    },
+    "paper/figures/v14-20261012/result-table.csv": {
+      "sha256": "ab6d97d8aec62e8bbcd81625faf43295bbb0881ba2d6808b06a6a11dd647f936",
+      "bytes": 289
+    },
+    "paper/figures/v14-20261012/summary.json": {
+      "sha256": "a4ecdefdd9e8f08f266a15ce3ab09bc5419d535cbf02633bd6d7fcd10aca4e4b",
+      "bytes": 2382
+    },
+    "paper/figures/v14-20261012/wire-layouts.csv": {
+      "sha256": "77361cfa3931c516c585bc3e0b2511bb996adcd393ad22edc5bbc238a56ca8c6",
+      "bytes": 5221
+    }
+  }
+}

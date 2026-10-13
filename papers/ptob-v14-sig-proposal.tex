@@ -1,0 +1,602 @@
+\documentclass[11pt,letterpaper]{article}
+\usepackage[margin=0.85in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{mathptmx,amsmath,booktabs,array,ragged2e,xcolor,microtype,hyperref,fancyhdr}
+\hypersetup{colorlinks=true,urlcolor=blue!45!black,citecolor=blue!45!black,linkcolor=black,pdfauthor={Jonathan Yantis},pdftitle={Passive Precision Time over BLE: V14-RC1 Candidate Service and Profile Proposal}}
+\setlength{\parindent}{1em}\setlength{\parskip}{4pt}\setlength{\headheight}{14pt}\setlength{\emergencystretch}{2em}
+\widowpenalty=10000\clubpenalty=10000
+\pagestyle{fancy}\fancyhf{}\fancyhead[L]{\small PToB V14-RC1: candidate service/profile}\fancyhead[R]{\small 12 October 2026}\fancyfoot[C]{\small\thepage}
+\newcolumntype{L}[1]{>{\RaggedRight\arraybackslash}p{#1}}
+\newcommand{\must}{\textsc{must}}\newcommand{\mustnot}{\textsc{must not}}\newcommand{\should}{\textsc{should}}\newcommand{\code}[1]{\texttt{#1}}\newcommand{\page}{\clearpage}
+\begin{document}\thispagestyle{plain}
+\begin{center}
+{\LARGE\bfseries Passive Precision Time over BLE\\V14-RC1 Candidate Service\\and Profile Proposal\par}
+\vspace{10pt}Jonathan Yantis (Engineer)\par
+{\small Bluetooth SIG-facing discussion candidate --- 12 October 2026}
+\end{center}
+\begin{abstract}
+Passive Precision Time over BLE (PToB) proposes a common time service for heterogeneous listeners: clocks, sensor event recorders and devices with different capture, computation and power capabilities. V14 distributes complete periodic timing records, with corrections for actual earlier physical events, so steady reception needs no per-timestamp transaction. Independently sourced grandmasters coordinate directly; dedicated relay clocks discipline a local counter and regenerate downstream timing with immutable causal map generations and preserved root provenance. This proposal specifies profiles, lifecycle, authentication, original-event matching, exact portable byte layouts, rejection rules and conformance targets for the frozen V14-RC1 candidate. Public reception and trusted clock acceptance are distinct: the current group-key profile provides symmetric authentication, while keyless public verification is future work. A prospective physical one-relay experiment supports the boundary-clock mechanism and is summarized in a separate evidence annex. Numerical accuracy, constrained listening and standards qualification remain properties requiring named implementation and measurement evidence.
+\end{abstract}
+\section{Service purpose and document status}
+The universal service lets an endpoint learn a source coordinate, maintain a usable local clock between observations, identify its provenance and withdraw stale time explicitly. A callback-only endpoint may offer coarse interpretation; a receiver with uniquely associated physical captures may refine synchronization. The packet resolution does not impose the best prototype accuracy on every listener.
+
+This is a completed local candidate specification/profile proposal for discussion, not a submission, adopted SIG specification or qualified product. \must, \mustnot\ and \should\ describe the candidate's requirements. V14-RC1 at revision \code{7995249} is the frozen target \cite{rc1}; this document transcribes its bytes and semantics rather than designing a new on-air version. The portable wire annex and synthetic examples are normative within that target. The evidence annex is nonnormative. Open dispositions distinguish target requirements from codec enforcement and unfinished production profile work.
+
+The 2 October proposal remains a historical compatibility reference. Its 31-byte multipart services and compact control cannot be silently relabeled as V14. The separate 12 October V14 research preprint analyzes implementation and measurements; this document instead supplies an implementable service contract and review agenda.
+
+\page
+\section{Profiles, roles and authority}
+The service separates capabilities, configured profile, admission, election, actual serving and precision quality. A supported profile is not an elected role. A good fitted clock does not create an independent source.
+\begin{center}\small
+\begin{tabular}{@{}L{0.2\linewidth}L{0.72\linewidth}@{}}\toprule
+Profile / role & Required function and authority\\\midrule
+GM source profile & Independently eligible source; directly admitted and elected before originating source time.\\
+Coordinator & Manages authenticated GM participants; coordination alone conveys no timing precision.\\
+Standby / HOT & Own eligible source plus synchronization to selected GM. HOT additionally needs actual synchronization and current takeover authorization.\\
+Dedicated RC & One authenticated parent, local counter discipline and downstream regenerated timing. No GM, coordinator or standby entitlement.\\
+Client / leaf & Consumes one admitted GM or RC train. A relay-only leaf obeys its declared parent constraint; it originates no timing/control authority.\\
+Constrained listener & Separate optional profile with complete acquisition, recovery and shutdown inside at most 50\% listening. Evidence remains pending.\\
+\bottomrule\end{tabular}\end{center}
+
+An authority-bearing profile transition \must\ fence the old source/control/timing scope before new admission. Dedicated RC service cannot become GM or HOT through renewed demand, held time, good fit RMS or a source-looking UI. A device supporting several profiles still requires an explicit selected policy; RC1 does not promise live profile switching.
+
+GM control includes at most four participants, coordinator included. Each remote participant \must\ maintain a direct authenticated coordinator connection. Relay-only or overflow candidates become clients; relay paths \mustnot\ carry GM management. This cap does not limit ordinary client identities, route-table identities or public listeners.
+
+The service's ``boundary clock'' describes regeneration through a disciplined local clock. IEEE 1588 boundary-clock terminology motivates that distinction \cite{nist}; PToB does not claim PTP message, port, media, BMCA or IEEE 802.1AS profile conformance. A wired gateway needs its own time-scale, delay and uncertainty contract.
+
+
+\page
+\section{Transport, registry and compatibility}
+Core timing uses LE periodic advertising without responses, with a 62.5 ms frame (16 Hz). Root slot zero and RC nominal positions 15.625, 31.250 and 46.875 ms are protocol profile positions. They are neither PAwR response slots nor a guarantee that a generic controller API can phase-lock independent trains.
+
+Bluetooth discovery uses extended advertising: ADV\_EXT\_IND points to AUX\_ADV\_IND carrying SyncInfo; the periodic train carries AUX\_SYNC\_IND and any subordinate data. Synchronization is distinct from connecting. The controller owns scheduling and channel selection; SyncInfo describes train acquisition, not UTC \cite{core}. Complete means a complete application AD record, not an assumption of one HCI report or one unfragmented RF PDU.
+
+The precision records use AD type \code{0xff} (Manufacturer Specific Data), whose initial company-code bytes follow the SIG data-type definition \cite{css,assigned}. RC1 uses experimental \code{0xffff}, not an assigned production company identifier or service UUID. Connected JOIN/GM control uses a separate connection; no GATT service/characteristic identifier or universal fragmentation binding is assigned here.
+\begin{center}\small
+\begin{tabular}{@{}L{0.24\linewidth}L{0.68\linewidth}@{}}\toprule
+Registry entry & Bytes / transport / compatibility\\\midrule
+GR3 & 190-byte periodic AD; root precision, 16 MHz wire unit; only GR version 3 accepted.\\
+RC5/profile3 & 190-byte periodic AD; regenerated nanosecond precision; only version 5, profile 3 accepted.\\
+RQ5/profile3 & 136-byte AD-framed local service operations. Each adapter declares its discovery and transaction bearer binding.\\
+JOIN4 & 164-byte connected record; type 14, version 4. Membership, replay anchor and local demand.\\
+GC17/C4/Config5 & 168-byte connected management; type 17, Config5; HELLO is 223 bytes. C4 is MAC-domain revision, not a byte in the header.\\
+Historical compatibility & BASIC coarse UTC, UTC-Lite, parity EVENT/SECONDS/FRACTION and multipart boundary/control retain separate custom-UUID decoders and policies.\\
+\bottomrule\end{tabular}\end{center}
+
+A 31-byte-only legacy listener cannot consume a 190-byte V14 record. Keep legacy services separate if offered, with explicit resource budgets; they supply no V14 authority. Older G1/GR1/GR2, RC/RQ profile revisions, JOIN3 and earlier control types are rejected by the selected V14 decoder. Migration fences pending captures, replay floors, maps and old authority, then authenticates the new profile. Version rejection is safer than inferring equivalence from equal sizes. Production identifiers and connected-bearer interoperability are open profile tasks.
+
+
+\page
+\section{Independent-source election and partition convergence}
+Eligibility \must\ be evaluated before deterministic ranking. A candidate needs actual independently eligible source/time evidence and authorized direct GM participation. Unknown quality cannot be improved by numerical defaults, a device name, uptime, fitted residuals or relay holdover. The rank tuple is lexicographic, smaller preferred:
+\[
+(\mathrm{priority1},\mathrm{class},\mathrm{accuracy},\mathrm{variance},\mathrm{priority2},\mathrm{stable\ identity}).
+\]
+The preferred eligible candidate is GM; with a second eligible candidate, that candidate supplies the coordinator/standby assignment. HOT is a further synchronized and permitted state, not a synonym for coordinator. Singleton operation requires an explicit local management path. Stable identities, not names or fixed hardware roles, break ties.
+
+Startup \must\ include at least 60 s of receive observation and 60 s of stable eligible-source evidence. These waits may overlap. Source-epoch change, expiry, receive fault or invalid local time resets affected admission. Missing reception cannot be counted as evidence of isolation. A forced-role request cannot create source readiness.
+
+Each authenticated connected partition chooses one eligible GM. Disconnected partitions may legitimately serve from different independent sources. Merge, accepted source change, reboot and withdrawal \must\ invalidate old live authority/timing scope before replacement. This is partition-local convergence, not global consensus across absent links. Retained old time, where explicitly permitted, is HOLD without current root entitlement.
+
+The takeover defaults begin suspicion after 2 s without fresh authenticated root health and retain a 3 s local source-change fence before replacement serving. Actual eligibility, direct connectivity and scheduling still apply; this is not a guaranteed 5 s recovery bound. Loss of a consumer's map alone is not proof of root failure.
+
+JOIN authentication establishes identities and a transient connection context; it does not admit a fifth GM or declare precision. GC SERVICE, HELLO and PREPARE/READY/COMMIT statements carry source and management scope under current permission. Decision/sequence, boot, challenge and current source evidence must be checked before those statements affect roles. A coordinator's lease or a standby-pair hint is not new independent-source evidence.
+
+
+\page
+\section{Boundary regeneration, routes and causal timing}
+An RC disciplines a local monotonic counter from completed parent TX/RX event pairs and independently originates a downstream train. Each outgoing correction uses the map effective at its own captured TX event and preserves that immutable generation. It \mustnot\ forward a parent packet as though the parent physically emitted the RC's event. Transparent residence correction is a separate unimplemented profile.
+
+The fixed route table is authenticated, acyclic and at most eight entries. Root entry zero transmits in slot zero. A transmitting child has a prior table entry as parent, depth parent+1 (maximum two), a distinct slot 1--3 later than its parent's slot, and a transmitting parent. A leaf has slot 255, no TX and its parent's depth. Routes are configured policy, not a dynamic mesh/slot allocator. Live addresses, boot identities and train/capture/source scopes must still be discovered and authenticated. Slot ownership is not source authority.
+
+A conceptual physical-copy key includes admitted group and route, selected source/root boot and epoch, sender identity and boot, train incarnation, capture epoch, publication, periodic event, physical channel and capture adapter/PHY context. The original carries no prediction of its own future TX. Later packets carry zero, one or two corrections naming earlier publications/events/channels. Receivers \must\ match the saved physical RX capture of that original; the correction packet's own channel, callback or worker time cannot replace it.
+
+For local counter $x$, let $M_g(x)$ be the causal map in generation $g$. A corrected original supplies the anchor $M_g(x_{\rm RX})=T_{\rm TX}+d$, where $d$ is declared propagation/reference treatment with its uncertainty. The new map takes effect no earlier than usable correction availability $a$. A read before $a$ uses an older map or is unavailable; later evidence cannot improve earlier output.
+
+An RC preserves root identity/boot/source epoch, original issuance/expiry, UTC offset and frame provenance while reporting its own sender boot/train/publication/capture context and per-correction cumulative age. Authenticate GR3 before converting $q$ wire ticks to $125q/2$ ns with checked integer/rational arithmetic. The pinned adapter floors a half-nanosecond; another adapter must declare its quantization treatment. Translate the root values into RC5's distinct layout and domain. Re-signing them creates a symmetric provenance statement, not a new GM observation or a publicly verifiable root signature.
+
+The two-RC path is the target capability. One physical RC, a two-RC simulator and three available RC positions are separate facts. Missed preparation positions advance by whole frames; actual supported controller placement and unique TX/RX association require physical evidence.
+
+
+\page
+\section{Trust, membership and local service lifecycle}
+The current trust profile uses a provisioned 32-byte shared group PSK, group identity and group epoch. Every key holder can generate group-authenticated statements. HMAC-SHA256-128 establishes a symmetric trust boundary, not individual hardware attestation, secrecy of broadcast time or keyless public verification \cite{hmac}. Public listeners can receive/parse timing without a connection; accepting it as trusted clock discipline needs the selected authenticated context.
+
+Fresh challenges, sender/receiver boots, nonces, forward sequences and publication floors bind admission and fence replay. Connection address or display name alone is insufficient. Reconnection requires fresh proof even when membership metadata remains. Cold bootstrap establishes a bounded coarse replay/freshness interval only: it \mustnot\ train the precision estimator, confer source candidacy or renew original source permission.
+
+JOIN4 uses REQUEST, CHALLENGE, PROOF and ACCEPT (or BUSY). The exchange lifetime is at most 5 s. Coarse extraction requires causal RTT at most 250 ms and independently stated source-map uncertainty. Source-bearing records have bounded remaining time, not perpetual validity. Control participation and local downstream demand are independent flags/states.
+
+RQ5 capability advertises a next challenge. A child REQUEST and parent's RESPONSE bind route indices, boots, challenge, nonce and sequence. An authenticated request may start RC acquisition without a usable map. RESPONSE ready=0 means no timing admission; demand may exist while timing is unavailable. ready=1 binds parent train/capture epoch, publication floor, root scope, coarse interval and admission expiry. An admitted demand is not proof of delivered output.
+
+Fixed-route service renews approximately every 300 s with at most 360 s local lease/context and a bounded 2 s transaction. Upstream demand must conservatively reflect live downstream demand. Renewal preserves still-valid same-scope maps, captures and sync when controller resources allow; it cannot reset clock age, source evidence or an expired map. Changed timebase/source scope fences affected state. A recreated train clears pending associations while any explicitly retained same-timebase map keeps its original expiry.
+
+Replay refusal, demand expiry, timing age and source-serving permission must remain separately observable. RC1 does not specify production enrollment, compromise recovery, asymmetric public signatures, arbitrary-state-loss durable replay or delay-attack resistance. These are external security/profile requirements, not capabilities implied by a correct MAC.
+
+
+\page
+\section{Clock validity, age and resource safety}
+Functional states are UNAVAILABLE, TRACKING and HELD (reference interfaces may name TRACKING ``LOCKED''). Precision quality is separate: UNKNOWN/UNQUALIFIED or a supported conservative bound. Lock or PLL activity is not accuracy qualification.
+\begin{center}\small
+\begin{tabular}{@{}L{0.2\linewidth}L{0.72\linewidth}@{}}\toprule
+Quantity & Required meaning / limit\\\midrule
+Local discipline age & Elapsed since last accepted discipline became usable. Fixed-route RC/leaf output expires at age $\ge500$ ms.\\
+Inherited map age & Parent cumulative age plus local elapsed time; new local correction cannot erase it.\\
+Root evidence / permission & Original provenance and live independent source are distinct. GR3 source-serving permission is at most 1.65 s.\\
+Admission / demand & At most 360 s local context; approximately 300 s renewal. RC5 representation is not 360 s fresh GM permission.\\
+Legacy windowed leaf & Separate 1.5 s reference policy clipped by original permission; never combined with the fixed-route rule.\\
+Hold precision metadata & Horizon/budget zero together means no bounded precision grant. Nonzero values require independent bounds; do not override functional expiry.\\
+\bottomrule\end{tabular}\end{center}
+
+At exactly 500 ms after the last accepted update, fixed-route time is unavailable. A child may receive a newly accepted correction from a held RC and renew its local lifetime, but inherited age grows. Thus 500 ms is a local operating policy, not an oscillator error bound or cumulative-chain guarantee. Rejected traffic, renewals, retransmissions and reads never renew discipline age.
+
+Source/counter epoch change, reboot, revocation, overflow or timebase fault fences maps. Within a continuous valid scope, delivered time is monotonic. Unqualified reacquisition steps must be explicitly fenced/reported; expiry invalidates time, current fit/lock and precision claims while discovery continues. Unknown capture, rate, path and reference uncertainty propagate as unknown, not zero.
+
+Healthy installed normal service \must\ autostart and keep running after diagnostics end. Finite capture stops logging only; it adds no service/RF shutdown timer. Actual explicit stop, update drain, fault containment and demand expiry retain bounded closure. Bounded queues/histories refuse overflow; scope exhaustion fences/drains before reuse. Capture callbacks avoid unbounded work, formatting, allocation or flash writes. Supported controller ownership and undrained transmitter faults remain hard resource gates.
+
+LoRa, WiFi and PTS require separate profiles/evidence; this proposal activates none. The separate dual-bearer precision gate remains a total held delivered-time bound within 500 ns across actual blackout plus margins, not a percentile or fit-RMS screen.
+
+
+\page
+\section{Wire conventions and authentication coverage}
+All offsets are zero-based within the complete record, excluding link-layer headers. All multibyte integers are unsigned little-endian unless stated signed; signed UTC offset is 64-bit two's complement. Byte arrays (names, magic and tags) retain their byte order. The GM 16 MHz representation is a 62.5 ns wire unit; it does not require a 16 MHz physical counter or imply that accuracy. Nanosecond RC fields likewise specify representation, not precision. Field width is the byte count in the tables. HMAC tags are the first 16 digest bytes, not integers.
+
+The group context $C$ is 13 bytes: context-version byte 1, group ID (u64 LE), group epoch (u32 LE). For each eight-byte ASCII domain $D$ and body $B$:
+\[\mathrm{tag}_{128}=\mathrm{first}_{16}(\mathrm{HMAC\!\!\!-SHA256}(K,D\Vert C\Vert B)).\]
+Route digest is the first eight bytes under RC5ROUTE over the complete 97-byte table. Ranges below use an exclusive upper bound.
+\begin{center}\small
+\begin{tabular}{@{}L{0.32\linewidth}L{0.6\linewidth}@{}}\toprule
+Tag/domain & Authenticated body and tag location\\\midrule
+GR3 origin: PTOBG3O3 & wire[14:74], 60 bytes; tag at 74--89.\\
+GR3 packet: PTOBG3R3 & wire[0:174]; tag at 174--189.\\
+RC5 origin: RC5ORIGN & route digest (8 bytes) followed by wire[12:72]; tag at 72--87.\\
+RC5 packet: RC5PACKT & wire[0:174]; tag at 174--189.\\
+RQ5: RC5LOCAL & wire[0:120]; tag at 120--135.\\
+JOIN4: PTOBG4J4 & wire[0:148]; tag at 148--163.\\
+GC17: PTOBG3C4 & wire[0:152], or HELLO wire[0:207]; final 16 bytes are tag.\\
+\bottomrule\end{tabular}\end{center}
+
+\textbf{Frozen notation disposition I-01.} The contract's GR3 origin range is [14,60]. The frozen vectors and immutable reference C authenticate 60 bytes starting at 14, i.e. [14:74]. This proposal states start/length explicitly; it does not change the contract. Reading 60 as an exclusive endpoint would omit frame/offset bytes and break the known answers.
+
+Length, magic/type, exact version/profile, epoch, both applicable tags, route, reserved zeros and semantic constraints must pass before discipline or lease renewal. Correction count is 0--2; every unused entry is all zero. UNKNOWN u32 uncertainty is \code{0xffffffff}. Hold-horizon/budget are authenticated unsigned quantities (``signed policy'' means MAC protected, not negative integers). UTF-8 names have explicit byte length and zero padding, never authorization by name.
+
+Required identities/incarnations must be nonzero except documented null fields; event 0 is a valid u16 periodic counter value. Timing channels are 0--36 (secondary/data channels), not the historical primary-channel 37--39 target codes. Overflow/wrap must not alias a live physical copy or scope.
+
+
+\page
+\section{GR3: root precision record}
+\begin{center}\small
+\begin{tabular}{@{}L{0.1\linewidth}L{0.07\linewidth}L{0.28\linewidth}L{0.46\linewidth}@{}}\toprule
+Offset & Bytes & Field & Meaning / unit\\\midrule
+0 & 1 & AD\_length & Record bytes minus 1: 189 for timing; 135 for RQ.\\
+1 & 1 & AD\_type & 0xff manufacturer-specific AD.\\
+2--3 & 2 & experimental\_manufacturer & 0xffff, experimental identifier; not production assignment.\\
+4--5 & 2 & magic & ASCII GR, RC or RQ as selected.\\
+6 & 1 & wire\_version & Exact selected version; no heuristic fallback.\\
+7 & 1 & correction\_count & 0--2 earlier physical-copy corrections.\\
+8--9 & 2 & interval\_1250us & 50 units of 1.25 ms = 62.5 ms.\\
+10--13 & 4 & group\_epoch & Current authenticated group epoch, u32.\\
+14--21 & 8 & root\_identity & Nonzero stable independently sourced root identity, u64.\\
+22--25 & 4 & hold\_horizon\_us & Authenticated precision hold horizon, us; maximum 10,000,000.\\
+26--29 & 4 & hold\_budget\_ns & Authenticated held-precision budget, ns; zero with zero horizon.\\
+30--37 & 8 & root\_boot & Nonzero root boot incarnation, u64.\\
+38--41 & 4 & root\_source\_epoch & Nonzero root-source epoch, u32.\\
+42--49 & 8 & source\_issued\_ns & Original issuance in selected root coordinate, ns.\\
+50--57 & 8 & source\_expires\_ns & Original expiry in root coordinate, ns; not renewed by forwarding.\\
+58--65 & 8 & root\_frame\_ns & Root frame provenance, ns; no later than issuance.\\
+66--73 & 8 & utc\_offset\_ns & SIGNED i64 ns: add to root coordinate for POSIX UTC estimate.\\
+74--89 & 16 & origin\_mac & 16-byte origin HMAC under distinct selected domain.\\
+90--97 & 8 & transmitter\_identity & Stable identity of this physical transmitter, u64.\\
+98--105 & 8 & parent\_identity & Selected parent identity; root itself for a root packet.\\
+106 & 1 & relay\_depth & GR route depth 0/1; core downstream uses RC5.\\
+107 & 1 & slot & Root 0; legacy GR depth 1 slot 1--3.\\
+108--115 & 8 & transmitter\_boot & Nonzero transmitter boot incarnation, u64.\\
+116--119 & 4 & train & Nonzero periodic-train incarnation, u32.\\
+120--123 & 4 & publication & Nonzero original publication ID, u32; corrections name earlier IDs.\\
+124--127 & 4 & capture\_epoch & Nonzero capture/timebase association epoch, u32.\\
+128--131 & 4 & map\_generation & Nonzero immutable map generation, u32.\\
+132--135 & 4 & bound\_ns & u32 uncertainty in ns; 0xffffffff is UNKNOWN.\\
+136--154 & 19 & correction\_0 & First complete correction block; zero if count=0.\\
+155--173 & 19 & correction\_1 & Second block; all zero if count<2.\\
+174--189 & 16 & packet\_mac & 16-byte HMAC over complete preceding packet body.\\
+\bottomrule\end{tabular}\end{center}
+
+The original is the publication carried in this record; correction fields refer to earlier physical originals. Origin body is bytes 14--73, packet body 0--173. Source expiry exceeds issuance by at most 1,650,000,000 ns. A nonzero hold grant requires a separately supported bound; the frozen GR codec additionally requires its horizon to cover the original source lifetime. Root depth 0 has transmitter=parent=root, slot 0 and sender boot=root boot. The GR compatibility depth 1 parser is not the two-RC downstream format.
+
+\page
+\section{RC5/profile3: boundary-clock precision record}
+\begin{center}\small
+\begin{tabular}{@{}L{0.1\linewidth}L{0.07\linewidth}L{0.28\linewidth}L{0.46\linewidth}@{}}\toprule
+Offset & Bytes & Field & Meaning / unit\\\midrule
+0 & 1 & AD\_length & Record bytes minus 1: 189 for timing; 135 for RQ.\\
+1 & 1 & AD\_type & 0xff manufacturer-specific AD.\\
+2--3 & 2 & experimental\_manufacturer & 0xffff, experimental identifier; not production assignment.\\
+4--5 & 2 & magic & ASCII GR, RC or RQ as selected.\\
+6 & 1 & wire\_version & Exact selected version; no heuristic fallback.\\
+7 & 1 & correction\_count & 0--2 earlier physical-copy corrections.\\
+8--11 & 4 & group\_epoch & Current authenticated group epoch, u32.\\
+12--19 & 8 & root\_identity & Nonzero stable independently sourced root identity, u64.\\
+20--27 & 8 & root\_boot & Nonzero root boot incarnation, u64.\\
+28--31 & 4 & root\_source\_epoch & Nonzero root-source epoch, u32.\\
+32--39 & 8 & source\_issued\_ns & Original issuance in selected root coordinate, ns.\\
+40--47 & 8 & source\_expires\_ns & Original expiry in root coordinate, ns; not renewed by forwarding.\\
+48--55 & 8 & utc\_offset\_ns & SIGNED i64 ns: add to root coordinate for POSIX UTC estimate.\\
+56--63 & 8 & root\_frame\_ns & Root frame provenance, ns; no later than issuance.\\
+64--67 & 4 & hold\_horizon\_us & Authenticated precision hold horizon, us; maximum 10,000,000.\\
+68--71 & 4 & hold\_budget\_ns & Authenticated held-precision budget, ns; zero with zero horizon.\\
+72--87 & 16 & origin\_mac & 16-byte origin HMAC under distinct selected domain.\\
+88--95 & 8 & route\_digest & First 8 HMAC bytes of full authenticated route table.\\
+96 & 1 & sender\_route\_index & u8 index into authenticated route table; must transmit.\\
+97 & 1 & depth\_slot & High nibble depth; low nibble slot, exact route match.\\
+98--105 & 8 & transmitter\_boot & Nonzero transmitter boot incarnation, u64.\\
+106--109 & 4 & train & Nonzero periodic-train incarnation, u32.\\
+110--113 & 4 & publication & Nonzero original publication ID, u32; corrections name earlier IDs.\\
+114--117 & 4 & capture\_epoch & Nonzero capture/timebase association epoch, u32.\\
+118--144 & 27 & correction\_0 & First complete correction block; zero if count=0.\\
+145--171 & 27 & correction\_1 & Second block; all zero if count<2.\\
+172 & 1 & profile & Exactly 3 in RC5/RQ5.\\
+173 & 1 & reserved & Exactly zero.\\
+174--189 & 16 & packet\_mac & 16-byte HMAC over complete preceding packet body.\\
+\bottomrule\end{tabular}\end{center}
+
+Origin MAC binds root values plus the configured route digest; it cannot be copied unchanged from GR3. The two correction blocks carry their own map generations and cumulative ages. Source/admission representation spans at most 360,000,000,000 ns, without granting that much fresh GM permission. Profile is exactly 3; reserved byte 173 is zero. All sender depth/slot values must equal the authenticated route entry.
+
+\page
+\section{RQ5/profile3: local service record}
+\begin{center}\small
+\begin{tabular}{@{}L{0.1\linewidth}L{0.07\linewidth}L{0.28\linewidth}L{0.46\linewidth}@{}}\toprule
+Offset & Bytes & Field & Meaning / unit\\\midrule
+0 & 1 & AD\_length & Record bytes minus 1: 189 for timing; 135 for RQ.\\
+1 & 1 & AD\_type & 0xff manufacturer-specific AD.\\
+2--3 & 2 & experimental\_manufacturer & 0xffff, experimental identifier; not production assignment.\\
+4--5 & 2 & magic & ASCII GR, RC or RQ as selected.\\
+6 & 1 & wire\_version & Exact selected version; no heuristic fallback.\\
+7 & 1 & kind & Exact record operation enum (see accompanying text).\\
+8 & 1 & sender\_index & Sender-local dictionary/route index, u8.\\
+9 & 1 & target\_index & Target dictionary/route index; RQ capability uses 255.\\
+10 & 1 & ready & 0/1 timing-admission discriminator, not precision quality.\\
+11 & 1 & profile & Exactly 3 in RC5/RQ5.\\
+12--15 & 4 & group\_epoch & Current authenticated group epoch, u32.\\
+16--23 & 8 & sender\_boot & Nonzero sender boot incarnation, u64.\\
+24--31 & 8 & target\_boot & Nonzero bound peer boot; zero for RQ capability.\\
+32--39 & 8 & challenge & Fresh transaction challenge, u64.\\
+40--47 & 8 & nonce & Fresh peer transaction nonce, u64.\\
+48--51 & 4 & sequence & Forward sequence, u32 in RQ; u64 in JOIN/GC.\\
+52--55 & 4 & train & Nonzero periodic-train incarnation, u32.\\
+56--59 & 4 & capture\_epoch & Nonzero capture/timebase association epoch, u32.\\
+60--63 & 4 & publication\_floor & Admission replay floor for selected parent stream, u32.\\
+64--71 & 8 & root\_boot & Nonzero root boot incarnation, u64.\\
+72--75 & 4 & root\_source\_epoch & Nonzero root-source epoch, u32.\\
+76--83 & 8 & coarse\_root\_lower\_ns & Lower coarse root-coordinate admission limit, ns.\\
+84--91 & 8 & coarse\_root\_upper\_ns & Upper coarse root-coordinate admission limit, ns.\\
+92--99 & 8 & admission\_expires\_ns & Coarse admission horizon, ns; distinct from local clock age.\\
+100--103 & 4 & lease\_us & Local demand lease, us; maximum 360,000,000.\\
+104--111 & 8 & next\_challenge & Fresh next challenge; zero in REQUEST.\\
+112--119 & 8 & route\_digest & First 8 HMAC bytes of full authenticated route table.\\
+120--135 & 16 & record\_mac & Final 16-byte record HMAC; see coverage table.\\
+\bottomrule\end{tabular}\end{center}
+
+Kinds are CAPABILITY=1, REQUEST=2 and RESPONSE=3. CAPABILITY has a transmitting sender, target 255 and next challenge; target boot, challenge, nonce, sequence and lease are zero. REQUEST is child-to-parent with next challenge zero; RESPONSE is parent-to-child with nonzero next challenge. Both require peer boots, nonce, challenge, sequence and lease. ready=1 is RESPONSE only, with nonzero train/capture/root scope; its interval width is at most 1.2 s and admission remaining horizon at most 360 s. When ready=0, bytes 52--99 (train through admission expiry) are zero; demand may still be accepted.
+
+\page
+\section{JOIN4: membership and coarse bootstrap record}
+\begin{center}\small
+\begin{tabular}{@{}L{0.1\linewidth}L{0.07\linewidth}L{0.28\linewidth}L{0.46\linewidth}@{}}\toprule
+Offset & Bytes & Field & Meaning / unit\\\midrule
+0 & 1 & type & JOIN=14; GM management=17.\\
+1 & 1 & kind & Exact record operation enum (see accompanying text).\\
+2 & 1 & wire\_version & Exact selected version; no heuristic fallback.\\
+3 & 1 & capabilities & u8 mask: bit 0 GM control, bit 1 independent-source capability, bit 2 relay demand; bits 3--7 zero.\\
+4--7 & 4 & group\_epoch & Current authenticated group epoch, u32.\\
+8--15 & 8 & sender\_identity & Nonzero stable sender identity, u64.\\
+16--23 & 8 & receiver\_identity & Nonzero peer identity, different from sender.\\
+24--31 & 8 & sender\_boot & Nonzero sender boot incarnation, u64.\\
+32--39 & 8 & receiver\_boot & Peer boot incarnation; zero permitted in initial REQUEST.\\
+40--47 & 8 & client\_nonce & Nonzero client nonce, u64.\\
+48--55 & 8 & server\_nonce & Nonzero after REQUEST; initial REQUEST may use zero.\\
+56--63 & 8 & sequence & Forward sequence, u32 in RQ; u64 in JOIN/GC.\\
+64--71 & 8 & created\_us & Sender monotonic creation instant, us.\\
+72--79 & 8 & echo\_us & Echo of peer causal send instant, us; not UTC.\\
+80--87 & 8 & root\_identity & Nonzero stable independently sourced root identity, u64.\\
+88--95 & 8 & root\_boot & Nonzero root boot incarnation, u64.\\
+96--99 & 4 & source\_epoch & Selected source epoch, u32.\\
+100--103 & 4 & publication & Nonzero original publication ID, u32; corrections name earlier IDs.\\
+104--111 & 8 & utc\_us & Coarse POSIX UTC estimate, us; bootstrap only.\\
+112--115 & 4 & remaining\_us & Remaining original coarse permission, us; max 1,500,000.\\
+116 & 1 & source\_flags & Bit0 coarse source statement present; bits 1--7 zero.\\
+117 & 1 & name\_length & UTF-8 byte count 1--24; no implicit terminator.\\
+118--141 & 24 & name\_utf8\_zero\_padded & 24-byte name buffer; unused suffix all zero.\\
+142 & 1 & control & 0/1 direct control admission; requires GM capability.\\
+143 & 1 & demand & 0 none, 1 request, 2 accepted, 3 refused, 4 pending.\\
+144--147 & 4 & source\_bound\_us & Coarse source uncertainty, us; present 1--50,000, otherwise zero.\\
+148--163 & 16 & record\_mac & Final 16-byte record HMAC; see coverage table.\\
+\bottomrule\end{tabular}\end{center}
+
+Kinds REQUEST=1, CHALLENGE=2, PROOF=3, ACCEPT=4 and BUSY=5. Sender/receiver differ; sender boot, client nonce and sequence are nonzero. Non-REQUEST needs receiver boot/server nonce. Source fields are allowed only in PROOF/ACCEPT, with nonzero root scope/publication, UTC in [2000,2100), remaining 1--1,500,000 us and source bound 1--50,000 us. Without source or demand, root/UTC/remaining fields are zero. Demand request occurs in PROOF; other nonzero demand states in ACCEPT, with control=0. Accepted demand requires selected root scope. Coarse time never disciplines precision.
+
+\page
+\section{GC17/C4/Config5: direct management record}
+\begin{center}\small
+\begin{tabular}{@{}L{0.1\linewidth}L{0.07\linewidth}L{0.28\linewidth}L{0.46\linewidth}@{}}\toprule
+Offset & Bytes & Field & Meaning / unit\\\midrule
+0 & 1 & type & JOIN=14; GM management=17.\\
+1 & 1 & kind & Exact record operation enum (see accompanying text).\\
+2 & 1 & sender\_index & Sender-local dictionary/route index, u8.\\
+3 & 1 & target\_index & Target dictionary/route index; RQ capability uses 255.\\
+4--11 & 8 & sender\_boot & Nonzero sender boot incarnation, u64.\\
+12--19 & 8 & coordinator\_boot & Bound coordinator incarnation; HELLO uses sender own boot.\\
+20--27 & 8 & challenge & Fresh transaction challenge, u64.\\
+28--35 & 8 & sequence & Forward sequence, u32 in RQ; u64 in JOIN/GC.\\
+36--43 & 8 & decision & u64 decision/publication/management-generation statement; kind-specific.\\
+44 & 1 & root\_index & Sender-dictionary root index; 255 for no selected root.\\
+45--52 & 8 & root\_boot & Nonzero root boot incarnation, u64.\\
+53--56 & 4 & source\_epoch & Selected source epoch, u32.\\
+57--64 & 8 & source\_second & u64 seconds in SERVICE; ACK sequence / management hash in respective kinds.\\
+65--72 & 8 & evidence\_us & Source evidence instant in sender monotonic us, no later than creation.\\
+73--80 & 8 & created\_us & Sender monotonic creation instant, us.\\
+81--88 & 8 & expires\_us & Record deadline in sender monotonic us; lifetime <=250,000.\\
+89--96 & 8 & permit\_until\_us & Kind-specific source/management permission, sender monotonic us.\\
+97--100 & 4 & config\_epoch & Exactly 5 (u32).\\
+101 & 1 & flags & u8 kind-specific status; allowed mask 0x07; see bit table.\\
+102 & 1 & priority1 & u8 first administrative priority; lower preferred.\\
+103 & 1 & clock\_class & u8 actual clock class; eligibility precedes ranking.\\
+104 & 1 & accuracy & u8 evidence-backed quality code; unknown stays unknown.\\
+105 & 1 & priority2 & u8 second administrative priority.\\
+106--107 & 2 & variance & u16 ranking variance metric; not ns uncertainty.\\
+108--111 & 4 & boot\_age\_ms & u32 age of current boot observation, ms.\\
+112--115 & 4 & source\_age\_ms & u32 stable source-evidence age, ms.\\
+116--119 & 4 & group\_epoch & Current authenticated group epoch, u32.\\
+120--151 & 32 & sender\_dictionary & Four sender-local u64 identities; zero means unused, nonzero entries unique.\\
+152--167 & 16 & record\_mac & Final 16-byte record HMAC; see coverage table.\\
+\bottomrule\end{tabular}\end{center}
+
+Kinds SERVICE=8, ACK=9, HELLO=10, PREPARE=11, READY=12 and COMMIT=13. HELLO has the different 223-byte layout on the next page. sender/target indices 0--3 differ and resolve through the sender's dictionary; authenticate expected sender identity before remapping. Boot, coordinator boot, challenge and sequence are nonzero. Evidence<=creation<expiry and expiry-creation<=250,000 us. A MAC-valid dictionary or statement still requires current admission, source and management policy before acting.
+
+\page
+\section{GC17 HELLO: extended connected record}
+HELLO shares bytes 0--115 of GC17; the following table specifies its replacement suffix. It is exactly 223 bytes, authenticated through byte 206, with final tag 207--222. It must be carried on a supported connected bearer with complete bounded reassembly; a 223-byte HELLO is never a periodic timing advertisement.
+\begin{center}\small
+\begin{tabular}{@{}L{0.1\linewidth}L{0.07\linewidth}L{0.28\linewidth}L{0.46\linewidth}@{}}\toprule
+Offset & Bytes & Field & Meaning / unit\\\midrule
+108--111 & 4 & boot\_age\_ms & u32 age of current boot observation, ms.\\
+112--115 & 4 & source\_age\_ms & u32 stable source-evidence age, ms.\\
+116 & 1 & pair\_root\_index & u8 standby-pair root index; zero when no pair hint.\\
+117 & 1 & pair\_standby\_index & u8 standby-pair partner index; distinct if hint live.\\
+118--125 & 8 & pair\_root\_boot & u64 pair root boot; zero when hint absent.\\
+126--133 & 8 & pair\_standby\_boot & u64 partner boot; zero when hint absent.\\
+134--137 & 4 & pair\_epoch & u32 pair decision epoch; zero when absent.\\
+138--145 & 8 & pair\_until\_us & Pair hint expiry in sender monotonic us; zero absent.\\
+146--149 & 4 & group\_epoch & Current authenticated group epoch, u32.\\
+150--181 & 32 & sender\_dictionary & Four sender-local u64 identities; zero means unused, nonzero entries unique.\\
+182 & 1 & name\_length\_capabilities & Bits0--4 name byte length; bits 5--6 capabilities; bit 7 zero.\\
+183--206 & 24 & name\_utf8\_zero\_padded & 24-byte name buffer; unused suffix all zero.\\
+207--222 & 16 & record\_mac & Final 16-byte record HMAC; see coverage table.\\
+\bottomrule\end{tabular}\end{center}
+
+A live pair hint requires distinct root/standby indices, nonzero matching boots/epoch and a pair expiry later than creation by at most 10 s. With no hint, all pair fields are zero. An authenticated hint about an undiscovered partner does not itself create HOT or timing authority; the reference decoder omits the unresolved optional hint.
+\begin{center}\small
+\begin{tabular}{@{}L{0.31\linewidth}L{0.61\linewidth}@{}}\toprule
+Bits / field & Meaning / refusal\\\midrule
+HELLO byte 182 bits 0--4 & Name length 1--24 bytes; upper unused name bytes zero.\\
+HELLO byte 182 bits 5--6 & Two-bit capability claim: bit 5 GM control, bit 6 independent-source capability. Authenticated claim, not readiness.\\
+HELLO byte 182 bit 7 & Zero; capability value >3 rejected.\\
+GC flags bit 0 & Kind-specific positive status: eligible HELLO; valid SERVICE; synchronized ACK/READY; committed management in COMMIT.\\
+GC flags bit 1 & Within codec mask but no portable RC1 meaning is assigned here. Do not infer source or role authority from it (issue I-03).\\
+GC flags bit 2 & SERVICE relative-readiness statement in pinned implementation; does not certify precision.\\
+GC flags bits 3--7 & Zero; selected decoder refuses values outside mask 0x07.\\
+\bottomrule\end{tabular}\end{center}
+
+The sender-local four-entry dictionary maps compact control indices to stable identities; it is not a globally fixed enrollment roster. Unknown or duplicate nonzero identities, wrong expected sender and unmappable required role indices are refused. Timing routes may include other identities. Names are authenticated display metadata only.
+
+
+\page
+\section{Correction blocks and fixed route table}
+Correction offsets below are relative to the start of a correction block. GR3 blocks start at 136 and 155 (19 bytes each); RC5 at 118 and 145 (27 bytes each). Count limits and zero unused blocks apply independently of successful MAC verification.
+\begin{center}\small
+\begin{tabular}{@{}L{0.12\linewidth}L{0.16\linewidth}L{0.64\linewidth}@{}}\toprule
+Profile & Rel. offset / bytes & Field / unit\\\midrule
+GR3 & 0 / 4 & publication: Nonzero original publication ID, u32; corrections name earlier IDs.\\
+GR3 & 4 / 2 & event: u16 original periodic event counter; 0 allowed.\\
+GR3 & 6 / 1 & channel: u8 actual original channel 0--36.\\
+GR3 & 7 / 8 & tx\_ticks\_16MHz: u64 actual TX coordinate in 62.5 ns wire units.\\
+GR3 & 15 / 4 & map\_generation: Nonzero immutable map generation, u32.\\
+RC5 & 0 / 4 & publication: Nonzero original publication ID, u32; corrections name earlier IDs.\\
+RC5 & 4 / 2 & event: u16 original periodic event counter; 0 allowed.\\
+RC5 & 6 / 1 & channel: u8 actual original channel 0--36.\\
+RC5 & 7 / 4 & map\_generation: Nonzero immutable map generation, u32.\\
+RC5 & 11 / 4 & cumulative\_age\_us: u32 inherited age at TX, us; never reset by renewal.\\
+RC5 & 15 / 8 & tx\_ns: u64 actual regenerated TX root coordinate, ns.\\
+RC5 & 23 / 4 & bound\_ns: u32 uncertainty in ns; 0xffffffff is UNKNOWN.\\
+\bottomrule\end{tabular}\end{center}
+
+Corrections \must\ have nonzero publication and generation, publication preceding the containing original, channel0--36 and no duplicate (publication,event,channel). GR3 generations equal its packet map generation; RC5 has per-correction generations. Unmatched, conflicting, retired-scope, replayed or ambiguous originals cannot form clock samples. Duplicate corrections cannot increase sample count or refresh age.
+
+\textbf{Implementation gap I-02.} The pinned GR3 semantic validator checks timestamp/generation/ranges but does not itself enforce every RC1 nonpreceding/duplicate-publication rule. The proposal retains those required checks at the receiver pipeline; their transition-complete implementation validation remains open. RC5's validator explicitly checks preceding publications and duplicate tuples. Two focused re-signed counterexamples confirmed that the pinned GR3 decoder accepts a nonpreceding correction and a duplicated tuple under ASan/UBSan; RC1 requires refusal. These are retained as an implementation gap. The existing 33 vectors do not establish exhaustive association or replay correctness.
+
+The route-MAC body is one count byte (2--8), then eight entries of 12 bytes: identity u64 LE, parent u8, slot u8, depth u8, transmitter u8 (0/1), in that order. Unused entries are all zero. Root entry 0 has parent/slot/depth 0 and transmitter 1. Every nonroot parent precedes its child; transmitting slots are distinct; leaf slot 255 denotes no TX. The full 97 bytes enter RC5ROUTE before truncation to eight digest bytes.
+
+
+\page
+\section{Public synthetic known answers: timing and service}
+These are portable codec fixtures, not RF results or evidence of an installed identity. Public test key is hex \code{01 02 03} followed by 29 zero bytes; group ID 7 and epoch 9 yield context \code{01 07 00 00 00 00 00 00 00 09 00 00 00}. No deployment uses these values by implication.
+
+The synthetic route identities 1001,9001,17001,25001 represent root, RC1, RC2 and leaf. Their entries are (1001,0,0,0,1), (9001,0,1,1,1), (17001,1,2,2,1), (25001,2,255,2,0). The following RC5 example has sender entry 0: it validates RC5 wire semantics, not a measured relay hop.
+\paragraph{GR3 1 (190 bytes).}
+{\small\begin{verbatim}
+000: bd ff ff ff 47 52 03 01 32 00 09 00 00 00 e9 03 00 00 00 00 00 00 00 00
+024: 00 00 00 00 00 00 65 00 00 00 00 00 00 00 07 00 00 00 64 00 00 00 00 00
+048: 00 00 e4 00 59 62 00 00 00 00 64 00 00 00 00 00 00 00 2e fb ff ff ff ff
+072: ff ff fe 2d 70 59 29 87 99 6b dc 23 d6 cb b7 69 27 ea e9 03 00 00 00 00
+096: 00 00 e9 03 00 00 00 00 00 00 00 00 65 00 00 00 00 00 00 00 01 00 00 00
+120: 02 00 00 00 01 00 00 00 64 00 00 00 ff ff ff ff 01 00 00 00 ff ff 24 00
+144: 6a 18 00 00 00 00 00 64 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+168: 00 00 00 00 00 00 16 28 eb 79 ae 36 e5 be 8b 25 97 1e 5d 25 57 e4
+\end{verbatim}}
+\paragraph{RC5 1 (190 bytes).}
+{\small\begin{verbatim}
+000: bd ff ff ff 52 43 05 01 09 00 00 00 e9 03 00 00 00 00 00 00 65 00 00 00
+024: 00 00 00 00 07 00 00 00 64 00 00 00 00 00 00 00 e4 00 59 62 00 00 00 00
+048: 2e fb ff ff ff ff ff ff 64 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+072: 22 81 58 4c bb 96 67 4e 1c 1f 79 e1 4e 8d f8 6d ef a5 4f 10 29 36 3e 33
+096: 00 00 65 00 00 00 00 00 00 00 01 00 00 00 02 00 00 00 01 00 00 00 01 00
+120: 00 00 ff ff 24 64 00 00 00 40 e2 01 00 00 e1 f5 05 00 00 00 00 ff ff ff
+144: ff 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+168: 00 00 00 00 03 00 14 74 73 77 62 28 f3 51 a7 9f 54 c0 5f c0 a9 f5
+\end{verbatim}}
+\paragraph{RQ5 ready (136 bytes).}
+{\small\begin{verbatim}
+000: 87 ff ff ff 52 51 05 03 00 01 01 03 09 00 00 00 65 00 00 00 00 00 00 00
+024: 66 00 00 00 00 00 00 00 01 00 00 00 00 00 00 00 02 00 00 00 00 00 00 00
+048: 01 00 00 00 01 00 00 00 01 00 00 00 00 00 00 00 65 00 00 00 00 00 00 00
+072: 07 00 00 00 00 00 00 00 00 00 00 00 64 00 00 00 00 00 00 00 00 10 ac d1
+096: 53 00 00 00 00 2a 75 15 03 00 00 00 00 00 00 00 ef a5 4f 10 29 36 3e 33
+120: 63 54 9a a6 7f 72 0a 79 6f b9 13 71 3d d2 fc 1c
+\end{verbatim}}
+
+Both timing records carry original publication 2, correction publication 1, event 65535, channel 36 and map generation 100. GR3 corrected ticks 1,600,000 convert to 100,000,000 ns, matching RC5 TX ns. Offset -1234 is \code{2e fb ff ff ff ff ff ff}. RC5 inherited age is 123456 us and bound UNKNOWN. These fixtures demonstrate field decoding and conversion; an actual sample additionally needs the admitted original physical RX capture.
+
+
+\page
+\section{Public synthetic known answers: connected control}
+JOIN4 REQUEST names sender 1001, receiver 9001, sender boot 101, client nonce 1, sequence 1, creation 1000 us and name ``sample''; peer boot/server nonce are initial zero. GC SERVICE and HELLO use sender index 0, target 1, sender boot 101, coordinator boot 102, Config5 and the same synthetic dictionary. Kind-specific state machines must still authorize these codec-valid fixtures.
+\paragraph{JOIN4 request (164 bytes).}
+{\small\begin{verbatim}
+000: 0e 01 04 00 09 00 00 00 e9 03 00 00 00 00 00 00 29 23 00 00 00 00 00 00
+024: 65 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 00 00 00 00 00 00 00
+048: 00 00 00 00 00 00 00 00 01 00 00 00 00 00 00 00 e8 03 00 00 00 00 00 00
+072: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+096: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 06 73 61
+120: 6d 70 6c 65 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+144: 00 00 00 00 4b e4 3f a1 a7 2b 6b b4 8a fc 13 6d 5b 62 18 ec
+\end{verbatim}}
+\paragraph{GC17 kind8 (168 bytes).}
+{\small\begin{verbatim}
+000: 11 08 00 01 65 00 00 00 00 00 00 00 66 00 00 00 00 00 00 00 01 00 00 00
+024: 00 00 00 00 01 00 00 00 00 00 00 00 01 00 00 00 00 00 00 00 00 65 00 00
+048: 00 00 00 00 00 07 00 00 00 64 00 00 00 00 00 00 00 84 03 00 00 00 00 00
+072: 00 e8 03 00 00 00 00 00 00 d0 07 00 00 00 00 00 00 d0 07 00 00 00 00 00
+096: 00 05 00 00 00 00 80 f8 fe 80 ff ff 60 ea 00 00 0a 00 00 00 09 00 00 00
+120: e9 03 00 00 00 00 00 00 29 23 00 00 00 00 00 00 69 42 00 00 00 00 00 00
+144: a9 61 00 00 00 00 00 00 2f 68 d2 35 a3 48 c4 f1 70 ce 6f 18 df 9c 95 10
+\end{verbatim}}
+\paragraph{GC17 kind10 (223 bytes).}
+{\small\begin{verbatim}
+000: 11 0a 00 01 65 00 00 00 00 00 00 00 66 00 00 00 00 00 00 00 01 00 00 00
+024: 00 00 00 00 01 00 00 00 00 00 00 00 01 00 00 00 00 00 00 00 00 65 00 00
+048: 00 00 00 00 00 07 00 00 00 64 00 00 00 00 00 00 00 84 03 00 00 00 00 00
+072: 00 e8 03 00 00 00 00 00 00 d0 07 00 00 00 00 00 00 d0 07 00 00 00 00 00
+096: 00 05 00 00 00 00 80 f8 fe 80 ff ff 60 ea 00 00 0a 00 00 00 00 00 00 00
+120: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+144: 00 00 09 00 00 00 e9 03 00 00 00 00 00 00 29 23 00 00 00 00 00 00 69 42
+168: 00 00 00 00 00 00 a9 61 00 00 00 00 00 00 66 73 61 6d 70 6c 65 00 00 00
+192: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 98 92 83 01 c6 92 05 21 8b
+216: 7e 2f 04 e9 1f 58 5c
+\end{verbatim}}
+
+The full frozen vector set contains 14 accepted and 19 refused records across six layouts. It is included in the review package under its original V14-RC1 version and hash. This proposal uses its exact bytes, not legacy known answers with new labels.
+
+
+\page
+\section{Malformed examples and receiving procedure}
+\begin{center}\small
+\begin{tabular}{@{}L{0.36\linewidth}L{0.56\linewidth}@{}}\toprule
+Frozen vector / change & Required disposition\\\midrule
+Any selected bad-mac vector & Final tag bit flipped without re-signing: reject authentication; no discipline, membership or lease refresh.\\
+GR3-1-invalid-6 & Version byte 6 changed 3 to 2 and packet MAC recomputed: reject incompatible format.\\
+RC5-1-invalid-172 & Profile byte 172 changed 3 to 2 with valid packet MAC: reject profile.\\
+RC5-0-invalid-118 & Unused first correction block made nonzero and re-signed: reject canonical padding.\\
+JOIN4-request-invalid-2 & Version byte 2 changed 4 to 3 and re-signed: reject version.\\
+GC17-kind8-invalid-0 & Type byte 0 changed 17 to 15 and re-signed: reject control type.\\
+\bottomrule\end{tabular}\end{center}
+
+Malformed examples are exact members of the frozen synthetic vector set. A recomputed symmetric tag cannot make an incompatible interpretation valid. Additional targeted document checks verify table offsets, tag bodies, examples and canonical zero regions; unchanged broad protocol suites are not rerun for this manuscript.
+
+A receiver first obtains complete record bytes and transport and capture identity, checks exact framing and discriminator and bounded length, validates group/route context and tags, then applies semantic/version constraints. It binds the record to current admission and source scope before considering a saved original. A valid packet can supply a future original but cannot discipline time without a matching earlier physical-copy correction.
+
+A matched correction requires current sender/root boot and source epoch, train/capture context, route and original publication/event/channel. Replayed publication floors, old or ambiguous events, missing originals, contradictory duplicates, nonpreceding corrections, retired context and overflow are refused explicitly. Event wrap is evaluated only inside the current bounded train/context; wrap cannot bridge reboot or exhausted publication/capture scopes. Preserve rejection counters and unavailable output.
+
+A completed pair is checked for timestamp coordinate/permission, monotonic counter behavior and declared uncertainty. The model becomes available only after processing completes. Save immutable generation, physical reference, inherited age and availability instant, then publish present-time reads through the current map. Reads/status/renewal never become new measurements. Later map generations cannot alter a previously transmitted timestamp or a previously evaluated witness edge.
+
+The connected bearer must preserve bounded whole records and current authenticated connection binding. Codec success without current source/role predicates is not authority; a delayed valid management record cannot renew its original deadline. External interoperable fragmentation, MTU and timestamp-adapter behavior remain open profile binding work.
+
+
+\page
+\section{Target requirements and evidence conformance matrix}
+A PASS is scoped to its named layer. The frozen specification supplies target requirements; codec/simulator outcomes do not confer installed-platform or physical conformance. The table maps requirements to existing evidence and the next validation needed \cite{rc1,preprint}.
+\begin{center}\small
+\begin{tabular}{@{}L{0.22\linewidth}L{0.34\linewidth}L{0.35\linewidth}@{}}\toprule
+Target requirement & Evidence at cutoff & Required closure\\\midrule
+W-01 six layouts/tags & 14 valid and 19 malformed offline vectors, independent Python and immutable C; ASan/UBSan. & Stateful association/replay, I-01/I-02/I-03 disposition and cross-vendor codec integration.\\
+A-01 eligible direct cap4 GM & Implementation and earlier scoped election tests. & Current startup, role rotation, overflow, coordinator, HOT, failover and partition merge tests.\\
+R-01 one-RC regeneration & Physical authenticated delivery and renewal; prospective one-RC causal PPS phase. & Longer loss and recovery trials; independent output and reference measurements.\\
+R-02 two RCs / fixed slots & Portable route rules and separate simulator success. & Physical two-RC chain with end witness, parent isolation and actual slot placement.\\
+T-01 causal maps / expiry & Implemented local 500 ms policy; expiry/recovery and gaps retained. & Complete generation, expiry and monotonic transition tests; intervening output metrology.\\
+S-01 renewal / persistence & Sampled active service, admissions 1 to 3, observers closed while clocks active. & Long soak, outage, coexistence and observer effects; separate demand and source ages.\\
+C-01 controller / bearer & Named prototype functional evidence. & Supported event capture ownership, whole-record reassembly, launch/RX coexistence and standard channel behavior.\\
+H-01 heterogeneous clients & W12 direct-GR3 work is separate. & RC5 and RQ5 cross-platform decoding, service and clock lifecycle and interoperable chain.\\
+P-01 constrained listening & Incomplete half-duty treatments retained. & Actual listening $\le50\%$; acquisition, cancellation and recovery within cap; usable updates per second.\\
+Q-01 precision / resources & One-RC fractional PPS result; uncertainty remains unqualified. & Calibrated output and UTC, whole-interval bounds, CPU, energy and physical RF measurements.\\
+F-01 formal qualification & No adoption, certification or submission. & Applicable SIG product qualification and separate IEEE media/profile work.\\
+\bottomrule\end{tabular}\end{center}
+
+Conformance testing must retain both available and unavailable opportunities, signed bias, RMS including bias, jitter separately, tails, reference uncertainty and calibration provenance. Half-duty, full listening, one-RC, two-RC, direct-client and simulator populations remain separate. Independent full-suite execution remains held under its established review workflow.
+
+
+\page
+\section{Nonnormative prototype and evidence annex}
+The companion V14 research preprint \cite{preprint} fixes its evidence cutoff at 2026-10-12T18:26:44.293859Z. The named native T096-class prototype uses application 0.14.43 and selected immutable source:\begin{center}\small\code{566ea2029c7ffc84a7d321df427c5c811fac2730}\end{center}This is historical evidence, not a current installed-image assertion or a universal platform requirement.
+
+The prospective path is GM $\rightarrow$ one dedicated RC $\rightarrow$ a relay-only leaf with an independent local PPS-shadow witness. The witness does not train the selected BLE clock. Evaluation uses the map already available at the physical PPS edge. A provisional receive calibration was frozen before this validation; its value is an experimental method parameter in the preprint, never a protocol constant.
+\begin{center}\small
+\begin{tabular}{@{}L{0.3\linewidth}L{0.62\linewidth}@{}}\toprule
+Measured population / metric & Value and scope\\\midrule
+Observation span & 601.5761865 s device-counter span.\\
+Reference-valid causal samples & 436; signed mean -18.417431 ns; RMS including bias 62.503871 ns; demeaned jitter 59.728822 ns.\\
+Absolute phase tails & P95/P99/maximum: 123.25 / 160.25 / 191 ns in the selected valid-reference population.\\
+Coverage / missing & 504 observed edges; 602 conservative nominal boundaries; 436/602 = 72.425\% usable. Retain 65 invalid-reference edges, 3 valid-reference expired maps and 98 unobserved boundaries.\\
+Witness / validity gaps & 59.017190 s maximum witness gap; 6 RC and 11 leaf map expiry and recovery increments retained.\\
+Invalid-reference population & 501 all-causal maps include invalid reference excursions: mean 822982.948 ns, RMS 3929463.788 ns, maximum 19752827 ns; not pooled into valid-reference result.\\
+Service scope & 20 sampled states per unit active with error 0; admissions 1 to 3; collectors closed while clocks continued. This does not erase map-expiry intervals.\\
+\bottomrule\end{tabular}\end{center}
+
+These are fractional modulo-one-second PPS-shadow phase measurements, not calibrated absolute UTC or continuous electrical-output accuracy. One sample per second cannot establish intervening precision. No fitted mean was removed from total RMS or operating clocks. Separate two-RC simulator success, W12 direct-GR3 development and unresolved half-duty/controller/interoperability results do not enlarge this population.
+
+Hardware expectations remain uncertainty inputs: Unicore's 2026 UC6580 brochure (printed p. 28) states 20 ns RMS while UC6580x-00 datasheet R1.7 (printed p. 7) states 5 ns RMS \cite{ucbrochure,ucdata}. The preprint checked both primary tables; the discrepancy and actual installed receiver configuration remain unresolved. Neither is this board's calibrated PPS uncertainty or a universal accuracy floor.
+
+
+\page
+\section{Open dispositions and standards development needs}
+\begin{center}\small
+\begin{tabular}{@{}L{0.3\linewidth}L{0.62\linewidth}@{}}\toprule
+Issue / scope & Disposition and external validation\\\midrule
+I-01 authentication notation & GR3 [14,60] interpreted as start 14, length 60, supported by vectors/C; explicit [14:74] used here. Frozen contract unchanged.\\
+I-02 GR3 rejection enforcement & RC1 requires preceding publications and duplicate refusal. Pinned GR validator lacks those explicit checks; pipeline validation remains open, requirement retained.\\
+I-03 portable control semantics & Codec mask permits GC bit 1 without assigned portable meaning. Kind-specific status/capability use must be completed in a production profile; no authority inferred from that bit.\\
+I-04 standard bearer binding & No SIG service UUID/company assignment or interoperable connected fragmentation/discovery binding exists. RQ AD framing is not itself a standardized service.\\
+I-05 controller event API & Nominal profile slots and physical capture require supported resource reservations and unique event association. Generic HCI timing/scheduling alone is insufficient.\\
+I-06 security / privacy & Specify production key lifecycle, compromise/revocation, durable replay, public signatures and address-privacy association. Symmetric provenance is not hardware attestation.\\
+I-07 time scale / accuracy & POSIX UTC estimate is current scale. Define future leap/TAI mapping explicitly; calibrate reference/capture/path/output and complete unknown error budget.\\
+I-08 physical profile evidence & Two RCs, W12 RC5 portability, actual half-duty listening, full-suite election/recovery and thermal/energy/coexistence remain separate evidence needs.\\
+\bottomrule\end{tabular}\end{center}
+
+The proposed SIG-facing work item is a passive clock-service/profile family with exact event association, causal clock publication, authenticated authority separation and interoperable capability/quality reporting. RC1 offers concrete bytes and a demonstrated scoped regeneration mechanism as input to that work. Future production changes must use explicit version/identifier changes and new vectors; they cannot repurpose reserved bits or silently reinterpret compatibility services.
+
+Formal Bluetooth product qualification follows the SIG qualification process separately from a local codec or timing pass \cite{qualify}. No SIG submission, adoption, certification, public PDF replacement or IEEE conformance follows from this draft. A future gateway/profile must define its actual media and timescale before claiming standards interoperability.
+
+\paragraph{Author and AI disclosure.} Jonathan Yantis supplies hardware, original protocol/firmware, experimental direction and research decisions. OpenAI Codex assisted protocol/source review, official-source research, wire-table/example tooling, conformance mapping, drafting, compilation and visual QA for this proposal. The human author reviews and takes responsibility for any eventual submitted claims, consistent with CREDITS.md; no AI coauthor or invented affiliation is asserted.
+
+\paragraph{Local review package.} The standalone source/PDF, frozen public RC1 contract/vectors, document-specific wire/evidence/literature/build/visual-review manifests, concise review note and SHA-256 inventory form a portable local review package. Private captures, provisioning, physical identifiers and operational paths are excluded. Hashes prove artifact identity, not metrology or standards acceptance. The original proposal and companion preprint remain separate unchanged artifacts.
+
+\page
+\begin{thebibliography}{99}\small\raggedright
+\bibitem{rc1} J. Yantis with disclosed OpenAI Codex assistance, \emph{V14-RC1 Clock Protocol Specification and Wire Annex}, frozen 12 October 2026, revision 7995249. Local specification candidate; \path{protocol/v14_rc1/contract.json} and \path{vectors.json} accompany this package.
+\bibitem{core} Bluetooth SIG, \emph{Bluetooth Core Specification 6.3}, Vol. 6, Part B, Secs. 2.3.4.6,4.4.2.2.3,4.4.2.12 and 4.5.8.3. \href{https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core_v6.3/out/en/low-energy-controller/link-layer-specification.html}{Official Link Layer specification}. Accessed 12 October 2026; cited edition, not a newest-version or qualification assertion.
+\bibitem{css} Bluetooth SIG, \emph{Supplement to the Bluetooth Core Specification}, Part A, Sec. 1.4. \href{https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/CSS_v12/out/en/supplement-to-the-bluetooth-core-specification/data-types-specification.html}{Official data-type specification}. Retrieved 12 October 2026; HTML location is CSS\_v12 while displayed part labels v11. Manufacturer data semantics, not production identifier allocation.
+\bibitem{assigned} Bluetooth SIG, \emph{Assigned Numbers}, AD type 0xff and company-identifier sections. \href{https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Assigned_Numbers/out/en/index-en.html}{Official registry}. Retrieved 12 October 2026. The proposal's 0xffff is the frozen experimental value; no assignment is claimed.
+\bibitem{hmac} H. Krawczyk, M. Bellare and R. Canetti, ``HMAC: Keyed-Hashing for Message Authentication,'' RFC 2104, 1997, Secs. 2, 5. \href{https://www.rfc-editor.org/rfc/rfc2104.html}{Official RFC}. SHA256/truncation/domains here are RC1 profile choices.
+\bibitem{nist} NIST, ``Meanings of common terms used in IEEE 1588,'' boundary-clock/timestamp-point entries. \href{https://www.nist.gov/el/intelligent-systems-division-73500/meanings-common-terms-used-ieee-1588}{Official terminology}. Accessed 12 October 2026; architectural inspiration, not current IEEE media/profile conformance.
+\bibitem{qualify} Bluetooth SIG, ``Qualify your product.'' \href{https://www.bluetooth.com/develop-with-bluetooth/qualify/}{Official qualification overview}. Accessed 12 October 2026; qualification remains distinct from this local proposal.
+\bibitem{preprint} J. Yantis, \emph{Passive Precision Time over BLE: V14 Boundary Clocks, Causal Timestamping, and Prospective One-Relay Validation}, standalone local research preprint, 12 October 2026. \path{paper/ptob-v14-preprint.tex/pdf}; evidence cutoff 18:26:44.293859 UTC. Human author with disclosed Codex assistance; no publication/submission asserted.
+\bibitem{ucbrochure} Unicore Communications, \emph{Products Brochure 2026}, UC6580, printed p. 28. \href{https://en.unicorecomm.com/uploads/file/Products%20Brochure%20of%20Unicore%202026_En.pdf}{Official brochure}. 20 ns RMS table checked by companion preprint; not calibrated prototype input.
+\bibitem{ucdata} Unicore Communications, \emph{UC6580x-00 Datasheet}, R1.7, printed p. 7 and adjacent notes. \href{https://en.unicorecomm.com/uploads/file/UC6580x-00_Datasheet_EN_R1.7.pdf}{Official datasheet}. 5 ns RMS conflicts with brochure; retained rather than converted into a board bound.
+\end{thebibliography}
+\end{document}

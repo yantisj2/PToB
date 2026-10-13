@@ -1,0 +1,72 @@
+{
+  "schema": 1,
+  "checked_date": "2026-10-12",
+  "primary_only": true,
+  "items": [
+    {
+      "key": "core",
+      "title": "Bluetooth Core6.3 Link Layer",
+      "url": "https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core_v6.3/out/en/low-energy-controller/link-layer-specification.html",
+      "locator": "2.3.4.6;4.4.2.2.3;4.4.2.12;4.5.8.3",
+      "scope": "SyncInfo/discovery, periodic AUX_SYNC_IND, 1.25ms interval unit; generic scheduling is not an RF timestamp",
+      "retrieval": "WEB_READ"
+    },
+    {
+      "key": "css",
+      "title": "Bluetooth Core Supplement Data Types",
+      "url": "https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/CSS_v12/out/en/supplement-to-the-bluetooth-core-specification/data-types-specification.html",
+      "locator": "Part A1.4",
+      "scope": "Manufacturer-specific AD contains company-code prefix; URL CSS_v12 has displayed v11 part label, retained",
+      "retrieval": "WEB_READ"
+    },
+    {
+      "key": "assigned",
+      "title": "Bluetooth SIG Assigned Numbers",
+      "url": "https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Assigned_Numbers/out/en/index-en.html",
+      "locator": "AD table0xff; Company identifiers",
+      "scope": "AD type and identifier registry; frozen experimental0xffff not claimed allocated",
+      "retrieval": "WEB_READ"
+    },
+    {
+      "key": "qualify",
+      "title": "Bluetooth SIG qualification overview",
+      "url": "https://www.bluetooth.com/develop-with-bluetooth/qualify/",
+      "locator": "Overview",
+      "scope": "Product qualification is separate process; no candidate adoption inferred",
+      "retrieval": "WEB_READ"
+    },
+    {
+      "key": "nist",
+      "title": "NIST IEEE1588 terminology",
+      "url": "https://www.nist.gov/el/intelligent-systems-division-73500/meanings-common-terms-used-ieee-1588",
+      "locator": "Boundary-clock/timestamp-point entries",
+      "scope": "Architecture terminology; does not establish PTP/802.1AS media conformance",
+      "retrieval": "WEB_READ"
+    },
+    {
+      "key": "hmac",
+      "title": "RFC2104",
+      "url": "https://www.rfc-editor.org/rfc/rfc2104.html",
+      "locator": "2,5",
+      "scope": "Keyed hash/truncation; profile domains and SHA256 chosen by RC1",
+      "retrieval": "WEB_READ"
+    }
+  ],
+  "retrieval_limitations": [
+    {
+      "url": "https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core_v6.3/out/en/host-controller-interface/host-controller-interface-functional-specification.html",
+      "reason": "web tool 4MiB content-size limit; no unsupported exact HCI API claim based on this unread page"
+    },
+    {
+      "url": "https://sagroups.ieee.org/1588/",
+      "reason": "403; IEEE conformance not asserted"
+    }
+  ],
+  "companion_manufacturer_checks": {
+    "manifest": "paper/provenance/ptob-v14-literature.json",
+    "unchanged": true,
+    "brochure_rms_ns": 20,
+    "datasheet_R1_7_rms_ns": 5,
+    "discrepancy": "UNRESOLVED; no calibrated source bound selected"
+  }
+}

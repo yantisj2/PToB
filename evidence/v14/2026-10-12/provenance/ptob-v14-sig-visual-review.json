@@ -1,0 +1,197 @@
+{
+  "schema": 1,
+  "status": "PASS_FINAL_DOCUMENT_REVIEW_ONLY",
+  "source_sha256": "134da2e33284b320e93f49f1c1066c22a3a8746cd7e2c2d0e168fb11124f251f",
+  "pdf_sha256": "d484bcc8e5891dd9f2b45e64b7bd4861a9e109419c08b91ec61d51e6e81a78e4",
+  "pages": 22,
+  "all_pages_visually_reviewed": true,
+  "reviewer": "Primary researcher direct review; no agent handoff",
+  "page_reviews": [
+    {
+      "page": 1,
+      "status": "PASS",
+      "sha256": "acb3f7bc42658c41d5b46892750675ff39457d7225bc8525de9c1e4bbbfb1f40",
+      "inspection": "Legible headings, tables, examples, margins and page footer; no clipped/overlapping content"
+    },
+    {
+      "page": 2,
+      "status": "PASS",
+      "sha256": "be0c55c3152d423ae66ba0d4bd247013cba1c30870688ecb9adc02ee80ba914c",
+      "inspection": "Legible headings, tables, examples, margins and page footer; no clipped/overlapping content"
+    },
+    {
+      "page": 3,
+      "status": "PASS",
+      "sha256": "3fc57c020d29178385179fb98b1ea55bee96413e3940d7fe812d381f79f9911a",
+      "inspection": "Legible headings, tables, examples, margins and page footer; no clipped/overlapping content"
+    },
+    {
+      "page": 4,
+      "status": "PASS",
+      "sha256": "43496bab09180901159338d2fb4af57a5d1c953bf626a46076301eccf9b314fe",
+      "inspection": "Legible headings, tables, examples, margins and page footer; no clipped/overlapping content"
+    },
+    {
+      "page": 5,
+      "status": "PASS",
+      "sha256": "bb890ed9e37c1d6eda19f7e82b6043e6dd4808acdbac3598e5693eb9bc0f30d7",
+      "inspection": "Legible headings, tables, examples, margins and page footer; no clipped/overlapping content"
+    },
+    {
+      "page": 6,
+      "status": "PASS",
+      "sha256": "e10a3984b2b9476baedef6ba792c4f3f7f95be068126f55205e8854a4e3996fe",
+      "inspection": "Legible headings, tables, examples, margins and page footer; no clipped/overlapping content"
+    },
+    {
+      "page": 7,
+      "status": "PASS",
+      "sha256": "e8e7c6916bb52f253cfcab1833bff7987d260c6a5730adb11fc4c09e44f31432",
+      "inspection": "Legible headings, tables, examples, margins and page footer; no clipped/overlapping content"
+    },
+    {
+      "page": 8,
+      "status": "PASS",
+      "sha256": "f51dbc0ffe285284a4ffb1940e7a0cd70a838351870346ad98aaec365648c4c9",
+      "inspection": "Legible headings, tables, examples, margins and page footer; no clipped/overlapping content"
+    },
+    {
+      "page": 9,
+      "status": "PASS",
+      "sha256": "2272c71bf7080e6a94ba39493a95500d0a42cb897a303207b4968de5fb8dcf65",
+      "inspection": "Legible headings, tables, examples, margins and page footer; no clipped/overlapping content"
+    },
+    {
+      "page": 10,
+      "status": "PASS",
+      "sha256": "70f6eb0f3ce222d8a78bd0ef8c78f4087a354c40a41baa6b53f97d44e4c5366a",
+      "inspection": "Legible headings, tables, examples, margins and page footer; no clipped/overlapping content"
+    },
+    {
+      "page": 11,
+      "status": "PASS",
+      "sha256": "1c0bb0c2ef2f3923487debca23420a776149c91f09e1a56607033f7bb1f9a78e",
+      "inspection": "Legible headings, tables, examples, margins and page footer; no clipped/overlapping content"
+    },
+    {
+      "page": 12,
+      "status": "PASS",
+      "sha256": "b1a103ff82f99de7b7545d179c138bb4f5fc50f6db4951a1025fd8b18ec8a4a2",
+      "inspection": "Legible headings, tables, examples, margins and page footer; no clipped/overlapping content"
+    },
+    {
+      "page": 13,
+      "status": "PASS",
+      "sha256": "81e0ffa427623f114c84a0f407d4da7e86305fb91c3d99a50586be3dd28194d9",
+      "inspection": "Legible headings, tables, examples, margins and page footer; no clipped/overlapping content"
+    },
+    {
+      "page": 14,
+      "status": "PASS",
+      "sha256": "dcdf21107e401453b7c97c50964a741515ee806e188c718299b0b5d605a0cb70",
+      "inspection": "Legible headings, tables, examples, margins and page footer; no clipped/overlapping content"
+    },
+    {
+      "page": 15,
+      "status": "PASS",
+      "sha256": "32d0b095efad081f3ee46557df1b58449cb9cd4f8bdc475c79768ce3548d7e69",
+      "inspection": "Legible headings, tables, examples, margins and page footer; no clipped/overlapping content"
+    },
+    {
+      "page": 16,
+      "status": "PASS",
+      "sha256": "83c8576c449d7e51d51fdd4c92b29c86bdbad6ed36a83a5656d4791afaa36b91",
+      "inspection": "Legible headings, tables, examples, margins and page footer; no clipped/overlapping content"
+    },
+    {
+      "page": 17,
+      "status": "PASS",
+      "sha256": "95606f0f3e936dd760512c6c7fd97cc48c78efe4924d42cb61738d63d5232b6e",
+      "inspection": "Legible headings, tables, examples, margins and page footer; no clipped/overlapping content"
+    },
+    {
+      "page": 18,
+      "status": "PASS",
+      "sha256": "745e96a0b3336b8c23f9f0600e21278aaf82d487770a10a1084b51d11f34bfcb",
+      "inspection": "Legible headings, tables, examples, margins and page footer; no clipped/overlapping content"
+    },
+    {
+      "page": 19,
+      "status": "PASS",
+      "sha256": "ecab5d2f84f4d12246ba59d45c2160f102b8a5b21f47b12e1d3baf496c4603cd",
+      "inspection": "Legible headings, tables, examples, margins and page footer; no clipped/overlapping content"
+    },
+    {
+      "page": 20,
+      "status": "PASS",
+      "sha256": "867cafaf37f062b69c93cef5d4836a2b1b0a4e975858821ae3765204d41c9c15",
+      "inspection": "Legible headings, tables, examples, margins and page footer; no clipped/overlapping content"
+    },
+    {
+      "page": 21,
+      "status": "PASS",
+      "sha256": "381d3ff8c37f91b06a53b4f6694cb5c6dcbb10c29ed1c40ca543f1816511cdfc",
+      "inspection": "Legible headings, tables, examples, margins and page footer; no clipped/overlapping content"
+    },
+    {
+      "page": 22,
+      "status": "PASS",
+      "sha256": "2593b973d4149dcc6fc400eeebc2ce05320f650310878844e18c052f17bdd588",
+      "inspection": "Legible headings, tables, examples, margins and page footer; no clipped/overlapping content"
+    }
+  ],
+  "desktop_compiler": "SUCCESS_FINAL_SOURCE",
+  "export_engine": "Tectonic0.17.0",
+  "tex_warnings": [],
+  "focused_document_checks": {
+    "status": "PASS_DOCUMENT_EXAMPLES_ONLY",
+    "layouts": 6,
+    "contract_fields": 181,
+    "selected_exact_examples": 6,
+    "hmac_packet_origin_route_checks": "PASS",
+    "reserved_and_padding_checks": "PASS",
+    "all_table_offsets_widths_names": "PASS",
+    "citations_resolved": 10,
+    "external_links": [
+      "https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core_v6.3/out/en/low-energy-controller/link-layer-specification.html",
+      "https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/CSS_v12/out/en/supplement-to-the-bluetooth-core-specification/data-types-specification.html",
+      "https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Assigned_Numbers/out/en/index-en.html",
+      "https://www.rfc-editor.org/rfc/rfc2104.html",
+      "https://www.nist.gov/el/intelligent-systems-division-73500/meanings-common-terms-used-ieee-1588",
+      "https://www.bluetooth.com/develop-with-bluetooth/qualify/",
+      "https://en.unicorecomm.com/uploads/file/Products%20Brochure%20of%20Unicore%202026_En.pdf",
+      "https://en.unicorecomm.com/uploads/file/UC6580x-00_Datasheet_EN_R1.7.pdf"
+    ],
+    "standalone_source": true,
+    "privacy_named_patterns": "PASS",
+    "broad_suite_rerun": false
+  },
+  "pdf_external_annotation_links_match_source": true,
+  "protected_input_files_unchanged": {
+    "paper/ptob-proposal.tex": "a91cf8217ac649d4d758255765d28a0b25a6ca65f7f6b0dad960ca6f7d4f1f3c",
+    "paper/ptob-proposal.pdf": "47a58d6078a6b34b91317e9efc5870886cb393266c92951695dba2276c6f8b6f",
+    "paper/proposal-wire-manifest.json": "bed686d4be2d3d9af10b4a928ef5f0f06511ae9c8773c859996d2a524692c401",
+    "paper/proposal-spec-review.json": "b0d5a10339ce646e85b465914296aa854cbb09e25b51da4d04c0a2da076365a9",
+    "paper/proposal-build-manifest.json": "ce711407a60fe563dede828b7f8aa6b1bb060e5f1e3997ae3d17e811386b8aaa",
+    "paper/ptob-v14-preprint.tex": "bea2c7ea55b2842296871de9073554e0ad0bca84b3780afd966145b263365abe",
+    "paper/ptob-v14-preprint.pdf": "892fe477bfa8d01183711e7dc530d442dabd47a58e172dd5f77f51311e71fd7a",
+    "paper/ptob-v14-evidence.json": "7474437ed23e64ed7a16599e082de95024a38d67927113fafa814de2c0666562",
+    "paper/ptob-v14-review.txt": "9987d0302478b0ef68471ed9f7aed357180bb5e20e900fafb75a91ad12d86400",
+    "paper/provenance/ptob-v14-literature.json": "970daadad501a4f7a58a78b27433358d1ee3ebded96fa61c3619144195bf8d80",
+    "paper/provenance/ptob-v14-build.json": "470066e21c848f270ea9f6b922327a86c2a4868abbef9eeda5be7e272a37ad03",
+    "paper/provenance/ptob-v14-qa.json": "3a141a214fee857b6ea72de60c64d1dc2c42f57c25b88b6b814c5f5e5ee33dd2",
+    "paper/provenance/ptob-v14-sha256.json": "3e0841528a41e1e19ec7f9524d92d4c443021f0f84cb38063b302273adee8e0d",
+    "docs/V14_CLOCK_SPEC_RC1.md": "b8da8ea84f66540749485c2fec5a89068d6179c9223c93178209ca48e9b94bd9",
+    "docs/V14_SPEC_REALITY_20261012.md": "5fc5702cd4c1464d1172627870c62989125d7e93492b149f7962fa1ea6681041",
+    "docs/V14_PUBLICATION_BRIEF_RC1.md": "51d35f61925192abe02e0562e827c0d34748ab7b346fd97e662ac760766307b1",
+    "docs/V14_RC1_CHANGELOG_20261012.md": "a9ef8ee4d865c223e9042322f0789fef2282e2f66a6279590411d8900b573db4",
+    "protocol/v14_rc1/contract.json": "a122e61032fde317a709654ce58d83e08e4c254d3ae0eddb8b5b574f168b3ec0",
+    "protocol/v14_rc1/vectors.json": "5dfcc25e90dd279bcafa44eb19d6df487dfd69cbcadda681c321290543c60e27",
+    "protocol/v14_rc1/README.md": "054957e4e1985c6bc04f0f50efc8dd1e9d9fa22f9b12b899d8694c9760469957",
+    "results/V14_SPEC_RC1_20261012.json": "dab4177c5ce5db39e5caab052d3413457dd63922994a6d074c2cc5d07de667c5"
+  },
+  "focused_normative_gap_check": "Two new GR3 counterexamples confirmed decoder acceptance, RC1 target requires REJECT; retained in issues manifest",
+  "broad_independent_suite": "NOT_RERUN",
+  "new_hardware_or_RF": "NONE",
+  "scope": "Local specification proposal, not implementation acceptance or standards qualification"
+}
