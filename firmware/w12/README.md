@@ -7,15 +7,17 @@ RC role. [Image provenance](../../docs/images/README.md).*
 
 Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
 
-**PToB owns W12 native G1/RC7 development.** Current version **0.1.2** builds on the initial 0.1.0 successor
+**PToB owns W12 native G1/RC7 development.** Current version **0.1.3** builds on the initial 0.1.0 successor
 from the selected native application at `48b9ab7`. See the
 [build guide](../../docs/w12/build.md), [cutover record](../../docs/w12/cutover.md),
 [explicit import provenance](imports/2026-10-16.json) and [source notices](NOTICE.md).
 
 The supported public profile is **RC**: BLE50 client-only or BLE100 receiver,
-with an optional experimental estimated-TX relay. W12 GM service, GNSS variants,
-LoRa, WiFi, PTS and donor output correction experiments are not supplied by this
-target. Original signed source expiry, physical receive/correction matching,
+with an optional experimental estimated-TX relay. An explicit Meshnology W12
+L76K hardware profile enables GNSS reception/PPS/fix indicators; it does not
+provide GM service or GNSS discipline of the BLE clock. GNSS is disabled by
+default. LoRa, WiFi, PTS and donor output correction experiments are not supplied
+by this target. Original signed source expiry, physical receive/correction matching,
 controller ownership, bounded update drain and precision refusal remain in force.
 The estimated relay has unknown TX uncertainty and no actual TX capture claim.
 Both RC discovery advertisers request 100 ms, matching T096. The independent

@@ -2,6 +2,20 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 0.1.3 — 16 October 2026
+
+- Add an explicit local Meshnology W12 L76K RX39/PPS41 indicator profile.
+  Preserve GNSS-disabled defaults; neither the alias nor factory ID selects
+  wiring. Bind the selected capability into the generated factory header and
+  inspect its agreement with the actual compiler flags.
+- Restore physical PPS / checksum-valid GNSS packet / fresh RMC fix corner
+  indicators on that profile. Missing GNSS keeps these lamps dark instead of
+  falling back to BLE activity. Actual GNSS presence still requires fresh data.
+- Reuse the existing board-12 power/input route, with GPIO48 LOW and UART
+  TX/WAKE/RESET high impedance. Send no GNSS commands or time aid. Keep GNSS
+  outside the BLE estimator and source authority. RC discovery intervals,
+  parent-lock admission gate, replay limits and precision train are unchanged.
+
 ## 0.1.2 — 16 October 2026
 
 - Reduce continuous BLE100 direct-G1 JOIN traffic by moving proactive replay

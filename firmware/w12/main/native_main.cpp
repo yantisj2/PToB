@@ -32,6 +32,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "gnss_pps.hpp"
+#include "w12_device_profile.hpp"
 #include "display.hpp"
 #include "button_input.hpp"
 #include <cstdio>
@@ -784,7 +785,7 @@ extern "C" void app_main(){
       last_indicator_us=now;const auto now20=ticks();const auto gps=gnss_pps::activity(now20);
       const auto radio=v12::r2_activity();
       const auto lamps=indicator_model.update(now20,radio.rx,radio.tx,
-        radio.requested&&!radio.fault&&!radio.mode_pending,radio.tx_armed,gps.packet20,gps.pps20,gps.fix);
+        radio.requested&&!radio.fault&&!radio.mode_pending,radio.tx_armed,gps.packet20,gps.pps20,gps.fix,bool(PTOB_GNSS_INDICATORS));
       if(ui_subus&&!lamps.subus)last_ui=0; // Withdraw the header on the next main pass, too.
       ui_subus=lamps.subus;ui_gps_present=lamps.gps;
       ui_gps_lamps=uint8_t(lamps.pps)|(uint8_t(lamps.rx)<<1)|(uint8_t(lamps.tx)<<2);

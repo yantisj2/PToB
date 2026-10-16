@@ -60,6 +60,12 @@ def main():
     run([out/'quality-display-tests'],'settled-quality-countdown-scope-downgrade')
     run([CXX,'-std=c++20',*flags,APP/'tests/g1_ui_indicators_test.cpp','-o',out/'ui-indicator-tests'],'ui-indicators-build')
     run([out/'ui-indicator-tests'],'main-long-press-PPS-RX-TX-GPS-quality-expiry')
+    run(['python3',APP/'tests/device_inputs_test.py'],'explicit-GNSS-input-validation')
+    for enabled in (0,1):
+        (out/'ptob_device.h').write_text('#define PTOB_FACTORY_MAC {2,0,0,0,0,5}\n#define PTOB_DEVICE_LABEL "Example"\n#define PTOB_LEGACY_WIRE_ID 2\n#define PTOB_GNSS_INDICATORS '+str(enabled)+'\n')
+        binary=out/('device-profile-'+str(enabled))
+        run([CXX,'-std=c++20',*flags,'-DW12_GNSS_VERIFIED_INPUTS='+str(enabled),'-I'+str(APP/'legacy'),APP/'tests/device_profile_test.cpp','-o',binary],'device-profile-'+str(enabled)+'-build')
+        run([binary],'device-profile-'+str(enabled)+'-factory-capability')
     run([CXX,'-std=c++20',*flags,'-DV12_R2_ENABLED=1','-DV12_R2_CONFIG=13','-Wno-unused-parameter','-Wno-sign-compare','-I'+str(APP/'legacy'),'-I'+str(APP/'legacy/reference'),'-I'+str(APP/'main'),APP/'tools/preview_r2_dashboard.cpp','-o',out/'dashboard-preview'],'dashboard-framebuffer-build')
     run([out/'dashboard-preview',out],'dashboard-causal-RMS-estimated-hold-layout')
     run([CXX,'-std=c++20',*flags,'-I'+str(APP/'legacy'),'-I'+str(APP/'legacy/reference'),'-I'+str(APP/'main'),APP/'tests/g1_corrected_clock_test.cpp',*objects,'-o',out/'corrected-clock-tests'],'corrected-clock-build')

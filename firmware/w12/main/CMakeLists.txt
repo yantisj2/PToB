@@ -33,11 +33,18 @@ if(V12_R2_RX_SHADOW)
   endif()
   target_include_directories(${COMPONENT_LIB} PRIVATE "$ENV{IDF_PATH}/components/esp_driver_gptimer/src")
 endif()
+if(PTOB_W12_GNSS_INDICATORS)
+  set(ptob_board 12)
+  set(ptob_gnss 1)
+else()
+  set(ptob_board 2)
+  set(ptob_gnss 0)
+endif()
 target_compile_definitions(${COMPONENT_LIB} PRIVATE V12_UNIT="W12"
   V12_SOURCE_REVISION="${V12_SOURCE_REVISION}" W12_UNIT_NAME="PToB W12"
-  W12_COPY_BOARD_PROFILE=2 W12_GNSS_VERIFIED_INPUTS=0 V12_LORA_FORCED_OFF=1
+  W12_COPY_BOARD_PROFILE=${ptob_board} W12_GNSS_VERIFIED_INPUTS=${ptob_gnss} V12_LORA_FORCED_OFF=1
   W12_GNSS_RX_PIN=39 W12_GNSS_PPS_PIN=41 W12_GNSS_BAUD=9600
-  W12_GNSS_W12_POWER=0 W12_GNSS_R8_POWER=0)
+  W12_GNSS_W12_POWER=${ptob_gnss} W12_GNSS_R8_POWER=0)
 configure_file("${PTOB_DEVICE_HEADER}" "${CMAKE_CURRENT_BINARY_DIR}/ptob_device.h" COPYONLY)
 configure_file("${PTOB_REGISTRY_HEADER}" "${CMAKE_CURRENT_BINARY_DIR}/ptob_registry.h" COPYONLY)
 if(V12_R2_PROFILE)

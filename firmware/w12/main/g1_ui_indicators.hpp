@@ -27,14 +27,16 @@ class G1UiIndicators {
   void quality(const G1RelativeQuality& q,const G1ClockPrediction& clock,
                bool locked,uint64_t until20){quality_=q;clock_=clock;locked_=locked;until_=until20;}
   Lamps update(uint64_t now,uint32_t rx,uint32_t tx,bool healthy,bool tx_armed,
-               uint64_t gps_packet20,uint64_t gps_pps20,bool gps_fix){
+               uint64_t gps_packet20,uint64_t gps_pps20,bool gps_fix,bool gps_configured=false){
     Lamps out;
     // An initialized UART is not evidence that a GPS receiver is present.
     const auto fresh=[&](uint64_t at,uint64_t age){return at&&now>=at&&now-at<age;};
     out.gps=fresh(gps_packet20,40000000)||fresh(gps_pps20,40000000);
     const bool rx_on=rx_.update(rx,now,healthy),tx_on=tx_.update(tx,now,healthy&&tx_armed);
     out.subus=healthy&&locked_&&now<until_&&quality_.locked(now,clock_);
-    if(out.gps){out.pps=fresh(gps_pps20,2000000);out.rx=fresh(gps_packet20,2000000);out.tx=gps_fix;}
+    // Configured GNSS units keep these lamps on physical input, including
+    // while acquiring or after signal loss. Presence still requires fresh data.
+    if(gps_configured||out.gps){out.pps=fresh(gps_pps20,2000000);out.rx=fresh(gps_packet20,2000000);out.tx=gps_fix;}
     else {
       const auto utc=out.subus?clock_.at(now):0;
       out.pps=utc>0&&utc%INT64_C(1000000000)<100000000;

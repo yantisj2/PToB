@@ -339,6 +339,9 @@ bool query_port(uint64_t tick){
 bool ble_aided(){return aid_possible;}
 unsigned aid_state(){return aid_receipt.state;}
 void aid_time(const ptob_l76k::TimeAid& a,uint64_t now_us){
+ // The public GNSS indicator profile observes the receiver without sending
+ // module commands or giving local GNSS authority over the BLE clock.
+ if(PTOB_GNSS_INDICATORS)return;
  if(aid_used||!W12_GNSS_W12_POWER||!ready||!uart_ready||query_active||rx_gpio!=39||uart_baud!=9600)return;
  // The original capability and board guards exclude C1 and the legacy R8.
  uint8_t factory[6]{};static const uint8_t authorized[6]={0x44,0xb1,0x76,0xae,0x20,0x44};
