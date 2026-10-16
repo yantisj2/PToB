@@ -1,0 +1,23 @@
+#!/usr/bin/env python3
+"""Focused production parent-handoff and same-parent renewal regression; no hardware."""
+import argparse,hashlib,json,subprocess
+from pathlib import Path
+app=Path(__file__).resolve().parents[1]
+p=argparse.ArgumentParser();p.add_argument('--out',type=Path,required=True);a=p.parse_args();out=a.out.resolve();out.mkdir(exist_ok=False)
+src=app/'src/rc_dynamic_service.c';s=src.read_text()
+def function(name):
+ start=s.index(name);start=s.rfind('static ',0,start);brace=s.index('{',start);end=brace+1;depth=1
+ while depth:
+  if s[end]=='{':depth+=1
+  elif s[end]=='}':depth-=1
+  end+=1
+ return s[start:end]
+(out/'rc_durability_under_test.h').write_text('\n'.join(function(x) for x in ['parent_handoff_reset(','parent_rebind_request(']))
+cmd=[(__import__('os').environ.get('CC') or __import__('shutil').which('clang')),'-std=c11','-Wall','-Wextra','-Werror','-Wno-unused-variable','-Wno-default-const-init-var-unsafe','-fsanitize=address,undefined','-fno-sanitize-recover=all','-I'+str(out),'-I'+str(app/'include'),'-I'+str(app/'protocol'),str(app/'tests/rc_durability_test.c'),'-o',str(out/'test')]
+passed=False
+try:
+ with (out/'compile.log').open('x') as log:subprocess.run(cmd,stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
+ with (out/'run.log').open('x') as log:subprocess.run([str(out/'test')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
+ passed=True
+finally:(out/'receipt.json').write_text(json.dumps({'passed':passed,'hardware':False,'sources':{str(x):hashlib.sha256(x.read_bytes()).hexdigest() for x in [src,app/'tests/rc_durability_test.c']},'command':cmd},indent=2)+'\n')
+print('PASS actual production RC durability functions under ASan/UBSan')

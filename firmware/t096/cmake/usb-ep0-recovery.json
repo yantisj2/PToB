@@ -1,0 +1,8 @@
+{
+  "revision": "RC_USB_EP0_SETUP_RETIRE_V1",
+  "upstream_commit": "7823374e872145b5bd018bfe447839eb36042611",
+  "path": "drivers/usb/device/usb_dc_nrfx.c",
+  "original": "7134b8da13a380f19b0426e1f693ec55b134308f681b4994f31b6bfa3c02d535",
+  "fixed": "b86394c3dc82350a5a53bc9ad12eac8611cb83cb04dd10a2fed7229738e242db",
+  "patch_sha256": "bceb7fd44b507e38a3eb08074f287634429285ec67526b9a2175fcd45e583993"
+}

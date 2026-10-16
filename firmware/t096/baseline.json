@@ -1,0 +1,139 @@
+{
+  "schema": 1,
+  "status": "IMPORTED_RC7_SOURCE_CUTOVER_CANDIDATE",
+  "selected_on": "2026-10-16",
+  "source_commit": "1a16110a662ae66109b21bafa9958baf48d0465a",
+  "application_tree": "cdd6100344079106caaffab5efb8383f1524e1ae",
+  "source_family": "T096 R2 / RC7 dynamic profile",
+  "selection_basis": [
+    "Exact historical review and bounded installation/readback observations for the 0.15.53 USB relay profile.",
+    "Contains prior USB recovery and UTC-translation corrections.",
+    "Selection preserves unresolved GM stability and reliability findings; it is not full target acceptance."
+  ],
+  "review_record_sha256": "5f3ed68ecfa064694eb272b91ce746a3c4601b2f10ecf5ddf022353f97d1af8c",
+  "historical_review_scope": "one laboratory USB relay profile; no generic board/provisioning acceptance",
+  "retained_limits": [
+    "GM source validity loss and multi-GM HOT qualification unresolved",
+    "Continuous availability and independent absolute UTC/output accuracy unqualified",
+    "2284 static unallocated RAM bytes reported for reviewed USB build; not stack headroom",
+    "Physical IRQ duration and stack high-water not measured",
+    "Original USB EP0 hang trigger unproven",
+    "Private-parent build dependencies and immutable enrollment remain",
+    "Inherited Apache-2.0 notices require file-level rights reconciliation"
+  ],
+  "rejected_baselines": [
+    {
+      "source_commit": "da14d05c042ca40e3fe707cb9fd189e15e74497f",
+      "version": "0.15.48",
+      "reason": "Cohort release rejected after regressions; one USB target failed boot and was rolled back."
+    }
+  ],
+  "research_anchor": {
+    "version": "0.14.43",
+    "source_commit": "566ea2029c7ffc84a7d321df427c5c811fac2730",
+    "scope": "October 12 V14 paper evidence only"
+  },
+  "inputs": [
+    {
+      "source_path": "v12_r2/CMakeLists.txt",
+      "sha256": "e37f2b37aab5cad61616c3b20209037ec814934afe4df705cd24006243f5d1e2"
+    },
+    {
+      "source_path": "v12_r2/prj.conf",
+      "sha256": "548a3a4eba5ff42a4374dd30356f391c0c22c10f6761721a881a11c11f586487"
+    },
+    {
+      "source_path": "v12_r2/rc_dynamic.conf",
+      "sha256": "1bbd3aa872e1deed84ef18baf43364f4b98a92b460c38523a2c9212c8563118a"
+    },
+    {
+      "source_path": "v12_r2/rc_unicast.conf",
+      "sha256": "1c53588ef9e73456160fa7454e8ca319508406e24d151d242f19e2f1d2fc1f24"
+    },
+    {
+      "source_path": "v12_r2/watchdog.conf",
+      "sha256": "5f0a97088fd82b28c5812faae70e6077481f02a6d97759a2be6b49a32a9db4fb"
+    },
+    {
+      "source_path": "v12_r2/rc_hf_synth.conf",
+      "sha256": "7be319e37d0e13f6e87933d13aa7883324c8c09fd836d24ef4f6b9c5a69dd7cc"
+    },
+    {
+      "source_path": "v12_r2/dependencies.lock.json",
+      "sha256": "230df88242a726703206f65be0d698d3bf8b32619b21cdc2eebc10123dd52876"
+    },
+    {
+      "source_path": "v12_r2/boards/heltec/t096_r2/t096_r2.dts",
+      "sha256": "faef3bdae20402d4fd10555d392c44d2ed6ff9371b4d244e632b9123ce7ef4ba"
+    },
+    {
+      "source_path": "v12_r2/src/board.c",
+      "sha256": "bd17c548bf7740b9bee3b2661a5be06246a54ea1ed953d3b6f48fde4839edf1d"
+    },
+    {
+      "source_path": "v12_r2/src/diagnostic.c",
+      "sha256": "cb601729dac974d113c3a27ee6800bf4bce50575923ecb8dc5eb69983178576e"
+    },
+    {
+      "source_path": "v12_r2/include/diagnostic.h",
+      "sha256": "348fefd57f0b96e74dae566ee7a4ab8cbfd973ccf25c6e9cfba4749224e6bb01"
+    },
+    {
+      "source_path": "v12_r2/src/rc_profile_service.c",
+      "sha256": "37440344a8cb220d6612d6950bc008a33aae3e7a78123e8a9bc6a60a702b57dd"
+    },
+    {
+      "source_path": "v12_r2/src/ble_service.c",
+      "sha256": "4e5328ccd406c90fb38afa12a6ab684b94af914f5a9977efa51ffd0d12cf7589"
+    },
+    {
+      "source_path": "v12_r2/src/rc_dynamic_service.c",
+      "sha256": "efa66d33c7049136c114b33f04730e4c0407863152c78587d99e9a9eddd723e3"
+    },
+    {
+      "source_path": "v12_r2/src/ui_render.c",
+      "sha256": "ad79c9da22c5d61e3b09e6d2aa42ceeeddc579bfb18eca07ad326737e38301db"
+    },
+    {
+      "source_path": "v12_r2/tools/build.py",
+      "sha256": "d2e4e1ac6b4f200e9ab35e039da6d3e3b087b87d06fba2b3ea538fcea47dc2e1"
+    },
+    {
+      "source_path": "v12_r2/tools/enrollment.py",
+      "sha256": "419e17c2528b0076fa39c24b09b5b0e2f72743fe5fe4bafa28ad95c785704cb0"
+    },
+    {
+      "source_path": "v12_r2/protocol/group_auth.c",
+      "sha256": "a84826aaea8cacb85156fbaae5a51e382b708215ebfa97c3a29f846b4b334ab3"
+    },
+    {
+      "source_path": "v12_r2/protocol/group_auth.h",
+      "sha256": "959a6b7fed23100448ac7de442d38806a146897b4c53038a0087fce298caaf87"
+    },
+    {
+      "source_path": "v12_r2/protocol/group_join.h",
+      "sha256": "936692d3b9c8d0023a4debc06a9d1bc9e7b61a393a8c91fd6f57b04f2f8aa037"
+    },
+    {
+      "source_path": "v12_r2/protocol/rc_dynamic.h",
+      "sha256": "46c9f5ccd745315ca90014eafa07d835a37495229da11f6d6f8fe5d582198a3a"
+    },
+    {
+      "source_path": "v12_r2/docs/group-profile.md",
+      "sha256": "a48dc5a1ec1235e3d8b6ac814a9c99eecc2f2c1367eec0486335f86ad4d61411"
+    }
+  ],
+  "reproduction": "See docs/t096/build.md. Local build-time enrollment is required; P1 runtime provisioning is not implemented.",
+  "cutover_ready": false,
+  "historical_profile_versions": {
+    "RC7_USB_source_stream": "0.15.53",
+    "RC7_without_USB_source_stream": "0.15.51",
+    "legacy_normal": "0.14.74"
+  },
+  "public_profiles": [
+    "GM",
+    "RC"
+  ],
+  "usb_source_stream": "STANDARD_ALWAYS_ENABLED",
+  "public_version": "0.15.54"
+}

@@ -1,0 +1,174 @@
+{
+  "schema": 1,
+  "version": "R2ROLE01_V1",
+  "purpose": "PUBLIC_DIAGNOSTIC_ROLE_STATUS_ONLY",
+  "ad_bytes": 116,
+  "body_bytes": 100,
+  "endian": "LE",
+  "fields": [
+    {
+      "name": "ad_length",
+      "offset": 0,
+      "bytes": 1
+    },
+    {
+      "name": "ad_type",
+      "offset": 1,
+      "bytes": 1
+    },
+    {
+      "name": "manufacturer",
+      "offset": 2,
+      "bytes": 2
+    },
+    {
+      "name": "marker_GS",
+      "offset": 4,
+      "bytes": 2
+    },
+    {
+      "name": "version",
+      "offset": 6,
+      "bytes": 1
+    },
+    {
+      "name": "flags",
+      "offset": 7,
+      "bytes": 1
+    },
+    {
+      "name": "group_id",
+      "offset": 8,
+      "bytes": 8
+    },
+    {
+      "name": "group_epoch",
+      "offset": 16,
+      "bytes": 4
+    },
+    {
+      "name": "sender",
+      "offset": 20,
+      "bytes": 8
+    },
+    {
+      "name": "sender_boot",
+      "offset": 28,
+      "bytes": 8
+    },
+    {
+      "name": "root",
+      "offset": 36,
+      "bytes": 8
+    },
+    {
+      "name": "root_boot",
+      "offset": 44,
+      "bytes": 8
+    },
+    {
+      "name": "hot",
+      "offset": 52,
+      "bytes": 8
+    },
+    {
+      "name": "hot_boot",
+      "offset": 60,
+      "bytes": 8
+    },
+    {
+      "name": "coordinator",
+      "offset": 68,
+      "bytes": 8
+    },
+    {
+      "name": "source_epoch",
+      "offset": 76,
+      "bytes": 4
+    },
+    {
+      "name": "sequence",
+      "offset": 80,
+      "bytes": 4
+    },
+    {
+      "name": "created_sender_us",
+      "offset": 84,
+      "bytes": 8
+    },
+    {
+      "name": "valid_us",
+      "offset": 92,
+      "bytes": 4
+    },
+    {
+      "name": "members_mask",
+      "offset": 96,
+      "bytes": 1
+    },
+    {
+      "name": "reserved_zero",
+      "offset": 97,
+      "bytes": 3
+    },
+    {
+      "name": "HMAC128",
+      "offset": 100,
+      "bytes": 16
+    }
+  ],
+  "authentication": {
+    "domain": "R2ROLE01",
+    "algorithm": "HMAC_SHA256_TRUNC128",
+    "context": "GROUP_VERSION1_GROUP_ID_LE64_EPOCH_LE32",
+    "trust": "SHARED_GROUP_KEY;NO_HARDWARE_ATTESTATION"
+  },
+  "flags": {
+    "SERVING": 1,
+    "HOT": 2
+  },
+  "invariants": [
+    "sender=root AND sender_boot=root_boot;nonzero",
+    "source_epoch,sequence,created_sender_us,valid_us nonzero",
+    "valid_us<=2000000;members_mask<=15;reserved=0",
+    "HOT:hot!=root,hot_boot nonzero,coordinator=hot",
+    "NO_HOT:hot=hot_boot=0"
+  ],
+  "producer": {
+    "target": "T096_COMMON_RC7_0.15.36",
+    "authoritative_snapshot": "EXISTING_NETWORK_ELECTED_ROOT_LOCAL_GM_READY_SOURCE_PERMISSION",
+    "HOT_gate": "EXISTING_HOT_READY_DIRECT_AUTHENTICATED_PEER_LIVE_ROOT_AND_STANDBY_BOOT_PAIR_AND_MANAGEMENT_HORIZON",
+    "radio": "EXISTING_GM_EXT_ADVERTISER_SID12_PUBLIC_API_CONTROL_OWNER",
+    "update_min_us": 1000000,
+    "additional_advertisers": 0,
+    "additional_timers": 0,
+    "timing_control_payload": "UNCHANGED",
+    "failure": "OPTIONAL_METADATA_API_FAILURE_NONFATAL_RETAIN_HEALTH_OPERATION_AND_COUNTER"
+  },
+  "receiver": {
+    "target": "SS3_TD_V10",
+    "poll_min_us": 120000000,
+    "first_poll": "END_FIRST4S_SURVEY",
+    "deferral": "END_NEXT_EXISTING_SURVEY;NO_CATCHUP",
+    "active_query": false,
+    "JOIN": false,
+    "lease": false,
+    "raw_cache": "FOUR_LATEST116B_RECORDS_PSRAM",
+    "requirements": [
+      "existing G1 endpoint/address binding",
+      "current observed periodic GM advertiser",
+      "exact length/header/group/epoch/HMAC",
+      "receiver arrival age<valid_us",
+      "observed GM boot matches when known",
+      "strictly newer sequence for same root/boot"
+    ],
+    "absence": "NONFATAL_LAST_READING_AGED;AVAILABLE_FALSE",
+    "cold_replay_freshness": "UNKNOWN_WITHOUT_ADMISSION_OR_COMMON_ABSOLUTE_TIME",
+    "status": "SAMPLED_LAST_REPORT_NOT_CONTINUOUS_ROLE_AUTHORITY"
+  },
+  "qualification": {
+    "precision": "UNQUALIFIED",
+    "physical_RF_CPU_energy": "UNKNOWN",
+    "full_suite": "HELD"
+  }
+}

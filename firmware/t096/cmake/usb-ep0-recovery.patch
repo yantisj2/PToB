@@ -1,0 +1,222 @@
+--- a/drivers/usb/device/usb_dc_nrfx.c
++++ b/drivers/usb/device/usb_dc_nrfx.c
+@@ -139,6 +139,7 @@
+  * @param evt_type	Event type
+  */
+ struct usbd_ep_event {
++	uint32_t generation; /* Accepted EP0 SETUP; other endpoints ignore it. */
+ 	struct nrf_usbd_ep_ctx *ep;
+ 	enum usbd_ep_event_type evt_type;
+ };
+@@ -251,6 +252,9 @@
+ 	struct nrf_usbd_ep_ctx ep_ctx[CFG_EP_CNT];
+ 
+ 	uint16_t ctrl_read_len;
++	uint32_t ep0_generation;
++	uint32_t ep0_active_generation;
++	uint32_t ep0_diagnostics[6];
+ };
+ 
+ 
+@@ -466,6 +470,7 @@
+ 
+ 	ev = (struct usbd_event *)block.data;
+ 	ev->block = block;
++	ev->evt.ep_evt.generation = get_usbd_ctx()->ep0_generation;
+ 
+ 	return ev;
+ }
+@@ -770,6 +775,11 @@
+ 
+ 	struct nrf_usbd_ctx *ctx = get_usbd_ctx();
+ 
++	unsigned int key = irq_lock();
++	if (ctx->ep0_active_generation != ctx->ep0_generation) {
++		irq_unlock(key);
++		return;
++	}
+ 	if (usb_reqtype_is_to_device(usbd_setup) && usbd_setup->wLength) {
+ 		ctx->ctrl_read_len = usbd_setup->wLength;
+ 		/* Allow data chunk on EP0 OUT */
+@@ -777,6 +787,7 @@
+ 	} else {
+ 		ctx->ctrl_read_len = 0U;
+ 	}
++	irq_unlock(key);
+ }
+ 
+ static inline void usbd_work_process_recvreq(struct nrf_usbd_ctx *ctx,
+@@ -793,10 +804,18 @@
+ 	ep_ctx->read_complete = false;
+ 
+ 	k_mutex_lock(&ctx->drv_lock, K_FOREVER);
++	bool control = ep_ctx->cfg.type == USB_DC_EP_CONTROL;
++	unsigned int key = control ? irq_lock() : 0;
++	if (control && ctx->ep0_active_generation != ctx->ep0_generation) {
++		irq_unlock(key);
++		k_mutex_unlock(&ctx->drv_lock);
++		return;
++	}
+ 	NRF_USBD_COMMON_TRANSFER_OUT(transfer, ep_ctx->buf.data,
+ 				     ep_ctx->cfg.max_sz);
+ 	nrfx_err_t err = nrf_usbd_common_ep_transfer(
+ 		ep_addr_to_nrfx(ep_ctx->cfg.addr), &transfer);
++	if (control) { irq_unlock(key); }
+ 	if (err != NRFX_SUCCESS) {
+ 		LOG_ERR("nRF USBD transfer error (OUT): 0x%02x", err);
+ 	}
+@@ -810,6 +829,24 @@
+ 	struct nrf_usbd_ep_ctx *ep_ctx = ep_evt->ep;
+ 
+ 	__ASSERT_NO_MSG(ep_ctx);
++
++	if (ep_ctx->cfg.type == USB_DC_EP_CONTROL) {
++		unsigned int key = irq_lock();
++		if (ep_evt->generation != ctx->ep0_generation) {
++			if (ctx->ep0_diagnostics[3] != UINT32_MAX) { ++ctx->ep0_diagnostics[3]; }
++			irq_unlock(key);
++			return;
++		}
++		if (ep_evt->evt_type == EP_EVT_SETUP_RECV) {
++			ctx->ep0_active_generation = ep_evt->generation;
++			ep_ctx->read_pending = false;
++			ep_ctx->read_complete = false;
++			ep_ctx->buf.curr = ep_ctx->buf.data;
++			ep_ctx->buf.len = 0;
++			ctx->ctrl_read_len = 0;
++		}
++		irq_unlock(key);
++	}
+ 
+ 	switch (ep_evt->evt_type) {
+ 	case EP_EVT_SETUP_RECV:
+@@ -833,7 +870,14 @@
+ 			 * no ZLP required.
+ 			 */
+ 			k_mutex_lock(&ctx->drv_lock, K_FOREVER);
++			unsigned int key = irq_lock();
++			if (ep_evt->generation != ctx->ep0_generation) {
++				irq_unlock(key);
++				k_mutex_unlock(&ctx->drv_lock);
++				return;
++			}
+ 			nrf_usbd_common_setup_clear();
++			irq_unlock(key);
+ 			k_mutex_unlock(&ctx->drv_lock);
+ 		}
+ 		ep_ctx->cfg.cb(ep_ctx->cfg.addr,
+@@ -870,6 +914,9 @@
+ 		break;
+ 
+ 		case NRF_USBD_COMMON_EP_ABORTED: {
++			ep_ctx->write_in_progress = false;
++			ep_ctx->trans_zlp = false;
++			if (get_usbd_ctx()->ep0_diagnostics[2] != UINT32_MAX) { ++get_usbd_ctx()->ep0_diagnostics[2]; }
+ 			LOG_DBG("Endpoint 0x%02x write aborted",
+ 				p_event->data.eptransfer.ep);
+ 		}
+@@ -1107,6 +1154,19 @@
+ 		nrf_usbd_common_setup_t drv_setup;
+ 
+ 		nrf_usbd_common_setup_get(&drv_setup);
++		/* The common ISR has retired EP0 DMA before accepting SETUP. A
++		 * replacement SETUP supersedes an unfinished transfer without an
++		 * EP_ABORTED notification. Retire only EP0 software state here. */
++		struct nrf_usbd_ctx *ctx = get_usbd_ctx();
++		struct nrf_usbd_ep_ctx *in = endpoint_ctx(NRF_USBD_EPIN(0));
++		if (++ctx->ep0_generation == 0) { ++ctx->ep0_generation; }
++		if (ctx->ep0_diagnostics[0] != UINT32_MAX) { ++ctx->ep0_diagnostics[0]; }
++		if (in->write_in_progress || in->trans_zlp) {
++			if (ctx->ep0_diagnostics[1] != UINT32_MAX) { ++ctx->ep0_diagnostics[1]; }
++		}
++		in->write_in_progress = false;
++		in->trans_zlp = false;
++		evt.evt.ep_evt.generation = ctx->ep0_generation;
+ 		if ((drv_setup.bRequest != USB_SREQ_SET_ADDRESS)
+ 		    || (USB_REQTYPE_GET_TYPE(drv_setup.bmRequestType)
+ 			!= USB_REQTYPE_TYPE_STANDARD)) {
+@@ -1463,7 +1523,13 @@
+ 
+ 	switch (ep_ctx->cfg.type) {
+ 	case USB_DC_EP_CONTROL:
++		unsigned int key = irq_lock();
++		if (get_usbd_ctx()->ep0_active_generation != get_usbd_ctx()->ep0_generation) {
++			irq_unlock(key);
++			return -ECANCELED;
++		}
+ 		nrf_usbd_common_setup_stall();
++		irq_unlock(key);
+ 		break;
+ 	case USB_DC_EP_BULK:
+ 	case USB_DC_EP_INTERRUPT:
+@@ -1648,12 +1714,25 @@
+ 	}
+ 
+ 	k_mutex_lock(&ctx->drv_lock, K_FOREVER);
++	bool control = ep_ctx->cfg.type == USB_DC_EP_CONTROL;
++	unsigned int key = control ? irq_lock() : 0;
++	if (control && ctx->ep0_active_generation != ctx->ep0_generation) {
++		if (ctx->ep0_diagnostics[4] != UINT32_MAX) { ++ctx->ep0_diagnostics[4]; }
++		if (ret_bytes) { *ret_bytes = 0; }
++		irq_unlock(key);
++		k_mutex_unlock(&ctx->drv_lock);
++		return -ECANCELED;
++	}
+ 
+ 	/* USBD driver does not allow scheduling multiple DMA transfers
+ 	 * for one EP at a time. Next USB transfer on this endpoint can be
+ 	 * triggered after the completion of previous one.
+ 	 */
+ 	if (ep_ctx->write_in_progress) {
++		if (control) {
++			if (ctx->ep0_diagnostics[5] != UINT32_MAX) { ++ctx->ep0_diagnostics[5]; }
++			irq_unlock(key);
++		}
+ 		k_mutex_unlock(&ctx->drv_lock);
+ 		return -EAGAIN;
+ 	}
+@@ -1686,6 +1765,7 @@
+ 	if ((ep_ctx->cfg.type == USB_DC_EP_CONTROL)
+ 	    && (nrf_usbd_common_last_setup_dir_get() != ep)) {
+ 		nrf_usbd_common_setup_clear();
++		irq_unlock(key);
+ 		k_mutex_unlock(&ctx->drv_lock);
+ 		return 0;
+ 	}
+@@ -1700,13 +1780,15 @@
+ 			*ret_bytes = 0;
+ 		}
+ 		result = -EIO;
+-		LOG_ERR("nRF USBD write error: %d", (uint32_t)err);
++
+ 	} else {
+ 		if (ret_bytes) {
+ 			*ret_bytes = data_len;
+ 		}
+ 	}
+ 
++	if (control) { irq_unlock(key); }
++	if (err != NRFX_SUCCESS) { LOG_ERR("nRF USBD write error: %d", (uint32_t)err); }
+ 	k_mutex_unlock(&ctx->drv_lock);
+ 	return result;
+ }
+@@ -1803,6 +1885,7 @@
+ 			ev->evt_type = USBD_EVT_EP;
+ 			ev->evt.ep_evt.ep = ep_ctx;
+ 			ev->evt.ep_evt.evt_type = EP_EVT_RECV_REQ;
++			if (ep_ctx->cfg.type == USB_DC_EP_CONTROL) { ev->evt.ep_evt.generation = ctx->ep0_active_generation; }
+ 			usbd_evt_put(ev);
+ 			usbd_work_schedule();
+ 		}
+@@ -1932,3 +2015,11 @@
+ }
+ 
+ SYS_INIT(usb_init, POST_KERNEL, CONFIG_KERNEL_INIT_PRIORITY_DEVICE);
++
++/* On-demand transport counters only. No timing/source authority or reset. */
++void r2_usb_ep0_diagnostics(uint32_t words[6])
++{
++	unsigned int key = irq_lock();
++	memcpy(words, get_usbd_ctx()->ep0_diagnostics, 6 * sizeof(uint32_t));
++	irq_unlock(key);
++}

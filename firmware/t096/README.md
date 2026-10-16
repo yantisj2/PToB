@@ -6,7 +6,17 @@ for the precision timing stream,
 with mesh participation separated from planned client services for less capable
 devices. See [the architectural background](../../docs/V12_TO_R2.md).
 
-**Source import is pending.** No buildable or deployable firmware is included yet.
+**PToB owns T096 RC7 development.** The two profiles are **GM** and **RC**;
+USB source streaming is standard. [Build from source](../../docs/t096/build.md)
+using pinned public dependencies and ignored local enrollment. The current
+application version is 0.15.54. No publicly enrolled binary is distributed.
+
+[Baseline and historical limitations](../../docs/t096/baseline.md),
+[PSKs](../../docs/security/psk.md), and
+[name maps/device IDs](../../docs/security/identity-and-names.md) explain the
+source and enrollment boundaries. [P1 provisioning/storage](../../docs/t096/provisioning-design.md)
+remains a draft with an offline model; the firmware still uses build-time enrollment.
+
 The [V14 papers](../../papers/README.md) and [RC1 contract](../../protocol/v14_rc1/README.md)
 are now included. Their selected 0.14.43 research source is a historical identity,
 not the migration baseline or a statement about current installed firmware.
@@ -14,12 +24,12 @@ not the migration baseline or a statement about current installed firmware.
 The [R2 evidence collections](../../evidence/v12/r2/README.md) contain dated
 experiment records; they are not a firmware distribution.
 
-The example will include the application, board definition, required patches,
-pinned dependencies, protocol tests, and build and recovery instructions.
+The target includes the application, board definition, required patches,
+pinned dependencies and host tests.
 A fresh checkout must build without a private sibling repository. Enrollment
 is supplied or generated locally; private bench keys and enrolled images are
 excluded from publication.
 
 Hardware support and verified behaviors will be recorded against exact source
 and image identities. Build or simulation success alone does not qualify hardware
-precision. Firmware authority transfers only at an explicit documented milestone.
+precision. See the [local cutover record](../../docs/t096/cutover.md).

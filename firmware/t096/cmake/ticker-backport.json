@@ -1,0 +1,19 @@
+{
+  "upstream": "https://github.com/zephyrproject-rtos/zephyr/pull/91430",
+  "commit": "09691484eb19a53297dbcffb3a88616b3a706bdb",
+  "patch_sha256": "dc85bb42cb21f59008e20cbb3112ecc2e236af4989e8d6b8f0cb43707e867d2b",
+  "files": {
+    "subsys/bluetooth/controller/ll_sw/ull.c": {
+      "original": "df8c866d8a8a5c73181e0bbe7b12c62672a7cd71b793698cfd76e7b6275b5184",
+      "fixed": "b57dedd4690419aa905d35af822037fe86c2a3c257884e5d1e031c46dac94ebb"
+    },
+    "subsys/bluetooth/controller/ticker/ticker.c": {
+      "original": "7f257edcf9e65b202d05ef857e5443b76a000e2e3437055cdf7e659db8562369",
+      "fixed": "99ca17309c0d21aef7177828aff7c52ad17dae3c120c99b022bf115661298f96"
+    },
+    "subsys/bluetooth/controller/ticker/ticker.h": {
+      "original": "81540d3f31884aca41ebcc86dd5ddfb17066078586f9590e1b30afe965e2a14d",
+      "fixed": "84fb3c37465d116973ee9c7e096086142d92ae19f06ec4981854b0fd534c59d7"
+    }
+  }
+}

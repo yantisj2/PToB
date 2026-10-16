@@ -1,0 +1,2036 @@
+{
+  "schema": 1,
+  "source_commit": "1a16110a662ae66109b21bafa9958baf48d0465a",
+  "selection": "Explicit application/build/controller patch/test inputs; no directory synchronization or private history",
+  "excluded": [
+    "private enrollment and configuration",
+    "cohort and rollback images",
+    "raw logs",
+    "historical build/deploy scripts",
+    "operator documentation",
+    "simulator infrastructure (separate follow-up)"
+  ],
+  "transformations": [
+    "Lab device IDs replaced with deterministic synthetic fixture IDs",
+    "Private absolute source prefix replaced with synthetic provenance placeholder",
+    "Later public adapter edits are represented in Git diff; import hashes describe initial extraction"
+  ],
+  "files": [
+    {
+      "source_path": "v12_r2/CMakeLists.txt",
+      "destination": "firmware/t096/CMakeLists.txt",
+      "source_sha256": "e37f2b37aab5cad61616c3b20209037ec814934afe4df705cd24006243f5d1e2",
+      "import_sha256": "e37f2b37aab5cad61616c3b20209037ec814934afe4df705cd24006243f5d1e2",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/boards/heltec/t096_r2/Kconfig.t096_r2",
+      "destination": "firmware/t096/boards/heltec/t096_r2/Kconfig.t096_r2",
+      "source_sha256": "32943f2f6834db8793870cc443fc6347ba563d02e8e39f8a5bf46efb116180df",
+      "import_sha256": "32943f2f6834db8793870cc443fc6347ba563d02e8e39f8a5bf46efb116180df",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/boards/heltec/t096_r2/board.yml",
+      "destination": "firmware/t096/boards/heltec/t096_r2/board.yml",
+      "source_sha256": "453736b72ad26ff4ea17c58b807374d9517e17e4cef23b7490c35abab889ace3",
+      "import_sha256": "453736b72ad26ff4ea17c58b807374d9517e17e4cef23b7490c35abab889ace3",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/boards/heltec/t096_r2/t096_r2.dts",
+      "destination": "firmware/t096/boards/heltec/t096_r2/t096_r2.dts",
+      "source_sha256": "faef3bdae20402d4fd10555d392c44d2ed6ff9371b4d244e632b9123ce7ef4ba",
+      "import_sha256": "faef3bdae20402d4fd10555d392c44d2ed6ff9371b4d244e632b9123ce7ef4ba",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/cmake/clock_handoff.cmake",
+      "destination": "firmware/t096/cmake/clock_handoff.cmake",
+      "source_sha256": "2d47b42c073186837ee8aae0a2772fa496bc42526543cdb1d9f95b02e00f4576",
+      "import_sha256": "2d47b42c073186837ee8aae0a2772fa496bc42526543cdb1d9f95b02e00f4576",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/cmake/radio_capture.cmake",
+      "destination": "firmware/t096/cmake/radio_capture.cmake",
+      "source_sha256": "b1fbdb0eb08ee7bc6182cc2db79bcc76a7cf70b9a36145bb7777f4a75a065752",
+      "import_sha256": "b1fbdb0eb08ee7bc6182cc2db79bcc76a7cf70b9a36145bb7777f4a75a065752",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/cmake/rc_clock_diagnostic.cmake",
+      "destination": "firmware/t096/cmake/rc_clock_diagnostic.cmake",
+      "source_sha256": "887745b9fd7639a1209d0777718d34988bfa873988efb7c2d2837d15536cae09",
+      "import_sha256": "887745b9fd7639a1209d0777718d34988bfa873988efb7c2d2837d15536cae09",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/cmake/ticker-backport.json",
+      "destination": "firmware/t096/cmake/ticker-backport.json",
+      "source_sha256": "3171c1d51ac7fd4d795c2cf118afdf61c60ca3549ed83aaffdaf9ba4ee36a37c",
+      "import_sha256": "3171c1d51ac7fd4d795c2cf118afdf61c60ca3549ed83aaffdaf9ba4ee36a37c",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/cmake/ticker_backport.cmake",
+      "destination": "firmware/t096/cmake/ticker_backport.cmake",
+      "source_sha256": "6376351d1bd8f309ab6bd33b5d8c3bf4627d14d81cc97cf420c49d340cace572",
+      "import_sha256": "6376351d1bd8f309ab6bd33b5d8c3bf4627d14d81cc97cf420c49d340cace572",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/cmake/usb-ep0-recovery.json",
+      "destination": "firmware/t096/cmake/usb-ep0-recovery.json",
+      "source_sha256": "e6b8306200f4182cf7d880b7cb4be2b75ae12f37bb7958b02a1125447d7147ac",
+      "import_sha256": "e6b8306200f4182cf7d880b7cb4be2b75ae12f37bb7958b02a1125447d7147ac",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/cmake/usb_ep0_recovery.cmake",
+      "destination": "firmware/t096/cmake/usb_ep0_recovery.cmake",
+      "source_sha256": "4618fafaacc83d98874e1529f5f7fc7591c308be5c7201e8142e59be8f4f15c6",
+      "import_sha256": "4618fafaacc83d98874e1529f5f7fc7591c308be5c7201e8142e59be8f4f15c6",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/dependencies.lock.json",
+      "destination": "firmware/t096/dependencies.lock.json",
+      "source_sha256": "230df88242a726703206f65be0d698d3bf8b32619b21cdc2eebc10123dd52876",
+      "import_sha256": "230df88242a726703206f65be0d698d3bf8b32619b21cdc2eebc10123dd52876",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/include/app.h",
+      "destination": "firmware/t096/include/app.h",
+      "source_sha256": "f8e2b88d89e1617e733b6215b94bcc1a63e03a6b8acfa4dfd844f4113c7b7ccc",
+      "import_sha256": "f8e2b88d89e1617e733b6215b94bcc1a63e03a6b8acfa4dfd844f4113c7b7ccc",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/include/ble_service.h",
+      "destination": "firmware/t096/include/ble_service.h",
+      "source_sha256": "08657b4f08f7f91b204ca6353b7d3074c7662196201730f659b53942ecb1be6b",
+      "import_sha256": "08657b4f08f7f91b204ca6353b7d3074c7662196201730f659b53942ecb1be6b",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/include/capture.h",
+      "destination": "firmware/t096/include/capture.h",
+      "source_sha256": "dd87d9d339c93d6bc3cbc3c56a07bea4bd54fad656d93e472a81e792f55b6933",
+      "import_sha256": "dd87d9d339c93d6bc3cbc3c56a07bea4bd54fad656d93e472a81e792f55b6933",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/include/clock.h",
+      "destination": "firmware/t096/include/clock.h",
+      "source_sha256": "3ca6e094bcf5e9b8da6d42ffe6880573172f5343ff7bcb8986176cc2881b23d0",
+      "import_sha256": "3ca6e094bcf5e9b8da6d42ffe6880573172f5343ff7bcb8986176cc2881b23d0",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/include/core.h",
+      "destination": "firmware/t096/include/core.h",
+      "source_sha256": "d2bc6d5d8fb1bead919a77a9a3efad63c4ceeea11608a18749d6eab832b14f4b",
+      "import_sha256": "d2bc6d5d8fb1bead919a77a9a3efad63c4ceeea11608a18749d6eab832b14f4b",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/include/diagnostic.h",
+      "destination": "firmware/t096/include/diagnostic.h",
+      "source_sha256": "348fefd57f0b96e74dae566ee7a4ab8cbfd973ccf25c6e9cfba4749224e6bb01",
+      "import_sha256": "348fefd57f0b96e74dae566ee7a4ab8cbfd973ccf25c6e9cfba4749224e6bb01",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/include/durability.h",
+      "destination": "firmware/t096/include/durability.h",
+      "source_sha256": "f1f3a29120352e292224152d995ad31a9ba8b8085e25fd09441f352d85ca9710",
+      "import_sha256": "f1f3a29120352e292224152d995ad31a9ba8b8085e25fd09441f352d85ca9710",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/include/gnss_aid.h",
+      "destination": "firmware/t096/include/gnss_aid.h",
+      "source_sha256": "d680cf0991417310ba7d99129ee93d647af37c4a4b33b05a1c36cc5567302eda",
+      "import_sha256": "d680cf0991417310ba7d99129ee93d647af37c4a4b33b05a1c36cc5567302eda",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/include/group_admission.h",
+      "destination": "firmware/t096/include/group_admission.h",
+      "source_sha256": "2233cb0c70cf93cd1712ee46a11857ddeb3bd41265e9900969dca7e58aeaac8c",
+      "import_sha256": "2233cb0c70cf93cd1712ee46a11857ddeb3bd41265e9900969dca7e58aeaac8c",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/include/health.h",
+      "destination": "firmware/t096/include/health.h",
+      "source_sha256": "a5d41b9e41acba9e4de8bd008aa1fb73ab4368c0c0ba6d25f98cb791dec4e31e",
+      "import_sha256": "a5d41b9e41acba9e4de8bd008aa1fb73ab4368c0c0ba6d25f98cb791dec4e31e",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/include/health_lock.h",
+      "destination": "firmware/t096/include/health_lock.h",
+      "source_sha256": "492d50b87c040b85068451b8ed54d74f745052b7c5ae380859b820d8d811dd21",
+      "import_sha256": "492d50b87c040b85068451b8ed54d74f745052b7c5ae380859b820d8d811dd21",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/include/link_quality.h",
+      "destination": "firmware/t096/include/link_quality.h",
+      "source_sha256": "c9d9d1e34dba598f2d7ad369211b27e0c25da7f643f0db7ff3b75dc827a2ec61",
+      "import_sha256": "c9d9d1e34dba598f2d7ad369211b27e0c25da7f643f0db7ff3b75dc827a2ec61",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/include/owner_budget.h",
+      "destination": "firmware/t096/include/owner_budget.h",
+      "source_sha256": "2691ff4ed43f691757e798195733453b7feefc3e258927101716b86ee740facf",
+      "import_sha256": "2691ff4ed43f691757e798195733453b7feefc3e258927101716b86ee740facf",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/include/precision.h",
+      "destination": "firmware/t096/include/precision.h",
+      "source_sha256": "3c4cc1c47df91dc78d734ef9def4fb48f519093a7ec38c35d9245386b056324b",
+      "import_sha256": "3c4cc1c47df91dc78d734ef9def4fb48f519093a7ec38c35d9245386b056324b",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/include/precision_servo.h",
+      "destination": "firmware/t096/include/precision_servo.h",
+      "source_sha256": "40f567fc217c87a5cae6be75067b933d6cc53d715a10039072fcfd3d7f250e03",
+      "import_sha256": "40f567fc217c87a5cae6be75067b933d6cc53d715a10039072fcfd3d7f250e03",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/include/radio_audit.h",
+      "destination": "firmware/t096/include/radio_audit.h",
+      "source_sha256": "a49319675f9355264dd07365ac5b46e28f304f55d46910484436e50151a7f795",
+      "import_sha256": "a49319675f9355264dd07365ac5b46e28f304f55d46910484436e50151a7f795",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/include/radio_capture.h",
+      "destination": "firmware/t096/include/radio_capture.h",
+      "source_sha256": "b469cce79544e450283f6abc610f5ffa0d74a13f1e7531aa575717d9c0ae194f",
+      "import_sha256": "b469cce79544e450283f6abc610f5ffa0d74a13f1e7531aa575717d9c0ae194f",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/include/radio_precision.h",
+      "destination": "firmware/t096/include/radio_precision.h",
+      "source_sha256": "28c0d2402adf50029de72f440afa054f219cf56422c7db43b8d4875789ea6930",
+      "import_sha256": "28c0d2402adf50029de72f440afa054f219cf56422c7db43b8d4875789ea6930",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/include/radio_service.h",
+      "destination": "firmware/t096/include/radio_service.h",
+      "source_sha256": "a8e69c1d0e74016b9335c61e44021ee2ee7b50cb1c2cf508d0d28364221da605",
+      "import_sha256": "a8e69c1d0e74016b9335c61e44021ee2ee7b50cb1c2cf508d0d28364221da605",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/include/rc_boundary.h",
+      "destination": "firmware/t096/include/rc_boundary.h",
+      "source_sha256": "077bee653a5983c1302c3f310bed81c826c4501c33da2b970a4e8900017b6b80",
+      "import_sha256": "077bee653a5983c1302c3f310bed81c826c4501c33da2b970a4e8900017b6b80",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/include/rc_direct_calibration.h",
+      "destination": "firmware/t096/include/rc_direct_calibration.h",
+      "source_sha256": "bd242c235ebfdee044fd0d0b63e723d4910b9c0e04cc1e2a1327bd7ba10504ad",
+      "import_sha256": "bd242c235ebfdee044fd0d0b63e723d4910b9c0e04cc1e2a1327bd7ba10504ad",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/include/rc_dynamic_service.h",
+      "destination": "firmware/t096/include/rc_dynamic_service.h",
+      "source_sha256": "69666cf2e0762bc59d0e1c53d6aaf80d095750a308ceedac880e83a714a7ac49",
+      "import_sha256": "69666cf2e0762bc59d0e1c53d6aaf80d095750a308ceedac880e83a714a7ac49",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/include/rc_field_policy.h",
+      "destination": "firmware/t096/include/rc_field_policy.h",
+      "source_sha256": "57f90ee22211950a1c97481fd956aa5d41c1a59fe6644ece779bd08e6538d0bb",
+      "import_sha256": "57f90ee22211950a1c97481fd956aa5d41c1a59fe6644ece779bd08e6538d0bb",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/include/rc_field_profile.h",
+      "destination": "firmware/t096/include/rc_field_profile.h",
+      "source_sha256": "00a5aa948755ee1f1ae89bb60c4c3ac559160c2a23b967c418735e891463a070",
+      "import_sha256": "a70b1e8ae8cafa0229e2567a9d3912774e580655ced39996564cc1b0fb4c272a",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/include/rc_fixed.h",
+      "destination": "firmware/t096/include/rc_fixed.h",
+      "source_sha256": "fb62d00228964a6bf9a35eccc949e5669a288915970b397fdea09004ca40e055",
+      "import_sha256": "fb62d00228964a6bf9a35eccc949e5669a288915970b397fdea09004ca40e055",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/include/rc_gm_adapter.h",
+      "destination": "firmware/t096/include/rc_gm_adapter.h",
+      "source_sha256": "18ff58ce223622962457660a022fb5bc20b5b963e4c3b03a3b690886b6912435",
+      "import_sha256": "18ff58ce223622962457660a022fb5bc20b5b963e4c3b03a3b690886b6912435",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/include/rc_shadow.h",
+      "destination": "firmware/t096/include/rc_shadow.h",
+      "source_sha256": "5fdc3c87a0cdfec8c1f752a048fc8330138962f74052a4568f7d0d8cc082c2da",
+      "import_sha256": "5fdc3c87a0cdfec8c1f752a048fc8330138962f74052a4568f7d0d8cc082c2da",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/include/rc_slots.h",
+      "destination": "firmware/t096/include/rc_slots.h",
+      "source_sha256": "7da979616d9d393e6f68e84ae08fd971a0c4e142eddf9d8301c0bacfdfc902cd",
+      "import_sha256": "7da979616d9d393e6f68e84ae08fd971a0c4e142eddf9d8301c0bacfdfc902cd",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/include/rc_stream_quality.h",
+      "destination": "firmware/t096/include/rc_stream_quality.h",
+      "source_sha256": "bfe1f0b8ba76f6cbbefcc07c4e1381df190cf32a0af4195054978f2852f6c048",
+      "import_sha256": "bfe1f0b8ba76f6cbbefcc07c4e1381df190cf32a0af4195054978f2852f6c048",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/include/rc_unicast.h",
+      "destination": "firmware/t096/include/rc_unicast.h",
+      "source_sha256": "a51047b3c2d68b25441b34bb68ea1b1b883b8d72a99fe430374cf937da94811e",
+      "import_sha256": "a51047b3c2d68b25441b34bb68ea1b1b883b8d72a99fe430374cf937da94811e",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/include/relay_precision.h",
+      "destination": "firmware/t096/include/relay_precision.h",
+      "source_sha256": "ad116bbb35f28065c7e4753269083de44222355bf1762a04d125315e437375e0",
+      "import_sha256": "ad116bbb35f28065c7e4753269083de44222355bf1762a04d125315e437375e0",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/include/relay_service.h",
+      "destination": "firmware/t096/include/relay_service.h",
+      "source_sha256": "b50da2b1b3701b3a9489919f3d83003bfaa1b472b37584c4249bd9a5eddee05a",
+      "import_sha256": "b50da2b1b3701b3a9489919f3d83003bfaa1b472b37584c4249bd9a5eddee05a",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/include/runtime_profile.h",
+      "destination": "firmware/t096/include/runtime_profile.h",
+      "source_sha256": "0fb8a2cfcd912bdbdc2416ef5264eece02595453cbbecb1f283c2cf8f6c74916",
+      "import_sha256": "59aa74bff83067a550b27ca22859594e2cbdf59ba50b252429bd6e6d3987d630",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/include/service_backend_alias.h",
+      "destination": "firmware/t096/include/service_backend_alias.h",
+      "source_sha256": "24461a22a2ebaa3b7229cdb9d8edf70fab3433eb50370c6e446ccb9e8120ee2e",
+      "import_sha256": "24461a22a2ebaa3b7229cdb9d8edf70fab3433eb50370c6e446ccb9e8120ee2e",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/include/service_backends.h",
+      "destination": "firmware/t096/include/service_backends.h",
+      "source_sha256": "af7bd80c21ea0ac0fbe2b415ad273b65c93fb3c4660c47fd6f61337b0b18c3a4",
+      "import_sha256": "af7bd80c21ea0ac0fbe2b415ad273b65c93fb3c4660c47fd6f61337b0b18c3a4",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/include/shadow_session.h",
+      "destination": "firmware/t096/include/shadow_session.h",
+      "source_sha256": "d14a8f72d37c64aca4ebd144e108511e779278e29e9bb3c5d9bc808c51873140",
+      "import_sha256": "d14a8f72d37c64aca4ebd144e108511e779278e29e9bb3c5d9bc808c51873140",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/include/time_service.h",
+      "destination": "firmware/t096/include/time_service.h",
+      "source_sha256": "2921f5a13ff7c3574f6d51d23e9bfc17c63a1db9377aaf0502c508dafe395e6a",
+      "import_sha256": "2921f5a13ff7c3574f6d51d23e9bfc17c63a1db9377aaf0502c508dafe395e6a",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/include/ui.h",
+      "destination": "firmware/t096/include/ui.h",
+      "source_sha256": "04bd19d1a8b4d1dfe95871d7ab2f37434f2343b09894e543aa3c0abfa771f6c3",
+      "import_sha256": "04bd19d1a8b4d1dfe95871d7ab2f37434f2343b09894e543aa3c0abfa771f6c3",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/include/ui_pages.h",
+      "destination": "firmware/t096/include/ui_pages.h",
+      "source_sha256": "0c1f0e395750606585158416ebaf91b39d3b0d25f252dd7c609534c7b0b9ce00",
+      "import_sha256": "0c1f0e395750606585158416ebaf91b39d3b0d25f252dd7c609534c7b0b9ce00",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/include/usb_sof_observer.h",
+      "destination": "firmware/t096/include/usb_sof_observer.h",
+      "source_sha256": "d266181f02191d831f13fafc364d3cfcfcd113bc93fcd57284cef6a1006249e7",
+      "import_sha256": "d266181f02191d831f13fafc364d3cfcfcd113bc93fcd57284cef6a1006249e7",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/include/usb_sof_probe.h",
+      "destination": "firmware/t096/include/usb_sof_probe.h",
+      "source_sha256": "4a378f5c8f3dfe7b4471d7c81405bf74bedcc441e448d24b74cc36863632563d",
+      "import_sha256": "4a378f5c8f3dfe7b4471d7c81405bf74bedcc441e448d24b74cc36863632563d",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/include/usb_source.h",
+      "destination": "firmware/t096/include/usb_source.h",
+      "source_sha256": "614f5e1675263300cb8f9beb08bea60d8a16eacf7516a23373208da80f6fa30d",
+      "import_sha256": "614f5e1675263300cb8f9beb08bea60d8a16eacf7516a23373208da80f6fa30d",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/include/watchdog.h",
+      "destination": "firmware/t096/include/watchdog.h",
+      "source_sha256": "a3cc63413039640aac2e99769a089e0015af629fa79b38c2e804057c775b6151",
+      "import_sha256": "a3cc63413039640aac2e99769a089e0015af629fa79b38c2e804057c775b6151",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/include/watchdog_policy.h",
+      "destination": "firmware/t096/include/watchdog_policy.h",
+      "source_sha256": "6165d023f71157c1b6ab579a9c70728e07e78efeb15994ec5711aad8e3fb9330",
+      "import_sha256": "6165d023f71157c1b6ab579a9c70728e07e78efeb15994ec5711aad8e3fb9330",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/legacy_ui/draw.inc",
+      "destination": "firmware/t096/legacy_ui/draw.inc",
+      "source_sha256": "38f9cd5d979452afc7f62ea52bae44058f677952ee4e4cf353f658870c174d47",
+      "import_sha256": "38f9cd5d979452afc7f62ea52bae44058f677952ee4e4cf353f658870c174d47",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/legacy_ui/legacy.h",
+      "destination": "firmware/t096/legacy_ui/legacy.h",
+      "source_sha256": "5c2cf04e32916cb65329cb0b3d2499b5c28b64592fbecaa0d8c479eb4d435ccb",
+      "import_sha256": "5c2cf04e32916cb65329cb0b3d2499b5c28b64592fbecaa0d8c479eb4d435ccb",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/legacy_ui/ptob_ui_role.h",
+      "destination": "firmware/t096/legacy_ui/ptob_ui_role.h",
+      "source_sha256": "873307b456dabef769230220006ea69d935e9660740f646ff4c885b86c92cc05",
+      "import_sha256": "873307b456dabef769230220006ea69d935e9660740f646ff4c885b86c92cc05",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/legacy_ui/ui_rf_live.h",
+      "destination": "firmware/t096/legacy_ui/ui_rf_live.h",
+      "source_sha256": "8b1ad8c9576d5de553b58edcc32453c5bc673be40e40dbd4629bf57aa63fe6fd",
+      "import_sha256": "8b1ad8c9576d5de553b58edcc32453c5bc673be40e40dbd4629bf57aa63fe6fd",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/prj.conf",
+      "destination": "firmware/t096/prj.conf",
+      "source_sha256": "548a3a4eba5ff42a4374dd30356f391c0c22c10f6761721a881a11c11f586487",
+      "import_sha256": "548a3a4eba5ff42a4374dd30356f391c0c22c10f6761721a881a11c11f586487",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/protocol/authority_codec.c",
+      "destination": "firmware/t096/protocol/authority_codec.c",
+      "source_sha256": "8f7e90ad5f6d0b1f64b4d795bc0312b1a233e5083929628ad3a664352820b351",
+      "import_sha256": "8f7e90ad5f6d0b1f64b4d795bc0312b1a233e5083929628ad3a664352820b351",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/protocol/authority_codec.h",
+      "destination": "firmware/t096/protocol/authority_codec.h",
+      "source_sha256": "c882375d7186d6e371097c5675c590b86f524b0460c03d2eb21d885027d76c6d",
+      "import_sha256": "c882375d7186d6e371097c5675c590b86f524b0460c03d2eb21d885027d76c6d",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/protocol/ble_transport.c",
+      "destination": "firmware/t096/protocol/ble_transport.c",
+      "source_sha256": "b959e2fcb1a39ab80979776353aacf67e0b9ddcf32b5da4a8cd310e39189f635",
+      "import_sha256": "b959e2fcb1a39ab80979776353aacf67e0b9ddcf32b5da4a8cd310e39189f635",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/protocol/ble_transport.h",
+      "destination": "firmware/t096/protocol/ble_transport.h",
+      "source_sha256": "87dfb1efbddca086465bc920ef22a940cfe5a848c43a3dacab7956f1bb134422",
+      "import_sha256": "87dfb1efbddca086465bc920ef22a940cfe5a848c43a3dacab7956f1bb134422",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/protocol/config5-vector.json",
+      "destination": "firmware/t096/protocol/config5-vector.json",
+      "source_sha256": "1474493bc3b62f89499e8d9226a9f11192fc4400a2fb5503096cac0036cecba3",
+      "import_sha256": "1474493bc3b62f89499e8d9226a9f11192fc4400a2fb5503096cac0036cecba3",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/protocol/control_codec.c",
+      "destination": "firmware/t096/protocol/control_codec.c",
+      "source_sha256": "a440b37f4dc0996f2aaa68c9a49524115bd72f4aa978a77c395a4091615eff21",
+      "import_sha256": "a440b37f4dc0996f2aaa68c9a49524115bd72f4aa978a77c395a4091615eff21",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/protocol/control_codec.h",
+      "destination": "firmware/t096/protocol/control_codec.h",
+      "source_sha256": "bbf2684d3fc1b7d158d1943301ba466ff0a297436bebba0b118029ed20676e37",
+      "import_sha256": "bbf2684d3fc1b7d158d1943301ba466ff0a297436bebba0b118029ed20676e37",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/protocol/direct_control_state.c",
+      "destination": "firmware/t096/protocol/direct_control_state.c",
+      "source_sha256": "cbce52efe482c676c25c668bded7a69ae7930e590d8428f56b819266099deefc",
+      "import_sha256": "cbce52efe482c676c25c668bded7a69ae7930e590d8428f56b819266099deefc",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/protocol/direct_control_state.h",
+      "destination": "firmware/t096/protocol/direct_control_state.h",
+      "source_sha256": "c3635f308a917cc569854fda2bb35062bb15ba012f0f618e80ef1e8f9ec36fe2",
+      "import_sha256": "c3635f308a917cc569854fda2bb35062bb15ba012f0f618e80ef1e8f9ec36fe2",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/protocol/election_policy.c",
+      "destination": "firmware/t096/protocol/election_policy.c",
+      "source_sha256": "a00d5f843ecea3b4df003686105b495e15625db1f8840a508f1d935d28f57b1b",
+      "import_sha256": "a00d5f843ecea3b4df003686105b495e15625db1f8840a508f1d935d28f57b1b",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/protocol/election_policy.h",
+      "destination": "firmware/t096/protocol/election_policy.h",
+      "source_sha256": "f6aeadfb24711bea1dafaa3b4d7a1643d1c4d189b182468ebab7263fa7527ca9",
+      "import_sha256": "f6aeadfb24711bea1dafaa3b4d7a1643d1c4d189b182468ebab7263fa7527ca9",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/protocol/gm_role_status.h",
+      "destination": "firmware/t096/protocol/gm_role_status.h",
+      "source_sha256": "075cc269e92d505625c5c0173dcefa809cad2cff4062fac414618483857af620",
+      "import_sha256": "075cc269e92d505625c5c0173dcefa809cad2cff4062fac414618483857af620",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/protocol/group_auth.c",
+      "destination": "firmware/t096/protocol/group_auth.c",
+      "source_sha256": "a84826aaea8cacb85156fbaae5a51e382b708215ebfa97c3a29f846b4b334ab3",
+      "import_sha256": "a84826aaea8cacb85156fbaae5a51e382b708215ebfa97c3a29f846b4b334ab3",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/protocol/group_auth.h",
+      "destination": "firmware/t096/protocol/group_auth.h",
+      "source_sha256": "959a6b7fed23100448ac7de442d38806a146897b4c53038a0087fce298caaf87",
+      "import_sha256": "959a6b7fed23100448ac7de442d38806a146897b4c53038a0087fce298caaf87",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/protocol/group_control.c",
+      "destination": "firmware/t096/protocol/group_control.c",
+      "source_sha256": "f7379a11c316dafe14cea972dfccc4f143c1e8b51e55c2d58d05d68790d9900f",
+      "import_sha256": "f7379a11c316dafe14cea972dfccc4f143c1e8b51e55c2d58d05d68790d9900f",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/protocol/group_control.h",
+      "destination": "firmware/t096/protocol/group_control.h",
+      "source_sha256": "4b249b1631e1430c19baf6bc2c5f16827a3c0934d26b8f43e71bfe93088bd356",
+      "import_sha256": "4b249b1631e1430c19baf6bc2c5f16827a3c0934d26b8f43e71bfe93088bd356",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/protocol/group_join.c",
+      "destination": "firmware/t096/protocol/group_join.c",
+      "source_sha256": "1148108f3da126f6bc567f5e57cf147d26fe8a1e0715b1932e461052ab0c9c6d",
+      "import_sha256": "1148108f3da126f6bc567f5e57cf147d26fe8a1e0715b1932e461052ab0c9c6d",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/protocol/group_join.h",
+      "destination": "firmware/t096/protocol/group_join.h",
+      "source_sha256": "936692d3b9c8d0023a4debc06a9d1bc9e7b61a393a8c91fd6f57b04f2f8aa037",
+      "import_sha256": "936692d3b9c8d0023a4debc06a9d1bc9e7b61a393a8c91fd6f57b04f2f8aa037",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/protocol/group_precision.c",
+      "destination": "firmware/t096/protocol/group_precision.c",
+      "source_sha256": "a4ef2cbe361201451fa87c6fb168db336c0de4c29cb1583a0582b78e7389faf3",
+      "import_sha256": "a4ef2cbe361201451fa87c6fb168db336c0de4c29cb1583a0582b78e7389faf3",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/protocol/group_precision.h",
+      "destination": "firmware/t096/protocol/group_precision.h",
+      "source_sha256": "dec2476c053485a7b1587442ccfe9dbd49489c91fce02d751f1565eb1dcec83d",
+      "import_sha256": "dec2476c053485a7b1587442ccfe9dbd49489c91fce02d751f1565eb1dcec83d",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/protocol/group_vectors.json",
+      "destination": "firmware/t096/protocol/group_vectors.json",
+      "source_sha256": "f5a5c99884041a23647e56d7afbd56733d0f6ff509752c90a9846a2e3c3a796d",
+      "import_sha256": "f5a5c99884041a23647e56d7afbd56733d0f6ff509752c90a9846a2e3c3a796d",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/protocol/network.c",
+      "destination": "firmware/t096/protocol/network.c",
+      "source_sha256": "16322a4831079960a0c5f0a199c7c668dcf0be1fdf05928526edb4e68111aedf",
+      "import_sha256": "16322a4831079960a0c5f0a199c7c668dcf0be1fdf05928526edb4e68111aedf",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/protocol/network.h",
+      "destination": "firmware/t096/protocol/network.h",
+      "source_sha256": "25dbdd57fb19c561d68c3e9a94ddcb3f8931f48eebea00d607450c7be6901b5d",
+      "import_sha256": "25dbdd57fb19c561d68c3e9a94ddcb3f8931f48eebea00d607450c7be6901b5d",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/protocol/precision_codec.c",
+      "destination": "firmware/t096/protocol/precision_codec.c",
+      "source_sha256": "ca6378fef7424ce8834745bd0594fa0e9cb807f9e6d2aa58ea6436e8441e229c",
+      "import_sha256": "ca6378fef7424ce8834745bd0594fa0e9cb807f9e6d2aa58ea6436e8441e229c",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/protocol/precision_codec.h",
+      "destination": "firmware/t096/protocol/precision_codec.h",
+      "source_sha256": "c1a518ac78632f0d779d42f68c81439ff1dacd2b9834c399105d56ce267d8f0e",
+      "import_sha256": "c1a518ac78632f0d779d42f68c81439ff1dacd2b9834c399105d56ce267d8f0e",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/protocol/rc_dynamic.c",
+      "destination": "firmware/t096/protocol/rc_dynamic.c",
+      "source_sha256": "3536e741492cee4d3cf59412ecf7bd175faf5fb3a2f5a7d19d7a301aa0b71cb5",
+      "import_sha256": "3536e741492cee4d3cf59412ecf7bd175faf5fb3a2f5a7d19d7a301aa0b71cb5",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/protocol/rc_dynamic.h",
+      "destination": "firmware/t096/protocol/rc_dynamic.h",
+      "source_sha256": "46c9f5ccd745315ca90014eafa07d835a37495229da11f6d6f8fe5d582198a3a",
+      "import_sha256": "46c9f5ccd745315ca90014eafa07d835a37495229da11f6d6f8fe5d582198a3a",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/protocol/relay_admission.h",
+      "destination": "firmware/t096/protocol/relay_admission.h",
+      "source_sha256": "9e56829ef9406b16007041011bc75e398a2894396b80e5becd442f2a0e93d98f",
+      "import_sha256": "9e56829ef9406b16007041011bc75e398a2894396b80e5becd442f2a0e93d98f",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/protocol/relay_codec.c",
+      "destination": "firmware/t096/protocol/relay_codec.c",
+      "source_sha256": "3fd89655032fa5c444515c58a184aaf1d63d89382271b2facf14ac50bb65a936",
+      "import_sha256": "3fd89655032fa5c444515c58a184aaf1d63d89382271b2facf14ac50bb65a936",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/protocol/relay_codec.h",
+      "destination": "firmware/t096/protocol/relay_codec.h",
+      "source_sha256": "f5a6798b5e84d1656040f1c757447b0228eb51aaeb6157d4ddfe2e9f2e4aa4f6",
+      "import_sha256": "f5a6798b5e84d1656040f1c757447b0228eb51aaeb6157d4ddfe2e9f2e4aa4f6",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/protocol/relay_vectors.json",
+      "destination": "firmware/t096/protocol/relay_vectors.json",
+      "source_sha256": "b22a6a9f8aaf4d96b7bf91ccc0804eb40f60651afa6ff61f43805b2befa1cfa3",
+      "import_sha256": "b22a6a9f8aaf4d96b7bf91ccc0804eb40f60651afa6ff61f43805b2befa1cfa3",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/protocol/role_announcement.c",
+      "destination": "firmware/t096/protocol/role_announcement.c",
+      "source_sha256": "292a768058be43d584901d918712fce02da9c6ddf4527de97ebb0a267096e0ad",
+      "import_sha256": "292a768058be43d584901d918712fce02da9c6ddf4527de97ebb0a267096e0ad",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/protocol/role_announcement.h",
+      "destination": "firmware/t096/protocol/role_announcement.h",
+      "source_sha256": "c6e5b25e8da231e19ada47f18b2af536ca9c1173badae6a8d9573100737efa23",
+      "import_sha256": "c6e5b25e8da231e19ada47f18b2af536ca9c1173badae6a8d9573100737efa23",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/protocol/unicast_time.c",
+      "destination": "firmware/t096/protocol/unicast_time.c",
+      "source_sha256": "307d487c4e05a0801bf0feeb7493c3017d8e186a88a6edf69a2d937383b407da",
+      "import_sha256": "307d487c4e05a0801bf0feeb7493c3017d8e186a88a6edf69a2d937383b407da",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/protocol/unicast_time.h",
+      "destination": "firmware/t096/protocol/unicast_time.h",
+      "source_sha256": "2d0197edd8cd3a8f09b135246d0d3c1170e5ee5f32379d6abfcf107a790781f8",
+      "import_sha256": "2d0197edd8cd3a8f09b135246d0d3c1170e5ee5f32379d6abfcf107a790781f8",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/protocol/v14_vectors.json",
+      "destination": "firmware/t096/protocol/v14_vectors.json",
+      "source_sha256": "6908dfe71a28cb5a9a48b315351e7e14948eb2abb437f816fcb44e0e772b4ecb",
+      "import_sha256": "6908dfe71a28cb5a9a48b315351e7e14948eb2abb437f816fcb44e0e772b4ecb",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/rc_dynamic.conf",
+      "destination": "firmware/t096/rc_dynamic.conf",
+      "source_sha256": "1bbd3aa872e1deed84ef18baf43364f4b98a92b460c38523a2c9212c8563118a",
+      "import_sha256": "1bbd3aa872e1deed84ef18baf43364f4b98a92b460c38523a2c9212c8563118a",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/rc_hf_synth.conf",
+      "destination": "firmware/t096/rc_hf_synth.conf",
+      "source_sha256": "7be319e37d0e13f6e87933d13aa7883324c8c09fd836d24ef4f6b9c5a69dd7cc",
+      "import_sha256": "7be319e37d0e13f6e87933d13aa7883324c8c09fd836d24ef4f6b9c5a69dd7cc",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/rc_startup_selection_v1.json",
+      "destination": "firmware/t096/rc_startup_selection_v1.json",
+      "source_sha256": "3099b84c560306a58580b011aa0ec3d95e8c16c49c561b7e288b8a1151e265ac",
+      "import_sha256": "3099b84c560306a58580b011aa0ec3d95e8c16c49c561b7e288b8a1151e265ac",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/rc_unicast.conf",
+      "destination": "firmware/t096/rc_unicast.conf",
+      "source_sha256": "1c53588ef9e73456160fa7454e8ca319508406e24d151d242f19e2f1d2fc1f24",
+      "import_sha256": "1c53588ef9e73456160fa7454e8ca319508406e24d151d242f19e2f1d2fc1f24",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/src/ble_service.c",
+      "destination": "firmware/t096/src/ble_service.c",
+      "source_sha256": "4e5328ccd406c90fb38afa12a6ab684b94af914f5a9977efa51ffd0d12cf7589",
+      "import_sha256": "4e5328ccd406c90fb38afa12a6ab684b94af914f5a9977efa51ffd0d12cf7589",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/src/board.c",
+      "destination": "firmware/t096/src/board.c",
+      "source_sha256": "bd17c548bf7740b9bee3b2661a5be06246a54ea1ed953d3b6f48fde4839edf1d",
+      "import_sha256": "c3f4c68e34fef3cd7eabd6b148389d85454cec4bdd974cc0fddc83ae6d745182",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/src/capture.c",
+      "destination": "firmware/t096/src/capture.c",
+      "source_sha256": "86afe9c88e48c5a218ec2aca665278b224b489c624f4fe9064bc960e88d47319",
+      "import_sha256": "86afe9c88e48c5a218ec2aca665278b224b489c624f4fe9064bc960e88d47319",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/src/clock.c",
+      "destination": "firmware/t096/src/clock.c",
+      "source_sha256": "04a82ecd5fabe81b1ae398177f0756d84dbaff86639310d5f49ac18c58cc14b2",
+      "import_sha256": "04a82ecd5fabe81b1ae398177f0756d84dbaff86639310d5f49ac18c58cc14b2",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/src/console.c",
+      "destination": "firmware/t096/src/console.c",
+      "source_sha256": "1db55fb77595db563e11db978df6798e99e0899ecbee949922ea635891f7d6af",
+      "import_sha256": "1db55fb77595db563e11db978df6798e99e0899ecbee949922ea635891f7d6af",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/src/core.c",
+      "destination": "firmware/t096/src/core.c",
+      "source_sha256": "0c9d824b93a859f68a7cea8bb56f457ee2bff0e9d38a87f7776149b61f3c8dd0",
+      "import_sha256": "0c9d824b93a859f68a7cea8bb56f457ee2bff0e9d38a87f7776149b61f3c8dd0",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/src/diagnostic.c",
+      "destination": "firmware/t096/src/diagnostic.c",
+      "source_sha256": "cb601729dac974d113c3a27ee6800bf4bce50575923ecb8dc5eb69983178576e",
+      "import_sha256": "cb601729dac974d113c3a27ee6800bf4bce50575923ecb8dc5eb69983178576e",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/src/display.c",
+      "destination": "firmware/t096/src/display.c",
+      "source_sha256": "18819f5ec0f9077ef845fd4e3c44f5375acb909217ab2e660b09048b5f053fc2",
+      "import_sha256": "18819f5ec0f9077ef845fd4e3c44f5375acb909217ab2e660b09048b5f053fc2",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/src/gnss.c",
+      "destination": "firmware/t096/src/gnss.c",
+      "source_sha256": "94949b3c237c69121761b6d898703c9112c23665398257b93853d1e5e2230947",
+      "import_sha256": "94949b3c237c69121761b6d898703c9112c23665398257b93853d1e5e2230947",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/src/group_admission.c",
+      "destination": "firmware/t096/src/group_admission.c",
+      "source_sha256": "5810555d361f1c9c32af80877f4058e2094ef47e3c025806957e56d4d488a5a6",
+      "import_sha256": "5810555d361f1c9c32af80877f4058e2094ef47e3c025806957e56d4d488a5a6",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/src/health.c",
+      "destination": "firmware/t096/src/health.c",
+      "source_sha256": "6c929ae5fa35f4e8397126733834a4f24c163da7a0c8058d41375f25ed66b151",
+      "import_sha256": "6c929ae5fa35f4e8397126733834a4f24c163da7a0c8058d41375f25ed66b151",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/src/main.c",
+      "destination": "firmware/t096/src/main.c",
+      "source_sha256": "c59b8cd36d34dd50435c62b5cf277bf1b11e75259fea3a69bbde094dfc44578d",
+      "import_sha256": "c59b8cd36d34dd50435c62b5cf277bf1b11e75259fea3a69bbde094dfc44578d",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/src/nmea.c",
+      "destination": "firmware/t096/src/nmea.c",
+      "source_sha256": "8a498fa2361afb329457a47baa3a0bdef0a6071d7f5293869d13c9db6988753f",
+      "import_sha256": "8a498fa2361afb329457a47baa3a0bdef0a6071d7f5293869d13c9db6988753f",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/src/platform.c",
+      "destination": "firmware/t096/src/platform.c",
+      "source_sha256": "c5b8f016b66ed041f4f5e9b583f462a98ba9290dfc063343c606154320d90d1c",
+      "import_sha256": "c5b8f016b66ed041f4f5e9b583f462a98ba9290dfc063343c606154320d90d1c",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/src/precision.c",
+      "destination": "firmware/t096/src/precision.c",
+      "source_sha256": "17b55b5b729eaed5c5d70f744bdc6c8b0e86326b3b0563b35b2716161d0d4d62",
+      "import_sha256": "17b55b5b729eaed5c5d70f744bdc6c8b0e86326b3b0563b35b2716161d0d4d62",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/src/radio_audit.c",
+      "destination": "firmware/t096/src/radio_audit.c",
+      "source_sha256": "d7e4e1ea1e1762678d9edfc3de30efe34d98f509f4f8c2cfee04acfdb0f4e9f4",
+      "import_sha256": "d7e4e1ea1e1762678d9edfc3de30efe34d98f509f4f8c2cfee04acfdb0f4e9f4",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/src/radio_capture.c",
+      "destination": "firmware/t096/src/radio_capture.c",
+      "source_sha256": "969c5d5be09e5ca0225994b0532a1391568165376d8fc537959a1c92f3cc9f2d",
+      "import_sha256": "969c5d5be09e5ca0225994b0532a1391568165376d8fc537959a1c92f3cc9f2d",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/src/radio_precision.c",
+      "destination": "firmware/t096/src/radio_precision.c",
+      "source_sha256": "00562beb6b4b84a5f566c13b37b20c5caeac4550ab5fe37a8cb4b26529dfe851",
+      "import_sha256": "00562beb6b4b84a5f566c13b37b20c5caeac4550ab5fe37a8cb4b26529dfe851",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/src/radio_service.c",
+      "destination": "firmware/t096/src/radio_service.c",
+      "source_sha256": "86e769b87c14620ea3e31e8f904eb738e3578e6d1c3f2c39c508e813f76ba43d",
+      "import_sha256": "86e769b87c14620ea3e31e8f904eb738e3578e6d1c3f2c39c508e813f76ba43d",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/src/rc_boundary.c",
+      "destination": "firmware/t096/src/rc_boundary.c",
+      "source_sha256": "6a0f5829025af6e5275b092f27cfe03cc5ba15b09daed1b3fd1676faf9d0584c",
+      "import_sha256": "6a0f5829025af6e5275b092f27cfe03cc5ba15b09daed1b3fd1676faf9d0584c",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/src/rc_dynamic_service.c",
+      "destination": "firmware/t096/src/rc_dynamic_service.c",
+      "source_sha256": "efa66d33c7049136c114b33f04730e4c0407863152c78587d99e9a9eddd723e3",
+      "import_sha256": "efa66d33c7049136c114b33f04730e4c0407863152c78587d99e9a9eddd723e3",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/src/rc_dynamic_transport.inc",
+      "destination": "firmware/t096/src/rc_dynamic_transport.inc",
+      "source_sha256": "3afdf3f136528819fbe3e8ab149bd9ef0e1670da2ddadad8f8c531427d03b311",
+      "import_sha256": "3afdf3f136528819fbe3e8ab149bd9ef0e1670da2ddadad8f8c531427d03b311",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/src/rc_field_service.c",
+      "destination": "firmware/t096/src/rc_field_service.c",
+      "source_sha256": "1aef63cdbc3b505ed525e7b2927f53bda4b9a39fdf2dbacd9cc73922625ee924",
+      "import_sha256": "1aef63cdbc3b505ed525e7b2927f53bda4b9a39fdf2dbacd9cc73922625ee924",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/src/rc_field_transport.inc",
+      "destination": "firmware/t096/src/rc_field_transport.inc",
+      "source_sha256": "ef8660d608d02eeb560f6a0461a34be2eb4906e5e8ef7aaa79ee75695541570c",
+      "import_sha256": "ef8660d608d02eeb560f6a0461a34be2eb4906e5e8ef7aaa79ee75695541570c",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/src/rc_fixed.c",
+      "destination": "firmware/t096/src/rc_fixed.c",
+      "source_sha256": "7a26ce333bd85946b8914d01b4e39d5587fc20f415b4b0bf9c04ed3c26e500aa",
+      "import_sha256": "7a26ce333bd85946b8914d01b4e39d5587fc20f415b4b0bf9c04ed3c26e500aa",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/src/rc_gm_adapter.c",
+      "destination": "firmware/t096/src/rc_gm_adapter.c",
+      "source_sha256": "c004bd12c1bac539c488c164af67cb8a489ec2132d6b28fa7ce9790845f07d89",
+      "import_sha256": "c004bd12c1bac539c488c164af67cb8a489ec2132d6b28fa7ce9790845f07d89",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/src/rc_profile_service.c",
+      "destination": "firmware/t096/src/rc_profile_service.c",
+      "source_sha256": "37440344a8cb220d6612d6950bc008a33aae3e7a78123e8a9bc6a60a702b57dd",
+      "import_sha256": "37440344a8cb220d6612d6950bc008a33aae3e7a78123e8a9bc6a60a702b57dd",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/src/rc_shadow.c",
+      "destination": "firmware/t096/src/rc_shadow.c",
+      "source_sha256": "93d237e88b2dc2d0d06b5f6700f6243fb01ebaf55ab57080f5404946ab21f200",
+      "import_sha256": "93d237e88b2dc2d0d06b5f6700f6243fb01ebaf55ab57080f5404946ab21f200",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/src/rc_slots.c",
+      "destination": "firmware/t096/src/rc_slots.c",
+      "source_sha256": "4147579b1391c62a58278e28f2c952aaabbb117bb4728cee8eb08f6a9fc3c427",
+      "import_sha256": "4147579b1391c62a58278e28f2c952aaabbb117bb4728cee8eb08f6a9fc3c427",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/src/rc_unicast.c",
+      "destination": "firmware/t096/src/rc_unicast.c",
+      "source_sha256": "1baae018f5d6f5bde744fb0a5f69ab6d95eec2451ea23c95e69ffeba3d4ea238",
+      "import_sha256": "1baae018f5d6f5bde744fb0a5f69ab6d95eec2451ea23c95e69ffeba3d4ea238",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/src/relay_precision.c",
+      "destination": "firmware/t096/src/relay_precision.c",
+      "source_sha256": "94526c86eaee1ca3414c18548720f3d0f2bbc4b11440b424991539c5669fa38a",
+      "import_sha256": "94526c86eaee1ca3414c18548720f3d0f2bbc4b11440b424991539c5669fa38a",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/src/relay_service.c",
+      "destination": "firmware/t096/src/relay_service.c",
+      "source_sha256": "f829898b80b0eae1effebf43a55a6fb2b7989be49b5622d84bd57e66cfdc0ad7",
+      "import_sha256": "8b61a026bcca67a1b26a63a0ce934137efab6f8c4905bf410489bab34301916d",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/src/service_switch.c",
+      "destination": "firmware/t096/src/service_switch.c",
+      "source_sha256": "8c0b3f0f4b1508afa87e8229c14bc5d48d357076392af3e1bae2723d458815a0",
+      "import_sha256": "e9da59da9d71920d28fbfd05d96db5280eaf91a3da28c18d15e407f341920b1e",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/src/time_service.c",
+      "destination": "firmware/t096/src/time_service.c",
+      "source_sha256": "e81a8cd3277e83d5bd471fbcff0c36bbe87bf8b34f9d6bf457bad0ea69ac9f42",
+      "import_sha256": "e81a8cd3277e83d5bd471fbcff0c36bbe87bf8b34f9d6bf457bad0ea69ac9f42",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/src/ui_render.c",
+      "destination": "firmware/t096/src/ui_render.c",
+      "source_sha256": "ad79c9da22c5d61e3b09e6d2aa42ceeeddc579bfb18eca07ad326737e38301db",
+      "import_sha256": "9e544598d268e52bda8689b0f877b51dcd3e09d3e9be7b92d304cc6b32c02414",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/src/ui_service.c",
+      "destination": "firmware/t096/src/ui_service.c",
+      "source_sha256": "f2decf290216ff9bf45fb2cb0d54513ec3439db67b4210105f2657e23fa12a7b",
+      "import_sha256": "f2decf290216ff9bf45fb2cb0d54513ec3439db67b4210105f2657e23fa12a7b",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/src/usb_reference_interface.c",
+      "destination": "firmware/t096/src/usb_reference_interface.c",
+      "source_sha256": "07466544a1192e018641c69e8730edbf6d085664cf4012fc7a8994fee682d5c8",
+      "import_sha256": "07466544a1192e018641c69e8730edbf6d085664cf4012fc7a8994fee682d5c8",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/src/usb_sof_observer.c",
+      "destination": "firmware/t096/src/usb_sof_observer.c",
+      "source_sha256": "aa875637ba034ed7356c19b046b85a40b4fa32cb4023b6b19ef5987f16835001",
+      "import_sha256": "aa875637ba034ed7356c19b046b85a40b4fa32cb4023b6b19ef5987f16835001",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/src/usb_sof_probe.c",
+      "destination": "firmware/t096/src/usb_sof_probe.c",
+      "source_sha256": "6aec426fe8777be96095ea3cb409ce7b0fa3e0c1985e4529f27337d4ff39f9d7",
+      "import_sha256": "6aec426fe8777be96095ea3cb409ce7b0fa3e0c1985e4529f27337d4ff39f9d7",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/src/usb_source.c",
+      "destination": "firmware/t096/src/usb_source.c",
+      "source_sha256": "85fdaca3a50bf7c48de2e5825bb1f3eeba92b172d9f68a73fe709942ff3ef525",
+      "import_sha256": "85fdaca3a50bf7c48de2e5825bb1f3eeba92b172d9f68a73fe709942ff3ef525",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/src/watchdog.c",
+      "destination": "firmware/t096/src/watchdog.c",
+      "source_sha256": "993aa0bd11e6a65727ac8a3476f0d5a09ea88ee49c5494b37d02fe6a516c30d0",
+      "import_sha256": "993aa0bd11e6a65727ac8a3476f0d5a09ea88ee49c5494b37d02fe6a516c30d0",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/src/watchdog_policy.c",
+      "destination": "firmware/t096/src/watchdog_policy.c",
+      "source_sha256": "5c7b9c0c5e55a75f9b8f827fdb3418e478d88945a8718f923740082eedf3fc33",
+      "import_sha256": "5c7b9c0c5e55a75f9b8f827fdb3418e478d88945a8718f923740082eedf3fc33",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/tests/anchor_expiry_test.c",
+      "destination": "firmware/t096/tests/anchor_expiry_test.c",
+      "source_sha256": "5ca0d9da05670ee6c907774c1d65643a4c43d09687414252e16b1e3fe9dde643",
+      "import_sha256": "5ca0d9da05670ee6c907774c1d65643a4c43d09687414252e16b1e3fe9dde643",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/authority_network_test.c",
+      "destination": "firmware/t096/tests/authority_network_test.c",
+      "source_sha256": "d70151b6e88389f21036359202c66c6e43a8a83affd1cae1086a52b755c9be4a",
+      "import_sha256": "d70151b6e88389f21036359202c66c6e43a8a83affd1cae1086a52b755c9be4a",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/auto_route_test.c",
+      "destination": "firmware/t096/tests/auto_route_test.c",
+      "source_sha256": "b162013a82449b7b8c234235d2daed63584a3c9c310c1f56246a06d69b577938",
+      "import_sha256": "b162013a82449b7b8c234235d2daed63584a3c9c310c1f56246a06d69b577938",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/ble_transport_fake.h",
+      "destination": "firmware/t096/tests/ble_transport_fake.h",
+      "source_sha256": "b4d052f090aad7c7826d8179c19ba32dad8d4984c3ad6405e31ab2276ff626c1",
+      "import_sha256": "b4d052f090aad7c7826d8179c19ba32dad8d4984c3ad6405e31ab2276ff626c1",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/ble_transport_test.c",
+      "destination": "firmware/t096/tests/ble_transport_test.c",
+      "source_sha256": "967280de7b20b7205650d7d864f57430e6b8785aae16ebbd9acc9df31b14c2f1",
+      "import_sha256": "967280de7b20b7205650d7d864f57430e6b8785aae16ebbd9acc9df31b14c2f1",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/capture_fake.h",
+      "destination": "firmware/t096/tests/capture_fake.h",
+      "source_sha256": "26872161bf6270b6079ecb88e533e4854ea91db7d59e91119aea5069c5ba563f",
+      "import_sha256": "26872161bf6270b6079ecb88e533e4854ea91db7d59e91119aea5069c5ba563f",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/tests/capture_test.c",
+      "destination": "firmware/t096/tests/capture_test.c",
+      "source_sha256": "edc9f601681bccf1227ce364429d62db52b5df0e6be1fa60c7e3b8451f41ec1c",
+      "import_sha256": "edc9f601681bccf1227ce364429d62db52b5df0e6be1fa60c7e3b8451f41ec1c",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/casio_preview.c",
+      "destination": "firmware/t096/tests/casio_preview.c",
+      "source_sha256": "d0a9b572ad17d97ecdae16f808bfdc6c695e462cda9111b6246dc6612bd28851",
+      "import_sha256": "d0a9b572ad17d97ecdae16f808bfdc6c695e462cda9111b6246dc6612bd28851",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/clock_test.c",
+      "destination": "firmware/t096/tests/clock_test.c",
+      "source_sha256": "e7ff3130d8d927979a87850d9fee150feafad1c87b85d184f165996940e86221",
+      "import_sha256": "e7ff3130d8d927979a87850d9fee150feafad1c87b85d184f165996940e86221",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/tests/config5_vector_test.c",
+      "destination": "firmware/t096/tests/config5_vector_test.c",
+      "source_sha256": "47a178eed228fa53efc9685eb634f07b319e401d963b9abf76d76fadfaea1b15",
+      "import_sha256": "47a178eed228fa53efc9685eb634f07b319e401d963b9abf76d76fadfaea1b15",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/console_test.c",
+      "destination": "firmware/t096/tests/console_test.c",
+      "source_sha256": "2d44657dad29b472471ca843bce73deee00a1e8394d41f792dba4f00b453dad0",
+      "import_sha256": "2d44657dad29b472471ca843bce73deee00a1e8394d41f792dba4f00b453dad0",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/control_retry_test.c",
+      "destination": "firmware/t096/tests/control_retry_test.c",
+      "source_sha256": "ade5b2b237b30c059ae75ccd556fda60f48acfd9e696950906020bf283e9233c",
+      "import_sha256": "ade5b2b237b30c059ae75ccd556fda60f48acfd9e696950906020bf283e9233c",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/control_slack_test.c",
+      "destination": "firmware/t096/tests/control_slack_test.c",
+      "source_sha256": "bf2956ca5353c528334bcb43f949b48731497de615adf1c2747e6ca725eea185",
+      "import_sha256": "bf2956ca5353c528334bcb43f949b48731497de615adf1c2747e6ca725eea185",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/core_test.c",
+      "destination": "firmware/t096/tests/core_test.c",
+      "source_sha256": "20b8df19e45c4f216c2f40251e588b9491394af69e7d718e445664477c6b84fe",
+      "import_sha256": "a7c2a9ec377ef5aa033ea364f33a75c89e818d98ed4356442281122ebdb64244",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/diagnostic_test.c",
+      "destination": "firmware/t096/tests/diagnostic_test.c",
+      "source_sha256": "55f970e1043471c14758c0ff5032fef4f8f57f8497063a3e4f9f72e50122a076",
+      "import_sha256": "55f970e1043471c14758c0ff5032fef4f8f57f8497063a3e4f9f72e50122a076",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/direct_alignment_test.c",
+      "destination": "firmware/t096/tests/direct_alignment_test.c",
+      "source_sha256": "c50e5cd876adacfe189312ce7aa6d6b2b043bc2e171ddc6f43c8fc3532c057b1",
+      "import_sha256": "c50e5cd876adacfe189312ce7aa6d6b2b043bc2e171ddc6f43c8fc3532c057b1",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/direct_control_state_test.c",
+      "destination": "firmware/t096/tests/direct_control_state_test.c",
+      "source_sha256": "a57b3de76957d1566e7a5b0d62b81f6b5d8d477ab75c06caf4b9e0481a78d854",
+      "import_sha256": "a57b3de76957d1566e7a5b0d62b81f6b5d8d477ab75c06caf4b9e0481a78d854",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/tests/display_fake.h",
+      "destination": "firmware/t096/tests/display_fake.h",
+      "source_sha256": "dc5de0d95c75765e58532b8e201c63ad099e7fa8abdf942e387084f7dc5cd0cb",
+      "import_sha256": "dc5de0d95c75765e58532b8e201c63ad099e7fa8abdf942e387084f7dc5cd0cb",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/display_synth_temperature_test.c",
+      "destination": "firmware/t096/tests/display_synth_temperature_test.c",
+      "source_sha256": "4ccaa512385a8d34f3d0601fb68461fb83294739d6d4d3026dc1b8e33ed6144d",
+      "import_sha256": "4ccaa512385a8d34f3d0601fb68461fb83294739d6d4d3026dc1b8e33ed6144d",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/display_test.c",
+      "destination": "firmware/t096/tests/display_test.c",
+      "source_sha256": "3d5107f79fbace194091fad5c5e700cfeb44343fa1c7561eb8c28368964b7235",
+      "import_sha256": "3d5107f79fbace194091fad5c5e700cfeb44343fa1c7561eb8c28368964b7235",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/durability_test.c",
+      "destination": "firmware/t096/tests/durability_test.c",
+      "source_sha256": "be2bb538c074960892ef88dae4c306a791b9a10cf9e5aef45e9fa8c78219eef3",
+      "import_sha256": "be2bb538c074960892ef88dae4c306a791b9a10cf9e5aef45e9fa8c78219eef3",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/election_policy_test.c",
+      "destination": "firmware/t096/tests/election_policy_test.c",
+      "source_sha256": "f85341cd3178e8e680ea445309aa3989105bc42fa0f2a5603074ce1fecf387d7",
+      "import_sha256": "f85341cd3178e8e680ea445309aa3989105bc42fa0f2a5603074ce1fecf387d7",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/field_network_test.c",
+      "destination": "firmware/t096/tests/field_network_test.c",
+      "source_sha256": "346765416cbc1849b1bb5788a618bd79eba36d602bb8f966e164fb1a84d665ba",
+      "import_sha256": "57804e2d66ee7cb810f255c858ed88dcdb25dc0b57a8fe70e843f80f833fb04e",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/frame_overlap_test.c",
+      "destination": "firmware/t096/tests/frame_overlap_test.c",
+      "source_sha256": "5ce8dcb68b38c3a922f5e99e8340c1245071ffd1094e3d1ac6119634d1c559cd",
+      "import_sha256": "5ce8dcb68b38c3a922f5e99e8340c1245071ffd1094e3d1ac6119634d1c559cd",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/gm_discovery_hint_test.c",
+      "destination": "firmware/t096/tests/gm_discovery_hint_test.c",
+      "source_sha256": "5b593793ee3460d4846a707d5f4ec7218797354ff60f8dbd6fbe06ea8d8b5ab1",
+      "import_sha256": "5b593793ee3460d4846a707d5f4ec7218797354ff60f8dbd6fbe06ea8d8b5ab1",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/gm_expired_pair_network_test.c",
+      "destination": "firmware/t096/tests/gm_expired_pair_network_test.c",
+      "source_sha256": "1d9d73083fc25651b0ed2d9a190ac0125c9fdf2abe7ce6f006ab887242c02ba8",
+      "import_sha256": "1d9d73083fc25651b0ed2d9a190ac0125c9fdf2abe7ce6f006ab887242c02ba8",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/gm_liveness_network_test.c",
+      "destination": "firmware/t096/tests/gm_liveness_network_test.c",
+      "source_sha256": "2d46d5c13554d972cc6d5036d90a4d0509325cb4ea3a54483dd5252031ef51d7",
+      "import_sha256": "2d46d5c13554d972cc6d5036d90a4d0509325cb4ea3a54483dd5252031ef51d7",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/gm_pair_hint_test.c",
+      "destination": "firmware/t096/tests/gm_pair_hint_test.c",
+      "source_sha256": "582ff3a0a03fc7dae5fe76bcc45a63c051a589b0b22c039f0f022aaf9b335d19",
+      "import_sha256": "582ff3a0a03fc7dae5fe76bcc45a63c051a589b0b22c039f0f022aaf9b335d19",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/gm_scan_fault_test.c",
+      "destination": "firmware/t096/tests/gm_scan_fault_test.c",
+      "source_sha256": "52d5a8bb03c1657bb830e5166c857febd4898b372ca46e37492bf6265bbe9261",
+      "import_sha256": "52d5a8bb03c1657bb830e5166c857febd4898b372ca46e37492bf6265bbe9261",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/gm_server_bootstrap_test.c",
+      "destination": "firmware/t096/tests/gm_server_bootstrap_test.c",
+      "source_sha256": "edcb04e6e770ffc375f6775e038be26091fc4596757d2c1410207913e81446ad",
+      "import_sha256": "edcb04e6e770ffc375f6775e038be26091fc4596757d2c1410207913e81446ad",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/gm_startup_network_test.c",
+      "destination": "firmware/t096/tests/gm_startup_network_test.c",
+      "source_sha256": "bb833435bc81ab6429825e9595fff51dd585e94498590bceeefc1bf37a73957e",
+      "import_sha256": "bb833435bc81ab6429825e9595fff51dd585e94498590bceeefc1bf37a73957e",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/gm_utc_owner_test.c",
+      "destination": "firmware/t096/tests/gm_utc_owner_test.c",
+      "source_sha256": "c1c55a5ba1361cc5fffc4a5f43f168b3c7252c6d5c8dbb270005863d0a4af59c",
+      "import_sha256": "c1c55a5ba1361cc5fffc4a5f43f168b3c7252c6d5c8dbb270005863d0a4af59c",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/gm_utc_test.c",
+      "destination": "firmware/t096/tests/gm_utc_test.c",
+      "source_sha256": "e4a2d2e675c0746c42a41fcca34a2132a93f5f29a9e9880b93d6aee5f7c5f73f",
+      "import_sha256": "e4a2d2e675c0746c42a41fcca34a2132a93f5f29a9e9880b93d6aee5f7c5f73f",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/gm_yield_network_test.c",
+      "destination": "firmware/t096/tests/gm_yield_network_test.c",
+      "source_sha256": "05d67a9ad05c235ea6eb84c4e020f0fbe71b8113fffbbbb6b83117867ffeced0",
+      "import_sha256": "05d67a9ad05c235ea6eb84c4e020f0fbe71b8113fffbbbb6b83117867ffeced0",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/gnss_fake.h",
+      "destination": "firmware/t096/tests/gnss_fake.h",
+      "source_sha256": "0b327733cb83e473a4501e684f8dcd91e1829392e35ea2bbc2b62b637e7b1097",
+      "import_sha256": "0b327733cb83e473a4501e684f8dcd91e1829392e35ea2bbc2b62b637e7b1097",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/tests/gnss_test.c",
+      "destination": "firmware/t096/tests/gnss_test.c",
+      "source_sha256": "79db342f1477821ae428d6359c1cc07d0bdb0522bfdaa336d61073500a9ffaf4",
+      "import_sha256": "79db342f1477821ae428d6359c1cc07d0bdb0522bfdaa336d61073500a9ffaf4",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/group_join_test.c",
+      "destination": "firmware/t096/tests/group_join_test.c",
+      "source_sha256": "973d81d4bce57f6375928570050b104a1a88dcd70a49590afe3061bce2637dfa",
+      "import_sha256": "973d81d4bce57f6375928570050b104a1a88dcd70a49590afe3061bce2637dfa",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/tests/group_network_test.c",
+      "destination": "firmware/t096/tests/group_network_test.c",
+      "source_sha256": "00938190fbb104630b2091fad04d5181301f0e2d93bf3c4f83842552c2a52aa1",
+      "import_sha256": "00938190fbb104630b2091fad04d5181301f0e2d93bf3c4f83842552c2a52aa1",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/tests/group_test.c",
+      "destination": "firmware/t096/tests/group_test.c",
+      "source_sha256": "69036b11841df29160887816e0476237636023cc00106c07093b9d5c078e5e23",
+      "import_sha256": "69036b11841df29160887816e0476237636023cc00106c07093b9d5c078e5e23",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/tests/group_vectors_cli.c",
+      "destination": "firmware/t096/tests/group_vectors_cli.c",
+      "source_sha256": "71389a10a77afac01410b00253f5745e47d8bea5f65a9f09fe966b49ed733a01",
+      "import_sha256": "71389a10a77afac01410b00253f5745e47d8bea5f65a9f09fe966b49ed733a01",
+      "license_notice": "Apache-2.0."
+    },
+    {
+      "source_path": "v12_r2/tests/health_fake.h",
+      "destination": "firmware/t096/tests/health_fake.h",
+      "source_sha256": "9f02a4a425a20eae61c57a6f9426d69577c6143da8846c75d5f63b01ea5998c0",
+      "import_sha256": "9f02a4a425a20eae61c57a6f9426d69577c6143da8846c75d5f63b01ea5998c0",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/health_test.c",
+      "destination": "firmware/t096/tests/health_test.c",
+      "source_sha256": "747b8cd7de40dd79e11dd1c1c718abb8802e480550610bf9f366336685d82319",
+      "import_sha256": "747b8cd7de40dd79e11dd1c1c718abb8802e480550610bf9f366336685d82319",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/link_quality_test.c",
+      "destination": "firmware/t096/tests/link_quality_test.c",
+      "source_sha256": "42596e966d0ebe350dd09569d1897e12c42bd9c0a0d2075e590a8e588e65a966",
+      "import_sha256": "42596e966d0ebe350dd09569d1897e12c42bd9c0a0d2075e590a8e588e65a966",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/local_path_transition_test.c",
+      "destination": "firmware/t096/tests/local_path_transition_test.c",
+      "source_sha256": "7696a25313de7f1fbb53c7ea0e38d82d50e65f23b6849c06bfa2beb4bdee20e5",
+      "import_sha256": "7696a25313de7f1fbb53c7ea0e38d82d50e65f23b6849c06bfa2beb4bdee20e5",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/network_test.c",
+      "destination": "firmware/t096/tests/network_test.c",
+      "source_sha256": "bef72f797ecbe92e1523c66a441624441091ddd7cac3901504a5d3e35f04db08",
+      "import_sha256": "bef72f797ecbe92e1523c66a441624441091ddd7cac3901504a5d3e35f04db08",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/tests/normal_relay_expiry_test.c",
+      "destination": "firmware/t096/tests/normal_relay_expiry_test.c",
+      "source_sha256": "eb154136e39b1bcacdd87f60329ac3977b063670e3d34e10b1620f273e4ae0cf",
+      "import_sha256": "eb154136e39b1bcacdd87f60329ac3977b063670e3d34e10b1620f273e4ae0cf",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/pair_durability_test.c",
+      "destination": "firmware/t096/tests/pair_durability_test.c",
+      "source_sha256": "f04d59eeb3867301434ecadc7f0e9e9786d62d00165b0d93ec657136f3de51d4",
+      "import_sha256": "f04d59eeb3867301434ecadc7f0e9e9786d62d00165b0d93ec657136f3de51d4",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/passive_client_test.c",
+      "destination": "firmware/t096/tests/passive_client_test.c",
+      "source_sha256": "8adb695dcdd91bde58f3341d7ed8c10466b1371a862de157c301380c2c5de6c7",
+      "import_sha256": "8adb695dcdd91bde58f3341d7ed8c10466b1371a862de157c301380c2c5de6c7",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/platform_test.c",
+      "destination": "firmware/t096/tests/platform_test.c",
+      "source_sha256": "c530797f67a2a3dedb5b57b663fecd52cb6e12fddc4c81a022493bebaa50b4b6",
+      "import_sha256": "c530797f67a2a3dedb5b57b663fecd52cb6e12fddc4c81a022493bebaa50b4b6",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/precision_codec_test.c",
+      "destination": "firmware/t096/tests/precision_codec_test.c",
+      "source_sha256": "b687d235d333a3e5a954434c4d9d1066c7c2b91ad3b4d7582a294434a90e8256",
+      "import_sha256": "b687d235d333a3e5a954434c4d9d1066c7c2b91ad3b4d7582a294434a90e8256",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/precision_gate_test.c",
+      "destination": "firmware/t096/tests/precision_gate_test.c",
+      "source_sha256": "f0272c18216c171d0af55ddb8e2e4c8c108df5c2c2e62c155ed503a723142189",
+      "import_sha256": "f0272c18216c171d0af55ddb8e2e4c8c108df5c2c2e62c155ed503a723142189",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/precision_snapshot_test.c",
+      "destination": "firmware/t096/tests/precision_snapshot_test.c",
+      "source_sha256": "213f342ac6a210f0e88b13c204b5c7c525a2eff5ef38df2a4f75e46528225030",
+      "import_sha256": "213f342ac6a210f0e88b13c204b5c7c525a2eff5ef38df2a4f75e46528225030",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/precision_test.c",
+      "destination": "firmware/t096/tests/precision_test.c",
+      "source_sha256": "350248e8697925d3128264a96dbf87fb23418ee8e35b22b9f0e492eb20db5c09",
+      "import_sha256": "350248e8697925d3128264a96dbf87fb23418ee8e35b22b9f0e492eb20db5c09",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/tests/publication_views_test.c",
+      "destination": "firmware/t096/tests/publication_views_test.c",
+      "source_sha256": "08731192cdf16c48035ffed968bd974d7f4e31aefbb05e56bbc790bf2a27e90a",
+      "import_sha256": "08731192cdf16c48035ffed968bd974d7f4e31aefbb05e56bbc790bf2a27e90a",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/radio_audit_test.c",
+      "destination": "firmware/t096/tests/radio_audit_test.c",
+      "source_sha256": "eda9ce62f6a409cda3dad67b2714a02454fe0277339f2a631385e87eb68ca9d6",
+      "import_sha256": "eda9ce62f6a409cda3dad67b2714a02454fe0277339f2a631385e87eb68ca9d6",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/radio_capture_test.c",
+      "destination": "firmware/t096/tests/radio_capture_test.c",
+      "source_sha256": "35c73c77b699cf45d0eb070961e9671961867beda808efaeda14a5b8a653f07b",
+      "import_sha256": "35c73c77b699cf45d0eb070961e9671961867beda808efaeda14a5b8a653f07b",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/radio_precision_test.c",
+      "destination": "firmware/t096/tests/radio_precision_test.c",
+      "source_sha256": "ebb886f401979c04bdc5835bc3992ef4649c895c11b4d37be1ee526d2a85cb00",
+      "import_sha256": "ebb886f401979c04bdc5835bc3992ef4649c895c11b4d37be1ee526d2a85cb00",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/tests/radio_service_fake.h",
+      "destination": "firmware/t096/tests/radio_service_fake.h",
+      "source_sha256": "0d040edf45869506b0523dded1c637ef7489e5ae2442608288be93c5fb50569c",
+      "import_sha256": "0d040edf45869506b0523dded1c637ef7489e5ae2442608288be93c5fb50569c",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/radio_service_test.c",
+      "destination": "firmware/t096/tests/radio_service_test.c",
+      "source_sha256": "bf0a174856bb5837b0c0153fdebe968e2b97ae0f7a4f30ba25b59e263f4edb2a",
+      "import_sha256": "bf0a174856bb5837b0c0153fdebe968e2b97ae0f7a4f30ba25b59e263f4edb2a",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/rc_auto_profile_test.c",
+      "destination": "firmware/t096/tests/rc_auto_profile_test.c",
+      "source_sha256": "66592f07f424428d3134d4b8e5fec7240a145b99d198535c61829327204ebb52",
+      "import_sha256": "053b05c66d1c38f465dfd28cfd20bb59137dd4ad290ab7c71967f3435a220ce9",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/rc_auto_test.c",
+      "destination": "firmware/t096/tests/rc_auto_test.c",
+      "source_sha256": "8c7d87aee4ff488593eac995ab014b4156bf71d32014e5e1dccf1ce33406b627",
+      "import_sha256": "8c7d87aee4ff488593eac995ab014b4156bf71d32014e5e1dccf1ce33406b627",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/rc_boundary_test.c",
+      "destination": "firmware/t096/tests/rc_boundary_test.c",
+      "source_sha256": "71d544008de275ad4857627ec3094b6d07c468b891b6a669d3180bf84f158f0a",
+      "import_sha256": "71d544008de275ad4857627ec3094b6d07c468b891b6a669d3180bf84f158f0a",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/tests/rc_client_indicator_test.c",
+      "destination": "firmware/t096/tests/rc_client_indicator_test.c",
+      "source_sha256": "6ce112b91a36f2cd54dbb23764e88d3fcaf2a98fc66e8f4c9a81dba509e9c586",
+      "import_sha256": "6ce112b91a36f2cd54dbb23764e88d3fcaf2a98fc66e8f4c9a81dba509e9c586",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/rc_connection_lifecycle_test.c",
+      "destination": "firmware/t096/tests/rc_connection_lifecycle_test.c",
+      "source_sha256": "c5e0b0a0ea5a7ea6307e80f21c997707862d378ad43ae7ca63cf9d7d984d70cb",
+      "import_sha256": "c5e0b0a0ea5a7ea6307e80f21c997707862d378ad43ae7ca63cf9d7d984d70cb",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/rc_durability_test.c",
+      "destination": "firmware/t096/tests/rc_durability_test.c",
+      "source_sha256": "d0c47e233053e02394b839d07917f9a419c25d5dbab2567cd7969de6643fa1b3",
+      "import_sha256": "d0c47e233053e02394b839d07917f9a419c25d5dbab2567cd7969de6643fa1b3",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/rc_field_profile_test.c",
+      "destination": "firmware/t096/tests/rc_field_profile_test.c",
+      "source_sha256": "de480cb3b013b9b819302d3e63871d8ef36f8ba3ed2ddd2f63f10cc9090e8bb7",
+      "import_sha256": "edd60d48b94a41604b78f500a37ba6a07cb9c7465d1b8eec8b311b04165ac9c0",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/rc_fixed_test.c",
+      "destination": "firmware/t096/tests/rc_fixed_test.c",
+      "source_sha256": "5dbaeb056bba66a4d553f50ac1f09a1696bb64d1d1b7fb548b599856f69d170d",
+      "import_sha256": "5dbaeb056bba66a4d553f50ac1f09a1696bb64d1d1b7fb548b599856f69d170d",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/tests/rc_gm_admission_test.c",
+      "destination": "firmware/t096/tests/rc_gm_admission_test.c",
+      "source_sha256": "7510baf24fab0c791a2091e95a89949a5e15da5ef446f2ce4442a19957d6dea9",
+      "import_sha256": "7510baf24fab0c791a2091e95a89949a5e15da5ef446f2ce4442a19957d6dea9",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/rc_observation_test.c",
+      "destination": "firmware/t096/tests/rc_observation_test.c",
+      "source_sha256": "ec85954662b7398dcc9df72094cceb9e0df2c381554ae03aaf44088affc72f79",
+      "import_sha256": "ec85954662b7398dcc9df72094cceb9e0df2c381554ae03aaf44088affc72f79",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/rc_shadow_test.c",
+      "destination": "firmware/t096/tests/rc_shadow_test.c",
+      "source_sha256": "96799fc3fdaaff47ea1e849a85e3574a09cb50ff0391fe57103a03bc7fdd7282",
+      "import_sha256": "96799fc3fdaaff47ea1e849a85e3574a09cb50ff0391fe57103a03bc7fdd7282",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/tests/rc_startup_selection_test.c",
+      "destination": "firmware/t096/tests/rc_startup_selection_test.c",
+      "source_sha256": "9f8ec000622f3cbea2ace9fd200175696fb08216b76064a50374bd9c5031a80f",
+      "import_sha256": "9f8ec000622f3cbea2ace9fd200175696fb08216b76064a50374bd9c5031a80f",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/rc_stream_quality_test.c",
+      "destination": "firmware/t096/tests/rc_stream_quality_test.c",
+      "source_sha256": "cc3c905e542769159c193fef8df14c6d9e2ad280e6c74020a759068dbbbdad92",
+      "import_sha256": "cc3c905e542769159c193fef8df14c6d9e2ad280e6c74020a759068dbbbdad92",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/rc_ui_binding_test.c",
+      "destination": "firmware/t096/tests/rc_ui_binding_test.c",
+      "source_sha256": "906fb19e8ef6366d9accc184348ee9fcfed70ba8ea40bf58330878d71fcb5d42",
+      "import_sha256": "e09e7431df22411ffdd5a3a06b7ccded74b46462399d722980597a0b1bda83c8",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/relay_admission_test.c",
+      "destination": "firmware/t096/tests/relay_admission_test.c",
+      "source_sha256": "e361caff998fc05929fa83c1493ddbb193b837810ebf113f1d3726c9e050b95a",
+      "import_sha256": "e361caff998fc05929fa83c1493ddbb193b837810ebf113f1d3726c9e050b95a",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/relay_codec_cli.c",
+      "destination": "firmware/t096/tests/relay_codec_cli.c",
+      "source_sha256": "9e4b905a512d07c635aeff009312458fcc0ab8de8e030f3aa898190beafee267",
+      "import_sha256": "9e4b905a512d07c635aeff009312458fcc0ab8de8e030f3aa898190beafee267",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/relay_handoff_test.c",
+      "destination": "firmware/t096/tests/relay_handoff_test.c",
+      "source_sha256": "16d1afb1ee3a71b3ab92d6032aa2170a2528ad95a0eceabeeeff0300f8b84e52",
+      "import_sha256": "8f47f334567e58da1dc55f14f26e1dfe1488fa546f77009e52e038681c5c6a6b",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/relay_map_selection_test.c",
+      "destination": "firmware/t096/tests/relay_map_selection_test.c",
+      "source_sha256": "15eaae8f19ff858ede9735ee0709d93038dc0f0159e2872a3c6c2c9f9effd345",
+      "import_sha256": "15eaae8f19ff858ede9735ee0709d93038dc0f0159e2872a3c6c2c9f9effd345",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/relay_path_test.c",
+      "destination": "firmware/t096/tests/relay_path_test.c",
+      "source_sha256": "78ebe51d7e1768199cfc25b40d2aa78861793912346e780da506f8424adacf7d",
+      "import_sha256": "78ebe51d7e1768199cfc25b40d2aa78861793912346e780da506f8424adacf7d",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/relay_payload_deadline_test.c",
+      "destination": "firmware/t096/tests/relay_payload_deadline_test.c",
+      "source_sha256": "875908a7c4581a76ecc68d0efb07bd8f0aa899d9e8c49aa4707ac889e521e150",
+      "import_sha256": "875908a7c4581a76ecc68d0efb07bd8f0aa899d9e8c49aa4707ac889e521e150",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/relay_precision_test.c",
+      "destination": "firmware/t096/tests/relay_precision_test.c",
+      "source_sha256": "634d048b14a466d332563ecca016f9f13eeba246b2b8d903862018e0f11d61f8",
+      "import_sha256": "634d048b14a466d332563ecca016f9f13eeba246b2b8d903862018e0f11d61f8",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/relay_publication_ready_test.c",
+      "destination": "firmware/t096/tests/relay_publication_ready_test.c",
+      "source_sha256": "75218a8197b709b9b3046c96bdfc1d46d114afbd99b5cc147e2f690dfe3bfb7a",
+      "import_sha256": "75218a8197b709b9b3046c96bdfc1d46d114afbd99b5cc147e2f690dfe3bfb7a",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/relay_request_owner_test.c",
+      "destination": "firmware/t096/tests/relay_request_owner_test.c",
+      "source_sha256": "42dbd0e90426f11aeb8d39c12640895de7b8d8fd3e04809a96f34aeb21b215cd",
+      "import_sha256": "42dbd0e90426f11aeb8d39c12640895de7b8d8fd3e04809a96f34aeb21b215cd",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/relay_start_retry_test.c",
+      "destination": "firmware/t096/tests/relay_start_retry_test.c",
+      "source_sha256": "0140039b9dd8f04944abd34782f5b3e3e803ce5f0cb86adc7d81fd410f4ac0ba",
+      "import_sha256": "0140039b9dd8f04944abd34782f5b3e3e803ce5f0cb86adc7d81fd410f4ac0ba",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/relay_window_test.c",
+      "destination": "firmware/t096/tests/relay_window_test.c",
+      "source_sha256": "3308ee00197822c4a43173647ba40894b85d851142fd766b11e7d39f579f4196",
+      "import_sha256": "3308ee00197822c4a43173647ba40894b85d851142fd766b11e7d39f579f4196",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/reply_test.c",
+      "destination": "firmware/t096/tests/reply_test.c",
+      "source_sha256": "8710179a67cab30a5b6827e8e005de6546a47635d15aab5870caa97c4778e1a5",
+      "import_sha256": "8710179a67cab30a5b6827e8e005de6546a47635d15aab5870caa97c4778e1a5",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/runtime_profile_parse_test.c",
+      "destination": "firmware/t096/tests/runtime_profile_parse_test.c",
+      "source_sha256": "71dcf214a39dc2f145037965186a12939938a2ff95d6a3dcffd45b288149ceaa",
+      "import_sha256": "59f061926341683b963c50bbffec9cc97d01ec2a06e9081ad8abccc1d35c693c",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/runtime_profile_test.c",
+      "destination": "firmware/t096/tests/runtime_profile_test.c",
+      "source_sha256": "2cc1ea9c111166ad22e7819221ca4ef0230e0691d3fd1050e438fb5a36f39d1b",
+      "import_sha256": "750ba8637db64f2677bf24f963118acaff12b5d99635e5860ff93dce28c44585",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/runtime_transport_restart_test.c",
+      "destination": "firmware/t096/tests/runtime_transport_restart_test.c",
+      "source_sha256": "8a2ef25c16f8061bc572e6c879ed931b171fd3d973ca299adf0842839f3c0715",
+      "import_sha256": "8a2ef25c16f8061bc572e6c879ed931b171fd3d973ca299adf0842839f3c0715",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/service_snapshot_test.c",
+      "destination": "firmware/t096/tests/service_snapshot_test.c",
+      "source_sha256": "64cf269fb329f8fa3798d4f5de45bb9104b6f9d50214014f355d0dbae716d54a",
+      "import_sha256": "64cf269fb329f8fa3798d4f5de45bb9104b6f9d50214014f355d0dbae716d54a",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/shadow_handoff_test.c",
+      "destination": "firmware/t096/tests/shadow_handoff_test.c",
+      "source_sha256": "8928c7b4da0de9d899e02b47751f4bf2c4d3680cf33be5e5298e8aefe57d2f0b",
+      "import_sha256": "8928c7b4da0de9d899e02b47751f4bf2c4d3680cf33be5e5298e8aefe57d2f0b",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/shadow_session_test.c",
+      "destination": "firmware/t096/tests/shadow_session_test.c",
+      "source_sha256": "9ddd0b043a0a647bb760af48e31b1320970056d9cf486f8b0f815852d084c8fb",
+      "import_sha256": "9ddd0b043a0a647bb760af48e31b1320970056d9cf486f8b0f815852d084c8fb",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/shadow_worker_test.c",
+      "destination": "firmware/t096/tests/shadow_worker_test.c",
+      "source_sha256": "a090a6ec55dec59fa69af0295b38e6828a2f816f99d7062f2619de16d6b586cf",
+      "import_sha256": "a090a6ec55dec59fa69af0295b38e6828a2f816f99d7062f2619de16d6b586cf",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/solo_incumbent_test.c",
+      "destination": "firmware/t096/tests/solo_incumbent_test.c",
+      "source_sha256": "59896885067fd6e4506a1d49f6dc35a3350869211d9c47474f7da1bbe620b505",
+      "import_sha256": "59896885067fd6e4506a1d49f6dc35a3350869211d9c47474f7da1bbe620b505",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/standalone_test.c",
+      "destination": "firmware/t096/tests/standalone_test.c",
+      "source_sha256": "9d2b956d2ef94312bbc6774366552a9ab4057d50c7631e747622b953d2a32766",
+      "import_sha256": "9d2b956d2ef94312bbc6774366552a9ab4057d50c7631e747622b953d2a32766",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/standby_reboot_test.c",
+      "destination": "firmware/t096/tests/standby_reboot_test.c",
+      "source_sha256": "175b290e639da047d19209c4251858fbe59091ccde6f6e7c0d4b384e680d46fe",
+      "import_sha256": "175b290e639da047d19209c4251858fbe59091ccde6f6e7c0d4b384e680d46fe",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/supervisor_test.c",
+      "destination": "firmware/t096/tests/supervisor_test.c",
+      "source_sha256": "900f213f37e6bc17f6255b967e3c72761d2dc8ef65ef8710143eb81f01d2a7ab",
+      "import_sha256": "900f213f37e6bc17f6255b967e3c72761d2dc8ef65ef8710143eb81f01d2a7ab",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/supervisor_timer_test.c",
+      "destination": "firmware/t096/tests/supervisor_timer_test.c",
+      "source_sha256": "63e85539af0bb024043a0246356f1a04920d1f6c52565c0baab729c129868e11",
+      "import_sha256": "63e85539af0bb024043a0246356f1a04920d1f6c52565c0baab729c129868e11",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/test_rc_score.py",
+      "destination": "firmware/t096/tests/test_rc_score.py",
+      "source_sha256": "edf68226b1a6b597e9b14c19e7530b0c448c6eff92f10dc82c473fee27bd4d6b",
+      "import_sha256": "edf68226b1a6b597e9b14c19e7530b0c448c6eff92f10dc82c473fee27bd4d6b",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/time_service_test.c",
+      "destination": "firmware/t096/tests/time_service_test.c",
+      "source_sha256": "2769988a0e301d795b54a99e97471a4d1899001b9ac8cdb2530bb3a6b47edf6f",
+      "import_sha256": "2769988a0e301d795b54a99e97471a4d1899001b9ac8cdb2530bb3a6b47edf6f",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/ui_binding_test.c",
+      "destination": "firmware/t096/tests/ui_binding_test.c",
+      "source_sha256": "2641f34e6c0f1de3b5fe9378d37fca2880fb31f8827761c4fce71740accee7dc",
+      "import_sha256": "43ccf66f73bf673e2a7f61ec482e621adccafda13288bc5df73261c56fc06223",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/ui_service_fake.h",
+      "destination": "firmware/t096/tests/ui_service_fake.h",
+      "source_sha256": "9830f81c5b52af92fdf7acf0127ed13d58c95e23e82090bac553ddf5e38e03b9",
+      "import_sha256": "9830f81c5b52af92fdf7acf0127ed13d58c95e23e82090bac553ddf5e38e03b9",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/ui_service_test.c",
+      "destination": "firmware/t096/tests/ui_service_test.c",
+      "source_sha256": "4f2304a867bebf09846a3a0d89885e373bb461174c8334c4379d81f5885dd783",
+      "import_sha256": "4f2304a867bebf09846a3a0d89885e373bb461174c8334c4379d81f5885dd783",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/ui_system_test.c",
+      "destination": "firmware/t096/tests/ui_system_test.c",
+      "source_sha256": "a0a1d293f9a292877b504ceb541fe8c4500ab881f723858a1c48cb2a0b33d878",
+      "import_sha256": "a0a1d293f9a292877b504ceb541fe8c4500ab881f723858a1c48cb2a0b33d878",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/ui_test.c",
+      "destination": "firmware/t096/tests/ui_test.c",
+      "source_sha256": "0a8b114751468e30a13dff573f3b34f1e2f8aa9ac9b4f546c15f42fb7101fbb0",
+      "import_sha256": "c76b37d010ec69f63c21cacade058ba2ba9a74253c00ad22672f9159e5ce1944",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/unicast_time_test.c",
+      "destination": "firmware/t096/tests/unicast_time_test.c",
+      "source_sha256": "793901059d969e4b3799b0679830e6bf855aa6c0f274672fb755b9cf95e727d7",
+      "import_sha256": "0a4842b8ff29d7506f7887b5a7b9fc75018065ea93542a8bc3228f5db92171c8",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/tests/usb_capture_fake.h",
+      "destination": "firmware/t096/tests/usb_capture_fake.h",
+      "source_sha256": "f56d665e3c68c8ee4a57d3f5b55ad312fb619f6c8fb63490cd5d95fdeb6c82f3",
+      "import_sha256": "f56d665e3c68c8ee4a57d3f5b55ad312fb619f6c8fb63490cd5d95fdeb6c82f3",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/tests/usb_capture_test.c",
+      "destination": "firmware/t096/tests/usb_capture_test.c",
+      "source_sha256": "cd04a56e9c9bc254f8a9d4e31772c20584ee89749d5436e5d0a59da8ee555b0f",
+      "import_sha256": "cd04a56e9c9bc254f8a9d4e31772c20584ee89749d5436e5d0a59da8ee555b0f",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/tests/usb_ep0_diagnostic_test.c",
+      "destination": "firmware/t096/tests/usb_ep0_diagnostic_test.c",
+      "source_sha256": "f438b0a52a5c1c4b8aaeb3b7b3889108f7030d5cd040c8c0e6790e68049de29d",
+      "import_sha256": "f438b0a52a5c1c4b8aaeb3b7b3889108f7030d5cd040c8c0e6790e68049de29d",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/usb_ep0_fake.h",
+      "destination": "firmware/t096/tests/usb_ep0_fake.h",
+      "source_sha256": "6d79345cba1d38f132d8cea66bdd47c4e6d9deb7bbb7d96fe8a38a1c4ad787be",
+      "import_sha256": "6d79345cba1d38f132d8cea66bdd47c4e6d9deb7bbb7d96fe8a38a1c4ad787be",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/tests/usb_ep0_test.c",
+      "destination": "firmware/t096/tests/usb_ep0_test.c",
+      "source_sha256": "c673c56829259bab92e70021f7d2d06233f4622a5da09262be22c6ed2f5fe7cc",
+      "import_sha256": "c673c56829259bab92e70021f7d2d06233f4622a5da09262be22c6ed2f5fe7cc",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/usb_sof_observer_test.c",
+      "destination": "firmware/t096/tests/usb_sof_observer_test.c",
+      "source_sha256": "b5deb5caf7a7cc68ce71ed4c80bb81d1ddffd6611a4847b4e6cf979ed15dcca2",
+      "import_sha256": "b5deb5caf7a7cc68ce71ed4c80bb81d1ddffd6611a4847b4e6cf979ed15dcca2",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/tests/usb_sof_probe_fake.h",
+      "destination": "firmware/t096/tests/usb_sof_probe_fake.h",
+      "source_sha256": "bd93aa9698d68ddcbda23cc02bf8b243c70d2024672ca20d313b502077b1f2a5",
+      "import_sha256": "bd93aa9698d68ddcbda23cc02bf8b243c70d2024672ca20d313b502077b1f2a5",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/tests/usb_sof_probe_test.c",
+      "destination": "firmware/t096/tests/usb_sof_probe_test.c",
+      "source_sha256": "8353423468aa2a9dce3a9deac248beea48d5c518b14c48a1cdf02ee35e1d3de3",
+      "import_sha256": "ee0cf5a3f9d6edff47f2862dcc9f8429927725fc573d487e0e20d20e84e44aad",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/tests/usb_source_test.c",
+      "destination": "firmware/t096/tests/usb_source_test.c",
+      "source_sha256": "80e112b83070218709d883d43c0a97214d367ea325b3a4a2d627056bbffbc922",
+      "import_sha256": "e30b3e8cd552228af03345b224910921a2aa10f985e9b10ba768e3375ee1f469",
+      "license_notice": "Apache-2.0"
+    },
+    {
+      "source_path": "v12_r2/tests/v14_network_test.c",
+      "destination": "firmware/t096/tests/v14_network_test.c",
+      "source_sha256": "1d43b26704747929ff952b4c878097abd60420e0f6922f8f82e8dce98b167945",
+      "import_sha256": "1d43b26704747929ff952b4c878097abd60420e0f6922f8f82e8dce98b167945",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/v14_partition_test.c",
+      "destination": "firmware/t096/tests/v14_partition_test.c",
+      "source_sha256": "88babe9391a2a959aa60b07ba9cb827a3072c8a16a63d64f7986ec2d5fb04c83",
+      "import_sha256": "88babe9391a2a959aa60b07ba9cb827a3072c8a16a63d64f7986ec2d5fb04c83",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/v14_relay_test.c",
+      "destination": "firmware/t096/tests/v14_relay_test.c",
+      "source_sha256": "2a955f5e71c63ad2d719c2c4289e4c9abdb15cb368e61ad9e21ce68e8b20c3e0",
+      "import_sha256": "2a955f5e71c63ad2d719c2c4289e4c9abdb15cb368e61ad9e21ce68e8b20c3e0",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/watchdog_profile_test.c",
+      "destination": "firmware/t096/tests/watchdog_profile_test.c",
+      "source_sha256": "fd6f3bc0062a088c14eaaac9318b9b03b1ef919defcb85dd2412b8889a2eb57d",
+      "import_sha256": "ebe8b2638a79ce55254da5d4a552d1073c2d7923213d0cdb130239ea0d291dcb",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/watchdog_test.c",
+      "destination": "firmware/t096/tests/watchdog_test.c",
+      "source_sha256": "f430b8fd942063d3d82793c43e94bac1a9ec6190c02a79c0aef8b35509e19dae",
+      "import_sha256": "e01933bdeae9c7e87e1b6f2b9d18dd7a5b00e9e156d756070ddbfab730173a9f",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tests/zephyr_fake.h",
+      "destination": "firmware/t096/tests/zephyr_fake.h",
+      "source_sha256": "b5c670447db5f2f29cd96d9842c1788385553fc80dc47e36a4fa6ceec4938354",
+      "import_sha256": "b5c670447db5f2f29cd96d9842c1788385553fc80dc47e36a4fa6ceec4938354",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tools/capture_tests.py",
+      "destination": "firmware/t096/tools/capture_tests.py",
+      "source_sha256": "4e0d5d821b5ad48a6190836d4371d86809cb56ee0f5226929ecb922129af716f",
+      "import_sha256": "4e0d5d821b5ad48a6190836d4371d86809cb56ee0f5226929ecb922129af716f",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tools/gm_utc_tests.py",
+      "destination": "firmware/t096/tools/gm_utc_tests.py",
+      "source_sha256": "c26329fbebf5d86bb25154c4a3d1038899d67bb84a2f96fa1920d92768e02d8c",
+      "import_sha256": "c26329fbebf5d86bb25154c4a3d1038899d67bb84a2f96fa1920d92768e02d8c",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tools/radio_capture_hooks.py",
+      "destination": "firmware/t096/tools/radio_capture_hooks.py",
+      "source_sha256": "f030f7583d4d55d0c4b6bc4468c00e998b2021dd679bb7c8537383cfe5c3d062",
+      "import_sha256": "f030f7583d4d55d0c4b6bc4468c00e998b2021dd679bb7c8537383cfe5c3d062",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tools/rc_clock_diagnostic.py",
+      "destination": "firmware/t096/tools/rc_clock_diagnostic.py",
+      "source_sha256": "bc3190f17475171862dce28b389c1f688b762f66493a0d51d44d2b5ac6c6ed7b",
+      "import_sha256": "bc3190f17475171862dce28b389c1f688b762f66493a0d51d44d2b5ac6c6ed7b",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tools/rc_connection_lifecycle_tests.py",
+      "destination": "firmware/t096/tools/rc_connection_lifecycle_tests.py",
+      "source_sha256": "c504f8fb1548b57ca2209323f7a48d028a3e61b6b760955190efb8baeb3a5fcb",
+      "import_sha256": "c504f8fb1548b57ca2209323f7a48d028a3e61b6b760955190efb8baeb3a5fcb",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tools/rc_durability_tests.py",
+      "destination": "firmware/t096/tools/rc_durability_tests.py",
+      "source_sha256": "ac26638deba338a8c668915fd91e7ffe5e4d2bd13083bba3e1e714306f77f66a",
+      "import_sha256": "ac26638deba338a8c668915fd91e7ffe5e4d2bd13083bba3e1e714306f77f66a",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tools/rc_gm_admission_tests.py",
+      "destination": "firmware/t096/tools/rc_gm_admission_tests.py",
+      "source_sha256": "2bb1464cfff21709226d3ce93d5668d181ad742bae74c29e32d4a806c608efbf",
+      "import_sha256": "2bb1464cfff21709226d3ce93d5668d181ad742bae74c29e32d4a806c608efbf",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tools/runtime_profile_tests.py",
+      "destination": "firmware/t096/tools/runtime_profile_tests.py",
+      "source_sha256": "a31252f40f313e0a0c1cee655edbd15c4480f36932418edfa19baf57a4b6db91",
+      "import_sha256": "a31252f40f313e0a0c1cee655edbd15c4480f36932418edfa19baf57a4b6db91",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tools/test.py",
+      "destination": "firmware/t096/tools/test.py",
+      "source_sha256": "f8510d616a4e67ca60d17f7b17aed33990166f882e763785bfcdabc09a1102b1",
+      "import_sha256": "f8510d616a4e67ca60d17f7b17aed33990166f882e763785bfcdabc09a1102b1",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tools/test_protocol.py",
+      "destination": "firmware/t096/tools/test_protocol.py",
+      "source_sha256": "99fe70b6852a6c5a026fee365c79b13e9343d694885c1f2c712a7e697673c825",
+      "import_sha256": "99fe70b6852a6c5a026fee365c79b13e9343d694885c1f2c712a7e697673c825",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tools/test_ticker_backport.py",
+      "destination": "firmware/t096/tools/test_ticker_backport.py",
+      "source_sha256": "8fdc295b5a470b354b1a957978f5e8836189e84c1ad3c64199bb4e4ad3885806",
+      "import_sha256": "8fdc295b5a470b354b1a957978f5e8836189e84c1ad3c64199bb4e4ad3885806",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tools/ticker_backport.py",
+      "destination": "firmware/t096/tools/ticker_backport.py",
+      "source_sha256": "99fea2ee2ef2fd45784803a962357f11439697d82d8b1bfc41d666716e983225",
+      "import_sha256": "99fea2ee2ef2fd45784803a962357f11439697d82d8b1bfc41d666716e983225",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tools/usb_ep0_recovery.py",
+      "destination": "firmware/t096/tools/usb_ep0_recovery.py",
+      "source_sha256": "b533abe09555ed4be1a4d994ed4039620c48b2668f6a394efad4108458cb7b16",
+      "import_sha256": "b533abe09555ed4be1a4d994ed4039620c48b2668f6a394efad4108458cb7b16",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tools/usb_ep0_tests.py",
+      "destination": "firmware/t096/tools/usb_ep0_tests.py",
+      "source_sha256": "3ce78dea73cdf4d1c0929227611f73ec8ed1bb6cac6baf116c0df66be597eb46",
+      "import_sha256": "3ce78dea73cdf4d1c0929227611f73ec8ed1bb6cac6baf116c0df66be597eb46",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tools/usb_sof_tests.py",
+      "destination": "firmware/t096/tools/usb_sof_tests.py",
+      "source_sha256": "3ff1637cae82bc366a3f379e9398d5a599ed527b964145f11895bd4dbb93a760",
+      "import_sha256": "3ff1637cae82bc366a3f379e9398d5a599ed527b964145f11895bd4dbb93a760",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/tools/watchdog_tests.py",
+      "destination": "firmware/t096/tools/watchdog_tests.py",
+      "source_sha256": "64610ed5019a322a8b07f529218cee90a2c94e8136650db802e05e3d80676c40",
+      "import_sha256": "64610ed5019a322a8b07f529218cee90a2c94e8136650db802e05e3d80676c40",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "v12_r2/watchdog.conf",
+      "destination": "firmware/t096/watchdog.conf",
+      "source_sha256": "5f0a97088fd82b28c5812faae70e6077481f02a6d97759a2be6b49a32a9db4fb",
+      "import_sha256": "5f0a97088fd82b28c5812faae70e6077481f02a6d97759a2be6b49a32a9db4fb",
+      "license_notice": "See inherited notices; original selected project material"
+    },
+    {
+      "source_path": "tools/uf2.py",
+      "destination": "firmware/t096/tools/uf2.py",
+      "source_sha256": "025eb714d58b147213eacf703f84b786887be5abf2540a8e4c71871d7f204712",
+      "import_sha256": "025eb714d58b147213eacf703f84b786887be5abf2540a8e4c71871d7f204712",
+      "license_notice": "Preserve upstream notices"
+    },
+    {
+      "source_path": "v12_r2/include/build_identity.h.in",
+      "destination": "firmware/t096/include/build_identity.h.in",
+      "source_sha256": "8101fc5288d04340d114fb069308c3899fdb2708aa6a25518bdbfc0d61e9a4ae",
+      "import_sha256": "8101fc5288d04340d114fb069308c3899fdb2708aa6a25518bdbfc0d61e9a4ae",
+      "license_notice": "Retained source notices"
+    },
+    {
+      "source_path": "v12_r2/watchdog_contract.json",
+      "destination": "firmware/t096/watchdog_contract.json",
+      "source_sha256": "04dd1c2fed171f127cf1c6b874ee19b65f7cc1ab6e73cb7257f8313ad0eba8af",
+      "import_sha256": "04dd1c2fed171f127cf1c6b874ee19b65f7cc1ab6e73cb7257f8313ad0eba8af",
+      "license_notice": "Retained source notices"
+    },
+    {
+      "source_path": "v12_r2/role_status_v1.json",
+      "destination": "firmware/t096/role_status_v1.json",
+      "source_sha256": "2be73a251571204aca803595d95fafcdbe77838a9041be0ef268c8d9d4dbc101",
+      "import_sha256": "2be73a251571204aca803595d95fafcdbe77838a9041be0ef268c8d9d4dbc101",
+      "license_notice": "Retained source notices"
+    },
+    {
+      "source_path": "v12_r2/role_status_vectors.json",
+      "destination": "firmware/t096/role_status_vectors.json",
+      "source_sha256": "f7ab28959a326995651925561e761406f91e21c3173cee36c0bb67d9bca76912",
+      "import_sha256": "f7ab28959a326995651925561e761406f91e21c3173cee36c0bb67d9bca76912",
+      "license_notice": "Retained source notices"
+    },
+    {
+      "source_path": "v12_r2/cmake/usb-ep0-recovery.patch",
+      "destination": "firmware/t096/cmake/usb-ep0-recovery.patch",
+      "source_sha256": "bceb7fd44b507e38a3eb08074f287634429285ec67526b9a2175fcd45e583993",
+      "import_sha256": "bceb7fd44b507e38a3eb08074f287634429285ec67526b9a2175fcd45e583993",
+      "license_notice": "Preserve upstream Zephyr Apache-2.0 patch terms"
+    },
+    {
+      "source_path": "v12_r2/cmake/zephyr-91430.patch",
+      "destination": "firmware/t096/cmake/zephyr-91430.patch",
+      "source_sha256": "dc85bb42cb21f59008e20cbb3112ecc2e236af4989e8d6b8f0cb43707e867d2b",
+      "import_sha256": "dc85bb42cb21f59008e20cbb3112ecc2e236af4989e8d6b8f0cb43707e867d2b",
+      "license_notice": "Preserve upstream Zephyr Apache-2.0 patch terms"
+    },
+    {
+      "source_path": "v12_r2/boards/heltec/t096_r2/t096_r2_defconfig",
+      "destination": "firmware/t096/boards/heltec/t096_r2/t096_r2_defconfig",
+      "source_sha256": "6b66d7d89cb0e6d643d14eff6f06e440d6c7cf803af94c77016bd5021562f28e",
+      "import_sha256": "6b66d7d89cb0e6d643d14eff6f06e440d6c7cf803af94c77016bd5021562f28e",
+      "license_notice": "Retained board configuration"
+    }
+  ]
+}

@@ -1,0 +1,78 @@
+{
+  "schema": 1,
+  "selection": "T096 RC7 GM/RC with standard USB source stream; pinned Zephyr 4.1.0 plus hash-checked local controller/clock/USB patches",
+  "zephyr": {
+    "url": "https://github.com/zephyrproject-rtos/zephyr.git",
+    "release": "v4.1.0",
+    "commit": "7823374e872145b5bd018bfe447839eb36042611",
+    "path": "zephyr",
+    "license": "Apache-2.0"
+  },
+  "modules": [
+    {
+      "name": "cmsis",
+      "url": "https://github.com/zephyrproject-rtos/cmsis.git",
+      "commit": "d1b8b20b6278615b00e136374540eb1c00dcabe7",
+      "path": "modules/hal/cmsis"
+    },
+    {
+      "name": "hal_nordic",
+      "url": "https://github.com/zephyrproject-rtos/hal_nordic.git",
+      "commit": "37ca068d7b013fb65a2acc9306bffa48a3e72839",
+      "path": "modules/hal/nordic"
+    },
+    {
+      "name": "tinycrypt",
+      "url": "https://github.com/zephyrproject-rtos/tinycrypt.git",
+      "commit": "1012a3ebee18c15ede5efc8332ee2fc37817670f",
+      "path": "modules/crypto/tinycrypt"
+    }
+  ],
+  "sdk": {
+    "release": "0.17.0",
+    "path": "zephyr-sdk-0.17.0",
+    "compiler": "arm-zephyr-eabi-gcc 12.2.0",
+    "minimal_url": "https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.17.0/zephyr-sdk-0.17.0_macos-aarch64_minimal.tar.xz",
+    "minimal_sha256": "d6dd38ac08d1e3e8d4653a7f03f6f52a704fc9317d8eed6e950e107829f929c4",
+    "arm_url": "https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.17.0/toolchain_macos-aarch64_arm-zephyr-eabi.tar.xz",
+    "arm_sha256": "1168c50a193a7d5b8ee583dad70bd33bbe43903551096f2e4854cd527c415d5c",
+    "checksum_url": "https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.17.0/sha256.sum",
+    "system_install": false
+  },
+  "python": {
+    "west": "1.5.0",
+    "ninja": "1.13.2",
+    "pyelftools": "0.33",
+    "PyYAML": "6.0.3",
+    "pykwalify": "1.8.0",
+    "packaging": "26.3",
+    "intelhex": "2.3.0"
+  },
+  "constraints": {
+    "app_start": 155648,
+    "app_load_end_exclusive": 913408,
+    "credential_reservation": [
+      913408,
+      921600
+    ],
+    "diagnostic_reservation": [
+      921600,
+      937984
+    ],
+    "legacy_journal": [
+      937984,
+      970752
+    ],
+    "protected": [
+      970752,
+      1048576
+    ],
+    "ram": [
+      536879104,
+      537133056
+    ],
+    "flash_writes": "BOUNDED_DIAGNOSTICS_ONLY_P1_NOT_IMPLEMENTED",
+    "RF_start": "AUTONOMOUS_GM_OR_RC",
+    "stock_sources_only": false
+  }
+}

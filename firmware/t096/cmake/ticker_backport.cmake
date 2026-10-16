@@ -1,0 +1,25 @@
+# Exact merged upstream PR91430: deinitialize the already-stopped ticker.
+# This preserves public bt_disable-before-flash and stock flash synchronization.
+set(r2_controller "${CMAKE_CURRENT_BINARY_DIR}/r2_controller")
+execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_LIST_DIR}/../tools/ticker_backport.py"
+ "${ZEPHYR_BASE}" "${r2_controller}" RESULT_VARIABLE r2_fix_result)
+if(NOT r2_fix_result EQUAL 0)
+ message(FATAL_ERROR "Pinned upstream ticker backport failed")
+endif()
+get_target_property(r2_controller_sources subsys__bluetooth__controller SOURCES)
+set(r2_controller_matches 0)
+foreach(r2_source IN LISTS r2_controller_sources)
+ foreach(r2_name ll_sw/ull.c ticker/ticker.c)
+  if(r2_source STREQUAL "${ZEPHYR_BASE}/subsys/bluetooth/controller/${r2_name}" OR r2_source STREQUAL "${r2_name}")
+   list(REMOVE_ITEM r2_controller_sources "${r2_source}")
+   list(APPEND r2_controller_sources "${r2_controller}/${r2_name}")
+   math(EXPR r2_controller_matches "${r2_controller_matches}+1")
+  endif()
+ endforeach()
+endforeach()
+if(NOT r2_controller_matches EQUAL 2)
+ message(FATAL_ERROR "Expected exactly two pinned controller translation units")
+endif()
+set_property(TARGET subsys__bluetooth__controller PROPERTY SOURCES "${r2_controller_sources}")
+target_include_directories(subsys__bluetooth__controller BEFORE PRIVATE
+ "${r2_controller}" "${ZEPHYR_BASE}/subsys/bluetooth/controller/ll_sw")

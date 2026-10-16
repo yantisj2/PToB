@@ -1,0 +1,6 @@
+board:
+  name: t096_r2
+  full_name: Heltec HT-n5262G T096 V12 app-only candidate
+  vendor: heltec
+  socs:
+    - name: nrf52840

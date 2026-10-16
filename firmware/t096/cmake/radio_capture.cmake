@@ -1,0 +1,25 @@
+# Passive ADDRESS observation hooks; preserve every controller scheduling call.
+set(r2_radio_out "${CMAKE_CURRENT_BINARY_DIR}/r2_radio_controller")
+execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_LIST_DIR}/../tools/radio_capture_hooks.py"
+ "${ZEPHYR_BASE}" "${r2_radio_out}" RESULT_VARIABLE r2_radio_result)
+if(NOT r2_radio_result EQUAL 0)
+ message(FATAL_ERROR "Pinned radio capture hook generation failed")
+endif()
+get_target_property(r2_radio_sources subsys__bluetooth__controller__ll_sw__nordic SOURCES)
+set(r2_radio_matches 0)
+foreach(r2_source IN LISTS r2_radio_sources)
+ foreach(r2_name lll_adv_sync.c lll_sync.c)
+  if(r2_source MATCHES "(^|/)lll/${r2_name}$")
+   list(REMOVE_ITEM r2_radio_sources "${r2_source}")
+   list(APPEND r2_radio_sources "${r2_radio_out}/${r2_name}")
+   math(EXPR r2_radio_matches "${r2_radio_matches}+1")
+  endif()
+ endforeach()
+endforeach()
+if(NOT r2_radio_matches EQUAL 2)
+ message(FATAL_ERROR "Expected exactly two periodic-controller sources for capture")
+endif()
+set_property(TARGET subsys__bluetooth__controller__ll_sw__nordic PROPERTY SOURCES "${r2_radio_sources}")
+target_include_directories(subsys__bluetooth__controller__ll_sw__nordic PRIVATE
+ "${CMAKE_CURRENT_LIST_DIR}/../include"
+ "${ZEPHYR_BASE}/subsys/bluetooth/controller/ll_sw/nordic/lll")

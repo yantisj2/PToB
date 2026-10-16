@@ -1,0 +1,92 @@
+From 52ec24ad017009d448a42684b2511376379ead76 Mon Sep 17 00:00:00 2001
+From: Marco Widmer <marco.widmer@bytesatwork.ch>
+Date: Wed, 11 Jun 2025 13:37:34 +0200
+Subject: [PATCH] Bluetooth: Controller: Deinit ticker
+
+ticker_is_initialized() should only return true when the ticker is
+running (triggered regularly). Users like nrf_flash_sync_is_required()
+depend on this behavior.
+
+When the bluetooth controller driver is closed, ll_deinit() calls
+lll_deinit(), which stops the ticker from being triggered. Also
+deinitialize the ticker to ensure that ticker_is_initialized() returns
+false.
+
+Signed-off-by: Marco Widmer <marco.widmer@bytesatwork.ch>
+---
+ subsys/bluetooth/controller/ll_sw/ull.c     | 12 ++++++++++-
+ subsys/bluetooth/controller/ticker/ticker.c | 24 +++++++++++++++++++++
+ subsys/bluetooth/controller/ticker/ticker.h |  1 +
+ 3 files changed, 36 insertions(+), 1 deletion(-)
+
+diff --git a/subsys/bluetooth/controller/ll_sw/ull.c b/subsys/bluetooth/controller/ll_sw/ull.c
+index 6ec9f5603bb3..14784d27e0d0 100644
+--- a/subsys/bluetooth/controller/ll_sw/ull.c
++++ b/subsys/bluetooth/controller/ll_sw/ull.c
+@@ -783,8 +783,18 @@ int ll_init(struct k_sem *sem_rx)
+ 
+ int ll_deinit(void)
+ {
++	int err;
++
+ 	ll_reset();
+-	return lll_deinit();
++
++	err = lll_deinit();
++	if (err) {
++		return err;
++	}
++
++	err = ticker_deinit(TICKER_INSTANCE_ID_CTLR);
++
++	return err;
+ }
+ 
+ void ll_reset(void)
+diff --git a/subsys/bluetooth/controller/ticker/ticker.c b/subsys/bluetooth/controller/ticker/ticker.c
+index 4c8ef7fa4b40..712bfc14eb3c 100644
+--- a/subsys/bluetooth/controller/ticker/ticker.c
++++ b/subsys/bluetooth/controller/ticker/ticker.c
+@@ -3475,6 +3475,30 @@ uint8_t ticker_init(uint8_t instance_index, uint8_t count_node, void *node,
+ 	return TICKER_STATUS_SUCCESS;
+ }
+ 
++/**
++ * @brief Deinitialize ticker instance
++ *
++ * @param instance_index Index of ticker instance
++ */
++int ticker_deinit(uint8_t instance_index)
++{
++	struct ticker_instance *instance;
++
++	if (instance_index >= TICKER_INSTANCE_MAX) {
++		return -EINVAL;
++	}
++
++	instance = &_instance[instance_index];
++
++	if (instance->ticker_id_head != TICKER_NULL) {
++		return -EBUSY;
++	}
++
++	instance->count_node = 0U;
++
++	return 0;
++}
++
+ /**
+  * @brief Check if ticker instance is initialized
+  *
+diff --git a/subsys/bluetooth/controller/ticker/ticker.h b/subsys/bluetooth/controller/ticker/ticker.h
+index c2dc59318bef..7b4f79b26219 100644
+--- a/subsys/bluetooth/controller/ticker/ticker.h
++++ b/subsys/bluetooth/controller/ticker/ticker.h
+@@ -173,6 +173,7 @@ uint8_t ticker_init(uint8_t instance_index, uint8_t count_node, void *node,
+ 		     void *user_op, ticker_caller_id_get_cb_t caller_id_get_cb,
+ 		     ticker_sched_cb_t sched_cb,
+ 		     ticker_trigger_set_cb_t trigger_set_cb);
++int ticker_deinit(uint8_t instance_index);
+ bool ticker_is_initialized(uint8_t instance_index);
+ void ticker_trigger(uint8_t instance_index);
+ void ticker_worker(void *param);

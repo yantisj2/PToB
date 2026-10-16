@@ -1,0 +1,41 @@
+{
+  "schema": 1,
+  "public_only": true,
+  "positive": {
+    "group_id": 99,
+    "group_epoch": 3,
+    "record": {
+      "sender": 1,
+      "sender_boot": 2,
+      "root": 1,
+      "root_boot": 2,
+      "hot": 3,
+      "hot_boot": 4,
+      "coordinator": 3,
+      "source_epoch": 5,
+      "sequence": 6,
+      "created_us": 1000000,
+      "valid_us": 1000000,
+      "flags": 3,
+      "members": 3
+    },
+    "public_test_key": "0100000000000000000000000000000000000000000000000000000000000000",
+    "wire_hex": "73ffffff475301036300000000000000030000000100000000000000020000000000000001000000000000000200000000000000030000000000000004000000000000000300000000000000050000000600000040420f000000000040420f0003000000be4d2962cb4e2a2ca3fa7730055826df",
+    "independent_python_HMAC": "PASS"
+  },
+  "negative": [
+    "EACH116_SINGLE_BYTE_CORRUPTION",
+    "WRONG_GROUP_EPOCH",
+    "115_BYTE_TRUNCATION",
+    "TTL2000001",
+    "HOT_EQUALS_ROOT",
+    "NON_GM_OR_PUBLIC_CLIENT_OR_UNREADY_OR_STOPPED_OR_EXPIRED_SOURCE",
+    "UNAUTHENTICATED_HOT_PEER_OR_WRONG_PAIR_BOOT",
+    "EARLY120S_POLL",
+    "OUT_OF_RANGE",
+    "BAD_TAG",
+    "GM_HINT_ONLY"
+  ],
+  "codec_fixture": "tools/test_gm_role_status.py",
+  "receiver_fixture": "v12_native/tools/ss3_td_owner_e2e.py"
+}

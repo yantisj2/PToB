@@ -1,0 +1,61 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+#pragma once
+#if defined(R2_NORMAL_BACKEND) && (defined(R2_BOUNDARY_FIELD) || defined(R2_RC_AUTO) || defined(R2_RC_DYNAMIC))
+#error "Normal GM/RC owner must not inherit relay diagnostic build flags"
+#endif
+#if defined(R2_FIELD_BACKEND) && (!defined(R2_BOUNDARY_FIELD) || !defined(R2_RC_AUTO))
+#error "Diagnostic owner requires its own explicit RC6 codec scope"
+#endif
+#if defined(R2_NORMAL_BACKEND)
+#define owner_stack normal_owner_stack
+#define r2_service_configure r2_normal_service_configure
+#define r2_service_clock r2_normal_service_clock
+#define r2_service_preflight r2_normal_service_preflight
+#define r2_service_start r2_normal_service_start
+#define r2_service_run r2_normal_service_run
+#define r2_service_stop r2_normal_service_stop
+#define r2_service_close_result r2_normal_service_close_result
+#define r2_service_snapshot r2_normal_service_snapshot
+#define r2_service_ui r2_normal_service_ui
+#define r2_service_supervise r2_normal_service_supervise
+#define r2_service_relay r2_normal_service_relay
+#define r2_service_relay_cancel r2_normal_service_relay_cancel
+#define r2_service_name r2_normal_service_name
+#define r2_service_stack_unused r2_normal_service_stack_unused
+#define r2_service_profile r2_normal_service_profile
+#define r2_service_profile_status r2_normal_service_profile_status
+#elif defined(R2_DYNAMIC_BACKEND)
+#define r2_service_configure r2_dynamic_service_configure
+#define r2_service_clock r2_dynamic_service_clock
+#define r2_service_preflight r2_dynamic_service_preflight
+#define r2_service_start r2_dynamic_service_start
+#define r2_service_run r2_dynamic_service_run
+#define r2_service_stop r2_dynamic_service_stop
+#define r2_service_close_result r2_dynamic_service_close_result
+#define r2_service_snapshot r2_dynamic_service_snapshot
+#define r2_service_ui r2_dynamic_service_ui
+#define r2_service_supervise r2_dynamic_service_supervise
+#define r2_service_relay r2_dynamic_service_relay
+#define r2_service_relay_cancel r2_dynamic_service_relay_cancel
+#define r2_service_name r2_dynamic_service_name
+#define r2_service_stack_unused r2_dynamic_service_stack_unused
+#define r2_radio_service_stack_unused r2_dynamic_radio_service_stack_unused
+#elif defined(R2_FIELD_BACKEND)
+#define r2_service_configure r2_field_service_configure
+#define r2_service_clock r2_field_service_clock
+#define r2_service_preflight r2_field_service_preflight
+#define r2_service_start r2_field_service_start
+#define r2_service_run r2_field_service_run
+#define r2_service_stop r2_field_service_stop
+#define r2_service_close_result r2_field_service_close_result
+#define r2_service_snapshot r2_field_service_snapshot
+#define r2_service_ui r2_field_service_ui
+#define r2_service_supervise r2_field_service_supervise
+#define r2_service_relay r2_field_service_relay
+#define r2_service_relay_cancel r2_field_service_relay_cancel
+#define r2_service_name r2_field_service_name
+#define r2_service_stack_unused r2_field_service_stack_unused
+#define r2_service_profile r2_field_service_profile
+#define r2_service_profile_status r2_field_service_profile_status
+#define r2_radio_service_stack_unused r2_field_radio_service_stack_unused
+#endif

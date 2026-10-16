@@ -1,0 +1,59 @@
+/* Actual ISR adapter with only public nRF/PPI boundary replaced. */
+#include <assert.h>
+#include <stdint.h>
+#include <stdbool.h>
+#include <stdio.h>
+#define NRFX_SUCCESS 0x0bad0000u
+#define NRF_RADIO ((void *)1)
+#define NRF_TIMER3 ((void *)2)
+#define NRF_RADIO_EVENT_ADDRESS 1
+#define NRF_TIMER_CC_CHANNEL1 1
+typedef unsigned nrf_ppi_channel_t;
+static bool address=true,route_on,disable_fault;
+static uint32_t cc=123;
+static unsigned irq_lock(void){return 0;}
+static void irq_unlock(unsigned k){(void)k;}
+static unsigned nrfx_ppi_channel_enable(unsigned ch){assert(ch==6);route_on=true;return NRFX_SUCCESS;}
+static unsigned nrfx_ppi_channel_disable(unsigned ch){assert(ch==6);if(disable_fault)return 1;route_on=false;return NRFX_SUCCESS;}
+static bool nrf_radio_event_check(void *reg,unsigned event){assert(reg==NRF_RADIO&&event==1);return address;}
+static uint32_t nrf_timer_cc_get(void *reg,unsigned channel){assert(reg==NRF_TIMER3&&channel==1);return cc;}
+#include "../src/radio_capture.c"
+int main(void){
+ uint8_t pdu[161]={7,159,0,157,255,255,255};int owner,other;
+ assert(!r2_radio_capture_enable(1,6));
+ r2_radio_capture_arm(&owner,pdu,65535,36,1,true);assert(route_on);
+ r2_radio_capture_metadata(&other,100,200,300,400);
+ r2_radio_capture_metadata(&owner,1700,1000,63,218);
+ assert(r2_radio_capture_disable()==-EBUSY&&route_on);
+ r2_radio_capture_complete(&owner,true,true);assert(!route_on);
+ struct r2_radio_record out;assert(r2_radio_capture_pop(&out)&&out.address_raw==123&&out.raw==123&&out.epoch==1&&out.owner==(uintptr_t)&owner&&out.length==158&&out.event==65535&&out.channel==36&&out.tx&&!memcmp(out.ad,pdu+3,158));
+ assert(out.reservation_us==1700&&out.prepare_us==1000&&out.widening_us==63&&out.receive_window_us==218);
+ assert(!r2_radio_capture_disable());assert(!r2_radio_capture_enable(2,6));
+ r2_radio_capture_arm(&owner,pdu,0,0,1,false);r2_radio_capture_abort(&other);assert(route_on);
+ disable_fault=true;r2_radio_capture_complete(&owner,true,true);assert(route_on&&r2_radio_capture_disable()==-EBUSY);
+ disable_fault=false;r2_radio_capture_abort(&owner);assert(!route_on);assert(!r2_radio_capture_disable());
+ assert(!r2_radio_capture_enable(3,6));
+ r2_radio_capture_arm(&owner,pdu,0,0,1,false);r2_radio_capture_complete(&owner,true,false);assert(!r2_radio_capture_pop(&out));
+ address=false;r2_radio_capture_arm(&owner,pdu,0,0,1,true);r2_radio_capture_complete(&owner,true,true);assert(!r2_radio_capture_pop(&out));address=true;
+ for(unsigned i=0;i<17;i++){cc=i;r2_radio_capture_arm(&owner,pdu,i,0,1,true);r2_radio_capture_complete(&owner,true,true);}
+ struct r2_radio_capture_stats s;r2_radio_capture_stats(&s);assert(s.overflow==1&&!s.armed);
+ for(unsigned i=0;i<16;i++)assert(r2_radio_capture_pop(&out)&&out.address_raw==i&&out.raw==i&&out.epoch==3);
+ assert(!r2_radio_capture_pop(&out)&&!r2_radio_capture_disable());
+ assert(!r2_radio_capture_enable(4,6));
+ uint8_t relay_pdu[193]={7,191,0,189,255,255,255};
+ relay_pdu[192]=0xa5;
+ r2_radio_capture_arm(&other,relay_pdu,7,13,1,false);
+ assert(r2_radio_capture_flush()==-EBUSY&&route_on);
+ r2_radio_capture_complete(&other,true,true);
+ assert(r2_radio_capture_pop(&out)&&out.length==190&&out.owner==(uintptr_t)&other&&out.ad[189]==0xa5&&!out.tx&&out.address_raw==cc&&out.raw==cc);
+ assert(!out.reservation_us&&!out.prepare_us&&!out.widening_us&&!out.receive_window_us);
+ r2_radio_capture_arm(&other,relay_pdu,8,13,1,false);r2_radio_capture_complete(&other,true,true);
+ assert(r2_radio_capture_flush()==1&&!r2_radio_capture_pop(&out)&&!r2_radio_capture_flush());
+ relay_pdu[1]=192;r2_radio_capture_arm(&other,relay_pdu,8,13,1,false);
+ r2_radio_capture_complete(&other,true,true);assert(!r2_radio_capture_pop(&out));
+ assert(!r2_radio_capture_disable());
+ assert(r2_radio_address_reference(UINT32_MAX-5,true)==UINT32_MAX-5);
+ assert(r2_radio_address_reference(100,false)==100);
+ for(unsigned i=0;i<2;i++){cc=i?UINT32_MAX:0;r2_radio_capture_enable(5+i,6);r2_radio_capture_arm(&owner,pdu,0,0,1,false);r2_radio_capture_complete(&owner,true,true);assert(r2_radio_capture_pop(&out)&&out.address_raw==cc&&out.raw==cc);assert(!r2_radio_capture_disable());}
+ puts("PASS actual radio ISR capture: exact PDU/CC, CRC/address, bounded overflow, abort, failed-disable ownership");
+}
