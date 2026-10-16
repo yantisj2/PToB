@@ -10,6 +10,7 @@ static bool exclude_direct,parent_known;
 static uint64_t fake_now;
 static uint64_t mono_us(void){return fake_now;}
 #include "rc_stream_quality.h"
+#include "rc_admission_policy.h"
 static struct r2_link_quality delivery;
 static struct {bool valid;} fit;
 static struct {uint64_t expires;} current_origin;
@@ -51,6 +52,16 @@ static void sample(unsigned seconds,bool flicker) {
  }
 }
 int main(int argc,char **argv) {
+ CHECK(rc_admission_g1_direct(1,true)&&rc_admission_g1_direct(129,true));
+ CHECK(!rc_admission_g1_direct(65,true)&&!rc_admission_g1_direct(193,true));
+ CHECK(!rc_admission_g1_direct(2,true)&&!rc_admission_g1_direct(1,false));
+ clear();fake_now=4000000;candidate_since=1;
+ seen(11,false,false,-20,fake_now);seen(11,true,true,-70,fake_now);
+ CHECK(candidates[0].id==11&&!candidates[0].relay&&candidates[1].id==11&&candidates[1].relay);
+ parent_known=startup_attempted=true;routes.node[0].id=11;
+ candidate_nonroot(11,fake_now);delivery_tick(fake_now,fake_now);
+ CHECK(candidates[0].cooldown==64000000&&!candidates[1].cooldown);
+ CHECK(choose(fake_now)==11&&candidate_choose(fake_now,false)->relay);
  if(argc==2&&!strcmp(argv[1],"flicker")) {
   bind(false);sample(40,true);CHECK(stream_sample.unstable);CHECK(relay_fallback);
   return 0;

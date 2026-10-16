@@ -25,7 +25,25 @@ PDUs, eligible target advertisements, buffer/window refusals and prepared
 connection requests. No hook changes a controller decision, deadline or radio
 register. Counters are saturating, copied with IRQ exclusion and exported once
 per connection result, rather than printing from an ISR. A prepared request is
-not proof of on-air transmission or remote receipt.
+not proof of on-air transmission or remote receipt. Match/request/refusal
+counters observe legacy initiating advertisements, as used by the T096 GM;
+connections established through AUX_ADV_IND use a separate native path.
+
+Version 0.15.59 uses7.5ms cold-admission ACL events. A15ms connection interval
+can produce120ms causal proof rounds: with a40ms source bound, the existing
+uncertainty calculation exceeds100ms. Faster bootstrap leaves more margin
+without relaxing that gate. Same-scope renewal remains50ms.
+It also rejects G1 passive-client hints as direct GM candidates and
+requires a connectable version1 report. Separately authenticated RC7 relay
+capabilities remain available; direct and relay candidates use distinct keys
+so a later G1 hint cannot change the type of a retained relay capability.
+An initiating cancellation that races the native host timeout may return
+EACCES. That return alone no longer becomes a terminal owner fault. The exact
+reference stays owned until its real completion callback, with one500ms drain
+deadline. A successful connection that races cancellation is disconnected
+without entering MTU/JOIN. Missing/late callbacks remain failures, and shutdown
+cannot extend a drain already in progress. No authentication, source expiry,
+uncertainty or acquisition gate is relaxed.
 
 ## Events and interpretation
 
@@ -70,6 +88,7 @@ transport integrity, not authenticity or timing accuracy.
 | 23 | Per-attempt native initiator reception | prepared scan windows / CRC-valid PDUs / eligible target advertisements |
 | 24 | Per-attempt connection request preparation | prepared requests / insufficient window refusals / RX-node refusals |
 | 25 | Per-attempt initiating scan preemptions | native abort count / reserved / reserved |
+| 26 | RC close completion; result0 confirms callback-observed drain, timeout is a failure | reserved / remaining original drain budget ms / reserved |
 
 Kinds22–25 carry the same connected/create-error result and per-attempt baseline.
 The target in22 is meaningful only if23 reports a prepared scan window; otherwise
@@ -150,7 +169,7 @@ does not survive a host reboot; keep the host awake for continuous collection.
 
 ## Recovery changes and acceptance
 
-Cold RC admission requests 15ms ACL events, keeping same-scope renewal at 50ms.
+Cold RC admission requests 7.5ms ACL events, keeping same-scope renewal at 50ms.
 This gives the dependent JOIN exchanges more opportunities to meet the unchanged
 100ms initial coarse-uncertainty gate. Each attempt randomizes a finite scan
 interval (50–100ms) and window (10–20ms), preserving the split controller's

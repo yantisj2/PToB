@@ -5,32 +5,50 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#define R2_TIMING_EVENTS_TEST 1
+#include "timing_events.h"
 #define CONFIG_BT_MAX_CONN 6
 #define K_NO_WAIT 0
 #define K_MSEC(x) (x)
 #define BT_HCI_ERR_REMOTE_USER_TERM_CONN 0x13
+#define BT_HCI_ERR_CONN_LIMIT_EXCEEDED 9
 struct bt_conn {unsigned refs;bool active,initiating,ucs,scheduled;unsigned at;};
+enum {BT_CONN_ROLE_CENTRAL,BT_CONN_ROLE_PERIPHERAL};
+enum {BT_CONN_STATE_DISCONNECTED,BT_CONN_STATE_CONNECTING,BT_CONN_STATE_CONNECTED};
+struct bt_conn_info {unsigned role,state;};
+static int bt_conn_get_info(struct bt_conn *c,struct bt_conn_info *i){*i=(struct bt_conn_info){BT_CONN_ROLE_CENTRAL,c->initiating?BT_CONN_STATE_CONNECTING:c->active?BT_CONN_STATE_CONNECTED:BT_CONN_STATE_DISCONNECTED};return 0;}
 struct rc5_gm_context {int v;};struct r2_join_exchange {int v;};struct rc5_demand {int v;};
 static struct rc5_gm_context gm_context;static struct r2_join_exchange gm_exchange;static struct rc5_demand lt_demand;
 static uint32_t gm_admission_diagnostic[7];
-static uint64_t lt_attempt_started,gm_sequence,lt_challenge,lt_deadline,lt_renew_at,lt_request_at,lt_next,lt_budget_until,lt_attempt_ready,lt_adv_check_at,last_context_progress;
+static uint64_t lt_attempt_started,lt_close_until,gm_sequence,lt_challenge,lt_deadline,lt_renew_at,lt_request_at,lt_next,lt_budget_until,lt_attempt_ready,lt_adv_check_at,last_context_progress;
 static unsigned lt_sequence,lt_requests,lt_responses,lt_bindings,lt_rejects,lt_attempts,lt_initiations,lt_disconnects,lt_adv_recoveries,lt_read_size,lt_handle,lt_phase;
 static bool parent_relay,lt_paused,lt_acquiring,lt_advertising,lt_dead,lt_server,lt_server_pending,lt_reply_ready,gm_write_busy;
-static void *lt_adv;static struct bt_conn *lt_conn;enum {LT_IDLE};
+static void *lt_adv;static struct bt_conn *lt_conn;enum {LT_IDLE,LT_CONNECT,LT_MTU,LT_CLOSE};
+static bool parent_known;static unsigned parent_index;
+static struct {struct {uint64_t id;} node[2];} routes;
+struct rc7_control {int unused;};
+static struct rc7_control capability(void){return (struct rc7_control){0};}
+static void lt_publish_reply(const struct rc7_control *c){(void)c;assert(false);}
 enum {LT_CONNECTED,LT_DISCONNECTED,LT_MTU_DONE};
 struct lt_event {unsigned type;struct bt_conn *conn;unsigned error;};
 static struct {struct lt_event event[4];unsigned count;} lt_events;
 static struct bt_conn pool[CONFIG_BT_MAX_CONN];static struct bt_conn *arrival;
-static unsigned now,delay_ms,disconnect_calls,records;static bool delete_fails,advertising_live;
+static unsigned now,delay_ms,disconnect_calls,records;static bool delete_fails,advertising_live,cancel_race,late_success,fault;
+static unsigned drain_events;static int drain_result;
+void r2_timing_event(unsigned k,int r,uint64_t p,uint32_t d,uint32_t a,uint32_t b){(void)p;(void)d;(void)a;(void)b;if(k==R2_TIMING_RC_DRAIN){++drain_events;drain_result=r;}}
+static void check(bool ok,const char *why){(void)why;if(!ok)fault=true;}
+static uint64_t mono_us(void){return (uint64_t)now*1000;}
+static uint64_t lt_now(void){return (uint64_t)now*16000;}
 static void put(unsigned type,struct bt_conn *c,unsigned error){assert(lt_events.count<4);lt_events.event[lt_events.count++]=(struct lt_event){type,c,error};}
 static int k_msgq_get(void *q,struct lt_event *e,int wait){(void)q;(void)wait;if(!lt_events.count)return -EAGAIN;*e=lt_events.event[0];memmove(lt_events.event,lt_events.event+1,--lt_events.count*sizeof *e);return 0;}
 static unsigned k_msgq_num_used_get(void *q){(void)q;return lt_events.count;}
 static uint64_t k_uptime_get(void){return now;}
-static void k_sleep(unsigned ms){now+=ms;for(unsigned i=0;i<CONFIG_BT_MAX_CONN;++i){struct bt_conn *c=&pool[i];if(c->scheduled&&now>=c->at){c->scheduled=false;if(c->initiating){c->initiating=false;++c->refs;put(LT_CONNECTED,c,2);}else{c->active=false;put(LT_DISCONNECTED,c,0);}}}}
+static void k_sleep(unsigned ms){now+=ms;for(unsigned i=0;i<CONFIG_BT_MAX_CONN;++i){struct bt_conn *c=&pool[i];if(c->scheduled&&now>=c->at){c->scheduled=false;if(c->initiating){c->initiating=false;c->active=late_success;++c->refs;put(LT_CONNECTED,c,late_success?0:2);late_success=false;}else{c->active=false;put(LT_DISCONNECTED,c,0);}}}}
 static void bt_conn_unref(struct bt_conn *c){assert(c->refs);--c->refs;}
+static struct bt_conn *bt_conn_ref(struct bt_conn *c){++c->refs;return c;}
 static bool r2_uc_owns(struct bt_conn *c){return c->ucs;}
-static int bt_conn_disconnect(struct bt_conn *c,unsigned reason){assert(reason==0x13&&!advertising_live);assert(!c->ucs);++disconnect_calls;c->scheduled=true;c->at=now+delay_ms;return 0;}
-static void lt_record(unsigned event,int result,unsigned phase){assert(event==4&&result==0&&phase==5);++records;}
+static int bt_conn_disconnect(struct bt_conn *c,unsigned reason){assert(reason==0x13&&!advertising_live);assert(!c->ucs);++disconnect_calls;c->scheduled=true;c->at=now+delay_ms;if(c->initiating&&cancel_race){cancel_race=false;return -EACCES;}return 0;}
+static void lt_record(unsigned event,int result,unsigned phase){(void)phase;assert((event==2||event==4)&&(result==0||result==2||result==-EACCES));++records;}
 static int bt_le_ext_adv_stop(void *adv){assert(adv);advertising_live=false;if(arrival){++arrival->refs;arrival->active=true;put(LT_CONNECTED,arrival,0);arrival=NULL;}return 0;}
 static int bt_le_ext_adv_delete(void *adv){assert(adv&&!advertising_live);return delete_fails?-EIO:0;}
 #include "rc_connection_lifecycle_under_test.h"
@@ -38,10 +56,31 @@ static void seed(void){
  memset(pool,0,sizeof pool);memset(lt_retired,0,sizeof lt_retired);memset(&lt_events,0,sizeof lt_events);
  lt_conn=NULL;lt_adv=(void*)1;lt_dead=false;lt_advertising=advertising_live=true;lt_retirement_error=false;
  arrival=NULL;now=0;delay_ms=2;disconnect_calls=records=0;delete_fails=false;
+ lt_close_until=0;lt_phase=LT_IDLE;cancel_race=late_success=fault=false;drain_events=0;drain_result=0;
 }
 static void queue_connected(unsigned slot){pool[slot].refs=1;pool[slot].active=true;put(LT_CONNECTED,&pool[slot],0);}
 static void balanced(void){assert(!lt_events.count&&!lt_adv);for(unsigned i=0;i<CONFIG_BT_MAX_CONN;++i)assert(!pool[i].refs&&!pool[i].active&&!pool[i].initiating&&!lt_retired[i].conn);assert(lt_reset());}
 int main(void){
+ /* A duplicate native timeout cancel is completion-pending, not permission
+  * to discard ownership or declare a permanent radio-owner fault. */
+ seed();lt_adv=NULL;advertising_live=false;pool[0]=(struct bt_conn){.refs=1,.initiating=true};lt_conn=&pool[0];lt_phase=LT_CONNECT;cancel_race=true;
+ lt_disconnect(6);assert(!fault&&lt_phase==LT_CLOSE&&lt_close_until==500000&&pool[0].refs==1);
+ now=499;pool[0].initiating=false;lt_apply_connected(&pool[0],2);
+ assert(!lt_closed_poll(lt_now())&&!lt_conn&&!pool[0].refs&&!fault&&drain_events==1&&!drain_result);
+ /* A success after cancellation is drained; it never becomes MTU/JOIN. */
+ seed();lt_adv=NULL;advertising_live=false;pool[0]=(struct bt_conn){.refs=1,.initiating=true};lt_conn=&pool[0];lt_phase=LT_CONNECT;cancel_race=true;
+ lt_disconnect(6);uint64_t original=lt_close_until;now=2;pool[0].initiating=false;pool[0].active=true;
+ lt_apply_connected(&pool[0],0);assert(lt_phase==LT_CLOSE&&lt_close_until==original&&disconnect_calls==2&&!fault);
+ pool[0].active=false;lt_dead=true;assert(!lt_closed_poll(lt_now())&&!lt_conn&&!pool[0].refs);
+ /* Missing and late completion remain explicit failures with owned refs. */
+ seed();lt_adv=NULL;advertising_live=false;pool[0]=(struct bt_conn){.refs=1,.initiating=true};lt_conn=&pool[0];lt_phase=LT_CONNECT;cancel_race=true;
+ lt_disconnect(6);now=500;assert(lt_closed_poll(lt_now())&&fault&&lt_conn&&pool[0].refs==1&&drain_result==-ETIMEDOUT);
+ pool[0].initiating=false;lt_apply_connected(&pool[0],2);assert(lt_closed_poll(lt_now())&&!lt_conn&&!pool[0].refs&&fault);
+ seed();pool[0]=(struct bt_conn){.refs=1,.initiating=true};lt_conn=&pool[0];cancel_race=true;assert(lt_close()&&!fault);balanced();
+ seed();pool[0]=(struct bt_conn){.refs=1,.initiating=true};lt_conn=&pool[0];cancel_race=late_success=true;assert(lt_close()&&disconnect_calls==2&&now==4);balanced();
+ seed();pool[0]=(struct bt_conn){.refs=1,.initiating=true};lt_conn=&pool[0];cancel_race=true;delay_ms=501;assert(!lt_close()&&now==500&&pool[0].refs==1);
+ /* Entering shutdown cannot replace an already running drain deadline. */
+ seed();pool[0]=(struct bt_conn){.refs=1,.initiating=true};lt_conn=&pool[0];lt_close_until=3000;delay_ms=4;assert(!lt_close()&&now==3&&pool[0].refs==1);
  seed();queue_connected(0);assert(lt_close());assert(disconnect_calls==1&&records==1);balanced();
  seed();arrival=&pool[0];assert(lt_close());assert(disconnect_calls==1);balanced();
  seed();pool[0]=(struct bt_conn){.refs=1,.initiating=true};lt_conn=&pool[0];assert(lt_close());balanced();
@@ -59,6 +98,6 @@ int main(void){
   queue_connected(slot);assert(lt_close());balanced();
  }
  assert(disconnect_calls==CONFIG_BT_MAX_CONN*2);
- puts("PASS queued/during-stop arrivals, central cancel, multiple ACLs, deadline499/500/501ms, failed retirement, UCS preservation and12 capacity cycles");
+ puts("PASS cancel EACCES races, late-success cleanup without MTU/JOIN, original callback/shutdown deadlines, unknown ownership, UCS preservation and12 capacity cycles");
  return 0;
 }

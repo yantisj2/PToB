@@ -14,6 +14,12 @@ static inline struct rc_admission_scan rc_admission_scan(uint64_t nonce){
   .window=(uint16_t)(16u+(nonce/81u)%17u)};
 }
 /* Cold JOIN has several dependent ATT exchanges and the unchanged <100ms
- * uncertainty gate. Request 15ms ACL events, rather than the previous 30ms.
+ * uncertainty gate. At15ms,120ms proof rounds fail with a40ms source bound.
+ * Use the public7.5ms minimum for this short authenticated bootstrap only.
  * Same-scope renewal keeps its existing 50ms connection interval. */
-static inline unsigned rc_admission_interval(bool renewing){return renewing?40u:12u;}
+static inline unsigned rc_admission_interval(bool renewing){return renewing?40u:6u;}
+/* G1 version1's passive-client bit is not a direct GM locator. Such a peer
+ * can still be considered through its separately authenticated RC7 capability.
+ * This rejects unsuitable discovery, never grants source/time authority. */
+static inline bool rc_admission_g1_direct(uint8_t flags,bool connectable)
+{return connectable&&(flags&63u)==1u&&!(flags&64u);}

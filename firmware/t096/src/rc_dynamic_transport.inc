@@ -24,6 +24,7 @@ static uint32_t gm_admission_diagnostic[7];
  * No callback reads controller state or changes a recovery deadline. */
 static uint32_t lt_diagnostic[20];
 static uint64_t lt_attempt_started;
+static uint64_t lt_close_until;
 static uint64_t gm_sequence, lt_challenge, lt_deadline, lt_renew_at,
     lt_request_at, lt_next, lt_budget_until, lt_attempt_ready, lt_adv_check_at;
 static uint32_t lt_sequence, lt_requests, lt_responses, lt_bindings, lt_rejects,
@@ -153,9 +154,18 @@ static void lt_record(unsigned event, int result, unsigned phase) {
 }
 static void lt_disconnect(unsigned reason) {
   if (lt_conn && lt_phase != LT_CLOSE) {
+    struct bt_conn_info info;
+    bool initiating=!bt_conn_get_info(lt_conn,&info)&&
+        info.role==BT_CONN_ROLE_CENTRAL&&info.state==BT_CONN_STATE_CONNECTING;
+    /* The stock host has its own original two-second create timeout. A
+     * racing cancel can return EACCES after the controller already completed
+     * initiation/cancellation, before its callback reaches this owner. Keep
+     * the reference and require that callback within one finite drain; never
+     * start another owner or infer completion from this return value. */
+    lt_close_until=mono_us()+500000;
     int rc = bt_conn_disconnect(lt_conn, BT_HCI_ERR_REMOTE_USER_TERM_CONN);
     lt_record(4, rc, reason);
-    if (rc && rc != -ENOTCONN)
+    if (rc && rc != -ENOTCONN && !(initiating&&rc==-EACCES))
       check(false, "GATT disconnect/cancel");
     lt_phase = LT_CLOSE;
   }
@@ -174,6 +184,7 @@ static bool lt_reset(void) {
   }
   if (!clean) return false;
   lt_attempt_started = 0;
+  lt_close_until = 0;
   memset(gm_admission_diagnostic, 0, sizeof gm_admission_diagnostic);
   gm_context = (struct rc5_gm_context){0};
   gm_exchange = (struct r2_join_exchange){0};
@@ -623,6 +634,14 @@ static void lt_apply_connected(struct bt_conn *conn, uint8_t error) {
   }
   if (conn == lt_conn && info.role == BT_CONN_ROLE_CENTRAL)
     lt_record(2, 0, lt_phase);
+  if(conn==lt_conn&&lt_phase==LT_CLOSE){
+    /* A successful connection can win the cancellation race. It is cleanup,
+     * never permission to begin MTU/JOIN after the original attempt ended. */
+    int rc=bt_conn_disconnect(conn,BT_HCI_ERR_REMOTE_USER_TERM_CONN);
+    lt_record(4,rc,7);
+    if(rc&&rc!=-ENOTCONN)check(false,"GATT late connected drain");
+    return;
+  }
   if (!lt_conn)
     lt_conn = bt_conn_ref(conn);
   else if (conn != lt_conn) {
@@ -831,6 +850,31 @@ static void lt_guard(uint64_t tick, bool window) {
   (void)tick;
   lt_paused = !window || lt_acquiring;
 }
+static bool lt_closed_poll(uint64_t tick) {
+  if (lt_dead && lt_conn) {
+    uint64_t at=mono_us();
+    bool late=lt_close_until&&at>=lt_close_until;
+    if(lt_close_until)r2_timing_event(R2_TIMING_RC_DRAIN,late?-ETIMEDOUT:0,
+        parent_known?routes.node[parent_index].id:0,0,
+        at<lt_close_until?(uint32_t)((lt_close_until-at)/1000):0,0);
+    bt_conn_unref(lt_conn);
+    lt_conn = NULL;
+    gm_write_busy = lt_dead = lt_server = false;
+    lt_close_until = 0;
+    lt_phase = LT_IDLE;
+    lt_next = tick + 320000;
+    if(late){check(false,"GATT close callback deadline");return true;}
+  }
+  if(lt_conn&&lt_phase==LT_CLOSE){
+    if(mono_us()>=lt_close_until){
+      r2_timing_event(R2_TIMING_RC_DRAIN,-ETIMEDOUT,
+          parent_known?routes.node[parent_index].id:0,0,0,0);
+      check(false,"GATT close callback deadline");
+    }
+    return true;
+  }
+  return false;
+}
 static void slot_hint_update(void) {
   if (!lt_adv)
     return;
@@ -888,13 +932,7 @@ static void lt_poll(uint64_t tick, bool window) {
   if (timing.bound && r2_rc7_fixture_renew(self_identity, tick))
     lt_renew_at = 0;
 #endif
-  if (lt_dead && lt_conn) {
-    bt_conn_unref(lt_conn);
-    lt_conn = NULL;
-    gm_write_busy = lt_dead = lt_server = false;
-    lt_phase = LT_IDLE;
-    lt_next = tick + 320000;
-  }
+  if(lt_closed_poll(tick))return;
   if (lt_conn) {
     if (!window || tick >= lt_deadline) {
       lt_disconnect(!window ? 2 : !lt_deadline ? 1 : 6);
@@ -1094,7 +1132,7 @@ static void lt_poll(uint64_t tick, bool window) {
     unsigned interval = rc_admission_interval(renewing);
     r2_init_diag_snapshot(&lt_radio_before);
     int rc = bt_conn_le_create(&parent, create,
-                               /* Cold admission uses 15ms ACL events; the
+                               /* Cold admission uses 7.5ms ACL events; the
                                 * GM proof retains its100ms uncertainty gate.
                                 * Renewal never quiesces periodic timing/sync.
                                 * Original2s lifetime and1s supervision remain.
@@ -1153,6 +1191,7 @@ static void lt_retire_events(void) {
         if (r) r->ended = true;
         bt_conn_unref(e.conn);
       } else if (r || r2_uc_owns(e.conn)) {
+        if(r){r->ended=false;r->requested=false;}
         bt_conn_unref(e.conn);
       } else if (!lt_retired_take(e.conn)) {
         /* Retain failure, release exactly the event's owned reference. */
@@ -1168,6 +1207,7 @@ static void lt_retire_events(void) {
 static bool lt_close(void) {
   /* One absolute local drain budget, inside the original outer close. */
   uint64_t until = k_uptime_get() + 500;
+  if(lt_close_until&&lt_close_until/1000<until)until=lt_close_until/1000;
   bool closed = true;
   lt_retirement_error = false;
   if (lt_conn) {
@@ -1204,10 +1244,13 @@ static bool lt_close(void) {
       if (!r->conn || r->ended) continue;
       pending = true;
       if (!r->requested) {
+        struct bt_conn_info info;
+        bool initiating=!bt_conn_get_info(r->conn,&info)&&
+            info.role==BT_CONN_ROLE_CENTRAL&&info.state==BT_CONN_STATE_CONNECTING;
         int rc = bt_conn_disconnect(r->conn, BT_HCI_ERR_REMOTE_USER_TERM_CONN);
         lt_record(4, rc, 5);
         r->requested = true;
-        if (rc && rc != -ENOTCONN) lt_retirement_error = true;
+        if (rc && rc != -ENOTCONN && !(initiating&&rc==-EACCES)) lt_retirement_error = true;
       }
     }
     if (!pending && !k_msgq_num_used_get(&lt_events)) {

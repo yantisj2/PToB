@@ -331,7 +331,7 @@ static void startup_complete(void) {
 }
 static void candidate_defer(uint64_t id, uint64_t now) {
   for (unsigned i = 0; i < 8; i++)
-    if (candidates[i].id == id) {
+    if (candidates[i].id == id && (!parent_known || candidates[i].relay == parent_relay)) {
       candidates[i].consumed = candidates[i].seen;
       candidates[i].cooldown = now + 5000000;
     }
@@ -343,7 +343,7 @@ static void candidate_defer(uint64_t id, uint64_t now) {
 static void candidate_nonroot(uint64_t id,uint64_t now){
  if(!parent_known||parent_relay||id!=routes.node[parent_index].id)return;
  parent_ineligible=true;
- for(unsigned i=0;i<8;i++)if(candidates[i].id==id){
+ for(unsigned i=0;i<8;i++)if(candidates[i].id==id&&!candidates[i].relay){
   candidates[i].consumed=candidates[i].seen;candidates[i].cooldown=now+60000000;
  }
 }
@@ -362,7 +362,7 @@ static void candidate_seen(const bt_addr_le_t *address, uint64_t id, bool relay,
 #endif
   unsigned at = 8;
   for (unsigned i = 0; i < 8; i++)
-    if (candidates[i].id == id) {
+    if (candidates[i].id == id && candidates[i].relay == relay) {
       at = i;
       break;
     }
@@ -540,6 +540,7 @@ struct discovery {
   uint16_t interval;
   uint8_t sid, len;
   int8_t rssi;
+  bool connectable;
   uint8_t data[RC_DYNAMIC_CAPABILITY_BYTES];
 };
 K_MSGQ_DEFINE(discovery_queue, sizeof(struct discovery), 4, 4);
@@ -562,7 +563,8 @@ static void scan(const struct bt_le_scan_recv_info *i,
   struct discovery d = {.address = *i->addr,
                         .interval = i->interval,
                         .sid = i->sid,
-                        .rssi = i->rssi};
+                        .rssi = i->rssi,
+                        .connectable = (i->adv_props & BT_GAP_ADV_PROP_CONNECTABLE) != 0};
   bt_data_parse(ad, scan_data, &d);
   if (d.len || i->interval)
     (void)k_msgq_put(&discovery_queue, &d, K_NO_WAIT);
@@ -675,6 +677,7 @@ static void discover(uint64_t tick) {
   while (!k_msgq_get(&discovery_queue, &d, K_NO_WAIT)) {
     uint64_t now = mono_us();
     if (d.len == 23 && d.data[0] == 'G' && d.data[1] == '1' &&
+        rc_admission_g1_direct(d.data[2],d.connectable) &&
         r2_group_get(d.data + 3, 8) == group.id &&
         r2_group_get(d.data + 11, 4) == group.epoch && !exclude_direct)
       candidate_seen(&d.address, r2_group_get(d.data + 15, 8), false, false, d.rssi,

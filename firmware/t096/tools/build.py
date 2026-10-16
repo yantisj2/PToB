@@ -79,7 +79,7 @@ def main():
     out.mkdir(parents=True); (out/'target').mkdir()
     source = {str(p.relative_to(APP)):sha(p) for p in source_files()}
     source_hash = hashlib.sha256(json.dumps(source,sort_keys=True,separators=(',',':')).encode()).hexdigest()
-    receipt = {'schema':1,'artifact_class':'PTOB_T096_RC7','version':'0.15.58',
+    receipt = {'schema':1,'artifact_class':'PTOB_T096_RC7','version':'0.15.59',
                'status':'INCOMPLETE','public_commit':git(REPO,'rev-parse','HEAD'),
                'child_commit':git(REPO,'rev-parse','HEAD'),'source_dirty':dirty,'sources':source,'source_sha256':source_hash,
                'profile':args.profile,'usb_source_stream':True,'dependencies':lock,
