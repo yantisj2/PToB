@@ -7,6 +7,7 @@
 #include <errno.h>
 #define R2_TIMING_EVENTS_TEST 1
 #include "timing_events.h"
+#include "rc_admission_policy.h"
 #define CONFIG_BT_MAX_CONN 6
 #define K_NO_WAIT 0
 #define K_MSEC(x) (x)
@@ -14,9 +15,9 @@
 #define BT_HCI_ERR_CONN_LIMIT_EXCEEDED 9
 struct bt_conn {unsigned refs;bool active,initiating,ucs,scheduled;unsigned at;};
 enum {BT_CONN_ROLE_CENTRAL,BT_CONN_ROLE_PERIPHERAL};
-enum {BT_CONN_STATE_DISCONNECTED,BT_CONN_STATE_CONNECTING,BT_CONN_STATE_CONNECTED};
-struct bt_conn_info {unsigned role,state;};
-static int bt_conn_get_info(struct bt_conn *c,struct bt_conn_info *i){*i=(struct bt_conn_info){BT_CONN_ROLE_CENTRAL,c->initiating?BT_CONN_STATE_CONNECTING:c->active?BT_CONN_STATE_CONNECTED:BT_CONN_STATE_DISCONNECTED};return 0;}
+enum {BT_CONN_STATE_DISCONNECTED,BT_CONN_STATE_CONNECTING,BT_CONN_STATE_CONNECTED,BT_CONN_STATE_DISCONNECTING};
+struct bt_conn_info {unsigned role,state;struct {unsigned timeout;} le;};
+static int bt_conn_get_info(struct bt_conn *c,struct bt_conn_info *i){*i=(struct bt_conn_info){.role=BT_CONN_ROLE_CENTRAL,.state=c->initiating?BT_CONN_STATE_CONNECTING:c->active?BT_CONN_STATE_CONNECTED:BT_CONN_STATE_DISCONNECTED,.le={.timeout=100}};return 0;}
 struct rc5_gm_context {int v;};struct r2_join_exchange {int v;};struct rc5_demand {int v;};
 static struct rc5_gm_context gm_context;static struct r2_join_exchange gm_exchange;static struct rc5_demand lt_demand;
 static uint32_t gm_admission_diagnostic[7];
@@ -39,6 +40,7 @@ void r2_timing_event(unsigned k,int r,uint64_t p,uint32_t d,uint32_t a,uint32_t 
 static void check(bool ok,const char *why){(void)why;if(!ok)fault=true;}
 static uint64_t mono_us(void){return (uint64_t)now*1000;}
 static uint64_t lt_now(void){return (uint64_t)now*16000;}
+static uint64_t lt_random(void){return 0;}
 static void put(unsigned type,struct bt_conn *c,unsigned error){assert(lt_events.count<4);lt_events.event[lt_events.count++]=(struct lt_event){type,c,error};}
 static int k_msgq_get(void *q,struct lt_event *e,int wait){(void)q;(void)wait;if(!lt_events.count)return -EAGAIN;*e=lt_events.event[0];memmove(lt_events.event,lt_events.event+1,--lt_events.count*sizeof *e);return 0;}
 static unsigned k_msgq_num_used_get(void *q){(void)q;return lt_events.count;}
@@ -57,10 +59,20 @@ static void seed(void){
  lt_conn=NULL;lt_adv=(void*)1;lt_dead=false;lt_advertising=advertising_live=true;lt_retirement_error=false;
  arrival=NULL;now=0;delay_ms=2;disconnect_calls=records=0;delete_fails=false;
  lt_close_until=0;lt_phase=LT_IDLE;cancel_race=late_success=fault=false;drain_events=0;drain_result=0;
+ lt_attempts=0;
 }
 static void queue_connected(unsigned slot){pool[slot].refs=1;pool[slot].active=true;put(LT_CONNECTED,&pool[slot],0);}
 static void balanced(void){assert(!lt_events.count&&!lt_adv);for(unsigned i=0;i<CONFIG_BT_MAX_CONN;++i)assert(!pool[i].refs&&!pool[i].active&&!pool[i].initiating&&!lt_retired[i].conn);assert(lt_reset());}
 int main(void){
+ /* A connected peer may disappear before replying to termination. Its1s
+  * supervision is inside the1.5s normal drain, without relaxing shutdown. */
+ seed();lt_adv=NULL;advertising_live=false;pool[0]=(struct bt_conn){.refs=1,.active=true};lt_conn=&pool[0];lt_attempts=2;
+ lt_disconnect(1);assert(!fault&&lt_close_until==1500000);
+ now=1000;assert(lt_closed_poll(lt_now())&&!fault&&lt_conn);
+ now=1499;pool[0].active=false;lt_dead=true;
+ assert(!lt_closed_poll(lt_now())&&!fault&&!lt_conn&&!pool[0].refs&&lt_renew_at==lt_now()+80000000);
+ seed();lt_adv=NULL;advertising_live=false;pool[0]=(struct bt_conn){.refs=1,.active=true};lt_conn=&pool[0];
+ lt_disconnect(1);now=1500;assert(lt_closed_poll(lt_now())&&fault&&lt_conn&&drain_result==-ETIMEDOUT);
  /* A duplicate native timeout cancel is completion-pending, not permission
   * to discard ownership or declare a permanent radio-owner fault. */
  seed();lt_adv=NULL;advertising_live=false;pool[0]=(struct bt_conn){.refs=1,.initiating=true};lt_conn=&pool[0];lt_phase=LT_CONNECT;cancel_race=true;

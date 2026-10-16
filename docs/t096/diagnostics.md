@@ -89,6 +89,8 @@ transport integrity, not authenticity or timing accuracy.
 | 24 | Per-attempt connection request preparation | prepared requests / insufficient window refusals / RX-node refusals |
 | 25 | Per-attempt initiating scan preemptions | native abort count / reserved / reserved |
 | 26 | RC close completion; result0 confirms callback-observed drain, timeout is a failure | reserved / remaining original drain budget ms / reserved |
+| 27 | RC control retry scheduled | reason:0 failed attempt,1 PENDING,2 exhausted batch,3 create API error / delay ms / attempt count |
+| 28 | RC advertising/gate transition | flags / requested discovery interval in625us units / reserved |
 
 Kinds22–25 carry the same connected/create-error result and per-attempt baseline.
 The target in22 is meaningful only if23 reports a prepared scan window; otherwise
@@ -172,6 +174,52 @@ closure still permits a fresh guarded segment; a failed close remains unknown
 and stops the supervisor. No ownership or identity check is waived.
 
 ## Recovery changes and acceptance
+
+Event28 and `rc-parent.transport[9]` report bit0 server role, bit1 acquisition
+pause, bit2 capability advertising, bit3 usable precision gate, bit4 periodic
+train/SyncInfo advertiser running and bit5 UCS1 advertising. These are owner/API
+states, not independent RF observations. Snapshots may briefly capture a gate
+transition before the same owner iteration finishes stopping its advertisers;
+use the subsequent transition and preserve any failed stop.
+
+Version0.15.60 requests100ms for the RC's connectable capability advertiser
+(SID13, previously30ms) and nonconnectable SyncInfo discovery advertiser
+(SID12, previously20ms). These are extended discovery events, separate from
+SID12's periodic precision train, which remains62.5ms (16Hz), with unchanged
+slot placement, authentication and source/map expiry. These are requested
+intervals; controller delay, scheduling and skipped events affect actual RF.
+The nominal discovery event rates fall from33.3/s and50/s to10/s each.
+The separate UCS1 service discovery remains318.75ms.
+
+All RC advertising is held off until an upstream precision capture is usable:
+parent PA sync, valid fit and clock map, PLL tracking, unexpired source and
+less than500ms since discipline are required. Capability and UCS1 discovery
+withdraw when this gate fails; the periodic train and its SyncInfo discovery
+stop together. Upstream scanning/admission remain enabled. Discovery does not
+require an existing child demand or an already-running downstream train, so an
+idle synchronized relay can still be discovered. Existing UCS1 clients retain
+their sessions and explicit validity/withdrawal reporting.
+
+The current RC7 codec defines the144-byte authenticated capability projection,
+300-second normal renewal and360-second maximum lease, but no encoded discovery
+interval. The historical adoption specification retained the then-existing
+advertiser cadence;100ms is an explicit current owner-policy change, not a
+historical protocol requirement or a new wire version. Discovery grants no
+timing authority. Validate cold joins, child admission, relay path acquisition
+and renewal under load after changing this cadence.
+
+Healthy T096 RCs have no per-second context renewal. Failed control attempts now
+wait2–3s,5–7.5s and10–15s, with30–45s between three-attempt batches. Authenticated
+PENDING waits5–7.5s, without rearming its original parent trial. Each schedule
+is journaled separately from the five-minute steady renewal. The original
+two-second transaction still bounds acquisition. Normal connected teardown
+allows its negotiated supervision timeout plus500ms for callback delivery;
+create cancellation and explicit profile/update shutdown retain their500ms
+budgets. Thus a recoverable peer loss on a one-second-supervision ACL is not
+declared fatal after only500ms. Missing callbacks still fail with references
+owned; no wait is rearmed. Client-specific replay-anchor and
+permission-gap refresh policies must be diagnosed separately; increasing a
+lease alone cannot authorize stale output.
 
 Cold RC admission requests 7.5ms ACL events, keeping same-scope renewal at 50ms.
 This gives the dependent JOIN exchanges more opportunities to meet the unchanged

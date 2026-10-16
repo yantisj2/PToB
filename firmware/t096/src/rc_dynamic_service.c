@@ -284,6 +284,17 @@ static bool downstream_ready(uint64_t tick) {
          rc5_clock_capture(&local_clock, &timing, tick, &st) &&
          st.ns < current_origin.expires;
 }
+/* Discovery must not recruit children before this RC has a usable precision
+ * clock. Do not require downstream publication/demand: that would deadlock
+ * discovery of an otherwise synchronized idle relay. */
+static bool precision_synced(uint64_t tick) {
+  struct rc5_stamp st;
+  return parent_known && parent_synced && fit.valid && !holdover_expired &&
+      discipline_at && tick >= discipline_at &&
+      tick-discipline_at < RC_FIELD_HOLD_TICKS &&
+      rc5_clock_capture(&local_clock,&timing,tick,&st) && st.pll_tracking &&
+      st.ns < current_origin.expires;
+}
 static bool stop(void);
 static void slot_hint_update(void);
 struct candidate {
@@ -820,8 +831,8 @@ static void create(void) {
                               .options = BT_LE_ADV_OPT_EXT_ADV |
                                          BT_LE_ADV_OPT_USE_IDENTITY |
                                          BT_LE_ADV_OPT_NO_2M,
-                              .interval_min = 32,
-                              .interval_max = 32};
+                              .interval_min = RC_DISCOVERY_ADV_INTERVAL,
+                              .interval_max = RC_DISCOVERY_ADV_INTERVAL};
   struct bt_le_per_adv_param periodic = {.interval_min = 50,
                                          .interval_max = 50};
   int rc = bt_le_ext_adv_create(&p, NULL, &pa);
@@ -834,7 +845,7 @@ static void create(void) {
 }
 static void start(void) {
   struct r2_capture now;
-  if (!pa || !r2_capture_now(&now))
+  if (!pa || !r2_capture_now(&now) || !precision_synced(now.tick))
     return;
   requested = now.tick;
   awaiting_first_tx = true;
@@ -870,6 +881,17 @@ static bool stop(void) {
     slot_hint_update();
   }
   return closed;
+}
+static bool advertising_withdraw(uint64_t tick) {
+  if(!running||precision_synced(tick))return true;
+  if(!stop())return false;
+  sent_count=0;
+  phase_admitted=start_prepared=awaiting_first_tx=false;
+  lt_acquiring=false;
+  restart_at=0;
+  if(train==UINT32_MAX){check(false,"unsynced train exhausted");return false;}
+  ++train;
+  return true;
 }
 static void captures(struct r2_capture now) {
   struct r2_radio_record r;
@@ -1159,6 +1181,15 @@ static void snapshot_publish(struct r2_capture now) {
   }
   uint8_t lamps[8];
   r2_ble_lamps(lamps, mono_us());
+  uint32_t advertising_flags=(lt_server?1u:0u)|(lt_paused?2u:0u)|
+      (lt_advertising?4u:0u)|(precision_synced(now.tick)?8u:0u)|
+      (running?16u:0u)|(r2_uc_advertising()?32u:0u);
+  static uint32_t previous_advertising_flags=UINT32_MAX;
+  if(advertising_flags!=previous_advertising_flags){
+    previous_advertising_flags=advertising_flags;
+    r2_timing_event(R2_TIMING_RC_ADVERTISING,0,self_identity,
+        advertising_flags,RC_DISCOVERY_ADV_INTERVAL,0);
+  }
   k_mutex_lock(&state_lock, K_FOREVER);
   memcpy(status.lamps, lamps, sizeof lamps);
   const uint32_t control[13] = {lt_requests,
@@ -1170,8 +1201,7 @@ static void snapshot_publish(struct r2_capture now) {
                                 lt_adv_recoveries,
                                 lt_phase,
                                 lt_conn != NULL,
-                                (lt_server ? 1u : 0u) | (lt_paused ? 2u : 0u) |
-                                    (lt_advertising ? 4u : 0u),
+                                advertising_flags,
                                 cap_received,
                                 cap_authenticated,
                                 cap_usable};
@@ -1362,6 +1392,7 @@ static void owner(void *a, void *b, void *c) {
     /* Phase 1: RC owners and diagnostic leaf listen continuously. */
     bool window = true;
     lt_guard(now.tick, window);
+    if(!advertising_withdraw(now.tick))continue;
     if (running && !rc5_demand_live(&lt_demand, now.tick / 16)) {
       stop();
       sent_count = 0;
@@ -1554,7 +1585,7 @@ static void owner(void *a, void *b, void *c) {
     }
 #endif
     if (node && routes.node[node].transmitter && !running && !lt_conn &&
-        ready_clock && phase_rx && now.tick >= phase_rx &&
+        ready_clock && precision_synced(now.tick) && phase_rx && now.tick >= phase_rx &&
         now.tick - phase_rx < RC_FIELD_HOLD_TICKS &&
         rc5_demand_live(&lt_demand, now.tick / 16) &&
         (slot_selected || slot_move_pending) && !slot_state.scanning) {
@@ -1641,7 +1672,7 @@ static void owner(void *a, void *b, void *c) {
 #ifdef R2_USB_SOURCE_STREAM
       r2_usb_source_publish(&offered);
 #endif
-      r2_uc_poll(&offered);
+      check(!r2_uc_poll(&offered,precision_synced(now.tick)),"UCS1 advertising gate");
     }
     k_sleep(K_USEC(1000));
   }

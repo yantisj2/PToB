@@ -532,12 +532,12 @@ int r2_uc_start(const struct r2_group_config *group, uint64_t id,
   u.enabled = true;
   return 0;
 }
-void r2_uc_poll(const struct r2_uc_clock *clock) {
+int r2_uc_poll(const struct r2_uc_clock *clock,bool advertise_allowed) {
   if (!rc_owner())
-    return;
+    return -EPERM;
   struct bt_conn *retired[UC1_CLIENTS], *disconnect[UC1_CLIENTS];
   unsigned nretired = 0, ndisconnect = 0, occupied = 0;
-  bool advertise, submit = false;
+  bool advertise, withdraw, submit = false;
   uint64_t now = now_us();
   k_spinlock_key_t k = k_spin_lock(&lock);
   u.clock = *clock;
@@ -565,8 +565,10 @@ void r2_uc_poll(const struct r2_uc_clock *clock) {
    * Reconcile through the public API; EALREADY performs no HCI/RF work. The
    * same elapsed-time check bounds retries on resource errors, without a timer.
    */
-  advertise =
-      u.enabled && u.adv && occupied < UC1_CLIENTS && now >= u.adv_check_at;
+  withdraw = u.adv && u.advertising && !advertise_allowed;
+  advertise = advertise_allowed &&
+      u.enabled && u.adv && occupied < UC1_CLIENTS &&
+      (!u.advertising || now >= u.adv_check_at);
   if (advertise)
     u.adv_check_at = now + UINT64_C(1000000);
   k_spin_unlock(&lock, k);
@@ -575,6 +577,14 @@ void r2_uc_poll(const struct r2_uc_clock *clock) {
   for (unsigned i = 0; i < ndisconnect; i++) {
     (void)bt_conn_disconnect(disconnect[i], BT_HCI_ERR_REMOTE_USER_TERM_CONN);
     bt_conn_unref(disconnect[i]);
+  }
+  if (withdraw) {
+    int result=bt_le_ext_adv_stop(u.adv);
+    if(result&&result!=-EALREADY)return result;
+    k= k_spin_lock(&lock);
+    u.advertising=false;
+    u.adv_check_at=0;
+    k_spin_unlock(&lock,k);
   }
   if (advertise) {
     int result = bt_le_ext_adv_start(u.adv, BT_LE_EXT_ADV_START_DEFAULT);
@@ -586,6 +596,7 @@ void r2_uc_poll(const struct r2_uc_clock *clock) {
   }
   if (submit)
     (void)k_work_submit(&job);
+  return 0;
 }
 bool r2_uc_close(void) {
   struct bt_conn *connections[UC1_CLIENTS];
@@ -694,4 +705,10 @@ bool r2_uc_serving_clients(void) {
     }
   k_spin_unlock(&lock, k);
   return serving;
+}
+bool r2_uc_advertising(void) {
+  k_spinlock_key_t k=k_spin_lock(&lock);
+  bool active=u.advertising;
+  k_spin_unlock(&lock,k);
+  return active;
 }

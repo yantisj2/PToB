@@ -155,14 +155,17 @@ static void lt_record(unsigned event, int result, unsigned phase) {
 static void lt_disconnect(unsigned reason) {
   if (lt_conn && lt_phase != LT_CLOSE) {
     struct bt_conn_info info;
-    bool initiating=!bt_conn_get_info(lt_conn,&info)&&
+    bool known=!bt_conn_get_info(lt_conn,&info);
+    bool initiating=known&&
         info.role==BT_CONN_ROLE_CENTRAL&&info.state==BT_CONN_STATE_CONNECTING;
     /* The stock host has its own original two-second create timeout. A
      * racing cancel can return EACCES after the controller already completed
      * initiation/cancellation, before its callback reaches this owner. Keep
      * the reference and require that callback within one finite drain; never
      * start another owner or infer completion from this return value. */
-    lt_close_until=mono_us()+500000;
+    lt_close_until=mono_us()+rc_admission_drain_us(known&&
+        (info.state==BT_CONN_STATE_CONNECTED||info.state==BT_CONN_STATE_DISCONNECTING),
+        known?info.le.timeout:0);
     int rc = bt_conn_disconnect(lt_conn, BT_HCI_ERR_REMOTE_USER_TERM_CONN);
     lt_record(4, rc, reason);
     if (rc && rc != -ENOTCONN && !(initiating&&rc==-EACCES))
@@ -748,6 +751,11 @@ static void lt_apply_read(const struct rc7_control *c) {
        * fixed parent wait still expires; repeated PENDING cannot rearm it. */
       lt_attempts = 0;
       lt_budget_until = 0;
+      /* PENDING carries no clock authority and needs no one-second polling.
+       * Its original parent trial still expires independently. */
+      lt_renew_at=tick+rc_admission_retry_us(2,lt_random())*16;
+      r2_timing_event(R2_TIMING_RC_RETRY,0,c->sender,1,
+          (uint32_t)((lt_renew_at-tick)/16000),0);
       parent_wait(1);
     }
 #if defined(R2_RC_DYNAMIC_FIXTURE)
@@ -857,6 +865,7 @@ static bool lt_closed_poll(uint64_t tick) {
     if(lt_close_until)r2_timing_event(R2_TIMING_RC_DRAIN,late?-ETIMEDOUT:0,
         parent_known?routes.node[parent_index].id:0,0,
         at<lt_close_until?(uint32_t)((lt_close_until-at)/1000):0,0);
+    bool retry=!lt_server&&lt_attempts;
     bt_conn_unref(lt_conn);
     lt_conn = NULL;
     gm_write_busy = lt_dead = lt_server = false;
@@ -864,6 +873,13 @@ static bool lt_closed_poll(uint64_t tick) {
     lt_phase = LT_IDLE;
     lt_next = tick + 320000;
     if(late){check(false,"GATT close callback deadline");return true;}
+    if(retry){
+      uint64_t ready=tick+rc_admission_retry_us(lt_attempts,lt_random())*16;
+      if(ready>lt_renew_at)lt_renew_at=ready;
+      r2_timing_event(R2_TIMING_RC_RETRY,0,
+          parent_known?routes.node[parent_index].id:0,0,
+          (uint32_t)((lt_renew_at-tick)/16000),lt_attempts);
+    }
   }
   if(lt_conn&&lt_phase==LT_CLOSE){
     if(mono_us()>=lt_close_until){
@@ -906,14 +922,46 @@ static void lt_init(void) {
         .sid = 13,
         .options = BT_LE_ADV_OPT_CONN | BT_LE_ADV_OPT_EXT_ADV |
                    BT_LE_ADV_OPT_USE_IDENTITY | BT_LE_ADV_OPT_NO_2M,
-        .interval_min = 48,
-        .interval_max = 48};
+        .interval_min = RC_DISCOVERY_ADV_INTERVAL,
+        .interval_max = RC_DISCOVERY_ADV_INTERVAL};
     check(!bt_le_ext_adv_create(&p, &lt_adv_callbacks, &lt_adv), "RQ7 capability create");
     slot_hint_update();
   }
 }
+static void lt_advertise(uint64_t tick) {
+  if(!lt_adv)return;
+  if(!precision_synced(tick)){
+    if(lt_advertising){
+      int rc=bt_le_ext_adv_stop(lt_adv);
+      check(!rc||rc==-EALREADY,"unsynced RQ7 advertising stop");
+      if(!rc||rc==-EALREADY)lt_advertising=false;
+    }
+    return;
+  }
+  if (!lt_paused &&
+      (!lt_advertising || tick >= lt_adv_check_at)) {
+    /* Connectable advertising can terminate before an accepted-connection
+     * callback. Reconcile through the public host API: -EALREADY performs no
+     * HCI/RF work. This never stops the periodic timing train or its sync.
+     */
+    bool expected = lt_advertising;
+    if (!expected)
+      slot_hint_update();
+    int rc = bt_le_ext_adv_start(lt_adv, BT_LE_EXT_ADV_START_DEFAULT);
+    check(!rc || rc == -EALREADY, "RQ7 capability start");
+    if (!rc || rc == -EALREADY) {
+      lt_advertising = true;
+      lt_adv_check_at = tick + 16000000;
+      if (!rc && expected) {
+        ++lt_adv_recoveries;
+        slot_hint_update();
+      }
+    }
+  }
+}
 static void lt_poll(uint64_t tick, bool window) {
   lt_drain();
+  if(!precision_synced(tick))lt_advertise(tick);
 #if defined(R2_RC_DYNAMIC_FIXTURE)
   static uint64_t report_at;
   uint64_t report_now = mono_us();
@@ -1096,8 +1144,10 @@ static void lt_poll(uint64_t tick, bool window) {
     lt_attempt_ready = 0;
     if (lt_attempts >= 3) {
       lt_attempts = 0;
-      lt_budget_until = tick + 160000000;
+      lt_budget_until = tick + rc_admission_retry_us(4,lt_random())*16;
       lt_renew_at = lt_budget_until;
+      r2_timing_event(R2_TIMING_RC_RETRY,0,routes.node[parent_index].id,2,
+          (uint32_t)((lt_budget_until-tick)/16000),3);
       return;
     }
     if (lt_advertising) {
@@ -1143,30 +1193,13 @@ static void lt_poll(uint64_t tick, bool window) {
     if (rc) {
       lt_conn = NULL;
       lt_phase = LT_IDLE;
-      lt_renew_at = tick + 16000000;
+      lt_renew_at = tick + rc_admission_retry_us(lt_attempts,lt_random())*16;
+      r2_timing_event(R2_TIMING_RC_RETRY,rc,routes.node[parent_index].id,3,
+          (uint32_t)((lt_renew_at-tick)/16000),lt_attempts);
     }
     return;
   }
-  if (lt_adv && !lt_paused &&
-      (!lt_advertising || tick >= lt_adv_check_at)) {
-    /* Connectable advertising can terminate before an accepted-connection
-     * callback. Reconcile through the public host API: -EALREADY performs no
-     * HCI/RF work. This never stops the periodic timing train or its sync.
-     */
-    bool expected = lt_advertising;
-    if (!expected)
-      slot_hint_update();
-    int rc = bt_le_ext_adv_start(lt_adv, BT_LE_EXT_ADV_START_DEFAULT);
-    check(!rc || rc == -EALREADY, "RQ7 capability start");
-    if (!rc || rc == -EALREADY) {
-      lt_advertising = true;
-      lt_adv_check_at = tick + 16000000;
-      if (!rc && expected) {
-        ++lt_adv_recoveries;
-        slot_hint_update();
-      }
-    }
-  }
+  lt_advertise(tick);
 }
 static struct lt_retired_connection *lt_retired_find(struct bt_conn *conn) {
   for (unsigned i = 0; i < CONFIG_BT_MAX_CONN; ++i)

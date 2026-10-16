@@ -4,6 +4,22 @@
 #pragma once
 #include <stdbool.h>
 #include <stdint.h>
+/* Extended discovery/capability events use625us GAP units. They carry no
+ * precision observations. Keep the independent periodic train at62.5ms. */
+#define RC_DISCOVERY_ADV_INTERVAL 160u /*100ms, before controller advDelay*/
+/* Failed control work is not the precision stream. Spread retries, including
+ * controller/API failures, instead of immediately opening another ACL. */
+static inline uint64_t rc_admission_retry_us(unsigned attempt,uint64_t nonce){
+ uint64_t base=attempt<=1?UINT64_C(2000000):attempt==2?UINT64_C(5000000):
+  attempt==3?UINT64_C(10000000):UINT64_C(30000000);
+ return base+nonce%(base/2+1);
+}
+/* Connected links may complete teardown through their negotiated supervision
+ * timeout. Add a finite callback margin. A create/cancel has no live ACL and
+ * retains500ms; explicit profile/update shutdown separately retains500ms. */
+static inline uint64_t rc_admission_drain_us(bool connected,unsigned supervision){
+ return UINT64_C(500000)+(connected?(uint64_t)supervision*10000:0);
+}
 struct rc_admission_scan {uint16_t interval,window;};
 /* GAP units of 625 us. Every attempt gets a fresh non-continuous scan pattern
  * to avoid repeatedly sampling the same phase of a busy timing chain.

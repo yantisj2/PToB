@@ -6,11 +6,16 @@ import argparse
 p=argparse.ArgumentParser();p.add_argument("--deps",type=Path,required=True);args=p.parse_args()
 import shutil
 import subprocess
+import sys
 import tempfile
 APP=Path(__file__).resolve().parents[1]
 with tempfile.TemporaryDirectory(prefix='t096-r2-test-') as directory:
     out=Path(directory)
     compiler=os.environ.get('CC') or ('/opt/homebrew/opt/llvm/bin/clang' if Path('/opt/homebrew/opt/llvm/bin/clang').is_file() else shutil.which('clang'))
+    for suite in ['rc_advertising','rc_connection_lifecycle']:
+        subprocess.run([sys.executable,str(APP/'tools'/(suite+'_tests.py')),
+                        '--out',str(out/suite)],env={**os.environ,'CC':compiler},
+                       check=True,timeout=60)
     flags=[compiler,'-std=c11','-Wall','-Wextra','-Werror','-Wno-unused-parameter','-fsanitize=address,undefined','-fno-sanitize-recover=all','-g','-I'+str(APP/'include'),'-I'+str(APP/'protocol')]
     subprocess.run([*flags,str(APP/'src/core.c'),str(APP/'tests/core_test.c'),'-o',str(out/'core')],check=True,timeout=30)
     subprocess.run([str(out/'core')],check=True,timeout=30)

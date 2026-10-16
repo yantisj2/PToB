@@ -12,7 +12,7 @@ struct r2_uc_clock {
   bool valid;
 };
 int r2_uc_start(const struct r2_group_config *, uint64_t, uint64_t);
-void r2_uc_poll(const struct r2_uc_clock *);
+int r2_uc_poll(const struct r2_uc_clock *,bool advertise_allowed);
 bool r2_uc_owns(struct bt_conn *);
 bool r2_uc_close(void);
 /* No RC advertiser, client reference, notification submission or queued work. */
@@ -21,3 +21,4 @@ bool r2_uc_quiescent(void);
 bool r2_uc_trace(uint32_t out[3]);
 void r2_uc_stats(uint32_t out[8]);
 bool r2_uc_serving_clients(void); /* Connected, subscribed, authenticated live grants only. */
+bool r2_uc_advertising(void); /* Owner/controller API state, not an RF witness. */
