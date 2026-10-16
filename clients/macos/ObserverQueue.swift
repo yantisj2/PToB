@@ -42,4 +42,3 @@ final class ObserverQueue {
                 "rejected_units":rejected,"work_wall_ns":wallNS,"error":failure as Any? ?? NSNull()]
     }
 }
-

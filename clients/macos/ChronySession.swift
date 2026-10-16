@@ -17,7 +17,7 @@ func managedChronyConfiguration(_ directory: String) -> String {
     bindcmdaddress \(directory)/command.sock
     pidfile \(directory)/chronyd.pid
     driftfile \(directory)/chrony.drift
-    
+
     """
 }
 

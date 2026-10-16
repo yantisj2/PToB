@@ -80,8 +80,8 @@
       "source_path": "clients/macos/ObserverQueue.swift",
       "destination": "ObserverQueue.swift",
       "source_sha256": "fe5078182ad77e188a376d7375559d15e083cdcfd989cb35d930723fc4088c05",
-      "imported_sha256": "fe5078182ad77e188a376d7375559d15e083cdcfd989cb35d930723fc4088c05",
-      "transformed": false
+      "imported_sha256": "cbaf1a52365bd25361edcedeae7939f93b7fa781ce1b8416dbe698340d3e9951",
+      "transformed": true
     },
     {
       "source_path": "clients/macos/ClockComparison.swift",
@@ -171,8 +171,8 @@
       "source_path": "clients/macos/ChronySession.swift",
       "destination": "ChronySession.swift",
       "source_sha256": "1d60d59c04398e789addb51be6e753fe0c0cb26c71229b2ffdce85f339a86947",
-      "imported_sha256": "1d60d59c04398e789addb51be6e753fe0c0cb26c71229b2ffdce85f339a86947",
-      "transformed": false
+      "imported_sha256": "ac03ce5f4f005edf67cf845f5e2c84dfe1aa186f043c8fa118363eee502692d1",
+      "transformed": true
     },
     {
       "source_path": "clients/macos/DisplayHealth.swift",
