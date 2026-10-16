@@ -5,6 +5,8 @@
 #include <zephyr/bluetooth/gatt.h>
 #include <zephyr/bluetooth/hci.h>
 #include <zephyr/random/random.h>
+#include "initiator_diag.h"
+static struct r2_init_diag lt_radio_before;
 static struct bt_uuid_128 lt_service_uuid = BT_UUID_INIT_128(
     BT_UUID_128_ENCODE(0x48f6e538, 0x76c4, 0x4a94, 0x8c38, 0xd4e251bc0007));
 static struct bt_uuid_128 lt_data_uuid = BT_UUID_INIT_128(
@@ -103,6 +105,8 @@ static void lt_event_put(struct lt_event *e) {
 }
 static void lt_record(unsigned event, int result, unsigned phase) {
   uint64_t now = mono_us();
+  if(event==2||(event==1&&result))
+    r2_init_diag_emit(parent_known?routes.node[parent_index].id:0,result,&lt_radio_before);
   r2_timing_event(event==1?R2_TIMING_RC_CONNECT:event==2?R2_TIMING_RC_CONNECTED:
                  event==3?R2_TIMING_RC_ERROR:R2_TIMING_RC_CLOSE,
                  result,parent_known?routes.node[parent_index].id:0,phase,
@@ -1088,6 +1092,7 @@ static void lt_poll(uint64_t tick, bool window) {
     const struct bt_conn_le_create_param *create =
         BT_CONN_LE_CREATE_PARAM(BT_CONN_LE_OPT_NONE, scan.interval, scan.window);
     unsigned interval = rc_admission_interval(renewing);
+    r2_init_diag_snapshot(&lt_radio_before);
     int rc = bt_conn_le_create(&parent, create,
                                /* Cold admission uses 15ms ACL events; the
                                 * GM proof retains its100ms uncertainty gate.

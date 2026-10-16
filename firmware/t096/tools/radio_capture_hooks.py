@@ -4,7 +4,8 @@ from pathlib import Path
 import hashlib,json,sys
 PIN={
  'lll_adv_sync.c':'195711e5410a569935a69106aacc9dc5ec23a00d800bc8482ed634ec796c8c26',
- 'lll_sync.c':'8fc7817863f64db4bf741aae54103003af719f4b0694a20d65cbecdf6c69049d'}
+ 'lll_sync.c':'8fc7817863f64db4bf741aae54103003af719f4b0694a20d65cbecdf6c69049d',
+ 'lll_scan.c':'0a75dc0e5f9a6e78767b2c8a8b65d85b220b87c5106b36014cefb80a5ef9a35b'}
 def change(s,old,new,count=1):
  assert s.count(old)==count,(old,s.count(old),count)
  return s.replace(old,new)
@@ -13,6 +14,33 @@ def generate(zephyr,out):
  for name,digest in PIN.items():
   source=zephyr/'subsys/bluetooth/controller/ll_sw/nordic/lll'/name
   s=source.read_text();assert hashlib.sha256(s.encode()).hexdigest()==digest,name
+  if name=='lll_scan.c':
+   s=change(s,'#include <stdint.h>','#include <stdint.h>\n#include "initiator_diag.h"')
+   s=change(s,'\t/* Initialize scanning state */',
+    '\tif (lll->conn && !lll->conn->central.cancelled) {\n'
+    '\t\tr2_init_diag_target(lll->adv_addr, lll->adv_addr_type, lll->chan);\n\t}\n'
+    '\t/* Initialize scanning state */')
+   s=change(s,'\tbool dir_report = false;\n\n\tif (0) {',
+    '\tbool dir_report = false;\n'
+    '\tif (lll->conn && !lll->conn->central.cancelled) {\n'
+    '\t\tr2_init_diag_count(R2_INIT_RX);\n'
+    '\t\tif (pdu_adv_rx->type != PDU_ADV_TYPE_EXT_IND &&\n'
+    '\t\t    isr_scan_init_check(lll, pdu_adv_rx, rl_idx)) {\n'
+    '\t\t\tr2_init_diag_count(R2_INIT_MATCH);\n\t\t}\n\t}\n\n\tif (0) {')
+   s=change(s,'\t\tif (!rx) {\n\t\t\treturn -ENOBUFS;\n\t\t}',
+    '\t\tif (!rx) {\n\t\t\tr2_init_diag_count(R2_INIT_BUFFER);\n\t\t\treturn -ENOBUFS;\n\t\t}')
+   s=change(s,'\t\t\treturn -ETIME;',
+    '\t\t\tr2_init_diag_count(R2_INIT_WINDOW);\n\t\t\treturn -ETIME;')
+   s=change(s,'\t\tradio_switch_complete_and_disable();\n\n\t\t/* Acquire the connection context */',
+    '\t\tr2_init_diag_count(R2_INIT_REQUEST);\n\t\tradio_switch_complete_and_disable();\n\n\t\t/* Acquire the connection context */')
+   s=change(s,'static void isr_abort(void *param)\n{',
+    'static void isr_abort(void *param)\n{\n'
+    '\tstruct lll_scan *diag = param;\n'
+    '\tif (diag->conn && !diag->conn->central.cancelled) r2_init_diag_count(R2_INIT_ABORT);')
+   dest=out/name
+   if not dest.is_file() or dest.read_text()!=s:dest.write_text(s)
+   manifest[name]={'original':digest,'generated':hashlib.sha256(s.encode()).hexdigest()}
+   continue
   s=change(s,'#include <stdint.h>','#include <stdint.h>\n#include "radio_capture.h"')
   s=change(s,'\tif (!prepare_param) {','\tif (!prepare_param) {\n\t\tr2_radio_capture_abort(param);')
   s=change(s,'\t\tLL_ASSERT_OVERHEAD(overhead);','\t\tr2_radio_capture_abort(lll);\n\t\tLL_ASSERT_OVERHEAD(overhead);')

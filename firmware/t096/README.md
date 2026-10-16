@@ -14,7 +14,7 @@ devices. See [the architectural background](../../docs/V12_TO_R2.md).
 **PToB owns T096 RC7 development.** The two profiles are **GM** and **RC**;
 USB source streaming is standard. [Build from source](../../docs/t096/build.md)
 using pinned public dependencies and ignored local enrollment. The current
-application version is 0.15.57. No publicly enrolled binary is distributed.
+application version is 0.15.58. No publicly enrolled binary is distributed.
 
 [Sync diagnostics and console logging](../../docs/t096/diagnostics.md) describe
 the RAM event journal, established-link transitions, and bounded offline/live

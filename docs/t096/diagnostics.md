@@ -19,6 +19,14 @@ path, so it cannot enqueue another record behind an outstanding command reply.
 The two-slot queue and 3072-byte command capacity are unchanged. Diagnostic
 notes allow up to 1536 bytes to retain real fault capsules.
 
+Version 0.15.58 adds passive initiator counters in the exact pinned controller.
+They distinguish configured target, native scan preparation, CRC-valid received
+PDUs, eligible target advertisements, buffer/window refusals and prepared
+connection requests. No hook changes a controller decision, deadline or radio
+register. Counters are saturating, copied with IRQ exclusion and exported once
+per connection result, rather than printing from an ISR. A prepared request is
+not proof of on-air transmission or remote receipt.
+
 ## Events and interpretation
 
 The journal holds the newest 32 events (1,280 bytes of records). It survives
@@ -58,6 +66,15 @@ transport integrity, not authenticity or timing accuracy.
 | 16 / 17 / 18 | GM connected / disconnected / MTU error | slot and flags / incarnation / reserved |
 | 19 / 20 | Held map expired / accepted discipline resumed | count / discipline gap us / reserved |
 | 21 | HOT blocker/withdrawal changed; result is withdrawal reason | blockers / hello width us / withdrawal count |
+| 22 | Last prepared initiator target; peer remains the selected stable hint | address type plus channel at bit8, saturation bit31 / address bytes0..3 LE / bytes4..5 LE |
+| 23 | Per-attempt native initiator reception | prepared scan windows / CRC-valid PDUs / eligible target advertisements |
+| 24 | Per-attempt connection request preparation | prepared requests / insufficient window refusals / RX-node refusals |
+| 25 | Per-attempt initiating scan preemptions | native abort count / reserved / reserved |
+
+Kinds22–25 carry the same connected/create-error result and per-attempt baseline.
+The target in22 is meaningful only if23 reports a prepared scan window; otherwise
+it is historical. These counters neither authenticate a discovery hint nor
+establish RF timing. Saturation and any event loss must remain in analysis.
 
 State flag bits, starting at zero: active, RC profile, established PA sync,
 creating PA sync, map valid, locked, authorized, serving GM, follower, closing,
