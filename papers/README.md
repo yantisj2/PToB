@@ -5,11 +5,20 @@ White Rabbit and viability papers. The V14 service/profile proposal retains its
 **12 October** edition. All remain discussion/research drafts, without standards
 adoption or firmware qualification. Imported source and PDF bytes are unchanged.
 
-## Latest research
+## Main paper: PToB Viability
+
+**[PToB Viability: Rooted BLE Timing Meshes for Heterogeneous Edge Networks](ptob-viability-preprint.pdf)**
+is the starting point for the project's research: protocol architecture,
+experimental evidence, scaling limits and a proposed path to PTP edge extension.
+Read the **16 October 2026 research draft** or edit its
+[LaTeX source](ptob-viability-preprint.tex). It synthesizes separate experiments;
+it does not turn them into one qualified deployment or promote the paper out of
+draft status.
+
+## Supporting research
 
 | Draft | Read | Edit | Edition |
 | --- | --- | --- | --- |
-| PToB Viability: Rooted BLE Timing Meshes for Heterogeneous Edge Networks | [PDF](ptob-viability-preprint.pdf) | [LaTeX](ptob-viability-preprint.tex) | 16 October 2026 |
 | Beyond USB Packet Arrival: Frame-Identified Time Transfer to macOS | [PDF](usb-macos-time-transfer-preprint.pdf) | [LaTeX](usb-macos-time-transfer-preprint.tex) | 15 October 2026, 11-page chrony revision |
 | From Virtual Clock Discipline to Physical Synchronization: White Rabbit Lessons for PToB and Future Tunable Targets | [PDF](white-rabbit-study-20261015.pdf) | [LaTeX](white-rabbit-study-20261015.tex) | 15 October 2026 |
 

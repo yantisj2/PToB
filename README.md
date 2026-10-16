@@ -5,6 +5,12 @@ explicit source validity, clock quality and availability. This repository is the
 home for its firmware, macOS client, draft papers and selected experimental
 evidence. [Project website](https://ptob.dev).
 
+**Start with the main paper: [PToB Viability: Rooted BLE Timing Meshes for
+Heterogeneous Edge Networks](papers/ptob-viability-preprint.pdf)** — research
+draft, 16 October 2026. It brings together the architecture, experimental
+evidence, scaling limits and proposed path to a PTP edge extension.
+[Supporting research drafts and paper sources](papers/README.md).
+
 ## Get started
 
 Follow the **[setup guide](docs/GETTING_STARTED.md)** to plan two grandmasters
