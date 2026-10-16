@@ -296,6 +296,7 @@ static bool precision_synced(uint64_t tick) {
   tick=current.tick;
   struct rc5_stamp st;
   return parent_known && parent_synced && fit.valid && !holdover_expired &&
+      timing.bound && tick<timing.context_until &&
       discipline_at && tick >= discipline_at &&
       tick-discipline_at < RC_FIELD_HOLD_TICKS &&
       rc5_clock_capture(&local_clock,&timing,tick,&st) && st.pll_tracking &&

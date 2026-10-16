@@ -10,7 +10,7 @@ def function(name):
  while depth:depth+=(s[i]=='{')-(s[i]=='}');i+=1
  return s[start:i]
 start=s.index('struct lt_retired_connection {');end=s.index('static bool lt_retirement_error;',start)+len('static bool lt_retirement_error;')
-(out/'rc_connection_lifecycle_under_test.h').write_text(s[start:end]+'\n'+'\n'.join(function(n) for n in ['lt_disconnect','lt_closed_poll','lt_apply_connected','lt_retired_find','lt_retired_take','lt_retire_events','lt_close','lt_reset'])+'\n')
+(out/'rc_connection_lifecycle_under_test.h').write_text(s[start:end]+'\n'+'\n'.join(function(n) for n in ['lt_retry_after','lt_disconnect','lt_closed_poll','lt_apply_connected','lt_retired_find','lt_retired_take','lt_retire_events','lt_close','lt_reset'])+'\n')
 flags=[(__import__('os').environ.get('CC') or __import__('shutil').which('clang')),'-std=c11','-Wall','-Wextra','-Werror','-Wno-unused-function','-Wno-unused-variable','-Wno-default-const-init-var-unsafe','-fsanitize=address,undefined','-fno-sanitize-recover=all','-I'+str(out),'-I'+str(app/'include')]
 passed=False
 try:
@@ -18,5 +18,5 @@ try:
   subprocess.run([*flags,str(app/'tests/rc_connection_lifecycle_test.c'),'-o',str(out/'test')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
   subprocess.run([str(out/'test')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=10)
  passed=True
-finally:(out/'receipt.json').write_text(json.dumps({'passed':passed,'actual_production_functions':['lt_disconnect','lt_closed_poll','lt_apply_connected','lt_retired_find','lt_retired_take','lt_retire_events','lt_close','lt_reset'],'source_sha256':hashlib.sha256(source.read_bytes()).hexdigest(),'physical':'UNKNOWN','original_local_deadline_ms':500,'tested_pool_capacity':6,'cycles':12},indent=2)+'\n')
+finally:(out/'receipt.json').write_text(json.dumps({'passed':passed,'actual_production_functions':['lt_retry_after','lt_disconnect','lt_closed_poll','lt_apply_connected','lt_retired_find','lt_retired_take','lt_retire_events','lt_close','lt_reset'],'source_sha256':hashlib.sha256(source.read_bytes()).hexdigest(),'physical':'UNKNOWN','shutdown_deadline_ms':500,'create_cancel_deadline_ms':500,'connected_supervision_margin_ms':500,'tested_pool_capacity':6,'cycles':12},indent=2)+'\n')
 print((out/'test.log').read_text())

@@ -53,7 +53,7 @@ static unsigned train=1,sent_count,periodic_starts,periodic_stops;
 static int bt_le_per_adv_start(void *p){assert(p);++periodic_starts;return 0;}
 static int bt_le_per_adv_stop(void *p){assert(p);++periodic_stops;return 0;}
 #include "rc_advertising_under_test.h"
-static void good(void){parent_known=parent_synced=fit.valid=capture_ok=tracking=true;holdover_expired=false;discipline_at=100;fake_tick=200;current_origin.expires=101;}
+static void good(void){parent_known=parent_synced=fit.valid=capture_ok=tracking=true;holdover_expired=false;discipline_at=100;fake_tick=200;current_origin.expires=101;timing.bound=true;timing.context_until=UINT64_MAX;}
 static void refused(void){assert(!precision_synced(fake_tick));unsigned n=starts;lt_advertise(fake_tick);assert(!lt_advertising&&starts==n);assert(!r2_uc_poll(&(struct r2_uc_clock){0},false)&&!u.advertising&&starts==n);}
 int main(void){
  u.enabled=true;u.adv=(void*)2;good();assert(precision_synced(fake_tick));
@@ -72,6 +72,7 @@ int main(void){
  parent_synced=false;refused();assert(stops==2);refused();assert(stops==2);
  good();parent_known=false;refused();good();fit.valid=false;refused();good();capture_ok=false;refused();
  good();tracking=false;refused();good();holdover_expired=true;refused();good();discipline_at=0;refused();
+ good();timing.context_until=fake_tick;refused();good();timing.bound=false;refused();
  good();fake_tick=99;refused();good();fake_tick=discipline_at+RC_FIELD_HOLD_TICKS;refused();
  good();current_origin.expires=100;refused();
  good();lt_advertise(fake_tick);assert(lt_advertising&&starts==3);

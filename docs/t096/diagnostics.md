@@ -175,6 +175,13 @@ and stops the supervisor. No ownership or identity check is waived.
 
 ## Recovery changes and acceptance
 
+Version0.15.62 applies each failed-control wait once. Cold recovery waits2–3s
+after its first failure,5–7.5s after its second, and one10–15s wait after the
+third before starting a fresh batch. Healthy-clock renewal can use30–45s for
+that batch wait, capped to reserve10s before its original context expiry;
+within that reserve it uses2–3s. This avoids compounded per-attempt/batch delays
+and never extends context, source permission or a transaction deadline.
+
 Version0.15.61 samples the physical capture counter again inside the advertising
 gate. Processing a received precision capture can install a map newer than the
 owner's loop-start timestamp; comparing that fresh map with the stale loop
@@ -214,8 +221,9 @@ historical protocol requirement or a new wire version. Discovery grants no
 timing authority. Validate cold joins, child admission, relay path acquisition
 and renewal under load after changing this cadence.
 
-Healthy T096 RCs have no per-second context renewal. Failed control attempts now
-wait2–3s,5–7.5s and10–15s, with30–45s between three-attempt batches. Authenticated
+Healthy T096 RCs have no per-second context renewal. Version60 introduced
+2–3s,5–7.5s and10–15s waits plus30–45s between three-attempt batches; version62
+replaces that compounded schedule as described above. Authenticated
 PENDING waits5–7.5s, without rearming its original parent trial. Each schedule
 is journaled separately from the five-minute steady renewal. The original
 two-second transaction still bounds acquisition. Normal connected teardown

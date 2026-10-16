@@ -98,6 +98,26 @@ static uint64_t lt_now(void) {
 static bool lt_live(uint64_t tick) {
   return transmitter || rc5_demand_live(&lt_demand, tick / 16) || parent_known;
 }
+static void lt_retry_after(uint64_t tick,int result,unsigned reason) {
+  unsigned attempt=lt_attempts;
+  bool batch=attempt>=3;
+  bool live=batch&&timing.bound&&tick<timing.context_until&&precision_synced(tick);
+  uint64_t delay=rc_admission_retry_us(live?4:attempt,lt_random())*16;
+  /* A healthy context may use the quiet batch schedule, but leave10s inside
+   * its ORIGINAL expiry for another bounded transaction. Cold recovery uses
+   * one10–15s batch wait, never that wait plus another30–45s delay. */
+  if(live&&timing.bound&&timing.context_until>tick){
+    uint64_t left=timing.context_until-tick;
+    uint64_t limit=left>UINT64_C(160000000)?left-UINT64_C(160000000):
+        rc_admission_retry_us(1,lt_random())*16;
+    if(delay>limit)delay=limit;
+  }
+  lt_renew_at=tick+delay;
+  if(batch){lt_attempts=0;lt_budget_until=lt_renew_at;}
+  r2_timing_event(R2_TIMING_RC_RETRY,result,
+      parent_known?routes.node[parent_index].id:0,batch?2:reason,
+      (uint32_t)(delay/16000),attempt);
+}
 static void lt_event_put(struct lt_event *e) {
   int rc = k_msgq_put(&lt_events, e, K_NO_WAIT);
   if (rc && e->type == LT_CONNECTED)
@@ -873,13 +893,7 @@ static bool lt_closed_poll(uint64_t tick) {
     lt_phase = LT_IDLE;
     lt_next = tick + 320000;
     if(late){check(false,"GATT close callback deadline");return true;}
-    if(retry){
-      uint64_t ready=tick+rc_admission_retry_us(lt_attempts,lt_random())*16;
-      if(ready>lt_renew_at)lt_renew_at=ready;
-      r2_timing_event(R2_TIMING_RC_RETRY,0,
-          parent_known?routes.node[parent_index].id:0,0,
-          (uint32_t)((lt_renew_at-tick)/16000),lt_attempts);
-    }
+    if(retry)lt_retry_after(tick,0,0);
   }
   if(lt_conn&&lt_phase==LT_CLOSE){
     if(mono_us()>=lt_close_until){
@@ -1143,11 +1157,7 @@ static void lt_poll(uint64_t tick, bool window) {
       return;
     lt_attempt_ready = 0;
     if (lt_attempts >= 3) {
-      lt_attempts = 0;
-      lt_budget_until = tick + rc_admission_retry_us(4,lt_random())*16;
-      lt_renew_at = lt_budget_until;
-      r2_timing_event(R2_TIMING_RC_RETRY,0,routes.node[parent_index].id,2,
-          (uint32_t)((lt_budget_until-tick)/16000),3);
+      lt_retry_after(tick,0,2);
       return;
     }
     if (lt_advertising) {
@@ -1193,9 +1203,7 @@ static void lt_poll(uint64_t tick, bool window) {
     if (rc) {
       lt_conn = NULL;
       lt_phase = LT_IDLE;
-      lt_renew_at = tick + rc_admission_retry_us(lt_attempts,lt_random())*16;
-      r2_timing_event(R2_TIMING_RC_RETRY,rc,routes.node[parent_index].id,3,
-          (uint32_t)((lt_renew_at-tick)/16000),lt_attempts);
+      lt_retry_after(tick,rc,3);
     }
     return;
   }
