@@ -32,7 +32,7 @@ int main(void){
  assert(m.precision_beat_hz==16&&m.ble_reception_valid&&m.ble_delivery_per_mille==950&&m.ble_rx_age_ms==50);
  assert(m.ble_time_selected&&m.clock.valid&&m.clock.utc_us==1000000060000&&m.follower_pps_valid);
  assert(!m.clock.pps_present&&!m.clock.source_available&&r2_ui_analog(&m,current/1000));
- assert(!strcmp(m.root_name,"TC-01"));
+ assert(!strcmp(m.root_name,"0001"));
  assert(!strcmp(r2_ui_servo_state(&m,current/1000),"LOCKED"));
  assert(!strcmp(r2_ui_servo_state(&m,100250),"LOCKED"));
  assert(!r2_ui_face_locked(&m,100560));
@@ -54,7 +54,7 @@ int main(void){
  fixture.precision.accepted=11;current+=1000;m=model();assert(m.sync_attempt);
  fixture.authority_until=fixture.service_until=current;fixture.follower_clock_valid=false;
  fixture.precision.authorized=fixture.precision.map_valid=false;current+=1000000;m=model();
- assert(m.sync_attempt&&!m.scope_active&&!m.ble_time_selected&&!r2_ui_analog(&m,current/1000));assert(m.coarse_valid&&m.coarse_utc_us==1000000061000ULL);assert(!strcmp(m.root_name,"TC-01"));
+ assert(m.sync_attempt&&!m.scope_active&&!m.ble_time_selected&&!r2_ui_analog(&m,current/1000));assert(m.coarse_valid&&m.coarse_utc_us==1000000061000ULL);assert(!strcmp(m.root_name,"0001"));
  current+=5000000;m=model();assert(!m.sync_attempt&&m.coarse_valid&&!r2_ui_analog(&m,current/1000)); /* real loss cannot remain syncing */
  fixture=good;fixture.authority_until=current+1000000;m=model();assert(m.sync_attempt);
  stop_requested=1;m=model();assert(!m.sync_attempt);stop_requested=0;
