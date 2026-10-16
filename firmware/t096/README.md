@@ -11,7 +11,8 @@ USB source streaming is standard. [Build from source](../../docs/t096/build.md)
 using pinned public dependencies and ignored local enrollment. The current
 application version is 0.15.55. No publicly enrolled binary is distributed.
 
-[Baseline and historical limitations](../../docs/t096/baseline.md),
+[Source provenance](imports/README.md),
+[baseline and historical limitations](../../docs/t096/baseline.md),
 [PSKs](../../docs/security/psk.md), and
 [name maps/device IDs](../../docs/security/identity-and-names.md) explain the
 source and enrollment boundaries. [P1 provisioning/storage](../../docs/t096/provisioning-design.md)

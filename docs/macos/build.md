@@ -10,8 +10,9 @@ interface and cannot be substituted by connecting its CDC port.
 Install Apple's command-line development tools (`xcrun swiftc`, Clang, SDK and
 ad-hoc codesign), Python 3, Make, curl and tar. Swift uses language mode 5 and
 Foundation; the helper uses Foundation, IOKit and IOUSBHost. Apple Silicon macOS
-is the checked host. Other architectures/OS releases and fresh network setup
-remain unvalidated. No Swift packages or private source dependencies are needed.
+is the checked host. Fresh chrony download and clean-checkout client builds passed during the
+[public-source review](../PUBLIC_RELEASE_REVIEW.md). Other architectures/OS releases
+and a freshly installed OS remain unvalidated. No Swift packages or private source dependencies are needed.
 
 From the repository root:
 

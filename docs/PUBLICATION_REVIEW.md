@@ -2,7 +2,9 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
-The repository can be reviewed as an experimental source and research project.
+The [16 October public-source review](PUBLIC_RELEASE_REVIEW.md) records completed
+checks and fixes. The repository is ready for experimental source and research
+publication within that scope.
 A public source release and an install-first firmware release have different
 acceptance requirements. Local migration/builds do not imply approval to publish.
 

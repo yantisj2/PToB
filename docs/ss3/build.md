@@ -20,11 +20,13 @@ Use Git, CMake, Make and Python with ESP-IDF's Xtensa environment. The SDK pin i
 ESP-IDF v5.5.5, commit `b774170ff46c393eeb5e495ea37936038d3f4f4f`;
 Xtensa GCC 14.2.0 / `esp-14.2.0_20260121`. Controller and GPTimer private ABI
 hashes are enforced. The SDK provides pinned public tool URLs/hashes. Apple
-Silicon macOS is the validated build host; clean-host network acquisition and
-other host platforms remain unvalidated.
+Silicon macOS is the validated build host. Fresh public acquisition and a
+clean-checkout build are recorded in the [public-source review](../PUBLIC_RELEASE_REVIEW.md);
+a freshly installed OS and other host platforms remain unvalidated.
 
 ```sh
 python3 firmware/ss3/tools/dependencies.py --dest artifacts/ss3-deps/esp-idf
+export IDF_TOOLS_PATH="$PWD/artifacts/esp-tools"
 artifacts/ss3-deps/esp-idf/install.sh esp32s3
 . artifacts/ss3-deps/esp-idf/export.sh
 ```

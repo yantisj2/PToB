@@ -13,6 +13,7 @@ ESP-IDF's Xtensa tools. Acquire the pinned public SDK and its toolchain:
 
 ```sh
 python3 firmware/w12/tools/dependencies.py --dest artifacts/w12-deps/esp-idf
+export IDF_TOOLS_PATH="$PWD/artifacts/esp-tools"
 artifacts/w12-deps/esp-idf/install.sh esp32s3
 . artifacts/w12-deps/esp-idf/export.sh
 ```
@@ -26,7 +27,9 @@ uninitialized nested OpenThread mbedTLS subtree; it is explicitly recorded and
 unused by this BLE-only target. No target dependency is excused by that rule. The SDK may build unused WiFi
 components because its hidden WiFi Kconfig symbol defaults on. The final ELF
 must contain no WiFi initialization/start or NVS write entry points.
-Clean-host network acquisition and other host platforms remain unvalidated.
+Fresh public acquisition and a clean-checkout build are recorded in the
+[public-source review](../PUBLIC_RELEASE_REVIEW.md). A freshly installed OS and
+other host platforms remain unvalidated.
 
 The builder disables ESP-IDF's component manager: this selected target has no
 managed components. Builds use the pinned SDK and local source, without implicit

@@ -9,8 +9,10 @@ public dependencies and your ignored local enrollment/device inputs.
 The first validated build host is Apple Silicon macOS. Install Git, CMake,
 Python 3.12+ and LLVM/Clang for host sanitizer tests. Linux/Windows SDK locks and
 clean-host validation remain pending. The dependency acquisition command uses
-public URLs and verifies SDK archive hashes; network acquisition itself must be
-verified on a clean host before claiming fully reproduced setup.
+public URLs and verifies SDK archive hashes. Fresh dependency acquisition and
+GM/RC builds passed from a clean checkout on Apple Silicon macOS during the
+[public-source review](../PUBLIC_RELEASE_REVIEW.md). This was an existing
+development host, not a newly installed OS.
 
 ```sh
 python3 firmware/t096/tools/dependencies.py --dest artifacts/deps
@@ -59,6 +61,14 @@ ELF, BIN and UF2 contain your group key. Checksums establish identity, not secre
 or authenticity. Runtime P1 provisioning is not yet implemented.
 
 ## Checks
+
+Recheck an existing build with the dependency environment (which includes
+pyelftools). The inspector reads files only; a passing result does not authorize
+installation:
+
+```sh
+artifacts/deps/venv/bin/python firmware/t096/tools/inspect_build.py artifacts/build-rc-01
+```
 
 ```sh
 python3 -m unittest discover -s firmware/t096/provisioning -p 'test_*.py' -v

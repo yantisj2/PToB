@@ -2,7 +2,7 @@
 """Offline source/image/layout validation; not deployment authorization.
 Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT
 """
-import hashlib,json,struct
+import argparse,contextlib,hashlib,json,struct,sys
 from pathlib import Path
 from elftools.elf.elffile import ELFFile
 from uf2 import verify
@@ -43,3 +43,14 @@ def inspect(out,allow_development=False):
     binding=hashlib.sha256((r['source_sha256']+':'+sha(out/'r2_enrollment.h')+':'+sha(out/'target/zephyr/.config')).encode()).hexdigest()
     require(binding==r['watchdog_binding_sha256'],'Watchdog binding')
     return {'status':'PASS','flash_load_end':flash_end,'ram_allocated_end':ram_end,'static_unallocated_bytes':0x20040000-ram_end,'hardware':'NOT_TESTED','deployment_authorized':False}
+
+def main():
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('out',type=Path,help='Existing build output directory')
+    args=parser.parse_args()
+    with contextlib.redirect_stdout(sys.stderr):
+        result=inspect(args.out)
+    print(json.dumps(result,indent=2))
+
+if __name__=='__main__':
+    main()
