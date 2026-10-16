@@ -14,6 +14,7 @@
 #include "rc_dynamic.h"
 #include "rc_field_policy.h"
 #include "rc_gm_adapter.h"
+#include "rc_admission_policy.h"
 #include "rc_shadow.h"
 #include "rc_slots.h"
 #include "rc_stream_quality.h"
@@ -22,6 +23,7 @@
 #include "usb_source.h"
 #endif
 #include "time_service.h"
+#include "timing_events.h"
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -71,6 +73,8 @@ static void holdover_poll(uint64_t tick) {
       tick - discipline_at >= RC_FIELD_HOLD_TICKS && !holdover_expired) {
     holdover_expired = true;
     ++holdover_expiries;
+    r2_timing_event(R2_TIMING_HOLDOVER_EXPIRE,0,0,holdover_expiries,
+                    (uint32_t)((tick-discipline_at)/16),0);
     sent_count = 0;
     usable_tx_from = tick;
   }
@@ -128,6 +132,7 @@ static uint64_t mono_us(void) {
 static void check(bool ok, const char *why) {
   (void)why;
   if (!ok && atomic_cas(&fault, 0, -EIO)) {
+    r2_timing_event(R2_TIMING_OWNER_FAULT,-EIO,self_identity,r2_crc32(why,strlen(why)),0,0);
 #if defined(R2_RC_DYNAMIC_FIXTURE)
     printk("RC7_OWNER_FAULT self=%016llx reason=%s\n",
            (unsigned long long)self_identity, why);
@@ -291,7 +296,7 @@ static struct candidate candidates[8];
 static uint64_t candidate_since, upstream_bad_since, parent_selected_at,
     parent_stage_at;
 static bool upstream_usable, relay_fallback;
-static bool parent_relay, parent_failed, parent_locked;
+static bool parent_relay, parent_failed, parent_locked, parent_ineligible;
 static struct rc_stream_history stream_history;
 static struct rc_stream_sample stream_sample;
 /* One bounded wait for each selected parent, its first PENDING reply and its
@@ -300,7 +305,7 @@ static unsigned parent_admission;
 static bool parent_acquiring(uint64_t now) {
   uint64_t allowance = parent_admission >= 2 && !parent_relay
       ? RC_STREAM_GM_ACQUIRE_US : RC_STREAM_ACQUIRE_US;
-  return now >= parent_selected_at && now >= parent_stage_at &&
+  return !parent_ineligible && now >= parent_selected_at && now >= parent_stage_at &&
       now - parent_selected_at < RC_STREAM_TRIAL_US &&
       now - parent_stage_at < allowance;
 }
@@ -330,6 +335,17 @@ static void candidate_defer(uint64_t id, uint64_t now) {
       candidates[i].consumed = candidates[i].seen;
       candidates[i].cooldown = now + 5000000;
     }
+}
+/* An authenticated JOIN from a follower proves this locator cannot currently
+ * supply direct root timing. Do not spend a full clock-acquisition trial on
+ * it or immediately retry the same strong G1 hint. This is advisory only;
+ * its bounded cooldown allows a later legitimate promotion to be retried. */
+static void candidate_nonroot(uint64_t id,uint64_t now){
+ if(!parent_known||parent_relay||id!=routes.node[parent_index].id)return;
+ parent_ineligible=true;
+ for(unsigned i=0;i<8;i++)if(candidates[i].id==id){
+  candidates[i].consumed=candidates[i].seen;candidates[i].cooldown=now+60000000;
+ }
 }
 static void candidate_seen(const bt_addr_le_t *address, uint64_t id, bool relay,
                            bool publishing, int8_t rssi, uint64_t now) {
@@ -391,18 +407,19 @@ static void delivery_tick(uint64_t now, uint64_t tick) {
       upstream_bad_since = now;
     /* Audible packets/coarse JOINs cannot conceal missing clock lock. A brief
      * gap or a poor delivery sample cannot evict a still-locked parent. */
-    relay_fallback = !acquiring &&
+    relay_fallback = parent_ineligible || (!acquiring &&
         (stream_sample.unstable ||
          (!parent_locked && now >= parent_selected_at &&
           now - parent_selected_at >= RC_STREAM_TRIAL_US) ||
          (now >= upstream_bad_since &&
-          now - upstream_bad_since >= RC_STREAM_LOSS_US));
+          now - upstream_bad_since >= RC_STREAM_LOSS_US)));
   }
 }
 #include "rc_dynamic_transport.inc"
 /* Caller has drained the previous sync/publication and owns no transient ACL.
  * No phase/acquisition latch from that parent may inhibit the next admission. */
 static void parent_handoff_reset(void) {
+  parent_ineligible=false;
   lt_acquiring = false;
   lt_quiesce(false);
   lt_renew_at = lt_budget_until = lt_attempt_ready = lt_next = 0;
@@ -588,6 +605,8 @@ static void sync_events(void) {
           ++sync_terms;
         sync_term_reason = e.reason;
         sync_term_ms = e.at_ms;
+        r2_timing_event(R2_TIMING_SYNC_TERM,e.reason,routes.node[parent_index].id,
+                        parent_synced,sync_cancels,sync_terms);
         sync = NULL;
         sync_started = 0;
         creating = parent_synced = found = false;
@@ -595,6 +614,8 @@ static void sync_events(void) {
     } else if (creating && sync == e.sync && parent_known &&
                !bt_addr_le_cmp(&e.address, &parent)) {
       parent_synced = true;
+      r2_timing_event(R2_TIMING_SYNC_READY,0,routes.node[parent_index].id,sync_sid,
+                     sync_started?(uint32_t)((mono_us()-sync_started)/1000):0,0);
       sync_started = 0;
       creating = false;
     }
@@ -610,6 +631,8 @@ static bool sync_close_until(uint64_t until) {
     return true;
   bool established = parent_synced;
   int rc = bt_le_per_adv_sync_delete(object);
+  r2_timing_event(R2_TIMING_SYNC_CANCEL,rc,routes.node[parent_index].id,established,
+                  sync_started?(uint32_t)((mono_us()-sync_started)/1000):0,0);
   if (sync_cancels < UINT32_MAX)
     ++sync_cancels;
   if (rc && bt_le_per_adv_sync_lookup_addr(&parent, sync_sid) == object) {
@@ -621,6 +644,7 @@ static bool sync_close_until(uint64_t until) {
     sync_events();
     if (mono_us() >= until) {
       sync_close_error = -ETIMEDOUT;
+      r2_timing_event(R2_TIMING_SYNC_CANCEL,-ETIMEDOUT,routes.node[parent_index].id,established,0,0);
       check(false, "sync cancel deadline");
       return false;
     }
@@ -745,6 +769,7 @@ static void discover(uint64_t tick) {
                                              .depth = transmitter ? 1 : 0,
                                              .transmitter = transmitter}}};
       parent_relay = c->relay;
+      r2_timing_event(R2_TIMING_PARENT,0,c->id,c->relay,(uint32_t)(int32_t)c->rssi,0);
       candidate_defer(c->id, mono_us());
     }
   }
@@ -1074,6 +1099,8 @@ static void captures(struct r2_capture now) {
             discipline_gap_max = accepted_at - discipline_at;
           if (holdover_expired) {
             ++holdover_recoveries;
+            r2_timing_event(R2_TIMING_HOLDOVER_RECOVER,0,routes.node[parent_index].id,
+                            holdover_recoveries,(uint32_t)((accepted_at-discipline_at)/16),0);
             sent_count = 0;
             usable_tx_from = accepted_at;
           }
@@ -1352,6 +1379,13 @@ static void owner(void *a, void *b, void *c) {
       q.sid = r2_rc7_fixture_sync_sid(self_identity, q.sid);
 #endif
       int rc = bt_le_per_adv_sync_create(&q, &sync);
+      /* Busy retries can run at the owner cadence. Retain evidence without
+       * flooding the journal or doing USB work in the radio owner. */
+      static uint64_t sync_error_due;
+      if(!rc||mono_us()>=sync_error_due){
+        r2_timing_event(R2_TIMING_SYNC_CREATE,rc,routes.node[parent_index].id,q.sid,q.timeout,0);
+        sync_error_due=mono_us()+1000000;
+      }
       if (!rc) {
         sync_sid = q.sid;
         creating = true;
@@ -1723,7 +1757,7 @@ int r2_service_configure(const struct r2_identity *id,
   parent_selected_at = parent_stage_at = mono_us();
   upstream_usable = relay_fallback = false;
   parent_admission = 0;
-  parent_failed = parent_locked = false;
+  parent_failed = parent_locked = parent_ineligible = false;
   stream_sample = (struct rc_stream_sample){0};
   slot_target_ns = transmitter ? 15625000 : 0;
   parent_slot_delta_ns = slot_target_ns;

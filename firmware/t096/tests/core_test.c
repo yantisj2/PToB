@@ -25,6 +25,12 @@ static void parse_tests(void)
   snprintf(command,sizeof(command),"r2 00000002 %s %s 0000000000000000 clock",silicon,source);
   assert(!r2_parse(command,&r)&&r.op==R2_CLOCK&&!r2_bound(&r,silicon,source,123));
   r.boot=123;assert(r2_bound(&r,silicon,source,123));
+  snprintf(command,sizeof command,"r2 00000003 %s %s 0000000000000000 events 00000000",silicon,source);
+  assert(!r2_parse(command,&r)&&r.op==R2_EVENTS&&!r.nonce&&!r2_bound(&r,silicon,source,123));
+  r.boot=123;assert(r2_bound(&r,silicon,source,123));
+  snprintf(command,sizeof command,"r2 00000003 %s %s 000000000000007b events ffffffff",silicon,source);
+  assert(!r2_parse(command,&r)&&r.nonce==UINT32_MAX);
+  command[strlen(command)-1]='g';assert(r2_parse(command,&r));
   snprintf(command,sizeof(command),"r2 00000003 %s %s 0000000000000000 mark",silicon,source);
   assert(!r2_parse(command,&r)&&r.op==R2_MARK&&!r2_bound(&r,silicon,source,123));
   r.boot=123;assert(r2_bound(&r,silicon,source,123));

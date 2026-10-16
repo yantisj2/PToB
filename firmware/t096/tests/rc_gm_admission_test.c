@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "rc_gm_adapter.h"
+#include "timing_events.h"
 static struct rc5_gm_context gm_context;
 static uint32_t gm_admission_diagnostic[7];
 static int state_lock,locked;

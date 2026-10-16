@@ -17,6 +17,7 @@ enum r2_op { R2_STATUS, R2_TRACE, R2_PREPARE, R2_COMMIT, R2_CLOCK, R2_UI, R2_BLE
 #ifdef R2_RC_PROFILE
  , R2_RC_PARENT
 #endif
+ , R2_EVENTS
 };
 enum r2_maintenance { R2_IDLE, R2_CLOSING, R2_READY, R2_RESET, R2_FAULT };
 struct r2_request {

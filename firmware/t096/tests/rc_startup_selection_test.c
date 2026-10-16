@@ -28,7 +28,7 @@ static void clear(void) {
  memset(candidates,0,sizeof candidates);candidate_since=upstream_bad_since=0;
  parent_selected_at=parent_stage_at=0;fake_now=0;
  upstream_usable=relay_fallback=startup_admitted=startup_attempted=false;
- exclude_direct=parent_known=parent_synced=parent_failed=parent_locked=parent_relay=false;
+ exclude_direct=parent_known=parent_synced=parent_failed=parent_locked=parent_relay=parent_ineligible=false;
  forced_parent=parent_admission=0;delivery=(struct r2_link_quality){0};
  stream_history=(struct rc_stream_history){0};stream_sample=(struct rc_stream_sample){0};
  captured=tracking=fit.valid=false;current_origin.expires=UINT64_MAX;
@@ -59,6 +59,12 @@ int main(int argc,char **argv) {
  CHECK(!choose(3999999));seen(11,false,false,-90,4000000);seen(22,true,true,-20,4000000);CHECK(choose(4000000)==11);
  parent_known=startup_attempted=true;routes.node[0].id=11;candidate_defer(11,4000000);CHECK(!choose(4000001));
  relay_fallback=true;CHECK(choose(4000001)==22);CHECK(rc_stream_blocked(&stream_history,11,false,4000001));
+ clear();fake_now=4000000;parent_known=startup_attempted=true;routes.node[0].id=11;
+ parent_selected_at=parent_stage_at=candidate_since=1000000;
+ seen(11,false,false,-20,fake_now);seen(33,false,false,-70,fake_now);
+ candidate_nonroot(11,fake_now);CHECK(parent_ineligible&&!parent_acquiring(fake_now));
+ delivery_tick(fake_now,fake_now);CHECK(relay_fallback&&choose(fake_now)==33);
+ CHECK(candidates[0].cooldown==64000000); // authenticated non-root cannot monopolize G1
  clear();seen(22,true,false,-20,1000000);seen(22,true,false,-20,4000000);CHECK(!choose(4000000));
  seen(33,true,true,-70,4000000);CHECK(choose(4000000)==33);
  clear();seen(11,false,false,-20,1000000);seen(22,true,true,-80,4000000);CHECK(choose(4000000)==22); // stale GM

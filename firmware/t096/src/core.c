@@ -58,6 +58,7 @@ int r2_parse(const char *line, struct r2_request *out)
   else if (!strcmp(parts[5],"route")) out->op = R2_ROUTE;
   else if (!strcmp(parts[5],"clock")) out->op = R2_CLOCK;
   else if (!strcmp(parts[5],"trace")) out->op = R2_TRACE;
+  else if (!strcmp(parts[5],"events")) out->op = R2_EVENTS;
   else if (!strcmp(parts[5],"prepare")) out->op = R2_PREPARE;
   else if (!strcmp(parts[5],"commit")) out->op = R2_COMMIT;
   else return -ENOTSUP;
@@ -67,6 +68,7 @@ int r2_parse(const char *line, struct r2_request *out)
    if(!strcmp(parts[6],"gm"))out->nonce=0;else if(!strcmp(parts[6],"rc"))out->nonce=1;else if(!strcmp(parts[6],"toggle"))out->nonce=2;else return -EINVAL;
    return 0;
   }
+  if(out->op==R2_EVENTS)return count==7&&hex(parts[6],8,&out->nonce)?0:-EINVAL;
 #ifdef R2_RC_PROFILE
   if(out->op==R2_RC_PARENT){
    if(count==6){out->seconds=1;return 0;}

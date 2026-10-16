@@ -21,6 +21,7 @@ static uint32_t rebind_root_epoch,rebind_capture_epoch,fit_parent_epoch,fit_root
 static unsigned sent_count,lt_attempts,holdover_expiries,upstream_recoveries,train=1;
 static bool lt_acquiring,lt_paused,phase_admitted,start_prepared,awaiting_first_tx,holdover_expired,fit_rms_valid;
 static bool parent_known,parent_synced,creating,running,stop_fails,faulted;
+static bool parent_ineligible;
 static void *lt_conn;
 #define RC_FIELD_HOLD_TICKS UINT64_C(8000000)
 static bool stop(void){if(stop_fails)return false;running=false;start_prepared=false;return true;}
@@ -29,11 +30,12 @@ static void lt_quiesce(bool pause){lt_paused=pause;}
 static void r2_shadow_normal_withdraw(void){}
 #include "rc_durability_under_test.h"
 int main(void){
- lt_acquiring=lt_paused=phase_admitted=start_prepared=awaiting_first_tx=holdover_expired=fit_rms_valid=true;
+ parent_ineligible=lt_acquiring=lt_paused=phase_admitted=start_prepared=awaiting_first_tx=holdover_expired=fit_rms_valid=true;
  discipline_at=phase_rx=requested=restart_at=start_delay=upstream_retry_at=123;
  receiver.clock.bound=true;local_clock.count=2;sent_count=2;lt_attempts=3;current_origin.expires=100;
  memset(current_proof,1,sizeof current_proof);
  parent_handoff_reset();
+ assert(!parent_ineligible);
  assert(!lt_acquiring&&!lt_paused&&!phase_admitted&&!start_prepared&&!awaiting_first_tx&&!holdover_expired&&!fit_rms_valid);
  assert(!discipline_at&&!phase_rx&&!requested&&!restart_at&&!start_delay&&!upstream_retry_at&&!receiver.clock.bound&&!local_clock.count&&!sent_count&&!lt_attempts&&!current_origin.expires);
  for(unsigned i=0;i<sizeof current_proof;i++)assert(!current_proof[i]);

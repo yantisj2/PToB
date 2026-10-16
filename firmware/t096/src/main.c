@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 #include "app.h"
 #include "health.h"
+#include "timing_events.h"
 #include "watchdog.h"
 #include "time_service.h"
 #include "capture.h"
@@ -128,6 +129,13 @@ static uint32_t stack_unused(bool system_workqueue)
 static void __attribute__((noinline)) reply(const struct r2_request *r,uint64_t arrival,int result)
 {
   if(r->op==R2_CLOCK){clock_reply(r,arrival);return;}
+  if(r->op==R2_EVENTS){
+    int n=r2_timing_json(json,sizeof json,identity.boot,(uint32_t)r->nonce);
+    if(n<=0||reply_sequence==UINT32_MAX)return;
+    n=r2_frame(frame,sizeof frame,r->id,++reply_sequence,json);
+    if(n>0)(void)r2_console_reply(frame,(size_t)n,arrival+R2_REPLY_MS);
+    return;
+  }
 #ifdef R2_RC_PROFILE
   if(r->op==R2_RC_PARENT){
     uint64_t parent;bool relay_only;uint32_t profile[5],transport[13],uc[8],acq[20],gm[7],connection[20];
@@ -335,6 +343,8 @@ int main(void)
 #ifdef R2_NATIVE_BLE
     struct r2_clock local_clock;r2_time_copy(&local_clock);r2_service_clock(&local_clock);
     struct r2_service_status service;r2_service_snapshot(&service);
+    r2_timing_sample(&service,now);
+    r2_timing_console(identity.boot,now);
 #ifdef R2_RC_PROFILE
     r2_watchdog_observe(&service,maintenance.phase==R2_IDLE&&!poweroff_requested&&!r2_ui_poweroff_requested());
     unsigned watchdog_retry=r2_watchdog_take_restart();

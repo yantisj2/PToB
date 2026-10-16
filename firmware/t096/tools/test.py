@@ -55,6 +55,8 @@ with tempfile.TemporaryDirectory(prefix='t096-r2-test-') as directory:
         subprocess.run([str(out/'platform'),mode],check=True,timeout=30)
 
     (out/'build_identity.h').write_text('#define R2_VERSION "0.1.0"\n#define R2_SOURCE_SHA "'+'f'*64+'"\n#define R2_CHILD_COMMIT "'+'f'*40+'"\n#define R2_SOURCE_DIRTY 0\n')
+    subprocess.run([*flags,'-I'+str(out),str(APP/'tests/timing_events_test.c'),'-o',str(out/'timing_events')],check=True,timeout=30)
+    subprocess.run([str(out/'timing_events')],check=True,timeout=30)
     # Only the native RC7 application is a supported public configuration.
     (out/'r2_enrollment.h').write_text('static const struct r2_enrollment r2_enrollment={0};\n')
     subprocess.run([*flags,'-DR2_NATIVE_BLE=1','-I'+str(APP/'protocol'),'-I'+str(out),'-include',str(APP/'tests/zephyr_fake.h'),str(APP/'tests/reply_test.c'),str(APP/'src/core.c'),'-o',str(out/'reply-native')],check=True,timeout=30)

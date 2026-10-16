@@ -103,6 +103,11 @@ static void lt_event_put(struct lt_event *e) {
 }
 static void lt_record(unsigned event, int result, unsigned phase) {
   uint64_t now = mono_us();
+  r2_timing_event(event==1?R2_TIMING_RC_CONNECT:event==2?R2_TIMING_RC_CONNECTED:
+                 event==3?R2_TIMING_RC_ERROR:R2_TIMING_RC_CLOSE,
+                 result,parent_known?routes.node[parent_index].id:0,phase,
+                 lt_attempt_started&&now>=lt_attempt_started?(uint32_t)((now-lt_attempt_started)/1000):0,
+                 lt_attempts);
   k_mutex_lock(&state_lock, K_FOREVER);
   lt_diagnostic[0] = 1;
   if (event == 1) {
@@ -391,6 +396,8 @@ static void gm_admission_record(const struct r2_join_record *r, uint64_t proof,
   k_mutex_lock(&state_lock, K_FOREVER);
   memcpy(gm_admission_diagnostic, view, sizeof view);
   k_mutex_unlock(&state_lock);
+  r2_timing_event(R2_TIMING_GM_ADMISSION,(int)result,r?r->sender:0,
+                 r?r->source_flags:0,view[2],view[6]);
 }
 static bool gm_accept(const struct r2_join_record *r, uint64_t proof,
                       uint64_t received, uint64_t tick) {
@@ -447,6 +454,8 @@ static void gm_apply(const uint8_t *wire) {
        * direct root timing. Try other locators after the existing cooldown. */
       ++lt_rejects;
       candidate_defer(r.sender, now);
+      if(r.sender!=r.root||r.sender_boot!=r.root_boot)
+        candidate_nonroot(r.sender,mono_us());
     }
     lt_renew_at = tick + (bound ? RC5_RENEW_TICKS : 16000000);
     lt_deadline = 0;
@@ -744,6 +753,9 @@ static void lt_drain(void) {
     if (e.conn != lt_conn)
       continue;
     if (e.type == LT_DISCONNECTED) {
+      r2_timing_event(R2_TIMING_RC_DISCONNECTED,e.error,
+                     parent_known?routes.node[parent_index].id:0,lt_phase,
+                     lt_attempt_started?(uint32_t)((mono_us()-lt_attempt_started)/1000):0,lt_server);
       ++lt_disconnects;
       lt_dead = true;
       continue;
@@ -1072,14 +1084,12 @@ static void lt_poll(uint64_t tick, bool window) {
      * advanced scheduling and every assertion; leave room for PA and UCS1.
      * These are public GAP units (625us); the original2s attempt still applies.
      */
+    struct rc_admission_scan scan=rc_admission_scan(lt_random());
     const struct bt_conn_le_create_param *create =
-        BT_CONN_LE_CREATE_PARAM(BT_CONN_LE_OPT_NONE, 96, 16);
-    uint32_t client_stats[8];
-    r2_uc_stats(client_stats);
-    unsigned interval = renewing ? 40 : client_stats[1] ? 12 : 24;
+        BT_CONN_LE_CREATE_PARAM(BT_CONN_LE_OPT_NONE, scan.interval, scan.window);
+    unsigned interval = rc_admission_interval(renewing);
     int rc = bt_conn_le_create(&parent, create,
-                               /* Retain installed connection intervals while
-                                * diagnostics locate the failed stage. Initial
+                               /* Cold admission uses 15ms ACL events; the
                                 * GM proof retains its100ms uncertainty gate.
                                 * Renewal never quiesces periodic timing/sync.
                                 * Original2s lifetime and1s supervision remain.

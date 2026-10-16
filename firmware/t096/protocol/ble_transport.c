@@ -3,6 +3,7 @@
  * one complete record or records completion. No election work in callbacks.
  */
 #include "ble_transport.h"
+#include "timing_events.h"
 #if defined(R2_SWITCHABLE_FIELD)
 #include "ble_service.h"
 #endif
@@ -90,6 +91,8 @@ static void diag_link_event(unsigned counter,unsigned first,unsigned recent,unsi
   peer<nodes?peers[peer].incarnation:0,(uint32_t)id,(uint32_t)(id>>32)};
  if(!gm_link_events[first]&&!gm_link_events[first+1])memcpy(gm_link_events+first,record,sizeof record);
  memcpy(gm_link_events+recent,record,sizeof record);diag_count(counter);
+ r2_timing_event(counter==1?R2_TIMING_GM_DISCONNECTED:R2_TIMING_GM_MTU_ERROR,
+                 (int)error,id,record[2],record[3],0);
 }
 /* A discovery hint never authenticates a role. Keep a bounded candidate set
  * separate from the single owned JOIN slot so a weak first advertiser cannot
@@ -373,6 +376,8 @@ static void connected(struct bt_conn *conn,uint8_t error)
     else if(group_id){struct bt_conn_info info;if(!bt_conn_get_info(conn,&info))p->admission_server=info.role==BT_CONN_ROLE_PERIPHERAL;}
     if(p->conn==conn){p->disconnect_requested=false;atomic_clear(&p->att_mtu);atomic_set(&p->connected,!error);atomic_set(&p->dead,error?1:0);if(i==CONTROL_PEERS&&!error)p->provisional_until=p->first_seen?p->first_seen+5000000:now_us()+5000000;++p->incarnation;}
   }
+  r2_timing_event(R2_TIMING_GM_CONNECTED,error,i>=0?peers[i].identity:0,
+                  i<0?255u:(unsigned)i,i>=0?peers[i].incarnation:0,0);
   k_spin_unlock(&lock,key);
   if(i<0&&!error)duplicate_track(conn,now_us());
 }
