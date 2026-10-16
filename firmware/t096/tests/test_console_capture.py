@@ -1,9 +1,12 @@
 """MIT. Copyright (c) 2026 Jonathan Yantis. Offline capture regressions."""
 import importlib.util
+import errno
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 import zlib
 
 spec = importlib.util.spec_from_file_location('capture', Path(__file__).resolve().parents[1]/'tools/console_capture.py')
@@ -18,6 +21,32 @@ def frame(sequence=1, payload=None):
 
 
 class CaptureTest(unittest.TestCase):
+    def test_detached_usb_release_still_closes_real_fd(self):
+        fd, other = os.pipe()
+        try:
+            with patch.object(m.fcntl, 'ioctl', side_effect=OSError(errno.ENXIO, 'detached USB')):
+                release_errors, close_errors = m.close_serial(fd)
+            self.assertEqual(len(release_errors), 1)
+            self.assertEqual(close_errors, [])
+            with self.assertRaises(OSError) as raised:
+                os.fstat(fd)
+            self.assertEqual(raised.exception.errno, errno.EBADF)
+        finally:
+            os.close(other)
+
+    def test_failed_close_remains_unknown_without_retry(self):
+        fd, other = os.pipe()
+        try:
+            with patch.object(m.fcntl, 'ioctl'), patch.object(m.os, 'close', side_effect=OSError(errno.EINTR, 'unknown close')) as close:
+                release_errors, close_errors = m.close_serial(fd)
+                close.assert_called_once_with(fd)
+            self.assertEqual(release_errors, [])
+            self.assertEqual(len(close_errors), 1)
+            os.fstat(fd)
+        finally:
+            os.close(fd)
+            os.close(other)
+
     def test_crc_sequence_and_truncation(self):
         f = m.Frames()
         for line in frame():

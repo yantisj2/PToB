@@ -126,6 +126,25 @@ def validate_config(devices):
         raise ValueError('duplicate USB identity')
 
 
+def close_serial(fd):
+    """Keep a failed exclusivity-release ioctl separate from actual FD closure.
+
+    A detached USB device can reject TIOCNXCL even though close succeeds.
+    Reconnection still requires resolve() and fresh exclusive ownership.
+    Never retry a failed close: the descriptor's ownership is then unknown.
+    """
+    release_errors, close_errors = [], []
+    try:
+        fcntl.ioctl(fd, termios.TIOCNXCL)
+    except OSError as e:
+        release_errors.append(repr(e))
+    try:
+        os.close(fd)
+    except OSError as e:
+        close_errors.append(repr(e))
+    return release_errors, close_errors
+
+
 def capture(unit, config, out, seconds, rotate_bytes, stop=None, snapshot_interval=30):
     folder = out / unit
     folder.mkdir(mode=0o700)
@@ -288,25 +307,21 @@ def capture(unit, config, out, seconds, rotate_bytes, stop=None, snapshot_interv
             record('capture_error', error=repr(e))
         finally:
             errors = []
+            release_errors = []
             if buffer or frames.header:
                 record('partial_tail', bytes=len(buffer), frame_pending=frames.header is not None)
             if fd is not None:
-                try:
-                    fcntl.ioctl(fd, termios.TIOCNXCL)
-                except OSError as e:
-                    errors.append(repr(e))
-                try:
-                    os.close(fd)
-                except OSError as e:
-                    errors.append(repr(e))
+                release_errors, serial_errors = close_serial(fd)
+                errors.extend(serial_errors)
             for stream in [lock, raw, journal]:
                 if stream is not None:
                     try:
                         stream.close()
                     except OSError as e:
                         errors.append(repr(e))
-            state.update(elapsed_s=time.monotonic()-started, close_errors=errors, closed=not errors)
-            if errors:
+            state.update(elapsed_s=time.monotonic()-started, close_errors=errors,
+                         exclusive_release_errors=release_errors, closed=not errors)
+            if errors or release_errors:
                 state['status'] = 'INCOMPLETE'
             (folder / 'capture.json').write_text(json.dumps(state, indent=2) + '\n')
     return state

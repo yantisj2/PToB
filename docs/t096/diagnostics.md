@@ -166,6 +166,10 @@ segment with a fresh USB identity/ownership scan. Gaps, errors and boot changes
 remain in the segment journal. `run.json` records the owned PID, and SIGTERM
 requests a graceful stop. Unknown closure stops the supervisor. A detached run
 does not survive a host reboot; keep the host awake for continuous collection.
+If a detached USB device rejects the exclusivity-release ioctl, the logger
+retains that error and marks the segment incomplete. Successful descriptor
+closure still permits a fresh guarded segment; a failed close remains unknown
+and stops the supervisor. No ownership or identity check is waived.
 
 ## Recovery changes and acceptance
 
