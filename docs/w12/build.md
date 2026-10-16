@@ -28,6 +28,10 @@ components because its hidden WiFi Kconfig symbol defaults on. The final ELF
 must contain no WiFi initialization/start or NVS write entry points.
 Clean-host network acquisition and other host platforms remain unvalidated.
 
+The builder disables ESP-IDF's component manager: this selected target has no
+managed components. Builds use the pinned SDK and local source, without implicit
+component downloads or the manager's host process-enumeration requirement.
+
 Create an ignored owner-only `artifacts/local/enrollment.json`, using the same
 group enrollment as your other targets. Group ID is a nonzero 16-digit lowercase
 hex value, epoch a nonzero uint32, and PSK 32 random bytes, not all zero expressed as
