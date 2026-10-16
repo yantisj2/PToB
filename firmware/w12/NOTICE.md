@@ -3,8 +3,8 @@
 Original migration tooling and documentation: Copyright (c) 2026 Jonathan Yantis,
 MIT. Selected original source files retain their inherited Apache-2.0 SPDX
 notices, matching the T096 extraction policy; those notices are not replaced by
-the repository default. A complete redistribution/licensing reconciliation
-remains a public release gate.
+the repository default. The [full Apache-2.0 text](../../LICENSES/Apache-2.0.txt) is included. A future
+firmware binary needs a separate linked-dependency redistribution review.
 
 `main/g1_hmac.c` retains Intel/TinyCrypt's BSD-3-Clause notice and its documented
 fixed dummy-buffer initialization change. ESP-IDF, NimBLE, TinyCrypt and other

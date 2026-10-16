@@ -13,3 +13,8 @@ and never accesses hardware or private archives. It does not qualify calibration
 physical output, native state decisions, or the original extraction process.
 
 The frozen v12 model has [separate reproduction instructions](../evidence/v12/model/README.md).
+
+Run `python3 tools/verify_research.py` to verify the October 15–16 paper/export
+hashes, USB delivery and tracking populations, and hypothetical viability model
+outputs. See the [research collection](../evidence/research/2026-10-16/README.md)
+for its reproducible subset and excluded private raw captures.

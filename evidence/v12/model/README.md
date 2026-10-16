@@ -22,8 +22,10 @@ statistics must not be presented as physical measurements.
 
 ## Frozen source and reproduction
 
-[snapshot/](snapshot/) contains exactly the eleven source/configuration files
-hashed by the recorded summary, recovered from the frozen proof experiment.
+[snapshot/](snapshot/) contains the eleven frozen source/configuration files
+hashed by the recorded summary, recovered from the frozen proof experiment. A
+separate [navigation note](snapshot/docs/V12_PERIODIC_COORDINATION_PLAN.md)
+explains a historical link to an excluded private plan; it is not model input.
 The private workspace's later model files had changed; they were not substituted.
 The snapshot's historical rule document is experiment context, not current
 hardware instructions or permission to operate devices.
