@@ -38,6 +38,12 @@ def inspect(out,allow_development=False):
                 require(0x20002000<=seg['p_vaddr'] and seg['p_vaddr']+seg['p_memsz']<=0x20040000,'ELF RAM bounds')
                 ram_end=max(ram_end,seg['p_vaddr']+seg['p_memsz'])
     config=(out/'target/zephyr/.config').read_text()
+    if tuple(map(int,r['version'].split('.'))) >= (0,15,63):
+        rx=re.search(r'^CONFIG_BT_CTLR_RX_BUFFERS=(\d+)$',config,re.M)
+        work=re.search(r'^CONFIG_SYSTEM_WORKQUEUE_STACK_SIZE=(\d+)$',config,re.M)
+        require(rx is not None and int(rx[1])>=8,'Insufficient native RX reserve')
+        require(work is not None and int(work[1])>=5120,'Insufficient workqueue stack')
+        require(0x20040000-ram_end>=1024,'Insufficient static RAM margin')
     for line in ['CONFIG_ROM_END_OFFSET=0x6000','CONFIG_FLASH=y','CONFIG_USB_DEVICE_STACK=y','CONFIG_WATCHDOG=y']:
         require(line in config,'Required configuration: '+line)
     commands=(out/'target/compile_commands.json').read_text()

@@ -14,6 +14,12 @@ void r2_init_diag_count(unsigned counter)
 {
  if(counter<R2_INIT_COUNTERS&&state.count[counter]!=UINT32_MAX)++state.count[counter];
 }
+void r2_init_diag_starved(unsigned available,unsigned needed)
+{
+ if(!state.rx_needed||available<state.rx_low)state.rx_low=(uint8_t)available;
+ state.rx_free=(uint8_t)available;state.rx_needed=(uint8_t)needed;
+ r2_init_diag_count(R2_INIT_BUFFER);
+}
 void r2_init_diag_target(const uint8_t address[6],unsigned type,unsigned channel)
 {
  for(unsigned i=0;i<6;i++)state.address[i]=address[i];
@@ -26,6 +32,7 @@ void r2_init_diag_snapshot(struct r2_init_diag *out)
  for(unsigned i=0;i<R2_INIT_COUNTERS;i++)out->count[i]=state.count[i];
  for(unsigned i=0;i<6;i++)out->address[i]=state.address[i];
  out->type=state.type;out->channel=state.channel;
+ out->rx_free=state.rx_free;out->rx_low=state.rx_low;out->rx_needed=state.rx_needed;
  irq_unlock(key);
 }
 void r2_init_diag_emit(uint64_t peer,int result,const struct r2_init_diag *before)
@@ -43,4 +50,6 @@ void r2_init_diag_emit(uint64_t peer,int result,const struct r2_init_diag *befor
  r2_timing_event(R2_TIMING_INIT_RX,result,peer,d[R2_INIT_PREPARE],d[R2_INIT_RX],d[R2_INIT_MATCH]);
  r2_timing_event(R2_TIMING_INIT_REQUEST,result,peer,d[R2_INIT_REQUEST],d[R2_INIT_WINDOW],d[R2_INIT_BUFFER]);
  r2_timing_event(R2_TIMING_INIT_ABORT,result,peer,d[R2_INIT_ABORT],0,0);
+ if(d[R2_INIT_BUFFER]&&s.rx_needed)
+  r2_timing_event(R2_TIMING_INIT_RX_RESERVE,result,peer,s.rx_needed,s.rx_free,s.rx_low);
 }

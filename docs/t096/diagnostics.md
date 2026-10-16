@@ -91,6 +91,7 @@ transport integrity, not authenticity or timing accuracy.
 | 26 | RC close completion; result0 confirms callback-observed drain, timeout is a failure | reserved / remaining original drain budget ms / reserved |
 | 27 | RC control retry scheduled | reason:0 failed attempt,1 PENDING,2 exhausted batch,3 create API error / delay ms / attempt count |
 | 28 | RC advertising/gate transition | flags / requested discovery interval in625us units / reserved |
+| 29 | Native RX reserve at a legacy initiating refusal | required nodes / last free nodes / lowest free nodes seen at a refusal in this MCU boot |
 
 Kinds22–25 carry the same connected/create-error result and per-attempt baseline.
 The target in22 is meaningful only if23 reports a prepared scan window; otherwise
@@ -174,6 +175,19 @@ closure still permits a fresh guarded segment; a failed close remains unknown
 and stops the supervisor. No ownership or identity check is waived.
 
 ## Recovery changes and acceptance
+
+Version0.15.63 reserves eight controller RX buffers instead of the default one.
+In the pinned controller the shared LLL pool is3+1+configured-buffers: five
+nodes previously, twelve now. Legacy initiation with channel-selection2 needs
+four free nodes before it prepares CONNECT_IND. Live failed attempts received
+eligible GM advertisements but refused every match with ENOBUFS; window
+refusals and prepared-request counts were zero. This local resource failure
+is independently visible as event24's buffer-refusal count. Enlarging the
+reserve retains the stock allocator checks and every controller assertion.
+The system workqueue stack is5120bytes (previously8192; observed unused stack
+exceeded7KiB). Other stacks, packet sizes, MTU, timing reservations and source
+gates are unchanged. Inspection requires at least1KiB static RAM margin;
+runtime stack high-water and future buffer refusals remain acceptance evidence.
 
 Version0.15.62 applies each failed-control wait once. Cold recovery waits2–3s
 after its first failure,5–7.5s after its second, and one10–15s wait after the

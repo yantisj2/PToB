@@ -5,9 +5,9 @@
 #include "initiator_diag.h"
 #include "timing_events.h"
 static unsigned emitted;
-static struct {unsigned kind,detail,a,b;int result;uint64_t peer;} events[4];
+static struct {unsigned kind,detail,a,b;int result;uint64_t peer;} events[5];
 void r2_timing_event(unsigned k,int r,uint64_t p,uint32_t d,uint32_t a,uint32_t b)
-{assert(emitted<4);events[emitted++]=(typeof(events[0])){k,d,a,b,r,p};}
+{assert(emitted<5);events[emitted++]=(typeof(events[0])){k,d,a,b,r,p};}
 #include "../src/initiator_diag.c"
 int main(void)
 {
@@ -27,5 +27,11 @@ int main(void)
  state.count[R2_INIT_RX]=UINT32_MAX;emitted=0;r2_init_diag_count(R2_INIT_RX);
  r2_init_diag_emit(123,0,&after);assert(state.count[R2_INIT_RX]==UINT32_MAX);
  assert(events[0].detail&(1u<<31));
+ r2_init_diag_snapshot(&before);emitted=0;
+ r2_init_diag_starved(3,4);r2_init_diag_starved(2,4);r2_init_diag_emit(123,2,&before);
+ assert(emitted==5&&events[4].kind==R2_TIMING_INIT_RX_RESERVE&&events[4].detail==4&&events[4].a==2&&events[4].b==2);
+ /* Fresh MCU state establishes a real low-water value, not an initial zero. */
+ state=(struct r2_init_diag){0};r2_init_diag_starved(3,4);r2_init_diag_snapshot(&after);
+ assert(after.count[R2_INIT_BUFFER]==1&&after.rx_low==3&&after.rx_free==3&&after.rx_needed==4);
  puts("PASS initiator counter baselines, matching/blocked/request separation, target binding and explicit saturation");
 }

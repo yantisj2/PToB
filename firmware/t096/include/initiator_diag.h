@@ -11,9 +11,11 @@ enum r2_init_counter {
 struct r2_init_diag {
  uint32_t count[R2_INIT_COUNTERS];
  uint8_t address[6],type,channel;
+ uint8_t rx_free,rx_low,rx_needed;
 };
 /* Serialized native LLL writer; thread snapshots exclude its IRQ. */
 void r2_init_diag_count(unsigned counter);
+void r2_init_diag_starved(unsigned available,unsigned needed);
 void r2_init_diag_target(const uint8_t address[6],unsigned type,unsigned channel);
 void r2_init_diag_snapshot(struct r2_init_diag *out);
 void r2_init_diag_emit(uint64_t peer,int result,const struct r2_init_diag *before);

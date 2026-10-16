@@ -28,7 +28,12 @@ def generate(zephyr,out):
     '\t\t    isr_scan_init_check(lll, pdu_adv_rx, rl_idx)) {\n'
     '\t\t\tr2_init_diag_count(R2_INIT_MATCH);\n\t\t}\n\t}\n\n\tif (0) {')
    s=change(s,'\t\tif (!rx) {\n\t\t\treturn -ENOBUFS;\n\t\t}',
-    '\t\tif (!rx) {\n\t\t\tr2_init_diag_count(R2_INIT_BUFFER);\n\t\t\treturn -ENOBUFS;\n\t\t}')
+    '\t\tif (!rx) {\n'
+    '\t\t\tr2_init_diag_starved(ull_pdu_rx_alloc_peek(3) ? 3 :\n'
+    '\t\t\t\tull_pdu_rx_alloc_peek(2) ? 2 :\n'
+    '\t\t\t\tull_pdu_rx_alloc_peek(1) ? 1 : 0,\n'
+    '\t\t\t\tIS_ENABLED(CONFIG_BT_CTLR_CHAN_SEL_2) ? 4 : 3);\n'
+    '\t\t\treturn -ENOBUFS;\n\t\t}')
    s=change(s,'\t\t\treturn -ETIME;',
     '\t\t\tr2_init_diag_count(R2_INIT_WINDOW);\n\t\t\treturn -ETIME;')
    s=change(s,'\t\tradio_switch_complete_and_disable();\n\n\t\t/* Acquire the connection context */',
