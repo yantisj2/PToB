@@ -27,6 +27,9 @@ struct wdt_timeout_cfg {struct {uint32_t min,max;} window;unsigned flags;};
 static unsigned installs,setups,feeds,boot_requests;
 static int install_error,setup_error;
 static uint64_t fake_ms;
+static uint32_t fake_sub_us;
+static uint64_t k_uptime_ticks(void){return fake_ms*1000+fake_sub_us;}
+static uint64_t k_ticks_to_us_floor64(uint64_t ticks){return ticks;}
 int64_t k_uptime_get(void){return (int64_t)fake_ms;}
 static uint32_t k_uptime_get_32(void){return (uint32_t)fake_ms;}
 static int wdt_install_timeout(const struct device *d,const struct wdt_timeout_cfg *cfg)
@@ -42,7 +45,7 @@ static void test_sleep(int n){assert(n==125);longjmp(maintenance_exit,1);}
 #include "../src/watchdog.c"
 #undef k_sleep
 static int r2_bootloader_request(void){boot_requests++;return -EIO;}
-static char sent[768];
+static char sent[1536];
 static unsigned console_reports;
 static int r2_console_note(const char *s,size_t n,uint64_t expiry)
 {assert(n<sizeof sent&&expiry==fake_ms+250);memcpy(sent,s,n);sent[n]=0;++console_reports;return 0;}
@@ -51,10 +54,11 @@ static void clear_runtime(void)
 {
  sequence=report_at=report_rc=report_useful=report_pending=report_generation=report_allowed=report_worker_stalled=0;
  intent=main_at=reset_reason=restart_request=restart_error=retries=silent_since=0;
+ observations=useful_observations=future_observations=stale_observations=refusal_flags=0;
  policy=(struct r2_wd_policy){0};memset(previous,0,sizeof previous);parent_channel=-1;
 }
 static void advance(uint32_t now)
-{fake_ms=now;r2_watchdog_main_beat();}
+{fake_ms=now;fake_sub_us=0;r2_watchdog_main_beat();}
 static void policy_cases(bool rc)
 {
  struct r2_wd_policy p={0};uint32_t span=rc?R2_WD_RC_MS:R2_WD_GM_MS,start=UINT32_MAX-100;
@@ -93,6 +97,30 @@ int main(void)
  struct r2_service_status s={.normal=true,.active=true,.profile_rc=true};
  advance(100);s.at=100000;r2_watchdog_enable(true);r2_watchdog_observe(&s,true);
  assert(watchdog_step(100));
+ /* The owner publishes native-tick microseconds, often later than this
+  * millisecond's floor. A causal fresh snapshot is useful without relaxing
+  * actual future, original expiry or owner-staleness fences. */
+ s.follower_clock_valid=s.precision.map_valid=s.precision.authorized=s.precision.correction_age_valid=s.precision.locked=true;
+ s.service_until=100500000;
+ fake_sub_us=732;s.at=100701;r2_watchdog_observe(&s,true);assert(report_useful);
+ s.at=100733;r2_watchdog_observe(&s,true);assert(!report_useful&&!report_worker_stalled&&refusal_flags==2&&future_observations==1);
+ s.at=100732;s.service_until=100732;r2_watchdog_observe(&s,true);assert(!report_useful&&refusal_flags==16);
+ s.service_until=100733;r2_watchdog_observe(&s,true);assert(report_useful);
+ s.relay.held_time=true;r2_watchdog_observe(&s,true);assert(!report_useful);s.relay.held_time=false;
+ s.precision.authorized=false;r2_watchdog_observe(&s,true);assert(!report_useful);s.precision.authorized=true;
+ /* Sub-ms observations sustain recovery past a complete RC timeout. */
+ clear_runtime();assert(!r2_watchdog_boot(&id));r2_watchdog_enable(true);
+ for(unsigned ms=100;ms<=300200;ms+=125){
+  advance(ms);fake_sub_us=732;s.at=(uint64_t)ms*1000+701;s.service_until=s.at+500000;
+  r2_watchdog_observe(&s,true);assert(report_useful&&watchdog_step(ms)&&!r2_watchdog_take_restart());
+ }
+ assert(!policy.retries&&(uint32_t)(300200-policy.since)<125);
+ advance(301200);s.at=300200701;s.service_until=UINT64_MAX;
+ r2_watchdog_observe(&s,true);assert(report_useful); /* 999299us old */
+ fake_sub_us=701;r2_watchdog_observe(&s,true);assert(!report_useful); /* exactly 1s */
+ advance(303200);fake_sub_us=701;r2_watchdog_observe(&s,true);assert(report_worker_stalled&&stale_observations==2&&refusal_flags==4);
+ clear_runtime();assert(!r2_watchdog_boot(&id));r2_watchdog_enable(true);
+ advance(100);s.at=100000;r2_watchdog_observe(&s,true);assert(watchdog_step(100));
  /* Frozen true snapshots and arbitrary control packets cannot keep sync. */
  s.follower_clock_valid=s.precision.map_valid=s.precision.authorized=s.precision.correction_age_valid=true;
  s.precision.locked=true;s.precision.correction_age_ms=0;s.service_until=UINT64_MAX;
@@ -168,7 +196,8 @@ int main(void)
  clear_runtime();assert(!r2_watchdog_boot(&id));advance(10);
  r2_watchdog_fatal(2);assert(!watchdog_step(10)&&reset_reason==WD_FATAL+2&&previous_bound(&id));
  id.reset_cause=RESET_WATCHDOG;clear_runtime();assert(!r2_watchdog_boot(&id));
- char output[768];assert(r2_watchdog_restore_rc(&mode));r2_watchdog_console(output,sizeof output);assert(strstr(sent,"\"parent_ms\":1000"));
+ char output[1536];assert(r2_watchdog_restore_rc(&mode));r2_watchdog_console(output,sizeof output);assert(strstr(sent,"\"parent_ms\":1000")&&strstr(sent,"\"observations\":[")&&strstr(sent,"\"refusal_flags\":"));
+ atomic_set(&observations,(atomic_val_t)UINT32_MAX);count_observation(&observations);assert((uint32_t)atomic_get(&observations)==UINT32_MAX);
  unsigned reports=console_reports;r2_watchdog_console(output,sizeof output);assert(console_reports==reports);
  fake_ms+=60000;r2_watchdog_console(output,sizeof output);assert(console_reports==reports+1&&!strstr(sent,"\"previous\":[]"));
  atomic_set(&retries,1);r2_watchdog_console(output,sizeof output);assert(console_reports==reports+2);

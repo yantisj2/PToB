@@ -176,6 +176,46 @@ and stops the supervisor. No ownership or identity check is waived.
 
 ## Recovery changes and acceptance
 
+Version0.15.64 compares watchdog service timestamps using the same native-tick
+microsecond clock as their producer. Previously, flooring watchdog time to a
+whole millisecond could put a newly published snapshot in its apparent future,
+interrupting the required eight seconds of sustained RC health and eventually
+requesting recovery even while accepted corrections advanced. Strict future,
+one-second snapshot freshness, original service expiry, source, PLL and
+three-second frozen-owner checks remain unchanged. Production-body regressions
+cover fractional-millisecond publication, a real future timestamp, exact expiry,
+stale/frozen owners and useful observations across a complete five-minute RC
+inactivity interval. These offline results do not establish physical durability
+or explain every shorter discipline expiry.
+
+The existing sparse `R2_WATCHDOG` report adds `observations` (saturating total,
+useful, future-snapshot and stale-snapshot counts) and current `refusal_flags`.
+Bits are1 inactive/closing/pending/error,2 future snapshot,4 snapshot at least1s
+old,8 no follower clock,16 expired service deadline,32 invalid map,64 unauthorized,
+128 absent/stale correction age,256 RC PLL unlocked and512 held/expired RC source.
+Follower-specific flags are omitted when fresh associated GM TX already supplies
+useful activity. These are best-effort diagnostic snapshots, not output authority.
+Event30 (`RC_DELIVERY`) copies five records only at actual holdover expiry
+(`result=1`) and recovery (`result=2`), following the corresponding event19/20.
+`detail` selects:1 `peer=last selected-parent physical RX tick,a=authenticated
+selected-parent RX count,b=wire/capture decode rejects`;2 `peer=last accepted
+pair completed_at tick,a=accepted,b=pair rejects`;3 `peer=context_until tick,
+a=evicted originals,b=pending originals`;4 `peer=current observation capture tick,
+a=global capture invalid,b=global capture queue overflow`;5 `peer=source expires
+in source nanoseconds,a=map generation,b=local capture epoch`. The generic
+`peer` field carries the stated numeric value for this diagnostic kind only.
+RX counts are decoded records, not RF packet counts; wire/capture rejects and
+capture statistics can include local TX. Global capture counters survive logical
+owner changes; receiver counters reset with that owner. Use boot/source/scope,
+journal sequence and lifecycle records to delimit comparisons. Zero or noncausal
+ticks remain unknown; do not infer an elapsed interval by unsigned subtraction.
+The ring's existing overwritten/exhausted/missed fields retain any missing event
+population. These stage snapshots cannot alone establish missing GM RF TX.
+
+Counter/flag changes alone do not increase the existing one-minute console cadence;
+retry/enable/reset transitions keep their existing prompt reports.
+
+
 Version0.15.63 reserves eight controller RX buffers instead of the default one.
 In the pinned controller the shared LLL pool is3+1+configured-buffers: five
 nodes previously, twelve now. Legacy initiation with channel-selection2 needs

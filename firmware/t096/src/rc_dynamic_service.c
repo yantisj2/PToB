@@ -66,8 +66,28 @@ static uint64_t publish_ticks, discipline_at, discipline_gap_max,
     usable_tx_from;
 static uint32_t holdover_expiries, holdover_recoveries;
 static bool holdover_expired;
+static uint64_t last_rx;
 /* Explicit operator operating policy; not a measured precision bound. */
 #define RC_FIELD_HOLD_TICKS UINT64_C(8000000)
+/* Transition-only snapshots in this serialized owner. Values are cumulative
+ * within its current logical scope; journal sequence/boot survives that scope.
+ * RX counts authenticated selected-parent records, not RF packets. Absolute
+ * ticks are copied, never subtracted here or treated as fresh permission. */
+static void delivery_snapshot(unsigned transition,uint64_t tick) {
+  struct r2_radio_capture_stats capture={0};
+  r2_radio_capture_stats(&capture);
+  unsigned pending=0;
+  for(unsigned i=0;i<RC5_HISTORY;i++)pending+=timing.pending[i].used;
+  r2_timing_event(R2_TIMING_RC_DELIVERY,(int)transition,last_rx,1,rx,wire_rejected);
+  r2_timing_event(R2_TIMING_RC_DELIVERY,(int)transition,timing.reference.completed_at,
+                  2,timing.accepted,timing.rejected);
+  r2_timing_event(R2_TIMING_RC_DELIVERY,(int)transition,timing.context_until,
+                  3,timing.evicted,pending);
+  r2_timing_event(R2_TIMING_RC_DELIVERY,(int)transition,tick,
+                  4,capture.invalid,capture.overflow);
+  r2_timing_event(R2_TIMING_RC_DELIVERY,(int)transition,current_origin.expires,
+                  5,local_clock.generation,capture_epoch);
+}
 static void holdover_poll(uint64_t tick) {
   if (discipline_at && tick >= discipline_at &&
       tick - discipline_at >= RC_FIELD_HOLD_TICKS && !holdover_expired) {
@@ -75,12 +95,13 @@ static void holdover_poll(uint64_t tick) {
     ++holdover_expiries;
     r2_timing_event(R2_TIMING_HOLDOVER_EXPIRE,0,0,holdover_expiries,
                     (uint32_t)((tick-discipline_at)/16),0);
+    delivery_snapshot(1,tick);
     sent_count = 0;
     usable_tx_from = tick;
   }
 }
 static bool start_prepared, phase_admitted;
-static uint64_t last_rx, phase_rx, start_delay, requested, restart_at;
+static uint64_t phase_rx, start_delay, requested, restart_at;
 static int64_t slot_target_ns, parent_slot_delta_ns, phase;
 /* RF placement and numerical time have different references. A corrected,
  * authenticated parent ADDRESS capture anchors the local 62.5 ms RF frame.
@@ -1133,6 +1154,7 @@ static void captures(struct r2_capture now) {
             ++holdover_recoveries;
             r2_timing_event(R2_TIMING_HOLDOVER_RECOVER,0,routes.node[parent_index].id,
                             holdover_recoveries,(uint32_t)((accepted_at-discipline_at)/16),0);
+            delivery_snapshot(2,accepted_at);
             sent_count = 0;
             usable_tx_from = accepted_at;
           }

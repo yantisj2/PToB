@@ -36,6 +36,10 @@ static atomic_t main_at,intent,reset_reason,restart_request,restart_error;
  * Odd publication is unavailable; the reader never spins on the producer. */
 static atomic_t sequence,report_at,report_rc,report_useful,report_pending,report_generation,report_allowed,report_worker_stalled;
 static atomic_t retries,silent_since;
+/* Main-owned saturating diagnostic counts; no new journal or console cadence. */
+static atomic_t observations,useful_observations,future_observations,stale_observations,refusal_flags;
+static void count_observation(atomic_t *counter)
+{uint32_t n=(uint32_t)atomic_get(counter);if(n<UINT32_MAX)atomic_set(counter,(atomic_val_t)(n+1));}
 static struct r2_wd_policy policy;
 K_THREAD_STACK_DEFINE(watchdog_stack,1024);
 static struct k_thread watchdog_thread;
@@ -84,7 +88,11 @@ void r2_watchdog_enable(bool enabled)
 {atomic_set(&intent,enabled);if(!enabled)atomic_set(&restart_request,0);}
 void r2_watchdog_observe(const struct r2_service_status *s,bool allowed)
 {
- uint64_t now=(uint64_t)k_uptime_get()*1000;
+ /* Service snapshots use native-tick microseconds. Millisecond-floor uptime
+  * can precede a snapshot from the current millisecond and falsely break the
+  * sustained-health interval. Keep strict future/staleness/expiry comparisons
+  * in the producer's clock domain, without adding permission or slack. */
+ uint64_t now=k_ticks_to_us_floor64(k_uptime_ticks());
  bool live=s->active&&!s->closing&&!s->profile_pending&&!s->error&&now>=s->at&&now-s->at<1000000;
  /* GM beat RMS validity comes from fresh associated actual TX captures; it
   * is used only as activity, never as output/UTC precision qualification. */
@@ -92,6 +100,24 @@ void r2_watchdog_observe(const struct r2_service_status *s,bool allowed)
  bool follower=s->follower_clock_valid&&now<s->service_until&&s->precision.map_valid&&s->precision.authorized&&
   s->precision.correction_age_valid&&s->precision.correction_age_ms<2000;
  if(s->profile_rc)follower=follower&&s->precision.locked&&!s->relay.held_time;
+ uint32_t refused=(!s->active||s->closing||s->profile_pending||s->error)?1u:0u;
+ bool future=now<s->at,stale=!future&&now-s->at>=1000000;
+ if(future)refused|=2u;
+ if(stale)refused|=4u;
+ if(!gm){
+  if(!s->follower_clock_valid)refused|=8u;
+  if(now>=s->service_until)refused|=16u;
+  if(!s->precision.map_valid)refused|=32u;
+  if(!s->precision.authorized)refused|=64u;
+  if(!s->precision.correction_age_valid||s->precision.correction_age_ms>=2000)refused|=128u;
+  if(s->profile_rc&&!s->precision.locked)refused|=256u;
+  if(s->profile_rc&&s->relay.held_time)refused|=512u;
+ }
+ count_observation(&observations);
+ if(live&&(gm||follower))count_observation(&useful_observations);
+ if(future)count_observation(&future_observations);
+ if(stale)count_observation(&stale_observations);
+ atomic_set(&refusal_flags,(atomic_val_t)refused);
  /* A live main/USB/UI must not feed a frozen RC owner indefinitely. This
   * observation margin does not change any controller's original deadline.
   * Recovery of a stuck controller uses a hardware reset, never a second owner. */
@@ -208,9 +234,11 @@ void r2_watchdog_console(char *line,size_t capacity)
  uint32_t current=(unsigned)atomic_get(&intent)|((unsigned)atomic_get(&report_rc)<<1)|
   ((unsigned)atomic_get(&retries)<<8)|((unsigned)atomic_get(&reset_reason)<<16);
  if(reported&&current==signature&&now<report_due)return;
- int n=snprintf(line,capacity,"R2_WATCHDOG {\"parent_ms\":%u,\"gm_ms\":%u,\"rc_ms\":%u,\"enabled\":%u,\"profile_rc\":%u,\"retries\":%u,\"silent_ms\":%u,\"reset_reason\":%u,\"reset_flags\":%u,\"last_reset\":%u,\"previous\":[",
+ int n=snprintf(line,capacity,"R2_WATCHDOG {\"parent_ms\":%u,\"gm_ms\":%u,\"rc_ms\":%u,\"enabled\":%u,\"profile_rc\":%u,\"retries\":%u,\"silent_ms\":%u,\"reset_reason\":%u,\"reset_flags\":%u,\"last_reset\":%u,\"refusal_flags\":%u,\"observations\":[%u,%u,%u,%u],\"previous\":[",
   WD_PARENT_MS,R2_WD_GM_MS,R2_WD_RC_MS,(unsigned)atomic_get(&intent),(unsigned)atomic_get(&report_rc),
-  (unsigned)atomic_get(&retries),(uint32_t)(k_uptime_get_32()-(uint32_t)atomic_get(&silent_since)),(unsigned)atomic_get(&reset_reason),reset_flags,reset_kind);
+  (unsigned)atomic_get(&retries),(uint32_t)(k_uptime_get_32()-(uint32_t)atomic_get(&silent_since)),(unsigned)atomic_get(&reset_reason),reset_flags,reset_kind,(unsigned)atomic_get(&refusal_flags),
+  (unsigned)atomic_get(&observations),(unsigned)atomic_get(&useful_observations),
+  (unsigned)atomic_get(&future_observations),(unsigned)atomic_get(&stale_observations));
  if(n<0||(size_t)n>=capacity)return;
  for(unsigned i=0;previous[0]==WD_MAGIC&&i<WD_WORDS;i++){
   int added=snprintf(line+n,capacity-(size_t)n,"%s%u",i?",":"",previous[i]);
