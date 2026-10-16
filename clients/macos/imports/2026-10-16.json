@@ -1,0 +1,283 @@
+{
+  "schema": 1,
+  "source_repository": "USB/chrony macOS working source",
+  "source_worktree_base_commit": "2d1b0b2699bb299ea82647d43f9142b7d0f0f3e7",
+  "source_commit_is_complete_identity": false,
+  "selected_version": "ptob-mac-cli/0.21-sof-map-gap",
+  "selection": "Explicit current USB Swift/ObjC source, selected hardware-free host checks, chrony build/foreground wrapper and analysis tools; uncommitted and untracked source bytes individually hashed",
+  "license": "Original migration code/docs MIT, copyright Jonathan Yantis; existing Apache-2.0 and TinyCrypt BSD notices preserved where present; separately acquired upstream SDK/chrony terms preserved",
+  "transformations": [
+    "Flatten selected application/include paths into a standalone target",
+    "Replace private paths, factory rosters and names with explicit ignored local inputs/shared registry",
+    "Replace laboratory identities in test fixtures with synthetic public identities",
+    "Remove unrelated profiles, obsolete direct-BLE code, hardware update tooling and unselected test runners"
+  ],
+  "files": [
+    {
+      "source_path": "clients/macos/USBMain.swift",
+      "destination": "USBMain.swift",
+      "source_sha256": "b77a8a563483cd3eef410155f9b40afe552a168a1cf38b43af42200dbbf361b6",
+      "imported_sha256": "b17f9e5be54279dddf1952d843d4aa119ba8006654a5b34a3303dd9329dbb3a6",
+      "transformed": true
+    },
+    {
+      "source_path": "clients/macos/USBClock.swift",
+      "destination": "USBClock.swift",
+      "source_sha256": "32181c525e11fd7616b2d5fb9d8b2dbf9792b417116b00ffa8c22a0e8232bd83",
+      "imported_sha256": "c9b859ac415afa0fda9d778615835fd6f1f0d9569d793d1c80c8218ec0fc1d96",
+      "transformed": true
+    },
+    {
+      "source_path": "clients/macos/USBFrameBridge.swift",
+      "destination": "USBFrameBridge.swift",
+      "source_sha256": "cbf655d64368385567f378731a6e2fe4851f5dac1bba1ca501d2d4a510f943c7",
+      "imported_sha256": "e99ad5e570f60f0fe4fb73095071cacd6e8933eaaea7d4544685c49a28f5ece1",
+      "transformed": true
+    },
+    {
+      "source_path": "clients/macos/PreciseClock.swift",
+      "destination": "PreciseClock.swift",
+      "source_sha256": "fe777478f19fe0d1686ded016436bdef017096658914226225d7d67c3203ea30",
+      "imported_sha256": "fe777478f19fe0d1686ded016436bdef017096658914226225d7d67c3203ea30",
+      "transformed": false
+    },
+    {
+      "source_path": "clients/macos/PreciseClockTests.swift",
+      "destination": "PreciseClockTests.swift",
+      "source_sha256": "427da62476eddfa506abd5660c3c17febbe7c9100ce3c51b6225bd114a9af3ef",
+      "imported_sha256": "d606211b1332bba66ba54a3936689f7283c506e2a0c99dcb11dacb9b250b7f53",
+      "transformed": true
+    },
+    {
+      "source_path": "clients/macos/FineChrony.swift",
+      "destination": "FineChrony.swift",
+      "source_sha256": "facf572911de5dd8dcb8d0141aa60845c9ce531db27f40cf84f0bbc5b7bd6b62",
+      "imported_sha256": "facf572911de5dd8dcb8d0141aa60845c9ce531db27f40cf84f0bbc5b7bd6b62",
+      "transformed": false
+    },
+    {
+      "source_path": "clients/macos/FineChronyTests.swift",
+      "destination": "FineChronyTests.swift",
+      "source_sha256": "ff447ce81ffc5132963cd242527ca2e880782c11ed926b47704e918230a9ba25",
+      "imported_sha256": "a2deabf31fb01b94ea607d9af303e2d6c7e0b9d885cd67d87c5573aa4c35881c",
+      "transformed": true
+    },
+    {
+      "source_path": "clients/macos/SOFMapTests.swift",
+      "destination": "SOFMapTests.swift",
+      "source_sha256": "96ec6385c9411e39feb8512cada10d3c219058e6f030846c493fd6047572a7d6",
+      "imported_sha256": "aca04d01f0fec5563a37bb9adf9c8392a241ddfba288526dc04cddf9f329b7d5",
+      "transformed": true
+    },
+    {
+      "source_path": "clients/macos/PrecisionReplay.swift",
+      "destination": "PrecisionReplay.swift",
+      "source_sha256": "23dcb4816740f59bc44ce9516cebf28d09011aab3dc555c9efce1a2d63393799",
+      "imported_sha256": "23dcb4816740f59bc44ce9516cebf28d09011aab3dc555c9efce1a2d63393799",
+      "transformed": false
+    },
+    {
+      "source_path": "clients/macos/ObserverQueue.swift",
+      "destination": "ObserverQueue.swift",
+      "source_sha256": "fe5078182ad77e188a376d7375559d15e083cdcfd989cb35d930723fc4088c05",
+      "imported_sha256": "fe5078182ad77e188a376d7375559d15e083cdcfd989cb35d930723fc4088c05",
+      "transformed": false
+    },
+    {
+      "source_path": "clients/macos/ClockComparison.swift",
+      "destination": "ClockComparison.swift",
+      "source_sha256": "0dffcbb849c30ffaa338c85eaa8fb5f35b0c12f864fb1fcd33b6af30e0b03004",
+      "imported_sha256": "0dffcbb849c30ffaa338c85eaa8fb5f35b0c12f864fb1fcd33b6af30e0b03004",
+      "transformed": false
+    },
+    {
+      "source_path": "clients/macos/ClockComparisonTests.swift",
+      "destination": "ClockComparisonTests.swift",
+      "source_sha256": "9f7b211603e61668cf68c888508236a1017be6f6a97e1c865e5892552fc4e47b",
+      "imported_sha256": "5ab89f6c8bc2d4985fa584342f6edde99d16afa286c247662c860a702d0f0bcf",
+      "transformed": true
+    },
+    {
+      "source_path": "clients/macos/USBObservation.swift",
+      "destination": "USBObservation.swift",
+      "source_sha256": "f457d5a7c81e0771c515cd47ed3c4bd363eb46b2362717a9ac9a9e9cd1fc93a7",
+      "imported_sha256": "f457d5a7c81e0771c515cd47ed3c4bd363eb46b2362717a9ac9a9e9cd1fc93a7",
+      "transformed": false
+    },
+    {
+      "source_path": "clients/macos/USBObservationTests.swift",
+      "destination": "USBObservationTests.swift",
+      "source_sha256": "2dd3a13cfd31c0c6f537f671ff3e7f2039e660db896884c3832806ffd04de0e5",
+      "imported_sha256": "2dd3a13cfd31c0c6f537f671ff3e7f2039e660db896884c3832806ffd04de0e5",
+      "transformed": false
+    },
+    {
+      "source_path": "clients/macos/TrialReport.swift",
+      "destination": "TrialReport.swift",
+      "source_sha256": "c5473fbde138db14dbfdb1d4854d98ab8987527afc6e6354ded4c99a4a7479fc",
+      "imported_sha256": "c5473fbde138db14dbfdb1d4854d98ab8987527afc6e6354ded4c99a4a7479fc",
+      "transformed": false
+    },
+    {
+      "source_path": "clients/macos/InstrumentView.swift",
+      "destination": "InstrumentView.swift",
+      "source_sha256": "ba68cdac9e1280212c28288e66a2718a6828fd6d9ab811870fb3f80e4fd644da",
+      "imported_sha256": "48398bb55b5d7f47e9f607c525c30f860763bd36c6a58ca360ff6f58a436fffb",
+      "transformed": true
+    },
+    {
+      "source_path": "clients/macos/UnicastTiming.swift",
+      "destination": "UnicastTiming.swift",
+      "source_sha256": "01bfa5a7d0495c0e4625f3e7a775e6687e3714b509c3d47c74a6ba57d4d581c2",
+      "imported_sha256": "01bfa5a7d0495c0e4625f3e7a775e6687e3714b509c3d47c74a6ba57d4d581c2",
+      "transformed": false
+    },
+    {
+      "source_path": "clients/macos/TimeMath.swift",
+      "destination": "TimeMath.swift",
+      "source_sha256": "595bba73074ce8f1fe949c060353462374f425a0525eb5c141a0899cb9c821e4",
+      "imported_sha256": "595bba73074ce8f1fe949c060353462374f425a0525eb5c141a0899cb9c821e4",
+      "transformed": false
+    },
+    {
+      "source_path": "clients/macos/Chrony.swift",
+      "destination": "Chrony.swift",
+      "source_sha256": "1294bd621a9b66d6820d64db3418da5bf33b2fdcb994440b6a45728d67e1f4ef",
+      "imported_sha256": "1294bd621a9b66d6820d64db3418da5bf33b2fdcb994440b6a45728d67e1f4ef",
+      "transformed": false
+    },
+    {
+      "source_path": "clients/macos/ChronyTests.swift",
+      "destination": "ChronyTests.swift",
+      "source_sha256": "36e80fe0e3f82ff7b4473bdf9f0d75a417a963e85b6c41aa5e684f2f49d820c5",
+      "imported_sha256": "36e80fe0e3f82ff7b4473bdf9f0d75a417a963e85b6c41aa5e684f2f49d820c5",
+      "transformed": false
+    },
+    {
+      "source_path": "clients/macos/ChronyView.swift",
+      "destination": "ChronyView.swift",
+      "source_sha256": "e2d1d9f021dcc086e16af9e0c71b5979fe8b5c611d94e9a852cf356d2be4f33e",
+      "imported_sha256": "e2d1d9f021dcc086e16af9e0c71b5979fe8b5c611d94e9a852cf356d2be4f33e",
+      "transformed": false
+    },
+    {
+      "source_path": "clients/macos/ChronyViewTests.swift",
+      "destination": "ChronyViewTests.swift",
+      "source_sha256": "48bc6fb01b5be20fc1d470192d7acc96efb4783a09f54ff0a89730d4ddfbf60a",
+      "imported_sha256": "48bc6fb01b5be20fc1d470192d7acc96efb4783a09f54ff0a89730d4ddfbf60a",
+      "transformed": false
+    },
+    {
+      "source_path": "clients/macos/ChronySession.swift",
+      "destination": "ChronySession.swift",
+      "source_sha256": "1d60d59c04398e789addb51be6e753fe0c0cb26c71229b2ffdce85f339a86947",
+      "imported_sha256": "1d60d59c04398e789addb51be6e753fe0c0cb26c71229b2ffdce85f339a86947",
+      "transformed": false
+    },
+    {
+      "source_path": "clients/macos/DisplayHealth.swift",
+      "destination": "DisplayHealth.swift",
+      "source_sha256": "f0762afaea6276ba4f0c2261ba45a6943df8f31d2d49dd49b23d781e7b1f9403",
+      "imported_sha256": "f0762afaea6276ba4f0c2261ba45a6943df8f31d2d49dd49b23d781e7b1f9403",
+      "transformed": false
+    },
+    {
+      "source_path": "clients/macos/Info.plist",
+      "destination": "Info.plist",
+      "source_sha256": "1b719c0d7143b27bd9ffbe4c9933f1ddbb986921ad812f7aa98c0aa79fc6c35a",
+      "imported_sha256": "1b719c0d7143b27bd9ffbe4c9933f1ddbb986921ad812f7aa98c0aa79fc6c35a",
+      "transformed": false
+    },
+    {
+      "source_path": "clients/macos/build.sh",
+      "destination": "build.sh",
+      "source_sha256": "0873055f77cc6419a7908cb6564f55fc48950c3c24353c257e185387b5ad79fa",
+      "imported_sha256": "b0d7f65184df98657ce1c6bff0f2aa8060bad40423ffb1843da02ede0d86e4b4",
+      "transformed": true
+    },
+    {
+      "source_path": "clients/macos/ptob",
+      "destination": "ptob",
+      "source_sha256": "3e4a8629319a69845542b30f4be239106b2584807b0a09830f98aa814e1d2a31",
+      "imported_sha256": "8f66ad58245db408072a5507e0da946c45ff774d7fb58800b615a37f3c871627",
+      "transformed": true
+    },
+    {
+      "source_path": "clients/macos/usb/USBReferenceProbe.m",
+      "destination": "usb/USBReferenceProbe.m",
+      "source_sha256": "785f2f2e311ef520d60f04c60388e2d9c755ec33372a6dea3b0cf2f5ec3cabd1",
+      "imported_sha256": "81f4ea7d787ff9f5c64357dd17d7738197dd3252aad4a90f0e8dda7389b681f8",
+      "transformed": true
+    },
+    {
+      "source_path": "clients/macos/usb/build.sh",
+      "destination": "usb/build.sh",
+      "source_sha256": "93af6147122f85bac50db01af1c0da65c534f7e77dae0e4ff3080c0b5c804152",
+      "imported_sha256": "00941d9d7edf1319cc8e42d3fdb22382fedc7acf4b27a696b4306af7a06d4d6a",
+      "transformed": true
+    },
+    {
+      "source_path": "clients/macos/test_usb_cli.py",
+      "destination": "test_usb_cli.py",
+      "source_sha256": "211266495e8d337717de9c68fd3f455934672376c87cfeb2cd67acbb445bcbde",
+      "imported_sha256": "eb4c37ae5997f14a6ac36a46847d34af793d1b2eaf16af02e133b70aba6cf345",
+      "transformed": true
+    },
+    {
+      "source_path": "clients/macos/test_usb_launch.py",
+      "destination": "test_usb_launch.py",
+      "source_sha256": "93b4cb69f0d092a3b680285798841ec44d44206cec8a8e6982b67691f091539c",
+      "imported_sha256": "d969592e529fec04c7f08579c09ab3ff0c5700fc4b8df60f6e5337ccdbb88ada",
+      "transformed": true
+    },
+    {
+      "source_path": "clients/macos/test_chrony_ui.py",
+      "destination": "test_chrony_ui.py",
+      "source_sha256": "5bc57d9dbd51f4f9256698501da876514d3d84ecbfd2675cece3248979e60ece",
+      "imported_sha256": "5bc57d9dbd51f4f9256698501da876514d3d84ecbfd2675cece3248979e60ece",
+      "transformed": false
+    },
+    {
+      "source_path": "clients/macos/test_readout_hold.py",
+      "destination": "test_readout_hold.py",
+      "source_sha256": "ae854b7bbb9c408ceff7e31508abdfcedf1d04b758ab94a7ce6336f034e4b600",
+      "imported_sha256": "ae854b7bbb9c408ceff7e31508abdfcedf1d04b758ab94a7ce6336f034e4b600",
+      "transformed": false
+    },
+    {
+      "source_path": "clients/macos/chrony/build.sh",
+      "destination": "chrony/build.sh",
+      "source_sha256": "c1cdaa029215627df518dad2e7518237b6a071ef9b25db852201a1a3095171da",
+      "imported_sha256": "b29eb3c28b1f6387bba6a36e695777ed8cb47ae00c202ee6bb1897b10477b4f7",
+      "transformed": true
+    },
+    {
+      "source_path": "clients/macos/chrony/run.py",
+      "destination": "chrony/run.py",
+      "source_sha256": "2dd5e14220c57eccd216c3ad022bd3cf50dac76bc48f417f195aca59dc6eec87",
+      "imported_sha256": "2dd5e14220c57eccd216c3ad022bd3cf50dac76bc48f417f195aca59dc6eec87",
+      "transformed": false
+    },
+    {
+      "source_path": "clients/macos/chrony/evaluate_precision.py",
+      "destination": "chrony/evaluate_precision.py",
+      "source_sha256": "d8a9e704f4762a0c80c16613fdf446f5e6a381821552fcf0ce94b44c01f93952",
+      "imported_sha256": "d8a9e704f4762a0c80c16613fdf446f5e6a381821552fcf0ce94b44c01f93952",
+      "transformed": false
+    },
+    {
+      "source_path": "clients/macos/chrony/analyze_input.py",
+      "destination": "chrony/analyze_input.py",
+      "source_sha256": "70082226d51ee945ff2ae2738992040e953ede236de60f73e2b0422b9a7b48ff",
+      "imported_sha256": "70082226d51ee945ff2ae2738992040e953ede236de60f73e2b0422b9a7b48ff",
+      "transformed": false
+    },
+    {
+      "source_path": "clients/macos/chrony/test_precision_evaluation.py",
+      "destination": "chrony/test_precision_evaluation.py",
+      "source_sha256": "903ca22be81492d4502ec36a2240065e2057679981b001567fe17c98cb0a71b8",
+      "imported_sha256": "903ca22be81492d4502ec36a2240065e2057679981b001567fe17c98cb0a71b8",
+      "transformed": false
+    }
+  ]
+}

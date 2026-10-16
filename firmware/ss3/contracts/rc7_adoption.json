@@ -1,0 +1,66 @@
+{
+  "revision": "RC_DYNAMIC_V2",
+  "source_manifest_sha256": "44832655eda80c336e13e56ac32f5e0f5c90d004ca27d2938e6fa21b673fb7dd",
+  "source_commit": "d3390672d144190706a425ae481038dd80da18a9",
+  "include_only_adaptations": {
+    "protocol/rc_dynamic.h": {
+      "old": "#include \"group_auth.h\"",
+      "new": "#include \"../../r2-g1/group_auth.h\"",
+      "adapted_sha256": "16001e760bf64f7ca9a0afc921a9e986d509d7c38a7f03e6eed40f298bcf1213"
+    },
+    "include/rc_boundary.h": {
+      "old": "#include \"../protocol/group_auth.h\"",
+      "new": "#include \"../../r2-g1/group_auth.h\"",
+      "adapted_sha256": "f3e5373853f755ec36525fe13dc00747cc9f6cbfc6920ae1db757ec8177ae139"
+    }
+  },
+  "group_auth": "EXISTING_BYTE_IDENTICAL_R2_G1_HEADER_AND_C_LINKED_ONCE",
+  "capture": "20MHz exact fit;16MHz floor4t/5 for age/replay;UNKNOWN_calibration",
+  "relay_service": "PHASE2_ONLY_BLE100;PHASE1_NO_PUBLICATION",
+  "phase2_TX_readiness": {
+    "status": "FEASIBILITY_PROBE_ONLY;NO_ACTUAL_TX_PROVIDER",
+    "contract": "periodic_tx_shadow_v1.json",
+    "BLE100_only": true,
+    "wire": "FROZEN_UNCHANGED",
+    "diagnostic_command": "tx rc7probe 1000..10000",
+    "diagnostic_payload": "190B16HZ_F0_F1_NO_TIME_OR_SOURCE",
+    "callback_or_scheduled_time_as_TX": "FORBIDDEN",
+    "C2": "CURRENT_INSTALLED_CLIENT_VOLATILE_PIN_C1;SEARCH_PENDING_RELAY_PROVIDER_AND_SERVER;NO_FLASH_IN_THIS_PREPARATION"
+  },
+  "renewal_continuity": {
+    "clarification": "docs/RC7_RENEWAL_CLARIFICATION_20261013.md",
+    "clarification_sha256": "7cf6a35194a371b245721fd185ce20f06a1aac743c4ec0d13a80d1d72a7ca50f",
+    "wire": "UNCHANGED_HEADER2_WIRE7_PROFILE5",
+    "client": "Existing conservativeRQ7 interval retained; same-path bind preserves actual corrected-stream progress, estimator, saved originals and capture scope",
+    "priority": "Existing bounded8 captured-original/correction drain beforeGATT; healthy PA synchronization retained across same-path renewal",
+    "server_requirement": "Healthy periodic timing and upstream synchronization never yielded for admission;only connectable advertising may yield",
+    "T096_GM_adapter": "Initial or changed-scope extractor unchanged; RC-only same-scope renewed coarse interval from authenticated fresh exchange,live admission,unexpiredBLEmap_originalSourcePermission_same identities_boots_epoch_train;R<250000us;0<B<=50000us;M=ceil(R/500)+64us;U=ceil(R/2)+B+M;permission reduced by fullR+B+M",
+    "connection_policy": "T09630ms acquire_50ms renewal and1s supervision are localZephyr adapter settings; W12 public minimum7.5ms and100ms supervision kept to preserve half-duty quiet drain",
+    "qualification": "COARSE_ADMISSION_BOUNDS_NOT_PRECISION;NO_TX_PROVIDER_OR_SERVICE_PASS"
+  },
+  "parent_selector": {
+    "revision": 2,
+    "commands": [
+      "rc-parent <identity|auto>",
+      "gm-parent <identity|auto>"
+    ],
+    "type": "VOLATILE_LOCATOR_ONLY;FRESH_AUTHENTICATION_REQUIRED",
+    "gm_exclusion": "NONZERO_GM_TARGET_REJECTED_IN_RELAY_ONLY_IMAGE;AUTO_KEEPS_COMPILED_POLICY",
+    "drain": "EXISTING_ORIGINAL2S;NO_SERVICE_EXPIRY;50QUIET_UNCHANGED",
+    "status": "rp=target/generation/state/deadline/completed/relay_kind;1RC_0GM"
+  },
+  "parent_radio_phase": {
+    "handoff": "docs/W12_RC7_PARENT_RADIO_PHASE_HANDOFF_20261013.md",
+    "handoff_sha256": "01fbbbc2996eece543cb5f4bb0950188f962e962b5027c74375f1818d5133423",
+    "implementation": "rc7_radio_phase.hpp;PREPARATORY_ADAPTER_NOT_RUNTIME_PUBLICATION",
+    "reference": "AUTHENTICATED_ACCEPTED_ORIGINAL_PHYSICAL_RX;NOT_ROOT_ENVELOPE_FRAME_FOLLOWUP_OR_UTC",
+    "units": "NATIVE20MHZ;FRAME1250000_SLOT312500;50NS_PER_TICK",
+    "scope": "FULL_AUTHENTICATED_PATH_AND_CONTINUOUS_COUNTER_EPOCH;SAME_PATH_RENEW_PRESERVES;CHANGE_CLEARS",
+    "age": "LESS_THAN10000000_NATIVE_TICKS_500MS;MAP_AND_ORIGINAL_SOURCE_MUST_BE_LIVE",
+    "TX": "VERIFIED_ACTUAL_ASSOCIATED_CURRENT_TRAIN_CAPTURE_REQUIRED;NO_PROVIDER_IDENTIFIED",
+    "request": "ORIGINAL_RX_PLUS_LEGAL_LATER_SLOT_DELTA_PLUS_WHOLE_FRAMES_TO_FUTURE_OCCURRENCE;INTENT_ONLY",
+    "admission": "ERROR_ONLY_HELPER;FUTURE_OWNER_MUST_VERIFY_CURRENT_TRAIN_AND_CONTROLLER_RESERVATION_CLEARANCE;NO_SERVICE_AUTHORITY",
+    "terminal": "DEPTH2_OR_PARENT_SLOT3_NO_EXTENSION",
+    "calibration": "NO_T09610543NS_OR_DONOR3056NS_IN_RF_PHASE"
+  }
+}

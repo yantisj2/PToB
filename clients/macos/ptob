@@ -1,0 +1,15 @@
+#!/bin/sh
+set -eu
+umask 077
+here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+binary="$here/.build/ptob-receiver"
+rebuild=0
+[ -x "$binary" ] || rebuild=1
+for f in USBMain.swift USBClock.swift USBFrameBridge.swift PreciseClock.swift PreciseClockTests.swift FineChrony.swift FineChronyTests.swift SOFMapTests.swift PrecisionReplay.swift ObserverQueue.swift ClockComparison.swift ClockComparisonTests.swift USBObservation.swift USBObservationTests.swift TrialReport.swift InstrumentView.swift UnicastTiming.swift TimeMath.swift Chrony.swift ChronyTests.swift ChronyView.swift ChronyViewTests.swift ChronySession.swift DisplayHealth.swift registry.swift.py build_receipt.py ../../registry/registry.py Info.plist build.sh ptob usb/USBReferenceProbe.m usb/build.sh; do
+    [ "$here/$f" -nt "$binary" ] && rebuild=1
+done
+if [ "$rebuild" -eq 1 ]; then
+    if [ -f "$here/.build/registry.json" ]; then "$here/build.sh" --registry "$here/.build/registry.json" >&2
+    else "$here/build.sh" >&2; fi
+fi
+exec "$binary" "$@"

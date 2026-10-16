@@ -1,0 +1,102 @@
+{
+  "schema": 1,
+  "policy": "G1_SERVER_HISTORY_SRAM_V3",
+  "test_source": "tests/g1_parent_fixture.cpp",
+  "cases": [
+    {
+      "id": "equal_unknown",
+      "GM_RSSI": -50,
+      "RC_RSSI": -50,
+      "history": "UNKNOWN",
+      "scores": [
+        216,
+        200
+      ],
+      "selected": "GM"
+    },
+    {
+      "id": "modest_GM_bias",
+      "GM_RSSI": -55,
+      "RC_RSSI": -50,
+      "history": "UNKNOWN",
+      "scores": [
+        196,
+        200
+      ],
+      "selected": "RC"
+    },
+    {
+      "id": "poor_RC_remembered",
+      "GM_RSSI": -80,
+      "RC_RSSI": -30,
+      "RC_delivery_permille": 0,
+      "RC_usable_permille": 0,
+      "scores": [
+        96,
+        0
+      ],
+      "selected": "GM",
+      "after_selector_reset": "GM"
+    },
+    {
+      "id": "expiry",
+      "elapsed_since_RC_sample_seconds": 1800,
+      "same_RSSI_as": "poor_RC_remembered",
+      "RC_history": "UNKNOWN",
+      "selected": "RC"
+    },
+    {
+      "id": "EWMA",
+      "samples": [
+        1000,
+        0
+      ],
+      "result_permille": 750
+    },
+    {
+      "id": "renewal",
+      "same_parent_boot_epoch": true,
+      "expected": "KEEP_HISTORY_DWELL_AND_CURRENT_DELIVERY"
+    },
+    {
+      "id": "healthy_PA_without_fresh_incumbent_ADV",
+      "challenger_before_dwell": true,
+      "expected": "WAIT;NO_STALE_LOCATOR_ADMISSION"
+    },
+    {
+      "id": "quiet_or_worker_stall",
+      "expected": "NO_LOSS_OR_USABLE_DENOMINATOR_INCREMENT"
+    },
+    {
+      "id": "duplicate_physical_event",
+      "expected": "COUNT_ONCE"
+    },
+    {
+      "id": "forced_relay",
+      "GM_stronger": true,
+      "expected": "GM_EXCLUDED"
+    },
+    {
+      "id": "authority_fence",
+      "expected": "HISTORY_CANNOT_RESTORE_PARENT_TIME_OR_PERMISSION"
+    },
+    {
+      "id": "startup_relay_first_GM_late",
+      "relay_seen_us": 1000000,
+      "GM_seen_us": 3999999,
+      "before_us": 4000000,
+      "expected": "NO_CONNECTION_BEFORE_3S;FRESH_GM_BEFORE_STRONGER_RELAY"
+    },
+    {
+      "id": "startup_GM_absent_or_failed",
+      "expected": "FRESH_RELAY_AFTER_3S_OR_GM_FAILURE_COOLDOWN"
+    },
+    {
+      "id": "startup_constraints",
+      "expected": "PINS_AND_RELAY_ONLY_KEEP_40MS;STALE_GM_REFUSED;POST_ADMISSION_RESET_KEEPS_NORMAL_SCORING"
+    }
+  ],
+  "qualification": "SYNTHETIC_POLICY_VECTORS;NOT_RF_OR_PRECISION",
+  "startup_revision": 1,
+  "startup_test_source": "tests/g1_startup_fixture.cpp"
+}

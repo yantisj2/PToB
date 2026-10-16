@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "policy": "SUSTAINED_FAULT_120S_V1",
+  "delay_us": 120000000,
+  "healthy": "Indefinite;healthyzeromaskclearscontinuousfaulttimer;aggregatefaultchangesdonotrenewdeadline",
+  "faults": [
+    "admittedRX/TX/direct/LoRafault",
+    "activeG1fault/capturefault/originalstopdeadline",
+    "failedUpdateGate",
+    "initializationfatalafterfactorybinding",
+    "mainorNimBLEcompletedheartbeatstale2s",
+    "separateSYNTHETIC_LABtest"
+  ],
+  "supervision": "Independent100msstaticFreeRTOStaskoncore1;3072Bstack+fixedstate;noISR/loggingdependency;shortmuxcopiesonly",
+  "reset": "Supportedesp_restart;existingINTWDT/TWDTretained;softwarecannotguaranteeexecutionunderinterrupt/schedulerfailure",
+  "RTC": "64B_NO_INITintentwithmagic/version/CRC/samefactory-source-buildfingerprint/supportedSWreset;consumedonce;reasonandlastdiagnosticpinonly;noclock/map/lease/ownerrestoration",
+  "pin": "Newnormalboundselectorafterautostart;original2srebindgate;freshGM/relayadmissionrequired",
+  "deadlines": "Original2sradiofault/update/drainand50%quietunchanged;misseddrainneverpassedbywatchdog",
+  "storage": "NoNVS/flashwrites/newpartitions",
+  "console": {
+    "version": 3,
+    "whole_frame_bytes": 8704,
+    "body_bytes": 7904,
+    "END_bytes": 800,
+    "rows": 9,
+    "buffers": 4,
+    "extra_fixed_bytes": 2048,
+    "original_response_us": 1500000,
+    "old_images": "8192Bguardunlessexactnewmanifestcontract;frozenmanifestsunchanged"
+  },
+  "wire": "RC_DYNAMIC_V2/header2/wire7/profile5sixportablefilesunchanged",
+  "validation": "Model19ASAN_UBSAN unchanged;nativeowner/permission/console34/mode/path/selector checks separately fingerprinted;physicalC1prior120000013usreset;healthyserviceindefinite",
+  "qualification": "FUNCTIONAL_RECOVERY_ONLY;ACTUAL_TX_AND_PRECISION_UNTESTED",
+  "source_sha256": {
+    "main/fault_watchdog_model.hpp": "94b47f74940a6d5c1c074e111c5c68e20b0b555d12322bd2e2a974f1d8e493dc",
+    "main/fault_watchdog.hpp": "e8bdc9d3aebe172c2d0ad28b3f542a30dc3c343717891e803d255ab6f922378f",
+    "main/fault_watchdog.cpp": "59192c555c89aa26cc9f036323c56032aaaffef11088c7d08c78bb8c7fc75137",
+    "main/native_main.cpp": "51cb27513fc784911f8a2f74e2a9f17121dce2f666422ffc50333d7d0199bee3",
+    "main/native_transport.cpp": "07f9ad1a74d33f4a0e6fd969b7a206000d24791a040392b00fcb3b3ca8a41b6c",
+    "main/rc7_relay_native.inc": "e5b74bc0d0a3165c3048922ba130e88f4c9ca93a6c6b039263c87f238a8cb60e",
+    "tools/framed_console.py": "72c323c57d75a894cf22cbebd77b0561131f905d2ed7521c30823b8163abe297",
+    "tests/fault_watchdog_test.cpp": "f1674cd3ae43140fb40a2bdc19dffa5e0c350d363f438bb8e5cb3c0abceb2f43",
+    "tests/rc7_server_owner_fixture.inc": "017b5d3db76a5c9c42c65c639bee55b6d704b267f860d150fe4671b9e11d8031"
+  }
+}

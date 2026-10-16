@@ -1,0 +1,135 @@
+#pragma once
+#include "native_r2.hpp"
+#include "native_transport.hpp"
+#include "bounded_log.hpp"
+#include "g1_hci_trace.hpp"
+#include <cstdio>
+#include <cinttypes>
+namespace v12 {
+constexpr unsigned G1DiagnosticLineBytes=768;
+inline uint64_t g1_diag_le(const uint8_t* p,unsigned bytes){uint64_t n=0;for(unsigned i=0;i<bytes;i++)n|=uint64_t(p[i])<<(8*i);return n;}
+// Main-task rendering only. Record size is fixed and independent of RF rate.
+inline int g1_render_link(char* out,unsigned capacity,const Report& r){
+  if(r.kind!=8||r.length!=32||r.bytes[5]!=2)return 0;
+  constexpr const char* events[]={"INVALID","CONNECT","DISCONNECT","PUBLIC_MARKER","LOCATOR",
+    "JOIN_TX","HIDDEN_CLEANUP","TERMINATE_ACK","QUIET_FAULT","MTU","COLD_PHASE",
+    "CONNECT_REQUEST","CONNECT_ACK","ACL_DESCRIPTOR","CANCEL_ACK","SYNC_REQUEST","SYNC_CREATE_ACK",
+    "SYNC_ESTABLISHED","SYNC_CANCEL_ACK","SYNC_TERMINATE_ACK","SYNC_LOST","PERMISSION_PHASE",
+    "SYNC_CLEANUP_QUEUED","SYNC_CANCEL_BEGIN","SYNC_TERMINATE_BEGIN","CORRECTED_PHASE",
+    "HOST_RESET","HOST_RESYNC","CLIENT_REARM","REARM_REFUSED","SYNC_CACHE_CHECK"};
+  const unsigned event=r.bytes[0];const char* name=event<sizeof(events)/sizeof(events[0])?events[event]:"INVALID";
+  if(event==1&&!g1_diag_le(r.bytes+1,4)&&(r.bytes[7]&32))name="CONNECT_DRAIN_ACK";
+  const char* result=(event==6||event==8)?"window_detail_us":event==9?"mtu_status_packed":(event==10||event==21||event==25)?"phase_us":"rc";
+  return std::snprintf(out,capacity,"W12_G1_LINK at_us=%" PRIu64 " gen=%" PRIu32 " peer=%016" PRIx64
+    " event=%s %s=%" PRId32 " handle=%u stage=%u owners=0x%02x window_us=%" PRIu64 " attempt_us=%" PRIu64
+    " interval_1250us=%" PRIu64 " latency=%" PRIu64 " supervision_10ms=%" PRIu64 " PA_phy=%u PA_clock_accuracy=%u reference=API_ONLY\n",
+    r.callback_us,r.cycle,g1_diag_le(r.bytes+16,8),name,result,int32_t(g1_diag_le(r.bytes+1,4)),unsigned(r.handle),unsigned(r.bytes[6]),unsigned(r.bytes[7]),
+    g1_diag_le(r.bytes+8,4),g1_diag_le(r.bytes+12,4),g1_diag_le(r.bytes+24,2),g1_diag_le(r.bytes+26,2),g1_diag_le(r.bytes+28,2),unsigned(r.bytes[30]),unsigned(r.bytes[31]));
+}
+inline int g1_render_scope(char* out,unsigned capacity,const Report& r){
+  if(r.kind!=10||r.length!=58||r.bytes[0]!=1)return 0;
+  return std::snprintf(out,capacity,"W12_G1_SCOPE at_us=%" PRIu64 " reason=%s old=%016" PRIx64 "/%016" PRIx64 "/%" PRIu64 "/%" PRIu64
+    " new=%016" PRIx64 "/%016" PRIx64 "/%" PRIu64 "/%" PRIu64 " until_us=%" PRIu64 " precision=UNQUALIFIED\n",
+    r.callback_us,g1_reason_name(G1Reason(r.bytes[1])),g1_diag_le(r.bytes+2,8),g1_diag_le(r.bytes+10,8),g1_diag_le(r.bytes+18,4),g1_diag_le(r.bytes+22,4),
+    g1_diag_le(r.bytes+26,8),g1_diag_le(r.bytes+34,8),g1_diag_le(r.bytes+42,4),g1_diag_le(r.bytes+46,4),g1_diag_le(r.bytes+50,8));
+}
+inline int g1_render_summary(char* out,unsigned capacity,const R2Status& s,uint64_t now,unsigned row){
+  const auto& d=s.g1_diagnostics;const auto* c=d.reasons;
+  if(row==0)return std::snprintf(out,capacity,"W12_G1_DIAG at_us=%" PRIu64 " running=%u fault=%u following=%u candidate=%016" PRIx64
+    " rssi=%d eligible=%" PRIu32 " attempts=%" PRIu32 " accepted=%" PRIu32 " connect_ready=%" PRIu32 "/%" PRIu32 " drain_CONNECT=%" PRIu32 " descriptor=%" PRIu32
+    " preCONNECT_loss=%" PRIu32 " hidden_cleanup=%" PRIu32 " last_disconnect=0x%03" PRIx32
+    " TX_getter_dbm=%d/%d/%d/%d"
+    " closed=%" PRIu32 " min_margin_us=%" PRIu32 " disconnect_max_us=%" PRIu32 " window_max_us=%" PRIu64 " queue_drop=%" PRIu32 " traces=%" PRIu32 "\n",
+    now,unsigned(s.client.running),unsigned(s.fault),unsigned(s.following),d.last_candidate,int(d.last_rssi),d.eligible,s.join_attempts,s.join_accepts,d.connect_ok,d.connect_failed,d.connect_drain,d.descriptor_seen,
+    s.g1_pending_disconnects,s.g1_pending_link_teardowns,uint32_t(s.g1_last_disconnect_reason),
+    int(d.default_tx_dbm),int(d.scan_tx_dbm),int(d.init_tx_dbm),int(d.conn_tx_dbm),
+    d.closed,d.close_min_margin_us,d.disconnect_max_us,s.g1_window_max_owned_us,s.drops,d.traces);
+  if(row==1)return std::snprintf(out,capacity,"W12_G1_FILTER first=%s@%" PRIu64 " last=%s@%" PRIu64
+    " malformed=%" PRIu32 " group=%" PRIu32 " epoch=%" PRIu32 " flags=%" PRIu32 " address=%" PRIu32 " identity=%" PRIu32
+    " window=%" PRIu32 " owner=%" PRIu32 " retry=%" PRIu32 " cooldown=%" PRIu32 " hint=%" PRIu32 " current_peer=%" PRIu32
+    " join_stale=%" PRIu32 " join_auth=%" PRIu32 " join_busy=%" PRIu32 " join_exchange=%" PRIu32 " join_time=%" PRIu32 " root_hint=%" PRIu32
+    " PA_stale=%" PRIu32 " PA_auth=%" PRIu32 " PA_scope=%" PRIu32 " permission=%" PRIu32 "\n",
+    g1_reason_name(d.first),d.first_us,g1_reason_name(d.last),d.last_us,
+    c[1],c[2],c[3],c[4],c[5],c[6],c[7],c[8],c[9],c[10],c[11],c[12],c[13],c[14],c[15],c[16],c[17],c[18],c[19],c[20],c[21],c[22]);
+  return std::snprintf(out,capacity,"W12_G1_TIME root=%016" PRIx64 " boot=%016" PRIx64 " server=%016" PRIx64
+    " source=%" PRIu32 " train=%" PRIu32 " permission_left_us=%" PRIu64 " GR3=%" PRIu32 "/%" PRIu32 " servo=%" PRIu32 "/%" PRIu32
+    " refusal_first=0x%04" PRIx32 " refusal_last=0x%04" PRIx32
+    " corrected=%" PRIu32 "/%" PRIu32 " frequency=%u/%" PRIu32 " rate_ppb=%d scatter_ns=%" PRIu32 " causal=%" PRIu32 "/%" PRIu64 "/%" PRIu64 "/%" PRIu64 " missing_capture=%" PRIu32 " edge=%" PRIu32 " precision=UNQUALIFIED\n",
+    s.root_identity,s.root_boot,s.joined_peer,s.source_epoch,s.publication,s.service_until_us>now?s.service_until_us-now:0,s.g1_relay_authenticated,s.g1_relay_refused,s.discipline_accepted,s.discipline_refused,
+    s.discipline_first_refusal,s.discipline_last_refusal,s.g1_corrected_accepted,s.g1_corrected_refused,unsigned(s.g1_frequency_trained),s.g1_frequency_pairs,int(s.g1_clock_model.rate),s.g1_frequency_scatter_ns,s.g1_clock_predictions,s.g1_clock_causal_squares,s.g1_clock_nominal_squares,s.g1_clock_causal_max_ns,s.discipline_reason_counts[2],s.discipline_reason_counts[5]);
+}
+inline int g1_render_recovery(char* out,unsigned capacity,const R2Status& s){
+  const auto& r=s.g1_recovery;
+  return std::snprintf(out,capacity,"W12_G1_RECOVERY stage=%u reset=%" PRIu32 " sync=%" PRIu32 " rearm=%" PRIu32 " refused=%" PRIu32
+    " reason=%" PRId32 " reset_us=%" PRIu64 " sync_us=%" PRIu64 " quiet_until_us=%" PRIu64
+    " old_generation=%" PRIu32 " old_stop_us=%" PRIu64 " old_deadline_us=%" PRIu64 " old_completed_us=%" PRIu64 " original_failure=RETAINED\n",
+    unsigned(r.stage),r.resets,r.syncs,r.rearms,r.refused,r.reason,r.reset_at,r.sync_at,r.quiet_until,r.old_generation,r.old_stop_requested,r.old_stop_deadline,r.old_completed);
+}
+inline int g1_render_clock(char* out,unsigned capacity,const R2Status& s,uint64_t now){
+  const auto& p=s.g1_clock_model;
+  const auto& q=s.g1_relative_quality;
+  const auto left=s.g1_anchor_deadline_us>s.follower_snapshot_us?s.g1_anchor_deadline_us-s.follower_snapshot_us:0;
+  return std::snprintf(out,capacity,"W12_G1_CLOCK at_us=%" PRIu64 " valid=%u origin=%016" PRIx64
+    " anchor_at_us=%" PRIu64 " guard_us=%" PRIu64 " replay_until_us=%" PRIu64
+    " signed_map_until_us=%" PRIu64 " original20=%" PRIu64 " available20=%" PRIu64
+    " sample20=%" PRIu64 " evaluated20=%" PRIu64
+    " relative_ns=%" PRId64 " phase_ns=%" PRId64 " utc_offset_ns=%" PRId64
+    " trained=%u pairs=%" PRIu32 " rate_ppb=%d scatter_ns=%" PRIu32
+    " causal_recent=%" PRIu32 "/%" PRIu32 "/%" PRIu32 " rate_guard_ppb=%" PRIu32
+    " relative_est_ns=%" PRIu32 " relative_hold_est_ms=%" PRIu32 " relative_lock_est=%u"
+    " resyncs=%" PRIu32 " last_step_ns=%" PRIu64 " fit20=%" PRIu64
+    " qualification=UNQUALIFIED hold_budget=EST_REPLAY\n",
+    now,unsigned(s.clock_valid),s.g1_clock_origin,s.follower_received_us,s.g1_anchor_guard_us,s.g1_anchor_deadline_us,
+    s.g1_corrected_until_us,s.g1_corrected_original20,p.tick,q.original20,q.evaluated20,p.epoch,p.phase,p.utc_offset,
+    unsigned(s.g1_frequency_trained),s.g1_frequency_pairs,int(p.rate),s.g1_frequency_scatter_ns,
+    q.samples,q.rms_ns,q.max_ns,uint32_t(std::min<double>(UINT32_MAX,std::ceil(q.rate_guard_ppb))),
+    q.estimate(q.evaluated20,p),q.hold_ms(q.evaluated20,p,left),unsigned(s.following&&q.locked(q.evaluated20,p)&&q.hold_ms(q.evaluated20,p,left)>=1000),
+    s.g1_clock_discontinuities,s.g1_clock_last_discontinuity_ns,s.g1_clock_fit_tick20);
+}
+inline int g1_render_fit(char* out,unsigned capacity,const R2Status& s,uint64_t now){
+  return std::snprintf(out,capacity,"W12_G1_FIT at_us=%" PRIu64 " fit20=%" PRIu64 " points=%u span_ms=%u pairs=%" PRIu32 " reason=%u fresh=%u unscored=%" PRIu32 " history=COMPACT64_250MS quality=ALL_CAUSAL_PHYSICAL16S precision=UNQUALIFIED\n",
+    now,s.g1_clock_fit_tick20,unsigned(s.g1_fit_points),unsigned(s.g1_fit_span_ms),s.g1_frequency_pairs,unsigned(s.g1_fit_reason),unsigned(s.g1_frequency_trained),s.g1_quality_missing);
+}
+// Same immutable snapshot and DisplayState that the OLED consumes. Main task
+// only, during a bounded capture; the emitter formats into the existing logger.
+// No added queue, RF message, callback formatting or display confidence gate.
+template<typename Emit>
+inline int g1_emit_ui_budget(Emit emit,const R2Status& s,uint64_t now,const char* ui_state,
+                           uint32_t ui_rms,uint32_t ui_hold,bool ui_lock,unsigned settle,uint64_t lock_seconds=0){
+  const auto& q=s.g1_relative_quality;const auto& p=s.g1_clock_model;
+  const auto left=s.g1_anchor_deadline_us>s.follower_snapshot_us?s.g1_anchor_deadline_us-s.follower_snapshot_us:0;
+  const auto hold=q.hold_ms(q.evaluated20,p,left);const double phase=q.phase_left(q.evaluated20,p);
+  const auto phase_ns=std::isfinite(phase)?uint32_t(std::min<double>(UINT32_MAX,std::ceil(phase))):UINT32_MAX;
+  const auto guard=std::isfinite(q.rate_guard_ppb)&&q.rate_guard_ppb>=0?uint32_t(std::min<double>(UINT32_MAX,std::ceil(q.rate_guard_ppb))):UINT32_MAX;
+  return emit("W12_G1_UI at_us=%" PRIu64 " evaluated20=%" PRIu64 " sample20=%" PRIu64 " model20=%" PRIu64
+    " epoch_ns=%" PRId64 " phase_ns=%" PRId64 " rate_mppb=%" PRId32
+    " origin=%016" PRIx64 " boot=%016" PRIx64 " source=%" PRIu32 " train=%" PRIu32
+    " scope=%" PRIu32 " valid=%u follow=%u causal=%" PRIu32 "/%" PRIu32 "/%" PRIu32
+    " phase_left_ns=%" PRIu32 " rate_guard_ppb=%" PRIu32 " accel_guard_ppb_s=%" PRIu32 " budget_ns=%" PRIu32 " legacy_sum_ns=%" PRIu32
+    " raw_hold_ms=%" PRIu32 " raw_lock=%u ui_state=%s ui_rms_ns=%" PRIu32 " ui_hold_ms=%" PRIu32
+    " ui_lock=%u settle=%u ui_lock_s=%" PRIu64 " lock_v=2 precision=UNQUALIFIED\n",
+    now,q.evaluated20,q.original20,p.tick,p.epoch,p.phase,int32_t(std::isfinite(p.rate)&&std::abs(p.rate)<=50000?std::llround(p.rate*1000):0),
+    s.g1_clock_origin,s.root_boot,s.source_epoch,s.publication,q.scope_generation,unsigned(s.clock_valid),unsigned(s.following),
+    q.samples,q.rms_ns,q.max_ns,phase_ns,guard,std::isfinite(q.accel_guard_ppb_s)?uint32_t(q.accel_guard_ppb_s):UINT32_MAX,q.estimate(q.evaluated20,p),q.legacy_sum_estimate(q.evaluated20,p),
+    hold,unsigned(s.clock_valid&&q.locked(q.evaluated20,p)&&hold>=1000),ui_state,ui_rms,ui_hold,unsigned(ui_lock),settle,lock_seconds);
+}
+inline int g1_render_peer(char* out,unsigned capacity,const G1Diagnostics::Peer& p){
+  if(!p.identity)return 0;
+  return std::snprintf(out,capacity,"W12_G1_PEER identity=%016" PRIx64 " last_us=%" PRIu64 " rssi=%d eligible=%" PRIu32
+    " attempts=%" PRIu32 " accepts=%" PRIu32 " connect_failed=%" PRIu32 " trust=DISCOVERY_ONLY\n",
+    p.identity,p.last_us,int(p.rssi),p.eligible,p.attempts,p.accepts,p.failures);
+}
+inline int g1_render_live(char* out,unsigned capacity,const R2Status& s,const LogStatus& log,uint64_t now,const G1HciStatus& hci={}){
+  const auto& d=s.g1_diagnostics;
+  const char* state=s.fault?"FAULT":!s.client.running?"OFF":s.following?"FOLLOW":s.clock_valid?"HOLD":s.group_member?"ACQUIRE":s.connecting||s.connections?"JOIN":"SEARCH";
+  return std::snprintf(out,capacity,"W12_G1_LIVE at_us=%" PRIu64 " state=%s root=%016" PRIx64 " server=%016" PRIx64
+    " perm_us=%" PRIu64 " refresh=%u candidate=%016" PRIx64 " rssi=%d attempts=%" PRIu32 " JOIN_ok=%" PRIu32 " ACL_desc=%" PRIu32 " ready=%" PRIu32 " drain_ACK=%" PRIu32
+    " preCONNECT_loss=%" PRIu32 " disconnect=0x%03" PRIx32 " margin_us=%" PRIu32 " quiet_fault=%" PRIu32
+    " GR3=%" PRIu32 "/%" PRIu32 " servo=%" PRIu32 "/%" PRIu32 " refusal=0x%04" PRIx32
+    " corrected=%" PRIu32 " rate_ppb=%d freq=%u TX_getter_dbm=%d/%d/%d/%d rearm=%" PRIu32 " queue_peak=%" PRIu32 " dropped=%" PRIu32 " expired=%" PRIu32 " HCI_pending=0x%04x/%" PRIu64 " HCI_drop=%" PRIu32 " precision=UNQUALIFIED\n",
+    now,state,s.root_identity,s.joined_peer,s.service_until_us>now?s.service_until_us-now:0,unsigned(s.g1_refresh_needed),d.last_candidate,int(d.last_rssi),s.join_attempts,s.join_accepts,d.descriptor_seen,d.connect_ok,d.connect_drain,
+    s.g1_pending_disconnects,uint32_t(s.g1_last_disconnect_reason),d.close_min_margin_us,s.g1_quiet_faults,
+    s.g1_relay_authenticated,s.g1_relay_refused,s.discipline_accepted,s.discipline_refused,s.discipline_last_refusal,
+    s.g1_corrected_accepted,int(s.g1_clock_model.rate),unsigned(s.g1_frequency_trained),int(d.default_tx_dbm),int(d.scan_tx_dbm),int(d.init_tx_dbm),int(d.conn_tx_dbm),s.g1_recovery.rearms,log.peak,log.dropped,log.expired,unsigned(hci.pending_opcode),hci.pending_at_us&&now>=hci.pending_at_us?now-hci.pending_at_us:0,hci.dropped);
+}
+}

@@ -1,0 +1,4 @@
+# Supported S3 controller budget for two extended advertisers, periodic TX,
+# parent sync, scanning and one transient ACL. ROM env tables have10 entries.
+# Pinned Kconfig permits1..10;6->10 costs nominal3312B, separately reviewed.
+CONFIG_BT_CTRL_BLE_MAX_ACT=10

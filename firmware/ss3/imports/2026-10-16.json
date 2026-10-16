@@ -1,0 +1,1665 @@
+{
+  "schema": 1,
+  "source_repository": "SS3 isolated native application",
+  "source_commit": "56740553885420a7f6f301c12de10696a9c8d432",
+  "selected_profile": "SS3_RC7_RELAY_V17",
+  "public_version": "0.1.0",
+  "selection": "Explicit common native source closure plus selected SS3 TD/display and host-fixture sources; no source history, enrollment, images, SDK or raw evidence",
+  "license": "Original migration code/docs MIT, copyright Jonathan Yantis; existing Apache-2.0 and TinyCrypt BSD notices preserved where present; separately acquired upstream SDK/chrony terms preserved",
+  "transformations": [
+    "Flatten selected application/include paths into a standalone target",
+    "Replace private paths, factory rosters and names with explicit ignored local inputs/shared registry",
+    "Replace laboratory identities in test fixtures with synthetic public identities",
+    "Remove unrelated profiles, obsolete direct-BLE code, hardware update tooling and unselected test runners"
+  ],
+  "files": [
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/CMakeLists.txt",
+      "destination": "CMakeLists.txt",
+      "source_sha256": "467c559c60c4b3dd8fb16be51274e17a1443a186316a9a2d921f99b661c2e6d6",
+      "imported_sha256": "ee4aee52b085a3948837fabafd4589c7c4885ffe53c2389129892095194021db",
+      "transformed": true
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/contracts/fault_watchdog_v1.json",
+      "destination": "contracts/fault_watchdog_v1.json",
+      "source_sha256": "c326a446493738422d860ccaf6fddc26d05fc780ad33dde959c3ccc5c873de1d",
+      "imported_sha256": "c326a446493738422d860ccaf6fddc26d05fc780ad33dde959c3ccc5c873de1d",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/contracts/g1_parent_selection_v3.json",
+      "destination": "contracts/g1_parent_selection_v3.json",
+      "source_sha256": "6c102f501b964d4d5e0952d8d9e6428f97ceb8d0abb616972592084fcf73e75c",
+      "imported_sha256": "6c102f501b964d4d5e0952d8d9e6428f97ceb8d0abb616972592084fcf73e75c",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/contracts/g1_parent_selection_vectors_v3.json",
+      "destination": "contracts/g1_parent_selection_vectors_v3.json",
+      "source_sha256": "729b13f9ed34b2c2dd2619cac2f7ba0a08a6a14a27475ca818f95c219185830c",
+      "imported_sha256": "729b13f9ed34b2c2dd2619cac2f7ba0a08a6a14a27475ca818f95c219185830c",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/contracts/g1_upstream_contract.md",
+      "destination": "contracts/g1_upstream_contract.md",
+      "source_sha256": "f5797bef861d459ab16d8a4d0fa5c5677dc3fb1e845ec6c40a603fae22a6b9cd",
+      "imported_sha256": "f5797bef861d459ab16d8a4d0fa5c5677dc3fb1e845ec6c40a603fae22a6b9cd",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/contracts/g1_upstream_field_profile.md",
+      "destination": "contracts/g1_upstream_field_profile.md",
+      "source_sha256": "1b1328944aa7ee7bd725e33ddc63fb43910f0d05b0b369ad147b357055b9e446",
+      "imported_sha256": "9bf45d9cfec2ee7b2c6e0d5157ad43f3719b47478596b133ad853c9d22537912",
+      "transformed": true
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/contracts/r2_g1_client.json",
+      "destination": "contracts/r2_g1_client.json",
+      "source_sha256": "eeff7046f2c230015f8263f2404f3498f2f53d57beac07cf9bdee3969ba0ec70",
+      "imported_sha256": "0dd2deb66ba5a73f3202f121c8cf2d07618f6816fd7b86c8a39f8cc569f132df",
+      "transformed": true
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/contracts/rc7_adoption.json",
+      "destination": "contracts/rc7_adoption.json",
+      "source_sha256": "b476739256811bd7d8dd7e485d967754beb3ab0f81f243c7619e5b1b212c782e",
+      "imported_sha256": "b476739256811bd7d8dd7e485d967754beb3ab0f81f243c7619e5b1b212c782e",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/contracts/shared_codec_provenance.json",
+      "destination": "contracts/shared_codec_provenance.json",
+      "source_sha256": "cd3c24661cd4f72840035e5c12cd8b6cfd1bd1dc36b7cb66f3dae45ce42dcadd",
+      "imported_sha256": "cd3c24661cd4f72840035e5c12cd8b6cfd1bd1dc36b7cb66f3dae45ce42dcadd",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "main/button_input.hpp",
+      "destination": "legacy/button_input.hpp",
+      "source_sha256": "ef49e906f995b23c8beb313f2a08d1eb21e71af1e41a9490d6777621db650943",
+      "imported_sha256": "ef49e906f995b23c8beb313f2a08d1eb21e71af1e41a9490d6777621db650943",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "main/display.cpp",
+      "destination": "legacy/display.cpp",
+      "source_sha256": "3d62d1adf1660baf4a58050f1a4ff3c6f65fa8ed481ccafff7e176a9ab425d96",
+      "imported_sha256": "3d62d1adf1660baf4a58050f1a4ff3c6f65fa8ed481ccafff7e176a9ab425d96",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "main/display.hpp",
+      "destination": "legacy/display.hpp",
+      "source_sha256": "5afb7e9164e7e3586c10dcf375ecdca6a03ea875af91a91701c9b6b37175aa63",
+      "imported_sha256": "5afb7e9164e7e3586c10dcf375ecdca6a03ea875af91a91701c9b6b37175aa63",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "main/display_comparison.inc",
+      "destination": "legacy/display_comparison.inc",
+      "source_sha256": "c820f323e05be59459cb21c56e0896f9e55c006a703eaff776beb741b21fef67",
+      "imported_sha256": "c820f323e05be59459cb21c56e0896f9e55c006a703eaff776beb741b21fef67",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "main/display_pages.hpp",
+      "destination": "legacy/display_pages.hpp",
+      "source_sha256": "6e567a6c4f31a823a78120fcaec0b3b211ff766a1a7d54e23ba4bdabfcdb0831",
+      "imported_sha256": "6e567a6c4f31a823a78120fcaec0b3b211ff766a1a7d54e23ba4bdabfcdb0831",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "main/display_timing.hpp",
+      "destination": "legacy/display_timing.hpp",
+      "source_sha256": "19bf8d3237bd29646fced086cc4ce2a8caa11e03da3dd9c51fc9194be080c107",
+      "imported_sha256": "19bf8d3237bd29646fced086cc4ce2a8caa11e03da3dd9c51fc9194be080c107",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "main/display_transfer.hpp",
+      "destination": "legacy/display_transfer.hpp",
+      "source_sha256": "01c6717aaafdb33ec302ecdc03fe5473f1f8a79bc276029a52cb8a501537aa9b",
+      "imported_sha256": "01c6717aaafdb33ec302ecdc03fe5473f1f8a79bc276029a52cb8a501537aa9b",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "main/gnss_pps.cpp",
+      "destination": "legacy/gnss_pps.cpp",
+      "source_sha256": "3877a10dfe9123a751404f3e1500e814e8f99d7f860862a2f289547f721b730c",
+      "imported_sha256": "3877a10dfe9123a751404f3e1500e814e8f99d7f860862a2f289547f721b730c",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "main/gnss_pps.hpp",
+      "destination": "legacy/gnss_pps.hpp",
+      "source_sha256": "497e6b8e167000e3a59abcbf969ff07f6f19ff3a29c8be279aca8c402372ad0c",
+      "imported_sha256": "497e6b8e167000e3a59abcbf969ff07f6f19ff3a29c8be279aca8c402372ad0c",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "main/hold_status.hpp",
+      "destination": "legacy/hold_status.hpp",
+      "source_sha256": "a4a728fa4791ab4c5af530abbe80cd949cd394feb75f3ab32257b9753914ac65",
+      "imported_sha256": "a4a728fa4791ab4c5af530abbe80cd949cd394feb75f3ab32257b9753914ac65",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "main/ptob_gnss_reference.hpp",
+      "destination": "legacy/ptob_gnss_reference.hpp",
+      "source_sha256": "b77a1352c1c9461343df579560c482ab5dc16db88c7d2ceae13dd81c7ca49c86",
+      "imported_sha256": "b77a1352c1c9461343df579560c482ab5dc16db88c7d2ceae13dd81c7ca49c86",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "main/ptob_gps_shadow_clock.hpp",
+      "destination": "legacy/ptob_gps_shadow_clock.hpp",
+      "source_sha256": "b7630b043b7ba12c2860412a51ae55988ccf8b5cd730877558ba83194d4ca848",
+      "imported_sha256": "b7630b043b7ba12c2860412a51ae55988ccf8b5cd730877558ba83194d4ca848",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "main/ptob_l76k_aid.hpp",
+      "destination": "legacy/ptob_l76k_aid.hpp",
+      "source_sha256": "22a0a0d1a0d43576d703512677863ff9d14e0c75dca19f99e202e04d1b920519",
+      "imported_sha256": "22a0a0d1a0d43576d703512677863ff9d14e0c75dca19f99e202e04d1b920519",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "main/ptob_l76k_get.hpp",
+      "destination": "legacy/ptob_l76k_get.hpp",
+      "source_sha256": "aa688b6dbfcf7f7a839a199153d018ea31b3f92c5403913dc7efe5074ff33a4f",
+      "imported_sha256": "aa688b6dbfcf7f7a839a199153d018ea31b3f92c5403913dc7efe5074ff33a4f",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "main/ptob_ui_role.h",
+      "destination": "legacy/ptob_ui_role.h",
+      "source_sha256": "02cc5cd42b007c6d7fc47b166667982812120d3c262d872e6229f0a9057f59b2",
+      "imported_sha256": "02cc5cd42b007c6d7fc47b166667982812120d3c262d872e6229f0a9057f59b2",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "main/reference/clock_ble_mapping.hpp",
+      "destination": "legacy/reference/clock_ble_mapping.hpp",
+      "source_sha256": "816774a7b3499ba0f8b8998555546816a18fa499c0913ecdab46466ec9fbabf8",
+      "imported_sha256": "816774a7b3499ba0f8b8998555546816a18fa499c0913ecdab46466ec9fbabf8",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "main/reference/clock_discipline.hpp",
+      "destination": "legacy/reference/clock_discipline.hpp",
+      "source_sha256": "77f18b6cf428f6609435a89ec2ab3783f7aa8f9f49d10159c7464c9cc08383c6",
+      "imported_sha256": "77f18b6cf428f6609435a89ec2ab3783f7aa8f9f49d10159c7464c9cc08383c6",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "main/reference/clock_feedback.hpp",
+      "destination": "legacy/reference/clock_feedback.hpp",
+      "source_sha256": "1130187c3cccd32b450fcc6beedb143b3235615874d75932011b5078f8971fdd",
+      "imported_sha256": "1130187c3cccd32b450fcc6beedb143b3235615874d75932011b5078f8971fdd",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "main/reference/clock_prediction.hpp",
+      "destination": "legacy/reference/clock_prediction.hpp",
+      "source_sha256": "a2b9d4bb7a5b43dfda1d776c6fccadf78d1c0f8439f40a551968a9ef8cc034a5",
+      "imported_sha256": "a2b9d4bb7a5b43dfda1d776c6fccadf78d1c0f8439f40a551968a9ef8cc034a5",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "main/reference/clock_s3_rx_descriptor.hpp",
+      "destination": "legacy/reference/clock_s3_rx_descriptor.hpp",
+      "source_sha256": "2e194e3604fe8582ef14838dfb512c327b0b7e7ee1027d323366736b6bed4475",
+      "imported_sha256": "2e194e3604fe8582ef14838dfb512c327b0b7e7ee1027d323366736b6bed4475",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "main/reference/clock_statistics.hpp",
+      "destination": "legacy/reference/clock_statistics.hpp",
+      "source_sha256": "6db694f31fbc8c196ad2ac6067cc5000226bac1a8ba527cd9ddfbd8e9db27ea4",
+      "imported_sha256": "6db694f31fbc8c196ad2ac6067cc5000226bac1a8ba527cd9ddfbd8e9db27ea4",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "main/reference/clock_tracker.hpp",
+      "destination": "legacy/reference/clock_tracker.hpp",
+      "source_sha256": "bb47d35c05520ab5884e6c23b5aba35cae65b601a27fd1f7c967ea682df61b67",
+      "imported_sha256": "bb47d35c05520ab5884e6c23b5aba35cae65b601a27fd1f7c967ea682df61b67",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "main/reference/hold_timer.hpp",
+      "destination": "legacy/reference/hold_timer.hpp",
+      "source_sha256": "42f9bb1d7a27c9e8de8ef88c179c21ff4b189b75623178b2e2c724d23050de98",
+      "imported_sha256": "42f9bb1d7a27c9e8de8ef88c179c21ff4b189b75623178b2e2c724d23050de98",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "main/w12_board_profile.hpp",
+      "destination": "legacy/w12_board_profile.hpp",
+      "source_sha256": "de8dc9292cb94ce9393a93fdc24b851e6397baae95602dc6d87230a132e08405",
+      "imported_sha256": "de8dc9292cb94ce9393a93fdc24b851e6397baae95602dc6d87230a132e08405",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "main/w12_device_profile.hpp",
+      "destination": "legacy/w12_device_profile.hpp",
+      "source_sha256": "b6a034243aef25bf88fbad183d7738bcc844c610a73c5877d99d98ba92d2c3b1",
+      "imported_sha256": "7035662774ed712a34415fd1b6f14ba49cfa80b3bb22eee92f6dd8a323a4c5c0",
+      "transformed": true
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/CMakeLists.txt",
+      "destination": "main/CMakeLists.txt",
+      "source_sha256": "17b4d9dfb6cb5de412cfaef2c59f8830a8babc998f8cb7a8182818080b28e5fb",
+      "imported_sha256": "4a551f4e9609185c906d0647847422ca31b565850dcdbe73be1f1182846013fc",
+      "transformed": true
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/bounded_log.cpp",
+      "destination": "main/bounded_log.cpp",
+      "source_sha256": "77dafdbe234d78f44dc517c5282d0fda193866d5d94a09dd6aa340cdcbf76e07",
+      "imported_sha256": "77dafdbe234d78f44dc517c5282d0fda193866d5d94a09dd6aa340cdcbf76e07",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/bounded_log.hpp",
+      "destination": "main/bounded_log.hpp",
+      "source_sha256": "d0065c19050d6ef3002954c20f999938b1a5fad5c3b3d2eaf4e77431bf298165",
+      "imported_sha256": "d0065c19050d6ef3002954c20f999938b1a5fad5c3b3d2eaf4e77431bf298165",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/capture_contract.hpp",
+      "destination": "main/capture_contract.hpp",
+      "source_sha256": "963717cfbea76ac837128ab5f90366517e309f6bc46f5036f363776415b5e196",
+      "imported_sha256": "963717cfbea76ac837128ab5f90366517e309f6bc46f5036f363776415b5e196",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/client_lifecycle.hpp",
+      "destination": "main/client_lifecycle.hpp",
+      "source_sha256": "2f3e92a4f7d71743a0bd73ccb9af947ca853a04da7b19e2be23d7c5dbcf1923d",
+      "imported_sha256": "2f3e92a4f7d71743a0bd73ccb9af947ca853a04da7b19e2be23d7c5dbcf1923d",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/console_protocol.hpp",
+      "destination": "main/console_protocol.hpp",
+      "source_sha256": "c8f1afa097885956c3f931a324bbf7e64f7a2afc079d4b4c8ff7462d09120ed1",
+      "imported_sha256": "c8f1afa097885956c3f931a324bbf7e64f7a2afc079d4b4c8ff7462d09120ed1",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/control_codec.c",
+      "destination": "main/control_codec.c",
+      "source_sha256": "0f4434dbf616a5757b09a8e9ca897319ae3a685f85a6d75bfd993ad57705c7c8",
+      "imported_sha256": "0f4434dbf616a5757b09a8e9ca897319ae3a685f85a6d75bfd993ad57705c7c8",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/control_codec.h",
+      "destination": "main/control_codec.h",
+      "source_sha256": "b144912f2549e4ffed7baef6f098a2f5dade4d931f1cbe851de1650d14fbb8f6",
+      "imported_sha256": "b144912f2549e4ffed7baef6f098a2f5dade4d931f1cbe851de1650d14fbb8f6",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/control_state.hpp",
+      "destination": "main/control_state.hpp",
+      "source_sha256": "c22b22ca591f9c35fce10e55c8978d67d7955377adf94246536449d9e72ca7fa",
+      "imported_sha256": "c22b22ca591f9c35fce10e55c8978d67d7955377adf94246536449d9e72ca7fa",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/diagnostic_codec.hpp",
+      "destination": "main/diagnostic_codec.hpp",
+      "source_sha256": "c0f28b6e4951f1262f9c56cfcb396bcff7f20087bb30db871f73e8ec46e625b9",
+      "imported_sha256": "c0f28b6e4951f1262f9c56cfcb396bcff7f20087bb30db871f73e8ec46e625b9",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/direct_auth.cpp",
+      "destination": "main/direct_auth.cpp",
+      "source_sha256": "d6b71ce2365d64c291e6681828557ebb806bef444ab7ce90943ef14f0b7fc0fb",
+      "imported_sha256": "d6b71ce2365d64c291e6681828557ebb806bef444ab7ce90943ef14f0b7fc0fb",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/direct_auth.hpp",
+      "destination": "main/direct_auth.hpp",
+      "source_sha256": "1aa22ac44dfda78e5abae9c78d30f2cb41c342262c4a357691e075c404170d55",
+      "imported_sha256": "1aa22ac44dfda78e5abae9c78d30f2cb41c342262c4a357691e075c404170d55",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/fault_watchdog.cpp",
+      "destination": "main/fault_watchdog.cpp",
+      "source_sha256": "59192c555c89aa26cc9f036323c56032aaaffef11088c7d08c78bb8c7fc75137",
+      "imported_sha256": "59192c555c89aa26cc9f036323c56032aaaffef11088c7d08c78bb8c7fc75137",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/fault_watchdog.hpp",
+      "destination": "main/fault_watchdog.hpp",
+      "source_sha256": "e8bdc9d3aebe172c2d0ad28b3f542a30dc3c343717891e803d255ab6f922378f",
+      "imported_sha256": "e8bdc9d3aebe172c2d0ad28b3f542a30dc3c343717891e803d255ab6f922378f",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/fault_watchdog_model.hpp",
+      "destination": "main/fault_watchdog_model.hpp",
+      "source_sha256": "94b47f74940a6d5c1c074e111c5c68e20b0b555d12322bd2e2a974f1d8e493dc",
+      "imported_sha256": "94b47f74940a6d5c1c074e111c5c68e20b0b555d12322bd2e2a974f1d8e493dc",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/g1_client_policy.hpp",
+      "destination": "main/g1_client_policy.hpp",
+      "source_sha256": "f2ef3682c02ac92e594992ff1f71f7db355fd4dfc36a3a4acce01b9fd08129da",
+      "imported_sha256": "f2ef3682c02ac92e594992ff1f71f7db355fd4dfc36a3a4acce01b9fd08129da",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/g1_clock_prediction.hpp",
+      "destination": "main/g1_clock_prediction.hpp",
+      "source_sha256": "b930fb80ed36c3ba4c8e0bf0370531f2ed2b9c019b6fe1779bf8dbfdfda463b2",
+      "imported_sha256": "b930fb80ed36c3ba4c8e0bf0370531f2ed2b9c019b6fe1779bf8dbfdfda463b2",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/g1_corrected_clock.hpp",
+      "destination": "main/g1_corrected_clock.hpp",
+      "source_sha256": "0fde4c16374c065ef4ab6c4e0304080afe0f7c500fff02b3aeda638b080c31e8",
+      "imported_sha256": "0fde4c16374c065ef4ab6c4e0304080afe0f7c500fff02b3aeda638b080c31e8",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/g1_diagnostic_render.hpp",
+      "destination": "main/g1_diagnostic_render.hpp",
+      "source_sha256": "16591b418132cd8f551120d2218099e022927e6880d11aed565076963548698e",
+      "imported_sha256": "16591b418132cd8f551120d2218099e022927e6880d11aed565076963548698e",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/g1_diagnostics.hpp",
+      "destination": "main/g1_diagnostics.hpp",
+      "source_sha256": "c1ef4d64cd3ae996da2a738c5e9019564f02fe61066c23334b6f9a8b360595de",
+      "imported_sha256": "c1ef4d64cd3ae996da2a738c5e9019564f02fe61066c23334b6f9a8b360595de",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/g1_gps_shadow.hpp",
+      "destination": "main/g1_gps_shadow.hpp",
+      "source_sha256": "c357469f0acef6b8707c64ee0f63f8e117cc73e9e5b3de835a6990c04072440f",
+      "imported_sha256": "c357469f0acef6b8707c64ee0f63f8e117cc73e9e5b3de835a6990c04072440f",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/g1_hci_trace.cpp",
+      "destination": "main/g1_hci_trace.cpp",
+      "source_sha256": "8e6ae36e73483e0e41c9ace07dd4b42fc827b1f98bd2f38b9d8672bf8aab3dc7",
+      "imported_sha256": "8e6ae36e73483e0e41c9ace07dd4b42fc827b1f98bd2f38b9d8672bf8aab3dc7",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/g1_hci_trace.hpp",
+      "destination": "main/g1_hci_trace.hpp",
+      "source_sha256": "0e1a55e3781ba689eeebd26f2b01204720c9c8c1ffaa6ff7402e096e7026c1c9",
+      "imported_sha256": "0e1a55e3781ba689eeebd26f2b01204720c9c8c1ffaa6ff7402e096e7026c1c9",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/g1_hmac.c",
+      "destination": "main/g1_hmac.c",
+      "source_sha256": "6d3c4a76ee6813636511185557333aef2e02bb68893b8aa172a2dfc82aa539b7",
+      "imported_sha256": "6d3c4a76ee6813636511185557333aef2e02bb68893b8aa172a2dfc82aa539b7",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/g1_output_correction.hpp",
+      "destination": "main/g1_output_correction.hpp",
+      "source_sha256": "70fc66f77a0c90399e265a9f00f3dc871f77354b604ee923d084500cfc3dcb62",
+      "imported_sha256": "70fc66f77a0c90399e265a9f00f3dc871f77354b604ee923d084500cfc3dcb62",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/g1_parent_history.hpp",
+      "destination": "main/g1_parent_history.hpp",
+      "source_sha256": "870358226ee37aac0739fcc1cddef9061a1a30c15fc4d67e68075f4f9d1c5eac",
+      "imported_sha256": "870358226ee37aac0739fcc1cddef9061a1a30c15fc4d67e68075f4f9d1c5eac",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/g1_parent_selection.hpp",
+      "destination": "main/g1_parent_selection.hpp",
+      "source_sha256": "ab413bc4afaddc50a8fa197955b730d7eb0a50de6733e05253f8c0c3b53cd173",
+      "imported_sha256": "ab413bc4afaddc50a8fa197955b730d7eb0a50de6733e05253f8c0c3b53cd173",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/g1_quality_display.hpp",
+      "destination": "main/g1_quality_display.hpp",
+      "source_sha256": "f940101bf688c7551d8f3267dc9b3b547685a4daabd9e74c1fd56614aecd2445",
+      "imported_sha256": "f940101bf688c7551d8f3267dc9b3b547685a4daabd9e74c1fd56614aecd2445",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/g1_record_budget.hpp",
+      "destination": "main/g1_record_budget.hpp",
+      "source_sha256": "eebb2d4c1cc7ac685c48a6f685a1d76600bdd89b270380cce184b87f673f8ef1",
+      "imported_sha256": "eebb2d4c1cc7ac685c48a6f685a1d76600bdd89b270380cce184b87f673f8ef1",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/g1_relative_quality.hpp",
+      "destination": "main/g1_relative_quality.hpp",
+      "source_sha256": "df290449af5ee26eb69f3445271cba7c0e27952b36e690eaa375d316fef4b9de",
+      "imported_sha256": "df290449af5ee26eb69f3445271cba7c0e27952b36e690eaa375d316fef4b9de",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/g1_reset_recovery.hpp",
+      "destination": "main/g1_reset_recovery.hpp",
+      "source_sha256": "e2ce0122352d5cacc5037b1787a48430b5d62b4dee8952434491621d52c06346",
+      "imported_sha256": "e2ce0122352d5cacc5037b1787a48430b5d62b4dee8952434491621d52c06346",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/g1_ui_indicators.hpp",
+      "destination": "main/g1_ui_indicators.hpp",
+      "source_sha256": "395580f20326e2ab695733c9a784d4ed3a4c05f1cddcdb1b16f85bdcd9c24116",
+      "imported_sha256": "395580f20326e2ab695733c9a784d4ed3a4c05f1cddcdb1b16f85bdcd9c24116",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/lora_owner_gate.hpp",
+      "destination": "main/lora_owner_gate.hpp",
+      "source_sha256": "835d683be8e81513b9b3f55774744fa87b5e3324d539b4530cc29d0d182e0207",
+      "imported_sha256": "835d683be8e81513b9b3f55774744fa87b5e3324d539b4530cc29d0d182e0207",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/native_credentials.cpp",
+      "destination": "main/native_credentials.cpp",
+      "source_sha256": "ebd2da531df4bc9dafc73a9cd450d1fb788a296e622bf3af19fd267e4982c946",
+      "imported_sha256": "c03feed4f80a5f806b8364f3b5a10e70680192ef574b1d015d3b62e00992ee56",
+      "transformed": true
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/native_credentials.hpp",
+      "destination": "main/native_credentials.hpp",
+      "source_sha256": "35050a7ec0033d776c89b34f5ce8c3098fc18213a7f372c180b0baca21268fe4",
+      "imported_sha256": "35050a7ec0033d776c89b34f5ce8c3098fc18213a7f372c180b0baca21268fe4",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/native_dashboard.hpp",
+      "destination": "main/native_dashboard.hpp",
+      "source_sha256": "ed89037bd344e92d7e60927e0aedaf5d1f3df427669c2f6c2cf6ef753239c607",
+      "imported_sha256": "6a2613962cd91bfad51ea98586d0a7856ae2a0640b99ca7990c1f28b47ca5bba",
+      "transformed": true
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/native_device_binding.hpp",
+      "destination": "main/native_device_binding.hpp",
+      "source_sha256": "9bf7249e152b68f5dd4323451996d31782e47950f1e0c0fdd4c565ca3c1d844e",
+      "imported_sha256": "276896318c350747caf8327b919638c74565a1f45dc1a5a02c77cc57efc38883",
+      "transformed": true
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/native_diagnostic_tx.cpp",
+      "destination": "main/native_diagnostic_tx.cpp",
+      "source_sha256": "2782da3957538c590d97156da6444ef395d2a84030ac21e697e04b24c4050278",
+      "imported_sha256": "2782da3957538c590d97156da6444ef395d2a84030ac21e697e04b24c4050278",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/native_diagnostic_tx.hpp",
+      "destination": "main/native_diagnostic_tx.hpp",
+      "source_sha256": "cfaf54887f70245ddbd6238ee5a0b9c23a3a7bcce00791f35a6ffc2217d398a2",
+      "imported_sha256": "cfaf54887f70245ddbd6238ee5a0b9c23a3a7bcce00791f35a6ffc2217d398a2",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/native_direct.cpp",
+      "destination": "main/native_direct.cpp",
+      "source_sha256": "32812029f0eaca80153c2028eedf68fd2b20c3e99b368324a4e3c4b77c8408d0",
+      "imported_sha256": "32812029f0eaca80153c2028eedf68fd2b20c3e99b368324a4e3c4b77c8408d0",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/native_direct.hpp",
+      "destination": "main/native_direct.hpp",
+      "source_sha256": "bb5ddcbeb5d35533f5d5924487f2bc053eb3b72a8164727fb618b35f0d052bdb",
+      "imported_sha256": "bb5ddcbeb5d35533f5d5924487f2bc053eb3b72a8164727fb618b35f0d052bdb",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/native_g1.cpp",
+      "destination": "main/native_g1.cpp",
+      "source_sha256": "9a22921cfe490a78c86940c0d0eaeeb8e04d121b1f26766f199c22b8615e2d6f",
+      "imported_sha256": "9a22921cfe490a78c86940c0d0eaeeb8e04d121b1f26766f199c22b8615e2d6f",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/native_lora.cpp",
+      "destination": "main/native_lora.cpp",
+      "source_sha256": "f181098320a72143c40c4625bd05cac97bbf323ec7d2c5f7ee59204f6f3631a1",
+      "imported_sha256": "f181098320a72143c40c4625bd05cac97bbf323ec7d2c5f7ee59204f6f3631a1",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/native_lora.hpp",
+      "destination": "main/native_lora.hpp",
+      "source_sha256": "a0794d6ddf2a0131137ef552221562545f5c2cb0a15dea95342f69baa9632719",
+      "imported_sha256": "a0794d6ddf2a0131137ef552221562545f5c2cb0a15dea95342f69baa9632719",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/native_main.cpp",
+      "destination": "main/native_main.cpp",
+      "source_sha256": "a891ff41aa45266fee06c824df035d750e5f6cc0c51ed7746651ffa2bc37286a",
+      "imported_sha256": "7f1a3eb34a4167dab7b7b7510eadc67b3f56313f07242819fd4a05d627c12185",
+      "transformed": true
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/native_r2.hpp",
+      "destination": "main/native_r2.hpp",
+      "source_sha256": "4a69b949cb83c26debae3b091318cc3d9f636617092a73d2578c94852988a074",
+      "imported_sha256": "07a1fef4a74d09123b0281f73ebb9b98e95fadd8df97e31b49c987dae9e6c07b",
+      "transformed": true
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/native_transport.cpp",
+      "destination": "main/native_transport.cpp",
+      "source_sha256": "07f9ad1a74d33f4a0e6fd969b7a206000d24791a040392b00fcb3b3ca8a41b6c",
+      "imported_sha256": "07f9ad1a74d33f4a0e6fd969b7a206000d24791a040392b00fcb3b3ca8a41b6c",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/native_transport.hpp",
+      "destination": "main/native_transport.hpp",
+      "source_sha256": "ed7caa3c70d090ee040285ee054a848d431dba14000daf616eda52ebc30ac936",
+      "imported_sha256": "ed7caa3c70d090ee040285ee054a848d431dba14000daf616eda52ebc30ac936",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/periodic_rx.cpp",
+      "destination": "main/periodic_rx.cpp",
+      "source_sha256": "5edaa763101966493b38dc7a334974bd2964f21b76cf227d98d4f5bb4e8d5ef1",
+      "imported_sha256": "183888a82f980c8158b07ba2c93421ea03da5fbba30709ff36cd110dc986c161",
+      "transformed": true
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/periodic_rx.hpp",
+      "destination": "main/periodic_rx.hpp",
+      "source_sha256": "5a7f368237eb0ec59e33d597c00ffabaf8be88b5ecfe6c752fc58c28f55e44c1",
+      "imported_sha256": "5a7f368237eb0ec59e33d597c00ffabaf8be88b5ecfe6c752fc58c28f55e44c1",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/periodic_rx_model.hpp",
+      "destination": "main/periodic_rx_model.hpp",
+      "source_sha256": "a434604f17738a0f8eb5b9969c99319913cd2044559905dde9593d52d4ead4c6",
+      "imported_sha256": "67770d5c81815719943b0390aabf03fd8cb4c105ef9fe0509d4e2d2d8309f28f",
+      "transformed": true
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/periodic_tx.cpp",
+      "destination": "main/periodic_tx.cpp",
+      "source_sha256": "4ca5a1fd061b708b4aaea139b7e701c0d1ad29368ebdd4306a68846ad8cf9909",
+      "imported_sha256": "dfa2c72137df1767e567a8353141a64370fdc920126ac303d3577b3c9ef74bee",
+      "transformed": true
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/periodic_tx.hpp",
+      "destination": "main/periodic_tx.hpp",
+      "source_sha256": "3953da6b195a7b640c180270f191b05fa4db17e64dd330d053847398a872ac82",
+      "imported_sha256": "3953da6b195a7b640c180270f191b05fa4db17e64dd330d053847398a872ac82",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/periodic_tx_chm_guard.hpp",
+      "destination": "main/periodic_tx_chm_guard.hpp",
+      "source_sha256": "71dea7d1149deea58dd71f97f31d1590874eb678027374005d9afb0db3f2429a",
+      "imported_sha256": "71dea7d1149deea58dd71f97f31d1590874eb678027374005d9afb0db3f2429a",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/periodic_tx_packed_map_guard.hpp",
+      "destination": "main/periodic_tx_packed_map_guard.hpp",
+      "source_sha256": "ba779dfc183767568ab60bc3fb7b0cf178873a979ed9659955266523c6065cd1",
+      "imported_sha256": "ba779dfc183767568ab60bc3fb7b0cf178873a979ed9659955266523c6065cd1",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/periodic_tx_rom_guard.hpp",
+      "destination": "main/periodic_tx_rom_guard.hpp",
+      "source_sha256": "7aae7c0e7e81df13284632442215b31bff13a12a3b7d8a6b02a22f16f115f265",
+      "imported_sha256": "7aae7c0e7e81df13284632442215b31bff13a12a3b7d8a6b02a22f16f115f265",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/periodic_tx_selected_model.hpp",
+      "destination": "main/periodic_tx_selected_model.hpp",
+      "source_sha256": "addf5a2b02d52250d02e9409bddfb9a5d952a08f6bce46e7eb527c217b38d976",
+      "imported_sha256": "addf5a2b02d52250d02e9409bddfb9a5d952a08f6bce46e7eb527c217b38d976",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/public_crypto.cpp",
+      "destination": "main/public_crypto.cpp",
+      "source_sha256": "44cc2156d14cc5bdc1d3d4ad455a00252aa1dc775e52ed328f4c5abc52fca737",
+      "imported_sha256": "44cc2156d14cc5bdc1d3d4ad455a00252aa1dc775e52ed328f4c5abc52fca737",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/public_crypto.hpp",
+      "destination": "main/public_crypto.hpp",
+      "source_sha256": "4ac55d9c95886a63da62c978eb8371c7c693d2f5787fe6b655e72459afa840f4",
+      "imported_sha256": "4ac55d9c95886a63da62c978eb8371c7c693d2f5787fe6b655e72459afa840f4",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/public_grants.hpp",
+      "destination": "main/public_grants.hpp",
+      "source_sha256": "8e9d4b30b35df0c7f524743a206831e90e6b8e68b8d944318b60b28e0700adac",
+      "imported_sha256": "8e9d4b30b35df0c7f524743a206831e90e6b8e68b8d944318b60b28e0700adac",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/public_observer.cpp",
+      "destination": "main/public_observer.cpp",
+      "source_sha256": "28fef066a45016eb0b03a154adc01cbb425f099992e500fe778aa203dff29047",
+      "imported_sha256": "28fef066a45016eb0b03a154adc01cbb425f099992e500fe778aa203dff29047",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/public_observer.hpp",
+      "destination": "main/public_observer.hpp",
+      "source_sha256": "68892f4f4e897300b2fa1d16d02e7e5793870e08fdae254ba32066a91ebccc95",
+      "imported_sha256": "68892f4f4e897300b2fa1d16d02e7e5793870e08fdae254ba32066a91ebccc95",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/public_receiver.cpp",
+      "destination": "main/public_receiver.cpp",
+      "source_sha256": "55f0d6a29f43d71fe45bb4291d1af807d5463a08093896111a4f678a34181b7d",
+      "imported_sha256": "55f0d6a29f43d71fe45bb4291d1af807d5463a08093896111a4f678a34181b7d",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/public_receiver.hpp",
+      "destination": "main/public_receiver.hpp",
+      "source_sha256": "81de748358f2a55100b14d10730c54af2d20f26a8b451c8b5024b54cd9b4ea5a",
+      "imported_sha256": "81de748358f2a55100b14d10730c54af2d20f26a8b451c8b5024b54cd9b4ea5a",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/r2/precision_codec.c",
+      "destination": "main/r2/precision_codec.c",
+      "source_sha256": "7fd385b490c8e90dd431051eda44ff0a042ad37d93d4b03521aba9fada56df05",
+      "imported_sha256": "7fd385b490c8e90dd431051eda44ff0a042ad37d93d4b03521aba9fada56df05",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/r2/precision_codec.h",
+      "destination": "main/r2/precision_codec.h",
+      "source_sha256": "9cc78acd86e983d38446cb3b1d531e801d5da6bf27c34ab487467206681b1a93",
+      "imported_sha256": "9cc78acd86e983d38446cb3b1d531e801d5da6bf27c34ab487467206681b1a93",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/r2/r2-a5-16/control_codec.h",
+      "destination": "main/r2/r2-a5-16/control_codec.h",
+      "source_sha256": "bbf2684d3fc1b7d158d1943301ba466ff0a297436bebba0b118029ed20676e37",
+      "imported_sha256": "bbf2684d3fc1b7d158d1943301ba466ff0a297436bebba0b118029ed20676e37",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/r2/r2-control/control_codec.h",
+      "destination": "main/r2/r2-control/control_codec.h",
+      "source_sha256": "bbf2684d3fc1b7d158d1943301ba466ff0a297436bebba0b118029ed20676e37",
+      "imported_sha256": "bbf2684d3fc1b7d158d1943301ba466ff0a297436bebba0b118029ed20676e37",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/r2/r2-g1/group_auth.c",
+      "destination": "main/r2/r2-g1/group_auth.c",
+      "source_sha256": "a84826aaea8cacb85156fbaae5a51e382b708215ebfa97c3a29f846b4b334ab3",
+      "imported_sha256": "a84826aaea8cacb85156fbaae5a51e382b708215ebfa97c3a29f846b4b334ab3",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/r2/r2-g1/group_auth.h",
+      "destination": "main/r2/r2-g1/group_auth.h",
+      "source_sha256": "959a6b7fed23100448ac7de442d38806a146897b4c53038a0087fce298caaf87",
+      "imported_sha256": "959a6b7fed23100448ac7de442d38806a146897b4c53038a0087fce298caaf87",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/r2/r2-g1/group_join.c",
+      "destination": "main/r2/r2-g1/group_join.c",
+      "source_sha256": "1148108f3da126f6bc567f5e57cf147d26fe8a1e0715b1932e461052ab0c9c6d",
+      "imported_sha256": "1148108f3da126f6bc567f5e57cf147d26fe8a1e0715b1932e461052ab0c9c6d",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/r2/r2-g1/group_join.h",
+      "destination": "main/r2/r2-g1/group_join.h",
+      "source_sha256": "936692d3b9c8d0023a4debc06a9d1bc9e7b61a393a8c91fd6f57b04f2f8aa037",
+      "imported_sha256": "936692d3b9c8d0023a4debc06a9d1bc9e7b61a393a8c91fd6f57b04f2f8aa037",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/r2/r2-g1/group_precision.c",
+      "destination": "main/r2/r2-g1/group_precision.c",
+      "source_sha256": "a4ef2cbe361201451fa87c6fb168db336c0de4c29cb1583a0582b78e7389faf3",
+      "imported_sha256": "a4ef2cbe361201451fa87c6fb168db336c0de4c29cb1583a0582b78e7389faf3",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/r2/r2-g1/group_precision.h",
+      "destination": "main/r2/r2-g1/group_precision.h",
+      "source_sha256": "dec2476c053485a7b1587442ccfe9dbd49489c91fce02d751f1565eb1dcec83d",
+      "imported_sha256": "dec2476c053485a7b1587442ccfe9dbd49489c91fce02d751f1565eb1dcec83d",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/r2/r2-g1/group_vectors.json",
+      "destination": "main/r2/r2-g1/group_vectors.json",
+      "source_sha256": "f5a5c99884041a23647e56d7afbd56733d0f6ff509752c90a9846a2e3c3a796d",
+      "imported_sha256": "f5a5c99884041a23647e56d7afbd56733d0f6ff509752c90a9846a2e3c3a796d",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/r2/r2-g1/link_quality.h",
+      "destination": "main/r2/r2-g1/link_quality.h",
+      "source_sha256": "c9d9d1e34dba598f2d7ad369211b27e0c25da7f643f0db7ff3b75dc827a2ec61",
+      "imported_sha256": "c9d9d1e34dba598f2d7ad369211b27e0c25da7f643f0db7ff3b75dc827a2ec61",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/r2/r2-g1/precision_codec.c",
+      "destination": "main/r2/r2-g1/precision_codec.c",
+      "source_sha256": "ca6378fef7424ce8834745bd0594fa0e9cb807f9e6d2aa58ea6436e8441e229c",
+      "imported_sha256": "ca6378fef7424ce8834745bd0594fa0e9cb807f9e6d2aa58ea6436e8441e229c",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/r2/r2-g1/precision_codec.h",
+      "destination": "main/r2/r2-g1/precision_codec.h",
+      "source_sha256": "c1a518ac78632f0d779d42f68c81439ff1dacd2b9834c399105d56ce267d8f0e",
+      "imported_sha256": "c1a518ac78632f0d779d42f68c81439ff1dacd2b9834c399105d56ce267d8f0e",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/r2/r2-g1/relay_codec.c",
+      "destination": "main/r2/r2-g1/relay_codec.c",
+      "source_sha256": "3fd89655032fa5c444515c58a184aaf1d63d89382271b2facf14ac50bb65a936",
+      "imported_sha256": "3fd89655032fa5c444515c58a184aaf1d63d89382271b2facf14ac50bb65a936",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/r2/r2-g1/relay_codec.h",
+      "destination": "main/r2/r2-g1/relay_codec.h",
+      "source_sha256": "f5a6798b5e84d1656040f1c757447b0228eb51aaeb6157d4ddfe2e9f2e4aa4f6",
+      "imported_sha256": "f5a6798b5e84d1656040f1c757447b0228eb51aaeb6157d4ddfe2e9f2e4aa4f6",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/r2/r2-g1/v14_vectors.json",
+      "destination": "main/r2/r2-g1/v14_vectors.json",
+      "source_sha256": "6908dfe71a28cb5a9a48b315351e7e14948eb2abb437f816fcb44e0e772b4ecb",
+      "imported_sha256": "6908dfe71a28cb5a9a48b315351e7e14948eb2abb437f816fcb44e0e772b4ecb",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/r2/rc7/include/rc_boundary.h",
+      "destination": "main/r2/rc7/include/rc_boundary.h",
+      "source_sha256": "f3e5373853f755ec36525fe13dc00747cc9f6cbfc6920ae1db757ec8177ae139",
+      "imported_sha256": "f3e5373853f755ec36525fe13dc00747cc9f6cbfc6920ae1db757ec8177ae139",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/r2/rc7/protocol/group_auth.c",
+      "destination": "main/r2/rc7/protocol/group_auth.c",
+      "source_sha256": "a84826aaea8cacb85156fbaae5a51e382b708215ebfa97c3a29f846b4b334ab3",
+      "imported_sha256": "a84826aaea8cacb85156fbaae5a51e382b708215ebfa97c3a29f846b4b334ab3",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/r2/rc7/protocol/group_auth.h",
+      "destination": "main/r2/rc7/protocol/group_auth.h",
+      "source_sha256": "959a6b7fed23100448ac7de442d38806a146897b4c53038a0087fce298caaf87",
+      "imported_sha256": "959a6b7fed23100448ac7de442d38806a146897b4c53038a0087fce298caaf87",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/r2/rc7/protocol/rc_dynamic.c",
+      "destination": "main/r2/rc7/protocol/rc_dynamic.c",
+      "source_sha256": "3536e741492cee4d3cf59412ecf7bd175faf5fb3a2f5a7d19d7a301aa0b71cb5",
+      "imported_sha256": "3536e741492cee4d3cf59412ecf7bd175faf5fb3a2f5a7d19d7a301aa0b71cb5",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/r2/rc7/protocol/rc_dynamic.h",
+      "destination": "main/r2/rc7/protocol/rc_dynamic.h",
+      "source_sha256": "16001e760bf64f7ca9a0afc921a9e986d509d7c38a7f03e6eed40f298bcf1213",
+      "imported_sha256": "16001e760bf64f7ca9a0afc921a9e986d509d7c38a7f03e6eed40f298bcf1213",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/r2/rc7/src/rc_boundary.c",
+      "destination": "main/r2/rc7/src/rc_boundary.c",
+      "source_sha256": "feb6b928359745a8fe8067bcf82cd06056b2da592050ab3f7e1fcf72bf9887a4",
+      "imported_sha256": "feb6b928359745a8fe8067bcf82cd06056b2da592050ab3f7e1fcf72bf9887a4",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/r2_client_service.hpp",
+      "destination": "main/r2_client_service.hpp",
+      "source_sha256": "f76a9098554a6667cefa0617b7558b80458cb607bf52e189391dcd606fabf442",
+      "imported_sha256": "f76a9098554a6667cefa0617b7558b80458cb607bf52e189391dcd606fabf442",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/r2_discipline.hpp",
+      "destination": "main/r2_discipline.hpp",
+      "source_sha256": "e6cdc049f69789382b43956e00a9f4834306162d2ed7fcebbaf455884840a0f8",
+      "imported_sha256": "e6cdc049f69789382b43956e00a9f4834306162d2ed7fcebbaf455884840a0f8",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/r2_discovery.hpp",
+      "destination": "main/r2_discovery.hpp",
+      "source_sha256": "efd8eac80f511085420c55988de10e4f0d6c425d7a5b777dbccd562a45d5119b",
+      "imported_sha256": "efd8eac80f511085420c55988de10e4f0d6c425d7a5b777dbccd562a45d5119b",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/rc7_client.hpp",
+      "destination": "main/rc7_client.hpp",
+      "source_sha256": "07899f1a736a00a97fad2e513f64729db6f143da7a4ca2548ac79d0326c5dbae",
+      "imported_sha256": "07899f1a736a00a97fad2e513f64729db6f143da7a4ca2548ac79d0326c5dbae",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/rc7_path_snapshot.hpp",
+      "destination": "main/rc7_path_snapshot.hpp",
+      "source_sha256": "912eb65316257a5edeb91d3b1b9450c030ab5c27da9f4a7a75be5e0d448cdab2",
+      "imported_sha256": "912eb65316257a5edeb91d3b1b9450c030ab5c27da9f4a7a75be5e0d448cdab2",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/rc7_radio_phase.hpp",
+      "destination": "main/rc7_radio_phase.hpp",
+      "source_sha256": "15a4bbaaf188f1c2b71367eba30a7bb5069afc16f4b089198f304e1ebc8327e9",
+      "imported_sha256": "15a4bbaaf188f1c2b71367eba30a7bb5069afc16f4b089198f304e1ebc8327e9",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/rc7_relay_estimate.hpp",
+      "destination": "main/rc7_relay_estimate.hpp",
+      "source_sha256": "0f59f758d902d8e76a572471a10f95c864a97a0a8e8e051766b70419a74d81ba",
+      "imported_sha256": "0f59f758d902d8e76a572471a10f95c864a97a0a8e8e051766b70419a74d81ba",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/rc7_relay_native.inc",
+      "destination": "main/rc7_relay_native.inc",
+      "source_sha256": "e5b74bc0d0a3165c3048922ba130e88f4c9ca93a6c6b039263c87f238a8cb60e",
+      "imported_sha256": "e5b74bc0d0a3165c3048922ba130e88f4c9ca93a6c6b039263c87f238a8cb60e",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/rc7_tx_estimate.hpp",
+      "destination": "main/rc7_tx_estimate.hpp",
+      "source_sha256": "d0bf84266c30b54eb993e2722c28e303b08d355c9e9b91ecdf22009bd46f9db1",
+      "imported_sha256": "d0bf84266c30b54eb993e2722c28e303b08d355c9e9b91ecdf22009bd46f9db1",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/rc_parent_diagnostic.hpp",
+      "destination": "main/rc_parent_diagnostic.hpp",
+      "source_sha256": "2b92a28d4ba3928efd952772d8beea617f7fe1c464940ba982d86d9cfc9cc107",
+      "imported_sha256": "2b92a28d4ba3928efd952772d8beea617f7fe1c464940ba982d86d9cfc9cc107",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/s3_clock_reference.c",
+      "destination": "main/s3_clock_reference.c",
+      "source_sha256": "3bf3e8821cd5f88d36d382f5998c34755364726fff9838a9493a897d06373b10",
+      "imported_sha256": "3bf3e8821cd5f88d36d382f5998c34755364726fff9838a9493a897d06373b10",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/s3_clock_reference.h",
+      "destination": "main/s3_clock_reference.h",
+      "source_sha256": "7fbd7d01377add362c2777b576934a6c8dd55e7189b61710601e68e606f43db6",
+      "imported_sha256": "7fbd7d01377add362c2777b576934a6c8dd55e7189b61710601e68e606f43db6",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/shared/p256_canonical.c",
+      "destination": "main/shared/p256_canonical.c",
+      "source_sha256": "a2fcb69467f03f57481575e6d0c6fff192dbd04b80363caca7afe429efc53c5b",
+      "imported_sha256": "a2fcb69467f03f57481575e6d0c6fff192dbd04b80363caca7afe429efc53c5b",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/shared/p256_native.h",
+      "destination": "main/shared/p256_native.h",
+      "source_sha256": "f384ff4ba2d97a3f1e9f3901d1787d60cc5b8638473a48cd424e771122c044d7",
+      "imported_sha256": "f384ff4ba2d97a3f1e9f3901d1787d60cc5b8638473a48cd424e771122c044d7",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/shared/public_codec.c",
+      "destination": "main/shared/public_codec.c",
+      "source_sha256": "778d4aca350dca923df6a5258a5676e40b976db6b926348d8bb019e7e3616ee6",
+      "imported_sha256": "778d4aca350dca923df6a5258a5676e40b976db6b926348d8bb019e7e3616ee6",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/shared/public_codec.h",
+      "destination": "main/shared/public_codec.h",
+      "source_sha256": "e2808fda23319772d6e44e94304bc63ab77b2a928c03751ee4a9b2f9b5541efd",
+      "imported_sha256": "e2808fda23319772d6e44e94304bc63ab77b2a928c03751ee4a9b2f9b5541efd",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/update_gate.hpp",
+      "destination": "main/update_gate.hpp",
+      "source_sha256": "4955ddd616805022e35019acaaced0565e1bf2ec3415740e8df2027cd5443f84",
+      "imported_sha256": "4955ddd616805022e35019acaaced0565e1bf2ec3415740e8df2027cd5443f84",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/sdkconfig.defaults",
+      "destination": "sdkconfig.defaults",
+      "source_sha256": "cda5af7a3c465d1d1ff46ac113bb5f56a110e15bb9b7bf96486a1df2ce246a4e",
+      "imported_sha256": "cda5af7a3c465d1d1ff46ac113bb5f56a110e15bb9b7bf96486a1df2ce246a4e",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/sdkconfig.g1.defaults",
+      "destination": "sdkconfig.g1.defaults",
+      "source_sha256": "80257d1e607e46295f2afd246b45308771c6c14b3a6c6fe6d37fba429259a81b",
+      "imported_sha256": "80257d1e607e46295f2afd246b45308771c6c14b3a6c6fe6d37fba429259a81b",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/sdkconfig.rc7-server.defaults",
+      "destination": "sdkconfig.rc7-server.defaults",
+      "source_sha256": "4e34297fb03cd38b8d06b7e8b1ecc64c831c18fd9ae916a472a174982ecb32d3",
+      "imported_sha256": "4e34297fb03cd38b8d06b7e8b1ecc64c831c18fd9ae916a472a174982ecb32d3",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/tests/console_fakes/driver/usb_serial_jtag.h",
+      "destination": "tests/console_fakes/driver/usb_serial_jtag.h",
+      "source_sha256": "78f2b184ce6b178d108ba3a48b0517a3751108488f55804d21a9c6b1df04756d",
+      "imported_sha256": "78f2b184ce6b178d108ba3a48b0517a3751108488f55804d21a9c6b1df04756d",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/tests/console_fakes/esp_log.h",
+      "destination": "tests/console_fakes/esp_log.h",
+      "source_sha256": "dcc3510a5b246f78b2f041fc49cc544f7a575e25e208ab80d593328f110288a9",
+      "imported_sha256": "dcc3510a5b246f78b2f041fc49cc544f7a575e25e208ab80d593328f110288a9",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/tests/console_fakes/esp_timer.h",
+      "destination": "tests/console_fakes/esp_timer.h",
+      "source_sha256": "dbbe2262037a4eafc189197efc584714277b624e5819bc3cb82265eb4e22e955",
+      "imported_sha256": "dbbe2262037a4eafc189197efc584714277b624e5819bc3cb82265eb4e22e955",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/tests/console_fakes/freertos/FreeRTOS.h",
+      "destination": "tests/console_fakes/freertos/FreeRTOS.h",
+      "source_sha256": "4a99153aef4f38736234840aa8b70e017fda25d1a19b92b6a33c2d3e9472dfd6",
+      "imported_sha256": "4a99153aef4f38736234840aa8b70e017fda25d1a19b92b6a33c2d3e9472dfd6",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/tests/console_fakes/freertos/task.h",
+      "destination": "tests/console_fakes/freertos/task.h",
+      "source_sha256": "9fd34210430056cd5d5f46180897c8d4afa49ae61edb6c9f55437b7e629da5e9",
+      "imported_sha256": "9fd34210430056cd5d5f46180897c8d4afa49ae61edb6c9f55437b7e629da5e9",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/tests/console_fakes/host/ble_gap.h",
+      "destination": "tests/console_fakes/host/ble_gap.h",
+      "source_sha256": "2f3d34a62f6059df918e099820b02a69ca77a82835609be177615f24744e02c5",
+      "imported_sha256": "2f3d34a62f6059df918e099820b02a69ca77a82835609be177615f24744e02c5",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/tests/console_fakes/host/ble_hs.h",
+      "destination": "tests/console_fakes/host/ble_hs.h",
+      "source_sha256": "5fa66f0c4fafb7a94ae5b0ce1417b55ee2630ec3fff311c896555a5339c2f6d1",
+      "imported_sha256": "5fa66f0c4fafb7a94ae5b0ce1417b55ee2630ec3fff311c896555a5339c2f6d1",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/tests/console_fakes/host/util/util.h",
+      "destination": "tests/console_fakes/host/util/util.h",
+      "source_sha256": "6c362b0f8cabd0e92830469967db184df16e513e2cc0133b5d67d51b08bbc3b8",
+      "imported_sha256": "6c362b0f8cabd0e92830469967db184df16e513e2cc0133b5d67d51b08bbc3b8",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/tests/console_fakes/nimble/nimble_port.h",
+      "destination": "tests/console_fakes/nimble/nimble_port.h",
+      "source_sha256": "9f468161a139c36c37e68362273ea8d7b54f2726c4f5b517ec1a5810608f7b92",
+      "imported_sha256": "9f468161a139c36c37e68362273ea8d7b54f2726c4f5b517ec1a5810608f7b92",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/tests/console_fakes/nimble/nimble_port_freertos.h",
+      "destination": "tests/console_fakes/nimble/nimble_port_freertos.h",
+      "source_sha256": "f11d0901f5b59fbe963e52162c03a40cb7ed33a11f4032fc9eddc04badb1e4e7",
+      "imported_sha256": "f11d0901f5b59fbe963e52162c03a40cb7ed33a11f4032fc9eddc04badb1e4e7",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/tests/fault_watchdog_test.cpp",
+      "destination": "tests/fault_watchdog_test.cpp",
+      "source_sha256": "f1674cd3ae43140fb40a2bdc19dffa5e0c350d363f438bb8e5cb3c0abceb2f43",
+      "imported_sha256": "f1674cd3ae43140fb40a2bdc19dffa5e0c350d363f438bb8e5cb3c0abceb2f43",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/tests/g1_parent_owner_fixture.inc",
+      "destination": "tests/g1_parent_owner_fixture.inc",
+      "source_sha256": "356e5d9517a77538823dc6a7a2179d96e642f65d06da8c048d7d7b40f02d3de8",
+      "imported_sha256": "356e5d9517a77538823dc6a7a2179d96e642f65d06da8c048d7d7b40f02d3de8",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/tests/g1_vectors_test.c",
+      "destination": "tests/g1_vectors_test.c",
+      "source_sha256": "464fd5801ccd0efd2ee62fb6636072ac6347f96adcfa32946d8cde6cd973131d",
+      "imported_sha256": "464fd5801ccd0efd2ee62fb6636072ac6347f96adcfa32946d8cde6cd973131d",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/tests/lifecycle_test.cpp",
+      "destination": "tests/lifecycle_test.cpp",
+      "source_sha256": "74d27dd9ec007a6724e6ab1d43a885af3010f018b3c276d18c9990c2f47f3f46",
+      "imported_sha256": "74d27dd9ec007a6724e6ab1d43a885af3010f018b3c276d18c9990c2f47f3f46",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/tests/native_g1_test.cpp",
+      "destination": "tests/native_g1_test.cpp",
+      "source_sha256": "000b99c3e9a67dbe05a31f7a0ef916f89876352181f03c01b2c13bcc4b1712ab",
+      "imported_sha256": "09d68bbb3c91020cc51b73d87368ef4cda5d659b9a772204895c7b73a2e6acf1",
+      "transformed": true
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/tests/r2_fakes/esp_bt.h",
+      "destination": "tests/r2_fakes/esp_bt.h",
+      "source_sha256": "1dfb99c1bb791814e8b9742688611c48b2dc5877c6de2eba50465e69e2858b76",
+      "imported_sha256": "1dfb99c1bb791814e8b9742688611c48b2dc5877c6de2eba50465e69e2858b76",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/tests/r2_fakes/esp_random.h",
+      "destination": "tests/r2_fakes/esp_random.h",
+      "source_sha256": "42272a9f83fe957c857795819f5be2e8d4f9e6157d064e8c79d07d8faa5fb663",
+      "imported_sha256": "42272a9f83fe957c857795819f5be2e8d4f9e6157d064e8c79d07d8faa5fb663",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/tests/r2_fakes/host/ble_gap.h",
+      "destination": "tests/r2_fakes/host/ble_gap.h",
+      "source_sha256": "8e10eef43036f910e1dfa613d18e5346905b1717341e0416be8bf931f9d45207",
+      "imported_sha256": "8e10eef43036f910e1dfa613d18e5346905b1717341e0416be8bf931f9d45207",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/tests/r2_fakes/host/ble_gatt.h",
+      "destination": "tests/r2_fakes/host/ble_gatt.h",
+      "source_sha256": "7d98e1cfe123ab87804f5b0db578daf8288fc2763cefceed5da9e6952567604f",
+      "imported_sha256": "7d98e1cfe123ab87804f5b0db578daf8288fc2763cefceed5da9e6952567604f",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/tests/r2_fakes/host/ble_hs.h",
+      "destination": "tests/r2_fakes/host/ble_hs.h",
+      "source_sha256": "b7d83353823e0aaaaebd7aebfa001ed8a3a454fb04f2faf26fd9ed7c1283a9b7",
+      "imported_sha256": "b7d83353823e0aaaaebd7aebfa001ed8a3a454fb04f2faf26fd9ed7c1283a9b7",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/tests/r2_fakes/host/ble_hs_id.h",
+      "destination": "tests/r2_fakes/host/ble_hs_id.h",
+      "source_sha256": "bc3e6d2c4a533cc7cf843e8cd1972f99f19b5d398f637a6f7e881281c4440afb",
+      "imported_sha256": "bc3e6d2c4a533cc7cf843e8cd1972f99f19b5d398f637a6f7e881281c4440afb",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/tests/rc7_permission_test.cpp",
+      "destination": "tests/rc7_permission_test.cpp",
+      "source_sha256": "f4ea14ee2a0014a1b8afd074f611ea2c39856a51c686b3e2211cc619d19c8a6f",
+      "imported_sha256": "f4ea14ee2a0014a1b8afd074f611ea2c39856a51c686b3e2211cc619d19c8a6f",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/tests/rc7_server_owner_fixture.inc",
+      "destination": "tests/rc7_server_owner_fixture.inc",
+      "source_sha256": "017b5d3db76a5c9c42c65c639bee55b6d704b267f860d150fe4671b9e11d8031",
+      "imported_sha256": "017b5d3db76a5c9c42c65c639bee55b6d704b267f860d150fe4671b9e11d8031",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/tests/rc7_upstream_mode_fixture.inc",
+      "destination": "tests/rc7_upstream_mode_fixture.inc",
+      "source_sha256": "209bebce0a9ecdfb0bf01830457f1f32d485f796f7a048b9f341c763fda9a8af",
+      "imported_sha256": "209bebce0a9ecdfb0bf01830457f1f32d485f796f7a048b9f341c763fda9a8af",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/tests/update_gate_test.cpp",
+      "destination": "tests/update_gate_test.cpp",
+      "source_sha256": "912a0f508daf7fbe38cb70ee176a2ff84cf82b1c6cf6d4d961c1301c33f9e05d",
+      "imported_sha256": "912a0f508daf7fbe38cb70ee176a2ff84cf82b1c6cf6d4d961c1301c33f9e05d",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/tools/g1_vectors.py",
+      "destination": "tools/g1_vectors.py",
+      "source_sha256": "eb5b318d0a419039a7d23acc000c94cce3f24af59a07651dba746064a641c2e7",
+      "imported_sha256": "eb5b318d0a419039a7d23acc000c94cce3f24af59a07651dba746064a641c2e7",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/tools/rc7_permission_e2e.py",
+      "destination": "tools/rc7_permission_e2e.py",
+      "source_sha256": "4ede30da4869713e42c6a347be985e92c2c905a09e9913a1685edc232b74a032",
+      "imported_sha256": "03b9692c380783be4da60030e3a1bdeaaa32d493fb62019b0e32d2184affe8fe",
+      "transformed": true
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "main/m5stick_s3/board.hpp",
+      "destination": "legacy/m5stick_s3/board.hpp",
+      "source_sha256": "425f1857021f9a474598d5bd8fd2da70fc877dda7e663e9d27ecd43df5b81ac4",
+      "imported_sha256": "425f1857021f9a474598d5bd8fd2da70fc877dda7e663e9d27ecd43df5b81ac4",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "main/m5stick_s3/buttons.hpp",
+      "destination": "legacy/m5stick_s3/buttons.hpp",
+      "source_sha256": "d1a9ed2664354c7ae82e4771f735caed263d104ee90048b77ba2fb16f7ef1f28",
+      "imported_sha256": "d1a9ed2664354c7ae82e4771f735caed263d104ee90048b77ba2fb16f7ef1f28",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "main/m5stick_s3/console_policy.hpp",
+      "destination": "legacy/m5stick_s3/console_policy.hpp",
+      "source_sha256": "d2921fd9a7a5be92c5c3707f14e3dd4684d28c323e2f87a26cb61ed8177a80a2",
+      "imported_sha256": "d2921fd9a7a5be92c5c3707f14e3dd4684d28c323e2f87a26cb61ed8177a80a2",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "main/m5stick_s3/dirty_rect.hpp",
+      "destination": "legacy/m5stick_s3/dirty_rect.hpp",
+      "source_sha256": "9a47e8e119d12ada6b8c32c7331aa9255a0a66d8e1a2bc6755e4851623b6f6b7",
+      "imported_sha256": "9a47e8e119d12ada6b8c32c7331aa9255a0a66d8e1a2bc6755e4851623b6f6b7",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "main/m5stick_s3/font.hpp",
+      "destination": "legacy/m5stick_s3/font.hpp",
+      "source_sha256": "a9544d19a289164da3fd355eff9be5b517e3f4472bb8f360c1ac8bc59e7da87a",
+      "imported_sha256": "a9544d19a289164da3fd355eff9be5b517e3f4472bb8f360c1ac8bc59e7da87a",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "main/m5stick_s3/held_clock.hpp",
+      "destination": "legacy/m5stick_s3/held_clock.hpp",
+      "source_sha256": "6ca98924648f0f63758ca6238e31d2821b0b744c875ba64f21eb66795e6bfaf0",
+      "imported_sha256": "6ca98924648f0f63758ca6238e31d2821b0b744c875ba64f21eb66795e6bfaf0",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "main/m5stick_s3/relay_buttons.hpp",
+      "destination": "legacy/m5stick_s3/relay_buttons.hpp",
+      "source_sha256": "6ce74b2f607412668f3da518b37084b0b301df1b1cdbc73b8c3e831716a63043",
+      "imported_sha256": "6ce74b2f607412668f3da518b37084b0b301df1b1cdbc73b8c3e831716a63043",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "main/m5stick_s3/runtime.cpp",
+      "destination": "legacy/m5stick_s3/runtime.cpp",
+      "source_sha256": "10223b874947eeb2c3342599e7a2aedbc132c100354ff2e61bdf6d2e05f933c2",
+      "imported_sha256": "10223b874947eeb2c3342599e7a2aedbc132c100354ff2e61bdf6d2e05f933c2",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "main/m5stick_s3/runtime.hpp",
+      "destination": "legacy/m5stick_s3/runtime.hpp",
+      "source_sha256": "68672a191dfadc3ae97ba9c881c9ef274343ba79b83a2333dc0d777a3bd6cdd9",
+      "imported_sha256": "68672a191dfadc3ae97ba9c881c9ef274343ba79b83a2333dc0d777a3bd6cdd9",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "main/m5stick_s3/td_chart.hpp",
+      "destination": "legacy/m5stick_s3/td_chart.hpp",
+      "source_sha256": "d4d7845ac397903b63055cbed84070a6906ac2590f927d0205b7bd59ce202646",
+      "imported_sha256": "12639e06f4cbb7d2f22568799ba60fe3efb405f0ba4fdcb7615b92992b581bfb",
+      "transformed": true
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "main/m5stick_s3/td_controls.hpp",
+      "destination": "legacy/m5stick_s3/td_controls.hpp",
+      "source_sha256": "230a36120422ce016fb84097eec7436360628d57cddbc7aa854e46f0549d204f",
+      "imported_sha256": "230a36120422ce016fb84097eec7436360628d57cddbc7aa854e46f0549d204f",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "main/m5stick_s3/td_health.hpp",
+      "destination": "legacy/m5stick_s3/td_health.hpp",
+      "source_sha256": "b71c12f2af7af63359dd4e25b05979746d0b3a290c8991690610ecaf88ad51be",
+      "imported_sha256": "f6076351cdced6cebb3ded12505814eda9102842f754fef2d9d406182e678cdd",
+      "transformed": true
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "main/m5stick_s3/td_health_display.hpp",
+      "destination": "legacy/m5stick_s3/td_health_display.hpp",
+      "source_sha256": "98c3035100f6ced9e0fbb2081525bf1389801c284027128382dc2b041759e9e7",
+      "imported_sha256": "98c3035100f6ced9e0fbb2081525bf1389801c284027128382dc2b041759e9e7",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "main/m5stick_s3/ui.cpp",
+      "destination": "legacy/m5stick_s3/ui.cpp",
+      "source_sha256": "c9cf051f10ba867f1a11b1423a4fae6e60c544a7f6b2430a7dadfe16aa2ca6f7",
+      "imported_sha256": "308aedf546484145abad4def20eba2abaeff759bba79ae995869e59fc4aa6155",
+      "transformed": true
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "main/m5stick_s3/ui.hpp",
+      "destination": "legacy/m5stick_s3/ui.hpp",
+      "source_sha256": "a780bb02902c5c738bca9c8cc4ba1746d39ef57fc484029436dfd7ecef52d57b",
+      "imported_sha256": "a21cd4d173019807943aa78be76c57c5b7a3d6702b180eec8a44e639a46fd15e",
+      "transformed": true
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "main/m5stick_s3/ui_clock.hpp",
+      "destination": "legacy/m5stick_s3/ui_clock.hpp",
+      "source_sha256": "4c83e52d4bfb54aee4d75ddb5c45c8499b285d0c68b7b477db0fbba61f5a606a",
+      "imported_sha256": "4c83e52d4bfb54aee4d75ddb5c45c8499b285d0c68b7b477db0fbba61f5a606a",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "main/m5stick_s3/ui_policy.hpp",
+      "destination": "legacy/m5stick_s3/ui_policy.hpp",
+      "source_sha256": "324c91c998d817c52aea45a0803a1a389dca0be65c5b4b436fdbd62557d98f70",
+      "imported_sha256": "324c91c998d817c52aea45a0803a1a389dca0be65c5b4b436fdbd62557d98f70",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "main/m5stick_s3/ui_schedule.hpp",
+      "destination": "legacy/m5stick_s3/ui_schedule.hpp",
+      "source_sha256": "1c4806af05e3137e6a034546710accbc70f3529775ab2cb1b36d0956f0ba97b3",
+      "imported_sha256": "1c4806af05e3137e6a034546710accbc70f3529775ab2cb1b36d0956f0ba97b3",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "main/m5stick_s3/usb_console.cpp",
+      "destination": "legacy/m5stick_s3/usb_console.cpp",
+      "source_sha256": "103653f1ce3e434b14711305bb4c8a3042c8b9aeb6ddb840149879d335db6290",
+      "imported_sha256": "103653f1ce3e434b14711305bb4c8a3042c8b9aeb6ddb840149879d335db6290",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "main/m5stick_s3/usb_console.hpp",
+      "destination": "legacy/m5stick_s3/usb_console.hpp",
+      "source_sha256": "9780f0a7a821a7019f7d70df23c3df43ad3fb437ba942ac2e9c102ffd39b50ff",
+      "imported_sha256": "9780f0a7a821a7019f7d70df23c3df43ad3fb437ba942ac2e9c102ffd39b50ff",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "main/m5stick_s3/usb_recovery_policy.hpp",
+      "destination": "legacy/m5stick_s3/usb_recovery_policy.hpp",
+      "source_sha256": "99f1bbf963f529d716cc8988c33c5f13e887a6669877efda903769d959c7a974",
+      "imported_sha256": "99f1bbf963f529d716cc8988c33c5f13e887a6669877efda903769d959c7a974",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/ss3_display_clock.hpp",
+      "destination": "main/ss3_display_clock.hpp",
+      "source_sha256": "225b57e15f83629a24e9d59b1e00cbed376ff4abac9f7a703a1b5e956d0c0910",
+      "imported_sha256": "225b57e15f83629a24e9d59b1e00cbed376ff4abac9f7a703a1b5e956d0c0910",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/ss3_native_display.cpp",
+      "destination": "main/ss3_native_display.cpp",
+      "source_sha256": "36e540a871b43c4843a343db1554fd1fb3913cb595a3906b36f4c8eb474dc3a1",
+      "imported_sha256": "6594380118deb84607b075a2a2f69624b3a19296816b107f97baa4c349dc0f66",
+      "transformed": true
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/ss3_native_display.hpp",
+      "destination": "main/ss3_native_display.hpp",
+      "source_sha256": "4ae434e26207b235ded4f5920cada305d42dbb4f3caee0b583963a7bb4b16a61",
+      "imported_sha256": "4ae434e26207b235ded4f5920cada305d42dbb4f3caee0b583963a7bb4b16a61",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/ss3_td_model.hpp",
+      "destination": "main/ss3_td_model.hpp",
+      "source_sha256": "5be093973de6a3242e5fc9e8c265e8c28d8caa88fd93e3081bff3821f47054b5",
+      "imported_sha256": "5be093973de6a3242e5fc9e8c265e8c28d8caa88fd93e3081bff3821f47054b5",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/tests/ss3_display_clock.cpp",
+      "destination": "tests/ss3_display_clock.cpp",
+      "source_sha256": "472bc9ae0a893b331a728ba3cb47eaaead107bfbfa7e3257d63a8ba159213dbe",
+      "imported_sha256": "472bc9ae0a893b331a728ba3cb47eaaead107bfbfa7e3257d63a8ba159213dbe",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/tests/ss3_td_model_test.cpp",
+      "destination": "tests/ss3_td_model_test.cpp",
+      "source_sha256": "128d3155c5eb721b025b854b64fd0bafc3a2033c13323c622807d09438244b9b",
+      "imported_sha256": "e3285ce324265a385339703b5464e97a951668da0478b147d1e05c3d6c032322",
+      "transformed": true
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/td_publication.hpp",
+      "destination": "main/td_publication.hpp",
+      "source_sha256": "9914e1738d114ce1406794c09d1922b5b7019c40c34468e45416408fbb2e0692",
+      "imported_sha256": "9914e1738d114ce1406794c09d1922b5b7019c40c34468e45416408fbb2e0692",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/td_signal.hpp",
+      "destination": "main/td_signal.hpp",
+      "source_sha256": "11848f0b1eea043ed6762b2b4798ad3fe667a57bf389a66475d7954facf60434",
+      "imported_sha256": "11848f0b1eea043ed6762b2b4798ad3fe667a57bf389a66475d7954facf60434",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/tests/td_health_display_test.cpp",
+      "destination": "tests/td_health_display_test.cpp",
+      "source_sha256": "7dec05b523811db73d5ff0df51dcc622c6943bd29d54f9b1988a8f0a19cb7623",
+      "imported_sha256": "12cea27e6fe3b085106dd57b6ea163bc5b2d86c1ab694122f4d74adf7afb81ec",
+      "transformed": true
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/tests/td_publication_test.cpp",
+      "destination": "tests/td_publication_test.cpp",
+      "source_sha256": "33c56b5a656bf8f91f067371fa2e6db743306fbfeecef9c3edb121244ebbbbf4",
+      "imported_sha256": "33c56b5a656bf8f91f067371fa2e6db743306fbfeecef9c3edb121244ebbbbf4",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/tests/td_signal_test.cpp",
+      "destination": "tests/td_signal_test.cpp",
+      "source_sha256": "ff185008ee66d34a594f4b70edcab41ce4a70abac934f714304784e4976f249a",
+      "imported_sha256": "ff185008ee66d34a594f4b70edcab41ce4a70abac934f714304784e4976f249a",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/r2/r2-g1/role_announcement.c",
+      "destination": "main/r2/r2-g1/role_announcement.c",
+      "source_sha256": "292a768058be43d584901d918712fce02da9c6ddf4527de97ebb0a267096e0ad",
+      "imported_sha256": "292a768058be43d584901d918712fce02da9c6ddf4527de97ebb0a267096e0ad",
+      "transformed": false
+    },
+    {
+      "source_repository": "SS3 selected isolated repository",
+      "source_path": "v12_native/main/r2/r2-g1/role_announcement.h",
+      "destination": "main/r2/r2-g1/role_announcement.h",
+      "source_sha256": "c6e5b25e8da231e19ada47f18b2af536ca9c1173badae6a8d9573100737efa23",
+      "imported_sha256": "c6e5b25e8da231e19ada47f18b2af536ca9c1173badae6a8d9573100737efa23",
+      "transformed": false
+    },
+    {
+      "source_repository": "PToB W12 public adaptation seed",
+      "source_path": "firmware/w12/tools/build.py",
+      "destination": "tools/build.py",
+      "source_sha256": "2a7ac7b437f8b4d19122a28a34037e8f72e4030d740967bcbd8b249b1702fe8e",
+      "imported_sha256": "d5155b93aa9bcee5ae379550ba36523b431c40b3c901e826bec1dfb774dd439a",
+      "transformed": true
+    },
+    {
+      "source_repository": "PToB W12 public adaptation seed",
+      "source_path": "firmware/w12/tools/dependencies.py",
+      "destination": "tools/dependencies.py",
+      "source_sha256": "8f3643fd835c097694e15b5da76d5adef56fb81be00db22e0cf97aeb771c12b2",
+      "imported_sha256": "8f3643fd835c097694e15b5da76d5adef56fb81be00db22e0cf97aeb771c12b2",
+      "transformed": false
+    },
+    {
+      "source_repository": "PToB W12 public adaptation seed",
+      "source_path": "firmware/w12/tools/inspect_build.py",
+      "destination": "tools/inspect_build.py",
+      "source_sha256": "e3c5345553bf183cd7c39e1d6a130a7e0480718bc5e4a1e9fc2fe3f5bda400b2",
+      "imported_sha256": "79564b7f2bdd8944c03bea393cca2a1bdabc6bba26c1c5be75c3e0d45cc14358",
+      "transformed": true
+    },
+    {
+      "source_repository": "PToB W12 public adaptation seed",
+      "source_path": "firmware/w12/dependencies.lock.json",
+      "destination": "dependencies.lock.json",
+      "source_sha256": "87846c991c379a8398a2c11d3728d545f27117a910a8dd67246808a92426e5d2",
+      "imported_sha256": "87846c991c379a8398a2c11d3728d545f27117a910a8dd67246808a92426e5d2",
+      "transformed": false
+    }
+  ]
+}
