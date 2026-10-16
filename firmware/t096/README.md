@@ -1,5 +1,10 @@
 # T096 firmware example
 
+<a href="../../docs/images/t096-rc-preview.png"><img src="../../docs/images/t096-rc-preview.png" width="160" alt="T096 RC display preview with digital time, analog dial and BLE source status"></a>
+
+*Illustrative firmware-rendered RC screen; displayed values are not measured
+performance. [Image provenance](../../docs/images/README.md).*
+
 T096 firmware, developed from the R2 application, supplies the GM and RC
 examples in this repository. Its direction comes from v12: periodic advertising
 for the precision timing stream,

@@ -1,0 +1,97 @@
+{
+  "selected": "2026-10-16",
+  "author": "Jonathan Yantis",
+  "license": "MIT",
+  "assets": [
+    {
+      "file": "t096-rc-preview.png",
+      "source": "https://ptob.dev/hardware/t096/rc-operation.png",
+      "sha256": "df37b123b470f3532d58f29ea906cecb670e92e30e34e6df081cf9511f281485",
+      "bytes": 2413,
+      "dimensions": [
+        80,
+        160
+      ],
+      "transformation": "none; original bytes preserved",
+      "scope": "Firmware-rendered RC display preview; illustrative values.",
+      "embedded_metadata": {
+        "Origin": "Repository T096 r2_ui_render; synthetic host-only state fixture, not a live device capture."
+      }
+    },
+    {
+      "file": "w12-rc-preview.png",
+      "source": "https://ptob.dev/hardware/w12/rc2-locked.png",
+      "sha256": "7d141d0c6e9013810819bbf9e048d713fdd56e54925fe4444cf692c329039e4c",
+      "bytes": 1483,
+      "dimensions": [
+        128,
+        64
+      ],
+      "transformation": "none; original bytes preserved",
+      "scope": "Firmware-rendered OLED preview; illustrative values. RC2 denotes relay depth, not an additional public profile.",
+      "embedded_metadata": {
+        "Origin": "W12 W12_DISPLAY_PREVIEW firmware framebuffer; illustrative host-only clock state, not a live device capture.",
+        "impeccable:prompt": "Origin: W12 W12_DISPLAY_PREVIEW firmware framebuffer; illustrative host-only clock state, not a live device capture. Native 128x64 OLED mask with green upper 16 rows and blue lower 48 rows.",
+        "SourceRevision": "dd05cd43bbc2b31e20ecf217611f732e4e099822",
+        "StateFixtureSHA256": "eb0c322d24e47edf6dc7f1a2bc44a4d6949bb1399d44a63ebfb802665f5e3191"
+      }
+    },
+    {
+      "file": "ss3-health-preview.png",
+      "source": "https://ptob.dev/hardware/sticks3/td-health.png",
+      "sha256": "8e4e2db20006806ba84b91d2df78c6bfb3916d3ce644e7f5c8eb56b304f9cc62",
+      "bytes": 2759,
+      "dimensions": [
+        135,
+        240
+      ],
+      "transformation": "none; original bytes preserved",
+      "scope": "V17 renderer with illustrative values and synthetic peer identities.",
+      "embedded_metadata": {
+        "Origin": "Reviewed StickS3 V17 native UI renderer; illustrative host-only TD fixture, not a live device capture.",
+        "impeccable:prompt": "Origin: Reviewed StickS3 V17 native UI renderer; illustrative host-only TD fixture, not a live device capture. Source revision: 56740553885420a7f6f301c12de10696a9c8d432",
+        "SourceRevision": "56740553885420a7f6f301c12de10696a9c8d432",
+        "StateFixtureSHA256": "5c2f9f8f0bf659ad359904f43478f035e0ddf7df1016db57e7d52ad82c1a681b"
+      }
+    },
+    {
+      "file": "ss3-clock-preview.png",
+      "source": "https://ptob.dev/hardware/sticks3/rc2-locked.png",
+      "sha256": "d9743d1a3469763dae9b52b8000fdd8bf2a86c7069b76fca33cb4741c1e64885",
+      "bytes": 3183,
+      "dimensions": [
+        135,
+        240
+      ],
+      "transformation": "none; original bytes preserved",
+      "scope": "Earlier relay-clock renderer with illustrative values; not a current firmware acceptance capture.",
+      "embedded_metadata": {
+        "Origin": "Reviewed StickS3 V3 native UI renderer; illustrative host-only GM/RC2 fixture, not a live device capture.",
+        "impeccable:prompt": "Origin: Reviewed StickS3 V3 native UI renderer; illustrative host-only GM/RC2 fixture, not a live device capture. Source revision: 1854c0064fe47ce76a217bbf4ed94ae087e8cd0d",
+        "SourceRevision": "1854c0064fe47ce76a217bbf4ed94ae087e8cd0d",
+        "StateFixtureSHA256": "7f07c769747a3f77fd9fd2fad5269c768c22ff7aa5839f95c4246fa1813fa665"
+      }
+    },
+    {
+      "file": "macos-chrony-replay.webp",
+      "source": "https://ptob.dev/hardware/macos/chrony-main-20261015.webp",
+      "sha256": "eb93e9317a0fa386e9968abca9aeddcb935d530ed3ca2f3e5800e7cfa37f3dc1",
+      "bytes": 216820,
+      "dimensions": [
+        1030,
+        608
+      ],
+      "transformation": "none; original bytes preserved",
+      "scope": "Historical measured-run replay; loss and withheld UTC remain visible. Estimator RMS is not absolute UTC accuracy.",
+      "embedded_metadata": {
+        "loop": 1,
+        "background": [
+          255,
+          255,
+          255,
+          255
+        ]
+      }
+    }
+  ]
+}

@@ -1,5 +1,10 @@
 # W12 native RC example
 
+<a href="../../docs/images/w12-rc-preview.png"><img src="../../docs/images/w12-rc-preview.png" width="384" alt="W12 OLED preview showing time, relay parent and clock diagnostics"></a>
+
+*Illustrative firmware-rendered OLED screen. RC2 indicates relay depth within the
+RC role. [Image provenance](../../docs/images/README.md).*
+
 Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
 
 **PToB owns W12 native G1/RC7 development.** Public successor version **0.1.0**

@@ -1,5 +1,11 @@
 # macOS USB / chrony client
 
+<a href="../../docs/images/macos-chrony-replay.webp"><img src="../../docs/images/macos-chrony-replay.webp" width="760" alt="PToB macOS chrony replay with time, estimator RMS, retained loss and UTC-gated indicators"></a>
+
+*Historical USB/chrony replay with loss and withheld UTC retained. The displayed
+98 ns is chrony's estimator RMS, not calibrated UTC accuracy.
+[Image provenance](../../docs/images/README.md).*
+
 Copyright (c) 2026 Jonathan Yantis. MIT; third-party terms are preserved.
 
 PToB owns this macOS client. It selects a compatible T096 UTS1 vendor timing

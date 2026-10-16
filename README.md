@@ -15,27 +15,44 @@ evidence, scaling limits and proposed path to a PTP edge extension.
 
 Follow the **[setup guide](docs/GETTING_STARTED.md)** to plan two grandmasters
 (GMs), optional relay clocks, and a USB-connected macOS client with chrony.
+A grandmaster supplies reference time; a relay clock (RC) follows the network.
 Start with the target matching your hardware:
 
 | Target | Current role | Start here |
 | --- | --- | --- |
-| Heltec T096 | GM or RC; USB source stream included in RC7 | [T096 README](firmware/t096/README.md) |
-| Meshnology W12 | RC receiver; optional experimental estimated-TX relay | [W12 README](firmware/w12/README.md) |
-| M5Stack StickS3 (SS3) | RC receiver and experimental estimated-TX relay | [SS3 README](firmware/ss3/README.md) |
+| Heltec T096 | Reference or relay clock; includes USB time output | [T096 README](firmware/t096/README.md) |
+| Meshnology W12 | Receiver; optional experimental relay with estimated transmit timing | [W12 README](firmware/w12/README.md) |
+| M5Stack StickS3 (SS3) | Receiver and experimental relay with estimated transmit timing | [SS3 README](firmware/ss3/README.md) |
 | macOS | USB time client and chrony bridge | [macOS README](clients/macos/README.md) |
 
-**Developer preview:** source builds are available; a generic downloadable image,
+**Developer preview — build from source:** a generic downloadable image,
 public installer/recovery flow and mutable provisioning are not yet available.
-Images use private build-time enrollment and must not be uploaded as releases.
+Firmware images use private build-time enrollment and must not be uploaded as releases.
 Use the target guides for exact supported boards, dependencies and validation
 limits. Hardware observations and passing host tests do not establish calibrated
 UTC accuracy or qualified failover.
 
-One group uses one private [PSK enrollment](docs/security/psk.md) and one
+One group uses one private pre-shared key ([PSK enrollment](docs/security/psk.md)) and one
 [shared display registry](registry/README.md). Read the
 [device ID / name / UUID rules](docs/security/identity-and-names.md) before
 provisioning. The [T096 provisioning design](docs/t096/provisioning-design.md)
 describes the proposed future storage/API; it is not implemented firmware.
+
+## See the clocks
+
+| T096 · relay clock | W12 · relay clock | StickS3 · network health |
+| :---: | :---: | :---: |
+| [<img src="docs/images/t096-rc-preview.png" width="120" alt="T096 preview with digital time, analog dial and BLE source status">](firmware/t096/README.md) | [<img src="docs/images/w12-rc-preview.png" width="192" alt="W12 OLED preview with time, relay parent and timing diagnostics">](firmware/w12/README.md) | [<img src="docs/images/ss3-health-preview.png" width="135" alt="StickS3 preview with network delivery, signal and source health">](firmware/ss3/README.md) |
+
+Firmware-rendered previews with illustrative values, not live measurements.
+Select a screen to open its target guide.
+
+[<img src="docs/images/macos-chrony-replay.webp" width="760" alt="macOS chrony replay showing the user clock, estimator RMS and retained loss and UTC-gated indicators">](clients/macos/README.md)
+
+The **macOS client** receives time over USB from a T096.
+[Open the full-size replay image](docs/images/macos-chrony-replay.webp). This historical replay
+retains loss and withheld-UTC indicators; estimator RMS is not absolute UTC
+accuracy. [Image provenance and scope](docs/images/README.md).
 
 ## Bring your own target
 

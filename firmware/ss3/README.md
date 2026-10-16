@@ -1,5 +1,11 @@
 # StickS3 native RC example
 
+<a href="../../docs/images/ss3-health-preview.png"><img src="../../docs/images/ss3-health-preview.png" width="135" alt="StickS3 network-health preview with synthetic peers and source permission"></a> <a href="../../docs/images/ss3-clock-preview.png"><img src="../../docs/images/ss3-clock-preview.png" width="135" alt="Earlier StickS3 relay-clock preview with digital time and an analog dial"></a>
+
+*Network-health view (V17 renderer) and an earlier relay-clock view, both with
+illustrative inputs. These are not current-build hardware captures or measured
+accuracy. [Image provenance](../../docs/images/README.md).*
+
 Copyright (c) 2026 Jonathan Yantis. MIT; inherited source notices apply.
 
 **PToB owns SS3 native G1/RC7 development.** Public successor version **0.1.0**
