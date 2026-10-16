@@ -1,0 +1,96 @@
+{
+  "schema": "ptob.white-rabbit-study-build.v1",
+  "status": "LOCAL_RESEARCH_DRAFT_RENDER_REVIEWED",
+  "built_at_utc": "2026-10-15T19:31:36.582236+00:00",
+  "source": {
+    "path": "paper/white-rabbit-study-20261015.tex",
+    "sha256": "ed5718b5f7ca9976fcfb7be54c9cae69bf2eb6fca38009ee764ba789fca5c50c",
+    "standalone": true
+  },
+  "pdf": {
+    "path": "paper/white-rabbit-study-20261015.pdf",
+    "sha256": "0ab88dd422986a41d83217e96934250595b584ed30a12431482069f52cd086ee",
+    "pages": 10,
+    "bytes": 77224
+  },
+  "evidence_sha256": "9f726ddbf27280070472e664431b902c61c684feefab2f095f6ffe60891b084f",
+  "literature_sha256": "5328cb390a59d5603dd3274a4b6f9770a61c86da0d0611dd3ec23b7a6ab5877f",
+  "compiler": {
+    "path": "artifacts/preprint-qa/tectonic/tectonic",
+    "sha256": "b52b5a730e2b0b33087304f7720f649603953f270a6b1c88bb031e1ae01f7f9c",
+    "version": "Tectonic 0.17.0",
+    "cache": "artifacts/preprint-qa/tectonic-cache",
+    "command": [
+      "tectonic",
+      "--outdir",
+      "artifacts/white-rabbit-study-20261015-01",
+      "--keep-logs",
+      "paper/white-rabbit-study-20261015.tex"
+    ]
+  },
+  "checks": {
+    "native_editor_compiler": "success for final source",
+    "final_export_TeX_warnings": 0,
+    "all_citation_keys_defined": true,
+    "analytical_quantization_and_holdover_checks": "pass",
+    "frozen_22_input_hashes": "pass",
+    "live_inputs_changed_since_freeze": [],
+    "visual_review": "All10final rendered pages inspected;diagram overlap corrected;tables,equations,plot,references and pagination pass.",
+    "new_firmware_or_physical_tests": "none"
+  },
+  "rendered_pages": [
+    {
+      "path": "artifacts/white-rabbit-study-20261015-01/final-page-01.png",
+      "sha256": "8e0f5de21124e9dad852ea45ddd54dc3ef72761abbc555b1f54f5a114937b5a6"
+    },
+    {
+      "path": "artifacts/white-rabbit-study-20261015-01/final-page-02.png",
+      "sha256": "c5b408ba5de70bb6b2725e2aa7aac961019649b6ea7e32e422617e7b09078068"
+    },
+    {
+      "path": "artifacts/white-rabbit-study-20261015-01/final-page-03.png",
+      "sha256": "bcbab59ed8609829c7fc0f2c163d8465202833731517f3484b45d0b23e872799"
+    },
+    {
+      "path": "artifacts/white-rabbit-study-20261015-01/final-page-04.png",
+      "sha256": "fcfdc11ad4ee960f329ac7960885ac04dd4f7421fcbf4d8fb94fe0c130f4524e"
+    },
+    {
+      "path": "artifacts/white-rabbit-study-20261015-01/final-page-05.png",
+      "sha256": "fc6934885f56c2056185879ce53ad58b46ee8a7fe45bbabb29a1974d546824b9"
+    },
+    {
+      "path": "artifacts/white-rabbit-study-20261015-01/final-page-06.png",
+      "sha256": "07ecb4a13899181636c8256d20ea4d683c7dc3ccc7aafa4b8075e19cdf6e3745"
+    },
+    {
+      "path": "artifacts/white-rabbit-study-20261015-01/final-page-07.png",
+      "sha256": "63275c3f274c764d5c441fba85bb41fef3dcacd60169bf09eda3b73ddf90f088"
+    },
+    {
+      "path": "artifacts/white-rabbit-study-20261015-01/final-page-08.png",
+      "sha256": "e3dc3a1d791a71d6b84ad365bcf3db74a5ab7dedcbdebfb89e9fad03673c8958"
+    },
+    {
+      "path": "artifacts/white-rabbit-study-20261015-01/final-page-09.png",
+      "sha256": "c2ac5f2ee6c581ae356f844b67a758ca346f52efe51e7377a836627e8560b1f0"
+    },
+    {
+      "path": "artifacts/white-rabbit-study-20261015-01/final-page-10.png",
+      "sha256": "925d47bee2e60ee97d735d44416cf3f5b6994c3550965629de44fe15da6d58e2"
+    }
+  ],
+  "failed_export_attempts": [
+    {
+      "path": "artifacts/white-rabbit-study-20261015-01/export-attempt01-missing-library.log",
+      "sha256": "54982a166cf2f7d710f98f2cd7a91b76a896478a78c0890fc018b8bcfadf1fee",
+      "outcome": "Missing cached arrows.meta library;network DNS unavailable;diagram changed to core TikZ"
+    },
+    {
+      "path": "artifacts/white-rabbit-study-20261015-01/export-attempt02-missing-font.log",
+      "sha256": "83210c81d9ec2f4dbffd7c236b5e91e4cd089cff85ab8d2070a1a1118b6a4c47",
+      "outcome": "Missing cached sans math font;network DNS unavailable;transpose uses roman font"
+    }
+  ],
+  "local_snapshot_warning": "Same-host frozen source/report copies are not an independent durable backup;source snapshots do not attest installed device images."
+}

@@ -1,0 +1,54 @@
+{
+  "retrieval_date": "2026-10-16",
+  "references": [
+    {
+      "key": "ftsp",
+      "url": "https://archive.isis.vanderbilt.edu/sites/default/files/Maroti_M_11_3_2004_The_Floodi.pdf",
+      "source_class": "PRIMARY",
+      "use": "Context only; no cross-study superiority or standards conformance asserted"
+    },
+    {
+      "key": "cheep",
+      "url": "https://arxiv.org/abs/1501.06479",
+      "source_class": "PRIMARY",
+      "use": "Context only; no cross-study superiority or standards conformance asserted"
+    },
+    {
+      "key": "micro",
+      "url": "https://da.lib.kobe-u.ac.jp/da/kernel/0100491658/",
+      "source_class": "PRIMARY",
+      "use": "Context only; no cross-study superiority or standards conformance asserted"
+    },
+    {
+      "key": "ptp",
+      "url": "https://standards.ieee.org/ieee/1588/6825/",
+      "source_class": "PRIMARY",
+      "use": "Context only; no cross-study superiority or standards conformance asserted"
+    },
+    {
+      "key": "smpte",
+      "url": "https://github.com/SMPTE/st2059-2",
+      "source_class": "PRIMARY",
+      "use": "Context only; no cross-study superiority or standards conformance asserted"
+    },
+    {
+      "key": "ble",
+      "url": "https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core-61/out/en/low-energy-controller/link-layer-specification.html",
+      "source_class": "PRIMARY",
+      "use": "Context only; no cross-study superiority or standards conformance asserted"
+    },
+    {
+      "key": "rpl",
+      "url": "https://www.rfc-editor.org/rfc/rfc6550.html",
+      "source_class": "PRIMARY",
+      "use": "Context only; no cross-study superiority or standards conformance asserted"
+    },
+    {
+      "key": "chrony",
+      "url": "https://chrony-project.org/doc/4.6/chronyd.html",
+      "source_class": "PRIMARY",
+      "use": "Context only; no cross-study superiority or standards conformance asserted"
+    }
+  ],
+  "retained_access_limitation": "Initial SMPTE st2059 overview URL returned an internal error; official SMPTE repository and publisher search result used instead."
+}

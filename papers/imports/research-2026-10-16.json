@@ -1,0 +1,209 @@
+{
+  "schema": 1,
+  "import_date": "2026-10-16",
+  "status": "LOCAL_DRAFT_IMPORT_FOR_REVIEW_NOT_PUBLICATION",
+  "source": "Selected files from prior PToB research workspace; no private Git history imported",
+  "author": "Jonathan Yantis",
+  "files": [
+    {
+      "source_path": "paper/usb-macos-time-transfer-preprint.tex",
+      "path": "papers/usb-macos-time-transfer-preprint.tex",
+      "source_sha256": "c1d165b409d2fad798b27327a1b9b8cebb1bad7c4fe7d88a3a62729b7091f27a",
+      "sha256": "c1d165b409d2fad798b27327a1b9b8cebb1bad7c4fe7d88a3a62729b7091f27a",
+      "redacted_json_paths": [],
+      "license": "CC-BY-4.0"
+    },
+    {
+      "source_path": "paper/usb-macos-time-transfer-preprint.pdf",
+      "path": "papers/usb-macos-time-transfer-preprint.pdf",
+      "source_sha256": "f1cb7b9977922216429c3ee6eaa1b23f36a7ac4d37ca62fcdef5ca677ef7ee1d",
+      "sha256": "f1cb7b9977922216429c3ee6eaa1b23f36a7ac4d37ca62fcdef5ca677ef7ee1d",
+      "redacted_json_paths": [],
+      "license": "CC-BY-4.0"
+    },
+    {
+      "source_path": "paper/white-rabbit-study-20261015.tex",
+      "path": "papers/white-rabbit-study-20261015.tex",
+      "source_sha256": "ed5718b5f7ca9976fcfb7be54c9cae69bf2eb6fca38009ee764ba789fca5c50c",
+      "sha256": "ed5718b5f7ca9976fcfb7be54c9cae69bf2eb6fca38009ee764ba789fca5c50c",
+      "redacted_json_paths": [],
+      "license": "CC-BY-4.0"
+    },
+    {
+      "source_path": "paper/white-rabbit-study-20261015.pdf",
+      "path": "papers/white-rabbit-study-20261015.pdf",
+      "source_sha256": "0ab88dd422986a41d83217e96934250595b584ed30a12431482069f52cd086ee",
+      "sha256": "0ab88dd422986a41d83217e96934250595b584ed30a12431482069f52cd086ee",
+      "redacted_json_paths": [],
+      "license": "CC-BY-4.0"
+    },
+    {
+      "source_path": "paper/ptob-viability-preprint.tex",
+      "path": "papers/ptob-viability-preprint.tex",
+      "source_sha256": "ead863576330e5b04994c5115c55dda9e1c48d71fa8d8934165a9e9bc30a752b",
+      "sha256": "ead863576330e5b04994c5115c55dda9e1c48d71fa8d8934165a9e9bc30a752b",
+      "redacted_json_paths": [],
+      "license": "CC-BY-4.0"
+    },
+    {
+      "source_path": "paper/ptob-viability-preprint.pdf",
+      "path": "papers/ptob-viability-preprint.pdf",
+      "source_sha256": "b3c578ab1222ebe40bb45ee28bce0cb23f58880268d1a3876ba8c6b12460f722",
+      "sha256": "b3c578ab1222ebe40bb45ee28bce0cb23f58880268d1a3876ba8c6b12460f722",
+      "redacted_json_paths": [],
+      "license": "CC-BY-4.0"
+    },
+    {
+      "source_path": "paper/provenance/usb-macos-build-20261015.json",
+      "path": "evidence/research/2026-10-16/provenance/usb-macos-build-20261015.json",
+      "source_sha256": "ee074bb806ee981a965434f4bc01ac7dccc35858ca174dbd84b29517e5c862a4",
+      "sha256": "ee074bb806ee981a965434f4bc01ac7dccc35858ca174dbd84b29517e5c862a4",
+      "redacted_json_paths": [],
+      "license": "CC-BY-4.0"
+    },
+    {
+      "source_path": "paper/provenance/white-rabbit-build-20261015.json",
+      "path": "evidence/research/2026-10-16/provenance/white-rabbit-build-20261015.json",
+      "source_sha256": "d8b01895f06d70938741235a0ac5fa83330443baa2a7b4fcac4f79179ab0ee6b",
+      "sha256": "d8b01895f06d70938741235a0ac5fa83330443baa2a7b4fcac4f79179ab0ee6b",
+      "redacted_json_paths": [],
+      "license": "CC-BY-4.0"
+    },
+    {
+      "source_path": "paper/provenance/ptob-viability-build-20261016.json",
+      "path": "evidence/research/2026-10-16/provenance/ptob-viability-build-20261016.json",
+      "source_sha256": "3c867835db8cfc5218eb07f990507eae6185b8548b39d2989d811241e107503d",
+      "sha256": "3c867835db8cfc5218eb07f990507eae6185b8548b39d2989d811241e107503d",
+      "redacted_json_paths": [],
+      "license": "CC-BY-4.0"
+    },
+    {
+      "source_path": "paper/provenance/usb-macos-literature-20261015.json",
+      "path": "evidence/research/2026-10-16/provenance/usb-macos-literature-20261015.json",
+      "source_sha256": "f0ed5822128eb0179a663162e8dc36cff47f0f8db7e1a3fa1074a4549a94954d",
+      "sha256": "f0ed5822128eb0179a663162e8dc36cff47f0f8db7e1a3fa1074a4549a94954d",
+      "redacted_json_paths": [],
+      "license": "CC-BY-4.0"
+    },
+    {
+      "source_path": "paper/provenance/white-rabbit-literature-20261015.json",
+      "path": "evidence/research/2026-10-16/provenance/white-rabbit-literature-20261015.json",
+      "source_sha256": "5328cb390a59d5603dd3274a4b6f9770a61c86da0d0611dd3ec23b7a6ab5877f",
+      "sha256": "5328cb390a59d5603dd3274a4b6f9770a61c86da0d0611dd3ec23b7a6ab5877f",
+      "redacted_json_paths": [],
+      "license": "CC-BY-4.0"
+    },
+    {
+      "source_path": "paper/provenance/ptob-viability-literature-20261016.json",
+      "path": "evidence/research/2026-10-16/provenance/ptob-viability-literature-20261016.json",
+      "source_sha256": "0dbbd92b34932f09efb454f75cbc5295661692150ee2c21631b4000055dc5746",
+      "sha256": "0dbbd92b34932f09efb454f75cbc5295661692150ee2c21631b4000055dc5746",
+      "redacted_json_paths": [],
+      "license": "CC-BY-4.0"
+    },
+    {
+      "source_path": "paper/usb-macos-evidence-20261015.json",
+      "path": "evidence/research/2026-10-16/provenance/usb-macos-evidence-20261015.json",
+      "source_sha256": "b9f47abd0dc36221f8b08468245220fc82ee67c95e31bc1ea25a7313ee2eb379",
+      "sha256": "dcf45c3f214bfb42abac76de25879cf7414f78256bd95026e3beb89bd0d3f484",
+      "redacted_json_paths": [
+        "/finite_helper_completion_cleanup/helper_end/helper_path",
+        "/finite_helper_completion_cleanup/following_session_cleanup_events/0/scope",
+        "/firmware/physical_boot"
+      ],
+      "license": "CC-BY-4.0"
+    },
+    {
+      "source_path": "paper/white-rabbit-study-evidence-20261015.json",
+      "path": "evidence/research/2026-10-16/provenance/white-rabbit-study-evidence-20261015.json",
+      "source_sha256": "9f726ddbf27280070472e664431b902c61c684feefab2f095f6ffe60891b084f",
+      "sha256": "9f726ddbf27280070472e664431b902c61c684feefab2f095f6ffe60891b084f",
+      "redacted_json_paths": [],
+      "license": "CC-BY-4.0"
+    },
+    {
+      "source_path": "paper/ptob-viability-evidence-20261016.json",
+      "path": "evidence/research/2026-10-16/provenance/ptob-viability-evidence-20261016.json",
+      "source_sha256": "385eada493c0a72dd865780aa8244f95a2c7016b1172c155c74931ce341283ab",
+      "sha256": "385eada493c0a72dd865780aa8244f95a2c7016b1172c155c74931ce341283ab",
+      "redacted_json_paths": [],
+      "license": "CC-BY-4.0"
+    },
+    {
+      "source_path": "paper/figures/usb-macos-chrony-20261015/delivery.csv",
+      "path": "evidence/research/2026-10-16/usb-chrony/delivery.csv",
+      "source_sha256": "17e6286b401f3b3977d2442ac958ef37e8b736e5b3d1d59f37f9f8f0a7286f84",
+      "sha256": "17e6286b401f3b3977d2442ac958ef37e8b736e5b3d1d59f37f9f8f0a7286f84",
+      "redacted_json_paths": [],
+      "license": "CC-BY-4.0"
+    },
+    {
+      "source_path": "paper/figures/usb-macos-chrony-20261015/tracking.csv",
+      "path": "evidence/research/2026-10-16/usb-chrony/tracking.csv",
+      "source_sha256": "1b5194e5edaf75f16e70e5590a03d216520f45e52defaa3953ed20fbe764e836",
+      "sha256": "1b5194e5edaf75f16e70e5590a03d216520f45e52defaa3953ed20fbe764e836",
+      "redacted_json_paths": [],
+      "license": "CC-BY-4.0"
+    },
+    {
+      "source_path": "paper/figures/usb-macos-chrony-20261015/derivation-manifest.json",
+      "path": "evidence/research/2026-10-16/usb-chrony/derivation-manifest.json",
+      "source_sha256": "1f540b0c12c6979f61422478db6c9b591c2f0400149985cb33bd44bb46ebb667",
+      "sha256": "1f540b0c12c6979f61422478db6c9b591c2f0400149985cb33bd44bb46ebb667",
+      "redacted_json_paths": [],
+      "license": "CC-BY-4.0"
+    },
+    {
+      "source_path": "paper/figures/viability-20261016/derive.py",
+      "path": "evidence/research/2026-10-16/viability/derive.py",
+      "source_sha256": "9fb7efc2b0594c4127ab7461284be46ea0e65c0ac761c4a0f268661da9d2c334",
+      "sha256": "9fb7efc2b0594c4127ab7461284be46ea0e65c0ac761c4a0f268661da9d2c334",
+      "redacted_json_paths": [],
+      "license": "MIT"
+    },
+    {
+      "source_path": "paper/figures/viability-20261016/hop-sensitivity.csv",
+      "path": "evidence/research/2026-10-16/viability/hop-sensitivity.csv",
+      "source_sha256": "0368a95b9be17c880d0134db77afe70b02dfbe19660985e54cb698ef6f2fc9ed",
+      "sha256": "0368a95b9be17c880d0134db77afe70b02dfbe19660985e54cb698ef6f2fc9ed",
+      "redacted_json_paths": [],
+      "license": "CC-BY-4.0"
+    },
+    {
+      "source_path": "paper/figures/viability-20261016/holdover-sensitivity.csv",
+      "path": "evidence/research/2026-10-16/viability/holdover-sensitivity.csv",
+      "source_sha256": "e6eda649f4dbd68bfc2eb7bc420adb572465ade70e935df4b8cf840f62a4c94e",
+      "sha256": "e6eda649f4dbd68bfc2eb7bc420adb572465ade70e935df4b8cf840f62a4c94e",
+      "redacted_json_paths": [],
+      "license": "CC-BY-4.0"
+    },
+    {
+      "source_path": "paper/figures/viability-20261016/availability-sensitivity.csv",
+      "path": "evidence/research/2026-10-16/viability/availability-sensitivity.csv",
+      "source_sha256": "1aa94ffc4e51e2229b2061ec95d4f139c8b4f5d934559ad0ef369b066c0a5376",
+      "sha256": "1aa94ffc4e51e2229b2061ec95d4f139c8b4f5d934559ad0ef369b066c0a5376",
+      "redacted_json_paths": [],
+      "license": "CC-BY-4.0"
+    },
+    {
+      "source_path": "paper/figures/viability-20261016/model-summary.json",
+      "path": "evidence/research/2026-10-16/viability/model-summary.json",
+      "source_sha256": "d052e589456e30c0260a0861b82bdcb6283650cbf193e903e8c8fca6db5f1438",
+      "sha256": "d052e589456e30c0260a0861b82bdcb6283650cbf193e903e8c8fca6db5f1438",
+      "redacted_json_paths": [],
+      "license": "CC-BY-4.0"
+    }
+  ],
+  "review": {
+    "source_pdf_pairs": "Exact current source/PDF hashes match the three recorded upstream build manifests",
+    "visual": "All 36 pages rendered and inspected in destination; no clipped or overlapping content observed",
+    "privacy": "USB evidence export redacts three private path/identity fields; scientific populations retained",
+    "rights": "Original papers/figures/evidence/datasets CC BY 4.0; original model script MIT; cited third-party works remain under their own terms",
+    "limitations": [
+      "Original build and evidence paths refer to historical private workspace; hashes do not imply those files are publicly available",
+      "Raw captures, enrolled binaries and hardware identities excluded",
+      "No new physical measurements; reported results do not qualify migrated targets",
+      "Derived sample checks do not independently reconstruct the physical experiment"
+    ]
+  }
+}

@@ -1,11 +1,32 @@
 # Research papers — drafts
 
-These are working drafts by **Jonathan Yantis**. The latest proposal and research
-preprint are explicit **12 October 2026 V14 successors**, imported on October 13.
-They remain local discussion/research drafts, without standards adoption or
-firmware qualification. Their source and reviewed PDF bytes are unchanged.
+These are working drafts by **Jonathan Yantis**. The latest research additions are the **15–16 October 2026** USB/chrony,
+White Rabbit and viability papers. The V14 service/profile proposal retains its
+**12 October** edition. All remain discussion/research drafts, without standards
+adoption or firmware qualification. Imported source and PDF bytes are unchanged.
 
-| Latest draft | Read | Edit |
+## Latest research
+
+| Draft | Read | Edit | Edition |
+| --- | --- | --- | --- |
+| PToB Viability: Rooted BLE Timing Meshes for Heterogeneous Edge Networks | [PDF](ptob-viability-preprint.pdf) | [LaTeX](ptob-viability-preprint.tex) | 16 October 2026 |
+| Beyond USB Packet Arrival: Frame-Identified Time Transfer to macOS | [PDF](usb-macos-time-transfer-preprint.pdf) | [LaTeX](usb-macos-time-transfer-preprint.tex) | 15 October 2026, 11-page chrony revision |
+| From Virtual Clock Discipline to Physical Synchronization: White Rabbit Lessons for PToB and Future Tunable Targets | [PDF](white-rabbit-study-20261015.pdf) | [LaTeX](white-rabbit-study-20261015.tex) | 15 October 2026 |
+
+The [edition receipt](imports/research-2026-10-16.json) binds all three matching
+source/PDF pairs and selected research exports. The
+[research collection](../evidence/research/2026-10-16/README.md) includes USB delivery
+and tracking samples and reproducible hypothetical viability tables. It retains
+withheld samples, startup excursions and the distinction between relative clock
+agreement and independent UTC. White Rabbit comparisons propose future work;
+viability projections are not supported hop counts or measured energy savings.
+Original internal paths in the manuscripts identify historical evidence; public
+counterparts and exclusions are listed in the collection. No new hardware tests,
+website deployment or manuscript submission accompanied this import.
+
+## V14 proposal and boundary-clock study
+
+| Draft | Read | Edit |
 | --- | --- | --- |
 | Passive Precision Time over BLE: V14-RC1 Candidate Service and Profile Proposal | [PDF](ptob-v14-sig-proposal.pdf) | [LaTeX](ptob-v14-sig-proposal.tex) |
 | Passive Precision Time over BLE: V14 Boundary Clocks, Causal Timestamping, and Prospective One-Relay Validation | [PDF](ptob-v14-preprint.pdf) | [LaTeX](ptob-v14-preprint.tex) |
@@ -38,7 +59,7 @@ publication, or adopted standard.
 | Passive Precision Time over BLE: Prospective Edge Calibration, Causal Publication, and Service Availability | [PDF](ptob-preprint.pdf) | [LaTeX](ptob-preprint.tex) |
 | Causal Software Clock Discipline over Wireless Physical Events: Native Lock Evidence, Operating Tiers, and a Tunable-Oscillator Extension | [PDF](oscillator-pll-research-20261003.pdf) | [LaTeX](oscillator-pll-research-20261003.tex) |
 
-All five papers and their original figures are **CC BY 4.0**, attributed to Jonathan
+All eight papers and their original figures are **CC BY 4.0**, attributed to Jonathan
 Yantis. See [the license notice](LICENSE.md) and [project credits](../CREDITS.md).
 
 ## Scope and evidence
@@ -78,7 +99,7 @@ references describe their edition, not the current repository layout or status.
 
 ## Work on the next draft here
 
-The V14 LaTeX files are the working successor sources for this repository;
+The LaTeX files in this directory are the working sources for this repository;
 earlier editions retain their historical scope.
 Make future paper edits here and preserve changes in Git; do not silently replace
 them with later private copies. Import private findings as reviewed, attributed
@@ -111,6 +132,9 @@ tectonic --outdir artifacts/papers papers/ptob-preprint.tex
 tectonic --outdir artifacts/papers papers/oscillator-pll-research-20261003.tex
 tectonic --outdir artifacts/papers papers/ptob-v14-sig-proposal.tex
 tectonic --outdir artifacts/papers papers/ptob-v14-preprint.tex
+tectonic --outdir artifacts/papers papers/usb-macos-time-transfer-preprint.tex
+tectonic --outdir artifacts/papers papers/white-rabbit-study-20261015.tex
+tectonic --outdir artifacts/papers papers/ptob-viability-preprint.tex
 ```
 
 Tectonic may download its public TeX bundle on first use. Inspect the generated

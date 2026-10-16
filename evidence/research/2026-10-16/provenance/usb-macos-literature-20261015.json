@@ -1,0 +1,95 @@
+{
+  "schema": 1,
+  "checked_utc": "2026-10-15T17:39:06.336044+00:00",
+  "sources": [
+    {
+      "key": "as2025",
+      "url": "https://1.ieee802.org/tsn/",
+      "claim": "Published IEEE802.1AS-2025 listing and maintenance-project scope.",
+      "limitation": "Primary IEEE working-group material; not the full normative text."
+    },
+    {
+      "key": "macgptp",
+      "url": "https://github.com/jclark/mac-gptp/tree/e133922d72282e1a41835a19e575663d292a21c5",
+      "claim": "Private TimeSync/Mach mapping, reported250ns mapping consistency, unknown fixed cross-timestamp offset.",
+      "limitation": "Author project report; code not run and result not independently reproduced."
+    },
+    {
+      "key": "macrefclock",
+      "url": "https://github.com/jclark/mac-gptp/blob/e133922d72282e1a41835a19e575663d292a21c5/docs/gptp-refclock.md",
+      "claim": "Author reports0.6us RMS over half an hour with tuned chrony and oscillator-wander attribution through an adapter-clock comparison.",
+      "limitation": "Wall-clock residual versus gPTP reference; no numeric ranking against our held-out source prediction."
+    },
+    {
+      "key": "val",
+      "url": "https://arxiv.org/pdf/2109.09409",
+      "claim": "TableIII:3-hop Ethernet mean-4.3ns, SD18.7ns; hybrid mean-5.5ns, SD16.6ns, externally measured with Calnex.",
+      "limitation": "Author manuscript inspected; endpoints differ from our fit residual."
+    },
+    {
+      "key": "nist2030",
+      "url": "https://www.nist.gov/publications/calibration-timing-accuracy-nist-cyber-physical-systems-testbed-0",
+      "claim": "Technical Note abstract:36ns maximum through two transparent clocks,6ns one-sigma uncertainty;100ns GPS uncertainty after an anomaly.",
+      "limitation": "Use Technical Note wording; the conference abstract instead reports36ns mean\u00b14ns. Do not merge them."
+    },
+    {
+      "key": "lim",
+      "url": "https://www.sciencedirect.com/science/article/pii/S0920548916300423",
+      "claim": "Publisher abstract/highlights: approximately200ns trigger delay and up to three consecutive hubs.",
+      "limitation": "Full article not inspected. Do not infer a CDF, worst-case bound, UTC accuracy or host-Mach mapping."
+    },
+    {
+      "key": "usbpatent",
+      "url": "https://patents.google.com/patent/US8943351B2/en",
+      "claim": "Sole listed inventor Peter Graham Foster; SOF recovery and device synchronization prior art.",
+      "limitation": "Primary patent disclosure; not an independently measured benchmark or a legal assessment."
+    },
+    {
+      "key": "walt",
+      "url": "https://android.googlesource.com/platform/external/walt/+/HEAD/android/WALT/app/src/main/jni/README.md",
+      "claim": "Causal bidirectional software offset bounds; reported100us USB2/800us USB3 interval widths on one Linux host.",
+      "limitation": "Interval widths, not standard deviations or a USB physical accuracy floor."
+    },
+    {
+      "key": "ntp",
+      "url": "https://www.rfc-editor.org/rfc/rfc5905.html",
+      "claim": "NTPv4 algorithms; potential tens-of-microseconds performance on suitable workstations/fast LANs.",
+      "limitation": "Our Internet-pool SNTP checks represent a different population."
+    },
+    {
+      "key": "appleusb",
+      "url": "https://developer.apple.com/documentation/iousbhost/iousbhostobject/referencemicroframewithtime:error:",
+      "claim": "Public userspace API returns a recent microframe with associated system time.",
+      "limitation": "No numerical accuracy guarantee established. Local SDK inspected; actual Mach units verified by the probe."
+    },
+    {
+      "key": "appleframe",
+      "url": "https://developer.apple.com/documentation/iousbhost/iousbhostobject/framenumberwithtime:",
+      "claim": "Local SDK header states that the current frame number omits the microframe component.",
+      "limitation": "Webpage JavaScript limited automated access; the local SDK declaration was inspected as primary evidence."
+    },
+    {
+      "key": "nordic",
+      "url": "https://docs-be.nordicsemi.com/bundle/nRF52840_PS_v1.2/raw/resource/enus/nRF52840_PS_v1.2.pdf",
+      "claim": "SOF synchronized to16MHz before PPI; frame counter advances at SOF.",
+      "limitation": "Documented resolution and event path are not an installed capture-bias calibration."
+    }
+  ],
+  "not_used": [
+    "Foster2007 ISPCS paper was found through citations, but its primary full text was not retrieved; no unverified subnanosecond benchmark included.",
+    "DriverKit API URLs were inaccessible; no DriverKit boundary/accuracy guarantee imported into userspace API claims.",
+    "NIST frequency-stability handbook retrieval timed out; not cited."
+  ],
+  "local_primary_sources": {
+    "SDK_header": "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks/IOUSBHost.framework/Headers/IOUSBHostObject.h",
+    "SDK_header_SHA256": "16270865885522f55f120e5f528dc749ae4f39955110358b1f688283ecf9e339"
+  },
+  "pinned_downloads": {
+    "artifacts/usb-macos-preprint-20261015-01/literature/docs__test-setup.md": "ea6a27f75b5506df33c2deca2d8ce54463909242b8fdc68ff3fd78162db3ca96",
+    "artifacts/usb-macos-preprint-20261015-01/literature/docs__gptp-refclock.md": "3db157adde5bbc4273057fef86aa69e3dd29996386fbc0d755458b1fc3c1f3eb",
+    "artifacts/usb-macos-preprint-20261015-01/literature/docs__libgptp.md": "8ca5010f29d0d25d4b68be9463f18d79b7159c77b1f92c2e984c9a868151991e",
+    "artifacts/usb-macos-preprint-20261015-01/literature/README.md": "fa2a7baa913575dc33d335b62da3162917ee14d3990b2f896d73fa0afbb75cdc",
+    "artifacts/usb-macos-preprint-20261015-01/literature/mac-gptp-pin.json": "1cbb26ebc5a101b980aba63a60def67b00f1d4bbafff5e4d94ad71c6eb12d132"
+  },
+  "ethics": "One human author; AI assistance disclosed under existing CREDITS.md; no affiliation or submission status invented."
+}

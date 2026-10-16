@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "status": "AUTHOR_APPROVED_PUBLIC_REVIEW",
+  "pages": 15,
+  "builtin_compile": "SUCCESS",
+  "export_engine": "Tectonic",
+  "all_15_pages_rendered_and_visually_checked": true,
+  "overfull_boxes": 0,
+  "undefined_citations_or_references": 0,
+  "underfull_box_warnings": 2,
+  "underfull_visual_effect": "No clipped, overlapping or unreadable content on reviewed pages",
+  "source_sha256": "ead863576330e5b04994c5115c55dda9e1c48d71fa8d8934165a9e9bc30a752b",
+  "pdf_sha256": "b3c578ab1222ebe40bb45ee28bce0cb23f58880268d1a3876ba8c6b12460f722",
+  "bibliography_entries": 15,
+  "figures": 1,
+  "tables": 4,
+  "source_standalone": true,
+  "arxiv_upload_performed": false,
+  "retained_initial_export_failure": "Missing ec-lmtt9.tfm in local cache and network DNS failure; switched appendix table from footnotesize to cached small font. Built-in compiler succeeded.",
+  "author_approval": "Explicit user approval, 16 October 2026",
+  "public_review_title_page_checked": true,
+  "production_deployed": false
+}

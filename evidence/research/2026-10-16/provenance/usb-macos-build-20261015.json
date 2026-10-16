@@ -1,0 +1,45 @@
+{
+  "schema": 2,
+  "built_utc": "2026-10-16T04:32:07.367650+00:00",
+  "status": "SAME_IMPLEMENTATION_ENGINEER_REVIEW_PASS",
+  "standalone_source": true,
+  "pages": 11,
+  "figures": 2,
+  "tables": 2,
+  "references": 15,
+  "source_SHA256": "c1d165b409d2fad798b27327a1b9b8cebb1bad7c4fe7d88a3a62729b7091f27a",
+  "PDF_SHA256": "f1cb7b9977922216429c3ee6eaa1b23f36a7ac4d37ca62fcdef5ca677ef7ee1d",
+  "engine_version": "Tectonic0.17.0",
+  "engine_SHA256": "b52b5a730e2b0b33087304f7720f649603953f270a6b1c88bb031e1ae01f7f9c",
+  "builtin_editor_compile": "SUCCESS",
+  "final_TeX_warnings": false,
+  "all_pages_visually_reviewed": true,
+  "review_record": "artifacts/macos-chrony-publication-20261015-01/reviewer/final-paper-review.json",
+  "publication": false,
+  "website_changes_in_this_paper_task": true,
+  "hardware_access_in_this_paper_task": false,
+  "prior_build_snapshot": "artifacts/macos-chrony-publication-20261015-01/before/paper/provenance/usb-macos-build-20261015.json",
+  "inputs_SHA256": {
+    "paper/usb-macos-evidence-20261015.json": "b9f47abd0dc36221f8b08468245220fc82ee67c95e31bc1ea25a7313ee2eb379",
+    "paper/provenance/usb-macos-literature-20261015.json": "f0ed5822128eb0179a663162e8dc36cff47f0f8db7e1a3fa1074a4549a94954d",
+    "paper/figures/usb-macos-chrony-20261015/derive.py": "607c3a564549ade224b0273012fcfbc32b4bdda36428871f068465276a78518a",
+    "paper/figures/usb-macos-chrony-20261015/derivation-manifest.json": "1f540b0c12c6979f61422478db6c9b591c2f0400149985cb33bd44bb46ebb667"
+  },
+  "QA": {
+    "pages": 11,
+    "text_bounds_issues": [],
+    "figures": 2,
+    "tables": 2,
+    "references": 15,
+    "rendered_all_pages": true,
+    "parent_contact_sheet_review": "PASS",
+    "same_implementation_engineer_all_pages_review": "reviewer/final-paper-review.json",
+    "PDF_sha256": "f1cb7b9977922216429c3ee6eaa1b23f36a7ac4d37ca62fcdef5ca677ef7ee1d"
+  },
+  "retained_failed_attempts": [
+    "authoring helper syntax/name failures before manuscript mutation",
+    "initial Tectonic cache environment mismatch; corrected TECTONIC_CACHE_DIR",
+    "first PDF export had5.44pt plot overfull; fixed before exact final review",
+    "public verifier refused intentional preview noindex; local variant only expects noindex;94 checks PASS"
+  ]
+}

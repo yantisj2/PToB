@@ -1,7 +1,7 @@
 # T096 firmware example
 
-T096 firmware, developed from the R2 application, is the first example being
-prepared for this repository. Its direction comes from v12: periodic advertising
+T096 firmware, developed from the R2 application, supplies the GM and RC
+examples in this repository. Its direction comes from v12: periodic advertising
 for the precision timing stream,
 with mesh participation separated from planned client services for less capable
 devices. See [the architectural background](../../docs/V12_TO_R2.md).
@@ -36,3 +36,5 @@ precision. See the [local cutover record](../../docs/t096/cutover.md).
 
 All target families share the [display registry](../../registry/README.md).
 Supply the same local registry to each migrated target; T096 consumes it today.
+
+For a multi-device deployment, see the [group setup guide](../../docs/GETTING_STARTED.md).

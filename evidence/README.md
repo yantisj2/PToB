@@ -5,6 +5,7 @@ single pooled benchmark or a statement of current firmware acceptance.
 
 | Claim or question | Evidence | Boundary |
 | --- | --- | --- |
+| USB/chrony delivery, oscillator-extension research and system viability | [October 15–16 research](research/2026-10-16/README.md) | Shared-source agreement; separate historical runs; hypothetical scaling models |
 | V14 boundary-clock regeneration, prospective one-RC phase, and renewal | [October 12 V14 research](v14/2026-10-12/README.md) | 504 observed edges with complete 602-opportunity accounting; fractional PPS phase, not calibrated UTC or output |
 | Prospective edge calibration and causal publication in the October 2 papers | [Historical paper collection](papers/2026-10-02/README.md) | PPS-shadow, internal compare, and W12 predictions retain different methods and populations |
 | Software-map convergence and native lock in the October 3 follow-up | [PLL collection](papers/oscillator-pll-2026-10-03/README.md) | Hardware-derived errors and sampled states; not quartz/carrier or electrical-output qualification |
@@ -23,6 +24,7 @@ Run from the repository root with Python 3.9 or newer:
 ```sh
 python3 tools/verify_evidence.py
 python3 tools/verify_v14.py
+python3 tools/verify_research.py
 ```
 
 This checks all imported evidence files against the [import manifest](imports/2026-10-09.json)

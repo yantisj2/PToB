@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "model_status": "ILLUSTRATIVE_ONLY",
+  "anchor_two_link_rms_ns": 62.503871,
+  "effective_increment_ns": 44.196911034509185,
+  "not_a_measured_per_link_parameter": true,
+  "hypothetical_500ns_RMS_hop_ceiling_independent": 127,
+  "hypothetical_500ns_RMS_hop_ceiling_correlated": 11,
+  "record_serialization_bps": 24320,
+  "raw_1Mbps_fraction": 0.02432,
+  "hypothetical_1000_child_300s_renewals_per_second": 3.3333333333333335,
+  "hypothetical_eight_full_period_waits_seconds": 0.5
+}

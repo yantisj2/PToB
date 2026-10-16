@@ -1,87 +1,58 @@
 # PToB — Precision Time over BLE
 
-**[Explore PToB at ptob.dev](https://ptob.dev)** — the companion project website.
+PToB explores shared time over Bluetooth Low Energy periodic advertising, with
+explicit source validity, clock quality and availability. This repository is the
+home for its firmware, macOS client, draft papers and selected experimental
+evidence. [Project website](https://ptob.dev).
 
-PToB is a precision time protocol proposal for Bluetooth Low Energy. The goal is
-useful, traceable time at the receiving device: associate a physical radio event
-with its timestamp, account for correction delay, and make the clock's quality
-and availability explicit.
+## Get started
 
-This repository holds the draft papers, experimental evidence, and work toward T096 and W12 firmware examples. It is intended for BLE implementers, timing specialists,
-and embedded engineers evaluating the protocol, its measurements, and its fit
-for real devices. All papers remain drafts; PToB is not an adopted Bluetooth SIG
-or IEEE standard.
+Follow the **[setup guide](docs/GETTING_STARTED.md)** to plan two grandmasters
+(GMs), optional relay clocks, and a USB-connected macOS client with chrony.
+Start with the target matching your hardware:
 
-## From v12 to R2
-
-**Precision from passive reception drove v12.** That requirement pushed the
-project toward periodic advertising as the timing transport and made periodic
-advertising support a baseline requirement for participation in the PToB mesh.
-The v12 model explored the scheduling, correction, and coordination rules that
-informed the T096 R2 hardware implementation.
-
-The architecture separates **mesh services** for capable devices from **client
-services** for devices that cannot meet those requirements. A later GATT client
-service is planned for phones and conventional operating systems. That service
-is distinct from the GATT control traffic already exercised in R2 experiments;
-it does not imply the same precision or mesh role for every client.
-
-[Read the v12-to-R2 design background](docs/V12_TO_R2.md) for the service split,
-implementation boundaries, and questions still open for review.
-
-## Read the research
-
-| Draft | Focus | Edition |
+| Target | Current role | Start here |
 | --- | --- | --- |
-| [V14-RC1 service and profile proposal](papers/ptob-v14-sig-proposal.pdf) | GM authority, boundary-clock regeneration, six wire layouts, and conformance targets | 12 October 2026 |
-| [V14 boundary-clock research](papers/ptob-v14-preprint.pdf) | Causal timestamps, prospective one-relay PPS-shadow validation, and full availability accounting | 12 October 2026 |
+| Heltec T096 | GM or RC; USB source stream included in RC7 | [T096 README](firmware/t096/README.md) |
+| Meshnology W12 | RC receiver; optional experimental estimated-TX relay | [W12 README](firmware/w12/README.md) |
+| SS3 | RC receiver and experimental estimated-TX relay | [SS3 README](firmware/ss3/README.md) |
+| macOS | USB time client and chrony bridge | [macOS README](clients/macos/README.md) |
 
-[Sources, citations, and revision history](papers/README.md) accompany each paper.
-The [October 2 proposal and calibration preprint, and October 3 oscillator study](papers/README.md#historical-drafts)
-remain available with their original evidence boundaries.
+**Developer preview:** source builds are available; a generic downloadable image,
+public installer/recovery flow and mutable provisioning are not yet available.
+Images use private build-time enrollment and must not be uploaded as releases.
+Use the target guides for exact supported boards, dependencies and validation
+limits. Hardware observations and passing host tests do not establish calibrated
+UTC accuracy or qualified failover.
 
-V14 separates independently sourced grandmasters from dedicated relay clocks
-that regenerate downstream events through their local disciplined maps. Read the
-[research status and remaining conformance gaps](docs/V14_RESEARCH_STATUS.md)
-and [frozen RC1 specification](docs/V14_CLOCK_SPEC_RC1.md). RC1 is a specification
-candidate; later firmware changes do not inherit its research results.
+One group uses one private [PSK enrollment](docs/security/psk.md) and one
+[shared display registry](registry/README.md). Read the
+[device ID / name / UUID rules](docs/security/identity-and-names.md) before
+provisioning. The [T096 provisioning design](docs/t096/provisioning-design.md)
+describes the proposed future storage/API; it is not implemented firmware.
 
-## Inspect the evidence
+## Bring your own target
 
-| Collection | What you can review |
-| --- | --- |
-| [V14 October 12 research](evidence/v14/2026-10-12/README.md) | All 504 observed PPS edges, separate validity populations, renewal samples, and wire issues |
-| [October 2 paper evidence](evidence/papers/2026-10-02/README.md) | Claim mappings, calibration, populations, and original protocol/firmware identities |
-| [Oscillator/PLL evidence](evidence/papers/oscillator-pll-2026-10-03/README.md) | Hardware-derived samples, separate cohorts, and sampled lock states |
-| [v12 numerical model](evidence/v12/model/README.md) | Frozen model, executable tests, synthetic results, and retained failures |
-| [R2 controller simulation](evidence/v12/r2/simulation/README.md) | Control and precision-transport campaigns with explicit outcomes |
-| [R2 hardware records](evidence/v12/r2/hardware/README.md) | T096 startup, UI, and service observations with unresolved issues |
+The **[porting guide](docs/PORTING.md)** covers BLE periodic advertising,
+timestamp association, identity, enrollment and acceptance checks. Hardware
+oscillator tuning and GNSS are optional; the source and timing requirements
+depend on the role. Conventional clients can consume a host time service without
+implementing a BLE mesh role. A general GATT time-client service remains planned.
 
-The [evidence index](evidence/README.md) explains what can be reproduced from this
-checkout. Private raw captures are not included. Relative timing error, software
-lock, and simulated precision are distinct from calibrated UTC and independently
-measured electrical-output accuracy.
+## Research and review
 
-The [T096 example](firmware/t096/README.md), developed from R2, is being prepared
-for standalone builds. Firmware source and standalone build tooling are included. A public downloadable
-release and mutable provisioning are still pending.
+[Read the draft papers](papers/README.md), [inspect the evidence](evidence/README.md),
+or follow the [architectural background](docs/V12_TO_R2.md). Paper editions,
+wire profiles and current firmware versions have separate identities. Historical
+results do not qualify later builds. PToB is not an adopted Bluetooth SIG or IEEE
+standard.
 
-Preparation now includes a [selected T096 source baseline](docs/t096/baseline.md),
-[provisioning/storage design](docs/t096/provisioning-design.md),
-[PSK guidance](docs/security/psk.md), and
-[name-map/device-ID guidance](docs/security/identity-and-names.md), and the
-[shared example registry](registry/README.md).
-These are review material; public installation remains pending.
+For review, identify the target and commit or paper edition, the behavior or claim,
+and a reproducible check. Keep credentials and raw private captures out of issues.
+See the [publication review checklist](docs/PUBLICATION_REVIEW.md) for remaining
+release gates.
 
-The [W12 RC example](firmware/w12/README.md) now has its own selected native
-G1/RC7 application and [standalone build guide](docs/w12/build.md). It consumes
-the same display registry, with local enrollment and factory binding. Its
-optional estimated relay remains unqualified; no W12 GM profile is supplied.
-
-Reviews are welcome on controller support, physical timestamp association,
-clock discipline, service boundaries, and measurement design. Identify the draft
-edition or commit, the claim under discussion, and the evidence that would test it.
-
-By **Jonathan Yantis**, with [acknowledged Codex assistance](CREDITS.md).
-Code is [MIT](LICENSE); papers, figures, and original evidence datasets are
-**CC BY 4.0**. See [licensing and attribution](LICENSING.md).
+By **Jonathan Yantis**, with [acknowledged assistance](CREDITS.md). Original code
+and ordinary documentation use [MIT](LICENSE); papers, figures and original
+evidence datasets use CC BY 4.0. Preserved third-party terms also apply:
+[licensing and attribution](LICENSING.md).

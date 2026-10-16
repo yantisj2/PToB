@@ -25,3 +25,5 @@ display/GNSS include boundary under `legacy/`, contracts and host checks, pinned
 public SDK acquisition, and a no-hardware builder. The legacy code path supplies
 compatibility types and display routines; its presence does not activate other
 radios or GPS. A generic public installation/recovery tool remains pending.
+
+For a multi-device deployment, see the [group setup guide](../../docs/GETTING_STARTED.md).

@@ -1,0 +1,97 @@
+{
+  "schema": 1,
+  "date": "2026-10-16",
+  "status": "AUTHOR_APPROVED_PUBLIC_REVIEW",
+  "new_hardware_access": false,
+  "new_physical_experiment": false,
+  "raw_reanalysis": false,
+  "independent_reviewer": false,
+  "public_submission": false,
+  "claim_input_groups": {
+    "architecture": [
+      {
+        "path": "paper/ptob-v14-preprint.tex",
+        "sha256": "bea2c7ea55b2842296871de9073554e0ad0bca84b3780afd966145b263365abe"
+      },
+      {
+        "path": "paper/ptob-v14-evidence.json",
+        "sha256": "7474437ed23e64ed7a16599e082de95024a38d67927113fafa814de2c0666562"
+      }
+    ],
+    "causal_discipline": [
+      {
+        "path": "paper/oscillator-pll-research-20261003.tex",
+        "sha256": "53e809b31da1428892e35829b19a9814d2868561331b34c214c7243d2bcb4a1e"
+      },
+      {
+        "path": "paper/oscillator-pll-evidence-20261003.json",
+        "sha256": "1e4ce2bdbaacfef6f26d55679410a83b927af8166e5da3200f1a32dc9be450c7"
+      }
+    ],
+    "one_relay": [
+      {
+        "path": "docs/RC_ONEHOP_PPS_RESULT_20261012.md",
+        "sha256": "5caa9a403001dfe140090242dd230f44e709a583a4d5b7cdcac3da6da23cd163"
+      }
+    ],
+    "gm_hot": [
+      {
+        "path": "results/T096_GM_HOT_FIELD_20261015.json",
+        "sha256": "f8ab9c62e3d39e65f213b4236c6af85be84152c1939782d9f39492e1c6bcd4a7"
+      },
+      {
+        "path": "results/T096_GM_UTC_FIELD_20261015.json",
+        "sha256": "8c072c984c03086087b90a045a28ed9f1621fcb7a5e41399d4b9d9fed0f26957"
+      }
+    ],
+    "heterogeneous": [
+      {
+        "path": "docs/W12_RELAY_DEMAND_RSSI_RELEASE_20261014.md",
+        "sha256": "60aea5bb76bfaf8cb88bdb89f4e443ed6feb56d4693816518b3f71956bf03d0b"
+      },
+      {
+        "path": "results/W12_RELAY_DEMAND_RSSI_RELEASE_20261014.json",
+        "sha256": "856ff091ee67977054c70d72193d83727d4c75d56ed898014c550a881cf5e988"
+      }
+    ],
+    "macos": [
+      {
+        "path": "results/MACOS_SOF_MAP_FIVE_MINUTE_20261015.json",
+        "sha256": "6a1da16c6970a3a5a323df7167b7c41fd0e4b57d89a363e5433f316ff49580b2"
+      },
+      {
+        "path": "paper/usb-macos-evidence-20261015.json",
+        "sha256": "b9f47abd0dc36221f8b08468245220fc82ee67c95e31bc1ea25a7313ee2eb379"
+      },
+      {
+        "path": "paper/usb-macos-time-transfer-preprint.tex",
+        "sha256": "c1d165b409d2fad798b27327a1b9b8cebb1bad7c4fe7d88a3a62729b7091f27a"
+      }
+    ],
+    "constraints": [
+      {
+        "path": "docs/PAPER_EVIDENCE.md",
+        "sha256": "2db29c4519fa59c4372375f33271e4df7c0309cf1d1342db35bcff2945a12761"
+      },
+      {
+        "path": "CREDITS.md",
+        "sha256": "bcbd8bf90dbec18c71b70ae129297fcb8b02a5fc73b57f40428ee26a43d1262b"
+      },
+      {
+        "path": "AGENTS.md",
+        "sha256": "38b2ba20cc01868ff95ab9875c4d9d3bba8f81e0505797fad7e8df09e5b4c553"
+      }
+    ]
+  },
+  "models": "paper/figures/viability-20261016/derive.py",
+  "limitations": [
+    "Separate experiments, no pooled qualification",
+    "Absolute UTC, output and continuous service unqualified",
+    "Three-GM stability unresolved",
+    "Heterogeneous TX estimated",
+    "Hop counts are conditional sensitivity calculations, not supported depths",
+    "Power and PTP bridge are proposed work",
+    "Private raw logs excluded; no durable public data deposit implied"
+  ],
+  "author_approval": "Explicit user approval, 16 October 2026"
+}

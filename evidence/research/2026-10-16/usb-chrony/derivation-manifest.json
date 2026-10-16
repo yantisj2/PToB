@@ -1,0 +1,12 @@
+{
+  "capture_sha256": "c401eb777976634f7717aeb9637530d111dd72525142661cbaf474aba13022d3",
+  "tracking_rows": 323,
+  "delivery_rows": 296,
+  "delivery_valid": 220,
+  "window": "0<=t<300; settled60<=t<300 predeclared",
+  "plots": "all positive tracking queries; all valid direct errors and explicit withheld ticks; no display downsampling",
+  "files": {
+    "paper/figures/usb-macos-chrony-20261015/delivery.csv": "17e6286b401f3b3977d2442ac958ef37e8b736e5b3d1d59f37f9f8f0a7286f84",
+    "paper/figures/usb-macos-chrony-20261015/tracking.csv": "1b5194e5edaf75f16e70e5590a03d216520f45e52defaa3953ed20fbe764e836"
+  }
+}

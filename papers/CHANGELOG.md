@@ -1,5 +1,14 @@
 # Manuscript history
 
+## 2026-10-16 — USB/chrony, White Rabbit and viability research
+
+- Added three unchanged source/PDF pairs: October 15 USB/chrony (11 pages),
+  October 15 White Rabbit study (10 pages), and October 16 viability (15 pages).
+- Preserved draft status and older editions; added explicit selection/provenance,
+  three private-field redactions, matching hashes and destination visual review.
+- Added delivery/tracking CSV checks and reproducible hypothetical model tables.
+  Raw captures remain excluded; no accuracy, continuity or target acceptance upgrade.
+
 ## 2026-10-13 — V14 successor papers and research
 
 - Added the October 12 V14-RC1 proposal (22 pages) and V14 research preprint

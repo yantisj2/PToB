@@ -1,0 +1,230 @@
+{
+  "schema": "ptob.white-rabbit-study-evidence.v1",
+  "prepared_at_utc": "2026-10-15T19:27:51.014683+00:00",
+  "client_date": "2026-10-15",
+  "status": "RESEARCH_DRAFT_NOT_QUALIFICATION",
+  "manuscript": "paper/white-rabbit-study-20261015.tex",
+  "revisions": {
+    "root": "b4d9dbbe2769f067002b6a7e4ab33f39a6ea47b6",
+    "t096": "bf1111380962c8cf7f08453e837caebe5b93ac85",
+    "w12": "48b9ab700d178e06f34c9d981d859a8c5c0d97cf"
+  },
+  "boundary": "Inspected working snapshots, not installed-image verification. No new physical experiment, firmware edit, RF,serial,reset,flash or publication. Other ongoing work is not accepted by this paper.",
+  "inputs": [
+    {
+      "path": "AGENTS.md",
+      "bytes": 55264,
+      "sha256": "113f107ba9ec119abe5a1ddf7b970ecd973b11b44182e0e341ecb5ec35331c6d",
+      "frozen_copy": "artifacts/white-rabbit-study-20261015-01/inputs/AGENTS.md"
+    },
+    {
+      "path": "CREDITS.md",
+      "bytes": 1309,
+      "sha256": "bcbd8bf90dbec18c71b70ae129297fcb8b02a5fc73b57f40428ee26a43d1262b",
+      "frozen_copy": "artifacts/white-rabbit-study-20261015-01/inputs/CREDITS.md"
+    },
+    {
+      "path": "docs/PAPER_EVIDENCE.md",
+      "bytes": 3917,
+      "sha256": "2db29c4519fa59c4372375f33271e4df7c0309cf1d1342db35bcff2945a12761",
+      "frozen_copy": "artifacts/white-rabbit-study-20261015-01/inputs/docs/PAPER_EVIDENCE.md"
+    },
+    {
+      "path": "firmware/t096/v12_r2/src/capture.c",
+      "bytes": 11181,
+      "sha256": "86afe9c88e48c5a218ec2aca665278b224b489c624f4fe9064bc960e88d47319",
+      "frozen_copy": "artifacts/white-rabbit-study-20261015-01/inputs/firmware/t096/v12_r2/src/capture.c"
+    },
+    {
+      "path": "firmware/t096/v12_r2/src/radio_capture.c",
+      "bytes": 6038,
+      "sha256": "969c5d5be09e5ca0225994b0532a1391568165376d8fc537959a1c92f3cc9f2d",
+      "frozen_copy": "artifacts/white-rabbit-study-20261015-01/inputs/firmware/t096/v12_r2/src/radio_capture.c"
+    },
+    {
+      "path": "firmware/t096/v12_r2/include/precision_servo.h",
+      "bytes": 27002,
+      "sha256": "40f567fc217c87a5cae6be75067b933d6cc53d715a10039072fcfd3d7f250e03",
+      "frozen_copy": "artifacts/white-rabbit-study-20261015-01/inputs/firmware/t096/v12_r2/include/precision_servo.h"
+    },
+    {
+      "path": "firmware/t096/v12_r2/src/rc_boundary.c",
+      "bytes": 26739,
+      "sha256": "6a0f5829025af6e5275b092f27cfe03cc5ba15b09daed1b3fd1676faf9d0584c",
+      "frozen_copy": "artifacts/white-rabbit-study-20261015-01/inputs/firmware/t096/v12_r2/src/rc_boundary.c"
+    },
+    {
+      "path": "firmware/t096/v12_r2/include/rc_boundary.h",
+      "bytes": 7648,
+      "sha256": "077bee653a5983c1302c3f310bed81c826c4501c33da2b970a4e8900017b6b80",
+      "frozen_copy": "artifacts/white-rabbit-study-20261015-01/inputs/firmware/t096/v12_r2/include/rc_boundary.h"
+    },
+    {
+      "path": "firmware/t096/v12_r2/include/rc_direct_calibration.h",
+      "bytes": 1300,
+      "sha256": "bd242c235ebfdee044fd0d0b63e723d4910b9c0e04cc1e2a1327bd7ba10504ad",
+      "frozen_copy": "artifacts/white-rabbit-study-20261015-01/inputs/firmware/t096/v12_r2/include/rc_direct_calibration.h"
+    },
+    {
+      "path": "firmware/w12/v12_native/main/g1_corrected_clock.hpp",
+      "bytes": 30401,
+      "sha256": "0fde4c16374c065ef4ab6c4e0304080afe0f7c500fff02b3aeda638b080c31e8",
+      "frozen_copy": "artifacts/white-rabbit-study-20261015-01/inputs/firmware/w12/v12_native/main/g1_corrected_clock.hpp"
+    },
+    {
+      "path": "firmware/w12/v12_native/main/capture_contract.hpp",
+      "bytes": 1856,
+      "sha256": "963717cfbea76ac837128ab5f90366517e309f6bc46f5036f363776415b5e196",
+      "frozen_copy": "artifacts/white-rabbit-study-20261015-01/inputs/firmware/w12/v12_native/main/capture_contract.hpp"
+    },
+    {
+      "path": "docs/RC_EMPIRICAL_OFFSET_AND_NEXT_HOP_20261012.md",
+      "bytes": 8556,
+      "sha256": "cf41d4144989ff9c17f39f2438013b13d8a0e5a97abd8ee9284e6d4a7e23b614",
+      "frozen_copy": "artifacts/white-rabbit-study-20261015-01/inputs/docs/RC_EMPIRICAL_OFFSET_AND_NEXT_HOP_20261012.md"
+    },
+    {
+      "path": "docs/W12_C2_DRIFT_FIX_20261012.md",
+      "bytes": 4105,
+      "sha256": "902cb1561ac6952380c15e3ff1af4de231e50da23e71c7bf6f7534313087963f",
+      "frozen_copy": "artifacts/white-rabbit-study-20261015-01/inputs/docs/W12_C2_DRIFT_FIX_20261012.md"
+    },
+    {
+      "path": "docs/RC_TIMESTAMP_RAW_INVESTIGATION_20261012.md",
+      "bytes": 6723,
+      "sha256": "617217d84133f335b0ae10d7a13e746af5608e6ed80890c68a4bcd5a1536b0ff",
+      "frozen_copy": "artifacts/white-rabbit-study-20261015-01/inputs/docs/RC_TIMESTAMP_RAW_INVESTIGATION_20261012.md"
+    },
+    {
+      "path": "docs/SOFTPLL_POST_1588_LORA_PROPOSAL_20261003.md",
+      "bytes": 13195,
+      "sha256": "1b4a8ca83020dc3887a9dafa2d68aa528b76b70aac71e4563f8ff0c392398f66",
+      "frozen_copy": "artifacts/white-rabbit-study-20261015-01/inputs/docs/SOFTPLL_POST_1588_LORA_PROPOSAL_20261003.md"
+    },
+    {
+      "path": "docs/T096_048_REGRESSION_INVESTIGATION_20261015.md",
+      "bytes": 13246,
+      "sha256": "ffefbb7f9e76106c873e3e9dd65354b167746717377cc37db745a18a580d3ab8",
+      "frozen_copy": "artifacts/white-rabbit-study-20261015-01/inputs/docs/T096_048_REGRESSION_INVESTIGATION_20261015.md"
+    },
+    {
+      "path": "docs/T096_USB_FRAME_BRIDGE_20261015.md",
+      "bytes": 16619,
+      "sha256": "286766c584eae6be12b0f992c2b7ffb9b3057fbe42eeeb7e073ee8601c4096fc",
+      "frozen_copy": "artifacts/white-rabbit-study-20261015-01/inputs/docs/T096_USB_FRAME_BRIDGE_20261015.md"
+    },
+    {
+      "path": "results/W12_C2_DRIFT_FIX_20261012.json",
+      "bytes": 6635,
+      "sha256": "4febf4c1b79107e6bf1011dcf7103261365b452990dd997ff3eacae2e4209801",
+      "frozen_copy": "artifacts/white-rabbit-study-20261015-01/inputs/results/W12_C2_DRIFT_FIX_20261012.json"
+    },
+    {
+      "path": "results/T096_USB_BOUNDARY_MAPPING_20261015.json",
+      "bytes": 21089,
+      "sha256": "a55f0c991db1e233ff41cdeac2db01e7050b5935d6388fc17fcf3454df9c77a6",
+      "frozen_copy": "artifacts/white-rabbit-study-20261015-01/inputs/results/T096_USB_BOUNDARY_MAPPING_20261015.json"
+    },
+    {
+      "path": "results/T096_048_REGRESSION_INVESTIGATION_20261015.json",
+      "bytes": 3159,
+      "sha256": "1a38cee7df3ff76dd88368afe61bda4ad921095d879d31bfc3594a38ed0bc396",
+      "frozen_copy": "artifacts/white-rabbit-study-20261015-01/inputs/results/T096_048_REGRESSION_INVESTIGATION_20261015.json"
+    },
+    {
+      "path": "results/T096_COHORT_RELEASE_20261015.json",
+      "bytes": 8247,
+      "sha256": "a972d70715a687b80afd2872634e200564841c84fbaa8b95a2848a13c2a1a97c",
+      "frozen_copy": "artifacts/white-rabbit-study-20261015-01/inputs/results/T096_COHORT_RELEASE_20261015.json"
+    },
+    {
+      "path": "paper/oscillator-pll-evidence-20261003.json",
+      "bytes": 1156706,
+      "sha256": "1e4ce2bdbaacfef6f26d55679410a83b927af8166e5da3200f1a32dc9be450c7",
+      "frozen_copy": "artifacts/white-rabbit-study-20261015-01/inputs/paper/oscillator-pll-evidence-20261003.json"
+    }
+  ],
+  "claim_map": [
+    {
+      "id": "hardware_capture",
+      "claim": "T096 16MHz TIMER3/PPI PPS and RADIO ADDRESS capture; USB conditional",
+      "inputs": [
+        "firmware/t096/v12_r2/src/capture.c",
+        "firmware/t096/v12_r2/src/radio_capture.c"
+      ]
+    },
+    {
+      "id": "normal_vs_rc",
+      "claim": "Normal delivered map 1ppm slew differs from generic helper and RC one-second slew",
+      "inputs": [
+        "firmware/t096/v12_r2/include/precision_servo.h",
+        "firmware/t096/v12_r2/src/rc_boundary.c"
+      ]
+    },
+    {
+      "id": "w12_causality",
+      "claim": "64 compact points,250ms spacing,pre-update causal scoring,strict precision provider",
+      "inputs": [
+        "firmware/w12/v12_native/main/g1_corrected_clock.hpp",
+        "firmware/w12/v12_native/main/capture_contract.hpp"
+      ]
+    },
+    {
+      "id": "empirical_bias",
+      "claim": "10543ns provisional;520/600 training coverage;prospective check zero witness edges",
+      "inputs": [
+        "firmware/t096/v12_r2/include/rc_direct_calibration.h",
+        "docs/RC_EMPIRICAL_OFFSET_AND_NEXT_HOP_20261012.md"
+      ]
+    },
+    {
+      "id": "identifiability",
+      "claim": "Raw original preservation does not decompose detector/path/source/GPS bias",
+      "inputs": [
+        "docs/RC_TIMESTAMP_RAW_INVESTIGATION_20261012.md"
+      ]
+    },
+    {
+      "id": "w12_statistics",
+      "claim": "570s,1140 UI;138-192ns median161;separate prior-UI160.8ns;no established100ns floor",
+      "inputs": [
+        "docs/W12_C2_DRIFT_FIX_20261012.md",
+        "results/W12_C2_DRIFT_FIX_20261012.json"
+      ]
+    },
+    {
+      "id": "usb_statistics",
+      "claim": "600.008s bridge replay not ten-minute source UTC;248 source samples and8/592statuses",
+      "inputs": [
+        "results/T096_USB_BOUNDARY_MAPPING_20261015.json",
+        "docs/T096_USB_FRAME_BRIDGE_20261015.md"
+      ]
+    },
+    {
+      "id": "regression",
+      "claim": "0.15.48 rejected;failure/recovery not durable cure",
+      "inputs": [
+        "docs/T096_048_REGRESSION_INVESTIGATION_20261015.md",
+        "results/T096_COHORT_RELEASE_20261015.json"
+      ]
+    }
+  ],
+  "analytical_examples": {
+    "capture_tick_ns": 62.5,
+    "uniform_single_sigma_ns": 18.042195912175806,
+    "uniform_independent_difference_sigma_ns": 25.51551815399144,
+    "holdover": "B(h)=B0+h*By+0.5*h*h*Bdrift+Bact, seconds/fractional-rate units;figure uses ns and ppb;all chosen hypothetical,not measured",
+    "budget_ns": 500,
+    "initial_ns": 100,
+    "extra_actuator_error_ns": 0,
+    "drift_curve_ppb_per_s": 0.01
+  },
+  "limits": [
+    "No new raw-data analysis or accuracy claim.",
+    "No calibrated total uncertainty or hardware floor established.",
+    "No WR-PTP/HA/Bluetooth conformity claim.",
+    "No deployed extension or actuator.",
+    "Private raw captures not copied into public outputs.",
+    "Frozen input copies are same-host reproductions,not durable external backups."
+  ]
+}

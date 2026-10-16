@@ -1,0 +1,4 @@
+residual_frequency_ppm,remaining_error_budget_ns,hypothetical_hold_seconds,classification
+1,500,0.5,NO_DRIFT_OR_OTHER_ERROR_ASSUMED_NOT_PERMISSION
+0.1,500,5.0,NO_DRIFT_OR_OTHER_ERROR_ASSUMED_NOT_PERMISSION
+0.01,500,50.0,NO_DRIFT_OR_OTHER_ERROR_ASSUMED_NOT_PERMISSION

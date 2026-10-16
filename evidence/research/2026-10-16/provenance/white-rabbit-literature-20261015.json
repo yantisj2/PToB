@@ -1,0 +1,83 @@
+{
+  "schema": "ptob.white-rabbit-literature.v1",
+  "checked_on": "2026-10-15",
+  "scope": "Targeted primary-source review,not exhaustive or latest-software-release audit",
+  "sources": [
+    {
+      "id": "wr2011",
+      "title": "White Rabbit: a PTP Application for Robust Sub-nanosecond Synchronization",
+      "publication_date": "2011",
+      "url": "https://white-rabbit.web.cern.ch/documents/White_Rabbit-a_PTP_application_for_robust_sub-nanosecond_synchronization.pdf",
+      "access": "Primary 6-page paper text",
+      "used_for": "PTP,physical syntonization,phase enhancement,calibrated delay,two-step event association"
+    },
+    {
+      "id": "characteristics",
+      "title": "White Rabbit clock characteristics",
+      "publication_date": "2016",
+      "url": "https://white-rabbit.web.cern.ch/documents/White_Rabbit_Clock_Characteristics.pdf",
+      "access": "Primary 6-page paper text;DOI10.1109/ISPCS.2016.7579514",
+      "used_for": "DDMTD/helper/main/software PI physical oscillators;application-specific bandwidth/noise"
+    },
+    {
+      "id": "ha",
+      "title": "IEEE1588 Standard",
+      "publication_date": "Undated;checked2026-10-15",
+      "url": "https://white-rabbit-collaboration-website.web.cern.ch/ieee1588-standard/",
+      "access": "Official collaboration explanation;not full normative IEEE text",
+      "used_for": "HA origin,features,protocol distinction from legacy WR-PTP"
+    },
+    {
+      "id": "servo2026",
+      "title": "Analysis of Sub-Optimal Servo Performance in White Rabbit Timing Systems",
+      "publication_date": "2026-05-27",
+      "url": "https://indico.cern.ch/event/1623507/contributions/7073395/",
+      "access": "Indexed primary abstract;direct403;CERN recording indexed abstract/transcript also checked",
+      "used_for": "Frequency/reference lock,second-cycle identification,fine phase stages"
+    },
+    {
+      "id": "cepc",
+      "title": "A High-Precision Clock Synchronization System for the CEPC Accelerator",
+      "publication_date": "2026-06-10",
+      "url": "https://arxiv.org/abs/2606.11590",
+      "access": "v1 preprint abstract and HTML full text;not treated as peer reviewed",
+      "used_for": "DSPLL/DCO actuator redesign,restart alignment,temperature/cascade design;authors reported3.38/3.92ps precision only"
+    },
+    {
+      "id": "electrical",
+      "title": "First electrical White Rabbit absolute calibration inter-comparison",
+      "publication_date": "2022-01-21",
+      "url": "https://arxiv.org/abs/2201.08640",
+      "access": "Primary preprint abstract",
+      "used_for": "Internal timestamp to external electrical reference plane;multi-laboratory calibration"
+    },
+    {
+      "id": "security2026",
+      "title": "Cryptographically Secured High-Performance Time Synchronization for White Rabbit Links",
+      "publication_date": "2026-05-27",
+      "url": "https://indico.cern.ch/event/1623507/contributions/7073396/",
+      "access": "Indexed primary workshop abstract;direct403;slides not inspected",
+      "used_for": "PPSi/NTS4PTP demonstrator,authentication/replay;initial50km claim remains preliminary"
+    },
+    {
+      "id": "holdover2025",
+      "title": "Adding relevant holdover capability to the WRS v4",
+      "publication_date": "2025-06-26",
+      "url": "https://indico.cern.ch/event/1524513/contributions/6556224/",
+      "access": "Indexed primary workshop abstract and CERN recording metadata",
+      "used_for": "Development program;Nov2026 availability is a historical projection,not verified shipment"
+    }
+  ],
+  "additional_primary_recording": "https://videos.cern.ch/record/3025754",
+  "access_limits": [
+    {
+      "url": "https://white-rabbit.web.cern.ch/documents/WhiteRabbitSpec.v2.0.pdf",
+      "outcome": "15.4MB exceeds web extraction;not relied on as fully read normative specification"
+    },
+    {
+      "url": "https://gitlab.com/ohwr/project/wrpc-sw/-/blob/master/softpll/softpll.c",
+      "outcome": "redirected to tree,no source body;no current WR software source audit claimed"
+    }
+  ],
+  "interpretation": "New protocol/interface,control equations,holdover allocations and evaluation roadmap are this study proposals,inferences or derivations,not claims copied from external implementations."
+}

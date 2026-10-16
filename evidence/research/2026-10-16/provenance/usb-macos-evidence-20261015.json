@@ -1,0 +1,1813 @@
+{
+  "schema": 2,
+  "local_review_only": true,
+  "revision": "FINAL_300S_CHRONY_AND_BASE_USB",
+  "paper_revision_operator_date": "2026-10-15",
+  "current_result": "results/MACOS_SOF_MAP_FIVE_MINUTE_20261015.json",
+  "current_result_sha256": "6a1da16c6970a3a5a323df7167b7c41fd0e4b57d89a363e5433f316ff49580b2",
+  "capture_sha256": "c401eb777976634f7717aeb9637530d111dd72525142661cbaf474aba13022d3",
+  "current_windows": {
+    "full": {
+      "start_s": 0,
+      "end_s": 300,
+      "all_new_tracking_RMS_us": {
+        "n": 323,
+        "minimum": 0.014,
+        "median": 0.116,
+        "p95": 0.263,
+        "maximum": 32072.201,
+        "last": 0.098,
+        "p95_method": "nearest rank, ceil(0.95*n)"
+      },
+      "positive_update_new_tracking_RMS_us": {
+        "n": 322,
+        "minimum": 0.014,
+        "median": 0.116,
+        "p95": 0.257,
+        "maximum": 0.587,
+        "last": 0.098,
+        "p95_method": "nearest rank, ceil(0.95*n)"
+      },
+      "fresh_selected_all_intervals_status_RMS_us": {
+        "n": 220,
+        "minimum": 0.023,
+        "median": 0.116,
+        "p95": 0.27799999999999997,
+        "maximum": 32072.201,
+        "last": 0.098,
+        "p95_method": "nearest rank, ceil(0.95*n)"
+      },
+      "fresh_selected_active_status_RMS_us": {
+        "n": 219,
+        "minimum": 0.023,
+        "median": 0.116,
+        "p95": 0.27799999999999997,
+        "maximum": 0.339,
+        "last": 0.098,
+        "p95_method": "nearest rank, ceil(0.95*n)"
+      },
+      "all_new_tracking_RMS_above1us": 1,
+      "fresh_all_intervals_status_RMS_above1us": 1,
+      "fresh_active_status_RMS_above1us": 0,
+      "positive_update_new_tracking_RMS_above1us": 0,
+      "source_availability_1Hz": {
+        "valid": 294,
+        "withheld": 2,
+        "denominator_status_samples": 296,
+        "valid_fraction": 0.9932432432432432,
+        "reason_counts": {
+          "SOURCE_UNAVAILABLE_REASON_NO_RECORD": 1,
+          "VALID": 294,
+          "SOURCE_UNAVAILABLE_REASON_2": 1
+        },
+        "left_hold_duration_estimate_s": {
+          "SOURCE_UNAVAILABLE_REASON_NO_RECORD": 1.005749834,
+          "VALID": 297.991233583,
+          "SOURCE_UNAVAILABLE_REASON_2": 1.0000071460000015
+        },
+        "longest_sampled_withheld_run": {
+          "start_s": 0.003009437,
+          "end_s": 1.008759271,
+          "duration_s": 1.005749834,
+          "reasons": [
+            "SOURCE_UNAVAILABLE_REASON_NO_RECORD"
+          ]
+        },
+        "all_sampled_withheld_runs": [
+          {
+            "start_s": 0.003009437,
+            "end_s": 1.008759271,
+            "duration_s": 1.005749834,
+            "reasons": [
+              "SOURCE_UNAVAILABLE_REASON_NO_RECORD"
+            ]
+          },
+          {
+            "start_s": 134.178482375,
+            "end_s": 135.178489521,
+            "duration_s": 1.0000071460000015,
+            "reasons": [
+              "SOURCE_UNAVAILABLE_REASON_2"
+            ]
+          }
+        ],
+        "duration_limitation": "1Hz point observations integrated by left hold; not evidence of a continuous outage or continuously available clock; unidentified delivery gates can include in-flight feeder work"
+      },
+      "delivery_availability_1Hz": {
+        "valid": 220,
+        "withheld": 76,
+        "denominator_status_samples": 296,
+        "valid_fraction": 0.7432432432432432,
+        "reason_counts": {
+          "SOURCE_PERMISSION_UNAVAILABLE": 2,
+          "FINE_SAMPLE_UNAVAILABLE_FINE_MAP_OR_FRAME_UNAVAILABLE": 3,
+          "CHRONY_NOT_SYNCHRONIZED": 3,
+          "VALID": 220,
+          "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE": 60,
+          "CHRONY_REFERENCE_STALE": 7,
+          "NO_CURRENT_CHRONY_ANCHOR": 1
+        },
+        "left_hold_duration_estimate_s": {
+          "SOURCE_PERMISSION_UNAVAILABLE": 2.0057569800000015,
+          "FINE_SAMPLE_UNAVAILABLE_FINE_MAP_OR_FRAME_UNAVAILABLE": 3.0726401040000004,
+          "CHRONY_NOT_SYNCHRONIZED": 3.072556229,
+          "VALID": 222.742175915,
+          "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE": 60.96054225199997,
+          "CHRONY_REFERENCE_STALE": 7.12247735400004,
+          "NO_CURRENT_CHRONY_ANCHOR": 1.0208417289999971
+        },
+        "longest_sampled_withheld_run": {
+          "start_s": 0.003009437,
+          "end_s": 7.153955604,
+          "duration_s": 7.150946167,
+          "reasons": [
+            "CHRONY_NOT_SYNCHRONIZED",
+            "FINE_SAMPLE_UNAVAILABLE_FINE_MAP_OR_FRAME_UNAVAILABLE",
+            "SOURCE_PERMISSION_UNAVAILABLE"
+          ]
+        },
+        "all_sampled_withheld_runs": [
+          {
+            "start_s": 0.003009437,
+            "end_s": 7.153955604,
+            "duration_s": 7.150946167,
+            "reasons": [
+              "CHRONY_NOT_SYNCHRONIZED",
+              "FINE_SAMPLE_UNAVAILABLE_FINE_MAP_OR_FRAME_UNAVAILABLE",
+              "SOURCE_PERMISSION_UNAVAILABLE"
+            ]
+          },
+          {
+            "start_s": 8.178571062,
+            "end_s": 9.178550021,
+            "duration_s": 0.9999789589999999,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 11.233519437,
+            "end_s": 12.253555541,
+            "duration_s": 1.0200361040000008,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 15.278509812,
+            "end_s": 16.278520062,
+            "duration_s": 1.000010249999999,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 20.304877125,
+            "end_s": 21.333467521,
+            "duration_s": 1.0285903959999985,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 25.384138229,
+            "end_s": 26.410002396,
+            "duration_s": 1.0258641669999982,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 31.458446604,
+            "end_s": 32.478524854,
+            "duration_s": 1.020078250000001,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 35.532512229,
+            "end_s": 36.554101354,
+            "duration_s": 1.0215891249999984,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 39.634991062,
+            "end_s": 44.709694583,
+            "duration_s": 5.0747035210000035,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 48.809220792,
+            "end_s": 49.809566604,
+            "duration_s": 1.000345811999999,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 54.879644562,
+            "end_s": 55.882302916,
+            "duration_s": 1.0026583539999976,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 58.933674646,
+            "end_s": 59.956447687,
+            "duration_s": 1.0227730410000007,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 64.032582187,
+            "end_s": 65.060297125,
+            "duration_s": 1.0277149380000026,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 80.311456146,
+            "end_s": 82.358061,
+            "duration_s": 2.046604854000009,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 83.382828104,
+            "end_s": 88.453938437,
+            "duration_s": 5.071110333000007,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE",
+              "CHRONY_REFERENCE_STALE",
+              "NO_CURRENT_CHRONY_ANCHOR"
+            ]
+          },
+          {
+            "start_s": 92.508368312,
+            "end_s": 94.528477062,
+            "duration_s": 2.0201087499999915,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 95.533244604,
+            "end_s": 97.578595875,
+            "duration_s": 2.0453512710000012,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 98.606283896,
+            "end_s": 99.610172062,
+            "duration_s": 1.00388816600001,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 102.654025583,
+            "end_s": 103.678526979,
+            "duration_s": 1.024501395999991,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 108.778531187,
+            "end_s": 109.778554,
+            "duration_s": 1.000022813000001,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 112.830444646,
+            "end_s": 113.830489479,
+            "duration_s": 1.0000448329999898,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 118.930700166,
+            "end_s": 119.953951062,
+            "duration_s": 1.0232508960000075,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 130.130558062,
+            "end_s": 131.153979979,
+            "duration_s": 1.0234219170000074,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 134.178482375,
+            "end_s": 135.178489521,
+            "duration_s": 1.0000071460000015,
+            "reasons": [
+              "SOURCE_PERMISSION_UNAVAILABLE"
+            ]
+          },
+          {
+            "start_s": 138.203939604,
+            "end_s": 140.228504625,
+            "duration_s": 2.024565021000001,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 141.229599521,
+            "end_s": 142.230125187,
+            "duration_s": 1.0005256659999873,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 145.304047812,
+            "end_s": 146.330487333,
+            "duration_s": 1.0264395210000146,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 154.406550417,
+            "end_s": 157.454014646,
+            "duration_s": 3.047464228999985,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE",
+              "CHRONY_REFERENCE_STALE"
+            ]
+          },
+          {
+            "start_s": 159.504001604,
+            "end_s": 160.529995854,
+            "duration_s": 1.0259942499999966,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 166.604005354,
+            "end_s": 168.631154479,
+            "duration_s": 2.027149124999994,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE",
+              "CHRONY_REFERENCE_STALE"
+            ]
+          },
+          {
+            "start_s": 175.754112187,
+            "end_s": 176.778494479,
+            "duration_s": 1.0243822919999843,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 188.003477458,
+            "end_s": 189.004030792,
+            "duration_s": 1.000553334000017,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 200.203985687,
+            "end_s": 201.227770646,
+            "duration_s": 1.023784959000011,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 213.404023021,
+            "end_s": 214.431076854,
+            "duration_s": 1.0270538329999965,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 216.454045521,
+            "end_s": 218.503981208,
+            "duration_s": 2.049935686999987,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 220.55394,
+            "end_s": 221.554025625,
+            "duration_s": 1.000085624999997,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 226.604251146,
+            "end_s": 228.62857,
+            "duration_s": 2.0243188540000006,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 233.704219062,
+            "end_s": 237.8040105,
+            "duration_s": 4.099791438000011,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE",
+              "CHRONY_REFERENCE_STALE"
+            ]
+          },
+          {
+            "start_s": 238.830102437,
+            "end_s": 239.831135854,
+            "duration_s": 1.0010334170000021,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 242.904207375,
+            "end_s": 243.930613166,
+            "duration_s": 1.026405791000002,
+            "reasons": [
+              "CHRONY_REFERENCE_STALE"
+            ]
+          },
+          {
+            "start_s": 258.154057166,
+            "end_s": 259.154035396,
+            "duration_s": 0.9999782300000106,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 263.230526771,
+            "end_s": 264.231039104,
+            "duration_s": 1.0005123330000174,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 272.354031229,
+            "end_s": 273.3547745,
+            "duration_s": 1.000743271000033,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 277.430034646,
+            "end_s": 279.478453292,
+            "duration_s": 2.048418645999959,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 282.555956354,
+            "end_s": 283.578522833,
+            "duration_s": 1.0225664790000337,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 285.628558354,
+            "end_s": 286.653997562,
+            "duration_s": 1.0254392079999661,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 290.705280229,
+            "end_s": 291.730302937,
+            "duration_s": 1.0250227079999945,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 293.778510562,
+            "end_s": 294.803992479,
+            "duration_s": 1.0254819169999791,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 295.830441812,
+            "end_s": 296.854009167,
+            "duration_s": 1.0235673550000115,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          }
+        ],
+        "duration_limitation": "1Hz point observations integrated by left hold; not evidence of a continuous outage or continuously available clock; unidentified delivery gates can include in-flight feeder work"
+      },
+      "shared_source_delivery_comparison": {
+        "valid": 220,
+        "withheld": 76,
+        "denominator_status_samples": 296,
+        "rms_ns": 399.37347524250123,
+        "sigma_ns": 397.90331002924745,
+        "signed_bias_ns": -34.236363636363635,
+        "max_abs_ns": 1315,
+        "definition": "delivered chrony UTC minus fine estimate at the same <=2us wall/Mach bracket; shared-source relative agreement",
+        "absolute_UTC_qualified": false,
+        "independent_UTC_reference": false
+      },
+      "reconstructed_source_permission": {
+        "permitted_s": 299.25734983300003,
+        "withheld_s": 0.7426501669999652,
+        "longest_withheld_gap": {
+          "start_s": 39.199574125,
+          "end_s": 39.239604667,
+          "duration_s": 0.04003054200000378
+        },
+        "gaps": [
+          {
+            "start_s": 0,
+            "end_s": 0.018575917,
+            "duration_s": 0.018575917
+          },
+          {
+            "start_s": 23.833897875,
+            "end_s": 23.856924208,
+            "duration_s": 0.023026332999997123
+          },
+          {
+            "start_s": 28.677679333,
+            "end_s": 28.703775292,
+            "duration_s": 0.02609595899999917
+          },
+          {
+            "start_s": 39.199574125,
+            "end_s": 39.239604667,
+            "duration_s": 0.04003054200000378
+          },
+          {
+            "start_s": 52.927225208,
+            "end_s": 52.951750833,
+            "duration_s": 0.024525624999995443
+          },
+          {
+            "start_s": 80.364704875,
+            "end_s": 80.39565825,
+            "duration_s": 0.03095337499999573
+          },
+          {
+            "start_s": 86.364545625,
+            "end_s": 86.39555,
+            "duration_s": 0.031004374999994866
+          },
+          {
+            "start_s": 87.799582375,
+            "end_s": 87.830585042,
+            "duration_s": 0.031002666999995654
+          },
+          {
+            "start_s": 89.833640958,
+            "end_s": 89.856598083,
+            "duration_s": 0.022957124999990697
+          },
+          {
+            "start_s": 122.797773625,
+            "end_s": 122.8287695,
+            "duration_s": 0.030995875000002115
+          },
+          {
+            "start_s": 134.172819917,
+            "end_s": 134.203772208,
+            "duration_s": 0.030952291000005516
+          },
+          {
+            "start_s": 161.048000542,
+            "end_s": 161.075786792,
+            "duration_s": 0.02778624999999124
+          },
+          {
+            "start_s": 162.6729465,
+            "end_s": 162.703860125,
+            "duration_s": 0.030913625000010825
+          },
+          {
+            "start_s": 173.922861208,
+            "end_s": 173.953801167,
+            "duration_s": 0.030939958999994133
+          },
+          {
+            "start_s": 199.298068417,
+            "end_s": 199.327903542,
+            "duration_s": 0.02983512500000529
+          },
+          {
+            "start_s": 204.922829167,
+            "end_s": 204.953767417,
+            "duration_s": 0.030938249999991285
+          },
+          {
+            "start_s": 213.672910375,
+            "end_s": 213.70688275,
+            "duration_s": 0.03397237500001893
+          },
+          {
+            "start_s": 216.358836625,
+            "end_s": 216.39080325,
+            "duration_s": 0.031966624999995474
+          },
+          {
+            "start_s": 217.1718455,
+            "end_s": 217.203897833,
+            "duration_s": 0.03205233300002419
+          },
+          {
+            "start_s": 231.422871958,
+            "end_s": 231.449969583,
+            "duration_s": 0.02709762500001034
+          },
+          {
+            "start_s": 232.798343042,
+            "end_s": 232.825888375,
+            "duration_s": 0.027545333000006167
+          },
+          {
+            "start_s": 243.797897167,
+            "end_s": 243.827795375,
+            "duration_s": 0.029898207999991655
+          },
+          {
+            "start_s": 279.078701083,
+            "end_s": 279.109680375,
+            "duration_s": 0.030979291999983616
+          },
+          {
+            "start_s": 284.45370325,
+            "end_s": 284.484814792,
+            "duration_s": 0.0311115420000192
+          },
+          {
+            "start_s": 290.422945792,
+            "end_s": 290.4509725,
+            "duration_s": 0.028026707999970313
+          },
+          {
+            "start_s": 299.990533167,
+            "end_s": 300,
+            "duration_s": 0.009466832999976305
+          }
+        ],
+        "limitation": "reconstructed from raw record sequence, request-start original deadline and logged arrival; subprocessing delay is not recorded. Not independent RF/source continuity evidence."
+      }
+    },
+    "settled": {
+      "start_s": 60,
+      "end_s": 300,
+      "all_new_tracking_RMS_us": {
+        "n": 265,
+        "minimum": 0.023,
+        "median": 0.129,
+        "p95": 0.263,
+        "maximum": 0.339,
+        "last": 0.098,
+        "p95_method": "nearest rank, ceil(0.95*n)"
+      },
+      "positive_update_new_tracking_RMS_us": {
+        "n": 265,
+        "minimum": 0.023,
+        "median": 0.129,
+        "p95": 0.263,
+        "maximum": 0.339,
+        "last": 0.098,
+        "p95_method": "nearest rank, ceil(0.95*n)"
+      },
+      "fresh_selected_all_intervals_status_RMS_us": {
+        "n": 182,
+        "minimum": 0.023,
+        "median": 0.1285,
+        "p95": 0.27799999999999997,
+        "maximum": 0.339,
+        "last": 0.098,
+        "p95_method": "nearest rank, ceil(0.95*n)"
+      },
+      "fresh_selected_active_status_RMS_us": {
+        "n": 182,
+        "minimum": 0.023,
+        "median": 0.1285,
+        "p95": 0.27799999999999997,
+        "maximum": 0.339,
+        "last": 0.098,
+        "p95_method": "nearest rank, ceil(0.95*n)"
+      },
+      "all_new_tracking_RMS_above1us": 0,
+      "fresh_all_intervals_status_RMS_above1us": 0,
+      "fresh_active_status_RMS_above1us": 0,
+      "positive_update_new_tracking_RMS_above1us": 0,
+      "source_availability_1Hz": {
+        "valid": 235,
+        "withheld": 1,
+        "denominator_status_samples": 236,
+        "valid_fraction": 0.9957627118644068,
+        "reason_counts": {
+          "VALID": 235,
+          "SOURCE_UNAVAILABLE_REASON_2": 1
+        },
+        "left_hold_duration_estimate_s": {
+          "VALID": 238.999992854,
+          "SOURCE_UNAVAILABLE_REASON_2": 1.0000071460000015
+        },
+        "longest_sampled_withheld_run": {
+          "start_s": 134.178482375,
+          "end_s": 135.178489521,
+          "duration_s": 1.0000071460000015,
+          "reasons": [
+            "SOURCE_UNAVAILABLE_REASON_2"
+          ]
+        },
+        "all_sampled_withheld_runs": [
+          {
+            "start_s": 134.178482375,
+            "end_s": 135.178489521,
+            "duration_s": 1.0000071460000015,
+            "reasons": [
+              "SOURCE_UNAVAILABLE_REASON_2"
+            ]
+          }
+        ],
+        "duration_limitation": "1Hz point observations integrated by left hold; not evidence of a continuous outage or continuously available clock; unidentified delivery gates can include in-flight feeder work"
+      },
+      "delivery_availability_1Hz": {
+        "valid": 182,
+        "withheld": 54,
+        "denominator_status_samples": 236,
+        "valid_fraction": 0.7711864406779662,
+        "reason_counts": {
+          "VALID": 182,
+          "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE": 45,
+          "CHRONY_REFERENCE_STALE": 7,
+          "NO_CURRENT_CHRONY_ANCHOR": 1,
+          "SOURCE_PERMISSION_UNAVAILABLE": 1
+        },
+        "left_hold_duration_estimate_s": {
+          "VALID": 185.112759498,
+          "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE": 45.74391427299997,
+          "CHRONY_REFERENCE_STALE": 7.12247735400004,
+          "NO_CURRENT_CHRONY_ANCHOR": 1.0208417289999971,
+          "SOURCE_PERMISSION_UNAVAILABLE": 1.0000071460000015
+        },
+        "longest_sampled_withheld_run": {
+          "start_s": 83.382828104,
+          "end_s": 88.453938437,
+          "duration_s": 5.071110333000007,
+          "reasons": [
+            "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE",
+            "CHRONY_REFERENCE_STALE",
+            "NO_CURRENT_CHRONY_ANCHOR"
+          ]
+        },
+        "all_sampled_withheld_runs": [
+          {
+            "start_s": 64.032582187,
+            "end_s": 65.060297125,
+            "duration_s": 1.0277149380000026,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 80.311456146,
+            "end_s": 82.358061,
+            "duration_s": 2.046604854000009,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 83.382828104,
+            "end_s": 88.453938437,
+            "duration_s": 5.071110333000007,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE",
+              "CHRONY_REFERENCE_STALE",
+              "NO_CURRENT_CHRONY_ANCHOR"
+            ]
+          },
+          {
+            "start_s": 92.508368312,
+            "end_s": 94.528477062,
+            "duration_s": 2.0201087499999915,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 95.533244604,
+            "end_s": 97.578595875,
+            "duration_s": 2.0453512710000012,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 98.606283896,
+            "end_s": 99.610172062,
+            "duration_s": 1.00388816600001,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 102.654025583,
+            "end_s": 103.678526979,
+            "duration_s": 1.024501395999991,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 108.778531187,
+            "end_s": 109.778554,
+            "duration_s": 1.000022813000001,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 112.830444646,
+            "end_s": 113.830489479,
+            "duration_s": 1.0000448329999898,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 118.930700166,
+            "end_s": 119.953951062,
+            "duration_s": 1.0232508960000075,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 130.130558062,
+            "end_s": 131.153979979,
+            "duration_s": 1.0234219170000074,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 134.178482375,
+            "end_s": 135.178489521,
+            "duration_s": 1.0000071460000015,
+            "reasons": [
+              "SOURCE_PERMISSION_UNAVAILABLE"
+            ]
+          },
+          {
+            "start_s": 138.203939604,
+            "end_s": 140.228504625,
+            "duration_s": 2.024565021000001,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 141.229599521,
+            "end_s": 142.230125187,
+            "duration_s": 1.0005256659999873,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 145.304047812,
+            "end_s": 146.330487333,
+            "duration_s": 1.0264395210000146,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 154.406550417,
+            "end_s": 157.454014646,
+            "duration_s": 3.047464228999985,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE",
+              "CHRONY_REFERENCE_STALE"
+            ]
+          },
+          {
+            "start_s": 159.504001604,
+            "end_s": 160.529995854,
+            "duration_s": 1.0259942499999966,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 166.604005354,
+            "end_s": 168.631154479,
+            "duration_s": 2.027149124999994,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE",
+              "CHRONY_REFERENCE_STALE"
+            ]
+          },
+          {
+            "start_s": 175.754112187,
+            "end_s": 176.778494479,
+            "duration_s": 1.0243822919999843,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 188.003477458,
+            "end_s": 189.004030792,
+            "duration_s": 1.000553334000017,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 200.203985687,
+            "end_s": 201.227770646,
+            "duration_s": 1.023784959000011,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 213.404023021,
+            "end_s": 214.431076854,
+            "duration_s": 1.0270538329999965,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 216.454045521,
+            "end_s": 218.503981208,
+            "duration_s": 2.049935686999987,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 220.55394,
+            "end_s": 221.554025625,
+            "duration_s": 1.000085624999997,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 226.604251146,
+            "end_s": 228.62857,
+            "duration_s": 2.0243188540000006,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 233.704219062,
+            "end_s": 237.8040105,
+            "duration_s": 4.099791438000011,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE",
+              "CHRONY_REFERENCE_STALE"
+            ]
+          },
+          {
+            "start_s": 238.830102437,
+            "end_s": 239.831135854,
+            "duration_s": 1.0010334170000021,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 242.904207375,
+            "end_s": 243.930613166,
+            "duration_s": 1.026405791000002,
+            "reasons": [
+              "CHRONY_REFERENCE_STALE"
+            ]
+          },
+          {
+            "start_s": 258.154057166,
+            "end_s": 259.154035396,
+            "duration_s": 0.9999782300000106,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 263.230526771,
+            "end_s": 264.231039104,
+            "duration_s": 1.0005123330000174,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 272.354031229,
+            "end_s": 273.3547745,
+            "duration_s": 1.000743271000033,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 277.430034646,
+            "end_s": 279.478453292,
+            "duration_s": 2.048418645999959,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 282.555956354,
+            "end_s": 283.578522833,
+            "duration_s": 1.0225664790000337,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 285.628558354,
+            "end_s": 286.653997562,
+            "duration_s": 1.0254392079999661,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 290.705280229,
+            "end_s": 291.730302937,
+            "duration_s": 1.0250227079999945,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 293.778510562,
+            "end_s": 294.803992479,
+            "duration_s": 1.0254819169999791,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          },
+          {
+            "start_s": 295.830441812,
+            "end_s": 296.854009167,
+            "duration_s": 1.0235673550000115,
+            "reasons": [
+              "CHRONY_DELIVERY_GATE_NOT_IDENTIFIED_BUSY_POSSIBLE"
+            ]
+          }
+        ],
+        "duration_limitation": "1Hz point observations integrated by left hold; not evidence of a continuous outage or continuously available clock; unidentified delivery gates can include in-flight feeder work"
+      },
+      "shared_source_delivery_comparison": {
+        "valid": 182,
+        "withheld": 54,
+        "denominator_status_samples": 236,
+        "rms_ns": 414.35100849612786,
+        "sigma_ns": 413.84112691209646,
+        "signed_bias_ns": -20.54945054945055,
+        "max_abs_ns": 1315,
+        "definition": "delivered chrony UTC minus fine estimate at the same <=2us wall/Mach bracket; shared-source relative agreement",
+        "absolute_UTC_qualified": false,
+        "independent_UTC_reference": false
+      },
+      "reconstructed_source_permission": {
+        "permitted_s": 239.38960420900003,
+        "withheld_s": 0.6103957909999735,
+        "longest_withheld_gap": {
+          "start_s": 213.672910375,
+          "end_s": 213.70688275,
+          "duration_s": 0.03397237500001893
+        },
+        "gaps": [
+          {
+            "start_s": 80.364704875,
+            "end_s": 80.39565825,
+            "duration_s": 0.03095337499999573
+          },
+          {
+            "start_s": 86.364545625,
+            "end_s": 86.39555,
+            "duration_s": 0.031004374999994866
+          },
+          {
+            "start_s": 87.799582375,
+            "end_s": 87.830585042,
+            "duration_s": 0.031002666999995654
+          },
+          {
+            "start_s": 89.833640958,
+            "end_s": 89.856598083,
+            "duration_s": 0.022957124999990697
+          },
+          {
+            "start_s": 122.797773625,
+            "end_s": 122.8287695,
+            "duration_s": 0.030995875000002115
+          },
+          {
+            "start_s": 134.172819917,
+            "end_s": 134.203772208,
+            "duration_s": 0.030952291000005516
+          },
+          {
+            "start_s": 161.048000542,
+            "end_s": 161.075786792,
+            "duration_s": 0.02778624999999124
+          },
+          {
+            "start_s": 162.6729465,
+            "end_s": 162.703860125,
+            "duration_s": 0.030913625000010825
+          },
+          {
+            "start_s": 173.922861208,
+            "end_s": 173.953801167,
+            "duration_s": 0.030939958999994133
+          },
+          {
+            "start_s": 199.298068417,
+            "end_s": 199.327903542,
+            "duration_s": 0.02983512500000529
+          },
+          {
+            "start_s": 204.922829167,
+            "end_s": 204.953767417,
+            "duration_s": 0.030938249999991285
+          },
+          {
+            "start_s": 213.672910375,
+            "end_s": 213.70688275,
+            "duration_s": 0.03397237500001893
+          },
+          {
+            "start_s": 216.358836625,
+            "end_s": 216.39080325,
+            "duration_s": 0.031966624999995474
+          },
+          {
+            "start_s": 217.1718455,
+            "end_s": 217.203897833,
+            "duration_s": 0.03205233300002419
+          },
+          {
+            "start_s": 231.422871958,
+            "end_s": 231.449969583,
+            "duration_s": 0.02709762500001034
+          },
+          {
+            "start_s": 232.798343042,
+            "end_s": 232.825888375,
+            "duration_s": 0.027545333000006167
+          },
+          {
+            "start_s": 243.797897167,
+            "end_s": 243.827795375,
+            "duration_s": 0.029898207999991655
+          },
+          {
+            "start_s": 279.078701083,
+            "end_s": 279.109680375,
+            "duration_s": 0.030979291999983616
+          },
+          {
+            "start_s": 284.45370325,
+            "end_s": 284.484814792,
+            "duration_s": 0.0311115420000192
+          },
+          {
+            "start_s": 290.422945792,
+            "end_s": 290.4509725,
+            "duration_s": 0.028026707999970313
+          },
+          {
+            "start_s": 299.990533167,
+            "end_s": 300,
+            "duration_s": 0.009466832999976305
+          }
+        ],
+        "limitation": "reconstructed from raw record sequence, request-start original deadline and logged arrival; subprocessing delay is not recorded. Not independent RF/source continuity evidence."
+      }
+    }
+  },
+  "current_bridge": {
+    "method": "Exact immutable shipping CLI0.21 precision replay, forward only over unchanged raw tuples; no hardware or daemon access. Native usb_end reset mapping state during finite helper completion, so pre-cleanup live snapshot and complete forward replay are explicitly distinguished.",
+    "capture_sha256": "c401eb777976634f7717aeb9637530d111dd72525142661cbaf474aba13022d3",
+    "public_source_path": "TC01 -> TC04 -> USB -> Mac private chrony",
+    "raw_source_records": 9893,
+    "valid_source_records": 9866,
+    "source_UTC_offset_distinct": 1,
+    "source_UTC_offset_range_ns": 0,
+    "source_UTC_offset_constant_within_observed_source_scope": true,
+    "full_raw_hardware_tuples": 9600,
+    "full_replay_accepted_tuples": 9558,
+    "full_replay_rejected_tuples": 42,
+    "full_causal_counter_innovations": {
+      "detrended_phase_stddev_ns": 309.5065335391141,
+      "linear_trend_ppm": -0.000603944596824112,
+      "mean_ns": -93.41568190626856,
+      "method": "online population phase stddev; retrospective linear detrend; drift retained separately",
+      "n": 9494,
+      "phase_range_ns": 1620.7622459759004,
+      "raw_phase_stddev_ns": 313.84037161680607,
+      "rmse_ns": 327.44811571085285
+    },
+    "full_counter_phase_diagnostic": {
+      "detrended_phase_stddev_ns": 4526.696848050859,
+      "linear_trend_ppm": 5.6019918564006135,
+      "mean_ns": 849264.8675629275,
+      "method": "online population phase stddev; retrospective linear detrend; drift retained separately",
+      "n": 9558,
+      "phase_range_ns": 1679729.1666870117,
+      "raw_phase_stddev_ns": 485379.23747869657,
+      "rmse_ns": 978183.9394776822
+    },
+    "full_qualified_previous_fit_inverse_counter_forecasts": {
+      "detrended": false,
+      "maximum_ns": 722.8989899158478,
+      "mean_ns": -94.00292906365004,
+      "minimum_ns": -897.8632688522339,
+      "n": 9437,
+      "rmse_ns": 328.413064363803,
+      "sigma_ns": 314.6721947873339
+    },
+    "inverse_forecasts_rejected_by_existing_hardware_validation": 24,
+    "inverse_forecast_skipped_or_unqualified": 139,
+    "source_map_mismatches": 0,
+    "final_rolling_counter_mapping_window": {
+      "detrended_phase_stddev_ns": 103.40865143990285,
+      "linear_trend_ppm": 5.396015481460635,
+      "mean_ns": 1593028.9713540962,
+      "method": "online population phase stddev; retrospective linear detrend; drift retained separately",
+      "n": 1024,
+      "phase_range_ns": 173062.50003051758,
+      "raw_phase_stddev_ns": 50046.94658853545,
+      "rmse_ns": 1593814.920383269
+    },
+    "mapping_window_semantics": "Rolling last1024 accepted tuple phase observations (~32s at configured32Hz, actual duration varies with rejected tuples). Refit after each accepted tuple. Causal forward innovation evaluates the current tuple against the previous window before ingest, after at least64 prior accepted points. Final-window detrended residual is separate from full300s innovation and full-run retrospective counter-phase statistics.",
+    "last_eligible_fresh_live_snapshot_elapsed_s": 299.904023083,
+    "last_live_accepted_tuples": 9555,
+    "last_live_causal_counter_innovations": {
+      "detrended_phase_stddev_ns": 309.4803389432587,
+      "linear_trend_ppm": -0.0006063809606701548,
+      "mean_ns": -93.50831120666165,
+      "method": "online population phase stddev; retrospective linear detrend; drift retained separately",
+      "n": 9491,
+      "phase_range_ns": 1620.7622459759004,
+      "raw_phase_stddev_ns": 313.8465982750796,
+      "rmse_ns": 327.4805208154541
+    },
+    "native_end_mapping_diagnostics": "RESET_BY_FINITE_HELPER_COMPLETION;zero-n fields are cleanup state, not performance",
+    "host_frame_layout_checks": 1200,
+    "host_frame_layout_failures": 0,
+    "valid_causal_markers": 1198,
+    "rejected_causal_markers": 2,
+    "absolute_UTC_qualified": false,
+    "absolute_host_PHY_bias": "UNKNOWN",
+    "limitation": "Observed accepted tuples only; no independent UTC/physical truth between tuples or continuous source availability."
+  },
+  "current_outcome": {
+    "settled_all_new_query_RMS_below1us": true,
+    "settled_fresh_selected_all_intervals_RMS_below1us": true,
+    "settled_regular_query_RMS_below1us": true,
+    "settled_shared_source_RMS_below1us": true,
+    "USB_request_transport_clean": true,
+    "protocol_deadline_and_feed_audits_pass": true,
+    "actual_daemon_restarts": 0,
+    "physical_reason7_observation_retention_exercised": false,
+    "physical_original_expiry_exercised": false,
+    "physical_refusal_exercised": false,
+    "absolute_UTC_qualified": false,
+    "continuous_availability_qualified": false,
+    "observed_run_targets_met": true
+  },
+  "protocol_audit": {
+    "reason7_raw_records": 0,
+    "retained_observation_pauses": 0,
+    "refusal_reason_counts": {},
+    "authority_fence_reason_counts": {
+      "USB_REACQUIRE": 1,
+      "USB_SESSION_ENDED": 1
+    },
+    "unknown_source_reason_counts": {},
+    "natural_original_expiry_fences": 0,
+    "independently_reconstructed_valid_grants": 9866,
+    "native_source_packets_accepted_last_status": 9866,
+    "grant_reconstruction_matches_native_accepted_count": true,
+    "successful_feed_events_with_provenance": 2102,
+    "successful_feed_events_missing_direct_provenance": 0,
+    "successful_feed_record_kind_counts": {
+      "1": 2049,
+      "2": 53
+    },
+    "successful_feed_record_reason_counts": {
+      "0": 2102
+    },
+    "audit_violation_counts": {
+      "raw_provenance_violations": 0,
+      "pause_contract_violations": 0,
+      "flags0_reason7_status_served_UTC_violations": 0,
+      "successful_feed_provenance_violations": 0,
+      "grant_conversion_overflow_records": 0,
+      "fine_deadline_bracket_integer_or_qualification": 0
+    }
+  },
+  "measurement_audit": {
+    "fine_observation_deadline_checks": 291,
+    "violations": 0
+  },
+  "finite_helper_completion_cleanup": {
+    "status": "CONFIGURED_FINITE_SAMPLE_BUDGET_COMPLETED",
+    "configured_samples": 9600,
+    "observed_samples": 9600,
+    "helper_end_elapsed_s": 299.990533167,
+    "helper_end": {
+      "error": "USB capture ended; retrying.",
+      "exit_code": 0,
+      "exit_notification_complete": true,
+      "helper_path": "[private build path omitted]",
+      "parser_error": null,
+      "source_rotation": false,
+      "stderr": "",
+      "stopped_by_client": false,
+      "tick_ns": "287000468288875",
+      "type": "usb_observer_end"
+    },
+    "following_session_cleanup_events": [
+      {
+        "old_chrony_training_present": true,
+        "reason": "USB_SESSION_ENDED",
+        "scope": "[private source-scope identity omitted]",
+        "tick_ns": "287000468318458",
+        "type": "source_authority_fence"
+      },
+      {
+        "cleanup_complete": true,
+        "exit_code": 0,
+        "reason": "USB_SESSION_ENDED",
+        "runtime": "/private/tmp/ptob-ch-501-PqMIog",
+        "tick_ns": "287000468321416",
+        "type": "chrony_service_epoch_end"
+      }
+    ],
+    "successor_daemon_starts": 0,
+    "window_policy": "Exact fixed windows remain unchanged, including any final milliseconds of cleanup before300s; a cleanup epoch-end is not a daemon restart."
+  },
+  "firmware": {
+    "status": "PARENT_EXPLICIT_PHYSICAL_HANDOFF_RECEIVED",
+    "expected_version": "0.15.53",
+    "source_commit": "1a16110a662ae66109b21bafa9958baf48d0465a",
+    "UF2_sha256": "7edb3ebddc646447805c29824717380e9657e1433b11f1f9c006b1c0a660a327",
+    "physical_boot": "[private boot identity omitted]",
+    "app_readback": "PASS_BY_OWNER;ACTUAL_APP_AND_ALL672_PROTECTED",
+    "unattended_return": "PASS_BY_OWNER;IDENTICAL_UF2",
+    "firmware_artifact_root": "artifacts/t096-sof-map-correction-20261015-01",
+    "build": "firmware/t096/build-v12-r2-rc-usb-sof53-field-hf-20261015-01",
+    "reference_files": [
+      "artifacts/t096-sof-map-correction-20261015-01/primary-review53.json",
+      "artifacts/t096-sof-map-correction-20261015-01/usb53-application-readback/deployment.json",
+      "artifacts/t096-sof-map-correction-20261015-01/usb53-identical-return-write/deployment.json",
+      "artifacts/t096-sof-map-correction-20261015-01/closure-proof53.json",
+      "artifacts/t096-sof-map-correction-20261015-01/sealed-closeout53.json",
+      "docs/T096_SOF_MAP_CORRECTION_20261015.md",
+      "results/T096_SOF_MAP_CORRECTION_20261015.json",
+      "firmware/t096/build-v12-r2-rc-usb-sof53-field-hf-20261015-01/receipt.json"
+    ],
+    "status_at_launch": "PARENT_EXPLICIT_PHYSICAL_HANDOFF_RECEIVED;TEST_RUNNING"
+  },
+  "host_package": {
+    "version": "0.21",
+    "binary_sha256": "e152213c258d36b18e78537d07d23331fb113c6561499797d077d7cc1e4eb6d0",
+    "zip_sha256": "5a90a02a93c23a0af373133e0b35d87a479a45269fa05b5a2ee9392c21f940a9",
+    "source_sha256": "94f74a1facc6b66132a53d70e51739bf0769551bd2d0623300d9a44c7cf6a196"
+  },
+  "sealed_closeout": "artifacts/macos-sof-map-five-minute-20261015-01/sealed-closeout.json",
+  "same_implementation_engineer_review": "artifacts/macos-chrony-publication-20261015-01/reviewer/",
+  "baseline_result": "results/MACOS_FIVE_MINUTE_20261015.json",
+  "baseline_comparison": "artifacts/macos-sof-map-five-minute-20261015-01/matched-comparison.json",
+  "historical600s_population": {
+    "schema": 1,
+    "local_review_only": true,
+    "no_new_hardware_access": true,
+    "full_run": {
+      "run_id": "TC04_DIRECT_USB_600S_20261015_01",
+      "capture_sha256": "be3e0ff1fd217b2092c17cb1e83255cd5816fcfa9c30ee3daa338f7124756bfd",
+      "duration_s": 600.012659583,
+      "phase": {
+        "counter": {
+          "n": 19093,
+          "span_s": 599.6913204166666,
+          "raw_sigma_ns": 947971.7764406678,
+          "drift_ppm": 5.4745197891302455,
+          "detrended_sigma_ns": 4621.95650613507,
+          "detrended_abs_p95_ns": 8300.531537794686,
+          "detrended_abs_p99_ns": 10964.537357818977,
+          "detrended_max_abs_ns": 11180.167153539602,
+          "phase_peak_to_peak_ns": 3298458.3333740234,
+          "first_to_last_phase_ns": 3298458.3333740234,
+          "method": "independent centered NumPy OLS; population sigma; retrospective detrend; no clock training"
+        },
+        "source_mono": {
+          "n": 18332,
+          "span_s": 599.6913204166666,
+          "raw_sigma_ns": 797830.7584813924,
+          "drift_ppm": 4.635177701236922,
+          "detrended_sigma_ns": 3956.2187161885586,
+          "detrended_abs_p95_ns": 6677.675578884775,
+          "detrended_abs_p99_ns": 8090.92490523226,
+          "detrended_max_abs_ns": 8374.094185839873,
+          "phase_peak_to_peak_ns": 2794283.3333740234,
+          "first_to_last_phase_ns": 2794283.3333740234,
+          "method": "independent centered NumPy OLS; population sigma; retrospective detrend; no clock training"
+        },
+        "reported_UTC": {
+          "n": 18332,
+          "span_s": 599.6913204166666,
+          "raw_sigma_ns": 1654666.0147897247,
+          "drift_ppm": 4.469362000172006,
+          "detrended_sigma_ns": 1464966.7320787283,
+          "detrended_abs_p95_ns": 2829790.321931465,
+          "detrended_abs_p99_ns": 3727852.5164945424,
+          "detrended_max_abs_ns": 4153846.429848858,
+          "phase_peak_to_peak_ns": 8360305.333343506,
+          "first_to_last_phase_ns": 2204566.3333740234,
+          "method": "independent centered NumPy OLS; population sigma; retrospective detrend; no clock training"
+        },
+        "UTC_offset": {
+          "n": 18332,
+          "span_s": 599.6913204166666,
+          "raw_sigma_ns": 1465720.4268539776,
+          "drift_ppm": -0.16581570106491775,
+          "detrended_sigma_ns": 1465442.5262857524,
+          "detrended_abs_p95_ns": 2830059.5751682464,
+          "detrended_abs_p99_ns": 3727523.190078522,
+          "detrended_max_abs_ns": 4153684.8761537666,
+          "phase_peak_to_peak_ns": 7983543.0,
+          "first_to_last_phase_ns": -589717.0,
+          "method": "independent centered NumPy OLS; population sigma; retrospective detrend; no clock training"
+        }
+      },
+      "packets": {
+        "precision": {
+          "records": 19191,
+          "valid": 18361,
+          "unavailable": 830,
+          "reason_counts": {
+            "0": 18361,
+            "4": 617,
+            "1": 152,
+            "2": 61
+          },
+          "maximum_between_valid_requests_s": 0.09516208334375
+        },
+        "periodic": {
+          "records": 585,
+          "valid": 577,
+          "unavailable": 8,
+          "reason_counts": {
+            "0": 577,
+            "4": 8
+          },
+          "maximum_between_valid_requests_s": 2.06291333334375
+        }
+      },
+      "status_valid": 568,
+      "status_unavailable": 26,
+      "identity_first_status_s": 4.08462027,
+      "identity_changes_after_first_lock": 0,
+      "frame_wraps_observed": 292,
+      "local_wall_vs_Mach": {
+        "n": 594,
+        "span_s": 600.007389146,
+        "raw_sigma_ns": 529005.7310467393,
+        "drift_ppm": 3.0454727764875433,
+        "detrended_sigma_ns": 374.36793093947165,
+        "detrended_abs_p95_ns": 678.7969606781437,
+        "detrended_abs_p99_ns": 993.9535937909855,
+        "detrended_max_abs_ns": 1124.6956266856287,
+        "phase_peak_to_peak_ns": 1827229.0,
+        "first_to_last_phase_ns": 1826854.0,
+        "method": "independent centered NumPy OLS; population sigma; retrospective detrend; no clock training"
+      },
+      "periodic_UTC_intervals": {
+        "bias_high_ns": -22389606.83015598,
+        "bias_low_ns": -25260617.228769496,
+        "definition": "captured current-counter UTC minus bracketed local wall; whole USB request interval retained; midpoint jitter includes transport uncertainty; not served shadow accuracy",
+        "latest_high_ns": "-21519848",
+        "latest_low_ns": "-24411848",
+        "max_abs_upper_ns": 29174169,
+        "max_interval_width_ns": "3148000",
+        "midpoint_jitter_diagnostic_ns": 1507501.0805116773,
+        "n": 577,
+        "precision_qualified": false,
+        "rejected": 8,
+        "rms_lower_ns": 22440808.047539745,
+        "rms_upper_ns": 25305183.363551002
+      }
+    },
+    "bridge": {
+      "accepted": 19093,
+      "rejected": 98,
+      "segment": 1,
+      "identity": "FRAME_TO_MACH_CAUSALLY_IDENTIFIED",
+      "anchor_n": 2386,
+      "anchor_rejected": 13,
+      "host_frame_layout_checks": 2399,
+      "host_frame_layout_failures": 0,
+      "causal_counter_innovations": {
+        "detrended_phase_stddev_ns": 269.8934709827654,
+        "linear_trend_ppm": 0.00010256439754840322,
+        "method": "online population phase stddev; retrospective linear detrend; drift retained separately",
+        "n": 19029,
+        "phase_range_ns": 1584.0174751578597,
+        "raw_phase_stddev_ns": 270.4732739129268
+      }
+    },
+    "short_windows": [
+      {
+        "window_s": 10,
+        "windows": 60,
+        "analyzed_interval_s": [
+          0,
+          600
+        ],
+        "median_detrended_sigma_us": 0.0645114999812921,
+        "minimum_detrended_sigma_us": 0.04225380119477286,
+        "worst_detrended_sigma_us": 0.13873050346277158,
+        "drift_ppm_range": [
+          4.442167980110948,
+          4.8007687750099395
+        ],
+        "heldout_next_window": {
+          "n": 18035,
+          "bias_us": -0.005957824848534219,
+          "RMS_us": 0.3383625973857968,
+          "P99_abs_us": 1.1108267510143865,
+          "maximum_abs_us": 1.5349973384110198
+        }
+      },
+      {
+        "window_s": 26,
+        "windows": 23,
+        "analyzed_interval_s": [
+          0,
+          598
+        ],
+        "median_detrended_sigma_us": 0.11717368848123988,
+        "minimum_detrended_sigma_us": 0.06065101205704763,
+        "worst_detrended_sigma_us": 0.17556385906378494,
+        "drift_ppm_range": [
+          4.467779249436039,
+          4.786261504848662
+        ],
+        "heldout_next_window": {
+          "n": 17501,
+          "bias_us": 0.04420624699538035,
+          "RMS_us": 0.9727852389342362,
+          "P99_abs_us": 3.102774588914763,
+          "maximum_abs_us": 3.929808038647956
+        }
+      },
+      {
+        "window_s": 30,
+        "windows": 20,
+        "analyzed_interval_s": [
+          0,
+          600
+        ],
+        "median_detrended_sigma_us": 0.155469904557765,
+        "minimum_detrended_sigma_us": 0.06755669724723887,
+        "worst_detrended_sigma_us": 0.287754506026887,
+        "drift_ppm_range": [
+          4.472176050053941,
+          4.757908534959141
+        ],
+        "heldout_next_window": {
+          "n": 17439,
+          "bias_us": 0.10561133169298095,
+          "RMS_us": 1.0527202815046182,
+          "P99_abs_us": 3.2846923491079942,
+          "maximum_abs_us": 3.6620108177552466
+        }
+      },
+      {
+        "window_s": 60,
+        "windows": 10,
+        "analyzed_interval_s": [
+          0,
+          600
+        ],
+        "median_detrended_sigma_us": 0.2785894118720241,
+        "minimum_detrended_sigma_us": 0.17861877937100387,
+        "worst_detrended_sigma_us": 0.5926508786105659,
+        "drift_ppm_range": [
+          4.524287044747053,
+          4.756038274036125
+        ],
+        "heldout_next_window": {
+          "n": 16544,
+          "bias_us": 0.33651345093266866,
+          "RMS_us": 3.3586278891089956,
+          "P99_abs_us": 9.644755006599398,
+          "maximum_abs_us": 10.328506998527562
+        }
+      }
+    ],
+    "first26s": {
+      "n": 773,
+      "detrended_sigma_us": 0.1582966262173392,
+      "drift_ppm": 4.709588364347968
+    },
+    "NTP_observations": [
+      {
+        "elapsed_s": 0.188098333,
+        "server_minus_local_ns": 22596000,
+        "reported_uncertainty_ns": 80808000
+      },
+      {
+        "elapsed_s": 60.120424916,
+        "server_minus_local_ns": 22410000,
+        "reported_uncertainty_ns": 81753000
+      },
+      {
+        "elapsed_s": 120.050855291,
+        "server_minus_local_ns": 23697000,
+        "reported_uncertainty_ns": 85132000
+      },
+      {
+        "elapsed_s": 180.072925,
+        "server_minus_local_ns": 29325000,
+        "reported_uncertainty_ns": 96552000
+      },
+      {
+        "elapsed_s": 240.309153833,
+        "server_minus_local_ns": 22767000,
+        "reported_uncertainty_ns": 52884000
+      },
+      {
+        "elapsed_s": 300.104463708,
+        "server_minus_local_ns": 24046000,
+        "reported_uncertainty_ns": 56677000
+      },
+      {
+        "elapsed_s": 360.130558625,
+        "server_minus_local_ns": 24765000,
+        "reported_uncertainty_ns": 57069000
+      },
+      {
+        "elapsed_s": 420.303838541,
+        "server_minus_local_ns": 22932000,
+        "reported_uncertainty_ns": 55848000
+      },
+      {
+        "elapsed_s": 480.178202958,
+        "server_minus_local_ns": 24767000,
+        "reported_uncertainty_ns": 60239000
+      },
+      {
+        "elapsed_s": 540.188138208,
+        "server_minus_local_ns": 25441000,
+        "reported_uncertainty_ns": 69281000
+      }
+    ],
+    "API_audit": {
+      "samples": 19191,
+      "API_reference_valid": 19191,
+      "absolute_continuous_bracket_overlap": 19191,
+      "precision_request_errors": 0,
+      "call_duration_ns": {
+        "n": 19191,
+        "min": 4208,
+        "median": 13000.0,
+        "P99": 30541.0,
+        "max": 301875
+      },
+      "reference_age_at_return_ns": {
+        "n": 19191,
+        "min": 2000,
+        "median": 65750.0,
+        "P99": 125504.09999999995,
+        "max": 222958
+      }
+    },
+    "methods": {
+      "source_phase": "(UTC minus original UTC translation) evaluated at captured SOF, minus USB/Mach elapsed coordinate",
+      "retrospective_detrend": "centered population OLS within each declared window",
+      "heldout": "fit preceding disjoint window, freeze, predict following equal-length block; retain signed bias in RMS",
+      "plotting": "PGFPlots; actual extrema and first/last points of each1s bin; all valid samples in statistics"
+    },
+    "input_SHA256": {
+      "artifacts/tc04-direct-ten-minute-20261015-01/report/boundary-phase.csv": "fc493b959aaa4b2f99d7ea9c8443338b7f45d2f604ea7bdf15b222d2f94020e7",
+      "artifacts/tc04-short-window-stability-20261015-01/per-window.csv": "8980d5c0e60b315023f7af211e6201e33f818e1940852c2d9e4a9589e9a01e74",
+      "artifacts/tc04-short-window-stability-20261015-01/heldout-predictions.csv": "fe44d2d6c2475e5f282c58513bf40cbd7b501c83cf804d4e957edb9252923546"
+    },
+    "seals": {
+      "full": {
+        "archive": "results/archives/TC04_DIRECT_USB_600S_20261015_01",
+        "seal_sha256": "2053eff4e53a2d691e8354a440603080aaefd7763cdf74fbf980279b6eea012c",
+        "archive_verified": true,
+        "local_mirror": "artifacts/evidence-mirrors/TC04_DIRECT_USB_600S_20261015_01",
+        "local_mirror_verified": true
+      },
+      "short": {
+        "archive": "results/archives/TC04_SHORT_WINDOW_STABILITY_20261015_01",
+        "seal_sha256": "37be4152380fc834fda4a241618279c016f820a147de039870047fc9ab39ddcd",
+        "verified": true,
+        "mirror": "artifacts/evidence-mirrors/TC04_SHORT_WINDOW_STABILITY_20261015_01",
+        "mirror_verified": true
+      }
+    },
+    "uncertainty_register": [
+      {
+        "item": "Relative source monotonic stability",
+        "status": "MEASURED_EXPLORATORY",
+        "evidence": "18,332 valid phase points, full600s and every complete10/26/30/60s window; original source gaps preserved.",
+        "remaining": "Repeatability across independent runs, load, temperature and supported topologies remains untested."
+      },
+      {
+        "item": "Frame identity on this direct full-speed XHCI path",
+        "status": "CAUSALLY_IDENTIFIED_WITH_UNCALIBRATED_BIAS",
+        "evidence": "2,386 accepted markers,2,399 host-layout checks without failures,one hardware segment.",
+        "remaining": "Independent physical association to Mac time; absolute Apple/PHY timestamp bias; other topologies and sleep/reconnect."
+      },
+      {
+        "item": "Source UTC translation",
+        "status": "UNRESOLVED_MILLISECOND_VARIATION",
+        "evidence": "Reported UTC phase sigma1.464967ms, UTC translation sigma1.465443ms and7.983543ms peak-to-peak, against the same captured boundaries.",
+        "remaining": "Identify upstream UTC event association and generation changes; establish independently referenced UTC phase. Do not substitute monotonic stability."
+      },
+      {
+        "item": "Source availability",
+        "status": "GAPS_RETAINED_CAUSE_NOT_FULLY_RESOLVED",
+        "evidence": "830/19191 precision-source packets unavailable:617 publication busy,152 no permitted map,61 capture invalid;26/594 status observations unavailable.",
+        "remaining": "Quantify publication/capture races and map permission transitions without relaxing causal history or expiry."
+      },
+      {
+        "item": "Local macOS / NTP reference",
+        "status": "SPARSE_UNCALIBRATED_COMPARISON",
+        "evidence": "Ten successful read-only checks;4 pool addresses;reported uncertainty52.884\u201396.552ms.",
+        "remaining": "OS synchronization state unverified; network asymmetry and server changes not calibrated; no NTP oscillator-jitter or superiority conclusion."
+      },
+      {
+        "item": "Absolute error budget and research claims",
+        "status": "NOT_QUALIFIED",
+        "evidence": "No external analyzer or independently associated Mac/UTC reference available.",
+        "remaining": "Assign measured bounds for source UTC, capture, topology,Apple timestamp and holdover; predefine claim and acceptance population before a qualification run."
+      }
+    ],
+    "literature_manifest": {
+      "path": "paper/provenance/usb-macos-literature-20261015.json",
+      "sha256": "f0ed5822128eb0179a663162e8dc36cff47f0f8db7e1a3fa1074a4549a94954d"
+    }
+  },
+  "no_new_hardware_access_for_publication": true,
+  "absolute_UTC_qualified": false,
+  "system_clock_changes": false,
+  "new_literature": [
+    "https://chrony-project.org/doc/4.9/chronyd.html",
+    "https://chrony-project.org/doc/4.9/chronyc.html",
+    "https://chrony-project.org/doc/4.9/chrony.conf.html"
+  ],
+  "measurement_limits": [
+    "Sequential single300s baseline and rerun are separate, unpooled populations; RF/GNSS/time/temperature may differ.",
+    "A1Hz missing status is not a measured continuous outage. Pauses end at an estimated next valid raw arrival; owner processing time is not logged.",
+    "Fine-feed event tick is submission time; kernel send completion is not separately timestamped.",
+    "Unobserved physical reason/expiry/refusal cases remain separate offline lifecycle coverage.",
+    "No independent UTC, RF or GM console reference; initial UTC and hostPHY bias remain unknown."
+  ]
+}
