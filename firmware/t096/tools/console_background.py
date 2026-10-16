@@ -65,7 +65,10 @@ def main():
     results=[];errors=[]
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(a.unit)) as pool:
         futures=[pool.submit(worker,u) for u in a.unit]
-        for future in futures:
+        # A later unit can fail while an earlier one is still collecting.
+        # Observe whichever finishes first so unknown closure stops the entire
+        # owned cohort promptly, rather than waiting for its seven-day peer.
+        for future in concurrent.futures.as_completed(futures):
             try:results.append(future.result())
             except BaseException as e:errors.append(repr(e));stop.set()
     run.update(status='INCOMPLETE' if errors else 'STOPPED' if stop.is_set() else 'COMPLETE',
