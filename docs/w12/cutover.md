@@ -23,9 +23,9 @@ remain unchanged. Runtime FOLLOW, LOCK or relative-fit statistics do not qualify
 independent electrical output or absolute UTC accuracy. Checksums identify
 bytes and do not establish accuracy.
 
-Attached-unit validation results will be recorded after the exact reviewed
-candidate is built and the guarded C-2-only procedure completes. No broader
-hardware scope or public release follows from this cutover.
+Existing local legacy/laboratory discovery points carry moved notices that
+point here. Historical source and private recovery records remain preserved.
+This cutover does not publish a release or authorize broader hardware work.
 
 The selected sanitizer-backed host runner passes 136 recorded compile/run
 checks, including 24 startup-boundary and 117 parent-selection/history assertions,
@@ -45,3 +45,38 @@ include paths, a compile-time legacy credential stub bound, and a post-build
 check that confused an SDK hidden WiFi build symbol with runtime activation.
 The final check examines the ELF for WiFi activation and NVS write dependencies.
 No failed/development image is approved for installation.
+
+## Attached-unit validation
+
+One factory-bound C-2 received version 0.1.0 from PToB source commit
+`bbcd843de5263394bda5511ea6e65b1ddbab0b73`, using the shared local registry and
+BLE100 estimated-relay configuration. The reviewed 882,368-byte application has
+SHA-256 `ab9258a434d6b57dd7b8ea62e2a968236ea2e395b93ea1c004f5f07aaa6b7b06`.
+The enrolled image remains private; this hash identifies the tested bytes.
+
+The guarded procedure verified the current runtime and factory, bounded original
+update drain, actual preservation/recognition of the old application, application-only
+write at `0x10000`, actual new application readback, and exact comparison of the
+64 KiB bootloader/partition/NVS prefix. The prefix comparison was performed after
+the write and before the first application boot; **postboot prefix preservation
+was not observed**. No preservation waiver, mass erase, partition write or failed
+installation retry was used. The supported stock watchdog reset returned the
+application to a fresh source/build/boot-bound startup. Two startup frames were
+healthy but had no FOLLOW state yet; they remain separate from the later run.
+
+The separate normal-console observation lasted **90.59 seconds**, with **36/36
+sampled FOLLOW states**, zero sampled faults, and API/quiet-fault counters remaining
+zero. Matched receive count advanced 1,095→2,300 and authenticated GR count
+1,111→2,333; GR refusals remained zero. Cumulative join attempts advanced 6→14
+while accepts advanced 5→12. These different start/end populations are retained;
+no complete-admission success rate is inferred. The observer sent status requests
+only: no RF, capture, profile, reset or OS clock commands.
+
+C-2 was left running. Owned raw writers and serial handles closed, and a fresh
+read-only inventory plus both coordination-lock checks confirmed release. No
+other unit was operated. Raw logs, actual identities, group enrollment, registry,
+rollback and protected snapshots remain ignored local artifacts. The finite
+sampled behavior does not establish continuous availability, long-term reliability,
+physical radio duty, qualified relay TX, absolute UTC or independently measured
+output accuracy. The full independent hardware suite and generic public install/
+recovery acceptance remain pending.

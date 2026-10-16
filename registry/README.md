@@ -24,5 +24,6 @@ Never select a flashing destination by alias alone.
 
 Run `python3 registry/test_registry.py` for schema and actual T096 UI lookup tests.
 The build receipt binds the input map, generator and generated header. Enrollment
-also binds the map hash into the watchdog build identity. Updating a map currently
+also binds the map hash into T096’s watchdog identity and W12’s runtime build
+identity. Updating a map currently
 requires rebuilding; mutable P1 provisioning is still a separate design.

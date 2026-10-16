@@ -12,8 +12,8 @@ allowlist, original hashes and transformations are in the
 The former laboratory tree is the historical source reference. Future T096
 changes belong here; the laboratory consumes identified PToB commits and returns
 reviewed patches and separately curated evidence. Private keys, enrollment,
-device inventories and raw captures remain outside public source. W12, SS3 and
-macOS client ownership have not moved yet.
+device inventories and raw captures remain outside public source. W12 native RC development has since moved through its own
+[cutover](../w12/cutover.md); SS3 and macOS client ownership have not moved yet.
 
 This source-authority change is separate from GitHub publication and a public
 install-first release. P1 runtime provisioning, generic hardware install/recovery,
@@ -28,8 +28,8 @@ Version 0.15.55 at source commit
 `cfe75eb91486b76bff3e2603e4ceec64e4c44a57` adds the
 [shared registry](../../registry/README.md). The public example covers all four
 target families with synthetic IDs. Actual enrollment, the deployment registry
-and enrolled binaries remain ignored local artifacts. T096 consumes the shared
-format now; the other target adapters have not migrated yet.
+and enrolled binaries remain ignored local artifacts. T096 and W12 consume the shared
+format now; SS3 and macOS adapters have not migrated yet.
 
 The migration host checks passed for core protocol/clock/journal behavior,
 USB SOF capture/worker/source paths, watchdog lifecycle, nine GM/RC lifecycle
