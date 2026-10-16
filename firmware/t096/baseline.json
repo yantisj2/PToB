@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "status": "IMPORTED_RC7_SOURCE_CUTOVER_CANDIDATE",
+  "status": "LOCAL_SOURCE_AUTHORITY_CUTOVER",
   "selected_on": "2026-10-16",
   "source_commit": "1a16110a662ae66109b21bafa9958baf48d0465a",
   "application_tree": "cdd6100344079106caaffab5efb8383f1524e1ae",
@@ -18,7 +18,7 @@
     "2284 static unallocated RAM bytes reported for reviewed USB build; not stack headroom",
     "Physical IRQ duration and stack high-water not measured",
     "Original USB EP0 hang trigger unproven",
-    "Private-parent build dependencies and immutable enrollment remain",
+    "Public builder uses pinned dependencies; fresh-host acquisition unverified and enrollment remains build-time",
     "Inherited Apache-2.0 notices require file-level rights reconciliation"
   ],
   "rejected_baselines": [
@@ -135,5 +135,8 @@
     "RC"
   ],
   "usb_source_stream": "STANDARD_ALWAYS_ENABLED",
-  "public_version": "0.15.54"
+  "public_version": "0.15.55",
+  "cutover_ready_scope": "Public install-first release; distinct from completed local source-authority transfer",
+  "source_authority_cutover": true,
+  "public_source_commit": "cfe75eb91486b76bff3e2603e4ceec64e4c44a57"
 }
