@@ -2,7 +2,7 @@
 """Offline source/image/layout validation; not deployment authorization.
 Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT
 """
-import argparse,contextlib,hashlib,json,struct,sys
+import argparse,contextlib,hashlib,json,re,struct,sys
 from pathlib import Path
 from elftools.elf.elffile import ELFFile
 from uf2 import verify
@@ -17,6 +17,9 @@ def inspect(out,allow_development=False):
     require(not r['source_dirty'] or allow_development,'Dirty source')
     for name,h in r['artifacts'].items():require(sha(out/name)==h,'Changed artifact: '+name)
     for name,h in r['sources'].items():require(sha(out/'source'/name)==h,'Changed source snapshot: '+name)
+    version=re.search(r'^project\(ptob_t096 VERSION ([0-9]+\.[0-9]+\.[0-9]+)\)',
+                      (out/'source/CMakeLists.txt').read_text(),re.M)
+    require(version is not None and version[1]==r['version'],'Receipt/application version mismatch')
     require(hashlib.sha256(json.dumps(r['sources'],sort_keys=True,separators=(',',':')).encode()).hexdigest()==r['source_sha256'],'Source binding')
     image=out/'t096.uf2';verify(image,0x26000)
     data=image.read_bytes();require(0x26000+len(data)//512*256<=0xdf000,'UF2 enters credential reservation')
