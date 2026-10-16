@@ -906,8 +906,8 @@ bool window_poll(uint64_t now){
   return false;
 }
 bool admission_due(uint64_t now,bool renewal_map){
-  if(rc_bound())return now>=rc_client.renew_at||(!parent_selection.pinned()&&parent_selection.quality().poor&&now>=rc_client.retry_at)||
-    (now>=rc_client.progress_at&&now-rc_client.progress_at>=2000000&&now>=rc_client.retry_at);
+  if(rc_bound())return rc_client.admission_due(now,
+    !parent_selection.pinned()&&parent_selection.quality().poor,lock_protected(now));
   return full_listening()?anchor.refresh(now):G1Window::initiate(now,anchor,renewal_map,window_phase);
 }
 void active_poll(uint64_t now){

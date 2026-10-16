@@ -4,6 +4,19 @@
 #include <cstdio>
 using namespace v12;
 int main(){
+  static_assert(RC_DYNAMIC_RENEW_US==300000000&&RC_DYNAMIC_LEASE_US==360000000);
+  Rc7Client traffic;traffic.renew_at=300000000;traffic.progress_at=1000000;
+  for(uint64_t second=1;second<300;second++){
+    const auto now=second*1000000;traffic.progress_at=now;
+    assert(!traffic.admission_due(now,false,false));
+    assert(!traffic.admission_due(now,true,true)); // Poor delivery alone cannot churn a lock.
+  }
+  assert(traffic.admission_due(300000000,false,true));
+  traffic.progress_at=1000000;
+  assert(traffic.admission_due(3000000,false,false)); // Real missing progress still recovers.
+  traffic.retry_at=13000000;
+  assert(!traffic.admission_due(12999999,true,false));
+  assert(traffic.admission_due(13000000,true,false));
   const r2_group_config group={{1,2,3},7,9};
   rc7_path root{};root.source_epoch=9;root.node[0]={11,22,1,1,0,0};
   const rc5_origin origin={11,22,9,1000000000,2650000000,1700000000000000000,1000000000,0,0};

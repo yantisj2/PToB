@@ -33,6 +33,8 @@ uint64_t relay_trace_capture=0;
 uint8_t relay_cap[212]{};rc7_path relay_cap_path{};
 bool relay_configured=false,relay_pa=false,relay_discovery=false,relay_advertising=false,relay_cap_dirty=true,relay_data_dirty=false;
 bool relay_stopping=false;uint64_t relay_stop_deadline=0;
+bool relay_admission_locked=false;
+bool relay_parent_locked(uint64_t now){return lock_protected(now);}
 bool relay_rescan_pending=false;
 rc_slots relay_slots{};uint8_t relay_retained_slot=0;bool relay_startup_checked=false;
 bool relay_slot_scanning(){return relay_slots.scanning;}
@@ -54,7 +56,7 @@ uint32_t relay_admission_overlaps=0,relay_quarantine_timeouts=0;
 bool relay_api(int rc,R2Api site){if(!rc)return true;error(rc,site);return false;}
 uint32_t relay_flags(uint64_t now20){return 1u|2u|(uint32_t(relay_advertising)<<2)|(uint32_t(relay_pa)<<3)|
   (uint32_t(relay_map.ready(now20)&&relay_pa)<<4)|(uint32_t(relay_session.handle!=None)<<5)|
-  (uint32_t(relay_selected!=0)<<6)|(uint32_t(relay_estimate_refused!=0)<<7);}
+  (uint32_t(relay_selected!=0)<<6)|(uint32_t(relay_estimate_refused!=0)<<7)|(uint32_t(relay_admission_locked)<<8);}
 bool relay_quarantine_owned(){for(const auto h:relay_quarantined)if(h!=None)return true;return false;}
 bool relay_owned(){const auto tx=periodic_tx::status();return relay_configured||relay_pa||relay_discovery||relay_advertising||relay_session.handle!=None||relay_quarantine_owned()||tx.installed||tx.armed;}
 bool relay_acl_available(){return relay_session.handle==None&&!relay_quarantine_owned();}
@@ -79,7 +81,7 @@ void relay_quarantine_poll(uint64_t now){
     else relay_api(rc,R2Api::Disconnect);
   }
 }
-void relay_fence(){relay_slots.scanning=false;relay_rescan_pending=false;relay_map.fence();relay_cap_dirty=true;relay_data_dirty=false;relay_start20=0;relay_queue_diagnostic.busy_since=0;}
+void relay_fence(){relay_admission_locked=false;relay_slots.scanning=false;relay_rescan_pending=false;relay_map.fence();relay_cap_dirty=true;relay_data_dirty=false;relay_start20=0;relay_queue_diagnostic.busy_since=0;}
 void relay_pause_cap(){if(!relay_advertising)return;const int rc=ble_gap_ext_adv_stop(1);
   if(!rc||rc==BLE_HS_EALREADY)relay_advertising=false;else relay_api(rc,R2Api::AdvStop);}
 void relay_stop_pa(){
@@ -137,7 +139,7 @@ int relay_gap(ble_gap_event* e,void*){
     if(e->connect.status){relay_cap_dirty=true;return 0;}
     ble_gap_conn_desc d{};
     const bool descriptor=!ble_gap_conn_find(e->connect.conn_handle,&d)&&d.role==BLE_GAP_ROLE_SLAVE;
-    const bool owned=descriptor&&
+    const bool owned=descriptor&&relay_admission_locked&&
       relay_acl_available()&&peer.handle==None&&!peer.connecting&&full_listening()&&!closing&&!fault&&!relay_stopping&&
       relay_generation!=UINT32_MAX&&relay_challenge<UINT64_MAX-1;
     if(!owned){
@@ -152,7 +154,7 @@ int relay_gap(ble_gap_event* e,void*){
       // a missed original drain remain hard faults.
       const bool overlap=descriptor&&at<4&&relay_quarantined[at]==None&&
         e->connect.conn_handle!=peer.handle&&e->connect.conn_handle!=relay_session.handle&&
-        relay_session.handle==None&&(peer.connecting||peer.handle!=None)&&
+        relay_session.handle==None&&(peer.connecting||peer.handle!=None||!relay_admission_locked)&&
         full_listening()&&client.running&&!client.stopping&&!closing&&!fault&&!relay_stopping&&
         !stop_pending&&relay_generation!=UINT32_MAX&&relay_challenge<UINT64_MAX-1&&now<=UINT64_MAX-2000000;
       if(at<4&&relay_quarantined[at]==None){
@@ -184,7 +186,7 @@ int relay_gap(ble_gap_event* e,void*){
   return 0;
 }
 int relay_access(uint16_t h,uint16_t,ble_gatt_access_ctxt* ctx,void*){
-  if(h!=relay_session.handle||relay_session.terminating||relay_stopping||closing||fault||!full_listening()||
+  if(!relay_admission_locked||h!=relay_session.handle||relay_session.terminating||relay_stopping||closing||fault||!full_listening()||
     micros()>=relay_session.until||ble_att_mtu(h)<226)return BLE_ATT_ERR_UNLIKELY;
   if(ctx->offset)return BLE_ATT_ERR_INVALID_ATTR_VALUE_LEN;
   if(ctx->op==BLE_GATT_ACCESS_OP_READ_CHR){
@@ -219,7 +221,9 @@ bool relay_cap_update(uint64_t now){
   relay_cap_at=now;relay_cap_dirty=false;return true;
 }
 bool relay_configure(){
-  ble_gap_ext_adv_params a{};a.own_addr_type=BLE_OWN_ADDR_RANDOM;a.itvl_min=a.itvl_max=50;
+  // Match T096 RC discovery: GAP units are625us, independent of the
+  // periodic train's1.25ms units and existing parent-relative RF phase.
+  ble_gap_ext_adv_params a{};a.own_addr_type=BLE_OWN_ADDR_RANDOM;a.itvl_min=a.itvl_max=160; //100ms request
   a.primary_phy=a.secondary_phy=BLE_HCI_LE_PHY_1M;a.sid=12;a.tx_power=0;
   ble_gap_periodic_adv_params p{};p.itvl_min=p.itvl_max=50;
   int8_t power=127;if(!relay_api(ble_gap_ext_adv_configure(0,&a,&power,relay_gap,nullptr),R2Api::AdvConfigure))return false;
@@ -286,6 +290,24 @@ void relay_slot_poll(uint64_t now,bool upstream_due){
   }
   relay_retained_slot=relay_slots.target;rc_slots_commit(&relay_slots,micros());
 }
+bool relay_check_lock(){
+  uint64_t now20=0;const bool counter=clock_reference_read(&now20);
+  if(!counter)fault=true;
+  const bool parent_locked=counter&&!fault&&relay_parent_locked(micros());
+  relay_admission_locked=parent_locked&&relay_map.live(now20);
+  if(!relay_admission_locked){
+    // Coarse JOIN, untrained quality and stale source cannot recruit children.
+    // Stop only downstream owners; preserve parent reception and its fitter.
+    relay_pause_cap();relay_idle_publication(micros());
+    // A deliberate slot move fences only the downstream map until the next
+    // parent original. It must not erase demand while that parent stays locked.
+    if(!parent_locked||relay_map.valid)for(auto& child:relay_children)child={};
+    if(!parent_locked&&relay_slots.scanning)rc_slots_rollback(&relay_slots,micros());
+    relay_terminate(micros());
+    RelayWrite discard{};while(relay_writes.pop(discard)){}
+  }
+  return relay_admission_locked&&!fault;
+}
 void relay_poll(uint64_t now,bool upstream_due){
   if(!full_listening()||closing||fault){if(relay_owned())relay_close(now);return;}
   relay_quarantine_poll(now);
@@ -293,8 +315,9 @@ void relay_poll(uint64_t now,bool upstream_due){
   if(relay_stopping){if(relay_owned())return;relay_stopping=false;relay_stop_deadline=0;relay_cap_dirty=true;}
   if(!relay_configured&&!relay_configure())return;
   uint64_t now20=0;if(!clock_reference_read(&now20)){fault=true;return;}
-  // Full scope withdrawal still destroys the old radio owner. Timing-only
-  // standby keeps valid/path set and is deliberately a separate state.
+  relay_check_lock();
+  // Keep the authenticated context separate from advertising eligibility.
+  // A timing gap can retain its path while all downstream radio is stopped.
   if((relay_pa||relay_discovery)&&!relay_map.valid)relay_stop_pa();
   if(relay_map.valid&&!relay_map.live(now20)&&relay_map.withdraw_time()){
     relay_data_dirty=true;relay_cap_dirty=true;
@@ -302,18 +325,20 @@ void relay_poll(uint64_t now,bool upstream_due){
   if(relay_session.handle!=None){
     if(now>=relay_session.until||upstream_due)relay_terminate(now);
     if(relay_session.terminating&&now>=relay_session.drain)fault=true;
-    relay_requests(now,now20);
+    if(relay_admission_locked)relay_requests(now,now20);
   }
-  // RQ7 capability/admission remains available without demand. Only a fresh
-  // authenticated child lease may reserve SID12 periodic timing/SyncInfo.
+  // A locked parent permits RQ7 discovery without child demand, avoiding a
+  // demand/PA readiness cycle. Only an authenticated child lease starts SID12.
   relay_publication_demand();
   if(fault)return;
   if(upstream_due||peer.connecting||peer.handle!=None)relay_pause_cap();
-  relay_slot_poll(micros(),upstream_due);
+  if(relay_admission_locked)relay_slot_poll(micros(),upstream_due);
   if(fault)return;
   if(synced&&!upstream_due&&!relay_slots.scanning)stop_scan();
-  if(relay_acl_available()&&peer.handle==None&&!peer.connecting){
+  if(relay_admission_locked&&relay_acl_available()&&peer.handle==None&&!peer.connecting){
     if(relay_cap_dirty&&!relay_cap_update(now))return;
+    if(!clock_reference_read(&now20)){fault=true;return;}
+    if(!relay_check_lock())return;
     if(!upstream_due&&!relay_advertising&&relay_api(ble_gap_ext_adv_start(1,0,0),R2Api::AdvStart))relay_advertising=true;
   }
   periodic_tx::EstimateRecord capture{};
@@ -358,6 +383,7 @@ void relay_poll(uint64_t now,bool upstream_due){
   if(relay_map.valid&&!relay_map.live(now20)&&relay_map.withdraw_time()){
     relay_data_dirty=true;relay_cap_dirty=true;
   }
+  if(!relay_check_lock())return;
   // SDK calls and capture draining above may yield across the final lease.
   // Recheck before every start/data queue; expired demand cannot publish.
   if(!relay_publication_demand())return;
@@ -371,16 +397,17 @@ void relay_poll(uint64_t now,bool upstream_due){
     uint8_t packet[190];if(!relay_map.packet(packet,now20,provision.group))return;
     auto* mb=ble_hs_mbuf_from_flat(packet,190);if(!mb){fault=true;return;}
     if(!relay_api(ble_gap_periodic_adv_set_data(0,mb),R2Api::AdvData)){fault=true;return;}
-    if(!relay_publication_demand())return;
+    if(!relay_check_lock()||!relay_publication_demand())return;
     if(!periodic_tx::start_estimated(packet,190)){fault=true;return;}
-    if(!relay_publication_demand())return;
+    if(!relay_check_lock()||!relay_publication_demand())return;
     if(!relay_api(ble_gap_periodic_adv_start(0),R2Api::AdvStart))return;
     relay_pa=true;
-    if(!relay_publication_demand())return;
+    if(!relay_check_lock()||!relay_publication_demand())return;
     // Advertiser0 provides SyncInfo; advertiser1 owns transient RC admission.
     static const uint8_t marker[3]={2,1,6};auto* discovery=ble_hs_mbuf_from_flat(marker,sizeof marker);
     if(!discovery){fault=true;return;}
-    if(!relay_api(ble_gap_ext_adv_set_data(0,discovery),R2Api::AdvData)||!relay_api(ble_gap_ext_adv_start(0,0,0),R2Api::AdvStart))return;
+    if(!relay_api(ble_gap_ext_adv_set_data(0,discovery),R2Api::AdvData)||!relay_check_lock()||
+       !relay_api(ble_gap_ext_adv_start(0,0,0),R2Api::AdvStart))return;
     relay_discovery=true;relay_data_dirty=false;relay_cap_dirty=true;
     relay_publication_demand();
   }else if(relay_data_dirty){
@@ -406,7 +433,7 @@ void relay_poll(uint64_t now,bool upstream_due){
     uint64_t committed20=0;
     if(!clock_reference_read(&committed20)){fault=true;relay_fence();relay_stop_pa();return;}
     if(!relay_map.commit_packet(prepared,committed20)){fault=true;relay_fence();relay_stop_pa();return;}
-    if(!relay_publication_demand())return;
+    if(!relay_check_lock()||!relay_publication_demand())return;
     relay_data_dirty=false;
     if(!relay_map.live(committed20)&&relay_map.withdraw_time()){
       relay_data_dirty=true;relay_cap_dirty=true;

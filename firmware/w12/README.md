@@ -7,8 +7,8 @@ RC role. [Image provenance](../../docs/images/README.md).*
 
 Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
 
-**PToB owns W12 native G1/RC7 development.** Public successor version **0.1.0**
-starts from the selected native application at `48b9ab7`. See the
+**PToB owns W12 native G1/RC7 development.** Current version **0.1.1** builds on the initial 0.1.0 successor
+from the selected native application at `48b9ab7`. See the
 [build guide](../../docs/w12/build.md), [cutover record](../../docs/w12/cutover.md),
 [explicit import provenance](imports/2026-10-16.json) and [source notices](NOTICE.md).
 
@@ -18,6 +18,9 @@ LoRa, WiFi, PTS and donor output correction experiments are not supplied by this
 target. Original signed source expiry, physical receive/correction matching,
 controller ownership, bounded update drain and precision refusal remain in force.
 The estimated relay has unknown TX uncertainty and no actual TX capture claim.
+Both RC discovery advertisers request 100 ms, matching T096. The independent
+precision train remains 62.5 ms (16 Hz), with its existing parent-relative phase.
+See the [changelog](CHANGELOG.md).
 
 The [shared registry](../../registry/README.md) supplies display aliases. Device
 factory binding, group enrollment and real maps are explicit ignored local

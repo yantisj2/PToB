@@ -13,6 +13,17 @@ SDK_DEFAULT = Path(os.environ['IDF_PATH'])
 NATIVE_CASES = ('autonomous-direct', 'typed-direct', 'direct-to-rc7',
                 'changed-full-path', 'response-path-changed', 'permission-native',
                 'mapped-read-failure', 'mapped-finalize-failure', 'mapped-deliver-failure')
+SERVER_CASES = ('lock-startup', 'lock-loss', 'lock-regain', 'lock-late-connect', 'lock-drain-deadline',
+                'slot-startup-t4', 'slot-startup-conflict', 'slot-startup-weak', 'slot-startup-foreign',
+                'demand-idle', 'demand-bad-tag', 'demand-activate', 'demand-expiry', 'demand-multiple',
+                'demand-renewal', 'demand-restart', 'demand-start-expiry', 'demand-queue-expiry',
+                'demand-stop-failure', 'demand-hook-failure', 'demand-stop-deadline', 'demand-late-expiry',
+                'pending', 'ready', 'small-mtu', 'offset', 'bad-tag', 'upstream-yield', 'expired-source',
+                'late-drain', 'late-connect', 'late-connect-past-deadline', 'capture-budget',
+                'queue-local-expiry', 'queue-inherited-expiry', 'queue-envelope-expiry', 'queue-invariant',
+                'context-withdraw', 'queue-trace', 'overlap-fast', 'overlap-enotconn', 'overlap-slow',
+                'overlap-deadline', 'overlap-late-disconnect', 'overlap-duplicate', 'overlap-alias',
+                'overlap-invalid-descriptor', 'overlap-wrong-role')
 
 
 def sha(path):
@@ -113,6 +124,31 @@ void rc_discovery(){
     (out / 'native.cpp').write_text(s)
 
 
+def server_fixture(out):
+    s = (out / 'native.cpp').read_text().split('void rc_discovery(){')[0]
+    # Only this radio-owner fixture controls the parent-lock input. Clock
+    # fitting/quality thresholds are covered by the production clock tests.
+    s = replace_once(s, '#include "native_g1_fixture.cpp"',
+                     'bool fixture_parent_locked=true;\n#include "native_g1_fixture.cpp"')
+    relay = (APP / 'main/rc7_relay_native.inc').read_text()
+    relay = replace_once(relay, 'bool relay_parent_locked(uint64_t now){return lock_protected(now);}',
+                         'bool relay_parent_locked(uint64_t){return ::fixture_parent_locked;}')
+    (out / 'rc7_relay_native.inc').write_text(relay)
+    s = replace_once(s, 'int ble_gap_conn_find(uint16_t,ble_gap_conn_desc* d){d->peer_id_addr=v12::peer.address;return 0;}', '''extern bool server_connected;extern ble_addr_t child_address;
+extern int server_find_rc;extern uint8_t server_role;
+int ble_gap_conn_find(uint16_t h,ble_gap_conn_desc* d){
+ if(h==33&&server_connected){if(server_find_rc)return server_find_rc;d->conn_handle=33;d->role=server_role;d->peer_id_addr=child_address;}
+ else d->peer_id_addr=v12::peer.address;return 0;}
+''')
+    s = replace_once(s, 'int ble_gap_terminate(uint16_t,int){++terminated;', '''extern bool server_slow;extern int server_terminate_rc;extern unsigned server_terminate_calls;
+int ble_gap_terminate(uint16_t h,int){if(h==33){++server_terminate_calls;
+ if(server_terminate_rc){if(server_terminate_rc==BLE_HS_ENOTCONN)server_connected=false;return server_terminate_rc;}
+ if(!server_slow){ble_gap_event e{};e.type=BLE_GAP_EVENT_DISCONNECT;e.disconnect.conn.conn_handle=33;
+ e.disconnect.conn.role=server_role;e.disconnect.conn.peer_id_addr=child_address;server_connected=false;v12::relay_gap(&e,nullptr);}return 0;}++terminated;''')
+    s += (APP / 'tests/rc7_server_owner_fixture.inc').read_text()
+    (out / 'server.cpp').write_text(s)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--out', type=Path, required=True)
@@ -126,6 +162,7 @@ def main():
     src = APP / 'main/r2/r2-g1'
     inputs = [Path(__file__).resolve(), APP / 'tests/rc7_permission_test.cpp',
               APP / 'tests/native_g1_test.cpp', APP / 'main/native_g1.cpp',
+              APP / 'main/rc7_relay_native.inc', APP / 'tests/rc7_server_owner_fixture.inc',
               *[APP / 'main' / n for n in ('g1_corrected_clock.hpp', 'rc7_client.hpp',
                                          'g1_client_policy.hpp', 'g1_clock_prediction.hpp')]]
     c_sources = [src / (n + '.c') for n in ('group_auth', 'group_join', 'group_precision', 'precision_codec', 'relay_codec')]
@@ -179,6 +216,15 @@ def main():
                 run([args.cc + '++', '-std=c++20', *flags, *native_flags, f'-DV12_R2_G1_LISTENING_PERCENT={profile}', out / 'native.cpp', *objects, '-o', binary], f'native-{profile}-build')
                 for case in NATIVE_CASES:
                     receipt['native'].append(json.loads(run([binary, case], f'native-{profile}-{case}')))
+            server_fixture(out)
+            server = out / 'server'
+            run([args.cc + '++', '-std=c++20', *flags, *native_flags,
+                 '-DV12_R2_G1_LISTENING_PERCENT=100', '-DV12_R2_TX_SHADOW=1',
+                 '-DV12_R2_RC7_TX_ESTIMATE_LAB=1', out / 'server.cpp', *objects, '-o', server], 'server-build')
+            receipt['server_cases'] = []
+            for case in SERVER_CASES:
+                run([server, case], 'server-' + case)
+                receipt['server_cases'].append(case)
         changed = [str(p) for p in inputs if sha(p) != before[str(p)]]
         if changed:
             raise RuntimeError('Inputs changed during check: ' + ', '.join(changed))
@@ -190,7 +236,8 @@ def main():
         receipt['writers_stopped'] = True
         (out / 'receipt.json').write_text(json.dumps(receipt, indent=2) + '\n')
     print(json.dumps({'status': 'PASSED', 'model_cases': len(receipt['model']['cases']),
-                      'native_cases': len(receipt.get('native', [])), 'out': str(out)}))
+                      'native_cases': len(receipt.get('native', [])),
+                      'server_cases': len(receipt.get('server_cases', [])), 'out': str(out)}))
 
 
 if __name__ == '__main__':

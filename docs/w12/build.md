@@ -68,6 +68,15 @@ python firmware/w12/tools/build.py --idf "$IDF_PATH" \
 uses programmed TX estimates, advertises an unknown timing bound, and does not
 claim actual TX capture or qualified relay precision. BLE50 is client-only.
 The +3056 ns donor correction experiment is excluded; output correction is zero.
+Version 0.1.1 requests 100 ms for both RC discovery advertisers, matching T096;
+the separate precision train stays at 62.5 ms. Downstream advertising and
+publication wait for current parent clock lock and withdraw when that lock or
+source is lost. Upstream reception remains available to acquire the parent.
+See the [changelog](../../firmware/w12/CHANGELOG.md) for the lock prerequisites
+and the distinction between relative quality and qualified precision.
+Normal RC7 admission renewal is five minutes, with a six-minute lease. Direct
+G1 JOIN replay refresh, pending admission and recovery after missing corrected
+clock progress are separate traffic classes; inspect their counters separately.
 
 A candidate requires a clean local commit. `--development` explicitly marks an
 uncommitted build as unflashable. Build receipts bind source, SDK, effective
@@ -88,6 +97,9 @@ These checks use production codecs/models and synthetic controller boundaries.
 They do not establish physical RF duty, absolute UTC accuracy, independent
 output precision, or reliability. Some retained historical fixture sources are
 not part of the selected runner and do not inherit a passing result.
+The permission runner also exercises the native relay server owner with
+synthetic radio/TX and parent-lock inputs, including startup hold, lock loss,
+reacquisition and unchanged admission drain deadlines.
 
 ## Hardware boundary
 
