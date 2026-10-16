@@ -15,7 +15,7 @@ Start with the target matching your hardware:
 | --- | --- | --- |
 | Heltec T096 | GM or RC; USB source stream included in RC7 | [T096 README](firmware/t096/README.md) |
 | Meshnology W12 | RC receiver; optional experimental estimated-TX relay | [W12 README](firmware/w12/README.md) |
-| SS3 | RC receiver and experimental estimated-TX relay | [SS3 README](firmware/ss3/README.md) |
+| M5Stack StickS3 (SS3) | RC receiver and experimental estimated-TX relay | [SS3 README](firmware/ss3/README.md) |
 | macOS | USB time client and chrony bridge | [macOS README](clients/macos/README.md) |
 
 **Developer preview:** source builds are available; a generic downloadable image,

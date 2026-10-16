@@ -53,3 +53,14 @@ is client-only and the optional BLE100 estimated relay remains unqualified. Do
 not invent GM support or infer GNSS wiring from an alias. All targets share
 registry/; real factory bindings, enrollment and images remain ignored locally.
 Hardware work requires its separately authorized exact-device scope and guards.
+
+## SS3 and macOS development authority
+
+PToB owns SS3 native G1/RC7 and the macOS USB/chrony client. Read
+firmware/ss3/README.md or clients/macos/README.md and the corresponding build
+guide before changes. SS3 is M5Stack StickS3 K150, RC BLE100 with experimental
+estimated TX; its CDC console is not a macOS UTS1 timing source. macOS consumes
+compatible T096 USB timing and owns an unprivileged local chronyd -x instance.
+Normal client launch operates hardware/starts that daemon; offline self-tests do
+neither. Network serving and OS clock discipline are not configured. Preserve
+third-party chrony terms, shared registry format, source expiry and unknown bounds.

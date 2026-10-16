@@ -112,7 +112,7 @@ Chrony started with `-x` maintains a user-space clock without disciplining the O
 system clock. Applications reading the normal macOS wall clock will not thereby
 read PToB time. They need the supplied client interface or an explicitly configured
 time service. Changing the OS clock is a separate operating mode and is not part
-of this quick start. See the [chronyd manual](https://chrony-project.org/doc/4.8/chronyd.html).
+of this quick start. See the [chronyd manual](https://chrony-project.org/doc/4.9/chronyd.html).
 
 For network sharing, explicitly configure a listening address, port and permitted
 client subnet; chrony's `allow` controls NTP client access. The migrated local
@@ -120,7 +120,7 @@ bridge is not automatically a LAN service. A private high port also requires
 clients that can select that port. Do not add `local` merely to hide loss of an
 upstream source: it changes how an unsynchronised server represents itself.
 Review the [chrony FAQ](https://chrony-project.org/faq.html) before extending the
-target's loopback setup. General NTP clients inherit host/network uncertainty,
+target's local Unix-socket setup. General NTP clients inherit host/network uncertainty,
 not the precision of an internal BLE or USB timestamp.
 
 Phones and desktops without usable periodic-advertising APIs are clients of a

@@ -24,19 +24,19 @@ revoke membership. The public implementation must verify these limits anew.
 The [shared registry](../../registry/README.md) defines one schema for all targets.
 Its [example](../../registry/example.json) uses synthetic IDs. Keep the actual
 map in an ignored local file and supply `--registry` to each target builder.
-T096 and W12 compile all entries into read-only display metadata. T096 prefers
-authenticated non-default names, then registry aliases and an ID suffix. W12
-uses registry aliases and then a bounded hexadecimal fallback. Updating this
+T096, W12 and SS3 compile all entries into read-only display metadata. T096 prefers
+authenticated non-default names, then registry aliases and an ID suffix. W12 and SS3
+use registry aliases and then a bounded hexadecimal fallback. Updating this
 map currently requires a rebuild.
 
 Store entries by ID, not name. Duplicate aliases are allowed; duplicate IDs and
 optional UUIDs are rejected. A reverse name lookup cannot authorize a write.
 An optional UUID is separately assigned metadata, not a reinterpretation of the
 64-bit protocol ID. The map changes labels only: no role, capability, membership,
-source quality or enrollment is granted by an entry. SS3 and macOS consumers
-will use this same format as those targets migrate here.
+source quality or enrollment is granted by an entry. The macOS build generates Swift aliases from the same validator and records
+the map in its local build receipt.
 
-The selected W12 RC adapter derives its 64-bit ID from `0000` followed by the
+The selected W12 and SS3 RC adapters derive its 64-bit ID from `0000` followed by the
 complete 48-bit factory MAC, in hexadecimal display order. Its local device input
 must match that mapping and the actual factory probe. This is a separate board
 adapter from T096 hwinfo; an alias or optional UUID cannot replace either rule.
