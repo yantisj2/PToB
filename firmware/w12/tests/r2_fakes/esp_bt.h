@@ -1,0 +1,5 @@
+#pragma once
+#include <cstdint>
+enum esp_ble_enhanced_power_type_t {ESP_BLE_ENHANCED_PWR_TYPE_DEFAULT,ESP_BLE_ENHANCED_PWR_TYPE_ADV,ESP_BLE_ENHANCED_PWR_TYPE_SCAN,ESP_BLE_ENHANCED_PWR_TYPE_INIT,ESP_BLE_ENHANCED_PWR_TYPE_CONN};
+enum esp_power_level_t {ESP_PWR_LVL_N24=0,ESP_PWR_LVL_P9=11,ESP_PWR_LVL_P18=14,ESP_PWR_LVL_P20=15,ESP_PWR_LVL_INVALID=255};
+inline esp_power_level_t esp_ble_tx_power_get_enhanced(esp_ble_enhanced_power_type_t,uint16_t){return ESP_PWR_LVL_P9;}

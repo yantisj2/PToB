@@ -1,0 +1,17 @@
+{
+  "revision": "STICKY_INSPECT_V1",
+  "client_operation": 0,
+  "initial_owned_scan_us": 3000000,
+  "initial_limit_us": 6000000,
+  "startup_stagger_us": 2000000,
+  "startup_recheck": "ONCE_AFTER_ACTUAL_PUBLICATION_SAME_CONFLICT_FENCES",
+  "ordinary_inspection_owned_us": 1000000,
+  "ordinary_inspection_limit_us": 2500000,
+  "inspection_cooldown_us": 300000000,
+  "contender": "TWO_DISTINCT_RECEIPTS_ONE_LOWER_ID_ACTIVE_SAME_SLOT_SAME_ROOT_BOOT_SOURCE_TRAIN_CAPTURE",
+  "conflict_rssi_dbm": -75,
+  "occupancy": "AUTHENTICATED_ACTIVE_PUBLISHERS;ADVISORY_NOT_PROOF_OF_RF_COLLISION",
+  "T4": "LATER_THAN_PARENT;TERMINAL_FALLBACK_OR_SECOND_RELAY",
+  "retention": "RAM_LEGAL_PLACEMENT;NO_TIME_OR_PERMISSION_FROM_SLOT_HISTORY",
+  "wire": "FROZEN_RC_DYNAMIC_V2_UNCHANGED"
+}

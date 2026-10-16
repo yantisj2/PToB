@@ -1,0 +1,138 @@
+{
+  "schema": 1,
+  "revision": 3,
+  "policy": "G1_SERVER_HISTORY_SRAM_V3",
+  "memory": {
+    "history_capacity": 16,
+    "history_bytes": 656,
+    "row_bytes": 40,
+    "allocation": "STATIC_INTERNAL_SRAM;NO_HEAP_OR_PSRAM",
+    "expiry_seconds": 1800,
+    "storage": "WITHIN_BOOT_ONLY;NO_FLASH_WRITES",
+    "profile_change": "CLEAR_HISTORY_WHEN_LISTENING_PERCENT_CHANGES;GO_MODE_AND_SAME_PROFILE_RESTART_PRESERVE"
+  },
+  "metrics": {
+    "delivery": "Unique authenticated current-path physically-associated PA events per actual owned listening second;existing16Hz expected count;quiet/stalls>250ms excluded",
+    "usable": "Fraction of those actual eligible listening intervals with original permission/current following and a live corrected model;unknown if observations incomplete;not RMS or output accuracy",
+    "smoothing": "INTEGER_EWMA_ALPHA_1_4;UNKNOWN_PRIOR750_PERMILLE_WITH_EXPLICIT_ZERO_SAMPLE_COUNTS",
+    "failures": "Actual unsuccessful admission only;one penalty per attempt;no penalty for plannedquiet/stop/rebind, host/API resource refusal or successful admission;failurecountmax4;decaysoneeach30s;retrycooldown5/10/20/40s",
+    "reputation": "Stable64bitserverID+GM_or_RC_role;last authenticated boot/root/source context tag is diagnosticonly;no restoration of authority, map, locator or lease"
+  },
+  "score": {
+    "RSSI": "4*(clamp(smoothed_RSSI_dBm,-100,-20)+100)",
+    "delivery": "(measured_delivery_permille-750)/4;unknown uses750",
+    "usable": "(measured_usable_permille-750)/8;unknown uses750",
+    "GM_bonus": 16,
+    "failure_penalty_each": 16,
+    "unknown_diagnostic_score": -32768,
+    "score_bounds": [
+      -512,
+      512
+    ],
+    "normal_mode": "FRESH_GM_FIRST_WHEN_UNBOUND;HOLD_NONPOOR_CURRENT_GM;BOUNDED_GM_RECOVERY_AND_RC_TO_GM_RETURN_V1;RSSI_FIRST_WITHIN_RELAY_ROLE",
+    "relay_only": "EXCLUDE_DIRECT_GM;AUTOMATIC_BEST_ELIGIBLE_RELAY;NO_PIN"
+  },
+  "hysteresis": {
+    "minimum_dwell_us": 10000000,
+    "minimum_improvement": 16,
+    "same_scope_renewal": "PRESERVES_HISTORY_CURRENT_LINK_AND_DWELL",
+    "missing_incumbent_advert": "LIVE_HEALTHY_PA_MAY_RETAIN_WITH_LAST_RSSI;WAIT_FOR_FRESH_LOCATOR_BEFORE_RENEWAL;NO_STALE_ADMISSION",
+    "unavailable_or_poor": "MAY_BYPASS_DWELL_AND_MARGIN;NEVER_EXTENDS_SOURCE_PERMISSION"
+  },
+  "discovery": {
+    "capacity": 8,
+    "fresh_us": 200000,
+    "collect_us": 40000,
+    "new_RF_probes": false,
+    "wire_changes": false
+  },
+  "console": "sel7=liveEntries/currentScore/bestScore/decision;decision0collecting1none2best3dwell4margin5incumbent;path7canonicalcurrentadmission;9rows8704B1.5sunchanged;decision6=locked-no-discovery;decision7=selected-pending-relay-admission;decision8=bounded-direct-GM-recovery;decision9=return-direct-GM;decision10=hold-current-GM",
+  "preserved": "RC_DYNAMIC_V2 six portable files unchanged;HMAC/root/path/self-cycle/maxRC2 gates unchanged;BLE50clientonly;BLE100relaycapable;120sfaultwatchdogandhealthyindefinite;LoRaWiFiPTSOFF;fullindependentsuiteHELD",
+  "provenance": {
+    "method": "Existinglink-qualityEWMApluscurrent-parenthysteresis;localboundedtrialscoreandnumericdefaults,notBluetoothorRPLconformance",
+    "hysteresis_reference": "https://www.rfc-editor.org/rfc/rfc6719.html#section-3.2.2",
+    "physical_validation": "RELEASE18_C2_PENDING;PREVIOUS_RELEASES_RETAINED"
+  },
+  "source_sha256": {
+    "main/g1_parent_history.hpp": "870358226ee37aac0739fcc1cddef9061a1a30c15fc4d67e68075f4f9d1c5eac",
+    "main/g1_parent_selection.hpp": "51ca2e9920dae9b29a37f84f6fba80a0001ff61edc63699f744fc093e70c3f61",
+    "main/native_g1.cpp": "16e60db71d274cc5d31908b88336efc9c8404caf8440fc3bf300bb3e3272a539",
+    "main/native_r2.hpp": "093b8f2bb0296ce1e1ef4d05c35f7fed7dae3626b7ba7fa4cc802b26ec25b9c6",
+    "tests/g1_parent_fixture.cpp": "92d70b3eec6070322032fa5ddb41deffec0223f0800ae6afc0ba04913fc19203",
+    "tests/g1_parent_owner_fixture.inc": "3e28d289e32f3abaa850d0a8a6610f76159a93889cf658b029c1ed75827388e8",
+    "tools/g1_parent_history_e2e.py": "609b971daf9a7e8a7d877a6f82d856dc0f63a94168b088fa37510df6367d0145",
+    "tools/g1_parent_owner_e2e.py": "91500cfb17992023c3128ebbf32535c2855dd24297128d270f18775e889b5360",
+    "tools/framed_console.py": "ced2d0abe28fb05f557296a346c2bb6fc38ee3f9c109d3d0c8781102f35a8d56",
+    "contracts/g1_parent_selection_vectors_v3.json": "02e59aa0d55ad46ee6fa51e2cbd95ae8fd59550569e412ceee42e7d6ce83e5fa",
+    "tests/g1_startup_fixture.cpp": "aed245c2724d51a239ddd2960ed0e2879f2ae2cc791eb78248c8538797752a33",
+    "tools/rc7_controller_e2e.py": "943ec0a2290bc41a87e2809c20247f7420debd8fcb9a27555c34bd631e9f76ff",
+    "main/g1_gm_discovery.hpp": "2ce6b6fbf60081b28c69e8d2117a74b65a3745822f828def016235fb528f37d9",
+    "main/g1_parent_journal.hpp": "3a2072d2f06b0eb9349f257415f0e2b643dd04e96d35ce9699480179438690ab",
+    "main/g1_diagnostic_render.hpp": "a5c699cfb4df7752cb958e121fe986d3f06366049256c13ed559e743bc4ce9dc",
+    "main/native_main.cpp": "78a817c160bf2331389caf81bba5b68a8cb9d66dd601d15700e1bb25c628d042",
+    "tests/g1_gm_hold_test.cpp": "69e628c86a40e0afec874f68e3623bd46af3ca32ec15a182e1c0a61802d17822",
+    "tests/g1_diagnostic_test.cpp": "21057e59ae98c6db696e6ba6a3965566eb35750bc642bf5af887c8ff4b6d0612",
+    "main/r2/rc7/src/rc_slots.c": "4147579b1391c62a58278e28f2c952aaabbb117bb4728cee8eb08f6a9fc3c427",
+    "main/r2/rc7/include/rc_slots.h": "7da979616d9d393e6f68e84ae08fd971a0c4e142eddf9d8301c0bacfdfc902cd",
+    "main/rc7_relay_native.inc": "adc52716ca72249a7541ab62a494f45e49c18fe9cd474a7b09178dd5d9bbf0c8",
+    "main/rc7_relay_estimate.hpp": "86aff275b73dca38044bdacfeca1662ea34f121d3c14a5c53b375a8ab913ce39"
+  },
+  "lock_protection": {
+    "required": "WHILE_RAW_SUB1US_LOCK_AND_1S_HOLD_REMAIN_USABLE;CURRENT_LIVE_SCOPE_MODEL_PERMISSION_REQUIRED",
+    "selection": "LOCKED_DIRECT_GM_NO_ALTERNATIVE_SELECTION_OR_SCAN;LOCKED_RC_ALLOWS_1_5S_PASSIVE_CURRENT_AUTHENTICATED_ROOT_REOBSERVATION_EVERY30S;OTHER_ADVERTISEMENTS_IGNORED_DURING_WINDOW",
+    "renewal": "CURRENT_AUTHENTICATED_PARENT_ONLY;RETAINED_ADDRESS_IS_LOCATOR;FRESH_PHYSICAL_PA_LT250MS;NEW_CHALLENGE_EXCHANGE;NORMAL_REQUEST_NO_RESCAN;ORIGINAL_DEADLINES",
+    "withdrawal": "RAW_QUALITY_HOLD_MODEL_PERMISSION_CLOCK_READ_OR_MODE_DRAIN_LOSS_IMMEDIATE;DISPLAY_SMOOTHING_CANNOT_EXTEND_GATE",
+    "qualification": "SELECTION_RESTRAINT_ONLY;NO_NEW_TIME_AUTHORITY_OR_ACCURACY_CLAIM"
+  },
+  "startup": {
+    "revision": 2,
+    "collect_us": 3000000,
+    "start": "FIRST_DISCOVERED_CANDIDATE;MONOTONIC_ELAPSED;EXISTING_50_PERCENT_QUIET_UNCHANGED",
+    "selection": "FRESH_ELIGIBLE_GM_BEFORE_RELAY;EXISTING_SCORE_AND_ID_WITHIN_ROLE",
+    "completion": "FIRST_SUCCESSFUL_AUTHENTICATED_ADMISSION;RESET_REBIND_RECOVERY_DO_NOT_REARM_AFTER_BIND;REBOOT_REARMS",
+    "fallback": "FRESH_RELAY_ONLY_AFTER_15S_ELAPSED_AND_3S_OBSERVED_SCANNER_OWNERSHIP;RECENT_NONCOOLING_GM_HINT_POSTPONES_UNTIL_2S_SINCE_HINT;FRESH_US200000_UNCHANGED",
+    "overrides": "NAMED_TARGET_OR_RELAY_ONLY_KEEPS_ORIGINAL_40MS_AND_ROLE_FILTER",
+    "authority": "DISCOVERY_LOCATOR_ONLY;ALL_ACTUAL_ADMISSION_SOURCE_PATH_AND_CONTROLLER_GATES_UNCHANGED",
+    "relay_wait_us": 15000000,
+    "owned_scan_us": 3000000,
+    "GM_reobserve_us": 2000000,
+    "scanner_credit": "CONSECUTIVE_SCANNER_OWNERSHIP_OBSERVATIONS_AT_MOST250MS_APART_AFTER_FIRST_DISCOVERY;NO_QUIET_OR_ADMISSION_OR_QUEUED_START_CREDIT"
+  },
+  "active_relay_preference": {
+    "revision": 2,
+    "policy": "RSSI_FIRST_RCS;PREFER_ACTIVE_WITHIN4DB_AND16_RAW_SCORE_POINTS",
+    "margin_points": 16,
+    "equivalent_RSSI_dB_at_equal_quality": 4,
+    "applies": "FRESH_ELIGIBLE_RELAY_CANDIDATES_IN_BLE50_AND_BLE100;AFTER_RAW_GM_ROLE_RANKING;BEFORE_EXISTING_DWELL_MARGIN",
+    "hint": "MAC_VERIFIED_SID13_RQ7_CAPABILITY_PUBLISHING_BIT;MOST_RECENT_HINT_ONLY;SAME200MS_LOCATOR_EXPIRY",
+    "authority": "LOCATOR_ADVICE_ONLY;FRESH_CHALLENGE_ADMISSION_AND_READY_REQUIRED;NO_MAP_OR_SOURCE_PERMISSION_FROM_ADVERTISEMENT",
+    "preserved": "GM_FIRST_STARTUP;PINS;RELAY_ONLY;COOLDOWNS;LOCK_SCAN_GATE;CURRENT_PARENT_DWELL_AND_MARGIN;NO_NEW_RF_PROBES",
+    "memory": "ONE_BOOL_IN_CANDIDATE_PADDING;SELECTED_PENDING_ID_AND_ABSOLUTE_BOUND16B;GM_RECOVERY_ID_AND_BOUND16B;STATIC_SELECTOR1208B"
+  },
+  "relay_acquisition": {
+    "revision": 1,
+    "ranking": "T096_SMOOTHED_RSSI_ALPHA1_4_PRIMARY_WITHIN_RELAY_ROLE;EXACT_RSSI_TIE_USES_EXISTING_MEASURED_SCORE_THEN_STABLE_ID;GM_HOLD_RETURN_V1_APPLIES",
+    "pending": "SUCCESSFULLY_AUTHENTICATED_PENDING_IS_ACCEPTED_DEMAND_NOT_FAILED_ADMISSION;KEEP_CHOSEN_LOCATOR_AND_RETRY_SAME_RELAY_AFTER1S",
+    "bound_us": 5000000,
+    "clock": "FIRST_PENDING_RECEIPT_ONCE;REPEATED_PENDING_DOES_NOT_REARM;ACTUAL_FAILURE_OR_READY_BIND_OR_RESET_CLEARS",
+    "freshness": "EVERY_ATTEMPT_STILL_REQUIRES_FRESH200MS_LOCATOR_AND_FRESH_AUTHENTICATED_GATT;NO_STALE_LOCATOR_CONNECTION",
+    "protocol": "RC_DYNAMIC_V2_UNCHANGED;NO_RELEASE_OR_CANCEL_OPERATION;ABANDONED_DEMAND_EXPIRES_UNDER_EXISTING_LEASE_POLICY",
+    "authority": "PENDING_IS_NEVER_TIME_READINESS_OR_MAP_OR_SOURCE_PERMISSION",
+    "comparison": "T096_RSSI_SELECTION_FIRST_PARENT_PROTECTION_AND5S_ACQUISITION_LOSS;W12_BLE50_QUIET_AND_STARTUP15S_GM_RULES_PRESERVED"
+  },
+  "gm_hold_recovery": {
+    "revision": 1,
+    "hold": "NONPOOR_CURRENT_DIRECT_GM_RETAINED_DURING_NORMAL_REFRESH;FRESH200MS_LOCATOR_STILL_REQUIRED;GENUINE_POOR_LINK_ALLOWS_SCORED_FALLBACK",
+    "recovery_us": 3000000,
+    "recovery": "ACTUAL_SCOPE_WITHDRAWAL_FENCES_TIME_AND_OWNERS_IMMEDIATELY;PREVIOUS_GM_ID_ADVICE_ONLY_FOR_3S;REPEATED_UNAVAILABLE_DOES_NOT_REARM;FRESH_AUTHENTICATION_REQUIRED",
+    "return": "FRESH_DIRECT_GM_PREFERRED_OVER_RC_AFTER_EXISTING10S_DWELL;RC_SCORE_MARGIN_DOES_NOT_SUPPRESS_GM_RETURN",
+    "observation_interval_us": 30000000,
+    "observation_window_us": 1500000,
+    "observation": "PASSIVE_ONLY_WHILE_AUTOMATIC_UNPINNED_RC;CURRENT_AUTHENTICATED_ROOT_ONLY;NORMAL_CONTROLLER_OWNERSHIP_AND_BLE50_QUIET_REMAIN",
+    "overrides": "PINS_RELAY_ONLY_COOLDOWNS_ORIGINAL_ADMISSION_DRAINS_PERMISSION_AND_SOURCE_GATES_UNCHANGED",
+    "clock_actuator": "UNCHANGED;STARTUP_SPEED_TUNING_DEFERRED",
+    "qualification": "HOST_POLICY_AND_OWNER_FIXTURES_PASSED;PHYSICAL_RELIABILITY_AND_PRECISION_UNQUALIFIED",
+    "same_root_hint": "COHORT_JOIN_WITH_SAME_CURRENT_DIRECT_ROOT_BOOT_SOURCE_EPOCH_TRAIN_RETAINS_UNEXPIRED_OLD_REPLAY_SCOPE_PA_MODEL_AND_PARENT;NO_DEADLINE_EXTENSION_OR_AUTHORITY_FROM_HINT;PREFER_FRESH_ACTUAL_ROOT_FOR3S;MISMATCH_WITHDRAWS_AS_BEFORE"
+  },
+  "slot_policy": "STICKY_INSPECT_V1;LOCAL_SLOTS_ONLY;SELECTOR_SCORING_AND_WIRE_UNCHANGED"
+}

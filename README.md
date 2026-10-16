@@ -7,8 +7,7 @@ useful, traceable time at the receiving device: associate a physical radio event
 with its timestamp, account for correction delay, and make the clock's quality
 and availability explicit.
 
-This repository holds the draft papers, experimental evidence, and work toward a
-T096 firmware example. It is intended for BLE implementers, timing specialists,
+This repository holds the draft papers, experimental evidence, and work toward T096 and W12 firmware examples. It is intended for BLE implementers, timing specialists,
 and embedded engineers evaluating the protocol, its measurements, and its fit
 for real devices. All papers remain drafts; PToB is not an adopted Bluetooth SIG
 or IEEE standard.
@@ -73,6 +72,11 @@ Preparation now includes a [selected T096 source baseline](docs/t096/baseline.md
 [name-map/device-ID guidance](docs/security/identity-and-names.md), and the
 [shared example registry](registry/README.md).
 These are review material; public installation remains pending.
+
+The [W12 RC example](firmware/w12/README.md) now has its own selected native
+G1/RC7 application and [standalone build guide](docs/w12/build.md). It consumes
+the same display registry, with local enrollment and factory binding. Its
+optional estimated relay remains unqualified; no W12 GM profile is supplied.
 
 Reviews are welcome on controller support, physical timestamp association,
 clock discipline, service boundaries, and measurement design. Identify the draft

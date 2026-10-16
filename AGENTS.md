@@ -44,3 +44,12 @@ profiles; USB source streaming is standard. Read firmware/t096/README.md and
 docs/t096/build.md before firmware changes. Keep device/group enrollment and
 secret-bearing images under ignored local artifacts. Hardware operations still
 require explicit scope, exact identity, ownership, recovery and review checks.
+
+## W12 development authority
+
+PToB owns normal W12 native G1/RC7 development. Read firmware/w12/README.md and
+docs/w12/build.md before W12 changes. RC is the supported public profile; BLE50
+is client-only and the optional BLE100 estimated relay remains unqualified. Do
+not invent GM support or infer GNSS wiring from an alias. All targets share
+registry/; real factory bindings, enrollment and images remain ignored locally.
+Hardware work requires its separately authorized exact-device scope and guards.

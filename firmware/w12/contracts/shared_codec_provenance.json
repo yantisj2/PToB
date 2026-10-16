@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "source_repository": "isolated firmware/t096",
+  "source_commit": "86a22dff41e44eaa59b4a499a6026e6fa965f1bd",
+  "copied_without_modification": [
+    {
+      "target": "v12_native/main/shared/public_codec.h",
+      "sha256": "e2808fda23319772d6e44e94304bc63ab77b2a928c03751ee4a9b2f9b5541efd"
+    },
+    {
+      "target": "v12_native/main/shared/public_codec.c",
+      "sha256": "778d4aca350dca923df6a5258a5676e40b976db6b926348d8bb019e7e3616ee6"
+    },
+    {
+      "target": "v12_native/contracts/public_wire_candidate.json",
+      "sha256": "f65df2743cf55efa6984a00c71c346f9dd87b2527bba5706552fd09596ca4e28"
+    },
+    {
+      "target": "v12_native/main/shared/p256_native.h",
+      "sha256": "f384ff4ba2d97a3f1e9f3901d1787d60cc5b8638473a48cd424e771122c044d7"
+    }
+  ],
+  "scope": "Portable candidate2 exact wire shape/signature views/scopes/duration/UTC refusal only; neither radio integration nor physical authority follows.",
+  "backend_note": "Copied P256 API header only; W12 uses IDF-pinned MbedTLS3.6.6 verifier and local strict scalar canonicality adapter. T096 backend implementation not copied."
+}

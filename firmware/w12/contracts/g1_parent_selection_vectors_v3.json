@@ -1,0 +1,207 @@
+{
+  "schema": 1,
+  "policy": "G1_SERVER_HISTORY_SRAM_V3",
+  "test_source": "tests/g1_parent_fixture.cpp",
+  "cases": [
+    {
+      "id": "equal_unknown",
+      "GM_RSSI": -50,
+      "RC_RSSI": -50,
+      "history": "UNKNOWN",
+      "scores": [
+        216,
+        200
+      ],
+      "selected": "GM"
+    },
+    {
+      "id": "modest_GM_bias",
+      "GM_RSSI": -55,
+      "RC_RSSI": -50,
+      "history": "UNKNOWN",
+      "scores": [
+        196,
+        200
+      ],
+      "selected": "GM",
+      "policy": "GM_HOLD_RETURN_V1_UNBOUND_GM_FIRST"
+    },
+    {
+      "id": "poor_RC_remembered",
+      "GM_RSSI": -80,
+      "RC_RSSI": -30,
+      "RC_delivery_permille": 0,
+      "RC_usable_permille": 0,
+      "scores": [
+        96,
+        0
+      ],
+      "selected": "GM",
+      "after_selector_reset": "GM"
+    },
+    {
+      "id": "expiry",
+      "elapsed_since_RC_sample_seconds": 1800,
+      "same_RSSI_as": "poor_RC_remembered",
+      "RC_history": "UNKNOWN",
+      "selected": "GM",
+      "policy": "GM_HOLD_RETURN_V1_UNBOUND_GM_FIRST"
+    },
+    {
+      "id": "EWMA",
+      "samples": [
+        1000,
+        0
+      ],
+      "result_permille": 750
+    },
+    {
+      "id": "renewal",
+      "same_parent_boot_epoch": true,
+      "expected": "KEEP_HISTORY_DWELL_AND_CURRENT_DELIVERY"
+    },
+    {
+      "id": "healthy_PA_without_fresh_incumbent_ADV",
+      "challenger_before_dwell": true,
+      "expected": "WAIT;NO_STALE_LOCATOR_ADMISSION"
+    },
+    {
+      "id": "quiet_or_worker_stall",
+      "expected": "NO_LOSS_OR_USABLE_DENOMINATOR_INCREMENT"
+    },
+    {
+      "id": "duplicate_physical_event",
+      "expected": "COUNT_ONCE"
+    },
+    {
+      "id": "forced_relay",
+      "GM_stronger": true,
+      "expected": "GM_EXCLUDED"
+    },
+    {
+      "id": "authority_fence",
+      "expected": "HISTORY_CANNOT_RESTORE_PARENT_TIME_OR_PERMISSION"
+    },
+    {
+      "id": "startup_relay_first_GM_late",
+      "relay_seen_us": 1000000,
+      "GM_seen_us": 3999999,
+      "before_us": 4000000,
+      "expected": "NO_CONNECTION_BEFORE_3S;FRESH_GM_BEFORE_STRONGER_RELAY"
+    },
+    {
+      "id": "startup_GM_absent_or_failed",
+      "expected": "NO_RELAY_BEFORE_15S_AND_3S_OWNED_SCAN;FRESH_RELAY_AFTER_BOUNDED_GM_REOBSERVATION_OR_ORIGINAL_FAILURE_COOLDOWN"
+    },
+    {
+      "id": "startup_constraints",
+      "expected": "PINS_AND_RELAY_ONLY_KEEP40MS;STALE_GM_REFUSED;POST_ADMISSION_RESET_DOES_NOT_REARM_STARTUP;NORMAL_GM_HOLD_RETURN_V1"
+    },
+    {
+      "id": "active_relay_comparable",
+      "idle_RSSI": -50,
+      "active_RSSI": -54,
+      "selected": "ACTIVE_RC",
+      "expected": "ORDER_INDEPENDENT_WITHIN_16_RAW_SCORE_POINTS"
+    },
+    {
+      "id": "stronger_idle_relay",
+      "idle_RSSI": -50,
+      "active_RSSI": -55,
+      "selected": "IDLE_RC"
+    },
+    {
+      "id": "active_hint_with_poor_measured_delivery",
+      "expected": "BETTER_IDLE_RC"
+    },
+    {
+      "id": "active_hint_expiry_or_latest_inactive",
+      "expected": "NO_STALE_ACTIVE_PREFERENCE"
+    },
+    {
+      "id": "active_hint_constraints",
+      "expected": "PINS_GM_STARTUP_COOLDOWN_LOCK_DWELL_MARGIN_UNCHANGED"
+    },
+    {
+      "id": "native_idle_and_active_discovery_both_profiles",
+      "profiles": [
+        50,
+        100
+      ],
+      "expected": "SIGNED_SID13_IDLE_DISCOVERABLE;COMPARABLE_ACTIVE_SELECTED;NO_TIME_AUTHORITY_FROM_HINT"
+    },
+    {
+      "id": "relay_RSSI_primary",
+      "expected": "SMOOTHED_RSSI_BEFORE_HISTORICAL_SCORE_AMONG_RCS;MEASURED_SCORE_BREAKS_EQUAL_RSSI;STABLE_ID_LAST"
+    },
+    {
+      "id": "authenticated_pending_not_failure",
+      "expected": "NO_FAILED_ADMISSION_PENALTY_ON_PLANNED_DISCONNECT;RETRY_SAME_RELAY_AFTER1S;NO_TIME_AUTHORITY"
+    },
+    {
+      "id": "pending_relay_retention",
+      "bound_us": 5000000,
+      "expected": "FRESH_CHOSEN_LOCATOR_ONLY_BEFORE_BOUND;MISSING_HINT_WAITS;REPEATED_PENDING_DOES_NOT_REARM;CONCRETE_FAILURE_RELEASES_HOLD"
+    },
+    {
+      "id": "pending_native_both_profiles",
+      "profiles": [
+        50,
+        100
+      ],
+      "expected": "NO_OTHER_RELAY_REQUEST_DURING_ACQUISITION;ACTUAL_SAME_RELAY_RETRIES;ALTERNATIVE_AFTER_BOUND;ORIGINAL_QUIET_AND_STOP"
+    },
+    {
+      "id": "healthy_GM_stronger_RC",
+      "GM_RSSI": -65,
+      "RC_RSSI": -30,
+      "elapsed_seconds": 12,
+      "expected": "HOLD_GM;STALE_LOCATOR_WAITS_WITHOUT_CONNECTION"
+    },
+    {
+      "id": "GM_resynchronization",
+      "expected": "WITHDRAW_AUTHORITY;WAIT_UP_TO3S_FOR_PREVIOUS_GM_FRESH_LOCATOR;REPEATED_UNAVAILABLE_NO_REARM;RC_FALLBACK_AFTER_BOUND"
+    },
+    {
+      "id": "poor_GM",
+      "expected": "EXISTING_POOR_LINK_FAILOVER_ALLOWED;NO_INFINITE_GM_PIN"
+    },
+    {
+      "id": "locked_RC_current_root_return",
+      "expected": "PASSIVE1_5S_EVERY30S;KEEP_RC_MAP_UNTIL_FRESH_GM_AUTHENTICATES;IGNORE_OTHER_ROOTS;BLE50_QUIET_UNCHANGED"
+    },
+    {
+      "id": "parent_journal",
+      "expected": "ACTUAL_PARENT_BOOT_SOURCE_PATH_AND_WITHDRAWAL_ONLY;NO_EQUAL_RENEWAL_ENTRY;RAM8_OVERWRITE_WITH_GAP;NO_FLASH;MAX_WIDTH_LT768B"
+    },
+    {
+      "id": "same_current_root_cohort_hint",
+      "expected": "KEEP_EXISTING_DIRECT_GM_PARENT_MODEL_PA_AND_ORIGINAL_DEADLINES;3S_FRESH_ROOT_REOBSERVATION_ADVICE_ONLY;CHANGED_BOOT_SOURCE_OR_TRAIN_FENCES_AS_BEFORE"
+    }
+  ],
+  "qualification": "SYNTHETIC_POLICY_VECTORS;NOT_RF_OR_PRECISION",
+  "startup_revision": 2,
+  "startup_test_source": "tests/g1_startup_fixture.cpp",
+  "startup_regressions": [
+    {
+      "id": "GM_legacy_hint_300ms_before_3s",
+      "expected": "WAIT_FOR_FRESH_GM;NO_RELAY"
+    },
+    {
+      "id": "GM_recent_at_15s",
+      "GM_age_us": 300000,
+      "expected": "WAIT_UP_TO_2S_SINCE_HINT;NEVER_CONNECT_STALE_GM"
+    },
+    {
+      "id": "scanner_unowned_or_long_gap",
+      "expected": "NO_RELAY_FROM_ELAPSED_WALL_TIME_ALONE"
+    },
+    {
+      "id": "BLE50_phase_shift",
+      "expected": "15S_RELAY_DELAY_WITH_OWNED_SCAN;ORIGINAL_QUIET_AND_INITIATION_WINDOWS"
+    }
+  ],
+  "active_relay_preference_revision": 1,
+  "relay_selection_revision": 2,
+  "gm_hold_test_source": "tests/g1_gm_hold_test.cpp"
+}
