@@ -3,6 +3,7 @@
 #include "../legacy/m5stick_s3/td_chart.hpp"
 #include "../legacy/m5stick_s3/td_controls.hpp"
 #include "../legacy/m5stick_s3/td_health.hpp"
+#include "../legacy/m5stick_s3/td_relays.hpp"
 #include <cassert>
 #include <cstdio>
 #include <cstring>
@@ -10,6 +11,28 @@
 int main(int argc,char** argv){
  using namespace v12;TdModel model;
  static_assert(sticks3::PanelMadctl==0x08);
+ {TdModel h;
+  // Five relays formerly alternated four rows / one row at each 8s boundary.
+  for(unsigned i=1;i<=5;++i)h.seen(i,9,true,1,i%2,true,int8_t(-30-i*5),1,7500000);
+  h.peer(5).rssi=-10; // A raw spike must not outrank the displayed smoothed RSSI.
+  h.peer(3).signal.value=h.peer(2).signal.value; // Stable identity tie-break.
+  h.peer(4).signal={}; // Fresh advert, unknown signal sorts last.
+  sticks3::View view;view.td.enabled=true;view.page=2;view.td=h.view;
+  uint8_t before[sticks3::FrameBytes]{},after[sticks3::FrameBytes]{};
+  for(const uint64_t boundary:{8000000ULL,16000000ULL}){
+   for(auto& p:view.td.peers)if(p.id){p.seen_us=boundary-500000;if(p.signal.initialized)p.signal.seen_us=p.seen_us;}
+   view.td.now_us=boundary-1;const sticks3::TdRelayList list(view.td);
+   assert(list.count==4&&list.total==5&&list.rows[0]->id==1&&list.rows[1]->id==2&&list.rows[2]->id==3&&list.rows[3]->id==5);
+   sticks3::RenderAudit audit;sticks3::render(before,view,&audit);
+   ++view.td.now_us;sticks3::render(after,view,&audit);
+   assert(!std::memcmp(before,after,sizeof before)&&!audit.clipped_pixels&&!audit.text_overflow);
+  }
+  view.td.now_us=26000000;assert(sticks3::TdRelayList(view.td).count==0);
+  // Full capacity, fresh non-relays excluded, unknown and expired RSSI last.
+  for(unsigned i=6;i<=8;++i)h.seen(i,9,true,1,true,true,-40,1,8000000);
+  h.view.now_us=8000000;h.peer(8).relay=false;h.peer(7).signal.seen_us=18000000;
+  const sticks3::TdRelayList full(h.view);assert(full.total==7&&full.count==4&&full.rows[0]->id==1&&full.rows[3]->id==6);
+ }
  {TdModel h;h.seen(1,1,true,1,true,true,-50,1,1000000);h.update_chart(1000000);assert(h.view.chart_relay==1);
   h.seen(2,1,true,1,true,true,-48,1,2000000);h.update_chart(2000000);assert(h.view.chart_relay==1);
   for(uint64_t now=3000000;now<=32000000;now+=1000000){h.seen(1,1,true,1,true,true,-50,1,now);h.seen(2,1,true,1,true,true,-42,1,now);h.update_chart(now);assert(h.view.chart_relay==(now<31000000?1:2));}

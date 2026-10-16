@@ -9,7 +9,7 @@ disabled. Programmed TX estimates carry an unknown bound; actual TX capture,
 physical RF timing and output precision remain unqualified.
 
 The selected source is `56740553885420a7f6f301c12de10696a9c8d432`, V17 with a
-150 ms display-health hold. Public successor version 0.1.0 replaces private
+150 ms display-health hold. Public successor version 0.1.1 replaces private
 factory/name tables with explicit local binding and the shared display registry.
 These changes create new application bytes; they do not inherit the historical
 installed image's hardware observations.

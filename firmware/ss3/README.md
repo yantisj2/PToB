@@ -8,9 +8,12 @@ accuracy. [Image provenance](../../docs/images/README.md).*
 
 Copyright (c) 2026 Jonathan Yantis. MIT; inherited source notices apply.
 
-**PToB owns SS3 native G1/RC7 development.** Public successor version **0.1.0**
-selects source `56740553885420a7f6f301c12de10696a9c8d432`, the M5Stack StickS3
+**PToB owns SS3 native G1/RC7 development.** Public firmware version **0.1.1**
+builds on imported source `56740553885420a7f6f301c12de10696a9c8d432`, the M5Stack StickS3
 K150 V17 application with TD diagnostics and a 150 ms health-display hold.
+The Relay Test screen keeps the four strongest nearby relays visible, ordered
+by fresh smoothed RSSI with stable identity ties. It shows the displayed/nearby
+count; missing signal sorts last and expired observations leave the list.
 See the [standalone build guide](../../docs/ss3/build.md),
 [cutover record](../../docs/ss3/cutover.md),
 [explicit import provenance](imports/2026-10-16.json) and [notices](NOTICE.md).

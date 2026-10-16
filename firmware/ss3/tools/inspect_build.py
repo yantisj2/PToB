@@ -8,7 +8,7 @@ from build import sha,validate_inputs
 
 def inspect(out,allow_development=False):
  out=Path(out).resolve();r=json.loads((out/'receipt.json').read_text())
- if r.get('artifact_class')!='PTOB_SS3_RC' or r.get('profile')!='RC' or r.get('version')!='0.1.0':raise ValueError('Wrong artifact class/profile/version')
+ if r.get('artifact_class')!='PTOB_SS3_RC' or r.get('profile')!='RC' or r.get('version')!='0.1.1':raise ValueError('Wrong artifact class/profile/version')
  if not re.fullmatch('[0-9a-f]{40}',r.get('public_commit','')):raise ValueError('Exact source commit missing')
  if not 0<r.get('application_bytes',0)<=1048576 or r.get('listening_percent') != 100 or r.get('estimated_relay') is not True:raise ValueError('Profile or application bounds changed')
  source_hash=hashlib.sha256(json.dumps(r['sources'],sort_keys=True,separators=(',',':')).encode()).hexdigest()
@@ -25,7 +25,7 @@ def inspect(out,allow_development=False):
  for name,copy in [('ptob_device.h','ptob_device.h'),('ptob_registry.h','ptob_registry.h'),('r2-enrollment.h','r2_bench_enrollment.h')]:
   if (inputs/name).read_bytes()!=(target/'esp-idf/main'/copy).read_bytes():raise ValueError('Compiler local input copy mismatch: '+name)
  identity=json.loads((target/'v12_build_identity.json').read_text())
- fields=[r['public_commit'],sha(target/'sdkconfig'),r['dependencies']['esp_idf']['controller_sha256'],sha(inputs/'r2-enrollment.h'),sha(inputs/'ptob_device.h'),sha(inputs/'ptob_registry.h'),str(r['listening_percent']),'ON' if r['estimated_relay'] else 'OFF','PTOB_SS3_0.1.0']
+ fields=[r['public_commit'],sha(target/'sdkconfig'),r['dependencies']['esp_idf']['controller_sha256'],sha(inputs/'r2-enrollment.h'),sha(inputs/'ptob_device.h'),sha(inputs/'ptob_registry.h'),str(r['listening_percent']),'ON' if r['estimated_relay'] else 'OFF','PTOB_SS3_0.1.1']
  binding=hashlib.sha256('|'.join(fields).encode()).hexdigest()
  if binding!=identity['build_id'] or identity!=r['runtime_identity']:raise ValueError('Runtime identity does not bind actual retained configuration/headers')
  if sha(out/r['application'])!=r['application_sha256'] or (out/r['application']).stat().st_size!=r['application_bytes']:raise ValueError('Application identity mismatch')

@@ -7,6 +7,7 @@
 #include "../legacy/m5stick_s3/dirty_rect.hpp"
 #include "../legacy/m5stick_s3/td_controls.hpp"
 #include "../legacy/m5stick_s3/td_health.hpp"
+#include "../legacy/m5stick_s3/td_relays.hpp"
 #include "driver/gpio.h"
 #include "driver/i2c_master.h"
 #include "driver/spi_master.h"
@@ -164,6 +165,11 @@ void sticks3::present_native(const DisplayState& s,const v12::R2Status& m,uint64
 }
 void sticks3::display_status(){
  const auto d=v12::r2_td_status();const auto memory=v12::r2_td_memory();
+ const TdRelayList relays(d);
+ std::printf("SS3_RELAY_LIST visible=%u nearby=%u order=SMOOTHED_RSSI_DESC_ID_ASC pagination=NONE freshness_us=10000000\n",relays.count,relays.total);
+ for(unsigned i=0;i<relays.count;++i){const auto& p=*relays.rows[i];
+  std::printf("SS3_RELAY_ROW rank=%u id=%016llx RSSI=%d\n",i+1,(unsigned long long)p.id,int(p.signal.fresh(d.now_us)?p.signal.value:127));
+ }
  const char* charts[]={"JITTER","LOSS","RSSI"};const auto chart=ui_storage?ui_storage->constructed.view.td_chart:0;const auto page=ui_storage?ui_storage->constructed.view.page:0;
  std::printf("SS3_CHART metric=%s page=%u selected_GM=%016llx selected_relay=%016llx plot_GM=%016llx plot_relay=%016llx switches=%lu dwell_us=30000000 sustain_us=15000000 lost_grace_us=20000000 hold=LAST_DASHED madctl=08 header=BLUE mode_hold=SCREEN1_ONLY\n",charts[chart%3],unsigned(page),(unsigned long long)d.chart_gm,(unsigned long long)d.chart_relay,(unsigned long long)d.plot_gm,(unsigned long long)d.plot_relay,(unsigned long)d.chart_switches);
  for(unsigned kind=0;kind<2;kind++){

@@ -3,6 +3,7 @@
 #include "font.hpp"
 #include "td_chart.hpp"
 #include "td_health.hpp"
+#include "td_relays.hpp"
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
@@ -301,23 +302,24 @@ void td_paint(Canvas &c, const View &s) {
     c.text(9,205,"DASH LAST / GAP --",1,Dim);
     c.text(9,219,metric?"OBSERVED / SAMPLED":"0 FLOOR 1ns / NO UTC",1,Amber);
   } else if (s.page == 2) {
-    const auto *nearest = td_best(d, true, true);
+    const TdRelayList relays(d);
+    const auto *nearest = relays.rows[0];
     td_name(name, sizeof name, d.request ? d.request_target : nearest ? nearest->id : 0);
-    c.text(9, 59, "NEAREST BY RSSI", 1, Dim);
+    c.text(9, 59, d.request ? "REQUESTED RELAY" : "NEAREST BY RSSI", 1, Dim);
     c.text(9, 74, name, 2, White);
-    if (nearest && nearest->signal.fresh(d.now_us))
-      std::snprintf(v, sizeof v, "%d dBm / HOP %u", int(nearest->signal.value), unsigned(nearest->depth));
+    const auto* featured = nearest;
+    if (d.request) {
+      featured = nullptr;
+      for (const auto& p : d.peers)
+        if (p.id == d.request_target && v12::TdModel::fresh(p, d.now_us)) featured = &p;
+    }
+    if (featured && featured->signal.fresh(d.now_us))
+      std::snprintf(v, sizeof v, "%d dBm / HOP %u", int(featured->signal.value), unsigned(featured->depth));
     else
       std::snprintf(v, sizeof v, "NO FRESH RELAY");
     c.text(9, 95, v, 1, Amber);
-    unsigned row = 0, total_relays = 0;
-    for (const auto &p : d.peers)
-      if (p.relay && v12::TdModel::fresh(p, d.now_us))
-        ++total_relays;
-    const unsigned offset = total_relays > 4 ? unsigned(d.now_us / 8000000 % 2) * 4 : 0;
-    unsigned seen = 0;
-    for (const auto &p : d.peers)
-      if (p.relay && v12::TdModel::fresh(p, d.now_us) && seen++ >= offset && row < 4) {
+    for (unsigned row = 0; row < relays.count; ++row) {
+        const auto& p = *relays.rows[row];
         td_name(name, sizeof name, p.id);
         char stream[4] = "-";
         if (p.publishing) {
@@ -330,12 +332,13 @@ void td_paint(Canvas &c, const View &s) {
           std::snprintf(v, sizeof v, "%-6s  -- H%u %s", name, unsigned(p.depth), stream);
         else
           std::snprintf(v, sizeof v, "%-6s %d H%u %s", name, int(p.signal.value), unsigned(p.depth), stream);
-        c.text(9, 117 + row++ * 16, v, 1, White);
+        c.text(9, 117 + row * 16, v, 1, White);
       }
-    if (!row)
+    if (!relays.count)
       c.text(9, 127, "NO RELAY ADVERTS", 1, Dim);
     c.text(9, 186, "HOLD 1.5s: REQ ON/OFF", 1, d.request ? Amber : Cyan);
-    c.text(9, 202, "T = STREAM ADVERTISED", 1, Dim);
+    std::snprintf(v, sizeof v, "TOP %u/%u RSSI T:STREAM", relays.count, relays.total);
+    c.text(9, 202, v, 1, Dim);
     c.text(9, 218, "OFF: LEASE MAX 5s", 1, Dim);
   } else if (s.page == 3) {
     uint64_t matched = 0, gaps = 0, rejects = 0, channels = 0;
