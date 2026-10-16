@@ -1,7 +1,7 @@
 #include "health_fake.h"
 #include "../src/health.c"
 #include <assert.h>
-static int r2_console_reply(const char *s,size_t n,uint64_t expiry){
+static int r2_console_note(const char *s,size_t n,uint64_t expiry){
  assert(!irq_depth);assert(n<sizeof sent);assert(expiry==clock_ms+250);
  memcpy(sent,s,n);sent[n]=0;++sends;return -ENOBUFS;
 }
@@ -36,6 +36,9 @@ int main(void){
  r2_health_operation(99,99,99);assert(operations[0].op==R2_HEALTH_WRITE);
  r2_health_console();assert(sends==1&&strstr(sent,"\"main\":[1,65000]")&&strstr(sent,"\"flash\":[2,"));
  r2_health_console();assert(sends==1);clock_ms+=1000;dtr=false;r2_health_console();assert(sends==1);
+#if !defined(R2_WATCHDOG)
+ dtr=true;clock_ms+=1000;r2_health_console();assert(sends==1);dtr=false;
+#endif
  struct arch_esf esf={.basic={0x123456,0x654321,0x21000000}};
  scb.CFSR=0x10;
  latency[7]=UINT32_MAX;latency[8]=UINT32_MAX;

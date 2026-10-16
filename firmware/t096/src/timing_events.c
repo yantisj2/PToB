@@ -67,19 +67,26 @@ void r2_timing_console(uint64_t boot,uint64_t now)
  int n=format(line+11,sizeof line-13,boot,stream_cursor,&sequence);
  if(n<=0||!sequence)return;
  memcpy(line,"#R2_TIMING ",11);line[11+n]='\n';
- /* Dedicated low-priority notes allow 512 bytes; console still reserves no
-  * queue slot unless idle. Failure retains this cursor for the next poll. */
+ /* Small low-priority notes reserve no queue slot unless idle. Failure
+  * retains this cursor for the next poll. */
  if(!r2_console_note(line,(size_t)n+12,now+150))stream_cursor=sequence;
 }
 void r2_timing_sample(const struct r2_service_status *s,uint64_t now)
 {
  static bool seen;static uint32_t previous,epoch;static int error;
+ static uint32_t hot_refusal,hot_withdrawals;
  static uint64_t peer,root_boot,heartbeat;
  uint32_t flags=s->active|(s->profile_rc<<1)|(s->relay.sync_active<<2)|
   (s->relay.sync_creating<<3)|(s->precision.map_valid<<4)|(s->precision.locked<<5)|
   (s->precision.authorized<<6)|(s->serving<<7)|(s->follower<<8)|
-  (s->closing<<9)|(s->profile_pending<<10)|(s->relay.phase_acquiring<<11);
+  (s->closing<<9)|(s->profile_pending<<10)|(s->relay.phase_acquiring<<11)|
+  (s->hot_ready<<12)|(s->source_eligible<<13)|(s->standby_authorized<<14)|
+  (s->takeover_pending<<15)|(s->gm_capable<<16);
  uint64_t selected=s->profile_rc?s->identities[0]:s->root<4?s->identities[s->root]:0;
+ if(!s->profile_rc&&(!seen||hot_refusal!=s->hot_refusal||hot_withdrawals!=s->hot_withdrawals)){
+  r2_timing_event(R2_TIMING_HOT,(int)s->hot_withdrawal_reason,selected,s->hot_refusal,s->hello_width_us,s->hot_withdrawals);
+  hot_refusal=s->hot_refusal;hot_withdrawals=s->hot_withdrawals;
+ }
  if(!seen||selected!=peer||s->root_boot!=root_boot||s->source_epoch!=epoch){
   r2_timing_event(R2_TIMING_SCOPE,0,selected,s->source_epoch,(uint32_t)s->root_boot,(uint32_t)(s->root_boot>>32));
   peer=selected;root_boot=s->root_boot;epoch=s->source_epoch;

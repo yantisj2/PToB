@@ -36,7 +36,7 @@ static pthread_cond_t copy_condition=PTHREAD_COND_INITIALIZER;
 static bool copy_started,copy_release;
 static atomic_int main_reply_result;
 static atomic_bool main_reply_entered;
-static void *health_producer(void *unused){assert(!r2_console_reply("health",6,100));return NULL;}
+static void *health_producer(void *unused){assert(!r2_console_note("health",6,100));return NULL;}
 static void *main_producer(void *unused){atomic_store(&main_reply_entered,true);atomic_store(&main_reply_result,r2_console_reply("reply",5,100));return NULL;}
 
 static void *copy_with_interruption(void *dst,const void *src,size_t n){
@@ -76,6 +76,14 @@ int main(void) {
  reset();assert(!r2_console_reply("abc",3,100));assert(!r2_console_reply("def",3,100));
  assert(r2_console_reply("ghi",3,100)==-ENOBUFS && stats.tx_drops==1);
  now=100;tx_enabled=true;interrupt(cdc,NULL);assert(count==0 && stats.tx_expired==2 && !output_size);
+ reset();char note[1537];memset(note,'n',sizeof note);
+ assert(r2_console_note(note,sizeof note,100)==-EMSGSIZE);
+ assert(!r2_console_note(note,sizeof note-1,100));
+ assert(r2_console_note("health",6,100)==-EAGAIN&&count==1);
+ assert(!r2_console_reply("reply",5,100)&&count==2&&!stats.tx_drops);
+ assert(r2_console_note("watchdog",8,100)==-EAGAIN&&!stats.tx_drops);
+ tx_enabled=true;while(count)interrupt(cdc,NULL);
+ assert(output_size==1541&&!memcmp(output+1536,"reply",5));
  reset();stats.dtr=false;assert(!r2_console_reply("abc",3,100));tx_enabled=true;
  interrupt(cdc,NULL);assert(count==1 && !output_size && !tx_enabled);
  reset();receive("status\n",7);struct r2_command cmd;assert(r2_console_get(&cmd) && !strcmp(cmd.text,"status") && cmd.arrival==10);

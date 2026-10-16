@@ -37,7 +37,7 @@ static uint32_t k_uptime_get_32(void){return (uint32_t)clock_ms;}
 static void *k_current_get(void){return (void *)(uintptr_t)0x20001000;}
 static int k_thread_stack_space_get(void *t,size_t *n){*n=512;return 0;}
 static void r2_console_snapshot(struct r2_io *io){*io=(struct r2_io){dtr,0,0};}
-static int r2_console_reply(const char *s,size_t n,uint64_t expiry);
+static int r2_console_note(const char *s,size_t n,uint64_t expiry);
 static void k_fatal_halt(unsigned reason){longjmp(fatal_exit,1);}
 
 uint32_t r2_diag_stack_unused(void){return 1024;}

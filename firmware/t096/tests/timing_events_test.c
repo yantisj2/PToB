@@ -44,6 +44,12 @@ int main(void){
  s.precision.locked=false;r2_timing_sample(&s,(uint64_t)fake_ms+1);assert(produced==before+2);
  s.precision.locked=true;r2_timing_sample(&s,(uint64_t)fake_ms+2);assert(produced==before+3);
  s.root_boot=8;r2_timing_sample(&s,(uint64_t)fake_ms+3);assert(produced==before+4);
+ s.profile_rc=false;s.gm_capable=s.hot_ready=true;s.hot_refusal=7;
+ before=produced;r2_timing_sample(&s,(uint64_t)fake_ms+4);assert(produced==before+2);
+ assert(records[(produced-2)%32].kind==R2_TIMING_HOT);
+ s.hot_ready=false;s.hot_withdrawals=1;s.hot_withdrawal_reason=3;
+ before=produced;r2_timing_sample(&s,(uint64_t)fake_ms+5);assert(produced==before+2);
+ assert(records[(produced-2)%32].result==3&&records[(produced-2)%32].b==1);
  /* Do not alias a new record to an old cursor after sequence exhaustion. */
  produced=UINT32_MAX;r2_timing_event(1,INT_MIN,UINT64_MAX,UINT32_MAX,UINT32_MAX,UINT32_MAX);assert(produced==UINT32_MAX&&exhausted==1);
  assert(r2_timing_json(json,sizeof json,UINT64_MAX,UINT32_MAX)>0&&strstr(json,"\"exhausted\":1"));

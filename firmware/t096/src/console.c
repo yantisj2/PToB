@@ -162,7 +162,7 @@ int r2_console_reply(const char *bytes,size_t size,uint64_t expiry)
 int r2_console_note(const char *bytes,size_t size,uint64_t expiry)
 {
   if(k_is_in_isr())return -EWOULDBLOCK;
-  if(!size||size>512)return -EMSGSIZE;
+  if(!size||size>1536)return -EMSGSIZE;
   if(k_mutex_lock(&reply_producer,K_NO_WAIT))return -EAGAIN;
   k_spinlock_key_t key=k_spin_lock(&lock);
   if(!stats.dtr||count||reply_copying||(uint64_t)k_uptime_get()>=expiry){

@@ -305,7 +305,7 @@ static void hot_report(const struct r2_service_status *s,const struct r2_clock *
     s->admission_ms,s->membership_mask,s->root,s->coordinator,s->hot_ready,s->hot_refusal,
     s->hello_width_us,s->hello_map_refusals,io.note_drops);
   if(n>0&&(size_t)n<sizeof note&&!r2_console_note(note,(size_t)n,now+150)){
-    next=now+20000;changed_after=now+5000;previous=signature;
+    next=now+60000;changed_after=now+5000;previous=signature;
   }else next=now+1000;
 }
 #endif

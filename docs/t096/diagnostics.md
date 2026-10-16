@@ -7,6 +7,18 @@ versions expose `network`, `precision`, `rc-parent`, `clock`, `join`, health and
 watchdog snapshots, but do not retain a complete sequence of sync transitions.
 Fixture `printk` traces are not the USB console in ordinary builds.
 
+Version 0.15.57 quiets routine output. Health and watchdog records appear at
+most once per minute while unchanged; fault/counter/retry changes remain prompt.
+Empty fault capsules are omitted; nonempty retained capsules stay available in
+the sparse reports. HOT reports keep state/blocker
+changes and a one-minute heartbeat. Full host snapshots default to every 30
+seconds, with event cursor polling every five seconds and continuous serial
+draining. These settings reduce observer load without suppressing transition
+or failure records. Health and watchdog output uses the idle-only diagnostic
+path, so it cannot enqueue another record behind an outstanding command reply.
+The two-slot queue and 3072-byte command capacity are unchanged. Diagnostic
+notes allow up to 1536 bytes to retain real fault capsules.
+
 ## Events and interpretation
 
 The journal holds the newest 32 events (1,280 bytes of records). It survives
@@ -45,10 +57,12 @@ transport integrity, not authenticity or timing accuracy.
 | 15 | First owner fault | CRC32 of source reason string / reserved / reserved |
 | 16 / 17 / 18 | GM connected / disconnected / MTU error | slot and flags / incarnation / reserved |
 | 19 / 20 | Held map expired / accepted discipline resumed | count / discipline gap us / reserved |
+| 21 | HOT blocker/withdrawal changed; result is withdrawal reason | blockers / hello width us / withdrawal count |
 
 State flag bits, starting at zero: active, RC profile, established PA sync,
 creating PA sync, map valid, locked, authorized, serving GM, follower, closing,
-profile change pending, phase acquisition. A locked state is a software
+profile change pending, phase acquisition, HOT ready, source eligible, standby
+authorized, takeover pending, GM capable. A locked state is a software
 indication. GM health uses source eligibility, publication and capture progress;
 the RC lock bit is not a GM health criterion.
 
@@ -87,8 +101,9 @@ python3 firmware/t096/tools/console_capture.py \
 
 Repeat `--unit` to capture a known cohort concurrently. This issues only status,
 network, precision, parent-status, clock, join and event queries. It performs a
-fresh USB identity/ownership scan before each query while draining serial on its
-owning thread. It takes the unit lock and exclusive descriptor ownership, refuses
+fresh USB identity/ownership scan on entry and every five seconds while draining
+serial on its owning thread. Between scans it retains the same exclusive FD and
+verifies every reply's source and boot. It takes the unit lock, refuses
 an existing client and ends its segment on disconnect, identity/boot mismatch or
 three unanswered queries. It never stops another process. Original maintenance
 and update guards remain necessary for flashing.
@@ -145,6 +160,7 @@ Offline regressions:
 ```sh
 python3 -m unittest discover -s firmware/t096/tests -p 'test_console_capture.py' -v
 CC=clang python3 firmware/t096/tools/rc_selection_tests.py --out artifacts/selection-check-01
+CC=clang python3 firmware/t096/tools/health_tests.py --out artifacts/health-check-01
 python3 firmware/t096/tools/test.py --deps artifacts/deps
 ```
 
@@ -153,3 +169,12 @@ does not impose an acquisition timeout. The application's bounded acquisition
 and [supervision timeout](https://docs.zephyrproject.org/latest/doxygen/html/structbt__le__per__adv__sync__param.html)
 are separate controls. A passing host test or build does not qualify long-term
 hardware reliability.
+
+Stability is the prerequisite for timing-performance metrology. Before treating
+a long run as a metrology candidate, account for every reboot, unintended root
+change, HOT withdrawal, admission/renewal failure, held-map expiry, sync outage,
+recovery interval and logger gap. Distinguish planned installation interruptions
+from spontaneous faults. Retain counts and observation time, outage duration
+distributions, recovery outcomes, and periods without a usable HOT alternative.
+An unfinished or interrupted soak is not a clean stability pass; an apparently
+stable software map does not establish independently measured output precision.

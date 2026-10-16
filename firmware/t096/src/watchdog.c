@@ -201,16 +201,25 @@ int r2_watchdog_bootloader(uint64_t original_deadline_ms)
 }
 void r2_watchdog_console(char *line,size_t capacity)
 {
+ static bool reported;
+ static uint32_t signature;
+ static uint64_t report_due;
+ uint64_t now=(uint64_t)k_uptime_get();
+ uint32_t current=(unsigned)atomic_get(&intent)|((unsigned)atomic_get(&report_rc)<<1)|
+  ((unsigned)atomic_get(&retries)<<8)|((unsigned)atomic_get(&reset_reason)<<16);
+ if(reported&&current==signature&&now<report_due)return;
  int n=snprintf(line,capacity,"R2_WATCHDOG {\"parent_ms\":%u,\"gm_ms\":%u,\"rc_ms\":%u,\"enabled\":%u,\"profile_rc\":%u,\"retries\":%u,\"silent_ms\":%u,\"reset_reason\":%u,\"reset_flags\":%u,\"last_reset\":%u,\"previous\":[",
   WD_PARENT_MS,R2_WD_GM_MS,R2_WD_RC_MS,(unsigned)atomic_get(&intent),(unsigned)atomic_get(&report_rc),
   (unsigned)atomic_get(&retries),(uint32_t)(k_uptime_get_32()-(uint32_t)atomic_get(&silent_since)),(unsigned)atomic_get(&reset_reason),reset_flags,reset_kind);
  if(n<0||(size_t)n>=capacity)return;
- for(unsigned i=0;i<WD_WORDS;i++){
+ for(unsigned i=0;previous[0]==WD_MAGIC&&i<WD_WORDS;i++){
   int added=snprintf(line+n,capacity-(size_t)n,"%s%u",i?",":"",previous[i]);
   if(added<0||(size_t)added>=capacity-(size_t)n)return;
   n+=added;
  }
  if((size_t)n+4>=capacity)return;
  memcpy(line+n,"]}\n",3);n+=3;
- (void)r2_console_reply(line,(size_t)n,k_uptime_get()+250);
+ if(!r2_console_note(line,(size_t)n,now+250)){
+  signature=current;reported=true;report_due=now+60000;
+ }
 }

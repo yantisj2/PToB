@@ -35,7 +35,7 @@ static int wdt_setup(const struct device *d,uint8_t options){assert(!options);se
 static int wdt_feed(const struct device *d,int channel){assert(!channel);feeds++;return 0;}
 static int hwinfo_clear_reset_cause(void){return 0;}
 static int r2_bootloader_request(void);
-static int r2_console_reply(const char *,size_t,uint64_t);
+static int r2_console_note(const char *,size_t,uint64_t);
 static jmp_buf maintenance_exit;
 static void test_sleep(int n){assert(n==125);longjmp(maintenance_exit,1);}
 #define k_sleep test_sleep
@@ -43,8 +43,9 @@ static void test_sleep(int n){assert(n==125);longjmp(maintenance_exit,1);}
 #undef k_sleep
 static int r2_bootloader_request(void){boot_requests++;return -EIO;}
 static char sent[768];
-static int r2_console_reply(const char *s,size_t n,uint64_t expiry)
-{assert(n<sizeof sent&&expiry==fake_ms+250);memcpy(sent,s,n);sent[n]=0;return 0;}
+static unsigned console_reports;
+static int r2_console_note(const char *s,size_t n,uint64_t expiry)
+{assert(n<sizeof sent&&expiry==fake_ms+250);memcpy(sent,s,n);sent[n]=0;++console_reports;return 0;}
 static struct r2_identity id={.silicon="1000000000000001",.boot=1234};
 static void clear_runtime(void)
 {
@@ -168,6 +169,9 @@ int main(void)
  r2_watchdog_fatal(2);assert(!watchdog_step(10)&&reset_reason==WD_FATAL+2&&previous_bound(&id));
  id.reset_cause=RESET_WATCHDOG;clear_runtime();assert(!r2_watchdog_boot(&id));
  char output[768];assert(r2_watchdog_restore_rc(&mode));r2_watchdog_console(output,sizeof output);assert(strstr(sent,"\"parent_ms\":1000"));
+ unsigned reports=console_reports;r2_watchdog_console(output,sizeof output);assert(console_reports==reports);
+ fake_ms+=60000;r2_watchdog_console(output,sizeof output);assert(console_reports==reports+1&&!strstr(sent,"\"previous\":[]"));
+ atomic_set(&retries,1);r2_watchdog_console(output,sizeof output);assert(console_reports==reports+2);
  assert(r2_watchdog_reset_kind()==R2_UI_RESET_WD_FAULT);
  /* Torn capsule and wrong silicon/source cannot restore a profile. */
  capsule(WD_NO_SYNC);r2_watchdog_capsule[20]^=1;clear_runtime();assert(!r2_watchdog_boot(&id)&&!r2_watchdog_restore_rc(&mode));

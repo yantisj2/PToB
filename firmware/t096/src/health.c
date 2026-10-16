@@ -61,6 +61,9 @@ static uint32_t beats,beat_ms;
 struct operation { uint32_t op; int32_t result; uint32_t ms; };
 static struct operation operations[R2_HEALTH_LANES];
 static uint64_t report_due;
+static uint64_t detail_due;
+static uint32_t reported_drops,reported_expired;
+static int reported_flash_error,reported_pa_error;
 #if defined(R2_WATCHDOG)
 static bool watchdog_report_due;
 #endif
@@ -79,7 +82,7 @@ void r2_health_init(uint64_t boot)
  if(r2_fault_capsule[0]==FAULT_MAGIC&&r2_fault_capsule[1]==2&&
     r2_fault_capsule[FAULT_WORDS-1]==crc(r2_fault_capsule))
   for(unsigned i=0;i<FAULT_WORDS;i++)previous[i]=r2_fault_capsule[i];
- r2_fault_capsule[0]=0;boot_id=boot;timing_setup();
+ r2_fault_capsule[0]=0;boot_id=boot;timing_setup();detail_due=0;
 }
 void r2_health_beat(void)
 {
@@ -95,8 +98,8 @@ void r2_health_console(void)
  uint64_t now=k_uptime_get();if(now<report_due)return;report_due=now+1000;
  struct r2_io io;r2_console_snapshot(&io);if(!io.dtr)return;
 #if defined(R2_WATCHDOG)
- /* Keep the original one unsolicited record per second. Two back-to-back
-  * records occupy both bounded TX slots and can reject a command reply. */
+ /* Alternate health/watchdog opportunities. Both are now idle-only notes;
+  * neither can queue a second diagnostic behind a command response. */
  if(watchdog_report_due){watchdog_report_due=false;r2_watchdog_console(line,sizeof line);return;}
  watchdog_report_due=true;
 #endif
@@ -104,6 +107,15 @@ void r2_health_console(void)
  struct operation flash=operations[0],pa=operations[1];uint32_t masked[9];
  for(unsigned i=0;i<9;i++)masked[i]=latency[i];
  irq_unlock(key);
+ /* Keep fault/counter changes promptly, without printing a full healthy
+  * capsule every other second. The fixed state/event journal remains live. */
+ int flash_error=flash.result<0&&flash.result!=-EINPROGRESS?flash.result:0;
+ int pa_error=pa.result<0&&pa.result!=-EINPROGRESS?pa.result:0;
+ bool changed=io.tx_drops!=reported_drops||io.tx_expired!=reported_expired||
+  flash_error!=reported_flash_error||pa_error!=reported_pa_error;
+ if(!changed&&now<detail_due)return;
+ detail_due=now+60000;reported_drops=io.tx_drops;reported_expired=io.tx_expired;
+ reported_flash_error=flash_error;reported_pa_error=pa_error;
  size_t unused=0;int stack_rc=k_thread_stack_space_get(k_current_get(),&unused);
  int n=snprintf(line,sizeof line,
   "R2_HEALTH {\"source\":\"%s\",\"boot\":\"%016llx\",\"ms\":%llu,\"main\":[%u,%u],\"flash\":[%u,%d,%u],\"pa\":[%u,%d,%u],\"console_free\":%u,\"diag_free\":%u,\"tx_drops\":%u,\"tx_expired\":%u,\"irq_mask\":[%u,%u,%u,%u,%u,%u,%u,%u,%u],\"previous_fault\":[",
@@ -112,14 +124,14 @@ void r2_health_console(void)
   (unsigned)(stack_rc?UINT32_MAX:unused),r2_diag_stack_unused(),io.tx_drops,io.tx_expired,
   masked[0],masked[1],masked[2],masked[3],masked[4],masked[5],masked[6],masked[7],masked[8]);
  if(n<0||(size_t)n>=sizeof line)return;
- for(unsigned i=0;i<FAULT_WORDS;i++){
+ for(unsigned i=0;previous[0]==FAULT_MAGIC&&i<FAULT_WORDS;i++){
   int added=snprintf(line+n,sizeof line-(size_t)n,"%s%u",i?",":"",previous[i]);
   if(added<0||(size_t)added>=sizeof line-(size_t)n)return;
   n+=added;
  }
  if((size_t)n+4>=sizeof line)return;
  memcpy(line+n,"]}\n",3);n+=3;
- (void)r2_console_reply(line,(size_t)n,now+250);
+ (void)r2_console_note(line,(size_t)n,now+250);
 }
 static bool stack_window_valid(uintptr_t start,size_t size,uintptr_t sp)
 {

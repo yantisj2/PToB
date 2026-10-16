@@ -86,7 +86,8 @@ class Rotating:
 
 def resolve(serial, expected_pid=None):
     """Fresh exact serial to callout mapping and numeric descriptor ownership."""
-    tree = subprocess.check_output(['/usr/sbin/ioreg', '-r', '-c', 'IOUSBHostDevice', '-l', '-w', '0'], text=True, timeout=3)
+    deadline=time.monotonic()+8
+    tree = subprocess.check_output(['/usr/sbin/ioreg', '-r', '-c', 'IOUSBHostDevice', '-l', '-w', '0'], text=True, timeout=8)
     ports = set()
     for block in re.split(r'(?=^\+-o )', tree, flags=re.M):
         serials = re.findall(r'"(?:USB Serial Number|kUSBSerialNumberString)" = "([^"]+)"', block)
@@ -95,7 +96,9 @@ def resolve(serial, expected_pid=None):
     if len(ports) != 1:
         raise OSError('USB serial mapping missing or ambiguous')
     port = ports.pop()
-    owner = subprocess.run(['/usr/sbin/lsof', '-nPlX', '-Fp', port], text=True, capture_output=True, timeout=3)
+    remaining=deadline-time.monotonic()
+    if remaining<=0:raise TimeoutError('identity scan deadline')
+    owner = subprocess.run(['/usr/sbin/lsof', '-nPlX', '-Fp', port], text=True, capture_output=True, timeout=remaining)
     if owner.stderr.strip():
         raise OSError('console ownership unknown')
     pids = set(re.findall(r'^p(\d+)$', owner.stdout, flags=re.M))
@@ -123,7 +126,7 @@ def validate_config(devices):
         raise ValueError('duplicate USB identity')
 
 
-def capture(unit, config, out, seconds, rotate_bytes, stop=None):
+def capture(unit, config, out, seconds, rotate_bytes, stop=None, snapshot_interval=30):
     folder = out / unit
     folder.mkdir(mode=0o700)
     raw, journal = [Rotating(folder, suffix, rotate_bytes) for suffix in ['raw', 'jsonl']]
@@ -140,6 +143,7 @@ def capture(unit, config, out, seconds, rotate_bytes, stop=None):
     # Match the deployed tools' millisecond seed; exhaustion ends the segment.
     request = int(time.time() * 1000) & 0xffffffff
     timeout_streak = 0
+    identity_at = 0
 
     def record(kind, **values):
         journal.write((json.dumps(dict(utc=datetime.datetime.now(datetime.timezone.utc).isoformat(),
@@ -174,6 +178,7 @@ def capture(unit, config, out, seconds, rotate_bytes, stop=None):
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as scanner:
         def fresh(opened):
+            nonlocal identity_at
             future = scanner.submit(resolve, config['usb_serial'], os.getpid() if opened else None)
             while not future.done():
                 if time.monotonic() >= deadline:
@@ -185,6 +190,7 @@ def capture(unit, config, out, seconds, rotate_bytes, stop=None):
             port = future.result()
             if opened and port != state['port']:
                 raise OSError('USB mapping changed')
+            identity_at=time.monotonic()
             return port
 
         def query(op):
@@ -192,7 +198,9 @@ def capture(unit, config, out, seconds, rotate_bytes, stop=None):
             # Exact allowlist: these variants never alter service/profile/parent.
             if op not in ('status', 'clock', 'precision', 'network', 'join', 'rc-parent') and not re.fullmatch(r'events [0-9a-f]{8}', op):
                 raise ValueError('non-read-only query refused')
-            fresh(True)
+            # Keep the same exclusive FD and unit lock. Responses stay bound
+            # to source/boot; refresh OS identity/ownership every five seconds.
+            if not boot or time.monotonic()-identity_at>=5:fresh(True)
             request += 1
             if request > 0xffffffff:
                 raise OverflowError('request exhausted')
@@ -201,7 +209,7 @@ def capture(unit, config, out, seconds, rotate_bytes, stop=None):
             if os.write(fd, command) != len(command):
                 raise OSError('partial command write')
             state['queries'] += 1
-            record('query', request=request, op=op)
+            record('query', request=request, op=op,command=command.decode().strip())
             until = min(deadline, time.monotonic() + 2.5)
             while time.monotonic() < until:
                 pump()
@@ -238,17 +246,22 @@ def capture(unit, config, out, seconds, rotate_bytes, stop=None):
             attrs[4] = attrs[5] = termios.B115200
             termios.tcsetattr(fd, termios.TCSANOW, attrs)
             first = query('status')
+            while first is None and time.monotonic()<deadline-7:
+                first=query('status')
             if first is None:
                 raise TimeoutError('no fresh bound status')
             state.update(boot=f'{boot:016x}', first=first)
             version = tuple(map(int, first['version'].split('.')))
             cursor = 0
+            snapshots_due=events_due=0
             while time.monotonic() < deadline - 7:
-                for op in ['network', 'precision', 'rc-parent', 'clock', 'join']:
-                    if time.monotonic() >= deadline - 7:
-                        break
-                    query(op)
-                if version >= (0, 15, 56):
+                now=time.monotonic()
+                if now>=snapshots_due:
+                    for op in ['network', 'precision', 'rc-parent', 'clock', 'join']:
+                        if time.monotonic() >= deadline - 7:break
+                        query(op)
+                    snapshots_due=now+snapshot_interval
+                if version >= (0, 15, 56) and now>=events_due:
                     for _ in range(32):
                         if time.monotonic() >= deadline - 7:
                             break
@@ -260,8 +273,9 @@ def capture(unit, config, out, seconds, rotate_bytes, stop=None):
                             raise ValueError('event cursor did not advance')
                         state['missing_events'] += event['missed']
                         cursor = sequence
+                    events_due=time.monotonic()+5
                 # Drain continuously between bounded polls; never sleep holding unread USB.
-                until = min(deadline, time.monotonic() + 1)
+                until = min(deadline, time.monotonic() + .2)
                 while time.monotonic() < until:
                     pump()
             while time.monotonic() < deadline:
@@ -305,8 +319,9 @@ def main():
     p.add_argument('--out', required=True, type=Path)
     p.add_argument('--duration', type=int, default=3600)
     p.add_argument('--rotate-bytes', type=int, default=16*1024*1024)
+    p.add_argument('--snapshot-interval',type=int,default=30)
     a = p.parse_args()
-    if not 15 <= a.duration <= 14*86400 or a.rotate_bytes < 8192:
+    if not 15 <= a.duration <= 14*86400 or a.rotate_bytes < 8192 or not 5<=a.snapshot_interval<=3600:
         p.error('duration must be 15s..14d and rotation at least 8192 bytes')
     config_bytes = a.config.read_bytes()
     devices = json.loads(config_bytes)['devices']
@@ -320,10 +335,11 @@ def main():
     os.umask(0o077)
     out.mkdir(parents=True, exist_ok=False, mode=0o700)
     (out / 'run.json').write_text(json.dumps(dict(config_sha256=hashlib.sha256(config_bytes).hexdigest(), units=a.unit,
-          duration_s=a.duration, rotate_bytes=a.rotate_bytes, UTC_accuracy='UNKNOWN',
+          duration_s=a.duration, rotate_bytes=a.rotate_bytes,snapshot_interval_s=a.snapshot_interval,
+          identity_interval_s=5,event_poll_interval_s=5,UTC_accuracy='UNKNOWN',
           collection='READ_ONLY_SOFTWARE_DIAGNOSTICS', cross_device_clock='HOST_RECEIVE_TIME_ONLY'), indent=2)+'\n')
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(a.unit)) as workers:
-        jobs = [workers.submit(capture, u, devices[u], out, a.duration, a.rotate_bytes) for u in a.unit]
+        jobs = [workers.submit(capture, u, devices[u], out, a.duration, a.rotate_bytes,None,a.snapshot_interval) for u in a.unit]
         results = [j.result() for j in jobs]
     print(json.dumps([dict(unit=r['unit'], status=r['status'], closed=r['closed']) for r in results]))
     return 0 if all(r['status'] == 'COMPLETE' and r['closed'] for r in results) else 1
