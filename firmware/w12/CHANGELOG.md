@@ -2,6 +2,12 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 0.1.4 — 16 October 2026
+
+- Bind the GNSS lamp mode once in the shared indicator model, so full-screen
+  and fast corner refreshes use the same physical-input policy. The 0.1.3
+  full-screen refresh could briefly fall back to BLE activity during GNSS loss.
+
 ## 0.1.3 — 16 October 2026
 
 - Add an explicit local Meshnology W12 L76K RX39/PPS41 indicator profile.

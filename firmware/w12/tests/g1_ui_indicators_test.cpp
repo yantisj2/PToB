@@ -43,15 +43,16 @@ int main(){
   assert(!a.gps&&!a.pps&&!a.rx&&!a.tx);
   // Configured GNSS lamps stay dark on missing/stale input, even while the
   // BLE model is locked and both controller activity counters change.
-  q.rate_guard_ppb=20;lights.quality(q,clock,true,20*Hz);
-  a=lights.update(11*Hz,50,50,true,true,0,0,false,true);
+  v12::G1UiIndicators gps_lights{true};
+  q.rate_guard_ppb=20;gps_lights.quality(q,clock,true,20*Hz);
+  a=gps_lights.update(11*Hz,50,50,true,true,0,0,false);
   assert(!a.gps&&!a.pps&&!a.rx&&!a.tx&&a.subus);
-  a=lights.update(11*Hz,51,51,true,true,11*Hz,11*Hz,true,true);
+  a=gps_lights.update(11*Hz,51,51,true,true,11*Hz,11*Hz,true);
   assert(a.gps&&a.pps&&a.rx&&a.tx);
-  a=lights.update(13*Hz,52,52,true,true,11*Hz,11*Hz,false,true);
+  a=gps_lights.update(13*Hz,52,52,true,true,11*Hz,11*Hz,false);
   assert(!a.gps&&!a.pps&&!a.rx&&!a.tx);
   // Physical PPS still appears when BLE is unavailable; it cannot set subus.
-  a=lights.update(14*Hz,53,53,false,false,0,14*Hz,false,true);
+  a=gps_lights.update(14*Hz,53,53,false,false,0,14*Hz,false);
   assert(a.gps&&a.pps&&!a.rx&&!a.tx&&!a.subus);
   std::puts("PASS main long-press single toggle/release/boot/tap and PPS/quality/expiry/GPS/RX/TX pulse gates");
 }
