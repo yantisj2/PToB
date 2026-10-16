@@ -31,8 +31,12 @@ struct G1Anchor {
   }
   // JOIN refresh is driven by replay uncertainty or sustained acquisition
   // loss, not each short permission. It never renews the corrected model.
-  bool refresh(uint64_t now)const {return rebootstrap(now)||guard(now)>=100000;}
-  bool urgent(uint64_t now)const {return rebootstrap(now)||guard(now)>=125000;}
+  // Continuous reception can leave50ms of replay budget for proactive JOIN,
+  // rather than refreshing after only100ms accumulated uncertainty. The
+  // half-duty acquisition windows keep their earlier100/125ms thresholds.
+  // Neither policy extends the original250ms replay limit or source expiry.
+  bool refresh(uint64_t now,bool continuous=false)const {return rebootstrap(now)||guard(now)>=(continuous?200000:100000);}
+  bool urgent(uint64_t now,bool continuous=false)const {return rebootstrap(now)||guard(now)>=(continuous?225000:125000);}
   bool same(const G1Anchor& other)const {
     return root==other.root&&boot==other.boot&&source_epoch==other.source_epoch&&publication==other.publication;
   }

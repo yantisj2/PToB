@@ -1,11 +1,25 @@
 #include "g1_parent_selection.hpp"
+#include "g1_client_policy.hpp"
 #include <cassert>
 #include <cstdio>
+#include <initializer_list>
 using v12::G1ParentSelection;
 static void scan(G1ParentSelection& p,uint64_t start,uint64_t until){
  p.tick(start,false,true);for(uint64_t t=start+100000;t<=until;t+=100000)p.tick(t,false,true);
 }
 int main(){
+  v12::G1Anchor traffic{true,11,22,1700000000000000,1000000,2500000,1,1,80000};
+  for(const auto threshold:{100000u,125000u,199999u,200000u,225000u,250000u}){
+    const auto now=traffic.at+uint64_t(threshold-traffic.uncertainty-100)*500;
+    traffic.until=now+1500000; // Fresh source permission, never a new replay anchor.
+    assert(traffic.guard(now)==threshold);
+    assert(traffic.refresh(now));
+    assert(traffic.refresh(now,true)==(threshold>=200000));
+    assert(traffic.urgent(now,true)==(threshold>=225000));
+    assert(traffic.valid(now)==(threshold<249900));
+  }
+  const auto lost=traffic.at+1000000;traffic.until=lost-1500000;
+  assert(traffic.refresh(lost,true)&&traffic.urgent(lost,true));
  unsigned n=0;
 #define CHECK(x) do{assert(x);++n;}while(false)
  {G1ParentSelection p;p.seen(22,true,-20,1000000);scan(p,1000000,4000000);

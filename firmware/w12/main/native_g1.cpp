@@ -908,7 +908,7 @@ bool window_poll(uint64_t now){
 bool admission_due(uint64_t now,bool renewal_map){
   if(rc_bound())return rc_client.admission_due(now,
     !parent_selection.pinned()&&parent_selection.quality().poor,lock_protected(now));
-  return full_listening()?anchor.refresh(now):G1Window::initiate(now,anchor,renewal_map,window_phase);
+  return full_listening()?anchor.refresh(now,true):G1Window::initiate(now,anchor,renewal_map,window_phase);
 }
 void active_poll(uint64_t now){
   if(now<radio_resume_at)return;
@@ -1124,7 +1124,7 @@ void publish(uint64_t begin){const auto now=micros();uint64_t tick=0;
   snap.g1_relative_quality.evaluated20=tick;
   snap.g1_recovery=recovery;
   snap.g1_anchor_deadline_us=clock_anchor.source?clock_anchor.deadline():0;snap.g1_anchor_guard_us=clock_anchor.source?clock_anchor.guard(now):0;
-  snap.g1_refresh_needed=anchor.refresh(now);snap.g1_refresh_urgent=anchor.urgent(now);snap.g1_refresh_attempts=refresh_attempts;
+  snap.g1_refresh_needed=anchor.refresh(now,full_listening());snap.g1_refresh_urgent=anchor.urgent(now,full_listening());snap.g1_refresh_attempts=refresh_attempts;
   snap.g1_window_start_us=window_start==UINT64_MAX?0:window_start;snap.g1_window_closed_us=window_closed_at;snap.g1_window_max_owned_us=window_max_owned_us;
   snap.rc7_exclude_direct_gm=snap.rc7_relay_only=exclude_direct_gm;
   snap.rc7_relay_only_requested=relay_only_requested;snap.rc7_upstream_mode_pending=upstream_mode_change&&parent_diagnostic.pending();

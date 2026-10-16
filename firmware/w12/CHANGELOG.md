@@ -2,6 +2,19 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 0.1.2 — 16 October 2026
+
+- Reduce continuous BLE100 direct-G1 JOIN traffic by moving proactive replay
+  refresh from 100 to 200 ms of accumulated uncertainty, with urgency at 225 ms.
+  Keep the original 250 ms hard replay limit, signed source expiry, source-loss
+  recovery and BLE50's 100/125 ms acquisition thresholds unchanged. The remaining
+  50 ms replay budget gives about 25 seconds at the unchanged 2000 ppm allowance
+  for the existing bounded admission attempts; it grants no extra source life.
+- This addresses direct G1 replay refresh observed on C-4; RC7's separate
+  five-minute renewal and six-minute lease retain their existing constants.
+  Relative clock lock, RF timing, UTC accuracy and long-term reliability remain
+  distinct outcomes.
+
 ## 0.1.1 — 16 October 2026
 
 - Both RC discovery advertisers (SID 12 SyncInfo discovery and SID 13
