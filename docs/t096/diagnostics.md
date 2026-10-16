@@ -176,6 +176,14 @@ and stops the supervisor. No ownership or identity check is waived.
 
 ## Recovery changes and acceptance
 
+Version0.15.65 also reads the observer's comparison time after copying the main
+heartbeat, then again after a stable mailbox copy. Main has higher priority and
+can publish while the observer is preempted; comparing that new timestamp with
+the observer's earlier wake time could wrap unsigned elapsed time and falsely
+report a core stall or stale health. Production-body preemption tests retain the
+exact2s core,1s report and3s owner bounds, including uptime wrap. This second race
+is reproduced offline; no particular hardware reset is attributed to it.
+
 Version0.15.64 compares watchdog service timestamps using the same native-tick
 microsecond clock as their producer. Previously, flooring watchdog time to a
 whole millisecond could put a newly published snapshot in its apparent future,

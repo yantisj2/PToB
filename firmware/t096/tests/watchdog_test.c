@@ -20,7 +20,8 @@
 #define R2_WATCHDOG_BINDING R2_SOURCE_SHA
 typedef int32_t atomic_t;
 typedef int32_t atomic_val_t;
-static int32_t atomic_get(const atomic_t *p){return *p;}
+static void (*on_atomic_get)(const atomic_t *);
+static int32_t atomic_get(const atomic_t *p){if(on_atomic_get)on_atomic_get(p);return *p;}
 static int32_t atomic_set(atomic_t *p,int32_t value){int32_t old=*p;*p=value;return old;}
 static int32_t atomic_inc(atomic_t *p){return (*p)++;}
 struct wdt_timeout_cfg {struct {uint32_t min,max;} window;unsigned flags;};
@@ -52,10 +53,20 @@ static int r2_console_note(const char *s,size_t n,uint64_t expiry)
 static struct r2_identity id={.silicon="1000000000000001",.boot=1234};
 static void clear_runtime(void)
 {
+ on_atomic_get=NULL;
  sequence=report_at=report_rc=report_useful=report_pending=report_generation=report_allowed=report_worker_stalled=0;
  intent=main_at=reset_reason=restart_request=restart_error=retries=silent_since=0;
  observations=useful_observations=future_observations=stale_observations=refusal_flags=0;
  policy=(struct r2_wd_policy){0};memset(previous,0,sizeof previous);parent_channel=-1;
+}
+static bool step_at(uint32_t now){fake_ms=now;return watchdog_step();}
+static const atomic_t *preempt_target;
+static unsigned preempt_kind;
+static struct r2_service_status preempt_service;
+static void preempt_main(const atomic_t *read){
+ if(read!=preempt_target)return;
+ on_atomic_get=NULL;++fake_ms;r2_watchdog_main_beat();
+ if(preempt_kind==2){preempt_service.at=fake_ms*1000;preempt_service.service_until=preempt_service.at+500000;r2_watchdog_observe(&preempt_service,true);}
 }
 static void advance(uint32_t now)
 {fake_ms=now;fake_sub_us=0;r2_watchdog_main_beat();}
@@ -88,15 +99,33 @@ static void policy_cases(bool rc)
 int main(void)
 {
  policy_cases(false);policy_cases(true);
+ /* Actual producer preemption at the atomic-read boundary. Core and mailbox
+  * timestamps may advance after observer wake; strict ages use a later read. */
+ clear_runtime();advance(100);preempt_target=&main_at;preempt_kind=1;on_atomic_get=preempt_main;
+ assert(step_at(100)&&!reset_reason&&fake_ms==101);
+ clear_runtime();assert(!r2_watchdog_boot(&id));r2_watchdog_enable(true);advance(200);
+ preempt_service=(struct r2_service_status){.active=true,.profile_rc=true,.at=200000,.service_until=700000,
+  .follower_clock_valid=true,.precision={.map_valid=true,.authorized=true,.correction_age_valid=true,.locked=true}};
+ r2_watchdog_observe(&preempt_service,true);
+ preempt_target=&sequence;preempt_kind=2;on_atomic_get=preempt_main;
+ assert(step_at(200)&&!reset_reason&&policy.healthy_seen&&policy.observed_at==201);
+ advance(1200);assert(step_at(1200)&&policy.healthy_seen); /* report age999ms */
+ advance(1201);assert(step_at(1201)&&!policy.healthy_seen); /* exactly1s */
+ /* The same strict2s core bound applies across uint32 uptime wrap. */
+ clear_runtime();fake_ms=UINT32_MAX-999;r2_watchdog_main_beat();
+ assert(step_at(999)&&!reset_reason);
+ assert(!step_at(1000)&&reset_reason==WD_CORE_STALL);
+ clear_runtime();
+
  memset((void *)r2_watchdog_capsule,0xa5,sizeof r2_watchdog_capsule);
- assert(!r2_watchdog_boot(&id)&&installs==1&&setups==1);
+ assert(!r2_watchdog_boot(&id)&&installs==2&&setups==2);
  unsigned fed=feeds;
  if(!setjmp(maintenance_exit))watchdog_owner(NULL,NULL,NULL);
  assert(feeds==fed+1);
  bool mode;assert(!r2_watchdog_restore_rc(&mode));
  struct r2_service_status s={.normal=true,.active=true,.profile_rc=true};
  advance(100);s.at=100000;r2_watchdog_enable(true);r2_watchdog_observe(&s,true);
- assert(watchdog_step(100));
+ assert(step_at(100));
  /* The owner publishes native-tick microseconds, often later than this
   * millisecond's floor. A causal fresh snapshot is useful without relaxing
   * actual future, original expiry or owner-staleness fences. */
@@ -112,7 +141,7 @@ int main(void)
  clear_runtime();assert(!r2_watchdog_boot(&id));r2_watchdog_enable(true);
  for(unsigned ms=100;ms<=300200;ms+=125){
   advance(ms);fake_sub_us=732;s.at=(uint64_t)ms*1000+701;s.service_until=s.at+500000;
-  r2_watchdog_observe(&s,true);assert(report_useful&&watchdog_step(ms)&&!r2_watchdog_take_restart());
+  r2_watchdog_observe(&s,true);assert(report_useful&&step_at(ms)&&!r2_watchdog_take_restart());
  }
  assert(!policy.retries&&(uint32_t)(300200-policy.since)<125);
  advance(301200);s.at=300200701;s.service_until=UINT64_MAX;
@@ -120,26 +149,26 @@ int main(void)
  fake_sub_us=701;r2_watchdog_observe(&s,true);assert(!report_useful); /* exactly 1s */
  advance(303200);fake_sub_us=701;r2_watchdog_observe(&s,true);assert(report_worker_stalled&&stale_observations==2&&refusal_flags==4);
  clear_runtime();assert(!r2_watchdog_boot(&id));r2_watchdog_enable(true);
- advance(100);s.at=100000;r2_watchdog_observe(&s,true);assert(watchdog_step(100));
+ advance(100);s.at=100000;r2_watchdog_observe(&s,true);assert(step_at(100));
  /* Frozen true snapshots and arbitrary control packets cannot keep sync. */
  s.follower_clock_valid=s.precision.map_valid=s.precision.authorized=s.precision.correction_age_valid=true;
  s.precision.locked=true;s.precision.correction_age_ms=0;s.service_until=UINT64_MAX;
- advance(200);s.at=200000;r2_watchdog_observe(&s,true);assert(watchdog_step(200));
- advance(1200);r2_watchdog_observe(&s,true);assert(watchdog_step(1200)&&!report_useful);
- advance(300200);s.at=300200000;s.follower_clock_valid=false;r2_watchdog_observe(&s,true);assert(watchdog_step(300200));
+ advance(200);s.at=200000;r2_watchdog_observe(&s,true);assert(step_at(200));
+ advance(1200);r2_watchdog_observe(&s,true);assert(step_at(1200)&&!report_useful);
+ advance(300200);s.at=300200000;s.follower_clock_valid=false;r2_watchdog_observe(&s,true);assert(step_at(300200));
  assert(r2_watchdog_take_restart()==1&&policy.recovering);
  assert(!r2_watchdog_take_restart());
- advance(300201);s.profile_pending=true;s.at=300201000;r2_watchdog_observe(&s,true);assert(watchdog_step(300201));
+ advance(300201);s.profile_pending=true;s.at=300201000;r2_watchdog_observe(&s,true);assert(step_at(300201));
  advance(300202);s.profile_pending=false;s.profile_changes=1;s.at=300202000;
- s.follower_clock_valid=false;r2_watchdog_observe(&s,true);assert(watchdog_step(300202)&&!policy.recovering&&policy.retries==1);
+ s.follower_clock_valid=false;r2_watchdog_observe(&s,true);assert(step_at(300202)&&!policy.recovering&&policy.retries==1);
  advance(300203);s.follower_clock_valid=true;s.at=300203000;r2_watchdog_observe(&s,true);
- assert(watchdog_step(300203)&&policy.retries==1);
- for(unsigned ms=300328;ms<=308203;ms+=125){advance(ms);s.at=(uint64_t)ms*1000;r2_watchdog_observe(&s,true);assert(watchdog_step(ms));}
+ assert(step_at(300203)&&policy.retries==1);
+ for(unsigned ms=300328;ms<=308203;ms+=125){advance(ms);s.at=(uint64_t)ms*1000;r2_watchdog_observe(&s,true);assert(step_at(ms));}
  assert(!policy.retries);
- sequence|=1;advance(308204);assert(watchdog_step(308204));sequence++;
+ sequence|=1;advance(308204);assert(step_at(308204));sequence++;
  restart_request=2;r2_watchdog_enable(false);assert(!r2_watchdog_take_restart());
- r2_watchdog_observe(&s,false);assert(watchdog_step(308204)&&!policy.armed);
- assert(!watchdog_step(310204)&&reset_reason==WD_CORE_STALL);
+ r2_watchdog_observe(&s,false);assert(step_at(308204)&&!policy.armed);
+ assert(!step_at(310204)&&reset_reason==WD_CORE_STALL);
  fed=feeds;if(!setjmp(maintenance_exit))watchdog_owner(NULL,NULL,NULL);assert(feeds==fed);
  /* Intermittent maps and same-profile scopes cannot postpone RC recovery. */
  clear_runtime();assert(!r2_watchdog_boot(&id));r2_watchdog_enable(true);
@@ -149,7 +178,7 @@ int main(void)
   bool brief=ms%240000==0;
   s.follower_clock_valid=s.precision.map_valid=s.precision.authorized=s.precision.correction_age_valid=s.precision.locked=brief;
   s.service_until=s.at+500000;s.profile_changes=ms/60000;
-  r2_watchdog_observe(&s,true);assert(watchdog_step(ms));
+  r2_watchdog_observe(&s,true);assert(step_at(ms));
  }
  assert(r2_watchdog_take_restart()==1);
  /* Fresh maps without PLL lock, or with expired source, are not recovery. */
@@ -172,10 +201,10 @@ int main(void)
  s=(struct r2_service_status){.active=true,.profile_rc=true};
  for(unsigned ms=0;ms<300000;ms+=100){
   advance(ms);s.at=(uint64_t)ms*1000;r2_watchdog_observe(&s,true);
-  assert(watchdog_step(ms)&&!r2_watchdog_take_restart()&&!report_worker_stalled);
+  assert(step_at(ms)&&!r2_watchdog_take_restart()&&!report_worker_stalled);
  }
  advance(300000);s.at=300000000;r2_watchdog_observe(&s,true);
- assert(watchdog_step(300000)&&r2_watchdog_take_restart()==1);
+ assert(step_at(300000)&&r2_watchdog_take_restart()==1);
  /* A formerly valid map whose actual lifetime expired is still NO TIME. */
  s.follower_clock_valid=s.precision.map_valid=s.precision.authorized=s.precision.correction_age_valid=true;
  s.service_until=300000000;r2_watchdog_observe(&s,true);assert(!report_useful);
@@ -183,18 +212,18 @@ int main(void)
   * No early reset while its original controller operation may still finish. */
  clear_runtime();assert(!r2_watchdog_boot(&id));r2_watchdog_enable(true);
  s=(struct r2_service_status){.active=true,.profile_rc=true,.at=10000000};
- advance(12999);r2_watchdog_observe(&s,true);assert(watchdog_step(12999));
+ advance(12999);r2_watchdog_observe(&s,true);assert(step_at(12999));
  advance(13000);r2_watchdog_observe(&s,true);
- assert(!watchdog_step(13000)&&reset_reason==WD_RC_WORKER_STALL&&previous_bound(&id));
+ assert(!step_at(13000)&&reset_reason==WD_RC_WORKER_STALL&&previous_bound(&id));
  assert(r2_watchdog_capsule[4]==WD_RC_WORKER_STALL&&r2_watchdog_capsule[5]==1);
  /* Explicit stop, maintenance and profile transition cannot resurrect RC. */
  for(unsigned inhibit=0;inhibit<3;inhibit++){
   clear_runtime();assert(!r2_watchdog_boot(&id));r2_watchdog_enable(true);advance(13000);
   s.closing=inhibit==0;s.profile_pending=inhibit==1;
-  r2_watchdog_observe(&s,inhibit!=2);assert(watchdog_step(13000));
+  r2_watchdog_observe(&s,inhibit!=2);assert(step_at(13000));
  }
  clear_runtime();assert(!r2_watchdog_boot(&id));advance(10);
- r2_watchdog_fatal(2);assert(!watchdog_step(10)&&reset_reason==WD_FATAL+2&&previous_bound(&id));
+ r2_watchdog_fatal(2);assert(!step_at(10)&&reset_reason==WD_FATAL+2&&previous_bound(&id));
  id.reset_cause=RESET_WATCHDOG;clear_runtime();assert(!r2_watchdog_boot(&id));
  char output[1536];assert(r2_watchdog_restore_rc(&mode));r2_watchdog_console(output,sizeof output);assert(strstr(sent,"\"parent_ms\":1000")&&strstr(sent,"\"observations\":[")&&strstr(sent,"\"refusal_flags\":"));
  atomic_set(&observations,(atomic_val_t)UINT32_MAX);count_observation(&observations);assert((uint32_t)atomic_get(&observations)==UINT32_MAX);
@@ -218,7 +247,7 @@ int main(void)
  /* A maintenance deadline fault cannot leave a live main feeding forever
   * after UI/controller shutdown. Preserve its error and restore service. */
  advance(30);r2_watchdog_enable(false);r2_watchdog_restart_result(-ETIMEDOUT);
- assert(!watchdog_step(30)&&reset_reason==WD_RECOVERY_FAILED&&previous_bound(&id));
+ assert(!step_at(30)&&reset_reason==WD_RECOVERY_FAILED&&previous_bound(&id));
  assert(r2_watchdog_capsule[32]==(uint32_t)-ETIMEDOUT);
  clear_runtime();assert(!r2_watchdog_boot(&id)&&r2_watchdog_reset_kind()==R2_UI_RESET_WD_RECOVERY);
  clear_runtime();install_error=-ENODEV;assert(r2_watchdog_boot(&id)==-ENODEV);install_error=0;

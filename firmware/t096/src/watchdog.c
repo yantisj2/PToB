@@ -139,10 +139,14 @@ void r2_watchdog_fatal(unsigned reason)
  /* A crash must never continue feeding, even if fault capture itself fails. */
  atomic_set(&reset_reason,WD_FATAL+reason);capsule(WD_FATAL+reason);
 }
-static bool watchdog_step(uint32_t now)
+static bool watchdog_step(void)
 {
  if(atomic_get(&reset_reason))return false;
- if((uint32_t)(now-(uint32_t)atomic_get(&main_at))>=WD_CORE_MS){
+ /* Main has higher priority and may publish after this thread wakes.
+  * Read each timestamp before its comparison time; a preempting producer
+  * must never look2^32ms stale through unsigned age subtraction. */
+ uint32_t beat=(uint32_t)atomic_get(&main_at),now=k_uptime_get_32();
+ if((uint32_t)(now-beat)>=WD_CORE_MS){
   atomic_set(&reset_reason,WD_CORE_STALL);capsule(WD_CORE_STALL);return false;
  }
  if(atomic_get(&restart_error)){
@@ -155,6 +159,7 @@ static bool watchdog_step(uint32_t now)
  uint32_t generation=(uint32_t)atomic_get(&report_generation),at=(uint32_t)atomic_get(&report_at);
  bool stalled=atomic_get(&report_worker_stalled);
  if(seq!=(uint32_t)atomic_get(&sequence))return true;
+ now=k_uptime_get_32(); /* Causal with the accepted mailbox copy. */
  if(enabled&&stalled&&(uint32_t)(now-at)<1000u){
   atomic_set(&reset_reason,WD_RC_WORKER_STALL);capsule(WD_RC_WORKER_STALL);return false;
  }
@@ -168,7 +173,7 @@ static bool watchdog_step(uint32_t now)
 static void watchdog_owner(void *a,void *b,void *c)
 {
  for(;;){
-  if(watchdog_step(k_uptime_get_32())){
+  if(watchdog_step()){
    if(wdt_feed(parent,parent_channel)){atomic_set(&reset_reason,WD_RECOVERY_FAILED);capsule(WD_RECOVERY_FAILED);}
   }
   k_sleep(K_MSEC(WD_POLL_MS));
