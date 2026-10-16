@@ -57,6 +57,10 @@ static void good(void){parent_known=parent_synced=fit.valid=capture_ok=tracking=
 static void refused(void){assert(!precision_synced(fake_tick));unsigned n=starts;lt_advertise(fake_tick);assert(!lt_advertising&&starts==n);assert(!r2_uc_poll(&(struct r2_uc_clock){0},false)&&!u.advertising&&starts==n);}
 int main(void){
  u.enabled=true;u.adv=(void*)2;good();assert(precision_synced(fake_tick));
+ /* RX can complete after the loop's capture: a stale caller tick must not
+  * withdraw good timing, and an actually expired fresh capture must refuse. */
+ discipline_at=150;assert(precision_synced(100));
+ fake_tick=discipline_at+RC_FIELD_HOLD_TICKS;assert(!precision_synced(100));good();
  parent_synced=false;start();assert(!running&&!periodic_starts&&!starts);
  good();start();assert(running&&periodic_starts==1&&starts==1);
  assert(advertising_withdraw(fake_tick)&&running);

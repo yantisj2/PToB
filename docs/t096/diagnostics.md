@@ -175,6 +175,12 @@ and stops the supervisor. No ownership or identity check is waived.
 
 ## Recovery changes and acceptance
 
+Version0.15.61 samples the physical capture counter again inside the advertising
+gate. Processing a received precision capture can install a map newer than the
+owner's loop-start timestamp; comparing that fresh map with the stale loop
+sample must not look like clock reversal or stop an otherwise healthy train.
+The fresh timestamp still enforces discipline age and source expiry.
+
 Event28 and `rc-parent.transport[9]` report bit0 server role, bit1 acquisition
 pause, bit2 capability advertising, bit3 usable precision gate, bit4 periodic
 train/SyncInfo advertiser running and bit5 UCS1 advertising. These are owner/API

@@ -288,6 +288,12 @@ static bool downstream_ready(uint64_t tick) {
  * clock. Do not require downstream publication/demand: that would deadlock
  * discovery of an otherwise synchronized idle relay. */
 static bool precision_synced(uint64_t tick) {
+  /* RX processing can install a map/discipline capture newer than the owner's
+   * loop-start sample. Judge advertising at a fresh physical capture, never
+   * mistake that stale sample for time reversal and stop a healthy train. */
+  struct r2_capture current;
+  if(!r2_capture_now(&current))return false;
+  tick=current.tick;
   struct rc5_stamp st;
   return parent_known && parent_synced && fit.valid && !holdover_expired &&
       discipline_at && tick >= discipline_at &&
