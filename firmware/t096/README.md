@@ -44,3 +44,11 @@ All target families share the [display registry](../../registry/README.md).
 Supply the same local registry to each migrated target; T096 consumes it today.
 
 For a multi-device deployment, see the [group setup guide](../../docs/GETTING_STARTED.md).
+
+## Timing schematic
+
+[<img src="../../docs/images/t096-timing-schematic.jpg" width="800" alt="T096 timing architecture schematic">](https://ptob.dev/hardware/t096/timing/)
+
+Logical capture, clock-discipline and delivery paths.
+Select the preview to open the [full interactive schematic](https://ptob.dev/hardware/t096/timing/).
+[Capture provenance](../../docs/images/README.md).

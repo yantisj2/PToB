@@ -32,3 +32,11 @@ compatibility types and display routines; its presence does not activate other
 radios or GPS. A generic public installation/recovery tool remains pending.
 
 For a multi-device deployment, see the [group setup guide](../../docs/GETTING_STARTED.md).
+
+## Timing schematic
+
+[<img src="../../docs/images/esp32-timing-schematic.jpg" width="800" alt="ESP32-S3 / W12 timing architecture schematic">](https://ptob.dev/hardware/esp32-s3/timing/)
+
+Logical receive, clock-discipline and relay paths.
+Select the preview to open the [full interactive schematic](https://ptob.dev/hardware/esp32-s3/timing/).
+[Capture provenance](../../docs/images/README.md).

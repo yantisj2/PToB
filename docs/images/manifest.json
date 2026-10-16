@@ -92,6 +92,40 @@
           255
         ]
       }
+    },
+    {
+      "file": "t096-timing-schematic.jpg",
+      "source": "https://ptob.dev/hardware/t096/timing/",
+      "captured": "2026-10-16",
+      "sha256": "e979360ab11b5364e92a735a8b67910dd38bb0ba29b1d61cf9720d31ec91ec7e",
+      "bytes": 197620,
+      "dimensions": [
+        826,
+        600
+      ],
+      "transformation": "Browser full-page JPEG screenshot at default 1280-pixel viewport width; crop box [57, 650, 883, 1250]; saved as JPEG quality 95.",
+      "capture_state": {
+        "mode": "All paths",
+        "zoom": "Fit"
+      },
+      "scope": "Logical timing architecture illustration, not a wiring diagram, live measurement or current firmware qualification."
+    },
+    {
+      "file": "esp32-timing-schematic.jpg",
+      "source": "https://ptob.dev/hardware/esp32-s3/timing/",
+      "captured": "2026-10-16",
+      "sha256": "eaf3fb10487c290a66a4e585b3fdc240157cc416da4b2500c434076e042e8817",
+      "bytes": 162988,
+      "dimensions": [
+        826,
+        520
+      ],
+      "transformation": "Browser full-page JPEG screenshot at default 1280-pixel viewport width; crop box [57, 790, 883, 1310]; saved as JPEG quality 95.",
+      "capture_state": {
+        "mode": "Implemented paths",
+        "zoom": "Fit"
+      },
+      "scope": "Logical timing architecture illustration, not a wiring diagram, live measurement or current firmware qualification. ESP32-S3 schematic describes W12; optional paths do not establish StickS3 support."
     }
   ]
 }

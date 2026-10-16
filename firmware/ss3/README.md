@@ -30,3 +30,12 @@ used by the macOS client. Build/tests do not qualify physical RF timing,
 independent output accuracy, optical scanout or continuous reliability.
 
 For a complete group, follow the [two-GM setup guide](../../docs/GETTING_STARTED.md).
+
+## Timing schematic
+
+[<img src="../../docs/images/esp32-timing-schematic.jpg" width="800" alt="ESP32-S3 / W12 timing architecture schematic">](https://ptob.dev/hardware/esp32-s3/timing/)
+
+Shared-family reference illustrated for W12; its optional GNSS/PPS and other
+W12-specific paths do not imply StickS3 support. See the supported profile above.
+Select the preview to open the [full interactive schematic](https://ptob.dev/hardware/esp32-s3/timing/).
+[Capture provenance](../../docs/images/README.md).
