@@ -2,6 +2,13 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 0.1.5 — 16 October 2026
+
+- Replace the inherited C-3-only OLED factory guard with the generated exact
+  device binding. Board 12 requires the explicit GNSS capability; unsupported
+  board routes and mismatched factories remain refused before GPIO activity.
+  The old guard made a correctly bound C-4 GNSS image stop before normal service.
+
 ## 0.1.4 — 16 October 2026
 
 - Bind the GNSS lamp mode once in the shared indicator model, so full-screen

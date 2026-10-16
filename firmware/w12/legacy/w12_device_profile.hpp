@@ -14,4 +14,8 @@ inline const Profile* find(const uint8_t factory[6]) {
  static constexpr Profile device{PTOB_FACTORY_MAC,PTOB_LEGACY_WIRE_ID,PTOB_DEVICE_LABEL,bool(PTOB_GNSS_INDICATORS)};
  return !std::memcmp(factory,device.factory,6)?&device:nullptr;
 }
+inline bool display_permitted(const uint8_t factory[6],int board) {
+ const auto* device=find(factory);
+ return device&&(board==2||(board==12&&device->gps_inputs));
+}
 }

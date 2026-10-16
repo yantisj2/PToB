@@ -6,6 +6,7 @@
 #include "driver/i2c_master.h"
 #include "driver/gpio.h"
 #include "esp_mac.h"
+#include "w12_device_profile.hpp"
 #endif
 #include <cstring>
 #include <cstdio>
@@ -655,10 +656,9 @@ bool init_i2c(){
 #ifndef W12_DISPLAY_PREVIEW
 bool display_init(){
  if(!w12_board::display_verified){std::printf("W12_DISPLAY enabled=0 reason=UNVERIFIED_BOARD_PROFILE pins=UNTOUCHED\n");return true;}
- if(w12_board::profile==8 || w12_board::profile==12){
-  uint8_t factory[6]{};static constexpr uint8_t c3[6]={0x44,0xb1,0x76,0xae,0x20,0x44};
-  if(esp_read_mac(factory,ESP_MAC_EFUSE_FACTORY)!=ESP_OK || std::memcmp(factory,c3,6)){std::printf("W12_DISPLAY enabled=0 reason=BOARD_FACTORY_ID_NOT_C3 pins=UNTOUCHED\n");return false;}
- }
+ uint8_t factory[6]{};
+ if(esp_read_mac(factory,ESP_MAC_EFUSE_FACTORY)!=ESP_OK || !w12_device::display_permitted(factory,w12_board::profile)){
+  std::printf("W12_DISPLAY enabled=0 reason=BOUND_FACTORY_OR_BOARD_PROFILE_REFUSED pins=UNTOUCHED\n");return false;}
  std::printf("W12_DISPLAY begin\n");
  // SSD1315 I2C17/18. Meshnology W12 uses45LOW/reset47; the historical
  // Heltec R8 experiment used40HIGH/reset21. Other units retain their profile.
