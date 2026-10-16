@@ -81,3 +81,8 @@ boot/silicon binding, app-only writes, exact protected-region checks, rollback,
 actual application readback and supported return. Do not substitute a mass erase,
 raw debugger write or guessed bootloader command. Public installation/recovery
 instructions require their own generic-device acceptance.
+
+Use `--registry artifacts/local/registry.json` to compile your deployment’s shared
+[name map](../../registry/README.md). The default is the synthetic public example.
+Keep the real map ignored, alongside local enrollment; the receipt records its
+hash and preserves a private build snapshot.

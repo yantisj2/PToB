@@ -14,6 +14,8 @@ import sys
 
 APP = Path(__file__).resolve().parents[1]
 REPO = APP.parents[1]
+sys.path.insert(0, str(REPO/'registry'))
+from registry import load as load_registry, header as registry_header
 
 def sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -35,6 +37,7 @@ def main():
     parser.add_argument('--enrollment', type=Path, required=True)
     parser.add_argument('--device-config', type=Path, required=True)
     parser.add_argument('--profile', choices=['GM', 'RC'], required=True)
+    parser.add_argument('--registry', type=Path, default=REPO/'registry/example.json')
     parser.add_argument('--development', action='store_true')
     args = parser.parse_args()
     os.umask(0o077)
@@ -62,6 +65,7 @@ def main():
         raise ValueError('SDK version mismatch')
     enrollment = json.loads(args.enrollment.read_text())
     device = json.loads(args.device_config.read_text())
+    registry = load_registry(args.registry)
     key = bytes.fromhex(enrollment['psk'])
     group = enrollment['group_id']; epoch = enrollment['key_epoch']
     if not (len(key)==32 and any(key) and re.fullmatch('[0-9a-f]{16}',group)
@@ -75,18 +79,23 @@ def main():
     out.mkdir(parents=True); (out/'target').mkdir()
     source = {str(p.relative_to(APP)):sha(p) for p in source_files()}
     source_hash = hashlib.sha256(json.dumps(source,sort_keys=True,separators=(',',':')).encode()).hexdigest()
-    receipt = {'schema':1,'artifact_class':'PTOB_T096_RC7','version':'0.15.54',
+    receipt = {'schema':1,'artifact_class':'PTOB_T096_RC7','version':'0.15.55',
                'status':'INCOMPLETE','public_commit':git(REPO,'rev-parse','HEAD'),
                'child_commit':git(REPO,'rev-parse','HEAD'),'source_dirty':dirty,'sources':source,'source_sha256':source_hash,
                'profile':args.profile,'usb_source_stream':True,'dependencies':lock,
                'installed':False,'precision':'UNQUALIFIED','hardware_tests':[],
                'enrollment_mode':'LOCAL_BUILD_TIME_P1_NOT_IMPLEMENTED',
+               'registry_sha256':sha(args.registry),
+               'registry_generator_sha256':sha(REPO/'registry/registry.py'),
                'device_config_sha256':sha(args.device_config)}
     write(out/'receipt.json',receipt)
     for name in source:
         dst=out/'source'/name;dst.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(APP/name,dst)
+    (out/'target/ptob_registry.h').write_text(registry_header(registry))
+    shutil.copyfile(args.registry,out/'registry.json')
+    shutil.copyfile(REPO/'registry/registry.py',out/'registry_generator.py')
     secret=out/'r2_enrollment.h'
-    secret.write_text('/* device-config-sha256: '+sha(args.device_config)+' */\n#include "ble_service.h"\nstatic const struct r2_enrollment r2_enrollment={'
+    secret.write_text('/* device-config-sha256: '+sha(args.device_config)+'; registry-sha256: '+sha(args.registry)+' */\n#include "ble_service.h"\nstatic const struct r2_enrollment r2_enrollment={'
         '.group={.psk={'+','.join(map(str,key))+'},.id=UINT64_C(0x'+group+'),.epoch='+str(epoch)+'},'
         '.rc_dynamic=true,.rc7_boot_rc='+('true' if args.profile=='RC' else 'false')+','
         '.local_capabilities=7,.map_bound_us=40000};\n')
@@ -126,7 +135,7 @@ def main():
                     receipt['compiled_sources'][prefix+'/'+str(p.relative_to(base))]=sha(p);break
             else:raise ValueError('Unexpected compiled source')
         receipt['artifacts']={str(p.relative_to(out)):sha(p) for p in out.rglob('*') if p.is_file()
-                              and (p.suffix in ['.elf','.bin','.hex','.map','.uf2','.su'] or p.name in ['.config','zephyr.dts','build_identity.h','ptob_device.h','r2_enrollment.h','compile_commands.json'])}
+                              and (p.suffix in ['.elf','.bin','.hex','.map','.uf2','.su'] or p.name in ['.config','zephyr.dts','build_identity.h','ptob_device.h','ptob_registry.h','registry.json','registry_generator.py','r2_enrollment.h','compile_commands.json'])}
         receipt['status']='DEVELOPMENT_NOT_FLASHABLE' if dirty else 'BUILD_COMPLETE_PHYSICAL_UNKNOWN'
         write(out/'receipt.json',receipt)
         from inspect_build import inspect

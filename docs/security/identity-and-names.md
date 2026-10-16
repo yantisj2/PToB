@@ -21,25 +21,19 @@ text. Names do not authenticate a device, break election ties or establish sourc
 quality. The historical recent-name cache has eight entries; eviction does not
 revoke membership. The public implementation must verify these limits anew.
 
-Proposed user-local map format:
+The [shared registry](../../registry/README.md) defines one schema for all targets.
+Its [example](../../registry/example.json) uses synthetic IDs. Keep the actual
+map in an ignored local file and supply `--registry` to the T096 builder. The
+firmware compiles all entries into read-only display metadata. Authenticated
+non-default names take precedence, followed by registry aliases, then an ID
+suffix. Updating this map currently requires a rebuild.
 
-```json
-{
-  "schema": 1,
-  "devices": {
-    "0123456789abcdef": {"alias": "Roof clock"},
-    "1023456789abcdef": {"alias": "Roof clock"}
-  }
-}
-```
-
-These IDs are synthetic. Store the map by ID, not by name. A reverse lookup for
-“Roof clock” returns both candidates and cannot authorize a write. Every mutating
-operation must resolve and confirm one immutable ID. A host-local alias takes
-precedence for host display only; show the ID alongside it. Changing that alias
-does not rename the device or change its role. Proposed device rename uses the
-same physically confirmed P1 configuration transaction and preserves group/key.
-Duplicate discovered IDs must be treated as ambiguous and refused.
+Store entries by ID, not name. Duplicate aliases are allowed; duplicate IDs and
+optional UUIDs are rejected. A reverse name lookup cannot authorize a write.
+An optional UUID is separately assigned metadata, not a reinterpretation of the
+64-bit protocol ID. The map changes labels only: no role, capability, membership,
+source quality or enrollment is granted by an entry. W12, SS3 and macOS consumers
+will use this same format as those targets migrate here.
 
 Board capabilities and startup roles are separate configuration. Do not infer
 battery presence, GNSS capability or default GM role from an alias. Public USB

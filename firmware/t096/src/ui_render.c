@@ -1,3 +1,6 @@
+#if defined(PTOB_NAME_REGISTRY)
+#include "ptob_registry.h"
+#endif
 /* SPDX-License-Identifier: Apache-2.0
  * Original pre-Zephyr watch/RF drawing, with an R2-only state adapter. */
 #include "ui.h"
@@ -38,9 +41,12 @@ void r2_ui_uptime_text(char out[16],uint64_t uptime_ms)
 
 void r2_ui_identity_name(char out[25],uint64_t id,const char *name)
 {
- /* Known local lab aliases are keyed only by actual silicon identity. A
-  * non-default authenticated supplied name takes precedence. */
+ /* Authenticated supplied names precede local display aliases. */
  if(name&&name[0]&&strncmp(name,"Clock-",6)){snprintf(out,25,"%s",name);return;}
+#if defined(PTOB_NAME_REGISTRY)
+ const char *alias=ptob_registry_name(id);
+ if(alias){snprintf(out,25,"%s",alias);return;}
+#endif
  if(id)snprintf(out,25,"%04x",(unsigned)(id&UINT16_MAX));
  else snprintf(out,25,"--");
 }

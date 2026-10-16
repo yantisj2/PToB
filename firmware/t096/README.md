@@ -9,7 +9,7 @@ devices. See [the architectural background](../../docs/V12_TO_R2.md).
 **PToB owns T096 RC7 development.** The two profiles are **GM** and **RC**;
 USB source streaming is standard. [Build from source](../../docs/t096/build.md)
 using pinned public dependencies and ignored local enrollment. The current
-application version is 0.15.54. No publicly enrolled binary is distributed.
+application version is 0.15.55. No publicly enrolled binary is distributed.
 
 [Baseline and historical limitations](../../docs/t096/baseline.md),
 [PSKs](../../docs/security/psk.md), and
@@ -33,3 +33,6 @@ excluded from publication.
 Hardware support and verified behaviors will be recorded against exact source
 and image identities. Build or simulation success alone does not qualify hardware
 precision. See the [local cutover record](../../docs/t096/cutover.md).
+
+All target families share the [display registry](../../registry/README.md).
+Supply the same local registry to each migrated target; T096 consumes it today.

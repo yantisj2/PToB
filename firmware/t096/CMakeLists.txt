@@ -6,7 +6,7 @@ set(R2_RC_PROFILE ON)
 set(R2_USB_SOURCE_STREAM ON)
 set(R2_USB_SOF_PROBE ON)
 set(R2_USB_REFERENCE_PROBE ON)
-project(ptob_t096 VERSION 0.15.54)
+project(ptob_t096 VERSION 0.15.55)
 if(R2_USB_SOURCE_STREAM)
  if(NOT R2_USB_SOF_PROBE)
   message(FATAL_ERROR "USB source evidence requires hardware SOF profile")
@@ -102,3 +102,6 @@ target_sources(app PRIVATE protocol/group_join.c protocol/group_auth.c protocol/
 if(NOT R2_BOUNDARY_FIELD)
  target_sources(app PRIVATE src/group_admission.c)
 endif()
+
+# Generated from the shared registry, display-only.
+target_compile_definitions(app PRIVATE PTOB_NAME_REGISTRY=1)

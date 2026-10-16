@@ -70,7 +70,8 @@ release and mutable provisioning are still pending.
 Preparation now includes a [selected T096 source baseline](docs/t096/baseline.md),
 [provisioning/storage design](docs/t096/provisioning-design.md),
 [PSK guidance](docs/security/psk.md), and
-[name-map/device-ID guidance](docs/security/identity-and-names.md).
+[name-map/device-ID guidance](docs/security/identity-and-names.md), and the
+[shared example registry](registry/README.md).
 These are review material; public installation remains pending.
 
 Reviews are welcome on controller support, physical timestamp association,
