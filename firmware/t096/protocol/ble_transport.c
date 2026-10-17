@@ -806,13 +806,13 @@ static void poll_owned(uint64_t now)
      * The next owner poll restores discovery if creation does not succeed. */
     if(group_id&&advertising){int rc=bt_le_adv_stop();if(!rc||rc==-EALREADY)advertising=false;else{stop_error=rc;return;}}
     struct bt_conn *conn=NULL;
-    /* Precision PA remains62.5ms/16Hz, independently of this control ACL.
-     *50ms leaves multiple opportunities inside the250ms original exchange
-     * deadline without reserving66.7 events/s. Source permits are sent on
-     * change, with bounded retries; this interval does not refresh authority. */
-    /* The transient field client gets7.5ms opportunities between the root's
-     *50ms control events; actual radio budget remains its400ms window. */
-    unsigned interval=(field_profile||group_id)&&group_client?6:40;
+    /* Native GM HELLO calibration has an80ms causal round-trip width limit.
+     * A50ms ACL can consume100ms in two event waits before owner/air delay.
+     * Use20ms opportunities for native GM control. Reserved precision PA
+     * remains62.5ms/16Hz and wins radio conflicts; neither HELLO cadence nor
+     * original source/authentication deadlines change. Passive bootstrap
+     * keeps7.5ms and legacy/field control keeps50ms. */
+    unsigned interval=(field_profile||group_id)&&group_client?6:group_id?16:40;
 #if defined(R2_FIELD_FIXTURE)
     if(fixture_control_interval&&!group_client)interval=fixture_control_interval;
 #endif

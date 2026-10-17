@@ -115,7 +115,7 @@ static void group_admission_lifetime(void)
  advertising=true;unsigned stops=adv_stops;early=true;
  unsigned before=creates;r2_ble_sync_acquiring(true);r2_ble_poll(1000000);
  assert(creates==before&&!p->conn);r2_ble_sync_acquiring(false);
- r2_ble_poll(1000000);assert(adv_stops>stops&&p->conn==&connection&&last_interval==40&&last_supervision==100);
+ r2_ble_poll(1000000);assert(adv_stops>stops&&p->conn==&connection&&last_interval==16&&last_supervision==100);
  assert(connection.refs==2);
  /* ID binding is permitted before our own GATT discovery completes, but not
   * to an address that differs from the authenticated identity derivation. */
@@ -456,6 +456,7 @@ static void continuous_core_discovery(void){
 }
 int main(int argc,char **argv)
 {
+ if(argc==2&&!strcmp(argv[1],"gm-interval")){unready_core_discovery();printf("GM_CONTROL_INTERVAL_UNITS=%u\n",last_interval);return 0;}
  if(argc>1&&!strcmp(argv[1],"gm-mtu")){gm_peer_first_mtu();return 0;}
  if(argc==2&&!strcmp(argv[1],"gm-continuous")){continuous_core_discovery();return 0;}
   if(argc==2&&!strcmp(argv[1],"gm-unready")){unready_core_discovery();return 0;}

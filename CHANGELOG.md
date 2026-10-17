@@ -2,6 +2,20 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 17 October 2026 — native GM control latency budget
+
+T096 **0.15.78** requests20ms native GM control ACL opportunities. The prior
+50ms interval could consume100ms in two event waits, exceeding HELLO's unchanged
+80ms causal map-width limit before owner and air delay. Passive bootstrap stays
+7.5ms; legacy/field control stays50ms. Reserved precision events retain priority,
+and source/authentication deadlines and HELLO cadence remain unchanged.
+
+The regression feeds the transport's actual selected interval into the production
+G1 codec/network with one event wait plus5ms modeled owner delay per direction,
+checking settled HOT continuity, source dwell and replay refusal. The previous
+50ms selection fails this budget test. This is a bounded latency model; physical
+radio loss, hardware HOT stability and continuous delivery require live evidence.
+
 ## 17 October 2026 — finite native G1 initiation
 
 T096 **0.15.77** replaces native G1's default continuous60ms/60ms initiator
