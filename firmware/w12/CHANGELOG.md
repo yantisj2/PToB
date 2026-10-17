@@ -11,7 +11,8 @@ Copyright (c) 2026 Jonathan Yantis. MIT.
   removing that backlog. No timestamp step or oscillator adjustment is added.
 - Use the same phase law in delivered maps, completion rebasing, stale-fit
   continuation and relative forecasts. Start channel-aware fits after two seconds and at least eight repeated-channel
-  differences, growing the same 64-point history toward its normal sixteen-second
+  differences. Acquire points at 62.5 ms until the first fit, then use the
+  original 250 ms spacing, growing the same 64-point history toward its normal sixteen-second
   span. Retain the rate/scatter guards, all sixteen seconds of causal error history, source/replay/model deadlines,
   and lock/hold thresholds. Acquisition tails still delay lock until they age
   out; a faster actuator does not establish calibrated precision.

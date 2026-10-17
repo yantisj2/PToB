@@ -44,8 +44,8 @@ class G1CorrectedClock {
   uint64_t mapped_original20_=0,mapped_hold_until_us_=0;
   uint32_t accepted_=0,refused_=0;
   uint32_t quality_generation_=1;
-  // Keep64 physical points at250ms spacing: about16s of history, with
-  // enough repeated-channel differences. Offset encoding is lossless: local
+  // Keep64 physical points:62.5ms acquisition spacing gets repeated-channel
+  // evidence promptly; after the first fit,250ms spacing grows toward16s. Offset encoding is lossless: local
   // ticks stay exact and a signed24-bit residual stores remote_ns-local_ns.
   // The32s expiry and full64-bit base/scope precede every conversion.
   struct Point {uint32_t local=0;uint8_t residual[3]{},channel=255;};
@@ -141,7 +141,7 @@ class G1CorrectedClock {
     // of channel/time selection for fitting. Full cumulative tails stay above.
     quality_add(o.local,causal,causal_available);
     double rate=clock_.rate;bool fitted=false;
-    if(!point_at_||o.local-point_at_>=5000000){
+    if(!point_at_||o.local-point_at_>=(frequency_trained_?5000000u:1250000u)){
       while(count_&&(o.local<local(points_[0])||o.local-local(points_[0])>640000000)){
         for(unsigned i=1;i<count_;i++)points_[i-1]=points_[i];
         --count_;

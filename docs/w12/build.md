@@ -141,7 +141,8 @@ yield, scheduling and budget regressions; these do not measure actual RF priorit
 Version 0.1.12 uses continuous proportional acquisition phase steering capped
 at 50 ppm, returning to the original 1 ppm slew within 1 microsecond. It keeps
 channel-aware frequency fits with at least two seconds and eight repeated-channel
-differences. The same 64 points grow toward the normal sixteen-second history.
+differences. Acquisition uses 62.5 ms point spacing until the first fit, then
+returns to 250 ms; the same 64 points grow toward the normal sixteen-second history.
 Rate/scatter guards and all sixteen seconds of causal quality history remain;
 startup errors stay visible until they age out. Completion
 rebasing, stale-fit continuation and forecasts use the same phase law. Fine

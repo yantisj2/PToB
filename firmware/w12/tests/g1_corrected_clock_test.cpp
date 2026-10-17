@@ -61,6 +61,28 @@ int main(){
     std::printf("ACQUISITION direction=%d lock_us=%llu estimate200_us=%llu\n",direction,
       (unsigned long long)(first_lock-1000000),(unsigned long long)(first200-1000000));
   }
+  // Dense acquisition must identify rate across hopping channels promptly,
+  // then retain fine hold after the64-point history becomes sparse. Fixed
+  // per-channel phase offsets may not be mistaken for oscillator drift.
+  for(const int direction:{-1,1}){
+    Fixture quick;quick.physical_rate_ppb=direction*500;
+    uint64_t trained_at=0,locked_at=0;
+    for(unsigned i=0;i<1200;i++){
+      const auto now=UINT64_C(1000000)+uint64_t(i)*62500;
+      quick.anchor.at=now;quick.anchor.until=now+1500000;
+      const auto channel=uint8_t((i*11+i/17)%37);
+      quick.feed(now,channel,channel*3);
+      if(quick.clock.frequency_trained()&&!trained_at)trained_at=now;
+      const auto model=quick.clock.prediction();const auto q=quick.clock.quality(now+10);
+      if(q.locked(model.tick,model)&&!locked_at)locked_at=now;
+      if(i>640){assert(q.locked(model.tick,model));assert(q.rms_ns<200);}
+    }
+    assert(trained_at&&trained_at<UINT64_C(5000000));
+    assert(locked_at&&locked_at<UINT64_C(9000000));
+    assert(quick.clock.fit_span_ms()>=15000&&std::abs(quick.clock.prediction().rate-direction*500)<20);
+    std::printf("EARLY_FIT direction=%d trained_us=%llu lock_us=%llu\n",direction,
+      (unsigned long long)(trained_at-1000000),(unsigned long long)(locked_at-1000000));
+  }
   Fixture f;uint64_t utc=0;
   assert(!f.feed(1000000,4));assert(!f.clock.deliver(20000200,1000010,utc));
   assert(f.feed(1062500,5));assert(f.clock.accepted()==1&&f.clock.deliver(21250200,1062510,utc));

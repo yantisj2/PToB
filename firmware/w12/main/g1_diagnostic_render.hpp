@@ -116,7 +116,7 @@ inline int g1_render_clock(char* out,unsigned capacity,const R2Status& s,uint64_
     s.g1_clock_discontinuities,s.g1_clock_last_discontinuity_ns,s.g1_clock_fit_tick20);
 }
 inline int g1_render_fit(char* out,unsigned capacity,const R2Status& s,uint64_t now){
-  return std::snprintf(out,capacity,"W12_G1_FIT at_us=%" PRIu64 " fit20=%" PRIu64 " points=%u span_ms=%u pairs=%" PRIu32 " reason=%u fresh=%u unscored=%" PRIu32 " history=COMPACT64_250MS quality=ALL_CAUSAL_PHYSICAL16S precision=UNQUALIFIED\n",
+  return std::snprintf(out,capacity,"W12_G1_FIT at_us=%" PRIu64 " fit20=%" PRIu64 " points=%u span_ms=%u pairs=%" PRIu32 " reason=%u fresh=%u unscored=%" PRIu32 " history=COMPACT64_ACQ62MS_TRACK250MS quality=ALL_CAUSAL_PHYSICAL16S precision=UNQUALIFIED\n",
     now,s.g1_clock_fit_tick20,unsigned(s.g1_fit_points),unsigned(s.g1_fit_span_ms),s.g1_frequency_pairs,unsigned(s.g1_fit_reason),unsigned(s.g1_frequency_trained),s.g1_quality_missing);
 }
 // Same immutable snapshot and DisplayState that the OLED consumes. Main task
