@@ -1,6 +1,7 @@
 # macOS USB / chrony client
 
-The PToB macOS client receives time from a compatible T096 RC over USB and
+The PToB macOS client receives time from a compatible T096 RC or dedicated
+[DC GNSS/USB image](../../docs/t096/direct-connect.md) over USB and
 supplies an experimental user clock through a private, unprivileged chronyd.
 It provides a live clock display, source diagnostics and chrony tracking while
 leaving the macOS system clock unchanged.
@@ -34,7 +35,9 @@ After arranging access to a compatible, enrolled T096 RC, launch
 replay are offline. In the terminal, `c` opens chrony statistics, `d` diagnostics,
 `h` help and `q` closes the client.
 
-Use an RC USB source: the reviewed normal GM backend does not publish a USB
+Use an RC USB source for the mesh chain, or DC for local GNSS with zero BLE
+relay hops. DC uses the same USB contract; it has no group enrollment or runtime
+GM/RC toggle. The reviewed normal GM backend does not publish a USB
 source map. Direct Mac BLE, SS3 CDC timing input and network time serving are
 not supplied. The [chrony guide](chrony/README.md) explains the local daemon and
 read-only monitoring options.

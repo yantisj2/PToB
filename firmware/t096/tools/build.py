@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the common RC7 application (GM or RC), without hardware access.
+"""Build RC7 (GM/RC) or the separate DC GNSS/USB image, without hardware access.
 Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT
 """
 import argparse
@@ -34,9 +34,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--deps', type=Path, required=True)
     parser.add_argument('--out', type=Path, required=True)
-    parser.add_argument('--enrollment', type=Path, required=True)
+    parser.add_argument('--enrollment', type=Path)
     parser.add_argument('--device-config', type=Path, required=True)
-    parser.add_argument('--profile', choices=['GM', 'RC'], required=True)
+    parser.add_argument('--profile', choices=['GM', 'RC', 'DC'], required=True)
     parser.add_argument('--registry', type=Path, default=REPO/'registry/example.json')
     parser.add_argument('--development', action='store_true')
     args = parser.parse_args()
@@ -47,7 +47,12 @@ def main():
     dirty = bool(git(REPO, 'status', '--porcelain', '--untracked-files=all'))
     if dirty and not args.development:
         parser.error('Commit reviewed public inputs before a release-candidate build')
-    for path in [args.enrollment, args.device_config]:
+    dc = args.profile == 'DC'
+    if dc and args.enrollment:
+        parser.error('DC has no group enrollment; omit --enrollment')
+    if not dc and not args.enrollment:
+        parser.error('GM/RC require --enrollment')
+    for path in [p for p in [args.enrollment, args.device_config] if p]:
         if subprocess.run(['git','-C',str(REPO),'check-ignore','--quiet',str(path.resolve())]).returncode:
             parser.error('Local enrollment/device inputs must be ignored by Git')
     lock = json.loads((APP/'dependencies.lock.json').read_text())
@@ -63,14 +68,15 @@ def main():
             raise ValueError('SDK archive hash mismatch')
     if (sdk/'sdk_version').read_text().strip() != lock['sdk']['release']:
         raise ValueError('SDK version mismatch')
-    enrollment = json.loads(args.enrollment.read_text())
+    enrollment = json.loads(args.enrollment.read_text()) if not dc else None
     device = json.loads(args.device_config.read_text())
     registry = load_registry(args.registry)
-    key = bytes.fromhex(enrollment['psk'])
-    group = enrollment['group_id']; epoch = enrollment['key_epoch']
-    if not (len(key)==32 and any(key) and re.fullmatch('[0-9a-f]{16}',group)
-            and int(group,16) and type(epoch) is int and 0 < epoch < 2**32):
-        raise ValueError('Invalid local group enrollment')
+    if not dc:
+        key = bytes.fromhex(enrollment['psk'])
+        group = enrollment['group_id']; epoch = enrollment['key_epoch']
+        if not (len(key)==32 and any(key) and re.fullmatch('[0-9a-f]{16}',group)
+                and int(group,16) and type(epoch) is int and 0 < epoch < 2**32):
+            raise ValueError('Invalid local group enrollment')
     identity,label,battery = device['device_id'],device['label'],device['battery']
     if not (re.fullmatch('[0-9a-f]{16}',identity) and int(identity,16) and
             re.fullmatch('[A-Za-z0-9_-]{5}',label) and type(battery) is int and battery in (-1,0,1)
@@ -82,12 +88,12 @@ def main():
     version=re.search(r'^project\(ptob_t096 VERSION ([0-9]+\.[0-9]+\.[0-9]+)\)',
                       (APP/'CMakeLists.txt').read_text(),re.M)
     if not version:raise ValueError('Missing canonical CMake application version')
-    receipt = {'schema':1,'artifact_class':'PTOB_T096_RC7','version':version[1],
+    receipt = {'schema':1,'artifact_class':'PTOB_T096_DC1' if dc else 'PTOB_T096_RC7','version':version[1],
                'status':'INCOMPLETE','public_commit':git(REPO,'rev-parse','HEAD'),
                'child_commit':git(REPO,'rev-parse','HEAD'),'source_dirty':dirty,'sources':source,'source_sha256':source_hash,
                'profile':args.profile,'usb_source_stream':True,'dependencies':lock,
                'installed':False,'precision':'UNQUALIFIED','hardware_tests':[],
-               'enrollment_mode':'LOCAL_BUILD_TIME_P1_NOT_IMPLEMENTED',
+               'enrollment_mode':'NONE_DC_LOCAL_GNSS' if dc else 'LOCAL_BUILD_TIME_P1_NOT_IMPLEMENTED',
                'registry_sha256':sha(args.registry),
                'registry_generator_sha256':sha(REPO/'registry/registry.py'),
                'device_config_sha256':sha(args.device_config)}
@@ -96,9 +102,18 @@ def main():
         dst=out/'source'/name;dst.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(APP/name,dst)
     (out/'target/ptob_registry.h').write_text(registry_header(registry))
     shutil.copyfile(args.registry,out/'registry.json')
+    shutil.copyfile(args.device_config,out/'device.json')
     shutil.copyfile(REPO/'registry/registry.py',out/'registry_generator.py')
     secret=out/'r2_enrollment.h'
-    secret.write_text('/* device-config-sha256: '+sha(args.device_config)+'; registry-sha256: '+sha(args.registry)+' */\n#include "ble_service.h"\nstatic const struct r2_enrollment r2_enrollment={'
+    if dc:
+        # Identity binding, not a credential. No group key is read or generated.
+        secret.write_text('/* DC: no group enrollment. device-config-sha256: '+sha(args.device_config)+' */\n')
+        receipt.update(ble_enabled=False,profile_toggleable=False,relay_hops=0,
+                       timing_chain='LOCAL_GNSS_PPS_TIMER3_USB_SOF_MACOS',
+                       usb_rms='GNSS_MAPPED_SOF_SPAN_PER_FRAME_RMS')
+        write(out/'receipt.json',receipt)
+    else:
+        secret.write_text('/* device-config-sha256: '+sha(args.device_config)+'; registry-sha256: '+sha(args.registry)+' */\n#include "ble_service.h"\nstatic const struct r2_enrollment r2_enrollment={'
         '.group={.psk={'+','.join(map(str,key))+'},.id=UINT64_C(0x'+group+'),.epoch='+str(epoch)+'},'
         '.rc_dynamic=true,.rc7_boot_rc='+('true' if args.profile=='RC' else 'false')+','
         '.local_capabilities=7,.map_bound_us=40000};\n')
@@ -118,7 +133,8 @@ def main():
              '-DR2_SOURCE_SHA='+source_hash,'-DR2_CHILD_COMMIT='+receipt['public_commit'],
              '-DR2_SOURCE_DIRTY='+str(int(dirty)),
              '-DZEPHYR_MODULES='+';'.join(str(deps/p['path']) for p in lock['modules']),
-             '-DEXTRA_CONF_FILE='+';'.join(str(APP/p) for p in ['rc_dynamic.conf','rc_unicast.conf','watchdog.conf','rc_hf_synth.conf'])]
+             *(['-DR2_DC_PROFILE=ON','-DCONF_FILE='+str(APP/'dc.conf')] if dc else
+               ['-DEXTRA_CONF_FILE='+';'.join(str(APP/p) for p in ['rc_dynamic.conf','rc_unicast.conf','watchdog.conf','rc_hf_synth.conf'])])]
     try:
         run(command,'configure.log');run(['ninja','-C',str(out/'target')],'build.log')
         check_deps()
@@ -138,7 +154,7 @@ def main():
                     receipt['compiled_sources'][prefix+'/'+str(p.relative_to(base))]=sha(p);break
             else:raise ValueError('Unexpected compiled source')
         receipt['artifacts']={str(p.relative_to(out)):sha(p) for p in out.rglob('*') if p.is_file()
-                              and (p.suffix in ['.elf','.bin','.hex','.map','.uf2','.su'] or p.name in ['.config','zephyr.dts','build_identity.h','ptob_device.h','ptob_registry.h','registry.json','registry_generator.py','r2_enrollment.h','compile_commands.json'])}
+                              and (p.suffix in ['.elf','.bin','.hex','.map','.uf2','.su'] or p.name in ['.config','zephyr.dts','build_identity.h','ptob_device.h','ptob_registry.h','registry.json','device.json','registry_generator.py','r2_enrollment.h','compile_commands.json'])}
         receipt['status']='DEVELOPMENT_NOT_FLASHABLE' if dirty else 'BUILD_COMPLETE_PHYSICAL_UNKNOWN'
         write(out/'receipt.json',receipt)
         from inspect_build import inspect

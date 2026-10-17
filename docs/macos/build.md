@@ -2,7 +2,8 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
-The current client uses **BLE → compatible T096 USB relay → macOS**, optionally
+The current client uses **BLE → compatible T096 USB relay → macOS**, or the
+separate **[DC GNSS → USB → macOS image](../t096/direct-connect.md)**, optionally
 feeding an owned user-space chronyd. Direct Mac Bluetooth is disabled and is not
 linked. The selected SS3 console does not expose the required UTS1 USB timing
 interface and cannot be substituted by connecting its CDC port.

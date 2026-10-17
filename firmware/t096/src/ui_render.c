@@ -125,7 +125,10 @@ bool r2_ui_saver_allowed(const struct r2_ui_model *m,uint64_t now)
  /* Saver has no dial loss grace: wake on actual source/map/PLL withdrawal.
   * A follower's local GPS is a witness and cannot stand in for BLE sync. */
  if(!r2_ui_face_locked(m,now)||!r2_ui_analog(m,now)||!m->scope_active||
-    !m->ble_active||m->profile_switching)return false;
+#ifndef R2_DC_PROFILE
+    !m->ble_active||
+#endif
+    m->profile_switching)return false;
  if(m->role==R2_UI_GM){
   if(!m->gm_source_fresh||!m->clock.pps_present||m->clock.pps_age_us<0||m->clock.pps_age_us>=R2_PPS_FRESH_US)return false;
   return (now-m->sampled_ms)*1000<(uint64_t)(R2_PPS_FRESH_US-m->clock.pps_age_us);
@@ -223,14 +226,50 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
  if(settling||(face_locked&&m->role!=R2_UI_GM)||(fresh&&m->role==R2_UI_FOLLOWER&&m->scope_active))
   snprintf(s.ui_role.header,sizeof(s.ui_role.header),"%s>%.8s",m->unit,m->relay_selected?m->upstream_name:m->root_name);
  else snprintf(s.ui_role.header,sizeof(s.ui_role.header),"%s",m->unit);
+ /* DC displays the standard USB client sampling rate. The existing dial
+  * renderer colors the entire badge from the live die temperature. */
+#ifdef R2_DC_PROFILE
+ s.active_ble_slots=32;
+#else
  /* Beat value comes from timing owner, not display cadence or control traffic. */
  s.active_ble_slots=fresh?m->precision_beat_hz:0;
+#endif
  s.rf_sources.ble=(ui_rf_source_t){.available=fresh&&m->scope_active&&m->ble_time_selected&&s.utc_valid,
    .fresh=fresh&&m->scope_active&&m->ble_time_selected,.utc=true,.second=s.utc_second};
  /* Transport activity remains visible while time/map qualification is absent.
   * A stalled model cannot keep lamps on; no time authority is inferred. */
  r2_ui_rf_lamps(s.rf_lamps[UI_RF_BLE],m,now);
  fill(fb,0,0,80,160,C_BG);
+#ifdef R2_DC_PROFILE
+ if(status->help){
+  label(fb,5,10,"DC GNSS USB",1,C_WHITE);label(fb,5,35,"PRESS: PAGE",1,C_DIM);
+  label(fb,5,60,"4 SEC: OFF",1,C_AMBER);label(fb,5,85,"FLASH ONLY",1,C_DIM);
+  label(fb,5,110,"USB RMS IS",1,C_WHITE);label(fb,5,125,"SOF CADENCE",1,C_WHITE);
+  label(fb,5,148,"PRESS:BACK",1,C_DIM);return;
+ }
+ if(status->page!=0&&!status->screensaver){
+  char value[24];label(fb,4,4,"DC GNSS USB",1,C_WHITE);
+  if(status->page==3){
+   label(fb,4,25,"UPTIME",1,C_DIM);r2_ui_uptime_text(value,now);label(fb,4,39,value,1,C_WHITE);
+   label(fb,4,60,"LAST RESET",1,C_DIM);label(fb,4,74,r2_ui_reset_text(m->reset_kind),1,C_WHITE);
+   if(m->temperature_valid)snprintf(value,sizeof value,"DIE %d C",m->temperature_qc/4);else snprintf(value,sizeof value,"DIE --");
+   label(fb,4,97,value,1,C_DIM);label(fb,4,119,"BLE OFF",1,C_DIM);
+   label(fb,4,136,"FLASH ONLY",1,C_DIM);label(fb,4,151,"4 SEC: OFF",1,C_DIM);return;
+  }
+  label(fb,4,24,fresh&&m->clock.fix_active?"GPS FIX":"GPS WAIT",1,C_DIM);
+  label(fb,4,40,gps_pps_live(m,fresh)?"PPS LIVE":"PPS WAIT",1,C_DIM);
+  snprintf(value,sizeof value,"SV USED %u",fresh?m->clock.sats_used:0);label(fb,4,56,value,1,C_WHITE);
+  if(status->page==2){
+   rc_age(value,fresh?age_ms(m->clock.gps_age_us):UINT32_MAX);label(fb,4,77,"RMC AGE",1,C_DIM);label(fb,4,91,value,1,C_WHITE);
+   rc_age(value,fresh?age_ms(m->clock.pps_age_us):UINT32_MAX);label(fb,4,111,"PPS AGE",1,C_DIM);label(fb,4,125,value,1,C_WHITE);
+   label(fb,4,149,"UTC ACC --",1,C_DIM);return;
+  }
+  label(fb,4,76,m->scope_active&&fresh?"USB SOURCE":"SOURCE WAIT",1,C_DIM);
+  label(fb,4,92,"USB RMS",1,C_DIM);label(fb,4,106,s.native_rms,1,s.native_rms_valid?C_CYAN:C_DIM);
+  snprintf(value,sizeof value,"N %u",fresh?m->precision.samples:0);label(fb,4,123,value,1,C_DIM);
+  label(fb,4,138,"HOPS 0",1,C_DIM);label(fb,4,151,"UTC ACC --",1,C_DIM);return;
+ }
+#endif
  if(status->screensaver&&r2_ui_saver_allowed(m,now)){
   /* Existing Casio materials/geometry, rigidly translated as one assembly.
    * 13px source strip +2px gap +62px dial +2px gap +13px identity.

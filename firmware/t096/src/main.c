@@ -5,6 +5,10 @@
 #include "watchdog.h"
 #include "time_service.h"
 #include "capture.h"
+#include "gnss_aid.h"
+#ifdef R2_DC_PROFILE
+#include "direct_connect.h"
+#endif
 #ifdef R2_USB_SOF_PROBE
 #include "usb_sof_probe.h"
 #endif
@@ -61,10 +65,12 @@ static void event(uint32_t kind,int result)
   if(trace_count==R2_TRACE_COUNT) { if(trace_lost<UINT32_MAX) ++trace_lost; return; }
   trace[trace_count++]=(struct trace_record){.ms=k_uptime_get(),.kind=kind,.result=result};
 }
+#ifdef R2_NATIVE_BLE
 static const char *error_name(int code){
  return !code?"NONE":code==-ETIMEDOUT?"ETIMEDOUT":code==-ESTALE?"ESTALE":
         code==-ERANGE?"ERANGE":code==-EFAULT?"EFAULT":code==-ENOBUFS?"ENOBUFS":"OTHER";
 }
+#endif
 static void __attribute__((noinline)) clock_reply(const struct r2_request *r,uint64_t arrival)
 {
   struct r2_clock_view t;uint32_t drops;r2_time_snapshot(&t,&drops);
@@ -129,6 +135,16 @@ static uint32_t stack_unused(bool system_workqueue)
 static void __attribute__((noinline)) reply(const struct r2_request *r,uint64_t arrival,int result)
 {
   if(r->op==R2_CLOCK){clock_reply(r,arrival);return;}
+#ifdef R2_DC_PROFILE
+  if(r->op==R2_PRECISION){
+    uint32_t rms=0;unsigned samples=0;bool valid=r2_dc_metric(&rms,&samples);
+    int n=snprintf(json,sizeof json,"{\"source\":\"%s\",\"boot\":\"%016llx\",\"image_profile\":\"DC\",\"metric\":\"GNSS_MAPPED_USB_SOF_SPAN_PER_FRAME_RMS\",\"rms_ns\":%u,\"rms_valid\":%s,\"samples\":%u,\"relay_hops\":0,\"absolute_utc_qualified\":false}",R2_SOURCE_SHA,(unsigned long long)identity.boot,rms,valid?"true":"false",samples);
+    if(n<0||(size_t)n>=sizeof json||reply_sequence==UINT32_MAX)return;
+    n=r2_frame(frame,sizeof frame,r->id,++reply_sequence,json);
+    if(n>0)(void)r2_console_reply(frame,(size_t)n,arrival+R2_REPLY_MS);
+    return;
+  }
+#endif
   if(r->op==R2_EVENTS){
     int n=r2_timing_json(json,sizeof json,identity.boot,(uint32_t)r->nonce);
     if(n<=0||reply_sequence==UINT32_MAX)return;
@@ -248,7 +264,9 @@ static void __attribute__((noinline)) reply(const struct r2_request *r,uint64_t 
 #endif
   struct r2_platform p; struct r2_io io;struct r2_ui_status u;r2_ui_snapshot(&u);uint32_t service_profile[5]={0};
 #if !defined(R2_BOUNDARY_FIELD) || defined(R2_SWITCHABLE_FIELD)
+#ifdef R2_NATIVE_BLE
   r2_service_profile_status(service_profile);
+#endif
 #endif
   r2_platform_snapshot(&p); r2_console_snapshot(&io);
   const char *rf="OFF";
@@ -257,7 +275,12 @@ static void __attribute__((noinline)) reply(const struct r2_request *r,uint64_t 
   if(net_status.active||(net_status.closing&&!net_status.closed))rf=net_status.normal?"BLE_NORMAL":"BLE_BENCH";
 #endif
   int n=snprintf(json,sizeof(json),
+#ifdef R2_DC_PROFILE
+    "{\"image_profile\":\"DC\",\"profile_toggleable\":false,\"relay_hops\":0,\"ble_enabled\":false,"
+    "\"version\":\"%s\",\"source\":\"%s\",\"commit\":\"%s\",\"dirty\":%d,"
+#else
     "{\"version\":\"%s\",\"source\":\"%s\",\"commit\":\"%s\",\"dirty\":%d,"
+#endif
     "\"silicon\":\"%s\",\"unit\":\"%s\",\"boot\":\"%016llx\",\"battery\":%d,"
     "\"uptime_ms\":%llu,\"heartbeat\":%u,\"result\":%d,\"identity_rc\":%d,\"pins_rc\":%d,"
     "\"platform_ready\":%s,\"boot_timeout\":%s,\"clock\":[%d,%d,%d,%d,%llu,%llu],"
@@ -334,6 +357,10 @@ int main(void)
 #ifdef R2_USB_SOURCE_STREAM
   r2_usb_source_init(&identity);
 #endif
+#ifdef R2_DC_PROFILE
+  r2_dc_init(&identity);
+  r2_shadow_serving(true); /* No mesh witness collection in DC. */
+#endif
   int watchdog_rc=r2_watchdog_boot(&identity);
   if(watchdog_rc)identity.result=watchdog_rc;
 #ifdef R2_NATIVE_BLE
@@ -354,6 +381,19 @@ int main(void)
     uint64_t now=k_uptime_get(); if(heartbeat<UINT32_MAX) ++heartbeat;
     r2_health_beat();r2_watchdog_main_beat();
     r2_time_service();
+#ifdef R2_DC_PROFILE
+    r2_dc_poll(platform_ready&&maintenance.phase==R2_IDLE&&!r2_ui_poweroff_requested());
+    if(r2_ui_poweroff_requested()){
+      platform_ready=false;r2_ui_stop();
+      if(!r2_ui_close_result()){
+        r2_time_stop();
+        if(!r2_time_close_result()){
+          if(!p.close_done)(void)r2_platform_close();
+          else if(!p.close_result)(void)r2_board_poweroff();
+        }
+      }
+    }
+#endif
 #ifdef R2_NATIVE_BLE
     struct r2_clock local_clock;r2_time_copy(&local_clock);r2_service_clock(&local_clock);
     struct r2_service_status service;r2_service_snapshot(&service);
@@ -420,7 +460,12 @@ int main(void)
       else if(p.bt_done && p.bt_submit!=-EAGAIN) {
         startup_decided=true;
         platform_ready=!identity.result && !r2_board_safe() && p.clock_done && !p.clock_result &&
-          p.clock_release>=0 && !p.bt_result && !p.bt_submit && p.bt_end<boot_deadline && !R2_SOURCE_DIRTY;
+          p.clock_release>=0 &&
+#ifdef R2_DC_PROFILE
+          !R2_SOURCE_DIRTY;
+#else
+          !p.bt_result && !p.bt_submit && p.bt_end<boot_deadline && !R2_SOURCE_DIRTY;
+#endif
         event(4,platform_ready?0:-EIO);
       }
     }
@@ -442,6 +487,9 @@ int main(void)
         m.clock.valid=m.coarse_valid=valid;
         if(valid){m.clock.utc_us=utc;m.coarse_utc_us=(uint64_t)utc;m.coarse_at_us=(uint64_t)r2_time_now_us();}
       }
+#endif
+#ifdef R2_DC_PROFILE
+      r2_dc_ui(&m);
 #endif
       m.sampled_ms=k_uptime_get();r2_ui_publish(&m);ui_due=m.sampled_ms+20;
     }
@@ -481,6 +529,9 @@ int main(void)
           rc=diagnostic_busy()?-EBUSY:r2_prepare(&maintenance,r.nonce,command.arrival,now,platform_ready);
           if(!rc) {
             platform_ready=false;r2_ui_stop();
+#ifdef R2_DC_PROFILE
+            r2_dc_poll(false);
+#endif
 #ifdef R2_NATIVE_BLE
             r2_diag_quiesce();
             r2_service_stop();
@@ -518,6 +569,10 @@ int main(void)
         } else if(r.op==R2_RELAY){
           rc=platform_ready&&maintenance.phase==R2_IDLE?r2_service_relay(r.nonce,r.seconds,command.arrival):-EACCES;
           r2_diag_command(r.id,r.op,rc,command.arrival);
+#endif
+#ifdef R2_DC_PROFILE
+        } else if(r.op==R2_PROFILE||r.op==R2_BLE||r.op==R2_RELAY||r.op==R2_WITNESS||r.op==R2_NAME) {
+          rc=-ENOTSUP;
 #endif
         } else if(r.op==R2_UI) {
           if(r.trace_page<R2_UI_PAGES)rc=r2_ui_page(r.trace_page);

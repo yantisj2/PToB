@@ -19,9 +19,19 @@ func preciseClockTests() -> Int {
     }
     func record(_ p: [String:Any]) -> USBSourceRecord {
         let json = try! JSONSerialization.data(withJSONObject:p)
-        return USBSourceRecord(try! JSONSerialization.jsonObject(with:json) as! [String:Any])!
+        let decoded = try! JSONSerialization.jsonObject(with:json) as! [String:Any]
+        guard let value = USBSourceRecord(decoded) else {
+            fputs("Rejected precise-clock fixture: \(decoded)\n",stderr);exit(1)
+        }
+        return value
     }
     let r = record(packet()), map = USBImmutableSourceMap(r)!
+    var dc = packet()
+    dc["root"] = tc04Silicon; dc["root_boot"] = dc["boot"]
+    dc["path_scope"] = "44432d474e53532d5553422d76310000"
+    let dcRecord = record(dc), dcMap = USBImmutableSourceMap(dcRecord)
+    check(dcRecord.root == dcRecord.silicon && dcRecord.rootBoot == dcRecord.boot && dcMap != nil,"DC uses local GNSS root with no relay")
+    check(dcMap?.project(counter+2) == Int64(mono)+125 && dcMap?.project(counter+16_000_000) == nil,"DC retains integer projection and exact expiry")
     check(map.project(counter) == Int64(mono),"immutable integer origin")
     check(map.project(counter+2) == Int64(mono)+125,"exact two-tick conversion")
     check(map.project(counter+1) == Int64(mono)+62,"firmware integer half-tick truncation")

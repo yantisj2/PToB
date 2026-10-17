@@ -12,7 +12,8 @@ def require(ok,message):
     if not ok:raise ValueError(message)
 def inspect(out,allow_development=False):
     out=Path(out);r=json.loads((out/'receipt.json').read_text())
-    require(r['artifact_class']=='PTOB_T096_RC7' and r['profile'] in ('GM','RC') and r['usb_source_stream'] is True,'Unknown profile')
+    dc=r['profile']=='DC'
+    require((r['artifact_class']=='PTOB_T096_DC1' if dc else r['artifact_class']=='PTOB_T096_RC7' and r['profile'] in ('GM','RC')) and r['usb_source_stream'] is True,'Unknown profile')
     require(r['status']=='BUILD_COMPLETE_PHYSICAL_UNKNOWN' or allow_development and r['status']=='DEVELOPMENT_NOT_FLASHABLE','Unreviewable build')
     require(not r['source_dirty'] or allow_development,'Dirty source')
     for name,h in r['artifacts'].items():require(sha(out/name)==h,'Changed artifact: '+name)
@@ -38,7 +39,7 @@ def inspect(out,allow_development=False):
                 require(0x20002000<=seg['p_vaddr'] and seg['p_vaddr']+seg['p_memsz']<=0x20040000,'ELF RAM bounds')
                 ram_end=max(ram_end,seg['p_vaddr']+seg['p_memsz'])
     config=(out/'target/zephyr/.config').read_text()
-    if tuple(map(int,r['version'].split('.'))) >= (0,15,63):
+    if not dc and tuple(map(int,r['version'].split('.'))) >= (0,15,63):
         rx=re.search(r'^CONFIG_BT_CTLR_RX_BUFFERS=(\d+)$',config,re.M)
         work=re.search(r'^CONFIG_SYSTEM_WORKQUEUE_STACK_SIZE=(\d+)$',config,re.M)
         require(rx is not None and int(rx[1])>=8,'Insufficient native RX reserve')
@@ -47,8 +48,24 @@ def inspect(out,allow_development=False):
     for line in ['CONFIG_ROM_END_OFFSET=0x6000','CONFIG_FLASH=y','CONFIG_USB_DEVICE_STACK=y','CONFIG_WATCHDOG=y']:
         require(line in config,'Required configuration: '+line)
     commands=(out/'target/compile_commands.json').read_text()
-    for feature in ['R2_RC_PROFILE=1','R2_USB_SOURCE_STREAM=1','R2_USB_SOF_PROBE=1']:
+    for feature in [('R2_DC_PROFILE=1' if dc else 'R2_RC_PROFILE=1'),'R2_USB_SOURCE_STREAM=1','R2_USB_SOF_PROBE=1']:
         require(feature in commands,'Missing standard RC7 feature: '+feature)
+    if dc:
+        require('# CONFIG_BT is not set' in config and not re.search(r'^CONFIG_BT\w*=y$',config,re.M),'DC Bluetooth enabled')
+        require(r.get('enrollment_mode')=='NONE_DC_LOCAL_GNSS' and r.get('ble_enabled') is False and
+                r.get('profile_toggleable') is False and r.get('relay_hops')==0,'DC profile contract')
+        require(not any(x in commands for x in ['R2_RC_PROFILE=1','R2_NATIVE_BLE=1','R2_SWITCHABLE_FIELD=1',
+                '/src/ble_service.c','/src/rc_dynamic_service.c','/src/radio_capture.c',
+                '/protocol/group_auth.c','/subsys/bluetooth/']),'DC contains mesh/controller owners')
+        require('psk' not in (out/'r2_enrollment.h').read_text().lower(),'DC enrollment contains a group key')
+        with (out/'target/zephyr/zephyr.elf').open('rb') as f:
+            symbols={s.name for s in ELFFile(f).get_section_by_name('.symtab').iter_symbols()}
+        require(not any(x in symbols for x in ['bt_enable','bt_le_scan_start','bt_le_adv_start',
+                'r2_service_profile','r2_radio_capture_enable','r2_uc_start']),'DC radio/switch symbols')
+        require('r2_dc_poll' in symbols and 'r2_usb_source_request' in symbols,'Missing DC publisher/USB interface')
+        usb_stack=re.search(r'^CONFIG_USB_NRFX_WORK_QUEUE_STACK_SIZE=(\d+)$',config,re.M)
+        require(usb_stack is not None and int(usb_stack[1])>=2048,'Insufficient DC USB worker stack')
+        require(0x20040000-ram_end>=1024,'Insufficient DC static RAM margin')
     binding=hashlib.sha256((r['source_sha256']+':'+sha(out/'r2_enrollment.h')+':'+sha(out/'target/zephyr/.config')).encode()).hexdigest()
     require(binding==r['watchdog_binding_sha256'],'Watchdog binding')
     return {'status':'PASS','flash_load_end':flash_end,'ram_allocated_end':ram_end,'static_unallocated_bytes':0x20040000-ram_end,'hardware':'NOT_TESTED','deployment_authorized':False}

@@ -9,6 +9,9 @@
 #include "capture.h"
 #include "app.h"
 #include "health.h"
+#ifdef R2_DC_PROFILE
+#include "direct_connect.h"
+#endif
 #include <zephyr/usb/usb_device.h>
 #include <zephyr/kernel.h>
 #include <zephyr/sys/byteorder.h>
@@ -262,6 +265,11 @@ int r2_usb_source_request(struct usb_setup_packet *setup,int32_t *length,uint8_t
   wire[72]=extended||setup->bRequest==0x53?1:2;sys_put_le32(serial==UINT32_MAX?6:4,wire+220);
   if(extended)sys_put_le32(4,wire+252);
  }
+#ifdef R2_DC_PROFILE
+ if(setup->bRequest==0x53||extended)
+  r2_dc_usb_observation(!raced&&(sys_get_le32(wire+36)&1),event,sys_get_le64(wire+64),
+   raw.frame_after,after_epoch,raw.capture_epoch,sys_get_le32(wire+96),sys_get_le32(wire+100));
+#endif
  *data=wire;*length=sizeof wire;return 0;
 }
 

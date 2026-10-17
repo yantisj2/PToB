@@ -3,13 +3,17 @@
  * excluding the compiled controller mask. No CLOCK/RADIO task writes.
  */
 #include "capture.h"
+#ifndef R2_DC_PROFILE
 #include "radio_capture.h"
 #include "radio_nrf5_resources.h"
+#endif
 #include <errno.h>
 #include <nrfx_gpiote.h>
 #include <nrfx_ppi.h>
 #include <nrfx_timer.h>
+#ifndef R2_DC_PROFILE
 #include <hal/nrf_radio.h>
+#endif
 #ifdef R2_USB_SOF_PROBE
 #include <hal/nrf_usbd.h>
 BUILD_ASSERT(NRF_TIMER_CC_CHANNEL3==3);
@@ -25,11 +29,13 @@ static bool usb_owned;
 #include "health_lock.h"
 BUILD_ASSERT(!DT_NODE_HAS_STATUS(DT_NODELABEL(timer3), okay));
 BUILD_ASSERT(IS_ENABLED(CONFIG_SOC_NRF52840));
+#ifndef R2_DC_PROFILE
 BUILD_ASSERT(EVENT_TIMER_ID != 3);
 /* Pinned non-single timer profile uses TIMER0+TIMER1. Other profiles require a
  * new resource audit before selecting this application timer. */
 BUILD_ASSERT(!IS_ENABLED(CONFIG_BT_CTLR_SW_SWITCH_SINGLE_TIMER));
 BUILD_ASSERT(!IS_ENABLED(CONFIG_BT_CTLR_TIFS_HW));
+#endif
 static const nrfx_timer_t timer = NRFX_TIMER_INSTANCE(3);
 static const nrfx_gpiote_t gpiote = NRFX_GPIOTE_INSTANCE(0);
 static struct onoff_client client;
@@ -37,8 +43,10 @@ static struct onoff_manager *manager;
 static struct gpio_dt_spec pin;
 static struct k_spinlock lock;
 static nrf_ppi_channel_t channel;
+#ifndef R2_DC_PROFILE
 static nrf_ppi_channel_t radio_channel;
 static bool radio_owned,radio_enabled;
+#endif
 static bool requested, timer_owned, ppi_owned, used, pending;
 static atomic_t accepting, error;
 static uint64_t epoch, extended;
@@ -115,6 +123,7 @@ void r2_capture_poll(int64_t now) {
       if (!rc)
         ppi_owned = true;
     }
+#ifndef R2_DC_PROFILE
     if (!rc) {
       rc = nrfx_ppi_channel_alloc(&radio_channel) == NRFX_SUCCESS ? 0 : -ENOMEM;
       if (!rc) radio_owned = true;
@@ -123,6 +132,7 @@ void r2_capture_poll(int64_t now) {
           nrf_radio_event_address_get(NRF_RADIO,NRF_RADIO_EVENT_ADDRESS),
           nrfx_timer_capture_task_address_get(&timer,1)) != NRFX_SUCCESS)
       rc = -EIO;
+#endif
     /* Disable retains the GPIO driver's allocated IN channel. Re-enable clears
      * stale event state before its event and IRQ are enabled in the pinned
      * driver. */
@@ -159,8 +169,10 @@ void r2_capture_poll(int64_t now) {
       extended = previous_raw;
       previous_mono = now;
       ++epoch;
+#ifndef R2_DC_PROFILE
       rc = r2_radio_capture_enable((uint32_t)epoch,radio_channel);
       if (!rc) radio_enabled = true;
+#endif
       if (!rc && nrfx_ppi_channel_enable(channel) != NRFX_SUCCESS)
         rc = -EIO;
 #ifdef R2_USB_SOF_PROBE
@@ -224,6 +236,7 @@ int r2_capture_stop(void) {
     else usb_owned=false;
   }
 #endif
+#ifndef R2_DC_PROFILE
   if (!rc && radio_enabled) {
     rc = r2_radio_capture_disable();
     if (!rc) radio_enabled = false;
@@ -233,6 +246,7 @@ int r2_capture_stop(void) {
         nrfx_ppi_channel_free(radio_channel) != NRFX_SUCCESS) rc = -EIO;
     else radio_owned = false;
   }
+#endif
   if (!rc && ppi_owned) {
     if (nrfx_ppi_channel_disable(channel) != NRFX_SUCCESS)
       rc = -EIO;

@@ -9,7 +9,7 @@
 #include <zephyr/drivers/sensor.h>
 #include <zephyr/drivers/pwm.h>
 #include <zephyr/drivers/clock_control/nrf_clock_control.h>
-#if defined(R2_RC_PROFILE) && defined(CONFIG_CLOCK_CONTROL_NRF_K32SRC_SYNTH) && defined(CONFIG_NRFX_TEMP)
+#if (defined(R2_RC_PROFILE) || defined(R2_DC_PROFILE)) && defined(CONFIG_CLOCK_CONTROL_NRF_K32SRC_SYNTH) && defined(CONFIG_NRFX_TEMP)
 #include <zephyr/drivers/clock_control.h>
 #include <nrfx_temp.h>
 #endif
@@ -131,7 +131,7 @@ int r2_display_off(void){if(!pwm_is_ready_dt(&backlight))return -ENODEV;int rc=p
  * never issue another sample_fetch/HF request or take its blocking mutex. */
 int r2_display_temperature(int16_t *quarter_c)
 {
-#if defined(R2_RC_PROFILE) && defined(CONFIG_CLOCK_CONTROL_NRF_K32SRC_SYNTH)
+#if (defined(R2_RC_PROFILE) || defined(R2_DC_PROFILE)) && defined(CONFIG_CLOCK_CONTROL_NRF_K32SRC_SYNTH)
 #if defined(CONFIG_NRFX_TEMP)
  /* Sole UI TEMP owner on synthesized-LF images. The stock LF owner already
   * holds HFXO; never request/release it, enable an IRQ, or touch TIMER/PPI.

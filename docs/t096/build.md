@@ -2,7 +2,9 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
-There are two profiles: **GM** and **RC**. USB timing support is always compiled;
+The common mesh image has two profiles: **GM** and **RC**. The separate,
+flash-only **[DC image](direct-connect.md)** serves local GNSS over USB with
+Bluetooth disabled and no group enrollment. USB timing support is always compiled;
 source-map publication currently uses the RC backend. The reviewed normal GM
 backend does not supply a USB source map. Use a compatible RC for the macOS
 chain; see the [stability results](../../evidence/stability/2026-10-16/README.md).
@@ -56,11 +58,16 @@ artifacts/deps/venv/bin/python firmware/t096/tools/build.py \
   --device-config artifacts/local/device.json
 ```
 
-Use `--profile GM` for a GM cold boot. The same RC7 owners and USB code are
-compiled for both roles. `--development` permits an uncommitted diagnostic build;
+Use `--profile GM` for a GM cold boot. For a dedicated GNSS/USB device, use
+`--profile DC` and omit `--enrollment`; DC rejects group credentials and has no
+runtime role switch. See the DC guide for its package command and USB RMS meaning.
+The common RC7 owners and USB code are compiled for both GM and RC.
+`--development` permits an uncommitted diagnostic build;
 its receipt is explicitly not flashable. A deployment candidate requires a clean
-local commit and separate review. Do not upload output directories: the headers,
-ELF, BIN and UF2 contain your group key. Checksums establish identity, not secrecy
+local commit and separate review. Do not upload GM/RC output directories: their
+headers, ELF, BIN and UF2 contain your group key. DC contains no group key, but
+its exact device binding and local package remain private validation material.
+Checksums establish identity, not secrecy
 or authenticity. Runtime P1 provisioning is not yet implemented.
 
 ## Checks
@@ -75,6 +82,7 @@ artifacts/deps/venv/bin/python firmware/t096/tools/inspect_build.py artifacts/bu
 
 ```sh
 python3 -m unittest discover -s firmware/t096/provisioning -p 'test_*.py' -v
+CC=clang python3 firmware/t096/tools/dc_tests.py --out artifacts/check-dc
 CC=clang python3 firmware/t096/tools/usb_sof_tests.py --out artifacts/check-usb
 CC=clang python3 firmware/t096/tools/watchdog_tests.py --deps artifacts/deps --out artifacts/check-watchdog
 CC=clang python3 firmware/t096/tools/runtime_profile_tests.py --deps artifacts/deps --out artifacts/check-profile

@@ -666,6 +666,9 @@ static void bluetooth_badge(uint8_t *fb, bool transmitting) {
 }
 
 static void role_header_at(uint8_t *fb,const ui_snapshot_t *s,int top) {
+#ifdef R2_DC_PROFILE
+ round_panel(fb,3,top,74,13,C_PANEL,C_BEZEL);label(fb,10,top+3,"Direct USB",1,C_WHITE);return;
+#endif
  if(s->ui_role.grandmaster){round_panel(fb,3,top,74,13,C_PANEL,C_BEZEL);label(fb,7,top+3,"Grandmaster",1,C_WHITE);return;}
  const char *name=s->ui_role.header[0]?s->ui_role.header:s->unit_name?s->unit_name:"PTOB CLOCK";
  char compact[12];
@@ -745,7 +748,11 @@ static void front_clock(uint8_t *fb, const ui_snapshot_t *s) {
         issue_metric(fb,101,s->lora_only?"RX":"GPS",s->lora_only?"WAIT":"SHADOW",C_DIM);
     }else sync_issue(fb, s);
     round_panel(fb, 3, 118, 74, 39, C_PANEL, C_BEZEL);
+#ifdef R2_DC_PROFILE
+    label(fb,7,123,"U",1,C_CYAN);
+#else
     bluetooth_badge(fb, s->ble_tx_active);
+#endif
     fill(fb, 22, 122, 1, 9, C_BEZEL);
     if(!s->ui_role.grandmaster && (s->lora_only || s->mesh_profile || s->pair_active)){
         bool valid=s->lora_only?s->lora_metric_valid:s->pair_active?s->pair_metric_valid:s->mesh_metric_valid;
@@ -781,7 +788,13 @@ static void front_clock(uint8_t *fb, const ui_snapshot_t *s) {
         label(fb,72-(int)n*6,147,value,1,rssi_valid?C_WHITE:C_DIM);
         return;
     }
-    label(fb,26,122,s->gnss_native_health?(s->ui_role.grandmaster?"BEAT RMS":"SYNC RMS"):s->copy_profile?"PPS PPB":s->basic_profile?"BASIC":"BEAT FRQ",1,C_DIM);
+    label(fb,26,122,s->gnss_native_health?(
+#ifdef R2_DC_PROFILE
+      "USB RMS"
+#else
+      s->ui_role.grandmaster?"BEAT RMS":"SYNC RMS"
+#endif
+      ):s->copy_profile?"PPS PPB":s->basic_profile?"BASIC":"BEAT FRQ",1,C_DIM);
     char rate[16];
     if(s->gnss_native_health){const char *word=s->native_rms;unsigned i=0;while(word[i]){rate[i]=word[i];i++;}rate[i]=0;}
     else if (s->copy_profile) {
@@ -804,6 +817,9 @@ static void front_clock(uint8_t *fb, const ui_snapshot_t *s) {
           s->beat_ppb_samples && s->state == CLOCK_LOCKED &&
           s->beat_hundredth_ppb_average < 100u ? C_GREEN : C_DIM);
     fill(fb, 8, 143, 64, 1, C_BEZEL);
+#ifdef R2_DC_PROFILE
+    label(fb,10,147,"DC",1,C_GREEN);
+#else
     if(s->native_profile_supported)label(fb,10,147,s->native_profile_rc?"RC":s->native_hot_standby?"HOT":"GM",1,(s->native_profile_rc?s->native_rc_serving_clients:s->native_hot_standby)?C_GREEN:C_DIM);
     else if(s->unit_name && s->battery_present) {
       char bat[8]; unsigned n=0;
@@ -814,7 +830,9 @@ static void front_clock(uint8_t *fb, const ui_snapshot_t *s) {
       else {bat[n++]='-';bat[n++]='-';}
       bat[n]=0;label(fb,8,147,bat,1,s->battery_valid && s->battery_percent<10?C_AMBER:C_DIM);
     } else tight_italic_label(fb, 10, 147, "32kHz", C_DIM);
+#endif
     fill(fb, 41, 147, 1, 7, C_BEZEL);
+#ifndef R2_DC_PROFILE
     if(s->gnss_native_health&&!s->ui_role.grandmaster){
         /* Four delivery bars for actual selected-parent timing reception.
          * Unknown/stale input leaves four empty outlines; TX is no reception. */
@@ -827,6 +845,7 @@ static void front_clock(uint8_t *fb, const ui_snapshot_t *s) {
         }
         return;
     }
+#endif
     char die[16];
     if (s->unit_name && s->usb_power) {die[0]='U';die[1]='S';die[2]='B';die[3]=0;}
     else if (s->unit_name && s->battery_valid) {die[0]='B';die[1]='A';die[2]='T';die[3]=0;}

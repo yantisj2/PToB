@@ -11,10 +11,17 @@ for the precision timing stream,
 with mesh participation separated from planned client services for less capable
 devices. See [the architectural background](../../docs/V12_TO_R2.md).
 
-**PToB owns T096 RC7 development.** The two profiles are **GM** and **RC**;
+**PToB owns T096 RC7 development.** The ordinary mesh profiles are **GM** and **RC**;
 USB timing support is compiled by default. [Build from source](../../docs/t096/build.md)
 using pinned public dependencies and ignored local enrollment. The current
-application version is 0.15.78. No publicly enrolled binary is distributed.
+application version is 0.15.79. No publicly enrolled binary is distributed.
+
+**[Direct Connect (DC)](../../docs/t096/direct-connect.md)** is a distinct,
+flash-only GNSS-to-USB image for a dedicated macOS source. It compiles Bluetooth
+out, uses no group enrollment and keeps the clock display with USB SOF RMS.
+It cannot be selected through the GM/RC toggle. Exact-device local packages are
+validation candidates; hardware durability, UTC precision and a generic website
+release remain separate acceptance work.
 
 Use the RC backend for the current macOS USB source chain. The reviewed normal
 GM backend has no reachable USB source-map publisher; a USB interface or healthy

@@ -11,7 +11,7 @@ struct r2_identity {char silicon[17],unit[6];uint64_t boot;int battery,result;ui
 struct usb_cfg_data{int unused;};
 struct usb_if_descriptor{uint8_t bInterfaceNumber;};
 struct usb_setup_packet{uint8_t bmRequestType,bRequest;uint16_t wValue,wIndex,wLength;};
-enum usb_dc_status_code{USB_DC_CONFIGURED,USB_DC_RESET,USB_DC_DISCONNECTED,USB_DC_SUSPEND,USB_DC_RESUME};
+enum usb_dc_status_code{USB_DC_CONFIGURED,USB_DC_RESET,USB_DC_DISCONNECTED,USB_DC_SUSPEND,USB_DC_RESUME,USB_DC_SOF};
 struct k_spinlock{int unused;};typedef int k_spinlock_key_t;
 static unsigned test_critical_depth;
 static inline int k_spin_lock(struct k_spinlock *p){(void)p;assert(!test_critical_depth);test_critical_depth=1;return 0;}

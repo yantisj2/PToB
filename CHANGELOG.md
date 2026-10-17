@@ -2,6 +2,23 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 17 October 2026 — dedicated T096 Direct Connect image
+
+T096 **0.15.79** adds **DC**, a separate flash-only local GNSS/PPS-to-USB image.
+Bluetooth is disabled; mesh/controller owners, group credentials and the GM/RC
+toggle are absent. Existing GNSS discipline, hardware USB SOF evidence, immutable
+publication intervals, quality/epoch fences, EP0 recovery, watchdog, display and
+supported maintenance remain. The normal GM/RC image retains its role behavior.
+
+The DC face replaces BEAT RMS with USB RMS: recent per-frame USB SOF span error
+against the GNSS-disciplined map, with sample/epoch/freshness gates. It does not
+measure macOS/chrony RMS or absolute UTC error. The offline DC tests exercise
+causal conversion, local-root USB provenance and withdrawal; the macOS tests
+accept a DC map under the existing contract. The builder/inspector distinguish
+DC and can package an exact-device local candidate without a PSK. Hardware
+durability/precision, generic installation and website distribution remain
+separate gates. See the [DC guide](docs/t096/direct-connect.md).
+
 ## 17 October 2026 — W12 replay refresh retry budget
 
 W12 **0.1.8** starts direct BLE100 replay refresh earlier, at 150 ms uncertainty

@@ -6,6 +6,9 @@
 #include "usb_sof_probe.h"
 #include "capture.h"
 #include "app.h"
+#ifdef R2_DC_PROFILE
+#include "direct_connect.h"
+#endif
 #include <zephyr/kernel.h>
 #include <zephyr/sys/byteorder.h>
 #include <errno.h>
@@ -45,6 +48,11 @@ void r2_usb_sof_status(struct usb_cfg_data *cfg,enum usb_dc_status_code status,c
  default:break;
  }
  k_spin_unlock(&usb_lock,key);
+#ifdef R2_DC_PROFILE
+ if(status==USB_DC_CONFIGURED||status==USB_DC_RESET||status==USB_DC_DISCONNECTED||
+    status==USB_DC_SUSPEND||status==USB_DC_RESUME)
+  r2_dc_usb_observation(false,0,0,0,0,0,0,0);
+#endif
 }
 int r2_usb_sof_request(struct usb_setup_packet *setup,int32_t *length,uint8_t **data)
 {

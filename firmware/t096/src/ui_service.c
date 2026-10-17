@@ -29,6 +29,9 @@ static void shadow_tick(const struct r2_ui_model *m,const struct r2_ui_status *s
  bool fresh=now>=m->sampled_ms&&now-m->sampled_ms<=2500;
  bool visible=s->page==R2_UI_SHADOW_PAGE&&!s->help&&!s->screensaver&&s->ready&&s->drawn_page==R2_UI_SHADOW_PAGE&&display_ok&&fresh&&!m->profile_switching;
  bool gm=m->scope_active&&m->role==R2_UI_GM;
+#ifdef R2_DC_PROFILE
+ gm=true; /* No mesh witness session, including while GNSS is unavailable. */
+#endif
  bool pps=m->clock.pps_present&&m->clock.pps_age_us>=0;
  unsigned previous=shadow_session.state;
  bool begin=r2_shadow_session_step(&shadow_session,visible,gm,pps,now);

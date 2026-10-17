@@ -1,5 +1,5 @@
 # Standard RC7 USB recovery patch. Leave the pinned dependency checkout intact.
-if(R2_RC_PROFILE AND R2_USB_SOURCE_STREAM)
+if((R2_RC_PROFILE OR R2_DC_PROFILE) AND R2_USB_SOURCE_STREAM)
  set(r2_usb_fixed "${CMAKE_CURRENT_BINARY_DIR}/r2_usb_dc_nrfx.c")
  execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_LIST_DIR}/../tools/usb_ep0_recovery.py"
   "${ZEPHYR_BASE}" "${r2_usb_fixed}" RESULT_VARIABLE r2_usb_result)

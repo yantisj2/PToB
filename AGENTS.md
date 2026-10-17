@@ -39,8 +39,9 @@ unreviewed imports out of tracked files.
 
 ## T096 development authority
 
-PToB owns normal T096 RC7 development. GM and RC are the only supported public
-profiles; USB source streaming is standard. Read firmware/t096/README.md and
+PToB owns normal T096 RC7 development. GM and RC are the ordinary mesh
+profiles; DC is a separate flash-only GNSS/USB image with Bluetooth disabled.
+Keep DC out of the runtime GM/RC switch. USB source streaming is standard. Read firmware/t096/README.md and
 docs/t096/build.md before firmware changes. Keep device/group enrollment and
 secret-bearing images under ignored local artifacts. Hardware operations still
 require explicit scope, exact identity, ownership, recovery and review checks.
