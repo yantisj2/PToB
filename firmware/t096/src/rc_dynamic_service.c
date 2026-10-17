@@ -127,6 +127,7 @@ static void holdover_poll(uint64_t tick) {
   if (discipline_at && tick >= discipline_at &&
       tick - discipline_at >= RC_FIELD_HOLD_TICKS && !holdover_expired) {
     holdover_expired = true;
+    r2_radio_capture_freeze_loss();
     ++holdover_expiries;
     r2_timing_event(R2_TIMING_HOLDOVER_EXPIRE,0,0,holdover_expiries,
                     (uint32_t)((tick-discipline_at)/16),0);

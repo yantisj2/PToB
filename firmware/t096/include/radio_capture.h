@@ -69,5 +69,6 @@ struct r2_rx_loss_capsule {
  uint64_t event[8];
  uint32_t outcome[8],owner[8];
 };
+void r2_radio_capture_freeze_loss(void);
 void r2_radio_capture_schedule(void *owner,uint16_t event,uint32_t lazy,uint32_t skipped,bool queued);
 bool r2_radio_capture_loss(struct r2_rx_loss_capsule *);

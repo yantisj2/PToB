@@ -83,10 +83,11 @@ int main(void){
  r2_radio_capture_stats(&s);assert(s.rx.aborted==UINT32_MAX&&!s.armed);
  assert(!r2_radio_capture_disable());
  struct r2_rx_loss_capsule capsule;
+ r2_radio_capture_freeze_loss();
  assert(r2_radio_capture_loss(&capsule)&&capsule.count&&capsule.frozen&&sizeof capsule<=160);
  uint32_t generation=capsule.generation;
  assert(!r2_radio_capture_enable(99,6));assert(!r2_radio_capture_loss(&capsule));
- r2_radio_capture_schedule(&owner,100,2,0,false);
+ r2_radio_capture_schedule(&owner,100,2,0,false);r2_radio_capture_freeze_loss();
  assert(r2_radio_capture_loss(&capsule)&&capsule.lazy==1&&capsule.outcome[0]==64&&capsule.generation==generation+1);
  r2_radio_capture_schedule(&other,101,0,0,true);assert(r2_radio_capture_loss(&capsule)&&capsule.queued==1&&capsule.count==1);
  assert(!r2_radio_capture_disable());

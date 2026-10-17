@@ -32,7 +32,10 @@ static void loss_event(uint64_t tuple,uint32_t outcome,void *owner,bool freeze){
  loss.event[i]=tuple;loss.outcome[i]=outcome;loss.owner[i]=(uint32_t)(uintptr_t)owner;
  if(loss.sequence<UINT32_MAX)++loss.sequence;else freeze=true;
  if(loss.count<8)++loss.count;
- if(freeze)loss.frozen=1;
+ /* Ordinary isolated failures keep rolling; task-level discipline loss
+  * freezes the preceding entries, including useful steady-state history. */
+ (void)freeze;
+ if(loss.sequence==UINT32_MAX)loss.frozen=1;
 }
 void r2_radio_capture_schedule(void *owner,uint16_t event,uint32_t lazy,uint32_t skipped,bool queued){
  if(!__atomic_load_n(&enabled,__ATOMIC_ACQUIRE))return;
@@ -40,6 +43,9 @@ void r2_radio_capture_schedule(void *owner,uint16_t event,uint32_t lazy,uint32_t
  else if(lazy&&loss.lazy<UINT32_MAX)++loss.lazy;
  if(queued||lazy||skipped)loss_event(event|((uint64_t)capture_epoch<<32),
    queued?32:64,owner,true);
+}
+void r2_radio_capture_freeze_loss(void){
+ unsigned key=irq_lock();if(loss.count)loss.frozen=1;irq_unlock(key);
 }
 bool r2_radio_capture_loss(struct r2_rx_loss_capsule *out){
  if(!out)return false;
