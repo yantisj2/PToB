@@ -2,6 +2,14 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 16 October 2026 — tracking preview refresh
+
+Replace the README preview with a user-selected cleaner approximately ten-minute
+ChronyControl interval, retaining Bryan Christianson's attribution. Use a calmer
+development-status caption focused on planned GM authentication and transient
+reduction. Preserve the earlier screenshot and detailed failure populations;
+this presentation update changes no firmware, logging or measurement claims.
+
 ## 16 October 2026 — timing-chain stability and continuity
 
 This update integrates T096 **0.15.69**, W12 **0.1.7**, and the macOS client

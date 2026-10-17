@@ -156,6 +156,38 @@
       "rights": "Original screenshot/data contributions: Jonathan Yantis, CC BY 4.0. Third-party ChronyControl UI rights unchanged; application not bundled.",
       "scope": "Development tracking-log view with unresolved spikes. No source/device identity attestation, continuous-delivery acceptance or independent UTC accuracy inferred.",
       "license": "CC-BY-4.0 for original screenshot/data contributions only; third-party UI rights retained"
+    },
+    {
+      "file": "chronycontrol-tracking-10min-20261016.png",
+      "source": "User-supplied selected approximately ten-minute ChronyControl view, 16 October 2026",
+      "source_sha256": "bd6b4d474473ec067409e78e170fb0ae2b8d965f47f76a3556afe977ccfb8fdd",
+      "sha256": "bd6b4d474473ec067409e78e170fb0ae2b8d965f47f76a3556afe977ccfb8fdd",
+      "bytes": 207474,
+      "dimensions": [
+        641,
+        615
+      ],
+      "transformation": "None; supplied bytes preserved. The supplied image already excludes the local-path title bar.",
+      "metadata": {
+        "icc_profile": {
+          "bytes": 3356,
+          "sha256": "7e4416d60fd73a72eb9bc6ec6923abbea44f5aed74aac3f5cdd49f7306b60bad"
+        },
+        "exif": {
+          "bytes": 92,
+          "sha256": "d6d65d7e16080c57c600b0bf52a77bb0b979f2ef4a4a7eaee123e4448980c29e"
+        },
+        "xmp": {
+          "bytes": 448,
+          "sha256": "c381d0807d1866a0eebfed990fb4d1bbfb3cd5ed88c8e2b07ba088702e94e0af"
+        },
+        "XML:com.adobe.xmp": "<x:xmpmeta xmlns:x=\"adobe:ns:meta/\" x:xmptk=\"XMP Core 6.0.0\">\n   <rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">\n      <rdf:Description rdf:about=\"\"\n            xmlns:exif=\"http://ns.adobe.com/exif/1.0/\">\n         <exif:PixelYDimension>615</exif:PixelYDimension>\n         <exif:PixelXDimension>641</exif:PixelXDimension>\n         <exif:UserComment>Screenshot</exif:UserComment>\n      </rdf:Description>\n   </rdf:RDF>\n</x:xmpmeta>\n"
+      },
+      "software_author": "Bryan Christianson",
+      "software_page": "https://www.whatroute.net/chronycontrol.html",
+      "rights": "Original screenshot/data contributions: Jonathan Yantis, CC BY 4.0. Third-party ChronyControl UI rights unchanged; application not bundled.",
+      "license": "CC-BY-4.0 for original screenshot/data contributions only; third-party UI rights retained",
+      "scope": "User-selected cleaner development interval, approximately ten minutes. GM authentication and further transient reduction remain planned work. Image selection does not establish complete-run availability or independent UTC accuracy."
     }
   ]
 }

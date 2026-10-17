@@ -27,7 +27,8 @@ Start with the target matching your hardware:
 
 Latest [changelog](CHANGELOG.md) and
 [stability results](evidence/stability/2026-10-16/README.md): admission and
-continuity fixes are integrated; TC-04 USB delivery remains under investigation.
+continuity fixes are integrated. Next work focuses on GM authentication and
+further improvements to stream continuity.
 
 **Developer preview — build from source:** a generic downloadable image,
 public installer/recovery flow and mutable provisioning are not yet available.
@@ -51,13 +52,13 @@ describes the proposed future storage/API; it is not implemented firmware.
 Firmware-rendered previews with illustrative values, not live measurements.
 Select a screen to open its target guide.
 
-[<img src="docs/images/chronycontrol-tracking-20261016.png" width="654" alt="ChronyControl tracking graph from PToB development testing, with unresolved timing spikes visible">](docs/images/chronycontrol-tracking-20261016.png)
+[<img src="docs/images/chronycontrol-tracking-10min-20261016.png" width="641" alt="ChronyControl tracking graph showing a cleaner selected development interval of approximately ten minutes">](docs/images/chronycontrol-tracking-10min-20261016.png)
 
-Tracking during PToB development in
+A cleaner, approximately ten-minute development view in
 [ChronyControl by Bryan Christianson](https://www.whatroute.net/chronycontrol.html).
-**We are still working to remove the spikes.** These are chrony's tracking
-statistics against the experimental feed; independent UTC accuracy remains
-unqualified. [Image provenance](docs/images/README.md).
+We are continuing to reduce timing transients, with GM authentication the next
+planned focus. The graph shows chrony's tracking statistics against the
+experimental feed. [Image provenance and measurement scope](docs/images/README.md).
 
 The [macOS client](clients/macos/README.md) receives time over USB from a T096 RC.
 A [historical client replay](docs/images/macos-chrony-replay.webp) also retains

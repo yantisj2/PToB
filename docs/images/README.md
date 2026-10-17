@@ -34,18 +34,24 @@ and evidence datasets retain their separate [licenses](../../LICENSING.md).
 
 ## ChronyControl development tracking
 
-The README's `chronycontrol-tracking-20261016.png` was supplied by Jonathan Yantis
-on 16 October 2026. It shows the PToB development feed in
+The README's current `chronycontrol-tracking-10min-20261016.png` was supplied by
+Jonathan Yantis on 16 October 2026. It is a user-selected cleaner interval of
+approximately ten minutes, showing the PToB development feed in
 [ChronyControl, by Bryan Christianson](https://www.whatroute.net/chronycontrol.html).
-Spikes remain under investigation. This is a tracking-log view, with no
-independent UTC-accuracy or continuous-delivery qualification. The selected
-device/source and complete raw run are not established by this screenshot.
-It was provided after the structured stability collection's observation cutoff
-and is not added to that collection's numerical populations.
+The image is included unchanged. Its start/end controls describe the underlying
+log selection; the zoomed graph shows a shorter interval. Further transient
+reduction and GM authentication work are planned. This selected view does not
+establish complete-run availability or independent UTC accuracy. Device/source
+identity and complete raw-run statistics are not established by the screenshot.
 
-At the user's request, only the top 39-pixel title bar containing the local file
-path was cropped. The plotted pixels are unchanged. The manifest records source
-and public hashes, exact crop and a pixel-equality check. The original unredacted
-screenshot is excluded. Original screenshot/data contributions by Jonathan Yantis
-are CC BY 4.0; rights in the third-party ChronyControl interface remain unchanged.
-ChronyControl itself is not bundled.
+The earlier `chronycontrol-tracking-20261016.png` remains as a historical view.
+At the user's request, its top 39-pixel title bar containing the local file path
+was cropped; plotted pixels were unchanged. The manifest retains both images'
+source/public hashes and transformation records. The original unredacted earlier
+screenshot is excluded.
+
+Both screenshots were provided after the structured stability collection's
+observation cutoff and are not added to its numerical populations. Original
+screenshot/data contributions by Jonathan Yantis are CC BY 4.0; rights in the
+third-party ChronyControl interface remain unchanged. ChronyControl itself is
+not bundled.
