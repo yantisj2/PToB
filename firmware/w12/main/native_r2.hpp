@@ -1,5 +1,7 @@
 #pragma once
 #include "g1_parent_journal.hpp"
+#include "g1_admission_policy.hpp"
+#include "g1_receive_loss.hpp"
 #include "g1_relative_quality.hpp"
 #include <cstdint>
 #include "console_protocol.hpp"
@@ -70,6 +72,8 @@ struct R2Status {
   G1ClockPrediction g1_clock_model{};uint32_t g1_corrected_accepted=0,g1_corrected_refused=0,g1_frequency_pairs=0,g1_frequency_scatter_ns=UINT32_MAX;
   uint64_t g1_corrected_until_us=0,g1_corrected_original20=0;
   bool g1_frequency_trained=false;
+  bool g1_retained_estimate=false;uint64_t g1_estimate_observed_us=0;
+  G1AdmissionPolicy g1_admission_policy{};G1ReceiveLoss g1_receive_loss{};
   uint32_t g1_clock_predictions=0;uint64_t g1_clock_causal_squares=0,g1_clock_nominal_squares=0,g1_clock_causal_max_ns=0;
   uint32_t g1_clock_discontinuities=0;uint64_t g1_clock_last_discontinuity_ns=0,g1_clock_fit_tick20=0;
   uint16_t g1_fit_points=0,g1_fit_span_ms=0;uint8_t g1_fit_reason=0;

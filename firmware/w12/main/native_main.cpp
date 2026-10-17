@@ -548,6 +548,12 @@ void input(){
         const auto hci=v12::g1_hci_status();std::printf("W12_G1_HCI_COUNTS at_us=%" PRIu64 " command=%" PRIu32 " ACK=%" PRIu32 " sync=%" PRIu32 " dropped=%" PRIu32 " max_us=%" PRIu32 " pending=0x%04x since_us=%" PRIu64 "\n",now,hci.commands,hci.acks,hci.sync_events,hci.dropped,hci.max_us,unsigned(hci.pending_opcode),hci.pending_at_us);
         const int printed=std::printf("W12_G1_RECORDS at_us=%" PRIu64 " AD_total=%" PRIu32 " AD_sampled=%" PRIu32 " AD_aggregated=%" PRIu32 " AD_policy=ONE_PER_PEER_PER_SECOND PA_capture_policy=UNTHROTTLED\n",now,g1_record_budget.discovery_total,g1_record_budget.discovery_sampled,g1_record_budget.discovery_aggregated);if(printed>0)console_bytes+=unsigned(printed);
         for(unsigned i=0;i<3;i++){const int n=v12::g1_render_summary(line,sizeof line,mesh,now,i);if(n>0&&unsigned(n)<sizeof line){const int printed=std::printf("%s",line);if(printed>0)console_bytes+=unsigned(printed);}}
+        {const int n=v12::g1_render_admission(line,sizeof line,mesh,now);if(n>0&&unsigned(n)<sizeof line){const int printed=std::printf("%s",line);if(printed>0)console_bytes+=unsigned(printed);}}
+        static uint32_t loss_generation=0;static uint64_t loss_capture=0;
+        if(mesh.g1_receive_loss.frozen&&(loss_generation!=mesh.g1_receive_loss.generation||loss_capture!=log.capture_id)){
+          for(unsigned i=0;i<mesh.g1_receive_loss.count;i++){const int n=v12::g1_render_loss(line,sizeof line,mesh.g1_receive_loss,i);if(n>0&&unsigned(n)<sizeof line){const int printed=std::printf("%s",line);if(printed>0)console_bytes+=unsigned(printed);}}
+          loss_generation=mesh.g1_receive_loss.generation;loss_capture=log.capture_id;
+        }
         {const int n=v12::g1_render_recovery(line,sizeof line,mesh);if(n>0&&unsigned(n)<sizeof line){const int printed=std::printf("%s",line);if(printed>0)console_bytes+=unsigned(printed);}}
         {const int n=v12::g1_render_clock(line,sizeof line,mesh,now);if(n>0&&unsigned(n)<sizeof line){const int printed=std::printf("%s",line);if(printed>0)console_bytes+=unsigned(printed);}}
         {const int n=v12::g1_render_fit(line,sizeof line,mesh,now);if(n>0&&unsigned(n)<sizeof line){const int printed=std::printf("%s",line);if(printed>0)console_bytes+=unsigned(printed);}}

@@ -2,6 +2,32 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 0.1.6 — 16 October 2026
+
+- Keep an acquired direct parent and its periodic receiver through authenticated
+  NO_SOURCE, unusable time, and foreign-root locator replies. Record zero-root
+  NO_SOURCE separately; only a positive foreign root receives the 60-second
+  follower deferral. Every old source, replay and corrected-model deadline stays
+  unchanged. New scope still requires a fresh authenticated binding.
+- After the first actual corrected receive, use 20–40 second jittered failed
+  control retries and at most two connection starts in a rolling 60 seconds.
+  The start history survives parent changes. Waiting for that budget cannot
+  pause downstream capability advertising or its precision publisher. Actual
+  ACL arbitration and the existing parent-lock/source gate still apply.
+- Preserve the last physically corrected local model for OLED HOLD after source
+  or replay expiry, with unknown error bound. This presentation estimate cannot
+  authorize admission, extend a lease, train the fitter, advertise precision,
+  or supply downstream timing. Explicit stop, faults and detected clock steps
+  withdraw it. Current authority and relative quality expire independently.
+- Add a passive 152-byte, eight-entry receive history frozen when the corrected
+  model actually expires. Bounded capture diagnostics retain authenticated,
+  associated, mapped, stale and refused worker observations. Missing controller
+  RF opportunities, DONE and CRC measurements remain unknown. Timer/controller
+  ownership and the existing ordinary console frame size are unchanged.
+- Retain the legacy five-minute RC7 renewal, six-minute lease, BLE50 client-only
+  restriction, optional unqualified BLE100 estimated relay, and explicit GNSS
+  indicator profile. W12 provides no USB timing stream or USB timing relay.
+
 ## 0.1.5 — 16 October 2026
 
 - Replace the inherited C-3-only OLED factory guard with the generated exact

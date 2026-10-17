@@ -182,6 +182,17 @@ void forget_locators(uint64_t target,bool relay){
  v12::parent_selection.reset();v12::parent_selection.target(target,relay);
  for(auto& q:v12::recent)q={};v12::retry_at=0;
 }
+void admission_slot(){
+ // Seeded physical models must pass the same warm start budget as runtime;
+ // do not reset it to make an immediate synthetic handoff possible.
+ v12::publish(fake_now);const auto& policy=v12::admission_policy;
+ uint64_t ready=policy.retry_at;
+ if(policy.warm){
+  if(policy.starts[1])ready=std::max(ready,policy.starts[1]+20000000);
+  if(policy.starts[0])ready=std::max(ready,policy.starts[0]+60000000);
+ }
+ if(ready>fake_now)fake_now=(ready/1000000+1)*1000000+1000;
+}
 void stop(){
  fixture_clock_fail=fixture_clock_backwards=0;
  v12::r2_stop();step(8);assert(v12::r2_status().off_ack&&
@@ -199,22 +210,38 @@ int run(const std::string& which){
    fake_now=Samples[0].now_us;v12::corrected_clock=direct_clock_seed();v12::anchor=rc7_permission_test::anchor();
    assert(Rc7PermissionInspect::issued_age(v12::corrected_clock)==3);
    v12::anchor.until=0;forget_locators(Parent,true);const auto generation=v12::client.generation;
-   rc_discovery();assert(v12::rc_bound());cleared();assert(v12::client.generation==generation);
+   admission_slot();rc_discovery();assert(v12::rc_bound());cleared();assert(v12::client.generation==generation);
  }else{
    forget_locators(Parent,true);rc_discovery();assert(v12::rc_bound());quiesce_for_jump();
    Seed seed;fake_now=Samples[0].now_us;v12::corrected_clock=seed.clock;v12::anchor=seed.a;
    v12::rc_client.utc_known=true;v12::joined_peer=Parent;v12::joined_boot=ParentBoot;
    const auto generation=v12::client.generation;
-   if(which=="autonomous-direct"){
+   if(which=="retained-expiry"||which=="retained-clock-step"){
+     v12::anchor.until=v12::corrected_clock.until();v12::publish(fake_now);
+     const auto original=v12::retained_estimate.clock;const auto retained=v12::r2_status();
+     assert(retained.clock_valid&&retained.g1_retained_estimate&&v12::admission_policy.warm);
+     if(which=="retained-clock-step"){
+       v12::changed_scope(fake_now,v12::G1Reason::PeriodicScope,false,v12::G1ParentReason::ClockStep);
+       v12::publish(fake_now);assert(!v12::r2_status().clock_valid&&!v12::retained_estimate.root);
+     }else{
+       fake_now=v12::anchor.deadline()+1000;v12::active_poll(fake_now);v12::publish(fake_now);
+       const auto held=v12::r2_status();assert(held.clock_valid&&!held.following&&held.g1_retained_estimate);
+       assert(!held.root_identity&&!held.root_boot&&!held.source_epoch&&!held.publication&&!held.service_until_us);
+       assert(!held.g1_relative_quality.samples&&!held.precision_fit&&held.precision_ns==UINT32_MAX);
+       assert(v12::receive_loss.frozen&&v12::receive_loss.frozen_at==fake_now);
+       assert(held.follower_utc_us==uint64_t(original.at(fake_now*20))/1000);
+       assert(v12::retained_estimate.clock.tick==original.tick&&v12::retained_estimate.clock.rate==original.rate);
+     }
+   }else if(which=="autonomous-direct"){
      forget_locators(Root,false);v12::rc_client.renew_at=0;v12::anchor.until=0;
-     fresh_direct(Root,RootBoot,14,1);assert(!v12::rc_bound()&&v12::member&&v12::joined_peer==Root);cleared();
+     admission_slot();fresh_direct(Root,RootBoot,14,1);assert(!v12::rc_bound()&&v12::member&&v12::joined_peer==Root);cleared();
    }else if(which=="typed-direct"){
      assert(v12::r2_gm_parent(Root));step(6);assert(!v12::rc_bound());cleared();
-     fresh_direct(Root,RootBoot,14,1);assert(!v12::rc_bound()&&v12::member);
+     admission_slot();fresh_direct(Root,RootBoot,14,1);assert(!v12::rc_bound()&&v12::member);
    }else if(which=="changed-full-path"||which=="response-path-changed"){
      if(which=="response-path-changed")fixture_response_path_change=true;else ++fixture_cap.path.node[1].train;
      fixture_cap.next_challenge+=100;v12::rc_client.renew_at=0;forget_locators(Parent,true);
-     rc_discovery();assert(v12::rc_bound()&&v12::rc_client.receiver.path.node[1].train==3);cleared();
+     admission_slot();rc_discovery();assert(v12::rc_bound()&&v12::rc_client.receiver.path.node[1].train==3);cleared();
      if(which=="response-path-changed")assert(fixture_request.path.node[1].train==2&&fixture_response.path.node[1].train==3);
    }else{
      assert(which=="permission-native"||which=="mapped-read-failure"||which=="mapped-finalize-failure"||which=="mapped-deliver-failure");

@@ -361,6 +361,38 @@ int main(int argc,char** argv){assert(argc==2);std::string which=argv[1];
     v12::r2_stop();step(2);assert(v12::r2_status().off_ack&&v12::client.stop_completed==2);
     v12::fault=true;assert(!v12::r2_client_start(24));return 0;
   }
+  if(which=="no-source-held"||which=="foreign-root-held"||which=="warm-control-PA"){
+    // Use production authenticated exchange validation with an existing
+    // acquired parent. A refused control reply must not own that PA/model.
+    fake_now=1000000;v12::window_start=fake_now;
+    v12::anchor={true,333,444,1700000000000000,fake_now,5000000,7,8,40000};
+    v12::joined_peer=333;v12::joined_boot=444;v12::member=true;
+    v12::synced=true;v12::sync_identity=333;v12::sync_handle=9;v12::sync_address=v12::canonical(333);v12::sync_requested_at=v12::sync_owner_window_start=fake_now;
+    const auto old=v12::anchor;const auto old_sync=v12::sync_capture_epoch;
+    v12::admission_policy.acquired();
+    if(which=="warm-control-PA"){
+      v12::admission_policy.started(fake_now);v12::admission_policy.failed(fake_now,20000000);
+      v12::Discovery d{};d.address=v12::canonical(333);v12::connect(d,333,fake_now+1000000);
+      assert(!connected&&v12::synced&&v12::sync_capture_epoch==old_sync&&v12::anchor.until==old.until);
+    }else{
+      v12::peer={};v12::peer.identity=111;v12::peer.handle=22;v12::peer.incarnation=++v12::incarnation;conn_arg=v12::callback_arg();
+      assert(!r2_group_join_begin(&v12::peer.exchange,false,v12::provision.identity,111,22,77,fake_now));
+      auto& x=v12::peer.exchange;x.peer_boot=55;x.remote_nonce=88;x.proof_at=fake_now-1000;x.challenged=true;
+      r2_join_record reply{};reply.kind=R2_JOIN_ACCEPT;reply.sender=111;reply.receiver=v12::provision.identity;
+      reply.sender_boot=55;reply.receiver_boot=22;reply.client_nonce=77;reply.server_nonce=88;reply.sequence=2;
+      reply.created_us=fake_now;reply.echo_us=x.proof_at;std::strcpy(reply.name,"Fixture");
+      if(which=="foreign-root-held"){reply.source_flags=1;reply.source_bound_us=40000;reply.root=999;reply.root_boot=888;reply.source_epoch=9;reply.publication=10;reply.utc_us=1700000000000000;reply.remaining_us=1000000;}
+      v12::Incoming row{};row.at=fake_now;row.incarnation=v12::peer.incarnation;
+      assert(!r2_group_join_encode(row.bytes,&reply,&v12::provision.group));v12::incoming.push(row);v12::receive_join(fake_now);
+      assert(v12::join_accepts==1&&v12::peer.selection_accepted);
+      assert(v12::joined_peer==333&&v12::joined_boot==444&&v12::member&&v12::anchor.same(old)&&v12::anchor.until==old.until);
+      assert(v12::synced&&!v12::sync_terminating&&v12::sync_capture_epoch==old_sync);
+      assert(v12::admission_policy.no_source==(which=="no-source-held"));
+      assert(v12::admission_policy.foreign_root==(which=="foreign-root-held"));
+      assert(!v12::parent_failure.identity&&v12::admission_policy.retry_at>=fake_now+20000000);
+    }
+    v12::r2_stop();step(6);assert(v12::r2_status().off_ack);return 0;
+  }
   if(which=="public-marker"){
     assert(v12::chars[0].flags&BLE_GATT_CHR_F_READ);os_mbuf b;ble_gatt_access_ctxt ctx;ctx.op=BLE_GATT_ACCESS_OP_READ_CHR;ctx.om=&b;
     assert(!v12::access(22,0,&ctx,nullptr));assert((b.bytes==std::vector<uint8_t>{'R','2','G','1',1}));

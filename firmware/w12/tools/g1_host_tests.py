@@ -38,7 +38,7 @@ def main():
     cases=['persist','cancel','blocked','late','listening-profile',
            'host-stall-source-expiry','coarse-hold-fences','reset-recovery',
            'reset-recovery-repeated','reset-recovery-no-sync','reset-recovery-explicit-off',
-           'reset-recovery-cache-off','reset-recovery-late-off','reset-recovery-late-drain','reset-recovery-aux-active']
+           'reset-recovery-cache-off','no-source-held','foreign-root-held','warm-control-PA','reset-recovery-late-off','reset-recovery-late-drain','reset-recovery-aux-active']
     import sys
     sys.path.insert(0,str(APP.parents[1]/'registry'))
     from registry import load,header
@@ -81,12 +81,13 @@ def main():
     run([out/'l76k-aid-tests'],'l76k-aid-time-uncertainty-refusals-ack')
     run(['python3',APP/'tools/status_budget_test.py'],'actual-status-capacity')
     run(['python3',APP/'tools/status_budget_test.py','--gps-shadow'],'C3-shadow-status-capacity')
+    run(['python3',APP/'tools/status_budget_test.py','--rc7-estimate'],'RC7-estimate-status-capacity')
     run([CXX,'-std=c++20',*flags,'-I'+str(APP/'legacy'),'-I'+str(APP/'legacy/reference'),'-I'+str(APP/'main'),APP/'tests/g1_gps_shadow_test.cpp','-o',out/'gps-shadow-tests'],'C3-shadow-build')
     run([out/'gps-shadow-tests'],'C3-causal-PPS-history-expiry-fix-bias-retained-tail')
     run([CXX,'-std=c++20',*flags,APP/'tests/c3_lora_off_test.cpp','-o',out/'C3-lora-off-tests'],'C3-LoRa-forced-off-build')
     run([out/'C3-lora-off-tests'],'C3-LoRa-no-task-no-GPIO-no-admission')
     run(['python3',APP/'tests/g1_shared_reset_test.py'],'shared-reset-owner-participation')
-    for name in ('g1_startup_fixture','g1_parent_fixture','g1_gm_hold_test','rc7_relay_estimate_test','lifecycle_test','update_gate_test','fault_watchdog_test'):
+    for name in ('g1_rc_continuity_test','g1_startup_fixture','g1_parent_fixture','g1_gm_hold_test','rc7_relay_estimate_test','lifecycle_test','update_gate_test','fault_watchdog_test'):
         run([CXX,'-std=c++20',*flags,'-I'+str(APP/'main'),APP/'tests'/(name+'.cpp'),*objects,'-o',out/name],name+'-build')
         run([out/name],name+'-run')
     commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=APP,text=True).strip()

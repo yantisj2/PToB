@@ -105,6 +105,28 @@ Normal RC7 admission renewal is five minutes, with a six-minute lease. Direct
 G1 JOIN replay refresh, pending admission and recovery after missing corrected
 clock progress are separate traffic classes; inspect their counters separately.
 
+Version 0.1.6 preserves an acquired periodic receiver through authenticated
+NO_SOURCE and unusable control replies. Positive foreign roots are counted
+separately. After the first physical corrected update, failed retries wait a
+random 20–40 seconds and a persistent rolling budget permits at most two
+connection starts per 60 seconds. These waits cannot withdraw a still-eligible
+publisher; actual ACL arbitration and the original parent-lock gate remain.
+
+The last delivered physical model can continue the OLED's local HOLD estimate
+when source or replay permission expires. Its error bound is unknown; FOLLOW,
+root authority, relative lock and downstream timing retain their original gates.
+A local estimate never renews a source, lease, replay context or fitter. Explicit
+stop, fault or detected gross clock step withdraws it. No USB timing output is
+implemented by W12.
+
+Bounded capture diagnostics add `W12_G1_ADMISSION` and `W12_G1_RX_LOSS`. The latter
+freezes up to eight worker report outcomes at corrected-model expiry, using
+152 bytes of RAM. Outcome bits are report=1, stale=2, authenticated=4,
+associated=8, mapped=16 and refused=32. These are observed reports, not a count
+of unreported RF opportunities; controller DONE/CRC remain unknown. A fresh
+physical map starts a new lifecycle. The ordinary V3 status frame remains the
+same size and does not enable capture by itself.
+
 A candidate requires a clean local commit. `--development` explicitly marks an
 uncommitted build as unflashable. Build receipts bind source, SDK, effective
 configuration, generated local inputs, registry, compiler and application bytes.
