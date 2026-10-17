@@ -18,7 +18,59 @@ struct PhaseSeries {
     var json: [String:Any] {["n":n,"mean_ns":n > 0 ? meanY as Any : NSNull(),"rmse_ns":n > 0 ? rmse as Any : NSNull(),"raw_phase_stddev_ns":n > 1 ? rawSigma as Any : NSNull(),"detrended_phase_stddev_ns":n > 2 ? detrendedSigma as Any : NSNull(),"linear_trend_ppm":slope*1e6,"phase_range_ns":n > 0 ? maximum-minimum as Any : NSNull(),"method":"online population phase stddev; retrospective linear detrend; drift retained separately"]}
 }
 
+/// Receiver-side quality of the corrected source, before any chrony filter.
+/// Predict each new source phase from the PREVIOUS <=1024 hardware boundaries.
+/// RMS retains bias, transients and every admitted prediction; no retrospective
+/// detrending or arrival/request midpoint timestamps enter this measurement.
+struct RXSourceQuality {
+    var errors = PhaseSeries(), fit = PhaseSeries(), window: [(Double,Double)] = []
+    var scope = "", firstSource: Int64 = 0, firstElapsed = 0.0, lastElapsed: Double?
+    var observations = 0, warmup = 0, unqualified = 0, withheld = 0, gaps = 0, scopes = 0
+    var lastError: Double?, observedAt: UInt64 = 0
+    mutating func withhold() {
+        withheld += 1;lastError = nil;window.removeAll(keepingCapacity:true);fit = PhaseSeries()
+    }
+    mutating func observe(source: Int64, elapsed: Double, scope nextScope: String, qualified: Bool, now: UInt64 = tick()) {
+        if scope != nextScope {
+            scope = nextScope;scopes += 1;firstSource = source;firstElapsed = elapsed
+            lastElapsed = nil;errors = PhaseSeries();window.removeAll(keepingCapacity:true);fit = PhaseSeries()
+        }
+        if let previous = lastElapsed, elapsed <= previous || elapsed-previous > 500_000_000 {
+            gaps += 1;window.removeAll(keepingCapacity:true);fit = PhaseSeries()
+        }
+        observations += 1;observedAt = now;lastError = nil
+        let x = elapsed-firstElapsed, phase = Double(source-firstSource)-x
+        if !qualified {unqualified += 1}
+        else if fit.n < 64 {warmup += 1}
+        else {
+            let prediction = fit.meanY+fit.slope*(x-fit.meanX)
+            lastError = phase-prediction;errors.add(x,lastError!)
+        }
+        window.append((x,phase));if window.count > 1024 {window.removeFirst()}
+        fit = PhaseSeries();for point in window {fit.add(point.0,point.1)}
+        lastElapsed = elapsed
+    }
+    var json: [String:Any] {
+        let now = tick(), fresh = observedAt > 0 && now >= observedAt && now-observedAt < 500_000_000
+        return ["metric":"RX_CORRECTED_SOURCE_CAUSAL_RMS","scope":scope,"scope_count":scopes,
+            "n":errors.n,"available":fresh && lastError != nil && errors.n >= 4,
+            "rmse_ns":errors.n > 0 ? errors.rmse as Any : NSNull(),
+            "mean_ns":errors.n > 0 ? errors.meanY as Any : NSNull(),
+            "sigma_ns":errors.n > 1 ? errors.rawSigma as Any : NSNull(),
+            "maximum_absolute_ns":errors.n > 0 ? max(abs(errors.minimum),abs(errors.maximum)) as Any : NSNull(),
+            "last_error_ns":lastError as Any? ?? NSNull(),"observations":observations,
+            "warmup_observations":warmup,"unqualified_observations":unqualified,
+            "withheld_or_rejected_observations":withheld,"training_gap_resets":gaps,
+            "training_window":fit.n,"minimum_training_samples":64,"maximum_training_samples":1024,
+            "maximum_training_gap_ns":500_000_000,"detrended":false,"before_chrony":true,
+            "reference":"corrected GNSS/source monotonic time versus hardware SOF / Apple Mach frame boundaries",
+            "method":"previous-window affine phase prediction; current sample admitted only after existing hardware and exact immutable-map checks",
+            "UTC_translation_included":false,"independent_UTC_qualified":false,"absolute_timestamp_bias":"UNKNOWN"]
+    }
+}
+
 final class USBFrameBridge {
+    var rxSourceQuality = RXSourceQuality()
     var source = PhaseSeries(), counter = PhaseSeries(), utc = PhaseSeries(), offset = PhaseSeries()
     var directFullSpeedXHCI = false, layoutChecks = 0, layoutFailures = 0
     var sourceScope = "", sourceElapsed0 = 0.0
@@ -51,22 +103,23 @@ final class USBFrameBridge {
             (topology[2]["registry_class"] as? String ?? "").contains("XHCI") && (topology[2]["registry_class"] as? String ?? "").contains("Port") &&
             (topology[3]["registry_class"] as? String ?? "").contains("XHCI")
     }
-    func reset() {scope = "";lastFrame = nil;lastCounter = nil;lastSequence = 0;lowerIdentity = -.infinity;upperIdentity = .infinity;anchors = 0;lastAnchorSequence = 0;consecutiveFrameFailures = 0;layoutChecks = 0;layoutFailures = 0;ordinal = 0;source = PhaseSeries();counter = PhaseSeries();utc = PhaseSeries();offset = PhaseSeries();lastPhase = nil;sourceScope = "";counterWindow.removeAll(keepingCapacity:true);counterWindowFit = PhaseSeries();counterInnovations = PhaseSeries();lastCounterInnovation = nil}
+    func reset() {scope = "";lastFrame = nil;lastCounter = nil;lastSequence = 0;lowerIdentity = -.infinity;upperIdentity = .infinity;anchors = 0;lastAnchorSequence = 0;consecutiveFrameFailures = 0;layoutChecks = 0;layoutFailures = 0;ordinal = 0;source = PhaseSeries();counter = PhaseSeries();utc = PhaseSeries();offset = PhaseSeries();lastPhase = nil;sourceScope = "";counterWindow.removeAll(keepingCapacity:true);counterWindowFit = PhaseSeries();counterInnovations = PhaseSeries();lastCounterInnovation = nil;rxSourceQuality = RXSourceQuality()}
     func ingest(_ h: [String:Any]) {
         func u(_ key: String) -> UInt64? {(h[key] as? String).flatMap {UInt64($0)}}
         guard let packet = h["precision_source"] as? [String:Any], let p = USBSourceRecord(packet), p.kind == 1,
               let frame = packet["frame"] as? Int, frame >= 0, frame < 2048,
               p.current >= p.counter, p.current-p.counter < 16000,
               h["reference_valid"] as? Bool == true, h["absolute_continuous_intervals_overlap"] as? Bool == true,
-              let reference = u("reference_absolute"), let microframe = u("reference_microframe") else {rejected += 1;return}
+              let reference = u("reference_absolute"), let microframe = u("reference_microframe") else {rejected += 1;rxSourceQuality.withhold();return}
         let newScope = "\(p.silicon):\(p.boot):\(p.usbEpoch):\(p.captureEpoch)"
         if scope != newScope {reset();scope = newScope;segments += 1}
-        guard p.sequence > lastSequence else {rejected += 1;return}
+        guard p.sequence > lastSequence else {rejected += 1;rxSourceQuality.withhold();return}
+        let previouslyQualified = identity == "FRAME_TO_MACH_CAUSALLY_IDENTIFIED"
         if let old = lastCounter, let f = lastFrame {
             let frames = (frame-f+2048)%2048
             guard p.counter > old, frames > 0, frames <= 1000, p.counter-old <= 16_000_000,
                   abs(Double(p.counter-old)-Double(frames)*16000) < 4000,
-                  reference >= lastReference, microframe >= lastMicroframe else {rejected += 1;consecutiveFrameFailures += 1;if consecutiveFrameFailures >= 3 || p.counter > old+16_000_000 {reset()};return}
+                  reference >= lastReference, microframe >= lastMicroframe else {rejected += 1;rxSourceQuality.withhold();consecutiveFrameFailures += 1;if consecutiveFrameFailures >= 3 || p.counter > old+16_000_000 {reset()};return}
             consecutiveFrameFailures = 0;ordinal += Int64(frames)
         } else {firstCounter = p.counter;firstReference = reference;firstMicroframe = microframe}
         let referenceDelta = Double(reference-firstReference)*Double(clockScale.numer)/Double(clockScale.denom)
@@ -100,6 +153,10 @@ final class USBFrameBridge {
             if delta >= -50000 && delta <= 1_050_000 {layoutChecks += 1} else {layoutFailures += 1}
         }
         if let a = h["frame_anchor"] as? [String:Any] {anchor(a,h:h,packet:p,frame:frame,reference:reference,microframe:microframe)}
+        if let map = USBImmutableSourceMap(p), let corrected = map.project(p.counter) {
+            rxSourceQuality.observe(source:corrected,elapsed:elapsed,scope:p.scope,
+                qualified:previouslyQualified && identity == "FRAME_TO_MACH_CAUSALLY_IDENTIFIED")
+        } else {rxSourceQuality.withhold()}
     }
     private func anchor(_ a: [String:Any],h: [String:Any],packet: USBSourceRecord,frame: Int,reference: UInt64,microframe: UInt64) {
         func value(_ d: [String:Any],_ k: String) -> UInt64? {(d[k] as? String).flatMap {UInt64($0)}}
@@ -146,7 +203,7 @@ final class USBFrameBridge {
         guard whole >= last, whole-last <= 8_000_000 else {return nil}
         return (whole,delta-delta.rounded(.down))
     }
-    var json: [String:Any] { ["source_clock_phase":source.json,"counter_mapping_window":counterWindowFit.json,"causal_counter_innovations":counterInnovations.json,"last_causal_counter_innovation_ns":lastCounterInnovation as Any? ?? NSNull(),"counter_to_Mach_slope_ns_per_tick":62.5/(1+counterWindowFit.slope),"latest_counter_mapped_Mach_absolute_ns":lastCounter.flatMap {counterToMachAbsoluteNS($0)}.map {String(format:"%.3f",$0)} as Any? ?? NSNull(),"counter_phase":counter.json,"reported_UTC_phase":utc.json,"UTC_offset_phase":offset.json,
+    var json: [String:Any] { ["rx_corrected_source":rxSourceQuality.json,"source_clock_phase":source.json,"counter_mapping_window":counterWindowFit.json,"causal_counter_innovations":counterInnovations.json,"last_causal_counter_innovation_ns":lastCounterInnovation as Any? ?? NSNull(),"counter_to_Mach_slope_ns_per_tick":62.5/(1+counterWindowFit.slope),"latest_counter_mapped_Mach_absolute_ns":lastCounter.flatMap {counterToMachAbsoluteNS($0)}.map {String(format:"%.3f",$0)} as Any? ?? NSNull(),"counter_phase":counter.json,"reported_UTC_phase":utc.json,"UTC_offset_phase":offset.json,
         "scope":scope,"source_scope":sourceScope,"segment":segments,"accepted":accepted,"rejected":rejected,"last_phase_ns":lastPhase as Any? ?? NSNull(),"last_counter_phase_ns":lastCounterPhase as Any? ?? NSNull(),"last_UTC_phase_ns":lastUTCPhase as Any? ?? NSNull(),"last_UTC_offset_phase_ns":lastOffsetPhase as Any? ?? NSNull(),"elapsed_s":lastElapsed/1e9,"SOF_capture_age_ns":lastAge,
         "identity":identity,"direct_full_speed_XHCI":directFullSpeedXHCI,"host_frame_layout_checks":layoutChecks,"host_frame_layout_failures":layoutFailures,"host_microframe_offset":frameOffset.map {String($0)} as Any? ?? NSNull(),"identity_model":"direct full-speed XHCI; host frame omits3 microframe bits; causal OUT-marker brackets identify origin independently","anchor_n":anchors,"anchor_rejected":anchorRejected,"identity_low_microframes":lowerIdentity.isFinite ? lowerIdentity/125000 as Any : NSNull(),"identity_high_microframes":upperIdentity.isFinite ? upperIdentity/125000 as Any : NSNull(),
         "phase_reference":"hardware SOF ordinal and Apple microframe reference; no request arrival or midpoint phase samples",
@@ -183,8 +240,10 @@ func usbFrameBridgeTests() -> Int {
     check(c.json["served_precision_UTC"] as? Bool == false,"identity candidate never fabricates qualified UTC")
     q["usb_epoch"]=2;h["precision_source"]=q;h.removeValue(forKey:"frame_anchor");c.ingest(decoded(h))
     check(c.segments==2 && c.anchors==0,"USB epoch revokes the old identity")
-    let model=USBFrameBridge()
+    let model=USBFrameBridge(), correctedModel=USBFrameBridge()
     model.configure(["topology":[[:],["speed":1,"registry_class":"IOUSBHostDevice"],["registry_class":"AppleUSB20XHCIARMPort"],["registry_class":"AppleT8122USBXHCI"]]])
+    correctedModel.directFullSpeedXHCI = true
+    var lastCorrected: [String:Any] = [:]
     for i in 0..<200 {
         var row=sample(i);let packet=row["precision_source"] as! [String:Any]
         let ct=firstTicks+UInt64(i)*512000
@@ -195,6 +254,14 @@ func usbFrameBridgeTests() -> Int {
         row["current_microframe"]=String(mf0+UInt64(i)*256);row["current_microframe_absolute"]=String(abs0+absolute(Int64(i)*32_000_000))
         row["bus_frame_number"]=String((mf0+UInt64(i)*256)/8);row["bus_frame_absolute"]=String(abs0+absolute(Int64(i)*32_000_000+10000))
         model.ingest(decoded(row))
+        var corrected = row, mapped = packet
+        let mono = Int64(1_000_000_000)+Int64(i)*32_000_000+(i%2==0 ? 100 : -100)
+        mapped["anchor_tick"] = String(ct);mapped["anchor_ns"] = String(mono)
+        mapped["effective_tick"] = String(ct-16000);mapped["map_phase_ns"] = 100
+        mapped["source_issued_ns"] = String(mono);mapped["source_expires_ns"] = String(mono+2_000_000_000)
+        mapped["utc_ns"] = String(mono+Int64(mapped["utc_offset_ns"] as! String)!)
+        corrected["precision_source"] = mapped;lastCorrected = corrected
+        correctedModel.ingest(decoded(corrected))
     }
     check(model.identity=="FRAME_TO_MACH_CAUSALLY_IDENTIFIED","direct full-speed topology, host frame layout and independent markers resolve numbering")
     let last=firstTicks+UInt64(199)*512000
@@ -203,6 +270,28 @@ func usbFrameBridgeTests() -> Int {
     check(abs((model.counterToMachAbsoluteNS(last+16000) ?? 0)-expected-1_000_000)<1,"forward counter projection")
     check(model.counterToMachAbsoluteNS(last+8_000_001)==nil,"mapping holdover bound is finite")
     check(model.counterInnovations.n==136 && model.counterInnovations.rawSigma<1,"held-out causal innovations are separate from fitted residuals")
+    check(model.rxSourceQuality.observations==0 && model.rxSourceQuality.withheld==200,"missing exact maps cannot train corrected RX RMS")
+    check(correctedModel.rxSourceQuality.errors.n==136 && correctedModel.rxSourceQuality.errors.rmse>99 && correctedModel.rxSourceQuality.errors.rmse<105,"corrected RX metric observes immutable source maps; noisy UTC translation is excluded")
+    var corrupt = lastCorrected, corruptPacket = corrupt["precision_source"] as! [String:Any]
+    corruptPacket["sequence"] = 201;corruptPacket["tick"] = String(last+512000);corruptPacket["current_tick"] = String(last+515000)
+    corruptPacket["frame"] = ((corruptPacket["frame"] as! Int)+32)%2048
+    corruptPacket["utc_ns"] = String(Int64(corruptPacket["utc_ns"] as! String)!+1)
+    corrupt["precision_source"] = corruptPacket;corrupt.removeValue(forKey:"frame_anchor")
+    corrupt["reference_absolute"] = String(abs0+absolute(200*32_000_000));corrupt["reference_microframe"] = String(mf0+200*256)
+    correctedModel.ingest(decoded(corrupt))
+    check(correctedModel.rxSourceQuality.observations==200 && correctedModel.rxSourceQuality.fit.n==0 && correctedModel.rxSourceQuality.lastError==nil,"invalid map/sample agreement withholds RMS and resets RX training")
+    var quality = RXSourceQuality()
+    let origin: Int64 = 7_000_000_000_000_000_000
+    for i in 0..<64 {quality.observe(source:origin+Int64(i)*32_000_064,elapsed:Double(i)*32_000_000,scope:"source",qualified:true)}
+    quality.observe(source:origin+64*32_000_064+10000,elapsed:64*32_000_000,scope:"source",qualified:true)
+    check(quality.errors.n==1 && abs(quality.errors.rmse-10000)<0.01,"held-out source step retains full bias in RMS without fitting the current point or converting its epoch to Double")
+    quality.withhold()
+    quality.observe(source:origin+65*32_000_064,elapsed:65*32_000_000,scope:"source",qualified:true)
+    check(quality.errors.n==1 && quality.fit.n==1 && quality.lastError==nil,"withdrawal keeps recorded errors but requires fresh training")
+    quality.observe(source:origin+100*32_000_064,elapsed:100*32_000_000,scope:"source",qualified:true)
+    check(quality.gaps==1 && quality.fit.n==1,"long gap cannot bridge old RX training")
+    quality.observe(source:origin,elapsed:101*32_000_000,scope:"new source",qualified:true)
+    check(quality.errors.n==0 && quality.scopes==2 && quality.fit.n==1,"source epoch/root/path change starts an independent RMS population")
     model.configure(["topology":[[:],["speed":1,"registry_class":"IOUSBHostDevice"],["registry_class":"IOUSBHostDevice"],["registry_class":"Hub"]]])
     check(model.counterToMachAbsoluteNS(last)==nil,"a hub topology cannot silently inherit direct-port qualification")
     return checks

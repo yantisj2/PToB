@@ -64,6 +64,12 @@ clients/macos/ptob --duration 600 --jsonl clients/macos/runs/NEW.jsonl
 clients/macos/ptob --no-chrony --duration 60
 ```
 
+Use `--no-chrony --no-ntp --device FULL_USB_SERIAL --rate 32` for an isolated
+corrected-stream **RX USB RMS** baseline. This measurement runs before any
+chrony filter and is also available through `--precision-replay` on the saved
+JSONL. The [client guide](../../clients/macos/README.md) defines its prediction
+window, gaps, qualification and UTC limitations.
+
 The first normal launch opens the selected USB timing interface and starts an
 owned unprivileged foreground `chronyd -x -U -u CURRENT_USER`, feeding a `BLE`
 SOCK refclock. It supplies an experimental user clock; it does not change macOS

@@ -32,6 +32,14 @@ struct InstrumentSnapshot {
     var details: [String] = []
     var chrony = ChronyDisplaySnapshot()
     var replay = false
+    mutating func applyRXSourceQuality(_ quality: [String:Any], sourceFresh: Bool) {
+        rmsTitle = "RX USB RMS";valid = quality["n"] as? Int ?? 0
+        rmsNS = sourceFresh && quality["available"] as? Bool == true ? quality["rmse_ns"] as? Double : nil
+        rmsCaption = "\(valid) predictions / pre-chrony"
+        biasText = nil;biasNS = quality["mean_ns"] as? Double;maximumNS = quality["maximum_absolute_ns"] as? Double
+        jitterLabel = "RX JITTER σ";jitterNS = quality["sigma_ns"] as? Double
+        qualification = "Corrected source / prior-fit RX residual / UTC accuracy unqualified"
+    }
     mutating func applyChronyClock() {
         guard chrony.enabled else {return}
         utcTitle = "CHRONY UTC / USER CLOCK";utc = chrony.fresh ? chrony.utc : nil
@@ -125,7 +133,7 @@ enum InstrumentFace {
         line(s.lossIndicator ?? rule,s.lossIndicator == nil ? secondary : warning)
         if help {
             line("INSTRUMENT CONTROLS",primary); line()
-            for text in ["1 / Esc   Main instrument","c   Show / hide chrony statistics","d   Show / hide transport diagnostics","r   Reacquire source; run statistics stay cumulative.","h   Show / hide this help","q   Finish capture and write the report","Ctrl-C also closes the capture safely.","","UTC output stops when source permission expires.",s.transport == "USB" ? "OFFSET  captured UTC − local request interval" : "OFFSET / BIAS  served shadow − local macOS",s.transport == "USB" ? "LARGE σ  SOF phase, linear trend removed; drift shown" : "RMS / JITTER σ  error RMS / centered error stddev",s.transport == "USB" ? "COUNTER σ  captured counter vs USB/Mach boundaries" : "Run statistics remain cumulative.",s.transport == "USB" ? "MAP PHASE / RATE  USB relay source-map parameters" : "MAP Δ  served shadow − fitted source time","CHRONY NTP−SYS  signed correction added to local wall","EST RMS / EST DIST  chrony model, not UTC accuracy","NTP  local macOS − NTP server (± uncertainty)","NTP is checked independently every 60 seconds."] { line(text) }
+            for text in ["1 / Esc   Main instrument","c   Show / hide chrony statistics","d   Show / hide transport diagnostics","r   Reacquire source; run statistics stay cumulative.","h   Show / hide this help","q   Finish capture and write the report","Ctrl-C also closes the capture safely.","","UTC output stops when source permission expires.",s.transport == "USB" ? "OFFSET  captured UTC − local request interval" : "OFFSET / BIAS  served shadow − local macOS",s.transport == "USB" ? "RX RMS  corrected source, previous-fit prediction" : "RMS / JITTER σ  error RMS / centered error stddev",s.transport == "USB" ? "RX JITTER σ  centered residual; RMS retains bias" : "Run statistics remain cumulative.",s.transport == "USB" ? "MAP PHASE / RATE  USB source-map parameters" : "MAP Δ  served shadow − fitted source time","CHRONY NTP−SYS  signed correction added to local wall","EST RMS / EST DIST  chrony model, not UTC accuracy","NTP  local macOS − NTP server (± uncertainty)","NTP is checked independently every 60 seconds."] { line(text) }
         } else if chronyPage {
             for (text,color) in ChronyFace.lines(s.chrony,columns:columns) {line(text,color)}
         } else if details {
@@ -224,6 +232,9 @@ func previewInstrument(_ path: String,width: Int,height: Int,available: Bool,pag
         snapshot.rate = 32; snapshot.rateLabel = "MAP RATE"; snapshot.phaseLabel = "MAP PHASE"
         snapshot.ratePPM = (source?["map_ppb"] as? Double).map {$0/1000}; snapshot.mapPhaseNS = source?["map_phase_ns"] as? Double
         snapshot.qualification = "UTC request bounds / jitter includes USB / shadow gated"
+        if let bridge = row["boundary_bridge"] as? [String:Any], let quality = bridge["rx_corrected_source"] as? [String:Any] {
+            snapshot.applyRXSourceQuality(quality,sourceFresh:snapshot.utc != nil)
+        }
     }
     snapshot.applyChronyClock()
     print(InstrumentFace.render(snapshot,width:width,height:height,details:page == .diagnostics,help:page == .help,chronyPage:page == .chrony))
@@ -232,6 +243,12 @@ func previewInstrument(_ path: String,width: Int,height: Int,available: Bool,pag
 func instrumentViewTests() -> Int {
     var n = 0
     func check(_ value: Bool,_ name: String) { if !value { fputs("Instrument test failed: \(name)\n",stderr); exit(1) }; n += 1 }
+    var rx = InstrumentSnapshot()
+    let quality: [String:Any] = ["available":true,"n":3522,"rmse_ns":257.0,"mean_ns":64.0,"sigma_ns":249.0,"maximum_absolute_ns":713.0]
+    rx.applyRXSourceQuality(quality,sourceFresh:true)
+    check(rx.rmsTitle=="RX USB RMS" && rx.rmsNS==257 && rx.valid==3522 && rx.jitterNS==249,"RX readout displays causal RMS and centered jitter separately")
+    rx.applyRXSourceQuality(quality,sourceFresh:false)
+    check(rx.rmsNS==nil && rx.rmsCaption?.contains("pre-chrony")==true,"expired source cannot present historical RX RMS as current")
     var s = InstrumentSnapshot(); s.source = "TC-02"; s.utc = SourceInstant(seconds:1_790_902_000,fraction:123_000_000); s.local = s.utc!.adding(0.04); s.rmsNS = 42_500_000; s.valid = 590; s.missing = 10
     s.ntpEnabled = true; s.ntpFresh = true; s.ntpOffsetNS = -9_000_000; s.ntpUncertaintyNS = 96_000_000
     s.usbEnabled = true; s.usbRunning = true

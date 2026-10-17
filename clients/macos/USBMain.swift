@@ -311,7 +311,9 @@ final class USBInstrument {
             let data = ChronyDisplaySnapshot.read(chronySnapshot(wall),feeder:feeder?.json ?? [:],comparison:chronyRun.json(wall.tick),now:wall.tick)
             let text = (options.chronyOnly ? "Local chronyd" : "\(usbDeviceLabel(usb?.selectedSerial)) USB · captured UTC \(utcReadout(reported?.seconds)) · source \(reported == nil ? "UNAVAILABLE" : "VALID") · boundary \(bridge.identity) · SOFs \(usb?.valid ?? 0) · source packets \(clock.accepted)")+(usb?.error.map {"\nUSB ERROR  "+$0} ?? "")+(!data.enabled ? "" : "\nChrony \(data.state) · user UTC \(utcReadout(chronyUTC?.seconds)) · \(data.selected)"+(managed?.error.map {" · "+$0} ?? ""))+"\n"+(ntp?.line(wall.tick) ?? "NTP checks off")+"\n"
             let held=estimate.snapshot(now:wall.tick)
-            let output=text+"Estimate "+String(describing:held["state"] ?? "UNAVAILABLE")+" · UTC ns "+String(describing:held["utc_ns"] ?? "unavailable")+" · receiver discipline age ms "+String(describing:held["observation_age_ms"] ?? "unknown")+" · inherited map age ms "+String(describing:held["inherited_map_age_ms"] ?? "unknown")+" · UNQUALIFIED\n"
+            let rx = bridge.rxSourceQuality.json
+            let rms = rx["available"] as? Bool == true && reported != nil ? (rx["rmse_ns"] as? Double).map {String(format:"%.1f ns",$0)} ?? "--" : "--"
+            let output=text+"RX USB RMS \(rms) · \(rx["n"] ?? 0) predictions · corrected source / pre-chrony / UTC unqualified\n"+"Estimate "+String(describing:held["state"] ?? "UNAVAILABLE")+" · UTC ns "+String(describing:held["utc_ns"] ?? "unavailable")+" · receiver discipline age ms "+String(describing:held["observation_age_ms"] ?? "unknown")+" · inherited map age ms "+String(describing:held["inherited_map_age_ms"] ?? "unknown")+" · UNQUALIFIED\n"
             display.submit {try FileHandle.standardOutput.write(contentsOf:Data(output.utf8))}
         }
     }
@@ -347,6 +349,7 @@ final class USBInstrument {
             model.jitterNS = bridge.counter.detrendedSigma;model.jitterLabel = "COUNTER σ"
             model.qualification = "SOF boundary detrended jitter / UTC accuracy unqualified"
         }
+        model.applyRXSourceQuality(bridge.rxSourceQuality.json,sourceFresh:clock.reportedUTC(wall.tick) != nil)
         model.permissionMS = wall.tick < clock.reportPermissionUntil ? Double(clock.reportPermissionUntil-wall.tick)/1e6 : 0
         if bridge.counter.n <= 2 {model.ratePPM = clock.latest.map {Double($0.ppb)/1000}}; model.mapPhaseNS = clock.latest?.raw["map_phase_ns"] as? Double
         if bridge.counter.n <= 2 {model.rateLabel = "MAP RATE"}; model.phaseLabel = "MAP PHASE"
@@ -381,6 +384,8 @@ final class USBInstrument {
         if let usb = usb, let error = usb.error {model.details = ["USB: \(error)","Helper: \(usb.helperPath ?? "unresolved")","Diagnostic: \(usb.diagnostic ?? "none")","Retry: automatic after 5 seconds; q closes safely."]+model.details}
         let fine = precise.snapshot(bridge:bridge,absolute:mach_absolute_time(),now:wall.tick)
         model.details = ["Fine clock: \(fine["state"] ?? "unavailable")",
+            "RX corrected-source RMS: previous 64–1024 boundaries; no chrony or arrival-time fit.",
+            "RX warmup \(bridge.rxSourceQuality.warmup); unqualified \(bridge.rxSourceQuality.unqualified); withheld/rejected \(bridge.rxSourceQuality.withheld).",
             "Causal bridge RMS: \(bridge.counterInnovations.n > 0 ? String(format:"%.3f us",bridge.counterInnovations.rmse/1000) : "warming") / \(bridge.counterInnovations.n) predictions",
             "Fine UTC requires verified captured PPS/UTC association."]+model.details
         if let indicator = model.lossIndicator {model.details = [indicator,"Amber requires 500ms continuous outage; reasons hold at least 500ms."]+model.details}

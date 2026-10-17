@@ -64,7 +64,7 @@ func replayPrecisionCapture(_ path: String) throws -> [String:Any] {
             "minimum_ns":forecastErrors.n > 0 ? forecastErrors.minimum as Any : NSNull(),
             "maximum_ns":forecastErrors.n > 0 ? forecastErrors.maximum as Any : NSNull(),"detrended":false],
         "forecasts_rejected_by_existing_hardware_validation":rejectedForecasts,
-        "forecast_skipped_or_unqualified":forecastSkipped,"boundary_bridge":bridge.json,
+        "forecast_skipped_or_unqualified":forecastSkipped,"rx_corrected_source":bridge.rxSourceQuality.json,"boundary_bridge":bridge.json,
         "physical_UTC_qualified":false,"between_update_physical_truth_available":false,
         "method":"shipping immutable-map arithmetic and pre-ingest inverse hardware fit; every finite forecast error retained; identity/topology qualification required",
         "limitation":"accepted observed tuples only; no independent UTC truth, intersample truth or source coverage inferred from hardware coverage"]

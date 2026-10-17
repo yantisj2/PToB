@@ -82,6 +82,12 @@ This is neither macOS/chrony estimator RMS nor end-to-end UTC error. It depends
 on USB polling, the host SOF cadence and the GNSS map. The console `precision`
 query names this metric and reports sample count/validity explicitly.
 
+The macOS client's **RX USB RMS** separately measures corrected-source causal
+prediction errors at the receiver, before chrony. Run it with `--no-chrony
+--no-ntp` for a USB-only baseline; [the client guide](../../clients/macos/README.md)
+defines the prior-sample fit and its counts/gates. Keeping that client polling
+also supplies the observations needed by the device's TX display metric.
+
 ## Build and package
 
 Use the pinned dependencies and exact supported hardware/device JSON described

@@ -2,6 +2,18 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 17 October 2026 — corrected-source RX baseline before chrony
+
+The macOS USB-only readout now shows **RX USB RMS** from corrected-source
+prediction errors against hardware SOF/Mach frame boundaries. A frozen previous
+64–1024-sample affine fit predicts each admitted immutable-map sample; the
+current sample cannot train its own prediction. Bias and transients remain in
+RMS, UTC translation is excluded, and qualification, warm-up, rejected samples,
+gaps and source scopes remain explicit. The live readout and offline precision
+replay share the implementation. `--no-chrony --no-ntp` supports a baseline
+without starting a daemon or adjusting the host clock. This relative metric
+does not qualify absolute UTC or modify T096 GM/RC firmware.
+
 ## 17 October 2026 — DC unknown-association source admission
 
 T096 **0.15.80** corrects DC's initial gate: the raw clock's `source_available`

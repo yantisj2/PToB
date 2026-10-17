@@ -42,6 +42,31 @@ source map. Direct Mac BLE, SS3 CDC timing input and network time serving are
 not supplied. The [chrony guide](chrony/README.md) explains the local daemon and
 read-only monitoring options.
 
+For a receiver baseline before chrony, use an exact discovered serial:
+
+```sh
+clients/macos/ptob --no-chrony --no-ntp --device FULL_USB_SERIAL \
+  --rate 32 --duration 120 --jsonl clients/macos/runs/NEW-baseline.jsonl
+clients/macos/ptob --precision-replay clients/macos/runs/NEW-baseline.jsonl
+```
+
+**RX USB RMS** is the RMS of causal corrected-source prediction errors against
+hardware SOF / Apple Mach frame boundaries. Each prediction uses the previous
+64–1024 valid source observations; the current sample is scored before joining
+the fit. It includes GNSS map corrections, retains residual bias/transients and
+does not retrospectively detrend the errors. The separately reported UTC offset
+is excluded. Exact immutable-map agreement and resolved direct-port frame
+identity are required. Rejected/unavailable samples reset training; gaps over
+500 ms also restart it. Source scope changes start a new RMS population. Counts,
+warm-up, qualification and rejected observations remain explicit in
+`boundary_bridge.rx_corrected_source` and precision replay.
+
+The readout requires four predictions and a source observation younger than
+500 ms. It measures relative stream stability using a preceding affine rate
+fit, with unknown host/PHY bias and UTC association. It is separate from the
+device's SOF span RMS, retrospective source jitter and chrony's estimator RMS;
+it does not establish absolute UTC accuracy.
+
 ## Tracking results and current work
 
 [<img src="../../docs/images/chronycontrol-tracking-10min-20261016.png" width="641" alt="ChronyControl tracking graph showing a cleaner selected development interval of approximately ten minutes">](../../docs/images/chronycontrol-tracking-10min-20261016.png)
