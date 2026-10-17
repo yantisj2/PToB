@@ -2,6 +2,13 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 16 October 2026 — macOS guide organization
+
+Restore the original animated client preview and give the macOS README dedicated
+interface, usage, tracking-results, continuity and provenance sections. Integrate
+the selected ChronyControl view with the bounded publication-check results,
+keeping the later screenshot and earlier hardware populations distinct.
+
 ## 16 October 2026 — macOS documentation placement
 
 Move the ChronyControl screenshot, author attribution and tracking/development
