@@ -815,7 +815,7 @@ static void poll_owned(uint64_t now)
       /* Core discovery cannot scan as initiator for the controller's2s
        * default while healthy1.5s source permissions expire. Use the same
        * original100ms create opportunity as the transient client path. */
-      if(group_client||(group_id&&server_ready&&i==CONTROL_PEERS))p->connect_until=now+100000;
+      if(group_client||(group_id&&i==CONTROL_PEERS))p->connect_until=now+100000;
       r2_timing_event(R2_TIMING_GM_CONTROL,0,p->identity,1,interval,
                       p->connect_until>now?(uint32_t)((p->connect_until-now)/1000):0);
       p->retry=now+500000;

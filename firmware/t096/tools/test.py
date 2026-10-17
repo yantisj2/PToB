@@ -12,7 +12,7 @@ APP=Path(__file__).resolve().parents[1]
 with tempfile.TemporaryDirectory(prefix='t096-r2-test-') as directory:
     out=Path(directory)
     compiler=os.environ.get('CC') or ('/opt/homebrew/opt/llvm/bin/clang' if Path('/opt/homebrew/opt/llvm/bin/clang').is_file() else shutil.which('clang'))
-    for suite in ['precision_schedule','rc_renewal','usb_lifecycle']:
+    for suite in ['precision_schedule','rc_renewal','usb_lifecycle','gm_discovery']:
         subprocess.run([sys.executable,str(APP/'tools'/(suite+'_tests.py')),
                         '--deps',str(args.deps),'--out',str(out/suite)],
                        env={**os.environ,'CC':compiler},check=True,timeout=60)

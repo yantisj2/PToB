@@ -2,6 +2,17 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 17 October 2026 — bound unpaired GM discovery
+
+T096 **0.15.75** applies the existing100ms connection-creation opportunity to
+all transient native GM discoveries. An unpaired GM previously escaped the
+ready-core guard and could initiate for the controller's full two seconds.
+Cancellation still retains the connection until its callback drains; neither
+provisional enrollment nor timing authority is extended. Production transport
+regressions cover the unpaired path, an established core and negotiated MTU;
+the previous guard fails the unpaired-path regression. Hardware HOT recovery
+and continuous delivery remain separate verification requirements.
+
 ## 17 October 2026 — native GM pairing diagnostics
 
 T096 **0.15.74** records bounded native control stages in the existing timing

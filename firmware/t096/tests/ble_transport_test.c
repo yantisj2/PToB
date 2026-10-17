@@ -398,6 +398,25 @@ static void retained_gm_diagnostics(void){
  memset(peers,0,sizeof peers);memset(gm_link_events,0,sizeof gm_link_events);gm_mtu_errors=0;fake_time=1000000;
  puts("PASS GM diagnostics retain first/recent MTU errors across success, incarnation/identity, local-request evidence and saturation");
 }
+static void unready_core_discovery(void){
+ memset(peers,0,sizeof peers);transport_started=owner_bound=false;transport_owner=NULL;
+ stop_error=0;stopping=scanning=advertising=precision_discovery=sync_acquiring=false;
+ group_client=relay_server=false;fake_time=1000000;
+ const uint8_t own[6]={1,2,3,4,5,0xc0};assert(!r2_ble_group_start(10,7,1,own));
+ /* A newly eligible follower has no authenticated core link yet. This is
+  * precisely the path that previously escaped the ready-core100ms cap. */
+ assert(!control_ready());struct peer *p=&peers[4];p->identity=20;p->address.type=1;p->address.a.val[0]=3;
+ p->first_seen=p->advertised_at=fake_time;p->provisional_until=fake_time+5000000;p->retry=1;
+ early=false;unsigned before=creates;r2_ble_poll(fake_time);
+ assert(creates==before+1&&p->conn==&connection&&p->connect_until==fake_time+100000);
+ uint64_t original_provisional=p->provisional_until;unsigned closes=disconnects;
+ fake_time+=99999;r2_ble_poll(fake_time);assert(disconnects==closes);
+ ++fake_time;r2_ble_poll(fake_time);assert(disconnects==closes+1&&p->provisional_until==original_provisional);
+ r2_ble_poll(fake_time+1);assert(p->conn==&connection&&creates==before+1); /* Callback still owns it. */
+ callbacks.connected(&connection,2);r2_ble_poll(fake_time+2);
+ assert(!p->conn&&connection.refs==1&&scanning);bt_conn_unref(&connection);
+ puts("PASS unpaired native GM discovery has the original100ms cap, preserves provisional expiry and waits for cancellation callback/reference closure");
+}
 static void continuous_core_discovery(void){
  for(unsigned hot=0;hot<2;hot++){
   memset(peers,0,sizeof peers);transport_started=owner_bound=false;transport_owner=NULL;
@@ -431,6 +450,7 @@ int main(int argc,char **argv)
 {
  if(argc>1&&!strcmp(argv[1],"gm-mtu")){gm_peer_first_mtu();return 0;}
  if(argc==2&&!strcmp(argv[1],"gm-continuous")){continuous_core_discovery();return 0;}
+  if(argc==2&&!strcmp(argv[1],"gm-unready")){unready_core_discovery();return 0;}
  retained_gm_diagnostics();
  if(argc==2&&!strcmp(argv[1],"lamps")){telemetry_lamps();puts("PASS actual telemetry pulse/125ms redraw phases/RX-TX/expiry");return 0;}
  bound_owner();
