@@ -2,6 +2,49 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 0.1.7 — 16 October 2026
+
+- Isolate GNSS-aid and command ownership status snapshots in separate non-inlined
+  functions. Their full `R2Status` copies no longer remain in the main loop or
+  parser frames while rendering another complete status response. The first
+  attached-unit 0.1.6 candidate overflowed task main on its startup status request;
+  build and native host checks had passed. The failed candidate was withdrawn.
+- Keep the configured 12,288-byte main task stack. Build and standalone inspection
+  now require retained GCC static frame measurements for selected main-task
+  paths, with a 4,096-byte reserve for uncounted callees. Reject missing, ambiguous
+  or dynamic frame evidence. A regression rejects the observed 11,216-byte
+  nested status path. This check is not a complete call-graph proof or a runtime
+  reliability claim; exact-unit watermark observation remains required. The
+  historical `main_stack_free_words` field is byte-valued on the pinned SDK.
+
+## 0.1.6 — 16 October 2026
+
+- Keep an acquired direct parent and its periodic receiver through authenticated
+  NO_SOURCE, unusable time, and foreign-root locator replies. Record zero-root
+  NO_SOURCE separately; only a positive foreign root receives the 60-second
+  follower deferral. Every old source, replay and corrected-model deadline stays
+  unchanged. New scope still requires a fresh authenticated binding.
+- After the first actual corrected receive, use 20–40 second jittered failed
+  control retries and at most two connection starts in a rolling 60 seconds.
+  The start history survives parent changes. Waiting for that budget cannot
+  pause downstream capability advertising or its precision publisher. Actual
+  ACL arbitration and the existing parent-lock/source gate still apply.
+- Preserve the last physically corrected local model for OLED HOLD after source
+  or replay expiry, with unknown error bound. This presentation estimate cannot
+  authorize admission, extend a lease, train the fitter, advertise precision,
+  or supply downstream timing. Explicit stop, faults and detected clock steps
+  withdraw it. Current authority and relative quality expire independently.
+- Add a passive 160-byte, eight-entry receive history frozen when the corrected
+  model actually expires. The first frozen capsule survives recovery for the
+  boot; later losses/reacquisitions are counted with detailed history unavailable.
+  Bounded capture diagnostics retain authenticated,
+  associated, mapped, stale and refused worker observations. Missing controller
+  RF opportunities, DONE and CRC measurements remain unknown. Timer/controller
+  ownership and the existing ordinary console frame size are unchanged.
+- Retain the legacy five-minute RC7 renewal, six-minute lease, BLE50 client-only
+  restriction, optional unqualified BLE100 estimated relay, and explicit GNSS
+  indicator profile. W12 provides no USB timing stream or USB timing relay.
+
 ## 0.1.5 — 16 October 2026
 
 - Replace the inherited C-3-only OLED factory guard with the generated exact

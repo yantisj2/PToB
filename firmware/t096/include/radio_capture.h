@@ -60,3 +60,15 @@ void r2_radio_capture_metadata(void *owner, uint32_t reservation_us,
 void r2_radio_capture_complete(void *owner, bool done, bool crc);
 void r2_radio_capture_abort(void *owner);
 void r2_radio_capture_abort_site(void *owner,uint8_t site);
+
+/* One <=160B frozen loss capsule per capture lifecycle. No timer/PPI writes.
+ * Eight opportunity/outcome tuples; unavailable READY/HCTO/RSSI stay unknown.
+ * generation prevents a reused owner pointer crossing capture lifecycles. */
+struct r2_rx_loss_capsule {
+ uint32_t sequence,generation,count,frozen,lazy,queued;
+ uint64_t event[8];
+ uint32_t outcome[8],owner[8];
+};
+void r2_radio_capture_freeze_loss(void);
+void r2_radio_capture_schedule(void *owner,uint16_t event,uint32_t lazy,uint32_t skipped,bool queued);
+bool r2_radio_capture_loss(struct r2_rx_loss_capsule *);

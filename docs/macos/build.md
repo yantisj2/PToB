@@ -45,6 +45,7 @@ python3 clients/macos/test_usb_cli.py
 python3 clients/macos/test_chrony_ui.py
 python3 clients/macos/test_readout_hold.py
 python3 clients/macos/chrony/test_precision_evaluation.py
+python3 clients/macos/chrony/test_chronycontrol.py
 ```
 
 These commands use native unit checks, decoder fixtures, synthetic chronyc

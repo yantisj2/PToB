@@ -54,6 +54,8 @@ int main(void){
  struct r2_identity id={.silicon="1000000000000004",.boot=99};r2_usb_source_init(&id);
  local_clock.count=1;local_clock.head=1;timing.bound=true;timing.context_until=UINT64_MAX;
  current_origin=(struct rc5_origin){.root=17,.boot=18,.epoch=19,.issued=1,.expires=1000000000000,.utc_offset=100000000000};
+ local_clock.root_boot=current_origin.boot;local_clock.root_epoch=current_origin.epoch;
+ timing.parent_boot=local_clock.parent_boot=20;timing.parent_epoch=local_clock.parent_epoch=21;
  delivery_packet_tuple=55;rx=7;
  next_map(100000,1);
  assert(discipline_at==100000&&!holdover_expired&&delivery_discipline_rx==7&&delivery_discipline_tuple==55);
@@ -87,6 +89,11 @@ int main(void){
  current_origin.expires=1000000000000;next_map(20100000,6);
  assert(source_recovered_events==1&&!delivery_source_lost);
  holdover_expired=true;c=clock_offer(sampled.tick);assert(!c.valid);r2_usb_source_publish(&c);assert(!permission);
+ holdover_expired=false;++local_clock.root_epoch;c=clock_offer(sampled.tick);
+ assert(!c.valid&&!c.estimate); /* Retained maps cannot cross a source scope. */
+ --local_clock.root_epoch;++local_clock.parent_epoch;c=clock_offer(sampled.tick);
+ assert(!c.valid&&!c.estimate); /* Nor an authenticated parent incarnation. */
+ --local_clock.parent_epoch;
  holdover_expired=false;sampling=false;usb_offer_now();assert(!permission&&!maps[0].set);
  puts("PASS production immediateUSB commit before control delay; real500ms/source/context expiry, no backdating, no same-generation extension, capture failure withdrawal");
 }

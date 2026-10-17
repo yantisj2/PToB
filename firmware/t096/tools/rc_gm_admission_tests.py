@@ -11,7 +11,7 @@ def function(name):
   elif s[end]=='}':depth-=1
   end+=1
  return s[start:end]
-(out/'rc_gm_admission_under_test.h').write_text('\n'.join(function(x) for x in ['gm_admission_record(','gm_accept(']))
+(out/'rc_gm_admission_under_test.h').write_text('\n'.join(function(x) for x in ['gm_admission_record(','gm_refusal(','gm_accept(','gm_apply(']))
 tiny=a.deps/'modules/crypto/tinycrypt/lib'
 units=[app/'tests/rc_gm_admission_test.c',app/'protocol/group_join.c',app/'protocol/group_auth.c',*[tiny/'source'/n for n in ['hmac.c','sha256.c','utils.c']]]
 cmd=[(__import__('os').environ.get('CC') or __import__('shutil').which('clang')),'-std=c11','-Wall','-Wextra','-Werror','-Wno-default-const-init-var-unsafe','-fsanitize=address,undefined','-fno-sanitize-recover=all','-I'+str(out),'-I'+str(app/'include'),'-I'+str(app/'protocol'),'-I'+str(tiny/'include'),*map(str,units),'-o',str(out/'test')]

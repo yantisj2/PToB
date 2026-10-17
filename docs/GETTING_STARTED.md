@@ -90,7 +90,9 @@ own availability, error and failure-recovery measurements.
 
 Follow the [macOS client guide](../clients/macos/README.md) to build the USB client,
 check source status and feed chrony using its supported local bridge. A T096 RC
-can supply the default RC7 USB stream; the SS3 CDC console cannot. Start with observation and the documented
+can supply the default RC7 USB stream; the reviewed normal GM backend has no USB
+source-map publisher, and the SS3 CDC console cannot supply this interface.
+Start with observation and the documented
 private chrony configuration; preserve withheld/unavailable samples.
 
 From the repository root, build and run the offline checks first:

@@ -143,6 +143,20 @@ static void __attribute__((noinline)) reply(const struct r2_request *r,uint64_t 
     r2_service_test_transport_status(transport);r2_uc_stats(uc);r2_service_test_acquisition_status(acq);r2_service_test_gm_admission_status(gm);r2_service_test_connection_status(connection);
     int n=snprintf(json,sizeof json,"{\"source\":\"%s\",\"boot\":\"%016llx\",\"result\":%d,\"rc_parent\":\"%016llx\",\"boot_relay_only\":%s,\"profile_rc\":%s,\"pending\":%s,\"transport\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u],\"clock_domains\":[%u,%u,%u],\"unicast\":[%u,%u,%u,%u,%u,%u,%u,%u],\"acquisition\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u],\"gm_admission\":[%u,%u,%u,%u,%u,%u,%u],\"connection\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u]}",R2_SOURCE_SHA,(unsigned long long)identity.boot,result,(unsigned long long)parent,relay_only?"true":"false",profile[0]?"true":"false",profile[1]?"true":"false",transport[0],transport[1],transport[2],transport[3],transport[4],transport[5],transport[6],transport[7],transport[8],transport[9],transport[10],transport[11],transport[12],(unsigned)nrf_clock_lf_src_get(NRF_CLOCK),(unsigned)nrf_clock_lf_is_running(NRF_CLOCK),(unsigned)nrf_clock_hf_is_running(NRF_CLOCK,NRF_CLOCK_HFCLK_HIGH_ACCURACY),uc[0],uc[1],uc[2],uc[3],uc[4],uc[5],uc[6],uc[7],acq[0],acq[1],acq[2],acq[3],acq[4],acq[5],acq[6],acq[7],acq[8],acq[9],acq[10],acq[11],acq[12],acq[13],acq[14],acq[15],acq[16],acq[17],acq[18],acq[19],gm[0],gm[1],gm[2],gm[3],gm[4],gm[5],gm[6],connection[0],connection[1],connection[2],connection[3],connection[4],connection[5],connection[6],connection[7],connection[8],connection[9],connection[10],connection[11],connection[12],connection[13],connection[14],connection[15],connection[16],connection[17],connection[18],connection[19]);
     if(n<0||(size_t)n>=sizeof json||reply_sequence==UINT32_MAX)return;
+    struct r2_rx_loss_capsule capsule;
+    if(r2_radio_capture_loss(&capsule)){
+      int extra=snprintf(json+n-1,sizeof json-(size_t)n+1,",\"rx_loss_capsule\":{\"schema\":1,\"generation\":%u,\"sequence\":%u,\"count\":%u,\"lazy\":%u,\"queued\":%u,\"radio_extra_available\":false,\"entries\":[",capsule.generation,capsule.sequence,capsule.count,capsule.lazy,capsule.queued);
+      if(extra<0||(size_t)extra>=sizeof json-(size_t)n+1)return;
+      n+=extra-1;
+      for(unsigned i=0;i<capsule.count;i++){
+        unsigned at=(capsule.sequence-capsule.count+i)%8;
+        extra=snprintf(json+n,sizeof json-(size_t)n,"%s[\"%016llx\",%u,%u]",i?",":"",(unsigned long long)capsule.event[at],capsule.outcome[at],capsule.owner[at]);
+        if(extra<0||(size_t)extra>=sizeof json-(size_t)n)return;
+        n+=extra;
+      }
+      extra=snprintf(json+n,sizeof json-(size_t)n,"]}}");if(extra<0||(size_t)extra>=sizeof json-(size_t)n)return;
+        n+=extra;
+    }
     n=r2_frame(frame,sizeof frame,r->id,++reply_sequence,json);if(n>0)(void)r2_console_reply(frame,(size_t)n,arrival+R2_REPLY_MS);return;
   }
 #endif

@@ -5,11 +5,11 @@ struct bt_conn;
 struct r2_uc_clock {
   struct rc5_map map;
   struct rc5_origin origin;
-  uint64_t until_tick;
+  uint64_t until_tick, session_until, discipline_tick;
   uint32_t capture_epoch;
   uint8_t depth;
   uint8_t scope[16];
-  bool valid;
+  bool valid, estimate;
 };
 int r2_uc_start(const struct r2_group_config *, uint64_t, uint64_t);
 int r2_uc_poll(const struct r2_uc_clock *,bool advertise_allowed);

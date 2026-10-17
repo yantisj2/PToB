@@ -23,6 +23,7 @@ static struct rc5_gm_context gm_context;static struct r2_join_exchange gm_exchan
 static uint32_t gm_admission_diagnostic[7];
 static uint64_t lt_attempt_started,lt_close_until,gm_sequence,lt_challenge,lt_deadline,lt_renew_at,lt_request_at,lt_next,lt_budget_until,lt_attempt_ready,lt_adv_check_at,last_context_progress;
 static unsigned lt_sequence,lt_requests,lt_responses,lt_bindings,lt_rejects,lt_attempts,lt_initiations,lt_disconnects,lt_adv_recoveries,lt_read_size,lt_handle,lt_phase;
+static bool startup_admitted;
 static bool parent_relay,lt_paused,lt_acquiring,lt_advertising,lt_dead,lt_server,lt_server_pending,lt_reply_ready,gm_write_busy;
 static void *lt_adv;static struct bt_conn *lt_conn;enum {LT_IDLE,LT_CONNECT,LT_MTU,LT_CLOSE};
 static bool parent_known;static unsigned parent_index;
@@ -63,7 +64,7 @@ static void seed(void){
  arrival=NULL;now=0;delay_ms=2;disconnect_calls=records=0;delete_fails=false;
  lt_close_until=0;lt_phase=LT_IDLE;cancel_race=late_success=fault=false;drain_events=0;drain_result=0;
  lt_attempts=0;
- live_precision=false;timing.bound=false;timing.context_until=0;
+ startup_admitted=false;live_precision=false;timing.bound=false;timing.context_until=0;
 }
 static void queue_connected(unsigned slot){pool[slot].refs=1;pool[slot].active=true;put(LT_CONNECTED,&pool[slot],0);}
 static void balanced(void){assert(!lt_events.count&&!lt_adv);for(unsigned i=0;i<CONFIG_BT_MAX_CONN;++i)assert(!pool[i].refs&&!pool[i].active&&!pool[i].initiating&&!lt_retired[i].conn);assert(lt_reset());}
@@ -73,10 +74,10 @@ int main(void){
  seed();lt_attempts=3;lt_retry_after(0,0,0);
  assert(!lt_attempts&&lt_budget_until==160000000&&lt_renew_at==lt_budget_until);
  uint64_t scheduled=lt_renew_at;assert(!lt_closed_poll(160000000)&&lt_renew_at==scheduled);
- seed();lt_attempts=3;live_precision=true;timing.bound=true;timing.context_until=480000000;
+ seed();lt_attempts=3;startup_admitted=true;live_precision=true;timing.bound=true;timing.context_until=480000000;
  lt_retry_after(0,0,0);assert(!lt_attempts&&lt_budget_until==320000000);
- seed();lt_attempts=3;live_precision=true;timing.bound=true;timing.context_until=80000000;
- lt_retry_after(0,0,0);assert(!lt_attempts&&lt_budget_until==32000000&&timing.context_until==80000000);
+ seed();lt_attempts=3;startup_admitted=true;live_precision=true;timing.bound=true;timing.context_until=80000000;
+ lt_retry_after(0,0,0);assert(!lt_attempts&&lt_budget_until==320000000&&timing.context_until==80000000);
  /* A connected peer may disappear before replying to termination. Its1s
   * supervision is inside the1.5s normal drain, without relaxing shutdown. */
  seed();lt_adv=NULL;advertising_live=false;pool[0]=(struct bt_conn){.refs=1,.active=true};lt_conn=&pool[0];lt_attempts=2;

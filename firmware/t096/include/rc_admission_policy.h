@@ -14,6 +14,12 @@ static inline uint64_t rc_admission_retry_us(unsigned attempt,uint64_t nonce){
   attempt==3?UINT64_C(10000000):UINT64_C(30000000);
  return base+nonce%(base/2+1);
 }
+/* Absolute start history, retained across warm retries and parent changes. */
+static inline bool rc_admission_start_allowed(const uint64_t starts[2],uint64_t tick){
+ if(starts[1]&&tick<starts[1])return false;
+ if(starts[0]&&(tick<starts[0]||tick-starts[0]<UINT64_C(960000000)))return false;
+ return !starts[1]||tick-starts[1]>=UINT64_C(320000000);
+}
 /* Connected links may complete teardown through their negotiated supervision
  * timeout. Add a finite callback margin. A create/cancel has no live ACL and
  * retains500ms; explicit profile/update shutdown separately retains500ms. */

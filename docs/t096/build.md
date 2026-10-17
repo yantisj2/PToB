@@ -2,7 +2,10 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
-There are two profiles: **GM** and **RC**. USB source streaming is always enabled.
+There are two profiles: **GM** and **RC**. USB timing support is always compiled;
+source-map publication currently uses the RC backend. The reviewed normal GM
+backend does not supply a USB source map. Use a compatible RC for the macOS
+chain; see the [stability results](../../evidence/stability/2026-10-16/README.md).
 The public builder never opens hardware. It uses only this checkout, pinned
 public dependencies and your ignored local enrollment/device inputs.
 
@@ -76,6 +79,12 @@ CC=clang python3 firmware/t096/tools/usb_sof_tests.py --out artifacts/check-usb
 CC=clang python3 firmware/t096/tools/watchdog_tests.py --deps artifacts/deps --out artifacts/check-watchdog
 CC=clang python3 firmware/t096/tools/runtime_profile_tests.py --deps artifacts/deps --out artifacts/check-profile
 python3 firmware/t096/tools/test.py --deps artifacts/deps
+CC=clang python3 firmware/t096/tools/rc_gm_admission_tests.py --deps artifacts/deps --out artifacts/check-admission
+CC=clang python3 firmware/t096/tools/rc_delivery_tests.py --out artifacts/check-delivery
+CC=clang python3 firmware/t096/tools/rc_durability_tests.py --out artifacts/check-durability
+CC=clang python3 firmware/t096/tools/rc_publication_tests.py --out artifacts/check-publication
+CC=clang python3 firmware/t096/tools/usb_ep0_tests.py --deps artifacts/deps --out artifacts/check-ep0
+python3 -m unittest discover -s firmware/t096/tests -p 'test_console*.py' -v
 ```
 
 Use a recent LLVM clang (the cutover checks use the installed Homebrew LLVM);

@@ -1,0 +1,85 @@
+{
+  "schema": 1,
+  "collection": "stability/2026-10-16",
+  "author": "Jonathan Yantis",
+  "license": "CC-BY-4.0",
+  "public_files": {
+    "README.md": "09fbcb87d9323a24b231ceb5b4355b0ebe22588f9d1f2c2f11457ce975f4083e",
+    "results.json": "1e30bab5a8dfe197481b89f7c4073b381d93181a95b26a14643d1d6fc710f2ab"
+  },
+  "selected_private_inputs": [
+    {
+      "id": "native-rx-final",
+      "archive_locator": "artifacts/t096-sync-investigation-20261016/continued/final-outcome.json",
+      "sha256": "6cec3dded16142719f4928f40728643d296d55be5f0999239ea99bd442a4ac59",
+      "included": false
+    },
+    {
+      "id": "v69-outcome",
+      "archive_locator": "artifacts/t096-short-lock69-20261016/outcome.json",
+      "sha256": "e45f500bf63e272d0db235fa60d24f18c559952740502242e51bfbd4119d8af1",
+      "included": false
+    },
+    {
+      "id": "v69-functional-session",
+      "archive_locator": "artifacts/t096-short-lock69-20261016/functional60-session.json",
+      "sha256": "37b60e8607157f7e5f6004aaaa4dfa379241285c14006d2296f9784870ecc63b",
+      "included": false
+    },
+    {
+      "id": "W12-outcome",
+      "archive_locator": "artifacts/w12-rc-parity-20261016/outcome.json",
+      "sha256": "cf858bfcc8c0fb5c712b3880049068b49c6d79cbc39bdda04afee5e9de5ee19f",
+      "included": false
+    },
+    {
+      "id": "v67-recomputation",
+      "archive_locator": "artifacts/tc02-usb-ep0-repair-20261016/v67-recomputation.json",
+      "sha256": "e4862df076f1fe6dfbb41df25243b8d28051d3bfb98ba7abbc95ef11287b3519",
+      "included": false
+    },
+    {
+      "id": "saved-prefix-analysis",
+      "archive_locator": "artifacts/tc02-usb-ep0-repair-20261016/saved-analysis.json",
+      "sha256": "c8c7ae2e887e4a1db6ed2c644c4174c7ebd5f1a2b358f15f1944017a08b2ddb0",
+      "included": false
+    },
+    {
+      "id": "source-fault-review",
+      "archive_locator": "artifacts/tc02-usb-ep0-repair-20261016/source-and-fault-evidence.json",
+      "sha256": "96b6e33cfeaa8646228c9d1fd40170a37efc673e09952b949041fabefcdfc535",
+      "included": false
+    },
+    {
+      "id": "event-variant-audit",
+      "archive_locator": "artifacts/tc02-usb-ep0-repair-20261016/event-variant-audit.json",
+      "sha256": "e88f0ffeab2ac2f507fc2850a8422104faed31bc9e826eecc80b7af37452b976",
+      "included": false
+    },
+    {
+      "id": "offline-lifecycle-test",
+      "archive_locator": "artifacts/tc02-usb-ep0-repair-20261016/lifecycle-test/receipt.json",
+      "sha256": "f58dcf31d6ae714f6bf8d19712bd68636c32d703af82ec15456503164d033a5c",
+      "included": false
+    },
+    {
+      "id": "USB-GM-proposal",
+      "archive_locator": "artifacts/tc02-usb-ep0-repair-20261016/PROPOSAL.md",
+      "sha256": "c50356b60c67b8cfb072c813a8bfabcb2847711b5c73f96a28af2e48bf9fe390",
+      "included": false
+    }
+  ],
+  "transformations": [
+    "New curated summary and selected aggregate metrics; no wholesale log or report import.",
+    "Removed actual device/silicon/MCU boot identities, absolute paths, enrolled image identities, process/port and ownership details.",
+    "Preserved historical cohort aliases, versions, source revisions, failures, denominators and verification limits.",
+    "Historical inputs are provenance locators, not files supplied by this checkout."
+  ],
+  "exclusions": [
+    "Raw USB/serial/RF captures",
+    "Private source/build snapshots and enrollment",
+    "Enrolled binaries and generated identity headers",
+    "Full local investigation/proposal and private planning"
+  ],
+  "reproduction_boundary": "Verifier checks included file identity and aggregate accounting only; excluded physical logs prevent independent extraction."
+}

@@ -12,9 +12,16 @@ with mesh participation separated from planned client services for less capable
 devices. See [the architectural background](../../docs/V12_TO_R2.md).
 
 **PToB owns T096 RC7 development.** The two profiles are **GM** and **RC**;
-USB source streaming is standard. [Build from source](../../docs/t096/build.md)
+USB timing support is compiled by default. [Build from source](../../docs/t096/build.md)
 using pinned public dependencies and ignored local enrollment. The current
-application version is 0.15.67. No publicly enrolled binary is distributed.
+application version is 0.15.69. No publicly enrolled binary is distributed.
+
+Use the RC backend for the current macOS USB source chain. The reviewed normal
+GM backend has no reachable USB source-map publisher; a USB interface or healthy
+RF/GPS service alone does not establish USB UTC delivery. The latest
+[stability results](../../evidence/stability/2026-10-16/README.md) separate bounded
+admission improvements from the unresolved TC-04 USB blackout. See the
+[project changelog](../../CHANGELOG.md) for the integrated changes.
 
 [Sync diagnostics and console logging](../../docs/t096/diagnostics.md) describe
 the RAM event journal, established-link transitions, and bounded offline/live

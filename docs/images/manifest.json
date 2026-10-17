@@ -126,6 +126,36 @@
         "zoom": "Fit"
       },
       "scope": "Logical timing architecture illustration, not a wiring diagram, live measurement or current firmware qualification. ESP32-S3 schematic describes W12; optional paths do not establish StickS3 support."
+    },
+    {
+      "source": "User-supplied ChronyControl screenshot, 16 October 2026",
+      "source_sha256": "b67ac6377d444fa007d3162d206b368807b8d12592f6378cc14f17046d325445",
+      "file": "chronycontrol-tracking-20261016.png",
+      "sha256": "2f1726dff230ab4c7735d3781673f63768e63737700037c0ecd0c84b203200fb",
+      "bytes": 168207,
+      "dimensions": [
+        654,
+        621
+      ],
+      "crop_box_xyxy": [
+        0,
+        39,
+        654,
+        660
+      ],
+      "transformation": "User-authorized deterministic lossless crop of top 39 pixels containing local path/title bar. Plot pixels unchanged; original private screenshot excluded.",
+      "pixel_comparison": "Exact RGBA equality against selected source rectangle",
+      "metadata": {
+        "icc_profile": {
+          "bytes": 3356,
+          "sha256": "7e4416d60fd73a72eb9bc6ec6923abbea44f5aed74aac3f5cdd49f7306b60bad"
+        }
+      },
+      "software_author": "Bryan Christianson",
+      "software_page": "https://www.whatroute.net/chronycontrol.html",
+      "rights": "Original screenshot/data contributions: Jonathan Yantis, CC BY 4.0. Third-party ChronyControl UI rights unchanged; application not bundled.",
+      "scope": "Development tracking-log view with unresolved spikes. No source/device identity attestation, continuous-delivery acceptance or independent UTC accuracy inferred.",
+      "license": "CC-BY-4.0 for original screenshot/data contributions only; third-party UI rights retained"
     }
   ]
 }

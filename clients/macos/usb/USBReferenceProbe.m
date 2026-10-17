@@ -11,6 +11,10 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <time.h>
+#include <fcntl.h>
+#include <sys/file.h>
+#include <sys/stat.h>
+#include <sys/wait.h>
 
 static volatile sig_atomic_t interrupted;
 static void onSignal(int sig) { (void)sig; interrupted = 1; }
@@ -65,6 +69,31 @@ static NSDictionary *sourceRecord(NSData *data,unsigned kind) {
     NSMutableString *scope=[NSMutableString string];for(unsigned i=0;i<16;i++)[scope appendFormat:@"%02x",p[200+i]];d[@"path_scope"]=scope;
     return d;
 }
+// Explicit UTE1 request only. Never reinterpret a UTS1 valid bit or accept
+// held projections as fresh observations. The returned legacy view is fenced.
+static NSDictionary *estimateRecord(NSData *data, NSDictionary **observation) {
+    if(data.length!=256)return nil;const uint8_t *p=data.bytes;
+    uint32_t flags=(uint32_t)little(p+36,4),state=(uint32_t)little(p+248,4);
+    if(memcmp(p,"UTE1",4)||little(p+4,2)!=1||little(p+6,2)!=256||
+       p[72]!=1||little(p+42,2)!=1||(flags&~31u)||state>2||
+       ((flags&1)&&((flags&30)!=30))||((flags&2)&&(!(flags&4)||!state))||
+       (!(flags&2)&&state))return nil;
+    NSMutableData *legacy=[data mutableCopy];uint8_t *q=legacy.mutableBytes;
+    memcpy(q,"UTS1",4);memset(q+36,0,4);q[36]=flags&1;
+    if(!(flags&1)){memset(q+64,0,8);memset(q+220,0,4);q[220]=1;}
+    memset(q+232,0,24);
+    NSDictionary *base=sourceRecord(legacy,1);if(!base)return nil;
+    if(observation)*observation=base;
+    NSMutableDictionary *d=[base mutableCopy];
+    d[@"schema"]=@1;d[@"contract"]=@"UTE1";d[@"flags"]=@(flags);
+    d[@"estimate_present"]=@((flags&2)!=0);d[@"counter_valid"]=@((flags&4)!=0);
+    d[@"session_current"]=@((flags&8)!=0);d[@"root_envelope_current"]=@((flags&16)!=0);
+    d[@"estimate_utc_ns"]=integer((int64_t)little(p+64,8));
+    d[@"last_discipline_tick"]=integer(little(p+232,8));
+    d[@"session_until_tick"]=integer(little(p+240,8));d[@"tracking_state"]=@(state);
+    d[@"estimate_reason"]=@(little(p+252,4));d[@"measurement"]=@NO;
+    d[@"uncertainty"]=@"UNKNOWN";return d;
+}
 // Preserve an attributable flags0 observation rejection even if its enclosing
 // packet is short or malformed. A decoded dictionary is validated by the host.
 static bool invalidReason7(NSData *data,NSUInteger transferred,NSDictionary *decoded) {
@@ -101,7 +130,7 @@ static void usage(void) {
       "                       [--samples N --interval-us N --duration-seconds N]\n"
       "       reference-probe --self-test | --help\n"
       "Explicit vendor interface only (class FF/subclass 54/protocol 01); never opens a CDC or device object.\n"
-      "Samples=1..60000, interval=125..1000000us, duration=1..3600s (default120); load=0..8 only up to120s.\n");
+      "Samples=1..460800, interval=125..1000000us, duration=1..7200s (default120); load=0..8 only up to120s.\n");
 }
 static id property(io_registry_entry_t entry, CFStringRef key) {
     return CFBridgingRelease(IORegistryEntryCreateCFProperty(entry, key, kCFAllocatorDefault, 0));
@@ -172,6 +201,37 @@ static NSDictionary *discover(NSString *pin,NSString *after,uint64_t vid,uint64_
     emit(@{@"event":@"discovery",@"candidates":candidates,@"selected":selected ?: (id)NSNull.null,@"policy":@"stable_serial_order_skip_duplicate_identities"});
     return selected;
 }
+// IOUSBHost owns one registry service exclusively. A reboot creates a NEW
+// service while an old client can still hold its dead object. Keep a stable
+// same-user silicon lock across that boundary; never unlink a live lock inode.
+// This is cooperative ownership, in addition to IOUSBHost's service exclusion.
+static NSString *ownershipDirectory(void) {
+    // TMPDIR can differ between Terminal, app and build contexts. All normal
+    // helpers for this uid must contend on the same stable, private directory.
+    return [NSString stringWithFormat:@"/private/tmp/org.ptob.usb-ownership-%u",(unsigned)getuid()];
+}
+static int ownershipLock(NSString *directory, NSString *silicon, uint64_t vid, uint64_t pid) {
+    if (!siliconForSerial(silicon) || silicon.length!=16) { errno=EINVAL; return -1; }
+    const char *root=directory.fileSystemRepresentation;
+    if (mkdir(root,0700) && errno!=EEXIST) return -1;
+    struct stat st;
+    if (lstat(root,&st) || !S_ISDIR(st.st_mode) || st.st_uid!=getuid() || (st.st_mode&077)!=0) { errno=EACCES; return -1; }
+    NSString *path=[directory stringByAppendingPathComponent:[NSString stringWithFormat:@"%04llx-%04llx-%@.lock",(unsigned long long)vid,(unsigned long long)pid,silicon]];
+    int fd=open(path.fileSystemRepresentation,O_RDWR|O_CREAT|O_CLOEXEC|O_NOFOLLOW,0600);
+    if(fd<0)return -1;
+    if(fstat(fd,&st) || !S_ISREG(st.st_mode) || st.st_uid!=getuid() || st.st_nlink!=1 || (st.st_mode&077)!=0) { close(fd);errno=EACCES;return -1; }
+    if(flock(fd,LOCK_EX|LOCK_NB)){int saved=errno;close(fd);errno=saved;return -1;}
+    return fd;
+}
+static bool staleInterfaceError(NSError *error) {
+    if(![error.domain isEqual:IOUSBHostErrorDomain])return false;
+    switch((IOReturn)error.code){
+        case kIOReturnNotResponding: case kIOReturnNotReady: case kIOReturnNoDevice:
+        case kIOReturnOffline: case kIOReturnBadArgument: return true;
+        default:return false;
+    }
+}
+static atomic_bool serviceTerminated;
 static IOUSBHostInterface *openInterface(uint64_t registry, uint64_t vid, uint64_t pid,
                                         NSString *serial, uint64_t interface, NSArray **topology) {
     io_service_t service = IOServiceGetMatchingService(kIOMainPortDefault, IORegistryEntryIDMatching(registry));
@@ -192,7 +252,10 @@ static IOUSBHostInterface *openInterface(uint64_t registry, uint64_t vid, uint64
         *topology = ancestry(service);
         NSError *error = nil;
         object = [[IOUSBHostInterface alloc] initWithIOService:service options:IOUSBHostObjectInitOptionsNone
-                                                      queue:nil error:&error interestHandler:nil];
+                                                      queue:nil error:&error interestHandler:^(IOUSBHostObject *hostObject,uint32_t message,void *argument){
+            (void)hostObject;(void)argument;
+            if(message==kIOMessageServiceIsTerminated)atomic_store_explicit(&serviceTerminated,true,memory_order_relaxed);
+        }];
         if (!object) fprintf(stderr, "Interface access failed: %s\n", error.description.UTF8String);
     }
     if (parent) IOObjectRelease(parent);
@@ -206,6 +269,36 @@ int main(int argc, const char **argv) {
     NSString *serial = nil, *afterSerial = nil;
     if (argc == 2 && !strcmp(argv[1], "--help")) { usage(); return 0; }
     if (argc == 2 && !strcmp(argv[1], "--self-test")) {
+        NSString *canonicalOwnership=ownershipDirectory();
+        const char *oldTemporary=getenv("TMPDIR");char *savedTemporary=oldTemporary?strdup(oldTemporary):NULL;
+        if(setenv("TMPDIR","/private/tmp/ptob-parent-env",1) || ![ownershipDirectory() isEqual:canonicalOwnership])return 1;
+        char testPath[]="/private/tmp/ptob-usb-lock-test.XXXXXX";
+        char *made=mkdtemp(testPath);if(!made)return 1;
+        NSString *testDirectory=@(made),*testSilicon=@"0000000000000001";
+        int first=ownershipLock(testDirectory,testSilicon,0x2fe3,0x0100);
+        int duplicate=ownershipLock(testDirectory,testSilicon,0x2fe3,0x0100);
+        int separate=ownershipLock(testDirectory,@"0000000000000002",0x2fe3,0x0100);
+        if(first<0 || duplicate>=0 || separate<0)return 1;
+        // Exercise the actual kernel exclusion in a separate process. Close
+        // inherited descriptors first so the child tests a distinct open.
+        pid_t child=fork();if(child<0)return 1;
+        if(!child){
+            close(first);close(separate);
+            if(setenv("TMPDIR","/private/tmp/ptob-distinct-child-env",1) || ![ownershipDirectory() isEqual:canonicalOwnership])_exit(2);
+            int own=ownershipLock(testDirectory,testSilicon,0x2fe3,0x0100);
+            if(own>=0)close(own);
+            _exit(own<0&&(errno==EWOULDBLOCK||errno==EAGAIN)?0:1);
+        }
+        int childStatus=0;
+        if(waitpid(child,&childStatus,0)!=child || !WIFEXITED(childStatus) || WEXITSTATUS(childStatus))return 1;
+        close(first);int reacquired=ownershipLock(testDirectory,testSilicon,0x2fe3,0x0100);
+        if(reacquired<0)return 1;close(reacquired);close(separate);
+        [[NSFileManager defaultManager] removeItemAtPath:testDirectory error:nil];
+        if(savedTemporary){setenv("TMPDIR",savedTemporary,1);free(savedTemporary);}else unsetenv("TMPDIR");
+        if(!staleInterfaceError([NSError errorWithDomain:IOUSBHostErrorDomain code:kIOReturnNotResponding userInfo:nil]) ||
+           !staleInterfaceError([NSError errorWithDomain:IOUSBHostErrorDomain code:kIOReturnBadArgument userInfo:nil]) ||
+           staleInterfaceError([NSError errorWithDomain:IOUSBHostErrorDomain code:kIOReturnTimeout userInfo:nil]) ||
+           staleInterfaceError([NSError errorWithDomain:@"OtherDomain" code:kIOReturnBadArgument userInfo:nil]))return 1;
         uint64_t n;
         NSArray *devices=@[@{@"serial":@"TC-03-0000000000000003",@"silicon":@"0000000000000003"},@{@"serial":@"TC-02-0000000000000002",@"silicon":@"0000000000000002"}];
         if(![siliconForSerial(@"TC-02-0000000000000002") isEqual:@"0000000000000002"] || siliconForSerial(@"bad") || siliconForSerial(@"TC-00-0000000000000000") ||
@@ -236,6 +329,14 @@ int main(int argc, const char **argv) {
         q[41]=8;if(sourceRecord(source,1))return 1;q[41]=7;
         q[4]=2;if(sourceRecord(source,1))return 1;q[4]=1;
         if(sourceRecord([NSMutableData dataWithLength:255],1))return 1;
+        memcpy(q,"UTE1",4);q[36]=31;q[248]=1;
+        NSDictionary *legacy=nil,*est=estimateRecord(source,&legacy);
+        if(!est||![legacy[@"valid"] boolValue]||sourceRecord(source,1))return 1;
+        q[36]=6;q[248]=2;est=estimateRecord(source,&legacy);
+        if(!est||[legacy[@"valid"] boolValue]||![legacy[@"utc_ns"] isEqual:@"0"])return 1;
+        q[36]=7;if(estimateRecord(source,&legacy))return 1;
+        q[36]=6;q[248]=0;if(estimateRecord(source,&legacy))return 1;
+        memcpy(q,"UTS1",4);q[36]=1;q[248]=0;
         q[72]=2;q[40]=q[41]=0xff;if(!sourceRecord(source,2))return 1;
         q[72]=1;q[40]=3;q[41]=0;q[36]=0;q[220]=7;memcpy(q+232,"USM1",4);q[236]=1;q[238]=24;q[240]=42;q[248]=1;
         NSDictionary *observation=sourceRecord(source,1)[@"sof_map_metadata"];
@@ -252,7 +353,7 @@ int main(int argc, const char **argv) {
         NSMutableData *a=[NSMutableData dataWithLength:64];uint8_t *z=a.mutableBytes;memcpy(z,"UFA1",4);z[4]=1;z[6]=64;z[36]=1;z[42]=19;z[44]=0x7b;
         NSDictionary *ar=anchorRecord(a);if(![ar[@"token"] isEqual:@19]||![ar[@"tick"] isEqual:@"123"])return 1;
         z[36]=2;if(anchorRecord(a))return 1;z[36]=1;z[6]=63;if(anchorRecord(a))return 1;
-        puts("PASS integer/timebase, strict parser, raw UFS1 UTS1 source-map and UFA1 marker decoders (no IOKit access)"); return 0;
+        puts("PASS per-silicon cross-process ownership/release, stale-I/O policy, integer/timebase, strict UFS1 UTS1 UTE1 UFA1 decoders (no IOKit access)"); return 0;
     }
     for (int i = 1; i < argc; i++) {
         const char *key = argv[i];
@@ -280,8 +381,8 @@ int main(int argc, const char **argv) {
     bool identity = haveVID && havePID && (automatic ? !haveID&&!haveIF : serial.length&&haveID&&registry&&haveIF);
     if ((!clockOnly && !identity) || (clockOnly && (deviceSOF || automatic || haveID || haveVID || havePID || serial || haveIF)) ||
         (serial && !siliconForSerial(serial)) || (afterSerial && (!automatic || serial || !siliconForSerial(afterSerial))) || (frameAnchor&&!deviceSource) || vid > UINT16_MAX || pid > UINT16_MAX || interface > UINT8_MAX ||
-        samples < 1 || samples > 60000 || interval < 125 || interval > 1000000 ||
-        duration < 1 || duration > 3600 || samples * interval > duration*1000000 || load > 8 || (duration > 120 && load)) { usage(); return 2; }
+        samples < 1 || samples > 460800 || interval < 125 || interval > 1000000 ||
+        duration < 1 || duration > 7200 || samples * interval > duration*1000000 || load > 8 || (duration > 120 && load)) { usage(); return 2; }
     signal(SIGINT, onSignal); signal(SIGTERM, onSignal); signal(SIGPIPE, SIG_IGN);
     mach_timebase_info_data_t tb;
     if (mach_timebase_info(&tb) != KERN_SUCCESS || !tb.numer || !tb.denom) return 1;
@@ -289,14 +390,26 @@ int main(int argc, const char **argv) {
     if(automatic){NSDictionary *selected=discover(serial,afterSerial,vid,pid);
         if(!selected){fprintf(stderr,"No eligible relay timing interface found (or duplicate identity).\n");return 1;}
         serial=selected[@"serial"];registry=[selected[@"registry_id"] longLongValue];interface=[selected[@"interface_number"] unsignedLongLongValue];}
+    int lockFD=-1;
+    if(!clockOnly){
+        NSString *directory=ownershipDirectory();
+        lockFD=ownershipLock(directory,siliconForSerial(serial),vid,pid);
+        if(lockFD<0){
+            int code=errno;
+            emit(@{@"event":@"ownership_refused",@"serial":serial,@"silicon":siliconForSerial(serial),@"errno":@(code),@"policy":@"EXACT_SILICON_NO_SEIZE"});
+            fprintf(stderr,"USB timing interface ownership unavailable for %s: %s; no interface opened.\n",serial.UTF8String,strerror(code));return 1;
+        }
+    }
+    atomic_init(&serviceTerminated,false);
     IOUSBHostInterface *object = clockOnly ? nil : openInterface(registry, vid, pid, serial, interface, &topology);
-    if (!clockOnly && !object) return 1;
+    if (!clockOnly && !object) {if(lockFD>=0)close(lockFD);return 1;}
     if (!emit(@{@"schema":@1, @"event":@"manifest", @"mode":clockOnly ? @"MACH_ONLY" : @"USB_REFERENCE",
                 @"source_sha256":@USB_PROBE_SOURCE_SHA,
                 @"device_sof_requested":@(deviceSOF), @"device_source_requested":@(deviceSource), @"frame_anchor_requested":@(frameAnchor),
                 @"api":@"IOUSBHostObject.referenceMicroframeWithTime:error:", @"timestamp_units":@"MACH_ABSOLUTE_TICKS",
                 @"timebase_numer":@(tb.numer), @"timebase_denom":@(tb.denom), @"requested_samples":@(samples),
                 @"interval_us":@(interval), @"load_threads":@(load), @"topology":topology, @"duration_limit_s":@(duration), @"phase_paced":@(phasePaced),
+                @"ownership":clockOnly ? @"NONE" : @"EXACT_SILICON_LOCK_AND_IOUSBHOST_EXCLUSIVE_SERVICE",
                 @"serial":serial ?: (id)NSNull.null, @"silicon":siliconForSerial(serial) ?: (id)NSNull.null, @"registry_id":integer(registry), @"interface_number":@(interface), @"os":NSProcessInfo.processInfo.operatingSystemVersionString,
                 @"frame_identity":@"UNRESOLVED", @"precision_qualified":@NO})) { [object destroy]; return 1; }
     // Optional finite CPU treatment. It never touches BLE or USB and joins on exit.
@@ -310,11 +423,16 @@ int main(int argc, const char **argv) {
         });
     }
     uint64_t completed = 0, failures = 0, repeats = 0, backwards = 0, future = 0, clockBreaks = 0, deviceFailures = 0;
-    uint64_t lastFrame = 0, lastTime = 0; bool seen = false, ok = true;
+    uint64_t lastFrame = 0, lastTime = 0; bool seen = false, ok = true, stale = false;
     uint64_t started = mach_continuous_time();
     uint64_t period=(uint64_t)((unsigned __int128)interval*1000*tb.denom/tb.numer);
     uint64_t nextSample=started+period,skippedSlots=0;
     uint64_t nextSource=started;uint16_t anchorToken=0;
+    // These are kernel-backed I/O mappings. Reuse bounded buffers for the
+    // serial synchronous requests instead of allocating them at sample rate.
+    NSMutableData *anchorBuffer=nil,*sofBuffer=nil,*sourceBuffer=nil;
+    int estimateCapability=0; //0 probe,1 negotiated,-1 legacy (one fallback)
+
     const uint64_t limit = (uint64_t)((unsigned __int128)duration*1000000000ULL * tb.denom / tb.numer);
     for (uint64_t i = 0; i < samples && !interrupted; i++) { @autoreleasepool {
         if (mach_continuous_time() - started >= limit) break;
@@ -326,6 +444,7 @@ int main(int argc, const char **argv) {
         __int128 lo1 = (__int128)c1 - a3, hi1 = (__int128)c1 - a2;
         bool overlap = lo0 <= hi1 && lo1 <= hi0;
         bool valid = object && !error && time != 0;
+        stale=atomic_load_explicit(&serviceTerminated,memory_order_relaxed)||staleInterfaceError(error);
         if (object && !valid) failures++;
         if (!overlap) clockBreaks++;
         if (valid && seen && frame == lastFrame && time == lastTime) repeats++;
@@ -346,16 +465,18 @@ int main(int argc, const char **argv) {
             row[@"microframe_delta"] = integer(frame-lastFrame);
             row[@"reference_delta_ns"] = ns((__int128)time-lastTime,tb);
         }
-        if(frameAnchor&&i%8==0){
+        if(!stale&&frameAnchor&&i%8==0){
             NSError *outError=nil,*inError=nil;NSUInteger transferred=0;
             if(anchorToken==UINT16_MAX){ok=false;break;}++anchorToken;
             IOUSBDeviceRequest marker={.bmRequestType=0x41,.bRequest=0x54,.wValue=anchorToken,.wIndex=(uint16_t)interface,.wLength=0};
             uint64_t outA=mach_absolute_time(),outC=mach_continuous_time();
             BOOL stamped=[object sendDeviceRequest:marker data:nil bytesTransferred:&transferred completionTimeout:1 error:&outError];
             uint64_t outC1=mach_continuous_time(),outA1=mach_absolute_time();
-            NSMutableData *buffer=[object ioDataWithCapacity:64 error:&inError];
+            if(!anchorBuffer)anchorBuffer=[object ioDataWithCapacity:64 error:&inError];
+            NSMutableData *buffer=anchorBuffer;
             IOUSBDeviceRequest fetch={.bmRequestType=0xc1,.bRequest=0x55,.wValue=anchorToken,.wIndex=(uint16_t)interface,.wLength=64};
             BOOL fetched=stamped&&buffer&&[object sendDeviceRequest:fetch data:buffer bytesTransferred:&transferred completionTimeout:1 error:&inError];
+            stale=staleInterfaceError(outError)||staleInterfaceError(inError);
             NSDictionary *anchor=fetched&&transferred==64?anchorRecord(buffer):nil;
             if(anchor&&(![[serial lowercaseString] hasSuffix:anchor[@"silicon"]]||[anchor[@"token"] unsignedIntValue]!=anchorToken))anchor=nil;
             if(!anchor)deviceFailures++;
@@ -367,14 +488,16 @@ int main(int argc, const char **argv) {
             row[@"current_microframe"]=integer(current);row[@"current_microframe_absolute"]=integer(ct);row[@"bus_frame_number"]=integer(busframe);row[@"bus_frame_absolute"]=integer(ft);
             row[@"current_microframe_error"]=currentError.description?: (id)NSNull.null;
         }
-        if(deviceSOF&&!frameAnchor){
+        if(!stale&&deviceSOF&&!frameAnchor){
             NSError *requestError=nil;
-            NSMutableData *buffer=[object ioDataWithCapacity:80 error:&requestError];
+            if(!sofBuffer)sofBuffer=[object ioDataWithCapacity:80 error:&requestError];
+            NSMutableData *buffer=sofBuffer;
             NSUInteger transferred=0;
             IOUSBDeviceRequest request={.bmRequestType=0xc1,.bRequest=0x51,.wValue=0,.wIndex=(uint16_t)interface,.wLength=80};
             uint64_t d0=mach_absolute_time(),dc0=mach_continuous_time();
             BOOL sent=buffer && [object sendDeviceRequest:request data:buffer bytesTransferred:&transferred completionTimeout:1 error:&requestError];
             uint64_t dc1=mach_continuous_time(),d1=mach_absolute_time();
+            stale=staleInterfaceError(requestError);
             NSDictionary *decoded=sent && transferred==80 ? rawSOF(buffer) : nil;
             if(decoded && ![[serial lowercaseString] hasSuffix:decoded[@"silicon"]]) decoded=nil;
             if(!decoded) deviceFailures++;
@@ -385,17 +508,30 @@ int main(int argc, const char **argv) {
             row[@"device_request_error_code"]=requestError ? @(requestError.code) : (id)NSNull.null;
             row[@"device_request_bytes"]=@(transferred);
         }
-        if(deviceSource){
+        if(!stale&&deviceSource){
             for(unsigned kind=1;kind<=2;kind++){
                 if(kind==2&&mach_continuous_time()<nextSource)continue;
-                NSError *requestError=nil;NSMutableData *buffer=[object ioDataWithCapacity:256 error:&requestError];NSUInteger transferred=0;
-                IOUSBDeviceRequest request={.bmRequestType=0xc1,.bRequest=kind==1?0x53:0x52,.wValue=0,.wIndex=(uint16_t)interface,.wLength=256};
+                NSError *requestError=nil;
+                if(!sourceBuffer)sourceBuffer=[object ioDataWithCapacity:256 error:&requestError];
+                NSMutableData *buffer=sourceBuffer;NSUInteger transferred=0;
+                IOUSBDeviceRequest request={.bmRequestType=0xc1,.bRequest=kind==1?(estimateCapability>=0?0x57:0x53):0x52,.wValue=0,.wIndex=(uint16_t)interface,.wLength=256};
                 uint64_t a=mach_absolute_time(),c=mach_continuous_time();
                 uint64_t wallBefore=clock_gettime_nsec_np(CLOCK_REALTIME);
                 BOOL sent=buffer&&[object sendDeviceRequest:request data:buffer bytesTransferred:&transferred completionTimeout:1 error:&requestError];
                 uint64_t wallAfter=clock_gettime_nsec_np(CLOCK_REALTIME);
                 uint64_t c1=mach_continuous_time(),a1=mach_absolute_time();
-                NSDictionary *decoded=sent&&transferred==256?sourceRecord(buffer,kind):nil;
+                NSDictionary *decoded=nil,*estimate=nil;
+                if(kind==1&&estimateCapability>=0){
+                    estimate=sent&&transferred==256?estimateRecord(buffer,&decoded):nil;
+                    if(estimate){estimateCapability=1;}
+                    else if(estimateCapability==0){
+                        // Unsupported old firmware: exactly one capability probe.
+                        // Next ordinary sample uses legacy UTS1, no extra request.
+                        estimateCapability=-1;row[@"estimate_capability"]=@"UNSUPPORTED";
+                    }
+                }else decoded=sent&&transferred==256?sourceRecord(buffer,kind):nil;
+                if(estimate&&[[serial lowercaseString] hasSuffix:estimate[@"silicon"]])row[@"local_estimate"]=estimate;
+                row[@"estimate_capability"]=@(estimateCapability);
                 if(decoded&&![[serial lowercaseString] hasSuffix:decoded[@"silicon"]])decoded=nil;
                 NSString *key=kind==1?@"precision_source":@"device_source";
                 if(sent&&invalidReason7(buffer,transferred,decoded))row[[key stringByAppendingString:@"_invalid_reason7"]]=@YES;
@@ -409,12 +545,18 @@ int main(int argc, const char **argv) {
                 row[[key stringByAppendingString:@"_error_code"]]=requestError?@(requestError.code):(id)NSNull.null;
                 row[[key stringByAppendingString:@"_request_bytes"]]=@(transferred);
                 if(!decoded)deviceFailures++;
+                stale=staleInterfaceError(requestError)||atomic_load_explicit(&serviceTerminated,memory_order_relaxed);
+                if(stale)break;
                 if(kind==2)nextSource=mach_continuous_time()+(uint64_t)((unsigned __int128)1000000000ULL*tb.denom/tb.numer);
             }
         }
         if (valid) { lastFrame = frame; lastTime = time; seen = true; }
         completed++;
         if (!emit(row)) { ok = false; break; }
+        if(stale){
+            emit(@{@"event":@"transport_end",@"reason":@"STALE_INTERFACE",@"serial":serial,@"registry_id":integer(registry),@"rebind":@"SAME_SILICON_REDISCOVERY_REQUIRED",@"device_reset_requested":@NO});
+            ok=false;break;
+        }
         if (i+1 < samples) {
             if(phasePaced){
                 uint64_t now=mach_continuous_time();
@@ -426,11 +568,13 @@ int main(int argc, const char **argv) {
     } }
     atomic_store_explicit(&stop, true, memory_order_relaxed);
     dispatch_group_wait(workers, DISPATCH_TIME_FOREVER);
-    [object destroy];
+    // Mappings belong to this connection. Never carry them into a rebind.
+    anchorBuffer=nil;sofBuffer=nil;sourceBuffer=nil;
+    [object destroy];if(lockFD>=0)close(lockFD);
     ok = emit(@{@"schema":@1, @"event":@"summary", @"completed_samples":@(completed), @"api_failures":@(failures),
         @"repeated_references":@(repeats), @"backwards_references":@(backwards), @"future_references":@(future),
         @"clock_association_breaks":@(clockBreaks), @"interrupted":interrupted ? @YES : @NO,
-        @"device_request_failures":@(deviceFailures),
+        @"device_request_failures":@(deviceFailures), @"stale_interface":@(stale),
         @"phase_skipped_slots":@(skippedSlots),
         @"sample_limit_reached":completed == samples ? @YES : @NO, @"frame_identity":@"UNRESOLVED",
         @"api_access_observed":object && seen ? @YES : @NO, @"precision_qualified":@NO}) && ok;

@@ -92,3 +92,55 @@ release packaging remain future work. Other build hosts, a freshly installed OS,
 field reliability, multi-GM failover continuity, independently calibrated output
 and UTC accuracy remain unqualified. Those limits are already explicit in the
 target guides and do not prevent an honest experimental source publication.
+
+## Stability update — 16 October 2026
+
+The user subsequently authorized integration and public repository publication
+of the accumulated fixes and latest bug-fix results. T096 0.15.69, W12 0.1.7 and
+the macOS continuity/recovery changes are integrated, preserving the completed
+development histories. The [changelog](../CHANGELOG.md) and
+[curated stability collection](../evidence/stability/2026-10-16/README.md) record
+implemented changes, exact historical populations, failed trials, skipped
+verification and remaining limits. The USB lifecycle repair is proposal-only.
+TC-04's persistent USB failure is explicitly unresolved.
+
+Fresh offline publication checks on the integrated tree passed:
+
+- T096 core, USB source/race/SOF and EP0, admission, delivery, durability,
+  publication, watchdog, health and runtime-profile runners; nine logger tests.
+  The older publication fixture was updated with the newly required source and
+  parent incarnation fields. Its negative fixture still fails at the intended
+  immediate-publication assertion. No production change was needed for that
+  fixture correction.
+- W12: 160 recorded native host build/test steps; selected permission checks
+  with 36 model, 14 native and 49 server cases, including the stack-budget gate.
+- SS3: eight production model/renderer/owner programs, including the integrated
+  strongest-nearby-relay display regression.
+- macOS: isolated source build, 8,796 native checks, ownership/strict-decoder
+  checks, 23 CLI, 47 UI, 10 readout, eight analysis and eight ChronyControl
+  adapter checks. The adapter's temporary Unix-socket test initially encountered
+  the sandbox restriction and passed outside it. It starts no chronyd and opens
+  no USB. The user's running binary/helper were not rebuilt or replaced.
+- Historical, V14 and research manifests/derived checks, the new stability
+  summary verifier, provisioning and registry tests. Original import manifests
+  remain historical; ordinary development changes are recorded in Git.
+
+The selected firmware production files match the earlier clean v69 and W12
+0.1.7 build snapshots. This publication pass ran native checks rather than new
+SDK firmware builds or hardware trials. It does not extend the earlier
+clean-checkout build record to every later configuration.
+
+The proposed public history and final source/documents were screened for known
+local enrollment encodings, device identities, private paths and common secret
+patterns. The existing privacy checker's own path regex was the sole benign
+pattern finding. Local Markdown destinations resolve. No private planning,
+raw lab captures, enrollment or enrolled images are selected for publication.
+The user-supplied ChronyControl screenshot is a separate selected documentation
+asset: its title bar was cropped with permission, graph pixels checked unchanged,
+provenance recorded and the author's page linked. It does not change the
+structured evidence populations.
+
+The live chrony session, devices, source roles and background logging were not
+operated by this publication work. No binary release or website deployment is
+included. Durability, independent UTC/output metrology and HOT failover remain
+unqualified.

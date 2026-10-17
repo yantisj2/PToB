@@ -7,7 +7,7 @@ from pathlib import Path
 APP=Path(__file__).resolve().parents[1];REPO=APP.parents[1]
 sys.path.insert(0,str(REPO/'registry'))
 from registry import load as load_registry,header as registry_header
-VERSION='0.1.5'
+VERSION='0.1.7'
 GNSS_PROFILE='meshnology_w12_l76k_rx39_pps41'
 def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
 def git(p,*args):return subprocess.check_output(['git','-C',str(p),*args],text=True).strip()
@@ -89,6 +89,8 @@ def main():
   if re.search(r'\b(esp_wifi_init|esp_wifi_start|nvs_flash_init|nvs_set_blob|nvs_set_u32)\b',symbols):raise ValueError('Unexpected WiFi activation or NVS write dependency')
   if '-DV12_LORA_FORCED_OFF=1' not in compiler['command']:raise ValueError('LoRa disabled boundary missing')
   identity=json.loads((target/'v12_build_identity.json').read_text());r.update(runtime_identity=identity,application='target/ptob_w12.bin',application_sha256=sha(image),application_bytes=image.stat().st_size,artifacts={str(q.relative_to(out)):sha(q) for q in out.rglob('*') if q.is_file() and (q.suffix in ['.bin','.elf','.map','.su'] or q.name in ['sdkconfig','compile_commands.json','v12_build_identity.json','r2-enrollment.h','ptob_device.h','ptob_registry.h','enrollment.json','device.json','registry.json','registry_generator.py'])},status='DEVELOPMENT_NOT_FLASHABLE' if dirty else 'BUILD_COMPLETE_PHYSICAL_UNKNOWN')
+  from stack_budget import check as check_main_stack
+  r['main_stack_budget']=check_main_stack(out)
   r['compiled_sources']={}
   for row in json.loads((target/'compile_commands.json').read_text()):
    q=Path(row['file']).resolve()

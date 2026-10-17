@@ -31,3 +31,21 @@ diagram describes W12; its optional GNSS/PPS paths do not establish StickS3 supp
 Copyright (c) 2026 Jonathan Yantis. These original interface illustrations are
 ordinary repository documentation under [MIT](../../LICENSE). Paper figures
 and evidence datasets retain their separate [licenses](../../LICENSING.md).
+
+## ChronyControl development tracking
+
+The README's `chronycontrol-tracking-20261016.png` was supplied by Jonathan Yantis
+on 16 October 2026. It shows the PToB development feed in
+[ChronyControl, by Bryan Christianson](https://www.whatroute.net/chronycontrol.html).
+Spikes remain under investigation. This is a tracking-log view, with no
+independent UTC-accuracy or continuous-delivery qualification. The selected
+device/source and complete raw run are not established by this screenshot.
+It was provided after the structured stability collection's observation cutoff
+and is not added to that collection's numerical populations.
+
+At the user's request, only the top 39-pixel title bar containing the local file
+path was cropped. The plotted pixels are unchanged. The manifest records source
+and public hashes, exact crop and a pixel-equality check. The original unredacted
+screenshot is excluded. Original screenshot/data contributions by Jonathan Yantis
+are CC BY 4.0; rights in the third-party ChronyControl interface remain unchanged.
+ChronyControl itself is not bundled.

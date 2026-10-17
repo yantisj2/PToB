@@ -1,0 +1,173 @@
+{
+  "schema": 1,
+  "title": "Timing-chain stability engineering results, 16 October 2026 CDT",
+  "author": "Jonathan Yantis",
+  "license": "CC-BY-4.0",
+  "evidence_cutoff_utc": "2026-10-17T02:39:19Z",
+  "status": "EXPERIMENTAL_SOURCE_UPDATE_TC04_USB_UNRESOLVED",
+  "source_revisions": {
+    "T09663": "113d9c8e72e030a785146d78ee4c339508ffa691",
+    "T09667": "bc1404162b9416b70e14239db9813481fd820045",
+    "T09668": "0f1e3653babe4ec3552f033adffdf69fa454eb01",
+    "T09669": "f7f93f4b0c55a3c9ff9e553be4ef44ced2b1783c",
+    "W12_017": "8e3ee6fb3364bebaaeffe8b0c0836ff0e2be02ad",
+    "GM57": "698521a89cf7750b1fa690b5ca6c773abae631fb"
+  },
+  "usb_populations": [
+    {
+      "id": "t096-67-source-loss",
+      "unit": "TC-04",
+      "version": "0.15.67",
+      "usb_hz": 64,
+      "capture_span_s": 900.0384638340329,
+      "samples": 57599,
+      "precision_replies": 57598,
+      "valid_replies": 48194,
+      "invalid_replies": 9404,
+      "invalid_reasons": {
+        "2": 146,
+        "7": 22,
+        "4": 77,
+        "1": 9159
+      },
+      "missing_replies": 1,
+      "request_errors": 1,
+      "observed_mcu_restarts": 0,
+      "same_root_recovery_invalid_window_s": 132.76524404098745,
+      "operator_cutover_invalid_window_s": 10.358507791999727,
+      "outcome": "FAILED_SOURCE_CONTINUITY_USB_REPLIES_CONTINUED",
+      "independent_utc_qualified": false
+    },
+    {
+      "id": "t096-68-v4-controller-faults",
+      "unit": "TC-04",
+      "version": "0.15.68",
+      "usb_hz": 64,
+      "capture_span_s": 363.31043237500126,
+      "process_exposure_s": 363.73,
+      "samples": 21927,
+      "precision_replies": 21921,
+      "valid_replies": 21590,
+      "invalid_replies": 331,
+      "missing_replies": 6,
+      "observed_mcu_restarts": 3,
+      "outcome": "FAILED_INTERRUPTED_CONTROLLER_ASSERTIONS",
+      "independent_utc_qualified": false
+    },
+    {
+      "id": "t096-69-TC04",
+      "unit": "TC-04",
+      "version": "0.15.69",
+      "usb_hz": 64,
+      "capture_span_s": 60.03584608400706,
+      "samples": 525,
+      "precision_replies": 514,
+      "valid_replies": 504,
+      "invalid_replies": 10,
+      "missing_replies": 11,
+      "helper_starts": 11,
+      "request_errors": 11,
+      "outcome": "FAILED_PERSISTENT_EP0_AND_CDC_NONRESPONSE",
+      "independent_utc_qualified": false,
+      "first_failed_request_elapsed_s": 8.059,
+      "fresh_helpers_after_first_failure": 10,
+      "post_blackout_boot_attested": false
+    },
+    {
+      "id": "t096-69-TC02",
+      "unit": "TC-02",
+      "version": "0.15.69",
+      "usb_hz": 64,
+      "capture_span_s": 60.0378339579911,
+      "samples": 3839,
+      "precision_replies": 3839,
+      "valid_replies": 3748,
+      "invalid_replies": 91,
+      "missing_replies": 0,
+      "helper_starts": 1,
+      "request_errors": 0,
+      "outcome": "BRIEF_TRANSPORT_FUNCTIONALITY_ONLY",
+      "independent_utc_qualified": false
+    }
+  ],
+  "native_rx_recovery": {
+    "version": "0.15.63",
+    "predecessor_eligible_advertisements": 215,
+    "predecessor_rx_allocator_refusals": 215,
+    "predecessor_requests_prepared": 0,
+    "shared_rx_nodes_before": 5,
+    "shared_rx_nodes_after": 12,
+    "baseline_trials": 1,
+    "owner_clears": 19,
+    "requests_prepared": 37,
+    "attempts_completed": 37,
+    "rx_refusals": 0,
+    "window_refusals": 0,
+    "separate_admission_decisions": {
+      "accepted": 19,
+      "coarse_refused": 6
+    },
+    "minimum_workqueue_unused_bytes": 4496,
+    "TC02_locked_startup_observations": 30,
+    "TC02_startup_observations": 30,
+    "optional_relay_trial": "UNAVAILABLE_AFTER_OPERATOR_FIELD_MOVE",
+    "durability_qualified": false
+  },
+  "retained_fault_review": {
+    "version": "0.15.68",
+    "source_crc_valid_capsules": 4,
+    "in_v4_population": 3,
+    "preceding_v4_population": 1,
+    "assertion": "!radio_is_ready() after radio_pkt_rx_set",
+    "upstream_files": [
+      "lll_adv.c",
+      "lll_adv_aux.c"
+    ],
+    "initiating_cause": "UNPROVEN"
+  },
+  "w12_observation": {
+    "version": "0.1.7",
+    "unit": "C-4",
+    "elapsed_s": 360.00997637497494,
+    "status_frames": 78,
+    "following_frames": 71,
+    "held_frames": 7,
+    "observed_fault_frames": 0,
+    "observed_resets": 0,
+    "minimum_main_stack_unused_bytes": 3928,
+    "stack_watermark_unit": "bytes",
+    "configured_main_stack_bytes": 12288,
+    "selected_static_path_bytes": 6800,
+    "uncounted_callee_reserve_bytes": 4096,
+    "rejected_predecessor": "0.1.6 startup status main stack overflow",
+    "diagnostic_capture": "FIRST_REFUSED_CORRECTED_RETRY_CANCELLED_UNRUN",
+    "C1_C2_startup_frames_each": 2,
+    "C1_C2_minimum_main_stack_unused_bytes": 4000,
+    "C1_C2_independent_postwrite_readback": "NOT_PERFORMED_OPERATOR_REQUEST",
+    "RF_continuity_qualified": false
+  },
+  "event_audit": {
+    "console_rows": 96784,
+    "candidates": 18992,
+    "bound_observations": 13554,
+    "unique_event_keys": 6588,
+    "conflicting_core_variants": 0,
+    "no_event_polls": 5438,
+    "missing_intervals_filled": false
+  },
+  "review_findings": {
+    "GM_during_v69_blackout": "BRACKETING_30S_SOURCE_PUBLICATION_CAPTURE_AND_OTHER_RC_PROGRESS_CONTINUED",
+    "post_blackout_JOIN": "AUTHENTICATED_TC04_ACTIVITY_SUPPORTED_SAME_BOOT_ADMISSION_AND_PRECISION_UNPROVEN",
+    "usb_reinit_missing_power_replay": "REPRODUCED_OFFLINE_EXACT_BODIES_NOT_ATTRIBUTED_TO_OBSERVED_BLACKOUT",
+    "blocked_DMA_or_worker": "PLAUSIBLE_UNOBSERVED",
+    "GM57_direct_USB_source_map": "NO_REACHABLE_PUBLISHER_IN_NORMAL_GM_BACKEND",
+    "repair_status": "PROPOSAL_ONLY_NO_LIFECYCLE_PATCH"
+  },
+  "limitations": [
+    "Raw captures, private enrollment and images excluded; only public summary accounting is reproducible here.",
+    "Captures and source cohorts remain distinct; summaries do not establish current live device health.",
+    "No lossless continuous soak, qualified HOT failover, independent UTC accuracy or metrology readiness.",
+    "v69 new-image independent readbacks and identical-image return cycles skipped by explicit operator request.",
+    "Source revisions identify original development cohorts; later integration does not inherit hardware qualification."
+  ]
+}

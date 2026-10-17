@@ -105,6 +105,42 @@ Normal RC7 admission renewal is five minutes, with a six-minute lease. Direct
 G1 JOIN replay refresh, pending admission and recovery after missing corrected
 clock progress are separate traffic classes; inspect their counters separately.
 
+Version 0.1.6 preserves an acquired periodic receiver through authenticated
+NO_SOURCE and unusable control replies. Positive foreign roots are counted
+separately. After the first physical corrected update, failed retries wait a
+random 20–40 seconds and a persistent rolling budget permits at most two
+connection starts per 60 seconds. These waits cannot withdraw a still-eligible
+publisher; actual ACL arbitration and the original parent-lock gate remain.
+
+The last delivered physical model can continue the OLED's local HOLD estimate
+when source or replay permission expires. Its error bound is unknown; FOLLOW,
+root authority, relative lock and downstream timing retain their original gates.
+A local estimate never renews a source, lease, replay context or fitter. Explicit
+stop, fault or detected gross clock step withdraws it. No USB timing output is
+implemented by W12.
+
+Bounded capture diagnostics add `W12_G1_ADMISSION` and `W12_G1_RX_LOSS`. The latter
+freezes up to eight worker report outcomes at corrected-model expiry, using
+160 bytes of RAM. Outcome bits are report=1, stale=2, authenticated=4,
+associated=8, mapped=16 and refused=32. These are observed reports, not a count
+of unreported RF opportunities; controller DONE/CRC remain unknown. A fresh
+physical map does not overwrite frozen evidence: the first loss remains for the
+boot, with explicit counters for later expiries/reacquisitions and unavailable
+later detail. The ordinary V3 status frame remains the
+same size and does not enable capture by itself.
+
+Version 0.1.7 isolates large status snapshots from the main loop and command
+parser. The 0.1.6 attached candidate overflowed task main on its initial status
+request despite passing offline checks; that candidate is withdrawn. The main
+stack remains 12,288 bytes. New builds and standalone inspection check retained
+GCC `.su` frames on selected main-task paths, including the nested status path,
+with 4,096 bytes reserved for uncounted callees. Missing, ambiguous or dynamic
+frame evidence fails closed. This is a regression bound, not a complete
+call-graph proof; observe `main_stack_free_words` on the exact installed image
+through normal status and bounded capture before accepting operational behavior.
+That historical console key reports **bytes** on the pinned ESP-IDF Xtensa port
+(`StackType_t` is one byte); do not multiply it by four.
+
 A candidate requires a clean local commit. `--development` explicitly marks an
 uncommitted build as unflashable. Build receipts bind source, SDK, effective
 configuration, generated local inputs, registry, compiler and application bytes.

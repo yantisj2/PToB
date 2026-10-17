@@ -59,6 +59,10 @@ def generate(zephyr,out):
    # A chained packet is not accepted; release capture before controller starts its next PDU.
    s=change(s,'static void isr_tx(void *param)\n{','static void isr_tx(void *param)\n{\n\tr2_radio_capture_abort_site(param, R2_CAPTURE_ABORT_TX_CHAIN);')
   else:
+   s=change(s,'\tlll = p->param;\n\n\t/* Calculate the current event latency */',
+    '\tlll = p->param;\n\tr2_radio_capture_schedule(lll, lll->event_counter, lll->lazy_prepare, lll->skip_prepare, false);\n\n\t/* Calculate the current event latency */',count=2)
+   s=change(s,'\tlll = prepare_param->param;\n\tlll->skip_prepare +=',
+    '\tlll = prepare_param->param;\n\tr2_radio_capture_schedule(lll, lll->event_counter, lll->lazy_prepare, lll->skip_prepare, true);\n\tlll->skip_prepare +=')
    # Both caller paths advance the current event counter immediately before common prepare.
    s=change(s,'\tremainder_us = radio_tmr_start(0, ticks_at_start, remainder);',
     '\tr2_radio_capture_arm(lll, node_rx->pdu, (uint16_t)(lll->event_counter - 1U), chan_idx, lll->phy, false);\n'

@@ -69,6 +69,24 @@ inline int g1_render_summary(char* out,unsigned capacity,const R2Status& s,uint6
     s.root_identity,s.root_boot,s.joined_peer,s.source_epoch,s.publication,s.service_until_us>now?s.service_until_us-now:0,s.g1_relay_authenticated,s.g1_relay_refused,s.discipline_accepted,s.discipline_refused,
     s.discipline_first_refusal,s.discipline_last_refusal,s.g1_corrected_accepted,s.g1_corrected_refused,unsigned(s.g1_frequency_trained),s.g1_frequency_pairs,int(s.g1_clock_model.rate),s.g1_frequency_scatter_ns,s.g1_clock_predictions,s.g1_clock_causal_squares,s.g1_clock_nominal_squares,s.g1_clock_causal_max_ns,s.discipline_reason_counts[2],s.discipline_reason_counts[5]);
 }
+// Bounded capture-only diagnostics; ordinary status frame stays unchanged.
+inline int g1_render_admission(char* out,unsigned capacity,const R2Status& s,uint64_t now){
+  const auto& a=s.g1_admission_policy;
+  return std::snprintf(out,capacity,"W12_G1_ADMISSION at_us=%" PRIu64 " warm=%u starts_us=%" PRIu64 "/%" PRIu64
+    " retry_at_us=%" PRIu64 " failures=%" PRIu32 " reply=%u NO_SOURCE=%" PRIu32 " foreign_root=%" PRIu32 " unusable=%" PRIu32
+    " local_estimate=%u observed_us=%" PRIu64 " loss_expiries=%" PRIu32 " loss_reacquisitions=%" PRIu32
+    " error_bound=UNKNOWN source_extension=0 USB_timing=0\n",
+    now,unsigned(a.warm),a.starts[0],a.starts[1],a.retry_at,a.failures,unsigned(a.last),a.no_source,a.foreign_root,a.unusable,
+    unsigned(s.g1_retained_estimate),s.g1_estimate_observed_us,s.g1_receive_loss.expiries,s.g1_receive_loss.reacquisitions);
+}
+inline int g1_render_loss(char* out,unsigned capacity,const G1ReceiveLoss& c,unsigned row){
+  if(!c.frozen||row>=c.count)return 0;
+  const auto& e=c.entries[(c.sequence-c.count+row)%8];
+  return std::snprintf(out,capacity,"W12_G1_RX_LOSS gen=%" PRIu32 " seq=%" PRIu32 " count=%" PRIu32 " frozen_us=%" PRIu64
+    " row=%u at_us=%" PRIu64 " outcome=0x%02" PRIx32 " capture_epoch=%" PRIu32
+    " reference=WORKER_OBSERVATION history=FIRST_LOSS_PER_BOOT later_detail=UNAVAILABLE RF_opportunity=UNKNOWN DONE=UNKNOWN CRC=UNKNOWN\n",
+    c.generation,c.sequence,c.count,c.frozen_at,row,e.at,e.outcome,e.epoch);
+}
 inline int g1_render_recovery(char* out,unsigned capacity,const R2Status& s){
   const auto& r=s.g1_recovery;
   return std::snprintf(out,capacity,"W12_G1_RECOVERY stage=%u reset=%" PRIu32 " sync=%" PRIu32 " rearm=%" PRIu32 " refused=%" PRIu32

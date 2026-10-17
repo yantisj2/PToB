@@ -38,6 +38,9 @@
 #include <cstdio>
 #include <cstring>
 #include <cinttypes>
+// ESP-IDF Xtensa reports high-water marks in bytes. Keep the historical
+// main_stack_free_words console key compatible; its value is bytes here.
+static_assert(sizeof(StackType_t)==1,"W12 main stack watermark unit changed");
 namespace {
 gptimer_handle_t clock_timer=nullptr;
 uint64_t session=0,last_ui=0,console_bytes=0,console_work=0;
@@ -82,7 +85,7 @@ uint64_t micros(){const int64_t t=esp_timer_get_time();return t>0?uint64_t(t):0;
   const auto deadline20=[&](uint64_t until){return until>observed_us&&until-observed_us<UINT64_MAX/20&&before20<=UINT64_MAX-(until-observed_us)*20?before20+(until-observed_us)*20:before20;};
   v12::G1GpsShadow::Map map;map.clock=witness.g1_clock_model;map.root=witness.g1_clock_origin;
   map.boot=witness.root_boot;map.source=witness.source_epoch;map.train=witness.publication;map.scope=witness.g1_relative_quality.scope_generation;
-  map.valid=witness.requested&&!witness.fault&&witness.clock_valid&&map.root&&map.clock.tick;
+  map.valid=v12::r2_clock_witness(witness);
   map.following=witness.following;map.until=deadline20(witness.g1_anchor_deadline_us);map.permission=deadline20(witness.g1_corrected_until_us);
   if(map.valid&&!map.following){const auto prior=gps_comparison.latest();if(prior&&prior->root==map.root&&prior->scope==map.scope){map.boot=prior->boot;map.source=prior->source;map.train=prior->train;}else map.valid=false;}
   gps_comparison.observe(map,before20,seen20,witness.g1_anchor_deadline_us,witness.g1_corrected_until_us);
@@ -433,6 +436,11 @@ void stop_all(){
   v12::r2_stop();
 #endif
   v12::transport_stop();v12::direct_stop();v12::diagnostic_tx_stop();v12::lora_request(false,0);}
+#ifdef V12_R2_ENABLED
+// Keep the whole status snapshot out of command's frame. A read-only status
+// response calls status() from this parser and must not stack both snapshots.
+[[gnu::noinline]] bool r2_command_off_ack(){return v12::r2_status().off_ack;}
+#endif
 void command(const char* text){
   // Unbound OFF is a safety-only stop request. It carries no completed/fresh
   // receipt and cannot admit or prolong any RF/capture operation.
@@ -487,7 +495,7 @@ void command(const char* text){
   else if(std::sscanf(action,"r2 %11s %" SCNu32 " %c",mode,&duration,&extra)==2){
     const auto chosen=!std::strcmp(mode,"passive")?v12::R2Mode::Passive:!std::strcmp(mode,"active")?v12::R2Mode::Active:v12::R2Mode::Off;
     const auto ls=v12::lora_status();const bool ok=!ls.enabled&&!ls.requested&&!ls.worker_busy&&ls.off_acknowledged&&!ls.failed&&v12::r2_request(chosen,duration,nonce);last_command={nonce,admitted,ok,"R2",ok?"FINITE_R2_ORIGINAL_LEASE":"R2_RESOURCE_PROFILE_OR_BOUND"};
-  }else if(!v12::r2_status().off_ack&&std::strncmp(action,"capture ",8)){last_command.reason="R2_OWNS_BLE";}
+  }else if(!r2_command_off_ack()&&std::strncmp(action,"capture ",8)){last_command.reason="R2_OWNS_BLE";}
 #endif
   else if(!std::strcmp(action,"capture stop")){
     v12::capture_stop();last_command={nonce,admitted,true,"CAPTURE_STOP","OBSERVER_ONLY_SERVICE_UNCHANGED"};
@@ -548,6 +556,12 @@ void input(){
         const auto hci=v12::g1_hci_status();std::printf("W12_G1_HCI_COUNTS at_us=%" PRIu64 " command=%" PRIu32 " ACK=%" PRIu32 " sync=%" PRIu32 " dropped=%" PRIu32 " max_us=%" PRIu32 " pending=0x%04x since_us=%" PRIu64 "\n",now,hci.commands,hci.acks,hci.sync_events,hci.dropped,hci.max_us,unsigned(hci.pending_opcode),hci.pending_at_us);
         const int printed=std::printf("W12_G1_RECORDS at_us=%" PRIu64 " AD_total=%" PRIu32 " AD_sampled=%" PRIu32 " AD_aggregated=%" PRIu32 " AD_policy=ONE_PER_PEER_PER_SECOND PA_capture_policy=UNTHROTTLED\n",now,g1_record_budget.discovery_total,g1_record_budget.discovery_sampled,g1_record_budget.discovery_aggregated);if(printed>0)console_bytes+=unsigned(printed);
         for(unsigned i=0;i<3;i++){const int n=v12::g1_render_summary(line,sizeof line,mesh,now,i);if(n>0&&unsigned(n)<sizeof line){const int printed=std::printf("%s",line);if(printed>0)console_bytes+=unsigned(printed);}}
+        {const int n=v12::g1_render_admission(line,sizeof line,mesh,now);if(n>0&&unsigned(n)<sizeof line){const int printed=std::printf("%s",line);if(printed>0)console_bytes+=unsigned(printed);}}
+        static uint32_t loss_generation=0;static uint64_t loss_capture=0;
+        if(mesh.g1_receive_loss.frozen&&(loss_generation!=mesh.g1_receive_loss.generation||loss_capture!=log.capture_id)){
+          for(unsigned i=0;i<mesh.g1_receive_loss.count;i++){const int n=v12::g1_render_loss(line,sizeof line,mesh.g1_receive_loss,i);if(n>0&&unsigned(n)<sizeof line){const int printed=std::printf("%s",line);if(printed>0)console_bytes+=unsigned(printed);}}
+          loss_generation=mesh.g1_receive_loss.generation;loss_capture=log.capture_id;
+        }
         {const int n=v12::g1_render_recovery(line,sizeof line,mesh);if(n>0&&unsigned(n)<sizeof line){const int printed=std::printf("%s",line);if(printed>0)console_bytes+=unsigned(printed);}}
         {const int n=v12::g1_render_clock(line,sizeof line,mesh,now);if(n>0&&unsigned(n)<sizeof line){const int printed=std::printf("%s",line);if(printed>0)console_bytes+=unsigned(printed);}}
         {const int n=v12::g1_render_fit(line,sizeof line,mesh,now);if(n>0&&unsigned(n)<sizeof line){const int printed=std::printf("%s",line);if(printed>0)console_bytes+=unsigned(printed);}}
@@ -605,6 +619,16 @@ void input(){
 }
 #ifdef V12_R2_ENABLED
 [[gnu::noinline]] bool r2_authority_update_needed(){return dashboard.needs_authority_update(v12::r2_status());}
+#endif
+#if defined(V12_R2_ENABLED) && V12_R2_CONFIG == 13 && !defined(V12_GPS_SHADOW_OBSERVER)
+[[gnu::noinline]] void aid_gnss_from_ble(){
+  // Preserve the existing authenticated JOIN snapshot and aid gates. Do not
+  // reserve this large snapshot across every other operation in app_main().
+  const auto aid=v12::r2_status();
+  if(!update_gate.latched() && aid.requested && !aid.fault && aid.following && aid.group_member)
+    gnss_pps::aid_time({true,aid.follower_utc_us,aid.follower_snapshot_us,aid.follower_received_us,
+      aid.service_until_us,aid.root_identity,aid.root_boot,uint32_t(aid.g1_anchor_guard_us),aid.source_epoch,aid.publication},micros());
+}
 #endif
 
 }
@@ -677,12 +701,7 @@ extern "C" void app_main(){
     observe_gps_actuator();
 #else
 #if defined(V12_R2_ENABLED) && V12_R2_CONFIG == 13
-    // Snapshot was published by the BLE owner after authenticated JOIN. The
-    // GNSS main-task consumer rechecks age, original expiry and uncertainty.
-    const auto aid=v12::r2_status();
-    if(!update_gate.latched() && aid.requested && !aid.fault && aid.following && aid.group_member)
-      gnss_pps::aid_time({true,aid.follower_utc_us,aid.follower_snapshot_us,aid.follower_received_us,
-        aid.service_until_us,aid.root_identity,aid.root_boot,uint32_t(aid.g1_anchor_guard_us),aid.source_epoch,aid.publication},micros());
+    aid_gnss_from_ble();
 #endif
 #endif
 #ifdef V12_GPS_SHADOW_OBSERVER

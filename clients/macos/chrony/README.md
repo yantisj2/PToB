@@ -12,11 +12,19 @@ No privileged helper, LaunchAgent or system synchronization setting is installed
 Runtime sockets are local, owner-only and use short paths under `/private/tmp`.
 `port 0` and `cmdport 0` disable network NTP/command service. There is no supplied
 network-sharing profile. Closing the client stops/reaps only its owned daemon.
-Source/root/boot/path changes, genuine authority loss, expiry, transport changes
-and wall steps recreate that private daemon so old refclock filters cannot cross
-source scopes. Short missing-SOF-map observations can preserve calibration only
-within an already granted original authority deadline; they supply no time and
-cannot renew permission. Queued feeds are cancelled while output is withheld.
+Source/root/boot/path changes, counter or transport discontinuities and wall steps
+fence the private daemon so old refclock filters cannot cross source scopes.
+With a compatible UTE1 retained estimate, same-source quality or permission
+expiry pauses measurements while preserving the owned process. Its held clock
+is labelled LOCAL ONLY, grants no source permission and is never a measurement
+feed. Legacy short missing-SOF-map observations preserve calibration only within
+their already granted original authority deadline. Queued feeds are cancelled
+while output is withheld. See the
+[continuous-estimate contract](../../../docs/t096/continuous-estimate.md).
+
+Optional [ChronyControl monitoring and two-hour captures](../../../docs/macos/chronycontrol.md)
+use a separately installed GUI and an opt-in read-only adapter. The app and raw
+run data are not bundled or tracked by this repository.
 
 The default fine feed is explicitly an **unqualified UTC estimate**: causal
 SOF/Mach map + exact source map + retained integer published offset. It never

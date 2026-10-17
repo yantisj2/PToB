@@ -24,6 +24,8 @@ static uint32_t gm_admission_diagnostic[7];
  * No callback reads controller state or changes a recovery deadline. */
 static uint32_t lt_diagnostic[20];
 static uint64_t lt_attempt_started;
+/* Rolling two-start budget persists across rebinds; control never owns PA. */
+static uint64_t lt_start_history[2];
 static uint64_t lt_close_until;
 static uint64_t gm_sequence, lt_challenge, lt_deadline, lt_renew_at,
     lt_request_at, lt_next, lt_budget_until, lt_attempt_ready, lt_adv_check_at;
@@ -101,17 +103,9 @@ static bool lt_live(uint64_t tick) {
 static void lt_retry_after(uint64_t tick,int result,unsigned reason) {
   unsigned attempt=lt_attempts;
   bool batch=attempt>=3;
-  bool live=batch&&timing.bound&&tick<timing.context_until&&precision_synced(tick);
-  uint64_t delay=rc_admission_retry_us(live?4:attempt,lt_random())*16;
-  /* A healthy context may use the quiet batch schedule, but leave10s inside
-   * its ORIGINAL expiry for another bounded transaction. Cold recovery uses
-   * one10–15s batch wait, never that wait plus another30–45s delay. */
-  if(live&&timing.bound&&timing.context_until>tick){
-    uint64_t left=timing.context_until-tick;
-    uint64_t limit=left>UINT64_C(160000000)?left-UINT64_C(160000000):
-        rc_admission_retry_us(1,lt_random())*16;
-    if(delay>limit)delay=limit;
-  }
+  bool warm=startup_admitted;
+  uint64_t delay=(warm?UINT64_C(20000000)+lt_random()%UINT64_C(20000001):
+      rc_admission_retry_us(attempt,lt_random()))*16;
   lt_renew_at=tick+delay;
   if(batch){lt_attempts=0;lt_budget_until=lt_renew_at;}
   r2_timing_event(R2_TIMING_RC_RETRY,result,
@@ -437,6 +431,15 @@ static void gm_admission_record(const struct r2_join_record *r, uint64_t proof,
   r2_timing_event(R2_TIMING_GM_ADMISSION,(int)result,r?r->sender:0,
                  r?r->source_flags:0,view[2],view[6]);
 }
+/* Authenticated NO_SOURCE is an ordinary zero-root reply, not evidence that
+ * the selected peer is a follower. A positive foreign root is distinct. */
+static unsigned gm_refusal(const struct r2_join_record *r) {
+  if(!r||r->control)return 2;
+  if(!r->source_flags&&!r->root&&!r->root_boot)return 6;
+  if(r->root&&r->root!=r->sender)return 3;
+  if(r->root!=r->sender||r->root_boot!=r->sender_boot)return 7;
+  return 4;
+}
 static bool gm_accept(const struct r2_join_record *r, uint64_t proof,
                       uint64_t received, uint64_t tick) {
   struct r2_join_time time;
@@ -445,9 +448,7 @@ static bool gm_accept(const struct r2_join_record *r, uint64_t proof,
                (r2_group_join_time(&time, r, proof, received,
                                    r->source_bound_us) ||
                 gm_renew_time(&time, r, proof, received, tick));
-  gm_admission_record(r, proof, received, valid ? 5 :
-      r && !r->control && r->sender == r->root &&
-      r->sender_boot == r->root_boot ? 4 : 3);
+  gm_admission_record(r, proof, received, valid ? 5 : gm_refusal(r));
 #if defined(R2_RC_DYNAMIC_FIXTURE)
   printk("RC7_GM_TIME self=%016llx round_us=%llu bound_us=%u accepted=%u "
          "coarse_uncertainty_us=%u\n",
@@ -491,9 +492,10 @@ static void gm_apply(const uint8_t *wire) {
       /* Authenticated GM followers advertise discovery, but cannot provide
        * direct root timing. Try other locators after the existing cooldown. */
       ++lt_rejects;
-      candidate_defer(r.sender, now);
-      if(r.sender!=r.root||r.sender_boot!=r.root_boot)
-        candidate_nonroot(r.sender,mono_us());
+      unsigned refusal=gm_refusal(&r);
+      if(refusal!=6)candidate_defer(r.sender, now);
+      if(refusal==3)candidate_nonroot(r.sender,now);
+      /* Existing context, fit, replay floors and PA sync remain untouched. */
     }
     lt_renew_at = tick + (bound ? RC5_RENEW_TICKS : 16000000);
     lt_deadline = 0;
@@ -557,13 +559,10 @@ static bool gm_packet(struct rc7_packet *out, const uint8_t *wire, size_t size,
       p.route.train != gm_context.source.publication) {
     gm_context.authenticated = false;
     lt_renew_at = 0;
-    (void)stop();
+    /* New scope requires a fresh bind. Retain the old local estimate/fit as
+     * prior only; downstream precision remains subject to the original gates. */
     timing.bound = false;
     rc5_withdraw(&timing);
-    local_clock = (struct rc5_clock){.hold_ticks = RC_FIELD_HOLD_TICKS};
-    fit = (struct rc5_rate_fit){0};
-    sent_count = 0;
-    discipline_at = 0;
     return false;
   }
   struct rc7_path path = {.source_epoch = p.origin.source_epoch,
@@ -1140,6 +1139,10 @@ static void lt_poll(uint64_t tick, bool window) {
               (tick >= lt_renew_at);
   if (!need)
     lt_attempt_ready = 0;
+  if(need&&startup_admitted){
+    /* At most two starts in any rolling60s, also across failed batches. */
+    if(!rc_admission_start_allowed(lt_start_history,tick))return;
+  }
   if (need && tick >= lt_budget_until) {
     if (!lt_attempt_ready) {
       /* Finish an accepted client first, then reserve this short admission
@@ -1170,6 +1173,7 @@ static void lt_poll(uint64_t tick, bool window) {
     }
     ++lt_attempts;
     ++lt_initiations;
+    lt_start_history[0]=lt_start_history[1];lt_start_history[1]=tick;
     lt_attempt_started = mono_us();
     lt_deadline = tick + 32000000;
     lt_phase = LT_CONNECT;

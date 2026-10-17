@@ -182,6 +182,17 @@ void forget_locators(uint64_t target,bool relay){
  v12::parent_selection.reset();v12::parent_selection.target(target,relay);
  for(auto& q:v12::recent)q={};v12::retry_at=0;
 }
+void admission_slot(){
+ // Seeded physical models must pass the same warm start budget as runtime;
+ // do not reset it to make an immediate synthetic handoff possible.
+ v12::publish(fake_now);const auto& policy=v12::admission_policy;
+ uint64_t ready=policy.retry_at;
+ if(policy.warm){
+  if(policy.starts[1])ready=std::max(ready,policy.starts[1]+20000000);
+  if(policy.starts[0])ready=std::max(ready,policy.starts[0]+60000000);
+ }
+ if(ready>fake_now)fake_now=(ready/1000000+1)*1000000+1000;
+}
 void stop(){
  fixture_clock_fail=fixture_clock_backwards=0;
  v12::r2_stop();step(8);assert(v12::r2_status().off_ack&&
@@ -199,29 +210,84 @@ int run(const std::string& which){
    fake_now=Samples[0].now_us;v12::corrected_clock=direct_clock_seed();v12::anchor=rc7_permission_test::anchor();
    assert(Rc7PermissionInspect::issued_age(v12::corrected_clock)==3);
    v12::anchor.until=0;forget_locators(Parent,true);const auto generation=v12::client.generation;
-   rc_discovery();assert(v12::rc_bound());cleared();assert(v12::client.generation==generation);
+   admission_slot();rc_discovery();assert(v12::rc_bound());cleared();assert(v12::client.generation==generation);
  }else{
    forget_locators(Parent,true);rc_discovery();assert(v12::rc_bound());quiesce_for_jump();
    Seed seed;fake_now=Samples[0].now_us;v12::corrected_clock=seed.clock;v12::anchor=seed.a;
    v12::rc_client.utc_known=true;v12::joined_peer=Parent;v12::joined_boot=ParentBoot;
    const auto generation=v12::client.generation;
-   if(which=="autonomous-direct"){
+   if(which=="retained-new-coarse-root"){
+     v12::anchor.until=v12::corrected_clock.until();v12::publish(fake_now);
+     const auto retained=v12::retained_estimate;assert(retained.root==Root);
+     constexpr uint64_t NewRoot=0x55555555,NewBoot=0x66666666;
+     forget_locators(NewRoot,false);v12::anchor.until=0;admission_slot();fresh_direct(NewRoot,NewBoot,18,9);
+     auto current=v12::r2_status();assert(current.following&&current.root_identity==NewRoot&&current.root_boot==NewBoot);
+     assert(current.g1_clock_origin==NewRoot&&!current.g1_clock_model.tick&&!current.g1_retained_estimate&&!v12::r2_clock_witness(current));
+     assert(current.g1_retained_clock.root==retained.root&&current.g1_retained_clock.boot==retained.boot&&current.g1_retained_clock.clock.tick==retained.clock.tick);
+     fake_now=v12::anchor.until+1;v12::active_poll(fake_now);v12::publish(fake_now);current=v12::r2_status();
+     assert(current.clock_valid&&!current.following&&current.g1_clock_origin==NewRoot&&!current.g1_clock_model.tick&&!current.g1_retained_estimate);
+     fake_now=v12::anchor.deadline()+1;v12::active_poll(fake_now);pump_cleanup();v12::publish(fake_now);current=v12::r2_status();
+     assert(current.clock_valid&&!current.following&&current.g1_retained_estimate&&current.g1_clock_origin==Root&&!current.root_identity&&!v12::r2_clock_witness(current));
+     assert(current.g1_clock_model.tick==retained.clock.tick&&current.g1_clock_model.epoch==retained.clock.epoch);
+   }else if(which=="rc7-foreign-root-hint"){
+     v12::anchor.until=v12::corrected_clock.until();v12::member=true;
+     v12::synced=true;v12::sync_handle=9;v12::sync_identity=Parent;
+     v12::sync_requested_at=v12::sync_owner_window_start=fake_now;
+     fixture_sync_arg=reinterpret_cast<void*>(uintptr_t(v12::sync_capture_epoch));
+     const auto old_anchor=v12::anchor;const auto old_client=v12::rc_client;const auto epoch=v12::sync_capture_epoch;
+     v12::peer={};v12::peer.identity=0x77777777;v12::peer.handle=22;v12::peer.incarnation=++v12::incarnation;conn_arg=v12::callback_arg();
+     assert(!r2_group_join_begin(&v12::peer.exchange,false,Self,v12::peer.identity,44,77,fake_now));
+     auto& x=v12::peer.exchange;x.peer_boot=0x88888888;x.remote_nonce=88;x.proof_at=fake_now-1000;x.challenged=true;
+     r2_join_record hint{};hint.kind=R2_JOIN_ACCEPT;hint.sender=v12::peer.identity;hint.receiver=Self;hint.sender_boot=x.peer_boot;hint.receiver_boot=44;
+     hint.client_nonce=77;hint.server_nonce=88;hint.sequence=2;hint.created_us=fake_now;hint.echo_us=x.proof_at;std::strcpy(hint.name,"Locator");
+     hint.source_flags=1;hint.source_bound_us=40000;hint.root=0x99999999;hint.root_boot=0xaaaaaaaa;hint.source_epoch=20;hint.publication=10;hint.utc_us=1700000000000000;hint.remaining_us=1000000;
+     v12::Incoming row{};row.at=fake_now;row.incarnation=v12::peer.incarnation;assert(!r2_group_join_encode(row.bytes,&hint,&v12::provision.group));
+     assert(v12::incoming.push(row));v12::receive_join(fake_now);
+     assert(v12::peer.selection_accepted&&v12::join_accepts>=1&&v12::admission_policy.foreign_root==1);
+     assert(v12::member&&v12::joined_peer==Parent&&v12::joined_boot==ParentBoot&&v12::rc_bound());
+     assert(!std::memcmp(&old_client,&v12::rc_client,sizeof old_client)&&v12::anchor.same(old_anchor)&&v12::anchor.at==old_anchor.at&&v12::anchor.until==old_anchor.until);
+     assert(v12::synced&&v12::sync_identity==Parent&&v12::sync_capture_epoch==epoch&&!v12::sync_terminating&&!v12::sync_cleanup_queued);
+   }else if(which=="retained-expiry"||which=="retained-clock-step"){
+     v12::anchor.until=v12::corrected_clock.until();v12::publish(fake_now);
+     const auto original=v12::retained_estimate.clock;const auto retained=v12::r2_status();
+     assert(retained.clock_valid&&!retained.g1_retained_estimate&&v12::admission_policy.warm);
+     if(which=="retained-clock-step"){
+       v12::changed_scope(fake_now,v12::G1Reason::PeriodicScope,false,v12::G1ParentReason::ClockStep);
+       v12::publish(fake_now);assert(!v12::r2_status().clock_valid&&!v12::retained_estimate.root);
+     }else{
+       fake_now=v12::anchor.deadline()+1000;v12::active_poll(fake_now);v12::publish(fake_now);
+       const auto held=v12::r2_status();assert(held.clock_valid&&!held.following&&held.g1_retained_estimate);
+       assert(!held.root_identity&&!held.root_boot&&!held.source_epoch&&!held.publication&&!held.service_until_us);
+       assert(!held.g1_relative_quality.samples&&!held.precision_fit&&held.precision_ns==UINT32_MAX&&!v12::r2_clock_witness(held));
+       assert(v12::receive_loss.frozen&&v12::receive_loss.frozen_at==fake_now);
+       assert(held.follower_utc_us==uint64_t(original.at(fake_now*20))/1000);
+       assert(v12::retained_estimate.clock.tick==original.tick&&v12::retained_estimate.clock.rate==original.rate);
+     }
+   }else if(which=="autonomous-direct"){
      forget_locators(Root,false);v12::rc_client.renew_at=0;v12::anchor.until=0;
-     fresh_direct(Root,RootBoot,14,1);assert(!v12::rc_bound()&&v12::member&&v12::joined_peer==Root);cleared();
+     admission_slot();fresh_direct(Root,RootBoot,14,1);assert(!v12::rc_bound()&&v12::member&&v12::joined_peer==Root);cleared();
    }else if(which=="typed-direct"){
      assert(v12::r2_gm_parent(Root));step(6);assert(!v12::rc_bound());cleared();
-     fresh_direct(Root,RootBoot,14,1);assert(!v12::rc_bound()&&v12::member);
+     admission_slot();fresh_direct(Root,RootBoot,14,1);assert(!v12::rc_bound()&&v12::member);
    }else if(which=="changed-full-path"||which=="response-path-changed"){
      if(which=="response-path-changed")fixture_response_path_change=true;else ++fixture_cap.path.node[1].train;
      fixture_cap.next_challenge+=100;v12::rc_client.renew_at=0;forget_locators(Parent,true);
-     rc_discovery();assert(v12::rc_bound()&&v12::rc_client.receiver.path.node[1].train==3);cleared();
+     admission_slot();rc_discovery();assert(v12::rc_bound()&&v12::rc_client.receiver.path.node[1].train==3);cleared();
      if(which=="response-path-changed")assert(fixture_request.path.node[1].train==2&&fixture_response.path.node[1].train==3);
    }else{
-     assert(which=="permission-native"||which=="mapped-read-failure"||which=="mapped-finalize-failure"||which=="mapped-deliver-failure");
+     assert(which=="permission-native"||which=="loss-recovery-preserved"||which=="mapped-read-failure"||which=="mapped-finalize-failure"||which=="mapped-deliver-failure");
      v12::corrected_clock.clear();v12::rc_client=bound(v12::provision.group);v12::anchor=rc7_permission_test::anchor();
      pair(v12::rc_client,Samples[0],11,v12::provision.group);
      assert(v12::corrected_clock.receive_admitted_rc7(v12::rc_client,Samples[0].available20,Samples[0].now_us,v12::anchor,v12::provision.group).kind==Clock::Rc7Kind::Mapped);
      uint64_t utc=0;assert(v12::corrected_clock.finalize(Samples[0].available20)&&v12::corrected_clock.deliver(Samples[0].available20,Samples[0].now_us,utc));v12::rc_client.utc_known=true;
+     if(which=="loss-recovery-preserved"){
+       v12::anchor.until=v12::corrected_clock.until();v12::publish(fake_now);
+       v12::receive_loss.observe(fake_now,G1ReceiveLoss::Report|G1ReceiveLoss::Mapped,5);
+       fake_now=v12::corrected_clock.until()+1;v12::active_poll(fake_now);
+       assert(v12::receive_loss.frozen&&v12::receive_loss.expiries==1);
+       quiesce_for_jump(); // Drain the synthetic PA owner before replacing its fixture epoch.
+     }
+     const auto first_loss=v12::receive_loss;
      const auto& sample=which=="permission-native"?Samples[1]:Samples[2];
      auto q=original_packet(sample,13,v12::provision.group);
      if(which=="mapped-deliver-failure"){q.origin.utc_offset=-1;assert(!rc7_origin_sign(q.proof,&q.origin,&v12::provision.group));}
@@ -239,6 +305,14 @@ int run(const std::string& which){
        assert(v12::anchor.utc==old_utc&&!v12::window_corrected&&v12::rc_client.progress_at==fake_now);
        before.scope(v12::anchor);Rc7PermissionInspect::permit_fields(before,v12::corrected_clock);
        assert(!std::memcmp(&before,&v12::corrected_clock,sizeof before));
+     }else if(which=="loss-recovery-preserved"){
+       assert(v12::rc_client.utc_known&&v12::window_corrected&&v12::corrected_clock.covers(fake_now,fake_now));
+       v12::publish(fake_now);
+       assert(v12::receive_loss.frozen&&v12::receive_loss.frozen_at==first_loss.frozen_at&&v12::receive_loss.reacquisitions==1);
+       assert(v12::receive_loss.sequence==first_loss.sequence&&!std::memcmp(v12::receive_loss.entries,first_loss.entries,sizeof first_loss.entries));
+       fake_now=v12::corrected_clock.until()+1;v12::active_poll(fake_now);
+       assert(v12::receive_loss.expiries==2&&v12::receive_loss.frozen_at==first_loss.frozen_at);
+       assert(!std::memcmp(v12::receive_loss.entries,first_loss.entries,sizeof first_loss.entries));
      }else assert(!v12::rc_client.utc_known&&!v12::anchor.until&&!v12::corrected_clock.prediction().tick&&!v12::window_corrected);
    }
    assert(v12::client.generation==generation);

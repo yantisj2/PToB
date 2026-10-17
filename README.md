@@ -25,6 +25,10 @@ Start with the target matching your hardware:
 | M5Stack StickS3 (SS3) | Receiver and experimental relay with estimated transmit timing | [SS3 README](firmware/ss3/README.md) |
 | macOS | USB time client and chrony bridge | [macOS README](clients/macos/README.md) |
 
+Latest [changelog](CHANGELOG.md) and
+[stability results](evidence/stability/2026-10-16/README.md): admission and
+continuity fixes are integrated; TC-04 USB delivery remains under investigation.
+
 **Developer preview — build from source:** a generic downloadable image,
 public installer/recovery flow and mutable provisioning are not yet available.
 Firmware images use private build-time enrollment and must not be uploaded as releases.
@@ -47,12 +51,17 @@ describes the proposed future storage/API; it is not implemented firmware.
 Firmware-rendered previews with illustrative values, not live measurements.
 Select a screen to open its target guide.
 
-[<img src="docs/images/macos-chrony-replay.webp" width="760" alt="macOS chrony replay showing the user clock, estimator RMS and retained loss and UTC-gated indicators">](clients/macos/README.md)
+[<img src="docs/images/chronycontrol-tracking-20261016.png" width="654" alt="ChronyControl tracking graph from PToB development testing, with unresolved timing spikes visible">](docs/images/chronycontrol-tracking-20261016.png)
 
-The **macOS client** receives time over USB from a T096.
-[Open the full-size replay image](docs/images/macos-chrony-replay.webp). This historical replay
-retains loss and withheld-UTC indicators; estimator RMS is not absolute UTC
-accuracy. [Image provenance and scope](docs/images/README.md).
+Tracking during PToB development in
+[ChronyControl by Bryan Christianson](https://www.whatroute.net/chronycontrol.html).
+**We are still working to remove the spikes.** These are chrony's tracking
+statistics against the experimental feed; independent UTC accuracy remains
+unqualified. [Image provenance](docs/images/README.md).
+
+The [macOS client](clients/macos/README.md) receives time over USB from a T096 RC.
+A [historical client replay](docs/images/macos-chrony-replay.webp) also retains
+its loss and withheld-UTC indicators.
 
 ## Bring your own target
 

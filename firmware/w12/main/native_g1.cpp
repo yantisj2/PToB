@@ -16,6 +16,9 @@ extern "C" {
 #endif
 #include "r2_discipline.hpp"
 #include "g1_client_policy.hpp"
+#include "g1_admission_policy.hpp"
+#include "g1_retained_estimate.hpp"
+#include "g1_receive_loss.hpp"
 #include "g1_corrected_clock.hpp"
 #include "g1_output_correction.hpp"
 #include "g1_parent_selection.hpp"
@@ -75,6 +78,8 @@ Recent recent[8]{};r2_join_display display[8]{};Anchor anchor;G1StrictDiscipline
 G1PhaseLearning phase_learning;
 G1CoarseHold coarse_hold;
 G1CorrectedClock corrected_clock;
+G1AdmissionPolicy admission_policy;G1RetainedEstimate retained_estimate;G1ReceiveLoss receive_loss;
+uint32_t retained_accepted=0;bool corrected_was_live=false;
 Rc7Client rc_client;G1ParentSelection parent_selection;
 G1GmDiscovery gm_discovery;
 G1ParentJournal parent_journal;
@@ -168,18 +173,19 @@ bool lock_protected(uint64_t now){
 int64_t coarse_ns(uint64_t now){if(!usable_utc()||!anchor_valid(now)||anchor.utc>uint64_t(INT64_MAX)/1000||now-anchor.at>uint64_t(INT64_MAX)/1000-anchor.utc)return -1;return int64_t((anchor.utc+now-anchor.at)*1000);}
 void discipline_scope(uint64_t now){discipline.scope({anchor.root,anchor.boot,anchor.until,anchor.source_epoch,anchor.publication,periodic_rx::status().epoch,0,following(now)&&!closing&&!fault,true});}
 bool timely(){const auto now=micros();portENTER_CRITICAL(&mux);const bool ok=!parent_diagnostic.pending()&&parent_diagnostic.state!=4&&!stop_pending&&!fault&&(mode==R2Mode::Client?client.running&&!client.stopping&&!client.deadline_exceeded:lease.busy&&lease.deadline_us>=2000000&&now<lease.deadline_us-2000000);portEXIT_CRITICAL(&mux);return ok;}
+uint32_t admission_random(){uint32_t value=0;esp_fill_random(&value,sizeof value);return value;}
 void failed_admission(uint64_t now){
   if(!peer.identity||peer.selection_accepted||peer.selection_reported||closing||fault||stop_pending||parent_diagnostic.pending()||mode!=R2Mode::Client)return;
   // Deliberate profile quiet, explicit stop and rebind are local scheduling,
   // not observations that the remote server failed.
   if(!full_listening()&&now-G1Window::start(now,window_phase)>=400000)return;
-  peer.selection_reported=true;
+  peer.selection_reported=true;admission_policy.failed(now,admission_random());
   if(!parent_failure.identity)parent_failure={peer.identity,now,peer.relay};
 }
 bool relay_slot_scanning();
 void relay_fence();void relay_close(uint64_t now);bool relay_owned();bool relay_acl_available();void relay_poll(uint64_t now,bool upstream_due);
 void parent_record(G1ParentReason reason,uint64_t now);
-void begin_close(uint64_t now){if(closing)return;closing=true;relay_fence();member=false;anchor={};rc_client.fence();coarse_hold.clear();corrected_clock.clear();corrected_phase_aligned=false;close_until=now+2000000;portENTER_CRITICAL(&mux);if(mode==R2Mode::Client){client.stop(now);close_until=client.stop_deadline_us;}else if(lease.deadline_us&&lease.deadline_us<close_until)close_until=lease.deadline_us;portEXIT_CRITICAL(&mux);parent_record(G1ParentReason::Stop,now);}
+void begin_close(uint64_t now){if(closing)return;closing=true;corrected_was_live=false;retained_estimate.clear();relay_fence();member=false;anchor={};rc_client.fence();coarse_hold.clear();corrected_clock.clear();corrected_phase_aligned=false;close_until=now+2000000;portENTER_CRITICAL(&mux);if(mode==R2Mode::Client){client.stop(now);close_until=client.stop_deadline_us;}else if(lease.deadline_us&&lease.deadline_us<close_until)close_until=lease.deadline_us;portEXIT_CRITICAL(&mux);parent_record(G1ParentReason::Stop,now);}
 void stop_scan(){if(!scan)return;const int rc=ble_gap_disc_cancel();if(!rc||rc==BLE_HS_EALREADY)scan=false;else error(rc,R2Api::ScanStop);}
 int gap(ble_gap_event*,void*);
 struct LinkContext {uint32_t generation=0;
@@ -494,6 +500,7 @@ void observe_group(const Discovery& d){
 bool cooled(uint64_t id,uint64_t now){for(const auto& r:recent)if(r.identity==id&&now<r.until)return true;return false;}
 void cooldown(uint64_t id,uint64_t now,uint64_t duration){unsigned slot=0;for(unsigned i=0;i<8;i++){if(recent[i].identity==id){slot=i;break;}if(recent[i].until<recent[slot].until)slot=i;}recent[slot]={id,now+duration};}
 void connect(const Discovery& d,uint64_t id,uint64_t now,bool relay=false){
+  if(!admission_policy.allowed(now))return;
   relay_poll(now,true);if(!relay_acl_available())return;stop_scan();if(scan||!timely())return;
   if(nonce==UINT64_MAX){fault=true;return;}++nonce;
   if(incarnation==UINT32_MAX){fault=true;return;}
@@ -524,11 +531,12 @@ void connect(const Discovery& d,uint64_t id,uint64_t now,bool relay=false){
   // Require the real completion callback, never just the cancel command ACK.
   // Install pending/incarnation before the yielding public API. A completion
   // delivered before return must never be overwritten back to pending.
+  admission_policy.started(now);
   peer.connecting=true;connecting_cancelled=false;const auto generation=peer.incarnation;
   inc(diagnostic.peer(id).attempts);const auto context=link_context(now);admission_trace(11,None,0,&context);
   const int rc=ble_gap_connect(BLE_OWN_ADDR_RANDOM,&d.address,BLE_HS_FOREVER,&p,gap,callback_arg());
   admission_trace(12,None,rc,&context);
-  if(rc&&peer.incarnation==generation){peer.connecting=false;peer.identity=0;retry_at=now+200000;if(!transient(rc,R2Api::Connect)&&rc!=BLE_HS_EALREADY)error(rc,R2Api::Connect);}
+  if(rc&&peer.incarnation==generation){failed_admission(now);peer.connecting=false;peer.identity=0;retry_at=now+200000;if(!transient(rc,R2Api::Connect)&&rc!=BLE_HS_EALREADY)error(rc,R2Api::Connect);}
 }
 void gatt_poll(uint64_t now){
   if(peer.handle==None)return;
@@ -656,9 +664,26 @@ void receive_join(uint64_t now){Incoming row{};for(unsigned i=0;i<8&&incoming.po
   if(r2_group_join_receive(&peer.exchange,&r,row.at)){inc(rejected);diagnostic.reason(G1Reason::JoinExchange,now);continue;}inc(auth);
   if(r.kind==R2_JOIN_CHALLENGE){if((anchor.source&&joined_peer==r.sender&&joined_boot!=r.sender_boot)||
       (coarse_hold.saved.source&&coarse_hold.saved.root==r.sender&&coarse_hold.saved.boot!=r.sender_boot)){changed_scope(now);}peer.send_kind=R2_JOIN_PROOF;}
-  else if(r.kind==R2_JOIN_ACCEPT){const auto previous_peer=joined_peer,previous_boot=joined_boot;const bool previous_member=member;member=true;joined_peer=r.sender;joined_boot=r.sender_boot;inc(join_accepts);inc(diagnostic.peer(r.sender).accepts);r2_group_join_remember(display,&peer.exchange,now);cooldown(r.sender,now,5000000);peer.close_at=now+2000;
-    r2_join_time time{};if(r2_group_join_time(&time,&r,peer.exchange.proof_at,row.at,provision.map_bound_us)){
+  else if(r.kind==R2_JOIN_ACCEPT){const auto previous_peer=joined_peer,previous_boot=joined_boot;const bool previous_member=member;
+    inc(join_accepts);inc(diagnostic.peer(r.sender).accepts);r2_group_join_remember(display,&peer.exchange,now);peer.close_at=now+2000;
+    const auto reply=g1_admission_reply(r);r2_join_time time{};
+    const bool timed=r2_group_join_time(&time,&r,peer.exchange.proof_at,row.at,provision.map_bound_us);
+    admission_policy.reply(timed?reply:reply==G1AdmissionReply::Direct?G1AdmissionReply::Unusable:reply);
+    // An authenticated zero-root NO_SOURCE reply is ordinary source loss,
+    // not a foreign-root follower and not a reason to discard the old fit/PA.
+    // All unusable replies preserve the current binding and original deadlines.
+    if(!timed){
+      peer.selection_accepted=true;admission_policy.failed(now,admission_random());
+      cooldown(r.sender,now,5000000);
+      if(reply==G1AdmissionReply::ForeignRoot)parent_selection.cooldown(r.sender,now,60000000);
+      if(!previous_member&&!anchor.source&&!rc_bound()){member=true;joined_peer=r.sender;joined_boot=r.sender_boot;}
+      diagnostic.reason(G1Reason::JoinTime,now);continue;
+    }
+    member=true;joined_peer=r.sender;joined_boot=r.sender_boot;cooldown(r.sender,now,5000000);
+    if(timed){
       if(r.root!=r.sender||r.root_boot!=r.sender_boot){
+        peer.selection_accepted=true;admission_policy.failed(now,admission_random());
+        if(reply==G1AdmissionReply::ForeignRoot)parent_selection.cooldown(r.sender,now,60000000);
         // A cohort peer may describe a different serving root. This direct
         // client must authenticate that root itself before showing FOLLOW or
         // selecting its direct periodic train. Retain only a short locator
@@ -668,13 +693,18 @@ void receive_join(uint64_t now){Incoming row{};for(unsigned i=0;i<8&&incoming.po
         // T096 presentation anchor survives root transitions. Its original
         // replay budget and permission stay unchanged; only direct new-root
         // authentication may replace scope and retire the old estimator.
-        // A cohort locator describing our already authenticated direct root
-        // cannot replace that root or retire its still-valid replay/PA scope.
+        // A different locator cannot replace the authenticated direct root
+        // or retire its still-valid replay/PA scope during control recovery.
         // Keep every old deadline; the hint supplies no clock or permission.
-        if(previous_member&&!rc_bound()&&anchor.valid(now)&&previous_peer==anchor.root&&previous_boot==anchor.boot&&
-           r.root==anchor.root&&r.root_boot==anchor.boot&&r.source_epoch==anchor.source_epoch&&r.publication==anchor.publication){
+        const auto& path=rc_client.receiver.path;
+        const bool old_direct=!rc_bound()&&previous_peer==anchor.root&&previous_boot==anchor.boot;
+        const bool old_relay=rc_bound()&&now<rc_client.lease_until&&path.depth>=1&&path.depth<=2&&
+          path.node[path.depth].id==previous_peer&&path.node[path.depth].boot==previous_boot&&
+          path.node[0].id==anchor.root&&path.node[0].boot==anchor.boot&&path.source_epoch==anchor.source_epoch;
+        if(previous_member&&anchor.valid(now)&&(old_direct||old_relay)){
           joined_peer=previous_peer;joined_boot=previous_boot;member=previous_member;
-          admission_root=r.root;admission_until=time.until;parent_selection.reobserve_gm(r.root,now);
+          admission_root=r.root;admission_until=time.until;
+          if(old_direct)parent_selection.reobserve_gm(r.root,now);
           diagnostic.reason(G1Reason::RootHint,now);continue;
         }
         auto historical=coarse_hold.saved.valid(now)?coarse_hold:G1CoarseHold{};
@@ -702,10 +732,8 @@ void receive_join(uint64_t now){Incoming row{};for(unsigned i=0;i<8&&incoming.po
       if(!anchor.same(next)){scope_trace(anchor,next,G1Reason::None,now);last_origin_ns=relay_train=0;window_corrected=false;cancel_sync(now);}
       anchor=next;corrected_clock.scope(anchor);coarse_hold.clear();discipline_scope(now);
       parent_record(peer.parent_reason,now);
-    }else {diagnostic.reason(G1Reason::JoinTime,now);
-      if(coarse_hold.saved.source&&coarse_hold.saved.root==r.sender)coarse_hold.clear();}
-    // An unusable bootstrap may retain only the identical still-fresh scope.
-    // No-source membership alone creates neither a coarse clock nor precision.
+    }
+    // No-source membership creates neither a coarse clock nor precision.
   }
 }}
 bool fresh_envelope(uint64_t created,uint64_t expires,int64_t offset,uint64_t now,bool immutable_origin=false){
@@ -721,7 +749,7 @@ bool fresh_envelope(uint64_t created,uint64_t expires,int64_t offset,uint64_t no
     (immutable_origin||utc-(int64_t(created)+offset)<250000000)&&
     int64_t(expires)+offset>utc+int64_t(anchor.guard(now)*1000);
 }
-void changed_scope(uint64_t now,G1Reason reason,bool preserve_clock,G1ParentReason parent_reason){relay_fence();if(anchor.source){inc(diagnostic.scope_changes);scope_trace(anchor,{},reason,now);}
+void changed_scope(uint64_t now,G1Reason reason,bool preserve_clock,G1ParentReason parent_reason){if(parent_reason==G1ParentReason::ClockStep)retained_estimate.clear();relay_fence();if(anchor.source){inc(diagnostic.scope_changes);scope_trace(anchor,{},reason,now);}
   parent_selection.unavailable(now);
   if(reason==G1Reason::Permission){if(usable_utc()&&anchor.valid(now))coarse_hold.retain(anchor);}
   else coarse_hold.clear();
@@ -735,6 +763,18 @@ void renew_permission(uint64_t created,uint64_t expires,int64_t offset,uint64_t 
   if(left<=(immutable_origin?1650000:1500000)){anchor.until=now+left;last_origin_ns=created;}
 }
 void periodic_poll(uint64_t now){Periodic row{};for(unsigned i=0;i<8&&periodic.pop(row);i++){
+  struct ReceiveObservation {
+    const Periodic& row;uint64_t now;uint32_t authenticated,accepted,refused;
+    ~ReceiveObservation(){
+      uint32_t outcome=G1ReceiveLoss::Report;
+      if(now<row.at||now-row.at>=50000)outcome|=G1ReceiveLoss::Stale;
+      if(authenticated!=p1_ok+relay_ok)outcome|=G1ReceiveLoss::Authenticated;else outcome|=G1ReceiveLoss::Refused;
+      if(row.capture.actual&&row.capture.association_observed)outcome|=G1ReceiveLoss::Associated;
+      if(accepted!=corrected_clock.accepted())outcome|=G1ReceiveLoss::Mapped;
+      if(refused!=corrected_clock.refused())outcome|=G1ReceiveLoss::Refused;
+      receive_loss.observe(now,outcome,row.capture.epoch);
+    }
+  } observation{row,now,p1_ok+relay_ok,corrected_clock.accepted(),corrected_clock.refused()};
   if(row.identity!=sync_identity||now<row.at||now-row.at>=50000||!client_window_active(row.at,window_phase)){inc(p1_bad);diagnostic.reason(G1Reason::PeriodicStale,now);continue;}
   if(rc_bound()){
     rc7_packet p{};
@@ -912,6 +952,9 @@ bool admission_due(uint64_t now,bool renewal_map){
 }
 void active_poll(uint64_t now){
   if(now<radio_resume_at)return;
+  const bool corrected_live=corrected_clock.covers(now,now);
+  if(corrected_was_live&&!corrected_live&&corrected_clock.until()&&now>=corrected_clock.until())receive_loss.freeze(now);
+  corrected_was_live=corrected_live;
   if(parent_failure.identity){parent_selection.failed(parent_failure.identity,parent_failure.relay,parent_failure.at);parent_failure={};}
   parent_selection.usable(following(now)&&corrected_clock.covers(now,now)&&!fault&&!closing,now);
   parent_selection.tick(now,synced&&!sync_terminating&&client_window_active(now,window_phase),scan&&!peer.connecting);
@@ -934,7 +977,7 @@ void active_poll(uint64_t now){
   // packets arriving during admission wait for the next host poll. This does
   // not change PA ownership or renew the capture/permission deadlines.
   periodic_poll(micros());
-  relay_poll(micros(),admission_due(now,corrected_clock.covers(now,now)));
+  relay_poll(micros(),admission_due(now,corrected_clock.covers(now,now))&&admission_policy.allowed(now)&&now>=retry_at);
   gatt_poll(now);receive_join(now);
   if(peer.relay)send_rc_request(micros());else send_join(micros());
   if((synced||sync_pending)&&((anchor_valid(now)&&sync_identity!=anchor.root&&sync_identity!=joined_peer)||(sync_pending&&now>=sync_acquire_until)))cancel_sync(now);
@@ -1079,7 +1122,20 @@ void publish(uint64_t begin){const auto now=micros();uint64_t tick=0;
   const auto q=discipline.view(tick,now);uint64_t delivered_utc=0;
   const bool disciplined=discipline.delivered(q,tick,delivered_utc);uint64_t held_utc=0;
   uint64_t corrected_utc=0;const bool corrected_valid=corrected_clock.deliver(tick,now,corrected_utc)&&!fault&&!closing;
+  if(corrected_clock.accepted()!=retained_accepted&&corrected_valid&&corrected_clock.original20()){
+    if(retained_estimate.retain(corrected_clock.prediction(),anchor.root,anchor.boot,anchor.source_epoch,corrected_clock.original20(),now)){
+      retained_accepted=corrected_clock.accepted();admission_policy.acquired();
+      if(!receive_loss.generation)receive_loss.begin();
+      else if(!corrected_was_live)receive_loss.reacquired();
+      corrected_was_live=corrected_clock.covers(now,now);
+    }
+  }
+  uint64_t retained_utc=0;const bool retained_valid=retained_estimate.deliver(tick,retained_utc)&&!fault&&!closing;
   const bool held=usable_utc()&&coarse_hold.deliver(now,held_utc)&&!fault&&!closing;
+  const bool following_now=following(now)&&!closing&&!fault;
+  // A remembered model owns its old scope. A new coarse JOIN has no physical
+  // model until its own first correction, and must never borrow the old one.
+  const bool retained_selected=retained_valid&&!corrected_valid&&!following_now&&!held;
   const auto selection=parent_selection.selection_view(now);
   const auto relative_quality=corrected_valid?corrected_clock.quality(now,tick):G1RelativeQuality{};
   const bool selection_locked=lock_protected_quality(relative_quality,corrected_clock.prediction(),tick,now);
@@ -1092,7 +1148,7 @@ void publish(uint64_t begin){const auto now=micros();uint64_t tick=0;
   snap.boot_client_attempted=boot_client_attempted;snap.boot_client_cancelled=boot_client_cancelled;
   snap.group_member=member;snap.group_id=provision.group.id;snap.key_epoch=provision.group.epoch;snap.client_identity=provision.identity;snap.joined_peer=joined_peer;snap.joined_boot=joined_boot;snap.join_attempts=join_attempts;snap.join_accepts=join_accepts;snap.join_rejected=rejected;snap.join_busy=join_busy;
   snap.follower_snapshot_us=now;snap.follower_received_us=anchor.at;
-  snap.ready=member&&!closing;snap.following=following(now)&&!closing&&!fault;snap.clock_valid=corrected_valid||snap.following||held;snap.follower_utc_us=corrected_valid?corrected_utc:snap.following?(disciplined?delivered_utc:anchor.utc+now-anchor.at):held?held_utc:0;
+  snap.ready=member&&!closing;snap.following=following_now;snap.clock_valid=corrected_valid||snap.following||held||retained_selected;snap.follower_utc_us=corrected_valid?corrected_utc:snap.following?(disciplined?delivered_utc:anchor.utc+now-anchor.at):held?held_utc:retained_selected?retained_utc:0;
   snap.root_identity=snap.following?anchor.root:0;snap.root=snap.following?0:255;snap.root_boot=snap.following?anchor.boot:0;snap.source_epoch=snap.following?anchor.source_epoch:0;snap.publication=snap.following?anchor.publication:0;snap.service_until_us=snap.following?anchor.until:0;
   snap.serving=snap.source=false;snap.coordinator=snap.standby=255;snap.members=snap.role=0;
   snap.rx=rx;snap.tx=tx;snap.authenticated=auth;snap.rejected=rejected;snap.discoveries=discovery_count;snap.pa_reports=pa_reports;snap.p1_authenticated=p1_ok;snap.p1_refused=p1_bad;snap.api_errors=api_errors;snap.drops=incoming.drops+discoveries.drops+periodic.drops;snap.peer_losses=peer_losses;snap.setup_retries=setup_retries;snap.last_api=last_api;snap.last_api_rc=last_api_rc;snap.last_api_at_us=last_api_at;snap.first_error_api=first_error_api;snap.first_error_rc=first_error_rc;snap.first_error_at_us=first_error_at;
@@ -1104,7 +1160,11 @@ void publish(uint64_t begin){const auto now=micros();uint64_t tick=0;
   G1CoarseHold coarse_snapshot;coarse_snapshot.retain(clock_anchor);uint64_t coarse_utc=0;coarse_snapshot.deliver(now,coarse_utc);
   snap.g1_coarse_snapshot_utc_us=corrected_valid?corrected_utc:coarse_utc;snap.g1_model_until_us=discipline.model_until_us();
   snap.g1_clock_origin=snap.clock_valid&&clock_anchor.valid(now)?clock_anchor.root:0;
-  snap.g1_clock_model=corrected_valid?corrected_clock.prediction():G1ClockPrediction{};
+  snap.g1_clock_model=corrected_valid?corrected_clock.prediction():retained_selected?retained_estimate.clock:G1ClockPrediction{};
+  if(retained_selected)snap.g1_clock_origin=retained_estimate.root;
+  snap.g1_retained_estimate=retained_selected;snap.g1_estimate_observed_us=retained_estimate.observed_us;
+  snap.g1_retained_clock=retained_estimate;
+  snap.g1_admission_policy=admission_policy;snap.g1_receive_loss=receive_loss;
 #if defined(V12_R2_OUTPUT_CORRECTION_NS) && V12_R2_OUTPUT_CORRECTION_NS != 0
   const auto output_reference=periodic_rx::rf_reference();
   snap.g1_clock_model=g1_output_correction(snap.g1_clock_model,V12_R2_OUTPUT_CORRECTION_NS,
@@ -1329,17 +1389,26 @@ R2Status r2_status(){
   const auto age=now>=result.follower_snapshot_us?now-result.follower_snapshot_us:UINT64_MAX;
   const auto growth=age==UINT64_MAX?UINT64_MAX:age/500+unsigned(age%500!=0);
   const bool guard_ok=growth<=UINT64_MAX-result.g1_anchor_guard_us;
-  const bool coarse=result.requested&&!result.fault&&result.clock_valid&&age!=UINT64_MAX&&
+  const bool coarse=result.requested&&!result.fault&&result.clock_valid&&!result.g1_retained_estimate&&age!=UINT64_MAX&&
     now<result.g1_anchor_deadline_us&&guard_ok&&result.g1_anchor_guard_us+growth<249900&&
     age<=UINT64_MAX-result.g1_coarse_snapshot_utc_us;
   result.clock_valid=coarse;
-  if(!coarse){result.g1_clock_origin=0;result.g1_relative_quality={};}
+  if(!coarse){result.g1_clock_origin=0;result.g1_clock_model={};result.g1_relative_quality={};}
+  result.g1_retained_estimate=false;
   result.following=coarse&&result.following&&result.service_until_us&&now<result.service_until_us;
   if(!result.following){result.root_identity=result.root_boot=result.service_until_us=0;result.source_epoch=result.publication=0;result.root=255;}
   bool model=result.following&&result.precision_fit&&result.model_available20&&result.g1_model_until_us&&now<result.g1_model_until_us;
   result.follower_utc_us=coarse?result.g1_coarse_snapshot_utc_us+age:0;
 #ifdef V12_R2_RX_SHADOW
   if(coarse&&result.g1_clock_model.tick){uint64_t tick=0;if(clock_reference_read(&tick)&&tick>=result.g1_clock_model.tick){const auto ns=result.g1_clock_model.at(tick);if(ns>0){result.follower_utc_us=uint64_t(ns)/1000;result.g1_relative_quality.evaluated20=tick;}else result.g1_relative_quality={};}else result.g1_relative_quality={};}
+  if(!coarse&&result.requested&&!result.fault&&!result.rc_parent.pending()&&result.rc_parent.state!=4){
+    uint64_t tick=0,utc=0;
+    if(clock_reference_read(&tick)&&result.g1_retained_clock.deliver(tick,utc)){
+      result.clock_valid=true;result.follower_utc_us=utc;result.g1_retained_estimate=true;
+      result.g1_clock_origin=result.g1_retained_clock.root;result.g1_clock_model=result.g1_retained_clock.clock;
+      result.g1_relative_quality={};result.g1_relative_quality.evaluated20=tick;
+    }
+  }
   if(model){uint64_t tick=0;model=clock_reference_read(&tick)&&tick>=result.model_available20;
     if(model){const auto ns=result.precision_model.at(tick);model=ns>0;if(model)result.follower_utc_us=uint64_t(ns)/1000;}}
 #else

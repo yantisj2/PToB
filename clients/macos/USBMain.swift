@@ -29,7 +29,7 @@ struct USBOptions {
             guard !args.isEmpty else { throw NSError(domain:"Missing value for \(key)",code:1) }; let value = args.removeFirst()
             switch key {
             case "--device": guard usbSerialSilicon(value) != nil else {throw NSError(domain:"--device requires a full USB serial ending in its 16-digit silicon identity",code:1)};deviceSerial = value
-            case "--duration": guard let n = Double(value), n.isFinite, n > 0, n <= 1800 else { throw NSError(domain:"Duration must be 0..1800s",code:1) }; duration = n
+            case "--duration": guard let n = Double(value), n.isFinite, n > 0, n <= 7200 else { throw NSError(domain:"Duration must be 0..7200s",code:1) }; duration = n
             case "--rate": guard let n = Int(value), [16,32,64].contains(n) else { throw NSError(domain:"USB precision rate must be16,32 or64Hz",code:1) }; rate = n
             case "--jsonl": json = value
             case "--ntp-server": guard LocalNTPMonitor.validServer(value) else { throw NSError(domain:"Invalid NTP server",code:1) }; ntpServer = value; checkNTP = true
@@ -70,6 +70,7 @@ final class USBInstrument {
     let evidence = ObserverQueue("org.ptob.usb-clock.evidence",capacity:4096), display = ObserverQueue("org.ptob.usb-clock.display",capacity:2)
     let clock = USBSourceClock(), bridge = USBFrameBridge(), precise = PreciseSourceClock(), done = DispatchSemaphore(value:0)
     let fineChrony = FineChronyClock()
+    let estimate = USBContinuousEstimate()
     var nextFineFeed: UInt64 = 0
     var fineComparison = FineChronyComparison()
     var usb: USBObservation?, ntp: LocalNTPMonitor?, log: FileHandle?
@@ -77,6 +78,7 @@ final class USBInstrument {
     var managed: ManagedChronySession?, managedConnected = false
     var classifiedSOFPauses = 0, refusedSOFPauses = 0
     var authorityScope: String?, authorityDeadline: UInt64 = 0, authorityRevoked = false
+    var authorityHeld = false, sourceHoldovers = 0, sourceHardFences = 0
     var timer: DispatchSourceTimer?, signals: [DispatchSourceSignal] = [], activity: NSObjectProtocol?
     var savedTerm: termios?, savedFlags: Int32 = 0, stopped = false
     var page = InstrumentPage.main
@@ -119,12 +121,23 @@ final class USBInstrument {
         }
     }
     func fenceSource(_ reason: String) {
-        guard !authorityRevoked else {return}
+        let hold = estimate.sameTransport(scope:authorityScope) && ["ORIGINAL_PERMISSION_EXPIRED","SOURCE_PERMISSION_WITHDRAWN_OR_UNKNOWN"].contains(reason)
+        // A later identity/counter/source fault must escalate a quality hold.
+        // Repeated notifications after a hard fence remain idempotent.
+        guard !authorityRevoked || (authorityHeld && !hold) else {return}
         precise.revoke(reason)
         authorityRevoked = true
-        recycleChrony(reason)
+        authorityHeld = hold
+        if hold {
+            sourceHoldovers += 1
+            // Same-source quality/authority expiry pauses measurements. The
+            // existing owned daemon may free-run; never feed extrapolations.
+            feeder?.pausePending();chrony?.invalidate()
+            record(["type":"chrony_estimate_holdover","tick_ns":String(tick()),"reason":reason,"synthetic_feed":false])
+        } else {recycleChrony(reason)}
     }
     func recycleChrony(_ reason: String) {
+        sourceHardFences += 1
         let contaminated = feeder?.mayHaveFed == true
         feeder?.invalidate();chrony?.invalidate()
         record(["type":"source_authority_fence","tick_ns":String(tick()),"reason":reason,
@@ -179,6 +192,21 @@ final class USBInstrument {
         guard helper["event"] as? String == "sample" else {return}
         if helper["reference_valid"] as? Bool == false {displayHealth.noteLoss("USB frame reference unavailable",at:tick())}
         bridge.ingest(helper)
+        var estimateAt: UInt64?
+        if let d=helper["local_estimate"] as? [String:Any],
+           let deviceTick=(d["tick"] as? String).flatMap(UInt64.init),
+           let current=(d["current_tick"] as? String).flatMap(UInt64.init),current>=deviceTick,current-deviceTick<16000,
+           let before=(helper["precision_source_continuous_before"] as? String).flatMap(UInt64.init),
+           let after=(helper["precision_source_continuous_after"] as? String).flatMap(UInt64.init),after>=before,
+           let absolute=(helper["precision_source_absolute_before"] as? String).flatMap(UInt64.init) {
+            let scale=Double(clockScale.numer)/Double(clockScale.denom)
+            let bracket=(Double(before)+Double(after-before)/2)*scale
+            let coarse=bracket-Double(current-deviceTick)*62.5
+            let causal=bridge.counterToMachAbsoluteNS(deviceTick).map {$0+(Double(before)-Double(absolute))*scale}
+            let chosen=causal ?? coarse
+            if chosen>0,chosen<Double(UInt64.max),Double(after-before)*scale<=100_000_000 {estimateAt=UInt64(chosen)}
+        }
+        estimate.ingest(helper,now:tick(),observedAt:estimateAt,allowMap:estimateAt != nil)
         for key in ["precision_source","device_source"] {
             if helper[key+"_invalid_reason7"] as? Bool == true {
                 refuseMissingSOF("MALFORMED_SOF_OBSERVATION_WIRE",now:tick())
@@ -201,7 +229,7 @@ final class USBInstrument {
             if clock.accepted > accepted, let current = clock.latest {
                 if let old = authorityScope, old != current.scope {fenceSource("SOURCE_SCOPE_CHANGED")}
                 if authorityDeadline > 0 && tick() >= authorityDeadline {fenceSource("ORIGINAL_PERMISSION_EXPIRED")}
-                authorityScope = current.scope;authorityDeadline = clock.reportPermissionUntil;authorityRevoked = false
+                authorityScope = current.scope;authorityDeadline = clock.reportPermissionUntil;authorityRevoked = false;authorityHeld = false
                 precise.ingest(current,permissionUntil:clock.reportPermissionUntil)
                 if options.experimentalFineChrony, let map = precise.map, map.record.sequence == current.sequence {
                     let wasQuarantined = fineChrony.quarantined
@@ -276,11 +304,15 @@ final class USBInstrument {
             "display_health":displayHealth.json(now),"chrony":chronySnapshot(wall),"chrony_refclock":feeder?.json as Any? ?? ["enabled":false],
             "chrony_user_utc_ns":chronyUTC.map {String($0.ns)} as Any? ?? NSNull(),"chrony_comparison":chronyRun.json(wall.tick)]
         if options.chronyOnly {snapshot["transport"] = "CHRONY";snapshot["source_label"] = "local chronyd"}
+        snapshot["continuous_estimate"] = estimate.snapshot(now:wall.tick)
+        snapshot["source_holdovers"] = sourceHoldovers;snapshot["source_hard_fences"] = sourceHardFences
         snapshot.merge(wall.json) {_,new in new}; record(snapshot)
         if !options.interactive {
             let data = ChronyDisplaySnapshot.read(chronySnapshot(wall),feeder:feeder?.json ?? [:],comparison:chronyRun.json(wall.tick),now:wall.tick)
             let text = (options.chronyOnly ? "Local chronyd" : "\(usbDeviceLabel(usb?.selectedSerial)) USB · captured UTC \(utcReadout(reported?.seconds)) · source \(reported == nil ? "UNAVAILABLE" : "VALID") · boundary \(bridge.identity) · SOFs \(usb?.valid ?? 0) · source packets \(clock.accepted)")+(usb?.error.map {"\nUSB ERROR  "+$0} ?? "")+(!data.enabled ? "" : "\nChrony \(data.state) · user UTC \(utcReadout(chronyUTC?.seconds)) · \(data.selected)"+(managed?.error.map {" · "+$0} ?? ""))+"\n"+(ntp?.line(wall.tick) ?? "NTP checks off")+"\n"
-            display.submit {try FileHandle.standardOutput.write(contentsOf:Data(text.utf8))}
+            let held=estimate.snapshot(now:wall.tick)
+            let output=text+"Estimate "+String(describing:held["state"] ?? "UNAVAILABLE")+" · UTC ns "+String(describing:held["utc_ns"] ?? "unavailable")+" · receiver discipline age ms "+String(describing:held["observation_age_ms"] ?? "unknown")+" · inherited map age ms "+String(describing:held["inherited_map_age_ms"] ?? "unknown")+" · UNQUALIFIED\n"
+            display.submit {try FileHandle.standardOutput.write(contentsOf:Data(output.utf8))}
         }
     }
     func draw(_ now: UInt64) {
@@ -352,6 +384,12 @@ final class USBInstrument {
             "Causal bridge RMS: \(bridge.counterInnovations.n > 0 ? String(format:"%.3f us",bridge.counterInnovations.rmse/1000) : "warming") / \(bridge.counterInnovations.n) predictions",
             "Fine UTC requires verified captured PPS/UTC association."]+model.details
         if let indicator = model.lossIndicator {model.details = [indicator,"Amber requires 500ms continuous outage; reasons hold at least 500ms."]+model.details}
+        if let held=estimate.utc(now:wall.tick), !options.chronyOnly {
+            model.utc=SourceInstant(ns:held);model.utcTitle="LOCAL UTC ESTIMATE"
+            model.state=estimate.state(now:wall.tick)+" / UNQUALIFIED"
+            model.qualification="Local projection / unknown UTC error / no synthetic chrony feed"
+            model.details=["Receiver discipline age: \(estimate.ageMS(now:wall.tick)) ms","Inherited source/map age: \(estimate.inheritedMapAgeMS(now:wall.tick).map(String.init(describing:)) ?? "unknown") ms","Estimate source: \(estimate.sourceScope ?? "none")"]+model.details
+        }
         let displayScope = options.chronyOnly ? "chrony:\(chrony?.socket ?? "")" : "\(usb?.selectedSerial ?? ""):\(clock.latest.map {"\($0.boot):\($0.usbEpoch):\($0.captureEpoch)"} ?? ""):\(authorityScope ?? "")"
         readoutHold.apply(to:&model,scope:displayScope,now:now,unavailableSince:displayHealth.unavailableSince)
         var size = winsize(); _ = ioctl(STDOUT_FILENO,TIOCGWINSZ,&size)
@@ -427,11 +465,24 @@ func usbOptionsTests() -> Int {
     }
     do {
         let normal = try USBOptions(arguments:[])
+        check(try USBOptions(arguments:["--duration","7200"]).duration == 7200,"bounded two-hour observation")
         check(normal.managedChrony && normal.experimentalFineChrony,"normal launch uses managed fine input")
         check(!(try USBOptions(arguments:["--coarse-chrony"])).experimentalFineChrony,"coarse baseline requires explicit selection")
         check((try USBOptions(arguments:["--experimental-fine-chrony"])).experimentalFineChrony,"legacy fine flag remains compatible")
         let disabled = try USBOptions(arguments:["--no-chrony"])
         check(!disabled.managedChrony && !disabled.experimentalFineChrony,"USB-only mode starts no fine feeder")
+        let instrument = try USBInstrument(disabled)
+        instrument.estimate.record=["silicon":"s","boot":"b","usb_epoch":1,"capture_epoch":2]
+        instrument.estimate.counterOK=true;instrument.estimate.sourceScope="root"
+        instrument.authorityScope="s:b:1:2:root"
+        instrument.fenceSource("ORIGINAL_PERMISSION_EXPIRED")
+        check(instrument.sourceHoldovers==1 && instrument.sourceHardFences==0,"same-source expiry retains the daemon")
+        instrument.fenceSource("SOURCE_PERMISSION_WITHDRAWN_OR_UNKNOWN")
+        check(instrument.sourceHoldovers==1,"repeated quality hold is idempotent")
+        instrument.fenceSource("SOURCE_SCOPE_CHANGED")
+        check(instrument.sourceHardFences==1 && !instrument.authorityHeld,"new source escalates an existing quality hold")
+        instrument.fenceSource("SOURCE_SCOPE_CHANGED")
+        check(instrument.sourceHardFences==1,"repeated hard fence is idempotent")
         let externalArgs = ["--chrony-command-socket","/tmp/ptob-option-test.sock","--chronyc","/usr/bin/true"]
         let external = try USBOptions(arguments:externalArgs+["--chrony-sock","/tmp/ptob-option-feed.sock"])
         check(!external.managedChrony && !external.experimentalFineChrony,"external feeding retains the coarse contract")
@@ -452,7 +503,7 @@ func usbOptionsTests() -> Int {
         signal(SIGPIPE,SIG_IGN)
         do {
             let options = try USBOptions()
-            if options.test { let n = usbOptionsTests()+usbObservationTests()+usbOnlyClockTests()+usbFrameBridgeTests()+preciseClockTests()+fineChronyTests()+sofMapTests()+clockComparisonTests()+instrumentViewTests()+chronyTests()+chronyViewTests()+displayHealthTests(); print("PASS \(n) USB-only source/clock/permission/instrument/chrony checks; no hardware or BLE access") }
+            if options.test { let n = usbContinuousEstimateTests()+usbOptionsTests()+usbObservationTests()+usbOnlyClockTests()+usbFrameBridgeTests()+preciseClockTests()+fineChronyTests()+sofMapTests()+clockComparisonTests()+instrumentViewTests()+chronyTests()+chronyViewTests()+displayHealthTests(); print("PASS \(n) USB-only source/clock/permission/instrument/chrony checks; no hardware or BLE access") }
             else if let path = options.precisionReplay {let result = try replayPrecisionCapture(path);let data = try JSONSerialization.data(withJSONObject:result,options:[.sortedKeys,.prettyPrinted]);print(String(decoding:data,as:UTF8.self))}
             else if let path = options.preview {try previewInstrument(path,width:options.columns,height:options.rows,available:true,page:options.initialPage)}
             else if let path = options.report { try exportClockTrial(path,destination:options.reportOut) }

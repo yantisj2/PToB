@@ -6,9 +6,24 @@ The Objective-C helper uses IOKit/IOUSBHost for compatible vendor interfaces:
 VID `2fe3`, PID `0100`, class/subclass/protocol `ff/54/01`. Every source, captured
 SOF and marker binds to the selected serial's full silicon suffix. The helper
 does not open a CDC console. Duplicate silicon identities are refused; selection
-retains a healthy identity, rotates after 15 seconds without permitted UTC and
-five seconds backoff, and rescans on disconnect. `--device FULL_SERIAL` pins an
+retains a healthy identity, rotates after 15 seconds without an acquired usable
+clock and five seconds backoff, and rescans on disconnect. A coherent retained
+counter can preserve an already acquired local estimate; a counter-only device
+cannot pin initial automatic selection. `--device FULL_SERIAL` pins an
 exact identity across port changes. A selected SS3 CDC interface is insufficient.
+
+Readers coordinate through a per-user, per-silicon kernel file lock in a
+canonical temporary directory, independent of each process's `TMPDIR`, in
+addition to exclusive ownership of the selected USB interface. A competing
+reader is refused. The helper never seizes an interface or stops another client.
+
+Device termination or a fatal stale-interface error ends the owned helper.
+The observer releases that instance and rescans, including for a pinned serial;
+new connections allocate fresh I/O mappings. A sustained absence of timing
+responses also initiates recovery, while brief transfer errors and explicit
+source-unavailable responses have separate handling. A retained host estimate
+can continue as LOCAL ONLY during the outage. It is not evidence of USB delivery,
+and it never supplies new measurements to chrony.
 
 UTS1 source records, UFS1 frame records and UFA1 markers are decoded strictly.
 Identity, boot, source, path, USB/capture epoch, map and original expiry fences
@@ -33,3 +48,7 @@ The helper's `--self-test` parses fixtures without IOKit access. Live precision
 requests use bounded vendor-IN EP0 control transfers, currently an experimental
 transport. Control timeout diagnostics remain separate from source-permission
 gaps. No automatic device reset, firmware write or source-role change occurs.
+
+The explicitly negotiated [UTE1 local estimate](../../../docs/t096/continuous-estimate.md)
+keeps an acquired unqualified presentation clock through transient loss while
+strict observations and chrony feeds retain their original permission fences.

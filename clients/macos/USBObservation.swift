@@ -26,11 +26,13 @@ final class USBObservation {
     var lastAt: UInt64 = 0, lastEpoch: String?, epochs = 0
     var running = false, error: String?, stopping = false, sourceRecordsEnabled = false
     var helperPath: String?, diagnostic: String?
-    var selectedSerial: String?, selectedSilicon: String?, previousSerial: String?, pinnedSerial: String?
+    var selectedSerial: String?, selectedSilicon: String?, previousSerial: String?, pinnedSerial: String?, requestedSerial: String?
     var candidates: [[String:Any]] = [], identityRejections = 0
     var startedAt: UInt64 = 0, lastSourceAt: UInt64 = 0, rotating = false, identityFailed = false
     var sourceRequestFailures = 0, sourceResponseCount = 0
     var transportFailure: String?, transportFailureSince: UInt64?, transportErrorCode: Int?
+    var reconnecting = false, transportReconnects = 0
+    var reconnectSerial: String?, reconnectUntil: UInt64 = 0
     var captureAge = DurationStats(), requestRTT = DurationStats()
     var lastSequence: UInt64?, sequenceGaps: UInt64 = 0
     var backlog = 0; let admission = NSLock()
@@ -40,6 +42,7 @@ final class USBObservation {
         error = nil;diagnostic = nil;selectedSerial = nil;selectedSilicon = nil;pinnedSerial = serial
         candidates = [];startedAt = tick();lastSourceAt = 0;rotating = false;identityFailed = false
         transportFailure = nil;transportFailureSince = nil;transportErrorCode = nil
+        reconnecting = false
         sourceRecordsEnabled = sourceRecords
         let binary: URL
         do {binary = try usbHelperExecutableURL();helperPath = binary.path}
@@ -49,9 +52,10 @@ final class USBObservation {
         task.executableURL = binary
         // Eight samples/second are diagnostic snapshots. Missed 1ms frames are
         // counted by the device and never presented as continuous capture.
-        let seconds = min(3600,max(1,Int(ceil(duration))))
-        task.arguments = ["--discover","--vid","0x2fe3","--pid","0x0100",sourceRecords ? "--device-source" : "--device-sof","--samples",String(min(60000,seconds*rate)),"--interval-us",String(1_000_000/rate),"--duration-seconds",String(seconds)]
-        if let serial = serial {task.arguments?.append(contentsOf:["--serial",serial])}
+        let seconds = min(7200,max(1,Int(ceil(duration))))
+        task.arguments = ["--discover","--vid","0x2fe3","--pid","0x0100",sourceRecords ? "--device-source" : "--device-sof","--samples",String(min(460800,seconds*rate)),"--interval-us",String(1_000_000/rate),"--duration-seconds",String(seconds)]
+        requestedSerial = helperSerial(serial,at:tick())
+        if let serial = requestedSerial {task.arguments?.append(contentsOf:["--serial",serial])}
         else if let previous = previousSerial {task.arguments?.append(contentsOf:["--after-serial",previous])}
         if sourceRecords {task.arguments?.append(contentsOf:["--phase-paced","--frame-anchor"])}
         task.standardInput = FileHandle.nullDevice; task.standardOutput = out; task.standardError = err
@@ -99,6 +103,7 @@ final class USBObservation {
                 if !self.stopping {
                     if let invalid = invalid {self.error = invalid+"; retrying."}
                     else if diagnostic.contains("No eligible relay timing interface") {self.error = "No compatible USB relay available; rescanning."}
+                    else if self.reconnecting {self.error = "USB timing connection ended; rediscovering the same relay."}
                     else if self.rotating {self.error = self.transportFailure ?? "Source unavailable for 15 seconds; trying the next USB relay."}
                     else if self.error != nil {}
                     else if exitComplete && task.terminationStatus != 0 {self.error = "USB helper exited \(task.terminationStatus); press d for details. Retrying."}
@@ -114,13 +119,13 @@ final class USBObservation {
         var verified = false
         if !identityFailed, event == "manifest", selectedSerial == nil, let serial = row["serial"] as? String,
            let silicon = usbSerialSilicon(serial), row["silicon"] as? String == silicon,
-           pinnedSerial == nil || pinnedSerial == serial {
+           (requestedSerial ?? pinnedSerial) == nil || (requestedSerial ?? pinnedSerial) == serial {
             selectedSerial = serial;selectedSilicon = silicon;previousSerial = serial;verified = true
             record(["type":"usb_device_selected","tick_ns":String(at),"serial":serial,"silicon":silicon,
                 "policy":pinnedSerial == nil ? "AUTOMATIC_STICKY_WITH_SOURCE_GAP_ROTATION" : "EXPLICIT_SERIAL",
                 "candidates":candidates,"registry_id":row["registry_id"] as Any? ?? NSNull()])
         } else if !identityFailed, event == "sample", let silicon = selectedSilicon {
-            let packets = ["precision_source","device_source","device_sof","frame_anchor"].compactMap {row[$0] as? [String:Any]}
+            let packets = ["precision_source","device_source","device_sof","frame_anchor","local_estimate"].compactMap {row[$0] as? [String:Any]}
             verified = packets.allSatisfy {$0["silicon"] as? String == silicon}
         }
         if (event == "sample" || event == "manifest") && !verified {
@@ -129,9 +134,21 @@ final class USBObservation {
             terminateOwnedTask()
         }
         record(["type":"usb_raw","tick_ns":String(at),"helper":row,"identity_verified":verified])
+        if event == "transport_end", row["serial"] as? String == selectedSerial,
+           row["reason"] as? String == "STALE_INTERFACE" {
+            requestTransportReconnect(at,reason:"STALE_INTERFACE")
+        }
         guard event == "sample", verified else { return }
         lastAt = at
         observeSourceTransport(row,at:at)
+        if let estimate=row["local_estimate"] as? [String:Any],
+           estimate["counter_valid"] as? Bool == true, estimate["estimate_present"] as? Bool == true,
+           let utc=(estimate["estimate_utc_ns"] as? String).flatMap(Int64.init), utc>0,
+           let root=estimate["root"] as? String, root != "0000000000000000" {
+            // Retain an acquired clock during quality holdover. A cold peer
+            // exposing only its counter must still allow source discovery.
+            lastSourceAt=at
+        }
         if row["reference_valid"] as? Bool != true { referencesFailed += 1 }
         guard let device = (row["device_sof"] as? [String:Any]) ?? (row["precision_source"] as? [String:Any]) else { requestsFailed += 1; return }
         let precisionFrame = device["kind"] as? Int == 1 && (device["frame"] as? Int ?? 65535) < 2048
@@ -149,6 +166,7 @@ final class USBObservation {
             guard let response = row[name] else {continue}
             if response is [String:Any] {
                 sourceResponseCount += 1
+                if !reconnecting {reconnectSerial = nil;reconnectUntil = 0}
                 if let since = transportFailureSince {
                     record(["type":"usb_transport_recovered","tick_ns":String(at),"outage_ns":String(at >= since ? at-since : 0),"request":name])
                     if error == transportFailure {error = nil;diagnostic = nil}
@@ -170,10 +188,29 @@ final class USBObservation {
             }
         }
     }
-    func snapshot(_ now: UInt64) -> [String:Any] { ["running":running,"selected_serial":selectedSerial as Any? ?? NSNull(),"selected_silicon":selectedSilicon as Any? ?? NSNull(),"discovered_devices":candidates,"identity_rejections":identityRejections,"raw_valid":valid,"raw_unavailable":unavailable,"request_failures":requestsFailed,"source_request_failures":sourceRequestFailures,"source_responses":sourceResponseCount,"transport_error":transportFailure as Any? ?? NSNull(),"transport_error_code":transportErrorCode as Any? ?? NSNull(),"reference_failures":referencesFailed,"epochs":epochs,"sequence_gaps":sequenceGaps,"capture_age_nominal_ns":captureAge.json,"request_roundtrip_ns":requestRTT.json,"last_observation_age_ns":lastAt > 0 && now >= lastAt ? String(now-lastAt) as Any : NSNull(),"error":error as Any? ?? NSNull(),"helper_path":helperPath as Any? ?? NSNull(),"diagnostic":diagnostic as Any? ?? NSNull(),"frame_identity":"UNRESOLVED","source_map_export":sourceRecordsEnabled ? "CAUSAL_UTS1_V1" : "NOT_REQUESTED","served_utc":false,"precision_qualified":false] }
+    func snapshot(_ now: UInt64) -> [String:Any] { ["running":running,"selected_serial":selectedSerial as Any? ?? NSNull(),"selected_silicon":selectedSilicon as Any? ?? NSNull(),"discovered_devices":candidates,"identity_rejections":identityRejections,"raw_valid":valid,"raw_unavailable":unavailable,"request_failures":requestsFailed,"source_request_failures":sourceRequestFailures,"source_responses":sourceResponseCount,"transport_error":transportFailure as Any? ?? NSNull(),"transport_error_code":transportErrorCode as Any? ?? NSNull(),"transport_reconnects":transportReconnects,"reconnecting":reconnecting,"reference_failures":referencesFailed,"epochs":epochs,"sequence_gaps":sequenceGaps,"capture_age_nominal_ns":captureAge.json,"request_roundtrip_ns":requestRTT.json,"last_observation_age_ns":lastAt > 0 && now >= lastAt ? String(now-lastAt) as Any : NSNull(),"error":error as Any? ?? NSNull(),"helper_path":helperPath as Any? ?? NSNull(),"diagnostic":diagnostic as Any? ?? NSNull(),"frame_identity":"UNRESOLVED","source_map_export":sourceRecordsEnabled ? "CAUSAL_UTS1_V1" : "NOT_REQUESTED","served_utc":false,"precision_qualified":false] }
     var line: String { "USB raw SOF \(valid) · unavailable \(unavailable) · epochs \(epochs) · precision shadow gated: frame identity" + (error.map {" · \($0)"} ?? "") }
+    func helperSerial(_ userSerial: String?, at now: UInt64) -> String? {
+        userSerial ?? (now < reconnectUntil ? reconnectSerial : nil)
+    }
+    func requestTransportReconnect(_ now: UInt64, reason: String) {
+        guard !stopping, !reconnecting, let serial = selectedSerial else {return}
+        reconnecting = true;transportReconnects += 1
+        reconnectSerial = serial;reconnectUntil = now+30_000_000_000
+        record(["type":"usb_transport_reconnect","tick_ns":String(now),"serial":serial,"reason":reason,
+                "error_code":transportErrorCode as Any? ?? NSNull(),"policy":"SAME_SERIAL_REDISCOVERY_WITH_FRESH_BUFFERS",
+                "device_reset_requested":false])
+        terminateOwnedTask()
+    }
     func rotateIfUnavailable(_ now: UInt64) {
-        guard running, !rotating, pinnedSerial == nil, let serial = selectedSerial,
+        // Pinned clients need transport recovery too. A decoder miss is not a
+        // positive device fault, but sustained absent replies still end only
+        // our helper and obtain a new service/buffer set after the usual backoff.
+        if running, let since = transportFailureSince, now >= since,
+           now-since >= 2_000_000_000 {
+            requestTransportReconnect(now,reason:"TIMING_RESPONSES_ABSENT_FOR_2_SECONDS")
+        }
+        guard running, !rotating, !reconnecting, pinnedSerial == nil, let serial = selectedSerial,
               now >= max(startedAt,lastSourceAt), now-max(startedAt,lastSourceAt) >= 15_000_000_000 else {return}
         rotating = true
         record(["type":"usb_source_rotation","tick_ns":String(now),"serial":serial,"reason":transportFailure == nil ? "NO_PERMITTED_UTC_FOR_15_SECONDS" : "USB_TIMING_REQUESTS_UNANSWERED",

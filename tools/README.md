@@ -18,3 +18,9 @@ Run `python3 tools/verify_research.py` to verify the October 15–16 paper/expor
 hashes, USB delivery and tracking populations, and hypothetical viability model
 outputs. See the [research collection](../evidence/research/2026-10-16/README.md)
 for its reproducible subset and excluded private raw captures.
+
+Run `python3 tools/verify_stability.py` to check the selected October 16 stability
+summary hashes and aggregate accounting. The
+[collection](../evidence/stability/2026-10-16/README.md) separates controller
+recovery, upstream loss, MCU faults and USB nonresponse. Private raw logs are
+excluded; this check does not repeat their physical extraction.

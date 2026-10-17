@@ -30,4 +30,18 @@ hold is presentation only: withheld UTC remains withheld immediately.
 Chrony's estimator RMS, direct shared-source relative error and independent UTC
 accuracy are different metrics. Unknown error bounds remain unknown.
 
+With a compatible T096, the optional UTE1 response also supplies a retained
+local clock estimate. The client displays its growing observation age and
+HOLDOVER / LOCAL ONLY state separately from valid source observations. A
+same-source quality expiry pauses chrony input while preserving its owned
+process; a source or counter change still fences old training. Extrapolations
+are never fed back as measurements. See the
+[continuous-estimate contract](../../docs/t096/continuous-estimate.md).
+
+The latest [stability results](../../evidence/stability/2026-10-16/README.md)
+include persistent TC-04 USB nonresponse despite a continuing local estimate.
+Automatic rediscovery and the normal 32 Hz USB rate are implemented mitigations;
+continuous delivery remains unqualified. Use an RC USB source: the reviewed
+normal GM backend does not publish a USB source map.
+
 For a complete group, follow the [two-GM setup guide](../../docs/GETTING_STARTED.md).

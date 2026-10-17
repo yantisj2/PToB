@@ -12,8 +12,8 @@ APP = Path(__file__).resolve().parents[1]
 SDK_DEFAULT = Path(os.environ['IDF_PATH'])
 NATIVE_CASES = ('autonomous-direct', 'typed-direct', 'direct-to-rc7',
                 'changed-full-path', 'response-path-changed', 'permission-native',
-                'mapped-read-failure', 'mapped-finalize-failure', 'mapped-deliver-failure')
-SERVER_CASES = ('lock-startup', 'lock-loss', 'lock-regain', 'lock-late-connect', 'lock-drain-deadline',
+                'loss-recovery-preserved', 'retained-new-coarse-root', 'rc7-foreign-root-hint', 'retained-expiry', 'retained-clock-step', 'mapped-read-failure', 'mapped-finalize-failure', 'mapped-deliver-failure')
+SERVER_CASES = ('warm-budget-publisher', 'lock-startup', 'lock-loss', 'lock-regain', 'lock-late-connect', 'lock-drain-deadline',
                 'slot-startup-t4', 'slot-startup-conflict', 'slot-startup-weak', 'slot-startup-foreign',
                 'demand-idle', 'demand-bad-tag', 'demand-activate', 'demand-expiry', 'demand-multiple',
                 'demand-renewal', 'demand-restart', 'demand-start-expiry', 'demand-queue-expiry',

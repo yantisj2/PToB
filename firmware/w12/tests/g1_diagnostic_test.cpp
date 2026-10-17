@@ -41,6 +41,11 @@ int main(){
   assert(v12::g1_render_summary(line,sizeof line,s,UINT64_MAX,2)>0&&std::strlen(line)<sizeof line-1);
   v12::G1HciStatus hci;hci.pending_opcode=UINT16_MAX;hci.pending_at_us=1;hci.dropped=UINT32_MAX;
   const int live=v12::g1_render_live(line,sizeof line,s,log,UINT64_MAX,hci);assert(live>0&&unsigned(live)<sizeof line&&std::strstr(line,"precision=UNQUALIFIED"));
+  s.g1_admission_policy.no_source=s.g1_admission_policy.foreign_root=s.g1_admission_policy.unusable=UINT32_MAX;
+  s.g1_admission_policy.starts[0]=s.g1_admission_policy.starts[1]=s.g1_admission_policy.retry_at=UINT64_MAX;
+  assert(v12::g1_render_admission(line,sizeof line,s,UINT64_MAX)>0&&std::strlen(line)<sizeof line-1);
+  s.g1_receive_loss.begin();for(unsigned i=0;i<12;i++)s.g1_receive_loss.observe(UINT64_MAX,UINT32_MAX,UINT32_MAX);s.g1_receive_loss.freeze(UINT64_MAX);
+  for(unsigned i=0;i<8;i++){const auto n=v12::g1_render_loss(line,sizeof line,s.g1_receive_loss,i);assert(n>0&&unsigned(n)<sizeof line&&std::strstr(line,"CRC=UNKNOWN"));}
   v12::Report r{};r.kind=8;r.length=32;r.callback_us=UINT64_MAX;r.cycle=UINT32_MAX;r.handle=UINT16_MAX;
   std::memset(r.bytes,255,32);r.bytes[0]=7;r.bytes[5]=2;
   const int n=v12::g1_render_link(line,sizeof line,r);assert(n>0&&unsigned(n)<sizeof line&&std::strstr(line,"TERMINATE_ACK")&&std::strstr(line,"rc=-1"));

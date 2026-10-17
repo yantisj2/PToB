@@ -384,6 +384,16 @@ int main(int argc,char** argv){assert(argc==2);const std::string which=argv[1];
      v12::r2_stop();step(6);assert(!v12::relay_owned()&&v12::client.completed_us<v12::client.stop_deadline_us);
      puts("PASS source expiry stops advertisements and retires queued publication; fresh input needs new demand/train; invariant failure stays hard fault");return 0;
    }
+   if(which=="warm-budget-publisher"){
+     const auto train=v12::relay_map.path.node[1].train;const auto calls=connected;
+     const auto demand=v12::relay_demand_until();
+     v12::admission_policy.acquired();v12::admission_policy.started(fake_now);v12::admission_policy.failed(fake_now,20000000);
+     v12::active_poll(fake_now);
+     assert(pa_active&&ext_active[0]&&ext_active[1]&&v12::periodic_tx::tx_installed);
+     assert(v12::relay_map.path.node[1].train==train&&v12::relay_demand_until()==demand&&!v12::peer.connecting&&connected==calls&&!v12::fault);
+     v12::r2_stop();step(6);assert(v12::r2_status().off_ack);
+     puts("PASS warm retry budget does not pause capability advertising, PA publisher or retained demand");return 0;
+   }
    server_connect();auto cap=server_read();assert(cap.publishing&&cap.path.depth==1);
    v12::Rc7Client child;assert(child.make_request(cap,300,400,9,fake_now,false));
    if(which=="small-mtu"){small_mtu=true;os_mbuf b;ble_gatt_access_ctxt c{};c.op=0;c.om=&b;assert(v12::relay_access(33,0,&c,nullptr));small_mtu=false;}

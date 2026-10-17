@@ -5,6 +5,7 @@ single pooled benchmark or a statement of current firmware acceptance.
 
 | Claim or question | Evidence | Boundary |
 | --- | --- | --- |
+| Current admission/continuity fixes and unresolved USB blackouts | [October 16 stability engineering](stability/2026-10-16/README.md) | Separate v63/v67/v68/v69 and W12 observations; failures retained; no durability or UTC qualification |
 | USB/chrony delivery, oscillator-extension research and system viability | [October 15–16 research](research/2026-10-16/README.md) | Shared-source agreement; separate historical runs; hypothetical scaling models |
 | V14 boundary-clock regeneration, prospective one-RC phase, and renewal | [October 12 V14 research](v14/2026-10-12/README.md) | 504 observed edges with complete 602-opportunity accounting; fractional PPS phase, not calibrated UTC or output |
 | Prospective edge calibration and causal publication in the October 2 papers | [Historical paper collection](papers/2026-10-02/README.md) | PPS-shadow, internal compare, and W12 predictions retain different methods and populations |
@@ -25,6 +26,7 @@ Run from the repository root with Python 3.9 or newer:
 python3 tools/verify_evidence.py
 python3 tools/verify_v14.py
 python3 tools/verify_research.py
+python3 tools/verify_stability.py
 ```
 
 This checks all imported evidence files against the [import manifest](imports/2026-10-09.json)
@@ -34,6 +36,8 @@ recomputes both PPS populations and diagnostic deltas, and verifies printed
 proposal tables/examples. Its [verification record](v14/2026-10-12/verification-2026-10-13.json)
 separates fresh checks from historical C, raw-extraction, and hardware results.
 The v12 model has its own [standalone test instructions](v12/model/README.md).
+The stability command checks the selected public summary hashes and aggregate
+accounting; private raw logs are excluded, so physical extraction is not reproduced.
 The [local verification record](imports/verification-2026-10-09.json) distinguishes
 checks rerun for this import from historical results.
 
