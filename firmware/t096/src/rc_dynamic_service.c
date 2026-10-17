@@ -1284,7 +1284,10 @@ static void captures(struct r2_capture now) {
         struct r2_capture activation;
         bool activation_known = r2_capture_now(&activation);
 #ifdef R2_USB_SOURCE_STREAM
-        if(activation_known)r2_usb_source_begin(activation.tick,activation.epoch);
+        if(activation_known){
+          struct r2_uc_clock previous=clock_offer(activation.tick);
+          r2_usb_source_prepare(activation.tick,activation.epoch,&previous);
+        }
         else r2_usb_source_withdraw();
 #endif
         bool disciplined =

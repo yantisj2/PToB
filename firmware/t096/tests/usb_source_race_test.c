@@ -5,6 +5,7 @@
 static struct r2_uc_clock replacement;
 static void publish_new(void){r2_usb_source_publish(&replacement);}
 static void begin_new(void){r2_usb_source_begin(sampled.tick,sampled.epoch);}
+static void prepare_same(void){r2_usb_source_prepare(sampled.tick,sampled.epoch,&replacement);}
 int main(void){
  publication_cases();sequence=0;
  struct usb_setup_packet s={0xc1,0x57,0,2,256};int32_t length;uint8_t *p;
@@ -19,6 +20,8 @@ int main(void){
  assert(!r2_usb_source_request(&s,&length,&p)&&get(p+36,4)==4&&!get(p+64,8));
  sampled.tick=202000;raw(203000,204000);
  assert(!r2_usb_source_request(&s,&length,&p)&&get(p+36,4)==31&&get(p+80,8)==20);
+ project_hook=prepare_same;
+ assert(!r2_usb_source_request(&s,&length,&p)&&get(p+36,4)==31);
  project_hook=begin_new;
  assert(!r2_usb_source_request(&s,&length,&p)&&get(p+36,4)==4&&!get(p+64,8));
  revision=UINT32_MAX;

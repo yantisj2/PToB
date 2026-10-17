@@ -24,6 +24,11 @@ static uint32_t sequence,overwrites,revision;
 static void changed(void){if(revision<UINT32_MAX)++revision;}
 static bool busy,permission,estimate_current;
 static uint8_t wire[256];
+static bool same_scope(const struct r2_uc_clock *a,const struct r2_uc_clock *b){
+ return a->capture_epoch==b->capture_epoch&&a->origin.root==b->origin.root&&
+  a->origin.boot==b->origin.boot&&a->origin.epoch==b->origin.epoch&&
+  a->origin.utc_offset==b->origin.utc_offset&&!memcmp(a->scope,b->scope,16);
+}
 void r2_usb_source_init(const struct r2_identity *id){
  if(!id||id->result)return;
  boot=id->boot;
@@ -32,6 +37,20 @@ void r2_usb_source_init(const struct r2_identity *id){
 void r2_usb_source_begin(uint64_t activation,uint64_t capture_epoch){
  k_spinlock_key_t key=k_spin_lock(&map_lock);changed();
  if(!busy){transition_tick=activation;transition_epoch=capture_epoch;}busy=true;
+ k_spin_unlock(&map_lock,key);
+}
+void r2_usb_source_prepare(uint64_t activation,uint64_t capture_epoch,
+                           const struct r2_uc_clock *previous){
+ k_spinlock_key_t key=k_spin_lock(&map_lock);
+ const struct r2_uc_clock *published=&maps[0].clock;
+ bool compatible=previous&&previous->valid&&permission&&!busy&&maps[0].set&&
+  capture_epoch==published->capture_epoch&&same_scope(previous,published)&&
+  activation<published->until_tick&&
+  previous->map.generation==published->map.generation;
+ /* Preparation does not change the previously committed observation contract.
+  * Its map, source envelope and session deadlines remain immutable. Commit
+  * closes that interval at publication; the new map is never backdated. */
+ if(!compatible){changed();if(!busy){transition_tick=activation;transition_epoch=capture_epoch;}busy=true;}
  k_spin_unlock(&map_lock,key);
 }
 void r2_usb_source_withdraw(void){
@@ -100,6 +119,15 @@ static bool snapshot_map(unsigned index,uint32_t expected,struct published_map *
  r2_health_lock_leave(mask);irq_unlock(mask);
 #endif
  return ok;
+}
+/* An older applicable map can supply UTE1 only in the currently published
+ * authenticated scope. Keep its original discipline/source/session fields,
+ * rather than replacing them with a newer, inapplicable generation. */
+static bool snapshot_scope(uint32_t expected,const struct published_map *map){
+ k_spinlock_key_t key=k_spin_lock(&map_lock);
+ bool ok=revision==expected&&revision!=UINT32_MAX&&maps[0].set&&
+  same_scope(&map->clock,&maps[0].clock);
+ k_spin_unlock(&map_lock,key);return ok;
 }
 static void write_metadata(const struct published_map *metadata,uint64_t current){
  const struct r2_uc_clock *c=&metadata->clock;
@@ -173,8 +201,9 @@ int r2_usb_source_request(struct usb_setup_packet *setup,int32_t *length,uint8_t
  bool extended=setup->bRequest==0x57,estimate_ok=false;
  uint64_t projected=0,elapsed_est=0,current_est=0;
  if(extended&&!raced){
-  if(!snapshot_map(2,expected,&local))raced=true;
-  else if(captured&&!was_busy&&local.set&&raw.capture_epoch==local.clock.capture_epoch&&
+  if(found&&local.clock.estimate){if(!snapshot_scope(expected,&local))raced=true;}
+  else if(!snapshot_map(2,expected,&local))raced=true;
+  if(!raced&&captured&&!was_busy&&local.set&&raw.capture_epoch==local.clock.capture_epoch&&
      event>=local.lo&&event>=local.clock.discipline_tick&&
      rc5_map_project(&local.clock.map,event,&projected,&elapsed_est)&&
      rc5_map_project(&local.clock.map,raw.current_tick,&current_est,&elapsed_est)&&projected<=INT64_MAX){

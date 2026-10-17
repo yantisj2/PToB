@@ -2,6 +2,19 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 17 October 2026 — T096 USB map handoff
+
+T096 **0.15.71** keeps an already published, compatible USB map usable while
+the next discipline is prepared. The old projection retains its original map,
+source and session deadlines; the new projection starts at publication. UTE1
+can return the older map for its applicable SOF instead of replacing it with a
+newer generation that does not cover that observation. Root, boot, capture,
+path, UTC-offset changes and concurrent withdrawal still fence old authority.
+Production-body tests reproduce the previous preparation gap and check both
+sides of commit, original expiry and incompatible-scope rejection. This repairs
+an unnecessary observation gap, without claiming repair of the independent USB
+transport failure or extending timing authority.
+
 ## 17 October 2026 — T096 precision scheduling candidate
 
 T096 **0.15.70** gives reserved periodic TX/RX events precedence over admission,

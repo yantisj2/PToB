@@ -92,6 +92,31 @@ int main(void){
  c.origin.root=20;c.discipline_tick=1900000;r2_usb_source_publish(&c);
  raw(1999000,2001000);assert(!r2_usb_source_request(&s,&length,&p)&&!(get(p+36,4)&2));
  raw(2001000,2002000);assert(!r2_usb_source_request(&s,&length,&p)&&(get(p+36,4)&2)&&get(p+80,8)==20);
+ /* Same-scope preparation is not withdrawal. The old published map remains
+  * usable at its ORIGINAL deadlines; a later map never applies backwards. */
+ r2_usb_source_withdraw();sampled.tick=3000000;c.map.generation=42;
+ c.map.effective=c.map.anchor_tick=c.discipline_tick=2900000;
+ c.until_tick=11000000;c.session_until=50000000;r2_usb_source_publish(&c);
+ uint32_t before_prepare=revision;
+#ifdef R2_USB_LEGACY_HANDOFF
+ r2_usb_source_begin(3050000,1);
+#else
+ r2_usb_source_prepare(3050000,1,&c);
+#endif
+ assert(!busy&&revision==before_prepare);
+ raw(3100000,3101000);assert(!r2_usb_source_request(&s,&length,&p)&&(get(p+36,4)&1)&&get(p+100,4)==42&&get(p+104,8)==11000000);
+ c.until_tick=20000000;r2_usb_source_prepare(3101000,1,&c);
+ assert(maps[0].clock.until_tick==11000000); /* preparation cannot renew */
+ sampled.tick=3200000;c.map.generation=43;c.map.effective=c.map.anchor_tick=c.discipline_tick=3150000;c.until_tick=12000000;
+ r2_usb_source_publish(&c);assert(maps[1].hi==3200000&&maps[0].lo==3200000);
+ raw(3195000,3201000);assert(!r2_usb_source_request(&s,&length,&p)&&(get(p+36,4)&1)&&get(p+100,4)==42&&get(p+232,8)==2900000);
+ raw(3201000,3202000);assert(!r2_usb_source_request(&s,&length,&p)&&(get(p+36,4)&1)&&get(p+100,4)==43);
+ maps[1].clock.until_tick=3201000;raw(3195000,3201000);
+ assert(!r2_usb_source_request(&s,&length,&p)&&!(get(p+36,4)&1));
+ ++c.capture_epoch;r2_usb_source_prepare(3300000,2,&c);assert(busy);
+ raw(3300000,3301000);assert(!r2_usb_source_request(&s,&length,&p)&&!(get(p+36,4)&1));
+ --c.capture_epoch;++c.origin.boot;sampled.tick=3400000;c.map.generation=44;r2_usb_source_publish(&c);
+ raw(3395000,3401000);assert(!r2_usb_source_request(&s,&length,&p)&&!(get(p+36,4)&1));
  sequence=UINT32_MAX;assert(!r2_usb_source_request(&s,&length,&p)&&!(get(p+36,4)&3)&&!get(p+64,8)&&!get(p+248,4));
  printf("PASS causal UTC/SOF map publication, old generation, explicit gap, expiry, capture/USB/withdraw fences, request guards; map bank %zuB\n",sizeof maps);
  return 0;

@@ -38,6 +38,14 @@ its publication interval; counter/capture discontinuity and arithmetic failure
 fence projection. Polls and control traffic do not reset discipline age. A
 source change creates a provenance segment; it cannot transfer phase authority.
 
+From 0.15.71, preparing a same-scope discipline leaves the previously published
+map usable until its own original deadlines or replacement at publication.
+UTE1 may describe that older map when it covers the captured SOF, including its
+original discipline tick and original source/session deadlines. It does not
+substitute newer metadata or backdate the new map. Incompatible capture, root,
+boot, path or UTC-offset changes retain the preparation fence. A concurrent
+publication or withdrawal still invalidates an unfinished response.
+
 ## Host lifecycle
 
 The client retains the selected transport and counter/SOF fit during degraded
