@@ -2,6 +2,17 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 17 October 2026 — fractional phase dispatch correction
+
+T096 **0.15.73** includes the fractional phase field in the controller's
+empty-update check. The v0.15.70–72 dispatcher rejected a fractional-only
+request before it reached the phase adjustment, returning a bounded error while
+leaving the existing legal-slot withdrawal checks active. The regression now
+executes the generated queued API and actual dispatcher for both directions,
+and verifies rejection of genuinely empty/stopped requests and deferral of an
+expired event. The earlier dispatch logic fails this regression. No ticker
+interval, source deadline or control priority changes in this correction.
+
 ## 17 October 2026 — bounded USB SOF coherence retry
 
 T096 **0.15.72** retries a hardware SOF snapshot once when a frame arrives

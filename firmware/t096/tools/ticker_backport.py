@@ -43,6 +43,12 @@ def generate(deps,out):
                 'struct ticker_user_op_update {\n\tint8_t r2_phase_us;')
             fixed=fixed.replace('user_op->params.update.ticks_drift_plus = ticks_drift_plus;',
                 'user_op->params.update.r2_phase_us = 0;\n\tuser_op->params.update.ticks_drift_plus = ticks_drift_plus;')
+            # A fractional-only request is real work. The stock dispatcher
+            # rejects updates with every stock field zero before node_update.
+            empty='(user_op->params.update.ticks_drift_plus == 0U) &&'
+            assert fixed.count(empty)==1
+            fixed=fixed.replace(empty,
+                '(user_op->params.update.r2_phase_us == 0) &&\n\t\t\t     '+empty)
             marker='static inline uint32_t ticker_job_node_update('
             helper='''static int r2_ticker_remainder_step(uint32_t *remainder, int8_t us)
 {
