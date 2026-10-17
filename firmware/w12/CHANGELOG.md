@@ -2,6 +2,21 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 0.1.7 — 16 October 2026
+
+- Isolate GNSS-aid and command ownership status snapshots in separate non-inlined
+  functions. Their full `R2Status` copies no longer remain in the main loop or
+  parser frames while rendering another complete status response. The first
+  attached-unit 0.1.6 candidate overflowed task main on its startup status request;
+  build and native host checks had passed. The failed candidate was withdrawn.
+- Keep the configured 12,288-byte main task stack. Build and standalone inspection
+  now require retained GCC static frame measurements for selected main-task
+  paths, with a 4,096-byte reserve for uncounted callees. Reject missing, ambiguous
+  or dynamic frame evidence. A regression rejects the observed 11,216-byte
+  nested status path. This check is not a complete call-graph proof or a runtime
+  reliability claim; exact-unit watermark observation remains required. The
+  historical `main_stack_free_words` field is byte-valued on the pinned SDK.
+
 ## 0.1.6 — 16 October 2026
 
 - Keep an acquired direct parent and its periodic receiver through authenticated

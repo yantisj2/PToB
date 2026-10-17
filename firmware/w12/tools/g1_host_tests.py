@@ -79,6 +79,7 @@ def main():
     run([out/'bounded-log-tests'],'bounded-log-expiry-control-byte-evidence')
     run([CXX,'-std=c++20',*flags,'-I'+str(APP/'legacy'),APP/'tests/l76k_aid_test.cpp','-o',out/'l76k-aid-tests'],'l76k-aid-build')
     run([out/'l76k-aid-tests'],'l76k-aid-time-uncertainty-refusals-ack')
+    run(['python3',APP/'tests/main_stack_budget_test.py'],'actual-main-stack-budget-regression')
     run(['python3',APP/'tools/status_budget_test.py'],'actual-status-capacity')
     run(['python3',APP/'tools/status_budget_test.py','--gps-shadow'],'C3-shadow-status-capacity')
     run(['python3',APP/'tools/status_budget_test.py','--rc7-estimate'],'RC7-estimate-status-capacity')

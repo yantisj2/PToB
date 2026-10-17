@@ -38,6 +38,9 @@
 #include <cstdio>
 #include <cstring>
 #include <cinttypes>
+// ESP-IDF Xtensa reports high-water marks in bytes. Keep the historical
+// main_stack_free_words console key compatible; its value is bytes here.
+static_assert(sizeof(StackType_t)==1,"W12 main stack watermark unit changed");
 namespace {
 gptimer_handle_t clock_timer=nullptr;
 uint64_t session=0,last_ui=0,console_bytes=0,console_work=0;
@@ -433,6 +436,11 @@ void stop_all(){
   v12::r2_stop();
 #endif
   v12::transport_stop();v12::direct_stop();v12::diagnostic_tx_stop();v12::lora_request(false,0);}
+#ifdef V12_R2_ENABLED
+// Keep the whole status snapshot out of command's frame. A read-only status
+// response calls status() from this parser and must not stack both snapshots.
+[[gnu::noinline]] bool r2_command_off_ack(){return v12::r2_status().off_ack;}
+#endif
 void command(const char* text){
   // Unbound OFF is a safety-only stop request. It carries no completed/fresh
   // receipt and cannot admit or prolong any RF/capture operation.
@@ -487,7 +495,7 @@ void command(const char* text){
   else if(std::sscanf(action,"r2 %11s %" SCNu32 " %c",mode,&duration,&extra)==2){
     const auto chosen=!std::strcmp(mode,"passive")?v12::R2Mode::Passive:!std::strcmp(mode,"active")?v12::R2Mode::Active:v12::R2Mode::Off;
     const auto ls=v12::lora_status();const bool ok=!ls.enabled&&!ls.requested&&!ls.worker_busy&&ls.off_acknowledged&&!ls.failed&&v12::r2_request(chosen,duration,nonce);last_command={nonce,admitted,ok,"R2",ok?"FINITE_R2_ORIGINAL_LEASE":"R2_RESOURCE_PROFILE_OR_BOUND"};
-  }else if(!v12::r2_status().off_ack&&std::strncmp(action,"capture ",8)){last_command.reason="R2_OWNS_BLE";}
+  }else if(!r2_command_off_ack()&&std::strncmp(action,"capture ",8)){last_command.reason="R2_OWNS_BLE";}
 #endif
   else if(!std::strcmp(action,"capture stop")){
     v12::capture_stop();last_command={nonce,admitted,true,"CAPTURE_STOP","OBSERVER_ONLY_SERVICE_UNCHANGED"};
@@ -612,6 +620,16 @@ void input(){
 #ifdef V12_R2_ENABLED
 [[gnu::noinline]] bool r2_authority_update_needed(){return dashboard.needs_authority_update(v12::r2_status());}
 #endif
+#if defined(V12_R2_ENABLED) && V12_R2_CONFIG == 13 && !defined(V12_GPS_SHADOW_OBSERVER)
+[[gnu::noinline]] void aid_gnss_from_ble(){
+  // Preserve the existing authenticated JOIN snapshot and aid gates. Do not
+  // reserve this large snapshot across every other operation in app_main().
+  const auto aid=v12::r2_status();
+  if(!update_gate.latched() && aid.requested && !aid.fault && aid.following && aid.group_member)
+    gnss_pps::aid_time({true,aid.follower_utc_us,aid.follower_snapshot_us,aid.follower_received_us,
+      aid.service_until_us,aid.root_identity,aid.root_boot,uint32_t(aid.g1_anchor_guard_us),aid.source_epoch,aid.publication},micros());
+}
+#endif
 
 }
 extern "C" bool IRAM_ATTR clock_reference_read(uint64_t* count){
@@ -683,12 +701,7 @@ extern "C" void app_main(){
     observe_gps_actuator();
 #else
 #if defined(V12_R2_ENABLED) && V12_R2_CONFIG == 13
-    // Snapshot was published by the BLE owner after authenticated JOIN. The
-    // GNSS main-task consumer rechecks age, original expiry and uncertainty.
-    const auto aid=v12::r2_status();
-    if(!update_gate.latched() && aid.requested && !aid.fault && aid.following && aid.group_member)
-      gnss_pps::aid_time({true,aid.follower_utc_us,aid.follower_snapshot_us,aid.follower_received_us,
-        aid.service_until_us,aid.root_identity,aid.root_boot,uint32_t(aid.g1_anchor_guard_us),aid.source_epoch,aid.publication},micros());
+    aid_gnss_from_ble();
 #endif
 #endif
 #ifdef V12_GPS_SHADOW_OBSERVER

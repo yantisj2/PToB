@@ -129,6 +129,18 @@ boot, with explicit counters for later expiries/reacquisitions and unavailable
 later detail. The ordinary V3 status frame remains the
 same size and does not enable capture by itself.
 
+Version 0.1.7 isolates large status snapshots from the main loop and command
+parser. The 0.1.6 attached candidate overflowed task main on its initial status
+request despite passing offline checks; that candidate is withdrawn. The main
+stack remains 12,288 bytes. New builds and standalone inspection check retained
+GCC `.su` frames on selected main-task paths, including the nested status path,
+with 4,096 bytes reserved for uncounted callees. Missing, ambiguous or dynamic
+frame evidence fails closed. This is a regression bound, not a complete
+call-graph proof; observe `main_stack_free_words` on the exact installed image
+through normal status and bounded capture before accepting operational behavior.
+That historical console key reports **bytes** on the pinned ESP-IDF Xtensa port
+(`StackType_t` is one byte); do not multiply it by four.
+
 A candidate requires a clean local commit. `--development` explicitly marks an
 uncommitted build as unflashable. Build receipts bind source, SDK, effective
 configuration, generated local inputs, registry, compiler and application bytes.
