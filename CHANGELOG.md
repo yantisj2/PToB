@@ -2,6 +2,19 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 17 October 2026 — USB timing paper refresh
+
+The USB/macOS research draft replaces its October 15 main results with the
+fixed concurrent 180-second RC v0.15.81/DC v0.15.80 comparison. It separates
+valid USB replies, corrected-source RX predictions, chrony estimator queries,
+shared-source delivered agreement and sampled availability, preserving rejected,
+warm-up and withheld counts. The bus was **shared, not clean**; isolated-controller
+validation, completed two-hour trials, PPS/UTC commissioning and independent
+endpoint calibration remain pending. Prior editions and historical failures
+remain in Git and their immutable evidence collections. The matching source/PDF,
+new edition manifest and offline identity/accounting checks are updated together;
+the paper remains a draft and is shorter than the prior 11-page edition.
+
 ## 17 October 2026 — shared DC/RC USB publication
 
 T096 **0.15.81** moves DC's unchanged-map publication rule into the existing

@@ -21,8 +21,9 @@ python3 tools/verify_research.py
 
 The verifier checks all 23 selected import hashes, recomputes the USB delivery
 populations and RMS, checks tracking populations/startup, and regenerates the
-viability model outputs in a temporary directory. It needs only Python's standard
-library and does not read private captures or operate hardware.
+viability model outputs in a temporary directory. It uses Python's standard
+library and Git to obtain superseded paper bytes from preserved public history;
+it does not read private captures or operate hardware.
 
 | USB/chrony population | Denominator | Valid / withheld | Result |
 | --- | --- | --- | --- |

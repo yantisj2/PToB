@@ -1,0 +1,101 @@
+{
+  "schema": 1,
+  "edition_date": "2026-10-17",
+  "status": "RESEARCH_DRAFT_NOT_SUBMITTED_NOT_PUBLICATION",
+  "author": "Jonathan Yantis",
+  "license": "MIT",
+  "paper_license": "CC-BY-4.0",
+  "previous_edition": {
+    "revision": "6c6f1b27752e5f31906e8de08bc148205699c045",
+    "edition_date": "2026-10-15",
+    "receipt": "papers/imports/research-2026-10-16.json",
+    "files": [
+      {
+        "path": "papers/usb-macos-time-transfer-preprint.tex",
+        "sha256": "c1d165b409d2fad798b27327a1b9b8cebb1bad7c4fe7d88a3a62729b7091f27a"
+      },
+      {
+        "path": "papers/usb-macos-time-transfer-preprint.pdf",
+        "sha256": "f1cb7b9977922216429c3ee6eaa1b23f36a7ac4d37ca62fcdef5ca677ef7ee1d"
+      }
+    ],
+    "preservation": "Prior source/PDF bytes remain in Git; frozen import and evidence hashes are unchanged."
+  },
+  "files": [
+    {
+      "path": "papers/usb-macos-time-transfer-preprint.tex",
+      "sha256": "d11028a952f4542b8ea78beaaeb00da475f40fa1cf681be34976877c6b17ba7f",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "papers/usb-macos-time-transfer-preprint.pdf",
+      "sha256": "e17815b262da6059702e4cad0f9be55909d36a7e521679c5f0ad42a29a95a3d5",
+      "license": "CC-BY-4.0"
+    }
+  ],
+  "evidence": [
+    {
+      "path": "clients/macos/results/2026-10-17-ble-vs-direct.json",
+      "sha256": "1138ab0dd6c42116f3dd994d7b5d9c22b065150d5040b5b06ef551e3b8615f14",
+      "license": "CC-BY-4.0",
+      "kind": "Selected public summary; raw native captures excluded",
+      "source_revision": "a71ae75bc240d2681b300eb9ac38bf2a926d4be1"
+    }
+  ],
+  "evidence_cutoff": {
+    "selection_date": "2026-10-17",
+    "window_end_approx_utc": "2026-10-17T17:45:10Z",
+    "window_host_monotonic_ns": [
+      "421936502374750",
+      "422116502374750"
+    ],
+    "duration_s": 180,
+    "both_extended_trials_complete": false
+  },
+  "compiler": {
+    "engine": "Tectonic",
+    "version": "0.17.0",
+    "binary_sha256": "218ff446467babc9f3b9c0f7de64c0f62c91c2abd1bf908e595beeaa8a4b8885",
+    "public_bundle_id": "6ffe055852f8faf66c0acbe1a7fb27f87b869a90bad1204f3bf4d9683f597c7c",
+    "command": "tectonic --keep-logs --outdir artifacts/papers papers/usb-macos-time-transfer-preprint.tex",
+    "standalone": true,
+    "desktop_editor_compile": "SUCCESS",
+    "warnings": false
+  },
+  "length": {
+    "before": {
+      "pages": 11,
+      "pdf_extracted_words": 5324,
+      "source_prose_words": 4332
+    },
+    "after": {
+      "pages": 9,
+      "pdf_extracted_words": 4678,
+      "source_prose_words": 3857
+    },
+    "pdf_word_method": "pdftotext -layout, then whitespace-delimited words; includes headings, tables, references and running text",
+    "source_prose_method": "Before bibliography, remove table/figure/equation environments and TeX command names, replace TeX grouping/math separators with spaces, then split on whitespace. Includes headings/title and inline content. Same algorithm for both editions.",
+    "layout": "Existing 11pt article, 0.85in margins and bibliography scale retained; no type reduction."
+  },
+  "review": {
+    "compiled_source_sha256": "d11028a952f4542b8ea78beaaeb00da475f40fa1cf681be34976877c6b17ba7f",
+    "exported_pdf_sha256": "e17815b262da6059702e4cad0f9be55909d36a7e521679c5f0ad42a29a95a3d5",
+    "all_pages_rendered_and_visually_inspected": true,
+    "pages_reviewed": 9,
+    "tables": 2,
+    "figures": 0,
+    "references": 15,
+    "unresolved_references": false,
+    "overfull_or_underfull_warnings": false,
+    "privacy": "No raw logs, private paths, enrollment, actual device bindings or installed images added."
+  },
+  "limitations": [
+    "Shared USB bus; clean-bus validation is pending. Direct-port frame identity does not establish a quiet or isolated controller.",
+    "Same measurement methods/configuration/window, separate physical GNSS source chains. No controlled effect or superiority claim.",
+    "Window is after acquisition; no complete-trial, startup or continuous-delivery qualification. All withheld rows and hardware rejects within window remain in counts.",
+    "RC first post-readback capture had delayed BLE acquisition and no usable UTC for 60 s. It is retained separately from the settled comparison; acquisition behavior remains under investigation.",
+    "PPS-to-UTC association, host/PHY bias and independent UTC accuracy remain unqualified.",
+    "The requested two-hour trials were still in progress when this fixed window was selected."
+  ],
+  "verification": "python3 tools/verify_research.py; verifies current hashes, summary accounting and claim values, and the frozen historical subset using preserved Git bytes. It does not reconstruct physical results from private captures."
+}

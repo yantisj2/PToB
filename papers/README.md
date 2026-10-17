@@ -1,9 +1,10 @@
 # Research papers — drafts
 
-These are working drafts by **Jonathan Yantis**. The latest research additions are the **15–16 October 2026** USB/chrony,
+These are working drafts by **Jonathan Yantis**. The latest research additions are the **15–17 October 2026** USB/chrony,
 White Rabbit and viability papers. The V14 service/profile proposal retains its
 **12 October** edition. All remain discussion/research drafts, without standards
-adoption or firmware qualification. Imported source and PDF bytes are unchanged.
+adoption or firmware qualification. Earlier import receipts retain their original
+byte identities; later editions are recorded separately.
 
 ## Main paper: PToB Viability
 
@@ -19,11 +20,16 @@ draft status.
 
 | Draft | Read | Edit | Edition |
 | --- | --- | --- | --- |
-| Beyond USB Packet Arrival: Frame-Identified Time Transfer to macOS | [PDF](usb-macos-time-transfer-preprint.pdf) | [LaTeX](usb-macos-time-transfer-preprint.tex) | 15 October 2026, 11-page chrony revision |
+| Beyond USB Packet Arrival: Frame-Identified Time Transfer to macOS | [PDF](usb-macos-time-transfer-preprint.pdf) | [LaTeX](usb-macos-time-transfer-preprint.tex) | 17 October 2026, shared-bus RC/DC revision |
 | From Virtual Clock Discipline to Physical Synchronization: White Rabbit Lessons for PToB and Future Tunable Targets | [PDF](white-rabbit-study-20261015.pdf) | [LaTeX](white-rabbit-study-20261015.tex) | 15 October 2026 |
 
-The [edition receipt](imports/research-2026-10-16.json) binds all three matching
-source/PDF pairs and selected research exports. The
+The USB paper now has a [17 October edition manifest](editions/usb-macos-2026-10-17.json),
+replacing its main results with a fixed concurrent 180-second RC/DC window.
+The bus was shared, not clean; isolated-controller validation and completed
+extended trials remain pending. USB replies, causal RX prediction, chrony
+estimator, delivered agreement and sampled availability retain separate counts.
+The [original edition receipt](imports/research-2026-10-16.json) binds the earlier
+three source/PDF pairs and selected research exports, preserved through Git. The
 [research collection](../evidence/research/2026-10-16/README.md) includes USB delivery
 and tracking samples and reproducible hypothetical viability tables. It retains
 withheld samples, startup excursions and the distinction between relative clock
