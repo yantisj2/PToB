@@ -65,6 +65,31 @@ static NSDictionary *sourceRecord(NSData *data,unsigned kind) {
     NSMutableString *scope=[NSMutableString string];for(unsigned i=0;i<16;i++)[scope appendFormat:@"%02x",p[200+i]];d[@"path_scope"]=scope;
     return d;
 }
+// Explicit UTE1 request only. Never reinterpret a UTS1 valid bit or accept
+// held projections as fresh observations. The returned legacy view is fenced.
+static NSDictionary *estimateRecord(NSData *data, NSDictionary **observation) {
+    if(data.length!=256)return nil;const uint8_t *p=data.bytes;
+    uint32_t flags=(uint32_t)little(p+36,4),state=(uint32_t)little(p+248,4);
+    if(memcmp(p,"UTE1",4)||little(p+4,2)!=1||little(p+6,2)!=256||
+       p[72]!=1||little(p+42,2)!=1||(flags&~31u)||state>2||
+       ((flags&1)&&((flags&30)!=30))||((flags&2)&&(!(flags&4)||!state))||
+       (!(flags&2)&&state))return nil;
+    NSMutableData *legacy=[data mutableCopy];uint8_t *q=legacy.mutableBytes;
+    memcpy(q,"UTS1",4);memset(q+36,0,4);q[36]=flags&1;
+    if(!(flags&1)){memset(q+64,0,8);memset(q+220,0,4);q[220]=1;}
+    memset(q+232,0,24);
+    NSDictionary *base=sourceRecord(legacy,1);if(!base)return nil;
+    if(observation)*observation=base;
+    NSMutableDictionary *d=[base mutableCopy];
+    d[@"schema"]=@1;d[@"contract"]=@"UTE1";d[@"flags"]=@(flags);
+    d[@"estimate_present"]=@((flags&2)!=0);d[@"counter_valid"]=@((flags&4)!=0);
+    d[@"session_current"]=@((flags&8)!=0);d[@"root_envelope_current"]=@((flags&16)!=0);
+    d[@"estimate_utc_ns"]=integer((int64_t)little(p+64,8));
+    d[@"last_discipline_tick"]=integer(little(p+232,8));
+    d[@"session_until_tick"]=integer(little(p+240,8));d[@"tracking_state"]=@(state);
+    d[@"estimate_reason"]=@(little(p+252,4));d[@"measurement"]=@NO;
+    d[@"uncertainty"]=@"UNKNOWN";return d;
+}
 // Preserve an attributable flags0 observation rejection even if its enclosing
 // packet is short or malformed. A decoded dictionary is validated by the host.
 static bool invalidReason7(NSData *data,NSUInteger transferred,NSDictionary *decoded) {
@@ -236,6 +261,14 @@ int main(int argc, const char **argv) {
         q[41]=8;if(sourceRecord(source,1))return 1;q[41]=7;
         q[4]=2;if(sourceRecord(source,1))return 1;q[4]=1;
         if(sourceRecord([NSMutableData dataWithLength:255],1))return 1;
+        memcpy(q,"UTE1",4);q[36]=31;q[248]=1;
+        NSDictionary *legacy=nil,*est=estimateRecord(source,&legacy);
+        if(!est||![legacy[@"valid"] boolValue]||sourceRecord(source,1))return 1;
+        q[36]=6;q[248]=2;est=estimateRecord(source,&legacy);
+        if(!est||[legacy[@"valid"] boolValue]||![legacy[@"utc_ns"] isEqual:@"0"])return 1;
+        q[36]=7;if(estimateRecord(source,&legacy))return 1;
+        q[36]=6;q[248]=0;if(estimateRecord(source,&legacy))return 1;
+        memcpy(q,"UTS1",4);q[36]=1;q[248]=0;
         q[72]=2;q[40]=q[41]=0xff;if(!sourceRecord(source,2))return 1;
         q[72]=1;q[40]=3;q[41]=0;q[36]=0;q[220]=7;memcpy(q+232,"USM1",4);q[236]=1;q[238]=24;q[240]=42;q[248]=1;
         NSDictionary *observation=sourceRecord(source,1)[@"sof_map_metadata"];
@@ -315,6 +348,8 @@ int main(int argc, const char **argv) {
     uint64_t period=(uint64_t)((unsigned __int128)interval*1000*tb.denom/tb.numer);
     uint64_t nextSample=started+period,skippedSlots=0;
     uint64_t nextSource=started;uint16_t anchorToken=0;
+    int estimateCapability=0; //0 probe,1 negotiated,-1 legacy (one fallback)
+
     const uint64_t limit = (uint64_t)((unsigned __int128)duration*1000000000ULL * tb.denom / tb.numer);
     for (uint64_t i = 0; i < samples && !interrupted; i++) { @autoreleasepool {
         if (mach_continuous_time() - started >= limit) break;
@@ -389,13 +424,24 @@ int main(int argc, const char **argv) {
             for(unsigned kind=1;kind<=2;kind++){
                 if(kind==2&&mach_continuous_time()<nextSource)continue;
                 NSError *requestError=nil;NSMutableData *buffer=[object ioDataWithCapacity:256 error:&requestError];NSUInteger transferred=0;
-                IOUSBDeviceRequest request={.bmRequestType=0xc1,.bRequest=kind==1?0x53:0x52,.wValue=0,.wIndex=(uint16_t)interface,.wLength=256};
+                IOUSBDeviceRequest request={.bmRequestType=0xc1,.bRequest=kind==1?(estimateCapability>=0?0x57:0x53):0x52,.wValue=0,.wIndex=(uint16_t)interface,.wLength=256};
                 uint64_t a=mach_absolute_time(),c=mach_continuous_time();
                 uint64_t wallBefore=clock_gettime_nsec_np(CLOCK_REALTIME);
                 BOOL sent=buffer&&[object sendDeviceRequest:request data:buffer bytesTransferred:&transferred completionTimeout:1 error:&requestError];
                 uint64_t wallAfter=clock_gettime_nsec_np(CLOCK_REALTIME);
                 uint64_t c1=mach_continuous_time(),a1=mach_absolute_time();
-                NSDictionary *decoded=sent&&transferred==256?sourceRecord(buffer,kind):nil;
+                NSDictionary *decoded=nil,*estimate=nil;
+                if(kind==1&&estimateCapability>=0){
+                    estimate=sent&&transferred==256?estimateRecord(buffer,&decoded):nil;
+                    if(estimate){estimateCapability=1;}
+                    else if(estimateCapability==0){
+                        // Unsupported old firmware: exactly one capability probe.
+                        // Next ordinary sample uses legacy UTS1, no extra request.
+                        estimateCapability=-1;row[@"estimate_capability"]=@"UNSUPPORTED";
+                    }
+                }else decoded=sent&&transferred==256?sourceRecord(buffer,kind):nil;
+                if(estimate&&[[serial lowercaseString] hasSuffix:estimate[@"silicon"]])row[@"local_estimate"]=estimate;
+                row[@"estimate_capability"]=@(estimateCapability);
                 if(decoded&&![[serial lowercaseString] hasSuffix:decoded[@"silicon"]])decoded=nil;
                 NSString *key=kind==1?@"precision_source":@"device_source";
                 if(sent&&invalidReason7(buffer,transferred,decoded))row[[key stringByAppendingString:@"_invalid_reason7"]]=@YES;

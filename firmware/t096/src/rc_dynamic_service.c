@@ -526,21 +526,10 @@ static void parent_handoff_reset(void) {
 static void parent_rebind_request(uint64_t tick) {
   if (!parent_known || creating || lt_conn || tick < upstream_retry_at)
     return;
-  bool was_running = running;
-  if (!stop())
-    return;
-  if (was_running) {
-    if (train == UINT32_MAX) {
-      check(false, "rebind train exhausted");
-      return;
-    }
-    ++train;
-  }
+  /* Control retry alone cannot cancel publication/PA or discard fit. The
+   * existing downstream quality gate independently withdraws expired time. */
   lt_acquiring = false;
   lt_quiesce(false);
-  sent_count = 0;
-  phase_admitted = start_prepared = awaiting_first_tx = false;
-  restart_at = 0;
   lt_renew_at = lt_budget_until = lt_attempt_ready = lt_next = 0;
   lt_attempts = 0;
   upstream_retry_at = tick + UINT64_C(160000000);
@@ -976,14 +965,21 @@ static struct r2_uc_clock clock_offer(uint64_t tick) {
   struct r2_uc_clock offered = {.origin = current_origin,
                                 .capture_epoch = capture_epoch,
                                 .depth = upstream_path.depth + 1};
-  if (local_clock.count && timing.bound && discipline_at) {
+  if (local_clock.count && discipline_at &&
+      local_clock.root_boot==current_origin.boot &&
+      local_clock.root_epoch==current_origin.epoch &&
+      local_clock.parent_boot==timing.parent_boot &&
+      local_clock.parent_epoch==timing.parent_epoch) {
+    offered.estimate = true;
+    offered.session_until = timing.bound ? timing.context_until : 0;
+    offered.discipline_tick = discipline_at;
     offered.map = local_clock.map[(local_clock.head + 3) % 4];
     offered.until_tick = offered.map.effective + RC_FIELD_HOLD_TICKS;
     if (discipline_at + RC_FIELD_HOLD_TICKS < offered.until_tick)
       offered.until_tick = discipline_at + RC_FIELD_HOLD_TICKS;
     if (timing.context_until < offered.until_tick)
       offered.until_tick = timing.context_until;
-    offered.valid = !holdover_expired && tick < offered.until_tick;
+    offered.valid = timing.bound && !holdover_expired && tick < offered.until_tick;
   }
   /* Path hashing is change-driven; routine polls only copy a small map. */
   static struct rc7_path previous;

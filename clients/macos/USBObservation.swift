@@ -120,7 +120,7 @@ final class USBObservation {
                 "policy":pinnedSerial == nil ? "AUTOMATIC_STICKY_WITH_SOURCE_GAP_ROTATION" : "EXPLICIT_SERIAL",
                 "candidates":candidates,"registry_id":row["registry_id"] as Any? ?? NSNull()])
         } else if !identityFailed, event == "sample", let silicon = selectedSilicon {
-            let packets = ["precision_source","device_source","device_sof","frame_anchor"].compactMap {row[$0] as? [String:Any]}
+            let packets = ["precision_source","device_source","device_sof","frame_anchor","local_estimate"].compactMap {row[$0] as? [String:Any]}
             verified = packets.allSatisfy {$0["silicon"] as? String == silicon}
         }
         if (event == "sample" || event == "manifest") && !verified {
@@ -132,6 +132,7 @@ final class USBObservation {
         guard event == "sample", verified else { return }
         lastAt = at
         observeSourceTransport(row,at:at)
+        if let estimate=row["local_estimate"] as? [String:Any], estimate["counter_valid"] as? Bool == true {lastSourceAt=at}
         if row["reference_valid"] as? Bool != true { referencesFailed += 1 }
         guard let device = (row["device_sof"] as? [String:Any]) ?? (row["precision_source"] as? [String:Any]) else { requestsFailed += 1; return }
         let precisionFrame = device["kind"] as? Int == 1 && (device["frame"] as? Int ?? 65535) < 2048

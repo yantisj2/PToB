@@ -70,6 +70,7 @@ final class USBInstrument {
     let evidence = ObserverQueue("org.ptob.usb-clock.evidence",capacity:4096), display = ObserverQueue("org.ptob.usb-clock.display",capacity:2)
     let clock = USBSourceClock(), bridge = USBFrameBridge(), precise = PreciseSourceClock(), done = DispatchSemaphore(value:0)
     let fineChrony = FineChronyClock()
+    let estimate = USBContinuousEstimate()
     var nextFineFeed: UInt64 = 0
     var fineComparison = FineChronyComparison()
     var usb: USBObservation?, ntp: LocalNTPMonitor?, log: FileHandle?
@@ -122,7 +123,12 @@ final class USBInstrument {
         guard !authorityRevoked else {return}
         precise.revoke(reason)
         authorityRevoked = true
-        recycleChrony(reason)
+        if estimate.sameTransport(scope:authorityScope), ["ORIGINAL_PERMISSION_EXPIRED","SOURCE_PERMISSION_WITHDRAWN_OR_UNKNOWN"].contains(reason) {
+            // Same-source quality/authority expiry pauses measurements. The
+            // existing owned daemon may free-run; never feed extrapolations.
+            feeder?.pausePending();chrony?.invalidate()
+            record(["type":"chrony_estimate_holdover","tick_ns":String(tick()),"reason":reason,"synthetic_feed":false])
+        } else {recycleChrony(reason)}
     }
     func recycleChrony(_ reason: String) {
         let contaminated = feeder?.mayHaveFed == true
@@ -179,6 +185,21 @@ final class USBInstrument {
         guard helper["event"] as? String == "sample" else {return}
         if helper["reference_valid"] as? Bool == false {displayHealth.noteLoss("USB frame reference unavailable",at:tick())}
         bridge.ingest(helper)
+        var estimateAt: UInt64?
+        if let d=helper["local_estimate"] as? [String:Any],
+           let deviceTick=(d["tick"] as? String).flatMap(UInt64.init),
+           let current=(d["current_tick"] as? String).flatMap(UInt64.init),current>=deviceTick,current-deviceTick<16000,
+           let before=(helper["precision_source_continuous_before"] as? String).flatMap(UInt64.init),
+           let after=(helper["precision_source_continuous_after"] as? String).flatMap(UInt64.init),after>=before,
+           let absolute=(helper["precision_source_absolute_before"] as? String).flatMap(UInt64.init) {
+            let scale=Double(clockScale.numer)/Double(clockScale.denom)
+            let bracket=(Double(before)+Double(after-before)/2)*scale
+            let coarse=bracket-Double(current-deviceTick)*62.5
+            let causal=bridge.counterToMachAbsoluteNS(deviceTick).map {$0+(Double(before)-Double(absolute))*scale}
+            let chosen=causal ?? coarse
+            if chosen>0,chosen<Double(UInt64.max),Double(after-before)*scale<=100_000_000 {estimateAt=UInt64(chosen)}
+        }
+        if let at=estimateAt {estimate.ingest(helper,now:tick(),observedAt:at)}
         for key in ["precision_source","device_source"] {
             if helper[key+"_invalid_reason7"] as? Bool == true {
                 refuseMissingSOF("MALFORMED_SOF_OBSERVATION_WIRE",now:tick())
@@ -276,11 +297,14 @@ final class USBInstrument {
             "display_health":displayHealth.json(now),"chrony":chronySnapshot(wall),"chrony_refclock":feeder?.json as Any? ?? ["enabled":false],
             "chrony_user_utc_ns":chronyUTC.map {String($0.ns)} as Any? ?? NSNull(),"chrony_comparison":chronyRun.json(wall.tick)]
         if options.chronyOnly {snapshot["transport"] = "CHRONY";snapshot["source_label"] = "local chronyd"}
+        snapshot["continuous_estimate"] = estimate.snapshot(now:wall.tick)
         snapshot.merge(wall.json) {_,new in new}; record(snapshot)
         if !options.interactive {
             let data = ChronyDisplaySnapshot.read(chronySnapshot(wall),feeder:feeder?.json ?? [:],comparison:chronyRun.json(wall.tick),now:wall.tick)
             let text = (options.chronyOnly ? "Local chronyd" : "\(usbDeviceLabel(usb?.selectedSerial)) USB · captured UTC \(utcReadout(reported?.seconds)) · source \(reported == nil ? "UNAVAILABLE" : "VALID") · boundary \(bridge.identity) · SOFs \(usb?.valid ?? 0) · source packets \(clock.accepted)")+(usb?.error.map {"\nUSB ERROR  "+$0} ?? "")+(!data.enabled ? "" : "\nChrony \(data.state) · user UTC \(utcReadout(chronyUTC?.seconds)) · \(data.selected)"+(managed?.error.map {" · "+$0} ?? ""))+"\n"+(ntp?.line(wall.tick) ?? "NTP checks off")+"\n"
-            display.submit {try FileHandle.standardOutput.write(contentsOf:Data(text.utf8))}
+            let held=estimate.snapshot(now:wall.tick)
+            let output=text+"Estimate "+String(describing:held["state"] ?? "UNAVAILABLE")+" · UTC ns "+String(describing:held["utc_ns"] ?? "unavailable")+" · age ms "+String(describing:held["observation_age_ms"] ?? "unknown")+" · UNQUALIFIED\n"
+            display.submit {try FileHandle.standardOutput.write(contentsOf:Data(output.utf8))}
         }
     }
     func draw(_ now: UInt64) {
@@ -352,6 +376,12 @@ final class USBInstrument {
             "Causal bridge RMS: \(bridge.counterInnovations.n > 0 ? String(format:"%.3f us",bridge.counterInnovations.rmse/1000) : "warming") / \(bridge.counterInnovations.n) predictions",
             "Fine UTC requires verified captured PPS/UTC association."]+model.details
         if let indicator = model.lossIndicator {model.details = [indicator,"Amber requires 500ms continuous outage; reasons hold at least 500ms."]+model.details}
+        if let held=estimate.utc(now:wall.tick), !options.chronyOnly {
+            model.utc=SourceInstant(ns:held);model.utcTitle="LOCAL UTC ESTIMATE"
+            model.state=estimate.state(now:wall.tick)+" / UNQUALIFIED"
+            model.qualification="Local projection / unknown UTC error / no synthetic chrony feed"
+            model.details=["Estimate observation age: \(estimate.ageMS(now:wall.tick)) ms","Estimate source: \(estimate.sourceScope ?? "none")"]+model.details
+        }
         let displayScope = options.chronyOnly ? "chrony:\(chrony?.socket ?? "")" : "\(usb?.selectedSerial ?? ""):\(clock.latest.map {"\($0.boot):\($0.usbEpoch):\($0.captureEpoch)"} ?? ""):\(authorityScope ?? "")"
         readoutHold.apply(to:&model,scope:displayScope,now:now,unavailableSince:displayHealth.unavailableSince)
         var size = winsize(); _ = ioctl(STDOUT_FILENO,TIOCGWINSZ,&size)
@@ -452,7 +482,7 @@ func usbOptionsTests() -> Int {
         signal(SIGPIPE,SIG_IGN)
         do {
             let options = try USBOptions()
-            if options.test { let n = usbOptionsTests()+usbObservationTests()+usbOnlyClockTests()+usbFrameBridgeTests()+preciseClockTests()+fineChronyTests()+sofMapTests()+clockComparisonTests()+instrumentViewTests()+chronyTests()+chronyViewTests()+displayHealthTests(); print("PASS \(n) USB-only source/clock/permission/instrument/chrony checks; no hardware or BLE access") }
+            if options.test { let n = usbContinuousEstimateTests()+usbOptionsTests()+usbObservationTests()+usbOnlyClockTests()+usbFrameBridgeTests()+preciseClockTests()+fineChronyTests()+sofMapTests()+clockComparisonTests()+instrumentViewTests()+chronyTests()+chronyViewTests()+displayHealthTests(); print("PASS \(n) USB-only source/clock/permission/instrument/chrony checks; no hardware or BLE access") }
             else if let path = options.precisionReplay {let result = try replayPrecisionCapture(path);let data = try JSONSerialization.data(withJSONObject:result,options:[.sortedKeys,.prettyPrinted]);print(String(decoding:data,as:UTF8.self))}
             else if let path = options.preview {try previewInstrument(path,width:options.columns,height:options.rows,available:true,page:options.initialPage)}
             else if let path = options.report { try exportClockTrial(path,destination:options.reportOut) }

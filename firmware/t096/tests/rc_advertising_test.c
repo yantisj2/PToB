@@ -87,6 +87,12 @@ int main(void){
   uint64_t lo=rc_admission_retry_us(attempt,0),hi=rc_admission_retry_us(attempt,UINT64_MAX);
   assert(lo>=2000000&&hi>=lo&&hi<=lo+lo/2);
  }
+ uint64_t starts[2]={1,UINT64_C(320000001)};
+ assert(!rc_admission_start_allowed(starts,UINT64_C(640000001)));
+ assert(rc_admission_start_allowed(starts,UINT64_C(960000001)));
+ assert(!rc_admission_start_allowed(starts,UINT64_C(320000000)));
+ starts[0]=0;assert(!rc_admission_start_allowed(starts,UINT64_C(640000000)));
+ assert(rc_admission_start_allowed(starts,UINT64_C(640000001)));
  assert(rc_admission_drain_us(false,3200)==500000&&rc_admission_drain_us(true,100)==1500000&&rc_admission_drain_us(true,3200)==32500000);
  puts("PASS production RC/UCS discovery: cold refusal, all precision gates, withdrawal/recovery, idle-relay discovery, existing client preservation and failed stop");
 }

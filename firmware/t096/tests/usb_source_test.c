@@ -59,5 +59,36 @@ int main(void){
  marker.wValue=0;assert(r2_usb_anchor_request(&marker,&length,&p)==-ENOTSUP);marker.wValue=29;
  usb_live=false;assert(!r2_usb_anchor_request(&marker,&length,&p));usb_live=true;fetch.wValue=29;
  assert(!r2_usb_anchor_request(&fetch,&length,&p)&&!get(p+36,4));
+ /* Explicit UTE1 projection survives500/743ms and132s; legacy remains strict. */
+ s=(struct usb_setup_packet){0xc1,0x57,0,2,256};sampled.tick=100000;
+ c.estimate=true;c.valid=true;c.map.generation=40;c.map.effective=90000;
+ c.map.anchor_tick=90000;c.until_tick=8090000;c.discipline_tick=90000;
+ c.session_until=UINT64_C(5760090000);c.origin.expires=c.map.anchor_ns+UINT64_C(10000000000);
+ r2_usb_source_publish(&c);
+ uint64_t initial_age=0;
+ for(unsigned i=0;i<4;i++){
+  uint64_t gap[]={UINT64_C(100000),UINT64_C(8000000),UINT64_C(11888000),UINT64_C(2112000000)};
+  uint64_t now=90000+gap[i];raw(now-1000,now);
+  assert(!r2_usb_source_request(&s,&length,&p)&&!memcmp(p,"UTE1",4));
+  assert((get(p+36,4)&6)==6&&get(p+64,8)>0&&get(p+232,8)==90000);
+  assert((get(p+48,8)-get(p+232,8))>=initial_age);initial_age=get(p+48,8)-get(p+232,8);
+  if(i){assert(!(get(p+36,4)&1)&&get(p+248,4)==2);}
+  if(i==3)assert(!(get(p+36,4)&16));
+ }
+ raw(UINT64_C(6000000000),UINT64_C(6000001000));
+ assert(!r2_usb_source_request(&s,&length,&p)&&(get(p+36,4)&6)==6&&!(get(p+36,4)&24));
+ c.session_until=UINT64_MAX;c.until_tick=UINT64_MAX;sampled.tick=200000;r2_usb_source_publish(&c);
+ assert(estimate.clock.session_until==UINT64_C(5760090000)); /* Same map cannot renew lease. */
+ r2_usb_source_withdraw();raw(1000000,1001000);
+ assert(!r2_usb_source_request(&s,&length,&p)&&(get(p+36,4)&6)==6&&!(get(p+36,4)&25));
+ test_raw.capture_epoch=2;assert(!r2_usb_source_request(&s,&length,&p)&&!(get(p+36,4)&2));test_raw.capture_epoch=1;
+ raw(80000,81000);assert(!r2_usb_source_request(&s,&length,&p)&&!(get(p+36,4)&2));
+ raw(1000000,1001000);usb_live=false;assert(!r2_usb_source_request(&s,&length,&p)&&!get(p+36,4));usb_live=true;
+ /* New source is a new segment; no post-publication map applies backwards. */
+ sampled.tick=2000000;c.map.generation=41;c.map.effective=1900000;c.map.anchor_tick=1900000;
+ c.origin.root=20;c.discipline_tick=1900000;r2_usb_source_publish(&c);
+ raw(1999000,2001000);assert(!r2_usb_source_request(&s,&length,&p)&&!(get(p+36,4)&2));
+ raw(2001000,2002000);assert(!r2_usb_source_request(&s,&length,&p)&&(get(p+36,4)&2)&&get(p+80,8)==20);
+ sequence=UINT32_MAX;assert(!r2_usb_source_request(&s,&length,&p)&&!get(p+36,4));
  printf("PASS causal UTC/SOF map publication, old generation, explicit gap, expiry, capture/USB/withdraw fences, request guards; map bank %zuB\n",sizeof maps);
 }

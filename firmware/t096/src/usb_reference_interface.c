@@ -26,7 +26,7 @@ static int ep0_diagnostic_request(struct usb_setup_packet *s,int32_t *length,uin
 static int timing_request(struct usb_setup_packet *setup,int32_t *length,uint8_t **data){
  if(setup->bRequest==0x56)return ep0_diagnostic_request(setup,length,data);
  if(setup->bRequest==0x54||setup->bRequest==0x55)return r2_usb_anchor_request(setup,length,data);
- if(setup->bRequest==0x52||setup->bRequest==0x53)return r2_usb_source_request(setup,length,data);
+ if(setup->bRequest==0x52||setup->bRequest==0x53||setup->bRequest==0x57)return r2_usb_source_request(setup,length,data);
  return r2_usb_sof_request(setup,length,data);
 }
 #endif

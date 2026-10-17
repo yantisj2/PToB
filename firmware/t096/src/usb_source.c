@@ -15,11 +15,11 @@
 #include <limits.h>
 #include <string.h>
 struct published_map {struct r2_uc_clock clock;uint64_t lo,hi;bool set;};
-static struct published_map maps[2];
+static struct published_map maps[2], estimate;
 static struct k_spinlock map_lock;
 static uint64_t silicon,boot,transition_tick,transition_epoch;
 static uint32_t sequence,overwrites;
-static bool busy,permission;
+static bool busy,permission,estimate_current;
 static uint8_t wire[256];
 void r2_usb_source_init(const struct r2_identity *id){
  if(!id||id->result)return;
@@ -33,12 +33,28 @@ void r2_usb_source_begin(uint64_t activation,uint64_t capture_epoch){
 }
 void r2_usb_source_withdraw(void){
  k_spinlock_key_t key=k_spin_lock(&map_lock);permission=false;busy=false;
- memset(maps,0,sizeof maps);k_spin_unlock(&map_lock,key);
+ memset(maps,0,sizeof maps);estimate_current=false;k_spin_unlock(&map_lock,key);
 }
 void r2_usb_source_publish(const struct r2_uc_clock *clock){
  struct r2_capture after;
  if(!clock||!r2_capture_now(&after)){r2_usb_source_withdraw();return;}
  k_spinlock_key_t key=k_spin_lock(&map_lock);
+ /* Estimate publication never refreshes observation age or original leases.
+  * Keep the old segment through authority withdrawal/search, until a new map
+  * is committed; capture epoch and arithmetic remain hard projection fences. */
+ estimate_current=clock->estimate&&clock->session_until>after.tick;
+ if(clock->estimate&&clock->map.generation&&clock->capture_epoch==after.epoch){
+  if(!estimate.set||estimate.clock.map.generation!=clock->map.generation||
+      estimate.clock.capture_epoch!=clock->capture_epoch||
+      estimate.clock.origin.root!=clock->origin.root||
+      estimate.clock.origin.boot!=clock->origin.boot||
+      estimate.clock.origin.epoch!=clock->origin.epoch||
+      memcmp(estimate.clock.scope,clock->scope,16))
+   estimate=(struct published_map){.clock=*clock,.lo=after.tick,.hi=clock->until_tick,.set=true};
+  /* Revocation can shorten, never extend, an already published session. */
+  if(clock->session_until<estimate.clock.session_until)
+   estimate.clock.session_until=clock->session_until;
+ }
  permission=clock->valid&&clock->capture_epoch==after.epoch&&after.tick<clock->until_tick;
  if(!permission){busy=false;k_spin_unlock(&map_lock,key);return;}
  bool changed=!maps[0].set||maps[0].clock.map.generation!=clock->map.generation||
@@ -67,7 +83,7 @@ static bool project(const struct published_map *map,uint64_t tick,uint64_t curre
  *utc=(int64_t)ns+offset;return *utc>0;
 }
 int r2_usb_source_request(struct usb_setup_packet *setup,int32_t *length,uint8_t **data){
- if(setup->bmRequestType!=0xc1||(setup->bRequest!=0x52&&setup->bRequest!=0x53)||
+ if(setup->bmRequestType!=0xc1||(setup->bRequest!=0x52&&setup->bRequest!=0x53&&setup->bRequest!=0x57)||
     setup->wValue||setup->wIndex!=r2_usb_reference_number()||setup->wLength!=sizeof wire)return -ENOTSUP;
  uint32_t before_epoch=0,after_epoch=0;
  bool live=r2_usb_sof_scope(&before_epoch);
@@ -77,7 +93,7 @@ int r2_usb_source_request(struct usb_setup_packet *setup,int32_t *length,uint8_t
  uint32_t age=(uint32_t)raw.current_tick-raw.cc_after;
  bool sof=captured&&raw.frame_before==raw.frame_after&&raw.cc_before==raw.cc_after&&
   raw.frame_after<=R2_USB_FRAME_MASK&&age<R2_USB_SOF_TICKS&&raw.current_tick>=age;
- if(setup->bRequest==0x53){captured=sof;if(sof)event-=age;}
+ if(setup->bRequest==0x53||setup->bRequest==0x57){captured=sof;if(sof)event-=age;}
  int64_t utc=0;uint32_t flags=0,reason=1;
  k_spinlock_key_t key=k_spin_lock(&map_lock);
  const struct published_map *map=NULL,*current_map=NULL;
@@ -102,13 +118,42 @@ int r2_usb_source_request(struct usb_setup_packet *setup,int32_t *length,uint8_t
  sys_put_le64(event,wire+48);sys_put_le64(raw.current_tick,wire+56);
  sys_put_le64((uint64_t)utc,wire+64);wire[72]=setup->bRequest==0x53?1:2;
  const struct published_map *metadata=map?map:current_map;
+ bool extended=setup->bRequest==0x57, estimate_ok=false;
+ uint64_t projected=0,elapsed_est=0,current_est=0;
+ if(extended&&captured&&!busy&&estimate.set&&raw.capture_epoch==estimate.clock.capture_epoch&&
+    event>=estimate.lo&&event>=estimate.clock.discipline_tick&&
+    rc5_map_project(&estimate.clock.map,event,&projected,&elapsed_est)&&
+    rc5_map_project(&estimate.clock.map,raw.current_tick,&current_est,&elapsed_est)&&
+    projected<=INT64_MAX){
+  int64_t offset=estimate.clock.origin.utc_offset;
+  if(!((offset>0&&(int64_t)projected>INT64_MAX-offset)||
+       (offset<0&&(int64_t)projected<INT64_MIN-offset))){
+   int64_t value=(int64_t)projected+offset;
+   if(value>0){estimate_ok=true;metadata=&estimate;sys_put_le64((uint64_t)value,wire+64);}
+  }
+ }
+ if(extended){
+  memcpy(wire,"UTE1",4);wire[72]=1;
+  if(!estimate_ok)sys_put_le64(0,wire+64);
+  uint32_t states=captured?4:0;
+  if(estimate_ok){
+   states|=2;
+   if(estimate_current&&estimate.clock.session_until&&raw.current_tick<estimate.clock.session_until)states|=8;
+   if(estimate_current&&current_est>=estimate.clock.origin.issued&&current_est<estimate.clock.origin.expires)states|=16;
+  }
+  if((states&24)==24&&map&&map->clock.map.generation==estimate.clock.map.generation&&
+     map->clock.origin.root==estimate.clock.origin.root&&map->clock.origin.boot==estimate.clock.origin.boot&&
+     map->clock.origin.epoch==estimate.clock.origin.epoch&&!memcmp(map->clock.scope,estimate.clock.scope,16))states|=1;
+  if(sequence==UINT32_MAX)states=0;
+  sys_put_le32(states,wire+36);
+ }
  if(metadata){const struct r2_uc_clock *c=&metadata->clock;
   sys_put_le64(c->origin.root,wire+80);sys_put_le64(c->origin.boot,wire+88);
   sys_put_le32(c->origin.epoch,wire+96);sys_put_le32(c->map.generation,wire+100);
   uint64_t current_ns,elapsed,until=c->until_tick;
   if(rc5_map_project(&c->map,raw.current_tick,&current_ns,&elapsed)&&current_ns<c->origin.expires){
    uint64_t remaining=(c->origin.expires-current_ns)/1001*16;
-   if(remaining<until-raw.current_tick)until=raw.current_tick+remaining;
+   if(raw.current_tick<until&&remaining<until-raw.current_tick)until=raw.current_tick+remaining;
   }
   sys_put_le64(until,wire+104);sys_put_le64(c->origin.expires,wire+112);
   sys_put_le64(c->map.anchor_tick,wire+120);sys_put_le64(c->map.anchor_ns,wire+128);
@@ -119,7 +164,14 @@ int r2_usb_source_request(struct usb_setup_packet *setup,int32_t *length,uint8_t
   sys_put_le64((uint64_t)c->origin.utc_offset,wire+184);sys_put_le64(c->origin.issued,wire+192);
   memcpy(wire+200,c->scope,16);sys_put_le32(c->origin.hold_us,wire+224);sys_put_le32(c->origin.hold_ns,wire+228);
  }
- if(current_map&&reason==7){
+ if(extended){
+  if(estimate_ok){
+   sys_put_le64(estimate.clock.discipline_tick,wire+232);
+   sys_put_le64(estimate.clock.session_until,wire+240);
+   sys_put_le32(event-estimate.clock.discipline_tick<UINT64_C(4000000)?1:2,wire+248);
+  }
+  sys_put_le32(estimate_ok?0:captured?3:2,wire+252);
+ }else if(current_map&&reason==7){
   memcpy(wire+232,"USM1",4);sys_put_le16(1,wire+236);sys_put_le16(24,wire+238);
   sys_put_le64(current_source,wire+240);sys_put_le32(1,wire+248);
  }

@@ -13,7 +13,7 @@ mkdir -p .build
 chmod 700 .build
 build_dir=$(mktemp -d .build/build.XXXXXX)
 trap 'rm -rf "$build_dir"' EXIT HUP INT TERM
-sources='USBMain.swift USBClock.swift USBFrameBridge.swift PreciseClock.swift PreciseClockTests.swift FineChrony.swift FineChronyTests.swift SOFMapTests.swift PrecisionReplay.swift ObserverQueue.swift ClockComparison.swift ClockComparisonTests.swift USBObservation.swift USBObservationTests.swift TrialReport.swift InstrumentView.swift UnicastTiming.swift TimeMath.swift Chrony.swift ChronyTests.swift ChronyView.swift ChronyViewTests.swift ChronySession.swift DisplayHealth.swift'
+sources='USBMain.swift USBClock.swift USBContinuousEstimate.swift USBFrameBridge.swift PreciseClock.swift PreciseClockTests.swift FineChrony.swift FineChronyTests.swift SOFMapTests.swift PrecisionReplay.swift ObserverQueue.swift ClockComparison.swift ClockComparisonTests.swift USBObservation.swift USBObservationTests.swift TrialReport.swift InstrumentView.swift UnicastTiming.swift TimeMath.swift Chrony.swift ChronyTests.swift ChronyView.swift ChronyViewTests.swift ChronySession.swift DisplayHealth.swift'
 python3 registry.swift.py "$registry" "$build_dir/Registry.swift"
 cp "$registry" "$build_dir/registry.json"
 build_hash=$(cat $sources "$build_dir/Registry.swift" registry.swift.py build_receipt.py ../../registry/registry.py Info.plist build.sh ptob usb/USBReferenceProbe.m usb/build.sh | shasum -a 256 | cut -d ' ' -f 1)

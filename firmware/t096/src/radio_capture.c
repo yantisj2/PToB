@@ -24,6 +24,27 @@ static struct {
 } active;
 static uint32_t completed, aborted, invalid, overflow;
 static struct r2_radio_rx_stats rx_stats;
+static struct r2_rx_loss_capsule loss;
+_Static_assert(sizeof loss<=160,"RX capsule budget");
+static void loss_event(uint64_t tuple,uint32_t outcome,void *owner,bool freeze){
+ if(loss.frozen)return;
+ unsigned i=loss.sequence%8;
+ loss.event[i]=tuple;loss.outcome[i]=outcome;loss.owner[i]=(uint32_t)(uintptr_t)owner;
+ if(loss.sequence<UINT32_MAX)++loss.sequence;else freeze=true;
+ if(loss.count<8)++loss.count;
+ if(freeze)loss.frozen=1;
+}
+void r2_radio_capture_schedule(void *owner,uint16_t event,uint32_t lazy,uint32_t skipped,bool queued){
+ if(!__atomic_load_n(&enabled,__ATOMIC_ACQUIRE))return;
+ if(queued){if(loss.queued<UINT32_MAX)++loss.queued;}
+ else if(lazy&&loss.lazy<UINT32_MAX)++loss.lazy;
+ if(queued||lazy||skipped)loss_event(event|((uint64_t)capture_epoch<<32),
+   queued?32:64,owner,true);
+}
+bool r2_radio_capture_loss(struct r2_rx_loss_capsule *out){
+ if(!out)return false;
+ unsigned key=irq_lock();*out=loss;irq_unlock(key);return out->frozen;
+}
 static uint64_t rx_tuple(uint8_t site) {
   return active.event|((uint64_t)active.channel<<16)|((uint64_t)site<<24)|
     ((uint64_t)capture_epoch<<32);
@@ -51,6 +72,7 @@ int r2_radio_capture_enable(uint32_t epoch, unsigned channel) {
   }
   route = (nrf_ppi_channel_t)channel;
   capture_epoch = epoch;
+  uint32_t generation=loss.generation;loss=(struct r2_rx_loss_capsule){.generation=generation==UINT32_MAX?generation:generation+1};
   head = tail = 0;
   __atomic_store_n(&enabled, 1, __ATOMIC_RELEASE);
   irq_unlock(key);
@@ -107,7 +129,7 @@ void r2_radio_capture_metadata(void *owner, uint32_t reservation_us,
 }
 void r2_radio_capture_abort_site(void *owner,uint8_t site) {
   if (active.armed && active.owner == owner) {
-    if(!active.tx){inc(&rx_stats.aborted);rx_stats.last_abort=rx_tuple(site);
+    if(!active.tx){loss_event(rx_tuple(site),16,owner,true);inc(&rx_stats.aborted);rx_stats.last_abort=rx_tuple(site);
       rx_stats.last_abort_owner=(uint32_t)(uintptr_t)owner;}
     disarm();
     inc(&aborted);
@@ -123,6 +145,7 @@ void r2_radio_capture_complete(void *owner, bool done, bool crc) {
   uint32_t raw = nrf_timer_cc_get(NRF_TIMER3, NRF_TIMER_CC_CHANNEL1);
   if (!disarm())
     return;
+  if(!active.tx)loss_event(rx_tuple(0),(done?1u:0u)|(address?2u:0u)|(crc?4u:0u),owner,!done||!address||!crc);
   if (!done || !address || (!active.tx && !crc)) {
     if(!active.tx){
       if(!done)inc(&rx_stats.no_done);

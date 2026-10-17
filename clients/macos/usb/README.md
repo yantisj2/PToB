@@ -33,3 +33,7 @@ The helper's `--self-test` parses fixtures without IOKit access. Live precision
 requests use bounded vendor-IN EP0 control transfers, currently an experimental
 transport. Control timeout diagnostics remain separate from source-permission
 gaps. No automatic device reset, firmware write or source-role change occurs.
+
+The explicitly negotiated [UTE1 local estimate](../../../docs/t096/continuous-estimate.md)
+keeps an acquired unqualified presentation clock through transient loss while
+strict observations and chrony feeds retain their original permission fences.
