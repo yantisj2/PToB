@@ -103,7 +103,9 @@ ms), 5 decoded JOIN receive (record kind / control flag bit0 and server bit1),
 changed peer bit2, close deadline bit3), 7 control promotion (slot / control
 flag), 8 MTU exchange callback (cached negotiated MTU / incarnation),
 9 characteristic discovery (handle / incarnation), and 10 marker-read callback
-(length / incarnation). These observations grant no authority and do not extend
+(length / incarnation), 11 first native G1 discovery assignment (signed RSSI
+encoded as uint32 / passive hint), and 12 disconnected provisional hint retired
+(release flag / reserved). These observations grant no authority and do not extend
 an exchange or restart a precision train.
 
 Kinds22–25 carry the same connected/create-error result and per-attempt baseline.

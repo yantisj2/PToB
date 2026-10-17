@@ -533,7 +533,8 @@ static void scan_report(const bt_addr_le_t *address,int8_t rssi,uint8_t type,str
     /* Discovery never decides admission class. All new peers prove PSK/name
      * on the same transient path, then negotiate bounded control capacity. */
     unsigned p=CONTROL_PEERS;
-    if(!peers[p].identity&&!peers[p].conn){i=(int)p;peers[p].identity=candidate;peers[p].address=*address;peers[p].first_seen=now_us();peers[p].provisional_until=now_us()+5000000;peers[p].admission_server=local_identity>candidate;peers[p].release=false;}
+    if(!peers[p].identity&&!peers[p].conn){i=(int)p;peers[p].identity=candidate;peers[p].address=*address;peers[p].first_seen=now_us();peers[p].provisional_until=now_us()+5000000;peers[p].admission_server=local_identity>candidate;peers[p].release=false;
+     r2_timing_event(R2_TIMING_GM_CONTROL,0,candidate,11,(uint32_t)(int32_t)rssi,passive_hint);}
 
    }
   }
@@ -617,7 +618,9 @@ static void poll_owned(uint64_t now)
     if(gatt_pending(i))continue; /* never mutate an outstanding call's params */
     if(group_id&&(p->identity||p->conn)&&((!p->authenticated&&now>=p->provisional_until)||p->release)){
      if(p->conn)r2_ble_disconnect(i);
-     else if(!atomic_get(&p->tx_busy)){k_spinlock_key_t key=k_spin_lock(&lock);p->identity=0;p->retry=p->advertised_at=p->first_seen=0;p->release=false;k_spin_unlock(&lock,key);}
+     else if(!atomic_get(&p->tx_busy)){k_spinlock_key_t key=k_spin_lock(&lock);
+      if(p->identity)r2_timing_event(R2_TIMING_GM_CONTROL,0,p->identity,12,p->release,0);
+      p->identity=0;p->retry=p->advertised_at=p->first_seen=0;p->release=false;k_spin_unlock(&lock,key);}
     }
     if(atomic_get(&p->dead)&&!atomic_get(&p->tx_busy)){
       /* Public cancellation invokes the pending callback synchronously in the
@@ -720,12 +723,13 @@ static void poll_owned(uint64_t now)
    * core stops this general scan and advertises for initiating newcomers.
    * Actual upstream PA acquisition retains its own full discovery window.
    * Passive clients preserve their separate400/450ms window and500ms quiet. */
-  /* A solo serving GM still discovers partitions/newcomers, but long scan
-   * reservations starve its own PA ticker. Use distributed5ms/20ms discovery
-   * only while serving, never in place of a follower's PA acquisition window. */
-  bool serving_discovery=group_id&&!group_client&&(precision_serving||server_ready)&&!precision_discovery&&!sync_acquiring;
-  uint16_t wanted_interval=(serving_discovery||group_client||(field_profile&&(precision_discovery||self==1)))?0x20:0xa0;
-  uint16_t wanted_window=serving_discovery?0x08:group_client||(field_profile&&self==1&&precision_discovery)?wanted_interval:field_profile&&self==1?0x08:connected?0x10:0x50;
+  /* Every native GM core, including an unpaired eligible follower, discovers
+   * peers in distributed5ms/20ms opportunities. A50ms control reservation is
+   * inappropriate beside protected62.5ms precision events. Explicit PA
+   * acquisition and passive-client windows retain their separate budgets. */
+  bool core_discovery=group_id&&!group_client&&!precision_discovery&&!sync_acquiring;
+  uint16_t wanted_interval=(core_discovery||group_client||(field_profile&&(precision_discovery||self==1)))?0x20:0xa0;
+  uint16_t wanted_window=core_discovery?0x08:group_client||(field_profile&&self==1&&precision_discovery)?wanted_interval:field_profile&&self==1?0x08:connected?0x10:0x50;
 #if defined(R2_FIELD_FIXTURE)
   if(field_profile&&self==1&&now>=132000000&&now<134000000){
    static unsigned trace_state=UINT32_MAX;

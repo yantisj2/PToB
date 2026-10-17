@@ -2,6 +2,17 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 17 October 2026 — unpaired GM discovery reservations
+
+T096 **0.15.76** uses the existing distributed5ms/20ms peer-discovery policy
+for an unpaired native GM as well as a serving or established HOT core.
+Previously the unpaired follower requested50ms control scan reservations beside
+protected62.5ms precision events. Explicit PA acquisition and passive-client
+windows retain their original budgets. The production transport regression
+checks the unpaired scan parameters; the previous guard fails it. This is a
+control scheduling correction, not a relaxation of HOT authentication or source
+qualification.
+
 ## 17 October 2026 — bound unpaired GM discovery
 
 T096 **0.15.75** applies the existing100ms connection-creation opportunity to

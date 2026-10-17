@@ -409,12 +409,17 @@ static void unready_core_discovery(void){
  p->first_seen=p->advertised_at=fake_time;p->provisional_until=fake_time+5000000;p->retry=1;
  early=false;unsigned before=creates;r2_ble_poll(fake_time);
  assert(creates==before+1&&p->conn==&connection&&p->connect_until==fake_time+100000);
+ assert(scan_window==0x08&&scan_interval==0x20); /* No50ms control reservation beside PA. */
  uint64_t original_provisional=p->provisional_until;unsigned closes=disconnects;
  fake_time+=99999;r2_ble_poll(fake_time);assert(disconnects==closes);
  ++fake_time;r2_ble_poll(fake_time);assert(disconnects==closes+1&&p->provisional_until==original_provisional);
  r2_ble_poll(fake_time+1);assert(p->conn==&connection&&creates==before+1); /* Callback still owns it. */
  callbacks.connected(&connection,2);r2_ble_poll(fake_time+2);
  assert(!p->conn&&connection.refs==1&&scanning);bt_conn_unref(&connection);
+ precision_discovery=true;fake_time+=200000;r2_ble_poll(fake_time);
+ assert(scan_window==0x50&&scan_interval==0xa0); /* Explicit PA acquisition keeps its window. */
+ precision_discovery=false;group_client=true;fake_time=2000000;r2_ble_poll(fake_time);
+ assert(scan_window==0x20&&scan_interval==0x20); /* Passive bootstrap keeps its window. */
  puts("PASS unpaired native GM discovery has the original100ms cap, preserves provisional expiry and waits for cancellation callback/reference closure");
 }
 static void continuous_core_discovery(void){
