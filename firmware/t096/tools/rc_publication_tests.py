@@ -9,7 +9,9 @@ def function(name,typ='void'):
  while depth:depth+=(text[end]=='{')-(text[end]=='}');end+=1
  return text[start:end]
 bodies='\n'.join(function(n,t) for n,t in [('delivery_snapshot','void'),('delivery_source_poll','void'),('clock_offer','struct r2_uc_clock'),('usb_offer_now','void'),('discipline_commit','void')])
-if a.omit_immediate_publication:bodies=bodies.replace('          usb_offer_now();','          /* negative: former loop-end-only publication */')
+if a.omit_immediate_publication:
+ assert bodies.count('\n  usb_offer_now();')==1
+ bodies=bodies.replace('\n  usb_offer_now();','\n  /* negative: former loop-end-only publication */')
 (out/'rc_publication_under_test.h').write_text(bodies)
 for name in ['zephyr/usb/usb_device.h','zephyr/kernel.h','zephyr/sys/byteorder.h']:
  f=out/name;f.parent.mkdir(parents=True,exist_ok=True);f.write_text('/* boundary supplied by fake */\n')
