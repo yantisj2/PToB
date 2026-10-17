@@ -2,6 +2,21 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 0.1.8 — 17 October 2026
+
+- Start continuous BLE100 direct-G1 replay refresh at 150 ms uncertainty,
+  with urgency at 175 ms. The prior 200/225 ms thresholds left about 25 seconds
+  before the hard replay deadline at the declared 2000 ppm drift allowance,
+  less than the existing 20–40 second warm failure backoff. The new threshold
+  reserves about 50 seconds for one failed two-second exchange, maximum
+  backoff and a second two-second exchange. Two failed attempts or a longer
+  source/RF outage can still lose lock.
+- Keep the rolling limit of two warm connection starts per 60 seconds, the
+  250 ms hard replay limit, signed source/model expiry, BLE50 thresholds and
+  RC7 five-minute renewal/six-minute lease. Earlier control attempts grant no
+  timing authority. A combined-policy regression covers accepted bootstrap
+  uncertainty and rejects the old threshold with the same retry schedule.
+
 ## 0.1.7 — 16 October 2026
 
 - Isolate GNSS-aid and command ownership status snapshots in separate non-inlined

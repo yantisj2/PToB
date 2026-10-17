@@ -31,12 +31,15 @@ struct G1Anchor {
   }
   // JOIN refresh is driven by replay uncertainty or sustained acquisition
   // loss, not each short permission. It never renews the corrected model.
-  // Continuous reception can leave50ms of replay budget for proactive JOIN,
-  // rather than refreshing after only100ms accumulated uncertainty. The
-  // half-duty acquisition windows keep their earlier100/125ms thresholds.
-  // Neither policy extends the original250ms replay limit or source expiry.
-  bool refresh(uint64_t now,bool continuous=false)const {return rebootstrap(now)||guard(now)>=(continuous?200000:100000);}
-  bool urgent(uint64_t now,bool continuous=false)const {return rebootstrap(now)||guard(now)>=(continuous?225000:125000);}
+  // Continuous reception reserves about50s before replay expiry: a failed
+  // 2s exchange, the existing worst40s warm backoff and a second2s exchange
+  // must fit before the hard deadline. The former200ms threshold left only
+  // 25s at2000ppm, so one ordinary failed refresh could destroy an acquired
+  // PA/model before its permitted retry. The rolling two-start/60s budget is
+  // unchanged. Half-duty acquisition keeps its100/125ms thresholds; neither
+  // policy extends the original250ms replay limit or signed source expiry.
+  bool refresh(uint64_t now,bool continuous=false)const {return rebootstrap(now)||guard(now)>=(continuous?150000:100000);}
+  bool urgent(uint64_t now,bool continuous=false)const {return rebootstrap(now)||guard(now)>=(continuous?175000:125000);}
   bool same(const G1Anchor& other)const {
     return root==other.root&&boot==other.boot&&source_epoch==other.source_epoch&&publication==other.publication;
   }

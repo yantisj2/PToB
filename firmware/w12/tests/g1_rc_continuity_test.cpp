@@ -1,4 +1,5 @@
 #include "g1_admission_policy.hpp"
+#include "g1_client_policy.hpp"
 #include "g1_retained_estimate.hpp"
 #include "g1_receive_loss.hpp"
 #include <cassert>
@@ -22,6 +23,29 @@ int main(){
   for(auto reply:{G1AdmissionReply::NoSource,G1AdmissionReply::ForeignRoot,G1AdmissionReply::Unusable})a.reply(reply);
   assert(a.no_source==1&&a.foreign_root==1&&a.unusable==1&&a.warm);
   const auto starts=a.starts[0];a.reply(G1AdmissionReply::Direct);assert(!a.failures&&a.starts[0]==starts&&a.warm);
+  // A direct replay refresh must allow one failed full exchange, maximum
+  // existing jittered backoff, and a second full exchange before replay dies.
+  // Exercise the production refresh and rolling-start policies together,
+  // across the accepted bootstrap uncertainty range. Fresh PA permission is
+  // independent here; no retry may lengthen its original replay anchor.
+  for(uint32_t uncertainty:{40000u,60000u,80000u,99999u}){
+    G1Anchor anchor{true,11,22,1700000000000000,1000000,200000000,3,4,uncertainty};
+    const auto deadline=anchor.deadline(),permission=anchor.until;
+    G1AdmissionPolicy retry;retry.started(anchor.at);retry.acquired();
+    auto first=anchor.at;
+    while(!anchor.refresh(first,true))first+=1000;
+    assert(anchor.valid(first)&&retry.allowed(first));retry.started(first);
+    retry.failed(first+2000000,20000000); // failed exchange + worst40s backoff
+    const auto second=retry.retry_at;
+    assert(retry.allowed(second)&&anchor.valid(second+2000000));
+    retry.started(second);assert(!retry.allowed(second+2000000));
+    assert(anchor.deadline()==deadline&&anchor.until==permission&&!anchor.valid(deadline));
+    // Negative control: starting at the previous200ms uncertainty threshold
+    // cannot fit this same unchanged retry schedule inside the old deadline.
+    auto late=anchor.at;while(anchor.guard(late)<200000)late+=1000;
+    assert(!anchor.valid(late+2000000+40000000+2000000));
+    assert(anchor.refresh(first,true)&&!anchor.urgent(first,true));
+  }
   G1RetainedEstimate e;uint64_t utc=0;assert(!e.deliver(1,utc));
   G1ClockPrediction p{20000000,1000000000,500,2000,1700000000000000000};
   assert(e.retain(p,11,22,3,19999000,1000000));

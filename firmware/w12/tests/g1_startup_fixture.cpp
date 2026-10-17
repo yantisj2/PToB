@@ -9,13 +9,13 @@ static void scan(G1ParentSelection& p,uint64_t start,uint64_t until){
 }
 int main(){
   v12::G1Anchor traffic{true,11,22,1700000000000000,1000000,2500000,1,1,80000};
-  for(const auto threshold:{100000u,125000u,199999u,200000u,225000u,250000u}){
+  for(const auto threshold:{100000u,125000u,149999u,150000u,174999u,175000u,200000u,225000u,250000u}){
     const auto now=traffic.at+uint64_t(threshold-traffic.uncertainty-100)*500;
     traffic.until=now+1500000; // Fresh source permission, never a new replay anchor.
     assert(traffic.guard(now)==threshold);
     assert(traffic.refresh(now));
-    assert(traffic.refresh(now,true)==(threshold>=200000));
-    assert(traffic.urgent(now,true)==(threshold>=225000));
+    assert(traffic.refresh(now,true)==(threshold>=150000));
+    assert(traffic.urgent(now,true)==(threshold>=175000));
     assert(traffic.valid(now)==(threshold<249900));
   }
   const auto lost=traffic.at+1000000;traffic.until=lost-1500000;

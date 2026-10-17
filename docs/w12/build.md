@@ -98,9 +98,14 @@ publication wait for current parent clock lock and withdraw when that lock or
 source is lost. Upstream reception remains available to acquire the parent.
 See the [changelog](../../firmware/w12/CHANGELOG.md) for the lock prerequisites
 and the distinction between relative quality and qualified precision.
-Version 0.1.2 moves continuous BLE100's direct G1 proactive replay refresh to
-200 ms uncertainty, leaving its original 250 ms hard replay limit intact.
-BLE50 retains the earlier acquisition thresholds. No source expiry is extended.
+Version 0.1.8 starts continuous BLE100's direct G1 proactive replay refresh at
+150 ms uncertainty, with urgency at 175 ms. This supersedes 0.1.2's 200/225 ms
+thresholds, which left about 25 seconds before replay expiry despite the
+20–40 second warm failure backoff. The new threshold reserves about 50 seconds
+for a failed two-second exchange, maximum backoff and another two-second
+exchange. The rolling two-starts-per-60-seconds cap remains; two failures can
+still exhaust that opportunity. The original 250 ms hard replay limit and
+signed source/model expiry stay intact. BLE50 retains its 100/125 ms thresholds.
 Normal RC7 admission renewal is five minutes, with a six-minute lease. Direct
 G1 JOIN replay refresh, pending admission and recovery after missing corrected
 clock progress are separate traffic classes; inspect their counters separately.

@@ -2,6 +2,16 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 17 October 2026 — W12 replay refresh retry budget
+
+W12 **0.1.8** starts direct BLE100 replay refresh earlier, at 150 ms uncertainty
+with urgency at 175 ms. The old 200 ms threshold left about 25 seconds before
+replay expiry, less than the existing 20–40 second warm retry backoff. The new
+threshold reserves about 50 seconds for a failed exchange and a retry. The
+two-starts-per-minute cap, hard replay limit, signed source/model deadlines and
+relative lock criteria remain unchanged. Combined-policy host tests reproduce
+the old scheduling failure; multiple failed attempts can still lose lock.
+
 ## 17 October 2026 — native GM control latency budget
 
 T096 **0.15.78** requests20ms native GM control ACL opportunities. The prior
