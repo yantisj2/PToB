@@ -2,6 +2,13 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 17 October 2026 — native GM pairing diagnostics
+
+T096 **0.15.74** records bounded native control stages in the existing timing
+journal: create/cancellation, MTU/discovery, JOIN send/receive/retirement and
+control promotion. It adds no static journal storage or control authority.
+This diagnostic candidate does not itself repair or qualify HOT pairing.
+
 ## 17 October 2026 — fractional phase dispatch correction
 
 T096 **0.15.73** includes the fractional phase field in the controller's

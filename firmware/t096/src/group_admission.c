@@ -3,6 +3,7 @@
  * connection before negotiating a control role or a bounded freshness bootstrap. */
 #include "group_admission.h"
 #include "ble_transport.h"
+#include "timing_events.h"
 #include <errno.h>
 #include <string.h>
 #if defined(R2_SERVICE_CLIENTS) || defined(R2_FIELD_FIXTURE) || defined(R2_RC_DYNAMIC_FIXTURE)
@@ -310,6 +311,7 @@ void r2_group_admission_tick(struct r2_network *n, uint64_t now) {
   if (active && ready && close_at && now >= close_at && promote) {
     int slot = r2_ble_admission_promote();
     if (slot >= 0) {
+      r2_timing_event(R2_TIMING_GM_CONTROL,0,exchange.peer,7,(uint32_t)slot,exchange.control);
       r2_network_joined(n,(unsigned)slot,&exchange,now);
       client.passive=false; /* A control promotion does not destroy causal time. */
       n->profile_client = 255;
@@ -326,6 +328,8 @@ void r2_group_admission_tick(struct r2_network *n, uint64_t now) {
   }
   if (active && (!r2_ble_admission_connected() || peer != exchange.peer || now >= exchange.until ||
                  (close_at && now >= close_at && !promote))) {
+    r2_timing_event(R2_TIMING_GM_CONTROL,-ETIMEDOUT,exchange.peer,6,pending.kind,
+      (now>=exchange.until)|(!r2_ble_admission_connected()<<1)|((peer!=exchange.peer)<<2)|((close_at&&now>=close_at)<<3));
     if (ready)
       r2_ble_admission_release();
     active = waiting = promote = false;
@@ -344,6 +348,7 @@ void r2_group_admission_tick(struct r2_network *n, uint64_t now) {
       return;
     }
     active = true;
+    r2_timing_event(R2_TIMING_GM_CONTROL,0,exchange.peer,3,exchange.server,5000);
     sequence = 0;sent_demand=false;received_request=false;
     promote = false;
     if (!exchange.server) {
@@ -366,6 +371,8 @@ void r2_group_admission_tick(struct r2_network *n, uint64_t now) {
     if (!rc)
       rc = r2_ble_send(r2_ble_admission_peer(), wire);
     if (!rc) {
+      r2_timing_event(R2_TIMING_GM_CONTROL,0,exchange.peer,4,pending.kind,
+                      now<exchange.until?(uint32_t)((exchange.until-now)/1000):0);
       if (pending.kind == R2_JOIN_REQUEST) exchange.request_at = now;
       if (pending.kind == R2_JOIN_CHALLENGE) exchange.challenge_at = now;
       if (pending.kind == R2_JOIN_PROOF) exchange.proof_at = now;
@@ -424,7 +431,10 @@ void r2_group_admission_receive(struct r2_network *n,
     sequence = 0;sent_demand=false;received_request=false;
     close_at = 0;
   }
-  if (r2_group_join_receive(&exchange, &r, now))
+  int receive_rc=r2_group_join_receive(&exchange,&r,now);
+  r2_timing_event(R2_TIMING_GM_CONTROL,receive_rc,r.sender,5,r.kind,
+                  exchange.control|(exchange.server<<1));
+  if (receive_rc)
     return;
   if (exchange.server && r.kind == R2_JOIN_REQUEST) {
     exchange.control =

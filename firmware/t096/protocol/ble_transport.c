@@ -413,6 +413,8 @@ static void mtu_done(struct bt_conn *conn,uint8_t error,struct bt_gatt_exchange_
   struct peer *p=CONTAINER_OF(params,struct peer,mtu);
   k_spinlock_key_t key=k_spin_lock(&lock);
   if(p->conn==conn){
+   r2_timing_event(R2_TIMING_GM_CONTROL,error,p->identity,8,
+                   (uint32_t)atomic_get(&p->att_mtu),p->incarnation);
    if(error){diag_link_event(2,4,10,(unsigned)(p-peers),error);if(gm_mtu_errors!=UINT32_MAX)++gm_mtu_errors;}
    atomic_set(&p->mtu_done,error?-1:1);
   }
@@ -422,6 +424,8 @@ static uint8_t discovered(struct bt_conn *conn,const struct bt_gatt_attr *attr,s
 {
   struct peer *p=CONTAINER_OF(params,struct peer,discovery);
   if(p->conn!=conn)return BT_GATT_ITER_STOP;
+  r2_timing_event(R2_TIMING_GM_CONTROL,attr?0:-ENOENT,p->identity,9,
+                  attr?((const struct bt_gatt_chrc *)attr->user_data)->value_handle:0,p->incarnation);
   if(!attr){atomic_set(&p->discovered,-1);return BT_GATT_ITER_STOP;}
   const struct bt_gatt_chrc *chrc=attr->user_data;
   p->handle=chrc->value_handle;atomic_set(&p->discovered,1);return BT_GATT_ITER_STOP;
@@ -430,6 +434,7 @@ static uint8_t located(struct bt_conn *conn,uint8_t error,struct bt_gatt_read_pa
  const void *data,uint16_t length){
  struct peer *p=CONTAINER_OF(params,struct peer,lookup);
  if(p->conn!=conn||atomic_get(&p->dead))return BT_GATT_ITER_STOP;
+ r2_timing_event(R2_TIMING_GM_CONTROL,error,p->identity,10,length,p->incarnation);
  if(!error&&data&&length==sizeof discovery_marker&&params->by_uuid.start_handle&&
     !memcmp(data,discovery_marker,sizeof discovery_marker)){
   p->handle=params->by_uuid.start_handle;atomic_set(&p->discovered,1);
@@ -632,6 +637,7 @@ static void poll_owned(uint64_t now)
      * Public cancellation retains the connection until callbacks are drained. */
     if(p->conn&&!atomic_get(&p->connected)&&
        p->connect_until&&now>=p->connect_until){
+      r2_timing_event(R2_TIMING_GM_CONTROL,-ETIMEDOUT,p->identity,2,p->incarnation,0);
       p->connect_until=0;r2_ble_disconnect(i);
     }
     /* A relay's own bootstrap need governs outgoing acquisition, not an
@@ -810,6 +816,8 @@ static void poll_owned(uint64_t now)
        * default while healthy1.5s source permissions expire. Use the same
        * original100ms create opportunity as the transient client path. */
       if(group_client||(group_id&&server_ready&&i==CONTROL_PEERS))p->connect_until=now+100000;
+      r2_timing_event(R2_TIMING_GM_CONTROL,0,p->identity,1,interval,
+                      p->connect_until>now?(uint32_t)((p->connect_until-now)/1000):0);
       p->retry=now+500000;
     }
     else{p->retry=now+200000;if(rc!=-EALREADY&&rc!=-ENOMEM&&rc!=-EBUSY)transport_error(rc,"CREATE",i);}

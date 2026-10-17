@@ -92,6 +92,19 @@ transport integrity, not authenticity or timing accuracy.
 | 27 | RC control retry scheduled | reason:0 failed attempt,1 PENDING,2 exhausted batch,3 create API error / delay ms / attempt count |
 | 28 | RC advertising/gate transition | flags / requested discovery interval in625us units / reserved |
 | 29 | Native RX reserve at a legacy initiating refusal | required nodes / last free nodes / lowest free nodes seen at a refusal in this MCU boot |
+| 32 | Native GM control progress; signed result retains API/protocol error | stage / stage value / stage value |
+
+Kind32 stages are: 1 create accepted (ACL interval in1.25ms units / local
+connect budget ms; zero means no local cap), 2 local connect-deadline cancellation
+(connection incarnation / reserved), 3 JOIN begin (server flag / original
+lifetime ms), 4 JOIN send accepted (record kind / remaining original lifetime
+ms), 5 decoded JOIN receive (record kind / control flag bit0 and server bit1),
+6 exchange retirement (last pending kind / expiry bit0, disconnected bit1,
+changed peer bit2, close deadline bit3), 7 control promotion (slot / control
+flag), 8 MTU exchange callback (cached negotiated MTU / incarnation),
+9 characteristic discovery (handle / incarnation), and 10 marker-read callback
+(length / incarnation). These observations grant no authority and do not extend
+an exchange or restart a precision train.
 
 Kinds22–25 carry the same connected/create-error result and per-attempt baseline.
 The target in22 is meaningful only if23 reports a prepared scan window; otherwise
