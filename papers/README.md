@@ -28,6 +28,8 @@ replacing its main results with a fixed concurrent 180-second RC/DC window.
 The bus was shared, not clean; isolated-controller validation and completed
 extended trials remain pending. USB replies, causal RX prediction, chrony
 estimator, delivered agreement and sampled availability retain separate counts.
+The [sanitized observation supplement](../evidence/usb/2026-10-17/README.md)
+includes every sample in that window and offline summary recomputation.
 The [original edition receipt](imports/research-2026-10-16.json) binds the earlier
 three source/PDF pairs and selected research exports, preserved through Git. The
 [research collection](../evidence/research/2026-10-16/README.md) includes USB delivery

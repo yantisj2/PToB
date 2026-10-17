@@ -1,0 +1,74 @@
+{
+  "schema": 1,
+  "selected": "2026-10-17",
+  "author": "Jonathan Yantis",
+  "license": "CC-BY-4.0",
+  "license_reference": "../../LICENSE.md",
+  "kind": "Selected sanitized hardware-derived observations; relative timing, not independent UTC truth",
+  "summary": {
+    "path": "clients/macos/results/2026-10-17-ble-vs-direct.json",
+    "sha256": "e1193c0e77e39e6770a4a1eb6647f3832d49a0db0eed61cd08523f5fd0c35863"
+  },
+  "comparison_window": {
+    "duration_s": 180,
+    "timezone": "America/Chicago",
+    "start_approx_local": "2026-10-17T12:42:10-05:00",
+    "end_approx_local": "2026-10-17T12:45:10-05:00",
+    "start_host_monotonic_ns": "421936502374750",
+    "end_host_monotonic_ns": "422116502374750",
+    "selection": "Fixed concurrent 180 s window, RC trial +60 s through +240 s; selected by duration and common host monotonic time, not error magnitude. All rows within window retained.",
+    "both_extended_trials_complete": false
+  },
+  "files": [
+    {
+      "file": "rx.csv",
+      "sha256": "0b61a12cb5f39394fd7ea3beaab870352e91b27abdd1cdd86bc6a291dbf34149",
+      "bytes": 568195,
+      "rows": 11520
+    },
+    {
+      "file": "status.csv",
+      "sha256": "dfe8574d6d6a5a6a5e7f13a4abfb14a545dea135127814ebeb1c2cf837282903",
+      "bytes": 11489,
+      "rows": 354
+    }
+  ],
+  "derivation": {
+    "raw_prefixes": {
+      "RC": {
+        "bytes": 32538498,
+        "sha256": "493e58f2354f00308ef01bc4de440608c913d0a2db94ec22fef8ec38d1efb42d",
+        "proof_tail_seconds": 5
+      },
+      "DC": {
+        "bytes": 540555933,
+        "sha256": "cc85eb9ae3f1dcf93ccd4f03739bac48eaf9733e5de3bc2be699462b1d5195c5",
+        "proof_tail_seconds": 5
+      }
+    },
+    "production_sources_sha256": {
+      "USBClock.swift": "c9b859ac415afa0fda9d778615835fd6f1f0d9569d793d1c80c8218ec0fc1d96",
+      "TimeMath.swift": "595bba73074ce8f1fe949c060353462374f425a0525eb5c141a0899cb9c821e4",
+      "PreciseClock.swift": "fe777478f19fe0d1686ded016436bdef017096658914226225d7d67c3203ea30",
+      "USBFrameBridge.swift": "e8325e2c5d90fae553fba766e1b2722b144f45f80f14079cad5fdf8171e9d6ef"
+    },
+    "private_exporter_sha256": "02a90a27fc062e52cff2da4edc73c69a2157e772294ba881e450f6d04fadec0f",
+    "RX_method": "Replay all preceding raw observations through unchanged production arithmetic; export every sample inside the fixed window. Current errors never train their own prediction. No retrospective detrending.",
+    "status_method": "Whitelist native status fields; estimator is the latest synchronized tracking readout sampled at each status point, including cached values.",
+    "transformations": [
+      "Replace absolute host monotonic coordinates with elapsed nanoseconds from the common window start.",
+      "Retain all window samples and status points, including rejected, warm-up and withheld rows.",
+      "Exclude raw packets, source/counter/boot/device/group identifiers, absolute UTC values, enrollment and private paths."
+    ],
+    "private_raw_captures_included": false,
+    "physical_extraction_independently_reproduced_from_public_files": false
+  },
+  "limitations": [
+    "Shared USB bus; clean-bus validation is pending. Direct-port frame identity does not establish a quiet or isolated controller.",
+    "Same measurement methods/configuration/window, separate physical GNSS source chains. No controlled effect or superiority claim.",
+    "Window is after acquisition; no complete-trial, startup or continuous-delivery qualification. All withheld rows and hardware rejects within window remain in counts.",
+    "RC first post-readback capture had delayed BLE acquisition and no usable UTC for 60 s. It is retained separately from the settled comparison; acquisition behavior remains under investigation.",
+    "PPS-to-UTC association, host/PHY bias and independent UTC accuracy remain unqualified.",
+    "The requested two-hour trials were still in progress when this fixed window was selected."
+  ]
+}

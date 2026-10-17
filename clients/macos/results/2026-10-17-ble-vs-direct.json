@@ -134,7 +134,7 @@
   "definitions": {
     "RX_RMS": "Causal corrected-source prediction errors using only the previous 64–1024 accepted observations. Replay all preceding captured observations before scoring errors in the common window. Retain mean/transients; no retrospective detrending; UTC offset excluded.",
     "delivered_minus_fine": "Delivered chrony UTC minus its unqualified fine input source at the exact same host wall/Mach instant; each comparison shares its source, not independent UTC truth.",
-    "chrony_estimator_RMS": "Median of synchronized native tracking queries in the window; distinct from RX RMS and delivered-minus-fine.",
+    "chrony_estimator_RMS": "Median of the latest synchronized tracking readout at each native status point in the window, including cached readouts; not a median of query-event timestamps. Distinct from RX RMS and delivered-minus-fine.",
     "availability": "All native 1 Hz status observations in the same fixed window. Point samples, not continuous coverage. Delivered-status and exact same-instant comparison counts can differ because they use separately sampled brackets.",
     "p99": "Nearest rank ceil(.99*n) over absolute differences."
   },

@@ -96,7 +96,7 @@ The selected window spans approximately 12:42:10--12:45:10 CDT on 17 October 202
 
 The paths were GNSS--BLE--RC--USB--macOS and separate local GNSS--DC--USB--macOS. They did not share a physical GNSS source chain. RF/GNSS placement, temperature and host load were not controlled treatments. \textbf{The USB bus was shared, not clean}: other USB devices and concurrent timing work were present. A matched physical repeat on an isolated controller remains pending. Direct-port frame association is not a clean-bus qualification.
 
-Every row in the fixed window remains in its population. Hardware validation and RX warm-up are reported separately from valid precision replies. Native approximately 1 Hz status observations supply valid/withheld denominators; no missing output is filled with a zero error. Tracking queries and exact common-instant comparisons have their own admission brackets. Consequently, a delivered status and an admitted direct comparison need not have identical counts. Point samples do not measure continuous outage duration.
+Every row in the fixed window remains in its population. Hardware validation and RX warm-up are separate from valid replies. Native approximately 1 Hz statuses supply delivery denominators and sample the latest synchronized tracking readout; no missing output is filled with zero error. Exact comparisons use separate admission brackets, so delivery and comparison counts can differ. Point samples do not measure continuous outage duration.
 
 The direct comparison computes delivered chrony UTC minus its fine estimate at the same admitted host wall/Mach instant, using integer differences. Source or endpoint error common to both may cancel. It is distinct from chrony's reported RMS and is not independent UTC truth. No operating-system clock adjustment or network serving was configured. The requested two-hour trials were still running when this window was selected; neither their completion nor long-run durability is claimed.
 
@@ -120,12 +120,12 @@ Map mismatches / source scopes &0 /1 &0 /1\\\bottomrule
 Each path's predictions, warm-up observations and hardware rejections sum to all 5,760 replies. Separate source chains, finite populations and uncontrolled bus/load conditions prevent a causal RC/DC ranking.
 
 \subsection{Chrony estimator, delivered agreement and availability}
-Table~\ref{tab:chrony} separates estimator queries, direct comparisons and status availability. Each path had 177 synchronized tracking queries, with median reported RMS of 31 ns for RC and 27 ns for DC. These repeated internal statistics are not independent accuracy trials. Delivered chrony-minus-own-fine-source RMS was 325.545 ns across 145 RC comparisons and 344.546 ns across 119 DC comparisons.
+Table~\ref{tab:chrony} separates status-sampled tracking readouts, direct comparisons and delivery. Each path had 177 synchronized readouts, with median RMS of 31 ns for RC and 27 ns for DC. These cached internal statistics are not independent accuracy trials. Delivered chrony-minus-own-fine-source RMS was 325.545 ns across 145 RC comparisons and 344.546 ns across 119 DC comparisons.
 
 \begin{table}[htbp]\centering\small
 \caption{Separate chrony populations in the same shared-bus window. All differences are relative to each path's own fine source.}\label{tab:chrony}
 \begin{tabular}{L{0.55\linewidth}rr}\toprule Statistic / population & RC & DC\\\midrule
-Synchronized tracking queries &177 &177\\
+Status-sampled tracking readouts &177 &177\\
 Estimator RMS: minimum / median / maximum (ns) &14 /31 /109 &14 /27 /116\\
 Exact common-instant comparisons &145 &119\\
 Chrony-minus-fine RMS / mean (ns) &325.545 /$-69.379$ &344.546 /$-85.437$\\
@@ -168,7 +168,7 @@ Independently commission PPS/UTC labeling and measure a second timed host event 
 After publication and client corrections, the fixed 180 s RC/DC window returned all USB timing replies and showed corrected-source RX RMS of 190.050/267.448 ns. Delivered chrony agreement with each path's own fine source was 325.545/344.546 ns RMS, while sampled user-clock availability was 147/177 and 119/177. Separate chrony estimator medians were 31/27 ns. These shared-bus observations retain hardware rejections and withheld output; they neither rank the source paths causally nor establish UTC accuracy. Clean-bus repetition, completed durability trials and independent endpoint calibration remain necessary.
 
 \section*{Data, code and reproducibility}
-This research draft is not submitted or accepted. Jonathan Yantis's selected public summary, \path{clients/macos/results/2026-10-17-ble-vs-direct.json}, binds the common window, exact firmware/source hashes, raw-prefix identities, metrics, definitions and exclusions. Raw native captures, enrollment, installed images and device bindings remain private. Public summaries permit denominator and claim checks, not independent reconstruction of physical measurements. A shipping-replay cross-check reproduced 8,364 predictions and 188.215650 ns RX RMS over a separate first-300 s validation population; that is an arithmetic check, not the comparison window.
+This research draft is not submitted or accepted. Jonathan Yantis's selected summary, \path{clients/macos/results/2026-10-17-ble-vs-direct.json}, binds the window, software, raw-prefix identities, metrics and exclusions. Sanitized observations at \path{evidence/usb/2026-10-17/} permit summary recomputation; private raw captures, enrollment and device bindings remain excluded. Physical reconstruction still requires those captures. A separate first-300 s shipping-replay cross-check reproduced 8,364 predictions and 188.215650 ns RX RMS; it validates arithmetic, not the comparison window.
 
 The standalone source and matching PDF are bound by \path{papers/editions/usb-macos-2026-10-17.json}. Git preserves the prior edition, whose immutable import receipt and historical CSVs remain under \path{papers/imports/research-2026-10-16.json} and \path{evidence/research/2026-10-16/}. The public offline command \code{python3 tools/verify\_research.py} checks the retained historical subset and current edition identities/accounting without operating hardware. It does not recreate excluded raw captures or independently qualify UTC. Original paper and figures: copyright 2026 Jonathan Yantis, CC BY 4.0.
 

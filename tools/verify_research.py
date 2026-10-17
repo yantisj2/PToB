@@ -34,7 +34,7 @@ def source_prose_words(source):
 
 def verify_current_edition():
     edition = json.loads((ROOT / 'papers/editions/usb-macos-2026-10-17.json').read_text())
-    for entry in edition['files'] + edition['evidence']:
+    for entry in edition['files'] + edition['evidence'] + [edition['data_supplement']]:
         require(hashlib.sha256((ROOT / entry['path']).read_bytes()).hexdigest() == entry['sha256'],
                 'current edition identity: ' + entry['path'])
     paths = {entry['path']: entry['sha256'] for entry in edition['files']}

@@ -90,7 +90,7 @@ chains and bus conditions do not establish a controlled accuracy comparison.
 | Valid USB timing replies | **5,760 / 5,760** | **5,760 / 5,760** |
 | Hardware consistency rejections | 12 tuples | 6 tuples |
 | Corrected-source RX RMS, before chrony | **190 ns**, 5,054 predictions | **267 ns**, 5,370 predictions |
-| Chrony estimator RMS, median | **31 ns**, 177 synchronized queries | **27 ns**, 177 synchronized queries |
+| Chrony estimator RMS, median | **31 ns**, 177 status-sampled readouts | **27 ns**, 177 status-sampled readouts |
 | Delivered chrony minus fine source | **326 ns RMS**, 837 ns absolute p99; 145 comparisons | **345 ns RMS**, 689 ns absolute p99; 119 comparisons |
 | User-clock availability | **147 / 177** status observations; 30 withheld | **119 / 177** status observations; 58 withheld |
 
@@ -101,8 +101,9 @@ window. Valid USB input does not imply continuously available user-clock output;
 withholding remains visible above. Delivered-status and comparison counts differ
 when their separately sampled host brackets do not both permit output.
 
-Chrony's tracking RMS, corrected-source RX RMS and delivered-clock difference
-are separate measurements. The last compares chrony with its own fine input
+Chrony's tracking RMS uses the latest synchronized readout at each status point;
+it is separate from corrected-source RX RMS and delivered-clock difference.
+The last compares chrony with its own fine input
 source at the same host wall/Mach instant; it is not independent UTC error.
 The screenshot is an after-acquisition display. The numerical window also starts
 after acquisition, while retaining every withheld status within it. RC's earlier
@@ -117,8 +118,10 @@ A direct USB port or resolved SOF frame identity alone does not establish an
 isolated bus. These results do not qualify independent UTC accuracy or durability.
 
 The [current comparison record](results/2026-10-17-ble-vs-direct.json) preserves
-exact populations, method/source identities, input hashes and limitations;
-private raw captures are excluded. [Image provenance](../../docs/images/README.md)
+exact populations, method/source identities, input hashes and limitations.
+The [sanitized observation data](../../evidence/usb/2026-10-17/README.md) lets
+reviewers recompute the statistics; private raw captures are excluded.
+[Image provenance](../../docs/images/README.md)
 records the supplied bytes and display selection. Use the
 [ChronyControl setup](../../docs/macos/chronycontrol.md) to review a live capture.
 

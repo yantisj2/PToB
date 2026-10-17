@@ -2,11 +2,24 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 17 October 2026 — publication data attachment
+
+The [USB comparison supplement](evidence/usb/2026-10-17/README.md) attaches all
+11,520 USB samples and 354 status observations from the existing fixed window.
+Sanitized CSVs preserve warm-up, rejections and withheld output; a public offline
+verifier recomputes the reported statistics. Raw packets, per-observation UTC,
+device bindings, enrollment and local build artifacts remain excluded.
+
+The client guide and matching paper clarify that chrony estimator medians use
+the latest synchronized tracking readout sampled at each status point, including
+cached values. Numerical results are unchanged. Source/PDF/evidence identities
+are updated together, prior bytes remain in Git, and the paper remains nine pages.
+
 ## 17 October 2026 — USB timing paper refresh
 
 The USB/macOS research draft replaces its October 15 main results with the
 fixed concurrent 180-second RC v0.15.81/DC v0.15.80 comparison. It separates
-valid USB replies, corrected-source RX predictions, chrony estimator queries,
+valid USB replies, corrected-source RX predictions, chrony tracking readouts,
 shared-source delivered agreement and sampled availability, preserving rejected,
 warm-up and withheld counts. The bus was **shared, not clean**; isolated-controller
 validation, completed two-hour trials, PPS/UTC commissioning and independent

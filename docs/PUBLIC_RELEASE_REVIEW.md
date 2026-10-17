@@ -144,3 +144,39 @@ The live chrony session, devices, source roles and background logging were not
 operated by this publication work. No binary release or website deployment is
 included. Durability, independent UTC/output metrology and HOT failover remain
 unqualified.
+
+## USB comparison publication preparation — 17 October 2026
+
+The current source includes the separate T096 DC image, shared RC/DC immutable
+USB publication, receiver RMS measurement and revised USB/macOS research draft.
+DC remains outside the normal GM/RC switch. The current production/test source
+is unchanged from the checked `6c6f1b2` integration; its clean GM/RC/DC builds,
+profile-switching and host test results remain separate from this data review.
+This preparation did not rebuild SDK images or perform hardware operations.
+
+The [current data supplement](../evidence/usb/2026-10-17/README.md) attaches all
+11,520 USB samples and 354 status points in the already selected concurrent
+180-second window. Public CSV verification reproduces RX RMS/mean/sigma,
+warm-up/rejection ledgers, direct comparison RMS/mean/tails, tracking-readout
+statistics and sampled delivery counts. Changed-data and changed-hash negative
+checks are rejected. Tracking medians are explicitly status-sampled cached
+readouts; all numerical results are unchanged.
+
+Historical evidence, V14, research, stability and current USB verification pass.
+The existing paper source compiles with the editor and Tectonic; its matching
+PDF has nine inspected pages with unchanged typography and fewer words. Edition
+hashes bind source, PDF, summary and the new data manifest. Earlier editions and
+frozen import/evidence hashes remain intact. Eight paper PDFs were screened for
+private metadata paths, attachments and local-file actions, with no findings.
+
+The proposed history and tracked/unignored files were screened for known local
+enrollment encodings, deployment identities, private paths and common credential
+patterns. The sole pattern finding was the existing privacy checker's literal
+path regex. Local Markdown targets resolve. No raw captures, enrollment, compiled
+firmware, private planning or temporary build files are selected for publication.
+These are bounded checks, not proof against every possible secret encoding.
+
+The comparison used a shared USB bus. Clean-bus repetition, independent UTC and
+endpoint calibration, and complete extended-trial review remain pending. This
+is preparation for experimental source/results publication; it does not promote
+draft papers, qualify generic binary downloads or deploy the website.

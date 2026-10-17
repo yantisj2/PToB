@@ -5,6 +5,7 @@ single pooled benchmark or a statement of current firmware acceptance.
 
 | Claim or question | Evidence | Boundary |
 | --- | --- | --- |
+| Current BLE-derived RC versus USB Direct timing | [October 17 USB comparison](usb/2026-10-17/README.md) | Fixed shared-bus window; sanitized observations, separate RX/chrony/availability populations; clean-bus and independent UTC validation pending |
 | Current admission/continuity fixes and unresolved USB blackouts | [October 16 stability engineering](stability/2026-10-16/README.md) | Separate v63/v67/v68/v69 and W12 observations; failures retained; no durability or UTC qualification |
 | USB/chrony delivery, oscillator-extension research and system viability | [October 15–16 research](research/2026-10-16/README.md) | Shared-source agreement; separate historical runs; hypothetical scaling models |
 | V14 boundary-clock regeneration, prospective one-RC phase, and renewal | [October 12 V14 research](v14/2026-10-12/README.md) | 504 observed edges with complete 602-opportunity accounting; fractional PPS phase, not calibrated UTC or output |
@@ -27,6 +28,7 @@ python3 tools/verify_evidence.py
 python3 tools/verify_v14.py
 python3 tools/verify_research.py
 python3 tools/verify_stability.py
+python3 tools/verify_usb_results.py
 ```
 
 This checks all imported evidence files against the [import manifest](imports/2026-10-09.json)

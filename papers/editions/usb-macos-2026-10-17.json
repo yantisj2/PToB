@@ -24,22 +24,23 @@
   "files": [
     {
       "path": "papers/usb-macos-time-transfer-preprint.tex",
-      "sha256": "d11028a952f4542b8ea78beaaeb00da475f40fa1cf681be34976877c6b17ba7f",
+      "sha256": "b4f21857a9c2842b702da7f78510872d428e3b3749e1d2a7d207ea3817e2d49c",
       "license": "CC-BY-4.0"
     },
     {
       "path": "papers/usb-macos-time-transfer-preprint.pdf",
-      "sha256": "e17815b262da6059702e4cad0f9be55909d36a7e521679c5f0ad42a29a95a3d5",
+      "sha256": "34d861538d40b78445786da0914d2b9840f11e1b14b6d4b3bfdc806ed79cc0bd",
       "license": "CC-BY-4.0"
     }
   ],
   "evidence": [
     {
       "path": "clients/macos/results/2026-10-17-ble-vs-direct.json",
-      "sha256": "1138ab0dd6c42116f3dd994d7b5d9c22b065150d5040b5b06ef551e3b8615f14",
+      "sha256": "e1193c0e77e39e6770a4a1eb6647f3832d49a0db0eed61cd08523f5fd0c35863",
       "license": "CC-BY-4.0",
       "kind": "Selected public summary; raw native captures excluded",
-      "source_revision": "a71ae75bc240d2681b300eb9ac38bf2a926d4be1"
+      "selection_revision": "a71ae75bc240d2681b300eb9ac38bf2a926d4be1",
+      "curation": "Sampling definition clarified with this data attachment; numerical values and source selection unchanged."
     }
   ],
   "evidence_cutoff": {
@@ -57,7 +58,7 @@
     "version": "0.17.0",
     "binary_sha256": "218ff446467babc9f3b9c0f7de64c0f62c91c2abd1bf908e595beeaa8a4b8885",
     "public_bundle_id": "6ffe055852f8faf66c0acbe1a7fb27f87b869a90bad1204f3bf4d9683f597c7c",
-    "command": "tectonic --keep-logs --outdir artifacts/papers papers/usb-macos-time-transfer-preprint.tex",
+    "command": "tectonic --only-cached --keep-logs --outdir papers papers/usb-macos-time-transfer-preprint.tex",
     "standalone": true,
     "desktop_editor_compile": "SUCCESS",
     "warnings": false
@@ -70,16 +71,16 @@
     },
     "after": {
       "pages": 9,
-      "pdf_extracted_words": 4678,
-      "source_prose_words": 3857
+      "pdf_extracted_words": 4656,
+      "source_prose_words": 3833
     },
     "pdf_word_method": "pdftotext -layout, then whitespace-delimited words; includes headings, tables, references and running text",
     "source_prose_method": "Before bibliography, remove table/figure/equation environments and TeX command names, replace TeX grouping/math separators with spaces, then split on whitespace. Includes headings/title and inline content. Same algorithm for both editions.",
     "layout": "Existing 11pt article, 0.85in margins and bibliography scale retained; no type reduction."
   },
   "review": {
-    "compiled_source_sha256": "d11028a952f4542b8ea78beaaeb00da475f40fa1cf681be34976877c6b17ba7f",
-    "exported_pdf_sha256": "e17815b262da6059702e4cad0f9be55909d36a7e521679c5f0ad42a29a95a3d5",
+    "compiled_source_sha256": "b4f21857a9c2842b702da7f78510872d428e3b3749e1d2a7d207ea3817e2d49c",
+    "exported_pdf_sha256": "34d861538d40b78445786da0914d2b9840f11e1b14b6d4b3bfdc806ed79cc0bd",
     "all_pages_rendered_and_visually_inspected": true,
     "pages_reviewed": 9,
     "tables": 2,
@@ -97,5 +98,34 @@
     "PPS-to-UTC association, host/PHY bias and independent UTC accuracy remain unqualified.",
     "The requested two-hour trials were still in progress when this fixed window was selected."
   ],
-  "verification": "python3 tools/verify_research.py; verifies current hashes, summary accounting and claim values, and the frozen historical subset using preserved Git bytes. It does not reconstruct physical results from private captures."
+  "verification": "python3 tools/verify_research.py; verifies current hashes, summary accounting and claim values, and the frozen historical subset using preserved Git bytes. It does not reconstruct physical results from private captures.",
+  "data_supplement": {
+    "path": "evidence/usb/2026-10-17/manifest.json",
+    "sha256": "e9debfa5d61412074682a9afde01d0fc4768653b45c328473738a3b66a0e1276",
+    "license": "CC-BY-4.0"
+  },
+  "curation_update": {
+    "date": "2026-10-17",
+    "preceding_revision": "b9122a65dec03536169c2b733b876f1db2e61e48",
+    "preceding_files": [
+      {
+        "path": "papers/usb-macos-time-transfer-preprint.tex",
+        "sha256": "b4f21857a9c2842b702da7f78510872d428e3b3749e1d2a7d207ea3817e2d49c",
+        "license": "CC-BY-4.0"
+      },
+      {
+        "path": "papers/usb-macos-time-transfer-preprint.pdf",
+        "sha256": "34d861538d40b78445786da0914d2b9840f11e1b14b6d4b3bfdc806ed79cc0bd",
+        "license": "CC-BY-4.0"
+      }
+    ],
+    "preceding_summary": {
+      "path": "clients/macos/results/2026-10-17-ble-vs-direct.json",
+      "sha256": "1138ab0dd6c42116f3dd994d7b5d9c22b065150d5040b5b06ef551e3b8615f14",
+      "license": "CC-BY-4.0",
+      "kind": "Selected public summary; raw native captures excluded",
+      "source_revision": "a71ae75bc240d2681b300eb9ac38bf2a926d4be1"
+    },
+    "changes": "Attach sanitized individual observations and clarify status-sampled cached tracking readouts. All numerical results and populations unchanged; prior editions remain in Git."
+  }
 }
