@@ -203,22 +203,49 @@ old,8 no follower clock,16 expired service deadline,32 invalid map,64 unauthoriz
 128 absent/stale correction age,256 RC PLL unlocked and512 held/expired RC source.
 Follower-specific flags are omitted when fresh associated GM TX already supplies
 useful activity. These are best-effort diagnostic snapshots, not output authority.
-Event30 (`RC_DELIVERY`) copies five records only at actual holdover expiry
+Event30 (`RC_DELIVERY`) copies bounded records only at actual holdover expiry
 (`result=1`) and recovery (`result=2`), following the corresponding event19/20.
+Version0.15.66 also records inherited-source expiry (`result=3`) and recovery
+(`result=4`) while the original correction/context hold remains live; these
+are separate from a500ms correction gap. No healthy-period packet log is added.
 `detail` selects:1 `peer=last selected-parent physical RX tick,a=authenticated
 selected-parent RX count,b=wire/capture decode rejects`;2 `peer=last accepted
 pair completed_at tick,a=accepted,b=pair rejects`;3 `peer=context_until tick,
 a=evicted originals,b=pending originals`;4 `peer=current observation capture tick,
 a=global capture invalid,b=global capture queue overflow`;5 `peer=source expires
-in source nanoseconds,a=map generation,b=local capture epoch`. The generic
-`peer` field carries the stated numeric value for this diagnostic kind only.
+in source nanoseconds,a=map generation,b=local capture epoch`.
+Version0.15.66 adds6 `peer=RX tuple at prior successful discipline,a=RX count
+at that discipline,b=current RX count`;7 `peer=latest decoded RX tuple,
+a=its correction count`;8/9 `peer=latest packet correction0/1 tuple` (zero
+when absent);10/11 `peer=latest packet origin issued/expires source nanoseconds`.
+Tuples pack publication in bits0–31, event in32–47 and channel in48–55.
+These are decoded/authenticated packet fields, not proof of independently
+received followups or GM RF transmission. The generic `peer` field carries
+the stated numeric value for this diagnostic kind only.
 RX counts are decoded records, not RF packet counts; wire/capture rejects and
 capture statistics can include local TX. Global capture counters survive logical
 owner changes; receiver counters reset with that owner. Use boot/source/scope,
 journal sequence and lifecycle records to delimit comparisons. Zero or noncausal
 ticks remain unknown; do not infer an elapsed interval by unsigned subtraction.
+On the accepting path the receiver has already replaced `reference.completed_at`
+before `holdover_poll` runs: detail2 can therefore describe the newly accepted
+pair while the holdover event's `a` still measures the gap from the prior
+successful discipline. Do not reinterpret that detail2 as the previous pair.
 The ring's existing overwritten/exhausted/missed fields retain any missing event
 population. These stage snapshots cannot alone establish missing GM RF TX.
+
+Version0.15.66 publishes a newly disciplined USB map immediately, before
+read-only witness/audit work, GATT/control polling and owner sleep. The offer
+uses the same minimum of original map-effective+500ms, discipline+500ms and
+context deadline. USB still enforces the original source expiry and chooses
+its actual publication lower bound; it never authorizes an earlier SOF or
+refreshes an existing generation. This removes avoidable control-work delay
+between valid discipline and availability. It does not manufacture a missing
+original/followup association or authorize an expired inherited source.
+`tools/rc_publication_tests.py` exercises the production commit/publication
+bodies against the real USB map bank, with a following control delay and strict
+expiry, capture-failure and no-backdating checks. The optional negative fixture
+omits immediate publication to reproduce the former loop-end-only behavior.
 
 Counter/flag changes alone do not increase the existing one-minute console cadence;
 retry/enable/reset transitions keep their existing prompt reports.

@@ -67,6 +67,16 @@ static uint64_t publish_ticks, discipline_at, discipline_gap_max,
 static uint32_t holdover_expiries, holdover_recoveries;
 static bool holdover_expired;
 static uint64_t last_rx;
+/* Gap-only association evidence. These copy authenticated decoded tuples;
+ * they neither queue packets nor affect receiver/publication decisions. */
+static uint64_t delivery_packet_tuple,delivery_correction_tuple[2];
+static uint64_t delivery_origin_issued,delivery_origin_expires;
+static uint64_t delivery_discipline_tuple;
+static uint32_t delivery_packet_count,delivery_discipline_rx;
+static bool delivery_source_seen,delivery_source_lost;
+static uint64_t delivery_tuple(uint32_t publication,uint16_t event,uint8_t channel) {
+  return publication|((uint64_t)event<<32)|((uint64_t)channel<<48);
+}
 /* Explicit operator operating policy; not a measured precision bound. */
 #define RC_FIELD_HOLD_TICKS UINT64_C(8000000)
 /* Transition-only snapshots in this serialized owner. Values are cumulative
@@ -87,6 +97,14 @@ static void delivery_snapshot(unsigned transition,uint64_t tick) {
                   4,capture.invalid,capture.overflow);
   r2_timing_event(R2_TIMING_RC_DELIVERY,(int)transition,current_origin.expires,
                   5,local_clock.generation,capture_epoch);
+  r2_timing_event(R2_TIMING_RC_DELIVERY,(int)transition,delivery_discipline_tuple,
+                  6,delivery_discipline_rx,rx);
+  r2_timing_event(R2_TIMING_RC_DELIVERY,(int)transition,delivery_packet_tuple,
+                  7,delivery_packet_count,0);
+  r2_timing_event(R2_TIMING_RC_DELIVERY,(int)transition,delivery_correction_tuple[0],8,0,0);
+  r2_timing_event(R2_TIMING_RC_DELIVERY,(int)transition,delivery_correction_tuple[1],9,0,0);
+  r2_timing_event(R2_TIMING_RC_DELIVERY,(int)transition,delivery_origin_issued,10,0,0);
+  r2_timing_event(R2_TIMING_RC_DELIVERY,(int)transition,delivery_origin_expires,11,0,0);
 }
 static void holdover_poll(uint64_t tick) {
   if (discipline_at && tick >= discipline_at &&
@@ -921,6 +939,88 @@ static bool advertising_withdraw(uint64_t tick) {
   ++train;
   return true;
 }
+/* Report inherited-source permission separately from the500ms correction
+ * hold. Unknown projection/capture never becomes inferred expiry or authority. */
+static void delivery_source_poll(const struct r2_uc_clock *offered,uint64_t tick) {
+  if(!offered->valid||tick>=offered->until_tick||holdover_expired){
+    delivery_source_seen=delivery_source_lost=false;return;
+  }
+  uint64_t ns,elapsed;
+  if(!rc5_map_project(&offered->map,tick,&ns,&elapsed))return;
+  bool live=ns<offered->origin.expires;
+  if(!live&&delivery_source_seen&&!delivery_source_lost){
+    delivery_source_lost=true;delivery_snapshot(3,tick);
+  }else if(live){
+    if(delivery_source_lost)delivery_snapshot(4,tick);
+    delivery_source_seen=true;delivery_source_lost=false;
+  }
+}
+static struct r2_uc_clock clock_offer(uint64_t tick) {
+  struct r2_uc_clock offered = {.origin = current_origin,
+                                .capture_epoch = capture_epoch,
+                                .depth = upstream_path.depth + 1};
+  if (local_clock.count && timing.bound && discipline_at) {
+    offered.map = local_clock.map[(local_clock.head + 3) % 4];
+    offered.until_tick = offered.map.effective + RC_FIELD_HOLD_TICKS;
+    if (discipline_at + RC_FIELD_HOLD_TICKS < offered.until_tick)
+      offered.until_tick = discipline_at + RC_FIELD_HOLD_TICKS;
+    if (timing.context_until < offered.until_tick)
+      offered.until_tick = timing.context_until;
+    offered.valid = !holdover_expired && tick < offered.until_tick;
+  }
+  /* Path hashing is change-driven; routine polls only copy a small map. */
+  static struct rc7_path previous;
+  static uint8_t scope[16];
+  if (!rc7_path_same(&previous, &upstream_path)) {
+    previous = upstream_path;
+    memset(scope, 0, sizeof scope);
+    if (rc7_path_valid(&upstream_path))
+      (void)rc7_path_mac(scope, &upstream_path, &group);
+  }
+  memcpy(offered.scope, scope, sizeof scope);
+  return offered;
+}
+static void usb_offer_now(void) {
+#ifdef R2_USB_SOURCE_STREAM
+  if(!transmitter)return;
+  struct r2_capture current;
+  if(!r2_capture_now(&current)){r2_usb_source_withdraw();return;}
+  struct r2_uc_clock offered=clock_offer(current.tick);
+  r2_usb_source_publish(&offered);
+  struct r2_capture after;
+  if(r2_capture_now(&after)&&after.epoch==offered.capture_epoch)
+    delivery_source_poll(&offered,after.tick);
+#endif
+}
+static void discipline_commit(uint64_t accepted_at) {
+  /* Only the receiver's accepted original/follow-up association can
+   * advance phase. Its admission, source freshness and replay fences
+   * have already passed; use the original's physical RX, not the
+   * follow-up arrival or a predicted parent TX. */
+  phase_rx = timing.reference.rx;
+  last_context_progress = timing.reference.completed_at;
+  if (discipline_at && accepted_at >= discipline_at &&
+      accepted_at - discipline_at > discipline_gap_max)
+    discipline_gap_max = accepted_at - discipline_at;
+  if (holdover_expired) {
+    ++holdover_recoveries;
+    r2_timing_event(R2_TIMING_HOLDOVER_RECOVER,0,routes.node[parent_index].id,
+                    holdover_recoveries,(uint32_t)((accepted_at-discipline_at)/16),0);
+    delivery_snapshot(2,accepted_at);
+    sent_count = 0;
+    usable_tx_from = accepted_at;
+  }
+  discipline_at = accepted_at;
+  holdover_expired = false;
+  /* The clock is committed. Publish its ORIGINAL bounded permission
+   * before audit, snapshots, GATT/control work or owner sleep. USB
+   * still chooses its actual publication lower bound, never a past
+   * SOF. Delaying this until loop end created millisecond gaps even
+   * when the next discipline completed before the old500ms expiry. */
+  usb_offer_now();
+  delivery_discipline_tuple=delivery_packet_tuple;
+  delivery_discipline_rx=rx;
+}
 static void captures(struct r2_capture now) {
   struct r2_radio_record r;
   while (r2_radio_capture_pop(&r)) {
@@ -1078,6 +1178,13 @@ static void captures(struct r2_capture now) {
         lt_renew_at = 0;
       }
       ++rx;
+      delivery_packet_tuple=delivery_tuple(packet.publication,r.event,r.channel);
+      delivery_packet_count=packet.count;
+      delivery_origin_issued=packet.origin.issued;
+      delivery_origin_expires=packet.origin.expires;
+      for(unsigned i=0;i<2;i++)delivery_correction_tuple[i]=i<packet.count?
+        delivery_tuple(packet.correction[i].publication,packet.correction[i].event,
+                       packet.correction[i].channel):0;
       r2_ble_timing_lamps(false, packet.count != 0, mono_us());
       last_rx = physical.tick;
       struct r2_capture available;
@@ -1137,29 +1244,10 @@ static void captures(struct r2_capture now) {
         bool disciplined =
             rc5_clock_discipline(&local_clock, &timing, &fit, &rate);
         if (disciplined) {
-          /* Only the receiver's accepted original/follow-up association can
-           * advance phase. Its admission, source freshness and replay fences
-           * have already passed; use the original's physical RX, not the
-           * follow-up arrival or a predicted parent TX. */
-          phase_rx = timing.reference.rx;
+          discipline_commit(timing.reference.completed_at);
           if (activation_known)
             r2_shadow_map(&local_clock, &timing, activation.tick,
                           activation.epoch);
-          last_context_progress = timing.reference.completed_at;
-          uint64_t accepted_at = timing.reference.completed_at;
-          if (discipline_at && accepted_at >= discipline_at &&
-              accepted_at - discipline_at > discipline_gap_max)
-            discipline_gap_max = accepted_at - discipline_at;
-          if (holdover_expired) {
-            ++holdover_recoveries;
-            r2_timing_event(R2_TIMING_HOLDOVER_RECOVER,0,routes.node[parent_index].id,
-                            holdover_recoveries,(uint32_t)((accepted_at-discipline_at)/16),0);
-            delivery_snapshot(2,accepted_at);
-            sent_count = 0;
-            usable_tx_from = accepted_at;
-          }
-          discipline_at = accepted_at;
-          holdover_expired = false;
         }
         if (r2_radio_audit_selected(timing.reference.event)) {
           struct r2_capture done = {0};
@@ -1676,30 +1764,9 @@ static void owner(void *a, void *b, void *c) {
     lt_guard(now.tick, window);
     lt_poll(now.tick, window);
     if (transmitter) {
-      struct r2_uc_clock offered = {.origin = current_origin,
-                                    .capture_epoch = capture_epoch,
-                                    .depth = upstream_path.depth + 1};
-      if (local_clock.count && timing.bound && discipline_at) {
-        offered.map = local_clock.map[(local_clock.head + 3) % 4];
-        offered.until_tick = offered.map.effective + RC_FIELD_HOLD_TICKS;
-        if (discipline_at + RC_FIELD_HOLD_TICKS < offered.until_tick)
-          offered.until_tick = discipline_at + RC_FIELD_HOLD_TICKS;
-        if (timing.context_until < offered.until_tick)
-          offered.until_tick = timing.context_until;
-        offered.valid = !holdover_expired && now.tick < offered.until_tick;
-      }
-      /* Path hashing is change-driven; routine polls only copy a small map. */
-      static struct rc7_path previous;
-      static uint8_t scope[16];
-      if (!rc7_path_same(&previous, &upstream_path)) {
-        previous = upstream_path;
-        memset(scope, 0, sizeof scope);
-        if (rc7_path_valid(&upstream_path))
-          (void)rc7_path_mac(scope, &upstream_path, &group);
-      }
-      memcpy(offered.scope, scope, sizeof scope);
+      struct r2_uc_clock offered=clock_offer(now.tick);
 #ifdef R2_USB_SOURCE_STREAM
-      r2_usb_source_publish(&offered);
+      usb_offer_now();
 #endif
       check(!r2_uc_poll(&offered,precision_synced(now.tick)),"UCS1 advertising gate");
     }
@@ -1799,6 +1866,10 @@ int r2_service_configure(const struct r2_identity *id,
   publish_ticks = discipline_at = discipline_gap_max = usable_tx_from =
       last_rx = phase_rx = start_delay = requested = restart_at =
           slot_move_until = upstream_retry_at = 0;
+  delivery_packet_tuple=delivery_correction_tuple[0]=delivery_correction_tuple[1]=0;
+  delivery_origin_issued=delivery_origin_expires=delivery_discipline_tuple=0;
+  delivery_packet_count=delivery_discipline_rx=0;
+  delivery_source_seen=delivery_source_lost=false;
   reservation_max = prepare_max = window_max = holdover_expiries =
       holdover_recoveries = slot_requests = upstream_recoveries =
           client_quiet_faults = 0;
