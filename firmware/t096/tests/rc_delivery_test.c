@@ -25,7 +25,7 @@ static struct event events[64];static unsigned count;
 #define r2_timing_event record_event
 static void record_event(unsigned k,int r,uint64_t p,uint32_t d,uint32_t a,uint32_t b)
 {assert(count<64);events[count++]=(struct event){k,r,p,d,a,b};}
-static void r2_radio_capture_freeze_loss(void){}
+void r2_radio_capture_freeze_loss(void){}
 #include "rc_delivery_under_test.h"
 int main(void){
  timing=(struct rc5_state){.accepted=33,.rejected=7,.evicted=9,.context_until=UINT64_MAX,.reference={.completed_at=123}};
