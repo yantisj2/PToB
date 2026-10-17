@@ -2,6 +2,16 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 17 October 2026 — DC UFirebird II capability probes
+
+T096 **0.15.83** extends only the DC host command policy with product/MSM/RTK
+queries and UART1 raw-observation, ephemeris and station-message queries and
+bounded zero/one rate controls. Explicit fixed-baud protocol masks preserve or
+restore the observed R6 configuration during a raw-output experiment. PPS,
+RTK-mode writes, resets, saves and arbitrary configuration remain refused.
+This permits checking receiver capabilities without confusing bridge rejection
+with receiver rejection; it does not establish raw output or an RTK solution.
+
 ## 17 October 2026 — DC GNSS serial development
 
 T096 **0.15.82** adds a DC-only independent CDC ACM function for original GNSS output,

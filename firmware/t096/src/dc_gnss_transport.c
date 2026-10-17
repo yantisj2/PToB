@@ -51,15 +51,24 @@ bool dc_gnss_command_allowed(const uint8_t *p,size_t n){
  const uint8_t *star=memchr(p,'*',n);
  if(star){size_t at=(size_t)(star-p);if(at+3!=n||hex(p[at+1])<0||hex(p[at+2])<0)return false;unsigned sum=0;for(size_t i=1;i<at;i++)sum^=p[i];if(sum!=(unsigned)(hex(p[at+1])*16+hex(p[at+2])))return false;n=at;}
  for(size_t i=1;i<n;i++)if(p[i]<32||p[i]>126)return false;
- static const char *const queries[]={"$PDTINFO","$CFGTP","$CFGSYS","$CFGNMEA","$CFGNAV","$CFGPRT,1","$CFGPRT,2"};
+ static const char *const queries[]={"$PDTINFO","$PRODUCTINFO","$CFGTP","$CFGSYS","$CFGNMEA","$CFGNAV","$CFGMSM","$CFGRTK","$CFGPRT,1","$CFGPRT,2"};
  for(size_t i=0;i<sizeof(queries)/sizeof(queries[0]);i++)if(n==strlen(queries[i])&&!memcmp(p,queries[i],n))return true;
+ /* UFirebird II: observe/query only the UART1 raw MSM/ephemeris/station
+  * messages. Rate writes are restricted to off or one measurement epoch. */
+ static const char *const raw_queries[]={"$CFGMSG,2,3","$CFGMSG,202,3","$CFGMSG,202,4","$CFGMSG,202,5"};
+ for(size_t i=0;i<sizeof(raw_queries)/sizeof(raw_queries[0]);i++)if(n==strlen(raw_queries[i])&&!memcmp(p,raw_queries[i],n))return true;
+ if(n==15&&!memcmp(p,"$CFGMSG,202,",12)&&p[12]>='3'&&p[12]<='5'&&p[13]==','&&(p[14]=='0'||p[14]=='1'))return true;
  /* Enable navigation messages without disabling the RMC/GGA timing input. */
  if(n==13&&!memcmp(p,"$CFGMSG,0,",10)&&p[10]>='0'&&p[10]<='7'&&p[11]==','&&p[12]=='1')return true;
  if(n==12&&!memcmp(p,"$CFGNMEA,h51",12))return true;
  /* Fixed physical baud, required NMEA+Unicore retained, RTCM enabled.
   * This is an explicit host request, never an automatic receiver mutation. */
  static const char raw[]="$CFGPRT,1,h0,115200,129,7";
- return n==sizeof(raw)-1&&!memcmp(p,raw,n);
+ static const char raw_v6[]="$CFGPRT,1,h0,115200,1153,39";
+ static const char restore_v6[]="$CFGPRT,1,h0,115200,1025,35";
+ return (n==sizeof(raw)-1&&!memcmp(p,raw,n))||
+        (n==sizeof(raw_v6)-1&&!memcmp(p,raw_v6,n))||
+        (n==sizeof(restore_v6)-1&&!memcmp(p,restore_v6,n));
 }
 size_t dc_gnss_frame_byte(struct dc_gnss_frame_parser *f,uint8_t c,int64_t at){
  if(f->used&&(at<f->started||at-f->started>=250000)){f->used=f->wanted=0;if(f->rejected<UINT32_MAX)f->rejected++;}

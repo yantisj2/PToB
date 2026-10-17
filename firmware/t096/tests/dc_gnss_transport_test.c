@@ -26,6 +26,10 @@ int main(void){
  assert(!dc_gnss_command_allowed((const uint8_t *)"$CFGTP,1,1,1\r\n",14));
  const char *raw="$CFGPRT,1,h0,115200,129,7\r\n";
  assert(dc_gnss_command_allowed((const uint8_t *)raw,strlen(raw)));
+ const char *extra[]={"$CFGMSG,202,3\r\n","$CFGMSG,202,4\r\n","$CFGMSG,202,5\r\n","$CFGMSG,2,3\r\n","$CFGMSG,202,3,1\r\n","$CFGMSG,202,3,0\r\n","$PRODUCTINFO\r\n","$CFGMSM\r\n","$CFGRTK\r\n","$CFGPRT,1,h0,115200,1153,39\r\n","$CFGPRT,1,h0,115200,1025,35\r\n"};
+ for(size_t i=0;i<sizeof(extra)/sizeof(extra[0]);i++)assert(dc_gnss_command_allowed((const uint8_t *)extra[i],strlen(extra[i])));
+ const char *denied[]={"$CFGMSG,202,3,2\r\n","$CFGMSG,202,6,1\r\n","$CFGMSG,302,3,1\r\n","$CFGRTK,1\r\n","$CFGPRT,1,h0,230400,1153,39\r\n"};
+ for(size_t i=0;i<sizeof(denied)/sizeof(denied[0]);i++)assert(!dc_gnss_command_allowed((const uint8_t *)denied[i],strlen(denied[i])));
  uint32_t crc=dc_gnss_crc24q(packet,sizeof packet-3);packet[97]=crc>>16;packet[98]=crc>>8;packet[99]=crc;
  assert(!dc_gnss_crc24q(packet,sizeof packet));
  assert(!feed(&f,packet,51,300));assert(feed(&f,packet+51,49,400)==100&&!memcmp(f.bytes,packet,100));

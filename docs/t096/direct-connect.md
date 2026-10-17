@@ -94,6 +94,14 @@ exclusive with aiding; epoch changes, timeout and shutdown request bounded abort
 and power-off waits for actual DMA return. Queued commands retain a 250 ms
 original ingress deadline.
 
+Version 0.15.83 also accepts UFirebird II product/MSM/RTK queries and UART1
+MSM, ephemeris and station-message queries. Those UART1 message rates can only
+be zero or one observation epoch; navigation messages cannot be disabled.
+Two explicit fixed-baud port configurations add RTCM to the observed R6
+`0x401/0x23` protocol masks (`0x481/0x27`) or restore the observed masks.
+Always query the current configuration before selecting a port configuration;
+no command is applied automatically. RTK mode writes remain refused.
+
 This enables receiver configuration and correction/raw-data experiments; it does
 not add an onboard RTK solver. UC6580 raw output depends on the installed GNSS
 firmware. Query product information before enabling it. Firmware replacement,
