@@ -2,6 +2,12 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 16 October 2026 — macOS documentation placement
+
+Move the ChronyControl screenshot, author attribution and tracking/development
+notes to the macOS client README. Keep a short client link on the main README.
+The image, historical evidence and firmware behavior are unchanged.
+
 ## 16 October 2026 — tracking preview refresh
 
 Replace the README preview with a user-selected cleaner approximately ten-minute

@@ -25,10 +25,7 @@ Start with the target matching your hardware:
 | M5Stack StickS3 (SS3) | Receiver and experimental relay with estimated transmit timing | [SS3 README](firmware/ss3/README.md) |
 | macOS | USB time client and chrony bridge | [macOS README](clients/macos/README.md) |
 
-Latest [changelog](CHANGELOG.md) and
-[stability results](evidence/stability/2026-10-16/README.md): admission and
-continuity fixes are integrated. Next work focuses on GM authentication and
-further improvements to stream continuity.
+See the [changelog](CHANGELOG.md) for recent development updates.
 
 **Developer preview — build from source:** a generic downloadable image,
 public installer/recovery flow and mutable provisioning are not yet available.
@@ -52,17 +49,8 @@ describes the proposed future storage/API; it is not implemented firmware.
 Firmware-rendered previews with illustrative values, not live measurements.
 Select a screen to open its target guide.
 
-[<img src="docs/images/chronycontrol-tracking-10min-20261016.png" width="641" alt="ChronyControl tracking graph showing a cleaner selected development interval of approximately ten minutes">](docs/images/chronycontrol-tracking-10min-20261016.png)
-
-A cleaner, approximately ten-minute development view in
-[ChronyControl by Bryan Christianson](https://www.whatroute.net/chronycontrol.html).
-We are continuing to reduce timing transients, with GM authentication the next
-planned focus. The graph shows chrony's tracking statistics against the
-experimental feed. [Image provenance and measurement scope](docs/images/README.md).
-
-The [macOS client](clients/macos/README.md) receives time over USB from a T096 RC.
-A [historical client replay](docs/images/macos-chrony-replay.webp) also retains
-its loss and withheld-UTC indicators.
+For USB timing, ChronyControl tracking and client development updates, see the
+[macOS client README](clients/macos/README.md).
 
 ## Bring your own target
 

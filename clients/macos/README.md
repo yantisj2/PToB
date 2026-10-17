@@ -1,10 +1,16 @@
 # macOS USB / chrony client
 
-<a href="../../docs/images/macos-chrony-replay.webp"><img src="../../docs/images/macos-chrony-replay.webp" width="760" alt="PToB macOS chrony replay with time, estimator RMS, retained loss and UTC-gated indicators"></a>
+[<img src="../../docs/images/chronycontrol-tracking-10min-20261016.png" width="641" alt="ChronyControl tracking graph showing a cleaner selected development interval of approximately ten minutes">](../../docs/images/chronycontrol-tracking-10min-20261016.png)
 
-*Historical USB/chrony replay with loss and withheld UTC retained. The displayed
-98 ns is chrony's estimator RMS, not calibrated UTC accuracy.
-[Image provenance](../../docs/images/README.md).*
+A cleaner, approximately ten-minute development view in
+[ChronyControl by Bryan Christianson](https://www.whatroute.net/chronycontrol.html).
+We are continuing to reduce timing transients, with GM authentication the next
+planned focus. The graph shows chrony's tracking statistics against the
+experimental feed. [Image provenance and measurement scope](../../docs/images/README.md).
+
+A [historical client replay](../../docs/images/macos-chrony-replay.webp) also
+retains its loss and withheld-UTC indicators. Its displayed 98 ns is chrony's
+estimator RMS; independent UTC accuracy remains unqualified.
 
 Copyright (c) 2026 Jonathan Yantis. MIT; third-party terms are preserved.
 
@@ -38,10 +44,11 @@ process; a source or counter change still fences old training. Extrapolations
 are never fed back as measurements. See the
 [continuous-estimate contract](../../docs/t096/continuous-estimate.md).
 
-The latest [stability results](../../evidence/stability/2026-10-16/README.md)
-include persistent TC-04 USB nonresponse despite a continuing local estimate.
-Automatic rediscovery and the normal 32 Hz USB rate are implemented mitigations;
-continuous delivery remains unqualified. Use an RC USB source: the reviewed
-normal GM backend does not publish a USB source map.
+Admission and continuity fixes are integrated, including automatic rediscovery
+and the normal 32 Hz USB rate. Long-term delivery remains under evaluation.
+The [project changelog](../../CHANGELOG.md) and
+[stability results](../../evidence/stability/2026-10-16/README.md) retain completed
+checks and remaining investigations. Use an RC USB source: the reviewed normal
+GM backend does not publish a USB source map.
 
 For a complete group, follow the [two-GM setup guide](../../docs/GETTING_STARTED.md).

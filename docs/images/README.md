@@ -34,7 +34,8 @@ and evidence datasets retain their separate [licenses](../../LICENSING.md).
 
 ## ChronyControl development tracking
 
-The README's current `chronycontrol-tracking-10min-20261016.png` was supplied by
+The [macOS client README's](../../clients/macos/README.md) current
+`chronycontrol-tracking-10min-20261016.png` was supplied by
 Jonathan Yantis on 16 October 2026. It is a user-selected cleaner interval of
 approximately ten minutes, showing the PToB development feed in
 [ChronyControl, by Bryan Christianson](https://www.whatroute.net/chronycontrol.html).
