@@ -7,6 +7,9 @@ matched to the Mac's USB frame reference and mapped to its monotonic clock.
 USB packets carry those captured records, so variable delivery latency affects
 freshness rather than defining the clock phase.
 
+Read the [USB timing research draft](../../papers/usb-macos-time-transfer-preprint.pdf)
+for the method, measured results and limitations.
+
 The resulting time feeds an experimental user clock through a private,
 unprivileged chronyd, with a live display, source diagnostics and chrony tracking.
 The macOS system clock stays unchanged.
