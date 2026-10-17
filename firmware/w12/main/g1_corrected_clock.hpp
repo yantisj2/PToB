@@ -157,8 +157,11 @@ class G1CorrectedClock {
         count_=0;base_local_=base_remote_=0;frequency_trained_=false;fit_reason_=5;
       }else{
         auto& point=points_[count_++];point.local=uint32_t(delta);point.channel=o.channel;residual(point,int32_t(innovation));point_at_=o.local;
-        fit_reason_=count_<8?1:o.local-local(points_[0])<200000000?2:3;
-        if(count_>=8&&o.local-local(points_[0])>=200000000){
+        // Start only after2s and eight repeated-channel degrees of freedom.
+        // The same64-point history keeps growing to its normal16s span;
+        // early rate uncertainty and every delivered error still gate lock.
+        fit_reason_=count_<8?1:o.local-local(points_[0])<40000000?2:3;
+        if(count_>=8&&o.local-local(points_[0])>=40000000){
           double sx[37]{},sy[37]{};unsigned n[37]{};
           for(unsigned i=0;i<count_;i++){const auto& p=points_[i];const auto ch=p.channel;
             const double x=double(p.local)/20000000,y=double(residual(p));sx[ch]+=x;sy[ch]+=y;++n[ch];
