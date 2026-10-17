@@ -42,17 +42,50 @@ int main(int argc,char** argv){
   if(which=="cold-window")v12::synced=false;
   v12::Discovery d{};d.address=v12::sync_address;v12::connect(d,501,fake_now);
   assert(connected==1&&last_init_interval==32&&last_init_window==(which=="warm-window"?8:32));
-  assert(v12::peer.attempt_until==fake_now+2000000&&v12::peer.exchange.until==fake_now+R2_GROUP_JOIN_LIFETIME_US);
+  assert(v12::peer.attempt_until==fake_now+4000000&&v12::peer.exchange.until==fake_now+R2_GROUP_JOIN_LIFETIME_US);
+ }else if(which=="legacy-control"||which=="relay-control"||which=="control-gatt"){
+  const bool relay=which=="relay-control";
+  if(which=="legacy-control")v12::listening_percent=50;
+  v12::Discovery d{};d.address=v12::sync_address;v12::connect(d,501,fake_now,relay);
+  assert(connected==1&&last_supervision==(which=="control-gatt"?50u:10u));
+  assert(v12::peer.attempt_until==fake_now+(which=="control-gatt"?4000000:2000000));
+  const auto original=v12::peer.exchange.until;
+  if(which=="control-gatt"){
+    fake_now+=2500000;ble_gap_event e{};e.type=BLE_GAP_EVENT_CONNECT;v12::gap(&e,conn_arg);
+    assert(!v12::peer.dead&&v12::peer.gatt_until==original&&v12::peer.exchange.until==original);
+  }
+ }else if(which=="control-stop-bound"){
+  v12::Discovery d{};d.address=v12::sync_address;v12::connect(d,501,fake_now);
+  cancel_missing=true;v12::r2_stop();step();const auto original=v12::client.stop_deadline_us;
+  assert(original&&original< v12::peer.attempt_until);
+  fake_now=original;step();assert(v12::fault&&!v12::r2_status().off_ack&&v12::client.stop_deadline_us==original);
+ }else if(which=="control-delayed"||which=="control-old"||which=="control-expired"){
+  v12::peer={};v12::peer.identity=501;v12::peer.handle=22;v12::peer.incarnation=++v12::incarnation;
+  const auto age=which=="control-old"?1000000:200000;
+  assert(!r2_group_join_begin(&v12::peer.exchange,false,v12::provision.identity,501,44,77,fake_now-age-1000));
+  auto& x=v12::peer.exchange;x.peer_boot=601;x.remote_nonce=88;x.proof_at=fake_now-age-1000;x.challenged=true;
+  if(which=="control-expired")x.until=fake_now-100000;
+  r2_join_record reply{};reply.kind=R2_JOIN_ACCEPT;reply.sender=501;reply.receiver=v12::provision.identity;
+  reply.sender_boot=601;reply.receiver_boot=44;reply.client_nonce=77;reply.server_nonce=88;reply.sequence=2;
+  reply.created_us=fake_now-age;reply.echo_us=x.proof_at;std::strcpy(reply.name,"Fixture");
+  v12::Incoming row{};row.at=fake_now-age;row.incarnation=v12::peer.incarnation;
+  assert(!r2_group_join_encode(row.bytes,&reply,&v12::provision.group));assert(v12::incoming.push(row));v12::receive_join(fake_now);
+  assert(v12::join_accepts==(which=="control-delayed"?1u:0u));
+  assert(v12::anchor.until==until&&v12::anchor.deadline()==deadline&&!v12::fault);
+ }else if(which=="precision-delayed"){
+  priority_packet();fake_now+=60000;const auto before=v12::p1_ok,bad=v12::p1_bad;v12::periodic_poll(fake_now);
+  assert(v12::p1_ok==before&&v12::p1_bad==bad+1&&!v12::fault);
  }else if(which=="retry-bound"||which=="retry-unreserved"||which=="retry-relay"){
-  v12::anchor.uncertainty=190000;v12::peer={};v12::peer.identity=v12::joined_peer;
+  v12::anchor.uncertainty=225000;v12::peer={};v12::peer.identity=v12::joined_peer;
   v12::admission_policy.acquired();
   if(which=="retry-unreserved")v12::sync_identity=999;
   if(which=="retry-relay")v12::peer.relay=true;
   const auto original=v12::anchor.deadline();
   const auto random=UINT64_C(0x91919191);
-  const auto jitter=which=="retry-bound"?original-fake_now-23000000:20000000;
+  const auto floor=which=="retry-relay"?20000000:5000000;
+  const auto jitter=which=="retry-bound"?original-fake_now-10000000:which=="retry-relay"?20000000:5000000;
   v12::failed_admission(fake_now);
-  assert(v12::admission_policy.retry_at==fake_now+20000000+random%(jitter+1));
+  assert(v12::admission_policy.retry_at==fake_now+floor+random%(jitter+1));
   assert(v12::anchor.deadline()==original&&v12::anchor.until==until&&!v12::fault);
  }else if(which=="control-drain"||which=="batch-budget"){
   v12::peer={};v12::peer.identity=501;v12::peer.handle=22;v12::peer.incarnation=++v12::incarnation;

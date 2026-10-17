@@ -195,7 +195,7 @@ bool timely(){const auto now=micros();portENTER_CRITICAL(&mux);const bool ok=!pa
 uint32_t admission_random(){uint32_t value=0;esp_fill_random(&value,sizeof value);return value;}
 void admission_failed(uint64_t now){
   const auto replay=(!peer.relay&&peer.identity==joined_peer&&precision_reserved(now))?anchor.deadline():0;
-  admission_policy.failed(now,admission_random(),replay);
+  admission_policy.failed(now,admission_random(),replay,full_listening()&&!peer.relay);
 }
 void failed_admission(uint64_t now){
   if(!peer.identity||peer.selection_accepted||peer.selection_reported||closing||fault||stop_pending||parent_diagnostic.pending()||mode!=R2Mode::Client)return;
@@ -437,7 +437,7 @@ int gap(ble_gap_event* e,void* arg){
     if(e->connect.status){if(!was_cancelled)failed_admission(now);peer.identity=0;retry_at=now+200000;return 0;}
     ble_gap_conn_desc d{};const bool match=peer.identity&&!ble_gap_conn_find(e->connect.conn_handle,&d)&&same_address(d.peer_id_addr,peer.address)&&peer.handle==None;
     if(peer.handle!=None){error(BLE_HS_EBUSY,R2Api::Connect,1);return 0;}
-    peer.handle=e->connect.conn_handle;peer.stage=1;peer.gatt_until=now+2000000;
+    peer.handle=e->connect.conn_handle;peer.stage=1;peer.gatt_until=full_listening()&&!peer.relay?peer.exchange.until:now+2000000;
     if(match)observed_descriptor(d,now);
 
     if(!match||mode!=R2Mode::Client||closing||!peer.exchange.until||now>=peer.exchange.until||now>=peer.attempt_until||(!full_listening()&&now-G1Window::start(now,window_phase)>=400000))peer.dead=true;
@@ -523,7 +523,7 @@ void observe_group(const Discovery& d){
 bool cooled(uint64_t id,uint64_t now){for(const auto& r:recent)if(r.identity==id&&now<r.until)return true;return false;}
 void cooldown(uint64_t id,uint64_t now,uint64_t duration){unsigned slot=0;for(unsigned i=0;i<8;i++){if(recent[i].identity==id){slot=i;break;}if(recent[i].until<recent[slot].until)slot=i;}recent[slot]={id,now+duration};}
 void connect(const Discovery& d,uint64_t id,uint64_t now,bool relay=false){
-  if(!admission_policy.allowed(now))return;
+  if(!admission_policy.allowed(now,full_listening()&&!relay))return;
   relay_poll(now,true);if(!relay_acl_available())return;stop_scan();if(scan||!timely())return;
   if(nonce==UINT64_MAX){fault=true;return;}++nonce;
   if(incarnation==UINT32_MAX){fault=true;return;}
@@ -539,17 +539,17 @@ void connect(const Discovery& d,uint64_t id,uint64_t now,bool relay=false){
     !joined_peer?G1ParentReason::Startup:!following(now)?G1ParentReason::ClockUnavailable:G1ParentReason::BestCandidate;
   if(relay)peer.exchange.until=now+2000000;
   else if(r2_group_join_begin(&peer.exchange,false,provision.identity,id,boot_id,nonce,now)){fault=true;return;}
-  peer.attempt_until=now+2000000;cooldown(id,now,5000000);inc(join_attempts);if(anchor_valid(now))inc(refresh_attempts);
-  ble_gap_conn_params p{};p.itvl_min=p.itvl_max=6;p.supervision_timeout=10;
-  // This transient client uses the public minimum100ms supervision timeout
-  // with7.5ms intervals/zero latency. Lost links must not retain a1s timeout
-  // across the500ms quiet boundary. This does not replace actual drain ACKs.
+  peer.attempt_until=now+(full_listening()&&!relay?4000000:2000000);cooldown(id,now,5000000);inc(join_attempts);if(anchor_valid(now))inc(refresh_attempts);
+  ble_gap_conn_params p{};p.itvl_min=p.itvl_max=6;p.supervision_timeout=full_listening()&&!relay?50:10;
+  // BLE100 direct control tolerates500ms supervision; BLE50 and RC7 retain
+  // 100ms so their quiet/owner arbitration stays unchanged. Precision keeps
+  // its separate capture/freshness limits and drains before control work.
   p.scan_itvl=32;p.scan_window=precision_reserved(micros())?8:32;
   // With a current precision stream, request5ms/20ms initiation windows,
   // leaving gaps for periodic reception. Cold acquisition keeps20ms/20ms.
-  // Keep the original attempt/exchange and actual cancellation/drain ACKs;
+  // Direct BLE100 initiation has4s within the original5s exchange;
   // a scanner window is not a controller priority or RF delivery guarantee.
-  // The adapter owns the unchanged2s cancellation deadline. Disable only
+  // Actual cancellation/drain still has its original2s bound. Disable only
   // the duplicate SDK host timer; HCI create itself has no duration parameter.
   // Require the real completion callback, never just the cancel command ACK.
   // Install pending/incarnation before the yielding public API. A completion
@@ -679,7 +679,7 @@ void send_rc_request(uint64_t now){
   if(!rc){inc(tx);++rc_client.requests;}else if(peer.handle==h&&peer.incarnation==generation){peer.pending=false;peer.dead=true;note(rc,R2Api::ControlWrite);}
 }
 void receive_join(uint64_t now){Incoming row{};for(unsigned i=0;i<8&&incoming.pop(row);i++){
-  r2_join_record r{};if(row.incarnation!=peer.incarnation||peer.handle==None||peer.dead||peer.terminating||now<row.at||now-row.at>=50000){inc(rejected);diagnostic.reason(G1Reason::JoinStale,now);continue;}
+  r2_join_record r{};if(row.incarnation!=peer.incarnation||peer.handle==None||peer.dead||peer.terminating||now<row.at||now-row.at>=(full_listening()&&!peer.relay?1000000:50000)||now>=peer.exchange.until){inc(rejected);diagnostic.reason(G1Reason::JoinStale,now);continue;}
   if(peer.relay){receive_rc_control(row,now);continue;}
   if(exclude_direct_gm||row.length!=R2_GROUP_JOIN_BYTES){inc(rejected);peer.dead=true;continue;}
   if(r2_group_join_decode(&r,row.bytes,R2_GROUP_JOIN_BYTES,&provision.group)){inc(rejected);diagnostic.reason(G1Reason::JoinDecode,now);continue;}

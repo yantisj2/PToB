@@ -32,11 +32,11 @@ struct G1Anchor {
   // JOIN refresh is driven by replay uncertainty or sustained acquisition
   // loss, not each short permission. It never renews the corrected model.
   // Both receive profiles refresh at100ms and become urgent at125ms.
-  // Continuous reception also needs the rolling two-start/60s restriction:
+  // Continuous reception also needs a bounded background control cadence:
   // one failed transport followed by unusable authenticated time can consume
   // the former50s reserve before a third start is allowed. Earlier refresh
   // leaves about75s at2000ppm, without extending any replay/source/model
-  // deadline or increasing the existing warm admission rate. Warm failure
+  // deadline. Separate direct-control retry bounds govern attempts. Failure
   // jitter is also bounded by the remaining replay context. Multiple long
   // failures can still exhaust the finite replay context.
   bool refresh(uint64_t now,bool=false)const {return rebootstrap(now)||guard(now)>=100000;}

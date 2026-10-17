@@ -7,7 +7,7 @@ RC role. [Image provenance](../../docs/images/README.md).*
 
 Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
 
-**PToB owns W12 native G1/RC7 development.** Current version **0.1.10** builds on the initial 0.1.0 successor
+**PToB owns W12 native G1/RC7 development.** Current version **0.1.11** builds on the initial 0.1.0 successor
 from the selected native application at `48b9ab7`. See the
 [build guide](../../docs/w12/build.md), [cutover record](../../docs/w12/cutover.md),
 [explicit import provenance](imports/2026-10-16.json) and [source notices](NOTICE.md).
@@ -29,6 +29,11 @@ limit before its unchanged hard replay deadline.
 Current authenticated precision reception reserves radio scheduling even during
 a relative-quality dip. Warm initiation requests 5 ms scan windows per 20 ms;
 precision reports are drained between control calls under one shared eight-report budget per worker iteration.
+Direct BLE100 control uses a separate 1 s queue-age limit, up to 4 s initiation,
+500 ms supervision and GATT wait bounded by the original 5 s authenticated
+exchange. Warm retries allow six starts per rolling minute, at least
+5 s apart, with 5–10 s failure backoff; BLE50 and RC7 retain their earlier control bounds.
+These control allowances do not relax precision freshness or clock authority.
 The OLED can retain a local HOLD estimate after source/replay expiry; its error
 bound is unknown and it grants no downstream authority. Passive bounded capture
 diagnostics distinguish control replies and corrected-model loss. W12 supplies

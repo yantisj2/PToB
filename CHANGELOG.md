@@ -2,6 +2,17 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 17 October 2026 — W12 background control tolerance
+
+W12 **0.1.11** separates direct BLE100 control from precision deadlines: a
+one-second control queue-age limit, four-second initiation, 500 ms supervision
+and GATT discovery bounded by the original five-second authenticated exchange.
+Six warm starts per rolling minute retain five-second spacing, with 5–10-second
+failure backoff. BLE50/RC7,
+actual owner drain and all precision capture, freshness, quality and source
+checks stay intact. Tests distinguish delayed membership from stale precision
+and reject control received within an exchange but processed after its expiry.
+
 ## 17 October 2026 — W12 replay recovery through unusable replies
 
 W12 **0.1.10** starts BLE100 replay refresh at 100 ms uncertainty, urgent at

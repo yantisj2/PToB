@@ -138,6 +138,19 @@ times surround yielding control work. The 50 ms worker-age and 250 ms physical
 association limits remain unchanged. The host runner includes synthetic SDK
 yield, scheduling and budget regressions; these do not measure actual RF priority.
 
+Version 0.1.11 separates direct BLE100 control handling from precision timing:
+control callbacks may queue for less than one second, initiation has four seconds,
+and link supervision requests 500 ms. GATT discovery may use the remainder of
+the original five-second authenticated exchange. Processing after that exchange
+expires is rejected, and coarse time extraction retains its own stricter bounds;
+control membership never becomes physical precision evidence. Warm direct
+BLE100 allows six starts per rolling minute, at least five seconds apart, with
+5–10-second failure backoff. Its deadline-aware jitter reserves five seconds
+for an attempt and slack.
+BLE50/RC7 control bounds remain unchanged. Actual cancellation, stop and update
+drains retain their original deadlines. Precision report age, association,
+authentication, correction matching and quality/expiry gates are unchanged.
+
 Version 0.1.6 preserves an acquired periodic receiver through authenticated
 NO_SOURCE and unusable control replies. Positive foreign roots are counted
 separately. After the first physical corrected update, failed retries wait a

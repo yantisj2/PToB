@@ -2,6 +2,28 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 0.1.11 — 17 October 2026
+
+- Separate direct BLE100 control from precision processing deadlines. Allow
+  control replies up to one second in the queue, four seconds for initiation,
+  500 ms connection supervision and GATT discovery through the original
+  five-second authenticated exchange. Reject processing after that original
+  exchange expires, even if the callback arrived earlier. Nonce, MAC, sequence,
+  source permission and coarse-bootstrap uncertainty checks remain unchanged;
+  a delayed membership reply supplies no precision measurement.
+- Allow six warm direct BLE100 starts per rolling minute, with
+  five-second spacing and 5–10-second failure backoff. Retain two starts for
+  BLE50/RC7 and preserve history
+  across parent changes. Deadline-aware direct retry jitter now reserves five
+  seconds for the longer attempt and scheduling slack. This remains best effort
+  within a finite replay lifetime.
+- Preserve narrow warm initiation, precision-first queue drains, 50 ms precision
+  worker age, 250 ms physical association, original signed/model expiry and
+  relative-lock quality gates. Cancellation, stop, fault and update drain keep
+  their original bounds and require actual completion.
+- Add production-boundary regressions for delayed control versus stale precision,
+  expired exchanges, longer control discovery, legacy/RC7 bounds and stop expiry.
+
 ## 0.1.10 — 17 October 2026
 
 - Start direct BLE100 replay refresh at 100 ms uncertainty and urgency at

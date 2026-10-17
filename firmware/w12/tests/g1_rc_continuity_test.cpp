@@ -73,10 +73,19 @@ int main(){
   // bypass the rolling cap, extend a deadline or promise an impossible retry.
   {G1AdmissionPolicy retry;retry.acquired();
     retry.failed(1000000,20000000,101000000);assert(retry.retry_at==41000000);
-    retry.failed(1000000,20000000,31000000);assert(retry.retry_at>=21000000&&retry.retry_at<=28000000);
+    retry.failed(1000000,20000000,31000000);assert(retry.retry_at>=21000000&&retry.retry_at<=26000000);
     retry.failed(1000000,20000000,11000000);assert(retry.retry_at==21000000);
     retry.started(1000000);retry.started(21000000);
     assert(!retry.allowed(41000000)&&retry.allowed(61000000));
+  }
+  {G1AdmissionPolicy retry;retry.acquired();
+    for(uint64_t now=1000000;now<=26000000;now+=5000000){assert(retry.allowed(now,true));retry.started(now);}
+    assert(!retry.allowed(31000000,true)&&!retry.allowed(60999999,true)&&retry.allowed(61000000,true));
+    assert(!retry.allowed(61000000)); // BLE50/RC7 still use two starts/60s.
+    assert(!retry.allowed(25000000,true)); // Backwards clock cannot clear history.
+    retry.failed(100000000,0,0,true);assert(retry.retry_at==105000000);
+    retry.failed(100000000,5000000,0,true);assert(retry.retry_at==110000000);
+    retry.failed(100000000,5000000,112000000,true);assert(retry.retry_at>=105000000&&retry.retry_at<=107000000);
   }
   G1RetainedEstimate e;uint64_t utc=0;assert(!e.deliver(1,utc));
   G1ClockPrediction p{20000000,1000000000,500,2000,1700000000000000000};
