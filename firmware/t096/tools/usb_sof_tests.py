@@ -15,5 +15,6 @@ if run('capture-build',common+['-include',str(app/'tests/usb_capture_fake.h'),st
  for mode in (0,15,16,17,18,19):run('capture-'+str(mode),[str(out/'capture'),str(mode)])
 if run('worker-build',common+['-include',str(app/'tests/usb_sof_probe_fake.h'),str(app/'tests/usb_sof_probe_test.c'),str(app/'src/usb_sof_observer.c'),'-o',str(out/'worker')]):run('worker',[str(out/'worker')])
 if run('source-build',common+['-DR2_USB_SOURCE_STREAM=1','-include',str(app/'tests/usb_sof_probe_fake.h'),str(app/'tests/usb_source_test.c'),'-o',str(out/'source')]):run('source',[str(out/'source')])
-r={'status':'PASS' if len(cases)==11 and all(x['exit_code']==0 for x in cases) else 'FAIL','hardware_access':False,'cases':cases}
+if run('race-build',common+['-DR2_USB_SOURCE_STREAM=1','-include',str(app/'tests/usb_sof_probe_fake.h'),str(app/'tests/usb_source_race_test.c'),'-o',str(out/'race')]):run('race',[str(out/'race')])
+r={'status':'PASS' if len(cases)==13 and all(x['exit_code']==0 for x in cases) else 'FAIL','hardware_access':False,'cases':cases}
 (out/'receipt.json').write_text(json.dumps(r,indent=2)+'\n');print(json.dumps(r));raise SystemExit(r['status']!='PASS')

@@ -7,8 +7,11 @@ static uint32_t test_usb_epoch=7;
 bool r2_capture_now(struct r2_capture *out){*out=sampled;return sampling;}
 bool r2_usb_sof_scope(uint32_t *epoch){*epoch=test_usb_epoch;return usb_live;}
 uint8_t r2_usb_reference_number(void){return 2;}
+static void (*project_hook)(void);
 /* Publication tests isolate the already-tested RC map arithmetic boundary. */
 bool rc5_map_project(const struct rc5_map *m,uint64_t tick,uint64_t *ns,uint64_t *elapsed){
+ assert(!test_critical_depth);
+ if(project_hook){void(*hook)(void)=project_hook;project_hook=NULL;hook();}
  if(tick<m->anchor_tick)return false;*elapsed=tick-m->anchor_tick;
  *ns=m->anchor_ns+*elapsed*125/2;return true;
 }
@@ -89,6 +92,7 @@ int main(void){
  c.origin.root=20;c.discipline_tick=1900000;r2_usb_source_publish(&c);
  raw(1999000,2001000);assert(!r2_usb_source_request(&s,&length,&p)&&!(get(p+36,4)&2));
  raw(2001000,2002000);assert(!r2_usb_source_request(&s,&length,&p)&&(get(p+36,4)&2)&&get(p+80,8)==20);
- sequence=UINT32_MAX;assert(!r2_usb_source_request(&s,&length,&p)&&!get(p+36,4));
+ sequence=UINT32_MAX;assert(!r2_usb_source_request(&s,&length,&p)&&!(get(p+36,4)&3)&&!get(p+64,8)&&!get(p+248,4));
  printf("PASS causal UTC/SOF map publication, old generation, explicit gap, expiry, capture/USB/withdraw fences, request guards; map bank %zuB\n",sizeof maps);
+ return 0;
 }

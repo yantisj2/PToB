@@ -8,6 +8,7 @@
 #include "rc_unicast.h"
 #include "capture.h"
 #include "app.h"
+#include "health.h"
 #include <zephyr/usb/usb_device.h>
 #include <zephyr/kernel.h>
 #include <zephyr/sys/byteorder.h>
@@ -18,7 +19,9 @@ struct published_map {struct r2_uc_clock clock;uint64_t lo,hi;bool set;};
 static struct published_map maps[2], estimate;
 static struct k_spinlock map_lock;
 static uint64_t silicon,boot,transition_tick,transition_epoch;
-static uint32_t sequence,overwrites;
+static uint32_t sequence,overwrites,revision;
+/* Saturation fails closed. Never let an ABA wrap validate an old request. */
+static void changed(void){if(revision<UINT32_MAX)++revision;}
 static bool busy,permission,estimate_current;
 static uint8_t wire[256];
 void r2_usb_source_init(const struct r2_identity *id){
@@ -27,18 +30,18 @@ void r2_usb_source_init(const struct r2_identity *id){
  for(unsigned i=0;i<16;i++)silicon=(silicon<<4)|(id->silicon[i]<='9'?(unsigned)(id->silicon[i]-'0'):(unsigned)(id->silicon[i]-'a'+10));
 }
 void r2_usb_source_begin(uint64_t activation,uint64_t capture_epoch){
- k_spinlock_key_t key=k_spin_lock(&map_lock);
+ k_spinlock_key_t key=k_spin_lock(&map_lock);changed();
  if(!busy){transition_tick=activation;transition_epoch=capture_epoch;}busy=true;
  k_spin_unlock(&map_lock,key);
 }
 void r2_usb_source_withdraw(void){
- k_spinlock_key_t key=k_spin_lock(&map_lock);permission=false;busy=false;
+ k_spinlock_key_t key=k_spin_lock(&map_lock);changed();permission=false;busy=false;
  memset(maps,0,sizeof maps);estimate_current=false;k_spin_unlock(&map_lock,key);
 }
 void r2_usb_source_publish(const struct r2_uc_clock *clock){
  struct r2_capture after;
  if(!clock||!r2_capture_now(&after)){r2_usb_source_withdraw();return;}
- k_spinlock_key_t key=k_spin_lock(&map_lock);
+ k_spinlock_key_t key=k_spin_lock(&map_lock);changed();
  /* Estimate publication never refreshes observation age or original leases.
   * Keep the old segment through authority withdrawal/search, until a new map
   * is committed; capture epoch and arithmetic remain hard projection fences. */
@@ -82,6 +85,40 @@ static bool project(const struct published_map *map,uint64_t tick,uint64_t curre
  if((offset>0&&(int64_t)ns>INT64_MAX-offset)||(offset<0&&(int64_t)ns<INT64_MIN-offset))return false;
  *utc=(int64_t)ns+offset;return *utc>0;
 }
+/* One192B scratch on the existing USB worker stack;
+ * never snapshot all three maps onto that1KiB stack. Arithmetic, division and
+ * serialization run with regular controller interrupts enabled. */
+static bool snapshot_map(unsigned index,uint32_t expected,struct published_map *out){
+#if defined(CONFIG_ARM)
+ unsigned mask=irq_lock();r2_health_lock_enter(0x60001u,mask);
+#endif
+ k_spinlock_key_t key=k_spin_lock(&map_lock);
+ bool ok=revision==expected&&revision!=UINT32_MAX;
+ if(ok)*out=index<2?maps[index]:estimate;
+ k_spin_unlock(&map_lock,key);
+#if defined(CONFIG_ARM)
+ r2_health_lock_leave(mask);irq_unlock(mask);
+#endif
+ return ok;
+}
+static void write_metadata(const struct published_map *metadata,uint64_t current){
+ const struct r2_uc_clock *c=&metadata->clock;
+ sys_put_le64(c->origin.root,wire+80);sys_put_le64(c->origin.boot,wire+88);
+ sys_put_le32(c->origin.epoch,wire+96);sys_put_le32(c->map.generation,wire+100);
+ uint64_t current_ns,elapsed,until=c->until_tick;
+ if(rc5_map_project(&c->map,current,&current_ns,&elapsed)&&current_ns<c->origin.expires){
+  uint64_t remaining=(c->origin.expires-current_ns)/1001*16;
+  if(current<until&&remaining<until-current)until=current+remaining;
+ }
+ sys_put_le64(until,wire+104);sys_put_le64(c->origin.expires,wire+112);
+ sys_put_le64(c->map.anchor_tick,wire+120);sys_put_le64(c->map.anchor_ns,wire+128);
+ sys_put_le64(c->map.effective,wire+136);sys_put_le64(metadata->lo,wire+144);sys_put_le64(metadata->hi,wire+152);
+ sys_put_le32((uint32_t)c->map.ppb,wire+160);sys_put_le32((uint32_t)c->map.phase_ns,wire+164);
+ sys_put_le32(c->map.age_us,wire+168);sys_put_le32(c->map.bound,wire+172);
+ sys_put_le32(c->map.rate_bound,wire+176);sys_put_le32(c->map.capture_bound,wire+180);
+ sys_put_le64((uint64_t)c->origin.utc_offset,wire+184);sys_put_le64(c->origin.issued,wire+192);
+ memcpy(wire+200,c->scope,16);sys_put_le32(c->origin.hold_us,wire+224);sys_put_le32(c->origin.hold_ns,wire+228);
+}
 int r2_usb_source_request(struct usb_setup_packet *setup,int32_t *length,uint8_t **data){
  if(setup->bmRequestType!=0xc1||(setup->bRequest!=0x52&&setup->bRequest!=0x53&&setup->bRequest!=0x57)||
     setup->wValue||setup->wIndex!=r2_usb_reference_number()||setup->wLength!=sizeof wire)return -ENOTSUP;
@@ -94,42 +131,58 @@ int r2_usb_source_request(struct usb_setup_packet *setup,int32_t *length,uint8_t
  bool sof=captured&&raw.frame_before==raw.frame_after&&raw.cc_before==raw.cc_after&&
   raw.frame_after<=R2_USB_FRAME_MASK&&age<R2_USB_SOF_TICKS&&raw.current_tick>=age;
  if(setup->bRequest==0x53||setup->bRequest==0x57){captured=sof;if(sof)event-=age;}
- int64_t utc=0;uint32_t flags=0,reason=1;
+ bool was_busy,permitted,estimate_is_current;
+ uint32_t expected,serial,overwritten;
+#if defined(CONFIG_ARM)
+ unsigned mask=irq_lock();r2_health_lock_enter(0x60002u,mask);
+#endif
  k_spinlock_key_t key=k_spin_lock(&map_lock);
- const struct published_map *map=NULL,*current_map=NULL;
+ expected=revision;was_busy=busy;permitted=permission;estimate_is_current=estimate_current;
+ overwritten=overwrites;if(sequence<UINT32_MAX)++sequence;serial=sequence;
+ k_spin_unlock(&map_lock,key);
+#if defined(CONFIG_ARM)
+ r2_health_lock_leave(mask);irq_unlock(mask);
+#endif
+ int64_t utc=0;uint32_t flags=0,reason=1;
+ bool found=false,current_found=false,raced=false;
+ struct published_map local;
  uint64_t current_source=0;
- if(captured&&!busy&&permission){for(unsigned i=0;i<2;i++)if(project(&maps[i],event,raw.current_tick,raw.capture_epoch,&utc)){map=&maps[i];break;}}
- /* A missing historical SOF interval is distinct from authority withdrawal.
-  * Classify only under this same publication lock using the ORIGINAL current
-  * projection gates. This metadata is never a valid captured UTC sample. */
- if(!map&&setup->bRequest==0x53&&captured&&!busy&&permission){
+ if(captured&&!was_busy&&permitted){for(unsigned i=0;i<2;i++){
+  if(!snapshot_map(i,expected,&local)){raced=true;break;}
+  if(project(&local,event,raw.current_tick,raw.capture_epoch,&utc)){found=true;break;}
+ }}
+ if(!found&&!raced&&setup->bRequest==0x53&&captured&&!was_busy&&permitted){
   int64_t current_utc;uint64_t elapsed;
-  for(unsigned i=0;i<2;i++)if(project(&maps[i],raw.current_tick,raw.current_tick,raw.capture_epoch,&current_utc)&&
-     rc5_map_project(&maps[i].clock.map,raw.current_tick,&current_source,&elapsed)){current_map=&maps[i];break;}
+  for(unsigned i=0;i<2;i++){
+   if(!snapshot_map(i,expected,&local)){raced=true;break;}
+   if(project(&local,raw.current_tick,raw.current_tick,raw.capture_epoch,&current_utc)&&
+      rc5_map_project(&local.clock.map,raw.current_tick,&current_source,&elapsed)){current_found=true;break;}
+  }
  }
- if(map){flags=1;reason=0;}else{utc=0;if(busy)reason=4;else if(!captured)reason=2;else if(current_map)reason=7;}
+ if(found){flags=1;reason=0;}else{utc=0;if(was_busy)reason=4;else if(!captured)reason=2;else if(current_found)reason=7;}
+ if(serial==UINT32_MAX){flags=0;reason=6;}
  memset(wire,0,sizeof wire);memcpy(wire,"UTS1",4);
  sys_put_le16(1,wire+4);sys_put_le16(sizeof wire,wire+6);
  sys_put_le64(silicon,wire+8);sys_put_le64(boot,wire+16);
- sys_put_le32(after_epoch,wire+24);
- sys_put_le32(raw.capture_epoch,wire+28);if(sequence<UINT32_MAX)++sequence;else{flags=0;reason=6;}
- sys_put_le32(sequence,wire+32);sys_put_le32(flags,wire+36);
- sys_put_le16(sof?raw.frame_after:UINT16_MAX,wire+40);sys_put_le16(1,wire+42); /* POSIX UTC estimate */
+ sys_put_le32(after_epoch,wire+24);sys_put_le32(raw.capture_epoch,wire+28);
+ sys_put_le32(serial,wire+32);sys_put_le32(flags,wire+36);
+ sys_put_le16(sof?raw.frame_after:UINT16_MAX,wire+40);sys_put_le16(1,wire+42);
  sys_put_le64(event,wire+48);sys_put_le64(raw.current_tick,wire+56);
  sys_put_le64((uint64_t)utc,wire+64);wire[72]=setup->bRequest==0x53?1:2;
- const struct published_map *metadata=map?map:current_map;
- bool extended=setup->bRequest==0x57, estimate_ok=false;
+ if(found||current_found)write_metadata(&local,raw.current_tick);
+ bool extended=setup->bRequest==0x57,estimate_ok=false;
  uint64_t projected=0,elapsed_est=0,current_est=0;
- if(extended&&captured&&!busy&&estimate.set&&raw.capture_epoch==estimate.clock.capture_epoch&&
-    event>=estimate.lo&&event>=estimate.clock.discipline_tick&&
-    rc5_map_project(&estimate.clock.map,event,&projected,&elapsed_est)&&
-    rc5_map_project(&estimate.clock.map,raw.current_tick,&current_est,&elapsed_est)&&
-    projected<=INT64_MAX){
-  int64_t offset=estimate.clock.origin.utc_offset;
-  if(!((offset>0&&(int64_t)projected>INT64_MAX-offset)||
-       (offset<0&&(int64_t)projected<INT64_MIN-offset))){
-   int64_t value=(int64_t)projected+offset;
-   if(value>0){estimate_ok=true;metadata=&estimate;sys_put_le64((uint64_t)value,wire+64);}
+ if(extended&&!raced){
+  if(!snapshot_map(2,expected,&local))raced=true;
+  else if(captured&&!was_busy&&local.set&&raw.capture_epoch==local.clock.capture_epoch&&
+     event>=local.lo&&event>=local.clock.discipline_tick&&
+     rc5_map_project(&local.clock.map,event,&projected,&elapsed_est)&&
+     rc5_map_project(&local.clock.map,raw.current_tick,&current_est,&elapsed_est)&&projected<=INT64_MAX){
+   int64_t offset=local.clock.origin.utc_offset;
+   if(!((offset>0&&(int64_t)projected>INT64_MAX-offset)||(offset<0&&(int64_t)projected<INT64_MIN-offset))){
+    int64_t value=(int64_t)projected+offset;
+    if(value>0){estimate_ok=true;sys_put_le64((uint64_t)value,wire+64);}
+   }
   }
  }
  if(extended){
@@ -138,45 +191,40 @@ int r2_usb_source_request(struct usb_setup_packet *setup,int32_t *length,uint8_t
   uint32_t states=captured?4:0;
   if(estimate_ok){
    states|=2;
-   if(estimate_current&&estimate.clock.session_until&&raw.current_tick<estimate.clock.session_until)states|=8;
-   if(estimate_current&&current_est>=estimate.clock.origin.issued&&current_est<estimate.clock.origin.expires)states|=16;
+   if(estimate_is_current&&local.clock.session_until&&raw.current_tick<local.clock.session_until)states|=8;
+   if(estimate_is_current&&current_est>=local.clock.origin.issued&&current_est<local.clock.origin.expires)states|=16;
+   /* Read the already serialized strict identity before replacing metadata
+    * with the retained estimate. No second full192B map scratch is needed. */
+   if((states&24)==24&&found&&sys_get_le32(wire+100)==local.clock.map.generation&&
+      sys_get_le64(wire+80)==local.clock.origin.root&&sys_get_le64(wire+88)==local.clock.origin.boot&&
+      sys_get_le32(wire+96)==local.clock.origin.epoch&&!memcmp(wire+200,local.clock.scope,16))states|=1;
+   write_metadata(&local,raw.current_tick);
+   sys_put_le64(local.clock.discipline_tick,wire+232);sys_put_le64(local.clock.session_until,wire+240);
+   sys_put_le32(event-local.clock.discipline_tick<UINT64_C(4000000)?1:2,wire+248);
   }
-  if((states&24)==24&&map&&map->clock.map.generation==estimate.clock.map.generation&&
-     map->clock.origin.root==estimate.clock.origin.root&&map->clock.origin.boot==estimate.clock.origin.boot&&
-     map->clock.origin.epoch==estimate.clock.origin.epoch&&!memcmp(map->clock.scope,estimate.clock.scope,16))states|=1;
-  if(sequence==UINT32_MAX)states=0;
-  sys_put_le32(states,wire+36);
- }
- if(metadata){const struct r2_uc_clock *c=&metadata->clock;
-  sys_put_le64(c->origin.root,wire+80);sys_put_le64(c->origin.boot,wire+88);
-  sys_put_le32(c->origin.epoch,wire+96);sys_put_le32(c->map.generation,wire+100);
-  uint64_t current_ns,elapsed,until=c->until_tick;
-  if(rc5_map_project(&c->map,raw.current_tick,&current_ns,&elapsed)&&current_ns<c->origin.expires){
-   uint64_t remaining=(c->origin.expires-current_ns)/1001*16;
-   if(raw.current_tick<until&&remaining<until-raw.current_tick)until=raw.current_tick+remaining;
-  }
-  sys_put_le64(until,wire+104);sys_put_le64(c->origin.expires,wire+112);
-  sys_put_le64(c->map.anchor_tick,wire+120);sys_put_le64(c->map.anchor_ns,wire+128);
-  sys_put_le64(c->map.effective,wire+136);sys_put_le64(metadata->lo,wire+144);sys_put_le64(metadata->hi,wire+152);
-  sys_put_le32((uint32_t)c->map.ppb,wire+160);sys_put_le32((uint32_t)c->map.phase_ns,wire+164);
-  sys_put_le32(c->map.age_us,wire+168);sys_put_le32(c->map.bound,wire+172);
-  sys_put_le32(c->map.rate_bound,wire+176);sys_put_le32(c->map.capture_bound,wire+180);
-  sys_put_le64((uint64_t)c->origin.utc_offset,wire+184);sys_put_le64(c->origin.issued,wire+192);
-  memcpy(wire+200,c->scope,16);sys_put_le32(c->origin.hold_us,wire+224);sys_put_le32(c->origin.hold_ns,wire+228);
- }
- if(extended){
-  if(estimate_ok){
-   sys_put_le64(estimate.clock.discipline_tick,wire+232);
-   sys_put_le64(estimate.clock.session_until,wire+240);
-   sys_put_le32(event-estimate.clock.discipline_tick<UINT64_C(4000000)?1:2,wire+248);
-  }
-  sys_put_le32(estimate_ok?0:captured?3:2,wire+252);
- }else if(current_map&&reason==7){
+  if(serial==UINT32_MAX)states=0;
+  sys_put_le32(states,wire+36);sys_put_le32(estimate_ok?0:captured?3:2,wire+252);
+ }else if(current_found&&reason==7){
   memcpy(wire+232,"USM1",4);sys_put_le16(1,wire+236);sys_put_le16(24,wire+238);
   sys_put_le64(current_source,wire+240);sys_put_le32(1,wire+248);
  }
- sys_put_le32(overwrites,wire+216);sys_put_le32(reason,wire+220);
- k_spin_unlock(&map_lock,key);*data=wire;*length=sizeof wire;return 0;
+ sys_put_le32(overwritten,wire+216);sys_put_le32(reason,wire+220);
+ /* A concurrent publish/begin/withdraw invalidates this entire packet. It
+  * cannot resurrect a previous map or original authority. Next normal poll
+  * will observe the new publication; host projection need not disappear. */
+#if defined(CONFIG_ARM)
+ mask=irq_lock();r2_health_lock_enter(0x60003u,mask);
+#endif
+ key=k_spin_lock(&map_lock);raced=raced||revision!=expected||revision==UINT32_MAX;k_spin_unlock(&map_lock,key);
+#if defined(CONFIG_ARM)
+ r2_health_lock_leave(mask);irq_unlock(mask);
+#endif
+ if(raced||serial==UINT32_MAX){
+  memset(wire+64,0,192);sys_put_le32(extended&&captured?4:0,wire+36);
+  wire[72]=extended||setup->bRequest==0x53?1:2;sys_put_le32(serial==UINT32_MAX?6:4,wire+220);
+  if(extended)sys_put_le32(4,wire+252);
+ }
+ *data=wire;*length=sizeof wire;return 0;
 }
 
 /* A zero-data OUT marker is stamped before its status completion. Reading the
