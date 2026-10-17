@@ -2,6 +2,15 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 17 October 2026 — DC serial queue timestamp race
+
+T096 **0.15.84** samples the DC serial worker's queue-expiry clock under the
+same lock as UART output timestamps. A fresh UART interrupt between the old
+clock read and lock acquisition could otherwise discard a new chunk as having
+a future timestamp. The actual bridge regression exercises this interleaving,
+partial FIFO writes, the unchanged 500 ms backlog expiry and USB reset. The
+change is confined to DC; precision capture and GM/RC owners are unchanged.
+
 ## 17 October 2026 — DC UFirebird II capability probes
 
 T096 **0.15.83** extends only the DC host command policy with product/MSM/RTK

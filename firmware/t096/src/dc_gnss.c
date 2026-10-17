@@ -84,8 +84,11 @@ static void worker(void *a,void *b,void *c){
  (void)a;(void)b;(void)c;uint32_t seen=0;
  for(;;){
   uint32_t line=0;(void)uart_line_ctrl_get(cdc,UART_LINE_CTRL_DTR,&line);
-  uint8_t bytes[128];uint32_t current;size_t n;int64_t received,now=r2_time_now_us();
+  uint8_t bytes[128];uint32_t current;size_t n;int64_t received;
   k_spinlock_key_t key=k_spin_lock(&lock);
+  /* UART RX may preempt before this lock and timestamp a newly queued chunk.
+   * Sample now under the same lock so fresh bytes cannot appear in the future. */
+  int64_t now=r2_time_now_us();
   if(dtr!=(bool)line){dtr=(bool)line;output.head=output.tail=output.count=input.head=input.tail=input.count=first=count=0;if(epoch<UINT32_MAX)epoch++;else active=false;}
   current=epoch;received=input_at;n=dc_gnss_ring_get(&input,bytes,sizeof bytes);
   if(output.count&&(now<output_at||now-output_at>=500000)){

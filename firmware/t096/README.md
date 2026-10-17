@@ -14,7 +14,7 @@ devices. See [the architectural background](../../docs/V12_TO_R2.md).
 **PToB owns T096 RC7 development.** The ordinary mesh profiles are **GM** and **RC**;
 USB timing support is compiled by default. [Build from source](../../docs/t096/build.md)
 using pinned public dependencies and ignored local enrollment. The current
-application version is 0.15.83. No publicly enrolled binary is distributed.
+application version is 0.15.84. No publicly enrolled binary is distributed.
 
 **[Direct Connect (DC)](../../docs/t096/direct-connect.md)** is a distinct,
 flash-only GNSS-to-USB image for a dedicated macOS source. It compiles Bluetooth

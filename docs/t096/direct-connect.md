@@ -79,7 +79,9 @@ Receiver output is copied unchanged into a bounded queue. The clock input uses
 a separate DC filter for RMC/GGA and aiding feedback; RTCM payloads and unrelated
 long sentences cannot become clock input. Target timing faults and original
 freshness deadlines remain enforced. Slow readers lose raw bytes rather than
-blocking PPS or the source owner. Application backlog expires after 500 ms;
+blocking PPS or the source owner. The worker samples queue age while holding the UART queue lock, preventing
+a newly interrupted chunk from appearing newer than its expiry check.
+Application backlog expires after 500 ms;
 USB/driver buffers and plain NMEA do not provide an end-to-end freshness proof.
 Clock diagnostics add `dc_gnss_bridge`: raw-output drops, host-input drops,
 rejected host frames, dropped commands, and queued raw-output bytes.
