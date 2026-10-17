@@ -667,7 +667,7 @@ static void bluetooth_badge(uint8_t *fb, bool transmitting) {
 
 static void role_header_at(uint8_t *fb,const ui_snapshot_t *s,int top) {
 #ifdef R2_DC_PROFILE
- round_panel(fb,3,top,74,13,C_PANEL,C_BEZEL);label(fb,10,top+3,"Direct USB",1,C_WHITE);return;
+ round_panel(fb,3,top,74,13,C_PANEL,C_BEZEL);label(fb,10,top+3,"DIRECT USB",1,C_WHITE);return;
 #endif
  if(s->ui_role.grandmaster){round_panel(fb,3,top,74,13,C_PANEL,C_BEZEL);label(fb,7,top+3,"Grandmaster",1,C_WHITE);return;}
  const char *name=s->ui_role.header[0]?s->ui_role.header:s->unit_name?s->unit_name:"PTOB CLOCK";

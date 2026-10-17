@@ -9,6 +9,8 @@ Bluetooth is disabled; mesh/controller owners, group credentials and the GM/RC
 toggle are absent. Existing GNSS discipline, hardware USB SOF evidence, immutable
 publication intervals, quality/epoch fences, EP0 recovery, watchdog, display and
 supported maintenance remain. The normal GM/RC image retains its role behavior.
+The dial retains the temperature-colored 32 Hz badge; the DC header uses the
+font's supported uppercase letters so every character is rendered.
 
 The DC face replaces BEAT RMS with USB RMS: recent per-frame USB SOF span error
 against the GNSS-disciplined map, with sample/epoch/freshness gates. It does not

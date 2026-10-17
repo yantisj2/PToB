@@ -23,6 +23,15 @@ int main(int argc,char **argv){
  assert(!m.profile_supported&&!m.ble_active&&r2_ui_face_locked(&m,1000));
  assert(r2_ui_saver_allowed(&m,1000));
  r2_ui_render(frame,&m,&s,1000);save(argv[1],"dc-active");memcpy(active,frame,sizeof frame);
+ /* Every nonspace header cell must contain ink; unsupported lowercase i/c
+  * previously became blank glyphs in the fixed display font. */
+ for(unsigned cell=0;cell<10;cell++)if(cell!=6){
+  unsigned ink=0;
+  for(unsigned x=10+cell*6;x<15+cell*6;x++)for(unsigned y=4;y<11;y++){
+   unsigned offset=2*(y*R2_UI_WIDTH+x);if(frame[offset]==255&&frame[offset+1]==255)++ink;
+  }
+  assert(ink);
+ }
  m.precision.rms_valid=false;r2_ui_render(frame,&m,&s,1000);save(argv[1],"dc-usb-wait");
  assert(memcmp(frame,active,sizeof frame));m.precision.rms_valid=true;
  for(unsigned page=1;page<4;page++){s.page=page;r2_ui_render(frame,&m,&s,1000);
