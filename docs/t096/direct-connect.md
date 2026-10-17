@@ -38,8 +38,12 @@ boot, GNSS source epoch, capture epoch, map generation and domain tag
 there are zero BLE relay hops. The domain tag describes local provenance; it is
 not a BLE authentication proof or an accuracy certificate.
 
-Publication requires a valid local GNSS clock, active fix, live PPS, source
-availability, matching UTC/source/capture epochs and a usable precision map.
+Publication requires a valid local GNSS clock, active fix, live PPS,
+matching UTC/source/capture epochs and a usable PPS-disciplined precision map.
+The raw clock's `source_available` bit additionally requires independently
+commissioned PPS/UTC labeling and stays false with unknown association. It is
+not DC's publication permission. `status.dc_source_active` reports that separate
+GNSS/USB map state; USB availability never sets the raw qualification bit.
 Its deadline is clipped to the original source map, RMC freshness (2.5 s) and
 PPS freshness (1.5 s), with no renewed permission from USB polling. A stale
 owner snapshot is rejected. New maps take effect only after publication; an old

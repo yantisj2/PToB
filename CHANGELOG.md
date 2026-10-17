@@ -2,6 +2,17 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 17 October 2026 — DC unknown-association source admission
+
+T096 **0.15.80** corrects DC's initial gate: the raw clock's `source_available`
+requires commissioned PPS/UTC labeling and cannot become true on this adapter's
+unknown association. DC now uses the existing source owner's fresh fix/PPS and
+valid clock conditions, together with its PPS-disciplined map, matching epochs
+and unchanged expiry checks. `dc_source_active` reports USB map availability
+separately. UTC qualification and the raw clock's association bit remain unknown.
+The actual parser/clock test covers this board-default path; the failed first
+DC hardware population is retained locally rather than treated as settling time.
+
 ## 17 October 2026 — dedicated T096 Direct Connect image
 
 T096 **0.15.79** adds **DC**, a separate flash-only local GNSS/PPS-to-USB image.

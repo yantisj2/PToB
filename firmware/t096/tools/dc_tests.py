@@ -18,7 +18,8 @@ flags=[cc,'-std=c11','-Wall','-Wextra','-Werror','-Wno-unused-parameter','-fsani
  '-fno-sanitize-recover=all','-g','-I'+str(app/'include'),'-I'+str(out)]
 results=[]
 for name,extra in [('dc_clock',[]),('dc_chain',['-DR2_DC_PROFILE=1','-include',str(app/'tests/usb_sof_probe_fake.h'),'-include',str(app/'tests/dc_time_fake.h')])]:
- command=[*flags,*extra,str(app/'tests'/(name+'_test.c')),str(app/'src/dc_clock.c'),str(app/'src/precision.c'),'-o',str(out/name)]
+ command=[*flags,*extra,str(app/'tests'/(name+'_test.c')),str(app/'src/dc_clock.c'),str(app/'src/precision.c'),
+          str(app/'src/clock.c'),str(app/'src/nmea.c'),'-o',str(out/name)]
  subprocess.run(command,check=True,timeout=30)
  result=subprocess.run([str(out/name)],timeout=30,capture_output=True,text=True)
  (out/(name+'.log')).write_text(result.stdout+result.stderr)

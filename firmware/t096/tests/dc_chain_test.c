@@ -21,7 +21,7 @@ int main(void){
  struct r2_identity id={.silicon="1000000000000004",.boot=99};
  r2_dc_init(&id);r2_usb_source_init(&id);
  struct usb_setup_packet request={0xc1,0x57,0,2,256};int32_t size;uint8_t *data;
- test_clock=(struct r2_clock){.view={.valid=true,.source_available=true,.fix_active=true,
+ test_clock=(struct r2_clock){.view={.valid=true,.source_available=false,.fix_active=true,
   .pps_present=true,.source_epoch=7,.mono_us=(int64_t)now}};
  test_source=(struct r2_source_clock){.count=1,.head=1,.epoch=1,.last_edge=15999000,
   .utc_bound=true,.utc_source_epoch=7,.utc_offset_ns=INT64_C(1790000000000000000),

@@ -52,5 +52,6 @@ bool r2_dc_metric(uint32_t *value,unsigned *samples){
  bool valid=publishing&&r2_dc_rms_read(&rms,(uint64_t)k_uptime_get(),value,samples);
  k_spin_unlock(&metric_lock,key);return valid;
 }
+bool r2_dc_active(void){return publishing;}
 /* Health formatter's absent BLE diagnostic writer has no stack to inspect. */
 uint32_t r2_diag_stack_unused(void){return UINT32_MAX;}

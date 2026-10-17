@@ -38,7 +38,7 @@ int main(void){
   if(failure==1)clock.stopped=true;
   if(failure==2)clock.view.fix_active=false;
   if(failure==3)clock.view.pps_present=false;
-  if(failure==4)clock.view.source_available=false;
+  if(failure==4)clock.view.valid=false;
   if(failure==5)clock.view.source_epoch++;
   if(failure==6)clock.view.association=R2_ASSOC_PRECEDING_UTC_SECOND;
   if(failure==7)clock.view.gps_age_us=R2_GPS_FRESH_US;
@@ -51,6 +51,27 @@ int main(void){
  clock=good;at.epoch++;assert(!r2_dc_clock(&source,&clock,at,clock.view.mono_us,17,99,&out));at.epoch--;
  clock.view.gps_age_us=R2_GPS_FRESH_US-100;
  assert(!r2_dc_clock(&source,&clock,at,clock.view.mono_us+100,17,99,&out));
+ /* Exercise the real board-default parser/clock, rather than supplying a
+  * synthetic commissioned source_available bit that UNKNOWN can never earn. */
+ struct r2_clock raw;r2_clock_init(&raw,0,R2_ASSOC_UNKNOWN);
+ struct r2_source_clock local;r2_source_clock_init(&local);
+ struct r2_pps_precision fit;r2_pps_precision_init(&fit);
+ for(unsigned second=0;second<16;second++){
+  int64_t edge_us=(int64_t)(second+1)*1000000;
+  struct r2_capture edge={(uint64_t)(second+1)*16000000,2,R2_CAPTURE_PPS};
+  r2_clock_pps(&raw,edge_us,edge_us);assert(r2_pps_precision_add(&fit,edge));
+  char body[128],line[144];snprintf(body,sizeof body,"GPRMC,1200%02u.000,A,0000.0000,N,00000.0000,E,0.0,0.0,171026,,,A",second);
+  unsigned checksum=0;for(unsigned i=0;body[i];i++)checksum^=(unsigned char)body[i];
+  int n=snprintf(line,sizeof line,"$%s*%02X\r\n",body,checksum);
+  r2_clock_bytes(&raw,(const uint8_t *)line,(size_t)n,edge_us+100000,edge_us+100000);
+  struct r2_capture available={edge.tick+1600000,2,R2_CAPTURE_NOW};
+  if(second)assert(r2_source_clock_publish(&local,&fit,available));
+  if(second<2)continue;
+  assert(raw.view.valid&&raw.view.fix_active&&raw.view.pps_present);
+  assert(!raw.view.source_available&&!raw.view.rate_valid&&raw.view.association==R2_ASSOC_UNKNOWN);
+  assert(r2_source_utc_bind(&local,available,raw.view.utc_us*1000,raw.view.source_epoch,raw.view.association)>0);
+  assert(r2_dc_clock(&local,&raw,available,(uint64_t)raw.view.mono_us,17,99,&out)&&out.valid);
+ }
  r2_source_clock_invalidate(&source);
  assert(!r2_dc_clock(&source,&good,at,good.view.mono_us,17,99,&out));
  struct r2_dc_rms metric={0};uint32_t value;unsigned samples;

@@ -6,12 +6,16 @@ bool r2_dc_clock(const struct r2_source_clock *s,const struct r2_clock *c,
  struct r2_capture at,uint64_t now,uint64_t identity,uint64_t boot,struct r2_uc_clock *out){
  *out=(struct r2_uc_clock){0};
  if(!identity||!boot||!at.epoch||at.epoch>UINT32_MAX||at.kind!=R2_CAPTURE_NOW||
-    c->fatal||c->stopped||!c->view.valid||!c->view.source_available||!c->view.fix_active||
+    c->fatal||c->stopped||!c->view.valid||!c->view.fix_active||
     !c->view.pps_present||!s->utc_bound||s->utc_source_epoch!=c->view.source_epoch||
     s->utc_association!=c->view.association||!s->count||at.epoch!=s->epoch||
     c->view.gps_age_us<0||c->view.gps_age_us>=R2_GPS_FRESH_US||
     c->view.pps_age_us<0||c->view.pps_age_us>=R2_PPS_FRESH_US||c->view.mono_us<0||
     now<(uint64_t)c->view.mono_us||now-(uint64_t)c->view.mono_us>=100000)return false;
+ /* Raw source_available additionally requires commissioned PPS/UTC labeling.
+  * Like the existing GNSS source owner, DC can export an explicitly unqualified
+  * coarse UTC translation of a fresh PPS-disciplined map while association is
+  * UNKNOWN. Never turn that raw qualification bit on from USB availability. */
  const struct r2_source_map *m=&s->maps[(s->head+R2_SOURCE_MAP_HISTORY-1)%R2_SOURCE_MAP_HISTORY];
  if(!m->generation||m->generation>UINT32_MAX||at.tick<m->from||at.tick>=m->until||
     m->rate_q16<UINT64_C(15990000)*65536||m->rate_q16>UINT64_C(16010000)*65536||

@@ -276,7 +276,7 @@ static void __attribute__((noinline)) reply(const struct r2_request *r,uint64_t 
 #endif
   int n=snprintf(json,sizeof(json),
 #ifdef R2_DC_PROFILE
-    "{\"image_profile\":\"DC\",\"profile_toggleable\":false,\"relay_hops\":0,\"ble_enabled\":false,"
+    "{\"image_profile\":\"DC\",\"profile_toggleable\":false,\"relay_hops\":0,\"ble_enabled\":false,\"dc_source_active\":%s,"
     "\"version\":\"%s\",\"source\":\"%s\",\"commit\":\"%s\",\"dirty\":%d,"
 #else
     "{\"version\":\"%s\",\"source\":\"%s\",\"commit\":\"%s\",\"dirty\":%d,"
@@ -291,6 +291,9 @@ static void __attribute__((noinline)) reply(const struct r2_request *r,uint64_t 
     "\"shadow_ui\":{\"state\":%u,\"active\":%s,\"elapsed_ms\":%llu,\"session\":%u,\"samples\":%u,\"skipped\":%u,\"missing\":%u,\"valid\":%s,\"mean_tenth_ns\":%lld,\"p95_ns\":%u,\"p99_ns\":%u,\"max_ns\":%u,\"approximate\":%s},"
     "\"io\":[%u,%u,%u,%u,%u,%u,%u,%u,%u],\"rejected\":%u,\"trace_lost\":%u,\"trace_count\":%u,\"trace_page\":%u,"
     "\"rf\":\"%s\",\"time_service\":\"GNSS_CLOCK_V1\",\"precision\":\"UNKNOWN\",\"trace\":[",
+#ifdef R2_DC_PROFILE
+    r2_dc_active()?"true":"false",
+#endif
     R2_VERSION,R2_SOURCE_SHA,R2_CHILD_COMMIT,R2_SOURCE_DIRTY,
     identity.silicon,identity.unit,(unsigned long long)identity.boot,identity.battery,
     (unsigned long long)k_uptime_get(),(unsigned)heartbeat,result,identity.result,r2_board_safe(),
