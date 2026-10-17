@@ -55,5 +55,32 @@ int main(void){
  assert(r2_radio_address_reference(UINT32_MAX-5,true)==UINT32_MAX-5);
  assert(r2_radio_address_reference(100,false)==100);
  for(unsigned i=0;i<2;i++){cc=i?UINT32_MAX:0;r2_radio_capture_enable(5+i,6);r2_radio_capture_arm(&owner,pdu,0,0,1,false);r2_radio_capture_complete(&owner,true,true);assert(r2_radio_capture_pop(&out)&&out.address_raw==cc&&out.raw==cc);assert(!r2_radio_capture_disable());}
- puts("PASS actual radio ISR capture: exact PDU/CC, CRC/address, bounded overflow, abort, failed-disable ownership");
+ struct r2_radio_rx_stats before; r2_radio_capture_stats(&s);before=s.rx;
+ assert(!r2_radio_capture_enable(10,6));
+ r2_radio_capture_arm(&owner,pdu,10,3,1,false);
+ r2_radio_capture_abort_site(&other,R2_CAPTURE_ABORT_ACTIVE_CANCEL);assert(route_on);
+ r2_radio_capture_abort_site(&owner,R2_CAPTURE_ABORT_ACTIVE_CANCEL);
+ r2_radio_capture_stats(&s);assert(s.rx.aborted==before.aborted+1);
+ assert(s.rx.last_abort==((UINT64_C(10)<<32)|(UINT64_C(1)<<24)|(UINT64_C(3)<<16)|10));
+ assert(s.rx.last_abort_owner==(uint32_t)(uintptr_t)&owner);
+ r2_radio_capture_arm(&owner,pdu,11,4,1,false);address=false;r2_radio_capture_complete(&owner,false,false);
+ r2_radio_capture_arm(&owner,pdu,12,4,1,false);r2_radio_capture_complete(&owner,true,false);
+ address=true;r2_radio_capture_arm(&owner,pdu,13,4,1,false);r2_radio_capture_complete(&owner,true,false);
+ pdu[0]=0;r2_radio_capture_arm(&owner,pdu,14,4,1,false);r2_radio_capture_complete(&owner,true,true);pdu[0]=7;
+ r2_radio_capture_arm(&owner,pdu,15,4,1,false);r2_radio_capture_complete(&owner,true,true);assert(r2_radio_capture_pop(&out));
+ r2_radio_capture_arm(&owner,pdu,16,4,1,true);r2_radio_capture_abort_site(&owner,R2_CAPTURE_ABORT_TX_CHAIN);
+ r2_radio_capture_stats(&s);
+ assert(s.rx.armed==before.armed+6&&s.rx.completed==before.completed+1&&s.rx.aborted==before.aborted+1);
+ assert(s.rx.no_done==before.no_done+1&&s.rx.no_address==before.no_address+1&&s.rx.bad_crc==before.bad_crc+1&&s.rx.malformed==before.malformed+1);
+ assert(s.rx.last_complete==((UINT64_C(10)<<32)|(UINT64_C(4)<<16)|15));
+ assert(s.rx.last_arm==s.rx.last_complete&&s.rx.last_arm_owner==(uint32_t)(uintptr_t)&owner);
+ r2_radio_capture_arm(&owner,pdu,17,4,1,false);r2_radio_capture_abort_site(&owner,R2_CAPTURE_ABORT_RX_DONE);
+ r2_radio_capture_stats(&s);assert(s.rx.aborted==before.aborted+2&&((s.rx.last_abort>>24)&255)==4);
+ for(unsigned i=0;i<17;i++){r2_radio_capture_arm(&owner,pdu,20+i,4,1,false);r2_radio_capture_complete(&owner,true,true);}
+ r2_radio_capture_stats(&s);assert(s.rx.overflow==before.overflow+1&&s.rx.completed==before.completed+17);
+ assert(r2_radio_capture_flush()==16);
+ rx_stats.aborted=UINT32_MAX;r2_radio_capture_arm(&owner,pdu,40,4,1,false);r2_radio_capture_abort(&owner);
+ r2_radio_capture_stats(&s);assert(s.rx.aborted==UINT32_MAX&&!s.armed);
+ assert(!r2_radio_capture_disable());
+ puts("PASS actual radio ISR capture: exact PDU/CC, CRC/address, bounded overflow, RX-vs-TX outcomes/causal abort sites/priority classification/saturation, failed-disable ownership");
 }

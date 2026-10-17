@@ -247,6 +247,32 @@ bodies against the real USB map bank, with a following control delay and strict
 expiry, capture-failure and no-backdating checks. The optional negative fixture
 omits immediate publication to reproduce the former loop-end-only behavior.
 
+Version0.15.67 adds loss-only event30 details12–18. The existing32-record ring
+holds one18-record loss snapshot, one11-record recovery and both holdover
+records (31total); larger bursts can overwrite and retain explicit loss counts.
+For12–15, `peer` packs current counter in upper32bits and its prior-successful-
+discipline baseline in lower32bits. Detail12 pairs RX arms with `a/b=RX queue
+copies current/baseline`;13 pairs RX abort callbacks with `a/b=no-DONE`;
+14 pairs bad CRC with `a/b=PDU-filter refusal`;15 pairs RX queue overflow with
+`a/b=no-ADDRESS`. Detail16 `peer=last RX abort tuple,a=total capture aborts,
+b=their baseline`;17 `peer=last RX arm tuple,a=total completed queue copies,
+b=their baseline`;18 `peer=last RX completed tuple,a=last arm owner token,
+b=last abort owner token`. Native tuples pack event0–15, channel16–23,
+hook-site24–31 and capture epoch32–63; these differ from packet tuples6–9.
+Hook sites are0 unknown,1 active-cancel callback,2 prepare-overhead cancellation,
+3 TX chaining and4 periodic RX `isr_done`. The site identifies code location;
+`isr_done` alone does not prove preemption. Owner tokens are boot-local native
+context addresses truncated to32bits, never peer identities or authority.
+RX outcomes are passive selected-controller observations. A successful queue
+copy precedes payload decoding; no-DONE/no-ADDRESS cannot distinguish absent
+sender TX from an inaudible or missed reception. CRC/PDU refusals are separate;
+TX totals remain global. Arm/configuration/PPI failures retain existing global
+invalid counts and ownership guards; RX categories are not asserted exhaustive.
+Counters saturate and survive logical clear, while prior-discipline baselines
+reset with the logical owner. Zero, saturated or cross-scope values are unknown.
+No new timer capture/task, radio scheduling, validity gate or routine packet
+output is introduced.
+
 Counter/flag changes alone do not increase the existing one-minute console cadence;
 retry/enable/reset transitions keep their existing prompt reports.
 

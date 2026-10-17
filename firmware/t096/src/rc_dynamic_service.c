@@ -74,6 +74,7 @@ static uint64_t delivery_origin_issued,delivery_origin_expires;
 static uint64_t delivery_discipline_tuple;
 static uint32_t delivery_packet_count,delivery_discipline_rx;
 static bool delivery_source_seen,delivery_source_lost;
+static struct r2_radio_capture_stats delivery_capture_baseline;
 static uint64_t delivery_tuple(uint32_t publication,uint16_t event,uint8_t channel) {
   return publication|((uint64_t)event<<32)|((uint64_t)channel<<48);
 }
@@ -105,6 +106,22 @@ static void delivery_snapshot(unsigned transition,uint64_t tick) {
   r2_timing_event(R2_TIMING_RC_DELIVERY,(int)transition,delivery_correction_tuple[1],9,0,0);
   r2_timing_event(R2_TIMING_RC_DELIVERY,(int)transition,delivery_origin_issued,10,0,0);
   r2_timing_event(R2_TIMING_RC_DELIVERY,(int)transition,delivery_origin_expires,11,0,0);
+  if(transition!=1&&transition!=3)return; /* loss attribution, no recovery burst */
+  const struct r2_radio_rx_stats *r=&capture.rx,*b=&delivery_capture_baseline.rx;
+  r2_timing_event(R2_TIMING_RC_DELIVERY,(int)transition,
+      ((uint64_t)r->armed<<32)|b->armed,12,r->completed,b->completed);
+  r2_timing_event(R2_TIMING_RC_DELIVERY,(int)transition,
+      ((uint64_t)r->aborted<<32)|b->aborted,13,r->no_done,b->no_done);
+  r2_timing_event(R2_TIMING_RC_DELIVERY,(int)transition,
+      ((uint64_t)r->bad_crc<<32)|b->bad_crc,14,r->malformed,b->malformed);
+  r2_timing_event(R2_TIMING_RC_DELIVERY,(int)transition,
+      ((uint64_t)r->overflow<<32)|b->overflow,15,r->no_address,b->no_address);
+  r2_timing_event(R2_TIMING_RC_DELIVERY,(int)transition,r->last_abort,16,
+      capture.aborted,delivery_capture_baseline.aborted);
+  r2_timing_event(R2_TIMING_RC_DELIVERY,(int)transition,r->last_arm,17,
+      capture.completed,delivery_capture_baseline.completed);
+  r2_timing_event(R2_TIMING_RC_DELIVERY,(int)transition,r->last_complete,18,
+      r->last_arm_owner,r->last_abort_owner);
 }
 static void holdover_poll(uint64_t tick) {
   if (discipline_at && tick >= discipline_at &&
@@ -1020,6 +1037,7 @@ static void discipline_commit(uint64_t accepted_at) {
   usb_offer_now();
   delivery_discipline_tuple=delivery_packet_tuple;
   delivery_discipline_rx=rx;
+  r2_radio_capture_stats(&delivery_capture_baseline);
 }
 static void captures(struct r2_capture now) {
   struct r2_radio_record r;
@@ -1870,6 +1888,7 @@ int r2_service_configure(const struct r2_identity *id,
   delivery_origin_issued=delivery_origin_expires=delivery_discipline_tuple=0;
   delivery_packet_count=delivery_discipline_rx=0;
   delivery_source_seen=delivery_source_lost=false;
+  memset(&delivery_capture_baseline,0,sizeof delivery_capture_baseline);
   reservation_max = prepare_max = window_max = holdover_expiries =
       holdover_recoveries = slot_requests = upstream_recoveries =
           client_quiet_faults = 0;

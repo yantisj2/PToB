@@ -23,9 +23,21 @@ struct r2_radio_record {
 static inline uint32_t r2_radio_address_reference(uint32_t raw,bool tx){
  (void)tx;return raw;
 }
+/* Passive selected-RX event outcomes; counters are cumulative/saturating and
+ * independent of payload decoding. Tuples pack event16/channel8/hook8/epoch32.
+ * They describe controller observation sites, never physical RF proof. */
+struct r2_radio_rx_stats {
+  uint32_t armed,completed,aborted,no_done,no_address,bad_crc,malformed,overflow;
+  uint64_t last_arm,last_complete,last_abort;
+  uint32_t last_arm_owner,last_abort_owner;
+};
+enum r2_capture_abort_site {R2_CAPTURE_ABORT_UNKNOWN=0,
+ R2_CAPTURE_ABORT_ACTIVE_CANCEL=1,R2_CAPTURE_ABORT_PREPARE_OVERHEAD=2,
+ R2_CAPTURE_ABORT_TX_CHAIN=3,R2_CAPTURE_ABORT_RX_DONE=4};
 struct r2_radio_capture_stats {
   uint32_t completed, aborted, invalid, overflow;
   bool armed;
+  struct r2_radio_rx_stats rx;
 };
 /* PPI route must already be exclusively allocated/configured by TIMER3 owner.
  */
@@ -47,3 +59,4 @@ void r2_radio_capture_metadata(void *owner, uint32_t reservation_us,
                                 uint32_t receive_window_us);
 void r2_radio_capture_complete(void *owner, bool done, bool crc);
 void r2_radio_capture_abort(void *owner);
+void r2_radio_capture_abort_site(void *owner,uint8_t site);

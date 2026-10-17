@@ -47,8 +47,8 @@ def generate(zephyr,out):
    manifest[name]={'original':digest,'generated':hashlib.sha256(s.encode()).hexdigest()}
    continue
   s=change(s,'#include <stdint.h>','#include <stdint.h>\n#include "radio_capture.h"')
-  s=change(s,'\tif (!prepare_param) {','\tif (!prepare_param) {\n\t\tr2_radio_capture_abort(param);')
-  s=change(s,'\t\tLL_ASSERT_OVERHEAD(overhead);','\t\tr2_radio_capture_abort(lll);\n\t\tLL_ASSERT_OVERHEAD(overhead);')
+  s=change(s,'\tif (!prepare_param) {','\tif (!prepare_param) {\n\t\tr2_radio_capture_abort_site(param, R2_CAPTURE_ABORT_ACTIVE_CANCEL);')
+  s=change(s,'\t\tLL_ASSERT_OVERHEAD(overhead);','\t\tr2_radio_capture_abort_site(lll, R2_CAPTURE_ABORT_PREPARE_OVERHEAD);\n\t\tLL_ASSERT_OVERHEAD(overhead);')
   if name=='lll_adv_sync.c':
    s=change(s,'\tstart_us = radio_tmr_start(1, ticks_at_start, remainder);',
     '\tr2_radio_capture_arm(lll, pdu, event_counter, data_chan_use, phy_s, true);\n'
@@ -57,7 +57,7 @@ def generate(zephyr,out):
     '\tstart_us = radio_tmr_start(1, ticks_at_start, remainder);')
    s=change(s,'static void isr_done(void *param)\n{','static void isr_done(void *param)\n{\n\tr2_radio_capture_complete(param, radio_is_done(), true);')
    # A chained packet is not accepted; release capture before controller starts its next PDU.
-   s=change(s,'static void isr_tx(void *param)\n{','static void isr_tx(void *param)\n{\n\tr2_radio_capture_abort(param);')
+   s=change(s,'static void isr_tx(void *param)\n{','static void isr_tx(void *param)\n{\n\tr2_radio_capture_abort_site(param, R2_CAPTURE_ABORT_TX_CHAIN);')
   else:
    # Both caller paths advance the current event counter immediately before common prepare.
    s=change(s,'\tremainder_us = radio_tmr_start(0, ticks_at_start, remainder);',
@@ -72,7 +72,7 @@ def generate(zephyr,out):
     body=change(s[begin:end],'\t/* Clear radio rx status and events */\n\tlll_isr_rx_status_reset();',
      '\t/* Preserve the exact completed packet before controller resets/reuses it. */\n\tr2_radio_capture_complete(lll, trx_done, crc_ok);\n\t/* Clear radio rx status and events */\n\tlll_isr_rx_status_reset();')
     s=s[:begin]+body+s[end:]
-   s=change(s,'static void isr_done(void *param)\n{','static void isr_done(void *param)\n{\n\tr2_radio_capture_abort(param);')
+   s=change(s,'static void isr_done(void *param)\n{','static void isr_done(void *param)\n{\n\tr2_radio_capture_abort_site(param, R2_CAPTURE_ABORT_RX_DONE);')
   dest=out/name
   if not dest.is_file() or dest.read_text()!=s:dest.write_text(s)
   manifest[name]={'original':digest,'generated':hashlib.sha256(s.encode()).hexdigest()}

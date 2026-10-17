@@ -8,6 +8,7 @@
 #include "timing_events.h"
 #include "../src/usb_source.c"
 static struct rc5_state timing;
+static struct r2_radio_capture_stats delivery_capture_baseline;
 static struct rc5_clock local_clock;
 static struct rc5_origin current_origin;
 static struct rc7_path upstream_path;

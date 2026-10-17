@@ -23,6 +23,11 @@ static struct {
   bool tx, armed;
 } active;
 static uint32_t completed, aborted, invalid, overflow;
+static struct r2_radio_rx_stats rx_stats;
+static uint64_t rx_tuple(uint8_t site) {
+  return active.event|((uint64_t)active.channel<<16)|((uint64_t)site<<24)|
+    ((uint64_t)capture_epoch<<32);
+}
 static void inc(uint32_t *p) {
   uint32_t n = __atomic_load_n(p, __ATOMIC_RELAXED);
   if (n != UINT32_MAX)
@@ -87,6 +92,8 @@ void r2_radio_capture_arm(void *owner, const void *pdu, uint16_t event,
     return;
   }
   active.armed = true;
+  if(!tx){inc(&rx_stats.armed);rx_stats.last_arm=rx_tuple(0);
+    rx_stats.last_arm_owner=(uint32_t)(uintptr_t)owner;}
 }
 void r2_radio_capture_metadata(void *owner, uint32_t reservation_us,
                                 uint32_t prepare_us, uint32_t widening_us,
@@ -98,11 +105,16 @@ void r2_radio_capture_metadata(void *owner, uint32_t reservation_us,
     active.receive_window_us = receive_window_us;
   }
 }
-void r2_radio_capture_abort(void *owner) {
+void r2_radio_capture_abort_site(void *owner,uint8_t site) {
   if (active.armed && active.owner == owner) {
+    if(!active.tx){inc(&rx_stats.aborted);rx_stats.last_abort=rx_tuple(site);
+      rx_stats.last_abort_owner=(uint32_t)(uintptr_t)owner;}
     disarm();
     inc(&aborted);
   }
+}
+void r2_radio_capture_abort(void *owner) {
+  r2_radio_capture_abort_site(owner,R2_CAPTURE_ABORT_UNKNOWN);
 }
 void r2_radio_capture_complete(void *owner, bool done, bool crc) {
   if (!active.armed || active.owner != owner)
@@ -112,6 +124,11 @@ void r2_radio_capture_complete(void *owner, bool done, bool crc) {
   if (!disarm())
     return;
   if (!done || !address || (!active.tx && !crc)) {
+    if(!active.tx){
+      if(!done)inc(&rx_stats.no_done);
+      else if(!address)inc(&rx_stats.no_address);
+      else inc(&rx_stats.bad_crc);
+    }
     inc(&invalid);
     return;
   }
@@ -122,18 +139,21 @@ void r2_radio_capture_complete(void *owner, bool done, bool crc) {
       (ext && (p[3] & (0x10 | 0x04))) ||
       (length - 1 - ext != R2_PRECISION_AD_BYTES &&
        length - 1 - ext != R2_RADIO_CAPTURE_AD_MAX)) {
+    if(!active.tx)inc(&rx_stats.malformed);
     inc(&invalid);
     return;
   }
   const uint8_t *ad = p + 3 + ext;
   unsigned ad_length = length - 1 - ext;
   if (ad[0] != ad_length - 1 || ad[1] != 255 || ad[2] != 255 || ad[3] != 255) {
+    if(!active.tx)inc(&rx_stats.malformed);
     inc(&invalid);
     return;
   }
   uint32_t h = __atomic_load_n(&head, __ATOMIC_RELAXED),
            t = __atomic_load_n(&tail, __ATOMIC_ACQUIRE);
   if (h - t >= R2_RADIO_CAPTURE_QUEUE) {
+    if(!active.tx)inc(&rx_stats.overflow);
     inc(&overflow);
     return;
   }
@@ -152,6 +172,7 @@ void r2_radio_capture_complete(void *owner, bool done, bool crc) {
   memcpy(r->ad, ad, ad_length);
   __atomic_store_n(&head, h + 1, __ATOMIC_RELEASE);
   inc(&completed);
+  if(!active.tx){inc(&rx_stats.completed);rx_stats.last_complete=rx_tuple(0);}
 }
 bool r2_radio_capture_pop(struct r2_radio_record *out) {
   uint32_t t = __atomic_load_n(&tail, __ATOMIC_RELAXED),
@@ -174,7 +195,7 @@ int r2_radio_capture_flush(void) {
 }
 void r2_radio_capture_stats(struct r2_radio_capture_stats *out) {
   unsigned key = irq_lock();
-  *out = (struct r2_radio_capture_stats){completed, aborted, invalid, overflow,
-                                         active.armed};
+  *out = (struct r2_radio_capture_stats){.completed=completed,.aborted=aborted,
+    .invalid=invalid,.overflow=overflow,.armed=active.armed,.rx=rx_stats};
   irq_unlock(key);
 }
