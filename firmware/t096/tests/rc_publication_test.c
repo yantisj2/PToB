@@ -94,6 +94,13 @@ int main(void){
  --local_clock.root_epoch;++local_clock.parent_epoch;c=clock_offer(sampled.tick);
  assert(!c.valid&&!c.estimate); /* Nor an authenticated parent incarnation. */
  --local_clock.parent_epoch;
+ /* USB follows an accepted RC clock even when BLE relay TX is disabled. */
+ holdover_expired=false;usb_offer_now();
+ transmitter=false;uint32_t before_poll=revision;usb_offer_now();
+ assert(revision==before_poll&&permission);
+ ++local_clock.map[(local_clock.head+3)%4].generation;usb_offer_now();
+ p=read_source(sampled.tick+16000,sampled.tick+16001);
+ assert(get(p+36,4)&&get(p+100,4)==7);transmitter=true;
  holdover_expired=false;sampling=false;usb_offer_now();assert(!permission&&!maps[0].set);
  puts("PASS production immediateUSB commit before control delay; real500ms/source/context expiry, no backdating, no same-generation extension, capture failure withdrawal");
 }

@@ -8,6 +8,9 @@ an owned foreground chronyd 4.9 with `-x -U -u CURRENT_USER`. It feeds a SOCK
 refclock named `BLE` and observes a separate corrected UTC user clock through a
 private command socket. The daemon does not discipline the macOS system clock.
 No privileged helper, LaunchAgent or system synchronization setting is installed.
+Both RC and DC USB sources use quarter-second SOCK polling (`poll -2`), retaining
+the four-sample refclock filter and 64-sample estimator limit. This carries the
+DC trial's faster response into the common client; it is not an accuracy bound.
 
 Runtime sockets are local, owner-only and use short paths under `/private/tmp`.
 `port 0` and `cmdport 0` disable network NTP/command service. There is no supplied

@@ -1008,7 +1008,6 @@ static struct r2_uc_clock clock_offer(uint64_t tick) {
 }
 static void usb_offer_now(void) {
 #ifdef R2_USB_SOURCE_STREAM
-  if(!transmitter)return;
   struct r2_capture current;
   if(!r2_capture_now(&current)){r2_usb_source_withdraw();return;}
   struct r2_uc_clock offered=clock_offer(current.tick);
@@ -1815,11 +1814,13 @@ static void owner(void *a, void *b, void *c) {
     }
     lt_guard(now.tick, window);
     lt_poll(now.tick, window);
+#ifdef R2_USB_SOURCE_STREAM
+    /* USB consumes the accepted BLE map independently of relay TX ownership.
+     * The common publisher ignores repeated immutable generations, as in DC. */
+    usb_offer_now();
+#endif
     if (transmitter) {
       struct r2_uc_clock offered=clock_offer(now.tick);
-#ifdef R2_USB_SOURCE_STREAM
-      usb_offer_now();
-#endif
       check(!r2_uc_poll(&offered,precision_synced(now.tick)),"UCS1 advertising gate");
     }
     k_sleep(K_USEC(1000));

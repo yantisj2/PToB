@@ -63,37 +63,50 @@ void r2_usb_source_withdraw(void){
 void r2_usb_source_publish(const struct r2_uc_clock *clock){
  struct r2_capture after;
  if(!clock||!r2_capture_now(&after)){r2_usb_source_withdraw();return;}
- k_spinlock_key_t key=k_spin_lock(&map_lock);changed();
+ k_spinlock_key_t key=k_spin_lock(&map_lock);
+ bool mutated=busy;
  /* Estimate publication never refreshes observation age or original leases.
   * Keep the old segment through authority withdrawal/search, until a new map
   * is committed; capture epoch and arithmetic remain hard projection fences. */
- estimate_current=clock->estimate&&clock->session_until>after.tick;
+ bool current=clock->estimate&&clock->session_until>after.tick;
+ mutated|=estimate_current!=current;estimate_current=current;
  if(clock->estimate&&clock->map.generation&&clock->capture_epoch==after.epoch){
   if(!estimate.set||estimate.clock.map.generation!=clock->map.generation||
       estimate.clock.capture_epoch!=clock->capture_epoch||
       estimate.clock.origin.root!=clock->origin.root||
       estimate.clock.origin.boot!=clock->origin.boot||
       estimate.clock.origin.epoch!=clock->origin.epoch||
-      memcmp(estimate.clock.scope,clock->scope,16))
+      estimate.clock.origin.utc_offset!=clock->origin.utc_offset||
+      memcmp(estimate.clock.scope,clock->scope,16)){
    estimate=(struct published_map){.clock=*clock,.lo=after.tick,.hi=clock->until_tick,.set=true};
+   mutated=true;
+  }
   /* Revocation can shorten, never extend, an already published session. */
-  if(clock->session_until<estimate.clock.session_until)
-   estimate.clock.session_until=clock->session_until;
+  if(clock->session_until<estimate.clock.session_until){
+   estimate.clock.session_until=clock->session_until;mutated=true;
+  }
  }
- permission=clock->valid&&clock->capture_epoch==after.epoch&&after.tick<clock->until_tick;
- if(!permission){busy=false;k_spin_unlock(&map_lock,key);return;}
- bool changed=!maps[0].set||maps[0].clock.map.generation!=clock->map.generation||
+ bool permitted=clock->valid&&clock->capture_epoch==after.epoch&&after.tick<clock->until_tick;
+ mutated|=permission!=permitted;permission=permitted;
+ if(!permission){if(mutated)changed();busy=false;k_spin_unlock(&map_lock,key);return;}
+ bool replaced=!maps[0].set||maps[0].clock.map.generation!=clock->map.generation||
   maps[0].clock.capture_epoch!=clock->capture_epoch||maps[0].clock.origin.root!=clock->origin.root||
   maps[0].clock.origin.boot!=clock->origin.boot||maps[0].clock.origin.epoch!=clock->origin.epoch||
+  maps[0].clock.origin.utc_offset!=clock->origin.utc_offset||
   memcmp(maps[0].clock.scope,clock->scope,16);
- if(changed){
+ if(replaced){
   uint64_t cut=busy&&transition_epoch==after.epoch?transition_tick:after.tick;
   if(maps[1].set&&overwrites<UINT32_MAX)++overwrites;
   maps[1]=maps[0];if(maps[1].set&&cut<maps[1].hi)maps[1].hi=cut;
   maps[0]=(struct published_map){.clock=*clock,.lo=after.tick,.hi=clock->until_tick,.set=true};
   if(maps[0].lo<clock->map.effective)maps[0].lo=clock->map.effective;
+  mutated=true;
  }
- /* Same generation cannot be refreshed with a later validity/map snapshot. */
+ /* Shared DC/RC publication: polling an unchanged immutable map is a no-op.
+  * Do not race USB serialization merely because an owner polls again. Actual
+  * permission/scope/lease withdrawal still changes revision and fences it.
+  * Same generation cannot be refreshed with a later validity/map snapshot. */
+ if(mutated)changed();
  busy=false;k_spin_unlock(&map_lock,key);
 }
 static bool project(const struct published_map *map,uint64_t tick,uint64_t current,uint32_t epoch,int64_t *utc){

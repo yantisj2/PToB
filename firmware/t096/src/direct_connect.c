@@ -8,7 +8,6 @@
 #include <string.h>
 static uint64_t silicon,boot;
 static bool publishing;
-static uint32_t generation,source_epoch,capture_epoch;
 static struct r2_dc_rms rms;
 static struct k_spinlock metric_lock;
 void r2_dc_init(const struct r2_identity *id){
@@ -29,9 +28,7 @@ void r2_dc_poll(bool allowed){
  r2_time_copy(&clock);r2_time_source_snapshot(&source);
  bool valid=allowed&&r2_capture_now_at(&at,&now)&&r2_dc_clock(&source,&clock,at,now,silicon,boot,&out);
  if(valid){
-  if(!publishing||generation!=out.map.generation||source_epoch!=out.origin.epoch||capture_epoch!=out.capture_epoch){
-   r2_usb_source_publish(&out);generation=out.map.generation;source_epoch=out.origin.epoch;capture_epoch=out.capture_epoch;
-  }
+  r2_usb_source_publish(&out);
  }else if(publishing){r2_usb_source_withdraw();r2_dc_usb_observation(false,0,0,0,0,0,0,0);}
  publishing=valid;
 }

@@ -75,7 +75,8 @@ it does not establish absolute UTC accuracy.
 Jonathan Yantis supplied this selected 11:37–11:42 AM CDT view from
 [ChronyControl by Bryan Christianson](https://www.whatroute.net/chronycontrol.html).
 It shows the **experimental quarter-second chrony polling** trial (`poll -2`,
-`filter 4`). The normal client configuration still uses one-second polling.
+`filter 4`). The shared client now uses that quarter-second polling cadence for
+both RC and DC; the historical populations below retain their original settings.
 This after-acquisition chart omits no-reference rows and the first selected
 update; every later selected observation remains visible regardless of its size.
 The numerical population below retains startup and withheld output.

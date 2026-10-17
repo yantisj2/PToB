@@ -24,7 +24,9 @@ button cannot select GM or RC; a console profile request returns unsupported.
 The existing GNSS parser and discipline owner pair local RMC/PPS observations.
 Hardware PPS captures discipline a continuous source map on the HFXO-backed
 16 MHz TIMER3. DC translates each already available, immutable source map into
-the existing USB UTS1/UTE1 protocol, including its phase slew. Its integer ppb
+the shared DC/RC USB UTS1/UTE1 publisher, including its phase slew. Repeated
+owner polls of the same immutable map do not invalidate in-flight serialization
+or renew the original map/source/session deadlines. Its integer ppb
 representation differs from the Q16 source projection by at most 3 ns in the
 tested synthetic population; this is arithmetic agreement, not measured output
 accuracy. The ±300 ppm macOS map contract is retained. Larger acquisition slews

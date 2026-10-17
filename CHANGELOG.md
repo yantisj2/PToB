@@ -2,6 +2,23 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 17 October 2026 — shared DC/RC USB publication
+
+T096 **0.15.81** moves DC's unchanged-map publication rule into the existing
+common USB publisher. Repeated owner polls preserve an in-flight serialized
+observation; actual source/scope/permission changes and shortened session
+deadlines still fence it. Original map and authority deadlines cannot be
+renewed by polling. RC exports its authenticated BLE clock even without BLE
+relay TX ownership. Source discipline, RF behavior and GM/RC switching remain
+under their existing owners; DC remains a separate flash-only image.
+
+Both macOS launch paths now use the DC trial's quarter-second chrony poll
+cadence, retaining `filter 4`, `maxsamples 64`, source expiry and unknown UTC
+bounds. The change applies to either USB source profile and starts no daemon
+until an explicitly launched live session. Offline publication/race tests cover
+unchanged polls, real revocation, source/session fences and receiver-only USB.
+Hardware results are recorded against the exact installed image separately.
+
 ## 17 October 2026 — corrected-source RX baseline before chrony
 
 The macOS USB-only readout now shows **RX USB RMS** from corrected-source

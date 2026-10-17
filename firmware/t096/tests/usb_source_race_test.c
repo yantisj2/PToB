@@ -4,6 +4,9 @@
 #undef main
 static struct r2_uc_clock replacement;
 static void publish_new(void){r2_usb_source_publish(&replacement);}
+static void shorten_session(void){--replacement.session_until;r2_usb_source_publish(&replacement);}
+static void revoke_permission(void){replacement.valid=false;r2_usb_source_publish(&replacement);}
+static void change_utc_scope(void){++replacement.origin.utc_offset;r2_usb_source_publish(&replacement);}
 static void begin_new(void){r2_usb_source_begin(sampled.tick,sampled.epoch);}
 static void prepare_same(void){r2_usb_source_prepare(sampled.tick,sampled.epoch,&replacement);}
 int main(void){
@@ -20,6 +23,21 @@ int main(void){
  assert(!r2_usb_source_request(&s,&length,&p)&&get(p+36,4)==4&&!get(p+64,8));
  sampled.tick=202000;raw(203000,204000);
  assert(!r2_usb_source_request(&s,&length,&p)&&get(p+36,4)==31&&get(p+80,8)==20);
+ /* RC's millisecond owner poll and DC's repeated main poll share this rule:
+  * identical publication cannot invalidate an in-flight serialized tuple. */
+ uint32_t unchanged=revision;uint64_t original_lo=maps[0].lo,original_until=maps[0].clock.until_tick;
+ for(unsigned i=0;i<10000;i++)r2_usb_source_publish(&replacement);
+ assert(revision==unchanged&&maps[0].lo==original_lo&&maps[0].clock.until_tick==original_until);
+ project_hook=publish_new;
+ assert(!r2_usb_source_request(&s,&length,&p)&&get(p+36,4)==31&&revision==unchanged);
+ project_hook=shorten_session;
+ assert(!r2_usb_source_request(&s,&length,&p)&&get(p+36,4)==4&&revision!=unchanged);
+ project_hook=revoke_permission;
+ assert(!r2_usb_source_request(&s,&length,&p)&&get(p+36,4)==4);
+ replacement.valid=true;r2_usb_source_publish(&replacement);
+ project_hook=change_utc_scope;
+ assert(!r2_usb_source_request(&s,&length,&p)&&get(p+36,4)==4);
+ assert(!r2_usb_source_request(&s,&length,&p)&&get(p+36,4)==31&&get(p+184,8)==1);
  project_hook=prepare_same;
  assert(!r2_usb_source_request(&s,&length,&p)&&get(p+36,4)==31);
  project_hook=begin_new;

@@ -4,9 +4,11 @@ import Darwin
 func managedChronyConfiguration(_ directory: String) -> String {
     // Same isolated SOCK-only policy as chrony/run.py. No public ports,
     // persistent sample logs, system clock controls or invented local source.
+    // Apply the DC trial's 250ms update cadence to both USB source profiles;
+    // retain filter4/maxsamples64 and every source/expiry admission fence.
     return """
     # Experimental BLE-derived UTC; configured allowances are not measured bounds.
-    refclock SOCK \(directory)/BLE.sock refid BLE stratum 0 poll 0 filter 4 precision 0.05 delay 0.2
+    refclock SOCK \(directory)/BLE.sock refid BLE stratum 0 poll -2 filter 4 precision 0.05 delay 0.2
     minsamples 4
     maxsamples 64
     maxclockerror 10

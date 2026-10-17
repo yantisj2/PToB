@@ -32,7 +32,7 @@ def configuration(runtime: Path, detailed: bool = True) -> str:
 # refclock stratum0 yields chronyd stratum1 only after actual selection.
 # 50ms precision / 200ms delay are provisional engineering allowances,
 # not measured bounds for currently unknown source UTC error.
-refclock SOCK {runtime}/BLE.sock refid BLE stratum 0 poll 0 filter 4 precision 0.05 delay 0.2
+refclock SOCK {runtime}/BLE.sock refid BLE stratum 0 poll -2 filter 4 precision 0.05 delay 0.2
 minsamples 4
 maxsamples 64
 maxclockerror 10

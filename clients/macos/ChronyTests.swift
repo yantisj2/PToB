@@ -47,6 +47,7 @@ func chronyTests() -> Int {
     monitor.invalidate();check(monitor.utc(wall) == nil,"scope invalidation fences previous anchor")
     monitor.anchor = anchor;monitor.stop();check(monitor.utc(wall) == nil,"stop clears user UTC")
     let config = managedChronyConfiguration("/private/tmp/fixture")
+    check(config.contains("poll -2 filter 4") && config.contains("maxsamples 64"),"DC and RC use quarter-second chrony updates with the existing filter")
     check(config.contains("port 0\ncmdport 0") && config.contains("maxsamples 64") && config.contains("refid BLE stratum 0") && !config.contains("local stratum"),"managed config has no network ports or fabricated local authority")
     return count
 }
