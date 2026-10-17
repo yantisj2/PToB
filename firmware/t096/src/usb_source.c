@@ -151,13 +151,22 @@ int r2_usb_source_request(struct usb_setup_packet *setup,int32_t *length,uint8_t
  if(setup->bmRequestType!=0xc1||(setup->bRequest!=0x52&&setup->bRequest!=0x53&&setup->bRequest!=0x57)||
     setup->wValue||setup->wIndex!=r2_usb_reference_number()||setup->wLength!=sizeof wire)return -ENOTSUP;
  uint32_t before_epoch=0,after_epoch=0;
- bool live=r2_usb_sof_scope(&before_epoch);
- struct r2_usb_sof_snapshot raw={0};bool captured=live&&r2_capture_usb_sample(&raw);
- captured=captured&&r2_usb_sof_scope(&after_epoch)&&before_epoch==after_epoch;
+ struct r2_usb_sof_snapshot raw={0};bool captured=false,sof=false;
+ uint32_t age=0,first_epoch=0;
+ /* A SOF can arrive between FRAMECNTR/CC3 reads. Retry that incoherent read
+  * once, with interrupts enabled between the ordinary capture calls. Never
+  * retry missing hardware or cross a USB epoch, and never fabricate a SOF. */
+ for(unsigned attempt=0;attempt<2;attempt++){
+  bool live=r2_usb_sof_scope(&before_epoch);
+  if(!attempt)first_epoch=before_epoch;
+  captured=live&&before_epoch==first_epoch&&r2_capture_usb_sample(&raw);
+  captured=captured&&r2_usb_sof_scope(&after_epoch)&&before_epoch==after_epoch;
+  age=(uint32_t)raw.current_tick-raw.cc_after;
+  sof=captured&&raw.frame_before==raw.frame_after&&raw.cc_before==raw.cc_after&&
+   raw.frame_after<=R2_USB_FRAME_MASK&&age<R2_USB_SOF_TICKS&&raw.current_tick>=age;
+  if(sof||!captured||setup->bRequest==0x52)break;
+ }
  uint64_t event=raw.current_tick;
- uint32_t age=(uint32_t)raw.current_tick-raw.cc_after;
- bool sof=captured&&raw.frame_before==raw.frame_after&&raw.cc_before==raw.cc_after&&
-  raw.frame_after<=R2_USB_FRAME_MASK&&age<R2_USB_SOF_TICKS&&raw.current_tick>=age;
  if(setup->bRequest==0x53||setup->bRequest==0x57){captured=sof;if(sof)event-=age;}
  bool was_busy,permitted,estimate_is_current;
  uint32_t expected,serial,overwritten;

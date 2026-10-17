@@ -2,6 +2,15 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 17 October 2026 — bounded USB SOF coherence retry
+
+T096 **0.15.72** retries a hardware SOF snapshot once when a frame arrives
+between the counter/register reads. Both reads use the normal capture boundary;
+interrupts remain enabled between them. Missing hardware, USB epoch changes or
+two incoherent snapshots still return explicit unavailability. Source, map and
+session deadlines are unchanged. The offline regression covers recovery on the
+second physical read, persistent incoherence and an epoch change.
+
 ## 17 October 2026 — T096 USB map handoff
 
 T096 **0.15.71** keeps an already published, compatible USB map usable while

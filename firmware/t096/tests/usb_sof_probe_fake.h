@@ -21,7 +21,9 @@ static inline void sys_put_le32(uint32_t v,uint8_t *p){for(unsigned i=0;i<4;i++)
 static inline void sys_put_le64(uint64_t v,uint8_t *p){for(unsigned i=0;i<8;i++)p[i]=(uint8_t)(v>>(8*i));}
 static struct r2_usb_sof_snapshot test_raw;
 static bool test_available=true;
-static inline bool r2_capture_usb_sample(struct r2_usb_sof_snapshot *out){*out=test_raw;return test_available;}
+static unsigned test_sample_count;
+static void (*test_sample_hook)(struct r2_usb_sof_snapshot *);
+static inline bool r2_capture_usb_sample(struct r2_usb_sof_snapshot *out){++test_sample_count;*out=test_raw;if(test_sample_hook)test_sample_hook(out);return test_available;}
 
 static inline uint16_t sys_get_le16(const uint8_t *p){return (uint16_t)p[0]|(uint16_t)p[1]<<8;}
 static inline uint32_t sys_get_le32(const uint8_t *p){return (uint32_t)p[0]|(uint32_t)p[1]<<8|(uint32_t)p[2]<<16|(uint32_t)p[3]<<24;}

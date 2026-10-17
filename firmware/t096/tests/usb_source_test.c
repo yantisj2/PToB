@@ -17,6 +17,10 @@ bool rc5_map_project(const struct rc5_map *m,uint64_t tick,uint64_t *ns,uint64_t
 }
 static uint64_t get(const uint8_t *p,unsigned n){uint64_t v=0;for(unsigned i=0;i<n;i++)v|=(uint64_t)p[i]<<(i*8);return v;}
 static void raw(uint64_t event,uint64_t now){test_raw=(struct r2_usb_sof_snapshot){.current_tick=now,.cc_before=(uint32_t)event,.cc_after=(uint32_t)event,.capture_epoch=1,.frame_before=3,.frame_after=3};}
+static unsigned race_reads;
+static void one_sof_race(struct r2_usb_sof_snapshot *out){if(!race_reads++)++out->frame_after;}
+static void persistent_sof_race(struct r2_usb_sof_snapshot *out){++race_reads;++out->cc_after;}
+static void usb_epoch_race(struct r2_usb_sof_snapshot *out){++race_reads;++out->frame_after;++test_usb_epoch;}
 int main(void){
  struct r2_identity id={.silicon="1000000000000004",.boot=99};r2_usb_source_init(&id);
  struct r2_uc_clock c={.map={.effective=40000,.anchor_tick=40000,.anchor_ns=UINT64_C(1700000000000000000),.generation=1,.bound=UINT32_MAX,.rate_bound=UINT32_MAX,.capture_bound=UINT32_MAX},.origin={.root=17,.boot=18,.epoch=19,.expires=UINT64_C(1700000010000000000)},.until_tick=500000,.capture_epoch=1,.valid=true};
@@ -111,6 +115,13 @@ int main(void){
  r2_usb_source_publish(&c);assert(maps[1].hi==3200000&&maps[0].lo==3200000);
  raw(3195000,3201000);assert(!r2_usb_source_request(&s,&length,&p)&&(get(p+36,4)&1)&&get(p+100,4)==42&&get(p+232,8)==2900000);
  raw(3201000,3202000);assert(!r2_usb_source_request(&s,&length,&p)&&(get(p+36,4)&1)&&get(p+100,4)==43);
+ race_reads=0;test_sample_hook=one_sof_race;
+ assert(!r2_usb_source_request(&s,&length,&p)&&(get(p+36,4)&1)&&race_reads==2);
+ race_reads=0;test_sample_hook=persistent_sof_race;
+ assert(!r2_usb_source_request(&s,&length,&p)&&!(get(p+36,4)&1)&&race_reads==2);
+ race_reads=0;test_sample_hook=usb_epoch_race;
+ assert(!r2_usb_source_request(&s,&length,&p)&&!(get(p+36,4)&1)&&race_reads==1);--test_usb_epoch;
+ test_sample_hook=NULL;
  maps[1].clock.until_tick=3201000;raw(3195000,3201000);
  assert(!r2_usb_source_request(&s,&length,&p)&&!(get(p+36,4)&1));
  ++c.capture_epoch;r2_usb_source_prepare(3300000,2,&c);assert(busy);
