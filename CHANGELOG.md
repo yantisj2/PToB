@@ -2,13 +2,24 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 17 October 2026 — W12 replay recovery through unusable replies
+
+W12 **0.1.10** starts BLE100 replay refresh at 100 ms uncertainty, urgent at
+125 ms, to leave more time for a failed transport followed by authenticated
+unusable time and the rolling start restriction. Combined-policy regressions
+exercise a third attempt; the prior 150 ms policy misses the same finite replay
+deadline. For a still-reserved current direct stream, failure jitter uses the
+remaining replay time while retaining the 20-second minimum and rolling rate
+limit. Hard source/model/replay expiry remains unchanged. Repeated failures can
+still exhaust the context.
+
 ## 17 October 2026 — W12 precision reception before control work
 
 W12 **0.1.9** reserves current authenticated precision reception through relative
 quality dips, renews its current parent without broad discovery, and requests
 5 ms/20 ms warm initiation windows. Queued precision reports are drained between
-control operations within the existing eight-report budget. Source/model/replay
-expiry, quality gates, cold acquisition and actual owner-drain deadlines remain
+control operations under one shared eight-report budget per worker iteration.
+Source/model/replay expiry, quality gates, cold acquisition and actual owner-drain deadlines remain
 unchanged. Synthetic public-SDK boundary tests reject the previous continuous
 warm initiation and delayed report processing. Physical radio scheduling and
 long-term lock stability require separate observations.

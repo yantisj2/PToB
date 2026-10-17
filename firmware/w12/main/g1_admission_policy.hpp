@@ -27,10 +27,19 @@ struct G1AdmissionPolicy {
     return !starts[0]||(now>=starts[0]&&now-starts[0]>=60000000);
   }
   void started(uint64_t now){starts[0]=starts[1];starts[1]=now;}
-  void failed(uint64_t now,uint64_t random){
+  void failed(uint64_t now,uint64_t random,uint64_t replay_until=0){
     if(failures!=UINT32_MAX)++failures;
     const uint64_t base=failures<=1?250000:failures==2?500000:failures==3?1000000:10000000;
-    const auto delay=warm?20000000+random%20000001:base+random%(base/2+1);
+    // A still-live current direct stream may constrain jitter within the
+    // existing20–40s range. Leave3s for a2s attempt plus worker/closure slack.
+    // Never bypass the20s floor or the independent rolling-start restriction.
+    uint64_t jitter=20000000;
+    if(warm&&replay_until>now){
+      const auto left=replay_until-now;
+      const auto ceiling=left>23000000?left-23000000:0;
+      if(ceiling<jitter)jitter=ceiling;
+    }
+    const auto delay=warm?20000000+random%(jitter+1):base+random%(base/2+1);
     retry_at=now>UINT64_MAX-delay?UINT64_MAX:now+delay;
   }
   void reply(G1AdmissionReply value){

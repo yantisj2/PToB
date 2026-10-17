@@ -98,7 +98,7 @@ publication wait for current parent clock lock and withdraw when that lock or
 source is lost. Upstream reception remains available to acquire the parent.
 See the [changelog](../../firmware/w12/CHANGELOG.md) for the lock prerequisites
 and the distinction between relative quality and qualified precision.
-Version 0.1.8 starts continuous BLE100's direct G1 proactive replay refresh at
+Version 0.1.8 started continuous BLE100's direct G1 proactive replay refresh at
 150 ms uncertainty, with urgency at 175 ms. This supersedes 0.1.2's 200/225 ms
 thresholds, which left about 25 seconds before replay expiry despite the
 20–40 second warm failure backoff. The new threshold reserves about 50 seconds
@@ -106,6 +106,17 @@ for a failed two-second exchange, maximum backoff and another two-second
 exchange. The rolling two-starts-per-60-seconds cap remains; two failures can
 still exhaust that opportunity. The original 250 ms hard replay limit and
 signed source/model expiry stay intact. BLE50 retains its 100/125 ms thresholds.
+Version 0.1.10 moves continuous BLE100 to 100/125 ms refresh/urgency, leaving
+about 75 seconds at 2000 ppm. A failed transport followed by an authenticated
+unusable time reply can use the old reserve through both backoff and the rolling
+start restriction. The combined-policy regression retains those waits and tests
+a third attempt before the original replay deadline; the 150 ms policy fails
+that same bounded scenario. This does not guarantee recovery from arbitrary
+failure sequences. When a failed attempt belongs to a still-reserved current
+direct stream, its warm jitter is capped by the remaining replay time minus
+three seconds for an attempt and scheduling slack, with the original 20-second
+minimum and 40-second maximum. The rolling start gate still applies. Other
+backoffs, BLE50 thresholds and all hard expiry gates remain unchanged.
 Normal RC7 admission renewal is five minutes, with a six-minute lease. Direct
 G1 JOIN replay refresh, pending admission and recovery after missing corrected
 clock progress are separate traffic classes; inspect their counters separately.

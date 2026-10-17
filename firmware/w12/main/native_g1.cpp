@@ -193,12 +193,16 @@ int64_t coarse_ns(uint64_t now){if(!usable_utc()||!anchor_valid(now)||anchor.utc
 void discipline_scope(uint64_t now){discipline.scope({anchor.root,anchor.boot,anchor.until,anchor.source_epoch,anchor.publication,periodic_rx::status().epoch,0,following(now)&&!closing&&!fault,true});}
 bool timely(){const auto now=micros();portENTER_CRITICAL(&mux);const bool ok=!parent_diagnostic.pending()&&parent_diagnostic.state!=4&&!stop_pending&&!fault&&(mode==R2Mode::Client?client.running&&!client.stopping&&!client.deadline_exceeded:lease.busy&&lease.deadline_us>=2000000&&now<lease.deadline_us-2000000);portEXIT_CRITICAL(&mux);return ok;}
 uint32_t admission_random(){uint32_t value=0;esp_fill_random(&value,sizeof value);return value;}
+void admission_failed(uint64_t now){
+  const auto replay=(!peer.relay&&peer.identity==joined_peer&&precision_reserved(now))?anchor.deadline():0;
+  admission_policy.failed(now,admission_random(),replay);
+}
 void failed_admission(uint64_t now){
   if(!peer.identity||peer.selection_accepted||peer.selection_reported||closing||fault||stop_pending||parent_diagnostic.pending()||mode!=R2Mode::Client)return;
   // Deliberate profile quiet, explicit stop and rebind are local scheduling,
   // not observations that the remote server failed.
   if(!full_listening()&&now-G1Window::start(now,window_phase)>=400000)return;
-  peer.selection_reported=true;admission_policy.failed(now,admission_random());
+  peer.selection_reported=true;admission_failed(now);
   if(!parent_failure.identity)parent_failure={peer.identity,now,peer.relay};
 }
 bool relay_slot_scanning();
@@ -692,7 +696,7 @@ void receive_join(uint64_t now){Incoming row{};for(unsigned i=0;i<8&&incoming.po
     // not a foreign-root follower and not a reason to discard the old fit/PA.
     // All unusable replies preserve the current binding and original deadlines.
     if(!timed){
-      peer.selection_accepted=true;admission_policy.failed(now,admission_random());
+      peer.selection_accepted=true;admission_failed(now);
       cooldown(r.sender,now,5000000);
       if(reply==G1AdmissionReply::ForeignRoot)parent_selection.cooldown(r.sender,now,60000000);
       if(!previous_member&&!anchor.source&&!rc_bound()){member=true;joined_peer=r.sender;joined_boot=r.sender_boot;}
@@ -701,7 +705,7 @@ void receive_join(uint64_t now){Incoming row{};for(unsigned i=0;i<8&&incoming.po
     member=true;joined_peer=r.sender;joined_boot=r.sender_boot;cooldown(r.sender,now,5000000);
     if(timed){
       if(r.root!=r.sender||r.root_boot!=r.sender_boot){
-        peer.selection_accepted=true;admission_policy.failed(now,admission_random());
+        peer.selection_accepted=true;admission_failed(now);
         if(reply==G1AdmissionReply::ForeignRoot)parent_selection.cooldown(r.sender,now,60000000);
         // A cohort peer may describe a different serving root. This direct
         // client must authenticate that root itself before showing FOLLOW or
@@ -992,7 +996,7 @@ void active_poll(uint64_t now){
   probe_pending_link(now);
   // Enforce this window before any public GATT operation can yield or send.
   if(mode==R2Mode::Client&&!window_poll(now)){periodic_poll(micros());return;}
-  // Share the existing eight-report budget across control boundaries. A
+  // Share one eight-report budget across control boundaries. A
   // yielding SDK call may return with new callbacks queued; consume them
   // before the next control operation can make those reports stale.
   unsigned precision_left=8;

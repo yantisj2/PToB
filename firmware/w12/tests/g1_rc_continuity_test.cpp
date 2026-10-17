@@ -33,7 +33,7 @@ int main(){
     const auto deadline=anchor.deadline(),permission=anchor.until;
     G1AdmissionPolicy retry;retry.started(anchor.at);retry.acquired();
     auto first=anchor.at;
-    while(!anchor.refresh(first,true))first+=1000;
+    while(!anchor.refresh(first,true)||!retry.allowed(first))first+=1000;
     assert(anchor.valid(first)&&retry.allowed(first));retry.started(first);
     retry.failed(first+2000000,20000000); // failed exchange + worst40s backoff
     const auto second=retry.retry_at;
@@ -44,7 +44,39 @@ int main(){
     // cannot fit this same unchanged retry schedule inside the old deadline.
     auto late=anchor.at;while(anchor.guard(late)<200000)late+=1000;
     assert(!anchor.valid(late+2000000+40000000+2000000));
-    assert(anchor.refresh(first,true)&&!anchor.urgent(first,true));
+    assert(anchor.refresh(first,true));
+  }
+  // A short failed transport followed by an authenticated unusable reply
+  // keeps the backoff floor and rolling starts. The third attempt
+  // must fit without pretending that a JOIN_ACCEPT renewed timing authority.
+  for(uint32_t uncertainty:{40000u,60000u,80000u}){
+    G1Anchor anchor{true,11,22,1700000000000000,1000000,200000000,3,4,uncertainty};
+    const auto deadline=anchor.deadline(),permission=anchor.until;
+    const auto recover=[&](unsigned previous){
+      G1AdmissionPolicy retry;retry.started(anchor.at);retry.acquired();
+      auto at=anchor.at;
+      const auto due=[&](){return previous==1?anchor.guard(at)>=150000:anchor.refresh(at,true);};
+      while(!due()||!retry.allowed(at))at+=1000;
+      retry.started(at);retry.failed(at+250000,4000000,previous==2?0:anchor.deadline()); //24s jittered backoff
+      at=retry.retry_at;while(!retry.allowed(at))at+=1000;
+      retry.started(at);retry.reply(G1AdmissionReply::Unusable);retry.failed(at+750000,18000000,previous==2?0:anchor.deadline()); //38s
+      at=retry.retry_at;while(!retry.allowed(at))at+=1000;
+      retry.started(at);
+      assert(anchor.deadline()==deadline&&anchor.until==permission);
+      return anchor.valid(at+750000);
+    };
+    assert(recover(0)&&!recover(1));
+    if(uncertainty==80000)assert(!recover(2)); // Earlier refresh alone is insufficient.
+    assert(!anchor.valid(deadline));
+  }
+  // Deadline-aware jitter stays within the original warm range and cannot
+  // bypass the rolling cap, extend a deadline or promise an impossible retry.
+  {G1AdmissionPolicy retry;retry.acquired();
+    retry.failed(1000000,20000000,101000000);assert(retry.retry_at==41000000);
+    retry.failed(1000000,20000000,31000000);assert(retry.retry_at>=21000000&&retry.retry_at<=28000000);
+    retry.failed(1000000,20000000,11000000);assert(retry.retry_at==21000000);
+    retry.started(1000000);retry.started(21000000);
+    assert(!retry.allowed(41000000)&&retry.allowed(61000000));
   }
   G1RetainedEstimate e;uint64_t utc=0;assert(!e.deliver(1,utc));
   G1ClockPrediction p{20000000,1000000000,500,2000,1700000000000000000};

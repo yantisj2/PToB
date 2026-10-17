@@ -2,6 +2,24 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 0.1.10 — 17 October 2026
+
+- Start direct BLE100 replay refresh at 100 ms uncertainty and urgency at
+  125 ms. A failed transport followed by an authenticated unusable time reply
+  can consume the prior 50-second reserve through backoff and the rolling
+  start limit. Earlier refresh leaves about 75 seconds at 2000 ppm. Retain
+  two warm starts per 60 seconds and every hard replay/source/model deadline.
+  Repeated failures can still exhaust
+  that finite context; JOIN acceptance alone does not renew timing authority.
+- Bound warm failure jitter by the remaining replay time only for a reserved,
+  still-live current direct precision stream. Keep the 20-second floor and
+  40-second maximum, reserving three seconds for a two-second attempt and
+  worker/closure slack where possible. Rolling start eligibility remains a
+  separate gate; missing authority, RC7 and cold retry behavior stay unchanged.
+- Exercise the combined retry policies with transport failure, unusable time
+  and a third attempt. The former 150 ms policy fails the same bounded
+  scenario. Keep BLE50's existing 100/125 ms thresholds and RC7 renewal intact.
+
 ## 0.1.9 — 17 October 2026
 
 - Reserve a current BLE100 precision receiver during relative-quality dips,
@@ -16,8 +34,8 @@ Copyright (c) 2026 Jonathan Yantis. MIT.
   controller requests do not establish physical RF priority or delivery.
 - Refresh the receive clock reference before control work, and drain queued
   precision reports between relay, GATT and JOIN operations. All drains share
-  the original eight-report worker budget. Check report age and subsequent
-  control decisions against fresh time after yielding SDK calls; keep the
+  one eight-report budget per worker iteration, replacing separate per-drain
+  limits. Check report age and subsequent control decisions against fresh time after yielding SDK calls; keep the
   original 50 ms worker-age and 250 ms physical association limits.
 - Add production-boundary regressions for quality dips, warm/cold initiation,
   expiry/fault withdrawal, SDK yields and total report budget. The previous

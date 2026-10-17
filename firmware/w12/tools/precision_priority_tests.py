@@ -8,7 +8,7 @@ from pathlib import Path
 from rc7_permission_e2e import native_fixture,replace_once,sha
 APP=Path(__file__).resolve().parents[1]
 CASES=('quality-dip','warm-window','cold-window','source-expiry','model-expiry',
-       'capture-gap','wrong-parent','clock-failure','control-drain','batch-budget')
+       'capture-gap','wrong-parent','clock-failure','control-drain','batch-budget','retry-bound','retry-unreserved','retry-relay')
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--out',type=Path,required=True)
     p.add_argument('--objects',type=Path,required=True);p.add_argument('--native-source',type=Path)
