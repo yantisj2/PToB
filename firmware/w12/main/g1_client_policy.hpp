@@ -31,15 +31,16 @@ struct G1Anchor {
   }
   // JOIN refresh is driven by replay uncertainty or sustained acquisition
   // loss, not each short permission. It never renews the corrected model.
-  // Continuous reception reserves about50s before replay expiry: a failed
-  // 2s exchange, the existing worst40s warm backoff and a second2s exchange
-  // must fit before the hard deadline. The former200ms threshold left only
-  // 25s at2000ppm, so one ordinary failed refresh could destroy an acquired
-  // PA/model before its permitted retry. The rolling two-start/60s budget is
-  // unchanged. Half-duty acquisition keeps its100/125ms thresholds; neither
-  // policy extends the original250ms replay limit or signed source expiry.
-  bool refresh(uint64_t now,bool continuous=false)const {return rebootstrap(now)||guard(now)>=(continuous?150000:100000);}
-  bool urgent(uint64_t now,bool continuous=false)const {return rebootstrap(now)||guard(now)>=(continuous?175000:125000);}
+  // Both receive profiles refresh at100ms and become urgent at125ms.
+  // Continuous reception also needs a bounded background control cadence:
+  // one failed transport followed by unusable authenticated time can consume
+  // the former50s reserve before a third start is allowed. Earlier refresh
+  // leaves about75s at2000ppm, without extending any replay/source/model
+  // deadline. Separate direct-control retry bounds govern attempts. Failure
+  // jitter is also bounded by the remaining replay context. Multiple long
+  // failures can still exhaust the finite replay context.
+  bool refresh(uint64_t now,bool=false)const {return rebootstrap(now)||guard(now)>=100000;}
+  bool urgent(uint64_t now,bool=false)const {return rebootstrap(now)||guard(now)>=125000;}
   bool same(const G1Anchor& other)const {
     return root==other.root&&boot==other.boot&&source_epoch==other.source_epoch&&publication==other.publication;
   }

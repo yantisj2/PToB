@@ -143,10 +143,8 @@ bool full_listening(){return mode==R2Mode::Client&&listening_percent==100;}
 bool client_window_active(uint64_t now,uint32_t phase){return full_listening()||G1Window::active(now,phase);}
 bool anchor_valid(uint64_t now){return anchor.valid(now);}
 bool following(uint64_t now){return usable_utc()&&anchor.live(now);}
-// Selection restraint, never precision/permission authority. Use the same raw
-// sub-1us/one-second hold prerequisites as the lock timer, before presentation
-// smoothing. Recheck actual scope, model and monotonic time on every use.
-bool lock_protected_quality(const G1RelativeQuality& q,const G1ClockPrediction& clock,uint64_t tick,uint64_t now){
+// Common current-parent authority checks; scheduling never adds permission.
+bool current_parent_time(uint64_t now){
   if(mode!=R2Mode::Client||closing||fault||parent_diagnostic.pending()||!joined_peer||
      !following(now)||!corrected_clock.covers(now,now)||
      !parent_selection.accepts(joined_peer,rc_bound())||(exclude_direct_gm&&!rc_bound()))return false;
@@ -159,8 +157,29 @@ bool lock_protected_quality(const G1RelativeQuality& q,const G1ClockPrediction& 
        path.node[path.depth].id!=joined_peer||path.node[path.depth].boot!=joined_boot||
        path.node[0].id!=anchor.root||path.node[0].boot!=anchor.boot||path.source_epoch!=anchor.source_epoch)return false;
   }else if(anchor.root!=joined_peer||anchor.boot!=joined_boot)return false;
+  return true;
+}
+bool lock_protected_quality(const G1RelativeQuality& q,const G1ClockPrediction& clock,uint64_t tick,uint64_t now){
+  // Same raw sub-1us/one-second hold prerequisites as the lock timer.
+  if(!current_parent_time(now))return false;
   const auto until=anchor.deadline();
   return tick&&until>now&&q.locked(tick,clock)&&q.hold_ms(tick,clock,until-now)>=1000;
+}
+// Reserve an actually arriving authenticated precision stream independently
+// of its forecast quality. A short quality dip must not force broad discovery
+// just to renew this same parent. This is scheduling only: lock, downstream
+// eligibility and every source/model/replay deadline retain their own gates.
+bool precision_reserved(uint64_t now){
+  if(!full_listening()||!synced||sync_terminating||sync_cleanup_queued||
+     sync_identity!=joined_peer||!current_parent_time(now))return false;
+  const auto received=parent_selection.quality().last_rx;
+  if(!received||now<received||now-received>=250000)return false;
+#ifdef V12_R2_RX_SHADOW
+  uint64_t tick=0;const auto clock=corrected_clock.prediction();
+  return clock.tick&&clock_reference_read(&tick)&&tick>=clock.tick;
+#else
+  return false;
+#endif
 }
 bool lock_protected(uint64_t now){
 #ifdef V12_R2_RX_SHADOW
@@ -174,12 +193,16 @@ int64_t coarse_ns(uint64_t now){if(!usable_utc()||!anchor_valid(now)||anchor.utc
 void discipline_scope(uint64_t now){discipline.scope({anchor.root,anchor.boot,anchor.until,anchor.source_epoch,anchor.publication,periodic_rx::status().epoch,0,following(now)&&!closing&&!fault,true});}
 bool timely(){const auto now=micros();portENTER_CRITICAL(&mux);const bool ok=!parent_diagnostic.pending()&&parent_diagnostic.state!=4&&!stop_pending&&!fault&&(mode==R2Mode::Client?client.running&&!client.stopping&&!client.deadline_exceeded:lease.busy&&lease.deadline_us>=2000000&&now<lease.deadline_us-2000000);portEXIT_CRITICAL(&mux);return ok;}
 uint32_t admission_random(){uint32_t value=0;esp_fill_random(&value,sizeof value);return value;}
+void admission_failed(uint64_t now){
+  const auto replay=(!peer.relay&&peer.identity==joined_peer&&precision_reserved(now))?anchor.deadline():0;
+  admission_policy.failed(now,admission_random(),replay,full_listening()&&!peer.relay);
+}
 void failed_admission(uint64_t now){
   if(!peer.identity||peer.selection_accepted||peer.selection_reported||closing||fault||stop_pending||parent_diagnostic.pending()||mode!=R2Mode::Client)return;
   // Deliberate profile quiet, explicit stop and rebind are local scheduling,
   // not observations that the remote server failed.
   if(!full_listening()&&now-G1Window::start(now,window_phase)>=400000)return;
-  peer.selection_reported=true;admission_policy.failed(now,admission_random());
+  peer.selection_reported=true;admission_failed(now);
   if(!parent_failure.identity)parent_failure={peer.identity,now,peer.relay};
 }
 bool relay_slot_scanning();
@@ -209,7 +232,7 @@ void sync_trace(uint8_t event,uint16_t handle,int result,const LinkContext* save
   const auto context=saved?*saved:sync_context();admission_trace(event,handle,result,&context);
 }
 void start_scan(bool gm_observation=false){
-  if(!timely()||(!gm_observation&&!relay_slot_scanning()&&lock_protected(micros()))||micros()<scan_retry_at||(mode==R2Mode::Client&&!client_window_active(micros(),window_phase)))return;
+  if(!timely()||(!gm_observation&&!relay_slot_scanning()&&(lock_protected(micros())||precision_reserved(micros())))||micros()<scan_retry_at||(mode==R2Mode::Client&&!client_window_active(micros(),window_phase)))return;
   const auto now=micros();if(!scan_retry_until)scan_retry_until=now+2000000;
   if(now>=scan_retry_until){error(BLE_HS_ETIMEOUT,R2Api::ScanStart);return;}
   ble_gap_ext_disc_params p{};p.passive=1;p.itvl=32;p.window=32;
@@ -414,7 +437,7 @@ int gap(ble_gap_event* e,void* arg){
     if(e->connect.status){if(!was_cancelled)failed_admission(now);peer.identity=0;retry_at=now+200000;return 0;}
     ble_gap_conn_desc d{};const bool match=peer.identity&&!ble_gap_conn_find(e->connect.conn_handle,&d)&&same_address(d.peer_id_addr,peer.address)&&peer.handle==None;
     if(peer.handle!=None){error(BLE_HS_EBUSY,R2Api::Connect,1);return 0;}
-    peer.handle=e->connect.conn_handle;peer.stage=1;peer.gatt_until=now+2000000;
+    peer.handle=e->connect.conn_handle;peer.stage=1;peer.gatt_until=full_listening()&&!peer.relay?peer.exchange.until:now+2000000;
     if(match)observed_descriptor(d,now);
 
     if(!match||mode!=R2Mode::Client||closing||!peer.exchange.until||now>=peer.exchange.until||now>=peer.attempt_until||(!full_listening()&&now-G1Window::start(now,window_phase)>=400000))peer.dead=true;
@@ -500,7 +523,7 @@ void observe_group(const Discovery& d){
 bool cooled(uint64_t id,uint64_t now){for(const auto& r:recent)if(r.identity==id&&now<r.until)return true;return false;}
 void cooldown(uint64_t id,uint64_t now,uint64_t duration){unsigned slot=0;for(unsigned i=0;i<8;i++){if(recent[i].identity==id){slot=i;break;}if(recent[i].until<recent[slot].until)slot=i;}recent[slot]={id,now+duration};}
 void connect(const Discovery& d,uint64_t id,uint64_t now,bool relay=false){
-  if(!admission_policy.allowed(now))return;
+  if(!admission_policy.allowed(now,full_listening()&&!relay))return;
   relay_poll(now,true);if(!relay_acl_available())return;stop_scan();if(scan||!timely())return;
   if(nonce==UINT64_MAX){fault=true;return;}++nonce;
   if(incarnation==UINT32_MAX){fault=true;return;}
@@ -516,17 +539,17 @@ void connect(const Discovery& d,uint64_t id,uint64_t now,bool relay=false){
     !joined_peer?G1ParentReason::Startup:!following(now)?G1ParentReason::ClockUnavailable:G1ParentReason::BestCandidate;
   if(relay)peer.exchange.until=now+2000000;
   else if(r2_group_join_begin(&peer.exchange,false,provision.identity,id,boot_id,nonce,now)){fault=true;return;}
-  peer.attempt_until=now+2000000;cooldown(id,now,5000000);inc(join_attempts);if(anchor_valid(now))inc(refresh_attempts);
-  ble_gap_conn_params p{};p.itvl_min=p.itvl_max=6;p.supervision_timeout=10;
-  // This transient client uses the public minimum100ms supervision timeout
-  // with7.5ms intervals/zero latency. Lost links must not retain a1s timeout
-  // across the500ms quiet boundary. This does not replace actual drain ACKs.
-  // Listen continuously while the bounded initiator owns this window. The
-  // former50ms/100ms inner duty cycle unnecessarily discarded connection
-  // opportunities. The existing400ms ACL cutoff and500ms quiet gate still
-  // bound total ownership, including setup and actual disconnect completion.
-  p.scan_itvl=p.scan_window=32;
-  // The adapter owns the unchanged2s cancellation deadline. Disable only
+  peer.attempt_until=now+(full_listening()&&!relay?4000000:2000000);cooldown(id,now,5000000);inc(join_attempts);if(anchor_valid(now))inc(refresh_attempts);
+  ble_gap_conn_params p{};p.itvl_min=p.itvl_max=6;p.supervision_timeout=full_listening()&&!relay?50:10;
+  // BLE100 direct control tolerates500ms supervision; BLE50 and RC7 retain
+  // 100ms so their quiet/owner arbitration stays unchanged. Precision keeps
+  // its separate capture/freshness limits and drains before control work.
+  p.scan_itvl=32;p.scan_window=precision_reserved(micros())?8:32;
+  // With a current precision stream, request5ms/20ms initiation windows,
+  // leaving gaps for periodic reception. Cold acquisition keeps20ms/20ms.
+  // Direct BLE100 initiation has4s within the original5s exchange;
+  // a scanner window is not a controller priority or RF delivery guarantee.
+  // Actual cancellation/drain still has its original2s bound. Disable only
   // the duplicate SDK host timer; HCI create itself has no duration parameter.
   // Require the real completion callback, never just the cancel command ACK.
   // Install pending/incarnation before the yielding public API. A completion
@@ -656,7 +679,7 @@ void send_rc_request(uint64_t now){
   if(!rc){inc(tx);++rc_client.requests;}else if(peer.handle==h&&peer.incarnation==generation){peer.pending=false;peer.dead=true;note(rc,R2Api::ControlWrite);}
 }
 void receive_join(uint64_t now){Incoming row{};for(unsigned i=0;i<8&&incoming.pop(row);i++){
-  r2_join_record r{};if(row.incarnation!=peer.incarnation||peer.handle==None||peer.dead||peer.terminating||now<row.at||now-row.at>=50000){inc(rejected);diagnostic.reason(G1Reason::JoinStale,now);continue;}
+  r2_join_record r{};if(row.incarnation!=peer.incarnation||peer.handle==None||peer.dead||peer.terminating||now<row.at||now-row.at>=(full_listening()&&!peer.relay?1000000:50000)||now>=peer.exchange.until){inc(rejected);diagnostic.reason(G1Reason::JoinStale,now);continue;}
   if(peer.relay){receive_rc_control(row,now);continue;}
   if(exclude_direct_gm||row.length!=R2_GROUP_JOIN_BYTES){inc(rejected);peer.dead=true;continue;}
   if(r2_group_join_decode(&r,row.bytes,R2_GROUP_JOIN_BYTES,&provision.group)){inc(rejected);diagnostic.reason(G1Reason::JoinDecode,now);continue;}
@@ -673,7 +696,7 @@ void receive_join(uint64_t now){Incoming row{};for(unsigned i=0;i<8&&incoming.po
     // not a foreign-root follower and not a reason to discard the old fit/PA.
     // All unusable replies preserve the current binding and original deadlines.
     if(!timed){
-      peer.selection_accepted=true;admission_policy.failed(now,admission_random());
+      peer.selection_accepted=true;admission_failed(now);
       cooldown(r.sender,now,5000000);
       if(reply==G1AdmissionReply::ForeignRoot)parent_selection.cooldown(r.sender,now,60000000);
       if(!previous_member&&!anchor.source&&!rc_bound()){member=true;joined_peer=r.sender;joined_boot=r.sender_boot;}
@@ -682,7 +705,7 @@ void receive_join(uint64_t now){Incoming row{};for(unsigned i=0;i<8&&incoming.po
     member=true;joined_peer=r.sender;joined_boot=r.sender_boot;cooldown(r.sender,now,5000000);
     if(timed){
       if(r.root!=r.sender||r.root_boot!=r.sender_boot){
-        peer.selection_accepted=true;admission_policy.failed(now,admission_random());
+        peer.selection_accepted=true;admission_failed(now);
         if(reply==G1AdmissionReply::ForeignRoot)parent_selection.cooldown(r.sender,now,60000000);
         // A cohort peer may describe a different serving root. This direct
         // client must authenticate that root itself before showing FOLLOW or
@@ -762,7 +785,8 @@ void renew_permission(uint64_t created,uint64_t expires,int64_t offset,uint64_t 
   const uint64_t left=uint64_t(int64_t(expires)+offset-coarse_ns(now))/1000-anchor.guard(now);
   if(left<=(immutable_origin?1650000:1500000)){anchor.until=now+left;last_origin_ns=created;}
 }
-void periodic_poll(uint64_t now){Periodic row{};for(unsigned i=0;i<8&&periodic.pop(row);i++){
+unsigned periodic_poll(uint64_t now,unsigned budget=8){Periodic row{};unsigned processed=0;for(;processed<budget&&periodic.pop(row);++processed){
+  now=micros();
   struct ReceiveObservation {
     const Periodic& row;uint64_t now;uint32_t authenticated,accepted,refused;
     ~ReceiveObservation(){
@@ -874,7 +898,7 @@ void periodic_poll(uint64_t now){Periodic row{};for(unsigned i=0;i<8&&periodic.p
     (void)discipline.authenticated_gr3(p,row.capture,available,now,coarse_ns(now));
 #endif
   }else inc(p1_bad);
-}}
+}return processed;}
 bool owners_active(){return relay_owned()||scan||peer.connecting||peer.handle!=None||sync_pending||synced;}
 void cancel_connect(uint64_t now){
   if(!peer.connecting||connecting_cancelled)return;
@@ -972,14 +996,16 @@ void active_poll(uint64_t now){
   probe_pending_link(now);
   // Enforce this window before any public GATT operation can yield or send.
   if(mode==R2Mode::Client&&!window_poll(now)){periodic_poll(micros());return;}
-  // Drain captured originals/corrections before a background admission can
-  // yield in the public GATT API. Keep the existing eight-record batch bound;
-  // packets arriving during admission wait for the next host poll. This does
-  // not change PA ownership or renew the capture/permission deadlines.
-  periodic_poll(micros());
+  // Share one eight-report budget across control boundaries. A
+  // yielding SDK call may return with new callbacks queued; consume them
+  // before the next control operation can make those reports stale.
+  unsigned precision_left=8;
+  const auto precision_work=[&](){periodic_rx::poll();precision_left-=periodic_poll(micros(),precision_left);now=micros();};
+  precision_work();
   relay_poll(micros(),admission_due(now,corrected_clock.covers(now,now))&&admission_policy.allowed(now)&&now>=retry_at);
-  gatt_poll(now);receive_join(now);
+  precision_work();gatt_poll(micros());precision_work();receive_join(micros());
   if(peer.relay)send_rc_request(micros());else send_join(micros());
+  precision_work();
   if((synced||sync_pending)&&((anchor_valid(now)&&sync_identity!=anchor.root&&sync_identity!=joined_peer)||(sync_pending&&now>=sync_acquire_until)))cancel_sync(now);
   if((sync_cancelled&&sync_pending)||(sync_terminating&&synced)){if(now>=sync_drain_until)error(BLE_HS_ETIMEOUT,R2Api::SyncTerminate);}
   // Optional early JOIN can use an existing map covering this whole window.
@@ -999,7 +1025,7 @@ void active_poll(uint64_t now){
      peer.handle==None&&!peer.connecting&&!sync_pending&&!synced&&!sync_selected&&!sync_cleanup_queued){
     sync_identity=joined_peer;sync_selected=true;
   }
-  const bool protected_parent=lock_protected(micros())&&!gm_observation;
+  const bool protected_parent=(lock_protected(micros())||precision_reserved(micros()))&&!gm_observation;
   if(protected_parent&&!relay_slot_scanning()){
     stop_scan();
     // Retire an abandoned logical BUSY retry only after actual scanner OFF.
@@ -1076,7 +1102,7 @@ void active_poll(uint64_t now){
 #endif
     const int rc=ble_gap_periodic_adv_sync_create(&sync_address,12,&p,gap,reinterpret_cast<void*>(uintptr_t(sync_capture_epoch)));sync_trace(16,None,rc,&context);if(rc){periodic_rx::scope(None);sync_pending=false;sync_identity=0;if(!transient(rc,R2Api::SyncCreate))error(rc,R2Api::SyncCreate);}
   }
-  periodic_poll(micros());
+  precision_work();
 }
 void parent_diagnostic_poll(uint64_t now){
   portENTER_CRITICAL(&mux);const auto control=parent_diagnostic;
@@ -1323,6 +1349,7 @@ void r2_host_poll(){if(!initialized)return;const auto begin=micros();bool start=
   portENTER_CRITICAL(&mux);const bool failed=client.deadline_exceeded||parent_diagnostic.state==4;const bool rebind=parent_diagnostic.pending();const auto deadline=lease.deadline_us;portEXIT_CRITICAL(&mux);if(failed)fault=true;
   if(stop||(mode!=R2Mode::Off&&(fault||(mode!=R2Mode::Client&&begin>=deadline-2000000))))begin_close(begin);
   if(fault&&relay_owned())relay_close(begin);
+  periodic_rx::poll();
   if(closing)close_poll(begin);else if(rebind)parent_diagnostic_poll(begin);else if(mode!=R2Mode::Off&&begin>=next_poll){next_poll=begin+2000;active_poll(begin);}
   recovery_poll(micros());
   periodic_rx::poll();discipline_scope(micros());if(periodic_rx::status().fault&&!closing){fault=true;begin_close(micros());}

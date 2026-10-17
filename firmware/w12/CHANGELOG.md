@@ -2,6 +2,67 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 0.1.11 — 17 October 2026
+
+- Separate direct BLE100 control from precision processing deadlines. Allow
+  control replies up to one second in the queue, four seconds for initiation,
+  500 ms connection supervision and GATT discovery through the original
+  five-second authenticated exchange. Reject processing after that original
+  exchange expires, even if the callback arrived earlier. Nonce, MAC, sequence,
+  source permission and coarse-bootstrap uncertainty checks remain unchanged;
+  a delayed membership reply supplies no precision measurement.
+- Allow six warm direct BLE100 starts per rolling minute, with
+  five-second spacing and 5–10-second failure backoff. Retain two starts for
+  BLE50/RC7 and preserve history
+  across parent changes. Deadline-aware direct retry jitter now reserves five
+  seconds for the longer attempt and scheduling slack. This remains best effort
+  within a finite replay lifetime.
+- Preserve narrow warm initiation, precision-first queue drains, 50 ms precision
+  worker age, 250 ms physical association, original signed/model expiry and
+  relative-lock quality gates. Cancellation, stop, fault and update drain keep
+  their original bounds and require actual completion.
+- Add production-boundary regressions for delayed control versus stale precision,
+  expired exchanges, longer control discovery, legacy/RC7 bounds and stop expiry.
+
+## 0.1.10 — 17 October 2026
+
+- Start direct BLE100 replay refresh at 100 ms uncertainty and urgency at
+  125 ms. A failed transport followed by an authenticated unusable time reply
+  can consume the prior 50-second reserve through backoff and the rolling
+  start limit. Earlier refresh leaves about 75 seconds at 2000 ppm. Retain
+  two warm starts per 60 seconds and every hard replay/source/model deadline.
+  Repeated failures can still exhaust
+  that finite context; JOIN acceptance alone does not renew timing authority.
+- Bound warm failure jitter by the remaining replay time only for a reserved,
+  still-live current direct precision stream. Keep the 20-second floor and
+  40-second maximum, reserving three seconds for a two-second attempt and
+  worker/closure slack where possible. Rolling start eligibility remains a
+  separate gate; missing authority, RC7 and cold retry behavior stay unchanged.
+- Exercise the combined retry policies with transport failure, unusable time
+  and a third attempt. The former 150 ms policy fails the same bounded
+  scenario. Keep BLE50's existing 100/125 ms thresholds and RC7 renewal intact.
+
+## 0.1.9 — 17 October 2026
+
+- Reserve a current BLE100 precision receiver during relative-quality dips,
+  using its authenticated parent/path, live source/model/replay, working clock
+  and physical delivery within 250 ms. Renew that same parent without broad
+  discovery. Source/model expiry, missing reception, rebind and faults still
+  release the reservation. Relative lock and downstream advertising retain
+  their existing quality gates; scheduling never grants timing authority.
+- Request 5 ms/20 ms initiation windows while that precision receiver is
+  reserved. Cold acquisition keeps 20 ms/20 ms. Preserve the original attempt,
+  exchange, supervision and actual cancellation/drain deadlines. These public
+  controller requests do not establish physical RF priority or delivery.
+- Refresh the receive clock reference before control work, and drain queued
+  precision reports between relay, GATT and JOIN operations. All drains share
+  one eight-report budget per worker iteration, replacing separate per-drain
+  limits. Check report age and subsequent control decisions against fresh time after yielding SDK calls; keep the
+  original 50 ms worker-age and 250 ms physical association limits.
+- Add production-boundary regressions for quality dips, warm/cold initiation,
+  expiry/fault withdrawal, SDK yields and total report budget. The previous
+  implementation fails the corresponding ordering/reservation regressions.
+
 ## 0.1.8 — 17 October 2026
 
 - Start continuous BLE100 direct-G1 replay refresh at 150 ms uncertainty,

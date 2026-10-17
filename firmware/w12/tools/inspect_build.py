@@ -8,7 +8,7 @@ from build import sha,validate_inputs,device_header
 
 def inspect(out,allow_development=False):
  out=Path(out).resolve();r=json.loads((out/'receipt.json').read_text())
- if r.get('artifact_class')!='PTOB_W12_RC' or r.get('profile')!='RC' or r.get('version') not in ('0.1.0','0.1.1','0.1.2','0.1.3','0.1.4','0.1.5','0.1.6','0.1.7','0.1.8'):raise ValueError('Wrong artifact class/profile/version')
+ if r.get('artifact_class')!='PTOB_W12_RC' or r.get('profile')!='RC' or r.get('version') not in ('0.1.0','0.1.1','0.1.2','0.1.3','0.1.4','0.1.5','0.1.6','0.1.7','0.1.8','0.1.9','0.1.10','0.1.11'):raise ValueError('Wrong artifact class/profile/version')
  if not re.fullmatch('[0-9a-f]{40}',r.get('public_commit','')):raise ValueError('Exact source commit missing')
  if not 0<r.get('application_bytes',0)<=1048576 or r.get('listening_percent') not in (50,100) or (r.get('estimated_relay') and r['listening_percent']!=100):raise ValueError('Profile or application bounds changed')
  source_hash=hashlib.sha256(json.dumps(r['sources'],sort_keys=True,separators=(',',':')).encode()).hexdigest()
@@ -30,7 +30,7 @@ def inspect(out,allow_development=False):
  if binding!=identity['build_id'] or identity!=r['runtime_identity']:raise ValueError('Runtime identity does not bind actual retained configuration/headers')
  if sha(out/r['application'])!=r['application_sha256'] or (out/r['application']).stat().st_size!=r['application_bytes']:raise ValueError('Application identity mismatch')
  compiled=json.loads((target/'compile_commands.json').read_text());snapshot={}
- if r['version'] in ('0.1.3','0.1.4','0.1.5','0.1.6','0.1.7','0.1.8'):
+ if r['version'] in ('0.1.3','0.1.4','0.1.5','0.1.6','0.1.7','0.1.8','0.1.9','0.1.10','0.1.11'):
   if (inputs/'ptob_device.h').read_text()!=device_header(d):raise ValueError('Device/GNSS header differs from explicit local profile')
   enabled=int('gnss_profile' in d)
   for suffix in ('/native_main.cpp','/gnss_pps.cpp'):
@@ -46,10 +46,10 @@ def inspect(out,allow_development=False):
   elif file.is_relative_to(out):snapshot['generated/'+str(file.relative_to(out))]=sha(file)
   else:raise ValueError('Unexpected source outside target/public SDK boundary')
  if snapshot!=r['compiled_sources']:raise ValueError('Compiled source closure changed')
- if r['version'] in ('0.1.7','0.1.8'):
+ if r['version'] in ('0.1.7','0.1.8','0.1.9','0.1.10','0.1.11'):
   from stack_budget import check as check_main_stack
   if check_main_stack(out)!=r.get('main_stack_budget'):raise ValueError('Main task stack budget changed')
- return {'schema':1,'status':'IMMUTABLE_FILES_AND_RUNTIME_BINDING_VERIFIED','application_sha256':r['application_sha256'],'application_bytes':r['application_bytes'],'runtime_build_id':binding,'public_commit':r['public_commit'],'version':r['version'],'profile':'RC','estimated_relay':r['estimated_relay'],'actual_TX_capture':False,'precision':'UNQUALIFIED','hardware_access':False,**({'main_stack_budget':r['main_stack_budget']} if r['version'] in ('0.1.7','0.1.8') else {})}
+ return {'schema':1,'status':'IMMUTABLE_FILES_AND_RUNTIME_BINDING_VERIFIED','application_sha256':r['application_sha256'],'application_bytes':r['application_bytes'],'runtime_build_id':binding,'public_commit':r['public_commit'],'version':r['version'],'profile':'RC','estimated_relay':r['estimated_relay'],'actual_TX_capture':False,'precision':'UNQUALIFIED','hardware_access':False,**({'main_stack_budget':r['main_stack_budget']} if r['version'] in ('0.1.7','0.1.8','0.1.9','0.1.10','0.1.11') else {})}
 
 def main():
  p=argparse.ArgumentParser(description=__doc__);p.add_argument('out',type=Path);a=p.parse_args();print(json.dumps(inspect(a.out),indent=2))
