@@ -1,10 +1,15 @@
 # macOS USB / chrony client
 
 The PToB macOS client receives time from a compatible T096 RC or dedicated
-[DC GNSS/USB image](../../docs/t096/direct-connect.md) over USB and
-supplies an experimental user clock through a private, unprivileged chronyd.
-It provides a live clock display, source diagnostics and chrony tracking while
-leaving the macOS system clock unchanged.
+[DC GNSS/USB image](../../docs/t096/direct-connect.md) over USB.
+**Timing comes from hardware-captured USB frame boundaries**, independently
+matched to the Mac's USB frame reference and mapped to its monotonic clock.
+USB packets carry those captured records, so variable delivery latency affects
+freshness rather than defining the clock phase.
+
+The resulting time feeds an experimental user clock through a private,
+unprivileged chronyd, with a live display, source diagnostics and chrony tracking.
+The macOS system clock stays unchanged.
 
 [Build guide](../../docs/macos/build.md) · [Chrony integration](chrony/README.md) ·
 [USB contract](usb/README.md) · [Group setup](../../docs/GETTING_STARTED.md)
