@@ -226,6 +226,46 @@
       "scope": "Selected approximately five-minute after-acquisition view of DC v0.15.80 GNSS-to-USB feeding macOS chrony with experimental quarter-second polling. No complete-run availability or independent UTC accuracy inferred.",
       "display_omissions": "No-reference rows and the first selected acquisition update omitted by state; later selected observations retained without an error-size threshold. Full startup remains in numerical populations.",
       "results_record": "../../clients/macos/results/2026-10-17-dc.json"
+    },
+    {
+      "file": "chronycontrol-usb-direct-shared-bus-20261017.png",
+      "source": "User-supplied updated USB Direct ChronyControl screenshot, 17 October 2026",
+      "timezone": "America/Chicago",
+      "source_sha256": "94a8066e8f5d1786a36b4cb512fee3094c1a447b9e4bb9c99a0484d33f8b53ed",
+      "sha256": "94a8066e8f5d1786a36b4cb512fee3094c1a447b9e4bb9c99a0484d33f8b53ed",
+      "bytes": 614495,
+      "dimensions": [
+        968,
+        759
+      ],
+      "transformation": "None; exact supplied bytes preserved, including existing crop.",
+      "software_author": "Bryan Christianson",
+      "software_page": "https://www.whatroute.net/chronycontrol.html",
+      "rights": "Original screenshot/data contributions: Jonathan Yantis, CC BY 4.0. Third-party ChronyControl UI rights unchanged; application not bundled.",
+      "license": "CC-BY-4.0 for original screenshot/data contributions only; third-party UI rights retained",
+      "scope": "DC v0.15.80 shared-bus development trace. Underlying log selection 11:37 AM–12:42 PM CDT; zoomed graph approximately 12:36–12:42 PM. The separate RC/DC numerical comparison uses a fixed concurrent 180 s window, not values inferred from this image.",
+      "display_omissions": "After-acquisition display omits no-reference rows and first selected update by state; all later selected updates retained regardless of magnitude.",
+      "clean_bus_qualified": false,
+      "independent_UTC_qualified": false,
+      "results_record": "../../clients/macos/results/2026-10-17-ble-vs-direct.json",
+      "metadata_chunks": [
+        {
+          "type": "iCCP",
+          "bytes": 2737,
+          "sha256": "5c3b14a06095bf63653e5a85eba7f1609d12b5931e3859ce4fe02c73882a04ff"
+        },
+        {
+          "type": "eXIf",
+          "bytes": 86,
+          "sha256": "4d4e3e04ccfe23383d937b2238b1fd4b143646a702f697d250f3f39b9efb6478"
+        },
+        {
+          "type": "iTXt",
+          "bytes": 470,
+          "sha256": "be85a1f12173bcd8d821ffc9f4fad882c4b9bc396b34da3c4f2debc4fc7a830a"
+        }
+      ]
     }
-  ]
+  ],
+  "updated": "2026-10-17"
 }

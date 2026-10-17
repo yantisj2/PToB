@@ -64,8 +64,8 @@ not bundled.
 The exact supplied bytes are preserved, including the existing crop. The image
 shows the selected approximately 11:37–11:42 AM CDT portion of the DC v0.15.80
 GNSS → USB → macOS trial with experimental quarter-second chrony polling
-(`poll -2`, `filter 4`). This setting is separate from the normal one-second
-client configuration.
+(`poll -2`, `filter 4`). At capture time the normal client still used one-second
+polling; the later shared DC/RC client adopts quarter-second polling.
 
 The chart uses an after-acquisition display: no-reference rows and the first
 selected update are omitted by acquisition state. Later selected observations
@@ -81,3 +81,24 @@ Original screenshot/data contributions by Jonathan Yantis use CC BY 4.0.
 Rights in the third-party ChronyControl interface remain unchanged. The
 [manifest](manifest.json) records dimensions, hashes, unchanged-byte import,
 display selection and attribution.
+
+## Current shared-bus comparison image — 17 October 2026
+
+`chronycontrol-usb-direct-shared-bus-20261017.png` replaces the earlier
+ChronyControl image in the [macOS client README](../../clients/macos/README.md).
+Jonathan Yantis supplied this DC v0.15.80 screenshot unchanged. Its controls span
+11:37 AM–12:42 PM CDT and the zoomed graph shows approximately 12:36–12:42 PM.
+It uses the same after-acquisition display selection described above, preserving
+later selected updates without an error-size threshold. Image pixels are not a
+source for the comparison's numerical statistics.
+
+The accompanying [RC versus USB Direct record](../../clients/macos/results/2026-10-17-ble-vs-direct.json)
+uses a separate concurrent 180-second interval, approximately 12:42:10–12:45:10 PM
+CDT, with identical sampling and chrony settings. Current measurements use a
+shared USB bus; a clean-bus repeat is pending. Neither the image nor the window
+qualifies continuous availability or independent UTC accuracy. Earlier images
+and their original provenance remain historical records.
+
+Original screenshot/data contributions: Jonathan Yantis, CC BY 4.0. Third-party
+ChronyControl interface rights remain unchanged. The manifest records exact bytes,
+dimensions, metadata hashes and the existing display selection.

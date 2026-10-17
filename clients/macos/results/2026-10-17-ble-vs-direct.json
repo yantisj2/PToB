@@ -1,0 +1,174 @@
+{
+  "schema": 1,
+  "selected": "2026-10-17",
+  "author": "Jonathan Yantis",
+  "license": "CC-BY-4.0",
+  "license_reference": "../../../evidence/LICENSE.md",
+  "scope": "Selected public summaries from fixed concurrent post-fix hardware observations; raw native logs remain private.",
+  "comparison_window": {
+    "duration_s": 180,
+    "timezone": "America/Chicago",
+    "start_approx_local": "2026-10-17T12:42:10-05:00",
+    "end_approx_local": "2026-10-17T12:45:10-05:00",
+    "start_host_monotonic_ns": "421936502374750",
+    "end_host_monotonic_ns": "422116502374750",
+    "selection": "Fixed concurrent 180 s window, RC trial +60 s through +240 s; selected by duration and common host monotonic time, not error magnitude. All rows within window retained.",
+    "both_extended_trials_complete": false
+  },
+  "common_configuration": {
+    "macOS": "26.7 (25G229)",
+    "chrony": "4.9",
+    "requested_USB_Hz": 32,
+    "chrony_poll": -2,
+    "chrony_poll_seconds": 0.25,
+    "chrony_filter_samples": 4,
+    "maxsamples": 64,
+    "OS_clock_adjustment": false,
+    "network_ports_enabled": false,
+    "fine_feed": "Unqualified causal SOF/Mach plus immutable corrected source map and retained UTC offset",
+    "bus_condition": "SHARED / NOT CLEAN; other USB devices and concurrent timing work present",
+    "clean_bus_test": "PENDING physical isolated-controller setup and matched repeat"
+  },
+  "results": {
+    "RC": {
+      "firmware_version": "0.15.81",
+      "firmware_commit": "6c6f1b27752e5f31906e8de08bc148205699c045",
+      "transport": "GNSS -> BLE -> RC -> USB -> macOS",
+      "sample_counts": {
+        "sample_events": 5760,
+        "valid_precision_records": 5760,
+        "unavailable_precision_records": 0,
+        "missing_precision_replies": 0,
+        "hardware_accepted": 5748,
+        "hardware_rejected": 12,
+        "map_mismatches": 0,
+        "source_scope_count": 1
+      },
+      "RX": {
+        "n": 5054,
+        "rmse_ns": 190.04980959689433,
+        "mean_ns": 6.455263012004389,
+        "sigma_ns": 189.94014769727238,
+        "warmup_observations": 694,
+        "unqualified_observations": 0,
+        "withheld_or_rejected_observations": 12,
+        "detrended": false
+      },
+      "status_samples": 177,
+      "delivered_status_samples": 147,
+      "withheld_status_samples": 30,
+      "delivered_minus_fine": {
+        "n": 145,
+        "rms_ns": 325.54463648603945,
+        "mean_ns": -69.37931034482759,
+        "p99_absolute_ns": 837,
+        "maximum_absolute_ns": 909
+      },
+      "chrony_estimator_RMS": {
+        "n": 177,
+        "median_ns": 31.0,
+        "minimum_ns": 14.0,
+        "maximum_ns": 109.0
+      },
+      "transport_error_events": 0,
+      "source_fence_events": 0,
+      "chrony_daemon_epochs_in_window": 1,
+      "raw_prefix_bytes": 32538498,
+      "raw_prefix_sha256": "493e58f2354f00308ef01bc4de440608c913d0a2db94ec22fef8ec38d1efb42d",
+      "raw_prefix_proof_tail_seconds": 5,
+      "first_status_local": "2026-10-17T12:42:11.309269-05:00",
+      "last_status_local": "2026-10-17T12:45:10.082363-05:00",
+      "firmware_source_sha256": "9d2da7a912432a7a052b9b9ee8f10b84d53282210daa9d76e499b87c2b3a4e1d"
+    },
+    "DC": {
+      "firmware_version": "0.15.80",
+      "firmware_commit": "908e11a7da2d6d36053be31fc37e6c63224f6cf2",
+      "transport": "local GNSS -> USB -> macOS; zero BLE hops",
+      "sample_counts": {
+        "sample_events": 5760,
+        "valid_precision_records": 5760,
+        "unavailable_precision_records": 0,
+        "missing_precision_replies": 0,
+        "hardware_accepted": 5754,
+        "hardware_rejected": 6,
+        "map_mismatches": 0,
+        "source_scope_count": 1
+      },
+      "RX": {
+        "n": 5370,
+        "rmse_ns": 267.44807645839796,
+        "mean_ns": 18.896370709224097,
+        "sigma_ns": 266.77968583705297,
+        "warmup_observations": 384,
+        "unqualified_observations": 0,
+        "withheld_or_rejected_observations": 6,
+        "detrended": false
+      },
+      "status_samples": 177,
+      "delivered_status_samples": 119,
+      "withheld_status_samples": 58,
+      "delivered_minus_fine": {
+        "n": 119,
+        "rms_ns": 344.5462123387439,
+        "mean_ns": -85.43697478991596,
+        "p99_absolute_ns": 689,
+        "maximum_absolute_ns": 831
+      },
+      "chrony_estimator_RMS": {
+        "n": 177,
+        "median_ns": 27.0,
+        "minimum_ns": 14.0,
+        "maximum_ns": 116.0
+      },
+      "transport_error_events": 0,
+      "source_fence_events": 0,
+      "chrony_daemon_epochs_in_window": 1,
+      "raw_prefix_bytes": 540555933,
+      "raw_prefix_sha256": "cc85eb9ae3f1dcf93ccd4f03739bac48eaf9733e5de3bc2be699462b1d5195c5",
+      "raw_prefix_proof_tail_seconds": 5,
+      "first_status_local": "2026-10-17T12:42:10.797655-05:00",
+      "last_status_local": "2026-10-17T12:45:09.923650-05:00",
+      "firmware_source_sha256": "4b324394c42dea77077dc7f840ce95d016aa2abfa9f704555fe0871671c92085"
+    }
+  },
+  "definitions": {
+    "RX_RMS": "Causal corrected-source prediction errors using only the previous 64–1024 accepted observations. Replay all preceding captured observations before scoring errors in the common window. Retain mean/transients; no retrospective detrending; UTC offset excluded.",
+    "delivered_minus_fine": "Delivered chrony UTC minus its unqualified fine input source at the exact same host wall/Mach instant; each comparison shares its source, not independent UTC truth.",
+    "chrony_estimator_RMS": "Median of synchronized native tracking queries in the window; distinct from RX RMS and delivered-minus-fine.",
+    "availability": "All native 1 Hz status observations in the same fixed window. Point samples, not continuous coverage. Delivered-status and exact same-instant comparison counts can differ because they use separately sampled brackets.",
+    "p99": "Nearest rank ceil(.99*n) over absolute differences."
+  },
+  "analysis": {
+    "production_sources_sha256": {
+      "USBClock.swift": "c9b859ac415afa0fda9d778615835fd6f1f0d9569d793d1c80c8218ec0fc1d96",
+      "TimeMath.swift": "595bba73074ce8f1fe949c060353462374f425a0525eb5c141a0899cb9c821e4",
+      "PreciseClock.swift": "fe777478f19fe0d1686ded016436bdef017096658914226225d7d67c3203ea30",
+      "USBFrameBridge.swift": "e8325e2c5d90fae553fba766e1b2722b144f45f80f14079cad5fdf8171e9d6ef"
+    },
+    "window_extractor_sha256": "18f885f620dc5e62be3366a81f26bc53bbb11ae868be781eaaa78a8c809bdc47",
+    "validation": "Full first 300 s replay agrees exactly with shipping precision-replay: 8,364 predictions and 188.21564971520098 ns RMS. Both common-window denominators balance.",
+    "raw_captures_included": false,
+    "independently_reproducible_from_public_summaries_alone": false
+  },
+  "screenshot": {
+    "file": "../../../docs/images/chronycontrol-usb-direct-shared-bus-20261017.png",
+    "sha256": "94a8066e8f5d1786a36b4cb512fee3094c1a447b9e4bb9c99a0484d33f8b53ed",
+    "dimensions": [
+      968,
+      759
+    ],
+    "transformation": "None; exact supplied bytes preserved.",
+    "source": "Jonathan Yantis user-supplied ChronyControl screenshot, 17 October 2026",
+    "profile": "DC",
+    "visible_selection": "Underlying 11:37 AM–12:42 PM CDT log; zoomed graph approximately 12:36–12:42 PM. This image is illustrative of the DC trial, not the numerical comparison window.",
+    "display_selection": "After-acquisition view omits no-reference rows and first selected update; retains later updates regardless of magnitude."
+  },
+  "limitations": [
+    "Shared USB bus; clean-bus validation is pending. Direct-port frame identity does not establish a quiet or isolated controller.",
+    "Same measurement methods/configuration/window, separate physical GNSS source chains. No controlled effect or superiority claim.",
+    "Window is after acquisition; no complete-trial, startup or continuous-delivery qualification. All withheld rows and hardware rejects within window remain in counts.",
+    "RC first post-readback capture had delayed BLE acquisition and no usable UTC for 60 s. It is retained separately from the settled comparison; acquisition behavior remains under investigation.",
+    "PPS-to-UTC association, host/PHY bias and independent UTC accuracy remain unqualified.",
+    "The requested two-hour trials were still in progress when this fixed window was selected."
+  ]
+}
