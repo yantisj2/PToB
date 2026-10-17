@@ -6,6 +6,10 @@
 #include "ui.h"
 #include "capture.h"
 #include "rc_shadow.h"
+#ifdef R2_DC_PROFILE
+#include "dc_gnss.h"
+#include "dc_gnss_transport.h"
+#endif
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
@@ -14,6 +18,14 @@
 #include <zephyr/drivers/uart.h>
 #include <zephyr/kernel.h>
 #include <zephyr/sys/atomic.h>
+#ifdef R2_DC_PROFILE
+static uint8_t bridge_tx[DC_GNSS_FRAME_MAX];static size_t bridge_size;
+static atomic_t bridge_state;
+static uint32_t bridge_epoch;
+static int64_t bridge_at,bridge_abort_at;
+static bool bridge_aborting;
+static void bridge_poll(int64_t now);
+#endif
 BUILD_ASSERT(DT_PROP(DT_NODELABEL(uart0),zephyr_deferred_init));
 static const struct device *const uart=DEVICE_DT_GET(DT_NODELABEL(uart0));
 static const struct gpio_dt_spec enable=GPIO_DT_SPEC_GET(DT_NODELABEL(gnss_enable),gpios);
@@ -45,6 +57,9 @@ static int aid_format(uint64_t utc){
 }
 void r2_gnss_aid(uint64_t utc,uint64_t at,bool valid,bool local_fix){
  int64_t now=r2_time_now_us();
+#ifdef R2_DC_PROFILE
+ if(atomic_get(&bridge_state))return;
+#endif
  if(!valid||local_fix||now<0||(uint64_t)now<at||(uint64_t)now-at>=1500000||
     utc>UINT64_MAX-((uint64_t)now-at)||!uart_ready||atomic_get(&initializing)||atomic_get(&disabled)||
     atomic_get(&stop_requested)||atomic_get(&error)||atomic_get(&aid_tx_state)||
@@ -97,6 +112,11 @@ static void uart_event(const struct device *dev,struct uart_event *event,void *u
   switch(event->type) {
   case UART_TX_DONE:
   case UART_TX_ABORTED:
+#ifdef R2_DC_PROFILE
+    if(event->data.tx.buf==bridge_tx&&atomic_get(&bridge_state)==1){
+      atomic_set(&bridge_state,event->type==UART_TX_DONE&&event->data.tx.len==bridge_size?2:3);break;
+    }
+#endif
     if(event->data.tx.buf!=aid_tx||atomic_get(&aid_tx_state)!=1){fail(-EFAULT);break;}
     atomic_set(&aid_tx_state,event->type==UART_TX_DONE&&event->data.tx.len==aid_size?2:3);
     break;
@@ -104,10 +124,14 @@ static void uart_event(const struct device *dev,struct uart_event *event,void *u
     if(atomic_get(&stop_requested))break;
     if((event->data.rx.buf!=rx[0]&&event->data.rx.buf!=rx[1]) ||
        event->data.rx.offset>128 || event->data.rx.len>128-event->data.rx.offset){fail(-EOVERFLOW);break;}
+#ifdef R2_DC_PROFILE
+    r2_dc_gnss_receive(event->data.rx.buf+event->data.rx.offset,event->data.rx.len,r2_time_now_us());
+#else
     for(size_t i=0;i<event->data.rx.len;i+=R2_TIME_CHUNK) {
       size_t n=MIN((size_t)R2_TIME_CHUNK,event->data.rx.len-i);
       r2_time_input_bytes(event->data.rx.buf+event->data.rx.offset+i,n,r2_time_now_us());
     }
+#endif
     break;
   case UART_RX_BUF_REQUEST:
     if(atomic_get(&stop_requested))break;
@@ -154,6 +178,22 @@ static void power_off(void)
   if(!rail_kept)fail(gpio_pin_set_dt(&vext,0));
   closed=true;
 }
+#ifdef R2_DC_PROFILE
+static void bridge_poll(int64_t now){
+ int state=atomic_get(&bridge_state);
+ if(state==2||state==3){atomic_clear(&bridge_state);state=0;}
+ if(state==1&&(atomic_get(&stop_requested)||now<bridge_at||now-bridge_at>=100000||bridge_epoch!=r2_dc_gnss_epoch())&&!bridge_aborting){
+  bridge_aborting=true;bridge_abort_at=now;int rc=uart_tx_abort(uart);
+  if(rc&&atomic_get(&bridge_state)==1)fail(rc);
+ }
+ if(atomic_get(&bridge_state)==1&&bridge_aborting&&now>=bridge_abort_at&&now-bridge_abort_at>=100000)fail(-ETIMEDOUT);
+ if(atomic_get(&bridge_state)||atomic_get(&aid_tx_state)||!uart_ready||atomic_get(&initializing)||atomic_get(&disabled)||atomic_get(&stop_requested)||atomic_get(&error))return;
+ bridge_size=r2_dc_gnss_next(bridge_tx,sizeof bridge_tx,now,&bridge_epoch);
+ if(!bridge_size)return;
+ bridge_at=now;bridge_aborting=false;atomic_set(&bridge_state,1);
+ if(uart_tx(uart,bridge_tx,bridge_size,100000))atomic_clear(&bridge_state);
+}
+#endif
 int r2_gnss_start(void)
 {
   if(opened)return -EALREADY;
@@ -188,6 +228,9 @@ static void initialize_uart(void *a,void *b,void *c)
 void r2_gnss_poll(int64_t now)
 {
   aid_poll(now);
+#ifdef R2_DC_PROFILE
+  bridge_poll(now);
+#endif
   if(!atomic_get(&stop_requested))r2_capture_poll(now);
   if(atomic_get(&initializing)&&now>=startup_deadline)fail(-ETIMEDOUT);
   if(atomic_get(&error)&&!atomic_get(&stop_requested))r2_gnss_stop();
@@ -196,7 +239,11 @@ void r2_gnss_poll(int64_t now)
     if(uart_ready&&!atomic_get(&disabled)&&!stop_sent) {
       stop_sent=true;int rc=uart_rx_disable(uart);if(rc)fail(rc);
     }
-    if((!closed||(rail_kept&&!r2_ui_close_result()))&&atomic_get(&aid_tx_state)!=1&&atomic_get(&disabled)&&!atomic_get(&used[0])&&!atomic_get(&used[1]))power_off();
+    if((!closed||(rail_kept&&!r2_ui_close_result()))&&atomic_get(&aid_tx_state)!=1
+#ifdef R2_DC_PROFILE
+       &&atomic_get(&bridge_state)!=1
+#endif
+       &&atomic_get(&disabled)&&!atomic_get(&used[0])&&!atomic_get(&used[1]))power_off();
     return;
   }
   if(!powering||now<power_ready)return;
@@ -210,6 +257,9 @@ void r2_gnss_poll(int64_t now)
 void r2_gnss_stop(void)
 {
   if(atomic_set(&stop_requested,1))return;
+#ifdef R2_DC_PROFILE
+  r2_dc_gnss_stop();
+#endif
   powering=false;
   int capture_rc=r2_capture_stop();if(capture_rc)fail(capture_rc);
   if(callback_added) {
@@ -222,5 +272,9 @@ int r2_gnss_close_result(void)
 {
   int rc=(int)atomic_get(&error);
   if(rc)return rc;
-  return closed&&!callback_added&&!atomic_get(&initializing)&&atomic_get(&aid_tx_state)!=1&&atomic_get(&disabled)&&!atomic_get(&used[0])&&!atomic_get(&used[1])?0:-EAGAIN;
+  return closed&&!callback_added&&!atomic_get(&initializing)&&atomic_get(&aid_tx_state)!=1
+#ifdef R2_DC_PROFILE
+    &&atomic_get(&bridge_state)!=1
+#endif
+    &&atomic_get(&disabled)&&!atomic_get(&used[0])&&!atomic_get(&used[1])?0:-EAGAIN;
 }

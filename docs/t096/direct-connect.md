@@ -64,6 +64,46 @@ Error, rate and capture bounds remain unknown. Removing BLE hops does not qualif
 independent UTC accuracy, USB/host bias, uninterrupted delivery or long-term
 durability. A build and software tests cannot establish those hardware outcomes.
 
+## GNSS serial and correction transport
+
+The DC development image adds a second CDC ACM function for the UC6580 serial
+stream. The original diagnostic console and vendor precision interface retain
+their roles. The new function is compiled only through `dc.overlay` and the DC
+source list; GM and RC retain their existing GNSS byte path and USB layout.
+Select the GNSS function by the full device serial and USB interface ancestry,
+not by assuming a persistent `/dev/cu.usbmodem` suffix. Serial clients must not
+compete to read the same function. Maintenance requires all clients of the unit
+to release their interfaces.
+
+Receiver output is copied unchanged into a bounded queue. The clock input uses
+a separate DC filter for RMC/GGA and aiding feedback; RTCM payloads and unrelated
+long sentences cannot become clock input. Target timing faults and original
+freshness deadlines remain enforced. Slow readers lose raw bytes rather than
+blocking PPS or the source owner. Application backlog expires after 500 ms;
+USB/driver buffers and plain NMEA do not provide an end-to-end freshness proof.
+Clock diagnostics add `dc_gnss_bridge`: raw-output drops, host-input drops,
+rejected host frames, dropped commands, and queued raw-output bytes.
+
+Host output accepts complete CRC24Q-valid RTCM frames and a narrow command set:
+product/configuration queries, enabling standard navigation sentences, NMEA 4.1,
+and an explicit fixed-115200 UART1 configuration retaining Unicore/NMEA while
+enabling RTCM input/output. PPS changes, receiver reset, persistent writes,
+arbitrary commands and baud changes are refused. USB line coding never changes
+the physical GNSS UART. UART TX remains owned by the GNSS adapter, mutually
+exclusive with aiding; epoch changes, timeout and shutdown request bounded abort,
+and power-off waits for actual DMA return. Queued commands retain a 250 ms
+original ingress deadline.
+
+This enables receiver configuration and correction/raw-data experiments; it does
+not add an onboard RTK solver. UC6580 raw output depends on the installed GNSS
+firmware. Query product information before enabling it. Firmware replacement,
+RTK fix performance, physical serial coexistence and calibrated UTC remain
+separate validation. Offline checks:
+
+```sh
+CC=clang python3 firmware/t096/tools/dc_gnss_tests.py --out artifacts/check-dc-gnss
+```
+
 ## USB RMS
 
 USB RMS measures **device-observed USB SOF cadence against the GNSS-disciplined

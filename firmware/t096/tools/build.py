@@ -109,6 +109,7 @@ def main():
         # Identity binding, not a credential. No group key is read or generated.
         secret.write_text('/* DC: no group enrollment. device-config-sha256: '+sha(args.device_config)+' */\n')
         receipt.update(ble_enabled=False,profile_toggleable=False,relay_hops=0,
+                       dc_gnss_bridge=True,gnss_rtk='CORRECTION_AND_RAW_TRANSPORT_RECEIVER_FIRMWARE_UNVERIFIED',
                        timing_chain='LOCAL_GNSS_PPS_TIMER3_USB_SOF_MACOS',
                        usb_rms='GNSS_MAPPED_SOF_SPAN_PER_FRAME_RMS')
         write(out/'receipt.json',receipt)
@@ -133,7 +134,7 @@ def main():
              '-DR2_SOURCE_SHA='+source_hash,'-DR2_CHILD_COMMIT='+receipt['public_commit'],
              '-DR2_SOURCE_DIRTY='+str(int(dirty)),
              '-DZEPHYR_MODULES='+';'.join(str(deps/p['path']) for p in lock['modules']),
-             *(['-DR2_DC_PROFILE=ON','-DCONF_FILE='+str(APP/'dc.conf')] if dc else
+             *(['-DR2_DC_PROFILE=ON','-DCONF_FILE='+str(APP/'dc.conf'),'-DDTC_OVERLAY_FILE='+str(APP/'dc.overlay')] if dc else
                ['-DEXTRA_CONF_FILE='+';'.join(str(APP/p) for p in ['rc_dynamic.conf','rc_unicast.conf','watchdog.conf','rc_hf_synth.conf'])])]
     try:
         run(command,'configure.log');run(['ninja','-C',str(out/'target')],'build.log')

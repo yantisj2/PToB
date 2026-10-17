@@ -83,6 +83,7 @@ artifacts/deps/venv/bin/python firmware/t096/tools/inspect_build.py artifacts/bu
 ```sh
 python3 -m unittest discover -s firmware/t096/provisioning -p 'test_*.py' -v
 CC=clang python3 firmware/t096/tools/dc_tests.py --out artifacts/check-dc
+CC=clang python3 firmware/t096/tools/dc_gnss_tests.py --out artifacts/check-dc-gnss
 CC=clang python3 firmware/t096/tools/usb_sof_tests.py --out artifacts/check-usb
 CC=clang python3 firmware/t096/tools/watchdog_tests.py --deps artifacts/deps --out artifacts/check-watchdog
 CC=clang python3 firmware/t096/tools/runtime_profile_tests.py --deps artifacts/deps --out artifacts/check-profile

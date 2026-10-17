@@ -2,6 +2,19 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 17 October 2026 — DC GNSS serial development
+
+T096 **0.15.82** adds a DC-only independent CDC ACM function for original GNSS output,
+CRC-checked RTCM input and narrowly allowed UFirebird configuration commands.
+The DC clock parser isolates binary observations while retaining its original
+RMC/GGA and aiding path. The existing UART owner serializes host traffic with
+aiding, enforces original ingress age and waits for DMA return during shutdown.
+GM/RC retain their original GNSS path and single-CDC USB layout. Build receipts
+identify the DC bridge; portable transport and UART-owner tests join the normal
+offline suite. This is source development, not an installed or qualified image.
+Receiver firmware support, RTK solutions, physical coexistence and independent
+UTC calibration remain unverified.
+
 ## 17 October 2026 — publication data attachment
 
 The [USB comparison supplement](evidence/usb/2026-10-17/README.md) attaches all

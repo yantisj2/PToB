@@ -8,6 +8,7 @@
 #include "gnss_aid.h"
 #ifdef R2_DC_PROFILE
 #include "direct_connect.h"
+#include "dc_gnss.h"
 #endif
 #ifdef R2_USB_SOF_PROBE
 #include "usb_sof_probe.h"
@@ -73,6 +74,9 @@ static const char *error_name(int code){
 #endif
 static void __attribute__((noinline)) clock_reply(const struct r2_request *r,uint64_t arrival)
 {
+#ifdef R2_DC_PROFILE
+  uint32_t gnss_bridge[5];r2_dc_gnss_status(gnss_bridge);
+#endif
   struct r2_clock_view t;uint32_t drops;r2_time_snapshot(&t,&drops);
   struct r2_pps_precision_view q;r2_time_precision_snapshot(&q);
   struct r2_gnss_aid_status aid;r2_gnss_aid_status(&aid);
@@ -87,14 +91,22 @@ static void __attribute__((noinline)) clock_reply(const struct r2_request *r,uin
     "\"pps_capture_epoch\":%llu,\"pps_capture_age_us\":%lld,\"pps_fit_samples\":%u,"
     "\"pps_rate_valid\":%s,\"pps_fit_valid\":%s,\"pps_drift_ppb\":%d,\"pps_trim_ppb\":%d,"
     "\"pps_fit_rms_ns\":%u,\"pps_prediction_rms_ns\":%u,\"native_capture_error\":%d,"
-    "\"source_pps\":[%llu,%llu,%llu,%llu,%llu,%d,%u,%s],\"rmc\":[%u,%u],\"aid\":[%u,%u,%u,%u,%d,%s,%llu],\"precision\":\"UNKNOWN\",\"timescale\":\"POSIX_UTC_ESTIMATE\",\"uncertainty_us\":null}",
+    "\"source_pps\":[%llu,%llu,%llu,%llu,%llu,%d,%u,%s],\"rmc\":[%u,%u],\"aid\":[%u,%u,%u,%u,%d,%s,%llu],"
+#ifdef R2_DC_PROFILE
+    "\"dc_gnss_bridge\":[%u,%u,%u,%u,%u],"
+#endif
+    "\"precision\":\"UNKNOWN\",\"timescale\":\"POSIX_UTC_ESTIMATE\",\"uncertainty_us\":null}",
     R2_SOURCE_SHA,(unsigned long long)identity.boot,t.state,t.valid?"true":"false",
     (long long)t.utc_us,(long long)t.mono_us,(long long)t.gps_age_us,(long long)t.pps_age_us,(long long)t.rx_age_us,
     t.input_error,t.rate_ppb,(long long)t.phase_us,t.rate_valid?"true":"false",t.source_available?"true":"false",
     t.generation,t.source_epoch,t.pairs,t.accepted,t.rejected,t.faults,t.reason,t.association,
     t.pps_edges,t.pps_rejected,t.pps_present?"true":"false",t.fix_active?"true":"false",
     t.sats_used,t.gga_count,drops,(unsigned long long)q.epoch,(long long)q.age_us,q.samples,
-    q.rate_valid?"true":"false",q.fit_valid?"true":"false",q.drift_ppb,q.trim_ppb,q.fit_rms_ns,q.prediction_rms_ns,r2_capture_error(),(unsigned long long)source_pps.tick,(unsigned long long)source_pps.epoch,(unsigned long long)source_pps.ns,(unsigned long long)source_pps.generation,(unsigned long long)source_pps.map_from,source_pps.phase_ns,source_pps.observations,source_pps.valid?"true":"false",t.rmc_status,t.rmc_mode,aid.attempts,aid.completed,aid.aborted,aid.ack,aid.result,aid.busy?"true":"false",(unsigned long long)aid.utc_ms);
+    q.rate_valid?"true":"false",q.fit_valid?"true":"false",q.drift_ppb,q.trim_ppb,q.fit_rms_ns,q.prediction_rms_ns,r2_capture_error(),(unsigned long long)source_pps.tick,(unsigned long long)source_pps.epoch,(unsigned long long)source_pps.ns,(unsigned long long)source_pps.generation,(unsigned long long)source_pps.map_from,source_pps.phase_ns,source_pps.observations,source_pps.valid?"true":"false",t.rmc_status,t.rmc_mode,aid.attempts,aid.completed,aid.aborted,aid.ack,aid.result,aid.busy?"true":"false",(unsigned long long)aid.utc_ms
+#ifdef R2_DC_PROFILE
+    ,gnss_bridge[0],gnss_bridge[1],gnss_bridge[2],gnss_bridge[3],gnss_bridge[4]
+#endif
+    );
   if(n<0||(size_t)n>=sizeof(json)||reply_sequence==UINT32_MAX)return;
   n=r2_frame(frame,sizeof(frame),r->id,++reply_sequence,json);
   if(n>0)(void)r2_console_reply(frame,(size_t)n,arrival+R2_REPLY_MS);

@@ -48,6 +48,12 @@ def inspect(out,allow_development=False):
     for line in ['CONFIG_ROM_END_OFFSET=0x6000','CONFIG_FLASH=y','CONFIG_USB_DEVICE_STACK=y','CONFIG_WATCHDOG=y']:
         require(line in config,'Required configuration: '+line)
     commands=(out/'target/compile_commands.json').read_text()
+    dts=(out/'target/zephyr/zephyr.dts').read_text()
+    if dc and 'src/dc_gnss.c' in r['sources']:
+        require(r.get('dc_gnss_bridge') is True,'Missing DC GNSS bridge receipt')
+        require('/src/dc_gnss.c' in commands and '/src/dc_gnss_transport.c' in commands and 'cdc_acm_gnss' in dts,'Missing DC GNSS serial function')
+    else:
+        require('/src/dc_gnss.c' not in commands and '/src/dc_gnss_transport.c' not in commands and 'cdc_acm_gnss' not in dts,'DC GNSS bridge leaked into GM/RC')
     for feature in [('R2_DC_PROFILE=1' if dc else 'R2_RC_PROFILE=1'),'R2_USB_SOURCE_STREAM=1','R2_USB_SOF_PROBE=1']:
         require(feature in commands,'Missing standard RC7 feature: '+feature)
     if dc:

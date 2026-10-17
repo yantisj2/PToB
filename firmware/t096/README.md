@@ -14,7 +14,7 @@ devices. See [the architectural background](../../docs/V12_TO_R2.md).
 **PToB owns T096 RC7 development.** The ordinary mesh profiles are **GM** and **RC**;
 USB timing support is compiled by default. [Build from source](../../docs/t096/build.md)
 using pinned public dependencies and ignored local enrollment. The current
-application version is 0.15.81. No publicly enrolled binary is distributed.
+application version is 0.15.82. No publicly enrolled binary is distributed.
 
 **[Direct Connect (DC)](../../docs/t096/direct-connect.md)** is a distinct,
 flash-only GNSS-to-USB image for a dedicated macOS source. It compiles Bluetooth
@@ -22,6 +22,12 @@ out, uses no group enrollment and keeps the clock display with USB SOF RMS.
 It cannot be selected through the GM/RC toggle. Exact-device local packages are
 validation candidates; hardware durability, UTC precision and a generic website
 release remain separate acceptance work.
+
+The DC development source also adds a second USB serial function carrying the
+receiver's original output and bounded RTCM/configuration input. It keeps the
+precision USB interface separate. Raw observations depend on receiver firmware;
+this transport does not establish an onboard RTK solver or an RTK fix. See the
+[DC serial contract](../../docs/t096/direct-connect.md#gnss-serial-and-correction-transport).
 
 DC and RC share the immutable USB publisher: unchanged owner polls preserve an
 in-flight request and never renew its original source/map/session deadlines.

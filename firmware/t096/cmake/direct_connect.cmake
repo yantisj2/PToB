@@ -20,6 +20,7 @@ target_sources(app PRIVATE
  src/ui_render.c src/ui_service.c src/display.c src/rc_shadow.c src/rc_boundary.c
  src/usb_source.c src/usb_sof_probe.c src/usb_sof_observer.c src/usb_reference_interface.c
  src/dc_clock.c src/direct_connect.c src/health.c src/watchdog.c src/watchdog_policy.c src/timing_events.c)
+target_sources(app PRIVATE src/dc_gnss.c src/dc_gnss_transport.c)
 include(cmake/clock_handoff.cmake)
 include(cmake/usb_ep0_recovery.cmake)
 target_compile_options(app PRIVATE -Wall -Wextra -Werror -Wno-unused-parameter)

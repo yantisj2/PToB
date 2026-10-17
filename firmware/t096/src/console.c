@@ -8,6 +8,9 @@
 #include <zephyr/device.h>
 #include <zephyr/drivers/uart.h>
 #include <zephyr/usb/usb_device.h>
+#ifdef R2_DC_PROFILE
+#include "dc_gnss.h"
+#endif
 #define R2_LOCK_UNIT 5u
 #include "health_lock.h"
 static const struct device *const cdc=DEVICE_DT_GET(DT_NODELABEL(cdc_acm_uart0));
@@ -29,6 +32,9 @@ static void add(uint32_t *value, uint32_t delta)
 { *value=UINT32_MAX-*value<delta?UINT32_MAX:*value+delta; }
 static void usb_event(enum usb_dc_status_code event,const uint8_t *parameter)
 {
+#ifdef R2_DC_PROFILE
+  if(event==USB_DC_DISCONNECTED||event==USB_DC_RESET||event==USB_DC_SUSPEND)r2_dc_gnss_usb_reset();
+#endif
   k_spinlock_key_t key=k_spin_lock(&lock); add(&stats.usb_events,1);
   if(event==USB_DC_DISCONNECTED || event==USB_DC_RESET) {
     ++rx_epoch;
@@ -94,6 +100,9 @@ static void interrupt(const struct device *device,void *context)
 }
 static void worker(void *a,void *b,void *c)
 {
+#ifdef R2_DC_PROFILE
+  r2_dc_gnss_start(); /* Register the second function before the sole usb_enable. */
+#endif
   int rc=device_is_ready(cdc)?uart_irq_callback_user_data_set(cdc,interrupt,NULL):-ENODEV;
   if(!rc) rc=usb_enable(usb_event);
   k_spinlock_key_t key=k_spin_lock(&lock); stats.usb_rc=rc; k_spin_unlock(&lock,key);
