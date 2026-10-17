@@ -64,7 +64,7 @@ remains 300 seconds within its original 360-second context. The proposed
 900/600-second negotiated contract and quality-bearing BLE relay extension
 require a coordinated GM/peer upgrade and are not active here.
 
-A passive 128-byte capsule freezes at the first post-acquisition discipline loss per capture
+A passive 152-byte capsule freezes at the first post-acquisition discipline loss per capture
 lifecycle, including prepare lazy/queued cancellation and available native
 outcomes/owner/generation. Later losses remain in cumulative counters. READY,
 HCTO, failed-event RSSI and a ticker collision winner are unavailable; no timer
