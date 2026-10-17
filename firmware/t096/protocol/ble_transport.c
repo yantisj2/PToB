@@ -4,6 +4,7 @@
  */
 #include "ble_transport.h"
 #include "timing_events.h"
+#include "initiator_diag.h"
 #if defined(R2_SWITCHABLE_FIELD)
 #include "ble_service.h"
 #endif
@@ -354,6 +355,21 @@ static ssize_t read_marker(struct bt_conn *conn,const struct bt_gatt_attr *attr,
 BT_GATT_SERVICE_DEFINE(r2_control_service,
  BT_GATT_PRIMARY_SERVICE(&service_uuid),
  BT_GATT_CHARACTERISTIC(&data_uuid.uuid,BT_GATT_CHRC_WRITE_WITHOUT_RESP|BT_GATT_CHRC_READ,BT_GATT_PERM_WRITE|BT_GATT_PERM_READ,read_marker,write_record,NULL));
+static void native_init_observation(uint64_t peer,int result)
+{
+#if defined(CONFIG_ARM)
+  struct r2_init_diag d;r2_init_diag_snapshot(&d);
+  /* Cumulative boot-scoped counters need no additional static baseline.
+   * This reads the pinned controller's1M scan flags; it performs no operation. */
+  extern uint32_t ull_scan_is_enabled(uint8_t handle);
+  r2_timing_event(R2_TIMING_GM_CONTROL,result,peer,13,d.count[R2_INIT_PREPARE],d.count[R2_INIT_RX]);
+  r2_timing_event(R2_TIMING_GM_CONTROL,result,peer,14,d.count[R2_INIT_MATCH],d.count[R2_INIT_REQUEST]);
+  r2_timing_event(R2_TIMING_GM_CONTROL,result,peer,15,d.count[R2_INIT_WINDOW],d.count[R2_INIT_BUFFER]);
+  r2_timing_event(R2_TIMING_GM_CONTROL,result,peer,16,d.count[R2_INIT_ABORT],ull_scan_is_enabled(0));
+#else
+  (void)peer;(void)result;
+#endif
+}
 static void connected(struct bt_conn *conn,uint8_t error)
 {
 #if defined(R2_SWITCHABLE_FIELD)
@@ -378,7 +394,10 @@ static void connected(struct bt_conn *conn,uint8_t error)
   }
   r2_timing_event(R2_TIMING_GM_CONNECTED,error,i>=0?peers[i].identity:0,
                   i<0?255u:(unsigned)i,i>=0?peers[i].incarnation:0,0);
+  bool own_init=group_id&&i>=0&&!peers[i].admission_server;
+  uint64_t init_peer=own_init?peers[i].identity:0;
   k_spin_unlock(&lock,key);
+  if(own_init)native_init_observation(init_peer,error);
   if(i<0&&!error)duplicate_track(conn,now_us());
 }
 static void disconnected(struct bt_conn *conn,uint8_t reason)
@@ -799,7 +818,13 @@ static void poll_owned(uint64_t now)
 #endif
     unsigned supervision=field_profile&&group_client?10:100;
     if(group_id)p->admission_server=false;
-    int rc=bt_conn_le_create(&p->address,BT_CONN_LE_CREATE_CONN,BT_LE_CONN_PARAM(interval,interval,0,supervision),&conn);
+    /* The stock initiator scans continuously60ms/60ms. Once protected PA
+     * receive/transmit events exist that reservation can be skipped wholesale.
+     * Finite5ms/20ms native G1 windows fit between precision events and use
+     * the stock cancellation path rather than continuous-scan resumption. */
+    const struct bt_conn_le_create_param *create=group_id?
+      BT_CONN_LE_CREATE_PARAM(BT_CONN_LE_OPT_NONE,0x20,0x08):BT_CONN_LE_CREATE_CONN;
+    int rc=bt_conn_le_create(&p->address,create,BT_LE_CONN_PARAM(interval,interval,0,supervision),&conn);
     if(!rc){
       /* A connected callback can run while the synchronous create command
        * sleeps. It may already own a reference to this same connection. Keep

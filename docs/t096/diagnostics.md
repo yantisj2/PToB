@@ -105,7 +105,14 @@ flag), 8 MTU exchange callback (cached negotiated MTU / incarnation),
 9 characteristic discovery (handle / incarnation), and 10 marker-read callback
 (length / incarnation), 11 first native G1 discovery assignment (signed RSSI
 encoded as uint32 / passive hint), and 12 disconnected provisional hint retired
-(release flag / reserved). These observations grant no authority and do not extend
+(release flag / reserved). Stages13–16 follow native central connection
+callbacks and contain cumulative controller counters since the MCU boot:
+13 prepared scan windows / CRC-valid PDUs, 14 eligible target advertisements /
+prepared connection requests, 15 insufficient-window / RX-buffer refusals,
+16 initiating preemptions / native1M scan flags (passive bit0, active bit1,
+initiating bit2, periodic-acquisition bit3). These are cumulative, unlike the
+per-attempt kinds22–25; saturation and source/boot changes fence subtraction.
+These observations grant no authority and do not extend
 an exchange or restart a precision train.
 
 Kinds22–25 carry the same connected/create-error result and per-attempt baseline.

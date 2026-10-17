@@ -59,11 +59,13 @@ static void gm_peer_first_mtu(void)
  assert(!connection.refs&&!p->conn);
  puts("PASS peer-first public negotiated MTU permits discovery without fabricated own completion; initial/small23B and disconnected callbacks remain unready; EALREADY never counts as a fault or extends provisional expiry");
 }
-static bool early;static unsigned creates,last_interval,last_supervision;
+static bool early;static unsigned creates,last_interval,last_supervision,last_create_interval,last_create_window;
 static int bt_conn_le_create(const bt_addr_le_t *address,const void *create,
  const void *params,struct bt_conn **out)
 {
  ++creates;last_interval=((const struct bt_le_conn_param *)params)->interval_min;last_supervision=((const struct bt_le_conn_param *)params)->timeout;connection.address=*address;
+ last_create_interval=((const struct bt_conn_le_create_param *)create)->interval;
+ last_create_window=((const struct bt_conn_le_create_param *)create)->window;
  connection.refs=2; /* host lifecycle + API return reference */
  if(early)callbacks.connected(&connection,0);
  *out=&connection;
@@ -410,6 +412,7 @@ static void unready_core_discovery(void){
  early=false;unsigned before=creates;r2_ble_poll(fake_time);
  assert(creates==before+1&&p->conn==&connection&&p->connect_until==fake_time+100000);
  assert(scan_window==0x08&&scan_interval==0x20); /* No50ms control reservation beside PA. */
+ assert(last_create_window==0x08&&last_create_interval==0x20); /* Initiation is finite too. */
  uint64_t original_provisional=p->provisional_until;unsigned closes=disconnects;
  fake_time+=99999;r2_ble_poll(fake_time);assert(disconnects==closes);
  ++fake_time;r2_ble_poll(fake_time);assert(disconnects==closes+1&&p->provisional_until==original_provisional);

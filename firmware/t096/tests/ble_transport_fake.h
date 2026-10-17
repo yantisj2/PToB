@@ -29,7 +29,10 @@
 #define BT_DATA_BYTES(...) {0}
 #define BT_LE_ADV_PARAM(...) NULL
 #define BT_LE_SCAN_TYPE_PASSIVE 0
-#define BT_CONN_LE_CREATE_CONN NULL
+struct bt_conn_le_create_param {uint32_t options;uint16_t interval,window;};
+#define BT_CONN_LE_OPT_NONE 0
+#define BT_CONN_LE_CREATE_PARAM(o,i,w) ((const struct bt_conn_le_create_param[]){{.options=(o),.interval=(i),.window=(w)}})
+#define BT_CONN_LE_CREATE_CONN BT_CONN_LE_CREATE_PARAM(0,0x60,0x60)
 #define BT_LE_CONN_PARAM(a,b,c,d) (&(struct bt_le_conn_param){a,b,c,d})
 #define BT_HCI_ERR_REMOTE_USER_TERM_CONN 19
 #define BT_GATT_SERVICE_DEFINE(...)

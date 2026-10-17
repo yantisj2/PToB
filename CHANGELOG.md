@@ -2,6 +2,21 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 17 October 2026 — finite native G1 initiation
+
+T096 **0.15.77** replaces native G1's default continuous60ms/60ms initiator
+with finite5ms/20ms windows. Its connection opportunity, ACL interval and
+authentication deadlines remain unchanged. The regression checks the actual
+parameters passed to connection creation and rejects the previous continuous
+default, independently of ordinary discovery scan parameters.
+
+It also exports the existing controller initiator counters after native
+central connection callbacks. The records remain cumulative within one MCU
+boot and distinguish prepared windows, valid reception, matching targets,
+prepared requests, preemptions and resource/window refusals. A read of the
+native1M scan flags accompanies them. No new static baseline or recovery action
+is added; these diagnostics do not qualify a successful connection or HOT pair.
+
 ## 17 October 2026 — unpaired GM discovery reservations
 
 T096 **0.15.76** uses the existing distributed5ms/20ms peer-discovery policy
