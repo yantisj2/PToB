@@ -143,10 +143,8 @@ bool full_listening(){return mode==R2Mode::Client&&listening_percent==100;}
 bool client_window_active(uint64_t now,uint32_t phase){return full_listening()||G1Window::active(now,phase);}
 bool anchor_valid(uint64_t now){return anchor.valid(now);}
 bool following(uint64_t now){return usable_utc()&&anchor.live(now);}
-// Selection restraint, never precision/permission authority. Use the same raw
-// sub-1us/one-second hold prerequisites as the lock timer, before presentation
-// smoothing. Recheck actual scope, model and monotonic time on every use.
-bool lock_protected_quality(const G1RelativeQuality& q,const G1ClockPrediction& clock,uint64_t tick,uint64_t now){
+// Common current-parent authority checks; scheduling never adds permission.
+bool current_parent_time(uint64_t now){
   if(mode!=R2Mode::Client||closing||fault||parent_diagnostic.pending()||!joined_peer||
      !following(now)||!corrected_clock.covers(now,now)||
      !parent_selection.accepts(joined_peer,rc_bound())||(exclude_direct_gm&&!rc_bound()))return false;
@@ -159,8 +157,29 @@ bool lock_protected_quality(const G1RelativeQuality& q,const G1ClockPrediction& 
        path.node[path.depth].id!=joined_peer||path.node[path.depth].boot!=joined_boot||
        path.node[0].id!=anchor.root||path.node[0].boot!=anchor.boot||path.source_epoch!=anchor.source_epoch)return false;
   }else if(anchor.root!=joined_peer||anchor.boot!=joined_boot)return false;
+  return true;
+}
+bool lock_protected_quality(const G1RelativeQuality& q,const G1ClockPrediction& clock,uint64_t tick,uint64_t now){
+  // Same raw sub-1us/one-second hold prerequisites as the lock timer.
+  if(!current_parent_time(now))return false;
   const auto until=anchor.deadline();
   return tick&&until>now&&q.locked(tick,clock)&&q.hold_ms(tick,clock,until-now)>=1000;
+}
+// Reserve an actually arriving authenticated precision stream independently
+// of its forecast quality. A short quality dip must not force broad discovery
+// just to renew this same parent. This is scheduling only: lock, downstream
+// eligibility and every source/model/replay deadline retain their own gates.
+bool precision_reserved(uint64_t now){
+  if(!full_listening()||!synced||sync_terminating||sync_cleanup_queued||
+     sync_identity!=joined_peer||!current_parent_time(now))return false;
+  const auto received=parent_selection.quality().last_rx;
+  if(!received||now<received||now-received>=250000)return false;
+#ifdef V12_R2_RX_SHADOW
+  uint64_t tick=0;const auto clock=corrected_clock.prediction();
+  return clock.tick&&clock_reference_read(&tick)&&tick>=clock.tick;
+#else
+  return false;
+#endif
 }
 bool lock_protected(uint64_t now){
 #ifdef V12_R2_RX_SHADOW
@@ -209,7 +228,7 @@ void sync_trace(uint8_t event,uint16_t handle,int result,const LinkContext* save
   const auto context=saved?*saved:sync_context();admission_trace(event,handle,result,&context);
 }
 void start_scan(bool gm_observation=false){
-  if(!timely()||(!gm_observation&&!relay_slot_scanning()&&lock_protected(micros()))||micros()<scan_retry_at||(mode==R2Mode::Client&&!client_window_active(micros(),window_phase)))return;
+  if(!timely()||(!gm_observation&&!relay_slot_scanning()&&(lock_protected(micros())||precision_reserved(micros())))||micros()<scan_retry_at||(mode==R2Mode::Client&&!client_window_active(micros(),window_phase)))return;
   const auto now=micros();if(!scan_retry_until)scan_retry_until=now+2000000;
   if(now>=scan_retry_until){error(BLE_HS_ETIMEOUT,R2Api::ScanStart);return;}
   ble_gap_ext_disc_params p{};p.passive=1;p.itvl=32;p.window=32;
@@ -521,11 +540,11 @@ void connect(const Discovery& d,uint64_t id,uint64_t now,bool relay=false){
   // This transient client uses the public minimum100ms supervision timeout
   // with7.5ms intervals/zero latency. Lost links must not retain a1s timeout
   // across the500ms quiet boundary. This does not replace actual drain ACKs.
-  // Listen continuously while the bounded initiator owns this window. The
-  // former50ms/100ms inner duty cycle unnecessarily discarded connection
-  // opportunities. The existing400ms ACL cutoff and500ms quiet gate still
-  // bound total ownership, including setup and actual disconnect completion.
-  p.scan_itvl=p.scan_window=32;
+  p.scan_itvl=32;p.scan_window=precision_reserved(micros())?8:32;
+  // With a current precision stream, request5ms/20ms initiation windows,
+  // leaving gaps for periodic reception. Cold acquisition keeps20ms/20ms.
+  // Keep the original attempt/exchange and actual cancellation/drain ACKs;
+  // a scanner window is not a controller priority or RF delivery guarantee.
   // The adapter owns the unchanged2s cancellation deadline. Disable only
   // the duplicate SDK host timer; HCI create itself has no duration parameter.
   // Require the real completion callback, never just the cancel command ACK.
@@ -762,7 +781,8 @@ void renew_permission(uint64_t created,uint64_t expires,int64_t offset,uint64_t 
   const uint64_t left=uint64_t(int64_t(expires)+offset-coarse_ns(now))/1000-anchor.guard(now);
   if(left<=(immutable_origin?1650000:1500000)){anchor.until=now+left;last_origin_ns=created;}
 }
-void periodic_poll(uint64_t now){Periodic row{};for(unsigned i=0;i<8&&periodic.pop(row);i++){
+unsigned periodic_poll(uint64_t now,unsigned budget=8){Periodic row{};unsigned processed=0;for(;processed<budget&&periodic.pop(row);++processed){
+  now=micros();
   struct ReceiveObservation {
     const Periodic& row;uint64_t now;uint32_t authenticated,accepted,refused;
     ~ReceiveObservation(){
@@ -874,7 +894,7 @@ void periodic_poll(uint64_t now){Periodic row{};for(unsigned i=0;i<8&&periodic.p
     (void)discipline.authenticated_gr3(p,row.capture,available,now,coarse_ns(now));
 #endif
   }else inc(p1_bad);
-}}
+}return processed;}
 bool owners_active(){return relay_owned()||scan||peer.connecting||peer.handle!=None||sync_pending||synced;}
 void cancel_connect(uint64_t now){
   if(!peer.connecting||connecting_cancelled)return;
@@ -972,14 +992,16 @@ void active_poll(uint64_t now){
   probe_pending_link(now);
   // Enforce this window before any public GATT operation can yield or send.
   if(mode==R2Mode::Client&&!window_poll(now)){periodic_poll(micros());return;}
-  // Drain captured originals/corrections before a background admission can
-  // yield in the public GATT API. Keep the existing eight-record batch bound;
-  // packets arriving during admission wait for the next host poll. This does
-  // not change PA ownership or renew the capture/permission deadlines.
-  periodic_poll(micros());
+  // Share the existing eight-report budget across control boundaries. A
+  // yielding SDK call may return with new callbacks queued; consume them
+  // before the next control operation can make those reports stale.
+  unsigned precision_left=8;
+  const auto precision_work=[&](){periodic_rx::poll();precision_left-=periodic_poll(micros(),precision_left);now=micros();};
+  precision_work();
   relay_poll(micros(),admission_due(now,corrected_clock.covers(now,now))&&admission_policy.allowed(now)&&now>=retry_at);
-  gatt_poll(now);receive_join(now);
+  precision_work();gatt_poll(micros());precision_work();receive_join(micros());
   if(peer.relay)send_rc_request(micros());else send_join(micros());
+  precision_work();
   if((synced||sync_pending)&&((anchor_valid(now)&&sync_identity!=anchor.root&&sync_identity!=joined_peer)||(sync_pending&&now>=sync_acquire_until)))cancel_sync(now);
   if((sync_cancelled&&sync_pending)||(sync_terminating&&synced)){if(now>=sync_drain_until)error(BLE_HS_ETIMEOUT,R2Api::SyncTerminate);}
   // Optional early JOIN can use an existing map covering this whole window.
@@ -999,7 +1021,7 @@ void active_poll(uint64_t now){
      peer.handle==None&&!peer.connecting&&!sync_pending&&!synced&&!sync_selected&&!sync_cleanup_queued){
     sync_identity=joined_peer;sync_selected=true;
   }
-  const bool protected_parent=lock_protected(micros())&&!gm_observation;
+  const bool protected_parent=(lock_protected(micros())||precision_reserved(micros()))&&!gm_observation;
   if(protected_parent&&!relay_slot_scanning()){
     stop_scan();
     // Retire an abandoned logical BUSY retry only after actual scanner OFF.
@@ -1076,7 +1098,7 @@ void active_poll(uint64_t now){
 #endif
     const int rc=ble_gap_periodic_adv_sync_create(&sync_address,12,&p,gap,reinterpret_cast<void*>(uintptr_t(sync_capture_epoch)));sync_trace(16,None,rc,&context);if(rc){periodic_rx::scope(None);sync_pending=false;sync_identity=0;if(!transient(rc,R2Api::SyncCreate))error(rc,R2Api::SyncCreate);}
   }
-  periodic_poll(micros());
+  precision_work();
 }
 void parent_diagnostic_poll(uint64_t now){
   portENTER_CRITICAL(&mux);const auto control=parent_diagnostic;
@@ -1323,6 +1345,7 @@ void r2_host_poll(){if(!initialized)return;const auto begin=micros();bool start=
   portENTER_CRITICAL(&mux);const bool failed=client.deadline_exceeded||parent_diagnostic.state==4;const bool rebind=parent_diagnostic.pending();const auto deadline=lease.deadline_us;portEXIT_CRITICAL(&mux);if(failed)fault=true;
   if(stop||(mode!=R2Mode::Off&&(fault||(mode!=R2Mode::Client&&begin>=deadline-2000000))))begin_close(begin);
   if(fault&&relay_owned())relay_close(begin);
+  periodic_rx::poll();
   if(closing)close_poll(begin);else if(rebind)parent_diagnostic_poll(begin);else if(mode!=R2Mode::Off&&begin>=next_poll){next_poll=begin+2000;active_poll(begin);}
   recovery_poll(micros());
   periodic_rx::poll();discipline_scope(micros());if(periodic_rx::status().fault&&!closing){fault=true;begin_close(micros());}

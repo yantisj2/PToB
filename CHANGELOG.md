@@ -2,6 +2,17 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 17 October 2026 — W12 precision reception before control work
+
+W12 **0.1.9** reserves current authenticated precision reception through relative
+quality dips, renews its current parent without broad discovery, and requests
+5 ms/20 ms warm initiation windows. Queued precision reports are drained between
+control operations within the existing eight-report budget. Source/model/replay
+expiry, quality gates, cold acquisition and actual owner-drain deadlines remain
+unchanged. Synthetic public-SDK boundary tests reject the previous continuous
+warm initiation and delayed report processing. Physical radio scheduling and
+long-term lock stability require separate observations.
+
 ## 17 October 2026 — W12 replay refresh retry budget
 
 W12 **0.1.8** starts direct BLE100 replay refresh earlier, at 150 ms uncertainty

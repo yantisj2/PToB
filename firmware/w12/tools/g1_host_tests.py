@@ -91,6 +91,7 @@ def main():
     for name in ('g1_rc_continuity_test','g1_startup_fixture','g1_parent_fixture','g1_gm_hold_test','rc7_relay_estimate_test','lifecycle_test','update_gate_test','fault_watchdog_test'):
         run([CXX,'-std=c++20',*flags,'-I'+str(APP/'main'),APP/'tests'/(name+'.cpp'),*objects,'-o',out/name],name+'-build')
         run([out/name],name+'-run')
+    run(['python3',APP/'tools/precision_priority_tests.py','--out',out/'precision-priority','--objects',out],'precision-before-control-and-radio-reservation')
     commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=APP,text=True).strip()
     (out/'receipt.json').write_text(json.dumps({'schema':1,'status':'PASSED','scope':'G1_EXACT_CODECS_AND_NATIVE_PUBLIC_BOUNDARY','source_commit':commit,'contract_sha256':sha(APP/'contracts/r2_g1_client.json'),'tests':records,'physical_RF':'NOT_RUN','precision':'UNAVAILABLE'},indent=2)+'\n')
     print('PASS exact G1 vectors and synthetic device/production native client adapters')

@@ -10,7 +10,7 @@ namespace {
 bool scan_active=false,small_mtu=false,rx_blocked=false,late_disconnect=false,marker_bad=false;int scan_error=0;
 bool cleanup_scheduled=false,sync_cancel_timeout=false;unsigned sync_cancel_calls=0;
 bool residual_sync_cache=false,stop_in_cache_check=false,arm_late_stop=false,stop_at_admit=false,aux_active=false;
-unsigned connected=0,terminated=0;void* conn_arg=nullptr;bool inline_failure=false,inline_success=false,cancel_missing=false,hidden_link=false,sync_late=false,sync_cancel_disallowed=false,sync_cancel_inline=false;unsigned cancel_calls=0;std::vector<std::vector<uint8_t>> output;
+unsigned connected=0,terminated=0,last_init_interval=0,last_init_window=0;void* conn_arg=nullptr;bool inline_failure=false,inline_success=false,cancel_missing=false,hidden_link=false,sync_late=false,sync_cancel_disallowed=false,sync_cancel_inline=false;unsigned cancel_calls=0;std::vector<std::vector<uint8_t>> output;
 }
 namespace v12 {
 #ifdef V12_R2_RC7_TX_ESTIMATE_LAB
@@ -30,7 +30,7 @@ int ble_hs_id_set_rnd(const uint8_t*){return 0;}
 int ble_gatts_count_cfg(const ble_gatt_svc_def*){return 0;}int ble_gatts_add_svcs(const ble_gatt_svc_def*){return 0;}
 int ble_gap_ext_disc(unsigned,unsigned,unsigned,unsigned,unsigned,unsigned,const ble_gap_ext_disc_params* p,void*,int(*)(ble_gap_event*,void*),void*){assert(p->passive==1&&p->window==32&&p->itvl==32);if(scan_error)return scan_error;scan_active=true;return 0;}
 int ble_gap_disc_active(){return scan_active;}int ble_gap_disc_cancel(){scan_active=false;return 0;}
-int ble_gap_connect(unsigned,const ble_addr_t*,unsigned t,const ble_gap_conn_params* params,int(*cb)(ble_gap_event*,void*),void* arg){assert(t==BLE_HS_FOREVER);assert(params->scan_itvl==32&&params->scan_window==32&&params->itvl_min==6&&params->itvl_max==6&&params->supervision_timeout==10);++connected;conn_arg=arg;if(inline_failure||inline_success){ble_gap_event e;e.type=BLE_GAP_EVENT_CONNECT;e.connect.status=inline_failure?1:0;cb(&e,arg);}return 0;}
+int ble_gap_connect(unsigned,const ble_addr_t*,unsigned t,const ble_gap_conn_params* params,int(*cb)(ble_gap_event*,void*),void* arg){assert(t==BLE_HS_FOREVER);assert(params->scan_itvl==32&&(params->scan_window==32||params->scan_window==8)&&params->itvl_min==6&&params->itvl_max==6&&params->supervision_timeout==10);last_init_interval=params->scan_itvl;last_init_window=params->scan_window;++connected;conn_arg=arg;if(inline_failure||inline_success){ble_gap_event e;e.type=BLE_GAP_EVENT_CONNECT;e.connect.status=inline_failure?1:0;cb(&e,arg);}return 0;}
 int ble_gap_conn_find(uint16_t,ble_gap_conn_desc* d){d->peer_id_addr=v12::peer.address;return 0;}
 int ble_gap_conn_active(){return !hidden_link&&v12::peer.connecting;}
 int ble_gap_conn_find_by_addr(const ble_addr_t* a,ble_gap_conn_desc* d){if(!hidden_link)return BLE_HS_ENOTCONN;d->peer_id_addr=*a;return 0;}

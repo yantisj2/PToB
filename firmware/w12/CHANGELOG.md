@@ -2,6 +2,27 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 0.1.9 — 17 October 2026
+
+- Reserve a current BLE100 precision receiver during relative-quality dips,
+  using its authenticated parent/path, live source/model/replay, working clock
+  and physical delivery within 250 ms. Renew that same parent without broad
+  discovery. Source/model expiry, missing reception, rebind and faults still
+  release the reservation. Relative lock and downstream advertising retain
+  their existing quality gates; scheduling never grants timing authority.
+- Request 5 ms/20 ms initiation windows while that precision receiver is
+  reserved. Cold acquisition keeps 20 ms/20 ms. Preserve the original attempt,
+  exchange, supervision and actual cancellation/drain deadlines. These public
+  controller requests do not establish physical RF priority or delivery.
+- Refresh the receive clock reference before control work, and drain queued
+  precision reports between relay, GATT and JOIN operations. All drains share
+  the original eight-report worker budget. Check report age and subsequent
+  control decisions against fresh time after yielding SDK calls; keep the
+  original 50 ms worker-age and 250 ms physical association limits.
+- Add production-boundary regressions for quality dips, warm/cold initiation,
+  expiry/fault withdrawal, SDK yields and total report budget. The previous
+  implementation fails the corresponding ordering/reservation regressions.
+
 ## 0.1.8 — 17 October 2026
 
 - Start continuous BLE100 direct-G1 replay refresh at 150 ms uncertainty,

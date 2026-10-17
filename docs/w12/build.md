@@ -110,6 +110,23 @@ Normal RC7 admission renewal is five minutes, with a six-minute lease. Direct
 G1 JOIN replay refresh, pending admission and recovery after missing corrected
 clock progress are separate traffic classes; inspect their counters separately.
 
+Version 0.1.9 gives a current BLE100 precision receiver scheduling protection
+independently of the relative-lock forecast. The reservation requires the same
+authenticated current parent/path, live source/model/replay, working physical
+clock and matched authenticated reception within 250 ms. A quality dip can
+retain that receiver and renew its current parent without broad discovery;
+it cannot authorize downstream advertising or relax the lock estimate. Expiry,
+missing reception, explicit rebind and faults release the reservation.
+Warm initiation requests 5 ms/20 ms scan windows; cold acquisition retains
+20 ms/20 ms. Original attempt, exchange and actual drain bounds stay intact.
+The controller remains responsible for physical radio scheduling.
+
+Precision reports are drained between relay/GATT/JOIN calls under one shared
+eight-report worker budget. Receive reference refresh and fresh report/decision
+times surround yielding control work. The 50 ms worker-age and 250 ms physical
+association limits remain unchanged. The host runner includes synthetic SDK
+yield, scheduling and budget regressions; these do not measure actual RF priority.
+
 Version 0.1.6 preserves an acquired periodic receiver through authenticated
 NO_SOURCE and unusable control replies. Positive foreign roots are counted
 separately. After the first physical corrected update, failed retries wait a
