@@ -2,6 +2,22 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 0.1.12 — 17 October 2026
+
+- Clear acquisition phase continuously with a proportional slew capped at
+  50 ppm. Within 1 microsecond, retain the existing 1 ppm fine slew. The
+  previous fixed 1 ppm actuator could accumulate tens of microseconds while
+  the frequency fit warmed up, then spend tens more seconds
+  removing that backlog. No timestamp step or oscillator adjustment is added.
+- Use the same phase law in delivered maps, completion rebasing, stale-fit
+  continuation and relative forecasts. Start channel-aware fits after two seconds and at least eight repeated-channel
+  differences. Acquire points at 62.5 ms until the first fit, then use the
+  original 250 ms spacing, growing the same 64-point history toward its normal sixteen-second
+  span. Retain the rate/scatter guards, all sixteen seconds of causal error history, source/replay/model deadlines,
+  and lock/hold thresholds. Acquisition tails still delay lock until they age
+  out; a faster actuator does not establish calibrated precision.
+- Add both-sign acquisition/settled-hold regressions and exact fine-slew checks.
+
 ## 0.1.11 — 17 October 2026
 
 - Separate direct BLE100 control from precision processing deadlines. Allow

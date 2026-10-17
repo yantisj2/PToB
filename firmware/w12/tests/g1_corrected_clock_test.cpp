@@ -22,6 +22,67 @@ struct Fixture {
   }
 };
 int main(){
+  // The actuator must clear acquisition backlog without a timestamp step,
+  // preserve both signs/monotonicity, and leave the fine1ppm path exact.
+  for(const int direction:{-1,1}){
+    G1ClockPrediction acquiring{20000000,INT64_C(40000000000),direction*50000,0,0};
+    const auto epoch=acquiring.relative_at(acquiring.tick);
+    assert(epoch==acquiring.epoch&&acquiring.phase_slew_ns_s()==50000);
+    for(unsigned i=0;i<48;i++){
+      const auto next=acquiring.tick+1250000;
+      const auto delivered=acquiring.relative_at(next);
+      assert(delivered>acquiring.relative_at(acquiring.tick));
+      const auto remaining=acquiring.phase_remaining(next);
+      acquiring={next,delivered,remaining,0,0};
+    }
+    assert(std::abs(acquiring.phase)<100);
+    assert(std::abs(acquiring.relative_at(acquiring.tick)-epoch-INT64_C(3000000000)-direction*50000)<100);
+    for(const int phase:{0,100,999,1000}){
+      G1ClockPrediction fine{20000000,INT64_C(40000000000),direction*phase,0,0};
+      assert(fine.phase_slew_ns_s()==1000);
+      assert(fine.relative_at(21250000)==fine.epoch+62500000+direction*std::min(phase,63));
+      assert(fine.phase_remaining(21250000)==direction*(phase-std::min(phase,62)));
+    }
+    Fixture acquisition;acquisition.physical_rate_ppb=direction*5000;
+    uint64_t first_lock=0,first200=0;
+    for(unsigned i=0;i<1600;i++){
+      const auto now=UINT64_C(1000000)+uint64_t(i)*62500;
+      acquisition.anchor.at=now;acquisition.anchor.until=now+1500000;
+      acquisition.feed(now,uint8_t((i*11+i/17)%37));
+      const auto model=acquisition.clock.prediction();
+      const auto quality=acquisition.clock.quality(now+10);
+      if(quality.locked(model.tick,model)&&!first_lock)first_lock=now;
+      if(quality.estimate(model.tick,model)<=200&&!first200)first200=now;
+      if(i>800){assert(quality.locked(model.tick,model));assert(quality.estimate(model.tick,model)<=200);}
+    }
+    assert(first_lock&&first_lock<UINT64_C(35000000));
+    assert(first200&&first200<UINT64_C(35000000));
+    assert(acquisition.clock.causal_max_ns()>1000); // Acquisition tails retained.
+    std::printf("ACQUISITION direction=%d lock_us=%llu estimate200_us=%llu\n",direction,
+      (unsigned long long)(first_lock-1000000),(unsigned long long)(first200-1000000));
+  }
+  // Dense acquisition must identify rate across hopping channels promptly,
+  // then retain fine hold after the64-point history becomes sparse. Fixed
+  // per-channel phase offsets may not be mistaken for oscillator drift.
+  for(const int direction:{-1,1}){
+    Fixture quick;quick.physical_rate_ppb=direction*500;
+    uint64_t trained_at=0,locked_at=0;
+    for(unsigned i=0;i<1200;i++){
+      const auto now=UINT64_C(1000000)+uint64_t(i)*62500;
+      quick.anchor.at=now;quick.anchor.until=now+1500000;
+      const auto channel=uint8_t((i*11+i/17)%37);
+      quick.feed(now,channel,channel*3);
+      if(quick.clock.frequency_trained()&&!trained_at)trained_at=now;
+      const auto model=quick.clock.prediction();const auto q=quick.clock.quality(now+10);
+      if(q.locked(model.tick,model)&&!locked_at)locked_at=now;
+      if(i>640){assert(q.locked(model.tick,model));assert(q.rms_ns<200);}
+    }
+    assert(trained_at&&trained_at<UINT64_C(5000000));
+    assert(locked_at&&locked_at<UINT64_C(9000000));
+    assert(quick.clock.fit_span_ms()>=15000&&std::abs(quick.clock.prediction().rate-direction*500)<20);
+    std::printf("EARLY_FIT direction=%d trained_us=%llu lock_us=%llu\n",direction,
+      (unsigned long long)(trained_at-1000000),(unsigned long long)(locked_at-1000000));
+  }
   Fixture f;uint64_t utc=0;
   assert(!f.feed(1000000,4));assert(!f.clock.deliver(20000200,1000010,utc));
   assert(f.feed(1062500,5));assert(f.clock.accepted()==1&&f.clock.deliver(21250200,1062510,utc));

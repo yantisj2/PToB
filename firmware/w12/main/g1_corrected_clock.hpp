@@ -44,8 +44,8 @@ class G1CorrectedClock {
   uint64_t mapped_original20_=0,mapped_hold_until_us_=0;
   uint32_t accepted_=0,refused_=0;
   uint32_t quality_generation_=1;
-  // Keep64 physical points at250ms spacing: about16s of history, with
-  // enough repeated-channel differences. Offset encoding is lossless: local
+  // Keep64 physical points:62.5ms acquisition spacing gets repeated-channel
+  // evidence promptly; after the first fit,250ms spacing grows toward16s. Offset encoding is lossless: local
   // ticks stay exact and a signed24-bit residual stores remote_ns-local_ns.
   // The32s expiry and full64-bit base/scope precede every conversion.
   struct Point {uint32_t local=0;uint8_t residual[3]{},channel=255;};
@@ -104,7 +104,7 @@ class G1CorrectedClock {
     const auto error=uint64_t(std::llabs(int64_t(remote)-predicted));
     // Gross continuity screen only:1ms allowance plus the entire existing
     // +/-50ppm rate envelope over the actual held interval. It never grants
-    // precision. A seconds-scale step must not enter the1ppm phase slew.
+    // precision. A seconds-scale step must not enter phase steering.
     const auto limit=UINT64_C(1000000)+(o.local-clock_.tick)/400+o.enclosure;
     if(error<=limit)return false;
     inc(predictions_);causal_max_=std::max(causal_max_,error);
@@ -141,7 +141,7 @@ class G1CorrectedClock {
     // of channel/time selection for fitting. Full cumulative tails stay above.
     quality_add(o.local,causal,causal_available);
     double rate=clock_.rate;bool fitted=false;
-    if(!point_at_||o.local-point_at_>=5000000){
+    if(!point_at_||o.local-point_at_>=(frequency_trained_?5000000u:1250000u)){
       while(count_&&(o.local<local(points_[0])||o.local-local(points_[0])>640000000)){
         for(unsigned i=1;i<count_;i++)points_[i-1]=points_[i];
         --count_;
@@ -157,8 +157,11 @@ class G1CorrectedClock {
         count_=0;base_local_=base_remote_=0;frequency_trained_=false;fit_reason_=5;
       }else{
         auto& point=points_[count_++];point.local=uint32_t(delta);point.channel=o.channel;residual(point,int32_t(innovation));point_at_=o.local;
-        fit_reason_=count_<8?1:o.local-local(points_[0])<200000000?2:3;
-        if(count_>=8&&o.local-local(points_[0])>=200000000){
+        // Start only after2s and eight repeated-channel degrees of freedom.
+        // The same64-point history keeps growing to its normal16s span;
+        // early rate uncertainty and every delivered error still gate lock.
+        fit_reason_=count_<8?1:o.local-local(points_[0])<40000000?2:3;
+        if(count_>=8&&o.local-local(points_[0])>=40000000){
           double sx[37]{},sy[37]{};unsigned n[37]{};
           for(unsigned i=0;i<count_;i++){const auto& p=points_[i];const auto ch=p.channel;
             const double x=double(p.local)/20000000,y=double(residual(p));sx[ch]+=x;sy[ch]+=y;++n[ch];
@@ -208,16 +211,14 @@ class G1CorrectedClock {
       target=phase_fit_epoch_+int64_t(dt)*50+int64_t(std::llround(double(dt)/20000000*rate));
     }
     const int64_t previous=clock_.tick&&available>=clock_.tick?clock_.relative_at(available):target;
-    // T096 mapped actuator uses1ppm phase slew. Preserve the already delivered
-    // clock through a new sample and steer its rate separately from precision.
+    // Preserve the already delivered clock through every new sample. Large
+    // acquisition phase uses bounded faster steering; fine hold retains1ppm.
     // Exactly the T096 radio_precision/precision_step domain split: the
     // oscillator fits correction.ticks; signed coarse UTC is only an offset.
     // NMEA/coarse UTC jitter cannot enter relative phase/frequency training.
     if(phase_fit_tick_&&available>=phase_fit_tick_&&available-phase_fit_tick_>40000000&&
        clock_.tick&&o.local>=clock_.tick&&o.local-clock_.tick<=40000000){
-      const auto elapsed=double(available-clock_.tick)/20000000;
-      const int64_t remaining=int64_t(std::copysign(std::max(0.0,std::abs(double(clock_.phase))-elapsed*1000),double(clock_.phase)));
-      target=previous+remaining;
+      target=previous+clock_.phase_remaining(available);
     }
     clock_={available,previous,target-previous,rate,o.offset};
     if(fitted)frequency_trained_=true;
@@ -268,7 +269,7 @@ class G1CorrectedClock {
     // that the receiver had not yet delivered at that original RF time.
     if(!clock_.tick||completion<clock_.tick){withdraw();return false;}
     const auto relative=clock_.relative_at(completion);if(relative<=0){withdraw();return false;}
-    const int64_t slew=int64_t(std::copysign(std::min(std::abs(double(clock_.phase)),double(completion-clock_.tick)/20000000*1000),double(clock_.phase)));
+    const int64_t slew=clock_.phase_slewed(completion);
     clock_={completion,relative,clock_.phase-slew,clock_.rate,clock_.utc_offset};return true;
   }
   bool covers(uint64_t now,uint64_t through)const{return scope_.valid(now)&&until_>through&&through>=now;}
