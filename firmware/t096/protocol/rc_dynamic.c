@@ -360,7 +360,7 @@ int rc7_decode(struct rc7_packet *p, const uint8_t *ad, size_t n,
 bool rc7_bind(struct rc7_receiver *s, const struct rc7_path *path,
               uint64_t self, bool tx, uint8_t slot,
               const struct rc5_admission *a) {
-  if (!s || !a || !self || !rc7_path_valid(path) ||
+  if (!s || !rc5_admission_valid(a) || !self || !rc7_path_valid(path) ||
       path->depth + (tx ? 1 : 0) > 2)
     return false;
   struct rc5_routes routes = {.count = path->depth + 2};

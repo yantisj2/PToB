@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Materialize only the exact pinned Nordic EP0 replacement-SETUP correction."""
+"""Materialize pinned Nordic EP0 generation and restart/power corrections."""
 from pathlib import Path
 import hashlib,json,re,sys
 APP=Path(__file__).resolve().parents[1]

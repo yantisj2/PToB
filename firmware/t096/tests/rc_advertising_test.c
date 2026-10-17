@@ -6,13 +6,14 @@
 #include <stdio.h>
 #include "rc_unicast.h"
 #include "rc_admission_policy.h"
+#include "timing_events.h"
 #define RC_FIELD_HOLD_TICKS UINT64_C(8000000)
 #define UC1_CLIENTS 2
 #define BT_LE_EXT_ADV_START_DEFAULT 0
 #define BT_HCI_ERR_REMOTE_USER_TERM_CONN 19
 static bool parent_known,parent_synced,holdover_expired,capture_ok,tracking;
 static struct {bool valid;} fit;
-static uint64_t discipline_at,fake_tick;
+static uint64_t discipline_at,fake_tick,phase_rx;
 static struct rc5_clock local_clock;
 static struct rc5_state timing;
 static struct rc5_origin current_origin;

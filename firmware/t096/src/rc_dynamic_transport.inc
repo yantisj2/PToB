@@ -603,7 +603,7 @@ static bool gm_packet(struct rc7_packet *out, const uint8_t *wire, size_t size,
         .root_lo_ns = coarse - spread,
         .root_hi_ns = coarse + spread,
         .root_expires_ns = p.origin.expires_ns};
-    if (!layout_path(&path) ||
+    if (!rc5_admission_valid(&a) || !layout_path(&path) ||
         !rc7_bind(&receiver, &path, self_identity,
                   routes.node[node].transmitter, routes.node[node].slot, &a))
       return false;
@@ -749,7 +749,7 @@ static void lt_apply_read(const struct rc7_control *c) {
           .root_lo_ns = c->root_lo_ns,
           .root_hi_ns = c->root_hi_ns + age_ns,
           .root_expires_ns = c->source_expires_ns};
-      if (layout_path(&c->path))
+      if (rc5_admission_valid(&a) && layout_path(&c->path))
         bound =
             rc7_bind(&receiver, &c->path, self_identity,
                      routes.node[node].transmitter, routes.node[node].slot, &a);

@@ -84,6 +84,9 @@ CC=clang python3 firmware/t096/tools/rc_delivery_tests.py --out artifacts/check-
 CC=clang python3 firmware/t096/tools/rc_durability_tests.py --out artifacts/check-durability
 CC=clang python3 firmware/t096/tools/rc_publication_tests.py --out artifacts/check-publication
 CC=clang python3 firmware/t096/tools/usb_ep0_tests.py --deps artifacts/deps --out artifacts/check-ep0
+CC=clang python3 firmware/t096/tools/precision_schedule_tests.py --deps artifacts/deps --out artifacts/check-schedule
+CC=clang python3 firmware/t096/tools/rc_renewal_tests.py --deps artifacts/deps --out artifacts/check-renewal
+CC=clang python3 firmware/t096/tools/usb_lifecycle_tests.py --deps artifacts/deps --out artifacts/check-usb-lifecycle
 python3 -m unittest discover -s firmware/t096/tests -p 'test_console*.py' -v
 ```
 

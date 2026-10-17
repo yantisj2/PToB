@@ -18,6 +18,8 @@
 #include "rc_shadow.h"
 #include "rc_slots.h"
 #include "rc_stream_quality.h"
+#include "rc_phase_policy.h"
+#include "precision_schedule.h"
 #include "rc_unicast.h"
 #ifdef R2_USB_SOURCE_STREAM
 #include "usb_source.h"
@@ -29,6 +31,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <zephyr/bluetooth/bluetooth.h>
+#include <zephyr/bluetooth/hci.h>
 #include <zephyr/sys/atomic.h>
 static struct rc5_routes routes;
 static struct rc7_receiver receiver;
@@ -138,6 +141,9 @@ static void holdover_poll(uint64_t tick) {
 }
 static bool start_prepared, phase_admitted;
 static uint64_t phase_rx, start_delay, requested, restart_at;
+static uint64_t phase_step_at;
+static uint64_t phase_log_at;
+static int phase_last_result;
 static int64_t slot_target_ns, parent_slot_delta_ns, phase;
 /* RF placement and numerical time have different references. A corrected,
  * authenticated parent ADDRESS capture anchors the local 62.5 ms RF frame.
@@ -296,6 +302,8 @@ static bool layout_path(const struct rc7_path *path) {
     sent_count = 0;
     discipline_at = 0;
     phase_rx = 0;
+    phase_step_at = 0;
+    phase_log_at = 0;
     phase_admitted = holdover_expired = false;
     fit_rms_valid = false;
   }
@@ -509,6 +517,8 @@ static void parent_handoff_reset(void) {
   memset(current_proof, 0, sizeof current_proof);
   sent_count = 0;
   discipline_at = phase_rx = requested = restart_at = start_delay = 0;
+  phase_step_at = 0;
+  phase_log_at = 0;
   upstream_retry_at = 0;
   phase_admitted = start_prepared = awaiting_first_tx = holdover_expired = false;
   fit_rms = RC5_UNKNOWN;
@@ -937,6 +947,8 @@ static bool stop(void) {
 }
 static bool advertising_withdraw(uint64_t tick) {
   if(!running||precision_synced(tick))return true;
+  r2_timing_event(R2_TIMING_RC_PHASE,4,phase_rx,train,
+                  holdover_expired,(uint32_t)((tick-discipline_at)/16));
   if(!stop())return false;
   sent_count=0;
   phase_admitted=start_prepared=awaiting_first_tx=false;
@@ -1118,6 +1130,8 @@ static void captures(struct r2_capture now) {
         }
         phase_admitted = known && error <= clearance && error >= -clearance;
         if (known && !phase_admitted) {
+          r2_timing_event(R2_TIMING_RC_PHASE,1,phase_rx,train,
+                          (uint32_t)(int32_t)error,(uint32_t)clearance);
           lt_acquiring = true;
           lt_quiesce(true);
           if (!stop())
@@ -1138,6 +1152,23 @@ static void captures(struct r2_capture now) {
         } else {
           lt_acquiring = false;
           lt_quiesce(false);
+        }
+        int step=rc_phase_step(error,clearance,physical.tick,now.tick,
+                               phase_step_at,phase_admitted && !holdover_expired &&
+                               precision_synced(now.tick));
+        if(step){
+          uint8_t handle;
+          int rc=bt_hci_get_adv_handle(pa,&handle);
+          if(!rc)rc=r2_precision_phase_step(handle,step);
+          /* Count failed attempts too, so controller busy cannot create an
+           * owner-rate retry storm. A failed nudge leaves the legal-slot test. */
+          phase_step_at=physical.tick;
+          if(!phase_log_at || rc!=phase_last_result ||
+              physical.tick-phase_log_at>=UINT64_C(160000000)){
+            phase_log_at=physical.tick;phase_last_result=rc;
+            r2_timing_event(R2_TIMING_RC_PHASE,rc?rc:2,phase_rx,train,
+                            (uint32_t)(int32_t)error,(uint32_t)clearance);
+          }
         }
       }
       struct rc5_correction c = {0};
@@ -1526,6 +1557,7 @@ static void owner(void *a, void *b, void *c) {
     lt_guard(now.tick, window);
     if(!advertising_withdraw(now.tick))continue;
     if (running && !rc5_demand_live(&lt_demand, now.tick / 16)) {
+      r2_timing_event(R2_TIMING_RC_PHASE,5,phase_rx,train,0,0);
       stop();
       sent_count = 0;
       if (train == UINT32_MAX)
@@ -1762,6 +1794,8 @@ static void owner(void *a, void *b, void *c) {
           (deadline && mono_us() >= deadline))
         continue;
       start();
+      r2_timing_event(R2_TIMING_RC_PHASE,3,phase_rx,train,
+                      (uint32_t)requested,(uint32_t)start_delay);
       restart_at = 0;
       start_prepared = false;
     }
@@ -1879,7 +1913,7 @@ int r2_service_configure(const struct r2_identity *id,
           slot_change_requested = slot_scan_failed = slot_move_pending =
               holdover_expired = false;
   publish_ticks = discipline_at = discipline_gap_max = usable_tx_from =
-      last_rx = phase_rx = start_delay = requested = restart_at =
+      last_rx = phase_rx = phase_step_at = phase_log_at = start_delay = requested = restart_at =
           slot_move_until = upstream_retry_at = 0;
   delivery_packet_tuple=delivery_correction_tuple[0]=delivery_correction_tuple[1]=0;
   delivery_origin_issued=delivery_origin_expires=delivery_discipline_tuple=0;

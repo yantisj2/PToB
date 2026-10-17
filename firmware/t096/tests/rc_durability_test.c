@@ -15,7 +15,7 @@ static struct rc5_clock local_clock;
 static struct rc7_path upstream_path,publication_path;
 static struct rc5_origin current_origin;
 static uint8_t current_proof[16];
-static uint64_t lt_renew_at,lt_budget_until,lt_attempt_ready,lt_next,discipline_at,usable_tx_from,phase_rx,requested,restart_at,start_delay,upstream_retry_at;
+static uint64_t lt_renew_at,lt_budget_until,lt_attempt_ready,lt_next,discipline_at,usable_tx_from,phase_rx,phase_step_at,phase_log_at,requested,restart_at,start_delay,upstream_retry_at;
 static uint64_t rebind_parent_boot,rebind_root_boot,fit_parent_boot,fit_root_boot;
 static uint32_t rebind_root_epoch,rebind_capture_epoch,fit_parent_epoch,fit_root_epoch,fit_rms;
 static unsigned sent_count,lt_attempts,holdover_expiries,upstream_recoveries,train=1;

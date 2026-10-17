@@ -1,4 +1,4 @@
-# Passive ADDRESS observation hooks; preserve every controller scheduling call.
+# ADDRESS observation hooks and explicit precision preemption policy.
 set(r2_radio_out "${CMAKE_CURRENT_BINARY_DIR}/r2_radio_controller")
 execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_LIST_DIR}/../tools/radio_capture_hooks.py"
  "${ZEPHYR_BASE}" "${r2_radio_out}" RESULT_VARIABLE r2_radio_result)

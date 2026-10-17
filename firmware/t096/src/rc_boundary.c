@@ -95,8 +95,14 @@ static bool source_deadline(const struct rc5_state *s,uint64_t expires,uint64_t 
  if(!ticks||now>UINT64_MAX-ticks)return false;
  *until=now+ticks;return true;
 }
+bool rc5_admission_valid(const struct rc5_admission *a){
+ if(!a||!a->parent_boot||!a->root_boot||!a->root_epoch||!a->parent_train||!a->parent_epoch||a->root_hi_ns<a->root_lo_ns||a->root_hi_ns-a->root_lo_ns>1200000000||a->root_expires_ns<=a->root_hi_ns||a->root_expires_ns-a->root_hi_ns>RC5_SOURCE_NS)return false;
+ uint64_t remaining=a->root_expires_ns-a->root_hi_ns;
+ uint64_t ticks=(remaining*16/1000)*999700000/1000000000;
+ return ticks&&a->now_tick<=UINT64_MAX-RC5_CONTEXT_TICKS*999700000/1000000000;
+}
 bool rc5_bind(struct rc5_state *s,const struct rc5_admission *a){
- if(!s||!a||!a->parent_boot||!a->root_boot||!a->root_epoch||!a->parent_train||!a->parent_epoch||a->root_hi_ns<a->root_lo_ns||a->root_hi_ns-a->root_lo_ns>1200000000||a->root_expires_ns<=a->root_hi_ns||a->root_expires_ns-a->root_hi_ns>RC5_SOURCE_NS)return false;
+ if(!s||!rc5_admission_valid(a))return false;
  uint64_t remaining=a->root_expires_ns-a->root_hi_ns;
  /* A slow local counter must expire EARLIER, never extend absolute permission. */
  uint64_t ticks=(remaining*16/1000)*999700000/1000000000;

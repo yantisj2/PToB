@@ -374,6 +374,24 @@ recovery; a global GM restart is a last-stage recovery, not the normal cure.
 
 Offline regressions:
 
+T096 0.15.70 adds journal kind **31** for RC RF placement. Result 1 is an
+out-of-slot restart, 2 is a successful bounded phase adjustment, 3 is a start
+request, 4 is quality withdrawal, and 5 is downstream demand expiry. Negative
+results are adjustment API failures. `peer` carries the physical parent anchor
+tick and `detail` the local train. For results 1/2/negative, `a` is signed phase
+error in ns (decode as int32) and `b` is clearance in ns. Adjustment summaries
+are rate limited to ten seconds or a result change. A request is not RF proof;
+use actual TX captures and the resulting train/phase progress.
+
+The fractional placement servo moves by at most 8 us per 62.5 ms frame while
+the captured phase remains legal and upstream precision is usable. It preserves
+the advertised interval, event counter and train. The 250 us deadband, stale
+capture guard and original out-of-slot restart remain. This is experimental
+placement control, with hardware durability and interoperability still to be
+verified. The [Bluetooth Link Layer timing rules](https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core-54/out/en/low-energy-controller/link-layer-specification.html)
+distinguish average clock drift from instantaneous jitter; RF phase is separate
+from the numerical time map and its unknown accuracy bounds.
+
 ```sh
 python3 -m unittest discover -s firmware/t096/tests -p 'test_console_capture.py' -v
 CC=clang python3 firmware/t096/tools/rc_selection_tests.py --out artifacts/selection-check-01

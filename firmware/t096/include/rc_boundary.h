@@ -52,6 +52,7 @@ struct rc5_state {struct rc5_admission admission;struct rc5_routes routes;unsign
 void rc5_init(struct rc5_state *,const struct rc5_routes *,unsigned self);
 void rc5_withdraw(struct rc5_state *);
 /* Fresh authenticated admission binds boot/source before timing can be used. */
+bool rc5_admission_valid(const struct rc5_admission *);
 bool rc5_bind(struct rc5_state *,const struct rc5_admission *);
 bool rc5_coarse_interval(const struct rc5_state *,uint64_t tick,uint64_t *lo,uint64_t *hi);
 /* Caller verifies wire MAC and fixed sender route first; now is local16MHz

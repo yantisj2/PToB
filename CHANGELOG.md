@@ -2,6 +2,26 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 17 October 2026 — T096 precision scheduling candidate
+
+T096 **0.15.70** gives reserved periodic TX/RX events precedence over admission,
+discovery and connected control in the pinned controller. It retains native
+arbitration between precision events and all radio assertions. An experimental
+RC phase servo applies fractional 8 us adjustments inside the legal slot,
+without recreating the train; stale or illegal placement still withdraws or
+reacquires normally. New phase journal records distinguish placement failure,
+adjustment, start, quality withdrawal and demand expiry.
+
+Validate admissions before changing a live RC7 path or resetting its receiver.
+Same-scope renewals retain pending original/follow-up associations, fit and
+original map deadlines. USB queue-overflow restart now fences old EP0 events,
+replays current VBUS/regulator readiness and tolerates duplicate READY events.
+The separate indefinite DMA wait and the historical persistent USB blackout
+are not established as repaired. Source/session expiry and USB freshness limits
+are unchanged. New production-body sanitizer tests are included in the offline
+suite; simulation/build success does not establish hardware durability or UTC
+accuracy.
+
 ## 16 October 2026 — macOS guide organization
 
 Restore the original animated client preview and give the macOS README dedicated

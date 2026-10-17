@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate passive observation hooks only against exact pinned Zephyr4.1 files."""
+"""Generate capture hooks and explicit timing-first arbitration for pinned Zephyr."""
 from pathlib import Path
 import hashlib,json,sys
 PIN={
@@ -46,10 +46,17 @@ def generate(zephyr,out):
    if not dest.is_file() or dest.read_text()!=s:dest.write_text(s)
    manifest[name]={'original':digest,'generated':hashlib.sha256(s.encode()).hexdigest()}
    continue
-  s=change(s,'#include <stdint.h>','#include <stdint.h>\n#include "radio_capture.h"')
+  s=change(s,'#include <stdint.h>','#include <stdint.h>\n#include "radio_capture.h"\n#include "precision_schedule.h"')
   s=change(s,'\tif (!prepare_param) {','\tif (!prepare_param) {\n\t\tr2_radio_capture_abort_site(param, R2_CAPTURE_ABORT_ACTIVE_CANCEL);')
   s=change(s,'\t\tLL_ASSERT_OVERHEAD(overhead);','\t\tr2_radio_capture_abort_site(lll, R2_CAPTURE_ABORT_PREPARE_OVERHEAD);\n\t\tLL_ASSERT_OVERHEAD(overhead);')
   if name=='lll_adv_sync.c':
+   s=change(s,'void lll_adv_sync_prepare(void *param)',
+    'static int r2_tx_is_abort(void *next, void *curr, lll_prepare_cb_t *resume)\n'
+    '{\n\tif (next && !r2_precision_radio(next)) return 0;\n'
+    '\treturn lll_is_abort_cb(next, curr, resume);\n}\n\n'
+    'void lll_adv_sync_prepare(void *param)')
+   s=change(s,'lll_prepare(lll_is_abort_cb, abort_cb, prepare_cb, 0, param)',
+    'lll_prepare(r2_tx_is_abort, abort_cb, prepare_cb, 0, param)')
    s=change(s,'\tstart_us = radio_tmr_start(1, ticks_at_start, remainder);',
     '\tr2_radio_capture_arm(lll, pdu, event_counter, data_chan_use, phy_s, true);\n'
     '\tr2_radio_capture_metadata(lll, HAL_TICKER_TICKS_TO_US(ull->ticks_slot),\n'
@@ -59,6 +66,9 @@ def generate(zephyr,out):
    # A chained packet is not accepted; release capture before controller starts its next PDU.
    s=change(s,'static void isr_tx(void *param)\n{','static void isr_tx(void *param)\n{\n\tr2_radio_capture_abort_site(param, R2_CAPTURE_ABORT_TX_CHAIN);')
   else:
+   s=change(s,'static int is_abort_cb(void *next, void *curr, lll_prepare_cb_t *resume_cb)\n{',
+    'static int is_abort_cb(void *next, void *curr, lll_prepare_cb_t *resume_cb)\n{\n'
+    '\tif (next && next != curr && !r2_precision_radio(next)) return 0;')
    s=change(s,'\tlll = p->param;\n\n\t/* Calculate the current event latency */',
     '\tlll = p->param;\n\tr2_radio_capture_schedule(lll, lll->event_counter, lll->lazy_prepare, lll->skip_prepare, false);\n\n\t/* Calculate the current event latency */',count=2)
    s=change(s,'\tlll = prepare_param->param;\n\tlll->skip_prepare +=',
