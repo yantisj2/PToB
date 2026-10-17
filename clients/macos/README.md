@@ -67,36 +67,60 @@ fit, with unknown host/PHY bias and UTC association. It is separate from the
 device's SOF span RMS, retrospective source jitter and chrony's estimator RMS;
 it does not establish absolute UTC accuracy.
 
-## Tracking results and current work
+## USB Direct results — 17 October 2026
 
-[<img src="../../docs/images/chronycontrol-tracking-10min-20261016.png" width="641" alt="ChronyControl tracking graph showing a cleaner selected development interval of approximately ten minutes">](../../docs/images/chronycontrol-tracking-10min-20261016.png)
+[<img src="../../docs/images/chronycontrol-usb-direct-20261017.png" width="760" alt="ChronyControl tracking of USB Direct GNSS time with quarter-second chrony polling, selected five-minute view on 17 October 2026">](../../docs/images/chronycontrol-usb-direct-20261017.png)
 
-A cleaner, user-selected development interval of approximately ten minutes in
+**DC v0.15.80: GNSS → USB → macOS, sampled at 32 Hz, with zero BLE relay hops.**
+Jonathan Yantis supplied this selected 11:37–11:42 AM CDT view from
 [ChronyControl by Bryan Christianson](https://www.whatroute.net/chronycontrol.html).
-The graph shows chrony's tracking statistics against the experimental USB feed.
-We are continuing to reduce timing transients, with GM authentication the next
-planned focus. See the [optional ChronyControl setup](../../docs/macos/chronycontrol.md)
-to view your own tracking logs.
+It shows the **experimental quarter-second chrony polling** trial (`poll -2`,
+`filter 4`). The normal client configuration still uses one-second polling.
+This after-acquisition chart omits no-reference rows and the first selected
+update; every later selected observation remains visible regardless of its size.
+The numerical population below retains startup and withheld output.
 
-The integrated client adds retained local estimates, USB buffer reuse, reader
-ownership checks and automatic rediscovery. The following publication checks
-are separate from the later selected screenshot:
+The first fixed **300 seconds** of that same trial, ending a few seconds before
+the screenshot, produced:
+
+| Measurement | Observed result | Population |
+| --- | --- | --- |
+| USB timing replies | **9,600 / 9,600 valid**; zero unavailable or missing replies | All requests; 19 tuples subsequently rejected by hardware consistency checks |
+| Corrected-source RX RMS | **188 ns** | 8,364 causal predictions; 1,096 warm-up and 121 initially unqualified observations among 9,581 accepted tuples |
+| Chrony estimator RMS | **23 ns median** | 292 synchronized tracking queries; the 25.571 ms initial acquisition maximum remains in the raw population |
+| Delivered chrony minus fine source | **358 ns RMS**, 834 ns absolute p99, 2.011 µs maximum | 232 comparisons at the same host wall/Mach instant; shared input source |
+| User-clock availability | **232 / 296 status observations** | 64 withheld observations, including startup; point samples do not establish continuous coverage |
+
+These are distinct measurements: the 23 ns tracking statistic is not the RX
+residual or independently measured UTC error. An earlier DC run, interrupted
+after 1,326 seconds, retained much larger delivered-clock excursions during host
+wall-rate changes: 39.334 µs RMS and 554.758 µs maximum, with 1,015 / 1,308 status
+observations delivered. Different durations, host conditions and output
+populations prevent a controlled improvement claim. Neither run establishes a
+completed two-hour result or calibrated UTC accuracy.
+
+The [selected results record](results/2026-10-17-dc.json) preserves exact counts,
+definitions, source versions, input hashes and limitations; private raw logs are
+excluded. [Image provenance](../../docs/images/README.md) records the unchanged
+screenshot and its display selection. Current work targets counter-to-Mach
+mapping, host wall-clock response and avoidable output withholding. See the
+[ChronyControl setup](../../docs/macos/chronycontrol.md) to inspect your own logs.
+
+## Earlier checks and comparisons
 
 | Check | Observed result | Scope |
 | --- | --- | --- |
-| macOS offline verification | 8,796 native checks passed, plus ownership, decoder, CLI, UI, analysis and adapter checks | Synthetic inputs; no USB access or chronyd launch |
-| TC-02 v69, USB64, 60.038 s | 3,839 precision replies: 3,748 valid and 91 explicitly unavailable; zero request errors | Brief transport functionality |
-| TC-04 v69, USB64, 60.036 s | 514 replies from 525 sample events: 504 valid and 10 explicitly unavailable; persistent nonresponse after about 8 s | Earlier failed comparison retained for investigation |
+| Current macOS offline verification | **8,807 native checks passed**, plus ownership, decoder, CLI, UI, analysis and adapter checks | Synthetic inputs; no USB access or chronyd launch |
+| DC v0.15.80, USB32, 60 s without chrony | 1,920 / 1,920 valid replies; **329 ns RX RMS**, 1,700 predictions; 3 hardware rejections | Separate finite USB-only baseline |
+| DC v0.15.80, USB32, 120 s without chrony | 3,838 / 3,838 valid replies; **257 ns RX RMS**, 3,522 predictions; 3 hardware rejections and 2 skipped polling slots | Separate finite USB-only baseline |
+| TC-02 v69, USB64, 60.038 s | 3,839 replies: 3,748 valid and 91 explicitly unavailable; zero request errors | Historical brief transport check |
+| TC-04 v69, USB64, 60.036 s | 514 replies from 525 sample events: 504 valid and 10 explicitly unavailable; persistent nonresponse after about 8 s | Historical failed comparison retained |
 
-Normal client operation uses 32 Hz USB sampling; the two hardware comparisons
-above used 64 Hz. The [full stability record](../../evidence/stability/2026-10-16/README.md)
-preserves source versions, earlier failures, missing intervals and verification
-limits. The [changelog](../../CHANGELOG.md) tracks the implemented fixes.
-
-The screenshot is a selected view rather than a complete-run availability
-measurement. Chrony's estimator RMS, agreement against a shared source and
-independent UTC accuracy have different meanings. Extended delivery and
-independently calibrated timing remain under evaluation.
+The [earlier selected tracking view](../../docs/images/chronycontrol-tracking-10min-20261016.png)
+remains available. The [October 16 stability record](../../evidence/stability/2026-10-16/README.md)
+preserves its own source versions, failures and missing intervals; those
+historical populations are separate from the DC observations above. The
+[changelog](../../CHANGELOG.md) tracks implemented changes.
 
 ## Continuity and source handling
 

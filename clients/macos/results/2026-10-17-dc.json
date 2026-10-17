@@ -1,0 +1,191 @@
+{
+  "schema": 1,
+  "selected": "2026-10-17",
+  "author": "Jonathan Yantis",
+  "license": "CC-BY-4.0",
+  "license_reference": "../../../evidence/LICENSE.md",
+  "scope": "Selected public summaries of separate local development observations; raw captures remain private and excluded. Hashes establish identity, not accuracy.",
+  "source": {
+    "firmware_profile": "DC",
+    "firmware_version": "0.15.80",
+    "firmware_commit": "908e11a7da2d6d36053be31fc37e6c63224f6cf2",
+    "firmware_source_sha256": "4b324394c42dea77077dc7f840ce95d016aa2abfa9f704555fe0871671c92085",
+    "client_commit": "2ddcedaaedcbe38c2ee2fc044c2b5503e2c976ef",
+    "main_integration_commit": "3a35d122a7067082bdf8969f6ce299eee752da56",
+    "chrony_version": "4.9",
+    "transport": "local GNSS/PPS -> USB -> macOS; zero BLE relay hops",
+    "requested_USB_sampling_Hz": 32,
+    "OS_clock_adjustment": false,
+    "independent_UTC_accuracy": "UNQUALIFIED",
+    "PPS_to_UTC_second_association": "UNKNOWN"
+  },
+  "screenshot": {
+    "file": "../../../docs/images/chronycontrol-usb-direct-20261017.png",
+    "sha256": "0726922caaf6935d51152ba34b297755a4fd20b9fdc564f525c1ad334a683f10",
+    "supplied_local": "2026-10-17T11:42:50-05:00",
+    "timezone": "America/Chicago",
+    "visible_selection": "approximately 11:37-11:42 CDT",
+    "transformation": "none; exact supplied bytes retained",
+    "view": "after acquisition; no-reference rows and first selected update omitted by acquisition state; later selected observations retained regardless of magnitude",
+    "not_a_complete_run_or_UTC_accuracy_measurement": true
+  },
+  "quarter_second_poll_first300s": {
+    "duration_s": 300,
+    "actual_last_record_elapsed_s": 299.986574,
+    "sample_counts": {
+      "requests": 9600,
+      "valid": 9600,
+      "unavailable": 0,
+      "missing_replies": 0,
+      "hardware_accepted": 9581,
+      "hardware_rejected": 19
+    },
+    "RX": {
+      "n": 8364,
+      "rmse_ns": 188.21564971520098,
+      "mean_ns": 14.256998916894087,
+      "sigma_ns": 187.67490183719005,
+      "maximum_absolute_ns": 818.928647267574,
+      "warmup_observations": 1096,
+      "unqualified_observations": 121,
+      "withheld_or_rejected_observations": 19
+    },
+    "status_samples": 296,
+    "delivered_status_samples": 232,
+    "delivered_minus_fine": {
+      "n": 232,
+      "mean_ns": -113.96982758620689,
+      "rms_ns": 357.7416653647308,
+      "p99_absolute_ns": 834,
+      "maximum_absolute_ns": 2011
+    },
+    "chrony_estimator_RMS": {
+      "n": 292,
+      "median_ns": 23.0,
+      "minimum_ns": 11.0,
+      "maximum_ns": 25571121.0,
+      "final_ns": 23.0
+    },
+    "source_scope_count": 1,
+    "chrony_daemon_epochs": 1,
+    "source_fences": {
+      "USB_REACQUIRE": 1
+    },
+    "transport_error_events": 0,
+    "source_prefix_bytes": 39962177,
+    "source_prefix_sha256": "038e6d951a54293afae5118a29733e4e07e7b44412137dc306593c9c1d86c7e6",
+    "session_sha256": "92d437f6c36b50e436697cb2baf7fa62d27d996597a7132deaf729aa3713d798",
+    "configuration_sha256": "c1b9a627dcf84325211bc569d78461e8dc592f19e8525a15e21a909aa567ee73",
+    "first_status_local": "2026-10-17T11:37:46.694051-05:00",
+    "last_status_local": "2026-10-17T11:42:46.347857-05:00",
+    "chrony_poll": -2,
+    "chrony_poll_seconds": 0.25,
+    "chrony_filter_samples": 4,
+    "maximum_chrony_samples": 64,
+    "capture_complete": false,
+    "window_selection": "First fixed 300 seconds from native usb_start tick; not a best interval. Original acquisition values and all withheld statuses remain in numerical population. This is a completed prefix of an ongoing requested two-hour trial.",
+    "screenshot_relationship": "Same trial; numeric prefix ends a few seconds before the supplied screenshot.",
+    "raw_capture_included": false,
+    "delivery_error_definition": "delivered chrony UTC minus unqualified fine source at the same host wall/Mach bracket; shared source, not independent UTC truth",
+    "p99_method": "nearest rank ceil(0.99*n)",
+    "tracking_query_events": 296,
+    "unqualified_tracking_query_events": 4,
+    "withheld_status_samples": 64
+  },
+  "earlier_USB_only": {
+    "vendor_only_120s": {
+      "sample_counts": {
+        "frame_anchor_records": 480,
+        "missing_precision_replies": 0,
+        "sample_events": 3838,
+        "unavailable_precision_replies": 0,
+        "valid_precision_replies": 3838
+      },
+      "RX": {
+        "n": 3522,
+        "rmse_ns": 256.84528174643276,
+        "mean_ns": 63.770652798750945,
+        "sigma_ns": 248.80273832300475,
+        "maximum_absolute_ns": 713.1074818948546,
+        "warmup_observations": 192,
+        "unqualified_observations": 121,
+        "withheld_or_rejected_observations": 3
+      },
+      "raw_sha256": "0408e56be71bffe2d25fcae9066110ddca3869f836580b24742e3b8c6b108a6f",
+      "hardware_accepted": 3835,
+      "hardware_rejected": 3
+    },
+    "live_client_60s": {
+      "sample_counts": {
+        "missing_precision_replies": 0,
+        "samples": 1920,
+        "unavailable_precision_replies": 0,
+        "valid_precision_replies": 1920
+      },
+      "RX": {
+        "n": 1700,
+        "rmse_ns": 329.0293989977822,
+        "mean_ns": -190.89299099949372,
+        "sigma_ns": 267.9929316084828,
+        "maximum_absolute_ns": 829.5366211908404,
+        "warmup_observations": 97,
+        "unqualified_observations": 120,
+        "withheld_or_rejected_observations": 3
+      },
+      "raw_sha256": "289fde064ea3f79e9123d561694509a189ed7304405e5669ea4dde4d60de40d3",
+      "hardware_accepted": 1917,
+      "hardware_rejected": 3
+    }
+  },
+  "earlier_original_chrony_run": {
+    "chrony_poll_seconds": 1,
+    "status": "INTERRUPTED_FOR_SEPARATE_AUTHORIZED_COMPARISON",
+    "actual_duration_s": 1326.0366455,
+    "requested_duration_s": 7200,
+    "valid_USB_samples": 42426,
+    "hardware_accepted": 42367,
+    "hardware_rejected": 59,
+    "statuses": 1308,
+    "delivered_statuses": 1015,
+    "withheld_statuses": 293,
+    "RX": {
+      "n": 38548,
+      "mean_ns": -20.039404364396674,
+      "rms_ns": 223.50954060677563,
+      "p99_absolute_ns": 722.68905954,
+      "maximum_absolute_ns": 1129.985764492
+    },
+    "delivered_minus_fine": {
+      "n": 1015,
+      "mean_ns": -2344.824630541872,
+      "rms_ns": 39333.73337646751,
+      "p99_absolute_ns": 211922,
+      "maximum_absolute_ns": 554758
+    },
+    "tracking_queries": 1300,
+    "tracking_RMS_median_ns": 124.0,
+    "tracking_RMS_maximum_ns": 25154535.0,
+    "analysis_summary_sha256": "52d9fdfabaf24e2196cb374e64bf2a271bdb815a2a64b1fb185dd419a8e1e28f",
+    "raw_capture_sha256": "aa536ea3ea809b06565f708f12013f50e04271f379d57955c9a8d87f3367f880",
+    "RX_warmup_observations": 3698,
+    "RX_initially_unqualified_observations": 121,
+    "tracking_query_events": 1306,
+    "tracking_unqualified_or_missing": 6
+  },
+  "offline_checks": {
+    "native_client": 8807,
+    "USB_CLI": 23,
+    "chrony_UI": 47,
+    "readout_hold": 10,
+    "precision_analysis": 8,
+    "hardware_access": false
+  },
+  "limitations": [
+    "The current quarter-second polling is an unmerged experiment; the normal client configuration still uses one-second polling.",
+    "The chart omits acquisition-only rows; numerical statistics include startup and withheld status counts.",
+    "Chrony tracking statistics, causal RX residuals and delivered shared-source differences are distinct metrics.",
+    "Different run lengths, host wall-rate behavior and output populations prevent a controlled improvement claim.",
+    "No independent UTC reference, physical output calibration, intersample truth or completed two-hour qualification is established.",
+    "Raw native captures are excluded; these public summaries do not independently reproduce private capture extraction."
+  ]
+}

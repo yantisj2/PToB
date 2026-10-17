@@ -188,6 +188,44 @@
       "rights": "Original screenshot/data contributions: Jonathan Yantis, CC BY 4.0. Third-party ChronyControl UI rights unchanged; application not bundled.",
       "license": "CC-BY-4.0 for original screenshot/data contributions only; third-party UI rights retained",
       "scope": "User-selected cleaner development interval, approximately ten minutes. GM authentication and further transient reduction remain planned work. Image selection does not establish complete-run availability or independent UTC accuracy."
+    },
+    {
+      "file": "chronycontrol-usb-direct-20261017.png",
+      "source": "User-supplied USB Direct ChronyControl screenshot, 17 October 2026",
+      "captured_local": "2026-10-17T11:42:50-05:00",
+      "timezone": "America/Chicago",
+      "source_sha256": "0726922caaf6935d51152ba34b297755a4fd20b9fdc564f525c1ad334a683f10",
+      "sha256": "0726922caaf6935d51152ba34b297755a4fd20b9fdc564f525c1ad334a683f10",
+      "bytes": 183060,
+      "dimensions": [
+        818,
+        552
+      ],
+      "transformation": "None; exact supplied bytes preserved, including its existing crop.",
+      "metadata_chunks": [
+        {
+          "type": "iCCP",
+          "bytes": 2737,
+          "sha256": "5c3b14a06095bf63653e5a85eba7f1609d12b5931e3859ce4fe02c73882a04ff"
+        },
+        {
+          "type": "eXIf",
+          "bytes": 86,
+          "sha256": "53bd40cb6755ea27a70aafee535d538501dcbe18fa2be7c30157a6a3ba99ae2f"
+        },
+        {
+          "type": "iTXt",
+          "bytes": 470,
+          "sha256": "3831ba2fe77fbb4189f99cfe8feb70badb6e23ad4d6f7c69d898f7647fca54c6"
+        }
+      ],
+      "software_author": "Bryan Christianson",
+      "software_page": "https://www.whatroute.net/chronycontrol.html",
+      "rights": "Original screenshot/data contributions: Jonathan Yantis, CC BY 4.0. Third-party ChronyControl UI rights unchanged; application not bundled.",
+      "license": "CC-BY-4.0 for original screenshot/data contributions only; third-party UI rights retained",
+      "scope": "Selected approximately five-minute after-acquisition view of DC v0.15.80 GNSS-to-USB feeding macOS chrony with experimental quarter-second polling. No complete-run availability or independent UTC accuracy inferred.",
+      "display_omissions": "No-reference rows and the first selected acquisition update omitted by state; later selected observations retained without an error-size threshold. Full startup remains in numerical populations.",
+      "results_record": "../../clients/macos/results/2026-10-17-dc.json"
     }
   ]
 }

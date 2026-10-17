@@ -1,6 +1,6 @@
 # Clock displays and timing schematics
 
-The five display assets illustrate the project interfaces. They were imported
+The initial five display assets illustrate the project interfaces. They were imported
 unchanged from the project website’s hardware gallery on 16 October 2026.
 [The manifest](manifest.json) records public source locations, dimensions,
 SHA-256 hashes, embedded renderer/fixture metadata and the meaning of each image. No private workspace history or
@@ -34,7 +34,7 @@ and evidence datasets retain their separate [licenses](../../LICENSING.md).
 
 ## ChronyControl development tracking
 
-The [macOS client README's](../../clients/macos/README.md) current
+The [macOS client README's](../../clients/macos/README.md) previous
 `chronycontrol-tracking-10min-20261016.png` was supplied by
 Jonathan Yantis on 16 October 2026. It is a user-selected cleaner interval of
 approximately ten minutes, showing the PToB development feed in
@@ -51,8 +51,33 @@ was cropped; plotted pixels were unchanged. The manifest retains both images'
 source/public hashes and transformation records. The original unredacted earlier
 screenshot is excluded.
 
-Both screenshots were provided after the structured stability collection's
+The October 16 screenshots were provided after the structured stability collection's
 observation cutoff and are not added to its numerical populations. Original
 screenshot/data contributions by Jonathan Yantis are CC BY 4.0; rights in the
 third-party ChronyControl interface remain unchanged. ChronyControl itself is
 not bundled.
+
+## USB Direct tracking — 17 October 2026
+
+`chronycontrol-usb-direct-20261017.png` was supplied by Jonathan Yantis on
+17 October 2026 for the [macOS client README](../../clients/macos/README.md).
+The exact supplied bytes are preserved, including the existing crop. The image
+shows the selected approximately 11:37–11:42 AM CDT portion of the DC v0.15.80
+GNSS → USB → macOS trial with experimental quarter-second chrony polling
+(`poll -2`, `filter 4`). This setting is separate from the normal one-second
+client configuration.
+
+The chart uses an after-acquisition display: no-reference rows and the first
+selected update are omitted by acquisition state. Later selected observations
+are retained regardless of magnitude. The raw acquisition values remain in
+the separately recorded numerical populations. This image is not a complete-run
+availability measurement or independent UTC accuracy result. The fixed first
+300-second summary of the same trial ends a few seconds before the screenshot;
+its [results record](../../clients/macos/results/2026-10-17-dc.json) also retains
+the separate earlier DC populations, including larger transients and withheld
+output. Private raw captures are excluded.
+
+Original screenshot/data contributions by Jonathan Yantis use CC BY 4.0.
+Rights in the third-party ChronyControl interface remain unchanged. The
+[manifest](manifest.json) records dimensions, hashes, unchanged-byte import,
+display selection and attribution.
