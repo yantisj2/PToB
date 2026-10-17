@@ -138,6 +138,13 @@ times surround yielding control work. The 50 ms worker-age and 250 ms physical
 association limits remain unchanged. The host runner includes synthetic SDK
 yield, scheduling and budget regressions; these do not measure actual RF priority.
 
+Version 0.1.12 uses continuous proportional acquisition phase steering capped
+at 50 ppm, returning to the original 1 ppm slew within 1 microsecond. It keeps
+the ten-second channel-aware frequency fit and sixteen seconds of causal
+quality history; startup errors remain visible until they age out. Completion
+rebasing, stale-fit continuation and forecasts use the same phase law. Fine
+hold, lock thresholds, authority and precision qualification are unchanged.
+
 Version 0.1.11 separates direct BLE100 control handling from precision timing:
 control callbacks may queue for less than one second, initiation has four seconds,
 and link supervision requests 500 ms. GATT discovery may use the remainder of
