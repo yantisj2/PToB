@@ -2,6 +2,7 @@
 #include "g1_parent_journal.hpp"
 #include "g1_admission_policy.hpp"
 #include "g1_receive_loss.hpp"
+#include "g1_retained_estimate.hpp"
 #include "g1_relative_quality.hpp"
 #include <cstdint>
 #include "console_protocol.hpp"
@@ -74,6 +75,7 @@ struct R2Status {
   bool g1_frequency_trained=false;
   bool g1_retained_estimate=false;uint64_t g1_estimate_observed_us=0;
   G1AdmissionPolicy g1_admission_policy{};G1ReceiveLoss g1_receive_loss{};
+  G1RetainedEstimate g1_retained_clock{}; // Own scope; never the current authority.
   uint32_t g1_clock_predictions=0;uint64_t g1_clock_causal_squares=0,g1_clock_nominal_squares=0,g1_clock_causal_max_ns=0;
   uint32_t g1_clock_discontinuities=0;uint64_t g1_clock_last_discontinuity_ns=0,g1_clock_fit_tick20=0;
   uint16_t g1_fit_points=0,g1_fit_span_ms=0;uint8_t g1_fit_reason=0;
@@ -84,6 +86,9 @@ struct R2Status {
   uint32_t discipline_first_refusal=0,discipline_last_refusal=0;
   uint32_t discipline_reason_counts[16]{};
 };
+// A local retained HOLD is not a newly delivered/current GPS witness.
+inline bool r2_clock_witness(const R2Status& s){return s.requested&&!s.fault&&s.clock_valid&&
+  !s.g1_retained_estimate&&s.g1_clock_origin&&s.g1_clock_model.tick;}
 struct PpsComparison {bool valid=false;int64_t modulo_ns=0;};
 inline PpsComparison r2_shadow_pps(const R2Status& mesh,uint64_t edge20,uint64_t current20,bool mapped){
   PpsComparison score;

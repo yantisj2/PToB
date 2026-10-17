@@ -74,16 +74,17 @@ inline int g1_render_admission(char* out,unsigned capacity,const R2Status& s,uin
   const auto& a=s.g1_admission_policy;
   return std::snprintf(out,capacity,"W12_G1_ADMISSION at_us=%" PRIu64 " warm=%u starts_us=%" PRIu64 "/%" PRIu64
     " retry_at_us=%" PRIu64 " failures=%" PRIu32 " reply=%u NO_SOURCE=%" PRIu32 " foreign_root=%" PRIu32 " unusable=%" PRIu32
-    " local_estimate=%u observed_us=%" PRIu64 " error_bound=UNKNOWN source_extension=0 USB_timing=0\n",
+    " local_estimate=%u observed_us=%" PRIu64 " loss_expiries=%" PRIu32 " loss_reacquisitions=%" PRIu32
+    " error_bound=UNKNOWN source_extension=0 USB_timing=0\n",
     now,unsigned(a.warm),a.starts[0],a.starts[1],a.retry_at,a.failures,unsigned(a.last),a.no_source,a.foreign_root,a.unusable,
-    unsigned(s.g1_retained_estimate),s.g1_estimate_observed_us);
+    unsigned(s.g1_retained_estimate),s.g1_estimate_observed_us,s.g1_receive_loss.expiries,s.g1_receive_loss.reacquisitions);
 }
 inline int g1_render_loss(char* out,unsigned capacity,const G1ReceiveLoss& c,unsigned row){
   if(!c.frozen||row>=c.count)return 0;
   const auto& e=c.entries[(c.sequence-c.count+row)%8];
   return std::snprintf(out,capacity,"W12_G1_RX_LOSS gen=%" PRIu32 " seq=%" PRIu32 " count=%" PRIu32 " frozen_us=%" PRIu64
     " row=%u at_us=%" PRIu64 " outcome=0x%02" PRIx32 " capture_epoch=%" PRIu32
-    " reference=WORKER_OBSERVATION RF_opportunity=UNKNOWN DONE=UNKNOWN CRC=UNKNOWN\n",
+    " reference=WORKER_OBSERVATION history=FIRST_LOSS_PER_BOOT later_detail=UNAVAILABLE RF_opportunity=UNKNOWN DONE=UNKNOWN CRC=UNKNOWN\n",
     c.generation,c.sequence,c.count,c.frozen_at,row,e.at,e.outcome,e.epoch);
 }
 inline int g1_render_recovery(char* out,unsigned capacity,const R2Status& s){

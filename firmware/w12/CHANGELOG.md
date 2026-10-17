@@ -19,8 +19,10 @@ Copyright (c) 2026 Jonathan Yantis. MIT.
   authorize admission, extend a lease, train the fitter, advertise precision,
   or supply downstream timing. Explicit stop, faults and detected clock steps
   withdraw it. Current authority and relative quality expire independently.
-- Add a passive 152-byte, eight-entry receive history frozen when the corrected
-  model actually expires. Bounded capture diagnostics retain authenticated,
+- Add a passive 160-byte, eight-entry receive history frozen when the corrected
+  model actually expires. The first frozen capsule survives recovery for the
+  boot; later losses/reacquisitions are counted with detailed history unavailable.
+  Bounded capture diagnostics retain authenticated,
   associated, mapped, stale and refused worker observations. Missing controller
   RF opportunities, DONE and CRC measurements remain unknown. Timer/controller
   ownership and the existing ordinary console frame size are unchanged.

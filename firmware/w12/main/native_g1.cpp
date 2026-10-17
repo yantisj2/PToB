@@ -696,9 +696,15 @@ void receive_join(uint64_t now){Incoming row{};for(unsigned i=0;i<8&&incoming.po
         // A different locator cannot replace the authenticated direct root
         // or retire its still-valid replay/PA scope during control recovery.
         // Keep every old deadline; the hint supplies no clock or permission.
-        if(previous_member&&!rc_bound()&&anchor.valid(now)&&previous_peer==anchor.root&&previous_boot==anchor.boot){
+        const auto& path=rc_client.receiver.path;
+        const bool old_direct=!rc_bound()&&previous_peer==anchor.root&&previous_boot==anchor.boot;
+        const bool old_relay=rc_bound()&&now<rc_client.lease_until&&path.depth>=1&&path.depth<=2&&
+          path.node[path.depth].id==previous_peer&&path.node[path.depth].boot==previous_boot&&
+          path.node[0].id==anchor.root&&path.node[0].boot==anchor.boot&&path.source_epoch==anchor.source_epoch;
+        if(previous_member&&anchor.valid(now)&&(old_direct||old_relay)){
           joined_peer=previous_peer;joined_boot=previous_boot;member=previous_member;
-          admission_root=r.root;admission_until=time.until;parent_selection.reobserve_gm(r.root,now);
+          admission_root=r.root;admission_until=time.until;
+          if(old_direct)parent_selection.reobserve_gm(r.root,now);
           diagnostic.reason(G1Reason::RootHint,now);continue;
         }
         auto historical=coarse_hold.saved.valid(now)?coarse_hold:G1CoarseHold{};
@@ -1119,12 +1125,17 @@ void publish(uint64_t begin){const auto now=micros();uint64_t tick=0;
   if(corrected_clock.accepted()!=retained_accepted&&corrected_valid&&corrected_clock.original20()){
     if(retained_estimate.retain(corrected_clock.prediction(),anchor.root,anchor.boot,anchor.source_epoch,corrected_clock.original20(),now)){
       retained_accepted=corrected_clock.accepted();admission_policy.acquired();
-      if(!receive_loss.generation||receive_loss.frozen)receive_loss.begin();
+      if(!receive_loss.generation)receive_loss.begin();
+      else if(!corrected_was_live)receive_loss.reacquired();
       corrected_was_live=corrected_clock.covers(now,now);
     }
   }
   uint64_t retained_utc=0;const bool retained_valid=retained_estimate.deliver(tick,retained_utc)&&!fault&&!closing;
   const bool held=usable_utc()&&coarse_hold.deliver(now,held_utc)&&!fault&&!closing;
+  const bool following_now=following(now)&&!closing&&!fault;
+  // A remembered model owns its old scope. A new coarse JOIN has no physical
+  // model until its own first correction, and must never borrow the old one.
+  const bool retained_selected=retained_valid&&!corrected_valid&&!following_now&&!held;
   const auto selection=parent_selection.selection_view(now);
   const auto relative_quality=corrected_valid?corrected_clock.quality(now,tick):G1RelativeQuality{};
   const bool selection_locked=lock_protected_quality(relative_quality,corrected_clock.prediction(),tick,now);
@@ -1137,7 +1148,7 @@ void publish(uint64_t begin){const auto now=micros();uint64_t tick=0;
   snap.boot_client_attempted=boot_client_attempted;snap.boot_client_cancelled=boot_client_cancelled;
   snap.group_member=member;snap.group_id=provision.group.id;snap.key_epoch=provision.group.epoch;snap.client_identity=provision.identity;snap.joined_peer=joined_peer;snap.joined_boot=joined_boot;snap.join_attempts=join_attempts;snap.join_accepts=join_accepts;snap.join_rejected=rejected;snap.join_busy=join_busy;
   snap.follower_snapshot_us=now;snap.follower_received_us=anchor.at;
-  snap.ready=member&&!closing;snap.following=following(now)&&!closing&&!fault;snap.clock_valid=corrected_valid||snap.following||held||retained_valid;snap.follower_utc_us=corrected_valid?corrected_utc:snap.following?(disciplined?delivered_utc:anchor.utc+now-anchor.at):held?held_utc:retained_valid?retained_utc:0;
+  snap.ready=member&&!closing;snap.following=following_now;snap.clock_valid=corrected_valid||snap.following||held||retained_selected;snap.follower_utc_us=corrected_valid?corrected_utc:snap.following?(disciplined?delivered_utc:anchor.utc+now-anchor.at):held?held_utc:retained_selected?retained_utc:0;
   snap.root_identity=snap.following?anchor.root:0;snap.root=snap.following?0:255;snap.root_boot=snap.following?anchor.boot:0;snap.source_epoch=snap.following?anchor.source_epoch:0;snap.publication=snap.following?anchor.publication:0;snap.service_until_us=snap.following?anchor.until:0;
   snap.serving=snap.source=false;snap.coordinator=snap.standby=255;snap.members=snap.role=0;
   snap.rx=rx;snap.tx=tx;snap.authenticated=auth;snap.rejected=rejected;snap.discoveries=discovery_count;snap.pa_reports=pa_reports;snap.p1_authenticated=p1_ok;snap.p1_refused=p1_bad;snap.api_errors=api_errors;snap.drops=incoming.drops+discoveries.drops+periodic.drops;snap.peer_losses=peer_losses;snap.setup_retries=setup_retries;snap.last_api=last_api;snap.last_api_rc=last_api_rc;snap.last_api_at_us=last_api_at;snap.first_error_api=first_error_api;snap.first_error_rc=first_error_rc;snap.first_error_at_us=first_error_at;
@@ -1149,9 +1160,10 @@ void publish(uint64_t begin){const auto now=micros();uint64_t tick=0;
   G1CoarseHold coarse_snapshot;coarse_snapshot.retain(clock_anchor);uint64_t coarse_utc=0;coarse_snapshot.deliver(now,coarse_utc);
   snap.g1_coarse_snapshot_utc_us=corrected_valid?corrected_utc:coarse_utc;snap.g1_model_until_us=discipline.model_until_us();
   snap.g1_clock_origin=snap.clock_valid&&clock_anchor.valid(now)?clock_anchor.root:0;
-  snap.g1_clock_model=corrected_valid?corrected_clock.prediction():retained_valid?retained_estimate.clock:G1ClockPrediction{};
-  if(!snap.g1_clock_origin&&retained_valid)snap.g1_clock_origin=retained_estimate.root;
-  snap.g1_retained_estimate=retained_valid;snap.g1_estimate_observed_us=retained_estimate.observed_us;
+  snap.g1_clock_model=corrected_valid?corrected_clock.prediction():retained_selected?retained_estimate.clock:G1ClockPrediction{};
+  if(retained_selected)snap.g1_clock_origin=retained_estimate.root;
+  snap.g1_retained_estimate=retained_selected;snap.g1_estimate_observed_us=retained_estimate.observed_us;
+  snap.g1_retained_clock=retained_estimate;
   snap.g1_admission_policy=admission_policy;snap.g1_receive_loss=receive_loss;
 #if defined(V12_R2_OUTPUT_CORRECTION_NS) && V12_R2_OUTPUT_CORRECTION_NS != 0
   const auto output_reference=periodic_rx::rf_reference();
@@ -1377,17 +1389,26 @@ R2Status r2_status(){
   const auto age=now>=result.follower_snapshot_us?now-result.follower_snapshot_us:UINT64_MAX;
   const auto growth=age==UINT64_MAX?UINT64_MAX:age/500+unsigned(age%500!=0);
   const bool guard_ok=growth<=UINT64_MAX-result.g1_anchor_guard_us;
-  const bool coarse=result.requested&&!result.fault&&result.clock_valid&&age!=UINT64_MAX&&
+  const bool coarse=result.requested&&!result.fault&&result.clock_valid&&!result.g1_retained_estimate&&age!=UINT64_MAX&&
     now<result.g1_anchor_deadline_us&&guard_ok&&result.g1_anchor_guard_us+growth<249900&&
     age<=UINT64_MAX-result.g1_coarse_snapshot_utc_us;
   result.clock_valid=coarse;
-  if(!coarse){if(!result.g1_retained_estimate)result.g1_clock_origin=0;result.g1_relative_quality={};}
+  if(!coarse){result.g1_clock_origin=0;result.g1_clock_model={};result.g1_relative_quality={};}
+  result.g1_retained_estimate=false;
   result.following=coarse&&result.following&&result.service_until_us&&now<result.service_until_us;
   if(!result.following){result.root_identity=result.root_boot=result.service_until_us=0;result.source_epoch=result.publication=0;result.root=255;}
   bool model=result.following&&result.precision_fit&&result.model_available20&&result.g1_model_until_us&&now<result.g1_model_until_us;
   result.follower_utc_us=coarse?result.g1_coarse_snapshot_utc_us+age:0;
 #ifdef V12_R2_RX_SHADOW
-  if((coarse||result.g1_retained_estimate)&&result.requested&&!result.fault&&!result.rc_parent.pending()&&result.rc_parent.state!=4&&result.g1_clock_model.tick){uint64_t tick=0;if(clock_reference_read(&tick)&&tick>=result.g1_clock_model.tick){const auto ns=result.g1_clock_model.at(tick);if(ns>0){result.follower_utc_us=uint64_t(ns)/1000;result.clock_valid=true;result.g1_relative_quality.evaluated20=tick;}else result.g1_relative_quality={};}else result.g1_relative_quality={};}
+  if(coarse&&result.g1_clock_model.tick){uint64_t tick=0;if(clock_reference_read(&tick)&&tick>=result.g1_clock_model.tick){const auto ns=result.g1_clock_model.at(tick);if(ns>0){result.follower_utc_us=uint64_t(ns)/1000;result.g1_relative_quality.evaluated20=tick;}else result.g1_relative_quality={};}else result.g1_relative_quality={};}
+  if(!coarse&&result.requested&&!result.fault&&!result.rc_parent.pending()&&result.rc_parent.state!=4){
+    uint64_t tick=0,utc=0;
+    if(clock_reference_read(&tick)&&result.g1_retained_clock.deliver(tick,utc)){
+      result.clock_valid=true;result.follower_utc_us=utc;result.g1_retained_estimate=true;
+      result.g1_clock_origin=result.g1_retained_clock.root;result.g1_clock_model=result.g1_retained_clock.clock;
+      result.g1_relative_quality={};result.g1_relative_quality.evaluated20=tick;
+    }
+  }
   if(model){uint64_t tick=0;model=clock_reference_read(&tick)&&tick>=result.model_available20;
     if(model){const auto ns=result.precision_model.at(tick);model=ns>0;if(model)result.follower_utc_us=uint64_t(ns)/1000;}}
 #else

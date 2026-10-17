@@ -121,10 +121,12 @@ implemented by W12.
 
 Bounded capture diagnostics add `W12_G1_ADMISSION` and `W12_G1_RX_LOSS`. The latter
 freezes up to eight worker report outcomes at corrected-model expiry, using
-152 bytes of RAM. Outcome bits are report=1, stale=2, authenticated=4,
+160 bytes of RAM. Outcome bits are report=1, stale=2, authenticated=4,
 associated=8, mapped=16 and refused=32. These are observed reports, not a count
 of unreported RF opportunities; controller DONE/CRC remain unknown. A fresh
-physical map starts a new lifecycle. The ordinary V3 status frame remains the
+physical map does not overwrite frozen evidence: the first loss remains for the
+boot, with explicit counters for later expiries/reacquisitions and unavailable
+later detail. The ordinary V3 status frame remains the
 same size and does not enable capture by itself.
 
 A candidate requires a clean local commit. `--development` explicitly marks an

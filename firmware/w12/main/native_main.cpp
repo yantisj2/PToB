@@ -82,7 +82,7 @@ uint64_t micros(){const int64_t t=esp_timer_get_time();return t>0?uint64_t(t):0;
   const auto deadline20=[&](uint64_t until){return until>observed_us&&until-observed_us<UINT64_MAX/20&&before20<=UINT64_MAX-(until-observed_us)*20?before20+(until-observed_us)*20:before20;};
   v12::G1GpsShadow::Map map;map.clock=witness.g1_clock_model;map.root=witness.g1_clock_origin;
   map.boot=witness.root_boot;map.source=witness.source_epoch;map.train=witness.publication;map.scope=witness.g1_relative_quality.scope_generation;
-  map.valid=witness.requested&&!witness.fault&&witness.clock_valid&&map.root&&map.clock.tick;
+  map.valid=v12::r2_clock_witness(witness);
   map.following=witness.following;map.until=deadline20(witness.g1_anchor_deadline_us);map.permission=deadline20(witness.g1_corrected_until_us);
   if(map.valid&&!map.following){const auto prior=gps_comparison.latest();if(prior&&prior->root==map.root&&prior->scope==map.scope){map.boot=prior->boot;map.source=prior->source;map.train=prior->train;}else map.valid=false;}
   gps_comparison.observe(map,before20,seen20,witness.g1_anchor_deadline_us,witness.g1_corrected_until_us);

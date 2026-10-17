@@ -3,6 +3,7 @@
 #include "g1_receive_loss.hpp"
 #include <cassert>
 #include <cstdio>
+#include <cstring>
 using namespace v12;
 int main(){
   r2_join_record r{};r.sender=11;r.sender_boot=22;
@@ -28,10 +29,12 @@ int main(){
   assert(e.deliver(20ULL*1800000000,utc)&&utc>initial); // No fabricated source lease or numeric quality.
   assert(e.clock.tick==p.tick&&e.clock.rate==p.rate&&e.observed_us==1000000);
   assert(!e.deliver(p.tick-1,utc));e.clear();assert(!e.deliver(p.tick,utc));
-  G1ReceiveLoss c;assert(sizeof(c)==152);c.begin();
+  G1ReceiveLoss c;assert(sizeof(c)==160);c.begin();
   for(unsigned i=0;i<12;i++)c.observe(100+i,G1ReceiveLoss::Report|(i&1?G1ReceiveLoss::Mapped:0),7);
   assert(c.sequence==12&&c.count==8&&c.entries[(c.sequence-c.count)%8].at==104);
   c.freeze(999);c.observe(1000,0,9);assert(c.sequence==12&&c.frozen_at==999);
-  const auto gen=c.generation;c.begin();assert(c.generation==gen+1&&!c.frozen&&!c.count);
+  const auto first=c;c.reacquired();c.begin();c.observe(1001,0,8);c.freeze(1002);
+  assert(c.generation==first.generation&&c.frozen&&c.count==first.count&&c.sequence==first.sequence&&c.frozen_at==999);
+  assert(!std::memcmp(c.entries,first.entries,sizeof c.entries)&&c.expiries==2&&c.reacquisitions==1);
   std::puts("PASS NO_SOURCE classification, warm rolling retry budget, retained local estimate and passive loss lifecycle");
 }
