@@ -88,7 +88,7 @@ def main():
     run([CXX,'-std=c++20',*flags,APP/'tests/c3_lora_off_test.cpp','-o',out/'C3-lora-off-tests'],'C3-LoRa-forced-off-build')
     run([out/'C3-lora-off-tests'],'C3-LoRa-no-task-no-GPIO-no-admission')
     run(['python3',APP/'tests/g1_shared_reset_test.py'],'shared-reset-owner-participation')
-    for name in ('g1_rc_continuity_test','g1_startup_fixture','g1_parent_fixture','g1_gm_hold_test','rc7_relay_estimate_test','lifecycle_test','update_gate_test','fault_watchdog_test'):
+    for name in ('g1_rc_continuity_test','g1_startup_fixture','g1_parent_fixture','g1_lock_fallback_test','g1_gm_hold_test','rc7_relay_estimate_test','lifecycle_test','update_gate_test','fault_watchdog_test'):
         run([CXX,'-std=c++20',*flags,'-I'+str(APP/'main'),APP/'tests'/(name+'.cpp'),*objects,'-o',out/name],name+'-build')
         run([out/name],name+'-run')
     run(['python3',APP/'tools/precision_priority_tests.py','--out',out/'precision-priority','--objects',out],'precision-before-control-and-radio-reservation')

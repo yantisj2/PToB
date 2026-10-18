@@ -2,6 +2,21 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 0.1.13 — 17 October 2026
+
+- Bound automatic GM precision trials to a full minute before seeking relays,
+  including when authenticated packet delivery and FOLLOW remain healthy.
+  Same-parent renewals and source changes cannot restart the trial; two observed
+  seconds of the existing relative-lock/hold gate establish sustained success.
+- Release discovery suppression after a failed trial without discarding a valid
+  timing map. Prefer a fresh relay even when the GM has stronger RSSI. Defer a
+  failed parent for five minutes so it cannot immediately reclaim a new trial;
+  keep seeking if no fresh alternative exists. Explicit pins remain effective.
+- Preserve fast acquisition, fine hold, all authority/quality/expiry gates and
+  controller/drain bounds. Add policy and production scheduling regressions for
+  healthy delivery without lock, exact dwell, flicker, renewals, relay selection,
+  discovery and retained lock. Synthetic tests do not qualify physical failover.
+
 ## 0.1.12 — 17 October 2026
 
 - Clear acquisition phase continuously with a proportional slew capped at

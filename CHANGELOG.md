@@ -2,6 +2,16 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 17 October 2026 — W12 bounded GM lock trials
+
+W12 **0.1.13** gives an automatically selected GM a full minute to establish
+sustained relative lock, then seeks a fresh relay even while GM packets arrive.
+Same-parent renewals and brief lock flickers cannot extend that trial forever.
+Five-minute advisory deferral prevents immediate return to a failed parent.
+Existing fast acquisition, fine hold, quality/authority gates and bounded radio
+operations remain intact. Policy and production scheduling tests cover the
+previous indefinite GM reservation; hardware failover remains separately observed.
+
 ## 17 October 2026 — DC serial queue timestamp race
 
 T096 **0.15.84** samples the DC serial worker's queue-expiry clock under the

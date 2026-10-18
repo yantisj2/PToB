@@ -3,11 +3,11 @@
 namespace v12 {
 enum class G1ParentReason:uint8_t {
   Scope,Startup,HoldGM,RecoverGM,ReturnGM,LinkPoor,ClockUnavailable,
-  ClockStep,SourceChange,ReplayExpired,RootHint,Manual,RelayOnly,Stop,BestCandidate
+  ClockStep,SourceChange,ReplayExpired,RootHint,Manual,RelayOnly,Stop,BestCandidate,LockTrial
 };
 inline const char* g1_parent_reason(G1ParentReason r){
   constexpr const char* names[]={"SCOPE_CHANGE","STARTUP","HOLD_GM","RECOVER_GM","RETURN_GM","LINK_POOR","CLOCK_UNAVAILABLE",
-    "CLOCK_STEP","SOURCE_CHANGE","REPLAY_EXPIRED","ROOT_HINT","MANUAL_PARENT","RELAY_ONLY","STOP","BEST_CANDIDATE"};
+    "CLOCK_STEP","SOURCE_CHANGE","REPLAY_EXPIRED","ROOT_HINT","MANUAL_PARENT","RELAY_ONLY","STOP","BEST_CANDIDATE","LOCK_TRIAL_EXPIRED"};
   return unsigned(r)<sizeof(names)/sizeof(names[0])?names[unsigned(r)]:"UNKNOWN";
 }
 struct G1ParentScope {

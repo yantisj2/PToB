@@ -8,12 +8,14 @@ class G1ParentHistory {
  public:
   static constexpr unsigned Capacity=16;
   static constexpr uint32_t RetainSeconds=1800,FailureDecaySeconds=30;
+  static constexpr uint32_t LockRetrySeconds=300;
   static constexpr uint16_t UnknownPermille=750;
   struct Row {
     uint64_t identity=0,context=0;
     uint32_t observed=0,failed_at=0;
     uint16_t delivery=0,usable=0,delivery_samples=0,usable_samples=0;
-    uint8_t failures=0;bool relay=false;uint16_t reserved=0;
+    uint8_t failures=0;bool relay=false;uint16_t flags=0;
+    uint32_t lock_failed_at=0; // Uses the row's former alignment padding.
   };
  private:
   Row rows_[Capacity]{};
@@ -72,6 +74,17 @@ class G1ParentHistory {
     ewma(r.delivery,r.delivery_samples,delivery);
     if(usable_known)ewma(r.usable,r.usable_samples,usable);
     if(delivery)r.failures=0; // Actual delivery, never admission alone.
+  }
+  void lock_failed(uint64_t id,bool relay,uint64_t now){
+    if(!id)return;
+    auto& r=obtain(id,relay,now);r.flags|=1;r.lock_failed_at=seconds(now);
+  }
+  void locked(uint64_t id,bool relay,uint64_t now){
+    clock(now);for(auto& r:rows_)if(r.identity==id&&r.relay==relay)r.flags&=uint16_t(~1u);
+  }
+  bool lock_deferred(uint64_t id,bool relay,uint64_t now)const{
+    const auto* r=find(id,relay,now);
+    return r&&(r->flags&1)&&age(seconds(now),r->lock_failed_at)<LockRetrySeconds;
   }
   unsigned failures(const Row& r,uint64_t now)const{
     const auto elapsed=age(seconds(now),r.failed_at)/FailureDecaySeconds;

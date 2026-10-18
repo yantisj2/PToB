@@ -7,7 +7,7 @@ RC role. [Image provenance](../../docs/images/README.md).*
 
 Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
 
-**PToB owns W12 native G1/RC7 development.** Current version **0.1.12** builds on the initial 0.1.0 successor
+**PToB owns W12 native G1/RC7 development.** Current version **0.1.13** builds on the initial 0.1.0 successor
 from the selected native application at `48b9ab7`. See the
 [build guide](../../docs/w12/build.md), [cutover record](../../docs/w12/cutover.md),
 [explicit import provenance](imports/2026-10-16.json) and [source notices](NOTICE.md).
@@ -27,7 +27,11 @@ Direct BLE100 replay refresh starts at 100 ms uncertainty, with urgency at
 125 ms, to leave more recovery time for the existing backoff and rolling start
 limit before its unchanged hard replay deadline.
 Current authenticated precision reception reserves radio scheduling even during
-a relative-quality dip. Warm initiation requests 5 ms scan windows per 20 ms;
+a relative-quality dip for a bounded trial. Automatic selection gives a GM at
+least 60 seconds to lock; without sustained relative lock it seeks a fresh relay,
+even when GM packets keep arriving. A failed parent is deferred for five minutes
+to give alternatives a chance. Explicit parent pins keep their requested policy.
+Warm initiation requests 5 ms scan windows per 20 ms;
 precision reports are drained between control calls under one shared eight-report budget per worker iteration.
 Direct BLE100 control uses a separate 1 s queue-age limit, up to 4 s initiation,
 500 ms supervision and GATT wait bounded by the original 5 s authenticated

@@ -9,6 +9,7 @@ struct Rc7PermissionInspect {
   c.quality_second_=now/1000000;auto& b=c.quality_[c.quality_second_%16];b.second=uint16_t(c.quality_second_);
   b.count=16;b.squares=160000;b.peak=1500; // Deliberately fails the unchanged1us lock gate.
  }
+ static void allow_lock(G1CorrectedClock& c){c.quality_[c.quality_second_%16].peak=100;}
  static void expire(G1CorrectedClock& c,uint64_t now){c.until_=now;}
 };
 }
@@ -33,7 +34,36 @@ int main(int argc,char** argv){
  v12::Rc7PermissionInspect::seed(v12::corrected_clock,v12::anchor,fake_now);v12::admission_policy.acquired();
  assert(!v12::lock_protected(fake_now)&&v12::following(fake_now));
  const auto until=v12::anchor.until,deadline=v12::anchor.deadline();
- if(which=="quality-dip"){
+ if(which=="gm-dwell"||which=="gm-lock-fallback"||which=="gm-lock-search"||which=="gm-locked-retain"){
+  if(which=="gm-locked-retain")for(auto t=fake_now+57000000;t<=fake_now+59000000;t+=62500)v12::parent_selection.locked(true,t);
+  fake_now+=which=="gm-dwell"?59999999:60000000;
+  v12::window_start=v12::G1Window::start(fake_now);
+  v12::anchor.at=fake_now;v12::anchor.until=fake_now+1500000;
+  v12::Rc7PermissionInspect::seed(v12::corrected_clock,v12::anchor,fake_now);
+  if(which=="gm-locked-retain")v12::Rc7PermissionInspect::allow_lock(v12::corrected_clock);
+  v12::parent_selection.tick(fake_now,true,false);v12::parent_selection.delivered(3,11,fake_now);
+  v12::parent_selection.seen(501,false,-20,fake_now-50000);
+  v12::parent_selection.seen(777,true,-85,fake_now-50000,true);
+  v12::locator_ids[0]=501;v12::locators[0].address=v12::sync_address;v12::locators[0].sid=12;v12::locators[0].at=fake_now;
+  v12::locator_ids[1]=777;v12::locators[1].address=v12::canonical(777);v12::locators[1].sid=13;v12::locators[1].at=fake_now;
+  if(which=="gm-lock-search")for(auto& id:v12::locator_ids)id=0;
+  const auto signed_until=v12::anchor.until,replay=v12::anchor.deadline();
+  assert(v12::precision_reserved(fake_now));
+  v12::active_poll(fake_now);
+  if(which=="gm-lock-search"){
+   assert(v12::parent_selection.needs_alternative()&&scan_active&&connected==0);
+   assert(v12::precision_reserved(fake_now));
+  }else if(which=="gm-lock-fallback"){
+   assert(v12::parent_selection.needs_alternative());
+   assert(connected==1&&v12::peer.identity==777&&v12::peer.relay);
+   assert(v12::peer.parent_reason==v12::G1ParentReason::LockTrial);
+   assert(v12::precision_reserved(fake_now)); // Keep the physical stream until fresh admission.
+  }else{
+   assert(!v12::parent_selection.needs_alternative());
+   assert(connected==1&&v12::peer.identity==501&&!v12::peer.relay&&!scan_active);
+  }
+  assert(v12::anchor.until==signed_until&&v12::anchor.deadline()==replay&&!v12::fault);
+ }else if(which=="quality-dip"){
   v12::start_scan();assert(!scan_active);
   scan_active=v12::scan=true;v12::active_poll(fake_now);
   assert(!scan_active&&connected==1&&v12::peer.identity==501);

@@ -18,7 +18,8 @@ int main(){
  p.diagnostic(true);assert(p.choose(26040000)==22);p.diagnostic(false);p.target(22,true);assert(p.choose(26040000)==22);
  p.reset();p.seen(11,false,-90,30000000);p.bind(11,111,1,30000000);
  for(uint64_t t=30000000;t<=36000000;t+=62500){p.usable(false,t);p.tick(t,true,false);}
- assert(p.quality().poor);p.seen(11,false,-90,36100000);p.seen(22,true,-20,36100000,true);assert(p.choose(36140000)==22); // Measured bad delivery still permits failover.
+ assert(p.quality().poor);p.seen(11,false,-90,36100000);p.seen(22,true,-20,36100000,true);assert(p.choose(36140000)==11); // A reachable GM still gets its full minute.
+ p.locked(false,90000000);p.seen(11,false,-90,90000000);p.seen(22,true,-20,90000000,true);assert(p.choose(90000000)==22);
  G1GmDiscovery d;assert(!d.observe(1000000,true));assert(!d.observe(30999999,true));assert(d.observe(31000000,true));
  assert(d.active(32499999)&&!d.observe(32500000,true));assert(!d.observe(60999999,true)&&d.observe(61000000,true));
  assert(!d.observe(61100000,false)&&!d.next&&!d.until);assert(!d.observe(62000000,true));assert(!d.observe(1,true));

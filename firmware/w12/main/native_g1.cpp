@@ -189,6 +189,9 @@ bool lock_protected(uint64_t now){
   (void)now;return false;
 #endif
 }
+bool selection_protected(uint64_t now){
+  return lock_protected(now)||(precision_reserved(now)&&!parent_selection.needs_alternative());
+}
 int64_t coarse_ns(uint64_t now){if(!usable_utc()||!anchor_valid(now)||anchor.utc>uint64_t(INT64_MAX)/1000||now-anchor.at>uint64_t(INT64_MAX)/1000-anchor.utc)return -1;return int64_t((anchor.utc+now-anchor.at)*1000);}
 void discipline_scope(uint64_t now){discipline.scope({anchor.root,anchor.boot,anchor.until,anchor.source_epoch,anchor.publication,periodic_rx::status().epoch,0,following(now)&&!closing&&!fault,true});}
 bool timely(){const auto now=micros();portENTER_CRITICAL(&mux);const bool ok=!parent_diagnostic.pending()&&parent_diagnostic.state!=4&&!stop_pending&&!fault&&(mode==R2Mode::Client?client.running&&!client.stopping&&!client.deadline_exceeded:lease.busy&&lease.deadline_us>=2000000&&now<lease.deadline_us-2000000);portEXIT_CRITICAL(&mux);return ok;}
@@ -232,7 +235,7 @@ void sync_trace(uint8_t event,uint16_t handle,int result,const LinkContext* save
   const auto context=saved?*saved:sync_context();admission_trace(event,handle,result,&context);
 }
 void start_scan(bool gm_observation=false){
-  if(!timely()||(!gm_observation&&!relay_slot_scanning()&&(lock_protected(micros())||precision_reserved(micros())))||micros()<scan_retry_at||(mode==R2Mode::Client&&!client_window_active(micros(),window_phase)))return;
+  if(!timely()||(!gm_observation&&!relay_slot_scanning()&&selection_protected(micros()))||micros()<scan_retry_at||(mode==R2Mode::Client&&!client_window_active(micros(),window_phase)))return;
   const auto now=micros();if(!scan_retry_until)scan_retry_until=now+2000000;
   if(now>=scan_retry_until){error(BLE_HS_ETIMEOUT,R2Api::ScanStart);return;}
   ble_gap_ext_disc_params p{};p.passive=1;p.itvl=32;p.window=32;
@@ -528,6 +531,7 @@ void connect(const Discovery& d,uint64_t id,uint64_t now,bool relay=false){
   if(nonce==UINT64_MAX){fault=true;return;}++nonce;
   if(incarnation==UINT32_MAX){fault=true;return;}
   const bool rescan=false; // Poor delivery never establishes slot contention.
+  parent_selection.attempted(id,relay,now);
   peer={};peer.identity=id;peer.address=d.address;peer.incarnation=++incarnation;peer.request_at=now;peer.relay=relay;peer.rescan=rescan;
   const auto selection=parent_selection.selection_view(now);
   peer.parent_reason=parent_selection.pinned()?G1ParentReason::Manual:exclude_direct_gm?G1ParentReason::RelayOnly:
@@ -535,6 +539,7 @@ void connect(const Discovery& d,uint64_t id,uint64_t now,bool relay=false){
     selection.reason==G1ParentSelection::Decision::RecoverGM?G1ParentReason::RecoverGM:
     selection.reason==G1ParentSelection::Decision::ReturnGM?G1ParentReason::ReturnGM:
     selection.reason==G1ParentSelection::Decision::HoldGM?G1ParentReason::HoldGM:
+    selection.reason==G1ParentSelection::Decision::LockTrial?G1ParentReason::LockTrial:
     parent_selection.quality().poor?G1ParentReason::LinkPoor:
     !joined_peer?G1ParentReason::Startup:!following(now)?G1ParentReason::ClockUnavailable:G1ParentReason::BestCandidate;
   if(relay)peer.exchange.until=now+2000000;
@@ -970,6 +975,7 @@ bool window_poll(uint64_t now){
   return false;
 }
 bool admission_due(uint64_t now,bool renewal_map){
+  if(parent_selection.needs_alternative())return true;
   if(rc_bound())return rc_client.admission_due(now,
     !parent_selection.pinned()&&parent_selection.quality().poor,lock_protected(now));
   return full_listening()?anchor.refresh(now,true):G1Window::initiate(now,anchor,renewal_map,window_phase);
@@ -1006,13 +1012,14 @@ void active_poll(uint64_t now){
   precision_work();gatt_poll(micros());precision_work();receive_join(micros());
   if(peer.relay)send_rc_request(micros());else send_join(micros());
   precision_work();
+  const auto lock_now=micros();parent_selection.locked(lock_protected(lock_now),lock_now);
   if((synced||sync_pending)&&((anchor_valid(now)&&sync_identity!=anchor.root&&sync_identity!=joined_peer)||(sync_pending&&now>=sync_acquire_until)))cancel_sync(now);
   if((sync_cancelled&&sync_pending)||(sync_terminating&&synced)){if(now>=sync_drain_until)error(BLE_HS_ETIMEOUT,R2Api::SyncTerminate);}
   // Optional early JOIN can use an existing map covering this whole window.
   // Otherwise receive first. Original100ms initiation and duty stay intact.
   const bool renewal_map=window_corrected||corrected_clock.covers(now,G1Window::start(now,window_phase)+G1Window::Nominal);
   const bool gm_observation=gm_discovery.observe(now,rc_bound()&&anchor.root&&!exclude_direct_gm&&
-    !parent_selection.pinned()&&!parent_diagnostic.pending()&&!closing&&!fault);
+    !parent_selection.deferred(anchor.root,false,now)&&!parent_selection.pinned()&&!parent_diagnostic.pending()&&!closing&&!fault);
   // Recreate the known direct train immediately inside this window. Waiting
   // for another EXT_DISC report costs a discovery interval before the
   // controller can even acquire SyncInfo; late establishment leaves no room
@@ -1025,7 +1032,7 @@ void active_poll(uint64_t now){
      peer.handle==None&&!peer.connecting&&!sync_pending&&!synced&&!sync_selected&&!sync_cleanup_queued){
     sync_identity=joined_peer;sync_selected=true;
   }
-  const bool protected_parent=(lock_protected(micros())||precision_reserved(micros()))&&!gm_observation;
+  const bool protected_parent=selection_protected(micros())&&!gm_observation;
   if(protected_parent&&!relay_slot_scanning()){
     stop_scan();
     // Retire an abandoned logical BUSY retry only after actual scanner OFF.

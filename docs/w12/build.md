@@ -128,6 +128,24 @@ clock and matched authenticated reception within 250 ms. A quality dip can
 retain that receiver and renew its current parent without broad discovery;
 it cannot authorize downstream advertising or relax the lock estimate. Expiry,
 missing reception, explicit rebind and faults release the reservation.
+
+Version 0.1.13 bounds automatic parent lock trials. A reachable GM gets at least
+60 seconds from its first binding; same-parent renewals, boot/source changes,
+FOLLOW and healthy packet delivery do not restart that minute. Sustained success
+requires two observed seconds of the existing raw relative lock and one-second
+hold forecast, with no observation gap above 250 ms. Short lock flickers cannot
+postpone fallback forever. A full minute without sustained lock releases only
+the scheduling protection against discovery and permits a fresh authenticated
+relay trial, subject to existing RF ownership, admission budgets and backoff.
+The current timing map keeps its original validity while seeking alternatives.
+
+A failed parent is deferred for five minutes in bounded within-boot advisory
+history; successful packet delivery does not clear that precision failure. This
+prevents a reachable failed GM from immediately pulling a new relay trial back.
+A sustained recovered lock clears the deferral. With no eligible alternative,
+retain the current source and keep seeking; stale locators never authorize a
+connection. Explicit parent pins and relay-only constraints remain in force.
+All precision, source, replay, model, downstream and drain gates are unchanged.
 Warm initiation requests 5 ms/20 ms scan windows; cold acquisition retains
 20 ms/20 ms. Original attempt, exchange and actual drain bounds stay intact.
 The controller remains responsible for physical radio scheduling.

@@ -7,7 +7,7 @@ import argparse,json,os,subprocess
 from pathlib import Path
 from rc7_permission_e2e import native_fixture,replace_once,sha
 APP=Path(__file__).resolve().parents[1]
-CASES=('quality-dip','warm-window','cold-window','source-expiry','model-expiry',
+CASES=('gm-dwell','gm-lock-fallback','gm-lock-search','gm-locked-retain','quality-dip','warm-window','cold-window','source-expiry','model-expiry',
        'capture-gap','wrong-parent','clock-failure','control-drain','batch-budget','retry-bound','retry-unreserved','retry-relay','legacy-control','relay-control','control-gatt',
        'control-stop-bound','control-delayed','control-old','control-expired','precision-delayed')
 def main():
