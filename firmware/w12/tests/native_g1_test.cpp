@@ -184,6 +184,29 @@ int main(int argc,char** argv){assert(argc==2);std::string which=argv[1];
     if(which=="listening-profile"){assert(v12::r2_client_start_profile(94,50));step();assert(v12::listening_percent==50);fake_now=3000000;v12::active_poll(fake_now);fake_now=3450000;v12::active_poll(fake_now);pump_cleanup();assert(!v12::owners_active()&&!v12::quiet_faults);v12::r2_stop();step(6);assert(v12::r2_status().off_ack);}
     return 0;
   }
+  if(which=="direct-session-boundary"){
+    fake_now=1000000;v12::window_start=fake_now;
+    v12::peer={};v12::peer.identity=111;v12::peer.handle=22;v12::peer.incarnation=++v12::incarnation;conn_arg=v12::callback_arg();
+    assert(!r2_group_join_begin(&v12::peer.exchange,false,v12::provision.identity,111,22,77,fake_now));
+    auto& x=v12::peer.exchange;x.peer_boot=55;x.remote_nonce=88;x.proof_at=fake_now-1000;x.challenged=true;
+    r2_join_record reply{};reply.kind=R2_JOIN_ACCEPT;reply.sender=111;reply.receiver=v12::provision.identity;
+    reply.sender_boot=55;reply.receiver_boot=22;reply.client_nonce=77;reply.server_nonce=88;reply.sequence=2;
+    reply.created_us=fake_now;reply.echo_us=x.proof_at;std::strcpy(reply.name,"Fixture");
+    reply.source_flags=1;reply.source_bound_us=40000;reply.root=111;reply.root_boot=55;
+    reply.source_epoch=2;reply.publication=3;reply.utc_us=1700000000000000;reply.remaining_us=1500000;
+    v12::Incoming row{};row.at=fake_now;row.incarnation=v12::peer.incarnation;
+    assert(!r2_group_join_encode(row.bytes,&reply,&v12::provision.group));v12::incoming.push(row);v12::receive_join(fake_now);
+    assert(v12::join_accepts==1&&v12::anchor.source&&v12::anchor.root==111);
+    if(v12::full_listening()){
+      assert(v12::direct_session.matches(v12::anchor));
+      assert(v12::anchor.context_until==v12::anchor.at+v12::G1DirectSession::LeaseUs);
+      assert(!v12::admission_due(fake_now,true));
+      const auto hard=v12::anchor.context_until;
+      v12::changed_scope(fake_now);assert(!v12::direct_session.matches(v12::anchor));
+      assert(hard&&!v12::anchor.source);
+    }else assert(!v12::direct_session.matches(v12::anchor)&&!v12::anchor.context_until);
+    v12::r2_stop();step(6);assert(v12::r2_status().off_ack);return 0;
+  }
   if(which=="rebootstrap-retains-acquisition"){
     fake_now=450000;v12::active_poll(fake_now);pump_cleanup();assert(!v12::owners_active());
     v12::anchor={true,111,55,1700000000000000,0,1000000,2,3,40000};

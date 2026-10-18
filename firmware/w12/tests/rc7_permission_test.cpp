@@ -198,6 +198,36 @@ void stop(){
  v12::r2_stop();step(8);assert(v12::r2_status().off_ack&&
    v12::client.completed_us<v12::client.stop_deadline_us&&!v12::fault);
 }
+void direct_session_stream(){
+ step(6);quiesce_for_jump();
+ const auto start=v12::anchor.context_until-G1DirectSession::LeaseUs;
+ const auto hard=v12::anchor.context_until;uint64_t first_due=0,previous_remote=0;
+ uint16_t previous_event=0;uint8_t previous_channel=0;uint32_t publication=1;
+ const auto accepted=v12::corrected_clock.accepted();
+ const uint64_t ids[4]={Root,0,0,0};v12::sync_identity=Root;
+ for(uint64_t now=fake_now+62500;now<hard;now+=62500){
+   fake_now=now;r2_relay_packet p{};
+   const uint64_t issued=(now/1000000)*1000000000-125000000;
+   p.origin={0,1,RootBoot,14,issued,issued+1650000000,issued,
+     INT64_C(1700000000000000000),0,0};
+   p.route={0,0,0,0,RootBoot,1,publication,3,1,UINT32_MAX};
+   if(previous_remote){p.count=1;p.correction[0]={publication-1,previous_event,
+     previous_channel,previous_remote*16,1};}
+   v12::Periodic row{};row.identity=Root;row.at=now;row.length=190;
+   row.capture=stamp((now-10)*20,now*20,publication,uint16_t(publication),uint8_t(publication%37),5);
+   row.capture.map_enclosure_ns=1000;
+   uint8_t proof[32]{};assert(!r2_group_origin_sign3(proof,&p.origin,&v12::provision.group,ids));
+   assert(!r2_group_relay_encode3(row.bytes,&p,proof,&v12::provision.group,ids));
+   assert(v12::periodic.push(row));v12::periodic_poll(now);
+   assert(v12::anchor.context_until==hard);
+   if(v12::admission_due(now,true)&&!first_due)first_due=now;
+   previous_remote=now-10;previous_event=row.capture.event;previous_channel=row.capture.channel;++publication;
+ }
+ assert(v12::corrected_clock.accepted()>accepted+2500);
+ assert(v12::anchor.at>hard-250000&&v12::anchor.guard(fake_now)<100000);
+ assert(first_due>=start+225000000&&first_due<start+240125000);
+ fake_now=hard;assert(!v12::anchor.valid(fake_now)&&v12::admission_due(fake_now,true));
+}
 int run(const std::string& which){
  const auto device=v12::native_device_binding();assert(v12::r2_init(44,device->factory));
  assert(v12::provision.identity==Self&&v12::r2_host_init()&&v12::r2_host_sync());step();
@@ -263,9 +293,10 @@ int run(const std::string& which){
        assert(held.follower_utc_us==uint64_t(original.at(fake_now*20))/1000);
        assert(v12::retained_estimate.clock.tick==original.tick&&v12::retained_estimate.clock.rate==original.rate);
      }
-   }else if(which=="autonomous-direct"){
+   }else if((which=="autonomous-direct"||which=="direct-session-native")){
      forget_locators(Root,false);v12::rc_client.renew_at=0;v12::anchor.until=0;
-     admission_slot();fresh_direct(Root,RootBoot,14,1);assert(!v12::rc_bound()&&v12::member&&v12::joined_peer==Root);cleared();
+     admission_slot();fresh_direct(Root,RootBoot,14,1);assert(!v12::rc_bound()&&v12::member&&v12::joined_peer==Root);assert(v12::direct_session.matches(v12::anchor)&&v12::anchor.context_until==v12::anchor.at+v12::G1DirectSession::LeaseUs);cleared();
+     if(which=="direct-session-native")direct_session_stream();
    }else if(which=="typed-direct"){
      assert(v12::r2_gm_parent(Root));step(6);assert(!v12::rc_bound());cleared();
      admission_slot();fresh_direct(Root,RootBoot,14,1);assert(!v12::rc_bound()&&v12::member);

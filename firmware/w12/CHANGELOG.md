@@ -2,6 +2,20 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 0.1.18 — 18 October 2026
+
+- Separate direct BLE100 authentication from replay-clock maintenance. Renew
+  after 225–240 seconds with a fixed six-minute session, reducing repeated
+  uncertainty-triggered JOINs while matched GR3 timing continues.
+- Maintain the coarse anchor only from a newly matched physical correction
+  within the previous causal interval and the exact admitted scope. Retain
+  initial JOIN uncertainty, capture enclosure, signed source/model expiry,
+  the 250 ms uncertainty limit and unchanged owner/drain/retry bounds.
+  Duplicate tuples, polling and held predictions cannot extend authentication.
+- Add actual matcher and native receive-path regressions through renewal and
+  hard expiry, legacy-cadence comparisons and stale/scope/source refusal cases.
+  BLE50 and RC7 lease policies remain unchanged; hardware outcomes are separate.
+
 ## 0.1.17 — 18 October 2026
 
 - Correct the generated profile macro consumed by the production config.

@@ -44,6 +44,7 @@ class G1CorrectedClock {
   uint64_t mapped_original20_=0,mapped_hold_until_us_=0;
   uint32_t accepted_=0,refused_=0;
   uint32_t quality_generation_=1;
+  uint32_t coarse_enclosure_ns_=UINT32_MAX;
   // Keep64 physical points:62.5ms acquisition spacing gets repeated-channel
   // evidence promptly; after the first fit,250ms spacing grows toward16s. Offset encoding is lossless: local
   // ticks stay exact and a signed24-bit residual stores remote_ns-local_ns.
@@ -224,7 +225,7 @@ class G1CorrectedClock {
     if(fitted)frequency_trained_=true;
   }
  public:
-  void clear(){mapped_original20_=mapped_hold_until_us_=0;inc(quality_generation_);pending_clear();scope_={};remote_epoch_=local_epoch_=0;until_=last_original_=last_remote_ns_=0;count_=0;point_at_=base_local_=base_remote_=quality_second_=0;for(auto& b:quality_)b={};fit_reason_=0;clock_={};phase_fit_tick_=0;phase_fit_epoch_=0;frequency_trained_=false;rate_pairs_=0;scatter_ns_=UINT32_MAX;rate_guard_=0;}
+  void clear(){coarse_enclosure_ns_=UINT32_MAX;mapped_original20_=mapped_hold_until_us_=0;inc(quality_generation_);pending_clear();scope_={};remote_epoch_=local_epoch_=0;until_=last_original_=last_remote_ns_=0;count_=0;point_at_=base_local_=base_remote_=quality_second_=0;for(auto& b:quality_)b={};fit_reason_=0;clock_={};phase_fit_tick_=0;phase_fit_epoch_=0;frequency_trained_=false;rate_pairs_=0;scatter_ns_=UINT32_MAX;rate_guard_=0;}
   void withdraw(){const double rate=clock_.rate;clear();clock_.rate=rate;}
   void scope(const G1Anchor& next){if(!scope_.same(next))withdraw();scope_=next;}
   bool same(const G1Anchor& next)const{return scope_.same(next);}
@@ -232,6 +233,7 @@ class G1CorrectedClock {
   uint32_t accepted()const{return accepted_;}uint32_t refused()const{return refused_;}
   uint64_t until()const{return until_;}
   uint64_t original20()const{return mapped_original20_?mapped_original20_:last_original_;}
+  uint32_t coarse_enclosure_ns()const{return coarse_enclosure_ns_;}
   bool frequency_trained(uint64_t tick=0)const{if(!tick)tick=clock_.tick;return frequency_trained_&&phase_fit_tick_&&tick>=phase_fit_tick_&&tick-phase_fit_tick_<=40000000;}
   uint32_t rate_pairs()const{return rate_pairs_;}uint32_t scatter_ns()const{return scatter_ns_;}
   uint32_t predictions()const{return predictions_;}
@@ -355,6 +357,7 @@ class G1CorrectedClock {
     observe_clock(*best,raw,available20);
     if(matched_origin)*matched_origin={anchor.root,anchor.boot,anchor.source_epoch,best->created,
       std::min(best->expires,correction->expires),best->offset,best->frame,0,0};
+    coarse_enclosure_ns_=best->enclosure;
     inc(accepted_);return true;
   }
   enum class Rc7Kind:uint8_t {Refused,PermissionOnly,Mapped};

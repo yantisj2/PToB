@@ -38,7 +38,7 @@ def main():
     cases=['persist','cancel','blocked','late','listening-profile',
            'connect-refusal-contained','connect-refusal-other','connect-refusal-owned','connect-refusal-late',
            'terminate-yield-connect','terminate-yield-wrong-handle','terminate-yield-stale','terminate-yield-missing-disconnect',
-           'host-stall-source-expiry','coarse-hold-fences','reset-recovery',
+           'direct-session-boundary','host-stall-source-expiry','coarse-hold-fences','reset-recovery',
            'reset-recovery-repeated','reset-recovery-no-sync','reset-recovery-explicit-off',
            'reset-recovery-cache-off','no-source-held','foreign-root-held','warm-control-PA','reset-recovery-late-off','reset-recovery-late-drain','reset-recovery-aux-active']
     import sys
@@ -74,6 +74,8 @@ def main():
     run([out/'dashboard-preview',out],'dashboard-causal-RMS-estimated-hold-layout')
     run([CXX,'-std=c++20',*flags,'-I'+str(APP/'legacy'),'-I'+str(APP/'legacy/reference'),'-I'+str(APP/'main'),APP/'tests/g1_corrected_clock_test.cpp',*objects,'-o',out/'corrected-clock-tests'],'corrected-clock-build')
     run([out/'corrected-clock-tests'],'functional-clock-frequency-scope-hold')
+    run([CXX,'-std=c++20',*flags,'-I'+str(APP/'main'),APP/'tests/g1_direct_session_test.cpp',*objects,'-o',out/'direct-session-tests'],'direct-session-build')
+    run([out/'direct-session-tests'],'direct-session-matched-maps-renewal-expiry-refusals')
     run([CXX,'-std=c++20',*flags,'-Wno-sign-compare','-I'+str(APP/'legacy'),'-I'+str(APP/'legacy/reference'),'-I'+str(APP/'main'),APP/'tests/g1_diagnostic_test.cpp','-o',out/'diagnostic-tests'],'diagnostic-build')
     run([out/'diagnostic-tests'],'diagnostic-width-and-refusal-counters')
     run(['python3',APP/'tests/g1_diagnostic_analyze_test.py'],'diagnostic-causal-analysis')

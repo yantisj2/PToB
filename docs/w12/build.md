@@ -119,6 +119,20 @@ direct stream, its warm jitter is capped by the remaining replay time minus
 three seconds for an attempt and scheduling slack, with the original 20-second
 minimum and 40-second maximum. The rolling start gate still applies. Other
 backoffs, BLE50 thresholds and all hard expiry gates remain unchanged.
+Version 0.1.18 separates direct BLE100 authentication from coarse replay-clock
+maintenance. A successful direct-root challenge starts one six-minute session,
+with renewal randomized between 225 and 240 seconds. Each newly matched GR3
+physical correction can update the coarse UTC anchor only while its preceding
+causal interval, exact root/boot/source/train, signed map and original session
+remain live. The original JOIN uncertainty plus physical capture enclosure is
+retained; fit RMS is not an uncertainty substitute. Duplicate/old tuples,
+authenticated receipt without correction, held estimates and polls cannot
+refresh the anchor or move authentication expiry. A source gap still withdraws
+FOLLOW and downstream output; missing corrected progress uses the existing
+bootstrap policy. Stop, fault, parent/profile and source-scope changes clear the
+session. BLE50 and RC7 retain their existing behavior. Thirty-minute sessions
+are not enabled by this version.
+
 Normal RC7 admission renewal is five minutes, with a six-minute lease. Direct
 G1 JOIN replay refresh, pending admission and recovery after missing corrected
 clock progress are separate traffic classes; inspect their counters separately.

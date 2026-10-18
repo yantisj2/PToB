@@ -9,10 +9,21 @@ disabled. Programmed TX estimates carry an unknown bound; actual TX capture,
 physical RF timing and output precision remain unqualified.
 
 The selected source is `56740553885420a7f6f301c12de10696a9c8d432`, V17 with a
-150 ms display-health hold. Public successor version 0.1.1 replaces private
+150 ms display-health hold. Initial public successor version 0.1.1 replaced private
 factory/name tables with explicit local binding and the shared display registry.
 These changes create new application bytes; they do not inherit the historical
 installed image's hardware observations.
+
+Source version 0.1.2 prepares the direct BLE100 authentication-session repair:
+renewal is randomized over 225–240 seconds and authentication expires after six
+minutes. A newly matched GR3 physical correction can maintain the coarse anchor
+only inside the prior live causal interval and exact admitted scope. The
+original JOIN uncertainty plus physical enclosure, signed source/map expiry,
+250 ms uncertainty ceiling and original owner/drain bounds remain. Receipt,
+polls, held predictions and duplicate tuples cannot extend authentication.
+RC7 remains five-minute renewal/six-minute lease. Offline checks include the
+actual matcher and native receive path; SS3 hardware installation/qualification
+requires its own authorized device scope.
 
 ## Dependencies and local inputs
 

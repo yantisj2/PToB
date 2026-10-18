@@ -2,6 +2,16 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 18 October 2026 — Direct-GM authentication load
+
+W12 **0.1.18** and prepared SS3 **0.1.2** separate direct BLE100 authentication
+from coarse replay-clock maintenance. Fresh matched GR3 corrections maintain
+that anchor inside a fixed six-minute session; renewal is randomized over
+225–240 seconds. The original source/map expiry, uncertainty and controller
+ownership limits remain independent. BLE50 and RC7 admission policies are
+unchanged. Host/native regressions retain hard-expiry and refusal controls;
+physical stability remains a separately observed outcome.
+
 ## 18 October 2026 — W12 generated provisional-profile binding
 
 W12 **0.1.17** fixes the generated macro binding that left 0.1.16's declared

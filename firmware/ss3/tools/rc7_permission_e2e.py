@@ -10,7 +10,7 @@ import subprocess
 
 APP = Path(__file__).resolve().parents[1]
 SDK_DEFAULT = Path(os.environ['IDF_PATH'])
-NATIVE_CASES = ('autonomous-direct', 'typed-direct', 'direct-to-rc7',
+NATIVE_CASES = ('direct-session-native', 'autonomous-direct', 'typed-direct', 'direct-to-rc7',
                 'changed-full-path', 'response-path-changed', 'permission-native',
                 'mapped-read-failure', 'mapped-finalize-failure', 'mapped-deliver-failure')
 
@@ -124,10 +124,10 @@ def main():
     out.mkdir(parents=True, exist_ok=False)  # Never replace a retained attempt.
     crypto = args.sdk.resolve() / 'components/bt/host/nimble/nimble/ext/tinycrypt'
     src = APP / 'main/r2/r2-g1'
-    inputs = [Path(__file__).resolve(), APP / 'tests/rc7_permission_test.cpp',
+    inputs = [Path(__file__).resolve(), APP / 'tests/rc7_permission_test.cpp', APP / 'tests/g1_direct_session_test.cpp',
               APP / 'tests/native_g1_test.cpp', APP / 'main/native_g1.cpp',
               *[APP / 'main' / n for n in ('g1_corrected_clock.hpp', 'rc7_client.hpp',
-                                         'g1_client_policy.hpp', 'g1_clock_prediction.hpp')]]
+                                         'g1_client_policy.hpp', 'g1_direct_session.hpp', 'g1_clock_prediction.hpp')]]
     c_sources = [src / (n + '.c') for n in ('group_auth', 'group_join', 'group_precision', 'precision_codec', 'relay_codec', 'role_announcement')]
     c_sources += [APP / 'main/r2/rc7/protocol/rc_dynamic.c', APP / 'main/r2/rc7/src/rc_boundary.c', APP / 'main/g1_hmac.c']
     c_sources += [crypto / 'src' / n for n in ('sha256.c', 'utils.c')]
@@ -163,6 +163,8 @@ def main():
             obj = out / (source.stem + '.o')
             run([args.cc, '-std=c11', *flags, '-c', source, '-o', obj], source.stem + '-compile')
             objects.append(obj)
+        run([args.cc + '++', '-std=c++20', *flags, APP / 'tests/g1_direct_session_test.cpp', *objects, '-o', out / 'direct-session'], 'direct-session-build')
+        run([out / 'direct-session'], 'direct-session-run')
         run([args.cc + '++', '-std=c++20', *flags, out / 'rc7_permission_test.cpp', *objects, '-o', out / 'model'], 'model-build')
         receipt['model'] = json.loads(run([out / 'model'], 'model-run'))
         run([args.cc, '-std=c11', *flags, APP / 'tests/g1_vectors_test.c', *objects, '-o', out / 'vectors'], 'vectors-build')

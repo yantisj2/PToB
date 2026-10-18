@@ -13,6 +13,7 @@
 #endif
 #include "r2_discipline.hpp"
 #include "g1_client_policy.hpp"
+#include "g1_direct_session.hpp"
 #include "g1_corrected_clock.hpp"
 #include "g1_output_correction.hpp"
 #include "g1_parent_selection.hpp"
@@ -75,6 +76,7 @@ G1Diagnostics diagnostic;
 Ring<Incoming,8> incoming;Ring<Discovery,16> discoveries;Ring<Periodic,8> periodic;
 Recent recent[8]{};r2_join_display display[8]{};Anchor anchor;G1StrictDiscipline discipline;
 G1PhaseLearning phase_learning;
+G1DirectSession direct_session;
 G1CoarseHold coarse_hold;
 G1CorrectedClock corrected_clock;
 Rc7Client rc_client;G1ParentSelection parent_selection;
@@ -185,7 +187,7 @@ void failed_admission(uint64_t now){
   if(!parent_failure.identity)parent_failure={peer.identity,now,peer.relay};
 }
 void relay_fence();void relay_close(uint64_t now);bool relay_owned();bool relay_acl_available();void relay_poll(uint64_t now,bool upstream_due);
-void begin_close(uint64_t now){if(closing)return;closing=true;relay_fence();member=false;anchor={};rc_client.fence();coarse_hold.clear();corrected_clock.clear();corrected_phase_aligned=false;close_until=now+2000000;portENTER_CRITICAL(&mux);if(mode==R2Mode::Client){client.stop(now);close_until=client.stop_deadline_us;}else if(lease.deadline_us&&lease.deadline_us<close_until)close_until=lease.deadline_us;portEXIT_CRITICAL(&mux);}
+void begin_close(uint64_t now){if(closing)return;closing=true;relay_fence();member=false;anchor={};direct_session.clear();rc_client.fence();coarse_hold.clear();corrected_clock.clear();corrected_phase_aligned=false;close_until=now+2000000;portENTER_CRITICAL(&mux);if(mode==R2Mode::Client){client.stop(now);close_until=client.stop_deadline_us;}else if(lease.deadline_us&&lease.deadline_us<close_until)close_until=lease.deadline_us;portEXIT_CRITICAL(&mux);}
 void stop_scan(){if(!scan)return;const int rc=ble_gap_disc_cancel();if(!rc||rc==BLE_HS_EALREADY)scan=false;else error(rc,R2Api::ScanStop);}
 int gap(ble_gap_event*,void*);
 struct LinkContext {uint32_t generation=0;
@@ -606,6 +608,7 @@ void receive_rc_control(const Incoming& row,uint64_t now){
       const bool same=rc_bound()&&rc7_path_same(&rc_client.receiver.path,&c.path);
       if(!same)changed_scope(now);
       if(!rc_client.bind(c,now,tick)){inc(rejected);peer.dead=true;return;}
+      direct_session.clear();
 #ifdef V12_SS3
       if(td_enabled&&td_test){rc_client.renew_at=now+2000000;td_request_until=now+c.lease_us;}
 #endif
@@ -679,6 +682,8 @@ void receive_join(uint64_t now){Incoming row{};for(unsigned i=0;i<8&&incoming.po
       parent_selection.authenticated(r.sender,false,r.sender_boot,r.root,r.root_boot,r.source_epoch,now);
       peer.selection_accepted=true;
       Anchor next{true,r.root,r.root_boot,time.utc_us,row.at,time.until,r.source_epoch,r.publication,time.uncertainty_us};
+      if(full_listening()){uint32_t random=0;esp_fill_random(&random,sizeof random);direct_session.begin(next,row.at,random);}
+      else direct_session.clear();
       // Only this newly authenticated direct-root time bootstrap shortens the
       // successful-peer cooldown. Failures, no-source membership and indirect
       // root hints retain five seconds. Quiet ownership still closes normally;
@@ -710,7 +715,7 @@ void changed_scope(uint64_t now,G1Reason reason,bool preserve_clock){relay_fence
   parent_selection.unavailable();
   if(reason==G1Reason::Permission){if(usable_utc()&&anchor.valid(now))coarse_hold.retain(anchor);}
   else coarse_hold.clear();
-  diagnostic.reason(reason,now);anchor={};rc_client.fence();member=false;admission_root=admission_until=0;last_origin_ns=relay_train=0;window_corrected=false;
+  diagnostic.reason(reason,now);anchor={};direct_session.clear();rc_client.fence();member=false;admission_root=admission_until=0;last_origin_ns=relay_train=0;window_corrected=false;
   if(reason==G1Reason::Permission||preserve_clock)corrected_clock.hold();else corrected_clock.withdraw();
   corrected_phase_aligned=false;cancel_sync(now);discipline_scope(now);}
 void renew_permission(uint64_t created,uint64_t expires,int64_t offset,uint64_t now,bool immutable_origin=false){
@@ -803,10 +808,13 @@ void periodic_poll(uint64_t now){Periodic row{};for(unsigned i=0;i<8&&periodic.p
     if(corrected_clock.receive(p,row.capture,available,now,anchor,&matched_origin)){
       uint64_t completion=0,utc=0;
       if(clock_reference_read(&completion)&&corrected_clock.finalize(completion)&&corrected_clock.deliver(completion,micros(),utc)&&utc>=micros()-anchor.at){
-        // Update the functional coarse mapping at its ORIGINAL causal anchor.
-        // Neither replay uncertainty/age nor the original correction expires
-        // is reset. T096 separates this from PLL lock and physical UTC quality.
-        const auto delivered=micros();anchor.utc=utc-(delivered-anchor.at);anchor.until=corrected_clock.until();
+        const auto delivered=micros();anchor.until=corrected_clock.until();
+        // Maintain coarse replay only from this newly matched physical pair;
+        // the challenge session and signed source/map deadlines stay finite.
+        if(full_listening()&&direct_session.matches(anchor))
+          direct_session.reanchor(anchor,corrected_clock.original20(),completion,
+            delivered,utc,anchor.until,corrected_clock.coarse_enclosure_ns());
+        else anchor.utc=utc-(delivered-anchor.at);
         last_origin_ns=p.origin.created_ns;window_corrected=true;corrected_clock.scope(anchor);
 #ifdef V12_R2_RC7_TX_ESTIMATE_LAB
         rc7_path parent{};parent.source_epoch=anchor.source_epoch;parent.node[0]={anchor.root,anchor.boot,p.route.train,p.route.capture_epoch,0,0};
@@ -898,6 +906,7 @@ bool window_poll(uint64_t now){
 bool admission_due(uint64_t now,bool renewal_map){
   if(rc_bound())return now>=rc_client.renew_at||(!parent_selection.pinned()&&parent_selection.quality().poor&&now>=rc_client.retry_at)||
     (now>=rc_client.progress_at&&now-rc_client.progress_at>=2000000&&now>=rc_client.retry_at);
+  if(full_listening()&&direct_session.matches(anchor))return direct_session.due(anchor,now);
   return full_listening()?anchor.refresh(now):G1Window::initiate(now,anchor,renewal_map,window_phase);
 }
 
@@ -1574,7 +1583,7 @@ void r2_host_poll(){if(!initialized)return;const auto begin=micros();bool start=
       // An explicit restart is a new local activation, never a renewal of the
       // old stop deadline. Preserve the previous window's full quiet interval.
       radio_resume_at=window_start==UINT64_MAX?begin:window_start+G1Window::Cycle;
-      anchor={};rc_client.fence();parent_selection.reset();parent_selection.diagnostic(exclude_direct_gm);parent_selection.target(parent_diagnostic.target,parent_diagnostic.relay);member=false;admission_root=admission_until=0;joined_peer=joined_boot=last_origin_ns=relay_train=0;
+      anchor={};direct_session.clear();rc_client.fence();parent_selection.reset();parent_selection.diagnostic(exclude_direct_gm);parent_selection.target(parent_diagnostic.target,parent_diagnostic.relay);member=false;admission_root=admission_until=0;joined_peer=joined_boot=last_origin_ns=relay_train=0;
       phase_learning={};coarse_hold.clear();corrected_clock.clear();corrected_phase_aligned=false;
       peer={};sync_identity=0;retry_at=scan_retry_at=scan_retry_until=0;
       Incoming in{};while(incoming.pop(in)){};Discovery d{};while(discoveries.pop(d)){};

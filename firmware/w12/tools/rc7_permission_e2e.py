@@ -10,7 +10,7 @@ import subprocess
 
 APP = Path(__file__).resolve().parents[1]
 SDK_DEFAULT = Path(os.environ['IDF_PATH'])
-NATIVE_CASES = ('autonomous-direct', 'typed-direct', 'direct-to-rc7',
+NATIVE_CASES = ('direct-session-native', 'autonomous-direct', 'typed-direct', 'direct-to-rc7',
                 'changed-full-path', 'response-path-changed', 'permission-native',
                 'loss-recovery-preserved', 'retained-new-coarse-root', 'rc7-foreign-root-hint', 'retained-expiry', 'retained-clock-step', 'mapped-read-failure', 'mapped-finalize-failure', 'mapped-deliver-failure')
 SERVER_CASES = ('tx-observation', 'provisional-output', 'warm-budget-publisher', 'lock-startup', 'lock-loss', 'lock-regain', 'lock-late-connect', 'lock-drain-deadline',
@@ -166,7 +166,7 @@ def main():
               APP / 'tests/native_g1_test.cpp', APP / 'main/native_g1.cpp',
               APP / 'main/rc7_relay_native.inc', APP / 'tests/rc7_server_owner_fixture.inc',
               *[APP / 'main' / n for n in ('g1_corrected_clock.hpp', 'rc7_client.hpp',
-                                         'g1_client_policy.hpp', 'g1_clock_prediction.hpp')]]
+                                         'g1_client_policy.hpp', 'g1_direct_session.hpp', 'g1_clock_prediction.hpp')]]
     c_sources = [src / (n + '.c') for n in ('group_auth', 'group_join', 'group_precision', 'precision_codec', 'relay_codec')]
     c_sources += [APP / 'main/r2/rc7/protocol/rc_dynamic.c', APP / 'main/r2/rc7/src/rc_boundary.c', APP / 'main/r2/rc7/src/rc_slots.c', APP / 'main/g1_hmac.c']
     c_sources += [crypto / 'src' / n for n in ('sha256.c', 'utils.c')]

@@ -7,7 +7,7 @@ RC role. [Image provenance](../../docs/images/README.md).*
 
 Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
 
-**PToB owns W12 native G1/RC7 development.** Current version **0.1.17** builds on the initial 0.1.0 successor
+**PToB owns W12 native G1/RC7 development.** Current version **0.1.18** builds on the initial 0.1.0 successor
 from the selected native application at `48b9ab7`. See the
 [build guide](../../docs/w12/build.md), [cutover record](../../docs/w12/cutover.md),
 [explicit import provenance](imports/2026-10-16.json) and [source notices](NOTICE.md).
@@ -23,9 +23,13 @@ The estimated relay has unknown TX uncertainty and no actual TX capture claim. A
 Both RC discovery advertisers request 100 ms, matching T096. The independent
 precision train remains 62.5 ms (16 Hz), with its existing parent-relative phase.
 Warm control retries preserve acquisition and use a rolling start budget.
-Direct BLE100 replay refresh starts at 100 ms uncertainty, with urgency at
-125 ms, to leave more recovery time for the existing backoff and rolling start
-limit before its unchanged hard replay deadline.
+Direct BLE100 authentication renews after 225–240 seconds, with randomized
+scheduling and an immutable six-minute session limit. Newly authenticated,
+physically matched GR3 corrections maintain the coarse replay anchor inside
+that session; receipt, polling and held predictions cannot do so. Source/map
+expiry and the 250 ms coarse uncertainty ceiling remain independent. Missing
+corrected progress falls back to the existing bounded bootstrap/retry policy.
+BLE50 and RC7 relay admission retain their earlier policies.
 Current authenticated precision reception reserves radio scheduling even during
 a relative-quality dip for a bounded trial. Automatic selection gives a GM at
 least 60 seconds to lock; without sustained relative lock it seeks a fresh relay,
