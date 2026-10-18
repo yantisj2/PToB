@@ -9,10 +9,11 @@
 #include <limits.h>
 #define R2_SHADOW_EXACT_BINS 1024u
 #define R2_SHADOW_BINS (R2_SHADOW_EXACT_BINS+19u)
-enum r2_shadow_page_state {R2_SHADOW_OFF,R2_SHADOW_DWELL,R2_SHADOW_WAIT_PPS,R2_SHADOW_WAIT_MAP,R2_SHADOW_GM,R2_SHADOW_RUNNING,R2_SHADOW_FULL};
+enum r2_shadow_page_state {R2_SHADOW_OFF,R2_SHADOW_DWELL,R2_SHADOW_WAIT_PPS,R2_SHADOW_WAIT_MAP,R2_SHADOW_GM,R2_SHADOW_RUNNING,R2_SHADOW_FULL,R2_SHADOW_SETTLING};
 struct r2_shadow_session_view {
  uint64_t elapsed_ms;int64_t mean_tenth_ns;
  uint32_t session,samples,skipped,missing,p95_ns,p99_ns,max_ns;
+ uint32_t warmup,warmup_skipped,warmup_missing,warmup_resets,settling_ms;
  unsigned state;bool active,valid,approximate;
 };
 struct r2_shadow_session {

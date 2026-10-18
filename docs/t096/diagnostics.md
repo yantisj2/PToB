@@ -577,6 +577,23 @@ stable software map does not establish independently measured output precision.
 
 ### Shadow PPS collection and display idle
 
+From 0.15.96, the page first collects ten seconds of consecutive usable local
+PPS observations against frozen BLE maps with the same parent/root identities,
+boots and root source epoch. The screen shows `SETTLING 10S`. Missing records,
+invalid reference/maps, capture-domain changes or a different timing source
+restart startup qualification. The final qualifying PPS edge is the boundary;
+statistics then include every later eligible sample, including large errors.
+No phase magnitude is used to qualify startup. This is a fixed observation
+interval, not proof that the clocks have converged or a guarantee about MAX ABS.
+
+The raw `shadow` cursor remains available throughout startup. The `shadow_ui`
+console object adds `startup`: `[records, invalid, missing, restarts, span_ms]`.
+These counts are separate from the measured population's `samples`, `skipped`
+and `missing`. Keep startup records and missing intervals when comparing runs;
+do not compare a warmed population with an unqualified cold-start population
+without identifying that difference. A first-sample maximum alone does not
+establish a measurement fault or GNSS sawtooth error.
+
 From 0.15.94, explicitly selecting shadow page 6 wakes the display and excludes
 that page from the normal five-minute screensaver. The measurement session ends
 when the page is left or its existing scope/reference conditions stop it. The

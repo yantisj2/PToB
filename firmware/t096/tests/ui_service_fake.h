@@ -31,10 +31,11 @@ static void k_sleep(unsigned ms){fake_now+=ms;
   struct r2_ui_model m={.sampled_ms=fake_now,.unit="TC-02",.platform_ready=true,
    .scope_active=true,.ble_active=true,.profile_supported=true,.role=R2_UI_GM,.gm_source_fresh=true,
    .clock={.valid=!(mode==18&&fake_now>=300700),.source_available=true,.pps_present=true,.utc_us=36642000000LL}};
-  if((mode>=19&&mode<=21)||mode==24||mode==25){
+  if((mode>=19&&mode<=21)||mode>=24){
    m.role=R2_UI_FOLLOWER;m.authenticated_gm=m.follower_pps_valid=true;
    m.ble_time_selected=true;m.ble_valid_until_us=m.face_lock_until_us=mode>=24?800000000:400000000;
    m.precision.authorized=m.precision.map_valid=m.precision.locked=true;
+   if(mode==28&&fake_now>=7000&&fake_now<9000)m.precision.map_valid=false;
    if(fake_now>=300700){
     if(mode==19){m.scope_active=false;m.ble_active=false;}
     if(mode==20){m.follower_pps_valid=false;m.precision.locked=false;}
@@ -45,14 +46,14 @@ static void k_sleep(unsigned ms){fake_now+=ms;
   if(mode==23&&fake_now>=300700)m.clock.pps_age_us=R2_PPS_FRESH_US;
   r2_ui_publish(&m);
   if(mode==25&&fake_now>=300700&&fake_now<300720)(void)r2_ui_page(R2_UI_SHADOW_PAGE);
-  if(fake_now>=(mode==24?610000:mode==25?306000:mode==16?367000:mode>=18?301200:3500))r2_ui_stop();
+  if(fake_now>=(mode>=26?25000:mode==24?622000:mode==25?316000:mode==16?367000:mode>=18?301200:3500))r2_ui_stop();
   return;
  }
  if(mode>=8&&mode<14){struct r2_ui_model m={.sampled_ms=fake_now,.unit="TC-03",.scope_active=true,.role=(mode==9||(mode==13&&fake_now>=3500&&fake_now<4500))?R2_UI_GM:R2_UI_FOLLOWER,.clock={.pps_present=mode!=12,.pps_age_us=10},.precision={.map_valid=true}};r2_ui_publish(&m);
   if(mode==11&&fake_now>=2000&&fake_now<2020)(void)r2_ui_page(0);
   if(mode==11&&fake_now>=2800&&fake_now<2820)(void)r2_ui_page(R2_UI_SHADOW_PAGE);
  }
- if(mode==1||fake_now>=(mode>=4?6500:3300))r2_ui_stop();}
+ if(mode==1||fake_now>=(mode==8||mode==11?23000:mode>=4?6500:3300))r2_ui_stop();}
 static void k_thread_create(struct k_thread *t,char *stack,size_t size,void (*fn)(void*,void*,void*),void *a,void *b,void *c,int p,int opts,int delay){entry=fn;priority=p;}
 static void k_thread_name_set(struct k_thread *t,const char *n){}
 int r2_display_init(void){++init_calls;fake_now+=330;return 0;}
@@ -76,7 +77,12 @@ int r2_display_temperature(int16_t *quarter_c){*quarter_c=92;return 0;}
 static bool witness_enabled;
 void r2_shadow_enable(bool enabled){witness_enabled=enabled;assert(!enabled||mode!=9);}
 bool r2_shadow_read(uint32_t after,struct rc_shadow_record *r,struct rc_shadow_status *st){
- *st=(struct rc_shadow_status){.enabled=witness_enabled,.now_tick=fake_now*16000,.epoch=1,.edges=(uint32_t)(fake_now/1000)};
- if(after==UINT32_MAX||(uint64_t)(after+1)*1000+800>fake_now)return false;
- *r=(struct rc_shadow_record){.sequence=after+1,.edge={(uint64_t)(after+1)*16000000,1,R2_CAPTURE_PPS},.valid=true,.reason=RC_SHADOW_OK,.phase_ns=-37,.reference_seen=true,.reference_fix=true,.reference_pps=true,.map={.root=1,.root_boot=9,.root_epoch=1,.parent=2,.parent_boot=10}};return true;
+ *st=(struct rc_shadow_status){.enabled=witness_enabled,.now_tick=fake_now*16000,.epoch=mode==31&&fake_now>=8000?2:1,.edges=(uint32_t)(fake_now/1000)};
+ if(after==UINT32_MAX)return false;
+ uint32_t sequence=after+1;if(mode==30&&sequence==8)++sequence;
+ if((uint64_t)sequence*1000+800>fake_now)return false;
+ *r=(struct rc_shadow_record){.sequence=sequence,.edge={(uint64_t)sequence*16000000,mode==31&&sequence>=8?2:1,R2_CAPTURE_PPS},.arrival_us=(int64_t)sequence*1000000,.valid=true,.reason=RC_SHADOW_OK,.phase_ns=-37,.reference_seen=true,.reference_fix=true,.reference_pps=true,.map={.root=mode==29&&sequence>=8?3:1,.root_boot=9,.root_epoch=1,.parent=2,.parent_boot=10}};
+ if(mode==26&&sequence==2)r->phase_ns=122;
+ if(mode==27&&sequence==13)r->phase_ns=-500;
+ return true;
 }

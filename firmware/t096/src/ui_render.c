@@ -287,7 +287,7 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
  if(status->page==R2_UI_SHADOW_PAGE&&!status->help){
   const struct r2_shadow_session_view *v=&status->shadow;char text[24];
   round_panel(fb,3,1,74,13,C_PANEL,C_BEZEL);label(fb,10,4,"SHADOW PPS",1,C_WHITE);
-  const char *state=v->state==R2_SHADOW_GM?"GM: NO TEST":v->state==R2_SHADOW_DWELL?"START IN 1S":v->state==R2_SHADOW_WAIT_PPS?"WAIT PPS":v->state==R2_SHADOW_WAIT_MAP?"WAIT BLE MAP":v->state==R2_SHADOW_RUNNING?"MEASURING":v->state==R2_SHADOW_FULL?"SESSION FULL":"READY";
+  const char *state=v->state==R2_SHADOW_GM?"GM: NO TEST":v->state==R2_SHADOW_DWELL?"START IN 1S":v->state==R2_SHADOW_WAIT_PPS?"WAIT PPS":v->state==R2_SHADOW_WAIT_MAP?"WAIT BLE MAP":v->state==R2_SHADOW_SETTLING?"SETTLING 10S":v->state==R2_SHADOW_RUNNING?"MEASURING":v->state==R2_SHADOW_FULL?"SESSION FULL":"READY";
   label(fb,4,20,state,1,v->state==R2_SHADOW_RUNNING?C_GREEN:C_AMBER);
   uint64_t secs=v->elapsed_ms/1000;
   if(secs<360000)snprintf(text,sizeof text,"TIME %02u:%02u",(unsigned)(secs/60),(unsigned)(secs%60));else snprintf(text,sizeof text,"TIME >99H");
@@ -299,7 +299,8 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
   label(fb,4,58,text,1,v->valid?C_CYAN:C_WHITE);
   const unsigned y[3]={72,97,122};const uint32_t values[3]={v->p95_ns,v->p99_ns,v->max_ns};const char *names[3]={"P95 ABS","P99 ABS","MAX ABS"};
   for(unsigned i=0;i<3;i++){char magnitude[16];const char *name=v->approximate&&i<2?(i?"P99 APX":"P95 APX"):names[i];label(fb,4,y[i],name,1,C_DIM);shadow_value(magnitude,values[i],v->valid);label(fb,4,y[i]+11,magnitude,1,v->valid?C_CYAN:C_WHITE);}
-  if(v->samples<100000&&v->skipped<100)snprintf(text,sizeof text,"N%u S%u",v->samples,v->skipped);else snprintf(text,sizeof text,"N %u",v->samples);
+  if(v->state==R2_SHADOW_SETTLING)snprintf(text,sizeof text,"WAIT %us W%u",v->settling_ms>=10000?0:10-v->settling_ms/1000,v->warmup);
+  else if(v->samples<100000&&v->skipped<100)snprintf(text,sizeof text,"N%u S%u",v->samples,v->skipped);else snprintf(text,sizeof text,"N %u",v->samples);
   label(fb,4,150,text,1,C_DIM);return;
  }
  if(status->help||status->page==5){

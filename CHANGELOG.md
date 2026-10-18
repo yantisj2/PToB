@@ -2,6 +2,18 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 18 October 2026 — T096 shadow PPS startup settling
+
+T096 **0.15.96** collects a separate startup population before starting the
+shadow PPS page's statistics. It requires ten seconds of consecutive usable
+PPS/map observations from the same root, source epoch and parent. Invalid or
+missing observations and source changes restart that interval. The qualifying
+PPS edge is the measurement boundary; all later eligible errors contribute to
+the mean, percentiles and maximum. Raw records remain available during startup,
+and the console reports startup counts separately. This phase-blind delay
+does not change timing, calibration, source selection or GNSS configuration,
+guarantee a smaller maximum, or establish the cause of an observed phase step.
+
 ## 18 October 2026 — Direct-GM authentication load
 
 W12 **0.1.18** and prepared SS3 **0.1.2** separate direct BLE100 authentication
