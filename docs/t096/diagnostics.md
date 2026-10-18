@@ -341,9 +341,9 @@ intervals; controller delay, scheduling and skipped events affect actual RF.
 The nominal discovery event rates fall from33.3/s and50/s to10/s each.
 The separate UCS1 service discovery remains318.75ms.
 
-All RC advertising is held off until an upstream precision capture is usable:
+Before0.15.97 all RC advertising was held off until an upstream precision capture was usable:
 parent PA sync, valid fit and clock map, PLL tracking, unexpired source and
-less than500ms since discipline are required. Capability and UCS1 discovery
+less than500ms since discipline are required. In those revisions capability and UCS1 discovery
 withdraw when this gate fails; the periodic train and its SyncInfo discovery
 stop together. Upstream scanning/admission remain enabled. Discovery does not
 require an existing child demand or an already-running downstream train, so an
@@ -421,6 +421,42 @@ are unchanged. Independent paths may reuse a slot; occupancy observations remain
 advisory and do not prove an RF collision.
 
 ### RC parent selection and relay dwell
+
+The current **0.15.97 field candidate** changes selection and management
+discovery as follows. These defaults need field validation.
+
+| Policy | Field candidate |
+| --- | --- |
+| Automatic collection | 10 seconds host-owned scan exposure; 60 seconds elapsed ceiling |
+| Locator horizon | 65 seconds; fresh admission always required |
+| Relay admission | 180 seconds from selection, including PENDING |
+| Relay acquisition | 300 seconds from first admission, restarted once at first PA establishment |
+| Relay absolute ceiling | 600 seconds from selection |
+| Settled relay degraded recovery | 300 seconds; individual lock flickers do not clear an unstable window |
+| Exhausted relay probation | 30, 60, then 120 seconds |
+| Quality memory | 8 rows, 304 bytes including sampler; five-minute confidence half-life, 30-minute expiry |
+
+Scan exposure excludes known scan stops, PA creation, ACL ownership and local
+pauses over 250ms. It is host-owner accounting, not verified controller RF
+airtime. A search reaching its wall ceiling may choose from incomplete coverage.
+An idle relay can be selected at cold startup. Quality confidence scales with
+observed samples and age; usable-time/delivery evidence dominates small RSSI
+differences. Locator reception and failed attempts do not refresh quality age.
+An authenticated path change discards proven usable-time status and discounts
+old delivery confidence; a group/enrollment change clears advisory history.
+
+RC7 management capability advertising can remain available during precision
+loss and replies PENDING until the normal source/map/clock gates allow READY.
+Periodic timing and UCS1 discovery retain their original validity gates, and an
+RC2 receiver still cannot advertise mesh admission. Discovery grants no timing
+authority. A bad packet is rejected independently of retaining the selected peer.
+Healthy selected relays remain selected. Renewals and repeated PA establishments
+cannot restart an acquisition or degraded episode. Direct-GM policy is unchanged.
+Journal parent-change kind4 now includes collected host-owned scan milliseconds
+in its final argument. Retry reason4 records an exhausted parent episode, its
+admission stage and elapsed selection age; it is separate from individual errors.
+
+The following records describe preceding policy revisions and their rationale.
 
 T096 0.15.85 retains each automatically chosen parent through a bounded admission
 and precision trial. The defaults are deployment policy, not measured convergence

@@ -14,29 +14,28 @@ devices. See [the architectural background](../../docs/V12_TO_R2.md).
 **PToB owns T096 RC7 development.** The ordinary mesh profiles are **GM** and **RC**;
 USB timing support is compiled by default. [Build from source](../../docs/t096/build.md)
 using pinned public dependencies and ignored local enrollment. The current
-application version is 0.15.96. No publicly enrolled binary is distributed.
+application version is 0.15.97. No publicly enrolled binary is distributed.
 
-RC source selection gives an admitted GM or relay 120 seconds to establish
-sustained usable time. A GM gets up to 60 seconds for admission, within a
-180-second total trial from selection.
-Before that precision trial, a relay gets up to 180 seconds to complete its
-authenticated admission, including demand startup and bounded control retries.
-Its first admission then gets the full 120-second precision trial, with an
-absolute five-minute ceiling from selection. Repeated PENDING or renewal does
-not move these deadlines. A GM that never settles is deferred
-for at least five minutes; a previously settled GM gets an earlier bounded retry
-after an interruption. Recovery preserves preference for a proven usable GM
-and otherwise favors an eligible relay over an unproved GM. A healthy relay
-stays selected when a stronger GM returns and gets 120 seconds for recovery
-after degraded timing. Automatic searches collect three seconds of locators and
-rank eligible relays by smoothed signal strength before history/publishing ties.
+The 0.15.97 RC field candidate collects ten seconds of host-owned discovery
+exposure, with a 60-second search ceiling. Host ownership is not measured RF
+airtime. It can select an idle authenticated relay and ranks confidence-weighted
+usable-time/delivery history ahead of small RSSI differences. Quality confidence
+halves over five minutes; observations expire after 30 minutes.
+
+Relay admission has 180 seconds. Acquisition has 300 seconds, starting again at
+first PA establishment, inside one 600-second ceiling from selection. A settled
+relay has 300 seconds to recover degraded timing; stronger advertisements and a
+returning GM cannot evict a healthy selected parent. Exhausted relay trials use
+30/60/120-second probation. Same-parent renewals, repeated PENDING and repeated
+PA establishment cannot rearm these budgets. Output source/map validity remains
+independent. RC7 management discovery stays available during timing loss, while
+periodic timing and UCS1 discovery keep their existing precision gates. These
+are field-candidate policies, with durability still to be measured.
+
 Relay GATT admission discovers the characteristic handle before reading its
-212-byte capability, avoiding the pinned NimBLE read-by-UUID size restriction.
-A receiver using an RC2 parent stays a leaf: it accepts that timing stream and
-withdraws mesh admission advertising instead of recruiting another relay hop.
-Direct-GM authentication renews after four minutes, leaving retry headroom
-before the existing six-minute binding limit. Relay renewal remains five
-minutes; failed attempts cannot extend either binding.
+212-byte capability. A receiver using an RC2 parent stays a leaf and withdraws
+mesh admission advertising. Direct-GM authentication renews after four minutes;
+relay renewal remains five minutes, with neither extending an existing binding.
 See the [selection policy and
 offline checks](../../docs/t096/diagnostics.md#rc-parent-selection-and-relay-dwell).
 

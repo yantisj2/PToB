@@ -7,7 +7,11 @@
 #include "rc_admission_policy.h"
 #include "link_quality.h"
 #include "timing_events.h"
+#include "rc_stream_quality.h"
+static struct rc_stream_history stream_history;
+static struct rc_stream_sample stream_sample;
 static struct rc7_receiver receiver;
+static struct rc7_path upstream_path;
 #define timing receiver.clock
 static struct rc5_routes routes;
 static struct r2_link_quality delivery;

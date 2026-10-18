@@ -4,6 +4,10 @@
 #include <string.h>
 #include "rc_gm_adapter.h"
 #include "timing_events.h"
+#include "rc_stream_quality.h"
+#include "rc_admission_policy.h"
+static struct rc_stream_history stream_history;
+static struct rc_stream_sample stream_sample;
 static struct rc5_gm_context gm_context;
 static uint32_t gm_admission_diagnostic[7];
 static int state_lock,locked;

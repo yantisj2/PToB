@@ -504,6 +504,11 @@ static bool gm_accept(const struct r2_join_record *r, uint64_t proof,
 #endif
   if (!valid)
     return false;
+  if(!gm_context.authenticated || gm_context.source.sender_boot!=r->sender_boot ||
+      gm_context.source.root_boot!=r->root_boot || gm_context.source.source_epoch!=r->source_epoch){
+    rc_stream_scope_changed(&stream_history,r->sender,false,tick/16);
+    stream_sample=(struct rc_stream_sample){0};
+  }
   gm_context = (struct rc5_gm_context){.source = *r,
                                        .time = time,
                                        .at_tick = tick,
@@ -804,11 +809,16 @@ static void lt_apply_read(const struct rc7_control *c) {
           .root_lo_ns = c->root_lo_ns,
           .root_hi_ns = c->root_hi_ns + age_ns,
           .root_expires_ns = c->source_expires_ns};
+      bool changed_scope=!rc7_path_same(&upstream_path,&c->path);
       if (rc5_admission_valid(&a) && layout_path(&c->path))
         bound =
             rc7_bind(&receiver, &c->path, self_identity,
                      routes.node[node].transmitter, routes.node[node].slot, &a);
       if (bound) {
+        if(changed_scope){
+          rc_stream_scope_changed(&stream_history,c->sender,true,tick/16);
+          stream_sample=(struct rc_stream_sample){0};
+        }
         ++lt_bindings;
         startup_complete();
         last_context_progress = tick;
@@ -1018,7 +1028,7 @@ static void lt_init(void) {
 }
 static void lt_advertise(uint64_t tick) {
   if(!lt_adv)return;
-  if(!precision_synced(tick) || !routes.node[node].transmitter){
+  if(!routes.node[node].transmitter){
     if(lt_advertising){
       int rc=bt_le_ext_adv_stop(lt_adv);
       check(!rc||rc==-EALREADY,"unsynced RQ7 advertising stop");

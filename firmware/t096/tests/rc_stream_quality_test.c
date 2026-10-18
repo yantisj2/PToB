@@ -28,15 +28,18 @@ int main(void){
  memset(&s,0,sizeof s);for(unsigned i=0;i<8;i++)rc_stream_window(&s,500);CHECK(s.unstable);
  for(unsigned i=0;i<2;i++)rc_stream_window(&s,1000);CHECK(s.unstable);
  for(unsigned i=0;i<6;i++)rc_stream_window(&s,1000);CHECK(!s.unstable);
- memset(&h,0,sizeof h);rc_stream_failed(&h,22,true,1000000);CHECK(rc_stream_blocked(&h,22,true,300999999));CHECK(!rc_stream_blocked(&h,22,true,301000000));
- // All three failed-stream deferrals, then bounded admission-only deferrals.
- rc_stream_failed(&h,22,true,301000000);CHECK(rc_stream_blocked(&h,22,true,900999999));CHECK(!rc_stream_blocked(&h,22,true,901000000));
- rc_stream_failed(&h,22,true,901000000);CHECK(rc_stream_blocked(&h,22,true,2100999999));CHECK(!rc_stream_blocked(&h,22,true,2101000000));
+ memset(&h,0,sizeof h);
+ for(unsigned failure=0;failure<3;failure++) {
+  uint64_t now=(UINT64_C(1)+failure*300)*1000000;
+  rc_stream_failed(&h,22,true,now);
+  uint64_t until=now+(UINT64_C(30000000)<<failure);
+  CHECK(rc_stream_blocked(&h,22,true,until-1));CHECK(!rc_stream_blocked(&h,22,true,until));
+ }
  memset(&h,0,sizeof h);
  for(unsigned failure=0;failure<3;failure++) {
   uint64_t now=(UINT64_C(1)+failure*300)*1000000;
   rc_stream_admission_failed(&h,33,true,now);
-  uint64_t until=now+(UINT64_C(60000000)<<failure);
+  uint64_t until=now+(UINT64_C(30000000)<<failure);
   CHECK(rc_stream_blocked(&h,33,true,until-1));CHECK(!rc_stream_blocked(&h,33,true,until));
  }
  // The earlier retry for a previously settled GM is bounded and keeps failure history.
@@ -59,5 +62,17 @@ int main(void){
   if(i==16)CHECK(rc_stream_blocked(&h,44,true,now));
  }
  CHECK(!rc_stream_blocked(&h,44,true,10000000));
+ // Quality confidence ages without fabricating samples or extending it on failure.
+ memset(&h,0,sizeof h);r=rc_stream_obtain(&h,77,true,1000000);
+ r->usable=r->delivery=1000;r->usable_samples=r->delivery_samples=32;
+ CHECK(rc_stream_proven(&h,77,true,1000000));
+ int fresh=rc_stream_score(&h,77,true,-50,1000000);
+ int aged=rc_stream_score(&h,77,true,-50,301000000);
+ CHECK(aged<fresh&&!rc_stream_proven(&h,77,true,301000000));
+ unsigned count=r->usable_samples;rc_stream_failed(&h,77,true,302000000);
+ CHECK(r->observed==1&&r->usable_samples==count);
+ rc_stream_scope_changed(&h,77,true,303000000);
+ CHECK(!r->usable_samples&&r->delivery_samples==8&&r->failures==1);
+ CHECK(!rc_stream_proven(&h,77,true,303000000));
  printf("PASS %u stream history assertions; history=%zu sampler=%zu bytes\n",checks,sizeof h,sizeof s);
 }

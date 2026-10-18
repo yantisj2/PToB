@@ -7,20 +7,20 @@
 #define RC_STREAM_RETAIN_S 1800u
 #define RC_STREAM_ADMISSION_US UINT64_C(60000000)
 /* A relay may first return PENDING while its demanded train starts. Retained
- * two-starts/minute control limits can then put a working admission after120s.
- * Keep one bounded180s admission trial and a full120s precision trial after it.
+ * two-starts/minute control limits can delay working admission. Keep180s for
+ * admission, then300s acquisition; first PA establishment starts that stage.
  * Repeated PENDING/renewals never move either original deadline. */
 #define RC_STREAM_RELAY_ADMISSION_US UINT64_C(180000000)
-#define RC_STREAM_ACQUIRE_US UINT64_C(120000000)
+#define RC_STREAM_ACQUIRE_US UINT64_C(300000000)
 #define RC_STREAM_GM_ACQUIRE_US UINT64_C(120000000)
-#define RC_STREAM_TRIAL_US UINT64_C(300000000)
+#define RC_STREAM_TRIAL_US UINT64_C(600000000)
 #define RC_STREAM_GM_TRIAL_US UINT64_C(180000000)
 /* Retain a settled GM through one finite recovery minute. Expired timing
  * still withdraws immediately; a failed renewal is not a six-second detour. */
 #define RC_STREAM_LOSS_US UINT64_C(60000000)
 /* A settled relay also needs time for fresh admission after a train change.
- * With at most two ACL starts per minute,30s can permit only one attempt. */
-#define RC_STREAM_RELAY_LOSS_US UINT64_C(120000000)
+ * Use a five-minute degraded episode; a brief issue does not reject a relay. */
+#define RC_STREAM_RELAY_LOSS_US UINT64_C(300000000)
 #define RC_STREAM_WINDOW 8u
 struct rc_stream_row {
   uint64_t id;
@@ -111,8 +111,8 @@ static inline void rc_stream_failed(struct rc_stream_history *h, uint64_t id,
   struct rc_stream_row *r = rc_stream_obtain(h, id, relay, now);
   if (r->failures < 3)
     ++r->failures;
-  r->failed_at = r->observed = (uint32_t)(now / 1000000);
-  r->retry_at = r->failed_at + (300u << (r->failures - 1));
+  r->failed_at = (uint32_t)(now / 1000000);
+  r->retry_at = r->failed_at + ((relay ? 30u : 300u) << (r->failures - 1));
   /* Acquisition failure is a separate observation, not a fabricated RF sample.
    */
 }
@@ -124,8 +124,8 @@ static inline void rc_stream_admission_failed(struct rc_stream_history *h,
   struct rc_stream_row *r = rc_stream_obtain(h, id, relay, now);
   if (r->failures < 3)
     ++r->failures;
-  r->failed_at = r->observed = (uint32_t)(now / 1000000);
-  r->retry_at = r->failed_at + (60u << (r->failures - 1));
+  r->failed_at = (uint32_t)(now / 1000000);
+  r->retry_at = r->failed_at + ((relay ? 30u : 60u) << (r->failures - 1));
 }
 /* A GM that already supplied sustained usable time can become available again
  * after a source/stream interruption. Use the shorter bounded retry schedule;
@@ -134,17 +134,39 @@ static inline void rc_stream_gm_recovery_failed(struct rc_stream_history *h,
                                                uint64_t id,uint64_t now) {
   rc_stream_admission_failed(h,id,false,now);
 }
+/* Aging affects advisory confidence only. Unknown is a prior, never a
+ * fabricated observation. Five-minute linear half-life; counts saturate only
+ * for storage and are capped at32s when computing effective confidence. */
+static inline unsigned rc_stream_confidence(const struct rc_stream_row *r,
+                                             unsigned samples, uint64_t now) {
+  if (!r || !samples) return 0;
+  unsigned age=(uint32_t)(now/1000000-r->observed);
+  unsigned weight=(samples<32?samples:32)*1000/32;
+  unsigned halves=age/300;
+  if (halves>=6) return 0;
+  weight >>= halves;
+  return weight*(600-age%300)/600;
+}
 static inline int rc_stream_score(struct rc_stream_history *h, uint64_t id,
                                   bool relay, int rssi, uint64_t now) {
   struct rc_stream_row *r = rc_stream_find(h, id, relay, now);
-  if (rssi < -100)
-    rssi = -100;
-  if (rssi > -20)
-    rssi = -20;
-  int delivery = r && r->delivery_samples ? r->delivery : 750,
-      usable = r && r->usable_samples ? r->usable : 750;
-  return (rssi + 100) * 2 + (delivery - 750) / 8 + (usable - 750) / 2 +
-         (relay ? 0 : 8) - (r ? (int)r->failures * 64 : 0);
+  if (rssi < -100) rssi = -100;
+  if (rssi > -20) rssi = -20;
+  int dw=r?rc_stream_confidence(r,r->delivery_samples,now):0;
+  int uw=r?rc_stream_confidence(r,r->usable_samples,now):0;
+  int delivery=r?((int)r->delivery-750)*dw/1000:0;
+  int usable=r?((int)r->usable-750)*uw/1000:0;
+  unsigned age=r?(uint32_t)(now/1000000-r->failed_at):0;
+  int penalty=r?(int)r->failures*64:0;
+  penalty >>= age/300<6?age/300:6;
+  return (rssi+100)/2+delivery/8+usable/2+(relay?0:8)-penalty;
+}
+/* A changed authenticated path keeps a small device prior, not a proven route.
+ * It is called once per actual scope change, never by locator reception. */
+static inline void rc_stream_scope_changed(struct rc_stream_history *h,
+                                            uint64_t id,bool relay,uint64_t now) {
+  struct rc_stream_row *r=rc_stream_find(h,id,relay,now);
+  if(r){r->delivery_samples/=4;r->usable_samples=0;}
 }
 /* Advisory selection evidence only. Beacon reception, coarse admission and a
  * single lock sample cannot establish that a GM has supplied usable time. */
@@ -152,7 +174,8 @@ static inline bool rc_stream_proven(struct rc_stream_history *h, uint64_t id,
                                      bool relay, uint64_t now) {
   struct rc_stream_row *r = rc_stream_find(h, id, relay, now);
   return r && !r->failures && r->usable_samples >= RC_STREAM_WINDOW &&
-         r->usable >= 900;
+         r->usable >= 900 &&
+         (uint32_t)(now/1000000-r->observed)<300;
 }
 /* Eight complete seconds of observed usable time. A lock flicker cannot reset
  * this window. Local pauses provide no loss evidence and restart the window. */

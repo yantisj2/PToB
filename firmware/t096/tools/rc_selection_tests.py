@@ -26,7 +26,7 @@ decl+='\nstatic bool startup_admitted,startup_attempted;\n'
 flags=[os.environ.get('CC','clang'),'-std=c11','-Wall','-Wextra','-Werror','-Wno-unused-parameter',
        '-fsanitize=address,undefined','-fno-sanitize-recover=all','-I'+str(out),'-I'+str(app/'include')]
 sources=[source,Path(__file__).resolve(),app/'include/rc_stream_quality.h',
-         app/'include/link_quality.h',app/'include/rc_admission_policy.h',
+         app/'include/link_quality.h',app/'include/rc_admission_policy.h',app/'include/rc_search.h',
          app/'tests/rc_startup_selection_test.c',app/'tests/rc_stream_quality_test.c']
 commands=[]
 passed=False
@@ -36,9 +36,6 @@ try:
         commands.append(command)
         subprocess.run(command,check=True,timeout=30)
         subprocess.run([str(out/name)],check=True,timeout=10)
-        if name=='rc_startup_selection':
-            for case in ['recovery-collection','strongest-collected','slow-relay-admission','gm-dwell']:
-                subprocess.run([str(out/name),case],check=True,timeout=10)
     passed=True
 finally:
     (out/'receipt.json').write_text(json.dumps(dict(passed=passed,hardware=False,

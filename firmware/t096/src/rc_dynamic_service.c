@@ -18,6 +18,7 @@
 #include "rc_shadow.h"
 #include "rc_slots.h"
 #include "rc_stream_quality.h"
+#include "rc_search.h"
 #include "rc_phase_policy.h"
 #include "precision_schedule.h"
 #include "rc_unicast.h"
@@ -376,6 +377,7 @@ struct candidate {
   bool relay, publishing;
 };
 static struct candidate candidates[8];
+static struct rc_search parent_search;
 static uint64_t candidate_since, upstream_bad_since, parent_selected_at,
     parent_stage_at;
 static bool upstream_usable, relay_fallback;
@@ -420,6 +422,7 @@ static void candidate_defer(uint64_t id, uint64_t now) {
   /* Selection or refusal finishes this search. A later recovery must collect
    * its own neighborhood rather than reuse startup's elapsed scan timer. */
   candidate_since = 0;
+  parent_search = (struct rc_search){0};
   for (unsigned i = 0; i < 8; i++)
     if (candidates[i].id == id && (!parent_known || candidates[i].relay == parent_relay)) {
       candidates[i].consumed = candidates[i].seen;
@@ -469,7 +472,7 @@ static void candidate_seen(const bt_addr_le_t *address, uint64_t id, bool relay,
     candidates[at] = (struct candidate){.id = id, .rssi = -127};
   }
   struct candidate *c = &candidates[at];
-  c->rssi = c->seen && now >= c->seen && now - c->seen < 4000000
+  c->rssi = c->seen && now >= c->seen && now - c->seen < RC_SEARCH_LOCATOR_US
                 ? (3 * c->rssi + rssi) / 4 : rssi;
   c->seen = now;
   c->relay = relay;
@@ -581,13 +584,14 @@ static struct candidate *candidate_choose(uint64_t now, bool expired) {
   bool diagnostic = forced_parent || exclude_direct;
   bool startup = !startup_admitted && !startup_attempted && !diagnostic;
   if (!candidate_since || now < candidate_since ||
-      now - candidate_since < (diagnostic ? 40000 : 3000000))
+      (diagnostic ? now-candidate_since<40000
+                  : !rc_search_ready(&parent_search,candidate_since,now)))
     return NULL;
   /* Protect every chosen parent through admission and clock acquisition.
    * Its locator cooldown must not hand the next poll back to the failed GM. */
   if (parent_known && !relay_fallback && !diagnostic)
     return NULL;
-  /* First-source collection tries a fresh GM before a publishing relay,
+  /* First-source collection tries a fresh GM before an eligible idle relay,
    * including when the older cold-loss fallback timer has already elapsed. */
   /* A refused relay path clears parent_known before the next delivery poll.
    * That is still recovery, not a new GM-only startup. */
@@ -610,38 +614,37 @@ static struct candidate *candidate_choose(uint64_t now, bool expired) {
     else
       rc_stream_admission_failed(&stream_history, routes.node[parent_index].id, parent_relay, now);
     parent_failed = true;
+    r2_timing_event(R2_TIMING_RC_RETRY,-ETIMEDOUT,
+        routes.node[parent_index].id,4,parent_admission,
+        (uint32_t)((now-parent_selected_at)/1000));
   }
   struct candidate *best = NULL;
   int best_score = INT32_MIN, best_rank = -1;
   for (unsigned i = 0; i < 8; i++) {
     struct candidate *c = &candidates[i];
-    /* Locators are advisory. Retain the full three-second scan plus one
-     * second of margin; the subsequent live capability/admission still owns
+    /* Locators are advisory. Retain the bounded full search plus margin; the subsequent live capability/admission still owns
      * all original source, proof, map and transaction validity gates. */
     if (!c->id || now < c->seen ||
-        now - c->seen >= (diagnostic ? 200000 : 4000000) ||
+        now - c->seen >= (diagnostic ? 200000 : RC_SEARCH_LOCATOR_US) ||
         now < c->cooldown || c->seen <= c->consumed ||
         (!diagnostic && rc_stream_blocked(&stream_history, c->id, c->relay, now)) ||
         (exclude_direct && !c->relay) ||
         (forced_parent && (c->id != forced_parent || !c->relay)) ||
         (retained && c->id != routes.node[parent_index].id) ||
-        (c->relay && (!seek || (startup && !c->publishing))))
+        (c->relay && !seek))
       continue;
     int rank = startup || !prefer_relay ? (c->relay ? 0 : 1)
         : c->relay ? 1
         : rc_stream_proven(&stream_history, c->id, false, now) ? 2 : 0;
     int score = rc_stream_score(&stream_history, c->id, c->relay, c->rssi, now);
     if (c->relay && c->publishing)
-      score += 48;
+      score += 8;
     /* Retain GM preference when backed by sustained usable time. Otherwise a
      * fresh relay outranks an unproved/failed GM during recovery; audible G1
      * cannot steal that relay's acquisition trial. GMs remain retry candidates. */
-    bool relay_strength = best && !diagnostic && c->relay && best->relay;
     if (!best || rank > best_rank ||
-        (rank == best_rank &&
-         ((relay_strength && c->rssi > best->rssi) ||
-          ((!relay_strength || c->rssi == best->rssi) &&
-           (score > best_score || (score == best_score && c->id < best->id)))))) {
+        (rank == best_rank && (score > best_score ||
+          (score == best_score && c->id < best->id)))) {
       best = c;
       best_score = score;
       best_rank = rank;
@@ -649,8 +652,10 @@ static struct candidate *candidate_choose(uint64_t now, bool expired) {
   }
   /* No eligible result ends an empty scan. The next locator starts a new
    * collection instead of immediately winning an already elapsed window. */
-  if (!best && !diagnostic)
+  if (!best && !diagnostic) {
     candidate_since = 0;
+    parent_search = (struct rc_search){0};
+  }
   return best;
 }
 
@@ -736,6 +741,7 @@ static void sync_events(void) {
     } else if (creating && sync == e.sync && parent_known &&
                !bt_addr_le_cmp(&e.address, &parent)) {
       parent_synced = true;
+      if(parent_relay)parent_wait(3); /* First relay PA only; no renewal rearm. */
       r2_timing_event(R2_TIMING_SYNC_READY,0,routes.node[parent_index].id,sync_sid,
                      sync_started?(uint32_t)((mono_us()-sync_started)/1000):0,0);
       sync_started = 0;
@@ -906,7 +912,7 @@ static void discover(uint64_t tick) {
                                              .depth = transmitter ? 1 : 0,
                                              .transmitter = transmitter}}};
       parent_relay = c->relay;
-      r2_timing_event(R2_TIMING_PARENT,0,c->id,c->relay,(uint32_t)(int32_t)c->rssi,0);
+      r2_timing_event(R2_TIMING_PARENT,0,c->id,c->relay,(uint32_t)(int32_t)c->rssi,(uint32_t)(parent_search.owned/1000));
       candidate_defer(c->id, mono_us());
     }
   }
@@ -1592,6 +1598,10 @@ static void owner(void *a, void *b, void *c) {
      * Renewal is a background target, never a reason to defer this drain.
      */
     captures(now);
+    bool search=(!parent_known || relay_fallback) && !forced_parent && !exclude_direct;
+    bool scan_owned=search && scanning && !creating && !lt_conn && !lt_paused;
+    if(scan_owned && !candidate_since)candidate_since=mono_us();
+    rc_search_observe(&parent_search,scan_owned,mono_us());
     discover(now.tick);
 #if defined(R2_RC_DYNAMIC_FIXTURE)
     extern bool r2_rc7_fixture_drop_sync(uint64_t, uint64_t);
@@ -1935,6 +1945,9 @@ int r2_service_configure(const struct r2_identity *id,
   if (!lt_reset())
     return -EIO;
   identity = *id;
+  if(group.id!=e->group.id || group.epoch!=e->group.epoch ||
+      memcmp(group.psk,e->group.psk,sizeof group.psk))
+    stream_history=(struct rc_stream_history){0};
   group = e->group;
   local_boot = id->boot;
   self_identity = strtoull(id->silicon, NULL, 16);
@@ -1991,6 +2004,7 @@ int r2_service_configure(const struct r2_identity *id,
   sync_close_error = 0;
   memset(acquisition_snapshot, 0, sizeof acquisition_snapshot);
   memset(candidates, 0, sizeof candidates);
+  parent_search=(struct rc_search){0};
   candidate_since = upstream_bad_since = 0;
   parent_selected_at = parent_stage_at = mono_us();
   upstream_usable = relay_fallback = false;

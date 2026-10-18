@@ -2,6 +2,20 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 18 October 2026 — T096 tolerant relay field candidate
+
+T096 **0.15.97** collects ten seconds of host-owned discovery exposure with a
+60-second wall ceiling, admits idle relays at cold startup, and ranks bounded
+RSSI alongside sample- and age-weighted usable-time/delivery history. Quality
+confidence has a five-minute half-life and a 30-minute eviction horizon; path
+changes discard usable-time proof and group changes clear history. Relay trials
+allow 180 seconds for admission, 300 seconds for acquisition starting once at
+first PA establishment, and 600 seconds total. Settled relays get 300 seconds for
+degraded recovery; exhausted trials use 30/60/120-second probation. RC7 management
+discovery remains available through timing loss while periodic timing, source/map
+validity, authentication and RC2 leaf restrictions retain their gates. Host-owned
+scan time is not measured RF airtime. Field durability remains unqualified.
+
 ## 18 October 2026 — T096 shadow PPS startup settling
 
 T096 **0.15.96** collects a separate startup population before starting the

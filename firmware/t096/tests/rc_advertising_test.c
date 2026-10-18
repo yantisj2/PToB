@@ -57,7 +57,7 @@ static int bt_le_per_adv_start(void *p){assert(p);++periodic_starts;return 0;}
 static int bt_le_per_adv_stop(void *p){assert(p);++periodic_stops;return 0;}
 #include "rc_advertising_under_test.h"
 static void good(void){routes.node[0].transmitter=true;parent_known=parent_synced=fit.valid=capture_ok=tracking=true;holdover_expired=false;discipline_at=100;fake_tick=200;current_origin.expires=101;timing.bound=true;timing.context_until=UINT64_MAX;}
-static void refused(void){assert(!precision_synced(fake_tick));unsigned n=starts;lt_advertise(fake_tick);assert(!lt_advertising&&starts==n);assert(!r2_uc_poll(&(struct r2_uc_clock){0},false)&&!u.advertising&&starts==n);}
+static void refused(void){assert(!precision_synced(fake_tick));lt_advertise(fake_tick);assert(lt_advertising);unsigned n=starts;assert(!r2_uc_poll(&(struct r2_uc_clock){0},false)&&!u.advertising&&starts==n);}
 int main(void){
  u.enabled=true;u.adv=(void*)2;good();assert(precision_synced(fake_tick));
  /* RX can complete after the loop's capture: a stale caller tick must not
@@ -72,15 +72,15 @@ int main(void){
  /* No downstream demand/publication is required to discover a synced relay. */
  lt_advertise(fake_tick);assert(lt_advertising&&starts==1&&hints==1);
  assert(!r2_uc_poll(&(struct r2_uc_clock){0},true)&&u.advertising&&starts==2);
- parent_synced=false;refused();assert(stops==2);refused();assert(stops==2);
+ parent_synced=false;refused();assert(stops==1);refused();assert(stops==1);
  good();parent_known=false;refused();good();fit.valid=false;refused();good();capture_ok=false;refused();
  good();tracking=false;refused();good();holdover_expired=true;refused();good();discipline_at=0;refused();
  good();timing.context_until=fake_tick;refused();good();timing.bound=false;refused();
  good();fake_tick=99;refused();good();fake_tick=discipline_at+RC_FIELD_HOLD_TICKS;refused();
  good();current_origin.expires=100;refused();
- good();lt_advertise(fake_tick);assert(lt_advertising&&starts==3);
+ good();lt_advertise(fake_tick);assert(lt_advertising&&starts==2);
  struct bt_conn client={.refs=1};u.clients[0].conn=&client;u.clients[0].session.control_seq=1;
- assert(!r2_uc_poll(&(struct r2_uc_clock){0},true)&&u.advertising&&starts==4);
+ assert(!r2_uc_poll(&(struct r2_uc_clock){0},true)&&u.advertising&&starts==3);
  /* Withdrawing discovery preserves an existing authenticated client's state. */
  assert(!r2_uc_poll(&(struct r2_uc_clock){0},false)&&client.refs==1&&!u.advertising);
  assert(!r2_uc_poll(&(struct r2_uc_clock){0},true)&&u.advertising);
@@ -105,5 +105,5 @@ int main(void){
  unsigned before=starts;lt_advertise(fake_tick);assert(starts==before);
  routes.node[0].transmitter=true;lt_advertise(fake_tick);assert(lt_advertising);
  assert(rc_admission_drain_us(false,3200)==500000&&rc_admission_drain_us(true,100)==1500000&&rc_admission_drain_us(true,3200)==32500000);
- puts("PASS production RC/UCS discovery: cold refusal, all precision gates, withdrawal/recovery, idle-relay discovery, existing client preservation and failed stop");
+ puts("PASS production RC/UCS discovery: management discovery during timing loss, all output precision gates, withdrawal/recovery, idle-relay discovery, existing client preservation and failed stop");
 }
