@@ -388,6 +388,12 @@ time authority. Later promotion can be retried after that bounded cooldown.
 Source expiry, authentication, replay fences, corrected-capture association,
 500ms held-map limit, PA supervision and proven controller drains remain in force.
 
+From 0.15.87 an initial relay capability read may retry ATT unlikely-error or
+insufficient-resources up to three times, 50ms apart, on the same connected ACL
+and inside its original two-second transaction. This tolerates a capability read
+arriving before the server owner is ready. It grants no source authority and
+does not retry MTU, authentication, response/write or disconnected-owner errors.
+
 ### RC parent selection and relay dwell
 
 T096 0.15.85 retains each automatically chosen parent through a bounded admission

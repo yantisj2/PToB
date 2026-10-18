@@ -31,6 +31,7 @@ static uint64_t gm_sequence, lt_challenge, lt_deadline, lt_renew_at,
     lt_request_at, lt_next, lt_budget_until, lt_attempt_ready, lt_adv_check_at;
 static uint32_t lt_sequence, lt_requests, lt_responses, lt_bindings, lt_rejects,
     lt_attempts, lt_initiations, lt_disconnects, lt_adv_recoveries;
+static unsigned lt_cap_retries;
 static bool lt_paused, lt_acquiring, lt_advertising, lt_dead,
     lt_server, lt_server_pending, lt_reply_ready, gm_write_busy;
 static struct rc5_demand lt_demand;
@@ -210,7 +211,8 @@ static bool lt_reset(void) {
       lt_next = lt_budget_until = lt_attempt_ready = lt_adv_check_at =
           last_context_progress = 0;
   lt_sequence = lt_requests = lt_responses = lt_bindings = lt_rejects =
-      lt_attempts = lt_initiations = lt_disconnects = lt_adv_recoveries = 0;
+      lt_attempts = lt_initiations = lt_disconnects = lt_adv_recoveries =
+      lt_cap_retries = 0;
   parent_relay = lt_paused = lt_acquiring = lt_advertising = lt_dead =
       lt_server = lt_server_pending = lt_reply_ready = gm_write_busy = false;
   lt_adv = NULL;
@@ -683,8 +685,10 @@ static void lt_apply_connected(struct bt_conn *conn, uint8_t error) {
     lt_phase = LT_IDLE;
     struct rc7_control cap = capability();
     lt_publish_reply(&cap);
-  } else
+  } else {
+    lt_cap_retries = 0;
     lt_phase = LT_MTU;
+  }
 }
 static void lt_apply_read(const struct rc7_control *c) {
   uint64_t tick = lt_now();
@@ -793,6 +797,25 @@ static void lt_apply_read(const struct rc7_control *c) {
     lt_deadline = 0;
   }
 }
+static bool lt_retry_cap_error(const struct lt_event *e) {
+  if (!e || e->type != LT_READ || e->conn != lt_conn || !lt_conn ||
+      !parent_relay || lt_server || lt_phase != LT_CAP || lt_cap_retries >= 3 ||
+      (e->error != BT_ATT_ERR_UNLIKELY &&
+       e->error != BT_ATT_ERR_INSUFFICIENT_RESOURCES))
+    return false;
+  struct bt_conn_info info;
+  if (bt_conn_get_info(lt_conn, &info) || info.state != BT_CONN_STATE_CONNECTED)
+    return false;
+  uint64_t tick = lt_now(), delay = UINT64_C(800000); /*50ms*/
+  if (tick >= lt_deadline || lt_deadline - tick <= delay)
+    return false;
+  ++lt_cap_retries;
+  lt_next = tick + delay;
+  /* Initial capability can race the server owner's adoption. Retry only this
+   * unauthoritative read, on the same live ACL and original two-second budget.
+   * Never retry MTU/authentication, a response/write or a disconnected owner. */
+  return true;
+}
 static void lt_drain(void) {
   struct lt_event e;
   while (!k_msgq_get(&lt_events, &e, K_NO_WAIT)) {
@@ -813,7 +836,8 @@ static void lt_drain(void) {
     }
     if (e.error) {
       lt_record(3, e.error, lt_phase | (e.type << 16));
-      lt_deadline = 0;
+      if (!lt_retry_cap_error(&e))
+        lt_deadline = 0;
       continue;
     }
     switch (e.type) {

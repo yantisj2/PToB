@@ -13,6 +13,8 @@
 #define K_MSEC(x) (x)
 #define BT_HCI_ERR_REMOTE_USER_TERM_CONN 0x13
 #define BT_HCI_ERR_CONN_LIMIT_EXCEEDED 9
+#define BT_ATT_ERR_UNLIKELY 14
+#define BT_ATT_ERR_INSUFFICIENT_RESOURCES 17
 struct bt_conn {unsigned refs;bool active,initiating,ucs,scheduled;unsigned at;};
 enum {BT_CONN_ROLE_CENTRAL,BT_CONN_ROLE_PERIPHERAL};
 enum {BT_CONN_STATE_DISCONNECTED,BT_CONN_STATE_CONNECTING,BT_CONN_STATE_CONNECTED,BT_CONN_STATE_DISCONNECTING};
@@ -22,16 +24,16 @@ struct rc5_gm_context {int v;};struct r2_join_exchange {int v;};struct rc5_deman
 static struct rc5_gm_context gm_context;static struct r2_join_exchange gm_exchange;static struct rc5_demand lt_demand;
 static uint32_t gm_admission_diagnostic[7];
 static uint64_t lt_attempt_started,lt_close_until,gm_sequence,lt_challenge,lt_deadline,lt_renew_at,lt_request_at,lt_next,lt_budget_until,lt_attempt_ready,lt_adv_check_at,last_context_progress;
-static unsigned lt_sequence,lt_requests,lt_responses,lt_bindings,lt_rejects,lt_attempts,lt_initiations,lt_disconnects,lt_adv_recoveries,lt_read_size,lt_handle,lt_phase;
+static unsigned lt_sequence,lt_requests,lt_responses,lt_bindings,lt_rejects,lt_attempts,lt_initiations,lt_disconnects,lt_adv_recoveries,lt_read_size,lt_handle,lt_phase,lt_cap_retries;
 static bool startup_admitted;
 static bool parent_relay,lt_paused,lt_acquiring,lt_advertising,lt_dead,lt_server,lt_server_pending,lt_reply_ready,gm_write_busy;
-static void *lt_adv;static struct bt_conn *lt_conn;enum {LT_IDLE,LT_CONNECT,LT_MTU,LT_CLOSE};
+static void *lt_adv;static struct bt_conn *lt_conn;enum {LT_IDLE,LT_CONNECT,LT_MTU,LT_CLOSE,LT_CAP,LT_REPLY};
 static bool parent_known;static unsigned parent_index;
 static struct {struct {uint64_t id;} node[2];} routes;
 struct rc7_control {int unused;};
 static struct rc7_control capability(void){return (struct rc7_control){0};}
 static void lt_publish_reply(const struct rc7_control *c){(void)c;assert(false);}
-enum {LT_CONNECTED,LT_DISCONNECTED,LT_MTU_DONE};
+enum {LT_CONNECTED,LT_DISCONNECTED,LT_MTU_DONE,LT_READ};
 struct lt_event {unsigned type;struct bt_conn *conn;unsigned error;};
 static struct {struct lt_event event[4];unsigned count;} lt_events;
 static struct bt_conn pool[CONFIG_BT_MAX_CONN];static struct bt_conn *arrival;
@@ -63,12 +65,31 @@ static void seed(void){
  lt_conn=NULL;lt_adv=(void*)1;lt_dead=false;lt_advertising=advertising_live=true;lt_retirement_error=false;
  arrival=NULL;now=0;delay_ms=2;disconnect_calls=records=0;delete_fails=false;
  lt_close_until=0;lt_phase=LT_IDLE;cancel_race=late_success=fault=false;drain_events=0;drain_result=0;
- lt_attempts=0;
+ lt_attempts=lt_cap_retries=0;parent_relay=lt_server=false;
  startup_admitted=false;live_precision=false;timing.bound=false;timing.context_until=0;
 }
 static void queue_connected(unsigned slot){pool[slot].refs=1;pool[slot].active=true;put(LT_CONNECTED,&pool[slot],0);}
 static void balanced(void){assert(!lt_events.count&&!lt_adv);for(unsigned i=0;i<CONFIG_BT_MAX_CONN;++i)assert(!pool[i].refs&&!pool[i].active&&!pool[i].initiating&&!lt_retired[i].conn);assert(lt_reset());}
 int main(void){
+ /* A busy initial relay capability is retried on the same live ACL, with a
+  * finite count and the ORIGINAL transaction deadline. All other errors close. */
+ seed();pool[0].active=true;lt_conn=&pool[0];parent_relay=true;lt_phase=LT_CAP;
+ lt_deadline=32000000;uint64_t cap_deadline=lt_deadline;
+ struct lt_event cap={.type=LT_READ,.conn=lt_conn,.error=BT_ATT_ERR_UNLIKELY};
+ for(unsigned n=0;n<3;n++){
+  assert(lt_retry_cap_error(&cap)&&lt_cap_retries==n+1&&lt_next==lt_now()+800000&&lt_deadline==cap_deadline);
+  now+=50;
+ }
+ assert(!lt_retry_cap_error(&cap)&&lt_deadline==cap_deadline);
+ lt_cap_retries=0;cap.error=BT_ATT_ERR_INSUFFICIENT_RESOURCES;assert(lt_retry_cap_error(&cap));
+ cap.error=5;assert(!lt_retry_cap_error(&cap));cap.error=BT_ATT_ERR_UNLIKELY;
+ lt_phase=LT_REPLY;assert(!lt_retry_cap_error(&cap));lt_phase=LT_CAP;
+ parent_relay=false;assert(!lt_retry_cap_error(&cap));parent_relay=true;
+ lt_server=true;assert(!lt_retry_cap_error(&cap));lt_server=false;
+ cap.type=LT_MTU_DONE;assert(!lt_retry_cap_error(&cap));cap.type=LT_READ;
+ cap.conn=&pool[1];assert(!lt_retry_cap_error(&cap));cap.conn=lt_conn;
+ pool[0].active=false;assert(!lt_retry_cap_error(&cap));pool[0].active=true;
+ lt_deadline=lt_now()+800000;assert(!lt_retry_cap_error(&cap));
  /* Exactly one wait after the third failure. Cold recovery does not stack
   * per-attempt and batch delays; healthy renewal reserves original expiry. */
  seed();lt_attempts=3;lt_retry_after(0,0,0);

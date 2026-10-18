@@ -2,6 +2,16 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 17 October 2026 — T096 transient relay capability reads
+
+T096 **0.15.87** permits up to three 50 ms retries of an initial relay capability
+read that reports ATT unlikely-error or insufficient resources on a live ACL.
+Previously the first such refusal immediately ended the transaction. Retries
+remain within its original two-second deadline and grant no time authority.
+MTU, authentication, response/write errors, disconnected owners and exhausted
+budgets retain their refusal behavior. Production lifecycle tests cover these
+boundaries. Field relay acquisition remains under observation.
+
 ## 17 October 2026 — T096 GM renewal cadence
 
 T096 **0.15.86** requests the existing 7.5 ms cold connection cadence for direct-GM
