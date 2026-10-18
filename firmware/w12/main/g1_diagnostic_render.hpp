@@ -19,6 +19,21 @@ inline int g1_render_parent(char* out,unsigned capacity,const G1ParentEvent& e,u
     a.boot,b.boot,a.root,b.root,a.root_boot,b.root_boot,a.source,b.source,a.train,b.train,unsigned(a.depth),unsigned(b.depth),lost);
 }
 inline uint64_t g1_diag_le(const uint8_t* p,unsigned bytes){uint64_t n=0;for(unsigned i=0;i<bytes;i++)n|=uint64_t(p[i])<<(8*i);return n;}
+inline int g1_render_relay_owner(char* out,unsigned capacity,const Report& r){
+  if(r.kind!=22||r.length!=64||r.bytes[0]!=1)return 0;
+  constexpr const char* events[]={"INVALID","CONNECT","TERMINATE_BEGIN","TERMINATE_RETURN","DISCONNECT"};
+  const auto event=r.bytes[1];const char* name=event<sizeof(events)/sizeof(events[0])?events[event]:"INVALID";
+  return std::snprintf(out,capacity,"W12_G1_RELAY_OWNER at_us=%" PRIu64 " generation=%" PRIu32
+    " event=%s decision=%u handle=%u descriptor_rc=%" PRId32 " role=%u result=%" PRId32
+    " state=0x%02x service=0x%02x gates=0x%04x upstream_handle=%" PRIu64 " session_handle=%" PRIu64 " quarantine=%u"
+    " deadline_us=%" PRIu64 " upstream_drain_us=%" PRIu64 " session_drain_us=%" PRIu64
+    " upstream=%016" PRIx64 " address=%u/%02x%02x%02x%02x%02x%02x reference=API_ONLY\n",
+    r.callback_us,r.cycle,name,unsigned(r.bytes[2]),unsigned(r.handle),int32_t(g1_diag_le(r.bytes+6,4)),unsigned(r.bytes[3]),
+    int32_t(g1_diag_le(r.bytes+10,4)),unsigned(r.bytes[4]),unsigned(r.bytes[27]),unsigned(g1_diag_le(r.bytes+14,2)),
+    g1_diag_le(r.bytes+16,2),g1_diag_le(r.bytes+18,2),unsigned(r.bytes[5]),g1_diag_le(r.bytes+32,8),
+    g1_diag_le(r.bytes+40,8),g1_diag_le(r.bytes+48,8),g1_diag_le(r.bytes+56,8),unsigned(r.bytes[20]),
+    unsigned(r.bytes[26]),unsigned(r.bytes[25]),unsigned(r.bytes[24]),unsigned(r.bytes[23]),unsigned(r.bytes[22]),unsigned(r.bytes[21]));
+}
 // Main-task rendering only. Record size is fixed and independent of RF rate.
 inline int g1_render_link(char* out,unsigned capacity,const Report& r){
   if(r.kind!=8||r.length!=32||r.bytes[5]!=2)return 0;

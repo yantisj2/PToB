@@ -248,11 +248,16 @@ void terminate_peer(uint64_t now){
   if(peer.handle==None||peer.terminating)return;
   peer.ready=false;const auto h=peer.handle;const auto generation=peer.incarnation;
   const auto context=link_context(now);peer.terminate_at=now;
+  // A public HCI call can yield while NimBLE finishes the delayed CONNECT for
+  // an adopted ACL. Install its terminating owner and original deadline first;
+  // that callback may acknowledge cleanup, but cannot restart GATT or the drain.
+  peer.terminating=true;
+  if(!peer.drain_until||peer.drain_until>now+2000000)peer.drain_until=now+2000000;
   const int rc=ble_gap_terminate(h,BLE_ERR_REM_USER_CONN_TERM);
   admission_trace(7,h,rc,&context);
   if(peer.handle!=h||peer.incarnation!=generation)return;
-  if(!rc||rc==BLE_HS_EALREADY||rc==BLE_HS_ENOTCONN){peer.terminating=true;peer.drain_until=now+2000000;if(rc==BLE_HS_ENOTCONN){note(rc,R2Api::Disconnect);inc(peer_losses);peer.dead=true;}}
-  else error(rc,R2Api::Disconnect);
+  if(!rc||rc==BLE_HS_EALREADY||rc==BLE_HS_ENOTCONN){if(rc==BLE_HS_ENOTCONN){note(rc,R2Api::Disconnect);inc(peer_losses);peer.dead=true;}}
+  else{peer.terminating=false;error(rc,R2Api::Disconnect);}
 }
 void observed_descriptor(const ble_gap_conn_desc& d,uint64_t now){
   peer.interval=d.conn_itvl;peer.latency=d.conn_latency;peer.supervision=d.supervision_timeout;
@@ -283,6 +288,7 @@ bool cleanup_pending_link(uint64_t now){
   const auto generation=peer.incarnation;const auto original=peer.attempt_until+2000000;
   if(!full_listening()&&now-G1Window::start(now,window_phase)>=200000)peer.selection_reported=true;
   peer.connecting=false;peer.handle=d.conn_handle;peer.dead=true;inc(pending_link_teardowns);
+  if(!peer.drain_until||peer.drain_until>original)peer.drain_until=original;
   admission_trace(6,d.conn_handle,int(now-G1Window::start(now,window_phase)));
   terminate_peer(now);
   if(peer.incarnation==generation&&peer.terminating&&peer.drain_until>original)peer.drain_until=original;

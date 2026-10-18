@@ -215,6 +215,32 @@ through normal status and bounded capture before accepting operational behavior.
 That historical console key reports **bytes** on the pinned ESP-IDF Xtensa port
 (`StackType_t` is one byte); do not multiply it by four.
 
+Version 0.1.14 installs the outgoing adopted-ACL terminating owner and original
+drain deadline before the public SDK call can yield. A delayed CONNECT for that
+same canonical master handle acknowledges cleanup without starting GATT. Wrong
+handles remain faults, stale generations remain refused, and a missing actual
+DISCONNECT still faults at the original deadline. Production native regressions
+inject each of those callback sequences; they do not identify the separately
+observed incoming relay-owner fault.
+
+`W12_G1_RELAY_OWNER` records provide fixed callback observations through the
+existing bounded queue, without changing the ordinary status frame. Events are
+CONNECT, TERMINATE_BEGIN, TERMINATE_RETURN and DISCONNECT. CONNECT decisions are
+0=failed callback, 1=admitted, 2=refused recoverable overlap and 3=hard refusal.
+A role of 255 denotes no observed descriptor. `descriptor_rc` belongs to a public
+lookup for CONNECT; DISCONNECT uses its callback snapshot. State bits 0–7 are
+parent admission lock, outgoing pending ACL, outgoing handle present, admitted
+incoming session present, closing, fault, relay stopping and BLE100.
+Service bits 0–3 record client running, client stopping, pending stop and room
+for an original two-second deadline at the observation time. Gate bits
+0–15 are lookup success, slave role, admission lock, ACL availability, no outgoing
+handle, no outgoing initiation, BLE100, not closing, not faulted, not relay
+stopping, generation available, challenge available, quarantine slot available,
+new quarantine owner, distinct outgoing handle and distinct session handle.
+The record keeps the original quarantine, outgoing and admitted-session drain
+deadlines and public peer address; API observations are not RF measurements.
+Ordinary source, path, lock, slot, authority and bounded drain gates remain intact.
+
 A candidate requires a clean local commit. `--development` explicitly marks an
 uncommitted build as unflashable. Build receipts bind source, SDK, effective
 configuration, generated local inputs, registry, compiler and application bytes.

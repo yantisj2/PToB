@@ -36,6 +36,7 @@ def main():
     # Focused current migration checks. Historical discovery/fixture expectations
     # predate the 3s startup selector and are retained outside this selected run.
     cases=['persist','cancel','blocked','late','listening-profile',
+           'terminate-yield-connect','terminate-yield-wrong-handle','terminate-yield-stale','terminate-yield-missing-disconnect',
            'host-stall-source-expiry','coarse-hold-fences','reset-recovery',
            'reset-recovery-repeated','reset-recovery-no-sync','reset-recovery-explicit-off',
            'reset-recovery-cache-off','no-source-held','foreign-root-held','warm-control-PA','reset-recovery-late-off','reset-recovery-late-drain','reset-recovery-aux-active']

@@ -9,6 +9,7 @@ void test_critical_enter(void*);
 namespace {
 bool scan_active=false,small_mtu=false,rx_blocked=false,late_disconnect=false,marker_bad=false;int scan_error=0;
 bool cleanup_scheduled=false,sync_cancel_timeout=false;unsigned sync_cancel_calls=0;
+bool connect_during_terminate=false,terminate_wrong_handle=false,terminate_stale=false;
 bool residual_sync_cache=false,stop_in_cache_check=false,arm_late_stop=false,stop_at_admit=false,aux_active=false;
 unsigned connected=0,terminated=0,last_init_interval=0,last_init_window=0,last_supervision=0;void* conn_arg=nullptr;bool inline_failure=false,inline_success=false,cancel_missing=false,hidden_link=false,sync_late=false,sync_cancel_disallowed=false,sync_cancel_inline=false;unsigned cancel_calls=0;std::vector<std::vector<uint8_t>> output;
 }
@@ -24,7 +25,7 @@ DiagnosticTxStatus diagnostic_tx_status(){return {};}
 DirectStatus direct_status(){return {};}
 Report discovery_report;
 std::vector<Report> diagnostic_records;
-void transport_record(const Report& r){if(r.kind==5)discovery_report=r;if(r.kind==8||r.kind==10||r.kind==20)diagnostic_records.push_back(r);}
+void transport_record(const Report& r){if(r.kind==5)discovery_report=r;if(r.kind==8||r.kind==10||r.kind==20||r.kind==22)diagnostic_records.push_back(r);}
 }
 int ble_hs_id_set_rnd(const uint8_t*){return 0;}
 int ble_gatts_count_cfg(const ble_gatt_svc_def*){return 0;}int ble_gatts_add_svcs(const ble_gatt_svc_def*){return 0;}
@@ -35,7 +36,11 @@ int ble_gap_conn_find(uint16_t,ble_gap_conn_desc* d){d->peer_id_addr=v12::peer.a
 int ble_gap_conn_active(){return !hidden_link&&v12::peer.connecting;}
 int ble_gap_conn_find_by_addr(const ble_addr_t* a,ble_gap_conn_desc* d){if(!hidden_link)return BLE_HS_ENOTCONN;d->peer_id_addr=*a;return 0;}
 int ble_gap_conn_cancel(){++cancel_calls;if(cancel_missing)return 0;ble_gap_event e;e.type=BLE_GAP_EVENT_CONNECT;e.connect.status=1;v12::gap(&e,conn_arg);return 0;}
-int ble_gap_terminate(uint16_t,int){++terminated;if(!late_disconnect){ble_gap_event e;e.type=BLE_GAP_EVENT_DISCONNECT;e.disconnect.conn.peer_id_addr=v12::peer.address;v12::gap(&e,conn_arg);}return 0;}
+int ble_gap_terminate(uint16_t,int){++terminated;
+ if(connect_during_terminate){connect_during_terminate=false;ble_gap_event e{};e.type=BLE_GAP_EVENT_CONNECT;
+   e.connect.conn_handle=uint16_t(v12::peer.handle+terminate_wrong_handle);
+   v12::gap(&e,terminate_stale?reinterpret_cast<void*>(uintptr_t(v12::peer.incarnation+1)):conn_arg);}
+ if(!late_disconnect){ble_gap_event e;e.type=BLE_GAP_EVENT_DISCONNECT;e.disconnect.conn.peer_id_addr=v12::peer.address;v12::gap(&e,conn_arg);}return 0;}
 int ble_gap_set_data_len(uint16_t,uint16_t,uint16_t){assert(false&&"Transient admission must use ordinary LL fragmentation");return BLE_HS_HCI_ERR(0x0c);}
 int ble_gattc_exchange_mtu(uint16_t h,int(*cb)(uint16_t,const ble_gatt_error*,uint16_t,void*),void* arg){ble_gatt_error e;cb(h,&e,247,arg);return 0;}
 uint16_t ble_att_mtu(uint16_t){return small_mtu?163:247;}
@@ -80,6 +85,31 @@ int main(int argc,char** argv){assert(argc==2);std::string which=argv[1];
   step();assert(!v12::r2_status().serving&&!v12::r2_status().source);assert(!v12::r2_request(v12::R2Mode::Active,10000,44));
   if(which=="cancel"){assert(v12::r2_status().off_ack);return 0;}if(which=="blocked"||which=="late"){assert(v12::r2_status().fault);return 0;}
   assert(v12::r2_status().client.running);
+  if(which.starts_with("terminate-yield-")){
+    // The SDK has an exact master ACL but has not delivered CONNECT yet.
+    // Its completion arrives while the public terminate call yields.
+    v12::peer.identity=111;v12::peer.address=v12::canonical(111);
+    v12::peer.incarnation=++v12::incarnation;conn_arg=v12::callback_arg();
+    v12::peer.connecting=true;v12::peer.attempt_until=fake_now+2000000;
+    hidden_link=late_disconnect=connect_during_terminate=true;
+    terminate_wrong_handle=which=="terminate-yield-wrong-handle";
+    terminate_stale=which=="terminate-yield-stale";
+    // Already cancelled pending ownership keeps its earlier original deadline.
+    const auto original=fake_now+500000;v12::peer.drain_until=original;
+    assert(v12::cleanup_pending_link(fake_now));
+    assert(v12::peer.dead&&v12::peer.terminating&&!v12::peer.ready&&output.empty());
+    assert(v12::peer.drain_until==original&&terminated==1&&!v12::diagnostic.connect_ok);
+    if(terminate_wrong_handle){assert(v12::fault&&v12::first_fault_site==1);return 0;}
+    assert(!v12::fault&&v12::diagnostic.connect_drain==unsigned(!terminate_stale));
+    fake_now=original-1;v12::terminate_peer(fake_now);assert(terminated==1&&v12::peer.drain_until==original);
+    if(which=="terminate-yield-missing-disconnect"){
+      fake_now=original;v12::active_poll(fake_now);assert(v12::fault&&!v12::r2_status().off_ack);return 0;
+    }
+    ble_gap_event e{};e.type=BLE_GAP_EVENT_DISCONNECT;e.disconnect.conn.conn_handle=v12::peer.handle;
+    e.disconnect.conn.peer_id_addr=v12::peer.address;v12::gap(&e,conn_arg);
+    assert(!v12::peer.identity&&v12::peer.handle==v12::None&&!v12::fault);
+    v12::r2_stop();step(6);assert(v12::r2_status().off_ack);return 0;
+  }
   if(which=="listening-profile"||which=="sync-cancel-grace"){
     assert(v12::r2_status().g1_listening_percent==V12_R2_G1_LISTENING_PERCENT);
     if(which=="listening-profile"){

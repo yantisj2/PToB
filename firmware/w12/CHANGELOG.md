@@ -2,6 +2,21 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 0.1.14 — 18 October 2026
+
+- Install outgoing adopted-ACL termination ownership and its original deadline
+  before the yielding public SDK call. A delayed CONNECT during that call may
+  acknowledge the same exact terminating owner; it cannot restart GATT or extend
+  the drain. Wrong handles remain faults and stale callbacks remain refused.
+- Add fixed incoming relay-owner observation records for descriptor lookup,
+  roles, handles, admission decisions, state/gate masks and original drain
+  deadlines. They use the existing bounded diagnostic queue and main renderer;
+  the ordinary status frame and source/quality/slot/ownership rules are unchanged.
+- Reproduce the outgoing SDK-yield race in the production native adapter and
+  retain missing-disconnect, wrong-handle and stale-callback controls. This race
+  is separate from the observed incoming-owner site-2 fault; no incoming cause
+  or hardware stability repair is claimed by these source changes.
+
 ## 0.1.13 — 17 October 2026
 
 - Bound automatic GM precision trials to a full minute before seeking relays,

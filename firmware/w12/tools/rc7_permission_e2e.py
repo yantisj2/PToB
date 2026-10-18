@@ -23,7 +23,8 @@ SERVER_CASES = ('warm-budget-publisher', 'lock-startup', 'lock-loss', 'lock-rega
                 'queue-local-expiry', 'queue-inherited-expiry', 'queue-envelope-expiry', 'queue-invariant',
                 'context-withdraw', 'queue-trace', 'overlap-fast', 'overlap-enotconn', 'overlap-slow',
                 'overlap-deadline', 'overlap-late-disconnect', 'overlap-duplicate', 'overlap-alias',
-                'overlap-invalid-descriptor', 'overlap-wrong-role')
+                'overlap-invalid-descriptor', 'overlap-wrong-role',
+                'overlap-client-stopped', 'overlap-client-stopping', 'overlap-stop-pending')
 
 
 def sha(path):

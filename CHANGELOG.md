@@ -2,6 +2,17 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 18 October 2026 — W12 connection cleanup and fault evidence
+
+W12 **0.1.14** installs adopted outgoing ACL termination ownership before a
+public SDK call can yield, preserving its original drain deadline. Production
+regressions cover a delayed CONNECT during termination, wrong handles, stale
+callbacks and missing actual disconnection. Fixed incoming relay-owner records
+add descriptor, handle, decision and drain evidence through the existing bounded
+diagnostic queue. The observed incoming-owner fault remains a separate unresolved
+hardware finding; source changes and passing synthetic checks do not qualify a
+repair or physical stability. Slot and timing authority rules remain unchanged.
+
 ## 18 October 2026 — T096 terminal receiver admission
 
 T096 **0.15.91** keeps an RC2 stream client receive-only and withdraws its RC7

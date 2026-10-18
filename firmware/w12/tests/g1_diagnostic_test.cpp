@@ -54,6 +54,13 @@ int main(){
   assert(v12::g1_render_link(line,sizeof line,r)>0&&std::strstr(line,"CONNECT_DRAIN_ACK"));
   r.bytes[7]=2;assert(v12::g1_render_link(line,sizeof line,r)>0&&std::strstr(line,"event=CONNECT rc=0"));
   r.length=5;assert(!v12::g1_render_link(line,sizeof line,r));
+  r.kind=22;r.length=64;r.callback_us=UINT64_MAX;r.cycle=UINT32_MAX;r.handle=UINT16_MAX;
+  std::memset(r.bytes,255,64);r.bytes[0]=1;r.bytes[1]=1;
+  const int owner=v12::g1_render_relay_owner(line,sizeof line,r);
+  assert(owner>0&&unsigned(owner)<sizeof line&&std::strstr(line,"event=CONNECT")&&std::strstr(line,"descriptor_rc=-1")&&std::strstr(line,"upstream=ffffffffffffffff")&&std::strstr(line,"service=0xff"));
+  for(unsigned event=2;event<=4;event++){r.bytes[1]=event;const int bytes=v12::g1_render_relay_owner(line,sizeof line,r);assert(bytes>0&&unsigned(bytes)<sizeof line);}
+  r.bytes[0]=2;assert(!v12::g1_render_relay_owner(line,sizeof line,r));
+  r.bytes[0]=1;r.length=63;assert(!v12::g1_render_relay_owner(line,sizeof line,r));
   v12::R2Discipline discipline;v12::periodic_rx::Stamp capture;r2_precision_packet p{};
   assert(!discipline.authenticated_receive(p,capture,0,0,0));const auto q=discipline.view(0,0);
   assert(q.refused==1&&q.first_refusal==q.last_refusal);

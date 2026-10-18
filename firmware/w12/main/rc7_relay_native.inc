@@ -60,6 +60,29 @@ uint32_t relay_flags(uint64_t now20){return 1u|2u|(uint32_t(relay_advertising)<<
 bool relay_quarantine_owned(){for(const auto h:relay_quarantined)if(h!=None)return true;return false;}
 bool relay_owned(){const auto tx=periodic_tx::status();return relay_configured||relay_pa||relay_discovery||relay_advertising||relay_session.handle!=None||relay_quarantine_owned()||tx.installed||tx.armed;}
 bool relay_acl_available(){return relay_session.handle==None&&!relay_quarantine_owned();}
+// Fixed observation only: no callback formatting, allocation, controller call
+// or eligibility change. Ordinary status and its stack/frame size stay intact.
+// Event1 is CONNECT,2/3 are terminate begin/return,4 is a DISCONNECT snapshot.
+void relay_owner_trace(uint8_t event,uint8_t decision,uint16_t handle,int lookup,
+                       const ble_gap_conn_desc* desc,uint16_t gates,uint8_t slot,
+                       uint64_t deadline,int result){
+  Report r{};r.kind=22;r.callback_us=micros();r.handle=handle;r.cycle=relay_generation;
+  r.actual_length=r.length=64;r.bytes[0]=1;r.bytes[1]=event;r.bytes[2]=decision;
+  r.bytes[3]=desc?desc->role:255;
+  r.bytes[4]=uint8_t(relay_admission_locked)|uint8_t(peer.connecting)<<1|
+    uint8_t(peer.handle!=None)<<2|uint8_t(relay_session.handle!=None)<<3|
+    uint8_t(closing)<<4|uint8_t(fault)<<5|uint8_t(relay_stopping)<<6|uint8_t(full_listening())<<7;
+  r.bytes[5]=slot;
+  for(unsigned i=0;i<4;i++){r.bytes[6+i]=uint8_t(uint32_t(lookup)>>(8*i));r.bytes[10+i]=uint8_t(uint32_t(result)>>(8*i));}
+  const uint16_t values[]={gates,peer.handle,relay_session.handle};
+  for(unsigned i=0;i<3;i++)for(unsigned j=0;j<2;j++)r.bytes[14+2*i+j]=uint8_t(values[i]>>(8*j));
+  if(desc){r.bytes[20]=desc->peer_id_addr.type;std::memcpy(r.bytes+21,desc->peer_id_addr.val,6);}
+  r.bytes[27]=uint8_t(client.running)|uint8_t(client.stopping)<<1|uint8_t(stop_pending)<<2|
+    uint8_t(r.callback_us<=UINT64_MAX-2000000)<<3;
+  const uint64_t times[]={deadline,peer.drain_until,relay_session.drain,peer.identity};
+  for(unsigned i=0;i<4;i++)for(unsigned j=0;j<8;j++)r.bytes[32+8*i+j]=uint8_t(times[i]>>(8*j));
+  transport_record(r);
+}
 uint64_t relay_demand_until(){
   uint64_t until=0;
   for(const auto& child:relay_children)
@@ -74,7 +97,10 @@ void relay_quarantine_poll(uint64_t now){
       error(BLE_HS_ETIMEOUT,R2Api::Disconnect);
     }
     if(relay_quarantine_sent[i])continue;
-    const auto handle=relay_quarantined[i];const int rc=ble_gap_terminate(handle,BLE_ERR_REM_USER_CONN_TERM);
+    const auto handle=relay_quarantined[i];const auto deadline=relay_quarantine_until[i];
+    relay_owner_trace(2,0,handle,0,nullptr,0,uint8_t(i),deadline,0);
+    const int rc=ble_gap_terminate(handle,BLE_ERR_REM_USER_CONN_TERM);
+    relay_owner_trace(3,0,handle,0,nullptr,0,uint8_t(i),deadline,rc);
     if(relay_quarantined[i]!=handle)continue;
     if(rc==BLE_HS_ENOTCONN){relay_quarantined[i]=None;relay_quarantine_until[i]=0;}
     else if(!rc||rc==BLE_HS_EALREADY)relay_quarantine_sent[i]=true;
@@ -136,9 +162,16 @@ void relay_close(uint64_t now){
 int relay_gap(ble_gap_event* e,void*){
   const auto now=micros();
   if(e->type==BLE_GAP_EVENT_CONNECT){relay_advertising=false;
-    if(e->connect.status){relay_cap_dirty=true;return 0;}
+    if(e->connect.status){relay_owner_trace(1,0,e->connect.conn_handle,0,nullptr,0,255,0,e->connect.status);relay_cap_dirty=true;return 0;}
     ble_gap_conn_desc d{};
-    const bool descriptor=!ble_gap_conn_find(e->connect.conn_handle,&d)&&d.role==BLE_GAP_ROLE_SLAVE;
+    const int lookup=ble_gap_conn_find(e->connect.conn_handle,&d);
+    const bool descriptor=!lookup&&d.role==BLE_GAP_ROLE_SLAVE;
+    const uint16_t observed_gates=uint16_t(!lookup)|uint16_t(descriptor)<<1|
+      uint16_t(relay_admission_locked)<<2|uint16_t(relay_acl_available())<<3|
+      uint16_t(peer.handle==None)<<4|uint16_t(!peer.connecting)<<5|uint16_t(full_listening())<<6|
+      uint16_t(!closing)<<7|uint16_t(!fault)<<8|uint16_t(!relay_stopping)<<9|
+      uint16_t(relay_generation!=UINT32_MAX)<<10|uint16_t(relay_challenge<UINT64_MAX-1)<<11|
+      uint16_t(e->connect.conn_handle!=peer.handle)<<14|uint16_t(e->connect.conn_handle!=relay_session.handle)<<15;
     const bool owned=descriptor&&relay_admission_locked&&
       relay_acl_available()&&peer.handle==None&&!peer.connecting&&full_listening()&&!closing&&!fault&&!relay_stopping&&
       relay_generation!=UINT32_MAX&&relay_challenge<UINT64_MAX-1;
@@ -157,20 +190,26 @@ int relay_gap(ble_gap_event* e,void*){
         relay_session.handle==None&&(peer.connecting||peer.handle!=None||!relay_admission_locked)&&
         full_listening()&&client.running&&!client.stopping&&!closing&&!fault&&!relay_stopping&&
         !stop_pending&&relay_generation!=UINT32_MAX&&relay_challenge<UINT64_MAX-1&&now<=UINT64_MAX-2000000;
-      if(at<4&&relay_quarantined[at]==None){
+      const bool empty=at<4&&relay_quarantined[at]==None;
+      if(empty){
         relay_quarantined[at]=e->connect.conn_handle;relay_quarantine_sent[at]=relay_quarantine_timed_out[at]=false;
         relay_quarantine_until[at]=now<=UINT64_MAX-2000000?now+2000000:now;
         if(closing&&close_until<relay_quarantine_until[at])relay_quarantine_until[at]=close_until;
         if(relay_stopping&&relay_stop_deadline<relay_quarantine_until[at])relay_quarantine_until[at]=relay_stop_deadline;
       }
+      const uint16_t gates=observed_gates|uint16_t(at<4)<<12|uint16_t(empty)<<13;
+      relay_owner_trace(1,overlap?2:3,e->connect.conn_handle,lookup,lookup?nullptr:&d,gates,
+        at<4?uint8_t(at):255,at<4?relay_quarantine_until[at]:0,0);
       if(overlap){inc(relay_admission_overlaps);inc(relay_refused);note(BLE_HS_EBUSY,R2Api::Connect);}
       else error(BLE_HS_EBUSY,R2Api::Connect,2);
       return 0;
     }
+    relay_owner_trace(1,1,e->connect.conn_handle,lookup,&d,observed_gates,255,now+2000000,0);
     relay_session={};relay_session.handle=e->connect.conn_handle;relay_session.generation=++relay_generation;
     relay_session.until=now+2000000;relay_session.address=d.peer_id_addr;relay_session.challenge=relay_challenge++;
     relay_session.issued_path=relay_cap_path;std::memcpy(relay_session.reply,relay_cap,212);relay_cap_dirty=true;
   }else if(e->type==BLE_GAP_EVENT_DISCONNECT){const auto& d=e->disconnect.conn;
+    relay_owner_trace(4,0,d.conn_handle,0,&d,0,255,0,e->disconnect.reason);
     for(unsigned i=0;i<4;i++)if(d.conn_handle==relay_quarantined[i]){
       if(now>=relay_quarantine_until[i]&&!relay_quarantine_timed_out[i]){inc(relay_quarantine_timeouts);error(BLE_HS_ETIMEOUT,R2Api::Disconnect);}
       relay_quarantined[i]=None;relay_quarantine_sent[i]=relay_quarantine_timed_out[i]=false;relay_quarantine_until[i]=0;

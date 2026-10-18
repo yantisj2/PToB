@@ -279,10 +279,23 @@ int main(int argc,char** argv){assert(argc==2);const std::string which=argv[1];
      if(which=="overlap-alias"){v12::peer.connecting=false;v12::peer.handle=33;}
      if(which=="overlap-invalid-descriptor")server_find_rc=BLE_HS_ENOTCONN;
      if(which=="overlap-wrong-role")server_role=BLE_GAP_ROLE_MASTER;
+     if(which=="overlap-client-stopped")v12::client.running=false;
+     if(which=="overlap-client-stopping")v12::client.stop(fake_now);
+     if(which=="overlap-stop-pending")v12::stop_pending=true;
+     const bool hard=which=="overlap-alias"||which=="overlap-invalid-descriptor"||which=="overlap-wrong-role"||
+       which=="overlap-client-stopped"||which=="overlap-client-stopping"||which=="overlap-stop-pending";
      server_late_connect();const auto deadline=v12::relay_quarantine_until[0];
      assert(v12::relay_quarantined[0]==33&&deadline==fake_now+2000000);
+     const auto& witness=v12::diagnostic_records.back();
+     assert(witness.kind==22&&witness.length==64&&witness.bytes[0]==1&&witness.bytes[1]==1&&witness.handle==33);
+     assert(witness.bytes[2]==uint8_t(hard?3:2));
+     assert(witness.bytes[27]==uint8_t(which=="overlap-client-stopped"?8:which=="overlap-client-stopping"?11:which=="overlap-stop-pending"?13:9));
+     assert(r2_group_get(witness.bytes+32,8)==deadline&&r2_group_get(witness.bytes+56,8)==55);
+     assert((r2_group_get(witness.bytes+14,2)&(3u<<12))==(3u<<12)); // Newly quarantined, original deadline.
+     if(which=="overlap-invalid-descriptor")assert(r2_group_get(witness.bytes+6,4)==BLE_HS_ENOTCONN&&witness.bytes[3]==255);
+     else assert(r2_group_get(witness.bytes+6,4)==0&&witness.bytes[3]==server_role);
      assert(!v12::relay_acl_available());server_unadmitted();
-     if(which=="overlap-alias"||which=="overlap-invalid-descriptor"||which=="overlap-wrong-role"){
+     if(hard){
        assert(v12::fault&&v12::api_errors==errors+1&&v12::first_fault_site==2);
        assert(!v12::relay_admission_overlaps&&!v12::relay_admissions);
        puts("PASS malformed or aliased incoming owner remains a hard fault with no admission");return 0;
