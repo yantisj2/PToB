@@ -10,7 +10,10 @@ def function(n):
  m=re.search(r'^static [^\n]*\b'+n+r'\(',s,re.M);start=m.start();brace=s.index('{',m.end());end=brace+1;depth=1
  while depth:depth+=(s[end]=='{')-(s[end]=='}');end+=1
  return s[start:end]
-(out/'rc_path_role_under_test.h').write_text('\n'.join(function(n) for n in ['parent_path_usable','make_publication_path','layout_path']))
+indices=re.search(r'^static uint8_t node, parent_index;$',s,re.M)
+bound=re.search(r'^_Static_assert\(RC5_NODES <= UINT8_MAX, [^\n]+$',s,re.M)
+assert indices and bound,'Actual bounded owner index declaration and capacity guard'
+(out/'rc_path_role_under_test.h').write_text(indices[0]+'\n'+bound[0]+'\n'+'\n'.join(function(n) for n in ['parent_path_usable','make_publication_path','layout_path']))
 tiny=a.deps.resolve()/'modules/crypto/tinycrypt/lib'
 sources=[app/'tests/rc_path_role_test.c',app/'src/rc_slots.c',app/'src/rc_boundary.c',app/'protocol/rc_dynamic.c',app/'protocol/group_auth.c',*[tiny/'source'/n for n in ['hmac.c','sha256.c','utils.c']]]
 cmd=[os.environ.get('CC','clang'),'-std=c11','-Wall','-Wextra','-Werror','-Wno-default-const-init-var-unsafe','-fsanitize=address,undefined','-fno-sanitize-recover=all','-I'+str(out),'-I'+str(app/'include'),'-I'+str(app/'protocol'),'-I'+str(tiny/'include'),*map(str,sources),'-o',str(out/'test')]

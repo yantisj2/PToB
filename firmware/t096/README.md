@@ -14,7 +14,7 @@ devices. See [the architectural background](../../docs/V12_TO_R2.md).
 **PToB owns T096 RC7 development.** The ordinary mesh profiles are **GM** and **RC**;
 USB timing support is compiled by default. [Build from source](../../docs/t096/build.md)
 using pinned public dependencies and ignored local enrollment. The current
-application version is 0.15.103. No publicly enrolled binary is distributed.
+application version is 0.15.104. No publicly enrolled binary is distributed.
 
 Version 0.15.102 preserves recovery opportunities when an established relay
 sends fresh, authenticated packets with no corrections. Such packets indicate

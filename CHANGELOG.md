@@ -2,6 +2,15 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 18 October 2026 — T096 bounded owner state storage
+
+T096 **0.15.104** stores route indices and the startup admission stage in
+eight-bit fields with a compile-time route capacity check. Their validated
+ranges fit this representation. Version 0.15.103 failed the native static RAM
+margin because eight added bytes crossed a 64-byte alignment boundary. The
+1,024-byte minimum, stacks, transport buffers and diagnostic capacities remain
+unchanged. Native inspection and hardware qualification remain separate gates.
+
 ## 18 October 2026 — T096 explicit parent measurement control
 
 T096 **0.15.103** accepts an explicit parent identity through its ordinary GM

@@ -18,7 +18,9 @@ def function(name):
     while depth:
         depth+=(s[end]=='{')-(s[end]=='}');end+=1
     return s[start:end]
-decl=s[s.index('struct candidate {'):s.index('static bool parent_acquiring(')]
+indices=re.search(r'^static uint8_t node, parent_index;$',s,re.M)
+assert indices,'Actual bounded owner index declaration'
+decl=indices[0]+'\n'+s[s.index('struct candidate {'):s.index('static bool parent_acquiring(')]
 decl+='\nstatic bool startup_admitted,startup_attempted;\n'
 (out/'selection_under_test.h').write_text(decl+'\n'+'\n'.join(function(n) for n in [
     'parent_acquiring','parent_wait','startup_complete','candidate_defer','candidate_nonroot',

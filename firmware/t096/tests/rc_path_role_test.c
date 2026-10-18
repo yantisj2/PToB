@@ -10,7 +10,6 @@
 static bool transmitter=true,running,phase_admitted,start_prepared,slot_selected,holdover_expired,fit_rms_valid;
 static uint64_t self_identity=3001,local_boot=31,restart_at,discipline_at,phase_rx,phase_step_at,phase_log_at;
 static uint32_t capture_epoch=4,train=1,sent_count;
-static unsigned node,parent_index;
 static uint8_t retained_slot,current_proof[16];
 static struct rc5_routes routes;
 static struct rc5_rate_fit fit;
@@ -23,6 +22,7 @@ static bool stop(void){running=false;return true;}
 static void check(bool yes,const char *why){(void)why;assert(yes);}
 static void r2_shadow_normal_withdraw(void){}
 #include "rc_path_role_under_test.h"
+_Static_assert(sizeof(node)==1&&sizeof(parent_index)==1,"Actual bounded owner storage");
 static struct rc7_path parent(unsigned depth,unsigned slot){
  struct rc7_path p={.depth=depth,.source_epoch=1};
  p.node[0]=(struct rc7_node){.id=1001,.boot=11,.train=1,.epoch=1,.slot=0,.role=0};
@@ -42,6 +42,7 @@ int main(void){
   /* The final client accepts the RC2 publisher and cannot add another hop. */
   struct rc7_path rc2=publication_path;reset();self_identity=4001;
   assert(parent_path_usable(&rc2)&&layout_path(&rc2));
+  assert(node==3&&parent_index==2);
   assert(!routes.node[node].transmitter&&routes.node[node].depth==2&&routes.node[node].slot==255);
   assert(!make_publication_path());
  }

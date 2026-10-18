@@ -30,8 +30,9 @@ static bool captured,tracking;
 static bool parent_synced;
 static bool rc5_clock_capture(void *c,void *t,uint64_t tick,struct rc5_stamp *stamp){(void)c;(void)t;*stamp=(struct rc5_stamp){.ns=tick,.pll_tracking=tracking};return captured;}
 static struct {struct {uint64_t id;} node[4];} routes;
-static unsigned parent_index;
 #include "selection_under_test.h"
+_Static_assert(sizeof(node)==1&&sizeof(parent_index)==1&&sizeof(parent_admission)==1,
+               "Actual bounded owner storage");
 static unsigned checks;
 #define CHECK(x) do{assert(x);++checks;}while(0)
 
@@ -72,6 +73,11 @@ static void collect(uint64_t start) {
  for(unsigned i=0;i<=160;i++)rc_search_observe(&parent_search,true,start+i*62500);
 }
 int main(void) {
+ (void)node;
+ clear();fake_now=1;parent_wait(1);CHECK(parent_admission==1);
+ fake_now=2;parent_wait(2);CHECK(parent_admission==2&&parent_stage_at==2);
+ fake_now=3;parent_wait(3);CHECK(parent_admission==3&&parent_stage_at==3);
+ fake_now=4;parent_wait(1);CHECK(parent_admission==3&&parent_stage_at==3);
  clear();seen(22,true,false,-40,1000000);
  CHECK(!choose(4000000));collect(1000000);CHECK(choose(11000000)==22);
  // A selected parent ends collection; paused scans cannot manufacture exposure.

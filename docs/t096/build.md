@@ -126,6 +126,10 @@ Use `--registry artifacts/local/registry.json` to compile your deployment’s sh
 Keep the real map ignored, alongside local enrollment; the receipt records its
 hash and preserves a private build snapshot.
 
+Version 0.15.104 narrows three bounded route/admission indices without changing
+their values or reducing diagnostic, stack or transport capacity. Version
+0.15.103's eight-byte scheduling hint crossed a native alignment boundary and
+failed the unchanged 1,024-byte static margin gate; it was not deployable.
 Version 0.15.103 allows an explicit parent identity to select a direct GM as
 well as a relay, with no additional static state or change to automatic selection.
 Version 0.15.102 adds a source-unavailable scheduling hint to 0.15.101's

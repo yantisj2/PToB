@@ -54,7 +54,10 @@ static struct rc5_clock local_clock;
 static struct r2_group_config group;
 static struct r2_service_status status;
 static struct r2_identity identity;
-static unsigned node, parent_index;
+/* Route indices are bounded by validated RC5 routes. Keep their storage
+ * narrow: eight extra BSS bytes can advance native stack alignment by64B. */
+static uint8_t node, parent_index;
+_Static_assert(RC5_NODES <= UINT8_MAX, "RC owner route index storage");
 static int32_t direct_phase_bias;
 static uint32_t capture_epoch;
 static uint64_t rebind_parent_boot, rebind_root_boot;
@@ -394,7 +397,8 @@ static struct rc_stream_history stream_history;
 static struct rc_stream_sample stream_sample;
 /* Admission is bounded from selection, including all PENDING replies. The first
  * authenticated admission starts a full clock trial; renewals cannot rearm it. */
-static unsigned parent_admission;
+/* Monotonic startup stages0..3, set only by parent_wait(1/2/3) or reset. */
+static uint8_t parent_admission;
 static bool parent_acquiring(uint64_t now) {
   uint64_t admission = parent_relay ? RC_STREAM_RELAY_ADMISSION_US
                                     : RC_STREAM_ADMISSION_US;
