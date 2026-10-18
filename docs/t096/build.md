@@ -90,6 +90,8 @@ CC=clang python3 firmware/t096/tools/runtime_profile_tests.py --deps artifacts/d
 python3 firmware/t096/tools/test.py --deps artifacts/deps
 CC=clang python3 firmware/t096/tools/rc_gm_admission_tests.py --deps artifacts/deps --out artifacts/check-admission
 CC=clang python3 firmware/t096/tools/rc_delivery_tests.py --out artifacts/check-delivery
+CC=clang python3 firmware/t096/tools/rc_selection_tests.py --out artifacts/check-selection
+CC=clang python3 firmware/t096/tools/rc_relay_admission_tests.py --deps artifacts/deps --out artifacts/check-relay-admission
 CC=clang python3 firmware/t096/tools/rc_durability_tests.py --out artifacts/check-durability
 CC=clang python3 firmware/t096/tools/rc_publication_tests.py --out artifacts/check-publication
 CC=clang python3 firmware/t096/tools/usb_ep0_tests.py --deps artifacts/deps --out artifacts/check-ep0

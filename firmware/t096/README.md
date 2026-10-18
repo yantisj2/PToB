@@ -14,7 +14,14 @@ devices. See [the architectural background](../../docs/V12_TO_R2.md).
 **PToB owns T096 RC7 development.** The ordinary mesh profiles are **GM** and **RC**;
 USB timing support is compiled by default. [Build from source](../../docs/t096/build.md)
 using pinned public dependencies and ignored local enrollment. The current
-application version is 0.15.84. No publicly enrolled binary is distributed.
+application version is 0.15.85. No publicly enrolled binary is distributed.
+
+RC source selection gives an admitted GM 60 seconds and an admitted relay 120
+seconds to establish sustained usable time. Failed timing sources are deferred
+for at least five minutes; recovery preserves preference for a proven usable GM
+and otherwise favors an eligible relay over an unproved GM. A healthy relay
+stays selected when a stronger GM returns. See the [selection policy and
+offline checks](../../docs/t096/diagnostics.md#rc-parent-selection-and-relay-dwell).
 
 **[Direct Connect (DC)](../../docs/t096/direct-connect.md)** is a distinct,
 flash-only GNSS-to-USB image for a dedicated macOS source. It compiles Bluetooth

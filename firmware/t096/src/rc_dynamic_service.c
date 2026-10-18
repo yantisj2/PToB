@@ -382,15 +382,19 @@ static bool upstream_usable, relay_fallback;
 static bool parent_relay, parent_failed, parent_locked, parent_ineligible;
 static struct rc_stream_history stream_history;
 static struct rc_stream_sample stream_sample;
-/* One bounded wait for each selected parent, its first PENDING reply and its
- * first authenticated admission. Repeated replies never restart these waits. */
+/* Admission is bounded from selection, including all PENDING replies. The first
+ * authenticated admission starts a full clock trial; renewals cannot rearm it. */
 static unsigned parent_admission;
 static bool parent_acquiring(uint64_t now) {
-  uint64_t allowance = parent_admission >= 2 && !parent_relay
-      ? RC_STREAM_GM_ACQUIRE_US : RC_STREAM_ACQUIRE_US;
-  return !parent_ineligible && now >= parent_selected_at && now >= parent_stage_at &&
-      now - parent_selected_at < RC_STREAM_TRIAL_US &&
-      now - parent_stage_at < allowance;
+  uint64_t admission = parent_relay ? RC_STREAM_RELAY_ADMISSION_US
+                                    : RC_STREAM_ADMISSION_US;
+  uint64_t allowance = parent_relay ? RC_STREAM_ACQUIRE_US
+                                    : RC_STREAM_GM_ACQUIRE_US;
+  uint64_t trial = parent_relay ? RC_STREAM_TRIAL_US : RC_STREAM_GM_TRIAL_US;
+  return !parent_ineligible && now >= parent_selected_at &&
+      now >= parent_stage_at && now - parent_selected_at < trial &&
+      (parent_admission < 2 ? now - parent_selected_at < admission
+                            : now - parent_stage_at < allowance);
 }
 static void parent_wait(unsigned stage) {
   if (stage > parent_admission) {
@@ -479,24 +483,27 @@ static void delivery_tick(uint64_t now, uint64_t tick) {
       parent_known ? routes.node[parent_index].id : 0, parent_relay,
       upstream_usable, parent_synced, now);
   bool acquiring = parent_acquiring(now);
-  if (upstream_usable) {
+  /* A single lock report cannot complete the trial or erase a failed source.
+   * Require the same full usable-time window used for sustained recovery. */
+  if (upstream_usable && stream_sample.count == RC_STREAM_WINDOW &&
+      stream_sample.total >= RC_STREAM_WINDOW * 90u) {
     parent_locked = true;
     if (!rc_stream_blocked(&stream_history, routes.node[parent_index].id, parent_relay, now))
       parent_failed = false;
-    upstream_bad_since = 0;
-    relay_fallback = !acquiring && stream_sample.unstable;
-  } else {
+  }
+  bool unhealthy = !upstream_usable || stream_sample.unstable;
+  if (unhealthy) {
     if (!upstream_bad_since || now < upstream_bad_since)
       upstream_bad_since = now;
-    /* Audible packets/coarse JOINs cannot conceal missing clock lock. A brief
-     * gap or a poor delivery sample cannot evict a still-locked parent. */
-    relay_fallback = parent_ineligible || (!acquiring &&
-        (stream_sample.unstable ||
-         (!parent_locked && now >= parent_selected_at &&
-          now - parent_selected_at >= RC_STREAM_TRIAL_US) ||
-         (now >= upstream_bad_since &&
-          now - upstream_bad_since >= RC_STREAM_LOSS_US)));
-  }
+  } else
+    upstream_bad_since = 0;
+  /* Keep a settled relay through a bounded recovery interval. An unstable
+   * window keeps this deadline running even if individual lock reports flicker.
+   * Retention never grants time: expired maps still withdraw output at once. */
+  uint64_t loss = parent_relay ? RC_STREAM_RELAY_LOSS_US : RC_STREAM_LOSS_US;
+  relay_fallback = parent_ineligible || (!acquiring &&
+      (!parent_locked || (unhealthy && now >= upstream_bad_since &&
+                         now - upstream_bad_since >= loss)));
 }
 #include "rc_dynamic_transport.inc"
 /* Caller has drained the previous sync/publication and owns no transient ACL.
@@ -553,6 +560,18 @@ static bool upstream_admitted(uint64_t tick) {
            (parent_known && rc5_gm_reacquire(&gm_context, &timing,
                routes.node[parent_index].id, tick)));
 }
+static void parent_recovery_poll(uint64_t tick) {
+  if (!parent_known || parent_admission < 2 || upstream_usable)
+    return;
+  /* Missing PA establishment is not evidence that the authenticated binding
+   * failed. Let the selected train retry without interleaved GATT renewals.
+   * An expired binding or an established stream with stalled corrections does
+   * need a new challenge. Changed authenticated paths request one separately. */
+  if (!upstream_admitted(tick) ||
+      (parent_synced && tick >= last_context_progress &&
+       tick - last_context_progress >= UINT64_C(32000000)))
+    parent_rebind_request(tick);
+}
 static struct candidate *candidate_choose(uint64_t now, bool expired) {
   bool diagnostic = forced_parent || exclude_direct;
   bool startup = !startup_admitted && !startup_attempted && !diagnostic;
@@ -565,7 +584,10 @@ static struct candidate *candidate_choose(uint64_t now, bool expired) {
     return NULL;
   /* First-source collection tries a fresh GM before a publishing relay,
    * including when the older cold-loss fallback timer has already elapsed. */
-  bool seek = diagnostic || relay_fallback || startup;
+  /* A refused relay path clears parent_known before the next delivery poll.
+   * That is still recovery, not a new GM-only startup. */
+  bool recovery = startup_attempted && !parent_known;
+  bool seek = diagnostic || relay_fallback || startup || recovery;
   bool prefer_relay = seek && !startup;
   /* A coarse admission context can outlive usable corrected time. Retention
    * requires live synchronization; an expired map must not pin that locator. */
@@ -579,7 +601,7 @@ static struct candidate *candidate_choose(uint64_t now, bool expired) {
     parent_failed = true;
   }
   struct candidate *best = NULL;
-  int best_score = INT32_MIN;
+  int best_score = INT32_MIN, best_rank = -1;
   for (unsigned i = 0; i < 8; i++) {
     struct candidate *c = &candidates[i];
     if (!c->id || now < c->seen || now - c->seen >= 200000 ||
@@ -590,19 +612,22 @@ static struct candidate *candidate_choose(uint64_t now, bool expired) {
         (retained && c->id != routes.node[parent_index].id) ||
         (c->relay && (!seek || (startup && !c->publishing))))
       continue;
-    bool preferred = c->relay == prefer_relay,
-         old = best && best->relay == prefer_relay;
+    int rank = startup || !prefer_relay ? (c->relay ? 0 : 1)
+        : c->relay ? 1
+        : rc_stream_proven(&stream_history, c->id, false, now) ? 2 : 0;
     int score = rc_stream_score(&stream_history, c->id, c->relay, c->rssi, now);
     if (c->relay && c->publishing)
       score += 48;
-    /* Startup retains its GM-first collection. Afterward usable-time history
-     * outranks an audible marginal GM; role is only a score tie break. */
-    if (!best || (startup && preferred && !old) ||
-        ((!startup || preferred == old) &&
+    /* Retain GM preference when backed by sustained usable time. Otherwise a
+     * fresh relay outranks an unproved/failed GM during recovery; audible G1
+     * cannot steal that relay's acquisition trial. GMs remain retry candidates. */
+    if (!best || rank > best_rank ||
+        (rank == best_rank &&
          (score > best_score || (score == best_score &&
-          ((preferred && !old) || (preferred == old && c->id < best->id)))))) {
+          c->id < best->id)))) {
       best = c;
       best_score = score;
+      best_rank = rank;
     }
   }
   return best;
@@ -743,6 +768,20 @@ static bool sync_close_until(uint64_t until) {
     sync_close_error = -ETIMEDOUT;
     return false;
   }
+  return true;
+}
+static bool sync_acquisition_poll(void) {
+  uint64_t now = mono_us();
+  if (!creating || !sync_started || now < sync_started ||
+      now - sync_started < UINT64_C(1500000))
+    return true;
+  /* Reserve the original final500ms for proven cancellation. A failed PA
+   * acquisition does not invalidate admission or bring its renewal forward. */
+  if (!sync_close_until(sync_started + UINT64_C(2000000))) {
+    check(false, "cold sync drain");
+    return false;
+  }
+  ++upstream_recoveries;
   return true;
 }
 static void discover(uint64_t tick) {
@@ -1545,15 +1584,8 @@ static void owner(void *a, void *b, void *c) {
     /* Sync_Timeout is supervision AFTER establishment, not an acquisition
      * timeout. Reserve the last500ms of this2s attempt for proven cancellation.
      * No GATT initiation may compete with this bounded cold PA acquisition. */
-    if (creating && sync_started && mono_us() - sync_started >= 1500000) {
-      uint64_t until = sync_started + 2000000;
-      if (!sync_close_until(until)) {
-        check(false, "cold sync drain");
-        continue;
-      }
-      lt_renew_at = 0;
-      ++upstream_recoveries;
-    }
+    if (!sync_acquisition_poll())
+      continue;
     /* Phase 1: RC owners and diagnostic leaf listen continuously. */
     bool window = true;
     lt_guard(now.tick, window);
@@ -1618,11 +1650,8 @@ static void owner(void *a, void *b, void *c) {
       restart_at = 0;
       start_prepared = false;
     }
-    if (node && parent_known && parent_admission >= 2 &&
-        now.tick >= last_context_progress &&
-        now.tick - last_context_progress >= 32000000 &&
-        !upstream_usable)
-      parent_rebind_request(now.tick);
+    if (node)
+      parent_recovery_poll(now.tick);
     rc_slots_listen(&slot_state, now.tick / 16,
                     scanning && !creating && !lt_conn && !lt_paused);
     if (node && routes.node[node].transmitter && timing.bound &&

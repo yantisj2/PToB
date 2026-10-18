@@ -385,6 +385,70 @@ time authority. Later promotion can be retried after that bounded cooldown.
 Source expiry, authentication, replay fences, corrected-capture association,
 500ms held-map limit, PA supervision and proven controller drains remain in force.
 
+### RC parent selection and relay dwell
+
+T096 0.15.85 retains each automatically chosen parent through a bounded admission
+and precision trial. The defaults are deployment policy, not measured convergence
+guarantees:
+
+| Interval | Direct GM | Relay |
+| --- | --- | --- |
+| Admission, measured from selection | 30 seconds | 60 seconds |
+| Precision acquisition, from first authenticated admission | 60 seconds | 120 seconds |
+| Absolute acquisition ceiling, from selection | 90 seconds | 180 seconds |
+| Degraded-time recovery after sustained lock | 6 seconds | 30 seconds |
+
+PENDING replies consume the original admission interval. Same-parent renewals,
+repeated admissions and individual lock flickers cannot restart these deadlines.
+Sustained lock requires a full eight-second observed window with at least 90%
+usable time. Once settled, a parent becomes unstable below 75%; recovery requires
+90%. A relay gets the recovery interval even after an eight-second window turns
+unstable. Individual lock reports cannot clear that unstable episode. Local
+listening pauses remain unknown observations.
+
+Cold startup still collects locators for three seconds and prefers a fresh GM.
+During recovery, a fresh eligible GM with sustained usable-time history and no
+recorded failure keeps first preference. Otherwise an eligible relay takes
+priority over an unproved or failed GM; hearing GM packets and coarse admission
+alone do not establish usable time. Usable-time history, signal strength and the
+publishing bonus rank candidates within the role.
+Each chosen relay gets its own acquisition interval. Once it supplies stable
+usable time, stronger peers and a returning GM cannot evict it. If no eligible
+relay is available, a fresh eligible GM can still be tried within its retry policy.
+
+A relay path rejected during capability read is deferred before clearing the
+selected parent. Recovery keeps other relays eligible; it does not fall into a
+GM-only search. Loop rejection remains mandatory. A depth-two parent is still
+eligible as a time source even when this receiver cannot extend its path.
+
+The parent trial is separate from each periodic-sync establishment attempt.
+Each PA attempt still gets 1.5 seconds plus the original final 500 ms for proven
+cancellation. Cancellation retries the same parent while its authenticated
+binding remains live, without forcing another GATT renewal. A binding that
+expires, a changed authenticated path, or an established PA stream with stalled
+corrections still requests a fresh challenge. The 120-second precision trial
+begins at first authenticated admission; an unadmitted relay is bounded by its
+60-second admission interval instead.
+
+Use journal kind 4 to identify actual parent changes. Kind 8 records PA
+cancellation and does not by itself mean a parent switch. The RC1/RC2 time-source
+label and its loss likewise do not establish which selection deadline expired.
+
+A failed admitted timing source is deferred for 300, 600, then 1200 seconds on
+repeated failures. Admission-only failures are deferred for 60, 120, then 240
+seconds. This bounded history is advisory, scoped to stable identity and role,
+with failures cleared by sustained observed recovery. Entries expire after 30
+minutes or can be evicted from the eight-row table. History restores no locator,
+authentication or timing authority. Diagnostic pins and relay-only overrides
+retain their explicit role filters.
+
+Parent retention never extends a map, source, lease or replay deadline. Expired
+time is withheld throughout acquisition and recovery. Offline selector tests
+exercise late relay lock with multiple stronger competitors, failed-GM return,
+PENDING and renewal deadlines, recovery, failure history and source expiry.
+They run under the normal T096 host suite; hardware relay acquisition and field
+durability remain unverified for this change.
+
 Durable-chain acceptance requires extended GM and RC capture together, including
 late admission while other clients remain locked; source loss and return; root
 promotion and reboot; relay path changes; hours of renewals; event-counter and

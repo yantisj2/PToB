@@ -697,6 +697,7 @@ static void lt_apply_read(const struct rc7_control *c) {
       ++lt_rejects;
       lt_deadline = 0;
       lt_renew_at = tick + 16000000;
+      candidate_defer(c->sender, tick / 16);
       parent_known = false;
       timing.bound = false;
       rc5_withdraw(&timing);

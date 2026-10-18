@@ -36,12 +36,18 @@ static void clear(void) {
 }
 static void seen(uint64_t id,bool relay,bool publishing,int8_t rssi,uint64_t now){bt_addr_le_t address={{0}};candidate_seen(&address,id,relay,publishing,rssi,now);}
 static uint64_t choose(uint64_t now){struct candidate *c=candidate_choose(now,false);return c?c->id:0;}
-static void bind(bool relay) {
- clear();fake_now=1000000;candidate_since=1;parent_selected_at=parent_stage_at=upstream_bad_since=fake_now;
+static void select_parent(uint64_t id,bool relay) {
+ parent_selected_at=parent_stage_at=upstream_bad_since=fake_now;
  parent_known=parent_synced=startup_attempted=startup_admitted=true;
- parent_admission=2;parent_relay=relay;routes.node[0].id=11;
- captured=fit.valid=true;r2_link_quality_bind(&delivery,11,1,1);
+ parent_failed=parent_locked=parent_ineligible=tracking=false;
+ upstream_usable=relay_fallback=false;stream_sample=(struct rc_stream_sample){0};
+ delivery=(struct r2_link_quality){0};
+ parent_admission=2;parent_relay=relay;routes.node[0].id=id;
+ captured=fit.valid=true;r2_link_quality_bind(&delivery,id,1,1);
  delivery_tick(fake_now,fake_now);
+}
+static void bind(bool relay) {
+ clear();fake_now=1000000;candidate_since=1;select_parent(11,relay);
 }
 static void sample(unsigned seconds,bool flicker) {
  static uint16_t event;
@@ -52,6 +58,25 @@ static void sample(unsigned seconds,bool flicker) {
  }
 }
 int main(int argc,char **argv) {
+ if(argc==2&&!strcmp(argv[1],"dwell")) {
+  bind(true);captured=false;delivery_tick(31000000,31000000);
+  CHECK(!relay_fallback);return 0;
+ }
+ if(argc==2&&!strcmp(argv[1],"relay-first")) {
+  clear();startup_attempted=relay_fallback=true;
+  seen(11,false,false,-20,1000000);seen(22,true,true,-100,1000000);
+  CHECK(choose(1040000)==22);return 0;
+ }
+ if(argc==2&&!strcmp(argv[1],"recovery")) {
+  bind(true);sample(120,false);captured=false;delivery_tick(fake_now,fake_now);
+  fake_now+=10000000;delivery_tick(fake_now,fake_now);
+  CHECK(!upstream_usable&&!relay_fallback);return 0;
+ }
+ if(argc==2&&!strcmp(argv[1],"refused-path")) {
+  clear();startup_attempted=true;
+  seen(11,false,false,-20,1000000);seen(22,true,true,-80,1000000);
+  CHECK(choose(1040000)==22);return 0;
+ }
  CHECK(rc_admission_g1_direct(1,true)&&rc_admission_g1_direct(129,true));
  CHECK(!rc_admission_g1_direct(65,true)&&!rc_admission_g1_direct(193,true));
  CHECK(!rc_admission_g1_direct(2,true)&&!rc_admission_g1_direct(1,false));
@@ -63,7 +88,7 @@ int main(int argc,char **argv) {
  CHECK(candidates[0].cooldown==64000000&&!candidates[1].cooldown);
  CHECK(choose(fake_now)==11&&candidate_choose(fake_now,false)->relay);
  if(argc==2&&!strcmp(argv[1],"flicker")) {
-  bind(false);sample(40,true);CHECK(stream_sample.unstable);CHECK(relay_fallback);
+  bind(false);sample(60,true);CHECK(stream_sample.unstable);CHECK(relay_fallback);
   return 0;
  }
  clear();seen(11,false,false,-90,1000000);seen(22,true,true,-20,1000000);
@@ -81,25 +106,98 @@ int main(int argc,char **argv) {
  clear();seen(11,false,false,-20,1000000);seen(22,true,true,-80,4000000);CHECK(choose(4000000)==22); // stale GM
  clear();seen(11,false,false,-20,1000000);seen(22,true,true,-80,1000000);forced_parent=22;CHECK(choose(1040000)==22);
  forced_parent=0;exclude_direct=true;CHECK(choose(1040000)==22);
- bind(false);sample(40,true);CHECK(stream_sample.unstable&&relay_fallback);
+ bind(false);sample(60,true);CHECK(stream_sample.unstable&&relay_fallback&&!parent_locked);
  tracking=true;delivery_tick(fake_now+1,fake_now+1);CHECK(upstream_usable&&relay_fallback); // flicker cannot erase failure
  seen(11,false,false,-20,fake_now);seen(22,true,true,-75,fake_now);CHECK(choose(fake_now)==22);CHECK(rc_stream_blocked(&stream_history,11,false,fake_now));
  bind(true);sample(40,false);CHECK(upstream_usable&&!relay_fallback&&!stream_sample.unstable);
  delivery.view.poor=true;++fake_now;delivery_tick(fake_now,fake_now);CHECK(!relay_fallback); // packet score alone cannot evict useful time
  seen(33,false,false,-20,fake_now);CHECK(!choose(fake_now)); // healthy relay stays despite returning GM
  sample(2,true);CHECK(!relay_fallback);sample(10,false);CHECK(!stream_sample.unstable&&!relay_fallback); // brief fading recovers
- bind(true);tracking=true;delivery_tick(2000000,2000000);tracking=false;
+ bind(true);tracking=true;delivery_tick(2000000,2000000);CHECK(!parent_locked);tracking=false;
  delivery_tick(3000000,3000000);delivery_tick(12000000,12000000);CHECK(!relay_fallback); // first brief lock retains relay acquisition allowance
- delivery_tick(30999999,30999999);CHECK(!relay_fallback);delivery_tick(31000000,31000000);CHECK(relay_fallback);
- bind(false);captured=false;delivery_tick(12999999,12999999);CHECK(!relay_fallback);
- delivery_tick(13000000,13000000);CHECK(relay_fallback); // unsuccessful direct trial is shorter than relay trial
+ delivery_tick(120999999,120999999);CHECK(!relay_fallback);delivery_tick(121000000,121000000);CHECK(relay_fallback);
+ bind(false);captured=false;delivery_tick(60999999,60999999);CHECK(!relay_fallback);
+ delivery_tick(61000000,61000000);CHECK(relay_fallback); // full minute for admitted GM
  bind(true);parent_admission=0;fake_now=21000000;parent_wait(1);CHECK(parent_stage_at==fake_now);
  fake_now=29000000;parent_wait(1);CHECK(parent_stage_at==21000000); // repeated PENDING cannot rearm
  fake_now=41000000;startup_complete();CHECK(parent_stage_at==fake_now&&parent_admission==2);
  fake_now=51000000;startup_complete();CHECK(parent_stage_at==41000000);
- captured=false;delivery_tick(60999999,60999999);CHECK(!relay_fallback);delivery_tick(61000000,61000000);CHECK(relay_fallback); // total attempt bounded
- bind(true);sample(40,true);CHECK(relay_fallback);sample(10,false);CHECK(!relay_fallback&&!stream_sample.unstable); // sustained recovery cancels search
- bind(false);sample(40,true);CHECK(relay_fallback);parent_synced=false;++fake_now;delivery_tick(fake_now,fake_now);CHECK(!stream_sample.unstable&&stream_sample.count==0); // pause is unknown, not RF loss
+ captured=false;delivery_tick(160999999,160999999);CHECK(!relay_fallback);delivery_tick(161000000,161000000);CHECK(relay_fallback); // full two minutes after admission
+ bind(true);sample(120,true);CHECK(relay_fallback);sample(10,false);CHECK(!relay_fallback&&!stream_sample.unstable&&parent_locked); // sustained recovery cancels search
+ bind(false);sample(60,true);CHECK(relay_fallback);parent_synced=false;++fake_now;delivery_tick(fake_now,fake_now);CHECK(!stream_sample.unstable&&stream_sample.count==0); // pause is unknown, not RF loss
  clear();startup_attempted=true;relay_fallback=true;seen(22,true,false,-40,1000000);seen(33,true,true,-60,1000000);CHECK(choose(1040000)==33); // active relay ahead of heard-only idle peer
+
+ // Repeated PENDING cannot turn a silent relay into an indefinite reservation.
+ bind(true);parent_admission=0;parent_synced=false;
+ fake_now=59000000;parent_wait(1);CHECK(parent_acquiring(60999999));
+ fake_now=61000000;parent_wait(1);delivery_tick(fake_now,fake_now);CHECK(relay_fallback);
+ CHECK(!parent_acquiring(fake_now)&&parent_stage_at==59000000);
+ // Admission at the edge still gets its complete precision trial; renewal is inert.
+ bind(true);parent_admission=0;fake_now=60999999;startup_complete();
+ fake_now=150000000;startup_complete();CHECK(parent_stage_at==60999999);
+ CHECK(parent_acquiring(180999998)&&!parent_acquiring(180999999));
+ // Late replies cannot extend the absolute three-minute ceiling.
+ bind(true);parent_admission=0;fake_now=100000000;startup_complete();
+ CHECK(parent_acquiring(180999999)&&!parent_acquiring(181000000));
+ bind(false);parent_admission=0;CHECK(parent_acquiring(30999999)&&!parent_acquiring(31000000));
+ fake_now=30999999;startup_complete();CHECK(parent_acquiring(90999998)&&!parent_acquiring(90999999));
+
+ // A failed GM -> nearby relay -> late lock, with two stronger competitors.
+ bind(false);sample(60,true);CHECK(relay_fallback);
+ seen(11,false,false,-20,fake_now);seen(22,true,true,-45,fake_now);
+ seen(33,true,true,-65,fake_now);CHECK(choose(fake_now)==22);
+ select_parent(22,true);
+ captured=false;
+ for(unsigned second=0;second<90;second++) {
+  fake_now+=1000000;delivery_tick(fake_now,fake_now);
+  seen(11,false,false,-20,fake_now);seen(33,true,true,-20,fake_now);
+  CHECK(!relay_fallback&&!choose(fake_now)); // no RSSI-driven switch during settling
+ }
+ captured=true;sample(10,false);CHECK(parent_locked&&!relay_fallback);
+ sample(210,false); // original failed GM deferral has now elapsed
+ CHECK(!rc_stream_blocked(&stream_history,11,false,fake_now));
+ seen(11,false,false,-20,fake_now);seen(33,true,true,-20,fake_now);
+ CHECK(!choose(fake_now)); // healthy relay remains after GM becomes eligible
+
+ // Thirty-second recovery grace for a settled relay; stale time is still unusable.
+ captured=false;delivery_tick(fake_now,fake_now);uint64_t lost=fake_now;
+ fake_now=lost+29999999;delivery_tick(fake_now,fake_now);CHECK(!upstream_usable&&!relay_fallback);
+ fake_now=lost+30000000;delivery_tick(fake_now,fake_now);CHECK(relay_fallback);
+ seen(11,false,false,-20,fake_now);seen(33,true,true,-100,fake_now);
+ CHECK(choose(fake_now)==33); // relay wins even over a stronger, retry-eligible GM
+ CHECK(rc_stream_blocked(&stream_history,22,true,fake_now));
+ captured=true;sample(10,false);CHECK(!relay_fallback&&!stream_sample.unstable);
+
+ // Intermittent lock cannot reset an ongoing degraded relay episode forever.
+ bind(true);sample(120,false);CHECK(parent_locked&&!relay_fallback);
+ sample(45,true);CHECK(relay_fallback&&stream_sample.unstable);
+ // A recovering relay is retained when its stream actually settles again.
+ sample(10,false);CHECK(!relay_fallback);
+ // Source expiry withdraws usable time immediately, independently of retention.
+ current_origin.expires=0;++fake_now;delivery_tick(fake_now,fake_now);
+ CHECK(!upstream_usable&&!relay_fallback);
+ // If all relays are deferred, a fresh GM remains available as a bounded retry.
+ clear();startup_attempted=relay_fallback=true;
+ seen(22,true,true,-20,1000000);seen(33,false,false,-90,1000000);
+ rc_stream_failed(&stream_history,22,true,1000000);CHECK(choose(1040000)==33);
+ // Relay path refusal drops parent_known before its dwell can expire. Recovery
+ // still admits alternate relays rather than silently filtering them all out.
+ bind(true);seen(11,true,true,-20,fake_now);seen(22,true,true,-80,fake_now);
+ seen(33,false,false,-20,fake_now);candidate_defer(11,fake_now);
+ parent_known=false;CHECK(!relay_fallback&&choose(fake_now)==22);
+ fake_now+=1;seen(11,true,true,-20,fake_now);CHECK(choose(fake_now)==22);
+ exclude_direct=true;CHECK(choose(fake_now)==22); // diagnostic role filter remains
+ // A different, proven usable GM keeps preference when recovery is necessary.
+ clear();startup_attempted=relay_fallback=true;
+ seen(11,false,false,-100,1000000);seen(22,true,true,-20,1000000);
+ struct rc_stream_row *gm=rc_stream_obtain(&stream_history,11,false,1000000);
+ gm->delivery=1000;gm->delivery_samples=100;CHECK(choose(1040000)==22); // RF alone is not time
+ gm->usable=1000;gm->usable_samples=1;CHECK(choose(1040000)==22); // a flicker is not sustained lock
+ gm->usable_samples=8;CHECK(choose(1040000)==11); // sustained usable GM wins despite weak RSSI
+ rc_stream_failed(&stream_history,11,false,1040000);CHECK(choose(1040001)==22);
+ // Expired retry deferral permits a trial but cannot erase the recorded failure.
+ fake_now=302000000;seen(11,false,false,-20,fake_now);seen(22,true,true,-100,fake_now);
+ CHECK(!rc_stream_blocked(&stream_history,11,false,fake_now)&&choose(fake_now)==22);
+ rc_stream_failed(&stream_history,22,true,fake_now);CHECK(choose(fake_now)==11); // keep GM in mix
  printf("PASS %u actual RC marginal-link selector assertions\n",checks);
 }

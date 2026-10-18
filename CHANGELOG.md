@@ -2,6 +2,31 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 17 October 2026 — T096 relay acquisition stability
+
+T096 **0.15.85** gives an admitted relay two minutes to establish sustained usable
+time, with up to one minute for admission and an absolute three-minute acquisition
+ceiling. An admitted GM gets one minute for lock. Recovery prefers a proven
+usable GM, otherwise favors an eligible relay over an unproved GM, retains the
+selected source through its trial, and gives a settled relay
+30 seconds to recover. Failed timing sources are deferred for five minutes with
+bounded escalation; brief lock reports and renewals cannot restart a trial or
+erase failure history. Source and map expiry still withhold invalid time.
+
+Relay-path refusal no longer leaves discovery in a GM-only state: it defers the
+refused locator and can try another eligible relay. Failed periodic-sync
+establishment retries within a live authenticated binding, rather than forcing
+GATT renewal after each 1.5-second attempt. Expired bindings, changed paths and
+stalled established timing streams still trigger authenticated recovery; the
+original two-second sync attempt and final 500 ms cancellation budget remain.
+
+Production selector/history regressions cover late relay lock, stronger competing
+peers, returning GMs, repeated PENDING/renewal replies, degraded streams and
+expiry. Actual relay-admission and PA recovery bodies cover path refusal, depth-two
+receivers, retry ownership and original deadlines. These checks join the normal
+offline suite. Field relay lock and durable
+sync remain separate hardware validation work; this change installs no image.
+
 ## 17 October 2026 — W12 bounded GM lock trials
 
 W12 **0.1.13** gives an automatically selected GM a full minute to establish

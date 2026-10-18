@@ -5,10 +5,14 @@
  * locator, binding, map, source permission or authority is ever restored. */
 #define RC_STREAM_CAPACITY 8u
 #define RC_STREAM_RETAIN_S 1800u
-#define RC_STREAM_ACQUIRE_US UINT64_C(30000000)
-#define RC_STREAM_GM_ACQUIRE_US UINT64_C(12000000)
-#define RC_STREAM_TRIAL_US UINT64_C(60000000)
+#define RC_STREAM_ADMISSION_US UINT64_C(30000000)
+#define RC_STREAM_RELAY_ADMISSION_US UINT64_C(60000000)
+#define RC_STREAM_ACQUIRE_US UINT64_C(120000000)
+#define RC_STREAM_GM_ACQUIRE_US UINT64_C(60000000)
+#define RC_STREAM_TRIAL_US UINT64_C(180000000)
+#define RC_STREAM_GM_TRIAL_US UINT64_C(90000000)
 #define RC_STREAM_LOSS_US UINT64_C(6000000)
+#define RC_STREAM_RELAY_LOSS_US UINT64_C(30000000)
 #define RC_STREAM_WINDOW 8u
 struct rc_stream_row {
   uint64_t id;
@@ -100,7 +104,7 @@ static inline void rc_stream_failed(struct rc_stream_history *h, uint64_t id,
   if (r->failures < 3)
     ++r->failures;
   r->failed_at = r->observed = (uint32_t)(now / 1000000);
-  r->retry_at = r->failed_at + ((relay ? 30u : 120u) << (r->failures - 1));
+  r->retry_at = r->failed_at + (300u << (r->failures - 1));
   /* Acquisition failure is a separate observation, not a fabricated RF sample.
    */
 }
@@ -113,7 +117,7 @@ static inline void rc_stream_admission_failed(struct rc_stream_history *h,
   if (r->failures < 3)
     ++r->failures;
   r->failed_at = r->observed = (uint32_t)(now / 1000000);
-  r->retry_at = r->failed_at + (5u << (r->failures - 1));
+  r->retry_at = r->failed_at + (60u << (r->failures - 1));
 }
 static inline int rc_stream_score(struct rc_stream_history *h, uint64_t id,
                                   bool relay, int rssi, uint64_t now) {
@@ -126,6 +130,14 @@ static inline int rc_stream_score(struct rc_stream_history *h, uint64_t id,
       usable = r && r->usable_samples ? r->usable : 750;
   return (rssi + 100) * 2 + (delivery - 750) / 8 + (usable - 750) / 2 +
          (relay ? 0 : 8) - (r ? (int)r->failures * 64 : 0);
+}
+/* Advisory selection evidence only. Beacon reception, coarse admission and a
+ * single lock sample cannot establish that a GM has supplied usable time. */
+static inline bool rc_stream_proven(struct rc_stream_history *h, uint64_t id,
+                                     bool relay, uint64_t now) {
+  struct rc_stream_row *r = rc_stream_find(h, id, relay, now);
+  return r && !r->failures && r->usable_samples >= RC_STREAM_WINDOW &&
+         r->usable >= 900;
 }
 /* Eight complete seconds of observed usable time. A lock flicker cannot reset
  * this window. Local pauses provide no loss evidence and restart the window. */
@@ -180,7 +192,9 @@ static inline void rc_stream_observe(struct rc_stream_history *h,
         rc_stream_window(s, good);
         rc_stream_ewma(&r->usable, &r->usable_samples, good);
         /* Audible but unusable packets cannot erase a failed-stream penalty. */
-        if (good >= 900 && r->usable >= 900) {
+        if (good >= 900 && r->usable >= 900 &&
+            s->count == RC_STREAM_WINDOW &&
+            s->total >= RC_STREAM_WINDOW * 90u) {
           r->failures = 0;
           r->retry_at = 0;
         }

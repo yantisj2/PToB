@@ -12,7 +12,8 @@ def function(name):
   elif s[end]=='}':depth-=1
   end+=1
  return s[start:end]
-(out/'rc_durability_under_test.h').write_text('\n'.join(function(x) for x in ['parent_handoff_reset(','parent_rebind_request(']))
+(out/'rc_durability_under_test.h').write_text('\n'.join(function(x) for x in [
+ 'parent_handoff_reset(','parent_rebind_request(','parent_recovery_poll(','sync_acquisition_poll(']))
 cmd=[(__import__('os').environ.get('CC') or __import__('shutil').which('clang')),'-std=c11','-Wall','-Wextra','-Werror','-Wno-unused-variable','-Wno-default-const-init-var-unsafe','-fsanitize=address,undefined','-fno-sanitize-recover=all','-I'+str(out),'-I'+str(app/'include'),'-I'+str(app/'protocol'),str(app/'tests/rc_durability_test.c'),'-o',str(out/'test')]
 passed=False
 try:

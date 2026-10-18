@@ -23,13 +23,21 @@ decl+='\nstatic bool startup_admitted,startup_attempted;\n'
 (out/'selection_under_test.h').write_text(decl+'\n'+'\n'.join(function(n) for n in [
     'parent_acquiring','parent_wait','startup_complete','candidate_defer','candidate_nonroot',
     'candidate_seen','delivery_tick','candidate_choose']))
-command=[os.environ.get('CC','clang'),'-std=c11','-Wall','-Wextra','-Werror','-Wno-unused-parameter',
-         '-fsanitize=address,undefined','-fno-sanitize-recover=all','-I'+str(out),'-I'+str(app/'include'),
-         str(app/'tests/rc_startup_selection_test.c'),'-o',str(out/'test')]
+flags=[os.environ.get('CC','clang'),'-std=c11','-Wall','-Wextra','-Werror','-Wno-unused-parameter',
+       '-fsanitize=address,undefined','-fno-sanitize-recover=all','-I'+str(out),'-I'+str(app/'include')]
+sources=[source,Path(__file__).resolve(),app/'include/rc_stream_quality.h',
+         app/'include/link_quality.h',app/'include/rc_admission_policy.h',
+         app/'tests/rc_startup_selection_test.c',app/'tests/rc_stream_quality_test.c']
+commands=[]
 passed=False
 try:
-    subprocess.run(command,check=True,timeout=30)
-    subprocess.run([str(out/'test')],check=True,timeout=10)
+    for name in ['rc_startup_selection','rc_stream_quality']:
+        command=[*flags,str(app/'tests'/(name+'_test.c')),'-o',str(out/name)]
+        commands.append(command)
+        subprocess.run(command,check=True,timeout=30)
+        subprocess.run([str(out/name)],check=True,timeout=10)
     passed=True
 finally:
-    (out/'receipt.json').write_text(json.dumps(dict(passed=passed,source_sha256=hashlib.sha256(source.read_bytes()).hexdigest(),hardware=False),indent=2)+'\n')
+    (out/'receipt.json').write_text(json.dumps(dict(passed=passed,hardware=False,
+        sources={str(f.relative_to(app)):hashlib.sha256(f.read_bytes()).hexdigest() for f in sources},
+        commands=commands),indent=2)+'\n')
