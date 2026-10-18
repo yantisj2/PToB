@@ -372,9 +372,9 @@ static bool stop(void);
 static void slot_hint_update(void);
 struct candidate {
   bt_addr_le_t address;
-  uint64_t id, seen, consumed, cooldown;
+  uint64_t id, seen, cooldown;
   int16_t rssi;
-  bool relay, publishing;
+  bool relay, publishing, fresh;
 };
 static struct candidate candidates[8];
 static struct rc_search parent_search;
@@ -425,7 +425,7 @@ static void candidate_defer(uint64_t id, uint64_t now) {
   parent_search = (struct rc_search){0};
   for (unsigned i = 0; i < 8; i++)
     if (candidates[i].id == id && (!parent_known || candidates[i].relay == parent_relay)) {
-      candidates[i].consumed = candidates[i].seen;
+      candidates[i].fresh = false;
       candidates[i].cooldown = now + 5000000;
     }
 }
@@ -437,7 +437,7 @@ static void candidate_nonroot(uint64_t id,uint64_t now){
  if(!parent_known||parent_relay||id!=routes.node[parent_index].id)return;
  parent_ineligible=true;
  for(unsigned i=0;i<8;i++)if(candidates[i].id==id&&!candidates[i].relay){
-  candidates[i].consumed=candidates[i].seen;candidates[i].cooldown=now+60000000;
+  candidates[i].fresh=false;candidates[i].cooldown=now+60000000;
  }
 }
 static void candidate_seen(const bt_addr_le_t *address, uint64_t id, bool relay,
@@ -475,6 +475,7 @@ static void candidate_seen(const bt_addr_le_t *address, uint64_t id, bool relay,
   c->rssi = c->seen && now >= c->seen && now - c->seen < RC_SEARCH_LOCATOR_US
                 ? (3 * c->rssi + rssi) / 4 : rssi;
   c->seen = now;
+  c->fresh = true;
   c->relay = relay;
   c->publishing = publishing;
   c->address = *address;
@@ -626,7 +627,7 @@ static struct candidate *candidate_choose(uint64_t now, bool expired) {
      * all original source, proof, map and transaction validity gates. */
     if (!c->id || now < c->seen ||
         now - c->seen >= (diagnostic ? 200000 : RC_SEARCH_LOCATOR_US) ||
-        now < c->cooldown || c->seen <= c->consumed ||
+        now < c->cooldown || !c->fresh ||
         (!diagnostic && rc_stream_blocked(&stream_history, c->id, c->relay, now)) ||
         (exclude_direct && !c->relay) ||
         (forced_parent && (c->id != forced_parent || !c->relay)) ||
