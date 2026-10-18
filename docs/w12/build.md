@@ -276,3 +276,38 @@ use generated `flash_args`, or copy the SDK build log’s generic flash command:
 those include bootloader and partition writes outside this app-only procedure. The migration's local C-2-only
 validation uses the existing reviewed laboratory guard with outputs retained
 under ignored PToB artifacts; it is not general public installation acceptance.
+
+Version 0.1.15 contains a controller Connection Parameters rejection
+(`BLE_HS_HCI_ERR(0x3b)`, decimal 571) only at the outgoing Connect return. The
+request must still be pending with no adopted or terminating handle, and its
+normalized parameters must exactly match the production request: interval 6/6,
+latency 0, supervision 10 or 50, scan interval 32 and window 8 or 32, and CE
+length 0/0. The pinned NimBLE host clears its unaccepted master procedure before
+returning the command refusal. Existing admission failure accounting, peer
+cooldown, rolling start rate and retry remain in force. The last API and failed
+peer counters retain the observation. Other error codes, API sites, malformed
+requests and accepted ownership remain subject to their existing fault rules.
+This contains the consequence of a rejected request; it does not explain the
+controller rejection or repair the separately observed incoming-owner fault.
+
+During an explicitly bounded capture, `W12_G1_TX_EST` retains successful selected
+estimated-TX events independently of their error or channel, once per sixteenth
+event and at most 60 records per capture identity. It uses the existing worker
+queue and main-task renderer; it adds no callback formatting, SDK call, radio
+operation or ordinary status-frame bytes. The fixed record contains publisher
+and root identities/boots/epochs, train/publication/event/channel, programmed
+`tick20`, callback time, controller clock bracket and half-slot clock, emitted
+`tx_ns`, frozen map tick/epoch/phase/rate, original and queued times, inherited
+source issue/expiry and correction age. `rate_known=0` means no representable
+rate value. Every line states `reference=PROGRAMMED_HALF_SLOT actual=0
+bound=UNKNOWN`: a successful selection is not RF transmission confirmation.
+
+For offline correlation with a hardware receiver, match publisher and boot,
+source/path epochs, train, publication, event and channel before comparing the
+emitted correction with the receiver's immutable ADDRESS capture. Retain failed
+associations, missing records and capture boundaries. PPS shadow values observe
+the combined upstream receive map, estimated relay transmit reference and
+receiver/reference path. A fixed offset or small residual does not independently
+identify TX versus RX bias, establish UTC association or bound RF latency. Do
+not apply a measured shadow offset as a calibration without independent endpoint
+evidence. Source, slot, parent and precision gates are unchanged.

@@ -34,6 +34,24 @@ inline int g1_render_relay_owner(char* out,unsigned capacity,const Report& r){
     g1_diag_le(r.bytes+40,8),g1_diag_le(r.bytes+48,8),g1_diag_le(r.bytes+56,8),unsigned(r.bytes[20]),
     unsigned(r.bytes[26]),unsigned(r.bytes[25]),unsigned(r.bytes[24]),unsigned(r.bytes[23]),unsigned(r.bytes[22]),unsigned(r.bytes[21]));
 }
+inline int g1_render_tx_estimate(char* out,unsigned capacity,const Report& r){
+  if(r.kind!=23||r.length!=184||r.bytes[0]!=1||r.bytes[1]!=1||r.bytes[3]!=5)return 0;
+  return std::snprintf(out,capacity,"W12_G1_TX_EST at_us=%" PRIu64
+    " publisher=%016" PRIx64 "/%016" PRIx64 " root=%016" PRIx64 "/%016" PRIx64 "/%" PRIu64
+    " train=%" PRIu64 " epoch=%" PRIu64 " pub=%" PRIu64 " event=%" PRIu64 " ch=%u"
+    " tick20=%" PRIu64 " callback20=%" PRIu64 " anchor20=%" PRIu64 "/%" PRIu64
+    " bt=%" PRIu64 "/%" PRIu64 " tx_ns=%" PRIu64 " seen20=%" PRIu64
+    " map20=%" PRIu64 " map_ns=%" PRId64 " phase_ns=%" PRId64 " rate_mppb=%" PRId32 " rate_known=%u"
+    " original20=%" PRIu64 " queued20=%" PRIu64 " source_ns=%" PRIu64 "/%" PRIu64
+    " age_us=%" PRIu64 " reference=PROGRAMMED_HALF_SLOT actual=0 bound=UNKNOWN\n",
+    r.callback_us,g1_diag_le(r.bytes+44,8),g1_diag_le(r.bytes+52,8),g1_diag_le(r.bytes+60,8),g1_diag_le(r.bytes+68,8),g1_diag_le(r.bytes+20,4),
+    g1_diag_le(r.bytes+12,4),g1_diag_le(r.bytes+16,4),g1_diag_le(r.bytes+8,4),g1_diag_le(r.bytes+4,2),unsigned(r.bytes[2]),
+    g1_diag_le(r.bytes+76,8),g1_diag_le(r.bytes+84,8),g1_diag_le(r.bytes+92,8),g1_diag_le(r.bytes+100,8),
+    g1_diag_le(r.bytes+32,4),g1_diag_le(r.bytes+36,4),g1_diag_le(r.bytes+108,8),g1_diag_le(r.bytes+116,8),
+    g1_diag_le(r.bytes+124,8),int64_t(g1_diag_le(r.bytes+132,8)),int64_t(g1_diag_le(r.bytes+140,8)),int32_t(g1_diag_le(r.bytes+180,4)),unsigned(r.bytes[6]),
+    g1_diag_le(r.bytes+148,8),g1_diag_le(r.bytes+156,8),g1_diag_le(r.bytes+164,8),g1_diag_le(r.bytes+172,8),g1_diag_le(r.bytes+24,4));
+}
+
 // Main-task rendering only. Record size is fixed and independent of RF rate.
 inline int g1_render_link(char* out,unsigned capacity,const Report& r){
   if(r.kind!=8||r.length!=32||r.bytes[5]!=2)return 0;

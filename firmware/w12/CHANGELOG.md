@@ -2,6 +2,24 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 0.1.15 — 18 October 2026
+
+- Treat HCI Connection Parameters rejection (571) as a failed admission only
+  for the exact normalized production request while it still owns an unadopted
+  pending procedure. Retain the refusal, peer failure and existing retry/rate
+  limits. Accepted ACLs, other errors, malformed parameters and other API sites
+  retain their fault handling. Source/map expiry and drain deadlines do not grow.
+- Add capture-only successful selected-TX observations, sampled every sixteenth
+  event with a maximum of 60 per bounded capture. Records retain the frozen
+  publication, source and map, estimated programmed tick, controller clock
+  bracket and emitted correction. They explicitly report actual=0 and an unknown
+  RF bound; no RF timing, calibration or protocol rule changes.
+- Production regressions cover refusal containment, accepted-owner and other
+  error controls, late callback drain at its original deadline, frozen TX tuples
+  and capture budgets. Old production branches fail the corresponding negative
+  controls. The underlying controller refusal and prior incoming-owner fault
+  remain unresolved hardware causes; these changes do not qualify precision.
+
 ## 0.1.14 — 18 October 2026
 
 - Install outgoing adopted-ACL termination ownership and its original deadline

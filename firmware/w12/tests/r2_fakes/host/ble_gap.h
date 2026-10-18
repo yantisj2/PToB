@@ -28,7 +28,7 @@ struct ble_gap_periodic_adv_params {uint16_t itvl_min=0,itvl_max=0;};
 int ble_gap_periodic_adv_configure(unsigned,const ble_gap_periodic_adv_params*);
 int ble_gap_periodic_adv_set_data(unsigned,os_mbuf*);int ble_gap_periodic_adv_start(unsigned);int ble_gap_periodic_adv_stop(unsigned);
 struct ble_gap_periodic_sync_params {uint16_t skip=0,sync_timeout=0;};
-struct ble_gap_conn_params {uint16_t itvl_min=0,itvl_max=0,supervision_timeout=0,scan_itvl=0,scan_window=0;};
+struct ble_gap_conn_params {uint16_t itvl_min=0,itvl_max=0,supervision_timeout=0,scan_itvl=0,scan_window=0,latency=0,min_ce_len=0,max_ce_len=0;};
 int ble_gap_conn_find(uint16_t,ble_gap_conn_desc*);
 int ble_gap_conn_find_by_addr(const ble_addr_t*,ble_gap_conn_desc*);
 int ble_gap_conn_active();

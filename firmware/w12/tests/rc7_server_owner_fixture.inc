@@ -1,3 +1,4 @@
+bool tx_observation_fixture=false;
 bool server_connected=false,server_slow=false,pa_active=false,ext_active[2]{};ble_addr_t child_address{0,{1,2,3,4,5,6}};
 int server_find_rc=0,server_terminate_rc=0;uint8_t server_role=BLE_GAP_ROLE_SLAVE;
 unsigned server_terminate_calls=0;
@@ -15,6 +16,9 @@ bool start_estimated(const uint8_t* p,unsigned n){assert(n==190&&!tx_installed);
 bool prepare_estimated_payload(const uint8_t* p,unsigned n){assert(n==190&&tx_installed);if(queue_busy)return false;prepared.assign(p,p+n);return true;}
 bool pop_estimated(EstimateRecord& r){if(!estimate_queued)return false;estimate_queued=false;
  r={};r.estimated=true;r.tick20=fake_now*20;r.channel=estimate_channel;r.observed.selected.event=++estimate_event;
+ if(tx_observation_fixture){r.stage=5;r.provenance=tx_estimate::Provenance::ProgrammedHalfSlotAndCsa2;
+   r.observed.before20=fake_now*20;r.anchor.before=fake_now*20-20;r.anchor.after=fake_now*20;
+   r.observed.kind=0x12345;r.anchor.half_slots=0x12345;r.anchor.half_us=12;}
  std::memcpy(r.observed.selected.data,pa_wire.data(),190);return true;}
 }
 int ble_gap_ext_adv_active(unsigned i){return ext_active[i];}
@@ -63,6 +67,7 @@ rc7_control child_request(v12::Rc7Client& child,uint64_t id,uint32_t lease,bool 
  v12::relay_poll(fake_now,false);return response;
 }
 int main(int argc,char** argv){assert(argc==2);const std::string which=argv[1];
+ tx_observation_fixture=which=="tx-observation";
  const auto* mac=v12::native_device_binding()->factory;assert(v12::r2_init(44,mac));assert(v12::r2_host_init());assert(v12::r2_host_sync());
  v12::mode=v12::R2Mode::Client;v12::relay_poll(fake_now,false);assert(discovery_configured==3&&!ext_active[1]&&!ext_active[0]&&!pa_active);
  if(which=="capture-budget"){
@@ -240,6 +245,33 @@ int main(int argc,char** argv){assert(argc==2);const std::string which=argv[1];
    v12::relay_data_dirty=v12::relay_cap_dirty=true;v12::relay_poll(fake_now,false);fake_now+=16000;v12::relay_poll(fake_now,false);
    assert(pa_active&&ext_active[0]&&v12::periodic_tx::tx_installed);estimate_queued=true;v12::relay_poll(fake_now,false);
    assert(v12::relay_map.ready(fake_now*20)&&v12::relay_selected==1);
+   if(which=="tx-observation"){
+     auto count=[](){unsigned n=0;for(const auto& q:v12::diagnostic_records)if(q.kind==23)++n;return n;};
+     auto last=[]()->const v12::Report&{for(auto q=v12::diagnostic_records.rbegin();q!=v12::diagnostic_records.rend();++q)if(q->kind==23)return *q;assert(false);return v12::diagnostic_records[0];};
+     auto le=[](const uint8_t* p,unsigned n){uint64_t x=0;for(unsigned i=0;i<n;i++)x|=uint64_t(p[i])<<(8*i);return x;};
+     assert(!count()); // No selected-success evidence outside an actualcapture.
+     v12::fixture_log_status.capture_active=true;v12::fixture_log_status.capture_id=11;
+     for(unsigned i=0;i<15;i++){fake_now+=100;estimate_queued=true;v12::relay_poll(fake_now,false);}
+     assert(estimate_event==16&&count()==1);const auto q=last();const auto correction=v12::relay_map.sent[0];
+     assert(q.length==184&&q.bytes[0]==1&&q.bytes[1]==1&&q.bytes[2]==12&&q.bytes[3]==5);
+     assert(le(q.bytes+4,2)==16&&le(q.bytes+8,4)==correction.publication&&le(q.bytes+12,4)==correction.generation);
+     assert(le(q.bytes+44,8)==v12::provision.identity&&le(q.bytes+52,8)==44&&le(q.bytes+60,8)==11&&le(q.bytes+68,8)==22);
+     assert(le(q.bytes+76,8)==fake_now*20&&le(q.bytes+84,8)==fake_now*20&&le(q.bytes+92,8)==fake_now*20-20&&le(q.bytes+100,8)==fake_now*20);
+     assert(le(q.bytes+108,8)==correction.tx_ns&&le(q.bytes+116,8)==fake_now*20&&le(q.bytes+28,4)==0x12345&&le(q.bytes+40,4)==UINT32_MAX);
+     assert(le(q.bytes+124,8)==map.tick&&le(q.bytes+148,8)==v12::relay_map.original20&&le(q.bytes+164,8)==origin.issued&&le(q.bytes+172,8)==origin.expires);
+     for(unsigned i=0;i<16*60;i++){fake_now+=100;estimate_queued=true;v12::relay_poll(fake_now,false);}
+     assert(count()==60&&!v12::relay_tx_capture_left);
+     v12::fixture_log_status.capture_id=12;
+     for(unsigned i=0;i<16;i++){fake_now+=100;estimate_queued=true;v12::relay_poll(fake_now,false);}
+     assert(count()==61&&v12::relay_tx_capture_left==59);
+     v12::fixture_log_status.capture_active=false;
+     for(unsigned i=0;i<16;i++){fake_now+=100;estimate_queued=true;v12::relay_poll(fake_now,false);}
+     assert(count()==61&&v12::relay_tx_capture_left==59);
+     assert(!v12::fault&&pa_active&&v12::relay_map.ready(fake_now*20));
+     v12::r2_stop();step(6);assert(v12::r2_status().off_ack);
+     puts("PASS actualproduction successfulTXobservation: exactfrozen correction/source/publisher/event/cookie/bracket; event1of16; captureonly60budget/pernewcapture reset; noRF/timinggatechange; originalstop");return 0;
+   }
+
    if(which=="lock-loss"||which=="lock-regain"||which=="lock-late-connect"||which=="lock-drain-deadline"){
      assert(v12::client.pending&&v12::client.start(fake_now));
      const auto original=v12::relay_map.original20,upstream_map=v12::relay_map.map.tick;

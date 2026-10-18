@@ -30,6 +30,37 @@ struct RelayQueueDiagnostic {
 };
 RelayQueueDiagnostic relay_queue_diagnostic;
 uint64_t relay_trace_capture=0;
+// Capture-only successful estimate evidence sampled by event, independent of
+// phase/error/channel. Original selected payload, source and timing gates stay
+// unchanged. No SDK call, formatting, allocation or controller access here.
+uint64_t relay_tx_capture_id=0;uint8_t relay_tx_capture_left=0;
+__attribute__((noinline)) void relay_tx_observation(const periodic_tx::EstimateRecord& c,uint64_t available20){
+  const auto logging=log_status();
+  if(!logging.capture_active||!c.estimated||c.stage!=5||
+     c.provenance!=tx_estimate::Provenance::ProgrammedHalfSlotAndCsa2)return;
+  if(logging.capture_id!=relay_tx_capture_id){relay_tx_capture_id=logging.capture_id;relay_tx_capture_left=60;}
+  if((c.observed.selected.event&15)||!relay_tx_capture_left)return;
+  const auto* frozen=relay_map.selected_snapshot();
+  if(!frozen)return;
+  const auto& sent=relay_map.sent[0];const auto& own=frozen->path.node[frozen->path.depth];
+  Report r{};r.kind=23;r.callback_us=micros();r.actual_length=r.length=184;
+  r.bytes[0]=1;r.bytes[1]=uint8_t(c.provenance);r.bytes[2]=c.channel;r.bytes[3]=c.stage;
+  r.bytes[4]=uint8_t(c.observed.selected.event);r.bytes[5]=uint8_t(c.observed.selected.event>>8);
+  const bool rate_known=std::isfinite(frozen->map.rate)&&std::abs(frozen->map.rate)<=50000;
+  r.bytes[6]=uint8_t(rate_known);r.bytes[7]=0;
+  const uint32_t fields[]={sent.publication,sent.generation,own.epoch,frozen->origin.epoch,
+    sent.age_us,c.observed.kind,c.anchor.half_slots,c.anchor.half_us,c.uncertainty_ns};
+  for(unsigned i=0;i<9;i++)for(unsigned j=0;j<4;j++)r.bytes[8+4*i+j]=uint8_t(fields[i]>>(8*j));
+  const uint64_t times[]={own.id,own.boot,frozen->origin.root,frozen->origin.boot,c.tick20,
+    c.observed.before20,c.anchor.before,c.anchor.after,sent.tx_ns,available20,frozen->map.tick,
+    uint64_t(frozen->map.epoch),uint64_t(frozen->map.phase),frozen->original20,
+    frozen->queued_at20,frozen->origin.issued,frozen->origin.expires};
+  for(unsigned i=0;i<17;i++)for(unsigned j=0;j<8;j++)r.bytes[44+8*i+j]=uint8_t(times[i]>>(8*j));
+  const uint32_t rate=rate_known?uint32_t(int32_t(std::llround(frozen->map.rate*1000))):0;
+  for(unsigned j=0;j<4;j++)r.bytes[180+j]=uint8_t(rate>>(8*j));
+  --relay_tx_capture_left;transport_record(r);
+}
+
 uint8_t relay_cap[212]{};rc7_path relay_cap_path{};
 bool relay_configured=false,relay_pa=false,relay_discovery=false,relay_advertising=false,relay_cap_dirty=true,relay_data_dirty=false;
 bool relay_stopping=false;uint64_t relay_stop_deadline=0;
@@ -388,6 +419,7 @@ void relay_poll(uint64_t now,bool upstream_due){
     if(capture.estimated&&capture.uncertainty_ns==UINT32_MAX&&relay_map.selected(capture.observed.selected.data,
       capture.observed.selected.event,capture.channel,capture.tick20,now20,provision.group)){
       inc(relay_selected);relay_last_channel=capture.channel;relay_data_dirty=true;
+      relay_tx_observation(capture,now20);
     }else{inc(relay_estimate_refused);relay_selection_reason=capture.estimated?uint8_t(relay_map.selected_reason()):254;
       relay_estimate_diagnostic={capture.tick20,capture.observed.before20,capture.anchor.before,capture.anchor.after,
         relay_map.map.tick,relay_map.original20,capture.observed.kind,capture.anchor.half_slots,capture.anchor.half_us,

@@ -2,6 +2,19 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 18 October 2026 — W12 connection refusal containment and TX evidence
+
+W12 **0.1.15** contains controller Connection Parameters rejection only for its
+exact validated outgoing request before any ACL is adopted. It records the
+failed admission and retains the original retry, source expiry and drain limits.
+Other errors and ownership violations remain faults. Capture-only successful TX
+records retain the selected immutable publication, programmed timestamp,
+controller clock bracket and emitted correction, sampled at most once per
+sixteen events and 60 times per capture. These are estimated timestamps with an
+unknown RF bound. Production regressions and old-behavior negative controls
+cover both changes; controller cause, incoming-owner faults and RF timing
+accuracy remain unqualified.
+
 ## 18 October 2026 — T096 shadow PPS session visibility
 
 T096 **0.15.94** keeps the explicitly selected shadow PPS page awake instead of

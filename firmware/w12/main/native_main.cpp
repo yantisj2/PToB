@@ -757,6 +757,7 @@ extern "C" void app_main(){
         if(v12::r2_parent_event(sequence,event))rendered=v12::g1_render_parent(diagnostic,sizeof diagnostic,event);
         else rendered=std::snprintf(diagnostic,sizeof diagnostic,"W12_G1_PARENT_MISSING seq=%" PRIu32 " reason=RAM_HISTORY_OVERRUN\n",sequence);
       }else if(row.kind==22)rendered=v12::g1_render_relay_owner(diagnostic,sizeof diagnostic,row);
+      else if(row.kind==23)rendered=v12::g1_render_tx_estimate(diagnostic,sizeof diagnostic,row);
       else rendered=row.kind==8?v12::g1_render_link(diagnostic,sizeof diagnostic,row):v12::g1_render_scope(diagnostic,sizeof diagnostic,row);
       if(rendered>0&&unsigned(rendered)<sizeof diagnostic){const int n=std::printf("%s",diagnostic);if(n>0)console_bytes+=unsigned(n);const auto work=micros()-begin;console_work+=work;if(work>console_max_us)console_max_us=uint32_t(work);continue;}
 #endif

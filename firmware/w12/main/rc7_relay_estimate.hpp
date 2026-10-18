@@ -33,6 +33,11 @@ class Rc7RelayEstimate {
   }
  public:
   SelectionReason selected_reason()const{return selected_reason_;}
+  // Serialized-worker observation only. Does not alter the selected map or
+  // expose an unverified/expired publication as timing authority.
+  const PreparedPublication* selected_snapshot()const{
+    return sent[0].publication?snapshot(sent[0].publication):nullptr;
+  }
   rc7_path path{};rc5_origin origin{};uint8_t proof[16]{};
   G1ClockPrediction map{};Rc7RadioPhase phase;
   uint64_t original20=0;uint32_t inherited_age_us=0,publication=0;

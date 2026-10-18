@@ -531,6 +531,17 @@ void observe_group(const Discovery& d){
 }
 bool cooled(uint64_t id,uint64_t now){for(const auto& r:recent)if(r.identity==id&&now<r.until)return true;return false;}
 void cooldown(uint64_t id,uint64_t now,uint64_t duration){unsigned slot=0;for(unsigned i=0;i<8;i++){if(recent[i].identity==id){slot=i;break;}if(recent[i].until<recent[slot].until)slot=i;}recent[slot]={id,now+duration};}
+// Only the exact normalized request below may contain the controller's
+// Connection Parameters rejection (HCI0x3b). NimBLE resets its unaccepted
+// master procedure before returning this error. This is a failed admission,
+// not evidence of an accepted ACL, timing authority or a diagnosed controller.
+// Other controller errors and malformed requests retain terminal fault handling.
+bool connect_parameter_refusal(int rc,const ble_gap_conn_params& p){
+  return rc==BLE_HS_HCI_ERR(0x3b)&&p.scan_itvl==32&&
+    (p.scan_window==8||p.scan_window==32)&&p.itvl_min==6&&p.itvl_max==6&&
+    !p.latency&&(p.supervision_timeout==10||p.supervision_timeout==50)&&
+    !p.min_ce_len&&!p.max_ce_len;
+}
 void connect(const Discovery& d,uint64_t id,uint64_t now,bool relay=false){
   if(!admission_policy.allowed(now,full_listening()&&!relay))return;
   relay_poll(now,true);if(!relay_acl_available())return;stop_scan();if(scan||!timely())return;
@@ -570,7 +581,13 @@ void connect(const Discovery& d,uint64_t id,uint64_t now,bool relay=false){
   inc(diagnostic.peer(id).attempts);const auto context=link_context(now);admission_trace(11,None,0,&context);
   const int rc=ble_gap_connect(BLE_OWN_ADDR_RANDOM,&d.address,BLE_HS_FOREVER,&p,gap,callback_arg());
   admission_trace(12,None,rc,&context);
-  if(rc&&peer.incarnation==generation){failed_admission(now);peer.connecting=false;peer.identity=0;retry_at=now+200000;if(!transient(rc,R2Api::Connect)&&rc!=BLE_HS_EALREADY)error(rc,R2Api::Connect);}
+  if(rc&&peer.incarnation==generation){
+    const bool refused=connect_parameter_refusal(rc,p)&&peer.connecting&&
+      peer.handle==None&&!peer.dead&&!peer.terminating&&!connecting_cancelled;
+    if(refused){note(rc,R2Api::Connect);inc(setup_retries);inc(diagnostic.connect_failed);inc(diagnostic.peer(id).failures);}
+    failed_admission(now);peer.connecting=false;peer.identity=0;retry_at=now+200000;
+    if(!refused&&!transient(rc,R2Api::Connect)&&rc!=BLE_HS_EALREADY)error(rc,R2Api::Connect);
+  }
 }
 void gatt_poll(uint64_t now){
   if(peer.handle==None)return;

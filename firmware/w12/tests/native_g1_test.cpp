@@ -7,7 +7,7 @@ void test_critical_enter(void*);
 #define V12_TEST_CRITICAL_ENTER(x) test_critical_enter(x)
 #include "../main/native_g1.cpp"
 namespace {
-bool scan_active=false,small_mtu=false,rx_blocked=false,late_disconnect=false,marker_bad=false;int scan_error=0;
+bool scan_active=false,small_mtu=false,rx_blocked=false,late_disconnect=false,marker_bad=false;int scan_error=0,connect_error=0;
 bool cleanup_scheduled=false,sync_cancel_timeout=false;unsigned sync_cancel_calls=0;
 bool connect_during_terminate=false,terminate_wrong_handle=false,terminate_stale=false;
 bool residual_sync_cache=false,stop_in_cache_check=false,arm_late_stop=false,stop_at_admit=false,aux_active=false;
@@ -25,13 +25,13 @@ DiagnosticTxStatus diagnostic_tx_status(){return {};}
 DirectStatus direct_status(){return {};}
 Report discovery_report;
 std::vector<Report> diagnostic_records;
-void transport_record(const Report& r){if(r.kind==5)discovery_report=r;if(r.kind==8||r.kind==10||r.kind==20||r.kind==22)diagnostic_records.push_back(r);}
+void transport_record(const Report& r){if(r.kind==5)discovery_report=r;if(r.kind==8||r.kind==10||r.kind==20||r.kind==22||r.kind==23)diagnostic_records.push_back(r);}
 }
 int ble_hs_id_set_rnd(const uint8_t*){return 0;}
 int ble_gatts_count_cfg(const ble_gatt_svc_def*){return 0;}int ble_gatts_add_svcs(const ble_gatt_svc_def*){return 0;}
 int ble_gap_ext_disc(unsigned,unsigned,unsigned,unsigned,unsigned,unsigned,const ble_gap_ext_disc_params* p,void*,int(*)(ble_gap_event*,void*),void*){assert(p->passive==1&&p->window==32&&p->itvl==32);if(scan_error)return scan_error;scan_active=true;return 0;}
 int ble_gap_disc_active(){return scan_active;}int ble_gap_disc_cancel(){scan_active=false;return 0;}
-int ble_gap_connect(unsigned,const ble_addr_t*,unsigned t,const ble_gap_conn_params* params,int(*cb)(ble_gap_event*,void*),void* arg){assert(t==BLE_HS_FOREVER);assert(params->scan_itvl==32&&(params->scan_window==32||params->scan_window==8)&&params->itvl_min==6&&params->itvl_max==6&&(params->supervision_timeout==10||params->supervision_timeout==50));last_init_interval=params->scan_itvl;last_init_window=params->scan_window;last_supervision=params->supervision_timeout;++connected;conn_arg=arg;if(inline_failure||inline_success){ble_gap_event e;e.type=BLE_GAP_EVENT_CONNECT;e.connect.status=inline_failure?1:0;cb(&e,arg);}return 0;}
+int ble_gap_connect(unsigned,const ble_addr_t*,unsigned t,const ble_gap_conn_params* params,int(*cb)(ble_gap_event*,void*),void* arg){assert(t==BLE_HS_FOREVER);assert(params->scan_itvl==32&&(params->scan_window==32||params->scan_window==8)&&params->itvl_min==6&&params->itvl_max==6&&(params->supervision_timeout==10||params->supervision_timeout==50));last_init_interval=params->scan_itvl;last_init_window=params->scan_window;last_supervision=params->supervision_timeout;++connected;conn_arg=arg;if(inline_failure||inline_success){ble_gap_event e;e.type=BLE_GAP_EVENT_CONNECT;e.connect.status=inline_failure?1:0;cb(&e,arg);}return connect_error;}
 int ble_gap_conn_find(uint16_t,ble_gap_conn_desc* d){d->peer_id_addr=v12::peer.address;return 0;}
 int ble_gap_conn_active(){return !hidden_link&&v12::peer.connecting;}
 int ble_gap_conn_find_by_addr(const ble_addr_t* a,ble_gap_conn_desc* d){if(!hidden_link)return BLE_HS_ENOTCONN;d->peer_id_addr=*a;return 0;}
@@ -85,6 +85,51 @@ int main(int argc,char** argv){assert(argc==2);std::string which=argv[1];
   step();assert(!v12::r2_status().serving&&!v12::r2_status().source);assert(!v12::r2_request(v12::R2Mode::Active,10000,44));
   if(which=="cancel"){assert(v12::r2_status().off_ack);return 0;}if(which=="blocked"||which=="late"){assert(v12::r2_status().fault);return 0;}
   assert(v12::r2_status().client.running);
+  if(which.starts_with("connect-refusal-")){
+    fake_now=1000000;v12::window_start=fake_now;
+    v12::anchor={true,333,444,1700000000000000,fake_now,5000000,7,8,40000};
+    v12::joined_peer=333;v12::joined_boot=444;v12::member=true;
+    v12::synced=true;v12::sync_identity=333;v12::sync_handle=9;v12::sync_address=v12::canonical(333);
+    const auto old=v12::anchor;const auto scope=v12::sync_capture_epoch;
+    v12::admission_policy.acquired();
+    connect_error=which=="connect-refusal-other"?BLE_HS_HCI_ERR(0x12):BLE_HS_HCI_ERR(0x3b);
+    inline_success=which=="connect-refusal-owned";
+    v12::Discovery d{};d.address=v12::canonical(333);v12::connect(d,333,fake_now);
+    assert(connected==1&&v12::admission_policy.starts[1]==fake_now);
+    assert(v12::anchor.same(old)&&v12::anchor.until==old.until&&v12::synced&&v12::sync_capture_epoch==scope);
+    assert(v12::peer.attempt_until==fake_now+(v12::full_listening()?4000000:2000000));
+    assert(v12::retry_at==fake_now+200000&&v12::cooled(333,fake_now+4999999));
+    if(which=="connect-refusal-other"||which=="connect-refusal-owned"){
+      assert(v12::fault&&v12::first_error_api==v12::R2Api::Connect&&v12::first_error_rc==connect_error);return 0;
+    }
+    assert(!v12::fault&&!v12::peer.connecting&&v12::peer.handle==v12::None&&!v12::peer.identity);
+    assert(v12::setup_retries==1&&v12::diagnostic.connect_failed==1&&v12::diagnostic.peer(333).failures==1);
+    assert(v12::last_api==v12::R2Api::Connect&&v12::last_api_rc==571&&!v12::first_error_at&&!v12::api_errors);
+    assert(v12::parent_failure.identity==333&&v12::admission_policy.failures==1);
+    const auto retry=v12::admission_policy.retry_at;
+    assert(retry>=fake_now+(v12::full_listening()?5000000:20000000));
+    v12::connect(d,333,fake_now+200000);assert(connected==1&&v12::admission_policy.retry_at==retry);
+    ble_gap_conn_params p{};p.itvl_min=p.itvl_max=6;p.scan_itvl=p.scan_window=32;p.supervision_timeout=10;
+    assert(v12::connect_parameter_refusal(571,p));
+    for(unsigned field=0;field<9;field++){
+      auto q=p;
+      switch(field){case 0:q.scan_itvl=31;break;case 1:q.scan_window=9;break;case 2:q.itvl_min=7;break;
+        case 3:q.itvl_max=7;break;case 4:q.latency=1;break;case 5:q.supervision_timeout=11;break;
+        case 6:q.min_ce_len=1;break;case 7:q.max_ce_len=1;break;default:break;}
+      assert(!v12::connect_parameter_refusal(field==8?BLE_HS_HCI_ERR(0x12):571,q));
+    }
+    assert(v12::following(old.until-1)&&!v12::following(old.until));
+    if(which=="connect-refusal-late"){
+      // A delayed success after a refused command may only enter normal drain.
+      ble_gap_event e{};e.type=BLE_GAP_EVENT_CONNECT;v12::gap(&e,conn_arg);
+      assert(v12::peer.dead&&!v12::peer.ready&&!v12::diagnostic.connect_ok);
+      late_disconnect=true;v12::terminate_peer(fake_now);const auto deadline=v12::peer.drain_until;
+      assert(deadline==fake_now+2000000);fake_now=deadline;v12::active_poll(fake_now);
+      assert(v12::fault&&v12::peer.drain_until==deadline);return 0;
+    }
+    v12::error(571,v12::R2Api::Service);assert(v12::fault&&v12::first_error_api==v12::R2Api::Service);
+    return 0;
+  }
   if(which.starts_with("terminate-yield-")){
     // The SDK has an exact master ACL but has not delivered CONNECT yet.
     // Its completion arrives while the public terminate call yields.

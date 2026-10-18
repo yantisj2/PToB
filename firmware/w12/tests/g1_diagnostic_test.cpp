@@ -61,6 +61,15 @@ int main(){
   for(unsigned event=2;event<=4;event++){r.bytes[1]=event;const int bytes=v12::g1_render_relay_owner(line,sizeof line,r);assert(bytes>0&&unsigned(bytes)<sizeof line);}
   r.bytes[0]=2;assert(!v12::g1_render_relay_owner(line,sizeof line,r));
   r.bytes[0]=1;r.length=63;assert(!v12::g1_render_relay_owner(line,sizeof line,r));
+  v12::Report tx{};tx.kind=23;tx.length=184;tx.callback_us=UINT64_MAX;
+  std::memset(tx.bytes,255,sizeof tx.bytes);tx.bytes[0]=1;tx.bytes[1]=1;tx.bytes[3]=5;
+  for(unsigned offset:{132u,140u}){for(unsigned i=0;i<8;++i)tx.bytes[offset+i]=i==7?128:0;}
+  for(unsigned i=0;i<4;++i)tx.bytes[180+i]=i==3?128:0;
+  const int txbytes=v12::g1_render_tx_estimate(line,sizeof line,tx);
+  assert(txbytes>0&&unsigned(txbytes)<sizeof line&&std::strstr(line,"reference=PROGRAMMED_HALF_SLOT actual=0 bound=UNKNOWN")&&std::strstr(line,"pub=4294967295")&&std::strstr(line,"event=65535"));
+  tx.bytes[1]=0;assert(!v12::g1_render_tx_estimate(line,sizeof line,tx));
+  tx.bytes[1]=1;tx.bytes[3]=4;assert(!v12::g1_render_tx_estimate(line,sizeof line,tx));
+
   v12::R2Discipline discipline;v12::periodic_rx::Stamp capture;r2_precision_packet p{};
   assert(!discipline.authenticated_receive(p,capture,0,0,0));const auto q=discipline.view(0,0);
   assert(q.refused==1&&q.first_refusal==q.last_refusal);
