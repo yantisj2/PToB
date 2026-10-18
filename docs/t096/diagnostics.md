@@ -564,3 +564,16 @@ from spontaneous faults. Retain counts and observation time, outage duration
 distributions, recovery outcomes, and periods without a usable HOT alternative.
 An unfinished or interrupted soak is not a clean stability pass; an apparently
 stable software map does not establish independently measured output precision.
+
+
+### Shadow PPS collection and display idle
+
+From 0.15.94, explicitly selecting shadow page 6 wakes the display and excludes
+that page from the normal five-minute screensaver. The measurement session ends
+when the page is left or its existing scope/reference conditions stop it. The
+change does not keep a map, source or timing output valid. Collect raw signed
+`shadow` records and their sequence/counter, map, parent/root and reference
+metadata; the displayed mean is phase, not a rate measurement. Unknown PPS/UTC
+association and uncalibrated RF timestamp origins remain explicit. Displayed
+upper-tail percentiles use approximate histogram bins above 1023 ns; signed
+mean and maximum retain the underlying usable session samples.

@@ -86,7 +86,7 @@ with tempfile.TemporaryDirectory(prefix='t096-r2-test-') as directory:
     subprocess.run([*flags,'-c',str(APP/'src/precision.c'),'-o',str(out/'precision.o')],check=True,timeout=30)
     subprocess.run([*flags,'-c',str(APP/'src/ui_render.c'),'-o',str(out/'ui_render.o')],check=True,timeout=30)
     subprocess.run([*flags,'-I'+str(out),'-include',str(APP/'tests/ui_service_fake.h'),str(APP/'tests/ui_service_test.c'),str(out/'ui_render.o'),str(out/'precision.o'),'-o',str(out/'ui_service')],check=True,timeout=30)
-    for mode in ['0','1','2','3','4','5','6','7']:
+    for mode in map(str,range(26)):
         subprocess.run([str(out/'ui_service'),mode],check=True,timeout=30)
 
     subprocess.run([*flags,'-I'+str(out),'-include',str(APP/'tests/zephyr_fake.h'),str(APP/'tests/time_service_test.c'),str(APP/'src/clock.c'),str(APP/'src/nmea.c'),str(APP/'src/precision.c'),'-o',str(out/'time_service')],check=True,timeout=30)

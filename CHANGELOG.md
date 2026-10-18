@@ -2,6 +2,17 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 18 October 2026 — T096 shadow PPS session visibility
+
+T096 **0.15.94** keeps the explicitly selected shadow PPS page awake instead of
+letting the global five-minute idle timer end its witness session. Selecting the
+page from an already active screensaver also wakes it. Leaving the page retains
+the existing session stop and normal screensaver behavior. Production UI tests
+cover a ten-minute witness run, entry after the idle deadline and all earlier
+UI modes. The GM/HOT fix remains; GNSS, source/servo, reference eligibility,
+map expiry and phase corrections are unchanged. This restores measurement
+collection and does not calibrate W12 timing.
+
 ## 18 October 2026 — T096 GM dwell and HOT discovery refusal
 
 T096 **0.15.93** retains a direct GM for 60 seconds of admission and up to

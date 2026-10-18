@@ -23,17 +23,17 @@ static void (*entry)(void*,void*,void*);
 static uint64_t starts[64];
 static uint8_t retained[R2_UI_BYTES];static const uint8_t *retained_fb;static bool buffer_changed;
 static uint64_t first_saver;static unsigned saver_positions;static bool dim_seen,awake_after_dim;
-static unsigned random_calls;static uint64_t random_at[8];
-static uint32_t sys_rand32_get(void){assert(random_calls<8);random_at[random_calls]=fake_now;++random_calls;return 1;}
+static unsigned random_calls;static uint64_t random_at[32];
+static uint32_t sys_rand32_get(void){assert(random_calls<32);random_at[random_calls]=fake_now;++random_calls;return 1;}
 static int64_t k_uptime_get(void){return fake_now;}
 static void k_sleep(unsigned ms){fake_now+=ms;
  if(mode>=16){
   struct r2_ui_model m={.sampled_ms=fake_now,.unit="TC-02",.platform_ready=true,
    .scope_active=true,.ble_active=true,.profile_supported=true,.role=R2_UI_GM,.gm_source_fresh=true,
    .clock={.valid=!(mode==18&&fake_now>=300700),.source_available=true,.pps_present=true,.utc_us=36642000000LL}};
-  if(mode>=19&&mode<=21){
+  if((mode>=19&&mode<=21)||mode==24||mode==25){
    m.role=R2_UI_FOLLOWER;m.authenticated_gm=m.follower_pps_valid=true;
-   m.ble_time_selected=true;m.ble_valid_until_us=m.face_lock_until_us=400000000;
+   m.ble_time_selected=true;m.ble_valid_until_us=m.face_lock_until_us=mode>=24?800000000:400000000;
    m.precision.authorized=m.precision.map_valid=m.precision.locked=true;
    if(fake_now>=300700){
     if(mode==19){m.scope_active=false;m.ble_active=false;}
@@ -44,7 +44,8 @@ static void k_sleep(unsigned ms){fake_now+=ms;
   if(mode==22&&fake_now>=300700){m.clock.pps_present=false;m.gm_source_fresh=false;}
   if(mode==23&&fake_now>=300700)m.clock.pps_age_us=R2_PPS_FRESH_US;
   r2_ui_publish(&m);
-  if(fake_now>=(mode==16?367000:mode>=18?301200:3500))r2_ui_stop();
+  if(mode==25&&fake_now>=300700&&fake_now<300720)(void)r2_ui_page(R2_UI_SHADOW_PAGE);
+  if(fake_now>=(mode==24?610000:mode==25?306000:mode==16?367000:mode>=18?301200:3500))r2_ui_stop();
   return;
  }
  if(mode>=8&&mode<14){struct r2_ui_model m={.sampled_ms=fake_now,.unit="TC-03",.scope_active=true,.role=(mode==9||(mode==13&&fake_now>=3500&&fake_now<4500))?R2_UI_GM:R2_UI_FOLLOWER,.clock={.pps_present=mode!=12,.pps_age_us=10},.precision={.map_valid=true}};r2_ui_publish(&m);
