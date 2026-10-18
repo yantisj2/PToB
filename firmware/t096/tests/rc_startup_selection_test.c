@@ -12,6 +12,7 @@ static uint64_t fake_now;
 static uint64_t mono_us(void){return fake_now;}
 #include "rc_stream_quality.h"
 #include "rc_search.h"
+#include "watchdog_policy.h"
 #include "timing_events.h"
 static unsigned failure_events;
 static void selection_event(unsigned k,int result,uint64_t peer,uint32_t why,uint32_t stage,uint32_t age) {
@@ -122,6 +123,25 @@ int main(void) {
  CHECK(choose(fake_now+10000000)==33);unsigned events=failure_events;
  CHECK(events==1);CHECK(choose(fake_now+10000001)==33&&failure_events==events);
  CHECK(rc_stream_blocked(&stream_history,11,true,fake_now+10000001));
+ // RC1 and RC2 are the same relay candidate class. The path-role suite checks
+ // authenticated RC2 depth and leaf layout. Long intermittent RC1 trouble
+ // must reach automatic search before the watchdog can restart the scope.
+ bind(true);parent_wait(3);struct r2_wd_policy wd={0};
+ for(unsigned i=0;i<320u*16u;i++){
+  fake_now+=62500;tracking=(fake_now/1000000)%2==0;
+  r2_link_quality_rx(&delivery,1,(uint16_t)i,fake_now);
+  delivery_tick(fake_now,fake_now);
+  CHECK(r2_wd_policy_step(&wd,(uint32_t)(fake_now/1000),true,true,
+      upstream_usable,false,0)==R2_WD_NONE);
+ }
+ CHECK(relay_fallback&&!wd.retries);
+ seen(11,true,true,-25,fake_now); // Current RC1 remains loud but unreliable.
+ seen(22,true,true,-40,fake_now); // Nearby eligible RC2 gets no depth bonus.
+ collect(fake_now);CHECK(choose(fake_now+10000000)==22);
+ CHECK(rc_stream_blocked(&stream_history,11,true,fake_now+10000000));
+ // With no trouble, the current parent remains retained despite alternatives.
+ bind(true);sample(10,false);seen(22,true,true,-20,fake_now);collect(fake_now);
+ CHECK(!choose(fake_now+10000000));
  // Valid output still disappears immediately when its source expires.
  bind(true);sample(10,false);CHECK(upstream_usable);
  current_origin.expires=fake_now;delivery_tick(fake_now,fake_now);

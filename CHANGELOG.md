@@ -2,6 +2,19 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 18 October 2026 — T096 watchdog and automatic relay fallback
+
+T096 **0.15.99** separates intermittent timing progress from watchdog failure.
+RC recovery now requires 30 minutes without usable timing. A usable observation
+refreshes that deadline; 30 seconds of sustained recovery clears escalation.
+Hardware, CPU, RC-owner and recovery-observer allowances are at least 30 seconds.
+Source/precision validity and controller drain deadlines remain independent.
+This gives normal selection time to leave a degraded RC1 for an eligible RC2
+without favoring depth; RC2 reception remains leaf-only. A combined production
+selector/watchdog regression covers that path. Explicit bootloader entry still
+requires the original drained-owner proof and timely commit, followed by the
+longer hardware reset interval.
+
 ## 18 October 2026 — T096 Syncing display delay
 
 T096 **0.15.98** delays the transition from an already displayed RC analog clock

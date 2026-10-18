@@ -21,5 +21,5 @@ try:
   subprocess.run([str(out/'auto-profile-test')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
  passed=True
 finally:
- (out/'receipt.json').write_text(json.dumps({'passed':passed,'physical':'UNKNOWN','sources':{str(f.relative_to(app)):hashlib.sha256(f.read_bytes()).hexdigest() for f in [app/'src/watchdog.c',app/'src/watchdog_policy.c',app/'tests/watchdog_test.c']}},indent=2)+'\n')
+ (out/'receipt.json').write_text(json.dumps({'passed':passed,'physical':'UNKNOWN','sources':{str(f.relative_to(app)):hashlib.sha256(f.read_bytes()).hexdigest() for f in [app/'src/watchdog.c',app/'src/watchdog_policy.c',app/'include/watchdog_policy.h',app/'tests/watchdog_test.c',Path(__file__).resolve()]}},indent=2)+'\n')
 print('PASS production watchdog bodies with ASan/UBSan; physical watchdog/reset timing UNKNOWN')

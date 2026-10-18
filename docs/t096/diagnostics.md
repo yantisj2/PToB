@@ -422,6 +422,22 @@ advisory and do not prove an RF collision.
 
 ### RC parent selection and relay dwell
 
+Version **0.15.99** allows 30 minutes without usable RC timing before requesting
+watchdog recovery. Each live, unexpired usable timing observation refreshes the
+loss deadline. Thirty seconds of sustained recovery clears retry escalation;
+a brief map cannot erase retries. Hardware, CPU, RC-owner and recovery-observer
+watchdog failure allowances are at least 30 seconds. These allowances do not
+extend source/map permission, precision lock or controller cleanup deadlines.
+Normal bounded relay acquisition/recovery and selection act first.
+
+RC1 and RC2 are eligible under the same relay ranking. There is no depth bonus.
+An eligible RC2 can replace a degraded RC1 after its recovery interval and scan;
+the authenticated RC2 path makes the receiver a leaf. Paths containing the
+receiver itself remain refused. A nearby relay's advertised lock is a hint,
+while fresh authentication and actual usable-time observations establish its
+quality. The production selector/watchdog and path-role tests cover fallback
+and both legal RC2 slots. Hardware field durability remains to be observed.
+
 Version **0.15.98** adds a separate 500 ms presentation delay before an already
 displayed RC analog face changes to Syncing. A short loss advances the cached
 display time while the live timing/lock indicators follow their actual gates.

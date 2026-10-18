@@ -27,12 +27,13 @@ flags=[os.environ.get('CC','clang'),'-std=c11','-Wall','-Wextra','-Werror','-Wno
        '-fsanitize=address,undefined','-fno-sanitize-recover=all','-I'+str(out),'-I'+str(app/'include')]
 sources=[source,Path(__file__).resolve(),app/'include/rc_stream_quality.h',
          app/'include/link_quality.h',app/'include/rc_admission_policy.h',app/'include/rc_search.h',
-         app/'tests/rc_startup_selection_test.c',app/'tests/rc_stream_quality_test.c']
+         app/'tests/rc_startup_selection_test.c',app/'tests/rc_stream_quality_test.c',
+         app/'src/watchdog_policy.c',app/'include/watchdog_policy.h']
 commands=[]
 passed=False
 try:
     for name in ['rc_startup_selection','rc_stream_quality']:
-        command=[*flags,str(app/'tests'/(name+'_test.c')),'-o',str(out/name)]
+        command=[*flags,str(app/'tests'/(name+'_test.c')),str(app/'src/watchdog_policy.c'),'-o',str(out/name)]
         commands.append(command)
         subprocess.run(command,check=True,timeout=30)
         subprocess.run([str(out/name)],check=True,timeout=10)

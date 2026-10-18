@@ -14,7 +14,18 @@ devices. See [the architectural background](../../docs/V12_TO_R2.md).
 **PToB owns T096 RC7 development.** The ordinary mesh profiles are **GM** and **RC**;
 USB timing support is compiled by default. [Build from source](../../docs/t096/build.md)
 using pinned public dependencies and ignored local enrollment. The current
-application version is 0.15.98. No publicly enrolled binary is distributed.
+application version is 0.15.99. No publicly enrolled binary is distributed.
+
+Version 0.15.99 gives RC selection 30 minutes without usable timing before
+watchdog recovery. Each usable observation refreshes that loss deadline;
+30 seconds of sustained recovery clears retry escalation. Hardware, CPU and
+RC-owner watchdog failure allowances are at least 30 seconds. Precision/source
+expiry and controller cleanup keep their separate limits. RC1 and RC2 streams
+share the relay selection policy: after extended trouble an eligible RC2 can
+be selected, with the receiver becoming a leaf. A healthy parent stays retained.
+Explicit bootloader entry keeps its original drain and commit deadlines, then
+waits for the 30-second hardware watchdog reset; update tools must allow that
+post-commit reset latency.
 
 Version 0.15.98 keeps an already displayed RC analog clock visible through up
 to 500 ms of continuous timing loss before showing Syncing. This presentation

@@ -14,10 +14,12 @@
 #include <zephyr/sys/atomic.h>
 #include <zephyr/sys/reboot.h>
 #include <cmsis_core.h>
-#define WD_PARENT_MS 1000u
+#define WD_PARENT_MS 30000u
 #define WD_POLL_MS 125u
-#define WD_CORE_MS 2000u
-#define WD_RC_WORKER_MS 3000u
+#define WD_CORE_MS 30000u
+#define WD_RC_WORKER_MS 30000u
+_Static_assert(WD_PARENT_MS>=30000u&&WD_CORE_MS>=30000u&&WD_RC_WORKER_MS>=30000u,
+               "Watchdogs observe failures, not precision timing gaps");
 #define WD_MAGIC UINT32_C(0x52325744)
 #define WD_WORDS 34u
 enum {WD_NO_SYNC=1,WD_RETRIES_EXHAUSTED,WD_CORE_STALL,WD_RECOVERY_FAILED,WD_RC_WORKER_STALL,
@@ -223,9 +225,11 @@ int r2_watchdog_bootloader(uint64_t original_deadline_ms)
 {
  if(parent_channel<0)return 0;
  uint64_t now=k_uptime_get();
- /* Reserve the full WDT interval plus bounded early startup. Never create a
-  * new maintenance deadline. Refuse an already late commit before arming. */
- if(now>=original_deadline_ms||original_deadline_ms-now<WD_PARENT_MS+250u)return -ETIMEDOUT;
+ /* Commit must still fit the original READY deadline after all owners have
+  * drained. Once committed, the fixed30s hardware watchdog performs the reset;
+  * it is not shortened for maintenance and no timing authority is retained.
+  * Host tools must allow that reset latency after a successful commit. */
+ if(now>=original_deadline_ms||original_deadline_ms-now<250u)return -ETIMEDOUT;
  capsule(WD_UF2);atomic_set(&reset_reason,WD_UF2);
  /* No flash or USB here. The independent peripheral performs a true reset. */
  for(;;)k_sleep(K_MSEC(WD_POLL_MS));

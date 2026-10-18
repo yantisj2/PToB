@@ -34,7 +34,7 @@ static uint64_t k_ticks_to_us_floor64(uint64_t ticks){return ticks;}
 int64_t k_uptime_get(void){return (int64_t)fake_ms;}
 static uint32_t k_uptime_get_32(void){return (uint32_t)fake_ms;}
 static int wdt_install_timeout(const struct device *d,const struct wdt_timeout_cfg *cfg)
-{assert(cfg->window.min==0&&cfg->window.max==1000&&cfg->flags==WDT_FLAG_RESET_SOC);installs++;return install_error?install_error:0;}
+{assert(cfg->window.min==0&&cfg->window.max==30000&&cfg->flags==WDT_FLAG_RESET_SOC);installs++;return install_error?install_error:0;}
 static int wdt_setup(const struct device *d,uint8_t options){assert(!options);setups++;return setup_error;}
 static int wdt_feed(const struct device *d,int channel){assert(!channel);feeds++;return 0;}
 static int hwinfo_clear_reset_cause(void){return 0;}
@@ -93,8 +93,8 @@ static void policy_cases(bool rc)
  assert(r2_wd_policy_step(&p,start+span+1,false,rc,false,false,3)==R2_WD_NONE&&!p.armed);
  p=(struct r2_wd_policy){0};r2_wd_policy_step(&p,0,true,rc,false,false,0);
  assert(r2_wd_policy_step(&p,span,true,rc,false,false,0)==R2_WD_RESTART);
- assert(r2_wd_policy_step(&p,span+4249,true,rc,false,true,0)==R2_WD_NONE);
- assert(r2_wd_policy_step(&p,span+4250,true,rc,false,true,0)==R2_WD_RESET);
+ assert(r2_wd_policy_step(&p,span+R2_WD_RECOVERY_MS-1,true,rc,false,true,0)==R2_WD_NONE);
+ assert(r2_wd_policy_step(&p,span+R2_WD_RECOVERY_MS,true,rc,false,true,0)==R2_WD_RESET);
 }
 int main(void)
 {
@@ -111,10 +111,10 @@ int main(void)
  assert(step_at(200)&&!reset_reason&&policy.healthy_seen&&policy.observed_at==201);
  advance(1200);assert(step_at(1200)&&policy.healthy_seen); /* report age999ms */
  advance(1201);assert(step_at(1201)&&!policy.healthy_seen); /* exactly1s */
- /* The same strict2s core bound applies across uint32 uptime wrap. */
+ /* The same strict30s core bound applies across uint32 uptime wrap. */
  clear_runtime();fake_ms=UINT32_MAX-999;r2_watchdog_main_beat();
- assert(step_at(999)&&!reset_reason);
- assert(!step_at(1000)&&reset_reason==WD_CORE_STALL);
+ assert(step_at((uint32_t)(UINT32_MAX-999+WD_CORE_MS-1))&&!reset_reason);
+ assert(!step_at((uint32_t)(UINT32_MAX-999+WD_CORE_MS))&&reset_reason==WD_CORE_STALL);
  clear_runtime();
 
  memset((void *)r2_watchdog_capsule,0xa5,sizeof r2_watchdog_capsule);
@@ -139,15 +139,16 @@ int main(void)
  s.precision.authorized=false;r2_watchdog_observe(&s,true);assert(!report_useful);s.precision.authorized=true;
  /* Sub-ms observations sustain recovery past a complete RC timeout. */
  clear_runtime();assert(!r2_watchdog_boot(&id));r2_watchdog_enable(true);
- for(unsigned ms=100;ms<=300200;ms+=125){
+ uint32_t end=R2_WD_RC_MS+200;
+ for(unsigned ms=100;ms<=end;ms+=125){
   advance(ms);fake_sub_us=732;s.at=(uint64_t)ms*1000+701;s.service_until=s.at+500000;
   r2_watchdog_observe(&s,true);assert(report_useful&&step_at(ms)&&!r2_watchdog_take_restart());
  }
- assert(!policy.retries&&(uint32_t)(300200-policy.since)<125);
- advance(301200);s.at=300200701;s.service_until=UINT64_MAX;
+ assert(!policy.retries&&(uint32_t)(end-policy.since)<125);
+ advance(end+1000);s.at=(uint64_t)end*1000+701;s.service_until=UINT64_MAX;
  r2_watchdog_observe(&s,true);assert(report_useful); /* 999299us old */
  fake_sub_us=701;r2_watchdog_observe(&s,true);assert(!report_useful); /* exactly 1s */
- advance(303200);fake_sub_us=701;r2_watchdog_observe(&s,true);assert(report_worker_stalled&&stale_observations==2&&refusal_flags==4);
+ advance(end+WD_RC_WORKER_MS);fake_sub_us=701;r2_watchdog_observe(&s,true);assert(report_worker_stalled&&stale_observations==2&&refusal_flags==4);
  clear_runtime();assert(!r2_watchdog_boot(&id));r2_watchdog_enable(true);
  advance(100);s.at=100000;r2_watchdog_observe(&s,true);assert(step_at(100));
  /* Frozen true snapshots and arbitrary control packets cannot keep sync. */
@@ -155,32 +156,40 @@ int main(void)
  s.precision.locked=true;s.precision.correction_age_ms=0;s.service_until=UINT64_MAX;
  advance(200);s.at=200000;r2_watchdog_observe(&s,true);assert(step_at(200));
  advance(1200);r2_watchdog_observe(&s,true);assert(step_at(1200)&&!report_useful);
- advance(300200);s.at=300200000;s.follower_clock_valid=false;r2_watchdog_observe(&s,true);assert(step_at(300200));
+ uint32_t lost=200+R2_WD_RC_MS;
+ advance(lost);s.at=(uint64_t)lost*1000;s.follower_clock_valid=false;r2_watchdog_observe(&s,true);assert(step_at(lost));
  assert(r2_watchdog_take_restart()==1&&policy.recovering);
  assert(!r2_watchdog_take_restart());
- advance(300201);s.profile_pending=true;s.at=300201000;r2_watchdog_observe(&s,true);assert(step_at(300201));
- advance(300202);s.profile_pending=false;s.profile_changes=1;s.at=300202000;
- s.follower_clock_valid=false;r2_watchdog_observe(&s,true);assert(step_at(300202)&&!policy.recovering&&policy.retries==1);
- advance(300203);s.follower_clock_valid=true;s.at=300203000;r2_watchdog_observe(&s,true);
- assert(step_at(300203)&&policy.retries==1);
- for(unsigned ms=300328;ms<=308203;ms+=125){advance(ms);s.at=(uint64_t)ms*1000;r2_watchdog_observe(&s,true);assert(step_at(ms));}
+ advance(lost+1);s.profile_pending=true;s.at=(uint64_t)(lost+1)*1000;r2_watchdog_observe(&s,true);assert(step_at(lost+1));
+ advance(lost+2);s.profile_pending=false;s.profile_changes=1;s.at=(uint64_t)(lost+2)*1000;
+ s.follower_clock_valid=false;r2_watchdog_observe(&s,true);assert(step_at(lost+2)&&!policy.recovering&&policy.retries==1);
+ advance(lost+3);s.follower_clock_valid=true;s.at=(uint64_t)(lost+3)*1000;r2_watchdog_observe(&s,true);
+ assert(step_at(lost+3)&&policy.retries==1&&policy.since==lost+3);
+ for(unsigned ms=lost+128;ms<=lost+R2_WD_RC_HEALTHY_MS+3;ms+=125){advance(ms);s.at=(uint64_t)ms*1000;r2_watchdog_observe(&s,true);assert(step_at(ms));}
  assert(!policy.retries);
- sequence|=1;advance(308204);assert(step_at(308204));sequence++;
+ sequence|=1;advance(lost+R2_WD_RC_HEALTHY_MS+4);assert(step_at(lost+R2_WD_RC_HEALTHY_MS+4));sequence++;
  restart_request=2;r2_watchdog_enable(false);assert(!r2_watchdog_take_restart());
- r2_watchdog_observe(&s,false);assert(step_at(308204)&&!policy.armed);
- assert(!step_at(310204)&&reset_reason==WD_CORE_STALL);
+ r2_watchdog_observe(&s,false);assert(step_at(lost+R2_WD_RC_HEALTHY_MS+4)&&!policy.armed);
+ assert(!step_at(lost+R2_WD_RC_HEALTHY_MS+4+WD_CORE_MS)&&reset_reason==WD_CORE_STALL);
  fed=feeds;if(!setjmp(maintenance_exit))watchdog_owner(NULL,NULL,NULL);assert(feeds==fed);
- /* Intermittent maps and same-profile scopes cannot postpone RC recovery. */
+ /* Intermittent usable maps postpone continuous-loss recovery. They do not
+  * need eight perfect seconds; scope changes alone still do not help. */
  clear_runtime();assert(!r2_watchdog_boot(&id));r2_watchdog_enable(true);
  s=(struct r2_service_status){.active=true,.profile_rc=true};
- for(unsigned ms=0;ms<=300000;ms+=100){
+ for(unsigned ms=0;ms<=2*R2_WD_RC_MS;ms+=100){
   advance(ms);s.at=(uint64_t)ms*1000;
   bool brief=ms%240000==0;
   s.follower_clock_valid=s.precision.map_valid=s.precision.authorized=s.precision.correction_age_valid=s.precision.locked=brief;
   s.service_until=s.at+500000;s.profile_changes=ms/60000;
-  r2_watchdog_observe(&s,true);assert(step_at(ms));
+  r2_watchdog_observe(&s,true);assert(step_at(ms)&&!r2_watchdog_take_restart());
  }
- assert(r2_watchdog_take_restart()==1);
+ assert(!policy.retries&&!r2_watchdog_take_restart());
+ uint32_t last_usable=policy.since;
+ s.follower_clock_valid=false;s.precision.locked=false;
+ advance(last_usable+R2_WD_RC_MS-1);s.at=fake_ms*1000;
+ r2_watchdog_observe(&s,true);assert(step_at((uint32_t)fake_ms)&&!r2_watchdog_take_restart());
+ advance(last_usable+R2_WD_RC_MS);s.at=fake_ms*1000;
+ r2_watchdog_observe(&s,true);assert(step_at((uint32_t)fake_ms)&&r2_watchdog_take_restart()==1);
  /* Fresh maps without PLL lock, or with expired source, are not recovery. */
  s.follower_clock_valid=s.precision.map_valid=s.precision.authorized=s.precision.correction_age_valid=true;
  s.precision.locked=false;r2_watchdog_observe(&s,true);assert(!report_useful);
@@ -195,37 +204,37 @@ int main(void)
  s.follower_clock_valid=s.precision.map_valid=s.precision.correction_age_valid=true;
  s.precision.correction_age_ms=2000;r2_watchdog_observe(&s,true);assert(!report_useful);
  s.service_until=UINT64_MAX;s.precision.correction_age_ms=1999;r2_watchdog_observe(&s,true);assert(report_useful);
- /* NO TIME with a responsive owner gets the complete five-minute
+ /* NO TIME with a responsive owner gets the complete thirty-minute
   * acquisition period. Heard packets and a connected main do not reset it. */
  clear_runtime();assert(!r2_watchdog_boot(&id));r2_watchdog_enable(true);
  s=(struct r2_service_status){.active=true,.profile_rc=true};
- for(unsigned ms=0;ms<300000;ms+=100){
+ for(unsigned ms=0;ms<R2_WD_RC_MS;ms+=100){
   advance(ms);s.at=(uint64_t)ms*1000;r2_watchdog_observe(&s,true);
   assert(step_at(ms)&&!r2_watchdog_take_restart()&&!report_worker_stalled);
  }
- advance(300000);s.at=300000000;r2_watchdog_observe(&s,true);
- assert(step_at(300000)&&r2_watchdog_take_restart()==1);
+ advance(R2_WD_RC_MS);s.at=(uint64_t)R2_WD_RC_MS*1000;r2_watchdog_observe(&s,true);
+ assert(step_at(R2_WD_RC_MS)&&r2_watchdog_take_restart()==1);
  /* A formerly valid map whose actual lifetime expired is still NO TIME. */
  s.follower_clock_valid=s.precision.map_valid=s.precision.authorized=s.precision.correction_age_valid=true;
- s.service_until=300000000;r2_watchdog_observe(&s,true);assert(!report_useful);
+ s.service_until=(uint64_t)R2_WD_RC_MS*1000;r2_watchdog_observe(&s,true);assert(!report_useful);
  /* Reproduce the field failure: main progresses but owner time is frozen.
   * No early reset while its original controller operation may still finish. */
  clear_runtime();assert(!r2_watchdog_boot(&id));r2_watchdog_enable(true);
  s=(struct r2_service_status){.active=true,.profile_rc=true,.at=10000000};
- advance(12999);r2_watchdog_observe(&s,true);assert(step_at(12999));
- advance(13000);r2_watchdog_observe(&s,true);
- assert(!step_at(13000)&&reset_reason==WD_RC_WORKER_STALL&&previous_bound(&id));
+ advance(10000+WD_RC_WORKER_MS-1);r2_watchdog_observe(&s,true);assert(step_at(10000+WD_RC_WORKER_MS-1));
+ advance(10000+WD_RC_WORKER_MS);r2_watchdog_observe(&s,true);
+ assert(!step_at(10000+WD_RC_WORKER_MS)&&reset_reason==WD_RC_WORKER_STALL&&previous_bound(&id));
  assert(r2_watchdog_capsule[4]==WD_RC_WORKER_STALL&&r2_watchdog_capsule[5]==1);
  /* Explicit stop, maintenance and profile transition cannot resurrect RC. */
  for(unsigned inhibit=0;inhibit<3;inhibit++){
-  clear_runtime();assert(!r2_watchdog_boot(&id));r2_watchdog_enable(true);advance(13000);
+  clear_runtime();assert(!r2_watchdog_boot(&id));r2_watchdog_enable(true);advance(10000+WD_RC_WORKER_MS);
   s.closing=inhibit==0;s.profile_pending=inhibit==1;
-  r2_watchdog_observe(&s,inhibit!=2);assert(step_at(13000));
+  r2_watchdog_observe(&s,inhibit!=2);assert(step_at(10000+WD_RC_WORKER_MS));
  }
  clear_runtime();assert(!r2_watchdog_boot(&id));advance(10);
  r2_watchdog_fatal(2);assert(!step_at(10)&&reset_reason==WD_FATAL+2&&previous_bound(&id));
  id.reset_cause=RESET_WATCHDOG;clear_runtime();assert(!r2_watchdog_boot(&id));
- char output[1536];assert(r2_watchdog_restore_rc(&mode));r2_watchdog_console(output,sizeof output);assert(strstr(sent,"\"parent_ms\":1000")&&strstr(sent,"\"observations\":[")&&strstr(sent,"\"refusal_flags\":"));
+ char output[1536];assert(r2_watchdog_restore_rc(&mode));r2_watchdog_console(output,sizeof output);assert(strstr(sent,"\"parent_ms\":30000")&&strstr(sent,"\"observations\":[")&&strstr(sent,"\"refusal_flags\":"));
  atomic_set(&observations,(atomic_val_t)UINT32_MAX);count_observation(&observations);assert((uint32_t)atomic_get(&observations)==UINT32_MAX);
  unsigned reports=console_reports;r2_watchdog_console(output,sizeof output);assert(console_reports==reports);
  fake_ms+=60000;r2_watchdog_console(output,sizeof output);assert(console_reports==reports+1&&!strstr(sent,"\"previous\":[]"));
@@ -239,8 +248,8 @@ int main(void)
  /* Maintenance refuses insufficient ORIGINAL budget, then uses a real WDT
   * reset and the bound one-shot continuation before hardware rearming. */
  clear_runtime();assert(!r2_watchdog_boot(&id));advance(20);
- assert(r2_watchdog_bootloader(1269)==-ETIMEDOUT&&!reset_reason);
- if(!setjmp(maintenance_exit))r2_watchdog_bootloader(1270);
+ assert(r2_watchdog_bootloader(269)==-ETIMEDOUT&&!reset_reason);
+ if(!setjmp(maintenance_exit))r2_watchdog_bootloader(270);
  assert(reset_reason==WD_UF2&&previous_bound(&id));
  unsigned before=installs;clear_runtime();assert(!r2_watchdog_boot(&id)&&boot_requests==1&&installs==before+1);
  assert(r2_watchdog_reset_kind()==R2_UI_RESET_WD_RECOVERY);
@@ -251,5 +260,5 @@ int main(void)
  assert(r2_watchdog_capsule[32]==(uint32_t)-ETIMEDOUT);
  clear_runtime();assert(!r2_watchdog_boot(&id)&&r2_watchdog_reset_kind()==R2_UI_RESET_WD_RECOVERY);
  clear_runtime();install_error=-ENODEV;assert(r2_watchdog_boot(&id)==-ENODEV);install_error=0;
- puts("PASS production watchdog: GM20/RC5, initial+3 retries, wrap, stale snapshots, cancellation, recovery, core/fatal, CRC bindings, deadline/refusal/UF2 continuation; hardware timing remains UNKNOWN");
+ puts("PASS production watchdog: GM20/RC30, intermittent progress vs sustained retry reset, initial+3 retries, wrap, stale snapshots, cancellation, recovery, core/fatal, CRC bindings, deadline/refusal/UF2 continuation; hardware timing remains UNKNOWN");
 }

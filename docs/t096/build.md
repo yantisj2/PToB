@@ -115,6 +115,12 @@ actual application readback and supported return. Do not substitute a mass erase
 raw debugger write or guessed bootloader command. Public installation/recovery
 instructions require their own generic-device acceptance.
 
+With 0.15.99, explicit maintenance still drains owners and accepts commit inside
+the original READY deadline. The subsequent hardware watchdog reset can take
+30 seconds. Exact-device update tools must use a finite post-commit enumeration
+allowance that accommodates this latency. Do not retry prepare/commit or extend
+their original deadlines while waiting for the bootloader.
+
 Use `--registry artifacts/local/registry.json` to compile your deployment’s shared
 [name map](../../registry/README.md). The default is the synthetic public example.
 Keep the real map ignored, alongside local enrollment; the receipt records its
