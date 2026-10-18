@@ -3,6 +3,7 @@
 #ifdef V12_R2_RC7_TX_ESTIMATE_LAB
 static_assert(V12_R2_G1_LISTENING_PERCENT==100,"RC7 server requires BLE100");
 Rc7RelayEstimate relay_map;
+Rc7RelayHold relay_hold;
 struct RelayChild {uint64_t id=0;rc5_demand demand{};};
 struct RelaySession {
   uint64_t until=0,challenge=0,drain=0;uint32_t generation=0;
@@ -102,7 +103,8 @@ uint32_t relay_admission_overlaps=0,relay_quarantine_timeouts=0;
 bool relay_api(int rc,R2Api site){if(!rc)return true;error(rc,site);return false;}
 uint32_t relay_flags(uint64_t now20){return 1u|2u|(uint32_t(relay_advertising)<<2)|(uint32_t(relay_pa)<<3)|
   (uint32_t(relay_map.ready(now20)&&relay_pa)<<4)|(uint32_t(relay_session.handle!=None)<<5)|
-  (uint32_t(relay_selected!=0)<<6)|(uint32_t(relay_estimate_refused!=0)<<7)|(uint32_t(relay_admission_locked)<<8);}
+  (uint32_t(relay_selected!=0)<<6)|(uint32_t(relay_estimate_refused!=0)<<7)|(uint32_t(relay_admission_locked)<<8)|
+  (uint32_t(relay_hold.deadline()!=0)<<9);}
 bool relay_quarantine_owned(){for(const auto h:relay_quarantined)if(h!=None)return true;return false;}
 bool relay_owned(){const auto tx=periodic_tx::status();return relay_configured||relay_pa||relay_discovery||relay_advertising||relay_session.handle!=None||relay_quarantine_owned()||tx.installed||tx.armed;}
 bool relay_acl_available(){return relay_session.handle==None&&!relay_quarantine_owned();}
@@ -153,7 +155,7 @@ void relay_quarantine_poll(uint64_t now){
     else relay_api(rc,R2Api::Disconnect);
   }
 }
-void relay_fence(){relay_admission_locked=false;relay_slots.scanning=false;relay_rescan_pending=false;relay_map.fence();relay_cap_dirty=true;relay_data_dirty=false;relay_start20=0;relay_queue_diagnostic.busy_since=0;}
+void relay_fence(){relay_hold.clear();relay_admission_locked=false;relay_slots.scanning=false;relay_rescan_pending=false;relay_map.fence();relay_cap_dirty=true;relay_data_dirty=false;relay_start20=0;relay_queue_diagnostic.busy_since=0;}
 void relay_pause_cap(){if(!relay_advertising)return;const int rc=ble_gap_ext_adv_stop(1);
   if(!rc||rc==BLE_HS_EALREADY)relay_advertising=false;else relay_api(rc,R2Api::AdvStop);}
 void relay_stop_pa(){
@@ -294,7 +296,9 @@ void relay_input(const rc7_path& parent,const rc5_origin& origin,const uint8_t* 
     reference.valid&&reference.phy==0&&reference.extra_us==4&&incarnation&&reference.epoch==incarnation)){
     inc(relay_queue_diagnostic.inputs);
     relay_data_dirty=true;
-    if(!rc7_path_same(&old,&relay_map.path)){relay_cap_dirty=true;relay_stop_pa();relay_start20=0;}
+    if(!rc7_path_same(&old,&relay_map.path)){
+      relay_hold.clear();relay_cap_dirty=true;relay_stop_pa();relay_start20=0;
+    }
   }else inc(relay_queue_diagnostic.input_refused);
 }
 bool relay_cap_update(uint64_t now){
@@ -380,11 +384,17 @@ void relay_slot_poll(uint64_t now,bool upstream_due){
 bool relay_check_lock(){
   uint64_t now20=0;const bool counter=clock_reference_read(&now20);
   if(!counter)fault=true;
-  const bool parent_locked=counter&&!fault&&relay_parent_locked(micros());
-  relay_admission_locked=parent_locked&&relay_map.live(now20);
+  const auto now=micros();
+  const bool parent_locked=counter&&!fault&&relay_parent_locked(now);
+  const bool timing=parent_locked&&relay_map.live(now20);
+  relay_admission_locked=counter&&!fault&&relay_map.valid&&relay_hold.update(now,timing,relay_map.path);
+  // Withdraw corrections immediately, while keeping the same authenticated
+  // train, child demand and management service through a bounded quality gap.
+  // A fresh accepted parent original is required before timing can resume.
+  if(!timing&&relay_map.withdraw_time()){relay_data_dirty=true;relay_cap_dirty=true;}
   if(!relay_admission_locked){
-    // Coarse JOIN, untrained quality and stale source cannot recruit children.
-    // Stop only downstream owners; preserve parent reception and its fitter.
+    // Startup still requires lock. Loss beyond the original hold deadline
+    // retires downstream owners; parent reception and its fitter survive.
     relay_pause_cap();relay_idle_publication(micros());
     // A deliberate slot move fences only the downstream map until the next
     // parent original. It must not erase demand while that parent stays locked.
@@ -485,9 +495,10 @@ void relay_poll(uint64_t now,bool upstream_due){
     uint8_t packet[190];if(!relay_map.packet(packet,now20,provision.group))return;
     auto* mb=ble_hs_mbuf_from_flat(packet,190);if(!mb){fault=true;return;}
     if(!relay_api(ble_gap_periodic_adv_set_data(0,mb),R2Api::AdvData)){fault=true;return;}
-    if(!relay_check_lock()||!relay_publication_demand())return;
+    if(!relay_check_lock()||!relay_publication_demand()||!relay_map.live(now20))return;
     if(!periodic_tx::start_estimated(packet,190)){fault=true;return;}
     if(!relay_check_lock()||!relay_publication_demand())return;
+    if(!relay_map.live(now20)){relay_stop_pa();return;}
     if(!relay_api(ble_gap_periodic_adv_start(0),R2Api::AdvStart))return;
     relay_pa=true;
     if(!relay_check_lock()||!relay_publication_demand())return;
@@ -496,7 +507,7 @@ void relay_poll(uint64_t now,bool upstream_due){
     if(!discovery){fault=true;return;}
     if(!relay_api(ble_gap_ext_adv_set_data(0,discovery),R2Api::AdvData)||!relay_check_lock()||
        !relay_api(ble_gap_ext_adv_start(0,0,0),R2Api::AdvStart))return;
-    relay_discovery=true;relay_data_dirty=false;relay_cap_dirty=true;
+    relay_discovery=true;relay_data_dirty=!relay_map.live(now20);relay_cap_dirty=true;
     relay_publication_demand();
   }else if(relay_data_dirty){
     // Reserve a frozen expected payload before the yielding SDK data update.
@@ -521,8 +532,8 @@ void relay_poll(uint64_t now,bool upstream_due){
     uint64_t committed20=0;
     if(!clock_reference_read(&committed20)){fault=true;relay_fence();relay_stop_pa();return;}
     if(!relay_map.commit_packet(prepared,committed20)){fault=true;relay_fence();relay_stop_pa();return;}
-    if(!relay_check_lock()||!relay_publication_demand())return;
     relay_data_dirty=false;
+    if(!relay_check_lock()||!relay_publication_demand())return;
     if(!relay_map.live(committed20)&&relay_map.withdraw_time()){
       relay_data_dirty=true;relay_cap_dirty=true;
     }

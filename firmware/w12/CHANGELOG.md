@@ -2,6 +2,21 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 0.1.19 — 18 October 2026
+
+- Hold an established downstream train and management discovery for 30 seconds
+  through loss of parent lock or usable timing. Previously one quality dip
+  immediately stopped PA, discarded child demand and changed the train.
+- Withdraw corrections, frozen timing snapshots and READY immediately. Continue
+  canonical count0 packets; only fresh accepted same-scope corrections can
+  restore timing. Retain original child lease deadlines and require two seconds
+  of observed recovery to reset the loss episode, so flicker cannot extend it.
+- Keep startup lock, scope changes, explicit stop, faults, child expiry and
+  actual controller/ACL drains separate. Add production native regressions for
+  short loss, recovery, hold expiry, flapping, pending management, child expiry,
+  scope/stop and unchanged two-second ACL drain deadlines. Hardware field
+  behavior remains a separate check; estimated TX and UTC bounds stay unknown.
+
 ## 0.1.18 — 18 October 2026
 
 - Separate direct BLE100 authentication from replay-clock maintenance. Renew

@@ -1,4 +1,5 @@
 #include "rc7_relay_estimate.hpp"
+#include "rc7_relay_hold.hpp"
 #include "rc7_client.hpp"
 #include <cassert>
 #include <cstdio>
@@ -24,6 +25,29 @@ int main(){
   Rc7RelayEstimate relay;
   assert(relay.input(root,origin,nullptr,map,20000000,1,20000100,0,100,200,group));
   assert(relay.path.depth==1&&relay.path.node[1].slot==1);
+  Rc7RelayHold hold;
+  assert(!hold.update(1,false,relay.path)); // No startup permission from HOLD.
+  assert(hold.update(2,true,relay.path)&&!hold.deadline());
+  assert(hold.update(3,false,relay.path)&&hold.deadline()==3+hold.HoldUs);
+  const auto deadline=hold.deadline();
+  for(uint64_t t=4;t<deadline;t+=100000){
+    assert(hold.update(t,true,relay.path)&&hold.update(t+1,false,relay.path));
+    assert(hold.deadline()==deadline); // Flicker never restarts a loss episode.
+  }
+  assert(!hold.update(deadline,true,relay.path));
+  assert(hold.update(deadline+1,true,relay.path));
+  assert(hold.update(deadline+2,false,relay.path));
+  assert(hold.update(deadline+3,true,relay.path));
+  for(uint64_t t=100000;t<=hold.RecoveryUs;t+=100000)assert(hold.update(deadline+3+t,true,relay.path));
+  assert(!hold.deadline());
+  auto other=relay.path;++other.node[0].boot;
+  assert(!hold.update(deadline+4+hold.RecoveryUs,false,other));
+  hold.clear();assert(!hold.update(UINT64_MAX,false,relay.path));
+  hold.clear();
+  assert(hold.update(UINT64_MAX-1,true,relay.path));
+  assert(!hold.update(UINT64_MAX,false,relay.path));
+  assert(!hold.update(1,false,relay.path)); // Backwards time cannot retain ownership.
+  assert(hold.update(100,true,relay.path)&&!hold.update(99,true,relay.path));
   uint8_t first[190];assert(relay.packet(first,20400000,group));
   assert(!relay.ready(20400000));
   assert(!relay.selected(first,1,255,20400000,20400000,group));

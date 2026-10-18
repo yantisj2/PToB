@@ -4,6 +4,7 @@ int server_find_rc=0,server_terminate_rc=0;uint8_t server_role=BLE_GAP_ROLE_SLAV
 unsigned server_terminate_calls=0;
 std::vector<uint8_t> pa_wire;bool estimate_queued=false;uint16_t estimate_event=0;uint8_t estimate_channel=12;
 unsigned queue_advance_us=0,start_advance_us=0,stop_advance_us=0;bool queue_wrong_publication=false,queue_busy=false;
+bool queue_drop_lock=false,start_drop_lock=false;
 int pa_stop_rc=0;bool tx_stop_denied=false;
 namespace v12::periodic_tx {
 bool tx_installed=false;std::vector<uint8_t> prepared;
@@ -34,8 +35,8 @@ int ble_gap_ext_adv_start(unsigned i,int,unsigned){ext_active[i]=true;return 0;}
 int ble_gap_periodic_adv_configure(unsigned i,const ble_gap_periodic_adv_params* p){assert(i==0&&p->itvl_min==50&&p->itvl_max==50);return 0;}
 int ble_gap_periodic_adv_set_data(unsigned i,os_mbuf* b){assert(i==0&&b->bytes.size()==190);
  if(v12::periodic_tx::tx_installed)assert(b->bytes==v12::periodic_tx::prepared);pa_wire=b->bytes;os_mbuf_free_chain(b);
- if(pa_active){fake_now+=queue_advance_us;if(queue_wrong_publication)++v12::relay_map.publication;}return 0;}
-int ble_gap_periodic_adv_start(unsigned i){assert(i==0);pa_active=true;fake_now+=start_advance_us;return 0;}
+ if(pa_active){fake_now+=queue_advance_us;if(queue_drop_lock)fixture_parent_locked=false;if(queue_wrong_publication)++v12::relay_map.publication;}return 0;}
+int ble_gap_periodic_adv_start(unsigned i){assert(i==0);pa_active=true;fake_now+=start_advance_us;if(start_drop_lock)fixture_parent_locked=false;return 0;}
 int ble_gap_periodic_adv_stop(unsigned i){assert(i==0);fake_now+=stop_advance_us;if(pa_stop_rc)return pa_stop_rc;pa_active=false;return 0;}
 void server_connect(){assert(ext_active[1]&&v12::relay_acl_available());server_connected=true;ext_active[1]=false;
  ble_gap_event e{};e.type=BLE_GAP_EVENT_CONNECT;e.connect.conn_handle=33;v12::relay_gap(&e,nullptr);assert(v12::relay_session.handle==33);}
@@ -150,7 +151,8 @@ int main(int argc,char** argv){assert(argc==2);const std::string which=argv[1];
    if(which=="lock-startup"){
      fixture_parent_locked=false;v12::relay_poll(fake_now,false);
      assert(!ext_active[0]&&!ext_active[1]&&!pa_active&&!v12::relay_admission_locked);
-     assert(v12::relay_map.live(fake_now*20)&&v12::relay_admissions==0);
+     assert(!v12::relay_map.live(fake_now*20)&&v12::relay_admissions==0);
+     assert(v12::relay_map.input(root,origin,nullptr,map,20000001,1,fake_now*20,0,v12::provision.identity,44,v12::provision.group));
      fixture_parent_locked=true;v12::relay_poll(fake_now,false);
      assert(ext_active[1]&&!pa_active&&!ext_active[0]);
      v12::Rc7Client child;const auto response=child_request(child,300,80000);
@@ -181,9 +183,15 @@ int main(int argc,char** argv){assert(argc==2);const std::string which=argv[1];
      }else{
        assert(!response.ready&&v12::relay_demand_live(fake_now)&&v12::relay_admissions==1);
        if(which=="demand-start-expiry")start_advance_us=80000;
+       if(which=="demand-start-lock-loss")start_drop_lock=true;
        fake_now+=16000;v12::relay_poll(fake_now,false);
        if(which=="demand-start-expiry"){
          assert(!pa_active&&!ext_active[0]&&!v12::periodic_tx::tx_installed&&!v12::fault);
+       }else if(which=="demand-start-lock-loss"){
+         assert(pa_active&&ext_active[0]&&v12::relay_data_dirty&&v12::relay_demand_live(fake_now));
+         v12::relay_poll(fake_now,false);rc7_packet p{};
+         assert(!rc7_decode(&p,pa_wire.data(),190,&v12::relay_map.path,&v12::provision.group)&&!p.count);
+         assert(!v12::relay_map.ready(fake_now*20)&&pa_active&&!v12::fault);
        }else{
          assert(pa_active&&ext_active[0]&&v12::periodic_tx::tx_installed);
          estimate_queued=true;v12::relay_poll(fake_now,false);assert(v12::relay_map.ready(fake_now*20));
@@ -283,34 +291,65 @@ int main(int argc,char** argv){assert(argc==2);const std::string which=argv[1];
      puts("PASS actualproduction successfulTXobservation: exactfrozen correction/source/publisher/event/cookie/bracket; event1of16; captureonly60budget/pernewcapture reset; noRF/timinggatechange; originalstop");return 0;
    }
 
-   if(which=="lock-loss"||which=="lock-regain"||which=="lock-late-connect"||which=="lock-drain-deadline"){
+   if(which.rfind("hold-",0)==0){
      assert(v12::client.pending&&v12::client.start(fake_now));
      const auto original=v12::relay_map.original20,upstream_map=v12::relay_map.map.tick;
      const auto epoch=v12::periodic_rx::capture_epoch,train=v12::relay_map.path.node[1].train;
-     if(which=="lock-drain-deadline"){server_connect();server_slow=true;}
-     fixture_parent_locked=false;v12::relay_poll(fake_now,false);
-     assert(!pa_active&&!ext_active[0]&&!ext_active[1]&&!v12::periodic_tx::tx_installed);
-     assert(!v12::relay_admission_locked&&!v12::relay_demand_live(fake_now)&&!v12::fault);
-     assert(v12::relay_map.path.node[1].train==train+1&&v12::relay_map.original20==original&&
+     const auto demand=v12::relay_demand_until(),lost_at=fake_now;
+     if(which=="hold-drain-deadline"){server_connect();server_slow=true;}
+     if(which=="hold-queue-loss"){queue_drop_lock=true;v12::relay_data_dirty=true;}
+     else fixture_parent_locked=false;
+     v12::relay_poll(fake_now,false);
+     if(which=="hold-queue-loss"){
+       assert(v12::relay_data_dirty);v12::relay_poll(fake_now,false);
+     }
+     assert(pa_active&&ext_active[0]&&v12::periodic_tx::tx_installed);
+     assert(v12::relay_admission_locked&&v12::relay_demand_until()==demand&&!v12::fault);
+     assert(!v12::relay_map.ready(fake_now*20)&&!v12::relay_map.sent[0].publication);
+     rc7_packet standby{};assert(!rc7_decode(&standby,pa_wire.data(),190,&v12::relay_map.path,&v12::provision.group)&&!standby.count);
+     const auto deadline=v12::relay_hold.deadline();assert(deadline==lost_at+30000000);
+     assert(v12::relay_map.path.node[1].train==train&&v12::relay_map.original20==original&&
        v12::relay_map.map.tick==upstream_map&&v12::periodic_rx::capture_epoch==epoch&&v12::client.running);
-     if(which=="lock-regain"){
-       fixture_parent_locked=true;v12::relay_poll(fake_now,false);assert(ext_active[1]&&!pa_active);
-       v12::Rc7Client child;assert(!child_request(child,300,80000).ready);
-       fake_now+=62500;v12::relay_poll(fake_now,false);assert(pa_active&&ext_active[0]);
+     auto recover=[&](){
+       map.tick=fake_now*20;map.epoch=fake_now*1000;origin.issued=uint64_t(map.epoch);origin.expires=origin.issued+1650000000;
+       assert(v12::relay_map.input(root,origin,nullptr,map,fake_now*20,1,fake_now*20,0,v12::provision.identity,44,v12::provision.group));
+       fixture_parent_locked=true;v12::relay_data_dirty=true;v12::relay_poll(fake_now,false);
+     };
+     if(which=="hold-transient"){
+       fake_now+=1000000;recover();assert(pa_active&&ext_active[0]&&v12::relay_demand_until()==demand);
        estimate_queued=true;v12::relay_poll(fake_now,false);assert(v12::relay_map.ready(fake_now*20));
-       assert(v12::relay_map.path.node[1].train==train+1);
-     }else if(which=="lock-late-connect"){
-       server_late_connect();assert(!v12::fault&&v12::relay_quarantine_owned());
-       server_unadmitted();v12::relay_poll(fake_now,false);
-       assert(!v12::relay_quarantine_owned()&&!server_connected&&!v12::fault&&!ext_active[1]);
-     }else if(which=="lock-drain-deadline"){
-       const auto deadline=v12::relay_session.drain;assert(deadline==fake_now+2000000);
-       fake_now=deadline-1;v12::relay_poll(fake_now,false);assert(!v12::fault&&v12::relay_session.drain==deadline);
-       fake_now=deadline;v12::relay_poll(fake_now,false);assert(v12::fault&&v12::relay_session.drain==deadline);
-       puts("PASS lock loss preserves original incoming ACL drain deadline and retains late fault");return 0;
+       assert(v12::relay_map.path.node[1].train==train&&v12::relay_hold.deadline()==deadline);
+     }else if(which=="hold-management"){
+       v12::Rc7Client child;const auto reply=child_request(child,500,80000);
+       assert(!reply.ready&&v12::relay_admissions==1&&pa_active&&!v12::relay_map.ready(fake_now*20));
+       assert(v12::relay_demand_until()==demand&&v12::relay_hold.deadline()==deadline);
+     }else if(which=="hold-lease-expiry"){
+       v12::relay_children[0].demand.deadline=fake_now+80000;
+       fake_now+=80000;v12::relay_poll(fake_now,false);
+       assert(!pa_active&&!ext_active[0]&&!v12::periodic_tx::tx_installed&&!v12::relay_demand_live(fake_now));
+     }else if(which=="hold-scope"){
+       v12::relay_fence();v12::relay_poll(fake_now,false);
+       assert(!pa_active&&!ext_active[0]&&!ext_active[1]&&!v12::relay_demand_live(fake_now)&&!v12::relay_hold.deadline());
+     }else if(which=="hold-drain-deadline"){
+       // Quality hold never extends the independently admitted two-second ACL.
+       const auto until=v12::relay_session.until;fake_now=until;v12::relay_poll(fake_now,false);
+       const auto drain=v12::relay_session.drain;assert(drain==until+2000000&&drain<deadline);
+       fake_now=drain-1;v12::relay_poll(fake_now,false);assert(!v12::fault&&v12::relay_session.drain==drain);
+       fake_now=drain;v12::relay_poll(fake_now,false);assert(v12::fault&&v12::relay_session.drain==drain);
+       puts("PASS radio hold retains the original independent ACL drain deadline and late fault");return 0;
+     }else if(which=="hold-expiry"||which=="hold-flapping"){
+       if(which=="hold-flapping")for(unsigned i=0;i<29;i++){
+         fake_now=lost_at+(i+1)*1000000;recover();fixture_parent_locked=false;v12::relay_poll(fake_now,false);
+         assert(pa_active&&v12::relay_hold.deadline()==deadline);
+       }
+       fake_now=deadline-1;v12::relay_poll(fake_now,false);assert(pa_active);
+       fake_now=deadline;v12::relay_poll(fake_now,false);
+       assert(!pa_active&&!ext_active[0]&&!ext_active[1]&&!v12::periodic_tx::tx_installed);
+       assert(!v12::relay_demand_live(fake_now)&&v12::relay_map.path.node[1].train==train+1);
      }
      v12::r2_stop();step(6);assert(v12::r2_status().off_ack);
-     puts("PASS lock loss stops advertisements and PA, preserves upstream RX, and requires fresh child admission");return 0;
+     assert(!v12::relay_hold.deadline());
+     puts("PASS bounded downstream hold retains train/demand, withdraws timing, and preserves hard expiry/stop/scope gates");return 0;
    }
    if(which.rfind("overlap-",0)==0){
      // An active upstream admission is followed by a delayed successful slave
@@ -407,7 +446,7 @@ int main(int argc,char** argv){assert(argc==2);const std::string which=argv[1];
      fake_now+=1000000;v12::relay_poll(fake_now,false);const auto& row=v12::diagnostic_records.back();
      assert(row.length==173&&row.bytes[0]==4);
      assert(r2_group_get(row.bytes+109+7*4,4)==100000&&r2_group_get(row.bytes+109+8*4,4)==2);
-     assert(!v12::relay_map.ready(fake_now*20)&&!pa_active&&!ext_active[0]&&!ext_active[1]);v12::r2_stop();step(6);assert(v12::r2_status().off_ack);
+     assert(!v12::relay_map.ready(fake_now*20)&&pa_active&&ext_active[0]&&ext_active[1]);v12::r2_stop();step(6);assert(v12::r2_status().off_ack);
      puts("PASS bounded worker queue trace distinguishes BUSY duration from successful public API latency without extending source");return 0;
    }
    if(which=="context-withdraw"){
@@ -426,19 +465,20 @@ int main(int argc,char** argv){assert(argc==2);const std::string which=argv[1];
      assert(v12::api_errors==0&&v12::fault==queue_wrong_publication);
      if(queue_wrong_publication)assert(!pa_active&&!ext_active[0]&&!v12::periodic_tx::tx_installed&&!v12::relay_map.valid);
      else{
-       assert(!pa_active&&!ext_active[0]&&!ext_active[1]&&!v12::periodic_tx::tx_installed&&v12::relay_map.valid);
+       assert(pa_active&&ext_active[0]&&ext_active[1]&&v12::periodic_tx::tx_installed&&v12::relay_map.valid);
        assert(!v12::relay_map.live(fake_now*20)&&!v12::relay_map.ready(fake_now*20)&&!v12::relay_map.sent[0].publication);
-       assert(!v12::relay_map.publication&&v12::relay_map.path.node[1].train==train+1&&!v12::relay_demand_live(fake_now));
+       assert(v12::relay_map.publication&&v12::relay_map.path.node[1].train==train&&v12::relay_demand_live(fake_now));
+       assert(v12::relay_data_dirty);v12::relay_poll(fake_now,false);
+       rc7_packet standby{};assert(!rc7_decode(&standby,pa_wire.data(),190,&v12::relay_map.path,&v12::provision.group)&&!standby.count);
        map.tick=fake_now*20;map.epoch=fake_now*1000;origin.expires=uint64_t(map.epoch)+1000000000;
        assert(v12::relay_map.input(root,origin,nullptr,map,fake_now*20,1,fake_now*20,0,v12::provision.identity,44,v12::provision.group));
-       v12::relay_data_dirty=true;v12::relay_poll(fake_now,false);assert(ext_active[1]&&!pa_active);
-       v12::Rc7Client child;assert(!child_request(child,300,80000).ready);
-       fake_now+=62500;v12::relay_poll(fake_now,false);assert(pa_active&&v12::relay_map.path.node[1].train==train+1);
+       v12::relay_data_dirty=true;v12::relay_poll(fake_now,false);assert(ext_active[1]&&pa_active);
+       assert(v12::relay_map.path.node[1].train==train);
        assert(!v12::relay_map.ready(fake_now*20));estimate_queued=true;v12::relay_poll(fake_now,false);
-       assert(v12::relay_map.ready(fake_now*20)&&v12::relay_map.path.node[1].train==train+1);
+       assert(v12::relay_map.ready(fake_now*20)&&v12::relay_map.path.node[1].train==train);
      }
      v12::r2_stop();step(6);assert(!v12::relay_owned()&&v12::client.completed_us<v12::client.stop_deadline_us);
-     puts("PASS source expiry stops advertisements and retires queued publication; fresh input needs new demand/train; invariant failure stays hard fault");return 0;
+     puts("PASS source expiry withdraws timing while retaining train/demand; fresh input restores timing; invariant failure stays hard fault");return 0;
    }
    if(which=="warm-budget-publisher"){
      const auto train=v12::relay_map.path.node[1].train;const auto calls=connected;
@@ -461,8 +501,8 @@ int main(int argc,char** argv){assert(argc==2);const std::string which=argv[1];
      if(which=="upstream-yield"){v12::relay_poll(fake_now,true);assert(!ext_active[1]&&!server_connected&&pa_active&&ext_active[0]);}
      if(which=="expired-source"){
        const auto train=v12::relay_map.path.node[1].train;fake_now+=500000;v12::relay_poll(fake_now,false);
-       assert(!pa_active&&!ext_active[0]&&!ext_active[1]&&v12::relay_map.valid&&!v12::relay_map.ready(fake_now*20));
-       assert(v12::relay_map.path.node[1].train==train+1&&!v12::relay_demand_live(fake_now));
+       assert(pa_active&&ext_active[0]&&!ext_active[1]&&v12::relay_map.valid&&!v12::relay_map.ready(fake_now*20));
+       assert(v12::relay_map.path.node[1].train==train&&v12::relay_demand_live(fake_now));
      }
      if(which=="late-drain"){server_slow=true;v12::r2_stop();step();const auto deadline=v12::close_until;fake_now=deadline+1;v12::r2_host_poll();assert(v12::fault&&!v12::snap.off_ack);puts("PASS native server late drain retained fault");return 0;}
    }

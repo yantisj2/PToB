@@ -10,6 +10,7 @@
 #include "bounded_log.hpp"
 #include "periodic_tx.hpp"
 #include "rc7_relay_estimate.hpp"
+#include "rc7_relay_hold.hpp"
 extern "C" {
 #include "r2/rc7/include/rc_slots.h"
 }

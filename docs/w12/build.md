@@ -96,8 +96,16 @@ and local display correction remain unchanged; the optional provisional relay
 output profile below is separate and defaults to zero.
 Version 0.1.1 requests 100 ms for both RC discovery advertisers, matching T096;
 the separate precision train stays at 62.5 ms. Downstream advertising and
-publication wait for current parent clock lock and withdraw when that lock or
-source is lost. Upstream reception remains available to acquire the parent.
+publication initially wait for current parent clock lock. Version 0.1.19 keeps
+an established train and management discovery through a timing/quality gap for
+up to 30 seconds. Corrections and READY withdraw immediately; canonical count0
+packets retain synchronization without refreshing timing authority. Same-scope
+fresh corrections can resume timing on the original train and child leases.
+Two seconds of observed lock recovery, with no observation gap above 250 ms,
+reset the loss deadline; flicker, polling and fresh packets without lock do not.
+Child demand expiry, explicit stop, fault, changed source/path, controller
+ownership and the original two-second drains retain their own gates. Upstream
+reception remains available to acquire the parent.
 See the [changelog](../../firmware/w12/CHANGELOG.md) for the lock prerequisites
 and the distinction between relative quality and qualified precision.
 Version 0.1.8 started continuous BLE100's direct G1 proactive replay refresh at
@@ -277,8 +285,11 @@ They do not establish physical RF duty, absolute UTC accuracy, independent
 output precision, or reliability. Some retained historical fixture sources are
 not part of the selected runner and do not inherit a passing result.
 The permission runner also exercises the native relay server owner with
-synthetic radio/TX and parent-lock inputs, including startup hold, lock loss,
-reacquisition and unchanged admission drain deadlines.
+synthetic radio/TX and parent-lock inputs, including startup refusal, 30-second
+loss hold, timing withdrawal, same-train recovery, flapping, child expiry,
+scope/stop and unchanged admission drain deadlines. Relay flag bit 8 reports
+management eligibility (including a held train); bit 9 reports an active loss
+hold. Neither bit grants timing authority.
 
 ## Hardware boundary
 

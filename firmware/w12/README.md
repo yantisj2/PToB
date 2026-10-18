@@ -7,7 +7,7 @@ RC role. [Image provenance](../../docs/images/README.md).*
 
 Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
 
-**PToB owns W12 native G1/RC7 development.** Current version **0.1.18** builds on the initial 0.1.0 successor
+**PToB owns W12 native G1/RC7 development.** Current version **0.1.19** builds on the initial 0.1.0 successor
 from the selected native application at `48b9ab7`. See the
 [build guide](../../docs/w12/build.md), [cutover record](../../docs/w12/cutover.md),
 [explicit import provenance](imports/2026-10-16.json) and [source notices](NOTICE.md).
@@ -47,6 +47,11 @@ its yielding SDK call, so a delayed CONNECT can acknowledge cleanup without
 restarting GATT. Bounded incoming relay-owner diagnostics distinguish admission,
 refusal, descriptor/handle state and original drain timing. These source changes
 do not establish a cause or repair for the observed incoming-owner fault.
+An established downstream train survives a timing or quality interruption for
+up to 30 seconds, with canonical packets carrying no corrections while time is
+unavailable. Existing child leases keep their original deadlines; two seconds
+of continuously observed recovery reset the loss episode. Startup still needs
+parent lock, and stop, fault and source/path changes withdraw the old train.
 The OLED can retain a local HOLD estimate after source/replay expiry; its error
 bound is unknown and it grants no downstream authority. Passive bounded capture
 diagnostics distinguish control replies and corrected-model loss. W12 supplies
