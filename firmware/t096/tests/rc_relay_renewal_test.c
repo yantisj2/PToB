@@ -9,8 +9,10 @@
 #include "timing_events.h"
 static uint64_t lt_renew_at,lt_budget_until,nonce,lt_attempt_ready,lt_next;
 static uint64_t upstream_retry_at,last_context_progress;
+static uint64_t parent_count0_at;
 static unsigned lt_attempts,parent_index;
 static bool startup_admitted,parent_known=true,parent_relay=true;
+static bool parent_locked;
 static unsigned parent_admission=2,upstream_recoveries;
 static bool creating,parent_synced=true,upstream_usable,lt_acquiring,lt_paused;
 static void *lt_conn;

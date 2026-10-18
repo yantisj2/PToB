@@ -818,6 +818,7 @@ static void lt_apply_read(const struct rc7_control *c) {
             rc7_bind(&receiver, &c->path, self_identity,
                      routes.node[node].transmitter, routes.node[node].slot, &a);
       if (bound) {
+        parent_count0_at=0;
         if(changed_scope){
           rc_stream_scope_changed(&stream_history,c->sender,true,tick/16);
           stream_sample=(struct rc_stream_sample){0};
@@ -1060,6 +1061,12 @@ static void lt_advertise(uint64_t tick) {
     }
   }
 }
+static bool lt_source_wait(uint64_t tick,bool need) {
+  if(!need||!parent_source_wait(tick))return false;
+  /* Preserve ordinary management advertising while awaiting source recovery. */
+  lt_advertise(tick);
+  return true;
+}
 static void lt_poll(uint64_t tick, bool window) {
   lt_drain();
   /* This early call can only withdraw a leaf advertisement. Management
@@ -1217,6 +1224,11 @@ static void lt_poll(uint64_t tick, bool window) {
               (tick >= lt_renew_at);
   if (!need)
     lt_attempt_ready = 0;
+  if(lt_source_wait(tick,need)){
+    /* Keep ordinary management discovery alive. Do not cancel an in-flight
+     * transaction, reset retry/batch/start jitter or consume a rolling start. */
+    return;
+  }
   if(need&&startup_admitted){
     /* At most two starts in any rolling60s, also across failed batches. */
     if(!rc_admission_start_allowed(lt_start_history,tick))return;

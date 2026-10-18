@@ -18,7 +18,7 @@ def function(name):
  stop=m.end();depth=1
  while depth:depth+=(body[stop]=='{')-(body[stop]=='}');stop+=1
  return body[m.start():stop]
-recovery='\n'.join(function(n)for n in ['parent_rebind_request','parent_recovery_poll'])
+recovery='\n'.join(function(n)for n in ['parent_source_wait','parent_rebind_request','parent_recovery_poll'])
 if a.legacy_recovery:
  needle='  if(lt_attempts||lt_budget_until||lt_attempt_ready)return;';assert recovery.count(needle)==1
  recovery=recovery.replace(needle,'  /* negative: continuing loss resets pending retry */')

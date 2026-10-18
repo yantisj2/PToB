@@ -8,8 +8,10 @@
 #include "rc_gm_adapter.h"
 #include "rc_stream_quality.h"
 #include "rc_transport_hold.h"
+#include "rc_admission_policy.h"
 static struct rc_transport_hold downstream_hold;
 static struct rc7_receiver receiver;
+#define timing receiver.clock
 static struct rc5_gm_context gm_context;
 static struct r2_link_quality delivery;
 static struct rc5_rate_fit fit;
@@ -24,6 +26,8 @@ static unsigned sent_count,lt_attempts,holdover_expiries,upstream_recoveries,tra
 static bool lt_acquiring,lt_paused,phase_admitted,start_prepared,awaiting_first_tx,holdover_expired,fit_rms_valid;
 static bool parent_known,parent_synced,creating,running,stop_fails,faulted;
 static bool parent_ineligible;
+static bool parent_relay,parent_locked,startup_admitted;
+static uint64_t parent_count0_at;
 static void *lt_conn;
 static bool upstream_usable,admission_live=true,drain_ok=true;
 static unsigned parent_admission=2,cancel_calls;

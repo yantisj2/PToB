@@ -411,6 +411,16 @@ scope can still request an immediate challenge, with the same original
 transaction, authentication and rolling-start limits. The combined relay
 regression executes the production recovery/retry functions with recorded
 failure durations and pending-jitter/batch cases; it is not an RF simulation.
+From0.15.102 an established relay can defer a new recovery start while a fresh
+canonical count-zero original has passed the production admitted-path and
+replay matcher. This is a scheduling hint, with a 500 ms age limit, not time
+permission. Exact duplicates retain only the original observation time. The
+original authentication context must remain live and younger than 240 seconds;
+normal renewal and expiry, missing PA, startup and changed authenticated paths
+bypass the hint. A pending path change cannot be masked by old-path packets.
+In-flight exchanges and the rolling start budget are unchanged. Tests replay
+production owner/codec/matcher functions with explicit timing assumptions;
+their improvement is not a measured field latency claim.
 The historical adoption specification retained the then-existing
 advertiser cadence;100ms is an explicit current owner-policy change, not a
 historical protocol requirement or a new wire version. Discovery grants no

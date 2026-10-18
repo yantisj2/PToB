@@ -126,12 +126,15 @@ Use `--registry artifacts/local/registry.json` to compile your deployment’s sh
 Keep the real map ignored, alongside local enrollment; the receipt records its
 hash and preserves a private build snapshot.
 
-Version 0.15.101 also preserves pending retry policy and adds pinned AUX
-initiation observations to 0.15.100's transport hold and earlier RC7 renewal.
+Version 0.15.102 adds a source-unavailable scheduling hint to 0.15.101's
+preserved retry policy and pinned AUX observations. The hint adds eight bytes
+of state; native inspection still requires at least 1,024 unallocated bytes.
+Version 0.15.100 introduced transport hold and earlier RC7 renewal.
 Run the combined production policy and publication regressions with:
 
 ```sh
 CC=clang python3 firmware/t096/tools/rc_relay_renewal_tests.py --deps artifacts/t096-deps --out artifacts/check-relay-renewal
+CC=clang python3 firmware/t096/tools/rc_source_wait_tests.py --deps artifacts/t096-deps --out artifacts/check-source-wait
 CC=clang python3 firmware/t096/tools/rc_transport_hold_tests.py --deps artifacts/t096-deps --out artifacts/check-transport-hold
 CC=clang python3 firmware/t096/tools/initiator_aux_tests.py --deps artifacts/t096-deps --out artifacts/check-initiator-aux
 ```

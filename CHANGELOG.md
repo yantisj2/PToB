@@ -2,6 +2,18 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 18 October 2026 — T096 source-aware recovery
+
+T096 **0.15.102** conserves new recovery transactions while an established,
+authenticated relay is receiving fresh canonical packets with no corrections.
+The original admission must remain live and younger than four minutes; normal
+renewal, expiry, missing PA and changed authenticated paths bypass this wait.
+Replayed packets cannot extend the 500 ms hint. In-flight transactions, rolling
+start limits and all clock/output validity gates retain their existing bounds.
+Actual owner/codec/matcher regressions and the full host suite pass, including
+an expected-failure control with source-blind recovery restored. Hardware
+recovery gains and native RAM margin require separate verification.
+
 ## 18 October 2026 — T096 relay retry stability
 
 T096 **0.15.101** preserves pending same-parent retry timing when correction

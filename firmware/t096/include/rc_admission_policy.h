@@ -41,6 +41,17 @@ static inline uint64_t rc_admission_relay_retry_us(uint64_t nonce,uint64_t tick,
  uint64_t latest=remaining-UINT64_C(3000000);
  return delay<latest?delay:latest;
 }
+/* Fresh admitted count0 originals identify an unavailable relay source, not a
+ * broken authentication context. Preserve scarce NEW recovery starts while
+ * that stream is present. Nominal240s renewal and original expiry always win;
+ * startup, lost PA and stale/missing originals never wait. This scheduling
+ * hint grants no time, source, output or controller-lifetime permission. */
+static inline bool rc_admission_source_wait(bool warm_relay,bool pa,bool bound,
+    uint64_t admitted,uint64_t context_until,uint64_t count0_rx,uint64_t tick){
+ return warm_relay&&pa&&bound&&count0_rx&&count0_rx!=UINT64_MAX&&tick>=count0_rx&&
+  tick-count0_rx<UINT64_C(8000000)&&tick>=admitted&&tick<context_until&&
+  tick-admitted<rc_admission_relay_renew_ticks();
+}
 /* Absolute start history, retained across warm retries and parent changes. */
 static inline bool rc_admission_start_allowed(const uint64_t starts[2],uint64_t tick){
  if(starts[1]&&tick<starts[1])return false;

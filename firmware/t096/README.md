@@ -14,7 +14,16 @@ devices. See [the architectural background](../../docs/V12_TO_R2.md).
 **PToB owns T096 RC7 development.** The ordinary mesh profiles are **GM** and **RC**;
 USB timing support is compiled by default. [Build from source](../../docs/t096/build.md)
 using pinned public dependencies and ignored local enrollment. The current
-application version is 0.15.101. No publicly enrolled binary is distributed.
+application version is 0.15.102. No publicly enrolled binary is distributed.
+
+Version 0.15.102 preserves recovery opportunities when an established relay
+sends fresh, authenticated packets with no corrections. Such packets indicate
+an unavailable timing source, so new recovery transactions wait while the
+original context is live and four-minute renewal is not yet due. The scheduling
+hint expires after 500 ms; duplicates cannot refresh it. Authenticated path
+changes bypass the wait. Startup, renewal, expiry, controller ownership and
+clock permissions retain their existing gates. Source/owner/codec regressions
+pass; a modeled improvement is not a measured field recovery guarantee.
 
 Version 0.15.101 preserves a pending same-parent control retry, failed batch or
 prepared start jitter through repeated correction-loss polls. Authenticated

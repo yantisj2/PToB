@@ -80,6 +80,11 @@ static uint64_t delivery_origin_issued,delivery_origin_expires;
 static uint64_t delivery_discipline_tuple;
 static uint32_t delivery_packet_count,delivery_discipline_rx;
 static bool delivery_source_seen,delivery_source_lost;
+/* Scheduling evidence only: physical RX of a NEW count0 original admitted by
+ * the existing path/replay matcher. UINT64_MAX latches an independently
+ * authenticated changed capability until actual bind/handoff/reset; old-path
+ * traffic cannot erase it. Neither value grants time or source permission. */
+static uint64_t parent_count0_at;
 static struct r2_radio_capture_stats delivery_capture_baseline;
 static uint64_t delivery_tuple(uint32_t publication,uint16_t event,uint8_t channel) {
   return publication|((uint64_t)event<<32)|((uint64_t)channel<<48);
@@ -421,6 +426,25 @@ static void startup_complete(void) {
     startup_admitted = true;
   }
 }
+static bool parent_source_wait(uint64_t tick) {
+  return rc_admission_source_wait(startup_admitted&&parent_locked&&
+      timing.accepted&&parent_known&&parent_relay,
+      parent_synced,timing.bound,timing.admission.now_tick,timing.context_until,
+      parent_count0_at,tick);
+}
+static bool parent_receive_packet(const struct rc7_packet *packet,uint64_t rx,
+                                  uint16_t event,uint8_t channel,uint64_t now) {
+  const unsigned before=timing.head;
+  const bool changed=parent_count0_at==UINT64_MAX;
+  /* A duplicate/refused count0 cannot erase an earlier genuine observation,
+   * or extend its ORIGINAL freshness. Decoded nonzero stops waiting at once. */
+  if(!changed&&packet->count)parent_count0_at=0;
+  bool accepted=rc7_receive(&receiver,packet,rx,event,channel,now);
+  /* Count0 cannot complete a correction. A changed pending-ring head proves
+   * this original passed the actual admitted path/publication/event gates. */
+  if(!changed&&!packet->count&&timing.head!=before)parent_count0_at=rx;
+  return accepted;
+}
 static void candidate_defer(uint64_t id, uint64_t now) {
   /* Selection or refusal finishes this search. A later recovery must collect
    * its own neighborhood rather than reuse startup's elapsed scan timer. */
@@ -521,6 +545,7 @@ static void delivery_tick(uint64_t now, uint64_t tick) {
 /* Caller has drained the previous sync/publication and owns no transient ACL.
  * No phase/acquisition latch from that parent may inhibit the next admission. */
 static void parent_handoff_reset(void) {
+  parent_count0_at=0;
   parent_ineligible=false;
   lt_acquiring = false;
   lt_quiesce(false);
@@ -555,6 +580,7 @@ static void parent_handoff_reset(void) {
  * decode is never source authority; elapsed corrected-time loss is sufficient
  * reason to request a fresh authenticated challenge, at most once per10s. */
 static void parent_rebind_request(uint64_t tick) {
+  if(parent_count0_at!=UINT64_MAX)parent_count0_at=0;
   if (!parent_known || creating || lt_conn || tick < upstream_retry_at)
     return;
   /* Control retry alone cannot cancel publication/PA or discard fit. The
@@ -565,6 +591,14 @@ static void parent_rebind_request(uint64_t tick) {
   lt_attempts = 0;
   upstream_retry_at = tick + UINT64_C(160000000);
   ++upstream_recoveries;
+}
+static void parent_scope_observed(const struct rc7_control *c,uint64_t tick) {
+  if(parent_known&&parent_relay&&timing.bound&&
+      c->sender==routes.node[parent_index].id&&!rc7_path_empty(&c->path)&&
+      !rc7_path_same(&upstream_path,&c->path)){
+    parent_count0_at=UINT64_MAX; /* Survive cooldown/ACL and old-path RX. */
+    parent_rebind_request(tick);
+  }
 }
 static bool upstream_admitted(uint64_t tick) {
   return parent_relay ? timing.bound && tick < timing.context_until
@@ -581,6 +615,7 @@ static void parent_recovery_poll(uint64_t tick) {
    *20..40s backoff and the rolling budget forces phase-aligned retries.
    * Authenticated changed paths call parent_rebind_request directly. */
   if(lt_attempts||lt_budget_until||lt_attempt_ready)return;
+  if(parent_source_wait(tick))return;
   /* Missing PA establishment is not evidence that the authenticated binding
    * failed. Let the selected train retry without interleaved GATT renewals.
    * An expired binding or an established stream with stalled corrections does
@@ -862,11 +897,7 @@ static void discover(uint64_t tick) {
           /* This capability is authenticated independently of the old timing
            * path. Changed-path RC7 packets cannot pass the old path MAC merely
            * to reach the later capture-based scope-change detector. */
-          if (parent_known && parent_relay && timing.bound &&
-              c.sender == routes.node[parent_index].id &&
-              !rc7_path_empty(&c.path) &&
-              !rc7_path_same(&upstream_path, &c.path))
-            parent_rebind_request(tick);
+          parent_scope_observed(&c,tick);
         }
       }
     }
@@ -1359,8 +1390,8 @@ static void captures(struct r2_capture now) {
         r2_radio_audit_put(&q);
       }
       r2_link_quality_rx(&delivery, packet.train, r.event, mono_us());
-      if (rc7_receive(&receiver, &packet, physical.tick, r.event, r.channel,
-                      available.tick)) {
+      if (parent_receive_packet(&packet,physical.tick,r.event,r.channel,
+                                available.tick)) {
         if (fit_parent_boot != timing.parent_boot ||
             fit_root_boot != timing.root_boot ||
             fit_parent_epoch != timing.parent_epoch ||
@@ -2018,6 +2049,7 @@ int r2_service_configure(const struct r2_identity *id,
   delivery_origin_issued=delivery_origin_expires=delivery_discipline_tuple=0;
   delivery_packet_count=delivery_discipline_rx=0;
   delivery_source_seen=delivery_source_lost=false;
+  parent_count0_at=0;
   memset(&delivery_capture_baseline,0,sizeof delivery_capture_baseline);
   reservation_max = prepare_max = window_max = holdover_expiries =
       holdover_recoveries = slot_requests = upstream_recoveries =

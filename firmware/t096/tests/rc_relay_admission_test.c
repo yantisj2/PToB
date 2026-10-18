@@ -18,6 +18,7 @@ static struct r2_link_quality delivery;
 static struct rc7_control lt_request;
 static uint64_t self_identity=99,local_boot=88,lt_next,lt_deadline,lt_renew_at,
   lt_request_at,lt_budget_until,last_context_progress,deferred,deferral_at;
+static uint64_t parent_count0_at;
 static uint32_t lt_sequence;
 static unsigned parent_index,node,lt_phase,lt_rejects,lt_bindings,lt_attempts,
   stops,pending,admissions;
