@@ -415,13 +415,19 @@ advisory and do not prove an RF collision.
 
 T096 0.15.85 retains each automatically chosen parent through a bounded admission
 and precision trial. The defaults are deployment policy, not measured convergence
-guarantees. Version 0.15.88 extends settled-relay recovery to 120 seconds:
+guarantees. Version 0.15.88 extends settled-relay recovery to 120 seconds.
+Version 0.15.92 gives relay admission 180 seconds before the separate 120-second
+precision trial, with a five-minute absolute ceiling. A publisher can first
+return PENDING while demand starts its train; retained control start limits and
+failed attempts can otherwise exhaust an earlier one-minute admission trial.
+This changes parent retention, not the individual two-second transactions or
+the source, map, proof and 500 ms correction-hold gates.
 
 | Interval | Direct GM | Relay |
 | --- | --- | --- |
-| Admission, measured from selection | 30 seconds | 60 seconds |
+| Admission, measured from selection | 30 seconds | 180 seconds |
 | Precision acquisition, from first authenticated admission | 60 seconds | 120 seconds |
-| Absolute acquisition ceiling, from selection | 90 seconds | 180 seconds |
+| Absolute acquisition ceiling, from selection | 90 seconds | 300 seconds |
 | Degraded-time recovery after sustained lock | 6 seconds | 120 seconds |
 
 PENDING replies consume the original admission interval. Same-parent renewals,

@@ -14,10 +14,15 @@ devices. See [the architectural background](../../docs/V12_TO_R2.md).
 **PToB owns T096 RC7 development.** The ordinary mesh profiles are **GM** and **RC**;
 USB timing support is compiled by default. [Build from source](../../docs/t096/build.md)
 using pinned public dependencies and ignored local enrollment. The current
-application version is 0.15.91. No publicly enrolled binary is distributed.
+application version is 0.15.92. No publicly enrolled binary is distributed.
 
 RC source selection gives an admitted GM 60 seconds and an admitted relay 120
-seconds to establish sustained usable time. A GM that never settles is deferred
+seconds to establish sustained usable time.
+Before that precision trial, a relay gets up to 180 seconds to complete its
+authenticated admission, including demand startup and bounded control retries.
+Its first admission then gets the full 120-second precision trial, with an
+absolute five-minute ceiling from selection. Repeated PENDING or renewal does
+not move these deadlines. A GM that never settles is deferred
 for at least five minutes; a previously settled GM gets an earlier bounded retry
 after an interruption. Recovery preserves preference for a proven usable GM
 and otherwise favors an eligible relay over an unproved GM. A healthy relay

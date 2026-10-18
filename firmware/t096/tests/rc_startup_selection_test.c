@@ -93,7 +93,44 @@ static void scan_collection_cases(void) {
  clear();seen(22,true,true,-100,1000000);seen(22,true,true,-20,6000000);
  CHECK(candidates[0].rssi==-20);
 }
+static void slow_relay_admission_case(void) {
+ // Observed RC2 setup: initial PENDING while the publisher starts, then
+ // two create timeouts and a connection too late for its unchanged2s exchange.
+ // The fifth rolling-budget opportunity supplies usable timing around145s.
+ bind(true);fake_now=parent_selected_at=parent_stage_at=upstream_bad_since=100000000;
+ parent_admission=0;parent_synced=captured=tracking=fit.valid=false;
+ const uint64_t selected=fake_now;
+ uint64_t starts[2]={(selected-42000000)*16,(selected-12000000)*16};
+ const unsigned attempts[]={18,49,82,109,143};unsigned next=0;
+ for(unsigned second=0;second<=145;second++) {
+  fake_now=selected+second*UINT64_C(1000000);
+  if(next<sizeof attempts/sizeof attempts[0]&&second==attempts[next]) {
+   CHECK(rc_admission_start_allowed(starts,fake_now*16));
+   starts[0]=starts[1];starts[1]=fake_now*16;++next;
+  }
+  if(second==19||second==51||second==84||second==111)parent_wait(1);
+  if(second==144){startup_complete();parent_synced=captured=fit.valid=true;}
+  delivery_tick(fake_now,fake_now);
+  seen(77,false,false,-20,fake_now);seen(88,true,true,-30,fake_now);
+  CHECK(parent_acquiring(fake_now)&&!relay_fallback&&!choose(fake_now));
+ }
+ CHECK(next==5&&parent_admission==2&&parent_stage_at==selected+144000000);
+ CHECK(parent_acquiring(selected+263999999)&&!parent_acquiring(selected+264000000));
+ // Source authority still comes only from the existing clock-capture gate.
+ CHECK(!upstream_usable);
+ sample(60,false);CHECK(upstream_usable&&parent_locked&&!relay_fallback);
+ seen(77,false,false,-20,fake_now);CHECK(!choose(fake_now));
+ // A silent/PENDING relay is still finite; repeated replies cannot rearm it.
+ bind(true);parent_admission=0;parent_synced=captured=false;
+ const uint64_t edge=parent_selected_at+180000000;
+ fake_now=edge-1;parent_wait(1);CHECK(parent_acquiring(fake_now));
+ fake_now=edge;parent_wait(1);delivery_tick(fake_now,fake_now);
+ CHECK(!parent_acquiring(fake_now)&&relay_fallback);
+}
 int main(int argc,char **argv) {
+ if(argc==2&&!strcmp(argv[1],"slow-relay-admission")) {
+  slow_relay_admission_case();printf("PASS %u production slow relay admission assertions\n",checks);return 0;
+ }
  if(argc==2&&!strcmp(argv[1],"recovery-collection")) {
   clear();startup_attempted=relay_fallback=true;
   seen(22,true,true,-80,1000000);CHECK(!choose(1040000));
@@ -189,16 +226,16 @@ int main(int argc,char **argv) {
 
  // Repeated PENDING cannot turn a silent relay into an indefinite reservation.
  bind(true);parent_admission=0;parent_synced=false;
- fake_now=59000000;parent_wait(1);CHECK(parent_acquiring(60999999));
- fake_now=61000000;parent_wait(1);delivery_tick(fake_now,fake_now);CHECK(relay_fallback);
+ fake_now=59000000;parent_wait(1);CHECK(parent_acquiring(180999999));
+ fake_now=181000000;parent_wait(1);delivery_tick(fake_now,fake_now);CHECK(relay_fallback);
  CHECK(!parent_acquiring(fake_now)&&parent_stage_at==59000000);
  // Admission at the edge still gets its complete precision trial; renewal is inert.
- bind(true);parent_admission=0;fake_now=60999999;startup_complete();
- fake_now=150000000;startup_complete();CHECK(parent_stage_at==60999999);
- CHECK(parent_acquiring(180999998)&&!parent_acquiring(180999999));
- // Late replies cannot extend the absolute three-minute ceiling.
- bind(true);parent_admission=0;fake_now=100000000;startup_complete();
- CHECK(parent_acquiring(180999999)&&!parent_acquiring(181000000));
+ bind(true);parent_admission=0;fake_now=180999999;startup_complete();
+ fake_now=250000000;startup_complete();CHECK(parent_stage_at==180999999);
+ CHECK(parent_acquiring(300999998)&&!parent_acquiring(300999999));
+ // Late replies cannot extend the absolute five-minute ceiling.
+ bind(true);parent_admission=0;fake_now=250000000;startup_complete();
+ CHECK(parent_acquiring(300999999)&&!parent_acquiring(301000000));
  bind(false);parent_admission=0;CHECK(parent_acquiring(30999999)&&!parent_acquiring(31000000));
  fake_now=30999999;startup_complete();CHECK(parent_acquiring(90999998)&&!parent_acquiring(90999999));
 
@@ -299,6 +336,7 @@ int main(int argc,char **argv) {
  seen(11,false,false,-20,fake_now);seen(22,true,true,-70,fake_now);CHECK(choose(fake_now)==22);
  CHECK(rc_stream_blocked(&stream_history,11,false,fake_now+60000000));
  CHECK(!rc_stream_blocked(&stream_history,11,false,fake_now+300000000));
+ slow_relay_admission_case();
  scan_collection_cases();
  printf("PASS %u actual RC marginal-link selector assertions\n",checks);
 }

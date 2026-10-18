@@ -37,7 +37,7 @@ try:
         subprocess.run(command,check=True,timeout=30)
         subprocess.run([str(out/name)],check=True,timeout=10)
         if name=='rc_startup_selection':
-            for case in ['recovery-collection','strongest-collected']:
+            for case in ['recovery-collection','strongest-collected','slow-relay-admission']:
                 subprocess.run([str(out/name),case],check=True,timeout=10)
     passed=True
 finally:

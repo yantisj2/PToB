@@ -2,6 +2,17 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 18 October 2026 — T096 relay admission dwell
+
+T096 **0.15.92** gives a chosen relay up to 180 seconds to finish authenticated
+admission, followed by its full 120-second precision trial within a five-minute
+absolute ceiling. The former 60-second pre-admission cutoff could reject a
+working relay while demand startup and bounded control retries were still in
+progress. Repeated PENDING or renewal does not restart either deadline.
+Production selector regressions retain the rolling control-start budget and
+cover a late successful admission, finite silent-parent cutoff and unchanged
+GM preference. Transaction, slot, source, proof and precision gates are unchanged.
+
 ## 18 October 2026 — W12 connection cleanup and fault evidence
 
 W12 **0.1.14** installs adopted outgoing ACL termination ownership before a
