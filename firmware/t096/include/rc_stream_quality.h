@@ -121,6 +121,13 @@ static inline void rc_stream_admission_failed(struct rc_stream_history *h,
   r->failed_at = r->observed = (uint32_t)(now / 1000000);
   r->retry_at = r->failed_at + (60u << (r->failures - 1));
 }
+/* A GM that already supplied sustained usable time can become available again
+ * after a source/stream interruption. Use the shorter bounded retry schedule;
+ * retain its failure penalty and require fresh admission and observed recovery. */
+static inline void rc_stream_gm_recovery_failed(struct rc_stream_history *h,
+                                               uint64_t id,uint64_t now) {
+  rc_stream_admission_failed(h,id,false,now);
+}
 static inline int rc_stream_score(struct rc_stream_history *h, uint64_t id,
                                   bool relay, int rssi, uint64_t now) {
   struct rc_stream_row *r = rc_stream_find(h, id, relay, now);

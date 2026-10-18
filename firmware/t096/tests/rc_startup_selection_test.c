@@ -77,6 +77,12 @@ int main(int argc,char **argv) {
   fake_now+=90000000;delivery_tick(fake_now,fake_now);
   CHECK(!upstream_usable&&!relay_fallback);return 0;
  }
+ if(argc==2&&!strcmp(argv[1],"known-gm-retry")) {
+  bind(false);sample(120,false);CHECK(parent_locked);
+  captured=false;delivery_tick(fake_now,fake_now);fake_now+=6000000;delivery_tick(fake_now,fake_now);
+  seen(11,false,false,-20,fake_now);seen(22,true,true,-70,fake_now);CHECK(choose(fake_now)==22);
+  CHECK(!rc_stream_blocked(&stream_history,11,false,fake_now+60000000));return 0;
+ }
  if(argc==2&&!strcmp(argv[1],"refused-path")) {
   clear();startup_attempted=true;
   seen(11,false,false,-20,1000000);seen(22,true,true,-80,1000000);
@@ -215,5 +221,32 @@ int main(int argc,char **argv) {
  fake_now=302000000;seen(11,false,false,-20,fake_now);seen(22,true,true,-100,fake_now);
  CHECK(!rc_stream_blocked(&stream_history,11,false,fake_now)&&choose(fake_now)==22);
  rc_stream_failed(&stream_history,22,true,fake_now);CHECK(choose(fake_now)==11); // keep GM in mix
+
+ // A previously settled GM can retry earlier after interruption. A relay still
+ // owns its full120s trial even when that strong GM becomes eligible mid-trial.
+ bind(false);sample(120,false);CHECK(parent_locked);
+ captured=false;delivery_tick(fake_now,fake_now);uint64_t gm_lost=fake_now;
+ fake_now=gm_lost+5999999;delivery_tick(fake_now,fake_now);CHECK(!relay_fallback&&!upstream_usable);
+ fake_now=gm_lost+6000000;delivery_tick(fake_now,fake_now);CHECK(relay_fallback);
+ seen(11,false,false,-20,fake_now);seen(22,true,true,-70,fake_now);CHECK(choose(fake_now)==22);
+ uint64_t gm_failed=fake_now;
+ CHECK(rc_stream_blocked(&stream_history,11,false,gm_failed+59999999));
+ CHECK(!rc_stream_blocked(&stream_history,11,false,gm_failed+60000000));
+ CHECK(!rc_stream_proven(&stream_history,11,false,gm_failed+60000000));
+ select_parent(22,true);captured=false;uint64_t relay_selected=fake_now;
+ for(unsigned second=1;second<120;second++) {
+  fake_now=relay_selected+second*UINT64_C(1000000);delivery_tick(fake_now,fake_now);
+  seen(11,false,false,-20,fake_now);seen(33,true,true,-20,fake_now);
+  CHECK(!relay_fallback&&!choose(fake_now));
+ }
+ fake_now=relay_selected+120000000;delivery_tick(fake_now,fake_now);
+ seen(11,false,false,-20,fake_now);seen(33,true,true,-70,fake_now);
+ CHECK(relay_fallback&&choose(fake_now)==33); // eligible GM cannot erase its penalty
+ rc_stream_failed(&stream_history,33,true,fake_now);CHECK(choose(fake_now)==11);
+ // A GM that only flickered remains on the original five-minute deferral.
+ bind(false);sample(60,true);CHECK(relay_fallback&&!parent_locked);
+ seen(11,false,false,-20,fake_now);seen(22,true,true,-70,fake_now);CHECK(choose(fake_now)==22);
+ CHECK(rc_stream_blocked(&stream_history,11,false,fake_now+60000000));
+ CHECK(!rc_stream_blocked(&stream_history,11,false,fake_now+300000000));
  printf("PASS %u actual RC marginal-link selector assertions\n",checks);
 }

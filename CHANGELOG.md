@@ -2,6 +2,19 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 17 October 2026 — T096 previously settled GM retry
+
+T096 **0.15.89** distinguishes a previously settled GM from one that never
+supplied sustained usable time. After an interruption the former uses bounded
+60/120/240-second retry deferral; the latter retains300/600/1200 seconds. Failure
+history remains until sustained observed recovery. Healthy relays and active
+relay trials stay protected when a GM becomes eligible again. Fresh admission,
+source/map permission and all control deadlines remain required; earlier retry
+does not repair an unavailable GM source. Actual selector/history regressions
+cover exact retry boundaries, escalation, never-settled GM failure and a strong
+returning GM during a relay's full precision trial. Hardware durability remains
+under observation.
+
 ## 17 October 2026 — T096 settled relay recovery
 
 T096 **0.15.88** gives a previously settled relay 120 seconds to recover degraded

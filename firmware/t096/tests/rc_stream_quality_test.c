@@ -39,6 +39,15 @@ int main(void){
   uint64_t until=now+(UINT64_C(60000000)<<failure);
   CHECK(rc_stream_blocked(&h,33,true,until-1));CHECK(!rc_stream_blocked(&h,33,true,until));
  }
+ // The earlier retry for a previously settled GM is bounded and keeps failure history.
+ memset(&h,0,sizeof h);
+ for(unsigned failure=0;failure<3;failure++) {
+  uint64_t now=(UINT64_C(1)+failure*300)*1000000;
+  rc_stream_gm_recovery_failed(&h,55,now);
+  uint64_t until=now+(UINT64_C(60000000)<<failure);
+  CHECK(rc_stream_blocked(&h,55,false,until-1));CHECK(!rc_stream_blocked(&h,55,false,until));
+  CHECK(rc_stream_find(&h,55,false,until)->failures==failure+1);
+ }
  // One good sample cannot erase a recent failure, even for a new history row.
  memset(&h,0,sizeof h);memset(&s,0,sizeof s);memset(&q,0,sizeof q);
  r2_link_quality_bind(&q,44,1,1);rc_stream_failed(&h,44,true,1000000);

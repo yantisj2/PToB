@@ -451,8 +451,13 @@ cancellation and does not by itself mean a parent switch. The RC1/RC2 time-sourc
 label and its loss likewise do not establish which selection deadline expired.
 
 A failed admitted timing source is deferred for 300, 600, then 1200 seconds on
-repeated failures. Admission-only failures are deferred for 60, 120, then 240
-seconds. This bounded history is advisory, scoped to stable identity and role,
+repeated failures. Version 0.15.89 uses 60, 120, then 240 seconds for a GM that
+previously completed the sustained-lock window before its interruption. A GM
+that never settled keeps the longer deferral. Expired deferral only permits a
+fresh trial: it does not clear failure history or evict a healthy relay, and each
+selected relay still gets its complete admission/precision allowance.
+Admission-only failures also use 60, 120, then 240 seconds.
+This bounded history is advisory, scoped to stable identity and role,
 with failures cleared by sustained observed recovery. Entries expire after 30
 minutes or can be evicted from the eight-row table. History restores no locator,
 authentication or timing authority. Diagnostic pins and relay-only overrides

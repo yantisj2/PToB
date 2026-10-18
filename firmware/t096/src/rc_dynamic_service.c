@@ -594,7 +594,9 @@ static struct candidate *candidate_choose(uint64_t now, bool expired) {
   bool retained = upstream_usable && !relay_fallback && !diagnostic;
   (void)expired;
   if (parent_known && relay_fallback && !parent_failed && !diagnostic) {
-    if (parent_admission >= 2 || parent_locked)
+    if (!parent_relay && parent_locked)
+      rc_stream_gm_recovery_failed(&stream_history, routes.node[parent_index].id, now);
+    else if (parent_admission >= 2 || parent_locked)
       rc_stream_failed(&stream_history, routes.node[parent_index].id, parent_relay, now);
     else
       rc_stream_admission_failed(&stream_history, routes.node[parent_index].id, parent_relay, now);
