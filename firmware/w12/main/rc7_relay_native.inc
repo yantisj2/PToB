@@ -32,7 +32,7 @@ RelayQueueDiagnostic relay_queue_diagnostic;
 uint64_t relay_trace_capture=0;
 // Capture-only successful estimate evidence sampled by event, independent of
 // phase/error/channel. Original selected payload, source and timing gates stay
-// unchanged. No SDK call, formatting, allocation or controller access here.
+// unchanged. Only local clock/logger reads; no radio API, formatting or allocation.
 uint64_t relay_tx_capture_id=0;uint8_t relay_tx_capture_left=0;
 __attribute__((noinline)) void relay_tx_observation(const periodic_tx::EstimateRecord& c,uint64_t available20){
   const auto logging=log_status();

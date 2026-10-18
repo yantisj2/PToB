@@ -293,8 +293,8 @@ controller rejection or repair the separately observed incoming-owner fault.
 During an explicitly bounded capture, `W12_G1_TX_EST` retains successful selected
 estimated-TX events independently of their error or channel, once per sixteenth
 event and at most 60 records per capture identity. It uses the existing worker
-queue and main-task renderer; it adds no callback formatting, SDK call, radio
-operation or ordinary status-frame bytes. The fixed record contains publisher
+queue and main-task renderer. Worker observation reads the local clock/logger;
+it adds no callback formatting, radio API or ordinary status-frame bytes. The fixed record contains publisher
 and root identities/boots/epochs, train/publication/event/channel, programmed
 `tick20`, callback time, controller clock bracket and half-slot clock, emitted
 `tx_ns`, frozen map tick/epoch/phase/rate, original and queued times, inherited
