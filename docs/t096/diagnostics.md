@@ -425,10 +425,10 @@ the source, map, proof and 500 ms correction-hold gates.
 
 | Interval | Direct GM | Relay |
 | --- | --- | --- |
-| Admission, measured from selection | 30 seconds | 180 seconds |
-| Precision acquisition, from first authenticated admission | 60 seconds | 120 seconds |
-| Absolute acquisition ceiling, from selection | 90 seconds | 300 seconds |
-| Degraded-time recovery after sustained lock | 6 seconds | 120 seconds |
+| Admission, measured from selection | 60 seconds | 180 seconds |
+| Precision acquisition, from first authenticated admission | 120 seconds | 120 seconds |
+| Absolute acquisition ceiling, from selection | 180 seconds | 300 seconds |
+| Degraded-time recovery after sustained lock | 60 seconds | 120 seconds |
 
 PENDING replies consume the original admission interval. Same-parent renewals,
 repeated admissions and individual lock flickers cannot restart these deadlines.
@@ -453,6 +453,13 @@ advisory locator horizon retains observations from the whole collection, rather
 than only the final 200 ms. It grants no timing or source authority; subsequent
 live admission retains its original validity gates. Explicit diagnostic overrides
 keep their 40 ms collection and 200 ms locator horizon.
+
+Version 0.15.93 extends GM admission, precision acquisition and settled recovery
+to the intervals above. Normal HOT/follower participants can also emit G1 discovery.
+An authenticated non-root refusal disqualifies that locator; the next collected
+search tries a remaining fresh direct locator before a relay. It grants no
+authority to the refused participant and does not change HOT/election behavior.
+An actual GM that remains unusable still yields after its bounded trial.
 
 Cold startup prefers a fresh GM.
 During recovery, a fresh eligible GM with sustained usable-time history and no

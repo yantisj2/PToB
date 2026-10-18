@@ -593,7 +593,11 @@ static struct candidate *candidate_choose(uint64_t now, bool expired) {
    * That is still recovery, not a new GM-only startup. */
   bool recovery = startup_attempted && !parent_known;
   bool seek = diagnostic || relay_fallback || startup || recovery;
-  bool prefer_relay = seek && !startup;
+  /* Normal HOT/follower participants also emit G1. Their authenticated
+   * non-root refusal disqualifies that locator, not the singular actual GM.
+   * Try another fresh direct locator before a relay in this specific case. */
+  bool rejected_nonroot = parent_known && parent_ineligible && !parent_relay;
+  bool prefer_relay = seek && !startup && !rejected_nonroot;
   /* A coarse admission context can outlive usable corrected time. Retention
    * requires live synchronization; an expired map must not pin that locator. */
   bool retained = upstream_usable && !relay_fallback && !diagnostic;

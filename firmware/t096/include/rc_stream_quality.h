@@ -5,17 +5,19 @@
  * locator, binding, map, source permission or authority is ever restored. */
 #define RC_STREAM_CAPACITY 8u
 #define RC_STREAM_RETAIN_S 1800u
-#define RC_STREAM_ADMISSION_US UINT64_C(30000000)
+#define RC_STREAM_ADMISSION_US UINT64_C(60000000)
 /* A relay may first return PENDING while its demanded train starts. Retained
  * two-starts/minute control limits can then put a working admission after120s.
  * Keep one bounded180s admission trial and a full120s precision trial after it.
  * Repeated PENDING/renewals never move either original deadline. */
 #define RC_STREAM_RELAY_ADMISSION_US UINT64_C(180000000)
 #define RC_STREAM_ACQUIRE_US UINT64_C(120000000)
-#define RC_STREAM_GM_ACQUIRE_US UINT64_C(60000000)
+#define RC_STREAM_GM_ACQUIRE_US UINT64_C(120000000)
 #define RC_STREAM_TRIAL_US UINT64_C(300000000)
-#define RC_STREAM_GM_TRIAL_US UINT64_C(90000000)
-#define RC_STREAM_LOSS_US UINT64_C(6000000)
+#define RC_STREAM_GM_TRIAL_US UINT64_C(180000000)
+/* Retain a settled GM through one finite recovery minute. Expired timing
+ * still withdraws immediately; a failed renewal is not a six-second detour. */
+#define RC_STREAM_LOSS_US UINT64_C(60000000)
 /* A settled relay also needs time for fresh admission after a train change.
  * With at most two ACL starts per minute,30s can permit only one attempt. */
 #define RC_STREAM_RELAY_LOSS_US UINT64_C(120000000)

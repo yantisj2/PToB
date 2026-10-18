@@ -2,6 +2,18 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 18 October 2026 — T096 GM dwell and HOT discovery refusal
+
+T096 **0.15.93** retains a direct GM for 60 seconds of admission and up to
+120 seconds of precision acquisition within a 180-second ceiling. A previously
+settled GM gets 60 seconds to recover degraded timing instead of six. Expired
+maps still withdraw immediately. When a normal HOT/follower G1 participant
+returns an authenticated non-root refusal, another fresh direct locator takes
+priority over a relay. That refusal cannot establish timing or change the GM.
+Production selector regressions cover seven-second loss, fixed boundaries,
+non-root discovery and finite fallback. Relay dwell, healthy-parent retention,
+HOT/election, slot rules and source/proof/precision gates remain unchanged.
+
 ## 18 October 2026 — T096 relay admission dwell
 
 T096 **0.15.92** gives a chosen relay up to 180 seconds to finish authenticated
