@@ -285,7 +285,11 @@ reacquisition and unchanged admission drain deadlines.
 The public builder never opens hardware. A generic public flasher is not yet
 shipped. Installation requires separately authorized exact silicon/current-image
 binding, exclusive ownership, bounded application drain, identified rollback,
-actual application preservation/readback and exact protected-prefix comparison.
+actual application readback and exact protected-prefix comparison. Routine
+app-only updates reuse an identified, verified recovery image; do not back up
+the full flash or copy the installed application before every update. Preserve
+only a partial final sector when needed to keep bytes outside the application
+unchanged. A full flash backup requires a separate explicit operator request.
 A failed or unknown gate stops the update. Do not replace those gates with a
 mass erase, partition change or guessed reset. **Do not run `idf.py flash`,
 use generated `flash_args`, or copy the SDK build log’s generic flash command:**

@@ -55,6 +55,13 @@ not invent GM support or infer GNSS wiring from an alias. All targets share
 registry/; real factory bindings, enrollment and images remain ignored locally.
 Hardware work requires its separately authorized exact-device scope and guards.
 
+For routine app-only updates, do not back up the full flash or copy the installed
+application on every flash. Reuse the identified, verified recovery image. Keep
+exact-device ownership, bounded application drain, app-only write bounds, actual
+application readback and protected-prefix comparison. Preserve a partial final
+sector only when needed to keep bytes outside the application unchanged. A full
+flash backup requires a separate explicit operator request.
+
 ## SS3 and macOS development authority
 
 PToB owns SS3 native G1/RC7 and the macOS USB/chrony client. Read
