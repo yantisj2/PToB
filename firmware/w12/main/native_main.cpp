@@ -11,6 +11,10 @@
 #include "native_dashboard.hpp"
 #include "g1_diagnostic_render.hpp"
 #include "g1_record_budget.hpp"
+#if V12_R2_CONFIG == 13 && PTOB_GNSS_INDICATORS && !defined(V12_GPS_SHADOW_OBSERVER)
+#define PTOB_G1_PPS_DIAGNOSTIC 1
+#include "g1_pps_diagnostic.hpp"
+#endif
 #if V12_R2_CONFIG == 13
 #include "g1_ui_indicators.hpp"
 #include "rc7_provisional_config.hpp"
@@ -78,6 +82,37 @@ uint64_t last_nonce=0,update_completed_us=0;
 struct CommandResult {uint64_t nonce=0,admitted_us=0;bool accepted=false;const char* action="STATUS";const char* reason="READ_ONLY";} last_command;
 uint64_t ticks(){uint64_t t=0;return clock_timer&&gptimer_get_raw_count(clock_timer,&t)==ESP_OK?t:0;}
 uint64_t micros(){const int64_t t=esp_timer_get_time();return t>0?uint64_t(t):0;}
+#ifdef PTOB_G1_PPS_DIAGNOSTIC
+v12::G1PpsDiagnostic production_pps_diagnostic;
+// Complete an independent model snapshot before consuming queued physical PPS.
+// Uncertain activation, later models and original expiry remain unscorable.
+[[gnu::noinline]] void observe_production_pps_diagnostic(){
+  const auto before20=ticks();const auto witness=v12::r2_status();const auto seen20=ticks();
+  production_pps_diagnostic.observe(witness,before20,seen20,micros());
+}
+[[gnu::noinline]] void score_production_pps_diagnostic(const gnss_pps::Observation& edge){
+  const auto ref=gnss_pps::reference();
+  const auto score=production_pps_diagnostic.edge(edge.tick,edge.number,edge.map_bracket_ns,edge.mapped,
+    {ref.rmc20,ref.second,ref.epoch,ref.fix&&ref.coherent>=3});
+  const auto& m=score.map;const auto& r=score.row;
+  const auto output_phase=v12::G1PpsDiagnostic::phase(score.utc_ns);
+  const auto receiver_phase=score.map_valid?v12::G1PpsDiagnostic::phase(score.utc_ns-m.clock.output_correction_ns):0;
+  const bool rate_known=m.clock.tick&&std::isfinite(m.clock.rate)&&std::abs(m.clock.rate)<=50000;
+  const auto rate_mppb=rate_known?int64_t(std::llround(m.clock.rate*1000)):0;
+  std::printf("W12_G1_PPS_SHADOW number=%" PRIu32 " edge20=%" PRIu64 " raw80=%" PRIu64 " enclosure_ns=%" PRIu32
+    " map_valid=%u reason=%u reference=%u following=%u permission=%u session=%" PRIu32
+    " root=%016" PRIx64 " root_boot=%016" PRIx64 " source=%" PRIu32 " train=%" PRIu32 " scope=%" PRIu32
+    " model20=%" PRIu64 " activation_lo20=%" PRIu64 " known20=%" PRIu64 " until20=%" PRIu64 " permission20=%" PRIu64
+    " epoch_ns=%" PRId64 " phase_left_ns=%" PRId64 " rate_mppb=%" PRId64 " rate_known=%u UTC_offset_ns=%" PRId64
+    " relative_phase_ns=%" PRId32 " receiver_phase_ns=%" PRId32 " output_phase_ns=%" PRId32 " output_correction_ns=%" PRId32
+    " GPS_epoch=%" PRIu32 " rmc20=%" PRIu64 " rmc_second=%" PRIu32
+    " clock=PRODUCTION_G1_ACTUATOR association=EMPIRICAL_UNCALIBRATED RF_bound=UNKNOWN UTC_bound=UNKNOWN BLE_training=NONE\n",
+    edge.number,edge.tick,edge.raw_extended,edge.map_bracket_ns,unsigned(score.map_valid),unsigned(r.reason),unsigned(r.reference),
+    unsigned(r.following),unsigned(r.permission),r.session,m.root,m.boot,m.source,m.train,m.scope,m.clock.tick,m.lo,m.active,m.until,m.permission,
+    m.clock.epoch,m.clock.phase,rate_mppb,unsigned(rate_known),m.clock.utc_offset,
+    r.phase_ns,receiver_phase,output_phase,m.clock.output_correction_ns,ref.epoch,ref.rmc20,ref.second);
+}
+#endif
 #ifdef V12_GPS_SHADOW_OBSERVER
 // The large status snapshot must not remain in app_main's permanent frame
 // while console/UI/PPS consumers run. Preserve the same availability bracket.
@@ -120,6 +155,9 @@ void pps(const gnss_pps::Observation& edge){
     " BLE_prediction_valid=%u modulo_error_ns=%" PRId64 " association=UNKNOWN bias=UNKNOWN absolute_UTC=UNQUALIFIED BLE_training=NONE GNSS_aided_this_boot=%u\n",
     edge.number,edge.tick,followed.model_available20,followed.root_identity,followed.root_boot,followed.source_epoch,followed.publication,unsigned(comparison.valid),comparison.modulo_ns,unsigned(gnss_pps::ble_aided()));
   v12::r2_pps(edge.tick,ticks(),micros(),edge.mapped);
+#ifdef PTOB_G1_PPS_DIAGNOSTIC
+  score_production_pps_diagnostic(edge);
+#endif
 #endif
   if(physical_pps!=UINT32_MAX)++physical_pps;
   std::printf("W12_V12_PPS number=%" PRIu32 " physical_raw80=%" PRIu32 " raw_extended80=%" PRIu64
@@ -695,6 +733,9 @@ extern "C" void app_main(){
     v12::r2_observe(micros());
 #endif
     #ifndef V12_GPS_SHADOW_OBSERVER
+#ifdef PTOB_G1_PPS_DIAGNOSTIC
+    observe_production_pps_diagnostic();
+#endif
     gnss_pps::poll(ticks());
     #endif
     input();

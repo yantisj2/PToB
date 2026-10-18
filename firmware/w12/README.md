@@ -7,7 +7,7 @@ RC role. [Image provenance](../../docs/images/README.md).*
 
 Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
 
-**PToB owns W12 native G1/RC7 development.** Current version **0.1.20** builds on the initial 0.1.0 successor
+**PToB owns W12 native G1/RC7 development.** Current version **0.1.21** builds on the initial 0.1.0 successor
 from the selected native application at `48b9ab7`. See the
 [build guide](../../docs/w12/build.md), [cutover record](../../docs/w12/cutover.md),
 [explicit import provenance](imports/2026-10-16.json) and [source notices](NOTICE.md).
@@ -20,6 +20,11 @@ default. LoRa, WiFi, PTS and donor output correction experiments are not supplie
 by this target. Original signed source expiry, physical receive/correction matching,
 controller ownership, bounded update drain and precision refusal remain in force.
 The estimated relay has unknown TX uncertainty and no actual TX capture claim.
+On the explicit GNSS profile, bounded capture also records the production G1
+clock against physical PPS. It retains prior model availability, original
+permission deadlines and empirical GNSS reference status, separately from the
+strict R2 diagnostic. This observer neither disciplines the BLE clock nor
+qualifies UTC accuracy.
 Its shared BLE1M path converts the programmed packet start to the nominal
 ADDRESS endpoint, 40 microseconds later, before emitting a correction. This
 repairs a packet-reference mismatch; controller/RF delay remains unknown.

@@ -27,18 +27,30 @@ PATHS={
  'command_off_ack':('main','input','command','off_ack'),
  **{name:('main',name) for name in ('ui','diagnostics','update','fault','authority','aid')},
 }
-def measure(config,usage):
+PPS_DECLARATIONS={
+ 'production_pps_observe':'void {anonymous}::observe_production_pps_diagnostic()',
+ 'production_pps_score':'void {anonymous}::score_production_pps_diagnostic(const gnss_pps::Observation&)',
+ 'pps_callback':'void {anonymous}::pps(const gnss_pps::Observation&)',
+ 'gnss_poll':'void gnss_pps::poll(uint64_t)',
+}
+def measure(config,usage,gnss_usage=None):
  configs=re.findall(r'^CONFIG_ESP_MAIN_TASK_STACK_SIZE=(\d+)$',config,re.M)
  if len(configs)!=1:raise ValueError('One exact main-task stack configuration required')
  configured=int(configs[0]);frames={}
  lines=[line.split('\t') for line in usage.splitlines() if line.strip()]
- for name,declaration in DECLARATIONS.items():
+ declarations={**DECLARATIONS,**(PPS_DECLARATIONS if gnss_usage is not None else {})}
+ if gnss_usage is not None:lines.extend(line.split('\t') for line in gnss_usage.splitlines() if line.strip())
+ for name,declaration in declarations.items():
   matches=[row for row in lines if row[0].endswith(':'+declaration)]
   if len(matches)!=1 or len(matches[0])!=3:raise ValueError('Missing or ambiguous main-task frame: '+name)
   _,size,kind=matches[0]
   if kind!='static' or not re.fullmatch(r'[1-9]\d*',size):raise ValueError('Unbounded main-task frame: '+name)
   frames[name]=int(size)
  paths={name:{'frames':list(keys),'static_bytes':sum(frames[key] for key in keys)} for name,keys in PATHS.items()}
+ if gnss_usage is not None:
+  for name,keys in {'production_pps_snapshot':('main','production_pps_observe'),
+                    'production_pps_callback':('main','gnss_poll','pps_callback','production_pps_score')}.items():
+   paths[name]={'frames':list(keys),'static_bytes':sum(frames[key] for key in keys)}
  maximum=max(row['static_bytes'] for row in paths.values())
  if configured<=RESERVE_BYTES or maximum+RESERVE_BYTES>configured:
   raise ValueError(f'Main-task selected path {maximum} + reserve {RESERVE_BYTES} exceeds configured {configured}')
@@ -49,7 +61,12 @@ def measure(config,usage):
 def check(out):
  target=Path(out)/'target';files=sorted(target.rglob('native_main.cpp.su'))
  if len(files)!=1:raise ValueError('One retained native_main GCC stack-usage file required')
- return measure((target/'sdkconfig').read_text(),files[0].read_text())
+ gnss_usage=None;receipt=Path(out)/'receipt.json';device=Path(out)/'local/device.json'
+ if receipt.exists() and device.exists() and json.loads(receipt.read_text()).get('version')=='0.1.21' and 'gnss_profile' in json.loads(device.read_text()):
+  gnss=sorted(target.rglob('gnss_pps.cpp.su'))
+  if len(gnss)!=1:raise ValueError('One retained GNSS PPS GCC stack-usage file required')
+  gnss_usage=gnss[0].read_text()
+ return measure((target/'sdkconfig').read_text(),files[0].read_text(),gnss_usage)
 def main():
  p=argparse.ArgumentParser(description=__doc__);p.add_argument('out',type=Path);a=p.parse_args()
  print(json.dumps(check(a.out),indent=2))

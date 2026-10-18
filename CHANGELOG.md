@@ -2,6 +2,15 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 18 October 2026 — W12 production G1 PPS diagnostics
+
+W12 **0.1.21** observes the production G1 actuator at physical PPS on the
+explicit GNSS profile. Bounded records separate relative and output-corrected
+phase, prior model availability, source permission and empirical GPS reference.
+The strict R2 metric remains distinct; no clock discipline, timing permission
+or GNSS command changes. Native stack checks cover the snapshot and callback
+paths. Offset, RF delay, BLE durability and UTC accuracy require hardware tests.
+
 ## 18 October 2026 — T096 bounded owner state storage
 
 T096 **0.15.104** stores route indices and the startup admission stage in

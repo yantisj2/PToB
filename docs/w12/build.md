@@ -78,6 +78,14 @@ lock header retains its separate relative-clock meaning. Without this explicit
 profile, the existing BLE PPS/RX/TX activity display remains available. GNSS
 inputs do not grant source authority or qualify UTC/output precision.
 
+Version 0.1.21 adds `W12_G1_PPS_SHADOW` records during bounded capture on this
+profile. They compare each physical PPS with a production G1 model that was
+available before the edge, retaining exact source scope and original deadlines.
+`relative_phase_ns` and `output_phase_ns` separate the actuator phase from its
+existing output correction. Invalid or reference-missing records remain
+explicit; the older `W12_R2_PPS_SHADOW` uses a separate strict R2 model. Neither
+metric calibrates the GNSS receiver, GPIO path or estimated relay RF timestamp.
+
 Supply the shared [display registry](../../registry/README.md)
 through the same ignored map used by T096:
 

@@ -2,6 +2,21 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 0.1.21 — 18 October 2026
+
+Add a read-only production G1 PPS diagnostic on the explicit GNSS profile.
+Capture records keep the physical raw/mapped PPS edge, prior actuator model,
+root/boot/source/train scope, original permission and model availability,
+empirical GNSS reference, and raw versus output-corrected modulo phase.
+The existing strict R2 PPS metric remains separate. Later models, uncertain
+activation, expired permission and unmapped edges remain unavailable.
+
+Keep the existing source, replay, lock, controller and output gates, GNSS input
+configuration and disabled GNSS aiding. Selected native stack evidence includes
+the new snapshot and PPS callback paths with the original reserve. These records
+support component measurements; they do not identify an RF timing bias, repair
+BLE continuity or qualify independent UTC accuracy.
+
 ## 0.1.20 — 18 October 2026
 
 Normalize every BLE100 estimated W12 publisher from its programmed packet-start
