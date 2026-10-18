@@ -2,6 +2,15 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 17 October 2026 — T096 GM renewal cadence
+
+T096 **0.15.86** requests the existing 7.5 ms cold connection cadence for direct-GM
+renewals as well. A monitored RC lost its binding after a renewal proof exceeded
+the original 250 ms reply-age limit and subsequent retries failed. Relay renewals
+retain 50 ms; source/permission validity, transaction deadlines and timing-first
+radio arbitration remain unchanged. Production policy tests cover all cold/warm
+GM/relay combinations. Hardware renewal durability remains under observation.
+
 ## 17 October 2026 — T096 relay acquisition stability
 
 T096 **0.15.85** gives an admitted relay two minutes to establish sustained usable

@@ -35,11 +35,12 @@ static inline struct rc_admission_scan rc_admission_scan(uint64_t nonce){
  return (struct rc_admission_scan){.interval=(uint16_t)(80u+nonce%81u),
   .window=(uint16_t)(16u+(nonce/81u)%17u)};
 }
-/* Cold JOIN has several dependent ATT exchanges and the unchanged <100ms
- * uncertainty gate. At15ms,120ms proof rounds fail with a40ms source bound.
- * Use the public7.5ms minimum for this short authenticated bootstrap only.
- * Same-scope renewal keeps its existing 50ms connection interval. */
-static inline unsigned rc_admission_interval(bool renewing){return renewing?40u:6u;}
+/* GM JOIN and renewal retain the250ms reply-age gate. Sparse50ms ACL events
+ * can exhaust it across dependent exchanges even while PA timing is healthy.
+ * Use the existing7.5ms cold cadence for all direct-GM transactions; relay
+ * renewals retain50ms. Precision preempts control and original bounds remain. */
+static inline unsigned rc_admission_interval(bool renewing,bool relay)
+{return renewing&&relay?40u:6u;}
 /* G1 version1's passive-client bit is not a direct GM locator. Such a peer
  * can still be considered through its separately authenticated RC7 capability.
  * This rejects unsuitable discovery, never grants source/time authority. */

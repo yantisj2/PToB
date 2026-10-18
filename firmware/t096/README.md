@@ -14,7 +14,7 @@ devices. See [the architectural background](../../docs/V12_TO_R2.md).
 **PToB owns T096 RC7 development.** The ordinary mesh profiles are **GM** and **RC**;
 USB timing support is compiled by default. [Build from source](../../docs/t096/build.md)
 using pinned public dependencies and ignored local enrollment. The current
-application version is 0.15.85. No publicly enrolled binary is distributed.
+application version is 0.15.86. No publicly enrolled binary is distributed.
 
 RC source selection gives an admitted GM 60 seconds and an admitted relay 120
 seconds to establish sustained usable time. Failed timing sources are deferred

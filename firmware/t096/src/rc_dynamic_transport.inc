@@ -1194,11 +1194,11 @@ static void lt_poll(uint64_t tick, bool window) {
     struct rc_admission_scan scan=rc_admission_scan(lt_random());
     const struct bt_conn_le_create_param *create =
         BT_CONN_LE_CREATE_PARAM(BT_CONN_LE_OPT_NONE, scan.interval, scan.window);
-    unsigned interval = rc_admission_interval(renewing);
+    unsigned interval = rc_admission_interval(renewing,parent_relay);
     r2_init_diag_snapshot(&lt_radio_before);
     int rc = bt_conn_le_create(&parent, create,
-                               /* Cold admission uses 7.5ms ACL events; the
-                                * GM proof retains its100ms uncertainty gate.
+                               /* Cold admission and direct GM renewal use
+                                *7.5ms ACL events; all proof gates remain.
                                 * Renewal never quiesces periodic timing/sync.
                                 * Original2s lifetime and1s supervision remain.
                                 */

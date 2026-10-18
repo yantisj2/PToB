@@ -372,7 +372,10 @@ owned; no wait is rearmed. Client-specific replay-anchor and
 permission-gap refresh policies must be diagnosed separately; increasing a
 lease alone cannot authorize stale output.
 
-Cold RC admission requests 7.5ms ACL events, keeping same-scope renewal at 50ms.
+Cold RC admission requests 7.5ms ACL events. From 0.15.86, direct-GM renewals
+also request 7.5ms; relay renewals retain 50ms. A failed GM renewal can otherwise
+exceed the original 250ms reply-age gate across dependent ATT exchanges despite
+live periodic timing, leaving too few successful retries before binding expiry.
 This gives the dependent JOIN exchanges more opportunities to meet the unchanged
 100ms initial coarse-uncertainty gate. Each attempt randomizes a finite scan
 interval (50–100ms) and window (10–20ms), preserving the split controller's

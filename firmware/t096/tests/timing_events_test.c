@@ -22,7 +22,8 @@ int main(void){
   struct rc_admission_scan scan=rc_admission_scan(n);
   assert(scan.interval>=80&&scan.interval<=160&&scan.window>=16&&scan.window<=32&&scan.window<scan.interval);
  }
- assert(rc_admission_interval(false)==6&&rc_admission_interval(true)==40);
+ assert(rc_admission_interval(false,false)==6&&rc_admission_interval(false,true)==6);
+ assert(rc_admission_interval(true,false)==6&&rc_admission_interval(true,true)==40);
  char json[512];
  assert(r2_timing_json(json,sizeof json,1,0)>0&&strstr(json,"\"found\":false"));
  fake_ms=(INT64_C(1)<<33)+15;
