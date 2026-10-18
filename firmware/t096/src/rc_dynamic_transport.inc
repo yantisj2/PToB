@@ -106,8 +106,11 @@ static void lt_retry_after(uint64_t tick,int result,unsigned reason) {
   unsigned attempt=lt_attempts;
   bool batch=attempt>=3;
   bool warm=startup_admitted;
-  uint64_t delay=(warm?rc_admission_warm_retry_us(lt_random()):
-      rc_admission_retry_us(attempt,lt_random()))*16;
+  const uint64_t nonce=lt_random();
+  uint64_t delay=(warm&&parent_relay&&timing.bound?
+      rc_admission_relay_retry_us(nonce,tick,timing.context_until):
+      warm?rc_admission_warm_retry_us(nonce):
+      rc_admission_retry_us(attempt,nonce))*16;
   lt_renew_at=tick+delay;
   if(batch){lt_attempts=0;lt_budget_until=lt_renew_at;}
   r2_timing_event(R2_TIMING_RC_RETRY,result,
@@ -826,7 +829,7 @@ static void lt_apply_read(const struct rc7_control *c) {
                              c->path.node[c->path.depth].epoch);
       }
     }
-    lt_renew_at = tick + (bound ? RC5_RENEW_TICKS : 16000000);
+    lt_renew_at = tick + (bound ? rc_admission_relay_renew_ticks() : 16000000);
     if (bound) {
       lt_attempts = 0;
       lt_budget_until = 0;

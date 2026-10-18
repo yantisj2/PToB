@@ -125,3 +125,16 @@ Use `--registry artifacts/local/registry.json` to compile your deployment’s sh
 [name map](../../registry/README.md). The default is the synthetic public example.
 Keep the real map ignored, alongside local enrollment; the receipt records its
 hash and preserves a private build snapshot.
+
+Version 0.15.100 adds transport-only RC loss retention and earlier RC7 renewal.
+Run the combined production policy and publication regressions with:
+
+```sh
+CC=clang python3 firmware/t096/tools/rc_relay_renewal_tests.py --deps artifacts/t096-deps --out artifacts/check-relay-renewal
+CC=clang python3 firmware/t096/tools/rc_transport_hold_tests.py --deps artifacts/t096-deps --out artifacts/check-transport-hold
+```
+
+The full host runner includes both. A retained periodic train carries no timing
+corrections while the existing timing gates are invalid; it cannot extend a
+child lease, source, map or authentication deadline. Build/native inspection and
+actual protected-region/application readback remain separate hardware gates.

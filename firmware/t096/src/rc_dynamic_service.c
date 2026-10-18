@@ -15,6 +15,7 @@
 #include "rc_field_policy.h"
 #include "rc_gm_adapter.h"
 #include "rc_admission_policy.h"
+#include "rc_transport_hold.h"
 #include "rc_shadow.h"
 #include "rc_slots.h"
 #include "rc_stream_quality.h"
@@ -42,6 +43,7 @@ static bool transmitter, exclude_direct;
 static uint64_t self_identity, forced_parent;
 static uint64_t local_boot;
 static bool stop(void);
+static struct rc_transport_hold downstream_hold;
 static void slot_hint_update(void);
 static uint64_t last_context_progress;
 static struct r2_link_quality delivery;
@@ -344,15 +346,16 @@ static bool set_local_slot(uint8_t slot) {
   parent_slot_delta_ns = (slot - routes.node[parent_index].slot) * 15625000;
   return true;
 }
+static bool precision_synced(uint64_t tick);
 static bool downstream_ready(uint64_t tick) {
   struct rc5_stamp st;
-  return running && phase_admitted && sent_count && tx &&
+  return running && precision_synced(tick) && phase_admitted && sent_count && tx &&
          rc5_clock_capture(&local_clock, &timing, tick, &st) &&
          st.ns < current_origin.expires;
 }
-/* Discovery must not recruit children before this RC has a usable precision
- * clock. Do not require downstream publication/demand: that would deadlock
- * discovery of an otherwise synchronized idle relay. */
+/* Precision/READY authority is independent of transport/discovery presence.
+ * Do not require downstream publication/demand: an otherwise synchronized
+ * idle relay still has a usable clock. */
 static bool precision_synced(uint64_t tick) {
   /* RX processing can install a map/discipline capture newer than the owner's
    * loop-start sample. Judge advertising at a fresh physical capture, never
@@ -529,6 +532,7 @@ static void parent_handoff_reset(void) {
   fit = (struct rc5_rate_fit){0};
   local_clock = (struct rc5_clock){.hold_ticks = RC_FIELD_HOLD_TICKS};
   upstream_path = publication_path = (struct rc7_path){0};
+  rc_transport_hold_clear(&downstream_hold);
   current_origin = (struct rc5_origin){0};
   memset(current_proof, 0, sizeof current_proof);
   sent_count = 0;
@@ -939,7 +943,8 @@ static void publish(void) {
                                   .epoch = capture_epoch};
   memcpy(published.proof, current_proof, 16);
   struct rc5_stamp st;
-  bool permitted = rc5_clock_capture(&local_clock, &timing, now.tick, &st) &&
+  bool permitted = precision_synced(now.tick) &&
+                   rc5_clock_capture(&local_clock, &timing, now.tick, &st) &&
                    st.ns < current_origin.expires;
   for (unsigned i = 0; permitted && !holdover_expired && i < sent_count; i++)
     published.correction[published.count++] = sent[i];
@@ -997,25 +1002,45 @@ static void start(void) {
   running = true;
   check(!bt_le_ext_adv_start(pa, BT_LE_EXT_ADV_START_DEFAULT),
         "extended start");
+  (void)rc_transport_hold_update(&downstream_hold,now.tick,true,true);
   slot_hint_update();
 }
 static bool stop(void) {
-  if (!running)
+  if (!running) {
+    rc_transport_hold_clear(&downstream_hold);
     return true;
+  }
   int extended = bt_le_ext_adv_stop(pa), periodic = bt_le_per_adv_stop(pa);
   bool closed = !extended && !periodic;
   check(closed, "PA owners stopped");
   if (closed) {
     running = false;
+    rc_transport_hold_clear(&downstream_hold);
     start_prepared = false;
     slot_hint_update();
   }
   return closed;
 }
 static bool advertising_withdraw(uint64_t tick) {
-  if(!running||precision_synced(tick))return true;
+  if(!running){rc_transport_hold_clear(&downstream_hold);return true;}
+  const bool timing_live=precision_synced(tick);
+  struct r2_capture current;
+  bool observed=r2_capture_now(&current);
+  if(observed)tick=current.tick;
+  // Cleared parent/reference scope cannot retain its old train. Ordinary map,
+  // source or authentication expiry leaves the reference for count0 transport
+  // only; its time/READY/USB gates remain independently invalid.
+  bool same_scope=parent_known&&timing.reference.valid&&current_origin.root&&
+      current_origin.boot==timing.root_boot&&current_origin.epoch==timing.root_epoch;
+  if(observed&&same_scope&&rc_transport_hold_update(&downstream_hold,tick,true,timing_live)){
+    if(!timing_live){
+      sent_count=0;usable_tx_from=tick;
+      if(published.count)publish();
+    }
+    return !atomic_get(&fault);
+  }
   r2_timing_event(R2_TIMING_RC_PHASE,4,phase_rx,train,
-                  holdover_expired,(uint32_t)((tick-discipline_at)/16));
+                  holdover_expired,tick>=discipline_at?(uint32_t)((tick-discipline_at)/16):UINT32_MAX);
   if(!stop())return false;
   sent_count=0;
   phase_admitted=start_prepared=awaiting_first_tx=false;
@@ -1024,6 +1049,14 @@ static bool advertising_withdraw(uint64_t tick) {
   if(train==UINT32_MAX){check(false,"unsynced train exhausted");return false;}
   ++train;
   return true;
+}
+static bool publication_demand_poll(uint64_t tick){
+  if(!running||rc5_demand_live(&lt_demand,tick/16))return true;
+  r2_timing_event(R2_TIMING_RC_PHASE,5,phase_rx,train,0,0);
+  if(!stop())return false;
+  sent_count=0;
+  if(train==UINT32_MAX){check(false,"train exhausted");return false;}
+  ++train;return true;
 }
 /* Report inherited-source permission separately from the500ms correction
  * hold. Unknown projection/capture never becomes inferred expiry or authority. */
@@ -1241,7 +1274,7 @@ static void captures(struct r2_capture now) {
       bool usable = false;
       {
         struct rc5_stamp st;
-        usable = phase_admitted && !holdover_expired &&
+        usable = precision_synced(now.tick) && phase_admitted && !holdover_expired &&
                  physical.tick >= usable_tx_from &&
                  rc5_clock_capture(&local_clock, &timing, physical.tick, &st) &&
                  st.ns < packet.origin.expires;
@@ -1484,6 +1517,7 @@ static void snapshot_publish(struct r2_capture now) {
   status.peer_delivery_confirmed = lt_responses > 0;
   status.service_receipts = lt_bindings;
   status.precision.accepted = timing.accepted;
+  status.precision.rejected = status.rejected;
   status.precision.map_valid = valid;
   status.precision.authorized = valid;
   status.precision.locked = valid && fit.valid && stamp.pll_tracking;
@@ -1621,16 +1655,7 @@ static void owner(void *a, void *b, void *c) {
     /* Phase 1: RC owners and diagnostic leaf listen continuously. */
     bool window = true;
     lt_guard(now.tick, window);
-    if(!advertising_withdraw(now.tick))continue;
-    if (running && !rc5_demand_live(&lt_demand, now.tick / 16)) {
-      r2_timing_event(R2_TIMING_RC_PHASE,5,phase_rx,train,0,0);
-      stop();
-      sent_count = 0;
-      if (train == UINT32_MAX)
-        check(false, "train exhausted");
-      else
-        ++train;
-    }
+    if(!publication_demand_poll(now.tick)||!advertising_withdraw(now.tick))continue;
     bool admitted = upstream_admitted(now.tick);
     if (node && scanning && !lt_conn && lt_live(now.tick) && admitted && found &&
         !creating && !sync) {
@@ -1962,6 +1987,7 @@ int r2_service_configure(const struct r2_identity *id,
   receiver = (struct rc7_receiver){0};
   upstream_path = (struct rc7_path){0};
   publication_path = (struct rc7_path){0};
+  rc_transport_hold_clear(&downstream_hold);
   fit = (struct rc5_rate_fit){0};
   local_clock = (struct rc5_clock){.hold_ticks = RC_FIELD_HOLD_TICKS};
   delivery = (struct r2_link_quality){0};

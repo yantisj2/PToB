@@ -7,6 +7,8 @@
 #include "rc_dynamic.h"
 #include "rc_gm_adapter.h"
 #include "rc_stream_quality.h"
+#include "rc_transport_hold.h"
+static struct rc_transport_hold downstream_hold;
 static struct rc7_receiver receiver;
 static struct rc5_gm_context gm_context;
 static struct r2_link_quality delivery;
@@ -43,7 +45,9 @@ int main(void){
  discipline_at=phase_rx=requested=restart_at=start_delay=upstream_retry_at=123;
  receiver.clock.bound=true;local_clock.count=2;sent_count=2;lt_attempts=3;current_origin.expires=100;
  memset(current_proof,1,sizeof current_proof);
+ downstream_hold=(struct rc_transport_hold){.deadline=100,.recovered=50,.last=60,.armed=true};
  parent_handoff_reset();
+ assert(!downstream_hold.armed&&!downstream_hold.deadline&&!downstream_hold.recovered&&!downstream_hold.last);
  assert(!parent_ineligible);
  assert(!lt_acquiring&&!lt_paused&&!phase_admitted&&!start_prepared&&!awaiting_first_tx&&!holdover_expired&&!fit_rms_valid);
  assert(!discipline_at&&!phase_rx&&!requested&&!restart_at&&!start_delay&&!upstream_retry_at&&!receiver.clock.bound&&!local_clock.count&&!sent_count&&!lt_attempts&&!current_origin.expires);

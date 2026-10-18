@@ -2,7 +2,17 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
-## 18 October 2026 — T096 watchdog and automatic relay fallback
+## 18 October 2026 — T096 relay continuity and recovery
+
+T096 **0.15.100** retains an established RC downstream train through an observed
+loss for up to 30 seconds, sending canonical no-correction packets while time
+is invalid. It preserves original child leases, source/authentication expiry,
+500 ms precision validity and controller ownership. Two seconds of observed
+recovery clear the loss episode; flicker cannot renew it. Earlier four-minute
+RC7 authentication renewal and deadline-aware retries reserve time before the
+original six-minute expiry. Actual-worker/codec/matcher sanitizer regressions
+retain failure and negative-control populations. The precision rejection counter now carries the actual wire-plus-timing total.
+Hardware continuity, timing bias and UTC accuracy require separate observations.
 
 T096 **0.15.99** separates intermittent timing progress from watchdog failure.
 RC recovery now requires 30 minutes without usable timing. A usable observation

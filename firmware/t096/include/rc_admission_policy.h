@@ -20,9 +20,27 @@ static inline uint64_t rc_admission_warm_retry_us(uint64_t nonce)
  * time for two failed bounded exchanges under the rolling two-start budget.
  * Reserve two minutes for retries; this requests fresh authentication earlier
  * and never extends an existing binding or grants source/precision authority.
- * Relay renewal retains its separate existing300s schedule. Units:16MHz. */
+ * Units:16MHz. */
 static inline uint64_t rc_admission_gm_renew_ticks(void)
 {return UINT64_C(3840000000);}
+/* Relay authentication has the same360s ceiling and rolling start budget.
+ * Reserve two minutes there too; earlier authentication grants no time. */
+static inline uint64_t rc_admission_relay_renew_ticks(void)
+{return UINT64_C(240000000)*16;}
+/* Warm same-parent RC7 renewal only. Reserve the original2s exchange plus1s
+ * for scheduling/cleanup, without extending either deadline. The independent
+ * two-start/60s and20s minimum start spacing remain the final start gate.
+ * After expiry seek fresh authentication at the earliest allowed start; an
+ * expired context never becomes usable because a retry is scheduled. */
+static inline uint64_t rc_admission_relay_retry_us(uint64_t nonce,uint64_t tick,
+                                                   uint64_t context_until){
+ uint64_t delay=rc_admission_warm_retry_us(nonce);
+ if(context_until<=tick)return 0;
+ uint64_t remaining=(context_until-tick)/16;
+ if(remaining<=UINT64_C(3000000))return 0;
+ uint64_t latest=remaining-UINT64_C(3000000);
+ return delay<latest?delay:latest;
+}
 /* Absolute start history, retained across warm retries and parent changes. */
 static inline bool rc_admission_start_allowed(const uint64_t starts[2],uint64_t tick){
  if(starts[1]&&tick<starts[1])return false;

@@ -664,3 +664,13 @@ metadata; the displayed mean is phase, not a rate measurement. Unknown PPS/UTC
 association and uncalibrated RF timestamp origins remain explicit. Displayed
 upper-tail percentiles use approximate histogram bins above 1023 ns; signed
 mean and maximum retain the underlying usable session samples.
+
+Version **0.15.100** retains an already running RC periodic train for up to
+30 seconds through timing loss. Canonical count-zero packets preserve radio
+synchronization while READY, correction, map, USB and output authority remain
+withdrawn. Original source/authentication/child-lease deadlines are unchanged.
+The RC-serving badge still requires current usable time; activity lamps blink
+by design and are separate from precision status. `precision.rejected` now
+reports the same wire-plus-timing rejection total as `network.rejected`.
+Earlier RC99 precision payloads left this field unpopulated; their zero values
+are not evidence of zero rejections. Retain source/version and counter scope.

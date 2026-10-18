@@ -14,7 +14,18 @@ devices. See [the architectural background](../../docs/V12_TO_R2.md).
 **PToB owns T096 RC7 development.** The ordinary mesh profiles are **GM** and **RC**;
 USB timing support is compiled by default. [Build from source](../../docs/t096/build.md)
 using pinned public dependencies and ignored local enrollment. The current
-application version is 0.15.99. No publicly enrolled binary is distributed.
+application version is 0.15.100. No publicly enrolled binary is distributed.
+
+Version 0.15.100 retains an established downstream periodic train for up to
+30 seconds through a timing interruption. It sends canonical packets with no
+corrections while timing is invalid; READY, USB/output permission and precision
+remain withdrawn. Original child leases and source/authentication deadlines do
+not move. Two seconds of observed timing recovery reset the loss window;
+startup, source/path changes, demand expiry, stop and faults retain their gates.
+RC7 renewal starts at four minutes with retry backoff bounded by the remaining
+original context, preserving the six-minute context and rolling start budget.
+These changes address transport churn and avoidable renewal gaps; they do not
+qualify RF range or absolute precision.
 
 Version 0.15.99 gives RC selection 30 minutes without usable timing before
 watchdog recovery. Each usable observation refreshes that loss deadline;
