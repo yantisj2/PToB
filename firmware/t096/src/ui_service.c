@@ -156,20 +156,29 @@ static void worker(void *a,void *b,void *c)
   if(saver!=status.screensaver){status.screensaver=saver;saver_since=now;saver_period=0;status.screensaver_position=0;due=now;}
   if(move){status.screensaver_position=(uint8_t)r2_ui_saver_next(status.screensaver_position,random);saver_period=period;due=now;}
   if(!saver)status.screensaver_position=0;
+  uint64_t sync_due=status.sync_display.loss_ms?status.sync_display.loss_ms+500:0;
+  r2_ui_sync_display_update(&status.sync_display,&shadow_model,now,false);
+  if(status.sync_display.loss_ms&&status.sync_display.loss_ms+500<due)due=status.sync_display.loss_ms+500;
+  if(sync_due&&now>=sync_due)due=now;
   shadow_status=status;k_spin_unlock(&lock,key);
   shadow_tick(&shadow_model,&shadow_status,now,!rc);
   if(!rc&&now>=due){
-   struct r2_ui_model m;struct r2_ui_status s;key=k_spin_lock(&lock);m=model;s=status;k_spin_unlock(&lock,key);
+   struct r2_ui_model m;struct r2_ui_status s;key=k_spin_lock(&lock);m=model;r2_ui_sync_display_update(&status.sync_display,&m,now,false);s=status;k_spin_unlock(&lock,key);
    s.screensaver=s.screensaver&&r2_ui_saver_allowed(&m,now);
    m.temperature_valid=!r2_display_temperature(&m.temperature_qc);
    r2_ui_render(framebuffer,&m,&s,now);rc=r2_display_frame(framebuffer);
    if(!rc)rc=r2_display_brightness(s.screensaver?50:100);
    uint64_t end=k_uptime_get();key=k_spin_lock(&lock);
    if(!rc){
+    r2_ui_sync_display_update(&status.sync_display,&m,now,s.page==0&&!s.help&&r2_ui_analog(&m,now));
     status.drawn_screensaver=s.screensaver;status.drawn_screensaver_position=s.screensaver_position;
     memset(status.drawn_lamps,0,sizeof status.drawn_lamps);
     if(s.page==1&&!s.screensaver)r2_ui_rf_lamps(status.drawn_lamps,&m,now);
     add(&status.frames);status.ready=true;status.drawn_page=s.page;status.analog=r2_ui_face_locked(&m,now);status.last_frame_ms=(uint32_t)end;status.drawn_model_ms=m.sampled_ms;bool fresh=now>=m.sampled_ms&&now-m.sampled_ms<=2500&&(!m.ble_time_selected||r2_ui_ble_current(&m,now));status.drawn_scope=fresh&&m.scope_active;status.drawn_role=status.drawn_scope?m.role:R2_UI_NO_ROLE;status.drawn_ble=fresh&&r2_ui_ble_current(&m,now);status.drawn_pps=fresh&&m.follower_pps_valid;status.drawn_map=fresh&&m.precision.map_valid;status.drawn_time=r2_ui_display_time(&m,now,&status.drawn_utc_us,&status.drawn_coarse);}
+   if(!rc){
+    status.drawn_sync_grace=r2_ui_sync_display_time(&s.sync_display,&m,now,&status.drawn_utc_us);
+    if(status.drawn_sync_grace)status.drawn_time=status.drawn_coarse=true;
+   }
    uint32_t elapsed=(uint32_t)(end-now);if(elapsed>status.max_frame_ms)status.max_frame_ms=elapsed;
    unsigned cadence=s.page==1&&!s.screensaver?125:250;
    if(end>=due+cadence)add(&status.missed);

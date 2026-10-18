@@ -2,6 +2,15 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 18 October 2026 — T096 Syncing display delay
+
+T096 **0.15.98** delays the transition from an already displayed RC analog clock
+to Syncing until timing loss lasts 500 ms. The face advances from its last
+display sample during that interval; repeated bad samples cannot move the loss
+deadline. Startup has no grace. Profile changes, transport withdrawal and stale
+observations cancel the cache. The display delay does not extend source/map
+validity, precision lock, USB output, relay service or screensaver permission.
+
 ## 18 October 2026 — T096 tolerant relay field candidate
 
 T096 **0.15.97** collects ten seconds of host-owned discovery exposure with a

@@ -422,6 +422,15 @@ advisory and do not prove an RF collision.
 
 ### RC parent selection and relay dwell
 
+Version **0.15.98** adds a separate 500 ms presentation delay before an already
+displayed RC analog face changes to Syncing. A short loss advances the cached
+display time while the live timing/lock indicators follow their actual gates.
+The cache does not arm during startup or grant USB/relay/precision permission.
+Continuous loss has one fixed deadline; changing profiles, withdrawing transport
+or observing a stale/backward model cancels it. Diagnostic `display_time` marks
+the cached face as coarse, while `ui` analog eligibility and `ui_input` map/role
+fields continue reporting current validity.
+
 The current **0.15.97 field candidate** changes selection and management
 discovery as follows. These defaults need field validation.
 

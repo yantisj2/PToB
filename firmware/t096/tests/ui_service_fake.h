@@ -24,9 +24,28 @@ static uint64_t starts[64];
 static uint8_t retained[R2_UI_BYTES];static const uint8_t *retained_fb;static bool buffer_changed;
 static uint64_t first_saver;static unsigned saver_positions;static bool dim_seen,awake_after_dim;
 static unsigned random_calls;static uint64_t random_at[32];
+static unsigned sync_grace_frames;static bool sync_long_expired,sync_recovered;
+static struct r2_ui_model sync_model(uint64_t now){
+ bool loss=(now>=1000&&now<1200)||(now>=1800&&now<2600);
+ struct r2_ui_model m={.sampled_ms=now,.unit="TC-04",.platform_ready=true,
+  .profile_supported=true,.profile_rc=true,.boundary_clock=true,.ble_active=true,
+  .role=loss?R2_UI_NO_ROLE:R2_UI_FOLLOWER,.scope_active=!loss,.authenticated_gm=!loss,
+  .ble_time_selected=!loss,.ble_valid_until_us=(now+50)*1000,.sync_attempt=loss,
+  .clock={.valid=!loss,.utc_us=1792340000000000LL+(int64_t)now*1000},
+  .precision={.map_valid=!loss,.authorized=!loss,.locked=!loss}};
+ return m;
+}
 static uint32_t sys_rand32_get(void){assert(random_calls<32);random_at[random_calls]=fake_now;++random_calls;return 1;}
 static int64_t k_uptime_get(void){return fake_now;}
 static void k_sleep(unsigned ms){fake_now+=ms;
+ if(mode==34){
+  struct r2_ui_status s;r2_ui_snapshot(&s);
+  if(s.drawn_sync_grace){assert(!s.analog&&s.drawn_time&&s.drawn_coarse&&!s.drawn_map);++sync_grace_frames;}
+  if(s.last_frame_ms>=2350&&s.last_frame_ms<2600){assert(!s.drawn_time&&!s.drawn_sync_grace);sync_long_expired=true;}
+  if(s.last_frame_ms>=2750&&s.analog&&s.drawn_time&&!s.drawn_sync_grace)sync_recovered=true;
+  struct r2_ui_model m=sync_model(fake_now);r2_ui_publish(&m);
+  if(fake_now>=3200)r2_ui_stop();return;
+ }
  if(mode>=16){
   struct r2_ui_model m={.sampled_ms=fake_now,.unit="TC-02",.platform_ready=true,
    .scope_active=true,.ble_active=true,.profile_supported=true,.role=R2_UI_GM,.gm_source_fresh=true,

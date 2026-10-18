@@ -149,6 +149,32 @@ bool r2_ui_display_time(const struct r2_ui_model *m,uint64_t now,int64_t *utc,bo
     m->coarse_utc_us>INT64_MAX||now*1000-m->coarse_at_us>(uint64_t)INT64_MAX-m->coarse_utc_us)return false;
  *utc=(int64_t)(m->coarse_utc_us+now*1000-m->coarse_at_us);*coarse=true;return true;
 }
+static bool sync_display_context(const struct r2_ui_model *m,uint64_t now){
+ return m->profile_supported&&m->profile_rc&&m->boundary_clock&&
+   !m->profile_switching&&m->platform_ready&&m->ble_active&&
+   now>=m->sampled_ms&&now-m->sampled_ms<=2500;
+}
+void r2_ui_sync_display_update(struct r2_ui_sync_display *c,const struct r2_ui_model *m,uint64_t now,bool drawn){
+ if(!sync_display_context(m,now)||(c->at_ms&&now<c->at_ms)){
+  *c=(struct r2_ui_sync_display){0};return;
+ }
+ int64_t utc;bool coarse;
+ if(r2_ui_analog(m,now)&&r2_ui_display_time(m,now,&utc,&coarse)){
+  /* Startup gets no grace until an actual analog frame has completed. */
+  if(drawn||c->at_ms)*c=(struct r2_ui_sync_display){.utc_us=utc,.at_ms=now};
+ }else if(c->at_ms){
+  if(!c->loss_ms)c->loss_ms=now;
+  /* One original loss deadline; repeated bad models cannot move it. */
+  if(now<c->loss_ms||now-c->loss_ms>=500)*c=(struct r2_ui_sync_display){0};
+ }
+}
+bool r2_ui_sync_display_time(const struct r2_ui_sync_display *c,const struct r2_ui_model *m,uint64_t now,int64_t *utc){
+ if(!sync_display_context(m,now)||!c->at_ms||!c->loss_ms||now<c->at_ms||
+    now<c->loss_ms||now-c->loss_ms>=500||c->utc_us<0)return false;
+ uint64_t delta=now-c->at_ms;
+ if(delta>(uint64_t)(INT64_MAX-c->utc_us)/1000)return false;
+ *utc=c->utc_us+(int64_t)(delta*1000);return true;
+}
 static void rc_age(char out[12],uint32_t ms){
  if(ms==UINT32_MAX)snprintf(out,12,"--");else if(ms<1000)snprintf(out,12,"%ums",ms);
  else if(ms<1000000)snprintf(out,12,"%us",ms/1000);else snprintf(out,12,">999s");
@@ -182,8 +208,11 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
  ui_snapshot_t s={0};
  s.unit_name=m->unit;s.page=status->page;s.rf_help=status->help;
  bool face_locked=r2_ui_face_locked(m,now);
+ int64_t grace_utc=0;
+ bool sync_grace=r2_ui_sync_display_time(&status->sync_display,m,now,&grace_utc);
+ bool face_visible=face_locked||sync_grace;
  bool follower_face=face_locked&&m->role!=R2_UI_GM&&!m->boundary_clock;
- s.native_boundary_clock=m->boundary_clock;s.native_boundary_held=m->rc_source_held;
+ s.native_boundary_clock=m->boundary_clock;s.native_boundary_held=m->rc_source_held||sync_grace;
  s.native_profile_supported=m->profile_supported;s.native_profile_rc=m->profile_rc;
  s.native_rc_serving_clients=m->profile_rc&&!m->profile_switching&&fresh&&
      m->ble_active&&r2_ui_ble_current(m,now)&&m->rc_serving_clients;
@@ -195,12 +224,13 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
  if(s.native_rms_valid&&m->precision.rms_ns>9999999)snprintf(s.native_rms,sizeof(s.native_rms),">9999 us");
  s.die_temperature_valid=model_fresh&&m->temperature_valid;
  s.die_temperature_c=m->temperature_qc/4;
- s.gnss_native_health=true;s.native_served_time=face_locked||(fresh&&m->clock.valid);
- s.native_analog_eligible=face_locked;
- s.native_ble_time=(face_locked&&m->role!=R2_UI_GM)||(fresh&&m->ble_time_selected);
+ s.gnss_native_health=true;s.native_served_time=face_visible||(fresh&&m->clock.valid);
+ s.native_analog_eligible=face_visible;
+ s.native_ble_time=(face_visible&&m->role!=R2_UI_GM)||(fresh&&m->ble_time_selected);
  s.native_hot_standby=fresh&&m->scope_active&&m->role==R2_UI_FOLLOWER&&m->local_hot_standby&&m->precision.authorized&&m->precision.map_valid;
  int64_t display_utc=0;bool coarse=false;
  s.utc_valid=r2_ui_display_time(m,now,&display_utc,&coarse);
+ if(sync_grace){s.utc_valid=true;display_utc=grace_utc;coarse=true;}
  s.utc_second=s.utc_valid?(uint32_t)(display_utc/1000000):0;
  s.subsecond_quarter=s.utc_valid?(display_utc%1000000)/250000:0;
  s.state=!s.utc_valid?CLOCK_NO_TIME:s.native_analog_eligible?CLOCK_LOCKED:CLOCK_ACQUIRING;
@@ -223,7 +253,7 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
  s.native_rx_known=model_fresh&&m->ble_active&&m->ble_reception_valid;
  if(s.native_rx_known&&m->ble_rx_age_ms<1500&&now-m->sampled_ms<1500-m->ble_rx_age_ms)
   s.native_rx_bars=m->ble_delivery_per_mille>=900?4:m->ble_delivery_per_mille>=750?3:m->ble_delivery_per_mille>=500?2:m->ble_delivery_per_mille?1:0;
- if(settling||(face_locked&&m->role!=R2_UI_GM)||(fresh&&m->role==R2_UI_FOLLOWER&&m->scope_active))
+ if(settling||(face_visible&&m->role!=R2_UI_GM)||(fresh&&m->role==R2_UI_FOLLOWER&&m->scope_active))
   snprintf(s.ui_role.header,sizeof(s.ui_role.header),"%s>%.8s",m->unit,m->relay_selected?m->upstream_name:m->root_name);
  else snprintf(s.ui_role.header,sizeof(s.ui_role.header),"%s",m->unit);
  /* DC displays the standard USB client sampling rate. The existing dial

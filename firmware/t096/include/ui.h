@@ -59,7 +59,9 @@ struct r2_ui_model {
  bool ble_reception_valid;
  bool rc_serving_clients; /* Display-only actual downstream service, never GM authority. */
 };
-struct r2_ui_status { uint8_t drawn_lamps[8]; uint64_t profile_flash_until;bool profile_target_rc;uint32_t profile_toggles; uint64_t drawn_model_ms;unsigned drawn_role;uint32_t poll_max_ms;bool drawn_scope,drawn_ble,drawn_pps,drawn_map;bool drawn_time,drawn_coarse;int64_t drawn_utc_us;uint32_t frames,missed,buttons,max_frame_ms,last_frame_ms; int error; unsigned page,drawn_page; bool ready,stopped,analog,help,poweroff; bool screensaver,drawn_screensaver;uint8_t screensaver_position,drawn_screensaver_position,brightness_percent; int16_t temperature_qc; bool temperature_valid; struct r2_shadow_session_view shadow; };
+/* Presentation cache only. No timing owner consumes this 500ms loss delay. */
+struct r2_ui_sync_display {int64_t utc_us;uint64_t at_ms,loss_ms;};
+struct r2_ui_status { uint8_t drawn_lamps[8]; uint64_t profile_flash_until;bool profile_target_rc;uint32_t profile_toggles; uint64_t drawn_model_ms;unsigned drawn_role;uint32_t poll_max_ms;bool drawn_scope,drawn_ble,drawn_pps,drawn_map;bool drawn_time,drawn_coarse,drawn_sync_grace;int64_t drawn_utc_us;uint32_t frames,missed,buttons,max_frame_ms,last_frame_ms; int error; unsigned page,drawn_page; bool ready,stopped,analog,help,poweroff; bool screensaver,drawn_screensaver;uint8_t screensaver_position,drawn_screensaver_position,brightness_percent; int16_t temperature_qc; bool temperature_valid; struct r2_shadow_session_view shadow; struct r2_ui_sync_display sync_display; };
 void r2_ui_identity_name(char out[25],uint64_t identity,const char *authenticated_name);
 void r2_ui_select_ble_time(struct r2_ui_model *m,uint64_t utc,uint64_t sampled_us,uint64_t now_us,uint64_t valid_until,bool valid);
 bool r2_ui_ble_current(const struct r2_ui_model *m,uint64_t now_ms);
@@ -67,6 +69,8 @@ bool r2_ui_face_locked(const struct r2_ui_model *,uint64_t now_ms);
 bool r2_ui_saver_allowed(const struct r2_ui_model *,uint64_t now_ms);
 bool r2_ui_analog(const struct r2_ui_model *m,uint64_t now);
 bool r2_ui_display_time(const struct r2_ui_model *,uint64_t now_ms,int64_t *utc_us,bool *coarse);
+void r2_ui_sync_display_update(struct r2_ui_sync_display *,const struct r2_ui_model *,uint64_t now_ms,bool analog_drawn);
+bool r2_ui_sync_display_time(const struct r2_ui_sync_display *,const struct r2_ui_model *,uint64_t now_ms,int64_t *utc_us);
 void r2_ui_reception(struct r2_ui_model *,const struct r2_link_quality_view *,uint64_t now_us);
 /* Recent actual activity blinks4Hz on the8Hz RF page; no RF-rate claim. */
 void r2_ui_rf_lamps(uint8_t out[8],const struct r2_ui_model *,uint64_t now_ms);

@@ -14,7 +14,14 @@ devices. See [the architectural background](../../docs/V12_TO_R2.md).
 **PToB owns T096 RC7 development.** The ordinary mesh profiles are **GM** and **RC**;
 USB timing support is compiled by default. [Build from source](../../docs/t096/build.md)
 using pinned public dependencies and ignored local enrollment. The current
-application version is 0.15.97. No publicly enrolled binary is distributed.
+application version is 0.15.98. No publicly enrolled binary is distributed.
+
+Version 0.15.98 keeps an already displayed RC analog clock visible through up
+to 500 ms of continuous timing loss before showing Syncing. This presentation
+cache starts only after an analog frame has completed. Repeated invalid updates
+cannot renew it; startup, profile changes and transport withdrawal get no grace.
+Source/map expiry, lock, precision indicators, USB output and relay service keep
+their existing gates.
 
 The 0.15.97 RC field candidate collects ten seconds of host-owned discovery
 exposure, with a 60-second search ceiling. Host ownership is not measured RF
