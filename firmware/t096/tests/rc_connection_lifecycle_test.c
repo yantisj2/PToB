@@ -71,6 +71,12 @@ static void seed(void){
 static void queue_connected(unsigned slot){pool[slot].refs=1;pool[slot].active=true;put(LT_CONNECTED,&pool[slot],0);}
 static void balanced(void){assert(!lt_events.count&&!lt_adv);for(unsigned i=0;i<CONFIG_BT_MAX_CONN;++i)assert(!pool[i].refs&&!pool[i].active&&!pool[i].initiating&&!lt_retired[i].conn);assert(lt_reset());}
 int main(void){
+ /* A value handle belongs to one ACL. Reconnection must rediscover it, while
+  * retaining the original transaction budget and callback ownership. */
+ seed();pool[0]=(struct bt_conn){.refs=1,.active=true};lt_conn=&pool[0];
+ lt_phase=LT_CONNECT;lt_handle=42;lt_cap_retries=3;lt_deadline=32000000;
+ lt_apply_connected(&pool[0],0);
+ assert(lt_phase==LT_MTU&&!lt_handle&&!lt_cap_retries&&lt_deadline==32000000);
  /* A busy initial relay capability is retried on the same live ACL, with a
   * finite count and the ORIGINAL transaction deadline. All other errors close. */
  seed();pool[0].active=true;lt_conn=&pool[0];parent_relay=true;lt_phase=LT_CAP;

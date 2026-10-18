@@ -57,7 +57,55 @@ static void sample(unsigned seconds,bool flicker) {
   delivery_tick(fake_now,fake_now);
  }
 }
+static void scan_collection_cases(void) {
+ // Retain a strong observation from the start of the full scan, rather than
+ // selecting whichever weaker advertiser happens to precede the final poll.
+ clear();startup_attempted=relay_fallback=true;
+ seen(22,true,true,-30,1000000);seen(33,true,true,-80,3900000);
+ CHECK(!choose(3999999)&&choose(4000000)==22);
+ CHECK(choose(5000000)==33); // earliest locator now exceeds the4s horizon
+ // Each selection/refusal starts a new collection, independent of uptime.
+ candidate_defer(33,5000000);CHECK(!candidate_since);
+ parent_known=true;relay_fallback=false;parent_relay=true;routes.node[0].id=33;
+ seen(44,true,true,-25,6000000);CHECK(!candidate_since&&!choose(6000000));
+ parent_known=false;relay_fallback=true;
+ seen(22,true,true,-80,7000000);CHECK(!choose(7040000));
+ seen(44,true,true,-25,9900000);CHECK(choose(10000000)==44);
+ // An empty/deferred scan cannot give the next first arrival an immediate win.
+ clear();startup_attempted=relay_fallback=true;
+ seen(22,true,true,-20,1000000);rc_stream_failed(&stream_history,22,true,1000000);
+ CHECK(!choose(4000000)&&!candidate_since);
+ seen(33,true,true,-80,5000000);CHECK(!choose(5040000));
+ seen(44,true,true,-30,7900000);CHECK(choose(8000000)==44);
+ // RSSI is independent of advertisement order, old history and publishing bonus.
+ static const unsigned order[6][3]={{0,1,2},{0,2,1},{1,0,2},{1,2,0},{2,0,1},{2,1,0}};
+ static const int8_t signal[3]={-80,-35,-50};
+ for(unsigned permutation=0;permutation<6;permutation++) {
+  clear();startup_attempted=relay_fallback=true;
+  for(unsigned i=0;i<3;i++) {
+   unsigned at=order[permutation][i];seen(22+at,true,at!=1,signal[at],1000000);
+  }
+  struct rc_stream_row *old=rc_stream_obtain(&stream_history,24,true,1000000);
+  old->usable=old->delivery=1000;old->usable_samples=old->delivery_samples=100;
+  CHECK(choose(4000000)==23);
+ }
+ // A new scan does not average a fresh signal with a long-expired RSSI sample.
+ clear();seen(22,true,true,-100,1000000);seen(22,true,true,-20,6000000);
+ CHECK(candidates[0].rssi==-20);
+}
 int main(int argc,char **argv) {
+ if(argc==2&&!strcmp(argv[1],"recovery-collection")) {
+  clear();startup_attempted=relay_fallback=true;
+  seen(22,true,true,-80,1000000);CHECK(!choose(1040000));
+  seen(33,true,true,-35,3900000);CHECK(choose(4000000)==33);return 0;
+ }
+ if(argc==2&&!strcmp(argv[1],"strongest-collected")) {
+  clear();startup_attempted=relay_fallback=true;candidate_since=1000000;
+  seen(22,true,true,-60,4000000);seen(33,true,false,-40,4000000);
+  struct rc_stream_row *known=rc_stream_obtain(&stream_history,22,true,4000000);
+  known->usable=known->delivery=1000;known->usable_samples=known->delivery_samples=100;
+  CHECK(choose(4000000)==33);return 0;
+ }
  if(argc==2&&!strcmp(argv[1],"dwell")) {
   bind(true);captured=false;delivery_tick(31000000,31000000);
   CHECK(!relay_fallback);return 0;
@@ -65,7 +113,7 @@ int main(int argc,char **argv) {
  if(argc==2&&!strcmp(argv[1],"relay-first")) {
   clear();startup_attempted=relay_fallback=true;
   seen(11,false,false,-20,1000000);seen(22,true,true,-100,1000000);
-  CHECK(choose(1040000)==22);return 0;
+  CHECK(choose(4000000)==22);return 0;
  }
  if(argc==2&&!strcmp(argv[1],"recovery")) {
   bind(true);sample(120,false);captured=false;delivery_tick(fake_now,fake_now);
@@ -86,7 +134,7 @@ int main(int argc,char **argv) {
  if(argc==2&&!strcmp(argv[1],"refused-path")) {
   clear();startup_attempted=true;
   seen(11,false,false,-20,1000000);seen(22,true,true,-80,1000000);
-  CHECK(choose(1040000)==22);return 0;
+  CHECK(choose(4000000)==22);return 0;
  }
  CHECK(rc_admission_g1_direct(1,true)&&rc_admission_g1_direct(129,true));
  CHECK(!rc_admission_g1_direct(65,true)&&!rc_admission_g1_direct(193,true));
@@ -105,7 +153,8 @@ int main(int argc,char **argv) {
  clear();seen(11,false,false,-90,1000000);seen(22,true,true,-20,1000000);
  CHECK(!choose(3999999));seen(11,false,false,-90,4000000);seen(22,true,true,-20,4000000);CHECK(choose(4000000)==11);
  parent_known=startup_attempted=true;routes.node[0].id=11;candidate_defer(11,4000000);CHECK(!choose(4000001));
- relay_fallback=true;CHECK(choose(4000001)==22);CHECK(rc_stream_blocked(&stream_history,11,false,4000001));
+ relay_fallback=true;seen(22,true,true,-20,4000001);CHECK(!choose(4000001));
+ CHECK(choose(7000001)==22);CHECK(rc_stream_blocked(&stream_history,11,false,7000001));
  clear();fake_now=4000000;parent_known=startup_attempted=true;routes.node[0].id=11;
  parent_selected_at=parent_stage_at=candidate_since=1000000;
  seen(11,false,false,-20,fake_now);seen(33,false,false,-70,fake_now);
@@ -113,8 +162,8 @@ int main(int argc,char **argv) {
  delivery_tick(fake_now,fake_now);CHECK(relay_fallback&&choose(fake_now)==33);
  CHECK(candidates[0].cooldown==64000000); // authenticated non-root cannot monopolize G1
  clear();seen(22,true,false,-20,1000000);seen(22,true,false,-20,4000000);CHECK(!choose(4000000));
- seen(33,true,true,-70,4000000);CHECK(choose(4000000)==33);
- clear();seen(11,false,false,-20,1000000);seen(22,true,true,-80,4000000);CHECK(choose(4000000)==22); // stale GM
+ seen(33,true,true,-70,4000000);CHECK(!choose(4000000));CHECK(choose(7000000)==33);
+ clear();seen(11,false,false,-20,1000000);seen(22,true,true,-80,5000000);CHECK(choose(5000000)==22); // locator beyond the four-second advisory horizon
  clear();seen(11,false,false,-20,1000000);seen(22,true,true,-80,1000000);forced_parent=22;CHECK(choose(1040000)==22);
  forced_parent=0;exclude_direct=true;CHECK(choose(1040000)==22);
  bind(false);sample(60,true);CHECK(stream_sample.unstable&&relay_fallback&&!parent_locked);
@@ -136,7 +185,7 @@ int main(int argc,char **argv) {
  captured=false;delivery_tick(160999999,160999999);CHECK(!relay_fallback);delivery_tick(161000000,161000000);CHECK(relay_fallback); // full two minutes after admission
  bind(true);sample(120,true);CHECK(relay_fallback);sample(10,false);CHECK(!relay_fallback&&!stream_sample.unstable&&parent_locked); // sustained recovery cancels search
  bind(false);sample(60,true);CHECK(relay_fallback);parent_synced=false;++fake_now;delivery_tick(fake_now,fake_now);CHECK(!stream_sample.unstable&&stream_sample.count==0); // pause is unknown, not RF loss
- clear();startup_attempted=true;relay_fallback=true;seen(22,true,false,-40,1000000);seen(33,true,true,-60,1000000);CHECK(choose(1040000)==33); // active relay ahead of heard-only idle peer
+ clear();startup_attempted=true;relay_fallback=true;seen(22,true,false,-40,1000000);seen(33,true,true,-60,1000000);CHECK(choose(4000000)==22); // stronger eligible relay, irrespective of publishing bonus
 
  // Repeated PENDING cannot turn a silent relay into an indefinite reservation.
  bind(true);parent_admission=0;parent_synced=false;
@@ -201,24 +250,26 @@ int main(int argc,char **argv) {
  // If all relays are deferred, a fresh GM remains available as a bounded retry.
  clear();startup_attempted=relay_fallback=true;
  seen(22,true,true,-20,1000000);seen(33,false,false,-90,1000000);
- rc_stream_failed(&stream_history,22,true,1000000);CHECK(choose(1040000)==33);
+ rc_stream_failed(&stream_history,22,true,1000000);CHECK(choose(4000000)==33);
  // Relay path refusal drops parent_known before its dwell can expire. Recovery
  // still admits alternate relays rather than silently filtering them all out.
  bind(true);seen(11,true,true,-20,fake_now);seen(22,true,true,-80,fake_now);
  seen(33,false,false,-20,fake_now);candidate_defer(11,fake_now);
- parent_known=false;CHECK(!relay_fallback&&choose(fake_now)==22);
+ parent_known=false;CHECK(!relay_fallback&&!choose(fake_now));
+ seen(22,true,true,-80,fake_now+1);CHECK(!choose(fake_now+1));
+ fake_now+=3000001;CHECK(choose(fake_now)==22);
  fake_now+=1;seen(11,true,true,-20,fake_now);CHECK(choose(fake_now)==22);
- exclude_direct=true;CHECK(choose(fake_now)==22); // diagnostic role filter remains
+ exclude_direct=true;seen(22,true,true,-80,fake_now);CHECK(choose(fake_now)==22); // diagnostic role filter remains
  // A different, proven usable GM keeps preference when recovery is necessary.
  clear();startup_attempted=relay_fallback=true;
  seen(11,false,false,-100,1000000);seen(22,true,true,-20,1000000);
  struct rc_stream_row *gm=rc_stream_obtain(&stream_history,11,false,1000000);
- gm->delivery=1000;gm->delivery_samples=100;CHECK(choose(1040000)==22); // RF alone is not time
- gm->usable=1000;gm->usable_samples=1;CHECK(choose(1040000)==22); // a flicker is not sustained lock
- gm->usable_samples=8;CHECK(choose(1040000)==11); // sustained usable GM wins despite weak RSSI
- rc_stream_failed(&stream_history,11,false,1040000);CHECK(choose(1040001)==22);
+ gm->delivery=1000;gm->delivery_samples=100;CHECK(choose(4000000)==22); // RF alone is not time
+ gm->usable=1000;gm->usable_samples=1;CHECK(choose(4000000)==22); // a flicker is not sustained lock
+ gm->usable_samples=8;CHECK(choose(4000000)==11); // sustained usable GM wins despite weak RSSI
+ rc_stream_failed(&stream_history,11,false,4000000);CHECK(choose(4000001)==22);
  // Expired retry deferral permits a trial but cannot erase the recorded failure.
- fake_now=302000000;seen(11,false,false,-20,fake_now);seen(22,true,true,-100,fake_now);
+ fake_now=305000000;seen(11,false,false,-20,fake_now);seen(22,true,true,-100,fake_now);
  CHECK(!rc_stream_blocked(&stream_history,11,false,fake_now)&&choose(fake_now)==22);
  rc_stream_failed(&stream_history,22,true,fake_now);CHECK(choose(fake_now)==11); // keep GM in mix
 
@@ -248,5 +299,6 @@ int main(int argc,char **argv) {
  seen(11,false,false,-20,fake_now);seen(22,true,true,-70,fake_now);CHECK(choose(fake_now)==22);
  CHECK(rc_stream_blocked(&stream_history,11,false,fake_now+60000000));
  CHECK(!rc_stream_blocked(&stream_history,11,false,fake_now+300000000));
+ scan_collection_cases();
  printf("PASS %u actual RC marginal-link selector assertions\n",checks);
 }

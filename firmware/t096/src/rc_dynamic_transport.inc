@@ -61,6 +61,7 @@ enum lt_phase {
 };
 static enum lt_phase lt_phase;
 static struct bt_gatt_exchange_params lt_exchange;
+static struct bt_gatt_discover_params lt_discovery;
 static struct bt_gatt_read_params lt_read;
 static struct bt_gatt_write_params lt_write;
 enum lt_event_type {
@@ -358,6 +359,48 @@ static uint8_t lt_read_done(struct bt_conn *conn, uint8_t error,
     memcpy(e.wire, lt_read_wire, 212);
   lt_event_put(&e);
   return BT_GATT_ITER_STOP;
+}
+static uint8_t lt_relay_located(struct bt_conn *conn,
+                               const struct bt_gatt_attr *attr,
+                               struct bt_gatt_discover_params *params) {
+  (void)params;
+  struct lt_event e = {.type = LT_DISCOVERED, .conn = conn};
+  const struct bt_gatt_chrc *chrc = attr ? attr->user_data : NULL;
+  if (!chrc || !chrc->uuid || bt_uuid_cmp(chrc->uuid, &lt_data_uuid.uuid) ||
+      !chrc->value_handle || chrc->value_handle <= attr->handle ||
+      !(chrc->properties & BT_GATT_CHRC_READ) ||
+      !(chrc->properties & BT_GATT_CHRC_WRITE))
+    e.error = BT_ATT_ERR_ATTRIBUTE_NOT_FOUND;
+  else
+    e.handle = chrc->value_handle;
+  lt_event_put(&e);
+  return BT_GATT_ITER_STOP;
+}
+/* Discover the small characteristic declaration, then read its value by handle.
+ * The pinned NimBLE Read By Type server flattens values through a 19-byte buffer;
+ * asking for the 212-byte capability by UUID therefore returns ATT 0x0e even
+ * with a sufficient MTU and a healthy server. No cached handle crosses ACLs. */
+static int lt_relay_locate(void) {
+  lt_discovery = (struct bt_gatt_discover_params){
+      .uuid = &lt_data_uuid.uuid, .func = lt_relay_located,
+      .start_handle = 1, .end_handle = 0xffff,
+      .type = BT_GATT_DISCOVER_CHARACTERISTIC};
+  lt_next = UINT64_MAX;
+  return bt_gatt_discover(lt_conn, &lt_discovery);
+}
+static int lt_relay_read(void) {
+  if (!lt_handle)
+    return -EINVAL;
+  lt_read_size = 0;
+  lt_read = (struct bt_gatt_read_params){
+      .func = lt_read_done, .handle_count = 1,
+      .single = {.handle = lt_handle, .offset = 0}};
+  lt_next = UINT64_MAX;
+  return bt_gatt_read(lt_conn, &lt_read);
+}
+static int lt_relay_fetch(void) {
+  return lt_phase == LT_CAP && !lt_handle ? lt_relay_locate()
+                                        : lt_relay_read();
 }
 static uint8_t gm_located(struct bt_conn *conn, uint8_t error,
                           struct bt_gatt_read_params *p, const void *data,
@@ -686,6 +729,7 @@ static void lt_apply_connected(struct bt_conn *conn, uint8_t error) {
     struct rc7_control cap = capability();
     lt_publish_reply(&cap);
   } else {
+    lt_handle = 0;
     lt_cap_retries = 0;
     lt_phase = LT_MTU;
   }
@@ -848,7 +892,7 @@ static void lt_drain(void) {
     case LT_DISCOVERED:
       lt_handle = e.handle;
       lt_next = 0;
-      lt_phase = LT_GM_REQUEST;
+      lt_phase = parent_relay ? LT_CAP : LT_GM_REQUEST;
       break;
     case LT_GM_WRITE:
       gm_apply(e.wire);
@@ -1122,19 +1166,7 @@ static void lt_poll(uint64_t tick, bool window) {
         rc = bt_gatt_read(lt_conn, &lt_read);
         break;
       }
-      lt_read_size = 0;
-      lt_read = (struct bt_gatt_read_params){
-          .func = lt_read_done,
-          .handle_count = 1,
-          .single = {.handle = lt_handle, .offset = 0}};
-      if (lt_phase == LT_CAP) {
-        lt_read.handle_count = 0;
-        lt_read.by_uuid.start_handle = 1;
-        lt_read.by_uuid.end_handle = 0xffff;
-        lt_read.by_uuid.uuid = &lt_data_uuid.uuid;
-      }
-      lt_next = UINT64_MAX;
-      rc = bt_gatt_read(lt_conn, &lt_read);
+      rc = lt_relay_fetch();
       break;
     case LT_WRITE:
       check(!rc7_control_encode(lt_wire, &lt_request, &group),

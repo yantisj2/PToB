@@ -2,6 +2,25 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 18 October 2026 — T096 relay interoperability and scan selection
+
+T096 **0.15.90** discovers the relay characteristic declaration before reading
+its 212-byte capability by handle. The pinned W12 NimBLE Read By Type path
+flattens values through a 19-byte buffer and returns ATT unlikely-error for that
+larger capability; repeating read-by-UUID could never complete admission. Each
+new client ACL clears its handle. Metadata discovery grants no authority, and
+authentication, source/path validity and the original two-second transaction
+remain required.
+
+Every automatic parent search now collects three seconds of locators, including
+recovery. A four-second advisory locator horizon retains the full scan, and
+eligible relays rank by smoothed signal strength before history/publishing ties.
+Selection/refusal and empty scans end their collection; a healthy parent or its
+full acquisition trial stays protected. GM preference and failed-source deferral
+remain intact. Production regressions cover advertisement order, early strong
+observations, per-search collection and the SDK read restriction. Hardware
+reliability and independent timing accuracy remain separate validation work.
+
 ## 17 October 2026 — T096 previously settled GM retry
 
 T096 **0.15.89** distinguishes a previously settled GM from one that never

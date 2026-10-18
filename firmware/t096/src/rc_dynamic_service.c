@@ -417,6 +417,9 @@ static void startup_complete(void) {
   }
 }
 static void candidate_defer(uint64_t id, uint64_t now) {
+  /* Selection or refusal finishes this search. A later recovery must collect
+   * its own neighborhood rather than reuse startup's elapsed scan timer. */
+  candidate_since = 0;
   for (unsigned i = 0; i < 8; i++)
     if (candidates[i].id == id && (!parent_known || candidates[i].relay == parent_relay)) {
       candidates[i].consumed = candidates[i].seen;
@@ -466,12 +469,14 @@ static void candidate_seen(const bt_addr_le_t *address, uint64_t id, bool relay,
     candidates[at] = (struct candidate){.id = id, .rssi = -127};
   }
   struct candidate *c = &candidates[at];
-  c->rssi = c->seen ? (3 * c->rssi + rssi) / 4 : rssi;
+  c->rssi = c->seen && now >= c->seen && now - c->seen < 4000000
+                ? (3 * c->rssi + rssi) / 4 : rssi;
   c->seen = now;
   c->relay = relay;
   c->publishing = publishing;
   c->address = *address;
-  if (!candidate_since)
+  if (!candidate_since &&
+      (!parent_known || relay_fallback || forced_parent || exclude_direct))
     candidate_since = now;
 }
 static void delivery_tick(uint64_t now, uint64_t tick) {
@@ -576,7 +581,7 @@ static struct candidate *candidate_choose(uint64_t now, bool expired) {
   bool diagnostic = forced_parent || exclude_direct;
   bool startup = !startup_admitted && !startup_attempted && !diagnostic;
   if (!candidate_since || now < candidate_since ||
-      now - candidate_since < (startup ? 3000000 : 40000))
+      now - candidate_since < (diagnostic ? 40000 : 3000000))
     return NULL;
   /* Protect every chosen parent through admission and clock acquisition.
    * Its locator cooldown must not hand the next poll back to the failed GM. */
@@ -606,7 +611,11 @@ static struct candidate *candidate_choose(uint64_t now, bool expired) {
   int best_score = INT32_MIN, best_rank = -1;
   for (unsigned i = 0; i < 8; i++) {
     struct candidate *c = &candidates[i];
-    if (!c->id || now < c->seen || now - c->seen >= 200000 ||
+    /* Locators are advisory. Retain the full three-second scan plus one
+     * second of margin; the subsequent live capability/admission still owns
+     * all original source, proof, map and transaction validity gates. */
+    if (!c->id || now < c->seen ||
+        now - c->seen >= (diagnostic ? 200000 : 4000000) ||
         now < c->cooldown || c->seen <= c->consumed ||
         (!diagnostic && rc_stream_blocked(&stream_history, c->id, c->relay, now)) ||
         (exclude_direct && !c->relay) ||
@@ -623,15 +632,21 @@ static struct candidate *candidate_choose(uint64_t now, bool expired) {
     /* Retain GM preference when backed by sustained usable time. Otherwise a
      * fresh relay outranks an unproved/failed GM during recovery; audible G1
      * cannot steal that relay's acquisition trial. GMs remain retry candidates. */
+    bool relay_strength = best && !diagnostic && c->relay && best->relay;
     if (!best || rank > best_rank ||
         (rank == best_rank &&
-         (score > best_score || (score == best_score &&
-          c->id < best->id)))) {
+         ((relay_strength && c->rssi > best->rssi) ||
+          ((!relay_strength || c->rssi == best->rssi) &&
+           (score > best_score || (score == best_score && c->id < best->id)))))) {
       best = c;
       best_score = score;
       best_rank = rank;
     }
   }
+  /* No eligible result ends an empty scan. The next locator starts a new
+   * collection instead of immediately winning an already elapsed window. */
+  if (!best && !diagnostic)
+    candidate_since = 0;
   return best;
 }
 

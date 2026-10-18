@@ -394,6 +394,15 @@ and inside its original two-second transaction. This tolerates a capability read
 arriving before the server owner is ready. It grants no source authority and
 does not retry MTU, authentication, response/write or disconnected-owner errors.
 
+Version 0.15.90 first discovers the relay characteristic declaration, then reads
+the 212-byte capability by its value handle. The pinned W12 NimBLE SDK's ATT
+Read By Type path uses a 19-byte flat buffer and returns ATT unlikely-error for
+that larger value, even with a sufficient MTU. Retrying the same read-by-UUID
+operation cannot repair this restriction. Discovery copies metadata only; the
+complete authenticated capability, fresh challenge, source/path checks and
+original two-second transaction remain required. Handles are cleared on every
+new client ACL. Ordinary response reads also use the discovered value handle.
+
 ### RC parent selection and relay dwell
 
 T096 0.15.85 retains each automatically chosen parent through a bounded admission
@@ -422,12 +431,26 @@ without cycling to cold relays. It begins with the degraded episode; repeated
 renewals and lock flickers cannot restart it. The control budget, original
 transaction deadlines and immediate withdrawal of expired timing remain intact.
 
-Cold startup still collects locators for three seconds and prefers a fresh GM.
+From 0.15.90 every automatic search collects locators for three seconds, including
+recovery after a rejected or failed parent. Selection/refusal clears that search's
+collection timer; advertisements during a protected parent trial cannot start
+the next search early. An empty scan also ends its collection. A four-second
+advisory locator horizon retains observations from the whole collection, rather
+than only the final 200 ms. It grants no timing or source authority; subsequent
+live admission retains its original validity gates. Explicit diagnostic overrides
+keep their 40 ms collection and 200 ms locator horizon.
+
+Cold startup prefers a fresh GM.
 During recovery, a fresh eligible GM with sustained usable-time history and no
 recorded failure keeps first preference. Otherwise an eligible relay takes
 priority over an unproved or failed GM; hearing GM packets and coarse admission
-alone do not establish usable time. Usable-time history, signal strength and the
-publishing bonus rank candidates within the role.
+alone do not establish usable time. Among eligible relays, smoothed RSSI ranks
+first; history and publishing status break equal-signal ties, followed by stable
+identity. Deferred, expired or rejected candidates remain ineligible. This avoids
+choosing a weaker relay merely because its advertisement arrived first or its
+publishing/history bonus outweighed signal strength. The candidate table remains
+bounded to eight entries; discovery is not proof that every physical neighbor
+was heard. GM ranking retains its existing history/signal policy.
 Each chosen relay gets its own acquisition interval. Once it supplies stable
 usable time, stronger peers and a returning GM cannot evict it. If no eligible
 relay is available, a fresh eligible GM can still be tried within its retry policy.
