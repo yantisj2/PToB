@@ -12,6 +12,8 @@ Copyright (c) 2026 Jonathan Yantis. MIT.
   timing map. Prefer a fresh relay even when the GM has stronger RSSI. Defer a
   failed parent for five minutes so it cannot immediately reclaim a new trial;
   keep seeking if no fresh alternative exists. Explicit pins remain effective.
+- Use the fresh lock-report time for subsequent advisory history checks; an
+  older worker timestamp must not bypass failed-GM deferral during a relay lock.
 - Preserve fast acquisition, fine hold, all authority/quality/expiry gates and
   controller/drain bounds. Add policy and production scheduling regressions for
   healthy delivery without lock, exact dwell, flicker, renewals, relay selection,

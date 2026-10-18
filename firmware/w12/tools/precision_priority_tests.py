@@ -7,7 +7,7 @@ import argparse,json,os,subprocess
 from pathlib import Path
 from rc7_permission_e2e import native_fixture,replace_once,sha
 APP=Path(__file__).resolve().parents[1]
-CASES=('gm-dwell','gm-lock-fallback','gm-lock-search','gm-locked-retain','quality-dip','warm-window','cold-window','source-expiry','model-expiry',
+CASES=('gm-dwell','gm-lock-fallback','gm-lock-search','gm-locked-retain','relay-failed-gm','quality-dip','warm-window','cold-window','source-expiry','model-expiry',
        'capture-gap','wrong-parent','clock-failure','control-drain','batch-budget','retry-bound','retry-unreserved','retry-relay','legacy-control','relay-control','control-gatt',
        'control-stop-bound','control-delayed','control-old','control-expired','precision-delayed')
 def main():
@@ -19,6 +19,7 @@ def main():
       original=a.native_source.read_text().replace('#include "native_device_binding.hpp"','#include "rc7_permission_device_fixture.hpp"')
       (out/'native_g1_fixture.cpp').write_text(original)
     s=(out/'native.cpp').read_text().split('#define V12_RC7_PERMISSION_NATIVE 1')[0]
+    s=replace_once(s,'#include "native_g1_fixture.cpp"','uint64_t priority_timer_step=0;\nint64_t priority_timer_read(){fake_now+=priority_timer_step;return int64_t(fake_now);}\n#define FAKE_ESP_TIMER_READ priority_timer_read\n#include "native_g1_fixture.cpp"')
     s=replace_once(s,'#include "native_g1_fixture.cpp"','void priority_marker_returned();void priority_join_written();\n#include "native_g1_fixture.cpp"')
     s=replace_once(s,'extern "C" bool clock_reference_read(uint64_t* t){','bool priority_clock_ok=true;\nextern "C" bool clock_reference_read(uint64_t* t){if(!priority_clock_ok)return false;')
     begin=s.index('int ble_gattc_read_by_uuid(');end=s.index('int ble_gattc_read(',begin)

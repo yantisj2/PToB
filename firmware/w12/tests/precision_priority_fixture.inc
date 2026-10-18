@@ -63,6 +63,27 @@ int main(int argc,char** argv){
    assert(connected==1&&v12::peer.identity==501&&!v12::peer.relay&&!scan_active);
   }
   assert(v12::anchor.until==signed_until&&v12::anchor.deadline()==replay&&!v12::fault);
+ }else if(which=="relay-failed-gm"){
+  fake_now+=60000000;v12::parent_selection.locked(false,fake_now);
+  assert(v12::parent_selection.deferred(501,false,fake_now));
+  v12::parent_selection.seen(777,true,-85,fake_now,true);v12::parent_selection.bind(777,877,2,fake_now);
+  fake_now+=30000000;v12::window_start=v12::G1Window::start(fake_now);
+  v12::joined_peer=v12::sync_identity=777;v12::joined_boot=877;v12::sync_address=v12::canonical(777);
+  auto& path=v12::rc_client.receiver.path;path.depth=1;path.source_epoch=2;
+  path.node[0].id=501;path.node[0].boot=601;path.node[1].id=777;path.node[1].boot=877;
+  v12::rc_client.receiver.clock.bound=true;v12::rc_client.utc_known=true;
+  v12::rc_client.lease_until=v12::rc_client.renew_at=fake_now+300000000;v12::rc_client.progress_at=fake_now;
+  v12::anchor.at=fake_now;v12::anchor.until=fake_now+1500000;
+  v12::Rc7PermissionInspect::seed(v12::corrected_clock,v12::anchor,fake_now);
+  v12::Rc7PermissionInspect::allow_lock(v12::corrected_clock);
+  for(auto t=fake_now-2000000;t<=fake_now;t+=62500)v12::parent_selection.locked(true,t);
+  v12::parent_selection.tick(fake_now,true,false);v12::parent_selection.delivered(3,11,fake_now);
+  assert(v12::lock_protected(fake_now));v12::gm_discovery.next=fake_now;
+  // Real timer reads advance between precision processing and lock reporting.
+  // The later GM-deferral check must use that same fresh time.
+  priority_timer_step=1;v12::active_poll(fake_now);priority_timer_step=0;
+  assert(v12::parent_selection.deferred(501,false,fake_now));
+  assert(!v12::gm_discovery.active(fake_now)&&!scan_active&&connected==0);
  }else if(which=="quality-dip"){
   v12::start_scan();assert(!scan_active);
   scan_active=v12::scan=true;v12::active_poll(fake_now);

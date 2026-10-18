@@ -1012,7 +1012,9 @@ void active_poll(uint64_t now){
   precision_work();gatt_poll(micros());precision_work();receive_join(micros());
   if(peer.relay)send_rc_request(micros());else send_join(micros());
   precision_work();
-  const auto lock_now=micros();parent_selection.locked(lock_protected(lock_now),lock_now);
+  // History updates advance its clock; subsequent deferral checks must use
+  // the same fresh time rather than treating an older worker time as invalid.
+  now=micros();parent_selection.locked(lock_protected(now),now);
   if((synced||sync_pending)&&((anchor_valid(now)&&sync_identity!=anchor.root&&sync_identity!=joined_peer)||(sync_pending&&now>=sync_acquire_until)))cancel_sync(now);
   if((sync_cancelled&&sync_pending)||(sync_terminating&&synced)){if(now>=sync_drain_until)error(BLE_HS_ETIMEOUT,R2Api::SyncTerminate);}
   // Optional early JOIN can use an existing map covering this whole window.
