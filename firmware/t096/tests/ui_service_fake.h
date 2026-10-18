@@ -84,5 +84,7 @@ bool r2_shadow_read(uint32_t after,struct rc_shadow_record *r,struct rc_shadow_s
  *r=(struct rc_shadow_record){.sequence=sequence,.edge={(uint64_t)sequence*16000000,mode==31&&sequence>=8?2:1,R2_CAPTURE_PPS},.arrival_us=(int64_t)sequence*1000000,.valid=true,.reason=RC_SHADOW_OK,.phase_ns=-37,.reference_seen=true,.reference_fix=true,.reference_pps=true,.map={.root=mode==29&&sequence>=8?3:1,.root_boot=9,.root_epoch=1,.parent=2,.parent_boot=10}};
  if(mode==26&&sequence==2)r->phase_ns=122;
  if(mode==27&&sequence==13)r->phase_ns=-500;
+ if(mode==32&&sequence>=8)r->map.train=2;
+ if(mode==33&&sequence>=8)r->map.parent_epoch=2;
  return true;
 }

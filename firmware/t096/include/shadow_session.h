@@ -7,6 +7,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <limits.h>
+#include "shadow_settle.h"
 #define R2_SHADOW_EXACT_BINS 1024u
 #define R2_SHADOW_BINS (R2_SHADOW_EXACT_BINS+19u)
 enum r2_shadow_page_state {R2_SHADOW_OFF,R2_SHADOW_DWELL,R2_SHADOW_WAIT_PPS,R2_SHADOW_WAIT_MAP,R2_SHADOW_GM,R2_SHADOW_RUNNING,R2_SHADOW_FULL,R2_SHADOW_SETTLING};
@@ -17,10 +18,12 @@ struct r2_shadow_session_view {
  unsigned state;bool active,valid,approximate;
 };
 struct r2_shadow_session {
- uint32_t histogram[R2_SHADOW_BINS];int64_t sum;
+ /* Startup and measured histogram are disjoint phases. Reuse their storage
+  * instead of taking another permanent allocation from the small RAM margin. */
+ union {uint32_t histogram[R2_SHADOW_BINS];struct r2_shadow_settle startup;};int64_t sum;
  uint64_t entered_ms,started_ms,elapsed_ms,start_tick,epoch;
  uint32_t session,samples,skipped,missing,max_ns,cursor;
- bool entered,active;
+ bool entered,active,settled;
  unsigned state;
 };
 static inline void r2_shadow_session_stop(struct r2_shadow_session *s,uint64_t now){
@@ -41,6 +44,7 @@ static inline bool r2_shadow_session_step(struct r2_shadow_session *s,bool visib
 }
 static inline bool r2_shadow_session_begin(struct r2_shadow_session *s,uint64_t now,uint64_t tick,uint64_t epoch,uint32_t cursor){
  if(!s->entered||s->active||!tick||!epoch||s->session==UINT32_MAX)return false;
+ memset(s->histogram,0,sizeof s->histogram);s->settled=true;
  s->started_ms=now;s->start_tick=tick;s->epoch=epoch;s->cursor=cursor;s->active=true;s->state=R2_SHADOW_RUNNING;++s->session;return true;
 }
 static inline unsigned r2_shadow_bin(uint32_t ns){

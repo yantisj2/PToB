@@ -15,13 +15,22 @@ static atomic_t stop_requested,profile_toggle;
 static bool started;
 static uint8_t framebuffer[R2_UI_BYTES];
 static struct r2_shadow_session shadow_session;
-static struct r2_shadow_settle shadow_settle;
 static struct {uint64_t root,root_boot,parent,parent_boot;uint32_t root_epoch;bool valid;} shadow_scope;
 static uint64_t shadow_due;
+static void shadow_cache_startup(void){
+ const struct r2_shadow_settle *s=&shadow_session.startup;
+ k_spinlock_key_t key=k_spin_lock(&lock);
+ status.shadow.warmup=s->seen;status.shadow.warmup_skipped=s->skipped;status.shadow.warmup_missing=s->missing;
+ status.shadow.warmup_resets=s->resets;status.shadow.settling_ms=r2_shadow_settle_ms(s);
+ k_spin_unlock(&lock,key);
+}
 static void shadow_view(struct r2_shadow_session_view *v){
+ if(!shadow_session.settled)shadow_cache_startup();
+ uint32_t startup[5];k_spinlock_key_t key=k_spin_lock(&lock);
+ startup[0]=status.shadow.warmup;startup[1]=status.shadow.warmup_skipped;startup[2]=status.shadow.warmup_missing;
+ startup[3]=status.shadow.warmup_resets;startup[4]=status.shadow.settling_ms;k_spin_unlock(&lock,key);
  r2_shadow_session_view(&shadow_session,v);
- v->warmup=shadow_settle.seen;v->warmup_skipped=shadow_settle.skipped;v->warmup_missing=shadow_settle.missing;
- v->warmup_resets=shadow_settle.resets;v->settling_ms=r2_shadow_settle_ms(&shadow_settle);
+ v->warmup=startup[0];v->warmup_skipped=startup[1];v->warmup_missing=startup[2];v->warmup_resets=startup[3];v->settling_ms=startup[4];
 }
 K_THREAD_STACK_DEFINE(ui_stack,4096);
 static struct k_thread thread;
@@ -43,22 +52,24 @@ static void shadow_tick(const struct r2_ui_model *m,const struct r2_ui_status *s
  unsigned previous=shadow_session.state;
  bool entered=shadow_session.entered;
  bool arm=r2_shadow_session_step(&shadow_session,visible,gm,pps,now);
- if(!entered&&shadow_session.entered)memset(&shadow_settle,0,sizeof shadow_settle);
- if(!visible||gm)shadow_settle.collecting=false;
+ struct r2_shadow_settle *settle=&shadow_session.startup;
+ if(!entered&&shadow_session.entered)memset(settle,0,sizeof *settle);
+ if(!shadow_session.settled&&(!visible||gm))settle->collecting=false;
+ bool collecting=!shadow_session.settled&&settle->collecting;
 #if !defined(R2_BOUNDARY_FIELD) || defined(R2_SWITCHABLE_FIELD)
  /* UI owns normal witness collection; an actual GM is separately fenced. */
- if(!shadow_session.active&&!shadow_settle.collecting&&!arm)r2_shadow_enable(false);
+ if(!shadow_session.active&&!collecting&&!arm)r2_shadow_enable(false);
 #endif
- if(arm&&!shadow_settle.collecting){
+ if(arm&&!collecting){
 #if !defined(R2_BOUNDARY_FIELD) || defined(R2_SWITCHABLE_FIELD)
   r2_shadow_enable(true);
 #endif
   struct rc_shadow_record r;struct rc_shadow_status st;
   (void)r2_shadow_read(UINT32_MAX,&r,&st);
-  if(st.enabled&&st.now_tick&&st.epoch){r2_shadow_settle_begin(&shadow_settle,&st);shadow_scope.valid=false;shadow_due=now;}
+  if(st.enabled&&st.now_tick&&st.epoch){r2_shadow_settle_begin(settle,&st);collecting=true;shadow_scope.valid=false;shadow_due=now;}
  }
- bool warming=shadow_settle.collecting&&!shadow_session.active;
- if(warming&&(!pps||!m->precision.map_valid))r2_shadow_settle_reset(&shadow_settle);
+ bool warming=collecting&&!shadow_session.active;
+ if(warming&&(!pps||!m->precision.map_valid))r2_shadow_settle_reset(settle);
  bool refresh=visible&&now>=shadow_due;
  if(refresh)shadow_due=now+250;
  if(warming&&refresh){
@@ -66,15 +77,16 @@ static void shadow_tick(const struct r2_ui_model *m,const struct r2_ui_status *s
    struct rc_shadow_record unused;struct rc_shadow_status st;
    (void)r2_shadow_read(UINT32_MAX,&unused,&st);
    /* Do not restart a ready streak using queued edges from before a loss. */
-   if(st.epoch==shadow_settle.epoch)shadow_settle.boundary=st.now_tick;
+   if(st.epoch==settle->epoch)settle->boundary=st.now_tick;
   }
   for(unsigned i=0;i<RC_SHADOW_RECORDS;i++){
    struct rc_shadow_record r;struct rc_shadow_status st;
-   if(!r2_shadow_read(shadow_settle.cursor,&r,&st))break;
-   if(r.edge.epoch!=shadow_settle.epoch){r2_shadow_session_stop(&shadow_session,now);shadow_settle.collecting=false;break;}
+   if(!r2_shadow_read(settle->cursor,&r,&st))break;
+   if(r.edge.epoch!=settle->epoch){r2_shadow_session_stop(&shadow_session,now);settle->collecting=false;collecting=false;break;}
    bool usable=pps&&m->precision.map_valid&&r.valid&&r.reason==RC_SHADOW_OK&&r.reference_seen&&r.reference_fix&&r.reference_pps;
-   if(r2_shadow_settle_observe(&shadow_settle,&r,usable)&&
-      r2_shadow_session_begin(&shadow_session,(uint64_t)r.arrival_us/1000,r.edge.tick,r.edge.epoch,r.sequence)){
+   if(!r2_shadow_settle_observe(settle,&r,usable))continue;
+   shadow_cache_startup();
+   if(r2_shadow_session_begin(&shadow_session,(uint64_t)r.arrival_us/1000,r.edge.tick,r.edge.epoch,r.sequence)){
     /* The last warmup PPS is the exact hardware start boundary. Every later
      * eligible edge is measured, irrespective of its error magnitude. */
     shadow_scope.root=r.map.root;shadow_scope.root_boot=r.map.root_boot;shadow_scope.root_epoch=r.map.root_epoch;
@@ -82,7 +94,7 @@ static void shadow_tick(const struct r2_ui_model *m,const struct r2_ui_status *s
    }
   }
  }
- if(shadow_settle.collecting&&!shadow_session.active)shadow_session.state=!pps?R2_SHADOW_WAIT_PPS:!m->precision.map_valid?R2_SHADOW_WAIT_MAP:R2_SHADOW_SETTLING;
+ if(collecting&&!shadow_session.active)shadow_session.state=!pps?R2_SHADOW_WAIT_PPS:!m->precision.map_valid?R2_SHADOW_WAIT_MAP:R2_SHADOW_SETTLING;
  if(shadow_session.active&&refresh){
   for(unsigned i=0;i<RC_SHADOW_RECORDS;i++){
    struct rc_shadow_record r;struct rc_shadow_status st;

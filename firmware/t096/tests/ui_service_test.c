@@ -17,12 +17,13 @@ int main(int argc,char **argv){
   if(mode==25)assert(first_saver&&dim_seen&&awake_after_dim&&!status.screensaver&&status.page==R2_UI_SHADOW_PAGE&&status.shadow.samples>=3);
   if(mode>=26){
    assert(status.shadow.samples>=3&&status.shadow.warmup>=11&&shadow_session.start_tick>=UINT64_C(12000000)*16);
-   if(mode==26)assert(status.shadow.max_ns==37&&status.shadow.mean_tenth_ns==-370);
+   if(mode==26)assert(status.shadow.max_ns==37&&status.shadow.mean_tenth_ns==-370&&status.shadow.p95_ns==37&&status.shadow.p99_ns==37);
    if(mode==27)assert(status.shadow.max_ns==500); /* Large post-start errors stay. */
    if(mode==28)assert(status.shadow.warmup_resets&&status.shadow.warmup_skipped&&shadow_session.start_tick>=UINT64_C(19000000)*16);
    if(mode==29)assert(status.shadow.warmup_resets&&shadow_session.start_tick>=UINT64_C(18000000)*16);
    if(mode==30)assert(status.shadow.warmup_missing==1&&status.shadow.warmup_resets&&shadow_session.start_tick>=UINT64_C(19000000)*16);
    if(mode==31)assert(shadow_session.epoch==2&&shadow_session.start_tick>=UINT64_C(20000000)*16);
+   if(mode==32||mode==33)assert(status.shadow.warmup_resets&&shadow_session.start_tick>=UINT64_C(18000000)*16);
   }
   if(mode==7)assert(frame_calls>=3&&!buffer_changed&&status.frames>=2&&!r2_ui_close_result());
   if(mode==4)assert(status.help&&!status.poweroff&&!status.buttons);

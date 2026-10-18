@@ -7,6 +7,8 @@ int main(void){
  assert(!r2_shadow_session_step(&s,true,false,true,1099));
  assert(!r2_shadow_session_step(&s,true,false,false,1100)&&s.state==R2_SHADOW_WAIT_PPS);
  assert(r2_shadow_session_step(&s,true,false,true,1200));
+ /* Nonzero startup work shares this storage. No phantom bins may survive. */
+ memset(s.histogram,0xa5,sizeof s.histogram);
  assert(!r2_shadow_session_begin(&s,1200,0,1,50));
  assert(r2_shadow_session_begin(&s,1200,100,1,50));
  r2_shadow_session_sample(&s,51,99,1,true,-100);assert(!s.samples&&s.skipped==1);
