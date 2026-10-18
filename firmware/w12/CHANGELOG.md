@@ -2,6 +2,18 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 0.1.17 — 18 October 2026
+
+- Correct the generated profile macro consumed by the production config.
+  Version 0.1.16 declared an enabled profile in its build inputs while the
+  mismatched macro selected zero in the compiled config. Its strict console
+  manifest guard refused that discrepancy; no applied correction is inferred.
+- Execute builder-generated headers through the production config and emitted
+  RC7/receiver timestamp path for default zero and signed enabled profiles.
+  Compile-time assertions also bind every enabled generated field to the
+  production config, and the old macro fails the regression. The offset scope,
+  raw records, source/precision gates and unknown bounds remain unchanged.
+
 ## 0.1.16 — 18 October 2026
 
 - Add an explicit per-device, build-time provisional aggregate-path offset to

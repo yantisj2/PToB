@@ -2,6 +2,14 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 18 October 2026 — W12 generated provisional-profile binding
+
+W12 **0.1.17** fixes the generated macro binding that left 0.1.16's declared
+provisional profile at zero in the compiled config. The exact manifest guard
+refused that mismatch. A regression now exercises the actual builder-generated
+header through the production config and emitted timestamp, and native compile
+assertions reject a repeated mismatch. Timing qualification remains unchanged.
+
 ## 18 October 2026 — W12 provisional aggregate-path adjustment
 
 W12 **0.1.16** adds an explicit per-device provisional offset to emitted

@@ -64,6 +64,7 @@ def main():
     run([out/'ui-indicator-tests'],'main-long-press-PPS-RX-TX-GPS-quality-expiry')
     run(['python3',APP/'tests/device_inputs_test.py'],'explicit-GNSS-input-validation')
     run(['python3',APP/'tests/provisional_manifest_test.py'],'provisional-path-status-binding')
+    run(['python3',APP/'tests/provisional_generated_config_test.py','--out',out/'generated-config','--objects',out],'actual-generated-profile-to-production-emitted-time')
     for enabled in (0,1):
         (out/'ptob_device.h').write_text('#define PTOB_FACTORY_MAC {2,0,0,0,0,5}\n#define PTOB_DEVICE_LABEL "Example"\n#define PTOB_LEGACY_WIRE_ID 2\n#define PTOB_GNSS_INDICATORS '+str(enabled)+'\n')
         binary=out/('device-profile-'+str(enabled))

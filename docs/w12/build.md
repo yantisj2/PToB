@@ -392,3 +392,10 @@ endpoint caused the bias or create an uncertainty bound. RF/UTC bounds and
 absolute association remain unknown. GNSS reception/PPS/fix indications remain
 separate observations under their existing gates; this profile sends no GNSS
 commands and does not discipline the BLE clock from weak indoor GNSS.
+
+Version 0.1.17 corrects 0.1.16's generated profile macro binding. The earlier
+image could declare a nonzero profile while compiling the zero default; its
+strict `pcfg`/manifest check refused startup acceptance. The builder-generated
+header now runs through the production config and emitted-timestamp regression,
+and native compile assertions compare all enabled fields with that header.
+Do not reinterpret a declared 0.1.16 profile as evidence that it was applied.
