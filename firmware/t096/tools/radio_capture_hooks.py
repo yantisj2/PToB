@@ -5,7 +5,8 @@ import hashlib,json,sys
 PIN={
  'lll_adv_sync.c':'195711e5410a569935a69106aacc9dc5ec23a00d800bc8482ed634ec796c8c26',
  'lll_sync.c':'8fc7817863f64db4bf741aae54103003af719f4b0694a20d65cbecdf6c69049d',
- 'lll_scan.c':'0a75dc0e5f9a6e78767b2c8a8b65d85b220b87c5106b36014cefb80a5ef9a35b'}
+ 'lll_scan.c':'0a75dc0e5f9a6e78767b2c8a8b65d85b220b87c5106b36014cefb80a5ef9a35b',
+ 'lll_scan_aux.c':'38a13a2d8122ae6d9e5f469cb40f25a53ddab56115dee81aef89fc5e82e13c4b'}
 def change(s,old,new,count=1):
  assert s.count(old)==count,(old,s.count(old),count)
  return s.replace(old,new)
@@ -14,6 +15,39 @@ def generate(zephyr,out):
  for name,digest in PIN.items():
   source=zephyr/'subsys/bluetooth/controller/ll_sw/nordic/lll'/name
   s=source.read_text();assert hashlib.sha256(s.encode()).hexdigest()==digest,name
+  if name=='lll_scan_aux.c':
+   s=change(s,'#include <stdint.h>','#include <stdint.h>\n#include "initiator_diag.h"')
+   s=change(s,'\t\tstruct lll_scan_aux *lll_aux_to_use;',
+    '\t\tr2_init_diag_count(R2_INIT_MATCH);\n\t\tstruct lll_scan_aux *lll_aux_to_use;')
+   s=change(s,'\t\tif (!lll_aux_to_use) {',
+    '\t\tif (!lll_aux_to_use) {\n\t\t\tr2_init_diag_count(R2_INIT_AUX_NO_CONTEXT);')
+   s=change(s,'\t\trx = ull_pdu_rx_alloc_peek(4);\n\t\tif (!rx) {\n\t\t\treturn -ENOBUFS;\n\t\t}\n\n\t\tpdu_end_us = radio_tmr_end_get();',
+    '\t\trx = ull_pdu_rx_alloc_peek(4);\n\t\tif (!rx) {\n'
+    '\t\t\tr2_init_diag_starved(ull_pdu_rx_alloc_peek(3) ? 3 :\n'
+    '\t\t\t\tull_pdu_rx_alloc_peek(2) ? 2 : ull_pdu_rx_alloc_peek(1) ? 1 : 0, 4);\n'
+    '\t\t\treturn -ENOBUFS;\n\t\t}\n\n\t\tpdu_end_us = radio_tmr_end_get();')
+   s=change(s,'\t\t\treturn -ETIME;',
+    '\t\t\tr2_init_diag_count(R2_INIT_WINDOW);\n\t\t\treturn -ETIME;')
+   s=change(s,'\t\tlll_scan_prepare_connect_req(lll, pdu_tx, phy_aux,',
+    '\t\tr2_init_diag_count(R2_INIT_REQUEST);\n'
+    '\t\tlll_scan_prepare_connect_req(lll, pdu_tx, phy_aux,')
+   # Preserve raw DONE/CRC before the production response checker normalizes
+   # trx_done. No hook changes acceptance, ownership or an ISR return value.
+   begin=s.index('static void isr_rx_connect_rsp(void *param)\n{');end=s.index('\nstatic bool isr_rx_connect_rsp_check(',begin)
+   body=s[begin:end]
+   body=change(body,'\t/* Clear radio rx status and events */',
+    '\tconst uint8_t r2_done = trx_done, r2_crc = crc_ok;\n\t/* Clear radio rx status and events */')
+   body=change(body,'\t/* No Rx or invalid PDU received */',
+    '\tr2_init_diag_aux_rsp(r2_done, r2_crc, trx_done);\n\t/* No Rx or invalid PDU received */')
+   s=s[:begin]+body+s[end:]
+   s=change(s,'static void abort_cb(struct lll_prepare_param *prepare_param, void *param)\n{',
+    'static void abort_cb(struct lll_prepare_param *prepare_param, void *param)\n{\n'
+    '\tuint8_t r2_scan = 0;\n\tstruct lll_scan *r2_parent = param ? ull_scan_aux_lll_parent_get(param, &r2_scan) : NULL;\n'
+    '\tif (r2_scan && r2_parent && r2_parent->conn && !r2_parent->conn->central.cancelled) r2_init_diag_count(R2_INIT_ABORT);')
+   dest=out/name
+   if not dest.is_file() or dest.read_text()!=s:dest.write_text(s)
+   manifest[name]={'original':digest,'generated':hashlib.sha256(s.encode()).hexdigest()}
+   continue
   if name=='lll_scan.c':
    s=change(s,'#include <stdint.h>','#include <stdint.h>\n#include "initiator_diag.h"')
    s=change(s,'\t/* Initialize scanning state */',

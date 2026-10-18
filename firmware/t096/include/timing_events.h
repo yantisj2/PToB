@@ -5,7 +5,9 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#define R2_TIMING_EVENT_CAPACITY 32u
+/* Three former40B journal records fund the sticky initiation summary and
+ * AUX counters. Keep the same total RAM/precision buffers and >=1KB margin. */
+#define R2_TIMING_EVENT_CAPACITY 29u
 enum r2_timing_kind {
  R2_TIMING_STATE=1, R2_TIMING_HEARTBEAT, R2_TIMING_SCOPE,
  R2_TIMING_PARENT, R2_TIMING_SYNC_CREATE, R2_TIMING_SYNC_READY,
@@ -17,7 +19,7 @@ enum r2_timing_kind {
  R2_TIMING_INIT_TARGET, R2_TIMING_INIT_RX, R2_TIMING_INIT_REQUEST,
  R2_TIMING_INIT_ABORT, R2_TIMING_RC_DRAIN, R2_TIMING_RC_RETRY,
  R2_TIMING_RC_ADVERTISING, R2_TIMING_INIT_RX_RESERVE, R2_TIMING_RC_DELIVERY,
- R2_TIMING_RC_PHASE, R2_TIMING_GM_CONTROL
+ R2_TIMING_RC_PHASE, R2_TIMING_GM_CONTROL, R2_TIMING_INIT_AUX
 };
 struct r2_service_status;
 /* A cursor is scoped to one source/MCU boot, survives logical owner restarts.

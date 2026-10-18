@@ -16,7 +16,7 @@ with tempfile.TemporaryDirectory(prefix='t096-r2-test-') as directory:
                    env={**os.environ,'CC':compiler},check=True,timeout=60)
     subprocess.run([sys.executable,str(APP/'tools/dc_gnss_tests.py'),'--out',str(out/'dc-gnss')],
                    env={**os.environ,'CC':compiler},check=True,timeout=60)
-    for suite in ['precision_schedule','rc_renewal','rc_relay_admission','rc_relay_renewal','rc_transport_hold','usb_lifecycle','gm_discovery','rc_path_role']:
+    for suite in ['precision_schedule','initiator_aux','rc_renewal','rc_relay_admission','rc_relay_renewal','rc_transport_hold','usb_lifecycle','gm_discovery','rc_path_role']:
         subprocess.run([sys.executable,str(APP/'tools'/(suite+'_tests.py')),
                         '--deps',str(args.deps),'--out',str(out/suite)],
                        env={**os.environ,'CC':compiler},check=True,timeout=60)
@@ -68,7 +68,7 @@ with tempfile.TemporaryDirectory(prefix='t096-r2-test-') as directory:
         subprocess.run([str(out/'platform'),mode],check=True,timeout=30)
 
     (out/'build_identity.h').write_text('#define R2_VERSION "0.1.0"\n#define R2_SOURCE_SHA "'+'f'*64+'"\n#define R2_CHILD_COMMIT "'+'f'*40+'"\n#define R2_SOURCE_DIRTY 0\n')
-    subprocess.run([*flags,'-I'+str(out),str(APP/'tests/timing_events_test.c'),'-o',str(out/'timing_events')],check=True,timeout=30)
+    subprocess.run([*flags,'-I'+str(out),str(APP/'tests/timing_events_test.c'),str(APP/'src/core.c'),'-o',str(out/'timing_events')],check=True,timeout=30)
     subprocess.run([str(out/'timing_events')],check=True,timeout=30)
     subprocess.run([*flags,'-std=gnu11',str(APP/'tests/initiator_diag_test.c'),'-o',str(out/'initiator_diag')],check=True,timeout=30)
     subprocess.run([str(out/'initiator_diag')],check=True,timeout=30)

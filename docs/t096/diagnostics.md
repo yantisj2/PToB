@@ -26,8 +26,20 @@ connection requests. No hook changes a controller decision, deadline or radio
 register. Counters are saturating, copied with IRQ exclusion and exported once
 per connection result, rather than printing from an ISR. A prepared request is
 not proof of on-air transmission or remote receipt. Match/request/refusal
-counters observe legacy initiating advertisements, as used by the T096 GM;
-connections established through AUX_ADV_IND use a separate native path.
+counters in versions0.15.58–0.15.100 observe legacy initiating advertisements,
+as used by the T096 GM. Connections established through AUX_ADV_IND use a
+separate native path, so zero legacy request/refusal counts in those versions
+cannot diagnose an extended W12 connection attempt, even when it succeeds.
+
+Version0.15.101 observes the exact pinned AUX initiating branch as well. Eligible
+target matches, prepared requests, four-node RX reserve refusals, insufficient
+windows and active initiating preemptions feed the existing counters. Five new
+counters distinguish unavailable AUX context and response outcomes: accepted by
+the native checker, radio not DONE, bad CRC, and invalid response. The raw DONE
+and CRC observations precede the unchanged native checker. An accepted response
+does not prove authentication or usable time; a prepared request does not prove
+on-air transmission. Hooks neither change a controller decision nor format USB
+output inside a callback.
 
 Version 0.15.59 uses7.5ms cold-admission ACL events. A15ms connection interval
 can produce120ms causal proof rounds: with a40ms source bound, the existing
@@ -47,7 +59,13 @@ uncertainty or acquisition gate is relaxed.
 
 ## Events and interpretation
 
-The journal holds the newest 32 events (1,280 bytes of records). It survives
+From0.15.101 the journal holds the newest29 events (1,160 bytes of records),
+previously32 events (1,280 bytes). Three40-byte records fund40 bytes of extra
+counter/baseline storage and an80-byte sticky last-attempt summary. This trades
+9.375% of recent journal depth for evidence retained after journal overwrite;
+the controller/precision buffers, stacks and1,024-byte native RAM inspection
+minimum are unchanged. Actual native inspection must confirm the resulting
+margin. The journal survives
 logical owner restarts within one MCU boot. It does not survive a power loss or
 hardware reset. Callbacks copy one fixed record; main formats and exports it.
 There is no flash logging, allocation, RF operation or recovery action in this
@@ -91,8 +109,9 @@ transport integrity, not authenticity or timing accuracy.
 | 26 | RC close completion; result0 confirms callback-observed drain, timeout is a failure | reserved / remaining original drain budget ms / reserved |
 | 27 | RC control retry scheduled | reason:0 failed attempt,1 PENDING,2 exhausted batch,3 create API error / delay ms / attempt count |
 | 28 | RC advertising/gate transition | flags / requested discovery interval in625us units / reserved |
-| 29 | Native RX reserve at a legacy initiating refusal | required nodes / last free nodes / lowest free nodes seen at a refusal in this MCU boot |
+| 29 | Native RX reserve at a legacy or AUX initiating refusal | required nodes / last free nodes / lowest free nodes seen at a refusal in this MCU boot |
 | 32 | Native GM control progress; signed result retains API/protocol error | stage / stage value / stage value |
+| 33 | Per-attempt AUX initiation reasons | pair index / first reason count / second reason count |
 
 Kind32 stages are: 1 create accepted (ACL interval in1.25ms units / local
 connect budget ms; zero means no local cap), 2 local connect-deadline cancellation
@@ -115,10 +134,33 @@ per-attempt kinds22–25; saturation and source/boot changes fence subtraction.
 These observations grant no authority and do not extend
 an exchange or restart a precision train.
 
+Kind33 pairs are: detail0 unavailable AUX context / native accepted response;
+detail1 radio not DONE / bad CRC; detail2 invalid response / reserved zero.
+No-DONE takes precedence over CRC, which takes precedence over response
+validation, so each observed response ISR contributes exactly one outcome.
+
 Kinds22–25 carry the same connected/create-error result and per-attempt baseline.
 The target in22 is meaningful only if23 reports a prepared scan window; otherwise
 it is historical. These counters neither authenticate a discovery hint nor
 establish RF timing. Saturation and any event loss must remain in analysis.
+
+The `rc-parent` reply adds `initiation` schema2 from0.15.101. It retains the last
+completed attempt independently of the journal and includes a saturating serial,
+valid/saturated flags, peer, result, prepared address/type/channel, twelve
+per-attempt counts and `rx_reserve` (last free / boot low-water / required nodes).
+The count order is prepared primary scan windows, CRC-valid primary PDUs,
+eligible target advertisements, prepared requests, window refusals, buffer
+refusals, preemptions, unavailable AUX context, accepted AUX response, no-DONE,
+bad CRC, invalid response. Address/type/channel are historical unless that
+attempt reports a prepared primary scan window. Saturation makes the numerical
+delta incomplete; source/MCU-boot changes require a new segment. Serial changes
+identify new results, not a timing guarantee; the snapshot contains no
+independent RF timestamp. Later ISR activity does not alter this frozen result.
+The append uses the existing reply buffer with checked bounds; full-CRC framing,
+maximal-width fields,29-record overrun/modulo and sequence exhaustion have host
+regressions. `initiator_aux_tests.py --legacy-hooks` and
+`rc_relay_renewal_tests.py --legacy-recovery` are expected-failure controls for
+the formerly unobserved AUX branch and retry-resetting policy respectively.
 
 State flag bits, starting at zero: active, RC profile, established PA sync,
 creating PA sync, map valid, locked, authorized, serving GM, follower, closing,
@@ -351,8 +393,9 @@ idle synchronized relay can still be discovered. Existing UCS1 clients retain
 their sessions and explicit validity/withdrawal reporting.
 
 The current RC7 codec defines the 144-byte authenticated capability projection
-and a 360-second maximum lease, but no encoded discovery interval. Relay renewal
-remains 300 seconds. From 0.15.95, T096 direct-GM authentication renews after 240 seconds
+and a 360-second maximum lease, but no encoded discovery interval. From0.15.100,
+T096 relay authentication renews after240 seconds; earlier T096 relay versions
+used300 seconds. From 0.15.95, T096 direct-GM authentication renews after 240 seconds
 to leave time for failed exchanges under the rolling two-starts-per-minute
 budget and unchanged 20–40-second warm backoff. Starting at 300 seconds could consume
 the entire remaining minute after two failures. Earlier renewal does not extend
@@ -361,6 +404,13 @@ repair an unavailable GM source. Production renewal tests exercise failed two-se
 transactions, cancellation, minimum/maximum backoff and the actual start limiter
 against the unchanged context deadline. `rc_renewal_tests.py --legacy-gm-renewal`
 is an expected-failure control restoring the old schedule.
+From0.15.101 a repeated same-parent correction-loss poll preserves an already
+pending attempt, batch retry or prepared start jitter. It no longer resets the
+20–40-second warm retry via the10-second recovery poll. Authenticated changed
+scope can still request an immediate challenge, with the same original
+transaction, authentication and rolling-start limits. The combined relay
+regression executes the production recovery/retry functions with recorded
+failure durations and pending-jitter/batch cases; it is not an RF simulation.
 The historical adoption specification retained the then-existing
 advertiser cadence;100ms is an explicit current owner-policy change, not a
 historical protocol requirement or a new wire version. Discovery grants no

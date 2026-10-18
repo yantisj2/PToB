@@ -2,6 +2,7 @@
 #include "app.h"
 #include "health.h"
 #include "timing_events.h"
+#include "initiator_diag.h"
 #include "watchdog.h"
 #include "time_service.h"
 #include "capture.h"
@@ -185,6 +186,7 @@ static void __attribute__((noinline)) reply(const struct r2_request *r,uint64_t 
       extra=snprintf(json+n,sizeof json-(size_t)n,"]}}");if(extra<0||(size_t)extra>=sizeof json-(size_t)n)return;
         n+=extra;
     }
+    n=r2_init_diag_append(json,sizeof json,n);if(n<=0)return;
     n=r2_frame(frame,sizeof frame,r->id,++reply_sequence,json);if(n>0)(void)r2_console_reply(frame,(size_t)n,arrival+R2_REPLY_MS);return;
   }
 #endif

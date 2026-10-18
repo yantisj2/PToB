@@ -2,6 +2,19 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 18 October 2026 — T096 relay retry stability
+
+T096 **0.15.101** preserves pending same-parent retry timing when correction
+loss persists. Repeated recovery polls no longer erase backoff, batch delays or
+prepared start jitter. Authenticated path changes still rebind immediately;
+source expiry, precision, output and controller ownership limits remain intact.
+Pinned AUX connection diagnostics now cover the extended advertising path used
+by W12 relays and retain the last initiation result after journal overwrite.
+Three journal records fund that evidence without lowering the native RAM gate.
+Production recovery/controller regressions and the full host suite pass; old
+behavior controls fail as expected. Native and hardware qualification remain
+separate, including the physical cause of unsuccessful connection attempts.
+
 ## 18 October 2026 — T096 relay continuity and recovery
 
 T096 **0.15.100** retains an established RC downstream train through an observed

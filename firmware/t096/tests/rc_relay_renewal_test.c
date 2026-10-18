@@ -7,11 +7,17 @@
 #include "rc_admission_policy.h"
 #define R2_TIMING_EVENTS_TEST 1
 #include "timing_events.h"
-static uint64_t lt_renew_at,lt_budget_until,nonce;
+static uint64_t lt_renew_at,lt_budget_until,nonce,lt_attempt_ready,lt_next;
+static uint64_t upstream_retry_at,last_context_progress;
 static unsigned lt_attempts,parent_index;
 static bool startup_admitted,parent_known=true,parent_relay=true;
+static unsigned parent_admission=2,upstream_recoveries;
+static bool creating,parent_synced=true,upstream_usable,lt_acquiring,lt_paused;
+static void *lt_conn;
 static struct rc5_state timing;
 static struct rc5_routes routes;
+static void lt_quiesce(bool paused){lt_paused=paused;}
+static bool upstream_admitted(uint64_t tick){return timing.bound&&tick<timing.context_until;}
 static uint64_t lt_random(void){return nonce;}
 void r2_timing_event(unsigned kind,int result,uint64_t peer,uint32_t detail,uint32_t a,uint32_t b){
  (void)result;(void)peer;(void)detail;(void)a;(void)b;assert(kind==R2_TIMING_RC_RETRY);
@@ -31,11 +37,18 @@ static void replay_failed_renewals(void){
  // preserving actual durations and rolling start gates; no RF simulation.
  const uint64_t durations[]={2085000,2001000},backoffs[]={27207000,24397000};
  startup_admitted=true;parent_relay=true;lt_attempts=0;
+ last_context_progress=a.now_tick;
  for(unsigned i=0;i<2;i++){
   while(!rc_admission_start_allowed(starts,now))now+=16000;
   assert(now<until);starts[0]=starts[1];starts[1]=now;++lt_attempts;
   now+=durations[i]*16;nonce=backoffs[i]-20000000;
   lt_retry_after(now,0,0);assert(lt_renew_at==now+backoffs[i]*16);
+  // Execute the actual owner recovery poll throughout the pending retry.
+  // A persistent loss must not reset failure count, start jitter or budget.
+  const uint64_t planned=lt_renew_at;unsigned attempts=lt_attempts;
+  for(uint64_t poll=now;poll<planned;poll+=16000){
+   parent_recovery_poll(poll);assert(lt_renew_at==planned&&lt_attempts==attempts);
+  }
   assert(timing.context_until==until);now=lt_renew_at;
  }
  while(!rc_admission_start_allowed(starts,now))now+=16000;
@@ -56,6 +69,8 @@ int main(void){
  // Batch reset does not move authentication expiry or reset absolute starts.
  uint64_t starts[2]={tick-UINT64_C(21000000)*16,tick-UINT64_C(1000000)*16};
  lt_attempts=3;lt_retry_after(tick,0,0);assert(!lt_attempts&&lt_budget_until==lt_renew_at);
+ uint64_t batch=lt_budget_until;parent_recovery_poll(tick);
+ assert(lt_budget_until==batch&&lt_renew_at==batch&&!lt_attempts);
  assert(!rc_admission_start_allowed(starts,lt_renew_at));
  for(tick=until-UINT64_C(3000000)*16;tick<=until+16;tick+=UINT64_C(1000000)*16){
   lt_retry_after(tick,0,0);assert(lt_renew_at==tick&&timing.context_until==until);
@@ -76,5 +91,11 @@ int main(void){
  startup_admitted=true;timing.bound=false;lt_retry_after(until,0,0);
  assert(lt_renew_at==until+rc_admission_warm_retry_us(nonce)*16);
  assert(rc_admission_relay_retry_us(20000000,UINT64_MAX-160,UINT64_MAX)==0);
+ // Prepared start jitter survives repeated loss. A new authenticated scope
+ // explicitly rebinds immediately without renewing permission or starts.
+ lt_attempts=0;lt_budget_until=0;lt_attempt_ready=tick+80000;lt_renew_at=tick+160000;
+ parent_recovery_poll(tick);assert(lt_attempt_ready==tick+80000&&lt_renew_at==tick+160000);
+ upstream_retry_at=0;parent_rebind_request(tick);
+ assert(!lt_attempt_ready&&!lt_renew_at&&!lt_attempts&&timing.context_until==until);
  puts("PASS actual RC7 retry caller: deadline reserve, expiry refusal, rolling budget, batches and GM/cold/unbound separation; no hardware");
 }

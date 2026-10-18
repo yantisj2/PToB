@@ -576,6 +576,11 @@ static bool upstream_admitted(uint64_t tick) {
 static void parent_recovery_poll(uint64_t tick) {
   if (!parent_known || parent_admission < 2 || upstream_usable)
     return;
+  /* A continuing loss is the same recovery, not a fresh reason to erase its
+   * jitter, failed batch or prepared start. Otherwise this10s poll overrides
+   *20..40s backoff and the rolling budget forces phase-aligned retries.
+   * Authenticated changed paths call parent_rebind_request directly. */
+  if(lt_attempts||lt_budget_until||lt_attempt_ready)return;
   /* Missing PA establishment is not evidence that the authenticated binding
    * failed. Let the selected train retry without interleaved GATT renewals.
    * An expired binding or an established stream with stalled corrections does

@@ -14,7 +14,17 @@ devices. See [the architectural background](../../docs/V12_TO_R2.md).
 **PToB owns T096 RC7 development.** The ordinary mesh profiles are **GM** and **RC**;
 USB timing support is compiled by default. [Build from source](../../docs/t096/build.md)
 using pinned public dependencies and ignored local enrollment. The current
-application version is 0.15.100. No publicly enrolled binary is distributed.
+application version is 0.15.101. No publicly enrolled binary is distributed.
+
+Version 0.15.101 preserves a pending same-parent control retry, failed batch or
+prepared start jitter through repeated correction-loss polls. Authenticated
+path changes can still request an immediate challenge; original two-second
+transactions and the rolling two-start/60-second limit remain. Pinned extended
+AUX initiation diagnostics now cover match, request, context/buffer/window
+refusal and response outcomes. A source-bound last-attempt summary survives
+journal overwrite. Three journal records fund these counters and the summary;
+the native RAM inspection gate remains unchanged. This fixes retry-policy
+resetting and missing observations, without claiming a measured RF remedy.
 
 Version 0.15.100 retains an established downstream periodic train for up to
 30 seconds through a timing interruption. It sends canonical packets with no
@@ -63,8 +73,8 @@ are field-candidate policies, with durability still to be measured.
 
 Relay GATT admission discovers the characteristic handle before reading its
 212-byte capability. A receiver using an RC2 parent stays a leaf and withdraws
-mesh admission advertising. Direct-GM authentication renews after four minutes;
-relay renewal remains five minutes, with neither extending an existing binding.
+mesh admission advertising. Direct-GM and relay authentication renew after four
+minutes, with neither extending an existing binding.
 See the [selection policy and
 offline checks](../../docs/t096/diagnostics.md#rc-parent-selection-and-relay-dwell).
 

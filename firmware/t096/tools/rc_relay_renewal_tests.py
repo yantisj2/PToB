@@ -2,17 +2,27 @@
 """Production RC7 retry body and recorded-duration policy replay, no hardware.
 Copyright (c)2026 Jonathan Yantis. SPDX-License-Identifier: MIT
 """
-import argparse,hashlib,json,os,shutil,subprocess
+import argparse,hashlib,json,os,re,shutil,subprocess
 from pathlib import Path
-p=argparse.ArgumentParser();p.add_argument('--deps',type=Path,required=True);p.add_argument('--out',type=Path,required=True);p.add_argument('--legacy-renewal',action='store_true');p.add_argument('--legacy-retry',action='store_true');a=p.parse_args()
-if a.legacy_renewal and a.legacy_retry:p.error('Select one negative control')
+p=argparse.ArgumentParser();p.add_argument('--deps',type=Path,required=True);p.add_argument('--out',type=Path,required=True);p.add_argument('--legacy-renewal',action='store_true');p.add_argument('--legacy-retry',action='store_true');p.add_argument('--legacy-recovery',action='store_true');a=p.parse_args()
+if sum([a.legacy_renewal,a.legacy_retry,a.legacy_recovery])>1:p.error('Select one negative control')
 app=Path(__file__).resolve().parents[1];out=a.out.resolve();out.mkdir(parents=True,exist_ok=False)
 transport=app/'src/rc_dynamic_transport.inc';s=transport.read_text();start=s.index('static void lt_retry_after(');brace=s.index('{',start);end=brace+1;depth=1
 while depth:
  if s[end]=='{':depth+=1
  elif s[end]=='}':depth-=1
  end+=1
-(out/'rc_relay_retry_under_test.h').write_text(s[start:end])
+service=app/'src/rc_dynamic_service.c';body=service.read_text()
+def function(name):
+ m=re.search(r'^static [^\n;]*\b'+name+r'\([^;]*?\)\s*\{',body,re.M);assert m,name
+ stop=m.end();depth=1
+ while depth:depth+=(body[stop]=='{')-(body[stop]=='}');stop+=1
+ return body[m.start():stop]
+recovery='\n'.join(function(n)for n in ['parent_rebind_request','parent_recovery_poll'])
+if a.legacy_recovery:
+ needle='  if(lt_attempts||lt_budget_until||lt_attempt_ready)return;';assert recovery.count(needle)==1
+ recovery=recovery.replace(needle,'  /* negative: continuing loss resets pending retry */')
+(out/'rc_relay_retry_under_test.h').write_text(recovery+'\n'+s[start:end])
 assert 'bound ? rc_admission_relay_renew_ticks() : 16000000' in s
 policy=app/'include/rc_admission_policy.h';extra=[]
 if a.legacy_renewal or a.legacy_retry:
@@ -31,5 +41,5 @@ try:
  with (out/'run.log').open('x')as log:subprocess.run([str(out/'test')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
  passed=True
 finally:
- (out/'receipt.json').write_text(json.dumps({'passed':passed,'hardware':False,'legacy_renewal':a.legacy_renewal,'legacy_retry':a.legacy_retry,'scope':'ACTUAL_RETRY_CALLER_AND_COMBINED_RECORDED_DURATION_POLICY_NOT_RF','command':cmd,'sources':{str(f):hashlib.sha256(f.read_bytes()).hexdigest()for f in [transport,policy,*units]}},indent=2)+'\n')
+ (out/'receipt.json').write_text(json.dumps({'passed':passed,'hardware':False,'legacy_renewal':a.legacy_renewal,'legacy_retry':a.legacy_retry,'legacy_recovery':a.legacy_recovery,'scope':'ACTUAL_RECOVERY_RETRY_AND_COMBINED_RECORDED_DURATION_START_POLICY_NOT_RF','command':cmd,'sources':{str(f):hashlib.sha256(f.read_bytes()).hexdigest()for f in [transport,service,policy,*units]}},indent=2)+'\n')
 print('PASS RC7 relay renewal/retry combined policy')
