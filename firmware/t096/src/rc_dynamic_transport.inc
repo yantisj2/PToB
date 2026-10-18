@@ -1059,7 +1059,9 @@ static void lt_advertise(uint64_t tick) {
 }
 static void lt_poll(uint64_t tick, bool window) {
   lt_drain();
-  if(!precision_synced(tick))lt_advertise(tick);
+  /* This early call can only withdraw a leaf advertisement. Management
+   * discovery starts below, after ACL/upstream ownership has been handled. */
+  if(!routes.node[node].transmitter)lt_advertise(tick);
 #if defined(R2_RC_DYNAMIC_FIXTURE)
   static uint64_t report_at;
   uint64_t report_now = mono_us();
