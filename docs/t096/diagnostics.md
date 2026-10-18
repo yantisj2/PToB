@@ -482,6 +482,17 @@ advisory and do not prove an RF collision.
 
 ### RC parent selection and relay dwell
 
+From 0.15.103, an explicit `rc-parent ID` selects one mesh identity through either its
+ordinary direct-GM locator or authenticated RC7 relay capability. The receiver
+stays in RC mode; it does not promote itself or its parent to GM. Actual GM
+JOIN identity/proof, source, coarse-time, expiry and clock-fit gates still apply.
+An absent, non-root, wrong-group or unavailable source cannot supply time merely
+because its identity was requested. Enrollment that excludes direct GM retains
+that exclusion. `rc-parent auto` restores ordinary automatic selection and
+healthy-parent retention. A parent command performs the existing bounded RC
+owner transition; it is not a hardware reset. Use a separately reviewed finite
+measurement window and restore the desired parent afterward.
+
 Version **0.15.99** allows 30 minutes without usable RC timing before requesting
 watchdog recovery. Each live, unexpired usable timing observation refreshes the
 loss deadline. Thirty seconds of sustained recovery clears retry escalation;

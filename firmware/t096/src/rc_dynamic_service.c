@@ -471,7 +471,7 @@ static void candidate_seen(const bt_addr_le_t *address, uint64_t id, bool relay,
                            bool publishing, int8_t rssi, uint64_t now) {
   if (!id || id == self_identity || rssi > 0 || rssi < -127)
     return;
-  if (forced_parent && (id != forced_parent || !relay))
+  if (forced_parent && id != forced_parent)
     return;
 #if defined(R2_RC_DYNAMIC_FIXTURE)
   extern bool r2_rc7_fixture_candidate(uint64_t, uint64_t);
@@ -674,7 +674,7 @@ static struct candidate *candidate_choose(uint64_t now, bool expired) {
         now < c->cooldown || !c->fresh ||
         (!diagnostic && rc_stream_blocked(&stream_history, c->id, c->relay, now)) ||
         (exclude_direct && !c->relay) ||
-        (forced_parent && (c->id != forced_parent || !c->relay)) ||
+        (forced_parent && c->id != forced_parent) ||
         (retained && c->id != routes.node[parent_index].id) ||
         (c->relay && !seek))
       continue;

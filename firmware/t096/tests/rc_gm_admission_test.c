@@ -49,5 +49,13 @@ int main(void){
  gm_apply(wire);assert(gm_admission_diagnostic[1]==6&&!deferred&&!nonroot&&gm_context.authenticated&&gm_context.at_tick==123);
  unsigned rejects=lt_rejects;gm_apply(wire);assert(lt_rejects==rejects+1&&gm_admission_diagnostic[1]==2&&!nonroot);
  wire[148]^=1;gm_apply(wire);assert(gm_admission_diagnostic[1]==1&&!nonroot&&gm_context.authenticated);
+ /* Forced selection remains advisory: wrong-group and wrong-exchange peers
+  * cannot turn a directGM locator into fresh authenticated time. */
+ struct r2_group_config wrong_group=group;wrong_group.id^=1;
+ assert(!r2_group_join_encode(wire,&r,&wrong_group));
+ unsigned bindings_before=lt_bindings;uint64_t prior_tick=gm_context.at_tick;
+ gm_apply(wire);assert(gm_admission_diagnostic[1]==1&&lt_bindings==bindings_before&&gm_context.at_tick==prior_tick);
+ r.sender=9;r.sender_boot=10;assert(!r2_group_join_encode(wire,&r,&group));
+ gm_apply(wire);assert(gm_admission_diagnostic[1]==2&&lt_bindings==bindings_before&&gm_context.at_tick==prior_tick);
  puts("PASS cold GM admission: actual unchanged100ms gate, expiry subtraction, non-root refusal and bounded causal diagnostics; diagnostics grant no authority");return 0;
 }

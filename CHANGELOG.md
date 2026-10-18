@@ -2,6 +2,15 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 18 October 2026 — T096 explicit parent measurement control
+
+T096 **0.15.103** accepts an explicit parent identity through its ordinary GM
+or RC locator while remaining in RC mode. This enables direct-versus-relay
+measurements without changing automatic selection, enrollment exclusions or
+authenticated time and clock gates. Actual selector and admission regressions
+cover unavailable, stale, excluded and unauthenticated sources. Hardware timing
+and durability qualification remain separate.
+
 ## 18 October 2026 — T096 source-aware recovery
 
 T096 **0.15.102** conserves new recovery transactions while an established,

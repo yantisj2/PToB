@@ -146,6 +146,29 @@ int main(void) {
  bind(true);sample(10,false);CHECK(upstream_usable);
  current_origin.expires=fake_now;delivery_tick(fake_now,fake_now);
  CHECK(!upstream_usable&&!relay_fallback);
+ // Explicit parent identity accepts the same exact ID through its observed
+ // GM or RC class. It does not change the default automatic retention policy.
+ CHECK(rc_admission_g1_direct(1,true));
+ CHECK(!rc_admission_g1_direct(65,true)); // Passive client is not a directGM.
+ CHECK(!rc_admission_g1_direct(1,false));
+ CHECK(!rc_admission_g1_direct(0,true));
+ clear();forced_parent=11;seen(11,false,false,-60,1000000);
+ seen(22,false,false,-20,1000000);seen(33,true,true,-20,1000000);
+ CHECK(choose(1040000)==11);CHECK(!candidate_choose(1040001,false)->relay);
+ unsigned kept=0;for(unsigned i=0;i<8;i++)kept+=candidates[i].id!=0;CHECK(kept==1);
+ clear();forced_parent=22;seen(11,false,false,-20,1000000);
+ seen(22,true,false,-60,1000000);CHECK(choose(1040000)==22);
+ CHECK(candidate_choose(1040001,false)->relay);
+ clear();forced_parent=44;seen(11,false,false,-20,1000000);
+ seen(22,true,true,-20,1000000);CHECK(!choose(1040000));
+ // An enrollment that excludes directGM still excludes it when ID is forced.
+ clear();forced_parent=11;exclude_direct=true;
+ seen(11,false,false,-20,1000000);CHECK(!choose(1040000));
+ // Stale and nonfresh forced-ID locators are not manufactured into a parent.
+ clear();forced_parent=11;seen(11,false,false,-20,1000000);
+ CHECK(!choose(1200000));
+ clear();forced_parent=11;seen(11,false,false,-20,1000000);
+ candidate_defer(11,1000001);CHECK(!choose(1040000));
  // Explicit relay-only diagnostics retain their fast collection and role fence.
  clear();exclude_direct=true;seen(11,false,false,-20,1000000);
  seen(22,true,false,-40,1000000);CHECK(choose(1040000)==22);

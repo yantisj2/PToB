@@ -14,7 +14,7 @@ devices. See [the architectural background](../../docs/V12_TO_R2.md).
 **PToB owns T096 RC7 development.** The ordinary mesh profiles are **GM** and **RC**;
 USB timing support is compiled by default. [Build from source](../../docs/t096/build.md)
 using pinned public dependencies and ignored local enrollment. The current
-application version is 0.15.102. No publicly enrolled binary is distributed.
+application version is 0.15.103. No publicly enrolled binary is distributed.
 
 Version 0.15.102 preserves recovery opportunities when an established relay
 sends fresh, authenticated packets with no corrections. Such packets indicate
@@ -79,6 +79,13 @@ PA establishment cannot rearm these budgets. Output source/map validity remains
 independent. RC7 management discovery stays available during timing loss, while
 periodic timing and UCS1 discovery keep their existing precision gates. These
 are field-candidate policies, with durability still to be measured.
+
+From 0.15.103, an explicit `rc-parent ID` targets that mesh identity through its ordinary GM
+or RC locator while the receiver remains in RC mode. It preserves enrollment
+exclusions and every authenticated admission/source/clock gate; an identity
+request grants no time. `rc-parent auto` restores normal automatic selection,
+including healthy-parent retention. A parent command uses the existing bounded
+RC owner transition. See the diagnostic guide for finite measurement use.
 
 Relay GATT admission discovers the characteristic handle before reading its
 212-byte capability. A receiver using an RC2 parent stays a leaf and withdraws

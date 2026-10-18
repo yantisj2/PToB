@@ -126,6 +126,8 @@ Use `--registry artifacts/local/registry.json` to compile your deployment’s sh
 Keep the real map ignored, alongside local enrollment; the receipt records its
 hash and preserves a private build snapshot.
 
+Version 0.15.103 allows an explicit parent identity to select a direct GM as
+well as a relay, with no additional static state or change to automatic selection.
 Version 0.15.102 adds a source-unavailable scheduling hint to 0.15.101's
 preserved retry policy and pinned AUX observations. The hint adds eight bytes
 of state; native inspection still requires at least 1,024 unallocated bytes.
