@@ -8,7 +8,7 @@ from build import sha,validate_inputs
 
 def inspect(out,allow_development=False):
  out=Path(out).resolve();r=json.loads((out/'receipt.json').read_text())
- if r.get('artifact_class')!='PTOB_SS3_RC' or r.get('profile')!='RC' or r.get('version')!='0.1.1':raise ValueError('Wrong artifact class/profile/version')
+ if r.get('artifact_class')!='PTOB_SS3_RC' or r.get('profile')!='RC' or r.get('version') not in ('0.1.1','0.1.2'):raise ValueError('Wrong artifact class/profile/version')
  if not re.fullmatch('[0-9a-f]{40}',r.get('public_commit','')):raise ValueError('Exact source commit missing')
  if not 0<r.get('application_bytes',0)<=1048576 or r.get('listening_percent') != 100 or r.get('estimated_relay') is not True:raise ValueError('Profile or application bounds changed')
  source_hash=hashlib.sha256(json.dumps(r['sources'],sort_keys=True,separators=(',',':')).encode()).hexdigest()

@@ -8,7 +8,7 @@ from build import sha,validate_inputs,device_header,provisional_profile
 
 def inspect(out,allow_development=False):
  out=Path(out).resolve();r=json.loads((out/'receipt.json').read_text())
- if r.get('artifact_class')!='PTOB_W12_RC' or r.get('profile')!='RC' or r.get('version') not in ('0.1.0','0.1.1','0.1.2','0.1.3','0.1.4','0.1.5','0.1.6','0.1.7','0.1.8','0.1.9','0.1.10','0.1.11','0.1.12','0.1.13','0.1.14','0.1.15','0.1.16','0.1.17'):raise ValueError('Wrong artifact class/profile/version')
+ if r.get('artifact_class')!='PTOB_W12_RC' or r.get('profile')!='RC' or r.get('version') not in ('0.1.0','0.1.1','0.1.2','0.1.3','0.1.4','0.1.5','0.1.6','0.1.7','0.1.8','0.1.9','0.1.10','0.1.11','0.1.12','0.1.13','0.1.14','0.1.15','0.1.16','0.1.17','0.1.18'):raise ValueError('Wrong artifact class/profile/version')
  if not re.fullmatch('[0-9a-f]{40}',r.get('public_commit','')):raise ValueError('Exact source commit missing')
  if not 0<r.get('application_bytes',0)<=1048576 or r.get('listening_percent') not in (50,100) or (r.get('estimated_relay') and r['listening_percent']!=100):raise ValueError('Profile or application bounds changed')
  source_hash=hashlib.sha256(json.dumps(r['sources'],sort_keys=True,separators=(',',':')).encode()).hexdigest()
