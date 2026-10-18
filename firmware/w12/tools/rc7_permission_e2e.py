@@ -13,7 +13,7 @@ SDK_DEFAULT = Path(os.environ['IDF_PATH'])
 NATIVE_CASES = ('autonomous-direct', 'typed-direct', 'direct-to-rc7',
                 'changed-full-path', 'response-path-changed', 'permission-native',
                 'loss-recovery-preserved', 'retained-new-coarse-root', 'rc7-foreign-root-hint', 'retained-expiry', 'retained-clock-step', 'mapped-read-failure', 'mapped-finalize-failure', 'mapped-deliver-failure')
-SERVER_CASES = ('tx-observation', 'warm-budget-publisher', 'lock-startup', 'lock-loss', 'lock-regain', 'lock-late-connect', 'lock-drain-deadline',
+SERVER_CASES = ('tx-observation', 'provisional-output', 'warm-budget-publisher', 'lock-startup', 'lock-loss', 'lock-regain', 'lock-late-connect', 'lock-drain-deadline',
                 'slot-startup-t4', 'slot-startup-conflict', 'slot-startup-weak', 'slot-startup-foreign',
                 'demand-idle', 'demand-bad-tag', 'demand-activate', 'demand-expiry', 'demand-multiple',
                 'demand-renewal', 'demand-restart', 'demand-start-expiry', 'demand-queue-expiry',
@@ -75,6 +75,7 @@ extern "C" bool clock_reference_read(uint64_t* t){
 #include "native_g1_fixture.cpp"
 namespace v12::periodic_rx {
 uint32_t capture_epoch=0;bool installed=false,armed=false;Stamp fixture_stamp{};
+RfReference rf_reference(){return {};}
 bool start(){installed=true;return true;}bool stop(){installed=armed=false;return true;}
 void poll(){}uint32_t scope(uint16_t,bool acquiring){armed=acquiring;return ++capture_epoch;}
 bool adopt(uint16_t,uint32_t e){armed=e==capture_epoch;return armed;}

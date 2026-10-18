@@ -34,6 +34,20 @@ uint64_t relay_trace_capture=0;
 // phase/error/channel. Original selected payload, source and timing gates stay
 // unchanged. Only local clock/logger reads; no radio API, formatting or allocation.
 uint64_t relay_tx_capture_id=0;uint8_t relay_tx_capture_left=0;
+// Companion observation keeps the existing191-byte report payload fixed.
+// Same actual selected tuple as kind23; raw map and estimate remain unchanged.
+__attribute__((noinline)) void relay_tx_path_observation(const periodic_tx::EstimateRecord& c,
+    const Rc7RelayEstimate::PreparedPublication& frozen,uint64_t capture_id){
+  const auto& sent=relay_map.sent[0];const auto& own=frozen.path.node[frozen.path.depth];
+  Report r{};r.kind=24;r.callback_us=micros();r.actual_length=r.length=96;
+  r.bytes[0]=1;r.bytes[1]=c.channel;r.bytes[2]=uint8_t(c.observed.selected.event);r.bytes[3]=uint8_t(c.observed.selected.event>>8);
+  const uint32_t words[]={sent.publication,sent.generation,own.epoch,frozen.origin.epoch,uint32_t(frozen.provisional_offset_ns)};
+  for(unsigned i=0;i<5;i++)for(unsigned j=0;j<4;j++)r.bytes[4+4*i+j]=uint8_t(words[i]>>(8*j));
+  const uint64_t fields[]={own.id,own.boot,frozen.origin.root,frozen.origin.boot,c.tick20,
+    uint64_t(frozen.map.relative_at(c.tick20)),sent.tx_ns,frozen.provisional_id,capture_id};
+  for(unsigned i=0;i<9;i++)for(unsigned j=0;j<8;j++)r.bytes[24+8*i+j]=uint8_t(fields[i]>>(8*j));
+  transport_record(r);
+}
 __attribute__((noinline)) void relay_tx_observation(const periodic_tx::EstimateRecord& c,uint64_t available20){
   const auto logging=log_status();
   if(!logging.capture_active||!c.estimated||c.stage!=5||
@@ -59,6 +73,7 @@ __attribute__((noinline)) void relay_tx_observation(const periodic_tx::EstimateR
   const uint32_t rate=rate_known?uint32_t(int32_t(std::llround(frozen->map.rate*1000))):0;
   for(unsigned j=0;j<4;j++)r.bytes[180+j]=uint8_t(rate>>(8*j));
   --relay_tx_capture_left;transport_record(r);
+  relay_tx_path_observation(c,*frozen,logging.capture_id);
 }
 
 uint8_t relay_cap[212]{};rc7_path relay_cap_path{};
@@ -273,8 +288,10 @@ void relay_input(const rc7_path& parent,const rc5_origin& origin,const uint8_t* 
                  uint32_t incarnation,uint64_t completion20,uint32_t inherited_age){
   if(!full_listening()||closing||fault||relay_stopping)return;
   const auto old=relay_map.path;
+  const auto reference=periodic_rx::rf_reference();
   if(relay_map.input(parent,origin,proof,corrected_clock.prediction(),original20,incarnation,completion20,
-    inherited_age,provision.identity,boot_id,provision.group)){
+    inherited_age,provision.identity,boot_id,provision.group,rc7_provisional_config(),
+    reference.valid&&reference.phy==0&&reference.extra_us==4&&incarnation&&reference.epoch==incarnation)){
     inc(relay_queue_diagnostic.inputs);
     relay_data_dirty=true;
     if(!rc7_path_same(&old,&relay_map.path)){relay_cap_dirty=true;relay_stop_pa();relay_start20=0;}

@@ -91,7 +91,9 @@ python firmware/w12/tools/build.py --idf "$IDF_PATH" \
 `--estimated-relay` enables the existing BLE100 laboratory RC publisher. It
 uses programmed TX estimates, advertises an unknown timing bound, and does not
 claim actual TX capture or qualified relay precision. BLE50 is client-only.
-The +3056 ns donor correction experiment is excluded; output correction is zero.
+The +3056 ns donor display correction experiment is excluded. Raw clock fitting
+and local display correction remain unchanged; the optional provisional relay
+output profile below is separate and defaults to zero.
 Version 0.1.1 requests 100 ms for both RC discovery advertisers, matching T096;
 the separate precision train stays at 62.5 ms. Downstream advertising and
 publication wait for current parent clock lock and withdraw when that lock or
@@ -309,5 +311,84 @@ associations, missing records and capture boundaries. PPS shadow values observe
 the combined upstream receive map, estimated relay transmit reference and
 receiver/reference path. A fixed offset or small residual does not independently
 identify TX versus RX bias, establish UTC association or bound RF latency. Do
-not apply a measured shadow offset as a calibration without independent endpoint
-evidence. Source, slot, parent and precision gates are unchanged.
+not treat a measured shadow offset as an independently identified TX/RX
+calibration. A separately reviewed provisional aggregate-path profile is
+available below; it does not supply missing endpoint evidence. Source, slot,
+parent and precision gates are unchanged.
+
+## Provisional aggregate-path offset
+
+Version 0.1.16 accepts an optional `provisional_path` object in the ignored,
+factory-bound device input. Its absence selects zero. This is an operator
+assumption based on an observed combined path, not automatic calibration or
+feedback from a running PPS witness. It requires `--estimated-relay` and
+BLE100. Do not infer an offset for another W12 or silently copy a profile.
+
+```json
+"provisional_path": {
+  "schema": 1,
+  "scope": "AGGREGATE_PATH_RELATIVE_PPS",
+  "offset_ns": 47000,
+  "root": "<16 lowercase hex digits>",
+  "root_boot": "<16 lowercase hex digits>",
+  "source_epoch": 1,
+  "allow_source_epoch_transfer": false,
+  "receiver": "<training receiver identity: 16 lowercase hex digits>",
+  "receiver_source_sha256": "<64 lowercase hex digits>",
+  "receiver_phase_correction_ns": 0,
+  "evidence_sha256": "<64 lowercase hex digits>",
+  "baseline_evidence_sha256": "<64 lowercase hex digits>"
+}
+```
+
+Replace every placeholder with reviewed evidence. The example offset illustrates
+sign: an aggregate shadow phase of −46,940 ns would become +60 ns after adding
+47,000 ns. It is not a recommended offset for an arbitrary device. Record the
+training receiver's actual existing phase correction; this metadata neither
+changes nor applies that receiver correction again. Preserve source, boot,
+parent, reference association, valid/invalid/missing denominators and separate
+measurement populations in the evidence. A baseline from another source version
+or time is not a matched differential calibration.
+
+Offsets must be nonzero signed integers within ±100,000 ns; unsupported fields,
+missing provenance and malformed scope fail validation. The builder derives a
+profile ID and full provenance hash from the object and exact publisher identity.
+These enter the generated device header, receipt and runtime build identity.
+The inspector verifies them against the retained input. A console manifest for
+an enabled image must carry the receipt's exact `provisional_path_profile`;
+the framed parser refuses an undisclosed configured offset. `pcfg` reports an eight-hex-digit prefix of the configured profile ID, within
+the unchanged whole-frame capacity. The nonce-bound source/build and full
+manifest bind its complete identity and offset; a prefix alone is insufficient.
+`cal` retains its local display meaning.
+
+The offset applies only to this publisher at RC1 while it follows the exact
+configured root identity and root boot with the existing valid BLE1M receive
+reference from the accepted capture incarnation. By default, its source epoch
+must also equal the training `source_epoch`. A mismatched scope selects zero. Since RC7 uses a
+multicast stream, the adjustment affects **all receivers consuming that
+publisher**; training receiver metadata cannot restrict it to that receiver.
+Changing the root boot requires a fresh profile review. Optional
+`allow_source_epoch_transfer: true` explicitly permits an **unmeasured
+provisional transfer** across source epochs of that same root boot; omission
+means false. Training epoch/provenance stay unchanged, and each current epoch
+remains in the raw TX tuple. New epochs still require all ordinary fresh
+admission, authentication, path, replay and source-expiry checks. This flag
+cannot borrow an old epoch's authority or transfer its observed jitter as a
+guarantee. An RC2 does not apply the RC1 profile again.
+
+The worker freezes the effective offset with each publication, then adds it
+once to the raw selected timestamp. Both raw and adjusted values must lie inside
+the unchanged signed source envelope. It never alters raw physical captures,
+the oscillator fit, source/proof/hold/precision gates, root envelope, slots or
+parent rules. During bounded capture, `W12_G1_TX_PATH` accompanies the existing
+sampled `W12_G1_TX_EST`, retaining publisher/root boots and epochs, train,
+publication/event/channel, programmed tick, raw and emitted timestamp, effective
+profile/offset and capture ID. Match the complete tuple and preserve missing
+companions or queue losses; no tuple is an actual RF TX observation.
+
+Report signed mean offset, slope and residual jitter separately. A constant
+adjustment moves the mean; it does not reduce residual jitter, prove which
+endpoint caused the bias or create an uncertainty bound. RF/UTC bounds and
+absolute association remain unknown. GNSS reception/PPS/fix indications remain
+separate observations under their existing gates; this profile sends no GNSS
+commands and does not discipline the BLE clock from weak indoor GNSS.

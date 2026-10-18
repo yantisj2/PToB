@@ -52,6 +52,20 @@ inline int g1_render_tx_estimate(char* out,unsigned capacity,const Report& r){
     g1_diag_le(r.bytes+148,8),g1_diag_le(r.bytes+156,8),g1_diag_le(r.bytes+164,8),g1_diag_le(r.bytes+172,8),g1_diag_le(r.bytes+24,4));
 }
 
+// Same tuple as W12_G1_TX_EST; a raw programmed estimate plus an explicitly
+// provisional aggregate-path adjustment, never a measured RF latency bound.
+inline int g1_render_tx_path(char* out,unsigned capacity,const Report& r){
+  if(r.kind!=24||r.length!=96||r.bytes[0]!=1)return 0;
+  return std::snprintf(out,capacity,"W12_G1_TX_PATH at_us=%" PRIu64
+    " publisher=%016" PRIx64 "/%016" PRIx64 " root=%016" PRIx64 "/%016" PRIx64 "/%" PRIu64
+    " train=%" PRIu64 " epoch=%" PRIu64 " pub=%" PRIu64 " event=%" PRIu64 " ch=%u tick20=%" PRIu64
+    " raw_tx_ns=%" PRIu64 " tx_ns=%" PRIu64 " path_offset_ns=%" PRId32 " path_profile=%016" PRIx64
+    " capture=%016" PRIx64 " scope=AGGREGATE_PROVISIONAL jitter=SEPARATE actual=0 bound=UNKNOWN absolute_UTC=UNKNOWN\n",
+    r.callback_us,g1_diag_le(r.bytes+24,8),g1_diag_le(r.bytes+32,8),g1_diag_le(r.bytes+40,8),g1_diag_le(r.bytes+48,8),g1_diag_le(r.bytes+16,4),
+    g1_diag_le(r.bytes+8,4),g1_diag_le(r.bytes+12,4),g1_diag_le(r.bytes+4,4),g1_diag_le(r.bytes+2,2),unsigned(r.bytes[1]),g1_diag_le(r.bytes+56,8),
+    g1_diag_le(r.bytes+64,8),g1_diag_le(r.bytes+72,8),int32_t(g1_diag_le(r.bytes+20,4)),g1_diag_le(r.bytes+80,8),g1_diag_le(r.bytes+88,8));
+}
+
 // Main-task rendering only. Record size is fixed and independent of RF rate.
 inline int g1_render_link(char* out,unsigned capacity,const Report& r){
   if(r.kind!=8||r.length!=32||r.bytes[5]!=2)return 0;

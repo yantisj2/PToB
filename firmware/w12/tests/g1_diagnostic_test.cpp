@@ -70,6 +70,13 @@ int main(){
   tx.bytes[1]=0;assert(!v12::g1_render_tx_estimate(line,sizeof line,tx));
   tx.bytes[1]=1;tx.bytes[3]=4;assert(!v12::g1_render_tx_estimate(line,sizeof line,tx));
 
+  v12::Report path{};path.kind=24;path.length=96;path.callback_us=UINT64_MAX;
+  std::memset(path.bytes,255,sizeof path.bytes);path.bytes[0]=1;
+  for(unsigned j=0;j<4;j++)path.bytes[20+j]=uint8_t(uint32_t(47000)>>(8*j));
+  const int pathbytes=v12::g1_render_tx_path(line,sizeof line,path);
+  assert(pathbytes>0&&unsigned(pathbytes)<sizeof line&&std::strstr(line,"path_offset_ns=47000")&&std::strstr(line,"raw_tx_ns=")&&std::strstr(line,"path_profile=ffffffffffffffff")&&std::strstr(line,"scope=AGGREGATE_PROVISIONAL jitter=SEPARATE actual=0 bound=UNKNOWN absolute_UTC=UNKNOWN"));
+  path.length=95;assert(!v12::g1_render_tx_path(line,sizeof line,path));path.length=96;path.bytes[0]=2;assert(!v12::g1_render_tx_path(line,sizeof line,path));
+
   v12::R2Discipline discipline;v12::periodic_rx::Stamp capture;r2_precision_packet p{};
   assert(!discipline.authenticated_receive(p,capture,0,0,0));const auto q=discipline.view(0,0);
   assert(q.refused==1&&q.first_refusal==q.last_refusal);

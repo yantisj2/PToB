@@ -13,6 +13,7 @@
 #include "g1_record_budget.hpp"
 #if V12_R2_CONFIG == 13
 #include "g1_ui_indicators.hpp"
+#include "rc7_provisional_config.hpp"
 #endif
 #ifdef V12_GPS_SHADOW_OBSERVER
 #include "g1_gps_shadow.hpp"
@@ -167,7 +168,7 @@ void pps(const gnss_pps::Observation& edge){
     " window_start_us=%" PRIu64 " window_closed_us=%" PRIu64 " window_max_owned_us=%" PRIu64 " windows=%" PRIu32 " window_misses=%" PRIu32
     " quiet_faults=%" PRIu32 " GR_authenticated=%" PRIu32 " GR_refused=%" PRIu32
     " rc7=2/%u/%u/%u rq7=%" PRIu32 "/%" PRIu32 "/%" PRIu32 "/%" PRIu32 " rc7_until=%" PRIu64 "/%" PRIu64 " rc7_delivery=%u rp=%016" PRIx64 "/%" PRIu32 "/%u/%" PRIu64 "/%" PRIu64 "/%u"
-    " listening_percent=%u g1_rearm=%" PRIu32 " g1_join=%" PRIu32 "/%" PRIu32 " cal=%d/%u"
+    " listening_percent=%u g1_rearm=%" PRIu32 " g1_join=%" PRIu32 "/%" PRIu32 " cal=%d/%u pcfg=%08" PRIx32
 #ifdef V12_R2_RC7_TX_ESTIMATE_LAB
     " rs7=%08" PRIx32 "/%08" PRIx32 "/%08" PRIx32 " rcq=%" PRIu32 "/%" PRIu32 "/%" PRIu32 "/%u"
 #endif
@@ -183,7 +184,7 @@ void pps(const gnss_pps::Observation& edge){
     mesh.lease.stop_generation,mesh.lease.stop_completed,mesh.client.generation,mesh.client.request_id,unsigned(mesh.client.pending),unsigned(mesh.client.running),unsigned(mesh.client.stopping),mesh.client.admitted_us,mesh.client.start_deadline_us,mesh.client.started_us,mesh.client.stop_requested_us,mesh.client.stop_deadline_us,
     mesh.client.completed_us,mesh.client.stop_generation,mesh.client.stop_completed,unsigned(mesh.client.deadline_exceeded),unsigned(mesh.rx_capture.installed),unsigned(mesh.rx_capture.armed),mesh.rx_capture.fault,mesh.rx_capture.calls,mesh.rx_capture.candidates,mesh.rx_capture.matched,mesh.rx_capture.missed,mesh.rx_capture.ambiguous,
     mesh.rx_capture.overflow,mesh.rx_capture.epoch,mesh.rx_capture.peak,mesh.rx_capture.hook_max_cycles,mesh.host_stack_min_bytes,mesh.host_stack_configured_bytes,mesh.discipline_accepted,mesh.discipline_refused,mesh.rms_ns,mesh.hold_ms,mesh.hold_samples,mesh.g1_anchor_deadline_us,
-    mesh.g1_anchor_guard_us,unsigned(mesh.g1_refresh_needed),unsigned(mesh.g1_refresh_urgent),mesh.g1_refresh_attempts,mesh.g1_window_start_us,mesh.g1_window_closed_us,mesh.g1_window_max_owned_us,mesh.g1_windows,mesh.g1_window_misses,mesh.g1_quiet_faults,mesh.g1_relay_authenticated,mesh.g1_relay_refused,unsigned(mesh.rc7_exclude_direct_gm),unsigned(mesh.rc7_bound),unsigned(mesh.rc7_depth),mesh.rc7_capabilities,mesh.rc7_requests,mesh.rc7_responses,mesh.rc7_pending,mesh.rc7_lease_until_us,mesh.rc7_renew_at_us,unsigned(mesh.rc7_delivery),mesh.rc_parent.target,mesh.rc_parent.generation,unsigned(mesh.rc_parent.state),mesh.rc_parent.deadline_us,mesh.rc_parent.completed_us,unsigned(mesh.rc_parent.relay),unsigned(mesh.g1_listening_percent),mesh.g1_recovery.rearms,mesh.rx,mesh.tx,int(mesh.g1_clock_model.output_correction_ns),unsigned(mesh.g1_clock_model.output_correction_ns!=0)
+    mesh.g1_anchor_guard_us,unsigned(mesh.g1_refresh_needed),unsigned(mesh.g1_refresh_urgent),mesh.g1_refresh_attempts,mesh.g1_window_start_us,mesh.g1_window_closed_us,mesh.g1_window_max_owned_us,mesh.g1_windows,mesh.g1_window_misses,mesh.g1_quiet_faults,mesh.g1_relay_authenticated,mesh.g1_relay_refused,unsigned(mesh.rc7_exclude_direct_gm),unsigned(mesh.rc7_bound),unsigned(mesh.rc7_depth),mesh.rc7_capabilities,mesh.rc7_requests,mesh.rc7_responses,mesh.rc7_pending,mesh.rc7_lease_until_us,mesh.rc7_renew_at_us,unsigned(mesh.rc7_delivery),mesh.rc_parent.target,mesh.rc_parent.generation,unsigned(mesh.rc_parent.state),mesh.rc_parent.deadline_us,mesh.rc_parent.completed_us,unsigned(mesh.rc_parent.relay),unsigned(mesh.g1_listening_percent),mesh.g1_recovery.rearms,mesh.rx,mesh.tx,int(mesh.g1_clock_model.output_correction_ns),unsigned(mesh.g1_clock_model.output_correction_ns!=0),uint32_t(v12::rc7_provisional_config().id>>32)
 #ifdef V12_R2_RC7_TX_ESTIMATE_LAB
     ,mesh.rc7_server_flags,mesh.rc7_server_publication,mesh.rc7_server_admissions,mesh.rc7_admission_overlaps,mesh.rc7_quarantine_active,mesh.rc7_quarantine_timeouts,unsigned(mesh.g1_first_fault_site)
 #endif
@@ -758,6 +759,7 @@ extern "C" void app_main(){
         else rendered=std::snprintf(diagnostic,sizeof diagnostic,"W12_G1_PARENT_MISSING seq=%" PRIu32 " reason=RAM_HISTORY_OVERRUN\n",sequence);
       }else if(row.kind==22)rendered=v12::g1_render_relay_owner(diagnostic,sizeof diagnostic,row);
       else if(row.kind==23)rendered=v12::g1_render_tx_estimate(diagnostic,sizeof diagnostic,row);
+      else if(row.kind==24)rendered=v12::g1_render_tx_path(diagnostic,sizeof diagnostic,row);
       else rendered=row.kind==8?v12::g1_render_link(diagnostic,sizeof diagnostic,row):v12::g1_render_scope(diagnostic,sizeof diagnostic,row);
       if(rendered>0&&unsigned(rendered)<sizeof diagnostic){const int n=std::printf("%s",diagnostic);if(n>0)console_bytes+=unsigned(n);const auto work=micros()-begin;console_work+=work;if(work>console_max_us)console_max_us=uint32_t(work);continue;}
 #endif

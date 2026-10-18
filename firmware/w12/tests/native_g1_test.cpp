@@ -25,7 +25,7 @@ DiagnosticTxStatus diagnostic_tx_status(){return {};}
 DirectStatus direct_status(){return {};}
 Report discovery_report;
 std::vector<Report> diagnostic_records;
-void transport_record(const Report& r){if(r.kind==5)discovery_report=r;if(r.kind==8||r.kind==10||r.kind==20||r.kind==22||r.kind==23)diagnostic_records.push_back(r);}
+void transport_record(const Report& r){if(r.kind==5)discovery_report=r;if(r.kind==8||r.kind==10||r.kind==20||r.kind==22||r.kind==23||r.kind==24)diagnostic_records.push_back(r);}
 }
 int ble_hs_id_set_rnd(const uint8_t*){return 0;}
 int ble_gatts_count_cfg(const ble_gatt_svc_def*){return 0;}int ble_gatts_add_svcs(const ble_gatt_svc_def*){return 0;}

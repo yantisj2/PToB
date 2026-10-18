@@ -2,6 +2,29 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 0.1.16 — 18 October 2026
+
+- Add an explicit per-device, build-time provisional aggregate-path offset to
+  emitted RC7 estimated timestamps. It defaults to zero; enablement requires
+  BLE100 estimated relay, the exact publisher and direct-root identity, boot
+  and training source epoch, plus the existing valid BLE1M receive reference.
+  An explicit opt-in permits unmeasured transfer across fresh epochs of that
+  same root boot without transferring authority or a jitter guarantee. The
+  multicast correction affects every receiver using that publisher.
+- Freeze the offset with its publication and apply it once after the raw clock
+  projection. Both raw and adjusted timestamps must remain inside the original
+  signed source envelope. Raw captures, clock fitting, proof/hold/precision,
+  source expiry, slots, parent selection and ownership deadlines are unchanged.
+- Bind the profile, training receiver/source/correction and evidence hashes
+  into the generated device header and build identity. Status discloses its
+  configured identity prefix; capture-only companion records retain the exact
+  raw/emitted tuple, effective profile, offset and capture identity without
+  enlarging the fixed report payload. RF and UTC bounds remain unknown.
+- Production sign/zero/scope/frozen-publication/expiry tests preserve unknown
+  precision. Old unadjusted and double-application branches fail the sign
+  regression. Residual jitter remains a separate observed statistic; applying
+  an offset does not reduce jitter or identify RX versus TX latency.
+
 ## 0.1.15 — 18 October 2026
 
 - Treat HCI Connection Parameters rejection (571) as a failed admission only

@@ -7,7 +7,7 @@ from pathlib import Path
 APP=Path(__file__).resolve().parents[1];REPO=APP.parents[1]
 sys.path.insert(0,str(REPO/'registry'))
 from registry import load as load_registry,header as registry_header
-VERSION='0.1.15'
+VERSION='0.1.16'
 GNSS_PROFILE='meshnology_w12_l76k_rx39_pps41'
 def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
 def git(p,*args):return subprocess.check_output(['git','-C',str(p),*args],text=True).strip()
@@ -18,14 +18,43 @@ def validate_inputs(enrollment,device):
  group=enrollment['group_id'];epoch=enrollment['key_epoch'];key=bytes.fromhex(enrollment['psk'])
  if not(re.fullmatch('[0-9a-f]{16}',group) and int(group,16) and type(epoch)is int and 0<epoch<2**32 and len(key)==32 and any(key)):raise ValueError('Invalid group enrollment')
  required={'board','factory_mac','device_id','label','legacy_wire_id'}
- if set(device) not in (required,required|{'gnss_profile'}):raise ValueError('Unexpected device fields')
+ if not required<=set(device) or set(device)-required-{'gnss_profile','provisional_path'}:raise ValueError('Unexpected device fields')
+ provisional_profile(device)
  if 'gnss_profile' in device and device['gnss_profile']!=GNSS_PROFILE:raise ValueError('Unsupported GNSS route; explicit reviewed W12 L76K RX39/PPS41 profile required')
  mac=device['factory_mac'];identity=device['device_id'];label=device['label'];wire=device['legacy_wire_id']
  if not(device['board']=='meshnology_w12_esp32s3' and re.fullmatch('[0-9a-f]{2}(:[0-9a-f]{2}){5}',mac) and int(mac.replace(':',''),16) and not int(mac[:2],16)&1 and identity=='0000'+mac.replace(':','') and re.fullmatch('[A-Za-z0-9_-]{1,24}',label) and type(wire)is int and 1<=wire<=254):raise ValueError('Explicit W12 factory binding/label required')
  return key
 
+def provisional_profile(device):
+ p=device.get('provisional_path')
+ if p is None:
+  if 'provisional_path' in device:raise ValueError('Explicit profile must be an object')
+  return None
+ required={'schema','scope','offset_ns','root','root_boot','source_epoch','receiver','receiver_source_sha256','receiver_phase_correction_ns','evidence_sha256','baseline_evidence_sha256'}
+ if type(p)is not dict or not required<=set(p) or set(p)-required-{'allow_source_epoch_transfer'}:raise ValueError('Unexpected provisional aggregate-path fields')
+ if 'allow_source_epoch_transfer' in p and type(p['allow_source_epoch_transfer'])is not bool:raise ValueError('Epoch transfer requires explicit boolean opt-in')
+ if type(p['schema'])is not int or p['schema']!=1 or p['scope']!='AGGREGATE_PATH_RELATIVE_PPS':raise ValueError('Wrong provisional profile schema/scope')
+ if type(p['offset_ns'])is not int or not -100000<=p['offset_ns']<=100000 or not p['offset_ns']:raise ValueError('Provisional offset outside domain')
+ if type(p['source_epoch'])is not int or not 0<p['source_epoch']<2**32:raise ValueError('Exact source epoch required')
+ if type(p['receiver_phase_correction_ns'])is not int or not -100000<=p['receiver_phase_correction_ns']<=100000:raise ValueError('Receiver correction metadata required')
+ for key in ('root','root_boot','receiver'):
+  if not isinstance(p[key],str) or not re.fullmatch('[0-9a-f]{16}',p[key]) or not int(p[key],16):raise ValueError('Exact nonzero identity/boot required: '+key)
+ for key in ('receiver_source_sha256','evidence_sha256','baseline_evidence_sha256'):
+  if not isinstance(p[key],str) or not re.fullmatch('[0-9a-f]{64}',p[key]) or not int(p[key],16):raise ValueError('Exact evidence/source identity required: '+key)
+ identity={**p,'publisher':device['device_id']}
+ digest=hashlib.sha256(json.dumps(identity,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+ if not int(digest[:16],16):raise ValueError('Zero profile identity')
+ return {**identity,'id':digest[:16],'provenance_sha256':digest,'qualification':'PROVISIONAL_AGGREGATE_PATH_UNKNOWN_RF_UTC','residual_jitter':'MEASURE_SEPARATELY_NOT_A_BOUND','source_epoch_transfer':'UNMEASURED_PROVISIONAL' if p.get('allow_source_epoch_transfer',False) else 'EXACT_TRAINING_EPOCH'}
+
 def device_header(device):
- return ('#pragma once\n#define PTOB_FACTORY_MAC {'+','.join('0x'+x for x in device['factory_mac'].split(':'))+'}\n#define PTOB_DEVICE_LABEL '+json.dumps(device['label'])+'\n#define PTOB_LEGACY_WIRE_ID '+str(device['legacy_wire_id'])+'\n#define PTOB_GNSS_INDICATORS '+str(int('gnss_profile' in device))+'\n')
+ p=provisional_profile(device)
+ provisional=''
+ if p:
+  for key,macro in [('id','ID'),('publisher','PUBLISHER'),('root','ROOT'),('root_boot','ROOT_BOOT')]:provisional+='#define PTOB_PROVISIONAL_'+macro+' UINT64_C(0x'+p[key]+')\n'
+  provisional+='#define PTOB_PROVISIONAL_SOURCE_EPOCH '+str(p['source_epoch'])+'\n#define PTOB_PROVISIONAL_OFFSET_NS '+str(p['offset_ns'])+'\n'
+  provisional+='#define PTOB_PROVISIONAL_ALLOW_SOURCE_EPOCH_TRANSFER '+str(int(p.get('allow_source_epoch_transfer',False)))+'\n'
+  provisional+='#define PTOB_PROVISIONAL_PROVENANCE_SHA256 "'+p['provenance_sha256']+'"\n'
+ return provisional+('#pragma once\n#define PTOB_FACTORY_MAC {'+','.join('0x'+x for x in device['factory_mac'].split(':'))+'}\n#define PTOB_DEVICE_LABEL '+json.dumps(device['label'])+'\n#define PTOB_LEGACY_WIRE_ID '+str(device['legacy_wire_id'])+'\n#define PTOB_GNSS_INDICATORS '+str(int('gnss_profile' in device))+'\n')
 
 def verify_sdk(sdk,lock):
  pin=lock['esp_idf']
@@ -51,6 +80,7 @@ def main():
  if dirty and not a.development:p.error('Commit reviewed public inputs before a candidate build')
  lock=json.loads((APP/'dependencies.lock.json').read_text());modules=verify_sdk(sdk,lock)
  e=json.loads(a.enrollment.read_text());d=json.loads(a.device_config.read_text());key=validate_inputs(e,d);registry=load_registry(a.registry)
+ if provisional_profile(d) and not(a.estimated_relay and a.listening_percent==100):p.error('Provisional aggregate-path profile requires estimated relay BLE100')
  out.mkdir(parents=True);target=out/'target';target.mkdir();inputs=out/'local';inputs.mkdir()
  sources={str(f.relative_to(APP)):sha(f) for f in source_files()};source_hash=hashlib.sha256(json.dumps(sources,sort_keys=True,separators=(',',':')).encode()).hexdigest()
  for n in sources:
@@ -60,7 +90,7 @@ def main():
  (inputs/'ptob_device.h').write_text(device_header(d))
  # Registry/generator/device hashes bind display metadata and local input changes into runtime enrollment identity.
  enrollment_header=inputs/'r2-enrollment.h';enrollment_header.write_text('/* source:'+source_hash+' registry:'+sha(a.registry)+' generator:'+sha(REPO/'registry/registry.py')+' device:'+sha(a.device_config)+' */\nstatic const r2_group_enrollment provision={{{'+','.join(map(str,key))+'},UINT64_C(0x'+e['group_id']+'),'+str(e['key_epoch'])+'},UINT64_C(0x'+d['device_id']+'),'+json.dumps(d['label'])+',40000};\n')
- r={'schema':1,'artifact_class':'PTOB_W12_RC','version':VERSION,'status':'INCOMPLETE','public_commit':git(REPO,'rev-parse','HEAD'),'source_dirty':dirty,'source_sha256':source_hash,'sources':sources,'dependencies':lock,'sdk_path':str(sdk),'app_path':str(APP),'sdk_submodules':modules.splitlines(),'profile':'RC','listening_percent':a.listening_percent,'estimated_relay':a.estimated_relay,'tx_actual_capture':False,'precision':'UNQUALIFIED','installed':False,'registry_sha256':sha(a.registry),'registry_generator_sha256':sha(REPO/'registry/registry.py'),'enrollment_mode':'LOCAL_BUILD_TIME_NO_NVS_WRITE','device_config_sha256':sha(a.device_config)}
+ r={'schema':1,'artifact_class':'PTOB_W12_RC','version':VERSION,'status':'INCOMPLETE','public_commit':git(REPO,'rev-parse','HEAD'),'source_dirty':dirty,'source_sha256':source_hash,'sources':sources,'dependencies':lock,'sdk_path':str(sdk),'app_path':str(APP),'sdk_submodules':modules.splitlines(),'profile':'RC','listening_percent':a.listening_percent,'estimated_relay':a.estimated_relay,'tx_actual_capture':False,'precision':'UNQUALIFIED','installed':False,'registry_sha256':sha(a.registry),'registry_generator_sha256':sha(REPO/'registry/registry.py'),'enrollment_mode':'LOCAL_BUILD_TIME_NO_NVS_WRITE','device_config_sha256':sha(a.device_config),'provisional_path_profile':provisional_profile(d)}
  dump(out/'receipt.json',r)
  env=os.environ.copy()
  for k in ['CFLAGS','CXXFLAGS','CPPFLAGS','LDFLAGS','EXTRA_COMPONENT_DIRS','SDKCONFIG_DEFAULTS']:env.pop(k,None)

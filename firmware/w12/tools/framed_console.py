@@ -6,6 +6,8 @@ boot/source/build, complete CRC and original device deadline form a response.
 Sticky historical loss is retained; finite capture loss uses an unchanged base.
 """
 import re
+import hashlib
+import json
 import secrets
 import zlib
 ROWS=('W12_V12_STATUS','W12_V12_GPS','W12_V12_LORA_STATUS','W12_V12_PUBLIC','W12_V12_CONSOLE','W12_V12_DIRECT','W12_V12_DIAGNOSTIC_TX','W12_V12_COMMAND')
@@ -24,6 +26,33 @@ def fields(line):
         require(key not in out and key and value,'Duplicate/empty response field')
         out[key]=value
     return out
+
+def validate_provisional_profile(mesh,manifest):
+    profile=manifest.get('provisional_path_profile')
+    value=mesh.get('pcfg')
+    if profile is not None:
+        keys={'schema','scope','offset_ns','root','root_boot','source_epoch','receiver',
+              'receiver_source_sha256','receiver_phase_correction_ns','evidence_sha256',
+              'baseline_evidence_sha256','publisher'}
+        require(isinstance(profile,dict) and keys<=set(profile),
+                'Incomplete manifest provisional provenance')
+        identity={key:profile[key] for key in keys}
+        if 'allow_source_epoch_transfer' in profile:
+            require(type(profile['allow_source_epoch_transfer'])is bool,'Invalid epoch-transfer opt-in')
+            identity['allow_source_epoch_transfer']=profile['allow_source_epoch_transfer']
+        digest=hashlib.sha256(json.dumps(identity,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+        require(profile.get('provenance_sha256')==digest and profile.get('id')==digest[:16] and
+                type(profile.get('offset_ns'))is int and -100000<=profile['offset_ns']<=100000 and
+                profile['offset_ns']!=0 and profile['publisher']==manifest.get('r2_client_identity'),
+                'Invalid manifest provisional profile identity')
+        # Status carries a compact prefix within the unchanged whole-frame
+        # bound; the nonce-bound source/build and full manifest bind the rest.
+        require(value==profile['id'][:8],
+                'Configured aggregate-path profile differs from exact manifest')
+    else:
+        require(value in (None,'00000000'),
+                'Unreviewed configured aggregate-path offset')
+
 
 def fresh_nonce():
     while True:
@@ -97,6 +126,7 @@ class Parser:
                     if self.manifest['r2_profile'] in ('r2-a5-16','r2-g1'):
                         require(mesh.get('precision_interval_units')=='50' and mesh.get('precision_hz')=='16' and mesh.get('schedule_descriptor')==self.manifest.get('r2_fixed_schedule_hex')=='503132020000f424','Compiled16Hz cadence/schedule binding mismatch')
                     if self.manifest['r2_profile']=='r2-g1':
+                        validate_provisional_profile(mesh,self.manifest)
                         require(mesh.get('client_capabilities')=='0' and mesh.get('client_control')=='0' and mesh.get('serving')=='0' and mesh.get('source')=='0','G1 client-only permission violated')
                         require(mesh.get('group_id')==self.manifest['r2_group_id'] and mesh.get('key_epoch')==str(self.manifest['r2_key_epoch']) and mesh.get('client_identity')==self.manifest['r2_client_identity'],'G1 group/factory identity mismatch')
                     if self.manifest.get('r2_g1_connection_owner_revision')==3:

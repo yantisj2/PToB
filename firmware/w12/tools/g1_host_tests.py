@@ -63,6 +63,7 @@ def main():
     run([CXX,'-std=c++20',*flags,APP/'tests/g1_ui_indicators_test.cpp','-o',out/'ui-indicator-tests'],'ui-indicators-build')
     run([out/'ui-indicator-tests'],'main-long-press-PPS-RX-TX-GPS-quality-expiry')
     run(['python3',APP/'tests/device_inputs_test.py'],'explicit-GNSS-input-validation')
+    run(['python3',APP/'tests/provisional_manifest_test.py'],'provisional-path-status-binding')
     for enabled in (0,1):
         (out/'ptob_device.h').write_text('#define PTOB_FACTORY_MAC {2,0,0,0,0,5}\n#define PTOB_DEVICE_LABEL "Example"\n#define PTOB_LEGACY_WIRE_ID 2\n#define PTOB_GNSS_INDICATORS '+str(enabled)+'\n')
         binary=out/('device-profile-'+str(enabled))
@@ -90,7 +91,7 @@ def main():
     run([CXX,'-std=c++20',*flags,APP/'tests/c3_lora_off_test.cpp','-o',out/'C3-lora-off-tests'],'C3-LoRa-forced-off-build')
     run([out/'C3-lora-off-tests'],'C3-LoRa-no-task-no-GPIO-no-admission')
     run(['python3',APP/'tests/g1_shared_reset_test.py'],'shared-reset-owner-participation')
-    for name in ('g1_rc_continuity_test','g1_startup_fixture','g1_parent_fixture','g1_lock_fallback_test','g1_gm_hold_test','rc7_relay_estimate_test','lifecycle_test','update_gate_test','fault_watchdog_test'):
+    for name in ('g1_rc_continuity_test','g1_startup_fixture','g1_parent_fixture','g1_lock_fallback_test','g1_gm_hold_test','rc7_relay_estimate_test','rc7_provisional_path_test','lifecycle_test','update_gate_test','fault_watchdog_test'):
         run([CXX,'-std=c++20',*flags,'-I'+str(APP/'main'),APP/'tests'/(name+'.cpp'),*objects,'-o',out/name],name+'-build')
         run([out/name],name+'-run')
     run(['python3',APP/'tools/precision_priority_tests.py','--out',out/'precision-priority','--objects',out],'precision-before-control-and-radio-reservation')

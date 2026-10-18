@@ -67,7 +67,7 @@ rc7_control child_request(v12::Rc7Client& child,uint64_t id,uint32_t lease,bool 
  v12::relay_poll(fake_now,false);return response;
 }
 int main(int argc,char** argv){assert(argc==2);const std::string which=argv[1];
- tx_observation_fixture=which=="tx-observation";
+ tx_observation_fixture=which=="tx-observation"||which=="provisional-output";
  const auto* mac=v12::native_device_binding()->factory;assert(v12::r2_init(44,mac));assert(v12::r2_host_init());assert(v12::r2_host_sync());
  v12::mode=v12::R2Mode::Client;v12::relay_poll(fake_now,false);assert(discovery_configured==3&&!ext_active[1]&&!ext_active[0]&&!pa_active);
  if(which=="capture-budget"){
@@ -101,7 +101,9 @@ int main(int argc,char** argv){assert(argc==2);const std::string which=argv[1];
    if(which=="queue-envelope-expiry")origin.expires=1100000000;
    v12::G1ClockPrediction map{fake_now*20,1000010000,0,0,origin.utc_offset};
    const uint32_t inherited=which=="queue-inherited-expiry"?100000:0;
-   assert(v12::relay_map.input(root,origin,nullptr,map,20000000,1,fake_now*20,inherited,v12::provision.identity,44,v12::provision.group));
+   const v12::Rc7ProvisionalPath provisional=which=="provisional-output"?
+     v12::Rc7ProvisionalPath{1,v12::provision.identity,11,22,9,47000}:v12::Rc7ProvisionalPath{};
+   assert(v12::relay_map.input(root,origin,nullptr,map,20000000,1,fake_now*20,inherited,v12::provision.identity,44,v12::provision.group,provisional,true));
    if(which.rfind("slot-",0)==0){
      assert(v12::client.pending&&v12::client.start(fake_now));
      auto& demand=v12::relay_children[0];demand.id=300;
@@ -245,7 +247,7 @@ int main(int argc,char** argv){assert(argc==2);const std::string which=argv[1];
    v12::relay_data_dirty=v12::relay_cap_dirty=true;v12::relay_poll(fake_now,false);fake_now+=16000;v12::relay_poll(fake_now,false);
    assert(pa_active&&ext_active[0]&&v12::periodic_tx::tx_installed);estimate_queued=true;v12::relay_poll(fake_now,false);
    assert(v12::relay_map.ready(fake_now*20)&&v12::relay_selected==1);
-   if(which=="tx-observation"){
+   if(which=="tx-observation"||which=="provisional-output"){
      auto count=[](){unsigned n=0;for(const auto& q:v12::diagnostic_records)if(q.kind==23)++n;return n;};
      auto last=[]()->const v12::Report&{for(auto q=v12::diagnostic_records.rbegin();q!=v12::diagnostic_records.rend();++q)if(q->kind==23)return *q;assert(false);return v12::diagnostic_records[0];};
      auto le=[](const uint8_t* p,unsigned n){uint64_t x=0;for(unsigned i=0;i<n;i++)x|=uint64_t(p[i])<<(8*i);return x;};
@@ -267,6 +269,15 @@ int main(int argc,char** argv){assert(argc==2);const std::string which=argv[1];
      v12::fixture_log_status.capture_active=false;
      for(unsigned i=0;i<16;i++){fake_now+=100;estimate_queued=true;v12::relay_poll(fake_now,false);}
      assert(count()==61&&v12::relay_tx_capture_left==59);
+     unsigned companions=0;
+     for(const auto& row:v12::diagnostic_records)if(row.kind==24){
+       ++companions;assert(row.length==96&&row.bytes[0]==1);
+       const unsigned offset=which=="provisional-output"?47000:0;
+       assert(le(row.bytes+64,8)+offset==le(row.bytes+72,8)&&le(row.bytes+20,4)==offset&&le(row.bytes+80,8)==unsigned(offset!=0));
+       assert(le(row.bytes+24,8)==v12::provision.identity&&le(row.bytes+32,8)==44);
+       assert(le(row.bytes+88,8)==11||le(row.bytes+88,8)==12);
+     }
+     assert(companions==count());
      assert(!v12::fault&&pa_active&&v12::relay_map.ready(fake_now*20));
      v12::r2_stop();step(6);assert(v12::r2_status().off_ack);
      puts("PASS actualproduction successfulTXobservation: exactfrozen correction/source/publisher/event/cookie/bracket; event1of16; captureonly60budget/pernewcapture reset; noRF/timinggatechange; originalstop");return 0;

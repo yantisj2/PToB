@@ -30,7 +30,7 @@ def render(f,wide):
   elif 'll' in kind:v=ctypes.c_longlong(-(1<<63) if wide and kind.endswith('d') else (1<<63)-1 if wide else 0) if kind.endswith('d') else ctypes.c_ulonglong((1<<64)-1 if wide else 0)
   else:
    bound=1 if key in ('cal','um') or (key=='uii' and prefix.split()[-1].count('/')<2) or key in BOOL or (key=='rp' and prefix.split()[-1].count('/')==5) else 7 if key in ('ui_lamps','uii') else 100 if key=='listening_percent' else 4 if key=='rp' and prefix.split()[-1].count('/')==2 else 255 if key in ('self','mode','lifecycle','coordinator','root','standby','members','role','last_api','last_api_peer','first_error_api','link_mask','gatt_mask','ui_page','ui_hold_percentile','update_stage') else 65535 if key in ('handle','mtu','peer_mtu_min','host_stack_min_bytes','host_stack_configured_bytes','main_stack_free_words') else (1<<32)-1
-   v=ctypes.c_int((3056 if key=='cal' else -(1<<31)) if wide else 0) if kind.endswith('d') else ctypes.c_uint(bound if wide else 0)
+   v=ctypes.c_int((3056 if key=='cal' else -100000 if key=='pcfg' else -(1<<31)) if wide else 0) if kind.endswith('d') else ctypes.c_uint(bound if wide else 0)
   args.append(v)
  buf=ctypes.create_string_buffer(16384);n=LIB.snprintf(buf,len(buf),f.encode(),*args);assert 0<n<len(buf);return bytes(buf[:n])
 def main():

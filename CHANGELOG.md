@@ -2,6 +2,17 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 18 October 2026 — W12 provisional aggregate-path adjustment
+
+W12 **0.1.16** adds an explicit per-device provisional offset to emitted
+estimated relay timestamps, with zero as the default. The profile binds its
+publisher, direct-root boot/source scope and measurement provenance, and affects
+all downstream receivers using that publisher. Raw estimates remain available;
+both raw and adjusted times must pass the original signed source envelope.
+The adjustment does not change the fitted clock, protocol rules or precision
+gates, identify TX versus RX bias, or provide an RF/UTC error bound. Residual
+jitter is reported separately and is not subtracted from uncertainty.
+
 ## 18 October 2026 — T096 GM renewal retry headroom
 
 T096 **0.15.95** starts direct-GM authentication renewal after four minutes,

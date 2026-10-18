@@ -21,6 +21,7 @@ extern "C" {
 #include "g1_receive_loss.hpp"
 #include "g1_corrected_clock.hpp"
 #include "g1_output_correction.hpp"
+#include "rc7_provisional_config.hpp"
 #include "g1_parent_selection.hpp"
 #include "g1_gm_discovery.hpp"
 #include "rc7_path_snapshot.hpp"

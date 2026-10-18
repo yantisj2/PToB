@@ -1,6 +1,7 @@
 #pragma once
 #include <cstring>
 #include "g1_clock_prediction.hpp"
+#include "rc7_provisional_path.hpp"
 #include "rc7_radio_phase.hpp"
 namespace v12 {
 // Operator-authorized functional TX estimate experiment. All corrections have
@@ -15,6 +16,7 @@ class Rc7RelayEstimate {
     rc7_path path{};rc5_origin origin{};G1ClockPrediction map{};
     uint64_t original20=0,queued_at20=0;
     uint32_t inherited_age_us=0,publication=0;
+    uint64_t provisional_id=0;int32_t provisional_offset_ns=0;
   };
   enum class SelectionReason:uint8_t {None,CurrentSource,Time,Decode,Publication,
     MissingSnapshot,SnapshotScope,SnapshotOrigin,SnapshotTime,SnapshotAge,SnapshotEnvelope};
@@ -22,6 +24,7 @@ class Rc7RelayEstimate {
   PreparedPublication snapshots_[SnapshotCapacity]{};uint8_t snapshot_head_=0;
   SelectionReason selected_reason_=SelectionReason::None;
   bool timing_suspended_=false;
+  uint64_t provisional_id_=0;int32_t provisional_offset_ns_=0;
   static bool same_origin(const rc5_origin& a,const rc5_origin& b){
     return a.root==b.root&&a.boot==b.boot&&a.epoch==b.epoch&&a.issued==b.issued&&
       a.expires==b.expires&&a.utc_offset==b.utc_offset&&a.frame==b.frame&&
@@ -42,7 +45,7 @@ class Rc7RelayEstimate {
   G1ClockPrediction map{};Rc7RadioPhase phase;
   uint64_t original20=0;uint32_t inherited_age_us=0,publication=0;
   rc5_correction sent[2]{};bool valid=false;
-  void fence(){for(auto& s:snapshots_)s={};snapshot_head_=0;selected_reason_=SelectionReason::None;timing_suspended_=false;valid=false;path={};upstream_={};origin={};map={};phase.clear();original20=0;publication=0;sent[0]={};sent[1]={};}
+  void fence(){for(auto& s:snapshots_)s={};snapshot_head_=0;selected_reason_=SelectionReason::None;timing_suspended_=false;valid=false;path={};upstream_={};origin={};map={};provisional_id_=0;provisional_offset_ns_=0;phase.clear();original20=0;publication=0;sent[0]={};sent[1]={};}
   // A timing gap withdraws corrections and READY, not the authenticated radio
   // context. Canonical count0 PA packets preserve synchronization. Only a new
   // accepted parent original/map can resume time; source/path changes fence().
@@ -74,7 +77,7 @@ class Rc7RelayEstimate {
   bool input(const rc7_path& parent,const rc5_origin& o,const uint8_t* root_proof,
              const G1ClockPrediction& model,uint64_t original,uint32_t incarnation,
              uint64_t available,uint32_t inherited_age,uint64_t self,uint64_t boot,
-             const r2_group_config& group){
+             const r2_group_config& group,const Rc7ProvisionalPath& provisional={},bool reference_valid=false){
     if(!rc7_path_valid(&parent)||parent.depth>=2||parent.node[parent.depth].slot>=3||
        !self||!boot||!model.tick||o.root!=parent.node[0].id||o.boot!=parent.node[0].boot||
        o.epoch!=parent.source_epoch||o.hold_us||o.hold_ns||!original||available<original||
@@ -92,6 +95,8 @@ class Rc7RelayEstimate {
       if(!rc7_path_valid(&path)||!phase.scope(parent,boot)){fence();return false;}
     }
     if(!phase.accepted(original,incarnation,available,true))return false;
+    provisional_offset_ns_=provisional.select(self,parent.depth,o.root,o.boot,o.epoch,reference_valid);
+    provisional_id_=provisional_offset_ns_?provisional.id:0;
     origin=o;std::memcpy(proof,signed_proof,16);map=model;original20=original;inherited_age_us=inherited_age;valid=true;timing_suspended_=false;return true;
   }
   bool live(uint64_t now20)const{
@@ -116,7 +121,7 @@ class Rc7RelayEstimate {
       c.generation==own.train&&uint64_t(inherited_age_us)+(now20-original20+19)/20<500000)p.correction[p.count++]=c;
     if(rc7_encode(wire,&p,&path,&group))return false;
     prepared={path,origin,timing?map:G1ClockPrediction{},timing?original20:0,now20,
-      timing?inherited_age_us:0,p.publication};return true;
+      timing?inherited_age_us:0,p.publication,timing?provisional_id_:0,timing?provisional_offset_ns_:0};return true;
   }
   bool commit_packet(const PreparedPublication& prepared,uint64_t now20){
     if(!valid||publication==UINT32_MAX||prepared.publication!=publication+1||
@@ -160,7 +165,13 @@ class Rc7RelayEstimate {
     if(age>=500000)return refuse(SelectionReason::SnapshotAge);
     if(n<=0||uint64_t(n)<selected.origin.issued||uint64_t(n)>=selected.origin.expires)
       return refuse(SelectionReason::SnapshotEnvelope);
-    sent[1]=sent[0];sent[0]={selected.publication,event,channel,selected.train,uint32_t(age),uint64_t(n),UINT32_MAX};return true;
+    // Validate BOTH the original raw projection and provisional output against
+    // the same signed envelope. Never extend source lifetime with the offset.
+    int64_t delivered=0;
+    if(!Rc7ProvisionalPath::apply(n,frozen->provisional_offset_ns,delivered)||
+       uint64_t(delivered)<selected.origin.issued||uint64_t(delivered)>=selected.origin.expires)
+      return refuse(SelectionReason::SnapshotEnvelope);
+    sent[1]=sent[0];sent[0]={selected.publication,event,channel,selected.train,uint32_t(age),uint64_t(delivered),UINT32_MAX};return true;
   }
   rc7_control capability(uint64_t self,uint64_t boot,uint64_t challenge,bool publishing)const{
     rc7_control c{};c.type=RC7_CAPABILITY;c.sender=self;c.sender_boot=boot;c.next_challenge=challenge;
