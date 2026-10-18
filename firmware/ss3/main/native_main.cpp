@@ -160,7 +160,7 @@ void ss3_next_page(){if(v12::r2_td_status().enabled)page=(page+1)%6;else page=pa
 #ifdef V12_SS3
   char elf[65]{};const auto* app=esp_app_get_description();
   for(unsigned i=0;i<32;++i)std::snprintf(elf+2*i,3,"%02x",app->app_elf_sha256[i]);
-  response.format("SS3_RC7_ID profile=PTOB_SS3_RC_0.1.1_V17 factory_mac=%s source=%s build=%s elf_sha256=%s GNSS=ABSENT LoRa=OFF WiFi=OFF PTS=OFF precision=UNQUALIFIED\n",factory_text,V12_SOURCE_REVISION,V12_BUILD_ID,elf);
+  response.format("SS3_RC7_ID profile=PTOB_SS3_RC_0.1.2_V17 factory_mac=%s source=%s build=%s elf_sha256=%s GNSS=ABSENT LoRa=OFF WiFi=OFF PTS=OFF precision=UNQUALIFIED\n",factory_text,V12_SOURCE_REVISION,V12_BUILD_ID,elf);
 #endif
   const auto gps=gnss_pps::shadow_view(ticks());
   const auto log=v12::log_status();

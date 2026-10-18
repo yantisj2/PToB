@@ -67,6 +67,8 @@ def verify_sdk(sdk,lock):
  return status
 
 def main():
+ match=re.search(r'^set\(PROJECT_VER "([^\"]+)"\)$',(APP/'CMakeLists.txt').read_text(),re.MULTILINE)
+ if not match or match.group(1)!=VERSION:raise ValueError('Python/CMake firmware versions must agree before building')
  p=argparse.ArgumentParser(description=__doc__)
  for name in ['idf','out','enrollment','device-config']:p.add_argument('--'+name,type=Path,required=True)
  p.add_argument('--profile',choices=['RC'],required=True);p.add_argument('--listening-percent',type=int,choices=[50,100],default=100)
