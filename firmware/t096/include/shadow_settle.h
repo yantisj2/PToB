@@ -1,4 +1,5 @@
-/* SPDX-License-Identifier: Apache-2.0
+/* SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Jonathan Yantis.
  * Phase-blind startup qualification for the UI witness statistics only.
  * Raw PPS records and the delivered clock are never modified or suppressed. */
 #pragma once
