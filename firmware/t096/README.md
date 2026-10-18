@@ -14,7 +14,7 @@ devices. See [the architectural background](../../docs/V12_TO_R2.md).
 **PToB owns T096 RC7 development.** The ordinary mesh profiles are **GM** and **RC**;
 USB timing support is compiled by default. [Build from source](../../docs/t096/build.md)
 using pinned public dependencies and ignored local enrollment. The current
-application version is 0.15.90. No publicly enrolled binary is distributed.
+application version is 0.15.91. No publicly enrolled binary is distributed.
 
 RC source selection gives an admitted GM 60 seconds and an admitted relay 120
 seconds to establish sustained usable time. A GM that never settles is deferred
@@ -26,6 +26,8 @@ after degraded timing. Automatic searches collect three seconds of locators and
 rank eligible relays by smoothed signal strength before history/publishing ties.
 Relay GATT admission discovers the characteristic handle before reading its
 212-byte capability, avoiding the pinned NimBLE read-by-UUID size restriction.
+A receiver using an RC2 parent stays a leaf: it accepts that timing stream and
+withdraws mesh admission advertising instead of recruiting another relay hop.
 See the [selection policy and
 offline checks](../../docs/t096/diagnostics.md#rc-parent-selection-and-relay-dwell).
 

@@ -2,6 +2,15 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 18 October 2026 — T096 terminal receiver admission
+
+T096 **0.15.91** keeps an RC2 stream client receive-only and withdraws its RC7
+mesh admission advertising. A peripheral connection racing the role change is
+drained through the existing close path. Actual production layout tests cover
+RC1-to-RC2 publication and a leaf client receiving that RC2 stream. USB timing,
+UCS1 ownership, slot selection rules, the two-relay depth limit and validity
+gates are unchanged. The 0.15.90 relay-read and strongest-scan fixes remain.
+
 ## 18 October 2026 — T096 relay interoperability and scan selection
 
 T096 **0.15.90** discovers the relay characteristic declaration before reading

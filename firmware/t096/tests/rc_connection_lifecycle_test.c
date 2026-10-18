@@ -15,11 +15,11 @@
 #define BT_HCI_ERR_CONN_LIMIT_EXCEEDED 9
 #define BT_ATT_ERR_UNLIKELY 14
 #define BT_ATT_ERR_INSUFFICIENT_RESOURCES 17
-struct bt_conn {unsigned refs;bool active,initiating,ucs,scheduled;unsigned at;};
+struct bt_conn {unsigned refs;bool active,initiating,ucs,scheduled,peripheral;unsigned at;};
 enum {BT_CONN_ROLE_CENTRAL,BT_CONN_ROLE_PERIPHERAL};
 enum {BT_CONN_STATE_DISCONNECTED,BT_CONN_STATE_CONNECTING,BT_CONN_STATE_CONNECTED,BT_CONN_STATE_DISCONNECTING};
 struct bt_conn_info {unsigned role,state;struct {unsigned timeout;} le;};
-static int bt_conn_get_info(struct bt_conn *c,struct bt_conn_info *i){*i=(struct bt_conn_info){.role=BT_CONN_ROLE_CENTRAL,.state=c->initiating?BT_CONN_STATE_CONNECTING:c->active?BT_CONN_STATE_CONNECTED:BT_CONN_STATE_DISCONNECTED,.le={.timeout=100}};return 0;}
+static int bt_conn_get_info(struct bt_conn *c,struct bt_conn_info *i){*i=(struct bt_conn_info){.role=c->peripheral?BT_CONN_ROLE_PERIPHERAL:BT_CONN_ROLE_CENTRAL,.state=c->initiating?BT_CONN_STATE_CONNECTING:c->active?BT_CONN_STATE_CONNECTED:BT_CONN_STATE_DISCONNECTED,.le={.timeout=100}};return 0;}
 struct rc5_gm_context {int v;};struct r2_join_exchange {int v;};struct rc5_demand {int v;};
 static struct rc5_gm_context gm_context;static struct r2_join_exchange gm_exchange;static struct rc5_demand lt_demand;
 static uint32_t gm_admission_diagnostic[7];
@@ -29,7 +29,8 @@ static bool startup_admitted;
 static bool parent_relay,lt_paused,lt_acquiring,lt_advertising,lt_dead,lt_server,lt_server_pending,lt_reply_ready,gm_write_busy;
 static void *lt_adv;static struct bt_conn *lt_conn;enum {LT_IDLE,LT_CONNECT,LT_MTU,LT_CLOSE,LT_CAP,LT_REPLY};
 static bool parent_known;static unsigned parent_index;
-static struct {struct {uint64_t id;} node[2];} routes;
+static struct {struct {uint64_t id;bool transmitter;} node[2];} routes;
+static unsigned node;
 struct rc7_control {int unused;};
 static struct rc7_control capability(void){return (struct rc7_control){0};}
 static void lt_publish_reply(const struct rc7_control *c){(void)c;assert(false);}
@@ -65,7 +66,7 @@ static void seed(void){
  lt_conn=NULL;lt_adv=(void*)1;lt_dead=false;lt_advertising=advertising_live=true;lt_retirement_error=false;
  arrival=NULL;now=0;delay_ms=2;disconnect_calls=records=0;delete_fails=false;
  lt_close_until=0;lt_phase=LT_IDLE;cancel_race=late_success=fault=false;drain_events=0;drain_result=0;
- lt_attempts=lt_cap_retries=0;parent_relay=lt_server=false;
+ lt_attempts=lt_cap_retries=0;parent_relay=lt_server=false;routes.node[0].transmitter=true;
  startup_admitted=false;live_precision=false;timing.bound=false;timing.context_until=0;
 }
 static void queue_connected(unsigned slot){pool[slot].refs=1;pool[slot].active=true;put(LT_CONNECTED,&pool[slot],0);}
@@ -77,6 +78,13 @@ int main(void){
  lt_phase=LT_CONNECT;lt_handle=42;lt_cap_retries=3;lt_deadline=32000000;
  lt_apply_connected(&pool[0],0);
  assert(lt_phase==LT_MTU&&!lt_handle&&!lt_cap_retries&&lt_deadline==32000000);
+ /* A queued child connection racing a leaf transition is drained without
+  * publishing a capability or accepting another downstream hop. */
+ seed();lt_adv=NULL;advertising_live=false;
+ pool[0]=(struct bt_conn){.refs=1,.active=true,.peripheral=true};lt_conn=&pool[0];
+ routes.node[0].transmitter=false;lt_apply_connected(&pool[0],0);
+ assert(lt_server&&lt_phase==LT_CLOSE&&disconnect_calls==1&&!fault);
+ pool[0].active=false;lt_dead=true;assert(!lt_closed_poll(lt_now())&&!lt_conn&&!pool[0].refs);
  /* A busy initial relay capability is retried on the same live ACL, with a
   * finite count and the ORIGINAL transaction deadline. All other errors close. */
  seed();pool[0].active=true;lt_conn=&pool[0];parent_relay=true;lt_phase=LT_CAP;

@@ -403,6 +403,14 @@ complete authenticated capability, fresh challenge, source/path checks and
 original two-second transaction remain required. Handles are cleared on every
 new client ACL. Ordinary response reads also use the discovered value handle.
 
+Version 0.15.91 withdraws RC7 mesh admission advertising when the current route
+is receive-only, including a client of an RC2 parent. A peripheral connection
+racing that withdrawal is drained through the existing bounded close path.
+Receiving the RC2 stream, USB source streaming and existing UCS1 client ownership
+remain separate. The parent/child slot rules, maximum depth and all timing gates
+are unchanged. Independent paths may reuse a slot; occupancy observations remain
+advisory and do not prove an RF collision.
+
 ### RC parent selection and relay dwell
 
 T096 0.15.85 retains each automatically chosen parent through a bounded admission

@@ -718,6 +718,12 @@ static void lt_apply_connected(struct bt_conn *conn, uint8_t error) {
   lt_server = info.role == BT_CONN_ROLE_PERIPHERAL;
   if (lt_server) {
     lt_advertising = false;
+    /* A leaf can receive an RC2 stream, but cannot recruit another relay hop.
+     * An accepted connection may race withdrawal of its old advertisement. */
+    if (!routes.node[node].transmitter) {
+      lt_disconnect(9);
+      return;
+    }
     lt_deadline = lt_now() + 32000000;
     if (lt_challenge == UINT64_MAX) {
       lt_deadline = 0;
@@ -1012,7 +1018,7 @@ static void lt_init(void) {
 }
 static void lt_advertise(uint64_t tick) {
   if(!lt_adv)return;
-  if(!precision_synced(tick)){
+  if(!precision_synced(tick) || !routes.node[node].transmitter){
     if(lt_advertising){
       int rc=bt_le_ext_adv_stop(lt_adv);
       check(!rc||rc==-EALREADY,"unsynced RQ7 advertising stop");

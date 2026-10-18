@@ -17,6 +17,8 @@ static uint64_t discipline_at,fake_tick,phase_rx;
 static struct rc5_clock local_clock;
 static struct rc5_state timing;
 static struct rc5_origin current_origin;
+static struct {struct {bool transmitter;} node[1];} routes;
+static unsigned node;
 bool rc5_clock_capture(const struct rc5_clock *c,const struct rc5_state *s,uint64_t t,struct rc5_stamp *st){
  (void)c;(void)s;(void)t;*st=(struct rc5_stamp){.ns=100,.pll_tracking=tracking};return capture_ok;
 }
@@ -54,7 +56,7 @@ static unsigned train=1,sent_count,periodic_starts,periodic_stops;
 static int bt_le_per_adv_start(void *p){assert(p);++periodic_starts;return 0;}
 static int bt_le_per_adv_stop(void *p){assert(p);++periodic_stops;return 0;}
 #include "rc_advertising_under_test.h"
-static void good(void){parent_known=parent_synced=fit.valid=capture_ok=tracking=true;holdover_expired=false;discipline_at=100;fake_tick=200;current_origin.expires=101;timing.bound=true;timing.context_until=UINT64_MAX;}
+static void good(void){routes.node[0].transmitter=true;parent_known=parent_synced=fit.valid=capture_ok=tracking=true;holdover_expired=false;discipline_at=100;fake_tick=200;current_origin.expires=101;timing.bound=true;timing.context_until=UINT64_MAX;}
 static void refused(void){assert(!precision_synced(fake_tick));unsigned n=starts;lt_advertise(fake_tick);assert(!lt_advertising&&starts==n);assert(!r2_uc_poll(&(struct r2_uc_clock){0},false)&&!u.advertising&&starts==n);}
 int main(void){
  u.enabled=true;u.adv=(void*)2;good();assert(precision_synced(fake_tick));
@@ -88,12 +90,20 @@ int main(void){
   uint64_t lo=rc_admission_retry_us(attempt,0),hi=rc_admission_retry_us(attempt,UINT64_MAX);
   assert(lo>=2000000&&hi>=lo&&hi<=lo+lo/2);
  }
- uint64_t starts[2]={1,UINT64_C(320000001)};
- assert(!rc_admission_start_allowed(starts,UINT64_C(640000001)));
- assert(rc_admission_start_allowed(starts,UINT64_C(960000001)));
- assert(!rc_admission_start_allowed(starts,UINT64_C(320000000)));
- starts[0]=0;assert(!rc_admission_start_allowed(starts,UINT64_C(640000000)));
- assert(rc_admission_start_allowed(starts,UINT64_C(640000001)));
+ uint64_t start_history[2]={1,UINT64_C(320000001)};
+ assert(!rc_admission_start_allowed(start_history,UINT64_C(640000001)));
+ assert(rc_admission_start_allowed(start_history,UINT64_C(960000001)));
+ assert(!rc_admission_start_allowed(start_history,UINT64_C(320000000)));
+ start_history[0]=0;assert(!rc_admission_start_allowed(start_history,UINT64_C(640000000)));
+ assert(rc_admission_start_allowed(start_history,UINT64_C(640000001)));
+ /* Mesh admission is unavailable to a leaf, independently of a good clock.
+  * Ordinary receiver timing/UCS clients remain valid and are not withdrawn. */
+ good();routes.node[0].transmitter=true;lt_advertising=false;lt_paused=false;
+ lt_advertise(fake_tick);assert(lt_advertising);
+ routes.node[0].transmitter=false;lt_advertise(fake_tick);
+ assert(!lt_advertising&&precision_synced(fake_tick));
+ unsigned before=starts;lt_advertise(fake_tick);assert(starts==before);
+ routes.node[0].transmitter=true;lt_advertise(fake_tick);assert(lt_advertising);
  assert(rc_admission_drain_us(false,3200)==500000&&rc_admission_drain_us(true,100)==1500000&&rc_admission_drain_us(true,3200)==32500000);
  puts("PASS production RC/UCS discovery: cold refusal, all precision gates, withdrawal/recovery, idle-relay discovery, existing client preservation and failed stop");
 }
