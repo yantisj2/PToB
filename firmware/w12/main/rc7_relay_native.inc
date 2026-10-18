@@ -41,12 +41,17 @@ __attribute__((noinline)) void relay_tx_path_observation(const periodic_tx::Esti
     const Rc7RelayEstimate::PreparedPublication& frozen,uint64_t capture_id){
   const auto& sent=relay_map.sent[0];const auto& own=frozen.path.node[frozen.path.depth];
   Report r{};r.kind=24;r.callback_us=micros();r.actual_length=r.length=96;
-  r.bytes[0]=1;r.bytes[1]=c.channel;r.bytes[2]=uint8_t(c.observed.selected.event);r.bytes[3]=uint8_t(c.observed.selected.event>>8);
+  r.bytes[0]=2;r.bytes[1]=c.channel;r.bytes[2]=uint8_t(c.observed.selected.event);r.bytes[3]=uint8_t(c.observed.selected.event>>8);
   const uint32_t words[]={sent.publication,sent.generation,own.epoch,frozen.origin.epoch,uint32_t(frozen.provisional_offset_ns)};
   for(unsigned i=0;i<5;i++)for(unsigned j=0;j<4;j++)r.bytes[4+4*i+j]=uint8_t(words[i]>>(8*j));
   const uint64_t fields[]={own.id,own.boot,frozen.origin.root,frozen.origin.boot,c.tick20,
     uint64_t(frozen.map.relative_at(c.tick20)),sent.tx_ns,frozen.provisional_id,capture_id};
   for(unsigned i=0;i<9;i++)for(unsigned j=0;j<8;j++)r.bytes[24+8*i+j]=uint8_t(fields[i]>>(8*j));
+  const auto& reference=relay_map.selected_reference();r.actual_length=r.length=124;
+  const uint64_t endpoints[]={reference.address20,uint64_t(reference.address_ns)};
+  for(unsigned i=0;i<2;i++)for(unsigned j=0;j<8;j++)r.bytes[96+8*i+j]=uint8_t(endpoints[i]>>(8*j));
+  const int32_t adjustments[]={reference.base_ns,reference.residual_ns,reference.total_ns};
+  for(unsigned i=0;i<3;i++)for(unsigned j=0;j<4;j++)r.bytes[112+4*i+j]=uint8_t(uint32_t(adjustments[i])>>(8*j));
   transport_record(r);
 }
 __attribute__((noinline)) void relay_tx_observation(const periodic_tx::EstimateRecord& c,uint64_t available20){
@@ -315,7 +320,8 @@ bool relay_configure(){
   // Match T096 RC discovery: GAP units are625us, independent of the
   // periodic train's1.25ms units and existing parent-relative RF phase.
   ble_gap_ext_adv_params a{};a.own_addr_type=BLE_OWN_ADDR_RANDOM;a.itvl_min=a.itvl_max=160; //100ms request
-  a.primary_phy=a.secondary_phy=BLE_HCI_LE_PHY_1M;a.sid=12;a.tx_power=0;
+  static_assert(Rc7TxReference::Ble1MPhy==BLE_HCI_LE_PHY_1M,"Relay endpoint requires1M");
+  a.primary_phy=a.secondary_phy=Rc7TxReference::Ble1MPhy;a.sid=12;a.tx_power=0;
   ble_gap_periodic_adv_params p{};p.itvl_min=p.itvl_max=50;
   int8_t power=127;if(!relay_api(ble_gap_ext_adv_configure(0,&a,&power,relay_gap,nullptr),R2Api::AdvConfigure))return false;
   relay_configured=true;

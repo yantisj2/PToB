@@ -3,6 +3,7 @@
 #include "g1_clock_prediction.hpp"
 #include "rc7_provisional_path.hpp"
 #include "rc7_radio_phase.hpp"
+#include "rc7_tx_reference.hpp"
 namespace v12 {
 // Operator-authorized functional TX estimate experiment. All corrections have
 // UNKNOWN bounds. No actual RF TX or absolute precision claim is made.
@@ -25,6 +26,7 @@ class Rc7RelayEstimate {
   SelectionReason selected_reason_=SelectionReason::None;
   bool timing_suspended_=false;
   uint64_t provisional_id_=0;int32_t provisional_offset_ns_=0;
+  Rc7TxReference::Projection selected_reference_{};
   static bool same_origin(const rc5_origin& a,const rc5_origin& b){
     return a.root==b.root&&a.boot==b.boot&&a.epoch==b.epoch&&a.issued==b.issued&&
       a.expires==b.expires&&a.utc_offset==b.utc_offset&&a.frame==b.frame&&
@@ -36,6 +38,7 @@ class Rc7RelayEstimate {
   }
  public:
   SelectionReason selected_reason()const{return selected_reason_;}
+  const Rc7TxReference::Projection& selected_reference()const{return selected_reference_;}
   // Serialized-worker observation only. Does not alter the selected map or
   // expose an unverified/expired publication as timing authority.
   const PreparedPublication* selected_snapshot()const{
@@ -45,14 +48,14 @@ class Rc7RelayEstimate {
   G1ClockPrediction map{};Rc7RadioPhase phase;
   uint64_t original20=0;uint32_t inherited_age_us=0,publication=0;
   rc5_correction sent[2]{};bool valid=false;
-  void fence(){for(auto& s:snapshots_)s={};snapshot_head_=0;selected_reason_=SelectionReason::None;timing_suspended_=false;valid=false;path={};upstream_={};origin={};map={};provisional_id_=0;provisional_offset_ns_=0;phase.clear();original20=0;publication=0;sent[0]={};sent[1]={};}
+  void fence(){for(auto& s:snapshots_)s={};snapshot_head_=0;selected_reason_=SelectionReason::None;selected_reference_={};timing_suspended_=false;valid=false;path={};upstream_={};origin={};map={};provisional_id_=0;provisional_offset_ns_=0;phase.clear();original20=0;publication=0;sent[0]={};sent[1]={};}
   // A timing gap withdraws corrections and READY, not the authenticated radio
   // context. Canonical count0 PA packets preserve synchronization. Only a new
   // accepted parent original/map can resume time; source/path changes fence().
   bool withdraw_time(){
     if(!valid||timing_suspended_)return false;
     timing_suspended_=true;for(auto& s:snapshots_)s={};snapshot_head_=0;
-    sent[0]={};sent[1]={};return true;
+    sent[0]={};sent[1]={};selected_reference_={};return true;
   }
   // Demand expiry retires the downstream train only. Keep the causal upstream
   // map/original age and phase reference; a new child gets a fresh train and
@@ -144,8 +147,9 @@ class Rc7RelayEstimate {
     return prepare_packet(wire,prepared,now20,group)&&commit_packet(prepared,now20);
   }
   bool selected(const uint8_t wire[190],uint16_t event,uint8_t channel,uint64_t estimate20,
-                uint64_t now20,const r2_group_config& group){
+                uint64_t now20,const r2_group_config& group,uint8_t phy=Rc7TxReference::Ble1MPhy){
     selected_reason_=SelectionReason::None;
+    selected_reference_={};
     auto refuse=[&](SelectionReason reason){selected_reason_=reason;return false;};
     if(!live(now20))return refuse(SelectionReason::CurrentSource);
     if(!estimate20||estimate20>now20||channel>36)return refuse(SelectionReason::Time);
@@ -160,17 +164,22 @@ class Rc7RelayEstimate {
     if(!same_origin(selected.origin,frozen->origin))return refuse(SelectionReason::SnapshotOrigin);
     if(estimate20<frozen->map.tick||estimate20<frozen->original20)
       return refuse(SelectionReason::SnapshotTime);
-    const auto n=frozen->map.relative_at(estimate20);
-    const auto age=uint64_t(frozen->inherited_age_us)+(estimate20-frozen->original20+19)/20;
+    Rc7TxReference::Projection reference;
+    if(!Rc7TxReference::project(frozen->map,estimate20,now20,phy,
+       frozen->provisional_id!=0,frozen->provisional_offset_ns,reference))
+      return refuse(SelectionReason::SnapshotTime);
+    const auto n=reference.raw_ns;
+    const auto age=uint64_t(frozen->inherited_age_us)+(reference.address20-frozen->original20+19)/20;
     if(age>=500000)return refuse(SelectionReason::SnapshotAge);
     if(n<=0||uint64_t(n)<selected.origin.issued||uint64_t(n)>=selected.origin.expires)
       return refuse(SelectionReason::SnapshotEnvelope);
-    // Validate BOTH the original raw projection and provisional output against
-    // the same signed envelope. Never extend source lifetime with the offset.
-    int64_t delivered=0;
-    if(!Rc7ProvisionalPath::apply(n,frozen->provisional_offset_ns,delivered)||
+    // Raw, nominal ADDRESS and final output all retain the original envelope.
+    // Neither endpoint conversion nor a legacy profile extends source lifetime.
+    const auto delivered=reference.emitted_ns;
+    if(uint64_t(reference.address_ns)<selected.origin.issued||uint64_t(reference.address_ns)>=selected.origin.expires||
        uint64_t(delivered)<selected.origin.issued||uint64_t(delivered)>=selected.origin.expires)
       return refuse(SelectionReason::SnapshotEnvelope);
+    selected_reference_=reference;
     sent[1]=sent[0];sent[0]={selected.publication,event,channel,selected.train,uint32_t(age),uint64_t(delivered),UINT32_MAX};return true;
   }
   rc7_control capability(uint64_t self,uint64_t boot,uint64_t challenge,bool publishing)const{

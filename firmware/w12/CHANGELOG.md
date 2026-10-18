@@ -2,6 +2,28 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 0.1.20 — 18 October 2026
+
+Normalize every BLE100 estimated W12 publisher from its programmed packet-start
+reference to the nominal BLE1M ADDRESS endpoint (800 local 20 MHz ticks, nominal
+40 microseconds). Project both endpoints through the frozen clock model;
+unsupported PHYs, future/overflowing endpoints and original source/age expiry
+still refuse publication. This repairs a packet-reference mismatch, with actual
+schedule-to-RF delay and absolute precision still unknown. BLE50 has no publisher.
+
+Keep schema-1 aggregate profiles as totals relative to the original programmed
+start. Decompose the nominal ADDRESS component and residual without adding the
+reference change twice. Version-2 TX-path records expose raw, nominal ADDRESS
+and emitted times plus their components. Existing profile provenance and scope,
+GNSS inputs, receive fitting and timing/permission gates are preserved. See
+[the reference explanation](../../docs/w12/tx-reference.md).
+
+Production publisher-to-receiver/PPS regressions cover multiple identities,
+RC2 forwarding, default and signed legacy profiles, slope/slew, PHY/source/age
+refusals and counter rollover. The old source fails the same numerical case.
+Host and native permission tests are synthetic; per-device hardware and
+remaining relative offset/jitter need separate observations.
+
 ## 0.1.19 — 18 October 2026
 
 - Hold an established downstream train and management discovery for 30 seconds

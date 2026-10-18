@@ -50,8 +50,8 @@ int main(){
   assert(hold.update(100,true,relay.path)&&!hold.update(99,true,relay.path));
   uint8_t first[190];assert(relay.packet(first,20400000,group));
   assert(!relay.ready(20400000));
-  assert(!relay.selected(first,1,255,20400000,20400000,group));
-  assert(relay.selected(first,1,12,20400000,20400000,group));
+  assert(!relay.selected(first,1,255,20400000,20400800,group));
+  assert(relay.selected(first,1,12,20400000,20400800,group));
   assert(relay.sent[0].bound==UINT32_MAX&&relay.ready(20400000));
   const auto cap=relay.capability(100,200,7,true);
   uint8_t control[212];assert(!rc7_control_encode(control,&cap,&group));
@@ -64,13 +64,13 @@ int main(){
   periodic_rx::Stamp s{};s.actual=s.association_observed=true;s.epoch=1;s.sequence=1;
   s.tick20=s.available20=21600000;s.map_enclosure_ns=100;s.event=2;s.channel=13;
   assert(!client.receive(p,s,s.available20));
-  assert(relay.selected(second,2,13,s.tick20,s.tick20,group));
+  assert(relay.selected(second,2,13,s.tick20,s.tick20+800,group));
   uint8_t third[190];assert(relay.packet(third,22800000,group));
   assert(!rc7_decode(&p,third,190,&relay.path,&group));
   s.sequence=2;s.tick20=s.available20=22800000;s.event=3;s.channel=14;
   const auto* completed=client.receive(p,s,s.available20);
   assert(completed&&completed->stamp.event==2&&client.receiver.clock.reference.bound==UINT32_MAX);
-  assert(client.receiver.clock.reference.parent_tx_ns==1080000000);
+  assert(client.receiver.clock.reference.parent_tx_ns==1080040000);
   // Same parent renewal preserves train, publication, and physical phase.
   const auto train=relay.path.node[1].train;
   auto next=map;next.tick=23000100;next.epoch=1150005000;
@@ -80,7 +80,7 @@ int main(){
   // publication model, while requiring the current source to remain live.
   assert(!next.relative_at(21600000));
   assert(relay.selected(second,2,13,21600000,23000100,group));
-  assert(relay.sent[0].tx_ns==1080000000&&relay.sent[0].age_us==80000);
+  assert(relay.sent[0].tx_ns==1080040000&&relay.sent[0].age_us==80040);
   const auto held_original=relay.phase.original20();
   assert(!relay.input(root,origin,nullptr,next,23000000,1,23000100,0,100,200,group));
   assert(relay.phase.original20()==held_original);
@@ -102,7 +102,7 @@ int main(){
   assert(!rc7_path_same(&idle.path,&prior_path)&&!idle.selected(standby,4,12,34000100,34000100,group));
   uint8_t restarted[190];assert(idle.packet(restarted,34400000,group));
   assert(!rc7_decode(&p,restarted,190,&idle.path,&group)&&!p.count&&p.train==train+1&&p.publication==1);
-  assert(idle.selected(restarted,5,12,34400000,34400000,group)&&idle.ready(34400000));
+  assert(idle.selected(restarted,5,12,34400000,34400800,group)&&idle.ready(34400000));
   assert(!idle.live(44000000)); // Train retirement never rebases upstream age.
   // RC1 may append RC2, while RC2 and a repeated identity cannot publish.
   Rc7RelayEstimate second_relay;

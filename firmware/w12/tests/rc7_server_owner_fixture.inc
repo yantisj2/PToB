@@ -16,7 +16,7 @@ EstimateQueue estimate_queue(){return {2,1};}
 bool start_estimated(const uint8_t* p,unsigned n){assert(n==190&&!tx_installed);prepared.assign(p,p+n);tx_installed=true;return true;}
 bool prepare_estimated_payload(const uint8_t* p,unsigned n){assert(n==190&&tx_installed);if(queue_busy)return false;prepared.assign(p,p+n);return true;}
 bool pop_estimated(EstimateRecord& r){if(!estimate_queued)return false;estimate_queued=false;
- r={};r.estimated=true;r.tick20=fake_now*20;r.channel=estimate_channel;r.observed.selected.event=++estimate_event;
+ r={};r.estimated=true;r.tick20=fake_now*20-800;r.channel=estimate_channel;r.observed.selected.event=++estimate_event;
  if(tx_observation_fixture){r.stage=5;r.provenance=tx_estimate::Provenance::ProgrammedHalfSlotAndCsa2;
    r.observed.before20=fake_now*20;r.anchor.before=fake_now*20-20;r.anchor.after=fake_now*20;
    r.observed.kind=0x12345;r.anchor.half_slots=0x12345;r.anchor.half_us=12;}
@@ -266,7 +266,7 @@ int main(int argc,char** argv){assert(argc==2);const std::string which=argv[1];
      assert(q.length==184&&q.bytes[0]==1&&q.bytes[1]==1&&q.bytes[2]==12&&q.bytes[3]==5);
      assert(le(q.bytes+4,2)==16&&le(q.bytes+8,4)==correction.publication&&le(q.bytes+12,4)==correction.generation);
      assert(le(q.bytes+44,8)==v12::provision.identity&&le(q.bytes+52,8)==44&&le(q.bytes+60,8)==11&&le(q.bytes+68,8)==22);
-     assert(le(q.bytes+76,8)==fake_now*20&&le(q.bytes+84,8)==fake_now*20&&le(q.bytes+92,8)==fake_now*20-20&&le(q.bytes+100,8)==fake_now*20);
+     assert(le(q.bytes+76,8)==fake_now*20-800&&le(q.bytes+84,8)==fake_now*20&&le(q.bytes+92,8)==fake_now*20-20&&le(q.bytes+100,8)==fake_now*20);
      assert(le(q.bytes+108,8)==correction.tx_ns&&le(q.bytes+116,8)==fake_now*20&&le(q.bytes+28,4)==0x12345&&le(q.bytes+40,4)==UINT32_MAX);
      assert(le(q.bytes+124,8)==map.tick&&le(q.bytes+148,8)==v12::relay_map.original20&&le(q.bytes+164,8)==origin.issued&&le(q.bytes+172,8)==origin.expires);
      for(unsigned i=0;i<16*60;i++){fake_now+=100;estimate_queued=true;v12::relay_poll(fake_now,false);}
@@ -279,9 +279,12 @@ int main(int argc,char** argv){assert(argc==2);const std::string which=argv[1];
      assert(count()==61&&v12::relay_tx_capture_left==59);
      unsigned companions=0;
      for(const auto& row:v12::diagnostic_records)if(row.kind==24){
-       ++companions;assert(row.length==96&&row.bytes[0]==1);
+       ++companions;assert(row.length==124&&row.bytes[0]==2);
        const unsigned offset=which=="provisional-output"?47000:0;
-       assert(le(row.bytes+64,8)+offset==le(row.bytes+72,8)&&le(row.bytes+20,4)==offset&&le(row.bytes+80,8)==unsigned(offset!=0));
+       const unsigned applied=offset?offset:40000;
+       assert(le(row.bytes+64,8)+applied==le(row.bytes+72,8)&&le(row.bytes+20,4)==offset&&le(row.bytes+80,8)==unsigned(offset!=0));
+       assert(le(row.bytes+96,8)==le(row.bytes+56,8)+800&&le(row.bytes+104,8)==le(row.bytes+64,8)+40000);
+       assert(le(row.bytes+112,4)==40000&&le(row.bytes+116,4)==applied-40000&&le(row.bytes+120,4)==applied);
        assert(le(row.bytes+24,8)==v12::provision.identity&&le(row.bytes+32,8)==44);
        assert(le(row.bytes+88,8)==11||le(row.bytes+88,8)==12);
      }
@@ -317,7 +320,7 @@ int main(int argc,char** argv){assert(argc==2);const std::string which=argv[1];
      };
      if(which=="hold-transient"){
        fake_now+=1000000;recover();assert(pa_active&&ext_active[0]&&v12::relay_demand_until()==demand);
-       estimate_queued=true;v12::relay_poll(fake_now,false);assert(v12::relay_map.ready(fake_now*20));
+       fake_now+=40;estimate_queued=true;v12::relay_poll(fake_now,false);assert(v12::relay_map.ready(fake_now*20));
        assert(v12::relay_map.path.node[1].train==train&&v12::relay_hold.deadline()==deadline);
      }else if(which=="hold-management"){
        v12::Rc7Client child;const auto reply=child_request(child,500,80000);
@@ -474,7 +477,7 @@ int main(int argc,char** argv){assert(argc==2);const std::string which=argv[1];
        assert(v12::relay_map.input(root,origin,nullptr,map,fake_now*20,1,fake_now*20,0,v12::provision.identity,44,v12::provision.group));
        v12::relay_data_dirty=true;v12::relay_poll(fake_now,false);assert(ext_active[1]&&pa_active);
        assert(v12::relay_map.path.node[1].train==train);
-       assert(!v12::relay_map.ready(fake_now*20));estimate_queued=true;v12::relay_poll(fake_now,false);
+       assert(!v12::relay_map.ready(fake_now*20));fake_now+=40;estimate_queued=true;v12::relay_poll(fake_now,false);
        assert(v12::relay_map.ready(fake_now*20)&&v12::relay_map.path.node[1].train==train);
      }
      v12::r2_stop();step(6);assert(!v12::relay_owned()&&v12::client.completed_us<v12::client.stop_deadline_us);

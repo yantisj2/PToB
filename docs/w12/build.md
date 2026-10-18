@@ -93,7 +93,13 @@ uses programmed TX estimates, advertises an unknown timing bound, and does not
 claim actual TX capture or qualified relay precision. BLE50 is client-only.
 The +3056 ns donor display correction experiment is excluded. Raw clock fitting
 and local display correction remain unchanged; the optional provisional relay
-output profile below is separate and defaults to zero.
+output profile below is separate and defaults to absent. The shared BLE1M relay
+path converts its programmed packet start to the nominal ADDRESS endpoint,
+800 local 20 MHz ticks (40 microseconds) later, using the frozen clock model.
+This is packet-format normalization, with unknown controller/RF delay; it does
+not qualify physical precision. Legacy schema-1 profiles retain their **total**
+adjustment from the raw programmed start. See the
+[reference semantics and regression](tx-reference.md).
 Version 0.1.1 requests 100 ms for both RC discovery advertisers, matching T096;
 the separate precision train stays at 62.5 ms. Downstream advertising and
 publication initially wait for current parent clock lock. Version 0.1.19 keeps
@@ -330,8 +336,12 @@ and root identities/boots/epochs, train/publication/event/channel, programmed
 `tick20`, callback time, controller clock bracket and half-slot clock, emitted
 `tx_ns`, frozen map tick/epoch/phase/rate, original and queued times, inherited
 source issue/expiry and correction age. `rate_known=0` means no representable
-rate value. Every line states `reference=PROGRAMMED_HALF_SLOT actual=0
-bound=UNKNOWN`: a successful selection is not RF transmission confirmation.
+rate value. `W12_G1_TX_EST` retains `reference=PROGRAMMED_HALF_SLOT actual=0
+bound=UNKNOWN`; `tick20` is the raw scheduled packet start, while `tx_ns` is
+the emitted correction. Its version-2 `W12_G1_TX_PATH` companion distinguishes
+the raw start, nominal ADDRESS tick/projection, actual projected reference
+component, residual profile adjustment and applied total. A successful
+selection is not RF transmission confirmation.
 
 For offline correlation with a hardware receiver, match publisher and boot,
 source/path epochs, train, publication, event and channel before comparing the
@@ -348,7 +358,8 @@ parent and precision gates are unchanged.
 ## Provisional aggregate-path offset
 
 Version 0.1.16 accepts an optional `provisional_path` object in the ignored,
-factory-bound device input. Its absence selects zero. This is an operator
+factory-bound device input. Its absence selects no provisional profile; the
+shared nominal ADDRESS conversion still applies. This is an operator
 assumption based on an observed combined path, not automatic calibration or
 feedback from a running PPS witness. It requires `--estimated-relay` and
 BLE100. Do not infer an offset for another W12 or silently copy a profile.
@@ -405,14 +416,26 @@ admission, authentication, path, replay and source-expiry checks. This flag
 cannot borrow an old epoch's authority or transfer its observed jitter as a
 guarantee. An RC2 does not apply the RC1 profile again.
 
-The worker freezes the effective offset with each publication, then adds it
-once to the raw selected timestamp. Both raw and adjusted values must lie inside
+The worker freezes the effective profile with each publication. Schema 1's
+`offset_ns` remains the **total** adjustment from the original raw programmed
+start. The shared nominal ADDRESS component is included in that total, rather
+than added a second time. A +47,000 ns legacy total therefore has a residual
+near +7,000 ns after the nominal 40-microsecond conversion. The worker uses the
+actual difference between the two frozen clock projections, preserving the
+legacy emitted value exactly even when clock rate or phase slew makes this
+difference a few nanoseconds different from 40,000. No private profile rewrite
+or new calibration is implied. A scope mismatch selects the standard nominal
+ADDRESS conversion without the provisional profile.
+
+Raw, nominal ADDRESS and emitted values must all lie inside
 the unchanged signed source envelope. It never alters raw physical captures,
 the oscillator fit, source/proof/hold/precision gates, root envelope, slots or
 parent rules. During bounded capture, `W12_G1_TX_PATH` accompanies the existing
 sampled `W12_G1_TX_EST`, retaining publisher/root boots and epochs, train,
 publication/event/channel, programmed tick, raw and emitted timestamp, effective
-profile/offset and capture ID. Match the complete tuple and preserve missing
+profile/legacy total and capture ID. Version 2 also records `address20`,
+`address_ns`, `base_ns`, `residual_ns` and `applied_ns`; `base_ns+residual_ns`
+equals the applied total. Match the complete tuple and preserve missing
 companions or queue losses; no tuple is an actual RF TX observation.
 
 Report signed mean offset, slope and residual jitter separately. A constant

@@ -29,7 +29,7 @@ def main():
   else:
    assert r.returncode==0,log;r=subprocess.run([path/'test'],capture_output=True,text=True,timeout=20);(path/'run.log').write_text(r.stdout+r.stderr);assert r.returncode==0,r.stdout+r.stderr
   rows.append({'case':name,'status':'EXPECTED_OLD_MACRO_COMPILE_REFUSAL' if negative else 'PASS_ACTUAL_GENERATED_CONFIG_AND_EMITTED_TIMESTAMP','generated_header_sha256':hashlib.sha256(header.encode()).hexdigest(),'expected_phase_ns':expected,'profile_id':config['id'] if config else None})
- run_case('default-zero',device,-46940)
+ run_case('default-zero',device,-6940)
  enabled={**device,'provisional_path':profile};run_case('positive-generated',enabled,60)
  run_case('negative-generated',{**device,'provisional_path':{**profile,'offset_ns':-47000}},-93940)
  run_case('old-macro-negative-control',enabled,60,True)

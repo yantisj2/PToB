@@ -52,18 +52,27 @@ inline int g1_render_tx_estimate(char* out,unsigned capacity,const Report& r){
     g1_diag_le(r.bytes+148,8),g1_diag_le(r.bytes+156,8),g1_diag_le(r.bytes+164,8),g1_diag_le(r.bytes+172,8),g1_diag_le(r.bytes+24,4));
 }
 
-// Same tuple as W12_G1_TX_EST; a raw programmed estimate plus an explicitly
-// provisional aggregate-path adjustment, never a measured RF latency bound.
+// Same tuple as W12_G1_TX_EST. V2 exposes the nominal1M ADDRESS endpoint and
+// the legacy-total decomposition. V1 remains a historical programmed estimate.
 inline int g1_render_tx_path(char* out,unsigned capacity,const Report& r){
-  if(r.kind!=24||r.length!=96||r.bytes[0]!=1)return 0;
-  return std::snprintf(out,capacity,"W12_G1_TX_PATH at_us=%" PRIu64
+  const bool v2=r.length==124&&r.bytes[0]==2;
+  if(r.kind!=24||(!v2&&(r.length!=96||r.bytes[0]!=1)))return 0;
+  const int prefix=std::snprintf(out,capacity,"W12_G1_TX_PATH at_us=%" PRIu64
     " publisher=%016" PRIx64 "/%016" PRIx64 " root=%016" PRIx64 "/%016" PRIx64 "/%" PRIu64
     " train=%" PRIu64 " epoch=%" PRIu64 " pub=%" PRIu64 " event=%" PRIu64 " ch=%u tick20=%" PRIu64
     " raw_tx_ns=%" PRIu64 " tx_ns=%" PRIu64 " path_offset_ns=%" PRId32 " path_profile=%016" PRIx64
-    " capture=%016" PRIx64 " scope=AGGREGATE_PROVISIONAL jitter=SEPARATE actual=0 bound=UNKNOWN absolute_UTC=UNKNOWN\n",
+    " capture=%016" PRIx64,
     r.callback_us,g1_diag_le(r.bytes+24,8),g1_diag_le(r.bytes+32,8),g1_diag_le(r.bytes+40,8),g1_diag_le(r.bytes+48,8),g1_diag_le(r.bytes+16,4),
     g1_diag_le(r.bytes+8,4),g1_diag_le(r.bytes+12,4),g1_diag_le(r.bytes+4,4),g1_diag_le(r.bytes+2,2),unsigned(r.bytes[1]),g1_diag_le(r.bytes+56,8),
     g1_diag_le(r.bytes+64,8),g1_diag_le(r.bytes+72,8),int32_t(g1_diag_le(r.bytes+20,4)),g1_diag_le(r.bytes+80,8),g1_diag_le(r.bytes+88,8));
+  if(prefix<0||unsigned(prefix)>=capacity)return prefix;
+  const int suffix=v2?std::snprintf(out+prefix,capacity-unsigned(prefix),
+    " address20=%" PRIu64 " address_ns=%" PRIu64 " base_ns=%" PRId32 " residual_ns=%" PRId32 " applied_ns=%" PRId32
+    " reference=NOMINAL_ADDRESS_1M delay=UNKNOWN jitter=SEPARATE actual=0 bound=UNKNOWN\n",
+    g1_diag_le(r.bytes+96,8),g1_diag_le(r.bytes+104,8),int32_t(g1_diag_le(r.bytes+112,4)),
+    int32_t(g1_diag_le(r.bytes+116,4)),int32_t(g1_diag_le(r.bytes+120,4))):
+    std::snprintf(out+prefix,capacity-unsigned(prefix)," scope=AGGREGATE_PROVISIONAL jitter=SEPARATE actual=0 bound=UNKNOWN absolute_UTC=UNKNOWN\n");
+  return suffix<0?suffix:prefix+suffix;
 }
 
 // Main-task rendering only. Record size is fixed and independent of RF rate.

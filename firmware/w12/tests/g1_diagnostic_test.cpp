@@ -76,6 +76,10 @@ int main(){
   const int pathbytes=v12::g1_render_tx_path(line,sizeof line,path);
   assert(pathbytes>0&&unsigned(pathbytes)<sizeof line&&std::strstr(line,"path_offset_ns=47000")&&std::strstr(line,"raw_tx_ns=")&&std::strstr(line,"path_profile=ffffffffffffffff")&&std::strstr(line,"scope=AGGREGATE_PROVISIONAL jitter=SEPARATE actual=0 bound=UNKNOWN absolute_UTC=UNKNOWN"));
   path.length=95;assert(!v12::g1_render_tx_path(line,sizeof line,path));path.length=96;path.bytes[0]=2;assert(!v12::g1_render_tx_path(line,sizeof line,path));
+  path.length=124;
+  const int path2bytes=v12::g1_render_tx_path(line,sizeof line,path);
+  assert(path2bytes>0&&unsigned(path2bytes)<sizeof line&&std::strstr(line,"address20=")&&std::strstr(line,"address_ns=")&&
+    std::strstr(line,"base_ns=")&&std::strstr(line,"residual_ns=")&&std::strstr(line,"applied_ns=")&&std::strstr(line,"reference=NOMINAL_ADDRESS_1M delay=UNKNOWN"));
 
   v12::R2Discipline discipline;v12::periodic_rx::Stamp capture;r2_precision_packet p{};
   assert(!discipline.authenticated_receive(p,capture,0,0,0));const auto q=discipline.view(0,0);

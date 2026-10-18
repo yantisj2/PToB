@@ -112,8 +112,13 @@ inline bool programmed_tick(const ClockAnchor& a,uint32_t cookie,uint64_t callba
   const uint32_t wrapped=(cookie-a.half_slots)&ClockMask;
   const int64_t slots=wrapped&(1u<<27)?int64_t(wrapped)-(1LL<<28):wrapped;
   if(slots < -1600 || slots > 1600)return false;
-  const int64_t mapped=int64_t(mid)+slots*6250-int64_t(a.half_us)*10;
-  if(mapped<=0||uint64_t(mapped)>callback20||callback20-uint64_t(mapped)>5000000)return false;
-  out=uint64_t(mapped);return true;
+  const int64_t delta=slots*6250-int64_t(a.half_us)*10;
+  // The continuous counter is unsigned64; do not cast an arbitrary midpoint
+  // to signed or overflow it when the28-bit Bluetooth clock wraps.
+  if((delta<0&&mid<=uint64_t(-delta))||
+     (delta>=0&&mid>UINT64_MAX-uint64_t(delta)))return false;
+  const uint64_t mapped=delta<0?mid-uint64_t(-delta):mid+uint64_t(delta);
+  if(!mapped||mapped>callback20||callback20-mapped>5000000)return false;
+  out=mapped;return true;
 }
 }

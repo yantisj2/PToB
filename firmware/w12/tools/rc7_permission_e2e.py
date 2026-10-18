@@ -169,7 +169,8 @@ def main():
               APP / 'main/rc7_relay_native.inc', APP / 'tests/rc7_server_owner_fixture.inc',
               *[APP / 'main' / n for n in ('g1_corrected_clock.hpp', 'rc7_client.hpp',
                                          'g1_client_policy.hpp', 'g1_direct_session.hpp', 'g1_clock_prediction.hpp',
-                                         'rc7_relay_hold.hpp', 'rc7_relay_estimate.hpp')]]
+                                         'rc7_relay_hold.hpp', 'rc7_relay_estimate.hpp',
+                                         'rc7_tx_reference.hpp', 'rc7_tx_estimate.hpp', 'g1_diagnostic_render.hpp')]]
     c_sources = [src / (n + '.c') for n in ('group_auth', 'group_join', 'group_precision', 'precision_codec', 'relay_codec')]
     c_sources += [APP / 'main/r2/rc7/protocol/rc_dynamic.c', APP / 'main/r2/rc7/src/rc_boundary.c', APP / 'main/r2/rc7/src/rc_slots.c', APP / 'main/g1_hmac.c']
     c_sources += [crypto / 'src' / n for n in ('sha256.c', 'utils.c')]
