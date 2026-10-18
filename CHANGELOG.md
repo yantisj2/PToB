@@ -2,6 +2,18 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 18 October 2026 — T096 GM renewal retry headroom
+
+T096 **0.15.95** starts direct-GM authentication renewal after four minutes,
+leaving two minutes before the existing binding limit. The former five-minute
+schedule could exhaust its remaining minute after failed exchanges under the
+rolling two-starts-per-minute budget. Relay renewal, the warm retry backoff,
+original transaction/drain deadlines, source/proof gates and held-map expiry
+remain unchanged. Production renewal regressions retain the actual start
+limiter and binding deadline; an old-schedule negative control exercises the
+failure. This provides retry headroom and does not repair an unavailable GM
+source or establish continuous hardware stability.
+
 ## 18 October 2026 — W12 connection refusal containment and TX evidence
 
 W12 **0.1.15** contains controller Connection Parameters rejection only for its

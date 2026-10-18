@@ -106,7 +106,7 @@ static void lt_retry_after(uint64_t tick,int result,unsigned reason) {
   unsigned attempt=lt_attempts;
   bool batch=attempt>=3;
   bool warm=startup_admitted;
-  uint64_t delay=(warm?UINT64_C(20000000)+lt_random()%UINT64_C(20000001):
+  uint64_t delay=(warm?rc_admission_warm_retry_us(lt_random()):
       rc_admission_retry_us(attempt,lt_random()))*16;
   lt_renew_at=tick+delay;
   if(batch){lt_attempts=0;lt_budget_until=lt_renew_at;}
@@ -542,7 +542,7 @@ static void gm_apply(const uint8_t *wire) {
       if(refusal==3)candidate_nonroot(r.sender,now);
       /* Existing context, fit, replay floors and PA sync remain untouched. */
     }
-    lt_renew_at = tick + (bound ? RC5_RENEW_TICKS : 16000000);
+    lt_renew_at = tick + (bound ? rc_admission_gm_renew_ticks() : 16000000);
     lt_deadline = 0;
   }
 }

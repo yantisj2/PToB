@@ -14,6 +14,15 @@ static inline uint64_t rc_admission_retry_us(unsigned attempt,uint64_t nonce){
   attempt==3?UINT64_C(10000000):UINT64_C(30000000);
  return base+nonce%(base/2+1);
 }
+static inline uint64_t rc_admission_warm_retry_us(uint64_t nonce)
+{return UINT64_C(20000000)+nonce%UINT64_C(20000001);}
+/* A GM binding lasts at most360s. Starting renewal at300s leaves too little
+ * time for two failed bounded exchanges under the rolling two-start budget.
+ * Reserve two minutes for retries; this requests fresh authentication earlier
+ * and never extends an existing binding or grants source/precision authority.
+ * Relay renewal retains its separate existing300s schedule. Units:16MHz. */
+static inline uint64_t rc_admission_gm_renew_ticks(void)
+{return UINT64_C(3840000000);}
 /* Absolute start history, retained across warm retries and parent changes. */
 static inline bool rc_admission_start_allowed(const uint64_t starts[2],uint64_t tick){
  if(starts[1]&&tick<starts[1])return false;

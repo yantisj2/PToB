@@ -350,9 +350,18 @@ require an existing child demand or an already-running downstream train, so an
 idle synchronized relay can still be discovered. Existing UCS1 clients retain
 their sessions and explicit validity/withdrawal reporting.
 
-The current RC7 codec defines the144-byte authenticated capability projection,
-300-second normal renewal and360-second maximum lease, but no encoded discovery
-interval. The historical adoption specification retained the then-existing
+The current RC7 codec defines the 144-byte authenticated capability projection
+and a 360-second maximum lease, but no encoded discovery interval. Relay renewal
+remains 300 seconds. From 0.15.95, T096 direct-GM authentication renews after 240 seconds
+to leave time for failed exchanges under the rolling two-starts-per-minute
+budget and unchanged 20–40-second warm backoff. Starting at 300 seconds could consume
+the entire remaining minute after two failures. Earlier renewal does not extend
+the original context, the 500ms held-map limit, or source/proof validity; it cannot
+repair an unavailable GM source. Production renewal tests exercise failed two-second
+transactions, cancellation, minimum/maximum backoff and the actual start limiter
+against the unchanged context deadline. `rc_renewal_tests.py --legacy-gm-renewal`
+is an expected-failure control restoring the old schedule.
+The historical adoption specification retained the then-existing
 advertiser cadence;100ms is an explicit current owner-policy change, not a
 historical protocol requirement or a new wire version. Discovery grants no
 timing authority. Validate cold joins, child admission, relay path acquisition
@@ -362,7 +371,7 @@ Healthy T096 RCs have no per-second context renewal. Version60 introduced
 2–3s,5–7.5s and10–15s waits plus30–45s between three-attempt batches; version62
 replaces that compounded schedule as described above. Authenticated
 PENDING waits5–7.5s, without rearming its original parent trial. Each schedule
-is journaled separately from the five-minute steady renewal. The original
+is journaled separately from the steady renewal. The original
 two-second transaction still bounds acquisition. Normal connected teardown
 allows its negotiated supervision timeout plus500ms for callback delivery;
 create cancellation and explicit profile/update shutdown retain their500ms
