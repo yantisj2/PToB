@@ -398,14 +398,14 @@ does not retry MTU, authentication, response/write or disconnected-owner errors.
 
 T096 0.15.85 retains each automatically chosen parent through a bounded admission
 and precision trial. The defaults are deployment policy, not measured convergence
-guarantees:
+guarantees. Version 0.15.88 extends settled-relay recovery to 120 seconds:
 
 | Interval | Direct GM | Relay |
 | --- | --- | --- |
 | Admission, measured from selection | 30 seconds | 60 seconds |
 | Precision acquisition, from first authenticated admission | 60 seconds | 120 seconds |
 | Absolute acquisition ceiling, from selection | 90 seconds | 180 seconds |
-| Degraded-time recovery after sustained lock | 6 seconds | 30 seconds |
+| Degraded-time recovery after sustained lock | 6 seconds | 120 seconds |
 
 PENDING replies consume the original admission interval. Same-parent renewals,
 repeated admissions and individual lock flickers cannot restart these deadlines.
@@ -414,6 +414,13 @@ usable time. Once settled, a parent becomes unstable below 75%; recovery require
 90%. A relay gets the recovery interval even after an eight-second window turns
 unstable. Individual lock reports cannot clear that unstable episode. Local
 listening pauses remain unknown observations.
+
+The former 30-second settled-relay recovery interval could expire after only one
+admission opportunity under the independent two-starts-per-minute control budget.
+The 120-second allowance permits more attempts to renew or bind a changed train
+without cycling to cold relays. It begins with the degraded episode; repeated
+renewals and lock flickers cannot restart it. The control budget, original
+transaction deadlines and immediate withdrawal of expired timing remain intact.
 
 Cold startup still collects locators for three seconds and prefers a fresh GM.
 During recovery, a fresh eligible GM with sustained usable-time history and no

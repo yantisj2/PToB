@@ -2,6 +2,18 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 17 October 2026 — T096 settled relay recovery
+
+T096 **0.15.88** gives a previously settled relay 120 seconds to recover degraded
+timing. The former 30-second interval could expire after only one admission
+opportunity under the retained two-starts-per-minute control budget, sending
+recovery through untried relays. Repeated admissions and lock flickers cannot
+restart the degraded episode; source/map expiry, invalid-path rejection, GM
+preference during selection and original control deadlines remain unchanged.
+Production selector tests exercise the control-budget interaction, stronger
+competitors, exact expiry and sustained recovery. Field stability remains under
+observation.
+
 ## 17 October 2026 — T096 transient relay capability reads
 
 T096 **0.15.87** permits up to three 50 ms retries of an initial relay capability

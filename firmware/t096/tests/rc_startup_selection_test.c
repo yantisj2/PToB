@@ -72,6 +72,11 @@ int main(int argc,char **argv) {
   fake_now+=10000000;delivery_tick(fake_now,fake_now);
   CHECK(!upstream_usable&&!relay_fallback);return 0;
  }
+ if(argc==2&&!strcmp(argv[1],"renewal-recovery")) {
+  bind(true);sample(120,false);captured=false;delivery_tick(fake_now,fake_now);
+  fake_now+=90000000;delivery_tick(fake_now,fake_now);
+  CHECK(!upstream_usable&&!relay_fallback);return 0;
+ }
  if(argc==2&&!strcmp(argv[1],"refused-path")) {
   clear();startup_attempted=true;
   seen(11,false,false,-20,1000000);seen(22,true,true,-80,1000000);
@@ -159,10 +164,21 @@ int main(int argc,char **argv) {
  seen(11,false,false,-20,fake_now);seen(33,true,true,-20,fake_now);
  CHECK(!choose(fake_now)); // healthy relay remains after GM becomes eligible
 
- // Thirty-second recovery grace for a settled relay; stale time is still unusable.
+ // A settled relay gets120s even when the rolling admission budget delays starts.
  captured=false;delivery_tick(fake_now,fake_now);uint64_t lost=fake_now;
- fake_now=lost+29999999;delivery_tick(fake_now,fake_now);CHECK(!upstream_usable&&!relay_fallback);
- fake_now=lost+30000000;delivery_tick(fake_now,fake_now);CHECK(relay_fallback);
+ uint64_t starts[2]={(lost-35000000)*16,(lost-5000000)*16};unsigned attempts=0;
+ for(unsigned second=1;second<120;second++) {
+  fake_now=lost+second*UINT64_C(1000000);delivery_tick(fake_now,fake_now);
+  seen(11,false,false,-20,fake_now);seen(33,true,true,-20,fake_now);
+  CHECK(!upstream_usable&&!relay_fallback&&!choose(fake_now));
+  if(rc_admission_start_allowed(starts,fake_now*16)) {
+   starts[0]=starts[1];starts[1]=fake_now*16;++attempts;
+  }
+  if(second==40||second==80)startup_complete(); // renewal cannot rearm recovery
+ }
+ CHECK(attempts==4);
+ fake_now=lost+119999999;delivery_tick(fake_now,fake_now);CHECK(!relay_fallback);
+ fake_now=lost+120000000;delivery_tick(fake_now,fake_now);CHECK(relay_fallback);
  seen(11,false,false,-20,fake_now);seen(33,true,true,-100,fake_now);
  CHECK(choose(fake_now)==33); // relay wins even over a stronger, retry-eligible GM
  CHECK(rc_stream_blocked(&stream_history,22,true,fake_now));
@@ -170,7 +186,7 @@ int main(int argc,char **argv) {
 
  // Intermittent lock cannot reset an ongoing degraded relay episode forever.
  bind(true);sample(120,false);CHECK(parent_locked&&!relay_fallback);
- sample(45,true);CHECK(relay_fallback&&stream_sample.unstable);
+ sample(135,true);CHECK(relay_fallback&&stream_sample.unstable);
  // A recovering relay is retained when its stream actually settles again.
  sample(10,false);CHECK(!relay_fallback);
  // Source expiry withdraws usable time immediately, independently of retention.

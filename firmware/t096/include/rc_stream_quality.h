@@ -12,7 +12,9 @@
 #define RC_STREAM_TRIAL_US UINT64_C(180000000)
 #define RC_STREAM_GM_TRIAL_US UINT64_C(90000000)
 #define RC_STREAM_LOSS_US UINT64_C(6000000)
-#define RC_STREAM_RELAY_LOSS_US UINT64_C(30000000)
+/* A settled relay also needs time for fresh admission after a train change.
+ * With at most two ACL starts per minute,30s can permit only one attempt. */
+#define RC_STREAM_RELAY_LOSS_US UINT64_C(120000000)
 #define RC_STREAM_WINDOW 8u
 struct rc_stream_row {
   uint64_t id;
