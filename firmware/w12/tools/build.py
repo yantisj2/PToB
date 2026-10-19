@@ -7,7 +7,7 @@ from pathlib import Path
 APP=Path(__file__).resolve().parents[1];REPO=APP.parents[1]
 sys.path.insert(0,str(REPO/'registry'))
 from registry import load as load_registry,header as registry_header
-VERSION='0.1.21'
+VERSION='0.1.22'
 GNSS_PROFILE='meshnology_w12_l76k_rx39_pps41'
 def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
 def git(p,*args):return subprocess.check_output(['git','-C',str(p),*args],text=True).strip()
@@ -24,6 +24,27 @@ def validate_inputs(enrollment,device):
  mac=device['factory_mac'];identity=device['device_id'];label=device['label'];wire=device['legacy_wire_id']
  if not(device['board']=='meshnology_w12_esp32s3' and re.fullmatch('[0-9a-f]{2}(:[0-9a-f]{2}){5}',mac) and int(mac.replace(':',''),16) and not int(mac[:2],16)&1 and identity=='0000'+mac.replace(':','') and re.fullmatch('[A-Za-z0-9_-]{1,24}',label) and type(wire)is int and 1<=wire<=254):raise ValueError('Explicit W12 factory binding/label required')
  return key
+
+def gnss_map_diagnostic(device,enabled):
+ if type(enabled)is not bool:raise ValueError('Explicit boolean fast-map diagnostic selection required')
+ if enabled and (device.get('board')!='meshnology_w12_esp32s3' or device.get('gnss_profile')!=GNSS_PROFILE):raise ValueError('Fast-map diagnostic requires the explicit verified W12 L76K profile')
+ return enabled
+
+def validate_map_compilation(receipt,device,compiled,config):
+ enabled=gnss_map_diagnostic(device,receipt.get('gnss_fast_map_diagnostic'))
+ for suffix in ('/native_main.cpp','/gnss_pps.cpp','/s3_clock_reference.c'):
+  matches=[row['command'].split() for row in compiled if row['file'].endswith(suffix)]
+  if len(matches)!=1:raise ValueError('One exact compiled fast-map source required: '+suffix)
+  tokens=matches[0];prefix='-DPTOB_W12_GNSS_FAST_MAP_DIAGNOSTIC='
+  if [x for x in tokens if x.startswith(prefix)]!=[prefix+str(int(enabled))]:raise ValueError('Compiled fast-map treatment differs from explicit build option')
+  if enabled:
+   for flag in ('-DV12_R2_RX_SHADOW=1','-DW12_COPY_BOARD_PROFILE=12','-DW12_GNSS_VERIFIED_INPUTS=1','-DW12_GNSS_W12_POWER=1','-DW12_GNSS_RX_PIN=39','-DW12_GNSS_PPS_PIN=41','-DW12_GNSS_BAUD=9600'):
+    prefix=flag.split('=',1)[0]+'='
+    if [x for x in tokens if x.startswith(prefix)]!=[flag]:raise ValueError('Fast-map compiled profile/ABI flag missing or ambiguous: '+flag)
+ if enabled:
+  for flag in ('CONFIG_BT_CTRL_PINNED_TO_CORE=0','CONFIG_ESP_MAIN_TASK_AFFINITY_CPU0=y','CONFIG_ESP_MAIN_TASK_AFFINITY=0x0'):
+   if config.splitlines().count(flag)!=1:raise ValueError('Fast-map diagnostic requires the exact validated core0 task/controller configuration')
+ return enabled
 
 def provisional_profile(device):
  p=device.get('provisional_path')
@@ -72,7 +93,7 @@ def main():
  p=argparse.ArgumentParser(description=__doc__)
  for name in ['idf','out','enrollment','device-config']:p.add_argument('--'+name,type=Path,required=True)
  p.add_argument('--profile',choices=['RC'],required=True);p.add_argument('--listening-percent',type=int,choices=[50,100],default=100)
- p.add_argument('--estimated-relay',action='store_true');p.add_argument('--registry',type=Path,default=REPO/'registry/example.json');p.add_argument('--development',action='store_true');a=p.parse_args()
+ p.add_argument('--gnss-fast-map-diagnostic',action='store_true');p.add_argument('--estimated-relay',action='store_true');p.add_argument('--registry',type=Path,default=REPO/'registry/example.json');p.add_argument('--development',action='store_true');a=p.parse_args()
  os.umask(0o077);sdk=a.idf.resolve();out=a.out.resolve()
  if out.exists() or REPO/'artifacts' not in out.parents:p.error('Fresh output directory below ignored artifacts/ required')
  if a.estimated_relay and a.listening_percent!=100:p.error('Estimated relay requires BLE100')
@@ -81,7 +102,7 @@ def main():
  dirty=bool(git(REPO,'status','--porcelain','--untracked-files=all'))
  if dirty and not a.development:p.error('Commit reviewed public inputs before a candidate build')
  lock=json.loads((APP/'dependencies.lock.json').read_text());modules=verify_sdk(sdk,lock)
- e=json.loads(a.enrollment.read_text());d=json.loads(a.device_config.read_text());key=validate_inputs(e,d);registry=load_registry(a.registry)
+ e=json.loads(a.enrollment.read_text());d=json.loads(a.device_config.read_text());key=validate_inputs(e,d);fast_map=gnss_map_diagnostic(d,a.gnss_fast_map_diagnostic);registry=load_registry(a.registry)
  if provisional_profile(d) and not(a.estimated_relay and a.listening_percent==100):p.error('Provisional aggregate-path profile requires estimated relay BLE100')
  out.mkdir(parents=True);target=out/'target';target.mkdir();inputs=out/'local';inputs.mkdir()
  sources={str(f.relative_to(APP)):sha(f) for f in source_files()};source_hash=hashlib.sha256(json.dumps(sources,sort_keys=True,separators=(',',':')).encode()).hexdigest()
@@ -92,13 +113,13 @@ def main():
  (inputs/'ptob_device.h').write_text(device_header(d))
  # Registry/generator/device hashes bind display metadata and local input changes into runtime enrollment identity.
  enrollment_header=inputs/'r2-enrollment.h';enrollment_header.write_text('/* source:'+source_hash+' registry:'+sha(a.registry)+' generator:'+sha(REPO/'registry/registry.py')+' device:'+sha(a.device_config)+' */\nstatic const r2_group_enrollment provision={{{'+','.join(map(str,key))+'},UINT64_C(0x'+e['group_id']+'),'+str(e['key_epoch'])+'},UINT64_C(0x'+d['device_id']+'),'+json.dumps(d['label'])+',40000};\n')
- r={'schema':1,'artifact_class':'PTOB_W12_RC','version':VERSION,'status':'INCOMPLETE','public_commit':git(REPO,'rev-parse','HEAD'),'source_dirty':dirty,'source_sha256':source_hash,'sources':sources,'dependencies':lock,'sdk_path':str(sdk),'app_path':str(APP),'sdk_submodules':modules.splitlines(),'profile':'RC','listening_percent':a.listening_percent,'estimated_relay':a.estimated_relay,'tx_actual_capture':False,'precision':'UNQUALIFIED','installed':False,'registry_sha256':sha(a.registry),'registry_generator_sha256':sha(REPO/'registry/registry.py'),'enrollment_mode':'LOCAL_BUILD_TIME_NO_NVS_WRITE','device_config_sha256':sha(a.device_config),'provisional_path_profile':provisional_profile(d)}
+ r={'schema':1,'artifact_class':'PTOB_W12_RC','version':VERSION,'status':'INCOMPLETE','public_commit':git(REPO,'rev-parse','HEAD'),'source_dirty':dirty,'source_sha256':source_hash,'sources':sources,'dependencies':lock,'sdk_path':str(sdk),'app_path':str(APP),'sdk_submodules':modules.splitlines(),'profile':'RC','listening_percent':a.listening_percent,'estimated_relay':a.estimated_relay,'tx_actual_capture':False,'precision':'UNQUALIFIED','installed':False,'gnss_fast_map_diagnostic':fast_map,'registry_sha256':sha(a.registry),'registry_generator_sha256':sha(REPO/'registry/registry.py'),'enrollment_mode':'LOCAL_BUILD_TIME_NO_NVS_WRITE','device_config_sha256':sha(a.device_config),'provisional_path_profile':provisional_profile(d)}
  dump(out/'receipt.json',r)
  env=os.environ.copy()
  for k in ['CFLAGS','CXXFLAGS','CPPFLAGS','LDFLAGS','EXTRA_COMPONENT_DIRS','SDKCONFIG_DEFAULTS']:env.pop(k,None)
  # This target has no managed components; use only the pinned SDK and local source.
  env.update(IDF_COMPONENT_MANAGER='0',IDF_PATH=str(sdk),PYTHONPYCACHEPREFIX=str(out/'pycache'),IDF_CCACHE_ENABLE='0')
- command=[sys.executable,str(sdk/'tools/idf.py'),'-C',str(APP),'-B',str(target),'-G','Unix Makefiles','-D','SDKCONFIG='+str(target/'sdkconfig'),'-D','V12_SOURCE_REVISION='+r['public_commit'],'-D','V12_R2_ENROLLMENT_HEADER='+str(enrollment_header),'-D','PTOB_DEVICE_HEADER='+str(inputs/'ptob_device.h'),'-D','PTOB_REGISTRY_HEADER='+str(inputs/'ptob_registry.h'),'-D','PTOB_W12_GNSS_INDICATORS='+('ON' if 'gnss_profile' in d else 'OFF'),'-D','V12_R2_G1_LISTENING_PERCENT='+str(a.listening_percent),'-D','V12_R2_RC7_TX_ESTIMATE_LAB='+('ON' if a.estimated_relay else 'OFF'),'-D','CCACHE_ENABLE=OFF','build']
+ command=[sys.executable,str(sdk/'tools/idf.py'),'-C',str(APP),'-B',str(target),'-G','Unix Makefiles','-D','SDKCONFIG='+str(target/'sdkconfig'),'-D','V12_SOURCE_REVISION='+r['public_commit'],'-D','V12_R2_ENROLLMENT_HEADER='+str(enrollment_header),'-D','PTOB_DEVICE_HEADER='+str(inputs/'ptob_device.h'),'-D','PTOB_REGISTRY_HEADER='+str(inputs/'ptob_registry.h'),'-D','PTOB_W12_GNSS_INDICATORS='+('ON' if 'gnss_profile' in d else 'OFF'),'-D','PTOB_W12_GNSS_FAST_MAP_DIAGNOSTIC='+('ON' if fast_map else 'OFF'),'-D','V12_R2_G1_LISTENING_PERCENT='+str(a.listening_percent),'-D','V12_R2_RC7_TX_ESTIMATE_LAB='+('ON' if a.estimated_relay else 'OFF'),'-D','CCACHE_ENABLE=OFF','build']
  dump(out/'command.json',command)
  try:
   with (out/'build.log').open('w') as log:subprocess.run(command,env=env,cwd=REPO,stdout=log,stderr=subprocess.STDOUT,check=True,timeout=900)
@@ -109,6 +130,7 @@ def main():
   config=(target/'sdkconfig').read_text()
   for k in ['CONFIG_BT_NIMBLE_NVS_PERSIST=y','CONFIG_ESP_PHY_CALIBRATION_AND_DATA_STORAGE=y']:
    if k in config:raise ValueError('Forbidden storage/radio configuration')
+  validate_map_compilation(r,d,json.loads((target/'compile_commands.json').read_text()),config)
   compiler=next(x for x in json.loads((target/'compile_commands.json').read_text()) if x['file'].endswith('/native_main.cpp'))
   toolchain_version=subprocess.check_output([compiler['command'].split()[0],'-dumpfullversion'],text=True).strip()
   if toolchain_version!='14.2.0':raise ValueError('Expected Xtensa GCC14.2.0')

@@ -86,6 +86,16 @@ existing output correction. Invalid or reference-missing records remain
 explicit; the older `W12_R2_PPS_SHADOW` uses a separate strict R2 model. Neither
 metric calibrates the GNSS receiver, GPIO path or estimated relay RF timestamp.
 
+From version 0.1.22, `--gnss-fast-map-diagnostic` optionally uses the validated
+GPTimer driver latch to bracket the supported MCPWM software capture. It requires
+the explicit verified GNSS profile and pinned core/driver configuration, and
+defaults off. The build ID and inspector bind its actual compiler selection.
+Map logs label it `FAST_DRIVER_LATCH_DIAGNOSTIC`; keep its populations separate
+from `GUARDED` and `BASELINE`. Physical raw80 capture, midpoint conversion,
+read/rounding enclosure and original anchor availability/age rules remain in
+force. Measure the resulting enclosure and scatter before drawing conclusions;
+the option applies no bias correction and changes no BLE clock or permission.
+
 Supply the shared [display registry](../../registry/README.md)
 through the same ignored map used by T096:
 

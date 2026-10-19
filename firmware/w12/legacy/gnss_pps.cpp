@@ -1,4 +1,7 @@
 #include "gnss_pps.hpp"
+#if defined(PTOB_W12_GNSS_FAST_MAP_DIAGNOSTIC) && PTOB_W12_GNSS_FAST_MAP_DIAGNOSTIC
+#include "s3_clock_reference.h"
+#endif
 #include "ptob_gnss_reference.hpp"
 #include "ptob_l76k_get.hpp"
 #include "driver/mcpwm_cap.h"
@@ -59,6 +62,13 @@ uint32_t query_bytes=0,query_chunks=0;
 ptob_gnss::Rmc rmc{};ptob_gnss::CounterMap mapping;
 ptob_gps::Shadow shadow;
 bool guarded_map=true,shadow_logs=true;
+const char* map_treatment(){
+#if defined(PTOB_W12_GNSS_FAST_MAP_DIAGNOSTIC) && PTOB_W12_GNSS_FAST_MAP_DIAGNOSTIC
+ return guarded_map?"FAST_DRIVER_LATCH_DIAGNOSTIC":"BASELINE";
+#else
+ return guarded_map?"GUARDED":"BASELINE";
+#endif
+}
 uint32_t map_epoch=1,shadow_work_max_ticks=0,shadow_log_max_ticks=0;
 uint64_t shadow_work_ticks=0,shadow_log_ticks=0;
 uint64_t physical_pps_consumed=0,last_packet=0;uint32_t checked_packets=0;
@@ -229,7 +239,7 @@ void poll(uint64_t tick) {
   const bool observed=serial==request_serial+1 && after>=before && mapping.observe({before,after,now(),cap});
   const uint64_t available=now();
   if(observed && mapping.release(available)){
-   if(shadow_logs)WC12_OBSERVER_PRINTF("PTOB_GPS_MAP tick=%llu epoch=%lu treatment=%s before=%llu after=%llu available=%llu capture=%lu width_ns=%llu offset_capture_ticks=%ld accepted=1 scope=SOFTWARE_READ_ENCLOSURE physical_bias=UNKNOWN\n",(unsigned long long)available,(unsigned long)map_epoch,guarded_map?"GUARDED":"BASELINE",(unsigned long long)before,(unsigned long long)after,(unsigned long long)available,(unsigned long)cap,(unsigned long long)((after-before)*50),(long)int32_t(uint32_t((before+(after-before)/2)*4)-cap));
+   if(shadow_logs)WC12_OBSERVER_PRINTF("PTOB_GPS_MAP tick=%llu epoch=%lu treatment=%s before=%llu after=%llu available=%llu capture=%lu width_ns=%llu offset_capture_ticks=%ld accepted=1 scope=SOFTWARE_READ_ENCLOSURE physical_bias=UNKNOWN\n",(unsigned long long)available,(unsigned long)map_epoch,map_treatment(),(unsigned long long)before,(unsigned long long)after,(unsigned long long)available,(unsigned long)cap,(unsigned long long)((after-before)*50),(long)int32_t(uint32_t((before+(after-before)/2)*4)-cap));
   }
   else{ptob_gnss::increment(map_failure);mapping.reset();}
   request_tick=0;
@@ -248,7 +258,7 @@ void poll(uint64_t tick) {
   const uint64_t work=release-work_begin;shadow_work_ticks+=work;
   if(work>shadow_work_max_ticks)shadow_work_max_ticks=uint32_t(work);
   const uint64_t log_begin=now();
-  if(shadow_logs)WC12_OBSERVER_PRINTF("PTOB_GPS_CLOCK_EDGE tick=%llu number=%lu raw_extended=%llu mapped=%u pps_tick=%llu consumed=%llu poll_start=%llu raw_prediction_valid=%u raw_error_ns=%lld mapped_prediction_valid=%u mapped_error_ns=%lld raw_samples=%u mapped_samples=%u raw_rate_ppb=%ld mapped_rate_ppb=%ld raw_fit_rms_ns=%lu mapped_fit_rms_ns=%lu model_available=%llu map_epoch=%lu treatment=%s scope=CAUSAL_PRIOR_GPS_MODEL total_bound=UNKNOWN GPS_authority=SEPARATE_GM_E1 BLE_training=NONE\n",(unsigned long long)consumed,(unsigned long)raw.number,(unsigned long long)score.raw_extended,unsigned(edge.valid),(unsigned long long)edge.tick,(unsigned long long)consumed,(unsigned long long)tick,unsigned(score.raw_valid),(long long)score.raw_error_ns,unsigned(score.mapped_valid),(long long)score.mapped_error_ns,shadow.raw.samples,shadow.mapped.samples,(long)shadow.raw.rate_ppb(),(long)shadow.mapped.rate_ppb(),(unsigned long)shadow.raw.rms_ns,(unsigned long)shadow.mapped.rms_ns,(unsigned long long)release,(unsigned long)map_epoch,guarded_map?"GUARDED":"BASELINE");
+  if(shadow_logs)WC12_OBSERVER_PRINTF("PTOB_GPS_CLOCK_EDGE tick=%llu number=%lu raw_extended=%llu mapped=%u pps_tick=%llu consumed=%llu poll_start=%llu raw_prediction_valid=%u raw_error_ns=%lld mapped_prediction_valid=%u mapped_error_ns=%lld raw_samples=%u mapped_samples=%u raw_rate_ppb=%ld mapped_rate_ppb=%ld raw_fit_rms_ns=%lu mapped_fit_rms_ns=%lu model_available=%llu map_epoch=%lu treatment=%s scope=CAUSAL_PRIOR_GPS_MODEL total_bound=UNKNOWN GPS_authority=SEPARATE_GM_E1 BLE_training=NONE\n",(unsigned long long)consumed,(unsigned long)raw.number,(unsigned long long)score.raw_extended,unsigned(edge.valid),(unsigned long long)edge.tick,(unsigned long long)consumed,(unsigned long long)tick,unsigned(score.raw_valid),(long long)score.raw_error_ns,unsigned(score.mapped_valid),(long long)score.mapped_error_ns,shadow.raw.samples,shadow.mapped.samples,(long)shadow.raw.rate_ppb(),(long)shadow.mapped.rate_ppb(),(unsigned long)shadow.raw.rms_ns,(unsigned long)shadow.mapped.rms_ns,(unsigned long long)release,(unsigned long)map_epoch,map_treatment());
   const uint64_t log_work=now()-log_begin;shadow_log_ticks+=log_work;if(log_work>shadow_log_max_ticks)shadow_log_max_ticks=uint32_t(log_work);
   if(consumer)consumer({edge.tick,edge.anchor_available,raw.capture,raw.number,edge.bracket_ns,edge.valid,score.raw_extended});
  }
@@ -269,7 +279,11 @@ void poll(uint64_t tick) {
   esp_err_t result;
   if(guarded_map){
    portENTER_CRITICAL(&lock);request_serial=map_serial;
+#if defined(PTOB_W12_GNSS_FAST_MAP_DIAGNOSTIC) && PTOB_W12_GNSS_FAST_MAP_DIAGNOSTIC
+   result=w12_s3_gnss_map_bracket(clock,map_channel,&before,&after);
+#else
    before=now();result=mcpwm_capture_channel_trigger_soft_catch(map_channel);after=now();
+#endif
    portEXIT_CRITICAL(&lock);
   }else{
    portENTER_CRITICAL(&lock);request_serial=map_serial;portEXIT_CRITICAL(&lock);
@@ -376,7 +390,7 @@ void status(uint64_t tick) {
  (unsigned long long)tick,unsigned(ready),unsigned(uart_ready),rx_gpio,(unsigned long)uart_baud,(unsigned long)route_epoch,(unsigned long)edges,(unsigned long)drop,(unsigned long)qpeak,(unsigned long)mapping.accepted,(unsigned long)mapping.rejected,(unsigned long)map_timeout,(unsigned long)map_failure,(unsigned long long)(last_edge && tick>=last_edge?(tick-last_edge)/20000:UINT64_MAX),(unsigned long)nmea_bytes,(unsigned long)nmea_lines,(unsigned long)nmea_bad,(unsigned long)nmea_overflow,unsigned(rmc.valid),unsigned(rmc.fix),(unsigned long)rmc.second,(unsigned long long)(last_rmc && tick>=last_rmc?(tick-last_rmc)/20000:UINT64_MAX));
  if(uart_ready)WC12_OBSERVER_PRINTF("PTOB_GNSS_UART tick=%llu buffer_peak=%lu FIFO_overflow=%lu buffer_full=%lu frame_error=%lu parity_error=%lu break=%lu event_queue_capacity=16 event_scan_budget=8 byte_scan_budget=256 coverage=UNKNOWN\n",(unsigned long long)tick,(unsigned long)uart_buffer_peak,(unsigned long)uart_fifo_overflow,(unsigned long)uart_buffer_full,(unsigned long)uart_frame_error,(unsigned long)uart_parity_error,(unsigned long)uart_break);
  const auto v=shadow.view(tick);
- WC12_OBSERVER_PRINTF("PTOB_GPS_CLOCK_STATUS tick=%llu valid=%u utc_ns=%lld coherent=%lu epoch=%lu reason=%s raw_samples=%u mapped_samples=%u raw_rate_ppb=%ld mapped_rate_ppb=%ld raw_fit_rms_ns=%lu mapped_fit_rms_ns=%lu model_available=%llu pps_age_us=%llu rmc_age_us=%llu map_bracket_ns=%lu map_epoch=%lu treatment=%s logs=%u rmc_accepted=%lu rmc_rejected=%lu raw_resets=%lu mapped_resets=%lu model_bytes=%u work_total_ticks=%llu work_max_ticks=%lu edge_log_total_ticks=%llu edge_log_max_ticks=%lu clock=%s association=EMPIRICAL_UNCALIBRATED total_bound=UNKNOWN GPS_authority=SEPARATE_GM_E1 BLE_training=NONE CPU=UNMEASURED RF=UNMEASURED PTS=OFF\n",(unsigned long long)tick,unsigned(v.valid),(long long)v.ns,(unsigned long)shadow.coherent,(unsigned long)shadow.epoch,shadow.epoch_reason,shadow.raw.samples,shadow.mapped.samples,(long)shadow.raw.rate_ppb(),(long)shadow.mapped.rate_ppb(),(unsigned long)shadow.raw.rms_ns,(unsigned long)shadow.mapped.rms_ns,(unsigned long long)v.available,(unsigned long long)(v.pps_age_ticks/20),(unsigned long long)(v.rmc_age_ticks/20),(unsigned long)v.map_bracket_ns,(unsigned long)map_epoch,guarded_map?"GUARDED":"BASELINE",unsigned(shadow_logs),(unsigned long)shadow.rmc_accepted,(unsigned long)shadow.rmc_rejected,(unsigned long)shadow.raw.resets,(unsigned long)shadow.mapped.resets,unsigned(sizeof(shadow)),(unsigned long long)shadow_work_ticks,(unsigned long)shadow_work_max_ticks,(unsigned long long)shadow_log_ticks,(unsigned long)shadow_log_max_ticks,aid_possible?"BLE_AIDED_GPS_SHADOW":"GPS_SHADOW_PRIOR_AID_UNKNOWN");
+ WC12_OBSERVER_PRINTF("PTOB_GPS_CLOCK_STATUS tick=%llu valid=%u utc_ns=%lld coherent=%lu epoch=%lu reason=%s raw_samples=%u mapped_samples=%u raw_rate_ppb=%ld mapped_rate_ppb=%ld raw_fit_rms_ns=%lu mapped_fit_rms_ns=%lu model_available=%llu pps_age_us=%llu rmc_age_us=%llu map_bracket_ns=%lu map_epoch=%lu treatment=%s logs=%u rmc_accepted=%lu rmc_rejected=%lu raw_resets=%lu mapped_resets=%lu model_bytes=%u work_total_ticks=%llu work_max_ticks=%lu edge_log_total_ticks=%llu edge_log_max_ticks=%lu clock=%s association=EMPIRICAL_UNCALIBRATED total_bound=UNKNOWN GPS_authority=SEPARATE_GM_E1 BLE_training=NONE CPU=UNMEASURED RF=UNMEASURED PTS=OFF\n",(unsigned long long)tick,unsigned(v.valid),(long long)v.ns,(unsigned long)shadow.coherent,(unsigned long)shadow.epoch,shadow.epoch_reason,shadow.raw.samples,shadow.mapped.samples,(long)shadow.raw.rate_ppb(),(long)shadow.mapped.rate_ppb(),(unsigned long)shadow.raw.rms_ns,(unsigned long)shadow.mapped.rms_ns,(unsigned long long)v.available,(unsigned long long)(v.pps_age_ticks/20),(unsigned long long)(v.rmc_age_ticks/20),(unsigned long)v.map_bracket_ns,(unsigned long)map_epoch,map_treatment(),unsigned(shadow_logs),(unsigned long)shadow.rmc_accepted,(unsigned long)shadow.rmc_rejected,(unsigned long)shadow.raw.resets,(unsigned long)shadow.mapped.resets,unsigned(sizeof(shadow)),(unsigned long long)shadow_work_ticks,(unsigned long)shadow_work_max_ticks,(unsigned long long)shadow_log_ticks,(unsigned long)shadow_log_max_ticks,aid_possible?"BLE_AIDED_GPS_SHADOW":"GPS_SHADOW_PRIOR_AID_UNKNOWN");
 }
 void set_nmea_consumer(NmeaConsumer callback){nmea_consumer=callback;}
 Activity activity(uint64_t tick){
@@ -390,7 +404,7 @@ bool pps_recent(uint64_t tick){return ready && physical_pps_consumed && tick>=ph
 bool select_map(bool guarded){
  if(!W12_GNSS_W12_POWER || !ready || request_tick)return false;
  guarded_map=guarded;mapping.reset();shadow.map_reset();ptob_gnss::increment(map_epoch);last_map_request=0;
- WC12_OBSERVER_PRINTF("PTOB_GPS_MAP_CONFIG tick=%llu ack=1 epoch=%lu treatment=%s outputs_changed=0 BLE_training=NONE GPS_authority=SEPARATE_GM_E1\n",(unsigned long long)now(),(unsigned long)map_epoch,guarded_map?"GUARDED":"BASELINE");return true;
+ WC12_OBSERVER_PRINTF("PTOB_GPS_MAP_CONFIG tick=%llu ack=1 epoch=%lu treatment=%s outputs_changed=0 BLE_training=NONE GPS_authority=SEPARATE_GM_E1\n",(unsigned long long)now(),(unsigned long)map_epoch,map_treatment());return true;
 }
 bool shadow_logging(bool enabled){
  if(!W12_GNSS_W12_POWER || !ready)return false;

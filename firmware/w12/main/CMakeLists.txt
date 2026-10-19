@@ -45,6 +45,14 @@ target_compile_definitions(${COMPONENT_LIB} PRIVATE V12_UNIT="W12"
   W12_COPY_BOARD_PROFILE=${ptob_board} W12_GNSS_VERIFIED_INPUTS=${ptob_gnss} V12_LORA_FORCED_OFF=1
   W12_GNSS_RX_PIN=39 W12_GNSS_PPS_PIN=41 W12_GNSS_BAUD=9600
   W12_GNSS_W12_POWER=${ptob_gnss} W12_GNSS_R8_POWER=0)
+if(PTOB_W12_GNSS_FAST_MAP_DIAGNOSTIC)
+  if(NOT PTOB_W12_GNSS_INDICATORS OR NOT V12_R2_RX_SHADOW OR NOT V12_R2_PROFILE STREQUAL "r2-g1")
+    message(FATAL_ERROR "Fast map diagnostic requires the verified GNSS G1 profile and pinned driver ABI")
+  endif()
+  target_compile_definitions(${COMPONENT_LIB} PRIVATE PTOB_W12_GNSS_FAST_MAP_DIAGNOSTIC=1)
+else()
+  target_compile_definitions(${COMPONENT_LIB} PRIVATE PTOB_W12_GNSS_FAST_MAP_DIAGNOSTIC=0)
+endif()
 configure_file("${PTOB_DEVICE_HEADER}" "${CMAKE_CURRENT_BINARY_DIR}/ptob_device.h" COPYONLY)
 configure_file("${PTOB_REGISTRY_HEADER}" "${CMAKE_CURRENT_BINARY_DIR}/ptob_registry.h" COPYONLY)
 if(V12_R2_PROFILE)

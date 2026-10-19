@@ -2,6 +2,15 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 19 October 2026 — Optional W12 PPS counter-map diagnostic
+
+W12 **0.1.22** adds an explicit, default-off fast counter-map diagnostic for the
+verified GNSS profile. It uses the existing driver latch around software capture
+while retaining the full enclosure, physical PPS and model availability rules.
+Build identity, actual compiler flags and stack checks bind the treatment.
+This changes measurement overhead; it does not correct relay timing or qualify
+BLE stability or UTC accuracy.
+
 ## 18 October 2026 — W12 production G1 PPS diagnostics
 
 W12 **0.1.21** observes the production G1 actuator at physical PPS on the

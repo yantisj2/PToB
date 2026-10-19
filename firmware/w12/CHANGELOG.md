@@ -2,6 +2,21 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 0.1.22 — 19 October 2026
+
+Add the optional `--gnss-fast-map-diagnostic` build treatment for the verified
+W12 GNSS profile. It brackets the supported MCPWM software capture with the
+existing validated GPTimer latch. Physical PPS capture, midpoint conversion,
+the full read enclosure and prior-anchor availability remain unchanged.
+Records identify this treatment separately; a narrower bracket must be measured
+on the installed image and does not establish its midpoint bias or UTC accuracy.
+
+The option defaults off. Native identity, compiler flags, task/core settings,
+private driver ABI and selected stack evidence bind the chosen treatment.
+BLE reception, clock discipline, source permission and relay output retain
+their existing behavior. This is a measurement change, with no offset correction
+or BLE dropout repair claimed.
+
 ## 0.1.21 — 18 October 2026
 
 Add a read-only production G1 PPS diagnostic on the explicit GNSS profile.

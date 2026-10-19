@@ -5,7 +5,7 @@ Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT
 import json,sys,tempfile
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'tools'))
-from stack_budget import DECLARATIONS,PPS_DECLARATIONS,measure,check
+from stack_budget import DECLARATIONS,PPS_DECLARATIONS,FAST_MAP_DECLARATIONS,measure,check
 CONFIG='CONFIG_ESP_MAIN_TASK_STACK_SIZE=12288\n'
 # GCC14.2.0 ESP32-S3 0.1.6 C4 rows, before the snapshot isolation fix. The
 # first ordinary status request overflowed task main on the attached unit.
@@ -64,3 +64,31 @@ with tempfile.TemporaryDirectory() as d:
  (p/'gnss_pps.cpp.su').write_text(gnss);assert check(d)==new
  (local/'device.json').write_text('{}');assert check(d)==r
 print('PASS observed 11216B status-path rejection, reserve, exact static evidence and retained-file checks')
+
+# Version22 fast-map adds the real C helper path, retaining historical budgets.
+fast='s3_clock_reference.c:1:1:'+FAST_MAP_DECLARATIONS['gnss_fast_map']+'\t64\tstatic'
+with_fast=measure(CONFIG,usage(small)+'\n'+pps_usage(diagnostic),gnss,fast)
+assert with_fast['paths']['gnss_software_map_bracket']['static_bytes']==2368
+assert with_fast['uncounted_callee_reserve_bytes']==4096
+for bad in ('',fast+'\n'+fast,fast.replace('static','dynamic,bounded')):
+ try:measure(CONFIG,usage(small)+'\n'+pps_usage(diagnostic),gnss,bad)
+ except ValueError as e:assert 'Missing or ambiguous' in str(e) or 'Unbounded' in str(e)
+ else:raise AssertionError('Invalid fast-map static frame accepted')
+try:measure(CONFIG,usage(small)+'\n'+pps_usage(diagnostic),gnss,fast.replace('\t64\t','\t6000\t'))
+except ValueError as e:assert 'exceeds configured' in str(e)
+else:raise AssertionError('Oversized fast-map path accepted')
+with tempfile.TemporaryDirectory() as d:
+ root=Path(d);p=root/'target';p.mkdir();local=root/'local';local.mkdir()
+ (p/'sdkconfig').write_text(CONFIG);(p/'native_main.cpp.su').write_text(usage(small)+'\n'+pps_usage(diagnostic));(p/'gnss_pps.cpp.su').write_text(gnss)
+ (root/'receipt.json').write_text(json.dumps({'version':'0.1.22','gnss_fast_map_diagnostic':True}));(local/'device.json').write_text(json.dumps({'gnss_profile':'meshnology_w12_l76k_rx39_pps41'}))
+ try:check(d)
+ except ValueError as e:assert 'One retained fast map' in str(e)
+ else:raise AssertionError('Missing C helper evidence accepted')
+ (p/'s3_clock_reference.c.su').write_text(fast);assert check(d)==with_fast
+ (root/'receipt.json').write_text(json.dumps({'version':'0.1.22','gnss_fast_map_diagnostic':False}));assert check(d)==new
+ (local/'device.json').write_text('{}');assert check(d)==r
+ (root/'receipt.json').write_text(json.dumps({'version':'0.1.22','gnss_fast_map_diagnostic':True}))
+ try:check(d)
+ except ValueError as e:assert 'requires retained GNSS' in str(e)
+ else:raise AssertionError('Fast map without GNSS evidence accepted')
+print('PASS version22 optional C map-bracket path, disabled/historical budgets and unchanged4096B reserve')
