@@ -4,6 +4,12 @@ Copyright (c) 2026 Jonathan Yantis. MIT.
 
 ## 19 October 2026 — T096 bounded sparse PC refresh
 
+PC **0.15.117** suppresses degraded-parent discovery scanning while fresh admitted
+ingress remains synchronized during an intentional fit gap. It uses a fresh
+capture after queue drain and changes no time permission. Real ingress loss,
+fallback and scan-ownership fences remain. The ordinary GM/RC/DC branch is
+unchanged; prior PC observations retain the extra discovery activity.
+
 PC **0.15.116** adds a separate phase-aligned 125 ms cadence. A fresh acquired
 pair anchors a fixed schedule with an 8 ms RX lead; both RX and completion must
 fit the original window. HOLD observations cannot retime it, late follow-ups

@@ -114,6 +114,14 @@ not qualified wake-clock or RF-jitter bounds. Record actual RX offsets, pair
 completion margins, missed bursts and source changes. Modes 5 and 6 are separate
 evidence populations; both retain awake shadow reception for causal observation.
 
+Version 0.15.117 also keeps degraded-parent discovery scanning quiet while PC
+has fresh synchronized admitted ingress, even when its deliberately held output
+map has expired. The decision uses a fresh capture after queue processing.
+Actual missing/stale ingress, scope mismatch, fallback and scan ownership retain
+their original discovery behavior; no output or authentication expiry changes.
+This removes extra discovery activity from the held-fit experiment. Earlier
+populations retain that interference; its contribution to field loss is unproved.
+
 Version 0.15.114 separates PC parent-health accounting from deliberately held
 map training. An accepted authenticated timing pair advances ingress progress;
 fresh ingress can retain the parent without training the map or triggering a

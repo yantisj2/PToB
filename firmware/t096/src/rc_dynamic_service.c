@@ -1785,6 +1785,34 @@ static void snapshot_publish(struct r2_capture now) {
   status.relay.bound_ns = RC5_UNKNOWN;
   k_mutex_unlock(&state_lock);
 }
+#ifdef R2_PC_PROFILE
+/* Deliberately stale PC output is not an RX outage. Keep ordinary discovery
+ * quiet while fresh admitted ingress is synchronized, using a fresh physical
+ * capture rather than the worker's sample from before draining its queue.
+ * No map/source/output permission is changed here. */
+static void pc_management_scan(bool window) {
+  struct r2_capture current;
+  const bool ingress=r2_capture_now(&current)&&current.epoch==capture_epoch&&
+      pc_ingress_live(parent_known,parent_synced,&timing,current.tick);
+  const bool receive_live=upstream_usable||ingress;
+  if (parent_synced && receive_live && scanning && !slot_state.scanning && !relay_fallback) {
+    check(!bt_le_scan_stop(), "scan stop");
+    scanning = false;
+  }
+  if (node && window && !creating && !scanning && !lt_conn && !lt_paused &&
+      (!parent_synced || !receive_live || slot_state.scanning || relay_fallback)) {
+    struct bt_le_scan_param q = {
+        .type = BT_LE_SCAN_TYPE_PASSIVE, .interval = 32, .window = parent_synced?8:16};
+    int rc = bt_le_scan_start(&q, NULL);
+    if (!rc)
+      scanning = true;
+    else if (slot_state.scanning)
+      slot_scan_failed = true;
+    else if (rc != -EAGAIN && rc != -EBUSY)
+      check(false, "scan start");
+  }
+}
+#endif
 static void owner(void *a, void *b, void *c) {
   (void)a;
   (void)b;
@@ -1880,6 +1908,9 @@ static void owner(void *a, void *b, void *c) {
       } else if (rc != -EAGAIN && rc != -EBUSY)
         check(false, "sync create");
     }
+#ifdef R2_PC_PROFILE
+    pc_management_scan(window);
+#else
     if (parent_synced && upstream_usable && scanning && !slot_state.scanning && !relay_fallback) {
       check(!bt_le_scan_stop(), "scan stop");
       scanning = false;
@@ -1896,6 +1927,7 @@ static void owner(void *a, void *b, void *c) {
       else if (rc != -EAGAIN && rc != -EBUSY)
         check(false, "scan start");
     }
+#endif
     /* Invalid time withdraws output, not an established radio synchronization.
      * Native PA supervision owns RF loss. Reacquire the same authenticated
      * scope before requesting another JOIN; neither path extends permission. */

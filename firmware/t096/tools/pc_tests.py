@@ -4,7 +4,7 @@ Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT
 """
 import argparse, hashlib, json, os, shutil, subprocess, sys
 from pathlib import Path
-p=argparse.ArgumentParser(description=__doc__);p.add_argument('--out',type=Path,required=True);a=p.parse_args()
+p=argparse.ArgumentParser(description=__doc__);p.add_argument('--out',type=Path,required=True);p.add_argument('--legacy-pc-scan',action='store_true');a=p.parse_args()
 app=Path(__file__).resolve().parents[1];out=a.out.resolve();out.mkdir(parents=True,exist_ok=False)
 source=(app/'src/rc_boundary.c').read_text()
 arithmetic=source[source.index('static bool map_value('):source.index('bool rc5_clock_discipline(')]
@@ -43,6 +43,16 @@ def body(name):
     start=service.index(name);end=service.index('{',start)+1;depth=1
     while depth:depth+=(service[end]=='{')-(service[end]=='}');end+=1
     return service[start:end]
+scan=body('static void pc_management_scan(')
+if a.legacy_pc_scan:scan=scan.replace('upstream_usable||ingress','upstream_usable');scan=scan.replace('const bool receive_live=', '(void)ingress;const bool receive_live=')
+(out/'pc_scan_under_test.h').write_text(scan)
+scan_cmd=[cc,'-std=c11','-Wall','-Wextra','-Werror','-fsanitize=address,undefined','-fno-sanitize-recover=all',
+ '-DR2_PC_PROFILE=1','-I'+str(out),'-I'+str(app/'include'),'-I'+str(app/'protocol'),
+ str(app/'src/pc_experiment.c'),str(app/'tests/pc_scan_test.c'),'-o',str(out/'scan')]
+with (out/'scan.log').open('x')as log:
+ subprocess.run(scan_cmd,stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
+ subprocess.run([str(out/'scan')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
+print((out/'scan.log').read_text(),end='')
 (out/'pc_ingress_policy_under_test.h').write_text('\n'.join(body(n) for n in [
     'static void delivery_tick(', 'static bool parent_loss_due(', 'static void parent_recovery_poll(']))
 policy_cmd=[cc,'-std=c11','-Wall','-Wextra','-Werror','-fsanitize=address,undefined','-fno-sanitize-recover=all',
@@ -56,6 +66,8 @@ r=json.loads((out/'receipt.json').read_text());r['identity_command']=identity_cm
 r['ingress_policy_command']=policy_cmd
 r['auto_identity_command']=auto_cmd
 r['alignment_command']=align_cmd
+r['scan_command']=scan_cmd
+r['sources']['tests/pc_scan_test.c']=hashlib.sha256((app/'tests/pc_scan_test.c').read_bytes()).hexdigest()
 r['sources']['tests/pc_alignment_test.c']=hashlib.sha256((app/'tests/pc_alignment_test.c').read_bytes()).hexdigest()
 subprocess.run([sys.executable,str(app/'tests/test_pc_analyze.py')],check=True,timeout=30)
 for name in ('src/pc_profile_service.c','src/rc_dynamic_service.c','tests/pc_identity_test.c','tests/pc_ingress_policy_test.c','tools/pc_analyze.py','tests/test_pc_analyze.py'):r['sources'][name]=hashlib.sha256((app/name).read_bytes()).hexdigest()
