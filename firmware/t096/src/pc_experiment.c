@@ -67,8 +67,14 @@ bool pc_observe(struct pc_experiment *p,const struct rc5_reference *r,uint64_t e
  if(r->completed_at>=p->last_tick)pc_tick(p,r->completed_at,epoch);
  if(p->reset_from&&r->rx<p->reset_from)return false;
  if(p->phase==PC_ACQUIRE){p->first_pair=r->completed_at;p->listen_until=r->completed_at+(uint64_t)p->listen_ms*PC_TICKS_MS;p->phase=PC_LISTEN;}
- if(p->mode==PC_CADENCE_SHADOW&&!p->first_pair&&p->phase==PC_LISTEN)p->first_pair=r->completed_at;
  bool train=p->phase!=PC_HOLD&&!(p->mode==PC_CADENCE_SHADOW&&(p->phase==PC_DONE||p->phase==PC_FAILED));
+ if(p->mode==PC_CADENCE_SHADOW&&p->phase==PC_LISTEN){
+  uint64_t burst_from=p->listen_until-(uint64_t)p->listen_ms*PC_TICKS_MS;
+  /* A correction completed inside a burst cannot import an RF capture from
+   * before it. Both members of an admitted timing pair fit the RX budget. */
+  if(r->rx<burst_from)train=false;
+  if(train&&!p->first_pair)p->first_pair=r->completed_at;
+ }
  const struct rc_shadow_map *m=p->have_frozen&&(p->phase==PC_HOLD||(p->phase==PC_DONE&&!p->first_return_sequence))?&p->frozen:&p->latest;
  struct pc_record q={.rx=r->rx,.available=r->completed_at,.remote_ns=r->parent_tx_ns,.epoch=epoch,
   .trial=p->trial,.phase=p->phase,.generation=m->map.generation,.cycle=p->cycle,.train=train};

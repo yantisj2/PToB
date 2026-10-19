@@ -60,6 +60,8 @@ int main(void){
  assert(pc_read(&p,1,&q)&&q.cycle==1&&!q.train);
  uint64_t second=p.hold_until;
  pc_tick(&p,second,7);assert(p.phase==PC_LISTEN&&p.cycle==2&&p.listen_until==second+125*PC_TICKS_MS);
+ r=pair(second-100,1000002500);r.completed_at=second+8;
+ assert(!pc_observe(&p,&r,7)&&!p.burst_pairs&&p.training_pairs==1);
  r=pair(second+100,1000003000);assert(pc_observe(&p,&r,7)&&p.training_pairs==2);
  m=map(r.completed_at);m.map.generation=3;pc_offer(&p,&m);
  pc_tick(&p,p.listen_until,7);assert(!p.missed_bursts&&p.cycle==2);
@@ -67,7 +69,7 @@ int main(void){
  pc_tick(&p,p.listen_until,7);assert(p.phase==PC_HOLD&&p.missed_bursts==1);
  pc_tick(&p,p.hold_until,7);assert(p.phase==PC_DONE);
  r=pair(p.last_tick+100,1000004000);assert(!pc_observe(&p,&r,7)&&p.training_pairs==2);
- assert(pc_read(&p,3,&q)&&!q.train&&q.cycle==3);
+ assert(pc_read(&p,4,&q)&&!q.train&&q.cycle==3);
  /* One late poll must not fabricate training windows or extend the run. */
  pc_init(&p);m=map(16000000);pc_offer(&p,&m);
  assert(!pc_begin_cadence(&p,128,1,1,16000100,7));

@@ -85,6 +85,8 @@ training. A burst with no pairs or no new map increments `missed_bursts` and
 retains the previous projection; its missing observations remain unknown.
 Finite completion keeps training suppressed until the next experiment command.
 Each record identifies its cycle and whether it was admitted for training.
+Both the original RX capture and the pair completion must fall inside that
+burst; an off-window capture cannot enter through a later correction packet.
 The retained 16-pair estimator can span several sparse bursts.
 
 Reception remains enabled to obtain causal error observations between bursts.
