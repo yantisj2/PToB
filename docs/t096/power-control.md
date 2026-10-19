@@ -94,3 +94,10 @@ Do not tune away bias or qualify startup using error magnitude. Sub-1/10/100 us
 are experimental RMS targets, not worst-case promises. A 1 PPS witness cannot
 resolve subsecond HOLD trajectories. Unknown PPS/UTC association, receiver and
 RF timestamp bias prevent calibrated UTC/output claims.
+
+`tools/pc_analyze.py` analyzes normalized observation JSONL offline, retaining
+separate root/parent/physical-boot/capture-epoch populations. Empty HOLD-age
+windows retain unknown RMS. Explicit capture boundaries exclude pre-window ring
+contents and earlier canary metadata. `pc_tests.py` also checks this accounting,
+including bias-preserving RMS, missing windows and epoch separation. Raw capture
+and normalized input hashes must accompany any derived results.
