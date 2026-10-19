@@ -4,6 +4,12 @@ Copyright (c) 2026 Jonathan Yantis. MIT.
 
 ## 19 October 2026 — T096 bounded sparse PC refresh
 
+PC **0.15.114** measures parent health from fresh authenticated ingress during
+deliberate training gaps. Accepted pairs advance ingress progress while the
+experimental map stays frozen, avoiding stalled-fit recovery during received
+HOLD observations. Existing source/authentication/map expiry and GM/RC/DC code
+paths remain. Earlier captures retain recovery interference and source refusals.
+
 PC **0.15.113** adds finite warm-estimator LISTEN/HOLD cycles with fixed counter
 deadlines, retained training across short bursts, per-record cycle/training
 labels and explicit missed-burst counts. Completion keeps training suppressed

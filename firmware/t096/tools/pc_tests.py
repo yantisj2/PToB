@@ -28,8 +28,23 @@ with (out/'identity.log').open('x') as log:
  subprocess.run(identity_cmd,stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
  subprocess.run([str(out/'identity')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
 print((out/'identity.log').read_text(),end='')
+service=(app/'src/rc_dynamic_service.c').read_text()
+def body(name):
+    start=service.index(name);end=service.index('{',start)+1;depth=1
+    while depth:depth+=(service[end]=='{')-(service[end]=='}');end+=1
+    return service[start:end]
+(out/'pc_ingress_policy_under_test.h').write_text('\n'.join(body(n) for n in [
+    'static void delivery_tick(', 'static bool parent_loss_due(', 'static void parent_recovery_poll(']))
+policy_cmd=[cc,'-std=c11','-Wall','-Wextra','-Werror','-fsanitize=address,undefined','-fno-sanitize-recover=all',
+ '-DR2_PC_PROFILE=1','-I'+str(out),'-I'+str(app/'include'),'-I'+str(app/'protocol'),
+ str(app/'src/pc_experiment.c'),str(app/'tests/pc_ingress_policy_test.c'),'-o',str(out/'ingress-policy')]
+with (out/'ingress-policy.log').open('x') as log:
+    subprocess.run(policy_cmd,stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
+    subprocess.run([str(out/'ingress-policy')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
+print((out/'ingress-policy.log').read_text(),end='')
 r=json.loads((out/'receipt.json').read_text());r['identity_command']=identity_cmd
+r['ingress_policy_command']=policy_cmd
 subprocess.run([sys.executable,str(app/'tests/test_pc_analyze.py')],check=True,timeout=30)
-for name in ('src/pc_profile_service.c','tests/pc_identity_test.c','tools/pc_analyze.py','tests/test_pc_analyze.py'):r['sources'][name]=hashlib.sha256((app/name).read_bytes()).hexdigest()
+for name in ('src/pc_profile_service.c','src/rc_dynamic_service.c','tests/pc_identity_test.c','tests/pc_ingress_policy_test.c','tools/pc_analyze.py','tests/test_pc_analyze.py'):r['sources'][name]=hashlib.sha256((app/name).read_bytes()).hexdigest()
 r['status']='PASS'
 (out/'receipt.json').write_text(json.dumps(r,indent=2)+'\n')

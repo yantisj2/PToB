@@ -12,6 +12,17 @@ static struct rc_shadow_map map(uint64_t tick){
 }
 static struct rc5_reference pair(uint64_t tick,uint64_t ns){return (struct rc5_reference){.valid=true,.rx=tick,.completed_at=tick+8,.parent_tx_ns=ns,.origin={.root=11,.boot=12,.epoch=13}};}
 int main(void){
+ struct rc5_state ingress={.bound=true,.context_until=20000000,
+  .reference={.valid=true,.completed_at=10000000}};
+ assert(pc_ingress_live(true,true,&ingress,10000000));
+ assert(pc_ingress_live(true,true,&ingress,17999999));
+ assert(!pc_ingress_live(true,true,&ingress,18000000));
+ assert(!pc_ingress_live(true,true,&ingress,9999999));
+ assert(!pc_ingress_live(false,true,&ingress,10000001));
+ assert(!pc_ingress_live(true,false,&ingress,10000001));
+ ingress.context_until=10000001;assert(!pc_ingress_live(true,true,&ingress,10000001));
+ ingress.context_until=20000000;ingress.reference.valid=false;
+ assert(!pc_ingress_live(true,true,&ingress,10000001));
  struct pc_experiment p;pc_init(&p);struct rc_shadow_map m=map(16000000);pc_offer(&p,&m);
  assert(pc_begin(&p,0,1000,1000,16000100,7)==-EINVAL);
  assert(pc_begin(&p,1,1000,300001,16000100,7)==-EINVAL);

@@ -532,6 +532,14 @@ static void delivery_tick(uint64_t now, uint64_t tick) {
   upstream_usable = parent_known && parent_synced && fit.valid &&
       rc5_clock_capture(&local_clock, &timing, tick, &stamp) &&
       stamp.pll_tracking && stamp.ns < current_origin.expires;
+#ifdef R2_PC_PROFILE
+  /* This worker alone reads upstream_usable. Parent-health accounting uses
+   * fresh authenticated ingress while PC deliberately suppresses training.
+   * Restore the real map flag before returning; no output gate uses this
+   * temporary value and normal map/source/authentication expiry is unchanged. */
+  const bool map_usable=upstream_usable;
+  upstream_usable=pc_ingress_live(parent_known,parent_synced,&timing,tick);
+#endif
   rc_stream_observe(&stream_history, &stream_sample, &delivery,
       parent_known ? routes.node[parent_index].id : 0, parent_relay,
       upstream_usable, parent_synced, now);
@@ -557,6 +565,9 @@ static void delivery_tick(uint64_t now, uint64_t tick) {
   relay_fallback = parent_ineligible || (!acquiring &&
       (!parent_locked || (unhealthy && now >= upstream_bad_since &&
                          now - upstream_bad_since >= loss)));
+#ifdef R2_PC_PROFILE
+  upstream_usable=map_usable;
+#endif
 }
 static bool parent_loss_due(uint64_t now) {
   return parent_known && !upstream_usable &&
@@ -659,6 +670,9 @@ static bool upstream_admitted(uint64_t tick) {
                routes.node[parent_index].id, tick)));
 }
 static void parent_recovery_poll(uint64_t tick) {
+#ifdef R2_PC_PROFILE
+  if(pc_ingress_live(parent_known,parent_synced,&timing,tick))return;
+#endif
   if (!parent_known || parent_admission < 2 || upstream_usable)
     return;
   /* A continuing loss is the same recovery, not a fresh reason to erase its
@@ -1534,6 +1548,9 @@ static void captures(struct r2_capture now) {
         current_origin = timing.reference.origin;
         memcpy(current_proof, timing.reference.proof, 16);
 #ifdef R2_PC_PROFILE
+        /* Actual accepted pairs advance ingress progress even during HOLD;
+         * only discipline_commit below may advance the delivered map. */
+        last_context_progress=timing.reference.completed_at;
         /* Score the old projection before this pair can train either fit/map. */
         if(!r2_pc_observe(&timing.reference,capture_epoch))continue;
 #endif

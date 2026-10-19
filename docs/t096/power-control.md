@@ -89,6 +89,14 @@ Both the original RX capture and the pair completion must fall inside that
 burst; an off-window capture cannot enter through a later correction packet.
 The retained 16-pair estimator can span several sparse bursts.
 
+Version 0.15.114 separates PC parent-health accounting from deliberately held
+map training. An accepted authenticated timing pair advances ingress progress;
+fresh ingress can retain the parent without training the map or triggering a
+stalled-fit JOIN. Ingress still requires a synchronized parent, live admitted
+context and a pair younger than 500 ms. Output/source/map permission retains
+its original expiry. Foreign-root refusals and actual missing ingress remain
+source-availability failures. Pre-fix and corrected runs are separate evidence.
+
 Reception remains enabled to obtain causal error observations between bursts.
 The selected pair count and scheduled training fraction are experimental inputs;
 neither is measured RF airtime or energy. Radio-off reacquisition and physical

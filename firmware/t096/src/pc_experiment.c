@@ -5,6 +5,11 @@
 #include <string.h>
 
 void pc_init(struct pc_experiment *p){memset(p,0,sizeof *p);}
+bool pc_ingress_live(bool selected,bool synced,const struct rc5_state *s,uint64_t tick){
+ return selected&&synced&&s&&s->bound&&tick<s->context_until&&s->reference.valid&&
+  s->reference.completed_at&&tick>=s->reference.completed_at&&
+  tick-s->reference.completed_at<UINT64_C(8000000);
+}
 static void fail(struct pc_experiment *p){p->phase=PC_FAILED;if(p->failures<UINT32_MAX)++p->failures;}
 int pc_begin(struct pc_experiment *p,unsigned mode,uint32_t listen_ms,uint32_t hold_ms,uint64_t tick,uint64_t epoch){
  if(mode<PC_WARM_SHADOW||mode>PC_COLD_RADIO||!listen_ms||listen_ms>120000||!hold_ms||hold_ms>300000||!tick||!epoch)return -EINVAL;

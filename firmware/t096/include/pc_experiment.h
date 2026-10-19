@@ -32,6 +32,8 @@ void pc_offer(struct pc_experiment *,const struct rc_shadow_map *);
 bool pc_witness_map(const struct pc_experiment *,struct r2_capture,struct rc_shadow_map *);
 bool pc_read(const struct pc_experiment *,uint32_t,struct pc_record *);
 bool pc_quiet(const struct pc_experiment *);
+/* Parent health during deliberate training gaps, never output permission. */
+bool pc_ingress_live(bool,bool,const struct rc5_state *,uint64_t);
 
 #ifdef R2_PC_PROFILE
 void r2_pc_init(void);
