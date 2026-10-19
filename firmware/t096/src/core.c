@@ -56,6 +56,7 @@ int r2_parse(const char *line, struct r2_request *out)
   else if (!strcmp(parts[5],"pc")) out->op = R2_PC;
   else if (!strcmp(parts[5],"pc-run")) out->op = R2_PC_RUN;
   else if (!strcmp(parts[5],"pc-cycle")) out->op = R2_PC_CYCLE;
+  else if (!strcmp(parts[5],"pc-align")) out->op = R2_PC_ALIGN;
 #endif
 #ifdef R2_RC_PROFILE
   else if (!strcmp(parts[5],"rc-parent")) out->op = R2_RC_PARENT;
@@ -70,7 +71,7 @@ int r2_parse(const char *line, struct r2_request *out)
 #ifdef R2_PC_PROFILE
   if(out->op==R2_PC)return count==6?0:count==7&&hex(parts[6],8,&out->nonce)?0:-EINVAL;
   if(out->op==R2_PC_RUN){uint64_t mode;if(count!=8||!hex(parts[6],8,&mode)||mode<1||mode>4||!hex(parts[7],16,&out->nonce))return -EINVAL;out->trace_page=(unsigned)mode;return 0;}
-  if(out->op==R2_PC_CYCLE){uint64_t cycles;if(count!=8||!hex(parts[6],8,&cycles)||!cycles||cycles>128||!hex(parts[7],16,&out->nonce))return -EINVAL;out->seconds=(uint32_t)cycles;return 0;}
+  if(out->op==R2_PC_CYCLE||out->op==R2_PC_ALIGN){uint64_t cycles;if(count!=8||!hex(parts[6],8,&cycles)||!cycles||cycles>128||!hex(parts[7],16,&out->nonce))return -EINVAL;out->seconds=(uint32_t)cycles;return 0;}
 #endif
   if (out->op == R2_STATUS || out->op == R2_CLOCK || out->op == R2_NETWORK || out->op == R2_MARK || out->op == R2_PRECISION || out->op==R2_ROUTE || out->op==R2_JOIN) return count == 6 ? 0 : -EINVAL;
   if(out->op==R2_PROFILE){

@@ -19,6 +19,11 @@ with (out/'test.log').open('x') as log:
  subprocess.run([str(out/'test')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
 (out/'receipt.json').write_text(json.dumps({'status':'INCOMPLETE','hardware_access':False,'command':cmd,'sources':{str(x.relative_to(app)):hashlib.sha256(x.read_bytes()).hexdigest() for x in [app/'src/pc_experiment.c',app/'src/rc_boundary.c',app/'src/core.c',app/'tests/pc_experiment_test.c',Path(__file__).resolve()]}},indent=2)+'\n')
 print((out/'test.log').read_text(),end='')
+align_cmd=[*cmd[:-3],str(app/'tests/pc_alignment_test.c'),'-o',str(out/'alignment')]
+with (out/'alignment.log').open('x')as log:
+ subprocess.run(align_cmd,stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
+ subprocess.run([str(out/'alignment')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
+print((out/'alignment.log').read_text(),end='')
 source=(app/'src/pc_profile_service.c').read_text();start=source.index('int r2_service_configure(');end=source.index('{',start)+1;depth=1
 while depth:depth+=(source[end]=='{')-(source[end]=='}');end+=1
 (out/'pc_identity_under_test.h').write_text(source[start:end])
@@ -50,6 +55,8 @@ print((out/'ingress-policy.log').read_text(),end='')
 r=json.loads((out/'receipt.json').read_text());r['identity_command']=identity_cmd
 r['ingress_policy_command']=policy_cmd
 r['auto_identity_command']=auto_cmd
+r['alignment_command']=align_cmd
+r['sources']['tests/pc_alignment_test.c']=hashlib.sha256((app/'tests/pc_alignment_test.c').read_bytes()).hexdigest()
 subprocess.run([sys.executable,str(app/'tests/test_pc_analyze.py')],check=True,timeout=30)
 for name in ('src/pc_profile_service.c','src/rc_dynamic_service.c','tests/pc_identity_test.c','tests/pc_ingress_policy_test.c','tools/pc_analyze.py','tests/test_pc_analyze.py'):r['sources'][name]=hashlib.sha256((app/name).read_bytes()).hexdigest()
 r['status']='PASS'

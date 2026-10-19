@@ -4,6 +4,13 @@ Copyright (c) 2026 Jonathan Yantis. MIT.
 
 ## 19 October 2026 — T096 bounded sparse PC refresh
 
+PC **0.15.116** adds a separate phase-aligned 125 ms cadence. A fresh acquired
+pair anchors a fixed schedule with an 8 ms RX lead; both RX and completion must
+fit the original window. HOLD observations cannot retime it, late follow-ups
+cannot widen it, and a changed source fails the treatment. Alignment metadata
+and missed bursts remain explicit. GM/RC/DC timing is unchanged; awake training
+windows remain separate from measured RF airtime, energy and sleep behavior.
+
 PC **0.15.115** permits explicit `--pc-parent auto` for direct-GM discovery in
 the isolated leaf. Relay candidates are excluded; authenticated admission,
 source validity and output expiry remain. Numeric pins keep their original

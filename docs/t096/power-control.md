@@ -96,6 +96,24 @@ Both the original RX capture and the pair completion must fall inside that
 burst; an off-window capture cannot enter through a later correction packet.
 The retained 16-pair estimator can span several sparse bursts.
 
+Version 0.15.116 adds `pc-align CYCLES DURATIONS` as distinct mode 6. It accepts
+125 ms bursts and listening/HOLD periods that are integral multiples of the
+direct-GM 62.5 ms packet interval, within the same finite limits. A fresh admitted
+pair in the current map's source/capture scope supplies the initial RX phase.
+The first window opens 8 ms before a predicted RX, at least 5 ms after the command.
+`commanded_tick`, `alignment_rx_tick`, `packet_period_ticks`, `phase_guard_ticks`
+and `requested_tick` preserve the command, anchor and actual scheduled start.
+The phase may report LISTEN before that future start; training remains gated by
+the original RX and completion timestamps. The complete window stays 125 ms.
+
+Later windows keep that initial fixed counter schedule. Observations made during
+HOLD cannot retime it; missed follow-ups cannot widen it. A changed authenticated
+root/boot/source epoch fails the aligned treatment and requires fresh acquisition.
+The nominal packet interval and 8 ms guard are experimental scheduling inputs,
+not qualified wake-clock or RF-jitter bounds. Record actual RX offsets, pair
+completion margins, missed bursts and source changes. Modes 5 and 6 are separate
+evidence populations; both retain awake shadow reception for causal observation.
+
 Version 0.15.114 separates PC parent-health accounting from deliberately held
 map training. An accepted authenticated timing pair advances ingress progress;
 fresh ingress can retain the parent without training the map or triggering a

@@ -151,7 +151,7 @@ static uint32_t stack_unused(bool system_workqueue)
 static void __attribute__((noinline)) reply(const struct r2_request *r,uint64_t arrival,int result)
 {
 #ifdef R2_PC_PROFILE
-  if(r->op==R2_PC||r->op==R2_PC_RUN||r->op==R2_PC_CYCLE){
+  if(r->op==R2_PC||r->op==R2_PC_RUN||r->op==R2_PC_CYCLE||r->op==R2_PC_ALIGN){
     int n=r2_pc_json(json,sizeof json,r->op==R2_PC?(uint32_t)r->nonce:UINT32_MAX,result);
     if(n<=0||(size_t)n>=sizeof json||reply_sequence==UINT32_MAX)return;
     int extra=snprintf(json+n-1,sizeof json-(size_t)n+1,",\"source\":\"%s\",\"commit\":\"%s\",\"boot\":\"%016llx\",\"silicon\":\"%s\",\"unit\":\"%s\"}",R2_SOURCE_SHA,R2_CHILD_COMMIT,(unsigned long long)identity.boot,identity.silicon,identity.unit);
@@ -593,6 +593,8 @@ int main(void)
           rc=maintenance.phase==R2_IDLE&&platform_ready?r2_pc_begin(r.trace_page,r.nonce):-EACCES;
         } else if(r.op==R2_PC_CYCLE){
           rc=maintenance.phase==R2_IDLE&&platform_ready?r2_pc_begin_cadence(r.seconds,r.nonce):-EACCES;
+        } else if(r.op==R2_PC_ALIGN){
+          rc=maintenance.phase==R2_IDLE&&platform_ready?r2_pc_begin_aligned(r.seconds,r.nonce):-EACCES;
 #endif
 #ifdef R2_NATIVE_BLE
         } else if(r.op==R2_WITNESS) {

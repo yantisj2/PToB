@@ -90,5 +90,7 @@ int main(void){
  assert(pc_begin_cadence(&p,2,125,1000,m.active+8000000,7)==-EAGAIN);
  snprintf(command,sizeof command,"r2 00000001 1111111111111111 %064u 0000000000000001 pc-cycle 00000020 0000007d000003e8",0);
  assert(!r2_parse(command,&req)&&req.op==R2_PC_CYCLE&&req.seconds==32&&req.nonce==UINT64_C(0x7d000003e8));
+ snprintf(command,sizeof command,"r2 00000001 1111111111111111 %064u 0000000000000001 pc-align 00000010 0000007d00004e20",0);
+ assert(!r2_parse(command,&req)&&req.op==R2_PC_ALIGN&&req.seconds==16);
  puts("PASS PC fixed budgets, frozen causal projection, cold reset, RF mode, epochs, failure denominators, ring gaps, parser");
 }
