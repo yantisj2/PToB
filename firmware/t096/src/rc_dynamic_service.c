@@ -20,6 +20,8 @@
 #include "rc_slots.h"
 #include "rc_stream_quality.h"
 #include "rc_search.h"
+#include "rc_gm_failover.h"
+#include "role_announcement.h"
 #include "rc_phase_policy.h"
 #include "precision_schedule.h"
 #include "rc_unicast.h"
@@ -382,12 +384,15 @@ static bool precision_synced(uint64_t tick) {
 static bool stop(void);
 static void slot_hint_update(void);
 struct candidate {
+  uint64_t id, seen;
+  uint32_t cooldown;
   bt_addr_le_t address;
-  uint64_t id, seen, cooldown;
-  int16_t rssi;
-  bool relay, publishing, fresh;
+  int8_t rssi;
+  bool relay, publishing, fresh, cooling;
 };
 static struct candidate candidates[8];
+_Static_assert(sizeof(struct candidate)<=32,"Fixed locator storage funds failover state");
+static struct rc_gm_failover gm_failover;
 static struct rc_search parent_search;
 static uint64_t candidate_since, upstream_bad_since, parent_selected_at,
     parent_stage_at;
@@ -457,7 +462,8 @@ static void candidate_defer(uint64_t id, uint64_t now) {
   for (unsigned i = 0; i < 8; i++)
     if (candidates[i].id == id && (!parent_known || candidates[i].relay == parent_relay)) {
       candidates[i].fresh = false;
-      candidates[i].cooldown = now + 5000000;
+      candidates[i].cooldown = (uint32_t)(now/1000) + 5000;
+      candidates[i].cooling = true;
     }
 }
 /* An authenticated JOIN from a follower proves this locator cannot currently
@@ -468,7 +474,7 @@ static void candidate_nonroot(uint64_t id,uint64_t now){
  if(!parent_known||parent_relay||id!=routes.node[parent_index].id)return;
  parent_ineligible=true;
  for(unsigned i=0;i<8;i++)if(candidates[i].id==id&&!candidates[i].relay){
-  candidates[i].fresh=false;candidates[i].cooldown=now+60000000;
+  candidates[i].fresh=false;candidates[i].cooldown=(uint32_t)(now/1000)+60000;candidates[i].cooling=true;
  }
 }
 static void candidate_seen(const bt_addr_le_t *address, uint64_t id, bool relay,
@@ -503,6 +509,8 @@ static void candidate_seen(const bt_addr_le_t *address, uint64_t id, bool relay,
     candidates[at] = (struct candidate){.id = id, .rssi = -127};
   }
   struct candidate *c = &candidates[at];
+  if(c->cooling&&(now<c->seen||now-c->seen>=RC_SEARCH_LOCATOR_US||
+      (int32_t)((uint32_t)(now/1000)-c->cooldown)>=0))c->cooling=false;
   c->rssi = c->seen && now >= c->seen && now - c->seen < RC_SEARCH_LOCATOR_US
                 ? (3 * c->rssi + rssi) / 4 : rssi;
   c->seen = now;
@@ -544,6 +552,21 @@ static void delivery_tick(uint64_t now, uint64_t tick) {
   relay_fallback = parent_ineligible || (!acquiring &&
       (!parent_locked || (unhealthy && now >= upstream_bad_since &&
                          now - upstream_bad_since >= loss)));
+}
+static bool parent_failover_start(void){
+ return !forced_parent&&!exclude_direct&&parent_known&&!parent_relay&&routes.node[parent_index].id==gm_failover.id&&
+   rc_gm_expedited(&gm_failover,(uint32_t)(mono_us()/1000));
+}
+static bool parent_failover_waiting(void){
+ return !forced_parent&&!exclude_direct&&rc_gm_hint_fresh(&gm_failover,(uint32_t)(mono_us()/1000))&&
+   !(gm_failover.flags&RC_GM_SELECTED);
+}
+static void parent_failover_attempt(bool extra){
+ if(parent_known&&!parent_relay&&routes.node[parent_index].id==gm_failover.id&&
+    rc_gm_hint_fresh(&gm_failover,(uint32_t)(mono_us()/1000))&&(gm_failover.flags&RC_GM_SELECTED)){
+   rc_gm_attempted(&gm_failover,(uint32_t)(mono_us()/1000),extra);
+   r2_timing_event(R2_TIMING_GM_CONTROL,extra,gm_failover.id,20,gm_failover.epoch,gm_failover.sequence);
+ }
 }
 #include "rc_dynamic_transport.inc"
 /* Caller has drained the previous sync/publication and owns no transient ACL.
@@ -631,6 +654,14 @@ static void parent_recovery_poll(uint64_t tick) {
 }
 static struct candidate *candidate_choose(uint64_t now, bool expired) {
   bool diagnostic = forced_parent || exclude_direct;
+  /* A verified serving-GM report requests one direct challenge. It does not
+   * grant time, clear history, or wait behind a relay's acquisition trial. */
+  if(!diagnostic&&rc_gm_hint_fresh(&gm_failover,(uint32_t)(now/1000))&&
+     !(gm_failover.flags&RC_GM_SELECTED))
+    for(unsigned i=0;i<8;i++){
+      struct candidate *c=&candidates[i];
+      if(c->id==gm_failover.id&&!c->relay&&now>=c->seen&&now-c->seen<2000000)return c;
+    }
   bool startup = !startup_admitted && !startup_attempted && !diagnostic;
   if (!candidate_since || now < candidate_since ||
       (diagnostic ? now-candidate_since<40000
@@ -675,7 +706,7 @@ static struct candidate *candidate_choose(uint64_t now, bool expired) {
      * all original source, proof, map and transaction validity gates. */
     if (!c->id || now < c->seen ||
         now - c->seen >= (diagnostic ? 200000 : RC_SEARCH_LOCATOR_US) ||
-        now < c->cooldown || !c->fresh ||
+        (c->cooling&&(int32_t)((uint32_t)(now/1000)-c->cooldown)<0) || !c->fresh ||
         (!diagnostic && rc_stream_blocked(&stream_history, c->id, c->relay, now)) ||
         (exclude_direct && !c->relay) ||
         (forced_parent && c->id != forced_parent) ||
@@ -715,15 +746,24 @@ struct discovery {
   uint8_t sid, len;
   int8_t rssi;
   bool connectable;
-  uint8_t data[RC_DYNAMIC_CAPABILITY_BYTES];
+  union {
+    uint8_t data[RC_DYNAMIC_CAPABILITY_BYTES];
+    /* Signed role data leaves room for local arrival time in the existing
+     * fixed144B payload. This tail is host metadata, never wire content. */
+    struct {uint8_t wire[R2_ROLE_AD_BYTES-2];
+      uint8_t padding[RC_DYNAMIC_CAPABILITY_BYTES-R2_ROLE_AD_BYTES-2];
+      uint32_t received_ms;} role;
+  };
 };
 K_MSGQ_DEFINE(discovery_queue, sizeof(struct discovery), 4, 4);
 static bool scan_data(struct bt_data *d, void *user) {
   struct discovery *p = user;
   if (d->type == BT_DATA_MANUFACTURER_DATA &&
-      (d->data_len == RC_DYNAMIC_CAPABILITY_BYTES || (d->data_len == 23))) {
+      (d->data_len == RC_DYNAMIC_CAPABILITY_BYTES || d->data_len == 23 ||
+       d->data_len == R2_ROLE_AD_BYTES-2)) {
     p->len = d->data_len;
     memcpy(p->data, d->data, p->len);
+    if(p->len==R2_ROLE_AD_BYTES-2)p->role.received_ms=k_uptime_get_32();
     return false;
   }
   return true;
@@ -860,11 +900,27 @@ static bool sync_acquisition_poll(void) {
   ++upstream_recoveries;
   return true;
 }
+static void gm_role_observed(const struct discovery *d,uint64_t now){
+ if(d->len!=R2_ROLE_AD_BYTES-2||forced_parent||exclude_direct)return;
+ uint8_t wire[R2_ROLE_AD_BYTES];wire[0]=R2_ROLE_AD_BYTES-1;wire[1]=0xff;
+ memcpy(wire+2,d->data,R2_ROLE_AD_BYTES-2);struct r2_role_record r;
+ if(r2_role_decode(&r,wire,sizeof wire,&group))return;
+ for(unsigned i=0;i<8;i++)if(candidates[i].id==r.sender&&!candidates[i].relay&&
+     !bt_addr_le_cmp(&candidates[i].address,&d->address)&&now>=candidates[i].seen&&now-candidates[i].seen<2000000){
+   bool current=parent_known&&!parent_relay&&routes.node[parent_index].id==r.root&&
+     gm_context.authenticated&&gm_context.source.root_boot==r.root_boot&&gm_context.source.source_epoch==r.source_epoch;
+   if(rc_gm_hint_observe(&gm_failover,r.root,r.root_boot,r.source_epoch,r.sequence,
+       d->role.received_ms,(uint32_t)(now/1000),r.valid_us,current))
+     r2_timing_event(R2_TIMING_GM_CONTROL,0,r.root,19,r.source_epoch,r.sequence);
+   break;
+ }
+}
 static void discover(uint64_t tick) {
   sync_events();
   struct discovery d;
   while (!k_msgq_get(&discovery_queue, &d, K_NO_WAIT)) {
     uint64_t now = mono_us();
+    gm_role_observed(&d,now);
     if (d.len == 23 && d.data[0] == 'G' && d.data[1] == '1' &&
         rc_admission_g1_direct(d.data[2],d.connectable) &&
         r2_group_get(d.data + 3, 8) == group.id &&
@@ -910,14 +966,22 @@ static void discover(uint64_t tick) {
       found = true;
   }
   delivery_tick(mono_us(), tick);
+  bool urgent=!forced_parent&&!exclude_direct&&
+    rc_gm_hint_fresh(&gm_failover,(uint32_t)(mono_us()/1000))&&!(gm_failover.flags&RC_GM_SELECTED);
+  if(urgent&&lt_conn){lt_quiesce(true);return;}
+  if(urgent&&creating){
+    uint64_t until=mono_us()+500000;
+    if(sync_started&&sync_started+2000000<until)until=sync_started+2000000;
+    if(!sync_close_until(until)){check(false,"failover sync drain");return;}
+  }
   bool expired = timing.bound && tick >= last_context_progress &&
                  tick - last_context_progress >= 32000000;
   if (!lt_conn && !creating &&
-      (!parent_known ||
+      (urgent || !parent_known ||
        relay_fallback ||
        (!parent_synced && (!timing.bound || expired)))) {
     struct candidate *c = candidate_choose(mono_us(), expired);
-    if (c && (!parent_known || c->id != routes.node[parent_index].id ||
+    if (c && (urgent || !parent_known || c->id != routes.node[parent_index].id ||
               (c->relay != parent_relay && (!timing.bound || expired)))) {
       if (sync) {
         if (!sync_close_until(mono_us() + 500000)) {
@@ -957,6 +1021,7 @@ static void discover(uint64_t tick) {
                                              .depth = transmitter ? 1 : 0,
                                              .transmitter = transmitter}}};
       parent_relay = c->relay;
+      if(urgent&&!c->relay&&c->id==gm_failover.id)gm_failover.flags|=RC_GM_SELECTED;
       r2_timing_event(R2_TIMING_PARENT,0,c->id,c->relay,(uint32_t)(int32_t)c->rssi,(uint32_t)(parent_search.owned/1000));
       candidate_defer(c->id, mono_us());
     }
@@ -1722,14 +1787,14 @@ static void owner(void *a, void *b, void *c) {
       } else if (rc != -EAGAIN && rc != -EBUSY)
         check(false, "sync create");
     }
-    if (parent_synced && scanning && !slot_state.scanning && !relay_fallback) {
+    if (parent_synced && upstream_usable && scanning && !slot_state.scanning && !relay_fallback) {
       check(!bt_le_scan_stop(), "scan stop");
       scanning = false;
     }
     if (node && window && !creating && !scanning && !lt_conn && !lt_paused &&
-        (!parent_synced || slot_state.scanning || relay_fallback)) {
+        (!parent_synced || !upstream_usable || slot_state.scanning || relay_fallback)) {
       struct bt_le_scan_param q = {
-          .type = BT_LE_SCAN_TYPE_PASSIVE, .interval = 32, .window = 32};
+          .type = BT_LE_SCAN_TYPE_PASSIVE, .interval = 32, .window = parent_synced?8:32};
       int rc = bt_le_scan_start(&q, NULL);
       if (!rc)
         scanning = true;
@@ -2013,7 +2078,7 @@ int r2_service_configure(const struct r2_identity *id,
   identity = *id;
   if(group.id!=e->group.id || group.epoch!=e->group.epoch ||
       memcmp(group.psk,e->group.psk,sizeof group.psk))
-    stream_history=(struct rc_stream_history){0};
+    {stream_history=(struct rc_stream_history){0};gm_failover=(struct rc_gm_failover){0};}
   group = e->group;
   local_boot = id->boot;
   self_identity = strtoull(id->silicon, NULL, 16);

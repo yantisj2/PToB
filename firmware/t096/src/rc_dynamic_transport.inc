@@ -1218,10 +1218,12 @@ static void lt_poll(uint64_t tick, bool window) {
     }
     return;
   }
-  if (tick < lt_next)
+  bool fast=parent_failover_start();
+  if(parent_failover_waiting())return;
+  if (tick < lt_next && !fast)
     return;
   bool need = parent_known && window && !lt_paused && !creating &&
-              (tick >= lt_renew_at);
+              (tick >= lt_renew_at || fast);
   if (!need)
     lt_attempt_ready = 0;
   if(lt_source_wait(tick,need)){
@@ -1230,10 +1232,11 @@ static void lt_poll(uint64_t tick, bool window) {
     return;
   }
   if(need&&startup_admitted){
-    /* At most two starts in any rolling60s, also across failed batches. */
-    if(!rc_admission_start_allowed(lt_start_history,tick))return;
+    /* Ordinary starts retain the rolling60s budget across failed batches.
+     * A signed new-GM event has one additional reserve per receiver/60s. */
+    if(!rc_admission_start_allowed(lt_start_history,tick)&&!fast)return;
   }
-  if (need && tick >= lt_budget_until) {
+  if (need && (tick >= lt_budget_until || fast)) {
     if (!lt_attempt_ready) {
       /* Finish an accepted client first, then reserve this short admission
        * opportunity. Child retries must not starve their upstream binding.
@@ -1263,6 +1266,7 @@ static void lt_poll(uint64_t tick, bool window) {
     }
     ++lt_attempts;
     ++lt_initiations;
+    parent_failover_attempt(startup_admitted&&!rc_admission_start_allowed(lt_start_history,tick));
     lt_start_history[0]=lt_start_history[1];lt_start_history[1]=tick;
     lt_attempt_started = mono_us();
     lt_deadline = tick + 32000000;

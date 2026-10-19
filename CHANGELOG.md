@@ -2,6 +2,22 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 18 October 2026 — T096 direct discovery after GM failover
+
+T096 **0.15.106** consumes authenticated serving-GM announcements during RC
+scanning. A fresh report matched to the same recent connectable G1 endpoint
+requests one direct authentication attempt ahead of relay acquisition, selection
+history and a former HOT peer's non-root cooldown. The old ACL, PA sync and local
+publication drain before handoff; source, map and authentication are acquired
+again. Ordinary start history remains intact, with one additional admission
+reserve per receiver per minute for a new GM scope. Repeated reports for an
+attempted scope cannot rearm it. Explicit parent and relay-only policies retain
+their meaning. RC scanning resumes while an established parent supplies no usable
+time. Signed reports are scheduling hints and cannot authorize timing.
+Production selector/ingress regressions cover protected relays, promoted HOT
+peers, endpoint/group/MAC/sequence/queue-age guards and bounded retry reserves.
+Native builds and hardware observations remain separate checks.
+
 ## 18 October 2026 — T096 native GM control drain races
 
 T096 **0.15.105** retains duplicate ACL ownership when a public disconnect

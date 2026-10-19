@@ -21,7 +21,8 @@ parts.extend(function(transport,n)for n in('lt_source_wait','lt_apply_read'))
 s=texts[service];t=texts[transport]
 assert 'if (parent_receive_packet(&packet,physical.tick,r.event,r.channel,'in s
 assert 'parent_scope_observed(&c,tick);'in s
-assert t.index('if (lt_conn) {',t.index('static void lt_poll('))<t.index('if(lt_source_wait(tick,need))')<t.index('if(!rc_admission_start_allowed(lt_start_history,tick))return;')
+assert t.index('if (lt_conn) {',t.index('static void lt_poll('))<t.index('if(lt_source_wait(tick,need))')<t.index('if(!rc_admission_start_allowed(lt_start_history,tick)&&!fast)return;')
+assert 'bool fast=parent_failover_start();'in t and 'if(parent_failover_waiting())return;'in t
 assert 'lt_deadline = tick + 32000000;'in t and 'lt_start_history[0]=lt_start_history[1];lt_start_history[1]=tick;'in t
 tiny=a.deps.resolve()/'modules/crypto/tinycrypt/lib'
 units=[app/'tests/rc_source_wait_test.c',app/'src/rc_boundary.c',app/'protocol/rc_dynamic.c',app/'protocol/group_auth.c',*[tiny/'source'/n for n in('hmac.c','sha256.c','utils.c')]]

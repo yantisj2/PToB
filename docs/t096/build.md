@@ -126,6 +126,15 @@ Use `--registry artifacts/local/registry.json` to compile your deployment’s sh
 Keep the real map ignored, alongside local enrollment; the receipt records its
 hash and preserves a private build snapshot.
 
+Version 0.15.106 adds signed serving-GM discovery to the RC owner. Compact
+locator storage funds a fixed 40-byte failover state and queue arrival timestamps;
+the static RAM inspection minimum remains unchanged. Run its production selector
+and ingress checks with:
+
+```sh
+CC=clang python3 firmware/t096/tools/rc_gm_failover_tests.py --deps artifacts/deps --out artifacts/check-gm-failover
+```
+
 Version 0.15.105 bounds native GM scan-stop contention to a fixed 500ms
 recovery interval, with public stop retries at most every 20ms. Success must be
 observed before releasing scan ownership. A duplicate connection whose close

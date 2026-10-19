@@ -5,7 +5,7 @@
 *Illustrative firmware-rendered RC screen; displayed values are not measured
 performance. [Image provenance](../../docs/images/README.md).*
 
-**PToB owns T096 RC7 development.** Current version **0.15.105** supplies the
+**PToB owns T096 RC7 development.** Current version **0.15.106** supplies the
 ordinary **GM** and **RC** mesh profiles, with USB timing compiled by default.
 [Build from source](../../docs/t096/build.md) with pinned public dependencies
 and ignored local enrollment. No enrolled binary is distributed.
@@ -17,7 +17,10 @@ and retains a healthy parent. Both RC1 and RC2 streams are eligible; a receiver
 following RC2 stays a leaf. Earlier authentication renewal, preserved retry
 backoff and source-aware recovery retain opportunities before the original
 binding expires. Explicit parent identities support bounded comparisons;
-normal operation uses automatic selection.
+normal operation uses automatic selection. A newly detected signed serving-GM
+announcement requests a direct authentication attempt before relay acquisition
+protection or old non-root cooldown. Scanning resumes when a connected parent
+stops supplying usable time. The announcement grants no timing permission.
 
 An established downstream train can survive a timing interruption for up to
 30 seconds using packets with no corrections. Timing permission withdraws

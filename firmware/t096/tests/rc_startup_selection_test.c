@@ -12,6 +12,7 @@ static uint64_t fake_now;
 static uint64_t mono_us(void){return fake_now;}
 #include "rc_stream_quality.h"
 #include "rc_search.h"
+#include "rc_gm_failover.h"
 #include "watchdog_policy.h"
 #include "timing_events.h"
 static unsigned failure_events;
@@ -38,6 +39,7 @@ static unsigned checks;
 
 static void clear(void) {
  memset(candidates,0,sizeof candidates);candidate_since=upstream_bad_since=0;
+ gm_failover=(struct rc_gm_failover){0};
  parent_selected_at=parent_stage_at=0;fake_now=0;
  upstream_usable=relay_fallback=startup_admitted=startup_attempted=false;
  exclude_direct=parent_known=parent_synced=parent_failed=parent_locked=parent_relay=parent_ineligible=false;

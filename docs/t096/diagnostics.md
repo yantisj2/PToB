@@ -526,6 +526,26 @@ or observing a stale/backward model cancels it. Diagnostic `display_time` marks
 the cached face as coarse, while `ui` analog eligibility and `ui_input` map/role
 fields continue reporting current validity.
 
+Version **0.15.106** gives a newly detected authenticated serving-GM report one
+direct authentication opportunity before ordinary relay acquisition protection,
+quality history or non-root cooldown. The report must match a connectable G1
+locator and BLE address observed within two seconds; its own queue residence
+must fit the original validity (at most two seconds). Boot/source epoch and
+monotonic sequence identify the event. The normal JOIN, source, map and expiry
+gates still determine permission. Old connection, PA sync and downstream
+publication must drain before the new parent is selected. Explicit parent and
+relay-only overrides suppress this automatic preference.
+
+Normal control-start history is preserved. One additional start per receiver per
+60 seconds can bypass exhausted ordinary admission/backoff for a new GM event;
+that start is also recorded in normal history. Repeated announcements from an
+already attempted scope do not rearm the reserve. Age uses host monotonic time,
+independently of the precision capture timer. Scanning resumes when the old
+parent remains PA-synced but usable time has expired. No periodic healthy-parent
+survey is added. Journal kind32 stage19 records the new serving-GM hint; stage20
+records the direct attempt (result1 means the additional start reserve was used).
+These scheduling changes do not establish timing accuracy or failover durability.
+
 The current **0.15.97 field candidate** changes selection and management
 discovery as follows. These defaults need field validation.
 

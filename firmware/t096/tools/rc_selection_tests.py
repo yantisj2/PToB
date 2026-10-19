@@ -28,7 +28,7 @@ decl+='\nstatic bool startup_admitted,startup_attempted;\n'
 flags=[os.environ.get('CC','clang'),'-std=c11','-Wall','-Wextra','-Werror','-Wno-unused-parameter',
        '-fsanitize=address,undefined','-fno-sanitize-recover=all','-I'+str(out),'-I'+str(app/'include')]
 sources=[source,Path(__file__).resolve(),app/'include/rc_stream_quality.h',
-         app/'include/link_quality.h',app/'include/rc_admission_policy.h',app/'include/rc_search.h',
+         app/'include/link_quality.h',app/'include/rc_admission_policy.h',app/'include/rc_search.h',app/'include/rc_gm_failover.h',
          app/'tests/rc_startup_selection_test.c',app/'tests/rc_stream_quality_test.c',
          app/'src/watchdog_policy.c',app/'include/watchdog_policy.h']
 commands=[]
