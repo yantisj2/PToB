@@ -4,12 +4,12 @@ Copyright (c) 2026 Jonathan Yantis. MIT.
 
 ## 19 October 2026 — T096 clear failed parent selection after outage
 
-T096 **0.15.110** retires a previously working parent after ten continuous
-seconds without usable time and PA synchronization. The long cold-acquisition
-and degraded-source allowances no longer protect a powered-off established
-parent. Exhausted acquisition or degraded recovery also clears the selection
-without requiring an alternative locator. Discovery can then select another
-parent or authenticate a returning identity through a new transaction.
+T096 **0.15.110** retires a previously working parent once usable time has been
+absent for ten continuous seconds and PA is no longer synchronized. The long
+cold-acquisition and degraded-source allowances no longer protect a powered-off
+established parent. Exhausted acquisition or degraded recovery also clears the
+selection without requiring an alternative locator. Discovery can then select
+another parent or authenticate a returning identity through a new transaction.
 
 Actual ACL and PA ownership must drain before the selection, old binding, fit,
 source, proof and publication state are cleared. Failed drains retain their
@@ -17,7 +17,7 @@ original deadlines and fail closed. Failure history, rolling admission limits,
 explicit parent configuration and relay-only enrollment survive. Admission-stage
 progress cannot restart an established parent's loss interval. Existing source,
 map and authentication expiry remain independent of recovery scheduling.
-Retry journal reason5 identifies retirement of a failed parent. Production-body
+Retry journal reason 5 identifies retirement of a failed parent. Production-body
 host regressions cover power loss, recovery before the grace expires, cold and
 source-only interruptions, empty neighborhoods, returning identities and drain
 failures. Field failover and long-run durability require separate observation.

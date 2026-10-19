@@ -454,31 +454,31 @@ also request 7.5ms; relay renewals retain 50ms. A failed GM renewal can otherwis
 exceed the original 250ms reply-age gate across dependent ATT exchanges despite
 live periodic timing, leaving too few successful retries before binding expiry.
 This gives the dependent JOIN exchanges more opportunities to meet the unchanged
-100ms initial coarse-uncertainty gate through0.15.106. From0.15.107 RC uses
+100 ms initial coarse-uncertainty gate through 0.15.106. From 0.15.107 RC uses
 the coarse RC7 envelope described below. Each attempt randomizes a finite scan
 interval (50–100ms) and window (10–20ms), preserving the split controller's
 non-continuous scan path and original two-second attempt deadline. This reduces
 repeated phase collisions; it does not guarantee reception.
 
 From **0.15.107**, initial direct-GM RC admission and renewal use the same RC7
-coarse replay envelope (at most1.2s wide). The normal GM/control adapter keeps
-its strict100ms half-width. The RC adapter retains all record validation and
-authenticated exchange/boot/root scope checks. Its original <250ms causal RTT
-and <=50ms independent source bound cap the admitted half-width at175564us;
+coarse replay envelope (at most 1.2 s wide). The normal GM/control adapter keeps
+its strict 100 ms half-width. The RC adapter retains all record validation and
+authenticated exchange/boot/root scope checks. Its original <250 ms causal RTT
+and ≤50 ms independent source bound cap the admitted half-width at 175,564 µs;
 permission still subtracts the full RTT, source bound and drift margin. The
-observed145246us round/40000us source bound yields112978us half-width and fits
-this envelope. This changes coarse admission, never a precision fit, output
-accuracy claim or original source/map expiry.
+observed 145,246 µs round/40,000 µs source bound yields 112,978 µs half-width and
+fits this envelope. This changes coarse admission, never a precision fit,
+output accuracy claim or original source/map expiry.
 
-From **0.15.109**, RC passive search reserves10ms per20ms interval; the
-PA-synced/unusable-parent watch remains5ms/20ms. The pinned controller retains
+From **0.15.109**, RC passive search reserves 10 ms per 20 ms interval; the
+PA-synced/unusable-parent watch remains 5 ms/20 ms. The pinned controller retains
 nonzero `ticks_window` for these finite windows and cancels them on preemption.
 A continuous scan instead requests a retained resume prepare. A saved kernel
 fault after RC-to-GM switching mapped to `lll_prepare_resolve`'s failed prepare
 FIFO allocation; queued-context contents were unavailable. The new finite path
 must be distinguished from a proved full fault fix and from a transition canary.
 Host-owned search exposure remains owner time, not RF listening time; the
-original60s wall ceiling is unchanged. Preserve any unexpected boot change and
+original 60 s wall ceiling is unchanged. Preserve any unexpected boot change and
 its bound reset/fault capsule rather than treating a recovered current state
 as uninterrupted service.
 
@@ -491,14 +491,14 @@ as a duplicate. Outgoing bootstrap, existing control links, passive discovery
 and the independent periodic train retain their gates. This prevents the
 observed admission-slot collision; it cannot guarantee RF reception. A marker
 read now retains its original ATT error; only an otherwise successful malformed
-marker is labeled generic error1.
+marker is labeled generic error 1.
 
-The RC MTU callback records kind32 stage21 for a callback error (actual negotiated
-MTU / live-state flag). Unlikely Error may advance only if the host callback
-observes a connected link and MTU>=215. Other errors, insufficient MTU and an
-unknown/disconnected link remain refused. ATT inspection stays inside the host
-callback; the owner does not walk ATT channels. This adds no MTU retries or
-transaction lifetime. A refused duplicate or vanished ACL still needs proven
+The RC MTU callback records kind 32 stage 21 for a callback error (actual
+negotiated MTU / live-state flag). Unlikely Error may advance only if the host
+callback observes a connected link and MTU ≥215. Other errors, insufficient MTU
+and an unknown/disconnected link remain refused. ATT inspection stays inside
+the host callback; the owner does not walk ATT channels. This adds no MTU retries
+or transaction lifetime. A refused duplicate or vanished ACL still needs proven
 teardown before any later ordinary admission attempt.
 
 An authenticated direct JOIN from a non-root ends that locator's acquisition
@@ -532,16 +532,16 @@ advisory and do not prove an RF collision.
 
 ### RC parent selection and relay dwell
 
-Version **0.15.110** clears a previously working parent after ten continuous
-seconds of unusable timing when its PA is no longer synchronized. This bypasses
-remaining acquisition protection. Before first usable lock, cold acquisition
-keeps its existing allowance; an audible PA with an unavailable source keeps
-its degraded-recovery allowance. Exhausting either allowance also retires the
-selection without waiting for another candidate. Retirement drains actual ACL
+Version **0.15.110** clears a previously working parent once usable time has
+been absent for ten continuous seconds and PA is no longer synchronized. This
+bypasses remaining acquisition protection. Before first usable lock, cold
+acquisition keeps its existing allowance; an audible PA with an unavailable
+source keeps its degraded-recovery allowance. Exhausting either allowance also
+retires the selection without waiting for another candidate. Retirement drains actual ACL
 and PA owners, clears old timing authority and begins a fresh bounded search.
 Failure history and rolling admission starts remain intact, and a returning
 identity needs fresh authentication. Explicit parent and relay-only settings
-remain configured. Retry journal kind27 reason5 records failed-parent retirement;
+remain configured. Retry journal kind 27 reason 5 records failed-parent retirement;
 the arguments retain admission stage and elapsed selection age. Host tests do
 not establish field failover latency.
 

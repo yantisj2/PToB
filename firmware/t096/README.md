@@ -20,8 +20,8 @@ binding expires. Explicit parent identities support bounded comparisons;
 normal operation uses automatic selection. A newly detected signed serving-GM
 announcement requests a direct authentication attempt before relay acquisition
 protection or old non-root cooldown. Scanning resumes when a connected parent
-stops supplying usable time. A previously working parent without PA sync or
-usable time is retired after a fixed ten-second loss interval. Exhausted
+stops supplying usable time. A previously working parent is retired once usable
+time has been absent for ten seconds and PA is no longer synchronized. Exhausted
 acquisition or degraded recovery also clears the selection even when no other
 parent is visible. The old owners drain before selection and timing state are
 cleared; returning identities require fresh admission. The announcement grants

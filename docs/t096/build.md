@@ -132,9 +132,9 @@ the commands above. These cover loss deadlines, empty neighborhoods, fresh
 admission of returning identities and actual-owner drain boundaries with fake
 hardware. They do not qualify physical failover.
 
-Version 0.15.109 makes RC passive search finite (10ms per20ms interval),
-retaining the degraded-parent5ms/20ms watch. The focused test compiles the actual
-application scan parameters and pinned primary scan preemption callback:
+Version 0.15.109 makes RC passive search finite (10 ms per 20 ms interval),
+retaining the degraded-parent 5 ms/20 ms watch. The focused test compiles the
+actual application scan parameters and pinned primary scan preemption callback:
 
 ```sh
 CC=clang python3 firmware/t096/tools/rc_passive_scan_tests.py --deps artifacts/deps --out artifacts/check-passive-scan
@@ -155,7 +155,7 @@ state or deadline is added. RC marker callback tests preserve original ATT error
 
 Version 0.15.107 uses RC7's coarse replay interval consistently for initial
 GM admission and renewal, while preserving the normal GM/control adapter's
-strict100ms half-width. Both adapters share record validation and expiry math.
+strict 100 ms half-width. Both adapters share record validation and expiry math.
 The RC MTU completion regression verifies that a previously negotiated usable
 MTU can recover Unlikely Error only on a live link. No new static state or
 retry is added. Both focused suites are included in the full host runner:
@@ -202,10 +202,10 @@ Version 0.15.100 introduced transport hold and earlier RC7 renewal.
 Run the combined production policy and publication regressions with:
 
 ```sh
-CC=clang python3 firmware/t096/tools/rc_relay_renewal_tests.py --deps artifacts/t096-deps --out artifacts/check-relay-renewal
-CC=clang python3 firmware/t096/tools/rc_source_wait_tests.py --deps artifacts/t096-deps --out artifacts/check-source-wait
-CC=clang python3 firmware/t096/tools/rc_transport_hold_tests.py --deps artifacts/t096-deps --out artifacts/check-transport-hold
-CC=clang python3 firmware/t096/tools/initiator_aux_tests.py --deps artifacts/t096-deps --out artifacts/check-initiator-aux
+CC=clang python3 firmware/t096/tools/rc_relay_renewal_tests.py --deps artifacts/deps --out artifacts/check-relay-renewal
+CC=clang python3 firmware/t096/tools/rc_source_wait_tests.py --deps artifacts/deps --out artifacts/check-source-wait
+CC=clang python3 firmware/t096/tools/rc_transport_hold_tests.py --deps artifacts/deps --out artifacts/check-transport-hold
+CC=clang python3 firmware/t096/tools/initiator_aux_tests.py --deps artifacts/deps --out artifacts/check-initiator-aux
 ```
 
 The full host runner includes these checks. A retained periodic train carries no timing
