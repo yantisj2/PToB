@@ -4,14 +4,18 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 #define BT_ATT_ERR_UNLIKELY 14
 #define BT_CONN_STATE_CONNECTED 2
 #define R2_TIMING_GM_CONTROL 32
 #define LT_MTU_DONE 2
+#define LT_DISCOVERED 3
+#define BT_GATT_ITER_STOP 0
 struct bt_conn {uint16_t mtu;unsigned state;int info_error;};
 struct bt_conn_info {unsigned state;};
 struct bt_gatt_exchange_params {int unused;};
-struct lt_event {unsigned type;struct bt_conn *conn;uint8_t error;};
+struct bt_gatt_read_params {struct {uint16_t start_handle;} by_uuid;};
+struct lt_event {unsigned type;struct bt_conn *conn;uint8_t error;uint16_t handle;};
 static struct lt_event event;
 static unsigned calls,notes,noted_mtu,noted_live;
 static uint16_t bt_gatt_get_mtu(struct bt_conn *c){return c->mtu;}
@@ -32,5 +36,10 @@ int main(void){
  lt_mtu_done(&c,0,NULL);assert(event.error==14);
  c.state=2;c.info_error=-1;lt_mtu_done(&c,14,NULL);assert(event.error==14&&!noted_live);
  c.info_error=0;lt_mtu_done(&c,5,NULL);assert(event.error==5);
+ struct bt_gatt_read_params read={.by_uuid={.start_handle=42}};
+ gm_located(&c,14,&read,NULL,0);assert(event.error==14);
+ gm_located(&c,5,&read,NULL,0);assert(event.error==5);
+ gm_located(&c,0,&read,NULL,0);assert(event.error==1);
+ gm_located(&c,0,&read,"R2G1\1",5);assert(!event.error&&event.handle==42);
  puts("PASS actual MTU callback: live negotiated>=215 only; insufficient/disconnected/unknown/hard errors refused; no retry or deadline change");
 }

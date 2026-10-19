@@ -4,11 +4,16 @@ Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT
 """
 import argparse,hashlib,json,os,re,shutil,subprocess
 from pathlib import Path
-p=argparse.ArgumentParser();p.add_argument('--deps',type=Path,required=True);p.add_argument('--out',type=Path,required=True);p.add_argument('--legacy-unready-core',action='store_true');p.add_argument('--legacy-unready-scan',action='store_true');p.add_argument('--legacy-continuous-init',action='store_true');p.add_argument('--legacy-slow-control',action='store_true');a=p.parse_args()
+p=argparse.ArgumentParser();p.add_argument('--deps',type=Path,required=True);p.add_argument('--out',type=Path,required=True);p.add_argument('--legacy-unready-core',action='store_true');p.add_argument('--legacy-unready-scan',action='store_true');p.add_argument('--legacy-continuous-init',action='store_true');p.add_argument('--legacy-slow-control',action='store_true');p.add_argument('--legacy-busy-advertiser',action='store_true');a=p.parse_args()
 app=Path(__file__).resolve().parents[1];out=a.out.resolve();out.mkdir(exist_ok=False)
 for n in ['kernel.h','sys/atomic.h','random/random.h','bluetooth/bluetooth.h','bluetooth/conn.h','bluetooth/gatt.h']:
  f=out/'zephyr'/n;f.parent.mkdir(parents=True,exist_ok=True);f.write_text('/* Public boundary supplied by fixture. */\n')
 source=(app/'protocol/ble_transport.c').read_text()
+adv_header=(a.deps/'zephyr/include/zephyr/bluetooth/bluetooth.h').read_text()
+assert 'BT_LE_ADV_OPT_CONN = BIT(0) | BIT(1),'in adv_header,'Pinned connectable advertising must stop after connection'
+if a.legacy_busy_advertiser:
+ assert source.count('if(incoming)need_adv=false;')==1
+ source=source.replace('if(incoming)need_adv=false;','(void)incoming; /* negative: reopen occupied admission slot */')
 conn=(a.deps/'zephyr/include/zephyr/bluetooth/conn.h').read_text();gap=(a.deps/'zephyr/include/zephyr/bluetooth/gap.h').read_text()
 default=conn[conn.index('#define BT_CONN_LE_CREATE_CONN \\\n'):conn.index('/** Default LE create connection using filter')]
 assert default.count('BT_GAP_SCAN_FAST_INTERVAL')==2
@@ -38,7 +43,7 @@ passed=False;interval=None;modeled_delay=None;network_cmd=None;model_sources={}
 try:
  with (out/'test.log').open('x') as log:
   subprocess.run(cmd,stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
-  for case in ['gm-unready','gm-continuous','gm-mtu']:subprocess.run([str(out/'test'),case],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
+  for case in ['gm-unready','gm-continuous','gm-mtu','gm-admission']:subprocess.run([str(out/'test'),case],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
   result=subprocess.run([str(out/'test'),'gm-interval'],capture_output=True,text=True,check=True,timeout=30)
   log.write(result.stdout);interval=int(re.search(r'GM_CONTROL_INTERVAL_UNITS=(\d+)',result.stdout)[1])
   # Production G1 codec/network, using the interval actually selected by the
@@ -51,5 +56,5 @@ try:
   subprocess.run(network_cmd,stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
   subprocess.run([str(out/'network'),str(modeled_delay)],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
  passed=True
-finally:(out/'receipt.json').write_text(json.dumps({'passed':passed,'hardware':False,'command':cmd,'production_transport_sha256':hashlib.sha256(source.encode()).hexdigest(),'test_sha256':hashlib.sha256(test.encode()).hexdigest(),'legacy_unready_core':a.legacy_unready_core,'legacy_unready_scan':a.legacy_unready_scan,'legacy_continuous_init':a.legacy_continuous_init,'legacy_slow_control':a.legacy_slow_control,'selected_control_interval_units':interval,'modeled_one_way_delay_us':modeled_delay,'model_compile_command':network_cmd,'model_sources_sha256':model_sources,'model_limit':'One ACL event wait plus5ms owner delay each direction. No RF/scheduler-loss model or hardware qualification.','pinned_default_initiator_us':[60000,60000],'pinned_conn_header_sha256':hashlib.sha256(conn.encode()).hexdigest()},indent=2)+'\n')
+finally:(out/'receipt.json').write_text(json.dumps({'passed':passed,'hardware':False,'command':cmd,'production_transport_sha256':hashlib.sha256(source.encode()).hexdigest(),'test_sha256':hashlib.sha256(test.encode()).hexdigest(),'legacy_unready_core':a.legacy_unready_core,'legacy_unready_scan':a.legacy_unready_scan,'legacy_continuous_init':a.legacy_continuous_init,'legacy_slow_control':a.legacy_slow_control,'legacy_busy_advertiser':a.legacy_busy_advertiser,'selected_control_interval_units':interval,'modeled_one_way_delay_us':modeled_delay,'model_compile_command':network_cmd,'model_sources_sha256':model_sources,'model_limit':'One ACL event wait plus5ms owner delay each direction. No RF/scheduler-loss model or hardware qualification.','pinned_default_initiator_us':[60000,60000],'pinned_conn_header_sha256':hashlib.sha256(conn.encode()).hexdigest()},indent=2)+'\n')
 print('PASS native GM discovery cancellation and MTU regressions')

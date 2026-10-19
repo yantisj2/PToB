@@ -423,7 +423,7 @@ static uint8_t gm_located(struct bt_conn *conn, uint8_t error,
                        .conn = conn,
                        .error = error,
                        .handle = p->by_uuid.start_handle};
-  if (!data || length != 5 || memcmp(data, "R2G1\1", 5))
+  if (!error && (!data || length != 5 || memcmp(data, "R2G1\1", 5)))
     e.error = 1;
   lt_event_put(&e);
   return BT_GATT_ITER_STOP;

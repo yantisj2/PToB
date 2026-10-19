@@ -742,6 +742,17 @@ static void poll_owned(uint64_t now)
    need_scan=precision_discovery||opportunity;
   }
   if(group_client&&!client_window){need_adv=need_scan=false;for(unsigned i=0;i<nodes;i++)if(i!=self&&peers[i].conn)r2_ble_disconnect(i);}
+  /* There is one incoming transient JOIN owner. Do not accept a second ACL
+   * just to reject it while the first request/proof is still in flight.
+   * Keep its reference through the real disconnect callback; the next
+   * initiator can then connect within its original attempt. Control links,
+   * passive discovery and the independent periodic publisher keep running. */
+  if(group_id&&!group_client){
+    k_spinlock_key_t k=k_spin_lock(&lock);
+    bool incoming=peers[CONTROL_PEERS].conn&&peers[CONTROL_PEERS].admission_server;
+    k_spin_unlock(&lock,k);
+    if(incoming)need_adv=false;
+  }
   static uint64_t retry_adv;
   if(need_adv&&now>=retry_adv){
     /* The half-duty group join window needs multiple discovery opportunities;

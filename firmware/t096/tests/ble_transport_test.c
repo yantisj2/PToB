@@ -454,9 +454,32 @@ static void continuous_core_discovery(void){
  }
  puts("PASS serving and HOT cores continuously scan5/20 and admit fresh transient discovery with exact reference closure");
 }
+static void gm_incoming_admission_serial(void){
+ for(unsigned outgoing=0;outgoing<2;outgoing++){
+  memset(peers,0,sizeof peers);memset(&gatt_request,0,sizeof gatt_request);
+  self=0;nodes=5;group_id=7;local_identity=10;public_client=PEERS;
+  group_client=field_profile=stopping=scanning=advertising=precision_discovery=sync_acquiring=false;
+  transport_owner=NULL;transport_started=false;stop_error=0;fake_time=1000000+outgoing*1000000;
+  connection.refs=1;struct peer *p=&peers[CONTROL_PEERS];p->conn=&connection;p->identity=20;
+  p->connected=p->discovered=1;p->att_mtu=226;p->admission_server=!outgoing;p->provisional_until=fake_time+5000000;
+  r2_ble_poll(fake_time);
+  assert(scanning&&advertising==!!outgoing); /* outgoing discovery unchanged */
+  unsigned starts=gm_adv_calls;
+  if(!outgoing){
+   r2_ble_admission_release();r2_ble_poll(fake_time+1000);
+   assert(p->conn==&connection&&!advertising&&gm_adv_calls==starts);
+   r2_ble_poll(fake_time+2000);assert(p->conn==&connection&&!advertising);
+  }
+  callbacks.disconnected(&connection,19);r2_ble_poll(fake_time+200001);
+  assert(!p->conn&&!connection.refs&&advertising&&scanning);
+  r2_ble_stop();r2_ble_poll(fake_time+200002);assert(r2_ble_closed()&&!r2_ble_stop_error());
+ }
+ puts("PASS incoming GM admission serializes G1 advertiser through actual callback release; outgoing and passive discovery unchanged");
+}
 int main(int argc,char **argv)
 {
  if(argc==2&&!strcmp(argv[1],"gm-interval")){unready_core_discovery();printf("GM_CONTROL_INTERVAL_UNITS=%u\n",last_interval);return 0;}
+ if(argc==2&&!strcmp(argv[1],"gm-admission")){gm_incoming_admission_serial();return 0;}
  if(argc>1&&!strcmp(argv[1],"gm-mtu")){gm_peer_first_mtu();return 0;}
  if(argc==2&&!strcmp(argv[1],"gm-continuous")){continuous_core_discovery();return 0;}
   if(argc==2&&!strcmp(argv[1],"gm-unready")){unready_core_discovery();return 0;}

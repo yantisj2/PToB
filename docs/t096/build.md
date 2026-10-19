@@ -126,6 +126,14 @@ Use `--registry artifacts/local/registry.json` to compile your deployment’s sh
 Keep the real map ignored, alongside local enrollment; the receipt records its
 hash and preserves a private build snapshot.
 
+Version 0.15.108 holds the native GM G1 advertiser closed while its single
+incoming transient JOIN slot owns a connection. The pinned public
+`BT_LE_ADV_OPT_CONN` already includes one-time behavior; the owner now waits for
+actual slot release before restarting advertising. The production discovery
+suite covers retained ownership after a disconnect request and actual callback
+release. `--legacy-busy-advertiser` is an expected-failure control. No static
+state or deadline is added. RC marker callback tests preserve original ATT errors.
+
 Version 0.15.107 uses RC7's coarse replay interval consistently for initial
 GM admission and renewal, while preserving the normal GM/control adapter's
 strict100ms half-width. Both adapters share record validation and expiry math.

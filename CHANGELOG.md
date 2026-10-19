@@ -2,6 +2,24 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 18 October 2026 — T096 serialize incoming GM admission
+
+T096 **0.15.108** keeps the native GM's connectable G1 advertiser stopped while
+its single incoming transient JOIN slot owns an ACL. Previously the owner
+reopened advertising during that exchange, so receivers reacting to the same
+GM change could connect together; one was rejected as a duplicate and entered
+retry backoff. Advertising resumes after the actual disconnect callback releases
+the slot. Existing control links, passive GM discovery, outgoing bootstrap and
+periodic timing retain their behavior and deadlines. The pinned connectable
+advertising option already stops automatically on connection; only the owner
+can reopen it. No additional RAM, retries or timing authority are added.
+
+RC marker-read diagnostics also preserve a real ATT error instead of replacing
+it with a generic malformed-marker result. Production boundary tests cover busy
+incoming ownership, disconnect requests without callbacks, restart after actual
+release, outgoing discovery and the original ATT errors. Hardware qualification
+and GNSS reception remain distinct from these checks.
+
 ## 18 October 2026 — T096 RC admission envelope and MTU completion
 
 T096 **0.15.107** applies RC7's existing 1.2-second coarse replay interval to

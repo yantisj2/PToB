@@ -470,6 +470,17 @@ observed145246us round/40000us source bound yields112978us half-width and fits
 this envelope. This changes coarse admission, never a precision fit, output
 accuracy claim or original source/map expiry.
 
+From **0.15.108**, native GM G1 connectable advertising remains stopped while
+its single incoming provisional JOIN slot owns a connection, including the
+interval between a close request and its real disconnect callback. This lets
+another already-initiating receiver await the next available advertisement
+within its original attempt instead of being accepted and immediately rejected
+as a duplicate. Outgoing bootstrap, existing control links, passive discovery
+and the independent periodic train retain their gates. This prevents the
+observed admission-slot collision; it cannot guarantee RF reception. A marker
+read now retains its original ATT error; only an otherwise successful malformed
+marker is labeled generic error1.
+
 The RC MTU callback records kind32 stage21 for a callback error (actual negotiated
 MTU / live-state flag). Unlikely Error may advance only if the host callback
 observes a connected link and MTU>=215. Other errors, insufficient MTU and an

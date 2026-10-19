@@ -5,7 +5,8 @@ from pathlib import Path
 p=argparse.ArgumentParser();p.add_argument('--deps',type=Path,required=True);p.add_argument('--out',type=Path,required=True);a=p.parse_args()
 app=Path(__file__).resolve().parents[1];out=a.out.resolve();out.mkdir(parents=True,exist_ok=False)
 source=app/'src/rc_dynamic_transport.inc';s=source.read_text();start=s.index('static void lt_mtu_done(');end=s.index('static void lt_written(',start)
-(out/'rc_mtu_under_test.h').write_text(s[start:end])
+marker=s.index('static uint8_t gm_located(');marker_end=s.index('static void gm_sent(',marker)
+(out/'rc_mtu_under_test.h').write_text(s[start:end]+s[marker:marker_end])
 cmd=[os.environ.get('CC')or shutil.which('clang'),'-std=c11','-Wall','-Wextra','-Werror','-fsanitize=address,undefined','-fno-sanitize-recover=all','-I'+str(out),str(app/'tests/rc_mtu_test.c'),'-o',str(out/'test')]
 passed=False
 try:
