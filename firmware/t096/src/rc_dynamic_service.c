@@ -484,6 +484,9 @@ static void candidate_nonroot(uint64_t id,uint64_t now){
 }
 static void candidate_seen(const bt_addr_le_t *address, uint64_t id, bool relay,
                            bool publishing, int8_t rssi, uint64_t now) {
+#if defined(R2_PC_PROFILE) && defined(R2_PC_AUTO_PARENT)
+  if(relay)return; /* Automatic PC remains a direct-GM leaf experiment. */
+#endif
   if (!id || id == self_identity || rssi > 0 || rssi < -127)
     return;
   if (forced_parent && id != forced_parent)

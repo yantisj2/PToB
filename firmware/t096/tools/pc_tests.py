@@ -28,6 +28,11 @@ with (out/'identity.log').open('x') as log:
  subprocess.run(identity_cmd,stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
  subprocess.run([str(out/'identity')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
 print((out/'identity.log').read_text(),end='')
+auto_cmd=[*identity_cmd[:-2],'-DR2_PC_AUTO_PARENT=1','-o',str(out/'identity-auto')]
+with (out/'identity-auto.log').open('x') as log:
+    subprocess.run(auto_cmd,stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
+    subprocess.run([str(out/'identity-auto')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
+print((out/'identity-auto.log').read_text(),end='')
 service=(app/'src/rc_dynamic_service.c').read_text()
 def body(name):
     start=service.index(name);end=service.index('{',start)+1;depth=1
@@ -44,6 +49,7 @@ with (out/'ingress-policy.log').open('x') as log:
 print((out/'ingress-policy.log').read_text(),end='')
 r=json.loads((out/'receipt.json').read_text());r['identity_command']=identity_cmd
 r['ingress_policy_command']=policy_cmd
+r['auto_identity_command']=auto_cmd
 subprocess.run([sys.executable,str(app/'tests/test_pc_analyze.py')],check=True,timeout=30)
 for name in ('src/pc_profile_service.c','src/rc_dynamic_service.c','tests/pc_identity_test.c','tests/pc_ingress_policy_test.c','tools/pc_analyze.py','tests/test_pc_analyze.py'):r['sources'][name]=hashlib.sha256((app/name).read_bytes()).hexdigest()
 r['status']='PASS'

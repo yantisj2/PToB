@@ -67,8 +67,12 @@ def inspect(out,allow_development=False):
         require('R2_PC_PROFILE=1' in commands and '/src/pc_profile_service.c' in commands and '/src/pc_experiment.c' in commands,'Missing PC owner')
         require(not any(x in commands for x in ['/src/rc_profile_service.c','/src/ble_service.c','/src/radio_service.c','/src/relay_service.c','/src/direct_connect.c']),'PC contains ordinary profile owners')
         enrollment=(out/'r2_enrollment.h').read_text()
+        auto=r.get('pc_auto_direct_gm',False)
+        require(auto == (r['pc_parent']=='auto'),'PC automatic-parent receipt mismatch')
+        parent='0000000000000000' if auto else r['pc_parent']
         require('.rc7_leaf=true' in enrollment and '.rc7_boot_rc=true' in enrollment and
-                '.rc7_boot_parent=UINT64_C(0x'+r['pc_parent']+')' in enrollment,'PC leaf/parent binding')
+                '.rc7_boot_parent=UINT64_C(0x'+parent+')' in enrollment,'PC leaf/parent binding')
+        require(('R2_PC_AUTO_PARENT=1' in commands)==auto,'PC automatic-parent build mismatch')
         with (out/'target/zephyr/zephyr.elf').open('rb') as f:
             symbols={s.name for s in ELFFile(f).get_section_by_name('.symtab').iter_symbols()}
         require(not any(x in symbols for x in ['r2_normal_service_configure','r2_normal_service_run','r2_radio_service_gm_start','r2_dc_poll']),'PC linked ordinary timing owner')

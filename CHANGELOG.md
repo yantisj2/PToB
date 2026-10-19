@@ -4,6 +4,11 @@ Copyright (c) 2026 Jonathan Yantis. MIT.
 
 ## 19 October 2026 — T096 bounded sparse PC refresh
 
+PC **0.15.115** permits explicit `--pc-parent auto` for direct-GM discovery in
+the isolated leaf. Relay candidates are excluded; authenticated admission,
+source validity and output expiry remain. Numeric pins keep their original
+scope. Automatic and fixed-parent captures require separate source populations.
+
 PC **0.15.114** measures parent health from fresh authenticated ingress during
 deliberate training gaps. Accepted pairs advance ingress progress while the
 experimental map stays frozen, avoiding stalled-fit recovery during received

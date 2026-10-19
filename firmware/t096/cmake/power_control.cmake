@@ -17,6 +17,9 @@ target_include_directories(app PRIVATE include protocol ${CMAKE_CURRENT_BINARY_D
  ${ZEPHYR_BASE}/subsys/bluetooth/controller/ll_sw/nordic/hal/nrf5/radio)
 target_compile_definitions(app PRIVATE R2_PC_PROFILE=1 R2_RC_PROFILE=1 R2_SWITCHABLE_FIELD=1
  R2_NATIVE_BLE=1 R2_USB_SOURCE_STREAM=1 R2_USB_SOF_PROBE=1 R2_WATCHDOG=1 PTOB_NAME_REGISTRY=1)
+if(R2_PC_AUTO_PARENT)
+ target_compile_definitions(app PRIVATE R2_PC_AUTO_PARENT=1)
+endif()
 set_source_files_properties(src/rc_dynamic_service.c PROPERTIES COMPILE_DEFINITIONS "R2_DYNAMIC_BACKEND=1;R2_RC_DYNAMIC=1")
 set_source_files_properties(src/rc_shadow.c PROPERTIES COMPILE_DEFINITIONS R2_SHADOW_FIELD_MAP=1)
 target_sources(app PRIVATE

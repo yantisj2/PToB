@@ -17,7 +17,12 @@ static uint32_t starts;
 static int failure;
 bool r2_switch_rc_active(void){return true;}
 int r2_service_configure(const struct r2_identity *id,const struct r2_enrollment *e){
- if(!id||!e||!e->rc7_leaf||!e->rc7_boot_rc||!e->rc7_boot_parent||e->rc7_exclude_direct_gm)return -EINVAL;
+ if(!id||!e||!e->rc7_leaf||!e->rc7_boot_rc||e->rc7_exclude_direct_gm)return -EINVAL;
+#ifdef R2_PC_AUTO_PARENT
+ if(e->rc7_boot_parent)return -EINVAL;
+#else
+ if(!e->rc7_boot_parent)return -EINVAL;
+#endif
  /* The ordinary dispatcher configures the enrolled identity before bt_enable.
   * PC excludes that owner, so it must perform this same identity step itself.
   * The default generated GAP address is not the authenticated group identity. */

@@ -3,7 +3,7 @@
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
 PC is a separate flash-only enrolled BLE leaf image. It cannot select GM, RC or
-DC at runtime. Its direct GM is supplied explicitly at build time. It links no
+DC at runtime. Its parent policy is supplied explicitly at build time. It links no
 normal GM service owner, GM election or downstream timing owner. GM/RC/DC retain
 their owners, timing configuration and 500 ms map expiry. PC reuses the pinned
 controller/capture/USB patches and awake synthesized-LF clock configuration of
@@ -28,6 +28,13 @@ The local PC image contains the group key and exact device binding; keep the
 entire output ignored. Installation requires exact-device ownership, verified
 recovery, bounded maintenance, app-only writes, actual application readback and
 protected-region comparison. The builder never opens hardware.
+
+With version 0.15.115, `--pc-parent auto` enables direct-GM discovery only in
+the isolated PC image. Relay candidates are excluded; the existing authenticated
+GM admission and source-expiry checks still apply. Discovery or signal strength
+alone grants no timing permission. The selected parent/root and epochs must be
+recorded, with source changes kept separate. A numeric identity retains the
+fixed-parent experiment. Neither policy changes another device's role.
 
 ## Treatment and observations
 

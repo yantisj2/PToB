@@ -37,7 +37,7 @@ def main():
     parser.add_argument('--enrollment', type=Path)
     parser.add_argument('--device-config', type=Path, required=True)
     parser.add_argument('--profile', choices=['GM', 'RC', 'DC', 'PC'], required=True)
-    parser.add_argument('--pc-parent', help='Exact enrolled direct-GM identity for the isolated PC leaf')
+    parser.add_argument('--pc-parent', help='Exact direct-GM identity, or auto for authenticated direct-GM discovery')
     parser.add_argument('--registry', type=Path, default=REPO/'registry/example.json')
     parser.add_argument('--development', action='store_true')
     args = parser.parse_args()
@@ -50,9 +50,10 @@ def main():
         parser.error('Commit reviewed public inputs before a release-candidate build')
     dc = args.profile == 'DC'
     pc = args.profile == 'PC'
+    pc_auto = pc and args.pc_parent == 'auto'
     if pc:
-        if not args.pc_parent or not re.fullmatch('[0-9a-f]{16}',args.pc_parent) or not int(args.pc_parent,16):
-            parser.error('PC requires --pc-parent with one exact direct-GM identity')
+        if not pc_auto and (not args.pc_parent or not re.fullmatch('[0-9a-f]{16}',args.pc_parent) or not int(args.pc_parent,16)):
+            parser.error('PC requires --pc-parent with one exact direct-GM identity or auto')
     elif args.pc_parent:
         parser.error('--pc-parent is only valid for PC')
     if dc and args.enrollment:
@@ -126,11 +127,11 @@ def main():
         secret.write_text('/* device-config-sha256: '+sha(args.device_config)+'; registry-sha256: '+sha(args.registry)+' */\n#include "ble_service.h"\nstatic const struct r2_enrollment r2_enrollment={'
         '.group={.psk={'+','.join(map(str,key))+'},.id=UINT64_C(0x'+group+'),.epoch='+str(epoch)+'},'
         '.rc_dynamic=true,.rc7_boot_rc='+('true' if args.profile in ('RC','PC') else 'false')+','+
-        ('.rc7_leaf=true,.rc7_boot_parent=UINT64_C(0x'+args.pc_parent+'),' if pc else '')+
+        ('.rc7_leaf=true,.rc7_boot_parent=UINT64_C(0x'+('0000000000000000' if pc_auto else args.pc_parent)+'),' if pc else '')+
         '.local_capabilities=7,.map_bound_us=40000};\n')
         if pc:
             receipt.update(ble_enabled=True,profile_toggleable=False,awake_only=True,
-                           relay_transmit=False,pc_parent=args.pc_parent,
+                           relay_transmit=False,pc_parent=args.pc_parent,pc_auto_direct_gm=pc_auto,
                            timing_chain='AUTHENTICATED_DIRECT_GM_BLE_TIMER3_EXPERIMENTAL_HOLD')
             write(out/'receipt.json',receipt)
     (out/'target/ptob_device.h').write_text('#define PTOB_DEVICE_ID "'+identity+'"\n'
@@ -150,7 +151,7 @@ def main():
              '-DR2_SOURCE_DIRTY='+str(int(dirty)),
              '-DZEPHYR_MODULES='+';'.join(str(deps/p['path']) for p in lock['modules']),
              *(['-DR2_DC_PROFILE=ON','-DCONF_FILE='+str(APP/'dc.conf'),'-DDTC_OVERLAY_FILE='+str(APP/'dc.overlay')] if dc else
-               [*(['-DR2_PC_PROFILE=ON'] if pc else []),'-DEXTRA_CONF_FILE='+';'.join(str(APP/p) for p in ['rc_dynamic.conf','rc_unicast.conf','watchdog.conf','rc_hf_synth.conf'])])]
+               [*(['-DR2_PC_PROFILE=ON'] if pc else []),*(['-DR2_PC_AUTO_PARENT=ON'] if pc_auto else []),'-DEXTRA_CONF_FILE='+';'.join(str(APP/p) for p in ['rc_dynamic.conf','rc_unicast.conf','watchdog.conf','rc_hf_synth.conf'])])]
     try:
         run(command,'configure.log');run(['ninja','-C',str(out/'target')],'build.log')
         check_deps()
