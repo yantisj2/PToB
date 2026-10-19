@@ -126,6 +126,19 @@ Use `--registry artifacts/local/registry.json` to compile your deployment’s sh
 Keep the real map ignored, alongside local enrollment; the receipt records its
 hash and preserves a private build snapshot.
 
+Version 0.15.105 bounds native GM scan-stop contention to a fixed 500ms
+recovery interval, with public stop retries at most every 20ms. Success must be
+observed before releasing scan ownership. A duplicate connection whose close
+races a natural disconnect retains its reference until its actual callback;
+Command Disallowed/Not Connected responses cannot alone release it. Missing
+callbacks retain the original two-second failure deadline. Terminal transport
+diagnostics are saved without needing a pre-fault console poll. These checks
+do not extend source, authentication, election or maintenance deadlines.
+
+```sh
+CC=clang python3 firmware/t096/tools/gm_drain_tests.py --deps artifacts/deps --out artifacts/check-gm-drain
+```
+
 Version 0.15.104 narrows three bounded route/admission indices without changing
 their values or reducing diagnostic, stack or transport capacity. Version
 0.15.103's eight-byte scheduling hint crossed a native alignment boundary and

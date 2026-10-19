@@ -2,6 +2,20 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 18 October 2026 — T096 native GM control drain races
+
+T096 **0.15.105** retains duplicate ACL ownership when a public disconnect
+returns Command Disallowed or Not Connected during a natural disconnect race.
+Only the matching callback releases the reference; a missing callback still
+fails at the original two-second deadline. Native GM scan-stop contention gets
+at most 500ms from the first refusal, with 20ms retry spacing and actual public
+stop success required. Hard errors and RC-profile scan errors remain failures.
+Terminal transport snapshots are retained without a pre-fault diagnostic poll.
+Source/map permission, authentication, election and maintenance bounds are
+unchanged. Host boundary regressions include callback races, missing callbacks,
+persistent contention, hard errors and an expected-failure legacy control;
+hardware durability remains unqualified.
+
 ## 18 October 2026 — SS3 event diagnostics and startup splash
 
 SS3 **0.1.3** consumes GM role changes during its existing passive scans, with

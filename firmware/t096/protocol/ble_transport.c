@@ -67,6 +67,8 @@ int r2_ble_owner_bind(struct k_thread *owner){
  transport_owner=owner;owner_bound=true;return 0;
 }
 static uint16_t scan_window,scan_interval;
+static uint64_t scan_stop_until;
+static uint32_t scan_stop_next_ms;
 static unsigned coordinator=255,control_members;
 static int stop_error;
 static unsigned public_client=PEERS;
@@ -132,10 +134,30 @@ static struct r2_transport_fault first_fault;
 static uint64_t now_us(void);
 static void transport_error(int error,const char *operation,unsigned peer){
  atomic_inc(&error_count);
- if(!first_fault.operation)first_fault=(struct r2_transport_fault){.at=now_us(),.error=error,.peer=peer,.operation=!strcmp(operation,"MTU")?1:!strcmp(operation,"DISCOVER")?2:!strcmp(operation,"SCAN_START")?4:!strcmp(operation,"ADV_UPDATE")?5:3};
+ if(!first_fault.operation)first_fault=(struct r2_transport_fault){.at=now_us(),.error=error,.peer=peer,.operation=!strcmp(operation,"MTU")?1:!strcmp(operation,"DISCOVER")?2:!strcmp(operation,"SCAN_START")?4:!strcmp(operation,"ADV_UPDATE")?5:!strcmp(operation,"SCAN_STOP")?6:3};
 #if defined(R2_SERVICE_CLIENTS)
  printk("R2_CLIENT_TRANSPORT_ERROR operation=%s error=%d peer=%u\n",operation,error,peer);
 #endif
+}
+/* Command Disallowed can race a controller scan transition. Keep ownership
+ * until the public stop succeeds; retry only native GM control, for at most
+ * 500ms from the FIRST refusal. This is never evidence of healthy scanning. */
+static bool stop_scan(uint64_t now){
+ if(scan_stop_until&&now>=scan_stop_until){
+  scan_stop_until=0;transport_error(-ETIMEDOUT,"SCAN_STOP",self);stop_error=-ETIMEDOUT;return false;
+ }
+ if(scan_stop_until&&(int32_t)((uint32_t)(now/1000)-scan_stop_next_ms)<0)return false;
+ int rc=bt_le_scan_stop();
+ if(!rc||rc==-EALREADY){
+  uint64_t until=scan_stop_until;scanning=false;scan_stop_until=0;
+  if(until&&now_us()>=until){transport_error(-ETIMEDOUT,"SCAN_STOP",self);stop_error=-ETIMEDOUT;return false;}
+  return true;
+ }
+ if(!stop_error&&group_id&&!group_client&&(rc==-EACCES||rc==-EBUSY||rc==-EAGAIN)){
+  if(!scan_stop_until){scan_stop_until=now+500000;r2_timing_event(R2_TIMING_GM_CONTROL,rc,local_identity,17,500,0);}
+  scan_stop_next_ms=(uint32_t)(now/1000)+20;return false;
+ }
+ transport_error(rc,"SCAN_STOP",self);stop_error=rc;return false;
 }
 /* The pinned ATT allocator waits forever outside the system workqueue/ATT RX
  * thread. Keep expensive service work on the preemptible owner; dispatch just
@@ -279,7 +301,14 @@ static void duplicate_poll(uint64_t now){
   else if(conn){if(now>=d->until)stop_error=-ETIMEDOUT;if(issue)d->requested=true;}
   k_spin_unlock(&lock,k);
   if(dead&&conn)bt_conn_unref(conn);
-  else if(issue){int rc=bt_conn_disconnect(conn,BT_HCI_ERR_REMOTE_USER_TERM_CONN);if(rc)stop_error=rc;}
+  else if(issue){
+   int rc=bt_conn_disconnect(conn,BT_HCI_ERR_REMOTE_USER_TERM_CONN);
+   /* A natural disconnect can win while this synchronous HCI call sleeps.
+    * These responses do not release our reference: only its callback does,
+    * and a missing callback still faults at the original two-second limit. */
+   if(rc&&rc!=-EACCES&&rc!=-ENOTCONN)stop_error=rc;
+   if(rc)r2_timing_event(R2_TIMING_GM_CONTROL,rc,0,18,i,(uint32_t)(d->until>now?d->until-now:0));
+  }
  }
 }
 
@@ -578,6 +607,7 @@ int r2_ble_start(unsigned unit,unsigned count,const uint8_t addresses[][6])
   }
   if(!mtu_callbacks_registered){bt_gatt_cb_register(&mtu_callbacks);mtu_callbacks_registered=true;}
   transport_started=true;
+  scan_stop_until=0;
   advertised_discovery_valid=false;
   coordinator=255;control_members=0;recent_admission=recent_admission_until=0;field_admission_allowed=true;field_admission_renewal=false;bootstrap_needed=true;bootstrap_urgent=true;
   memset(candidates,0,sizeof candidates);candidate_since=admission_parent=0;admission_seek_relay=false;
@@ -633,6 +663,7 @@ static void poll_owned(uint64_t now)
 {
   discovery_opportunity_poll(now);
   duplicate_poll(now);
+  if(scan_stop_until)(void)stop_scan(now);
   for(unsigned i=0;i<nodes;i++)if(i!=self){struct peer *p=&peers[i];
     if(gatt_pending(i))continue; /* never mutate an outstanding call's params */
     if(group_id&&(p->identity||p->conn)&&((!p->authenticated&&now>=p->provisional_until)||p->release)){
@@ -688,7 +719,7 @@ static void poll_owned(uint64_t now)
       }
     }
   }
-  if(stopping)return;
+  if(stopping||scan_stop_until||stop_error)return;
   candidate_select(now);
   bool need_adv=false,need_scan=precision_discovery,pending=false,connected=false;
   for(unsigned i=0;i<nodes;i++)if(i!=self){
@@ -757,7 +788,7 @@ static void poll_owned(uint64_t now)
   }
 #endif
   if(precision_draining)need_scan=false;
-  if((!need_scan||pending||scan_window!=wanted_window||scan_interval!=wanted_interval)&&scanning){int rc=bt_le_scan_stop();if(!rc||rc==-EALREADY)scanning=false;else{stop_error=rc;return;}}
+  if((!need_scan||pending||scan_window!=wanted_window||scan_interval!=wanted_interval)&&scanning&&!stop_scan(now))return;
   if(need_scan&&!pending&&!scanning){
     struct bt_le_scan_param param={.type=BT_LE_SCAN_TYPE_PASSIVE,.interval=wanted_interval,.window=wanted_window};
     int rc=bt_le_scan_start(&param,scan_report);if(!rc||rc==-EALREADY){scanning=true;scan_window=wanted_window;scan_interval=wanted_interval;}
@@ -799,7 +830,7 @@ static void poll_owned(uint64_t now)
     k_spin_unlock(&lock,discovery_key);
     if(!fresh)continue;
     if(group_id&&group_client&&!field_profile){k_spinlock_key_t key=k_spin_lock(&lock);candidate_cooldown(p->identity,now,2000000);k_spin_unlock(&lock,key);}
-    if(scanning){int rc=bt_le_scan_stop();if(!rc||rc==-EALREADY)scanning=false;else{stop_error=rc;return;}}
+    if(scanning&&!stop_scan(now))return;
     /* Connectable advertising reserves a host connection object. With three
      * persistent control links that reservation is the fourth object, so it
      * must be released before initiating the one transient join connection.
@@ -889,7 +920,7 @@ void r2_ble_disconnect(unsigned i){(void)disconnect_owned(i);}
 void r2_ble_stop(void)
 {
   stopping=true;duplicate_poll(now_us());
-  if(scanning){int rc=bt_le_scan_stop();if(!rc||rc==-EALREADY)scanning=false;else stop_error=rc;}
+  if(scanning)(void)stop_scan(now_us());
   int rc=bt_le_adv_stop();if(!rc||rc==-EALREADY)advertising=false;else stop_error=rc;
   for(unsigned i=0;i<nodes;i++)if(i!=self&&peers[i].conn){
     /* Pinned public bt_conn_disconnect cancels CONNECTING through the host. */
@@ -1051,7 +1082,7 @@ void r2_ble_fault_snapshot(struct r2_transport_fault *out){
 }
 static void gm_diagnostic_publish(void){
  k_spinlock_key_t key=k_spin_lock(&lock);
- if(!gm_diag_requested){k_spin_unlock(&lock,key);return;}
+ if(!gm_diag_requested&&(!stop_error||gm_diag_state[9]==(uint32_t)stop_error)){k_spin_unlock(&lock,key);return;}
  gm_diag_requested=false;const uint64_t at=now_us();uint32_t *out=gm_diag_state;
  out[0]=1;out[1]=scanning|(advertising<<1)|(precision_discovery<<2)|
   (precision_serving<<3)|(sync_acquiring<<4)|(group_client<<5)|(stopping<<6);

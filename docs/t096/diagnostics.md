@@ -134,6 +134,14 @@ per-attempt kinds22–25; saturation and source/boot changes fence subtraction.
 These observations grant no authority and do not extend
 an exchange or restart a precision train.
 
+Version0.15.105 adds kind32 stage17 for a native GM scan-stop refusal
+(fixed retry budget ms / reserved), and stage18 for a duplicate disconnect
+response (duplicate-owner slot / remaining original drain budget us).
+Neither response proves resource release. Scan-stop failure uses transport
+fault operation6. A terminal transport snapshot is saved even when no console
+query requested one before the failure; its timestamp remains the original
+owner observation.
+
 Kind33 pairs are: detail0 unavailable AUX context / native accepted response;
 detail1 radio not DONE / bad CRC; detail2 invalid response / reserved zero.
 No-DONE takes precedence over CRC, which takes precedence over response
