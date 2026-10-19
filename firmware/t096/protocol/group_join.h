@@ -52,6 +52,12 @@ struct r2_join_time {
 bool r2_group_join_time(struct r2_join_time *, const struct r2_join_record *,
                         uint64_t proof_sent, uint64_t received,
                         uint32_t source_map_bound_us);
+/* RC7 coarse replay bootstrap/renewal: the existing1.2s interval envelope,
+ * with identical record validation, <250ms causal RTT and expiry subtraction.
+ * The normal GM/control adapter above retains its strict100ms half-width. */
+bool r2_group_join_rc_time(struct r2_join_time *, const struct r2_join_record *,
+                           uint64_t proof_sent,uint64_t received,
+                           uint32_t source_map_bound_us);
 /* Coarse replay anchor only; does not renew the original source permission. */
 uint64_t r2_group_anchor_deadline(uint64_t at,uint32_t uncertainty_us);
 bool r2_group_coarse_upper(const struct r2_join_time *,uint64_t at,uint64_t now,uint64_t *upper_utc_us);

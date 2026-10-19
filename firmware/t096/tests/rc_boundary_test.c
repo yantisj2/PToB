@@ -49,7 +49,8 @@ int main(void){
  struct r2_join_record joined={.kind=R2_JOIN_ACCEPT,.sender=1001,.receiver=9001,.sender_boot=101,.receiver_boot=201,
   .client_nonce=1,.server_nonce=2,.sequence=1,.created_us=1000000,.echo_us=1000000,.root=1001,.root_boot=101,
   .source_epoch=7,.publication=1,.utc_us=UINT64_C(1800000001000000),.remaining_us=1000000,.source_bound_us=40000,.source_flags=1,.name="GM"};
- assert(rc5_gm_accept(&gm,&joined,1000000,1100000,17600000));
+ assert(rc5_gm_accept(&gm,&joined,954754,1100000,17600000));
+ assert(gm.time.uncertainty_us==112978); /* observed failover proof round */
  uint64_t gm_ids[4]={1001,0,0,0};uint8_t gm_wire[190],gm_proof[32];
  struct r2_relay_packet normal={.origin={.root=0,.relay=1,.boot=101,.source_epoch=7,.created_ns=900000000,.expires_ns=2400000000,.frame_ns=900000000,.utc_offset_ns=INT64_C(1800000000000000000)},
   .route={.boot=101,.train=1,.publication=2,.capture_epoch=1,.map_generation=1,.bound_ns=UINT32_MAX}};

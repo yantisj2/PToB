@@ -126,6 +126,18 @@ Use `--registry artifacts/local/registry.json` to compile your deployment’s sh
 Keep the real map ignored, alongside local enrollment; the receipt records its
 hash and preserves a private build snapshot.
 
+Version 0.15.107 uses RC7's coarse replay interval consistently for initial
+GM admission and renewal, while preserving the normal GM/control adapter's
+strict100ms half-width. Both adapters share record validation and expiry math.
+The RC MTU completion regression verifies that a previously negotiated usable
+MTU can recover Unlikely Error only on a live link. No new static state or
+retry is added. Both focused suites are included in the full host runner:
+
+```sh
+CC=clang python3 firmware/t096/tools/rc_gm_admission_tests.py --deps artifacts/deps --out artifacts/check-gm-admission
+CC=clang python3 firmware/t096/tools/rc_mtu_tests.py --deps artifacts/deps --out artifacts/check-rc-mtu
+```
+
 Version 0.15.106 adds signed serving-GM discovery to the RC owner. Compact
 locator storage funds a fixed 40-byte failover state and queue arrival timestamps;
 the static RAM inspection minimum remains unchanged. Run its production selector

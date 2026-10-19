@@ -454,10 +454,29 @@ also request 7.5ms; relay renewals retain 50ms. A failed GM renewal can otherwis
 exceed the original 250ms reply-age gate across dependent ATT exchanges despite
 live periodic timing, leaving too few successful retries before binding expiry.
 This gives the dependent JOIN exchanges more opportunities to meet the unchanged
-100ms initial coarse-uncertainty gate. Each attempt randomizes a finite scan
+100ms initial coarse-uncertainty gate through0.15.106. From0.15.107 RC uses
+the coarse RC7 envelope described below. Each attempt randomizes a finite scan
 interval (50–100ms) and window (10–20ms), preserving the split controller's
 non-continuous scan path and original two-second attempt deadline. This reduces
 repeated phase collisions; it does not guarantee reception.
+
+From **0.15.107**, initial direct-GM RC admission and renewal use the same RC7
+coarse replay envelope (at most1.2s wide). The normal GM/control adapter keeps
+its strict100ms half-width. The RC adapter retains all record validation and
+authenticated exchange/boot/root scope checks. Its original <250ms causal RTT
+and <=50ms independent source bound cap the admitted half-width at175564us;
+permission still subtracts the full RTT, source bound and drift margin. The
+observed145246us round/40000us source bound yields112978us half-width and fits
+this envelope. This changes coarse admission, never a precision fit, output
+accuracy claim or original source/map expiry.
+
+The RC MTU callback records kind32 stage21 for a callback error (actual negotiated
+MTU / live-state flag). Unlikely Error may advance only if the host callback
+observes a connected link and MTU>=215. Other errors, insufficient MTU and an
+unknown/disconnected link remain refused. ATT inspection stays inside the host
+callback; the owner does not walk ATT channels. This adds no MTU retries or
+transaction lifetime. A refused duplicate or vanished ACL still needs proven
+teardown before any later ordinary admission attempt.
 
 An authenticated direct JOIN from a non-root ends that locator's acquisition
 trial and defers it for 60 seconds. G1 discovery alone still grants no role or

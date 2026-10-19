@@ -2,6 +2,24 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 18 October 2026 — T096 RC admission envelope and MTU completion
+
+T096 **0.15.107** applies RC7's existing 1.2-second coarse replay interval to
+initial direct-GM admission as well as renewal. A valid 145ms proof round with a
+40ms source bound was previously refused by the old 100ms half-width limit.
+RC7 now admits that conservative interval while retaining the original <250ms
+round-trip limit, record/exchange authentication and full transit/source expiry
+subtraction. The normal GM/control adapter retains its 100ms limit. Coarse
+admission cannot establish precision lock or extend a source/map deadline.
+
+The RC host MTU callback can recover an Unlikely Error only when the connection
+is still live and its actual negotiated MTU already supports the 212-byte
+control value. A disconnected link, unknown state, insufficient MTU or other
+error remains refused. No MTU retry or transaction deadline extension is added.
+Focused production regressions include the observed proof round, boundary ages,
+expiry/codec fences and the live/disconnected MTU cases. Physical reception,
+HOT readiness and sustained failover remain separate hardware observations.
+
 ## 18 October 2026 — T096 direct discovery after GM failover
 
 T096 **0.15.106** consumes authenticated serving-GM announcements during RC

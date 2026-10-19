@@ -332,8 +332,19 @@ static void lt_mtu_done(struct bt_conn *conn, uint8_t error,
                         struct bt_gatt_exchange_params *p) {
   (void)p;
   struct lt_event e = {.type = LT_MTU_DONE, .conn = conn, .error = error};
-  if (!error && bt_gatt_get_mtu(conn) < 215)
-    e.error = 1;
+  /* Read ATT state only in the host callback, where its channel lifecycle is
+   * serialized. An already negotiated usable MTU can survive a failed local
+   * exchange; a disconnected link or an insufficient MTU cannot advance. */
+  uint16_t mtu = bt_gatt_get_mtu(conn);
+  struct bt_conn_info info;
+  bool live = !bt_conn_get_info(conn, &info) &&
+      info.state == BT_CONN_STATE_CONNECTED;
+  if (error == BT_ATT_ERR_UNLIKELY && live && mtu >= 215)
+    e.error = 0;
+  if (!e.error && (!live || mtu < 215))
+    e.error = BT_ATT_ERR_UNLIKELY;
+  if (error)
+    r2_timing_event(R2_TIMING_GM_CONTROL,error,0,21,mtu,live);
   lt_event_put(&e);
 }
 static void lt_written(struct bt_conn *conn, uint8_t error,
@@ -422,46 +433,6 @@ static void gm_sent(struct bt_conn *conn, void *user) {
   struct lt_event e = {.type = LT_GM_SENT, .conn = conn};
   lt_event_put(&e);
 }
-static bool gm_renew_time(struct r2_join_time *out,
-                          const struct r2_join_record *r, uint64_t proof,
-                          uint64_t received, uint64_t tick) {
-  /* Operator-approved RC-only renewal clarification: authentication renews
-   * the unchanged binding, not precision. Keep the original reply-age and
-   * permission subtraction, but allow RC7's conservative coarse interval.
-   * Initial admission/new scope still use the normal GM adapter's gate. */
-  struct rc5_stamp held;
-  if (!r || r->kind != R2_JOIN_ACCEPT || !r->source_flags ||
-      !gm_context.authenticated || !timing.bound ||
-      tick >= timing.context_until || holdover_expired ||
-      !rc5_clock_capture(&local_clock, &timing, tick, &held) ||
-      held.ns >= current_origin.expires ||
-      r->sender != gm_context.source.sender ||
-      r->sender_boot != gm_context.source.sender_boot ||
-      r->root != gm_context.source.root ||
-      r->root_boot != gm_context.source.root_boot ||
-      r->source_epoch != gm_context.source.source_epoch ||
-      r->publication != gm_context.source.publication ||
-      r->root_boot != timing.root_boot ||
-      r->source_epoch != timing.root_epoch ||
-      r->publication != timing.parent_train || received < proof ||
-      received > INT64_MAX / 4 || !r->source_bound_us ||
-      r->source_bound_us > 50000)
-    return false;
-  uint64_t round = received - proof;
-  if (round >= R2_GROUP_JOIN_TTL_US)
-    return false;
-  uint64_t margin = (round + 499) / 500 + 64;
-  uint64_t guard = round + r->source_bound_us + margin;
-  uint64_t uncertainty = (round + 1) / 2 + r->source_bound_us + margin;
-  /* RC7's admitted root interval is at most1.2s wide. Under the retained
-   * 250ms reply-age and50ms source-bound limits this is at most351128us. */
-  if (uncertainty > 600000 || r->remaining_us <= guard)
-    return false;
-  *out = (struct r2_join_time){.utc_us = r->utc_us + round / 2,
-                               .until = received + r->remaining_us - guard,
-                               .uncertainty_us = (uint32_t)uncertainty};
-  return true;
-}
 static void gm_admission_record(const struct r2_join_record *r, uint64_t proof,
                                  uint64_t received, unsigned result) {
   uint64_t round = received >= proof ? received - proof : UINT64_MAX;
@@ -493,9 +464,8 @@ static bool gm_accept(const struct r2_join_record *r, uint64_t proof,
   struct r2_join_time time;
   bool valid = r && !r->control && r->sender == r->root &&
                r->sender_boot == r->root_boot &&
-               (r2_group_join_time(&time, r, proof, received,
-                                   r->source_bound_us) ||
-                gm_renew_time(&time, r, proof, received, tick));
+               r2_group_join_rc_time(&time, r, proof, received,
+                                     r->source_bound_us);
   gm_admission_record(r, proof, received, valid ? 5 : gm_refusal(r));
 #if defined(R2_RC_DYNAMIC_FIXTURE)
   printk("RC7_GM_TIME self=%016llx round_us=%llu bound_us=%u accepted=%u "

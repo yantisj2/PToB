@@ -173,9 +173,9 @@ int r2_group_join_receive(struct r2_join_exchange *s,
   s->last_sequence = r->sequence;
   return 0;
 }
-bool r2_group_join_time(struct r2_join_time *out,
+static bool join_time(struct r2_join_time *out,
                         const struct r2_join_record *r, uint64_t sent,
-                        uint64_t received, uint32_t bound) {
+                        uint64_t received, uint32_t bound, uint32_t limit) {
   if (!out || !valid(r) ||
       (r->kind != R2_JOIN_ACCEPT && r->kind != R2_JOIN_PROOF) ||
       !r->source_flags || received < sent || received > INT64_MAX / 4 ||
@@ -192,13 +192,24 @@ bool r2_group_join_time(struct r2_join_time *out,
    * uncertainty. Permission still subtracts the FULL round trip plus the
    * independent source bound; no source lifetime is renewed by transit. */
   uint64_t uncertainty = (round + 1) / 2 + bound + margin;
-  if (round >= R2_GROUP_JOIN_TTL_US || uncertainty >= 100000 ||
+  if (round >= R2_GROUP_JOIN_TTL_US || uncertainty >= limit ||
       r->remaining_us <= guard)
     return false;
   *out = (struct r2_join_time){.utc_us = r->utc_us + round / 2,
                                .until = received + r->remaining_us - guard,
                                .uncertainty_us = (uint32_t)uncertainty};
   return true;
+}
+bool r2_group_join_time(struct r2_join_time *out,const struct r2_join_record *r,
+                        uint64_t sent,uint64_t received,uint32_t bound){
+ return join_time(out,r,sent,received,bound,100000);
+}
+bool r2_group_join_rc_time(struct r2_join_time *out,const struct r2_join_record *r,
+                           uint64_t sent,uint64_t received,uint32_t bound){
+ /* RC7 admits a root interval up to1.2s wide. The unchanged <250ms RTT and
+  * <=50ms source bound actually cap this half-width at175564us. This is
+  * coarse replay admission only; it cannot establish a precision fit. */
+ return join_time(out,r,sent,received,bound,600000);
 }
 uint64_t r2_group_anchor_deadline(uint64_t at,uint32_t uncertainty_us){
  if(uncertainty_us>=249800)return at;

@@ -1,4 +1,4 @@
-/* Actual RC GM admission body and unchanged coarse-time gate, cold context. */
+/* Actual RC GM admission body and RC7 coarse replay envelope, cold context. */
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
@@ -14,8 +14,6 @@ static int state_lock,locked;
 #define K_FOREVER 0
 static void k_mutex_lock(int *p,int forever){(void)p;(void)forever;assert(!locked);locked=1;}
 static void k_mutex_unlock(int *p){(void)p;assert(locked);locked=0;}
-/* This regression is initial admission only: no retained context is supplied. */
-static bool gm_renew_time(struct r2_join_time *t,const struct r2_join_record *r,uint64_t p,uint64_t n,uint64_t tick){(void)t;(void)r;(void)p;(void)n;(void)tick;return false;}
 static struct r2_join_exchange gm_exchange;
 static struct r2_group_config group={.psk={1},.id=5,.epoch=1};
 static uint64_t lt_deadline,lt_next,lt_budget_until,last_context_progress,lt_renew_at;
@@ -32,7 +30,26 @@ int main(void){
  assert(gm_accept(&r,980000,1000000,16000000));assert(gm_context.authenticated&&gm_context.rebind);
  assert(gm_admission_diagnostic[0]==1&&gm_admission_diagnostic[1]==5&&gm_admission_diagnostic[2]==20000&&gm_admission_diagnostic[6]==50104&&!locked);
  gm_context=(struct rc5_gm_context){0};
- assert(!gm_accept(&r,800000,1000000,16000000));assert(!gm_context.authenticated&&gm_admission_diagnostic[1]==4&&gm_admission_diagnostic[6]>100000);
+ /* The observed145246us round must fit RC7, while normal GM admission stays strict. */
+ struct r2_join_time normal;
+ assert(!r2_group_join_time(&normal,&r,854754,1000000,40000));
+ assert(gm_accept(&r,854754,1000000,16000000));
+ assert(gm_context.authenticated&&gm_admission_diagnostic[6]==112978);
+ assert(gm_context.time.until==1000000+r.remaining_us-145246-40000-355);
+ assert(gm_accept(&r,800000,1000000,16000000));
+ assert(gm_admission_diagnostic[6]>100000);
+ gm_context=(struct rc5_gm_context){0};
+ assert(!gm_accept(&r,750000,1000000,16000000));assert(!gm_context.authenticated);
+ assert(!gm_accept(&r,1000001,1000000,16000000));
+ r.source_bound_us=50001;assert(!gm_accept(&r,980000,1000000,16000000));r.source_bound_us=40000;
+ /* Fresh RC admission preserves every codec/permission fence, including the
+  * worst permitted RTT/source bound. No fit/precision permission is minted. */
+ r.source_bound_us=50000;assert(gm_accept(&r,750001,1000000,16000000));
+ assert(gm_context.time.uncertainty_us==175564);
+ gm_context=(struct rc5_gm_context){0};r.capabilities=8;
+ assert(!gm_accept(&r,980000,1000000,16000000));r.capabilities=0;
+ r.source_flags=0;assert(!gm_accept(&r,980000,1000000,16000000));r.source_flags=1;
+ r.source_bound_us=40000;
  r.root=7;r.root_boot=8;assert(!gm_accept(&r,980000,1000000,16000000));assert(gm_admission_diagnostic[1]==3&&!gm_context.authenticated);
  r.root=1;r.root_boot=3;r.remaining_us=50000;assert(!gm_accept(&r,980000,1000000,16000000));assert(gm_admission_diagnostic[1]==4&&!gm_context.authenticated);
  r.root=r.root_boot=0;r.source_flags=0;
@@ -57,5 +74,16 @@ int main(void){
  gm_apply(wire);assert(gm_admission_diagnostic[1]==1&&lt_bindings==bindings_before&&gm_context.at_tick==prior_tick);
  r.sender=9;r.sender_boot=10;assert(!r2_group_join_encode(wire,&r,&group));
  gm_apply(wire);assert(gm_admission_diagnostic[1]==2&&lt_bindings==bindings_before&&gm_context.at_tick==prior_tick);
- puts("PASS cold GM admission: actual unchanged100ms gate, expiry subtraction, non-root refusal and bounded causal diagnostics; diagnostics grant no authority");return 0;
+ /* Production authenticated exchange accepts the observed slow but bounded
+  * own-root proof with no retained context; replay cannot rebind it. */
+ r=(struct r2_join_record){.kind=R2_JOIN_ACCEPT,.sender=1,.receiver=2,.sender_boot=3,.receiver_boot=4,
+  .client_nonce=5,.server_nonce=6,.sequence=7,.created_us=1000000,.echo_us=854754,
+  .root=1,.root_boot=3,.source_epoch=9,.publication=1,.utc_us=1792078397000000,
+  .remaining_us=1500000,.source_flags=1,.source_bound_us=40000};strcpy(r.name,"source");
+ gm_context=(struct rc5_gm_context){0};
+ gm_exchange=(struct r2_join_exchange){.self=2,.peer=1,.boot=4,.peer_boot=3,.nonce=5,.remote_nonce=6,.until=2000000,.proof_at=854754,.challenged=true};
+ assert(!r2_group_join_encode(wire,&r,&group));bindings_before=lt_bindings;
+ gm_apply(wire);assert(lt_bindings==bindings_before+1&&gm_context.authenticated&&gm_context.time.uncertainty_us==112978);
+ prior_tick=gm_context.at_tick;gm_apply(wire);assert(lt_bindings==bindings_before+1&&gm_context.at_tick==prior_tick);
+ puts("PASS cold GM admission: RC7 cold interval, strict normal-GM100ms gate,250ms RTT, expiry subtraction, non-root refusal and bounded causal diagnostics; diagnostics grant no authority");return 0;
 }

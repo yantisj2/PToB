@@ -5,7 +5,7 @@
 bool rc5_gm_accept(struct rc5_gm_context *s,const struct r2_join_record *r,uint64_t proof,uint64_t received,uint64_t tick){
  struct r2_join_time time;
  if(!s||!r||r->control||r->sender!=r->root||r->sender_boot!=r->root_boot||
-    !r2_group_join_time(&time,r,proof,received,r->source_bound_us))return false;
+    !r2_group_join_rc_time(&time,r,proof,received,r->source_bound_us))return false;
  *s=(struct rc5_gm_context){.source=*r,.time=time,.at_tick=tick,.authenticated=true,.rebind=true};return true;
 }
 bool rc5_gm_packet(struct rc5_gm_context *s,struct rc5_state *state,struct rc5_packet *out,const uint8_t *wire,size_t size,const struct r2_group_config *group,uint64_t tick){
