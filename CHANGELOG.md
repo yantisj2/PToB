@@ -2,6 +2,25 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 19 October 2026 — Mixed-target relay and timing overview
+
+Refresh the T096 and W12 entry guides around the current G1/RC7 mesh, keeping
+version-specific policy and diagnostic details in the changelogs and build
+guides. T096 **0.15.104** includes longer relay acquisition/recovery, aged
+selection confidence, earlier authentication renewal and source-aware retry
+scheduling. W12 **0.1.22** includes channel-aware acquisition, bounded parent
+trials, direct authentication sessions and production G1 PPS diagnostics.
+Both targets retain established downstream trains for up to 30 seconds through
+timing loss without emitting corrections or extending timing permission.
+
+W12 estimated transmit timestamps use the nominal BLE1M ADDRESS reference for
+mixed-target reception; per-device provisional profiles remain scoped aggregate
+adjustments. Actual RF delay, residual path offsets, intermittent timing loss
+and independent UTC/output accuracy remain unresolved qualification work. The
+optional fast counter-map diagnostic defaults off and supplies no BLE repair.
+Historical evidence, missing observations and earlier failed candidates retain
+their original identities and limits.
+
 ## 19 October 2026 — Optional W12 PPS counter-map diagnostic
 
 W12 **0.1.22** adds an explicit, default-off fast counter-map diagnostic for the
