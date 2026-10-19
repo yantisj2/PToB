@@ -1794,7 +1794,7 @@ static void owner(void *a, void *b, void *c) {
     if (node && window && !creating && !scanning && !lt_conn && !lt_paused &&
         (!parent_synced || !upstream_usable || slot_state.scanning || relay_fallback)) {
       struct bt_le_scan_param q = {
-          .type = BT_LE_SCAN_TYPE_PASSIVE, .interval = 32, .window = parent_synced?8:32};
+          .type = BT_LE_SCAN_TYPE_PASSIVE, .interval = 32, .window = parent_synced?8:16};
       int rc = bt_le_scan_start(&q, NULL);
       if (!rc)
         scanning = true;

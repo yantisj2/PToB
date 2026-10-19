@@ -126,6 +126,19 @@ Use `--registry artifacts/local/registry.json` to compile your deployment’s sh
 Keep the real map ignored, alongside local enrollment; the receipt records its
 hash and preserves a private build snapshot.
 
+Version 0.15.109 makes RC passive search finite (10ms per20ms interval),
+retaining the degraded-parent5ms/20ms watch. The focused test compiles the actual
+application scan parameters and pinned primary scan preemption callback:
+
+```sh
+CC=clang python3 firmware/t096/tools/rc_passive_scan_tests.py --deps artifacts/deps --out artifacts/check-passive-scan
+```
+
+`--legacy-continuous` is an expected-failure parameter control, not a controller
+queue-overflow reproduction. A canary must separately retain exact MCU boot,
+source, reset reason and fault capsule through the RC-to-GM transition. No
+controller assertion, queue capacity, RAM margin or cleanup deadline is changed.
+
 Version 0.15.108 holds the native GM G1 advertiser closed while its single
 incoming transient JOIN slot owns a connection. The pinned public
 `BT_LE_ADV_OPT_CONN` already includes one-time behavior; the owner now waits for

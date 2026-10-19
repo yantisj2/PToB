@@ -470,6 +470,18 @@ observed145246us round/40000us source bound yields112978us half-width and fits
 this envelope. This changes coarse admission, never a precision fit, output
 accuracy claim or original source/map expiry.
 
+From **0.15.109**, RC passive search reserves10ms per20ms interval; the
+PA-synced/unusable-parent watch remains5ms/20ms. The pinned controller retains
+nonzero `ticks_window` for these finite windows and cancels them on preemption.
+A continuous scan instead requests a retained resume prepare. A saved kernel
+fault after RC-to-GM switching mapped to `lll_prepare_resolve`'s failed prepare
+FIFO allocation; queued-context contents were unavailable. The new finite path
+must be distinguished from a proved full fault fix and from a transition canary.
+Host-owned search exposure remains owner time, not RF listening time; the
+original60s wall ceiling is unchanged. Preserve any unexpected boot change and
+its bound reset/fault capsule rather than treating a recovered current state
+as uninterrupted service.
+
 From **0.15.108**, native GM G1 connectable advertising remains stopped while
 its single incoming provisional JOIN slot owns a connection, including the
 interval between a close request and its real disconnect callback. This lets

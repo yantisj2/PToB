@@ -2,6 +2,23 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 18 October 2026 — T096 finite RC passive search
+
+T096 **0.15.109** uses a finite 10ms/20ms passive RC search window instead of
+continuous 20ms/20ms scanning. The degraded-parent watch remains 5ms/20ms.
+This selects the pinned controller's cancel-on-preemption path rather than
+retaining a continuous-scan resume prepare. Existing initiator windows are
+already finite. Source/map permission, authentication, scan-search wall limits,
+controller assertions and the RAM inspection minimum are unchanged.
+
+A retained kernel fault after an RC-to-GM transition identified the pinned
+controller's prepare-queue-full assertion. Its exact queued contexts were not
+retained, so the continuous scan path is a mitigation target rather than a
+proved complete fault cause. Production parameter/pinned-abort tests establish
+the selected path; transition canary observations remain a separate hardware
+check. Host-owned scan exposure does not measure physical listening airtime,
+and the reduced search duty does not qualify reception or timing accuracy.
+
 ## 18 October 2026 — T096 serialize incoming GM admission
 
 T096 **0.15.108** keeps the native GM's connectable G1 advertiser stopped while
