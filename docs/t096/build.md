@@ -134,6 +134,8 @@ Command Disallowed/Not Connected responses cannot alone release it. Missing
 callbacks retain the original two-second failure deadline. Terminal transport
 diagnostics are saved without needing a pre-fault console poll. These checks
 do not extend source, authentication, election or maintenance deadlines.
+Bounded native transport indices use eight-bit storage to retain the unchanged
+1,024-byte static RAM inspection minimum with the additional retry state.
 
 ```sh
 CC=clang python3 firmware/t096/tools/gm_drain_tests.py --deps artifacts/deps --out artifacts/check-gm-drain

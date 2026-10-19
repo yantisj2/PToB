@@ -51,9 +51,9 @@ static bool field_admission_allowed=true,field_admission_renewal,bootstrap_urgen
 static bool relay_server;
 static bool group_client,client_window=true,bootstrap_needed=true;
 static uint32_t client_phase;static uint64_t client_resume;static bool client_aligned,client_search_seen;
-static unsigned admission_peer=R2_BLE_ADMISSION_PEER;static bool field_profile;
+static uint8_t admission_peer=R2_BLE_ADMISSION_PEER;static bool field_profile;
 static uint64_t group_id,local_identity;static uint32_t group_epoch;
-static struct peer peers[PEERS];static unsigned self,nodes;
+static struct peer peers[PEERS];static uint8_t self,nodes;
 static bool scanning,advertising,stopping,precision_discovery,precision_serving,precision_draining;
 /* The public start API returns EALREADY without replacing live AD data.
  * Keep the existing G1 hint current across local admission/profile changes. */
@@ -69,9 +69,9 @@ int r2_ble_owner_bind(struct k_thread *owner){
 static uint16_t scan_window,scan_interval;
 static uint64_t scan_stop_until;
 static uint32_t scan_stop_next_ms;
-static unsigned coordinator=255,control_members;
+static uint8_t coordinator=255;static unsigned control_members;
 static int stop_error;
-static unsigned public_client=PEERS;
+static uint8_t public_client=PEERS;
 static bool sync_acquiring;
 static uint64_t recent_admission,recent_admission_until;
 static struct k_spinlock lock;
