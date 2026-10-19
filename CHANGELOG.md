@@ -13,6 +13,13 @@ return. Normal GM/RC/DC timing, authentication and source/map expiry remain.
 This stage implements no sleep or power measurement; RMS targets and calibrated
 UTC/output performance remain unqualified. See the [PC protocol](docs/t096/power-control.md).
 
+PC **0.15.112** explicitly creates the existing group-derived BLE identity
+before Bluetooth initialization. The ordinary dispatcher normally owns that
+step; the separate PC owner must perform it without starting the normal owner.
+The first PC111 canary did not acquire timing within its fixed window and is
+retained as a failed population; source inspection alone does not prove the
+entire acquisition failure's cause. Ordinary profile timing remains unchanged.
+
 ## 19 October 2026 — T096 clear failed parent selection after outage
 
 T096 **0.15.110** retires a previously working parent once usable time has been

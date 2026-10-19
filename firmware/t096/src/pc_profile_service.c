@@ -7,7 +7,9 @@
 #include "runtime_profile.h"
 #include "watchdog.h"
 #include <errno.h>
+#include <stdlib.h>
 #include <string.h>
+#include <zephyr/bluetooth/bluetooth.h>
 static struct r2_identity physical;
 static struct r2_enrollment enrollment;
 static bool paused,terminal;
@@ -16,6 +18,15 @@ static int failure;
 bool r2_switch_rc_active(void){return true;}
 int r2_service_configure(const struct r2_identity *id,const struct r2_enrollment *e){
  if(!id||!e||!e->rc7_leaf||!e->rc7_boot_rc||!e->rc7_boot_parent||e->rc7_exclude_direct_gm)return -EINVAL;
+ /* The ordinary dispatcher configures the enrolled identity before bt_enable.
+  * PC excludes that owner, so it must perform this same identity step itself.
+  * The default generated GAP address is not the authenticated group identity. */
+ uint64_t silicon=strtoull(id->silicon,NULL,16);uint8_t derived[16];
+ if(!silicon||!r2_group_valid(&e->group))return -EACCES;
+ r2_group_pair_key(derived,&e->group,silicon,silicon);
+ bt_addr_le_t address={.type=BT_ADDR_LE_RANDOM};memcpy(address.a.val,derived,6);address.a.val[5]|=0xc0;
+ int identity_result=bt_id_create(&address,NULL);if(identity_result<0)return identity_result;
+ if(identity_result!=0)return -EACCES;
  physical=*id;enrollment=*e;
  int rc=r2_dynamic_service_configure(id,e);
  return rc?rc:r2_dynamic_service_parent_target(e->rc7_boot_parent);

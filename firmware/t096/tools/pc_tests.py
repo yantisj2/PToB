@@ -19,3 +19,15 @@ with (out/'test.log').open('x') as log:
  subprocess.run([str(out/'test')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
 (out/'receipt.json').write_text(json.dumps({'status':'PASS','hardware_access':False,'command':cmd,'sources':{str(x.relative_to(app)):hashlib.sha256(x.read_bytes()).hexdigest() for x in [app/'src/pc_experiment.c',app/'src/rc_boundary.c',app/'src/core.c',app/'tests/pc_experiment_test.c',Path(__file__).resolve()]}},indent=2)+'\n')
 print((out/'test.log').read_text(),end='')
+source=(app/'src/pc_profile_service.c').read_text();start=source.index('int r2_service_configure(');end=source.index('{',start)+1;depth=1
+while depth:depth+=(source[end]=='{')-(source[end]=='}');end+=1
+(out/'pc_identity_under_test.h').write_text(source[start:end])
+identity_cmd=[cc,'-std=c11','-Wall','-Wextra','-Werror','-fsanitize=address,undefined','-fno-sanitize-recover=all',
+ '-I'+str(out),str(app/'tests/pc_identity_test.c'),'-o',str(out/'identity')]
+with (out/'identity.log').open('x') as log:
+ subprocess.run(identity_cmd,stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
+ subprocess.run([str(out/'identity')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
+print((out/'identity.log').read_text(),end='')
+r=json.loads((out/'receipt.json').read_text());r['identity_command']=identity_cmd
+for name in ('src/pc_profile_service.c','tests/pc_identity_test.c'):r['sources'][name]=hashlib.sha256((app/name).read_bytes()).hexdigest()
+(out/'receipt.json').write_text(json.dumps(r,indent=2)+'\n')
