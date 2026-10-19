@@ -1,0 +1,92 @@
+{
+  "PC112": {
+    "completed_treatments": 12,
+    "incomplete_treatments": 1,
+    "limitations": [
+      "One physical receiver/boot, one fixed parent/root/epoch; not independent device repeats.",
+      "Shadow HOLD kept RF on but froze training. This measures listening/training budget, not RF airtime or energy.",
+      "Cold estimator retained TIMER and possible authenticated transport; not physical cold boot or deep sleep.",
+      "Usable-map appearance is a polled observation bound, not a precision threshold.",
+      "Many LISTEN scores unavailable because the latest map was not active before the RX capture; not zero error.",
+      "Pooled or per-trial RMS includes remaining bias; it is not a worst-case bound or outage guarantee.",
+      "Missing pair intervals, incomplete return and unstarted treatments remain unavailable.",
+      "No independent PPS/output/UTC precision claim; raw and normalized BLE metrics are distinct from PPS.",
+      "The fixed 16-pair endpoint rate estimator does not average an entire longer listening budget.",
+      "Radio followups were not reached; earlier 2-second radio canary is a separate population."
+    ],
+    "planned_treatments": 37,
+    "started_treatments": 13,
+    "unstarted_treatments": 24
+  },
+  "PC115": {
+    "cadence_outcomes": {
+      "COMPLETE": 6,
+      "NOT_STARTED_BEGIN_REFUSED": 1,
+      "SKIPPED_PRIMING_UNAVAILABLE": 6
+    },
+    "critical_result": "125ms/20s selected zero pairs in16bursts. Constant held projection persisted322s;320eligible HOLD PPS, RMS2490.247ns, maximum4583ns. This is zero-refresh awake holdover, not validated sparse refresh.",
+    "initial_acquisition": {
+      "analyzer_sha256": "bc66a0ef0452486b4b4a10e987888964b14cb1d5338dbff02b28b5f2cda408d7",
+      "author": "Jonathan Yantis",
+      "baseline": {
+        "eligible": 43,
+        "normalized_rms_ns": 57.73455698078441,
+        "raw_rms_ns": 10530.848752207035,
+        "records": 417,
+        "scheduled_seconds": 30,
+        "unavailable": 374,
+        "valid_scope_count": 1
+      },
+      "created_utc": "2026-10-19T20:37:33.216126+00:00",
+      "evidence_license": "CC-BY-4.0",
+      "input_manifest_sha256": "71779a2fb766d6f4bbb4a1613f568d44728eb2d30f1822ca45bded4c3cf3baba",
+      "qualification": "Logical estimator reset retains awake hardware counter and admitted radio. First map availability is bracketed by console snapshots; not physical cold boot, sleep or UTC/output qualification. Baseline score denominators reflect causal eligibility, never all received pairs.",
+      "status": "CLOSED_OFFLINE_BASELINE_AND_LOGICAL_ESTIMATOR_ACQUISITION",
+      "trials": [
+        {
+          "first_pair_to_map_availability_lower_s": 0.5575919375,
+          "first_pair_to_map_availability_upper_s": 0.6232194375,
+          "first_valid_causal_rx_s": 1.2725078125,
+          "hold_ms": 5000,
+          "listen_ms": 2000,
+          "request_to_first_pair_s": 0.0963345,
+          "status": "COMPLETE",
+          "training_pairs_at_first_map": 10,
+          "trial": 1
+        },
+        {
+          "first_pair_to_map_availability_lower_s": 0.5381735,
+          "first_pair_to_map_availability_upper_s": 0.5707216875,
+          "first_valid_causal_rx_s": 1.1036553125,
+          "hold_ms": 30000,
+          "listen_ms": 2000,
+          "request_to_first_pair_s": 0.17325675,
+          "status": "COMPLETE",
+          "training_pairs_at_first_map": 10,
+          "trial": 2
+        },
+        {
+          "first_pair_to_map_availability_lower_s": 0.6107401875,
+          "first_pair_to_map_availability_upper_s": 0.655386125,
+          "first_valid_causal_rx_s": 0.773999375,
+          "hold_ms": 60000,
+          "listen_ms": 2000,
+          "request_to_first_pair_s": 0.093425625,
+          "status": "INCOMPLETE_NO_RETURN",
+          "training_pairs_at_first_map": 10,
+          "trial": 3
+        }
+      ]
+    }
+  },
+  "PC116": {
+    "cause_of_field_loss_unproved": true,
+    "completed_main": 1,
+    "interrupted_main": 1,
+    "investigator_stop": true,
+    "unstarted_main": 4
+  },
+  "author": "Jonathan Yantis",
+  "license": "CC-BY-4.0",
+  "no_pooling": true
+}

@@ -1,5 +1,15 @@
 # Manuscript history
 
+## 2026-10-19 — awake timing information and wake/listen power potential
+
+- Added the new standalone research draft, matching PDF, four reproducible vector
+  figures, explicit energy/drift scenarios and concrete physical sleep test protocol.
+- Added selected sanitized PC117 derived observations, failures, denominators,
+  coverage, claim provenance and public offline checks; earlier populations remain
+  separate and original seals unchanged.
+- Bound source/PDF, build identity and evidence in a new edition receipt. Retained
+  draft status; no physical power/sleep test, arXiv submission or release.
+
 ## 2026-10-16 — USB/chrony, White Rabbit and viability research
 
 - Added three unchanged source/PDF pairs: October 15 USB/chrony (11 pages),

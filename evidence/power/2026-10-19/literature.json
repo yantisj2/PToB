@@ -1,0 +1,71 @@
+{
+  "checked_date": "2026-10-19",
+  "notes": "Primary/official sources consulted;citations only.No third-party content is relicensed or bundled.",
+  "schema": 1,
+  "sources": [
+    {
+      "author": "Elson,Girod,Estrin",
+      "edition": "2002",
+      "key": "rbs",
+      "title": "Fine-Grained Network Time Synchronization Using Reference Broadcasts",
+      "url": "https://www.usenix.org/conference/osdi-02/fine-grained-network-time-synchronization-using-reference-broadcasts",
+      "use": "Event synchronization using reference broadcasts;not a like-for-like benchmark."
+    },
+    {
+      "author": "Maroti,Kusy,Simon,Ledeczi",
+      "edition": "2004",
+      "key": "ftsp",
+      "title": "The Flooding Time Synchronization Protocol",
+      "url": "https://www.isis.vanderbilt.edu/sites/isis.vanderbilt.edu/files/bibcite_files/Maroti_M_11_3_2004_The_Floodi_0.pdf",
+      "use": "MAC timestamping,skew estimation and periodic flooding;author-hosted primary paper."
+    },
+    {
+      "author": "Bluetooth SIG",
+      "edition": "6.0",
+      "key": "btcore",
+      "title": "Core Specification6.0,Vol6PartB",
+      "url": "https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core-60/out/en/low-energy-controller/link-layer-specification.html",
+      "use": "Sections4.2.4,4.4.2.12,4.4.5.1;window widening,periodic trains,synchronization.Explicit historical edition,not latest claim."
+    },
+    {
+      "author": "Nordic Semiconductor",
+      "edition": "online",
+      "key": "nordicpower",
+      "title": "nRF52840 Product Specification:POWER",
+      "url": "https://docs.nordicsemi.com/r/bundle/ps_nrf52840/page/power.html",
+      "use": "SystemON/OFF,RAMretention and reset on SystemOFFwake.Search index returned official section;direct fetch intermittently failed.No current value transferred to board."
+    },
+    {
+      "author": "Nordic Semiconductor",
+      "edition": "online",
+      "key": "nordicclock",
+      "title": "nRF52840 Product Specification:CLOCK",
+      "url": "https://docs.nordicsemi.com/r/bundle/ps_nrf52840/page/clock.html",
+      "use": "LFCLKstops in SystemOFF;synthesizedLFdepends on HFCLK."
+    },
+    {
+      "author": "Nordic Semiconductor",
+      "edition": "online",
+      "key": "nordicrtc",
+      "title": "nRF52840 Product Specification:RTC",
+      "url": "https://docs.nordicsemi.com/r/bundle/ps_nrf52840/page/rtc.html",
+      "use": "LFCLKcounter and30.517us base resolution;counter can run while HFCLKoff."
+    },
+    {
+      "author": "Zephyr Project",
+      "edition": "online/latest consulted",
+      "key": "zephyrsystem",
+      "title": "System Power Management",
+      "url": "https://docs.zephyrproject.org/latest/services/pm/system.html",
+      "use": "Wake sources depend on SoC/state;residency+exitlatency constraint.No pinned-build support inferred."
+    },
+    {
+      "author": "Zephyr Project",
+      "edition": "online/latest consulted",
+      "key": "zephyrruntime",
+      "title": "Device Runtime Power Management",
+      "url": "https://docs.zephyrproject.org/latest/services/pm/device_runtime.html",
+      "use": "Separate device usage/suspension state;applicationthreadsleep does not itself verify hardware power state."
+    }
+  ]
+}

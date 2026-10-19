@@ -5,6 +5,7 @@ single pooled benchmark or a statement of current firmware acceptance.
 
 | Claim or question | Evidence | Boundary |
 | --- | --- | --- |
+| Awake training-window budget and potential wake/listen power tradeoffs | [October 19 PC117 pilot](power/2026-10-19/README.md) | Six separate runs, all windows and missing observations; RF stayed on, energy/drift curves hypothetical, sleep and calibrated output pending |
 | Current BLE-derived RC versus USB Direct timing | [October 17 USB comparison](usb/2026-10-17/README.md) | Fixed shared-bus window; sanitized observations, separate RX/chrony/availability populations; clean-bus and independent UTC validation pending |
 | Current admission/continuity fixes and unresolved USB blackouts | [October 16 stability engineering](stability/2026-10-16/README.md) | Separate v63/v67/v68/v69 and W12 observations; failures retained; no durability or UTC qualification |
 | USB/chrony delivery, oscillator-extension research and system viability | [October 15–16 research](research/2026-10-16/README.md) | Shared-source agreement; separate historical runs; hypothetical scaling models |
@@ -29,6 +30,7 @@ python3 tools/verify_v14.py
 python3 tools/verify_research.py
 python3 tools/verify_stability.py
 python3 tools/verify_usb_results.py
+python3 tools/verify_power.py
 ```
 
 This checks all imported evidence files against the [import manifest](imports/2026-10-09.json)

@@ -1,0 +1,76 @@
+{
+  "alignment": {
+    "anchor": "Last acquired authenticated completed pair in the current source/capture scope",
+    "arming_lead_ticks": 80000,
+    "packet_period_ticks": 1000000,
+    "phase_guard_ticks": 128000,
+    "retiming": "None within a run; HOLD observations cannot retime it."
+  },
+  "awake_only": true,
+  "baseline_seconds": 30,
+  "canary": {
+    "cycles": 3,
+    "hold_ms": 1000,
+    "listen_ms": 125
+  },
+  "created_utc": "2026-10-19T22:15:17.939578+00:00",
+  "endpoints": [
+    "Selected timing pairs and missed bursts per cycle; RX offset and completion margin within original125ms aperture.",
+    "Causal raw and fixed raw+10543ns BLE HOLD RMS, per-source ancestry and elapsed age; after16selected separately.",
+    "Eligible independent PPS fractional phase, invalid/missing reference and all denominators.",
+    "Failed acquisition, stale/refused begin, source-change failure and unstarted cases retained."
+  ],
+  "geometry": "Current operator window placement retained; no new placement change assumed.",
+  "mode": 6,
+  "outer_capture_ceiling_s": 4200,
+  "priming": {
+    "hold_ms": 1000,
+    "listen_ms": 2000,
+    "maximum_attempts_per_block": 2,
+    "mode": 2,
+    "passive_source_wait_s": 180
+  },
+  "protocol_revision": 1,
+  "qualification": "Awake information-budget pilot only. No measured RF airtime/energy,sleep,physical cold boot,calibratedUTC or output qualification.",
+  "random_seed": 2026101916,
+  "schedule": [
+    {
+      "cycles": 20,
+      "hold_ms": 10000,
+      "listen_ms": 125,
+      "replicate": 1
+    },
+    {
+      "cycles": 20,
+      "hold_ms": 20000,
+      "listen_ms": 125,
+      "replicate": 1
+    },
+    {
+      "cycles": 20,
+      "hold_ms": 5000,
+      "listen_ms": 125,
+      "replicate": 2
+    },
+    {
+      "cycles": 20,
+      "hold_ms": 5000,
+      "listen_ms": 125,
+      "replicate": 1
+    },
+    {
+      "cycles": 20,
+      "hold_ms": 10000,
+      "listen_ms": 125,
+      "replicate": 2
+    },
+    {
+      "cycles": 20,
+      "hold_ms": 20000,
+      "listen_ms": 125,
+      "replicate": 2
+    }
+  ],
+  "schema": 1,
+  "source_version": "0.15.117"
+}

@@ -1,0 +1,140 @@
+{
+  "analysis_license": "MIT",
+  "author": "Jonathan Yantis",
+  "evidence_license": "CC-BY-4.0",
+  "excluded": [
+    "Raw console, events/journal/observations captures and complete private trial envelopes.",
+    "Enrollment, keys, factory bindings, images, silicon identifiers, actual root/parent/boot/epoch IDs, device paths, ownership/recovery receipts and private working material.",
+    "Earlier raw captures and PC115/PC116 per-pair samples; selected context is separate and not pooled."
+  ],
+  "reconstruction_limit": "Public verification recomputes selected derived results and schedule/model accounting. It cannot independently reconstruct raw physical extraction, authentication, instrumentation, or raw HOLD-state immutability from reduced audit rows.",
+  "schema": 1,
+  "scope_alias_count": 4,
+  "selected_sources": [
+    {
+      "bytes": 24413,
+      "locator": "artifacts/pc-aligned117-20261019/paper-evidence.json",
+      "sha256": "7fad272ec1426dea568e8c323d6349f4fc686d676911fb60384abd265bf8a33d"
+    },
+    {
+      "bytes": 3142,
+      "locator": "artifacts/pc-aligned117-20261019/cadence-protocol-v2.json",
+      "sha256": "85dc9c0887d6cb3c5edfd6eef451e18bf72ca17357a338a5b2f936643d016b2a"
+    },
+    {
+      "bytes": 1404,
+      "locator": "artifacts/pc-aligned117-20261019/cadence/manifest.json",
+      "sha256": "b1986e64765c515b795130996537db555a2fab3e791e126e7e01413dadcdac02"
+    },
+    {
+      "bytes": 63400,
+      "locator": "artifacts/pc-aligned117-20261019/cadence/trials.json",
+      "sha256": "767e0853a55b3a7e80762c62f927480c18ff7abdb2bc93854144a9ab9eaa034d"
+    },
+    {
+      "bytes": 85389735,
+      "locator": "artifacts/pc-aligned117-20261019/cadence/observations.jsonl",
+      "sha256": "d1f491d197587a6c4449fd4f11704acd67c9dd9ed7810f0e9b1a377beef1bf3c"
+    },
+    {
+      "bytes": 814,
+      "locator": "artifacts/pc-aligned117-20261019/cadence-analysis/manifest.json",
+      "sha256": "356477df02e8789e82ef7d59994cbc14e8c44f8d8759072855fe1723500db8af"
+    },
+    {
+      "bytes": 15959,
+      "locator": "artifacts/pc-aligned117-20261019/cadence-analysis/summary.json",
+      "sha256": "ebf7bbfa32649b0d7b8569734009468da2fe9661c17505c3fbf31f7f900ab884"
+    },
+    {
+      "bytes": 602,
+      "locator": "artifacts/pc-aligned117-20261019/analysis-verification.json",
+      "sha256": "f679579199b183dcc17ce328ca38ccdf1c630cb7da39d4d9ddd0c9e25f757635"
+    },
+    {
+      "bytes": 2695,
+      "locator": "artifacts/pc-aligned117-20261019/alignment-verification.json",
+      "sha256": "c3f47589ee0ce521d8a1c363af0c173953d11d973d0566f7e5d780558e46cb8e"
+    },
+    {
+      "bytes": 12864,
+      "locator": "artifacts/pc-aligned117-20261019/analyze_cadence.py",
+      "sha256": "9491991f1aa9e221d8d76fb8e267d8520742cb4eaf636c2939018687502f6c85"
+    },
+    {
+      "bytes": 4530,
+      "locator": "artifacts/pc-aligned117-20261019/verify_analysis.py",
+      "sha256": "19bbc9c89e69f48e82169adeaf6117499a33c92b7a32a327d863103acd844e75"
+    },
+    {
+      "bytes": 2551,
+      "locator": "artifacts/pc-aligned117-20261019/audit_alignment.py",
+      "sha256": "a218ee9a99245ef6530f3d6f9c7f44e2ee507a55978a25aab6ee492914003314"
+    },
+    {
+      "bytes": 1723029,
+      "locator": "artifacts/pc-aligned117-20261019/cadence-analysis/ble-records.csv",
+      "sha256": "b00cf03bd80ce3b5f60a4d8cec0582736cd55948d7f72a63fd9e283d4cd65d3d"
+    },
+    {
+      "bytes": 255579,
+      "locator": "artifacts/pc-aligned117-20261019/cadence-analysis/pps-records.csv",
+      "sha256": "b8b65b805819c89294c1125e50b22a7545034c8305375ce8b95a44cf417a2168"
+    },
+    {
+      "bytes": 10314,
+      "locator": "artifacts/pc-aligned117-20261019/cadence-analysis/cycles.csv",
+      "sha256": "b12dbac11ffdf81e756673d10af3e8f433dc683b322264f5b7c0985c08ab4b35"
+    },
+    {
+      "bytes": 3394,
+      "locator": "artifacts/pc-aligned117-20261019/cadence-analysis/blocks.csv",
+      "sha256": "c6aef6719a4299e93eafd5817eae98d77d5a2ab95d753fc5f5269a1dd3456f1b"
+    },
+    {
+      "bytes": 5653,
+      "locator": "artifacts/pc-awake112-20261019/campaign-index.json",
+      "sha256": "40caa07b5f2decdb06a05e138710449c68de10a85f6d42384a4ae20b3f7e6858"
+    },
+    {
+      "bytes": 1106,
+      "locator": "artifacts/pc-awake112-20261019/ble-summary-20261019/manifest.json",
+      "sha256": "9a158981015bdf24b235db028f56fa13beb720a717f84295e7bde0e4e862ce43"
+    },
+    {
+      "bytes": 19835,
+      "locator": "artifacts/pc-awake112-20261019/ble-summary-20261019/summary.json",
+      "sha256": "20315122eeae1dd6bf283587c2d575cb8b9a3dadacd3e842792d825d237a84de"
+    },
+    {
+      "bytes": 742,
+      "locator": "artifacts/pc-awake112-20261019/ble-summary-20261019/listening-budgets.csv",
+      "sha256": "ecf5051ccc76a4d59b334b5c63b29f40ccc4f937c4f615f9aba902876cd5dd75"
+    },
+    {
+      "bytes": 10195,
+      "locator": "artifacts/pc-awake112-20261019/ble-summary-20261019/hold-windows.csv",
+      "sha256": "6cc44df1d73905eaff887001accaaee1db301928ad5f2d7171ba595d98eb58dd"
+    },
+    {
+      "bytes": 20805,
+      "locator": "artifacts/pc-cadence115-20261019/paper-evidence.json",
+      "sha256": "208de94b6e80dd3e40769b0c718841b038cef747750671e1ded7167ec3f045df"
+    },
+    {
+      "bytes": 659,
+      "locator": "artifacts/pc-aligned116-20261019/investigator-stop.json",
+      "sha256": "0b62e5b34459f6a0b40dd0b4b314f8ea2ea1a9b2ffc1a3cc0db88c92d082ac3f"
+    }
+  ],
+  "status": "SELECTED_SANITIZED_DRAFT_SUPPLEMENT",
+  "transforms": [
+    "Explicit column allowlists; original numeric strings, validity, exclusions and all derived BLE/PPS rows retained.",
+    "Absolute device ticks shifted by each scheduled run start; timing differences unchanged.",
+    "Actual hardware/parent/root/boot/epoch identities replaced by equality-preserving scope aliases Sxx and physical boot B01. Alias lookup is withheld. No cross-run precision pooling.",
+    "Per-cycle HOLD state envelopes reduced to frozen training-count/map-generation/rate observations and repeated observation counts.",
+    "Priming records reduced to nine outcomes, counts and host durations; no raw console/authentication envelopes.",
+    "Selected protocol scientific fields only; no private operator or device binding.",
+    "PC112 two explicit aggregate timing-only CSVs retained unchanged; PC115 logical-reset context selected from its sealed index; PC116 stop counts transcribed. Distinct historical populations."
+  ]
+}

@@ -1,0 +1,122 @@
+{
+  "analysis_license": "MIT",
+  "author": "Jonathan Yantis",
+  "does_not_verify": "Private raw extraction, authentication and calibrated hardware metrology.",
+  "evidence_license": "CC-BY-4.0",
+  "files": {
+    "evidence/power/2026-10-19/README.md": {
+      "bytes": 8779,
+      "license": "MIT",
+      "sha256": "54ae1fc0a37128a59e4dc04c2a8693f475e8acd1e486cbcea78321273d40adda"
+    },
+    "evidence/power/2026-10-19/attempts.json": {
+      "bytes": 3293,
+      "license": "CC-BY-4.0",
+      "sha256": "4a6716ba9ac4c84870ef3717b4d60eb5465ac76f0351921c797bace3d759ca26"
+    },
+    "evidence/power/2026-10-19/audit-receipt.json": {
+      "bytes": 1054,
+      "license": "CC-BY-4.0",
+      "sha256": "0a159ea427b218f89c94dc3612103b1eff4eeeb510562cb3e37c2b77e1c75fe8"
+    },
+    "evidence/power/2026-10-19/ble-records.csv": {
+      "bytes": 1094942,
+      "license": "CC-BY-4.0",
+      "sha256": "10f0d8d95f91d70516127e31f9f8f90b945e6a368b220e4b9a4eb84032daff0e"
+    },
+    "evidence/power/2026-10-19/blocks.csv": {
+      "bytes": 3302,
+      "license": "CC-BY-4.0",
+      "sha256": "2d62e55053a13424f329b685a17f55cd091da977bfb2dbc1c14f7b35a83e1ef2"
+    },
+    "evidence/power/2026-10-19/claims.json": {
+      "bytes": 4618,
+      "license": "CC-BY-4.0",
+      "sha256": "faa34571d2635864b30a1197a77ff078bea878ac5c7f7128f9fdbde5db4a3bb7"
+    },
+    "evidence/power/2026-10-19/cycles.csv": {
+      "bytes": 8760,
+      "license": "CC-BY-4.0",
+      "sha256": "fa1323640d1e7f3db68ef6f20ea864c07e6a810129be6e02539d53999d608936"
+    },
+    "evidence/power/2026-10-19/hold-audit.csv": {
+      "bytes": 4701,
+      "license": "CC-BY-4.0",
+      "sha256": "79e20d862105408bd8a5f31397ced6447c531ccc515034728a63bb92715c2003"
+    },
+    "evidence/power/2026-10-19/literature.json": {
+      "bytes": 3216,
+      "license": "CC-BY-4.0",
+      "sha256": "ed63fca1d3824905698d6b0d9744ab76c49c83d95c868e9ea314ab94ec394301"
+    },
+    "evidence/power/2026-10-19/pc112-hold-windows.csv": {
+      "bytes": 10195,
+      "license": "CC-BY-4.0",
+      "sha256": "6cc44df1d73905eaff887001accaaee1db301928ad5f2d7171ba595d98eb58dd"
+    },
+    "evidence/power/2026-10-19/pc112-listening-budgets.csv": {
+      "bytes": 742,
+      "license": "CC-BY-4.0",
+      "sha256": "ecf5051ccc76a4d59b334b5c63b29f40ccc4f937c4f615f9aba902876cd5dd75"
+    },
+    "evidence/power/2026-10-19/pps-records.csv": {
+      "bytes": 136872,
+      "license": "CC-BY-4.0",
+      "sha256": "78129dd1b7e9de1aabe847bdd89c039f3774298e0d5e2677387dcf8a543e71dd"
+    },
+    "evidence/power/2026-10-19/prior-context.json": {
+      "bytes": 4127,
+      "license": "CC-BY-4.0",
+      "sha256": "b45f1d6f800081b8684f08bd88ce5e2a5f56a57ac98997156fefd8d05d33f353"
+    },
+    "evidence/power/2026-10-19/protocol.json": {
+      "bytes": 2109,
+      "license": "CC-BY-4.0",
+      "sha256": "cc0f921c2a49f3dc9501fe920877f6326e3a9ccd5e56b9bcbf81f808041930fd"
+    },
+    "evidence/power/2026-10-19/provenance.json": {
+      "bytes": 6386,
+      "license": "CC-BY-4.0",
+      "sha256": "9cdb3aefeba10c42d8d322ffe0565004909f5c94618f42539624866b36b3d769"
+    },
+    "evidence/power/2026-10-19/results.json": {
+      "bytes": 19477,
+      "license": "CC-BY-4.0",
+      "sha256": "50199a53931d754c1d417068253de2c0bc881ee332b4da0f4dfaf26d7a266b76"
+    },
+    "evidence/power/2026-10-19/verification.json": {
+      "bytes": 1191,
+      "license": "CC-BY-4.0",
+      "sha256": "898ae645590e9d507cb83e0f927d866f94f03e39c09bdd74b61ae3ea5cadd452"
+    },
+    "papers/figures/power-20261019/conditional-rms.tex": {
+      "bytes": 1124,
+      "license": "CC-BY-4.0",
+      "sha256": "f284547e6695e8af5d011f1924ead736507d8aba65b422082176798f56ff9e5d"
+    },
+    "papers/figures/power-20261019/drift-model.tex": {
+      "bytes": 1709,
+      "license": "CC-BY-4.0",
+      "sha256": "1532630901183f146f9e0f979ba057e3dd1b75a4e877cf4645c02c7a3b2b5ef0"
+    },
+    "papers/figures/power-20261019/energy-model.tex": {
+      "bytes": 1213,
+      "license": "CC-BY-4.0",
+      "sha256": "3710a631a3e311c6d82719756fa7c74ebe44c4690f2b9f6142b466c9184183ac"
+    },
+    "papers/figures/power-20261019/window-outcomes.tex": {
+      "bytes": 7535,
+      "license": "CC-BY-4.0",
+      "sha256": "3050eec6b76389f475e2a3a82e7fd0ebf82863bc28590bcea9830b68b28a5134"
+    },
+    "tools/verify_power.py": {
+      "bytes": 17296,
+      "license": "MIT",
+      "sha256": "04542914e136be427357191d850f414cd8c52ae082144e5bf3f1e6da3e29021b"
+    }
+  },
+  "ordinary_verification": "python3 tools/verify_power.py",
+  "schema": 1,
+  "source_selection_index_sha256": "7fad272ec1426dea568e8c323d6349f4fc686d676911fb60384abd265bf8a33d",
+  "status": "SELECTED_SANITIZED_RESEARCH_DRAFT_NOT_RELEASED"
+}

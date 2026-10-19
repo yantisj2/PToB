@@ -1,0 +1,128 @@
+{
+  "attempts": [
+    {
+      "attempt": 1,
+      "block_number": 0,
+      "final_phase": 4,
+      "first_pair_present": true,
+      "host_duration_s": 3.185589,
+      "listen_budget_ms": 2000,
+      "logical_estimator_reset": true,
+      "physical_cold_boot": false,
+      "status": "COMPLETE",
+      "training_pairs": 30,
+      "trial": 1
+    },
+    {
+      "attempt": 1,
+      "block_number": 1,
+      "final_phase": 4,
+      "first_pair_present": true,
+      "host_duration_s": 3.132968,
+      "listen_budget_ms": 2000,
+      "logical_estimator_reset": true,
+      "physical_cold_boot": false,
+      "status": "COMPLETE",
+      "training_pairs": 31,
+      "trial": 3
+    },
+    {
+      "attempt": 1,
+      "block_number": 2,
+      "final_phase": 4,
+      "first_pair_present": true,
+      "host_duration_s": 50.146971,
+      "listen_budget_ms": 2000,
+      "logical_estimator_reset": true,
+      "physical_cold_boot": false,
+      "status": "COMPLETE",
+      "training_pairs": 35,
+      "trial": 5
+    },
+    {
+      "attempt": 1,
+      "block_number": 3,
+      "final_phase": 4,
+      "first_pair_present": true,
+      "host_duration_s": 22.202227,
+      "listen_budget_ms": 2000,
+      "logical_estimator_reset": true,
+      "physical_cold_boot": false,
+      "status": "COMPLETE",
+      "training_pairs": 32,
+      "trial": 7
+    },
+    {
+      "attempt": 1,
+      "block_number": 4,
+      "final_phase": 4,
+      "first_pair_present": true,
+      "host_duration_s": 3.155163,
+      "listen_budget_ms": 2000,
+      "logical_estimator_reset": true,
+      "physical_cold_boot": false,
+      "status": "COMPLETE",
+      "training_pairs": 31,
+      "trial": 9
+    },
+    {
+      "attempt": 1,
+      "block_number": 5,
+      "final_phase": 5,
+      "first_pair_present": false,
+      "host_duration_s": 60.056006,
+      "listen_budget_ms": 2000,
+      "logical_estimator_reset": true,
+      "physical_cold_boot": false,
+      "status": "FAILED",
+      "training_pairs": 0,
+      "trial": 11
+    },
+    {
+      "attempt": 2,
+      "block_number": 5,
+      "final_phase": 4,
+      "first_pair_present": true,
+      "host_duration_s": 3.099554,
+      "listen_budget_ms": 2000,
+      "logical_estimator_reset": true,
+      "physical_cold_boot": false,
+      "status": "COMPLETE",
+      "training_pairs": 30,
+      "trial": 12
+    },
+    {
+      "attempt": 1,
+      "block_number": 6,
+      "final_phase": 5,
+      "first_pair_present": false,
+      "host_duration_s": 60.000059,
+      "listen_budget_ms": 2000,
+      "logical_estimator_reset": true,
+      "physical_cold_boot": false,
+      "status": "FAILED",
+      "training_pairs": 0,
+      "trial": 14
+    },
+    {
+      "attempt": 2,
+      "block_number": 6,
+      "final_phase": 4,
+      "first_pair_present": true,
+      "host_duration_s": 3.340928,
+      "listen_budget_ms": 2000,
+      "logical_estimator_reset": true,
+      "physical_cold_boot": false,
+      "status": "COMPLETE",
+      "training_pairs": 28,
+      "trial": 15
+    }
+  ],
+  "author": "Jonathan Yantis",
+  "inter_attempt_elapsed_s": [
+    149.820428,
+    71.239726
+  ],
+  "license": "CC-BY-4.0",
+  "wait_policy": "After unsuccessful priming, passive source wait bounded to 180 s, at most two attempts per block; actual host time between attempts is not wake latency."
+}

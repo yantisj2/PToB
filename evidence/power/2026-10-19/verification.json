@@ -1,0 +1,24 @@
+{
+  "author": "Jonathan Yantis",
+  "checks": {
+    "independent_raw_reextraction": "PASS_FOUR_DERIVED_CSVS_BYTE_IDENTICAL",
+    "manuscript_numeric_tables_and_embedded_figures": "PASS",
+    "new_hardware_operations": 0,
+    "original_fixed_anchor_and_frozen_HOLD_auditor": "PASS_123_STATES",
+    "original_independent_csv_verifier": "PASS",
+    "public_derived_recomputation": "PASS",
+    "raw_analysis_restoration_manifests": "PASS",
+    "sealed_index_and_34_selected_hashes": "PASS",
+    "selected_public_field_review": "PASS_EXPLICIT_ALLOWLIST_NO_ACTUAL_IDENTITY_OR_PRIVATE_PATH",
+    "source_citation_keys_and_labels": "PASS_9_REFERENCES_NO_UNDEFINED_LABELS"
+  },
+  "license": "CC-BY-4.0",
+  "limits": [
+    "Identity and accounting checks do not establish physical calibration or accuracy.",
+    "Public reproduction starts with derived observations; raw extraction and raw frozen-state proofs cannot be independently reconstructed from this export.",
+    "Earlier populations are separate; sleep, power, wake latency, physical cold start and calibrated output remain unmeasured."
+  ],
+  "schema": 1,
+  "status": "PASS_LOCAL_CURATED_DRAFT_REVIEW",
+  "verification_date": "2026-10-19"
+}

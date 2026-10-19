@@ -2,6 +2,17 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 19 October 2026 — awake timing information and power scheduling research draft
+
+Added Jonathan Yantis's standalone arXiv-targeted research draft and matching PDF,
+with an edition/build receipt and selected sanitized PC117 evidence supplement.
+All six 20-window runs, 42 refreshes/78 empty windows, failed priming, BLE coverage,
+independent PPS fractional phase and brief fit turnover remain explicit. Earlier
+PC112/115/116 context retains separate populations. Public standard-library Python
+recomputes derived results and hypothetical guard/drift/energy scenarios offline.
+Measured awake timing, modeled savings and future physical sleep/power work remain
+distinct. No hardware, submission, push or publication release accompanied this draft.
+
 ## 19 October 2026 — T096 bounded sparse PC refresh
 
 PC **0.15.117** suppresses degraded-parent discovery scanning while fresh admitted

@@ -1,0 +1,127 @@
+{
+  "author": "Jonathan Yantis",
+  "claims": [
+    {
+      "boundary": "Counts across runs only; no pooled precision or independent stationary availability probability.",
+      "claim": "Six randomized schedules completed: 42 refreshes in 120 windows and 78 empty windows.",
+      "id": "C01",
+      "support": [
+        "blocks.csv",
+        "cycles.csv",
+        "ble-records.csv"
+      ]
+    },
+    {
+      "boundary": "Observation categories do not establish a loss mechanism.",
+      "claim": "Sixty-nine empty windows had no accepted timing pairs; nine had reception without a complete selected pair.",
+      "id": "C02",
+      "support": [
+        "cycles.csv",
+        "ble-records.csv"
+      ]
+    },
+    {
+      "boundary": "Conditional selected pairs only; this does not bound missed or late events or physical wake.",
+      "claim": "Selected main RX offsets were 7.612625--7.999875 ms; minimum completion margin was 42.909 ms.",
+      "id": "C03",
+      "support": [
+        "ble-records.csv",
+        "blocks.csv"
+      ]
+    },
+    {
+      "boundary": "Public reduced rows and receipts report the raw audit; full raw-envelope reconstruction is excluded.",
+      "claim": "The original audit found 123 frozen HOLD states, zero cursor gaps and a fixed acquisition-only anchor.",
+      "id": "C04",
+      "support": [
+        "hold-audit.csv",
+        "audit-receipt.json",
+        "protocol.json"
+      ]
+    },
+    {
+      "boundary": "Raw + 10543 ns is an inherited provisional normalization; no fitted bias or detrending; missing bins remain unknown.",
+      "claim": "Per-run normalized causal HOLD BLE RMS was 98.092--333.221 ns, with unequal observation coverage.",
+      "id": "C05",
+      "support": [
+        "ble-records.csv",
+        "results.json"
+      ]
+    },
+    {
+      "boundary": "Independent local fractional phase, without UTC or output qualification. All 14 LISTEN edges remain, including ten ineligible.",
+      "claim": "All 1400 recorded HOLD PPS edges were eligible; per-run RMS was 80.259--2173.739 ns.",
+      "id": "C06",
+      "support": [
+        "pps-records.csv",
+        "results.json"
+      ]
+    },
+    {
+      "boundary": "Only 10.169744125 s remained; this is not steady-state sparse maintenance qualification.",
+      "claim": "Only B3 achieved fit turnover at 92.330255875 s; 149 later HOLD scores had 144.780649 ns RMS.",
+      "id": "C07",
+      "support": [
+        "ble-records.csv",
+        "blocks.csv",
+        "results.json"
+      ]
+    },
+    {
+      "boundary": "Logical resets retained the awake counter and admission; passive source waits were bounded at 180 s. No physical cold boot.",
+      "claim": "Seven priming attempts completed and two failed, including canary priming.",
+      "id": "C08",
+      "support": [
+        "attempts.json",
+        "protocol.json"
+      ]
+    },
+    {
+      "boundary": "Context only. PC112 unstarted cases and PC115 failures remain; these are not PC117 replicates or wake latency.",
+      "claim": "Earlier first-map latency brackets were 0.538--0.655 s; earlier populations remain separate.",
+      "id": "C09",
+      "support": [
+        "prior-context.json",
+        "pc112-listening-budgets.csv",
+        "pc112-hold-windows.csv"
+      ]
+    },
+    {
+      "boundary": "Computed as W/(W+H). RF remained enabled; no airtime, energy, sleep or battery-life measurement.",
+      "claim": "Scheduled training fractions were 2.439%, 1.235% and 0.621%.",
+      "id": "C10",
+      "support": [
+        "protocol.json",
+        "results.json"
+      ]
+    },
+    {
+      "boundary": "Hypothetical independent zero-mean model with explicit assumptions; not measured drift or qualified operating intervals.",
+      "claim": "Sub-1/10/100 us information-age budgets and LF quantization sensitivity.",
+      "id": "M01",
+      "support": [
+        "results.json",
+        "../../../tools/verify_power.py"
+      ]
+    },
+    {
+      "boundary": "Hypothetical disjoint energy terms; not datasheet-to-board predictions or measured savings.",
+      "claim": "Central energy cases, sensitivity corners, auxiliary-load limits and burst crossover.",
+      "id": "M02",
+      "support": [
+        "results.json",
+        "../../../tools/verify_power.py"
+      ]
+    },
+    {
+      "boundary": "Proposed protocol only; manuscript preparation performed no new hardware operation.",
+      "claim": "Retained-counter, LF handoff, System OFF and calibrated power/phase trials.",
+      "id": "F01",
+      "support": [
+        "../../../papers/ptob-power-scheduling-preprint.tex"
+      ]
+    }
+  ],
+  "license": "CC-BY-4.0",
+  "schema": 1
+}

@@ -1,0 +1,156 @@
+{
+  "author": "Jonathan Yantis",
+  "base_repository_commit": "9ee2bcbc7cdd7bf27e6da80fb65aabf47ff04606",
+  "code_license": "MIT",
+  "compiler": {
+    "binary_acquisition": "https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic%400.17.0/tectonic-0.17.0-aarch64-apple-darwin.tar.gz",
+    "binary_sha256": "b52b5a730e2b0b33087304f7720f649603953f270a6b1c88bb031e1ae01f7f9c",
+    "command": "tectonic --only-cached --keep-logs --keep-intermediates --outdir artifacts/power-paper-20261019/build papers/ptob-power-scheduling-preprint.tex",
+    "desktop_editor_compile": "SUCCESS",
+    "engine": "Tectonic",
+    "log_sha256": "e6875bb82b150fc9d24f44057cdaa8302494919bc3f60d528c6fd79d980a768e",
+    "public_bundle_hashes": [
+      "6ffe055852f8faf66c0acbe1a7fb27f87b869a90bad1204f3bf4d9683f597c7c"
+    ],
+    "standalone": true,
+    "version": "0.17.0",
+    "warnings": false
+  },
+  "data_supplement": {
+    "bytes": 4676,
+    "license": "CC-BY-4.0",
+    "path": "evidence/power/2026-10-19/manifest.json",
+    "sha256": "4e0e26c5949b7c28262f119d66fa833cbb09e8f7c6b6784c47c244842747232b"
+  },
+  "edition_date": "2026-10-19",
+  "evidence_cutoff": {
+    "capture_closed_utc": "2026-10-19T22:51:19.117077+00:00",
+    "firmware_checkpoint": "9ee2bcbc7cdd7bf27e6da80fb65aabf47ff04606",
+    "firmware_version": "0.15.117",
+    "main_runs": 6,
+    "main_windows": 120,
+    "physical_boot_population": "B01",
+    "precision_pooling": false,
+    "selected_index_created_utc": "2026-10-19T22:52:24.569168+00:00",
+    "selected_index_sha256": "7fad272ec1426dea568e8c323d6349f4fc686d676911fb60384abd265bf8a33d"
+  },
+  "files": [
+    {
+      "bytes": 63524,
+      "license": "CC-BY-4.0",
+      "path": "papers/ptob-power-scheduling-preprint.tex",
+      "sha256": "24fdff480c2b419171906eb4a816b3d118951c3a60428072e6bf85c94cb9dd66"
+    },
+    {
+      "bytes": 104599,
+      "license": "CC-BY-4.0",
+      "path": "papers/ptob-power-scheduling-preprint.pdf",
+      "sha256": "7b65e9cf6e2a1484f2b3eb461bc6361335d76a3d9506ba5634a554725e20aed4"
+    }
+  ],
+  "license": "MIT",
+  "limitations": [
+    "RF and precision counter stayed awake; training fractions are not airtime or power.",
+    "Inherited raw+10543 ns BLE normalization is provisional; no fitted bias or detrending.",
+    "Missing BLE intervals remain unknown; PPS is local fractional phase, not calibrated UTC or output.",
+    "Only one brief 10.169744125 s post-turnover interval; sparse steady state is unqualified.",
+    "Energy and drift scenarios are explicit assumptions, not measured board savings.",
+    "Physical sleep implementation, wake latency, physical cold-start precision and power-meter tests remain future work.",
+    "Public reconstruction starts from derived exports, not raw physical captures."
+  ],
+  "local_commit_policy": "Commit matching source, PDF, supplement, manifests and changelog together. No push, submission or promotion authorized.",
+  "paper_license": "CC-BY-4.0",
+  "previous_edition": null,
+  "review": {
+    "all_pages_rendered_and_visually_inspected": true,
+    "figures": 4,
+    "final_changed_pages_reinspected": [
+      6,
+      9,
+      10
+    ],
+    "layout_warnings": false,
+    "other_final_pages_pixel_identical_to_reviewed_pages": true,
+    "pages": 15,
+    "pdf_extracted_words": 7343,
+    "privacy": "Explicit sanitized selection; no actual device/source identities, raw captures, enrollment, images or private paths.",
+    "references": 9,
+    "rendered_pages": [
+      {
+        "page": 1,
+        "sha256": "62701b915e8f3b37df1adb516105c98ad30e22356fea6c142d24a360a3f726c2"
+      },
+      {
+        "page": 2,
+        "sha256": "9aea437dc6736620fab0db13d763d35c47f5eefd5ea87214b3a7a419e51a1fb7"
+      },
+      {
+        "page": 3,
+        "sha256": "72f54faa7bd3557fee7876d717af857584102f4e09748dcf17969571aaa73503"
+      },
+      {
+        "page": 4,
+        "sha256": "765e41a9b783fc1691cac7dbe11d3c4fa941fc9c5aefc9820e27abef29ef6bf8"
+      },
+      {
+        "page": 5,
+        "sha256": "f7cca33aba29220bc5b03bfa5435c34edd91bf651c407ed6542a2bde7cc6c9c8"
+      },
+      {
+        "page": 6,
+        "sha256": "7bbb83670de04d2a7b193b1bc29a2670e98dd20be770162c38d54e93143c618b"
+      },
+      {
+        "page": 7,
+        "sha256": "2a62b2154a72905d68c69add9ab58f4d49d424872967767e5a3fc61bac2195da"
+      },
+      {
+        "page": 8,
+        "sha256": "f6ae8fe1aac97f142a7afddfc5ce98391bf2cfd6d79b39f07454a94bfd6341c3"
+      },
+      {
+        "page": 9,
+        "sha256": "7ec0f9233fc28c331578cadf579e3da463534649daa2ebee5ec7498a12298895"
+      },
+      {
+        "page": 10,
+        "sha256": "7e9ada209b2f2ba530174fa5538fead52afe3c144ad9d2c0a3c9e377275b5350"
+      },
+      {
+        "page": 11,
+        "sha256": "071cf66cf86fc3fbac441d1d2d5bdbea6860812407bb8deef5e8d491d2bd2034"
+      },
+      {
+        "page": 12,
+        "sha256": "ba84e16b727c8341b9ecb9f37b480352ad4901ca24f5f8bec29bc98d70650fd7"
+      },
+      {
+        "page": 13,
+        "sha256": "f622bcc82b1e017936cd0a95f5cce17d306333aba52b09eca35208f2ac713a02"
+      },
+      {
+        "page": 14,
+        "sha256": "6818c44fae12eb8dfe94f6d607ec6b780c126386622be7e1b10b39ff61d16ee7"
+      },
+      {
+        "page": 15,
+        "sha256": "d2ca9fb31a5e7841c692f9a8f36cd5c6bc5cc66918f5429ce2dadc5fa74c870e"
+      }
+    ],
+    "source_and_pdf_match": true,
+    "tables": 5,
+    "unresolved_references": false
+  },
+  "schema": 1,
+  "status": "RESEARCH_DRAFT_NOT_SUBMITTED_NOT_PROMOTED_NOT_PUSHED",
+  "title": "How Much Timing Information Is Enough? Awake Hardware Evidence and Wake/Listen Energy Models for PToB",
+  "verification_commands": [
+    "python3 tools/verify_power.py",
+    "python3 tools/verify_power.py --out artifacts/power-rebuild",
+    "python3 tools/verify_evidence.py",
+    "python3 tools/verify_v14.py",
+    "python3 tools/verify_research.py",
+    "python3 tools/verify_stability.py",
+    "python3 tools/verify_usb_results.py"
+  ]
+}

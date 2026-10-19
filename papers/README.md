@@ -1,7 +1,9 @@
 # Research papers — drafts
 
-These are working drafts by **Jonathan Yantis**. The latest research additions are the **15–17 October 2026** USB/chrony,
-White Rabbit and viability papers. The V14 service/profile proposal retains its
+These are working drafts by **Jonathan Yantis**. The latest addition is the
+**19 October 2026** awake timing information and power scheduling pilot. The
+USB/chrony, White Rabbit and viability papers retain their **15–17 October** editions.
+The V14 service/profile proposal retains its
 **12 October** edition. All remain discussion/research drafts, without standards
 adoption or firmware qualification. Earlier import receipts retain their original
 byte identities; later editions are recorded separately.
@@ -20,8 +22,17 @@ draft status.
 
 | Draft | Read | Edit | Edition |
 | --- | --- | --- | --- |
+| How Much Timing Information Is Enough? Awake Hardware Evidence and Wake/Listen Energy Models for PToB | [PDF](ptob-power-scheduling-preprint.pdf) | [LaTeX](ptob-power-scheduling-preprint.tex) | 19 October 2026, awake PC117 pilot and hypothetical energy models |
 | Beyond USB Packet Arrival: Frame-Identified Time Transfer to macOS | [PDF](usb-macos-time-transfer-preprint.pdf) | [LaTeX](usb-macos-time-transfer-preprint.tex) | 17 October 2026, shared-bus RC/DC revision |
 | From Virtual Clock Discipline to Physical Synchronization: White Rabbit Lessons for PToB and Future Tunable Targets | [PDF](white-rabbit-study-20261015.pdf) | [LaTeX](white-rabbit-study-20261015.tex) | 15 October 2026 |
+
+The power scheduling paper has a [19 October edition manifest](editions/power-scheduling-2026-10-19.json)
+and [sanitized offline supplement](../evidence/power/2026-10-19/README.md).
+It reports all six PC117 runs, 42 refreshes in 120 windows, missing BLE coverage,
+independent local PPS fractional phase and the single brief post-turnover interval.
+RF remained on; scheduled training fractions are not measured airtime or energy.
+Sleep implementation, power metering, physical wake and cold-start qualification
+remain future work. Its arXiv-targeted preparation does not constitute submission.
 
 The USB paper now has a [17 October edition manifest](editions/usb-macos-2026-10-17.json),
 replacing its main results with a fixed concurrent 180-second RC/DC window.
@@ -76,7 +87,7 @@ publication, or adopted standard.
 | Passive Precision Time over BLE: Prospective Edge Calibration, Causal Publication, and Service Availability | [PDF](ptob-preprint.pdf) | [LaTeX](ptob-preprint.tex) |
 | Causal Software Clock Discipline over Wireless Physical Events: Native Lock Evidence, Operating Tiers, and a Tunable-Oscillator Extension | [PDF](oscillator-pll-research-20261003.pdf) | [LaTeX](oscillator-pll-research-20261003.tex) |
 
-All eight papers and their original figures are **CC BY 4.0**, attributed to Jonathan
+All nine papers and their original figures are **CC BY 4.0**, attributed to Jonathan
 Yantis. See [the license notice](LICENSE.md) and [project credits](../CREDITS.md).
 
 ## Scope and evidence
@@ -152,6 +163,7 @@ tectonic --outdir artifacts/papers papers/ptob-v14-preprint.tex
 tectonic --outdir artifacts/papers papers/usb-macos-time-transfer-preprint.tex
 tectonic --outdir artifacts/papers papers/white-rabbit-study-20261015.tex
 tectonic --outdir artifacts/papers papers/ptob-viability-preprint.tex
+tectonic --outdir artifacts/papers papers/ptob-power-scheduling-preprint.tex
 ```
 
 Tectonic may download its public TeX bundle on first use. Inspect the generated
@@ -161,6 +173,11 @@ retain original exports. The oscillator/PLL PDF was regenerated during migration
 to match its existing amended source.
 
 ## Cite a draft
+
+Jonathan Yantis. *How Much Timing Information Is Enough? Awake Hardware Evidence
+and Wake/Listen Energy Models for PToB.* Research draft, 19 October 2026.
+Use `python3 tools/verify_power.py` to recompute its selected derived-data results
+and verify its edition. No sleep energy or calibrated output qualification is claimed.
 
 Jonathan Yantis. *Passive Precision Time over BLE: V14-RC1 Candidate Service and
 Profile Proposal.* Discussion draft, 12 October 2026.

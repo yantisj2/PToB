@@ -1,0 +1,32 @@
+{
+  "alignment_audit_status": "PASS_FIXED_ANCHOR_ORIGINAL125MS_APERTURE_AND_FROZEN_HOLD",
+  "analysis_manifest_verified": true,
+  "author": "Jonathan Yantis",
+  "canary": [
+    {
+      "block_number": 0,
+      "completion_margin_min_ms": 47.5645625,
+      "cycles": 3,
+      "hold_ms": 1000,
+      "kind": "alignment_canary",
+      "missed_bursts": 1,
+      "rx_offset_max_ms": 7.99975,
+      "rx_offset_min_ms": 7.99075,
+      "selected_pairs": 2,
+      "status": "COMPLETE",
+      "trial": 2
+    }
+  ],
+  "checked_hold_cycle_states": 123,
+  "cursor_gaps": [],
+  "evidence_sealed_utc": "2026-10-19T22:52:24.569168+00:00",
+  "firmware_commit": "9ee2bcbc7cdd7bf27e6da80fb65aabf47ff04606",
+  "firmware_version": "0.15.117",
+  "license": "CC-BY-4.0",
+  "main_runs_with_at_least16_selected_pairs": 1,
+  "original_verifiers_passed": "PASS",
+  "raw_capture_manifest_verified": true,
+  "restoration_manifest_verified": true,
+  "sealed_selected_files_verified": 34,
+  "selected_index_sha256": "7fad272ec1426dea568e8c323d6349f4fc686d676911fb60384abd265bf8a33d"
+}
