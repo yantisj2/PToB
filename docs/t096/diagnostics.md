@@ -532,6 +532,19 @@ advisory and do not prove an RF collision.
 
 ### RC parent selection and relay dwell
 
+Version **0.15.110** clears a previously working parent after ten continuous
+seconds of unusable timing when its PA is no longer synchronized. This bypasses
+remaining acquisition protection. Before first usable lock, cold acquisition
+keeps its existing allowance; an audible PA with an unavailable source keeps
+its degraded-recovery allowance. Exhausting either allowance also retires the
+selection without waiting for another candidate. Retirement drains actual ACL
+and PA owners, clears old timing authority and begins a fresh bounded search.
+Failure history and rolling admission starts remain intact, and a returning
+identity needs fresh authentication. Explicit parent and relay-only settings
+remain configured. Retry journal kind27 reason5 records failed-parent retirement;
+the arguments retain admission stage and elapsed selection age. Host tests do
+not establish field failover latency.
+
 From 0.15.103, an explicit `rc-parent ID` selects one mesh identity through either its
 ordinary direct-GM locator or authenticated RC7 relay capability. The receiver
 stays in RC mode; it does not promote itself or its parent to GM. Actual GM

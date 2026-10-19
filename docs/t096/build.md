@@ -126,6 +126,12 @@ Use `--registry artifacts/local/registry.json` to compile your deployment’s sh
 Keep the real map ignored, alongside local enrollment; the receipt records its
 hash and preserves a private build snapshot.
 
+Version 0.15.110 adds failed-parent retirement to the production selector and
+durability tests. Run `rc_selection_tests.py` and `rc_durability_tests.py` using
+the commands above. These cover loss deadlines, empty neighborhoods, fresh
+admission of returning identities and actual-owner drain boundaries with fake
+hardware. They do not qualify physical failover.
+
 Version 0.15.109 makes RC passive search finite (10ms per20ms interval),
 retaining the degraded-parent5ms/20ms watch. The focused test compiles the actual
 application scan parameters and pinned primary scan preemption callback:

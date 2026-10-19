@@ -419,8 +419,10 @@ static void parent_wait(unsigned stage) {
   if (stage > parent_admission) {
     parent_admission = stage;
     parent_stage_at = mono_us();
-    upstream_bad_since = mono_us();
-    relay_fallback = false;
+    if (!parent_locked) {
+      upstream_bad_since = mono_us();
+      relay_fallback = false;
+    }
   }
 }
 /* RC-only, within this MCU boot. Reconfiguration/recovery never rearms an
@@ -552,6 +554,25 @@ static void delivery_tick(uint64_t now, uint64_t tick) {
   relay_fallback = parent_ineligible || (!acquiring &&
       (!parent_locked || (unhealthy && now >= upstream_bad_since &&
                          now - upstream_bad_since >= loss)));
+}
+static bool parent_loss_due(uint64_t now) {
+  return parent_known && !upstream_usable &&
+      (relay_fallback || (parent_locked && !parent_synced && upstream_bad_since &&
+       now >= upstream_bad_since && now - upstream_bad_since >= RC_STREAM_OUTAGE_US));
+}
+static void parent_failure_record(uint64_t now, unsigned reason) {
+  if (parent_failed)
+    return;
+  uint64_t id = routes.node[parent_index].id;
+  if (!parent_relay && parent_locked)
+    rc_stream_gm_recovery_failed(&stream_history, id, now);
+  else if (parent_admission >= 2 || parent_locked)
+    rc_stream_failed(&stream_history, id, parent_relay, now);
+  else
+    rc_stream_admission_failed(&stream_history, id, parent_relay, now);
+  parent_failed = true;
+  r2_timing_event(R2_TIMING_RC_RETRY, -ETIMEDOUT, id, reason, parent_admission,
+                  (uint32_t)((now - parent_selected_at) / 1000));
 }
 static bool parent_failover_start(void){
  return !forced_parent&&!exclude_direct&&parent_known&&!parent_relay&&routes.node[parent_index].id==gm_failover.id&&
@@ -686,18 +707,8 @@ static struct candidate *candidate_choose(uint64_t now, bool expired) {
    * requires live synchronization; an expired map must not pin that locator. */
   bool retained = upstream_usable && !relay_fallback && !diagnostic;
   (void)expired;
-  if (parent_known && relay_fallback && !parent_failed && !diagnostic) {
-    if (!parent_relay && parent_locked)
-      rc_stream_gm_recovery_failed(&stream_history, routes.node[parent_index].id, now);
-    else if (parent_admission >= 2 || parent_locked)
-      rc_stream_failed(&stream_history, routes.node[parent_index].id, parent_relay, now);
-    else
-      rc_stream_admission_failed(&stream_history, routes.node[parent_index].id, parent_relay, now);
-    parent_failed = true;
-    r2_timing_event(R2_TIMING_RC_RETRY,-ETIMEDOUT,
-        routes.node[parent_index].id,4,parent_admission,
-        (uint32_t)((now-parent_selected_at)/1000));
-  }
+  if (parent_known && relay_fallback && !diagnostic)
+    parent_failure_record(now, 4);
   struct candidate *best = NULL;
   int best_score = INT32_MIN, best_rank = -1;
   for (unsigned i = 0; i < 8; i++) {
@@ -900,6 +911,49 @@ static bool sync_acquisition_poll(void) {
   ++upstream_recoveries;
   return true;
 }
+/* A dead selection must retire even without an alternative locator. Keep the
+ * old ownership until actual ACL/PA drain, then discard all timing authority.
+ * Neither admission progress nor a candidate with the same ID may pin it.
+ * Forced-parent/relay-only configuration and rolling starts survive. */
+static bool parent_loss_poll(uint64_t now) {
+  if (!parent_loss_due(now))
+    return false;
+  lt_acquiring = false;
+  lt_quiesce(true);
+  if (lt_conn)
+    return true; /* lt_poll retains the original close/callback deadline. */
+  if (sync) {
+    uint64_t until = mono_us() + 500000;
+    if (creating && sync_started && sync_started + 2000000 < until)
+      until = sync_started + 2000000;
+    if (!sync_close_until(until)) {
+      check(false, "lost parent sync drain");
+      return true;
+    }
+  }
+  bool was_running = running;
+  if (!stop())
+    return true;
+  if (was_running) {
+    if (train == UINT32_MAX) {
+      check(false, "lost parent train exhausted");
+      return true;
+    }
+    ++train;
+  }
+  now = mono_us();
+  parent_failure_record(now, 5);
+  candidate_defer(routes.node[parent_index].id, now);
+  parent_handoff_reset();
+  parent_known = parent_synced = creating = found = false;
+  parent_failed = parent_locked = parent_relay = false;
+  upstream_usable = relay_fallback = false;
+  parent_selected_at = parent_stage_at = upstream_bad_since = 0;
+  parent_admission = 0;
+  stream_sample = (struct rc_stream_sample){0};
+  slot_selected = false;
+  return true;
+}
 static void gm_role_observed(const struct discovery *d,uint64_t now){
  if(d->len!=R2_ROLE_AD_BYTES-2||forced_parent||exclude_direct)return;
  uint8_t wire[R2_ROLE_AD_BYTES];wire[0]=R2_ROLE_AD_BYTES-1;wire[1]=0xff;
@@ -966,6 +1020,8 @@ static void discover(uint64_t tick) {
       found = true;
   }
   delivery_tick(mono_us(), tick);
+  if (parent_loss_poll(mono_us()))
+    return;
   bool urgent=!forced_parent&&!exclude_direct&&
     rc_gm_hint_fresh(&gm_failover,(uint32_t)(mono_us()/1000))&&!(gm_failover.flags&RC_GM_SELECTED);
   if(urgent&&lt_conn){lt_quiesce(true);return;}

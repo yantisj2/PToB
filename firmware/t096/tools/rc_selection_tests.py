@@ -24,7 +24,7 @@ decl=indices[0]+'\n'+s[s.index('struct candidate {'):s.index('static bool parent
 decl+='\nstatic bool startup_admitted,startup_attempted;\n'
 (out/'selection_under_test.h').write_text(decl+'\n'+'\n'.join(function(n) for n in [
     'parent_acquiring','parent_wait','startup_complete','candidate_defer','candidate_nonroot',
-    'candidate_seen','delivery_tick','candidate_choose']))
+    'candidate_seen','delivery_tick','parent_loss_due','parent_failure_record','candidate_choose']))
 flags=[os.environ.get('CC','clang'),'-std=c11','-Wall','-Wextra','-Werror','-Wno-unused-parameter',
        '-fsanitize=address,undefined','-fno-sanitize-recover=all','-I'+str(out),'-I'+str(app/'include')]
 sources=[source,Path(__file__).resolve(),app/'include/rc_stream_quality.h',

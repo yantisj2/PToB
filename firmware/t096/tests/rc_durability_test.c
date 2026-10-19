@@ -26,7 +26,17 @@ static unsigned sent_count,lt_attempts,holdover_expiries,upstream_recoveries,tra
 static bool lt_acquiring,lt_paused,phase_admitted,start_prepared,awaiting_first_tx,holdover_expired,fit_rms_valid;
 static bool parent_known,parent_synced,creating,running,stop_fails,faulted;
 static bool parent_ineligible;
-static bool parent_relay,parent_locked,startup_admitted;
+static bool parent_relay,parent_locked,parent_failed,startup_admitted,found,slot_selected;
+static uint64_t parent_selected_at,parent_stage_at,upstream_bad_since;
+static bool relay_fallback,outage_due;
+static struct rc_stream_sample stream_sample;
+static struct {struct {uint64_t id;} node[1];} routes;
+static unsigned parent_index,failure_records,deferrals;
+static void *sync;
+static bool parent_loss_due(uint64_t now){(void)now;return outage_due;}
+static void parent_failure_record(uint64_t now,unsigned reason){(void)now;assert(reason==5);++failure_records;}
+static void candidate_defer(uint64_t id,uint64_t now){assert(id==11);(void)now;++deferrals;}
+static bool stop(void){if(stop_fails)return false;running=false;return true;}
 static uint64_t parent_count0_at;
 static void *lt_conn;
 static bool upstream_usable,admission_live=true,drain_ok=true;
@@ -38,7 +48,7 @@ static void check(bool ok,const char *reason){(void)reason;if(!ok)faulted=true;}
 static bool sync_close_until(uint64_t until){
  ++cancel_calls;cancel_until=until;
  if(!drain_ok)return false;
- creating=parent_synced=false;sync_started=0;return true;
+ creating=parent_synced=false;sync_started=0;sync=NULL;return true;
 }
 #define RC_FIELD_HOLD_TICKS UINT64_C(8000000)
 static void lt_quiesce(bool pause){lt_paused=pause;}
@@ -99,6 +109,31 @@ int main(void){
  // A failed cancellation fails closed at the original deadline, with no renew.
  sync_started=10000000;fake_now=11500000;drain_ok=false;
  assert(!sync_acquisition_poll()&&faulted&&creating&&lt_renew_at==renew&&cancel_until==12000000);
+ // Total outage waits for actual ACL release, with no selection/state discard
+ // while the previous owner still exists. No alternative locator is needed.
+ outage_due=true;faulted=false;stop_fails=false;drain_ok=true;
+ routes.node[0].id=11;parent_known=parent_locked=parent_relay=running=found=slot_selected=true;
+ parent_synced=creating=false;sync=NULL;lt_conn=&train;
+ parent_selected_at=parent_stage_at=upstream_bad_since=1;
+ timing.bound=true;fit.valid=true;current_origin.expires=99;sent_count=2;
+ assert(parent_loss_poll(fake_now)&&lt_paused&&parent_known&&timing.bound);
+ assert(!failure_records&&!deferrals);
+ lt_conn=NULL;sync=&train;creating=true;sync_started=fake_now-1750000;
+ assert(parent_loss_poll(fake_now));
+ assert(cancel_until==fake_now+250000); // Original PA attempt wins over 500ms.
+ assert(!parent_known&&!parent_synced&&!creating&&!found&&!slot_selected);
+ assert(!timing.bound&&!fit.valid&&!current_origin.expires&&!sent_count&&!running);
+ assert(!parent_locked&&!parent_failed&&!parent_relay&&!parent_admission);
+ assert(!parent_selected_at&&!parent_stage_at&&!upstream_bad_since);
+ assert(failure_records==1&&deferrals==1&&!lt_paused);
+ // Failed controller drain retains the selection and authentication state;
+ // the existing fault/watchdog path owns that failure, never unsafe reuse.
+ parent_known=true;sync=&train;creating=true;drain_ok=false;timing.bound=true;
+ assert(parent_loss_poll(fake_now)&&parent_known&&timing.bound&&failure_records==1);
+ sync=NULL;creating=false;drain_ok=true;stop_fails=true;running=true;
+ assert(parent_loss_poll(fake_now)&&parent_known&&timing.bound&&failure_records==1);
+ stop_fails=false;outage_due=false;
+ assert(!parent_loss_poll(fake_now)&&parent_known&&failure_records==1);
  puts("PASS actual RC handoff/rebind and PA retry: live binding keeps renewal deadline, expired binding and stalled established stream rebind, original cancellation deadline fails closed");
  return 0;
 }

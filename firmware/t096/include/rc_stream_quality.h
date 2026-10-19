@@ -21,6 +21,9 @@
 /* A settled relay also needs time for fresh admission after a train change.
  * Use a five-minute degraded episode; a brief issue does not reject a relay. */
 #define RC_STREAM_RELAY_LOSS_US UINT64_C(300000000)
+/* A previously usable parent with no PA synchronization is an RF outage,
+ * not cold acquisition. Give the old scope one fixed, short recovery grace. */
+#define RC_STREAM_OUTAGE_US UINT64_C(10000000)
 #define RC_STREAM_WINDOW 8u
 struct rc_stream_row {
   uint64_t id;

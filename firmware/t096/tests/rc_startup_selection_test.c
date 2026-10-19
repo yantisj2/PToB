@@ -154,6 +154,39 @@ int main(void) {
  bind(true);sample(10,false);CHECK(upstream_usable);
  current_origin.expires=fake_now;delivery_tick(fake_now,fake_now);
  CHECK(!upstream_usable&&!relay_fallback);
+ // Power loss of a settled parent bypasses its remaining acquisition trial.
+ // No alternative locator is needed to retire the dead selection.
+ bind(true);sample(10,false);CHECK(parent_locked);
+ parent_synced=captured=tracking=false;delivery_tick(fake_now,fake_now);
+ uint64_t lost=fake_now;
+ CHECK(parent_acquiring(lost)&&!parent_loss_due(lost+9999999));
+ fake_now=lost+10000000;delivery_tick(fake_now,fake_now);
+ CHECK(!relay_fallback&&parent_loss_due(fake_now));
+ // A single later PA establishment/admission stage cannot restart this loss.
+ parent_wait(3);parent_synced=false;
+ fake_now++;delivery_tick(fake_now,fake_now);CHECK(parent_loss_due(fake_now));
+ // Before the grace expires the same scope may resume usable time.
+ bind(true);sample(10,false);parent_synced=false;captured=false;
+ delivery_tick(fake_now,fake_now);fake_now+=9000000;
+ parent_synced=captured=tracking=true;delivery_tick(fake_now,fake_now);
+ CHECK(upstream_usable&&!parent_loss_due(fake_now));
+ // Cold admission and a live PA carrying no usable source keep their own
+ // bounded trials, then exhausted recovery must retire without a candidate.
+ bind(true);parent_locked=false;parent_synced=false;captured=false;
+ fake_now+=10000000;delivery_tick(fake_now,fake_now);CHECK(!parent_loss_due(fake_now));
+ fake_now=parent_selected_at+RC_STREAM_TRIAL_US;delivery_tick(fake_now,fake_now);
+ CHECK(relay_fallback&&parent_loss_due(fake_now));
+ bind(true);sample(10,false);captured=false;
+ delivery_tick(fake_now,fake_now);fake_now+=10000000;delivery_tick(fake_now,fake_now);
+ CHECK(parent_synced&&!parent_loss_due(fake_now));
+ fake_now+=RC_STREAM_RELAY_LOSS_US;delivery_tick(fake_now,fake_now);
+ CHECK(parent_loss_due(fake_now));
+ // A cleared failed selection can reauthenticate the same identity after
+ // probation; quality history and the failure penalty are still retained.
+ parent_failure_record(fake_now,5);CHECK(parent_failed);
+ parent_known=false;candidate_defer(11,fake_now);fake_now+=31000000;
+ seen(11,true,true,-40,fake_now);collect(fake_now);
+ CHECK(choose(fake_now+10000000)==11);
  // Explicit parent identity accepts the same exact ID through its observed
  // GM or RC class. It does not change the default automatic retention policy.
  CHECK(rc_admission_g1_direct(1,true));

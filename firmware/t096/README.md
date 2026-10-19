@@ -5,7 +5,7 @@
 *Illustrative firmware-rendered RC screen; displayed values are not measured
 performance. [Image provenance](../../docs/images/README.md).*
 
-**PToB owns T096 RC7 development.** Current version **0.15.109** supplies the
+**PToB owns T096 RC7 development.** Current version **0.15.110** supplies the
 ordinary **GM** and **RC** mesh profiles, with USB timing compiled by default.
 [Build from source](../../docs/t096/build.md) with pinned public dependencies
 and ignored local enrollment. No enrolled binary is distributed.
@@ -20,7 +20,12 @@ binding expires. Explicit parent identities support bounded comparisons;
 normal operation uses automatic selection. A newly detected signed serving-GM
 announcement requests a direct authentication attempt before relay acquisition
 protection or old non-root cooldown. Scanning resumes when a connected parent
-stops supplying usable time. The announcement grants no timing permission.
+stops supplying usable time. A previously working parent without PA sync or
+usable time is retired after a fixed ten-second loss interval. Exhausted
+acquisition or degraded recovery also clears the selection even when no other
+parent is visible. The old owners drain before selection and timing state are
+cleared; returning identities require fresh admission. The announcement grants
+no timing permission.
 
 An established downstream train can survive a timing interruption for up to
 30 seconds using packets with no corrections. Timing permission withdraws
