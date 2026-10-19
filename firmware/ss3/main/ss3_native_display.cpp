@@ -81,6 +81,8 @@ bool panel_init() {
  vTaskDelay(pdMS_TO_TICKS(130));return command(0x38) && command(0x29);
 }
 
+uint64_t splash_shown_us=0,splash_until_us=0;
+std::atomic<uint32_t> first_dashboard_us{0};
 void worker(void*) {
  TdHealthDisplay health_display;
  auto& state=ui_storage->shown;bool have=false,observed=false,last_valid=false,last_ready=false;uint16_t valid=0;TickType_t wake=xTaskGetTickCount();
@@ -88,7 +90,10 @@ void worker(void*) {
   if(ui_published.load(std::memory_order_acquire)){const int slot=ui_publication.pin();
    if(slot>=0){state=ui_storage->published[slot];ui_publication.release(unsigned(slot));have=true;}
   }
-  if(!have||!awake.load()){gpio_set_level(gpio_num_t(Backlight),0);vTaskDelay(pdMS_TO_TICKS(20));wake=xTaskGetTickCount();continue;}
+  // The splash is already on the panel. Keep it visible while startup runs,
+  // for at least one second, without blocking main, USB, BLE or the watchdog.
+  if(!have||uint64_t(esp_timer_get_time())<splash_until_us){vTaskDelay(pdMS_TO_TICKS(20));wake=xTaskGetTickCount();continue;}
+  if(!awake.load()){gpio_set_level(gpio_num_t(Backlight),0);vTaskDelay(pdMS_TO_TICKS(20));wake=xTaskGetTickCount();continue;}
   const auto begin=esp_timer_get_time();uint64_t tick=0;const bool timer=clock_reference_read(&tick);
   auto view=state.view;int64_t utc=0;
   if(view.td.enabled){const auto now=uint64_t(std::max<int64_t>(0,begin));view.td.owner_stale=now<view.td.now_us||now-view.td.now_us>1000000;view.td.now_us=now;
@@ -120,7 +125,9 @@ void worker(void*) {
    valid|=uint16_t(1u<<index);++painted;count(painted_strips);
   }
   if(painted==15)count(full_passes);
-  if(ok){if(frames!=UINT32_MAX)++frames;gpio_set_level(gpio_num_t(Backlight),1);}else if(errors!=UINT32_MAX)++errors;
+  if(ok){if(frames!=UINT32_MAX)++frames;gpio_set_level(gpio_num_t(Backlight),1);
+   if(!first_dashboard_us.load())first_dashboard_us.store(uint32_t(esp_timer_get_time()));
+  }else if(errors!=UINT32_MAX)++errors;
   const auto elapsed=uint64_t(esp_timer_get_time()-begin);if(elapsed>max_us)max_us=uint32_t(std::min<uint64_t>(elapsed,UINT32_MAX));
   if(xTaskGetTickCount()-wake>=pdMS_TO_TICKS(20))wake=xTaskGetTickCount();
   vTaskDelayUntil(&wake,pdMS_TO_TICKS(20));
@@ -134,6 +141,13 @@ bool display_init(){
  void* memory=heap_caps_calloc(1,sizeof(UiStorage),MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);
  if(!frame||!pixels||!memory||!esp_ptr_external_ram(memory))return false;
  ui_storage=new(memory)UiStorage{};
+ for(unsigned row=0;row<Height;row+=StripRows){
+  render_splash_strip(frame,row);
+  if(!rectangle_window(0,row,Width,StripRows)||!transmit(true,frame,StripBytes))return false;
+ }
+ if(gpio_set_level(gpio_num_t(Backlight),1)!=ESP_OK)return false;
+ splash_shown_us=uint64_t(esp_timer_get_time());splash_until_us=splash_shown_us+1000000;
+ std::printf("SS3_SPLASH shown_us=%llu minimum_us=1000000 brand=PToB\n",(unsigned long long)splash_shown_us);
  return xTaskCreatePinnedToCore(worker,"ss3_rc7_lcd",12288,nullptr,2,&task,1)==pdPASS;
 }
 void sticks3::present_native(const DisplayState& s,const v12::R2Status& m,uint64_t tick,uint64_t now,const char* banner,uint64_t banner_until20,uint8_t chart){
@@ -190,7 +204,8 @@ void sticks3::display_status(){
  const auto health=TdHealth::evaluate(d,ui_storage?ui_storage->constructed.view.radio_error:0);
  char health_text[24];std::snprintf(health_text,sizeof health_text,"%s",health.status);for(auto& ch:health_text)if(ch==' ')ch='_';
  std::printf("SS3_HEALTH status=%s level=%u delivery=%u sample_age_ms=%lu time_valid_at_TX=%u source_recent=%u source_epoch=%lu GPS_PPS=UNKNOWN UTC_error=UNKNOWN wire_added_bytes=0 pages=6 delivery_warning_permille=850 RSSI_policy=PER_PEER_EWMA1HZ_DEADBAND2_HYST3\n",health_text,unsigned(health.level),unsigned(health.delivery),(unsigned long)health.sample_age_ms,unsigned(health.time_valid),unsigned(health.source_recent),(unsigned long)(health.gm?health.gm->source_epoch:0));
- std::printf("SS3_GM_STATUS known=%u available=%u root=%016llx hot=%016llx boot=%016llx sequence=%lu source_epoch=%lu seen_us=%llu checked_us=%llu next_us=%llu checks=%lu misses=%lu result=%u poll_until_us=%llu poll_us=120000000 authority=NONE chart=LOG10 header=BLUE\n",unsigned(d.role.known),unsigned(d.role.available),(unsigned long long)d.role.root,(unsigned long long)d.role.hot,(unsigned long long)d.role.root_boot,(unsigned long)d.role.sequence,(unsigned long)d.role.source_epoch,(unsigned long long)d.role.seen_us,(unsigned long long)d.role.checked_us,(unsigned long long)d.role.next_us,(unsigned long)d.role.checks,(unsigned long)d.role.misses,unsigned(d.role.result),(unsigned long long)d.role.until_us);
+ std::printf("SS3_GM_STATUS known=%u available=%u root=%016llx hot=%016llx boot=%016llx sequence=%lu source_epoch=%lu seen_us=%llu checked_us=%llu next_us=%llu checks=%lu misses=%lu result=%u poll_until_us=%llu poll_us=120000000 event_check_us=1000000 hot_stable_us=10000000 events=%lu authority=NONE chart=LOG10 header=BLUE\n",unsigned(d.role.known),unsigned(d.role.available),(unsigned long long)d.role.root,(unsigned long long)d.role.hot,(unsigned long long)d.role.root_boot,(unsigned long)d.role.sequence,(unsigned long)d.role.source_epoch,(unsigned long long)d.role.seen_us,(unsigned long long)d.role.checked_us,(unsigned long long)d.role.next_us,(unsigned long)d.role.checks,(unsigned long)d.role.misses,unsigned(d.role.result),(unsigned long long)d.role.until_us,(unsigned long)d.role.events);
+ std::printf("SS3_STARTUP splash_shown_us=%llu splash_min_until_us=%llu first_dashboard_us=%llu minimum_us=1000000\n",(unsigned long long)splash_shown_us,(unsigned long long)splash_until_us,(unsigned long long)first_dashboard_us.load());
  for(const auto& p:d.peers)if(p.id)std::printf("SS3_TD_PEER id=%016llx root=%016llx relay=%u hop=%u rssi=%d rssi_min=%d rssi_max=%d publishing=%u ready=%u seen_us=%llu sampled_us=%llu adv=%lu PA=%lu matched=%lu rejected=%lu missed=%lu duplicates=%lu jitter_ns=%lu max_ns=%lu RSSI_smooth=%d bars=%u RSSI_seen_us=%llu RSSI_display_us=%llu channels=%010llx age_us=%lu PHY=%u source_epoch=%lu time_known=%u time_valid_at_TX=%u time_seen_us=%llu TX_age_us=%lu TX_ttl_us=%lu\n",(unsigned long long)p.id,(unsigned long long)p.root,unsigned(p.relay),unsigned(p.depth),int(p.rssi),int(p.rssi_min),int(p.rssi_max),unsigned(p.publishing),unsigned(p.ready),(unsigned long long)p.seen_us,(unsigned long long)p.sampled_us,(unsigned long)p.advertisements,(unsigned long)p.packets,(unsigned long)p.matched,(unsigned long)p.rejected,(unsigned long)p.missed,(unsigned long)p.duplicates,(unsigned long)p.jitter_ns,(unsigned long)p.max_ns,int(p.signal.fresh(d.now_us)?p.signal.value:127),unsigned(p.signal.fresh(d.now_us)?p.signal.bars:0),(unsigned long long)p.signal.seen_us,(unsigned long long)p.signal.display_us,(unsigned long long)p.channels,(unsigned long)p.source_age_us,unsigned(p.phy),(unsigned long)p.source_epoch,unsigned(p.time_known),unsigned(p.time_valid),(unsigned long long)p.time_seen_us,(unsigned long)p.origin_age_us,(unsigned long)p.source_ttl_us);
 std::printf("SS3_LCD frames=%lu errors=%lu max_us=%lu stack_min=%lu fine=%lu coarse=%lu invalid=%lu valid_edges=%lu ready_edges=%lu strips=%lu full_passes=%lu core=1 snapshot=VALUE_OWNED expiry=CANONICAL_AND_FINE optical_scanout=UNMEASURED\n",(unsigned long)frames.load(),(unsigned long)errors.load(),(unsigned long)max_us.load(),(unsigned long)(task?uxTaskGetStackHighWaterMark(task):0),(unsigned long)fine_frames.load(),(unsigned long)coarse_frames.load(),(unsigned long)invalid_frames.load(),(unsigned long)valid_edges.load(),(unsigned long)ready_edges.load(),(unsigned long)painted_strips.load(),(unsigned long)full_passes.load());}
 bool sticks3::power_command(bool download) {

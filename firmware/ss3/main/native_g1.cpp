@@ -34,6 +34,7 @@ extern "C" bool clock_reference_read(uint64_t*);
 #ifdef V12_SS3
 #include "esp_heap_caps.h"
 #include "td_publication.hpp"
+#include "td_role_update.hpp"
 #include "esp_memory_utils.h"
 #include <new>
 #endif
@@ -98,8 +99,8 @@ bool exclude_direct_gm=false;
 bool relay_only_requested=exclude_direct_gm,upstream_mode_change=false;
 #ifdef V12_SS3
 bool td_enabled=true,td_requested=true,td_mode_change=false,td_test=false,td_test_requested=false,td_test_change=false;
-struct TdRoleCandidate {uint8_t wire[R2_ROLE_AD_BYTES]{};uint64_t id=0,at=0;ble_addr_t address{};uint32_t checked_poll=UINT32_MAX;};
-struct TdStorage {TdModel model{};TdSnapshot published[3]{};Discovery locators[8]{};uint64_t ids[8]{};rc7_path paths[8]{};TdRoleCandidate roles[4]{};};
+struct TdRoleCandidate {uint8_t wire[R2_ROLE_AD_BYTES]{};uint64_t id=0,at=0;ble_addr_t address{};bool checked=false;};
+struct TdStorage {TdModel model{};TdSnapshot published[3]{};Discovery locators[8]{};uint64_t ids[8]{};rc7_path paths[8]{};TdRoleCandidate roles[4]{};TdRoleUpdate role_update{};};
 TdStorage* td_storage=nullptr;
 TdPublication td_publication; // Short locked internal DRAM metadata, never PSRAM.
 uint64_t td_until=0,td_request_until=0;unsigned td_phase=0,td_relay_round=0;
@@ -913,7 +914,7 @@ bool admission_due(uint64_t now,bool renewal_map){
 #ifdef V12_SS3
 void td_discovery(const Discovery &d) {
   // Retain one latest bounded raw announcement per GM. Authentication and
-  // status adoption happen only in the120s worker poll, never a callback.
+  // status adoption run in the bounded worker, never a callback.
   if(d.sid==12)for(unsigned at=0;at<d.length;){
     const unsigned n=d.bytes[at];if(!n||at+n>=d.length)break;
     const auto* w=d.bytes+at;
@@ -925,7 +926,7 @@ void td_discovery(const Discovery &d) {
         auto& row=td_storage->roles[slot];
         // Repeated copies of one signed publication never renew its arrival age.
         if(row.id!=id||!same_address(row.address,d.address)||std::memcmp(row.wire,w,R2_ROLE_AD_BYTES)){
-          row.id=id;row.at=d.at;row.address=d.address;row.checked_poll=UINT32_MAX;std::memcpy(row.wire,w,R2_ROLE_AD_BYTES);
+          row.id=id;row.at=d.at;row.address=d.address;row.checked=false;std::memcpy(row.wire,w,R2_ROLE_AD_BYTES);
           // Existing bounded diagnostic queue only; no RF or callback formatting.
           // Preserve each distinct received publication during an explicit capture.
           Report raw{};raw.kind=21;raw.callback_us=d.at;raw.sid=d.sid;raw.address_type=d.address.type;
@@ -1104,6 +1105,39 @@ void td_periodic(uint64_t now) {
     td_packet(row, now);
 }
 
+void td_role_poll(uint64_t now) {
+  auto& role=td_storage->model.view.role;
+  // A poll owns only the remainder of an existing four-second passive survey.
+  // Adopt while a signed source horizon is still live; waiting until survey end
+  // can discard every short-lived report even with healthy1Hz publication.
+  // Missing/invalid reports wait inside this one window, never a retry burst.
+  if(!role.until_us&&now>=role.next_us&&!(td_phase%2)){
+    role.until_us=td_until;role.available=false;role.result=TdSnapshot::Role::NoReport;
+  }
+  if(td_storage->role_update.ready(now)){
+    const auto target=td_storage->model.best(false,now);
+    for(auto& c:td_storage->roles)if(c.id&&c.id==target){
+      if(c.checked)break;
+      r2_role_record record{};
+      const auto& p=td_storage->model.peer(target);
+      bool bound=false;
+      for(unsigned j=0;j<8;j++)bound|=td_storage->ids[j]==target&&same_address(td_storage->locators[j].address,c.address);
+      if(!bound){role.result=TdSnapshot::Role::WrongScope;break;}
+      c.checked=true;
+      if(r2_role_decode(&record,c.wire,sizeof c.wire,&provision.group)||record.sender!=target){role.result=TdSnapshot::Role::Invalid;break;}
+      if(now<c.at||now-c.at>=record.valid_us){role.result=TdSnapshot::Role::Expired;break;}
+      if(p.boot&&p.boot!=record.root_boot){role.result=TdSnapshot::Role::WrongScope;break;}
+      if(p.source_epoch&&p.source_epoch!=record.source_epoch){role.result=TdSnapshot::Role::WrongScope;break;}
+      if(role.known&&role.root==record.root&&role.root_boot==record.root_boot&&record.sequence<=role.sequence){role.result=TdSnapshot::Role::Replay;break;}
+      td_storage->role_update.observe(role,record,c.at,now,role.until_us!=0);break;
+    }
+  }
+  if(role.until_us&&now>=role.until_us){
+    role.until_us=0;role.checked_us=now;role.next_us=now+TdRoleUpdate::PollUs;TdModel::inc(role.checks);
+    TdModel::inc(role.misses);
+  }
+}
+
 void td_poll(uint64_t now) {
   if (!td_until) {
     td_phase = 0;
@@ -1120,36 +1154,7 @@ void td_poll(uint64_t now) {
     }
   td_periodic(now);
   td_storage->model.update_chart(now);
-  auto& role=td_storage->model.view.role;
-  // A poll owns only the remainder of an existing four-second passive survey.
-  // Adopt while a signed source horizon is still live; waiting until survey end
-  // can discard every short-lived report even with healthy1Hz publication.
-  // Missing/invalid reports wait inside this one window, never a retry burst.
-  if(!role.until_us&&now>=role.next_us&&!(td_phase%2)){
-    role.until_us=td_until;role.available=false;role.result=TdSnapshot::Role::NoReport;
-  }
-  if(role.until_us){
-    const auto target=td_storage->model.best(false,now);
-    for(auto& c:td_storage->roles)if(c.id&&c.id==target){
-      if(c.checked_poll==role.checks)break;
-      c.checked_poll=role.checks;
-      r2_role_record record{};
-      const auto& p=td_storage->model.peer(target);
-      bool bound=false;
-      for(unsigned j=0;j<8;j++)bound|=td_storage->ids[j]==target&&same_address(td_storage->locators[j].address,c.address);
-      if(!bound){role.result=TdSnapshot::Role::WrongScope;break;}
-      if(r2_role_decode(&record,c.wire,sizeof c.wire,&provision.group)||record.sender!=target){role.result=TdSnapshot::Role::Invalid;break;}
-      if(now<c.at||now-c.at>=record.valid_us){role.result=TdSnapshot::Role::Expired;break;}
-      if(p.boot&&p.boot!=record.root_boot){role.result=TdSnapshot::Role::WrongScope;break;}
-      if(role.known&&role.root==record.root&&role.root_boot==record.root_boot&&record.sequence<=role.sequence){role.result=TdSnapshot::Role::Replay;break;}
-      role.hot=record.hot;role.root=record.root;role.root_boot=record.root_boot;
-      role.sequence=record.sequence;role.source_epoch=record.source_epoch;role.seen_us=c.at;role.known=role.available=true;role.result=TdSnapshot::Role::Report;break;
-    }
-    if(role.available||now>=role.until_us){
-      role.until_us=0;role.checked_us=now;role.next_us=now+120000000;TdModel::inc(role.checks);
-      if(!role.available)TdModel::inc(role.misses);
-    }
-  }
+  td_role_poll(now);
   if (synced && !sync_terminating)
     stop_scan();
   if ((sync_pending && now >= sync_acquire_until) || now >= td_until) {
@@ -1380,7 +1385,7 @@ void parent_diagnostic_poll(uint64_t now){
   else if(closed&&parent_diagnostic.state==2){
     if(upstream_mode_change){exclude_direct_gm=relay_only_requested;upstream_mode_change=false;}
 #ifdef V12_SS3
-    if(td_mode_change){td_enabled=td_requested;td_mode_change=false;td_test=td_test_requested=false;td_test_change=false;td_phase=0;td_until=0;td_storage->model={};for(auto& c:td_storage->roles)c={};}
+    if(td_mode_change){td_enabled=td_requested;td_mode_change=false;td_test=td_test_requested=false;td_test_change=false;td_phase=0;td_until=0;td_storage->model={};td_storage->role_update={};for(auto& c:td_storage->roles)c={};}
     if(td_test_change){td_test=td_test_requested;td_test_change=false;td_until=0;td_phase=0;td_storage->model.begin(td_test?control.target:0);}
 #endif
     parent_selection.reset();parent_selection.diagnostic(exclude_direct_gm);parent_selection.target(control.target,control.relay);

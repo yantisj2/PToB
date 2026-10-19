@@ -25,6 +25,19 @@ RC7 remains five-minute renewal/six-minute lease. Offline checks include the
 actual matcher and native receive path; SS3 hardware installation/qualification
 requires its own authorized device scope.
 
+Version 0.1.3 updates GM diagnostics during existing passive survey windows.
+The worker checks at most one cached signed report per second, retaining MAC,
+locator, selected-GM, boot, source-epoch, freshness and replay guards. New HOT
+identity/boot observations need ten seconds of dwell; observed withdrawal and
+major scope/membership changes bypass the two-minute routine refresh. This is
+an observed diagnostic dwell across scans, not proof of continuous HOT service.
+No scan windows, radio/task priorities or precision-packet paths change.
+`SS3_GM_STATUS` exposes event counts and the unchanged routine deadline.
+
+The PToB splash paints before USB PHY restoration and BLE initialization. The
+LCD task retains it for at least one second without blocking initialization;
+`SS3_STARTUP` records splash and first-dashboard times for verification.
+
 ## Dependencies and local inputs
 
 Use Git, CMake, Make and Python with ESP-IDF's Xtensa environment. The SDK pin is
@@ -87,6 +100,8 @@ Use recent LLVM Clang with ASan/UBSan, with the SDK environment activated:
 
 ```sh
 CXX=clang++ python3 firmware/ss3/tools/test.py --out artifacts/ss3-host-01
+CC=clang CXX=clang++ python3 firmware/ss3/tools/td_role_tests.py --sdk "$IDF_PATH" \
+  --out artifacts/ss3-role-01
 python3 firmware/ss3/tools/rc7_permission_e2e.py --sdk "$IDF_PATH" \
   --cc clang --out artifacts/ss3-permission-01
 python3 registry/test_registry.py

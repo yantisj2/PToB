@@ -36,4 +36,6 @@ View make_view(const DisplayState& state);
 struct RenderAudit { uint32_t clipped_pixels=0,text_overflow=0; };
 void render(uint8_t frame[FrameBytes],const View& view,RenderAudit* audit=nullptr);
 void render_strip(uint8_t strip[StripBytes],unsigned first_row,const View& view);
+void render_splash(uint8_t frame[FrameBytes],RenderAudit* audit=nullptr);
+void render_splash_strip(uint8_t strip[StripBytes],unsigned first_row);
 }

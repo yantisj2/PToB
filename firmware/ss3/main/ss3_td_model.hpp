@@ -37,7 +37,9 @@ struct TdSnapshot {
     enum Result : uint8_t {Waiting,NoReport,Invalid,Expired,WrongScope,Replay,Report};
     Result result=Waiting;
     uint64_t hot=0,root=0,root_boot=0,seen_us=0,checked_us=0,next_us=0,until_us=0;
-    uint32_t sequence=0,checks=0,misses=0,source_epoch=0;
+    uint64_t hot_boot=0,coordinator=0;
+    uint32_t sequence=0,checks=0,misses=0,source_epoch=0,events=0;
+    uint8_t members=0;
     bool known=false,available=false;
   } role{};
 };

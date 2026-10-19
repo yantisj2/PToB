@@ -2,6 +2,17 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 18 October 2026 — SS3 event diagnostics and startup splash
+
+SS3 **0.1.3** consumes GM role changes during its existing passive scans, with
+at most one signed-report check per second. Major scope/membership changes and
+HOT withdrawal update promptly; a new HOT requires matching observations
+spanning ten seconds. The two-minute routine fallback, authentication/freshness
+guards, scan schedule, task priority and precision traffic remain unchanged.
+An early PToB splash identifies startup before USB/BLE initialization and stays
+visible for at least one second without delaying those owners. Host checks and
+native builds remain separate from hardware verification and timing qualification.
+
 ## 19 October 2026 — Mixed-target relay and timing overview
 
 Refresh the T096 and W12 entry guides around the current G1/RC7 mesh, keeping

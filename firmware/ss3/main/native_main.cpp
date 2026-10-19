@@ -160,7 +160,7 @@ void ss3_next_page(){if(v12::r2_td_status().enabled)page=(page+1)%6;else page=pa
 #ifdef V12_SS3
   char elf[65]{};const auto* app=esp_app_get_description();
   for(unsigned i=0;i<32;++i)std::snprintf(elf+2*i,3,"%02x",app->app_elf_sha256[i]);
-  response.format("SS3_RC7_ID profile=PTOB_SS3_RC_0.1.2_V17 factory_mac=%s source=%s build=%s elf_sha256=%s GNSS=ABSENT LoRa=OFF WiFi=OFF PTS=OFF precision=UNQUALIFIED\n",factory_text,V12_SOURCE_REVISION,V12_BUILD_ID,elf);
+  response.format("SS3_RC7_ID profile=PTOB_SS3_RC_0.1.3_V17 factory_mac=%s source=%s build=%s elf_sha256=%s GNSS=ABSENT LoRa=OFF WiFi=OFF PTS=OFF precision=UNQUALIFIED\n",factory_text,V12_SOURCE_REVISION,V12_BUILD_ID,elf);
 #endif
   const auto gps=gnss_pps::shadow_view(ticks());
   const auto log=v12::log_status();
@@ -701,6 +701,10 @@ extern "C" void app_main(){
   if(gptimer_new_timer(&timer,&clock_timer)!=ESP_OK||gptimer_enable(clock_timer)!=ESP_OK||gptimer_start(clock_timer)!=ESP_OK){
     v12::fault_watchdog_fatal();std::printf("W12_V12_FATAL reason=XTAL_TIMER\n");return;}
 #ifdef V12_SS3
+  // Show boot progress before the USB PHY's deliberate disconnect and before
+  // logger/host initialization. The LCD owner holds the splash asynchronously.
+  ui_ready=display_init();
+  if(!ui_ready){v12::fault_watchdog_fatal();std::printf("W12_V12_FATAL reason=SS3_LCD\n");return;}
   // Proven K150 USJ PHY restoration before logger or any RF owner.
   if(!sticks3::usb_console_start()){v12::fault_watchdog_fatal();std::printf("W12_V12_FATAL reason=SS3_USB_PHY\n");return;}
 #else
@@ -709,7 +713,6 @@ extern "C" void app_main(){
   #endif
   if(!v12::log_start()){v12::fault_watchdog_fatal();std::printf("W12_V12_FATAL reason=CONSOLE_WORKER\n");return;}
 #ifdef V12_SS3
-  ui_ready=display_init();
   if(!ui_ready||!sticks3::buttons_start(clock_timer)){v12::fault_watchdog_fatal();std::printf("W12_V12_FATAL reason=SS3_LCD_OR_BUTTONS\n");return;}
   gps_ready=false;
 #else

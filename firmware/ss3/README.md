@@ -8,12 +8,18 @@ accuracy. [Image provenance](../../docs/images/README.md).*
 
 Copyright (c) 2026 Jonathan Yantis. MIT; inherited source notices apply.
 
-**PToB owns SS3 native G1/RC7 development.** Source firmware version **0.1.2**
+**PToB owns SS3 native G1/RC7 development.** Source firmware version **0.1.3**
 builds on imported source `56740553885420a7f6f301c12de10696a9c8d432`, the M5Stack StickS3
 K150 V17 application with TD diagnostics and a 150 ms health-display hold.
 The Relay Test screen keeps the four strongest nearby relays visible, ordered
 by fresh smoothed RSSI with stable identity ties. It shows the displayed/nearby
 count; missing signal sorts last and expired observations leave the list.
+An early PToB splash stays visible for at least one second while USB and BLE
+initialize. Existing passive scans check signed GM role changes at most once
+per second. Root, boot, source epoch, membership and HOT withdrawal update
+promptly; a new HOT needs matching fresh observations spanning ten seconds.
+Scan gaps can delay that observation. The two-minute unchanged-status fallback,
+radio schedule, task priority and timing authority are unchanged.
 See the [standalone build guide](../../docs/ss3/build.md),
 [cutover record](../../docs/ss3/cutover.md),
 [explicit import provenance](imports/2026-10-16.json) and [notices](NOTICE.md).

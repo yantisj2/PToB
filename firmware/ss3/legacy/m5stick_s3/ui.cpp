@@ -471,6 +471,35 @@ static void paint(Canvas& c,const View& s) {
  }
  footer(c,s);
 }
+// PToB's three timing stems and shared bus, from the project's brand mark.
+// Render geometry directly at panel resolution; no image decoder or heap work.
+static void splash(Canvas& c){
+ constexpr uint16_t Slate=0x32ef,Paper=0xf7de,Soft=0xbe58;
+ c.fill(0,0,Width,Height,Slate);
+ for(unsigned stem=0;stem<3;++stem){
+  const int x=40+int(stem)*27,top=49+int(stem)*12;
+  c.fill(x-1,top,3,60-int(stem)*12,Paper);
+ }
+ c.fill(31,84,72,3,Paper);
+ for(int x:{40,67,94}){for(int y=-9;y<=9;++y)for(int dx=-9;dx<=9;++dx){
+   const int d=dx*dx+y*y;if(d<=81)c.pixel(x+dx,85+y,d>=42?Paper:Slate);
+ }}
+ // Preserve the mixed-case wordmark with its lower-case o.
+ constexpr uint8_t lower_o[]{0x38,0x44,0x44,0x44,0x38};
+ const uint8_t* glyphs[]{font::glyph('P'),font::glyph('T'),lower_o,font::glyph('B')};
+ for(unsigned letter=0;letter<4;++letter)for(int col=0;col<5;++col)for(int row=0;row<7;++row)
+  if(glyphs[letter][col]&(1u<<row))c.fill(33+int(letter)*18+col*3,122+row*3,3,3,Paper);
+ c.center(157,"PRECISION TIME",1,Paper);c.center(170,"OVER BLUETOOTH",1,Paper);
+ c.fill(55,197,25,1,Soft);c.center(210,"STARTING UP",1,Paper);
+ c.center(228,"STICKS3",1,Soft);
+}
+void render_splash(uint8_t frame[FrameBytes],RenderAudit* audit){
+ if(audit)*audit={};Canvas c{frame,audit};splash(c);
+}
+void render_splash_strip(uint8_t strip[StripBytes],unsigned first){
+ if(first>=Height||first%StripRows)return;
+ Canvas c{strip,nullptr,int(first),StripRows};splash(c);
+}
 void render(uint8_t frame[FrameBytes],const View& s,RenderAudit* audit) {
  if(audit)*audit={};
  Canvas c{frame,audit};paint(c,s);
