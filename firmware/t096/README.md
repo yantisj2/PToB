@@ -5,7 +5,7 @@
 *Illustrative firmware-rendered RC screen; displayed values are not measured
 performance. [Image provenance](../../docs/images/README.md).*
 
-**PToB owns T096 RC7 development.** Current version **0.15.110** supplies the
+**PToB owns T096 RC7 development.** Current version **0.15.111** supplies the
 ordinary **GM** and **RC** mesh profiles, with USB timing compiled by default.
 [Build from source](../../docs/t096/build.md) with pinned public dependencies
 and ignored local enrollment. No enrolled binary is distributed.
@@ -51,6 +51,11 @@ function carries original GNSS output and bounded RTCM/configuration input;
 raw observations depend on receiver firmware and do not imply onboard RTK.
 DC and RC share an immutable USB publisher whose original source, map and
 session deadlines cannot be renewed by polling.
+
+**[Power Control (PC)](../../docs/t096/power-control.md)** is a separate,
+flash-only awake BLE leaf experiment. Fixed listening/HOLD budgets and causal
+BLE/PPS observations characterize experimental relative precision. It does not
+implement sleep or measure energy, and cannot select an ordinary profile.
 
 All targets use the [shared display registry](../../registry/README.md).
 [PSKs](../../docs/security/psk.md),

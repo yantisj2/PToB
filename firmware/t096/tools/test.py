@@ -16,6 +16,8 @@ with tempfile.TemporaryDirectory(prefix='t096-r2-test-') as directory:
                    env={**os.environ,'CC':compiler},check=True,timeout=60)
     subprocess.run([sys.executable,str(APP/'tools/dc_gnss_tests.py'),'--out',str(out/'dc-gnss')],
                    env={**os.environ,'CC':compiler},check=True,timeout=60)
+    subprocess.run([sys.executable,str(APP/'tools/pc_tests.py'),'--out',str(out/'pc')],
+                   env={**os.environ,'CC':compiler},check=True,timeout=60)
     for suite in ['precision_schedule','initiator_aux','rc_renewal','rc_relay_admission','rc_relay_renewal','rc_source_wait','rc_transport_hold','usb_lifecycle','gm_discovery','rc_path_role','rc_gm_failover','rc_gm_admission','rc_mtu','rc_passive_scan']:
         subprocess.run([sys.executable,str(APP/'tools'/(suite+'_tests.py')),
                         '--deps',str(args.deps),'--out',str(out/suite)],

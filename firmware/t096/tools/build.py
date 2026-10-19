@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build RC7 (GM/RC) or the separate DC GNSS/USB image, without hardware access.
+"""Build RC7 (GM/RC), DC GNSS/USB or PC awake-only images without hardware access.
 Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT
 """
 import argparse
@@ -36,7 +36,8 @@ def main():
     parser.add_argument('--out', type=Path, required=True)
     parser.add_argument('--enrollment', type=Path)
     parser.add_argument('--device-config', type=Path, required=True)
-    parser.add_argument('--profile', choices=['GM', 'RC', 'DC'], required=True)
+    parser.add_argument('--profile', choices=['GM', 'RC', 'DC', 'PC'], required=True)
+    parser.add_argument('--pc-parent', help='Exact enrolled direct-GM identity for the isolated PC leaf')
     parser.add_argument('--registry', type=Path, default=REPO/'registry/example.json')
     parser.add_argument('--development', action='store_true')
     args = parser.parse_args()
@@ -48,10 +49,16 @@ def main():
     if dirty and not args.development:
         parser.error('Commit reviewed public inputs before a release-candidate build')
     dc = args.profile == 'DC'
+    pc = args.profile == 'PC'
+    if pc:
+        if not args.pc_parent or not re.fullmatch('[0-9a-f]{16}',args.pc_parent) or not int(args.pc_parent,16):
+            parser.error('PC requires --pc-parent with one exact direct-GM identity')
+    elif args.pc_parent:
+        parser.error('--pc-parent is only valid for PC')
     if dc and args.enrollment:
         parser.error('DC has no group enrollment; omit --enrollment')
     if not dc and not args.enrollment:
-        parser.error('GM/RC require --enrollment')
+        parser.error('GM/RC/PC require --enrollment')
     for path in [p for p in [args.enrollment, args.device_config] if p]:
         if subprocess.run(['git','-C',str(REPO),'check-ignore','--quiet',str(path.resolve())]).returncode:
             parser.error('Local enrollment/device inputs must be ignored by Git')
@@ -78,6 +85,8 @@ def main():
                 and int(group,16) and type(epoch) is int and 0 < epoch < 2**32):
             raise ValueError('Invalid local group enrollment')
     identity,label,battery = device['device_id'],device['label'],device['battery']
+    if pc and args.pc_parent==identity:
+        parser.error('PC parent must differ from the device identity')
     if not (re.fullmatch('[0-9a-f]{16}',identity) and int(identity,16) and
             re.fullmatch('[A-Za-z0-9_-]{5}',label) and type(battery) is int and battery in (-1,0,1)
             and device['board']=='heltec_t096_ht_n5262g'):
@@ -88,7 +97,7 @@ def main():
     version=re.search(r'^project\(ptob_t096 VERSION ([0-9]+\.[0-9]+\.[0-9]+)\)',
                       (APP/'CMakeLists.txt').read_text(),re.M)
     if not version:raise ValueError('Missing canonical CMake application version')
-    receipt = {'schema':1,'artifact_class':'PTOB_T096_DC1' if dc else 'PTOB_T096_RC7','version':version[1],
+    receipt = {'schema':1,'artifact_class':'PTOB_T096_DC1' if dc else 'PTOB_T096_PC1' if pc else 'PTOB_T096_RC7','version':version[1],
                'status':'INCOMPLETE','public_commit':git(REPO,'rev-parse','HEAD'),
                'child_commit':git(REPO,'rev-parse','HEAD'),'source_dirty':dirty,'sources':source,'source_sha256':source_hash,
                'profile':args.profile,'usb_source_stream':True,'dependencies':lock,
@@ -116,8 +125,14 @@ def main():
     else:
         secret.write_text('/* device-config-sha256: '+sha(args.device_config)+'; registry-sha256: '+sha(args.registry)+' */\n#include "ble_service.h"\nstatic const struct r2_enrollment r2_enrollment={'
         '.group={.psk={'+','.join(map(str,key))+'},.id=UINT64_C(0x'+group+'),.epoch='+str(epoch)+'},'
-        '.rc_dynamic=true,.rc7_boot_rc='+('true' if args.profile=='RC' else 'false')+','
+        '.rc_dynamic=true,.rc7_boot_rc='+('true' if args.profile in ('RC','PC') else 'false')+','+
+        ('.rc7_leaf=true,.rc7_boot_parent=UINT64_C(0x'+args.pc_parent+'),' if pc else '')+
         '.local_capabilities=7,.map_bound_us=40000};\n')
+        if pc:
+            receipt.update(ble_enabled=True,profile_toggleable=False,awake_only=True,
+                           relay_transmit=False,pc_parent=args.pc_parent,
+                           timing_chain='AUTHENTICATED_DIRECT_GM_BLE_TIMER3_EXPERIMENTAL_HOLD')
+            write(out/'receipt.json',receipt)
     (out/'target/ptob_device.h').write_text('#define PTOB_DEVICE_ID "'+identity+'"\n'
         '#define PTOB_DEVICE_LABEL "'+label+'"\n#define PTOB_DEVICE_BATTERY '+str(battery)+'\n')
     env=os.environ.copy()
@@ -135,7 +150,7 @@ def main():
              '-DR2_SOURCE_DIRTY='+str(int(dirty)),
              '-DZEPHYR_MODULES='+';'.join(str(deps/p['path']) for p in lock['modules']),
              *(['-DR2_DC_PROFILE=ON','-DCONF_FILE='+str(APP/'dc.conf'),'-DDTC_OVERLAY_FILE='+str(APP/'dc.overlay')] if dc else
-               ['-DEXTRA_CONF_FILE='+';'.join(str(APP/p) for p in ['rc_dynamic.conf','rc_unicast.conf','watchdog.conf','rc_hf_synth.conf'])])]
+               [*(['-DR2_PC_PROFILE=ON'] if pc else []),'-DEXTRA_CONF_FILE='+';'.join(str(APP/p) for p in ['rc_dynamic.conf','rc_unicast.conf','watchdog.conf','rc_hf_synth.conf'])])]
     try:
         run(command,'configure.log');run(['ninja','-C',str(out/'target')],'build.log')
         check_deps()

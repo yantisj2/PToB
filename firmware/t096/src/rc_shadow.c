@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 #include "rc_shadow.h"
 #include "capture.h"
+#ifdef R2_PC_PROFILE
+#include "pc_experiment.h"
+#endif
 #include <zephyr/kernel.h>
 #include <limits.h>
 #include <zephyr/sys/atomic.h>
@@ -45,7 +48,11 @@ void r2_shadow_map(const struct rc5_clock *c,const struct rc5_state *s,uint64_t 
   .issued=s->reference.origin.issued,.source_expires=s->reference.origin.expires,.utc_offset=s->reference.origin.utc_offset};
  struct r2_capture now;
  if(r2_capture_now(&now)&&now.epoch==epoch&&now.tick>=lo){
-  m.active=now.tick;history.map[history.head]=m;history.head=(history.head+1)%RC_SHADOW_HISTORY;
+  m.active=now.tick;
+#ifdef R2_PC_PROFILE
+  r2_pc_offer(&m);
+#endif
+  history.map[history.head]=m;history.head=(history.head+1)%RC_SHADOW_HISTORY;
   if(history.count<RC_SHADOW_HISTORY)++history.count;
  }
  k_spin_unlock(&lock,key);
@@ -63,6 +70,16 @@ void r2_shadow_edge(struct r2_capture edge,int64_t arrival){
 }
 #if defined(R2_BOUNDARY_FIELD) || defined(R2_SHADOW_FIELD_MAP) || defined(R2_SHADOW_TEST_BOTH)
 static void __attribute__((noinline)) shadow_field_evaluate(struct rc_shadow_record *r){
+#ifdef R2_PC_PROFILE
+   if(r->map.experimental){
+    uint64_t ns,elapsed;
+    if(!rc5_map_project(&r->map.map,r->edge.tick,&ns,&elapsed)||ns>INT64_MAX){r->reason=RC_SHADOW_ARITHMETIC;return;}
+    r->valid=true;r->relay_ns=ns;
+    uint64_t fraction=ns%1000000000;r->phase_ns=fraction>=500000000?(int64_t)fraction-1000000000:(int64_t)fraction;
+    /* Relative phase only. No fresh UTC/source permission is asserted. */
+    return;
+   }
+#endif
    /* This RC-only frame must never exist on the normal main-thread path. */
    struct rc5_clock c={.map={r->map.map},.count=1,.head=1,.hold_ticks=RC_SHADOW_HOLD_TICKS,
     .root_boot=r->map.root_boot,.root_epoch=r->map.root_epoch,.parent_boot=r->map.parent_boot,.parent_epoch=r->map.parent_epoch};
@@ -86,6 +103,9 @@ static void shadow_poll(bool allow_field){
   k_spinlock_key_t key=k_spin_lock(&lock);
   if(qcount){r=queue[qtail];qtail=(qtail+1)%RC_SHADOW_QUEUE;--qcount;r.reason=rc_shadow_select(&history,r.edge,&r.map);have=true;}
   k_spin_unlock(&lock,key);if(!have)break;
+#ifdef R2_PC_PROFILE
+  if(r2_pc_witness_map(r.edge,&r.map))r.reason=RC_SHADOW_OK;
+#endif
   if(r.reason==RC_SHADOW_OK){
    if(r.map.normal){
     int64_t ns=0;
@@ -124,6 +144,10 @@ void r2_shadow_reference(struct r2_capture edge,const struct r2_clock *c){
 }
 static void disabled_clear(void){history.count=history.head=0;qcount=qhead=qtail=0;ref_count=ref_head=0;}
 void r2_shadow_enable(bool enabled){
+#ifdef R2_PC_PROFILE
+ /* PC evidence collection is independent of UI pages and screensaver state. */
+ enabled=true;
+#endif
  if((bool)atomic_get(&requested)==enabled)return;
  k_spinlock_key_t key=k_spin_lock(&lock);atomic_set(&requested,enabled);
  stats.enabled=enabled&&!atomic_get(&serving);if(!stats.enabled)disabled_clear();k_spin_unlock(&lock,key);

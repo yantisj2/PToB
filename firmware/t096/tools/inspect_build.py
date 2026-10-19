@@ -13,7 +13,8 @@ def require(ok,message):
 def inspect(out,allow_development=False):
     out=Path(out);r=json.loads((out/'receipt.json').read_text())
     dc=r['profile']=='DC'
-    require((r['artifact_class']=='PTOB_T096_DC1' if dc else r['artifact_class']=='PTOB_T096_RC7' and r['profile'] in ('GM','RC')) and r['usb_source_stream'] is True,'Unknown profile')
+    pc=r['profile']=='PC'
+    require((r['artifact_class']=='PTOB_T096_DC1' if dc else r['artifact_class']=='PTOB_T096_PC1' if pc else r['artifact_class']=='PTOB_T096_RC7' and r['profile'] in ('GM','RC')) and r['usb_source_stream'] is True,'Unknown profile')
     require(r['status']=='BUILD_COMPLETE_PHYSICAL_UNKNOWN' or allow_development and r['status']=='DEVELOPMENT_NOT_FLASHABLE','Unreviewable build')
     require(not r['source_dirty'] or allow_development,'Dirty source')
     for name,h in r['artifacts'].items():require(sha(out/name)==h,'Changed artifact: '+name)
@@ -61,6 +62,19 @@ def inspect(out,allow_development=False):
         require('/src/dc_gnss.c' not in commands and '/src/dc_gnss_transport.c' not in commands and 'cdc_acm_gnss' not in dts,'DC GNSS bridge leaked into GM/RC')
     for feature in [('R2_DC_PROFILE=1' if dc else 'R2_RC_PROFILE=1'),'R2_USB_SOURCE_STREAM=1','R2_USB_SOF_PROBE=1']:
         require(feature in commands,'Missing standard RC7 feature: '+feature)
+    if pc:
+        require(r.get('awake_only') is True and r.get('profile_toggleable') is False and r.get('relay_transmit') is False,'PC receipt contract')
+        require('R2_PC_PROFILE=1' in commands and '/src/pc_profile_service.c' in commands and '/src/pc_experiment.c' in commands,'Missing PC owner')
+        require(not any(x in commands for x in ['/src/rc_profile_service.c','/src/ble_service.c','/src/radio_service.c','/src/relay_service.c','/src/direct_connect.c']),'PC contains ordinary profile owners')
+        enrollment=(out/'r2_enrollment.h').read_text()
+        require('.rc7_leaf=true' in enrollment and '.rc7_boot_rc=true' in enrollment and
+                '.rc7_boot_parent=UINT64_C(0x'+r['pc_parent']+')' in enrollment,'PC leaf/parent binding')
+        with (out/'target/zephyr/zephyr.elf').open('rb') as f:
+            symbols={s.name for s in ELFFile(f).get_section_by_name('.symtab').iter_symbols()}
+        require(not any(x in symbols for x in ['r2_normal_service_configure','r2_normal_service_run','r2_radio_service_gm_start','r2_dc_poll']),'PC linked ordinary timing owner')
+        require('CONFIG_CLOCK_CONTROL_NRF_K32SRC_SYNTH=y' in config,'PC awake clock configuration changed')
+    else:
+        require('R2_PC_PROFILE=1' not in commands and '/src/pc_' not in commands,'PC leaked into ordinary image')
     if dc:
         require('# CONFIG_BT is not set' in config and not re.search(r'^CONFIG_BT\w*=y$',config,re.M),'DC Bluetooth enabled')
         require(r.get('enrollment_mode')=='NONE_DC_LOCAL_GNSS' and r.get('ble_enabled') is False and

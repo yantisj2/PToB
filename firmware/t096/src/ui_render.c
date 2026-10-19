@@ -342,6 +342,9 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
   label(fb,5,131,"GM/RC: MODE",1,C_DIM);label(fb,5,148,"PRESS:BACK",1,C_DIM);return;
  }
  if(status->page==0){front_clock(fb,&s);
+#ifdef R2_PC_PROFILE
+  fill(fb,0,0,80,15,C_BG);label(fb,10,4,"PC AWAKE",1,C_AMBER);
+#endif
   if(m->profile_supported&&now<status->profile_flash_until&&((now/400)%2)==0){
    fill(fb,0,0,80,15,C_BG);label(fb,status->profile_target_rc?1:10,4,status->profile_target_rc?"RELAY PROFILE":"GM PROFILE",1,C_AMBER);
   }

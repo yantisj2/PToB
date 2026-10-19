@@ -2,6 +2,17 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 19 October 2026 — T096 isolated awake-only PC experiment
+
+T096 **0.15.111** adds a separate flash-only Power Control image with one
+explicit direct-GM parent and no normal GM owner or downstream timing service.
+Fixed-budget warm/cold-estimator LISTEN/HOLD treatments preserve frozen
+experimental projections and causal pre-update BLE/PPS records. Radio HOLD
+uses the existing bounded receiver drain and fresh receiver incarnation on
+return. Normal GM/RC/DC timing, authentication and source/map expiry remain.
+This stage implements no sleep or power measurement; RMS targets and calibrated
+UTC/output performance remain unqualified. See the [PC protocol](docs/t096/power-control.md).
+
 ## 19 October 2026 — T096 clear failed parent selection after outage
 
 T096 **0.15.110** retires a previously working parent once usable time has been

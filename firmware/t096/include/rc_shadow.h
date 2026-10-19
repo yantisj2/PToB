@@ -11,6 +11,9 @@
 #define RC_SHADOW_HOLD_TICKS UINT64_C(8000000)
 enum rc_shadow_reason { RC_SHADOW_OK,RC_SHADOW_NO_MAP,RC_SHADOW_ACTIVATION_RACE,RC_SHADOW_HISTORY_MISSING,RC_SHADOW_EXPIRED,RC_SHADOW_BAD_CAPTURE,RC_SHADOW_ARITHMETIC };
 struct rc_shadow_map {
+#ifdef R2_PC_PROFILE
+ bool experimental; /* PC-only projection; never operating permission. */
+#endif
  struct rc5_map map;uint64_t lo,active,epoch,parent,parent_boot,root,root_boot,issued,source_expires;
  int64_t utc_offset;uint32_t root_epoch,parent_epoch,train,accepted;
  r2_servo_map_t normal_map;uint64_t normal_until;bool normal;

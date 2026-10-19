@@ -7,6 +7,9 @@
 #include "time_service.h"
 #include "capture.h"
 #include "gnss_aid.h"
+#ifdef R2_PC_PROFILE
+#include "pc_experiment.h"
+#endif
 #ifdef R2_DC_PROFILE
 #include "direct_connect.h"
 #include "dc_gnss.h"
@@ -147,6 +150,15 @@ static uint32_t stack_unused(bool system_workqueue)
 #endif
 static void __attribute__((noinline)) reply(const struct r2_request *r,uint64_t arrival,int result)
 {
+#ifdef R2_PC_PROFILE
+  if(r->op==R2_PC||r->op==R2_PC_RUN){
+    int n=r2_pc_json(json,sizeof json,r->op==R2_PC?(uint32_t)r->nonce:UINT32_MAX,result);
+    if(n<=0||(size_t)n>=sizeof json||reply_sequence==UINT32_MAX)return;
+    int extra=snprintf(json+n-1,sizeof json-(size_t)n+1,",\"source\":\"%s\",\"commit\":\"%s\",\"boot\":\"%016llx\",\"silicon\":\"%s\",\"unit\":\"%s\"}",R2_SOURCE_SHA,R2_CHILD_COMMIT,(unsigned long long)identity.boot,identity.silicon,identity.unit);
+    if(extra<0||(size_t)extra>=sizeof json-(size_t)n+1)return;
+    n=r2_frame(frame,sizeof frame,r->id,++reply_sequence,json);if(n>0)(void)r2_console_reply(frame,(size_t)n,arrival+R2_REPLY_MS);return;
+  }
+#endif
   if(r->op==R2_CLOCK){clock_reply(r,arrival);return;}
 #ifdef R2_DC_PROFILE
   if(r->op==R2_PRECISION){
@@ -209,6 +221,10 @@ static void __attribute__((noinline)) reply(const struct r2_request *r,uint64_t 
       "{\"schema\":1,\"source\":\"%s\",\"commit\":\"%s\",\"silicon\":\"%s\",\"unit\":\"%s\",\"boot\":\"%016llx\",\"result\":%d,\"found\":%s,\"enabled\":%s,\"edges\":%u,\"queue_drops\":%u,\"overwritten\":%u,\"disabled_edges\":%u,\"duplicates\":%u,\"now_tick\":%llu,\"now_epoch\":%llu,\"sequence\":%u,\"edge_tick\":%llu,\"edge_epoch\":%llu,\"arrival_us\":%lld,\"reason\":%u,\"map_valid\":%s,\"map_generation\":%u,\"activation_lo\":%llu,\"activation_tick\":%llu,\"discipline_tick\":%llu,\"relay_ns\":%llu,\"utc_ns\":%lld,\"phase_ns\":%lld,\"pll\":%s,\"parent\":\"%016llx\",\"parent_boot\":\"%016llx\",\"root\":\"%016llx\",\"root_boot\":\"%016llx\",\"root_epoch\":%u,\"parent_epoch\":%u,\"train\":%u,\"accepted\":%u,\"root_issued_ns\":%llu,\"reference_seen\":%s,\"association\":%u,\"reference_fix\":%s,\"reference_pps\":%s,\"reference_reason\":%u,\"rmc_utc_us\":%lld,\"rmc_at_us\":%lld,\"applied_phase_correction_ns\":%d,\"absolute_error_ns\":null}",
       R2_SOURCE_SHA,R2_CHILD_COMMIT,identity.silicon,identity.unit,(unsigned long long)identity.boot,result,found?"true":"false",st.enabled?"true":"false",st.edges,st.drops,st.overwritten,st.disabled,st.duplicates,(unsigned long long)st.now_tick,(unsigned long long)st.epoch,q.sequence,(unsigned long long)q.edge.tick,(unsigned long long)q.edge.epoch,(long long)q.arrival_us,q.reason,q.valid?"true":"false",q.map.map.generation,(unsigned long long)q.map.lo,(unsigned long long)q.map.active,(unsigned long long)q.map.map.effective,(unsigned long long)q.relay_ns,(long long)q.utc_ns,(long long)q.phase_ns,q.pll?"true":"false",(unsigned long long)q.map.parent,(unsigned long long)q.map.parent_boot,(unsigned long long)q.map.root,(unsigned long long)q.map.root_boot,q.map.root_epoch,q.map.parent_epoch,q.map.train,q.map.accepted,(unsigned long long)q.map.issued,q.reference_seen?"true":"false",q.association,q.reference_fix?"true":"false",q.reference_pps?"true":"false",q.reference_reason,(long long)q.rmc_utc_us,(long long)q.rmc_at_us,(r2_enrollment.boundary_field?rc_direct_pps_correction(r2_enrollment.boundary_profile):RC_DIRECT_PPS_CORRECTION_NS));
     if(n<0||(size_t)n>=sizeof json||reply_sequence==UINT32_MAX)return;
+#ifdef R2_PC_PROFILE
+    int extra=snprintf(json+n-1,sizeof json-(size_t)n+1,",\"image_profile\":\"PC\",\"pc_projection\":%s,\"experimental\":true}",q.map.experimental?"true":"false");
+    if(extra<0||(size_t)extra>=sizeof json-(size_t)n+1)return;
+#endif
     n=r2_frame(frame,sizeof frame,r->id,++reply_sequence,json);if(n>0)(void)r2_console_reply(frame,(size_t)n,arrival+R2_REPLY_MS);return;
   }
   if(r->op==R2_JOIN){
@@ -221,7 +237,9 @@ static void __attribute__((noinline)) reply(const struct r2_request *r,uint64_t 
       R2_SOURCE_SHA,(unsigned long long)identity.boot,(unsigned long long)s.group_id,s.key_epoch,names[0],s.authenticated_mask,
       (unsigned long long)s.identities[0],names[1],(unsigned long long)s.identities[1],names[2],(unsigned long long)s.identities[2],names[3],(unsigned long long)s.identities[3],names[4]);
     uint32_t gm[R2_GM_TRANSPORT_WORDS]={0},pa[6]={0};
+#ifndef R2_PC_PROFILE
     if(!s.profile_rc){r2_ble_gm_diagnostics(gm);r2_radio_service_gm_diagnostics(pa);}
+#endif
     for(unsigned i=0;i<R2_GM_TRANSPORT_WORDS&&n>=0&&(size_t)n<sizeof json;i++){
       int added=snprintf(json+n,sizeof json-(size_t)n,"%s%u",i?",":"",gm[i]);
       if(added<0){n=-1;break;}n+=added;
@@ -236,7 +254,9 @@ static void __attribute__((noinline)) reply(const struct r2_request *r,uint64_t 
     struct r2_radio_capture_stats raw;r2_radio_capture_stats(&raw);
     bool normal_closed=true;uint32_t idle_discards=0;
 #if !defined(R2_BOUNDARY_FIELD) || defined(R2_SWITCHABLE_FIELD)
+#ifndef R2_PC_PROFILE
     normal_closed=r2_radio_service_closed();idle_discards=r2_radio_service_idle_discards();
+#endif
 #endif
     int n=snprintf(json,sizeof(json),"{\"source\":\"%s\",\"commit\":\"%s\",\"silicon\":\"%s\",\"unit\":\"%s\",\"boot\":\"%016llx\",\"at_us\":%llu,\"session\":\"%016llx\",\"field_profile\":%s,\"activation_until_us\":%llu,\"pending\":%s,\"selected\":%s,\"active\":%s,\"persistent\":%s,\"deadline_us\":%llu,\"version\":2,\"root_slot\":%u,\"upstream_slot\":%u,\"role\":%u,\"root_identity\":\"%016llx\",\"upstream_identity\":\"%016llx\",\"root_boot\":\"%016llx\",\"source_epoch\":%u,\"source_created_ns\":%llu,\"source_expires_ns\":%llu,\"source_frame_ns\":%llu,\"source_projection_revision\":%llu,\"train\":%u,\"map_incarnation\":%u,\"lifecycle\":%llu,\"rx_lifecycle\":%llu,\"tx_lifecycle\":%llu,\"accepted_corrections\":%u,\"tx_corrections\":%u,\"correction_age_ms\":%u,\"upstream_update_age_ms\":%u,\"root_source_age_ms\":%u,\"map_valid\":%s,\"selected_utc_us\":%llu,\"quiet\":%s,\"phase_target_ns\":%lld,\"phase_ns\":%lld,\"phase_error_ns\":%lld,\"phase_admitted\":%s,\"retries\":%u,\"bound_ns\":%u,\"bound_known\":false,\"experimental_hold_us\":500000,\"experimental_held\":%s,\"max_reservation_us\":%u,\"max_prepare_us\":%u,\"max_receive_window_us\":%u,\"capture_completed\":%u,\"capture_invalid\":%u,\"capture_overflow\":%u,\"flushed\":%u,\"cost_refusals\":%u,\"rejected\":%u,\"duplicates\":%u,\"error\":%d,\"error_name\":\"%s\",\"fault_line\":%u,\"window_faults\":%u,\"window_recoveries\":%u,\"window_fault_site\":%u,\"window_fault_at_us\":%llu,\"window_fault_deadline_us\":%llu,\"window_recovering\":%s,\"direct_path\":[%llu,%llu,%llu,%llu],\"raw_capture\":[%u,%u,%u,%s],\"normal_receiver_closed\":%s,\"idle_capture_discards\":%u,\"absolute_utc_qualified\":false,\"output_qualified\":false}",
       R2_SOURCE_SHA,R2_CHILD_COMMIT,identity.silicon,identity.unit,(unsigned long long)identity.boot,(unsigned long long)s.at,(unsigned long long)s.relay_session,
@@ -291,6 +311,9 @@ static void __attribute__((noinline)) reply(const struct r2_request *r,uint64_t 
   int n=snprintf(json,sizeof(json),
 #ifdef R2_DC_PROFILE
     "{\"image_profile\":\"DC\",\"profile_toggleable\":false,\"relay_hops\":0,\"ble_enabled\":false,\"dc_source_active\":%s,"
+    "\"version\":\"%s\",\"source\":\"%s\",\"commit\":\"%s\",\"dirty\":%d,"
+#elif defined(R2_PC_PROFILE)
+    "{\"image_profile\":\"PC\",\"profile_toggleable\":false,\"awake_only\":true,\"relay_transmit\":false,"
     "\"version\":\"%s\",\"source\":\"%s\",\"commit\":\"%s\",\"dirty\":%d,"
 #else
     "{\"version\":\"%s\",\"source\":\"%s\",\"commit\":\"%s\",\"dirty\":%d,"
@@ -368,6 +391,9 @@ int main(void)
   k_thread_priority_set(k_current_get(),7);
   r2_time_init();
   r2_identify(&identity); r2_health_init(identity.boot); event(1,identity.result);
+#ifdef R2_PC_PROFILE
+  r2_pc_init();r2_shadow_enable(true);
+#endif
 #ifdef R2_USB_SOF_PROBE
   r2_usb_sof_init(&identity);
 #endif
@@ -417,7 +443,13 @@ int main(void)
     r2_timing_sample(&service,now);
     r2_timing_console(identity.boot,now);
 #ifdef R2_RC_PROFILE
-    r2_watchdog_observe(&service,maintenance.phase==R2_IDLE&&!poweroff_requested&&!r2_ui_poweroff_requested());
+    r2_watchdog_observe(&service,
+#ifdef R2_PC_PROFILE
+      false /* Intentional HOLD is not a failed parent; core WDT stays active. */
+#else
+      maintenance.phase==R2_IDLE&&!poweroff_requested&&!r2_ui_poweroff_requested()
+#endif
+    );
     unsigned watchdog_retry=r2_watchdog_take_restart();
     if(watchdog_retry){
       r2_diag_watchdog(watchdog_retry,-ETIMEDOUT);
@@ -556,6 +588,10 @@ int main(void)
             if(rc) { maintenance.phase=R2_FAULT; maintenance.error=rc; }
           }
           event(6,rc);
+#ifdef R2_PC_PROFILE
+        } else if(r.op==R2_PC_RUN){
+          rc=maintenance.phase==R2_IDLE&&platform_ready?r2_pc_begin(r.trace_page,r.nonce):-EACCES;
+#endif
 #ifdef R2_NATIVE_BLE
         } else if(r.op==R2_WITNESS) {
           if(maintenance.phase!=R2_IDLE)rc=-EACCES;else r2_shadow_enable(r.nonce!=0);

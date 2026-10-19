@@ -11,6 +11,10 @@ chain; see the [stability results](../../evidence/stability/2026-10-16/README.md
 The public builder never opens hardware. It uses only this checkout, pinned
 public dependencies and your ignored local enrollment/device inputs.
 
+The separate [PC awake-only experiment](power-control.md) uses `--profile PC`,
+group enrollment and an explicit `--pc-parent` direct-GM identity. It cannot
+switch profiles at runtime and preserves the ordinary images' timing policy.
+
 The first validated build host is Apple Silicon macOS. Install Git, CMake,
 Python 3.12+ and LLVM/Clang for host sanitizer tests. Linux/Windows SDK locks and
 clean-host validation remain pending. The dependency acquisition command uses

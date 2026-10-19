@@ -17,6 +17,9 @@
 #include "rc_admission_policy.h"
 #include "rc_transport_hold.h"
 #include "rc_shadow.h"
+#ifdef R2_PC_PROFILE
+#include "pc_experiment.h"
+#endif
 #include "rc_slots.h"
 #include "rc_stream_quality.h"
 #include "rc_search.h"
@@ -1530,6 +1533,10 @@ static void captures(struct r2_capture now) {
         }
         current_origin = timing.reference.origin;
         memcpy(current_proof, timing.reference.proof, 16);
+#ifdef R2_PC_PROFILE
+        /* Score the old projection before this pair can train either fit/map. */
+        if(!r2_pc_observe(&timing.reference,capture_epoch))continue;
+#endif
         (void)rc5_rate_add(&fit, &timing.reference);
         fit_rms_valid = rc5_rate_rms(&fit, &fit_rms);
         /* Hardware TX/RX ADDRESS captures: no simulator bias constant imported.
@@ -1793,6 +1800,16 @@ static void owner(void *a, void *b, void *c) {
     /* Consume and publish precision captures before admission/discovery work.
      * Renewal is a background target, never a reason to defer this drain.
      */
+#ifdef R2_PC_PROFILE
+    if(r2_pc_reset(now.tick,now.epoch)){
+      fit=(struct rc5_rate_fit){0};fit_rms=RC5_UNKNOWN;fit_rms_valid=false;
+      local_clock=(struct rc5_clock){.hold_ticks=RC_FIELD_HOLD_TICKS};
+      r2_shadow_normal_withdraw();
+#ifdef R2_USB_SOURCE_STREAM
+      r2_usb_source_withdraw();
+#endif
+    }
+#endif
     captures(now);
     bool search=(!parent_known || relay_fallback) && !forced_parent && !exclude_direct;
     bool scan_owned=search && scanning && !creating && !lt_conn && !lt_paused;
