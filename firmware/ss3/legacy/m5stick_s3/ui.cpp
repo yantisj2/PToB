@@ -494,7 +494,8 @@ static void splash(Canvas& c){
  c.center(228,"STICKS3",1,Soft);
 }
 void render_splash(uint8_t frame[FrameBytes],RenderAudit* audit){
- if(audit)*audit={};Canvas c{frame,audit};splash(c);
+ if(audit)*audit={};
+ Canvas c{frame,audit};splash(c);
 }
 void render_splash_strip(uint8_t strip[StripBytes],unsigned first){
  if(first>=Height||first%StripRows)return;
