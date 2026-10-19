@@ -19,7 +19,7 @@ enum r2_op { R2_STATUS, R2_TRACE, R2_PREPARE, R2_COMMIT, R2_CLOCK, R2_UI, R2_BLE
 #endif
  , R2_EVENTS
 #ifdef R2_PC_PROFILE
- , R2_PC, R2_PC_RUN
+ , R2_PC, R2_PC_RUN, R2_PC_CYCLE
 #endif
 };
 enum r2_maintenance { R2_IDLE, R2_CLOSING, R2_READY, R2_RESET, R2_FAULT };

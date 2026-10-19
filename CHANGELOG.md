@@ -2,6 +2,15 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 19 October 2026 — T096 bounded sparse PC refresh
+
+PC **0.15.113** adds finite warm-estimator LISTEN/HOLD cycles with fixed counter
+deadlines, retained training across short bursts, per-record cycle/training
+labels and explicit missed-burst counts. Completion keeps training suppressed
+until a new experiment command. Reception remains awake for causal observation;
+scheduled training fraction is not measured RF airtime or energy. Ordinary
+GM/RC/DC timing and permission expiry remain unchanged.
+
 ## 19 October 2026 — SS3 survey and display recovery
 
 SS3 **0.1.4** retires deferred sync cleanup when an asynchronous create failure

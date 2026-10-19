@@ -45,5 +45,37 @@ int main(void){
  snprintf(command,sizeof command,"r2 00000001 1111111111111111 %064u 0000000000000001 pc-run 00000002 000003e80000ea60",0);
  assert(!r2_parse(command,&req)&&req.op==R2_PC_RUN&&req.trace_page==2&&req.nonce==UINT64_C(0x3e80000ea60));
  strcat(command," x");assert(r2_parse(command,&req));
+ /* Warm sparse bursts retain the old map/rate, gate training at fixed
+  * deadlines, count empty bursts, and never train after the finite run. */
+ pc_init(&p);m=map(16000000);pc_offer(&p,&m);
+ assert(pc_begin_cadence(&p,0,125,1000,16000100,7)==-EINVAL);
+ assert(pc_begin_cadence(&p,128,2000,60000,16000100,7)==-EINVAL);
+ assert(!pc_begin_cadence(&p,3,125,1000,16000100,7));
+ assert(p.mode==PC_CADENCE_SHADOW&&p.cycle==1&&p.cycles==3&&!p.reset_pending);
+ uint64_t cadence_start=p.requested,first_until=p.listen_until;
+ r=pair(cadence_start+100,1000001000);assert(pc_observe(&p,&r,7));
+ m=map(r.completed_at);m.map.generation=2;pc_offer(&p,&m);
+ pc_tick(&p,first_until,7);assert(p.phase==PC_HOLD&&p.burst_pairs==1&&!p.missed_bursts);
+ r=pair(first_until+100,1000002000);assert(!pc_observe(&p,&r,7)&&p.training_pairs==1);
+ assert(pc_read(&p,1,&q)&&q.cycle==1&&!q.train);
+ uint64_t second=p.hold_until;
+ pc_tick(&p,second,7);assert(p.phase==PC_LISTEN&&p.cycle==2&&p.listen_until==second+125*PC_TICKS_MS);
+ r=pair(second+100,1000003000);assert(pc_observe(&p,&r,7)&&p.training_pairs==2);
+ m=map(r.completed_at);m.map.generation=3;pc_offer(&p,&m);
+ pc_tick(&p,p.listen_until,7);assert(!p.missed_bursts&&p.cycle==2);
+ pc_tick(&p,p.hold_until,7);assert(p.phase==PC_LISTEN&&p.cycle==3);
+ pc_tick(&p,p.listen_until,7);assert(p.phase==PC_HOLD&&p.missed_bursts==1);
+ pc_tick(&p,p.hold_until,7);assert(p.phase==PC_DONE);
+ r=pair(p.last_tick+100,1000004000);assert(!pc_observe(&p,&r,7)&&p.training_pairs==2);
+ assert(pc_read(&p,3,&q)&&!q.train&&q.cycle==3);
+ /* One late poll must not fabricate training windows or extend the run. */
+ pc_init(&p);m=map(16000000);pc_offer(&p,&m);
+ assert(!pc_begin_cadence(&p,128,1,1,16000100,7));
+ pc_tick(&p,p.requested+256*PC_TICKS_MS,7);
+ assert(p.phase==PC_DONE&&p.cycle==128&&p.missed_bursts==128&&!p.training_pairs);
+ pc_init(&p);pc_offer(&p,&m);
+ assert(pc_begin_cadence(&p,2,125,1000,m.active+8000000,7)==-EAGAIN);
+ snprintf(command,sizeof command,"r2 00000001 1111111111111111 %064u 0000000000000001 pc-cycle 00000020 0000007d000003e8",0);
+ assert(!r2_parse(command,&req)&&req.op==R2_PC_CYCLE&&req.seconds==32&&req.nonce==UINT64_C(0x7d000003e8));
  puts("PASS PC fixed budgets, frozen causal projection, cold reset, RF mode, epochs, failure denominators, ring gaps, parser");
 }

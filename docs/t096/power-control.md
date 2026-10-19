@@ -71,6 +71,28 @@ unavailable and only fractional relative phase is evaluated. That record's
 `map_valid` denotes arithmetic projection, not timing authority. Witness
 collection is independent of UI pages; the first page identifies PC AWAKE.
 
+## Sparse refresh experiment
+
+Version 0.15.113 adds `pc-cycle CYCLES DURATIONS`, with eight hexadecimal digits
+for 1–128 cycles and the same packed listening/HOLD milliseconds. Bursts are
+1–2000 ms, HOLD is 1–60000 ms and the complete run is at most 900 s. Start from
+a fresh map after an ordinary acquisition; no estimator reset occurs between
+bursts. Mode 5 identifies this separate, awake shadow experiment.
+
+Burst boundaries follow the original hardware-counter schedule. Missing pairs
+cannot extend a burst. HOLD projects the last map while suppressing estimator
+training. A burst with no pairs or no new map increments `missed_bursts` and
+retains the previous projection; its missing observations remain unknown.
+Finite completion keeps training suppressed until the next experiment command.
+Each record identifies its cycle and whether it was admitted for training.
+The retained 16-pair estimator can span several sparse bursts.
+
+Reception remains enabled to obtain causal error observations between bursts.
+The selected pair count and scheduled training fraction are experimental inputs;
+neither is measured RF airtime or energy. Radio-off reacquisition and physical
+sleep retain separate populations. An incomplete burst/run, unavailable causal
+score, missing PPS, and invalid normal output permission remain explicit.
+
 ## Evidence protocol
 
 Start with a ten-minute baseline, then 1, 2, 4, 8, 16, 32 and 64 s listening
