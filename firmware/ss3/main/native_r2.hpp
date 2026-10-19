@@ -124,6 +124,8 @@ struct TdMemoryStatus {uint32_t diagnostic_bytes,psram_total,psram_free,internal
 TdMemoryStatus r2_td_memory();
 struct TdPublicationStatus {uint32_t read_misses,write_misses;};
 TdPublicationStatus r2_td_publication();
+struct TdSurveyStatus {uint32_t generation=0,closing_ms=0;uint16_t handle=UINT16_MAX;uint8_t phase=0,flags=0;};
+TdSurveyStatus r2_td_survey();
 #endif
 struct R2Activity {
   uint32_t rx=0,tx=0;

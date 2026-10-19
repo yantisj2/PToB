@@ -35,6 +35,7 @@ extern "C" bool clock_reference_read(uint64_t*);
 #include "esp_heap_caps.h"
 #include "td_publication.hpp"
 #include "td_role_update.hpp"
+#include "td_survey_lifecycle.hpp"
 #include "esp_memory_utils.h"
 #include <new>
 #endif
@@ -100,8 +101,9 @@ bool relay_only_requested=exclude_direct_gm,upstream_mode_change=false;
 #ifdef V12_SS3
 bool td_enabled=true,td_requested=true,td_mode_change=false,td_test=false,td_test_requested=false,td_test_change=false;
 struct TdRoleCandidate {uint8_t wire[R2_ROLE_AD_BYTES]{};uint64_t id=0,at=0;ble_addr_t address{};bool checked=false;};
-struct TdStorage {TdModel model{};TdSnapshot published[3]{};Discovery locators[8]{};uint64_t ids[8]{};rc7_path paths[8]{};TdRoleCandidate roles[4]{};TdRoleUpdate role_update{};};
+struct TdStorage {TdModel model{};TdSnapshot published[3]{};Discovery locators[8]{};uint64_t ids[8]{};rc7_path paths[8]{};TdRoleCandidate roles[4]{};TdRoleUpdate role_update{};TdSurveyLifecycle survey{};};
 TdStorage* td_storage=nullptr;
+TdSurveyStatus td_survey_snapshot{};
 TdPublication td_publication; // Short locked internal DRAM metadata, never PSRAM.
 uint64_t td_until=0,td_request_until=0;unsigned td_phase=0,td_relay_round=0;
 #endif
@@ -281,8 +283,11 @@ void cancel_sync(uint64_t now){
     if(!sync_drain_until)sync_drain_until=now+2000000;
     if(!sync_cleanup_requested)periodic_rx::scope(None); // Fence once; actual controller drain remains owned.
     sync_cleanup_requested=true;
-    if(!sync_cleanup_queued){sync_cleanup_queued=true;sync_trace(22,sync_handle,0);transport_g1_cleanup_schedule();}
   }
+  // A deferred create can complete/fail inside the8ms grace. Retire the
+  // original cleanup request even when that callback removed the last owner.
+  // No new CANCEL, drain deadline or controller ownership is invented here.
+  if(sync_cleanup_requested&&!sync_cleanup_queued){sync_cleanup_queued=true;sync_trace(22,sync_handle,0);transport_g1_cleanup_schedule();}
 }
 void cancel_sync_worker(uint64_t now){
   if(sync_pending&&!sync_cancelled){sync_cancelled=true;if(!sync_drain_until)sync_drain_until=now+2000000;
@@ -1157,13 +1162,18 @@ void td_poll(uint64_t now) {
   td_role_poll(now);
   if (synced && !sync_terminating)
     stop_scan();
-  if ((sync_pending && now >= sync_acquire_until) || now >= td_until) {
+  auto& survey=td_storage->survey;
+  if(survey.begin_close(now,(sync_pending&&now>=sync_acquire_until)||now>=td_until)){
     if (td_storage->model.view.target)
       td_storage->model.finish(now);
     td_storage->model.begin(0);
+  }
+  if(survey.finishing){
     cancel_sync(now);
     if (!sync_pending && !synced && !sync_cleanup_queued && !sync_cleanup_requested &&
         sync_handle == None) {
+      survey.advance();
+      sync_drain_until=0; // Actual prior owner/cleanup closure, before a new phase.
       td_phase = (td_phase + 1) % 4;
       td_storage->model.view.phase = uint8_t(td_phase);
       td_until = now + (td_phase % 2 ? 6000000 : 4000000);
@@ -1222,7 +1232,8 @@ void td_poll(uint64_t now) {
             break;
           }
       }
-    }
+    }else if(survey.expired(now)||(sync_drain_until&&now>=sync_drain_until))
+      error(BLE_HS_ETIMEOUT,R2Api::SyncCancel);
   }
   if ((sync_cancelled && sync_pending) || (sync_terminating && synced)) {
     if (now >= sync_drain_until)
@@ -1385,8 +1396,8 @@ void parent_diagnostic_poll(uint64_t now){
   else if(closed&&parent_diagnostic.state==2){
     if(upstream_mode_change){exclude_direct_gm=relay_only_requested;upstream_mode_change=false;}
 #ifdef V12_SS3
-    if(td_mode_change){td_enabled=td_requested;td_mode_change=false;td_test=td_test_requested=false;td_test_change=false;td_phase=0;td_until=0;td_storage->model={};td_storage->role_update={};for(auto& c:td_storage->roles)c={};}
-    if(td_test_change){td_test=td_test_requested;td_test_change=false;td_until=0;td_phase=0;td_storage->model.begin(td_test?control.target:0);}
+    if(td_mode_change){td_enabled=td_requested;td_mode_change=false;td_test=td_test_requested=false;td_test_change=false;td_phase=0;td_until=0;td_storage->model={};td_storage->role_update={};td_storage->survey={};for(auto& c:td_storage->roles)c={};}
+    if(td_test_change){td_test=td_test_requested;td_test_change=false;td_until=0;td_phase=0;td_storage->survey={};td_storage->model.begin(td_test?control.target:0);}
 #endif
     parent_selection.reset();parent_selection.diagnostic(exclude_direct_gm);parent_selection.target(control.target,control.relay);
     peer={};sync_identity=0;sync_address={};sync_cancelled=sync_terminating=false;
@@ -1416,6 +1427,10 @@ void publish(uint64_t begin){const auto now=micros();uint64_t tick=0;
   if(td_slot>=0){td_storage->published[td_slot]=td_value;td_publication.commit(unsigned(td_slot));}
 #endif
   portENTER_CRITICAL(&mux);
+#ifdef V12_SS3
+  td_survey_snapshot={td_storage->survey.generation,uint32_t(td_storage->survey.closing_us/1000),sync_handle,uint8_t(td_phase),
+    uint8_t(td_storage->survey.finishing|unsigned(sync_cleanup_queued)<<1|unsigned(sync_cleanup_requested)<<2|unsigned(sync_pending)<<3|unsigned(synced)<<4|unsigned(scan)<<5)};
+#endif
   snap.mode=mode;snap.lease=lease;snap.client=client;snap.requested=mode!=R2Mode::Off&&!closing;snap.fault=fault;snap.active_used=active_used;snap.self=3;snap.scan=scan;snap.connecting=peer.connecting;snap.connections=(peer.handle!=None)+!relay_acl_available();snap.synced=synced;snap.sync_pending=sync_pending;
   snap.off_ack=client.off()&&!lease.exhausted&&lease.stop_generation==lease.stop_completed&&(!lease.generation||lease.completed_us)&&!command_pending&&!stop_pending&&!closing&&mode==R2Mode::Off&&!relay_owned()&&!scan&&!sdk_scan_active&&!sdk_connect_pending&&!peer.connecting&&peer.handle==None&&!sync_pending&&!synced&&!sync_cleanup_queued&&!fault;
 #ifdef V12_R2_FIELD_CLIENT
@@ -1635,6 +1650,7 @@ TdMemoryStatus r2_td_memory() {
           td_storage && esp_ptr_external_ram(td_storage)};
 }
 TdPublicationStatus r2_td_publication(){return {td_publication.missed_reads(),td_publication.missed_writes()};}
+TdSurveyStatus r2_td_survey(){portENTER_CRITICAL(&mux);const auto s=td_survey_snapshot;portEXIT_CRITICAL(&mux);return s;}
 TdSnapshot r2_td_status() {
   TdSnapshot s{};
   const int slot=td_storage?td_publication.pin():-1;

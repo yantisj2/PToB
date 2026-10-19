@@ -11,12 +11,13 @@ def main():
  (out/'ptob_registry.h').write_text(header(load(REPO/'registry/example.json')))
  compiler=os.environ.get('CXX','clang++');records=[]
  flags=['-std=c++20','-O1','-g','-Wall','-Wextra','-Werror','-Wno-misleading-indentation','-Wno-missing-field-initializers','-fsanitize=address,undefined','-I'+str(APP/'main'),'-I'+str(APP/'legacy'),'-I'+str(out)]
- for name in ['ss3_td_model_test','td_health_display_test','td_signal_test','td_publication_test','td_role_update_test','ss3_splash_test','ss3_display_clock','lifecycle_test','update_gate_test','fault_watchdog_test']:
+ for name in ['ss3_td_model_test','td_health_display_test','td_signal_test','td_publication_test','td_role_update_test','ss3_splash_test','ss3_display_clock','lifecycle_test','update_gate_test','fault_watchdog_test','ss3_lcd_io_test','ss3_durability_model_test']:
   files=[APP/'tests'/(name+'.cpp')]
   if name in ('ss3_td_model_test','td_health_display_test','ss3_splash_test'):files.append(APP/'legacy/m5stick_s3/ui.cpp')
   binary=out/name
   with (out/(name+'.log')).open('w') as log:
-   subprocess.run([compiler,*flags,*map(str,files),'-o',str(binary)],stdout=log,stderr=subprocess.STDOUT,check=True)
+   extra=['-I'+str(APP/'tests/lcd_fakes')] if name=='ss3_lcd_io_test' else []
+   subprocess.run([compiler,*flags,*extra,*map(str,files),'-o',str(binary)],stdout=log,stderr=subprocess.STDOUT,check=True)
    subprocess.run([str(binary)],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
   records.append(name)
  (out/'receipt.json').write_text(json.dumps(dict(schema=1,status='PASSED',tests=records,hardware_access=False,precision='UNQUALIFIED'),indent=2)+'\n')

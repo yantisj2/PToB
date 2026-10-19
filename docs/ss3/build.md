@@ -38,6 +38,24 @@ The PToB splash paints before USB PHY restoration and BLE initialization. The
 LCD task retains it for at least one second without blocking initialization;
 `SS3_STARTUP` records splash and first-dashboard times for verification.
 
+Version 0.1.4 repairs a reproduced survey-cleanup race: an asynchronous create
+failure during the eight-millisecond cancel grace could leave a cleanup request
+with no active owner and no queued worker. Cleanup now retires that request;
+each survey phase closes once and faults if its original two-second drain fails.
+No closure is fabricated and no source, authentication or timing lease is extended.
+
+LCD transactions use the SDK's queued DMA path with finite 10 ms admission and
+20 ms completion waits. The persistent descriptor, command bytes and pixel
+buffer remain owned until the actual completion returns, including after a
+timeout. A later completion permits a full repaint; unknown ownership fails
+closed for existing watchdog recovery. LCD progress now has its own watchdog
+bit, using the existing two-second stall detection and 120-second fault interval.
+Intentional screen sleep stays healthy. The existing LCD/host priorities remain.
+`SS3_RC7_ID` includes compact CRC-protected telemetry: `lcd` lists successful
+frames, frame errors, worker ms, paint ms, I/O timeouts, I/O errors and pending;
+`tds` lists survey generation, closing ms, sync handle, phase and owner flags.
+The millisecond counters wrap after about 49.7 days; compare ages modulo 32 bits.
+
 ## Dependencies and local inputs
 
 Use Git, CMake, Make and Python with ESP-IDF's Xtensa environment. The SDK pin is
@@ -102,6 +120,8 @@ Use recent LLVM Clang with ASan/UBSan, with the SDK environment activated:
 CXX=clang++ python3 firmware/ss3/tools/test.py --out artifacts/ss3-host-01
 CC=clang CXX=clang++ python3 firmware/ss3/tools/td_role_tests.py --sdk "$IDF_PATH" \
   --out artifacts/ss3-role-01
+CC=clang CXX=clang++ python3 firmware/ss3/tools/durability_tests.py --sdk "$IDF_PATH" \
+  --out artifacts/ss3-durability-01
 python3 firmware/ss3/tools/rc7_permission_e2e.py --sdk "$IDF_PATH" \
   --cc clang --out artifacts/ss3-permission-01
 python3 registry/test_registry.py

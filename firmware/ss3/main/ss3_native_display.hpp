@@ -6,4 +6,6 @@ namespace sticks3 {
 void present_native(const DisplayState&,const v12::R2Status&,uint64_t tick20,uint64_t now_us,const char* banner=nullptr,uint64_t banner_until20=0,uint8_t chart=0);
 bool power_command(bool download);
 void display_status();
+struct DisplayProgress {uint32_t frames,errors,worker_ms,paint_ms,io_timeouts,io_errors;bool pending;};
+DisplayProgress display_progress();
 }

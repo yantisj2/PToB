@@ -1,5 +1,6 @@
 #include "fault_watchdog.hpp"
 #include "fault_watchdog_model.hpp"
+#include "fault_watchdog_liveness.hpp"
 #include "console_protocol.hpp"
 #include "esp_attr.h"
 #include "esp_system.h"
@@ -18,9 +19,9 @@ struct RestartIntent {
 RTC_NOINIT_ATTR RestartIntent intent;
 static_assert(sizeof(RestartIntent)==64,"RTC watchdog evidence budget changed");
 struct Input {
-  uint64_t main_at=0,host_at=0,parent=0;
+  uint64_t main_at=0,host_at=0,parent=0,display_at=0;
   uint32_t mask=0;int32_t rc=0;uint8_t api=0;
-  bool host_seen=false,relay=false,fatal=false,test=false;
+  bool host_seen=false,relay=false,fatal=false,test=false,display_seen=false;
 };
 portMUX_TYPE watchdog_mux=portMUX_INITIALIZER_UNLOCKED;
 Input input;FaultWatchdogModel model;FaultWatchdogStatus view;
@@ -41,8 +42,7 @@ void supervise(void*){
     current=input;uint32_t mask=current.mask;
     if(current.fatal)mask|=FaultInit;
     if(current.test)mask|=FaultTest;
-    if(now>=current.main_at&&now-current.main_at>=2000000)mask|=FaultMainStalled;
-    if(current.host_seen&&now>=current.host_at&&now-current.host_at>=2000000)mask|=FaultHostStalled;
+    mask|=fault_watchdog_stalled(now,current.main_at,current.host_at,current.host_seen,current.display_at,current.display_seen);
     model.observe(now,mask);view.mask=mask;view.first_mask=model.first_mask();
     view.since_us=model.active()?model.start_us():0;
     view.elapsed_us=model.active()&&now>=model.start_us()?now-model.start_us():0;
@@ -89,6 +89,7 @@ void fault_watchdog_main_progress(uint32_t mask,uint8_t api,int32_t rc,uint64_t 
   portEXIT_CRITICAL(&watchdog_mux);
 }
 void fault_watchdog_host_progress(){const auto now=now_us();portENTER_CRITICAL(&watchdog_mux);input.host_at=now;input.host_seen=true;portEXIT_CRITICAL(&watchdog_mux);}
+void fault_watchdog_display_progress(){const auto now=now_us();portENTER_CRITICAL(&watchdog_mux);input.display_at=now;input.display_seen=true;portEXIT_CRITICAL(&watchdog_mux);}
 FaultWatchdogStatus fault_watchdog_status(){portENTER_CRITICAL(&watchdog_mux);const auto result=view;portEXIT_CRITICAL(&watchdog_mux);return result;}
 void fault_watchdog_host_expected(){fault_watchdog_host_progress();}
 bool fault_watchdog_test(){

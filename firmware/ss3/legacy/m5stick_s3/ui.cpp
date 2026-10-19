@@ -212,6 +212,9 @@ void td_paint(Canvas &c, const View &s) {
   const char *titles[] = {"HEALTH", "STREAM QUALITY", "RELAY TEST", "RF HEALTH",
                           "SAMPLE DETAIL", "SOURCE HEALTH"};
   c.text(40, 10, titles[s.page % 6], 1, Bg);
+  // One-second LCD activity mark remains visible without a nearby source.
+  // Its colour reflects snapshot freshness; it grants no timing permission.
+  c.fill(130,11,3,3,d.owner_stale?Red:((d.now_us/1000000)%2?White:Bg));
   const auto *gm = td_best(d, false);
   char v[24], name[12];
   const char *stage = d.owner_stale ? "OWNER SNAPSHOT STALE"

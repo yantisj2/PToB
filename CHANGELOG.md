@@ -2,6 +2,17 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 19 October 2026 — SS3 survey and display recovery
+
+SS3 **0.1.4** retires deferred sync cleanup when an asynchronous create failure
+arrives during the cancel grace, fixing a reproduced phase-3 stall. Survey drain
+keeps its original two-second bound and finishes each phase once. LCD DMA waits
+are finite, retain buffers until actual completion, and feed independent display
+supervision. A header activity mark, periodic repaint and CRC-protected display/
+survey counters support long-run diagnosis without changing radio/task priority
+or timing authority. Synthetic long-uptime and fault tests remain distinct from
+finite hardware observation and continuous-reliability qualification.
+
 ## 19 October 2026 — T096 isolated awake-only PC experiment
 
 T096 **0.15.111** adds a separate flash-only Power Control image with one

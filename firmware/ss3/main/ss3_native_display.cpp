@@ -2,6 +2,8 @@
 #include "td_publication.hpp"
 #include "ss3_native_display.hpp"
 #include "ss3_display_clock.hpp"
+#include "ss3_lcd_io.hpp"
+#include "fault_watchdog.hpp"
 #include "../legacy/m5stick_s3/board.hpp"
 #include "../legacy/m5stick_s3/ui.hpp"
 #include "../legacy/m5stick_s3/dirty_rect.hpp"
@@ -29,6 +31,8 @@ using namespace sticks3;
 i2c_master_bus_handle_t bus=nullptr;i2c_master_dev_handle_t pm1=nullptr;spi_device_handle_t lcd=nullptr;
 uint8_t* frame=nullptr;uint8_t* pixels=nullptr;TaskHandle_t task=nullptr;
 std::atomic<bool> awake{true};std::atomic<uint32_t> frames{0},errors{0},max_us{0};
+LcdIo lcd_io;
+std::atomic<uint32_t> worker_ms{0},paint_ms{0};
 struct Snapshot {View view{};DisplayClock clock{};uint64_t banner_until=0;};
 struct UiStorage {Snapshot constructed{},shown{},published[3]{};};
 UiStorage* ui_storage=nullptr;v12::TdPublication ui_publication;std::atomic<bool> ui_published{false};
@@ -54,10 +58,7 @@ bool power_init() {
  vTaskDelay(pdMS_TO_TICKS(100));return true;
 }
 bool transmit(bool data,const void* buffer,size_t bytes) {
- if(!bytes)return true;
- if(gpio_set_level(gpio_num_t(LcdDc),data)!=ESP_OK)return false;
- spi_transaction_t t{};t.length=bytes*8;t.tx_buffer=buffer;
- return spi_device_polling_transmit(lcd,&t)==ESP_OK;
+ return lcd_io.send(lcd,gpio_num_t(LcdDc),data,buffer,bytes,frame,StripBytes);
 }
 bool command(uint8_t cmd,const void* data=nullptr,size_t bytes=0){return transmit(false,&cmd,1) && transmit(true,data,bytes);}
 bool rectangle_window(unsigned x,unsigned y,unsigned width,unsigned rows) {
@@ -85,16 +86,26 @@ uint64_t splash_shown_us=0,splash_until_us=0;
 std::atomic<uint32_t> first_dashboard_us{0};
 void worker(void*) {
  TdHealthDisplay health_display;
- auto& state=ui_storage->shown;bool have=false,observed=false,last_valid=false,last_ready=false;uint16_t valid=0;TickType_t wake=xTaskGetTickCount();
+ auto& state=ui_storage->shown;bool have=false,observed=false,last_valid=false,last_ready=false;uint16_t valid=0;TickType_t wake=xTaskGetTickCount();uint64_t refreshed=0;
  for(;;){
+  worker_ms.store(uint32_t(uint64_t(esp_timer_get_time())/1000));
+  // A pending transaction owns frame/control storage. Do not copy or render
+  // into it, toggle DC, reset the panel or free DMA state before actual return.
+  if(lcd_io.pending()||lcd_io.failed()){
+   valid=0;
+   if(!lcd_io.complete(lcd)){vTaskDelay(pdMS_TO_TICKS(20));wake=xTaskGetTickCount();continue;}
+  }
   if(ui_published.load(std::memory_order_acquire)){const int slot=ui_publication.pin();
    if(slot>=0){state=ui_storage->published[slot];ui_publication.release(unsigned(slot));have=true;}
   }
   // The splash is already on the panel. Keep it visible while startup runs,
   // for at least one second, without blocking main, USB, BLE or the watchdog.
-  if(!have||uint64_t(esp_timer_get_time())<splash_until_us){vTaskDelay(pdMS_TO_TICKS(20));wake=xTaskGetTickCount();continue;}
-  if(!awake.load()){gpio_set_level(gpio_num_t(Backlight),0);vTaskDelay(pdMS_TO_TICKS(20));wake=xTaskGetTickCount();continue;}
+  if(!have||uint64_t(esp_timer_get_time())<splash_until_us){
+   if(uint64_t(esp_timer_get_time())<splash_until_us)v12::fault_watchdog_display_progress();
+   vTaskDelay(pdMS_TO_TICKS(20));wake=xTaskGetTickCount();continue;}
+  if(!awake.load()){gpio_set_level(gpio_num_t(Backlight),0);v12::fault_watchdog_display_progress();vTaskDelay(pdMS_TO_TICKS(20));wake=xTaskGetTickCount();continue;}
   const auto begin=esp_timer_get_time();uint64_t tick=0;const bool timer=clock_reference_read(&tick);
+  if(uint64_t(begin)>=refreshed&&uint64_t(begin)-refreshed>=5000000){valid=0;refreshed=uint64_t(begin);}
   auto view=state.view;int64_t utc=0;
   if(view.td.enabled){const auto now=uint64_t(std::max<int64_t>(0,begin));view.td.owner_stale=now<view.td.now_us||now-view.td.now_us>1000000;view.td.now_us=now;
    const auto raw=TdHealth::evaluate(view.td,view.radio_error);const auto input=TdHealthBanner::from(raw);
@@ -125,7 +136,8 @@ void worker(void*) {
    valid|=uint16_t(1u<<index);++painted;count(painted_strips);
   }
   if(painted==15)count(full_passes);
-  if(ok){if(frames!=UINT32_MAX)++frames;gpio_set_level(gpio_num_t(Backlight),1);
+  if(ok){if(frames!=UINT32_MAX)++frames;gpio_set_level(gpio_num_t(Backlight),1);v12::fault_watchdog_display_progress();
+   if(painted)paint_ms.store(uint32_t(uint64_t(esp_timer_get_time())/1000));
    if(!first_dashboard_us.load())first_dashboard_us.store(uint32_t(esp_timer_get_time()));
   }else if(errors!=UINT32_MAX)++errors;
   const auto elapsed=uint64_t(esp_timer_get_time()-begin);if(elapsed>max_us)max_us=uint32_t(std::min<uint64_t>(elapsed,UINT32_MAX));
@@ -135,6 +147,7 @@ void worker(void*) {
 }
 }
 bool display_init(){
+ if(!lcd_io.internal_storage())return false;
  if(!power_init()||!panel_init())return false;
  frame=static_cast<uint8_t*>(heap_caps_malloc(StripBytes,MALLOC_CAP_DMA|MALLOC_CAP_INTERNAL));
  pixels=static_cast<uint8_t*>(heap_caps_malloc(FrameBytes,MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT));
@@ -148,7 +161,9 @@ bool display_init(){
  if(gpio_set_level(gpio_num_t(Backlight),1)!=ESP_OK)return false;
  splash_shown_us=uint64_t(esp_timer_get_time());splash_until_us=splash_shown_us+1000000;
  std::printf("SS3_SPLASH shown_us=%llu minimum_us=1000000 brand=PToB\n",(unsigned long long)splash_shown_us);
- return xTaskCreatePinnedToCore(worker,"ss3_rc7_lcd",12288,nullptr,2,&task,1)==pdPASS;
+ const bool started=xTaskCreatePinnedToCore(worker,"ss3_rc7_lcd",12288,nullptr,2,&task,1)==pdPASS;
+ if(started)v12::fault_watchdog_display_progress();
+ return started;
 }
 void sticks3::present_native(const DisplayState& s,const v12::R2Status& m,uint64_t tick,uint64_t now,const char* banner,uint64_t banner_until20,uint8_t chart){
  if(!ui_storage)return;
@@ -177,7 +192,10 @@ void sticks3::present_native(const DisplayState& s,const v12::R2Status& m,uint64
  const int slot=ui_publication.reserve();
  if(slot>=0){ui_storage->published[slot]=n;ui_publication.commit(unsigned(slot));ui_published.store(true,std::memory_order_release);}
 }
+sticks3::DisplayProgress sticks3::display_progress(){return {frames.load(),errors.load(),worker_ms.load(),paint_ms.load(),lcd_io.timeouts(),lcd_io.errors(),lcd_io.pending()};}
 void sticks3::display_status(){
+ // Emit LCD health first so a full bounded diagnostic queue cannot hide it.
+ std::printf("SS3_LCD frames=%lu errors=%lu max_us=%lu stack_min=%lu worker_ms=%lu paint_ms=%lu io_timeouts=%lu io_errors=%lu pending=%u fine=%lu coarse=%lu invalid=%lu valid_edges=%lu ready_edges=%lu strips=%lu full_passes=%lu core=1 snapshot=VALUE_OWNED expiry=CANONICAL_AND_FINE optical_scanout=UNMEASURED\n",(unsigned long)frames.load(),(unsigned long)errors.load(),(unsigned long)max_us.load(),(unsigned long)(task?uxTaskGetStackHighWaterMark(task):0),(unsigned long)worker_ms.load(),(unsigned long)paint_ms.load(),(unsigned long)lcd_io.timeouts(),(unsigned long)lcd_io.errors(),unsigned(lcd_io.pending()),(unsigned long)fine_frames.load(),(unsigned long)coarse_frames.load(),(unsigned long)invalid_frames.load(),(unsigned long)valid_edges.load(),(unsigned long)ready_edges.load(),(unsigned long)painted_strips.load(),(unsigned long)full_passes.load());
  const auto d=v12::r2_td_status();const auto memory=v12::r2_td_memory();
  const TdRelayList relays(d);
  std::printf("SS3_RELAY_LIST visible=%u nearby=%u order=SMOOTHED_RSSI_DESC_ID_ASC pagination=NONE freshness_us=10000000\n",relays.count,relays.total);
@@ -207,7 +225,7 @@ void sticks3::display_status(){
  std::printf("SS3_GM_STATUS known=%u available=%u root=%016llx hot=%016llx boot=%016llx sequence=%lu source_epoch=%lu seen_us=%llu checked_us=%llu next_us=%llu checks=%lu misses=%lu result=%u poll_until_us=%llu poll_us=120000000 event_check_us=1000000 hot_stable_us=10000000 events=%lu authority=NONE chart=LOG10 header=BLUE\n",unsigned(d.role.known),unsigned(d.role.available),(unsigned long long)d.role.root,(unsigned long long)d.role.hot,(unsigned long long)d.role.root_boot,(unsigned long)d.role.sequence,(unsigned long)d.role.source_epoch,(unsigned long long)d.role.seen_us,(unsigned long long)d.role.checked_us,(unsigned long long)d.role.next_us,(unsigned long)d.role.checks,(unsigned long)d.role.misses,unsigned(d.role.result),(unsigned long long)d.role.until_us,(unsigned long)d.role.events);
  std::printf("SS3_STARTUP splash_shown_us=%llu splash_min_until_us=%llu first_dashboard_us=%llu minimum_us=1000000\n",(unsigned long long)splash_shown_us,(unsigned long long)splash_until_us,(unsigned long long)first_dashboard_us.load());
  for(const auto& p:d.peers)if(p.id)std::printf("SS3_TD_PEER id=%016llx root=%016llx relay=%u hop=%u rssi=%d rssi_min=%d rssi_max=%d publishing=%u ready=%u seen_us=%llu sampled_us=%llu adv=%lu PA=%lu matched=%lu rejected=%lu missed=%lu duplicates=%lu jitter_ns=%lu max_ns=%lu RSSI_smooth=%d bars=%u RSSI_seen_us=%llu RSSI_display_us=%llu channels=%010llx age_us=%lu PHY=%u source_epoch=%lu time_known=%u time_valid_at_TX=%u time_seen_us=%llu TX_age_us=%lu TX_ttl_us=%lu\n",(unsigned long long)p.id,(unsigned long long)p.root,unsigned(p.relay),unsigned(p.depth),int(p.rssi),int(p.rssi_min),int(p.rssi_max),unsigned(p.publishing),unsigned(p.ready),(unsigned long long)p.seen_us,(unsigned long long)p.sampled_us,(unsigned long)p.advertisements,(unsigned long)p.packets,(unsigned long)p.matched,(unsigned long)p.rejected,(unsigned long)p.missed,(unsigned long)p.duplicates,(unsigned long)p.jitter_ns,(unsigned long)p.max_ns,int(p.signal.fresh(d.now_us)?p.signal.value:127),unsigned(p.signal.fresh(d.now_us)?p.signal.bars:0),(unsigned long long)p.signal.seen_us,(unsigned long long)p.signal.display_us,(unsigned long long)p.channels,(unsigned long)p.source_age_us,unsigned(p.phy),(unsigned long)p.source_epoch,unsigned(p.time_known),unsigned(p.time_valid),(unsigned long long)p.time_seen_us,(unsigned long)p.origin_age_us,(unsigned long)p.source_ttl_us);
-std::printf("SS3_LCD frames=%lu errors=%lu max_us=%lu stack_min=%lu fine=%lu coarse=%lu invalid=%lu valid_edges=%lu ready_edges=%lu strips=%lu full_passes=%lu core=1 snapshot=VALUE_OWNED expiry=CANONICAL_AND_FINE optical_scanout=UNMEASURED\n",(unsigned long)frames.load(),(unsigned long)errors.load(),(unsigned long)max_us.load(),(unsigned long)(task?uxTaskGetStackHighWaterMark(task):0),(unsigned long)fine_frames.load(),(unsigned long)coarse_frames.load(),(unsigned long)invalid_frames.load(),(unsigned long)valid_edges.load(),(unsigned long)ready_edges.load(),(unsigned long)painted_strips.load(),(unsigned long)full_passes.load());}
+}
 bool sticks3::power_command(bool download) {
  // M5PM1 SYS_CMD: documented key0xA0 + reset2 / download3. Re-read
  // identity and use the already owned PM1 bus; never alter rails/hold/efuses.

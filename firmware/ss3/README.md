@@ -8,7 +8,7 @@ accuracy. [Image provenance](../../docs/images/README.md).*
 
 Copyright (c) 2026 Jonathan Yantis. MIT; inherited source notices apply.
 
-**PToB owns SS3 native G1/RC7 development.** Source firmware version **0.1.3**
+**PToB owns SS3 native G1/RC7 development.** Source firmware version **0.1.4**
 builds on imported source `56740553885420a7f6f301c12de10696a9c8d432`, the M5Stack StickS3
 K150 V17 application with TD diagnostics and a 150 ms health-display hold.
 The Relay Test screen keeps the four strongest nearby relays visible, ordered
@@ -20,6 +20,11 @@ per second. Root, boot, source epoch, membership and HOT withdrawal update
 promptly; a new HOT needs matching fresh observations spanning ten seconds.
 Scan gaps can delay that observation. The two-minute unchanged-status fallback,
 radio schedule, task priority and timing authority are unchanged.
+Version 0.1.4 retires deferred sync cleanup after an asynchronous create failure,
+bounds survey-phase drain, and supervises LCD progress independently. LCD SPI
+waits are finite; timed-out transfers keep their DMA storage until completion.
+The one-second header activity mark and periodic full repaint make idle display
+activity visible. Finite testing does not establish indefinite reliability.
 See the [standalone build guide](../../docs/ss3/build.md),
 [cutover record](../../docs/ss3/cutover.md),
 [explicit import provenance](imports/2026-10-16.json) and [notices](NOTICE.md).
