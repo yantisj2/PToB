@@ -831,8 +831,8 @@ are not evidence of zero rejections. Retain source/version and counter scope.
 
 ## Precision page (0.15.118)
 
-In the GM profile, Precision uses the compact `SHDW PPS` heading with separate
-`MEAN` and `RMS` values. It displays shadow PPS mean and uncentered RMS from
+In the GM profile, Precision uses the single-line `SHD PPS MEAN` heading
+above its value, followed by the separate `RMS` label and value. It displays shadow PPS mean and uncentered RMS from
 the same independent BLE-clock-versus-local-PPS observer as the Shadow PPS page.
 Remain on either page for the one-second dwell and ten-second contiguous
 settling interval. Collection requires local GPS fix/PPS and a valid delivered

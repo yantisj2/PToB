@@ -395,9 +395,9 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
   if(r2_ui_witness_page(m,status->page)){
    const struct r2_shadow_session_view *v=&status->shadow;
    bool valid=fresh&&!gm&&local_pps_current(m,now)&&m->clock.fix_active&&m->precision.map_valid&&v->active&&v->valid;
-   label(fb,4,46,"SHDW PPS",1,C_DIM);
-   label(fb,4,57,"MEAN",1,C_DIM);shadow_mean(value,v,valid);label(fb,4,67,value,1,valid?C_CYAN:C_DIM);
-   label(fb,4,79,"RMS",1,C_DIM);shadow_value(value,v->rms_ns,valid);label(fb,4,89,value,1,valid?C_CYAN:C_DIM);
+   label(fb,4,50,"SHD PPS MEAN",1,C_DIM);
+   shadow_mean(value,v,valid);label(fb,4,64,value,1,valid?C_CYAN:C_DIM);
+   label(fb,4,80,"RMS",1,C_DIM);shadow_value(value,v->rms_ns,valid);label(fb,4,92,value,1,valid?C_CYAN:C_DIM);
    if(gm)snprintf(value,sizeof value,"LOCAL SOURCE");
    else if(!local_pps_current(m,now))snprintf(value,sizeof value,"WAIT PPS");
    else if(!m->clock.fix_active)snprintf(value,sizeof value,"WAIT GPS FIX");
@@ -405,16 +405,16 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
    else if(v->state==R2_SHADOW_SETTLING)snprintf(value,sizeof value,"SETTLE %us",v->settling_ms>=10000?0:10-v->settling_ms/1000);
    else if(!valid)snprintf(value,sizeof value,"STARTING");
    else snprintf(value,sizeof value,"N %u",v->samples);
-   label(fb,4,101,value,1,C_DIM);
-   snprintf(value,sizeof value,"%s SV%u",!fresh?"GPS --":m->clock.fix_active?"GPS FIX":"GPS WAIT",fresh?m->clock.sats_used:0);label(fb,4,114,value,1,fresh&&m->clock.fix_active?C_GREEN:C_AMBER);
+   label(fb,4,104,value,1,C_DIM);
+   snprintf(value,sizeof value,"%s SV%u",!fresh?"GPS --":m->clock.fix_active?"GPS FIX":"GPS WAIT",fresh?m->clock.sats_used:0);label(fb,4,116,value,1,fresh&&m->clock.fix_active?C_GREEN:C_AMBER);
    bool pps=local_pps_current(m,now),hot=hot_current(m,now);
-   hold_text(value,"PPS",pps?status->holds.pps_since:0,now);label(fb,4,126,value,1,pps?C_GREEN:C_AMBER);
+   hold_text(value,"PPS",pps?status->holds.pps_since:0,now);label(fb,4,128,value,1,pps?C_GREEN:C_AMBER);
    if(hot)hold_text(value,"HOT",status->holds.hot_since,now);else snprintf(value,sizeof value,"%s",hot_title(m,fresh,false));
-   label(fb,4,138,value,1,hot?C_GREEN:C_AMBER);
+   label(fb,4,140,value,1,hot?C_GREEN:C_AMBER);
    const char *why=hot_reason(m,fresh,hot);
    if(!strcmp(why,"SOURCE DWELL"))snprintf(value,sizeof value,"DWELL %us",(m->admission_ms+999)/1000);
    else snprintf(value,sizeof value,"%s",why);
-   label(fb,4,150,value,1,C_DIM);return;
+   label(fb,4,152,value,1,C_DIM);return;
   }
   label(fb,4,51,gm?"SOURCE PPS":"CORRECTION",1,C_DIM);
   if(gm)snprintf(value,sizeof(value),"%s",gps_pps_live(m,fresh)?"LIVE":"WAIT");
