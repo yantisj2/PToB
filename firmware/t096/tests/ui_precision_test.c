@@ -32,7 +32,20 @@ int main(int argc,char **argv){
  m.clock.pps_age_us=0;m.profile_rc=true;r2_ui_holds_update(&h,&m,62000);assert(!h.hot_since);
  assert(!r2_ui_witness_page(&m,2));m.profile_rc=false;assert(r2_ui_witness_page(&m,2));
  assert(r2_ui_witness_page(&m,6)&&!r2_ui_witness_page(&m,0));
- struct r2_ui_status s={.page=2,.holds={.pps_since=2,.hot_since=32},
+ /* Role duration is distinct from PPS/HOT and survives repeated models. */
+ m.role=R2_UI_GM;r2_ui_holds_update(&h,&m,62000);assert(h.active_since==63&&!h.hot_since);
+ m.sampled_ms=123000;r2_ui_holds_update(&h,&m,123000);assert(h.active_since==63);
+ hold_text(text,"ACTIVE",h.active_since,123000);assert(!strcmp(text,"ACTIVE 01:01"));
+ m.role=R2_UI_FOLLOWER;r2_ui_holds_update(&h,&m,123000);assert(!h.active_since);
+ m.role=R2_UI_GM;r2_ui_holds_update(&h,&m,123000);assert(h.active_since==124);
+ m.scope_active=false;r2_ui_holds_update(&h,&m,123000);assert(!h.active_since);
+ m.scope_active=true;r2_ui_holds_update(&h,&m,123000);assert(h.active_since==124);
+ m.profile_switching=true;r2_ui_holds_update(&h,&m,123000);assert(!h.active_since);
+ m.profile_switching=false;m.profile_rc=true;r2_ui_holds_update(&h,&m,123000);assert(!h.active_since);
+ m.profile_rc=false;r2_ui_holds_update(&h,&m,123000);assert(h.active_since==124);
+ r2_ui_holds_update(&h,&m,126000);assert(!h.active_since);
+ m.role=R2_UI_FOLLOWER;m.sampled_ms=62000;
+ struct r2_ui_status s={.page=2,.holds={.pps_since=2,.hot_since=32,.active_since=2},
   .shadow={.state=R2_SHADOW_RUNNING,.active=true,.valid=true,.mean_tenth_ns=-184,.rms_ns=63,.samples=436}};
  fixture(argv[1],"precision-hot",&m,&s,62000);
  assert(color_count(20,7,C_GREEN)&&!color_count(20,7,C_AMBER));
@@ -52,6 +65,13 @@ int main(int argc,char **argv){
  m.role=R2_UI_GM;m.clock.fix_active=m.clock.pps_present=m.gm_source_fresh=true;m.pps_precision.rate_valid=true;
  m.precision.rms_valid=true;m.precision.rms_ns=88;m.precision.samples=32;m.precision.map_valid=false;
  fixture(argv[1],"precision-serving-gm",&m,&s,62000);assert(color_count(64,7,C_CYAN)&&!color_count(92,7,C_CYAN));
+ assert(color_count(20,7,C_GREEN)&&!color_count(20,7,C_AMBER));
+ assert(color_count(140,7,C_GREEN)&&!color_count(140,7,C_AMBER));
+ /* Long durations stay within the 80px display without losing seconds. */
+ m.sampled_ms=6001000;fixture(argv[1],"precision-gm-active-100m",&m,&s,6001000);
+ m.sampled_ms=600000000;fixture(argv[1],"precision-gm-active-9999m",&m,&s,600000000);
+ m.sampled_ms=600001000;fixture(argv[1],"precision-gm-active-overflow",&m,&s,600001000);
+ m.sampled_ms=62000;r2_ui_render(fb,&m,&s,62000);
  uint8_t beat_rms[80*2*7];memcpy(beat_rms,fb+64*80*2,sizeof beat_rms);
  s.shadow.rms_ns=1;s.shadow.mean_tenth_ns=0;m.pps_precision.prediction_rms_ns=999999;
  r2_ui_render(fb,&m,&s,62000);assert(!memcmp(beat_rms,fb+64*80*2,sizeof beat_rms));

@@ -30,6 +30,7 @@ int main(int argc,char **argv){
   if(mode==40)assert(first_saver&&dim_seen&&!status.shadow.samples);
   if(mode==41)assert(first_saver&&dim_seen&&awake_after_dim&&!status.screensaver&&status.page==4);
   if(mode==36||mode==37||mode==38)assert(!status.shadow.session&&!status.shadow.samples);
+  if(mode==36)assert(status.holds.active_since&&fake_now/1000-status.holds.active_since>=300&&first_saver);
   if(mode==7)assert(frame_calls>=3&&!buffer_changed&&status.frames>=2&&!r2_ui_close_result());
   if(mode==4)assert(status.help&&!status.poweroff&&!status.buttons);
   if(mode==5)assert(status.help&&status.poweroff&&!status.buttons);

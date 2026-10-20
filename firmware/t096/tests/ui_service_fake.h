@@ -69,9 +69,10 @@ static void k_sleep(unsigned ms){fake_now+=ms;
   }
   r2_ui_publish(&m);
   if(mode==39&&fake_now>=14000&&fake_now<14020)(void)r2_ui_page(R2_UI_SHADOW_PAGE);
+  if(mode==36&&fake_now>=14000&&fake_now<14020)(void)r2_ui_page(3);
   if(mode==41&&fake_now>=300700&&fake_now<300720)(void)r2_ui_page(4);
   if(mode==25&&fake_now>=300700&&fake_now<300720)(void)r2_ui_page(R2_UI_SHADOW_PAGE);
-  if(fake_now>=(mode==35||mode==40?622000:mode==41?316000:mode>=26?25000:mode==24?622000:mode==25?316000:mode==16?367000:mode>=18?301200:3500))r2_ui_stop();
+  if(fake_now>=(mode==35||mode==36||mode==40?622000:mode==41?316000:mode>=26?25000:mode==24?622000:mode==25?316000:mode==16?367000:mode>=18?301200:3500))r2_ui_stop();
   return;
  }
  if(mode>=8&&mode<14){struct r2_ui_model m={.sampled_ms=fake_now,.unit="TC-03",.scope_active=true,.role=(mode==9||(mode==13&&fake_now>=3500&&fake_now<4500))?R2_UI_GM:R2_UI_FOLLOWER,.clock={.pps_present=mode!=12,.pps_age_us=10},.precision={.map_valid=true}};r2_ui_publish(&m);

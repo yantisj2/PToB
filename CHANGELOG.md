@@ -2,6 +2,14 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 19 October 2026 — T096 active grandmaster status duration
+
+T096 **0.15.121** labels the active GM `GRANDMASTER` on Precision and shows
+green `ACTIVE mm:ss` for consecutive time in that role. The display timer
+continues across navigation and the screensaver, and resets on role loss,
+profile transition or stale input. PPS/HOT timers and intermediate HOT reasons
+retain their separate meanings; timing authority is unchanged.
+
 ## 19 October 2026 — T096 active GM transmit-beat RMS
 
 T096 **0.15.120** shows a Bluetooth badge and `BEAT RMS` on Precision only

@@ -325,7 +325,7 @@ static void __attribute__((noinline)) reply(const struct r2_request *r,uint64_t 
     "\"maintenance\":[%u,%d,%llu],\"close\":[%d,%s,%llu],"
     "\"ui\":[%u,%u,%u,%u,%u,%d,%u,%s,%s,%s,%u],\"ui_input\":[%llu,%u,%u,%s,%s,%s,%s],\"display_time\":[%s,%s,%lld],\"chip_temperature_qc\":%d,\"chip_temperature_valid\":%s,"
     "\"ui_saver\":[%s,%u,%u],\"ui_saver_drawn\":[%s,%u],\"ui_lamps\":[%u,%u,%u,%u,%u,%u,%u,%u],\"profile\":[%u,%u,%u,%u,%u],"
-    "\"ui_holds_since_s\":[%u,%u],"
+    "\"ui_holds_since_s\":[%u,%u],\"ui_active_since_s\":%u,"
     "\"shadow_ui\":{\"state\":%u,\"active\":%s,\"elapsed_ms\":%llu,\"session\":%u,\"samples\":%u,\"skipped\":%u,\"missing\":%u,\"valid\":%s,\"mean_tenth_ns\":%lld,\"rms_ns\":%u,\"p95_ns\":%u,\"p99_ns\":%u,\"max_ns\":%u,\"approximate\":%s,\"startup\":[%u,%u,%u,%u,%u]},"
     "\"io\":[%u,%u,%u,%u,%u,%u,%u,%u,%u],\"rejected\":%u,\"trace_lost\":%u,\"trace_count\":%u,\"trace_page\":%u,"
     "\"rf\":\"%s\",\"time_service\":\"GNSS_CLOCK_V1\",\"precision\":\"UNKNOWN\",\"trace\":[",
@@ -342,7 +342,7 @@ static void __attribute__((noinline)) reply(const struct r2_request *r,uint64_t 
     p.close_result,p.close_done?"true":"false",(unsigned long long)p.close_end,
     u.frames,u.missed,u.buttons,u.max_frame_ms,u.last_frame_ms,u.error,u.page,u.ready?"true":"false",u.stopped?"true":"false",u.analog?"true":"false",u.drawn_page,(unsigned long long)u.drawn_model_ms,u.drawn_role,u.poll_max_ms,u.drawn_scope?"true":"false",u.drawn_ble?"true":"false",u.drawn_pps?"true":"false",u.drawn_map?"true":"false",u.drawn_time?"true":"false",u.drawn_coarse?"true":"false",(long long)u.drawn_utc_us,u.temperature_qc,(u.temperature_valid&&u.ready&&k_uptime_get()-u.last_frame_ms<2500)?"true":"false",
     u.screensaver?"true":"false",u.screensaver_position,u.brightness_percent,u.drawn_screensaver?"true":"false",u.drawn_screensaver_position,u.drawn_lamps[0],u.drawn_lamps[1],u.drawn_lamps[2],u.drawn_lamps[3],u.drawn_lamps[4],u.drawn_lamps[5],u.drawn_lamps[6],u.drawn_lamps[7],service_profile[0],service_profile[1],service_profile[2],service_profile[3],service_profile[4],
-    u.holds.pps_since,u.holds.hot_since,
+    u.holds.pps_since,u.holds.hot_since,u.holds.active_since,
     u.shadow.state,u.shadow.active?"true":"false",(unsigned long long)u.shadow.elapsed_ms,u.shadow.session,u.shadow.samples,u.shadow.skipped,u.shadow.missing,u.shadow.valid?"true":"false",(long long)u.shadow.mean_tenth_ns,u.shadow.rms_ns,u.shadow.p95_ns,u.shadow.p99_ns,u.shadow.max_ns,u.shadow.approximate?"true":"false",u.shadow.warmup,u.shadow.warmup_skipped,u.shadow.warmup_missing,u.shadow.warmup_resets,u.shadow.settling_ms,
     io.rx_bytes,io.tx_bytes,io.rx_overflow,io.command_drops,io.tx_drops,io.tx_expired,io.fifo_errors,io.usb_events,io.dtr_changes,
     (unsigned)rejected,trace_lost,trace_count,r->trace_page,rf);

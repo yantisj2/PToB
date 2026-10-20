@@ -844,6 +844,13 @@ shadow-PPS layout. Missing inputs never fall back
 to UART age or clock-fit RMS. Values are relative witness diagnostics, not
 independently calibrated UTC/output accuracy.
 
+From **0.15.121**, the active GM's Precision role line reads `GRANDMASTER`,
+and green `ACTIVE mm:ss` reports consecutive observed time serving as GM.
+It continues across navigation and the screensaver, and resets when that role
+is lost, a profile transition begins or the UI model becomes stale. It is a
+presentation timer and grants no timing authority. `ui_active_since_s` exposes
+its monotonic seconds-plus-one start stamp; zero means inactive.
+
 `PPS mm:ss` and `HOT mm:ss` show consecutive observed hold durations, tracked
 across page navigation. PPS loss and HOT withdrawal reset their respective
 timers. A stale model resets both. The green padlock and `SoftPLL` identify an
