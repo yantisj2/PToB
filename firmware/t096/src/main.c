@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 #include "app.h"
+#include "gm_diagnostics.h"
 #include "health.h"
 #include "timing_events.h"
 #include "initiator_diag.h"
@@ -242,14 +243,25 @@ static void __attribute__((noinline)) reply(const struct r2_request *r,uint64_t 
 #endif
     n=r2_frame(frame,sizeof frame,r->id,++reply_sequence,json);if(n>0)(void)r2_console_reply(frame,(size_t)n,arrival+R2_REPLY_MS);return;
   }
+  if(r->op==R2_GM){
+#ifdef R2_GM5_NATIVE
+    struct r2_gm5_diagnostic d={0};r2_gm_diagnostic_snapshot(&d);
+    uint32_t gm_profile[5];r2_service_profile_status(gm_profile);if(gm_profile[0]||gm_profile[1])d.state.enabled=false;
+    int n=r2_gm_diagnostic_format(json,sizeof json,&d,(unsigned)r->nonce,R2_SOURCE_SHA,identity.boot);
+#else
+    int n=snprintf(json,sizeof json,"{\"schema\":1,\"source\":\"%s\",\"boot\":\"%016llx\",\"available\":false}",R2_SOURCE_SHA,(unsigned long long)identity.boot);
+#endif
+    if(n<0||reply_sequence==UINT32_MAX)return;
+    n=r2_frame(frame,sizeof frame,r->id,++reply_sequence,json);if(n>0)(void)r2_console_reply(frame,(size_t)n,arrival+R2_REPLY_MS);return;
+  }
   if(r->op==R2_JOIN){
     struct r2_service_status s;r2_service_snapshot(&s);
     char names[5][49];const char *hex="0123456789abcdef";
     for(unsigned i=0;i<5;i++){const char *name=i?s.peer_names[i-1]:s.name;unsigned j=0;
       for(;j<24&&name[j];j++){uint8_t c=(uint8_t)name[j];names[i][2*j]=hex[c>>4];names[i][2*j+1]=hex[c&15];}names[i][2*j]=0;
     }
-    int n=snprintf(json,sizeof json,"{\"source\":\"%s\",\"boot\":\"%016llx\",\"group_id\":\"%016llx\",\"key_epoch\":%u,\"name_utf8_hex\":\"%s\",\"authenticated_mask\":%u,\"control_capacity\":4,\"peers\":[{\"id\":\"%016llx\",\"name_hex\":\"%s\"},{\"id\":\"%016llx\",\"name_hex\":\"%s\"},{\"id\":\"%016llx\",\"name_hex\":\"%s\"},{\"id\":\"%016llx\",\"name_hex\":\"%s\"}],\"gm_transport\":[",
-      R2_SOURCE_SHA,(unsigned long long)identity.boot,(unsigned long long)s.group_id,s.key_epoch,names[0],s.authenticated_mask,
+    int n=snprintf(json,sizeof json,"{\"source\":\"%s\",\"boot\":\"%016llx\",\"group_id\":\"%016llx\",\"key_epoch\":%u,\"name_utf8_hex\":\"%s\",\"authenticated_mask\":%u,\"control_capacity\":%u,\"peers\":[{\"id\":\"%016llx\",\"name_hex\":\"%s\"},{\"id\":\"%016llx\",\"name_hex\":\"%s\"},{\"id\":\"%016llx\",\"name_hex\":\"%s\"},{\"id\":\"%016llx\",\"name_hex\":\"%s\"}],\"gm_transport\":[",
+      R2_SOURCE_SHA,(unsigned long long)identity.boot,(unsigned long long)s.group_id,s.key_epoch,names[0],s.authenticated_mask,R2_NET_PEERS,
       (unsigned long long)s.identities[0],names[1],(unsigned long long)s.identities[1],names[2],(unsigned long long)s.identities[2],names[3],(unsigned long long)s.identities[3],names[4]);
     uint32_t gm[R2_GM_TRANSPORT_WORDS]={0},pa[6]={0};
 #ifndef R2_PC_PROFILE

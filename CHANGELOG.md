@@ -2,6 +2,26 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 20 October 2026 — T0960.15.134 G5 bounded standby
+
+Ordinary GM now separates three-identity candidate inventory from two control
+slots (self and one appointed peer). A healthy ACTIVE/HOT pair retains its
+appointment; other capable clocks stay COLD with continuous physical source
+qualification and sparse causal inventory. The requested sole LoRa transmitter
+has one ordinary BLE leaf exception while COLD. RC7 client timing, source epochs,
+original output fences, negative LoRa root restriction and flash-only DC remain.
+
+G5 explicitly changes the outer coordination envelope/domain while preserving
+inner AUTH_CONFIG5 and JOINv4. Finite10s incarnation/source/pair-generation grants,
+confirmed global HOT, bounded repair, cooldown history and conservative retirement
+replace persistent all-member management. Negative context survives link cleanup
+and defeats delayed positive inventory. Paged `gm00..04` owner snapshots expose
+original deadlines, freshness/provenance, local/global HOT, output fence, failure
+history and bounded transitions without extra flash writes. Production network,
+precision, admission and transport fake-boundary tests join the aggregate host
+suite. Native resource/controller gates stay unchanged. Hardware durability and
+independently measured UTC/output accuracy remain unqualified.
+
 ## 20 October 2026 — T0960.15.133 preserve the selected HOT under LoRa
 
 When current direct BLE admission matches the live LoRa root, retain that root's

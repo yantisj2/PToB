@@ -18,6 +18,13 @@ static void parse_tests(void)
   r.boot=123; assert(r2_bound(&r,silicon,source,123));
   snprintf(command,sizeof(command),"r2 00000002 %s %s 000000000000007b prepare 00000000000000ab",silicon,source);
   assert(!r2_parse(command,&r) && r.nonce==171 && r.boot==123);
+  for(unsigned page=0;page<6;page++){
+   snprintf(command,sizeof command,"r2 00000002 %s %s 000000000000007b gm %02x",silicon,source,page);
+   if(page<=4)assert(!r2_parse(command,&r)&&r.op==R2_GM&&r.nonce==page&&r2_bound(&r,silicon,source,123));
+   else assert(r2_parse(command,&r));
+  }
+  snprintf(command,sizeof command,"r2 00000002 %s %s 000000000000007b gm 0",silicon,source);assert(r2_parse(command,&r));
+  snprintf(command,sizeof command,"r2 00000002 %s %s 0000000000000000 gm 00",silicon,source);assert(!r2_parse(command,&r)&&!r2_bound(&r,silicon,source,123));
   const char *bad[]={"", "r2", "r2 00000000", " r2", "r2  1", "r2 1 ", "r2\t1"};
   for(unsigned i=0;i<sizeof(bad)/sizeof(bad[0]);i++) assert(r2_parse(bad[i],&r));
   command[strlen(command)-1]='G'; assert(r2_parse(command,&r));

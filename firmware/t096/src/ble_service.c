@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 #include "ble_service.h"
 #include "group_admission.h"
+#include "gm_diagnostics.h"
+#include "build_identity.h"
 #include "runtime_profile.h"
 #include "rc_shadow.h"
 #include "ble_transport.h"
@@ -62,6 +64,13 @@ static uint8_t owner_tx_peers(unsigned self,unsigned count,unsigned *cursor,uint
  }
  *cursor=(*cursor+1)%count;return available;
 }
+#if defined(R2_GM5_NATIVE)
+_Static_assert(sizeof(struct r2_gm5)+sizeof(struct r2_gm5_diagnostic)<=1712u,"G5 state must fit two retired728B peers plus256B of native ACK-ring savings");
+static struct r2_gm5_diagnostic gm_diagnostic;
+void r2_gm_diagnostic_snapshot(struct r2_gm5_diagnostic *out){
+ (void)k_mutex_lock(&lock,K_FOREVER);*out=gm_diagnostic;(void)k_mutex_unlock(&lock);
+}
+#endif
 static void publish(uint64_t now)
 {
 #if defined(CONFIG_BT_PER_ADV)
@@ -91,6 +100,17 @@ static void publish(uint64_t now)
  uint8_t lamps[8];r2_ble_lamps(lamps,now);
  uint64_t direct_path[4];r2_group_admission_path_view(direct_path);
  (void)k_mutex_lock(&lock,K_FOREVER);
+#if defined(R2_GM5_NATIVE)
+ gm_diagnostic.state=net.gm5;gm_diagnostic.at=now;gm_diagnostic.boot=net.boot;
+ gm_diagnostic.source_until=net.candidate.valid_until_us;gm_diagnostic.source_epoch=net.candidate.generation;
+ gm_diagnostic.root_health_at=net.root_health_at;gm_diagnostic.output_not_before=net.fence>net.takeover_not_before?net.fence:net.takeover_not_before;gm_diagnostic.refusal=hot_refusal;gm_diagnostic.pair_generation=net.management_generation;
+ gm_diagnostic.physical_eligible=net.admission.eligible;gm_diagnostic.global_hot_known=net.gm5.role==R2_GM5_ACTIVE;
+ gm_diagnostic.global_hot=gm_diagnostic.global_hot_known&&net.hot_ready;
+ gm_diagnostic.local_hot=net.hot_ready&&net.coordinator==net.self;
+ gm_diagnostic.serving=!profile_rc&&!profile_pending&&started&&!atomic_get(&stop_requested)&&view.local_gm_ready;
+ gm_diagnostic.map_valid=precision_view.map_valid;gm_diagnostic.locked=precision_view.locked;
+#endif
+ status.gm_cold=net.gm5.enabled&&net.gm5.role==R2_GM5_COLD;
  memcpy(status.direct_path,direct_path,sizeof direct_path);
  #if defined(CONFIG_BT_PER_ADV)
  status.profile_rc=profile_rc;status.profile_target_rc=profile_target_rc;status.profile_pending=profile_pending;status.profile_phase=profile_phase;status.profile_changes=profile_changes;status.profile_incarnation=net.boot;
@@ -104,9 +124,10 @@ static void publish(uint64_t now)
  status.standby_authorized=net.standby_authorized;status.takeover_pending=net.takeover_pending;
  status.root_health_at=net.root_health_at;status.takeover_started=net.takeover_started;status.takeover_not_before=net.takeover_not_before;
  status.group_id=roster.group.id;status.key_epoch=roster.group.epoch;status.authenticated_mask=0;
- for(unsigned i=0;i<4;i++)if(net.peer[i].authenticated)status.authenticated_mask|=1u<<i;
+ for(unsigned i=0;i<net.count;i++)if(net.peer[i].authenticated)status.authenticated_mask|=1u<<i;
  memcpy(status.identities,roster.identity,sizeof status.identities);memcpy(status.name,net.name,sizeof status.name);
- for(unsigned i=0;i<4;i++)memcpy(status.peer_names[i],net.peer[i].name,25);
+ memset(status.peer_names,0,sizeof status.peer_names);
+ for(unsigned i=0;i<net.count;i++)memcpy(status.peer_names[i],net.peer[i].name,25);
  memcpy(status.lamps,lamps,8);status.at=now;status.self=net.self;status.coordinator=net.ready?net.coordinator:255;
  status.root=view.elected_root;status.standby=view.hot_standby;status.members=view.members;status.phase=view.phase;
  status.quality=net.quality;status.source_eligible=net.admission.eligible;status.gm_capable=!!(net.gm_mask&(1u<<net.self));status.hot_ready=net.hot_ready;
@@ -190,7 +211,7 @@ static void cycle(struct k_work *work)
  r2_ble_owner_deadline(0); /* Each control request owns its own bounded lifetime. */
  uint64_t now=now_us();
  (void)k_mutex_lock(&lock,K_FOREVER);
- if(name_pending){memcpy(net.name,pending_name,sizeof net.name);name_pending=false;for(unsigned p=0;p<4;p++)net.peer[p].next_hello=0;}
+ if(name_pending){memcpy(net.name,pending_name,sizeof net.name);name_pending=false;for(unsigned p=0;p<net.count;p++)net.peer[p].next_hello=0;}
  (void)k_mutex_unlock(&lock);
  if(atomic_get(&stop_requested)){
 #ifdef R2_LORA
@@ -219,12 +240,19 @@ static void cycle(struct k_work *work)
   }
  }else{
   struct r2_group_client public;r2_group_admission_client(&public);
+  if(net.gm5.enabled){
+#ifdef R2_LORA
+   struct r2_lora_view bridge_view;r2_lora_view(&bridge_view);net.gm5.bridge=r2_gm5_bridge_needed(&net.gm5,bridge_view.transmitter,bridge_view.requested);
+#endif
+   r2_ble_gm5_policy(true,r2_gm5_control_peer(&net),r2_gm5_poll_due(&net,now)||net.gm5.bridge);
+  }
   r2_ble_serving(net.local_gm&&net.ready&&now<net.service_until);
-  r2_ble_client_window(profile_supported||!(roster.group.id&&(public.passive||!(net.capabilities&1)))||r2_ble_client_window_open(now,400000));
+  bool cold=net.gm5.enabled&&net.gm5.role==R2_GM5_COLD&&!net.gm5.bridge;
+  r2_ble_client_window(cold?(r2_gm5_poll_due(&net,now)||r2_ble_admission_connected()):profile_supported||!(roster.group.id&&(public.passive||!(net.capabilities&1)))||r2_ble_client_window_open(now,400000));
   r2_ble_poll(now);
-  r2_ble_client_seek(now,public.passive&&!public.source);
+  r2_ble_client_seek(now,!net.gm5.enabled&&public.passive&&!public.source);
   if(r2_ble_stop_error())r2_service_stop();
-  for(unsigned p=0;p<roster.count;p++)if(p!=net.self){
+  for(unsigned p=0;p<net.count;p++)if(p!=net.self){
    if(roster.group.id){uint8_t address[6];uint64_t id=r2_ble_peer_identity(p,address);
     if(id!=net.peer[p].identity){
      r2_network_link(&net,p,false,now_us());memset(&net.peer[p],0,sizeof net.peer[p]);
@@ -256,7 +284,7 @@ static void cycle(struct k_work *work)
   struct r2_ble_event event;
   for(unsigned k=0;k<R2_OWNER_CONTROL_RX&&r2_ble_receive(&event);k++){
    if(event.peer==r2_ble_admission_peer()){r2_group_admission_receive(&net,&event,now_us());continue;}
-   if(event.peer<roster.count){
+   if(event.peer<net.count){
    uint64_t processed=now_us();uint64_t latency=processed>=event.at?processed-event.at:0;
    if(latency>rx_latency_max_us)rx_latency_max_us=latency>UINT32_MAX?UINT32_MAX:(uint32_t)latency;
    r2_network_receive(&net,event.peer,event.data,event.length,event.at,processed);
@@ -295,7 +323,9 @@ static void cycle(struct k_work *work)
   r2_ble_topology(net.coordinator,net.members_mask);
 #if defined(CONFIG_BT_PER_ADV)
   worker_stage(4);
-  r2_group_admission_client(&public);r2_radio_service_client(&public,&roster,now);
+  r2_group_admission_client(&public);
+  if(net.gm5.enabled&&net.gm5.role==R2_GM5_COLD&&!net.gm5.bridge)public=(struct r2_group_client){.passive=true};
+  r2_radio_service_client(&public,&roster,now);
   struct v12_dc_snapshot authority={0};r2_network_snapshot(&net,&authority);
   struct r2_radio_scope scope={.boot=authority.root_boot,.source_epoch=authority.coarse.generation,.publication_epoch=net.publication,.root=authority.elected_root};
   if(authority.relative_precision_permitted){
@@ -385,15 +415,22 @@ int r2_service_configure(const struct r2_identity *id,const struct r2_enrollment
  if(self>=roster.count)return -EACCES;
  bt_addr_le_t address={.type=BT_ADDR_LE_RANDOM};memcpy(address.a.val,roster.address[self],6);
  int rc=bt_id_create(&address,NULL);if(rc<0)return rc;
- rc=r2_network_init(&net,self,roster.count,silicon,id->boot,id->boot^UINT64_C(0x52424c453031),roster.map_bound_us,now_us());if(rc)return rc;
+ rc=r2_network_init(&net,self,roster.group.id?R2_NET_PEERS:roster.count,silicon,id->boot,id->boot^UINT64_C(0x52424c453031),roster.map_bound_us,now_us());if(rc)return rc;
  net.group=roster.group;net.capabilities=e->group.id?roster.local_capabilities:3;
+#if defined(R2_GM5_NATIVE) && !defined(R2_PC_PROFILE)
+ net.gm5.enabled=roster.group.id&&(net.capabilities&1)&&!profile_rc;
+#ifdef R2_LORA
+ struct r2_lora_view bridge_view;r2_lora_view(&bridge_view);net.gm5.bridge=r2_gm5_bridge_needed(&net.gm5,bridge_view.transmitter,bridge_view.requested);
+#endif
+#endif
+ r2_ble_gm5_policy(net.gm5.enabled,0,true);
  r2_ble_group_client(roster.group.id&&!(net.capabilities&1));
  r2_ble_group_relay(profile_rc);
  r2_radio_service_continuous(profile_supported);
  snprintf(net.name,sizeof net.name,"Clock-%016llx",(unsigned long long)silicon);
  r2_network_capabilities(&net,roster.gm_mask,roster.gnss_mask);
 
- for(unsigned p=0;p<roster.count;p++){
+ for(unsigned p=0;p<net.count;p++){
   net.peer[p].identity=roster.identity[p];memcpy(net.peer[p].tx_key,roster.key[self][p],16);memcpy(net.peer[p].rx_key,roster.key[p][self],16);
  }
 #if defined(CONFIG_BT_PER_ADV)
@@ -687,8 +724,16 @@ static int profile_restart(uint64_t now){
  memset(roster.identity+1,0,sizeof roster.identity-sizeof roster.identity[0]);memset(roster.address+1,0,sizeof roster.address-sizeof roster.address[0]);
  uint64_t incarnation=r2_profile_incarnation(physical_boot,profile_changes);
  rc=r2_relay_service_profile_reset(incarnation);if(rc)return rc;
- rc=r2_network_init(&net,0,4,profile_identity,incarnation,incarnation^UINT64_C(0x52424c453031),roster.map_bound_us,now);if(rc)return rc;
- net.group=roster.group;net.capabilities=roster.local_capabilities;net.peer[0].identity=profile_identity;memcpy(net.name,saved_name,sizeof net.name);
+ rc=r2_network_init(&net,0,R2_NET_PEERS,profile_identity,incarnation,incarnation^UINT64_C(0x52424c453031),roster.map_bound_us,now);if(rc)return rc;
+ net.group=roster.group;net.capabilities=roster.local_capabilities;
+#if defined(R2_GM5_NATIVE)
+ net.gm5.enabled=!profile_rc&&(net.capabilities&1);
+#ifdef R2_LORA
+ struct r2_lora_view bridge_view;r2_lora_view(&bridge_view);net.gm5.bridge=r2_gm5_bridge_needed(&net.gm5,bridge_view.transmitter,bridge_view.requested);
+#endif
+#endif
+ r2_ble_gm5_policy(net.gm5.enabled,0,true);
+ net.peer[0].identity=profile_identity;memcpy(net.name,saved_name,sizeof net.name);
  r2_network_capabilities(&net,roster.gm_mask,roster.gnss_mask);r2_ble_group_client(profile_rc);r2_ble_group_relay(profile_rc);r2_radio_service_continuous(profile_supported);r2_radio_service_roster(&roster);
  rc=r2_ble_group_start(profile_identity,roster.group.id,roster.group.epoch,roster.address[0]);if(rc)return rc;
  (void)k_mutex_lock(&lock,K_FOREVER);atomic_clear(&stop_requested);transport_stopped=false;close_deadline=0;

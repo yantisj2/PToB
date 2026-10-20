@@ -8,7 +8,7 @@ endif()
 set(R2_USB_SOURCE_STREAM ON)
 set(R2_USB_SOF_PROBE ON)
 set(R2_USB_REFERENCE_PROBE ON)
-project(ptob_t096 VERSION 0.15.133)
+project(ptob_t096 VERSION 0.15.134)
 if(R2_DC_PROFILE AND R2_PC_PROFILE)
  message(FATAL_ERROR "DC and PC are separate images")
 endif()
@@ -113,6 +113,9 @@ include(cmake/precision_schedule.cmake)
 target_compile_options(app PRIVATE -Wall -Wextra -Werror -Wno-unused-parameter)
 
 target_compile_definitions(app PRIVATE R2_NATIVE_BLE=1)
+if(R2_RC_PROFILE AND NOT R2_PC_PROFILE)
+ target_compile_definitions(app PRIVATE R2_GM5_NATIVE=1)
+endif()
 target_include_directories(app PRIVATE protocol)
 target_sources(app PRIVATE src/diagnostic.c src/health.c protocol/election_policy.c)
 # RC8 is a separate secondary estimate. The enrolled factory binding gates startup.
@@ -124,7 +127,7 @@ endif()
 
 configure_file(${R2_ENROLLMENT_HEADER} ${CMAKE_CURRENT_BINARY_DIR}/r2_enrollment.h COPYONLY)
 
-target_sources(app PRIVATE protocol/group_join.c protocol/group_auth.c protocol/group_control.c protocol/group_precision.c protocol/role_announcement.c)
+target_sources(app PRIVATE protocol/gm_diagnostics.c protocol/group_join.c protocol/group_auth.c protocol/group_control.c protocol/group_precision.c protocol/role_announcement.c)
 
 if(NOT R2_BOUNDARY_FIELD)
  target_sources(app PRIVATE src/group_admission.c)

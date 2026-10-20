@@ -25,6 +25,8 @@ void r2_group_admission_require_anchor(void){
  client.source=false;r2_group_admission_refresh_anchor();
 }
 static bool active, waiting, promote, sent_demand, control_requested;
+/* G5 STATUS request/response/confirmation stays on the original JOIN owner. */
+static uint8_t gm5_phase;static bool gm5_send,gm5_done;
 static uint64_t control_denied_until;
 static struct r2_local_demand demand;
 static bool received_request,relay_allowed=true,relay_ready;
@@ -111,7 +113,7 @@ static void control_result(const struct r2_join_record *r, uint64_t now) {
     control_denied_until=now>UINT64_MAX-5000000?UINT64_MAX:now+5000000;
 }
 static bool control_available(const struct r2_network *n) {
-  return !control_blocked(n->now) && n->admission.eligible && (n->capabilities & 1) && r2_ble_control_available();
+  return !n->gm5.enabled && !control_blocked(n->now) && n->admission.eligible && (n->capabilities & 1) && r2_ble_control_available();
 }
 static struct r2_join_record message(const struct r2_network *n, unsigned kind,
                                      uint64_t now) {
@@ -202,6 +204,11 @@ static void accepted_peer(struct r2_network *n, const struct r2_join_record *r,
   /* Existing control participants are not demoted by a guest's lack of a
    * control slot. A new capable node joining a full core becomes a client. */
   control_result(r,now);
+  if(n->gm5.enabled&&r->source_flags&&r->root==r->sender&&r->root_boot==r->sender_boot&&r->root!=n->identity){
+   /* Current causal legacy JOIN can inhibit election but never grants G5 HOT.
+    * The bounded negative hold is separate from its original timing permit. */
+   if(n->gm5.role!=R2_GM5_ACTIVE){n->gm5.active=r->root;n->gm5.active_boot=r->root_boot;n->gm5.active_until=now+R2_GM5_STATUS_US;}
+  }
   bool passive =
       !(n->capabilities & 1) || (!n->admission.eligible&&!r2_ble_control_member()) ||
       (!exchange.server && !r2_ble_control_member() && !exchange.control &&
@@ -249,7 +256,7 @@ static void accepted_peer(struct r2_network *n, const struct r2_join_record *r,
                                         .until = time.until,
                                         .uncertainty_us = time.uncertainty_us};
   }
-  if(passive){
+  if(passive&&!n->gm5.enabled){
     n->profile_client = n->self;
     r2_ble_group_client(true);
   }
@@ -310,6 +317,9 @@ void r2_group_admission_tick(struct r2_network *n, uint64_t now) {
     r2_group_admission_require_anchor();
   }
 #endif
+#if defined(R2_GM5_NATIVE)
+  if(n->gm5.enabled){uint64_t selected=r2_gm5_control_peer(n);if(selected&&!r2_ble_control_member()){parent=selected;r2_ble_admission_anchor_deadline(selected,now+1000000);}seek_relay=false;}
+#endif
   r2_ble_admission_policy(parent,seek_relay);
   /* Only authenticated, originally bounded upstream time inhibits local
    * candidacy from disrupting an existing service during control admission. */
@@ -327,7 +337,7 @@ void r2_group_admission_tick(struct r2_network *n, uint64_t now) {
    }
   }
   if(!(n->capabilities&1)||(!n->admission.eligible&&!r2_ble_control_member()))client.passive=true;
-  if(client.passive&&n->admission.eligible&&(n->capabilities&1)&&!control_blocked(now)){
+  if(!n->gm5.enabled&&client.passive&&n->admission.eligible&&(n->capabilities&1)&&!control_blocked(now)){
    client.passive=false;n->profile_client=255;r2_ble_group_client(false);
   }
   if(client.passive){
@@ -341,7 +351,23 @@ void r2_group_admission_tick(struct r2_network *n, uint64_t now) {
   }
   bool ready = r2_ble_ready(r2_ble_admission_peer());
   uint64_t peer = r2_ble_peer_identity(r2_ble_admission_peer(), NULL);
-  if (active && ready && close_at && now >= close_at && promote) {
+#if defined(R2_GM5_NATIVE)
+  if(n->gm5.enabled){
+   bool control=r2_gm5_control_peer(n)!=0;
+   client.passive=!control&&!n->local_gm;
+   r2_ble_group_client(client.passive);
+   if(!n->gm5.bridge)r2_ble_client_bootstrap(r2_gm5_poll_due(n,now)||control,false);
+   if(!n->gm5.bridge&&client.passive)client.source=false;
+  }
+  if(n->gm5.enabled&&active&&gm5_send&&ready&&exchange.accepted&&now<exchange.until){
+   uint8_t wire[R2_GM5_STATUS_BYTES];int rc=r2_gm5_status_encode(n,&exchange,gm5_phase,wire);
+   if(!rc)rc=r2_ble_send(r2_ble_admission_peer(),wire);
+   if(!rc){gm5_send=false;
+    if(gm5_phase==2){gm5_done=true;promote=r2_gm5_wants_control(n,exchange.peer);exchange.control=promote;close_at=now+50000;r2_gm5_poll_completed(n,now);r2_ble_admission_completed(exchange.peer,now);}
+   }
+  }
+#endif
+  if (active && ready && close_at && now >= close_at && now<exchange.until && promote) {
     int slot = r2_ble_admission_promote();
     if (slot >= 0) {
       r2_timing_event(R2_TIMING_GM_CONTROL,0,exchange.peer,7,(uint32_t)slot,exchange.control);
@@ -367,6 +393,9 @@ void r2_group_admission_tick(struct r2_network *n, uint64_t now) {
       r2_ble_admission_release();
     active = waiting = promote = false;
     close_at = 0;
+#if defined(R2_GM5_NATIVE)
+    if(n->gm5.enabled)r2_gm5_poll_completed(n,now);
+#endif
     retry_at = now + 200000;
   }
   if (!active && ready && peer && now >= retry_at) {
@@ -382,7 +411,7 @@ void r2_group_admission_tick(struct r2_network *n, uint64_t now) {
     }
     active = true;
     r2_timing_event(R2_TIMING_GM_CONTROL,0,exchange.peer,3,exchange.server,5000);
-    sequence = 0;sent_demand=false;received_request=false;
+    sequence = 0;sent_demand=false;received_request=false;gm5_phase=0;gm5_send=gm5_done=false;
     promote = false;
     if (!exchange.server) {
       exchange.control = control_available(n);
@@ -426,13 +455,15 @@ void r2_group_admission_tick(struct r2_network *n, uint64_t now) {
         exchange.accepted = true;
         promote = exchange.control;
         close_at = now + 100000;
+        if(n->gm5.enabled&&(exchange.peer_capabilities&1)){close_at=exchange.until;gm5_phase=0;gm5_send=false;}
+
       }
     } else if (rc != -EAGAIN && rc != -ENOMEM && rc != -ENOBUFS) {
       r2_ble_admission_release();
       active = waiting = promote = false;
     }
   }
-  if (client.passive) {
+  if (client.passive&&!n->gm5.enabled) {
     n->profile_client = n->self;
     r2_ble_group_client(true);
   }
@@ -443,6 +474,17 @@ void r2_group_admission_receive(struct r2_network *n,
   if (event->peer != r2_ble_admission_peer() || now < event->at ||
       now - event->at >= 500000)
     return;
+#if defined(R2_GM5_NATIVE)
+  if(n->gm5.enabled&&event->length==R2_GM5_STATUS_BYTES&&event->data[0]==19&&event->data[1]<3){
+   if(!exchange.server&&gm5_phase!=0)return;
+   unsigned expected=exchange.server?(gm5_phase==1?2:0):1;
+   if(!active||gm5_done||event->data[1]!=expected||r2_gm5_status_receive(n,&exchange,expected,event->data,event->length,now))return;
+   if(exchange.server&&expected==0){gm5_phase=1;gm5_send=true;}
+   else if(!exchange.server){gm5_phase=2;gm5_send=true;}
+   else{gm5_done=true;promote=r2_gm5_wants_control(n,exchange.peer);exchange.control=promote;close_at=now+50000;r2_gm5_poll_completed(n,now);r2_ble_admission_completed(exchange.peer,now);}
+   return;
+  }
+#endif
   struct r2_join_record r;
   if (r2_group_join_decode(&r, event->data, event->length, &n->group))
     return;
@@ -461,7 +503,7 @@ void r2_group_admission_receive(struct r2_network *n,
       return;
     active = true;
     waiting = promote = false;
-    sequence = 0;sent_demand=false;received_request=false;
+    sequence = 0;sent_demand=false;received_request=false;gm5_phase=0;gm5_send=gm5_done=false;
     close_at = 0;
   }
   int receive_rc=r2_group_join_receive(&exchange,&r,now);
@@ -515,12 +557,15 @@ void r2_group_admission_receive(struct r2_network *n,
      * admission keeps its existing close behavior. TX callback ownership is
      * still drained by the transport before connection reuse. */
     close_at = now + (r2_ble_admission_peer()<R2_BLE_ADMISSION_PEER?2000:50000);
+    if(n->gm5.enabled&&(exchange.peer_capabilities&1)){close_at=exchange.until;gm5_phase=0;gm5_send=true;}
+
   }
 }
 
 void r2_group_admission_reset(void){
  relay_allowed=true;relay_ready=false;
  exchange=(struct r2_join_exchange){0};client=(struct r2_group_client){0};pending=(struct r2_join_record){0};
+ gm5_phase=0;gm5_send=gm5_done=false;
  sequence=retry_at=close_at=control_denied_until=0;refresh_required=active=waiting=promote=sent_demand=control_requested=received_request=poor_direct=false;
  demand=queued_demand=(struct r2_local_demand){0};timing_context=coarse_context=(struct r2_group_client){0};direct_accepted=missed_opportunities=0;
  direct_progress_at=direct_receive_since_quality=discovery_since=0;direct_delivery_seen=false;r2_ble_admission_policy(0,false);

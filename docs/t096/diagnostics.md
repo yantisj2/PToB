@@ -878,3 +878,61 @@ fresh GM source and valid observed transmit-beat RMS. Its sample count is the
 local beat window, not PPS or receiver-fit samples. Missing/expired beats show
 `--` with `WAIT BEATS`, `SOURCE WAIT`, `BLE OFF` or `STATE STALE`. The Bluetooth
 symbol uses the existing badge geometry and is muted while unavailable.
+
+## G5 paged observation
+
+Version0.15.134 adds read-only `gm PP`, where `PP` is exactly two hex digits
+`00`..`04`, inside the normal source/factory/physical-boot/request-bound R2
+command and CRC-framed reply. Payload formatting is bounded to2,200 bytes and
+retains the3,072-byte console frame budget. Queries copy the published owner
+snapshot and start no discovery, ACL, precision or flash work. Poll `gm00` with
+ordinary status; stagger the other pages. Every page has schema1, source SHA,
+physical `boot`, `published_at_us`, `page`, `available`, `gm_protocol:5`,
+`control_envelope:19` and `auth_config:5`. AUTH_CONFIG5 alone is not G5 capability.
+When `available:false` (including RC/transition), ignore remaining GM facts.
+
+| Page | Fields and interpretation |
+| --- | --- |
+|00|Local role and logical `incarnation`; physical source eligibility/epoch/permit; coordination inhibition and `bridge_leaf`; ACTIVE/selected full identities/boots; current local `serving`, `local_hot`, confirmed `global_hot` and `global_hot_known`; map/lock/refusal; pair/grant generations; original attempt, stability, grant, issuance, retirement, retry and poll deadlines; root-health creation bound; `output_not_before_us`; last reason and counters.|
+|01..03|One remote inventory slot: identity/incarnation; known/fresh; causal G5 JOIN STATUS provenance and local receipt/expiry; separately observed HELLO physical report/permit/freshness; reported physical eligibility/source age/epoch/inhibition, role/ACTIVE/selected identities/boots, pair generation, raw remote grant/attempt deadlines, quality and negative root; local failures/successes/cooldown and last local failure; remote last reason; retained withdrawal creation time/epoch.|
+|04|Three most recent local role/appointment transitions, oldest first: `[local_us,peer_full_identity,pair_generation,role,reason]`, with cumulative produced/overwritten counts and `reset_retained:false`.|
+
+Page00 counters are `[attempts,failures,successes,status_tx,status_rx,control_tx,
+control_rx]`. Role numbers are COLD0, ACQUIRING1, HOT2, ACTIVE3. Reasons are
+NONE0, SELECTED1, SOURCE2, INHIBITED3, TRANSPORT4, MAP5, AUTH6, TIMEOUT7,
+RETIRED8, GRANT_EXPIRED9, TAKEOVER10, MERGE11, NO_CANDIDATE12, COMMITTED13,
+ROOT_CHANGED14. `hot_refusal` retains the existing native HOT gate bitmask;
+`precision`, `network`, `join.gm_transport/gm_radio` and `events` supply detailed
+map/auth/source/controller and precision-workload evidence. Snapshot timestamps
+must match before comparing fields from different commands.
+
+`serving` and `output_not_before_us` are from the **same** owner publication.
+The latter is max(original topology fence,pending takeover fence), allowing a
+local software-state fence check without combining sequential publications.
+Deadline0 means no known current deadline. Every local microsecond value belongs
+to this logical incarnation, not UTC; remote raw deadlines and withdrawal creation
+time belong to the reported remote boot and are explicitly **unmapped**. Do not
+subtract them from the host/local clock. Source eligibility reports are descriptive;
+only a fresh original physical permit establishes its separate permission.
+A cached remote role/grant is UNKNOWN after `status_until_us`; an expired HELLO
+permit is UNKNOWN as current source permission even when the older STATUS is fresh.
+
+Global HOT is known only at ACTIVE after current COMMIT acknowledgement. A local
+HOT can know its own valid grant/readiness but cannot prove ACTIVE received its
+last acknowledgement (`global_hot_known:false`). A moved/off-host clock remains
+identifiable through authenticated identity/incarnation and causal reports at its
+connected peers; missing/expired reports must remain UNKNOWN. Reports are not a
+proxy USB reader or continuous remote observation.
+
+Transitions also enter the existing29-record RAM `events` journal as kind32,
+stage `40+reason`, with generation/role values. This reuses the existing journal
+and adds no flash-write cadence. Its existing overwrite and logical-owner restart
+semantics remain; neither ring promises power-loss retention. Recover available
+records when a moved unit returns, retaining produced/overwritten counts, gaps,
+missing readers and physical-boot changes. Count intentional source withdrawals,
+unexpected faults, time serving, time without HOT and total observation separately.
+A test that intentionally withdraws a source still belongs in the failure/outage
+denominator. No diagnostic turns relative fit/RMS into an absolute UTC bound.
+
+See [the G5 contract](gm-standby.md) for timers, compatibility, the requested COLD
+LoRa forwarding-leaf exception and separate simulator/native/hardware populations.

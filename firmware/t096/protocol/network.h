@@ -8,9 +8,19 @@
 #include "clock.h"
 #include "durability.h"
 #include "gm_coordination.h"
-#define R2_NET_PEERS 4
+#include "gm_standby.h"
+#if defined(R2_GM5_NATIVE)
+#define R2_NET_PEERS 2 /* self and one selected coordination peer */
+#else
+#define R2_NET_PEERS 4 /* Historical provisioned/field experiments. */
+#endif
 /* Retain every50ms issuance through its original250ms ACK lifetime. */
+#if defined(R2_GM5_NATIVE)
+/* Fixed100ms SERVICE cadence: retain the original250ms ACK window plus one. */
+#define R2_ISSUED_RECORDS 4
+#else
 #define R2_ISSUED_RECORDS 8
+#endif
 #define R2_NETWORK_CONFIG R2_AUTH_CONFIG
 #include "precision_codec.h"
 /* P1 schedule revision 2, bound to the actual PA interval (old: 0x5031320000007a12). */
@@ -39,6 +49,7 @@ struct r2_pair {
 #define R2_PAIR_RESERVE_US UINT64_C(10000000)
 #define R2_MANAGEMENT_LEASE_US UINT64_C(2000000)
 struct r2_network {
+ struct r2_gm5 gm5;
  /* One bounded authenticated discovery/yield hint, never a control grant. */
  struct r2_group_pair_hint discovery_pair;uint32_t discovery_sender_epoch;uint8_t discovery_sender;
  /* Independently causal UTC interval. ACL loss cannot refresh or erase it;

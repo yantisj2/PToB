@@ -29,3 +29,7 @@ int r2_group_control_decode14(struct r2_auth_record *,const uint8_t *,size_t,con
  * This optional value never grants membership, source permission or HOT. */
 struct r2_group_pair_hint {uint64_t root,standby,root_boot,standby_boot,until;uint32_t epoch;};
 int r2_group_control_decode14_hint(struct r2_auth_record *,const uint8_t *,size_t,const struct r2_group_config *,const uint64_t [4],uint64_t,char [25],uint8_t *,struct r2_group_pair_hint *);
+
+/* G5 finite ACTIVE-owned grants. Type19/domain5 reject older GM semantics. */
+int r2_group_control_encode5(uint8_t *,const struct r2_auth_record *,const struct r2_group_config *,const uint64_t [4],const char *,uint8_t);
+int r2_group_control_decode5(struct r2_auth_record *,const uint8_t *,size_t,const struct r2_group_config *,const uint64_t [4],uint64_t,char [25],uint8_t *,struct r2_group_pair_hint *);

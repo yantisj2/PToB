@@ -12,7 +12,8 @@ size_t r2_group_control_size(unsigned k) {
 size_t r2_control_wire_size(const uint8_t *w) {
   if (w[0] == 14)
     return R2_GROUP_JOIN_BYTES;
-  return (w[0] == 13 || w[0] == 15 || w[0] == 17) ? r2_group_control_size(w[1]) : r2_auth_size(w[1]);
+  if(w[0]==19&&w[1]<3)return 160;
+  return (w[0] == 13 || w[0] == 15 || w[0] == 17 || w[0]==19) ? r2_group_control_size(w[1]) : r2_auth_size(w[1]);
 }
 static bool dictionary(const uint64_t ids[4]) {
   for (unsigned i = 0; i < 4; i++)
@@ -26,7 +27,7 @@ static int control_encode(uint8_t out[R2_GROUP_CONTROL_MAX],
                             const struct r2_auth_record *r,
                             const struct r2_group_config *g,
                             const uint64_t ids[4], const char *name,
-                            uint8_t caps,bool v14) {
+                            uint8_t caps,unsigned v14) {
   if (!out || !r || !ids || !r2_group_valid(g) || !dictionary(ids) ||
       r->sender >= 4 || r->target >= 4 || !ids[r->sender] || !ids[r->target] ||
       caps > 3)
@@ -38,7 +39,7 @@ static int control_encode(uint8_t out[R2_GROUP_CONTROL_MAX],
   size_t body = r2_auth_size(r->kind) - 8, n = r2_group_control_size(r->kind);
   memset(out, 0, R2_GROUP_CONTROL_MAX);
   memcpy(out, legacy, body);
-  out[0] = v14?17:13;
+  out[0] = v14==5?19:v14?17:13;
   r2_group_put(out + body, g->epoch, 4);
   for (unsigned i = 0; i < 4; i++)
     r2_group_put(out + body + 4 + i * 8, ids[i], 8);
@@ -50,7 +51,7 @@ static int control_encode(uint8_t out[R2_GROUP_CONTROL_MAX],
     out[body + 36] = (uint8_t)len | (caps << 5);
     memcpy(out + body + 37, name, len);
   }
-  return r2_group_mac(out + n - 16, g, v14?"PTOBG3C4":"PTOBG1C1", out, n - 16);
+  return r2_group_mac(out + n - 16, g, v14==5?"PTOBG5C5":v14?"PTOBG3C4":"PTOBG1C1", out, n - 16);
 }
 static int identity_index(const uint64_t ids[4], uint64_t id) {
   if (!id)
@@ -75,15 +76,15 @@ static bool remap(uint8_t *slot, const uint64_t remote[4],
 static int control_decode(struct r2_auth_record *r, const uint8_t *w,
                             size_t size, const struct r2_group_config *g,
                             const uint64_t ids[4], uint64_t expected_sender,
-                            char name[25], uint8_t *caps,bool v14,struct r2_group_pair_hint *hint) {
+                            char name[25], uint8_t *caps,unsigned v14,struct r2_group_pair_hint *hint) {
   if(hint)*hint=(struct r2_group_pair_hint){0};
   if (!r || !w || !ids || !r2_group_valid(g) || !name || !caps || size < 2 ||
-      w[0] != (v14?17:13) || w[1] < 8 || w[1] > 13 ||
+      w[0] != (v14==5?19:v14?17:13) || w[1] < 8 || w[1] > 13 ||
       size != r2_group_control_size(w[1]))
     return -EINVAL;
   size_t body = r2_auth_size(w[1]) - 8;
   if (r2_group_get(w + body, 4) != g->epoch ||
-      !r2_group_verify(w + size - 16, g, v14?"PTOBG3C4":"PTOBG1C1", w, size - 16))
+      !r2_group_verify(w + size - 16, g, v14==5?"PTOBG5C5":v14?"PTOBG3C4":"PTOBG1C1", w, size - 16))
     return -EACCES;
   uint64_t remote[4];
   for (unsigned i = 0; i < 4; i++)
@@ -132,3 +133,6 @@ int r2_group_control_encode14(uint8_t *out,const struct r2_auth_record *r,const 
 int r2_group_control_decode(struct r2_auth_record *r,const uint8_t *w,size_t size,const struct r2_group_config *g,const uint64_t ids[4],uint64_t sender,char name[25],uint8_t *caps){return control_decode(r,w,size,g,ids,sender,name,caps,false,NULL);}
 int r2_group_control_decode14(struct r2_auth_record *r,const uint8_t *w,size_t size,const struct r2_group_config *g,const uint64_t ids[4],uint64_t sender,char name[25],uint8_t *caps){return control_decode(r,w,size,g,ids,sender,name,caps,true,NULL);}
 int r2_group_control_decode14_hint(struct r2_auth_record *r,const uint8_t *w,size_t size,const struct r2_group_config *g,const uint64_t ids[4],uint64_t sender,char name[25],uint8_t *caps,struct r2_group_pair_hint *hint){return control_decode(r,w,size,g,ids,sender,name,caps,true,hint);}
+
+int r2_group_control_encode5(uint8_t *w,const struct r2_auth_record *r,const struct r2_group_config *g,const uint64_t ids[4],const char *name,uint8_t caps){return control_encode(w,r,g,ids,name,caps,5);}
+int r2_group_control_decode5(struct r2_auth_record *r,const uint8_t *w,size_t size,const struct r2_group_config *g,const uint64_t ids[4],uint64_t sender,char name[25],uint8_t *caps,struct r2_group_pair_hint *hint){return control_decode(r,w,size,g,ids,sender,name,caps,5,hint);}

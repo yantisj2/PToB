@@ -3,13 +3,15 @@
 from pathlib import Path
 import os
 import argparse
-p=argparse.ArgumentParser();p.add_argument("--deps",type=Path,required=True);args=p.parse_args()
+p=argparse.ArgumentParser();p.add_argument("--deps",type=Path,required=True);p.add_argument("--out",type=Path,help="retain exact logs/binaries/receipts in a fresh directory");args=p.parse_args()
 import shutil
 import subprocess
 import sys
 import tempfile
+from contextlib import nullcontext
 APP=Path(__file__).resolve().parents[1]
-with tempfile.TemporaryDirectory(prefix='t096-r2-test-') as directory:
+if args.out: args.out.resolve().mkdir(parents=True,exist_ok=False)
+with (nullcontext(str(args.out.resolve())) if args.out else tempfile.TemporaryDirectory(prefix='t096-r2-test-')) as directory:
     out=Path(directory)
     compiler=os.environ.get('CC') or ('/opt/homebrew/opt/llvm/bin/clang' if Path('/opt/homebrew/opt/llvm/bin/clang').is_file() else shutil.which('clang'))
     subprocess.run([sys.executable,str(APP/'tools/lora_rc8_tests.py'),'--deps',str(args.deps),'--out',str(out/'rc8')],
@@ -17,6 +19,7 @@ with tempfile.TemporaryDirectory(prefix='t096-r2-test-') as directory:
     subprocess.run([sys.executable,str(APP/'tools/lora_source_owner_tests.py'),'--deps',str(args.deps),'--out',str(out/'lora-source-owner')],env={**os.environ,'CC':compiler},check=True,timeout=60)
     subprocess.run([sys.executable,str(APP/'tools/lora_runtime_tests.py'),'--deps',str(args.deps),'--out',str(out/'lora-runtime')],env={**os.environ,'CC':compiler},check=True,timeout=60)
     subprocess.run([sys.executable,str(APP/'tools/lora_hw_tests.py'),'--out',str(out/'lora-hw')],env={**os.environ,'CC':compiler},check=True,timeout=60)
+    subprocess.run([sys.executable,str(APP/'tools/gm_standby_tests.py'),'--deps',str(args.deps),'--out',str(out/'gm-standby')],env={**os.environ,'CC':compiler},check=True,timeout=240)
     subprocess.run([sys.executable,str(APP/'tools/lora_gm_tests.py'),'--deps',str(args.deps),'--out',str(out/'lora-gm')],env={**os.environ,'CC':compiler},check=True,timeout=120)
     subprocess.run([sys.executable,str(APP/'tools/watchdog_tests.py'),'--deps',str(args.deps),'--out',str(out/'watchdog')],env={**os.environ,'CC':compiler},check=True,timeout=120)
     subprocess.run([sys.executable,'-m','unittest',str(APP/'tests/test_lora_build_binding.py')],check=True,timeout=60)

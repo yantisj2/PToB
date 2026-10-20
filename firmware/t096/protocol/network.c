@@ -2,6 +2,7 @@
 #include "network.h"
 #include <errno.h>
 #include <string.h>
+#include "timing_events.h"
 #if defined(R2_SERVICE_NORMAL)
 #include <zephyr/sys/printk.h>
 #endif
@@ -128,11 +129,11 @@ static void authority_clear(struct r2_network *n)
 {n->ready=n->local_gm=n->follower_valid=false;n->view.available=false;n->service_until=n->service_acked_until=0;n->publication=0;management_clear(n);}
 int r2_network_init(struct r2_network *n,uint8_t self,uint8_t nodes,uint64_t identity,uint64_t boot,uint64_t nonce,uint32_t bound,uint64_t now)
 {
- if(!n||self>=nodes||nodes>4||!identity||!boot||!nonce||!bound||bound>50000||now>INT64_MAX/4)return -EINVAL;
+ if(!n||self>=nodes||nodes>R2_NET_PEERS||!identity||!boot||!nonce||!bound||bound>50000||now>INT64_MAX/4)return -EINVAL;
  memset(n,0,sizeof(*n));n->self=self;n->count=nodes;n->identity=identity;n->boot=boot;n->nonce=n->next_nonce=nonce;n->map_bound_us=bound;n->now=now;
  n->record_age_us=UINT32_MAX;
  n->pair.root=n->pair.standby=255;n->choice=n->coordinator=255;n->quality=(struct r2_clock_quality){128,248,254,128,65535,identity};
- n->profile_root=n->profile_client=255;
+ n->profile_root=n->profile_client=255;n->gm5.next_poll=now;
  r2_admission_init(&n->admission,now);return 0;
 }
 void r2_network_capabilities(struct r2_network *n,uint8_t gm,uint8_t gnss){n->gm_mask=gm&((1u<<n->count)-1);n->gnss_mask=gnss&((1u<<n->count)-1);}
@@ -200,6 +201,19 @@ static void identity_activity(struct r2_network *n,unsigned p,const struct r2_au
   (unsigned long long)at,(unsigned long long)mapped(r->expires_us,lo));
 #endif
 }
+/* Negative source/contact evidence survives ACL drain in the identity inventory.
+ * Its creation watermark belongs to this remote boot, never our local clock.
+ * A COLD fallback waits out every possibly issued10s grant before its ordinary
+ *30..32s discovery round; repeated negatives can only shorten the original hold. */
+static void gm5_negative(struct r2_network *n,struct r2_gm5_candidate *c,uint64_t created,uint32_t epoch)
+{
+ if(created<=c->withdraw_created)return;
+ c->withdraw_created=created;c->withdraw_epoch=epoch?epoch:c->epoch;
+ if(n->gm5.active==c->identity&&n->gm5.active_boot==c->boot){
+  uint64_t until=n->now+R2_GM5_GRANT_US+R2_GM5_RETIRE_GUARD_US;
+  if(n->gm5.active_until>until)n->gm5.active_until=until;
+ }
+}
 static int hello(struct r2_network *n,unsigned p,const struct r2_auth_record *r,uint64_t received,const struct r2_group_pair_hint *hint)
 {
  struct r2_net_peer *m=&n->peer[p];bool hint_session=m->authenticated&&m->boot==r->boot&&m->nonce==r->challenge&&r->decision==m->own_nonce&&r->root_boot==n->boot;bool candidate=r->root==p&&r->source_epoch&&r->permit_until_us>r->created_us&&r->permit_until_us-r->created_us<=R2_PPS_FRESH_US&&r->flags==1&&r->boot_age_ms>=60000&&r->source_age_ms>=60000;
@@ -259,6 +273,10 @@ static int hello(struct r2_network *n,unsigned p,const struct r2_auth_record *r,
   /* Causal/current-map freshness proves liveness and negative withdrawal
    * independently of accepting a new timing map. No positive source permit,
    * offset/seen, management reservation or HOT readiness is granted here. */
+  if(n->gm5.enabled&&!candidate)for(unsigned i=0;i<R2_GM5_CANDIDATES;i++){
+   struct r2_gm5_candidate *c=&n->gm5.candidate[i];
+   if(c->identity==m->identity&&c->boot==r->boot){gm5_negative(n,c,r->created_us,c->epoch);c->physical_at=n->now;c->source_age_ms=r->source_age_ms;c->eligible=r->boot_age_ms>=60000&&r->source_age_ms>=60000;c->inhibited=c->eligible;c->physical_until=0;}
+  }
   m->source_withdrawn=!candidate;
   if(!candidate){m->candidate_until=0;m->candidate_epoch=0;}
   if(candidate&&causal)m->alive=received;
@@ -312,21 +330,27 @@ static int hello(struct r2_network *n,unsigned p,const struct r2_auth_record *r,
   }
  }
 quality:
+ if(n->gm5.enabled){for(unsigned i=0;i<R2_GM5_CANDIDATES;i++)if(n->gm5.candidate[i].identity==m->identity){
+  struct r2_gm5_candidate *c=&n->gm5.candidate[i];
+  if(c->boot==m->boot){if(n->gm5.active==m->identity&&n->gm5.active_boot==m->boot&&candidate)n->gm5.active_until=n->now+R2_GM5_STATUS_US;
+   c->physical_at=n->now;c->physical_until=m->candidate_until;c->source_age_ms=r->source_age_ms;c->eligible=r->boot_age_ms>=60000&&r->source_age_ms>=60000;c->inhibited=c->eligible&&!candidate;if(candidate){c->epoch=r->source_epoch;if(r->created_us>c->withdraw_created)c->withdraw_epoch=0;}}
+ }}
  m->quality=(struct r2_clock_quality){r->priority1,r->clock_class,r->accuracy,r->priority2,r->variance,m->identity};
  return 0;
 }
 static void identities(const struct r2_network *n,uint64_t out[4]){
- for(unsigned p=0;p<4;p++)out[p]=p==n->self?n->identity:n->peer[p].identity;
+ for(unsigned p=0;p<4;p++)out[p]=p==n->self?n->identity:p<n->count?n->peer[p].identity:0;
 }
 static int encode_control(const struct r2_network *n,uint8_t *wire,const struct r2_auth_record *r,const uint8_t key[16]){
  if(!n->group.id)return r2_auth_encode(wire,r,key);
- uint64_t ids[4];identities(n,ids);return r2_group_control_encode14(wire,r,&n->group,ids,n->name,n->capabilities&3);
+ uint64_t ids[4];identities(n,ids);return n->gm5.enabled?r2_group_control_encode5(wire,r,&n->group,ids,n->name,n->capabilities&3):r2_group_control_encode14(wire,r,&n->group,ids,n->name,n->capabilities&3);
 }
 static int decode_control(const struct r2_network *n,struct r2_auth_record *r,const uint8_t *wire,size_t size,unsigned sender,const uint8_t key[16],char name[25],uint8_t *caps,struct r2_group_pair_hint *hint){
  if(hint)*hint=(struct r2_group_pair_hint){0};
  if(!n->group.id)return r2_auth_decode(r,wire,size,key);
- uint64_t ids[4];identities(n,ids);return r2_group_control_decode14_hint(r,wire,size,&n->group,ids,ids[sender],name,caps,hint);
+ uint64_t ids[4];identities(n,ids);return n->gm5.enabled?r2_group_control_decode5(r,wire,size,&n->group,ids,ids[sender],name,caps,hint):r2_group_control_decode14_hint(r,wire,size,&n->group,ids,ids[sender],name,caps,hint);
 }
+static int gm5_management_receive(struct r2_network *,unsigned,const struct r2_auth_record *,uint64_t,uint64_t);
 static uint64_t descriptor(const struct r2_network *n)
 {
  uint64_t h=R2_FIXED_SCHEDULE^n->root_boot^((uint64_t)n->view.generation<<32)^n->publication;
@@ -338,6 +362,7 @@ static uint64_t descriptor(const struct r2_network *n)
  }else{
   for(unsigned p=0;p<n->count;p++)if(p==n->choice||p==n->coordinator){uint64_t b=p==n->self?n->boot:n->peer[p].boot;h=(h^(b+p))*UINT64_C(1099511628211);}
  }
+ if(n->gm5.enabled&&n->coordinator<n->count){uint32_t epoch=n->coordinator==n->self?n->candidate.generation:n->peer[n->coordinator].candidate_epoch;h=(h^epoch)*UINT64_C(1099511628211);}
  return h?h:1;
 }
 int r2_network_receive(struct r2_network *n,uint8_t p,const uint8_t *data,size_t size,uint64_t received,uint64_t now)
@@ -345,6 +370,7 @@ int r2_network_receive(struct r2_network *n,uint8_t p,const uint8_t *data,size_t
  if(!n||p>=n->count||p==n->self||!clock_now(n,now))return -EINVAL;
  struct r2_net_peer *m=&n->peer[p];struct r2_auth_record r;char name[25]={0};uint8_t caps=0;struct r2_group_pair_hint hint;int rc=decode_control(n,&r,data,size,p,m->rx_key,name,&caps,&hint);
  if(rc||!m->connected||r.sender!=p||r.target!=n->self||r.created_us>INT64_MAX/4||received>now||now-received>=500000){count(&n->rejected);return -EACCES;}
+ if(n->gm5.enabled)count(&n->gm5.control_rx);
  if(r.kind==R2_AUTH_HELLO){
   uint8_t old_gm=n->gm_mask,old_gnss=n->gnss_mask;
   if(n->group.id){
@@ -420,6 +446,8 @@ int r2_network_receive(struct r2_network *n,uint8_t p,const uint8_t *data,size_t
    m->acked_publication=m->issued[i].publication;
    if(n->service_acked_until<m->acked_permit)n->service_acked_until=m->acked_permit;}
   if(!issued)return -ESTALE;
+ }else if(n->gm5.enabled){
+  int managed=gm5_management_receive(n,p,&r,permit,expiry);if(managed)return managed;
  }else{
   if(!live(n,p)||!n->ready||n->coordinator>=n->count||r.root!=n->choice||r.root_boot!=n->root_boot||r.source_epoch!=n->view.generation||r.source_second!=descriptor(n)||!r.decision||r.decision>UINT32_MAX)return -ESTALE;
   uint64_t cb=n->coordinator==n->self?n->boot:n->peer[n->coordinator].boot;if(r.coordinator_boot!=cb)return -ESTALE;
@@ -498,6 +526,10 @@ bool r2_network_coordination_direct(const struct r2_network *n,const struct r2_g
  }
  return false;
 }
+
+static uint32_t milliseconds(uint64_t us);
+#include "gm_standby.inc"
+
 void r2_network_tick(struct r2_network *n,const struct r2_clock *clock,uint64_t now)
 {r2_network_tick_coordinated(n,clock,now,NULL);}
 void r2_network_tick_coordinated(struct r2_network *n,const struct r2_clock *clock,uint64_t now,const struct r2_gm_coordination *coord)
@@ -510,7 +542,9 @@ void r2_network_tick_coordinated(struct r2_network *n,const struct r2_clock *clo
  uint64_t previous_source_until=n->candidate.valid_until_us;
  uint32_t previous_source_epoch=n->candidate.generation;
  n->candidate=local_source(n,clock,now);
- bool own=r2_admission_update(&n->admission,(!constrained||direct)&&(n->profile_root==255||n->self!=n->profile_client)&&(n->gm_mask&(1u<<n->self)),n->gnss_mask&(1u<<n->self),n->candidate.available,n->candidate.generation,n->candidate.valid_until_us,now);
+ bool physical=r2_admission_update(&n->admission,(n->gm5.enabled||!constrained||direct)&&(n->gm5.enabled||n->profile_root==255||n->self!=n->profile_client)&&(n->gm_mask&(1u<<n->self)),n->gnss_mask&(1u<<n->self),n->candidate.available,n->candidate.generation,n->candidate.valid_until_us,now);
+ bool own=physical&&(!constrained||direct);
+ if(n->gm5.enabled){n->gm5.negative_root=constrained?coord->root:0;n->gm5.negative_boot=constrained?coord->boot:0;n->gm5.negative_epoch=constrained?coord->epoch:0;gm5_tick(n,physical,now,coord);return;}
  if(constrained&&!direct){
   n->standby_authorized=n->takeover_pending=false;
   n->pair=(struct r2_pair){.root=255,.standby=255};
@@ -777,6 +811,7 @@ static uint32_t milliseconds(uint64_t us){return us/1000>UINT32_MAX?UINT32_MAX:(
 bool r2_network_next_ready(struct r2_network *n,uint8_t available,uint8_t *peer,uint8_t *bytes,bool *is_hello)
 {
  if(n->stopped)return false;
+ if(n->gm5.enabled)return gm5_next(n,available,peer,bytes,is_hello);
  for(unsigned i=0;i<n->count;i++){
   unsigned p=(n->next_peer+i)%n->count;
   if(p==n->self||!(available&(1u<<p))||!n->peer[p].connected)continue;
@@ -820,6 +855,7 @@ void r2_network_sent(struct r2_network *n,bool h,uint8_t p,const uint8_t *bytes)
 {
  if(p>=n->count)return;
  struct r2_auth_record r;char name[25];uint8_t caps;struct r2_net_peer *m=&n->peer[p];if(decode_control(n,&r,bytes,r2_control_wire_size(bytes),n->self,m->tx_key,name,&caps,NULL))return;
+ if(n->gm5.enabled)count(&n->gm5.control_tx);
  if(h){m->next_hello=n->now+(m->authenticated&&n->now>=m->seen&&n->now-m->seen<1000000?400000:200000);m->sent[m->sent_head++%4]=r.created_us;}
  else if(r.kind==R2_AUTH_SERVICE){unsigned i=m->issued_head++%R2_ISSUED_RECORDS;m->issued[i].sequence=r.sequence;m->issued[i].expiry=r.expires_us;m->issued[i].permit=r.permit_until_us;m->issued[i].publication=(uint32_t)r.decision;
    /* Fixed100ms cadence avoids turning late/lost ACKs into extra controller

@@ -50,6 +50,8 @@ struct peer {
 static bool field_admission_allowed=true,field_admission_renewal,bootstrap_urgent=true;
 static bool relay_server;
 static bool group_client,client_window=true,bootstrap_needed=true;
+static bool gm5_mode,gm5_inventory_due;static uint64_t gm5_selected;
+void r2_ble_gm5_policy(bool enabled,uint64_t selected,bool due){gm5_mode=enabled;gm5_selected=selected;gm5_inventory_due=due;}
 static uint32_t client_phase;static uint64_t client_resume;static bool client_aligned,client_search_seen;
 static uint8_t admission_peer=R2_BLE_ADMISSION_PEER;static bool field_profile;
 static uint64_t group_id,local_identity;static uint32_t group_epoch;
@@ -107,9 +109,8 @@ static uint64_t admission_parent,candidate_since;static bool admission_seek_rela
 void r2_ble_admission_policy(uint64_t parent,bool seek_relay){
  k_spinlock_key_t k=k_spin_lock(&lock);admission_parent=parent;admission_seek_relay=seek_relay;k_spin_unlock(&lock,k);
 }
-/* At most four provisioned participants: retain direct discovery links so a
- * source can be found without withdrawing the healthy incumbent's control star.
- * The protocol still accepts GM control only from its elected coordinator. */
+/* Legacy fixtures retain their bounded control star. Normal G5 uses the
+ * selected peer only; candidate discovery remains separate from these slots. */
 void r2_ble_topology(unsigned value,unsigned members){coordinator=value;control_members=members;}
 static bool control_ready(void){
  /* Source candidacy is not link membership. Keep provisioned/admitted control
@@ -124,7 +125,12 @@ static bool control_ready(void){
  for(unsigned p=0;p<nodes;p++)if((required&(1u<<p))&&(!peers[p].authenticated||!r2_ble_ready(p)))return false;
  return true;
 }
-static bool desired(unsigned peer){return (!group_client||bootstrap_needed)&&peer<nodes&&peer!=self&&peer!=public_client&&(!group_id||peers[peer].identity||(peer==CONTROL_PEERS&&peers[peer].conn));}
+static bool desired(unsigned peer){
+ if(gm5_mode){if(peer<CONTROL_PEERS)return peer!=self&&peers[peer].identity&&peers[peer].identity==gm5_selected;
+  /* A started transient keeps its original owner through STATUS/promotion;
+   * provisional expiry/release still bound it. Poll cadence gates new work. */
+  return peer==CONTROL_PEERS&&(gm5_inventory_due||peers[peer].conn);}
+ return (!group_client||bootstrap_needed)&&peer<nodes&&peer!=self&&peer!=public_client&&(!group_id||peers[peer].identity||(peer==CONTROL_PEERS&&peers[peer].conn));}
 /* Either endpoint may negotiate MTU. Only the current connection's public
  * negotiated-value callback, above the unchanged wire bound, is usable. */
 static bool usable_mtu(const struct peer *p){return (uint16_t)atomic_get(&p->att_mtu)>=((group_id||field_profile)?R2_GROUP_CONTROL_MAX:R2_AUTH_BYTES)+3;}
@@ -319,7 +325,7 @@ static uint64_t now_us(void){return k_ticks_to_us_floor64(k_uptime_ticks());}
 static uint64_t lamp_times[8][2];
 static unsigned lamp_kind(const uint8_t *w)
 {
- if(w[0]!=12&&w[0]!=13&&w[0]!=15&&w[0]!=17)return 7;
+ if(w[0]!=12&&w[0]!=13&&w[0]!=15&&w[0]!=17&&w[0]!=19)return 7;
  switch(w[1]){
  case R2_AUTH_HELLO:return w[44]==255&&w[101]==0?0:1;
  case R2_AUTH_PREPARE:return 2;
@@ -521,7 +527,7 @@ void r2_ble_admission_anchor_deadline(uint64_t identity,uint64_t until){
  k_spin_unlock(&lock,k);
 }
 static void candidate_select(uint64_t now){
- if(!group_id||!group_client||field_profile)return;
+ if(!group_id||(!group_client&&!gm5_mode)||field_profile||(gm5_mode&&!gm5_inventory_due))return;
  k_spinlock_key_t k=k_spin_lock(&lock);struct peer *p=&peers[CONTROL_PEERS];
  /* Never rebind a controller/callback/TX owner. Collect a short bounded set
   * before initiating; the first arriving G1 is not a route decision. */
@@ -532,13 +538,21 @@ static void candidate_select(uint64_t now){
   struct discovery_candidate *c=&candidates[i];
   if(!c->identity||now<c->seen||now-c->seen>=200000||now<c->cooldown||c->seen<=c->consumed||
      (admission_parent&&c->identity!=admission_parent))continue;
-  if(c->passive&&!admission_seek_relay&&!admission_parent)continue;
+  if(!gm5_mode&&c->passive&&!admission_seek_relay&&!admission_parent)continue;
   bool member=false;for(unsigned j=0;j<CONTROL_PEERS;j++)member|=peers[j].identity==c->identity;
   if(member)continue;
   bool preferred=c->passive==admission_seek_relay;
   bool best_preferred=best>=0&&candidates[best].passive==admission_seek_relay;
-  if(best<0||(preferred&&!best_preferred)||(preferred==best_preferred&&
-     (c->rssi>candidates[best].rssi||(c->rssi==candidates[best].rssi&&c->identity<candidates[best].identity))))best=(int)i;
+  bool forced=gm5_mode&&c->identity==gm5_selected;
+  bool best_forced=best>=0&&gm5_mode&&candidates[best].identity==gm5_selected;
+  bool older=best>=0&&gm5_mode&&c->consumed<candidates[best].consumed;
+  bool same_age=best>=0&&(!gm5_mode||c->consumed==candidates[best].consumed);
+  /* G5 inventory visits least-recently-consumed identities before RSSI or
+   * passive hints. A stronger HOT must not hide another partition's ACTIVE.
+   * Explicit selected-peer repair/parent remains first; ordinary RC is intact. */
+  if(best<0||(forced&&!best_forced)||(forced==best_forced&&(older||(same_age&&
+     ((preferred&&!best_preferred)||(preferred==best_preferred&&
+      (c->rssi>candidates[best].rssi||(c->rssi==candidates[best].rssi&&c->identity<candidates[best].identity))))))))best=(int)i;
  }
  if(best>=0){struct discovery_candidate *c=&candidates[best];
   if(p->identity!=c->identity){p->identity=c->identity;p->address=c->address;p->first_seen=now;p->provisional_until=now+5000000;p->retry=1;p->admission_server=false;++p->incarnation;}
@@ -566,13 +580,13 @@ static void scan_report(const bt_addr_le_t *address,int8_t rssi,uint8_t type,str
    /* A passive relay advertises to clients, not to solicit GM control. Once
     * independently eligible it clears this hint and ordinary discovery resumes.
     * This filters futile initiation only; authenticated admission is unchanged. */
-   if(!group_client&&passive_hint)return;
+   if(!gm5_mode&&!group_client&&passive_hint)return;
    if(!group_client&&candidate==recent_admission&&now_us()<recent_admission_until)return;
   }
   k_spinlock_key_t key=k_spin_lock(&lock);int i=index_addr(address);
   if(group_id){
    if(i>=0&&peers[i].identity!=candidate){k_spin_unlock(&lock,key);return;}
-   if(group_client&&!field_profile){
+   if((group_client||gm5_mode)&&!field_profile){
     candidate_seen(address,candidate,passive_hint,rssi,now_us());
     if(i<0||i==CONTROL_PEERS){k_spin_unlock(&lock,key);return;}
    }
@@ -737,7 +751,7 @@ static void poll_owned(uint64_t now)
   bool server_ready=control_ready();
   if(server_ready){need_adv=true;need_scan=precision_discovery||sync_acquiring||group_id;}
   if(group_client){
-   need_adv=relay_server&&client_window;
+   need_adv=(relay_server||gm5_mode)&&client_window;
    bool opportunity=r2_ble_admission_reserves_scan(now)&&field_admission_allowed;
    need_scan=precision_discovery||opportunity;
   }
@@ -840,7 +854,7 @@ static void poll_owned(uint64_t now)
     if(fresh)p->advertised_at=0;
     k_spin_unlock(&lock,discovery_key);
     if(!fresh)continue;
-    if(group_id&&group_client&&!field_profile){k_spinlock_key_t key=k_spin_lock(&lock);candidate_cooldown(p->identity,now,2000000);k_spin_unlock(&lock,key);}
+    if(group_id&&(group_client||gm5_mode)&&!field_profile){k_spinlock_key_t key=k_spin_lock(&lock);candidate_cooldown(p->identity,now,2000000);k_spin_unlock(&lock,key);}
     if(scanning&&!stop_scan(now))return;
     /* Connectable advertising reserves a host connection object. With three
      * persistent control links that reservation is the fourth object, so it
@@ -912,7 +926,7 @@ int r2_ble_send(unsigned i,const uint8_t *data)
   /* Only the workqueue admits writes. Completion can release an owned slot,
    * never acquire one. Keep one free for source SERVICE/ACK; do not cancel or
    * reuse the other immutable buffer before its public completion. */
-  bool urgent=(data[0]==12||data[0]==13||data[0]==15||data[0]==17)&&(data[1]==R2_AUTH_SERVICE||data[1]==R2_AUTH_ACK);
+  bool urgent=(data[0]==12||data[0]==13||data[0]==15||data[0]==17||data[0]==19)&&(data[1]==R2_AUTH_SERVICE||data[1]==R2_AUTH_ACK);
   if(!urgent&&atomic_get(&p->tx_busy))return -EAGAIN;
   for(slot=0;slot<2;slot++)if(!atomic_test_and_set_bit(&p->tx_busy,slot))break;
   if(slot==2)return -EAGAIN;
@@ -988,7 +1002,7 @@ void r2_ble_admission_completed(uint64_t identity,uint64_t now){
  /* One completed guest cannot monopolize discovery at every window start.
   * This bounded retry cooldown is not a membership/identity cache. */
  recent_admission=identity;recent_admission_until=now+(field_profile?3000000:5000000);
- if(group_id&&!field_profile){k_spinlock_key_t k=k_spin_lock(&lock);candidate_cooldown(identity,now,5000000);k_spin_unlock(&lock,k);}
+ if(group_id&&!field_profile){k_spinlock_key_t k=k_spin_lock(&lock);candidate_cooldown(identity,now,gm5_mode?30000000:5000000);k_spin_unlock(&lock,k);}
 }
 bool r2_ble_admission_due(uint64_t now){return (!group_client||bootstrap_needed)&&(!field_profile||now>=recent_admission_until);}
 bool r2_ble_admission_connected(void){return atomic_get(&peers[admission_peer].connected);}
@@ -1006,7 +1020,7 @@ bool r2_ble_client_window_open(uint64_t now,uint32_t width){
  return now>=client_resume&&now-r2_ble_client_window_start(now)<width;
 }
 void r2_ble_client_seek(uint64_t now,bool cold){
- if(!cold||field_profile||!group_client||client_aligned){client_search_seen=false;return;}
+ if(!cold||gm5_mode||field_profile||!group_client||client_aligned){client_search_seen=false;return;}
  if(r2_ble_client_window_open(now,400000))client_search_seen=true;
  if(!client_search_seen||now<client_resume||sync_acquiring||scanning||
     r2_ble_admission_connected()||now-r2_ble_client_window_start(now)<500000)return;
@@ -1035,7 +1049,7 @@ void r2_ble_client_window(bool enabled){client_window=enabled;}
 void r2_ble_client_defer(uint64_t until){if(group_client&&until>client_resume)client_resume=until;}
 
 bool r2_ble_control_available(void){
- for(unsigned i=1;i<CONTROL_PEERS;i++)if(!peers[i].identity&&!peers[i].conn)return true;
+ for(unsigned i=1;i<(gm5_mode?2:CONTROL_PEERS);i++)if(!peers[i].identity&&!peers[i].conn)return true;
  return false;
 }
 bool r2_ble_control_member(void){
@@ -1045,7 +1059,7 @@ bool r2_ble_control_member(void){
 int r2_ble_admission_promote(void){
  struct peer *p=&peers[CONTROL_PEERS];
  if(!r2_ble_ready(CONTROL_PEERS)||atomic_get(&p->tx_busy)||gatt_pending(CONTROL_PEERS))return -EAGAIN;
- unsigned slot=CONTROL_PEERS;for(unsigned i=1;i<CONTROL_PEERS;i++)if(!peers[i].identity&&!peers[i].conn){slot=i;break;}
+ unsigned slot=CONTROL_PEERS;for(unsigned i=1;i<(gm5_mode?2:CONTROL_PEERS);i++)if(!peers[i].identity&&!peers[i].conn){slot=i;break;}
  if(slot==CONTROL_PEERS)return -ENOSPC;
  k_spinlock_key_t k=k_spin_lock(&lock);struct peer *d=&peers[slot];
  d->conn=p->conn;d->address=p->address;d->identity=p->identity;d->provisional_until=now_us()+5000000;d->authenticated=false;d->release=false;

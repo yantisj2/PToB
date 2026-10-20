@@ -114,3 +114,7 @@ void r2_ble_fault_snapshot(struct r2_transport_fault *out);
  * No controller calls or authority. Schema layout is documented with the build. */
 #define R2_GM_TRANSPORT_WORDS 84u
 void r2_ble_gm_diagnostics(uint32_t out[R2_GM_TRANSPORT_WORDS]);
+
+/* Normal G5 only. Exactly one wanted persistent coordination identity; all
+ * other proved candidates remain in network inventory, outside control slots. */
+void r2_ble_gm5_policy(bool enabled,uint64_t selected,bool inventory_due);

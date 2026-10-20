@@ -63,7 +63,7 @@ struct r2_service_status {
  uint32_t pair_epoch,hot_refusal,record_age_us,record_age_max_us,rx_latency_max_us,backlog,rx_queue_peak;
  struct r2_clock_quality quality;
  uint32_t admission_ms;
- bool source_eligible,gm_capable,hot_ready;
+ bool source_eligible,gm_capable,hot_ready,gm_cold;
  uint32_t lease_expired,core_refusal;
  uint32_t hello_map_refusals,hello_width_us;
  uint32_t source_epoch,service_receipts,cycles,rx,authenticated,rejected,drops,errors,worker_max_us;

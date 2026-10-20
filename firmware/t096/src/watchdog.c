@@ -106,12 +106,12 @@ void r2_watchdog_observe(const struct r2_service_status *s,bool allowed)
  bool follower=s->follower_clock_valid&&now<s->service_until&&s->precision.map_valid&&s->precision.authorized&&
   s->precision.correction_age_valid&&s->precision.correction_age_ms<2000;
  if(s->profile_rc)follower=follower&&s->precision.locked&&!s->relay.held_time;
- bool coordination=false;
+ bool coordination=s->gm_cold&&!s->profile_rc;
 #ifdef R2_LORA
  struct r2_gm_coordination c;r2_lora_coordination(&c);
  uint64_t self=s->self<4?s->identities[s->self]:0;
- coordination=!s->profile_rc&&!s->serving&&self&&r2_gm_coordination_live(&c,self,now)&&
-  (s->root>=4||s->identities[s->root]==c.root);
+ coordination=coordination||(!s->profile_rc&&!s->serving&&self&&r2_gm_coordination_live(&c,self,now)&&
+  (s->root>=4||s->identities[s->root]==c.root));
 #endif
  uint32_t refused=(!s->active||s->closing||s->profile_pending||s->error)?1u:0u;
  bool future=now<s->at,stale=!future&&now-s->at>=1000000;
