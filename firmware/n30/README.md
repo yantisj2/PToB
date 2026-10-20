@@ -2,7 +2,7 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
 
-**Version 0.2.1 adds passive RC8 wire3 LoRa timing with BLE priority, 180-second
+**Version 0.2.2 adds passive RC8 wire3 LoRa timing with BLE priority, 180-second
 AUTO acquisition/recovery dwell and a third T096-style receiver page. Physical
 LoRa reception and timing accuracy require separate hardware observations.**
 Meshnology N30 / Heltec WiFi LoRa32 V3 is the proposed board route: ESP32-S3,
@@ -143,3 +143,10 @@ less than50ms; routine4/8Hz cadence is unchanged. Transfers that occupy a later
 slot drop that missed slot instead of issuing a catch-up burst. This corrects
 the first0.2.0 canary's27ms render-start process failure on the third page;
 actual display-edge and independent UTC accuracy remain unqualified.
+
+Version0.2.2 uses the pinned SDK's finite queued SPI transfer/result APIs. The
+first0.2.1 LoRa-start canary rejected an invalid finite polling-start timeout;
+its SDK early log damaged that CRC response, which the parser refused. The
+failed observation is retained separately from subsequent receiver tests. DMA
+buffers/descriptors still remain owned until actual completion; timeout never
+permits reuse or a drained acknowledgement.

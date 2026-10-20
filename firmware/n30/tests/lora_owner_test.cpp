@@ -33,8 +33,9 @@ esp_err_t gpio_set_level(gpio_num_t pin,int level){fake::writes++;fake::gpio[pin
 int gpio_get_level(gpio_num_t pin){return fake::gpio[pin];}
 esp_err_t spi_bus_initialize(int host,const spi_bus_config_t* c,int){assert(host==2&&c->mosi_io_num==10&&c->miso_io_num==11&&c->sclk_io_num==9);fake::bus++;return 0;}
 esp_err_t spi_bus_add_device(int,const spi_device_interface_config_t*,spi_device_handle_t* out){*out=reinterpret_cast<void*>(1);return 0;}
-esp_err_t spi_device_polling_start(spi_device_handle_t,spi_transaction_t* t,TickType_t){assert(!fake::pending);fake::pending=t;fake::starts++;return 0;}
-esp_err_t spi_device_polling_end(spi_device_handle_t,TickType_t){
+esp_err_t spi_device_queue_trans(spi_device_handle_t,spi_transaction_t* t,TickType_t wait){assert(wait==5&&!fake::pending);fake::pending=t;fake::starts++;return 0;}
+esp_err_t spi_device_get_trans_result(spi_device_handle_t,spi_transaction_t** completed,TickType_t wait){
+ assert(wait==5);
  auto* t=fake::pending;assert(t);fake::ends++;const auto* tx=static_cast<const uint8_t*>(t->tx_buffer);auto* rx=static_cast<uint8_t*>(t->rx_buffer);const size_t n=t->length/8;fake::ops.push_back(tx[0]);assert(tx[0]!=0x83);
  if(fake::dma_fail)return -1;
  std::memset(rx,0,n);if(n>1)rx[1]=0x24;
@@ -45,7 +46,7 @@ esp_err_t spi_device_polling_end(spi_device_handle_t,TickType_t){
  if(tx[0]==0x13){rx[2]=uint8_t(fake::packet_size);rx[3]=0;}
  if(tx[0]==0x1e){rx[2]=0x24;}
  if(tx[0]==0x14){rx[2]=140;rx[3]=24;}
- fake::pending=nullptr;
+ *completed=t;fake::pending=nullptr;
  if(fake::cancel&&tx[0]==0x8b){fake::cancel=false;fake::cancelled=true;assert(v12::lora_request(false,0));}
  return 0;
 }

@@ -58,9 +58,12 @@ int transfer(size_t size){
  int result=busy();if(result)return result;
  std::memset(rx,0,size);transaction={};transaction.length=size*8;transaction.tx_buffer=tx;transaction.rx_buffer=rx;
  gpio_set_level(Nss,0);
- if(spi_device_polling_start(spi,&transaction,pdMS_TO_TICKS(5))!=ESP_OK){gpio_set_level(Nss,1);inc(hardware.spi_error);return -EIO;}
+ if(spi_device_queue_trans(spi,&transaction,pdMS_TO_TICKS(5))!=ESP_OK){gpio_set_level(Nss,1);inc(hardware.spi_error);return -EIO;}
+ // Queue/result APIs accept finite waits. The polling-start API only permits
+ // portMAX_DELAY on the pinned SDK and is deliberately not used.
  inflight=true;
- if(spi_device_polling_end(spi,pdMS_TO_TICKS(5))!=ESP_OK){inc(hardware.spi_error);return -ETIMEDOUT;}
+ spi_transaction_t* completed=nullptr;
+ if(spi_device_get_trans_result(spi,&completed,pdMS_TO_TICKS(5))!=ESP_OK||completed!=&transaction){inc(hardware.spi_error);return -ETIMEDOUT;}
  inflight=false;gpio_set_level(Nss,1);inc(hardware.spi_ok);
  if(cancelled())return -ECANCELED;
  result=busy();return result;

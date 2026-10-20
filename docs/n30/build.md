@@ -192,7 +192,7 @@ maximum routine UTC-slot render-start lateness, excluding forced navigation;
 I2C transfer and panel scanout still add latency. No physical PPS output or
 independently measured display-edge/UTC accuracy is established.
 
-## Version 0.2.1 passive LoRa receiver
+## Version 0.2.2 passive LoRa receiver
 
 Add `--lora-transmitter-factory "$VERIFIED_T096_LORA_FACTORY"` to either build
 command only with the exact existing T096 transmitter identity in the shared
@@ -258,3 +258,10 @@ less than50ms; routine4/8Hz cadence is unchanged. Transfers that occupy a later
 slot drop that missed slot instead of issuing a catch-up burst. This corrects
 the first0.2.0 canary's27ms render-start process failure on the third page;
 actual display-edge and independent UTC accuracy remain unqualified.
+
+Version0.2.2 uses the pinned SDK's finite queued SPI transfer/result APIs. The
+first0.2.1 LoRa-start canary rejected an invalid finite polling-start timeout;
+its SDK early log damaged that CRC response, which the parser refused. The
+failed observation is retained separately from subsequent receiver tests. DMA
+buffers/descriptors still remain owned until actual completion; timeout never
+permits reuse or a drained acknowledgement.

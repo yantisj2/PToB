@@ -10,5 +10,5 @@ struct spi_device_interface_config_t{int clock_speed_hz=0,spics_io_num=0,queue_s
 struct spi_transaction_t{size_t length=0;const void* tx_buffer=nullptr;void* rx_buffer=nullptr;};
 esp_err_t spi_bus_initialize(int,const spi_bus_config_t*,int);
 esp_err_t spi_bus_add_device(int,const spi_device_interface_config_t*,spi_device_handle_t*);
-esp_err_t spi_device_polling_start(spi_device_handle_t,spi_transaction_t*,TickType_t);
-esp_err_t spi_device_polling_end(spi_device_handle_t,TickType_t);
+esp_err_t spi_device_queue_trans(spi_device_handle_t,spi_transaction_t*,TickType_t);
+esp_err_t spi_device_get_trans_result(spi_device_handle_t,spi_transaction_t**,TickType_t);
