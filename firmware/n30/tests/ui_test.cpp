@@ -76,7 +76,7 @@ int main(){
    for(auto z:g.before)assert(z==0xa5);for(auto z:g.after)assert(z==0xa5);
   }
  }
- assert(!std::strcmp(n30::source_label(m,1250000),"WAIT"));m.mode_pending=true;assert(!std::strcmp(n30::source_label(m,1000001),"WAIT"));m.mode_pending=false;
+ assert(!std::strcmp(n30::source_label(m,1250000),"WAIT"));m.mode_pending=true;assert(!std::strcmp(n30::source_label(m,1000001),"LOR"));m.source=n30::Source::Ble;assert(!std::strcmp(n30::source_label(m,1000001),"WAIT"));m.mode_pending=false;
  m.state=n30::State::Hold;assert(!std::strcmp(n30::source_label(m,1000001),"HOLD"));
  n30::Activity a;uint32_t c[8]{};a.update(m,c,1,2,1000000,true,false);c[2]++;a.update(m,c,1,2,1000001,true,false);assert(m.lamps[2]==1);a.update(m,c,1,3,1000002,true,false);assert(!m.lamps[2]);a.update(m,c,1,3,1000003,false,false);for(auto l:m.lamps)assert(!l);
 }

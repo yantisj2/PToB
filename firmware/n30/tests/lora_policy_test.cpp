@@ -18,6 +18,23 @@ int main(){
  m.ble={1000000,10000000,1250000,3,44,5,true,true};
  n30_lora_view l{};l.sampled_us=1000000;l.utc_us=10000001;l.until_us=13000000;l.state=2;l.active=l.requested=l.metadata_known=true;l.root=3;l.root_boot=44;l.source_epoch=5;l.capture_epoch=7;l.generation=1;l.corrected_sequence=1;l.event_ns=123;l.context[0]=1;
  select_lora(m,l,1000000);assert(m.source==Source::Ble&&m.utc_us==10000000);
+ // A valid but unsettled/marginal BLE model must not replace a working LOR
+ // dial/source/saver. BLE pending-mode presentation also cannot hide LOR.
+ for(auto state:{State::Search,State::Join,State::Acquire,State::Follow,State::Hold})for(bool pending:{false,true}){
+  auto marginal=m;marginal.state=state;marginal.locked=false;marginal.mode_pending=pending;
+  select_lora(marginal,l,1000000);assert(marginal.source==Source::LoRa&&marginal.valid&&marginal.locked);
+  assert(!std::strcmp(source_label(marginal,1000000),"LOR"));uint64_t clock;assert(analog_time(marginal,1000000,clock));assert(pps_on(marginal,1000000));
+ }
+ // Continuous marginal BLE snapshots retain the LOR analog/saver, without
+ // entering the500ms loss cache or resetting the moving saver position.
+ ClockHold hold;View saver;saver.saver=true;saver.saver_position=2;uint8_t pixels[FrameBytes];
+ for(unsigned i=0;i<100;i++){
+  const uint64_t now=1000000+i*10000;auto marginal=m;marginal.sampled_us=now;marginal.utc_at_us=now;marginal.until_us=now+250000;marginal.locked=false;marginal.mode_pending=i%2;
+  auto current=l;current.sampled_us=now;current.utc_us=l.utc_us+now-1000000;
+  select_lora(marginal,current,now);hold.update(marginal,saver,now,true);hold.draw(pixels,marginal,saver,now);hold.presented(marginal,saver,now,pixels);
+  assert(saver.saver&&saver.saver_position==2&&!saver.clock_frozen&&marginal.source==Source::LoRa);
+ }
+ auto locked=m;select_lora(locked,l,1000000);assert(locked.source==Source::Ble); // Only settled actual BLE returns.
  DualComparison c;c.update(m,1000000);assert(m.delta_valid&&m.delta_ns==-1123&&!m.drift_valid);
  m.lora.root_boot=45;c.update(m,1000001);assert(!m.delta_valid&&!m.drift_valid);m.lora=l;
  c.update(m,1000000);m.sampled_us=m.utc_at_us=5000000;m.utc_us=14000001;m.until_us=5250000;m.ble={5000000,14000001,5250000,3,44,5,true,true};m.lora.sampled_us=5000000;m.lora.utc_us=14000001;m.lora.corrected_sequence=2;

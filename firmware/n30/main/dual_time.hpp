@@ -15,7 +15,7 @@ inline bool ble_time(const Model& m,uint64_t now,uint64_t& utc){
 }
 inline void select_lora(Model& m,const n30_lora_view& l,uint64_t now){
  m.lora=l;uint64_t ignored;
- if(m.state==State::Follow&&time(m,now,ignored))return; // Actual usable BLE wins.
+ if(!m.mode_pending&&analog_time(m,now,ignored))return; // Settled live BLE lock wins; marginal FOLLOW cannot displace LoRa.
  if(!lora_time(l,now,ignored))return;
  m.utc_at_us=l.sampled_us;m.utc_us=l.utc_us;m.until_us=l.until_us;
  m.valid=m.locked=true;m.state=State::Follow;m.source=Source::LoRa;m.hz=0;m.serving=false;m.delivery=UINT16_MAX;m.rms_ns=l.link_samples>=4?l.link_rms_ns:UINT32_MAX;

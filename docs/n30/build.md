@@ -192,7 +192,7 @@ maximum routine UTC-slot render-start lateness, excluding forced navigation;
 I2C transfer and panel scanout still add latency. No physical PPS output or
 independently measured display-edge/UTC accuracy is established.
 
-## Version 0.2.2 passive LoRa receiver
+## Version 0.2.3 passive LoRa receiver
 
 Add `--lora-transmitter-factory "$VERIFIED_T096_LORA_FACTORY"` to either build
 command only with the exact existing T096 transmitter identity in the shared
@@ -219,8 +219,8 @@ software mapping diagnostic; RF/board latency and physical bias remain unknown.
 AUTO waits180s without live BLE relative lock before RX, then requires180s
 continuous BLE lock before stopping. Main-page upstream reception mode and RF
 help/blank gestures remain unchanged. Third-page1.5s hold selects the opposite
-AUTO radio state. FromKEEP_ON a hold selectsKEEP_OFF; fromKEEP_OFF it restoresAUTO. Overrides are volatile. BLE remains
-the preferred time source while actually following. LoRa is display fallback
+AUTO radio state. FromKEEP_ON a hold selectsKEEP_OFF; fromKEEP_OFF it restoresAUTO. Overrides are volatile. BLE regains display preference only while its settled relative lock is valid.
+A marginal or pending BLE model cannot replace available LoRa time. LoRa is display fallback
 only, with no BLE clock writes, precision training, downstream authority or TX.
 
 Ticket/nonce/boot/factory-bound `lora on`, `lora off`, `lora auto` control this
@@ -265,3 +265,10 @@ its SDK early log damaged that CRC response, which the parser refused. The
 failed observation is retained separately from subsequent receiver tests. DMA
 buffers/descriptors still remain owned until actual completion; timeout never
 permits reuse or a drained acknowledgement.
+
+Version0.2.3 keeps the analog dashboard/saver and `LOR` source while RC8 time is
+available and BLE lacks a live settled relative lock. Even a valid BLE following
+clock or pending upstream change cannot hide that LOR clock or its modeled PPS
+lamp. Actual BLE lock restores BLE preference. This is presentation selection;
+radio180s dwell, source expiry, independent raw clocks/comparison, timing models
+and W12/T096 behavior remain unchanged.

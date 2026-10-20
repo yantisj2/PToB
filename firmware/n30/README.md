@@ -2,7 +2,7 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
 
-**Version 0.2.2 adds passive RC8 wire3 LoRa timing with BLE priority, 180-second
+**Version 0.2.3 adds passive RC8 wire3 LoRa timing with BLE priority, 180-second
 AUTO acquisition/recovery dwell and a third T096-style receiver page. Physical
 LoRa reception and timing accuracy require separate hardware observations.**
 Meshnology N30 / Heltec WiFi LoRa32 V3 is the proposed board route: ESP32-S3,
@@ -46,9 +46,9 @@ performance. [Reproduction and arrival checklist](../../docs/n30/build.md).
   compiled directly. No SetTx command exists in the N30 owner. After 180 seconds
   without live BLE relative lock, AUTO enables the SX1262 receiver; it remains
   on until BLE stays locked continuously for 180 seconds. A dip resets that
-  recovery interval. BLE retains preference whenever its following clock is
-  actually usable. Otherwise available LoRa time can drive the dashboard/saver
-  as `LOR`, with `LINK RMS` and no BLE precision-lock icon. Its 12-second
+  recovery interval. BLE regains display preference only with a valid settled
+  relative lock. While BLE is marginal or pending, available LoRa time keeps the
+  dashboard/saver on `LOR`, with `LINK RMS` and no BLE precision-lock icon. Its 12-second
   functional hold, original event/envelope, replay handling and unknown source
   freshness remain distinct; companions and display refreshes cannot renew it.
   LoRa never trains BLE, grants downstream authority or enables GM/GNSS/USB time.
