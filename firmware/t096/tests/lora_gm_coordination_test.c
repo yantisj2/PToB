@@ -68,6 +68,21 @@ int main(void){
  n.management_ready=3;n.management_committed=true;n.timing_valid=true;
  n.timing_boot=100;n.timing_epoch=n.timing_train=1;n.timing_at=now+1;
  coordinated(&n,&c,now+1);assert(n.hot_ready&&n.standby_authorized&&n.pair.root==1&&n.pair.standby==0);
+ /* Root inhibition must not re-rank the HOT peer of that same root. A third
+  * or fourth independently eligible candidate joins cold with respect to
+  * this established pair, regardless of its better nominal dataset. */
+ struct r2_network paired=n;
+ for(unsigned count=3;count<=4;count++){
+  n=paired;n.count=count;r2_network_capabilities(&n,(1u<<count)-1,(1u<<count)-1);
+  for(unsigned p=2;p<count;p++){
+   n.peer[p]=n.peer[1];n.peer[p].identity=n.peer[p].quality.identity=5-p;
+   n.peer[p].boot=300+p;n.peer[p].serving_until=0;n.peer[p].serving_epoch=0;
+  }
+  coordinated(&n,&c,now+2);
+  assert(n.choice==1&&n.coordinator==0&&n.hot_ready&&n.standby_authorized);
+  assert(n.pair.root==1&&n.pair.standby==0&&n.management_generation==paired.management_generation);
+ }
+ n=paired;
  /* Current authenticated root withdrawal keeps direct eligibility and the
   * actual prior HOT takeover/output fence while the LoRa lease is live. */
  n.peer[1].source_withdrawn=true;n.peer[1].candidate_epoch=0;n.peer[1].candidate_until=0;

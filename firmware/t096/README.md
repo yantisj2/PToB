@@ -5,7 +5,7 @@
 *Illustrative firmware-rendered RC screen; displayed values are not measured
 performance. [Image provenance](../../docs/images/README.md).*
 
-**PToB owns T096 RC7 development.** Current source version **0.15.132** supplies the
+**PToB owns T096 RC7 development.** Current source version **0.15.133** supplies the
 ordinary **GM** and **RC** mesh profiles, with USB timing compiled by default.
 [Build from source](../../docs/t096/build.md) with pinned public dependencies
 and ignored local enrollment. No enrolled binary is distributed.
@@ -29,6 +29,11 @@ election constraint: a live foreign LoRa root inhibits local ACTIVE/HOT unless
 current direct matching-root BLE admission permits normal coordination. An
 immediate relay parent cannot substitute for the actual GM. Self-root echoes
 remain rejected, and original hold/withdrawal/source fences are retained.
+Version133 preserves the ordinary selected HOT partner when that same root is
+constrained by LoRa. A third or fourth better-ranked capable candidate cannot
+reset an established pair through this secondary root constraint. Source
+eligibility and the ordinary pair policy still determine actual HOT readiness;
+this change does not implement cold standby or qualify multi-GM recovery.
 This source corrects prior-correction validation ordering: the full immutable context
 is populated before validating a carried prior event. Version124 discarded those
 corrections despite mapped physical TX events. It remains an unqualified canary integration until its

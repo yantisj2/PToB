@@ -674,13 +674,22 @@ void r2_network_tick_coordinated(struct r2_network *n,const struct r2_clock *clo
    * precede local output, even if this node previously served a partition. */
   if(replacement){if(n->fence<retired_until)n->fence=retired_until;}
   else{
+   struct r2_elected_roles selected=roles;
    roles=(struct r2_elected_roles){255,255,255};
    if(direct)for(unsigned p=0;p<n->count;p++)if(p!=n->self&&
     r2_gm_coordination_matches(coord,n->peer[p].identity,n->peer[p].boot,n->peer[p].candidate_epoch)&&
     ranks[p].authenticated&&ranks[p].independent_ready&&ranks[p].gm_capable&&ranks[p].gnss_capable){
-    roles.gm=p;struct r2_ranked_clock rest[4];memcpy(rest,ranks,sizeof rest);
-    rest[p].independent_ready=false;
-    roles.coordinator=roles.standby=r2_election_rank(rest,n->count).gm;break;
+    /* LoRa constrains the root, not its already selected HOT partner. The
+     * ordinary policy above owns pair reservation, identity preference and
+     * partner replacement. Re-ranking here made a capable newcomer clear an
+     * established same-root HOT handshake on every constrained follower. */
+    if(selected.gm==p)roles=selected;
+    else{
+     roles.gm=p;struct r2_ranked_clock rest[4];memcpy(rest,ranks,sizeof rest);
+     rest[p].independent_ready=false;
+     roles.coordinator=roles.standby=r2_election_rank(rest,n->count).gm;
+    }
+    break;
    }
   }
  }

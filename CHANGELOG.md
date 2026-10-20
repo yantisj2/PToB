@@ -2,6 +2,17 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 20 October 2026 — T0960.15.133 preserve the selected HOT under LoRa
+
+When current direct BLE admission matches the live LoRa root, retain that root's
+ordinary selected standby. The final LoRa constraint previously re-ranked every
+other capable clock after pair retention, so a better-ranked third newcomer could
+clear an established HOT handshake. Production-policy regressions now cover both
+three and four candidates and fail against the former behavior. Root inhibition,
+direct admission, independent-source qualification and takeover fences remain.
+Cold standby, physical multi-GM durability and output accuracy remain separate
+work and qualification boundaries.
+
 ## 20 October 2026 — N30 offline RC target
 
 Added Meshnology N30 versions0.1.0 (offline) and0.1.1 (commissioning candidate) using the existing W12 G1/RC7 core,
