@@ -172,3 +172,13 @@ modified by this presentation cache. Host tests compare the frozen dial pixels
 and cover499999/500000us boundaries, recovery, repeated loss, stale input,
 monotonic reversal, hidden surfaces and transfer failure. Physical field
 behavior remains a separate observation.
+
+Version0.1.6 extends that same500ms grace to the complete clock presentation.
+Main-page UTC digits and analog hands retain the same last successfully
+transferred frame; only RMS digits and the lock remain live. A brief quality dip
+retains the full screensaver frame at its actual moving position, preventing
+the previous immediate saver exit/normal-page/reentry jump. The original idle
+and30s movement clocks continue; wake/navigation overrides grace immediately.
+All six underlying-page/position combinations, exact deadline, movement-boundary
+recovery, stale input, transfer resets and pixel retention are tested offline.
+Console/live timing validity and W12/T096 code are unaffected by the pixel cache.

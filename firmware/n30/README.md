@@ -2,7 +2,7 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
 
-**Version 0.1.5 holds the last analog dial for500ms during brief reception/quality loss, retaining the T096-style pages, source screensaver and W12 upstream toggle. First-install qualification is in progress.**
+**Version 0.1.6 keeps UTC digits and analog time together during brief reception/quality loss, and retains the moving screensaver in place for the same500ms grace. First-install qualification is in progress.**
 Meshnology N30 / Heltec WiFi LoRa32 V3 is the proposed board route: ESP32-S3,
 8 MB flash, 128×64 OLED mounted as a 64×128 portrait display, UART0 console via
 USB serial bridge. Exact incoming revision, display controller, rail/pin route,
@@ -39,12 +39,16 @@ performance. [Reproduction and arrival checklist](../../docs/n30/build.md).
   different populations, not packet delivery denominators or actual RF TX
   timestamps. RDY has no equivalent event and remains dark (`N/A` in help).
 - The analog dial/lock use W12's existing settled relative-quality display gate.
-  On the first (main clock) page, the last successfully displayed dial freezes
-  for500ms after loss of the live analog gate, then gives way to the current
-  syncing/error panel. Recovery restores live hands immediately. This is a
-  presentation-only grace: digital time/source labels, lock/RMS, source expiry
-  and radio authority keep their current validity; frozen redraws never extend
-  the500ms. RF/help/blank/screensaver and transfer failures discard the cache.
+  On the first (main clock) page, the last successfully displayed UTC digits,
+  analog hands, source/identity and footer freeze together for500ms after loss
+  of the live analog gate. Only the RMS digits and lock indication remain live
+  during that brief grace. The screensaver retains its complete last frame and
+  position instead of flashing the normal page at the top and reappearing.
+  Recovery resumes live clock rendering; at500ms of continuous loss the current
+  syncing/error page appears. Wake/navigation, blank/help and transfer failures
+  discard the cache. The normal30s saver movement phase is never reset by a
+  reception dip. This is a pixel presentation cache: timing models, source
+  expiry, radio authority and console status retain their actual live validity.
   HOLD remains a local estimate; it grants no source or downstream authority.
   No GNSS/PPS activity or independent accuracy is implied. Direct-GM reception
   bars remain unknown unless a producer supplies a delivery denominator.
@@ -57,7 +61,7 @@ performance. [Reproduction and arrival checklist](../../docs/n30/build.md).
   not verified board poweroff/deep sleep. The first wake press is consumed.
   After five idle minutes a currently locked clock dims and moves the T096-style
   source/dial/identity assembly. `BLE`, `RC1` or `RC2` describes the actual admitted
-  upstream path, independent of requested mode; stale/pending time shows `WAIT`
+  upstream path, independent of requested mode; outside the brief presentation grace, stale/pending time shows `WAIT`
   and a valid local hold shows `HOLD`. No unavailable source is invented.
   There is no runtime GM/RC toggle. Boot-held buttons do not trigger actions.
 - A sole low-priority display/button worker owns I2C. Clock updates target4Hz,

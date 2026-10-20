@@ -278,10 +278,10 @@
       "transformation": "Native monochrome production-renderer output; no pixel rescaling.",
       "scope": "Offline N30 page clock; synthetic illustrative N3-1 state, no hardware or precision evidence.",
       "source_files": {
-        "tools/preview.cpp": "44c242d5461cfe1b4fab0a4dbd8cb0c28b991591bc45f0554f6b56540befeaa2",
-        "main/ui.hpp": "a2f2d6289229cb3cf8d52822479d9d3d259ffc6644765ff3980e017e2de9a3ab",
-        "main/ui_model.cpp": "501196e2a380511ec4f5a043f318cf3b737e7f84a724eb0ad5a340e4c8993b27",
-        "main/ui_render.cpp": "2db764726602740d553d13d2c125c1c876d586c6c7489a29a85aafcfbd05fe07",
+        "tools/preview.cpp": "5b412f102b59a3f3258779e7635dc03cf7078c6e14bd6c82e67cc5ddef8bd288",
+        "main/ui.hpp": "2862e7b705bd4ca7c2568e90f6b3666f0b967770e62a9354e6d6e007903896dd",
+        "main/ui_model.cpp": "1d1056c0a939085f507eecf62199e9810de163462e5808921b63d97e6bfaa5b6",
+        "main/ui_render.cpp": "7881048444840445c6784038e2e1ffb9ae9341cd8753bf8c7954d47bd2787ac9",
         "main/font.inc": "814ce6f3ffd7b828706765284e56393ca0e53874ee4fd3f823213ddd4d3d44df"
       }
     },
@@ -297,10 +297,10 @@
       "transformation": "Native monochrome production-renderer output; no pixel rescaling.",
       "scope": "Offline N30 page rf; synthetic illustrative N3-1 state, no hardware or precision evidence.",
       "source_files": {
-        "tools/preview.cpp": "44c242d5461cfe1b4fab0a4dbd8cb0c28b991591bc45f0554f6b56540befeaa2",
-        "main/ui.hpp": "a2f2d6289229cb3cf8d52822479d9d3d259ffc6644765ff3980e017e2de9a3ab",
-        "main/ui_model.cpp": "501196e2a380511ec4f5a043f318cf3b737e7f84a724eb0ad5a340e4c8993b27",
-        "main/ui_render.cpp": "2db764726602740d553d13d2c125c1c876d586c6c7489a29a85aafcfbd05fe07",
+        "tools/preview.cpp": "5b412f102b59a3f3258779e7635dc03cf7078c6e14bd6c82e67cc5ddef8bd288",
+        "main/ui.hpp": "2862e7b705bd4ca7c2568e90f6b3666f0b967770e62a9354e6d6e007903896dd",
+        "main/ui_model.cpp": "1d1056c0a939085f507eecf62199e9810de163462e5808921b63d97e6bfaa5b6",
+        "main/ui_render.cpp": "7881048444840445c6784038e2e1ffb9ae9341cd8753bf8c7954d47bd2787ac9",
         "main/font.inc": "814ce6f3ffd7b828706765284e56393ca0e53874ee4fd3f823213ddd4d3d44df"
       }
     },
@@ -316,10 +316,10 @@
       "transformation": "Native monochrome production-renderer output; no pixel rescaling.",
       "scope": "Offline N30 saver-ble; synthetic illustrative N3-1 state, no hardware or precision evidence.",
       "source_files": {
-        "tools/preview.cpp": "44c242d5461cfe1b4fab0a4dbd8cb0c28b991591bc45f0554f6b56540befeaa2",
-        "main/ui.hpp": "a2f2d6289229cb3cf8d52822479d9d3d259ffc6644765ff3980e017e2de9a3ab",
-        "main/ui_model.cpp": "501196e2a380511ec4f5a043f318cf3b737e7f84a724eb0ad5a340e4c8993b27",
-        "main/ui_render.cpp": "2db764726602740d553d13d2c125c1c876d586c6c7489a29a85aafcfbd05fe07",
+        "tools/preview.cpp": "5b412f102b59a3f3258779e7635dc03cf7078c6e14bd6c82e67cc5ddef8bd288",
+        "main/ui.hpp": "2862e7b705bd4ca7c2568e90f6b3666f0b967770e62a9354e6d6e007903896dd",
+        "main/ui_model.cpp": "1d1056c0a939085f507eecf62199e9810de163462e5808921b63d97e6bfaa5b6",
+        "main/ui_render.cpp": "7881048444840445c6784038e2e1ffb9ae9341cd8753bf8c7954d47bd2787ac9",
         "main/font.inc": "814ce6f3ffd7b828706765284e56393ca0e53874ee4fd3f823213ddd4d3d44df"
       }
     },
@@ -335,10 +335,10 @@
       "transformation": "Native monochrome production-renderer output; no pixel rescaling.",
       "scope": "Offline N30 saver-rc1; synthetic illustrative N3-1 state, no hardware or precision evidence.",
       "source_files": {
-        "tools/preview.cpp": "44c242d5461cfe1b4fab0a4dbd8cb0c28b991591bc45f0554f6b56540befeaa2",
-        "main/ui.hpp": "a2f2d6289229cb3cf8d52822479d9d3d259ffc6644765ff3980e017e2de9a3ab",
-        "main/ui_model.cpp": "501196e2a380511ec4f5a043f318cf3b737e7f84a724eb0ad5a340e4c8993b27",
-        "main/ui_render.cpp": "2db764726602740d553d13d2c125c1c876d586c6c7489a29a85aafcfbd05fe07",
+        "tools/preview.cpp": "5b412f102b59a3f3258779e7635dc03cf7078c6e14bd6c82e67cc5ddef8bd288",
+        "main/ui.hpp": "2862e7b705bd4ca7c2568e90f6b3666f0b967770e62a9354e6d6e007903896dd",
+        "main/ui_model.cpp": "1d1056c0a939085f507eecf62199e9810de163462e5808921b63d97e6bfaa5b6",
+        "main/ui_render.cpp": "7881048444840445c6784038e2e1ffb9ae9341cd8753bf8c7954d47bd2787ac9",
         "main/font.inc": "814ce6f3ffd7b828706765284e56393ca0e53874ee4fd3f823213ddd4d3d44df"
       }
     },
@@ -354,10 +354,10 @@
       "transformation": "Native monochrome production-renderer output; no pixel rescaling.",
       "scope": "Offline N30 saver-rc2; synthetic illustrative N3-1 state, no hardware or precision evidence.",
       "source_files": {
-        "tools/preview.cpp": "44c242d5461cfe1b4fab0a4dbd8cb0c28b991591bc45f0554f6b56540befeaa2",
-        "main/ui.hpp": "a2f2d6289229cb3cf8d52822479d9d3d259ffc6644765ff3980e017e2de9a3ab",
-        "main/ui_model.cpp": "501196e2a380511ec4f5a043f318cf3b737e7f84a724eb0ad5a340e4c8993b27",
-        "main/ui_render.cpp": "2db764726602740d553d13d2c125c1c876d586c6c7489a29a85aafcfbd05fe07",
+        "tools/preview.cpp": "5b412f102b59a3f3258779e7635dc03cf7078c6e14bd6c82e67cc5ddef8bd288",
+        "main/ui.hpp": "2862e7b705bd4ca7c2568e90f6b3666f0b967770e62a9354e6d6e007903896dd",
+        "main/ui_model.cpp": "1d1056c0a939085f507eecf62199e9810de163462e5808921b63d97e6bfaa5b6",
+        "main/ui_render.cpp": "7881048444840445c6784038e2e1ffb9ae9341cd8753bf8c7954d47bd2787ac9",
         "main/font.inc": "814ce6f3ffd7b828706765284e56393ca0e53874ee4fd3f823213ddd4d3d44df"
       }
     }

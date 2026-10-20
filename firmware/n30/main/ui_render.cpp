@@ -38,7 +38,7 @@ void render(uint8_t f[FrameBytes],const Model& m,const View& v,uint64_t now){
  header(f,m,fresh);
  if(v.page%2==0){
   box(f,1,12,62,28);text(f,5,15,"UTC");text(f,39,15,source_label(m,now));digital(f,24,valid,utc);
-  box(f,1,42,62,49);if(v.dial_frozen)dial(f,66,v.dial_utc,v.dial_hz);else if(locked)dial(f,66,utc,m.hz);else{center(f,54,state(m,fresh));center(f,70,valid?"REL CLOCK":"NO TIME");}
+  box(f,1,42,62,49);if(locked)dial(f,66,utc,m.hz);else{center(f,54,state(m,fresh));center(f,70,valid?"REL CLOCK":"NO TIME");}
   box(f,1,93,62,35);center(f,96,"SYNC RMS");char s[16];rms(s,sizeof s,valid&&m.state==State::Follow?m.rms_ns:UINT32_MAX);center(f,107,s);
   if(locked){box(f,3,106,6,8);box(f,4,103,4,5);}fill(f,4,117,56,1);text(f,5,120,"RC");if(fresh&&m.mode_pending)text(f,23,120,">");else if(fresh&&m.relay_only)text(f,23,120,"R");if(fresh&&m.serving)fill(f,20,121,3,3);
   for(unsigned i=0;i<4;i++){int x=35+int(i)*6,h=2+int(i)*2;const bool on=valid&&m.delivery!=UINT16_MAX&&m.delivery>=(i==0?1:i==1?500:i==2?750:900);if(on)fill(f,x,127-h,4,h);else{fill(f,x,127-h,4,1);fill(f,x,126,4,1);}}
@@ -47,6 +47,17 @@ void render(uint8_t f[FrameBytes],const Model& m,const View& v,uint64_t now){
   for(unsigned row=0;row<2;row++)for(unsigned i=0;i<8;i++){int x=4+int(i)*7,y=25+int(row)*24;box(f,x,y,6,7);if(!row&&fresh&&m.lamps[i]==1)fill(f,x+2,y+2,2,3);else if(!row&&fresh&&m.lamps[i]==2)fill(f,x+1,y+1,4,5);}
   text(f,3,65,"BLE");text(f,30,65,valid?(m.state==State::Hold?"HOLD":"TRACK"):"WAIT");char s[12]="--:--:--";if(valid){unsigned t=unsigned(utc/1000000%86400);std::snprintf(s,sizeof s,"%02u:%02u:%02u",t/3600,t/60%60,t%60);}center(f,77,s);
   text(f,3,89,"LORA");text(f,42,89,"OFF");center(f,100,"--:--:--");fill(f,3,110,58,1);text(f,3,113,"DELTA --");text(f,3,121,"PPB   --");
+ }
+}
+void ClockHold::draw(uint8_t frame[FrameBytes],const Model& m,const View& v,uint64_t now)const{
+ render(frame,m,v,now);
+ if(!v.clock_frozen||!active(now)||v.page!=page_||v.saver!=saver_||v.help||v.blank)return;
+ if(saver_)std::memcpy(frame,image_,FrameBytes);
+ else{
+  // Only RMS digits and the lock (rows103..115) remain live during grace.
+  // Keep UTC digits, hands, source/identity and footer from the same frame.
+  std::memcpy(frame,image_,103*8);
+  std::memcpy(frame+116*8,image_+116*8,12*8);
  }
 }
 }

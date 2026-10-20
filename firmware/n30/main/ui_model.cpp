@@ -9,19 +9,25 @@ bool time(const Model& m,uint64_t now,uint64_t& utc){
  utc=m.utc_us+(now-m.utc_at_us);return true;
 }
 bool analog_time(const Model& m,uint64_t now,uint64_t& utc){return time(m,now,utc)&&m.locked&&m.state==State::Follow&&m.source!=Source::None;}
-namespace {bool main_dial(const View& v){return v.page%2==0&&!v.help&&!v.blank&&!v.saver;}}
-void DialHold::update(const Model& m,View& v,uint64_t now){
- v.dial_frozen=false;
- if(!main_dial(v)||(seen_&&now<observed_)){reset();return;}
+void ClockHold::update(const Model& m,View& v,uint64_t now,bool saver_due){
+ v.clock_frozen=false;
+ if(v.help||v.blank||(seen_&&now<observed_)){reset();return;}
+ // Real user navigation/wake wins immediately. A quality dip may retain an
+ // already displayed saver only while the original idle timer still wants it.
+ if(saved_&&(v.page!=page_||(saver_&&!saver_due)||(!saver_&&v.saver)))reset();
+ if(v.page%2&&!v.saver&&!(saved_&&saver_&&saver_due)){reset();return;}
  seen_=true;observed_=now;uint64_t utc;
  if(analog_time(m,now,utc)){losing_=false;return;}
  if(!saved_)return;
  if(!losing_){losing_=true;loss_at_=now;}
- if(now-loss_at_<DialGraceUs){v.dial_frozen=true;v.dial_utc=utc_;v.dial_hz=hz_;}
- else saved_=false; // Cannot rearm until another live dial reaches the screen.
+ if(!active(now)){saved_=false;return;}
+ v.clock_frozen=true;
+ if(saver_){v.saver=true;v.saver_position=position_;}
 }
-void DialHold::presented(const Model& m,const View& v,uint64_t now){
- uint64_t utc;if(main_dial(v)&&!v.dial_frozen&&analog_time(m,now,utc)){saved_=true;losing_=false;utc_=utc;hz_=m.hz;}
+void ClockHold::presented(const Model& m,const View& v,uint64_t now,const uint8_t frame[FrameBytes]){
+ uint64_t utc;if(!v.help&&!v.blank&&(v.saver||v.page%2==0)&&!v.clock_frozen&&analog_time(m,now,utc)){
+  std::memcpy(image_,frame,FrameBytes);saved_=true;losing_=false;saver_=v.saver;page_=v.page;position_=v.saver_position;
+ }
 }
 const char* source_label(const Model& m,uint64_t now){
  uint64_t utc;if(m.mode_pending||!time(m,now,utc))return "WAIT";
@@ -63,8 +69,9 @@ Action Input::update(bool pressed,uint64_t now,View& v){
  }
  return action;
 }
+bool Input::saver_due(uint64_t now,const View& v)const{return !v.blank&&!stable_&&!v.help&&now>=idle_&&now-idle_>=IdleUs;}
 void Input::idle(uint64_t now,bool eligible,View& v)const{
- v.saver=!v.blank&&!stable_&&!v.help&&eligible&&now>=idle_&&now-idle_>=IdleUs;
+ v.saver=eligible&&saver_due(now,v);
  if(v.saver)v.saver_position=uint8_t(((now-idle_-IdleUs)/MoveUs)%3);
 }
 void Activity::update(Model& m,const uint32_t c[8],uint64_t root,uint64_t boot,uint64_t now,bool enabled,bool tx){

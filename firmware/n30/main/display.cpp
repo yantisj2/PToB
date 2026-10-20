@@ -35,20 +35,21 @@ bool flush(uint64_t deadline){
  });
 }
 void worker(void*){
- n30::Input input(gpio_get_level(GPIO_NUM_0)==0);n30::DialHold dial_hold;n30::View view;uint64_t due=0;bool off=false,dim=false;
+ static n30::ClockHold clock_hold; // One display owner; framebuffer stays off stack.
+ n30::Input input(gpio_get_level(GPIO_NUM_0)==0);n30::View view;uint64_t due=0;bool off=false,dim=false;
  for(;;){
   const auto now=now_us();n30::Model m;portENTER_CRITICAL(&mux);m=published;portEXIT_CRITICAL(&mux);
   int request;portENTER_CRITICAL(&mux);request=requested_page;requested_page=-1;portEXIT_CRITICAL(&mux);
-  const auto prior=view;if(request>=0){view.page=uint8_t(request);view.help=false;view.blank=false;due=now;}
+  const auto prior=view;if(request>=0){view.page=uint8_t(request);view.help=false;view.blank=false;clock_hold.reset();due=now;}
   if(input.update(gpio_get_level(GPIO_NUM_0)==0,now,view)==n30::Action::ToggleRelayOnly){portENTER_CRITICAL(&mux);upstream_toggle.post(now);portEXIT_CRITICAL(&mux);}
   uint64_t utc;input.idle(now,m.locked&&m.source!=n30::Source::None&&m.state==n30::State::Follow&&n30::time(m,now,utc),view);
-  dial_hold.update(m,view,now);
-  if(prior.page!=view.page||prior.help!=view.help||prior.saver!=view.saver||prior.blank!=view.blank||prior.dial_frozen!=view.dial_frozen)due=now;
+  clock_hold.update(m,view,now,input.saver_due(now,view));
+  if(prior.page!=view.page||prior.help!=view.help||prior.saver!=view.saver||prior.blank!=view.blank||prior.clock_frozen!=view.clock_frozen)due=now;
   if(now>=due){
    bool ok=true;if(off!=view.blank){ok=command(view.blank?0xae:0xaf);if(ok){off=view.blank;shadow_valid=false;}}
    if(ok&&dim!=view.saver){ok=command(0x81)&&command(view.saver?0x20:0x60);if(ok)dim=view.saver;}
-   if(ok&&!view.blank){n30::render(portrait,m,view,now);n30::rotate(native,portrait,PTOB_N30_ROTATE_CW);ok=flush(now+50000);if(ok)dial_hold.presented(m,view,now);}
-   if(!ok)dial_hold.reset();
+   if(ok&&!view.blank){clock_hold.draw(portrait,m,view,now);n30::rotate(native,portrait,PTOB_N30_ROTATE_CW);ok=flush(now+50000);if(ok)clock_hold.presented(m,view,now,portrait);}
+   if(!ok)clock_hold.reset();
    const auto end=now_us();portENTER_CRITICAL(&mux);stats.page=view.page;stats.help=view.help;stats.saver=view.saver;stats.blank=view.blank;stats.sampled=m.sampled_us;stats.ready=ok;
    if(ok)stats.frames++;else stats.errors++;stats.max_us=std::max(stats.max_us,uint32_t(end-now));portEXIT_CRITICAL(&mux);
    const uint64_t cadence=view.page==1&&!view.saver?125000:250000;
