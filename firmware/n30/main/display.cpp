@@ -56,7 +56,10 @@ void worker(void*){
    if(!ok)clock_hold.reset();
    const auto end=now_us();portENTER_CRITICAL(&mux);stats.page=view.page;stats.help=view.help;stats.saver=view.saver;stats.blank=view.blank;stats.sampled=m.sampled_us;stats.ready=ok;
    if(ok)stats.frames++;else stats.errors++;stats.max_us=std::max(stats.max_us,uint32_t(end-now));
-   if(!force&&phase.utc)stats.max_phase_us=std::max(stats.max_phase_us,uint32_t(std::min<uint64_t>(now-due,UINT32_MAX)));portEXIT_CRITICAL(&mux);
+   if(!force&&phase.utc){
+    stats.max_phase_us=std::max(stats.max_phase_us,uint32_t(std::min<uint64_t>(now-due,UINT32_MAX)));
+   }
+   portEXIT_CRITICAL(&mux);
    cadence.rendered(phase);force=false;
   }
   const auto end=now_us();const auto next=cadence.deadline(n30::frame_phase(m,view,end),end);
