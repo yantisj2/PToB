@@ -127,7 +127,7 @@ display, BLE/USB service and stack observations remain exact-device gates.
 
 ## Hardware update boundary
 
-Normal0.15.126 builds include the [RC8 wire3 integration](../../protocol/rc8/README.md).
+Normal0.15.127 builds include the [RC8 wire3 integration](../../protocol/rc8/README.md).
 The default transmitter factory is zero, so LoRa hardware does not start. An
 explicit normal-only `--lora-transmitter-factory` takes a16-digit exact factory
 identity verified against ignored T096 registry metadata. It is included in the
@@ -280,3 +280,17 @@ their bounds. Hardware diagnostics use existing padding for BUSY abort count
 and last opcode; `sizeof(r2_lora_hw_diag)` remains52. Page7, link-fit logic and
 all original reserves remain unchanged. The source change requires new exact-
 device functional/coexistence checks before field acceptance.
+
+
+Version0.15.127 adds a durable LoRa fault observer. The existing diagnostic scan
+scratch has a separate lifetime after initialization, before the LoRa thread is
+created. No stack/controller/USB reserve is reduced. The `lora` response adds
+`watchdog`, `fault_record` and `owner`; their layout is documented in the
+[RC8 guide](../../protocol/rc8/README.md). Real transport errors remain latched
+until physical watchdog reset; no unretired DMA buffer is reused. Journal writes
+use only existing bank0 at0xe1000..0xe2fff, with normal radio-aware admission,
+readback/CRC/commit and the original2s deadline. App-only updates and all672
+protected-block comparisons retain their original scope; journal storage is
+already outside that protected population. Conditional retained-RAM evidence is
+not a power-loss durability guarantee. Physical recovery/retention and live
+stack/coexistence remain separately measured exact-device gates.

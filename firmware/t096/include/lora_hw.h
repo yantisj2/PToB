@@ -27,7 +27,8 @@ _Static_assert(sizeof(struct r2_lora_hw_diag)==52,"LoRa diagnostics reserve");
 /* One low-priority thread owns all calls except stop_begin and diag. The
  * packet engine returns to STBY_RC on the first received packet: the FIFO
  * and physical DIO1 capture remain frozen until take, then explicit rearm.
- * Buffers and descriptors have permanent lifetime. Faults require reboot.
+ * Buffers and descriptors have permanent lifetime. Transport faults require
+ * the durable watchdog's MCU reset; they never reuse an unretired DMA owner.
  */
 int r2_lora_hw_start(uint32_t generation,bool receive);
 int r2_lora_hw_tx(const uint8_t *,size_t,uint32_t tx_generation);
@@ -48,3 +49,5 @@ int r2_lora_hw_rx_rearm(void);
 void r2_lora_hw_stop_begin(uint64_t original_deadline_us);
 void r2_lora_hw_stop_poll(struct r2_lora_hw_ack *);
 void r2_lora_hw_diag(struct r2_lora_hw_diag *);
+/* Out-of-band worker-stall fence; records before reset/FEM inhibition. */
+void r2_lora_hw_watchdog_trip(int error);

@@ -4,6 +4,7 @@
  * Public Zephyr SPI/GPIO and allocated nrfx TIMER4/GPIOTE/PPI only.
  */
 #include "lora_hw.h"
+#include "lora_watchdog.h"
 #include "capture.h"
 #include "radio_nrf5_resources.h"
 #include <errno.h>
@@ -65,12 +66,45 @@ static bool resources, capture_owned, receive_mode;
 static atomic_t running, dma_inflight, result, fault, latched, phase,
     cutoff_expired, stop_serial, launch_aborted;
 static struct r2_lora_hw_diag counters;
+#define wd r2_diag_scratch.lora
 /* phase:0 inhibited/reset,1 idle,2 single RX,3 retired TX command,
  * 4 software TX launch not yet retired. No SPI or waiting from IRQ. */
 static uint64_t now_us(void) { return k_ticks_to_us_floor64(k_uptime_ticks()); }
 static void count(uint32_t *v) {
   if (*v != UINT32_MAX)
     ++*v;
+}
+static void stage(unsigned value) {
+  unsigned key=irq_lock();
+  wd.stage=(value<<8)|dma_tx[0];wd.stage_at=k_uptime_get_32();
+  irq_unlock(key);
+}
+static void note_fault(int rc,bool terminal) {
+  unsigned key=irq_lock();
+  /* Preserve the first terminal cause. A terminal cause supersedes an
+   * uncommitted recoverable launch, counted as coalesced, never as saved. */
+  if(wd.terminal||(wd.serial!=wd.saved&&!terminal)) {
+    count(&wd.coalesced);irq_unlock(key);return;
+  }
+  if(wd.serial!=wd.saved)count(&wd.coalesced);
+  if(wd.serial!=UINT32_MAX)++wd.serial;
+  uint32_t at=k_uptime_get_32();
+  uint32_t *p=wd.record;
+  p[0]=R2_LORA_FAULT_MAGIC;p[1]=(uint32_t)rc;p[2]=at;
+  p[3]=wd.stage;p[4]=wd.stage_at;
+  p[5]=(uint32_t)atomic_get(&phase)|((uint32_t)!!atomic_get(&running)<<8)|
+    ((uint32_t)!!atomic_get(&dma_inflight)<<9)|((uint32_t)atomic_get(&latched)<<10)|
+    ((uint32_t)capture_owned<<12)|((uint32_t)receive_mode<<13)|
+    ((uint32_t)atomic_get(&launch_aborted)<<14)|((uint32_t)!!atomic_get(&cutoff_expired)<<16);
+  p[6]=generation;p[7]=(uint32_t)edge.epoch;p[8]=(uint32_t)edge.tick;p[9]=(uint32_t)(edge.tick>>32);
+  int busy_value=gpio_pin_get_dt(&busy),dio_value=gpio_pin_get_dt(&dio);
+  p[10]=wd.irq_status|((uint32_t)(busy_value>0)<<16)|((uint32_t)(dio_value>0)<<17)|
+    ((uint32_t)(busy_value<0)<<18)|((uint32_t)(dio_value<0)<<19);
+  p[11]=(uint32_t)atomic_get(&stop_serial);
+  p[12]=counters.spi_ok;p[13]=counters.spi_error;p[14]=counters.cutoffs;
+  p[15]=(counters.launch_aborts>65535?65535:counters.launch_aborts)|((uint32_t)counters.busy_aborts<<16);
+  if(terminal){wd.terminal=1;wd.fault_at=at;}
+  irq_unlock(key);
 }
 static void inhibit(void) {
   unsigned key = irq_lock();
@@ -88,6 +122,7 @@ static void inhibit(void) {
   irq_unlock(key);
 }
 static int fail(int rc) {
+  note_fault(rc,true);
   atomic_cas(&fault, 0, rc);
   inhibit();
   return rc;
@@ -128,6 +163,7 @@ static void cutoff_irq(nrf_timer_event_t event, void *unused) {
        * A real SPI error or a retired TX timeout remains permanently fatal. */
       atomic_set(&launch_aborted, 1);
       count(&counters.launch_aborts);
+      note_fault(-EINTR,false);
       inhibit();
       return;
     }
@@ -182,6 +218,7 @@ static int busy_deadline(void) {
       count(&counters.launch_aborts);
       if (counters.busy_aborts != UINT16_MAX)
         ++counters.busy_aborts;
+      note_fault(-EINTR,false);
       inhibit();
       rc = -ECANCELED;
       }
@@ -210,12 +247,14 @@ static int transfer(size_t n) {
     return -ECANCELED;
   if (atomic_get(&dma_inflight) || atomic_get(&fault))
     return -EBUSY;
+  stage(R2_LORA_STAGE_BUSY_BEFORE);
   int rc = wait_busy();
   if (rc)
     return rc;
   tx_buffer.len = rx_buffer.len = n;
   k_sem_reset(&completed);
   atomic_set(&dma_inflight, 1);
+  stage(R2_LORA_STAGE_DMA);
   rc = spi_transceive_cb(spi, &spi_config, &tx_buffers, &rx_buffers, spi_done,
                          NULL);
   if (rc) {
@@ -236,6 +275,7 @@ static int transfer(size_t n) {
     return fail(rc);
   }
   count(&counters.spi_ok);
+  stage(R2_LORA_STAGE_BUSY_AFTER);
   return wait_busy();
 }
 static int command(uint8_t op, const uint8_t *args, size_t n) {
@@ -369,6 +409,7 @@ static int init_resources(void) {
   return 0;
 }
 int r2_lora_hw_start(uint32_t gen, bool receive) {
+  stage(R2_LORA_STAGE_START);
   atomic_val_t serial = atomic_get(&stop_serial);
   if (!gen)
     return -EINVAL;
@@ -481,6 +522,7 @@ static int arm_edge(uint32_t gen, uint8_t new_phase) {
   return rc;
 }
 int r2_lora_hw_rx_rearm(void) {
+  stage(R2_LORA_STAGE_REARM);
   if (!receive_mode || atomic_get(&phase) != 1)
     return -EBUSY;
   if (!capture_live())
@@ -581,6 +623,7 @@ int r2_lora_hw_take(struct r2_lora_hw_event *out) {
   if (!rc && !status_ok(dma_rx[1]))
     rc = -EIO;
   uint16_t flags = ((uint16_t)dma_rx[2] << 8) | dma_rx[3];
+  if(!rc)wd.irq_status=flags;
   uint8_t state = (uint8_t)atomic_get(&phase);
   if (!rc) {
     *out = (struct r2_lora_hw_event){.tick = edge.tick,
@@ -655,9 +698,10 @@ void r2_lora_hw_stop_poll(struct r2_lora_hw_ack *out) {
     int rc = gpio_pin_interrupt_configure_dt(&dio, GPIO_INT_DISABLE);
     if (!rc)
       rc = r2_capture_lora_detach();
-    if (rc)
+    if (rc) {
+      note_fault(rc,true);
       atomic_cas(&fault, 0, rc);
-    else {
+    } else {
       capture_owned = false;
       released = true;
     }
@@ -673,7 +717,10 @@ void r2_lora_hw_stop_poll(struct r2_lora_hw_ack *out) {
                                  .fem_off = off,
                                  .capture_released = released,
                                  .fault = atomic_get(&fault) != 0};
+  wd.closure=(uint32_t)out->dma_retired|((uint32_t)out->radio_quiescent<<1)|
+    ((uint32_t)out->fem_off<<2)|((uint32_t)out->capture_released<<3)|((uint32_t)out->fault<<4);
 }
+void r2_lora_hw_watchdog_trip(int error) {(void)fail(error);}
 void r2_lora_hw_diag(struct r2_lora_hw_diag *out) {
   if (!out)
     return;

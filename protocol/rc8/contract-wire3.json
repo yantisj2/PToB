@@ -2,7 +2,7 @@
   "schema": 3,
   "contract": "PTOB_RC8",
   "wire_version": 3,
-  "revision": 3,
+  "revision": 4,
   "status": "RUNTIME_INTEGRATION_UNQUALIFIED",
   "license": "MIT",
   "credit": "Jonathan Yantis",
@@ -177,7 +177,7 @@
     "absolute_output_bound": "UNKNOWN",
     "metadata_control_guard_us": "length-specific FEM bound +1000us, driver repeats immediately before FEM",
     "map_commit": "captured physical publication linearization; original anchors and deadlines immutable",
-    "radio_fault": "latched RF inhibition; timely actual closure permits maintenance; late drain remains fault",
+    "radio_fault": "first fault retained; bounded journal attempt then existing physical watchdog reset; unretired DMA never reused",
     "rc9": false,
     "follower_tx_gate": "currently usable authenticated selected BLE delivered-map PLL locked; local PPS/source_ready not required",
     "own_gm_tx_gate": "currently valid qualified own PPS/source map",
@@ -195,7 +195,7 @@
       ],
       "result": "reset-abort via existing EINTR sequence consumption and bounded closure/retry",
       "generic_ETIMEDOUT_recovery": false,
-      "other_phases_opcodes_transport_DMA_timeouts": "permanent fault",
+      "other_phases_opcodes_transport_DMA_timeouts": "latched fault, durable watchdog MCU recovery",
       "busy_wait_ms": 30,
       "diag_struct_bytes": 52,
       "diagnostic_padding_fields": [
@@ -207,6 +207,24 @@
         "14": "last_busy_op"
       },
       "added_static_bytes": 0
+    },
+    "durable_watchdog": {
+      "since": "0.15.127",
+      "worker_stall_ms": 30000,
+      "journal_observer_ms": 2000,
+      "physical_parent_reset_ms": 30000,
+      "journal_bank": 0,
+      "journal_reason": 1024,
+      "schema5_payload_words": [
+        80,
+        95
+      ],
+      "first_terminal_cause_frozen": true,
+      "flash_from_isr_or_watchdog": false,
+      "memory": "existing512B startup scan scratch, separate lifetime",
+      "added_static_bytes": 0,
+      "retained_ram_survival": "conditional",
+      "source_or_RF_silence_is_worker_fault": false
     }
   },
   "runtime_link_fit": {

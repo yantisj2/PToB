@@ -12,7 +12,14 @@
 /* Schema5: append512B records in approved bank0 only. Public radio-synchronized
  * flash owner, no ISR/callback writes. Bank1/legacy and layout are untouched. */
 static const struct device *flash=DEVICE_DT_GET(DT_CHOSEN(zephyr_flash_controller));
-static uint32_t package[128] __aligned(4),scan_page[128] __aligned(4);
+static uint32_t package[128] __aligned(4);
+#ifdef R2_LORA
+#include "lora_watchdog.h"
+union r2_diag_scratch r2_diag_scratch __aligned(8);
+#define scan_page r2_diag_scratch.scan
+#else
+static uint32_t scan_page[128] __aligned(4);
+#endif
 static uint32_t previous[16],current[16],commands[3][4];
 static struct r2_identity identity;
 static struct r2_service_status last_service;
@@ -308,6 +315,34 @@ void r2_diag_watchdog(unsigned retry,int error)
  if(now-hour_start>=3600000){hour_start=now;automatic_count=0;}
  if(now<next_event||automatic_count>=8)return;
  if(!submit(0x200,error)){automatic_count++;next_event=now+10000;last_event=now;}
+}
+int r2_diag_lora(const uint32_t record[16],bool terminal,uint64_t *token)
+{
+ /* LoRa fault extension of schema5: reason0x400 replaces only the event
+  * snapshot80..95 with16 fault words. BLE pre/post, binding, CRC/commit and
+  * the original writer/layout/deadline remain. Main is the only caller.
+  * Fatal evidence has one immediate opportunity even during a rate window;
+  * recoverable launches retain the existing8/hour,10s event budget. */
+ uint64_t now=k_uptime_get();
+ if(!normal||quiescing||finish_requested||r2_diag_state()<1)return -ESHUTDOWN;
+ if(r2_diag_busy())return -EAGAIN;
+ if(now-hour_start>=3600000){hour_start=now;automatic_count=0;}
+ if(!terminal&&(now<next_event||automatic_count>=8))return -EAGAIN;
+ int rc=submit(0x400,(int32_t)record[1]);
+ if(!rc){memcpy(&package[80],record,64);*token=generation;
+  if(automatic_count<UINT32_MAX)++automatic_count;
+  next_event=now+10000;last_event=now;
+ }
+ return rc;
+}
+int r2_diag_record_result(uint64_t token)
+{
+ if(!token||token>generation)return -EINVAL;
+ /* A later submission is admitted only after the prior writer finished
+  * successfully: a failed phase is terminal until reboot. */
+ if(token<generation)return 0;
+ int state=r2_diag_state();
+ return state<0?state:r2_diag_saved()?0:-EINPROGRESS;
 }
 void r2_diag_poll(void)
 {

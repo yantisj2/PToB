@@ -5,7 +5,7 @@
 *Illustrative firmware-rendered RC screen; displayed values are not measured
 performance. [Image provenance](../../docs/images/README.md).*
 
-**PToB owns T096 RC7 development.** Current source version **0.15.126** supplies the
+**PToB owns T096 RC7 development.** Current source version **0.15.127** supplies the
 ordinary **GM** and **RC** mesh profiles, with USB timing compiled by default.
 [Build from source](../../docs/t096/build.md) with pinned public dependencies
 and ignored local enrollment. No enrolled binary is distributed.
@@ -40,6 +40,12 @@ Version126 also resets an actual BUSY-high deadline only while SetTx is
 unfinished and DMA has retired without a transport fault. The ambiguous sequence
 is consumed before bounded closure/retry. Other BUSY deadlines stay faulting;
 new diagnostic count/opcode fields distinguish this path without added RAM.
+Version127 captures the first LoRa fault through the existing event journal and
+uses the hardware watchdog for real transport faults or a frozen owner. Unsafe
+DMA is retained until MCU reset. The record distinguishes actual closure and
+journal success/failure; a conditional retained reset capsule carries the cause
+across a same-image watchdog boot. Source/RF silence alone never requests reset.
+The journal's startup scan scratch funds this observer without added static RAM.
 
 T096 participates in the shared G1/RC7 mesh with W12 and StickS3 receivers and
 experimental relays. RC selection considers aged timing/delivery history as

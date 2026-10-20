@@ -260,5 +260,14 @@ int main(void)
  assert(r2_watchdog_capsule[32]==(uint32_t)-ETIMEDOUT);
  clear_runtime();assert(!r2_watchdog_boot(&id)&&r2_watchdog_reset_kind()==R2_UI_RESET_WD_RECOVERY);
  clear_runtime();install_error=-ENODEV;assert(r2_watchdog_boot(&id)==-ENODEV);install_error=0;
+ /* LoRa uses the physical parent reset and keeps the exact first cause,
+  * stage/op, DMA closure and journal outcome in the source-bound capsule. */
+ clear_runtime();assert(!r2_watchdog_boot(&id));advance(40);atomic_set(&report_rc,1);
+ r2_watchdog_lora(-ETIMEDOUT,0x383,91,22,-EIO);
+ assert(!step_at(40)&&reset_reason==WD_LORA_FAULT&&previous_bound(&id));
+ assert(r2_watchdog_capsule[8]==(uint32_t)-ETIMEDOUT&&r2_watchdog_capsule[9]==0x383&&
+  r2_watchdog_capsule[10]==22&&r2_watchdog_capsule[11]==91&&r2_watchdog_capsule[32]==(uint32_t)-EIO);
+ r2_watchdog_lora(-EIO,0,0,31,0);assert(r2_watchdog_capsule[11]==91);
+ clear_runtime();assert(!r2_watchdog_boot(&id)&&r2_watchdog_restore_rc(&mode)&&mode&&r2_watchdog_reset_kind()==R2_UI_RESET_WD_FAULT);
  puts("PASS production watchdog: GM20/RC30, intermittent progress vs sustained retry reset, initial+3 retries, wrap, stale snapshots, cancellation, recovery, core/fatal, CRC bindings, deadline/refusal/UF2 continuation; hardware timing remains UNKNOWN");
 }

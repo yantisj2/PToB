@@ -6,6 +6,9 @@
 #include "watchdog_policy.h"
 #include "ble_service.h"
 #include "build_identity.h"
+#ifdef R2_LORA
+#include "lora_watchdog.h"
+#endif
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
@@ -22,7 +25,7 @@ _Static_assert(WD_PARENT_MS>=30000u&&WD_CORE_MS>=30000u&&WD_RC_WORKER_MS>=30000u
                "Watchdogs observe failures, not precision timing gaps");
 #define WD_MAGIC UINT32_C(0x52325744)
 #define WD_WORDS 34u
-enum {WD_NO_SYNC=1,WD_RETRIES_EXHAUSTED,WD_CORE_STALL,WD_RECOVERY_FAILED,WD_RC_WORKER_STALL,
+enum {WD_NO_SYNC=1,WD_RETRIES_EXHAUSTED,WD_CORE_STALL,WD_RECOVERY_FAILED,WD_RC_WORKER_STALL,WD_LORA_FAULT,
  WD_FATAL=16,WD_UF2=256};
 /* CRC/commit, exact source and silicon binding; RAM survival is conditional. */
 volatile uint32_t r2_watchdog_capsule[WD_WORDS] __noinit;
@@ -141,9 +144,25 @@ void r2_watchdog_fatal(unsigned reason)
  /* A crash must never continue feeding, even if fault capture itself fails. */
  atomic_set(&reset_reason,WD_FATAL+reason);capsule(WD_FATAL+reason);
 }
+void r2_watchdog_lora(int error,uint32_t stage,uint32_t generation,uint32_t closure,int journal_result)
+{
+ /* Same source/silicon/boot binding and physical parent reset as BLE. Do
+  * not overwrite an earlier fatal/reset decision or issue a software reset. */
+ if(atomic_get(&reset_reason))return;
+ atomic_set(&reset_reason,WD_LORA_FAULT);capsule(WD_LORA_FAULT);
+ r2_watchdog_capsule[0]=0;
+ r2_watchdog_capsule[8]=(uint32_t)error;r2_watchdog_capsule[9]=stage;
+ r2_watchdog_capsule[10]=closure;r2_watchdog_capsule[11]=generation;
+ r2_watchdog_capsule[32]=(uint32_t)journal_result;
+ r2_watchdog_capsule[33]=crc(r2_watchdog_capsule);
+ __DMB();r2_watchdog_capsule[0]=WD_MAGIC;__DSB();
+}
 static bool watchdog_step(void)
 {
  if(atomic_get(&reset_reason))return false;
+#ifdef R2_LORA
+ r2_lora_watchdog_check();
+#endif
  /* Main has higher priority and may publish after this thread wakes.
   * Read each timestamp before its comparison time; a preempting producer
   * must never look2^32ms stale through unsigned age subtraction. */
@@ -198,7 +217,7 @@ int r2_watchdog_boot(const struct r2_identity *id)
   if(reason==WD_RETRIES_EXHAUSTED)reset_kind=R2_UI_RESET_WD_PROFILE;
   else if(reason==WD_CORE_STALL)reset_kind=R2_UI_RESET_WD_CORE;
   else if(reason==WD_RECOVERY_FAILED)reset_kind=R2_UI_RESET_WD_RECOVERY;
-  else if(reason==WD_RC_WORKER_STALL)reset_kind=R2_UI_RESET_WD_FAULT;
+  else if(reason==WD_RC_WORKER_STALL||reason==WD_LORA_FAULT)reset_kind=R2_UI_RESET_WD_FAULT;
   else if(reason>=WD_FATAL&&reason<WD_UF2)reset_kind=R2_UI_RESET_WD_FAULT;
  }
  r2_watchdog_capsule[0]=0;

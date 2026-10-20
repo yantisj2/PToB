@@ -2,6 +2,27 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 20 October 2026 — T0960.15.127 durable LoRa fault recovery
+
+LoRa now retains the first fault's operation/stage, original observation times,
+physical edge/generation, IRQ/BUSY/DIO state and DMA/capture ownership before
+inhibiting RF. Main requests a CRC/commit journal record in the existing bank0;
+BLE pre/post context and the original two-second writer deadline remain.
+Recoverable launch records share the existing event budget. A terminal fault
+gets one immediate record opportunity; saved, failed and unfinished writes stay
+distinct in diagnostics.
+
+Real transport faults keep their buffers and descriptors closed until the
+existing hardware watchdog resets the MCU. Main requests that reset after the
+record completes or its two-second bound; a source/silicon/boot-bound capsule
+also retains the cause, closure bits and journal result. An independent observer
+catches a frozen LoRa owner after30s without treating RF/source silence as a
+fault. Ambiguous SetTx launches retain the bounded local retirement/cadence path.
+The startup-only512B diagnostic scan scratch becomes the observer state only
+after scanning finishes, retaining the4096B added-static ceiling and all original
+reserves. Host/native checks do not establish physical reset retention, long-term
+coexistence or output accuracy; those remain exact-device evidence gates.
+
 ## 20 October 2026 — T0960.15.126 bounded SetTx BUSY recovery
 
 A BUSY-high deadline during an unfinished SetTx command now resets and retires

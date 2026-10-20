@@ -115,5 +115,5 @@ with tempfile.TemporaryDirectory(prefix='t096-r2-test-') as directory:
     subprocess.run([str(out/'time_service')],check=True,timeout=30)
 
     subprocess.run([*flags,'-I'+str(APP/'protocol'),'-I'+str(out),'-include',str(APP/'tests/zephyr_fake.h'),str(APP/'tests/diagnostic_test.c'),str(APP/'src/core.c'),'-o',str(out/'diagnostic')],check=True,timeout=30)
-    for mode in map(str,range(20)):
+    for mode in map(str,range(25)):
         subprocess.run([str(out/'diagnostic'),mode],check=True,timeout=30)

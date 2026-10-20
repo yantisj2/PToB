@@ -29,6 +29,8 @@ void r2_diag_command(uint32_t request,unsigned operation,int result,uint64_t arr
 /* UCS1 namespace in the existing three-command context; main-thread only. */
 void r2_diag_uc_trace(const uint32_t trace[3]);
 void r2_diag_watchdog(unsigned retry,int error);
+int r2_diag_lora(const uint32_t record[16],bool terminal,uint64_t *token);
+int r2_diag_record_result(uint64_t token);
 void r2_diag_finish(int error);
 void r2_diag_poll(void);
 int r2_diag_state(void);

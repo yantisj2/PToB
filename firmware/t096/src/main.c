@@ -23,6 +23,7 @@
 #include "ui.h"
 #ifdef R2_LORA
 #include "lora_service.h"
+#include "lora_watchdog.h"
 #endif
 #ifdef R2_NATIVE_BLE
 #include "ble_service.h"
@@ -428,9 +429,13 @@ int main(void)
 #ifdef R2_LORA
   uint64_t lora_factory=0,lora_transmitter=(uint64_t)R2_LORA_TRANSMITTER_FACTORY;
   (void)r2_factory_parse(identity.silicon,&lora_factory);
-  r2_lora_init(enrollment_rc?0:lora_factory,identity.boot,lora_transmitter,&r2_enrollment.group);
 #endif
   event(11,r2_diag_init(&identity));
+#ifdef R2_LORA
+  /* Diagnostic scan scratch becomes the LoRa fault observer only after the
+   * startup scan completes; the two owners must never overlap. */
+  r2_lora_init(enrollment_rc?0:lora_factory,identity.boot,lora_transmitter,&r2_enrollment.group);
+#endif
 #endif
   r2_platform_start();
   struct r2_platform p; r2_platform_snapshot(&p); event(2,p.clock_result);
@@ -502,6 +507,9 @@ int main(void)
     r2_gnss_aid(aid_utc,aid_sample,aid_valid,local_clock.view.fix_active);
 #endif
     if((service.closing&&!service.profile_pending)||poweroff_requested||r2_ui_poweroff_requested()||maintenance.phase!=R2_IDLE)r2_diag_quiesce();
+#ifdef R2_LORA
+    r2_lora_watchdog_poll();
+#endif
     r2_diag_sample(&service,&local_clock.view);
 #ifdef R2_RC_PROFILE
     uint32_t uc_trace[3];if(r2_uc_trace(uc_trace))r2_diag_uc_trace(uc_trace);

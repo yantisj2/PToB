@@ -2,6 +2,8 @@
  * Actual service body; fake only kernel/capture/hardware boundaries. */
 #include "lora_service.h"
 #include "lora_hw.h"
+#include "lora_watchdog.h"
+union r2_diag_scratch r2_diag_scratch;
 #include "capture.h"
 #include <assert.h>
 #include <errno.h>
@@ -27,6 +29,16 @@ static void k_thread_name_set(struct k_thread *t,const char *n){(void)t;(void)n;
 static uint64_t now_us=1000000;
 static uint64_t k_uptime_ticks(void){return now_us;}
 static uint64_t k_ticks_to_us_floor64(uint64_t t){return t;}
+static uint32_t k_uptime_get_32(void){return (uint32_t)(now_us/1000);}
+static unsigned irq_lock(void){return 0;}
+static void irq_unlock(unsigned key){(void)key;}
+static int journal_rc=-EAGAIN,journal_status=-EINPROGRESS;
+static unsigned journal_calls,reset_calls;static uint32_t journal_record[16];static bool journal_terminal;
+static int r2_diag_lora(const uint32_t p[16],bool terminal,uint64_t *token){journal_calls++;memcpy(journal_record,p,64);journal_terminal=terminal;if(!journal_rc)*token=7;return journal_rc;}
+static int r2_diag_record_result(uint64_t token){assert(token==7);return journal_status;}
+static bool r2_diag_busy(void){return false;}
+static void r2_watchdog_lora(int e,uint32_t s,uint32_t g,uint32_t c,int j){(void)s;(void)g;(void)c;(void)j;assert(e<0);reset_calls++;}
+void r2_lora_hw_watchdog_trip(int e){struct r2_lora_watchdog_state *w=&r2_diag_scratch.lora;if(w->terminal)return;w->terminal=1;w->fault_at=k_uptime_get_32();w->serial++;w->record[0]=R2_LORA_FAULT_MAGIC;w->record[1]=(uint32_t)e;}
 static void k_sleep(int n){now_us+=(unsigned)n*1000;}
 static unsigned starts,txs,rearms,stops;static bool have_event,capture_valid=true,cancel_start,cancel_tx,cancel_take,hold_ack;
 static bool late_diagnostic,quality_during_spi,quality_on_capture,change_during_spi,withdraw_on_capture,abort_tx;static unsigned capture_calls;
@@ -129,6 +141,46 @@ int main(int argc,char **argv){assert(argc==2);unsigned mode=(unsigned)atoi(argv
  else if(mode==34)abort_recovery();
  else if(mode==35){init(true);step();quality_on_capture=true;step();struct rc8_companion p;uint8_t id[16];assert(sent_len==128&&!rc8_companion_decode(&p,id,sent,128,&test_group)&&p.snapshot_age_ms==0&&published.diagnostic_us<=now_us);done();published.diagnostic_us=now_us+1000000;role.tx.diag_not_before=0;role.tx.meta_us=0;step();assert(!rc8_companion_decode(&p,id,sent,128,&test_group)&&p.snapshot_age_ms==UINT32_MAX);}
  else if(mode==36){init(true);step();fake_launch_aborts=9;fake_busy_aborts=7;fake_last_busy_op=0x83;assert(sizeof(struct r2_lora_hw_diag)==52);}
+ else if(mode==37){
+  init(false);step();struct r2_lora_watchdog_state *w=&r2_diag_scratch.lora;
+  now_us=(uint64_t)(w->beat+R2_LORA_WORKER_MS-1)*1000;r2_lora_watchdog_check();assert(!w->terminal);
+  now_us+=1000;r2_lora_watchdog_check();assert(w->terminal&&w->serial==1);
+  r2_lora_watchdog_poll();assert(atomic_get(&faulted)&&!reset_calls&&!journal_calls);
+  struct r2_lora_view v;r2_lora_view(&v);assert(v.fault&&!v.active&&!v.utc_us);
+  w->closure=31;journal_rc=0;r2_lora_watchdog_poll();assert(journal_calls==1&&journal_terminal&&w->submitted==1&&!reset_calls);
+  assert((journal_record[5]>>20)==31);journal_status=0;r2_lora_watchdog_poll();assert(w->saved==1&&reset_calls==1&&w->reset_requested);
+  r2_lora_watchdog_poll();assert(reset_calls==1&&journal_calls==1);
+ }
+ else if(mode==38){
+  init(false);step();r2_lora_hw_watchdog_trip(-EIO);struct r2_lora_watchdog_state *w=&r2_diag_scratch.lora;
+  now_us+=(RC8_DRAIN_US-1000);r2_lora_watchdog_poll();assert(!journal_calls&&!reset_calls);
+  now_us+=1000;journal_rc=-EIO;r2_lora_watchdog_poll();assert(journal_calls==1&&w->journal_result==-EIO&&!w->saved&&!reset_calls);
+  now_us=(uint64_t)(w->fault_at+1999)*1000;r2_lora_watchdog_poll();assert(!reset_calls);
+  now_us+=1000;r2_lora_watchdog_poll();assert(reset_calls==1&&w->reset_requested&&!w->saved);
+  unsigned before=starts;step();step();assert(starts==before&&atomic_get(&faulted));
+ }
+ else if(mode==39){
+  init(false);step();r2_lora_request(false);step();step();step();assert(!r2_diag_scratch.lora.monitor);
+  now_us+=60000000;r2_lora_watchdog_check();r2_lora_watchdog_poll();assert(!r2_diag_scratch.lora.terminal&&!reset_calls&&!journal_calls);
+ }
+ else if(mode==40){
+  init(true);step();struct r2_lora_watchdog_state *w=&r2_diag_scratch.lora;
+  w->serial=1;w->record[0]=R2_LORA_FAULT_MAGIC;w->record[1]=(uint32_t)-EINTR;
+  journal_rc=0;r2_lora_watchdog_poll();assert(journal_calls==1&&!journal_terminal&&!reset_calls);
+  journal_status=0;r2_lora_watchdog_poll();assert(w->saved==1&&!reset_calls&&!atomic_get(&faulted));
+  r2_lora_hw_watchdog_trip(-EIO);w->closure=31;r2_lora_watchdog_poll();assert(journal_calls==2&&journal_terminal&&w->submitted==2);
+  r2_lora_watchdog_poll();assert(w->saved==2&&reset_calls==1);
+ }
+ else if(mode==41){
+  init(false);step();struct r2_lora_watchdog_state *w=&r2_diag_scratch.lora;
+  w->beat=UINT32_MAX-15;now_us=((uint64_t)w->beat+R2_LORA_WORKER_MS-1)*1000;r2_lora_watchdog_check();assert(!w->terminal);
+  now_us+=1000;r2_lora_watchdog_check();assert(w->terminal);
+ }
+ else if(mode==42){
+  init(false);step();struct r2_lora_watchdog_state *w=&r2_diag_scratch.lora;
+  r2_lora_hw_watchdog_trip(-EIO);w->closure=22;journal_rc=0;now_us+=RC8_DRAIN_US;r2_lora_watchdog_poll();assert(journal_calls==1&&!reset_calls);
+  now_us=(uint64_t)(w->fault_at+2000)*1000;r2_lora_watchdog_poll();assert(reset_calls==1&&w->journal_result==-EINPROGRESS&&!w->saved);
+ }
  else assert(false);
  char json[3072];int n=r2_lora_json(json,sizeof json,0);assert(n>0&&n<(int)sizeof json);printf("PASS runtime mode%u role=%zu snapshot=%zu worker=%zu json=%d\nJSON %s\n",mode,sizeof role,sizeof published,sizeof worker_stack,n,json);
 }

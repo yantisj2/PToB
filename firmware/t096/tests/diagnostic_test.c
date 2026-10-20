@@ -59,6 +59,25 @@ int main(int argc,char **argv)
  assert(phase==5&&command_count==3&&!writes&&!r2_diag_busy());
  r2_diag_command(999,R2_NETWORK,0,now);assert(command_count==3);
  now=20000;s.at=now*1000;r2_diag_sample(&s,&c);
+ if(mode>=21&&mode<=24){
+  uint32_t record[16];for(unsigned i=0;i<16;i++)record[i]=0x100u+i;
+  record[0]=0x4c525731;record[1]=(uint32_t)-ETIMEDOUT;
+  uint64_t token=0;automatic_count=8;next_event=now+10000;
+  assert(r2_diag_lora(record,false,&token)==-EAGAIN&&!token);
+  assert(!r2_diag_lora(record,true,&token)&&token==1&&r2_diag_record_result(token)==-EINPROGRESS);
+  assert(package[44]==0x400&&!memcmp(&package[80],record,64)&&package[64+13]==123);
+  if(mode==22)mode=3;
+  if(mode==23)fail_write=writes+2;
+  now+=100;r2_diag_poll();assert(!memcmp(&package[80],record,64)&&package[96+13]==123);
+  store_once();
+  if(mode==3||mode==23){assert(r2_diag_record_result(token)==-EIO&&!r2_diag_saved());assert(r2_diag_lora(record,true,&token)==-ESHUTDOWN);return 0;}
+  assert(!r2_diag_record_result(token)&&valid5((uint32_t*)storage,0)&&!memcmp(storage+80*4,record,64));
+  for(unsigned i=8192;i<sizeof(storage);i++)assert(storage[i]==0x53);
+  if(mode==24){next_event=0;assert(!r2_diag_mark());assert(generation==2&&!r2_diag_record_result(token));finish_write();assert(!r2_diag_record_result(token));}
+  unsigned old_erases=erases;uint64_t committed=generation;reboot(&id);
+  assert(generation==committed&&erases==old_erases&&latest_slot==committed-1);
+  puts("PASS LoRa fault payload CRC/commit/reboot/bank bounds/rate admission/receipt provenance");return 0;
+ }
  if(mode==20){
   s.precision.map_valid=true;s.relay.selected=s.relay.active=s.relay.map_valid=s.relay.phase_admitted=true;
   s.relay.role=1;s.relay.parent_identity=111;s.direct_path[0]=1;

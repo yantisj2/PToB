@@ -2,7 +2,7 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
-T0960.15.126 uses80-byte timing packets and128-byte descriptive companion
+T0960.15.127 uses80-byte timing packets and128-byte descriptive companion
 packets. Both are one-way group-authenticated broadcasts. There is no ACK,
 authentication handshake, listener transmission or ranging exchange. Wire3 is
 incompatible with [historical wire2](wire2-historical.md); its original
@@ -207,6 +207,27 @@ path. A generic ETIMEDOUT is never enough for recovery. Other opcodes/phases,
 SPI/callback faults, DMA nonretirement and phase3 timeouts retain their fault
 semantics. A competing cutoff/cancellation cannot count the same attempt twice.
 
+Version127 adds a durable fault observer below the existing radio policy. A
+first-fault snapshot is captured before inhibition. Real transport faults and
+unretired DMA are never cleared by a local restart; the existing30s hardware
+watchdog resets the MCU after a journal attempt completes or its2s observer
+bound expires. The priority4 observer also detects30s without LoRa worker
+progress; absent source or RF packets alone never triggers it. The observer
+uses the diagnostic scanner's512B scratch only after startup scan completion,
+with no added static RAM or reserve reduction.
+
+Main alone submits the fault to existing journal bank0, with reason0x400 in
+schema5. Words80..95 replace the event snapshot with the fault record; the BLE
+pre/post snapshots, source/silicon/boot binding, CRC/commit,2s deadline and all
+other storage/maintenance guards remain. Recoverable launches share the8/hour,
+10s event budget; a first terminal fault has one immediate admission opportunity.
+A busy/unavailable/failed journal is reported as such. The existing watchdog
+capsule reason6 retains error, stage/op, closure, generation and journal result
+in words8,9,10,11,32. Retained RAM survival is conditional; committed flash records
+survive same-image resets, subject to existing journal rotation. A newer image
+retains the existing startup cleanup rule. No fault record proves RF or UTC
+accuracy, and faults remain counted in their original boot populations.
+
 Page7 RX link RMS is the population residual RMS of an affine fit to original
 physical RxDone ticks paired with exact corrected TxDone ns. It uses bounded
 nonoverlapping blocks of4..16 accepted pairs,100us X units, and nominal-rate-
@@ -234,6 +255,25 @@ Version126 appends `busy_aborts` at `hw[13]` and `last_busy_op` at `hw[14]`.
 The BUSY counter saturates at65535; opcode is the last BUSY-high deadline's
 command, not proof of whether RF began. Both fields use existing structure
 padding: the hardware diagnostic remains52 bytes.
+Version127 adds `watchdog=[schema,serial,coalesced,terminal,saved_serial,journal_result,reset_requested]`
+and `owner=[stage_opcode,stage_at_ms,worker_beat_ms,monitored,closure]`. Closure bits
+are DMA retired0, radio reset1, FEM off2, capture released3 and hardware fault4.
+`fault_record` has16 uint32 words: magic0x4c525731; signed errno; fault uptime ms;
+stage<<8|opcode; original stage uptime ms; original phase/ownership flags;
+generation; low capture epoch; physical tick low/high; IRQ/GPIO flags; stop serial;
+SPI success/error counts; cutoff count; launch/busy abort counts (low/high16).
+Ownership word5 contains phase bits0..7, running8, DMA-inflight9, latched10..11,
+capture-owned12, RX13, launch-abort14..15 and cutoff16. Its journal copy adds
+closure bits20..24 as actually observed after closure or the original200ms drain
+bound. Word10 contains chip IRQ bits0..15, BUSY-high16, DIO-high17 and GPIO-read
+errors18/19. Launch count in the compact record saturates at65535; full counters
+remain in `hw`. Stage values0..7 are idle/start/BUSY-before/DMA/BUSY-after/take/
+rearm/stop; stage time is diagnostic observation, never a timing sample. A terminal
+fault superseding an uncommitted recoverable record increments coalesced; the
+first terminal cause stays frozen. Saved serial advances only after confirmed
+journal completion. Records with a failed optional spare preparation remain
+conservatively failed even if their earlier commit may be readable.
+
 Companion preparation age uses a fresh monotonic snapshot under the owner lock;
 polling cannot make the actual parent-advertisement age younger. Page7 omits
 parent class/accuracy once preparation plus receive age reaches10s.

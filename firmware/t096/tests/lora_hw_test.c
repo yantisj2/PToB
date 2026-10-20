@@ -2,6 +2,8 @@
  * Full production owner body, fake peripheral boundary. Physical RF/timing
  * and the pinned driver itself remain separate native/hardware checks. */
 #include "lora_hw.h"
+#include "lora_watchdog.h"
+union r2_diag_scratch r2_diag_scratch;
 #include <assert.h>
 #include <errno.h>
 #include <stdio.h>
@@ -68,6 +70,7 @@ static void atomic_inc(atomic_t *a){++*a;}
 static bool atomic_cas(atomic_t *a,int old,int n){if(*a!=old)return false;*a=n;return true;}
 static unsigned irq_lock(void){if(!irq_depth)preempt_before_lock();unsigned prior=irq_depth++;return prior;}static void irq_unlock(unsigned k){irq_depth=k;if(!irq_depth)preempt_cutoff();}
 static int64_t k_uptime_get(void){return (int64_t)(mock_us/1000);}
+static uint32_t k_uptime_get_32(void){return (uint32_t)(mock_us/1000);}
 static int64_t k_uptime_ticks(void){return (int64_t)mock_us;}
 static uint64_t k_ticks_to_us_floor64(int64_t ticks){return (uint64_t)ticks;}
 static void k_sleep(int ms){mock_us+=(uint64_t)ms*1000;}
@@ -132,7 +135,7 @@ static void preempt_before_lock(void){
   if(error_at_busy_deadline){error_at_busy_deadline=false;busy_high=-EIO;}
   if(cutoff_at_busy_deadline){cutoff_at_busy_deadline=false;mock_us+=last_budget;pins[12]=0;cutoff_irq(NRF_TIMER_EVENT_COMPARE0,NULL);}
  }
- if(abort_at_commit&&atomic_get(&phase)==4&&pins[12]){
+ if(abort_at_commit&&atomic_get(&phase)==4&&pins[12]&&set_tx_commands&&((wd.stage>>8)==R2_LORA_STAGE_BUSY_AFTER)){
   abort_at_commit=false;mock_us+=last_budget+1;pins[12]=0;cutoff_irq(NRF_TIMER_EVENT_COMPARE0,NULL);
  }
 }
@@ -265,6 +268,29 @@ int main(int argc,char **argv){
   assert(set_tx_commands==1&&!counters.busy_aborts&&!counters.launch_aborts&&counters.spi_error==1&&atomic_get(&fault)==-ETIMEDOUT);closed();return 0;}
  if(mode==40){busy_at_fem=error_at_busy_deadline=true;assert(r2_lora_hw_tx(payload,80,5)==-EIO);
   assert(!set_tx_commands&&!counters.busy_aborts&&!counters.launch_aborts&&!counters.last_busy_op&&atomic_get(&fault)==-EIO);closed();return 0;}
+ if(mode==41){
+  suppress_dma=1;assert(r2_lora_hw_tx(payload,80,5)==-ETIMEDOUT);
+  assert(wd.terminal&&wd.serial==1&&wd.record[0]==R2_LORA_FAULT_MAGIC);
+  assert((int32_t)wd.record[1]==-ETIMEDOUT&&(wd.record[3]>>8)==R2_LORA_STAGE_DMA&&(wd.record[3]&255)==0x80);
+  assert(wd.record[5]&(1u<<9));uint32_t original[16];memcpy(original,wd.record,64);
+  struct r2_lora_hw_ack ack;r2_lora_hw_stop_poll(&ack);assert(wd.closure==22&&!ack.dma_retired&&!ack.capture_released);
+  r2_lora_hw_watchdog_trip(-EIO);assert(!memcmp(original,wd.record,64)&&wd.coalesced);
+  spi_done(&device,0,NULL);closed();assert(wd.closure==31&&!memcmp(original,wd.record,64));return 0;
+ }
+ if(mode==42){
+  assert(!r2_lora_hw_tx(payload,80,5));unsigned before=submissions;
+  r2_lora_hw_watchdog_trip(-ETIMEDOUT);
+  assert(wd.terminal&&submissions==before&&wd.record[6]==5&&(wd.record[5]&255)==3);
+  assert((wd.record[5]&(1u<<12))&&!atomic_get(&running)&&!pins[12]&&!pins[16]);closed();assert(wd.closure==31);
+  assert(r2_lora_hw_start(6,false)==-ETIMEDOUT);return 0;
+ }
+ if(mode==43){
+  busy_on_settx=true;assert(r2_lora_hw_tx(payload,80,5)==-EINTR);
+  assert(!wd.terminal&&wd.serial==1&&(wd.record[3]&255)==0x83&&(wd.record[10]&(1u<<16)));
+  uint32_t original[16];memcpy(original,wd.record,64);closed();busy_high=0;assert(!r2_lora_hw_start(6,false));
+  busy_at_fem=true;assert(r2_lora_hw_tx(payload,80,7)==-EINTR);assert(wd.serial==1&&wd.coalesced&&!memcmp(original,wd.record,64));closed();
+  r2_lora_hw_watchdog_trip(-EIO);assert(wd.serial==2&&wd.terminal&&(int32_t)wd.record[1]==-EIO);return 0;
+ }
  if(mode==13){r2_lora_hw_stop_begin(mock_us+200000);closed();pins[21]=1;stuck_dio=true;assert(r2_lora_hw_start(6,true)==-EIO);assert(!pins[12]&&!pins[30]&&!pins[16]);closed();return 0;}
  if(mode==12){r2_lora_hw_stop_begin(mock_us+200000);closed();assert(!r2_lora_hw_start(6,true));assert(attach_count==2&&detach_count==1);r2_lora_hw_stop_begin(mock_us+200000);closed();return 0;}
  assert(!"unknown mode");
