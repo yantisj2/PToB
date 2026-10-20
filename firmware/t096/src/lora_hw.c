@@ -43,11 +43,15 @@ static const struct gpio_dt_spec busy =
     GPIO_DT_SPEC_GET(DT_NODELABEL(lora_busy), gpios);
 static const struct gpio_dt_spec dio =
     GPIO_DT_SPEC_GET(DT_NODELABEL(lora_dio1), gpios);
+static const struct gpio_dt_spec chip_select =
+    GPIO_DT_SPEC_GET(DT_NODELABEL(lora_cs), gpios);
 static const struct spi_config spi_config = {
     .frequency = 8000000,
     .operation = SPI_WORD_SET(8) | SPI_TRANSFER_MSB,
-    .slave = 0,
-    .cs = {.gpio = GPIO_DT_SPEC_GET(DT_NODELABEL(lora_cs), gpios), .delay = 0}};
+    .slave = 0};
+/* SPI1 has exactly this peripheral. NSS is explicitly GPIO-owned: the pinned
+ * async SPI backend calls completion BEFORE its own GPIO-CS finalization.
+ * With no SPI-context CS, callback retirement cannot race a later CS change. */
 static K_SEM_DEFINE(completed, 0, 1);
 static uint8_t dma_tx[SPI_BYTES], dma_rx[SPI_BYTES];
 static struct spi_buf tx_buffer = {.buf = dma_tx}, rx_buffer = {.buf = dma_rx};
@@ -67,6 +71,8 @@ static atomic_t running, dma_inflight, result, fault, latched, phase,
     cutoff_expired, stop_serial, launch_aborted;
 static struct r2_lora_hw_diag counters;
 #define wd r2_diag_scratch.lora
+static int enable_fem(bool transmit, uint32_t budget, uint64_t latest_finish,
+                      bool *deferred);
 /* phase:0 inhibited/reset,1 idle,2 single RX,3 retired TX command,
  * 4 software TX launch not yet retired. No SPI or waiting from IRQ. */
 static uint64_t now_us(void) { return k_ticks_to_us_floor64(k_uptime_ticks()); }
@@ -97,9 +103,11 @@ static void note_fault(int rc,bool terminal) {
     ((uint32_t)capture_owned<<12)|((uint32_t)receive_mode<<13)|
     ((uint32_t)atomic_get(&launch_aborted)<<14)|((uint32_t)!!atomic_get(&cutoff_expired)<<16);
   p[6]=generation;p[7]=(uint32_t)edge.epoch;p[8]=(uint32_t)edge.tick;p[9]=(uint32_t)(edge.tick>>32);
-  int busy_value=gpio_pin_get_dt(&busy),dio_value=gpio_pin_get_dt(&dio);
+  int busy_value=gpio_pin_get_dt(&busy),dio_value=gpio_pin_get_dt(&dio),
+      cs_value=gpio_pin_get_dt(&chip_select);
   p[10]=wd.irq_status|((uint32_t)(busy_value>0)<<16)|((uint32_t)(dio_value>0)<<17)|
-    ((uint32_t)(busy_value<0)<<18)|((uint32_t)(dio_value<0)<<19);
+    ((uint32_t)(busy_value<0)<<18)|((uint32_t)(dio_value<0)<<19)|
+    ((uint32_t)(cs_value>0)<<20)|((uint32_t)(cs_value<0)<<21);
   p[11]=(uint32_t)atomic_get(&stop_serial);
   p[12]=counters.spi_ok;p[13]=counters.spi_error;p[14]=counters.cutoffs;
   p[15]=(counters.launch_aborts>65535?65535:counters.launch_aborts)|((uint32_t)counters.busy_aborts<<16);
@@ -154,7 +162,7 @@ static void cutoff_irq(nrf_timer_event_t event, void *unused) {
       return;
     }
     /* The hardware compare -> CSD CLR route already inhibited the FEM. */
-    if (atomic_get(&phase) == 4) {
+    if (atomic_get(&phase) == 4 && !wd.command_committed) {
       /* BLE can preempt this low-priority worker before/during SetTx. The
        * original hardware window still ends now: reset aborts any partial
        * RF and cancels further commands. No completed-launch claim exists.
@@ -191,6 +199,49 @@ static void dio_irq(const struct device *dev, struct gpio_callback *cb,
   latch_edge(1);
 }
 static void spi_done(const struct device *dev, int rc, void *unused) {
+  bool callback_ok = !rc;
+  bool set_tx = dma_tx[0] == 0x83 && atomic_get(&phase) == 4;
+  if (!rc && set_tx) {
+    bool deferred = false;
+    rc = enable_fem(true, wd.launch_budget, wd.launch_finish, &deferred);
+    if (deferred) {
+      /* Bytes arrived, but NSS is still LOW: reset BEFORE releasing it.
+       * No new RF window/source permission is created after this deadline.
+       * Conservatively consume this identity and require complete closure. */
+      atomic_set(&launch_aborted, 3);
+      count(&counters.launch_aborts);
+      wd.stage=(R2_LORA_STAGE_PRECOMMIT<<8)|0x83u;
+      wd.stage_at=wd.precommit_ms;
+      note_fault(-EINTR, false);
+      inhibit();
+      rc = -ECANCELED;
+    }
+  }
+  if (rc && (!callback_ok || rc != -ECANCELED) && !atomic_get(&fault)) {
+    /* A failed transfer may contain a partial command. Assert reset BEFORE
+     * raising NSS; it must not accidentally commit that command as success. */
+    note_fault(rc, true);
+    atomic_cas(&fault, 0, rc);
+    inhibit();
+  }
+  /* Successful SetTx releases NSS in the same bounded FEM fence below.
+   * Other completions/errors/cancellations release only this GPIO. No SPI,
+   * wait, buffer mutation or resource reuse occurs in this callback. */
+  if (!set_tx || rc) {
+    int cs = gpio_pin_set_dt(&chip_select, 0);
+    if (cs && (!rc || (callback_ok && rc == -ECANCELED)))
+      rc = cs;
+  }
+  /* A completed DMA canceled by our stop/reset fence is not a peripheral
+   * callback error. Preserve genuine callback errno verbatim. The worker's
+   * existing running/abort/fault checks classify this internal cancellation. */
+  if (callback_ok && rc == -ECANCELED && !atomic_get(&running))
+    rc = 0;
+  if (rc && !atomic_get(&fault)) {
+    note_fault(rc, true);
+    atomic_cas(&fault, 0, rc);
+    inhibit();
+  }
   atomic_set(&result, rc);
   atomic_clear(&dma_inflight);
   k_sem_give(&completed);
@@ -253,6 +304,9 @@ static int transfer(size_t n) {
     return rc;
   tx_buffer.len = rx_buffer.len = n;
   k_sem_reset(&completed);
+  rc = gpio_pin_set_dt(&chip_select, 1);
+  if (rc)
+    return fail(rc);
   atomic_set(&dma_inflight, 1);
   stage(R2_LORA_STAGE_DMA);
   rc = spi_transceive_cb(spi, &spi_config, &tx_buffers, &rx_buffers, spi_done,
@@ -260,7 +314,9 @@ static int transfer(size_t n) {
   if (rc) {
     atomic_clear(&dma_inflight);
     count(&counters.spi_error);
-    return fail(rc);
+    int failed = fail(rc); /* Reset before a rejected/partial command's NSS. */
+    (void)gpio_pin_set_dt(&chip_select, 0);
+    return failed;
   }
   if (k_sem_take(&completed, K_MSEC(DMA_MS))) {
     /* Driver/DMA still owns both buffers AND descriptors. Permanent fault:
@@ -342,6 +398,13 @@ static int enable_fem(bool transmit, uint32_t budget, uint64_t latest_finish,
       irq_unlock(key);
       return -EAGAIN;
     }
+    if (transmit &&
+        (uint32_t)((uint32_t)now - wd.precommit_us) > budget) {
+      if (deferred)
+        *deferred = true;
+      irq_unlock(key);
+      return -EAGAIN;
+    }
     /* Official Heltec bypass RX: CSD=1,CTX=1,DIO2(CPS)=0. In TX DIO2=1.
      * Initial canary chip drive is0dBm; antenna power is not measured. */
     rc = gpio_pin_set_dt(&ctx, 1);
@@ -357,6 +420,17 @@ static int enable_fem(bool transmit, uint32_t budget, uint64_t latest_finish,
     }
     if (!rc)
       nrfx_gpiote_set_task_trigger(&gpiote, CSD_PIN);
+    if (!rc && transmit) {
+      /* All command bytes have retired from DMA. Start the ORIGINAL FEM
+       * window immediately before the real NSS command-commit edge. This
+       * short GPIO/timer fence contains no SPI or waits. BLE priorities stay
+       * unchanged; a delayed worker return cannot renew this window. */
+      rc = atomic_get(&running) ? gpio_pin_set_dt(&chip_select, 0) : -ECANCELED;
+      if (!rc) {
+        wd.command_commit_us = (uint32_t)now_us();
+        wd.command_committed = 1;
+      }
+    }
   }
   irq_unlock(key);
   return rc;
@@ -366,6 +440,8 @@ static int init_resources(void) {
     return 0;
   if (!device_is_ready(spi) || !nrfx_gpiote_init_check(&gpiote))
     return -ENODEV;
+  if (gpio_pin_configure_dt(&chip_select, GPIO_OUTPUT_INACTIVE))
+    return -EIO;
   if (gpio_pin_configure_dt(&busy, GPIO_INPUT) ||
       gpio_pin_configure_dt(&dio, GPIO_INPUT))
     return -EIO;
@@ -515,6 +591,8 @@ static int arm_edge(uint32_t gen, uint8_t new_phase) {
   else {
     generation = gen;
     atomic_clear(&latched);
+    if (new_phase == 4)
+      wd.command_committed = 0;
     atomic_set(&phase, new_phase);
   }
   irq_unlock(key);
@@ -576,14 +654,21 @@ int r2_lora_hw_tx_before(const uint8_t *bytes, size_t n, uint32_t gen,
   }
   if (!rc)
     rc = arm_edge(gen, 4);
-  bool deferred = false;
-  if (!rc)
-    rc = enable_fem(true, budget, latest_finish, &deferred);
-  if (deferred) {
-    /* Preparation armed a new capture generation, but never enabled RF.
-     * Retire that unsubmitted attempt without fault or deadline renewal. */
-    atomic_cas(&phase, 4, 1);
-    return rc;
+  if (!rc) {
+    /* Precommit has its own original finite bound, equal to the existing
+     * frame window. RF stays inhibited until completed SetTx bytes commit.
+     * BUSY30ms/DMA10ms/owner-stall guards remain independently unchanged. */
+    wd.launch_budget = budget;
+    wd.launch_finish = latest_finish;
+    wd.precommit_us = (uint32_t)now_us();
+    wd.precommit_ms = k_uptime_get_32();
+    wd.command_committed = 0;
+    uint64_t before = now_us();
+    if (latest_finish && (before >= latest_finish ||
+        (uint64_t)budget + R2_LORA_HW_LAUNCH_MARGIN_US > latest_finish - before)) {
+      atomic_cas(&phase, 4, 1);
+      return -EAGAIN;
+    }
   }
   /* SX1262 RTC ticks=15.625us. Timing340ms; diagnostics420ms, within
    * their independent360/450ms hardware FEM cutoffs respectively. */
@@ -594,21 +679,20 @@ int r2_lora_hw_tx_before(const uint8_t *bytes, size_t n, uint32_t gen,
    * peripheral calls inside this short fence. Before it, an aborted attempt
    * returns EINTR; after phase3 commits, a missing DONE is a real TX timeout. */
   unsigned key = irq_lock();
-  /* A preempted command may return with BUSY already low long after launch.
-   * Do not retire that ambiguous attempt as phase3 when its full chip timeout
-   * can no longer fit the ORIGINAL hardware FEM window. A previously latched
-   * DIO keeps its physical capture and is classified by take(), as before.
-   * These20/30ms margins do not extend either chip or FEM timeout. */
+  /* The command-commit upper bound comes from GPIO NSS release, not worker
+   * wakeup. A timely command remains timely after BLE preempts this thread.
+   * Missing/late commit evidence still aborts; no timer is rearmed here. */
   uint32_t launch_margin=budget-(n<=80?340000u:420000u);
   if(!rc&&!atomic_get(&fault)&&atomic_get(&running)&&
      atomic_get(&phase)==4&&!atomic_get(&latched)&&
-     (uint32_t)((uint32_t)now_us()-wd.launch_us)>launch_margin){
+     (!wd.command_committed ||
+      (uint32_t)(wd.command_commit_us-wd.launch_us)>launch_margin)){
     wd.stage=(R2_LORA_STAGE_LATE_LAUNCH<<8)|0x83u;
     wd.stage_at=wd.launch_ms;
     atomic_set(&launch_aborted,3);count(&counters.launch_aborts);
     note_fault(-EINTR,false);inhibit();
   }
-  if(!rc&&atomic_get(&fault))rc=atomic_get(&fault);
+  if((!rc||rc==-ECANCELED)&&atomic_get(&fault))rc=atomic_get(&fault);
   bool aborted = atomic_get(&launch_aborted) && !atomic_get(&fault) &&
                  (!rc || rc == -ECANCELED);
   if (!rc && !aborted)

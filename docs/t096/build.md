@@ -127,7 +127,7 @@ display, BLE/USB service and stack observations remain exact-device gates.
 
 ## Hardware update boundary
 
-Normal0.15.131 builds include the [RC8 wire3 integration](../../protocol/rc8/README.md).
+Normal0.15.132 builds include the [RC8 wire3 integration](../../protocol/rc8/README.md).
 The default transmitter factory is zero, so LoRa hardware does not start. An
 explicit normal-only `--lora-transmitter-factory` takes a16-digit exact factory
 identity verified against ignored T096 registry metadata. It is included in the
@@ -328,3 +328,24 @@ readmission. The existing source/HOT/management/output fences still apply.
 Relay identities, advertisements and expired scopes cannot grant eligibility.
 The original LoRa hold is never renewed by metadata/query time. This policy
 does not grant RC7 timing authority or prove exclusion across RF partitions.
+
+Version0.15.132 corrects an RF launch-availability regression: worker wakeup
+after a completed SetTx was incorrectly used as the command's commit time.
+The dedicated SPI1 owner now controls NSS through public GPIO, with no CS
+owned by the SPI context. Successful asynchronous byte completion enables the
+original360/450ms FEM cutoff and releases NSS in the same bounded GPIO/timer
+fence. The later worker uses that commit upper bound; it never renews the timer.
+No SPI transfer or wait runs in the completion callback. Precommit has a separate
+finite360/450ms bound, the original metadata finish deadline is checked at commit,
+and BUSY30ms/DMA10ms and unsafe-buffer retirement remain unchanged. Cancellation
+or a rejected/failed transfer asserts reset before NSS can commit a partial
+command. A known committed launch with no DONE at cutoff remains a terminal
+fault; pending physical DIO capture still wins over delayed software callbacks.
+
+The `launch` diagnostic contains `[budget_us,precommit_us32,FEM_start_us32,
+NSS_commit_upper_us32,committed]`, all in the same boot-local monotonic domain.
+Unsigned subtraction handles its32-bit wrap; these observations are not radio
+TX-start timestamps or output-accuracy measurements. Stage9 first-fault records
+identify precommit/deadline aborts. The existing512B journal scratch funds these
+fields without increasing static RAM or reducing any reserve. Native inspection,
+sanitizer/fake-boundary controls and actual TX progress remain separate gates.

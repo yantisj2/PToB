@@ -283,6 +283,22 @@ int main(int argc,char **argv){assert(argc==2);unsigned mode=(unsigned)atoi(argv
    r2_lora_coordination(&c);assert(!c.root&&role.rx.scope.root==2); /* old foreign replay cannot undo handover */
   }else assert(c.root==3&&c.until==13200000); /* cold/inactive/old boot/epoch/stream/emitter replay does not erase foreign lease */
  }
+ else if(mode==60){
+  /* Serialization upper-width stress only; not a valid RF scope/permission.
+   * Preserve valid bool objects while exercising maximal numeric widths. */
+  init(false);memset(&published,0xff,sizeof published);
+  published.time_valid=published.quality_known=false;
+  published.scope.kind=RC8_SELECTED_BLE;published.scope.scale=RC8_UTC;
+  published.event.kind=RC8_EVENT_RX_DONE;
+  physical_boot=stop_deadline=UINT64_MAX;
+  for(unsigned i=0;i<16;i++)r2_diag_scratch.lora.record[i]=UINT32_MAX;
+  r2_diag_scratch.lora.serial=r2_diag_scratch.lora.coalesced=r2_diag_scratch.lora.terminal=UINT32_MAX;
+  r2_diag_scratch.lora.saved=r2_diag_scratch.lora.reset_requested=UINT32_MAX;
+  r2_diag_scratch.lora.stage=r2_diag_scratch.lora.stage_at=r2_diag_scratch.lora.beat=r2_diag_scratch.lora.closure=UINT32_MAX;
+  r2_diag_scratch.lora.journal_result=INT32_MIN;
+  r2_diag_scratch.lora.launch_budget=r2_diag_scratch.lora.precommit_us=r2_diag_scratch.lora.launch_us=UINT32_MAX;
+  r2_diag_scratch.lora.command_commit_us=r2_diag_scratch.lora.command_committed=UINT32_MAX;
+ }
  else assert(false);
- char json[3072];int n=r2_lora_json(json,sizeof json,0);assert(n>0&&n<(int)sizeof json);printf("PASS runtime mode%u role=%zu snapshot=%zu worker=%zu json=%d\nJSON %s\n",mode,sizeof role,sizeof published,sizeof worker_stack,n,json);
+ char json[3072];int n=r2_lora_json(json,sizeof json-96,0);assert(n>0&&n<(int)sizeof json-96);printf("PASS runtime mode%u role=%zu snapshot=%zu worker=%zu json=%d\nJSON %s\n",mode,sizeof role,sizeof published,sizeof worker_stack,n,json);
 }

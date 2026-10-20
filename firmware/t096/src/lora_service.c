@@ -560,7 +560,7 @@ int r2_lora_json(char *out,size_t capacity,int result){
  "\"sequence\":%u,\"corrected_sequence\":%u,\"wire_corrected_sequence\":%u,\"event_tick\":%llu,\"capture_epoch\":%llu,\"event_mono_us\":%llu,\"event_ns\":%llu,\"created_ns\":%llu,\"expires_ns\":%llu,\"map_generation\":%u,\"map_age_us\":%u,\"upstream_bound_ns\":%u,"
  "\"accepted\":%u,\"rejected\":%u,\"replayed\":%u,\"unmatched\":%u,\"overflow\":%u,\"metadata\":%u,\"missing_map\":%u,\"hold_age_ms\":%u,\"state\":%u,\"assurance\":%u,\"source_authority\":%u,\"choice\":%u,\"output_bound_ns\":null,\"rc7_authority\":false,"
  "\"companion\":[%u,%u,%u,%u,%s,%s],\"parent\":[\"%016llx\",\"%016llx\"],\"quality\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%d,%u,%u,%u],\"link_fit\":[%u,%u],"
- "\"coordination\":[\"%016llx\",\"%016llx\",%u,%llu],\"watchdog\":[1,%u,%u,%u,%u,%d,%u],\"fault_record\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u],\"owner\":[%u,%u,%u,%u,%u],"
+ "\"coordination\":[\"%016llx\",\"%016llx\",%u,%llu],\"launch\":[%u,%u,%u,%u,%u],\"watchdog\":[1,%u,%u,%u,%u,%d,%u],\"fault_record\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u],\"owner\":[%u,%u,%u,%u,%u],"
  "\"hw\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%d,%u,%u,%u,%u,%u]}",
  result,(unsigned long long)physical_boot,(unsigned long long)s.scope.emitter_boot,(unsigned long long)binding.transmitter_factory,transmitter?"true":"false",s.view.requested?"true":"false",s.view.active?"true":"false",atomic_get(&faulted)?"true":"false",
  atomic_get(&closed)?"true":"false",(long)atomic_get(&faulted),(unsigned long long)deadline,stack_unused(),context,(unsigned long long)s.scope.emitter,(unsigned long long)s.scope.stream,(unsigned long long)s.scope.root,(unsigned long long)s.scope.root_boot,s.scope.source_epoch,s.scope.kind,s.scope.scale,
@@ -569,6 +569,7 @@ int r2_lora_json(char *out,size_t capacity,int result){
  s.diagnostic_sequence,s.snapshot_age_ms,s.diagnostic_events,age_ms(mono(),s.diagnostic_us),s.quality_known?"true":"false",s.time_valid?"true":"false",
  (unsigned long long)s.scope.parent,(unsigned long long)s.scope.parent_boot,s.quality.known,s.quality.values,s.quality.role,s.quality.hop,s.quality.parent_class,s.quality.parent_accuracy,s.quality.parent_bound_ns,s.quality.correction_age_ms,s.quality.map_life_ms,s.quality.rate_ppb,s.quality.residual_ns,s.quality.losses,s.quality.recoveries,s.view.link_samples,s.view.link_rms_ns,
  (unsigned long long)coord.root,(unsigned long long)coord.boot,coord.epoch,(unsigned long long)coord.until,
+ w.launch_budget,w.precommit_us,w.launch_us,w.command_commit_us,w.command_committed,
  w.serial,w.coalesced,w.terminal,w.saved,w.journal_result,w.reset_requested,
  w.record[0],w.record[1],w.record[2],w.record[3],w.record[4],w.record[5],w.record[6],w.record[7],w.record[8],w.record[9],w.record[10],w.record[11],w.record[12],w.record[13],w.record[14],w.record[15],
  w.stage,w.stage_at,w.beat,w.monitor,w.closure,

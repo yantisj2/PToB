@@ -318,6 +318,14 @@ remain in `hw`. Stage values0..7 are idle/start/BUSY-before/DMA/BUSY-after/take/
 rearm/stop; stage time is diagnostic observation, never a timing sample.
 Version129 stage8 identifies a late unretired launch and word4 then contains
 the original FEM-enable millisecond; launch-abort reason3 identifies this path.
+Version132 records GPIO-owned NSS active/read-error in word10 bits20/21;
+asserted reset/FEM-off closure does not claim a stuck NSS became inactive.
+Stage9 identifies a precommit/original-finish-deadline abort, with the original
+precommit millisecond in word4. Its `launch` array contains budget, precommit,
+FEM-start and NSS-commit-upper-bound microseconds32, then committed0/1. These
+boot-local observations are not RF timestamps. Successful command bytes start
+the unchanged FEM window and release NSS in one bounded GPIO/timer fence;
+worker wakeup never renews that window or substitutes for the command commit.
 A terminal fault superseding an uncommitted recoverable record increments coalesced; the
 first terminal cause stays frozen. Saved serial advances only after confirmed
 journal completion. Records with a failed optional spare preparation remain
