@@ -16,15 +16,15 @@ struct r2_shadow_session_view {
  uint64_t elapsed_ms;int64_t mean_tenth_ns;
  uint32_t session,samples,skipped,missing,p95_ns,p99_ns,max_ns,rms_ns;
  uint32_t warmup,warmup_skipped,warmup_missing,warmup_resets,settling_ms;
- unsigned state;bool active,valid,approximate;
+ uint8_t state;bool active,valid,approximate;
 };
 struct r2_shadow_session {
  /* Startup and measured histogram are disjoint phases. Reuse their storage
   * instead of taking another permanent allocation from the small RAM margin. */
- union {uint32_t histogram[R2_SHADOW_BINS];struct r2_shadow_settle startup;};int64_t sum;
+ union {uint32_t histogram[R2_SHADOW_BINS];struct r2_shadow_settle startup;};uint32_t squares_hi;int64_t sum;
  /* Exact 96-bit sum: UINT32_MAX samples at the accepted +/-500ms limit.
   * Three limbs avoid target-specific 128-bit arithmetic and lost tails. */
- uint64_t squares_lo;uint32_t squares_hi;
+ uint64_t squares_lo;
  uint64_t entered_ms,started_ms,elapsed_ms,start_tick,epoch;
  uint32_t session,samples,skipped,missing,max_ns,cursor;
  bool entered,active,settled;

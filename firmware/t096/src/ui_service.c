@@ -43,7 +43,7 @@ bool r2_ui_take_profile_toggle(void){return atomic_cas(&profile_toggle,1,0);}
 void r2_ui_profile_flash(bool rc){k_spinlock_key_t key=k_spin_lock(&lock);status.profile_target_rc=rc;status.profile_flash_until=k_uptime_get()+4000;k_spin_unlock(&lock,key);}
 static void shadow_tick(const struct r2_ui_model *m,const struct r2_ui_status *s,uint64_t now,bool display_ok){
  bool fresh=now>=m->sampled_ms&&now-m->sampled_ms<=2500;
- bool visible=r2_ui_witness_page(m,s->page)&&!s->help&&!s->screensaver&&s->ready&&s->drawn_page==s->page&&display_ok&&fresh&&!m->profile_switching;
+ bool visible=r2_ui_witness_page(m,s->page)&&!s->help&&!s->screensaver&&s->ready&&r2_ui_witness_page(m,s->drawn_page)&&display_ok&&fresh&&!m->profile_switching;
  bool gm=m->scope_active&&m->role==R2_UI_GM;
 #ifdef R2_DC_PROFILE
  gm=true; /* No mesh witness session, including while GNSS is unavailable. */
