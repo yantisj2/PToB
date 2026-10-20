@@ -21,7 +21,7 @@ struct k_thread {int unused;};
 static uint64_t fake_now;static int mode,priority,init_calls,frame_calls,off_calls;
 static void (*entry)(void*,void*,void*);
 static uint64_t starts[64];
-static uint8_t retained[R2_UI_BYTES];static const uint8_t *retained_fb;static bool buffer_changed;
+static uint8_t retained[R2_UI_FRAME_BYTES];static const uint8_t *retained_fb;static bool buffer_changed;
 static uint64_t first_saver;static unsigned saver_positions;static bool dim_seen,awake_after_dim;
 static unsigned random_calls;static uint64_t random_at[32];
 static unsigned sync_grace_frames;static bool sync_long_expired,sync_recovered;

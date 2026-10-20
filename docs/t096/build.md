@@ -87,6 +87,7 @@ artifacts/deps/venv/bin/python firmware/t096/tools/inspect_build.py artifacts/bu
 
 ```sh
 python3 -m unittest discover -s firmware/t096/provisioning -p 'test_*.py' -v
+CC=clang python3 firmware/t096/tools/framebuffer_tests.py --out artifacts/check-framebuffer
 CC=clang python3 firmware/t096/tools/dc_tests.py --out artifacts/check-dc
 CC=clang python3 firmware/t096/tools/dc_gnss_tests.py --out artifacts/check-dc-gnss
 CC=clang python3 firmware/t096/tools/usb_sof_tests.py --out artifacts/check-usb
@@ -110,6 +111,18 @@ Use a recent LLVM clang (the cutover checks use the installed Homebrew LLVM);
 Apple's system clang sanitizer runtime is not the validated runner. Keep each
 output directory fresh. Tests operate on production C bodies with fake hardware
 boundaries. They do not qualify physical timing or independent UTC accuracy.
+
+Version 0.15.122 replaces the 25,600-byte RGB565 framebuffer with 12,800 bytes
+of palette indices and one persistent 5,120-byte DMA buffer. The fixed palette
+preserves all 17 original RGB565 colors; there is no second full conversion
+frame. Five pixel submissions share the original 250 ms deadline and keep the
+public synchronous driver's completion/abort ownership. A failed batch ends
+the frame before another conversion or submission. The 4 Hz ordinary and 8 Hz
+RF-page cadence, UI stack and all memory/controller inspection gates remain.
+`framebuffer_tests.py` checks exact reconstructed pixels against the production
+drawings' direct RGB565 sink, bounded conversion and every command/payload
+failure boundary; it is also included in the full host runner. Matching physical
+display, BLE/USB service and stack observations remain exact-device gates.
 
 ## Hardware update boundary
 

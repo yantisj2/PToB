@@ -22,6 +22,9 @@ static const struct spi_config config={.frequency=8000000,.operation=SPI_OP_MODE
 static struct spi_buf tx;
 static struct spi_buf_set tx_set={.buffers=&tx,.count=1};
 static uint8_t command_bytes[16];
+/* Persistent EasyDMA storage: only this sleeping synchronous SPI owner writes
+ * it, and only after the prior public completion/abort has retired DMA. */
+_Alignas(4) static uint8_t frame_dma[R2_UI_DMA_BYTES];
 static int64_t transaction_deadline;
 static int transfer(const uint8_t *data,size_t size)
 {
@@ -106,9 +109,14 @@ int r2_display_frame(const uint8_t *fb)
  const uint8_t col[]={0,24,0,103},row[]={0,0,0,159};
  if(!command(0x2a,col,4)||!command(0x2b,row,4)||!command(0x2c,0,0))return -EIO;
  int rc=gpio_pin_set_dt(&cs,1);if(!rc)rc=gpio_pin_set_dt(&dc,1);
- /* nRF52840 SPIM0 has16-bit MAXCNT. One25.6ms EasyDMA frame reduces
-  *107 submissions/IRQs to one; BLE can preempt the sleeping priority12 owner. */
- if(!rc)rc=transfer(fb,R2_UI_BYTES);
+ /* Five32-row batches retain the exact RGB565 wire pixels without a second
+  * full frame. Keep CS asserted and RAMWR active throughout; BLE can preempt
+  * each sleeping public SPI call. All batches share the original250ms bound.
+  * On any error, stop before rewriting storage or submitting another batch. */
+ for(size_t first=0;!rc&&first<R2_UI_PIXELS;first+=R2_UI_DMA_PIXELS){
+  if(!r2_ui_expand_rgb565(frame_dma,sizeof frame_dma,fb+first,R2_UI_DMA_PIXELS))rc=-EINVAL;
+  else rc=transfer(frame_dma,sizeof frame_dma);
+ }
  {int done=gpio_pin_set_dt(&cs,0);if(!rc)rc=done;}
  return rc;
 }

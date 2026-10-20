@@ -1,12 +1,13 @@
 /* Actual renderer and serving-role gate; output is also the visual fixture. */
 #include "ui.h"
+#include "ui_rgb565_fixture.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
 #include <limits.h>
 static uint8_t framebuffer[R2_UI_BYTES];
 static void save(const char *dir,const char *name,struct r2_ui_model *m,struct r2_ui_status *s){
- r2_ui_render(framebuffer,m,s,1000);char path[512];snprintf(path,sizeof(path),"%s/%s.ppm",dir,name);
+ r2_test_render_rgb565(framebuffer,m,s,1000);char path[512];snprintf(path,sizeof(path),"%s/%s.ppm",dir,name);
  FILE *f=fopen(path,"wb");assert(f);fprintf(f,"P6\n80 160\n255\n");
  for(unsigned i=0;i<R2_UI_BYTES;i+=2){unsigned p=((unsigned)framebuffer[i]<<8)|framebuffer[i+1];fputc((p>>11)*255/31,f);fputc(((p>>5)&63)*255/63,f);fputc((p&31)*255/31,f);}fclose(f);
 }
@@ -47,7 +48,7 @@ int main(int argc,char **argv){
  uint8_t unknown_temperature[R2_UI_BYTES];memcpy(unknown_temperature,framebuffer,sizeof framebuffer);
  m.temperature_valid=true;m.temperature_qc=94;save(argv[1],"grandmaster-temperature",&m,&s);
  assert(memcmp(unknown_temperature,framebuffer,sizeof framebuffer)!=0);
- m.temperature_valid=false;r2_ui_render(framebuffer,&m,&s,1000);
+ m.temperature_valid=false;r2_test_render_rgb565(framebuffer,&m,&s,1000);
  assert(memcmp(unknown_temperature,framebuffer,sizeof framebuffer)==0);
  assert(!r2_ui_analog(&m,3501));assert(!r2_ui_analog(&m,999));
  m.role=R2_UI_FOLLOWER;assert(!r2_ui_analog(&m,1000));m.authenticated_gm=true;
@@ -69,9 +70,9 @@ int main(int argc,char **argv){
  joining.ble_active=true;joining.ble_time_selected=true;joining.ble_valid_until_us=1000000;
  joining.lamps[1]=1;joining.lamps[5]=2;
  struct r2_ui_status radio_page={.page=1};uint8_t live_lamps[R2_UI_BYTES],dark_lamps[R2_UI_BYTES];
- r2_ui_render(live_lamps,&joining,&radio_page,1000);
+ r2_test_render_rgb565(live_lamps,&joining,&radio_page,1000);
  struct r2_ui_model dark=joining;memset(dark.lamps,0,sizeof dark.lamps);
- r2_ui_render(dark_lamps,&dark,&radio_page,1000);
+ r2_test_render_rgb565(dark_lamps,&dark,&radio_page,1000);
  for(unsigned kind=0;kind<8;kind++){
   unsigned offset=2*(34*80+8+9*kind);
   assert((memcmp(live_lamps+offset,dark_lamps+offset,2)!=0)==(kind==1||kind==5));
@@ -88,11 +89,11 @@ int main(int argc,char **argv){
  }
  assert(on==4&&off==4);
  joining.sampled_ms=1000;
- r2_ui_render(live_lamps,&joining,&radio_page,1125);
+ r2_test_render_rgb565(live_lamps,&joining,&radio_page,1125);
  for(unsigned kind=0;kind<8;kind++)assert(!memcmp(live_lamps+2*(34*80+8+9*kind),dark_lamps+2*(34*80+8+9*kind),2));
- r2_ui_render(live_lamps,&joining,&radio_page,1250);
+ r2_test_render_rgb565(live_lamps,&joining,&radio_page,1250);
  for(unsigned kind=0;kind<8;kind++)assert(!memcmp(live_lamps+2*(34*80+8+9*kind),dark_lamps+2*(34*80+8+9*kind),2));
- joining.ble_active=false;r2_ui_render(live_lamps,&joining,&radio_page,1000);
+ joining.ble_active=false;r2_test_render_rgb565(live_lamps,&joining,&radio_page,1000);
  for(unsigned kind=0;kind<8;kind++)assert(!memcmp(live_lamps+2*(34*80+8+9*kind),dark_lamps+2*(34*80+8+9*kind),2));
  joining.ble_time_selected=false;memset(joining.lamps,0,sizeof joining.lamps);
  int64_t joining_utc;bool joining_coarse;
@@ -114,7 +115,7 @@ int main(int argc,char **argv){
  int64_t held_utc;bool held_coarse;assert(!r2_ui_display_time(&rc,1500,&held_utc,&held_coarse));
  rc.ble_valid_until_us=1000000;save(argv[1],"rc-hold-expired",&rc,&s);
  uint8_t expired_frame[R2_UI_BYTES];memcpy(expired_frame,framebuffer,sizeof framebuffer);
- rc.precision.rms_valid=false;rc.precision.locked=false;r2_ui_render(framebuffer,&rc,&s,1000);
+ rc.precision.rms_valid=false;rc.precision.locked=false;r2_test_render_rgb565(framebuffer,&rc,&s,1000);
  assert(!memcmp(expired_frame,framebuffer,sizeof framebuffer));
  rc.precision.rms_valid=true;rc.precision.locked=true;rc.ble_valid_until_us=UINT64_MAX;
  rc.rc_source_held=true;rc.rc_update_age_ms=20000;rc.rc_source_age_ms=21000;
@@ -131,15 +132,15 @@ int main(int argc,char **argv){
   if(x>=10&&x<22&&y>=147&&y<154&&framebuffer[at]==0x4f&&framebuffer[at+1]==0xea)++green;
  }
  assert(green&&green==changed);
- serving.profile_switching=true;r2_ui_render(framebuffer,&serving,&s,1000);assert(!memcmp(framebuffer,idle,sizeof idle));
+ serving.profile_switching=true;r2_test_render_rgb565(framebuffer,&serving,&s,1000);assert(!memcmp(framebuffer,idle,sizeof idle));
  serving.profile_switching=false;serving.ble_valid_until_us=1000000;
  save(argv[1],"rc-client-serving-expired",&serving,&s);
  for(unsigned y=147;y<154;y++)for(unsigned x=10;x<22;x++){
   unsigned at=2*(y*R2_UI_WIDTH+x);assert(!(framebuffer[at]==0x4f&&framebuffer[at+1]==0xea));
  }
  struct r2_ui_model gm_indicator=m;gm_indicator.profile_supported=true;gm_indicator.profile_rc=false;
- gm_indicator.rc_serving_clients=false;r2_ui_render(idle,&gm_indicator,&s,1000);
- gm_indicator.rc_serving_clients=true;r2_ui_render(framebuffer,&gm_indicator,&s,1000);assert(!memcmp(idle,framebuffer,sizeof idle));
+ gm_indicator.rc_serving_clients=false;r2_test_render_rgb565(idle,&gm_indicator,&s,1000);
+ gm_indicator.rc_serving_clients=true;r2_test_render_rgb565(framebuffer,&gm_indicator,&s,1000);assert(!memcmp(idle,framebuffer,sizeof idle));
  s.page=2;save(argv[1],"rc-relative-fit",&rc,&s);s.page=0;
  strcpy(rc.unit,"TC-02");strcpy(rc.upstream_name,"TC-03");rc.rc_update_age_ms=50;save(argv[1],"relay-client-held-source",&rc,&s);
  rc.precision.map_valid=false;assert(!r2_ui_analog(&rc,1000)&&!r2_ui_face_locked(&rc,1000));
@@ -220,6 +221,6 @@ int main(int argc,char **argv){
  m.gm_capable=m.source_eligible=m.hot_ready=true;m.coordinator=m.standby=1;m.quality.clock_class=248;m.quality.accuracy=254;
  m.clock.gga_count=m.clock.faults=m.clock.pairs=m.queue_drops=UINT_MAX;s.frames=s.max_frame_ms=s.missed=UINT_MAX;
  for(unsigned page=1;page<R2_UI_PAGES;page++){s.page=page;save(argv[1],page==1?"statistics":page==2?"precision":page==3?"quality":page==4?"system":"help",&m,&s);}
- s.page=UINT8_MAX;r2_ui_render(framebuffer,&m,&s,UINT64_MAX);
+ s.page=UINT8_MAX;r2_test_render_rgb565(framebuffer,&m,&s,UINT64_MAX);
  puts("UI: serving authority, BLE source priority without GPS, stale/withdrawn scopes and all pages at maximum counters PASS");
 }

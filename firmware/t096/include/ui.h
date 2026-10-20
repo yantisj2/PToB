@@ -7,9 +7,7 @@
 #include "link_quality.h"
 #include <stdint.h>
 #include <stdbool.h>
-#define R2_UI_WIDTH 80
-#define R2_UI_HEIGHT 160
-#define R2_UI_BYTES (R2_UI_WIDTH*R2_UI_HEIGHT*2)
+#include "ui_framebuffer.h"
 #define R2_UI_IDLE_MS UINT64_C(300000)
 #define R2_UI_SAVER_MOVE_MS UINT64_C(30000)
 /* Whole 92px watch assembly moves within equal4px top/bottom margins. */
@@ -80,6 +78,7 @@ bool r2_ui_sync_display_time(const struct r2_ui_sync_display *,const struct r2_u
 void r2_ui_reception(struct r2_ui_model *,const struct r2_link_quality_view *,uint64_t now_us);
 /* Recent actual activity blinks4Hz on the8Hz RF page; no RF-rate claim. */
 void r2_ui_rf_lamps(uint8_t out[8],const struct r2_ui_model *,uint64_t now_ms);
+/* Both renderer and display consume R2_UI_FRAME_BYTES palette indices. */
 void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_status *s,uint64_t now);
 void r2_ui_publish(const struct r2_ui_model *m);
 void r2_ui_start(void);

@@ -1,5 +1,6 @@
 /* Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT */
 #include "ui.h"
+#include "ui_rgb565_fixture.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
@@ -22,7 +23,7 @@ int main(int argc,char **argv){
  struct r2_ui_status s={0};
  assert(!m.profile_supported&&!m.ble_active&&r2_ui_face_locked(&m,1000));
  assert(r2_ui_saver_allowed(&m,1000));
- r2_ui_render(frame,&m,&s,1000);save(argv[1],"dc-active");memcpy(active,frame,sizeof frame);
+ r2_test_render_rgb565(frame,&m,&s,1000);save(argv[1],"dc-active");memcpy(active,frame,sizeof frame);
  /* Every nonspace header cell must contain ink; unsupported lowercase i/c
   * previously became blank glyphs in the fixed display font. */
  for(unsigned cell=0;cell<10;cell++)if(cell!=6){
@@ -32,14 +33,14 @@ int main(int argc,char **argv){
   }
   assert(ink);
  }
- m.precision.rms_valid=false;r2_ui_render(frame,&m,&s,1000);save(argv[1],"dc-usb-wait");
+ m.precision.rms_valid=false;r2_test_render_rgb565(frame,&m,&s,1000);save(argv[1],"dc-usb-wait");
  assert(memcmp(frame,active,sizeof frame));m.precision.rms_valid=true;
- for(unsigned page=1;page<4;page++){s.page=page;r2_ui_render(frame,&m,&s,1000);
+ for(unsigned page=1;page<4;page++){s.page=page;r2_test_render_rgb565(frame,&m,&s,1000);
   save(argv[1],page==1?"dc-usb":page==2?"dc-gnss":"dc-system");}
- s.page=0;s.screensaver=true;r2_ui_render(frame,&m,&s,1000);save(argv[1],"dc-saver");
+ s.page=0;s.screensaver=true;r2_test_render_rgb565(frame,&m,&s,1000);save(argv[1],"dc-saver");
  m.scope_active=m.gm_source_fresh=m.clock.valid=m.clock.source_available=false;
  assert(!r2_ui_face_locked(&m,1000)&&!r2_ui_saver_allowed(&m,1000));
- s.screensaver=false;r2_ui_render(frame,&m,&s,1000);save(argv[1],"dc-source-loss");
- s.help=true;r2_ui_render(frame,&m,&s,1000);save(argv[1],"dc-help");
+ s.screensaver=false;r2_test_render_rgb565(frame,&m,&s,1000);save(argv[1],"dc-source-loss");
+ s.help=true;r2_test_render_rgb565(frame,&m,&s,1000);save(argv[1],"dc-help");
  puts("PASS DC renderer: fixed role, analog/saver gates, RMS unavailable, GNSS/USB/system/help pages");
 }

@@ -2,6 +2,8 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <assert.h>
+#include <string.h>
+#include "ui_framebuffer.h"
 struct device {int unused;};static struct device fake_spi;
 enum {spi0,tft_cs,tft_dc,tft_reset,tft_backlight,tft_button,temp,clock};
 #define DT_NODELABEL(n) n
@@ -26,20 +28,37 @@ struct spi_buf {void *buf;size_t len;};
 struct spi_buf_set {struct spi_buf *buffers;size_t count;};
 static unsigned delayed_completion;
 static int64_t fake_now;static bool timeout;static unsigned transfers,largest;static int lights;static const void *pending_dma;
+static unsigned fail_transfer,delay_transfer,transfer_delay;
+static unsigned payload_transfers,payload_bytes;
+static uint8_t wire[R2_UI_BYTES],dma_snapshot[R2_UI_DMA_BYTES];
+static const uint8_t *payload_buffer;
+static bool cs_active,dc_data;
+static void (*spi_wait_hook)(const uint8_t *,size_t);
 static bool device_is_ready(const struct device *d){return true;}
 static bool gpio_is_ready_dt(const struct gpio_dt_spec *p){return true;}
 static int gpio_pin_configure_dt(const struct gpio_dt_spec *p,unsigned flags){return 0;}
-static int gpio_pin_set_dt(const struct gpio_dt_spec *p,int v){if(p->pin==tft_backlight)lights=v;return 0;}
+static int gpio_pin_set_dt(const struct gpio_dt_spec *p,int v){if(p->pin==tft_backlight)lights=v;if(p->pin==tft_cs)cs_active=v;if(p->pin==tft_dc)dc_data=v;return 0;}
 static int gpio_pin_get_dt(const struct gpio_dt_spec *p){return 0;}
 static int64_t k_uptime_get(void){return fake_now;}
 static void k_msleep(int ms){fake_now+=ms;}
 static int spi_write(const struct device *d,const struct spi_config *c,const struct spi_buf_set *b){
+ assert(!pending_dma&&cs_active&&b->count==1);
  ++transfers;if(b->buffers[0].len>largest)largest=b->buffers[0].len;
+ size_t size=b->buffers[0].len;assert(size<=sizeof dma_snapshot);
  pending_dma=b->buffers[0].buf;
+ memcpy(dma_snapshot,pending_dma,size);
+ if(size>16){
+  assert(dc_data&&size==R2_UI_DMA_BYTES&&payload_bytes+size<=sizeof wire);
+  if(!payload_buffer)payload_buffer=pending_dma;else assert(payload_buffer==pending_dma);
+  memcpy(wire+payload_bytes,pending_dma,size);payload_bytes+=(unsigned)size;++payload_transfers;
+ }
+ if(spi_wait_hook)spi_wait_hook(pending_dma,size);
+ assert(!memcmp(dma_snapshot,pending_dma,size));
  fake_now+=(b->buffers[0].len*8*1000+c->frequency-1)/c->frequency;
  fake_now+=timeout?10:delayed_completion;delayed_completion=0;
+ if(transfers==delay_transfer)fake_now+=transfer_delay;
  pending_dma=NULL; /* public synchronous completion or bounded driver abort */
- return timeout?-116:0;
+ return timeout||transfers==fail_transfer?-116:0;
 }
 
 #define SENSOR_CHAN_DIE_TEMP 1

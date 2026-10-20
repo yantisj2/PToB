@@ -1,5 +1,6 @@
 /* Copyright (c) 2026 Jonathan Yantis. MIT. Offline production UI checks. */
 #include "../src/ui_render.c"
+#include "ui_rgb565_fixture.h"
 #include <assert.h>
 static uint8_t fb[R2_UI_BYTES],locked_fb[R2_UI_BYTES];
 static unsigned color_count(int y,int height,uint16_t color){
@@ -10,7 +11,7 @@ static unsigned color_count(int y,int height,uint16_t color){
  return count;
 }
 static void fixture(const char *dir,const char *name,const struct r2_ui_model *m,const struct r2_ui_status *s,uint64_t now){
- r2_ui_render(fb,m,s,now);char path[512];snprintf(path,sizeof path,"%s/%s.ppm",dir,name);
+ r2_test_render_rgb565(fb,m,s,now);char path[512];snprintf(path,sizeof path,"%s/%s.ppm",dir,name);
  FILE *f=fopen(path,"wb");assert(f);fprintf(f,"P6\n80 160\n255\n");
  for(unsigned i=0;i<sizeof fb;i+=2){unsigned p=((unsigned)fb[i]<<8)|fb[i+1];fputc((p>>11)*255/31,f);fputc(((p>>5)&63)*255/63,f);fputc((p&31)*255/31,f);}fclose(f);
 }
@@ -48,64 +49,64 @@ int main(int argc,char **argv){
  struct r2_ui_status s={.page=2,.holds={.pps_since=2,.hot_since=32,.active_since=2},
   .shadow={.state=R2_SHADOW_RUNNING,.active=true,.valid=true,.mean_tenth_ns=-184,.rms_ns=63,.samples=436}};
  fixture(argv[1],"precision-hot",&m,&s,62000);
- assert(color_count(20,7,C_GREEN)&&!color_count(20,7,C_AMBER));
- assert(color_count(32,10,C_GREEN)&&!color_count(32,10,C_AMBER));
- assert(color_count(64,7,C_CYAN)&&color_count(92,7,C_CYAN));
+ assert(color_count(20,7,R2_UI_RGB565_GREEN)&&!color_count(20,7,R2_UI_RGB565_AMBER));
+ assert(color_count(32,10,R2_UI_RGB565_GREEN)&&!color_count(32,10,R2_UI_RGB565_AMBER));
+ assert(color_count(64,7,R2_UI_RGB565_CYAN)&&color_count(92,7,R2_UI_RGB565_CYAN));
  memcpy(locked_fb,fb,sizeof fb);
  m.precision.locked=false; /* HOT remains eligible across short fit-lock changes. */
  fixture(argv[1],"precision-hot-fit-unlocked",&m,&s,62000);
  assert(!memcmp(locked_fb,fb,80*2*44));
  s.shadow=(struct r2_shadow_session_view){.state=R2_SHADOW_SETTLING,.settling_ms=5000};
- fixture(argv[1],"precision-settling",&m,&s,62000);assert(!color_count(64,35,C_CYAN));
+ fixture(argv[1],"precision-settling",&m,&s,62000);assert(!color_count(64,35,R2_UI_RGB565_CYAN));
  s.shadow=(struct r2_shadow_session_view){.state=R2_SHADOW_RUNNING,.active=true,.valid=true,.mean_tenth_ns=-5000000000LL,.rms_ns=500000000,.samples=UINT32_MAX};
  fixture(argv[1],"precision-large",&m,&s,62000);
  m.clock.fix_active=m.clock.pps_present=false;m.local_hot_standby=false;
- fixture(argv[1],"precision-no-gps",&m,&s,62000);assert(!color_count(64,35,C_CYAN));
- fixture(argv[1],"precision-stale",&m,&s,65001);assert(!color_count(20,24,C_GREEN));
+ fixture(argv[1],"precision-no-gps",&m,&s,62000);assert(!color_count(64,35,R2_UI_RGB565_CYAN));
+ fixture(argv[1],"precision-stale",&m,&s,65001);assert(!color_count(20,24,R2_UI_RGB565_GREEN));
  m.role=R2_UI_GM;m.clock.fix_active=m.clock.pps_present=m.gm_source_fresh=true;m.pps_precision.rate_valid=true;
  m.precision.rms_valid=true;m.precision.rms_ns=88;m.precision.samples=32;m.precision.map_valid=false;
- fixture(argv[1],"precision-serving-gm",&m,&s,62000);assert(color_count(64,7,C_CYAN)&&!color_count(92,7,C_CYAN));
- assert(color_count(20,7,C_GREEN)&&!color_count(20,7,C_AMBER));
- assert(color_count(140,7,C_GREEN)&&!color_count(140,7,C_AMBER));
+ fixture(argv[1],"precision-serving-gm",&m,&s,62000);assert(color_count(64,7,R2_UI_RGB565_CYAN)&&!color_count(92,7,R2_UI_RGB565_CYAN));
+ assert(color_count(20,7,R2_UI_RGB565_GREEN)&&!color_count(20,7,R2_UI_RGB565_AMBER));
+ assert(color_count(140,7,R2_UI_RGB565_GREEN)&&!color_count(140,7,R2_UI_RGB565_AMBER));
  /* Long durations stay within the 80px display without losing seconds. */
  m.sampled_ms=6001000;fixture(argv[1],"precision-gm-active-100m",&m,&s,6001000);
  m.sampled_ms=600000000;fixture(argv[1],"precision-gm-active-9999m",&m,&s,600000000);
  m.sampled_ms=600001000;fixture(argv[1],"precision-gm-active-overflow",&m,&s,600001000);
- m.sampled_ms=62000;r2_ui_render(fb,&m,&s,62000);
+ m.sampled_ms=62000;r2_test_render_rgb565(fb,&m,&s,62000);
  uint8_t beat_rms[80*2*7];memcpy(beat_rms,fb+64*80*2,sizeof beat_rms);
  s.shadow.rms_ns=1;s.shadow.mean_tenth_ns=0;m.pps_precision.prediction_rms_ns=999999;
- r2_ui_render(fb,&m,&s,62000);assert(!memcmp(beat_rms,fb+64*80*2,sizeof beat_rms));
+ r2_test_render_rgb565(fb,&m,&s,62000);assert(!memcmp(beat_rms,fb+64*80*2,sizeof beat_rms));
  m.precision.rms_ns=1234;fixture(argv[1],"precision-gm-beat-us",&m,&s,62000);assert(memcmp(beat_rms,fb+64*80*2,sizeof beat_rms));
- m.precision.rms_valid=false;fixture(argv[1],"precision-gm-no-beat",&m,&s,62000);assert(!color_count(64,7,C_CYAN));
- m.precision.rms_valid=true;m.gm_source_fresh=false;fixture(argv[1],"precision-gm-source-wait",&m,&s,62000);assert(!color_count(64,7,C_CYAN));
- m.gm_source_fresh=true;fixture(argv[1],"precision-gm-stale",&m,&s,65001);assert(!color_count(64,7,C_CYAN));
+ m.precision.rms_valid=false;fixture(argv[1],"precision-gm-no-beat",&m,&s,62000);assert(!color_count(64,7,R2_UI_RGB565_CYAN));
+ m.precision.rms_valid=true;m.gm_source_fresh=false;fixture(argv[1],"precision-gm-source-wait",&m,&s,62000);assert(!color_count(64,7,R2_UI_RGB565_CYAN));
+ m.gm_source_fresh=true;fixture(argv[1],"precision-gm-stale",&m,&s,65001);assert(!color_count(64,7,R2_UI_RGB565_CYAN));
  m.precision.map_valid=true;
  m.role=R2_UI_FOLLOWER;m.local_hot_standby=false;m.source_eligible=false;m.admission_ms=42000;
- fixture(argv[1],"precision-hot-dwell",&m,&s,62000);assert(!strcmp(hot_reason(&m,true,false),"SOURCE DWELL")&&color_count(152,7,C_DIM));
+ fixture(argv[1],"precision-hot-dwell",&m,&s,62000);assert(!strcmp(hot_reason(&m,true,false),"SOURCE DWELL")&&color_count(152,7,R2_UI_RGB565_DIM));
  m.source_eligible=true;
  const unsigned refusals[]={1,4,16,32};const char *reasons[]={"PEER WAIT","PEER SOURCE","AUTH WAIT","BLE MAP WAIT"};
  for(unsigned i=0;i<4;i++){m.hot_refusal=refusals[i];assert(!strcmp(hot_reason(&m,true,false),reasons[i]));}
- m.hot_refusal=16;fixture(argv[1],"precision-hot-auth",&m,&s,62000);assert(color_count(152,7,C_DIM));
+ m.hot_refusal=16;fixture(argv[1],"precision-hot-auth",&m,&s,62000);assert(color_count(152,7,R2_UI_RGB565_DIM));
  m.profile_rc=m.boundary_clock=true;m.role=R2_UI_FOLLOWER;
  m.ble_time_selected=true;m.ble_valid_until_us=63000000;
  m.precision.rms_valid=true;m.precision.rms_ns=137;m.precision.correction_age_valid=true;m.precision.correction_age_ms=42;
  m.pps_precision.prediction_rms_ns=987654;m.face_rms_ns=7654321;
- fixture(argv[1],"precision-rc",&m,&s,62000);assert(color_count(64,7,C_CYAN));
+ fixture(argv[1],"precision-rc",&m,&s,62000);assert(color_count(64,7,R2_UI_RGB565_CYAN));
  uint8_t own_rms[80*2*7];memcpy(own_rms,fb+64*80*2,sizeof own_rms);
  m.precision.correction_age_ms=9999;m.pps_precision.prediction_rms_ns=1;m.face_rms_ns=2;s.shadow.rms_ns=3;
- r2_ui_render(fb,&m,&s,62000);assert(!memcmp(own_rms,fb+64*80*2,sizeof own_rms));
+ r2_test_render_rgb565(fb,&m,&s,62000);assert(!memcmp(own_rms,fb+64*80*2,sizeof own_rms));
  m.precision.rms_ns=200;fixture(argv[1],"precision-rc-own-rms",&m,&s,62000);
  assert(memcmp(own_rms,fb+64*80*2,sizeof own_rms));
  m.precision.rms_ns=1234;fixture(argv[1],"precision-rc-us",&m,&s,62000);
- m.precision.rms_ns=UINT32_MAX;fixture(argv[1],"precision-rc-unknown",&m,&s,62000);assert(!color_count(64,7,C_CYAN));
+ m.precision.rms_ns=UINT32_MAX;fixture(argv[1],"precision-rc-unknown",&m,&s,62000);assert(!color_count(64,7,R2_UI_RGB565_CYAN));
  m.precision.rms_ns=137;m.precision.rms_valid=false;
- fixture(argv[1],"precision-rc-no-rms",&m,&s,62000);assert(!color_count(64,7,C_CYAN));
+ fixture(argv[1],"precision-rc-no-rms",&m,&s,62000);assert(!color_count(64,7,R2_UI_RGB565_CYAN));
  m.precision.rms_valid=true;m.precision.map_valid=false;
- fixture(argv[1],"precision-rc-no-map",&m,&s,62000);assert(!color_count(64,7,C_CYAN));
+ fixture(argv[1],"precision-rc-no-map",&m,&s,62000);assert(!color_count(64,7,R2_UI_RGB565_CYAN));
  m.precision.map_valid=true;m.ble_valid_until_us=62000000;
- fixture(argv[1],"precision-rc-expired",&m,&s,62000);assert(!color_count(64,7,C_CYAN));
+ fixture(argv[1],"precision-rc-expired",&m,&s,62000);assert(!color_count(64,7,R2_UI_RGB565_CYAN));
  m.ble_valid_until_us=63000000;m.ble_active=false;
- fixture(argv[1],"precision-rc-stopped",&m,&s,62000);assert(!color_count(64,7,C_CYAN));
- m.ble_active=true;fixture(argv[1],"precision-rc-stale",&m,&s,65001);assert(!color_count(64,7,C_CYAN));
+ fixture(argv[1],"precision-rc-stopped",&m,&s,62000);assert(!color_count(64,7,R2_UI_RGB565_CYAN));
+ m.ble_active=true;fixture(argv[1],"precision-rc-stale",&m,&s,65001);assert(!color_count(64,7,R2_UI_RGB565_CYAN));
  puts("PASS Precision: real holds/loss/staleness, stable green HOT/SoftPLL, witness eligibility, missing and extreme values");
 }

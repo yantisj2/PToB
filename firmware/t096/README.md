@@ -5,10 +5,15 @@
 *Illustrative firmware-rendered RC screen; displayed values are not measured
 performance. [Image provenance](../../docs/images/README.md).*
 
-**PToB owns T096 RC7 development.** Current version **0.15.121** supplies the
+**PToB owns T096 RC7 development.** Current version **0.15.122** supplies the
 ordinary **GM** and **RC** mesh profiles, with USB timing compiled by default.
 [Build from source](../../docs/t096/build.md) with pinned public dependencies
 and ignored local enrollment. No enrolled binary is distributed.
+
+The display uses an exact 17-color palette and one bounded DMA staging buffer,
+recovering 7,680 bytes of static RAM without changing its pixels or cadence.
+LoRa remains disabled. Host checks and native memory inspection do not establish
+physical SPI/BLE coexistence or delivered-time accuracy.
 
 T096 participates in the shared G1/RC7 mesh with W12 and StickS3 receivers and
 experimental relays. RC selection considers aged timing/delivery history as

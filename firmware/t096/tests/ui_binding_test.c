@@ -73,7 +73,7 @@ int main(void){
  fixture.root_boot++;fixture.follower_clock_valid=false;m=model();assert(!r2_ui_face_locked(&m,current/1000));
  fixture=good;fixture.time_sampled_us=current;fixture.authority_until=fixture.service_until=current+10000000;m=model();assert(r2_ui_face_locked(&m,current/1000));
  stop_requested=1;m=model();assert(!r2_ui_face_locked(&m,current/1000));stop_requested=0;
- uint8_t pixels[R2_UI_BYTES];struct r2_ui_status s={0};m=model();
+ uint8_t pixels[R2_UI_FRAME_BYTES];struct r2_ui_status s={0};m=model();
  for(unsigned page=0;page<R2_UI_PAGES;page++){s.page=page;r2_ui_render(pixels,&m,&s,current/1000);}
  puts("Actual service->BLE UTC->role/servo/all pages PASS; bootstrap/coarse,wrong identity/boot/epoch,unlocked fit,expired map/source refuse PPS claim; local GNSS absent supported; physical UTC/output UNKNOWN");
 }

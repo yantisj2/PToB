@@ -13,7 +13,7 @@ static struct r2_ui_status status;
 static struct k_spinlock lock;
 static atomic_t stop_requested,profile_toggle;
 static bool started;
-static uint8_t framebuffer[R2_UI_BYTES];
+static uint8_t framebuffer[R2_UI_FRAME_BYTES];
 static struct r2_shadow_session shadow_session;
 static struct {uint64_t root,root_boot,parent,parent_boot;uint32_t root_epoch;bool valid;} shadow_scope;
 static uint64_t shadow_due;

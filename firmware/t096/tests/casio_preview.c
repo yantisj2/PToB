@@ -1,5 +1,6 @@
 /* Review fixtures use the production renderer. All values are synthetic. */
 #include "ui.h"
+#include "ui_rgb565_fixture.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
@@ -7,7 +8,7 @@ static uint8_t fb[R2_UI_BYTES];
 static uint8_t saver_top[R2_UI_BYTES];
 static uint64_t preview_at=1000;
 static void save(const char *dir,const char *name,struct r2_ui_model *m,struct r2_ui_status *s){
- r2_ui_render(fb,m,s,preview_at);char path[512];snprintf(path,sizeof path,"%s/%s.ppm",dir,name);
+ r2_test_render_rgb565(fb,m,s,preview_at);char path[512];snprintf(path,sizeof path,"%s/%s.ppm",dir,name);
  FILE *f=fopen(path,"wb");assert(f);fprintf(f,"P6\n80 160\n255\n");
  for(unsigned i=0;i<sizeof fb;i+=2){unsigned p=(fb[i]<<8)|fb[i+1];fputc((p>>11)*255/31,f);fputc(((p>>5)&63)*255/63,f);fputc((p&31)*255/31,f);}fclose(f);
 }

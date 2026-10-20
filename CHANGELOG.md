@@ -2,6 +2,16 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 20 October 2026 — T096 framebuffer memory
+
+T096 **0.15.122** stores the 80×160 display in one-byte palette indices and
+expands five 32-row batches through a single persistent RGB565 DMA buffer.
+All 17 existing colors and rendered pixels remain exact. Display storage falls
+from 25,600 to 17,920 bytes; frame cadence, the shared 250 ms frame deadline,
+synchronous DMA retirement and existing RAM/stack/controller gates remain.
+LoRa remains disabled. Host pixel/transfer checks do not qualify hardware timing
+or BLE coexistence; those require separate exact-device validation.
+
 ## 19 October 2026 — T096 active grandmaster status duration
 
 T096 **0.15.121** labels the active GM `GRANDMASTER` on Precision and shows

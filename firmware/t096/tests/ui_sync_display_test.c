@@ -3,6 +3,7 @@
  * Actual presentation policy and renderer; no timing owner is substituted.
  */
 #include "ui.h"
+#include "ui_rgb565_fixture.h"
 #include <assert.h>
 #include <limits.h>
 #include <stdio.h>
@@ -47,8 +48,8 @@ int main(int argc,char **argv){
   assert(!r2_ui_display_time(&m,now,&utc,&coarse));
  }
  m.sampled_ms=1519;assert(r2_ui_sync_display_time(&c,&m,1519,&utc));
- struct r2_ui_status s={.sync_display=c};r2_ui_render(held,&m,&s,1519);
- s.sync_display=(struct r2_ui_sync_display){0};r2_ui_render(lost,&m,&s,1519);
+ struct r2_ui_status s={.sync_display=c};r2_test_render_rgb565(held,&m,&s,1519);
+ s.sync_display=(struct r2_ui_sync_display){0};r2_test_render_rgb565(lost,&m,&s,1519);
  assert(memcmp(held,lost,sizeof held)); /* Actual face differs from Syncing. */
  if(argc==2){image(argv[1],"short-loss-face",held);image(argv[1],"continued-loss-syncing",lost);}
  assert(!r2_ui_sync_display_time(&c,&m,1520,&utc));

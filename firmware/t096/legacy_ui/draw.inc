@@ -1,19 +1,23 @@
 #include "legacy.h"
+#include "../include/ui_framebuffer.h"
 #ifdef T096_V12_CONSOLE_PANEL
 #include "console_panel.h"
 #endif
 
-#define C_BG 0x0820u
-#define C_PANEL 0x1042u
-#define C_WHITE 0xFFFFu
-#define C_DIM 0xA534u
-#define C_CYAN 0x37FFu
-#define C_BLUE 0x4D1Fu
-#define C_GREEN 0x4FEAu
-#define C_AMBER 0xFD20u
-#define C_RED 0xF9C7u
-#define C_BEZEL 0x3987u
-#define C_LCD 0x0821u
+#ifndef UI_COLOR
+#define UI_COLOR(name) R2_UI_RGB565_##name
+#endif
+#define C_BG UI_COLOR(BG)
+#define C_PANEL UI_COLOR(PANEL)
+#define C_WHITE UI_COLOR(WHITE)
+#define C_DIM UI_COLOR(DIM)
+#define C_CYAN UI_COLOR(CYAN)
+#define C_BLUE UI_COLOR(BLUE)
+#define C_GREEN UI_COLOR(GREEN)
+#define C_AMBER UI_COLOR(AMBER)
+#define C_RED UI_COLOR(RED)
+#define C_BEZEL UI_COLOR(BEZEL)
+#define C_LCD UI_COLOR(LCD)
 
 /* A compact fixed 5x7 face keeps the renderer freestanding and deterministic. */
 static const uint8_t digits[10][5] = {
@@ -92,9 +96,14 @@ static const uint8_t *glyph(char c) {
 
 static void pixel(uint8_t *fb, int x, int y, uint16_t c) {
     if (x < 0 || y < 0 || x >= (int)UI_WIDTH || y >= (int)UI_HEIGHT) return;
-    unsigned offset = 2u * ((unsigned)y * UI_WIDTH + (unsigned)x);
+    unsigned offset = (unsigned)y * UI_WIDTH + (unsigned)x;
+#ifdef UI_PIXEL_WRITE
+    UI_PIXEL_WRITE(fb,offset,c);
+#else
+    offset *= 2u;
     fb[offset] = (uint8_t)(c >> 8);
     fb[offset + 1u] = (uint8_t)c;
+#endif
 }
 
 static void fill(uint8_t *fb, int x, int y, int w, int h, uint16_t c) {
@@ -364,13 +373,13 @@ static void dial_fill(uint8_t *fb, int cx, int cy, int radius,
 /* A polished upper rim and dark lower rim frame a recessed face. */
 static void inset_badge(uint8_t *fb, int x, int y, int w, int h,
                          uint16_t face) {
-    fill(fb, x + 1, y + 1, w, h, 0x0000u);
+    fill(fb, x + 1, y + 1, w, h, UI_COLOR(BLACK));
     fill(fb, x, y, w, h, C_BEZEL);
-    fill(fb, x, y, w, 1, 0xBDF7u);
-    fill(fb, x, y, 1, h, 0x8C71u);
-    fill(fb, x + 1, y + h - 1, w - 1, 1, 0x2104u);
-    fill(fb, x + w - 1, y + 1, 1, h - 1, 0x2104u);
-    fill(fb, x + 1, y + 1, w - 2, h - 2, 0x0000u);
+    fill(fb, x, y, w, 1, UI_COLOR(BUTTON_LIGHT));
+    fill(fb, x, y, 1, h, UI_COLOR(BUTTON_EDGE));
+    fill(fb, x + 1, y + h - 1, w - 1, 1, UI_COLOR(BUTTON_SHADOW));
+    fill(fb, x + w - 1, y + 1, 1, h - 1, UI_COLOR(BUTTON_SHADOW));
+    fill(fb, x + 1, y + 1, w - 2, h - 2, UI_COLOR(BLACK));
     fill(fb, x + 2, y + 2, w - 4, h - 4, face);
 }
 
@@ -500,7 +509,7 @@ static void analog_clock(uint8_t *fb, const ui_snapshot_t *s, int cy) {
     unsigned minute = sod / 60u % 60u;
     unsigned second = sod % 60u;
     dial_fill(fb, cx, cy, 27, C_LCD);
-    circle(fb, cx, cy, 27, 0x3186u);
+    circle(fb, cx, cy, 27, UI_COLOR(DIAL));
     circle(fb, cx, cy, 28, C_BEZEL);
     for (unsigned i = 0; i < 60u; ++i) {
         int outer = i % 5u == 0u ? 25 : 26;
@@ -658,7 +667,7 @@ static void format_beat_ppb(char out[16], uint32_t hundredths) {
 }
 
 static void bluetooth_badge_at(uint8_t *fb, int x, int y, bool transmitting) {
-    uint16_t background = transmitting ? C_BLUE : 0x6B4Du;
+    uint16_t background = transmitting ? C_BLUE : UI_COLOR(GREY);
     uint16_t symbol = transmitting ? C_WHITE : C_PANEL;
     round_panel(fb, x, y, 11, 11, background, background);
     line(fb, x+5, y+1, x+5, y+8, symbol);

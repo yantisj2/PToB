@@ -8,6 +8,9 @@
 #include <string.h>
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
+#define UI_FRAME_BYTES R2_UI_FRAME_BYTES
+#define UI_COLOR(name) R2_UI_COLOR_##name
+#define UI_PIXEL_WRITE(fb,offset,color) ((fb)[offset]=(uint8_t)(color))
 #include "../legacy_ui/draw.inc"
 #pragma GCC diagnostic pop
 
@@ -357,7 +360,7 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
    * 13px source strip +2px gap +62px dial +2px gap +13px identity.
    * No digital/dashboard panels are drawn in the saver. */
   int top=(int)r2_ui_saver_top(status->screensaver_position);
-  fill(fb,0,0,80,160,0);
+  fill(fb,0,0,80,160,UI_COLOR(BLACK));
   round_panel(fb,3,top,74,13,C_PANEL,C_BEZEL);
   label(fb,8,top+3,"UTC",1,C_DIM);
   label(fb,36,top+3,s.native_ble_time?(s.native_time_relay_hops==1?"RC1":s.native_time_relay_hops==2?"RC2":"BLE"):"PPS",1,C_GREEN);

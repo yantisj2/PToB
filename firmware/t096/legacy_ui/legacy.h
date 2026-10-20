@@ -7,7 +7,9 @@ typedef enum {CLOCK_NO_TIME, CLOCK_ACQUIRING, CLOCK_LOCKED, CLOCK_HOLDOVER} cloc
 
 #define UI_WIDTH 80u
 #define UI_HEIGHT 160u
+#ifndef UI_FRAME_BYTES
 #define UI_FRAME_BYTES (UI_WIDTH * UI_HEIGHT * 2u)
+#endif
 #include "ui_rf_live.h"
 #define UI_PAGE_COUNT 9u
 enum { UI_PAGE_CLOCK, UI_PAGE_RF_LIVE, UI_PAGE_SYNC, UI_PAGE_PPS,
