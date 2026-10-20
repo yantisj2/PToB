@@ -5,7 +5,7 @@
 *Illustrative firmware-rendered RC screen; displayed values are not measured
 performance. [Image provenance](../../docs/images/README.md).*
 
-**PToB owns T096 RC7 development.** Current source version **0.15.137** supplies the
+**PToB owns T096 RC7 development.** Current source version **0.15.138** supplies the
 ordinary **GM** and **RC** mesh profiles, with USB timing compiled by default.
 [Build from source](../../docs/t096/build.md) with pinned public dependencies
 and ignored local enrollment. No enrolled binary is distributed.
@@ -42,6 +42,10 @@ Version137 keeps one bounded contact phase before actual successor acquisition;
 sparse COLD discovery cannot spend the PA acquisition deadline before appointment.
 It also retains the original causal JOIN anchor across control promotion so a
 delayed precision-owner job can acquire the selected root without fabricated timing.
+Version138 restores the existing change-driven HELLO scheduling for new source permits
+and epochs before the G5 return. It changes no source, map, grant or timeout bound.
+The `network.control` diagnostic exposes existing management/pair deadlines, last
+HOT withdrawal and receive latency/backlog counters without new stored state.
 Finite successor grants, bounded repair/cooldown and paged `gm` diagnostics support
 unstable/off-host testing. The sole requested LoRa transmitter may retain ordinary
 BLE leaf timing while COLD; that exception adds no GM-control/HOT authority.

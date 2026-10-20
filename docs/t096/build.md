@@ -33,7 +33,7 @@ revision/cleanliness and SDK archive checks. It is not necessary to have a priva
 sibling checkout. Builds put all generated and secret-bearing output under
 ignored `artifacts/` with owner-only permissions.
 
-Normal GM version0.15.137 uses [G5 ACTIVE/HOT/COLD](gm-standby.md).
+Normal GM version0.15.138 uses [G5 ACTIVE/HOT/COLD](gm-standby.md).
 Its outer coordination type19/domain5 is distinct from the preserved inner
 AUTH_CONFIG5, legacy JOINv4 and RC7 timing. During a staged update, updated RC
 images can receive legacy timing; enter GM only with the explicitly compatible
@@ -134,7 +134,7 @@ display, BLE/USB service and stack observations remain exact-device gates.
 
 ## Hardware update boundary
 
-Normal0.15.137 builds include the [RC8 wire3 integration](../../protocol/rc8/README.md).
+Normal0.15.138 builds include the [RC8 wire3 integration](../../protocol/rc8/README.md).
 The default transmitter factory is zero, so LoRa hardware does not start. An
 explicit normal-only `--lora-transmitter-factory` takes a16-digit exact factory
 identity verified against ignored T096 registry metadata. It is included in the

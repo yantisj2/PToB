@@ -544,15 +544,15 @@ void r2_network_tick_coordinated(struct r2_network *n,const struct r2_clock *clo
  n->candidate=local_source(n,clock,now);
  bool physical=r2_admission_update(&n->admission,(n->gm5.enabled||!constrained||direct)&&(n->gm5.enabled||n->profile_root==255||n->self!=n->profile_client)&&(n->gm_mask&(1u<<n->self)),n->gnss_mask&(1u<<n->self),n->candidate.available,n->candidate.generation,n->candidate.valid_until_us,now);
  bool own=physical&&(!constrained||direct);
- if(n->gm5.enabled){n->gm5.negative_root=constrained?coord->root:0;n->gm5.negative_boot=constrained?coord->boot:0;n->gm5.negative_epoch=constrained?coord->epoch:0;gm5_tick(n,physical,now,coord);return;}
- if(constrained&&!direct){
-  n->standby_authorized=n->takeover_pending=false;
-  n->pair=(struct r2_pair){.root=255,.standby=255};
- }
  if(own&&(previous_source_until!=n->candidate.valid_until_us||previous_source_epoch!=n->candidate.generation)){
   /* Newly available source evidence is change-driven; never wait behind the
    * sparse liveness cadence near the old1.5s original permission deadline. */
   for(unsigned p=0;p<n->count;p++)if(n->peer[p].connected)n->peer[p].next_hello=0;
+ }
+ if(n->gm5.enabled){n->gm5.negative_root=constrained?coord->root:0;n->gm5.negative_boot=constrained?coord->boot:0;n->gm5.negative_epoch=constrained?coord->epoch:0;gm5_tick(n,physical,now,coord);return;}
+ if(constrained&&!direct){
+  n->standby_authorized=n->takeover_pending=false;
+  n->pair=(struct r2_pair){.root=255,.standby=255};
  }
  /* Prior HOT authorization is a separate recovery fact, not current HOT UI.
   * A precision gap cannot fabricate root failure. Only accepted fresh direct

@@ -3,8 +3,8 @@
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
 Version0.15.134 introduces G5 coordination for the ordinary GM profile; current
-version0.15.137 includes corrected inventory/contact scheduling, causal timing
-handoff and explicit PT close intent consumption. This is
+version0.15.138 includes corrected inventory/contact scheduling, causal timing
+handoff, explicit PT close intent consumption and change-driven HELLO scheduling. This is
 an implementation and host-test contract, not hardware acceptance or a claim of
 UTC/output accuracy. RC7 clients, USB, GNSS qualification, BLE capture and LoRa
 wire3 retain their separate contracts. DC remains a separate flash-only image.
@@ -179,3 +179,22 @@ passing runs; simulations do not establish real RF scheduling or delivered UTC.
 
 See [diagnostics](diagnostics.md#g5-paged-observation) for the bounded off-host
 observation contract and [build checks](build.md#checks) for reproducible commands.
+
+
+## Source-change scheduling and loss diagnostics
+
+New local source permits and epochs trigger the existing HELLO due update before
+the G5 owner returns. The selected-peer scheduler still limits actual control
+transmission to the current pair; COLD inventory gains no persistent control
+work. Unchanged source evidence does not repeatedly force a HELLO. This scheduling
+correction changes no original source, map, grant, management or resource deadline.
+
+`network.control` publishes already stored management/pair deadlines, HOT withdrawal
+count and the most recent withdrawal time/reason, last record age, maximum record
+age, maximum callback-to-owner receive latency, queue peak and current backlog.
+Deadlines and the retained withdrawal timestamp use the reported logical boot
+clock. Withdrawal fields are historical; other fields describe the current
+owner snapshot or cumulative maxima. They do not freeze the full state at loss,
+prove the cause of an RF outage, or measure output accuracy. Compare counter
+increments and original timestamps across current owner publications; neither
+query time nor a historical maximum renews any authority.

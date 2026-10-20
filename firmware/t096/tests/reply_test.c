@@ -144,6 +144,8 @@ int main(void) {
  assert(strstr(captured,"\"unit\":\"TC-03\"")&&strstr(captured,"source_projection_revision")&&strstr(captured,"upstream_identity")&&strstr(captured,"accepted_corrections")&&strstr(captured,"R2 END ffffffff"));
  request.op=R2_PRECISION;captured[0]=0;reply(&request,1,0);assert(strstr(captured,"absolute_utc_qualified")&&strstr(captured,"source_eligible")&&strstr(captured,"hot_ready")&&strstr(captured,"quality")&&strstr(captured,"R2 END ffffffff"));
  request.op=R2_NETWORK;captured[0]=0;reply(&request,1,0);assert(strstr(captured,"service_receipts")&&strstr(captured,"R2 END ffffffff"));
+ assert(strstr(captured,"\"management_until_us\":18446744073709551615")&&strstr(captured,"\"last_hot_withdrawal_reason\":4294967295")&&strstr(captured,"\"rx_queue_peak\":4294967295"));
+ assert(strlen(captured)<R2_REPLY_BYTES);
  request.op=R2_DIAG;request.trace_page=255;reply(&request,1,0);assert(strstr(captured,"chunk")&&strstr(captured,"R2 END ffffffff"));
 #endif
  puts("R2 actual response formatter: all pages at maximum field widths PASS");

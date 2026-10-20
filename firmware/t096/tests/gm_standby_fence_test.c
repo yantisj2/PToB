@@ -19,6 +19,55 @@ static struct r2_network base(bool active)
  n.gm5.role=active?R2_GM5_ACTIVE:R2_GM5_ACQUIRING;n.gm5.active=active?100:200;n.gm5.active_boot=n.root_boot;n.gm5.active_until=n.now+120000000;
  n.gm5.selected=active?200:0;n.gm5.generation=7;n.management_generation=7;return n;
 }
+/* New source permission must be offered at the current CONTROL opportunity,
+ * before the sparse HELLO cadence. These are actual producer/encoded-wire
+ * boundary checks, not a claim of complete RF/PA recovery. */
+static void hello_source_refresh_tests(void)
+{
+ for(unsigned owner=75000;owner<=100000;owner+=25000)for(unsigned phase=0;phase<owner;phase+=25000){
+  struct r2_network n=base(true);n.admission.boot_at=0;n.now+=phase;n.peer[1].seen=n.peer[1].alive=n.now;n.peer[1].own_nonce=31;n.peer[1].nonce=41;strcpy(n.name,"Sender");
+  n.candidate.valid_until_us=n.now+500000;n.admission.last_expiry=n.candidate.valid_until_us;
+  n.peer[1].candidate_until=n.now+1500000;n.gm5.ready_at=n.now;
+  n.peer[1].next_hello=n.now+owner;n.peer[1].next_service=n.peer[1].next_management=n.now+1000000;
+  struct r2_clock source={0};source.view.source_available=true;source.view.source_epoch=1;
+  source.last_pair_edge=source.last_rmc=n.now;source.last_pair_utc=INT64_C(1791417600000000);
+  uint64_t at=n.now;r2_network_tick(&n,&source,at);
+  uint8_t peer,wire[R2_GROUP_CONTROL_MAX];bool hello=false;
+  assert(r2_network_next_ready(&n,2,&peer,wire,&hello)&&peer==1&&hello);
+  struct r2_auth_record record;char name[25];uint8_t caps;
+  assert(!decode_control(&n,&record,wire,r2_control_wire_size(wire),n.self,n.peer[1].tx_key,name,&caps,NULL));
+  assert(record.kind==R2_AUTH_HELLO&&record.flags==1&&record.root==n.self&&record.source_epoch==1&&record.permit_until_us==at+1500000);
+  r2_network_sent(&n,hello,peer,wire);uint64_t due=n.peer[1].next_hello;
+  r2_network_tick(&n,&source,at+1);assert(n.peer[1].next_hello==due);
+  assert(!r2_network_next_ready(&n,2,&peer,wire,&hello)); /* Unchanged evidence is not another send. */
+ }
+ puts("PASS G5 new original source permit offers authenticated HELLO in the current75/100ms phased opportunity; unchanged evidence preserves sparse cadence");
+ for(unsigned fault=0;fault<4;fault++){
+  struct r2_network n=base(true);n.admission.boot_at=0;n.admission.last_expiry=n.candidate.valid_until_us;
+  n.peer[1].next_hello=n.now+300000;n.peer[1].next_service=n.peer[1].next_management=n.now+1000000;
+  n.gm5.ready_at=n.now;n.hot_ready=true;n.management_committed=true;n.management_until=n.now+2000000;
+  struct r2_clock source={0};source.view.source_available=true;source.view.source_epoch=1;
+  source.last_pair_edge=source.last_rmc=n.now;source.last_pair_utc=INT64_C(1791417600000000);
+  if(fault==0)source.last_pair_edge=source.last_rmc=n.now-1500000; /* Actual original permit expired. */
+  if(fault==1)source.view.source_epoch=2; /* New epoch must requalify for60s. */
+  if(fault==2)n.timing_valid=false; /* Source HELLO cannot fabricate PA/map readiness. */
+  if(fault==3)n.gm5.ready_at=n.now-1000000; /* Nor can it renew remote READY. */
+  r2_network_tick(&n,&source,n.now);assert(!n.hot_ready&&!n.standby_authorized);
+  if(fault<2)assert(!n.admission.eligible&&!n.local_gm&&!n.ready&&n.peer[1].next_hello==n.now+300000);
+  else assert(n.local_gm&&n.gm5.attempt_until==n.now+R2_GM5_REPAIR_US);
+ }
+ for(unsigned inhibited=0;inhibited<2;inhibited++){
+  struct r2_network n=base(true);n.admission.boot_at=0;n.admission.last_expiry=n.candidate.valid_until_us;
+  n.gm5.role=R2_GM5_COLD;n.gm5.active=200;n.gm5.active_boot=20;n.gm5.selected=0;
+  struct r2_clock source={0};source.view.source_available=true;source.view.source_epoch=1;
+  source.last_pair_edge=source.last_rmc=n.now;source.last_pair_utc=INT64_C(1791417600000000);
+  struct r2_gm_coordination c={.root=200,.boot=20,.epoch=1,.until=n.now+1000000};
+  r2_network_tick_coordinated(&n,&source,n.now,inhibited?&c:NULL);
+  uint8_t peer,wire[R2_GROUP_CONTROL_MAX];bool hello;
+  assert(n.admission.eligible&&!n.ready&&!n.hot_ready&&!n.standby_authorized&&!r2_network_next_ready(&n,2,&peer,wire,&hello));
+ }
+ puts("PASS true permit expiry/source epoch requalification, independent PT/READY loss, COLD quiet and foreign-root inhibition remain negative gates");
+}
 static struct r2_network contact_base(void)
 {
  struct r2_network n=base(true);n.gm5.selected=0;
@@ -70,6 +119,7 @@ static void contact_tests(void)
 }
 int main(void)
 {
+ hello_source_refresh_tests();
  contact_tests();
  const struct {unsigned role;uint64_t active,selected;bool connected;uint64_t delay;} cadence[]={
   {R2_GM5_ACTIVE,100,0,false,5000000},
