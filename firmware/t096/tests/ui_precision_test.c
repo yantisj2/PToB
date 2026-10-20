@@ -37,20 +37,26 @@ int main(int argc,char **argv){
  fixture(argv[1],"precision-hot",&m,&s,62000);
  assert(color_count(20,7,C_GREEN)&&!color_count(20,7,C_AMBER));
  assert(color_count(32,10,C_GREEN)&&!color_count(32,10,C_AMBER));
- assert(color_count(72,7,C_CYAN)&&color_count(97,7,C_CYAN));
+ assert(color_count(67,7,C_CYAN)&&color_count(89,7,C_CYAN));
  memcpy(locked_fb,fb,sizeof fb);
  m.precision.locked=false; /* HOT remains eligible across short fit-lock changes. */
  fixture(argv[1],"precision-hot-fit-unlocked",&m,&s,62000);
  assert(!memcmp(locked_fb,fb,80*2*44));
  s.shadow=(struct r2_shadow_session_view){.state=R2_SHADOW_SETTLING,.settling_ms=5000};
- fixture(argv[1],"precision-settling",&m,&s,62000);assert(!color_count(72,32,C_CYAN));
+ fixture(argv[1],"precision-settling",&m,&s,62000);assert(!color_count(67,29,C_CYAN));
  s.shadow=(struct r2_shadow_session_view){.state=R2_SHADOW_RUNNING,.active=true,.valid=true,.mean_tenth_ns=-5000000000LL,.rms_ns=500000000,.samples=UINT32_MAX};
  fixture(argv[1],"precision-large",&m,&s,62000);
  m.clock.fix_active=m.clock.pps_present=false;m.local_hot_standby=false;
- fixture(argv[1],"precision-no-gps",&m,&s,62000);assert(!color_count(72,32,C_CYAN));
+ fixture(argv[1],"precision-no-gps",&m,&s,62000);assert(!color_count(67,29,C_CYAN));
  fixture(argv[1],"precision-stale",&m,&s,65001);assert(!color_count(20,24,C_GREEN));
  m.role=R2_UI_GM;m.clock.fix_active=m.clock.pps_present=m.gm_source_fresh=true;m.pps_precision.rate_valid=true;
- fixture(argv[1],"precision-serving-gm",&m,&s,62000);assert(!color_count(72,32,C_CYAN));
+ fixture(argv[1],"precision-serving-gm",&m,&s,62000);assert(!color_count(67,29,C_CYAN));
+ m.role=R2_UI_FOLLOWER;m.local_hot_standby=false;m.source_eligible=false;m.admission_ms=42000;
+ fixture(argv[1],"precision-hot-dwell",&m,&s,62000);assert(!strcmp(hot_reason(&m,true,false),"SOURCE DWELL")&&color_count(150,7,C_DIM));
+ m.source_eligible=true;
+ const unsigned refusals[]={1,4,16,32};const char *reasons[]={"PEER WAIT","PEER SOURCE","AUTH WAIT","BLE MAP WAIT"};
+ for(unsigned i=0;i<4;i++){m.hot_refusal=refusals[i];assert(!strcmp(hot_reason(&m,true,false),reasons[i]));}
+ m.hot_refusal=16;fixture(argv[1],"precision-hot-auth",&m,&s,62000);assert(color_count(150,7,C_DIM));
  m.profile_rc=m.boundary_clock=true;m.role=R2_UI_FOLLOWER;
  fixture(argv[1],"precision-rc",&m,&s,62000);
  puts("PASS Precision: real holds/loss/staleness, stable green HOT/SoftPLL, witness eligibility, missing and extreme values");
