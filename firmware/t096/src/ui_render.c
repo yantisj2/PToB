@@ -405,12 +405,29 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
    uint64_t sec=(v->utc_us+(now*1000>=v->sampled_us?now*1000-v->sampled_us:0))/1000000;
    snprintf(text,sizeof text,"%02u:%02u:%02u",(unsigned)(sec/3600%24),(unsigned)(sec/60%60),(unsigned)(sec%60));
   }else snprintf(text,sizeof text,"--:--:--");
-  label(fb,4,63,text,1,C_WHITE);
-  label(fb,4,80,"UNKNOWN",1,C_AMBER);label(fb,4,92,v->quality_known?"TIME BOUND":"META UNKNOWN",1,C_DIM);
-  if(v->parent_tag)snprintf(text,sizeof text,"R%04X P%04X",v->root_tag,v->parent_tag);else snprintf(text,sizeof text,"R%04X P----",v->root_tag);label(fb,4,104,text,1,C_DIM);
-  if(!v->transmitter){if(v->age_ms>=12000)snprintf(text,sizeof text,"AGE >12s");else snprintf(text,sizeof text,"AGE %u.%us",v->age_ms/1000,(v->age_ms%1000)/100);label(fb,4,116,text,1,C_WHITE);}
-  label(fb,4,130,v->choice==RC8_SELECT_BLE?"BLE SELECTED":v->choice==RC8_SELECT_LOCAL_GM?"GM SELECTED":v->choice==RC8_SELECT_LORA&&v->requested&&!v->fault?"RC8 SELECTED":"NO CLOCK",1,C_DIM);
-  label(fb,4,145,"HOLD: TOGGLE",1,C_AMBER);return;
+  label(fb,4,58,text,1,C_WHITE);
+  const char *source=v->kind==RC8_SELECTED_BLE?"BLE":v->kind==RC8_OWN_GM?"GM":"NONE";
+  if(v->transmitter){
+   snprintf(text,sizeof text,"%s SOURCE",source);label(fb,4,74,text,1,C_CYAN);
+   label(fb,4,86,v->state==RC8_AVAILABLE?"TIME VALID":"TIME INVALID",1,v->state==RC8_AVAILABLE?C_GREEN:C_AMBER);
+  }else{
+   bool measured=v->requested&&v->active&&!v->fault&&v->state==RC8_AVAILABLE&&v->link_samples>=4;
+   if(measured){
+    if(v->link_rms_ns<1000)snprintf(text,sizeof text,"RMS %uns",v->link_rms_ns);
+    else if(v->link_rms_ns<1000000)snprintf(text,sizeof text,"RMS %u.%uus",v->link_rms_ns/1000,v->link_rms_ns%1000/100);
+    else snprintf(text,sizeof text,"RMS %u.%ums",v->link_rms_ns/1000000,v->link_rms_ns%1000000/100000);
+   }else snprintf(text,sizeof text,"%s",v->state==RC8_AVAILABLE&&v->requested&&v->active&&!v->fault?"COLLECTING":"NO TIMING");
+   label(fb,4,74,text,1,measured?C_GREEN:C_AMBER);
+   if(measured)snprintf(text,sizeof text,"LINK FIT N%u",v->link_samples);else snprintf(text,sizeof text,"LINK RMS");
+   label(fb,4,86,text,1,C_DIM);
+  }
+  if(v->parent_tag)snprintf(text,sizeof text,"R%04X P%04X",v->root_tag,v->parent_tag);else snprintf(text,sizeof text,"R%04X P----",v->root_tag);label(fb,4,100,text,1,C_DIM);
+  if(v->parent_quality)snprintf(text,sizeof text,"%s C%uA%u",source,v->parent_class,v->parent_accuracy);
+  else snprintf(text,sizeof text,"%s META %s",source,v->quality_known?"OK":"?");
+  label(fb,4,112,text,1,C_WHITE);
+  if(!v->transmitter){if(v->age_ms>=12000)snprintf(text,sizeof text,"AGE >12s");else snprintf(text,sizeof text,"AGE %u.%us",v->age_ms/1000,(v->age_ms%1000)/100);label(fb,4,124,text,1,C_WHITE);}
+  label(fb,4,136,v->choice==RC8_SELECT_BLE?"BLE SELECTED":v->choice==RC8_SELECT_LOCAL_GM?"GM SELECTED":v->choice==RC8_SELECT_LORA&&v->requested&&!v->fault?"RC8 SELECTED":"NO CLOCK",1,C_DIM);
+  label(fb,4,150,"HOLD: TOGGLE",1,C_AMBER);return;
  }
 #endif
  if(status->page==R2_UI_SHADOW_PAGE&&!status->help){

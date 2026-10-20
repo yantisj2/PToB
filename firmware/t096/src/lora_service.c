@@ -217,6 +217,7 @@ static void __attribute__((noinline)) report(uint64_t now,bool active){
   s.quality=r->quality;s.quality_known=r->metadata_known&&now<r->metadata_until_us;s.time_valid=r->time_valid;
   s.diagnostic_us=r->diagnostic_us;s.diagnostic_sequence=r->diagnostic_sequence;s.snapshot_age_ms=r->snapshot_age_ms;s.diagnostic_events=r->diagnostic_events;
   s.view.state=rc8_receiver_state(r,now);s.view.assurance=rc8_receiver_assurance(r,now);
+  if(s.view.state==RC8_AVAILABLE){s.view.link_samples=r->fit.n;s.view.link_rms_ns=r->fit.rms_ns;}
   s.authority=rc8_receiver_authority(r,now);
   s.view.choice=rc8_select((f&NORMAL)!=0,s.view.state,s.view.assurance,true);
   if(s.view.choice==RC8_SELECT_BLE&&(f&LOCAL_GM))s.view.choice=RC8_SELECT_LOCAL_GM; /* explicit lower-quality policy */
@@ -243,6 +244,10 @@ static void __attribute__((noinline)) report(uint64_t now,bool active){
   }
  }
  s.view.quality_known=s.quality_known;s.view.time_valid=s.time_valid;s.view.parent_tag=(uint16_t)s.scope.parent;
+ s.view.kind=s.scope.kind;
+ s.view.parent_quality=s.quality_known&&(s.quality.known&(RC8_Q_PARENT_CLASS|RC8_Q_PARENT_ACCURACY))==(RC8_Q_PARENT_CLASS|RC8_Q_PARENT_ACCURACY);
+ if(!transmitter&&(s.snapshot_age_ms>=10000||age_ms(now,s.diagnostic_us)>=10000-s.snapshot_age_ms))s.view.parent_quality=false;
+ s.view.parent_class=s.quality.parent_class;s.view.parent_accuracy=s.quality.parent_accuracy;
  key=k_spin_lock(&lock);if(transmitter)published.view=s.view;else published=s;k_spin_unlock(&lock,key);
 }
 static void __attribute__((noinline)) tx_done(const struct r2_lora_hw_event *h,struct rc8_event e){
@@ -285,14 +290,14 @@ static int __attribute__((noinline)) transmit(uint64_t now){
   uint64_t budget=r2_lora_hw_budget_us(RC8_META_BYTES)+R2_LORA_HW_LAUNCH_MARGIN_US;
   if(!budget||now>deadline||budget>deadline-now)return 0;
   struct rc8_companion p;
-  key=k_spin_lock(&lock);parent_age(mono());
+  key=k_spin_lock(&lock);uint64_t snapshot_now=mono();parent_age(snapshot_now);
   if(published.diagnostic_sequence==UINT32_MAX){k_spin_unlock(&lock,key);return -EOVERFLOW;}
   if(valid&&!rc8_scope_equal(&map.scope,&published.scope)){k_spin_unlock(&lock,key);return 0;}
   diag_sequence=published.diagnostic_sequence+1;event_bits=published.diagnostic_events;event_revision=published.event_revision;
   p=(struct rc8_companion){.scope=published.scope,.quality=published.quality,.sequence=diag_sequence,
-   .snapshot_age_ms=age_ms(now,published.diagnostic_us),
+   .snapshot_age_ms=age_ms(snapshot_now,published.diagnostic_us),
    .timing_sequence=t->sequence,.events=(uint16_t)(event_bits|(repeat?t->repeat_events:0)|(!event_bits&&!repeat?RC8_D_PERIODIC:0)),.time_valid=valid};
-  if((p.quality.known&(RC8_Q_PARENT_CLASS|RC8_Q_PARENT_ACCURACY))&&age_ms(now,t->parent_seen_us)>p.snapshot_age_ms)p.snapshot_age_ms=age_ms(now,t->parent_seen_us);
+  if((p.quality.known&(RC8_Q_PARENT_CLASS|RC8_Q_PARENT_ACCURACY))&&age_ms(snapshot_now,t->parent_seen_us)>p.snapshot_age_ms)p.snapshot_age_ms=age_ms(snapshot_now,t->parent_seen_us);
   encoded_age=p.snapshot_age_ms;
   k_spin_unlock(&lock,key);
   if(rc8_companion_encode(wire,&p,group))return -EINVAL;
@@ -301,6 +306,9 @@ static int __attribute__((noinline)) transmit(uint64_t now){
   if(sequence==UINT32_MAX)return -EOVERFLOW;
   struct rc8_packet p={.sequence=sequence+1,.root=map.scope.root,.source_epoch=map.scope.source_epoch,
    .scale=map.scope.scale,.kind=map.scope.kind,.corrected=previous};
+  /* Validate a complete packet: context is mandatory even when checking only
+   * the prior correction's representability. */
+  if(rc8_context_id(p.context,&map.scope,group))return -EINVAL;
   if(previous){
    p.correction=correction;
    if(rc8_packet_validate(&p)){
@@ -308,7 +316,7 @@ static int __attribute__((noinline)) transmit(uint64_t now){
     key=k_spin_lock(&lock);t->previous_valid=false;inc(&published.missing_map);k_spin_unlock(&lock,key);
    }
   }
-  if(rc8_context_id(p.context,&map.scope,group)||rc8_encode(wire,&p,group))return -EINVAL;
+  if(rc8_encode(wire,&p,group))return -EINVAL;
   length=RC8_BYTES;
  }
  if(generation==UINT32_MAX)return -EOVERFLOW;
@@ -320,6 +328,20 @@ static int __attribute__((noinline)) transmit(uint64_t now){
  uint32_t next_generation=generation+1;
  int result=r2_lora_hw_tx_before(wire,length,next_generation,metadata?deadline:UINT64_MAX);
  if(result==-EAGAIN&&metadata)return 0;
+ if(result==-EINTR){
+  /* The reset-aborted command MAY have emitted this frame. Consume its
+   * identity, but retain no physical-event reference for a later correction.
+   * Close/retire below before restarting; event bits still need delivery. */
+  generation=next_generation;now=mono();
+  key=k_spin_lock(&lock);
+  t->pending=t->previous_valid=false;t->pending_stream=0;t->pending_sequence=0;
+  t->diag_not_before=now+DIAGNOSTIC_MIN_US;
+  if(metadata)published.diagnostic_sequence=diag_sequence;
+  else{t->sequence=sequence+1;published.sequence=t->sequence;
+   if(t->next_us<now+CADENCE_US)t->next_us=now+CADENCE_US;
+  }
+  k_spin_unlock(&lock,key);return result;
+ }
  if(result)return result;
  generation=next_generation;
  key=k_spin_lock(&lock);t->pending=true;t->metadata=metadata;
@@ -398,7 +420,7 @@ static void __attribute__((noinline)) service_step(void){
   }
  }else if(owner.active){
   process_event(now);
-  if(transmitter&&!owner.stopping){int rc=transmit(now);if(rc)begin_stop(rc);}
+  if(transmitter&&!owner.stopping){int rc=transmit(now);if(rc)begin_stop(rc==-EINTR?0:rc);}
  }
  report(now,owner.active&&!owner.stopping);
 }
@@ -439,13 +461,13 @@ int r2_lora_json(char *out,size_t capacity,int result){
  "\"closed\":%s,\"fault_bits\":%ld,\"drain_deadline_us\":%llu,\"stack_unused\":%u,\"context\":\"%s\",\"emitter\":\"%016llx\",\"stream\":%llu,\"root\":\"%016llx\",\"root_boot\":\"%016llx\",\"source_epoch\":%u,\"kind\":%u,\"scale\":%u,"
  "\"sequence\":%u,\"corrected_sequence\":%u,\"wire_corrected_sequence\":%u,\"event_tick\":%llu,\"capture_epoch\":%llu,\"event_mono_us\":%llu,\"event_ns\":%llu,\"created_ns\":%llu,\"expires_ns\":%llu,\"map_generation\":%u,\"map_age_us\":%u,\"upstream_bound_ns\":%u,"
  "\"accepted\":%u,\"rejected\":%u,\"replayed\":%u,\"unmatched\":%u,\"overflow\":%u,\"metadata\":%u,\"missing_map\":%u,\"hold_age_ms\":%u,\"state\":%u,\"assurance\":%u,\"source_authority\":%u,\"choice\":%u,\"output_bound_ns\":null,\"rc7_authority\":false,"
- "\"companion\":[%u,%u,%u,%u,%s,%s],\"parent\":[\"%016llx\",\"%016llx\"],\"quality\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%d,%u,%u,%u],"
- "\"hw\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%d,%u,%u]}",
+ "\"companion\":[%u,%u,%u,%u,%s,%s],\"parent\":[\"%016llx\",\"%016llx\"],\"quality\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%d,%u,%u,%u],\"link_fit\":[%u,%u],"
+ "\"hw\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%d,%u,%u,%u]}",
  result,(unsigned long long)physical_boot,(unsigned long long)s.scope.emitter_boot,(unsigned long long)binding.transmitter_factory,transmitter?"true":"false",s.view.requested?"true":"false",s.view.active?"true":"false",atomic_get(&faulted)?"true":"false",
  atomic_get(&closed)?"true":"false",(long)atomic_get(&faulted),(unsigned long long)deadline,stack_unused(),context,(unsigned long long)s.scope.emitter,(unsigned long long)s.scope.stream,(unsigned long long)s.scope.root,(unsigned long long)s.scope.root_boot,s.scope.source_epoch,s.scope.kind,s.scope.scale,
  s.sequence,s.corrected_sequence,s.wire_corrected_sequence,(unsigned long long)s.event.tick,(unsigned long long)s.event.capture_epoch,(unsigned long long)s.event.local_us,(unsigned long long)s.correction.event_ns,(unsigned long long)s.correction.created_ns,(unsigned long long)s.correction.expires_ns,s.correction.map_generation,s.correction.map_age_us,s.correction.upstream_bound_ns,
  s.accepted,s.rejected,s.replayed,s.unmatched,s.overflow,s.metadata,s.missing_map,s.view.age_ms,s.view.state,s.view.assurance,s.authority,s.view.choice,
  s.diagnostic_sequence,s.snapshot_age_ms,s.diagnostic_events,age_ms(mono(),s.diagnostic_us),s.quality_known?"true":"false",s.time_valid?"true":"false",
- (unsigned long long)s.scope.parent,(unsigned long long)s.scope.parent_boot,s.quality.known,s.quality.values,s.quality.role,s.quality.hop,s.quality.parent_class,s.quality.parent_accuracy,s.quality.parent_bound_ns,s.quality.correction_age_ms,s.quality.map_life_ms,s.quality.rate_ppb,s.quality.residual_ns,s.quality.losses,s.quality.recoveries,
- h.rx_done,h.tx_done,h.crc_bad,h.overflow,h.spi_ok,h.spi_error,h.cutoffs,h.capture_epoch,h.generation,h.error,h.phase,h.invalid_capture);
+ (unsigned long long)s.scope.parent,(unsigned long long)s.scope.parent_boot,s.quality.known,s.quality.values,s.quality.role,s.quality.hop,s.quality.parent_class,s.quality.parent_accuracy,s.quality.parent_bound_ns,s.quality.correction_age_ms,s.quality.map_life_ms,s.quality.rate_ppb,s.quality.residual_ns,s.quality.losses,s.quality.recoveries,s.view.link_samples,s.view.link_rms_ns,
+ h.rx_done,h.tx_done,h.crc_bad,h.overflow,h.spi_ok,h.spi_error,h.cutoffs,h.capture_epoch,h.generation,h.error,h.phase,h.invalid_capture,h.launch_aborts);
 }

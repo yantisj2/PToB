@@ -3,7 +3,14 @@
 #include "lora_rc8_policy.h"
 #include <stddef.h>
 /* This is deliberately independent of normal source/precision/USB owners. */
-struct r2_lora_view {uint64_t utc_us,until_us,sampled_us;uint32_t age_ms;uint16_t root_tag,emitter_tag,parent_tag;uint8_t state,assurance,choice,requested,active,transmitter,fault,quality_known,time_valid;};
+struct r2_lora_view {
+ uint64_t utc_us,until_us,sampled_us;
+ uint32_t age_ms,link_rms_ns;
+ uint16_t root_tag,emitter_tag,parent_tag;
+ uint8_t state,assurance,choice,link_samples,kind,parent_class,parent_accuracy;
+ uint8_t requested:1,active:1,transmitter:1,fault:1,quality_known:1,time_valid:1,parent_quality:1;
+};
+_Static_assert(sizeof(struct r2_lora_view)==48,"RC8 view reserve");
 void r2_lora_init(uint64_t factory,uint64_t boot,uint64_t transmitter,const struct r2_group_config *);
 void r2_lora_control(bool profile_rc,bool allowed,enum rc8_selected normal_source);
 void r2_lora_request(bool on);

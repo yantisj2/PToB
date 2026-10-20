@@ -59,6 +59,17 @@ struct rc8_bootstrap {
 };
 struct rc8_history {struct rc8_event rx;uint32_t sequence;bool occupied;};
 struct rc8_sample {struct rc8_event rx;struct rc8_correction tx;bool valid;};
+/* One non-overlapping block of at most16 accepted physical event pairs.
+ * X=elapsed RX ticks/1600 (100us), Y=TX elapsed minus nominal RX elapsed ns.
+ * This affine residual describes relative link consistency, never accuracy. */
+struct rc8_link_fit {
+ uint64_t tick,ns;
+ int64_t xx,xy,yy;
+ int32_t x,y;
+ uint32_t rms_ns;
+ uint8_t n;
+};
+_Static_assert(sizeof(struct rc8_link_fit)==56,"RC8 link-fit reserve");
 enum rc8_input_state {RC8_OFF,RC8_ACQUIRING,RC8_AVAILABLE,RC8_EXPIRED};
 enum rc8_assurance {RC8_FRESHNESS_UNKNOWN,RC8_STREAM_CONTINUITY,RC8_ANCHORED_INTERVAL};
 enum rc8_authority {RC8_AUTHORITY_UNKNOWN,RC8_ORIGINAL_ENVELOPE_CURRENT,RC8_ORIGINAL_ENVELOPE_EXPIRED};
@@ -73,6 +84,7 @@ struct rc8_receiver {
  struct rc8_bootstrap trust;
  struct rc8_history history[RC8_HISTORY];
  struct rc8_sample sample;
+ struct rc8_link_fit fit;
  struct rc8_event queued_event;
  uint8_t queued[RC8_META_BYTES];
  uint32_t generation,highest_sequence,accepted,rejected,replayed,overflow,unmatched,metadata_misses;
@@ -105,7 +117,7 @@ void rc8_stop_begin(struct rc8_stop *,enum rc8_phase,uint64_t);
 enum rc8_stop_result rc8_stop_poll(struct rc8_stop *,uint64_t,bool dma_retired,bool radio_standby,bool fem_off,bool capture_released);
 struct rc8_gesture {uint64_t started_us;bool pressed,eligible;};
 bool rc8_gesture_update(struct rc8_gesture *,bool pressed,bool eligible,uint64_t);
-_Static_assert(sizeof(struct rc8_receiver)<=656,"RC8 receiver reserve");
+_Static_assert(sizeof(struct rc8_receiver)<=712,"RC8 receiver reserve");
 _Static_assert(sizeof(struct rc8_export)<=168,"RC8 export reserve");
 _Static_assert(sizeof(struct rc8_packet)<=80,"RC8 packet reserve");
 _Static_assert(sizeof(struct rc8_transmission)<=320,"RC8 TX reserve");

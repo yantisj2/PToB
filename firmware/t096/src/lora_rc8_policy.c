@@ -135,7 +135,7 @@ bool rc8_receiver_bootstrap(struct rc8_receiver *s,const struct rc8_bootstrap *b
  b->rate_bound_ppb>100000||!b->min_sequence)return false;
  s->trust=*b;s->anchored=true;s->continuity=false;
  if(b->min_sequence-1>s->highest_sequence)s->highest_sequence=b->min_sequence-1;
- memset(s->history,0,sizeof s->history);memset(&s->sample,0,sizeof s->sample);s->queued_valid=false;
+ memset(s->history,0,sizeof s->history);memset(&s->sample,0,sizeof s->sample);memset(&s->fit,0,sizeof s->fit);s->queued_valid=false;
  return true;
 }
 bool rc8_receiver_freeze(struct rc8_receiver *s,const uint8_t *wire,size_t n,struct rc8_event event){
@@ -146,7 +146,35 @@ bool rc8_receiver_freeze(struct rc8_receiver *s,const uint8_t *wire,size_t n,str
 }
 static void reset_timing(struct rc8_receiver *s){
  s->anchored=false;s->continuity=false;
- memset(&s->trust,0,sizeof s->trust);memset(s->history,0,sizeof s->history);memset(&s->sample,0,sizeof s->sample);
+ memset(&s->trust,0,sizeof s->trust);memset(s->history,0,sizeof s->history);memset(&s->sample,0,sizeof s->sample);memset(&s->fit,0,sizeof s->fit);
+}
+static uint32_t root_u64(uint64_t value){
+ uint64_t result=0,bit=UINT64_C(1)<<62;
+ while(bit>value)bit>>=2;
+ while(bit){if(value>=result+bit){value-=result+bit;result=(result>>1)+bit;}else result>>=1;bit>>=2;}
+ return (uint32_t)result;
+}
+static void __attribute__((noinline)) link_fit(struct rc8_receiver *s,const struct rc8_event *rx,uint64_t ns){
+ struct rc8_link_fit *f=&s->fit;
+ if(f->n>=16||(s->sample.valid&&(rx->capture_epoch!=s->sample.rx.capture_epoch||rx->local_us<=s->sample.rx.local_us||rx->local_us-s->sample.rx.local_us>=RC8_HOLD_US)))memset(f,0,sizeof *f);
+ if(!f->n){f->tick=rx->tick;f->ns=ns;f->n=1;return;}
+ /* Explicit bounds keep every integer sum exact and far from overflow.
+  * A discontinuity starts a new block without changing timing admission. */
+ if(rx->tick<f->tick||ns<f->ns||rx->tick-f->tick>UINT64_C(1920000000))goto restart;
+ uint64_t ticks=rx->tick-f->tick,elapsed=ns-f->ns,nominal=ticks*125/2;
+ if((elapsed>nominal?elapsed-nominal:nominal-elapsed)>16000000)goto restart;
+ int32_t x=(int32_t)(ticks/1600),y=elapsed>=nominal?(int32_t)(elapsed-nominal):-(int32_t)(nominal-elapsed);
+ f->x+=x;f->y+=y;f->xx+=(int64_t)x*x;f->xy+=(int64_t)x*y;f->yy+=(int64_t)y*y;++f->n;
+ if(f->n>=4){
+  double n=f->n,xx=(double)f->xx-(double)f->x*f->x/n,xy=(double)f->xy-(double)f->x*f->y/n;
+  double yy=(double)f->yy-(double)f->y*f->y/n;
+  if(xx<=0)goto restart;
+  double variance=(yy-xy*xy/xx)/n;
+  f->rms_ns=variance>0?root_u64((uint64_t)variance):0;
+ }
+ return;
+restart:
+ memset(f,0,sizeof *f);f->tick=rx->tick;f->ns=ns;f->n=1;
 }
 static void adopt(struct rc8_receiver *s,const uint8_t *id){
  if(s->cached)memcpy(s->retired_context,s->context,RC8_CONTEXT_BYTES);
@@ -219,7 +247,7 @@ bool rc8_receiver_process(struct rc8_receiver *s,const struct r2_group_config *g
  }else if(s->scope.root!=p.root||s->scope.source_epoch!=p.source_epoch||s->scope.scale!=p.scale||s->scope.kind!=p.kind){count(&s->rejected);return false;}
  if(p.sequence<=s->highest_sequence){count(&s->replayed);return false;}
  if(s->sample.valid&&rx.capture_epoch!=s->sample.rx.capture_epoch){
-  s->anchored=false;s->continuity=false;memset(s->history,0,sizeof s->history);memset(&s->sample,0,sizeof s->sample);
+  s->anchored=false;s->continuity=false;memset(s->history,0,sizeof s->history);memset(&s->sample,0,sizeof s->sample);memset(&s->fit,0,sizeof s->fit);
  }
  s->highest_sequence=p.sequence;s->last_timing_us=rx.local_us;
  bool accepted=false;
@@ -228,6 +256,7 @@ bool rc8_receiver_process(struct rc8_receiver *s,const struct r2_group_config *g
   if(h->occupied&&(now<h->rx.local_us||now-h->rx.local_us>RC8_CORRECTION_US))h->occupied=false;
   if(p.corrected&&h->occupied&&h->sequence==p.correction.sequence){
    if(p.correction.sequence>s->withdrawal_sequence&&candidate(s,h,&p.correction,now)){
+    link_fit(s,&h->rx,p.correction.event_ns);
     s->sample=(struct rc8_sample){.rx=h->rx,.tx=p.correction,.valid=true};accepted=true;count(&s->accepted);
    }
    h->occupied=false;

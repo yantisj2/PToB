@@ -63,9 +63,10 @@ static nrf_ppi_channel_t cutoff_channel;
 static uint8_t task_channel;
 static bool resources, capture_owned, receive_mode;
 static atomic_t running, dma_inflight, result, fault, latched, phase,
-    cutoff_expired, stop_serial;
+    cutoff_expired, stop_serial, launch_aborted;
 static struct r2_lora_hw_diag counters;
-/* phase:0 inhibited/reset,1 idle,2 single RX,3 single TX. No SPI from IRQ. */
+/* phase:0 inhibited/reset,1 idle,2 single RX,3 retired TX command,
+ * 4 software TX launch not yet retired. No SPI or waiting from IRQ. */
 static uint64_t now_us(void) { return k_ticks_to_us_floor64(k_uptime_ticks()); }
 static void count(uint32_t *v) {
   if (*v != UINT32_MAX)
@@ -106,7 +107,8 @@ static void latch_edge(atomic_val_t state) {
   atomic_set(&latched, state);
 }
 static void cutoff_irq(nrf_timer_event_t event, void *unused) {
-  if (event == NRF_TIMER_EVENT_COMPARE0 && atomic_get(&phase) == 3 &&
+  if (event == NRF_TIMER_EVENT_COMPARE0 &&
+      (atomic_get(&phase) == 3 || atomic_get(&phase) == 4) &&
       !atomic_get(&latched)) {
     /* Higher-priority BLE may delay the software DIO callback past this
      * compare. A pending physical DIO already captured CC4 and inhibited
@@ -117,6 +119,18 @@ static void cutoff_irq(nrf_timer_event_t event, void *unused) {
       return;
     }
     /* The hardware compare -> CSD CLR route already inhibited the FEM. */
+    if (atomic_get(&phase) == 4) {
+      /* BLE can preempt this low-priority worker before/during SetTx. The
+       * original hardware window still ends now: reset aborts any partial
+       * RF and cancels further commands. No completed-launch claim exists.
+       * This may have reached a listener, so the caller must retire the
+       * proposed sequence and perform full bounded DMA/capture closure.
+       * A real SPI error or a retired TX timeout remains permanently fatal. */
+      atomic_set(&launch_aborted, 1);
+      count(&counters.launch_aborts);
+      inhibit();
+      return;
+    }
     atomic_set(&cutoff_expired, 1);
     count(&counters.cutoffs);
     /* A preempted worker must not resume into SetTx after its FEM window.
@@ -346,6 +360,7 @@ int r2_lora_hw_start(uint32_t gen, bool receive) {
   receive_mode = receive;
   generation = gen;
   atomic_clear(&latched);
+  atomic_clear(&launch_aborted);
   /* Only this protected fence may release reset. stop_begin can preempt any
    * later sleep/SPI; subsequent commands cannot undo its asserted reset. */
   unsigned key = irq_lock();
@@ -486,14 +501,14 @@ int r2_lora_hw_tx_before(const uint8_t *bytes, size_t n, uint32_t gen,
     rc = transfer(n + 2);
   }
   if (!rc)
-    rc = arm_edge(gen, 3);
+    rc = arm_edge(gen, 4);
   bool deferred = false;
   if (!rc)
     rc = enable_fem(true, budget, latest_finish, &deferred);
   if (deferred) {
     /* Preparation armed a new capture generation, but never enabled RF.
      * Retire that unsubmitted attempt without fault or deadline renewal. */
-    atomic_cas(&phase, 3, 1);
+    atomic_cas(&phase, 4, 1);
     return rc;
   }
   /* SX1262 RTC ticks=15.625us. Timing340ms; diagnostics420ms, within
@@ -501,6 +516,17 @@ int r2_lora_hw_tx_before(const uint8_t *bytes, size_t n, uint32_t gen,
   const uint8_t timeout[] = {0, n <= 80 ? 0x55 : 0x69, 0};
   if (!rc)
     rc = command(0x83, timeout, sizeof(timeout));
+  /* Linearize software retirement against the cutoff IRQ. No SPI, waits or
+   * peripheral calls inside this short fence. Before it, an aborted attempt
+   * returns EINTR; after phase3 commits, a missing DONE is a real TX timeout. */
+  unsigned key = irq_lock();
+  bool aborted = atomic_get(&launch_aborted) && !atomic_get(&fault) &&
+                 (!rc || rc == -ECANCELED);
+  if (!rc && !aborted)
+    atomic_cas(&phase, 4, 3);
+  irq_unlock(key);
+  if (aborted)
+    return -EINTR; /* Reset asserted; mandatory closure, never immediate retry. */
   /* Reserve EAGAIN for a healthy scheduling deferral. A peripheral error
    * with that errno must still enter the fault/closure path. */
   if (rc == -EAGAIN)

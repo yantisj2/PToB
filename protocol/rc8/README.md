@@ -2,7 +2,7 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
-T0960.15.124 uses80-byte timing packets and128-byte descriptive companion
+T0960.15.125 uses80-byte timing packets and128-byte descriptive companion
 packets. Both are one-way group-authenticated broadcasts. There is no ACK,
 authentication handshake, listener transmission or ranging exchange. Wire3 is
 incompatible with [historical wire2](wire2-historical.md); its original
@@ -10,7 +10,10 @@ incompatible with [historical wire2](wire2-historical.md); its original
 [current machine contract](contract-wire3.json), [synthetic vectors](vectors-wire3.json)
 and [production codec](../../firmware/t096/protocol/lora_rc8.h) identify this
 layout explicitly. Native, authorized hardware and independently measured output
-qualification are separate from host tests. Output uncertainty remains UNKNOWN.
+qualification are separate from host tests. Output uncertainty remains UNKNOWN. Version125 fixes a service preparation
+ordering error in124: mandatory context is now populated before validating the
+prior correction. Wire3 layout/HMAC domains/vectors are unchanged; the124
+physical capture population and its failed acquisition remain separate evidence.
 
 ## Source and authority
 
@@ -175,7 +178,7 @@ companions use420ms/450ms. At SF10/BW500/CR4/6/preamble12, calculated airtime is
 258560us timing and369152us companion:6.7716267% occupation at4s/120s before events.
 These calculations do not qualify radio delivery, regional use or coexistence.
 
-The measured host ABI uses a656-byte exclusive RX/TX union and304-byte latest
+The measured host ABI uses a712-byte exclusive RX/TX union and304-byte latest
 snapshot; target ABI sizes are checked independently. The worker retains2048 bytes
 plus64-byte guard. Complete native ELF
 comparison must prove the4096-byte added-static ceiling. Existing BLE/controller,
@@ -189,10 +192,41 @@ functional selection. ON reacquires. Page7 release between1.5 and4s toggles;
 release acknowledgments. True SPI/ownership/cutoff faults stay latched; stale
 capture data is dropped/counts rather than promoted into time.
 
+An original cutoff during an unfinished software SetTx command resets that
+attempt. EINTR means RF delivery is ambiguous: consume the proposed packet's
+sequence, clear the pending/prior physical correction, retain diagnostic event
+bits and complete bounded closure before restart. Timing retries wait at least4s;
+diagnostic retries wait at least2s and preserve a future timing deadline. Such an
+abort is counted separately from a retired-command timeout, which stays fatal.
+A brief final IRQ fence classifies abort versus retired command; no SPI or wait
+is inside it. Neither this recovery nor EAGAIN lengthens a hardware RF window.
+
+Page7 RX link RMS is the population residual RMS of an affine fit to original
+physical RxDone ticks paired with exact corrected TxDone ns. It uses bounded
+nonoverlapping blocks of4..16 accepted pairs,100us X units, and nominal-rate-
+removed Yns. Integer sufficient statistics are exact within the declared120s/
+16ms fit domain; the residual is evaluated in double precision and displayed
+with integer-ns truncation. Numeric overflow/domain or degenerate-X conditions
+start a fresh block. At16 samples, the next pair starts COLLECTING until four
+new pairs exist; an old RMS is never presented as the new block's result.
+Context, capture epoch, applicable loss, OFF and original-event gap>=12s reset
+the block. Quality-only metadata preserves it. Expired/unavailable timing shows
+NO TIMING. The independent Decimal test recomputes every centered residual;
+the metric is relative link consistency and includes source/modem/capture
+variation. It is neither an absolute error bound nor the companion BLE-fit RMS.
+TX-only units cannot measure this one-way link metric and show source validity.
+
 The `lora` console preserves original association/counter fields and adds:
 `parent=[factory,boot]`, `companion=[sequence,snapshot_age_ms,event_mask,local_age_ms,metadata_known,time_valid]`,
 and `quality=[known,values,role,hop,parent_class,parent_accuracy,parent_bound_ns,correction_age_ms,map_life_ms,rate_ppb,residual_ns,losses,recoveries]`.
 Unknown scalar fields require their known bit; output bound is JSON null.
+Version125 adds `link_fit=[samples,rms_ns]` (RMS usable only for samples>=4 and
+available original timing). Its `hw` array appends `launch_aborts` after
+`invalid_capture`: RXdone, TXdone, CRCbad, overflow, SPIok, SPIerror, cutoffs,
+capture epoch, generation, error, phase, invalid capture, launch aborts.
+Companion preparation age uses a fresh monotonic snapshot under the owner lock;
+polling cannot make the actual parent-advertisement age younger. Page7 omits
+parent class/accuracy once preparation plus receive age reaches10s.
 
 ## Reproduce
 

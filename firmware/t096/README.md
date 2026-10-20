@@ -5,7 +5,7 @@
 *Illustrative firmware-rendered RC screen; displayed values are not measured
 performance. [Image provenance](../../docs/images/README.md).*
 
-**PToB owns T096 RC7 development.** Current source version **0.15.124** supplies the
+**PToB owns T096 RC7 development.** Current source version **0.15.125** supplies the
 ordinary **GM** and **RC** mesh profiles, with USB timing compiled by default.
 [Build from source](../../docs/t096/build.md) with pinned public dependencies
 and ignored local enrollment. No enrolled binary is distributed.
@@ -24,8 +24,18 @@ GM retains its own PPS/source gate. Timing packets carry the full root identity 
 still permits functional acquisition. Companions describe boots, parent and measured
 quality about every120 seconds and on significant changes. Cold passive freshness and total uncertainty are UNKNOWN;
 optional independent admission improves assurance. RC8 grants no RC7/GM/RC9
-or USB authority. This source is an unqualified canary integration until its
+or USB authority. This source corrects prior-correction validation ordering: the full immutable context
+is populated before validating a carried prior event. Version124 discarded those
+corrections despite mapped physical TX events. It remains an unqualified canary integration until its
 separate native/resource and authorized exact-device checks pass.
+
+Page7 shows source/parent diagnostics and an RX-only LoRa link affine residual
+RMS from4..16 matched physical radio event pairs. COLLECTING/NO TIMING identify
+missing local fit data. The metric measures relative consistency; it is separate
+from advertised parent/BLE quality and grants no absolute accuracy bound.
+Reset-aborted software launches consume their possibly transmitted sequence,
+retire fully and restart at a bounded cadence; real completed-launch timeouts
+remain faults. Timing and companion hardware cutoff durations are unchanged.
 
 T096 participates in the shared G1/RC7 mesh with W12 and StickS3 receivers and
 experimental relays. RC selection considers aged timing/delivery history as

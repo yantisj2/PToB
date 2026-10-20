@@ -2,7 +2,7 @@
   "schema": 3,
   "contract": "PTOB_RC8",
   "wire_version": 3,
-  "revision": 1,
+  "revision": 2,
   "status": "RUNTIME_INTEGRATION_UNQUALIFIED",
   "license": "MIT",
   "credit": "Jonathan Yantis",
@@ -123,8 +123,8 @@
     "ceiling_added_static_bytes": 4096,
     "minimum_static_free_bytes": 1024,
     "preferred_static_free_bytes": 4096,
-    "role_union": "One bounded receiver or transmitter state union; context repeat and parent observation age fit inside existing union.",
-    "measurement": "A development GM/RC whole-image feasibility comparison measured4032B added static and4708B free before final helper hardening. Final complete native ELF and exact-device high-water remain required; all original reserves retained.",
+    "role_union": "One bounded RX/TX union; RX adds56B sufficient statistics for a maximum16-event relative affine residual fit; compact view remains48B.",
+    "measurement": "Version124 whole-image measured4032B added/4708B free; version125 adds driver8B and RX fit56B, projecting4096B added/4644B free. Final complete native ELF/high-water required; original reserves retained.",
     "prior_native_free_baseline_bytes": 8740,
     "stack_limit": "excludes worker/IRQ/kernel/libc/libgcc/driver; integrated high-water required",
     "runtime_snapshot_bytes": 304,
@@ -143,7 +143,7 @@
     },
     "historical_planning_total_bytes": 4252,
     "object_max_bytes": {
-      "exclusive_boot_role_union": 656,
+      "exclusive_boot_role_union": 712,
       "snapshot": 304,
       "export": 160,
       "packet": 80,
@@ -180,6 +180,41 @@
     "radio_fault": "latched RF inhibition; timely actual closure permits maintenance; late drain remains fault",
     "rc9": false,
     "follower_tx_gate": "currently usable authenticated selected BLE delivered-map PLL locked; local PPS/source_ready not required",
-    "own_gm_tx_gate": "currently valid qualified own PPS/source map"
+    "own_gm_tx_gate": "currently valid qualified own PPS/source map",
+    "prior_correction_validation": "Version125 populates immutable context before complete-packet validation;124 incorrectly dropped prior corrections. Same wire3 bytes/domains/vectors; prior physical failures retained."
+  },
+  "runtime_link_fit": {
+    "statistic": "population affine residual RMS of original physical RX tick / exact corrected TX ns pairs; relative only",
+    "minimum_samples": 4,
+    "maximum_samples": 16,
+    "block": "nonoverlapping; rollover collects anew",
+    "x_quantum_us": 100,
+    "elapsed_limit_s": 120,
+    "nominal_removed_offset_limit_ns": 16000000,
+    "state_bytes": 56,
+    "view_bytes": 48,
+    "reset": [
+      "context",
+      "capture_epoch",
+      "applicable_loss",
+      "original_event_gap_12s",
+      "OFF",
+      "numeric_domain",
+      "degenerate_X"
+    ],
+    "quality_only_refresh_resets": false,
+    "absolute_accuracy_claim": false
+  },
+  "software_launch_abort": {
+    "errno": "EINTR",
+    "RF_delivery": "ambiguous",
+    "sequence": "consume proposed timing or diagnostic sequence once",
+    "correction": "clear pending/prior physical reference",
+    "events": "retain pending diagnostic bits",
+    "restart": "mandatory original bounded close/retirement",
+    "timing_retry_min_us": 4000000,
+    "diagnostic_retry_min_us": 2000000,
+    "future_timing_deadline_preserved_on_diagnostic_abort": true,
+    "retired_command_timeout": "latched fault"
   }
 }

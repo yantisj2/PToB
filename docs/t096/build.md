@@ -127,7 +127,7 @@ display, BLE/USB service and stack observations remain exact-device gates.
 
 ## Hardware update boundary
 
-Normal0.15.124 builds include the [RC8 wire3 integration](../../protocol/rc8/README.md).
+Normal0.15.125 builds include the [RC8 wire3 integration](../../protocol/rc8/README.md).
 The default transmitter factory is zero, so LoRa hardware does not start. An
 explicit normal-only `--lora-transmitter-factory` takes a16-digit exact factory
 identity verified against ignored T096 registry metadata. It is included in the
@@ -149,6 +149,10 @@ it grants no normal-source or future RC9 authority. Host/source/worker/radio
 fake-boundary tests run in the full runner. They do not operate hardware or
 qualify RF, coexistence or output accuracy. Native linked RAM must prove the4096B
 added-static ceiling; existing owner/controller/USB/stack gates remain.
+Version125 populates the immutable context before validating a prior correction;
+version124 discarded that correction because its not-yet-populated context failed
+validation. A production-service test now feeds two service-generated physical
+timing packets through the receiver and requires an accepted prior event.
 Wire3 retains80-byte timing packets, adds128-byte descriptive companions roughly
 every120 seconds plus coalesced events, and carries root identity/source epoch
 in every timing packet. Companions never renew a timing sample. Current-context
@@ -261,3 +265,11 @@ The full host runner includes these checks. A retained periodic train carries no
 corrections while the existing timing gates are invalid; it cannot extend a
 child lease, source, map or authentication deadline. Build/native inspection and
 actual protected-region/application readback remain separate hardware gates.
+
+Version0.15.125 keeps wire3 bytes/domains while correcting prior-event preparation,
+adding bounded ambiguous-launch recovery and page7 RX link affine residual RMS.
+`lora_rc8_tests.py` includes an independent high-precision Decimal residual oracle
+over synthetic corrected physical pairs; this is not a hardware accuracy result.
+The compact LoRa view stays48B; the RX-only sufficient statistics add56B inside
+the boot-role union. Complete native ELF and exact-device stack checks must still
+meet the original4096B added-static ceiling without reserve reductions.

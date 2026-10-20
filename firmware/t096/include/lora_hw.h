@@ -17,7 +17,7 @@ struct r2_lora_hw_ack {
 };
 struct r2_lora_hw_diag {
  uint32_t rx_done,tx_done,crc_bad,overflow,spi_ok,spi_error,cutoffs;
- uint32_t invalid_capture;
+ uint32_t invalid_capture,launch_aborts;
  uint32_t capture_epoch,generation;
  int error;
  uint8_t phase;
@@ -34,7 +34,9 @@ int r2_lora_hw_tx(const uint8_t *,size_t,uint32_t tx_generation);
 uint32_t r2_lora_hw_budget_us(size_t);
 /* Opportunistic submission: after all SPI preparation, recheck the original
  * finish deadline immediately before FEM enable. EAGAIN leaves the idle
- * owner healthy with no SetTx or FEM emission. Zero deadline is unbounded. */
+ * owner healthy with no SetTx or FEM emission. Zero deadline is unbounded.
+ * EINTR means a reset-aborted software launch that MAY have transmitted:
+ * consume its sequence and complete bounded stop/retirement before restart. */
 int r2_lora_hw_tx_before(const uint8_t *,size_t,uint32_t,uint64_t latest_finish_us);
 /* 0=no complete packet, 1=immutable event, negative=local radio fault. */
 int r2_lora_hw_take(struct r2_lora_hw_event *);

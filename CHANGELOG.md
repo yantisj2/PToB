@@ -2,6 +2,34 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 20 October 2026 — T0960.15.125 RC8 follow-up and link diagnostics
+
+The timing service now populates its immutable context before validating a prior
+physical TxDone correction. Version124 validated the unfinished packet, rejected
+its zero context and discarded every prior correction; mapped TX events alone
+did not establish receiver acquisition. A production-service regression requires
+the second physical timing packet to carry the first event and the real receiver
+policy to accept it. Wire3 bytes, HMAC domains and vectors are unchanged. The124
+hardware population, its zero accepted samples and separate radio timeout remain
+preserved failures; this source fix does not qualify RF coexistence or output.
+
+An interrupted software launch retains the original hardware cutoff and requires
+bounded reset/retirement before restart. Since RF may have reached a listener,
+the proposed timing or companion sequence is consumed, prior correction is
+cleared, pending diagnostic events remain and retries keep their cadence.
+Retired-command timeouts and transport faults remain latched. A short final
+driver fence closes the abort/command-retirement race without masking SPI or
+BLE work. Companion age is sampled inside the snapshot lock after the latest
+owner publication, preventing a preempting update from manufacturing UNKNOWN.
+
+Page7 displays source/parent diagnostics and a locally measured RX link affine
+residual RMS, separate from the companion's upstream BLE fit. The estimate uses
+4..16 matched physical event pairs per block; rollover, context, capture epoch,
+loss, gap and OFF reset it. COLLECTING and NO TIMING replace the generic
+placeholder; a TX-only unit shows source validity. This is relative consistency,
+not calibrated UTC/output accuracy. The56-byte fit stays in the RX/TX union and
+the compact48-byte view preserves existing cache sizes and original reserves.
+
 ## 20 October 2026 — T0960.15.124 RC8 companion diagnostics
 
 [RC8 wire3](protocol/rc8/README.md) retains80-byte timing with explicit full root
