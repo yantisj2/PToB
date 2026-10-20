@@ -58,6 +58,7 @@ struct r2_capture{uint64_t tick,epoch;int kind;};
 static uint64_t mock_us=1000000,physical_tick=15999999;
 static int pins[64],irq_flags,packet_length=80,busy_high,suppress_dma,alloc_fail,stop_at_attach,stop_at_spi;
 static unsigned submissions,attach_count,detach_count;static bool route,watchdog_at_attach;
+static uint32_t delay_after_settx_us;static bool done_after_delay;
 static bool expire_at_fem,delay_before_fem,spi_eagain_payload,invalid_capture,stuck_dio,abort_in_settx,done_in_settx,withhold_settx,abort_at_commit,expire_after_commit,busy_on_settx,busy_at_fem,ready_at_busy_deadline,cutoff_at_busy_deadline,error_at_busy_deadline;static uint64_t busy_since;static int settx_error;static unsigned irq_depth;static unsigned set_tx_commands,last_budget;
 static void preempt_cutoff(void);
 static void preempt_submission(void);
@@ -150,6 +151,10 @@ static void preempt_cutoff(void){
  }
 }
 static void preempt_submission(void){
+ if(delay_after_settx_us){
+  mock_us+=delay_after_settx_us;delay_after_settx_us=0;
+  if(done_after_delay){irq_flags=1;pins[21]=1;pins[12]=0;dio_irq(&device,&dio_callback,BIT(21));}
+ }
  if(abort_in_settx||done_in_settx){
   bool completed_tx=done_in_settx;abort_in_settx=done_in_settx=false;
   mock_us+=last_budget+1;pins[12]=0;
@@ -168,6 +173,25 @@ int main(int argc,char **argv){
   closed();assert(wd.closure==31);return 0;}
  bool tx_mode=mode==3||mode==11||mode==14||mode==15||mode==16||mode==17||mode==19||mode==20||mode==21||mode==22||mode==23||mode==24||mode==25||mode==27||mode==28||mode==29||mode==30||mode==31||mode==32||mode==33||mode>=34;
  assert(!r2_lora_hw_start(4,!tx_mode));
+ if(mode>=45&&mode<=50){
+  size_t n=mode==47||mode==48?128:80;
+  if(mode==50)mock_us=UINT32_MAX-10000u;
+  delay_after_settx_us=n==80?20000:30000;
+  bool late=mode==46||mode==48||mode==50;
+  if(late)++delay_after_settx_us;
+  if(mode==49){delay_after_settx_us=100000;done_after_delay=true;}
+  int rc=r2_lora_hw_tx(payload,n,5);
+  if(late){
+   assert(rc==-EINTR&&counters.launch_aborts==1&&!counters.busy_aborts&&!counters.cutoffs&&!atomic_get(&fault));
+   assert(!atomic_get(&running)&&!pins[12]&&!pins[16]&&!pins[30]);
+   assert(wd.serial==1&&!wd.terminal&&(wd.record[3]>>8)==R2_LORA_STAGE_LATE_LAUNCH);
+   assert((wd.record[5]&255)==4&&((wd.record[5]>>14)&3)==3);
+   assert(r2_lora_hw_start(6,false)==-EBUSY);closed();assert(wd.closure==15);
+   assert(!r2_lora_hw_start(6,false));assert(!r2_lora_hw_tx(payload,n,7));inject(1);
+  }else{assert(!rc&&!counters.launch_aborts&&atomic_get(&phase)==3);if(mode!=49)inject(1);}
+  struct r2_lora_hw_event e;assert(r2_lora_hw_take(&e)==1&&e.tick==physical_tick);
+  r2_lora_hw_stop_begin(mock_us+200000);closed();return 0;
+ }
  if(mode==3){assert(!r2_lora_hw_tx(payload,80,5));inject(1);mock_us+=400000;cutoff_irq(0,NULL);struct r2_lora_hw_event e;
   assert(!atomic_get(&fault)&&!counters.cutoffs); /* Latched physical DONE wins. */
   assert(r2_lora_hw_take(&e)==1&&e.kind==R2_LORA_HW_TX_DONE&&e.generation==5&&e.tick==physical_tick&&e.capture_epoch==7);
@@ -263,7 +287,7 @@ int main(int argc,char **argv){
   counters.busy_aborts=UINT16_MAX;counters.launch_aborts=UINT32_MAX;busy_at_fem=true;assert(r2_lora_hw_tx(payload,80,20)==-EINTR);assert(counters.busy_aborts==UINT16_MAX&&counters.launch_aborts==UINT32_MAX);closed();return 0;}
  if(mode==36){busy_high=1;assert(r2_lora_hw_tx(payload,80,5)==-ETIMEDOUT);
   assert(!set_tx_commands&&!counters.busy_aborts&&!counters.launch_aborts&&counters.last_busy_op==0x80&&atomic_get(&fault)==-ETIMEDOUT);closed();return 0;}
- if(mode==37){busy_at_fem=ready_at_busy_deadline=true;assert(!r2_lora_hw_tx(payload,80,5));
+ if(mode==37){busy_at_fem=ready_at_busy_deadline=true;assert(!r2_lora_hw_tx(payload,128,5));
   assert(set_tx_commands==1&&!counters.busy_aborts&&!counters.launch_aborts&&!counters.last_busy_op&&!atomic_get(&fault));inject(1);struct r2_lora_hw_event e;assert(r2_lora_hw_take(&e)==1);r2_lora_hw_stop_begin(mock_us+200000);closed();return 0;}
  if(mode==38){busy_at_fem=cutoff_at_busy_deadline=true;assert(r2_lora_hw_tx(payload,80,5)==-EINTR);
   assert(!set_tx_commands&&counters.launch_aborts==1&&!counters.busy_aborts&&!counters.cutoffs&&!atomic_get(&fault));closed();return 0;}

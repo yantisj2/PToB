@@ -56,6 +56,8 @@ static struct snapshot published;
 static void events(uint16_t bits){published.diagnostic_events|=bits;++published.event_revision;}
 K_THREAD_STACK_DEFINE(worker_stack,2048);
 static struct k_thread worker_thread;
+#define WORKER_PRIORITY 11
+#define DRAIN_PRIORITY 9
 static uint64_t mono(void){return k_ticks_to_us_floor64(k_uptime_ticks());}
 static void inc(uint32_t *n){if(*n<UINT32_MAX)++*n;}
 static uint32_t age_ms(uint64_t now,uint64_t at){uint64_t age=now>=at?(now-at)/1000:UINT64_MAX;return age>UINT32_MAX?UINT32_MAX:(uint32_t)age;}
@@ -191,6 +193,12 @@ static void stop_now(void){
  if(!stop_deadline)stop_deadline=mono()+RC8_DRAIN_US;
  uint64_t deadline=stop_deadline;k_spin_unlock(&lock,key);
  r2_lora_hw_stop_begin(deadline);
+ /* RF is already inhibited. Only drain work temporarily precedes the
+  * priority10 console/flash writers; BLE owners retain their priorities.
+  * Wake a sleeping owner rather than spending its original200ms bound asleep.
+  * No SPI, buffer reuse or deadline extension is admitted by this promotion. */
+ k_thread_priority_set(&worker_thread,DRAIN_PRIORITY);
+ k_wakeup(&worker_thread);
 }
 void r2_lora_stop(void){atomic_and(&flags,~ALLOWED);if(!atomic_get(&closed))stop_now();}
 void r2_lora_control(bool rc,bool allowed,enum rc8_selected preferred){
@@ -404,12 +412,13 @@ static void __attribute__((noinline)) service_step(void){
   struct r2_lora_hw_ack ack={0};r2_lora_hw_stop_poll(&ack);
   k_spinlock_key_t key=k_spin_lock(&lock);uint64_t deadline=stop_deadline;k_spin_unlock(&lock,key);
   if(ack.fault)atomic_or(&faulted,1);
-  if(now>=deadline)atomic_or(&faulted,2);
+  if(now>=deadline){atomic_or(&faulted,2);r2_lora_hw_watchdog_trip(-ETIMEDOUT);}
   if(ack.dma_retired&&ack.radio_quiescent&&ack.fem_off&&ack.capture_released){
    owner.active=owner.stopping=false;atomic_set(&closed,1);
    key=k_spin_lock(&lock);stop_deadline=0;
    if(transmitter){role.tx.pending=role.tx.previous_valid=false;role.tx.meta_us=0;role.tx.repeat_us=0;role.tx.repeat_events=0;}
    k_spin_unlock(&lock,key);
+   k_thread_priority_set(&worker_thread,WORKER_PRIORITY);
   }
  }else if(desired&&!owner.active){
   if(generation==UINT32_MAX)atomic_set(&faulted,1);
@@ -451,7 +460,7 @@ void r2_lora_init(uint64_t factory,uint64_t boot,uint64_t tx,const struct r2_gro
  struct rc8_requests requests=rc8_requests_default(&binding);
  if(!transmitter)(void)rc8_receiver_init(&role.rx,&binding);
  atomic_set(&flags,(requests.tx||requests.rx)?REQUESTED:0);
- k_thread_create(&worker_thread,worker_stack,K_THREAD_STACK_SIZEOF(worker_stack),worker,NULL,NULL,NULL,11,0,K_NO_WAIT);
+ k_thread_create(&worker_thread,worker_stack,K_THREAD_STACK_SIZEOF(worker_stack),worker,NULL,NULL,NULL,WORKER_PRIORITY,0,K_NO_WAIT);
  k_thread_name_set(&worker_thread,"rc8-radio");
 }
 void r2_lora_watchdog_check(void){

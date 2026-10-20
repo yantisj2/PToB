@@ -346,6 +346,7 @@ static int enable_fem(bool transmit, uint32_t budget, uint64_t latest_finish,
      * Initial canary chip drive is0dBm; antenna power is not measured. */
     rc = gpio_pin_set_dt(&ctx, 1);
     if (!rc && transmit) {
+      wd.launch_us=(uint32_t)now;wd.launch_ms=(uint32_t)(now/1000u);
       atomic_clear(&cutoff_expired);
       nrfx_timer_clear(&cutoff);
       nrfx_timer_extended_compare(&cutoff, NRF_TIMER_CC_CHANNEL0, budget,
@@ -593,6 +594,21 @@ int r2_lora_hw_tx_before(const uint8_t *bytes, size_t n, uint32_t gen,
    * peripheral calls inside this short fence. Before it, an aborted attempt
    * returns EINTR; after phase3 commits, a missing DONE is a real TX timeout. */
   unsigned key = irq_lock();
+  /* A preempted command may return with BUSY already low long after launch.
+   * Do not retire that ambiguous attempt as phase3 when its full chip timeout
+   * can no longer fit the ORIGINAL hardware FEM window. A previously latched
+   * DIO keeps its physical capture and is classified by take(), as before.
+   * These20/30ms margins do not extend either chip or FEM timeout. */
+  uint32_t launch_margin=budget-(n<=80?340000u:420000u);
+  if(!rc&&!atomic_get(&fault)&&atomic_get(&running)&&
+     atomic_get(&phase)==4&&!atomic_get(&latched)&&
+     (uint32_t)((uint32_t)now_us()-wd.launch_us)>launch_margin){
+    wd.stage=(R2_LORA_STAGE_LATE_LAUNCH<<8)|0x83u;
+    wd.stage_at=wd.launch_ms;
+    atomic_set(&launch_aborted,3);count(&counters.launch_aborts);
+    note_fault(-EINTR,false);inhibit();
+  }
+  if(!rc&&atomic_get(&fault))rc=atomic_get(&fault);
   bool aborted = atomic_get(&launch_aborted) && !atomic_get(&fault) &&
                  (!rc || rc == -ECANCELED);
   if (!rc && !aborted)
@@ -686,6 +702,7 @@ int r2_lora_hw_take(struct r2_lora_hw_event *out) {
 void r2_lora_hw_stop_begin(uint64_t original_deadline_us) {
   (void)original_deadline_us;
   unsigned key = irq_lock();
+  if(atomic_get(&running))stage(R2_LORA_STAGE_STOP);
   atomic_inc(&stop_serial);
   inhibit();
   irq_unlock(key);

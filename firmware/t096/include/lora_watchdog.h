@@ -7,7 +7,8 @@
 #define R2_LORA_WORKER_MS 30000u
 enum r2_lora_stage {R2_LORA_STAGE_IDLE=0,R2_LORA_STAGE_START,
  R2_LORA_STAGE_BUSY_BEFORE,R2_LORA_STAGE_DMA,R2_LORA_STAGE_BUSY_AFTER,
- R2_LORA_STAGE_TAKE,R2_LORA_STAGE_REARM,R2_LORA_STAGE_STOP};
+ R2_LORA_STAGE_TAKE,R2_LORA_STAGE_REARM,R2_LORA_STAGE_STOP,
+ R2_LORA_STAGE_LATE_LAUNCH};
 /* The journal scanner finishes before the LoRa worker starts. Its 512B
  * scratch then has this single lifetime. No owner/stack reserve is borrowed.
  * All shared publication and first-fault capture is protected by IRQ fences;
@@ -16,7 +17,7 @@ struct r2_lora_watchdog_state {
  uint32_t record[R2_LORA_FAULT_WORDS];
  uint64_t journal_generation;
  uint32_t serial,submitted,saved,coalesced,stage,stage_at,beat,monitor,
-  closure,irq_status,terminal,fault_at,reset_requested;
+  closure,irq_status,terminal,fault_at,reset_requested,launch_us,launch_ms;
  int journal_result;
 };
 union r2_diag_scratch {

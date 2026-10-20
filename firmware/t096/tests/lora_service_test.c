@@ -20,11 +20,14 @@ struct k_spinlock{int unused;};typedef int k_spinlock_key_t;
 static int k_spin_lock(struct k_spinlock *p){(void)p;return 0;}
 static void k_spin_unlock(struct k_spinlock *p,int k){(void)p;(void)k;}
 struct k_thread{int unused;};
+static int worker_priority=11;static unsigned worker_wakes;
+static void k_thread_priority_set(struct k_thread *t,int p){(void)t;assert(p==9||p==11);worker_priority=p;}
+static void k_wakeup(struct k_thread *t){(void)t;worker_wakes++;}
 #define K_THREAD_STACK_DEFINE(n,s) unsigned char n[s]
 #define K_THREAD_STACK_SIZEOF(n) sizeof(n)
 #define K_NO_WAIT 0
 #define K_MSEC(n) n
-static void k_thread_create(struct k_thread *t,void *s,size_t n,void (*fn)(void*,void*,void*),void *a,void *b,void *c,int p,int q,int r){(void)t;(void)s;(void)n;(void)fn;(void)a;(void)b;(void)c;(void)p;(void)q;(void)r;}
+static void k_thread_create(struct k_thread *t,void *s,size_t n,void (*fn)(void*,void*,void*),void *a,void *b,void *c,int p,int q,int r){(void)t;(void)s;(void)n;(void)fn;(void)a;(void)b;(void)c;(void)q;(void)r;worker_priority=p;}
 static void k_thread_name_set(struct k_thread *t,const char *n){(void)t;(void)n;}
 static uint64_t now_us=1000000;
 static uint64_t k_uptime_ticks(void){return now_us;}
@@ -180,6 +183,24 @@ int main(int argc,char **argv){assert(argc==2);unsigned mode=(unsigned)atoi(argv
   init(false);step();struct r2_lora_watchdog_state *w=&r2_diag_scratch.lora;
   r2_lora_hw_watchdog_trip(-EIO);w->closure=22;journal_rc=0;now_us+=RC8_DRAIN_US;r2_lora_watchdog_poll();assert(journal_calls==1&&!reset_calls);
   now_us=(uint64_t)(w->fault_at+2000)*1000;r2_lora_watchdog_poll();assert(reset_calls==1&&w->journal_result==-EINPROGRESS&&!w->saved);
+ }
+ else if(mode==43){
+  /* Fixed public-boundary scheduler: priority10 background flash/console can
+   * delay lower work250ms; an urgent drain gets its next1ms opportunity.
+   * This fails against128's production service body without changing it. */
+  init(true);step();assert(worker_priority==11);r2_lora_request(false);
+  uint64_t original=stop_deadline;now_us+=worker_priority>10?250000:1000;step();
+  assert(!r2_lora_close_result()&&!atomic_get(&faulted)&&now_us<original&&worker_wakes);
+  assert(worker_priority==11);r2_lora_request(true);step();assert(owner.active&&worker_priority==11);
+ }
+ else if(mode==44){
+  init(false);step();r2_lora_request(false);hold_ack=true;step();
+  assert(worker_priority==9);uint64_t original=stop_deadline;
+  r2_lora_stop();assert(stop_deadline==original);now_us=original;step();
+  assert(r2_lora_close_result()==-EIO&&r2_diag_scratch.lora.terminal);
+  assert((int32_t)r2_diag_scratch.lora.record[1]==-ETIMEDOUT);
+  hold_ack=false;step();assert(atomic_get(&closed)&&worker_priority==11);
+  unsigned count=starts;r2_lora_request(true);step();assert(starts==count&&atomic_get(&faulted));
  }
  else assert(false);
  char json[3072];int n=r2_lora_json(json,sizeof json,0);assert(n>0&&n<(int)sizeof json);printf("PASS runtime mode%u role=%zu snapshot=%zu worker=%zu json=%d\nJSON %s\n",mode,sizeof role,sizeof published,sizeof worker_stack,n,json);

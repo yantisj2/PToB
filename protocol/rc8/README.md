@@ -2,7 +2,7 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
-T0960.15.128 uses80-byte timing packets and128-byte descriptive companion
+T0960.15.129 uses80-byte timing packets and128-byte descriptive companion
 packets. Both are one-way group-authenticated broadcasts. There is no ACK,
 authentication handshake, listener transmission or ranging exchange. Wire3 is
 incompatible with [historical wire2](wire2-historical.md); its original
@@ -270,8 +270,10 @@ closure bits20..24 as actually observed after closure or the original200ms drain
 bound. Word10 contains chip IRQ bits0..15, BUSY-high16, DIO-high17 and GPIO-read
 errors18/19. Launch count in the compact record saturates at65535; full counters
 remain in `hw`. Stage values0..7 are idle/start/BUSY-before/DMA/BUSY-after/take/
-rearm/stop; stage time is diagnostic observation, never a timing sample. A terminal
-fault superseding an uncommitted recoverable record increments coalesced; the
+rearm/stop; stage time is diagnostic observation, never a timing sample.
+Version129 stage8 identifies a late unretired launch and word4 then contains
+the original FEM-enable millisecond; launch-abort reason3 identifies this path.
+A terminal fault superseding an uncommitted recoverable record increments coalesced; the
 first terminal cause stays frozen. Saved serial advances only after confirmed
 journal completion. Records with a failed optional spare preparation remain
 conservatively failed even if their earlier commit may be readable.
@@ -297,3 +299,20 @@ delayed capture, bounded scheduling, OFF/ON, gestures and source gates exercise
 production bodies with fake physical boundaries. Native compilation and exact
 hardware populations retain their own identities, failures and limitations.
 Future RC9 and W12 changes are excluded.
+
+
+Version129 temporarily runs only inhibited drain work at priority9, with an
+explicit wakeup, before returning to ordinary priority11 after complete closure.
+Priority10 USB/diagnostic work cannot consume that application's drain budget;
+BLE priorities and the200ms deadline remain unchanged. Late acknowledgment
+remains a fault with ETIMEDOUT cause, including eventual full closure.
+
+An unretired SetTx returns bounded EINTR if more than20ms (timing) or30ms
+(companion) has elapsed from original FEM enable without a latched DIO. Thus its
+full340/420ms chip timeout still fits the unchanged360/450ms FEM window at
+phase3 retirement. Counters and normal bounded close/cooldown apply; this is
+ambiguous delivery, not a successful physical transmission. Stage8 in a fault
+record identifies this case; word4 is its original FEM-enable millisecond and
+word5 records launch-abort reason3. No actual phase3 timeout is converted to
+recovery, and no unretired DMA is reused. These are software contracts, separate
+from exact-device timing, recovery and coexistence evidence.

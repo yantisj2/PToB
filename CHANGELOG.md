@@ -2,6 +2,21 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 20 October 2026 — T0960.15.129 launch and drain scheduling
+
+An unretired SetTx command that returns after its20ms timing or30ms companion
+launch margin now consumes its sequence and closes through bounded EINTR
+recovery. Its complete chip timeout must fit the original360/450ms FEM window
+before phase3 retirement. A latched physical DIO is still classified normally;
+real retired-TX timeouts and DMA/SPI errors remain terminal. Late launches are
+counted and journaled with stage8 and the original FEM-enable millisecond.
+
+After RF inhibition, closure temporarily uses priority9 and wakes the sleeping
+LoRa worker. It restores ordinary priority11 after all four closure acknowledgments;
+BLE priorities and the original200ms drain deadline are unchanged. A missed drain
+now retains ETIMEDOUT as its actual cause. These changes address scheduling
+hazards; host regressions do not establish physical fault elimination.
+
 ## 20 October 2026 — T0960.15.128 stalled-start cancellation
 
 The LoRa watchdog trip now advances the cancellation serial before inhibition.

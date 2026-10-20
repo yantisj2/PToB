@@ -127,7 +127,7 @@ display, BLE/USB service and stack observations remain exact-device gates.
 
 ## Hardware update boundary
 
-Normal0.15.128 builds include the [RC8 wire3 integration](../../protocol/rc8/README.md).
+Normal0.15.129 builds include the [RC8 wire3 integration](../../protocol/rc8/README.md).
 The default transmitter factory is zero, so LoRa hardware does not start. An
 explicit normal-only `--lora-transmitter-factory` takes a16-digit exact factory
 identity verified against ignored T096 registry metadata. It is included in the
@@ -299,3 +299,13 @@ Version0.15.128 advances the driver cancellation serial before a watchdog trip.
 A stalled start returning from capture/resource acquisition must fail its
 original reset-release fence. The production-driver regression fails against
 127 and passes with128; this does not fabricate a physical worker stall.
+
+
+Version0.15.129 keeps the original200ms drain bound, temporarily wakes/prioritizes
+only inhibited closure above priority10 console/diagnostic work, then restores
+normal priority11. BLE owner priorities remain unchanged. Before retiring a
+SetTx as phase3, its full340/420ms chip timeout must still fit the original
+360/450ms FEM window; a late unretired launch closes/counts/journals EINTR and
+keeps existing retry cadence. A previously latched DIO keeps its physical capture.
+Real phase3 timeout, SPI and unretired-DMA faults remain terminal. Stage8 records
+use word4 for the original FEM-enable millisecond so launch age remains visible.
