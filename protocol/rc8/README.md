@@ -2,7 +2,7 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
-T0960.15.125 uses80-byte timing packets and128-byte descriptive companion
+T0960.15.126 uses80-byte timing packets and128-byte descriptive companion
 packets. Both are one-way group-authenticated broadcasts. There is no ACK,
 authentication handshake, listener transmission or ranging exchange. Wire3 is
 incompatible with [historical wire2](wire2-historical.md); its original
@@ -200,6 +200,12 @@ diagnostic retries wait at least2s and preserve a future timing deadline. Such a
 abort is counted separately from a retired-command timeout, which stays fatal.
 A brief final IRQ fence classifies abort versus retired command; no SPI or wait
 is inside it. Neither this recovery nor EAGAIN lengthens a hardware RF window.
+Version126 additionally recognizes an actual BUSY-high30ms deadline inside
+`wait_busy` while opcode0x83 is in phase4, the owner is running, DMA has retired
+and no fault exists. It resets the attempt and takes the same ambiguous EINTR
+path. A generic ETIMEDOUT is never enough for recovery. Other opcodes/phases,
+SPI/callback faults, DMA nonretirement and phase3 timeouts retain their fault
+semantics. A competing cutoff/cancellation cannot count the same attempt twice.
 
 Page7 RX link RMS is the population residual RMS of an affine fit to original
 physical RxDone ticks paired with exact corrected TxDone ns. It uses bounded
@@ -224,6 +230,10 @@ Version125 adds `link_fit=[samples,rms_ns]` (RMS usable only for samples>=4 and
 available original timing). Its `hw` array appends `launch_aborts` after
 `invalid_capture`: RXdone, TXdone, CRCbad, overflow, SPIok, SPIerror, cutoffs,
 capture epoch, generation, error, phase, invalid capture, launch aborts.
+Version126 appends `busy_aborts` at `hw[13]` and `last_busy_op` at `hw[14]`.
+The BUSY counter saturates at65535; opcode is the last BUSY-high deadline's
+command, not proof of whether RF began. Both fields use existing structure
+padding: the hardware diagnostic remains52 bytes.
 Companion preparation age uses a fresh monotonic snapshot under the owner lock;
 polling cannot make the actual parent-advertisement age younger. Page7 omits
 parent class/accuracy once preparation plus receive age reaches10s.

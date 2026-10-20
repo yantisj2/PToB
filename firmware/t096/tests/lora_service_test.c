@@ -33,6 +33,7 @@ static bool late_diagnostic,quality_during_spi,quality_on_capture,change_during_
 static void spi_quality_update(void);
 static void spi_context_update(void);
 static int start_result,take_result;static struct r2_lora_hw_event queued;
+static uint32_t fake_launch_aborts;static uint16_t fake_busy_aborts;static uint8_t fake_last_busy_op;
 static uint8_t sent[128];static size_t sent_len;static uint32_t sent_generation;
 bool r2_capture_now(struct r2_capture *c){if(quality_on_capture){quality_on_capture=false;spi_quality_update();}if(withdraw_on_capture&&++capture_calls==2){withdraw_on_capture=false;r2_lora_source_withdraw();}*c=(struct r2_capture){now_us*16,7,R2_CAPTURE_NOW};return capture_valid;}
 bool r2_capture_now_at(struct r2_capture *c,uint64_t *us){*us=now_us;return r2_capture_now(c);}
@@ -43,7 +44,7 @@ int r2_lora_hw_take(struct r2_lora_hw_event *e){if(cancel_take){cancel_take=fals
 int r2_lora_hw_rx_rearm(void){rearms++;return 0;}
 void r2_lora_hw_stop_begin(uint64_t deadline){assert(deadline>0);stops++;}
 void r2_lora_hw_stop_poll(struct r2_lora_hw_ack *a){*a=(struct r2_lora_hw_ack){!hold_ack,true,true,true,false};}
-void r2_lora_hw_diag(struct r2_lora_hw_diag *d){memset(d,0,sizeof *d);}
+void r2_lora_hw_diag(struct r2_lora_hw_diag *d){memset(d,0,sizeof *d);d->launch_aborts=fake_launch_aborts;d->busy_aborts=fake_busy_aborts;d->last_busy_op=fake_last_busy_op;}
 #include R2_LORA_SERVICE_BODY
 static void spi_quality_update(void){now_us+=2000;struct rc8_quality q=published.quality;r2_lora_quality_publish(&published.scope,&q);}
 static const struct r2_group_config test_group={.id=11,.epoch=1,.psk={1,2,3}};
@@ -127,6 +128,7 @@ int main(int argc,char **argv){assert(argc==2);unsigned mode=(unsigned)atoi(argv
  else if(mode==33){init(true);struct rc8_export a=source(now_us*16,1);r2_lora_source_publish(&a);step();step();assert(sent_len==80);uint8_t first[80];memcpy(first,sent,80);struct rc8_packet p;assert(!rc8_decode(&p,first,80,&test_group)&&p.sequence==1&&!p.corrected);done();struct rc8_correction original=published.correction;assert(original.sequence==1&&role.tx.previous_valid);assert(sent_len==128);done();now_us=role.tx.next_us;a=source(now_us*16,2);r2_lora_source_publish(&a);step();assert(sent_len==80);assert(!rc8_decode(&p,sent,80,&test_group));assert(p.sequence==2&&p.corrected&&p.correction.sequence==1&&published.wire_corrected_sequence==1);assert(p.correction.event_ns==original.event_ns&&p.correction.map_generation==original.map_generation&&p.correction.map_age_us==original.map_age_us);assert(p.correction.created_ns>=original.created_ns&&p.correction.created_ns-original.created_ns<1000);assert(p.correction.expires_ns<=original.expires_ns&&original.expires_ns-p.correction.expires_ns<1000);struct rc8_receiver rx;struct rc8_enrollment listener={.factory=2,.transmitter_factory=1,.enrolled=true};assert(rc8_receiver_init(&rx,&listener));rc8_receiver_switch(&rx,true);struct rc8_event e={.tick=16000000,.capture_epoch=7,.local_us=1000000,.generation=rx.generation,.kind=RC8_EVENT_RX_DONE};assert(rc8_receiver_freeze(&rx,first,80,e));assert(!rc8_receiver_process(&rx,&test_group,e.local_us));e.tick+=64000000;e.local_us+=4000000;assert(rc8_receiver_freeze(&rx,sent,80,e));assert(rc8_receiver_process(&rx,&test_group,e.local_us));assert(rx.accepted==1&&rx.sample.tx.sequence==1&&rx.sample.tx.event_ns==original.event_ns&&rc8_receiver_state(&rx,e.local_us)==RC8_AVAILABLE);}
  else if(mode==34)abort_recovery();
  else if(mode==35){init(true);step();quality_on_capture=true;step();struct rc8_companion p;uint8_t id[16];assert(sent_len==128&&!rc8_companion_decode(&p,id,sent,128,&test_group)&&p.snapshot_age_ms==0&&published.diagnostic_us<=now_us);done();published.diagnostic_us=now_us+1000000;role.tx.diag_not_before=0;role.tx.meta_us=0;step();assert(!rc8_companion_decode(&p,id,sent,128,&test_group)&&p.snapshot_age_ms==UINT32_MAX);}
+ else if(mode==36){init(true);step();fake_launch_aborts=9;fake_busy_aborts=7;fake_last_busy_op=0x83;assert(sizeof(struct r2_lora_hw_diag)==52);}
  else assert(false);
- char json[3072];int n=r2_lora_json(json,sizeof json,0);assert(n>0&&n<(int)sizeof json);printf("PASS runtime mode%u role=%zu snapshot=%zu worker=%zu json=%d\n",mode,sizeof role,sizeof published,sizeof worker_stack,n);
+ char json[3072];int n=r2_lora_json(json,sizeof json,0);assert(n>0&&n<(int)sizeof json);printf("PASS runtime mode%u role=%zu snapshot=%zu worker=%zu json=%d\nJSON %s\n",mode,sizeof role,sizeof published,sizeof worker_stack,n,json);
 }

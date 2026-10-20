@@ -2,6 +2,23 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 20 October 2026 — T0960.15.126 bounded SetTx BUSY recovery
+
+A BUSY-high deadline during an unfinished SetTx command now resets and retires
+that ambiguous attempt through the existing EINTR recovery path. Admission is
+limited to opcode0x83, phase4, a running owner, no fault and retired DMA; other
+BUSY deadlines, transport errors, unretired DMA and completed-launch timeouts
+remain faults. A concurrent cutoff/cancellation cannot double-count the abort.
+The30ms BUSY wait and340/360ms timing or420/450ms companion windows are unchanged.
+The service consumes the possibly transmitted sequence, closes fully and keeps
+its4s timing/2s diagnostic retry bounds. This does not establish the cause of the
+separate version125 observed timeout.
+
+The console appends BUSY abort count and last timed-out opcode in two `hw`
+fields. They occupy the hardware diagnostic structure's existing padding;
+the52-byte structure, RAM ceiling, original reserves, page7 and RX fit are
+preserved. Host/native checks remain separate from authorized hardware checks.
+
 ## 20 October 2026 — T0960.15.125 RC8 follow-up and link diagnostics
 
 The timing service now populates its immutable context before validating a prior

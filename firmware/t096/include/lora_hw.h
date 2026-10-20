@@ -20,8 +20,10 @@ struct r2_lora_hw_diag {
  uint32_t invalid_capture,launch_aborts;
  uint32_t capture_epoch,generation;
  int error;
- uint8_t phase;
+ uint8_t phase,last_busy_op;
+ uint16_t busy_aborts;
 };
+_Static_assert(sizeof(struct r2_lora_hw_diag)==52,"LoRa diagnostics reserve");
 /* One low-priority thread owns all calls except stop_begin and diag. The
  * packet engine returns to STBY_RC on the first received packet: the FIFO
  * and physical DIO1 capture remain frozen until take, then explicit rearm.

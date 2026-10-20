@@ -127,7 +127,7 @@ display, BLE/USB service and stack observations remain exact-device gates.
 
 ## Hardware update boundary
 
-Normal0.15.125 builds include the [RC8 wire3 integration](../../protocol/rc8/README.md).
+Normal0.15.126 builds include the [RC8 wire3 integration](../../protocol/rc8/README.md).
 The default transmitter factory is zero, so LoRa hardware does not start. An
 explicit normal-only `--lora-transmitter-factory` takes a16-digit exact factory
 identity verified against ignored T096 registry metadata. It is included in the
@@ -273,3 +273,10 @@ over synthetic corrected physical pairs; this is not a hardware accuracy result.
 The compact LoRa view stays48B; the RX-only sufficient statistics add56B inside
 the boot-role union. Complete native ELF and exact-device stack checks must still
 meet the original4096B added-static ceiling without reserve reductions.
+
+Version0.15.126 adds BUSY-high deadline recovery only for an unfinished SetTx
+with healthy retired DMA. Other BUSY/transport/completed-launch faults retain
+their bounds. Hardware diagnostics use existing padding for BUSY abort count
+and last opcode; `sizeof(r2_lora_hw_diag)` remains52. Page7, link-fit logic and
+all original reserves remain unchanged. The source change requires new exact-
+device functional/coexistence checks before field acceptance.

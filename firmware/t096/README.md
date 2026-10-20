@@ -5,7 +5,7 @@
 *Illustrative firmware-rendered RC screen; displayed values are not measured
 performance. [Image provenance](../../docs/images/README.md).*
 
-**PToB owns T096 RC7 development.** Current source version **0.15.125** supplies the
+**PToB owns T096 RC7 development.** Current source version **0.15.126** supplies the
 ordinary **GM** and **RC** mesh profiles, with USB timing compiled by default.
 [Build from source](../../docs/t096/build.md) with pinned public dependencies
 and ignored local enrollment. No enrolled binary is distributed.
@@ -36,6 +36,10 @@ from advertised parent/BLE quality and grants no absolute accuracy bound.
 Reset-aborted software launches consume their possibly transmitted sequence,
 retire fully and restart at a bounded cadence; real completed-launch timeouts
 remain faults. Timing and companion hardware cutoff durations are unchanged.
+Version126 also resets an actual BUSY-high deadline only while SetTx is
+unfinished and DMA has retired without a transport fault. The ambiguous sequence
+is consumed before bounded closure/retry. Other BUSY deadlines stay faulting;
+new diagnostic count/opcode fields distinguish this path without added RAM.
 
 T096 participates in the shared G1/RC7 mesh with W12 and StickS3 receivers and
 experimental relays. RC selection considers aged timing/delivery history as

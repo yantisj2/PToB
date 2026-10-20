@@ -462,12 +462,12 @@ int r2_lora_json(char *out,size_t capacity,int result){
  "\"sequence\":%u,\"corrected_sequence\":%u,\"wire_corrected_sequence\":%u,\"event_tick\":%llu,\"capture_epoch\":%llu,\"event_mono_us\":%llu,\"event_ns\":%llu,\"created_ns\":%llu,\"expires_ns\":%llu,\"map_generation\":%u,\"map_age_us\":%u,\"upstream_bound_ns\":%u,"
  "\"accepted\":%u,\"rejected\":%u,\"replayed\":%u,\"unmatched\":%u,\"overflow\":%u,\"metadata\":%u,\"missing_map\":%u,\"hold_age_ms\":%u,\"state\":%u,\"assurance\":%u,\"source_authority\":%u,\"choice\":%u,\"output_bound_ns\":null,\"rc7_authority\":false,"
  "\"companion\":[%u,%u,%u,%u,%s,%s],\"parent\":[\"%016llx\",\"%016llx\"],\"quality\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%d,%u,%u,%u],\"link_fit\":[%u,%u],"
- "\"hw\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%d,%u,%u,%u]}",
+ "\"hw\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%d,%u,%u,%u,%u,%u]}",
  result,(unsigned long long)physical_boot,(unsigned long long)s.scope.emitter_boot,(unsigned long long)binding.transmitter_factory,transmitter?"true":"false",s.view.requested?"true":"false",s.view.active?"true":"false",atomic_get(&faulted)?"true":"false",
  atomic_get(&closed)?"true":"false",(long)atomic_get(&faulted),(unsigned long long)deadline,stack_unused(),context,(unsigned long long)s.scope.emitter,(unsigned long long)s.scope.stream,(unsigned long long)s.scope.root,(unsigned long long)s.scope.root_boot,s.scope.source_epoch,s.scope.kind,s.scope.scale,
  s.sequence,s.corrected_sequence,s.wire_corrected_sequence,(unsigned long long)s.event.tick,(unsigned long long)s.event.capture_epoch,(unsigned long long)s.event.local_us,(unsigned long long)s.correction.event_ns,(unsigned long long)s.correction.created_ns,(unsigned long long)s.correction.expires_ns,s.correction.map_generation,s.correction.map_age_us,s.correction.upstream_bound_ns,
  s.accepted,s.rejected,s.replayed,s.unmatched,s.overflow,s.metadata,s.missing_map,s.view.age_ms,s.view.state,s.view.assurance,s.authority,s.view.choice,
  s.diagnostic_sequence,s.snapshot_age_ms,s.diagnostic_events,age_ms(mono(),s.diagnostic_us),s.quality_known?"true":"false",s.time_valid?"true":"false",
  (unsigned long long)s.scope.parent,(unsigned long long)s.scope.parent_boot,s.quality.known,s.quality.values,s.quality.role,s.quality.hop,s.quality.parent_class,s.quality.parent_accuracy,s.quality.parent_bound_ns,s.quality.correction_age_ms,s.quality.map_life_ms,s.quality.rate_ppb,s.quality.residual_ns,s.quality.losses,s.quality.recoveries,s.view.link_samples,s.view.link_rms_ns,
- h.rx_done,h.tx_done,h.crc_bad,h.overflow,h.spi_ok,h.spi_error,h.cutoffs,h.capture_epoch,h.generation,h.error,h.phase,h.invalid_capture,h.launch_aborts);
+ h.rx_done,h.tx_done,h.crc_bad,h.overflow,h.spi_ok,h.spi_error,h.cutoffs,h.capture_epoch,h.generation,h.error,h.phase,h.invalid_capture,h.launch_aborts,h.busy_aborts,h.last_busy_op);
 }

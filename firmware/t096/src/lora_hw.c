@@ -159,6 +159,37 @@ static void spi_done(const struct device *dev, int rc, void *unused) {
   atomic_clear(&dma_inflight);
   k_sem_give(&completed);
 }
+static int busy_deadline(void) {
+  unsigned key = irq_lock();
+  int rc = -ETIMEDOUT;
+  if (!atomic_get(&running))
+    rc = -ECANCELED;
+  else {
+    /* Re-read under the fence: a preempted old HIGH observation cannot turn
+     * an already-ready chip into a timeout. No SPI or wait inside the fence. */
+    int high = gpio_pin_get_dt(&busy);
+    if (high <= 0)
+      rc = high;
+    else {
+      counters.last_busy_op = dma_tx[0];
+      if (dma_tx[0] == 0x83 && atomic_get(&phase) == 4 &&
+          !atomic_get(&fault) && !atomic_get(&dma_inflight)) {
+      /* Only an unretired SetTx launch can take this bounded reset path.
+       * RF delivery is ambiguous; the caller consumes its sequence and
+       * closes before retry. A stuck BUSY remains visible, never hidden as
+       * a successful launch. Other operations and real DMA errors fault. */
+      atomic_set(&launch_aborted, 2);
+      count(&counters.launch_aborts);
+      if (counters.busy_aborts != UINT16_MAX)
+        ++counters.busy_aborts;
+      inhibit();
+      rc = -ECANCELED;
+      }
+    }
+  }
+  irq_unlock(key);
+  return rc;
+}
 static int wait_busy(void) {
   int64_t until = k_uptime_get() + BUSY_MS;
   for (;;) {
@@ -170,7 +201,7 @@ static int wait_busy(void) {
     if (!value)
       return 0;
     if (k_uptime_get() >= until)
-      return -ETIMEDOUT;
+      return busy_deadline();
     k_sleep(K_MSEC(1));
   }
 }

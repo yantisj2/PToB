@@ -2,7 +2,7 @@
   "schema": 3,
   "contract": "PTOB_RC8",
   "wire_version": 3,
-  "revision": 2,
+  "revision": 3,
   "status": "RUNTIME_INTEGRATION_UNQUALIFIED",
   "license": "MIT",
   "credit": "Jonathan Yantis",
@@ -181,7 +181,33 @@
     "rc9": false,
     "follower_tx_gate": "currently usable authenticated selected BLE delivered-map PLL locked; local PPS/source_ready not required",
     "own_gm_tx_gate": "currently valid qualified own PPS/source map",
-    "prior_correction_validation": "Version125 populates immutable context before complete-packet validation;124 incorrectly dropped prior corrections. Same wire3 bytes/domains/vectors; prior physical failures retained."
+    "prior_correction_validation": "Version125 populates immutable context before complete-packet validation;124 incorrectly dropped prior corrections. Same wire3 bytes/domains/vectors; prior physical failures retained.",
+    "busy_launch_recovery": {
+      "since": "0.15.126",
+      "origin": "actual BUSY-high deadline branch in wait_busy only",
+      "opcode": 131,
+      "phase": 4,
+      "guards": [
+        "running",
+        "no fault",
+        "DMA retired",
+        "not already aborted/cancelled"
+      ],
+      "result": "reset-abort via existing EINTR sequence consumption and bounded closure/retry",
+      "generic_ETIMEDOUT_recovery": false,
+      "other_phases_opcodes_transport_DMA_timeouts": "permanent fault",
+      "busy_wait_ms": 30,
+      "diag_struct_bytes": 52,
+      "diagnostic_padding_fields": [
+        "last_busy_op_u8",
+        "busy_aborts_u16_saturating"
+      ],
+      "json_hw_append_indices": {
+        "13": "busy_aborts",
+        "14": "last_busy_op"
+      },
+      "added_static_bytes": 0
+    }
   },
   "runtime_link_fit": {
     "statistic": "population affine residual RMS of original physical RX tick / exact corrected TX ns pairs; relative only",
