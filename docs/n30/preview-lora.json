@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "alias": "N3-1",
+  "dimensions": [
+    64,
+    128
+  ],
+  "scope": "PRODUCTION_RENDERER_SYNTHETIC_FIXTURE",
+  "hardware_access": false,
+  "sources": {
+    "tools/preview.cpp": "19c56c0c74381d69941302880a8d9ac8dcd3084ff179ccb9618e76e5fd692794",
+    "main/ui.hpp": "220b8707c0b487f959f9b4aa08d4c8abb7ca70d3b8c0f30e216274f91563cb78",
+    "main/ui_model.cpp": "3ad3961cdd44631464d0924ec924d310e11adde1f300220a33af3fa427239545",
+    "main/ui_render.cpp": "3bbabaef84feb11c21c5f62df6c8861b018bf6b35f03f441988c66355c579e7b",
+    "main/font.inc": "814ce6f3ffd7b828706765284e56393ca0e53874ee4fd3f823213ddd4d3d44df"
+  },
+  "assets": {
+    "n30-clock-preview.png": "ee5235c3b2b1483b420652b9e5e35d5f65d2bb0233d426d4487c37ffd4199a73",
+    "n30-rf-preview.png": "cbdb342092d42095e7e53c4e913ae6b51fb3d7cee321f7b2c23933fe557f0955",
+    "n30-saver-ble-preview.png": "74746985655dcaf39151ee7cf0cda804fa33d0e11959cfddd0cefc7bbb120c20",
+    "n30-saver-rc1-preview.png": "38f3f0ff643b4827f503e88dfee44c086cdad28713087c172b15ababc7919323",
+    "n30-saver-rc2-preview.png": "5a10cbece7ff8d1777cd7f4d567340845fa4eee3a8e05e1025554f78ec0b76af",
+    "n30-clock-relay-preview.png": "cf213b4d4360d4f306d2f542de4c7810ebafc306318f91ccdcea3964bbc65c60",
+    "n30-clock-pending-preview.png": "4bef662cbaede2ab1629adce1b45c1b4c5891127634feef6d15e8e533676d773",
+    "n30-clock-grace-preview.png": "453653c8251584e5854e29eff3306b8fa2bfaaf6fe36dd66d00ac6e31a1bea3b",
+    "n30-clock-syncing-preview.png": "57b235c94ebec8a28e258f2dd5e345609942f9d35d3fd158ec5c015eae9a3600",
+    "n30-saver-grace-preview.png": "7e8b2c50b32860ca0c87035369b9f8742d120780d745f7d5dd4d98b7db4d4679",
+    "n30-saver-recovered-preview.png": "e3240252340db01b9e2d5634b572e18419b12dbfb44e86a6c28d74f005cc228d",
+    "n30-saver-expired-preview.png": "d0569bd5a74fa606a6b2f81add175fbaa605c342aa21b0d402e09667d4b84135",
+    "n30-clock-pps-off-preview.png": "28e10f6dd55af28b8449d6d8339d7469fc87319704b2b4c8e322e3a31b16d3c0",
+    "n30-saver-pps-off-preview.png": "cf9eee01f646175f3f7e3b5c7654f18bbb01e0912884e05aaf8f66f2ccd234a9",
+    "n30-lora-off-preview.png": "398e3a5d9983b4a9df56b8fdc8b1cfc9e4135d280d910c6e24a4b5695c08be60",
+    "n30-lora-on-preview.png": "e1ce8a2d5c57394ff3ddb6f8e9a62c618a612e294fccea11f095b725364462d7",
+    "n30-lora-fallback-preview.png": "c6d97b205b097ceb8c944c7ad677e8b79e0f64cf70a4e2154a9f72ade2eca08a",
+    "n30-lora-fault-preview.png": "d4d8036aacb2977d7245161de102e0187ed87c23c3540a12761711fd88d105dc",
+    "n30-rf-dual-preview.png": "805fa43066f60816510c33d7db5630d4e4587d77bb0557d3019871cbbee30272"
+  },
+  "published_assets": {
+    "docs/images/n30-clock-preview.png": "ee5235c3b2b1483b420652b9e5e35d5f65d2bb0233d426d4487c37ffd4199a73",
+    "docs/images/n30-rf-preview.png": "805fa43066f60816510c33d7db5630d4e4587d77bb0557d3019871cbbee30272",
+    "docs/images/n30-lora-preview.png": "e1ce8a2d5c57394ff3ddb6f8e9a62c618a612e294fccea11f095b725364462d7",
+    "docs/images/n30-saver-ble-preview.png": "74746985655dcaf39151ee7cf0cda804fa33d0e11959cfddd0cefc7bbb120c20",
+    "docs/images/n30-saver-rc1-preview.png": "38f3f0ff643b4827f503e88dfee44c086cdad28713087c172b15ababc7919323",
+    "docs/images/n30-saver-rc2-preview.png": "5a10cbece7ff8d1777cd7f4d567340845fa4eee3a8e05e1025554f78ec0b76af"
+  },
+  "visual_QA": "Batched all-three-page/LoRa-state/saver N3-1 and N3-2 review, one confirmation; synthetic only"
+}

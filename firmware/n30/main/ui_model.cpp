@@ -16,7 +16,7 @@ void ClockHold::update(const Model& m,View& v,uint64_t now,bool saver_due){
  // Real user navigation/wake wins immediately. A quality dip may retain an
  // already displayed saver only while the original idle timer still wants it.
  if(saved_&&(v.page!=page_||(saver_&&!saver_due)||(!saver_&&v.saver)))reset();
- if(v.page%2&&!v.saver&&!(saved_&&saver_&&saver_due)){reset();return;}
+ if(v.page!=0&&!v.saver&&!(saved_&&saver_&&saver_due)){reset();return;}
  seen_=true;observed_=now;uint64_t utc;
  if(analog_time(m,now,utc)){losing_=false;return;}
  if(!saved_)return;
@@ -26,14 +26,14 @@ void ClockHold::update(const Model& m,View& v,uint64_t now,bool saver_due){
  if(saver_){v.saver=true;v.saver_position=position_;}
 }
 void ClockHold::presented(const Model& m,const View& v,uint64_t now,const uint8_t frame[FrameBytes]){
- uint64_t utc;if(!v.help&&!v.blank&&(v.saver||v.page%2==0)&&!v.clock_frozen&&analog_time(m,now,utc)){
+ uint64_t utc;if(!v.help&&!v.blank&&(v.saver||v.page==0)&&!v.clock_frozen&&analog_time(m,now,utc)){
   std::memcpy(image_,frame,FrameBytes);saved_=true;losing_=false;saver_=v.saver;page_=v.page;position_=v.saver_position;
  }
 }
 const char* source_label(const Model& m,uint64_t now){
  uint64_t utc;if(m.mode_pending||!time(m,now,utc))return "WAIT";
  if(m.state==State::Hold)return "HOLD";
- switch(m.source){case Source::Ble:return "BLE";case Source::Rc1:return "RC1";case Source::Rc2:return "RC2";case Source::None:return "--";}
+ switch(m.source){case Source::Ble:return "BLE";case Source::Rc1:return "RC1";case Source::Rc2:return "RC2";case Source::LoRa:return "LOR";case Source::None:return "--";}
  return "--";
 }
 void rotate(uint8_t out[FrameBytes],const uint8_t in[FrameBytes],bool cw){
@@ -45,15 +45,16 @@ void rotate(uint8_t out[FrameBytes],const uint8_t in[FrameBytes],bool cw){
 }
 Action Input::update(bool pressed,uint64_t now,View& v){
  Action action=Action::None;
+ if(stable_&&lora_press_&&(v.page!=2||v.help||v.blank||v.saver))lora_eligible_=false;
  if(pressed!=raw_){raw_=pressed;changed_=now;}
  if(now>=changed_&&now-changed_>=40000&&raw_!=stable_){
   stable_=raw_;
   if(stable_){
-   if(armed_){down_=changed_;idle_=now;wake_=v.saver||v.blank;main_press_=!v.page&&!v.help;consumed_=wake_;v.saver=v.blank=false;}
+   if(armed_){down_=changed_;idle_=now;wake_=v.saver||v.blank;main_press_=!v.page&&!v.help;lora_press_=v.page==2&&!v.help;lora_eligible_=lora_press_;consumed_=wake_;v.saver=v.blank=false;}
   }else{
    if(armed_&&!consumed_){
-    if(main_press_&&now>=down_&&now-down_>=1500000)action=Action::ToggleRelayOnly;
-    else if(v.help)v.help=false;else v.page=(v.page+1)%2;
+    if((main_press_||lora_press_)&&now>=down_&&now-down_>=1500000)action=main_press_?Action::ToggleRelayOnly:lora_eligible_?Action::ToggleLoRa:Action::None;
+    else if(v.help)v.help=false;else v.page=(v.page+1)%3;
    }
    armed_=true;consumed_=wake_=false;down_=0;idle_=now;
   }
@@ -61,12 +62,12 @@ Action Input::update(bool pressed,uint64_t now,View& v){
  if(stable_&&armed_){
   idle_=now;
   if(!consumed_&&now>=down_&&now-down_>=1500000){
-   if(main_press_){action=Action::ToggleRelayOnly;consumed_=true;}
+   if(main_press_||lora_press_){action=main_press_?Action::ToggleRelayOnly:lora_eligible_?Action::ToggleLoRa:Action::None;consumed_=true;}
    else{v.help=true;consumed_=true;}
   }
   // Main-screen toggles consume the extended hold, just like W12. RF keeps
   // its existing4s display blank; a wake press cannot turn into another action.
-  if(!main_press_&&!wake_&&now>=down_&&now-down_>=4000000){v.blank=true;consumed_=true;}
+  if(!main_press_&&!lora_press_&&!wake_&&now>=down_&&now-down_>=4000000){v.blank=true;consumed_=true;}
  }
  return action;
 }

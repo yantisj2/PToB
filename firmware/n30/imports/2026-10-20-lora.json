@@ -1,0 +1,66 @@
+{
+  "schema": 1,
+  "author": "Jonathan Yantis",
+  "date": "2026-10-20",
+  "source_commit": "f63f31f23770e0447189d85706eac257462aaded",
+  "scope": "Selected public source compiled directly; no T096/W12 source modification or private import. Hardware observation and independent accuracy remain separate.",
+  "compiled": [
+    {
+      "source": "firmware/t096/protocol/lora_rc8.c",
+      "sha256": "a361394970187bb75f4ae9b1c545ae1114ceb94d751abbfb85fba66e2300dd83",
+      "license": "Existing per-file MIT/Apache-2.0 notice authoritative"
+    },
+    {
+      "source": "firmware/t096/protocol/lora_rc8.h",
+      "sha256": "3ecd88cd163a1ab726d46cf9cd98f4605658cf0aaa942b3583dee3300e61e88c",
+      "license": "Existing per-file MIT/Apache-2.0 notice authoritative"
+    },
+    {
+      "source": "firmware/t096/protocol/group_auth.h",
+      "sha256": "959a6b7fed23100448ac7de442d38806a146897b4c53038a0087fce298caaf87",
+      "license": "Existing per-file MIT/Apache-2.0 notice authoritative"
+    },
+    {
+      "source": "firmware/t096/include/lora_rc8_policy.h",
+      "sha256": "77a6f6250f856d86da4a4fff6f9759cef16373ad2e9923c90a760907f59fcbd1",
+      "license": "Existing per-file MIT/Apache-2.0 notice authoritative"
+    },
+    {
+      "source": "firmware/t096/include/precision_servo.h",
+      "sha256": "40f567fc217c87a5cae6be75067b933d6cc53d715a10039072fcfd3d7f250e03",
+      "license": "Existing per-file MIT/Apache-2.0 notice authoritative"
+    },
+    {
+      "source": "firmware/t096/src/lora_rc8_policy.c",
+      "sha256": "086f0a55b90c60ecd0281157c215bee07cc87da10cb93607ff170ac7c82f8f58",
+      "license": "Existing per-file MIT/Apache-2.0 notice authoritative"
+    }
+  ],
+  "references": [
+    {
+      "source": "firmware/t096/src/lora_hw.c",
+      "sha256": "2479357fa322153943fe8b69bb20387f44bcca0c02c85c6e7600b249ac451b15",
+      "treatment": "Modem configuration reference; new native ESP-IDF RX-only driver"
+    },
+    {
+      "source": "firmware/t096/src/ui_render.c",
+      "sha256": "89e74dbc3b1a36cbb326f6fde0c403bfbe5c728b7432139ef887ca86ef367ede",
+      "treatment": "LoRa page composition adapted to third portrait page"
+    },
+    {
+      "source": "firmware/t096/legacy_ui/draw.inc",
+      "sha256": "1aaf83478667a7cfd288d40a67db874d099dcd0dbca3b896fcdc58697eac84f9",
+      "treatment": "RF dual-clock/delta/drift composition reference"
+    },
+    {
+      "source": "firmware/w12/legacy/ptob_gnss_reference.hpp",
+      "sha256": "b77a1352c1c9461343df579560c482ab5dc16db88c7d2ceae13dd81c7ca49c86",
+      "treatment": "Pure CounterMap compiled directly; no physical GNSS implementation"
+    }
+  ],
+  "board_references": [
+    "https://resource.heltec.cn/download/WiFi_LoRa_32_V3/HTIT-WB32LA%28F%29_V3_Schematic_Diagram.pdf",
+    "https://heltec.org/project/wifi-lora-32-v3/",
+    "https://meshnology.com/collections/meshnology-n30/products/n30-esp32-lora-v3-development-board-1100mah-battery-protect-case-set-with-863-928mhz-antenna-sx1262-lora-v3-devices"
+  ]
+}

@@ -31,3 +31,30 @@ for ui in ('',' path=GPS upstream=AUTO',' path=BLE',' upstream=RELAY',' path=RC1
  except RuntimeError:pass
  else:raise AssertionError('Missing or invalid source/upstream accepted')
 print('PASS N30 ten-row production parser: nonce/CRC, fragmented delivery, group/GPS refusal, source/upstream and display-only command')
+
+# Build a complete synthetic alternate frame, then re-CRC intentional faults.
+def lora_frame(replace=None,omit=None):
+ rows=[]
+ for suffix,names in c.LORA_NUMBERS.items():
+  row={key:'0' for key in names.split()};row.update(c.LORA_FIXED.get(suffix,{}))
+  if suffix=='CONTEXT':row.update({key:'0000000000000000' for key in c.LORA_HEX});row['context']='0'*32
+  if suffix=='POLICY':row['mode']='AUTO'
+  if replace and suffix==replace[0]:row[replace[1]]=replace[2]
+  if suffix!=omit:rows.append('N30_LORA_'+suffix+' '+' '.join(k+'='+v for k,v in row.items()))
+ original=frame(ui=' path=LOR upstream=AUTO');body=original[:original.index(b'W12_V12_END')].decode().splitlines(True)
+ body=''.join(body[:4])+''.join(row+'\n' for row in rows)+''.join(body[-2:]);body=body.encode()
+ end=original[original.index(b'W12_V12_END'):].split(b' end_crc32=')[0]
+ import re
+ end=re.sub(rb'crc32=[0-9a-f]{8}',f'crc32={zlib.crc32(body):08x}'.encode(),end)
+ return body+end+f' end_crc32={zlib.crc32(end,zlib.crc32(body)):08x}\n'.encode()
+lm=dict(m,n30_ui_revision=3,n30_frame_kind='LORA')
+lf=c.Parser(nonce,lm).feed(lora_frame());assert len(lf)==1
+for action in ('lora diag','lora on','lora off','lora auto','ui page 2'):assert c.mutation_command(lf[0],'0000000000000004',action).endswith((' '+action+'\n').encode())
+for fault in [('COUNTERS','TX','ALLOWED'),('POLICY','GPS','PRESENT'),('POLICY','acquire_us','179000000'),('HARDWARE','fault','2'),('CONTEXT','root','xyz'),('ORIGINAL','sequence',str(2**32)),('QUALITY','rate_ppb',str(-2**31-1))]:
+ try:c.Parser(nonce,lm).feed(lora_frame(fault))
+ except RuntimeError:pass
+ else:raise AssertionError('Altered LoRa diagnostic contract accepted: '+str(fault))
+try:c.Parser(nonce,lm).feed(lora_frame(omit='QUALITY'))
+except RuntimeError:pass
+else:raise AssertionError('Missing LoRa row accepted')
+print('PASS LoRa CRC frame schema, bound identity, numeric ranges and RX-only/unknown contracts')

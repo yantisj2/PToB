@@ -20,11 +20,12 @@ if(V12_R2_PROFILE)
     list(APPEND r2_includes "${g1_crypto}/include" "${w12}/main/r2/rc7/include")
   endif()
 endif()
-idf_component_register(SRCS "native_main.cpp" "${w12}/main/fault_watchdog.cpp" "${w12}/main/native_transport.cpp" "${w12}/main/public_crypto.cpp" "${w12}/main/public_receiver.cpp" "bounded_log.cpp" "${w12}/main/native_lora.cpp"
+idf_component_register(SRCS "native_main.cpp" "${w12}/main/fault_watchdog.cpp" "${w12}/main/native_transport.cpp" "${w12}/main/public_crypto.cpp" "${w12}/main/public_receiver.cpp" "bounded_log.cpp" "native_lora.cpp" "lora_core.c" "lora_diagnostics.cpp"
+  "${w12}/../t096/protocol/lora_rc8.c" "${w12}/../t096/src/lora_rc8_policy.c"
   "${w12}/main/native_direct.cpp" "${w12}/main/native_credentials.cpp" "${w12}/main/native_diagnostic_tx.cpp" "${w12}/main/periodic_rx.cpp" "${w12}/main/periodic_tx.cpp" "${w12}/main/s3_clock_reference.c" "${w12}/main/direct_auth.cpp" "${control_source}" ${r2_sources}
   "${w12}/main/shared/public_codec.c" "${w12}/main/shared/p256_canonical.c" "${w12}/main/public_observer.cpp"
   "gnss_absent.cpp" "display.cpp" "ui_render.cpp" "ui_model.cpp"
-  INCLUDE_DIRS "." "${w12}/main" "${w12}/legacy" "${w12}/legacy/reference" ${r2_includes}
+  INCLUDE_DIRS "." "${w12}/main" "${w12}/legacy" "${w12}/legacy/reference" ${r2_includes} "${w12}/../t096/include" "${w12}/../t096/protocol"
   REQUIRES bt mbedtls esp_driver_spi esp_driver_gptimer esp_driver_i2c esp_driver_gpio
     esp_driver_usb_serial_jtag esp_driver_uart esp_driver_mcpwm esp_pm esp_timer esp_hw_support)
 if(V12_R2_RX_SHADOW)
@@ -43,7 +44,7 @@ else()
 endif()
 target_compile_definitions(${COMPONENT_LIB} PRIVATE V12_UNIT="N30"
   V12_SOURCE_REVISION="${V12_SOURCE_REVISION}" W12_UNIT_NAME="PToB N30"
-  W12_COPY_BOARD_PROFILE=${ptob_board} W12_GNSS_VERIFIED_INPUTS=${ptob_gnss} V12_LORA_FORCED_OFF=1
+  W12_COPY_BOARD_PROFILE=${ptob_board} W12_GNSS_VERIFIED_INPUTS=${ptob_gnss} PTOB_N30_LORA_RX_ONLY=1
   W12_GNSS_RX_PIN=39 W12_GNSS_PPS_PIN=41 W12_GNSS_BAUD=9600
   W12_GNSS_W12_POWER=${ptob_gnss} W12_GNSS_R8_POWER=0)
 if(PTOB_W12_GNSS_FAST_MAP_DIAGNOSTIC)
@@ -104,7 +105,9 @@ endif()
 
 # C3 G1 window image is a physical GPS witness, never a GPS disciplined source.
 if(V12_UNIT STREQUAL "C3" AND V12_R2_PROFILE STREQUAL "r2-g1")
-  target_compile_definitions(${COMPONENT_LIB} PRIVATE V12_GPS_SHADOW_OBSERVER=1 PTOB_GPS_PHYSICAL_REFERENCE_ONLY=1 V12_LORA_FORCED_OFF=1)
+  target_compile_definitions(${COMPONENT_LIB} PRIVATE V12_GPS_SHADOW_OBSERVER=1 PTOB_GPS_PHYSICAL_REFERENCE_ONLY=1 PTOB_N30_LORA_RX_ONLY=1)
 endif()
 
 target_compile_definitions(${COMPONENT_LIB} PRIVATE PTOB_N30=1 PTOB_GNSS_DISABLED=1)
+
+configure_file("${PTOB_LORA_HEADER}" "${CMAKE_CURRENT_BINARY_DIR}/n30_lora_config.h" COPYONLY)

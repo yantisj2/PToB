@@ -8,7 +8,7 @@ struct FramePhase {
  uint64_t slot,edge,next;uint32_t period;bool utc;
 };
 inline FramePhase frame_phase(const Model& m,const View& v,uint64_t now){
- const uint32_t period=v.page%2&&!v.saver?125000:250000;
+ const uint32_t period=v.page==1&&!v.saver?125000:250000;
  uint64_t clock=now;const bool valid=time(m,now,clock);
  if(!valid)clock=now; // Unavailable time never acquires a UTC phase.
  const auto phase=clock%period,wait=period-phase;

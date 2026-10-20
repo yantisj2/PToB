@@ -5,6 +5,9 @@
 #include "ui.hpp"
 #include "status_adapter.hpp"
 #include "display_phase.hpp"
+#include "dual_time.hpp"
+#include "n30_lora.hpp"
+#include "ptob_registry.h"
 #include "display_budget.hpp"
 #include "native_device_binding.hpp"
 #include "driver/i2c_master.h"
@@ -17,8 +20,8 @@
 namespace {
 i2c_master_bus_handle_t bus=nullptr;i2c_master_dev_handle_t oled=nullptr;
 portMUX_TYPE mux=portMUX_INITIALIZER_UNLOCKED;
-n30::Model published; n30::Activity activity; int requested_page=-1;
-n30::ActionMailbox upstream_toggle;
+n30::Model published; n30::Activity activity,lora_activity;n30::DualComparison comparison; int requested_page=-1;
+n30::ActionMailbox upstream_toggle,lora_toggle;
 struct Stats {uint32_t frames=0,errors=0,max_us=0,max_phase_us=0;uint64_t sampled=0;uint8_t page=0;bool ready=false,help=false,saver=false,blank=false;} stats;
 TaskHandle_t ui_task=nullptr;esp_timer_handle_t frame_timer=nullptr;
 void frame_wake(void*){if(ui_task)xTaskNotifyGive(ui_task);}
@@ -44,7 +47,8 @@ void worker(void*){
   const auto now=now_us();n30::Model m;portENTER_CRITICAL(&mux);m=published;portEXIT_CRITICAL(&mux);
   int request;portENTER_CRITICAL(&mux);request=requested_page;requested_page=-1;portEXIT_CRITICAL(&mux);
   const auto prior=view;if(request>=0){view.page=uint8_t(request);view.help=false;view.blank=false;clock_hold.reset();force=true;}
-  if(input.update(gpio_get_level(GPIO_NUM_0)==0,now,view)==n30::Action::ToggleRelayOnly){portENTER_CRITICAL(&mux);upstream_toggle.post(now);portEXIT_CRITICAL(&mux);}
+  const auto action=input.update(gpio_get_level(GPIO_NUM_0)==0,now,view);
+  if(action==n30::Action::ToggleRelayOnly||action==n30::Action::ToggleLoRa){portENTER_CRITICAL(&mux);(action==n30::Action::ToggleRelayOnly?upstream_toggle:lora_toggle).post(now);portEXIT_CRITICAL(&mux);}
   uint64_t utc;input.idle(now,m.locked&&m.source!=n30::Source::None&&m.state==n30::State::Follow&&n30::time(m,now,utc),view);
   clock_hold.update(m,view,now,input.saver_due(now,view));
   if(prior.page!=view.page||prior.help!=view.help||prior.saver!=view.saver||prior.blank!=view.blank||prior.clock_frozen!=view.clock_frozen)force=true;
@@ -93,11 +97,18 @@ bool display_init(){
  esp_timer_delete(frame_timer);frame_timer=nullptr;return false;
 }
 void n30_display_publish(const v12::R2Status& s,const DisplayState& d,uint64_t now){
- auto m=n30::model(s,d,now);const auto radio=v12::r2_activity();
+ auto m=n30::model(s,d,now);uint64_t live;
+ n30_lora_control(n30::analog_time(m,now,live),now,s.requested&&!s.fault);
+ n30_lora_view lora;n30_lora_snapshot(lora);now=now_us();m.sampled_us=now;
+ n30::select_lora(m,lora,now);comparison.update(m,now);
+ if(m.source==n30::Source::LoRa){const auto* name=ptob_registry_name(lora.emitter);if(name)std::snprintf(m.parent,sizeof m.parent,"%s",name);else std::snprintf(m.parent,sizeof m.parent,"%04X",unsigned(lora.emitter&65535));}
+ const auto radio=v12::r2_activity();
  // Producer counters retain their actual meaning. RDY has no equivalent
  // packet/event in this backend and remains dark. TX is controller/API only.
  const uint32_t counts[]={s.g1_adv_callbacks,s.g1_group_records,s.pa_reports,s.join_accepts,s.g1_corrected_accepted,radio.tx,0,s.rejected+s.drops+s.api_errors};
  activity.update(m,counts,s.root_identity,s.root_boot,now,s.requested&&!s.fault,radio.tx_armed);
+ n30::Model events;const uint32_t lora_counts[]={lora.metadata,lora.sequence,lora.rx_done,0,lora.accepted,0,lora.map_accepted,lora.rejected+lora.crc_bad+lora.spi_error+lora.capture_overflow};
+ lora_activity.update(events,lora_counts,lora.root,lora.root_boot,now,lora.active&&!lora.fault,false);std::memcpy(m.lora_lamps,events.lamps,sizeof m.lora_lamps);
  portENTER_CRITICAL(&mux);published=m;portEXIT_CRITICAL(&mux);
 }
 void n30_display_status(v12::ConsoleFrame& f){Stats s;n30::Model m;portENTER_CRITICAL(&mux);s=stats;m=published;portEXIT_CRITICAL(&mux);
@@ -109,5 +120,7 @@ bool display_set_scan(DisplayTiming::Profile){return false;}
 void display_update_indicators(bool,bool,bool){}
 void display_sleep(){}void display_wake(){}void display_blank(){}
 
-bool n30_display_page(unsigned page){if(page>1)return false;portENTER_CRITICAL(&mux);requested_page=int(page);portEXIT_CRITICAL(&mux);if(ui_task)xTaskNotifyGive(ui_task);return true;}
+bool n30_display_page(unsigned page){if(page>2)return false;portENTER_CRITICAL(&mux);requested_page=int(page);portEXIT_CRITICAL(&mux);if(ui_task)xTaskNotifyGive(ui_task);return true;}
 bool n30_display_take_upstream_toggle(uint64_t now){portENTER_CRITICAL(&mux);const bool take=upstream_toggle.take(now);portEXIT_CRITICAL(&mux);return take;}
+
+bool n30_display_take_lora_toggle(uint64_t now){portENTER_CRITICAL(&mux);const bool take=lora_toggle.take(now);portEXIT_CRITICAL(&mux);return take;}

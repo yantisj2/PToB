@@ -10,10 +10,10 @@ bool pixel(const uint8_t* f,unsigned x,unsigned y){return f[y*8+x/8]&(0x80u>>(x%
 }
 int main(){
  // Arbitrary boot phase, exact edges, new models, long misses and backwards UTC.
- for(unsigned page=0;page<2;page++)for(uint64_t phase:{0ULL,1ULL,124999ULL,125000ULL,249999ULL,999999ULL}){
+ for(unsigned page=0;page<3;page++)for(uint64_t phase:{0ULL,1ULL,124999ULL,125000ULL,249999ULL,999999ULL}){
   n30::View v;v.page=page;const uint64_t start=1234567;auto m=good(start,10000000+phase);n30::FrameCadence c;
   auto p=n30::frame_phase(m,v,start);assert(c.deadline(p,start)==start);c.rendered(p);
-  assert(p.period==(page?125000:250000));assert(p.next-start==p.period-m.utc_us%p.period);const auto edge=p.next;
+  assert(p.period==(page==1?125000:250000));assert(p.next-start==p.period-m.utc_us%p.period);const auto edge=p.next;
   auto before=good(edge-1,m.utc_us+edge-1-start);assert(c.deadline(n30::frame_phase(before,v,edge-1),edge-1)==edge);
   auto at=good(edge,m.utc_us+edge-start);auto b=n30::frame_phase(at,v,edge);assert(c.deadline(b,edge)==edge);c.rendered(b);assert(c.deadline(b,edge)==edge+p.period);
   const auto late=edge+5*p.period+731;auto delayed=good(late,at.utc_us+late-edge);auto d=n30::frame_phase(delayed,v,late);
@@ -24,10 +24,10 @@ int main(){
   v.saver=true;assert(n30::frame_phase(at,v,edge).period==250000);
  }
  // A minute of irregular boot phase produces only the intended4/8Hz slots.
- for(unsigned page=0;page<2;page++){
+ for(unsigned page=0;page<3;page++){
   n30::View v;v.page=page;n30::FrameCadence c;unsigned frames=0;const uint64_t offset=777777,start=234567;
   for(uint64_t now=start;now<start+60000000;now+=1000){auto m=good(now,now+offset);auto p=n30::frame_phase(m,v,now);if(c.deadline(p,now)<=now){if(frames)assert((now+offset)%p.period<1000);c.rendered(p);frames++;}}
-  assert(frames==(page?481:241));
+  assert(frames==(page==1?481:241));
  }
  // One shared UTC pulse, all admitted paths/positions; dark on expiry/HOLD.
  for(auto src:{n30::Source::Ble,n30::Source::Rc1,n30::Source::Rc2})for(unsigned pos=0;pos<3;pos++)for(uint64_t phase:{999999ULL,0ULL,1ULL,249999ULL,250000ULL}){

@@ -4,7 +4,7 @@ Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT
 """
 import argparse,hashlib,json,re,struct
 from pathlib import Path
-from build import sha,validate_inputs,device_header,validate_configuration,check_main_stack
+from build import sha,validate_inputs,device_header,lora_config_header,validate_configuration,check_main_stack,validate_transmitter,load_registry
 
 def validate_layout(out,r):
  data=(Path(out)/'target/partition_table/partition-table.bin').read_bytes();apps=[]
@@ -17,7 +17,7 @@ def validate_layout(out,r):
 
 def inspect(out):
  out=Path(out).resolve();r=json.loads((out/'receipt.json').read_text());inputs=out/'local';target=out/'target'
- if r.get('artifact_class')!='PTOB_N30_RC' or r.get('version') not in ('0.1.0','0.1.1','0.1.2','0.1.3','0.1.4','0.1.5','0.1.6','0.1.7') or r.get('profile')!='RC' or r.get('status') not in ('OFFLINE_NOT_FLASHABLE','COMMISSIONING_CANDIDATE_PHYSICAL_UNKNOWN') or r.get('deployment_authorized') is not False or r.get('hardware_validation')!='NOT_PERFORMED':raise ValueError('Offline RC-only N30 receipt required')
+ if r.get('artifact_class')!='PTOB_N30_RC' or r.get('version') not in ('0.1.0','0.1.1','0.1.2','0.1.3','0.1.4','0.1.5','0.1.6','0.1.7','0.2.0') or r.get('profile')!='RC' or r.get('status') not in ('OFFLINE_NOT_FLASHABLE','COMMISSIONING_CANDIDATE_PHYSICAL_UNKNOWN') or r.get('deployment_authorized') is not False or r.get('hardware_validation')!='NOT_PERFORMED':raise ValueError('Offline RC-only N30 receipt required')
  if r['status']=='COMMISSIONING_CANDIDATE_PHYSICAL_UNKNOWN' and (r.get('commissioning_candidate') is not True or r['source_dirty']):raise ValueError('Commissioning candidate requires explicit selection and clean source')
  if not re.fullmatch('[0-9a-f]{40}',r['public_commit']):raise ValueError('Missing source commit')
  for name,digest in r['artifacts'].items():
@@ -29,18 +29,23 @@ def inspect(out):
  e=json.loads((inputs/'enrollment.json').read_text());d=json.loads((inputs/'device.json').read_text());validate_inputs(e,d)
  if sha(inputs/'registry.json')!=r['registry_sha256'] or sha(inputs/'registry_generator.py')!=r['registry_generator_sha256'] or sha(inputs/'device.json')!=r['device_config_sha256']:raise ValueError('Input identity changed')
  if (inputs/'ptob_device.h').read_text()!=device_header(d):raise ValueError('Device header does not match N30 inputs')
- for name,copy in [('ptob_device.h','ptob_device.h'),('ptob_registry.h','ptob_registry.h'),('r2-enrollment.h','r2_bench_enrollment.h')]:
+ headers=[('ptob_device.h','ptob_device.h'),('ptob_registry.h','ptob_registry.h'),('r2-enrollment.h','r2_bench_enrollment.h'),('n30_lora_config.h','n30_lora_config.h')]
+ if r['version']!='0.2.0':headers=headers[:-1]
+ else:
+  validate_transmitter(r['lora_transmitter_factory'],d,load_registry(inputs/'registry.json'))
+  if (inputs/'n30_lora_config.h').read_text()!=lora_config_header(d,e,r['lora_transmitter_factory']):raise ValueError('LoRa configuration binding mismatch')
+ for name,copy in headers:
   if (inputs/name).read_bytes()!=(target/'esp-idf/main'/copy).read_bytes():raise ValueError('Compiler input mismatch')
  identity=json.loads((target/'v12_build_identity.json').read_text())
- fields=[r['public_commit'],sha(target/'sdkconfig'),r['dependencies']['esp_idf']['controller_sha256'],sha(inputs/'r2-enrollment.h'),sha(inputs/'ptob_device.h'),sha(inputs/'ptob_registry.h'),str(r['listening_percent']),'ON' if r['estimated_relay'] else 'OFF','OFF','PTOB_N30_'+r['version']]
+ fields=[r['public_commit'],sha(target/'sdkconfig'),r['dependencies']['esp_idf']['controller_sha256'],sha(inputs/'r2-enrollment.h'),sha(inputs/'ptob_device.h'),sha(inputs/'ptob_registry.h'),str(r['listening_percent']),'ON' if r['estimated_relay'] else 'OFF','OFF',*([sha(inputs/'n30_lora_config.h')] if r['version']=='0.2.0' else []),'PTOB_N30_'+r['version']]
  binding=hashlib.sha256('|'.join(fields).encode()).hexdigest()
  if binding!=identity['build_id'] or identity!=r['runtime_identity']:raise ValueError('Runtime binding mismatch')
  validate_layout(out,r)
- compiled=json.loads((target/'compile_commands.json').read_text());validate_configuration((target/'sdkconfig').read_text(),compiled)
+ compiled=json.loads((target/'compile_commands.json').read_text());validate_configuration((target/'sdkconfig').read_text(),compiled,lora_rx=r['version']=='0.2.0')
  if not 0<r['application_bytes']<=r['dependencies']['application_max_bytes'] or sha(out/r['application'])!=r['application_sha256']:raise ValueError('Application bounds/identity mismatch')
  snapshot={};repo=Path(r['app_path']).parents[1];sdk=Path(r['sdk_path'])
  for row in compiled:
-  q=Path(row['file'])
+  q=Path(row['file']).resolve()
   if q.is_relative_to(sdk):name='sdk/'+str(q.relative_to(sdk));path=q
   elif q.is_relative_to(out):name='generated/'+str(q.relative_to(out));path=q
   elif q.is_relative_to(repo):

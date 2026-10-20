@@ -35,7 +35,7 @@ python3 registry/test_registry.py
 ```
 
 Use fresh output directories. `--alias N3-2` generates the other reserved name.
-Previews include both pages, BLE/RC1/RC2 savers at all three moving positions,
+Previews include all three pages, separate dual RF clocks and LoRa OFF/ON/fallback/fault states, BLE/RC1/RC2 savers at all three moving positions,
 and relay-only/pending main-page examples. They are native64×128 PNGs from the actual firmware renderer. Preview receipts
 record source/fixture hashes and synthetic scope. The tests cover both8192-pixel
 rotations, bounds, unavailable/fault/expired states, input/wake/idle behavior,
@@ -108,7 +108,7 @@ installation is permitted on the assumption that Meshtastic has that layout.
    app-only updates reuse verified recovery, retain bounded application drain,
    exact write bounds, actual application readback and protected-prefix comparison.
    A full-flash backup is a separately requested operation.
-4. Test the console/framed responses, both pages/buttons/blank/wake, then direct
+4. Test the console/framed responses, all three pages/buttons/blank/wake, then direct
    T096 reception and existing RC paths, loss/reacquisition and several admission/
    authentication renewal cycles. Record failed/missing opportunities.
 5. Compare BLE health with display activity, test both units together and record
@@ -133,7 +133,7 @@ actual readback as recovery for subsequent routine updates.
 
 The [N30 framed console parser](../../firmware/n30/tools/framed_console.py)
 validates the additional `N30_UI` row as part of the original nonce/CRC/boot/
-source/build/deadline frame. Bound `ui page 0` / `ui page 1` commands affect
+source/build/deadline frame. Bound `ui page 0` / `ui page 1` / `ui page 2` commands affect
 presentation only and do not change the radio or clock authority.
 
 Version0.1.2 keeps the shared8704-byte whole-frame and1.5s response limits,
@@ -191,3 +191,63 @@ a cached500ms clock never invents fresh pulses. `N30_UI phase_us` records the
 maximum routine UTC-slot render-start lateness, excluding forced navigation;
 I2C transfer and panel scanout still add latency. No physical PPS output or
 independently measured display-edge/UTC accuracy is established.
+
+## Version 0.2.0 passive LoRa receiver
+
+Add `--lora-transmitter-factory "$VERIFIED_T096_LORA_FACTORY"` to either build
+command only with the exact existing T096 transmitter identity in the shared
+registry. The default all-zero value disables LoRa hardware. This identity is a
+private build input, not a label inferred from a board alias. The generated
+`n30_lora_config.h` and its hash bind the sole transmitter and shared enrollment
+into the runtime build ID. It adds no NVS enrollment or mode writes.
+
+The fixed candidate Heltec V3 route uses SPI2 SCK9/MOSI10/MISO11/NSS8,
+reset12, BUSY13, DIO1 14, DIO2 RF switch and DIO3 1.8V TCXO. Modem settings match
+the T096 parent:915MHz, SF10, BW500kHz, CR4/6, preamble12, explicit header,
+CRC, private sync0x1424. See the [selected public-source and board references](../../firmware/n30/imports/2026-10-20-lora.json).
+These published routes are candidate wiring, not evidence of actual reception.
+No user pin or transmit override exists.
+
+A separate low-priority core1 radio worker owns SPI and the actual MCPWM DIO1
+capture. An asynchronous software-capture bracket relates its80MHz counter to
+the existing20MHz timing counter, then converts to the RC8 policy's16MHz scale.
+The ISR only freezes/wakes; ISR arrival time is never substituted for the edge.
+This shares a pure CounterMap helper, with no GNSS driver or input. BLE remains
+on core0 and the display keeps its existing cadence. Captured enclosure is a
+software mapping diagnostic; RF/board latency and physical bias remain unknown.
+
+AUTO waits180s without live BLE relative lock before RX, then requires180s
+continuous BLE lock before stopping. Main-page upstream reception mode and RF
+help/blank gestures remain unchanged. Third-page1.5s hold selects the opposite
+AUTO radio state; a second hold restoresAUTO. Overrides are volatile. BLE remains
+the preferred time source while actually following. LoRa is display fallback
+only, with no BLE clock writes, precision training, downstream authority or TX.
+
+Ticket/nonce/boot/factory-bound `lora on`, `lora off`, `lora auto` control this
+RX-only mode. `lora diag` returns an alternate ten-row CRC snapshot containing
+full original identities/context/event/envelope, diagnostic companion quality,
+logical RX/replay/fit counters, physical IRQ/CRC/SPI/capture counters, generation,
+stop acknowledgement and policy state. Select `n30_ui_revision=3` and
+`n30_frame_kind="LORA"` in the parser manifest for that response. Normal status
+keeps its original ten rows/8704bytes/1.5s response bound. Maintenance consumes
+queued gestures and inhibits mode changes; an OFF acknowledgement requires SPI
+retirement, capture release and reset assertion. A stalled DMA retains its
+buffers and refuses both acknowledgement and reuse. No durable fault journal
+is claimed; current software fault/context information is volatile.
+
+In addition to the ordinary host suite, test the actual T096 portable codec,
+HMAC interoperability, replay/context/expiry rules and fit oracle with:
+
+```sh
+python3 firmware/n30/tools/lora_tests.py --idf "$IDF_PATH" \
+  --out artifacts/n30-lora-tests
+```
+
+This uses the public pinned SDK's TinyCrypt sources, synthetic enrollment and
+no device. The ordinary suite includes production SX1262-owner peripheral
+fakes, exact180s boundaries, cancellation during startup, partial capture setup,
+DMA retention, worker stalls, three-page gestures and strict diagnostic framing.
+Finite hardware tests must separately demonstrate the actual modem/capture,
+BLE coexistence, LoRa original/followup reception, AUTO timing and physical
+buttons. Checksums, link RMS and relative dual-clock values do not establish
+UTC accuracy or end-to-end delay bounds. W12/T096 sources remain unchanged.

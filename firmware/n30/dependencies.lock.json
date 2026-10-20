@@ -16,8 +16,8 @@
   "physical_flash_offset": 65536,
   "application_max_bytes": 1048576,
   "protected_prefix_bytes": 65536,
-  "radios": "BLE only; LoRa/WiFi/PTS OFF",
+  "radios": "BLE preferred; optional exact-transmitter RC8 wire3 passive SX1262 RX at915MHz; WiFi/PTS OFF",
   "precision": "UNQUALIFIED",
   "flash_bytes": 8388608,
-  "hardware": "Meshnology N30 / Heltec V3; exact incoming revision unverified"
+  "hardware": "Meshnology N30 / Heltec V3; SX1262 route from public V3 schematic, physical LoRa acceptance separate"
 }

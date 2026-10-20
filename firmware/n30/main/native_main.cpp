@@ -32,6 +32,7 @@
 #include "driver/gpio.h"
 #include "n30_console.hpp"
 #include "n30_display.hpp"
+#include "n30_lora.hpp"
 #include "esp_mac.h"
 #include "esp_random.h"
 #include "esp_timer.h"
@@ -81,7 +82,7 @@ uint32_t ui_rms_ns=UINT32_MAX;uint8_t ui_gps_lamps=0;
 v12::UpdateGate update_gate;
 v12::ConsoleTicket ticket;
 v12::ConsoleFrame response;
-uint64_t last_nonce=0,update_completed_us=0;
+uint64_t last_nonce=0,update_completed_us=0;bool lora_diagnostic_response=false;
 struct CommandResult {uint64_t nonce=0,admitted_us=0;bool accepted=false;const char* action="STATUS";const char* reason="READ_ONLY";} last_command;
 uint64_t ticks(){uint64_t t=0;return clock_timer&&gptimer_get_raw_count(clock_timer,&t)==ESP_OK?t:0;}
 uint64_t micros(){const int64_t t=esp_timer_get_time();return t>0?uint64_t(t):0;}
@@ -167,6 +168,15 @@ void pps(const gnss_pps::Observation& edge){
     " mapped20=%" PRIu64 " map_available20=%" PRIu64 " enclosure_ns=%" PRIu32
     " mapped=%u physical_bias=UNKNOWN independent_output=UNAVAILABLE BLE_training=NONE\n",
     edge.number,edge.capture,edge.raw_extended,edge.tick,edge.anchor_available,edge.map_bracket_ns,unsigned(edge.mapped));
+}
+[[gnu::noinline]] void lora_status_frame(uint64_t nonce,uint64_t begin){
+ const auto next=ticket.issue(begin);v12::frame_begin(response,nonce,next,begin,factory_text,session,V12_SOURCE_REVISION,V12_BUILD_ID);
+ const auto mesh=v12::r2_status();
+ response.format("W12_R2_STATUS profile=%s enrollment_sha=%s self=3 client_capabilities=0 client_control=0 source=0 serving=0 group_id=%016" PRIx64 " key_epoch=%" PRIu32 " client_identity=%016" PRIx64 " following=%u requested=%u fault=%u\n",V12_R2_PROFILE,V12_R2_ENROLLMENT_SHA,mesh.group_id,mesh.key_epoch,mesh.client_identity,unsigned(mesh.following),unsigned(mesh.requested),unsigned(mesh.fault));
+ response.format("W12_V12_STATUS factory=%s source=%s build=%s session=%016" PRIx64 " GPS_inputs=0\n",factory_text,V12_SOURCE_REVISION,V12_BUILD_ID,session);
+ n30_lora_diagnostics(response);
+ response.format("W12_V12_COMMAND nonce=%016" PRIx64 " action=%s accepted=%u reason=%s admitted_us=%" PRIu64 " NVS=PRESERVED\n",last_command.nonce,last_command.action,unsigned(last_command.accepted),last_command.reason,last_command.admitted_us);
+ n30_display_status(response);v12::frame_submit(response);
 }
 [[gnu::noinline]] void status(uint64_t nonce,uint64_t begin){
   const uint64_t next=ticket.issue(begin);
@@ -389,6 +399,7 @@ void pps(const gnss_pps::Observation& edge){
   n30_display_status(response);
   v12::frame_submit(response);
 }
+void respond_status(uint64_t nonce,uint64_t begin){if(lora_diagnostic_response)lora_status_frame(nonce,begin);else status(nonce,begin);}
 [[gnu::noinline]] void ui(){
   if(!ui_ready)return;
   const auto s=v12::transport_status();const auto gps=gnss_pps::shadow_view(ticks());
@@ -473,7 +484,7 @@ void command(const char* text){
   char nonce_text[17]{},ticket_text[17]{},mac[18]{},boot_text[17]{};char extra=0;uint64_t nonce=0,permit=0,boot=0;
   const uint64_t admitted=micros();
   if(std::sscanf(text,"v12 status %16s %c",nonce_text,&extra)==1&&v12::hex_id(nonce_text,nonce)&&nonce!=last_nonce){
-    last_nonce=nonce;last_command={nonce,admitted,true,"STATUS","READ_ONLY"};status(nonce,admitted);return;
+    last_nonce=nonce;last_command={nonce,admitted,true,"STATUS","READ_ONLY"};respond_status(nonce,admitted);return;
   }
   int at=0;
   if(std::sscanf(text,"v12 do %16s %16s %17s %16s %n",ticket_text,nonce_text,mac,boot_text,&at)!=4||at<=0||
@@ -481,7 +492,7 @@ void command(const char* text){
   last_command={nonce,admitted,false,"REFUSE","TICKET_OR_BOOT_BINDING"};
   const bool authorized=identity&&!std::strcmp(mac,factory_text)&&v12::hex_id(boot_text,boot)&&boot==session&&
     nonce!=last_nonce&&v12::hex_id(ticket_text,permit)&&ticket.consume(permit,admitted);
-  if(!authorized){if(commands_rejected!=UINT32_MAX)++commands_rejected;status(nonce,admitted);return;}
+  if(!authorized){if(commands_rejected!=UINT32_MAX)++commands_rejected;respond_status(nonce,admitted);return;}
   last_nonce=nonce;const char* action=text+at;uint32_t duration=0;char mode[12]{};
   if(!std::strcmp(action,"off")){stop_all();v12::capture_stop();last_command={nonce,admitted,true,"OFF","STOP_REQUEST_ONLY"};}
   else if(!std::strcmp(action,"prepare_update")){
@@ -490,8 +501,13 @@ void command(const char* text){
   }else if(update_gate.latched()){last_command.reason="UPDATE_GATE_LATCHED";}
   // Presentation owns no BLE resource. Retain ticket/boot/maintenance guards,
   // then admit it before the shared radio-ownership fence.
-  else if(!std::strcmp(action,"ui page 0")||!std::strcmp(action,"ui page 1")){
+  else if(!std::strcmp(action,"ui page 0")||!std::strcmp(action,"ui page 1")||!std::strcmp(action,"ui page 2")){
     const bool ok=n30_display_page(action[8]-'0');last_command={nonce,admitted,ok,"UI_PAGE",ok?"DISPLAY_ONLY":"INVALID_PAGE"};
+  }
+  else if(!std::strcmp(action,"lora diag")){lora_diagnostic_response=true;last_command={nonce,admitted,true,"LORA_DIAG","READ_ONLY_CRC_SNAPSHOT"};}
+  else if(!std::strcmp(action,"lora auto")||!std::strcmp(action,"lora on")||!std::strcmp(action,"lora off")){
+    const auto mode=!std::strcmp(action,"lora on")?n30::LoRaMode::KeepOn:!std::strcmp(action,"lora off")?n30::LoRaMode::KeepOff:n30::LoRaMode::Auto;
+    const bool ok=n30_lora_mode(mode);last_command={nonce,admitted,ok,"LORA_MODE",ok?"VOLATILE_RX_ONLY":"DISABLED_FAULT_OR_RESOURCE"};
   }
 #ifdef V12_R2_RC7_TX_ESTIMATE_LAB
   else if(!std::strcmp(action,"watchdog-test")){
@@ -537,7 +553,7 @@ void command(const char* text){
     const bool ok=v12::capture_begin(nonce,duration);last_command={nonce,admitted,ok,"CAPTURE",ok?"FINITE_OBSERVER_LEASE":"BUSY_OR_BOUND"};
   }else{last_command.reason="UNKNOWN_OR_UNAVAILABLE_PROTOCOL";}
   if(!last_command.accepted&&commands_rejected!=UINT32_MAX)++commands_rejected;
-  status(nonce,admitted);
+  respond_status(nonce,admitted);lora_diagnostic_response=false;
 }
 void input(){
   static char line[192]{};static unsigned used=0;static bool discard=false;
@@ -609,6 +625,7 @@ void input(){
   if(n30_display_take_upstream_toggle(micros())&&!update_gate.latched()){
     const auto radio=v12::r2_activity();(void)v12::r2_set_relay_only(!radio.relay_only);
   }
+  if(n30_display_take_lora_toggle(micros())&&!update_gate.latched())(void)n30_lora_cycle();
 }
 [[gnu::noinline]] void clock_fault_progress(){
   const auto rx=v12::transport_status();const auto tx=v12::diagnostic_tx_status();
@@ -670,7 +687,7 @@ extern "C" void app_main(){
     " max_data=191 max_GMs=4 activities=6 syncs=2 adv_sets=2 mtu=247"
     " precision=UNAVAILABLE GM=DISABLED LoRa=OFF WiFi=OFF PTS=OFF\n",
     V12_UNIT,factory_text,unsigned(identity),session,V12_SOURCE_REVISION,V12_BUILD_ID);
-  std::printf("N30_TARGET version=0.1.7 profile=RC GPS=ABSENT flash_mb=8 console=UART0_43_44 hardware=UNVALIDATED\n");
+  std::printf("N30_TARGET version=0.2.0 profile=RC GPS=ABSENT flash_mb=8 console=UART0_43_44 hardware=UNVALIDATED\n");
   if(!identity||!session){std::printf("W12_V12_FATAL reason=FACTORY_OR_BOOT_BINDING peripherals=UNTOUCHED\n");return;}
   if(!v12::fault_watchdog_start(factory,session)){std::printf("W12_V12_FATAL reason=FAULT_SUPERVISOR\n");return;}
   // This initial diagnostic candidate never initializes, migrates or writes

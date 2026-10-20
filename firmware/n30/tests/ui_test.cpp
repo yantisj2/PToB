@@ -15,7 +15,7 @@ int main(){
  uint64_t utc;assert(n30::time(m,1000100,utc)&&utc==123456889);assert(!n30::time(m,999999,utc));assert(!n30::time(m,1250000,utc));
  m.state=n30::State::Fault;assert(!n30::time(m,1000100,utc));m.state=n30::State::Follow;
  struct Guard {uint8_t before[32],frame[n30::FrameBytes],after[32];} g;std::memset(&g,0xa5,sizeof g);
- for(unsigned page=0;page<2;page++)for(unsigned state=0;state<7;state++)for(bool help:{false,true}){
+ for(unsigned page=0;page<3;page++)for(unsigned state=0;state<7;state++)for(bool help:{false,true}){
   n30::View v;v.page=page;v.help=help;m.state=n30::State(state);std::memset(m.unit,'X',24);m.unit[24]=0;std::memset(m.parent,'Y',24);m.parent[24]=0;
   n30::render(g.frame,m,v,1000001);for(auto b:g.before)assert(b==0xa5);for(auto b:g.after)assert(b==0xa5);
  }
@@ -50,11 +50,24 @@ int main(){
  // A screensaver wake consumes a long press too; it cannot change the mode.
  n30::Input wake;n30::View w;w.saver=true;wake.update(true,100000,w);wake.update(true,140000,w);
  assert(wake.update(true,5000000,w)==n30::Action::None&&!w.blank&&!w.help&&!w.saver);
+ // Third-page hold is one-shot, never RF help/blank, and cancels on navigation.
+ n30::Input third;n30::View t;t.page=2;third.update(true,100000,t);third.update(true,140000,t);
+ assert(third.update(true,1599999,t)==n30::Action::None);
+ assert(third.update(true,1600000,t)==n30::Action::ToggleLoRa);
+ assert(third.update(true,5000000,t)==n30::Action::None&&!t.blank&&!t.help);
+ third.update(false,5100000,t);third.update(false,5140000,t);assert(t.page==2);
+ n30::Input cancelled;n30::View cv;cv.page=2;cancelled.update(true,100000,cv);cancelled.update(true,140000,cv);cv.page=0;
+ assert(cancelled.update(true,150000,cv)==n30::Action::None);cv.page=2;
+ assert(cancelled.update(true,1600000,cv)==n30::Action::None);
+ cancelled.update(false,5100000,cv);assert(cancelled.update(false,5140000,cv)==n30::Action::None&&cv.page==2);
+ // Short presses complete the three-screen cycle.
+ n30::Input cycle;n30::View cyc;
+ for(unsigned n=1;n<=3;n++){auto at=uint64_t(n)*1000000;cycle.update(true,at,cyc);cycle.update(true,at+40000,cyc);cycle.update(false,at+100000,cyc);cycle.update(false,at+140000,cyc);assert(cyc.page==n%3);}
  n30::ActionMailbox mail;assert(mail.post(100));assert(!mail.post(101));assert(mail.take(102));assert(!mail.take(103));
  assert(mail.post(200));assert(!mail.take(199));assert(!mail.take(201));assert(mail.post(300));assert(!mail.take(300+n30::SnapshotMaxUs));
  m.sampled_us=m.utc_at_us=1000000;m.until_us=1250000;m.valid=m.locked=true;m.state=n30::State::Follow;
- for(auto source:{n30::Source::Ble,n30::Source::Rc1,n30::Source::Rc2}){
-  m.source=source;assert(std::strcmp(n30::source_label(m,1000001),source==n30::Source::Ble?"BLE":source==n30::Source::Rc1?"RC1":"RC2")==0);
+ for(auto source:{n30::Source::Ble,n30::Source::Rc1,n30::Source::Rc2,n30::Source::LoRa}){
+  m.source=source;assert(std::strcmp(n30::source_label(m,1000001),source==n30::Source::Ble?"BLE":source==n30::Source::Rc1?"RC1":source==n30::Source::Rc2?"RC2":"LOR")==0);
   for(unsigned pos=0;pos<3;pos++){
    n30::View saver;saver.saver=true;saver.saver_position=pos;n30::render(g.frame,m,saver,1000001);
    // A rigid75px T096-style assembly: strip, dial, identity. No dashboard.

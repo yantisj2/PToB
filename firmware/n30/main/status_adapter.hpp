@@ -28,6 +28,7 @@ inline Model model(const v12::R2Status& s,const DisplayState& d,uint64_t now){
  // Delivery denominator is available for admitted RC7 paths only. Scan/PA
  // callback counts cannot manufacture a direct-GM delivery percentage.
  if(s.following&&s.rc7_bound)m.delivery=std::min<uint16_t>(s.rc7_delivery,1000);
+ m.ble={m.utc_at_us,m.utc_us,m.until_us,s.root_identity,s.root_boot,s.source_epoch,m.valid,m.state==State::Follow};
  return m;
 }
 }

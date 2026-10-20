@@ -15,9 +15,10 @@ prefix=r'''
 #include <string>
 #include "console_protocol.hpp"
 #include "update_gate.hpp"
+#include "lora_policy.hpp"
 #define V12_R2_ENABLED 1
 #define V12_R2_CONFIG 13
-uint64_t now=1000;unsigned radio_changes=0,pages=0,statuses=0;unsigned selected=0;
+uint64_t now=1000;unsigned radio_changes=0,pages=0,statuses=0,lora_changes=0,diag_frames=0;bool lora_diagnostic_response=false,lora_action=false;unsigned selected=0;
 bool owner_active=true;
 bool mode=false,action_pending=false;
 namespace v12 {
@@ -41,9 +42,12 @@ struct Result {uint64_t nonce=0,admitted_us=0;bool accepted=false;const char* ac
 char factory_text[]="02:00:00:00:30:01";bool identity=true;uint64_t session=3,last_nonce=0;uint32_t commands_rejected=0;
 uint64_t micros(){return now;}
 void stop_all(){++radio_changes;}
-void status(uint64_t,uint64_t){++statuses;}
+void respond_status(uint64_t,uint64_t){++statuses;if(lora_diagnostic_response)diag_frames++;}
+bool n30_lora_mode(n30::LoRaMode){lora_changes++;return true;}
+bool n30_lora_cycle(){lora_changes++;return true;}
+bool n30_display_take_lora_toggle(uint64_t){bool take=lora_action;lora_action=false;return take;}
 bool r2_command_off_ack(){return !owner_active;}
-bool n30_display_page(unsigned n){if(n>1)return false;selected=n;++pages;return true;}
+bool n30_display_page(unsigned n){if(n>2)return false;selected=n;++pages;return true;}
 bool n30_display_take_upstream_toggle(uint64_t){bool take=action_pending;action_pending=false;return take;}
 '''
 suffix=r'''
@@ -57,7 +61,7 @@ int main(){
  send(1,"ui page 1");assert(last_command.accepted&&selected==1&&pages==1&&radio_changes==0&&owner_active);
  send(2,"ui page 0");assert(last_command.accepted&&selected==0&&pages==2&&radio_changes==0);
  send(2,"ui page 1");assert(!last_command.accepted&&pages==2); // nonce replay
- send(3,"ui page 2");assert(!last_command.accepted&&pages==2);
+ send(3,"ui page 3");assert(!last_command.accepted&&pages==2);
  send(4,"ui page 1","02:00:00:00:30:02");assert(!last_command.accepted&&pages==2);
  send(5,"ui page 1",factory_text,4);assert(!last_command.accepted&&pages==2);
  send(6,"ui page 1",factory_text,3,true);assert(!last_command.accepted&&pages==2);
@@ -66,11 +70,18 @@ int main(){
  action_pending=true;poll_display_action();assert(mode&&radio_changes==1&&!action_pending);
  poll_display_action();assert(radio_changes==1);
  action_pending=true;poll_display_action();assert(!mode&&radio_changes==2);
- update_gate.begin(now);send(8,"ui page 1");assert(!last_command.accepted&&pages==2&&radio_changes==2);
- action_pending=true;poll_display_action();assert(!mode&&radio_changes==2&&!action_pending);
+ send(20,"ui page 2");assert(last_command.accepted&&selected==2&&pages==3&&radio_changes==2);
+ send(21,"ui page 0");assert(last_command.accepted&&pages==4&&radio_changes==2);
+ send(22,"lora on");assert(last_command.accepted&&lora_changes==1&&radio_changes==2);
+ send(23,"lora off");assert(last_command.accepted&&lora_changes==2);
+ send(24,"lora auto");assert(last_command.accepted&&lora_changes==3);
+ send(25,"lora diag");assert(last_command.accepted&&diag_frames==1&&!lora_diagnostic_response);
+ lora_action=true;poll_display_action();assert(lora_changes==4&&!lora_action&&radio_changes==2);
+ update_gate.begin(now);send(8,"ui page 1");assert(!last_command.accepted&&pages==4&&radio_changes==2);
+ action_pending=true;lora_action=true;poll_display_action();assert(!mode&&radio_changes==2&&!action_pending&&!lora_action&&lora_changes==4);
  std::puts("PASS actual dispatch: active-radio pages, main-owner upstream toggle, maintenance consumption and identity/ticket fences");
 }
 '''
 (a.out/'command-test.cpp').write_text(prefix+command+poll+suffix)
-cmd=[os.environ.get('CXX','clang++'),'-std=c++20','-O1','-Wall','-Wextra','-Werror','-I'+str(APP.parent/'w12/main'),str(a.out/'command-test.cpp'),'-o',str(a.out/'command-test')]
+cmd=[os.environ.get('CXX','clang++'),'-std=c++20','-O1','-Wall','-Wextra','-Werror','-I'+str(APP/'main'),'-I'+str(APP.parent/'w12/main'),str(a.out/'command-test.cpp'),'-o',str(a.out/'command-test')]
 subprocess.run(cmd,check=True,timeout=20);subprocess.run([a.out/'command-test'],check=True,timeout=10)
