@@ -220,6 +220,6 @@ int main(int argc,char **argv){
  m.gm_capable=m.source_eligible=m.hot_ready=true;m.coordinator=m.standby=1;m.quality.clock_class=248;m.quality.accuracy=254;
  m.clock.gga_count=m.clock.faults=m.clock.pairs=m.queue_drops=UINT_MAX;s.frames=s.max_frame_ms=s.missed=UINT_MAX;
  for(unsigned page=1;page<R2_UI_PAGES;page++){s.page=page;save(argv[1],page==1?"statistics":page==2?"precision":page==3?"quality":page==4?"system":"help",&m,&s);}
- s.page=UINT_MAX;r2_ui_render(framebuffer,&m,&s,UINT64_MAX);
+ s.page=UINT8_MAX;r2_ui_render(framebuffer,&m,&s,UINT64_MAX);
  puts("UI: serving authority, BLE source priority without GPS, stale/withdrawn scopes and all pages at maximum counters PASS");
 }
