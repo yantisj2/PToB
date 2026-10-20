@@ -21,6 +21,25 @@ static struct r2_network base(bool active)
 }
 int main(void)
 {
+ const struct {unsigned role;uint64_t active,selected;bool connected;uint64_t delay;} cadence[]={
+  {R2_GM5_ACTIVE,100,0,false,5000000},
+  {R2_GM5_ACTIVE,100,200,false,5000000},
+  {R2_GM5_ACTIVE,100,200,true,30000000},
+  {R2_GM5_COLD,0,0,false,5000000},
+  {R2_GM5_COLD,200,0,false,30000000},
+  {R2_GM5_ACQUIRING,200,100,false,5000000},
+  {R2_GM5_HOT,200,100,true,30000000}
+ };
+ for(unsigned i=0;i<sizeof cadence/sizeof cadence[0];i++){
+  struct r2_network poll=base(true);poll.gm5.role=cadence[i].role;poll.gm5.active=cadence[i].active;
+  poll.gm5.selected=cadence[i].selected;poll.peer[1].connected=cadence[i].connected;
+  poll.gm5.next_poll=poll.now-1000000;poll.gm5.round_until=poll.gm5.next_attempt=poll.now+60000000;
+  poll.gm5.candidate[0]=(struct r2_gm5_candidate){.identity=200,.boot=20,.eligible=true,.epoch=1,.until=poll.now+120000000};
+  struct r2_network completed=poll;r2_gm5_poll_completed(&completed,completed.now);
+  gm5_tick(&poll,true,poll.now,NULL);
+  assert(poll.gm5.next_poll==poll.now+cadence[i].delay&&poll.gm5.next_poll==completed.gm5.next_poll);
+ }
+ puts("PASS completed/missed poll cadence agrees across ACTIVE unpaired/repair/bound and COLD/acquiring/HOT roles");
  struct r2_network n=base(false);struct r2_auth_record commit={.kind=R2_AUTH_COMMIT,.root=1,.root_boot=20,.coordinator_boot=10,.source_epoch=1,.source_second=descriptor(&n),.decision=7,.created_us=70000000,.permit_until_us=80000000,.flags=1};
  assert(!gm5_management_receive(&n,1,&commit,79900000,70200000));assert(n.hot_ready&&n.standby_authorized&&n.gm5.grant_until==79900000);
  assert(!gm5_management_receive(&n,1,&commit,79910000,70200000));assert(n.gm5.grant_until==79900000); /* Offset refinement cannot extend original permission. */

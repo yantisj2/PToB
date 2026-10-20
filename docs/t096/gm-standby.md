@@ -2,7 +2,8 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
-Version0.15.134 introduces G5 coordination for the ordinary GM profile. This is
+Version0.15.134 introduces G5 coordination for the ordinary GM profile; current
+version0.15.135 corrects missed inventory retry scheduling. This is
 an implementation and host-test contract, not hardware acceptance or a claim of
 UTC/output accuracy. RC7 clients, USB, GNSS qualification, BLE capture and LoRa
 wire3 retain their separate contracts. DC remains a separate flash-only image.
@@ -45,7 +46,14 @@ current timing permission and output authority are distinct facts.
 A COLD clock ordinarily has no persistent GM ACL, PA precision acquisition or
 continuous bootstrap scan. Inventory opportunities last at most1s; the next
 original opportunity is5s while discovering/no selected contact and30s with an
-incumbent. Missed opportunities do not accumulate. G5 discovery visits least-recently-consumed
+incumbent. The same policy schedules both completed and missed opportunities:
+ACTIVE without a selected peer waits5s after its1s window expires, rather than
+mistaking its own ACTIVE identity for a remote incumbent and waiting30s. A
+selected peer without a bound control link likewise retains5s repair spacing.
+Missed opportunities do not accumulate. Each transient connection attempt still
+has its original100ms cap and consumes the unchanged2s discovery cooldown.
+Repeated missed opportunities therefore recur at6s spacing when the owner runs
+on time; this does not guarantee radio contact. G5 discovery visits least-recently-consumed
 identities before passive hints/RSSI, preserving explicit selected-peer/parent
 precedence; ordinary RC ranking is unchanged. Failed selected transport
 contact retries at5s spacing. One transient exchange per local owner is retained;

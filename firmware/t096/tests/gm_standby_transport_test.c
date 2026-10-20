@@ -4,12 +4,17 @@
  */
 #include "ble_transport_fake.h"
 static unsigned initiations;
+static bool create_pending;
+static struct bt_conn connection;
 static int sys_csrand_get(void *out,size_t size){static uint64_t nonce=1000;assert(size==8);uint64_t value=++nonce;memcpy(out,&value,8);return 0;}
 #include "../protocol/ble_transport.c"
 #include "../src/group_admission.c"
 #include <stdio.h>
-static int bt_conn_le_create(const bt_addr_le_t *a,const void *b,const void *c,struct bt_conn **out){++initiations;return -EBUSY;}
-static struct r2_network n;static struct bt_conn connection;
+static int bt_conn_le_create(const bt_addr_le_t *a,const void *b,const void *c,struct bt_conn **out){
+ ++initiations;if(!create_pending)return -EBUSY;
+ connection=(struct bt_conn){.address=*a,.refs=1};*out=&connection;return 0;
+}
+static struct r2_network n;
 static void reset(void)
 {
  memset(peers,0,sizeof peers);memset(candidates,0,sizeof candidates);candidate_since=0;memset(&gatt_request,0,sizeof gatt_request);
@@ -18,7 +23,7 @@ static void reset(void)
  r2_group_admission_reset();r2_ble_gm5_policy(true,0,false);
  assert(!r2_network_init(&n,0,2,333,33,44,40000,70000000));n.group=(struct r2_group_config){.id=7,.epoch=1,.psk={1}};n.gm5.enabled=true;n.capabilities=3;strcpy(n.name,"Synthetic");
  n.admission.eligible=true;n.candidate=(struct v12_dc_coarse){.available=true,.generation=1,.valid_until_us=90000000};n.gm_mask=n.gnss_mask=1;n.gm5.active=111;n.gm5.active_boot=11;n.gm5.active_until=190000000;n.gm5.next_poll=100000000;
- fake_time=n.now;
+ fake_time=n.now;create_pending=false;
  for(unsigned p=0;p<5;p++)for(unsigned s=0;s<2;s++)peers[p].completion[s]=(struct tx_context){&peers[p],s};
 }
 static void ready_guest(unsigned capabilities)
@@ -61,8 +66,60 @@ static void authenticated_withdrawal(uint64_t at)
  uint64_t ids[4]={111,333};uint8_t wire[R2_GROUP_CONTROL_MAX];assert(!r2_group_control_encode5(wire,&r,&n.group,ids,"Remote",3));
  assert(!r2_network_receive(&n,1,wire,r2_control_wire_size(wire),at,at));assert(n.peer[1].source_withdrawn);
 }
+static void missed_active_polls(bool pending)
+{
+ reset();create_pending=pending;n.admission.boot_at=n.admission.stable_at=0;
+ n.admission.observing=true;n.admission.source_epoch=1;n.admission.last_expiry=n.now+1500000;
+ n.gm5.role=R2_GM5_ACTIVE;n.gm5.active=n.identity;n.gm5.active_boot=n.boot;
+ n.gm5.next_poll=n.now;n.local_gm=n.ready=true;n.choice=0;n.root_boot=n.boot;
+ uint64_t due=n.now;unsigned before=initiations,closed=disconnects;
+ bt_addr_le_t address={.type=BT_ADDR_LE_RANDOM,.a={{7}}};
+ for(unsigned round=0;round<4;round++){
+  unsigned calls=initiations;bool callback=false;uint64_t started=0,original_until=0;
+  for(uint64_t at=due;at<=due+1000000;at+=5000){
+   fake_time=at;struct r2_clock source={0};source.view.source_available=true;source.view.source_epoch=1;
+   source.last_pair_edge=source.last_rmc=at;source.last_pair_utc=INT64_C(1791417600000000)+at;
+   r2_network_tick(&n,&source,at);r2_group_admission_tick(&n,at);
+   bool open=r2_gm5_poll_due(&n,at);r2_ble_gm5_policy(true,r2_gm5_control_peer(&n),open);r2_ble_client_window(true);
+   if(open)candidate_seen(&address,700,false,-30,at);
+   r2_ble_poll(at);
+   if(initiations!=calls&&!started){
+    started=at;assert(initiations==calls+1&&at<=due+40000&&(round||at>=due+40000));
+    assert(candidates[0].cooldown==at+2000000);original_until=peers[4].provisional_until;
+    if(pending)assert(peers[4].connect_until==at+100000&&connection.refs==1);
+   }
+   if(pending&&started){
+    if(at<started+100000)assert(disconnects==closed+round);
+    if(at==started+100000)assert(disconnects==closed+round+1&&!peers[4].connect_until);
+    if(at>=started+100000&&at<started+150000)assert(peers[4].conn==&connection&&connection.refs==1&&peers[4].provisional_until==original_until);
+    if(at==started+150000){callbacks.connected(&connection,2);callback=true;}
+    if(at>started+150000)assert(callback&&!peers[4].conn&&connection.refs==0);
+   }
+   assert(initiations<=calls+1); /* The unchanged2s cooldown exceeds this1s window. */
+   assert(n.local_gm&&n.ready&&n.admission.eligible&&n.gm5.role==R2_GM5_ACTIVE&&!n.gm5.selected&&!n.hot_ready&&!n.standby_authorized);
+   if(at<due+1000000)assert(n.gm5.next_poll==due);
+  }
+  assert(started&&initiations==calls+1&&!r2_gm5_poll_due(&n,n.now));
+  /* Elapse the actual missed window. ACTIVE's self identity is not a remote
+   * incumbent: both failed and completed polls retain the same5s cadence. */
+  assert(n.gm5.next_poll==due+1000000+5000000);
+  uint64_t next=n.gm5.next_poll;
+  for(uint64_t at=n.now+5000;at<next;at+=5000){
+   fake_time=at;struct r2_clock source={0};source.view.source_available=true;source.view.source_epoch=1;
+   source.last_pair_edge=source.last_rmc=at;source.last_pair_utc=INT64_C(1791417600000000)+at;
+   r2_network_tick(&n,&source,at);r2_group_admission_tick(&n,at);
+   r2_ble_gm5_policy(true,0,r2_gm5_poll_due(&n,at));r2_ble_poll(at);
+   assert(n.gm5.next_poll==next&&initiations==calls+1&&n.local_gm&&n.ready);
+  }
+  due=next;
+ }
+ assert(initiations==before+4);create_pending=false;
+ puts(pending?"PASS four actual ACTIVE missed poll windows:100ms pending create cancellation, delayed callback drain,2s cooldown, fixed5s next opportunities and continuous source service":
+              "PASS four actual ACTIVE missed poll windows: native create EBUSY,2s cooldown, fixed5s next opportunities and continuous source service");
+}
 int main(void)
 {
+ missed_active_polls(false);missed_active_polls(true);
  reset();for(unsigned role=0;role<4;role++)for(unsigned tx=0;tx<2;tx++)for(unsigned requested=0;requested<2;requested++){
   n.gm5.role=role;assert(r2_gm5_bridge_needed(&n.gm5,tx,requested)==(role==R2_GM5_COLD&&tx&&requested));
  }

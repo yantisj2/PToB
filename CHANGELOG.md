@@ -2,6 +2,21 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 20 October 2026 — T0960.15.135 G5 missed inventory retry
+
+An ACTIVE without a selected peer now uses the same5s retry policy after a missed
+inventory window as after a completed poll. The missed path previously treated
+ACTIVE's own identity as a remote incumbent and waited30s, reducing opportunities
+to discover qualified candidates or merge independently serving roots. Selected
+transport repair also uses the existing common scheduling policy.
+
+Production network/admission/transport regressions elapse repeated1s windows with
+native create refusal or missing connection completion, retain the100ms attempt
+cap,2s cooldown and delayed callback ownership, and require bounded next
+opportunities while source service continues. No source, precision, authority,
+output fence or resource gate changes. This corrects retry scheduling; the cause
+of physical100ms connection failures and hardware merge durability remain open.
+
 ## 20 October 2026 — T0960.15.134 G5 bounded standby
 
 Ordinary GM now separates three-identity candidate inventory from two control

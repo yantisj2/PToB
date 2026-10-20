@@ -76,7 +76,9 @@ bool r2_gm5_poll_due(const struct r2_network *n,uint64_t now)
 void r2_gm5_poll_completed(struct r2_network *n,uint64_t now)
 {
  struct r2_gm5 *g=&n->gm5;
- /* One original due time; no catch-up. Pair repair gets precedence. */
+ /* One original due time; no catch-up. Missed and completed opportunities
+  * share this policy: an unpaired ACTIVE's self identity is not an incumbent.
+  * Pair repair gets precedence. */
  g->next_poll=now+((r2_gm5_control_peer(n)&&!bound(n,gm5_slot(n,r2_gm5_control_peer(n))))?5000000:g->role==R2_GM5_ACTIVE?(g->selected?30000000:5000000):g->active?30000000:5000000);
 }
 static void gm5_set_root(struct r2_network *n,unsigned root)
@@ -159,7 +161,7 @@ static void gm5_tick(struct r2_network *n,bool physical,uint64_t now,const struc
   gm5_grant_clear(n,R2_GM5_INHIBITED);g->role=R2_GM5_COLD;g->active=g->active_boot=g->active_until=g->selected=0;
   gm5_set_root(n,255);gm5_event(n,R2_GM5_INHIBITED,coord->root);
  }
- if(now>=g->next_poll&&now-g->next_poll>=1000000)g->next_poll=now+(g->active?30000000:5000000);
+ if(now>=g->next_poll&&now-g->next_poll>=1000000)r2_gm5_poll_completed(n,now);
  if(!g->round_until)g->round_until=n->admission.boot_at+R2_ELECTION_STABLE_US+5000000+(n->identity%3)*1000000;
  n->members_mask=own?1u<<n->self:0;
  for(unsigned p=0;p<n->count;p++)if(p!=n->self&&live(n,p)&&now<n->peer[p].candidate_until)n->members_mask|=1u<<p;
