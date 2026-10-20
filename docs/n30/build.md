@@ -160,3 +160,15 @@ Offline tests cover debounce/threshold/release/extended holds, no repeated or
 stale queued toggles, maintenance refusal, truthful source expiry and all saver
 positions. Physical gesture, mode transition and sustained reception outcomes
 must be recorded separately on the arriving hardware.
+
+Version0.1.5 adds a nonblocking500ms display-only grace on the first clock page
+(internal page0). Only a successfully transferred live dial can seed the cache.
+On reception/quality loss its hands freeze; at500ms the current syncing/error
+panel replaces it. The10ms display worker observes loss/expiry independently
+of the4Hz frame schedule and requests a frame at grace transitions. Actual
+transfer/worker latency remains separate from the500ms software deadline.
+No timing model, live source/lock status, radio or W12/T096 code is retained or
+modified by this presentation cache. Host tests compare the frozen dial pixels
+and cover499999/500000us boundaries, recovery, repeated loss, stale input,
+monotonic reversal, hidden surfaces and transfer failure. Physical field
+behavior remains a separate observation.

@@ -6,6 +6,7 @@
 namespace n30 {
 constexpr unsigned Width=64,Height=128,FrameBytes=1024;
 constexpr uint64_t SnapshotMaxUs=250000,IdleUs=300000000,MoveUs=30000000;
+constexpr uint64_t DialGraceUs=500000;
 enum class State:uint8_t {Off,Search,Join,Acquire,Follow,Hold,Fault};
 enum class Source:uint8_t {None,Ble,Rc1,Rc2};
 enum class Action:uint8_t {None,ToggleRelayOnly};
@@ -17,13 +18,27 @@ struct Model {
  Source source=Source::None;
  State state=State::Search;uint8_t lamps[8]{}; // 0 inactive,1 RX/event,2 TX/API
 };
-struct View {uint8_t page=0,saver_position=0;bool help=false,saver=false,blank=false;};
+struct View {
+ uint8_t page=0,saver_position=0;bool help=false,saver=false,blank=false;
+ bool dial_frozen=false;uint64_t dial_utc=0;uint16_t dial_hz=0;
+};
 bool current(const Model&,uint64_t now);
 bool time(const Model&,uint64_t now,uint64_t& utc);
+bool analog_time(const Model&,uint64_t now,uint64_t& utc);
 const char* source_label(const Model&,uint64_t now);
 void render(uint8_t frame[FrameBytes],const Model&,const View&,uint64_t now);
 // Logical portrait bitmap -> native 128x64 OLED pages. Both mounted rotations.
 void rotate(uint8_t native[FrameBytes],const uint8_t portrait[FrameBytes],bool clockwise);
+// Display-only grace: remember only a successfully displayed main-page dial.
+// Observe every worker turn, not just frames. Never prolong source validity.
+class DialHold {
+ bool saved_=false,losing_=false,seen_=false;
+ uint64_t observed_=0,loss_at_=0,utc_=0;uint16_t hz_=0;
+ public:
+ void reset(){saved_=losing_=seen_=false;}
+ void update(const Model&,View&,uint64_t now);
+ void presented(const Model&,const View&,uint64_t now);
+};
 class Input {
  bool raw_=false,stable_=false,armed_=false,consumed_=false,wake_=false,main_press_=false;
  uint64_t changed_=0,down_=0,idle_=0;

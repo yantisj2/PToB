@@ -8,6 +8,21 @@ bool time(const Model& m,uint64_t now,uint64_t& utc){
  if(!current(m,now)||!m.valid||now<m.utc_at_us||now>=m.until_us||m.state==State::Fault||m.state==State::Off||now-m.utc_at_us>UINT64_MAX-m.utc_us)return false;
  utc=m.utc_us+(now-m.utc_at_us);return true;
 }
+bool analog_time(const Model& m,uint64_t now,uint64_t& utc){return time(m,now,utc)&&m.locked&&m.state==State::Follow&&m.source!=Source::None;}
+namespace {bool main_dial(const View& v){return v.page%2==0&&!v.help&&!v.blank&&!v.saver;}}
+void DialHold::update(const Model& m,View& v,uint64_t now){
+ v.dial_frozen=false;
+ if(!main_dial(v)||(seen_&&now<observed_)){reset();return;}
+ seen_=true;observed_=now;uint64_t utc;
+ if(analog_time(m,now,utc)){losing_=false;return;}
+ if(!saved_)return;
+ if(!losing_){losing_=true;loss_at_=now;}
+ if(now-loss_at_<DialGraceUs){v.dial_frozen=true;v.dial_utc=utc_;v.dial_hz=hz_;}
+ else saved_=false; // Cannot rearm until another live dial reaches the screen.
+}
+void DialHold::presented(const Model& m,const View& v,uint64_t now){
+ uint64_t utc;if(main_dial(v)&&!v.dial_frozen&&analog_time(m,now,utc)){saved_=true;losing_=false;utc_=utc;hz_=m.hz;}
+}
 const char* source_label(const Model& m,uint64_t now){
  uint64_t utc;if(m.mode_pending||!time(m,now,utc))return "WAIT";
  if(m.state==State::Hold)return "HOLD";

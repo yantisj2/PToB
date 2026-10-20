@@ -2,7 +2,7 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
 
-**Version 0.1.4 adds T096-style moving screensaver source labels and W12's main-screen upstream toggle, while preserving shared W12 radio behavior. First-install qualification is in progress.**
+**Version 0.1.5 holds the last analog dial for500ms during brief reception/quality loss, retaining the T096-style pages, source screensaver and W12 upstream toggle. First-install qualification is in progress.**
 Meshnology N30 / Heltec WiFi LoRa32 V3 is the proposed board route: ESP32-S3,
 8 MB flash, 128×64 OLED mounted as a 64×128 portrait display, UART0 console via
 USB serial bridge. Exact incoming revision, display controller, rail/pin route,
@@ -39,6 +39,12 @@ performance. [Reproduction and arrival checklist](../../docs/n30/build.md).
   different populations, not packet delivery denominators or actual RF TX
   timestamps. RDY has no equivalent event and remains dark (`N/A` in help).
 - The analog dial/lock use W12's existing settled relative-quality display gate.
+  On the first (main clock) page, the last successfully displayed dial freezes
+  for500ms after loss of the live analog gate, then gives way to the current
+  syncing/error panel. Recovery restores live hands immediately. This is a
+  presentation-only grace: digital time/source labels, lock/RMS, source expiry
+  and radio authority keep their current validity; frozen redraws never extend
+  the500ms. RF/help/blank/screensaver and transfer failures discard the cache.
   HOLD remains a local estimate; it grants no source or downstream authority.
   No GNSS/PPS activity or independent accuracy is implied. Direct-GM reception
   bars remain unknown unless a producer supplies a delivery denominator.

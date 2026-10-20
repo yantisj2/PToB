@@ -26,7 +26,7 @@ void help(uint8_t* f,const View& v){box(f,1,0,62,11);center(f,2,v.page?"RF KEY":
 }
 void render(uint8_t f[FrameBytes],const Model& m,const View& v,uint64_t now){
  std::memset(f,0,FrameBytes);if(v.blank)return;if(v.help){help(f,v);return;}
- const bool fresh=current(m,now);uint64_t utc=0;const bool valid=time(m,now,utc),locked=valid&&fresh&&m.locked&&m.state==State::Follow&&m.source!=Source::None;
+ const bool fresh=current(m,now);uint64_t utc=0;const bool valid=time(m,now,utc),locked=analog_time(m,now,utc);
  if(v.saver&&locked){
   // T096's moving assembly: source strip, analog panel, identity strip.
   // Rigidly translated and scaled to64x128; no digital dashboard in saver.
@@ -38,7 +38,7 @@ void render(uint8_t f[FrameBytes],const Model& m,const View& v,uint64_t now){
  header(f,m,fresh);
  if(v.page%2==0){
   box(f,1,12,62,28);text(f,5,15,"UTC");text(f,39,15,source_label(m,now));digital(f,24,valid,utc);
-  box(f,1,42,62,49);if(locked)dial(f,66,utc,m.hz);else{center(f,54,state(m,fresh));center(f,70,valid?"REL CLOCK":"NO TIME");}
+  box(f,1,42,62,49);if(v.dial_frozen)dial(f,66,v.dial_utc,v.dial_hz);else if(locked)dial(f,66,utc,m.hz);else{center(f,54,state(m,fresh));center(f,70,valid?"REL CLOCK":"NO TIME");}
   box(f,1,93,62,35);center(f,96,"SYNC RMS");char s[16];rms(s,sizeof s,valid&&m.state==State::Follow?m.rms_ns:UINT32_MAX);center(f,107,s);
   if(locked){box(f,3,106,6,8);box(f,4,103,4,5);}fill(f,4,117,56,1);text(f,5,120,"RC");if(fresh&&m.mode_pending)text(f,23,120,">");else if(fresh&&m.relay_only)text(f,23,120,"R");if(fresh&&m.serving)fill(f,20,121,3,3);
   for(unsigned i=0;i<4;i++){int x=35+int(i)*6,h=2+int(i)*2;const bool on=valid&&m.delivery!=UINT16_MAX&&m.delivery>=(i==0?1:i==1?500:i==2?750:900);if(on)fill(f,x,127-h,4,h);else{fill(f,x,127-h,4,1);fill(f,x,126,4,1);}}
