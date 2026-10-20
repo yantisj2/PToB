@@ -5,7 +5,7 @@
 *Illustrative firmware-rendered RC screen; displayed values are not measured
 performance. [Image provenance](../../docs/images/README.md).*
 
-**PToB owns T096 RC7 development.** Current source version **0.15.130** supplies the
+**PToB owns T096 RC7 development.** Current source version **0.15.131** supplies the
 ordinary **GM** and **RC** mesh profiles, with USB timing compiled by default.
 [Build from source](../../docs/t096/build.md) with pinned public dependencies
 and ignored local enrollment. No enrolled binary is distributed.
@@ -23,8 +23,13 @@ preferred while usable. A transmitting follower needs no local PPS; an actual
 GM retains its own PPS/source gate. Timing packets carry the full root identity and source epoch; a missed companion
 still permits functional acquisition. Companions describe boots, parent and measured
 quality about every120 seconds and on significant changes. Cold passive freshness and total uncertainty are UNKNOWN;
-optional independent admission improves assurance. RC8 grants no RC7/GM/RC9
-or USB authority. This source corrects prior-correction validation ordering: the full immutable context
+optional independent admission improves assurance. RC8 grants no RC7 timing,
+GM promotion, RC9 or USB authority. Version131 adds a separate negative GM
+election constraint: a live foreign LoRa root inhibits local ACTIVE/HOT unless
+current direct matching-root BLE admission permits normal coordination. An
+immediate relay parent cannot substitute for the actual GM. Self-root echoes
+remain rejected, and original hold/withdrawal/source fences are retained.
+This source corrects prior-correction validation ordering: the full immutable context
 is populated before validating a carried prior event. Version124 discarded those
 corrections despite mapped physical TX events. It remains an unqualified canary integration until its
 separate native/resource and authorized exact-device checks pass.

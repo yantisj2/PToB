@@ -152,8 +152,7 @@
   },
   "gesture": {
     "arm_us": 1500000,
-    "cancel_and_preserve_poweroff_us": 4000000,
-    "toggle": "release before4s while eligible",
+    "toggle": "one shot at1.5s; consume extended press and suppress page7 poweroff",
     "persistence": "volatile"
   },
   "excluded": [
@@ -262,5 +261,22 @@
     "diagnostic_retry_min_us": 2000000,
     "future_timing_deadline_preserved_on_diagnostic_abort": true,
     "retired_command_timeout": "latched fault"
+  },
+  "gm_coordination": {
+    "since": "T0960.15.131",
+    "wire_change": false,
+    "inhibit": "accepted authenticated foreign-root physical pair; original functional hold only; root boot may be unknown",
+    "root": "original GM factory/boot/source epoch; immediate BLE parent is route provenance",
+    "eligibility": "matching full root boot plus current authenticated direct-root JOIN and captured BLE map, or live admitted direct-root control with causal map; source/HOT guards still apply",
+    "selection": "canonical root only while live; no local quality, old pair or alternative-root override",
+    "metadata": "does not create or renew hold; TIME_INVALID and context change withdraw matched sample",
+    "self_echo": "no timing samples; only separately proved current serving origin incarnation/epoch plus same-emitter-boot strictly newer full self-root companion may retire old full foreign constraint; no admission/promotion; cold/inactive/old boot/epoch/replay cannot",
+    "expiry": "ordinary source readmission and output fences",
+    "limits": [
+      "UNKNOWN passive freshness; cold replay can inhibit",
+      "no RC7 timing/USB authority or GM promotion",
+      "no global single-GM proof across complete RF partitions"
+    ],
+    "handover": "current direct authenticated explicit root-source withdrawal may complete ordinary ACTIVE replacement after old service permit and existing takeover/output fences; silence/map expiry alone cannot"
   }
 }

@@ -481,15 +481,40 @@ static struct v12_dc_coarse local_source(struct r2_network *n,const struct r2_cl
   source.relative_ready=source.available&&n->relative_source;
   return source;
 }
+bool r2_network_coordination_direct(const struct r2_network *n,const struct r2_gm_coordination *c,uint64_t now)
+{
+ if(!r2_gm_coordination_live(c,n->identity,now)||!c->boot)return false;
+ /* Only the serialized BLE owner may set this after current direct JOIN and
+  * same-root physical PA map proof. LoRa publication always leaves it false. */
+ if(c->direct)return true;
+ for(unsigned p=0;p<n->count;p++){
+  const struct r2_net_peer *m=&n->peer[p];
+  if(p!=n->self&&c->root==m->identity&&c->boot==m->boot&&
+     (c->epoch==m->candidate_epoch||(m->source_withdrawn&&!m->candidate_epoch))&&
+     m->connected&&m->authenticated&&m->member&&m->map_valid&&
+     (m->capabilities&3)==3&&now>=m->seen&&now-m->seen<10000000&&
+     now>=m->alive&&now-m->alive<R2_MANAGEMENT_LEASE_US&&
+     now>=m->member_at&&now-m->member_at<R2_V14_MEMBERSHIP_US)return true;
+ }
+ return false;
+}
 void r2_network_tick(struct r2_network *n,const struct r2_clock *clock,uint64_t now)
+{r2_network_tick_coordinated(n,clock,now,NULL);}
+void r2_network_tick_coordinated(struct r2_network *n,const struct r2_clock *clock,uint64_t now,const struct r2_gm_coordination *coord)
 {
  if(!clock_now(n,now))return;
+ bool constrained=r2_gm_coordination_live(coord,n->identity,now);
+ bool direct=constrained&&r2_network_coordination_direct(n,coord,now);
  uint64_t elapsed=n->follower_at?now-n->follower_at:0;
  if(n->follower_at){n->follower_utc+=elapsed;n->follower_at=now;}
  uint64_t previous_source_until=n->candidate.valid_until_us;
  uint32_t previous_source_epoch=n->candidate.generation;
  n->candidate=local_source(n,clock,now);
- bool own=r2_admission_update(&n->admission,(n->profile_root==255||n->self!=n->profile_client)&&(n->gm_mask&(1u<<n->self)),n->gnss_mask&(1u<<n->self),n->candidate.available,n->candidate.generation,n->candidate.valid_until_us,now);
+ bool own=r2_admission_update(&n->admission,(!constrained||direct)&&(n->profile_root==255||n->self!=n->profile_client)&&(n->gm_mask&(1u<<n->self)),n->gnss_mask&(1u<<n->self),n->candidate.available,n->candidate.generation,n->candidate.valid_until_us,now);
+ if(constrained&&!direct){
+  n->standby_authorized=n->takeover_pending=false;
+  n->pair=(struct r2_pair){.root=255,.standby=255};
+ }
  if(own&&(previous_source_until!=n->candidate.valid_until_us||previous_source_epoch!=n->candidate.generation)){
   /* Newly available source evidence is change-driven; never wait behind the
    * sparse liveness cadence near the old1.5s original permission deadline. */
@@ -629,6 +654,36 @@ void r2_network_tick(struct r2_network *n,const struct r2_clock *clock,uint64_t 
      ranks[p].boot==n->discovery_pair.root_boot&&ranks[p].authenticated&&ranks[p].independent_ready)roles.gm=p;
  }
 
+ /* Last election fence: quality, old pair/discovery preference, explicit test
+  * profiles and prior HOT takeover cannot select another root. A direct peer
+  * still proves every existing source/service/management/timing permission.
+  * No synthetic peer, boot, map or service receipt is installed from LoRa. */
+ if(constrained){
+  bool replacement=false;uint64_t retired_until=0;
+  if(direct&&roles.gm==n->self)for(unsigned p=0;p<n->count;p++){
+   const struct r2_net_peer *m=&n->peer[p];
+   if(p!=n->self&&m->identity==coord->root&&m->boot==coord->boot&&
+      m->source_withdrawn&&!m->candidate_epoch&&m->connected&&m->authenticated&&
+      now>=m->alive&&now-m->alive<R2_MANAGEMENT_LEASE_US){
+    replacement=true;retired_until=m->serving_until;break;
+   }
+  }
+  /* Current DIRECT authenticated explicit withdrawal may complete ordinary
+   * coordinated replacement. Silence/expired maps alone never grant it. The
+   * old original service permit and existing topology/takeover fences still
+   * precede local output, even if this node previously served a partition. */
+  if(replacement){if(n->fence<retired_until)n->fence=retired_until;}
+  else{
+   roles=(struct r2_elected_roles){255,255,255};
+   if(direct)for(unsigned p=0;p<n->count;p++)if(p!=n->self&&
+    r2_gm_coordination_matches(coord,n->peer[p].identity,n->peer[p].boot,n->peer[p].candidate_epoch)&&
+    ranks[p].authenticated&&ranks[p].independent_ready&&ranks[p].gm_capable&&ranks[p].gnss_capable){
+    roles.gm=p;struct r2_ranked_clock rest[4];memcpy(rest,ranks,sizeof rest);
+    rest[p].independent_ready=false;
+    roles.coordinator=roles.standby=r2_election_rank(rest,n->count).gm;break;
+   }
+  }
+ }
  uint64_t root=roles.gm==255?0:roles.gm==n->self?n->boot:n->peer[roles.gm].boot;
  uint32_t epoch=roles.gm==255?0:roles.gm==n->self?n->candidate.generation:n->peer[roles.gm].candidate_epoch;
  if(roles.gm!=n->choice||root!=n->root_boot||(n->view.available&&epoch!=n->view.generation)){

@@ -212,6 +212,31 @@ void r2_lora_request(bool on){
 }
 void r2_lora_toggle(void){r2_lora_request(!(atomic_get(&flags)&REQUESTED));}
 int r2_lora_close_result(void){return (atomic_get(&faulted)&2)?-EIO:atomic_get(&closed)?0:-EAGAIN;}
+static struct r2_gm_coordination coordination(const struct snapshot *s,uint64_t now){
+ atomic_val_t f=atomic_get(&flags);
+ /* The receiver already authenticated the sole enrolled emitter, exact
+  * context/sequence and prior physical pair. Self-root descendants are rejected
+  * there and cannot replace a foreign lease. Metadata alone cannot renew it.
+  * This original12s functional hold has UNKNOWN passive freshness; it is only
+  * a conservative election inhibition, never RC7 source/timing permission. */
+ if(transmitter||atomic_get(&faulted)||!(f&ALLOWED)||!(f&REQUESTED)||
+    !s->view.active||s->view.state!=RC8_AVAILABLE||!s->corrected_sequence||
+    !s->scope.root||s->scope.root==binding.factory||!s->scope.source_epoch||
+    now<s->event.local_us||now-s->event.local_us>=RC8_HOLD_US||
+    s->event.local_us>UINT64_MAX-RC8_HOLD_US)return (struct r2_gm_coordination){0};
+ return (struct r2_gm_coordination){.root=s->scope.root,.boot=s->quality_known?s->scope.root_boot:0,
+  .until=s->event.local_us+RC8_HOLD_US,.epoch=s->scope.source_epoch};
+}
+void r2_lora_coordination(struct r2_gm_coordination *out){
+ if(!out)return;
+ k_spinlock_key_t key=k_spin_lock(&lock);*out=coordination(&published,mono());k_spin_unlock(&lock,key);
+}
+void r2_lora_origin(bool active,uint64_t boot,uint32_t epoch){
+ k_spinlock_key_t key=k_spin_lock(&lock);
+ r2_diag_scratch.lora.origin.boot=boot;r2_diag_scratch.lora.origin.epoch=epoch;
+ r2_diag_scratch.lora.origin.active=active&&boot&&epoch;
+ k_spin_unlock(&lock,key);
+}
 void r2_lora_view(struct r2_lora_view *out){
  if(!out)return;
  k_spinlock_key_t key=k_spin_lock(&lock);*out=published.view;k_spin_unlock(&lock,key);
@@ -220,6 +245,7 @@ void r2_lora_view(struct r2_lora_view *out){
  out->sampled_us=now;
  if(atomic_get(&faulted)){out->fault=true;out->active=false;}
  if(atomic_get(&faulted)||!(atomic_get(&flags)&REQUESTED)||!(atomic_get(&flags)&ALLOWED)||!out->until_us||now>=out->until_us){out->utc_us=0;out->choice=(atomic_get(&flags)&NORMAL)?((atomic_get(&flags)&LOCAL_GM)?RC8_SELECT_LOCAL_GM:RC8_SELECT_BLE):RC8_SELECT_NONE;}
+ struct r2_gm_coordination c;r2_lora_coordination(&c);out->coord_follow=c.root!=0;
 }
 static void __attribute__((noinline)) report(uint64_t now,bool active){
  struct snapshot s={0};atomic_val_t f=atomic_get(&flags);
@@ -391,7 +417,11 @@ static void __attribute__((noinline)) process_event(uint64_t now){
     if(transmitter&&h.kind==R2_LORA_HW_TX_DONE)tx_done(&h,e);
     else if(!transmitter&&h.kind==R2_LORA_HW_RX_DONE&&h.generation==generation){
      (void)rc8_receiver_freeze(&role.rx,h.frame,h.length,e);
-     (void)rc8_receiver_process(&role.rx,group,now);
+     k_spinlock_key_t origin_key=k_spin_lock(&lock);
+     uint64_t origin_boot=r2_diag_scratch.lora.origin.active?r2_diag_scratch.lora.origin.boot:0;
+     uint32_t origin_epoch=r2_diag_scratch.lora.origin.active?r2_diag_scratch.lora.origin.epoch:0;
+     k_spin_unlock(&lock,origin_key);
+     (void)rc8_receiver_process_origin(&role.rx,group,now,origin_boot,origin_epoch);
      if(h.length==RC8_META_BYTES&&role.rx.metadata_known&&role.rx.diagnostic_us==e.local_us){
       k_spinlock_key_t key=k_spin_lock(&lock);inc(&published.metadata);k_spin_unlock(&lock,key);
      }
@@ -453,6 +483,7 @@ void r2_lora_init(uint64_t factory,uint64_t boot,uint64_t tx,const struct r2_gro
  memset(&r2_diag_scratch.lora,0,r2_diag_state()>=1?
   offsetof(struct r2_lora_watchdog_state,retained):sizeof r2_diag_scratch.lora);
  r2_diag_scratch.lora.journal_result=-ENODATA;
+ memset(&r2_diag_scratch.lora.origin,0,sizeof r2_diag_scratch.lora.origin);
  binding=(struct rc8_enrollment){.factory=factory,.transmitter_factory=tx,.enrolled=factory&&boot&&g&&g->id};
  physical_boot=boot;group=g;transmitter=rc8_is_transmitter(&binding);
  published.diagnostic_events=RC8_D_BOOT;published.event_revision=1;
@@ -520,6 +551,7 @@ int r2_lora_json(char *out,size_t capacity,int result){
  struct snapshot s;k_spinlock_key_t key=k_spin_lock(&lock);s=published;uint64_t deadline=stop_deadline;k_spin_unlock(&lock,key);
  r2_lora_view(&s.view);
  struct r2_lora_hw_diag h;r2_lora_hw_diag(&h);
+ struct r2_gm_coordination coord;r2_lora_coordination(&coord);
  struct r2_lora_watchdog_state w;unsigned irqkey=irq_lock();w=r2_diag_scratch.lora;irq_unlock(irqkey);
  char context[33];for(unsigned i=0;i<16;i++)snprintf(context+2*i,3,"%02x",s.context[i]);
  return snprintf(out,capacity,
@@ -528,7 +560,7 @@ int r2_lora_json(char *out,size_t capacity,int result){
  "\"sequence\":%u,\"corrected_sequence\":%u,\"wire_corrected_sequence\":%u,\"event_tick\":%llu,\"capture_epoch\":%llu,\"event_mono_us\":%llu,\"event_ns\":%llu,\"created_ns\":%llu,\"expires_ns\":%llu,\"map_generation\":%u,\"map_age_us\":%u,\"upstream_bound_ns\":%u,"
  "\"accepted\":%u,\"rejected\":%u,\"replayed\":%u,\"unmatched\":%u,\"overflow\":%u,\"metadata\":%u,\"missing_map\":%u,\"hold_age_ms\":%u,\"state\":%u,\"assurance\":%u,\"source_authority\":%u,\"choice\":%u,\"output_bound_ns\":null,\"rc7_authority\":false,"
  "\"companion\":[%u,%u,%u,%u,%s,%s],\"parent\":[\"%016llx\",\"%016llx\"],\"quality\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%d,%u,%u,%u],\"link_fit\":[%u,%u],"
- "\"watchdog\":[1,%u,%u,%u,%u,%d,%u],\"fault_record\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u],\"owner\":[%u,%u,%u,%u,%u],"
+ "\"coordination\":[\"%016llx\",\"%016llx\",%u,%llu],\"watchdog\":[1,%u,%u,%u,%u,%d,%u],\"fault_record\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u],\"owner\":[%u,%u,%u,%u,%u],"
  "\"hw\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%d,%u,%u,%u,%u,%u]}",
  result,(unsigned long long)physical_boot,(unsigned long long)s.scope.emitter_boot,(unsigned long long)binding.transmitter_factory,transmitter?"true":"false",s.view.requested?"true":"false",s.view.active?"true":"false",atomic_get(&faulted)?"true":"false",
  atomic_get(&closed)?"true":"false",(long)atomic_get(&faulted),(unsigned long long)deadline,stack_unused(),context,(unsigned long long)s.scope.emitter,(unsigned long long)s.scope.stream,(unsigned long long)s.scope.root,(unsigned long long)s.scope.root_boot,s.scope.source_epoch,s.scope.kind,s.scope.scale,
@@ -536,6 +568,7 @@ int r2_lora_json(char *out,size_t capacity,int result){
  s.accepted,s.rejected,s.replayed,s.unmatched,s.overflow,s.metadata,s.missing_map,s.view.age_ms,s.view.state,s.view.assurance,s.authority,s.view.choice,
  s.diagnostic_sequence,s.snapshot_age_ms,s.diagnostic_events,age_ms(mono(),s.diagnostic_us),s.quality_known?"true":"false",s.time_valid?"true":"false",
  (unsigned long long)s.scope.parent,(unsigned long long)s.scope.parent_boot,s.quality.known,s.quality.values,s.quality.role,s.quality.hop,s.quality.parent_class,s.quality.parent_accuracy,s.quality.parent_bound_ns,s.quality.correction_age_ms,s.quality.map_life_ms,s.quality.rate_ppb,s.quality.residual_ns,s.quality.losses,s.quality.recoveries,s.view.link_samples,s.view.link_rms_ns,
+ (unsigned long long)coord.root,(unsigned long long)coord.boot,coord.epoch,(unsigned long long)coord.until,
  w.serial,w.coalesced,w.terminal,w.saved,w.journal_result,w.reset_requested,
  w.record[0],w.record[1],w.record[2],w.record[3],w.record[4],w.record[5],w.record[6],w.record[7],w.record[8],w.record[9],w.record[10],w.record[11],w.record[12],w.record[13],w.record[14],w.record[15],
  w.stage,w.stage_at,w.beat,w.monitor,w.closure,

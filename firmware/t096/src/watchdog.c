@@ -8,6 +8,7 @@
 #include "build_identity.h"
 #ifdef R2_LORA
 #include "lora_watchdog.h"
+#include "lora_service.h"
 #endif
 #include <errno.h>
 #include <stdio.h>
@@ -105,6 +106,13 @@ void r2_watchdog_observe(const struct r2_service_status *s,bool allowed)
  bool follower=s->follower_clock_valid&&now<s->service_until&&s->precision.map_valid&&s->precision.authorized&&
   s->precision.correction_age_valid&&s->precision.correction_age_ms<2000;
  if(s->profile_rc)follower=follower&&s->precision.locked&&!s->relay.held_time;
+ bool coordination=false;
+#ifdef R2_LORA
+ struct r2_gm_coordination c;r2_lora_coordination(&c);
+ uint64_t self=s->self<4?s->identities[s->self]:0;
+ coordination=!s->profile_rc&&!s->serving&&self&&r2_gm_coordination_live(&c,self,now)&&
+  (s->root>=4||s->identities[s->root]==c.root);
+#endif
  uint32_t refused=(!s->active||s->closing||s->profile_pending||s->error)?1u:0u;
  bool future=now<s->at,stale=!future&&now-s->at>=1000000;
  if(future)refused|=2u;
@@ -130,7 +138,11 @@ void r2_watchdog_observe(const struct r2_service_status *s,bool allowed)
   now>=s->at&&now-s->at>=(uint64_t)WD_RC_WORKER_MS*1000;
  atomic_inc(&sequence);
  atomic_set(&report_at,(atomic_val_t)k_uptime_get_32());atomic_set(&report_rc,s->profile_rc);
- atomic_set(&report_useful,live&&(gm||follower));atomic_set(&report_pending,s->profile_pending);
+ /* Bit1 is a legitimate coordinated operating mode, NOT qualified time.
+  * Keep precision refusal flags and qualified-observation counters separate.
+  * It refreshes only ordinary NO_SYNC policy; core/owner/LoRa fault observers
+  * retain their original paths and deadlines. Reuse the existing atomic. */
+ atomic_set(&report_useful,live?((gm||follower)?1:coordination?2:0):0);atomic_set(&report_pending,s->profile_pending);
  atomic_set(&report_generation,(atomic_val_t)s->profile_changes);atomic_set(&report_allowed,allowed);
  atomic_set(&report_worker_stalled,stalled);
  atomic_inc(&sequence);
@@ -260,11 +272,11 @@ void r2_watchdog_console(char *line,size_t capacity)
  static uint64_t report_due;
  uint64_t now=(uint64_t)k_uptime_get();
  uint32_t current=(unsigned)atomic_get(&intent)|((unsigned)atomic_get(&report_rc)<<1)|
-  ((unsigned)atomic_get(&retries)<<8)|((unsigned)atomic_get(&reset_reason)<<16);
+  ((unsigned)(atomic_get(&report_useful)&2)<<1)|((unsigned)atomic_get(&retries)<<8)|((unsigned)atomic_get(&reset_reason)<<16);
  if(reported&&current==signature&&now<report_due)return;
- int n=snprintf(line,capacity,"R2_WATCHDOG {\"parent_ms\":%u,\"gm_ms\":%u,\"rc_ms\":%u,\"enabled\":%u,\"profile_rc\":%u,\"retries\":%u,\"silent_ms\":%u,\"reset_reason\":%u,\"reset_flags\":%u,\"last_reset\":%u,\"refusal_flags\":%u,\"observations\":[%u,%u,%u,%u],\"previous\":[",
+ int n=snprintf(line,capacity,"R2_WATCHDOG {\"parent_ms\":%u,\"gm_ms\":%u,\"rc_ms\":%u,\"enabled\":%u,\"profile_rc\":%u,\"retries\":%u,\"silent_ms\":%u,\"reset_reason\":%u,\"reset_flags\":%u,\"last_reset\":%u,\"refusal_flags\":%u,\"coordination_activity\":%s,\"observations\":[%u,%u,%u,%u],\"previous\":[",
   WD_PARENT_MS,R2_WD_GM_MS,R2_WD_RC_MS,(unsigned)atomic_get(&intent),(unsigned)atomic_get(&report_rc),
-  (unsigned)atomic_get(&retries),(uint32_t)(k_uptime_get_32()-(uint32_t)atomic_get(&silent_since)),(unsigned)atomic_get(&reset_reason),reset_flags,reset_kind,(unsigned)atomic_get(&refusal_flags),
+  (unsigned)atomic_get(&retries),(uint32_t)(k_uptime_get_32()-(uint32_t)atomic_get(&silent_since)),(unsigned)atomic_get(&reset_reason),reset_flags,reset_kind,(unsigned)atomic_get(&refusal_flags),(atomic_get(&report_useful)&2)?"true":"false",
   (unsigned)atomic_get(&observations),(unsigned)atomic_get(&useful_observations),
   (unsigned)atomic_get(&future_observations),(unsigned)atomic_get(&stale_observations));
  if(n<0||(size_t)n>=capacity)return;

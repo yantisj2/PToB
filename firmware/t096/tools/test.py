@@ -17,6 +17,8 @@ with tempfile.TemporaryDirectory(prefix='t096-r2-test-') as directory:
     subprocess.run([sys.executable,str(APP/'tools/lora_source_owner_tests.py'),'--deps',str(args.deps),'--out',str(out/'lora-source-owner')],env={**os.environ,'CC':compiler},check=True,timeout=60)
     subprocess.run([sys.executable,str(APP/'tools/lora_runtime_tests.py'),'--deps',str(args.deps),'--out',str(out/'lora-runtime')],env={**os.environ,'CC':compiler},check=True,timeout=60)
     subprocess.run([sys.executable,str(APP/'tools/lora_hw_tests.py'),'--out',str(out/'lora-hw')],env={**os.environ,'CC':compiler},check=True,timeout=60)
+    subprocess.run([sys.executable,str(APP/'tools/lora_gm_tests.py'),'--deps',str(args.deps),'--out',str(out/'lora-gm')],env={**os.environ,'CC':compiler},check=True,timeout=120)
+    subprocess.run([sys.executable,str(APP/'tools/watchdog_tests.py'),'--deps',str(args.deps),'--out',str(out/'watchdog')],env={**os.environ,'CC':compiler},check=True,timeout=120)
     subprocess.run([sys.executable,'-m','unittest',str(APP/'tests/test_lora_build_binding.py')],check=True,timeout=60)
     subprocess.run([sys.executable,str(APP/'tools/framebuffer_tests.py'),'--out',str(out/'framebuffer')],
                    env={**os.environ,'CC':compiler},check=True,timeout=60)

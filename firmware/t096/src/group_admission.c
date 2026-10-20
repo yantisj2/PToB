@@ -4,6 +4,9 @@
 #include "group_admission.h"
 #include "ble_transport.h"
 #include "timing_events.h"
+#ifdef R2_LORA
+#include "lora_service.h"
+#endif
 #include <errno.h>
 #include <string.h>
 #if defined(R2_SERVICE_CLIENTS) || defined(R2_FIELD_FIXTURE) || defined(R2_RC_DYNAMIC_FIXTURE)
@@ -49,6 +52,18 @@ void r2_group_admission_direct_quality(const struct r2_link_quality_view *q,uint
 }
 static struct r2_group_client timing_context,coarse_context;
 static struct r2_local_demand queued_demand;
+bool r2_group_admission_coordination_direct(const struct r2_gm_coordination *c,uint64_t now){
+ /* A relay's root identity is not direct root contact. The original JOIN
+  * peer/boot and current direct physical PA map must both name this root.
+  * This permits normal source readmission before promotion to GM control;
+  * requiring an existing promoted slot here would deadlock cold return. */
+ return c&&c->root&&c->boot&&c->epoch&&now<c->until&&
+  client.source&&client.peer==c->root&&client.peer_boot==c->boot&&
+  r2_gm_coordination_matches(c,client.root,client.boot,client.source_epoch)&&
+  now>=client.at&&now<client.until&&timing_context.source&&
+  timing_context.peer==c->root&&r2_gm_coordination_matches(c,timing_context.root,timing_context.boot,timing_context.source_epoch)&&
+  now>=timing_context.at&&now<timing_context.map_until&&now<timing_context.until;
+}
 void r2_group_admission_path_view(uint64_t out[4]){
  out[0]=poor_direct;out[1]=direct_progress_at;out[2]=demand.received?0:demand.peer;out[3]=demand.until;
 }
@@ -215,6 +230,11 @@ static void accepted_peer(struct r2_network *n, const struct r2_join_record *r,
       (r->capabilities&1)&&r->root==r->sender&&r->root!=n->identity&&
       r->root_boot==r->sender_boot;
     bool selected_time=timed&&(!exchange.server||!passive||incoming_root);
+#ifdef R2_LORA
+    struct r2_gm_coordination coord;r2_lora_coordination(&coord);
+    if(r2_gm_coordination_live(&coord,n->identity,now))selected_time=selected_time&&
+      r->sender==coord.root&&r2_gm_coordination_matches(&coord,r->root,r->root_boot,r->source_epoch);
+#endif
     if(selected_time){refresh_required=false;r2_ble_admission_anchor_deadline(exchange.peer,time.until);} /* JOIN is coarse bootstrap, never PA health. */
     if (selected_time)
       client = (struct r2_group_client){.passive = client.passive,
@@ -277,7 +297,20 @@ void r2_group_admission_tick(struct r2_network *n, uint64_t now) {
    * Its downstream requester cannot become that upstream clock. The current
    * authenticated scope selects this identity; no unit name or address pin. */
   uint64_t parent=publishing?demand.root:!demand.received&&now<demand.until?demand.peer:cancel_pending?pending_parent:0;
-  r2_ble_admission_policy(parent,!publishing&&(poor_direct||parent!=0));
+  bool seek_relay=!publishing&&(poor_direct||parent!=0);
+#ifdef R2_LORA
+  struct r2_gm_coordination coord;r2_lora_coordination(&coord);
+  if(r2_gm_coordination_live(&coord,n->identity,now)){
+   /* Seek the canonical root directly, not TC01's immediate relay parent.
+    * Existing owners still retire through their original asynchronous bounds.
+    * Wrong-root/relay time cannot survive as the selected public clock. */
+   parent=coord.root;seek_relay=false;
+   if(client.source&&(client.peer!=coord.root||
+      !r2_gm_coordination_matches(&coord,client.root,client.boot,client.source_epoch)))
+    r2_group_admission_require_anchor();
+  }
+#endif
+  r2_ble_admission_policy(parent,seek_relay);
   /* Only authenticated, originally bounded upstream time inhibits local
    * candidacy from disrupting an existing service during control admission. */
   n->observed_root=client.source?client.root:0;n->observed_boot=client.boot;

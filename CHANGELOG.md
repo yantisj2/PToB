@@ -2,6 +2,39 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 20 October 2026 — T0960.15.131 LoRa GM coordination
+
+An authenticated accepted LoRa physical event pair now constrains GM election
+to its actual root. Timing-only acquisition can inhibit a competing local GM
+before its companion resolves the root boot. LoRa-only nodes withdraw local
+source admission, HOT and prior takeover eligibility; local PPS, clock quality,
+old reservations and unrelated BLE roots cannot override the constraint.
+
+Current direct authenticated matching-root JOIN plus captured BLE time, or
+current matching-root control admission with a causal map, permits ordinary source
+readmission and HOT negotiation. Relayed root identities, cached membership,
+RSSI and unknown boots cannot grant this eligibility. Direct loss withdraws it
+while the original LoRa hold remains live. The canonical root is distinct from
+TC01's immediate BLE parent; self-root descendants remain rejected.
+After a completed origin handover, a strictly newer full self-root companion
+may retire the old foreign constraint only for the separately proved current
+serving incarnation/source epoch. It grants no time, admission or promotion;
+cold, inactive, old-boot/epoch and replayed contexts cannot do this.
+An explicitly withdrawing root may complete the normal coordinated HOT-to-ACTIVE
+replacement while direct authenticated contact persists, after the old service
+permit and existing takeover/output fences. Expiry or silence alone cannot.
+Metadata alone cannot create/renew the constraint, and withdrawal/source changes require
+new physical pairs. Expiry returns through ordinary admission/output fences.
+The watchdog recognizes fresh LoRa-only GM coordination as an intentional
+operating mode, separately from qualified time, so it does not spuriously
+restart after20 minutes. Core/owner/transport faults retain their deadlines.
+
+Wire3 and its HMAC domains remain unchanged. The bounded coordination hint is
+separate from RC7 timing/USB authority and retains UNKNOWN passive freshness.
+Complete RF partitions cannot guarantee global single-GM exclusion while also
+permitting standalone startup. Host/native checks and actual-device/field
+qualification remain separate.
+
 ## 20 October 2026 — T0960.15.130 one-shot toggle and fault retention
 
 On the LoRa page the configured-role toggle fires once at1.5 seconds. The press

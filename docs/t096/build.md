@@ -127,7 +127,7 @@ display, BLE/USB service and stack observations remain exact-device gates.
 
 ## Hardware update boundary
 
-Normal0.15.130 builds include the [RC8 wire3 integration](../../protocol/rc8/README.md).
+Normal0.15.131 builds include the [RC8 wire3 integration](../../protocol/rc8/README.md).
 The default transmitter factory is zero, so LoRa hardware does not start. An
 explicit normal-only `--lora-transmitter-factory` takes a16-digit exact factory
 identity verified against ignored T096 registry metadata. It is included in the
@@ -318,3 +318,13 @@ carried copy and terminal primary. No extra append cadence or flash region is
 used: the ordinary verified commit hands off evidence before obsolete-page
 erase. Startup restores the newest valid copy. App changes keep existing
 source-bound journal initialization; preserve evidence before updating.
+
+Version0.15.131 supplies the accepted physical-pair root to election as a
+per-cycle negative constraint, without another static owner or reserve cut.
+Timing-only root/epoch may inhibit; a matching companion boot is required for
+eligibility restoration. Current authenticated direct JOIN plus direct captured
+BLE map, or current direct GM control/service, permits ordinary source
+readmission. The existing source/HOT/management/output fences still apply.
+Relay identities, advertisements and expired scopes cannot grant eligibility.
+The original LoRa hold is never renewed by metadata/query time. This policy
+does not grant RC7 timing authority or prove exclusion across RF partitions.

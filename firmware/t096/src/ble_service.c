@@ -193,6 +193,9 @@ static void cycle(struct k_work *work)
  if(name_pending){memcpy(net.name,pending_name,sizeof net.name);name_pending=false;for(unsigned p=0;p<4;p++)net.peer[p].next_hello=0;}
  (void)k_mutex_unlock(&lock);
  if(atomic_get(&stop_requested)){
+#ifdef R2_LORA
+  r2_lora_origin(false,0,0);
+#endif
   if(!transport_stopped){r2_network_stop(&net,now);r2_ble_stop();transport_stopped=true;}
 #if defined(CONFIG_BT_PER_ADV)
   r2_radio_service_stop(now);r2_relay_service_stop(now);
@@ -281,7 +284,15 @@ static void cycle(struct k_work *work)
     now=sampled;r2_clock_advance(&clock,(int64_t)now);
   }else clock.translated_epoch=0;
 #endif
-  r2_network_tick(&net,&clock,now);r2_ble_topology(net.coordinator,net.members_mask);
+#ifdef R2_LORA
+  struct r2_gm_coordination coordination;r2_lora_coordination(&coordination);
+  coordination.direct=r2_group_admission_coordination_direct(&coordination,now);
+  r2_network_tick_coordinated(&net,&clock,now,&coordination);
+  r2_lora_origin(!profile_rc&&!profile_pending&&net.local_gm&&net.ready&&now<net.service_until,net.boot,net.candidate.generation);
+#else
+  r2_network_tick(&net,&clock,now);
+#endif
+  r2_ble_topology(net.coordinator,net.members_mask);
 #if defined(CONFIG_BT_PER_ADV)
   worker_stage(4);
   r2_group_admission_client(&public);r2_radio_service_client(&public,&roster,now);

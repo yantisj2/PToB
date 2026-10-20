@@ -2,7 +2,7 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
-T0960.15.130 uses80-byte timing packets and128-byte descriptive companion
+T0960.15.131 uses80-byte timing packets and128-byte descriptive companion
 packets. Both are one-way group-authenticated broadcasts. There is no ACK,
 authentication handshake, listener transmission or ranging exchange. Wire3 is
 incompatible with [historical wire2](wire2-historical.md); its original
@@ -36,6 +36,51 @@ by RC8. Installing an anchor requires a complete validated companion scope;
 a timing-only partial scope cannot gain anchored assurance. Original source-envelope authority and functional availability remain
 separate: an old event can support a functional estimate after its live source
 permission expired. The original expiry stays visible and is never extended.
+
+Version131 uses a separate negative election constraint while an accepted
+foreign-root physical pair remains within its original12s functional hold.
+It does not assert that the original RC7 source permit remains current.
+Timing-only root/epoch is sufficient to inhibit local GM/HOT operation; unknown
+boots grant no eligibility. A matching companion resolves the immutable boot
+but cannot create or renew that hold. TIME_INVALID withdrawal, OFF, fault and
+source/context replacement withdraw it; a new context needs its own matched
+physical pair. Cold replay can still inhibit, within the stated UNKNOWN passive
+freshness model and symmetric group-key trust.
+
+The canonical root is the original GM factory/boot/source epoch, distinct from
+TC01's immediate selected BLE parent. While constrained, election and discovery
+seek that root; better local quality or another root cannot override it.
+Ordinary local source readmission and HOT negotiation require current direct
+authenticated contact with that exact root: a direct JOIN peer/boot and current
+captured direct BLE map, or a live admitted direct control peer with a causal
+map. A current authenticated explicit source withdrawal retains contact but
+grants no source permission; it may complete ordinary coordinated replacement
+after the old service permit and existing takeover/output fences.
+Relays, RSSI, stale advertisements and cached membership cannot restore it.
+All existing source, management, timing, HOT and output fences remain required.
+Direct loss withdraws eligibility while the LoRa constraint remains live.
+ACTIVE replacement under a live foreign constraint requires its current direct
+root's explicit source withdrawal and ordinary admission/output guards; source
+map expiry or lost contact alone cannot promote. Self-root descendants remain
+rejected for timing. A separately proved currently serving local GM may retire
+an older FULL foreign context only when a same-emitter-boot, strictly newer
+companion names its exact current profile incarnation/source epoch. That
+retirement cannot create time, admission or a GM role. Cold, unresolved,
+inactive-origin, old-boot/epoch and replayed self contexts cannot erase the
+foreign constraint or extend its lifetime. This permits a completed origin
+handover to survive subsequent old-root contact loss without following itself.
+Expiry releases inhibition through ordinary source readmission/fences.
+
+This one-way rule cannot prove one GM across complete RF partitions while
+permitting isolated standalone GM startup. Hardware/field convergence and HOT
+transitions remain separate qualification populations.
+
+A fresh live GM-profile coordination follower is an intentional operating mode,
+so version131 does not treat it as20 minutes of unsynchronized-GM failure.
+The watchdog distinguishes coordination activity from qualified timing; the
+qualified-observation counter and precision refusal flags remain unchanged.
+Original lease expiry restores ordinary NO_SYNC recovery. Main/owner stalls,
+transport/DMA faults and the independent LoRa watchdog retain their deadlines.
 
 ## Timing packet:80 bytes
 

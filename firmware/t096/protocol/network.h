@@ -7,6 +7,7 @@
 #include "election_policy.h"
 #include "clock.h"
 #include "durability.h"
+#include "gm_coordination.h"
 #define R2_NET_PEERS 4
 /* Retain every50ms issuance through its original250ms ACK lifetime. */
 #define R2_ISSUED_RECORDS 8
@@ -81,6 +82,10 @@ void r2_network_relay_timing(struct r2_network *,uint8_t root,uint64_t boot,uint
 void r2_network_link(struct r2_network *,uint8_t peer,bool connected,uint64_t now);
 int r2_network_receive(struct r2_network *,uint8_t peer,const uint8_t *,size_t,uint64_t received,uint64_t now);
 void r2_network_tick(struct r2_network *,const struct r2_clock *,uint64_t now);
+void r2_network_tick_coordinated(struct r2_network *,const struct r2_clock *,uint64_t now,const struct r2_gm_coordination *);
+/* Current authenticated DIRECT root contact/admission, including its explicit
+ * source withdrawal; never relay provenance, RSSI or cached membership. */
+bool r2_network_coordination_direct(const struct r2_network *,const struct r2_gm_coordination *,uint64_t now);
 void r2_network_snapshot(const struct r2_network *,struct v12_dc_snapshot *);
 bool r2_network_next(struct r2_network *,uint8_t *,uint8_t *bytes,bool *hello);
 bool r2_network_next_ready(struct r2_network *,uint8_t available,uint8_t *,uint8_t *bytes,bool *hello);

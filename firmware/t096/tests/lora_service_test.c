@@ -71,6 +71,17 @@ static void done(void){queued=(struct r2_lora_hw_event){.tick=now_us*16,.capture
 static struct rc8_export source(uint64_t from,uint64_t gen){return(struct rc8_export){.scope={.emitter=1,.emitter_boot=22,.stream=1,.root=3,.root_boot=44,.source_epoch=5,.scale=RC8_UTC,.kind=RC8_SELECTED_BLE},.from_tick=from,.until_tick=from+24000000,.anchor_tick=from,.anchor_ns=10000000000ULL+from*125/2,.capture_epoch=7,.created_ns=0,.expires_ns=100000000000ULL,.map_generation=(uint32_t)gen,.upstream_bound_ns=RC8_UNKNOWN,.authenticated=true,.valid=true};}
 static void spi_context_update(void){now_us+=2000;struct rc8_export a=source(now_us*16,2);a.scope.root=4;r2_lora_source_publish(&a);}
 static void packet(const uint8_t *wire,size_t n,uint64_t at){now_us=at;queued=(struct r2_lora_hw_event){.tick=at*16,.capture_epoch=7,.local_us=at+700,.generation=generation,.kind=R2_LORA_HW_RX_DONE,.length=(uint8_t)n};memcpy(queued.frame,wire,n);have_event=true;step();}
+static struct rc8_scope coordination_acquire(void){
+ init(false);step();uint8_t wire[128];
+ struct rc8_scope s={.emitter=1,.emitter_boot=22,.stream=1,.root=3,.root_boot=44,.source_epoch=5,.scale=RC8_UTC,.kind=RC8_SELECTED_BLE};
+ struct rc8_packet p={.sequence=1,.root=s.root,.source_epoch=s.source_epoch,.scale=s.scale,.kind=s.kind};
+ assert(!rc8_context_id(p.context,&s,&test_group));assert(!rc8_encode(wire,&p,&test_group));packet(wire,80,1200000);
+ struct r2_gm_coordination c;r2_lora_coordination(&c);assert(!c.root); /* no accepted pair yet */
+ p.sequence=2;p.corrected=true;p.correction=(struct rc8_correction){.sequence=1,.event_ns=9000000000ULL,.expires_ns=9100000000ULL,.map_generation=9,.upstream_bound_ns=RC8_UNKNOWN};
+ assert(!rc8_encode(wire,&p,&test_group));packet(wire,80,5200000);
+ r2_lora_coordination(&c);assert(c.root==3&&!c.boot&&!c.direct&&c.epoch==5&&c.until==13200000);
+ return s;
+}
 static void abort_recovery(void){
  init(true);struct rc8_export a=source(now_us*16,1);r2_lora_source_publish(&a);step();step();done();done();
  assert(role.tx.sequence==1&&role.tx.previous_valid&&published.diagnostic_sequence==1);
@@ -210,6 +221,67 @@ int main(int argc,char **argv){assert(argc==2);unsigned mode=(unsigned)atoi(argv
   init(false);assert(f->boot==123&&f->terminal&&(int32_t)f->record[1]==-ETIMEDOUT);
   assert(!r2_diag_scratch.lora.serial&&!r2_diag_scratch.lora.terminal);
   diagnostic_state=-EIO;init(false);assert(!f->boot&&!f->record[0]);
+ }
+ else if(mode==46){
+  struct rc8_scope s=coordination_acquire();uint8_t wire[128];
+  struct r2_gm_coordination c;r2_lora_coordination(&c);uint64_t end=c.until;
+  assert(!rc8_metadata_encode(wire,&s,&test_group));packet(wire,128,5300000);
+  r2_lora_coordination(&c);assert(c.root==3&&c.boot==44&&!c.direct&&c.until==end);
+  struct r2_lora_view v;r2_lora_view(&v);assert(v.coord_follow&&v.choice==RC8_SELECT_LORA&&v.assurance==RC8_FRESHNESS_UNKNOWN);
+  now_us=end-1;r2_lora_coordination(&c);assert(c.root==3&&c.until==end);
+  now_us=end;r2_lora_coordination(&c);assert(!c.root);r2_lora_view(&v);assert(!v.coord_follow);
+ }
+ else if(mode==47){
+  (void)coordination_acquire();struct r2_gm_coordination c;
+  r2_lora_request(false);r2_lora_coordination(&c);assert(!c.root);step();step();
+  r2_lora_request(true);step();r2_lora_coordination(&c);assert(!c.root); /* old pair not reused */
+ }
+ else if(mode==48){
+  struct rc8_scope s=coordination_acquire();uint8_t wire[128];
+  struct rc8_companion p={.scope=s,.sequence=1,.timing_sequence=2,.events=RC8_D_LOSS,.time_valid=false};
+  assert(!rc8_companion_encode(wire,&p,&test_group));packet(wire,128,5300000);
+  struct r2_gm_coordination c;r2_lora_coordination(&c);assert(!c.root&&!role.rx.sample.valid);
+ }
+ else if(mode==49){
+  struct rc8_scope s=coordination_acquire();uint8_t wire[128];s.root_boot++;s.stream++;s.source_epoch++;
+  struct rc8_companion p={.scope=s,.sequence=1,.timing_sequence=2,.time_valid=true};
+  assert(!rc8_companion_encode(wire,&p,&test_group));packet(wire,128,5300000);
+  struct r2_gm_coordination c;r2_lora_coordination(&c);assert(!c.root); /* new scope needs its own physical pair */
+ }
+ else if(mode==50){
+  struct rc8_scope s=coordination_acquire();uint8_t wire[128];struct r2_gm_coordination c;r2_lora_coordination(&c);uint64_t end=c.until;
+  s.root=2;s.root_boot=22;s.stream++;
+  assert(!rc8_metadata_encode(wire,&s,&test_group));packet(wire,128,5300000);
+  r2_lora_coordination(&c);assert(c.root==3&&c.until==end&&!c.boot); /* self descendant cannot erase foreign history */
+  struct rc8_packet p={.sequence=3,.root=s.root,.source_epoch=s.source_epoch,.scale=s.scale,.kind=s.kind};
+  assert(!rc8_context_id(p.context,&s,&test_group));assert(!rc8_encode(wire,&p,&test_group));packet(wire,80,5400000);
+  r2_lora_coordination(&c);assert(c.root==3&&c.until==end);
+ }
+ else if(mode==51){
+  init(false);step();uint8_t wire[128];
+  struct rc8_scope s={.emitter=1,.emitter_boot=22,.stream=1,.root=3,.root_boot=44,.source_epoch=5,.scale=RC8_UTC,.kind=RC8_SELECTED_BLE};
+  assert(!rc8_metadata_encode(wire,&s,&test_group));packet(wire,128,1200000);
+  struct r2_gm_coordination c;r2_lora_coordination(&c);assert(!c.root); /* quality/metadata cannot create or renew a lease */
+ }
+ else if(mode==52){
+  (void)coordination_acquire();atomic_set(&faulted,1);struct r2_gm_coordination c;r2_lora_coordination(&c);assert(!c.root);
+ }
+ else if(mode>=53&&mode<=59){
+  struct rc8_scope s=coordination_acquire();uint8_t wire[128];
+  if(mode!=59){struct rc8_companion p={.scope=s,.sequence=1,.timing_sequence=2,.time_valid=true};assert(!rc8_companion_encode(wire,&p,&test_group));packet(wire,128,5300000);}
+  r2_lora_origin(mode!=54,22,5);
+  s.root=2;s.root_boot=mode==55?21:22;s.source_epoch=mode==56?6:5;
+  s.stream=mode==57?1:2;if(mode==58)s.emitter_boot++;
+  struct rc8_companion p={.scope=s,.sequence=2,.timing_sequence=2,.time_valid=true};
+  assert(!rc8_companion_encode(wire,&p,&test_group));packet(wire,128,5400000);
+  struct r2_gm_coordination c;r2_lora_coordination(&c);
+  if(mode==53){
+   assert(!c.root&&role.rx.scope.root==2&&!role.rx.sample.valid); /* retire, never promote or make a clock */
+   r2_lora_origin(false,0,0);step();r2_lora_coordination(&c);assert(!c.root);
+   s.root=3;s.root_boot=44;s.stream=1;s.source_epoch=5;p.scope=s;p.sequence=3;
+   assert(!rc8_companion_encode(wire,&p,&test_group));packet(wire,128,5500000);
+   r2_lora_coordination(&c);assert(!c.root&&role.rx.scope.root==2); /* old foreign replay cannot undo handover */
+  }else assert(c.root==3&&c.until==13200000); /* cold/inactive/old boot/epoch/stream/emitter replay does not erase foreign lease */
  }
  else assert(false);
  char json[3072];int n=r2_lora_json(json,sizeof json,0);assert(n>0&&n<(int)sizeof json);printf("PASS runtime mode%u role=%zu snapshot=%zu worker=%zu json=%d\nJSON %s\n",mode,sizeof role,sizeof published,sizeof worker_stack,n,json);

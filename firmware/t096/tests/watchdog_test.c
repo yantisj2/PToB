@@ -43,6 +43,13 @@ static int r2_console_note(const char *,size_t,uint64_t);
 static jmp_buf maintenance_exit;
 static void test_sleep(int n){assert(n==125);longjmp(maintenance_exit,1);}
 #define k_sleep test_sleep
+#ifdef R2_LORA
+#include "lora_service.h"
+static struct r2_gm_coordination lora_coordination;
+static unsigned lora_checks;
+void r2_lora_coordination(struct r2_gm_coordination *out){*out=lora_coordination;}
+void r2_lora_watchdog_check(void){lora_checks++;}
+#endif
 #include "../src/watchdog.c"
 #undef k_sleep
 static int r2_bootloader_request(void){boot_requests++;return -EIO;}
@@ -58,6 +65,9 @@ static void clear_runtime(void)
  intent=main_at=reset_reason=restart_request=restart_error=retries=silent_since=0;
  observations=useful_observations=future_observations=stale_observations=refusal_flags=0;
  policy=(struct r2_wd_policy){0};memset(previous,0,sizeof previous);parent_channel=-1;
+#ifdef R2_LORA
+ lora_coordination=(struct r2_gm_coordination){0};lora_checks=0;
+#endif
 }
 static bool step_at(uint32_t now){fake_ms=now;return watchdog_step();}
 static const atomic_t *preempt_target;
@@ -269,5 +279,38 @@ int main(void)
   r2_watchdog_capsule[10]==22&&r2_watchdog_capsule[11]==91&&r2_watchdog_capsule[32]==(uint32_t)-EIO);
  r2_watchdog_lora(-EIO,0,0,31,0);assert(r2_watchdog_capsule[11]==91);
  clear_runtime();assert(!r2_watchdog_boot(&id)&&r2_watchdog_restore_rc(&mode)&&mode&&r2_watchdog_reset_kind()==R2_UI_RESET_WD_FAULT);
+#ifdef R2_LORA
+ {
+ clear_runtime();assert(!r2_watchdog_boot(&id));r2_watchdog_enable(true);
+ s=(struct r2_service_status){.active=true,.self=0,.root=255,.identities={10,20}};
+ uint32_t end=R2_WD_GM_MS+60000;
+ for(uint32_t ms=0;ms<=end;ms+=100){
+  advance(ms);s.at=(uint64_t)ms*1000;
+  /* Fake original accepted physical pairs every4s, never query-time renewal. */
+  lora_coordination=(struct r2_gm_coordination){.root=20,.boot=100,.epoch=1,.until=(uint64_t)(ms/4000*4000+12000)*1000};
+  r2_watchdog_observe(&s,true);assert(report_useful==2&&!useful_observations&&refusal_flags);
+  assert(step_at(ms)&&!r2_watchdog_take_restart()&&!reset_reason&&!retries);
+ }
+ assert(lora_checks>12000&&!s.precision.authorized&&!s.follower_clock_valid);
+ /* Expired lease stops that activity immediately; ordinary20min NO_SYNC
+  * recovery remains available. It does not become qualified timing. */
+ lora_coordination.until=(uint64_t)(end+1)*1000;
+ for(uint32_t ms=end+1;ms<end+R2_WD_GM_MS;ms+=100){
+  advance(ms);s.at=(uint64_t)ms*1000;r2_watchdog_observe(&s,true);
+  assert(!report_useful&&step_at(ms)&&!r2_watchdog_take_restart());
+ }
+ advance(end+R2_WD_GM_MS);s.at=fake_ms*1000;r2_watchdog_observe(&s,true);
+ assert(step_at((uint32_t)fake_ms)&&r2_watchdog_take_restart()==1);
+ clear_runtime();r2_watchdog_enable(true);advance(100);s.at=100000;
+ lora_coordination=(struct r2_gm_coordination){.root=20,.boot=100,.epoch=1,.until=UINT64_MAX};
+ s.profile_rc=true;r2_watchdog_observe(&s,true);assert(!report_useful);
+ s.profile_rc=false;s.serving=true;r2_watchdog_observe(&s,true);assert(!report_useful);
+ s.serving=false;s.root=0;r2_watchdog_observe(&s,true);assert(!report_useful);
+ s.root=255;s.at=0;advance(1000);r2_watchdog_observe(&s,true);assert(!report_useful);
+ s.at=1000000;r2_watchdog_observe(&s,true);assert(report_useful==2);
+ assert(!step_at(1000+WD_CORE_MS)&&reset_reason==WD_CORE_STALL); /* coordination never feeds a frozen main */
+ puts("PASS >21min live LoRa-only GM coordination without NO_SYNC or qualified-time claims; expiry restores20min recovery; RC/wrong-root/stale/core guards retained");
+ }
+#endif
  puts("PASS production watchdog: GM20/RC30, intermittent progress vs sustained retry reset, initial+3 retries, wrap, stale snapshots, cancellation, recovery, core/fatal, CRC bindings, deadline/refusal/UF2 continuation; hardware timing remains UNKNOWN");
 }

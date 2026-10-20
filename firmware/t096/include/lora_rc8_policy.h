@@ -101,6 +101,9 @@ bool rc8_receiver_bootstrap(struct rc8_receiver *,const struct rc8_bootstrap *,u
 /* Freeze original payload+physicalRxDone before clear/FIFO reuse/rearm. */
 bool rc8_receiver_freeze(struct rc8_receiver *,const uint8_t *,size_t,struct rc8_event);
 bool rc8_receiver_process(struct rc8_receiver *,const struct r2_group_config *,uint64_t now_us);
+/* Only a separately proved ACTUAL local GM origin may retire an older foreign
+ * context via a monotonic matching-self companion. Never creates a sample. */
+bool rc8_receiver_process_origin(struct rc8_receiver *,const struct r2_group_config *,uint64_t now_us,uint64_t actual_origin_boot,uint32_t actual_origin_epoch);
 enum rc8_input_state rc8_receiver_state(const struct rc8_receiver *,uint64_t now_us);
 enum rc8_assurance rc8_receiver_assurance(const struct rc8_receiver *,uint64_t now_us);
 enum rc8_authority rc8_receiver_authority(const struct rc8_receiver *,uint64_t now_us);

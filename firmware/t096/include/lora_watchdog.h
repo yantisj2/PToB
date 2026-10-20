@@ -25,6 +25,8 @@ struct r2_lora_watchdog_state {
   closure,irq_status,terminal,fault_at,reset_requested,launch_us,launch_ms;
  int journal_result;
  struct r2_lora_retained_fault retained;
+ /* BLE-owned current actual origin, not a LoRa grant. Unused scan tail. */
+ struct {uint64_t boot;uint32_t epoch;bool active;} origin;
 };
 union r2_diag_scratch {
  uint32_t scan[128];

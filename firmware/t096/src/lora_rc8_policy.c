@@ -182,10 +182,19 @@ static void adopt(struct rc8_receiver *s,const uint8_t *id){
  s->diagnostic_sequence=0;s->withdrawal_sequence=0;s->highest_sequence=0;s->time_valid=false;
  memset(&s->quality,0,sizeof s->quality);reset_timing(s);
 }
-static bool metadata(struct rc8_receiver *s,const struct r2_group_config *g,struct rc8_event rx,uint64_t now){
+static bool metadata(struct rc8_receiver *s,const struct r2_group_config *g,struct rc8_event rx,uint64_t now,uint64_t origin_boot,uint32_t origin_epoch){
  struct rc8_companion p;uint8_t id[RC8_CONTEXT_BYTES];uint64_t until;
- if(rc8_companion_decode(&p,id,s->queued,s->queued_size,g)||p.scope.emitter!=s->transmitter_factory||p.scope.root==s->factory||
+ if(rc8_companion_decode(&p,id,s->queued,s->queued_size,g)||p.scope.emitter!=s->transmitter_factory||
+ (p.scope.root==s->factory&&(!origin_boot||!origin_epoch||p.scope.root_boot!=origin_boot||p.scope.source_epoch!=origin_epoch||!p.time_valid))||
  (s->cached&&rx.local_us<s->last_timing_us)||!add(rx.local_us,RC8_CONTEXT_US,&until)||now>=until){count(&s->rejected);return false;}
+ if(p.scope.root==s->factory&&(!s->cached||!s->metadata_known||s->scope.root==s->factory||
+    p.scope.emitter_boot!=s->scope.emitter_boot||p.scope.stream<=s->scope.stream||
+    p.timing_sequence<s->highest_sequence)){
+  /* A local origin fact never resolves an unknown foreign stream/boot or
+   * authenticates a cold/replayed context. Only a monotonic same-emitter-boot
+   * transition from a FULL foreign scope can retire its old constraint. */
+  count(&s->rejected);return false;
+ }
  bool same=s->cached&&!memcmp(id,s->context,RC8_CONTEXT_BYTES);
  if(!same&&s->cached){
   if(!memcmp(id,s->retired_context,RC8_CONTEXT_BYTES)){count(&s->replayed);return false;}
@@ -230,10 +239,13 @@ static bool candidate(struct rc8_receiver *s,const struct rc8_history *h,const s
  return true;
 }
 bool rc8_receiver_process(struct rc8_receiver *s,const struct r2_group_config *g,uint64_t now){
+ return rc8_receiver_process_origin(s,g,now,0,0);
+}
+bool rc8_receiver_process_origin(struct rc8_receiver *s,const struct r2_group_config *g,uint64_t now,uint64_t origin_boot,uint32_t origin_epoch){
  if(!s||!s->queued_valid)return false;
  struct rc8_event rx=s->queued_event;
  if(!s->enabled||now<rx.local_us||rx.generation!=s->generation){s->queued_valid=false;count(&s->rejected);return false;}
- if(s->queued_size==RC8_META_BYTES){bool result=metadata(s,g,rx,now);s->queued_valid=false;return result;}
+ if(s->queued_size==RC8_META_BYTES){bool result=metadata(s,g,rx,now,origin_boot,origin_epoch);s->queued_valid=false;return result;}
  struct rc8_packet p;int decoded=rc8_decode(&p,s->queued,s->queued_size,g);s->queued_valid=false;
  if(decoded){count(&s->rejected);return false;}
  if(p.root==s->factory||(p.kind==RC8_OWN_GM&&p.root!=s->transmitter_factory)||

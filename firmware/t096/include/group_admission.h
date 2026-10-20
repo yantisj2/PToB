@@ -18,6 +18,7 @@ void r2_group_admission_receive(struct r2_network *,
 void r2_group_admission_require_anchor(void);
 void r2_group_admission_refresh_anchor(void);
 void r2_group_admission_client(struct r2_group_client *);
+bool r2_group_admission_coordination_direct(const struct r2_gm_coordination *,uint64_t now);
 
 /* Single coalesced local demand; fresh exchanges may extend the service lease,
  * never a source expiry. Peer/root identifiers do not allocate control slots. */
