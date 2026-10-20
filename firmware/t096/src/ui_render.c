@@ -205,10 +205,12 @@ bool r2_ui_sync_display_time(const struct r2_ui_sync_display *c,const struct r2_
  if(delta>(uint64_t)(INT64_MAX-c->utc_us)/1000)return false;
  *utc=c->utc_us+(int64_t)(delta*1000);return true;
 }
-static void rc_age(char out[12],uint32_t ms){
+#ifdef R2_DC_PROFILE
+static void dc_age(char out[12],uint32_t ms){
  if(ms==UINT32_MAX)snprintf(out,12,"--");else if(ms<1000)snprintf(out,12,"%ums",ms);
  else if(ms<1000000)snprintf(out,12,"%us",ms/1000);else snprintf(out,12,">999s");
 }
+#endif
 static uint32_t age_ms(int64_t age){return age<0||age/1000>UINT32_MAX?UINT32_MAX:(uint32_t)(age/1000);}
 void r2_ui_reception(struct r2_ui_model *m,const struct r2_link_quality_view *q,uint64_t now){
  uint64_t age=q->last_rx&&now>=q->last_rx?(now-q->last_rx)/1000:UINT64_MAX;
@@ -320,8 +322,8 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
   label(fb,4,40,gps_pps_live(m,fresh)?"PPS LIVE":"PPS WAIT",1,C_DIM);
   snprintf(value,sizeof value,"SV USED %u",fresh?m->clock.sats_used:0);label(fb,4,56,value,1,C_WHITE);
   if(status->page==2){
-   rc_age(value,fresh?age_ms(m->clock.gps_age_us):UINT32_MAX);label(fb,4,77,"RMC AGE",1,C_DIM);label(fb,4,91,value,1,C_WHITE);
-   rc_age(value,fresh?age_ms(m->clock.pps_age_us):UINT32_MAX);label(fb,4,111,"PPS AGE",1,C_DIM);label(fb,4,125,value,1,C_WHITE);
+   dc_age(value,fresh?age_ms(m->clock.gps_age_us):UINT32_MAX);label(fb,4,77,"RMC AGE",1,C_DIM);label(fb,4,91,value,1,C_WHITE);
+   dc_age(value,fresh?age_ms(m->clock.pps_age_us):UINT32_MAX);label(fb,4,111,"PPS AGE",1,C_DIM);label(fb,4,125,value,1,C_WHITE);
    label(fb,4,149,"UTC ACC --",1,C_DIM);return;
   }
   label(fb,4,76,m->scope_active&&fresh?"USB SOURCE":"SOURCE WAIT",1,C_DIM);
@@ -416,11 +418,12 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
    else snprintf(value,sizeof value,"%s",why);
    label(fb,4,152,value,1,C_DIM);return;
   }
-  label(fb,4,51,gm?"SOURCE PPS":"CORRECTION",1,C_DIM);
+  bool ble_rms=!gm&&authorized&&m->ble_active&&r2_ui_ble_current(m,now)&&
+    m->precision.map_valid&&m->precision.rms_valid&&m->precision.rms_ns!=UINT32_MAX;
+  label(fb,4,51,gm?"SOURCE PPS":"BLE RMS",1,C_DIM);
   if(gm)snprintf(value,sizeof(value),"%s",gps_pps_live(m,fresh)?"LIVE":"WAIT");
-  else if(authorized&&m->precision.correction_age_valid)rc_age(value,m->precision.correction_age_ms);
-  else snprintf(value,sizeof(value),"--");
-  label(fb,4,64,value,1,C_WHITE);
+  else shadow_value(value,m->precision.rms_ns,ble_rms);
+  label(fb,4,64,value,1,gm?C_WHITE:ble_rms?C_CYAN:C_DIM);
   label(fb,4,83,!fresh?"GPS --":m->clock.fix_active?"GPS FIX":"GPS NO FIX",1,fresh&&m->clock.fix_active?C_GREEN:C_AMBER);
   snprintf(value,sizeof(value),"SV USED %u",fresh?m->clock.sats_used:0);label(fb,4,96,value,1,C_WHITE);
   label(fb,4,109,gps_pps_live(m,fresh)?"PPS LIVE":"PPS WAIT",1,gps_pps_live(m,fresh)?C_GREEN:C_AMBER);

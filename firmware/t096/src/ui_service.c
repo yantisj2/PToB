@@ -38,12 +38,12 @@ static void add(uint32_t *v){if(*v<UINT32_MAX)++*v;}
 void r2_ui_publish(const struct r2_ui_model *m){k_spinlock_key_t k=k_spin_lock(&lock);r2_ui_holds_update(&status.holds,&model,m->sampled_ms);model=*m;r2_ui_holds_update(&status.holds,m,m->sampled_ms);k_spin_unlock(&lock,k);}
 void r2_ui_snapshot(struct r2_ui_status *out){k_spinlock_key_t k=k_spin_lock(&lock);*out=status;k_spin_unlock(&lock,k);}
 int r2_ui_page(unsigned page){if(page>=R2_UI_PAGES)return -EINVAL;k_spinlock_key_t k=k_spin_lock(&lock);status.page=page;status.help=false;if(r2_ui_witness_page(&model,page)){status.screensaver=false;status.screensaver_position=0;}else{status.shadow.active=false;status.shadow.state=R2_SHADOW_OFF;}k_spin_unlock(&lock,k);return 0;}
-bool r2_ui_shadow_requested(void){k_spinlock_key_t key=k_spin_lock(&lock);bool requested=r2_ui_witness_page(&model,status.page)&&!status.help&&!status.screensaver&&!status.stopped&&!(model.scope_active&&model.role==R2_UI_GM);k_spin_unlock(&lock,key);return requested;}
+bool r2_ui_shadow_requested(void){k_spinlock_key_t key=k_spin_lock(&lock);bool requested=r2_ui_witness_page(&model,status.page)&&!status.help&&!status.stopped&&!(model.scope_active&&model.role==R2_UI_GM);k_spin_unlock(&lock,key);return requested;}
 bool r2_ui_take_profile_toggle(void){return atomic_cas(&profile_toggle,1,0);}
 void r2_ui_profile_flash(bool rc){k_spinlock_key_t key=k_spin_lock(&lock);status.profile_target_rc=rc;status.profile_flash_until=k_uptime_get()+4000;k_spin_unlock(&lock,key);}
 static void shadow_tick(const struct r2_ui_model *m,const struct r2_ui_status *s,uint64_t now,bool display_ok){
  bool fresh=now>=m->sampled_ms&&now-m->sampled_ms<=2500;
- bool visible=r2_ui_witness_page(m,s->page)&&!s->help&&!s->screensaver&&s->ready&&r2_ui_witness_page(m,s->drawn_page)&&display_ok&&fresh&&!m->profile_switching;
+ bool visible=r2_ui_witness_page(m,s->page)&&!s->help&&s->ready&&r2_ui_witness_page(m,s->drawn_page)&&display_ok&&fresh&&!m->profile_switching;
  bool gm=m->scope_active&&m->role==R2_UI_GM;
 #ifdef R2_DC_PROFILE
  gm=true; /* No mesh witness session, including while GNSS is unavailable. */
@@ -120,7 +120,8 @@ static void worker(void *a,void *b,void *c)
 {
  k_sleep(K_MSEC(20));int rc=atomic_get(&stop_requested)?0:r2_display_init();
  bool initialized=!rc;
- k_spinlock_key_t key=k_spin_lock(&lock);status.error=rc;k_spin_unlock(&lock,key);
+ unsigned observed_page;
+ k_spinlock_key_t key=k_spin_lock(&lock);status.error=rc;observed_page=status.page;k_spin_unlock(&lock,key);
  uint64_t due=k_uptime_get(),changed=due,pressed=0,last_poll=due,idle_since=due,saver_since=0,saver_period=0;int last=0,stable=0;bool held=false,wake_press=false;
  while(!atomic_get(&stop_requested)){
   uint64_t now=k_uptime_get();uint64_t gap=now-last_poll;last_poll=now;
@@ -146,15 +147,17 @@ static void worker(void *a,void *b,void *c)
   if(rc&&initialized&&!r2_display_recover())rc=0;
   struct r2_ui_model shadow_model;struct r2_ui_status shadow_status;
   key=k_spin_lock(&lock);shadow_model=model;shadow_status=status;k_spin_unlock(&lock,key);
-  /* An explicitly displayed measurement page owns its witness session until
-   * the user leaves it. Global idle time must not silently end a PPS trial. */
-  bool saver=!r2_ui_witness_page(&shadow_model,shadow_status.page)&&!stable&&!wake_press&&now>=idle_since&&now-idle_since>=R2_UI_IDLE_MS&&r2_ui_saver_allowed(&shadow_model,now);
+  bool page_changed=shadow_status.page!=observed_page;
+  if(page_changed){observed_page=shadow_status.page;idle_since=now;}
+  /* Every page may idle into the saver. Its overlay does not end the
+   * selected measurement page's independent witness session. */
+  bool saver=!stable&&!wake_press&&now>=idle_since&&now-idle_since>=R2_UI_IDLE_MS&&r2_ui_saver_allowed(&shadow_model,now);
   uint64_t period=saver&&now>=saver_since?(now-saver_since)/R2_UI_SAVER_MOVE_MS:0;
   bool move=saver&&shadow_status.screensaver&&period!=saver_period;
   /* Existing public PRNG, outside the UI lock; no draw-time RNG or RF work. */
   uint32_t random=move?sys_rand32_get():0;
   key=k_spin_lock(&lock);
-  if(status.screensaver&&!saver&&!stable&&!wake_press){status.page=0;status.help=false;idle_since=now;}
+  if(status.screensaver&&!saver&&!stable&&!wake_press&&!page_changed){status.page=0;status.help=false;idle_since=now;}
   if(saver!=status.screensaver){status.screensaver=saver;saver_since=now;saver_period=0;status.screensaver_position=0;due=now;}
   if(move){status.screensaver_position=(uint8_t)r2_ui_saver_next(status.screensaver_position,random);saver_period=period;due=now;}
   if(!saver)status.screensaver_position=0;

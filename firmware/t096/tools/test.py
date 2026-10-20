@@ -92,8 +92,13 @@ with tempfile.TemporaryDirectory(prefix='t096-r2-test-') as directory:
 
     subprocess.run([*flags,'-c',str(APP/'src/precision.c'),'-o',str(out/'precision.o')],check=True,timeout=30)
     subprocess.run([*flags,'-c',str(APP/'src/ui_render.c'),'-o',str(out/'ui_render.o')],check=True,timeout=30)
+    dynamic_ui=(APP/'src/rc_dynamic_service.c').read_text()
+    begin=dynamic_ui.index('void r2_service_ui(struct r2_ui_model *m) {')
+    (out/'rc_ui_binding_under_test.h').write_text(dynamic_ui[begin:dynamic_ui.index('\nint r2_service_relay(',begin)])
+    subprocess.run([*flags,'-I'+str(out),str(APP/'tests/rc_ui_binding_test.c'),str(out/'ui_render.o'),str(out/'precision.o'),'-o',str(out/'rc_ui_binding')],check=True,timeout=30)
+    subprocess.run([str(out/'rc_ui_binding')],check=True,timeout=30)
     subprocess.run([*flags,'-I'+str(out),'-include',str(APP/'tests/ui_service_fake.h'),str(APP/'tests/ui_service_test.c'),str(out/'ui_render.o'),str(out/'precision.o'),'-o',str(out/'ui_service')],check=True,timeout=30)
-    for mode in map(str,[*range(34),*range(35,40)]):
+    for mode in map(str,[*range(34),*range(35,42)]):
         subprocess.run([str(out/'ui_service'),mode],check=True,timeout=30)
     subprocess.run([*flags,'-I'+str(out),'-include',str(APP/'tests/ui_service_fake.h'),str(APP/'tests/ui_sync_worker_test.c'),str(out/'ui_render.o'),str(out/'precision.o'),'-o',str(out/'ui_sync_worker')],check=True,timeout=30)
     subprocess.run([str(out/'ui_sync_worker')],check=True,timeout=30)

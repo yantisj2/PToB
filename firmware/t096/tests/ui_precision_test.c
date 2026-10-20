@@ -58,6 +58,25 @@ int main(int argc,char **argv){
  for(unsigned i=0;i<4;i++){m.hot_refusal=refusals[i];assert(!strcmp(hot_reason(&m,true,false),reasons[i]));}
  m.hot_refusal=16;fixture(argv[1],"precision-hot-auth",&m,&s,62000);assert(color_count(152,7,C_DIM));
  m.profile_rc=m.boundary_clock=true;m.role=R2_UI_FOLLOWER;
- fixture(argv[1],"precision-rc",&m,&s,62000);
+ m.ble_time_selected=true;m.ble_valid_until_us=63000000;
+ m.precision.rms_valid=true;m.precision.rms_ns=137;m.precision.correction_age_valid=true;m.precision.correction_age_ms=42;
+ m.pps_precision.prediction_rms_ns=987654;m.face_rms_ns=7654321;
+ fixture(argv[1],"precision-rc",&m,&s,62000);assert(color_count(64,7,C_CYAN));
+ uint8_t own_rms[80*2*7];memcpy(own_rms,fb+64*80*2,sizeof own_rms);
+ m.precision.correction_age_ms=9999;m.pps_precision.prediction_rms_ns=1;m.face_rms_ns=2;s.shadow.rms_ns=3;
+ r2_ui_render(fb,&m,&s,62000);assert(!memcmp(own_rms,fb+64*80*2,sizeof own_rms));
+ m.precision.rms_ns=200;fixture(argv[1],"precision-rc-own-rms",&m,&s,62000);
+ assert(memcmp(own_rms,fb+64*80*2,sizeof own_rms));
+ m.precision.rms_ns=1234;fixture(argv[1],"precision-rc-us",&m,&s,62000);
+ m.precision.rms_ns=UINT32_MAX;fixture(argv[1],"precision-rc-unknown",&m,&s,62000);assert(!color_count(64,7,C_CYAN));
+ m.precision.rms_ns=137;m.precision.rms_valid=false;
+ fixture(argv[1],"precision-rc-no-rms",&m,&s,62000);assert(!color_count(64,7,C_CYAN));
+ m.precision.rms_valid=true;m.precision.map_valid=false;
+ fixture(argv[1],"precision-rc-no-map",&m,&s,62000);assert(!color_count(64,7,C_CYAN));
+ m.precision.map_valid=true;m.ble_valid_until_us=62000000;
+ fixture(argv[1],"precision-rc-expired",&m,&s,62000);assert(!color_count(64,7,C_CYAN));
+ m.ble_valid_until_us=63000000;m.ble_active=false;
+ fixture(argv[1],"precision-rc-stopped",&m,&s,62000);assert(!color_count(64,7,C_CYAN));
+ m.ble_active=true;fixture(argv[1],"precision-rc-stale",&m,&s,65001);assert(!color_count(64,7,C_CYAN));
  puts("PASS Precision: real holds/loss/staleness, stable green HOT/SoftPLL, witness eligibility, missing and extreme values");
 }

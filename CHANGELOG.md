@@ -2,6 +2,15 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 19 October 2026 — T096 RC displays its own BLE RMS
+
+T096 **0.15.119** replaces Precision's old `CORRECTION` label and age value
+with `BLE RMS`, using the RC's own local capture-fit RMS. Missing or expired
+timing displays `--`; local GPS, shadow PPS and upstream quality cannot replace
+this metric. The GM shadow-PPS layout and timing-owner policy are unchanged. Every page
+may enter the existing idle screensaver; selected PPS observation continues
+behind the overlay, and navigation wakes the selected page.
+
 ## 19 October 2026 — T096 Precision status and shadow PPS
 
 T096 **0.15.118** gives the GM profile's Precision page a consistent grid,

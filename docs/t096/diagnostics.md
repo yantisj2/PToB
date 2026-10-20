@@ -850,3 +850,16 @@ during short fit-lock changes. HOT retains its reason line throughout acquisitio
 GPS/PPS wait, source dwell countdown, peer/source wait, authentication wait,
 BLE-map wait, control wait and qualified/active-GM state. These display states do not extend any source,
 map, PPS, authentication or HOT deadline.
+
+In RC mode, version **0.15.119** replaces the old correction-age readout with
+`BLE RMS`: this receiver's own BLE capture-fit residual RMS, in ns/us/ms. It
+uses the local timing owner's precision snapshot, independently of local GPS,
+shadow PPS, advertised upstream bounds or the clock-face metric. Missing RMS,
+a withdrawn map, expired BLE time, stopped BLE or stale UI input shows `--`.
+This is a relative receiver-fit diagnostic, not calibrated UTC/output accuracy.
+The old `CORRECTION` label and its age-display path are removed from Precision.
+
+The five-minute screensaver is available on every page when the existing
+clock/source eligibility checks pass. A selected Precision/Shadow PPS observer
+continues behind the saver, retaining its session and independent-GNSS fence.
+Navigating to another page wakes that page and restarts its idle interval.

@@ -24,6 +24,8 @@ int main(void){
  fixture.follower=fixture.follower_clock_valid=true;fixture.service_until=2000000;
  fixture.time_sampled_us=current;fixture.follower_utc=1000000000000;
  fixture.precision.authorized=fixture.precision.map_valid=true;r2_service_ui(&m);
+ fixture.precision.rms_valid=true;fixture.precision.rms_ns=137;r2_service_ui(&m);
+ assert(m.precision.rms_valid&&m.precision.rms_ns==137);
  assert(m.scope_active&&m.lamps[1]==1&&m.lamps[5]==2);
  memset(fixture.lamps,0,sizeof fixture.lamps);r2_service_ui(&m);assert(!m.lamps[1]&&!m.lamps[5]);
  assert(!m.rc_serving_clients);
