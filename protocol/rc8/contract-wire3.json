@@ -2,7 +2,7 @@
   "schema": 3,
   "contract": "PTOB_RC8",
   "wire_version": 3,
-  "revision": 4,
+  "revision": 5,
   "status": "RUNTIME_INTEGRATION_UNQUALIFIED",
   "license": "MIT",
   "credit": "Jonathan Yantis",
@@ -224,7 +224,9 @@
       "memory": "existing512B startup scan scratch, separate lifetime",
       "added_static_bytes": 0,
       "retained_ram_survival": "conditional",
-      "source_or_RF_silence_is_worker_fault": false
+      "source_or_RF_silence_is_worker_fault": false,
+      "stalled_start_cancel_since": "0.15.128",
+      "stalled_start_cancel": "advance original stop_serial before out-of-band inhibition; returning start cannot release reset"
     }
   },
   "runtime_link_fit": {

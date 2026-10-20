@@ -127,7 +127,7 @@ display, BLE/USB service and stack observations remain exact-device gates.
 
 ## Hardware update boundary
 
-Normal0.15.127 builds include the [RC8 wire3 integration](../../protocol/rc8/README.md).
+Normal0.15.128 builds include the [RC8 wire3 integration](../../protocol/rc8/README.md).
 The default transmitter factory is zero, so LoRa hardware does not start. An
 explicit normal-only `--lora-transmitter-factory` takes a16-digit exact factory
 identity verified against ignored T096 registry metadata. It is included in the
@@ -294,3 +294,8 @@ protected-block comparisons retain their original scope; journal storage is
 already outside that protected population. Conditional retained-RAM evidence is
 not a power-loss durability guarantee. Physical recovery/retention and live
 stack/coexistence remain separately measured exact-device gates.
+
+Version0.15.128 advances the driver cancellation serial before a watchdog trip.
+A stalled start returning from capture/resource acquisition must fail its
+original reset-release fence. The production-driver regression fails against
+127 and passes with128; this does not fabricate a physical worker stall.

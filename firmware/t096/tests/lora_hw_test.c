@@ -57,7 +57,7 @@ typedef struct{unsigned task_ch,polarity,init_val;}nrfx_gpiote_task_config_t;
 struct r2_capture{uint64_t tick,epoch;int kind;};
 static uint64_t mock_us=1000000,physical_tick=15999999;
 static int pins[64],irq_flags,packet_length=80,busy_high,suppress_dma,alloc_fail,stop_at_attach,stop_at_spi;
-static unsigned submissions,attach_count,detach_count;static bool route;
+static unsigned submissions,attach_count,detach_count;static bool route,watchdog_at_attach;
 static bool expire_at_fem,delay_before_fem,spi_eagain_payload,invalid_capture,stuck_dio,abort_in_settx,done_in_settx,withhold_settx,abort_at_commit,expire_after_commit,busy_on_settx,busy_at_fem,ready_at_busy_deadline,cutoff_at_busy_deadline,error_at_busy_deadline;static uint64_t busy_since;static int settx_error;static unsigned irq_depth;static unsigned set_tx_commands,last_budget;
 static void preempt_cutoff(void);
 static void preempt_submission(void);
@@ -105,7 +105,7 @@ static int nrfx_timer_init(const nrfx_timer_t *t,const nrfx_timer_config_t *c,vo
 static uint32_t nrfx_timer_compare_event_address_get(const nrfx_timer_t *t,int ch){(void)t;(void)ch;return 0x5678;}
 static bool r2_capture_now(struct r2_capture *c){*c=(struct r2_capture){mock_us*16,7,3};return true;}
 static bool r2_capture_lora(struct r2_capture *c){assert(route);if(invalid_capture)return false;*c=(struct r2_capture){physical_tick,7,4};return true;}
-static int r2_capture_lora_attach(const struct gpio_dt_spec *p,uint32_t task){assert(p->pin==21&&task==0x1234);route=true;++attach_count;if(stop_at_attach)r2_lora_hw_stop_begin(mock_us+200000);return 0;}
+static int r2_capture_lora_attach(const struct gpio_dt_spec *p,uint32_t task){assert(p->pin==21&&task==0x1234);route=true;++attach_count;if(stop_at_attach)r2_lora_hw_stop_begin(mock_us+200000);if(watchdog_at_attach)r2_lora_hw_watchdog_trip(-ETIMEDOUT);return 0;}
 static int r2_capture_lora_detach(void){route=false;++detach_count;return 0;}
 static int spi_transceive_cb(const struct device *d,const struct spi_config *c,const struct spi_buf_set *tx,const struct spi_buf_set *rx,void(*fn)(const struct device*,int,void*),void *arg){
  assert(c->frequency==8000000&&tx->count==1&&rx->count==1);
@@ -163,6 +163,9 @@ int main(int argc,char **argv){
  assert(argc==2);int mode=atoi(argv[1]);for(unsigned i=0;i<R2_LORA_HW_BYTES;i++)payload[i]=(uint8_t)(i+11);
  if(mode==1){alloc_fail=1;assert(r2_lora_hw_start(1,true)<0);assert(!submissions&&!route);closed();return 0;}
  if(mode==2){stop_at_attach=1;assert(r2_lora_hw_start(1,true)==-ECANCELED);assert(!submissions&&!pins[30]&&!pins[16]);closed();assert(!atomic_get(&fault));return 0;}
+ if(mode==44){watchdog_at_attach=true;assert(r2_lora_hw_start(1,true)==-ECANCELED);
+  assert(wd.terminal&&atomic_get(&fault)==-ETIMEDOUT&&!submissions&&!pins[30]&&!pins[16]&&!atomic_get(&running));
+  closed();assert(wd.closure==31);return 0;}
  bool tx_mode=mode==3||mode==11||mode==14||mode==15||mode==16||mode==17||mode==19||mode==20||mode==21||mode==22||mode==23||mode==24||mode==25||mode==27||mode==28||mode==29||mode==30||mode==31||mode==32||mode==33||mode>=34;
  assert(!r2_lora_hw_start(4,!tx_mode));
  if(mode==3){assert(!r2_lora_hw_tx(payload,80,5));inject(1);mock_us+=400000;cutoff_irq(0,NULL);struct r2_lora_hw_event e;

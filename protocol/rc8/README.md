@@ -2,7 +2,7 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
-T0960.15.127 uses80-byte timing packets and128-byte descriptive companion
+T0960.15.128 uses80-byte timing packets and128-byte descriptive companion
 packets. Both are one-way group-authenticated broadcasts. There is no ACK,
 authentication handshake, listener transmission or ranging exchange. Wire3 is
 incompatible with [historical wire2](wire2-historical.md); its original
@@ -214,7 +214,9 @@ watchdog resets the MCU after a journal attempt completes or its2s observer
 bound expires. The priority4 observer also detects30s without LoRa worker
 progress; absent source or RF packets alone never triggers it. The observer
 uses the diagnostic scanner's512B scratch only after startup scan completion,
-with no added static RAM or reserve reduction.
+with no added static RAM or reserve reduction. Version128 advances the original
+start cancellation serial before a watchdog trip, preventing a returning start
+from releasing reset after the out-of-band fault fence.
 
 Main alone submits the fault to existing journal bank0, with reason0x400 in
 schema5. Words80..95 replace the event snapshot with the fault record; the BLE

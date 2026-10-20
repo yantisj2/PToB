@@ -720,7 +720,15 @@ void r2_lora_hw_stop_poll(struct r2_lora_hw_ack *out) {
   wd.closure=(uint32_t)out->dma_retired|((uint32_t)out->radio_quiescent<<1)|
     ((uint32_t)out->fem_off<<2)|((uint32_t)out->capture_released<<3)|((uint32_t)out->fault<<4);
 }
-void r2_lora_hw_watchdog_trip(int error) {(void)fail(error);}
+void r2_lora_hw_watchdog_trip(int error) {
+  unsigned key=irq_lock();
+  /* A stalled start may be between capture/resource acquisition and its
+   * reset-release fence. Cancel that original incarnation before inhibiting;
+   * a returning worker must never release reset after the observer's fault. */
+  atomic_inc(&stop_serial);
+  (void)fail(error);
+  irq_unlock(key);
+}
 void r2_lora_hw_diag(struct r2_lora_hw_diag *out) {
   if (!out)
     return;

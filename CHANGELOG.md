@@ -2,6 +2,15 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 20 October 2026 — T0960.15.128 stalled-start cancellation
+
+The LoRa watchdog trip now advances the cancellation serial before inhibition.
+A stalled start returning from capture/resource acquisition cannot pass its
+original reset-release fence after the observer has faulted the owner. The
+production regression reproduces127 returning a successful start after that
+fault;128 returns cancellation with reset/FEM inhibited and no SPI submission.
+This is a reviewed software race, separate from physical canary outcomes.
+
 ## 20 October 2026 — T0960.15.127 durable LoRa fault recovery
 
 LoRa now retains the first fault's operation/stage, original observation times,
