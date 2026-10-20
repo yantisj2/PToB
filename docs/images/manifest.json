@@ -278,10 +278,10 @@
       "transformation": "Native monochrome production-renderer output; no pixel rescaling.",
       "scope": "Offline N30 page clock; synthetic illustrative N3-1 state, no hardware or precision evidence.",
       "source_files": {
-        "tools/preview.cpp": "7ed9f2b80d9c09a0bdd5779c07267c59e19afdce6217b262f1d91787ba660980",
-        "main/ui.hpp": "9ae434c8b384e8c8e16486e85d1200752fd8af9fe8b4f7fe7a80a80a35dd7a14",
-        "main/ui_model.cpp": "3f89993df9505f243a93f99d5da61d02d01afca4aec3a5213c45e553adc957a0",
-        "main/ui_render.cpp": "25341f7be22155d54fd1e16bbd40da3d5a7d15cb46dcd22e27220389feb8004f",
+        "tools/preview.cpp": "f94454ab6a12b39740db1057090026830e20be49798379eb1453a09b13d6623c",
+        "main/ui.hpp": "a251ac2b47f0f85bfb8e38809e282f0999d38379be9bace8631c6ec1908eb24e",
+        "main/ui_model.cpp": "3a937d6fdad4e3f10d662cdc5bb14b8c87bb8e53c22de79ad294f814f1a7cd90",
+        "main/ui_render.cpp": "f4236edec7b7c47e830d9429be87bd7a69977e4647e846921719db604617d1b8",
         "main/font.inc": "814ce6f3ffd7b828706765284e56393ca0e53874ee4fd3f823213ddd4d3d44df"
       }
     },
@@ -297,10 +297,67 @@
       "transformation": "Native monochrome production-renderer output; no pixel rescaling.",
       "scope": "Offline N30 page rf; synthetic illustrative N3-1 state, no hardware or precision evidence.",
       "source_files": {
-        "tools/preview.cpp": "7ed9f2b80d9c09a0bdd5779c07267c59e19afdce6217b262f1d91787ba660980",
-        "main/ui.hpp": "9ae434c8b384e8c8e16486e85d1200752fd8af9fe8b4f7fe7a80a80a35dd7a14",
-        "main/ui_model.cpp": "3f89993df9505f243a93f99d5da61d02d01afca4aec3a5213c45e553adc957a0",
-        "main/ui_render.cpp": "25341f7be22155d54fd1e16bbd40da3d5a7d15cb46dcd22e27220389feb8004f",
+        "tools/preview.cpp": "f94454ab6a12b39740db1057090026830e20be49798379eb1453a09b13d6623c",
+        "main/ui.hpp": "a251ac2b47f0f85bfb8e38809e282f0999d38379be9bace8631c6ec1908eb24e",
+        "main/ui_model.cpp": "3a937d6fdad4e3f10d662cdc5bb14b8c87bb8e53c22de79ad294f814f1a7cd90",
+        "main/ui_render.cpp": "f4236edec7b7c47e830d9429be87bd7a69977e4647e846921719db604617d1b8",
+        "main/font.inc": "814ce6f3ffd7b828706765284e56393ca0e53874ee4fd3f823213ddd4d3d44df"
+      }
+    },
+    {
+      "file": "n30-saver-ble-preview.png",
+      "source": "firmware/n30/tools/preview.py",
+      "sha256": "74746985655dcaf39151ee7cf0cda804fa33d0e11959cfddd0cefc7bbb120c20",
+      "bytes": 628,
+      "dimensions": [
+        64,
+        128
+      ],
+      "transformation": "Native monochrome production-renderer output; no pixel rescaling.",
+      "scope": "Offline N30 saver-ble; synthetic illustrative N3-1 state, no hardware or precision evidence.",
+      "source_files": {
+        "tools/preview.cpp": "f94454ab6a12b39740db1057090026830e20be49798379eb1453a09b13d6623c",
+        "main/ui.hpp": "a251ac2b47f0f85bfb8e38809e282f0999d38379be9bace8631c6ec1908eb24e",
+        "main/ui_model.cpp": "3a937d6fdad4e3f10d662cdc5bb14b8c87bb8e53c22de79ad294f814f1a7cd90",
+        "main/ui_render.cpp": "f4236edec7b7c47e830d9429be87bd7a69977e4647e846921719db604617d1b8",
+        "main/font.inc": "814ce6f3ffd7b828706765284e56393ca0e53874ee4fd3f823213ddd4d3d44df"
+      }
+    },
+    {
+      "file": "n30-saver-rc1-preview.png",
+      "source": "firmware/n30/tools/preview.py",
+      "sha256": "38f3f0ff643b4827f503e88dfee44c086cdad28713087c172b15ababc7919323",
+      "bytes": 642,
+      "dimensions": [
+        64,
+        128
+      ],
+      "transformation": "Native monochrome production-renderer output; no pixel rescaling.",
+      "scope": "Offline N30 saver-rc1; synthetic illustrative N3-1 state, no hardware or precision evidence.",
+      "source_files": {
+        "tools/preview.cpp": "f94454ab6a12b39740db1057090026830e20be49798379eb1453a09b13d6623c",
+        "main/ui.hpp": "a251ac2b47f0f85bfb8e38809e282f0999d38379be9bace8631c6ec1908eb24e",
+        "main/ui_model.cpp": "3a937d6fdad4e3f10d662cdc5bb14b8c87bb8e53c22de79ad294f814f1a7cd90",
+        "main/ui_render.cpp": "f4236edec7b7c47e830d9429be87bd7a69977e4647e846921719db604617d1b8",
+        "main/font.inc": "814ce6f3ffd7b828706765284e56393ca0e53874ee4fd3f823213ddd4d3d44df"
+      }
+    },
+    {
+      "file": "n30-saver-rc2-preview.png",
+      "source": "firmware/n30/tools/preview.py",
+      "sha256": "5a10cbece7ff8d1777cd7f4d567340845fa4eee3a8e05e1025554f78ec0b76af",
+      "bytes": 644,
+      "dimensions": [
+        64,
+        128
+      ],
+      "transformation": "Native monochrome production-renderer output; no pixel rescaling.",
+      "scope": "Offline N30 saver-rc2; synthetic illustrative N3-1 state, no hardware or precision evidence.",
+      "source_files": {
+        "tools/preview.cpp": "f94454ab6a12b39740db1057090026830e20be49798379eb1453a09b13d6623c",
+        "main/ui.hpp": "a251ac2b47f0f85bfb8e38809e282f0999d38379be9bace8631c6ec1908eb24e",
+        "main/ui_model.cpp": "3a937d6fdad4e3f10d662cdc5bb14b8c87bb8e53c22de79ad294f814f1a7cd90",
+        "main/ui_render.cpp": "f4236edec7b7c47e830d9429be87bd7a69977e4647e846921719db604617d1b8",
         "main/font.inc": "814ce6f3ffd7b828706765284e56393ca0e53874ee4fd3f823213ddd4d3d44df"
       }
     }

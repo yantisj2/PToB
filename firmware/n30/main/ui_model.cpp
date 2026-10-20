@@ -8,6 +8,12 @@ bool time(const Model& m,uint64_t now,uint64_t& utc){
  if(!current(m,now)||!m.valid||now<m.utc_at_us||now>=m.until_us||m.state==State::Fault||m.state==State::Off||now-m.utc_at_us>UINT64_MAX-m.utc_us)return false;
  utc=m.utc_us+(now-m.utc_at_us);return true;
 }
+const char* source_label(const Model& m,uint64_t now){
+ uint64_t utc;if(m.mode_pending||!time(m,now,utc))return "WAIT";
+ if(m.state==State::Hold)return "HOLD";
+ switch(m.source){case Source::Ble:return "BLE";case Source::Rc1:return "RC1";case Source::Rc2:return "RC2";case Source::None:return "--";}
+ return "--";
+}
 void rotate(uint8_t out[FrameBytes],const uint8_t in[FrameBytes],bool cw){
  std::memset(out,0,FrameBytes);
  for(unsigned y=0;y<Height;y++)for(unsigned x=0;x<Width;x++)if(in[y*8+x/8]&(0x80u>>(x%8))){
@@ -15,22 +21,32 @@ void rotate(uint8_t out[FrameBytes],const uint8_t in[FrameBytes],bool cw){
   out[(ny/8)*128+nx]|=uint8_t(1u<<(ny%8));
  }
 }
-void Input::update(bool pressed,uint64_t now,View& v){
+Action Input::update(bool pressed,uint64_t now,View& v){
+ Action action=Action::None;
  if(pressed!=raw_){raw_=pressed;changed_=now;}
- if(now>=changed_&&now-changed_>=50000&&raw_!=stable_){
+ if(now>=changed_&&now-changed_>=40000&&raw_!=stable_){
   stable_=raw_;
   if(stable_){
-   if(armed_){down_=now;idle_=now;wake_=v.saver||v.blank;consumed_=wake_;v.saver=v.blank=false;}
+   if(armed_){down_=changed_;idle_=now;wake_=v.saver||v.blank;main_press_=!v.page&&!v.help;consumed_=wake_;v.saver=v.blank=false;}
   }else{
-   if(armed_&&!consumed_){if(v.help)v.help=false;else v.page=(v.page+1)%2;}
+   if(armed_&&!consumed_){
+    if(main_press_&&now>=down_&&now-down_>=1500000)action=Action::ToggleRelayOnly;
+    else if(v.help)v.help=false;else v.page=(v.page+1)%2;
+   }
    armed_=true;consumed_=wake_=false;down_=0;idle_=now;
   }
  }
  if(stable_&&armed_){
   idle_=now;
-  if(!wake_&&now>=down_&&now-down_>=4000000){v.blank=true;consumed_=true;}
-  else if(!consumed_&&now>=down_&&now-down_>=1500000){v.help=true;consumed_=true;}
+  if(!consumed_&&now>=down_&&now-down_>=1500000){
+   if(main_press_){action=Action::ToggleRelayOnly;consumed_=true;}
+   else{v.help=true;consumed_=true;}
+  }
+  // Main-screen toggles consume the extended hold, just like W12. RF keeps
+  // its existing4s display blank; a wake press cannot turn into another action.
+  if(!main_press_&&!wake_&&now>=down_&&now-down_>=4000000){v.blank=true;consumed_=true;}
  }
+ return action;
 }
 void Input::idle(uint64_t now,bool eligible,View& v)const{
  v.saver=!v.blank&&!stable_&&!v.help&&eligible&&now>=idle_&&now-idle_>=IdleUs;

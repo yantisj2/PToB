@@ -5,7 +5,7 @@ import ast,importlib.util,json,os,re,subprocess
 from pathlib import Path
 APP=Path(__file__).resolve().parents[1]
 spec=importlib.util.spec_from_file_location('w12_status_budget',APP.parent/'w12/tools/status_budget_test.py');w=importlib.util.module_from_spec(spec);spec.loader.exec_module(w)
-w.TEXT.update(GPS='ABSENT',rotation='CCW',display='64x128',hardware='UNVALIDATED');w.BOOL.update('help saver blank'.split())
+w.TEXT.update(GPS='ABSENT',rotation='CCW',display='64x128',hardware='UNVALIDATED',path='HOLD',upstream='PENDING');w.BOOL.update('help saver blank'.split())
 def formats(text,token):
  # Literal-only peripheral rows end at ')', while formatted rows end at ','.
  out=[]

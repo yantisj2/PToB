@@ -604,6 +604,12 @@ void input(){
     }
 
 }
+[[gnu::noinline]] void poll_display_action(){
+  // Consume during maintenance too: no deferred radio action after update.
+  if(n30_display_take_upstream_toggle(micros())&&!update_gate.latched()){
+    const auto radio=v12::r2_activity();(void)v12::r2_set_relay_only(!radio.relay_only);
+  }
+}
 [[gnu::noinline]] void clock_fault_progress(){
   const auto rx=v12::transport_status();const auto tx=v12::diagnostic_tx_status();
   const auto direct=v12::direct_status();const auto lora=v12::lora_status();
@@ -664,7 +670,7 @@ extern "C" void app_main(){
     " max_data=191 max_GMs=4 activities=6 syncs=2 adv_sets=2 mtu=247"
     " precision=UNAVAILABLE GM=DISABLED LoRa=OFF WiFi=OFF PTS=OFF\n",
     V12_UNIT,factory_text,unsigned(identity),session,V12_SOURCE_REVISION,V12_BUILD_ID);
-  std::printf("N30_TARGET version=0.1.3 profile=RC GPS=ABSENT flash_mb=8 console=UART0_43_44 hardware=UNVALIDATED\n");
+  std::printf("N30_TARGET version=0.1.4 profile=RC GPS=ABSENT flash_mb=8 console=UART0_43_44 hardware=UNVALIDATED\n");
   if(!identity||!session){std::printf("W12_V12_FATAL reason=FACTORY_OR_BOOT_BINDING peripherals=UNTOUCHED\n");return;}
   if(!v12::fault_watchdog_start(factory,session)){std::printf("W12_V12_FATAL reason=FAULT_SUPERVISOR\n");return;}
   // This initial diagnostic candidate never initializes, migrates or writes
@@ -712,6 +718,9 @@ extern "C" void app_main(){
     gnss_pps::poll(ticks());
     #endif
     input();
+    // Physical display-worker action; the main owner calls the unchanged W12
+    // mode API, which fences the old source and retains its original2s drain.
+    poll_display_action();
 #ifdef V12_GPS_SHADOW_OBSERVER
     observe_gps_actuator();
 #else

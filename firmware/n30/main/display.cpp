@@ -18,6 +18,7 @@ namespace {
 i2c_master_bus_handle_t bus=nullptr;i2c_master_dev_handle_t oled=nullptr;
 portMUX_TYPE mux=portMUX_INITIALIZER_UNLOCKED;
 n30::Model published; n30::Activity activity; int requested_page=-1;
+n30::ActionMailbox upstream_toggle;
 struct Stats {uint32_t frames=0,errors=0,max_us=0;uint64_t sampled=0;uint8_t page=0;bool ready=false,help=false,saver=false,blank=false;} stats;
 uint8_t portrait[n30::FrameBytes],native[n30::FrameBytes],shadow[n30::FrameBytes];bool shadow_valid=false;
 uint64_t now_us(){return uint64_t(esp_timer_get_time());}
@@ -39,8 +40,8 @@ void worker(void*){
   const auto now=now_us();n30::Model m;portENTER_CRITICAL(&mux);m=published;portEXIT_CRITICAL(&mux);
   int request;portENTER_CRITICAL(&mux);request=requested_page;requested_page=-1;portEXIT_CRITICAL(&mux);
   const auto prior=view;if(request>=0){view.page=uint8_t(request);view.help=false;view.blank=false;due=now;}
-  input.update(gpio_get_level(GPIO_NUM_0)==0,now,view);
-  uint64_t utc;input.idle(now,m.locked&&m.state==n30::State::Follow&&n30::time(m,now,utc),view);
+  if(input.update(gpio_get_level(GPIO_NUM_0)==0,now,view)==n30::Action::ToggleRelayOnly){portENTER_CRITICAL(&mux);upstream_toggle.post(now);portEXIT_CRITICAL(&mux);}
+  uint64_t utc;input.idle(now,m.locked&&m.source!=n30::Source::None&&m.state==n30::State::Follow&&n30::time(m,now,utc),view);
   if(prior.page!=view.page||prior.help!=view.help||prior.saver!=view.saver||prior.blank!=view.blank)due=now;
   if(now>=due){
    bool ok=true;if(off!=view.blank){ok=command(view.blank?0xae:0xaf);if(ok){off=view.blank;shadow_valid=false;}}
@@ -77,8 +78,8 @@ void n30_display_publish(const v12::R2Status& s,const DisplayState& d,uint64_t n
  activity.update(m,counts,s.root_identity,s.root_boot,now,s.requested&&!s.fault,radio.tx_armed);
  portENTER_CRITICAL(&mux);published=m;portEXIT_CRITICAL(&mux);
 }
-void n30_display_status(v12::ConsoleFrame& f){Stats s;portENTER_CRITICAL(&mux);s=stats;portEXIT_CRITICAL(&mux);
- f.format("N30_UI profile=RC GPS=ABSENT page=%u ready=%u help=%u saver=%u blank=%u frames=%lu errors=%lu max_frame_us=%lu model_us=%llu rotation=%s display=64x128 hardware=UNVALIDATED\n",unsigned(s.page),unsigned(s.ready),unsigned(s.help),unsigned(s.saver),unsigned(s.blank),(unsigned long)s.frames,(unsigned long)s.errors,(unsigned long)s.max_us,(unsigned long long)s.sampled,PTOB_N30_ROTATE_CW?"CW":"CCW");
+void n30_display_status(v12::ConsoleFrame& f){Stats s;n30::Model m;portENTER_CRITICAL(&mux);s=stats;m=published;portEXIT_CRITICAL(&mux);
+ f.format("N30_UI profile=RC GPS=ABSENT page=%u ready=%u help=%u saver=%u blank=%u frames=%lu errors=%lu max_frame_us=%lu model_us=%llu rotation=%s display=64x128 hardware=UNVALIDATED path=%s upstream=%s\n",unsigned(s.page),unsigned(s.ready),unsigned(s.help),unsigned(s.saver),unsigned(s.blank),(unsigned long)s.frames,(unsigned long)s.errors,(unsigned long)s.max_us,(unsigned long long)s.sampled,PTOB_N30_ROTATE_CW?"CW":"CCW",n30::source_label(m,now_us()),m.mode_pending?"PENDING":m.relay_only?"RELAY":"AUTO");
 }
 // Legacy presentation API retained only for the shared dashboard adapter.
 void display_show(const DisplayState&){}
@@ -87,3 +88,4 @@ void display_update_indicators(bool,bool,bool){}
 void display_sleep(){}void display_wake(){}void display_blank(){}
 
 bool n30_display_page(unsigned page){if(page>1)return false;portENTER_CRITICAL(&mux);requested_page=int(page);portEXIT_CRITICAL(&mux);return true;}
+bool n30_display_take_upstream_toggle(uint64_t now){portENTER_CRITICAL(&mux);const bool take=upstream_toggle.take(now);portEXIT_CRITICAL(&mux);return take;}

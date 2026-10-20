@@ -6,6 +6,7 @@ from pathlib import Path
 APP=Path(__file__).resolve().parents[1]
 p=argparse.ArgumentParser();p.add_argument('--out',type=Path,required=True);a=p.parse_args();a.out.mkdir(parents=True,exist_ok=False)
 src=(APP/'main/native_main.cpp').read_text();command=src[src.index('void command(const char* text){'):src.index('void input(){')]
+poll=src[src.index('[[gnu::noinline]] void poll_display_action(){'):src.index('[[gnu::noinline]] void clock_fault_progress(){')]
 prefix=r'''
 #include <cassert>
 #include <cinttypes>
@@ -18,6 +19,7 @@ prefix=r'''
 #define V12_R2_CONFIG 13
 uint64_t now=1000;unsigned radio_changes=0,pages=0,statuses=0;unsigned selected=0;
 bool owner_active=true;
+bool mode=false,action_pending=false;
 namespace v12 {
 void capture_stop(){}
 bool capture_begin(uint64_t,uint32_t){return true;}
@@ -25,7 +27,9 @@ bool capture_rolling_begin(uint64_t,uint32_t){return true;}
 struct LoRa {bool enabled=false,requested=false,worker_busy=false,off_acknowledged=true,failed=false;};
 LoRa lora_status(){return {};}
 bool r2_client_start(uint64_t){++radio_changes;return true;}
-bool r2_set_relay_only(bool){++radio_changes;return true;}
+bool r2_set_relay_only(bool value){mode=value;++radio_changes;return true;}
+struct Activity {bool relay_only=false;};
+Activity r2_activity(){return {mode};}
 bool r2_rc_parent(uint64_t){++radio_changes;return true;}
 bool r2_gm_parent(uint64_t){++radio_changes;return true;}
 bool r2_client_start_profile(uint64_t,unsigned){++radio_changes;return true;}
@@ -40,6 +44,7 @@ void stop_all(){++radio_changes;}
 void status(uint64_t,uint64_t){++statuses;}
 bool r2_command_off_ack(){return !owner_active;}
 bool n30_display_page(unsigned n){if(n>1)return false;selected=n;++pages;return true;}
+bool n30_display_take_upstream_toggle(uint64_t){bool take=action_pending;action_pending=false;return take;}
 '''
 suffix=r'''
 void send(uint64_t nonce,const char* action,const char* mac=factory_text,uint64_t boot=3,bool expire=false){
@@ -57,10 +62,15 @@ int main(){
  send(5,"ui page 1",factory_text,4);assert(!last_command.accepted&&pages==2);
  send(6,"ui page 1",factory_text,3,true);assert(!last_command.accepted&&pages==2);
  send(7,"rx full 1000");assert(!last_command.accepted&&std::string(last_command.reason)=="R2_OWNS_BLE"&&radio_changes==0);
- update_gate.begin(now);send(8,"ui page 1");assert(!last_command.accepted&&pages==2&&radio_changes==0);
- std::puts("PASS actual command dispatcher: active-radio page control, factory/boot/nonce/ticket/maintenance fences and radio isolation");
+ poll_display_action();assert(!radio_changes);
+ action_pending=true;poll_display_action();assert(mode&&radio_changes==1&&!action_pending);
+ poll_display_action();assert(radio_changes==1);
+ action_pending=true;poll_display_action();assert(!mode&&radio_changes==2);
+ update_gate.begin(now);send(8,"ui page 1");assert(!last_command.accepted&&pages==2&&radio_changes==2);
+ action_pending=true;poll_display_action();assert(!mode&&radio_changes==2&&!action_pending);
+ std::puts("PASS actual dispatch: active-radio pages, main-owner upstream toggle, maintenance consumption and identity/ticket fences");
 }
 '''
-(a.out/'command-test.cpp').write_text(prefix+command+suffix)
+(a.out/'command-test.cpp').write_text(prefix+command+poll+suffix)
 cmd=[os.environ.get('CXX','clang++'),'-std=c++20','-O1','-Wall','-Wextra','-Werror','-I'+str(APP.parent/'w12/main'),str(a.out/'command-test.cpp'),'-o',str(a.out/'command-test')]
 subprocess.run(cmd,check=True,timeout=20);subprocess.run([a.out/'command-test'],check=True,timeout=10)

@@ -2,7 +2,7 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
 
-**Version 0.1.3 corrects N30 ten-row console admission and display-only command routing while preserving shared W12 radio behavior. First-install qualification is in progress.**
+**Version 0.1.4 adds T096-style moving screensaver source labels and W12's main-screen upstream toggle, while preserving shared W12 radio behavior. First-install qualification is in progress.**
 Meshnology N30 / Heltec WiFi LoRa32 V3 is the proposed board route: ESP32-S3,
 8 MB flash, 128×64 OLED mounted as a 64×128 portrait display, UART0 console via
 USB serial bridge. Exact incoming revision, display controller, rail/pin route,
@@ -16,6 +16,10 @@ published. Default build products remain `OFFLINE_NOT_FLASHABLE`; `--commissioni
 
 Production-renderer previews with synthetic values for N3-1; no measured
 performance. [Reproduction and arrival checklist](../../docs/n30/build.md).
+
+| Screensaver · BLE | Screensaver · RC1 | Screensaver · RC2 |
+| :---: | :---: | :---: |
+| <img src="../../docs/images/n30-saver-ble-preview.png" width="128" alt="N30 screensaver showing BLE source"> | <img src="../../docs/images/n30-saver-rc1-preview.png" width="128" alt="N30 screensaver showing RC1 source"> | <img src="../../docs/images/n30-saver-rc2-preview.png" width="128" alt="N30 screensaver showing RC2 source"> |
 
 ## Behavior and boundaries
 
@@ -38,10 +42,17 @@ performance. [Reproduction and arrival checklist](../../docs/n30/build.md).
   HOLD remains a local estimate; it grants no source or downstream authority.
   No GNSS/PPS activity or independent accuracy is implied. Direct-GM reception
   bars remain unknown unless a producer supplies a delivery denominator.
-- Short press changes page; hold1.5s opens help; short press leaves help.
-  Hold4s blanks the display while the clock continues. This is display blanking,
+- Short press changes page. On the main clock page, hold1.5s toggles automatic
+  upstream selection / relay-only reception using the unchanged W12 mode API.
+  One hold produces one toggle, even beyond4s; the footer shows `R` for relay-only
+  and `>` while a mode change is pending. Relay-only reception does not enable
+  the optional estimated relay transmitter. On the RF page, hold1.5s opens help;
+  short press leaves help, and hold4s blanks the display while the clock continues. This is display blanking,
   not verified board poweroff/deep sleep. The first wake press is consumed.
-  After five idle minutes a currently locked clock dims and moves its display.
+  After five idle minutes a currently locked clock dims and moves the T096-style
+  source/dial/identity assembly. `BLE`, `RC1` or `RC2` describes the actual admitted
+  upstream path, independent of requested mode; stale/pending time shows `WAIT`
+  and a valid local hold shows `HOLD`. No unavailable source is invented.
   There is no runtime GM/RC toggle. Boot-held buttons do not trigger actions.
 - A sole low-priority display/button worker owns I2C. Clock updates target4Hz,
   RF updates8Hz; missed frames are dropped. Display transfers retain one50ms

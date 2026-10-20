@@ -35,7 +35,8 @@ python3 registry/test_registry.py
 ```
 
 Use fresh output directories. `--alias N3-2` generates the other reserved name.
-Previews are native64×128 PNGs from the actual firmware renderer. Preview receipts
+Previews include both pages, BLE/RC1/RC2 savers at all three moving positions,
+and relay-only/pending main-page examples. They are native64×128 PNGs from the actual firmware renderer. Preview receipts
 record source/fixture hashes and synthetic scope. The tests cover both8192-pixel
 rotations, bounds, unavailable/fault/expired states, input/wake/idle behavior,
 activity scope reset, no-GPS inputs and shared-map collision rejection.
@@ -149,3 +150,13 @@ remain on their existing display-worker path. A compiled test of the actual
 dispatcher verifies page control with the receiver active, unchanged radio
 state, and rejection of wrong identity/boot, replayed or expired tickets and
 commands during maintenance. This changes no W12 timing or radio source.
+
+Version0.1.4 adds actual BLE/RC1/RC2 source labels to the T096-style moving
+screensaver. A main-page1.5s press posts one expiring action to the main owner,
+which calls W12's unchanged upstream automatic/relay-only API and source/drain
+fences. This selects reception policy; estimated relay transmission remains OFF
+in the receiver images. RF help/blank and consumed wake behavior remain available.
+Offline tests cover debounce/threshold/release/extended holds, no repeated or
+stale queued toggles, maintenance refusal, truthful source expiry and all saver
+positions. Physical gesture, mode transition and sustained reception outcomes
+must be recorded separately on the arriving hardware.

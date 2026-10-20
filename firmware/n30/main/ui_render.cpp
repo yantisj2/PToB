@@ -16,7 +16,7 @@ void text(uint8_t* f,int x,int y,const char* s){for(;*s&&x<64;s++,x+=6){const au
 void center(uint8_t* f,int y,const char* s){text(f,(64-int(std::strlen(s))*6+1)/2,y,s);}
 void line(uint8_t* f,int x,int y,int xx,int yy){int dx=std::abs(xx-x),sx=x<xx?1:-1,dy=-std::abs(yy-y),sy=y<yy?1:-1,e=dx+dy;for(;;){pixel(f,x,y);if(x==xx&&y==yy)break;const int q=2*e;if(q>=dy){e+=dy;x+=sx;}if(q<=dx){e+=dx;y+=sy;}}}
 void circle(uint8_t* f,int cx,int cy,int r){int x=r,y=0,e=1-r;while(x>=y){for(int a:{-1,1})for(int b:{-1,1}){pixel(f,cx+a*x,cy+b*y);pixel(f,cx+a*y,cy+b*x);}y++;if(e<0)e+=2*y+1;else{x--;e+=2*(y-x)+1;}}}
-void header(uint8_t* f,const Model& m,bool fresh){char s[12];if(fresh&&m.valid)std::snprintf(s,sizeof s,"%.4s>%.5s",m.unit,m.parent);else std::snprintf(s,sizeof s,"%.10s",m.unit);box(f,1,0,62,11);center(f,2,s);}
+void header(uint8_t* f,const Model& m,bool fresh,int top=0){char s[12];if(fresh&&m.valid)std::snprintf(s,sizeof s,"%.4s>%.5s",m.unit,m.parent);else std::snprintf(s,sizeof s,"%.10s",m.unit);box(f,1,top,62,11);center(f,top+2,s);}
 const char* state(const Model& m,bool fresh){if(!fresh)return "STALE";switch(m.state){case State::Off:return "OFF";case State::Search:return "SEARCH";case State::Join:return "JOIN";case State::Acquire:return "ACQUIRE";case State::Follow:return m.locked?"LOCK EST":"SYNCING";case State::Hold:return "HOLD";case State::Fault:return "FAULT";}return "WAIT";}
 void number(uint8_t* f,int x,int y,unsigned n){static const uint8_t mask[]={0x3f,6,0x5b,0x4f,0x66,0x6d,0x7d,7,0x7f,0x6f};const auto b=mask[n%10];if(b&1)fill(f,x+1,y,4,1);if(b&2)fill(f,x+5,y+1,1,5);if(b&4)fill(f,x+5,y+7,1,5);if(b&8)fill(f,x+1,y+12,4,1);if(b&16)fill(f,x,y+7,1,5);if(b&32)fill(f,x,y+1,1,5);if(b&64)fill(f,x+1,y+6,4,1);}
 void digital(uint8_t* f,int y,bool valid,uint64_t utc){unsigned s=unsigned(utc/1000000%86400),v[]={s/3600/10,s/3600%10,s/60%60/10,s/60%10,s%60/10,s%10};int x=7;for(unsigned i=0;i<6;i++){if(valid)number(f,x,y,v[i]);else fill(f,x+1,y+6,4,1);x+=7;if(i==1||i==3){pixel(f,x,y+4);pixel(f,x,y+8);x+=4;}}}
@@ -26,14 +26,21 @@ void help(uint8_t* f,const View& v){box(f,1,0,62,11);center(f,2,v.page?"RF KEY":
 }
 void render(uint8_t f[FrameBytes],const Model& m,const View& v,uint64_t now){
  std::memset(f,0,FrameBytes);if(v.blank)return;if(v.help){help(f,v);return;}
- const bool fresh=current(m,now);uint64_t utc=0;const bool valid=time(m,now,utc),locked=valid&&fresh&&m.locked&&m.state==State::Follow;
- if(v.saver&&locked){const int top=4+22*(v.saver_position%3);center(f,top,"UTC");digital(f,top+10,true,utc);dial(f,top+47,utc,m.hz);return;}
+ const bool fresh=current(m,now);uint64_t utc=0;const bool valid=time(m,now,utc),locked=valid&&fresh&&m.locked&&m.state==State::Follow&&m.source!=Source::None;
+ if(v.saver&&locked){
+  // T096's moving assembly: source strip, analog panel, identity strip.
+  // Rigidly translated and scaled to64x128; no digital dashboard in saver.
+  const int top=4+22*(v.saver_position%3);box(f,1,top,62,11);
+  text(f,5,top+2,"UTC");text(f,33,top+2,source_label(m,now));
+  if((utc/250000)%4==0)fill(f,56,top+3,3,5);
+  box(f,1,top+13,62,49);dial(f,top+37,utc,m.hz);header(f,m,true,top+64);return;
+ }
  header(f,m,fresh);
  if(v.page%2==0){
-  box(f,1,12,62,28);text(f,5,15,"UTC");text(f,39,15,!valid?"WAIT":m.state==State::Hold?"HOLD":"BLE");digital(f,24,valid,utc);
+  box(f,1,12,62,28);text(f,5,15,"UTC");text(f,39,15,source_label(m,now));digital(f,24,valid,utc);
   box(f,1,42,62,49);if(locked)dial(f,66,utc,m.hz);else{center(f,54,state(m,fresh));center(f,70,valid?"REL CLOCK":"NO TIME");}
   box(f,1,93,62,35);center(f,96,"SYNC RMS");char s[16];rms(s,sizeof s,valid&&m.state==State::Follow?m.rms_ns:UINT32_MAX);center(f,107,s);
-  if(locked){box(f,3,106,6,8);box(f,4,103,4,5);}fill(f,4,117,56,1);text(f,5,120,"RC");if(fresh&&m.serving)fill(f,20,121,3,3);
+  if(locked){box(f,3,106,6,8);box(f,4,103,4,5);}fill(f,4,117,56,1);text(f,5,120,"RC");if(fresh&&m.mode_pending)text(f,23,120,">");else if(fresh&&m.relay_only)text(f,23,120,"R");if(fresh&&m.serving)fill(f,20,121,3,3);
   for(unsigned i=0;i<4;i++){int x=35+int(i)*6,h=2+int(i)*2;const bool on=valid&&m.delivery!=UINT16_MAX&&m.delivery>=(i==0?1:i==1?500:i==2?750:900);if(on)fill(f,x,127-h,4,h);else{fill(f,x,127-h,4,1);fill(f,x,126,4,1);}}
  }else{
   box(f,1,12,62,48);text(f,4,15,m.serving&&fresh?"BLE RX+TX":"BLE RX");text(f,4,39,"LORA OFF");

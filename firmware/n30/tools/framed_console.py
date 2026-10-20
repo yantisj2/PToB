@@ -25,6 +25,8 @@ class Parser(base.Parser):
    base.validate_provisional_profile(mesh,m)
    base.require(ui.get('profile')=='RC' and ui.get('GPS')=='ABSENT' and ui.get('display')=='64x128' and ui.get('page') in ('0','1'),'N30 display/capability mismatch')
    base.require(status.get('GPS_inputs')=='0','N30 physical GNSS unexpectedly enabled')
+   if m.get('n30_ui_revision')==2 or 'path' in ui or 'upstream' in ui:
+    base.require(ui.get('path') in ('BLE','RC1','RC2','HOLD','WAIT','--') and ui.get('upstream') in ('AUTO','RELAY','PENDING'),'Invalid N30 source/upstream mode')
   return frames
 
 def mutation_command(frame,nonce,action):

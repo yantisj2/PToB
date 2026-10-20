@@ -32,5 +32,38 @@ int main(){
  input.update(true,303000000,v);input.update(true,303050000,v);input.update(true,307050000,v);assert(v.blank);input.update(false,307100000,v);input.update(false,307150000,v);
  input.update(true,307200000,v);input.update(true,307250000,v);assert(!v.blank);input.update(false,307300000,v);input.update(false,307350000,v);assert(v.page==1);
  n30::Input held_at_boot(true);n30::View b;held_at_boot.update(true,5000000,b);held_at_boot.update(false,5100000,b);held_at_boot.update(false,5150000,b);assert(!b.help&&!b.blank&&b.page==0);
+ // W12 main gesture: one1.5s toggle, consumed even beyond4s and on release.
+ n30::Input home;n30::View h;
+ assert(home.update(true,100000,h)==n30::Action::None);home.update(true,140000,h);
+ assert(home.update(true,1599999,h)==n30::Action::None);
+ assert(home.update(true,1600000,h)==n30::Action::ToggleRelayOnly);
+ assert(home.update(true,5000000,h)==n30::Action::None&&!h.blank&&!h.help&&h.page==0);
+ home.update(false,5100000,h);assert(home.update(false,5140000,h)==n30::Action::None&&h.page==0);
+ home.update(true,5200000,h);home.update(true,5240000,h);assert(home.update(true,6700000,h)==n30::Action::ToggleRelayOnly);
+ home.update(false,6800000,h);home.update(false,6840000,h);assert(h.page==0);
+ // Release debounce may be the first observation after the threshold.
+ n30::Input release;n30::View rel;release.update(true,100000,rel);release.update(true,140000,rel);release.update(false,1590000,rel);
+ assert(release.update(false,1630000,rel)==n30::Action::ToggleRelayOnly&&rel.page==0);
+ // Page changes during a press cannot reclassify an RF hold into a toggle.
+ n30::Input pinned;n30::View p;p.page=1;pinned.update(true,100000,p);pinned.update(true,140000,p);p.page=0;
+ assert(pinned.update(true,1600000,p)==n30::Action::None);
+ // A screensaver wake consumes a long press too; it cannot change the mode.
+ n30::Input wake;n30::View w;w.saver=true;wake.update(true,100000,w);wake.update(true,140000,w);
+ assert(wake.update(true,5000000,w)==n30::Action::None&&!w.blank&&!w.help&&!w.saver);
+ n30::ActionMailbox mail;assert(mail.post(100));assert(!mail.post(101));assert(mail.take(102));assert(!mail.take(103));
+ assert(mail.post(200));assert(!mail.take(199));assert(!mail.take(201));assert(mail.post(300));assert(!mail.take(300+n30::SnapshotMaxUs));
+ m.sampled_us=m.utc_at_us=1000000;m.until_us=1250000;m.valid=m.locked=true;m.state=n30::State::Follow;
+ for(auto source:{n30::Source::Ble,n30::Source::Rc1,n30::Source::Rc2}){
+  m.source=source;assert(std::strcmp(n30::source_label(m,1000001),source==n30::Source::Ble?"BLE":source==n30::Source::Rc1?"RC1":"RC2")==0);
+  for(unsigned pos=0;pos<3;pos++){
+   n30::View saver;saver.saver=true;saver.saver_position=pos;n30::render(g.frame,m,saver,1000001);
+   // A rigid75px T096-style assembly: strip, dial, identity. No dashboard.
+   const unsigned top=4+22*pos;
+   for(unsigned y=0;y<128;y++)if(y<top||y>=top+75)for(unsigned x=0;x<8;x++)assert(!g.frame[y*8+x]);
+   for(auto z:g.before)assert(z==0xa5);for(auto z:g.after)assert(z==0xa5);
+  }
+ }
+ assert(!std::strcmp(n30::source_label(m,1250000),"WAIT"));m.mode_pending=true;assert(!std::strcmp(n30::source_label(m,1000001),"WAIT"));m.mode_pending=false;
+ m.state=n30::State::Hold;assert(!std::strcmp(n30::source_label(m,1000001),"HOLD"));
  n30::Activity a;uint32_t c[8]{};a.update(m,c,1,2,1000000,true,false);c[2]++;a.update(m,c,1,2,1000001,true,false);assert(m.lamps[2]==1);a.update(m,c,1,3,1000002,true,false);assert(!m.lamps[2]);a.update(m,c,1,3,1000003,false,false);for(auto l:m.lamps)assert(!l);
 }
