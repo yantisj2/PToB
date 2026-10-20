@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "esp_idf": {
+    "url": "https://github.com/espressif/esp-idf.git",
+    "release": "v5.5.5",
+    "commit": "b774170ff46c393eeb5e495ea37936038d3f4f4f",
+    "submodules": "Pinned recursive gitlinks; initialized/clean except optional unused OpenThread mbedTLS subtree",
+    "license": "Apache-2.0 plus component-specific upstream notices",
+    "controller_sha256": "513488f088f7806c5a815580fd00e189265962a8824091b1e60618b7f345d0c1",
+    "gptimer_private_header_sha256": "1b75930c75158fd6f32640d0ff094919a786d4057c0b9e9258e71ce6495542d4",
+    "unused_optional_uninitialized_submodule": "components/openthread/openthread/third_party/mbedtls/repo"
+  },
+  "target": "esp32s3",
+  "toolchain": "xtensa-esp-elf esp-14.2.0_20260121",
+  "tool_acquisition": "ESP-IDF tools/tools.json at pinned commit, install.sh esp32s3; archive URLs and SHA256 provided by upstream tool manifest",
+  "physical_flash_offset": 65536,
+  "application_max_bytes": 1048576,
+  "protected_prefix_bytes": 65536,
+  "radios": "BLE only; LoRa/WiFi/PTS OFF",
+  "precision": "UNQUALIFIED",
+  "flash_bytes": 8388608,
+  "hardware": "Meshnology N30 / Heltec V3; exact incoming revision unverified"
+}

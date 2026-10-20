@@ -243,7 +243,7 @@
       "software_page": "https://www.whatroute.net/chronycontrol.html",
       "rights": "Original screenshot/data contributions: Jonathan Yantis, CC BY 4.0. Third-party ChronyControl UI rights unchanged; application not bundled.",
       "license": "CC-BY-4.0 for original screenshot/data contributions only; third-party UI rights retained",
-      "scope": "DC v0.15.80 shared-bus development trace. Underlying log selection 11:37 AM–12:42 PM CDT; zoomed graph approximately 12:36–12:42 PM. The separate RC/DC numerical comparison uses a fixed concurrent 180 s window, not values inferred from this image.",
+      "scope": "DC v0.15.80 shared-bus development trace. Underlying log selection 11:37 AM\u201312:42 PM CDT; zoomed graph approximately 12:36\u201312:42 PM. The separate RC/DC numerical comparison uses a fixed concurrent 180 s window, not values inferred from this image.",
       "display_omissions": "After-acquisition display omits no-reference rows and first selected update by state; all later selected updates retained regardless of magnitude.",
       "clean_bus_qualified": false,
       "independent_UTC_qualified": false,
@@ -265,6 +265,44 @@
           "sha256": "be85a1f12173bcd8d821ffc9f4fad882c4b9bc396b34da3c4f2debc4fc7a830a"
         }
       ]
+    },
+    {
+      "file": "n30-clock-preview.png",
+      "source": "firmware/n30/tools/preview.py",
+      "sha256": "68d6a10a6658fe37fe16d087f7be189e7769b2d8a10f59e3ffd6e796c9ef2f58",
+      "bytes": 829,
+      "dimensions": [
+        64,
+        128
+      ],
+      "transformation": "Native monochrome production-renderer output; no pixel rescaling.",
+      "scope": "Offline N30 page clock; synthetic illustrative N3-1 state, no hardware or precision evidence.",
+      "source_files": {
+        "tools/preview.cpp": "7ed9f2b80d9c09a0bdd5779c07267c59e19afdce6217b262f1d91787ba660980",
+        "main/ui.hpp": "9ae434c8b384e8c8e16486e85d1200752fd8af9fe8b4f7fe7a80a80a35dd7a14",
+        "main/ui_model.cpp": "3f89993df9505f243a93f99d5da61d02d01afca4aec3a5213c45e553adc957a0",
+        "main/ui_render.cpp": "25341f7be22155d54fd1e16bbd40da3d5a7d15cb46dcd22e27220389feb8004f",
+        "main/font.inc": "814ce6f3ffd7b828706765284e56393ca0e53874ee4fd3f823213ddd4d3d44df"
+      }
+    },
+    {
+      "file": "n30-rf-preview.png",
+      "source": "firmware/n30/tools/preview.py",
+      "sha256": "882c9f64b594a762041ceb43304589cafbcf62695d26d623c7d23d8e39070b17",
+      "bytes": 700,
+      "dimensions": [
+        64,
+        128
+      ],
+      "transformation": "Native monochrome production-renderer output; no pixel rescaling.",
+      "scope": "Offline N30 page rf; synthetic illustrative N3-1 state, no hardware or precision evidence.",
+      "source_files": {
+        "tools/preview.cpp": "7ed9f2b80d9c09a0bdd5779c07267c59e19afdce6217b262f1d91787ba660980",
+        "main/ui.hpp": "9ae434c8b384e8c8e16486e85d1200752fd8af9fe8b4f7fe7a80a80a35dd7a14",
+        "main/ui_model.cpp": "3f89993df9505f243a93f99d5da61d02d01afca4aec3a5213c45e553adc957a0",
+        "main/ui_render.cpp": "25341f7be22155d54fd1e16bbd40da3d5a7d15cb46dcd22e27220389feb8004f",
+        "main/font.inc": "814ce6f3ffd7b828706765284e56393ca0e53874ee4fd3f823213ddd4d3d44df"
+      }
     }
   ],
   "updated": "2026-10-17"

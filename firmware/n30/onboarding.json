@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "target": "n30",
+  "profile": "RC",
+  "gnss": false,
+  "status": "AWAITING_PHYSICAL_FACTORY_IDENTITIES",
+  "reserved_aliases": ["N3-1", "N3-2"],
+  "devices": [],
+  "note": "Run tools/onboard.py after exact factory MAC verification. This file is not a registry and grants no hardware authority."
+}

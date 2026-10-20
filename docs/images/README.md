@@ -102,3 +102,13 @@ and their original provenance remain historical records.
 Original screenshot/data contributions: Jonathan Yantis, CC BY 4.0. Third-party
 ChronyControl interface rights remain unchanged. The manifest records exact bytes,
 dimensions, metadata hashes and the existing display selection.
+
+## N30 offline portrait previews — 20 October 2026
+
+`n30-clock-preview.png` and `n30-rf-preview.png` are native64×128 monochrome
+outputs from the production N30 renderer, using synthetic N3-1 clock/activity
+values. The manifest binds renderer, model, font and fixture hashes. Reproduce
+with `python3 firmware/n30/tools/preview.py --out artifacts/n30-preview`.
+No N30 hardware was accessed, and no measured precision or interoperability is
+claimed. The N3-1/N3-2 factory identities remain pending arrival. Original
+ordinary interface documentation, Jonathan Yantis, MIT.

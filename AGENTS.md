@@ -72,3 +72,12 @@ compatible T096 USB timing and owns an unprivileged local chronyd -x instance.
 Normal client launch operates hardware/starts that daemon; offline self-tests do
 neither. Network serving and OS clock discipline are not configured. Preserve
 third-party chrony terms, shared registry format, source expiry and unknown bounds.
+
+## N30 offline development
+
+Read firmware/n30/README.md and docs/n30/build.md before N30 changes. N30 is an
+offline RC-only ESP32-S3 target with no GNSS. Reuse W12 timing behavior and
+preserve W12/T096 firmware. N3-1 and N3-2 receive their shared-map entries only
+after exact factory identity verification; never invent identities. Native builds
+and both portrait previews are offline preparation, not hardware acceptance.
+Hardware testing/installation remains deferred until arrival and separate scope.

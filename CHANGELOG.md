@@ -2,6 +2,17 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 20 October 2026 — N30 offline RC target
+
+Added Meshnology N30 versions0.1.0 (offline) and0.1.1 (commissioning candidate) using the existing W12 G1/RC7 core,
+8MB flash configuration, bounded UART console and two portrait monochrome
+pages adapted from T096. GPS is absent; only RC builds are accepted. W12 and
+T096 firmware behavior is preserved. Production-renderer previews use synthetic
+values. N3-1/N3-2 onboarding merges verified future factory identities into the
+shared ignored map; no real identities or enrolled images are published. Default native
+builds remain explicitly non-flashable. Clean-source commissioning candidates
+require separate exact-device arrival/recovery/hardware review.
+
 ## 20 October 2026 — T0960.15.131 LoRa GM coordination
 
 An authenticated accepted LoRa physical event pair now constrains GM election

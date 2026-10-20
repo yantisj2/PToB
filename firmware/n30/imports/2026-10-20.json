@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "author": "Jonathan Yantis",
+  "date": "2026-10-20",
+  "source_commit": "1f4613e29f6efd8c8e77292ca2ca01696ce5da9d",
+  "scope": "Selected adaptations from this public checkout; timing implementation compiled directly from firmware/w12. No private import.",
+  "files": [
+    {
+      "source": "firmware/w12/main/native_main.cpp",
+      "source_sha256": "3d29c7e3fe9a543c99614886f508352112f16d90c4312eee80f7741c0eb19c43",
+      "destination": "firmware/n30/main/native_main.cpp",
+      "treatment": "Explicit selected public-repository adaptation; original notices preserved. See target README."
+    },
+    {
+      "source": "firmware/w12/main/bounded_log.cpp",
+      "source_sha256": "77dafdbe234d78f44dc517c5282d0fda193866d5d94a09dd6aa340cdcbf76e07",
+      "destination": "firmware/n30/main/bounded_log.cpp",
+      "treatment": "Explicit selected public-repository adaptation; original notices preserved. See target README."
+    },
+    {
+      "source": "firmware/w12/legacy/display.cpp",
+      "source_sha256": "30f7bbf6917ef3189fd6743415e5d66c334ac067acffe88abd69b1acda6f2547",
+      "destination": "firmware/n30/main/font.inc",
+      "treatment": "Selected bitmap glyph tables and lookup only; original source notices preserved."
+    }
+  ],
+  "visual_reference": {
+    "source": "firmware/t096/legacy_ui/draw.inc",
+    "sha256": "1aaf83478667a7cfd288d40a67db874d099dcd0dbca3b896fcdc58697eac84f9",
+    "scope": "Page0 clock and page1 RF composition; native monochrome rendering newly implemented. No T096 runtime/driver copied."
+  }
+}

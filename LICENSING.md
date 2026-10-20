@@ -41,7 +41,7 @@ The W12 and SS3 HMAC copies retain Intel's complete BSD-3-Clause notice and
 modification note. Do not strip these notices when redistributing source.
 
 See the [T096](firmware/t096/NOTICE.md), [W12](firmware/w12/NOTICE.md),
-[SS3](firmware/ss3/NOTICE.md) and [macOS](clients/macos/NOTICE.md) notices for
+[SS3](firmware/ss3/NOTICE.md), [N30](firmware/n30/NOTICE.md) and [macOS](clients/macos/NOTICE.md) notices for
 scope and dependency attribution. Zephyr, ESP-IDF and their components are
 acquired separately; their license obligations also apply to a future linked
 firmware distribution. Chrony is a separately built GPL-2.0 dependency, not MIT

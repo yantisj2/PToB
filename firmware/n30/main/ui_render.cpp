@@ -1,0 +1,45 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Jonathan Yantis.
+// Portrait adaptation of T096 pages0/1. No hardware or timing policy here.
+#include "ui.hpp"
+#include <algorithm>
+#include <cmath>
+#include <cstdio>
+#include <cstring>
+#include <cstdlib>
+namespace n30 { namespace {
+#include "font.inc"
+void pixel(uint8_t* f,int x,int y,bool on=true){if(x>=0&&x<64&&y>=0&&y<128){const auto bit=uint8_t(0x80>>(x%8));if(on)f[y*8+x/8]|=bit;else f[y*8+x/8]&=uint8_t(~bit);}}
+void fill(uint8_t* f,int x,int y,int w,int h,bool on=true){for(int j=0;j<h;j++)for(int i=0;i<w;i++)pixel(f,x+i,y+j,on);}
+void box(uint8_t* f,int x,int y,int w,int h){fill(f,x+1,y,w-2,1);fill(f,x+1,y+h-1,w-2,1);fill(f,x,y+1,1,h-2);fill(f,x+w-1,y+1,1,h-2);}
+void text(uint8_t* f,int x,int y,const char* s){for(;*s&&x<64;s++,x+=6){const auto g=glyph(*s);for(int c=0;c<5;c++)for(int r=0;r<7;r++)if(g[c]&(1<<r))pixel(f,x+c,y+r);}}
+void center(uint8_t* f,int y,const char* s){text(f,(64-int(std::strlen(s))*6+1)/2,y,s);}
+void line(uint8_t* f,int x,int y,int xx,int yy){int dx=std::abs(xx-x),sx=x<xx?1:-1,dy=-std::abs(yy-y),sy=y<yy?1:-1,e=dx+dy;for(;;){pixel(f,x,y);if(x==xx&&y==yy)break;const int q=2*e;if(q>=dy){e+=dy;x+=sx;}if(q<=dx){e+=dx;y+=sy;}}}
+void circle(uint8_t* f,int cx,int cy,int r){int x=r,y=0,e=1-r;while(x>=y){for(int a:{-1,1})for(int b:{-1,1}){pixel(f,cx+a*x,cy+b*y);pixel(f,cx+a*y,cy+b*x);}y++;if(e<0)e+=2*y+1;else{x--;e+=2*(y-x)+1;}}}
+void header(uint8_t* f,const Model& m,bool fresh){char s[12];if(fresh&&m.valid)std::snprintf(s,sizeof s,"%.4s>%.5s",m.unit,m.parent);else std::snprintf(s,sizeof s,"%.10s",m.unit);box(f,1,0,62,11);center(f,2,s);}
+const char* state(const Model& m,bool fresh){if(!fresh)return "STALE";switch(m.state){case State::Off:return "OFF";case State::Search:return "SEARCH";case State::Join:return "JOIN";case State::Acquire:return "ACQUIRE";case State::Follow:return m.locked?"LOCK EST":"SYNCING";case State::Hold:return "HOLD";case State::Fault:return "FAULT";}return "WAIT";}
+void number(uint8_t* f,int x,int y,unsigned n){static const uint8_t mask[]={0x3f,6,0x5b,0x4f,0x66,0x6d,0x7d,7,0x7f,0x6f};const auto b=mask[n%10];if(b&1)fill(f,x+1,y,4,1);if(b&2)fill(f,x+5,y+1,1,5);if(b&4)fill(f,x+5,y+7,1,5);if(b&8)fill(f,x+1,y+12,4,1);if(b&16)fill(f,x,y+7,1,5);if(b&32)fill(f,x,y+1,1,5);if(b&64)fill(f,x+1,y+6,4,1);}
+void digital(uint8_t* f,int y,bool valid,uint64_t utc){unsigned s=unsigned(utc/1000000%86400),v[]={s/3600/10,s/3600%10,s/60%60/10,s/60%10,s%60/10,s%10};int x=7;for(unsigned i=0;i<6;i++){if(valid)number(f,x,y,v[i]);else fill(f,x+1,y+6,4,1);x+=7;if(i==1||i==3){pixel(f,x,y+4);pixel(f,x,y+8);x+=4;}}}
+void dial(uint8_t* f,int cy,uint64_t utc,uint16_t hz){constexpr double pi=3.141592653589793;circle(f,32,cy,21);for(unsigned i=0;i<60;i++){const double a=i*pi/30;const int r=i%5==0?17:20;line(f,32+int(std::lround(std::sin(a)*r)),cy-int(std::lround(std::cos(a)*r)),32+int(std::lround(std::sin(a)*20)),cy-int(std::lround(std::cos(a)*20)));}const double sec=double(utc%60000000)/1000000,minute=double(utc/1000000%3600)/60,hour=double(utc/1000000%43200)/3600;for(auto h:{std::pair<double,int>{hour*pi/6,10},{minute*pi/30,15},{sec*pi/30,18}})line(f,32,cy,32+int(std::lround(std::sin(h.first)*h.second)),cy-int(std::lround(std::cos(h.first)*h.second)));fill(f,31,cy-1,3,3);char s[10];if(hz)std::snprintf(s,sizeof s,"%uHz",unsigned(hz));else std::snprintf(s,sizeof s,"--Hz");fill(f,18,cy+9,28,9,false);center(f,cy+10,s);}
+void rms(char* out,size_t n,uint32_t v){if(v==UINT32_MAX)std::snprintf(out,n,"-- ns");else if(v<1000)std::snprintf(out,n,"%u ns",unsigned(v));else if(v<1000000)std::snprintf(out,n,"%u.%02u us",unsigned(v/1000),unsigned(v%1000/10));else std::snprintf(out,n,">999 us");}
+void help(uint8_t* f,const View& v){box(f,1,0,62,11);center(f,2,v.page?"RF KEY":"CLOCK KEY");if(v.page){const char* names[]={"HEL SCAN","SRC GROUP","PRE PA RX","ACK JOIN","CMT MODEL","SRV TX API","RDY N/A","ERR REJECT"};for(unsigned i=0;i<8;i++)text(f,2,15+int(i)*10,names[i]);center(f,99,"DOT RX");center(f,109,"FILL TX");}else{const char* names[]={"RC ONLY","GPS ABSENT","LOCK EST","RELATIVE","RMS IS NOT","UTC ERROR","HOLD LOCAL","4S BLANK"};for(unsigned i=0;i<8;i++)center(f,16+int(i)*11,names[i]);}center(f,120,"PRESS BACK");}
+}
+void render(uint8_t f[FrameBytes],const Model& m,const View& v,uint64_t now){
+ std::memset(f,0,FrameBytes);if(v.blank)return;if(v.help){help(f,v);return;}
+ const bool fresh=current(m,now);uint64_t utc=0;const bool valid=time(m,now,utc),locked=valid&&fresh&&m.locked&&m.state==State::Follow;
+ if(v.saver&&locked){const int top=4+22*(v.saver_position%3);center(f,top,"UTC");digital(f,top+10,true,utc);dial(f,top+47,utc,m.hz);return;}
+ header(f,m,fresh);
+ if(v.page%2==0){
+  box(f,1,12,62,28);text(f,5,15,"UTC");text(f,39,15,!valid?"WAIT":m.state==State::Hold?"HOLD":"BLE");digital(f,24,valid,utc);
+  box(f,1,42,62,49);if(locked)dial(f,66,utc,m.hz);else{center(f,54,state(m,fresh));center(f,70,valid?"REL CLOCK":"NO TIME");}
+  box(f,1,93,62,35);center(f,96,"SYNC RMS");char s[16];rms(s,sizeof s,valid&&m.state==State::Follow?m.rms_ns:UINT32_MAX);center(f,107,s);
+  if(locked){box(f,3,106,6,8);box(f,4,103,4,5);}fill(f,4,117,56,1);text(f,5,120,"RC");if(fresh&&m.serving)fill(f,20,121,3,3);
+  for(unsigned i=0;i<4;i++){int x=35+int(i)*6,h=2+int(i)*2;const bool on=valid&&m.delivery!=UINT16_MAX&&m.delivery>=(i==0?1:i==1?500:i==2?750:900);if(on)fill(f,x,127-h,4,h);else{fill(f,x,127-h,4,1);fill(f,x,126,4,1);}}
+ }else{
+  box(f,1,12,62,48);text(f,4,15,m.serving&&fresh?"BLE RX+TX":"BLE RX");text(f,4,39,"LORA OFF");
+  for(unsigned row=0;row<2;row++)for(unsigned i=0;i<8;i++){int x=4+int(i)*7,y=25+int(row)*24;box(f,x,y,6,7);if(!row&&fresh&&m.lamps[i]==1)fill(f,x+2,y+2,2,3);else if(!row&&fresh&&m.lamps[i]==2)fill(f,x+1,y+1,4,5);}
+  text(f,3,65,"BLE");text(f,30,65,valid?(m.state==State::Hold?"HOLD":"TRACK"):"WAIT");char s[12]="--:--:--";if(valid){unsigned t=unsigned(utc/1000000%86400);std::snprintf(s,sizeof s,"%02u:%02u:%02u",t/3600,t/60%60,t%60);}center(f,77,s);
+  text(f,3,89,"LORA");text(f,42,89,"OFF");center(f,100,"--:--:--");fill(f,3,110,58,1);text(f,3,113,"DELTA --");text(f,3,121,"PPB   --");
+ }
+}
+}

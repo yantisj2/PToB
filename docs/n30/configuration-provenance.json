@@ -1,0 +1,52 @@
+{
+  "schema": 1,
+  "author": "Jonathan Yantis",
+  "license": "MIT; inherited per-file notices remain authoritative",
+  "source_commit": "1f4613e29f6efd8c8e77292ca2ca01696ce5da9d",
+  "files": [
+    {
+      "source": "firmware/w12/CMakeLists.txt",
+      "source_sha256": "dcdd1bc53ead2586ac368acc927c6672f955dbc28c98040919d4bb31615c5d68",
+      "destination": "firmware/n30/CMakeLists.txt",
+      "treatment": "Selected public W12 build/configuration pattern adapted for N30, 8MB flash, UART console, no physical GNSS driver and cross-target source closure. Original notices retained."
+    },
+    {
+      "source": "firmware/w12/main/CMakeLists.txt",
+      "source_sha256": "46fd052c15ad54b9ea6c2db5ac9a6684129d675ba95afe96c40ec23cabcdf3b1",
+      "destination": "firmware/n30/main/CMakeLists.txt",
+      "treatment": "Selected public W12 build/configuration pattern adapted for N30, 8MB flash, UART console, no physical GNSS driver and cross-target source closure. Original notices retained."
+    },
+    {
+      "source": "firmware/w12/sdkconfig.defaults",
+      "source_sha256": "cda5af7a3c465d1d1ff46ac113bb5f56a110e15bb9b7bf96486a1df2ce246a4e",
+      "destination": "firmware/n30/sdkconfig.defaults",
+      "treatment": "Selected public W12 build/configuration pattern adapted for N30, 8MB flash, UART console, no physical GNSS driver and cross-target source closure. Original notices retained."
+    },
+    {
+      "source": "firmware/w12/sdkconfig.g1.defaults",
+      "source_sha256": "80257d1e607e46295f2afd246b45308771c6c14b3a6c6fe6d37fba429259a81b",
+      "destination": "firmware/n30/sdkconfig.g1.defaults",
+      "treatment": "Selected public W12 build/configuration pattern adapted for N30, 8MB flash, UART console, no physical GNSS driver and cross-target source closure. Original notices retained."
+    },
+    {
+      "source": "firmware/w12/sdkconfig.rc7-server.defaults",
+      "source_sha256": "4e34297fb03cd38b8d06b7e8b1ecc64c831c18fd9ae916a472a174982ecb32d3",
+      "destination": "firmware/n30/sdkconfig.rc7-server.defaults",
+      "treatment": "Selected public W12 build/configuration pattern adapted for N30, 8MB flash, UART console, no physical GNSS driver and cross-target source closure. Original notices retained."
+    },
+    {
+      "source": "firmware/w12/dependencies.lock.json",
+      "source_sha256": "87846c991c379a8398a2c11d3728d545f27117a910a8dd67246808a92426e5d2",
+      "destination": "firmware/n30/dependencies.lock.json",
+      "treatment": "Selected public W12 build/configuration pattern adapted for N30, 8MB flash, UART console, no physical GNSS driver and cross-target source closure. Original notices retained."
+    },
+    {
+      "source": "firmware/w12/tools/build.py",
+      "source_sha256": "0c664b04a2343e58364d8a830f91b4782ef2f84c4af198d50c256c4e54d91005",
+      "destination": "firmware/n30/tools/build.py",
+      "treatment": "Selected public W12 build/configuration pattern adapted for N30, 8MB flash, UART console, no physical GNSS driver and cross-target source closure. Original notices retained."
+    }
+  ],
+  "other_selected_origins": "../../firmware/n30/imports/2026-10-20.json",
+  "scope": "Public-repository source reuse only; no private workspace/history or SDK import."
+}

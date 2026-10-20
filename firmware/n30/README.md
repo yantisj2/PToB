@@ -1,0 +1,79 @@
+# N30 offline RC target
+
+Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
+
+**Version 0.1.1 adds a clean-source commissioning candidate for separately authorized first installations; hardware qualification remains pending.**
+Meshnology N30 / Heltec WiFi LoRa32 V3 is the proposed board route: ESP32-S3,
+8 MB flash, 128×64 OLED mounted as a 64×128 portrait display, UART0 console via
+USB serial bridge. Exact incoming revision, display controller, rail/pin route,
+orientation, USB path and recovery/partition compatibility remain unverified.
+The original offline preparation operated no hardware. Subsequent arrival identification confirmed two ESP32-S3 revision0.2 /8MB devices and their factory OTA partition tables; first-install tests remain separate. No enrolled image is
+published. Default build products remain `OFFLINE_NOT_FLASHABLE`; `--commissioning` requires clean committed sources and a separate exact-device hardware review.
+
+| Clock · page 0 | RF activity · page 1 |
+| :---: | :---: |
+| <img src="../../docs/images/n30-clock-preview.png" width="192" alt="N30 portrait monochrome clock with UTC, analog dial and relative synchronization RMS"> | <img src="../../docs/images/n30-rf-preview.png" width="192" alt="N30 portrait RF activity with BLE reception and LoRa OFF"> |
+
+Production-renderer previews with synthetic values for N3-1; no measured
+performance. [Reproduction and arrival checklist](../../docs/n30/build.md).
+
+## Behavior and boundaries
+
+- **RC only, no GPS/GNSS.** BLE100 receiver by default; BLE50 remains client-only.
+  `--estimated-relay` retains the existing optional BLE100 experimental relay,
+  programmed TX estimate and unknown RF/UTC bound. No GM, DC or PC profile exists.
+- The G1/RC7 timing, authentication, capture association, source expiry, parent
+  selection, replay handling, controller ownership and watchdog implementation
+  compile directly from W12. W12 and T096 firmware sources are unchanged.
+- Two portrait pages adapt T096's clock/RF composition with native bitmap text,
+  analog hands, relative synchronization RMS, RC footer and reception bars.
+  Monochrome lamps use a center dot for RX/event and a filled cell for TX/API.
+  LoRa and WiFi are disabled. LoRa time, delta and drift remain unavailable.
+- RF lamps show published producer counters: HEL discovery callbacks; SRC group
+  records; PRE periodic reports; ACK accepted JOINs; CMT accepted corrected-model
+  updates; SRV controller TX calls; ERR rejects/drops/API errors. These are
+  different populations, not packet delivery denominators or actual RF TX
+  timestamps. RDY has no equivalent event and remains dark (`N/A` in help).
+- The analog dial/lock use W12's existing settled relative-quality display gate.
+  HOLD remains a local estimate; it grants no source or downstream authority.
+  No GNSS/PPS activity or independent accuracy is implied. Direct-GM reception
+  bars remain unknown unless a producer supplies a delivery denominator.
+- Short press changes page; hold1.5s opens help; short press leaves help.
+  Hold4s blanks the display while the clock continues. This is display blanking,
+  not verified board poweroff/deep sleep. The first wake press is consumed.
+  After five idle minutes a currently locked clock dims and moves its display.
+  There is no runtime GM/RC toggle. Boot-held buttons do not trigger actions.
+- A sole low-priority display/button worker owns I2C. Clock updates target4Hz,
+  RF updates8Hz; missed frames are dropped. Display transfers retain one50ms
+  whole-frame deadline and a truthful invalidation after any partial failure.
+  The UART console retains bounded queues, CRC frames, tickets and2s update drain.
+  `W12_*` console record names remain compatible; `N30_TARGET`/`N30_UI` identify
+  this target. This console is not T096 UTS1 USB timing or a macOS time source.
+
+## Names and shared registry
+
+The arriving clocks are reserved as **N3-1** and **N3-2** in
+[onboarding.json](onboarding.json). Their factory identities are retained only in the ignored local onboarding records.
+No placeholder entries were added to a deployment map. During onboarding,
+[tools/onboard.py](tools/onboard.py) takes an operator-verified factory MAC,
+retains the ESP32 identity rule (`0000` + full factory MAC), validates and
+atomically updates the ignored shared `registry.json`, and writes a separate
+ignored device configuration. It refuses alias/identity collisions, preserves
+other target rows and UUIDs, and opens no hardware. Give the updated map to all
+subsequent target builds; installed maps still require rebuilding.
+
+## Source and verification
+
+[Selected adaptations](imports/2026-10-20.json) record the public W12 entry-point,
+console and font origins. The target keeps its own entry point, UART adapter,
+GNSS-absent API, display and build tooling; it shares the actual W12 core rather
+than copying that implementation. Build receipts snapshot/hash both target and
+shared source boundaries and bind registry, factory, orientation and configuration
+into the runtime identity. [Source notices](NOTICE.md) and the
+[build guide](../../docs/n30/build.md) describe dependencies and commands.
+
+Host/sanitizer tests, static stack checks, native builds and previews establish
+software properties only. Physical display/BLE coexistence, USB console delivery,
+recovery, sustained interoperability, actual estimated relay behavior and UTC
+accuracy are unvalidated. Hardware operations require separate exact-device authorization/review; current
+commissioning candidates do not imply completed hardware acceptance.

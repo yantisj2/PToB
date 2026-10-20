@@ -30,7 +30,7 @@ def load(path):
         # Deliberately narrower than protocol names: portable embedded display text.
         if not isinstance(entry['alias'], str) or not re.fullmatch('[A-Za-z0-9 _.-]{1,24}', entry['alias']) or not entry['alias'].strip():
             raise ValueError('Alias must be 1-24 printable ASCII display characters')
-        if entry['target'] not in ('t096','w12','ss3','macos'):
+        if entry['target'] not in ('t096','w12','ss3','macos','n30'):
             raise ValueError('Unknown target family')
         if 'uuid' in entry:
             value = str(uuid.UUID(entry['uuid']))

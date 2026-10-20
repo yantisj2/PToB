@@ -28,6 +28,7 @@ failover quality, continuity or UTC accuracy by their mere presence.
 | T096 receiver/relay | `--profile RC` | USB streaming is part of the default RC7 application, not a third profile |
 | W12 receiver | `--profile RC --listening-percent 100` (or 50 for client-only use) | Optional `--estimated-relay` is experimental and has unknown TX uncertainty |
 | SS3 receiver/relay | Selected RC target | Experimental estimated-TX relay; no GM implementation |
+| N30 offline target | RC; names N3-1 and N3-2 | [Preparation/onboarding](n30/build.md); hardware bring-up pending |
 | macOS client | USB source and client bridge | Host clock, chrony's user-space clock and independent UTC truth are distinct |
 
 Use the [T096](../firmware/t096/README.md), [W12](../firmware/w12/README.md),
