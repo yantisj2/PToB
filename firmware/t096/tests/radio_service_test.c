@@ -15,6 +15,7 @@ void r2_lora_quality_publish(const struct rc8_scope *s,const struct rc8_quality 
 static struct bt_le_per_adv_sync fixture;
 static bool owned,armed;
 static unsigned mode,deletes;
+static bool retain_native_owner;
 static void end(void){struct bt_le_per_adv_sync_term_info i={12,&target};owned=false;terminated(&fixture,&i);}
 static int bt_le_per_adv_sync_create(const struct bt_le_per_adv_sync_param *p,struct bt_le_per_adv_sync **out){
  owned=true;*out=&fixture;
@@ -23,6 +24,7 @@ static int bt_le_per_adv_sync_create(const struct bt_le_per_adv_sync_param *p,st
 }
 static int bt_le_per_adv_sync_delete(struct bt_le_per_adv_sync *object){
  assert(object==&fixture);++deletes;
+ if(retain_native_owner)return 0; /* Only the real term callback releases it. */
  if(mode==2&&deletes==1)return 0; /* cancel remains pending */
  if(mode==3){end();return -EINVAL;} /* natural termination wins */
  if(mode==4)return -EIO; /* controller still owns it */
@@ -67,6 +69,50 @@ static void handoff_fixture(const struct r2_radio_precision *history){
 int main(int argc,char **argv){
  assert(argc==2);mode=(unsigned)strtoul(argv[1],NULL,10);
  struct r2_enrollment roster={.count=2};assert(!r2_radio_service_init(0,&roster));
+ if(mode>=30&&mode<=34){
+  bool stuck=mode==31;roster.identity[0]=1;roster.identity[1]=3;pt_input.roster=roster;
+  struct r2_radio_scope grant={.root=stuck?1:0,.root_identity=stuck?3:1,.boot=9,.source_epoch=3,.publication_epoch=1,.until_us=10000000,.gm=!stuck,.follower=stuck};
+  pt_input.stopped=false;pt_input.grant=grant;pt_input.source_ready=true;pt_input.source_epoch=3;pt_input.utc=1000000000000LL;pt_input.at=capture_us;
+  pt_input.source=(struct r2_source_clock){.epoch=1,.head=1,.count=1,.utc_bound=true,.utc_source_epoch=3,.utc_offset_ns=1000000000000LL};
+  pt_input.source.maps[0]=(struct r2_source_map){.from=8000000,.until=32000000,.anchor_ns=1000000000,.generation=11,.rate_q16=16000000*UINT64_C(65536)};
+  bool running=false;precision_poll(fake_time,&running);assert(same(pt_output.scope,grant)&&!error);
+  static struct bt_le_ext_adv ad;
+  if(stuck){sync_object=&fixture;owned=established=retain_native_owner=true;}
+  else{assert(pt_output.length);advertiser=&ad;pa_started=ext_started=true;}
+  native_owned=native_gm_started=true;native_grant=native_scope=grant;
+  /* PT really withdraws while CONTROL is between cycles, then recovers the
+   * same scope10ms later. Its original close intent must still be consumed. */
+  fake_time+=2000;pt_input.client.passive=true;precision_poll(fake_time,&running);
+  uint64_t first=fake_time,until=native_close_until;assert(until==first+2000000&&!pt_output.scope.gm&&!pt_output.scope.follower&&!closing);
+  fake_time+=10000;pt_input.client.passive=false;precision_poll(fake_time,&running);
+  assert(same(pt_output.scope,grant)&&native_close_until==until&&!closing&&!error);
+  if(mode==32||mode==33)fake_time=until+(mode==33);
+  if(mode==34){fake_time=until-10000;adv_close_delay=20000;}
+  r2_radio_service_tick(grant,&pt_input.source,pt_input.utc,fake_time);
+  if(mode>=32){
+   assert(!closing&&!native_owned&&!native_close_until&&!advertiser&&r2_radio_service_closed());
+   assert(fake_time>=until&&r2_radio_service_error()==-ETIMEDOUT);
+   close_poll(fake_time+1);assert(r2_radio_service_error()==-ETIMEDOUT);
+   puts(mode==34?"PASS HCI close crosses original PT deadline: fresh post-call observation retains timeout despite released resources":
+                  "PASS first CONTROL consumption at/after original PT deadline: synchronous release cannot evade sticky timeout");return 0;
+  }
+  if(!stuck){
+   assert(!closing&&!native_owned&&!native_close_until&&!advertiser&&!native_gm_started&&r2_radio_service_closed());
+   fake_time=until;assert(!r2_radio_service_supervise(fake_time));
+   puts("PASS actual PT10ms withdrawal/recovery: CONTROL consumes original intent, closes GM resources, no stranded2s timeout or silent scope reuse");return 0;
+  }
+  assert(closing&&native_owned&&native_close_until==until&&close_until==until&&sync_object==&fixture&&owned&&deletes==1);
+  for(unsigned pass=0;pass<3;pass++){
+   fake_time=first+500000+pass*500000;begin_close(fake_time);r2_radio_service_tick(grant,&pt_input.source,pt_input.utc,fake_time);
+   assert(closing&&native_owned&&native_close_until==until&&close_until==until&&sync_object==&fixture&&owned&&deletes==1&&!error);
+  }
+  fake_time=until-1;assert(!r2_radio_service_supervise(fake_time));
+  fake_time=until;assert(r2_radio_service_supervise(fake_time)==-ETIMEDOUT);
+  assert(native_owned&&sync_object==&fixture&&owned&&!r2_radio_service_closed());
+  retain_native_owner=false;end();r2_radio_service_stop(fake_time+1);
+  assert(r2_radio_service_closed()&&!native_owned&&!native_close_until&&!sync_object&&!owned&&r2_radio_service_error()==-ETIMEDOUT);
+  puts("PASS actual retained native callback owner: repeated closes preserve first2s deadline, no early reuse, exact timeout stays sticky after real callback drain");return 0;
+ }
 #ifdef R2_LORA
  if(mode>=23&&mode<=29){
   bool gm=mode==23||mode==28;

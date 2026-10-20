@@ -231,9 +231,12 @@ static void begin_close(uint64_t now) {
   r2_ble_precision_draining(true);
   if (!closing) {
     closing = true;
-    (void)k_mutex_lock(&pt_lock,K_FOREVER);native_gm_started=false;(void)k_mutex_unlock(&pt_lock);
+    (void)k_mutex_lock(&pt_lock,K_FOREVER);native_gm_started=false;
     close_until = now + 2000000;
-    (void)k_mutex_lock(&pt_lock,K_FOREVER);native_close_until=close_until;(void)k_mutex_unlock(&pt_lock);
+    /* PT may have withdrawn first. Consume that original intent even after
+     * its scope recovers; CONTROL cannot renew its resource-drain deadline. */
+    if(native_close_until&&native_close_until<close_until)close_until=native_close_until;
+    native_close_until=close_until;(void)k_mutex_unlock(&pt_lock);
   }
   k_spinlock_key_t k = k_spin_lock(&cb_lock);
   discovering = false;
@@ -291,14 +294,17 @@ static void close_poll(uint64_t now) {
   bool pending = sync_object || creating;
   k_spin_unlock(&cb_lock, k);
   r2_ble_sync_acquiring(pending);
+  /* HCI closure may sleep across the original deadline. Require a fresh
+   * observation of release; synchronous cleanup cannot erase late ownership. */
+  uint64_t observed=service_now();if(observed<now)observed=now;
+  if(observed>=close_until)fault(-ETIMEDOUT);
   if (!advertiser && !pending && !capture.armed) {
     r2_ble_precision_draining(false);
     closing = false;
     (void)k_mutex_lock(&pt_lock,K_FOREVER);native_close_until=0;native_owned=false;(void)k_mutex_unlock(&pt_lock);
     if(!pausing){native_scope = (struct r2_radio_scope){0};retry_at = now + 250000;}
     pausing=false;sync_until=0;
-  } else if (now >= close_until)
-    fault(-ETIMEDOUT);
+  }
   gm_radio_publish(); /* Includes direct stop/close paths without another tick. */
 }
 void r2_radio_service_stop(uint64_t now) {
@@ -797,11 +803,13 @@ static void tick_owned(struct r2_radio_scope scope,const struct r2_source_clock 
  struct pt_output out;output_read(&out,now);scope=out.scope;pt_public_client=out.context.passive;
  direct_window_align(&out,service_now());
  if(error)scope=(struct r2_radio_scope){0};
+ (void)k_mutex_lock(&pt_lock,K_FOREVER);bool retire=native_close_until!=0;(void)k_mutex_unlock(&pt_lock);
+ if(retire&&!closing)begin_close(now);
  if(closing){close_poll(now);return;}
  if(pt_public_client&&!continuous_rc&&!r2_ble_client_window_open(now,400000)){
   if(opportunity_seen){opportunity_complete=true;opportunity_seen=false;}
   k_spinlock_key_t k=k_spin_lock(&cb_lock);bool pending=sync_object||creating;discovering=false;k_spin_unlock(&cb_lock,k);r2_ble_precision_discovery(false);
-  if(pending){pausing=true;begin_close(now);close_until=r2_ble_client_window_start(now)+500000;(void)k_mutex_lock(&pt_lock,K_FOREVER);native_close_until=close_until;(void)k_mutex_unlock(&pt_lock);close_poll(now);}return;
+  if(pending){pausing=true;begin_close(now);uint64_t quiet_until=r2_ble_client_window_start(now)+500000;if(quiet_until<close_until)close_until=quiet_until;(void)k_mutex_lock(&pt_lock,K_FOREVER);native_close_until=close_until;(void)k_mutex_unlock(&pt_lock);close_poll(now);}return;
  }
  k_spinlock_key_t k=k_spin_lock(&cb_lock);bool pending=sync_object||creating;k_spin_unlock(&cb_lock,k);
  if(!same(scope,native_scope)){

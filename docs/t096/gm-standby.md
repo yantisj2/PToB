@@ -3,7 +3,8 @@
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
 Version0.15.134 introduces G5 coordination for the ordinary GM profile; current
-version0.15.135 corrects missed inventory retry scheduling. This is
+version0.15.136 includes corrected missed inventory retries and explicit PT close
+intent consumption. This is
 an implementation and host-test contract, not hardware acceptance or a claim of
 UTC/output accuracy. RC7 clients, USB, GNSS qualification, BLE capture and LoRa
 wire3 retain their separate contracts. DC remains a separate flash-only image.
@@ -35,6 +36,20 @@ original5s deadline and original acquisition/repair/control gates bound
 cleanup; local queued acceptance does not prove remote delivery. Actual captured
 map/source/COMMIT acknowledgement gates remain necessary. Callback ownership must
 drain before an object is reused. Ordinary RC admission needs no G5 STATUS.
+The G5 owner determines passive timing mode before JOIN admission publishes its
+client mailbox. A foreign root's coarse JOIN evidence cannot briefly demote a
+serving ACTIVE into passive precision acquisition while awaiting G5 STATUS.
+
+PT withdrawal latches an original resource-drain deadline. CONTROL must consume
+that intent and close its old native resources even if the same source scope
+recovers between CONTROL cycles. Recovery cannot cancel or renew the intent.
+Repeated closes retain the earliest original2s deadline, including a tighter
+client quiet deadline. A still-owned controller/capture object faults at that
+deadline; only its actual callback/drain releases ownership, and the fault stays
+recorded after release. First consumption at/after expiry and HCI cleanup that
+crosses expiry retain the timeout even if resources are released synchronously;
+closure uses a fresh post-call observation time. Resource closure does not supply
+new source authority.
 
 ## Qualification and bounded work
 

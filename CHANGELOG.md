@@ -2,6 +2,22 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 20 October 2026 — T0960.15.136 consume PT withdrawal intent
+
+G5 inventory JOIN now publishes passive timing mode from the current GM owner
+policy immediately. A foreign root's ordinary JOIN ACCEPT previously could put
+a healthy ACTIVE into the passive precision path until the next owner tick.
+
+CONTROL now consumes PT's latched resource-close intent even when the same scope
+recovers between cycles. It closes the original resources within the earliest
+original deadline, rather than leaving an unconsumed2s latch to cause a later
+terminal timeout. Repeated calls and quiet transitions cannot slide that deadline;
+stuck ownership still faults, and real callback drain cannot clear the fault.
+Late first consumption or HCI cleanup crossing expiry retain the timeout even
+after synchronous resource release, using a fresh closure observation time.
+Actual production admission and PA-owner regressions cover both cases. Legacy RC
+admission, source/precision gates, authority, maintenance and resource limits remain.
+
 ## 20 October 2026 — T0960.15.135 G5 missed inventory retry
 
 An ACTIVE without a selected peer now uses the same5s retry policy after a missed

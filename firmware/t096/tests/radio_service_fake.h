@@ -71,7 +71,8 @@ static int bt_le_per_adv_start(struct bt_le_ext_adv *a){return 0;}
 static int bt_le_ext_adv_start(struct bt_le_ext_adv *a,const void *p){return 0;}
 static int bt_le_ext_adv_stop(struct bt_le_ext_adv *a){return 0;}
 static int bt_le_per_adv_stop(struct bt_le_ext_adv *a){return 0;}
-static int bt_le_ext_adv_delete(struct bt_le_ext_adv *a){return 0;}
+static uint64_t adv_close_delay;
+static int bt_le_ext_adv_delete(struct bt_le_ext_adv *a){fake_time+=adv_close_delay;return 0;}
 static int bt_le_per_adv_sync_create(const struct bt_le_per_adv_sync_param *,struct bt_le_per_adv_sync **);
 static int bt_le_per_adv_sync_delete(struct bt_le_per_adv_sync *);
 static struct bt_le_per_adv_sync *bt_le_per_adv_sync_lookup_addr(const bt_addr_le_t *,uint8_t);

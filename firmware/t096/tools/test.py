@@ -72,7 +72,7 @@ with (nullcontext(str(args.out.resolve())) if args.out else tempfile.TemporaryDi
     subprocess.run([*flags,'-I'+str(out),'-I'+str(APP/'protocol'),str(APP/'tests/radio_service_test.c'),'-Wno-default-const-init-var-unsafe','-I'+str(args.deps/'modules/crypto/tinycrypt/lib/include'),*[str(APP/'src'/n) for n in ['radio_precision.c','relay_precision.c','core.c','clock.c','nmea.c','precision.c']],*[str(APP/'protocol'/n) for n in ['role_announcement.c','group_join.c','group_auth.c','group_control.c','group_precision.c','authority_codec.c','precision_codec.c','relay_codec.c']],*[str(args.deps/'modules/crypto/tinycrypt/lib/source'/n) for n in ['hmac.c','sha256.c','utils.c']],'-o',str(out/'radio_service')],check=True,timeout=30)
     # Current RC7 reset/reconfiguration cases; legacy direct-service fixture
     # modes 0..5 predate the independent bootstrap contract.
-    for mode in (16,17,20):
+    for mode in (16,17,20,30,31,32,33,34):
         subprocess.run([str(out/'radio_service'),str(mode)],check=True,timeout=30)
 
     subprocess.run([*flags,'-std=gnu11','-I'+str(out),'-include',str(APP/'tests/gnss_fake.h'),str(APP/'tests/gnss_test.c'),'-o',str(out/'gnss')],check=True,timeout=30)

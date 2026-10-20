@@ -213,8 +213,18 @@ static void accepted_peer(struct r2_network *n, const struct r2_join_record *r,
       !(n->capabilities & 1) || (!n->admission.eligible&&!r2_ble_control_member()) ||
       (!exchange.server && !r2_ble_control_member() && !exchange.control &&
        r->source_flags && r->root!=n->identity && (r->capabilities & 1));
+  /* G5 inventory JOIN cannot temporarily demote a serving ACTIVE into the
+   * legacy public-client timing path before STATUS/selection is resolved.
+   * Publish the current G5 owner policy immediately, as tick does. */
+#if defined(R2_GM5_NATIVE)
+  if(n->gm5.enabled)passive=!r2_gm5_control_peer(n)&&!n->local_gm;
+#endif
   {
-    if(passive)client.passive = true;
+#if defined(R2_GM5_NATIVE)
+    if(n->gm5.enabled)client.passive=passive;
+    else
+#endif
+    if(passive)client.passive=true;
     /* Bootstrap without usable time cannot renew or revoke an
      * independently authorized timing scope. Its original expiry and coarse
      * anchor continue to fence it in the timing owner. */

@@ -45,7 +45,7 @@ static struct r2_join_record authenticate(unsigned caps)
  assert(!r2_group_join_decode(&response,peers[4].tx[0],R2_GROUP_JOIN_BYTES,&n.group));assert(response.kind==R2_JOIN_ACCEPT&&!response.control&&exchange.accepted);
  return response;
 }
-static struct r2_join_exchange authenticate_client(void)
+static struct r2_join_exchange authenticate_client(bool foreign_time)
 {
  ready_guest(3);peers[4].admission_server=false;connection.role=0;
  n.now=++fake_time;r2_group_admission_tick(&n,n.now);struct r2_join_record request;
@@ -54,7 +54,10 @@ static struct r2_join_exchange authenticate_client(void)
  struct r2_ble_event e={.peer=4,.at=fake_time,.length=R2_GROUP_JOIN_BYTES};assert(!r2_group_join_encode(e.data,&r,&n.group));n.now=fake_time;r2_group_admission_receive(&n,&e,n.now);
  n.now=++fake_time;r2_group_admission_tick(&n,n.now);struct r2_join_record proof;
  assert(!r2_group_join_decode(&proof,peers[4].tx[0],R2_GROUP_JOIN_BYTES,&n.group));assert(proof.kind==R2_JOIN_PROOF);
- r.kind=R2_JOIN_ACCEPT;r.sequence=2;r.created_us=e.at=++fake_time;r.echo_us=proof.created_us;assert(!r2_group_join_encode(e.data,&r,&n.group));n.now=fake_time;r2_group_admission_receive(&n,&e,n.now);
+ r.kind=R2_JOIN_ACCEPT;r.sequence=2;r.created_us=e.at=++fake_time;r.echo_us=proof.created_us;
+ if(foreign_time){r.source_flags=1;r.root=111;r.root_boot=11;r.source_epoch=1;r.publication=1;r.utc_us=INT64_C(1791417600000000);r.remaining_us=1500000;r.source_bound_us=40000;}
+ assert(!r2_group_join_encode(e.data,&r,&n.group));n.now=fake_time;r2_group_admission_receive(&n,&e,n.now);
+ if(foreign_time){struct r2_group_client public;r2_group_admission_client(&public);assert(!public.passive&&public.source&&public.root==111&&n.local_gm&&n.ready&&n.gm5.role==R2_GM5_ACTIVE&&n.gm5.active==n.identity&&!n.gm5.selected);}
  assert(exchange.accepted&&!exchange.control&&gm5_send);n.now=++fake_time;r2_group_admission_tick(&n,n.now);assert(!gm5_send&&gm5_phase==0);
  return (struct r2_join_exchange){.self=111,.peer=333,.boot=11,.peer_boot=33,.nonce=77,.remote_nonce=request.client_nonce,.until=exchange.until,.accepted=true,.server=true};
 }
@@ -120,6 +123,9 @@ static void missed_active_polls(bool pending)
 int main(void)
 {
  missed_active_polls(false);missed_active_polls(true);
+ reset();n.gm5.role=R2_GM5_ACTIVE;n.gm5.active=n.identity;n.gm5.active_boot=n.boot;n.local_gm=n.ready=true;n.choice=0;n.root_boot=n.boot;
+ (void)authenticate_client(true);
+ puts("PASS real authenticated foreign timing JOIN ACCEPT cannot publish passive timing mode on a serving G5 ACTIVE before STATUS selection");
  reset();for(unsigned role=0;role<4;role++)for(unsigned tx=0;tx<2;tx++)for(unsigned requested=0;requested<2;requested++){
   n.gm5.role=role;assert(r2_gm5_bridge_needed(&n.gm5,tx,requested)==(role==R2_GM5_COLD&&tx&&requested));
  }
@@ -166,7 +172,7 @@ int main(void)
  }
  /* Actual outgoing JOIN plus STATUS response/final send: the transport must
   * retain its already-owned ACL after poll completion until promotion/drain. */
- reset();struct r2_join_exchange server=authenticate_client();
+ reset();struct r2_join_exchange server=authenticate_client(false);
  struct r2_network appointed;assert(!r2_network_init(&appointed,0,2,111,11,99,40000,n.now));appointed.group=n.group;appointed.gm5.enabled=true;appointed.gm5.role=R2_GM5_ACTIVE;appointed.gm5.active=111;appointed.gm5.active_boot=11;appointed.gm5.selected=333;appointed.admission.eligible=true;appointed.candidate.generation=1;
  struct r2_ble_event response={.peer=4,.length=R2_GM5_STATUS_BYTES,.at=++fake_time};appointed.now=n.now=fake_time;
  assert(!r2_gm5_status_encode(&appointed,&server,1,response.data));r2_group_admission_receive(&n,&response,n.now);assert(gm5_phase==2&&gm5_send&&n.gm5.role==R2_GM5_ACQUIRING);
@@ -175,7 +181,7 @@ int main(void)
  fake_time+=5000;n.now=fake_time;r2_ble_poll(fake_time);assert(disconnects==disconnect_before&&peers[4].conn==&connection);
  fake_time+=50001;n.now=fake_time;r2_group_admission_tick(&n,n.now);assert(!active&&n.peer[1].identity==111&&peers[1].conn==&connection&&!peers[4].conn&&!n.hot_ready&&!n.standby_authorized);
  puts("PASS actual client JOIN/STATUS1/STATUS2, completed sparse poll retains outgoing ACL through50ms promotion; no fabricated timing/HOT");
- reset();server=authenticate_client();uint64_t client_until=exchange.until;disconnect_before=disconnects;
+ reset();server=authenticate_client(false);uint64_t client_until=exchange.until;disconnect_before=disconnects;
  r2_ble_gm5_policy(true,0,false);r2_ble_client_window(true);fake_time+=1100000;n.now=fake_time;r2_ble_poll(fake_time);assert(disconnects==disconnect_before&&active&&exchange.until==client_until);
  fake_time=client_until;n.now=fake_time;r2_group_admission_tick(&n,n.now);assert(!active&&!n.peer[1].identity&&disconnects>disconnect_before&&!n.hot_ready);
  puts("PASS lost client STATUS1 retains only the original5s outgoing owner then releases; no poll lifetime renewal");
