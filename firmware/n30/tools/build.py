@@ -7,14 +7,14 @@ from pathlib import Path
 APP=Path(__file__).resolve().parents[1];REPO=APP.parents[1]
 sys.path.insert(0,str(REPO/'registry'))
 from registry import load as load_registry,header as registry_header
-VERSION='0.1.1'
+VERSION='0.1.2'
 def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
 def git(p,*args):return subprocess.check_output(['git','-C',str(p),*args],text=True).strip()
 def dump(p,v):p.write_text(json.dumps(v,indent=2,sort_keys=True)+'\n')
 def source_files():
- roots=[APP,REPO/'firmware/w12/main',REPO/'firmware/w12/legacy']
+ roots=[APP,REPO/'firmware/w12/main',REPO/'firmware/w12/legacy',REPO/'firmware/w12/tests/console_fakes']
  files={p for base in roots for p in base.rglob('*') if p.is_file() and '__pycache__' not in p.parts and p.suffix!='.pyc'}
- files|={REPO/'registry/registry.py',REPO/'firmware/w12/tools/stack_budget.py',REPO/'firmware/w12/tools/framed_console.py'}
+ files|={REPO/'registry/registry.py',REPO/'firmware/w12/tools/stack_budget.py',REPO/'firmware/w12/tools/framed_console.py',REPO/'firmware/w12/tools/status_budget_test.py'}
  return sorted(files)
 def validate_inputs(enrollment,device):
  if set(enrollment)!={'group_id','key_epoch','psk'}:raise ValueError('Expected shared group enrollment schema')

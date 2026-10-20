@@ -17,7 +17,7 @@ def validate_layout(out,r):
 
 def inspect(out):
  out=Path(out).resolve();r=json.loads((out/'receipt.json').read_text());inputs=out/'local';target=out/'target'
- if r.get('artifact_class')!='PTOB_N30_RC' or r.get('version') not in ('0.1.0','0.1.1') or r.get('profile')!='RC' or r.get('status') not in ('OFFLINE_NOT_FLASHABLE','COMMISSIONING_CANDIDATE_PHYSICAL_UNKNOWN') or r.get('deployment_authorized') is not False or r.get('hardware_validation')!='NOT_PERFORMED':raise ValueError('Offline RC-only N30 receipt required')
+ if r.get('artifact_class')!='PTOB_N30_RC' or r.get('version') not in ('0.1.0','0.1.1','0.1.2') or r.get('profile')!='RC' or r.get('status') not in ('OFFLINE_NOT_FLASHABLE','COMMISSIONING_CANDIDATE_PHYSICAL_UNKNOWN') or r.get('deployment_authorized') is not False or r.get('hardware_validation')!='NOT_PERFORMED':raise ValueError('Offline RC-only N30 receipt required')
  if r['status']=='COMMISSIONING_CANDIDATE_PHYSICAL_UNKNOWN' and (r.get('commissioning_candidate') is not True or r['source_dirty']):raise ValueError('Commissioning candidate requires explicit selection and clean source')
  if not re.fullmatch('[0-9a-f]{40}',r['public_commit']):raise ValueError('Missing source commit')
  for name,digest in r['artifacts'].items():

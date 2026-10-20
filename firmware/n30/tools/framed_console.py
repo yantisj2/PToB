@@ -9,6 +9,9 @@ spec=importlib.util.spec_from_file_location('n30_w12_console',p);base=importlib.
 fields=base.fields;fresh_nonce=base.fresh_nonce;status_command=base.status_command
 class Parser(base.Parser):
  def __init__(self,nonce,manifest,session=None,capture_base=None):
+  manifest=dict(manifest)
+  manifest.setdefault('console_frame_bytes',8704)
+  manifest.setdefault('fault_watchdog','SUSTAINED_FAULT_120S_V1')
   super().__init__(nonce,manifest,session,capture_base);base.require(manifest.get('r2_profile')=='r2-g1','N30 G1 only')
   self.expected_rows=(*self.expected_rows,'N30_UI')
  def feed(self,data):

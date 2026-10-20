@@ -11,6 +11,9 @@ def main():
  subprocess.run(adapter,check=True,timeout=40);subprocess.run([out/'adapter-test'],check=True,timeout=10)
  subprocess.run([sys.executable,'-B',APP/'tests/inputs_test.py'],check=True)
  subprocess.run([sys.executable,'-B',APP/'tests/console_test.py'],check=True)
- (out/'receipt.json').write_text(json.dumps({'status':'PASS','checks':['production-renderer-bounds-states','every-frame-timeout-budget-0-through-50000us','all-8192-pixels-both-rotations','clock-expiry-backward-time-fault','actual-W12-status-adapter-scope-permission-hold','two-pages-help-idle-wake-blank-boot-held','activity-scope-and-disable','RC-only-no-GPS-inputs','atomic-shared-map-onboarding-rejections','ten-row-nonce-CRC-console-parser'],'hardware_access':False},indent=2)+'\n')
+ worker=[*cmd[:cmd.index(str(APP/'tests/ui_test.cpp'))],'-I'+str(APP/'tests/console_fakes'),'-I'+str(APP.parent/'w12/tests/console_fakes'),'-I'+str(APP.parent/'w12/main'),str(APP/'tests/console_worker_test.cpp'),'-o',str(out/'console-worker-test')]
+ subprocess.run(worker,check=True,timeout=40);subprocess.run([out/'console-worker-test'],check=True,timeout=10)
+ subprocess.run([sys.executable,'-B',APP/'tests/status_budget_test.py'],check=True,timeout=10)
+ (out/'receipt.json').write_text(json.dumps({'status':'PASS','checks':['production-renderer-bounds-states','every-frame-timeout-budget-0-through-50000us','all-8192-pixels-both-rotations','clock-expiry-backward-time-fault','actual-W12-status-adapter-scope-permission-hold','two-pages-help-idle-wake-blank-boot-held','activity-scope-and-disable','RC-only-no-GPS-inputs','atomic-shared-map-onboarding-rejections','ten-row-nonce-CRC-console-parser','actual-ten-row-firmware-admission-and-UART-worker','maximum-width-receiver-and-relay-8704-byte-budget'],'hardware_access':False},indent=2)+'\n')
  print('PASS: offline N30 UI, state and onboarding checks')
 if __name__=='__main__':main()

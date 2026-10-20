@@ -134,3 +134,11 @@ The [N30 framed console parser](../../firmware/n30/tools/framed_console.py)
 validates the additional `N30_UI` row as part of the original nonce/CRC/boot/
 source/build/deadline frame. Bound `ui page 0` / `ui page 1` commands affect
 presentation only and do not change the radio or clock authority.
+
+Version0.1.2 keeps the shared8704-byte whole-frame and1.5s response limits,
+admits exactly ten N30 rows, and uses a compact GPS-absent row to fund the
+display status. Tests exercise the actual firmware submission/output worker and
+render both receiver/experimental-relay formats at maximum numeric widths.
+The initial0.1.1 installation booted and received the mesh, but rejected its
+ten-row status at the historical nine-row submission guard. Keep that failed
+console observation distinct from the corrected-image checks.

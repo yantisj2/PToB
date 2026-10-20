@@ -123,8 +123,11 @@ void frame_begin(ConsoleFrame& f,uint64_t nonce,uint64_t ticket,uint64_t now,con
   f.rows=0;
 }
 bool frame_submit(const ConsoleFrame& f){
+  // N30 adds its physical display row to the shared nine-row G1 console.
+  // Keep W12's shared constants/ABI unchanged.
+  static_assert(ConsoleResponseRows==9&&ConsoleFrameBytes==8704);
   portENTER_CRITICAL(&log_mux);
-  const bool accepted=!f.failed&&f.rows==ConsoleResponseRows&&now_us()<f.deadline_us&&frames.push(f);
+  const bool accepted=!f.failed&&f.rows==ConsoleResponseRows+1&&now_us()<f.deadline_us&&frames.push(f);
   if(!accepted)frame_drop();
   portEXIT_CRITICAL(&log_mux);return accepted;
 }

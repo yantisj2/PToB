@@ -171,7 +171,7 @@ void pps(const gnss_pps::Observation& edge){
 [[gnu::noinline]] void status(uint64_t nonce,uint64_t begin){
   const uint64_t next=ticket.issue(begin);
   v12::frame_begin(response,nonce,next,begin,factory_text,session,V12_SOURCE_REVISION,V12_BUILD_ID);const auto s=v12::transport_status();
-  const auto gps=gnss_pps::shadow_view(ticks());
+  [[maybe_unused]] const auto gps=gnss_pps::shadow_view(ticks());
   const auto log=v12::log_status();
   const auto lora=v12::lora_status();
   const auto direct=v12::direct_status();
@@ -304,29 +304,11 @@ void pps(const gnss_pps::Observation& edge){
 #endif
   const uint64_t work=micros()-begin;console_work+=work;
   if(work>console_max_us)console_max_us=uint32_t(work);
-  const auto gps_activity=gnss_pps::activity(ticks());
-#ifdef V12_GPS_SHADOW_OBSERVER
-  const auto sh=gps_comparison.view();
-  response.format("W12_V12_GPS inputs=%u coarse=%u PPS=%" PRIu32 " rx=%" PRIu32 " gps_fix=%u ui_lamps=%u aid=%u sh_n=%" PRIu32
-    " sh_session=%" PRIu32 " sh_mean_ns=%" PRId32 " sh_rms_ns=%" PRIu32 " sh_max_ns=%" PRIu32 " sh_reason=%u sh_edges=%" PRIu32 " sh_over=%" PRIu32 " precision=UNAVAILABLE\n",
-    unsigned(gps_ready),unsigned(gps.valid),physical_pps,gps_activity.packets,unsigned(gps_activity.fix),unsigned(ui_gps_lamps),gnss_pps::aid_state(),sh.samples,sh.session,sh.mean_ns,sh.rms_ns,sh.max_ns,unsigned(sh.reason),sh.edges,sh.overwritten);
-#else
-  response.format("W12_V12_GPS inputs=%u coarse=%u PPS=%" PRIu32 " utc_ns=%" PRId64
-    " pps_age_ticks=%" PRIu64 " rmc_age_ticks=%" PRIu64 " enclosure_ns=%" PRIu32
-    " rx=%" PRIu32 " gps_fix=%u ui_lamps=%u aid=%u precision=UNAVAILABLE\n",
-    unsigned(gps_ready),unsigned(gps.valid),physical_pps,gps.ns,gps.pps_age_ticks,gps.rmc_age_ticks,gps.map_bracket_ns,gps_activity.packets,unsigned(gps_activity.fix),unsigned(ui_gps_lamps),gnss_pps::aid_state());
-#endif
-#if defined(V12_R2_ENABLED) && V12_R2_CONFIG == 13
-  response.format("W12_V12_LORA_STATUS enabled=%u initialized=%u failed=%u requested=%u worker_busy=%u off_ack=%u"
-    " generation=%" PRIu32 " acknowledged_generation=%" PRIu32 " errors=%" PRIu32 " TX=OFF RF=UNQUALIFIED\n",
-    unsigned(lora.enabled),unsigned(lora.initialized),unsigned(lora.failed),unsigned(lora.requested),unsigned(lora.worker_busy),unsigned(lora.off_acknowledged),lora.request_generation,lora.off_ack_generation,lora.radio_errors);
-#else
-  response.format("W12_V12_LORA_STATUS enabled=%u initialized=%u failed=%u packets=%" PRIu32
-    " requested=%u worker_busy=%u off_ack=%u generation=%" PRIu32 " acknowledged_generation=%" PRIu32 " crc=%" PRIu32 " malformed=%" PRIu32 " errors=%" PRIu32 " status=%d work_max_us=%" PRIu64
-    " busy_timeout_ms=5 SPI=SPI2 DMA=AUTO RX_only=1 TX=OFF physical_timestamp=UNAVAILABLE authority=NONE BLE_update=0\n",
-    unsigned(lora.enabled),unsigned(lora.initialized),unsigned(lora.failed),lora.packets,unsigned(lora.requested),unsigned(lora.worker_busy),unsigned(lora.off_acknowledged),lora.request_generation,lora.off_ack_generation,lora.crc_errors,
-    lora.malformed,lora.radio_errors,int(lora.status),lora.work_max_us);
-#endif
+  // These peripherals are absent/disabled in this target. Compact literal
+  // rows reserve the display row within the unchanged shared whole-frame cap.
+  response.format("W12_V12_GPS inputs=0 coarse=0 PPS=0 GPS=ABSENT\n");
+  response.format("W12_V12_LORA_STATUS enabled=%u initialized=%u failed=%u requested=%u worker_busy=%u off_ack=%u errors=%" PRIu32 " TX=OFF\n",
+    unsigned(lora.enabled),unsigned(lora.initialized),unsigned(lora.failed),unsigned(lora.requested),unsigned(lora.worker_busy),unsigned(lora.off_acknowledged),lora.radio_errors);
   const auto public_status=v12::public_observer_status();const auto& p=public_status.records;
 #if defined(V12_R2_ENABLED) && V12_R2_CONFIG == 13
   response.format("W12_V12_PUBLIC malformed=%" PRIu32 " invalid_signature=%" PRIu32 " authenticated=%" PRIu32 " queue_drops=%" PRIu32
@@ -680,7 +662,7 @@ extern "C" void app_main(){
     " max_data=191 max_GMs=4 activities=6 syncs=2 adv_sets=2 mtu=247"
     " precision=UNAVAILABLE GM=DISABLED LoRa=OFF WiFi=OFF PTS=OFF\n",
     V12_UNIT,factory_text,unsigned(identity),session,V12_SOURCE_REVISION,V12_BUILD_ID);
-  std::printf("N30_TARGET version=0.1.1 profile=RC GPS=ABSENT flash_mb=8 console=UART0_43_44 hardware=UNVALIDATED\n");
+  std::printf("N30_TARGET version=0.1.2 profile=RC GPS=ABSENT flash_mb=8 console=UART0_43_44 hardware=UNVALIDATED\n");
   if(!identity||!session){std::printf("W12_V12_FATAL reason=FACTORY_OR_BOOT_BINDING peripherals=UNTOUCHED\n");return;}
   if(!v12::fault_watchdog_start(factory,session)){std::printf("W12_V12_FATAL reason=FAULT_SUPERVISOR\n");return;}
   // This initial diagnostic candidate never initializes, migrates or writes
