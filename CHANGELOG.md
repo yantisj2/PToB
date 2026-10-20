@@ -2,6 +2,15 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 19 October 2026 — T096 active GM transmit-beat RMS
+
+T096 **0.15.120** shows a Bluetooth badge and `BEAT RMS` on Precision only
+while the GM is actively serving. The value comes from captured transmit-beat
+timing; unavailable source/beat states remain explicit. The active GM has no
+shadow-PPS mean or separate witness RMS. Following/standby GMs retain their
+shadow-PPS display, RC retains its own BLE RMS, and all-page screensavers retain
+the selected observer session behind the overlay. Timing authority is unchanged.
+
 ## 19 October 2026 — T096 RC displays its own BLE RMS
 
 T096 **0.15.119** replaces Precision's old `CORRECTION` label and age value

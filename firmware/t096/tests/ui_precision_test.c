@@ -50,7 +50,16 @@ int main(int argc,char **argv){
  fixture(argv[1],"precision-no-gps",&m,&s,62000);assert(!color_count(64,35,C_CYAN));
  fixture(argv[1],"precision-stale",&m,&s,65001);assert(!color_count(20,24,C_GREEN));
  m.role=R2_UI_GM;m.clock.fix_active=m.clock.pps_present=m.gm_source_fresh=true;m.pps_precision.rate_valid=true;
- fixture(argv[1],"precision-serving-gm",&m,&s,62000);assert(!color_count(64,35,C_CYAN));
+ m.precision.rms_valid=true;m.precision.rms_ns=88;m.precision.samples=32;m.precision.map_valid=false;
+ fixture(argv[1],"precision-serving-gm",&m,&s,62000);assert(color_count(64,7,C_CYAN)&&!color_count(92,7,C_CYAN));
+ uint8_t beat_rms[80*2*7];memcpy(beat_rms,fb+64*80*2,sizeof beat_rms);
+ s.shadow.rms_ns=1;s.shadow.mean_tenth_ns=0;m.pps_precision.prediction_rms_ns=999999;
+ r2_ui_render(fb,&m,&s,62000);assert(!memcmp(beat_rms,fb+64*80*2,sizeof beat_rms));
+ m.precision.rms_ns=1234;fixture(argv[1],"precision-gm-beat-us",&m,&s,62000);assert(memcmp(beat_rms,fb+64*80*2,sizeof beat_rms));
+ m.precision.rms_valid=false;fixture(argv[1],"precision-gm-no-beat",&m,&s,62000);assert(!color_count(64,7,C_CYAN));
+ m.precision.rms_valid=true;m.gm_source_fresh=false;fixture(argv[1],"precision-gm-source-wait",&m,&s,62000);assert(!color_count(64,7,C_CYAN));
+ m.gm_source_fresh=true;fixture(argv[1],"precision-gm-stale",&m,&s,65001);assert(!color_count(64,7,C_CYAN));
+ m.precision.map_valid=true;
  m.role=R2_UI_FOLLOWER;m.local_hot_standby=false;m.source_eligible=false;m.admission_ms=42000;
  fixture(argv[1],"precision-hot-dwell",&m,&s,62000);assert(!strcmp(hot_reason(&m,true,false),"SOURCE DWELL")&&color_count(152,7,C_DIM));
  m.source_eligible=true;

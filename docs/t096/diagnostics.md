@@ -837,8 +837,10 @@ the same independent BLE-clock-versus-local-PPS observer as the Shadow PPS page.
 Remain on either page for the one-second dwell and ten-second contiguous
 settling interval. Collection requires local GPS fix/PPS and a valid delivered
 BLE map. Switching between these two pages retains the session; leaving them,
-source identity changes or becoming a serving GM ends it. A serving GM displays
-`LOCAL SOURCE` and unavailable comparison metrics. Missing inputs never fall back
+source identity changes or becoming a serving GM ends it. From **0.15.120**, an active serving GM instead displays a Bluetooth symbol
+and `BEAT RMS` from its captured transmit-beat timing. It shows no shadow-PPS
+mean or separate witness RMS in that state. A following/standby GM retains the
+shadow-PPS layout. Missing inputs never fall back
 to UART age or clock-fit RMS. Values are relative witness diagnostics, not
 independently calibrated UTC/output accuracy.
 
@@ -863,3 +865,9 @@ The five-minute screensaver is available on every page when the existing
 clock/source eligibility checks pass. A selected Precision/Shadow PPS observer
 continues behind the saver, retaining its session and independent-GNSS fence.
 Navigating to another page wakes that page and restarts its idle interval.
+
+Active-GM `BEAT RMS` requires the existing live, authorized timing snapshot,
+fresh GM source and valid observed transmit-beat RMS. Its sample count is the
+local beat window, not PPS or receiver-fit samples. Missing/expired beats show
+`--` with `WAIT BEATS`, `SOURCE WAIT`, `BLE OFF` or `STATE STALE`. The Bluetooth
+symbol uses the existing badge geometry and is muted while unavailable.

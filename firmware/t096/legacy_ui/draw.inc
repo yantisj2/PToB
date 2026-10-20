@@ -657,16 +657,17 @@ static void format_beat_ppb(char out[16], uint32_t hundredths) {
     out[length] = 0;
 }
 
-static void bluetooth_badge(uint8_t *fb, bool transmitting) {
+static void bluetooth_badge_at(uint8_t *fb, int x, int y, bool transmitting) {
     uint16_t background = transmitting ? C_BLUE : 0x6B4Du;
     uint16_t symbol = transmitting ? C_WHITE : C_PANEL;
-    round_panel(fb, 9, 121, 11, 11, background, background);
-    line(fb, 14, 122, 14, 129, symbol);
-    line(fb, 14, 122, 17, 124, symbol);
-    line(fb, 17, 124, 12, 128, symbol);
-    line(fb, 12, 124, 17, 128, symbol);
-    line(fb, 17, 128, 14, 130, symbol);
+    round_panel(fb, x, y, 11, 11, background, background);
+    line(fb, x+5, y+1, x+5, y+8, symbol);
+    line(fb, x+5, y+1, x+8, y+3, symbol);
+    line(fb, x+8, y+3, x+3, y+7, symbol);
+    line(fb, x+3, y+3, x+8, y+7, symbol);
+    line(fb, x+8, y+7, x+5, y+9, symbol);
 }
+static void bluetooth_badge(uint8_t *fb, bool transmitting) {bluetooth_badge_at(fb,9,121,transmitting);}
 
 static void role_header_at(uint8_t *fb,const ui_snapshot_t *s,int top) {
 #ifdef R2_DC_PROFILE

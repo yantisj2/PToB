@@ -395,19 +395,27 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
   if(locked&&!m->boundary_clock){pair_lock(fb,4,32,C_GREEN);label(fb,17,33,"SoftPLL",1,C_GREEN);}
   else label(fb,4,33,state,1,m->boundary_clock?(r2_ui_analog(m,now)&&!m->rc_source_held?C_GREEN:C_AMBER):(gm&&fresh&&m->gm_source_fresh&&m->pps_precision.rate_valid?C_GREEN:C_AMBER));
   if(r2_ui_witness_page(m,status->page)){
+   if(gm){
+    bool beat=authorized&&m->ble_active&&m->gm_source_fresh&&m->precision.rms_valid&&m->precision.rms_ns!=UINT32_MAX;
+    bluetooth_badge_at(fb,4,49,beat);label(fb,19,51,"BEAT RMS",1,C_DIM);
+    shadow_value(value,m->precision.rms_ns,beat);label(fb,4,64,value,1,beat?C_CYAN:C_DIM);
+    if(beat)snprintf(value,sizeof value,"N %u",m->precision.samples);else snprintf(value,sizeof value,"N --");
+    label(fb,4,84,value,1,C_DIM);
+    label(fb,4,104,!fresh?"STATE STALE":!m->ble_active?"BLE OFF":!m->gm_source_fresh?"SOURCE WAIT":beat?"TX BEAT":"WAIT BEATS",1,C_DIM);
+   }else{
    const struct r2_shadow_session_view *v=&status->shadow;
-   bool valid=fresh&&!gm&&local_pps_current(m,now)&&m->clock.fix_active&&m->precision.map_valid&&v->active&&v->valid;
+   bool valid=fresh&&local_pps_current(m,now)&&m->clock.fix_active&&m->precision.map_valid&&v->active&&v->valid;
    label(fb,4,50,"SHD PPS MEAN",1,C_DIM);
    shadow_mean(value,v,valid);label(fb,4,64,value,1,valid?C_CYAN:C_DIM);
    label(fb,4,80,"RMS",1,C_DIM);shadow_value(value,v->rms_ns,valid);label(fb,4,92,value,1,valid?C_CYAN:C_DIM);
-   if(gm)snprintf(value,sizeof value,"LOCAL SOURCE");
-   else if(!local_pps_current(m,now))snprintf(value,sizeof value,"WAIT PPS");
+   if(!local_pps_current(m,now))snprintf(value,sizeof value,"WAIT PPS");
    else if(!m->clock.fix_active)snprintf(value,sizeof value,"WAIT GPS FIX");
    else if(!fresh||!m->precision.map_valid)snprintf(value,sizeof value,"WAIT BLE MAP");
    else if(v->state==R2_SHADOW_SETTLING)snprintf(value,sizeof value,"SETTLE %us",v->settling_ms>=10000?0:10-v->settling_ms/1000);
    else if(!valid)snprintf(value,sizeof value,"STARTING");
    else snprintf(value,sizeof value,"N %u",v->samples);
    label(fb,4,104,value,1,C_DIM);
+   }
    snprintf(value,sizeof value,"%s SV%u",!fresh?"GPS --":m->clock.fix_active?"GPS FIX":"GPS WAIT",fresh?m->clock.sats_used:0);label(fb,4,116,value,1,fresh&&m->clock.fix_active?C_GREEN:C_AMBER);
    bool pps=local_pps_current(m,now),hot=hot_current(m,now);
    hold_text(value,"PPS",pps?status->holds.pps_since:0,now);label(fb,4,128,value,1,pps?C_GREEN:C_AMBER);
