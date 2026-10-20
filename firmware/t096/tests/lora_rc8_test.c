@@ -242,8 +242,15 @@ static void closure_and_gesture(void){
   s=(struct rc8_stop){0};rc8_stop_begin(&s,phase,1000000);assert(rc8_stop_poll(&s,1000001,true,true,true,true)==RC8_STOP_QUIESCENT);
   assert(rc8_stop_poll(&s,deadline+1,true,true,true,true)==RC8_STOP_QUIESCENT);
  }
- for(unsigned duration=0;duration<5000000;duration+=100000){struct rc8_gesture g={0};assert(!rc8_gesture_update(&g,true,true,100));
-  assert(rc8_gesture_update(&g,false,true,100+duration)==(duration>=1500000&&duration<4000000));assert(!rc8_gesture_update(&g,false,true,100+duration));}
+ for(unsigned duration=0;duration<6000000;duration+=100000){struct rc8_gesture g={0};assert(!rc8_gesture_update(&g,true,true,100));
+  assert(rc8_gesture_update(&g,true,true,100+duration)==(duration>=1500000));
+  assert(!rc8_gesture_update(&g,true,true,100+duration));
+  assert(!rc8_gesture_update(&g,false,true,100+duration));assert(g.claimed);}
+ struct rc8_gesture exact={0};assert(!rc8_gesture_update(&exact,true,true,100));
+ assert(!rc8_gesture_update(&exact,true,true,1500099));assert(rc8_gesture_update(&exact,true,true,1500100));
+ assert(!rc8_gesture_update(&exact,true,true,9000100)&&exact.claimed&&exact.consumed);
+ assert(!rc8_gesture_update(&exact,false,true,9000200));
+ assert(!rc8_gesture_update(&exact,true,false,9000300)&&!exact.claimed&&!exact.consumed);
  struct rc8_gesture g={0};assert(!rc8_gesture_update(&g,true,false,100));assert(!rc8_gesture_update(&g,false,true,2000100));
  g=(struct rc8_gesture){0};assert(!rc8_gesture_update(&g,true,true,100));assert(!rc8_gesture_update(&g,true,false,1600100));assert(!rc8_gesture_update(&g,false,true,2000100));
 }

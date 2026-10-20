@@ -9,7 +9,7 @@
 #include <zephyr/drivers/flash.h>
 #define R2_LOCK_UNIT 6u
 #include "health_lock.h"
-/* Schema5: append512B records in approved bank0 only. Public radio-synchronized
+/* Schema5/6: append512B records in approved bank0 only. Public radio-synchronized
  * flash owner, no ISR/callback writes. Bank1/legacy and layout are untouched. */
 static const struct device *flash=DEVICE_DT_GET(DT_CHOSEN(zephyr_flash_controller));
 static uint32_t package[128] __aligned(4);
@@ -57,6 +57,11 @@ static bool binding(const uint32_t *p)
 {return !memcmp(&p[6],identity.silicon,16)&&!memcmp(&p[10],R2_SOURCE_SHA,64);}
 static bool valid5(const uint32_t *p,unsigned slot)
 {return p[0]==0x44325231&&p[1]==5&&p[2]==slot&&p[3]==512&&p[127]==0x434f4d31&&binding(p)&&p[37]<=3&&p[38]<=3&&p[39]==0&&p[40]==0&&r2_crc32(p,504)==p[126];}
+static bool valid6(const uint32_t *p,unsigned slot)
+{return p[0]==0x44325231&&p[1]==6&&p[2]==slot&&p[3]==512&&p[127]==0x434f4d31&&binding(p)&&p[37]<=3&&p[38]<=3&&(p[39]||p[40])&&
+ ((p[44]&0xc00u)==0x400u||(p[44]&0xc00u)==0x800u)&&!(p[44]&~0x1fffu)&&p[80]==0x4c525731&&r2_crc32(p,504)==p[126];}
+static bool valid_record(const uint32_t *p,unsigned slot)
+{return valid5(p,slot)||valid6(p,slot);}
 static void select_target(void)
 {
  unsigned page=latest_slot<R2_DIAG_SLOTS?latest_slot/8:0;
@@ -162,6 +167,9 @@ int r2_diag_init(const struct r2_identity *id)
  if(phase||!id||id->result)return -EINVAL;
  identity=*id;if(!device_is_ready(flash)){phase=-ENODEV;return phase;}
  int rc=0;latest_slot=R2_DIAG_SLOTS;generation=0;bool dirty=false;
+#ifdef R2_LORA
+ uint64_t fault_generation=0;unsigned fault_slot=R2_DIAG_SLOTS;
+#endif
  for(unsigned page=0;page<2;page++){
   uint32_t header[64],crc=UINT32_MAX;
   for(unsigned j=0;j<8;j++){
@@ -172,7 +180,15 @@ int r2_diag_init(const struct r2_identity *id)
    for(unsigned k=0;k<(j==7?504u:512u);k++){crc^=bytes[k];for(unsigned bit=0;bit<8;bit++)crc=(crc>>1)^(0xedb88320u&-(crc&1u));}
    occupied[slot]=false;for(unsigned k=0;k<128;k++)if(p[k]!=UINT32_MAX)occupied[slot]=dirty=true;
    uint64_t seq=0;memcpy(&seq,&p[42],8);
-   if(valid5(p,slot)&&seq&&(latest_slot==R2_DIAG_SLOTS||seq>generation)){generation=seq;latest_slot=slot;}
+   bool valid=valid_record(p,slot);
+   if(valid&&seq&&(latest_slot==R2_DIAG_SLOTS||seq>generation)){generation=seq;latest_slot=slot;}
+#ifdef R2_LORA
+   /* package has no writer during startup. Keep the newest committed fault
+    * copy there until the512B scanner finishes; no second scan reserve. */
+   if(valid&&seq>fault_generation&&(p[44]&0xc00u)&&p[80]==R2_LORA_FAULT_MAGIC){
+    memcpy(package,p,sizeof package);fault_generation=seq;fault_slot=slot;
+   }
+#endif
   }
   /* Legacy schema4 is scanned with512B RAM, never a retained4KiB buffer. */
   if(header[0]==0x44325231&&header[1]==4&&header[2]==page&&header[3]==4096&&scan_page[127]==0x434f4d31&&binding(header)&&scan_page[64]==64&&scan_page[65]==64&&~crc==scan_page[126]){
@@ -189,6 +205,18 @@ int r2_diag_init(const struct r2_identity *id)
   memset(occupied,0,sizeof occupied);
  }
  memset(scan_page,0,sizeof scan_page);select_target();
+#ifdef R2_LORA
+ if(fault_generation){
+  struct r2_lora_retained_fault *f=&r2_diag_scratch.lora.retained;
+  memcpy(f->record,&package[80],64);
+  memcpy(&f->boot,&package[package[1]==6?39:4],8);
+  f->terminal=package[1]==6?!!(package[44]&0x1000u):(int32_t)f->record[1]!=-EINTR;
+  /* A legacy full journal may have separate latest event/fault pages and no
+   * empty handoff slot. Preserve both, rather than erase its only fault copy.
+   * New schema6 records carry the fault before any obsolete-page erase. */
+  if(erase_needed&&next_slot/8==fault_slot/8&&fault_generation!=generation){phase=-ENOSPC;return phase;}
+ }
+#endif
  /* Both pages full: prepare only the obsolete page before Bluetooth. Latest
   * committed evidence survives; this is capacity recovery, not a new event. */
  if(erase_needed){uint64_t begin=k_uptime_get();rc=erase_page(next_slot/8,false);
@@ -242,6 +270,16 @@ static int submit(unsigned reason,int error)
  memcpy(&package[64],previous,sizeof previous);memcpy(&package[80],current,sizeof current);
  for(unsigned i=0;i<command_count;i++)memcpy(&package[112+i*4],commands[(command_next+3-command_count+i)%3],16);
  memcpy(&package[124],&previous_root_boot,8);
+#ifdef R2_LORA
+ const struct r2_lora_retained_fault *f=&r2_diag_scratch.lora.retained;
+ if(f->boot&&f->record[0]==R2_LORA_FAULT_MAGIC){
+  /* Existing record, write count, admission and deadline. Its verified commit
+   * hands the primary fault to this page BEFORE prepare_spare may erase old.
+   * Original fault boot/time stay distinct from this event's current boot. */
+  package[1]=6;memcpy(&package[39],&f->boot,8);
+  package[44]|=0x800u|(f->terminal?0x1000u:0u);memcpy(&package[80],f->record,64);
+ }
+#endif
  k_spinlock_key_t key=k_spin_lock(&lock);phase=3;writer_active=pending_post=true;due=trigger+2000;post_until=now+(reason==2?0:100);k_spin_unlock(&lock,key);return 0;
 }
 int r2_diag_mark(void)
@@ -318,18 +356,30 @@ void r2_diag_watchdog(unsigned retry,int error)
 }
 int r2_diag_lora(const uint32_t record[16],bool terminal,uint64_t *token)
 {
- /* LoRa fault extension of schema5: reason0x400 replaces only the event
-  * snapshot80..95 with16 fault words. BLE pre/post, binding, CRC/commit and
-  * the original writer/layout/deadline remain. Main is the only caller.
+ /* LoRa fault uses snapshot80..95 plus schema6 reserved39/40 for original
+  * boot. BLE pre/post, binding, CRC/commit and original writer/layout/deadline
+  * remain. Main is the only caller; later ordinary events carry the primary.
   * Fatal evidence has one immediate opportunity even during a rate window;
   * recoverable launches retain the existing8/hour,10s event budget. */
  uint64_t now=k_uptime_get();
+ if(!record||!token||record[0]!=0x4c525731)return -EINVAL;
  if(!normal||quiescing||finish_requested||r2_diag_state()<1)return -ESHUTDOWN;
  if(r2_diag_busy())return -EAGAIN;
  if(now-hour_start>=3600000){hour_start=now;automatic_count=0;}
  if(!terminal&&(now<next_event||automatic_count>=8))return -EAGAIN;
+#ifdef R2_LORA
+ /* An unacknowledged terminal cause survives recoverable launch noise. A new
+  * terminal fault may supersede it, through the same verified commit handoff. */
+ if(!terminal&&r2_diag_scratch.lora.retained.terminal)return -EAGAIN;
+#endif
  int rc=submit(0x400,(int32_t)record[1]);
  if(!rc){memcpy(&package[80],record,64);*token=generation;
+#ifdef R2_LORA
+  struct r2_lora_retained_fault *f=&r2_diag_scratch.lora.retained;
+  memcpy(f->record,record,64);f->boot=identity.boot;f->terminal=terminal;
+  package[1]=6;memcpy(&package[39],&f->boot,8);
+  package[44]=0x400u|(terminal?0x1000u:0u);
+#endif
   if(automatic_count<UINT32_MAX)++automatic_count;
   next_event=now+10000;last_event=now;
  }

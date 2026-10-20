@@ -115,7 +115,7 @@ enum rc8_stop_result {RC8_STOP_WAIT,RC8_STOP_QUIESCENT,RC8_STOP_FAULT};
 struct rc8_stop {uint64_t started_us,deadline_us;enum rc8_phase from;bool stopping,fault,quiescent;};
 void rc8_stop_begin(struct rc8_stop *,enum rc8_phase,uint64_t);
 enum rc8_stop_result rc8_stop_poll(struct rc8_stop *,uint64_t,bool dma_retired,bool radio_standby,bool fem_off,bool capture_released);
-struct rc8_gesture {uint64_t started_us;bool pressed,eligible;};
+struct rc8_gesture {uint64_t started_us;bool pressed,eligible,claimed,consumed;};
 bool rc8_gesture_update(struct rc8_gesture *,bool pressed,bool eligible,uint64_t);
 _Static_assert(sizeof(struct rc8_receiver)<=712,"RC8 receiver reserve");
 _Static_assert(sizeof(struct rc8_export)<=168,"RC8 export reserve");

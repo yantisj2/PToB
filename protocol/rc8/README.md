@@ -2,7 +2,7 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
-T0960.15.129 uses80-byte timing packets and128-byte descriptive companion
+T0960.15.130 uses80-byte timing packets and128-byte descriptive companion
 packets. Both are one-way group-authenticated broadcasts. There is no ACK,
 authentication handshake, listener transmission or ranging exchange. Wire3 is
 incompatible with [historical wire2](wire2-historical.md); its original
@@ -186,8 +186,8 @@ USB and stack reserves cannot shrink. Compiler frame sums are partial estimates;
 actual device stack high-water remains required. No heap is used.
 
 TX/RX OFF suppresses every RF packet of the configured role and withdraws the
-functional selection. ON reacquires. Page7 release between1.5 and4s toggles;
-4s poweroff, wake-only and navigation behavior remain. Stop retains its original
+functional selection. ON reacquires. Page7 fires once at1.5s and consumes the press, so extending it cannot poweroff.
+Intentional4s poweroff remains on other pages; wake-only and navigation behavior remain. Stop retains its original
 200ms deadline and requires actual DMA, radio quiescence, FEM-off and capture
 release acknowledgments. True SPI/ownership/cutoff faults stay latched; stale
 capture data is dropped/counts rather than promoted into time.
@@ -316,3 +316,27 @@ record identifies this case; word4 is its original FEM-enable millisecond and
 word5 records launch-abort reason3. No actual phase3 timeout is converted to
 recovery, and no unretired DMA is reused. These are software contracts, separate
 from exact-device timing, recovery and coexistence evidence.
+
+
+Version130 makes the LoRa-page gesture a one-shot threshold action at1.5s,
+with the press claimed until release. Extending that hold cannot poweroff or
+toggle again, including a delayed poll or page change. The TX/RX ON/OFF heading
+shows the applied request. Other pages retain intentional4s poweroff, and a
+screensaver-wake press remains wake-only. Physical button timing remains an
+exact-device gate; the firmware tests use the production UI worker with fake
+button samples.
+
+Schema6 retains the primary LoRa fault through normal journal activity. Each
+later ordinary event carries the same16 words at80..95 and original fault boot
+at39..40; its own event boot remains at4..5. Reason0x400 identifies a newly
+observed fault,0x800 a carried copy, and0x1000 a terminal primary. These are flags
+combined with the ordinary event reason for carried records. Binding, CRC,
+commit, BLE pre/post context, bank0 bounds, radio-aware admission, write count and
+original2s deadline remain. A new committed copy exists before spare-page erase.
+Startup scans/restores the newest valid copy before LoRa initialization without
+another RAM reserve. A newer terminal fault supersedes the primary; recoverable
+noise cannot replace an unacknowledged terminal. A legacy full journal with no
+safe fault handoff slot fails ENOSPC before erasing its sole fault copy. Existing
+new-source initialization remains a distinct boundary; archival fault evidence
+must be retained before an app update. A reset capsule remains conditional RAM,
+separate from this committed flash record.

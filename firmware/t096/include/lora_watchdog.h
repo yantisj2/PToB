@@ -13,12 +13,18 @@ enum r2_lora_stage {R2_LORA_STAGE_IDLE=0,R2_LORA_STAGE_START,
  * scratch then has this single lifetime. No owner/stack reserve is borrowed.
  * All shared publication and first-fault capture is protected by IRQ fences;
  * flash, CRC, waiting and service locks never run in those fences. */
+struct r2_lora_retained_fault {
+ uint32_t record[R2_LORA_FAULT_WORDS];
+ uint64_t boot;
+ uint32_t terminal;
+};
 struct r2_lora_watchdog_state {
  uint32_t record[R2_LORA_FAULT_WORDS];
  uint64_t journal_generation;
  uint32_t serial,submitted,saved,coalesced,stage,stage_at,beat,monitor,
   closure,irq_status,terminal,fault_at,reset_requested,launch_us,launch_ms;
  int journal_result;
+ struct r2_lora_retained_fault retained;
 };
 union r2_diag_scratch {
  uint32_t scan[128];

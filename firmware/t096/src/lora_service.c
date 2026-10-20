@@ -13,6 +13,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
+#include <stddef.h>
 #define R2_LOCK_UNIT 26u
 #include "health_lock.h"
 #define ALLOWED 1u
@@ -447,7 +448,10 @@ static void worker(void *a,void *b,void *c){
 }
 
 void r2_lora_init(uint64_t factory,uint64_t boot,uint64_t tx,const struct r2_group_config *g){
- memset(&r2_diag_scratch.lora,0,sizeof r2_diag_scratch.lora);
+ /* The completed scanner restores the committed primary fault in the tail.
+  * A failed scan grants no retained evidence. The rest is this boot's owner. */
+ memset(&r2_diag_scratch.lora,0,r2_diag_state()>=1?
+  offsetof(struct r2_lora_watchdog_state,retained):sizeof r2_diag_scratch.lora);
  r2_diag_scratch.lora.journal_result=-ENODATA;
  binding=(struct rc8_enrollment){.factory=factory,.transmitter_factory=tx,.enrolled=factory&&boot&&g&&g->id};
  physical_boot=boot;group=g;transmitter=rc8_is_transmitter(&binding);

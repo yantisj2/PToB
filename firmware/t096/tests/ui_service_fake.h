@@ -25,6 +25,9 @@ static uint8_t retained[R2_UI_FRAME_BYTES];static const uint8_t *retained_fb;sta
 static uint64_t first_saver;static unsigned saver_positions;static bool dim_seen,awake_after_dim;
 static unsigned random_calls;static uint64_t random_at[32];
 static unsigned sync_grace_frames;static bool sync_long_expired,sync_recovered;
+#ifdef R2_LORA
+static unsigned lora_consumptions;static uint64_t lora_consumed_at;static bool fake_lora_requested=true;
+#endif
 static struct r2_ui_model sync_model(uint64_t now){
  bool loss=(now>=1000&&now<1200)||(now>=1800&&now<2600);
  struct r2_ui_model m={.sampled_ms=now,.unit="TC-04",.platform_ready=true,
@@ -40,8 +43,12 @@ static int64_t k_uptime_get(void){return fake_now;}
 static void k_sleep(unsigned ms){fake_now+=ms;
 #ifdef R2_LORA
  if(mode>=42){
-  struct r2_ui_model m={.sampled_ms=fake_now,.platform_ready=true,.profile_supported=true,.profile_switching=mode==46&&fake_now>=1200,.unit="TEST"};r2_ui_publish(&m);
-  if(mode==44&&fake_now>=1200&&fake_now<1220)(void)r2_ui_page(3);
+  if((mode==48||mode==49)&&r2_ui_take_lora_toggle()){
+   ++lora_consumptions;lora_consumed_at=fake_now;fake_lora_requested=!fake_lora_requested;
+  }
+  struct r2_ui_model m={.sampled_ms=fake_now,.platform_ready=mode!=51,.profile_supported=true,.profile_switching=mode==46&&fake_now>=1200,.unit="TEST"};r2_ui_publish(&m);
+  m.lora.requested=fake_lora_requested;m.lora.active=fake_lora_requested;r2_ui_publish(&m);
+  if((mode==44||mode==50)&&fake_now>=1200&&fake_now<1220)(void)r2_ui_page(3);
   if(mode==45){m.ble_active=true;m.role=R2_UI_GM;m.gm_source_fresh=m.scope_active=m.clock.valid=m.clock.source_available=m.clock.pps_present=true;m.clock.utc_us=36642000000LL;r2_ui_publish(&m);}
   if(fake_now>=(mode==45?307000:7000))r2_ui_stop();return;
  }
@@ -97,7 +104,10 @@ int r2_display_frame(const uint8_t *fb){if(frame_calls<64)starts[frame_calls]=fa
 int r2_display_brightness(uint8_t percent){assert(percent==50||percent==100);if(percent==50)dim_seen=true;else if(dim_seen)awake_after_dim=true;return 0;}
 int r2_display_button(void){
 #ifdef R2_LORA
- if(mode>=42)return mode==45?(fake_now>=300500&&fake_now<306000):(fake_now>=500&&fake_now<(mode==43?6000:2700));
+ if(mode>=42){
+  if(mode==49)return(fake_now>=500&&fake_now<2200)||(fake_now>=3000&&fake_now<4700);
+  return mode==45?(fake_now>=300500&&fake_now<306000):(fake_now>=500&&fake_now<(mode==43||mode==47||mode==48||mode==50||mode==51?6000:2700));
+ }
 #endif
 if(mode==16)return (fake_now>=360800&&fake_now<365400)||(fake_now>=366000&&fake_now<366200);if(mode>=17)return 0;if(mode==14)return fake_now>=500&&fake_now<2700;if(mode==15)return fake_now>=500&&fake_now<6000;if(mode>=8)return mode==10&&fake_now>=1000&&fake_now<1160;if(mode==4)return fake_now>=500&&fake_now<3000;
  if(mode==5||mode==6)return fake_now>=500&&fake_now<6000;

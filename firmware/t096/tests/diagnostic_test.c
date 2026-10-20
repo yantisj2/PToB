@@ -59,20 +59,87 @@ int main(int argc,char **argv)
  assert(phase==5&&command_count==3&&!writes&&!r2_diag_busy());
  r2_diag_command(999,R2_NETWORK,0,now);assert(command_count==3);
  now=20000;s.at=now*1000;r2_diag_sample(&s,&c);
- if(mode>=21&&mode<=24){
+ if(mode>=21&&mode<=33){
   uint32_t record[16];for(unsigned i=0;i<16;i++)record[i]=0x100u+i;
   record[0]=0x4c525731;record[1]=(uint32_t)-ETIMEDOUT;
   uint64_t token=0;automatic_count=8;next_event=now+10000;
   assert(r2_diag_lora(record,false,&token)==-EAGAIN&&!token);
   assert(!r2_diag_lora(record,true,&token)&&token==1&&r2_diag_record_result(token)==-EINPROGRESS);
-  assert(package[44]==0x400&&!memcmp(&package[80],record,64)&&package[64+13]==123);
+  assert(package[44]==0x1400&&package[1]==6&&!memcmp(&package[80],record,64)&&package[64+13]==123);
   if(mode==22)mode=3;
   if(mode==23)fail_write=writes+2;
   now+=100;r2_diag_poll();assert(!memcmp(&package[80],record,64)&&package[96+13]==123);
   store_once();
   if(mode==3||mode==23){assert(r2_diag_record_result(token)==-EIO&&!r2_diag_saved());assert(r2_diag_lora(record,true,&token)==-ESHUTDOWN);return 0;}
-  assert(!r2_diag_record_result(token)&&valid5((uint32_t*)storage,0)&&!memcmp(storage+80*4,record,64));
+  assert(!r2_diag_record_result(token)&&valid6((uint32_t*)storage,0)&&!memcmp(storage+80*4,record,64));
   for(unsigned i=8192;i<sizeof(storage);i++)assert(storage[i]==0x53);
+  if(mode>=25){
+   uint64_t original_boot=id.boot;uint32_t original[16];memcpy(original,record,64);
+   /* Lose ALL retained RAM. Flash scanning must restore the original fault,
+    * then ordinary records carry it across both page-erase handoffs. */
+   id.boot=456;memset(&r2_diag_scratch,0xa5,sizeof r2_diag_scratch);reboot(&id);
+   assert(r2_diag_scratch.lora.retained.boot==original_boot&&r2_diag_scratch.lora.retained.terminal);
+   assert(!memcmp(r2_diag_scratch.lora.retained.record,original,64));assert(!r2_diag_arm(now,0));
+   if(mode==26||mode==27){
+    record[1]=(uint32_t)-EIO;record[6]=99;next_event=0;
+    assert(!r2_diag_lora(record,true,&token));fail_write=writes+(mode==26?1:2);finish_write();assert(!r2_diag_saved());
+    fail_write=0;memset(&r2_diag_scratch,0xa5,sizeof r2_diag_scratch);reboot(&id);
+    assert(!memcmp(r2_diag_scratch.lora.retained.record,original,64));return 0;
+   }
+   if(mode==29){
+    unsigned before=writes;record[1]=(uint32_t)-EINTR;next_event=0;automatic_count=0;
+    assert(r2_diag_lora(record,false,&token)==-EAGAIN&&writes==before);
+    record[1]=(uint32_t)-EIO;record[6]=99;assert(!r2_diag_lora(record,true,&token));finish_write();
+    memset(&r2_diag_scratch,0xa5,sizeof r2_diag_scratch);reboot(&id);
+    assert(r2_diag_scratch.lora.retained.boot==456&&(int32_t)r2_diag_scratch.lora.retained.record[1]==-EIO&&r2_diag_scratch.lora.retained.record[6]==99);return 0;
+   }
+   if(mode==30){
+    uint32_t corrupt[128];memcpy(corrupt,storage,512);corrupt[2]=1;corrupt[42]=2;corrupt[39]=corrupt[40]=0;
+    corrupt[126]=r2_crc32(corrupt,504);memcpy(storage+512,corrupt,512);
+    assert(!valid6(corrupt,1));memset(&r2_diag_scratch,0xa5,sizeof r2_diag_scratch);reboot(&id);
+    assert(generation==1&&r2_diag_scratch.lora.retained.boot==original_boot);return 0;
+   }
+   if(mode==31){
+    uint32_t copy[128];memcpy(copy,storage,512);
+    for(unsigned slot=0;slot<16;slot++){copy[2]=slot;copy[42]=slot+1;copy[126]=r2_crc32(copy,504);memcpy(storage+slot*512,copy,512);}
+    memset(&r2_diag_scratch,0xa5,sizeof r2_diag_scratch);reboot(&id);
+    assert(generation==16&&latest_slot==15&&valid6((uint32_t*)(storage+15*512),15));
+    assert(r2_diag_scratch.lora.retained.boot==original_boot&&!memcmp(r2_diag_scratch.lora.retained.record,original,64));return 0;
+   }
+   if(mode==32){
+    struct r2_identity legacy=id;legacy.boot=original_boot;seed5(1,2,&legacy);
+    uint32_t *p=(uint32_t*)(storage+512);p[44]=0x400;memcpy(&p[80],original,64);p[126]=r2_crc32(p,504);assert(valid5(p,1));
+    memset(&r2_diag_scratch,0xa5,sizeof r2_diag_scratch);reboot(&id);assert(!r2_diag_arm(now,0));
+    assert(r2_diag_scratch.lora.retained.boot==original_boot&&r2_diag_scratch.lora.retained.terminal);
+    now+=61000;assert(!r2_diag_mark());finish_write();assert(valid6((uint32_t*)(storage+latest_slot*512),latest_slot));return 0;
+   }
+   if(mode==33){
+    for(unsigned slot=0;slot<16;slot++)seed5(slot,slot+1,&id);
+    uint32_t *p=(uint32_t*)storage;p[44]=0x400;memcpy(&p[80],original,64);p[126]=r2_crc32(p,504);
+    uint8_t before[8192];memcpy(before,storage,8192);unsigned prior_erases=erases;
+    phase=0;writer_active=pending_post=quiescing=finish_requested=false;
+    assert(r2_diag_init(&id)==-ENOSPC&&erases==prior_erases&&!memcmp(before,storage,8192));return 0;
+   }
+   for(unsigned n=0;n<24;n++){
+    now+=61000;assert(!r2_diag_mark());
+    assert(package[1]==6&&(package[44]&0x1c00u)==0x1800u&&!memcmp(&package[80],original,64));
+    uint64_t boot;memcpy(&boot,&package[39],8);assert(boot==original_boot);
+    if(mode==28&&n==7)mode=13;
+    finish_write();
+    assert(valid6((uint32_t*)(storage+latest_slot*512),latest_slot));
+    assert(!memcmp(storage+latest_slot*512+80*4,original,64));
+    if(mode==13){
+     assert(phase==-EIO);mode=28;memset(&r2_diag_scratch,0xa5,sizeof r2_diag_scratch);reboot(&id);
+     assert(r2_diag_scratch.lora.retained.boot==original_boot&&!memcmp(r2_diag_scratch.lora.retained.record,original,64));break;
+    }
+    if(n==8||n==16){
+     memset(&r2_diag_scratch,0xa5,sizeof r2_diag_scratch);id.boot++;
+     reboot(&id);assert(r2_diag_scratch.lora.retained.boot==original_boot&&!memcmp(r2_diag_scratch.lora.retained.record,original,64));assert(!r2_diag_arm(now,0));
+    }
+   }
+   for(unsigned i=8192;i<sizeof(storage);i++)assert(storage[i]==0x53);
+   puts("PASS primary LoRa fault survives cold-RAM reboot, ordinary event commits and page erase handoffs within bank0");return 0;
+  }
   if(mode==24){next_event=0;assert(!r2_diag_mark());assert(generation==2&&!r2_diag_record_result(token));finish_write();assert(!r2_diag_record_result(token));}
   unsigned old_erases=erases;uint64_t committed=generation;reboot(&id);
   assert(generation==committed&&erases==old_erases&&latest_slot==committed-1);

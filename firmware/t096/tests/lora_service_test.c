@@ -37,6 +37,8 @@ static unsigned irq_lock(void){return 0;}
 static void irq_unlock(unsigned key){(void)key;}
 static int journal_rc=-EAGAIN,journal_status=-EINPROGRESS;
 static unsigned journal_calls,reset_calls;static uint32_t journal_record[16];static bool journal_terminal;
+static int diagnostic_state=1;
+static int r2_diag_state(void){return diagnostic_state;}
 static int r2_diag_lora(const uint32_t p[16],bool terminal,uint64_t *token){journal_calls++;memcpy(journal_record,p,64);journal_terminal=terminal;if(!journal_rc)*token=7;return journal_rc;}
 static int r2_diag_record_result(uint64_t token){assert(token==7);return journal_status;}
 static bool r2_diag_busy(void){return false;}
@@ -201,6 +203,13 @@ int main(int argc,char **argv){assert(argc==2);unsigned mode=(unsigned)atoi(argv
   assert((int32_t)r2_diag_scratch.lora.record[1]==-ETIMEDOUT);
   hold_ack=false;step();assert(atomic_get(&closed)&&worker_priority==11);
   unsigned count=starts;r2_lora_request(true);step();assert(starts==count&&atomic_get(&faulted));
+ }
+ else if(mode==45){
+  struct r2_lora_retained_fault *f=&r2_diag_scratch.lora.retained;
+  f->record[0]=R2_LORA_FAULT_MAGIC;f->record[1]=(uint32_t)-ETIMEDOUT;f->boot=123;f->terminal=1;
+  init(false);assert(f->boot==123&&f->terminal&&(int32_t)f->record[1]==-ETIMEDOUT);
+  assert(!r2_diag_scratch.lora.serial&&!r2_diag_scratch.lora.terminal);
+  diagnostic_state=-EIO;init(false);assert(!f->boot&&!f->record[0]);
  }
  else assert(false);
  char json[3072];int n=r2_lora_json(json,sizeof json,0);assert(n>0&&n<(int)sizeof json);printf("PASS runtime mode%u role=%zu snapshot=%zu worker=%zu json=%d\nJSON %s\n",mode,sizeof role,sizeof published,sizeof worker_stack,n,json);

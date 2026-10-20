@@ -142,19 +142,30 @@ static void worker(void *a,void *b,void *c)
    else {if(!held&&!wake_press){key=k_spin_lock(&lock);if(status.help)status.help=false;else status.page=(status.page+1)%R2_UI_PAGES;add(&status.buttons);k_spin_unlock(&lock,key);}wake_press=false;}
   }
 #ifdef R2_LORA
-  key=k_spin_lock(&lock);bool lora_eligible=status.page==R2_UI_LORA_PAGE&&!status.help&&!wake_press&&model.platform_ready&&!model.profile_switching;k_spin_unlock(&lock,key);
-  if(rc8_gesture_update(&lora_gesture,stable,lora_eligible,now*1000))atomic_set(&lora_toggle,1);
+  key=k_spin_lock(&lock);bool lora_page=status.page==R2_UI_LORA_PAGE;
+  bool lora_eligible=lora_page&&!status.help&&!wake_press&&model.platform_ready&&!model.profile_switching;k_spin_unlock(&lock,key);
+  if(rc8_gesture_update(&lora_gesture,stable,lora_eligible,now*1000)){
+   atomic_set(&lora_toggle,1);held=true;due=now;
+   key=k_spin_lock(&lock);add(&status.buttons);k_spin_unlock(&lock,key);
+  }
+  /* Even an inhibited/not-yet-ready LoRa page owns this hold's meaning. It
+   * must not fall through to poweroff merely because a toggle is unavailable. */
+  if(stable&&lora_page)lora_gesture.claimed=true;
 #endif
   if(stable)idle_since=now;
   if(stable&&!held&&now-pressed>=1500){held=true;key=k_spin_lock(&lock);
    if(status.page==0&&!status.help&&model.profile_supported){atomic_set(&profile_toggle,1);add(&status.profile_toggles);status.profile_target_rc=!model.profile_rc;status.profile_flash_until=now+4000;}
 #ifdef R2_LORA
-   else if(status.page==R2_UI_LORA_PAGE){/* Release before4s toggles; holding4s powers off. */}
+   else if(status.page==R2_UI_LORA_PAGE){/* Threshold gesture above owns this press. */}
 #endif
    else {status.help=true;}
    k_spin_unlock(&lock,key);}
 
-  if(stable&&!wake_press&&now-pressed>=4000&&!atomic_get(&profile_toggle)&&!(status.page==0&&model.profile_supported)){key=k_spin_lock(&lock);status.poweroff=true;k_spin_unlock(&lock,key);}
+  bool power_press=true;
+#ifdef R2_LORA
+  power_press=!lora_gesture.claimed;
+#endif
+  if(stable&&!wake_press&&power_press&&now-pressed>=4000&&!atomic_get(&profile_toggle)&&!(status.page==0&&model.profile_supported)){key=k_spin_lock(&lock);status.poweroff=true;k_spin_unlock(&lock,key);}
   /* BLE may delay this low-priority worker beyond a frame deadline. Preserve
    * the failed result and buffer until SPI reports completion; then drop that
    * frame and retry at the ordinary cadence, without extending its deadline. */

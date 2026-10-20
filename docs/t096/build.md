@@ -127,7 +127,7 @@ display, BLE/USB service and stack observations remain exact-device gates.
 
 ## Hardware update boundary
 
-Normal0.15.129 builds include the [RC8 wire3 integration](../../protocol/rc8/README.md).
+Normal0.15.130 builds include the [RC8 wire3 integration](../../protocol/rc8/README.md).
 The default transmitter factory is zero, so LoRa hardware does not start. An
 explicit normal-only `--lora-transmitter-factory` takes a16-digit exact factory
 identity verified against ignored T096 registry metadata. It is included in the
@@ -142,8 +142,8 @@ until a matching companion), current and corrected
 sequence, physical captured event, original source envelope/map generation,
 accept/reject/replay/cache/missing-map counters, UNKNOWN uncertainty, selected
 source, actual worker stack unused bytes and bounded closure status. `lora 00/01`
-controls only the configured role; page7 has the same volatile request via release
-between1.5 and4 seconds. A4-second hold retains poweroff. Functional UNKNOWN
+controls only the configured role; page7 fires the same volatile request once at1.5 seconds. The claimed press
+cannot poweroff if held longer; intentional4-second poweroff remains on other pages. Functional UNKNOWN
 freshness is explicitly allowed as secondary time when normal BLE is unusable;
 it grants no normal-source or future RC9 authority. Host/source/worker/radio
 fake-boundary tests run in the full runner. They do not operate hardware or
@@ -309,3 +309,12 @@ SetTx as phase3, its full340/420ms chip timeout must still fit the original
 keeps existing retry cadence. A previously latched DIO keeps its physical capture.
 Real phase3 timeout, SPI and unretired-DMA faults remain terminal. Stage8 records
 use word4 for the original FEM-enable millisecond so launch age remains visible.
+
+
+Version0.15.130 carries the primary LoRa fault in schema6 bank0 records until a
+newer terminal fault supersedes it. Original fault boot uses reserved words39/40;
+ordinary event boot remains4/5. Reason flags0x400/0x800/0x1000 identify new fault,
+carried copy and terminal primary. No extra append cadence or flash region is
+used: the ordinary verified commit hands off evidence before obsolete-page
+erase. Startup restores the newest valid copy. App changes keep existing
+source-bound journal initialization; preserve evidence before updating.

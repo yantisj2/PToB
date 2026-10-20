@@ -314,10 +314,13 @@ enum rc8_stop_result rc8_stop_poll(struct rc8_stop *s,uint64_t now,bool dma,bool
 }
 bool rc8_gesture_update(struct rc8_gesture *s,bool pressed,bool eligible,uint64_t now){
  if(!s)return false;
- if(pressed&&!s->pressed){s->started_us=now;s->eligible=eligible;}
+ if(pressed&&!s->pressed){s->started_us=now;s->eligible=s->claimed=eligible;s->consumed=false;}
  if(s->pressed&&(!eligible||now<s->started_us))s->eligible=false;
  uint64_t held=now>=s->started_us?now-s->started_us:0;
- if(held>=4000000)s->eligible=false;
- bool toggle=s->pressed&&!pressed&&s->eligible&&held>=1500000&&held<4000000;
+ /* One action at the threshold, even if the operator keeps holding. Release
+  * never repeats it. A delayed poll/release cannot turn this claimed press
+  * into the device's unrelated power-off gesture. */
+ bool toggle=s->pressed&&s->eligible&&!s->consumed&&held>=1500000;
+ if(toggle)s->consumed=true;
  s->pressed=pressed;if(!pressed)s->eligible=false;return toggle;
 }

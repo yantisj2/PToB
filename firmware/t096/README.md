@@ -5,7 +5,7 @@
 *Illustrative firmware-rendered RC screen; displayed values are not measured
 performance. [Image provenance](../../docs/images/README.md).*
 
-**PToB owns T096 RC7 development.** Current source version **0.15.129** supplies the
+**PToB owns T096 RC7 development.** Current source version **0.15.130** supplies the
 ordinary **GM** and **RC** mesh profiles, with USB timing compiled by default.
 [Build from source](../../docs/t096/build.md) with pinned public dependencies
 and ignored local enrollment. No enrolled binary is distributed.
@@ -51,6 +51,10 @@ a returning worker cannot release reset after the watchdog has inhibited it.
 Version129 keeps the original chip/FEM launch budget at software retirement,
 and wakes/prioritizes inhibited drain work above console/diagnostic writers.
 BLE priorities, the200ms drain bound and all existing reserves remain unchanged.
+Version130 fires the LoRa toggle once at1.5s and consumes that press, while
+intentional4s poweroff stays on other pages. Its schema6 journal carries the
+primary fault through ordinary commits/page erases until a newer terminal
+cause supersedes it, within the existing bank0 owner and RAM reserve.
 
 T096 participates in the shared G1/RC7 mesh with W12 and StickS3 receivers and
 experimental relays. RC selection considers aged timing/delivery history as

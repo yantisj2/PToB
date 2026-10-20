@@ -427,7 +427,7 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
   label(fb,4,112,text,1,C_WHITE);
   if(!v->transmitter){if(v->age_ms>=12000)snprintf(text,sizeof text,"AGE >12s");else snprintf(text,sizeof text,"AGE %u.%us",v->age_ms/1000,(v->age_ms%1000)/100);label(fb,4,124,text,1,C_WHITE);}
   label(fb,4,136,v->choice==RC8_SELECT_BLE?"BLE SELECTED":v->choice==RC8_SELECT_LOCAL_GM?"GM SELECTED":v->choice==RC8_SELECT_LORA&&v->requested&&!v->fault?"RC8 SELECTED":"NO CLOCK",1,C_DIM);
-  label(fb,4,150,"HOLD: TOGGLE",1,C_AMBER);return;
+  label(fb,4,150,"HOLD 1.5S",1,C_AMBER);return;
  }
 #endif
  if(status->page==R2_UI_SHADOW_PAGE&&!status->help){

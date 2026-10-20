@@ -2,6 +2,25 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 20 October 2026 — T0960.15.130 one-shot toggle and fault retention
+
+On the LoRa page the configured-role toggle fires once at1.5 seconds. The press
+is consumed, so extending it cannot poweroff the device or repeat the action;
+actual TX/RX ON/OFF text acknowledges the applied role. The footer states the
+threshold. Intentional four-second poweroff remains on other pages, with
+screensaver wake, page-change and profile-change cancellation retained.
+
+The existing bank0 journal now carries its primary LoRa fault into every later
+ordinary event record, with its original boot/time distinct from the new event.
+Schema6 uses reserved words39/40 for that original boot; the16-word payload and
+BLE pre/post context remain. The normal verified commit precedes obsolete-page
+erase. Startup restores the newest valid copy; recoverable launch noise cannot
+supersede an unacknowledged terminal cause. A newer terminal cause can replace
+it through the same handoff. No extra write cadence, bank, reserve reduction or
+protected-prefix exception is introduced. This corrects the prior rolling
+journal's short retention after reset. New-source updates retain existing
+source-bound journal initialization semantics.
+
 ## 20 October 2026 — T0960.15.129 launch and drain scheduling
 
 An unretired SetTx command that returns after its20ms timing or30ms companion
