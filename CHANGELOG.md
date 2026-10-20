@@ -2,6 +2,27 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 20 October 2026 — T0960.15.137 bounded contact and causal anchor handoff
+
+An ACTIVE keeps one ranked nominee while making bounded contact. That private
+phase has one original30s deadline, no successor authority and no management
+readiness. Its first matching causal STATUS reply/final construction starts one
+distinct original30s PA acquisition deadline; repeated/lost phases cannot renew
+it. An unreachable better-ranked nominee still fails into the existing cooldown,
+allowing another candidate. COLD keeps the same quiet windows and scan budget.
+`gm00.attempt_phase` distinguishes CONTACT, ACQUIRE, REPAIR and IDLE. The total
+attempt bound now includes contact plus acquisition; it is not the former30s total.
+
+Admission retains the original causal JOIN anchor while COLD precision publication
+remains suppressed. After real control promotion, PT can adopt that matching
+selected remote root/boot anchor even when its first job missed the earlier passive
+publication. Known source epoch/train must match; original replay/source expiry,
+ACTIVE/mismatched-root fences, actual PA fit, source qualification and finite grants
+remain necessary. Separate production executables test the actual producer mailbox
+and delayed PT consumer, without manufacturing a map or HOT readiness. Failed
+prior-code controls remain separate from current host/native proof. Hardware
+contact, PA convergence and multi-GM durability still require independent testing.
+
 ## 20 October 2026 — T0960.15.136 consume PT withdrawal intent
 
 G5 inventory JOIN now publishes passive timing mode from the current GM owner

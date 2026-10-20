@@ -19,8 +19,58 @@ static struct r2_network base(bool active)
  n.gm5.role=active?R2_GM5_ACTIVE:R2_GM5_ACQUIRING;n.gm5.active=active?100:200;n.gm5.active_boot=n.root_boot;n.gm5.active_until=n.now+120000000;
  n.gm5.selected=active?200:0;n.gm5.generation=7;n.management_generation=7;return n;
 }
+static struct r2_network contact_base(void)
+{
+ struct r2_network n=base(true);n.gm5.selected=0;
+ n.gm5.candidate[0]=(struct r2_gm5_candidate){.identity=200,.boot=20,.eligible=true,.epoch=1,.at=n.now,.until=n.now+120000000,.quality={1,248,254,128,65535,200}};
+ return n;
+}
+static struct r2_join_exchange contact_exchange(const struct r2_network *n,uint64_t peer,uint64_t boot,bool server)
+{return(struct r2_join_exchange){.self=n->identity,.peer=peer,.boot=n->boot,.peer_boot=boot,.nonce=31,.remote_nonce=41,.until=n->now+5000000,.accepted=true,.server=server};}
+static void contact_tests(void)
+{
+ struct r2_network n=contact_base();gm5_select(&n);uint64_t start=n.gm5.attempt_started,until=n.gm5.attempt_until;
+ assert(n.gm5.contacting&&until==start+R2_GM5_CONTACT_US&&!n.hot_ready&&!n.standby_authorized&&!n.gm5.issued_until);
+ assert(!r2_gm5_wants_control(&n,200)&&r2_gm5_control_peer(&n)==200);
+ struct r2_auth_record ready={.kind=R2_AUTH_READY,.root=0,.root_boot=10,.coordinator_boot=20,.source_epoch=1,.source_second=descriptor(&n),.decision=7,.flags=5};
+ assert(gm5_management_receive(&n,1,&ready,0,n.now+250000));
+ n.peer[1].next_hello=n.peer[1].next_service=n.now+1000000;uint8_t peer,wire[R2_GROUP_CONTROL_MAX];bool hello;
+ assert(!gm5_next(&n,2,&peer,wire,&hello)); /* CONTACT cannot emit PREPARE/COMMIT. */
+ struct r2_join_exchange e=contact_exchange(&n,200,20,true);uint8_t status[R2_GM5_STATUS_BYTES];
+ assert(!r2_gm5_status_encode(&n,&e,0,status)&&!r2_group_get(status+92,8)&&n.gm5.contacting);
+ struct r2_join_exchange wrong=contact_exchange(&n,300,30,true);assert(!r2_gm5_status_encode(&n,&wrong,1,status)&&n.gm5.contacting);
+ wrong=e;wrong.peer_boot++;assert(!r2_gm5_status_encode(&n,&wrong,1,status)&&n.gm5.contacting);
+ wrong=e;wrong.until=n.now;assert(r2_gm5_status_encode(&n,&wrong,1,status)&&n.gm5.contacting);
+ assert(!r2_gm5_status_encode(&n,&e,2,status)&&n.gm5.contacting);
+ n.now=until-1;n.candidate.valid_until_us=n.now+1500000;e=contact_exchange(&n,200,20,true);
+ assert(!r2_gm5_status_encode(&n,&e,1,status)&&!n.gm5.contacting&&r2_group_get(status+92,8)==200);
+ assert(n.gm5.attempt_started==until-1&&n.gm5.attempt_until==until-1+R2_GM5_ACQUIRE_US);
+ uint64_t acquire=n.gm5.attempt_until;for(unsigned i=0;i<3;i++){n.now++;assert(!r2_gm5_status_encode(&n,&e,1,status));assert(n.gm5.attempt_until==acquire);}
+ n.now=acquire;gm5_tick(&n,true,n.now,NULL);assert(!n.gm5.selected&&!n.gm5.contacting&&n.gm5.failures==1&&!n.hot_ready);
+ puts("PASS fixed CONTACT, no management/STATUS0 appointment, wrong peer/boot/phase/expired exchange fences; late matching reply arms once, lost/repeated phases cannot renew ACQUIRE");
+ n=contact_base();n.gm5.candidate[1]=n.gm5.candidate[0];n.gm5.candidate[1].identity=n.gm5.candidate[1].quality.identity=300;n.gm5.candidate[1].boot=30;n.gm5.candidate[1].quality.priority1=2;
+ gm5_select(&n);until=n.gm5.attempt_until;assert(n.gm5.selected==200);
+ for(unsigned i=0;i<4;i++){n.now+=1000000;wrong=contact_exchange(&n,300,30,true);assert(!r2_gm5_status_encode(&n,&wrong,1,status)&&n.gm5.contacting&&n.gm5.attempt_until==until);}
+ n.now=until;gm5_tick(&n,true,n.now,NULL);assert(!n.gm5.selected&&n.gm5.candidate[0].failures==1&&n.gm5.candidate[0].cooldown==until+30000000);
+ n.now+=4999999;gm5_select(&n);assert(!n.gm5.selected);n.now++;gm5_select(&n);assert(n.gm5.selected==300&&n.gm5.contacting&&n.gm5.attempt_until==n.now+R2_GM5_CONTACT_US);
+ n.candidate.valid_until_us=n.now+1500000;wrong=contact_exchange(&n,300,30,false);assert(!r2_gm5_status_encode(&n,&wrong,1,status)&&n.gm5.contacting);
+ assert(!r2_gm5_status_encode(&n,&wrong,2,status)&&!n.gm5.contacting&&n.gm5.attempts==2);
+ puts("PASS unreachable higher-ranked nominee fails original30s contact into full-identity cooldown; second healthy candidate starts after original5s spacing and client STATUS2 arms acquisition");
+ for(unsigned phase=0;phase<2;phase++)for(unsigned source=0;source<2;source++){
+  n=contact_base();gm5_select(&n);e=contact_exchange(&n,200,20,true);
+  if(phase)assert(!r2_gm5_status_encode(&n,&e,1,status)&&!n.gm5.contacting);
+  if(source){n.peer[1].source_withdrawn=true;n.peer[1].candidate_until=0;n.gm5.candidate[0].eligible=false;}
+  gm5_tick(&n,source,n.now,NULL);assert(!n.gm5.selected&&!n.gm5.contacting&&!n.hot_ready&&!n.standby_authorized&&n.gm5.failures==1);
+ }
+ n=contact_base();n.gm5.retire_until=n.now+10000000;gm5_select(&n);assert(!n.gm5.selected);n.now=n.gm5.retire_until;gm5_select(&n);assert(n.gm5.contacting);
+ puts("PASS local/remote source withdrawal in CONTACT and ACQUIRE; original retirement prevents nomination, with no grant or takeover supplied by status");
+ n=contact_base();memset(n.gm5.candidate,0,sizeof n.gm5.candidate);gm5_select(&n);assert(!n.gm5.next_attempt&&n.gm5.last_reason==R2_GM5_NO_CANDIDATE);
+ n.gm5.next_attempt=n.now+5000000;gm5_select(&n);assert(n.gm5.next_attempt==n.now+5000000); /* Real failed-attempt floor is never discarded. */
+ puts("PASS idle NO_CANDIDATE does not invent a retry deadline; actual failed-attempt/takeover spacing remains original");
+}
 int main(void)
 {
+ contact_tests();
  const struct {unsigned role;uint64_t active,selected;bool connected;uint64_t delay;} cadence[]={
   {R2_GM5_ACTIVE,100,0,false,5000000},
   {R2_GM5_ACTIVE,100,200,false,5000000},
@@ -116,7 +166,7 @@ int main(void)
  /* Worst-width counters/identities/deadlines, normalized boolean objects. */
  struct r2_gm5_diagnostic d;memset(&d,255,sizeof d);
  d.physical_eligible=d.local_hot=d.global_hot=d.global_hot_known=d.map_valid=d.locked=d.serving=false;
- d.state.enabled=true;d.state.inhibited=d.state.bridge=d.state.repair_used=d.state.grant_pending=false;d.state.role=R2_GM5_ACQUIRING;
+ d.state.enabled=true;d.state.inhibited=d.state.bridge=d.state.repair_used=d.state.grant_pending=d.state.contacting=false;d.state.role=R2_GM5_ACQUIRING;
  for(unsigned c=0;c<R2_GM5_CANDIDATES;c++){d.state.candidate[c].role=R2_GM5_ACQUIRING;d.state.candidate[c].eligible=d.state.candidate[c].inhibited=false;}
  char json[2200];for(unsigned page=0;page<5;page++){int length=r2_gm_diagnostic_format(json,sizeof json,&d,page,"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",UINT64_MAX);assert(length>0&&length<2200);printf("PASS worst-width GM page%u payload_bytes=%d console_budget3072\n",page,length);}
  return 0;

@@ -51,13 +51,13 @@ static bool pa_started, ext_started, closing,pausing,public_client;
 static void gm_radio_publish(void){atomic_set(&gm_radio_state,(advertiser?1u:0)|(pa_started?2u:0)|(ext_started?4u:0));}
 static struct r2_group_client client_clock;
 static struct r2_radio_scope client_scope;
-static bool client_anchor_valid(uint64_t now){
+static bool anchor_valid(const struct r2_group_client *c,uint64_t now){
  /* Coarse replay-age evidence has its own growing uncertainty budget. It is
   * not a five-second source permission or a precision fit deadline. Original
   * signed source expiry is checked separately on every timing operation. */
- return client_clock.source&&now>=client_clock.at&&
-        now<r2_group_anchor_deadline(client_clock.at,client_clock.uncertainty_us);
+ return c->source&&now>=c->at&&now<r2_group_anchor_deadline(c->at,c->uncertainty_us);
 }
+static bool client_anchor_valid(uint64_t now){return anchor_valid(&client_clock,now);}
 static int64_t client_utc_offset,follower_utc_offset;
 static uint64_t close_until, retry_at, updated_at, sync_until;
 static bool opportunity_seen,opportunity_complete;
@@ -451,9 +451,22 @@ static bool direct_grant_live(const struct pt_input *in,uint64_t now){
   g->publication_epoch&&now<g->until_us&&
   (g->follower||(g->gm&&in->source_ready&&in->source_epoch==g->source_epoch));
 }
+static bool selected_anchor(const struct pt_input *in,const struct r2_group_client *c,uint64_t now){
+ const struct r2_radio_scope *g=&in->grant;
+ /* The current producer anchor may arrive after control promotion but before
+  * PT ever observed passive mode. Only the actual selected remote root/boot
+  * may bootstrap acquisition; own ACTIVE and unrelated coarse JOINs cannot.
+  * Known SERVICE epoch/train must match. All original anchor/source bounds
+  * remain separate from the control role and the eventual captured PA map. */
+ return !in->stopped&&g->boot&&c->source_epoch&&c->publication&&g->root<in->roster.count&&g->root!=service_self&&
+  in->roster.identity[g->root]&&c->root==in->roster.identity[g->root]&&c->boot==g->boot&&
+  (!g->source_epoch||c->source_epoch==g->source_epoch)&&
+  (!g->publication_epoch||c->publication==g->publication_epoch)&&anchor_valid(c,now);
+}
 static bool retain_public_timing(const struct pt_input *in,uint64_t now){
- return !in->client.passive&&public_client&&client_anchor_valid(now)&&
-  !in->stopped&&!direct_grant_live(in,now);
+ bool selected=in->grant.boot&&in->grant.root<in->roster.count&&in->roster.identity[in->grant.root];
+ return !in->client.passive&&!in->stopped&&!direct_grant_live(in,now)&&
+  ((public_client&&client_anchor_valid(now)&&(!selected||selected_anchor(in,&client_clock,now)))||selected_anchor(in,&in->client,now));
 }
 static void precision_step(uint64_t now){
  bool request_refresh=false,request_anchor=false;struct pt_input in;struct pt_output out;
@@ -464,7 +477,7 @@ static void precision_step(uint64_t now){
  if(retain_public_timing(&in,now)){
   /* Retain the original anchor if admission has no replacement. Never create
    * a new timestamp or extend its source/replay deadlines here. */
-  if(!in.client.source)in.client=client_clock;
+  if(!selected_anchor(&in,&in.client,now)&&public_client&&client_anchor_valid(now))in.client=client_clock;
   in.client.passive=true;
  }
  if(in.grant.root<in.roster.count)in.grant.root_identity=in.roster.identity[in.grant.root];

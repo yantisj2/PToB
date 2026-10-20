@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "relay_precision.h"
+#include "gm_standby_handoff.h"
 #ifdef R2_LORA
 static bool lora_needed=true;static unsigned lora_publishes,lora_withdraws;static struct rc8_export lora_export;
 bool r2_lora_source_needed(void){return lora_needed;}
@@ -67,8 +68,46 @@ static void handoff_fixture(const struct r2_radio_precision *history){
  assert(!r2_radio_service_handoff_ready(112,100,4));
 }
 int main(int argc,char **argv){
- assert(argc==2);mode=(unsigned)strtoul(argv[1],NULL,10);
+ assert(argc==2||argc==3);mode=(unsigned)strtoul(argv[1],NULL,10);
  struct r2_enrollment roster={.count=2};assert(!r2_radio_service_init(0,&roster));
+ if(mode>=35&&mode<=49){
+  assert(argc==3);struct gm5_handoff_fixture f;FILE *file=fopen(argv[2],"rb");assert(file&&fread(&f,sizeof f,1,file)==1&&!fclose(file));
+  roster=(struct r2_enrollment){.count=2,.identity={333,111},.group={.id=7,.epoch=1,.psk={1}}};
+  struct r2_group_client c=f.promoted;struct r2_radio_scope grant=f.selected;
+  assert(!c.passive&&c.source&&c.at==f.accepted.at&&c.until==f.accepted.until&&grant.root==1&&grant.boot==11&&!grant.gm&&!grant.follower);
+  fake_time=capture_us=f.at+10000;capture_tick=capture_us*16;pt_input.stopped=false;struct r2_source_clock source={0};bool running=false;
+  if(mode==36||mode>=45){
+   struct r2_group_client first=f.accepted;first.at--;if(mode==46||mode==47)first.root++;
+   r2_radio_service_client(&first,&roster,fake_time);r2_radio_service_tick(grant,&source,0,fake_time);precision_poll(fake_time,&running);assert(public_client&&pt_output.acquisition);
+  }
+  if(mode==37)c.root++;
+  if(mode==38)c.boot++;
+  if(mode==39)grant.source_epoch=c.source_epoch+1;
+  if(mode==40){grant.root=0;grant.boot=33;}
+  if(mode==41)fake_time=capture_us=r2_group_anchor_deadline(c.at,c.uncertainty_us);
+  if(mode==42){grant.follower=true;grant.source_epoch=c.source_epoch;grant.publication_epoch=c.publication;grant.until_us=f.at+1000000;}
+  if(mode==43)c.until=fake_time-1; /* Replay anchor can acquire, never output on expired source. */
+  if(mode==44)grant.publication_epoch=c.publication+1;
+  if(mode==45||mode==47)c.root++;
+  if(mode==48)c.source=false;
+  if(mode==49){grant.source_epoch=c.source_epoch;c.source_epoch++;}
+  r2_radio_service_client(&c,&roster,fake_time);r2_radio_service_tick(grant,&source,0,fake_time);precision_poll(fake_time,&running);
+  if((mode>=37&&mode<=41)||mode==44||mode==47){assert(!precision_needed(fake_time)&&!pt_output.scope.follower&&!pt_output.acquisition);}
+  else if(mode==42){assert(!public_client&&pt_output.scope.follower&&!pt_output.acquisition&&same(pt_output.scope,grant));}
+  else{
+   uint64_t expected_at=c.at-((mode==45||mode==48||mode==49)?1:0);
+   assert(public_client&&pt_output.scope.follower&&pt_output.acquisition&&client_clock.at==expected_at&&client_clock.until==c.until&&client_clock.root==111&&client_clock.boot==11&&client_clock.source_epoch==1);
+   for(unsigned pass=0;pass<25&&!sync_object;pass++){
+    r2_radio_service_tick(grant,&source,0,fake_time);struct bt_le_scan_recv_info info={.sid=12,.interval=100,.addr=&target};scan_received(&info,NULL);
+    r2_radio_service_tick(grant,&source,0,fake_time);precision_poll(fake_time,&running);
+    if(!sync_object){fake_time+=10000;capture_us=fake_time;capture_tick=capture_us*16;}
+   }
+   assert(sync_object&&owned);
+  }
+  assert(!pt_output.view.map_valid&&!pt_output.view.locked&&!pt_output.utc_valid&&!error);
+  if(mode==43)assert(!pt_output.bootstrap.source&&!pt_output.view.authorized&&pt_output.scope.until_us==c.until);
+  printf("PASS actual producer/PT mailbox mode%u: selected scope, delayed/early PT, original anchor/source expiry and mismatch/own-ACTIVE fences; no precision/output invented\n",mode);return 0;
+ }
  if(mode>=30&&mode<=34){
   bool stuck=mode==31;roster.identity[0]=1;roster.identity[1]=3;pt_input.roster=roster;
   struct r2_radio_scope grant={.root=stuck?1:0,.root_identity=stuck?3:1,.boot=9,.source_epoch=3,.publication_epoch=1,.until_us=10000000,.gm=!stuck,.follower=stuck};

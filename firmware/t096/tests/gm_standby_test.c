@@ -17,11 +17,32 @@ static bool online[N],source[N],pa[N];static uint32_t epoch[N],packet[N],boots[N
 static int paired[N];static unsigned nodes=4,scenario;static bool split,drop_commit;
 static uint64_t attempt_origin[N],attempt_deadline[N];
 static uint64_t return_at,return_hot_deadline;
-static uint64_t failure_at,contact_origin,active_deadline,hot_deadline,merge_deadline;
+static uint64_t failure_at,contact_origin,active_deadline,hot_deadline,merge_deadline,replacement_deadline;
 static uint64_t now,join_at[N],next_status[N][N],nonce=1000;
 static uint64_t local(unsigned p,uint64_t t){return t+1000000+p*137000;}
 static uint64_t identity(unsigned p){return 100+p;}
 static bool reach(unsigned a,unsigned b){return online[a]&&online[b]&&(!split||(a<2)==(b<2));}
+static uint64_t model_replacement_budget(void)
+{
+ /* Frozen fixture budget after stale inventory has expired: one serialized
+  * inventory round, each bounded inventory identity's CONTACT+ACQUIRE and
+  * failed-attempt spacing, old repair/uncertain-grant retirement and stability.
+  * The fixture has delivery/PA for qualified survivors; this is no RF promise.
+  * Silent unreachable hints cannot renew their original120s cache deadline. */
+ return 30000000+R2_GM5_CANDIDATES*(R2_GM5_CONTACT_US+R2_GM5_ACQUIRE_US+5000000)+
+  R2_GM5_REPAIR_US+R2_GM5_GRANT_US+R2_GM5_RETIRE_GUARD_US+R2_GM5_STABLE_US+100000;
+}
+static uint64_t inventory_expiry(void)
+{
+ uint64_t expiry=now;
+ for(unsigned p=0;p<nodes;p++){
+  if(!online[p])continue;
+  for(unsigned c=0;c<R2_GM5_CANDIDATES;c++){
+   uint64_t until=n[p].gm5.candidate[c].until;if(until>local(p,0)&&until-local(p,0)>expiry)expiry=until-local(p,0);
+  }
+ }
+ return expiry;
+}
 static void init(unsigned p)
 {
  memset(&pt[p],0,sizeof pt[p]);packet[p]=0;paired[p]=-1;uint32_t incarnation=++boots[p];
@@ -134,7 +155,7 @@ static void step(void)
   if(n[p].standby_authorized)assert(n[p].now<n[p].gm5.grant_until);
  }
  bool exchanged[N]={0};
- if(now%1000000==0)for(unsigned a=0;a<nodes;a++)for(unsigned b=a+1;b<nodes;b++)if(!exchanged[a]&&!exchanged[b]&&reach(a,b)&&(now>=next_status[a][b]||((r2_gm5_wants_control(&n[a],identity(b))||r2_gm5_wants_control(&n[b],identity(a)))&&(paired[a]<0||paired[b]<0)))){
+ if(now%1000000==0)for(unsigned a=0;a<nodes;a++)for(unsigned b=a+1;b<nodes;b++)if(!exchanged[a]&&!exchanged[b]&&reach(a,b)&&(now>=next_status[a][b]||((r2_gm5_control_peer(&n[a])==identity(b)||r2_gm5_control_peer(&n[b])==identity(a))&&(paired[a]<0||paired[b]<0)))){
   /* Native admission is globally serialized per node; one bounded exchange per
    * opportunity, then cadence/cooldown. No all-member standing connection. */
   if(r2_gm5_poll_due(&n[a],n[a].now)||r2_gm5_poll_due(&n[b],n[b].now)){
@@ -152,7 +173,7 @@ int main(int argc,char **argv)
  for(unsigned i=0;i<N;i++){paired[i]=-1;join_at[i]=UINT64_MAX;}
  join_at[permutation[0]]=0;join_at[permutation[1]]=0;if(nodes>=3)join_at[permutation[2]]=130000000;if(nodes==4)join_at[permutation[3]]=150000000;
  int root=-1,standby=-1;uint32_t original_publication=0;uint64_t source_gaps=0,hot_gaps=0,observed=0;bool phase_failed=false;int fallback=-1;uint64_t first_active=0,first_hot=0;
- for(now=0;now<600000000;now+=2500){
+ for(now=0;now<600000000||(hot_deadline&&now<hot_deadline+5000000);now+=2500){
   if(now==125000000){root=active();standby=hot();
    if(root<0||standby<0){for(unsigned p=0;p<N;p++)fprintf(stderr,"p%u role%u root%u co%u ready%u hot%u src%u attempt%llu readyat%llu stable%llu map%u ptaccepted%u reject%u\n",p,n[p].gm5.role,n[p].choice,n[p].coordinator,n[p].ready,n[p].hot_ready,n[p].admission.eligible,(unsigned long long)n[p].gm5.attempt_until,(unsigned long long)n[p].gm5.ready_at,(unsigned long long)n[p].gm5.stable_since,pt[p].servo.output.valid,pt[p].accepted,pt[p].rejected);}
    assert(root>=0&&standby>=0);original_publication=n[root].publication;
@@ -161,6 +182,7 @@ int main(int argc,char **argv)
   if(now==200000000&&scenario==2){source[standby]=false;++epoch[standby];}
   if(now==200000000&&scenario==3){online[root]=false;join_at[root]=UINT64_MAX;}
   if(now==200000000&&scenario==4)drop_commit=true;
+  if(now==200000000&&scenario>=1&&scenario<=4)replacement_deadline=inventory_expiry()+model_replacement_budget();
   if(now==200000000&&scenario==5){source[root]=source[standby]=false;++epoch[root];++epoch[standby];}
   if(now==200000000&&(scenario==6||scenario==14||(scenario>=8&&scenario<=10))){source[standby]=false;++epoch[standby];}
   if(now==200000000&&scenario==7)pa[standby]=false;
@@ -171,7 +193,7 @@ int main(int argc,char **argv)
   if(now==195000000&&(scenario==11||scenario==12))n[root].gm5.generation=100;
   if(now==200000000&&scenario==12){online[root]=online[standby]=false;join_at[root]=350000000;join_at[standby]=UINT64_MAX;}
   if(now==349000000&&scenario==12){fallback=active();assert(fallback>=0&&fallback!=root);}
-  if(now==350000000&&scenario==12){phase_failed=true;return_at=now;return_hot_deadline=now+R2_ELECTION_STABLE_US+30000000+R2_GM5_ACQUIRE_US+R2_GM5_STABLE_US+100000;}
+  if(now==350000000&&scenario==12){phase_failed=true;return_at=now;return_hot_deadline=now+R2_ELECTION_STABLE_US+30000000+R2_GM5_CONTACT_US+R2_GM5_ACQUIRE_US+R2_GM5_STABLE_US+100000;}
   if(now>200000000&&scenario>=7&&scenario<=10&&!phase_failed){
    struct r2_gm5 *g=&n[root].gm5;
    bool phase=scenario==7?(g->attempt_until&&g->selected==identity((unsigned)standby)):
@@ -190,10 +212,11 @@ int main(int argc,char **argv)
    }
    /* Silent COLD fallback: measured surviving original contact hold, then
     *max32s discovery+3s output fence. HOT additionally allows one serialized
-    *30s inventory opportunity, the original30s acquisition,5s stable dwell
+    *30s inventory opportunity, fixed30s contact, original30s acquisition,5s stable dwell
     *and100ms for the modeled25ms control flights/owner opportunities. */
    active_deadline=contact_origin+32000000+3000000+2500;
-   hot_deadline=physical_survivors>=2?active_deadline+30000000+R2_GM5_ACQUIRE_US+R2_GM5_STABLE_US+100000:0;
+   uint64_t inventory=inventory_expiry();
+   hot_deadline=physical_survivors>=2?(inventory>active_deadline?inventory:active_deadline)+model_replacement_budget():0;
   }
   if(now==240000000&&scenario==2)source[standby]=true;
   if(now==240000000&&scenario==4)drop_commit=false;
@@ -210,12 +233,12 @@ int main(int argc,char **argv)
   if(hot_deadline&&now>=hot_deadline){int a=active();assert(hot()>=0&&a>=0&&n[a].hot_ready);}
   if(scenario>=7&&scenario<=10&&now>hot_deadline&&hot_deadline)assert(phase_failed);
   if(now==208000000&&scenario==3)assert(active()>=0);
-  if(now==290000000&&(scenario==1||scenario==2||scenario==3||scenario==4))assert(hot()>=0);
+  if(replacement_deadline&&now>=replacement_deadline)assert(hot()>=0);
 
   if(now>580000000){if(active()<0||((scenario!=5&&!(scenario==6&&nodes==3)&&!(scenario>=8&&scenario<=10&&nodes==3))&&hot()<0)){fprintf(stderr,"late scenario%u t%llu active%d hot%d root%d standby%d\n",scenario,(unsigned long long)now,active(),hot(),root,standby);for(unsigned p=0;p<N;p++)fprintf(stderr,"p%u role%u active%llu selected%llu eligible%u ready%u hot%u attempt%llu last%u\n",p,n[p].gm5.role,(unsigned long long)n[p].gm5.active,(unsigned long long)n[p].gm5.selected,n[p].admission.eligible,n[p].ready,n[p].hot_ready,(unsigned long long)n[p].gm5.attempt_until,n[p].gm5.last_reason);}
    assert(active()>=0);if(scenario!=5&&!(scenario==6&&nodes==3)&&!(scenario>=8&&scenario<=10&&nodes==3))assert(hot()>=0);}
  }
- printf("RETURN at_us=%llu confirmed_hot_by_us=%llu\n",(unsigned long long)return_at,(unsigned long long)return_hot_deadline);
+ printf("RETURN at_us=%llu confirmed_hot_by_us=%llu replacement_by_us=%llu\n",(unsigned long long)return_at,(unsigned long long)return_hot_deadline,(unsigned long long)replacement_deadline);
  if(scenario==12&&nodes==3)assert(n[root].gm5.generation==100&&n[root].management_generation<100&&n[root].hot_ready);
  if(scenario==13)assert(rx_refused>0);
  if(scenario==14)assert(n[root].gm5.failures>=2&&n[root].gm5.attempts>=3);

@@ -893,7 +893,7 @@ When `available:false` (including RC/transition), ignore remaining GM facts.
 
 | Page | Fields and interpretation |
 | --- | --- |
-|00|Local role and logical `incarnation`; physical source eligibility/epoch/permit; coordination inhibition and `bridge_leaf`; ACTIVE/selected full identities/boots; current local `serving`, `local_hot`, confirmed `global_hot` and `global_hot_known`; map/lock/refusal; pair/grant generations; original attempt, stability, grant, issuance, retirement, retry and poll deadlines; root-health creation bound; `output_not_before_us`; last reason and counters.|
+|00|Local role and logical `incarnation`; physical source eligibility/epoch/permit; coordination inhibition and `bridge_leaf`; ACTIVE/selected full identities/boots; current local `serving`, `local_hot`, confirmed `global_hot` and `global_hot_known`; map/lock/refusal; pair/grant generations; `attempt_phase` and original attempt, stability, grant, issuance, retirement, retry and poll deadlines; root-health creation bound; `output_not_before_us`; last reason and counters.|
 |01..03|One remote inventory slot: identity/incarnation; known/fresh; causal G5 JOIN STATUS provenance and local receipt/expiry; separately observed HELLO physical report/permit/freshness; reported physical eligibility/source age/epoch/inhibition, role/ACTIVE/selected identities/boots, pair generation, raw remote grant/attempt deadlines, quality and negative root; local failures/successes/cooldown and last local failure; remote last reason; retained withdrawal creation time/epoch.|
 |04|Three most recent local role/appointment transitions, oldest first: `[local_us,peer_full_identity,pair_generation,role,reason]`, with cumulative produced/overwritten counts and `reset_retained:false`.|
 
@@ -914,6 +914,16 @@ to this logical incarnation, not UTC; remote raw deadlines and withdrawal creati
 time belong to the reported remote boot and are explicitly **unmapped**. Do not
 subtract them from the host/local clock. Source eligibility reports are descriptive;
 only a fresh original physical permit establishes its separate permission.
+Version137 adds `attempt_phase`: CONTACT, ACQUIRE, REPAIR or IDLE. The same
+`attempt_started_us`/`attempt_until_us` fields hold the current fixed phase;
+CONTACT has no successor authority. Its original start/deadline can later be
+reconstructed from CONTACT transition reason15 plus the fixed30s policy, subject
+to the explicit ring overwrite/reset limits. ACQUIRE starts once on the first
+matching causal reply/final construction, never on repeated STATUS. Attempts
+count nominations, including failed CONTACT; failures/successes retain their
+existing per-identity meaning. The local issuer waits through old-grant retirement
+before nominating a replacement. G5 wire revision, envelope and grant semantics
+are unchanged by this private scheduling subphase.
 A cached remote role/grant is UNKNOWN after `status_until_us`; an expired HELLO
 permit is UNKNOWN as current source permission even when the older STATUS is fresh.
 

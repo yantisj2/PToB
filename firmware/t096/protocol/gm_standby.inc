@@ -46,9 +46,12 @@ static void gm5_select(struct r2_network *n)
   if(!best||quality<0||(quality==0&&(c->successes>best->successes||
      (c->successes==best->successes&&(c->failures<best->failures||(c->failures==best->failures&&c->identity<best->identity))))))best=c;
  }
- if(!best){if(g->last_reason!=R2_GM5_NO_CANDIDATE)gm5_event(n,R2_GM5_NO_CANDIDATE,0);g->next_attempt=n->now+5000000;return;}
- g->selected=best->identity;g->attempt_started=n->now;g->attempt_until=n->now+R2_GM5_ACQUIRE_US;
- g->stable_since=g->ready_at=0;g->repair_used=false;g->grant_pending=false;g->next_poll=n->now;count(&g->attempts);gm5_event(n,R2_GM5_SELECTED,g->selected);
+ if(!best){if(g->last_reason!=R2_GM5_NO_CANDIDATE)gm5_event(n,R2_GM5_NO_CANDIDATE,0);return;}
+ /* Inventory nominates one peer, not a delivered appointment. The original
+  * contact deadline also bounds an unreachable best candidate and its local
+  * failure history. Sparse COLD sleep must not spend the PA acquisition time. */
+ g->selected=best->identity;g->attempt_started=n->now;g->attempt_until=n->now+R2_GM5_CONTACT_US;
+ g->stable_since=g->ready_at=0;g->repair_used=false;g->grant_pending=false;g->contacting=true;g->next_poll=n->now;count(&g->attempts);gm5_event(n,R2_GM5_CONTACT,g->selected);
 }
 static void gm5_failed(struct r2_network *n,unsigned reason)
 {
@@ -59,7 +62,7 @@ static void gm5_failed(struct r2_network *n,unsigned reason)
   if(delay>300000000)delay=300000000;
   c->cooldown=n->now+delay;}
  count(&g->failures);if(g->issued_until+R2_GM5_RETIRE_GUARD_US>g->retire_until)g->retire_until=g->issued_until+R2_GM5_RETIRE_GUARD_US;
- g->selected=0;g->attempt_started=g->attempt_until=g->stable_since=g->ready_at=0;
+ g->selected=0;g->contacting=false;g->attempt_started=g->attempt_until=g->stable_since=g->ready_at=0;
  g->next_attempt=n->now+5000000;management_clear(n);n->coordinator=255;n->coordinator_boot=0;
  n->pair=(struct r2_pair){.root=255,.standby=255};gm5_event(n,reason,old);
 }
@@ -70,7 +73,7 @@ uint64_t r2_gm5_control_peer(const struct r2_network *n)
   (g->role==R2_GM5_ACQUIRING||g->role==R2_GM5_HOT)?g->active:0;
 }
 bool r2_gm5_wants_control(const struct r2_network *n,uint64_t id)
-{return id&&r2_gm5_control_peer(n)==id;}
+{return id&&r2_gm5_control_peer(n)==id&&!(n->gm5.role==R2_GM5_ACTIVE&&n->gm5.contacting);}
 bool r2_gm5_poll_due(const struct r2_network *n,uint64_t now)
 {return n->gm5.enabled&&now>=n->gm5.next_poll&&now-n->gm5.next_poll<1000000;}
 void r2_gm5_poll_completed(struct r2_network *n,uint64_t now)
@@ -99,7 +102,7 @@ static int gm5_management_receive(struct r2_network *n,unsigned p,const struct r
     r->root_boot!=n->root_boot||r->source_epoch!=n->view.generation||
     r->source_second!=descriptor(n)||!r->decision||r->decision>UINT32_MAX||
     r->coordinator_boot!=n->coordinator_boot)return -ESTALE;
- if(g->role==R2_GM5_ACTIVE&&p==n->coordinator&&r->kind==R2_AUTH_READY&&r->decision==g->generation){
+ if(g->role==R2_GM5_ACTIVE&&!g->contacting&&p==n->coordinator&&r->kind==R2_AUTH_READY&&r->decision==g->generation){
   if(!(r->flags&1)){g->ready_at=g->stable_since=0;withdraw_hot(n,32);return 0;}
   g->ready_at=n->now;
   if((r->flags&4)&&g->grant_pending&&n->now<g->issued_until){
@@ -210,7 +213,7 @@ static void gm5_tick(struct r2_network *n,bool physical,uint64_t now,const struc
    }
    if(!physical){gm5_failed(n,R2_GM5_SOURCE);}
    else if(g->attempt_until&&now>=g->attempt_until){gm5_failed(n,R2_GM5_TIMEOUT);}
-   else if(ready&&n->ready&&synced(n)){
+   else if(!g->contacting&&ready&&n->ready&&synced(n)){
     if(!g->stable_since)g->stable_since=now;
     if(now-g->stable_since>=R2_GM5_STABLE_US){
      if(!g->issued_until||g->issued_until<=now+R2_GM5_GRANT_US-2000000){
@@ -258,7 +261,7 @@ static bool gm5_next(struct r2_network *n,uint8_t available,uint8_t *peer,uint8_
  }else if(!bound(n,p))return false;
  else if(g->role==R2_GM5_ACTIVE&&n->ready&&n->now>=m->next_service&&(m->acked_publication!=n->publication||m->acked_permit!=n->service_until)){
   r=record(n,p,R2_AUTH_SERVICE);r.decision=n->publication;r.source_epoch=n->view.generation;r.source_second=n->view.utc_second;r.evidence_us=n->view.evidence_us;r.permit_until_us=n->view.valid_until_us;r.flags=1|(n->view.relative_ready?4:0);
- }else if(g->role==R2_GM5_ACTIVE&&n->ready&&n->coordinator==p&&n->now>=m->next_management){
+ }else if(g->role==R2_GM5_ACTIVE&&!g->contacting&&n->ready&&n->coordinator==p&&n->now>=m->next_management){
   bool commit=(n->hot_ready||g->grant_pending)&&n->now<g->issued_until;
   r=record(n,p,commit?R2_AUTH_COMMIT:R2_AUTH_PREPARE);r.coordinator_boot=n->coordinator_boot;r.decision=g->generation;r.source_epoch=n->view.generation;r.source_second=descriptor(n);r.flags=commit?1:0;
   if(commit)r.permit_until_us=g->issued_until;
@@ -270,14 +273,27 @@ static bool gm5_next(struct r2_network *n,uint8_t available,uint8_t *peer,uint8_
 int r2_gm5_status_encode(struct r2_network *n,const struct r2_join_exchange *e,unsigned phase,uint8_t out[R2_GM5_STATUS_BYTES])
 {
  if(!n||!e||!n->gm5.enabled||phase>2||!e->accepted||n->now>=e->until)return -EACCES;
- struct r2_gm5 *g=&n->gm5;memset(out,0,R2_GM5_STATUS_BYTES);out[0]=19;out[1]=phase;out[2]=5;out[3]=g->role;
+ struct r2_gm5 *g=&n->gm5;
+ /* Arm once, only while constructing the matching causal appointment reply
+  * (server1/client2). Construction precedes local send acceptance, so a busy
+  * or lost send can only shorten this fixed budget, never renew it. STATUS0
+  * carries inventory only; a different peer/session cannot arm the nominee. */
+ struct r2_gm5_candidate *c=gm5_candidate(n,e->peer,false);
+ if(g->role==R2_GM5_ACTIVE&&g->contacting&&g->selected==e->peer&&
+    ((e->server&&phase==1)||(!e->server&&phase==2))&&n->now<g->attempt_until&&
+    c&&c->boot==e->peer_boot&&gm5_eligible(n,c)&&n->admission.eligible&&!g->inhibited&&
+    n->candidate.available&&n->now<n->candidate.valid_until_us){
+  g->contacting=false;g->attempt_started=n->now;g->attempt_until=n->now+R2_GM5_ACQUIRE_US;
+  gm5_event(n,R2_GM5_SELECTED,g->selected);
+ }
+ memset(out,0,R2_GM5_STATUS_BYTES);out[0]=19;out[1]=phase;out[2]=5;out[3]=g->role;
  r2_group_put(out+4,n->group.epoch,4);
 #define P(o,v,b) r2_group_put(out+o,v,b)
  P(8,n->identity,8);P(16,e->peer,8);P(24,n->boot,8);P(32,e->peer_boot,8);
  P(40,e->server?e->remote_nonce:e->nonce,8);P(48,e->server?e->nonce:e->remote_nonce,8);P(56,n->now,8);
  P(64,n->candidate.generation,4);out[68]=(n->admission.eligible?1:0)|(g->inhibited?2:0);
  out[69]=n->quality.priority1;out[70]=n->quality.clock_class;out[71]=n->quality.accuracy;out[72]=n->quality.priority2;P(73,n->quality.variance,2);
- P(76,g->active,8);P(84,g->active_boot,8);P(92,(g->role==R2_GM5_HOT||g->role==R2_GM5_ACQUIRING)?n->identity:g->selected,8);
+ P(76,g->active,8);P(84,g->active_boot,8);P(92,(g->role==R2_GM5_HOT||g->role==R2_GM5_ACQUIRING)?n->identity:g->contacting?0:g->selected,8);
  unsigned p=gm5_slot(n,g->selected);P(100,p<n->count?n->peer[p].boot:0,8);
  P(108,g->role==R2_GM5_ACTIVE?g->generation:n->management_generation,4);P(112,g->role==R2_GM5_ACTIVE?g->issued_until:g->grant_until,8);P(120,g->attempt_until,8);
  P(128,n->admission.observing?milliseconds(n->now-n->admission.stable_at):0,4);P(132,g->last_reason,4);P(136,g->negative_root,8);

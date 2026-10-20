@@ -10,11 +10,13 @@ static int sys_csrand_get(void *out,size_t size){static uint64_t nonce=1000;asse
 #include "../protocol/ble_transport.c"
 #include "../src/group_admission.c"
 #include <stdio.h>
+#include "gm_standby_handoff.h"
 static int bt_conn_le_create(const bt_addr_le_t *a,const void *b,const void *c,struct bt_conn **out){
  ++initiations;if(!create_pending)return -EBUSY;
  connection=(struct bt_conn){.address=*a,.refs=1};*out=&connection;return 0;
 }
 static struct r2_network n;
+static struct r2_group_client accepted_anchor;
 static void reset(void)
 {
  memset(peers,0,sizeof peers);memset(candidates,0,sizeof candidates);candidate_since=0;memset(&gatt_request,0,sizeof gatt_request);
@@ -57,7 +59,8 @@ static struct r2_join_exchange authenticate_client(bool foreign_time)
  r.kind=R2_JOIN_ACCEPT;r.sequence=2;r.created_us=e.at=++fake_time;r.echo_us=proof.created_us;
  if(foreign_time){r.source_flags=1;r.root=111;r.root_boot=11;r.source_epoch=1;r.publication=1;r.utc_us=INT64_C(1791417600000000);r.remaining_us=1500000;r.source_bound_us=40000;}
  assert(!r2_group_join_encode(e.data,&r,&n.group));n.now=fake_time;r2_group_admission_receive(&n,&e,n.now);
- if(foreign_time){struct r2_group_client public;r2_group_admission_client(&public);assert(!public.passive&&public.source&&public.root==111&&n.local_gm&&n.ready&&n.gm5.role==R2_GM5_ACTIVE&&n.gm5.active==n.identity&&!n.gm5.selected);}
+ accepted_anchor=client;
+ if(foreign_time){struct r2_group_client public;r2_group_admission_client(&public);assert(public.source&&public.root==111);if(n.gm5.role==R2_GM5_ACTIVE)assert(!public.passive&&n.local_gm&&n.ready&&n.gm5.active==n.identity&&!n.gm5.selected);}
  assert(exchange.accepted&&!exchange.control&&gm5_send);n.now=++fake_time;r2_group_admission_tick(&n,n.now);assert(!gm5_send&&gm5_phase==0);
  return (struct r2_join_exchange){.self=111,.peer=333,.boot=11,.peer_boot=33,.nonce=77,.remote_nonce=request.client_nonce,.until=exchange.until,.accepted=true,.server=true};
 }
@@ -120,8 +123,50 @@ static void missed_active_polls(bool pending)
  puts(pending?"PASS four actual ACTIVE missed poll windows:100ms pending create cancellation, delayed callback drain,2s cooldown, fixed5s next opportunities and continuous source service":
               "PASS four actual ACTIVE missed poll windows: native create EBUSY,2s cooldown, fixed5s next opportunities and continuous source service");
 }
-int main(void)
+static void write_handoff(const char *path)
 {
+ reset();struct r2_join_exchange server=authenticate_client(true);
+ assert(client.source&&client.passive&&client.at==accepted_anchor.at&&client.until==accepted_anchor.until);
+ struct r2_network a;assert(!r2_network_init(&a,0,2,111,11,99,40000,n.now));a.group=n.group;a.gm5.enabled=true;a.gm5.role=R2_GM5_ACTIVE;a.gm5.active=111;a.gm5.active_boot=11;a.gm5.selected=333;a.admission.eligible=true;a.candidate.generation=1;
+ struct r2_ble_event e={.peer=4,.length=R2_GM5_STATUS_BYTES,.at=++fake_time};a.now=n.now=fake_time;
+ assert(!r2_gm5_status_encode(&a,&server,1,e.data));r2_group_admission_receive(&n,&e,n.now);
+ n.now=++fake_time;r2_group_admission_tick(&n,n.now);assert(promote&&n.gm5.role==R2_GM5_ACQUIRING);
+ fake_time+=50001;n.now=fake_time;r2_group_admission_tick(&n,n.now);assert(n.peer[1].identity==111&&peers[1].conn==&connection&&!peers[4].conn);
+ n.admission.boot_at=n.admission.stable_at=0;n.admission.observing=true;n.admission.source_epoch=1;n.admission.last_expiry=n.now+1500000;
+ struct r2_clock own={0};own.view.source_available=true;own.view.source_epoch=1;own.last_pair_edge=own.last_rmc=n.now;own.last_pair_utc=INT64_C(1791417600000000)+n.now;
+ r2_network_tick(&n,&own,n.now);struct v12_dc_snapshot authority;r2_network_snapshot(&n,&authority);
+ assert(n.choice==1&&!authority.relative_precision_permitted&&!n.ready&&!n.hot_ready&&!n.standby_authorized);
+ struct gm5_handoff_fixture f={.accepted=accepted_anchor,.promoted=client,.at=n.now,
+  .selected={.root=authority.elected_root,.boot=authority.root_boot,.source_epoch=authority.coarse.generation,.publication_epoch=n.publication}};
+ assert(!f.promoted.passive&&f.promoted.source&&f.promoted.at==f.accepted.at&&f.promoted.until==f.accepted.until);
+ FILE *file=fopen(path,"wb");assert(file&&fwrite(&f,sizeof f,1,file)==1&&!fclose(file));
+ puts("PASS actual JOIN ACCEPT -> COLD tick -> STATUS1/2 ->50ms promotion -> network selected scope, original anchor retained for independent PT owner");
+}
+static void late_appointment(void)
+{
+ reset();struct r2_join_exchange server=authenticate_client(false);
+ struct r2_network a;assert(!r2_network_init(&a,0,2,111,11,99,40000,n.now));a.group=n.group;a.gm5.enabled=true;a.gm5.role=R2_GM5_ACTIVE;a.gm5.active=111;a.gm5.active_boot=11;a.local_gm=a.ready=true;a.choice=0;a.root_boot=11;a.publication=1;
+ a.admission=(struct r2_source_admission){.boot_at=0,.stable_at=0,.source_epoch=1,.last_expiry=n.now+1500000,.observing=true,.eligible=true};a.gm_mask=a.gnss_mask=1;
+ a.candidate=(struct v12_dc_coarse){.available=true,.generation=1,.valid_until_us=n.now+1500000};a.gm5.next_attempt=n.now+1000000;
+ uint64_t gate=a.gm5.next_attempt;assert(!r2_gm5_status_receive(&a,&server,0,peers[4].tx[0],R2_GM5_STATUS_BYTES,n.now)&&!a.gm5.selected);
+ struct r2_ble_event e={.peer=4,.length=R2_GM5_STATUS_BYTES,.at=++fake_time};a.now=n.now=fake_time;
+ assert(!r2_gm5_status_encode(&a,&server,1,e.data)&&!r2_group_get(e.data+92,8));r2_group_admission_receive(&n,&e,n.now);
+ n.now=++fake_time;r2_group_admission_tick(&n,n.now);uint64_t due=n.gm5.next_poll;assert(gm5_done&&!promote&&n.gm5.role==R2_GM5_COLD);
+ fake_time+=50001;n.now=fake_time;r2_group_admission_tick(&n,n.now);assert(!active);callbacks.disconnected(&connection,19);
+ fake_time=gate+1;struct r2_clock source={0};source.view.source_available=true;source.view.source_epoch=1;source.last_pair_edge=source.last_rmc=fake_time;source.last_pair_utc=INT64_C(1791417600000000)+fake_time;
+ r2_network_tick(&a,&source,fake_time);assert(a.gm5.selected==333&&a.gm5.contacting);uint64_t contact_until=a.gm5.attempt_until;
+ for(uint64_t at=fake_time;at<due;at+=5000){fake_time=at;r2_ble_gm5_policy(true,0,false);r2_ble_client_window(false);r2_ble_poll(at);assert(!scanning&&!advertising&&!sync_acquiring&&!precision_discovery&&a.gm5.attempt_until==contact_until);}
+ fake_time=n.now=due;server=authenticate_client(false);a.now=n.now;a.candidate.valid_until_us=a.now+1500000;
+ assert(!r2_gm5_status_receive(&a,&server,0,peers[4].tx[0],R2_GM5_STATUS_BYTES,a.now)&&a.gm5.contacting);
+ e.at=a.now=n.now=++fake_time;assert(!r2_gm5_status_encode(&a,&server,1,e.data)&&!a.gm5.contacting&&a.gm5.attempt_until==a.now+R2_GM5_ACQUIRE_US);
+ assert(a.gm5.attempt_until>contact_until+R2_GM5_STABLE_US);r2_group_admission_receive(&n,&e,n.now);n.now=++fake_time;r2_group_admission_tick(&n,n.now);
+ assert(promote&&n.gm5.role==R2_GM5_ACQUIRING&&!n.hot_ready&&!n.standby_authorized);
+ puts("PASS actual failed-attempt gate just after STATUS closes: COLD stays quiet until original30s poll; fixed CONTACT survives, matching reply starts full original30s PA acquisition once");
+}
+int main(int argc,char **argv)
+{
+ if(argc==2){write_handoff(argv[1]);return 0;}assert(argc==1);
+ late_appointment();
  missed_active_polls(false);missed_active_polls(true);
  reset();n.gm5.role=R2_GM5_ACTIVE;n.gm5.active=n.identity;n.gm5.active_boot=n.boot;n.local_gm=n.ready=true;n.choice=0;n.root_boot=n.boot;
  (void)authenticate_client(true);
@@ -131,9 +176,12 @@ int main(void)
  }
  n.gm5.role=R2_GM5_COLD;
  puts("PASS bridge exception only while COLD and configured transmitter explicitly requests forwarding; OFF/ACTIVE/HOT do not add leaf work");
+ client=(struct r2_group_client){.passive=true,.source=true,.root=111,.boot=11,.source_epoch=1,.publication=1,.at=n.now,.until=n.now+1500000,.uncertainty_us=40000};
+ uint64_t original_anchor=client.at,original_permit=client.until;
  unsigned starts=scan_starts,calls=initiations;
  for(unsigned i=0;i<10000;i++){fake_time=70000000+i*1000;n.now=fake_time;r2_group_admission_tick(&n,fake_time);r2_ble_client_window(false);r2_ble_poll(fake_time);r2_ble_client_seek(fake_time,true);}
  assert(scan_starts==starts&&initiations==calls&&!scanning&&!advertising&&!precision_discovery&&!sync_acquiring);
+ assert(client.source&&client.at==original_anchor&&client.until==original_permit);
  puts("PASS10s healthy COLD: zero scan starts, initiations, precision acquisitions or standing control links between status opportunities");
  reset();unsigned visits[3]={0};bt_addr_le_t address={.type=BT_ADDR_LE_RANDOM};r2_ble_admission_policy(0,false);
  for(unsigned opportunity=0;opportunity<9;opportunity++){

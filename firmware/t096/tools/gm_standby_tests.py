@@ -26,6 +26,12 @@ try:
  with (out/'transport.compile.log').open('x')as log:subprocess.run(cmd[:cmd.index(str(units[0]))]+['-Wno-unused-function','-Wno-unused-variable','-Wno-unused-parameter',f'-I{out}',f'-I{app/"tests"}']+list(map(str,transport_units))+['-o',str(out/'transport')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=60)
  with (out/'transport.run.log').open('x')as log:subprocess.run([str(out/'transport')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
  stages.append('native_admission_transport')
+ radio_units=[app/'tests/radio_service_test.c',*[app/'src'/x for x in ['radio_precision.c','relay_precision.c','core.c','clock.c','nmea.c','precision.c']],*[app/'protocol'/x for x in ['role_announcement.c','group_join.c','group_auth.c','group_control.c','group_precision.c','authority_codec.c','precision_codec.c','relay_codec.c']],*[tiny/'source'/x for x in ['hmac.c','sha256.c','utils.c']]]
+ with (out/'handoff.compile.log').open('x')as log:subprocess.run(cmd[:cmd.index(str(units[0]))]+['-Wno-unused-parameter',f'-I{out}',f'-I{app/"tests"}']+list(map(str,radio_units))+['-o',str(out/'handoff')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=60)
+ with (out/'handoff.producer.log').open('x')as log:subprocess.run([str(out/'transport'),str(out/'handoff.bin')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
+ for mode in range(35,50):
+  with (out/f'handoff-{mode}.log').open('x')as log:subprocess.run([str(out/'handoff'),str(mode),str(out/'handoff.bin')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
+ stages.append('actual_producer_precision_mailbox_15_cases')
  cases=[(0,i,4)for i in range(1 if a.quick else 24)]+[(i,0,k)for i in range(1,15)for k in ([4]if a.quick else [3,4])]+([]if a.quick else [(0,i,3)for i in range(6)])
  for scenario,order,nodes in cases:
   with (out/f'{scenario}-{order}-{nodes}.log').open('x')as log:r=subprocess.run([str(out/'simulator'),str(scenario),str(order),str(nodes)],stdout=log,stderr=subprocess.STDOUT,timeout=60)

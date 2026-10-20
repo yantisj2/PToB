@@ -5,7 +5,7 @@
 *Illustrative firmware-rendered RC screen; displayed values are not measured
 performance. [Image provenance](../../docs/images/README.md).*
 
-**PToB owns T096 RC7 development.** Current source version **0.15.136** supplies the
+**PToB owns T096 RC7 development.** Current source version **0.15.137** supplies the
 ordinary **GM** and **RC** mesh profiles, with USB timing compiled by default.
 [Build from source](../../docs/t096/build.md) with pinned public dependencies
 and ignored local enrollment. No enrolled binary is distributed.
@@ -38,6 +38,10 @@ opportunities while ACTIVE has no selected peer, retaining the original1s window
 Version136 prevents foreign inventory JOIN from briefly putting a serving G5
 ACTIVE into passive timing mode. CONTROL consumes PT's latched close intent even
 if the scope recovers between cycles, preserving the first resource-drain deadline.
+Version137 keeps one bounded contact phase before actual successor acquisition;
+sparse COLD discovery cannot spend the PA acquisition deadline before appointment.
+It also retains the original causal JOIN anchor across control promotion so a
+delayed precision-owner job can acquire the selected root without fabricated timing.
 Finite successor grants, bounded repair/cooldown and paged `gm` diagnostics support
 unstable/off-host testing. The sole requested LoRa transmitter may retain ordinary
 BLE leaf timing while COLD; that exception adds no GM-control/HOT authority.

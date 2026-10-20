@@ -367,7 +367,9 @@ void r2_group_admission_tick(struct r2_network *n, uint64_t now) {
    client.passive=!control&&!n->local_gm;
    r2_ble_group_client(client.passive);
    if(!n->gm5.bridge)r2_ble_client_bootstrap(r2_gm5_poll_due(n,now)||control,false);
-   if(!n->gm5.bridge&&client.passive)client.source=false;
+   /* Retain the original causal anchor for a later appointment. The service
+    * suppresses true COLD precision publication; destroying this evidence
+    * here races STATUS promotion and the independent precision owner. */
   }
   if(n->gm5.enabled&&active&&gm5_send&&ready&&exchange.accepted&&now<exchange.until){
    uint8_t wire[R2_GM5_STATUS_BYTES];int rc=r2_gm5_status_encode(n,&exchange,gm5_phase,wire);

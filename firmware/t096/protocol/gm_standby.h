@@ -7,6 +7,7 @@
 #define R2_GM5_CANDIDATES 3u
 #define R2_GM5_HISTORY 3u
 #define R2_GM5_REPAIR_US UINT64_C(10000000)
+#define R2_GM5_CONTACT_US UINT64_C(30000000)
 #define R2_GM5_ACQUIRE_US UINT64_C(30000000)
 #define R2_GM5_STABLE_US UINT64_C(5000000)
 #define R2_GM5_GRANT_US UINT64_C(10000000)
@@ -16,7 +17,7 @@ enum r2_gm5_role {R2_GM5_COLD,R2_GM5_ACQUIRING,R2_GM5_HOT,R2_GM5_ACTIVE};
 enum r2_gm5_reason {R2_GM5_NONE,R2_GM5_SELECTED,R2_GM5_SOURCE,R2_GM5_INHIBITED,
  R2_GM5_TRANSPORT,R2_GM5_MAP,R2_GM5_AUTH,R2_GM5_TIMEOUT,R2_GM5_RETIRED,
  R2_GM5_GRANT_EXPIRED,R2_GM5_TAKEOVER,R2_GM5_MERGE,R2_GM5_NO_CANDIDATE,
- R2_GM5_COMMITTED,R2_GM5_ROOT_CHANGED};
+ R2_GM5_COMMITTED,R2_GM5_ROOT_CHANGED,R2_GM5_CONTACT};
 struct r2_gm5_candidate {
  uint64_t identity,boot,at,until,cooldown,physical_at,physical_until,withdraw_created;
  uint64_t root,root_boot,selected,selected_boot,grant_until,attempt_until,negative_root;
@@ -34,7 +35,7 @@ struct r2_gm5 {
  uint64_t grant_until,issued_until,retire_until,next_poll,ready_at,round_until;
  uint32_t generation,grant_generation,transitions,last_reason;
  uint32_t attempts,failures,successes,status_tx,status_rx,control_tx,control_rx;
- uint8_t role;bool enabled,inhibited,bridge,repair_used,grant_pending;
+ uint8_t role;bool enabled,inhibited,bridge,repair_used,grant_pending,contacting;
 };
 static inline bool r2_gm5_bridge_needed(const struct r2_gm5 *g,bool transmitter,bool requested)
 {return g->enabled&&g->role==R2_GM5_COLD&&transmitter&&requested;}
