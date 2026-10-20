@@ -219,7 +219,7 @@ software mapping diagnostic; RF/board latency and physical bias remain unknown.
 AUTO waits180s without live BLE relative lock before RX, then requires180s
 continuous BLE lock before stopping. Main-page upstream reception mode and RF
 help/blank gestures remain unchanged. Third-page1.5s hold selects the opposite
-AUTO radio state; a second hold restoresAUTO. Overrides are volatile. BLE remains
+AUTO radio state. FromKEEP_ON a hold selectsKEEP_OFF; fromKEEP_OFF it restoresAUTO. Overrides are volatile. BLE remains
 the preferred time source while actually following. LoRa is display fallback
 only, with no BLE clock writes, precision training, downstream authority or TX.
 

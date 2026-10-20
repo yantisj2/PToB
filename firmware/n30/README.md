@@ -53,7 +53,8 @@ performance. [Reproduction and arrival checklist](../../docs/n30/build.md).
   freshness remain distinct; companions and display refreshes cannot renew it.
   LoRa never trains BLE, grants downstream authority or enables GM/GNSS/USB time.
 - On the third screen only, hold 1.5 seconds to select `KEEP ON` while AUTO is
-  off, or `KEEP OFF` while AUTO is on. The next hold returns to AUTO. One press
+  off, or `KEEP OFF` while AUTO is on. A hold in `KEEP ON` selects `KEEP OFF`;
+  the next hold from `KEEP OFF` returns to AUTO. One press
   produces one action; leaving the page cancels it. Override is volatile and
   boots into AUTO. The automatic dwell tracking continues during an override.
   The new page follows T096's RX/mode/time/link-quality/root/parent composition.

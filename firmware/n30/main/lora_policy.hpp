@@ -21,7 +21,7 @@ class LoRaPolicy {
  }
  bool requested()const{return mode_==LoRaMode::KeepOn||(mode_==LoRaMode::Auto&&automatic_);}
  LoRaMode mode()const{return mode_;}
- void toggle(){mode_=mode_==LoRaMode::Auto?(requested()?LoRaMode::KeepOff:LoRaMode::KeepOn):LoRaMode::Auto;}
+ void toggle(){mode_=mode_==LoRaMode::Auto?(requested()?LoRaMode::KeepOff:LoRaMode::KeepOn):mode_==LoRaMode::KeepOn?LoRaMode::KeepOff:LoRaMode::Auto;}
  void set(LoRaMode mode){mode_=mode;}
  uint32_t remaining_ms(uint64_t now)const{
   if(mode_!=LoRaMode::Auto||!seen_||now<changed_||good_!=automatic_)return 0;
