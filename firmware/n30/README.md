@@ -2,7 +2,7 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
 
-**Version 0.1.2 corrects N30 ten-row console admission and budgets the display row within the shared 8704-byte frame. First-install qualification is in progress.**
+**Version 0.1.3 corrects N30 ten-row console admission and display-only command routing while preserving shared W12 radio behavior. First-install qualification is in progress.**
 Meshnology N30 / Heltec WiFi LoRa32 V3 is the proposed board route: ESP32-S3,
 8 MB flash, 128×64 OLED mounted as a 64×128 portrait display, UART0 console via
 USB serial bridge. Exact incoming revision, display controller, rail/pin route,

@@ -488,6 +488,11 @@ void command(const char* text){
     const bool ok=update_gate.begin(admitted);if(ok){stop_all();v12::capture_stop();}
     last_command={nonce,admitted,ok,"PREPARE_UPDATE",ok?"ORIGINAL_2S_DRAIN":"LATCHED_OR_EXHAUSTED"};
   }else if(update_gate.latched()){last_command.reason="UPDATE_GATE_LATCHED";}
+  // Presentation owns no BLE resource. Retain ticket/boot/maintenance guards,
+  // then admit it before the shared radio-ownership fence.
+  else if(!std::strcmp(action,"ui page 0")||!std::strcmp(action,"ui page 1")){
+    const bool ok=n30_display_page(action[8]-'0');last_command={nonce,admitted,ok,"UI_PAGE",ok?"DISPLAY_ONLY":"INVALID_PAGE"};
+  }
 #ifdef V12_R2_RC7_TX_ESTIMATE_LAB
   else if(!std::strcmp(action,"watchdog-test")){
     const bool ok=v12::fault_watchdog_test();if(ok)stop_all();
@@ -522,9 +527,6 @@ void command(const char* text){
     const auto ls=v12::lora_status();const bool ok=!ls.enabled&&!ls.requested&&!ls.worker_busy&&ls.off_acknowledged&&!ls.failed&&v12::r2_request(chosen,duration,nonce);last_command={nonce,admitted,ok,"R2",ok?"FINITE_R2_ORIGINAL_LEASE":"R2_RESOURCE_PROFILE_OR_BOUND"};
   }else if(!r2_command_off_ack()&&std::strncmp(action,"capture ",8)){last_command.reason="R2_OWNS_BLE";}
 #endif
-  else if(!std::strcmp(action,"ui page 0")||!std::strcmp(action,"ui page 1")){
-    const bool ok=n30_display_page(action[8]-'0');last_command={nonce,admitted,ok,"UI_PAGE",ok?"DISPLAY_ONLY":"INVALID_PAGE"};
-  }
   else if(!std::strcmp(action,"capture stop")){
     v12::capture_stop();last_command={nonce,admitted,true,"CAPTURE_STOP","OBSERVER_ONLY_SERVICE_UNCHANGED"};
   }
@@ -662,7 +664,7 @@ extern "C" void app_main(){
     " max_data=191 max_GMs=4 activities=6 syncs=2 adv_sets=2 mtu=247"
     " precision=UNAVAILABLE GM=DISABLED LoRa=OFF WiFi=OFF PTS=OFF\n",
     V12_UNIT,factory_text,unsigned(identity),session,V12_SOURCE_REVISION,V12_BUILD_ID);
-  std::printf("N30_TARGET version=0.1.2 profile=RC GPS=ABSENT flash_mb=8 console=UART0_43_44 hardware=UNVALIDATED\n");
+  std::printf("N30_TARGET version=0.1.3 profile=RC GPS=ABSENT flash_mb=8 console=UART0_43_44 hardware=UNVALIDATED\n");
   if(!identity||!session){std::printf("W12_V12_FATAL reason=FACTORY_OR_BOOT_BINDING peripherals=UNTOUCHED\n");return;}
   if(!v12::fault_watchdog_start(factory,session)){std::printf("W12_V12_FATAL reason=FAULT_SUPERVISOR\n");return;}
   // This initial diagnostic candidate never initializes, migrates or writes

@@ -142,3 +142,10 @@ render both receiver/experimental-relay formats at maximum numeric widths.
 The initial0.1.1 installation booted and received the mesh, but rejected its
 ten-row status at the historical nine-row submission guard. Keep that failed
 console observation distinct from the corrected-image checks.
+
+Version0.1.3 routes the ticket-bound display-only page commands before the BLE
+ownership fence, after identity and maintenance checks. The physical buttons
+remain on their existing display-worker path. A compiled test of the actual
+dispatcher verifies page control with the receiver active, unchanged radio
+state, and rejection of wrong identity/boot, replayed or expired tickets and
+commands during maintenance. This changes no W12 timing or radio source.
