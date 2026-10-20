@@ -269,8 +269,8 @@
     {
       "file": "n30-clock-preview.png",
       "source": "firmware/n30/tools/preview.py",
-      "sha256": "68d6a10a6658fe37fe16d087f7be189e7769b2d8a10f59e3ffd6e796c9ef2f58",
-      "bytes": 829,
+      "sha256": "ee5235c3b2b1483b420652b9e5e35d5f65d2bb0233d426d4487c37ffd4199a73",
+      "bytes": 834,
       "dimensions": [
         64,
         128
@@ -278,10 +278,10 @@
       "transformation": "Native monochrome production-renderer output; no pixel rescaling.",
       "scope": "Offline N30 page clock; synthetic illustrative N3-1 state, no hardware or precision evidence.",
       "source_files": {
-        "tools/preview.cpp": "5b412f102b59a3f3258779e7635dc03cf7078c6e14bd6c82e67cc5ddef8bd288",
-        "main/ui.hpp": "2862e7b705bd4ca7c2568e90f6b3666f0b967770e62a9354e6d6e007903896dd",
-        "main/ui_model.cpp": "1d1056c0a939085f507eecf62199e9810de163462e5808921b63d97e6bfaa5b6",
-        "main/ui_render.cpp": "7881048444840445c6784038e2e1ffb9ae9341cd8753bf8c7954d47bd2787ac9",
+        "tools/preview.cpp": "3a553ac7ab712da3afee07cb542f4bb5167bf08dd5debb0c6bb928b9cc19e7ab",
+        "main/ui.hpp": "078dc07fe19e5567e049622234eb57c940bf3b2ab199c59cb5cc3646c5d8db53",
+        "main/ui_model.cpp": "581aa11520f93bf8d70af1da790281d4a32c1159888fca3454a53881ecd90339",
+        "main/ui_render.cpp": "715161b1d58b73406398fe786d2377a507b96912263b44028d1e80b7e7fd7fed",
         "main/font.inc": "814ce6f3ffd7b828706765284e56393ca0e53874ee4fd3f823213ddd4d3d44df"
       }
     },
@@ -297,10 +297,10 @@
       "transformation": "Native monochrome production-renderer output; no pixel rescaling.",
       "scope": "Offline N30 page rf; synthetic illustrative N3-1 state, no hardware or precision evidence.",
       "source_files": {
-        "tools/preview.cpp": "5b412f102b59a3f3258779e7635dc03cf7078c6e14bd6c82e67cc5ddef8bd288",
-        "main/ui.hpp": "2862e7b705bd4ca7c2568e90f6b3666f0b967770e62a9354e6d6e007903896dd",
-        "main/ui_model.cpp": "1d1056c0a939085f507eecf62199e9810de163462e5808921b63d97e6bfaa5b6",
-        "main/ui_render.cpp": "7881048444840445c6784038e2e1ffb9ae9341cd8753bf8c7954d47bd2787ac9",
+        "tools/preview.cpp": "3a553ac7ab712da3afee07cb542f4bb5167bf08dd5debb0c6bb928b9cc19e7ab",
+        "main/ui.hpp": "078dc07fe19e5567e049622234eb57c940bf3b2ab199c59cb5cc3646c5d8db53",
+        "main/ui_model.cpp": "581aa11520f93bf8d70af1da790281d4a32c1159888fca3454a53881ecd90339",
+        "main/ui_render.cpp": "715161b1d58b73406398fe786d2377a507b96912263b44028d1e80b7e7fd7fed",
         "main/font.inc": "814ce6f3ffd7b828706765284e56393ca0e53874ee4fd3f823213ddd4d3d44df"
       }
     },
@@ -316,10 +316,10 @@
       "transformation": "Native monochrome production-renderer output; no pixel rescaling.",
       "scope": "Offline N30 saver-ble; synthetic illustrative N3-1 state, no hardware or precision evidence.",
       "source_files": {
-        "tools/preview.cpp": "5b412f102b59a3f3258779e7635dc03cf7078c6e14bd6c82e67cc5ddef8bd288",
-        "main/ui.hpp": "2862e7b705bd4ca7c2568e90f6b3666f0b967770e62a9354e6d6e007903896dd",
-        "main/ui_model.cpp": "1d1056c0a939085f507eecf62199e9810de163462e5808921b63d97e6bfaa5b6",
-        "main/ui_render.cpp": "7881048444840445c6784038e2e1ffb9ae9341cd8753bf8c7954d47bd2787ac9",
+        "tools/preview.cpp": "3a553ac7ab712da3afee07cb542f4bb5167bf08dd5debb0c6bb928b9cc19e7ab",
+        "main/ui.hpp": "078dc07fe19e5567e049622234eb57c940bf3b2ab199c59cb5cc3646c5d8db53",
+        "main/ui_model.cpp": "581aa11520f93bf8d70af1da790281d4a32c1159888fca3454a53881ecd90339",
+        "main/ui_render.cpp": "715161b1d58b73406398fe786d2377a507b96912263b44028d1e80b7e7fd7fed",
         "main/font.inc": "814ce6f3ffd7b828706765284e56393ca0e53874ee4fd3f823213ddd4d3d44df"
       }
     },
@@ -335,10 +335,10 @@
       "transformation": "Native monochrome production-renderer output; no pixel rescaling.",
       "scope": "Offline N30 saver-rc1; synthetic illustrative N3-1 state, no hardware or precision evidence.",
       "source_files": {
-        "tools/preview.cpp": "5b412f102b59a3f3258779e7635dc03cf7078c6e14bd6c82e67cc5ddef8bd288",
-        "main/ui.hpp": "2862e7b705bd4ca7c2568e90f6b3666f0b967770e62a9354e6d6e007903896dd",
-        "main/ui_model.cpp": "1d1056c0a939085f507eecf62199e9810de163462e5808921b63d97e6bfaa5b6",
-        "main/ui_render.cpp": "7881048444840445c6784038e2e1ffb9ae9341cd8753bf8c7954d47bd2787ac9",
+        "tools/preview.cpp": "3a553ac7ab712da3afee07cb542f4bb5167bf08dd5debb0c6bb928b9cc19e7ab",
+        "main/ui.hpp": "078dc07fe19e5567e049622234eb57c940bf3b2ab199c59cb5cc3646c5d8db53",
+        "main/ui_model.cpp": "581aa11520f93bf8d70af1da790281d4a32c1159888fca3454a53881ecd90339",
+        "main/ui_render.cpp": "715161b1d58b73406398fe786d2377a507b96912263b44028d1e80b7e7fd7fed",
         "main/font.inc": "814ce6f3ffd7b828706765284e56393ca0e53874ee4fd3f823213ddd4d3d44df"
       }
     },
@@ -354,10 +354,10 @@
       "transformation": "Native monochrome production-renderer output; no pixel rescaling.",
       "scope": "Offline N30 saver-rc2; synthetic illustrative N3-1 state, no hardware or precision evidence.",
       "source_files": {
-        "tools/preview.cpp": "5b412f102b59a3f3258779e7635dc03cf7078c6e14bd6c82e67cc5ddef8bd288",
-        "main/ui.hpp": "2862e7b705bd4ca7c2568e90f6b3666f0b967770e62a9354e6d6e007903896dd",
-        "main/ui_model.cpp": "1d1056c0a939085f507eecf62199e9810de163462e5808921b63d97e6bfaa5b6",
-        "main/ui_render.cpp": "7881048444840445c6784038e2e1ffb9ae9341cd8753bf8c7954d47bd2787ac9",
+        "tools/preview.cpp": "3a553ac7ab712da3afee07cb542f4bb5167bf08dd5debb0c6bb928b9cc19e7ab",
+        "main/ui.hpp": "078dc07fe19e5567e049622234eb57c940bf3b2ab199c59cb5cc3646c5d8db53",
+        "main/ui_model.cpp": "581aa11520f93bf8d70af1da790281d4a32c1159888fca3454a53881ecd90339",
+        "main/ui_render.cpp": "715161b1d58b73406398fe786d2377a507b96912263b44028d1e80b7e7fd7fed",
         "main/font.inc": "814ce6f3ffd7b828706765284e56393ca0e53874ee4fd3f823213ddd4d3d44df"
       }
     }

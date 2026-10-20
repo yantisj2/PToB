@@ -25,6 +25,7 @@ struct View {
 bool current(const Model&,uint64_t now);
 bool time(const Model&,uint64_t now,uint64_t& utc);
 bool analog_time(const Model&,uint64_t now,uint64_t& utc);
+bool pps_on(const Model&,uint64_t now);
 const char* source_label(const Model&,uint64_t now);
 void render(uint8_t frame[FrameBytes],const Model&,const View&,uint64_t now);
 // Logical portrait bitmap -> native 128x64 OLED pages. Both mounted rotations.

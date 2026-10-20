@@ -182,3 +182,12 @@ and30s movement clocks continue; wake/navigation overrides grace immediately.
 All six underlying-page/position combinations, exact deadline, movement-boundary
 recovery, stale input, transfer resets and pixel retention are tested offline.
 Console/live timing validity and W12/T096 code are unaffected by the pixel cache.
+
+Version0.1.7 keeps4Hz clock/saver and8Hz RF rates while anchoring their wakes to
+the current modeled UTC phase. Host tests cover exact second/pulse boundaries,
+arbitrary boot phase, model corrections, missed slots and changed-span ordering
+in both rotations. The main dashboard and saver share one BLE-derived PPS gate;
+a cached500ms clock never invents fresh pulses. `N30_UI phase_us` records the
+maximum routine UTC-slot render-start lateness, excluding forced navigation;
+I2C transfer and panel scanout still add latency. No physical PPS output or
+independently measured display-edge/UTC accuracy is established.

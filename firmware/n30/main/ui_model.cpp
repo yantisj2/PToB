@@ -9,6 +9,7 @@ bool time(const Model& m,uint64_t now,uint64_t& utc){
  utc=m.utc_us+(now-m.utc_at_us);return true;
 }
 bool analog_time(const Model& m,uint64_t now,uint64_t& utc){return time(m,now,utc)&&m.locked&&m.state==State::Follow&&m.source!=Source::None;}
+bool pps_on(const Model& m,uint64_t now){uint64_t utc;return !m.mode_pending&&analog_time(m,now,utc)&&utc%1000000<250000;}
 void ClockHold::update(const Model& m,View& v,uint64_t now,bool saver_due){
  v.clock_frozen=false;
  if(v.help||v.blank||(seen_&&now<observed_)){reset();return;}

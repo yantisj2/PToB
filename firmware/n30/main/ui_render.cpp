@@ -32,12 +32,12 @@ void render(uint8_t f[FrameBytes],const Model& m,const View& v,uint64_t now){
   // Rigidly translated and scaled to64x128; no digital dashboard in saver.
   const int top=4+22*(v.saver_position%3);box(f,1,top,62,11);
   text(f,5,top+2,"UTC");text(f,33,top+2,source_label(m,now));
-  if((utc/250000)%4==0)fill(f,56,top+3,3,5);
+  if(pps_on(m,now))fill(f,56,top+3,3,5);
   box(f,1,top+13,62,49);dial(f,top+37,utc,m.hz);header(f,m,true,top+64);return;
  }
  header(f,m,fresh);
  if(v.page%2==0){
-  box(f,1,12,62,28);text(f,5,15,"UTC");text(f,39,15,source_label(m,now));digital(f,24,valid,utc);
+  box(f,1,12,62,28);text(f,5,15,"UTC");text(f,33,15,source_label(m,now));if(pps_on(m,now))fill(f,56,16,3,5);digital(f,24,valid,utc);
   box(f,1,42,62,49);if(locked)dial(f,66,utc,m.hz);else{center(f,54,state(m,fresh));center(f,70,valid?"REL CLOCK":"NO TIME");}
   box(f,1,93,62,35);center(f,96,"SYNC RMS");char s[16];rms(s,sizeof s,valid&&m.state==State::Follow?m.rms_ns:UINT32_MAX);center(f,107,s);
   if(locked){box(f,3,106,6,8);box(f,4,103,4,5);}fill(f,4,117,56,1);text(f,5,120,"RC");if(fresh&&m.mode_pending)text(f,23,120,">");else if(fresh&&m.relay_only)text(f,23,120,"R");if(fresh&&m.serving)fill(f,20,121,3,3);
@@ -59,5 +59,8 @@ void ClockHold::draw(uint8_t frame[FrameBytes],const Model& m,const View& v,uint
   std::memcpy(frame,image_,103*8);
   std::memcpy(frame+116*8,image_+116*8,12*8);
  }
+ // Cached clock pixels are never evidence of a fresh UTC edge. Keep the
+ // assembly still during grace, but suppress its PPS lamp without a live gate.
+ fill(frame,56,saver_?7+22*(position_%3):16,3,5,false);
 }
 }

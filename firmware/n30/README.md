@@ -2,7 +2,7 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
 
-**Version 0.1.6 keeps UTC digits and analog time together during brief reception/quality loss, and retains the moving screensaver in place for the same500ms grace. First-install qualification is in progress.**
+**Version 0.1.7 aligns modest display refreshes to modeled UTC and shows the BLE-derived PPS blink on both the main dashboard and saver. The 500 ms UTC/analog/saver grace is retained.**
 Meshnology N30 / Heltec WiFi LoRa32 V3 is the proposed board route: ESP32-S3,
 8 MB flash, 128×64 OLED mounted as a 64×128 portrait display, UART0 console via
 USB serial bridge. Exact incoming revision, display controller, rail/pin route,
@@ -41,9 +41,9 @@ performance. [Reproduction and arrival checklist](../../docs/n30/build.md).
 - The analog dial/lock use W12's existing settled relative-quality display gate.
   On the first (main clock) page, the last successfully displayed UTC digits,
   analog hands, source/identity and footer freeze together for500ms after loss
-  of the live analog gate. Only the RMS digits and lock indication remain live
-  during that brief grace. The screensaver retains its complete last frame and
-  position instead of flashing the normal page at the top and reappearing.
+  of the live analog gate. The RMS digits and lock indication remain live
+  during that brief grace; the PPS lamp goes dark without a live lock. The
+  screensaver retains the rest of its last frame and position instead of flashing the normal page at the top and reappearing.
   Recovery resumes live clock rendering; at500ms of continuous loss the current
   syncing/error page appears. Wake/navigation, blank/help and transfer failures
   discard the cache. The normal30s saver movement phase is never reset by a
@@ -64,8 +64,18 @@ performance. [Reproduction and arrival checklist](../../docs/n30/build.md).
   upstream path, independent of requested mode; outside the brief presentation grace, stale/pending time shows `WAIT`
   and a valid local hold shows `HOLD`. No unavailable source is invented.
   There is no runtime GM/RC toggle. Boot-held buttons do not trigger actions.
-- A sole low-priority display/button worker owns I2C. Clock updates target4Hz,
-  RF updates8Hz; missed frames are dropped. Display transfers retain one50ms
+- A sole low-priority display/button worker on core 1 owns I2C; the main timing
+  task and BLE host/controller remain on core 0. Clock/saver updates target 4 Hz,
+  RF 8 Hz, aligned to the current modeled UTC quarter/eighth-second grid. An
+  `esp_timer` one-shot only wakes the worker; it does no rendering or clock work.
+  Buttons retain 10 ms polling and page/wake redraws run promptly. Fresh models
+  rephase pending wakes; missed frames are dropped without catch-up. Both clock
+  surfaces show a 250 ms PPS lamp at the modeled second edge, only while live
+  and relatively locked; HOLD/stale/fault/pending time cannot blink. OLED pages
+  containing the PPS and seconds digits transfer first in either rotation,
+  after the edge, without displaying a predicted future second. `phase_us` is
+  the worst observed routine UTC-slot render-start lateness; it excludes user
+  forced frames and is not a photon/PPS/UTC accuracy measurement. Display transfers retain one 50 ms
   whole-frame deadline and a truthful invalidation after any partial failure.
   The UART console retains bounded queues, CRC frames, tickets and2s update drain.
   `W12_*` console record names remain compatible; `N30_TARGET`/`N30_UI` identify
