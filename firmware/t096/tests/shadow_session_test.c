@@ -19,6 +19,7 @@ int main(void){
  r2_shadow_session_sample(&s,59,108,1,true,999);assert(s.samples==5&&s.missing==1);
  assert(!r2_shadow_session_step(&s,true,false,true,2200));r2_shadow_session_view(&s,&v);
  assert(v.valid&&v.samples==5&&v.mean_tenth_ns==18&&v.p95_ns==18&&v.p99_ns==20&&v.max_ns==20&&!v.approximate&&v.elapsed_ms==1000);
+ assert(v.rms_ns==10); /* sqrt((100+9+0+4+400)/5), no bias removal. */
  assert(!r2_shadow_session_step(&s,false,false,true,2300)&&!s.active);uint32_t n=s.samples;
  r2_shadow_session_sample(&s,60,109,1,true,100);assert(s.samples==n);
  assert(!r2_shadow_session_step(&s,true,true,true,2400)&&s.state==R2_SHADOW_GM&&!s.samples);
@@ -26,6 +27,14 @@ int main(void){
  assert(r2_shadow_session_step(&s,true,false,true,3500));assert(r2_shadow_session_begin(&s,3500,200,2,100));
  for(unsigned i=0;i<2000;i++)r2_shadow_session_sample(&s,101+i,201+i,2,true,2000);
  r2_shadow_session_view(&s,&v);assert(v.samples==2000&&v.mean_tenth_ns==20000&&v.max_ns==2000&&v.approximate);
+ assert(v.rms_ns==2000);
+ /* Cross the 64-bit sum limit with retained half-second errors. */
+ memset(&s,0,sizeof s);s.entered=true;assert(r2_shadow_session_begin(&s,1,1,1,0));
+ for(unsigned i=1;i<=200;i++)r2_shadow_session_sample(&s,i,i+1,1,true,i%2?500000000:-500000000);
+ r2_shadow_session_view(&s,&v);assert(v.mean_tenth_ns==0&&v.rms_ns==500000000&&s.squares_hi);
+ /* Maximum representable population, exact 96-bit accumulated square. */
+ s.samples=UINT32_MAX;s.sum=0;s.squares_hi=0x03782dac;s.squares_lo=UINT64_C(0xe660d25316270000);
+ r2_shadow_session_view(&s,&v);assert(v.rms_ns==500000000);
  assert(sizeof(s)<4500);
  puts("PASS full-second dwell, actual start boundary, invalid/reference/epoch exclusions, all-session mean and tails, navigation/GM stop, fresh reentry, bounded2000sample quantiles");
 }

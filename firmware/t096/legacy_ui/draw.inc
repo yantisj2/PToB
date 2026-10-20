@@ -54,6 +54,8 @@ static const uint8_t punctuation[][5] = {
 static const uint8_t lower_a[5]={0x20,0x54,0x54,0x54,0x78};
 static const uint8_t lower_d[5]={0x38,0x44,0x44,0x48,0x7f};
 static const uint8_t lower_e[5]={0x38,0x54,0x54,0x54,0x18};
+static const uint8_t lower_f[5]={0x08,0x7e,0x09,0x01,0x02};
+static const uint8_t lower_o[5]={0x38,0x44,0x44,0x44,0x38};
 static const uint8_t lower_m[5]={0x7c,0x04,0x78,0x04,0x78};
 static const uint8_t lower_r[5]={0x7c,0x08,0x04,0x04,0x08};
 static const uint8_t lower_t[5]={0x04,0x3f,0x44,0x40,0x20};
@@ -67,6 +69,7 @@ static const uint8_t *glyph(char c) {
     if (c >= '0' && c <= '9') return digits[c - '0'];
     if (c >= 'A' && c <= 'Z') return letters[c - 'A'];
     switch (c) {
+        case 'f': return lower_f;case 'o': return lower_o;
         case '>': return arrow_glyph;
         case 'a': return lower_a;case 'd': return lower_d;case 'e': return lower_e;case 'm': return lower_m;case 'r': return lower_r;case 't': return lower_t;
         case ':': return punctuation[1];

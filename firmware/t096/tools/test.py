@@ -83,6 +83,8 @@ with tempfile.TemporaryDirectory(prefix='t096-r2-test-') as directory:
 
     subprocess.run([*flags,str(APP/'src/ui_render.c'),str(APP/'src/precision.c'),str(APP/'tests/ui_test.c'),'-o',str(out/'ui')],check=True,timeout=30)
     subprocess.run([str(out/'ui'),str(out)],check=True,timeout=30)
+    subprocess.run([*flags,str(APP/'src/precision.c'),str(APP/'tests/ui_precision_test.c'),'-o',str(out/'ui_precision')],check=True,timeout=30)
+    subprocess.run([str(out/'ui_precision'),str(out)],check=True,timeout=30)
     subprocess.run([*flags,str(APP/'src/ui_render.c'),str(APP/'src/precision.c'),str(APP/'tests/ui_sync_display_test.c'),'-o',str(out/'ui_sync_display')],check=True,timeout=30)
     subprocess.run([str(out/'ui_sync_display')],check=True,timeout=30)
     subprocess.run([*flags,'-I'+str(out),'-include',str(APP/'tests/display_fake.h'),str(APP/'tests/display_test.c'),'-o',str(out/'display')],check=True,timeout=30)
@@ -91,7 +93,7 @@ with tempfile.TemporaryDirectory(prefix='t096-r2-test-') as directory:
     subprocess.run([*flags,'-c',str(APP/'src/precision.c'),'-o',str(out/'precision.o')],check=True,timeout=30)
     subprocess.run([*flags,'-c',str(APP/'src/ui_render.c'),'-o',str(out/'ui_render.o')],check=True,timeout=30)
     subprocess.run([*flags,'-I'+str(out),'-include',str(APP/'tests/ui_service_fake.h'),str(APP/'tests/ui_service_test.c'),str(out/'ui_render.o'),str(out/'precision.o'),'-o',str(out/'ui_service')],check=True,timeout=30)
-    for mode in map(str,range(34)):
+    for mode in map(str,[*range(34),*range(35,40)]):
         subprocess.run([str(out/'ui_service'),mode],check=True,timeout=30)
     subprocess.run([*flags,'-I'+str(out),'-include',str(APP/'tests/ui_service_fake.h'),str(APP/'tests/ui_sync_worker_test.c'),str(out/'ui_render.o'),str(out/'precision.o'),'-o',str(out/'ui_sync_worker')],check=True,timeout=30)
     subprocess.run([str(out/'ui_sync_worker')],check=True,timeout=30)

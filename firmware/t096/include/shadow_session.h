@@ -8,12 +8,13 @@
 #include <string.h>
 #include <limits.h>
 #include "shadow_settle.h"
+#include "precision_servo.h"
 #define R2_SHADOW_EXACT_BINS 1024u
 #define R2_SHADOW_BINS (R2_SHADOW_EXACT_BINS+19u)
 enum r2_shadow_page_state {R2_SHADOW_OFF,R2_SHADOW_DWELL,R2_SHADOW_WAIT_PPS,R2_SHADOW_WAIT_MAP,R2_SHADOW_GM,R2_SHADOW_RUNNING,R2_SHADOW_FULL,R2_SHADOW_SETTLING};
 struct r2_shadow_session_view {
  uint64_t elapsed_ms;int64_t mean_tenth_ns;
- uint32_t session,samples,skipped,missing,p95_ns,p99_ns,max_ns;
+ uint32_t session,samples,skipped,missing,p95_ns,p99_ns,max_ns,rms_ns;
  uint32_t warmup,warmup_skipped,warmup_missing,warmup_resets,settling_ms;
  unsigned state;bool active,valid,approximate;
 };
@@ -21,6 +22,9 @@ struct r2_shadow_session {
  /* Startup and measured histogram are disjoint phases. Reuse their storage
   * instead of taking another permanent allocation from the small RAM margin. */
  union {uint32_t histogram[R2_SHADOW_BINS];struct r2_shadow_settle startup;};int64_t sum;
+ /* Exact 96-bit sum: UINT32_MAX samples at the accepted +/-500ms limit.
+  * Three limbs avoid target-specific 128-bit arithmetic and lost tails. */
+ uint64_t squares_lo;uint32_t squares_hi;
  uint64_t entered_ms,started_ms,elapsed_ms,start_tick,epoch;
  uint32_t session,samples,skipped,missing,max_ns,cursor;
  bool entered,active,settled;
@@ -64,6 +68,8 @@ static inline void r2_shadow_session_sample(struct r2_shadow_session *s,uint32_t
  if(epoch!=s->epoch||tick<=s->start_tick||!usable||phase<-500000000||phase>500000000){if(s->skipped<UINT32_MAX)++s->skipped;return;}
  if(s->samples==UINT32_MAX){s->active=false;s->state=R2_SHADOW_FULL;return;}
  uint32_t ns=(uint32_t)(phase<0?-phase:phase);++s->histogram[r2_shadow_bin(ns)];++s->samples;s->sum+=phase;
+ uint64_t square=(uint64_t)ns*ns,previous=s->squares_lo;s->squares_lo+=square;
+ s->squares_hi+=s->squares_lo<previous;
  if(ns>s->max_ns)s->max_ns=ns;
 }
 static inline uint32_t r2_shadow_rank(const struct r2_shadow_session *s,uint32_t rank,bool *approximate){
@@ -81,5 +87,9 @@ static inline void r2_shadow_session_view(const struct r2_shadow_session *s,stru
  if(!s->samples)return;
  int64_t q=s->sum/s->samples,r=s->sum%s->samples;
  v->mean_tenth_ns=q*10+(r*10+(r<0?-(int64_t)s->samples/2:(int64_t)s->samples/2))/s->samples;
+ uint64_t upper=((uint64_t)s->squares_hi<<32)|(s->squares_lo>>32);
+ uint64_t square_mean=(upper/s->samples)<<32;
+ square_mean|=(((upper%s->samples)<<32)|(uint32_t)s->squares_lo)/s->samples;
+ v->rms_ns=r2_servo_rms_floor(square_mean,1);
  v->p95_ns=r2_shadow_percentile(s,95,&v->approximate);v->p99_ns=r2_shadow_percentile(s,99,&v->approximate);
 }

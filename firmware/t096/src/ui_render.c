@@ -51,14 +51,44 @@ void r2_ui_identity_name(char out[25],uint64_t id,const char *name)
  else snprintf(out,25,"--");
 }
 /* Diagnostic evidence stays separate from timing selection and HOT authority. */
+static void shadow_value(char out[16],uint32_t ns,bool valid);
 static bool gps_pps_live(const struct r2_ui_model *m,bool fresh){
  return fresh&&(m->clock.pps_present||(m->pps_precision.epoch&&
    m->pps_precision.age_us>=0&&m->pps_precision.age_us<R2_PPS_FRESH_US));
 }
+static bool local_pps_current(const struct r2_ui_model *m,uint64_t now){
+ if(now<m->sampled_ms||now-m->sampled_ms>2500||!gps_pps_live(m,true))return false;
+ int64_t age=m->clock.pps_present?m->clock.pps_age_us:m->pps_precision.age_us;
+ return age>=0&&age<R2_PPS_FRESH_US&&
+   (now-m->sampled_ms)*1000<(uint64_t)(R2_PPS_FRESH_US-age);
+}
+static bool hot_current(const struct r2_ui_model *m,uint64_t now){
+ return now>=m->sampled_ms&&now-m->sampled_ms<=2500&&
+   !m->profile_rc&&!m->profile_switching&&m->scope_active&&m->role==R2_UI_FOLLOWER&&
+   m->local_hot_standby&&m->precision.authorized&&m->precision.map_valid;
+}
+void r2_ui_holds_update(struct r2_ui_holds *h,const struct r2_ui_model *m,uint64_t now){
+ uint32_t stamp=now/1000<UINT32_MAX?(uint32_t)(now/1000)+1:UINT32_MAX;
+ if(!local_pps_current(m,now))h->pps_since=0;else if(!h->pps_since||h->pps_since>stamp)h->pps_since=stamp;
+ if(!hot_current(m,now))h->hot_since=0;else if(!h->hot_since||h->hot_since>stamp)h->hot_since=stamp;
+}
+bool r2_ui_witness_page(const struct r2_ui_model *m,unsigned page){
+ return page==R2_UI_SHADOW_PAGE||(page==R2_UI_PRECISION_PAGE&&m->profile_supported&&!m->profile_rc);
+}
+static void hold_text(char out[24],const char *name,uint32_t since,uint64_t now){
+ uint64_t seconds=since&&now/1000>=since-1?now/1000-(since-1):0;
+ if(seconds/60>9999)snprintf(out,24,"%s >9999m",name);
+ else snprintf(out,24,"%s %02u:%02u",name,(unsigned)(seconds/60),(unsigned)(seconds%60));
+}
+static void shadow_mean(char out[24],const struct r2_shadow_session_view *v,bool valid){
+ if(!valid)snprintf(out,24,"--");
+ else if(v->mean_tenth_ns>-10000&&v->mean_tenth_ns<10000){int64_t n=v->mean_tenth_ns;snprintf(out,24,"%s%u.%u ns",n<0?"-":"+",(unsigned)((n<0?-n:n)/10),(unsigned)((n<0?-n:n)%10));}
+ else {int64_t n=v->mean_tenth_ns/10;char magnitude[16];shadow_value(magnitude,(uint32_t)(n<0?-n:n),true);snprintf(out,24,"%c%s",n<0?'-':'+',magnitude);}
+}
 static const char *hot_title(const struct r2_ui_model *m,bool fresh,bool hot){
  if(!fresh)return "HOT --";
  if(m->profile_rc||!m->gm_capable)return "HOT OFF";
- if(hot)return "HOT READY";
+ if(hot)return "HOT";
  return m->role==R2_UI_GM?"ACTIVE GM":"HOT WAIT";
 }
 static const char *hot_reason(const struct r2_ui_model *m,bool fresh,bool hot){
@@ -323,9 +353,7 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
   if(secs<360000)snprintf(text,sizeof text,"TIME %02u:%02u",(unsigned)(secs/60),(unsigned)(secs%60));else snprintf(text,sizeof text,"TIME >99H");
   label(fb,4,32,text,1,C_WHITE);
   label(fb,4,47,"MEAN",1,C_DIM);
-  if(!v->valid)snprintf(text,sizeof text,"--");
-  else if(v->mean_tenth_ns>-10000&&v->mean_tenth_ns<10000){int64_t n=v->mean_tenth_ns;snprintf(text,sizeof text,"%s%u.%uns",n<0?"-":"+",(unsigned)((n<0?-n:n)/10),(unsigned)((n<0?-n:n)%10));}
-  else {int64_t n=v->mean_tenth_ns/10;char magnitude[16];shadow_value(magnitude,(uint32_t)(n<0?-n:n),true);snprintf(text,sizeof text,"%c%s",n<0?'-':'+',magnitude);}
+  shadow_mean(text,v,v->valid);
   label(fb,4,58,text,1,v->valid?C_CYAN:C_WHITE);
   const unsigned y[3]={72,97,122};const uint32_t values[3]={v->p95_ns,v->p99_ns,v->max_ns};const char *names[3]={"P95 ABS","P99 ABS","MAX ABS"};
   for(unsigned i=0;i<3;i++){char magnitude[16];const char *name=v->approximate&&i<2?(i?"P99 APX":"P95 APX"):names[i];label(fb,4,y[i],name,1,C_DIM);shadow_value(magnitude,values[i],v->valid);label(fb,4,y[i]+11,magnitude,1,v->valid?C_CYAN:C_WHITE);}
@@ -355,13 +383,35 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
   bool authorized=fresh&&m->scope_active&&m->precision.authorized;
   const char *state=gm?(fresh&&m->gm_source_fresh&&m->pps_precision.rate_valid?"PPS TRACK":"SOURCE WAIT"):r2_ui_servo_state(m,now);
   char value[24];
-  round_panel(fb,3,1,74,13,C_PANEL,C_BEZEL);label(fb,10,4,m->boundary_clock?"RC TIMING":"PRECISION",1,C_WHITE);
+  round_panel(fb,3,1,74,13,C_PANEL,C_BEZEL);label(fb,13,4,m->boundary_clock?"RC TIMING":"PRECISION",1,C_WHITE);
   if(!fresh||!m->scope_active)snprintf(value,sizeof(value),"NO TIMING");
   else if(gm)snprintf(value,sizeof(value),"GPS GM");
   else if(m->time_relay_hops)snprintf(value,sizeof(value),"BLE RC%u",m->time_relay_hops);
   else snprintf(value,sizeof(value),"BLE GM");
-  label(fb,4,20,value,1,C_DIM);
-  label(fb,4,33,state,1,m->boundary_clock?(r2_ui_analog(m,now)&&!m->rc_source_held?C_GREEN:C_AMBER):((gm?m->gm_source_fresh&&m->pps_precision.rate_valid:authorized&&m->precision.locked)?C_GREEN:C_AMBER));
+  bool locked=!gm&&authorized&&m->precision.map_valid&&(m->precision.locked||face_locked||s.native_hot_standby);
+  label(fb,4,20,value,1,locked||(gm&&fresh&&m->gm_source_fresh)?C_GREEN:C_AMBER);
+  if(locked&&!m->boundary_clock){pair_lock(fb,4,32,C_GREEN);label(fb,17,33,"SoftPLL",1,C_GREEN);}
+  else label(fb,4,33,state,1,m->boundary_clock?(r2_ui_analog(m,now)&&!m->rc_source_held?C_GREEN:C_AMBER):(gm&&fresh&&m->gm_source_fresh&&m->pps_precision.rate_valid?C_GREEN:C_AMBER));
+  if(r2_ui_witness_page(m,status->page)){
+   const struct r2_shadow_session_view *v=&status->shadow;
+   bool valid=fresh&&!gm&&local_pps_current(m,now)&&m->clock.fix_active&&m->precision.map_valid&&v->active&&v->valid;
+   label(fb,4,49,"SHADOW PPS",1,C_DIM);
+   label(fb,4,61,"MEAN",1,C_DIM);shadow_mean(value,v,valid);label(fb,4,72,value,1,valid?C_CYAN:C_DIM);
+   label(fb,4,86,"RMS",1,C_DIM);shadow_value(value,v->rms_ns,valid);label(fb,4,97,value,1,valid?C_CYAN:C_DIM);
+   if(gm)snprintf(value,sizeof value,"LOCAL SOURCE");
+   else if(!local_pps_current(m,now))snprintf(value,sizeof value,"WAIT PPS");
+   else if(!m->clock.fix_active)snprintf(value,sizeof value,"WAIT GPS FIX");
+   else if(!fresh||!m->precision.map_valid)snprintf(value,sizeof value,"WAIT BLE MAP");
+   else if(v->state==R2_SHADOW_SETTLING)snprintf(value,sizeof value,"SETTLE %us",v->settling_ms>=10000?0:10-v->settling_ms/1000);
+   else if(!valid)snprintf(value,sizeof value,"STARTING");
+   else snprintf(value,sizeof value,"N %u",v->samples);
+   label(fb,4,110,value,1,C_DIM);
+   snprintf(value,sizeof value,"%s SV%u",!fresh?"GPS --":m->clock.fix_active?"GPS FIX":"GPS WAIT",fresh?m->clock.sats_used:0);label(fb,4,124,value,1,fresh&&m->clock.fix_active?C_GREEN:C_AMBER);
+   bool pps=local_pps_current(m,now),hot=hot_current(m,now);
+   hold_text(value,"PPS",pps?status->holds.pps_since:0,now);label(fb,4,138,value,1,pps?C_GREEN:C_AMBER);
+   if(hot)hold_text(value,"HOT",status->holds.hot_since,now);else snprintf(value,sizeof value,"%s",hot_title(m,fresh,false));
+   label(fb,4,152,value,1,hot?C_GREEN:C_AMBER);return;
+  }
   label(fb,4,51,gm?"SOURCE PPS":"CORRECTION",1,C_DIM);
   if(gm)snprintf(value,sizeof(value),"%s",gps_pps_live(m,fresh)?"LIVE":"WAIT");
   else if(authorized&&m->precision.correction_age_valid)rc_age(value,m->precision.correction_age_ms);
@@ -394,7 +444,8 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
   else if(m->clock.fix_active&&gps_pps_live(m,fresh))snprintf(value,sizeof(value),"DWELL %us",(m->admission_ms+999)/1000);
   else snprintf(value,sizeof(value),"SOURCE WAIT");
   label(fb,3,107,value,1,fresh&&m->source_eligible?C_GREEN:C_AMBER);
-  label(fb,3,120,hot_title(m,fresh,s.native_hot_standby),1,s.native_hot_standby?C_GREEN:C_AMBER);
+  if(hot_current(m,now))hold_text(value,"HOT",status->holds.hot_since,now);else snprintf(value,sizeof value,"%s",hot_title(m,fresh,false));
+  label(fb,3,120,value,1,hot_current(m,now)?C_GREEN:C_AMBER);
   label(fb,3,133,hot_reason(m,fresh,s.native_hot_standby),1,C_DIM);
   label(fb,3,149,"UTC ACC --",1,C_DIM);return;
  }

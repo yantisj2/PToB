@@ -828,3 +828,22 @@ by design and are separate from precision status. `precision.rejected` now
 reports the same wire-plus-timing rejection total as `network.rejected`.
 Earlier RC99 precision payloads left this field unpopulated; their zero values
 are not evidence of zero rejections. Retain source/version and counter scope.
+
+## Precision page (0.15.118)
+
+In the GM profile, Precision displays shadow PPS mean and uncentered RMS from
+the same independent BLE-clock-versus-local-PPS observer as the Shadow PPS page.
+Remain on either page for the one-second dwell and ten-second contiguous
+settling interval. Collection requires local GPS fix/PPS and a valid delivered
+BLE map. Switching between these two pages retains the session; leaving them,
+source identity changes or becoming a serving GM ends it. A serving GM displays
+`LOCAL SOURCE` and unavailable comparison metrics. Missing inputs never fall back
+to UART age or clock-fit RMS. Values are relative witness diagnostics, not
+independently calibrated UTC/output accuracy.
+
+`PPS mm:ss` and `HOT mm:ss` show consecutive observed hold durations, tracked
+across page navigation. PPS loss and HOT withdrawal reset their respective
+timers. A stale model resets both. The green padlock and `SoftPLL` identify an
+eligible locked BLE follower; eligible HOT status preserves its green indication
+during short fit-lock changes. These display states do not extend any source,
+map, PPS, authentication or HOT deadline.

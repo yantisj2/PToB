@@ -2,6 +2,7 @@
 #ifndef R2_UI_PAGES_H
 #define R2_UI_PAGES_H
 #define R2_UI_SHADOW_PAGE 6u
+#define R2_UI_PRECISION_PAGE 2u
 #ifdef R2_DC_PROFILE
 #define R2_UI_PAGES 4
 #else

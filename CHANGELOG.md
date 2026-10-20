@@ -2,6 +2,18 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 19 October 2026 — T096 Precision status and shadow PPS
+
+T096 **0.15.118** gives the GM profile's Precision page a consistent grid,
+stable green BLE/SoftPLL lock status and continuous PPS/HOT hold durations that
+reset on loss. Eligible followers collect the existing independent shadow-PPS
+session on this page, with its original dwell, ten-second settling and source
+boundaries. Labeled mean and uncentered RMS replace the correction-age figure;
+missing GPS/PPS/maps and a serving local GM show explicit unavailable states.
+RMS retains all accepted errors with a bounded 96-bit sum. Display timers and
+witness statistics grant no timing or HOT authority. Ordinary RC keeps its profile
+and correction diagnostics; DC remains separate with Bluetooth disabled.
+
 ## 19 October 2026 — awake timing information and power scheduling research draft
 
 Added Jonathan Yantis's standalone arXiv-targeted research draft and matching PDF,
