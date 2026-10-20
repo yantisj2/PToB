@@ -4,6 +4,7 @@
 #include "ui.hpp"
 #include <cstring>
 namespace n30 {
+constexpr uint64_t FrameWorkUs=50000;
 struct FramePhase {
  uint64_t slot,edge,next;uint32_t period;bool utc;
 };
@@ -24,7 +25,15 @@ class FrameCadence {
   if(!seen_||p.utc!=shown_.utc||p.period!=shown_.period)return now;
   return p.slot==shown_.slot?p.next:p.edge;
  }
+ // Coalesce a forced page/wake frame near the next clock edge. Starting a
+ // whole OLED transfer just before that edge would block its scheduled frame.
+ uint64_t forced_deadline(const FramePhase& p,uint64_t now)const{return p.utc&&p.next>now&&p.next-now<FrameWorkUs?p.next:now;}
  void rendered(const FramePhase& p){shown_=p;seen_=true;}
+ void completed(const FramePhase& started,const FramePhase& ended){
+  // A late/forced transfer may occupy a newer slot. Drop that missed slot;
+  // never issue an immediate catch-up burst or pretend it began on the edge.
+  rendered(started.utc==ended.utc&&started.period==ended.period?ended:started);
+ }
 };
 // N30-specific ordering: send the native pages containing the visual PPS and
 // rightmost seconds digits first, in either portrait rotation. Like W12's

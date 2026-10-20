@@ -192,7 +192,7 @@ maximum routine UTC-slot render-start lateness, excluding forced navigation;
 I2C transfer and panel scanout still add latency. No physical PPS output or
 independently measured display-edge/UTC accuracy is established.
 
-## Version 0.2.0 passive LoRa receiver
+## Version 0.2.1 passive LoRa receiver
 
 Add `--lora-transmitter-factory "$VERIFIED_T096_LORA_FACTORY"` to either build
 command only with the exact existing T096 transmitter identity in the shared
@@ -251,3 +251,10 @@ Finite hardware tests must separately demonstrate the actual modem/capture,
 BLE coexistence, LoRa original/followup reception, AUTO timing and physical
 buttons. Checksums, link RMS and relative dual-clock values do not establish
 UTC accuracy or end-to-end delay bounds. W12/T096 sources remain unchanged.
+
+Version0.2.1 coalesces a forced page/wake redraw with a modeled UTC edge when
+starting the50ms whole-frame work budget would cross it. Navigation can wait
+less than50ms; routine4/8Hz cadence is unchanged. Transfers that occupy a later
+slot drop that missed slot instead of issuing a catch-up burst. This corrects
+the first0.2.0 canary's27ms render-start process failure on the third page;
+actual display-edge and independent UTC accuracy remain unqualified.

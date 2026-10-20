@@ -52,8 +52,8 @@ void worker(void*){
   uint64_t utc;input.idle(now,m.locked&&m.source!=n30::Source::None&&m.state==n30::State::Follow&&n30::time(m,now,utc),view);
   clock_hold.update(m,view,now,input.saver_due(now,view));
   if(prior.page!=view.page||prior.help!=view.help||prior.saver!=view.saver||prior.blank!=view.blank||prior.clock_frozen!=view.clock_frozen)force=true;
-  const auto phase=n30::frame_phase(m,view,now);const auto due=cadence.deadline(phase,now);
-  if(force||now>=due){
+  const auto phase=n30::frame_phase(m,view,now);const auto due=force?cadence.forced_deadline(phase,now):cadence.deadline(phase,now);
+  if(now>=due){
    bool ok=true;if(off!=view.blank){ok=command(view.blank?0xae:0xaf);if(ok){off=view.blank;shadow_valid=false;}}
    if(ok&&dim!=view.saver){ok=command(0x81)&&command(view.saver?0x20:0x60);if(ok)dim=view.saver;}
    if(ok&&!view.blank){clock_hold.draw(portrait,m,view,now);n30::rotate(native,portrait,PTOB_N30_ROTATE_CW);ok=flush(now+50000);if(ok)clock_hold.presented(m,view,now,portrait);}
@@ -64,9 +64,10 @@ void worker(void*){
     stats.max_phase_us=std::max(stats.max_phase_us,uint32_t(std::min<uint64_t>(now-due,UINT32_MAX)));
    }
    portEXIT_CRITICAL(&mux);
-   cadence.rendered(phase);force=false;
+   cadence.completed(phase,n30::frame_phase(m,view,end));force=false;
   }
-  const auto end=now_us();const auto next=cadence.deadline(n30::frame_phase(m,view,end),end);
+  const auto end=now_us();const auto end_phase=n30::frame_phase(m,view,end);
+  const auto next=force?cadence.forced_deadline(end_phase,end):cadence.deadline(end_phase,end);
   if(next<=end)continue;
   if(next!=armed_due){
    if(armed_due)esp_timer_stop(frame_timer); // Already-expired timer is harmless.

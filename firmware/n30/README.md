@@ -2,7 +2,7 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
 
-**Version 0.2.0 adds passive RC8 wire3 LoRa timing with BLE priority, 180-second
+**Version 0.2.1 adds passive RC8 wire3 LoRa timing with BLE priority, 180-second
 AUTO acquisition/recovery dwell and a third T096-style receiver page. Physical
 LoRa reception and timing accuracy require separate hardware observations.**
 Meshnology N30 / Heltec WiFi LoRa32 V3 is the proposed board route: ESP32-S3,
@@ -135,3 +135,10 @@ software properties only. New LoRa/display/BLE coexistence,
 recovery, sustained interoperability, actual estimated relay behavior and UTC
 accuracy are unvalidated. Hardware operations require separate exact-device authorization/review; current
 commissioning candidates do not imply completed hardware acceptance.
+
+Version0.2.1 coalesces a forced page/wake redraw with a modeled UTC edge when
+starting the50ms whole-frame work budget would cross it. Navigation can wait
+less than50ms; routine4/8Hz cadence is unchanged. Transfers that occupy a later
+slot drop that missed slot instead of issuing a catch-up burst. This corrects
+the first0.2.0 canary's27ms render-start process failure on the third page;
+actual display-edge and independent UTC accuracy remain unqualified.

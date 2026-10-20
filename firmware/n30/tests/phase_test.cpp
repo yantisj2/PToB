@@ -29,6 +29,15 @@ int main(){
   for(uint64_t now=start;now<start+60000000;now+=1000){auto m=good(now,now+offset);auto p=n30::frame_phase(m,v,now);if(c.deadline(p,now)<=now){if(frames)assert((now+offset)%p.period<1000);c.rendered(p);frames++;}}
   assert(frames==(page==1?481:241));
  }
+ // Page/wake transfer coalesces with a nearby edge; no catch-up after an
+ // occupied slot. Test all starting phases and both dashboard/RF cadences.
+ for(unsigned page=0;page<3;page++)for(uint64_t phase=0;phase<1000000;phase+=997){
+  n30::View v;v.page=page;n30::FrameCadence c;auto m=good(2000000,10000000+phase);auto p=n30::frame_phase(m,v,2000000);
+  auto due=c.forced_deadline(p,2000000);assert(due>=2000000&&due-2000000<n30::FrameWorkUs);
+  if(p.next-2000000<n30::FrameWorkUs)assert(due==p.next);else assert(due==2000000);
+  auto late=good(2000000+49999,m.utc_us+49999);auto end=n30::frame_phase(late,v,2000000+49999);c.completed(p,end);
+  assert(c.deadline(end,2000000+49999)>2000000+49999);
+ }
  // One shared UTC pulse, all admitted paths/positions; dark on expiry/HOLD.
  for(auto src:{n30::Source::Ble,n30::Source::Rc1,n30::Source::Rc2})for(unsigned pos=0;pos<3;pos++)for(uint64_t phase:{999999ULL,0ULL,1ULL,249999ULL,250000ULL}){
   auto m=good(1000000,10000000+phase);m.source=src;const bool on=phase<250000;assert(n30::pps_on(m,1000000)==on);
