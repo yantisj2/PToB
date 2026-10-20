@@ -1,0 +1,2 @@
+/* Driver-owned SPIM1 IRQ4 priority6, below controller timing interrupts. */
+&spi1 { status = "okay"; interrupts = <4 6>; };

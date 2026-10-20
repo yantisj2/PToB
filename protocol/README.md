@@ -1,5 +1,10 @@
 # Protocol contracts
 
+[RC8 LoRa version 2](rc8/README.md) freezes the offline T096 source/packet,
+event-association, functional availability, freshness/authority and bounded-hold contract. Its portable
+codec/policies have host tests; no radio owner or deployed RC8 service is enabled.
+RC8 source class numbering is independent of RC7 BLE wire/release numbering.
+
 The [V14-RC1 wire annex](v14_rc1/README.md) is frozen with six layouts and
 synthetic known-answer vectors. Read the [V14 proposal](../papers/ptob-v14-sig-proposal.pdf)
 and [specification](../docs/V14_CLOCK_SPEC_RC1.md) together with its documented

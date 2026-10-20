@@ -1,0 +1,171 @@
+{
+  "schema": 2,
+  "contract": "PTOB_RC8",
+  "wire_version": 2,
+  "revision": 3,
+  "status": "RUNTIME_INTEGRATION_UNQUALIFIED",
+  "license": "MIT",
+  "credit": "Jonathan Yantis",
+  "supersedes": {
+    "wire_version": 1,
+    "timing_bytes": 176,
+    "reason": "Mandatory12s external bootstrap disabled standalone use; redundant full metadata cost492032us/frame"
+  },
+  "wire": {
+    "metadata_bytes": 68,
+    "timing_bytes": 80,
+    "metadata_body_bytes": 52,
+    "timing_body_bytes": 64,
+    "tag_bytes": 16,
+    "context_reference": "entire authenticated metadata128-bit tag",
+    "domains": [
+      "PTOBR8M2",
+      "PTOBR8T2"
+    ],
+    "byte_order": "little",
+    "metadata_reserved_zero": [
+      [
+        50,
+        2
+      ]
+    ],
+    "time_scales": {
+      "0": "ROOT_RELATIVE_NS",
+      "1": "UTC_POSIX_NS"
+    },
+    "source_kinds": {
+      "1": "OWN_GM",
+      "2": "AUTHENTICATED_SELECTED_BLE"
+    },
+    "stream": "nonzero monotonic uint64 per unpredictable nonzero emitter boot; no wrap",
+    "sequence": "nonzero uint32 timing packets only; no wrap; metadata never resets floor",
+    "own_gm_boots": "root factory equals emitter; logical root boot and physical emitter boot independently exact, may differ"
+  },
+  "policy": {
+    "sole_transmitter": "privately enrolled exact factory identity; never alias",
+    "tx_requires_profile": "GM",
+    "actual_serving_gm_required": false,
+    "listener_settx_allowed": false,
+    "ranging_allowed": false,
+    "ble_preferred": true,
+    "correction_window_us": 8000000,
+    "functional_hold_us": 12000000,
+    "metadata_cache_us": 120000000,
+    "metadata_refresh_proposed_us": 60000000,
+    "metadata_refresh": "cache only; no timing/sequence/anchor/authority reset; yield timing and BLE; no catchup",
+    "cache_replacement": "higher stream in sameboot; new boot after12s timing gap; remember immediately retired boot; changes clear old samples/anchor",
+    "bootstrap_required_for_functional": false,
+    "assurance": [
+      "FRESHNESS_UNKNOWN",
+      "STREAM_CONTINUITY",
+      "ANCHORED_INTERVAL"
+    ],
+    "authority": [
+      "UNKNOWN",
+      "ORIGINAL_ENVELOPE_CURRENT",
+      "ORIGINAL_ENVELOPE_EXPIRED"
+    ],
+    "anchor_max_us": 3600000000,
+    "anchor_initial_max_width_ns": 100000000,
+    "anchor_max_width_ns": 1000000000,
+    "anchor_max_rate_bound_ppb": 100000,
+    "anchor_policy": "unqualified assumed bounds; no RC8 renewal; expiry degrades assurance without stopping functional stream",
+    "allow_unverified": "explicit selection argument; permitted when BLE unusable; no RC7/GM/RC9 permission",
+    "max_temporal_residence_ns": 1000000000,
+    "output_uncertainty": "UNKNOWN",
+    "history_entries": 2,
+    "queued_frames": 1,
+    "overflow": "drop newest,count,no event substitution"
+  },
+  "phy_calculation": {
+    "qualified": false,
+    "sf": 10,
+    "bandwidth_hz": 500000,
+    "coding_rate": "4/6",
+    "preamble_symbols": 12,
+    "explicit_header": true,
+    "phy_crc": true,
+    "low_data_rate_optimize": false,
+    "metadata_airtime_us": 221696,
+    "timing_airtime_us": 258560,
+    "historical64_airtime_us": 209408,
+    "rejected176_airtime_us": 492032,
+    "proposed_timing_cadence_s": 4,
+    "proposed_metadata_cadence_s": 60,
+    "total_occupancy_percent": 6.833493333333334,
+    "startup_packets": {
+      "metadata": 1,
+      "timing": 2
+    },
+    "startup_airtime_us": 738816,
+    "transport30s_with60s_metadata_occupancy_percent": 1.23136
+  },
+  "future_owner_budgets": {
+    "chip_tx_timeout_us": 340000,
+    "fem_cutoff_us": 360000,
+    "prepare_to_txdone_max_us": 1000000,
+    "close_us": 200000,
+    "physical_validation": false
+  },
+  "memory": {
+    "ceiling_added_static_bytes": 4096,
+    "minimum_static_free_bytes": 1024,
+    "preferred_static_free_bytes": 4096,
+    "planned_items_bytes": {
+      "worker_stack": 2048,
+      "worker_guard": 64,
+      "driver_capture_spi_reserve": 900,
+      "exclusive_boot_role_union": 504,
+      "wire_storage": 80,
+      "mapper_reserve": 128,
+      "ui_reserve": 96,
+      "stop_state": 24,
+      "gesture": 16,
+      "thread_control_and_orchestration": 192
+    },
+    "planned_total_bytes": 4052,
+    "remaining_reserve_bytes": 44,
+    "role_union": "RX504 or exact TX two144-byte maps plus bounded state <=504; no BLE stack alias",
+    "measurement": "4052B IS PLANNING_ENVELOPE; JOINT_ELF_AND_ACTUAL_STACK_REQUIRED",
+    "prior_native_free_baseline_bytes": 8740,
+    "nested_known_tx_stack_bytes": 1280,
+    "nested_known_rx_stack_bytes": 1120,
+    "stack_limit": "excludes worker/IRQ/kernel/libc/libgcc/driver; integrated high-water required",
+    "runtime_snapshot_bytes": 224,
+    "runtime_export_bytes": 144,
+    "runtime_known_tx_stack_bytes": 1416,
+    "runtime_known_rx_stack_bytes": 1576
+  },
+  "gesture": {
+    "arm_us": 1500000,
+    "cancel_and_preserve_poweroff_us": 4000000,
+    "toggle": "release before4s while eligible",
+    "persistence": "volatile"
+  },
+  "excluded": [
+    "RC7 authority from LoRa",
+    "GM promotion",
+    "RC9 rebroadcast",
+    "W12 port",
+    "absolute cold replay freshness claim",
+    "independent output accuracy claim"
+  ],
+  "runtime": {
+    "feature": "T096 normal GM/RC only",
+    "default_factory": "zero disables hardware",
+    "worker_priority": 11,
+    "worker_stack_bytes": 2048,
+    "allow_unverified_functional_rc8": true,
+    "normal_source_priority": [
+      "usable BLE",
+      "actual own GM"
+    ],
+    "absolute_output_bound": "UNKNOWN",
+    "metadata_control_guard_us": 360000,
+    "map_commit": "captured physical publication linearization; original anchors and deadlines immutable",
+    "radio_fault": "latched RF inhibition; timely actual closure permits maintenance; late drain remains fault",
+    "rc9": false,
+    "follower_tx_gate": "currently usable authenticated selected BLE delivered-map PLL locked; local PPS/source_ready not required",
+    "own_gm_tx_gate": "currently valid qualified own PPS/source map"
+  }
+}

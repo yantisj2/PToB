@@ -5,6 +5,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "relay_precision.h"
+#ifdef R2_LORA
+static bool lora_needed=true;static unsigned lora_publishes,lora_withdraws;static struct rc8_export lora_export;
+bool r2_lora_source_needed(void){return lora_needed;}
+void r2_lora_source_publish(const struct rc8_export *s){lora_export=*s;++lora_publishes;}
+void r2_lora_source_withdraw(void){++lora_withdraws;}
+#endif
 static struct bt_le_per_adv_sync fixture;
 static bool owned,armed;
 static unsigned mode,deletes;
@@ -36,8 +42,9 @@ void r2_ble_sync_acquiring(bool enabled){}
 bool r2_ble_initiating(void){return mode==6;}
 bool r2_ble_admission_due(uint64_t now){return mode==14;}
 bool r2_ble_admission_reserves_scan(uint64_t now){return mode==14&&now%1000000<200000;}
-bool r2_capture_now(struct r2_capture *out){*out=(struct r2_capture){16000000,1,R2_CAPTURE_NOW};return true;}
-bool r2_capture_now_at(struct r2_capture *out,uint64_t *at){bool valid=r2_capture_now(out);if(at)*at=1000000;return valid;}
+static uint64_t capture_tick=16000000,capture_us=1000000;
+bool r2_capture_now(struct r2_capture *out){*out=(struct r2_capture){capture_tick,1,R2_CAPTURE_NOW};return true;}
+bool r2_capture_now_at(struct r2_capture *out,uint64_t *at){bool valid=r2_capture_now(out);if(at)*at=capture_us;return valid;}
 bool r2_ble_client_align(uint64_t now,uint64_t utc_us){return true;}
 bool r2_ble_client_window_open(uint64_t now,uint32_t window){return now%1000000<window;}
 uint64_t r2_ble_client_window_start(uint64_t now){return now-now%1000000;}
@@ -59,6 +66,62 @@ static void handoff_fixture(const struct r2_radio_precision *history){
 int main(int argc,char **argv){
  assert(argc==2);mode=(unsigned)strtoul(argv[1],NULL,10);
  struct r2_enrollment roster={.count=2};assert(!r2_radio_service_init(0,&roster));
+#ifdef R2_LORA
+ if(mode>=23&&mode<=29){
+  bool gm=mode==23||mode==28;
+  if(!gm){capture_us=64000000;capture_tick=64*R2_CAPTURE_HZ;}
+  roster.identity[0]=1;roster.identity[1]=3;enrollment=roster;pt_input.roster=roster;
+  struct r2_radio_scope grant={.root=gm?0:1,.root_identity=gm?1:3,.boot=9,.source_epoch=3,.publication_epoch=1,.until_us=capture_us+1000000,.gm=gm,.follower=!gm};
+  pt_input.stopped=false;pt_input.grant=grant;pt_input.source_ready=mode==23||mode==25||mode==29;pt_input.source_epoch=3;pt_input.utc=1000000000000LL;pt_input.at=capture_us;
+  if(pt_input.source_ready){
+   pt_input.source=(struct r2_source_clock){.epoch=1,.head=1,.count=1,.utc_bound=true,.utc_source_epoch=3,.utc_offset_ns=1000000000000LL};
+   pt_input.source.maps[0]=(struct r2_source_map){.from=8000000,.until=32000000,.anchor_ns=1000000000,.generation=11,.rate_q16=16000000*UINT64_C(65536)};
+  }
+  if(mode==29){
+   /* A local qualified-source snapshot is an input prerequisite only; this
+    * fixture cannot assert actual HOT reservations or hardware qualification. */
+   pt_input.source.maps[0].from=capture_tick-8000000;
+   pt_input.source.maps[0].until=capture_tick+16000000;
+   int64_t own_utc;assert(r2_source_utc_read(&pt_input.source,(struct r2_capture){capture_tick,1,R2_CAPTURE_NOW},3,&own_utc));
+   assert(own_utc!=1002062500000LL);
+  }
+  if(!gm){
+   active_scope=grant;precision.scope=grant;precision.local_epoch=1;precision.train=1;precision.last_available=capture_tick-100000;precision.last_accepted=precision.last_available;precision.accepted=12;
+   precision.origin_created_ns=1900000000;precision.origin_expires_ns=3000000000;
+   precision.servo.output=(r2_servo_map_t){capture_tick-1000000,2000000000,200,123,mode!=25};follower_utc_offset=1000000000000LL;
+   precision.servo.fit_valid=true;precision.servo.quality_count=precision.servo.output_quality.count=32;
+   precision.servo.streak=precision.servo.output_quality.streak=64;
+   precision.servo.last_local=precision.servo.output_quality.last_local=63*R2_CAPTURE_HZ;
+   for(unsigned i=0;i<32;i++){
+    precision.servo.quality_ticks[i]=precision.servo.output_quality.ticks[i]=(32+i)*R2_CAPTURE_HZ;
+    precision.servo.quality_predictions[i]=precision.servo.output_quality.predictions[i]=1;
+   }
+   precision.servo.pll.state=mode==27?R2_SERVO_PLL_TRACKING:R2_SERVO_PLL_LOCKED;
+   precision.servo.pll.last_update=precision.servo.output.delivery;
+   if(mode==24){assert(!pt_input.source_ready&&!pt_input.source.count);assert(r2_servo_pll_locked(&precision.servo,capture_tick));}
+  }
+  if(mode==26)lora_needed=false;
+  precision_step(capture_us);
+  if(mode>=25&&mode!=29)assert(!lora_publishes&&lora_withdraws);
+  else{assert(lora_publishes==1&&lora_export.valid&&lora_export.scope.root==grant.root_identity&&lora_export.scope.root_boot==9);
+   assert(lora_export.scope.kind==(gm?RC8_OWN_GM:RC8_SELECTED_BLE));
+   if(mode==24||mode==29){
+    r2_servo_map_t expected;int64_t exact;assert(r2_radio_precision_map(&precision,&expected));
+    assert(lora_export.anchor_ns==(uint64_t)expected.anchor+1000000000000ULL&&lora_export.phase_ns==expected.phase&&lora_export.rate_ppb==expected.rate);
+    assert(lora_export.created_ns==1001900000000ULL&&lora_export.expires_ns==1003000000000ULL&&lora_export.anchor_tick==expected.delivery&&lora_export.map_generation==12);
+    struct rc8_correction mapped;assert(rc8_export_event(&mapped,&lora_export,1,(struct rc8_event){.tick=capture_tick,.capture_epoch=1,.kind=RC8_EVENT_TX_DONE}));
+    assert(r2_servo_mapped(&expected,capture_tick,&exact)&&mapped.event_ns==(uint64_t)exact+1000000000000ULL);
+    if(mode==29){int64_t own_utc;assert(r2_source_utc_read(&pt_input.source,(struct r2_capture){capture_tick,1,R2_CAPTURE_NOW},3,&own_utc));assert(mapped.event_ns!=(uint64_t)own_utc);}
+    unsigned before=lora_withdraws;struct r2_source_clock no_pps={0};
+    r2_radio_service_source(&no_pps,false,3);assert(lora_withdraws==before);
+    precision_step(capture_us);assert(lora_publishes==2&&lora_withdraws==before&&lora_export.scope.kind==RC8_SELECTED_BLE);
+    assert(lora_export.anchor_ns==(uint64_t)expected.anchor+1000000000000ULL);
+   }
+  }
+  puts("PASS actual PT export: own GM PPS /locked BLE without local PPS /invalid or unlocked refusal /disabled guard");return 0;
+ }
+
+#endif
  if(mode==22){
   static struct bt_le_ext_adv ad;advertiser=&ad;
   struct r2_group_config g={.psk={1},.id=99,.epoch=1};

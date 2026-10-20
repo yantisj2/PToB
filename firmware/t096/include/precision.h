@@ -9,7 +9,8 @@ enum r2_capture_kind {
   R2_CAPTURE_UNKNOWN,
   R2_CAPTURE_PPS,
   R2_CAPTURE_RADIO,
-  R2_CAPTURE_NOW
+  R2_CAPTURE_NOW,
+  R2_CAPTURE_LORA
 };
 struct r2_capture {
   uint64_t tick, epoch;

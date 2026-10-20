@@ -95,7 +95,27 @@ def inspect(out,allow_development=False):
         usb_stack=re.search(r'^CONFIG_USB_NRFX_WORK_QUEUE_STACK_SIZE=(\d+)$',config,re.M)
         require(usb_stack is not None and int(usb_stack[1])>=2048,'Insufficient DC USB worker stack')
         require(0x20040000-ram_end>=1024,'Insufficient DC static RAM margin')
-    binding=hashlib.sha256((r['source_sha256']+':'+sha(out/'r2_enrollment.h')+':'+sha(out/'target/zephyr/.config')).encode()).hexdigest()
+    private_sha=sha(out/'r2_enrollment.h')
+    transmitter=r.get('lora_transmitter_factory','0000000000000000')
+    require(isinstance(transmitter,str) and re.fullmatch('[0-9a-f]{16}',transmitter),'Invalid LoRa binding')
+    if int(transmitter,16):
+        require(not dc and not pc,'LoRa binding outside ordinary GM/RC')
+        entry=json.loads((out/'registry.json').read_text())['devices'].get(transmitter)
+        require(entry is not None and entry['target']=='t096','LoRa TX factory missing T096 metadata')
+        macro='#define R2_LORA_TRANSMITTER_FACTORY UINT64_C(0x'+transmitter+')'
+        require(macro in (out/'target/build_identity.h').read_text(),'LoRa private binding mismatch')
+        require('/src/lora_hw.c' in commands and 'R2_LORA=1' in commands,'Missing LoRa owner')
+        require('CONFIG_NRFX_SPIM1=y' in config and 'CONFIG_NRFX_TIMER4=y' in config,'Missing LoRa peripheral owner')
+        # The measured0.15.122 normal-image margin is8740B. Preserve the
+        # separately agreed4096B incremental RC8 ceiling as well as1024B gate.
+        require(0x20040000-ram_end>=8740-4096,'RC8 exceeds4096B incremental static budget')
+        private_sha=hashlib.sha256((private_sha+':lora-tx:'+transmitter).encode()).hexdigest()
+    if dc or pc:
+        with (out/'target/zephyr/zephyr.elf').open('rb') as f:
+            names={s.name for s in ELFFile(f).get_section_by_name('.symtab').iter_symbols()}
+        require(not any(s.startswith('r2_lora_') for s in names),'LoRa owner leaked into DC/PC')
+        require('CONFIG_NRFX_SPIM1=y' not in config and 'CONFIG_NRFX_TIMER4=y' not in config,'LoRa peripherals leaked into DC/PC')
+    binding=hashlib.sha256((r['source_sha256']+':'+private_sha+':'+sha(out/'target/zephyr/.config')).encode()).hexdigest()
     require(binding==r['watchdog_binding_sha256'],'Watchdog binding')
     return {'status':'PASS','flash_load_end':flash_end,'ram_allocated_end':ram_end,'static_unallocated_bytes':0x20040000-ram_end,'hardware':'NOT_TESTED','deployment_authorized':False}
 

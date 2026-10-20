@@ -12,6 +12,10 @@ static struct r2_ui_model model;
 static struct r2_ui_status status;
 static struct k_spinlock lock;
 static atomic_t stop_requested,profile_toggle;
+#ifdef R2_LORA
+static atomic_t lora_toggle;
+bool r2_ui_take_lora_toggle(void){return atomic_cas(&lora_toggle,1,0);}
+#endif
 static bool started;
 static uint8_t framebuffer[R2_UI_FRAME_BYTES];
 static struct r2_shadow_session shadow_session;
@@ -123,6 +127,9 @@ static void worker(void *a,void *b,void *c)
  unsigned observed_page;
  k_spinlock_key_t key=k_spin_lock(&lock);status.error=rc;observed_page=status.page;k_spin_unlock(&lock,key);
  uint64_t due=k_uptime_get(),changed=due,pressed=0,last_poll=due,idle_since=due,saver_since=0,saver_period=0;int last=0,stable=0;bool held=false,wake_press=false;
+#ifdef R2_LORA
+ struct rc8_gesture lora_gesture={0};
+#endif
  while(!atomic_get(&stop_requested)){
   uint64_t now=k_uptime_get();uint64_t gap=now-last_poll;last_poll=now;
   key=k_spin_lock(&lock);if(gap>status.poll_max_ms)status.poll_max_ms=gap>UINT32_MAX?UINT32_MAX:(uint32_t)gap;k_spin_unlock(&lock,key);
@@ -134,9 +141,16 @@ static void worker(void *a,void *b,void *c)
    if(stable){pressed=now;key=k_spin_lock(&lock);wake_press=status.screensaver;status.screensaver=false;if(wake_press)add(&status.buttons);k_spin_unlock(&lock,key);held=wake_press;due=now;}
    else {if(!held&&!wake_press){key=k_spin_lock(&lock);if(status.help)status.help=false;else status.page=(status.page+1)%R2_UI_PAGES;add(&status.buttons);k_spin_unlock(&lock,key);}wake_press=false;}
   }
+#ifdef R2_LORA
+  key=k_spin_lock(&lock);bool lora_eligible=status.page==R2_UI_LORA_PAGE&&!status.help&&!wake_press&&model.platform_ready&&!model.profile_switching;k_spin_unlock(&lock,key);
+  if(rc8_gesture_update(&lora_gesture,stable,lora_eligible,now*1000))atomic_set(&lora_toggle,1);
+#endif
   if(stable)idle_since=now;
   if(stable&&!held&&now-pressed>=1500){held=true;key=k_spin_lock(&lock);
    if(status.page==0&&!status.help&&model.profile_supported){atomic_set(&profile_toggle,1);add(&status.profile_toggles);status.profile_target_rc=!model.profile_rc;status.profile_flash_until=now+4000;}
+#ifdef R2_LORA
+   else if(status.page==R2_UI_LORA_PAGE){/* Release before4s toggles; holding4s powers off. */}
+#endif
    else {status.help=true;}
    k_spin_unlock(&lock,key);}
 

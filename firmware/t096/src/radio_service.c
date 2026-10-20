@@ -15,6 +15,10 @@
 #include "radio_audit.h"
 #include "rc_shadow.h"
 #include "core.h"
+#ifdef R2_LORA
+#include "lora_source.h"
+#include "lora_service.h"
+#endif
 #include <errno.h>
 #include <zephyr/bluetooth/bluetooth.h>
 #include <zephyr/sys/atomic.h>
@@ -147,10 +151,21 @@ static void output_read(struct pt_output *out,uint64_t now){
  if(!capture_valid||stopped||now<out->sampled||now>=out->valid_until){out->view.map_valid=out->view.locked=false;out->utc_valid=out->context.source=false;}
 }
 void r2_radio_service_source(const struct r2_source_clock *source,bool ready,uint32_t epoch){
- (void)k_mutex_lock(&pt_lock,K_FOREVER);pt_input.source=*source;pt_input.source_ready=ready;pt_input.source_epoch=epoch;(void)k_mutex_unlock(&pt_lock);
+ (void)k_mutex_lock(&pt_lock,K_FOREVER);
+#ifdef R2_LORA
+ bool withdraw_own=!ready&&pt_output.scope.gm;
+#endif
+ pt_input.source=*source;pt_input.source_ready=ready;pt_input.source_epoch=epoch;(void)k_mutex_unlock(&pt_lock);
+#ifdef R2_LORA
+ /* A follower's local PPS is a witness only, never its export permission. */
+ if(withdraw_own)r2_lora_source_withdraw();
+#endif
 }
 void r2_radio_service_activate(void){(void)k_mutex_lock(&pt_lock,K_FOREVER);pt_input.stopped=false;handoff.root=0;handoff.pending=handoff.valid=false;(void)k_mutex_unlock(&pt_lock);}
 void r2_radio_service_withdraw(void){
+#ifdef R2_LORA
+ r2_lora_source_withdraw();
+#endif
  (void)k_mutex_lock(&pt_lock,K_FOREVER);pt_input.stopped=true;(void)k_mutex_unlock(&pt_lock);
 }
 static void fault(int rc) {
@@ -605,6 +620,28 @@ static void precision_step(uint64_t now){
     .parent_epoch=precision.remote_capture,.train=precision.train,.accepted=precision.accepted,.utc_offset=offset};
   }
  }
+#ifdef R2_LORA
+ /* Immutable exports originate here, where the real source and delivered
+  * follower map are owned. Local GNSS is never consulted for a follower. */
+ if(r2_lora_source_needed()){
+ struct rc8_export lora={0};
+ struct rc8_scope lscope={.emitter=in.roster.identity[service_self],.emitter_boot=1,.stream=1,
+  .root=scope.root_identity,.root_boot=scope.boot,.source_epoch=scope.source_epoch,.scale=RC8_UTC,
+  .kind=scope.gm?RC8_OWN_GM:RC8_SELECTED_BLE};
+ bool lvalid=false;
+ if(paired&&!in.stopped&&sampled<scope.until_us&&scope.until_us-sampled<=(UINT64_MAX-current.tick)/16){
+  uint64_t until=current.tick+(scope.until_us-sampled)*16;
+  if(scope.gm&&in.source_ready&&in.source_epoch==scope.source_epoch)
+   lvalid=r2_lora_source_own(&lora,source,lscope,current,until);
+  else if(scope.follower&&out.utc_valid&&out.view.locked&&out.valid_until>sampled&&r2_radio_precision_map(&precision,&delivered)){
+   uint64_t limit=current.tick+(out.valid_until-sampled)*16;
+   lvalid=r2_lora_source_follower(&lora,&delivered,lscope,current,limit,
+    precision.origin_created_ns,precision.origin_expires_ns,offset,precision.accepted);
+  }
+ }
+ if(lvalid)r2_lora_source_publish(&lora);else r2_lora_source_withdraw();
+ }else r2_lora_source_withdraw();
+#endif
  (void)k_mutex_lock(&pt_lock,K_FOREVER);pt_output=out;
  if(native_owned&&!native_close_until&&(!same(native_grant,out.scope)||(!out.scope.gm&&!out.scope.follower)))native_close_until=now+2000000;
  refresh_anchor|=request_refresh;require_anchor|=request_anchor;(void)k_mutex_unlock(&pt_lock);

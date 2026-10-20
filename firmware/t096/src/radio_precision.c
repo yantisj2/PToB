@@ -210,6 +210,10 @@ bool r2_radio_precision_step(struct r2_radio_precision *s,
   s->last_available = available.tick;
   if (accepted) {
     s->last_accepted = available.tick;
+#ifdef R2_LORA
+    s->origin_created_ns=best->created_ns;
+    s->origin_expires_ns=c.expires_ns; /* minimum original/correction permission */
+#endif
     r2_math_inc(&s->accepted);
   }
   else

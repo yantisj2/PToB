@@ -2,6 +2,33 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 20 October 2026 — T0960.15.123 RC8 canary integration source
+
+Normal builds add exact source-owner exports (a locked BLE follower needs no
+local PPS; an actual GM needs its own qualified source), a separate UNKNOWN functional
+clock estimate, page7/CDC controls and a bounded low-priority LoRa owner. A private
+explicit exact-factory binding gates hardware; its default is disabled. Two
+source intervals preserve original physical-event mapping and expiry. Operational
+radio faults leave healthy BLE running and permit recovery after timely physical
+closure. RC7/GM/USB authority and RC9 remain fenced. Integration revision3 also
+preserves logical root boot independently of physical emitter boot; wire2 bytes
+are unchanged. Native, exact-device and physical output qualification remain
+separate gates; this entry does not claim a deployed or accepted image.
+
+## 20 October 2026 — RC8 offline contract, wire2 revision
+
+[RC8 wire version2](protocol/rc8/README.md) uses68-byte authenticated scope
+metadata plus80-byte timing/correction frames, with the full metadata MAC as
+context reference. Calculated4s timing/60s metadata occupation is6.833493%,
+versus12.3008% for the superseded176-byte offline draft. Separate functional
+availability, replay assurance, original-source authority and UNKNOWN output
+uncertainty permit the intended passive secondary stream without a mandatory
+short-lived external bootstrap. Eight-second correction matching and12-second
+original-event hold remain unqualified policies. Metadata refresh never renews
+timing, authority or an optional independent time anchor. Exact-factory TX,
+listener prohibition, selected-GM export and BLE priority remain strict. Runtime
+source/mapper/UI/radio integration and physical qualification are separate gates.
+
 ## 20 October 2026 — T096 framebuffer memory
 
 T096 **0.15.122** stores the 80×160 display in one-byte palette indices and

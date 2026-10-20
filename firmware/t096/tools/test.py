@@ -12,6 +12,12 @@ APP=Path(__file__).resolve().parents[1]
 with tempfile.TemporaryDirectory(prefix='t096-r2-test-') as directory:
     out=Path(directory)
     compiler=os.environ.get('CC') or ('/opt/homebrew/opt/llvm/bin/clang' if Path('/opt/homebrew/opt/llvm/bin/clang').is_file() else shutil.which('clang'))
+    subprocess.run([sys.executable,str(APP/'tools/lora_rc8_tests.py'),'--deps',str(args.deps),'--out',str(out/'rc8')],
+                   env={**os.environ,'CC':compiler},check=True,timeout=60)
+    subprocess.run([sys.executable,str(APP/'tools/lora_source_owner_tests.py'),'--deps',str(args.deps),'--out',str(out/'lora-source-owner')],env={**os.environ,'CC':compiler},check=True,timeout=60)
+    subprocess.run([sys.executable,str(APP/'tools/lora_runtime_tests.py'),'--deps',str(args.deps),'--out',str(out/'lora-runtime')],env={**os.environ,'CC':compiler},check=True,timeout=60)
+    subprocess.run([sys.executable,str(APP/'tools/lora_hw_tests.py'),'--out',str(out/'lora-hw')],env={**os.environ,'CC':compiler},check=True,timeout=60)
+    subprocess.run([sys.executable,'-m','unittest',str(APP/'tests/test_lora_build_binding.py')],check=True,timeout=60)
     subprocess.run([sys.executable,str(APP/'tools/framebuffer_tests.py'),'--out',str(out/'framebuffer')],
                    env={**os.environ,'CC':compiler},check=True,timeout=60)
     subprocess.run([sys.executable,str(APP/'tools/dc_tests.py'),'--out',str(out/'dc')],

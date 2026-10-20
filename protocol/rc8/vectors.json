@@ -1,0 +1,35 @@
+{
+  "schema": 2,
+  "wire_version": 2,
+  "license": "MIT",
+  "credit": "Jonathan Yantis",
+  "status": "SYNTHETIC_NOT_ENROLLMENT",
+  "group": {
+    "id_hex": "0102030405060708",
+    "epoch": 7,
+    "synthetic_psk_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+  },
+  "scope": {
+    "emitter": 257,
+    "emitter_boot": 514,
+    "stream": 771,
+    "root": 1028,
+    "root_boot": 1285,
+    "source_epoch": 6,
+    "scale": 1,
+    "kind": 2
+  },
+  "correction": {
+    "sequence": 1,
+    "map_generation": 9,
+    "event_ns": 1001000000,
+    "created_ns": 901000000,
+    "expires_ns": 3001000000,
+    "map_age_us": 1100,
+    "upstream_bound_ns": 4294967295
+  },
+  "wire_hex": {
+    "metadata": "52380201010100000000000002020000000000000303000000000000040400000000000005050000000000000600000001020000a29a5b66cf8e952a4b241932d72500c1",
+    "timing": "52380202a29a5b66cf8e952a4b241932d72500c1020000000100000009000000400caa3b00000000402bb4350000000040a0dfb2000000004c040000ffffffff01d792f5b888cc628944ba89d2defd27"
+  }
+}

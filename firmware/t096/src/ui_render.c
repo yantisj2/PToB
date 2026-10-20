@@ -149,6 +149,9 @@ bool r2_ui_ble_current(const struct r2_ui_model *m,uint64_t now)
 }
 bool r2_ui_analog(const struct r2_ui_model *m,uint64_t now)
 {
+#ifdef R2_LORA
+ if(m->lora.choice==RC8_SELECT_LORA)return false;
+#endif
  if(now<m->sampled_ms||now-m->sampled_ms>2500||!m->platform_ready||!m->clock.valid||m->clock.utc_us<0||!m->scope_active)return false;
  if(m->role==R2_UI_GM)return m->clock.source_available||m->gm_source_fresh;
  if(m->boundary_clock)return m->role==R2_UI_FOLLOWER&&m->authenticated_gm&&r2_ui_ble_current(m,now)&&m->precision.map_valid;
@@ -156,6 +159,9 @@ bool r2_ui_analog(const struct r2_ui_model *m,uint64_t now)
 }
 bool r2_ui_face_locked(const struct r2_ui_model *m,uint64_t now)
 {
+#ifdef R2_LORA
+ if(m->lora.choice==RC8_SELECT_LORA)return false;
+#endif
  if(m->role==R2_UI_GM||m->boundary_clock)return r2_ui_analog(m,now);
  if(now<m->sampled_ms||now-m->sampled_ms>2500||!m->platform_ready||
     now>UINT64_MAX/1000||now*1000>=m->face_lock_until_us||m->face_rms_ns>200)return false;
@@ -193,6 +199,13 @@ bool r2_ui_display_time(const struct r2_ui_model *m,uint64_t now,int64_t *utc,bo
 {
  *coarse=false;
  if(now<m->sampled_ms||now-m->sampled_ms>2500)return false;
+#ifdef R2_LORA
+ if(m->lora.choice==RC8_SELECT_LORA&&m->lora.utc_us&&now<=UINT64_MAX/1000&&now*1000>=m->lora.sampled_us&&now*1000<m->lora.until_us){
+  uint64_t value=m->lora.utc_us+(now*1000-m->lora.sampled_us);
+  if(value>INT64_MAX)return false;
+  *utc=(int64_t)value;*coarse=true;return true;
+ }
+#endif
  if(m->clock.valid&&m->clock.utc_us>=0&&(!m->ble_time_selected||r2_ui_ble_current(m,now))){
   uint64_t delta=m->ble_time_selected?(now-m->sampled_ms)*1000:0;
   if(delta>(uint64_t)(INT64_MAX-m->clock.utc_us))return false;
@@ -222,6 +235,9 @@ void r2_ui_sync_display_update(struct r2_ui_sync_display *c,const struct r2_ui_m
  }
 }
 bool r2_ui_sync_display_time(const struct r2_ui_sync_display *c,const struct r2_ui_model *m,uint64_t now,int64_t *utc){
+#ifdef R2_LORA
+ if(m->lora.choice==RC8_SELECT_LORA)return false;
+#endif
  if(!sync_display_context(m,now)||!c->at_ms||!c->loss_ms||now<c->at_ms||
     now<c->loss_ms||now-c->loss_ms>=500||c->utc_us<0)return false;
  uint64_t delta=now-c->at_ms;
@@ -282,6 +298,11 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
  s.gnss_native_health=true;s.native_served_time=face_visible||(fresh&&m->clock.valid);
  s.native_analog_eligible=face_visible;
  s.native_ble_time=(face_visible&&m->role!=R2_UI_GM)||(fresh&&m->ble_time_selected);
+#ifdef R2_LORA
+ if(m->lora.choice==RC8_SELECT_LORA){
+  s.native_pll_locked=s.native_rms_valid=s.native_served_time=s.native_ble_time=false;
+ }
+#endif
  s.native_hot_standby=fresh&&m->scope_active&&m->role==R2_UI_FOLLOWER&&m->local_hot_standby&&m->precision.authorized&&m->precision.map_valid;
  int64_t display_utc=0;bool coarse=false;
  s.utc_valid=r2_ui_display_time(m,now,&display_utc,&coarse);
@@ -321,6 +342,9 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
 #endif
  s.rf_sources.ble=(ui_rf_source_t){.available=fresh&&m->scope_active&&m->ble_time_selected&&s.utc_valid,
    .fresh=fresh&&m->scope_active&&m->ble_time_selected,.utc=true,.second=s.utc_second};
+#ifdef R2_LORA
+ if(m->lora.choice==RC8_SELECT_LORA)s.rf_sources.ble=(ui_rf_source_t){0};
+#endif
  /* Transport activity remains visible while time/map qualification is absent.
   * A stalled model cannot keep lamps on; no time authority is inferred. */
  r2_ui_rf_lamps(s.rf_lamps[UI_RF_BLE],m,now);
@@ -369,6 +393,26 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
   analog_clock(fb,&s,top+44);
   role_header_at(fb,&s,top+79);return;
  }
+#ifdef R2_LORA
+ if(status->page==R2_UI_LORA_PAGE){
+  const struct r2_lora_view *v=&m->lora;char text[24];
+  round_panel(fb,3,1,74,13,C_PANEL,C_BEZEL);label(fb,13,4,"LoRa RC8",1,C_WHITE);
+  snprintf(text,sizeof text,"%s %s",v->transmitter?"TX":"RX",v->requested?"ON":"OFF");
+  label(fb,5,22,text,2,v->requested?C_CYAN:C_DIM);
+  const char *state=v->fault?"RADIO FAULT":!v->requested?"DISABLED":!v->active?"INHIBITED":v->transmitter?(v->state==RC8_AVAILABLE?"SOURCE READY":"WAIT SOURCE"):v->state==RC8_AVAILABLE?"MATCHED TIME":v->state==RC8_EXPIRED?"HOLD EXPIRED":"WAIT PACKETS";
+  label(fb,4,44,state,1,C_WHITE);
+  if(v->requested&&v->active&&v->utc_us&&v->until_us>now*1000){
+   uint64_t sec=(v->utc_us+(now*1000>=v->sampled_us?now*1000-v->sampled_us:0))/1000000;
+   snprintf(text,sizeof text,"%02u:%02u:%02u",(unsigned)(sec/3600%24),(unsigned)(sec/60%60),(unsigned)(sec%60));
+  }else snprintf(text,sizeof text,"--:--:--");
+  label(fb,4,63,text,1,C_WHITE);
+  label(fb,4,80,"UNKNOWN",1,C_AMBER);label(fb,4,92,"TIME BOUND",1,C_DIM);
+  snprintf(text,sizeof text,"ROOT %04X",v->root_tag);label(fb,4,104,text,1,C_DIM);
+  if(!v->transmitter){if(v->age_ms>=12000)snprintf(text,sizeof text,"AGE >12s");else snprintf(text,sizeof text,"AGE %u.%us",v->age_ms/1000,(v->age_ms%1000)/100);label(fb,4,116,text,1,C_WHITE);}
+  label(fb,4,130,v->choice==RC8_SELECT_BLE?"BLE SELECTED":v->choice==RC8_SELECT_LOCAL_GM?"GM SELECTED":v->choice==RC8_SELECT_LORA&&v->requested&&!v->fault?"RC8 SELECTED":"NO CLOCK",1,C_DIM);
+  label(fb,4,145,"HOLD: TOGGLE",1,C_AMBER);return;
+ }
+#endif
  if(status->page==R2_UI_SHADOW_PAGE&&!status->help){
   const struct r2_shadow_session_view *v=&status->shadow;char text[24];
   round_panel(fb,3,1,74,13,C_PANEL,C_BEZEL);label(fb,10,4,"SHADOW PPS",1,C_WHITE);
@@ -395,6 +439,11 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
   label(fb,5,131,"GM/RC: MODE",1,C_DIM);label(fb,5,148,"PRESS:BACK",1,C_DIM);return;
  }
  if(status->page==0){front_clock(fb,&s);
+#ifdef R2_LORA
+  if(m->lora.choice==RC8_SELECT_LORA&&m->lora.until_us>now*1000){
+   fill(fb,0,0,80,15,C_BG);label(fb,4,4,"RC8 UNKNOWN",1,C_AMBER);
+  }
+#endif
 #ifdef R2_PC_PROFILE
   fill(fb,0,0,80,15,C_BG);label(fb,10,4,"PC AWAKE",1,C_AMBER);
 #endif

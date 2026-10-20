@@ -88,6 +88,7 @@ artifacts/deps/venv/bin/python firmware/t096/tools/inspect_build.py artifacts/bu
 ```sh
 python3 -m unittest discover -s firmware/t096/provisioning -p 'test_*.py' -v
 CC=clang python3 firmware/t096/tools/framebuffer_tests.py --out artifacts/check-framebuffer
+CC=clang python3 firmware/t096/tools/lora_rc8_tests.py --deps artifacts/deps --out artifacts/check-rc8
 CC=clang python3 firmware/t096/tools/dc_tests.py --out artifacts/check-dc
 CC=clang python3 firmware/t096/tools/dc_gnss_tests.py --out artifacts/check-dc-gnss
 CC=clang python3 firmware/t096/tools/usb_sof_tests.py --out artifacts/check-usb
@@ -125,6 +126,28 @@ failure boundary; it is also included in the full host runner. Matching physical
 display, BLE/USB service and stack observations remain exact-device gates.
 
 ## Hardware update boundary
+
+Normal0.15.123 builds include the [RC8 wire2 integration](../../protocol/rc8/README.md).
+The default transmitter factory is zero, so LoRa hardware does not start. An
+explicit normal-only `--lora-transmitter-factory` takes a16-digit exact factory
+identity verified against ignored T096 registry metadata. It is included in the
+private build/watchdog identity; a display alias grants no permission. The
+configured transmitter requests TX ON only in GM profile, including when it is
+a locked authenticated GM-profile follower without local PPS. An actual serving
+GM retains its qualified own PPS/source requirement. Every other enrolled T096 requests passive
+RX ON. TC01 in RC profile cannot transmit or receive its own stream.
+
+The `lora` query exposes full context/root/boot/source epoch, current and corrected
+sequence, physical captured event, original source envelope/map generation,
+accept/reject/replay/cache/missing-map counters, UNKNOWN uncertainty, selected
+source, actual worker stack unused bytes and bounded closure status. `lora 00/01`
+controls only the configured role; page7 has the same volatile request via release
+between1.5 and4 seconds. A4-second hold retains poweroff. Functional UNKNOWN
+freshness is explicitly allowed as secondary time when normal BLE is unusable;
+it grants no normal-source or future RC9 authority. Host/source/worker/radio
+fake-boundary tests run in the full runner. They do not operate hardware or
+qualify RF, coexistence or output accuracy. Native linked RAM must prove the4096B
+added-static ceiling; existing owner/controller/USB/stack gates remain.
 
 No general public flasher is shipped yet. The TC-04 cutover validation uses a
 local reviewed maintenance/update harness with exclusive ownership, fresh source/

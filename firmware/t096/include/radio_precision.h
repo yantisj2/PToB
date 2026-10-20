@@ -26,6 +26,9 @@ struct r2_radio_correction {
 struct r2_radio_precision {
   struct r2_radio_scope scope;
   uint64_t local_epoch, last_available, last_accepted, last_tx_ns;
+#ifdef R2_LORA
+  uint64_t origin_created_ns,origin_expires_ns;
+#endif
   uint32_t train, remote_capture, sequence, accepted, rejected, duplicates,
       overflows;
   uint32_t tx_reject[4]; /* scope/capture, envelope, sequence, interval */

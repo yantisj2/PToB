@@ -16,6 +16,9 @@ static inline unsigned r2_ui_saver_top(unsigned position){return 4+30*(position%
 static inline unsigned r2_ui_saver_next(unsigned current,uint32_t random){return (current%3+1+(random&1u))%3;}
 #include "ui_pages.h"
 #include "shadow_session.h"
+#ifdef R2_LORA
+#include "lora_service.h"
+#endif
 /* Filled only by the owning service, never from advertised names or UI controls. */
 enum r2_ui_role { R2_UI_NO_ROLE, R2_UI_GM, R2_UI_FOLLOWER };
 enum r2_ui_reset {R2_UI_RESET_UNKNOWN,R2_UI_RESET_PIN,R2_UI_RESET_SOFTWARE,
@@ -25,6 +28,9 @@ enum r2_ui_reset {R2_UI_RESET_UNKNOWN,R2_UI_RESET_PIN,R2_UI_RESET_SOFTWARE,
 const char *r2_ui_reset_text(unsigned reason);
 void r2_ui_uptime_text(char out[16],uint64_t uptime_ms);
 struct r2_ui_model {
+#ifdef R2_LORA
+ struct r2_lora_view lora;
+#endif
  struct r2_clock_view clock;
  struct r2_radio_precision_view precision;
  struct r2_pps_precision_view pps_precision;
@@ -89,6 +95,9 @@ int r2_ui_page(unsigned page);
 void r2_ui_snapshot(struct r2_ui_status *out);
 bool r2_ui_shadow_requested(void);
 bool r2_ui_take_profile_toggle(void);
+#ifdef R2_LORA
+bool r2_ui_take_lora_toggle(void);
+#endif
 void r2_ui_profile_flash(bool rc);
 uint32_t r2_ui_stack_unused(void);
 int r2_display_init(void);

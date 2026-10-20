@@ -5,15 +5,25 @@
 *Illustrative firmware-rendered RC screen; displayed values are not measured
 performance. [Image provenance](../../docs/images/README.md).*
 
-**PToB owns T096 RC7 development.** Current version **0.15.122** supplies the
+**PToB owns T096 RC7 development.** Current source version **0.15.123** supplies the
 ordinary **GM** and **RC** mesh profiles, with USB timing compiled by default.
 [Build from source](../../docs/t096/build.md) with pinned public dependencies
 and ignored local enrollment. No enrolled binary is distributed.
 
 The display uses an exact 17-color palette and one bounded DMA staging buffer,
 recovering 7,680 bytes of static RAM without changing its pixels or cadence.
-LoRa remains disabled. Host checks and native memory inspection do not establish
+LoRa hardware defaults to disabled unless a private exact-factory binding is
+explicitly supplied. Host checks and native memory inspection do not establish
 physical SPI/BLE coexistence or delivered-time accuracy.
+
+The [RC8 wire2 integration](../../protocol/rc8/README.md) adds exact actual-GM or
+selected authenticated locked-BLE follower exports, an independent lower-quality functional
+estimate, page7 controls and a bounded priority11 radio worker. BLE remains
+preferred while usable. A transmitting follower needs no local PPS; an actual
+GM retains its own PPS/source gate. Cold passive freshness and total uncertainty are UNKNOWN;
+optional independent admission improves assurance. RC8 grants no RC7/GM/RC9
+or USB authority. This source is an unqualified canary integration until its
+separate native/resource and authorized exact-device checks pass.
 
 T096 participates in the shared G1/RC7 mesh with W12 and StickS3 receivers and
 experimental relays. RC selection considers aged timing/delivery history as

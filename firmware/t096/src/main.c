@@ -21,6 +21,9 @@
 #include "usb_source.h"
 #endif
 #include "ui.h"
+#ifdef R2_LORA
+#include "lora_service.h"
+#endif
 #ifdef R2_NATIVE_BLE
 #include "ble_service.h"
 #include "gnss_aid.h"
@@ -157,6 +160,17 @@ static void __attribute__((noinline)) reply(const struct r2_request *r,uint64_t 
     int extra=snprintf(json+n-1,sizeof json-(size_t)n+1,",\"source\":\"%s\",\"commit\":\"%s\",\"boot\":\"%016llx\",\"silicon\":\"%s\",\"unit\":\"%s\"}",R2_SOURCE_SHA,R2_CHILD_COMMIT,(unsigned long long)identity.boot,identity.silicon,identity.unit);
     if(extra<0||(size_t)extra>=sizeof json-(size_t)n+1)return;
     n=r2_frame(frame,sizeof frame,r->id,++reply_sequence,json);if(n>0)(void)r2_console_reply(frame,(size_t)n,arrival+R2_REPLY_MS);return;
+  }
+#endif
+#ifdef R2_LORA
+  if(r->op==R2_LORA_CONTROL){
+    int n=r2_lora_json(json,sizeof json,result);
+    if(n<=0||(size_t)n>=sizeof json||reply_sequence==UINT32_MAX)return;
+    int extra=snprintf(json+n-1,sizeof json-(size_t)n+1,",\"source\":\"%s\"}",R2_SOURCE_SHA);
+    if(extra<=0||(size_t)extra>=sizeof json-(size_t)n+1)return;
+    n=r2_frame(frame,sizeof frame,r->id,++reply_sequence,json);
+    if(n>0)(void)r2_console_reply(frame,(size_t)n,arrival+R2_REPLY_MS);
+    return;
   }
 #endif
   if(r->op==R2_CLOCK){clock_reply(r,arrival);return;}
@@ -411,6 +425,11 @@ int main(void)
 #ifdef R2_NATIVE_BLE
   int enrollment_rc=r2_service_configure(&identity,&r2_enrollment);
   event(10,enrollment_rc);
+#ifdef R2_LORA
+  uint64_t lora_factory=0,lora_transmitter=(uint64_t)R2_LORA_TRANSMITTER_FACTORY;
+  (void)r2_factory_parse(identity.silicon,&lora_factory);
+  r2_lora_init(enrollment_rc?0:lora_factory,identity.boot,lora_transmitter,&r2_enrollment.group);
+#endif
   event(11,r2_diag_init(&identity));
 #endif
   r2_platform_start();
@@ -459,10 +478,18 @@ int main(void)
       r2_watchdog_restart_result(restart_rc);
     }
 #endif
+#ifdef R2_LORA
+    r2_lora_control(service.profile_rc,platform_ready&&normal_started&&maintenance.phase==R2_IDLE&&!poweroff_requested&&!r2_ui_poweroff_requested()&&!service.profile_pending,
+      service.follower_clock_valid?RC8_SELECT_BLE:service.serving&&service.source_eligible?RC8_SELECT_LOCAL_GM:RC8_SELECT_NONE);
+    if(maintenance.phase==R2_IDLE&&r2_ui_take_lora_toggle())r2_lora_toggle();
+#endif
     r2_shadow_serving(service.serving);
     hot_report(&service,&local_clock,now);
 #if !defined(R2_BOUNDARY_FIELD) || defined(R2_SWITCHABLE_FIELD)
     if(maintenance.phase==R2_IDLE&&r2_ui_take_profile_toggle()){
+#ifdef R2_LORA
+     r2_lora_stop();
+#endif
      int profile_rc=r2_service_profile(2,now);if(!profile_rc)r2_ui_profile_flash(!service.profile_rc);
     }
 #endif
@@ -481,7 +508,11 @@ int main(void)
 #endif
     r2_diag_poll();
     if(r2_ui_poweroff_requested()&&!poweroff_requested){poweroff_requested=true;r2_service_stop();r2_ui_stop();}
-    if(poweroff_requested&&service.closed&&r2_diag_shutdown_ready()&&!r2_ui_close_result()&&!r2_time_close_result()){
+    if(poweroff_requested&&service.closed&&r2_diag_shutdown_ready()
+#ifdef R2_LORA
+       &&!r2_lora_close_result()
+#endif
+       &&!r2_ui_close_result()&&!r2_time_close_result()){
       struct r2_platform off;r2_platform_snapshot(&off);
       if(off.close_done&&!off.close_result)(void)r2_board_poweroff();
     }
@@ -491,7 +522,11 @@ int main(void)
     bool terminal_close=!service.normal||poweroff_requested||maintenance.phase!=R2_IDLE;
     if(service.normal&&service.closing&&service.closed&&!terminal_close&&!service.profile_pending)
       r2_diag_finish(service.error);
-    if(terminal_close&&(service.closing||poweroff_requested)&&service.closed&&!diagnostic_close_started&&!r2_diag_busy()){
+    if(terminal_close&&(service.closing||poweroff_requested)&&service.closed&&!diagnostic_close_started&&!r2_diag_busy()
+#ifdef R2_LORA
+       &&!r2_lora_close_result()
+#endif
+       ){
       r2_ui_stop();
       if(!r2_ui_close_result()){
         r2_time_stop();
@@ -542,12 +577,18 @@ int main(void)
 #ifdef R2_DC_PROFILE
       r2_dc_ui(&m);
 #endif
+#ifdef R2_LORA
+      r2_lora_view(&m.lora);
+#endif
       m.sampled_ms=k_uptime_get();r2_ui_publish(&m);ui_due=m.sampled_ms+20;
     }
     if(maintenance.phase==R2_CLOSING&&!close_started){
       int rc=r2_ui_close_result();
 #ifdef R2_NATIVE_BLE
       if(!rc)rc=r2_service_close_result();
+#ifdef R2_LORA
+      if(!rc)rc=r2_lora_close_result();
+#endif
 #endif
       if(rc!=-EAGAIN&&!diagnostic_busy()){close_started=true;if(!rc){r2_time_stop();rc=p.close_done?p.close_result:r2_platform_close();}
         if(rc){maintenance.phase=R2_FAULT;maintenance.error=rc;}}
@@ -586,6 +627,9 @@ int main(void)
 #ifdef R2_NATIVE_BLE
             r2_diag_quiesce();
             r2_service_stop();
+#ifdef R2_LORA
+            r2_lora_stop();
+#endif
 #endif
             if(rc) { maintenance.phase=R2_FAULT; maintenance.error=rc; }
           }
@@ -599,6 +643,10 @@ int main(void)
           rc=maintenance.phase==R2_IDLE&&platform_ready?r2_pc_begin_aligned(r.seconds,r.nonce):-EACCES;
 #endif
 #ifdef R2_NATIVE_BLE
+#ifdef R2_LORA
+        } else if(r.op==R2_LORA_CONTROL){
+          if(r.seconds){rc=maintenance.phase==R2_IDLE&&platform_ready?0:-EACCES;if(!rc)r2_lora_request(r.nonce!=0);}
+#endif
         } else if(r.op==R2_WITNESS) {
           if(maintenance.phase!=R2_IDLE)rc=-EACCES;else r2_shadow_enable(r.nonce!=0);
         } else if(r.op==R2_PROFILE) {
@@ -606,6 +654,9 @@ int main(void)
           rc=-ENOTSUP;
 #else
           uint32_t profile[5];r2_service_profile_status(profile);
+#ifdef R2_LORA
+          if(maintenance.phase==R2_IDLE&&platform_ready)r2_lora_stop();
+#endif
           rc=maintenance.phase!=R2_IDLE||!platform_ready?-EACCES:r2_service_profile((unsigned)r.nonce,command.arrival);
           if(!rc)r2_ui_profile_flash(r.nonce==2?!profile[0]:r.nonce==1);
 #endif
@@ -642,6 +693,9 @@ int main(void)
              * completion, no clock reference, and within original READY expiry. */
 #ifdef R2_NATIVE_BLE
             if(!r2_diag_maintenance_safe())rc=-EBUSY;
+#endif
+#ifdef R2_LORA
+            if(!rc)rc=r2_lora_close_result();
 #endif
             if(rc||!p.close_done || p.close_result || r2_ui_close_result() || r2_time_close_result() || p.clock_release<0 ||
                (uint64_t)k_uptime_get()>=maintenance.deadline) rc=-EACCES;

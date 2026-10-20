@@ -30,6 +30,24 @@ def source_files():
     return sorted(p for p in APP.rglob('*') if p.is_file() and
                   '__pycache__' not in p.parts and p.suffix != '.pyc')
 
+def lora_binding(value, profile, registry):
+    """Explicit configuration grants TX; display aliases never grant it."""
+    if value is None:
+        return '0000000000000000'
+    if profile not in ('GM', 'RC'):
+        raise ValueError('LoRa binding is only supported by normal GM/RC images')
+    if not re.fullmatch('[0-9a-f]{16}', value) or not int(value, 16):
+        raise ValueError('LoRa transmitter requires a canonical nonzero 64-bit factory ID')
+    entry = registry['devices'].get(value)
+    if entry is None or entry['target'] != 't096':
+        raise ValueError('Configured LoRa transmitter must have explicit T096 factory metadata')
+    return value
+
+def private_binding(enrollment_sha, transmitter):
+    if transmitter == '0000000000000000':
+        return enrollment_sha
+    return hashlib.sha256((enrollment_sha+':lora-tx:'+transmitter).encode()).hexdigest()
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--deps', type=Path, required=True)
@@ -39,6 +57,7 @@ def main():
     parser.add_argument('--profile', choices=['GM', 'RC', 'DC', 'PC'], required=True)
     parser.add_argument('--pc-parent', help='Exact direct-GM identity, or auto for authenticated direct-GM discovery')
     parser.add_argument('--registry', type=Path, default=REPO/'registry/example.json')
+    parser.add_argument('--lora-transmitter-factory', help='Explicit normal-image sole LoRa TX factory ID; absent disables LoRa')
     parser.add_argument('--development', action='store_true')
     args = parser.parse_args()
     os.umask(0o077)
@@ -79,6 +98,7 @@ def main():
     enrollment = json.loads(args.enrollment.read_text()) if not dc else None
     device = json.loads(args.device_config.read_text())
     registry = load_registry(args.registry)
+    transmitter = lora_binding(args.lora_transmitter_factory, args.profile, registry)
     if not dc:
         key = bytes.fromhex(enrollment['psk'])
         group = enrollment['group_id']; epoch = enrollment['key_epoch']
@@ -106,7 +126,9 @@ def main():
                'enrollment_mode':'NONE_DC_LOCAL_GNSS' if dc else 'LOCAL_BUILD_TIME_P1_NOT_IMPLEMENTED',
                'registry_sha256':sha(args.registry),
                'registry_generator_sha256':sha(REPO/'registry/registry.py'),
-               'device_config_sha256':sha(args.device_config)}
+               'device_config_sha256':sha(args.device_config),
+               'lora_transmitter_factory':transmitter,
+               'secondary_lora_class':'RC8' if int(transmitter,16) else 'DISABLED'}
     write(out/'receipt.json',receipt)
     for name in source:
         dst=out/'source'/name;dst.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(APP/name,dst)
@@ -149,16 +171,17 @@ def main():
              '-DUSER_CACHE_DIR='+str(out/'cache'),'-DCMAKE_EXPORT_COMPILE_COMMANDS=ON','-DR2_ENROLLMENT_HEADER='+str(secret),
              '-DR2_SOURCE_SHA='+source_hash,'-DR2_CHILD_COMMIT='+receipt['public_commit'],
              '-DR2_SOURCE_DIRTY='+str(int(dirty)),
+             '-DR2_LORA_TRANSMITTER_FACTORY='+transmitter,
              '-DZEPHYR_MODULES='+';'.join(str(deps/p['path']) for p in lock['modules']),
              *(['-DR2_DC_PROFILE=ON','-DCONF_FILE='+str(APP/'dc.conf'),'-DDTC_OVERLAY_FILE='+str(APP/'dc.overlay')] if dc else
-               [*(['-DR2_PC_PROFILE=ON'] if pc else []),*(['-DR2_PC_AUTO_PARENT=ON'] if pc_auto else []),'-DEXTRA_CONF_FILE='+';'.join(str(APP/p) for p in ['rc_dynamic.conf','rc_unicast.conf','watchdog.conf','rc_hf_synth.conf'])])]
+               [*(['-DR2_PC_PROFILE=ON'] if pc else ['-DDTC_OVERLAY_FILE='+str(APP/'lora.overlay')]),*(['-DR2_PC_AUTO_PARENT=ON'] if pc_auto else []),'-DEXTRA_CONF_FILE='+';'.join(str(APP/p) for p in ['rc_dynamic.conf','rc_unicast.conf','watchdog.conf','rc_hf_synth.conf']+([] if pc else ['lora.conf']))])]
     try:
         run(command,'configure.log');run(['ninja','-C',str(out/'target')],'build.log')
         check_deps()
         if source != {str(p.relative_to(APP)):sha(p) for p in source_files()}:
             raise ValueError('Source changed during build')
         target=out/'target/zephyr'
-        binding=hashlib.sha256((source_hash+':'+sha(secret)+':'+sha(target/'.config')).encode()).hexdigest()
+        binding=hashlib.sha256((source_hash+':'+private_binding(sha(secret),transmitter)+':'+sha(target/'.config')).encode()).hexdigest()
         if '#define R2_WATCHDOG_BINDING "'+binding+'"' not in (out/'target/build_identity.h').read_text():
             raise ValueError('Watchdog binding mismatch')
         run([sys.executable,str(APP/'tools/uf2.py'),'pack',str(target/'zephyr.bin'),str(out/'t096.uf2'),'--address','0x26000'],'uf2.log')

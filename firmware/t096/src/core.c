@@ -64,6 +64,9 @@ int r2_parse(const char *line, struct r2_request *out)
   else if (!strcmp(parts[5],"route")) out->op = R2_ROUTE;
   else if (!strcmp(parts[5],"clock")) out->op = R2_CLOCK;
   else if (!strcmp(parts[5],"trace")) out->op = R2_TRACE;
+#ifdef R2_LORA
+  else if (!strcmp(parts[5],"lora")) out->op = R2_LORA_CONTROL;
+#endif
   else if (!strcmp(parts[5],"events")) out->op = R2_EVENTS;
   else if (!strcmp(parts[5],"prepare")) out->op = R2_PREPARE;
   else if (!strcmp(parts[5],"commit")) out->op = R2_COMMIT;
@@ -79,6 +82,13 @@ int r2_parse(const char *line, struct r2_request *out)
    if(!strcmp(parts[6],"gm"))out->nonce=0;else if(!strcmp(parts[6],"rc"))out->nonce=1;else if(!strcmp(parts[6],"toggle"))out->nonce=2;else return -EINVAL;
    return 0;
   }
+#ifdef R2_LORA
+  if(out->op==R2_LORA_CONTROL){
+   out->seconds=0;if(count==6)return 0;
+   if(count!=7||!hex(parts[6],2,&out->nonce)||out->nonce>1)return -EINVAL;
+   out->seconds=1;return 0;
+  }
+#endif
   if(out->op==R2_EVENTS)return count==7&&hex(parts[6],8,&out->nonce)?0:-EINVAL;
 #ifdef R2_RC_PROFILE
   if(out->op==R2_RC_PARENT){
@@ -165,4 +175,10 @@ int r2_frame(char *out, size_t capacity, uint32_t request, uint32_t sequence, co
   memmove(out+h,json,size);memcpy(out,head,(size_t)h);
   memcpy(out+h+size,tail,(size_t)t+1);
   return h+(int)size+t;
+}
+
+bool r2_factory_parse(const char *text,uint64_t *factory){
+ if(!factory)return false;
+ *factory=0;
+ return text&&hex(text,16,factory)&&*factory;
 }

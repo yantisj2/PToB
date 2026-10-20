@@ -43,6 +43,11 @@ static struct onoff_manager *manager;
 static struct gpio_dt_spec pin;
 static struct k_spinlock lock;
 static nrf_ppi_channel_t channel;
+#if !defined(R2_DC_PROFILE) && !defined(R2_PC_PROFILE)
+static nrf_ppi_channel_t lora_channel;
+static bool lora_owned;
+BUILD_ASSERT(TIMER3_CC_NUM >= 5);
+#endif
 #ifndef R2_DC_PROFILE
 static nrf_ppi_channel_t radio_channel;
 static bool radio_owned,radio_enabled;
@@ -226,6 +231,11 @@ bool r2_capture_pps(struct r2_capture *edge, int64_t now) {
 }
 int r2_capture_stop(void) {
   k_spinlock_key_t key = k_spin_lock(&lock);
+#if !defined(R2_DC_PROFILE) && !defined(R2_PC_PROFILE)
+  /* LoRa must acknowledge its independent route release before this common
+   * timer/HFXO owner can close. Do not break healthy BLE on a local fault. */
+  if(lora_owned){k_spin_unlock(&lock,key);return -EBUSY;}
+#endif
   atomic_clear(&accepting);
   pending = false;
   int rc = 0;
@@ -302,6 +312,59 @@ bool r2_capture_radio(uint32_t raw,uint32_t event_epoch,struct r2_capture *event
   }
   k_spin_unlock(&lock,key);return valid;
 }
+#if !defined(R2_DC_PROFILE) && !defined(R2_PC_PROFILE)
+int r2_capture_lora_attach(const struct gpio_dt_spec *dio,uint32_t fem_clear_task)
+{
+  if(!dio||dio->port!=DEVICE_DT_GET(DT_NODELABEL(gpio0))||dio->pin!=21)return -EINVAL;
+  if(fem_clear_task!=nrfx_gpiote_clr_task_address_get(&gpiote,NRF_GPIO_PIN_MAP(0,12)))return -EINVAL;
+  k_spinlock_key_t key=k_spin_lock(&lock);
+  int rc=0;uint8_t gchannel;
+  if(!atomic_get(&accepting))rc=-EAGAIN;
+  else if(lora_owned)rc=-EALREADY;
+  else if(nrfx_gpiote_channel_get(&gpiote,NRF_GPIO_PIN_MAP(0,21),&gchannel)!=NRFX_SUCCESS)rc=-ENOTSUP;
+  else {
+    uint32_t event=nrfx_gpiote_in_event_address_get(&gpiote,NRF_GPIO_PIN_MAP(0,21));
+    if(event!=nrf_gpiote_event_address_get(gpiote.p_reg,nrf_gpiote_in_event_get(gchannel)))rc=-ENOTSUP;
+    else if(nrfx_ppi_channel_alloc(&lora_channel)!=NRFX_SUCCESS)rc=-ENOMEM;
+    else {
+      lora_owned=true;
+      if(nrfx_ppi_channel_assign(lora_channel,event,
+           nrfx_timer_capture_task_address_get(&timer,4))!=NRFX_SUCCESS||
+         nrfx_ppi_channel_fork_assign(lora_channel,fem_clear_task)!=NRFX_SUCCESS||
+         nrfx_ppi_channel_enable(lora_channel)!=NRFX_SUCCESS)rc=-EIO;
+      if(rc&&nrfx_ppi_channel_disable(lora_channel)==NRFX_SUCCESS&&
+          nrfx_ppi_channel_fork_assign(lora_channel,0)==NRFX_SUCCESS&&
+          nrfx_ppi_channel_free(lora_channel)==NRFX_SUCCESS)lora_owned=false;
+    }
+  }
+  k_spin_unlock(&lock,key);return rc;
+}
+bool r2_capture_lora(struct r2_capture *event)
+{
+  bool valid=false;k_spinlock_key_t key=k_spin_lock(&lock);
+  if(lora_owned&&atomic_get(&accepting)){
+    uint32_t raw=nrfx_timer_capture_get(&timer,NRF_TIMER_CC_CHANNEL4);
+    uint32_t current=nrfx_timer_capture(&timer,NRF_TIMER_CC_CHANNEL2),age=current-raw;
+    /* IRQ arrival is not the event time. A delayed/stale CC only rejects
+     * LoRa; it must never fault an otherwise continuous BLE capture clock. */
+    if(extend(current,k_ticks_to_us_floor64(k_uptime_ticks()))&&age<=16000000&&extended>=age){
+      *event=(struct r2_capture){extended-age,epoch,R2_CAPTURE_LORA};valid=true;
+    }
+  }
+  k_spin_unlock(&lock,key);return valid;
+}
+int r2_capture_lora_detach(void)
+{
+  int rc=0;k_spinlock_key_t key=k_spin_lock(&lock);
+  if(lora_owned){
+    if(nrfx_ppi_channel_disable(lora_channel)!=NRFX_SUCCESS||
+       nrfx_ppi_channel_fork_assign(lora_channel,0)!=NRFX_SUCCESS||
+       nrfx_ppi_channel_free(lora_channel)!=NRFX_SUCCESS)rc=-EIO;
+    else lora_owned=false;
+  }
+  k_spin_unlock(&lock,key);return rc;
+}
+#endif
 #ifdef R2_USB_SOF_PROBE
 bool r2_capture_usb_sample(struct r2_usb_sof_snapshot *out)
 {

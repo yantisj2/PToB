@@ -17,7 +17,7 @@ enum r2_op { R2_STATUS, R2_TRACE, R2_PREPARE, R2_COMMIT, R2_CLOCK, R2_UI, R2_BLE
 #ifdef R2_RC_PROFILE
  , R2_RC_PARENT
 #endif
- , R2_EVENTS
+ , R2_LORA_CONTROL, R2_EVENTS
 #ifdef R2_PC_PROFILE
  , R2_PC, R2_PC_RUN, R2_PC_CYCLE, R2_PC_ALIGN
 #endif
@@ -37,6 +37,7 @@ struct r2_maint {
   int error;
 };
 int r2_parse(const char *line, struct r2_request *out);
+bool r2_factory_parse(const char *,uint64_t *);
 bool r2_bound(const struct r2_request *r, const char *silicon, const char *source, uint64_t boot);
 int r2_prepare(struct r2_maint *m, uint64_t nonce, uint64_t arrival, uint64_t now, bool safe);
 int r2_closed(struct r2_maint *m, uint64_t now, int result);
