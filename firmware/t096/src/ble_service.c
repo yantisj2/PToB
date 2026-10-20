@@ -8,6 +8,9 @@
 #include <stdio.h>
 #include "group_precision.h"
 #include "gm_role_status.h"
+#ifdef R2_LORA
+#include "lora_service.h"
+#endif
 #if defined(CONFIG_BT_PER_ADV)
 #include "radio_service.h"
 #include "time_service.h"
@@ -73,6 +76,13 @@ static void publish(uint64_t now)
 #if defined(CONFIG_BT_PER_ADV)
  /* CONTROL owns net. Finish nested snapshots before masking radio IRQs. */
  struct r2_group_client public;r2_radio_service_client_state(&public,now);
+#endif
+#ifdef R2_LORA
+ /* Only an authenticated peer's advertised dataset is descriptive parent
+  * quality. The service matches exact factory+boot to the frozen source. */
+ for(unsigned i=0;i<net.count;i++)if(net.peer[i].connected&&net.peer[i].authenticated&&net.peer[i].map_valid&&
+  net.peer[i].quality.identity==net.peer[i].identity&&now>=net.peer[i].seen&&now-net.peer[i].seen<10000000)
+  r2_lora_parent_quality(net.peer[i].identity,net.peer[i].boot,net.peer[i].quality.clock_class,net.peer[i].quality.accuracy,net.peer[i].seen);
 #endif
  bool storage_ready=r2_network_storage_ready(&net);
  uint32_t hot_refusal=r2_network_hot_refusal(&net);

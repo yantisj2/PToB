@@ -2,6 +2,20 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 20 October 2026 — T0960.15.124 RC8 companion diagnostics
+
+[RC8 wire3](protocol/rc8/README.md) retains80-byte timing with explicit full root
+identity/source epoch and exact prior physical TxDone. Original validity offsets
+round inward. New128-byte companions bind immutable boots/stream/parent context
+separately from mutable descriptive quality; they run about120 seconds apart
+plus coalesced significant events and yield to timing/BLE. Missing companions
+permit an independent functional estimate with unknown boots/quality/freshness.
+An applicable loss snapshot withdraws timing without refreshing hold; stale
+snapshots cannot withdraw newer timing. Passive listeners never transmit.
+Length-specific companion deadlines preserve the timing packet's original
+cutoff. Host/native checks and later hardware populations retain separate limits;
+this entry does not claim calibrated output precision or accepted deployment.
+
 ## 20 October 2026 — T0960.15.123 RC8 canary integration source
 
 Normal builds add exact source-owner exports (a locked BLE follower needs no

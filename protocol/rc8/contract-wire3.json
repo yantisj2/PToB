@@ -1,0 +1,185 @@
+{
+  "schema": 3,
+  "contract": "PTOB_RC8",
+  "wire_version": 3,
+  "revision": 1,
+  "status": "RUNTIME_INTEGRATION_UNQUALIFIED",
+  "license": "MIT",
+  "credit": "Jonathan Yantis",
+  "supersedes": {
+    "wire_version": 2,
+    "timing_bytes": 80,
+    "metadata_bytes": 68,
+    "reason": "Explicit root/epoch timing supports cold functional acquisition; immutable context separate from mutable diagnostic quality."
+  },
+  "wire": {
+    "metadata_bytes": 128,
+    "timing_bytes": 80,
+    "metadata_body_bytes": 112,
+    "timing_body_bytes": 64,
+    "tag_bytes": 16,
+    "context_reference": "128-bit HMAC(PTOBR8C3, group context + immutable companion bytes0..65)",
+    "domains": [
+      "PTOBR8C3",
+      "PTOBR8D3",
+      "PTOBR8T3"
+    ],
+    "byte_order": "little",
+    "metadata_reserved_zero": [
+      [
+        110,
+        1
+      ]
+    ],
+    "time_scales": {
+      "0": "ROOT_RELATIVE_NS",
+      "1": "UTC_POSIX_NS"
+    },
+    "source_kinds": {
+      "1": "OWN_GM",
+      "2": "AUTHENTICATED_SELECTED_BLE",
+      "0": "COMPANION_ONLY_NO_SOURCE"
+    },
+    "stream": "nonzero monotonic uint64 per unpredictable nonzero emitter boot; no wrap",
+    "sequence": "nonzero uint32 timing packets only; no wrap; metadata never resets floor",
+    "own_gm_boots": "root factory equals emitter; logical root boot and physical emitter boot independently exact, may differ",
+    "no_source": "Companion only; emitter+boot+stream nonzero, all root/parent/epoch zero, scale0/kind0, mandatory TIME_INVALID; strict timing/export validator rejects."
+  },
+  "policy": {
+    "sole_transmitter": "privately enrolled exact factory identity; never alias",
+    "tx_requires_profile": "GM",
+    "actual_serving_gm_required": false,
+    "listener_settx_allowed": false,
+    "ranging_allowed": false,
+    "ble_preferred": true,
+    "correction_window_us": 8000000,
+    "functional_hold_us": 12000000,
+    "metadata_cache_us": 240000000,
+    "metadata_refresh_proposed_us": 120000000,
+    "metadata_refresh": "Descriptive cache only; no timing/history/anchor/hold reset; coalesced event+single16s context repeat, then120s; yields timing and BLE; no catchup.",
+    "cache_replacement": "Same boot requires increasing stream and nondecreasing timing floor; different boot may restart sequence after12s gap; immediately retired context/boot rejected. Timing partial scope may acquire without companion, UNKNOWN.",
+    "bootstrap_required_for_functional": false,
+    "assurance": [
+      "FRESHNESS_UNKNOWN",
+      "STREAM_CONTINUITY",
+      "ANCHORED_INTERVAL"
+    ],
+    "authority": [
+      "UNKNOWN",
+      "ORIGINAL_ENVELOPE_CURRENT",
+      "ORIGINAL_ENVELOPE_EXPIRED"
+    ],
+    "anchor_max_us": 3600000000,
+    "anchor_initial_max_width_ns": 100000000,
+    "anchor_max_width_ns": 1000000000,
+    "anchor_max_rate_bound_ppb": 100000,
+    "anchor_policy": "unqualified assumed bounds; no RC8 renewal; expiry degrades assurance without stopping functional stream",
+    "allow_unverified": "explicit selection argument; permitted when BLE unusable; no RC7/GM/RC9 permission",
+    "max_temporal_residence_ns": 1000000000,
+    "output_uncertainty": "UNKNOWN",
+    "history_entries": 2,
+    "queued_frames": 1,
+    "overflow": "drop newest,count,no event substitution",
+    "cold_acquisition": "Two physical timing packets suffice; boots/stream/parent/quality remain UNKNOWN until matching companion; absolute freshness remains UNKNOWN.",
+    "diagnostic_min_gap_us": 2000000,
+    "diagnostic_withdrawal": "Only exact current context, increasing diagnostic sequence and timing floor >= current highest; clears sample/history without renewing hold.",
+    "context_repeat_us": 16000000,
+    "context_repeat": "One coalesced repeat after each new context; replaces old pending repeat, timing priority, no catch-up.",
+    "parent_quality_age": "Conservative accepted causal HELLO seen age, connected/authenticated/map-valid exact peer and quality identity; known bits clear at10s; oldest included datum sets snapshot age; polls never renew.",
+    "bootstrap_full_scope_required": true
+  },
+  "phy_calculation": {
+    "qualified": false,
+    "sf": 10,
+    "bandwidth_hz": 500000,
+    "coding_rate": "4/6",
+    "preamble_symbols": 12,
+    "explicit_header": true,
+    "phy_crc": true,
+    "low_data_rate_optimize": false,
+    "metadata_airtime_us": 369152,
+    "timing_airtime_us": 258560,
+    "historical64_airtime_us": 209408,
+    "rejected176_airtime_us": 492032,
+    "proposed_timing_cadence_s": 4,
+    "proposed_metadata_cadence_s": 120,
+    "total_occupancy_percent": 6.771626666666667,
+    "startup_packets": {
+      "metadata": 0,
+      "timing": 2
+    },
+    "startup_airtime_us": 517120
+  },
+  "future_owner_budgets": {
+    "chip_tx_timeout_us": 340000,
+    "fem_cutoff_us": 360000,
+    "prepare_to_txdone_max_us": 1000000,
+    "close_us": 200000,
+    "physical_validation": false,
+    "companion_chip_tx_timeout_us": 420000,
+    "companion_fem_cutoff_us": 450000
+  },
+  "memory": {
+    "ceiling_added_static_bytes": 4096,
+    "minimum_static_free_bytes": 1024,
+    "preferred_static_free_bytes": 4096,
+    "role_union": "One bounded receiver or transmitter state union; context repeat and parent observation age fit inside existing union.",
+    "measurement": "A development GM/RC whole-image feasibility comparison measured4032B added static and4708B free before final helper hardening. Final complete native ELF and exact-device high-water remain required; all original reserves retained.",
+    "prior_native_free_baseline_bytes": 8740,
+    "stack_limit": "excludes worker/IRQ/kernel/libc/libgcc/driver; integrated high-water required",
+    "runtime_snapshot_bytes": 304,
+    "runtime_export_bytes": 160,
+    "historical_planning_items_bytes": {
+      "worker_stack": 2048,
+      "worker_guard": 64,
+      "driver_capture_spi_reserve": 900,
+      "exclusive_boot_role_union": 656,
+      "wire_storage": 128,
+      "mapper_reserve": 128,
+      "ui_reserve": 96,
+      "stop_state": 24,
+      "gesture": 16,
+      "thread_control_and_orchestration": 192
+    },
+    "historical_planning_total_bytes": 4252,
+    "object_max_bytes": {
+      "exclusive_boot_role_union": 656,
+      "snapshot": 304,
+      "export": 160,
+      "packet": 80,
+      "transmission": 296
+    }
+  },
+  "gesture": {
+    "arm_us": 1500000,
+    "cancel_and_preserve_poweroff_us": 4000000,
+    "toggle": "release before4s while eligible",
+    "persistence": "volatile"
+  },
+  "excluded": [
+    "RC7 authority from LoRa",
+    "GM promotion",
+    "RC9 rebroadcast",
+    "W12 port",
+    "absolute cold replay freshness claim",
+    "independent output accuracy claim"
+  ],
+  "runtime": {
+    "feature": "T096 normal GM/RC only",
+    "default_factory": "zero disables hardware",
+    "worker_priority": 11,
+    "worker_stack_bytes": 2048,
+    "allow_unverified_functional_rc8": true,
+    "normal_source_priority": [
+      "usable BLE",
+      "actual own GM"
+    ],
+    "absolute_output_bound": "UNKNOWN",
+    "metadata_control_guard_us": "length-specific FEM bound +1000us, driver repeats immediately before FEM",
+    "map_commit": "captured physical publication linearization; original anchors and deadlines immutable",
+    "radio_fault": "latched RF inhibition; timely actual closure permits maintenance; late drain remains fault",
+    "rc9": false,
+    "follower_tx_gate": "currently usable authenticated selected BLE delivered-map PLL locked; local PPS/source_ready not required",
+    "own_gm_tx_gate": "currently valid qualified own PPS/source map"
+  }
+}

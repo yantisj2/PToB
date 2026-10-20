@@ -406,8 +406,8 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
    snprintf(text,sizeof text,"%02u:%02u:%02u",(unsigned)(sec/3600%24),(unsigned)(sec/60%60),(unsigned)(sec%60));
   }else snprintf(text,sizeof text,"--:--:--");
   label(fb,4,63,text,1,C_WHITE);
-  label(fb,4,80,"UNKNOWN",1,C_AMBER);label(fb,4,92,"TIME BOUND",1,C_DIM);
-  snprintf(text,sizeof text,"ROOT %04X",v->root_tag);label(fb,4,104,text,1,C_DIM);
+  label(fb,4,80,"UNKNOWN",1,C_AMBER);label(fb,4,92,v->quality_known?"TIME BOUND":"META UNKNOWN",1,C_DIM);
+  if(v->parent_tag)snprintf(text,sizeof text,"R%04X P%04X",v->root_tag,v->parent_tag);else snprintf(text,sizeof text,"R%04X P----",v->root_tag);label(fb,4,104,text,1,C_DIM);
   if(!v->transmitter){if(v->age_ms>=12000)snprintf(text,sizeof text,"AGE >12s");else snprintf(text,sizeof text,"AGE %u.%us",v->age_ms/1000,(v->age_ms%1000)/100);label(fb,4,116,text,1,C_WHITE);}
   label(fb,4,130,v->choice==RC8_SELECT_BLE?"BLE SELECTED":v->choice==RC8_SELECT_LOCAL_GM?"GM SELECTED":v->choice==RC8_SELECT_LORA&&v->requested&&!v->fault?"RC8 SELECTED":"NO CLOCK",1,C_DIM);
   label(fb,4,145,"HOLD: TOGGLE",1,C_AMBER);return;

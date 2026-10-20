@@ -127,7 +127,7 @@ display, BLE/USB service and stack observations remain exact-device gates.
 
 ## Hardware update boundary
 
-Normal0.15.123 builds include the [RC8 wire2 integration](../../protocol/rc8/README.md).
+Normal0.15.124 builds include the [RC8 wire3 integration](../../protocol/rc8/README.md).
 The default transmitter factory is zero, so LoRa hardware does not start. An
 explicit normal-only `--lora-transmitter-factory` takes a16-digit exact factory
 identity verified against ignored T096 registry metadata. It is included in the
@@ -137,7 +137,8 @@ a locked authenticated GM-profile follower without local PPS. An actual serving
 GM retains its qualified own PPS/source requirement. Every other enrolled T096 requests passive
 RX ON. TC01 in RC profile cannot transmit or receive its own stream.
 
-The `lora` query exposes full context/root/boot/source epoch, current and corrected
+The `lora` query exposes full context/root/boot/source epoch (unknown boots stay zero
+until a matching companion), current and corrected
 sequence, physical captured event, original source envelope/map generation,
 accept/reject/replay/cache/missing-map counters, UNKNOWN uncertainty, selected
 source, actual worker stack unused bytes and bounded closure status. `lora 00/01`
@@ -148,6 +149,13 @@ it grants no normal-source or future RC9 authority. Host/source/worker/radio
 fake-boundary tests run in the full runner. They do not operate hardware or
 qualify RF, coexistence or output accuracy. Native linked RAM must prove the4096B
 added-static ceiling; existing owner/controller/USB/stack gates remain.
+Wire3 retains80-byte timing packets, adds128-byte descriptive companions roughly
+every120 seconds plus coalesced events, and carries root identity/source epoch
+in every timing packet. Companions never renew a timing sample. Current-context
+loss withdraws the sample; stale diagnostic floors cannot withdraw newer timing.
+The timing cutoff remains340ms chip/360ms FEM; companions use420ms/450ms.
+After packet preparation the radio owner rechecks the original timing deadline
+immediately before FEM enable. Missing parent GNSS/PPS evidence remains UNKNOWN.
 
 No general public flasher is shipped yet. The TC-04 cutover validation uses a
 local reviewed maintenance/update harness with exclusive ownership, fresh source/

@@ -56,9 +56,9 @@ struct r2_capture{uint64_t tick,epoch;int kind;};
 static uint64_t mock_us=1000000,physical_tick=15999999;
 static int pins[64],irq_flags,packet_length=80,busy_high,suppress_dma,alloc_fail,stop_at_attach,stop_at_spi;
 static unsigned submissions,attach_count,detach_count;static bool route;
-static bool expire_at_fem;static unsigned set_tx_commands;
+static bool expire_at_fem,delay_before_fem,spi_eagain_payload,invalid_capture,stuck_dio;static unsigned set_tx_commands,last_budget;
 static void preempt_cutoff(void);
-static uint8_t regs[0x1000],payload[80];
+static uint8_t regs[0x1000],payload[R2_LORA_HW_BYTES];
 static int atomic_get(atomic_t *a){return *a;}
 static void atomic_set(atomic_t *a,int v){*a=v;}
 static void atomic_clear(atomic_t *a){*a=0;}
@@ -95,46 +95,48 @@ static int nrfx_ppi_channel_fork_assign(nrf_ppi_channel_t ch,uint32_t t){(void)c
 static void nrfx_timer_disable(const nrfx_timer_t *t){(void)t;}
 static void nrfx_timer_clear(const nrfx_timer_t *t){(void)t;}
 static void nrfx_timer_enable(const nrfx_timer_t *t){(void)t;}
-static void nrfx_timer_extended_compare(const nrfx_timer_t *t,int ch,unsigned us,int shorts,bool irq){(void)t;(void)ch;(void)shorts;(void)irq;assert(us==360000);}
+static void nrfx_timer_extended_compare(const nrfx_timer_t *t,int ch,unsigned us,int shorts,bool irq){(void)t;(void)ch;(void)shorts;(void)irq;assert(us==360000||us==450000);last_budget=us;}
 static int nrfx_timer_init(const nrfx_timer_t *t,const nrfx_timer_config_t *c,void(*fn)(int,void*)){(void)t;(void)fn;assert(c->frequency==1000000&&c->interrupt_priority==6);return 0;}
 static uint32_t nrfx_timer_compare_event_address_get(const nrfx_timer_t *t,int ch){(void)t;(void)ch;return 0x5678;}
 static bool r2_capture_now(struct r2_capture *c){*c=(struct r2_capture){mock_us*16,7,3};return true;}
-static bool r2_capture_lora(struct r2_capture *c){assert(route);*c=(struct r2_capture){physical_tick,7,4};return true;}
+static bool r2_capture_lora(struct r2_capture *c){assert(route);if(invalid_capture)return false;*c=(struct r2_capture){physical_tick,7,4};return true;}
 static int r2_capture_lora_attach(const struct gpio_dt_spec *p,uint32_t task){assert(p->pin==21&&task==0x1234);route=true;++attach_count;if(stop_at_attach)r2_lora_hw_stop_begin(mock_us+200000);return 0;}
 static int r2_capture_lora_detach(void){route=false;++detach_count;return 0;}
 static int spi_transceive_cb(const struct device *d,const struct spi_config *c,const struct spi_buf_set *tx,const struct spi_buf_set *rx,void(*fn)(const struct device*,int,void*),void *arg){
  assert(c->frequency==8000000&&tx->count==1&&rx->count==1);
  ++submissions;uint8_t *a=tx->buffers->buf,*b=rx->buffers->buf;size_t n=tx->buffers->len;
- assert(n==rx->buffers->len&&n<=83);memset(b,0,n);
+ assert(n==rx->buffers->len&&n<=R2_LORA_HW_BYTES+3);memset(b,0,n);
  switch(a[0]){
  case 0x0d:regs[(a[1]<<8)|a[2]]=a[3];break;
  case 0x1d:b[3]=0x22;b[4]=regs[(a[1]<<8)|a[2]];break;
  case 0x12:b[1]=0x22;b[2]=irq_flags>>8;b[3]=irq_flags;break;
  case 0x13:b[1]=0x22;b[2]=packet_length;b[3]=0;break;
  case 0x1e:b[2]=0x22;memcpy(b+3,payload,n-3);break;
- case 0x02:irq_flags=0;break;
+ case 0x02:irq_flags=0;if(!stuck_dio)pins[21]=0;break;
  case 0x82:assert(a[1]==0&&a[2]==0&&a[3]==0);break;
- case 0x83:++set_tx_commands;assert(a[1]==0&&a[2]==0x55&&a[3]==0);break;
+ case 0x83:++set_tx_commands;assert(a[1]==0&&a[2]==(last_budget==360000?0x55:0x69)&&a[3]==0);break;
+ case 0x0e:if(delay_before_fem)mock_us+=500000;break;
  case 0x93:assert(a[1]==0x20);break;
  default:break;
  }
  if(stop_at_spi)r2_lora_hw_stop_begin(mock_us+200000);
- if(!suppress_dma)fn(d,0,arg);return 0;
+ if(!suppress_dma)fn(d,spi_eagain_payload&&a[0]==0x0e?-EAGAIN:0,arg);return 0;
 }
 #include R2_LORA_OWNER_BODY
 static void preempt_cutoff(void){
  if(expire_at_fem&&pins[12]){
-  expire_at_fem=false;mock_us+=360001;pins[12]=0; /* Hardware PPI CLR. */
+  expire_at_fem=false;mock_us+=last_budget+1;pins[12]=0; /* Hardware PPI CLR. */
   cutoff_irq(NRF_TIMER_EVENT_COMPARE0,NULL);
  }
 }
 static void inject(int flags){irq_flags=flags;pins[12]=0;dio_irq(&device,&dio_callback,BIT(21));}
 static void closed(void){struct r2_lora_hw_ack ack;r2_lora_hw_stop_poll(&ack);assert(ack.dma_retired&&ack.radio_quiescent&&ack.fem_off&&ack.capture_released);}
 int main(int argc,char **argv){
- assert(argc==2);int mode=atoi(argv[1]);for(unsigned i=0;i<80;i++)payload[i]=(uint8_t)(i+11);
+ assert(argc==2);int mode=atoi(argv[1]);for(unsigned i=0;i<R2_LORA_HW_BYTES;i++)payload[i]=(uint8_t)(i+11);
  if(mode==1){alloc_fail=1;assert(r2_lora_hw_start(1,true)<0);assert(!submissions&&!route);closed();return 0;}
  if(mode==2){stop_at_attach=1;assert(r2_lora_hw_start(1,true)==-ECANCELED);assert(!submissions&&!pins[30]&&!pins[16]);closed();assert(!atomic_get(&fault));return 0;}
- assert(!r2_lora_hw_start(4,mode!=3&&mode!=11&&mode!=14));
+ bool tx_mode=mode==3||mode==11||mode==14||mode==15||mode==16||mode==17||mode==19||mode==20||mode==21||mode==22||mode==23||mode==24||mode==25||mode==27;
+ assert(!r2_lora_hw_start(4,!tx_mode));
  if(mode==3){assert(!r2_lora_hw_tx(payload,80,5));inject(1);mock_us+=400000;cutoff_irq(0,NULL);struct r2_lora_hw_event e;
   assert(!atomic_get(&fault)&&!counters.cutoffs); /* Latched physical DONE wins. */
   assert(r2_lora_hw_take(&e)==1&&e.kind==R2_LORA_HW_TX_DONE&&e.generation==5&&e.tick==physical_tick&&e.capture_epoch==7);
@@ -144,17 +146,65 @@ int main(int argc,char **argv){
   memset(payload,0,80);assert(e.frame[0]==11);assert(r2_lora_hw_take(&e)==0);assert(!r2_lora_hw_rx_rearm());
   packet_length=68;inject(2);assert(r2_lora_hw_take(&e)==1&&e.length==68);r2_lora_hw_stop_begin(mock_us+200000);closed();return 0;}
  if(mode==5){inject(0x42);struct r2_lora_hw_event e;assert(r2_lora_hw_take(&e)==0);assert(counters.crc_bad==1&&atomic_get(&phase)==2);r2_lora_hw_stop_begin(mock_us+200000);closed();return 0;}
- if(mode==6){packet_length=81;inject(2);struct r2_lora_hw_event e;assert(r2_lora_hw_take(&e)==0&&atomic_get(&phase)==2);r2_lora_hw_stop_begin(mock_us+200000);closed();return 0;}
+ if(mode==6){packet_length=R2_LORA_HW_BYTES+1;inject(2);struct r2_lora_hw_event e;assert(r2_lora_hw_take(&e)==0&&atomic_get(&phase)==2);r2_lora_hw_stop_begin(mock_us+200000);closed();return 0;}
  if(mode==7){inject(2);inject(2);struct r2_lora_hw_event e;assert(counters.overflow==1&&r2_lora_hw_take(&e)==1);r2_lora_hw_stop_begin(mock_us+200000);closed();return 0;}
  if(mode==8){busy_high=1;inject(2);struct r2_lora_hw_event e;unsigned before=submissions;assert(r2_lora_hw_take(&e)==-ETIMEDOUT&&submissions==before);closed();return 0;}
- if(mode==9){suppress_dma=1;inject(2);struct r2_lora_hw_event e;assert(r2_lora_hw_take(&e)==-ETIMEDOUT);uint8_t old[83];memcpy(old,dma_tx,83);size_t len=tx_buffer.len;unsigned n=submissions;
+ if(mode==9){suppress_dma=1;inject(2);struct r2_lora_hw_event e;assert(r2_lora_hw_take(&e)==-ETIMEDOUT);uint8_t old[R2_LORA_HW_BYTES+3];memcpy(old,dma_tx,sizeof old);size_t len=tx_buffer.len;unsigned n=submissions;
   struct r2_lora_hw_ack ack;r2_lora_hw_stop_poll(&ack);assert(!ack.dma_retired&&!ack.capture_released&&ack.fem_off&&ack.radio_quiescent);
-  assert(r2_lora_hw_start(6,true)<0&&r2_lora_hw_take(&e)<0);assert(r2_lora_hw_rx_rearm()<0);assert(submissions==n&&len==tx_buffer.len&&!memcmp(old,dma_tx,83));
+  assert(r2_lora_hw_start(6,true)<0&&r2_lora_hw_take(&e)<0);assert(r2_lora_hw_rx_rearm()<0);assert(submissions==n&&len==tx_buffer.len&&!memcmp(old,dma_tx,sizeof old));
   spi_done(&device,0,NULL);closed();assert(r2_lora_hw_start(6,true)<0);return 0;}
  if(mode==10){stop_at_spi=1;inject(2);struct r2_lora_hw_event e;assert(r2_lora_hw_take(&e)==-ECANCELED);closed();assert(!atomic_get(&fault));return 0;}
  if(mode==11){assert(!r2_lora_hw_tx(payload,80,5));cutoff_irq(0,NULL);struct r2_lora_hw_event e;assert(r2_lora_hw_take(&e)==-ETIMEDOUT&&counters.cutoffs==1);closed();return 0;}
  if(mode==14){expire_at_fem=true;assert(r2_lora_hw_tx(payload,80,5)==-ECANCELED);assert(!set_tx_commands&&!pins[12]&&!pins[16]&&!pins[30]&&!atomic_get(&running));assert(counters.cutoffs==1&&atomic_get(&fault)==-ETIMEDOUT);closed();return 0;}
- if(mode==13){r2_lora_hw_stop_begin(mock_us+200000);closed();pins[21]=1;assert(r2_lora_hw_start(6,true)==-EIO);assert(!pins[12]&&!pins[30]&&!pins[16]);closed();return 0;}
+ if(mode==15){delay_before_fem=true;uint64_t until=mock_us+451000;
+  assert(r2_lora_hw_tx_before(payload,128,5,until)==-EAGAIN);
+  assert(!set_tx_commands&&!pins[12]&&atomic_get(&phase)==1&&!atomic_get(&fault)&&atomic_get(&running));
+  delay_before_fem=false;assert(!r2_lora_hw_tx_before(payload,80,6,mock_us+361000));
+  assert(last_budget==360000&&set_tx_commands==1);inject(1);struct r2_lora_hw_event e;assert(r2_lora_hw_take(&e)==1);
+  r2_lora_hw_stop_begin(mock_us+200000);closed();return 0;}
+ if(mode==16){assert(!r2_lora_hw_tx_before(payload,128,5,mock_us+451000));assert(last_budget==450000&&set_tx_commands==1);
+  inject(1);mock_us+=500000;cutoff_irq(0,NULL);struct r2_lora_hw_event e;
+  assert(!atomic_get(&fault)&&!counters.cutoffs&&r2_lora_hw_take(&e)==1&&e.tick==physical_tick);
+  r2_lora_hw_stop_begin(mock_us+200000);closed();return 0;}
+ if(mode==17||mode==20){size_t n=mode==17?80:128;uint32_t budget=r2_lora_hw_budget_us(n);
+  assert(r2_lora_hw_tx_before(payload,n,5,mock_us+budget+999)==-EAGAIN);
+  assert(!set_tx_commands&&!pins[12]&&!atomic_get(&fault)&&atomic_get(&phase)==1);
+  assert(!r2_lora_hw_tx_before(payload,n,6,mock_us+budget+1000));assert(last_budget==budget);
+  inject(1);struct r2_lora_hw_event e;assert(r2_lora_hw_take(&e)==1);r2_lora_hw_stop_begin(mock_us+200000);closed();return 0;}
+ if(mode==18){packet_length=128;inject(2);struct r2_lora_hw_event e;
+  assert(r2_lora_hw_take(&e)==1&&e.length==128&&!memcmp(e.frame,payload,128)&&e.tick==physical_tick);
+  memset(payload,0,sizeof payload);assert(e.frame[127]==(uint8_t)(127+11));
+  assert(!r2_lora_hw_rx_rearm());packet_length=0;inject(2);assert(r2_lora_hw_take(&e)==0);
+  r2_lora_hw_stop_begin(mock_us+200000);closed();return 0;}
+ if(mode==19){expire_at_fem=true;assert(r2_lora_hw_tx(payload,128,5)==-ECANCELED);
+  assert(last_budget==450000&&!set_tx_commands&&!pins[12]&&!pins[16]&&!pins[30]&&!atomic_get(&running));
+  assert(counters.cutoffs==1&&atomic_get(&fault)==-ETIMEDOUT);closed();return 0;}
+ if(mode==21){assert(!r2_lora_hw_budget_us(0)&&!r2_lora_hw_budget_us(129));unsigned before=submissions;
+  assert(r2_lora_hw_tx_before(payload,0,5,UINT64_MAX)==-EINVAL&&r2_lora_hw_tx_before(payload,129,5,UINT64_MAX)==-EINVAL);
+  assert(submissions==before&&!set_tx_commands&&!pins[12]);assert(!r2_lora_hw_tx_before(payload,128,5,UINT64_MAX));
+  inject(1);struct r2_lora_hw_event e;assert(r2_lora_hw_take(&e)==1);r2_lora_hw_stop_begin(mock_us+200000);closed();return 0;}
+ if(mode==22){stop_at_spi=1;assert(r2_lora_hw_tx_before(payload,128,5,mock_us+451000)==-ECANCELED);
+  assert(!set_tx_commands&&!pins[12]&&!atomic_get(&fault));closed();return 0;}
+ if(mode==23){spi_eagain_payload=true;assert(r2_lora_hw_tx_before(payload,128,5,mock_us+451000)==-EIO);
+  assert(atomic_get(&fault)==-EAGAIN&&counters.spi_error==1&&!set_tx_commands&&!pins[12]&&!atomic_get(&running));closed();return 0;}
+ if(mode==24||mode==25){assert(!r2_lora_hw_tx(payload,128,5));
+  /* The physical edge/CC4/FEM inhibition happened before BLE delayed both
+   * callbacks. The cutoff ISR runs before the ordinary DIO callback. */
+  irq_flags=mode==24?1:0x200;pins[21]=1;pins[12]=0;mock_us+=6000000;cutoff_irq(0,NULL);
+  assert(atomic_get(&latched)&&!atomic_get(&fault)&&!counters.cutoffs);
+  dio_irq(&device,&dio_callback,BIT(21));assert(!counters.overflow);struct r2_lora_hw_event e;
+  if(mode==24)assert(r2_lora_hw_take(&e)==1&&e.tick==physical_tick&&e.capture_epoch==7&&counters.tx_done==1);
+  else assert(r2_lora_hw_take(&e)==-EIO&&!counters.tx_done&&atomic_get(&fault));
+  r2_lora_hw_stop_begin(mock_us+200000);closed();return 0;}
+ if(mode==26){invalid_capture=true;inject(2);struct r2_lora_hw_event e;
+  assert(!atomic_get(&fault)&&r2_lora_hw_take(&e)==1&&e.kind==R2_LORA_HW_RX_DONE&&!e.tick&&!e.capture_epoch&&counters.invalid_capture==1);
+  assert(!r2_lora_hw_rx_rearm());invalid_capture=false;inject(2);
+  assert(r2_lora_hw_take(&e)==1&&e.tick==physical_tick&&e.capture_epoch==7);r2_lora_hw_stop_begin(mock_us+200000);closed();return 0;}
+ if(mode==27){assert(!r2_lora_hw_tx(payload,80,5));invalid_capture=true;inject(1);struct r2_lora_hw_event e;
+  assert(!atomic_get(&fault)&&r2_lora_hw_take(&e)==1&&e.kind==R2_LORA_HW_TX_DONE&&!e.tick&&!e.capture_epoch&&counters.invalid_capture==1);
+  invalid_capture=false;assert(!r2_lora_hw_tx(payload,80,6));inject(1);
+  assert(r2_lora_hw_take(&e)==1&&e.tick==physical_tick&&e.capture_epoch==7);r2_lora_hw_stop_begin(mock_us+200000);closed();return 0;}
+ if(mode==13){r2_lora_hw_stop_begin(mock_us+200000);closed();pins[21]=1;stuck_dio=true;assert(r2_lora_hw_start(6,true)==-EIO);assert(!pins[12]&&!pins[30]&&!pins[16]);closed();return 0;}
  if(mode==12){r2_lora_hw_stop_begin(mock_us+200000);closed();assert(!r2_lora_hw_start(6,true));assert(attach_count==2&&detach_count==1);r2_lora_hw_stop_begin(mock_us+200000);closed();return 0;}
  assert(!"unknown mode");
 }

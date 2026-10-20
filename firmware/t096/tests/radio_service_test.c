@@ -10,6 +10,7 @@ static bool lora_needed=true;static unsigned lora_publishes,lora_withdraws;stati
 bool r2_lora_source_needed(void){return lora_needed;}
 void r2_lora_source_publish(const struct rc8_export *s){lora_export=*s;++lora_publishes;}
 void r2_lora_source_withdraw(void){++lora_withdraws;}
+void r2_lora_quality_publish(const struct rc8_scope *s,const struct rc8_quality *q){(void)s;assert(!(q->values&~q->known));}
 #endif
 static struct bt_le_per_adv_sync fixture;
 static bool owned,armed;

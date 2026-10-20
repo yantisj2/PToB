@@ -24,18 +24,21 @@ def airtime(payload):
 
 def reference(vector):
     group=vector['group'];scope=vector['scope'];c=vector['correction']
-    context=struct.pack('<BQI',1,int(group['id_hex'],16),group['epoch'])
+    auth=struct.pack('<BQI',1,int(group['id_hex'],16),group['epoch'])
     key=bytes.fromhex(group['synthetic_psk_hex'])
-    meta=bytearray(52);meta[:4]=b'R8\x02\x01'
-    for offset,name,fmt in [(4,'emitter','Q'),(12,'emitter_boot','Q'),(20,'stream','Q'),(28,'root','Q'),(36,'root_boot','Q'),(44,'source_epoch','I')]:
-        struct.pack_into('<'+fmt,meta,offset,scope[name])
-    meta[48]=scope['scale'];meta[49]=scope['kind']
-    tag=hmac.new(key,b'PTOBR8M2'+context+meta,hashlib.sha256).digest()[:16]
-    timing=bytearray(64);timing[:4]=b'R8\x02\x02';timing[4:20]=tag
-    struct.pack_into('<I',timing,20,2)
-    for offset,name,fmt in [(24,'sequence','I'),(28,'map_generation','I'),(32,'event_ns','Q'),(40,'created_ns','Q'),(48,'expires_ns','Q'),(56,'map_age_us','I'),(60,'upstream_bound_ns','I')]:
-        struct.pack_into('<'+fmt,timing,offset,c[name])
-    timing_tag=hmac.new(key,b'PTOBR8T2'+context+timing,hashlib.sha256).digest()[:16]
+    meta=bytearray(112);meta[:4]=b'R8\x03\x01'
+    for offset,name,fmt in [(4,'emitter','Q'),(12,'emitter_boot','Q'),(20,'stream','Q'),(28,'root','Q'),(36,'root_boot','Q'),(44,'parent','Q'),(52,'parent_boot','Q'),(60,'source_epoch','I')]:
+        struct.pack_into('<'+fmt,meta,offset,scope.get(name,0))
+    meta[64]=scope['scale'];meta[65]=scope['kind']
+    context=hmac.new(key,b'PTOBR8C3'+auth+meta[:66],hashlib.sha256).digest()[:16]
+    d=vector['diagnostic'];q=vector['quality']
+    struct.pack_into('<IIIHHHBBBBIIIiIBB',meta,66,d['sequence'],d['snapshot_age_ms'],d['timing_sequence'],d['events'],q['known'],q['values'],q['role'],q['hop'],q['parent_class'],q['parent_accuracy'],q['parent_bound_ns'],q['correction_age_ms'],q['map_life_ms'],q['rate_ppb'],q['residual_ns'],q['losses'],q['recoveries'])
+    meta[111]=d['time_valid']
+    tag=hmac.new(key,b'PTOBR8D3'+auth+meta,hashlib.sha256).digest()[:16]
+    timing=bytearray(64);timing[:4]=b'R8\x03'+bytes([2|(scope['scale']<<2)|(scope['kind']<<3)]);timing[4:20]=context
+    struct.pack_into('<QIIIQI',timing,20,scope['root'],scope['source_epoch'],2,c['sequence'],c['event_ns'],c['map_generation'])
+    struct.pack_into('<III',timing,52,(c['event_ns']-c['created_ns'])//1000,(c['expires_ns']-c['event_ns'])//1000,c['map_age_us'])
+    timing_tag=hmac.new(key,b'PTOBR8T3'+auth+timing,hashlib.sha256).digest()[:16]
     return {'metadata':(meta+tag).hex(),'timing':(timing+timing_tag).hex()}
 
 def main():
@@ -60,17 +63,19 @@ def main():
     result=subprocess.run([str(out/'rc8')],check=True,timeout=30,text=True,capture_output=True)
     print(result.stdout,end='')
     sizes={key:int(size) for key,size in re.findall(r'(receiver|export|packet|transmission|stop|gesture)=(\d+)',result.stdout)}
-    contract=json.loads((REPO/'protocol/rc8/contract.json').read_text())
-    budget=contract['memory']['planned_items_bytes']
+    contract=json.loads((REPO/'protocol/rc8/contract-wire3.json').read_text())
+    budget=contract['memory']['object_max_bytes']
     assert max(sizes['receiver'],sizes['transmission']+sizes['export'])<=budget['exclusive_boot_role_union']
-    assert sum(budget.values())==contract['memory']['planned_total_bytes']<=4096
-    vector=json.loads((REPO/'protocol/rc8/vectors.json').read_text())
+    assert contract['memory']['ceiling_added_static_bytes']==4096
+    # The historical planning reserves overlap integrated storage; only a
+    # complete native ELF comparison can establish the actual static ceiling.
+    vector=json.loads((REPO/'protocol/rc8/vectors-wire3.json').read_text())
     expected=reference(vector)
     assert expected==vector['wire_hex']
     for name,value in expected.items():
         actual=subprocess.check_output([str(out/'rc8'),name],text=True,timeout=30).strip()
         assert actual==value,'C '+name+' codec differs from independent Python HMAC/layout vector'
-    assert airtime(64)==209408 and airtime(68)==221696 and airtime(80)==258560 and airtime(176)==492032
+    assert airtime(64)==209408 and airtime(128)==369152 and airtime(80)==258560 and airtime(176)==492032
     native={}
     if args.arm_reference:
         import shlex
@@ -85,21 +90,22 @@ def main():
             for line in (out/(name+'.native.su')).read_text().splitlines():
                 location,size,kind=line.split('\t');frames[location.rsplit(':',1)[-1]]=int(size)
         paths={
-            'rx_metadata_key_setup':['rc8_receiver_process','metadata','rc8_metadata_decode','r2_group_verify','r2_group_mac','tc_hmac_set_key','tc_sha256_final','compress'],
+            'rx_metadata_key_setup':['rc8_receiver_process','metadata','rc8_companion_decode','r2_group_verify','r2_group_mac','tc_hmac_set_key','tc_sha256_final','compress'],
+            'rx_metadata_context_key_setup':['rc8_receiver_process','rc8_companion_decode','companion_context','r2_group_mac','tc_hmac_set_key','tc_sha256_final','compress'],
             'rx_timing_key_setup':['rc8_receiver_process','rc8_decode','r2_group_verify','r2_group_mac','tc_hmac_set_key','tc_sha256_final','compress'],
-            'tx_context_key_setup':['rc8_tx_prepare','rc8_context_id','rc8_metadata_encode','r2_group_mac','tc_hmac_set_key','tc_sha256_final','compress'],
-            'tx_context_final':['rc8_tx_prepare','rc8_context_id','rc8_metadata_encode','r2_group_mac','tc_hmac_final','tc_sha256_final','compress']}
+            'tx_context_key_setup':['rc8_tx_prepare','rc8_context_id','companion_context','r2_group_mac','tc_hmac_set_key','tc_sha256_final','compress'],
+            'tx_context_final':['rc8_tx_prepare','rc8_context_id','companion_context','r2_group_mac','tc_hmac_final','tc_sha256_final','compress']}
         native={'compiler_frames_bytes':frames,'nested_known_frames_bytes':{name:sum(frames.get(fn,0) for fn in chain) for name,chain in paths.items()},
                 'paths':paths,'limits':'Known C frames only; inlined helpers contribute within caller; excludes worker frame, IRQ/kernel/libc/libgcc/SPI/capture costs and physical high-water. Not stack qualification.'}
-    report={'status':'PASS_RC8_WIRE2_OFFLINE','hardware':'NOT_ACCESSED','precision':'UNQUALIFIED',
-            'tests':result.stdout.strip(),'metadata_bytes':68,'timing_bytes':80,'metadata_airtime_us':airtime(68),'timing_airtime_us':airtime(80),
-            'host_abi_sizes':sizes,'occupancy_timing4s_metadata60s_percent':airtime(80)/40000+airtime(68)/600000,
-            'planned_static_bytes':sum(budget.values()),
-            'startup_one_metadata_two_timing_us':airtime(68)+2*airtime(80),'native':native,
+    report={'status':'PASS_RC8_WIRE3_OFFLINE','hardware':'NOT_ACCESSED','precision':'UNQUALIFIED',
+            'tests':result.stdout.strip(),'metadata_bytes':128,'timing_bytes':80,'metadata_airtime_us':airtime(128),'timing_airtime_us':airtime(80),
+            'host_abi_sizes':sizes,'occupancy_timing4s_companion120s_percent':airtime(80)/40000+airtime(128)/1200000,
+            'object_reserves_bytes':budget,
+            'startup_two_timing_us':2*airtime(80),'native':native,
             'vectors_sha256':{k:hashlib.sha256(bytes.fromhex(v)).hexdigest() for k,v in expected.items()},
             'sources':{str(src.relative_to(REPO)):hashlib.sha256(src.read_bytes()).hexdigest() for src in sources},
             'compiler':subprocess.check_output([compiler,'--version'],text=True).splitlines()[0]}
     (out/'report.json').write_text(json.dumps(report,indent=2,sort_keys=True)+'\n')
-    print('Independent Python/C metadata+timing vectors PASS; airtime221696+258560us')
+    print('Independent Python/C metadata+timing vectors PASS; airtime369152+258560us')
 
 if __name__=='__main__':main()

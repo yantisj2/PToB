@@ -626,7 +626,7 @@ static void precision_step(uint64_t now){
  if(r2_lora_source_needed()){
  struct rc8_export lora={0};
  struct rc8_scope lscope={.emitter=in.roster.identity[service_self],.emitter_boot=1,.stream=1,
-  .root=scope.root_identity,.root_boot=scope.boot,.source_epoch=scope.source_epoch,.scale=RC8_UTC,
+  .root=scope.root_identity,.root_boot=scope.boot,.parent=scope.follower?scope.root_identity:0,.parent_boot=scope.follower?scope.boot:0,.source_epoch=scope.source_epoch,.scale=RC8_UTC,
   .kind=scope.gm?RC8_OWN_GM:RC8_SELECTED_BLE};
  bool lvalid=false;
  if(paired&&!in.stopped&&sampled<scope.until_us&&scope.until_us-sampled<=(UINT64_MAX-current.tick)/16){
@@ -640,6 +640,15 @@ static void precision_step(uint64_t now){
   }
  }
  if(lvalid)r2_lora_source_publish(&lora);else r2_lora_source_withdraw();
+ struct rc8_quality lquality={.known=RC8_Q_ROLE|RC8_Q_HOP|(scope.follower?RC8_Q_LOCK:0),
+  .values=(scope.follower&&out.view.locked?RC8_Q_LOCK:0),.role=scope.gm?1:scope.follower?2:0,.hop=scope.follower?1:0};
+ if(out.view.correction_age_valid){lquality.known|=RC8_Q_CORRECTION_AGE;lquality.correction_age_ms=out.view.correction_age_ms;}
+ if(out.view.drift_valid){lquality.known|=RC8_Q_RATE;lquality.rate_ppb=out.view.drift_ppb;}
+ if(out.view.rms_valid){lquality.known|=RC8_Q_RESIDUAL;lquality.residual_ns=out.view.rms_ns;}
+ if(lvalid){lquality.known|=RC8_Q_MAP_LIFE;lquality.map_life_ms=(uint32_t)((lora.until_tick-current.tick)/16000);}
+ /* A missing lock is reported as measured loss. No parent PPS/GNSS fact is
+  * inferred from this device's local receiver or the selected alias. */
+ r2_lora_quality_publish(&lscope,&lquality);
  }else r2_lora_source_withdraw();
 #endif
  (void)k_mutex_lock(&pt_lock,K_FOREVER);pt_output=out;

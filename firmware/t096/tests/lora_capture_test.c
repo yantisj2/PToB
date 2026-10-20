@@ -24,12 +24,20 @@ int main(int argc,char **argv){
   raw_lora=UINT32_C(0xfffffff0);raw_now=32;fake_now=1400;
   assert(r2_capture_lora(&event)&&event.tick==UINT64_C(0xfffffff0)&&event.kind==R2_CAPTURE_LORA&&event.epoch==1);
   if(mode==9){
-   raw_now+=16000001;fake_now+=1000;
+   raw_now+=8u*R2_CAPTURE_HZ+1;fake_now+=1000;
    assert(!r2_capture_lora(&event)&&r2_capture_now(&current)&&!r2_capture_error());
    raw_pps=raw_now;assert(r2_capture_pps(&event,fake_now));
   }
   if(mode==10){
    raw_now+=16000;fake_now+=1000;assert(r2_capture_lora(&event)&&event.tick==UINT64_C(0xfffffff0));
+  }
+  if(mode==11){
+   /* BLE/common capture continues while only the LoRa callback is delayed;
+    * the original shared-clock one-second continuity guard is unchanged. */
+   for(unsigned i=0;i<12;i++){
+    raw_now+=R2_CAPTURE_HZ/2;fake_now+=500000;r2_capture_poll(fake_now);
+   }
+   assert(r2_capture_lora(&event)&&event.tick==UINT64_C(0xfffffff0)&&!r2_capture_error());
   }
   /* Common timer/HFXO teardown must refuse while LoRa owns its route. */
   assert(r2_capture_stop()==-EBUSY&&accepting&&requested&&usb_route&&radio_open);

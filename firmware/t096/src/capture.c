@@ -347,7 +347,7 @@ bool r2_capture_lora(struct r2_capture *event)
     uint32_t current=nrfx_timer_capture(&timer,NRF_TIMER_CC_CHANNEL2),age=current-raw;
     /* IRQ arrival is not the event time. A delayed/stale CC only rejects
      * LoRa; it must never fault an otherwise continuous BLE capture clock. */
-    if(extend(current,k_ticks_to_us_floor64(k_uptime_ticks()))&&age<=16000000&&extended>=age){
+    if(extend(current,k_ticks_to_us_floor64(k_uptime_ticks()))&&age<=8u*R2_CAPTURE_HZ&&extended>=age){
       *event=(struct r2_capture){extended-age,epoch,R2_CAPTURE_LORA};valid=true;
     }
   }

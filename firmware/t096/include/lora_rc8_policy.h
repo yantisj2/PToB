@@ -1,11 +1,11 @@
 /* Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT
- * Portable wire2 policy. Hardware ownership remains outside this module. */
+ * Portable wire3 policy. Hardware ownership remains outside this module. */
 #pragma once
 #include "../protocol/lora_rc8.h"
 #define RC8_CORRECTION_US UINT64_C(8000000)
 #define RC8_HOLD_US UINT64_C(12000000)
-#define RC8_CONTEXT_US UINT64_C(120000000)
-#define RC8_META_REFRESH_US UINT64_C(60000000)
+#define RC8_CONTEXT_US UINT64_C(240000000)
+#define RC8_META_REFRESH_US UINT64_C(120000000)
 #define RC8_ANCHOR_MAX_US UINT64_C(3600000000)
 #define RC8_ANCHOR_WIDTH_NS UINT64_C(1000000000)
 #define RC8_DRAIN_US UINT64_C(200000)
@@ -66,15 +66,18 @@ enum rc8_selected {RC8_SELECT_NONE,RC8_SELECT_BLE,RC8_SELECT_LORA,RC8_SELECT_LOC
 struct rc8_receiver {
  uint64_t factory,transmitter_factory,metadata_until_us,last_timing_us,retired_boot;
  struct rc8_scope scope;
- uint8_t context[RC8_CONTEXT_BYTES];
+ uint8_t context[RC8_CONTEXT_BYTES],retired_context[RC8_CONTEXT_BYTES];
+ struct rc8_quality quality;
+ uint64_t diagnostic_us;
+ uint32_t diagnostic_sequence,snapshot_age_ms,withdrawal_sequence;uint16_t diagnostic_events;
  struct rc8_bootstrap trust;
  struct rc8_history history[RC8_HISTORY];
  struct rc8_sample sample;
  struct rc8_event queued_event;
- uint8_t queued[RC8_BYTES];
+ uint8_t queued[RC8_META_BYTES];
  uint32_t generation,highest_sequence,accepted,rejected,replayed,overflow,unmatched,metadata_misses;
  uint8_t queued_size;
- bool enabled,cached,anchored,continuity,queued_valid;
+ bool enabled,cached,anchored,continuity,queued_valid,metadata_known,time_valid;
 };
 /* Cold init only. All policy calls serialized by one future driver worker;
  * ISR latches cause/edge/generation and wakes it. No concurrent queue implied. */
@@ -102,9 +105,9 @@ void rc8_stop_begin(struct rc8_stop *,enum rc8_phase,uint64_t);
 enum rc8_stop_result rc8_stop_poll(struct rc8_stop *,uint64_t,bool dma_retired,bool radio_standby,bool fem_off,bool capture_released);
 struct rc8_gesture {uint64_t started_us;bool pressed,eligible;};
 bool rc8_gesture_update(struct rc8_gesture *,bool pressed,bool eligible,uint64_t);
-_Static_assert(sizeof(struct rc8_receiver)<=504,"RC8 receiver reserve");
-_Static_assert(sizeof(struct rc8_export)<=152,"RC8 export reserve");
-_Static_assert(sizeof(struct rc8_packet)<=64,"RC8 packet reserve");
-_Static_assert(sizeof(struct rc8_transmission)<=272,"RC8 TX reserve");
+_Static_assert(sizeof(struct rc8_receiver)<=656,"RC8 receiver reserve");
+_Static_assert(sizeof(struct rc8_export)<=168,"RC8 export reserve");
+_Static_assert(sizeof(struct rc8_packet)<=80,"RC8 packet reserve");
+_Static_assert(sizeof(struct rc8_transmission)<=320,"RC8 TX reserve");
 _Static_assert(sizeof(struct rc8_stop)<=24,"RC8 stop reserve");
 _Static_assert(sizeof(struct rc8_gesture)<=16,"RC8 gesture reserve");

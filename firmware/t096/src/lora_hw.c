@@ -21,7 +21,8 @@
 
 #define SPI_BYTES (R2_LORA_HW_BYTES + 3u)
 #define CSD_PIN NRF_GPIO_PIN_MAP(0, 12)
-#define CUTOFF_US 360000u
+#define TIMING_CUTOFF_US 360000u
+#define DIAGNOSTIC_CUTOFF_US 450000u
 #define BUSY_MS 30u
 #define DMA_MS 10u
 BUILD_ASSERT(EVENT_TIMER_ID != 3 && EVENT_TIMER_ID != 4);
@@ -90,9 +91,31 @@ static int fail(int rc) {
   inhibit();
   return rc;
 }
+static void latch_edge(atomic_val_t state) {
+  if (!r2_capture_lora(&edge)) {
+    /* A delayed/invalid timestamp drops this observation, not BLE or the
+     * radio owner. The worker still verifies cause and retires the FIFO.
+     * Epoch zero can never become a valid projected timing event. */
+    edge = (struct r2_capture){0};
+    count(&counters.invalid_capture);
+  }
+  edge_us = now_us();
+  edge_generation = generation;
+  if (resources)
+    nrfx_timer_disable(&cutoff);
+  atomic_set(&latched, state);
+}
 static void cutoff_irq(nrf_timer_event_t event, void *unused) {
   if (event == NRF_TIMER_EVENT_COMPARE0 && atomic_get(&phase) == 3 &&
       !atomic_get(&latched)) {
+    /* Higher-priority BLE may delay the software DIO callback past this
+     * compare. A pending physical DIO already captured CC4 and inhibited
+     * the FEM. Latch it now; only the worker's IRQ-status read can classify
+     * DONE versus chip timeout. Neither IRQ arrival becomes a timestamp. */
+    if (gpio_pin_get_dt(&dio) > 0) {
+      latch_edge(2); /* Ordinary DIO callback is still pending. */
+      return;
+    }
     /* The hardware compare -> CSD CLR route already inhibited the FEM. */
     atomic_set(&cutoff_expired, 1);
     count(&counters.cutoffs);
@@ -107,21 +130,15 @@ static void dio_irq(const struct device *dev, struct gpio_callback *cb,
                     uint32_t pins) {
   if (!atomic_get(&running))
     return;
+  if (atomic_cas(&latched, 2, 1))
+    return; /* The cutoff ISR already captured this exact pending edge. */
   /* Single RX/TX plus one IRQ cause: hardware has frozen FIFO and cleared
    * CSD via PPI before this callback. No callback-time timestamp substitute. */
   if (atomic_get(&latched)) {
     count(&counters.overflow);
     return;
   }
-  if (!r2_capture_lora(&edge)) {
-    (void)fail(-ESTALE);
-    return;
-  }
-  edge_us = now_us();
-  edge_generation = generation;
-  if (resources)
-    nrfx_timer_disable(&cutoff);
-  atomic_set(&latched, 1);
+  latch_edge(1);
 }
 static void spi_done(const struct device *dev, int rc, void *unused) {
   atomic_set(&result, rc);
@@ -224,17 +241,29 @@ static int mask_irq(bool tx) {
   uint8_t a[] = {flags >> 8, flags, flags >> 8, flags, 0, 0, 0, 0};
   return command(0x08, a, sizeof(a));
 }
-static int enable_fem(bool transmit) {
+static int enable_fem(bool transmit, uint32_t budget, uint64_t latest_finish,
+                      bool *deferred) {
+  if (deferred)
+    *deferred = false;
   unsigned key = irq_lock();
   int rc = -ECANCELED;
   if (atomic_get(&running) && !atomic_get(&fault)) {
+    uint64_t now = now_us();
+    if (transmit && latest_finish &&
+        (now >= latest_finish ||
+         (uint64_t)budget + R2_LORA_HW_LAUNCH_MARGIN_US > latest_finish - now)) {
+      if (deferred)
+        *deferred = true;
+      irq_unlock(key);
+      return -EAGAIN;
+    }
     /* Official Heltec bypass RX: CSD=1,CTX=1,DIO2(CPS)=0. In TX DIO2=1.
      * Initial canary chip drive is0dBm; antenna power is not measured. */
     rc = gpio_pin_set_dt(&ctx, 1);
     if (!rc && transmit) {
       atomic_clear(&cutoff_expired);
       nrfx_timer_clear(&cutoff);
-      nrfx_timer_extended_compare(&cutoff, NRF_TIMER_CC_CHANNEL0, CUTOFF_US,
+      nrfx_timer_extended_compare(&cutoff, NRF_TIMER_CC_CHANNEL0, budget,
                                   NRF_TIMER_SHORT_COMPARE0_STOP_MASK, true);
       rc = nrfx_ppi_channel_enable(cutoff_channel) == NRFX_SUCCESS ? 0 : -EIO;
       if (!rc)
@@ -421,13 +450,20 @@ int r2_lora_hw_rx_rearm(void) {
   if (!rc)
     rc = arm_edge(generation, 2);
   if (!rc)
-    rc = enable_fem(false);
+    rc = enable_fem(false, 0, 0, NULL);
   if (!rc)
     rc = command(0x82, single, sizeof(single));
   return rc && rc != -ECANCELED ? fail(rc) : rc;
 }
-int r2_lora_hw_tx(const uint8_t *bytes, size_t n, uint32_t gen) {
-  if (!bytes || (n != 68 && n != 80) || !gen)
+uint32_t r2_lora_hw_budget_us(size_t n) {
+  if (!n || n > R2_LORA_HW_BYTES)
+    return 0;
+  return n <= 80 ? TIMING_CUTOFF_US : DIAGNOSTIC_CUTOFF_US;
+}
+int r2_lora_hw_tx_before(const uint8_t *bytes, size_t n, uint32_t gen,
+                       uint64_t latest_finish) {
+  uint32_t budget = r2_lora_hw_budget_us(n);
+  if (!bytes || !budget || !gen)
     return -EINVAL;
   if (receive_mode || atomic_get(&phase) != 1 || atomic_get(&dma_inflight))
     return -EBUSY;
@@ -451,13 +487,28 @@ int r2_lora_hw_tx(const uint8_t *bytes, size_t n, uint32_t gen) {
   }
   if (!rc)
     rc = arm_edge(gen, 3);
+  bool deferred = false;
   if (!rc)
-    rc = enable_fem(true);
-  /* SX1262 RTC ticks=15.625us; 21760 ticks=340ms. */
-  const uint8_t timeout[] = {0, 0x55, 0};
+    rc = enable_fem(true, budget, latest_finish, &deferred);
+  if (deferred) {
+    /* Preparation armed a new capture generation, but never enabled RF.
+     * Retire that unsubmitted attempt without fault or deadline renewal. */
+    atomic_cas(&phase, 3, 1);
+    return rc;
+  }
+  /* SX1262 RTC ticks=15.625us. Timing340ms; diagnostics420ms, within
+   * their independent360/450ms hardware FEM cutoffs respectively. */
+  const uint8_t timeout[] = {0, n <= 80 ? 0x55 : 0x69, 0};
   if (!rc)
     rc = command(0x83, timeout, sizeof(timeout));
+  /* Reserve EAGAIN for a healthy scheduling deferral. A peripheral error
+   * with that errno must still enter the fault/closure path. */
+  if (rc == -EAGAIN)
+    rc = -EIO;
   return rc && rc != -ECANCELED ? fail(rc) : rc;
+}
+int r2_lora_hw_tx(const uint8_t *bytes, size_t n, uint32_t gen) {
+  return r2_lora_hw_tx_before(bytes, n, gen, 0);
 }
 int r2_lora_hw_take(struct r2_lora_hw_event *out) {
   if (atomic_get(&fault))
@@ -487,7 +538,7 @@ int r2_lora_hw_take(struct r2_lora_hw_event *out) {
       if (!rc && !status_ok(dma_rx[1]))
         rc = -EIO;
       uint8_t n = dma_rx[2], offset = dma_rx[3];
-      if (!rc && (n != 68 && n != 80))
+      if (!rc && (!n || n > R2_LORA_HW_BYTES))
         rc = -EMSGSIZE;
       if (!rc && n > 256u - offset)
         rc = -EMSGSIZE;

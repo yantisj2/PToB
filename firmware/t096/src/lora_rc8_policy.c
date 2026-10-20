@@ -88,7 +88,7 @@ bool rc8_tx_prepare(struct rc8_transmission *t,const struct rc8_enrollment *e,en
  }
  struct rc8_correction prepared;
  if(!project(&prepared,map,seq,tick,epoch))return false;
- struct rc8_packet packet={.sequence=seq};
+ struct rc8_packet packet={.sequence=seq,.root=map->scope.root,.source_epoch=map->scope.source_epoch,.scale=map->scope.scale,.kind=map->scope.kind};
  if(rc8_context_id(packet.context,&map->scope,g))return false;
  if(same&&t->previous_valid){packet.corrected=true;packet.correction=t->previous;}
  if(rc8_packet_validate(&packet))return false;
@@ -130,7 +130,7 @@ void rc8_receiver_switch(struct rc8_receiver *s,bool enabled){
  s->generation++;s->enabled=enabled&&factory&&transmitter&&factory!=transmitter;
 }
 bool rc8_receiver_bootstrap(struct rc8_receiver *s,const struct rc8_bootstrap *b,uint64_t now){
- if(!s||!s->enabled||!s->cached||!b||!rc8_scope_equal(&s->scope,&b->scope)||b->at_us!=now||b->until_us<=now||
+ if(!s||!s->enabled||!s->cached||!s->metadata_known||!b||rc8_scope_validate(&b->scope)||!rc8_scope_equal(&s->scope,&b->scope)||b->at_us!=now||b->until_us<=now||
  b->until_us-now>RC8_ANCHOR_MAX_US||b->upper_ns<b->lower_ns||b->upper_ns-b->lower_ns>100000000||
  b->rate_bound_ppb>100000||!b->min_sequence)return false;
  s->trust=*b;s->anchored=true;s->continuity=false;
@@ -144,26 +144,42 @@ bool rc8_receiver_freeze(struct rc8_receiver *s,const uint8_t *wire,size_t n,str
  if(s->queued_valid){count(&s->overflow);return false;}
  memcpy(s->queued,wire,n);s->queued_size=(uint8_t)n;s->queued_event=event;s->queued_valid=true;return true;
 }
-static bool metadata(struct rc8_receiver *s,const struct r2_group_config *g,struct rc8_event rx,uint64_t now){
- struct rc8_scope scope;uint8_t id[RC8_CONTEXT_BYTES];uint64_t until;
- if(rc8_metadata_decode(&scope,id,s->queued,s->queued_size,g)||scope.emitter!=s->transmitter_factory||scope.root==s->factory||
- (s->cached&&rx.local_us<s->last_timing_us)||!add(rx.local_us,RC8_CONTEXT_US,&until)||now>=until){count(&s->rejected);return false;}
- if(s->cached&&!memcmp(id,s->context,RC8_CONTEXT_BYTES)){
-  if(!rc8_scope_equal(&scope,&s->scope)){count(&s->rejected);return false;}
-  if(until>s->metadata_until_us)s->metadata_until_us=until;
-  return false; /* Decoding-cache refresh only; never a clock observation. */
- }
- if(s->cached){
-  if(scope.emitter_boot==s->scope.emitter_boot&&scope.stream<=s->scope.stream){count(&s->replayed);return false;}
-  if(scope.emitter_boot!=s->scope.emitter_boot){
-   if(scope.emitter_boot==s->retired_boot||
-    (s->last_timing_us&&(rx.local_us<s->last_timing_us||rx.local_us-s->last_timing_us<RC8_HOLD_US))){count(&s->replayed);return false;}
-   s->retired_boot=s->scope.emitter_boot;
-  }
- }
- s->scope=scope;memcpy(s->context,id,RC8_CONTEXT_BYTES);s->metadata_until_us=until;s->cached=true;
- s->highest_sequence=0;s->last_timing_us=0;s->anchored=false;s->continuity=false;
+static void reset_timing(struct rc8_receiver *s){
+ s->anchored=false;s->continuity=false;
  memset(&s->trust,0,sizeof s->trust);memset(s->history,0,sizeof s->history);memset(&s->sample,0,sizeof s->sample);
+}
+static void adopt(struct rc8_receiver *s,const uint8_t *id){
+ if(s->cached)memcpy(s->retired_context,s->context,RC8_CONTEXT_BYTES);
+ memcpy(s->context,id,RC8_CONTEXT_BYTES);s->cached=true;s->metadata_known=false;s->metadata_until_us=0;
+ s->diagnostic_sequence=0;s->withdrawal_sequence=0;s->highest_sequence=0;s->time_valid=false;
+ memset(&s->quality,0,sizeof s->quality);reset_timing(s);
+}
+static bool metadata(struct rc8_receiver *s,const struct r2_group_config *g,struct rc8_event rx,uint64_t now){
+ struct rc8_companion p;uint8_t id[RC8_CONTEXT_BYTES];uint64_t until;
+ if(rc8_companion_decode(&p,id,s->queued,s->queued_size,g)||p.scope.emitter!=s->transmitter_factory||p.scope.root==s->factory||
+ (s->cached&&rx.local_us<s->last_timing_us)||!add(rx.local_us,RC8_CONTEXT_US,&until)||now>=until){count(&s->rejected);return false;}
+ bool same=s->cached&&!memcmp(id,s->context,RC8_CONTEXT_BYTES);
+ if(!same&&s->cached){
+  if(!memcmp(id,s->retired_context,RC8_CONTEXT_BYTES)){count(&s->replayed);return false;}
+  if(s->metadata_known){
+   if(p.scope.emitter_boot==s->scope.emitter_boot&&(p.scope.stream<=s->scope.stream||p.timing_sequence<s->highest_sequence)){count(&s->replayed);return false;}
+   if(p.scope.emitter_boot!=s->scope.emitter_boot){
+    if(p.scope.emitter_boot==s->retired_boot||(s->last_timing_us&&rx.local_us-s->last_timing_us<RC8_HOLD_US)){count(&s->replayed);return false;}
+    s->retired_boot=s->scope.emitter_boot;
+   }
+  }else if(p.timing_sequence<s->highest_sequence&&s->last_timing_us&&rx.local_us-s->last_timing_us<RC8_HOLD_US){count(&s->replayed);return false;}
+ }
+ if(same&&p.sequence<=s->diagnostic_sequence){count(&s->replayed);return false;}
+ if(same&&(p.scope.root!=s->scope.root||p.scope.source_epoch!=s->scope.source_epoch||
+ p.scope.scale!=s->scope.scale||p.scope.kind!=s->scope.kind)){count(&s->rejected);return false;}
+ if(!same)adopt(s,id);
+ /* Filling unknown boots or refreshing quality is not a timing transition. */
+ s->scope=p.scope;s->metadata_known=true;s->metadata_until_us=until;
+ s->quality=p.quality;s->diagnostic_us=rx.local_us;s->diagnostic_sequence=p.sequence;
+ s->snapshot_age_ms=p.snapshot_age_ms;s->diagnostic_events=p.events;s->time_valid=p.time_valid;
+ if(!p.time_valid&&p.timing_sequence>=s->highest_sequence&&p.timing_sequence>=s->withdrawal_sequence){
+  s->withdrawal_sequence=p.timing_sequence;reset_timing(s);
+ }
  return false;
 }
 static bool candidate(struct rc8_receiver *s,const struct rc8_history *h,const struct rc8_correction *c,uint64_t now){
@@ -192,10 +208,15 @@ bool rc8_receiver_process(struct rc8_receiver *s,const struct r2_group_config *g
  if(s->queued_size==RC8_META_BYTES){bool result=metadata(s,g,rx,now);s->queued_valid=false;return result;}
  struct rc8_packet p;int decoded=rc8_decode(&p,s->queued,s->queued_size,g);s->queued_valid=false;
  if(decoded){count(&s->rejected);return false;}
- if(!s->cached||rx.local_us>=s->metadata_until_us||now>=s->metadata_until_us||memcmp(p.context,s->context,RC8_CONTEXT_BYTES)){
-  count(&s->metadata_misses);return false;
- }
+ if(p.root==s->factory||(p.kind==RC8_OWN_GM&&p.root!=s->transmitter_factory)||
+ (p.kind==RC8_SELECTED_BLE&&p.root==s->transmitter_factory)){count(&s->rejected);return false;}
  if(rx.local_us<s->last_timing_us){s->anchored=false;s->continuity=false;count(&s->replayed);return false;}
+ if(!s->cached||memcmp(p.context,s->context,RC8_CONTEXT_BYTES)){
+  if(s->cached&&(!memcmp(p.context,s->retired_context,RC8_CONTEXT_BYTES)||
+   (p.sequence<=s->highest_sequence&&rx.local_us-s->last_timing_us<RC8_HOLD_US))){count(&s->replayed);return false;}
+  adopt(s,p.context);
+  s->scope=(struct rc8_scope){.emitter=s->transmitter_factory,.root=p.root,.source_epoch=p.source_epoch,.scale=p.scale,.kind=p.kind};
+ }else if(s->scope.root!=p.root||s->scope.source_epoch!=p.source_epoch||s->scope.scale!=p.scale||s->scope.kind!=p.kind){count(&s->rejected);return false;}
  if(p.sequence<=s->highest_sequence){count(&s->replayed);return false;}
  if(s->sample.valid&&rx.capture_epoch!=s->sample.rx.capture_epoch){
   s->anchored=false;s->continuity=false;memset(s->history,0,sizeof s->history);memset(&s->sample,0,sizeof s->sample);
@@ -206,7 +227,7 @@ bool rc8_receiver_process(struct rc8_receiver *s,const struct r2_group_config *g
   struct rc8_history *h=&s->history[i];
   if(h->occupied&&(now<h->rx.local_us||now-h->rx.local_us>RC8_CORRECTION_US))h->occupied=false;
   if(p.corrected&&h->occupied&&h->sequence==p.correction.sequence){
-   if(candidate(s,h,&p.correction,now)){
+   if(p.correction.sequence>s->withdrawal_sequence&&candidate(s,h,&p.correction,now)){
     s->sample=(struct rc8_sample){.rx=h->rx,.tx=p.correction,.valid=true};accepted=true;count(&s->accepted);
    }
    h->occupied=false;
