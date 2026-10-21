@@ -510,6 +510,15 @@ the conditional prepare/fatal stack estimate does not qualify arbitrary nested
 IRQ chains or measured latency. Schema3 trades the secondary interrupted-thread
 frame and IRQ-latency fields for queue owners. Field durability remains unaccepted.
 
+Source156's first180s observation completed24/24 four-device cohorts without a sampled
+service/radio error or reboot. Each intended pair endpoint was source-qualified
+in19/24 samples. Eleven complete cohorts had matching ACTIVE/global-HOT and
+peer/local-HOT identities and logical incarnations, spanning75.69s between first
+and last observations. The third GM stayed source-limited COLD; LoRa TX and RC
+corrections advanced. Subsequent reduced polling again captured readiness
+withdrawals and reformation with unchanged sampled source epochs. This confirms
+that the diagnostic update has not resolved HOT durability.
+
 The remaining work has separate causes and evidence requirements. First retain
 a stable two-GM pair with the third GM remaining COLD; only then exercise newcomer
 and four-device admission, keeping the ordinary RC in its RC profile:
