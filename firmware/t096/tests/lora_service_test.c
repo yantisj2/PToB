@@ -13,7 +13,8 @@ union r2_diag_scratch r2_diag_scratch;
 typedef long atomic_t;typedef long atomic_val_t;
 static atomic_val_t atomic_get(const atomic_t *p){return *p;}
 static void atomic_set(atomic_t *p,long v){*p=v;}
-static bool atomic_cas(atomic_t *p,long a,long b){if(*p!=a)return false;*p=b;return true;}
+static long cas_inject;
+static bool atomic_cas(atomic_t *p,long a,long b){if(cas_inject){*p|=cas_inject;cas_inject=0;return false;}if(*p!=a)return false;*p=b;return true;}
 static long atomic_and(atomic_t *p,long v){long old=*p;*p&=v;return old;}
 static void atomic_or(atomic_t *p,long v){*p|=v;}
 struct k_spinlock{int unused;};typedef int k_spinlock_key_t;
@@ -298,6 +299,55 @@ int main(int argc,char **argv){assert(argc==2);unsigned mode=(unsigned)atoi(argv
   r2_diag_scratch.lora.journal_result=INT32_MIN;
   r2_diag_scratch.lora.launch_budget=r2_diag_scratch.lora.precommit_us=r2_diag_scratch.lora.launch_us=UINT32_MAX;
   r2_diag_scratch.lora.command_commit_us=r2_diag_scratch.lora.command_committed=UINT32_MAX;
+ }
+ else if(mode==61){
+  init(false);r2_lora_control(false,true,RC8_SELECT_LOCAL_GM);step();
+  assert(owner.active&&role.rx.enabled&&!rx_suppressed(atomic_get(&flags)));
+  r2_lora_mesh_contact(true);assert(stop_deadline&&(atomic_get(&flags)&REQUESTED));
+  step();step();assert(atomic_get(&closed)&&!owner.active&&!atomic_get(&faulted));
+  r2_lora_mesh_contact(false);step();assert(owner.active&&starts==2);
+ }
+ else if(mode==62){
+  (void)coordination_acquire();struct r2_gm_coordination c;r2_lora_coordination(&c);assert(c.root);
+  hold_ack=true;r2_lora_mesh_contact(true);uint64_t original=stop_deadline;
+  r2_lora_coordination(&c);assert(!c.root);struct r2_lora_view v;r2_lora_view(&v);assert(!v.utc_us&&!v.coord_follow);
+  step();r2_lora_mesh_contact(false);step();r2_lora_mesh_contact(true);step();
+  assert(stop_deadline==original&&owner.stopping&&!atomic_get(&closed)&&starts==1);
+  r2_lora_mesh_contact(false);hold_ack=false;step();assert(atomic_get(&closed));
+  step();assert(owner.active&&starts==2&&!role.rx.sample.valid);
+ }
+ else if(mode==63){
+  init(false);step();hold_ack=true;r2_lora_mesh_contact(true);step();
+  uint64_t original=stop_deadline;r2_lora_mesh_contact(false);r2_lora_mesh_contact(true);assert(stop_deadline==original);
+  now_us=original-1;service_step();assert(r2_lora_close_result()==-EAGAIN&&!atomic_get(&closed)&&!atomic_get(&faulted)&&stop_deadline==original);
+  now_us=original;step();assert(r2_lora_close_result()==-EIO&&!atomic_get(&closed));
+ }
+ else if(mode==64){
+  init(false);r2_lora_control(true,true,false);step();r2_lora_mesh_contact(true);step();
+  assert(owner.active&&role.rx.enabled&&!stop_deadline&&!rx_suppressed(atomic_get(&flags)));
+  r2_lora_control(false,true,false);assert(stop_deadline);step();step();assert(atomic_get(&closed));
+  r2_lora_control(true,true,false);step();assert(owner.active&&starts==2);
+ }
+ else if(mode==65){
+  init(true);struct rc8_export m=source(now_us*16,1);r2_lora_source_publish(&m);step();step();
+  unsigned before=txs;r2_lora_mesh_contact(true);assert(r2_lora_source_needed()&&!stop_deadline);
+  done();done();assert(owner.active&&txs>=before&&!rx_suppressed(atomic_get(&flags))&&(atomic_get(&flags)&REQUESTED));
+ }
+ else if(mode==66){
+  init(false);step();r2_lora_mesh_contact(true);step();step();r2_lora_request(false);
+  r2_lora_mesh_contact(false);step();assert(!owner.active&&!(atomic_get(&flags)&REQUESTED));
+  r2_lora_mesh_contact(true);r2_lora_request(true);step();assert(!owner.active&&(atomic_get(&flags)&REQUESTED));
+  r2_lora_mesh_contact(false);step();assert(owner.active);
+ }
+ else if(mode==67){
+  init(false);step();char reply[3072];
+  r2_lora_request(false);r2_lora_json(reply,sizeof reply,0);
+  assert(strstr(reply,"\"requested\":true")); /* Main command reply precedes worker publication. */
+  step();step();r2_lora_json(reply,sizeof reply,0);assert(strstr(reply,"\"requested\":false"));
+  r2_lora_request(true);cas_inject=MESH_CONTACT;r2_lora_control(false,true,RC8_SELECT_LOCAL_GM);
+  assert((atomic_get(&flags)&(REQUESTED|MESH_CONTACT))==(REQUESTED|MESH_CONTACT));
+  step();assert(!owner.active);r2_lora_json(reply,sizeof reply,0);
+  assert(strstr(reply,"\"requested\":true")&&strstr(reply,"\"rx_suppressed\":true"));
  }
  else assert(false);
  char json[3072];int n=r2_lora_json(json,sizeof json-96,0);assert(n>0&&n<(int)sizeof json-96);printf("PASS runtime mode%u role=%zu snapshot=%zu worker=%zu json=%d\nJSON %s\n",mode,sizeof role,sizeof published,sizeof worker_stack,n,json);

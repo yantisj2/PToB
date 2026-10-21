@@ -5,17 +5,31 @@
 *Illustrative firmware-rendered RC screen; displayed values are not measured
 performance. [Image provenance](../../docs/images/README.md).*
 
-**PToB owns T096 RC7 development.** Current source version **0.15.147** supplies the
+**PToB owns T096 RC7 development.** Current source version **0.15.148** supplies the
 ordinary **GM** and **RC** mesh profiles, with USB timing compiled by default.
 [Build from source](../../docs/t096/build.md) with pinned public dependencies
 and ignored local enrollment. No enrolled binary is distributed.
+
+Version148 permits passive LoRa reception on a solo GM, including a solo
+serving GNSS GM. Recent authenticated BLE participation suppresses GM reception
+independently of brief PT/map loss: original10s remote membership, direct
+STATUS contact (original120s), current proved/accepted JOIN, or original client
+and demand leases. Local attempts and reported root/selected IDs are not contact.
+Expiry is evaluated by the progressing serialized owner; no new lease or timer
+is created. Silent passive listeners beyond their contact lease are unobservable.
+RC reception and the sole configured GM transmitter are unaffected. Manual
+`requested` remains separate from `rx_suppressed`; old LoRa UTC/coordination is
+fenced immediately, while physical closure still requires every acknowledgement
+within the original200ms drain. A stalled owner retains conservative suppression
+until the existing watchdog recovery. This is an offline candidate, not durable
+HOT or hardware acceptance.
 
 Version147 uses one fair four-class G5 dispatcher, a shared500ms probe cadence
 and1s original G5 control records. Legacy records retain250ms. The5s coordination
 lease,15s finite grants and independent source/PT/replay fences remain unchanged.
 Version146 formed physical HOT but lost source permission; delayed-owner wire
 replays expose response traffic starving HELLO and exceeding retry capacity.
-The147 host candidate passes those bounded schedules; durable physical HOT,
+The147 host candidate passes those bounded schedules; its subsequent physical HOT failed. Durable physical HOT,
 controller recovery and CONTACT reliability remain unaccepted. Matching GM
 versions are required.
 

@@ -33,7 +33,21 @@ revision/cleanliness and SDK archive checks. It is not necessary to have a priva
 sibling checkout. Builds put all generated and secret-bearing output under
 ignored `artifacts/` with owner-only permissions.
 
-Normal GM version0.15.147 uses [G5 ACTIVE/HOT/COLD](gm-standby.md).
+Version148 permits passive LoRa reception on a solo GM, including a solo
+serving GNSS GM. Recent authenticated BLE participation suppresses GM reception
+independently of brief PT/map loss: original10s remote membership, direct
+STATUS contact (original120s), current proved/accepted JOIN, or original client
+and demand leases. Local attempts and reported root/selected IDs are not contact.
+Expiry is evaluated by the progressing serialized owner; no new lease or timer
+is created. Silent passive listeners beyond their contact lease are unobservable.
+RC reception and the sole configured GM transmitter are unaffected. Manual
+`requested` remains separate from `rx_suppressed`; old LoRa UTC/coordination is
+fenced immediately, while physical closure still requires every acknowledgement
+within the original200ms drain. A stalled owner retains conservative suppression
+until the existing watchdog recovery. This is an offline candidate, not durable
+HOT or hardware acceptance.
+
+Normal GM version0.15.148 uses [G5 ACTIVE/HOT/COLD](gm-standby.md).
 Authenticated control maps each remote instant with its own original conservative
 clock-drift guard; a long finite-grant deadline cannot shorten a separate record
 TTL. G5 uses1s original control records and500ms probes; source/PT validity,15s

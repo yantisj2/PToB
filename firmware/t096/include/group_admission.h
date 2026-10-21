@@ -43,3 +43,6 @@ void r2_group_admission_reset(void); /* Serialized, only after proved transport 
 void r2_group_admission_relay_allowed(bool); /* Depth1 receiver cannot regenerate depth2. */
 /* Actual downstream PA/captured-correction readiness, distinct from an upstream map. */
 void r2_group_admission_relay_ready(bool);
+
+/* Serialized owner only; RX policy, independent of fine timing validity. */
+bool r2_group_admission_mesh_contact(uint64_t now);

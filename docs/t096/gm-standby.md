@@ -3,7 +3,7 @@
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
 Version0.15.134 introduces G5 coordination for the ordinary GM profile; current
-version0.15.147 uses500ms G5 probes and1s original control records with the
+version0.15.148 retains147's500ms G5 probes and1s original control records with the
 shared5s coordination lease and15s finite grants, one
 original admission lifetime, one selected-peer retry policy and fair pair
 dispatch, retaining causal timing handoff, latched PT closure,
@@ -11,6 +11,20 @@ GM watchdog coverage and the fixed45s successor acquisition budget. This is
 an implementation and host-test contract, not hardware acceptance or a claim of
 UTC/output accuracy. RC7 clients, USB, GNSS qualification, BLE capture and LoRa
 wire3 retain their separate contracts. DC remains a separate flash-only image.
+
+Version148 permits passive LoRa reception on a solo GM, including a solo
+serving GNSS GM. Recent authenticated BLE participation suppresses GM reception
+independently of brief PT/map loss: original10s remote membership, direct
+STATUS contact (original120s), current proved/accepted JOIN, or original client
+and demand leases. Local attempts and reported root/selected IDs are not contact.
+Expiry is evaluated by the progressing serialized owner; no new lease or timer
+is created. Silent passive listeners beyond their contact lease are unobservable.
+RC reception and the sole configured GM transmitter are unaffected. Manual
+`requested` remains separate from `rx_suppressed`; old LoRa UTC/coordination is
+fenced immediately, while physical closure still requires every acknowledgement
+within the original200ms drain. A stalled owner retains conservative suppression
+until the existing watchdog recovery. This is an offline candidate, not durable
+HOT or hardware acceptance.
 
 ## Owners and compatibility
 
@@ -247,15 +261,22 @@ sources remained qualified. Version146 formed HOT with the longer coordination
 lease, then lost the selected peer's source permit before the later queue maximum.
 A delayed-owner replay reproduces the8→38 refusal sequence: response dispatch
 can starve HELLO; merely widening records while retrying at100ms can also overload
-servicing. Version147 is an offline candidate addressing that scheduling gap.
-It has not established durable physical HOT or newcomer acceptance.
+servicing. Version147 addresses that scheduling gap in bounded host traces, but
+its600s physical observation failed durability:86 cohorts included40 complete
+four-device cohorts; the longest complete ACTIVE/HOT interval was34.564s.
+A subsequent native missing-disconnect-callback terminal error propagated to a
+matching retained watchdog capsule. The underlying callback cause remains open.
+Version148 changes only GM LoRa RX participation policy; it is an offline
+candidate and does not establish a PT/controller repair or hardware acceptance.
 A separate146 watchdog recovery was observed with a valid retained worker-stall
 capsule from the worker/terminal-service watchdog path; this does not by itself
 prove a frozen worker. Its fault boot differs from the last observed boot, leaving an unobserved
 intermediate incarnation. The initiating cause and reset latency remain unresolved.
 Matching installed images and host/native checks do not establish output accuracy.
 
-The remaining work has separate causes and evidence requirements:
+The remaining work has separate causes and evidence requirements. First retain
+a stable two-GM pair with the third GM forwarding; only then exercise newcomer
+and four-device admission, keeping the ordinary RC in its RC profile:
 
 - Establish authenticated GM control reliably. Discovery and connection attempts
   can occur without completing admission; preserve connection callbacks, GATT

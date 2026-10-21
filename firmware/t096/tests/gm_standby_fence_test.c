@@ -665,6 +665,27 @@ int main(void)
   assert(n.gm5.candidate[0].boot==boot&&n.gm5.candidate[0].cooldown==cooldown&&n.gm5.candidate[0].failures==3&&n.gm5.candidate[0].successes==2&&!n.gm5.selected);
  }
  puts("PASS six candidate incarnations/source epochs retain exact per-identity failures, success history and original cooldown");
+ /* RX policy uses original direct contact evidence, never local election intent. */
+ n=base(true);n.local_gm=n.ready=true;n.gm5.selected=200;n.gm5.active=200;
+ n.gm5.attempt_until=n.now+30000000;assert(!r2_network_mesh_contact(&n,n.now));
+ n.peer[1].member=true;n.peer[1].member_at=n.now;uint64_t contact=n.now;
+ assert(!r2_network_mesh_contact(&n,contact-1));
+ assert(r2_network_mesh_contact(&n,contact+R2_V14_MEMBERSHIP_US-1));
+ assert(!r2_network_mesh_contact(&n,contact+R2_V14_MEMBERSHIP_US));
+ assert(!r2_network_mesh_contact(&n,contact+R2_V14_MEMBERSHIP_US+1));n.peer[1].member=false;
+ struct r2_network sender;assert(!r2_network_init(&sender,0,2,200,20,44,40000,n.now));sender.group=n.group;sender.gm5.enabled=true;
+ struct r2_join_exchange receiver_join={.self=100,.peer=200,.boot=10,.peer_boot=20,.nonce=3,.remote_nonce=4,.until=n.now+5000000,.accepted=true};
+ struct r2_join_exchange sender_join={.self=200,.peer=100,.boot=20,.peer_boot=10,.nonce=4,.remote_nonce=3,.until=n.now+5000000,.accepted=true,.server=true};
+ uint8_t contact_wire[R2_GM5_STATUS_BYTES];assert(!r2_gm5_status_encode(&sender,&sender_join,0,contact_wire));
+ receiver_join.accepted=false;assert(r2_gm5_status_receive(&n,&receiver_join,0,contact_wire,sizeof contact_wire,n.now));
+ assert(!r2_network_mesh_contact(&n,n.now));receiver_join.accepted=true;
+ assert(!r2_gm5_status_receive(&n,&receiver_join,0,contact_wire,sizeof contact_wire,n.now));
+ n.ready=false;n.peer[1].map_valid=false; /* PT/source loss does not revoke authenticated contact. */
+ assert(!r2_network_mesh_contact(&n,contact-1));
+ assert(r2_network_mesh_contact(&n,contact+R2_GM5_STATUS_US-1));
+ assert(!r2_network_mesh_contact(&n,contact+R2_GM5_STATUS_US));
+ assert(!r2_network_mesh_contact(&n,contact+R2_GM5_STATUS_US+1));
+ puts("PASS RX policy solo/attempt-only/unauthenticated false, real STATUS contact, original membership/STATUS boundaries, PT-independent");
  /* Worst-width counters/identities/deadlines, normalized boolean objects. */
  struct r2_gm5_diagnostic d;memset(&d,255,sizeof d);
  d.physical_eligible=d.local_hot=d.global_hot=d.global_hot_known=d.map_valid=d.locked=d.serving=false;

@@ -14,6 +14,8 @@ struct r2_lora_view {
 _Static_assert(sizeof(struct r2_lora_view)==48,"RC8 view reserve");
 void r2_lora_init(uint64_t factory,uint64_t boot,uint64_t transmitter,const struct r2_group_config *);
 void r2_lora_control(bool profile_rc,bool allowed,enum rc8_selected normal_source);
+/* Computed by serialized BLE owner from original authenticated contact leases. */
+void r2_lora_mesh_contact(bool present);
 void r2_lora_request(bool on);
 void r2_lora_toggle(void);
 void r2_lora_stop(void);

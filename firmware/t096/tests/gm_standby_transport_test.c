@@ -299,6 +299,21 @@ int main(int argc,char **argv)
  if(argc==3&&!strcmp(argv[1],"--terminal")){int error=stranded_control();FILE *f=fopen(argv[2],"wb");assert(f&&fwrite(&error,sizeof error,1,f)==1&&!fclose(f));return 0;}
  stranded_control();
  if(argc==2){write_handoff(argv[1]);return 0;}assert(argc==1);
+ reset();assert(!r2_group_admission_mesh_contact(n.now));ready_guest(3);
+ assert(!r2_group_admission_mesh_contact(n.now)); /* Mere native connection is not authentication. */
+ (void)authenticate(3);assert(r2_group_admission_mesh_contact(n.now));
+ uint64_t contact_end=exchange.until;memset(&client,0,sizeof client);memset(&demand,0,sizeof demand);
+ assert(r2_group_admission_mesh_contact(contact_end-1));
+ assert(!r2_group_admission_mesh_contact(contact_end));assert(!r2_group_admission_mesh_contact(contact_end+1));
+ active=false;assert(!r2_group_admission_mesh_contact(contact_end-1));
+ reset();(void)authenticate_client(true);active=false;memset(&demand,0,sizeof demand);
+ assert(client.peer&&client.peer_boot&&client.until>client.at);client.source=false;client.map_until=0;
+ assert(!r2_group_admission_mesh_contact(client.at-1));assert(r2_group_admission_mesh_contact(client.until-1));
+ assert(!r2_group_admission_mesh_contact(client.until));assert(!r2_group_admission_mesh_contact(client.until+1));
+ memset(&client,0,sizeof client);demand=(struct r2_local_demand){.peer=111,.peer_boot=11,.at=n.now,.until=n.now+1000000};
+ assert(!r2_group_admission_mesh_contact(demand.at-1));assert(r2_group_admission_mesh_contact(demand.until-1));
+ assert(!r2_group_admission_mesh_contact(demand.until));assert(!r2_group_admission_mesh_contact(demand.until+1));
+ puts("PASS RX contact actual authenticated JOIN/client, inactive/unauthenticated exclusion, original client/demand boundaries independent of PT");
  inventory_snapshot_tests();late_appointment();
  abandoned_phase_tests();admission_boundary_tests();missed_active_polls(false);missed_active_polls(true);
  reset();n.gm5.role=R2_GM5_ACTIVE;n.gm5.active=n.identity;n.gm5.active_boot=n.boot;n.local_gm=n.ready=true;n.choice=0;n.root_boot=n.boot;

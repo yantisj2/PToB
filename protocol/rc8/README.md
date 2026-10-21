@@ -15,6 +15,22 @@ ordering error in124: mandatory context is now populated before validating the
 prior correction. Wire3 layout/HMAC domains/vectors are unchanged; the124
 physical capture population and its failed acquisition remain separate evidence.
 
+## GM receiver policy in T0960.15.148
+
+Version148 permits passive LoRa reception on a solo GM, including a solo
+serving GNSS GM. Recent authenticated BLE participation suppresses GM reception
+independently of brief PT/map loss: original10s remote membership, direct
+STATUS contact (original120s), current proved/accepted JOIN, or original client
+and demand leases. Local attempts and reported root/selected IDs are not contact.
+Expiry is evaluated by the progressing serialized owner; no new lease or timer
+is created. Silent passive listeners beyond their contact lease are unobservable.
+RC reception and the sole configured GM transmitter are unaffected. Manual
+`requested` remains separate from `rx_suppressed`; old LoRa UTC/coordination is
+fenced immediately, while physical closure still requires every acknowledgement
+within the original200ms drain. A stalled owner retains conservative suppression
+until the existing watchdog recovery. This is an offline candidate, not durable
+HOT or hardware acceptance.
+
 ## Source and authority
 
 Only the exact privately configured transmitter factory can transmit, with the
@@ -22,7 +38,8 @@ ordinary GM profile, TX requested, service allowed and no radio fault. Actual
 serving-GM election is not required. A locked authenticated selected-BLE follower
 needs no local PPS. An actual serving GM retains its own qualified PPS/source
 gate. Neither a local GNSS fix nor an alias may replace the selected source.
-Every other enrolled device defaults to passive receive; the configured
+Other enrolled devices request passive receive by default, subject to the GM
+contact suppression above; the configured
 transmitter cannot receive its own stream. Receiver policy rejects a root equal
 to its own factory and rejects an own-GM claim whose root differs from the
 configured transmitter. Group HMAC proves symmetric membership, not individual

@@ -54,6 +54,12 @@ void r2_group_admission_direct_quality(const struct r2_link_quality_view *q,uint
 }
 static struct r2_group_client timing_context,coarse_context;
 static struct r2_local_demand queued_demand;
+bool r2_group_admission_mesh_contact(uint64_t now){
+ return (active&&exchange.peer&&exchange.peer!=exchange.self&&exchange.peer_boot&&
+         (exchange.proved||exchange.accepted)&&now<exchange.until)||
+        (client.peer&&client.peer_boot&&now>=client.at&&now<client.until)||
+        (demand.peer&&demand.peer_boot&&now>=demand.at&&now<demand.until);
+}
 bool r2_group_admission_coordination_direct(const struct r2_gm_coordination *c,uint64_t now){
  /* A relay's root identity is not direct root contact. The original JOIN
   * peer/boot and current direct physical PA map must both name this root.

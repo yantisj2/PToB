@@ -24,6 +24,18 @@ static bool bound(const struct r2_network *n,unsigned p)
 {return p<n->count&&p!=n->self&&n->peer[p].connected&&n->peer[p].authenticated&&n->now>=n->peer[p].seen&&n->now-n->peer[p].seen<10000000;}
 bool r2_network_member(const struct r2_network *n,unsigned p)
 {return p<n->count&&p!=n->self&&n->peer[p].member&&n->now>=n->peer[p].member_at&&n->now-n->peer[p].member_at<R2_V14_MEMBERSHIP_US;}
+bool r2_network_mesh_contact(const struct r2_network *n,uint64_t now)
+{
+ for(unsigned p=0;p<n->count;p++)if(p!=n->self&&n->peer[p].member&&
+    now>=n->peer[p].member_at&&now-n->peer[p].member_at<R2_V14_MEMBERSHIP_US)return true;
+ if(n->gm5.enabled)for(unsigned i=0;i<R2_GM5_CANDIDATES;i++){
+  const struct r2_gm5_candidate *c=&n->gm5.candidate[i];
+  /* at/until belongs to the actual authenticated STATUS sender, not a root
+   * or selected identity reported by another node. No local attempt renews it. */
+  if(c->identity&&c->identity!=n->identity&&c->boot&&now>=c->at&&now<c->until)return true;
+ }
+ return false;
+}
 static bool live(const struct r2_network *n,unsigned p)
 {return bound(n,p)&&n->now>=n->peer[p].alive&&n->now-n->peer[p].alive<coordination_lease(n);}
 /* Retaining an established partner is identity preference, not timing or

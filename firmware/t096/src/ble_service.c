@@ -74,6 +74,9 @@ void r2_gm_diagnostic_snapshot(struct r2_gm5_diagnostic *out){
 #endif
 static void publish(uint64_t now)
 {
+#ifdef R2_LORA
+ r2_lora_mesh_contact(r2_network_mesh_contact(&net,now)||r2_group_admission_mesh_contact(now));
+#endif
 #if defined(CONFIG_BT_PER_ADV)
  struct r2_radio_precision_view precision_view;struct r2_relay_status relay_view;
  relay_view=(struct r2_relay_status){0};

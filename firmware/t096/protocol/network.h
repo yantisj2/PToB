@@ -115,3 +115,6 @@ bool r2_network_member(const struct r2_network *,unsigned peer);
 
 /* Reuse authenticated JOIN proof on its promoted connection; no time map. */
 void r2_network_joined(struct r2_network *,unsigned,const struct r2_join_exchange *,uint64_t now);
+
+/* RX policy evidence only: original authenticated peer/contact leases. */
+bool r2_network_mesh_contact(const struct r2_network *,uint64_t now);

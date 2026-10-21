@@ -22,6 +22,7 @@
 #define REQUESTED 8u
 #define LOCAL_GM 16u
 #define SOURCE_PRESENT 32u
+#define MESH_CONTACT 64u
 #define DIAGNOSTIC_MIN_US UINT64_C(2000000)
 #define CONTEXT_REPEAT_US UINT64_C(16000000)
 #define CADENCE_US UINT64_C(4000000)
@@ -201,11 +202,19 @@ static void stop_now(void){
  k_thread_priority_set(&worker_thread,DRAIN_PRIORITY);
  k_wakeup(&worker_thread);
 }
+static bool rx_suppressed(atomic_val_t f){return !transmitter&&!(f&PROFILE_RC)&&(f&MESH_CONTACT);}
+void r2_lora_mesh_contact(bool present){
+ atomic_val_t old=atomic_get(&flags);
+ if(present)atomic_or(&flags,MESH_CONTACT);else atomic_and(&flags,~MESH_CONTACT);
+ /* Repeated owner publications do not restart the immutable drain. Requests
+  * remain operator-owned; RC and the sole transmitter ignore RX suppression. */
+ if(present&&!(old&MESH_CONTACT)&&rx_suppressed(atomic_get(&flags))&&!atomic_get(&closed))stop_now();
+}
 void r2_lora_stop(void){atomic_and(&flags,~ALLOWED);if(!atomic_get(&closed))stop_now();}
 void r2_lora_control(bool rc,bool allowed,enum rc8_selected preferred){
  atomic_val_t old=atomic_get(&flags),next;
- do{next=(old&(REQUESTED|SOURCE_PRESENT))|(rc?PROFILE_RC:0)|(allowed?ALLOWED:0)|(preferred!=RC8_SELECT_NONE?NORMAL:0)|(preferred==RC8_SELECT_LOCAL_GM?LOCAL_GM:0);}while(!atomic_cas(&flags,old,next)&&(old=atomic_get(&flags),true));
- if(!allowed||(transmitter&&rc))if(!atomic_get(&closed))stop_now();
+ do{next=(old&(REQUESTED|SOURCE_PRESENT|MESH_CONTACT))|(rc?PROFILE_RC:0)|(allowed?ALLOWED:0)|(preferred!=RC8_SELECT_NONE?NORMAL:0)|(preferred==RC8_SELECT_LOCAL_GM?LOCAL_GM:0);}while(!atomic_cas(&flags,old,next)&&(old=atomic_get(&flags),true));
+ if(!allowed||(transmitter&&rc)||rx_suppressed(next))if(!atomic_get(&closed))stop_now();
 }
 void r2_lora_request(bool on){
  if(on)atomic_or(&flags,REQUESTED);else{atomic_and(&flags,~REQUESTED);if(!atomic_get(&closed))stop_now();}
@@ -219,7 +228,7 @@ static struct r2_gm_coordination coordination(const struct snapshot *s,uint64_t 
   * there and cannot replace a foreign lease. Metadata alone cannot renew it.
   * This original12s functional hold has UNKNOWN passive freshness; it is only
   * a conservative election inhibition, never RC7 source/timing permission. */
- if(transmitter||atomic_get(&faulted)||!(f&ALLOWED)||!(f&REQUESTED)||
+ if(transmitter||rx_suppressed(f)||atomic_get(&faulted)||!(f&ALLOWED)||!(f&REQUESTED)||
     !s->view.active||s->view.state!=RC8_AVAILABLE||!s->corrected_sequence||
     !s->scope.root||s->scope.root==binding.factory||!s->scope.source_epoch||
     now<s->event.local_us||now-s->event.local_us>=RC8_HOLD_US||
@@ -244,7 +253,7 @@ void r2_lora_view(struct r2_lora_view *out){
  if(out->utc_us&&now>=out->sampled_us)out->utc_us+=now-out->sampled_us;
  out->sampled_us=now;
  if(atomic_get(&faulted)){out->fault=true;out->active=false;}
- if(atomic_get(&faulted)||!(atomic_get(&flags)&REQUESTED)||!(atomic_get(&flags)&ALLOWED)||!out->until_us||now>=out->until_us){out->utc_us=0;out->choice=(atomic_get(&flags)&NORMAL)?((atomic_get(&flags)&LOCAL_GM)?RC8_SELECT_LOCAL_GM:RC8_SELECT_BLE):RC8_SELECT_NONE;}
+ if(rx_suppressed(atomic_get(&flags))||atomic_get(&faulted)||!(atomic_get(&flags)&REQUESTED)||!(atomic_get(&flags)&ALLOWED)||!out->until_us||now>=out->until_us){out->utc_us=0;out->choice=(atomic_get(&flags)&NORMAL)?((atomic_get(&flags)&LOCAL_GM)?RC8_SELECT_LOCAL_GM:RC8_SELECT_BLE):RC8_SELECT_NONE;}
  struct r2_gm_coordination c;r2_lora_coordination(&c);out->coord_follow=c.root!=0;
 }
 static void __attribute__((noinline)) report(uint64_t now,bool active){
@@ -399,7 +408,7 @@ static struct {bool active,stopping;} owner;
 static bool cancelled(void){
  atomic_val_t f=atomic_get(&flags);
  k_spinlock_key_t key=k_spin_lock(&lock);bool stopping=stop_deadline!=0;k_spin_unlock(&lock,key);
- return stopping||!(f&ALLOWED)||!(f&REQUESTED)||(transmitter&&(f&PROFILE_RC));
+ return stopping||rx_suppressed(f)||!(f&ALLOWED)||!(f&REQUESTED)||(transmitter&&(f&PROFILE_RC));
 }
 static void begin_stop(int error){
  if(error&&!(error==-ECANCELED&&cancelled()))atomic_set(&faulted,1);
@@ -435,7 +444,7 @@ static void __attribute__((noinline)) process_event(uint64_t now){
 /* One production iteration, also exercised with public fake hardware boundaries. */
 static void __attribute__((noinline)) service_step(void){
  uint64_t now=mono();atomic_val_t f=atomic_get(&flags);
- bool desired=!atomic_get(&faulted)&&(f&ALLOWED)&&(f&REQUESTED)&&binding.enrolled&&binding.factory&&binding.transmitter_factory&&group&&group->id&&(!transmitter||!(f&PROFILE_RC));
+ bool desired=!rx_suppressed(f)&&!atomic_get(&faulted)&&(f&ALLOWED)&&(f&REQUESTED)&&binding.enrolled&&binding.factory&&binding.transmitter_factory&&group&&group->id&&(!transmitter||!(f&PROFILE_RC));
  r2_diag_scratch.lora.beat=k_uptime_get_32();
  r2_diag_scratch.lora.monitor=desired||owner.active||owner.stopping;
  if((!desired||cancelled())&&owner.active&&!owner.stopping)begin_stop(0);
@@ -556,14 +565,14 @@ int r2_lora_json(char *out,size_t capacity,int result){
  char context[33];for(unsigned i=0;i<16;i++)snprintf(context+2*i,3,"%02x",s.context[i]);
  return snprintf(out,capacity,
  "{\"rc8\":3,\"result\":%d,\"boot\":\"%016llx\",\"emitter_boot\":\"%016llx\",\"configured_tx\":\"%016llx\",\"transmitter\":%s,\"requested\":%s,\"active\":%s,\"fault\":%s,"
- "\"closed\":%s,\"fault_bits\":%ld,\"drain_deadline_us\":%llu,\"stack_unused\":%u,\"context\":\"%s\",\"emitter\":\"%016llx\",\"stream\":%llu,\"root\":\"%016llx\",\"root_boot\":\"%016llx\",\"source_epoch\":%u,\"kind\":%u,\"scale\":%u,"
+ "\"rx_suppressed\":%s,\"closed\":%s,\"fault_bits\":%ld,\"drain_deadline_us\":%llu,\"stack_unused\":%u,\"context\":\"%s\",\"emitter\":\"%016llx\",\"stream\":%llu,\"root\":\"%016llx\",\"root_boot\":\"%016llx\",\"source_epoch\":%u,\"kind\":%u,\"scale\":%u,"
  "\"sequence\":%u,\"corrected_sequence\":%u,\"wire_corrected_sequence\":%u,\"event_tick\":%llu,\"capture_epoch\":%llu,\"event_mono_us\":%llu,\"event_ns\":%llu,\"created_ns\":%llu,\"expires_ns\":%llu,\"map_generation\":%u,\"map_age_us\":%u,\"upstream_bound_ns\":%u,"
  "\"accepted\":%u,\"rejected\":%u,\"replayed\":%u,\"unmatched\":%u,\"overflow\":%u,\"metadata\":%u,\"missing_map\":%u,\"hold_age_ms\":%u,\"state\":%u,\"assurance\":%u,\"source_authority\":%u,\"choice\":%u,\"output_bound_ns\":null,\"rc7_authority\":false,"
  "\"companion\":[%u,%u,%u,%u,%s,%s],\"parent\":[\"%016llx\",\"%016llx\"],\"quality\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%d,%u,%u,%u],\"link_fit\":[%u,%u],"
  "\"coordination\":[\"%016llx\",\"%016llx\",%u,%llu],\"launch\":[%u,%u,%u,%u,%u],\"watchdog\":[1,%u,%u,%u,%u,%d,%u],\"fault_record\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u],\"owner\":[%u,%u,%u,%u,%u],"
  "\"hw\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%d,%u,%u,%u,%u,%u]}",
  result,(unsigned long long)physical_boot,(unsigned long long)s.scope.emitter_boot,(unsigned long long)binding.transmitter_factory,transmitter?"true":"false",s.view.requested?"true":"false",s.view.active?"true":"false",atomic_get(&faulted)?"true":"false",
- atomic_get(&closed)?"true":"false",(long)atomic_get(&faulted),(unsigned long long)deadline,stack_unused(),context,(unsigned long long)s.scope.emitter,(unsigned long long)s.scope.stream,(unsigned long long)s.scope.root,(unsigned long long)s.scope.root_boot,s.scope.source_epoch,s.scope.kind,s.scope.scale,
+ rx_suppressed(atomic_get(&flags))?"true":"false",atomic_get(&closed)?"true":"false",(long)atomic_get(&faulted),(unsigned long long)deadline,stack_unused(),context,(unsigned long long)s.scope.emitter,(unsigned long long)s.scope.stream,(unsigned long long)s.scope.root,(unsigned long long)s.scope.root_boot,s.scope.source_epoch,s.scope.kind,s.scope.scale,
  s.sequence,s.corrected_sequence,s.wire_corrected_sequence,(unsigned long long)s.event.tick,(unsigned long long)s.event.capture_epoch,(unsigned long long)s.event.local_us,(unsigned long long)s.correction.event_ns,(unsigned long long)s.correction.created_ns,(unsigned long long)s.correction.expires_ns,s.correction.map_generation,s.correction.map_age_us,s.correction.upstream_bound_ns,
  s.accepted,s.rejected,s.replayed,s.unmatched,s.overflow,s.metadata,s.missing_map,s.view.age_ms,s.view.state,s.view.assurance,s.authority,s.view.choice,
  s.diagnostic_sequence,s.snapshot_age_ms,s.diagnostic_events,age_ms(mono(),s.diagnostic_us),s.quality_known?"true":"false",s.time_valid?"true":"false",
