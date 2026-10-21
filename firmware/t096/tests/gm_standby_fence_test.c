@@ -68,6 +68,55 @@ static void hello_source_refresh_tests(void)
  }
  puts("PASS true permit expiry/source epoch requalification, independent PT/READY loss, COLD quiet and foreign-root inhibition remain negative gates");
 }
+/* Controlled PT feedback boundary: established authenticated maps and fresh
+ * sources are fixture inputs. Actual PREPARE/READY/COMMIT/acknowledgement wire
+ * records drive the controller; this does not prove native PA convergence. */
+static void late_map_wire(struct r2_network *from,struct r2_network *to,unsigned counts[16])
+{
+ uint8_t peer,wire[R2_GROUP_CONTROL_MAX];bool hello;
+ if(!r2_network_next_ready(from,2,&peer,wire,&hello))return;
+ assert(peer==1&&!hello&&wire[1]<16);counts[wire[1]]++;
+ r2_network_sent(from,hello,peer,wire);
+ assert(!r2_network_receive(to,1,wire,r2_control_wire_size(wire),to->now,to->now));
+}
+static void late_map_acquire_tests(void)
+{
+ for(unsigned mode=0;mode<3;mode++){
+  struct r2_network a=base(true),b=base(false);uint64_t start=a.now;
+  b.identity=200;b.boot=20;b.peer[1].identity=100;b.peer[1].boot=10;
+  b.root_boot=b.gm5.active_boot=b.timing_boot=10;b.gm5.active=100;b.coordinator_boot=20;
+  a.peer[1].own_nonce=11;a.peer[1].nonce=22;b.peer[1].own_nonce=22;b.peer[1].nonce=11;
+  strcpy(a.name,"Active");strcpy(b.name,"Successor");
+  a.gm5.attempt_started=b.gm5.attempt_started=start;
+  a.gm5.attempt_until=b.gm5.attempt_until=start+R2_GM5_ACQUIRE_US;
+  uint64_t deadline=a.gm5.attempt_until,first_hot=0,issued_at=0;unsigned sent[16]={0};
+  for(uint64_t elapsed=0;elapsed<=R2_GM5_ACQUIRE_US;elapsed+=1000){
+   uint64_t now=start+elapsed;a.now=b.now=now;
+   struct r2_network *pair[2]={&a,&b};
+   for(unsigned k=0;k<2;k++){
+    struct r2_network *n=pair[k];
+    n->candidate.valid_until_us=n->view.valid_until_us=n->service_until=now+1500000;
+    n->peer[1].candidate_until=now+1500000;n->peer[1].seen=n->peer[1].alive=now;
+    n->peer[1].map_anchor=now;n->peer[1].next_hello=n->peer[1].next_service=UINT64_MAX;
+    n->timing_at=now;n->timing_valid=!k||(mode!=1&&elapsed>=25643000);
+   }
+   uint32_t generation=a.gm5.generation;gm5_tick(&a,true,now,NULL);gm5_tick(&b,true,now,NULL);
+   if(a.gm5.generation!=generation){issued_at=now;assert(a.gm5.issued_until-now==R2_GM5_GRANT_US);}
+   if(elapsed%10000==0&&a.gm5.selected){late_map_wire(&a,&b,sent);late_map_wire(&b,&a,sent);}
+   if(a.gm5.attempt_until)assert(a.gm5.attempt_until==deadline);
+   if(a.hot_ready&&b.hot_ready){first_hot=elapsed;break;}
+   if(mode!=1&&elapsed>=31000000)break;
+  }
+  if(mode==1){assert(!first_hot&&!a.gm5.selected&&a.gm5.failures==1);assert(!b.hot_ready&&!b.standby_authorized);continue;}
+  assert(first_hot>=25643000+R2_GM5_STABLE_US&&first_hot<32000000);
+  assert(sent[R2_AUTH_PREPARE]&&sent[R2_AUTH_READY]&&sent[R2_AUTH_COMMIT]);
+  assert(a.management_committed&&!a.gm5.grant_pending&&b.standby_authorized);
+  assert(issued_at&&a.gm5.issued_until-issued_at==R2_GM5_GRANT_US);
+  assert(b.gm5.grant_until<=a.gm5.issued_until&&b.gm5.grant_until>b.now);
+  if(mode==2){a.now++;gm5_tick(&a,false,a.now,NULL);assert(!a.hot_ready&&!a.local_gm&&!a.ready&&!a.gm5.selected);}
+ }
+ puts("PASS controlled PT map first at25.643s then original5s stability: encoded READY/COMMIT/ACK confirms HOT; unproductive fixed ACQUIRE expires; real source withdrawal and10s grants unchanged");
+}
 static struct r2_network contact_base(void)
 {
  struct r2_network n=base(true);n.gm5.selected=0;
@@ -119,6 +168,7 @@ static void contact_tests(void)
 }
 int main(void)
 {
+ late_map_acquire_tests();
  hello_source_refresh_tests();
  contact_tests();
  const struct {unsigned role;uint64_t active,selected;bool connected;uint64_t delay;} cadence[]={

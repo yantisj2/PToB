@@ -2,6 +2,16 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 20 October 2026 — T0960.15.140 fixed successor acquisition budget
+
+A new successor acquisition now has one fixed45s budget, including the existing
+5s stable-READY dwell. Cold delivered-map convergence can consume most of the
+previous30s budget before that dwell begins. Contact remains30s and repeated
+exchanges cannot restart either original deadline. No phase, role, state or RAM
+is added. Source, map, management, finite-grant, repair and output fences remain.
+The tradeoff is15s longer before replacing an unsuccessful selected candidate;
+this does not guarantee RF contact or repair unrelated HOT renewal loss.
+
 ## 20 October 2026 — T0960.15.139 GM owner watchdog coverage
 
 The existing30s CONTROL-publication stall observer now covers GM and RC,

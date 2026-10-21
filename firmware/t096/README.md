@@ -5,7 +5,7 @@
 *Illustrative firmware-rendered RC screen; displayed values are not measured
 performance. [Image provenance](../../docs/images/README.md).*
 
-**PToB owns T096 RC7 development.** Current source version **0.15.139** supplies the
+**PToB owns T096 RC7 development.** Current source version **0.15.140** supplies the
 ordinary **GM** and **RC** mesh profiles, with USB timing compiled by default.
 [Build from source](../../docs/t096/build.md) with pinned public dependencies
 and ignored local enrollment. No enrolled binary is distributed.
@@ -52,6 +52,12 @@ unfinished drain past its original deadline stop watchdog feeding without anothe
 drain allowance. The existing hardware parent supplies the eventual reset;
 healthy COLD operation and GPS/RF silence do not trigger this observer. No state,
 timer or static RAM is added. Host tests do not establish physical reset latency.
+Version140 gives a new successor acquisition one fixed45s budget, including the
+existing5s stable-READY dwell. Contact remains30s; repeated exchanges cannot renew
+either deadline. This allows more time for cold delivered-map convergence without
+changing source, map, management, grant or repair gates. No role or state is added;
+an unsuccessful selected candidate can occupy the pair15s longer. Physical
+convergence and continued HOT renewal still require independent testing.
 Finite successor grants, bounded repair/cooldown and paged `gm` diagnostics support
 unstable/off-host testing. The sole requested LoRa transmitter may retain ordinary
 BLE leaf timing while COLD; that exception adds no GM-control/HOT authority.

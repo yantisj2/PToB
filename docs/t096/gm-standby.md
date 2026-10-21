@@ -3,8 +3,9 @@
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
 Version0.15.134 introduces G5 coordination for the ordinary GM profile; current
-version0.15.138 includes corrected inventory/contact scheduling, causal timing
-handoff, explicit PT close intent consumption and change-driven HELLO scheduling. This is
+version0.15.140 includes corrected inventory/contact scheduling, causal timing
+handoff, explicit PT close intent consumption, change-driven HELLO scheduling,
+GM watchdog coverage and a fixed45s successor acquisition budget. This is
 an implementation and host-test contract, not hardware acceptance or a claim of
 UTC/output accuracy. RC7 clients, USB, GNSS qualification, BLE capture and LoRa
 wire3 retain their separate contracts. DC remains a separate flash-only image.
@@ -96,14 +97,19 @@ then fewer local failures, then full identity. One selected identity first enter
 a private CONTACT scheduling subphase with an original30s deadline. It has no
 PREPARE/COMMIT readiness or grant and supplies no persistent control promotion.
 STATUS0 reports no appointment during CONTACT. The first matching causal outgoing
-STATUS1 (server) or STATUS2 (client) construction starts one distinct original30s
+STATUS1 (server) or STATUS2 (client) construction starts one distinct original45s
 ACQUIRE deadline. Construction precedes local send acceptance, so failed/lost sends
 can only shorten that budget. Repeated exchanges cannot renew it. A different peer,
 wrong boot/phase or expired exchange cannot arm it. This uses one existing selected
 identity and the same timestamp storage, with no new role or wire handshake.
 An unreachable best-ranked identity expires through normal failure history; idle
 NO_CANDIDATE checks do not invent a failed-attempt deadline. Total contact plus
-acquisition may therefore take60s before failure, rather than the former30s total.
+acquisition may therefore take75s before failure. Version137 separated contact
+and acquisition into30s each; version140 changes only new acquisition attempts
+to45s. The existing5s stable-READY dwell must fit inside acquisition. A delivered
+map arriving25s after appointment left insufficient scheduling/transport margin
+in the previous30s budget. This policy adds no FIT/READY role, timer renewal or
+authority, and can delay replacement of an unsuccessful candidate by15s.
 Established HOT loss withdraws readiness immediately and permits one
 original10s repair. Failed attempts use30/60/120/240/300s cooldown, retained across
 reboots/source epochs of the same full identity; starts are at least5s apart.
@@ -148,7 +154,7 @@ reports cannot extend it. Simulator recovery assertions freeze the maximum survi
 expiry at each actual failure, then add32s discovery and3s output fencing. A
 confirmed HOT fixture bound also freezes surviving inventory expiries at failure.
 It allows one30s serialized inventory round, up to three inventory identities'
-fixed30s contact+30s acquisition+5s failed-attempt spacing, original10s repair,
+fixed30s contact+45s acquisition+5s failed-attempt spacing, original10s repair,
 10.05s uncertain-grant retirement,5s stability and100ms modeled control delivery.
 The separate stale120s inventory TTL prevents a silent old best candidate from
 being refreshed forever. These conservative fixture bounds assume its stable
