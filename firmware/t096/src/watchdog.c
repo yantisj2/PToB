@@ -131,11 +131,14 @@ void r2_watchdog_observe(const struct r2_service_status *s,bool allowed)
  if(future)count_observation(&future_observations);
  if(stale)count_observation(&stale_observations);
  atomic_set(&refusal_flags,(atomic_val_t)refused);
- /* A live main/USB/UI must not feed a frozen RC owner indefinitely. This
-  * observation margin does not change any controller's original deadline.
-  * Recovery of a stuck controller uses a hardware reset, never a second owner. */
- bool stalled=s->profile_rc&&s->active&&!s->closing&&!s->profile_pending&&
-  now>=s->at&&now-s->at>=(uint64_t)WD_RC_WORKER_MS*1000;
+ /* Every profile owns CONTROL progress, including intentional GM COLD.
+  * Terminal errors and an expired original close deadline already prove
+  * failure; do not add a second drain grace or wait for NO_SYNC recovery.
+  * A profile restart clears close_deadline before normal operation resumes.
+  * No RF, source, precision-lock or packet counter participates here. */
+ bool stalled=((s->active||s->closing||s->profile_pending)&&now>=s->at&&
+  now-s->at>=(uint64_t)WD_RC_WORKER_MS*1000)||s->error||
+  (s->closing&&!s->closed&&s->close_deadline&&now>=s->close_deadline);
  atomic_inc(&sequence);
  atomic_set(&report_at,(atomic_val_t)k_uptime_get_32());atomic_set(&report_rc,s->profile_rc);
  /* Bit1 is a legitimate coordinated operating mode, NOT qualified time.

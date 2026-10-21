@@ -5,7 +5,7 @@
 *Illustrative firmware-rendered RC screen; displayed values are not measured
 performance. [Image provenance](../../docs/images/README.md).*
 
-**PToB owns T096 RC7 development.** Current source version **0.15.138** supplies the
+**PToB owns T096 RC7 development.** Current source version **0.15.139** supplies the
 ordinary **GM** and **RC** mesh profiles, with USB timing compiled by default.
 [Build from source](../../docs/t096/build.md) with pinned public dependencies
 and ignored local enrollment. No enrolled binary is distributed.
@@ -46,6 +46,12 @@ Version138 restores the existing change-driven HELLO scheduling for new source p
 and epochs before the G5 return. It changes no source, map, grant or timeout bound.
 The `network.control` diagnostic exposes existing management/pair deadlines, last
 HOT withdrawal and receive latency/backlog counters without new stored state.
+Version139 applies the existing30s CONTROL-publication stall observer to GM as
+well as RC, including pending profile transitions. Terminal service errors or an
+unfinished drain past its original deadline stop watchdog feeding without another
+drain allowance. The existing hardware parent supplies the eventual reset;
+healthy COLD operation and GPS/RF silence do not trigger this observer. No state,
+timer or static RAM is added. Host tests do not establish physical reset latency.
 Finite successor grants, bounded repair/cooldown and paged `gm` diagnostics support
 unstable/off-host testing. The sole requested LoRa transmitter may retain ordinary
 BLE leaf timing while COLD; that exception adds no GM-control/HOT authority.

@@ -106,6 +106,39 @@ static void policy_cases(bool rc)
  assert(r2_wd_policy_step(&p,span+R2_WD_RECOVERY_MS-1,true,rc,false,true,0)==R2_WD_NONE);
  assert(r2_wd_policy_step(&p,span+R2_WD_RECOVERY_MS,true,rc,false,true,0)==R2_WD_RESET);
 }
+static void owner_failure_cases(void)
+{
+ for(unsigned rc=0;rc<2;rc++)for(unsigned pending=0;pending<2;pending++){
+  clear_runtime();r2_watchdog_enable(true);
+  struct r2_service_status s={.active=true,.profile_rc=rc,.gm_cold=true,.at=100000,.profile_pending=pending};
+  advance(100);r2_watchdog_observe(&s,true);assert(step_at(100));
+  advance(100+WD_RC_WORKER_MS-1);r2_watchdog_observe(&s,true);assert(step_at((uint32_t)fake_ms));
+  advance(100+WD_RC_WORKER_MS);r2_watchdog_observe(&s,true);
+  assert(!step_at((uint32_t)fake_ms)&&reset_reason==WD_RC_WORKER_STALL);
+  s.at=fake_ms*1000;s.profile_pending=false;r2_watchdog_observe(&s,true);assert(!watchdog_step());
+ }
+ /* Fresh snapshots do not hide a failed original drain or terminal error.
+  * The original deadline is neither replaced nor extended by observation. */
+ for(unsigned rc=0;rc<2;rc++){
+  clear_runtime();r2_watchdog_enable(true);
+  struct r2_service_status s={.active=true,.profile_rc=rc,.closing=true,.profile_pending=true,.close_deadline=2100000};
+  advance(2099);s.at=fake_ms*1000;r2_watchdog_observe(&s,true);assert(step_at(2099));
+  advance(2100);s.at=fake_ms*1000;r2_watchdog_observe(&s,true);assert(!step_at(2100));
+  assert(s.close_deadline==2100000&&reset_reason==WD_RC_WORKER_STALL);
+  clear_runtime();r2_watchdog_enable(true);s.closed=true;s.error=0;
+  advance(2200);s.at=fake_ms*1000;r2_watchdog_observe(&s,true);assert(step_at(2200));
+  s.error=-EIO;r2_watchdog_observe(&s,true);assert(!step_at(2200));
+ }
+ /* Live COLD with no packets/source/precision work remains legitimate;
+  * completed transitions can retain historical close deadlines. */
+ clear_runtime();r2_watchdog_enable(true);
+ struct r2_service_status s={.active=true,.gm_cold=true,.close_deadline=1};
+ for(unsigned t=100;t<2*R2_WD_GM_MS;t+=125){advance(t);s.at=fake_ms*1000;r2_watchdog_observe(&s,true);assert(step_at(t)&&!reset_reason&&!restart_request);}
+ /* Deliberate maintenance remains outside the normal-service observer. */
+ clear_runtime();r2_watchdog_enable(true);s=(struct r2_service_status){.closing=true,.error=-EIO};
+ for(unsigned t=100;t<2*WD_RC_WORKER_MS;t+=125){advance(t);r2_watchdog_observe(&s,false);assert(step_at(t));}
+ puts("PASS all-profile stale CONTROL/pending30s; terminal error/original close expiry latch; late recovery cannot feed; live COLD and completed transitions do not reset");
+}
 int main(void)
 {
  policy_cases(false);policy_cases(true);
@@ -235,11 +268,12 @@ int main(void)
  advance(10000+WD_RC_WORKER_MS);r2_watchdog_observe(&s,true);
  assert(!step_at(10000+WD_RC_WORKER_MS)&&reset_reason==WD_RC_WORKER_STALL&&previous_bound(&id));
  assert(r2_watchdog_capsule[4]==WD_RC_WORKER_STALL&&r2_watchdog_capsule[5]==1);
- /* Explicit stop, maintenance and profile transition cannot resurrect RC. */
+ /* Stuck closing/profile transitions remain owned; deliberate maintenance
+  * disables normal-service escalation without recreating any owner. */
  for(unsigned inhibit=0;inhibit<3;inhibit++){
   clear_runtime();assert(!r2_watchdog_boot(&id));r2_watchdog_enable(true);advance(10000+WD_RC_WORKER_MS);
   s.closing=inhibit==0;s.profile_pending=inhibit==1;
-  r2_watchdog_observe(&s,inhibit!=2);assert(step_at(10000+WD_RC_WORKER_MS));
+  r2_watchdog_observe(&s,inhibit!=2);assert(step_at(10000+WD_RC_WORKER_MS)==(inhibit==2));
  }
  clear_runtime();assert(!r2_watchdog_boot(&id));advance(10);
  r2_watchdog_fatal(2);assert(!step_at(10)&&reset_reason==WD_FATAL+2&&previous_bound(&id));
@@ -312,5 +346,6 @@ int main(void)
  puts("PASS >21min live LoRa-only GM coordination without NO_SYNC or qualified-time claims; expiry restores20min recovery; RC/wrong-root/stale/core guards retained");
  }
 #endif
+ owner_failure_cases();
  puts("PASS production watchdog: GM20/RC30, intermittent progress vs sustained retry reset, initial+3 retries, wrap, stale snapshots, cancellation, recovery, core/fatal, CRC bindings, deadline/refusal/UF2 continuation; hardware timing remains UNKNOWN");
 }

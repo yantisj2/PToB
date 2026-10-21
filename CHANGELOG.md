@@ -2,6 +2,26 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 20 October 2026 — T0960.15.139 GM owner watchdog coverage
+
+The existing30s CONTROL-publication stall observer now covers GM and RC,
+including pending profile transitions. Terminal service errors and unfinished
+closure past the original deadline inhibit watchdog feeding without another drain
+grace. The existing hardware watchdog supplies the eventual reset. Completed
+closures, healthy COLD operation and missing GPS/RF retain their existing policy.
+No state, timer, static RAM, source authority or protocol change is added.
+Production regressions cover both profiles, late worker recovery, original drain
+expiry and intentional maintenance. Physical reset latency remains unmeasured.
+
+## 20 October 2026 — T0960.15.138 change-driven source HELLO
+
+The existing change-driven HELLO scheduling now runs before the G5 return, so a
+new source permit or epoch can request its existing causal exchange. Source, map,
+grant and timeout bounds are unchanged. Existing management/pair deadlines, HOT
+withdrawal and receive latency/backlog counters are exposed in `network.control`.
+Production host checks preserve source/grant expiry and COLD fences; physical
+multi-GM durability remains unqualified.
+
 ## 20 October 2026 — T0960.15.137 bounded contact and causal anchor handoff
 
 An ACTIVE keeps one ranked nominee while making bounded contact. That private
