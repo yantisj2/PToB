@@ -58,7 +58,7 @@ static uint32_t crc(const volatile uint32_t *p)
  }
  return ~c;
 }
-static void capsule(unsigned reason)
+static void capsule(unsigned reason,uint32_t control_detail)
 {
  r2_watchdog_capsule[0]=0;r2_watchdog_capsule[1]=1;
  r2_watchdog_capsule[2]=(uint32_t)physical_boot;r2_watchdog_capsule[3]=(uint32_t)(physical_boot>>32);
@@ -73,7 +73,8 @@ static void capsule(unsigned reason)
  for(unsigned i=0;i<4;i++){
   uint32_t word;memcpy(&word,silicon+4*i,4);r2_watchdog_capsule[28+i]=word;
  }
- r2_watchdog_capsule[32]=(uint32_t)atomic_get(&restart_error);
+ /* Source152 reason5: accepted CONTROL mailbox mask and signed16 error. */
+ r2_watchdog_capsule[32]=reason==WD_RC_WORKER_STALL?control_detail:(uint32_t)atomic_get(&restart_error);
  r2_watchdog_capsule[33]=crc(r2_watchdog_capsule);
  __DMB();r2_watchdog_capsule[0]=WD_MAGIC;__DSB();
 }
@@ -136,9 +137,12 @@ void r2_watchdog_observe(const struct r2_service_status *s,bool allowed)
   * failure; do not add a second drain grace or wait for NO_SYNC recovery.
   * A profile restart clears close_deadline before normal operation resumes.
   * No RF, source, precision-lock or packet counter participates here. */
- bool stalled=((s->active||s->closing||s->profile_pending)&&now>=s->at&&
-  now-s->at>=(uint64_t)WD_RC_WORKER_MS*1000)||s->error||
-  (s->closing&&!s->closed&&s->close_deadline&&now>=s->close_deadline);
+ uint32_t stalled=((s->active||s->closing||s->profile_pending)&&now>=s->at&&
+  now-s->at>=(uint64_t)WD_RC_WORKER_MS*1000)?1u:0u;
+ if(s->error)stalled|=2u;
+ if(s->closing&&!s->closed&&s->close_deadline&&now>=s->close_deadline)stalled|=4u;
+ /* Preserve the failure predicates; pack detail in the existing atomic. */
+ stalled|=(uint32_t)(uint16_t)s->error<<16;
  atomic_inc(&sequence);
  atomic_set(&report_at,(atomic_val_t)k_uptime_get_32());atomic_set(&report_rc,s->profile_rc);
  /* Bit1 is a legitimate coordinated operating mode, NOT qualified time.
@@ -157,14 +161,14 @@ void r2_watchdog_restart_result(int result)
 void r2_watchdog_fatal(unsigned reason)
 {
  /* A crash must never continue feeding, even if fault capture itself fails. */
- atomic_set(&reset_reason,WD_FATAL+reason);capsule(WD_FATAL+reason);
+ atomic_set(&reset_reason,WD_FATAL+reason);capsule(WD_FATAL+reason,0);
 }
 void r2_watchdog_lora(int error,uint32_t stage,uint32_t generation,uint32_t closure,int journal_result)
 {
  /* Same source/silicon/boot binding and physical parent reset as BLE. Do
   * not overwrite an earlier fatal/reset decision or issue a software reset. */
  if(atomic_get(&reset_reason))return;
- atomic_set(&reset_reason,WD_LORA_FAULT);capsule(WD_LORA_FAULT);
+ atomic_set(&reset_reason,WD_LORA_FAULT);capsule(WD_LORA_FAULT,0);
  r2_watchdog_capsule[0]=0;
  r2_watchdog_capsule[8]=(uint32_t)error;r2_watchdog_capsule[9]=stage;
  r2_watchdog_capsule[10]=closure;r2_watchdog_capsule[11]=generation;
@@ -183,34 +187,34 @@ static bool watchdog_step(void)
   * must never look2^32ms stale through unsigned age subtraction. */
  uint32_t beat=(uint32_t)atomic_get(&main_at),now=k_uptime_get_32();
  if((uint32_t)(now-beat)>=WD_CORE_MS){
-  atomic_set(&reset_reason,WD_CORE_STALL);capsule(WD_CORE_STALL);return false;
+  atomic_set(&reset_reason,WD_CORE_STALL);capsule(WD_CORE_STALL,0);return false;
  }
  if(atomic_get(&restart_error)){
-  atomic_set(&reset_reason,WD_RECOVERY_FAILED);capsule(WD_RECOVERY_FAILED);return false;
+  atomic_set(&reset_reason,WD_RECOVERY_FAILED);capsule(WD_RECOVERY_FAILED,0);return false;
  }
  uint32_t seq=(uint32_t)atomic_get(&sequence);
  if(seq&1u)return true;
  bool enabled=atomic_get(&intent)&&atomic_get(&report_allowed);
  bool rc=atomic_get(&report_rc),useful=atomic_get(&report_useful),pending=atomic_get(&report_pending);
  uint32_t generation=(uint32_t)atomic_get(&report_generation),at=(uint32_t)atomic_get(&report_at);
- bool stalled=atomic_get(&report_worker_stalled);
+ uint32_t stalled=(uint32_t)atomic_get(&report_worker_stalled);
  if(seq!=(uint32_t)atomic_get(&sequence))return true;
  now=k_uptime_get_32(); /* Causal with the accepted mailbox copy. */
- if(enabled&&stalled&&(uint32_t)(now-at)<1000u){
-  atomic_set(&reset_reason,WD_RC_WORKER_STALL);capsule(WD_RC_WORKER_STALL);return false;
+ if(enabled&&(stalled&7u)&&(uint32_t)(now-at)<1000u){
+  atomic_set(&reset_reason,WD_RC_WORKER_STALL);capsule(WD_RC_WORKER_STALL,stalled);return false;
  }
  useful=useful&&(uint32_t)(now-at)<1000u;
  enum r2_wd_action action=r2_wd_policy_step(&policy,now,enabled,rc,useful,pending,generation);
  atomic_set(&retries,(atomic_val_t)policy.retries);atomic_set(&silent_since,(atomic_val_t)policy.since);
- if(action==R2_WD_RESTART){capsule(WD_NO_SYNC);atomic_set(&restart_request,(atomic_val_t)policy.retries);}
- if(action==R2_WD_RESET){unsigned reason=policy.recovering?WD_RECOVERY_FAILED:WD_RETRIES_EXHAUSTED;atomic_set(&reset_reason,reason);capsule(reason);return false;}
+ if(action==R2_WD_RESTART){capsule(WD_NO_SYNC,0);atomic_set(&restart_request,(atomic_val_t)policy.retries);}
+ if(action==R2_WD_RESET){unsigned reason=policy.recovering?WD_RECOVERY_FAILED:WD_RETRIES_EXHAUSTED;atomic_set(&reset_reason,reason);capsule(reason,0);return false;}
  return true;
 }
 static void watchdog_owner(void *a,void *b,void *c)
 {
  for(;;){
   if(watchdog_step()){
-   if(wdt_feed(parent,parent_channel)){atomic_set(&reset_reason,WD_RECOVERY_FAILED);capsule(WD_RECOVERY_FAILED);}
+   if(wdt_feed(parent,parent_channel)){atomic_set(&reset_reason,WD_RECOVERY_FAILED);capsule(WD_RECOVERY_FAILED,0);}
   }
   k_sleep(K_MSEC(WD_POLL_MS));
  }
@@ -264,7 +268,7 @@ int r2_watchdog_bootloader(uint64_t original_deadline_ms)
   * it is not shortened for maintenance and no timing authority is retained.
   * Host tools must allow that reset latency after a successful commit. */
  if(now>=original_deadline_ms||original_deadline_ms-now<250u)return -ETIMEDOUT;
- capsule(WD_UF2);atomic_set(&reset_reason,WD_UF2);
+ capsule(WD_UF2,0);atomic_set(&reset_reason,WD_UF2);
  /* No flash or USB here. The independent peripheral performs a true reset. */
  for(;;)k_sleep(K_MSEC(WD_POLL_MS));
 }

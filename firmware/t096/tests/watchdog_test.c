@@ -152,6 +152,45 @@ static void owner_failure_cases(void)
  for(unsigned t=100;t<2*WD_RC_WORKER_MS;t+=125){advance(t);r2_watchdog_observe(&s,false);assert(step_at(t));}
  puts("PASS all-profile stale CONTROL/pending30s; terminal error/original close expiry latch; late recovery cannot feed; live COLD and completed transitions do not reset");
 }
+/* Update the producer after the mailbox was accepted, during capsule fill. */
+static void replace_accepted_report(const atomic_t *read){
+ if(read!=&report_rc||reset_reason!=WD_RC_WORKER_STALL)return;
+ on_atomic_get=NULL;
+ struct r2_service_status healthy={.active=true,.at=fake_ms*1000};
+ r2_watchdog_observe(&healthy,true);
+}
+static void control_capsule_detail_cases(void){
+ for(unsigned mask=0;mask<8;mask++)for(unsigned phase=0;phase<3;phase++){
+  clear_runtime();r2_watchdog_enable(true);advance(40000);
+  struct r2_service_status s={.active=phase==0,.closing=phase==1,.profile_pending=phase==2,
+   .at=(mask&1)?10000000:40000000,.error=(mask&2)?-ETIMEDOUT:0};
+  if(mask&4){s.closing=true;s.close_deadline=40000000;}
+  bool old_predicate=((s.active||s.closing||s.profile_pending)&&40000000>=s.at&&
+   40000000-s.at>=(uint64_t)WD_RC_WORKER_MS*1000)||s.error||
+   (s.closing&&!s.closed&&s.close_deadline&&40000000>=s.close_deadline);
+  assert(old_predicate==!!mask);
+  uint32_t expected=mask|((uint32_t)(uint16_t)s.error<<16);
+  r2_watchdog_observe(&s,true);assert((uint32_t)report_worker_stalled==expected);
+  assert(step_at(40000)==!mask);
+  if(mask){assert(reset_reason==WD_RC_WORKER_STALL&&r2_watchdog_capsule[32]==expected);
+   assert(r2_watchdog_capsule[0]==WD_MAGIC&&r2_watchdog_capsule[33]==crc(r2_watchdog_capsule));}
+ }
+ /* Odd/changing producer sequence cannot publish a false accepted detail. */
+ clear_runtime();r2_watchdog_enable(true);advance(100);
+ struct r2_service_status s={.active=true,.at=100000,.error=-EIO};
+ r2_watchdog_observe(&s,true);sequence|=1;assert(step_at(100)&&!reset_reason);sequence++;
+ preempt_service=(struct r2_service_status){.active=true};preempt_target=&report_worker_stalled;
+ preempt_kind=2;on_atomic_get=preempt_main;assert(step_at(100)&&!reset_reason);
+ r2_watchdog_observe(&s,true);on_atomic_get=replace_accepted_report;
+ assert(!step_at((uint32_t)fake_ms)&&!report_worker_stalled);
+ assert(r2_watchdog_capsule[32]==(2u|((uint32_t)(uint16_t)-EIO<<16)));
+ assert(r2_watchdog_capsule[33]==crc(r2_watchdog_capsule));
+ /* Stale accepted reports still cannot trigger, and other reasons keep errno. */
+ clear_runtime();r2_watchdog_enable(true);advance(100);r2_watchdog_observe(&s,true);
+ advance(1100);assert(step_at(1100)&&!reset_reason);
+ restart_error=-EIO;capsule(WD_RECOVERY_FAILED,7);assert((int32_t)r2_watchdog_capsule[32]==-EIO);
+ puts("PASS CONTROL capsule: masks/combinations/phases, signed error, accepted mailbox race, sequence rejection, CRC and unchanged other reasons");
+}
 int main(int argc,char **argv)
 {
  cleanup_recovery_budget();
@@ -307,10 +346,10 @@ int main(int argc,char **argv)
  atomic_set(&retries,1);r2_watchdog_console(output,sizeof output);assert(console_reports==reports+2);
  assert(r2_watchdog_reset_kind()==R2_UI_RESET_WD_FAULT);
  /* Torn capsule and wrong silicon/source cannot restore a profile. */
- capsule(WD_NO_SYNC);r2_watchdog_capsule[20]^=1;clear_runtime();assert(!r2_watchdog_boot(&id)&&!r2_watchdog_restore_rc(&mode));
- capsule(WD_NO_SYNC);r2_watchdog_capsule[12]^=1;r2_watchdog_capsule[33]=crc(r2_watchdog_capsule);
+ capsule(WD_NO_SYNC,0);r2_watchdog_capsule[20]^=1;clear_runtime();assert(!r2_watchdog_boot(&id)&&!r2_watchdog_restore_rc(&mode));
+ capsule(WD_NO_SYNC,0);r2_watchdog_capsule[12]^=1;r2_watchdog_capsule[33]=crc(r2_watchdog_capsule);
  clear_runtime();assert(!r2_watchdog_boot(&id)&&!r2_watchdog_restore_rc(&mode));
- capsule(WD_NO_SYNC);id.silicon[0]='5';clear_runtime();assert(!r2_watchdog_boot(&id)&&!r2_watchdog_restore_rc(&mode));id.silicon[0]='4';
+ capsule(WD_NO_SYNC,0);id.silicon[0]='5';clear_runtime();assert(!r2_watchdog_boot(&id)&&!r2_watchdog_restore_rc(&mode));id.silicon[0]='4';
  /* Maintenance refuses insufficient ORIGINAL budget, then uses a real WDT
   * reset and the bound one-shot continuation before hardware rearming. */
  clear_runtime();assert(!r2_watchdog_boot(&id));advance(20);
@@ -369,5 +408,6 @@ int main(int argc,char **argv)
  }
 #endif
  owner_failure_cases();
+ control_capsule_detail_cases();
  puts("PASS production watchdog: GM20/RC30, intermittent progress vs sustained retry reset, initial+3 retries, wrap, stale snapshots, cancellation, recovery, core/fatal, CRC bindings, deadline/refusal/UF2 continuation; hardware timing remains UNKNOWN");
 }

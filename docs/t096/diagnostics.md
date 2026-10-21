@@ -1046,3 +1046,25 @@ window expired. Historical148 reason96 can therefore be64 plus a forced32; it
 does not independently establish PT loss. These edge snapshots identify failed
 predicates, not the earlier scheduling or radio cause. No new journal storage
 or periodic records are introduced.
+
+## CONTROL watchdog detail (source152)
+
+For source152 and later, watchdog reason5 word32 describes the accepted CONTROL
+mailbox: low bits1/2/4 mean stale publication / nonzero service error / expired
+incomplete close. Multiple bits may be set. Bits16..31 contain the signed16-bit
+service errno; bits3..15 are zero. Decode the error by sign-extending the upper16
+bits. Earlier source versions use word32 as restart_error, so consult the exact
+image binding before interpreting it. Other reset reasons retain their existing
+word32 meanings.
+
+The watchdog captures its sequence-validated local detail before capsule CRC and
+magic publication; a later producer update cannot replace that accepted detail.
+It reuses the existing atomic and capsule word with no additional trace stream,
+queue or stored timer. Reset predicates and all source, grant and ownership
+deadlines are unchanged. The capsule identifies a failure class, not the HCI or
+controller cause. A missing flash record does not imply no fault: diagnostic
+quiescence, event limits and asynchronous saving can omit the terminal edge.
+
+Production-body host tests cover predicate combinations, lifecycle phases,
+sequence rejection, producer replacement during capsule fill, signed errno and
+CRC. Native resource checks and physical reset behavior require separate evidence.

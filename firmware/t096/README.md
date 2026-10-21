@@ -5,10 +5,16 @@
 *Illustrative firmware-rendered RC screen; displayed values are not measured
 performance. [Image provenance](../../docs/images/README.md).*
 
-**PToB owns T096 RC7 development.** Current source version **0.15.151** supplies the
+**PToB owns T096 RC7 development.** Current source version **0.15.152** supplies the
 ordinary **GM** and **RC** mesh profiles, with USB timing compiled by default.
 [Build from source](../../docs/t096/build.md) with pinned public dependencies
 and ignored local enrollment. No enrolled binary is distributed.
+
+Version152 records the accepted CONTROL failure subtype and service error in the
+existing watchdog capsule, without changing reset behavior, deadlines or storage.
+It distinguishes stale CONTROL publication, terminal service error and expired
+incomplete closure. This is diagnostic coverage, not a crash correction; physical
+pair durability remains unqualified. See [capsule decoding](../../docs/t096/diagnostics.md#control-watchdog-detail-source152).
 
 Version151 shares the existing1s budget across G5 initiation and each CONTROL
 pass's GATT work; ordinary RC retains100ms. G5 scan-stop retries share the existing
