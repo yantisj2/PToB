@@ -139,8 +139,16 @@ static void owner_failure_cases(void)
  for(unsigned t=100;t<2*WD_RC_WORKER_MS;t+=125){advance(t);r2_watchdog_observe(&s,false);assert(step_at(t));}
  puts("PASS all-profile stale CONTROL/pending30s; terminal error/original close expiry latch; late recovery cannot feed; live COLD and completed transitions do not reset");
 }
-int main(void)
+int main(int argc,char **argv)
 {
+ if(argc==2){
+  int error=0;FILE *f=fopen(argv[1],"rb");assert(f&&fread(&error,sizeof error,1,f)==1&&!fclose(f)&&error==-ETIMEDOUT);
+  clear_runtime();r2_watchdog_enable(true);advance(72000);
+  struct r2_service_status s={.active=true,.gm_cold=true,.closing=true,.at=72000000,.error=error};
+  r2_watchdog_observe(&s,true);assert(!step_at(72000)&&reset_reason==WD_RC_WORKER_STALL);
+  assert(!watchdog_step());puts("PASS actual transport terminal handoff reaches production watchdog feed refusal despite fresh COLD publication; physical reset latency UNKNOWN");return 0;
+ }
+ assert(argc==1);
  policy_cases(false);policy_cases(true);
  /* Actual producer preemption at the atomic-read boundary. Core and mailbox
   * timestamps may advance after observer wake; strict ages use a later read. */

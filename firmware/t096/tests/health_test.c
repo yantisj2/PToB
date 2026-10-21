@@ -10,6 +10,10 @@ static unsigned watchdog_reports;
 void r2_watchdog_console(char *line,size_t capacity){assert(capacity==1536&&!irq_depth);++watchdog_reports;}
 void r2_watchdog_fatal(unsigned reason){(void)reason;}
 #endif
+#ifdef R2_CONTROLLER_DIAGNOSTICS
+void r2_controller_diag_snapshot(uint32_t out[R2_CONTROLLER_DIAG_WORDS])
+{for(unsigned i=0;i<R2_CONTROLLER_DIAG_WORDS;i++)out[i]=0xc0000000u+i;}
+#endif
 static void wrapper_check(void);
 int main(void){
  assert(stack_window_valid(0x20001000,128,0x20001060));
@@ -43,7 +47,13 @@ int main(void){
  scb.CFSR=0x10;
  latency[7]=UINT32_MAX;latency[8]=UINT32_MAX;
  if(!setjmp(fatal_exit))k_sys_fatal_error_handler(2,&esf);
- irq_depth=0;assert(r2_fault_capsule[43]==0x10022&&r2_fault_capsule[44]==6408&&!r2_fault_capsule[49]);
+ irq_depth=0;
+#ifdef R2_CONTROLLER_DIAGNOSTICS
+ assert(r2_fault_capsule[1]==3);
+ for(unsigned i=0;i<R2_CONTROLLER_DIAG_WORDS;i++)assert(r2_fault_capsule[40+i]==0xc0000000u+i);
+#else
+ assert(r2_fault_capsule[1]==2&&r2_fault_capsule[43]==0x10022&&r2_fault_capsule[44]==6408&&!r2_fault_capsule[49]);
+#endif
  assert(r2_fault_capsule[0]==FAULT_MAGIC&&r2_fault_capsule[FAULT_WORDS-1]==crc(r2_fault_capsule));
  assert(r2_fault_capsule[5]==esf.basic.pc&&r2_fault_capsule[8]==0x10&&r2_fault_capsule[18]==R2_HEALTH_WRITE);
  r2_health_init(9);assert(previous[2]==0x55667788&&previous[3]==0x11223344&&!r2_fault_capsule[0]);

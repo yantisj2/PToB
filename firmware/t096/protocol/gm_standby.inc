@@ -218,7 +218,7 @@ static void gm5_tick(struct r2_network *n,bool physical,uint64_t now,const struc
    unsigned p=gm5_slot(n,g->selected);struct r2_gm5_candidate *c=gm5_candidate(n,g->selected,false);
    bool source=p<n->count&&live(n,p)&&now<n->peer[p].candidate_until&&!n->peer[p].source_withdrawn;
    bool physical=source||(c&&c->eligible&&(!c->inhibited||c->negative_root==n->identity)&&now<c->until);
-   bool ready=source&&g->ready_at&&now>=g->ready_at&&now-g->ready_at<1000000;
+   bool ready=source&&g->ready_at&&now>=g->ready_at&&now-g->ready_at<R2_MANAGEMENT_LEASE_US;
    if(!ready||!own||!n->ready||!synced(n)){
     bool was_hot=n->hot_ready||g->successes;withdraw_hot(n,ready?32:8);g->stable_since=0;g->grant_pending=false;
     if(was_hot&&!g->attempt_until){gm5_repair(n);count(&g->attempts);gm5_event(n,R2_GM5_MAP,g->selected);}

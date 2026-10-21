@@ -1,3 +1,4 @@
+#include "controller_diag.h"
 /* SPDX-License-Identifier: Apache-2.0 */
 #include "health.h"
 #include "watchdog.h"
@@ -79,7 +80,7 @@ static uint32_t crc(const volatile uint32_t *words)
 }
 void r2_health_init(uint64_t boot)
 {
- if(r2_fault_capsule[0]==FAULT_MAGIC&&r2_fault_capsule[1]==2&&
+ if(r2_fault_capsule[0]==FAULT_MAGIC&&(r2_fault_capsule[1]==2||r2_fault_capsule[1]==3)&&
     r2_fault_capsule[FAULT_WORDS-1]==crc(r2_fault_capsule))
   for(unsigned i=0;i<FAULT_WORDS;i++)previous[i]=r2_fault_capsule[i];
  r2_fault_capsule[0]=0;boot_id=boot;timing_setup();detail_due=0;
@@ -133,7 +134,7 @@ void r2_health_console(void)
  memcpy(line+n,"]}\n",3);n+=3;
  (void)r2_console_note(line,(size_t)n,now+250);
 }
-static bool stack_window_valid(uintptr_t start,size_t size,uintptr_t sp)
+static inline bool stack_window_valid(uintptr_t start,size_t size,uintptr_t sp)
 {
  return !(sp&3)&&start>=0x20000000u&&start<=0x20040000u&&size>=32&&
         size<=0x20040000u-start&&sp>=start&&sp-start<=size-32;
@@ -157,6 +158,14 @@ void k_sys_fatal_error_handler(unsigned int reason,const struct arch_esf *esf)
   const char *s=&R2_SOURCE_SHA[4*i];
   r2_fault_capsule[24+i]=(uint32_t)(uint8_t)s[0]|((uint32_t)(uint8_t)s[1]<<8)|((uint32_t)(uint8_t)s[2]<<16)|((uint32_t)(uint8_t)s[3]<<24);
  }
+#ifdef R2_CONTROLLER_DIAGNOSTICS
+ /* Explicit canary schema3 trades latency/interrupted-stack details for the
+  * frozen prepare queue. Original source/boot/PC/LR/reason and CRC remain. */
+ (void)old_mask;
+ uint32_t controller[R2_CONTROLLER_DIAG_WORDS];r2_controller_diag_snapshot(controller);
+ for(unsigned i=0;i<R2_CONTROLLER_DIAG_WORDS;i++)r2_fault_capsule[40+i]=controller[i];
+ r2_fault_capsule[1]=3;
+#else
  for(unsigned i=0;i<9;i++)r2_fault_capsule[40+i]=latency[i];
  /* A nested ISR fault reports the ISR frame in esf; retain the interrupted
   * thread's basic frame separately. Validate RAM, alignment and actual stack
@@ -174,6 +183,7 @@ void k_sys_fatal_error_handler(unsigned int reason,const struct arch_esf *esf)
  r2_fault_capsule[58]=active_site;
  if(active_site&&timing_ready)r2_fault_capsule[59]=(uint32_t)timing_counter_get()-active_cycle;
  r2_fault_capsule[60]=old_mask;r2_fault_capsule[61]=__get_PRIMASK();r2_fault_capsule[62]=__get_CONTROL();
+ #endif
  r2_fault_capsule[FAULT_WORDS-1]=crc(r2_fault_capsule);__DMB();r2_fault_capsule[0]=FAULT_MAGIC;__DSB();
  k_fatal_halt(reason);CODE_UNREACHABLE;
 }

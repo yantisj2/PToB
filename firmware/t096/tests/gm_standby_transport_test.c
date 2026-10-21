@@ -96,7 +96,7 @@ static void missed_active_polls(bool pending)
    }
    if(pending&&started){
     if(at<started+100000)assert(disconnects==closed+round);
-    if(at==started+100000)assert(disconnects==closed+round+1&&!peers[4].connect_until);
+    if(at==started+100000)assert(disconnects==closed+round+1&&peers[4].disconnect_requested&&peers[4].connect_until==fake_time+2000000);
     if(at>=started+100000&&at<started+150000)assert(peers[4].conn==&connection&&connection.refs==1&&peers[4].provisional_until==original_until);
     if(at==started+150000){callbacks.connected(&connection,2);callback=true;}
     if(at>started+150000)assert(callback&&!peers[4].conn&&connection.refs==0);
@@ -236,8 +236,29 @@ static void late_appointment(void)
  assert(promote&&n.gm5.role==R2_GM5_ACQUIRING&&!n.hot_ready&&!n.standby_authorized);
  puts("PASS actual failed-attempt gate just after STATUS closes: COLD stays quiet until original30s poll; fixed CONTACT survives, matching reply starts full original45s PA acquisition once");
 }
+static int stranded_control(void){
+ reset();n.gm5.role=R2_GM5_COLD;n.gm5.active=0;n.gm5.active_boot=0;n.gm5.next_poll=n.now;
+ struct peer *old=&peers[1];old->identity=111;old->conn=&connection;old->incarnation=3;
+ connection.refs=1;old->authenticated=true;atomic_set(&old->connected,1);atomic_set(&old->tx_busy,3);
+ bt_addr_le_t address={.type=BT_ADDR_LE_RANDOM,.a={{7}}};candidate_seen(&address,111,false,-30,n.now);
+ r2_group_admission_gm5_policy(&n,n.now);r2_ble_client_window(true);r2_ble_poll(fake_time);
+ assert(old->disconnect_requested&&old->conn==&connection&&!peers[4].identity);
+ uint64_t until=old->connect_until;unsigned requested=disconnects;
+ for(unsigned tick=1;tick<20;tick++){
+  fake_time+=100000;n.now=fake_time;candidate_seen(&address,111,false,-30,n.now);
+  r2_group_admission_gm5_policy(&n,n.now);r2_ble_poll(fake_time);
+  assert(old->conn==&connection&&old->identity==111&&atomic_get(&old->tx_busy)==3);
+  assert(!peers[4].identity&&!r2_ble_stop_error()&&old->connect_until==until&&disconnects==requested);
+ }
+ fake_time=n.now=until;r2_ble_poll(fake_time);
+ assert(r2_ble_stop_error()==-ETIMEDOUT&&old->conn==&connection&&connection.refs==1&&atomic_get(&old->tx_busy)==3);
+ puts("PASS actual native+G5 COLD inventory blocked by oldincarnation/TX3; original retirement deadline produces terminal error while retaining all unsafe ownership");
+ return r2_ble_stop_error();
+}
 int main(int argc,char **argv)
 {
+ if(argc==3&&!strcmp(argv[1],"--terminal")){int error=stranded_control();FILE *f=fopen(argv[2],"wb");assert(f&&fwrite(&error,sizeof error,1,f)==1&&!fclose(f));return 0;}
+ stranded_control();
  if(argc==2){write_handoff(argv[1]);return 0;}assert(argc==1);
  late_appointment();
  abandoned_phase_tests();admission_boundary_tests();missed_active_polls(false);missed_active_polls(true);

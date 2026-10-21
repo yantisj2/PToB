@@ -169,7 +169,7 @@ static void hello_source_refresh_tests(void)
   if(fault==0)source.last_pair_edge=source.last_rmc=n.now-1500000; /* Actual original permit expired. */
   if(fault==1)source.view.source_epoch=2; /* New epoch must requalify for60s. */
   if(fault==2)n.timing_valid=false; /* Source HELLO cannot fabricate PA/map readiness. */
-  if(fault==3)n.gm5.ready_at=n.now-1000000; /* Nor can it renew remote READY. */
+  if(fault==3)n.gm5.ready_at=n.now-R2_MANAGEMENT_LEASE_US; /* Nor can it renew remote READY. */
   r2_network_tick(&n,&source,n.now);assert(!n.hot_ready&&!n.standby_authorized);
   if(fault<2)assert(!n.admission.eligible&&!n.local_gm&&!n.ready&&n.peer[1].next_hello==n.now+300000);
   else assert(n.local_gm&&n.gm5.attempt_until==n.now+R2_GM5_REPAIR_US);
@@ -291,8 +291,21 @@ static void phase_evidence(struct r2_network *n,uint64_t at)
 }
 static void lifecycle_boundary_tests(void)
 {
+ /* READY freshness shares the management lease; source/PT evidence remains
+  * independently current. Test strict original boundary without rearming. */
+ for(int edge=-1;edge<=1;edge++){
+  struct r2_network q=base(true);uint64_t ready=q.now;
+  q.gm5.ready_at=ready;q.gm5.stable_since=ready-R2_GM5_STABLE_US;
+  q.hot_ready=true;q.gm5.successes=1;q.gm5.issued_until=ready+R2_GM5_GRANT_US;
+  phase_evidence(&q,ready+R2_MANAGEMENT_LEASE_US+edge);
+  gm5_tick(&q,true,q.now,NULL);
+  assert(q.gm5.ready_at==ready);
+  assert(q.hot_ready==(edge<0));
+  if(edge>=0)assert(q.gm5.attempt_until==q.now+R2_GM5_REPAIR_US);
+ }
+
  struct r2_network n=base(true);n.gm5.attempt_until=n.now+R2_GM5_ACQUIRE_US;
- n.gm5.stable_since=n.now-R2_GM5_STABLE_US+1;n.gm5.ready_at=n.now-1000000;
+ n.gm5.stable_since=n.now-R2_GM5_STABLE_US+1;n.gm5.ready_at=n.now-R2_MANAGEMENT_LEASE_US;
  gm5_tick(&n,true,n.now,NULL);assert(!n.gm5.stable_since&&!n.gm5.issued_until);
  uint64_t restart=n.now+1;
  for(unsigned i=0;i<=10;i++){

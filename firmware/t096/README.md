@@ -5,7 +5,7 @@
 *Illustrative firmware-rendered RC screen; displayed values are not measured
 performance. [Image provenance](../../docs/images/README.md).*
 
-**PToB owns T096 RC7 development.** Current source version **0.15.143** supplies the
+**PToB owns T096 RC7 development.** Current source version **0.15.144** supplies the
 ordinary **GM** and **RC** mesh profiles, with USB timing compiled by default.
 [Build from source](../../docs/t096/build.md) with pinned public dependencies
 and ignored local enrollment. No enrolled binary is distributed.
@@ -78,6 +78,15 @@ without shortening a separate short message expiry. Original response clipping,
 source/grant lifetimes, all cadences and repair dwell remain unchanged. A fixed
 host delivery-burst regression checks continued HOT within valid map bounds;
 physical RF durability and the controller preparation assertion remain open.
+Version144 issues normal connection closure once and retains the original2s
+retirement deadline through disconnect, TX and public-call callbacks. Missing
+retirement becomes a terminal service error for the existing watchdog; buffers
+and references remain owned until real completion or reset. READY freshness now
+shares the existing2s management lease, preserving source/PT validity and all
+original message/grant bounds. An explicit diagnostic canary records controller
+prepare FIFO contents in the existing fault capsule; it is off by default.
+These changes do not establish the cause or resolution of the controller assert,
+physical HOT durability, failover latency or UTC accuracy.
 The [remaining acceptance plan](../../docs/t096/gm-standby.md#development-checkpoint-and-remaining-acceptance)
 keeps admission, source qualification, HOT renewal, watchdog reset measurement
 and fourth-participant testing as separate open checks.

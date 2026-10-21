@@ -281,3 +281,33 @@ all host readers and locks. The configured sole LoRa transmitter requires the
 GM runtime profile: staging it as RC inhibits TX even if its request remains ON.
 A GM-profile COLD forwarding leaf can use a current authenticated locked BLE map
 without becoming ACTIVE/HOT; an actual serving GM retains its own source gate.
+
+### Retirement and READY freshness in0.15.144
+
+Normal native control connections issue one disconnect request. The original2s
+retirement budget starts on that request or the first natural disconnect callback.
+The same budget covers outstanding TX and bridged GATT work; a request result
+alone never releases references or immutable TX storage. Missing retirement is
+terminal and reaches the existing watchdog path, even while CONTROL publishes.
+This prevents an old peer owner from blocking inventory indefinitely without
+pretending that timed-out controller ownership is safe to reuse.
+
+READY freshness shares the existing2s management lease instead of an independent
+1s cutoff. This tolerates a missed reply opportunity; current physical source,
+causal map and PA evidence remain mandatory. Original250ms message expiry,
+clipped response expiry,5s stable dwell and10s finite grants remain unchanged.
+Selective1.1s READY-loss host checks retain ordinary source and physical-tuple
+streams and exercise the strict2s cutoff separately. They do not model real RF
+scheduling or establish durable physical HOT.
+
+The multi-node host test executes real network, wire and precision bodies, but
+retires logical peers instantly and uses synthetic packet/PA delivery. It cannot
+expose a native connection whose disconnect or TX callback never arrives. The
+separate native transport/JOIN test retains that owner and verifies inventory
+exclusion until the original deadline produces a terminal error. The full host
+runner passes that actual error to the production watchdog observer; the short
+service error-publication bridge is checked against source rather than executed
+as a complete worker. These tests distinguish authority expiry from liveness:
+every closing resource must actually retire or become terminal by its original
+deadline. Real HCI, ISR scheduling and controller FIFO coexistence still require
+the diagnostic/native boundary and separately authorized physical observations.

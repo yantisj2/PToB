@@ -253,11 +253,11 @@ static void relay_guest_without_bootstrap(void)
  /* This exception never extends the guest deadline or permits outgoing work. */
  r2_ble_poll(6000000);assert(disconnects>before&&creates==started);
  before=disconnects;p->provisional_until=9000000;p->release=true;
- r2_ble_poll(6002000);assert(disconnects>before);p->release=false;
+ r2_ble_poll(6002000);assert(disconnects==before);p->release=false;
  before=disconnects;p->admission_server=false;
- r2_ble_poll(6004000);assert(disconnects>before);
+ r2_ble_poll(6004000);assert(disconnects==before);
  before=disconnects;p->admission_server=true;relay_server=false;
- r2_ble_poll(6006000);assert(disconnects>before);
+ r2_ble_poll(6006000);assert(disconnects==before);
  memset(peers,0,sizeof peers);group_id=0;group_client=relay_server=false;
  client_window=true;stopping=scanning=advertising=false;
 }
@@ -335,7 +335,7 @@ static void bridge_deadline_lifetime(void){
   fake_before_dispatch=mode==0?stale_dispatch:mode==1?disconnect_dispatch:expired_dispatch;
   calls=fake_gatt_calls;r2_ble_owner_deadline(fake_time+50000);
   assert(r2_ble_send(1,wire)<0&&!p->tx_busy&&connection.refs==2);
-  assert(fake_gatt_calls==calls);p->connected=1;p->dead=0;p->att_mtu=226;
+  assert(fake_gatt_calls==calls);p->connected=1;p->dead=0;p->att_mtu=226;p->disconnect_requested=false;p->connect_until=0;
  }
  fake_before_dispatch=NULL;
  /* Timeout cannot recycle an immutable buffer/params/reference. Deferred job
@@ -502,7 +502,8 @@ int main(int argc,char **argv)
  telemetry_lamps();
  const uint8_t addresses[2][6]={{1,0,0,0,0,0xc0},{2,0,0,0,0,0xc0}};
  for(unsigned mode=0;mode<2;mode++)for(unsigned cycle=0;cycle<100;cycle++){
-  memset(peers,0,sizeof(peers));r2_ble_stop();r2_ble_poll(999999);assert(r2_ble_closed());assert(!r2_ble_start(0,2,addresses));
+  /* Each cycle is a fresh fixture boot after the preceding terminal drain. */
+  memset(peers,0,sizeof(peers));stop_error=0;r2_ble_stop();r2_ble_poll(999999);assert(r2_ble_closed());assert(!r2_ble_start(0,2,addresses));
   early=mode;peers[1].retry=1;unsigned before=creates;r2_ble_poll(1000000);
   assert(creates==before); /* Elapsed retry without a fresh observation is inert. */
   peers[1].advertised_at=1;r2_ble_poll(1000000);assert(creates==before);

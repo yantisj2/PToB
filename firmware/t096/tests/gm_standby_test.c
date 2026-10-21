@@ -108,6 +108,10 @@ static void transport(void)
   if(sent){
    assert(dest==1);r2_network_sent(&n[p],hello,1,w);tx_counts[p][w[1]]++;
    if(drop_commit&&w[1]==R2_AUTH_COMMIT)continue;
+   /* Selective management reply loss: ordinary HELLO/SERVICE/ACK and actual
+    * PA tuples continue. A1.1s outage exceeds the old independent READY bound. */
+   if(scenario==15&&now>=200000000&&now<240000000&&
+      (now-200000000)%2000000<1100000&&w[1]==R2_AUTH_READY)continue;
    for(unsigned copy=0;copy<((scenario==13&&now>=200000000&&now<240000000)?4u:1u);copy++){assert(tail-head<256);struct flight *f=&q[tail++%256];f->a=p;f->b=other;f->due=now+25000;f->size=r2_control_wire_size(w);memcpy(f->data,w,f->size);}
   }
  }
@@ -225,6 +229,7 @@ int main(int argc,char **argv)
   step();
   if(root>=0&&now>190000000&&(scenario==0||now<200000000)){assert(active()==root&&hot()==standby);assert(n[root].publication==original_publication);}
   if(root>=0&&now>201000000&&(scenario==0||scenario==1||scenario==2||scenario==4||scenario==13||scenario==14))assert(active()==root);
+  if(scenario==15&&now>=200000000&&now<240000000)assert(active()==root&&hot()==standby&&n[root].hot_ready);
   if(now>=200000000){++observed;int a=active();source_gaps+=a<0||(a>=0&&!n[a].ready);hot_gaps+=hot()<0;}
   if(scenario==12&&now>350000000)assert(active()==fallback);
   if(scenario==11&&merge_deadline&&now>=merge_deadline){assert(active()==root&&hot()==standby);}

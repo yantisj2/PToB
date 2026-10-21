@@ -58,6 +58,7 @@ def main():
     parser.add_argument('--pc-parent', help='Exact direct-GM identity, or auto for authenticated direct-GM discovery')
     parser.add_argument('--registry', type=Path, default=REPO/'registry/example.json')
     parser.add_argument('--lora-transmitter-factory', help='Explicit normal-image sole LoRa TX factory ID; absent disables LoRa')
+    parser.add_argument('--controller-diagnostics', action='store_true', help='Opt-in normal GM/RC prepare FIFO diagnostic canary')
     parser.add_argument('--development', action='store_true')
     args = parser.parse_args()
     os.umask(0o077)
@@ -67,6 +68,8 @@ def main():
     dirty = bool(git(REPO, 'status', '--porcelain', '--untracked-files=all'))
     if dirty and not args.development:
         parser.error('Commit reviewed public inputs before a release-candidate build')
+    if args.controller_diagnostics and args.profile not in ('GM','RC'):
+        parser.error('Controller diagnostics require normal GM/RC')
     dc = args.profile == 'DC'
     pc = args.profile == 'PC'
     pc_auto = pc and args.pc_parent == 'auto'
@@ -121,7 +124,7 @@ def main():
     receipt = {'schema':1,'artifact_class':'PTOB_T096_DC1' if dc else 'PTOB_T096_PC1' if pc else 'PTOB_T096_RC7','version':version[1],
                'status':'INCOMPLETE','public_commit':git(REPO,'rev-parse','HEAD'),
                'child_commit':git(REPO,'rev-parse','HEAD'),'source_dirty':dirty,'sources':source,'source_sha256':source_hash,
-               'profile':args.profile,'usb_source_stream':True,'dependencies':lock,
+               'profile':args.profile,'controller_diagnostics':args.controller_diagnostics,'usb_source_stream':True,'dependencies':lock,
                'installed':False,'precision':'UNQUALIFIED','hardware_tests':[],
                'enrollment_mode':'NONE_DC_LOCAL_GNSS' if dc else 'LOCAL_BUILD_TIME_P1_NOT_IMPLEMENTED',
                'registry_sha256':sha(args.registry),
@@ -170,6 +173,7 @@ def main():
     command=['cmake','-GNinja','-S',str(APP),'-B',str(out/'target'),'-DBOARD=t096_r2',
              '-DUSER_CACHE_DIR='+str(out/'cache'),'-DCMAKE_EXPORT_COMPILE_COMMANDS=ON','-DR2_ENROLLMENT_HEADER='+str(secret),
              '-DR2_SOURCE_SHA='+source_hash,'-DR2_CHILD_COMMIT='+receipt['public_commit'],
+             '-DR2_CONTROLLER_DIAGNOSTICS='+('ON' if args.controller_diagnostics else 'OFF'),
              '-DR2_SOURCE_DIRTY='+str(int(dirty)),
              '-DR2_LORA_TRANSMITTER_FACTORY='+transmitter,
              '-DZEPHYR_MODULES='+';'.join(str(deps/p['path']) for p in lock['modules']),
@@ -181,7 +185,9 @@ def main():
         if source != {str(p.relative_to(APP)):sha(p) for p in source_files()}:
             raise ValueError('Source changed during build')
         target=out/'target/zephyr'
-        binding=hashlib.sha256((source_hash+':'+private_binding(sha(secret),transmitter)+':'+sha(target/'.config')).encode()).hexdigest()
+        private_hash=private_binding(sha(secret),transmitter)
+        if args.controller_diagnostics:private_hash=hashlib.sha256((private_hash+':controller-diag:1').encode()).hexdigest()
+        binding=hashlib.sha256((source_hash+':'+private_hash+':'+sha(target/'.config')).encode()).hexdigest()
         if '#define R2_WATCHDOG_BINDING "'+binding+'"' not in (out/'target/build_identity.h').read_text():
             raise ValueError('Watchdog binding mismatch')
         run([sys.executable,str(APP/'tools/uf2.py'),'pack',str(target/'zephyr.bin'),str(out/'t096.uf2'),'--address','0x26000'],'uf2.log')

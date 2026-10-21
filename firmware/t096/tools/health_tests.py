@@ -11,6 +11,6 @@ for name in ['zephyr/fatal.h','zephyr/irq.h','zephyr/kernel.h','zephyr/timing/ti
     f=out/name;f.parent.mkdir(parents=True,exist_ok=True);f.write_text('/* Native boundary supplied by fixture. */\n')
 flags=[os.environ.get('CC','clang'),'-std=c11','-Wall','-Wextra','-Werror','-Wno-unused-parameter',
        '-fsanitize=address,undefined','-fno-sanitize-recover=all','-I'+str(out),'-I'+str(app/'include'),'-I'+str(app/'protocol')]
-for name,extra in [('health',[]),('watchdog-health',['-DR2_WATCHDOG=1'])]:
+for name,extra in [('health',[]),('watchdog-health',['-DR2_WATCHDOG=1']),('controller-health',['-DR2_WATCHDOG=1','-DR2_CONTROLLER_DIAGNOSTICS=1'])]:
     subprocess.run([*flags,*extra,str(app/'tests/health_test.c'),'-o',str(out/name)],check=True,timeout=30)
     subprocess.run([str(out/name)],check=True,timeout=10)

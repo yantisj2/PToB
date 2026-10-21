@@ -959,3 +959,46 @@ denominator. No diagnostic turns relative fit/RMS into an absolute UTC bound.
 
 See [the G5 contract](gm-standby.md) for timers, compatibility, the requested COLD
 LoRa forwarding-leaf exception and separate simulator/native/hardware populations.
+
+## Controller prepare canary
+
+The explicit0.15.144 `--controller-diagnostics` GM/RC variant emits at most one
+idle-only `#R2_CONTROLLER` summary per second, with source hash, physical boot,
+monotonic milliseconds and cumulative enqueue/dequeue/aborted-retirement/event-done
+counts. Missing timestamps reveal skipped observations; there is no queued retry.
+Aborted-retirement counts mean entries observed aborted when dequeued, not all
+abort callback invocations. Counts are observations, not an assumed one-to-one
+prepare/done invariant. Callbacks never format or print these records.
+
+On the first failed prepare enqueue, the existing512B startup scan scratch tail
+freezes the requested prepare callback/parameter and the actual seven queued
+callback/parameter pairs, resume/aborted flags and failure time. The existing
+assertion remains. Callback addresses resolve against the exact image ELF and
+identify event types; parameter addresses identify controller owners only within
+that boot. No controller capacity, timing priority or reserve is changed.
+
+Fatal capsule schema3 preserves words0..39 (including reason, PC/LR, source and
+boot) and word63 CRC. Words40..62 replace schema2 latency and interrupted-thread
+stack details **only in the diagnostic variant**:
+
+| Relative word | Meaning |
+| --- | --- |
+| 0..3 | Successful enqueue, dequeue, aborted dequeue, event-done processed counts |
+| 4..5 | Failed prepare callback and owner parameter |
+| 6 | Zero: no failure; otherwise one plus number of captured FIFO entries |
+| 7..20 | Seven callback/parameter pairs in FIFO order |
+| 21 | Failure uptime milliseconds,32-bit |
+| 22 | Two bits per entry: resume then aborted |
+
+CRC-valid retained capsules remain conditional on RAM survival through reset.
+Schema3 replaces forensic fields; it must not be decoded as schema2. The separate
+watchdog capsule binds the diagnostic mode into its existing source/private/config
+identity. The health capsule retains its existing source/boot/CRC semantics.
+Normal builds keep schema2; the additional scratch storage overlaps no live LoRa
+fields and the total scratch union remains512B.
+
+The ordinary timing journal adds GM_CONTROL details19 (one actual disconnect
+result, incarnation, original retirement deadline in truncated32-bit milliseconds),
+20 (disconnect callback, incarnation, TX mask),21 (TX retirement during closure,
+incarnation, remaining TX mask),22 (terminal retirement timeout, incarnation, TX
+mask). Existing source/boot/cursor framing and overwrite reporting apply.

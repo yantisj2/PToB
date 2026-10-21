@@ -54,6 +54,12 @@ def inspect(out,allow_development=False):
         aux=[x['file'] for x in units if x['file'].endswith('/lll_scan_aux.c')]
         require(len(aux)==1 and aux[0].endswith('/r2_radio_controller/lll_scan_aux.c'),
                 'Missing/duplicate pinned AUX initiation diagnostic source')
+    diagnostic=r.get('controller_diagnostics',False)
+    require(type(diagnostic) is bool,'Invalid diagnostic variant flag')
+    require(not diagnostic or not (dc or pc),'Diagnostic variant leaked into DC/PC')
+    require(('/src/controller_diag.c' in commands)==diagnostic,'Diagnostic variant source mismatch')
+    require(('/r2_controller_diag/ull.c' in commands)==diagnostic,'Diagnostic controller hook mismatch')
+    require(('R2_CONTROLLER_DIAGNOSTICS=1' in commands)==diagnostic,'Diagnostic compiler mode mismatch')
     dts=(out/'target/zephyr/zephyr.dts').read_text()
     if dc and 'src/dc_gnss.c' in r['sources']:
         require(r.get('dc_gnss_bridge') is True,'Missing DC GNSS bridge receipt')
@@ -115,6 +121,7 @@ def inspect(out,allow_development=False):
             names={s.name for s in ELFFile(f).get_section_by_name('.symtab').iter_symbols()}
         require(not any(s.startswith('r2_lora_') for s in names),'LoRa owner leaked into DC/PC')
         require('CONFIG_NRFX_SPIM1=y' not in config and 'CONFIG_NRFX_TIMER4=y' not in config,'LoRa peripherals leaked into DC/PC')
+    if diagnostic:private_sha=hashlib.sha256((private_sha+':controller-diag:1').encode()).hexdigest()
     binding=hashlib.sha256((r['source_sha256']+':'+private_sha+':'+sha(out/'target/zephyr/.config')).encode()).hexdigest()
     require(binding==r['watchdog_binding_sha256'],'Watchdog binding')
     return {'status':'PASS','flash_load_end':flash_end,'ram_allocated_end':ram_end,'static_unallocated_bytes':0x20040000-ram_end,'hardware':'NOT_TESTED','deployment_authorized':False}

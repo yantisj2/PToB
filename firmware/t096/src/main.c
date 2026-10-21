@@ -1,3 +1,4 @@
+#include "controller_diag.h"
 /* SPDX-License-Identifier: Apache-2.0 */
 #include "app.h"
 #include "gm_diagnostics.h"
@@ -345,6 +346,9 @@ static void __attribute__((noinline)) reply(const struct r2_request *r,uint64_t 
 #else
     "{\"version\":\"%s\",\"source\":\"%s\",\"commit\":\"%s\",\"dirty\":%d,"
 #endif
+#ifdef R2_CONTROLLER_DIAGNOSTICS
+    "\"controller_diagnostics\":true,"
+#endif
     "\"silicon\":\"%s\",\"unit\":\"%s\",\"boot\":\"%016llx\",\"battery\":%d,"
     "\"uptime_ms\":%llu,\"heartbeat\":%u,\"result\":%d,\"identity_rc\":%d,\"pins_rc\":%d,"
     "\"platform_ready\":%s,\"boot_timeout\":%s,\"clock\":[%d,%d,%d,%d,%llu,%llu],"
@@ -449,6 +453,9 @@ int main(void)
   r2_lora_init(enrollment_rc?0:lora_factory,identity.boot,lora_transmitter,&r2_enrollment.group);
 #endif
 #endif
+#ifdef R2_CONTROLLER_DIAGNOSTICS
+  r2_controller_diag_init();
+#endif
   r2_platform_start();
   struct r2_platform p; r2_platform_snapshot(&p); event(2,p.clock_result);
   r2_console_start();
@@ -480,6 +487,9 @@ int main(void)
     struct r2_service_status service;r2_service_snapshot(&service);
     r2_timing_sample(&service,now);
     r2_timing_console(identity.boot,now);
+#ifdef R2_CONTROLLER_DIAGNOSTICS
+    r2_controller_diag_console(identity.boot,now);
+#endif
 #ifdef R2_RC_PROFILE
     r2_watchdog_observe(&service,
 #ifdef R2_PC_PROFILE

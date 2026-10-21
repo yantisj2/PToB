@@ -2,6 +2,19 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 21 October 2026 — T0960.15.144 bounded connection retirement
+
+Normal control closure now issues one public disconnect request, records its
+result and keeps an original2s retirement deadline through actual disconnect, TX
+and GATT callbacks. Missing retirement becomes terminal for the existing watchdog
+without releasing unsafe storage. READY freshness shares the existing2s management
+lease; source/PT validity,250ms message expiry and10s grants stay unchanged.
+An off-by-default GM/RC controller diagnostic canary freezes the seven-entry
+prepare FIFO into a separately identified retained fault schema without growing
+queues or static scratch. Host tests cover ownership interleavings, selective
+READY loss and diagnostic retention. Physical HOT durability and the controller
+assertion root cause remain unqualified.
+
 ## 20 October 2026 — T0960.15.143 per-timestamp clock bounds
 
 Authenticated control now maps each timestamp with its own conservative drift

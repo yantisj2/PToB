@@ -37,6 +37,7 @@ struct peer;
 struct tx_context {struct peer *peer;unsigned slot;};
 struct peer {
   struct bt_conn *conn;bt_addr_le_t address;
+  /* connect_until is initiation expiry, then original retirement expiry once closing. */
   uint64_t identity,provisional_until,connect_until,first_seen;bool authenticated,admission_server,release,disconnect_requested;
   struct bt_gatt_exchange_params mtu;
   struct bt_gatt_discover_params discovery;
@@ -447,7 +448,10 @@ static void disconnected(struct bt_conn *conn,uint8_t reason)
 #endif
   k_spinlock_key_t key=k_spin_lock(&lock);int i=index_conn(conn);
   diag_link_event(1,16,22,i<0?255u:(unsigned)i,reason);
-  if(i>=0){atomic_clear(&peers[i].att_mtu);atomic_clear(&peers[i].connected);atomic_set(&peers[i].dead,1);}
+  if(i>=0){struct peer *p=&peers[i];
+   if(!p->disconnect_requested){p->disconnect_requested=true;p->connect_until=now_us()+2000000;}
+   r2_timing_event(R2_TIMING_GM_CONTROL,reason,p->identity,20,p->incarnation,(uint32_t)atomic_get(&p->tx_busy));
+   atomic_clear(&p->att_mtu);atomic_clear(&p->connected);atomic_set(&p->dead,1);}
   else for(unsigned d=0;d<4;d++)if(duplicates[d].conn==conn)duplicates[d].dead=true;
   k_spin_unlock(&lock,key);
 }
@@ -503,8 +507,10 @@ static uint8_t located(struct bt_conn *conn,uint8_t error,struct bt_gatt_read_pa
  atomic_set(&p->lookup_done,1);return BT_GATT_ITER_STOP;
 }
 static void tx_done(struct bt_conn *conn,void *user_data){struct tx_context *c=user_data;
- k_spinlock_key_t key=k_spin_lock(&lock);lamp_times[lamp_kind(c->peer->tx[c->slot])][1]=now_us();k_spin_unlock(&lock,key);
- atomic_clear_bit(&c->peer->tx_busy,c->slot);}
+ k_spinlock_key_t key=k_spin_lock(&lock);lamp_times[lamp_kind(c->peer->tx[c->slot])][1]=now_us();
+ atomic_clear_bit(&c->peer->tx_busy,c->slot);
+ if(c->peer->disconnect_requested)r2_timing_event(R2_TIMING_GM_CONTROL,0,c->peer->identity,21,c->peer->incarnation,(uint32_t)atomic_get(&c->peer->tx_busy));
+ k_spin_unlock(&lock,key);}
 /* Caller holds lock. RSSI orders discovery attempts only, never time quality. */
 static void candidate_seen(const bt_addr_le_t *address,uint64_t identity,bool passive,int8_t rssi,uint64_t now){
  unsigned slot=DISCOVERY_CANDIDATES;
@@ -684,6 +690,14 @@ static void poll_owned(uint64_t now)
   duplicate_poll(now);
   if(scan_stop_until)(void)stop_scan(now);
   for(unsigned i=0;i<nodes;i++)if(i!=self){struct peer *p=&peers[i];
+    /* Missing disconnect/TX/GATT callbacks must not retain a slot forever.
+     * Never release unsafe ownership on timeout: the terminal service/watchdog
+     * path resets it. The first request/callback owns this unextended budget. */
+    if(p->disconnect_requested&&p->conn&&p->connect_until&&now>=p->connect_until&&
+       (!atomic_get(&p->dead)||atomic_get(&p->tx_busy)||gatt_pending(i))&&!stop_error){
+     stop_error=-ETIMEDOUT;transport_error(stop_error,"DISCONNECT",i);
+     r2_timing_event(R2_TIMING_GM_CONTROL,stop_error,p->identity,22,p->incarnation,(uint32_t)atomic_get(&p->tx_busy));
+    }
     if(gatt_pending(i))continue; /* never mutate an outstanding call's params */
     if(group_id&&(p->identity||p->conn)&&((!p->authenticated&&now>=p->provisional_until)||p->release)){
      if(p->conn)r2_ble_disconnect(i);
@@ -707,7 +721,7 @@ static void poll_owned(uint64_t now)
      * initiator through its quiet interval. Units may have different uptime
      * phases: bound this actual create attempt, not our local second boundary.
      * Public cancellation retains the connection until callbacks are drained. */
-    if(p->conn&&!atomic_get(&p->connected)&&
+    if(p->conn&&!p->disconnect_requested&&!atomic_get(&p->connected)&&
        p->connect_until&&now>=p->connect_until){
       r2_timing_event(R2_TIMING_GM_CONTROL,-ETIMEDOUT,p->identity,2,p->incarnation,0);
       p->connect_until=0;r2_ble_disconnect(i);
@@ -717,7 +731,7 @@ static void poll_owned(uint64_t now)
      * release, quiet and shutdown still retire this guest independently. */
     bool serving_guest=relay_server&&i==admission_peer&&p->admission_server;
     if(!stopping&&p->conn&&!desired(i)&&!serving_guest){r2_ble_disconnect(i);continue;}
-    if(!stopping&&atomic_get(&p->connected)){
+    if(!stopping&&!p->disconnect_requested&&atomic_get(&p->connected)){
       if(!p->mtu.func&&!usable_mtu(p)){p->mtu.func=mtu_done;int rc=gatt_call(i,GATT_MTU,0,NULL);if(rc){if(!gatt_pending(i))p->mtu.func=NULL;if(rc!=-EALREADY)transport_error(rc,"MTU",i);}}
       if(gatt_pending(i))continue;
       /* Keep our accepted asynchronous params owned until its own callback.
@@ -940,7 +954,7 @@ static void poll_owned(uint64_t now)
 }
 void r2_ble_poll(uint64_t now){poll_owned(now);gm_diagnostic_publish();}
 bool r2_ble_ready(unsigned p)
-{return p<nodes&&p!=self&&atomic_get(&peers[p].connected)&&!atomic_get(&peers[p].dead)&&atomic_get(&peers[p].discovered)==1&&usable_mtu(&peers[p]);}
+{return p<nodes&&p!=self&&!peers[p].disconnect_requested&&atomic_get(&peers[p].connected)&&!atomic_get(&peers[p].dead)&&atomic_get(&peers[p].discovered)==1&&usable_mtu(&peers[p]);}
 bool r2_ble_receive(struct r2_ble_event *event)
 {
   if(k_msgq_get(&incoming,event,K_NO_WAIT))return false;
@@ -966,9 +980,16 @@ int r2_ble_send(unsigned i,const uint8_t *data)
 }
 static int disconnect_owned(unsigned i){
  k_spinlock_key_t key=k_spin_lock(&lock);struct bt_conn *conn=i<nodes?peers[i].conn:NULL;
- if(conn){peers[i].disconnect_requested=true;diag_count(3);}
+ if(!conn||peers[i].disconnect_requested){k_spin_unlock(&lock,key);return conn?0:-ENOTCONN;}
+ struct peer *p=&peers[i];p->disconnect_requested=true;p->connect_until=now_us()+2000000;diag_count(3);
+ uint64_t identity=p->identity;uint32_t incarnation=p->incarnation;
  k_spin_unlock(&lock,key);
- return conn?bt_conn_disconnect(conn,BT_HCI_ERR_REMOTE_USER_TERM_CONN):-ENOTCONN;
+ int rc=bt_conn_disconnect(conn,BT_HCI_ERR_REMOTE_USER_TERM_CONN);
+ /* Public close refusal can race a natural callback. Neither response alone
+  * proves retirement. Unexpected failures are terminal; no request storm. */
+ if(rc&&rc!=-EACCES&&rc!=-ENOTCONN){stop_error=rc;transport_error(rc,"DISCONNECT",i);}
+ r2_timing_event(R2_TIMING_GM_CONTROL,rc,identity,19,incarnation,(uint32_t)(p->connect_until/1000));
+ return rc;
 }
 void r2_ble_disconnect(unsigned i){(void)disconnect_owned(i);}
 void r2_ble_stop(void)
@@ -979,7 +1000,7 @@ void r2_ble_stop(void)
   for(unsigned i=0;i<nodes;i++)if(i!=self&&peers[i].conn){
     /* Pinned public bt_conn_disconnect cancels CONNECTING through the host. */
     rc=disconnect_owned(i);
-    if(rc&&rc!=-ENOTCONN)stop_error=rc;
+    if(rc&&rc!=-EACCES&&rc!=-ENOTCONN)stop_error=rc;
   }
 }
 bool r2_ble_closed(void)

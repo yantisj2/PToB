@@ -32,7 +32,7 @@ try:
  for mode in range(35,50):
   with (out/f'handoff-{mode}.log').open('x')as log:subprocess.run([str(out/'handoff'),str(mode),str(out/'handoff.bin')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
  stages.append('actual_producer_precision_mailbox_15_cases')
- cases=[(0,i,4)for i in range(1 if a.quick else 24)]+[(i,0,k)for i in range(1,15)for k in ([4]if a.quick else [3,4])]+([]if a.quick else [(0,i,3)for i in range(6)])
+ cases=[(0,i,4)for i in range(1 if a.quick else 24)]+[(i,0,k)for i in range(1,16)for k in ([4]if a.quick else [3,4])]+([]if a.quick else [(0,i,3)for i in range(6)])
  for scenario,order,nodes in cases:
   with (out/f'{scenario}-{order}-{nodes}.log').open('x')as log:r=subprocess.run([str(out/'simulator'),str(scenario),str(order),str(nodes)],stdout=log,stderr=subprocess.STDOUT,timeout=60)
   results.append(dict(scenario=scenario,order=order,nodes=nodes,returncode=r.returncode));

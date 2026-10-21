@@ -36,6 +36,8 @@ struct r2_lora_watchdog_state {
 union r2_diag_scratch {
  uint32_t scan[128];
  struct r2_lora_watchdog_state lora;
+ /* Diagnostic canary only; tail never overlaps live LoRa state. */
+ struct {uint8_t owner[sizeof(struct r2_lora_watchdog_state)];uint32_t words[24];} controller;
 };
 extern union r2_diag_scratch r2_diag_scratch;
 _Static_assert(sizeof(union r2_diag_scratch)==512,"Existing diagnostic scan reserve");

@@ -26,7 +26,47 @@ static void reset(void){
  fake_time=1000000;self=0;nodes=1;group_id=1;local_identity=10;group_client=false;
  stopping=advertising=precision_discovery=sync_acquiring=false;scanning=true;
 }
+static void normal_owner_retirement(void){
+ for(unsigned response=0;response<4;response++)for(unsigned order=0;order<3;order++){
+  reset();scanning=false;nodes=2;gm5_mode=true;gm5_selected=20;
+  struct bt_conn conn={.refs=2};struct peer *p=&peers[1];
+  p->conn=&conn;p->identity=20;p->incarnation=7;p->authenticated=true;
+  atomic_set(&p->connected,1);atomic_set(&p->tx_busy,3);
+  close_result=response==0?0:response==1?-EACCES:response==2?-ENOTCONN:-EIO;
+  unsigned calls=disconnects;r2_ble_disconnect(1);
+  assert(disconnects==calls+1&&p->connect_until==3000000&&p->disconnect_requested);
+  assert(stop_error==(response==3?-EIO:0)&&!r2_ble_ready(1));
+  for(unsigned n=0;n<100;n++)r2_ble_disconnect(1);
+  assert(disconnects==calls+1&&p->connect_until==3000000);
+  if(order==0)callbacks.disconnected(&conn,19);
+  if(order!=2){atomic_clear(&p->tx_busy);if(order==1)callbacks.disconnected(&conn,19);}
+  fake_time=2999999;r2_ble_poll(fake_time);
+  if(order!=2){assert(!p->conn&&conn.refs==1&&!p->identity);}
+  else{
+   assert(p->conn==&conn&&conn.refs==2);fake_time=3000000;r2_ble_poll(fake_time);
+   assert(stop_error&&p->conn==&conn&&atomic_get(&p->tx_busy)==3);
+   callbacks.disconnected(&conn,19);r2_ble_poll(++fake_time);assert(p->conn==&conn);
+   atomic_clear(&p->tx_busy);r2_ble_poll(++fake_time);assert(!p->conn&&conn.refs==1&&stop_error);
+  }
+ }
+ /* Natural loss plus withheld TX and a pending public call share the first
+  * callback's retirement deadline; neither repeated callback can extend it. */
+ reset();scanning=false;nodes=2;gm5_mode=true;
+ struct bt_conn conn={.refs=2};struct peer *p=&peers[1];p->conn=&conn;p->identity=20;
+ atomic_set(&p->connected,1);atomic_set(&p->tx_busy,1);
+ callbacks.disconnected(&conn,19);fake_time=2000000;callbacks.disconnected(&conn,19);
+ assert(p->connect_until==3000000);gatt_request.pending=true;gatt_request.peer=1;
+ fake_time=3000000;r2_ble_poll(fake_time);assert(stop_error==-ETIMEDOUT&&conn.refs==2);
+ gatt_request.pending=false;atomic_clear(&p->tx_busy);r2_ble_poll(++fake_time);assert(conn.refs==1&&!p->conn);
+ /* A synchronous natural callback during HCI refusal also retires exactly once. */
+ reset();scanning=false;nodes=2;gm5_mode=true;p=&peers[1];p->conn=&conn;conn.refs=2;
+ close_result=-ENOTCONN;disconnect_during_call=true;r2_ble_disconnect(1);r2_ble_poll(++fake_time);
+ assert(!stop_error&&!p->conn&&conn.refs==1);
+ gm5_mode=false;
+ puts("PASS normal owner one-shot close; actual rc; immutable2s; both callback orders; missing TX/disconnect/GATT retain ownership and fault; natural loss and synchronous race");
+}
 int main(void){
+ normal_owner_retirement();
  for(unsigned reason=0;reason<2;reason++){
   reset();struct bt_conn orphan={.address={.type=1,.a={{99,0,0,0,0,0xc0}}},.refs=1};
   duplicate_track(&orphan,fake_time);uint64_t until=duplicates[3].until;

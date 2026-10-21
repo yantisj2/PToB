@@ -137,7 +137,7 @@ display, BLE/USB service and stack observations remain exact-device gates.
 
 ## Hardware update boundary
 
-Normal0.15.143 builds include the [RC8 wire3 integration](../../protocol/rc8/README.md).
+Normal0.15.144 builds include the [RC8 wire3 integration](../../protocol/rc8/README.md).
 The default transmitter factory is zero, so LoRa hardware does not start. An
 explicit normal-only `--lora-transmitter-factory` takes a16-digit exact factory
 identity verified against ignored T096 registry metadata. It is included in the
@@ -367,3 +367,19 @@ TX-start timestamps or output-accuracy measurements. Stage9 first-fault records
 identify precommit/deadline aborts. The existing512B journal scratch funds these
 fields without increasing static RAM or reducing any reserve. Native inspection,
 sanitizer/fake-boundary controls and actual TX progress remain separate gates.
+
+## Optional controller diagnostic canary
+
+Version0.15.144 adds `--controller-diagnostics` to the normal GM/RC build command.
+It defaults off; DC/PC reject the option. The receipt, generated build identity,
+watchdog binding and `controller_diagnostics:true` status distinguish this image.
+It keeps the seven-entry controller FIFO and existing resource reserves. The
+[diagnostic schema](diagnostics.md#controller-prepare-canary) documents the bounded
+console summary and conditional retained failure snapshot. This is an observation
+variant, not a controller failure workaround or hardware acceptance.
+
+```sh
+CC=clang python3 firmware/t096/tools/controller_diag_tests.py --deps artifacts/deps --out artifacts/check-controller-diag
+CC=clang python3 firmware/t096/tools/gm_drain_tests.py --deps artifacts/deps --out artifacts/check-gm-retirement
+CC=clang python3 firmware/t096/tools/health_tests.py --out artifacts/check-health-capsules
+```
