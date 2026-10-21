@@ -2,6 +2,19 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 21 October 2026 — T096 0.15.151 shared control work budgets
+
+G5 shares one 1 s initiation/GATT work budget per owner pass and the existing 5 s
+scan-stop retirement budget. Authenticated STATUS and non-HELLO control use their
+original session or signed expiry instead of a redundant 500 ms local queue gate.
+Management 45 s, grants 90 s, source/PT validity and actual reference retirement stay
+separate. Production-owner tests add delayed callbacks, aggregate GATT waiting,
+partial restarts with retained peer state and COLD incumbent renewal. Ordinary
+images omit unsolicited timing/controller diagnostics while keeping fault records.
+The timer audit also identifies RC PA cleanup's 500 ms/2 s ownership margin as a
+follow-up requiring actual-owner responsiveness tests; physical HOT durability
+and controller-failure causality remain unaccepted.
+
 ## 21 October 2026 — T0960.15.147 fair G5 owner servicing
 
 G5 uses one four-class round robin and shared500ms HELLO/SERVICE/management

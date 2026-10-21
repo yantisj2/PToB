@@ -310,8 +310,41 @@ prove a frozen worker. Its fault boot differs from the last observed boot, leavi
 intermediate incarnation. The initiating cause and reset latency remain unresolved.
 Matching installed images and host/native checks do not establish output accuracy.
 
+The fresh version 150 observation ran for 600 s, with 80 attempted cohorts and
+72 complete four-device cohorts. Its longest complete ACTIVE/HOT interval was 176.821 s;
+this still failed durability. A COLD GM repeatedly attempted its known incumbent,
+but the 100 ms initiation cap cancelled before authentication. Its original 120 s
+contact expired and it later nominated itself ACTIVE. A production transport
+fixture with 200 ms connection callbacks reproduces that loss; the version 151
+shared 1 s work budget permits renewal while preserving original expiry when the peer is absent.
+The final eight version 150 cohorts lacked two USB readers. Separate fresh
+inspection identified a pin reset on one device and USB reenumeration without reboot on the
+other, so those gaps are not counted as two firmware watchdog crashes.
+
+Earlier version 150 phases also recorded separate LoRa-start and CONTROL-service
+watchdog recoveries. The first LoRa fault preceded any SPI operation and its fault-triggered
+diagnostic save; the exact resource-initialization failure remains unknown. The
+CONTROL capsule establishes recovery but does not identify the initiating terminal
+operation. Reduced diagnostics, timing changes and changing GNSS reception are
+not a controlled overhead comparison.
+
+All four local devices subsequently received version 151 from commit `650e330`,
+with one RC and three GM runtime profiles. The 600 s observation completed all
+83 attempted four-device cohorts, with no sampled network/radio fault, OFF
+request or observed physical-boot change. COLD contact renewals were observed.
+The configured LoRa transmitter advanced from 2 to 39 completed launches; the
+RC's accepted LoRa packets advanced from 2 to 26, with corrections and BLE lock
+observed during source availability. All readers and host locks were released.
+
+This run cannot qualify HOT or failover: two GMs had no GNSS fix or qualified
+source in any sample, and the remaining GM qualified in only 43/83 samples.
+No HOT was observed. Source loss withdrew timing, which resumed after
+requalification; the final cohort again had no qualified source or valid RC map.
+Radio requests remain ON in the intended profiles. This source-limited population
+must remain separate from the earlier source-qualified version 150 pair runs.
+
 The remaining work has separate causes and evidence requirements. First retain
-a stable two-GM pair with the third GM forwarding; only then exercise newcomer
+a stable two-GM pair with the third GM remaining COLD; only then exercise newcomer
 and four-device admission, keeping the ordinary RC in its RC profile:
 
 - Establish authenticated GM control reliably. Discovery and connection attempts
@@ -557,3 +590,23 @@ radio fairness, HCI/deferred-L2CAP behavior or physical durability.
 A pass can still spend up to1s waiting for GATT. This bounded work must be checked
 against healthy ACTIVE/HOT radio service in the field; the host test proves fixed
 budget and reference ownership, not timely radio delivery under real contention.
+
+The residual ownership audit found a separate RC cancellation constraint in
+`rc_dynamic_service.c:sync_close_until`: ordinary parent retirement gets 500 ms,
+while cancellation after 1.5 s acquisition gets only the remainder of the original
+2 s creation deadline. Local ASan/UBSan schedules using the actual callback,
+event-drain and close bodies accept lookup release at 499 ms but time out at 500 ms
+or 600 ms. Supplying the unchanged close body one fixed 5 s retirement allowance
+permits 600 ms release; missing release still expires with the object retained.
+These are fake public-API schedules, not observed HCI latency or a diagnosed
+field crash. The regular RC durability fixture still stubs this close function;
+promote the actual-owner schedules into that suite before changing these bounds.
+
+Consolidating these PA cleanup callers onto the existing callback-retirement
+budget is the next small candidate. Acquisition must end independently, original
+source permission must still expire, and retries must not restart cleanup.
+The blocking wait needs CONTROL-responsiveness and radio-fairness checks before
+adoption. Injected transient delete refusals also fault immediately today; their
+actual host reachability remains unproved. Native precision's original 2 s closure
+is a second review target. Admission's 50 ms grace requests release while transport
+keeps the real references; peripheral BUSY/DMA/FEM limits serve separate purposes.
