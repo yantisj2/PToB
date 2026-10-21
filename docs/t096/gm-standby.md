@@ -3,7 +3,7 @@
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
 Version0.15.134 introduces G5 coordination for the ordinary GM profile; current
-version0.15.149 retains147's500ms G5 probes and1s original control records with the
+version0.15.150 retains147's500ms G5 probes and1s original control records with the
 shared45s control window and90s finite grants, one
 original admission lifetime, one selected-peer retry policy and fair pair
 dispatch, retaining causal timing handoff, latched PT closure,
@@ -492,3 +492,36 @@ permission1.5s, GNSS freshness2.5s, PT publication250ms, causal echo500ms,
 map width80ms, callback age500ms and original15s grants are unchanged. Longer
 messages neither renew source permission nor make stale timing usable. This
 change requires matching GM firmware and awaits physical acceptance.
+
+
+### Partial restart and retained-state offline coverage
+
+Version150 extends the existing production-owner harness with one-device resets
+while the other endpoint retains its boot/epoch cache, issued grant and queued
+wire records. Delayed and duplicate link-loss callbacks, actual new-boot transient
+JOIN/STATUS authentication, stale proof/ACK rejection and original grant expiry
+are checked without a global cache flush. Separate incoming-guest tests cover
+missing, timely, late and duplicate disconnect callbacks and missing TX completion;
+unsafe objects remain owned and missing retirement stays a terminal failure.
+
+Four wire/precision schedules reset ACTIVE or HOT, delay remote link-loss by500ms
+or5s, and retain remote caches. A previously COLD GM restores HOT while the reset
+unit lacks a physical source; after normal source requalification, the returning
+identity follows the healthy incumbent as COLD. These schedules reuse the existing
+network/JOIN/precision bodies and two control slots. Their synthetic delivery and
+callback assumptions do not prove hardware durability or explain a missing HCI,
+L2CAP or application callback. Run `gm_standby_tests.py` as in the build guide;
+its receipt lists the restart cases separately from the original scenario count.
+
+
+The native COLD inventory regression also runs beyond the120s incumbent contact
+lease with fresh advertisements from the incumbent and five competing cached
+identities. Without incumbent preference, unsuccessful other-peer attempts can
+consume the sparse30s opportunities until contact expires. Version150 points the
+existing admission parent at a still-live known incumbent when COLD has no other
+required parent. The normal JOIN/STATUS exchange renews contact; no source/PT or
+HOT authority follows from the preference. An unavailable incumbent cannot renew
+itself: the same test requires original expiry and finite ordinary fallback.
+ACTIVE still inventories candidates and partitions; appointed control repair and
+an existing required parent retain precedence. This fixes a demonstrated native
+scheduler gap, not the unexplained physical missing-disconnect callback.

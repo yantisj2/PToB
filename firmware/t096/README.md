@@ -14,6 +14,11 @@ Version150 keeps unsolicited timing and controller console streams in explicit
 controller-diagnostic builds only. Ordinary images retain the bounded timing
 journal, explicit queries and independent watchdog/fault capture. This reduces
 formatting and USB work without changing protocol, source or ownership bounds.
+COLD clocks use their existing sparse discovery opportunity to renew a live
+known incumbent before considering unrelated inventory. A reproduced native
+scheduler case previously let competing candidates consume the120s contact
+window. New JOIN/STATUS proof is still required; an unreachable incumbent keeps
+its original expiry and fallback. No timer, queue or authority is added.
 The149 physical run failed with an unretired incoming connection; this diagnostic
 reduction is not a demonstrated fix or proof that diagnostics caused the failure.
 

@@ -90,8 +90,51 @@ static void confirmed_renewal_tests(void)
  }
 }
 
+static void partial_restart_tests(void) {
+ for(unsigned phase=0;phase<3;phase++) {
+  struct late_pair f=late_pair();
+  struct r2_auth_record oldack=f.b.peer[1].response;
+  oldack.sequence=++f.b.tx_sequence;
+  uint8_t oldwire[R2_GROUP_CONTROL_MAX];
+  assert(!encode_control(&f.b,oldwire,&oldack,f.b.peer[1].tx_key));
+  struct r2_network issuer=f.a; /* Deliberately preserve every remote cache. */
+  uint64_t at=f.late+1000;
+  struct r2_network restarted;
+  assert(!r2_network_init(&restarted,0,2,200,21,222,40000,at));
+  restarted.group=f.a.group;restarted.gm5.enabled=true;restarted.capabilities=3;
+  assert(!restarted.standby_authorized&&!restarted.hot_ready&&!restarted.gm5.grant_until);
+  assert(!memcmp(&issuer,&f.a,sizeof issuer));
+  /* A half-connected remote resets without delivering the local disconnect.
+   * Prior caches cannot extend the finite original issuer obligation. */
+  evidence(&f.a,at,false);gm5_tick(&f.a,true,at,NULL);held(&f);
+  if(phase) {
+   r2_network_link(&f.a,1,false,++at);
+   if(phase==2)r2_network_link(&f.a,1,false,++at); /* idempotent late duplicate */
+   assert(!f.a.peer[1].authenticated&&!f.a.peer[1].map_valid);
+   assert(f.a.gm5.issued_until==f.issued&&f.a.gm5.generation==f.generation);
+  }
+  /* A proved replacement JOIN uses the existing one-peer cache replacement.
+   * Do not clear the issuer's still-outstanding finite grant. */
+  struct r2_join_exchange join={.self=100,.peer=200,.boot=10,.peer_boot=21,
+   .nonce=333,.remote_nonce=444,.accepted=true,.control=true,.peer_capabilities=3};
+  r2_network_joined(&f.a,1,&join,++at);f.a.now=at;
+  assert(f.a.peer[1].boot==21&&!f.a.peer[1].map_valid&&!f.a.peer[1].candidate_until);
+  assert(f.a.gm5.issued_until==f.issued&&f.a.gm5.generation==f.generation);
+  for(unsigned duplicate=0;duplicate<2;duplicate++) {
+   assert(r2_network_receive(&f.a,1,oldwire,r2_control_wire_size(oldwire),at,at));
+   assert(f.a.gm5.grant_pending&&!f.a.hot_ready&&!f.a.peer[1].map_valid);
+   assert(f.a.gm5.issued_until==f.issued&&f.a.gm5.generation==f.generation);
+  }
+  evidence(&f.a,f.issued+1,false);gm5_tick(&f.a,true,f.a.now,NULL);
+  assert(!f.a.gm5.selected&&!f.a.hot_ready&&!r2_gm5_control_peer(&f.a));
+  assert(!restarted.standby_authorized&&!restarted.hot_ready);
+  printf("PASS successor-only reboot phase%u retains issuer caches/original grant; existing JOIN replaces one peer; duplicate old ACK rejected; expiry releases selection\n",phase);
+ }
+}
+
 int main(void)
 {
+ partial_restart_tests();
  confirmed_renewal_tests();
  for(int edge=-1;edge<=1;edge++){
   struct late_pair f=late_pair();evidence(&f.a,f.deadline+edge,true);gm5_tick(&f.a,true,f.a.now,NULL);held(&f);

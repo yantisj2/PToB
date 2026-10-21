@@ -360,7 +360,17 @@ void r2_group_admission_tick(struct r2_network *n, uint64_t now) {
   }
 #endif
 #if defined(R2_GM5_NATIVE)
-  if(n->gm5.enabled){uint64_t selected=r2_gm5_control_peer(n);if(selected&&!r2_ble_control_member())parent=selected;seek_relay=false;}
+  if(n->gm5.enabled){
+   uint64_t selected=r2_gm5_control_peer(n);
+   if(selected&&!r2_ble_control_member())parent=selected;
+   else if(!parent&&n->gm5.role==R2_GM5_COLD&&n->gm5.active&&
+           n->gm5.active!=n->identity&&now<n->gm5.active_until)
+    /* Spend this existing sparse opportunity renewing the known incumbent,
+     * not cycling unrelated inventory past its original contact expiry.
+     * This is a discovery preference only; JOIN/STATUS must still prove it. */
+    parent=n->gm5.active;
+   seek_relay=false;
+  }
 #endif
   r2_ble_admission_policy(parent,seek_relay);
   /* Only authenticated, originally bounded upstream time inhibits local
