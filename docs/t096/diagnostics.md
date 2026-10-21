@@ -1102,3 +1102,37 @@ capacity is added. Diagnostic bits never participate in the reset predicate.
 Decode against the exact source and build binding: source151 word32 was a
 restart error; source152 used only predicates and errno; source153 adds these
 observations. A missing snapshot is not evidence that the controller progressed.
+
+## Controller retirement snapshot (source154)
+
+Source154 keeps source153 word32 decoding unchanged. At the same first
+disconnect-retirement fault, one native IRQ fence now covers the host state and
+handle plus a bounded controller scalar copy. Work getters and journal writes
+run after the fence. This native helper rejects SMP, zero-latency IRQs, changed
+connection capacity or changed TERMINATE encoding at build time. No controller
+state operation, allocator, reference, SDK patch or periodic hook is introduced.
+
+Three additional timing kind32 records share the original peer/incarnation in
+`a`, source and boot. Require all records; missing or overwritten data is unknown.
+
+| Detail | `result` | `b` |
+| --- | --- | --- |
+| 26 | Current controller handle | in-range/matching/head-present/head-done bits0–3; local state8–11, remote state12–15, head procedure16–23, head FSM state24–31 |
+| 27 | Final termination reason | Local PRT low16, remote PRT high16 |
+| 28 | PRT reload | Supervision expiry low16, connection-establishment expiry high16 |
+
+PRT and expiry values count controller events, not milliseconds. In the pinned
+SDK, procedure10 is TERMINATE. Its common FSM uses0 IDLE,1 WAIT_TX,2 WAIT_TX_ACK,
+3 WAIT_RX,4 WAIT_NTF_AVAIL; other procedures have their own state decoders.
+Local states are0 IDLE,1 ACTIVE,2 DISCONNECT,3 TERMINATE. Remote states are
+0 IDLE,1 REJECT,2 UNSUPPORTED,3 ACTIVE,4 DISCONNECT,5 TERMINATE.
+
+A matching handle and TERMINATE/WAIT_TX identify the stored allocation-denial
+state; they do not measure pool occupancy or prove continuous exhaustion. The
+native equal per-connection/max buffer configuration does not maintain useful
+per-connection allocation counts, so those counters are omitted. An inactive
+slot is not followed through its procedure pointer, and its scalar bytes may
+be stale. With host DISCONNECTING it narrows teardown/event delivery, but cannot
+distinguish mayfly/queue delay from HCI event-buffer allocation. Host references
+do not retain controller slots; matching is current-handle evidence, without a
+controller generation claim. These records classify failures, not correct them.

@@ -17,6 +17,10 @@ try:
    subprocess.run([*flags,*defs,str(app/'tests/disconnect_diag_test.c'),'-o',str(out/label)],check=True,stdout=log,stderr=subprocess.STDOUT,timeout=30)
    subprocess.run([str(out/label)],check=True,stdout=log,stderr=subprocess.STDOUT,timeout=30)
   passed.append(label)
+ with (out/'controller.log').open('x') as log:
+  subprocess.run([*flags,str(app/'tests/controller_snapshot_test.c'),'-o',str(out/'controller')],check=True,stdout=log,stderr=subprocess.STDOUT,timeout=30)
+  subprocess.run([str(out/'controller')],check=True,stdout=log,stderr=subprocess.STDOUT,timeout=30)
+ passed.append('controller')
  tiny=a.deps/'modules/crypto/tinycrypt/lib'
  units=[app/'tests/disconnect_diag_test.c',*[app/'protocol'/n for n in ['network.c','election_policy.c','gm_diagnostics.c','group_join.c','group_auth.c','group_control.c','authority_codec.c','precision_codec.c','relay_codec.c']],*[tiny/'source'/n for n in ['hmac.c','sha256.c','utils.c']]]
  with (out/'transport.log').open('x') as log:
@@ -24,6 +28,6 @@ try:
   subprocess.run([str(out/'transport')],check=True,stdout=log,stderr=subprocess.STDOUT,timeout=30)
  passed.append('transport')
 finally:
- sources=[app/'src/disconnect_diag.c',app/'include/disconnect_diag.h',app/'protocol/ble_transport.c',app/'protocol/ble_transport.h',app/'tests/disconnect_diag_test.c',Path(__file__).resolve(),native]
+ sources=[app/'src/disconnect_diag.c',app/'src/controller_snapshot.c',app/'src/controller_snapshot_body.inc',app/'include/controller_snapshot.h',app/'tests/controller_snapshot_test.c',app/'include/disconnect_diag.h',app/'protocol/ble_transport.c',app/'protocol/ble_transport.h',app/'tests/disconnect_diag_test.c',Path(__file__).resolve(),native]
  (out/'receipt.json').write_text(json.dumps({'passed':passed,'physical':'UNKNOWN','sources':{str(f):hashlib.sha256(f.read_bytes()).hexdigest() for f in sources}},indent=2)+'\n')
 print('PASS actual fault snapshot and first-fault transport with ASan/UBSan; field cause UNKNOWN')
