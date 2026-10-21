@@ -466,6 +466,26 @@ the pair, with unchanged sampled source epochs and no service error. This is a
 diagnostic installation and finite private hardware observation, not a controller
 fix, a public evidence dataset, calibrated timing or durable HOT acceptance.
 
+A subsequent source155 COLD bridge/LoRa-transmitter reboot has a matched
+source-bound fatal capsule and watchdog recovery. Exact installed-ELF disassembly
+identifies `LL_ASSERT(next)` after `ull_prepare_enqueue` returned NULL. Under
+normal FIFO invariants this means all seven prepare entries were occupied; the
+retained data does not identify their owners or rule out an index invariant
+failure. This is a distinct assertion from the earlier peripheral latency-cancel
+failure; the new PA marker is absent. No host reader was attached by this
+investigation during the failure interval, which does not rule out firmware
+instrumentation or workload effects. The watchdog eventually recovered the unit
+and LoRa forwarding resumed. Physical reset latency remains unmeasured.
+
+With the exact LOW_LAT_ULL_DONE-off configuration, prepare dequeue occurs in
+`lll_done` before later ULL done notification. Delayed HCI/ULL completion alone
+therefore does not explain the full prepare FIFO. Existing earlier canary captures
+contain no bound schema3 FIFO fatal snapshot in the searched text records. The
+next discriminator is a failure-only copy of queued owners and resume/aborted
+flags using the existing observer and capsule storage, without enabling routine
+success counters or periodic controller/timing console streams. Queue capacity,
+assertions, timers, RF and pairing remain frozen; no corrective change is proved.
+
 The remaining work has separate causes and evidence requirements. First retain
 a stable two-GM pair with the third GM remaining COLD; only then exercise newcomer
 and four-device admission, keeping the ordinary RC in its RC profile:
