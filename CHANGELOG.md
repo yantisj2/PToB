@@ -2,6 +2,23 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 20 October 2026 — T0960.15.141 unified G5 ownership and dispatch
+
+Discovery windows gate new work; accepted G5 initiation retains its original100ms
+cap and connected admission its original5s resource expiry. JOIN/STATUS clip to
+that same expiry and current phase, with callback/TX/GATT ownership retained until
+actual drain. One consumed create submission schedules the existing retry policy;
+completion cooldown and selected-anchor shortening no longer compete with it.
+Per-identity failure history, inventory fairness and ordinary RC policy remain.
+
+Fair pair dispatch retains message cadences and original authority deadlines,
+with an urgent expiring response preserving the other classes' turn. Existing
+CONTACT30s, ACQUIRE45s and REPAIR10s share small lifecycle helpers; stable READY,
+source qualification, finite grants, retirement, drains and watchdog retain their
+bounds. No stored state, slot, buffer or reserve is added. Actual-production host
+boundary tests cover callback races, original expiry, offered-capacity scheduling
+and safe withdrawal; RF convergence and physical durability remain unqualified.
+
 ## 20 October 2026 — T096 development checkpoint and next test plan
 
 Document remaining authenticated-control, physical HOT convergence/renewal and

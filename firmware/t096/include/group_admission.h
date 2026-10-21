@@ -12,6 +12,7 @@ struct r2_group_client {
   uint64_t root, boot, peer, peer_boot, utc_us, at, until, map_until;
   uint32_t source_epoch, publication, uncertainty_us;
 };
+void r2_group_admission_gm5_policy(struct r2_network *,uint64_t now);
 void r2_group_admission_tick(struct r2_network *, uint64_t now);
 void r2_group_admission_receive(struct r2_network *,
                                 const struct r2_ble_event *, uint64_t now);

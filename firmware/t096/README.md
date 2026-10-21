@@ -5,7 +5,7 @@
 *Illustrative firmware-rendered RC screen; displayed values are not measured
 performance. [Image provenance](../../docs/images/README.md).*
 
-**PToB owns T096 RC7 development.** Current source version **0.15.140** supplies the
+**PToB owns T096 RC7 development.** Current source version **0.15.141** supplies the
 ordinary **GM** and **RC** mesh profiles, with USB timing compiled by default.
 [Build from source](../../docs/t096/build.md) with pinned public dependencies
 and ignored local enrollment. No enrolled binary is distributed.
@@ -58,6 +58,15 @@ either deadline. This allows more time for cold delivered-map convergence withou
 changing source, map, management, grant or repair gates. No role or state is added;
 an unsuccessful selected candidate can occupy the pair15s longer. Physical
 convergence and continued HOT renewal still require independent testing.
+Version141 makes discovery windows start new work only. An accepted G5 transient
+retains its original100ms initiation cap and5s resource expiry; JOIN/STATUS share
+that original expiry, clipped by the current phase. One consumed initiation sets
+the existing G5 retry opportunity, without a separate completion cooldown or
+selected-anchor override. A fair pair dispatcher retains original message due
+cadences and prioritizes an expiring response without restarting the ordinary
+turn. CONTACT/ACQUIRE/HOT/REPAIR reuse the existing phase deadline. No stored state,
+buffer, slot, source/grant lifetime or watchdog allowance is added. Host checks
+cover software boundaries; physical durability remains a separate check.
 The [remaining acceptance plan](../../docs/t096/gm-standby.md#development-checkpoint-and-remaining-acceptance)
 keeps admission, source qualification, HOT renewal, watchdog reset measurement
 and fourth-participant testing as separate open checks.

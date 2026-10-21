@@ -244,11 +244,11 @@ static void cycle(struct k_work *work)
 #ifdef R2_LORA
    struct r2_lora_view bridge_view;r2_lora_view(&bridge_view);net.gm5.bridge=r2_gm5_bridge_needed(&net.gm5,bridge_view.transmitter,bridge_view.requested);
 #endif
-   r2_ble_gm5_policy(true,r2_gm5_control_peer(&net),r2_gm5_poll_due(&net,now)||net.gm5.bridge);
+   r2_group_admission_gm5_policy(&net,now);
   }
   r2_ble_serving(net.local_gm&&net.ready&&now<net.service_until);
   bool cold=net.gm5.enabled&&net.gm5.role==R2_GM5_COLD&&!net.gm5.bridge;
-  r2_ble_client_window(cold?(r2_gm5_poll_due(&net,now)||r2_ble_admission_connected()):profile_supported||!(roster.group.id&&(public.passive||!(net.capabilities&1)))||r2_ble_client_window_open(now,400000));
+  if(!cold)r2_ble_client_window(profile_supported||!(roster.group.id&&(public.passive||!(net.capabilities&1)))||r2_ble_client_window_open(now,400000));
   r2_ble_poll(now);
   r2_ble_client_seek(now,!net.gm5.enabled&&public.passive&&!public.source);
   if(r2_ble_stop_error())r2_service_stop();

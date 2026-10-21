@@ -252,7 +252,7 @@ static void accepted_peer(struct r2_network *n, const struct r2_join_record *r,
     if(r2_gm_coordination_live(&coord,n->identity,now))selected_time=selected_time&&
       r->sender==coord.root&&r2_gm_coordination_matches(&coord,r->root,r->root_boot,r->source_epoch);
 #endif
-    if(selected_time){refresh_required=false;r2_ble_admission_anchor_deadline(exchange.peer,time.until);} /* JOIN is coarse bootstrap, never PA health. */
+    if(selected_time){refresh_required=false;if(!n->gm5.enabled||n->gm5.bridge)r2_ble_admission_anchor_deadline(exchange.peer,time.until);} /* JOIN is coarse bootstrap, never PA health. */
     if (selected_time)
       client = (struct r2_group_client){.passive = client.passive,
                                         .source = true,
@@ -289,6 +289,27 @@ static void anchor_from_live_map(const struct r2_network *n,uint64_t now){
  client.uncertainty_us=(uint32_t)bound;client.publication=c->publication;
  refresh_required=false;
 }
+/* One original transport resource deadline owns JOIN and STATUS. Phase expiry
+ * may shorten it; a causal CONTACT->ACQUIRE transition never lengthens it. */
+static void admission_clip(const struct r2_network *n){
+ if(!n->gm5.enabled)return;
+ uint64_t until=r2_ble_admission_deadline();
+ if(until<exchange.until)exchange.until=until;
+ if(n->gm5.enabled&&n->gm5.attempt_until&&n->gm5.attempt_until<exchange.until)
+  exchange.until=n->gm5.attempt_until;
+}
+void r2_group_admission_gm5_policy(struct r2_network *n,uint64_t now){
+#if defined(R2_GM5_NATIVE)
+ uint64_t attempted=r2_ble_gm5_attempt_at();
+ if(attempted)r2_gm5_poll_completed(n,attempted);
+ r2_ble_gm5_policy(true,r2_gm5_control_peer(n),r2_gm5_poll_due(n,now)||n->gm5.bridge);
+ /* This window gates new work. Transport alone rechecks retained ownership. */
+ bool cold=n->gm5.role==R2_GM5_COLD&&!n->gm5.bridge;
+ if(cold)r2_ble_client_window(r2_gm5_poll_due(n,now));
+#else
+ (void)n;(void)now;
+#endif
+}
 void r2_group_admission_tick(struct r2_network *n, uint64_t now) {
   if (!n->group.id)
     return;
@@ -306,6 +327,7 @@ void r2_group_admission_tick(struct r2_network *n, uint64_t now) {
            n->profile_client,n->choice,n->coordinator,r2_network_hot_refusal(n));
   }
 #endif
+  if(active)admission_clip(n);
   anchor_from_live_map(n,now);
   if(now>=pending_parent_until)pending_parent=pending_parent_boot=pending_parent_until=0;
   bool cancel_pending=pending_parent&&!poor_direct&&direct_receive_since_quality;
@@ -328,7 +350,7 @@ void r2_group_admission_tick(struct r2_network *n, uint64_t now) {
   }
 #endif
 #if defined(R2_GM5_NATIVE)
-  if(n->gm5.enabled){uint64_t selected=r2_gm5_control_peer(n);if(selected&&!r2_ble_control_member()){parent=selected;r2_ble_admission_anchor_deadline(selected,now+1000000);}seek_relay=false;}
+  if(n->gm5.enabled){uint64_t selected=r2_gm5_control_peer(n);if(selected&&!r2_ble_control_member())parent=selected;seek_relay=false;}
 #endif
   r2_ble_admission_policy(parent,seek_relay);
   /* Only authenticated, originally bounded upstream time inhibits local
@@ -410,7 +432,7 @@ void r2_group_admission_tick(struct r2_network *n, uint64_t now) {
 #endif
     retry_at = now + 200000;
   }
-  if (!active && ready && peer && now >= retry_at) {
+  if (!active && ready && peer && (n->gm5.enabled&&!n->gm5.bridge?r2_ble_admission_deadline()>now:now>=retry_at)) {
     uint64_t nonce;
     if (r2_ble_admission_nonce(&nonce)) {
       r2_ble_admission_release();
@@ -421,6 +443,7 @@ void r2_group_admission_tick(struct r2_network *n, uint64_t now) {
       r2_ble_admission_release();
       return;
     }
+    admission_clip(n);
     active = true;
     r2_timing_event(R2_TIMING_GM_CONTROL,0,exchange.peer,3,exchange.server,5000);
     sequence = 0;sent_demand=false;received_request=false;gm5_phase=0;gm5_send=gm5_done=false;
@@ -483,6 +506,7 @@ void r2_group_admission_tick(struct r2_network *n, uint64_t now) {
 void r2_group_admission_receive(struct r2_network *n,
                                 const struct r2_ble_event *event,
                                 uint64_t now) {
+  if(active)admission_clip(n);
   if (event->peer != r2_ble_admission_peer() || now < event->at ||
       now - event->at >= 500000)
     return;
@@ -513,6 +537,7 @@ void r2_group_admission_receive(struct r2_network *n,
         r2_group_join_begin(&exchange, true, n->identity, r.sender, n->boot,
                             nonce, now))
       return;
+    admission_clip(n);
     active = true;
     waiting = promote = false;
     sequence = 0;sent_demand=false;received_request=false;gm5_phase=0;gm5_send=gm5_done=false;

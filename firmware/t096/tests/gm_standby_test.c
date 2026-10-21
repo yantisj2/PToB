@@ -186,8 +186,10 @@ int main(int argc,char **argv)
   if(now==200000000&&scenario==5){source[root]=source[standby]=false;++epoch[root];++epoch[standby];}
   if(now==200000000&&(scenario==6||scenario==14||(scenario>=8&&scenario<=10))){source[standby]=false;++epoch[standby];}
   if(now==200000000&&scenario==7)pa[standby]=false;
-  if(now==200000000&&scenario==14)pa[permutation[2]]=false;
-  if(now==300000000&&scenario==14)pa[permutation[2]]=true;
+  /* Repeated failed acquisition is the population under test: suppress every
+   * spare nominee, rather than relying on one inventory traversal order. */
+  if(now==200000000&&scenario==14)for(unsigned p=0;p<nodes;p++)if((int)p!=root&&(int)p!=standby)pa[p]=false;
+  if(now==300000000&&scenario==14)for(unsigned p=0;p<nodes;p++)if((int)p!=root&&(int)p!=standby)pa[p]=true;
   if(now==200000000&&scenario==11)split=true;
   if(now==370000000&&scenario==11){split=false;merge_deadline=now+30000000+nodes*5000000+R2_GM5_GRANT_US+R2_GM5_RETIRE_GUARD_US;}
   if(now==195000000&&(scenario==11||scenario==12))n[root].gm5.generation=100;

@@ -932,6 +932,11 @@ count nominations, including failed CONTACT; failures/successes retain their
 existing per-identity meaning. The local issuer waits through old-grant retirement
 before nominating a replacement. G5 wire revision, envelope and grant semantics
 are unchanged by this private scheduling subphase.
+Version141 consumes an actual G5 initiation into the existing `next_poll` policy;
+completion cannot move an already scheduled future opportunity. Transient JOIN
+and STATUS use the original transport resource expiry, clipped by the current
+phase. These changes add no diagnostic state. A scheduled or accepted dispatch
+does not prove remote delivery or renew source, READY, management or grant bounds.
 A cached remote role/grant is UNKNOWN after `status_until_us`; an expired HELLO
 permit is UNKNOWN as current source permission even when the older STATUS is fresh.
 

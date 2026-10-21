@@ -3,9 +3,9 @@
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
 Version0.15.134 introduces G5 coordination for the ordinary GM profile; current
-version0.15.140 includes corrected inventory/contact scheduling, causal timing
-handoff, explicit PT close intent consumption, change-driven HELLO scheduling,
-GM watchdog coverage and a fixed45s successor acquisition budget. This is
+version0.15.141 includes one original admission lifetime, one selected-peer retry
+policy and fair pair dispatch, retaining causal timing handoff, latched PT closure,
+GM watchdog coverage and the fixed45s successor acquisition budget. This is
 an implementation and host-test contract, not hardware acceptance or a claim of
 UTC/output accuracy. RC7 clients, USB, GNSS qualification, BLE capture and LoRa
 wire3 retain their separate contracts. DC remains a separate flash-only image.
@@ -29,7 +29,9 @@ from AUTH_CONFIG5 alone or run a mixed-generation GM pair as an accepted system.
 After causal JOINv4, G5 STATUS type19/subtype0,1,2/revision5 uses160 bytes and
 MAC domain `PTOBG5S5`. It binds sender/receiver full identities, both boots, both
 current JOIN nonces and key epoch. Its request/response/final confirmation shares
-the original5s exchange deadline. No STATUS phase renews it. Matching G5 STATUS and appointment allow the client to promote after its final
+the original transient resource deadline:5s from candidate selection or incoming
+connection, shortened by current CONTACT/ACQUIRE/REPAIR expiry. GATT readiness
+starts no later independent5s allowance. No STATUS phase renews it. Matching G5 STATUS and appointment allow the client to promote after its final
 phase2 send is locally accepted; the server promotes only after receiving phase2.
 A lost final phase can therefore leave one side temporarily promoted. The
 already-owned outgoing/incoming transient survives poll completion; its
@@ -70,20 +72,24 @@ reset on actual source faults. Physical eligibility, coordination inhibition,
 current timing permission and output authority are distinct facts.
 
 A COLD clock ordinarily has no persistent GM ACL, PA precision acquisition or
-continuous bootstrap scan. Inventory opportunities last at most1s; the next
-original opportunity is5s while discovering/no selected contact and30s with an
-incumbent. The same policy schedules both completed and missed opportunities:
-ACTIVE without a selected peer waits5s after its1s window expires, rather than
-mistaking its own ACTIVE identity for a remote incumbent and waiting30s. A
-selected peer without a bound control link likewise retains5s repair spacing.
-Missed opportunities do not accumulate. Each transient connection attempt still
-has its original100ms cap and consumes the unchanged2s discovery cooldown.
-Repeated missed opportunities therefore recur at6s spacing when the owner runs
-on time; this does not guarantee radio contact. G5 discovery visits least-recently-consumed
-identities before passive hints/RSSI, preserving explicit selected-peer/parent
-precedence; ordinary RC ranking is unchanged. Failed selected transport
-contact retries at5s spacing. One transient exchange per local owner is retained;
-ordinary RC admission has its own fairness/transport controls.
+continuous bootstrap scan. Inventory opportunities last at most1s and gate new
+scan/create work only. An accepted pending owner keeps its original100ms initiation
+cap; an early connected callback leaves that cap and retains the original5s
+resource lifetime. A callback at/after cancellation or expiry cannot revive it.
+The serialized transport rechecks ownership after public calls, so a sampled
+window/connected race cannot cancel an otherwise live owner or renew an expired
+one. Callback, GATT parameter and TX references remain owned until actual drain.
+
+One actual create submission consumes the G5 opportunity, including EBUSY/ENOMEM.
+The next original opportunity is5s for an unpaired ACTIVE or an unbound selected
+peer, otherwise30s with an incumbent. Completion does not restart that deadline.
+A missed1s window schedules the same delay from its first expiry observation;
+there is no catch-up. G5 has no separate completion cooldown or selected-anchor
+shortening override. Discovery still consumes each tried report and visits
+least-recently-consumed identities before passive hints/RSSI, preserving explicit
+selected-peer/parent precedence and full-identity failure history. Ordinary RC
+admission retains its own fairness/transport policy. This cadence is an offered
+opportunity, not a guarantee of radio contact.
 
 There is one explicit leaf exception: the configured sole LoRa transmitter may
 need ordinary BLE leaf timing while COLD to keep **requested** LoRa forwarding
@@ -115,6 +121,18 @@ original10s repair. Failed attempts use30/60/120/240/300s cooldown, retained acr
 reboots/source epochs of the same full identity; starts are at least5s apart.
 Inventory replacement with another identity discards that old local history.
 No eligible candidate means NO HOT while a healthy ACTIVE continues serving.
+
+The pair dispatcher rotates existing response, HELLO, SERVICE and management
+classes, advancing its cursor only after actual transport acceptance. HELLO keeps
+its200/400ms due policy, unacknowledged SERVICE100ms and COMMIT500ms. A response
+within100ms of its original expiry takes the next available opportunity without
+rewinding the ordinary turn. G5 response expiry is clipped to the mapped original
+request expiry. With an accepted opportunity every100ms and at most one response
+per400ms, a continuously due ordinary class gets a turn within600ms. This is a
+conditional software scheduling bound; GATT submission and air delivery consume
+remaining time, and overload or stalled callbacks can still lose a record.
+Source permits, READY freshness, management leases and finite grants expire on
+their original evidence. Unrelated traffic and dispatch cannot renew them.
 
 ## Finite successor authority and recovery
 
@@ -177,9 +195,9 @@ passing runs; simulations do not establish real RF scheduling or delivered UTC.
 | Population | Boundary and checks |
 | --- | --- |
 | Network/precision simulation | Actual network, authenticated JOIN/control codecs and physical capture tuple precision fitter;3/4 candidates and join permutations, healthier newcomers, delayed/missing PA, source epoch flaps, HOT repair/replacement, ACTIVE loss, COMMIT loss, both-pair loss, return, partition merge and RX overload. JOIN delivery here is idealized/serialized per node; it is not native admission scheduling evidence. |
-| Native owner fake boundary | Actual `group_admission.c` and `ble_transport.c`, fake public BLE callbacks; sparse COLD scan/initiations/precision flags, forwarding exception OFF/ON, full inventory with ordinary RC admission, same-root inhibited bootstrap, lost/replayed phases, original5s expiry, promotion/drain/reuse, failed-attempt gate just after a COLD exchange closes, and delayed STATUS after real authenticated withdrawal/takeover. |
+| Native owner fake boundary | Actual `group_admission.c` and `ble_transport.c`, fake public BLE callbacks; actual service-window policy, pending/connected callback order, synchronous create and blocking GATT deadline crossings, sparse COLD scan/initiations/precision flags, forwarding exception OFF/ON, full inventory with ordinary RC admission, same-root inhibited bootstrap, lost/replayed phases, original5s expiry, promotion/drain/reuse, failed-attempt gate just after a COLD exchange closes, and delayed STATUS after real authenticated withdrawal/takeover. |
 | Producer/PT handoff | Actual encoded JOIN/STATUS/promotion and network-selected scope create a frozen ephemeral mailbox, consumed by the real PT/radio owner in a separate executable. Fifteen cases cover delayed/early PT, current/previous mismatches, ACTIVE, direct grant priority, original anchor expiry and expired-source acquisition without output. This establishes acquisition work, not actual RF convergence or HOT readiness. |
-| Hostile protocol states | Actual network owner; source/incarnation/generation mismatches, retired-generation replay, offset refinement, finite expiry with surviving management lease, COMMIT acknowledgement distinctions, history ranking and repeated candidate boots. |
+| Hostile protocol states | Actual network owner; source/incarnation/generation mismatches, retired-generation replay, offset refinement, finite expiry with surviving management lease, COMMIT acknowledgement distinctions, history ranking and repeated candidate boots; original response expiry and fair offered100ms dispatch with source changes, ACK loss/delay, response collisions, stalled submissions, READY glitches and exact repair expiry. The repeated-failure simulator suppresses PA on all spare nominees before recovery, independent of inventory order. |
 | Native image inspection | Actual linked memory, frame/stack, controller and protected resource gates; normal LoRa static-free minimum4,644 bytes remains unchanged. |
 | Hardware/off-host observation | Separate authorized exact-device tests; preserve source faults, intentional withdrawals, outages, missing readers, drops and observation denominators. Three/four-candidate simulation is not three/four-unit acceptance. |
 
@@ -208,7 +226,7 @@ query time nor a historical maximum renews any authority.
 
 ## Development checkpoint and remaining acceptance
 
-Version0.15.140 remains a development checkpoint. Matching installed image
+Version0.15.141 remains a development checkpoint. Matching installed image
 identities and passing host/native checks do not establish a durable physical
 ACTIVE/HOT pair, three-GM stability or four-GM newcomer acceptance.
 

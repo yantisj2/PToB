@@ -166,8 +166,99 @@ static void contact_tests(void)
  n.gm5.next_attempt=n.now+5000000;gm5_select(&n);assert(n.gm5.next_attempt==n.now+5000000); /* Real failed-attempt floor is never discarded. */
  puts("PASS idle NO_CANDIDATE does not invent a retry deadline; actual failed-attempt/takeover spacing remains original");
 }
+static void phase_evidence(struct r2_network *n,uint64_t at)
+{
+ n->now=at;n->candidate.valid_until_us=n->view.valid_until_us=n->service_until=at+1500000;
+ n->peer[1].candidate_until=at+1500000;n->peer[1].seen=n->peer[1].alive=at;n->timing_at=at;
+}
+static void lifecycle_boundary_tests(void)
+{
+ struct r2_network n=base(true);n.gm5.attempt_until=n.now+R2_GM5_ACQUIRE_US;
+ n.gm5.stable_since=n.now-R2_GM5_STABLE_US+1;n.gm5.ready_at=n.now-1000000;
+ gm5_tick(&n,true,n.now,NULL);assert(!n.gm5.stable_since&&!n.gm5.issued_until);
+ uint64_t restart=n.now+1;
+ for(unsigned i=0;i<=10;i++){
+  phase_evidence(&n,restart+i*500000);n.gm5.ready_at=n.now;gm5_tick(&n,true,n.now,NULL);
+  if(i<10)assert(!n.gm5.issued_until);else assert(n.gm5.issued_until==n.now+R2_GM5_GRANT_US);
+ }
+ for(int boundary=-1;boundary<=1;boundary++){
+  n=base(true);n.hot_ready=true;n.gm5.successes=1;n.timing_valid=false;
+  gm5_tick(&n,true,n.now,NULL);uint64_t until=n.gm5.attempt_until;
+  assert(until==n.now+R2_GM5_REPAIR_US&&!n.hot_ready);
+  phase_evidence(&n,until-2);n.timing_valid=true;n.gm5.ready_at=n.now;
+  gm5_tick(&n,true,n.now,NULL);assert(n.gm5.attempt_until==until);
+  phase_evidence(&n,until+boundary);n.gm5.ready_at=n.now;
+  gm5_tick(&n,true,n.now,NULL);
+  assert((n.gm5.selected!=0)==(boundary<0));assert(!n.hot_ready);
+  if(boundary>=0)assert(n.gm5.failures==1&&!n.gm5.attempt_until);
+ }
+ puts("PASS READY freshness glitch before5s requires full new stable dwell; partial repair cannot renew original10s and expires at -1/at/+1 boundaries");
+}
+static void dispatcher_tests(void)
+{
+ for(unsigned flood=0;flood<3;flood++)for(unsigned ack=0;ack<3;ack++){
+  struct r2_network n=base(true);n.peer[1].nonce=41;n.peer[1].own_nonce=31;strcpy(n.name,"Sender");
+  uint64_t start=n.now,authority=n.service_until,grant=start+10000000;
+  n.hot_ready=n.management_committed=true;n.management_until=start+2000000;
+  n.gm5.issued_until=grant;n.peer[1].next_management=start;
+  unsigned counts[4]={0};uint64_t last[4]={start,start,start,start},max_gap[4]={0};
+  for(unsigned i=0;i<=60;i++){
+   n.now=start+i*100000;
+   if(i%4==0)n.peer[1].seen=n.peer[1].alive=n.now;
+   if(i%10==0){n.peer[1].candidate_until=n.now+1500000;
+    n.view.valid_until_us=n.service_until=n.now+1500000;n.peer[1].next_hello=0;}
+   if(ack==1&&i%10==6){n.peer[1].acked_publication=n.publication;n.peer[1].acked_permit=n.service_until;}
+   if(ack==2&&i%10==8){n.peer[1].acked_publication=0;n.peer[1].acked_permit=0;}
+   if(flood&&(i%(flood==1?4:1)==0)){
+    struct r2_auth_record request={.decision=1,.source_epoch=1,.sequence=i+1,.coordinator_boot=n.coordinator_boot};
+    response(&n,1,&request,R2_AUTH_ACK,n.now+250000);
+   }
+   uint8_t p,w[R2_GROUP_CONTROL_MAX];bool h;
+   if(!r2_network_next_ready(&n,2,&p,w,&h))continue;
+   struct r2_auth_record r;char name[25];uint8_t caps;
+   assert(!decode_control(&n,&r,w,r2_control_wire_size(w),n.self,n.peer[p].tx_key,name,&caps,NULL));
+   unsigned k=h?1:r.kind==R2_AUTH_SERVICE?2:(r.kind==R2_AUTH_COMMIT||r.kind==R2_AUTH_PREPARE)?3:0;
+   assert(r.expires_us>n.now);if(k==3&&r.kind==R2_AUTH_COMMIT)assert(r.permit_until_us==grant);
+   counts[k]++;uint64_t gap=n.now-last[k];if(gap>max_gap[k])max_gap[k]=gap;last[k]=n.now;
+   r2_network_sent(&n,h,p,w);
+   assert(n.management_until==start+2000000&&n.gm5.issued_until==grant);
+  }
+  assert(counts[1]&&counts[2]&&counts[3]);
+  assert(max_gap[1]<=900000&&max_gap[3]<=1100000);
+  if(flood)assert(counts[0]);
+  printf("PASS offered100ms cadence response_mode=%u ack_mode=%u response=%u hello=%u source=%u management=%u max_hello_gap=%llu max_management_gap=%llu original_grant_retained\n",flood,ack,counts[0],counts[1],counts[2],counts[3],(unsigned long long)max_gap[1],(unsigned long long)max_gap[3]);
+  (void)authority;
+ }
+ for(int boundary=-1;boundary<=1;boundary++){
+  struct r2_network n=base(true);n.peer[1].own_nonce=31;n.peer[1].nonce=41;strcpy(n.name,"Sender");
+  struct r2_auth_record request={.decision=1,.source_epoch=1,.sequence=1,.coordinator_boot=n.coordinator_boot};
+  response(&n,1,&request,R2_AUTH_ACK,n.now+100000);
+  uint64_t expiry=n.peer[1].response.expires_us;assert(expiry==n.now+100000);
+  n.next_peer=1;n.now=expiry+boundary;n.peer[1].seen=n.peer[1].alive=n.now;
+  uint8_t p,w[R2_GROUP_CONTROL_MAX];bool h;
+  assert(r2_network_next_ready(&n,2,&p,w,&h));
+  struct r2_auth_record r;char name[25];uint8_t caps;
+  assert(!decode_control(&n,&r,w,r2_control_wire_size(w),n.self,n.peer[1].tx_key,name,&caps,NULL));
+  assert((r.kind==R2_AUTH_ACK)==(boundary<0));
+  if(boundary<0){r2_network_sent(&n,h,p,w);assert(n.next_peer==1&&!n.peer[1].response_pending);}
+  assert(n.peer[1].response.expires_us==expiry);
+ }
+ /* Selection without accepted capacity cannot advance fairness or leases. */
+ struct r2_network n=base(false);n.gm5.role=R2_GM5_HOT;n.hot_ready=true;
+ n.management_until=n.now+2000000;n.gm5.grant_until=n.now+10000000;
+ uint64_t lease=n.management_until;n.next_peer=2;
+ struct r2_auth_record request={.decision=1,.source_epoch=1,.sequence=1,.coordinator_boot=n.coordinator_boot};
+ response(&n,1,&request,R2_AUTH_ACK,n.now+250000);
+ uint8_t p,w[R2_GROUP_CONTROL_MAX];bool h;
+ for(unsigned i=0;i<20;i++){n.now=lease-2000000+i*100000;r2_network_next_ready(&n,2,&p,w,&h);assert(n.next_peer==2&&n.management_until==lease);}
+ n.now=lease;n.peer[1].seen=n.peer[1].alive=n.now;n.peer[1].candidate_until=n.now+1500000;
+ n.candidate.valid_until_us=n.view.valid_until_us=n.service_until=n.now+1500000;
+ gm5_tick(&n,true,n.now,NULL);assert(!n.hot_ready&&n.gm5.role==R2_GM5_ACQUIRING&&n.gm5.attempt_until==n.now+R2_GM5_REPAIR_US);
+ puts("PASS original response expiry -1/at/+1, urgency preserves ordinary turn; stalled submissions cannot advance cursor/leases and original management expiry withdraws HOT");
+}
 int main(void)
 {
+ lifecycle_boundary_tests();dispatcher_tests();
  late_map_acquire_tests();
  hello_source_refresh_tests();
  contact_tests();

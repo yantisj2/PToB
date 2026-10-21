@@ -422,10 +422,15 @@ static void connected(struct bt_conn *conn,uint8_t error)
     p->admission_server=true;p->release=false;p->provisional_until=now_us()+5000000;
   }
   if(i>=0){struct peer *p=&peers[i];
-    if(!p->conn)p->conn=bt_conn_ref(conn);
+    if(!p->conn){p->conn=bt_conn_ref(conn);p->disconnect_requested=false;}
     if(p->conn!=conn)i=-1; /* reject duplicate without replacing the owned link */
     else if(group_id){struct bt_conn_info info;if(!bt_conn_get_info(conn,&info))p->admission_server=info.role==BT_CONN_ROLE_PERIPHERAL;}
-    if(p->conn==conn){p->disconnect_requested=false;atomic_clear(&p->att_mtu);atomic_set(&p->connected,!error);atomic_set(&p->dead,error?1:0);if(i==CONTROL_PEERS&&!error)p->provisional_until=p->first_seen?p->first_seen+5000000:now_us()+5000000;++p->incarnation;}
+    if(p->conn==conn){
+     if(gm5_mode&&i==CONTROL_PEERS&&!error&&
+        (p->disconnect_requested||(p->connect_until&&now_us()>=p->connect_until)))p->release=true;
+     if(!gm5_mode)p->disconnect_requested=false;
+     else if(!error&&!p->release&&p->connect_until&&now_us()<p->connect_until)p->connect_until=0;
+     atomic_clear(&p->att_mtu);atomic_set(&p->connected,!error);atomic_set(&p->dead,error?1:0);if(i==CONTROL_PEERS&&!error)p->provisional_until=p->first_seen?p->first_seen+5000000:now_us()+5000000;++p->incarnation;}
   }
   r2_timing_event(R2_TIMING_GM_CONNECTED,error,i>=0?peers[i].identity:0,
                   i<0?255u:(unsigned)i,i>=0?peers[i].incarnation:0,0);
@@ -581,7 +586,7 @@ static void scan_report(const bt_addr_le_t *address,int8_t rssi,uint8_t type,str
     * independently eligible it clears this hint and ordinary discovery resumes.
     * This filters futile initiation only; authenticated admission is unchanged. */
    if(!gm5_mode&&!group_client&&passive_hint)return;
-   if(!group_client&&candidate==recent_admission&&now_us()<recent_admission_until)return;
+   if(!gm5_mode&&!group_client&&candidate==recent_admission&&now_us()<recent_admission_until)return;
   }
   k_spinlock_key_t key=k_spin_lock(&lock);int i=index_addr(address);
   if(group_id){
@@ -695,7 +700,7 @@ static void poll_owned(uint64_t now)
       /* A rebooted remote starts in JOIN, not the old control slot. Retire
        * drained group links symmetrically before rediscovery; queued events
        * remain fenced by the connection incarnation. */
-      if(group_id){p->identity=0;p->release=false;++p->incarnation;}
+      if(group_id){p->identity=0;p->release=p->disconnect_requested=false;++p->incarnation;}
       k_spin_unlock(&lock,key);if(old)bt_conn_unref(old);
     }
     /* Client bootstrap is a bounded opportunity, not permission to scan as
@@ -734,6 +739,9 @@ static void poll_owned(uint64_t now)
     }
   }
   if(stopping||scan_stop_until||stop_error)return;
+  if(gm5_mode)now=now_us(); /* Public calls consume the original G5 budgets. */
+  if(gm5_mode)for(unsigned i=0;i<nodes;i++)if(i!=self&&peers[i].conn&&
+     !peers[i].authenticated&&now>=peers[i].provisional_until)r2_ble_disconnect(i);
   candidate_select(now);
   bool need_adv=false,need_scan=precision_discovery,pending=false,connected=false;
   for(unsigned i=0;i<nodes;i++)if(i!=self){
@@ -755,7 +763,19 @@ static void poll_owned(uint64_t now)
    bool opportunity=r2_ble_admission_reserves_scan(now)&&field_admission_allowed;
    need_scan=precision_discovery||opportunity;
   }
-  if(group_client&&!client_window){need_adv=need_scan=false;for(unsigned i=0;i<nodes;i++)if(i!=self&&peers[i].conn)r2_ble_disconnect(i);}
+  if(group_client&&!client_window){
+   need_adv=need_scan=false;
+   for(unsigned i=0;i<nodes;i++)if(i!=self&&peers[i].conn){
+    struct peer *p=&peers[i];
+    /* Window permission starts NEW work only. Re-read this actual owner here,
+     * after callbacks/GATT work, rather than trusting a caller's connected
+     * sample. Accepted initiation still ends at its original100ms cap. */
+    bool retained=gm5_mode&&i==admission_peer&&!p->release&&!p->disconnect_requested&&
+      !atomic_get(&p->dead)&&now<p->provisional_until&&
+      (atomic_get(&p->connected)||(p->connect_until&&now<p->connect_until));
+    if(!retained)r2_ble_disconnect(i);
+   }
+  }
   /* There is one incoming transient JOIN owner. Do not accept a second ACL
    * just to reject it while the first request/proof is still in flight.
    * Keep its reference through the real disconnect callback; the next
@@ -854,7 +874,7 @@ static void poll_owned(uint64_t now)
     if(fresh)p->advertised_at=0;
     k_spin_unlock(&lock,discovery_key);
     if(!fresh)continue;
-    if(group_id&&(group_client||gm5_mode)&&!field_profile){k_spinlock_key_t key=k_spin_lock(&lock);candidate_cooldown(p->identity,now,2000000);k_spin_unlock(&lock,key);}
+    if(group_id&&(group_client||gm5_mode)&&!field_profile){k_spinlock_key_t key=k_spin_lock(&lock);candidate_cooldown(p->identity,now,gm5_mode?0:2000000);k_spin_unlock(&lock,key);}
     if(scanning&&!stop_scan(now))return;
     /* Connectable advertising reserves a host connection object. With three
      * persistent control links that reservation is the fourth object, so it
@@ -880,6 +900,13 @@ static void poll_owned(uint64_t now)
      * the stock cancellation path rather than continuous-scan resumption. */
     const struct bt_conn_le_create_param *create=group_id?
       BT_CONN_LE_CREATE_PARAM(BT_CONN_LE_OPT_NONE,0x20,0x08):BT_CONN_LE_CREATE_CONN;
+    /* One G5 initiation consumes this opportunity, including a refused public
+     * create. The serialized control owner consumes this original timestamp
+     * into next_poll before reopening work. Reuse the RC cooldown storage. */
+    if(gm5_mode){recent_admission_until=now;gm5_inventory_due=false;}
+    /* Publish before the sleeping public call: its connected callback may run
+     * before create returns, including on the100ms boundary. */
+    if(group_client||(group_id&&i==CONTROL_PEERS))p->connect_until=now+100000;
     int rc=bt_conn_le_create(&p->address,create,BT_LE_CONN_PARAM(interval,interval,0,supervision),&conn);
     if(!rc){
       /* A connected callback can run while the synchronous create command
@@ -900,12 +927,14 @@ static void poll_owned(uint64_t now)
       /* Core discovery cannot scan as initiator for the controller's2s
        * default while healthy1.5s source permissions expire. Use the same
        * original100ms create opportunity as the transient client path. */
-      if(group_client||(group_id&&i==CONTROL_PEERS))p->connect_until=now+100000;
+      if(gm5_mode&&(p->release||(!atomic_get(&p->connected)&&p->connect_until&&now_us()>=p->connect_until))){
+       p->release=true;r2_ble_disconnect(i);
+      }
       r2_timing_event(R2_TIMING_GM_CONTROL,0,p->identity,1,interval,
                       p->connect_until>now?(uint32_t)((p->connect_until-now)/1000):0);
       p->retry=now+500000;
     }
-    else{p->retry=now+200000;if(rc!=-EALREADY&&rc!=-ENOMEM&&rc!=-EBUSY)transport_error(rc,"CREATE",i);}
+    else{p->connect_until=0;p->retry=now+200000;if(rc!=-EALREADY&&rc!=-ENOMEM&&rc!=-EBUSY)transport_error(rc,"CREATE",i);}
     break;
   }
 }
@@ -1001,11 +1030,16 @@ bool r2_ble_admission_server(void){return field_profile?self==1:peers[admission_
 void r2_ble_admission_completed(uint64_t identity,uint64_t now){
  /* One completed guest cannot monopolize discovery at every window start.
   * This bounded retry cooldown is not a membership/identity cache. */
- recent_admission=identity;recent_admission_until=now+(field_profile?3000000:5000000);
- if(group_id&&!field_profile){k_spinlock_key_t k=k_spin_lock(&lock);candidate_cooldown(identity,now,gm5_mode?30000000:5000000);k_spin_unlock(&lock,k);}
+ if(!gm5_mode){recent_admission=identity;recent_admission_until=now+(field_profile?3000000:5000000);}
+ if(group_id&&!field_profile){k_spinlock_key_t k=k_spin_lock(&lock);candidate_cooldown(identity,now,gm5_mode?0:5000000);k_spin_unlock(&lock,k);}
 }
 bool r2_ble_admission_due(uint64_t now){return (!group_client||bootstrap_needed)&&(!field_profile||now>=recent_admission_until);}
 bool r2_ble_admission_connected(void){return atomic_get(&peers[admission_peer].connected);}
+uint64_t r2_ble_gm5_attempt_at(void){return gm5_mode?recent_admission_until:0;}
+uint64_t r2_ble_admission_deadline(void){
+ struct peer *p=&peers[admission_peer];
+ return p->conn&&!p->release&&!p->disconnect_requested&&!atomic_get(&p->dead)&&now_us()<p->provisional_until?p->provisional_until:0;
+}
 void r2_ble_admission_release(void){if(!field_profile)peers[admission_peer].release=true;r2_ble_disconnect(admission_peer);}
 
 void r2_ble_group_client(bool value){group_client=value;}
@@ -1058,11 +1092,12 @@ bool r2_ble_control_member(void){
 }
 int r2_ble_admission_promote(void){
  struct peer *p=&peers[CONTROL_PEERS];
+ if(gm5_mode&&(now_us()>=p->provisional_until||p->release||p->disconnect_requested||atomic_get(&p->dead)))return -ETIMEDOUT;
  if(!r2_ble_ready(CONTROL_PEERS)||atomic_get(&p->tx_busy)||gatt_pending(CONTROL_PEERS))return -EAGAIN;
  unsigned slot=CONTROL_PEERS;for(unsigned i=1;i<(gm5_mode?2:CONTROL_PEERS);i++)if(!peers[i].identity&&!peers[i].conn){slot=i;break;}
  if(slot==CONTROL_PEERS)return -ENOSPC;
  k_spinlock_key_t k=k_spin_lock(&lock);struct peer *d=&peers[slot];
- d->conn=p->conn;d->address=p->address;d->identity=p->identity;d->provisional_until=now_us()+5000000;d->authenticated=false;d->release=false;
+ d->conn=p->conn;d->address=p->address;d->identity=p->identity;d->provisional_until=gm5_mode?p->provisional_until:now_us()+5000000;d->authenticated=false;d->release=false;
  d->mtu=p->mtu;d->discovery=p->discovery;d->handle=p->handle;++d->incarnation;
  atomic_set(&d->connected,1);atomic_clear(&d->dead);atomic_set(&d->mtu_done,atomic_get(&p->mtu_done));atomic_set(&d->discovered,1);atomic_clear(&d->tx_busy);
  /* The same negotiated link moved slots. Readiness still requires its cached

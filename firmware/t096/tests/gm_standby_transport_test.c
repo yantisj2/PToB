@@ -4,7 +4,7 @@
  */
 #include "ble_transport_fake.h"
 static unsigned initiations;
-static bool create_pending;
+static bool create_pending,create_callback;static uint64_t create_delay,create_return_delay;
 static struct bt_conn connection;
 static int sys_csrand_get(void *out,size_t size){static uint64_t nonce=1000;assert(size==8);uint64_t value=++nonce;memcpy(out,&value,8);return 0;}
 #include "../protocol/ble_transport.c"
@@ -13,7 +13,7 @@ static int sys_csrand_get(void *out,size_t size){static uint64_t nonce=1000;asse
 #include "gm_standby_handoff.h"
 static int bt_conn_le_create(const bt_addr_le_t *a,const void *b,const void *c,struct bt_conn **out){
  ++initiations;if(!create_pending)return -EBUSY;
- connection=(struct bt_conn){.address=*a,.refs=1};*out=&connection;return 0;
+ connection=(struct bt_conn){.address=*a,.refs=1};*out=&connection;fake_time+=create_delay;if(create_callback)connected(&connection,0);fake_time+=create_return_delay;return 0;
 }
 static struct r2_network n;
 static struct r2_group_client accepted_anchor;
@@ -21,18 +21,18 @@ static void reset(void)
 {
  memset(peers,0,sizeof peers);memset(candidates,0,sizeof candidates);candidate_since=0;memset(&gatt_request,0,sizeof gatt_request);
  self=0;nodes=5;local_identity=333;group_id=7;group_epoch=1;group_client=true;client_window=false;bootstrap_needed=false;fake_early_tx=true;
- stop_error=0;owner_deadline=0;stopping=scanning=advertising=precision_discovery=sync_acquiring=false;field_profile=false;admission_peer=4;
+ stop_error=0;owner_deadline=0;transport_owner=NULL;fake_current=NULL;fake_defer=false;recent_admission=recent_admission_until=0;stopping=scanning=advertising=precision_discovery=sync_acquiring=false;field_profile=false;admission_peer=4;
  r2_group_admission_reset();r2_ble_gm5_policy(true,0,false);
  assert(!r2_network_init(&n,0,2,333,33,44,40000,70000000));n.group=(struct r2_group_config){.id=7,.epoch=1,.psk={1}};n.gm5.enabled=true;n.capabilities=3;strcpy(n.name,"Synthetic");
  n.admission.eligible=true;n.candidate=(struct v12_dc_coarse){.available=true,.generation=1,.valid_until_us=90000000};n.gm_mask=n.gnss_mask=1;n.gm5.active=111;n.gm5.active_boot=11;n.gm5.active_until=190000000;n.gm5.next_poll=100000000;
- fake_time=n.now;create_pending=false;
+ fake_time=n.now;create_pending=create_callback=false;create_delay=create_return_delay=0;
  for(unsigned p=0;p<5;p++)for(unsigned s=0;s<2;s++)peers[p].completion[s]=(struct tx_context){&peers[p],s};
 }
 static void ready_guest(unsigned capabilities)
 {
  (void)capabilities;uint8_t derived[16];r2_group_pair_key(derived,&n.group,111,111);derived[5]|=0xc0;
  connection=(struct bt_conn){.address={.type=BT_ADDR_LE_RANDOM},.refs=1,.role=BT_CONN_ROLE_PERIPHERAL};memcpy(connection.address.a.val,derived,6);
- peers[4].identity=111;peers[4].address=connection.address;peers[4].conn=&connection;peers[4].admission_server=true;peers[4].provisional_until=n.now+5000000;
+ peers[4].identity=111;peers[4].address=connection.address;peers[4].conn=&connection;peers[4].admission_server=true;peers[4].disconnect_requested=peers[4].release=false;peers[4].provisional_until=n.now+5000000;
  atomic_set(&peers[4].connected,1);atomic_set(&peers[4].mtu_done,1);atomic_set(&peers[4].discovered,1);atomic_set(&peers[4].att_mtu,226);peers[4].handle=1;
 }
 static struct r2_join_record authenticate(unsigned caps)
@@ -86,12 +86,12 @@ static void missed_active_polls(bool pending)
    fake_time=at;struct r2_clock source={0};source.view.source_available=true;source.view.source_epoch=1;
    source.last_pair_edge=source.last_rmc=at;source.last_pair_utc=INT64_C(1791417600000000)+at;
    r2_network_tick(&n,&source,at);r2_group_admission_tick(&n,at);
-   bool open=r2_gm5_poll_due(&n,at);r2_ble_gm5_policy(true,r2_gm5_control_peer(&n),open);r2_ble_client_window(true);
+   r2_group_admission_gm5_policy(&n,at);bool open=r2_gm5_poll_due(&n,at);r2_ble_client_window(true);
    if(open)candidate_seen(&address,700,false,-30,at);
    r2_ble_poll(at);
    if(initiations!=calls&&!started){
     started=at;assert(initiations==calls+1&&at<=due+40000&&(round||at>=due+40000));
-    assert(candidates[0].cooldown==at+2000000);original_until=peers[4].provisional_until;
+    assert(candidates[0].cooldown==at&&candidates[0].consumed==at&&r2_ble_gm5_attempt_at()==at);original_until=peers[4].provisional_until;
     if(pending)assert(peers[4].connect_until==at+100000&&connection.refs==1);
    }
    if(pending&&started){
@@ -101,27 +101,100 @@ static void missed_active_polls(bool pending)
     if(at==started+150000){callbacks.connected(&connection,2);callback=true;}
     if(at>started+150000)assert(callback&&!peers[4].conn&&connection.refs==0);
    }
-   assert(initiations<=calls+1); /* The unchanged2s cooldown exceeds this1s window. */
+   assert(initiations<=calls+1); /* One central opportunity, including refused create and late callbacks. */
    assert(n.local_gm&&n.ready&&n.admission.eligible&&n.gm5.role==R2_GM5_ACTIVE&&!n.gm5.selected&&!n.hot_ready&&!n.standby_authorized);
-   if(at<due+1000000)assert(n.gm5.next_poll==due);
+   if(started&&at>started)assert(n.gm5.next_poll==started+5000000);
   }
   assert(started&&initiations==calls+1&&!r2_gm5_poll_due(&n,n.now));
-  /* Elapse the actual missed window. ACTIVE's self identity is not a remote
-   * incumbent: both failed and completed polls retain the same5s cadence. */
-  assert(n.gm5.next_poll==due+1000000+5000000);
+  /* The attempt consumed its original opportunity. ACTIVE's self identity
+   * is not a remote incumbent; completion cannot move the fixed5s retry. */
+  assert(n.gm5.next_poll==started+5000000);
   uint64_t next=n.gm5.next_poll;
   for(uint64_t at=n.now+5000;at<next;at+=5000){
    fake_time=at;struct r2_clock source={0};source.view.source_available=true;source.view.source_epoch=1;
    source.last_pair_edge=source.last_rmc=at;source.last_pair_utc=INT64_C(1791417600000000)+at;
    r2_network_tick(&n,&source,at);r2_group_admission_tick(&n,at);
-   r2_ble_gm5_policy(true,0,r2_gm5_poll_due(&n,at));r2_ble_poll(at);
+   r2_group_admission_gm5_policy(&n,at);r2_ble_poll(at);
    assert(n.gm5.next_poll==next&&initiations==calls+1&&n.local_gm&&n.ready);
   }
   due=next;
  }
  assert(initiations==before+4);create_pending=false;
- puts(pending?"PASS four actual ACTIVE missed poll windows:100ms pending create cancellation, delayed callback drain,2s cooldown, fixed5s next opportunities and continuous source service":
-              "PASS four actual ACTIVE missed poll windows: native create EBUSY,2s cooldown, fixed5s next opportunities and continuous source service");
+ puts(pending?"PASS four actual ACTIVE missed poll windows:100ms pending create cancellation, delayed callback drain,one consumed attempt, fixed5s next opportunities and continuous source service":
+              "PASS four actual ACTIVE missed poll windows: native create EBUSY,one consumed attempt, fixed5s next opportunities and continuous source service");
+}
+static void admission_boundary_tests(void)
+{
+ for(unsigned race=0;race<3;race++){
+  reset();client_phase=900000;client_resume=0;bootstrap_needed=true;bootstrap_urgent=false;
+  field_admission_allowed=true;n.gm5.role=R2_GM5_COLD;n.gm5.next_poll=69995000;
+  bt_addr_le_t address={.type=BT_ADDR_LE_RANDOM,.a={{7}}};
+  fake_time=70940000;candidate_seen(&address,700,false,-30,fake_time);
+  fake_time=n.now=70980000;create_pending=true;r2_group_admission_gm5_policy(&n,n.now);r2_ble_poll(n.now);
+  assert(peers[4].conn==&connection&&peers[4].connect_until==71080000);
+  unsigned before=disconnects;uint64_t original=peers[4].provisional_until;
+  fake_time=n.now=70995000;
+  if(race==2)connected(&connection,0);
+  r2_group_admission_gm5_policy(&n,n.now);assert(!client_window);
+  if(race==1)connected(&connection,0);
+  r2_ble_poll(n.now);assert(disconnects==before&&peers[4].provisional_until==original);
+  if(!race){
+   fake_time=n.now=71079999;r2_group_admission_gm5_policy(&n,n.now);r2_ble_poll(n.now);assert(disconnects==before);
+   fake_time=n.now=71080000;r2_ble_poll(n.now);assert(disconnects>before&&peers[4].conn==&connection&&connection.refs==1);
+   fake_time=n.now=71080001;connected(&connection,0);assert(peers[4].release);r2_ble_poll(n.now);
+   assert(r2_ble_admission_promote()==-ETIMEDOUT&&peers[4].conn==&connection);
+  }else{
+   fake_time=n.now=original-1;r2_ble_poll(n.now);assert(disconnects==before);
+   fake_time=n.now=original;r2_ble_poll(n.now);assert(disconnects>before&&peers[4].conn==&connection);
+  }
+  callbacks.disconnected(&connection,19);fake_time++;r2_ble_poll(fake_time);
+  assert(!peers[4].conn&&connection.refs==0);create_pending=false;
+ }
+ for(int boundary=-1;boundary<=1;boundary++){
+  reset();client_phase=900000;client_resume=0;bootstrap_needed=true;bootstrap_urgent=false;
+  n.gm5.next_poll=n.now;n.gm5.role=R2_GM5_COLD;client_window=true;
+  bt_addr_le_t address={.type=BT_ADDR_LE_RANDOM,.a={{7}}};
+  fake_time=n.now=70940000;candidate_seen(&address,700,false,-30,fake_time);
+  fake_time=n.now=70980000;create_pending=create_callback=true;create_delay=100000+boundary;create_return_delay=boundary<0?2:0;
+  r2_ble_gm5_policy(true,0,true);unsigned before=disconnects;r2_ble_poll(n.now);
+  assert(peers[4].conn==&connection&&connection.refs==1);
+  assert(peers[4].release==(boundary>=0));assert((disconnects>before)==(boundary>=0));
+  if(boundary>=0)assert(r2_ble_admission_promote()==-ETIMEDOUT);
+ }
+ reset();ready_guest(3);peers[4].mtu.func=NULL;atomic_clear(&peers[4].att_mtu);
+ transport_owner=(struct k_thread *)&n;fake_current=&n;fake_defer=true;uint64_t original=n.now+100000;peers[4].provisional_until=original;
+ r2_ble_client_window(true);unsigned before=disconnects;r2_ble_poll(n.now);
+ assert(fake_time==original&&gatt_request.pending&&disconnects>before&&peers[4].conn==&connection);
+ fake_dispatch();fake_current=NULL;fake_defer=false;
+ assert(r2_ble_admission_promote()==-ETIMEDOUT);
+ for(int boundary=-1;boundary<=1;boundary++){
+  reset();ready_guest(3);peers[4].admission_server=false;connection.role=0;
+  uint64_t original=n.now+5000000;peers[4].provisional_until=original;
+  fake_time=n.now=original-40000;r2_group_admission_tick(&n,n.now);
+  assert(active&&exchange.until==original); /* Delayed GATT cannot mint5s. */
+  fake_time=n.now=original+boundary;r2_group_admission_tick(&n,n.now);
+  assert(active==(boundary<0)&&!n.peer[1].identity);
+  if(boundary>=0)assert(peers[4].release&&peers[4].conn==&connection);
+ }
+ reset();ready_guest(3);n.gm5.attempt_until=n.now+30000;
+ r2_group_admission_tick(&n,n.now);assert(exchange.until==n.gm5.attempt_until);
+ puts("PASS actual service policy: pending/callback before/after window sampling,100ms -1/at/+1, late callback refusal, original5s -1/at/+1, delayed JOIN and phase clip, callback/ref drain");
+}
+static void abandoned_phase_tests(void)
+{
+ for(unsigned cause=0;cause<2;cause++){
+  reset();n.gm5.role=cause?R2_GM5_HOT:R2_GM5_ACQUIRING;
+  n.gm5.selected=n.identity;n.gm5.attempt_started=n.now-10000000;n.gm5.attempt_until=n.now-1;
+  n.gm5.active_until=cause?n.now+120000000:n.now-1;
+  struct r2_clock source={0};source.view.source_available=true;source.view.source_epoch=1;
+  source.last_pair_edge=source.last_rmc=n.now;source.last_pair_utc=INT64_C(1791417600000000)+n.now;
+  struct r2_gm_coordination constraint={.root=999,.boot=99,.epoch=1,.until=n.now+120000000};
+  r2_network_tick_coordinated(&n,&source,n.now,cause?&constraint:NULL);
+  assert(n.gm5.role==R2_GM5_COLD&&!n.gm5.selected&&!n.gm5.attempt_until&&!n.gm5.attempt_started);
+  (void)authenticate(3);
+  assert(active&&exchange.accepted&&exchange.until==peers[4].provisional_until&&exchange.until>n.now);
+ }
+ puts("PASS expired prior phase abandoned by incumbent expiry/foreign constraint cannot poison fresh unrelated COLD inventory JOIN/STATUS resource lifetime");
 }
 static void write_handoff(const char *path)
 {
@@ -161,13 +234,13 @@ static void late_appointment(void)
  e.at=a.now=n.now=++fake_time;assert(!r2_gm5_status_encode(&a,&server,1,e.data)&&!a.gm5.contacting&&a.gm5.attempt_until==a.now+R2_GM5_ACQUIRE_US);
  assert(a.gm5.attempt_until>contact_until+R2_GM5_STABLE_US);r2_group_admission_receive(&n,&e,n.now);n.now=++fake_time;r2_group_admission_tick(&n,n.now);
  assert(promote&&n.gm5.role==R2_GM5_ACQUIRING&&!n.hot_ready&&!n.standby_authorized);
- puts("PASS actual failed-attempt gate just after STATUS closes: COLD stays quiet until original30s poll; fixed CONTACT survives, matching reply starts full original30s PA acquisition once");
+ puts("PASS actual failed-attempt gate just after STATUS closes: COLD stays quiet until original30s poll; fixed CONTACT survives, matching reply starts full original45s PA acquisition once");
 }
 int main(int argc,char **argv)
 {
  if(argc==2){write_handoff(argv[1]);return 0;}assert(argc==1);
  late_appointment();
- missed_active_polls(false);missed_active_polls(true);
+ abandoned_phase_tests();admission_boundary_tests();missed_active_polls(false);missed_active_polls(true);
  reset();n.gm5.role=R2_GM5_ACTIVE;n.gm5.active=n.identity;n.gm5.active_boot=n.boot;n.local_gm=n.ready=true;n.choice=0;n.root_boot=n.boot;
  (void)authenticate_client(true);
  puts("PASS real authenticated foreign timing JOIN ACCEPT cannot publish passive timing mode on a serving G5 ACTIVE before STATUS selection");
@@ -196,6 +269,19 @@ int main(int argc,char **argv)
  r2_ble_admission_policy(701,false);candidate_select(at+40000);assert(peers[4].identity==701);
  puts("PASS actual transport nine30s opportunities: each unequal-RSSI/passive identity visited3times; selected repair and explicit parent precedence");
 
+ reset();memset(visits,0,sizeof visits);group_client=false;client_window=true;
+ for(unsigned opportunity=0;opportunity<9;opportunity++){
+  uint64_t at=70000000+opportunity*30000000;fake_time=n.now=at;n.gm5.next_poll=at;
+  r2_group_admission_gm5_policy(&n,at);
+  for(unsigned c=0;c<3;c++){address.a.val[0]=(uint8_t)c;candidate_seen(&address,700+c,c==1,-20-(int)c*30,at);}
+  unsigned before=initiations;fake_time=n.now=at+40000;r2_ble_poll(n.now);
+  uint64_t chosen=peers[4].identity;assert(initiations==before+1&&chosen>=700&&chosen<=702);visits[chosen-700]++;
+  r2_group_admission_gm5_policy(&n,n.now);uint64_t next=n.gm5.next_poll;
+  r2_group_admission_gm5_policy(&n,n.now+1);assert(n.gm5.next_poll==next&&next==at+40000+30000000);
+  memset(&peers[4],0,sizeof peers[4]);
+ }
+ for(unsigned c=0;c<3;c++)assert(visits[c]==3);
+ puts("PASS real refused creates consume nine opportunities fairly across unequal RSSI/passive identities; old submission timestamp cannot move future deadline");
  reset();n.gm5.role=R2_GM5_ACTIVE;n.gm5.active=333;n.gm5.active_boot=33;n.local_gm=n.ready=true;n.choice=0;n.root_boot=33;n.publication=1;
  n.view=(struct v12_dc_coarse){.available=true,.relative_ready=true,.generation=1,.utc_second=1791417600,.evidence_us=n.now,.valid_until_us=n.now+1500000};n.service_until=n.view.valid_until_us;
  for(unsigned i=0;i<R2_GM5_CANDIDATES;i++)n.gm5.candidate[i]=(struct r2_gm5_candidate){.identity=900+i,.at=n.now,.until=n.now+120000000};

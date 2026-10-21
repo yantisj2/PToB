@@ -60,6 +60,10 @@ void r2_ble_peer_authenticated(unsigned peer,bool authenticated);
 #define R2_BLE_ADMISSION_PEER 4u
 bool r2_ble_admission_server(void);
 bool r2_ble_admission_connected(void);
+/* Original transient resource expiry; zero means no usable owner. */
+uint64_t r2_ble_admission_deadline(void);
+/* Original last G5 create submission, consumed once by next_poll. */
+uint64_t r2_ble_gm5_attempt_at(void);
 bool r2_ble_admission_due(uint64_t now);
 void r2_ble_admission_release(void);
 
