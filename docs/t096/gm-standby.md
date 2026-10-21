@@ -204,3 +204,44 @@ owner snapshot or cumulative maxima. They do not freeze the full state at loss,
 prove the cause of an RF outage, or measure output accuracy. Compare counter
 increments and original timestamps across current owner publications; neither
 query time nor a historical maximum renews any authority.
+
+
+## Development checkpoint and remaining acceptance
+
+Version0.15.140 remains a development checkpoint. Matching installed image
+identities and passing host/native checks do not establish a durable physical
+ACTIVE/HOT pair, three-GM stability or four-GM newcomer acceptance.
+
+The remaining work has separate causes and evidence requirements:
+
+- Establish authenticated GM control reliably. Discovery and connection attempts
+  can occur without completing admission; preserve connection callbacks, GATT
+  setup errors, local cancellation and original transient deadlines separately.
+  The first failed exchange still needs to be identified.
+- Observe actual PA/map convergence and sustained HOT renewal. The fixed45s
+  acquisition budget passes a controlled late-map host case; it cannot repair
+  failed contact or establish physical convergence by itself. An earlier
+  management-expiry withdrawal with progressing workers remains unexplained.
+- Retain physical-source qualification failures. A void GNSS fix resets the
+  original60s dwell even when a later snapshot shows satellites or PPS. Source
+  availability, authenticated map readiness and watchdog health are separate.
+- Measure eventual recovery from an injected owner stall or terminal drain fault.
+  Production watchdog checks pass; physical reset latency remains unmeasured.
+  Healthy COLD operation and absent GPS/RF alone must not request a reset.
+
+The next authorized test round should first establish one ACTIVE and one
+confirmed HOT with a third capable clock COLD, retaining source faults, NO HOT
+intervals, resets, capture gaps and every attempted observation. Introduce the
+fourth device as RC first, then perform the operator's GM newcomer test after the
+three-GM baseline holds. Check that a healthy incumbent pair remains sticky,
+COLD adds no persistent GM-control links, and failed nominees expire into bounded
+retry history. Test HOT loss, ACTIVE loss, lost COMMIT/ACK, source epoch changes
+and recovery separately. Moving a unit away from the host for better GNSS is a
+new recorded reception condition, not a continuation of the indoor population.
+
+End each run by restoring radio requests and intended runtime profiles, verifying
+actual transmission or reception separately from an ON request, and releasing
+all host readers and locks. The configured sole LoRa transmitter requires the
+GM runtime profile: staging it as RC inhibits TX even if its request remains ON.
+A GM-profile COLD forwarding leaf can use a current authenticated locked BLE map
+without becoming ACTIVE/HOT; an actual serving GM retains its own source gate.

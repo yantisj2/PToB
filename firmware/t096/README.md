@@ -58,6 +58,9 @@ either deadline. This allows more time for cold delivered-map convergence withou
 changing source, map, management, grant or repair gates. No role or state is added;
 an unsuccessful selected candidate can occupy the pair15s longer. Physical
 convergence and continued HOT renewal still require independent testing.
+The [remaining acceptance plan](../../docs/t096/gm-standby.md#development-checkpoint-and-remaining-acceptance)
+keeps admission, source qualification, HOT renewal, watchdog reset measurement
+and fourth-participant testing as separate open checks.
 Finite successor grants, bounded repair/cooldown and paged `gm` diagnostics support
 unstable/off-host testing. The sole requested LoRa transmitter may retain ordinary
 BLE leaf timing while COLD; that exception adds no GM-control/HOT authority.

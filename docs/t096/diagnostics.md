@@ -901,7 +901,15 @@ Page00 counters are `[attempts,failures,successes,status_tx,status_rx,control_tx
 control_rx]`. Role numbers are COLD0, ACQUIRING1, HOT2, ACTIVE3. Reasons are
 NONE0, SELECTED1, SOURCE2, INHIBITED3, TRANSPORT4, MAP5, AUTH6, TIMEOUT7,
 RETIRED8, GRANT_EXPIRED9, TAKEOVER10, MERGE11, NO_CANDIDATE12, COMMITTED13,
-ROOT_CHANGED14. `hot_refusal` retains the existing native HOT gate bitmask;
+ROOT_CHANGED14. `hot_refusal` retains the existing native HOT gate bitmask.
+
+`join.gm_radio` reports role-publication state: role sequence, role-update
+errors, advertiser enabled, PA started, extended advertiser started and error.
+It is not a receive/discovery counter; zeros on a nonpublishing COLD clock do not
+establish missing reception. Use `gm_transport` callbacks, disconnect reasons,
+local cancellation flags and admitted control records to distinguish contact
+attempts from completed authentication.
+
 `precision`, `network`, `join.gm_transport/gm_radio` and `events` supply detailed
 map/auth/source/controller and precision-workload evidence. Snapshot timestamps
 must match before comparing fields from different commands.

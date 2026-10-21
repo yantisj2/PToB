@@ -2,6 +2,16 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 20 October 2026 — T096 development checkpoint and next test plan
+
+Document remaining authenticated-control, physical HOT convergence/renewal and
+watchdog reset-latency checks separately from passing host/native validation.
+The next round establishes a three-GM baseline before a fourth RC joins and the
+operator tries GM newcomer behavior. Clarify that `gm_radio` contains publisher
+state rather than receive counters, and that the sole LoRa transmitter needs GM
+runtime profile as well as an ON request and valid source export. Physical
+multi-GM durability and independent output accuracy remain unqualified.
+
 ## 20 October 2026 — T0960.15.140 fixed successor acquisition budget
 
 A new successor acquisition now has one fixed45s budget, including the existing
