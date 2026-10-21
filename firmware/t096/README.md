@@ -5,10 +5,19 @@
 *Illustrative firmware-rendered RC screen; displayed values are not measured
 performance. [Image provenance](../../docs/images/README.md).*
 
-**PToB owns T096 RC7 development.** Current source version **0.15.155** supplies the
+**PToB owns T096 RC7 development.** Current source version **0.15.156** supplies the
 ordinary **GM** and **RC** mesh profiles, with USB timing compiled by default.
 [Build from source](../../docs/t096/build.md) with pinned public dependencies
 and ignored local enrollment. No enrolled binary is distributed.
+
+Version156 reuses the existing prepare-FIFO observer only when enqueue fails.
+Normal native GM/RC images retain the failed owner and seven queued owners/flags,
+without successful-operation counters or periodic timing/controller streams.
+Existing capsule schema3 replaces its latency/interrupted-frame region; source,
+boot, assertion, PA status and CRC remain. Unavailable or incomplete cuts are
+UNKNOWN. Queue capacity, assertions, timers, pairing and RF policy are unchanged.
+This diagnostic candidate still requires native/field checks and does not fix
+or qualify HOT durability. See [source156 decoding](../../docs/t096/diagnostics.md#prepare-fifo-failure-only-capture-source156).
 
 Version155 adds failure-only capture of the original peripheral latency-cancel
 callback status before its unchanged controller assertion. Three more first-fault

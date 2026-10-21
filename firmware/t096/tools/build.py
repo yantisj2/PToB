@@ -135,6 +135,11 @@ def main():
     receipt['controller_fault_diagnostics'] = None if dc or pc else {
         'manifest_sha256':sha(APP/'cmake/controller-fault-diag.json'),
         'patch_sha256':sha(APP/'cmake/controller-fault-diag.patch')}
+    receipt['controller_prepare_capture'] = None if dc or pc else {
+        'mode':'verbose' if args.controller_diagnostics else 'failure-only',
+        'manifest_sha256':sha(APP/'cmake/controller-prepare-diag.json'),
+        'patch_sha256':sha(APP/'cmake/controller-prepare-fault.patch'),
+        'generator_sha256':sha(APP/'tools/controller_diag_hooks.py')}
     write(out/'receipt.json',receipt)
     for name in source:
         dst=out/'source'/name;dst.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(APP/name,dst)

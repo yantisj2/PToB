@@ -12,18 +12,25 @@
 #include <string.h>
 #define diag_words r2_diag_scratch.controller.words
 void r2_controller_diag_init(void)
-{memset(&r2_diag_scratch.controller.words,0,sizeof r2_diag_scratch.controller.words);}
+{
+ memset(&r2_diag_scratch.controller.words,0,sizeof r2_diag_scratch.controller.words);
+#ifndef R2_CONTROLLER_DIAGNOSTICS
+ diag_words[22]=R2_CONTROLLER_DIAG_FAILURE_ONLY;
+#endif
+}
+#ifdef R2_CONTROLLER_DIAGNOSTICS
 void r2_controller_diag_count(unsigned word)
 {
  unsigned key=irq_lock();
- if(word<4&&!diag_words[6]&&diag_words[word]!=UINT32_MAX)++diag_words[word];
+ if(r2_controller_diag_ready_locked()&&word<4&&!diag_words[6]&&diag_words[word]!=UINT32_MAX)++diag_words[word];
  irq_unlock(key);
 }
+#endif
 bool r2_controller_diag_failure(uintptr_t callback,uintptr_t param)
 {
  unsigned key=irq_lock();
- if(diag_words[6]){irq_unlock(key);return false;}
- {diag_words[4]=(uint32_t)callback;diag_words[5]=(uint32_t)param;diag_words[6]=1;diag_words[21]=k_uptime_get_32();}
+ if(!r2_controller_diag_ready_locked()||diag_words[6]){irq_unlock(key);return false;}
+ {diag_words[22]|=R2_CONTROLLER_DIAG_UNKNOWN;diag_words[4]=(uint32_t)callback;diag_words[5]=(uint32_t)param;diag_words[6]=1;diag_words[21]=k_uptime_get_32();}
  irq_unlock(key);return true;
 }
 void r2_controller_diag_entry(unsigned index,uintptr_t callback,uintptr_t param,unsigned flags)
@@ -32,8 +39,25 @@ void r2_controller_diag_entry(unsigned index,uintptr_t callback,uintptr_t param,
  unsigned key=irq_lock();diag_words[7+2*index]=(uint32_t)callback;diag_words[8+2*index]=(uint32_t)param;
  diag_words[22]|=(flags&3u)<<(2*index);diag_words[6]=2+index;irq_unlock(key);
 }
+void r2_controller_diag_complete(bool known)
+{
+ unsigned key=irq_lock();
+ if(known&&diag_words[6]==8)diag_words[22]&=~R2_CONTROLLER_DIAG_UNKNOWN;
+ irq_unlock(key);
+}
 void r2_controller_diag_snapshot(uint32_t out[R2_CONTROLLER_DIAG_WORDS])
-{unsigned key=irq_lock();memcpy(out,diag_words,R2_CONTROLLER_DIAG_WORDS*sizeof(uint32_t));irq_unlock(key);}
+{
+ unsigned key=irq_lock();
+ if(!r2_controller_diag_ready_locked()){
+  memset(out,0,R2_CONTROLLER_DIAG_WORDS*sizeof(uint32_t));
+  out[22]=R2_CONTROLLER_DIAG_UNKNOWN;
+#ifndef R2_CONTROLLER_DIAGNOSTICS
+  out[22]|=R2_CONTROLLER_DIAG_FAILURE_ONLY;
+#endif
+ }else memcpy(out,diag_words,R2_CONTROLLER_DIAG_WORDS*sizeof(uint32_t));
+ irq_unlock(key);
+}
+#ifdef R2_CONTROLLER_DIAGNOSTICS
 void r2_controller_diag_console(uint64_t boot,uint64_t now)
 {
  /* Main-thread only, at most once/second; idle console refuses rather than
@@ -47,3 +71,4 @@ void r2_controller_diag_console(uint64_t boot,uint64_t now)
   R2_SOURCE_SHA,(unsigned long long)boot,(unsigned long long)now,copy[0],copy[1],copy[2],copy[3],copy[6]);
  if(n>0&&(size_t)n<sizeof line)(void)r2_console_note(line,(size_t)n,now+150);
 }
+#endif

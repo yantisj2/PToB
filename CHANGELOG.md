@@ -2,6 +2,17 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 21 October 2026 — T096 0.15.156 prepare failure capture
+
+Normal native GM/RC images retain the failed prepare callback and a bounded,
+read-only snapshot of the seven controller queue owners, using existing scratch
+and fatal-capsule storage. Healthy prepare paths add no diagnostic counter calls
+or periodic streams. Startup and invalid queue cuts report UNKNOWN; fatal capture
+uses no application spinlock. Timers, pairing, RF policy, queue capacity and
+assertions remain frozen. Focused sanitizer checks and independent review pass;
+full native and field checks remain separate. This diagnostic does not resolve
+the observed queue assertion or establish durable HOT operation.
+
 ## 21 October 2026 — T096 0.15.155 controller failure diagnostics
 
 Preserve the original peripheral latency-cancel assertion status in the existing

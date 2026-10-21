@@ -453,9 +453,6 @@ int main(void)
   r2_lora_init(enrollment_rc?0:lora_factory,identity.boot,lora_transmitter,&r2_enrollment.group);
 #endif
 #endif
-#ifdef R2_CONTROLLER_DIAGNOSTICS
-  r2_controller_diag_init();
-#endif
   r2_platform_start();
   struct r2_platform p; r2_platform_snapshot(&p); event(2,p.clock_result);
   r2_console_start();

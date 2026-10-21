@@ -158,8 +158,8 @@ void k_sys_fatal_error_handler(unsigned int reason,const struct arch_esf *esf)
   const char *s=&R2_SOURCE_SHA[4*i];
   r2_fault_capsule[24+i]=(uint32_t)(uint8_t)s[0]|((uint32_t)(uint8_t)s[1]<<8)|((uint32_t)(uint8_t)s[2]<<16)|((uint32_t)(uint8_t)s[3]<<24);
  }
-#ifdef R2_CONTROLLER_DIAGNOSTICS
- /* Explicit canary schema3 trades latency/interrupted-stack details for the
+#if defined(R2_CONTROLLER_FAULT_CAPTURE) || defined(R2_CONTROLLER_DIAGNOSTICS)
+ /* Schema3 trades latency/interrupted-stack details for the
   * frozen prepare queue. Original source/boot/PC/LR/reason and CRC remain. */
  (void)old_mask;
  uint32_t controller[R2_CONTROLLER_DIAG_WORDS];r2_controller_diag_snapshot(controller);

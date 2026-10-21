@@ -979,7 +979,8 @@ that boot. No controller capacity, timing priority or reserve is changed.
 
 Fatal capsule schema3 preserves words0..39 (including reason, PC/LR, source and
 boot) and word63 CRC. Words40..62 replace schema2 latency and interrupted-thread
-stack details **only in the diagnostic variant**:
+stack details. Through source155 this applies **only to the diagnostic variant**;
+source156 also uses this schema for the quiet native GM/RC fault capture below:
 
 | Relative word | Meaning |
 | --- | --- |
@@ -994,8 +995,8 @@ CRC-valid retained capsules remain conditional on RAM survival through reset.
 Schema3 replaces forensic fields; it must not be decoded as schema2. The separate
 watchdog capsule binds the diagnostic mode into its existing source/private/config
 identity. The health capsule retains its existing source/boot/CRC semantics.
-Normal builds keep schema2; the additional scratch storage overlaps no live LoRa
-fields and the total scratch union remains512B.
+Through source155 normal builds keep schema2. The scratch storage overlaps no
+live LoRa fields and the total scratch union remains512B.
 
 The ordinary timing journal adds GM_CONTROL details19 (one actual disconnect
 result, incarnation, original retirement deadline in truncated32-bit milliseconds),
@@ -1194,3 +1195,50 @@ starvation, RF activity or pool exhaustion. No scheduler queues are traversed.
 and `decode_disconnect` helpers; callers must retain the enclosing binding and
 complete-journal checks. These diagnostics do not correct the observed failures
 or qualify physical HOT durability.
+
+
+## Prepare FIFO failure-only capture (source156)
+
+Normal native GM/RC images now reuse the existing observer at the failed
+`ull_prepare_enqueue` allocation branch. Successful enqueue/dequeue/event-done
+paths have no observer counter calls, and this mode enables no periodic controller
+or timing stream. The explicit verbose canary remains available separately.
+DC/PC exclude the capture. The generated source hash and mode are inspected;
+upstream91430, source155's latency-cancel patch and the precision policy stay
+unchanged. No FIFO entry, controller operation, retry, timing priority or timer is
+added, and the original assertion/reset remains.
+
+One outer native IRQ fence protects the bounded, nondestructive queue copy.
+Indices are checked before dereferencing FIFO storage. The same23-word scratch
+tail and schema3 fatal words40–62 retain the failed callback/owner and seven queued
+callback/owner pairs with resume/aborted flags. PA words21–23, source/boot,
+PC/LR/reason and CRC remain available. Callback addresses require the exact
+installed ELF; owner addresses are opaque boot-local values, not peer identities
+or generation tokens. A full queue does not establish why retirement stopped.
+
+The existing schema3 table applies with these source156 extensions:
+
+| Relative word | Quiet failure-capture interpretation |
+| --- | --- |
+| 0–3 | Counters disabled; zero does not mean zero successful activity |
+| 4–5 | Failed prepare callback and opaque owner |
+| 6 | Zero means no captured failure;8 means all seven entries copied |
+| 7–20 | Seven queued callback/owner pairs in FIFO order |
+| 21 | Original failure capture uptime milliseconds,32-bit |
+| 22 | Entry resume/aborted pairs in bits0–13; bit30 means counters disabled; bit31 means UNKNOWN/corrupt/incomplete cut |
+
+Interpret queued owners only for a complete, valid first-failure cut. Missing,
+partial, malformed or corrupt-index data is UNKNOWN, never an empty or healthy
+queue. Counter-enabled verbose snapshots remain distinct from the quiet mode.
+The observer initializes after the startup scanner retires, before diagnostic
+phase1 is published and before Bluetooth starts. When diagnostic phase is below1,
+failed-capture and fatal-snapshot paths avoid scratch access and report UNKNOWN.
+A later diagnostic writer phase error can conservatively make a queue snapshot
+unavailable; no additional readiness state is introduced.
+
+Schema3 replaces schema2's IRQ-latency and secondary interrupted-thread-frame
+region40–62; it must not be decoded with the schema2 layout. No additional static
+or retained storage is allocated. Passing host fixtures and native resource checks
+are separate from field queue ownership, physical IRQ latency, calibrated timing
+and durable HOT acceptance. This capture supplies missing failure evidence; it is
+not a controller workaround.

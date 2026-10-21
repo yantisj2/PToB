@@ -53,3 +53,34 @@ def decode_disconnect(detail,result,incarnation,b):
                    job_guard=(result>>8)&255,worker_trigger=(result>>16)&255,ticks_periodic=b)
     else:raise ValueError('Not a source155 disconnect detail')
     return out
+
+
+def decode_prepare_capsule(words,source,boot,verbose=False):
+    """Source156 prepare observer; bind mode to the exact native build receipt.
+    Schema3 replaces schema2 IRQ latency/interrupted-thread-frame words40..62.
+    Callback/param words are opaque addresses, requiring the matching ELF.
+    """
+    if type(verbose) is not bool:raise ValueError('Expected explicit verbose mode')
+    pa=decode_capsule(words,source,boot)
+    out={'schema':words[1],'pa':pa}
+    if words[1]!=3:
+        out['prepare']={'availability':'UNAVAILABLE_SCHEMA2'}
+        return out
+    w=words[40:63];mode=0 if verbose else 1<<30
+    valid_mode=(w[22]&(1<<30))==mode
+    count=w[6]-1 if 1<=w[6]<=8 else 0
+    unknown=bool(w[22]&(1<<31)) or not valid_mode or w[6]>8 or bool(w[22]&0x3fffc000)
+    if not verbose and any(w[:4]):unknown=True
+    availability='UNKNOWN' if unknown else 'NO_FAILURE_CAPTURED' if not w[6] else 'COMPLETE' if count==7 else 'UNKNOWN'
+    out['schema3_omits']=['irq_latency','interrupted_thread_frame']
+    out['prepare']={'availability':availability,'mode':'verbose' if verbose else 'failure-only',
+        'success_counters':{'state':('UNAVAILABLE' if unknown else 'ENABLED_VERBOSE') if verbose else 'DISABLED',
+                            'values':w[:4] if verbose and not unknown else None},
+        'raw_completion':w[6],'copied_entries':count if valid_mode else None,
+        'failed_callback':w[4] if valid_mode and w[6] else None,
+        'failed_param':w[5] if valid_mode and w[6] else None,
+        'capture_ms':w[21] if valid_mode and w[6] else None,
+        'entries':[{'callback':w[7+2*i],'param':w[8+2*i],
+                    'is_resume':bool(w[22]&(1<<(2*i))),
+                    'is_aborted':bool(w[22]&(2<<(2*i)))} for i in range(count if valid_mode else 0)]}
+    return out

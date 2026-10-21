@@ -10,7 +10,7 @@ static unsigned watchdog_reports;
 void r2_watchdog_console(char *line,size_t capacity){assert(capacity==1536&&!irq_depth);++watchdog_reports;}
 void r2_watchdog_fatal(unsigned reason){(void)reason;}
 #endif
-#ifdef R2_CONTROLLER_DIAGNOSTICS
+#if defined(R2_CONTROLLER_DIAGNOSTICS) || defined(R2_CONTROLLER_FAULT_CAPTURE)
 void r2_controller_diag_snapshot(uint32_t out[R2_CONTROLLER_DIAG_WORDS])
 {for(unsigned i=0;i<R2_CONTROLLER_DIAG_WORDS;i++)out[i]=0xc0000000u+i;}
 #endif
@@ -48,7 +48,7 @@ int main(void){
  latency[7]=UINT32_MAX;latency[8]=UINT32_MAX;
  if(!setjmp(fatal_exit))k_sys_fatal_error_handler(2,&esf);
  irq_depth=0;
-#ifdef R2_CONTROLLER_DIAGNOSTICS
+#if defined(R2_CONTROLLER_DIAGNOSTICS) || defined(R2_CONTROLLER_FAULT_CAPTURE)
  assert(r2_fault_capsule[1]==3);
  for(unsigned i=0;i<R2_CONTROLLER_DIAG_WORDS;i++)assert(r2_fault_capsule[40+i]==0xc0000000u+i);
 #else

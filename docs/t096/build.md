@@ -457,3 +457,13 @@ PA lane and first-fault journal, documented in the [source155 schema](diagnostic
 Full native static/stack/flash checks, exact-device installation and bounded
 observations remain separate gates. Passing fixture schedules does not establish
 field ordering, a controller fix or HOT durability.
+
+
+Version156 normal native GM/RC builds include quiet prepare-FIFO failure capture.
+Its generated ULL mode/hash is pinned and inspected separately from the explicit
+verbose canary. Ordinary builds contain no success counters or periodic controller/
+timing streams; DC/PC exclude the capture. Source155's patch identities and the
+upstream scheduler policy remain frozen. The full host runner covers actual
+MFIFO and retained-capsule fixtures; native static/stack/flash and exact-device
+checks remain separate gates. See the [source156 schema](diagnostics.md#prepare-fifo-failure-only-capture-source156)
+for UNKNOWN handling and the schema3 loss of secondary IRQ/thread-frame fields.
