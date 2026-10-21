@@ -321,7 +321,8 @@ parameters and adds a shared5s callback allowance. Connecting cancellation and a
 completed natural disconnect use only5s. Duplicate owners use the same policy.
 Every deadline stays anchored to its first close; retries never renew it and
 timeout never permits buffer/reference reuse. Event23 records supervision in10ms
-units in result (negative means parameter-query failure), interval/latency packed
+units in result low16 bits and public connection state in high16 bits (negative
+means parameter-query failure), interval/latency packed
 in a (low/high16 bits), and native incarnation in b (zero for duplicate owners).
 An unavailable or invalid negotiated value is terminal, never guessed.
 
@@ -332,7 +333,12 @@ synchronization, scan/HCI request, source, PT, message, READY and grant deadline
 are separate and unchanged. The independent30s owner-stall observer detects stale
 publication, not a healthy owner polling a long cleanup. RC synchronous ACL
 retirement polls publish only the existing closing timestamp; their original
-37s local/40s outer limits remain finite, and no source authority is renewed. Firmware maintenance
+37s local/40s outer limits remain finite, and no source authority is renewed. UCS
+client disconnects begin before the RC link wait, so both drain concurrently
+inside the original budget. The pinned UATT stack copies notification storage
+at submission and drains/detaches it before the disconnected callback; cleanup
+also waits for submission return and the worker to finish, retaining references
+on failure. Firmware maintenance
 PREPARE and READY use the same40s bounded phase budget. The existing watchdog
 restart observer spans both sequential40s drain/reinitialization phases plus3s
 dispatch (83s), without extending either phase or tolerating a terminal error.

@@ -16,7 +16,7 @@ if a.legacy_immediate_fault:
  assert source.count(old)==1;source=source.replace(old,'if(rc)stop_error=rc;')
 if a.legacy_fixed_retirement:
  assert 'allowance+=(uint64_t)*supervision*10000;' in source
- source=source.replace('allowance+=(uint64_t)*supervision*10000;','/* old144 fixed2s */').replace('allowance=R2_CALLBACK_RETIRE_US','allowance=2000000')
+ source=source.replace('allowance+=(uint64_t)*supervision*10000;','allowance+=0; /* old144 fixed2s */').replace('allowance=R2_CALLBACK_RETIRE_US','allowance=2000000')
 (out/'transport.c').write_text(source)
 test=(app/'tests/gm_control_drain_test.c').read_text().replace('#include "../protocol/ble_transport.c"','#include "transport.c"')
 (out/'test.c').write_text(test)

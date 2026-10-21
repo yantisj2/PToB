@@ -14,7 +14,10 @@ struct r2_uc_clock {
 int r2_uc_start(const struct r2_group_config *, uint64_t, uint64_t);
 int r2_uc_poll(const struct r2_uc_clock *,bool advertise_allowed);
 bool r2_uc_owns(struct bt_conn *);
-bool r2_uc_close(void);
+/* Owner calls begin once before other ACL drains; until is the original
+ * absolute cleanup deadline. Progress reports polling only, not authority. */
+bool r2_uc_close_begin(void);
+bool r2_uc_close_until(uint64_t until, void (*progress)(void));
 /* No RC advertiser, client reference, notification submission or queued work. */
 bool r2_uc_quiescent(void);
 /* Bounded main-thread diagnostic handoff, never a callback flash write. */

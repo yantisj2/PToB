@@ -537,9 +537,9 @@ int main(int argc,char **argv)
  callbacks.connected(&orphan,0);assert(orphan.refs==2&&!r2_ble_closed());
  unsigned attempts=disconnects;disconnect_result=-EIO;r2_ble_poll(1000000);
  assert(stop_error==-EIO&&disconnects==attempts+1&&orphan.refs==2&&!r2_ble_closed());
- fake_time=2000000;callbacks.connected(&orphan,0);r2_ble_poll(2999999);assert(stop_error==-EIO&&orphan.refs==2);
- r2_ble_poll(3000000);assert(stop_error==-ETIMEDOUT&&disconnects==attempts+1&&!r2_ble_closed());
- callbacks.disconnected(&orphan,19);r2_ble_poll(3000001);assert(orphan.refs==1&&r2_ble_closed()&&r2_ble_stop_error()==-ETIMEDOUT);
+ fake_time=2000000;callbacks.connected(&orphan,0);r2_ble_poll(1000000+R2_CALLBACK_RETIRE_US-1);assert(stop_error==-EIO&&orphan.refs==2);
+ r2_ble_poll(1000000+R2_CALLBACK_RETIRE_US);assert(stop_error==-ETIMEDOUT&&disconnects==attempts+1&&!r2_ble_closed());
+ callbacks.disconnected(&orphan,19);r2_ble_poll(1000000+R2_CALLBACK_RETIRE_US+1);assert(orphan.refs==1&&r2_ble_closed()&&r2_ble_stop_error()==-ETIMEDOUT);
  assert(r2_ble_start(0,2,addresses)==-ETIMEDOUT); /* Fault stays fenced despite real drain. */
  disconnect_result=0;stop_error=0;fake_time=1000000;
  memset(peers,0,sizeof peers);nodes=1;stopping=false;group_client=true;relay_server=false;

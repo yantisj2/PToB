@@ -1,11 +1,16 @@
 /* MIT. Copyright (c) 2026 Jonathan Yantis.
  * Production GM owner with hostile synchronous HCI/callback interleavings. */
+#define R2_TIMING_EVENTS_TEST 1
 #define bt_le_scan_stop unused_fake_scan_stop
 #define bt_conn_disconnect unused_fake_disconnect
 #include "ble_transport_fake.h"
 #undef bt_le_scan_stop
 #undef bt_conn_disconnect
-static int stop_result,close_result;
+static int stop_result,close_result,parameter_result;
+static uint32_t parameter_a,parameter_b;
+void r2_timing_event(unsigned kind,int result,uint64_t peer,uint32_t detail,uint32_t a,uint32_t b){
+ (void)kind;(void)peer;if(detail==23){parameter_result=result;parameter_a=a;parameter_b=b;}
+}
 static uint64_t stop_delay;
 static bool disconnect_during_call;
 static int bt_le_scan_stop(void){++scan_stops;fake_time+=stop_delay;return stop_result;}
@@ -76,6 +81,7 @@ static void negotiated_retirement(void){
   assert(disconnects==calls+1);
   fake_time=4000000;r2_ble_poll(fake_time);assert(!stop_error&&p->conn==&c&&c.refs==2);
   assert(until==11000000);
+  assert(parameter_result==((BT_CONN_STATE_CONNECTED<<16)|500)&&parameter_a==(40u|(4u<<16))&&parameter_b==443);
   c.timeout=3200;r2_ble_disconnect(1);assert(p->connect_until==until&&disconnects==calls+1);
   if(!withheld){callbacks.disconnected(&c,19);atomic_clear(&p->tx_busy);r2_ble_poll(++fake_time);
    assert(!stop_error&&!p->conn&&c.refs==1);}
@@ -91,6 +97,9 @@ static void negotiated_retirement(void){
  peers[1].conn=&c;r2_ble_disconnect(1);assert(!stop_error&&peers[1].connect_until==38000000);
  reset();scanning=false;nodes=2;c=(struct bt_conn){.refs=2,.state=BT_CONN_STATE_CONNECTED};
  peers[1].conn=&c;r2_ble_disconnect(1);assert(stop_error==-EINVAL&&peers[1].conn==&c);
+ reset();scanning=false;nodes=2;c=(struct bt_conn){.refs=2,.state=0,.timeout=500,.interval=24,.latency=2};
+ peers[1].conn=&c;r2_ble_disconnect(1);assert(!stop_error&&peers[1].connect_until==6000000);
+ assert(parameter_result==500&&parameter_a==(24u|(2u<<16))); /* Host disconnected, app callback missing. */
  puts("PASS negotiated5s supervision + original5s callback allowance; late legal close, immutable boundary, unknown info fenced");
 }
 int main(void){

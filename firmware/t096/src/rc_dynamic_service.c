@@ -607,6 +607,11 @@ static void parent_failover_attempt(bool extra){
    r2_timing_event(R2_TIMING_GM_CONTROL,extra,gm_failover.id,20,gm_failover.epoch,gm_failover.sequence);
  }
 }
+static void cleanup_progress(void) {
+  k_mutex_lock(&state_lock,K_FOREVER);
+  if(status.closing)status.at=mono_us();
+  k_mutex_unlock(&state_lock);
+}
 #include "rc_dynamic_transport.inc"
 /* Caller has drained the previous sync/publication and owns no transient ACL.
  * No phase/acquisition latch from that parent may inhibit the next admission. */
@@ -2147,6 +2152,13 @@ static void owner(void *a, void *b, void *c) {
 #ifdef R2_USB_SOURCE_STREAM
     r2_usb_source_withdraw();
 #endif
+  uint64_t acl_until = mono_us()+R2_CLEANUP_US;
+  k_mutex_lock(&state_lock,K_FOREVER);
+  if(status.close_deadline)acl_until=status.close_deadline;
+  k_mutex_unlock(&state_lock);
+  /* Issue UCS disconnects before the LT wait so their supervision runs
+   * concurrently, inside the same original outer cleanup budget. */
+  bool uc_closed = !transmitter || r2_uc_close_begin();
   bool closed = stop();
   if (pa) {
     int rc = bt_le_ext_adv_delete(pa);
@@ -2173,7 +2185,9 @@ static void owner(void *a, void *b, void *c) {
   }
   if (!lt_close())
     closed = false;
-  if (transmitter && !r2_uc_close())
+  if (transmitter && !r2_uc_close_until(acl_until,cleanup_progress))
+    closed = false;
+  if (!uc_closed)
     closed = false;
   k_sleep(K_MSEC(75));
   struct r2_radio_capture_stats capture;

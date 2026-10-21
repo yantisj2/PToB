@@ -1001,8 +1001,11 @@ The ordinary timing journal adds GM_CONTROL details19 (one actual disconnect
 result, incarnation, original retirement deadline in truncated32-bit milliseconds),
 20 (disconnect callback, incarnation, TX mask),21 (TX retirement during closure,
 incarnation, remaining TX mask),22 (terminal retirement timeout, incarnation, TX
-mask). Version145 adds detail23: result is actual LE supervision in10ms units
-(or a negative parameter-query error), a packs interval in its low16 bits and
+mask). Version145 adds detail23: nonnegative result packs public
+connection state in bits16..31 and raw LE supervision in10ms units in bits0..15
+(a negative result is the parameter-query error). Raw parameters remain visible
+even when the host is already disconnected but the app callback is pending.
+a packs interval in its low16 bits and
 latency in its high16 bits, b is the native incarnation (zero for a duplicate
 owner). Detail19 reports the original negotiated-supervision plus5s retirement
 deadline, or5s when no live LL termination is pending. Neither retries nor

@@ -10,7 +10,8 @@ def function(name):
  while depth:depth+=(s[i]=='{')-(s[i]=='}');i+=1
  return s[start:i]
 start=s.index('struct lt_retired_connection {');end=s.index('static bool lt_retirement_error;',start)+len('static bool lt_retirement_error;')
-(out/'rc_connection_lifecycle_under_test.h').write_text(s[start:end]+'\n'+'\n'.join(function(n) for n in ['lt_retry_after','lt_disconnect','lt_closed_poll','lt_apply_connected','lt_retry_cap_error','lt_retired_find','lt_retired_take','lt_retire_events','lt_close','lt_reset'])+'\n')
+service=(app/'src/rc_dynamic_service.c').read_text();m=service.index('static void cleanup_progress(void) {');e=service.index('\n}',m)+2
+(out/'rc_connection_lifecycle_under_test.h').write_text(service[m:e]+'\n'+s[start:end]+'\n'+'\n'.join(function(n) for n in ['lt_retry_after','lt_disconnect','lt_closed_poll','lt_apply_connected','lt_retry_cap_error','lt_retired_find','lt_retired_take','lt_retire_events','lt_close','lt_reset'])+'\n')
 flags=[(__import__('os').environ.get('CC') or __import__('shutil').which('clang')),'-std=c11','-Wall','-Wextra','-Werror','-Wno-unused-function','-Wno-unused-variable','-Wno-default-const-init-var-unsafe','-fsanitize=address,undefined','-fno-sanitize-recover=all','-I'+str(out),'-I'+str(app/'include')]
 passed=False
 try:

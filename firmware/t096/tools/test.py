@@ -44,7 +44,7 @@ with (nullcontext(str(args.out.resolve())) if args.out else tempfile.TemporaryDi
         subprocess.run([sys.executable,str(APP/'tools'/(suite+'_tests.py')),
                         '--deps',str(args.deps),'--out',str(out/suite)],
                        env={**os.environ,'CC':compiler},check=True,timeout=60)
-    for suite in ['rc_advertising','rc_connection_lifecycle','rc_selection','rc_relay_discovery','rc_durability']:
+    for suite in ['uc_cleanup','rc_advertising','rc_connection_lifecycle','rc_selection','rc_relay_discovery','rc_durability']:
         subprocess.run([sys.executable,str(APP/'tools'/(suite+'_tests.py')),
                         '--out',str(out/suite)],env={**os.environ,'CC':compiler},
                        check=True,timeout=60)

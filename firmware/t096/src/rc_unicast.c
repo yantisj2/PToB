@@ -5,6 +5,7 @@
  * nonblocking system-workqueue path.
  */
 #include "rc_unicast.h"
+#include "cleanup_budget.h"
 #include "capture.h"
 #include "unicast_time.h"
 #if defined(R2_SWITCHABLE_FIELD)
@@ -19,8 +20,8 @@
 
 #define UC_UUID(n)                                                             \
   BT_UUID_128_ENCODE(0xe8860000u + (n), 0x9746, 0x48de, 0x9fa1, 0x186e9a67c301)
-const uint32_t r2_uc_contract[12] = {2,  144, 144,       72,        64, 4,
-                                     16, 6,   360000000, 300000000, 3,  500000};
+const uint32_t r2_uc_contract[12] = {3,  144, 144,       72,        64, 4,
+                                     16, 6,   360000000, 300000000, 3,  R2_CLEANUP_US};
 static struct bt_uuid_128 service_uuid = BT_UUID_INIT_128(UC_UUID(0));
 static struct bt_uuid_128 state_uuid = BT_UUID_INIT_128(UC_UUID(1));
 static struct bt_uuid_128 control_uuid = BT_UUID_INIT_128(UC_UUID(2));
@@ -598,7 +599,7 @@ int r2_uc_poll(const struct r2_uc_clock *clock,bool advertise_allowed) {
     (void)k_work_submit(&job);
   return 0;
 }
-bool r2_uc_close(void) {
+bool r2_uc_close_begin(void) {
   struct bt_conn *connections[UC1_CLIENTS];
   unsigned count = 0;
   k_spinlock_key_t k = k_spin_lock(&lock);
@@ -629,19 +630,28 @@ bool r2_uc_close(void) {
       closed = false;
     bt_conn_unref(connections[i]);
   }
-  uint64_t until = now_us() + 500000;
+  u.advertising = false;
+  return closed;
+}
+bool r2_uc_close_until(uint64_t until, void (*progress)(void)) {
   bool done;
+  k_spinlock_key_t k;
   do {
+    if (progress) progress();
     k = k_spin_lock(&lock);
     done = !k_work_busy_get(&job);
     for (unsigned i = 0; i < UC1_CLIENTS; i++)
       done &=
           (!u.clients[i].conn || u.clients[i].dead) && !u.clients[i].submitting;
     k_spin_unlock(&lock, k);
-    if (done)
+    if (done || now_us() >= until)
       break;
     k_sleep(K_MSEC(1));
   } while (now_us() < until);
+  /* Pinned UATT copies data/metadata at notify submission. Disconnect flushes
+   * TX and detaches ATT before this callback; errored TX may suppress sent().
+   * Therefore dead plus no executing submission/job retires ownership even
+   * when tx_busy remains set. Never infer this from elapsed time alone. */
   if (done) {
     for (unsigned i = 0; i < UC1_CLIENTS; i++) {
       k = k_spin_lock(&lock);
@@ -652,8 +662,7 @@ bool r2_uc_close(void) {
         bt_conn_unref(conn);
     }
   }
-  u.advertising = false;
-  return closed && done;
+  return done && now_us() < until;
 }
 bool r2_uc_quiescent(void) {
   k_spinlock_key_t k = k_spin_lock(&lock);

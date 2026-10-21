@@ -296,10 +296,18 @@ static uint64_t close_allowance(struct bt_conn *conn,int *result,uint32_t *param
   * Keep the first deadline in the existing field, never refresh on retries. */
  struct bt_conn_info info;int info_rc=bt_conn_get_info(conn,&info);
  uint64_t allowance=R2_CALLBACK_RETIRE_US;*parameters=*supervision=0;
- if(!info_rc&&(info.state==BT_CONN_STATE_CONNECTED||info.state==BT_CONN_STATE_DISCONNECTING)){
-  if(info.type!=BT_CONN_TYPE_LE||!info.le.timeout||info.le.timeout>3200)info_rc=-EINVAL;
-  else {*supervision=info.le.timeout;*parameters=info.le.interval|((uint32_t)info.le.latency<<16);
-   allowance+=(uint64_t)*supervision*10000;}
+ if(!info_rc){
+  if(info.type!=BT_CONN_TYPE_LE)info_rc=-EINVAL;
+  else {
+   *supervision=info.le.timeout;*parameters=info.le.interval|((uint32_t)info.le.latency<<16);
+   if(info.state==BT_CONN_STATE_CONNECTED||info.state==BT_CONN_STATE_DISCONNECTING){
+    if(!info.le.timeout||info.le.timeout>3200)info_rc=-EINVAL;
+    else allowance+=(uint64_t)*supervision*10000;
+   }
+   /* Preserve public state and raw parameters even after host disconnect;
+    * the application callback may still be pending on deferred work. */
+   *supervision|=(uint32_t)info.state<<16;
+  }
  }
  *result=info_rc;return allowance;
 }

@@ -1354,9 +1354,7 @@ static bool lt_close(void) {
     /* Actual bounded cleanup polling is progress, never timing authority.
      * A blocked driver call still leaves this timestamp stale. The original
      * outer deadline is unchanged and independently observed by the watchdog. */
-    k_mutex_lock(&state_lock,K_FOREVER);
-    if(status.closing)status.at=mono_us();
-    k_mutex_unlock(&state_lock);
+    cleanup_progress();
     lt_retire_events();
     bool pending = false;
     for (unsigned i = 0; i < CONFIG_BT_MAX_CONN; ++i) {
