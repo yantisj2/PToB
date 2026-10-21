@@ -6,18 +6,19 @@
 #define R2_GM5_PROTOCOL 5u
 #define R2_GM5_CANDIDATES 3u
 #define R2_GM5_HISTORY 3u
-#define R2_GM5_REPAIR_US UINT64_C(10000000)
-#define R2_GM5_CONTACT_US UINT64_C(30000000)
-#define R2_GM5_ACQUIRE_US UINT64_C(45000000)
+/* One generous control/recovery window; source/PT validity stays independent. */
+#define R2_GM5_CONTROL_US UINT64_C(45000000)
+#define R2_GM5_REPAIR_US R2_GM5_CONTROL_US
+#define R2_GM5_CONTACT_US R2_GM5_CONTROL_US
+#define R2_GM5_ACQUIRE_US R2_GM5_CONTROL_US
 #define R2_GM5_STABLE_US UINT64_C(5000000)
-#define R2_GM5_COORDINATION_US UINT64_C(5000000)
-#define R2_GM5_PROBE_US (R2_GM5_COORDINATION_US / 10)
+#define R2_GM5_COORDINATION_US R2_GM5_CONTROL_US
+/* Fast probes renew early; a larger control window must not slow source delivery. */
+#define R2_GM5_PROBE_US UINT64_C(500000)
 #define R2_GM5_RECORD_US (2 * R2_GM5_PROBE_US)
-/* Finite per-generation grant funds coordination silence plus takeover fence.
- * Fifteen seconds fits between renewal age+silence+takeover (2+5+3s)
- * and repair closure+silence+takeover (10+5+3s). Independent source/PT/
- * packet validity and the2s issuance cadence remain unchanged. */
-#define R2_GM5_GRANT_US (3 * R2_GM5_COORDINATION_US)
+/* Original per-generation grant. An outstanding issuance retains its control
+ * owner until acknowledgement or original expiry, even after phase timeout. */
+#define R2_GM5_GRANT_US (2 * R2_GM5_CONTROL_US)
 #define R2_GM5_RETIRE_GUARD_US UINT64_C(50000)
 #define R2_GM5_STATUS_US UINT64_C(120000000)
 enum r2_gm5_role {R2_GM5_COLD,R2_GM5_ACQUIRING,R2_GM5_HOT,R2_GM5_ACTIVE};

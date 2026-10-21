@@ -47,11 +47,27 @@ within the original200ms drain. A stalled owner retains conservative suppression
 until the existing watchdog recovery. This is an offline candidate, not durable
 HOT or hardware acceptance.
 
-Normal GM version0.15.148 uses [G5 ACTIVE/HOT/COLD](gm-standby.md).
+Version149 unifies G5 management freshness, READY, contact, acquisition and repair
+around one45s control budget. The original90s successor grant is conditional:
+an ACTIVE issuer retains its outstanding control owner through that grant's
+original expiry, even if a phase or peer-proof window expires. It cannot mint a
+replacement while confirmation is pending. Matching confirmation completes the
+original attempt; a confirmed unchanged tuple renews without repeating the initial
+5s stability dwell. Changed boots, source epochs or publication require fresh
+stability. Fast500ms probes, original1s records and all source/PT expiry remain
+independent. No new timer storage, queue or ownership buffer is added.
+
+The148 physical run met the GM receiver policy but failed HOT durability:78/78
+cohorts over600s had no network/radio errors, with a longest complete ACTIVE/HOT
+interval of53.938s. LoRa TX and RC correction progressed. The first readiness
+horizon lapse remains unexplained; the subsequent10s repair timeout is confirmed.
+Version149 is an offline candidate until separately built and observed on hardware.
+
+Normal GM version0.15.149 uses [G5 ACTIVE/HOT/COLD](gm-standby.md).
 Authenticated control maps each remote instant with its own original conservative
 clock-drift guard; a long finite-grant deadline cannot shorten a separate record
-TTL. G5 uses1s original control records and500ms probes; source/PT validity,15s
-finite grants, wire layout and stored state remain unchanged. Legacy control
+TTL. G5 uses1s original control records and500ms probes with90s finite grants.
+Source/PT validity, wire layout and stored state remain unchanged. Legacy control
 records retain250ms.
 Its outer coordination type19/domain5 is distinct from the preserved inner
 AUTH_CONFIG5, legacy JOINv4 and RC7 timing. During a staged update, updated RC

@@ -115,9 +115,13 @@ static int gm5_management_receive(struct r2_network *n,unsigned p,const struct r
     r->source_second!=descriptor(n)||!r->decision||r->decision>UINT32_MAX||
     r->coordinator_boot!=n->coordinator_boot)return -ESTALE;
  if(g->role==R2_GM5_ACTIVE&&!g->contacting&&p==n->coordinator&&r->kind==R2_AUTH_READY&&r->decision==g->generation){
-  if(!(r->flags&1)){g->ready_at=g->stable_since=0;withdraw_hot(n,32);return 0;}
+  if(!(r->flags&1)){g->ready_at=g->stable_since=0;withdraw_hot(n,0);return 0;}
+  if(n->management_hash!=r->source_second){
+   g->stable_since=0;n->management_committed=false;
+   if(!g->grant_pending)n->management_hash=r->source_second;
+  }
   g->ready_at=n->now;
-  if((r->flags&4)&&g->grant_pending&&n->now<g->issued_until){
+  if((r->flags&4)&&g->grant_pending&&n->now<g->issued_until&&n->management_hash==r->source_second){
    g->grant_pending=false;n->hot_ready=true;n->management_committed=true;
    n->management_until=n->now+coordination_lease(n);
    if(g->attempt_until){gm5_attempt_done(g);count(&g->successes);struct r2_gm5_candidate *c=gm5_candidate(n,g->selected,false);if(c&&c->successes!=UINT16_MAX)++c->successes;gm5_event(n,R2_GM5_COMMITTED,g->selected);}
@@ -219,16 +223,26 @@ static void gm5_tick(struct r2_network *n,bool physical,uint64_t now,const struc
    bool source=p<n->count&&live(n,p)&&now<n->peer[p].candidate_until&&!n->peer[p].source_withdrawn;
    bool physical=source||(c&&c->eligible&&(!c->inhibited||c->negative_root==n->identity)&&now<c->until);
    bool ready=source&&g->ready_at&&now>=g->ready_at&&now-g->ready_at<coordination_lease(n);
-   if(!ready||!own||!n->ready||!synced(n)){
-    bool was_hot=n->hot_ready||g->successes;withdraw_hot(n,ready?32:8);g->stable_since=0;g->grant_pending=false;
-    if(was_hot&&!g->attempt_until){gm5_repair(n);count(&g->attempts);gm5_event(n,R2_GM5_MAP,g->selected);}
+   if(n->management_hash&&n->management_hash!=descriptor(n)){
+    g->stable_since=0;n->management_committed=false;
    }
-   if(!physical){gm5_failed(n,R2_GM5_SOURCE);}
-   else if(g->attempt_until&&now>=g->attempt_until){gm5_failed(n,R2_GM5_TIMEOUT);}
+   bool confirmed=n->management_committed&&n->management_hash==descriptor(n);
+   if(!ready||!own||!n->ready||!synced(n)){
+    bool had_grant=n->hot_ready||confirmed||now<g->issued_until;
+    withdraw_hot(n,0);g->stable_since=0;
+    if(had_grant&&!g->attempt_until){gm5_repair(n);count(&g->attempts);gm5_event(n,R2_GM5_MAP,g->selected);}
+   }
+   /* Missing proof/phase timeout cannot abandon an issued successor while
+    * this healthy root keeps serving. Keep the existing owner and original
+    * deadline, never mint a replacement grant in this expired branch. */
+   if(!physical||(g->attempt_until&&now>=g->attempt_until)||
+      (g->grant_pending&&now>=g->issued_until)){
+    if(now>=g->issued_until)gm5_failed(n,!physical?R2_GM5_SOURCE:R2_GM5_TIMEOUT);
+   }
    else if(!g->contacting&&ready&&n->ready&&synced(n)){
     if(!g->stable_since)g->stable_since=now;
-    if(now-g->stable_since>=R2_GM5_STABLE_US){
-     if(!g->issued_until||g->issued_until<=now+R2_GM5_GRANT_US-2000000){
+    if(confirmed||now-g->stable_since>=R2_GM5_STABLE_US){
+     if(!g->grant_pending&&(!g->issued_until||g->issued_until<=now+R2_GM5_GRANT_US-2000000)){
       if(g->generation==UINT32_MAX){r2_network_stop(n,now);return;}
       ++g->generation;g->issued_until=now+R2_GM5_GRANT_US;g->grant_pending=true;
       n->management_generation=g->generation;n->management_hash=descriptor(n);
@@ -248,7 +262,7 @@ static void gm5_tick(struct r2_network *n,bool physical,uint64_t now,const struc
   n->coordinator=n->self;n->coordinator_boot=n->boot;n->local_gm=false;
   n->ready=active<n->count&&now>=n->fence&&n->view.available&&n->publication&&now<n->service_until&&n->view.generation==n->peer[active].candidate_epoch;
   n->follower_valid=n->ready;
-  if(!own||!synced(n)||now>=n->management_until){withdraw_hot(n,!own?8:32);if(g->role==R2_GM5_HOT){gm5_repair(n);}}
+  if(!own||!synced(n)||now>=n->management_until){withdraw_hot(n,0);if(g->role==R2_GM5_HOT){gm5_repair(n);}}
  }else{gm5_set_root(n,255);n->coordinator=255;n->coordinator_boot=0;n->ready=n->local_gm=n->follower_valid=false;withdraw_hot(n,1);}
  n->follower_valid=n->ready&&!n->local_gm;
  if(n->follower_valid){n->follower_utc=n->view.utc_second*1000000+now-n->view.evidence_us;n->follower_at=n->follower_last_good=now;n->follower_until=n->service_until;count(&n->follower_updates);}
@@ -288,7 +302,7 @@ static bool gm5_next(struct r2_network *n,uint8_t available,uint8_t *peer,uint8_
  }else if(kind==2){
   r=record(n,p,R2_AUTH_SERVICE);r.decision=n->publication;r.source_epoch=n->view.generation;r.source_second=n->view.utc_second;r.evidence_us=n->view.evidence_us;r.permit_until_us=n->view.valid_until_us;r.flags=1|(n->view.relative_ready?4:0);
  }else if(kind==3){
-  bool commit=(n->hot_ready||g->grant_pending)&&n->now<g->issued_until;
+  bool commit=(n->hot_ready||g->grant_pending)&&n->now<g->issued_until&&n->management_hash==descriptor(n);
   r=record(n,p,commit?R2_AUTH_COMMIT:R2_AUTH_PREPARE);r.coordinator_boot=n->coordinator_boot;r.decision=g->generation;r.source_epoch=n->view.generation;r.source_second=descriptor(n);r.flags=commit?1:0;
   if(commit)r.permit_until_us=g->issued_until;
  }else return false;

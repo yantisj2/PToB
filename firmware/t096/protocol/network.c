@@ -14,8 +14,8 @@ extern bool r2_rc7_fixture_gm_pair(void);
 #endif
 static void count(uint32_t *v){if(*v!=UINT32_MAX)++*v;}
 static uint64_t earlier(uint64_t a,uint64_t b){return a<b?a:b;}
-/* G5 renews finite grants every2s. A5s coordination lease tolerates changing
- * acknowledgement latency without extending any original grant or source. */
+/* G5 renews early every2s within its shared control window. Missing rounds
+ * cannot extend an original grant, source permit or precision permission. */
 static uint64_t coordination_lease(const struct r2_network *n)
 {return n->gm5.enabled?R2_GM5_COORDINATION_US:R2_MANAGEMENT_LEASE_US;}
 /* Mapping and source evidence retain their own original bounds. Management
@@ -934,6 +934,10 @@ uint32_t r2_network_hot_refusal(const struct r2_network *n)
  if(!synced(n))why|=32;
  if(n->now>=n->management_until)why|=64;
  if(!n->management_committed)why|=128;
+ /* Missing/stale remote READY is coordination evidence, not a PT failure. */
+ if(n->gm5.enabled&&n->gm5.role==R2_GM5_ACTIVE&&n->gm5.selected&&
+    (!n->gm5.ready_at||n->now<n->gm5.ready_at||
+     n->now-n->gm5.ready_at>=coordination_lease(n)))why|=1024;
  return why?why:256;
 }
 

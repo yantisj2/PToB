@@ -3,14 +3,30 @@
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
 Version0.15.134 introduces G5 coordination for the ordinary GM profile; current
-version0.15.148 retains147's500ms G5 probes and1s original control records with the
-shared5s coordination lease and15s finite grants, one
+version0.15.149 retains147's500ms G5 probes and1s original control records with the
+shared45s control window and90s finite grants, one
 original admission lifetime, one selected-peer retry policy and fair pair
 dispatch, retaining causal timing handoff, latched PT closure,
 GM watchdog coverage and the fixed45s successor acquisition budget. This is
 an implementation and host-test contract, not hardware acceptance or a claim of
 UTC/output accuracy. RC7 clients, USB, GNSS qualification, BLE capture and LoRa
 wire3 retain their separate contracts. DC remains a separate flash-only image.
+
+Version149 unifies G5 management freshness, READY, contact, acquisition and repair
+around one45s control budget. The original90s successor grant is conditional:
+an ACTIVE issuer retains its outstanding control owner through that grant's
+original expiry, even if a phase or peer-proof window expires. It cannot mint a
+replacement while confirmation is pending. Matching confirmation completes the
+original attempt; a confirmed unchanged tuple renews without repeating the initial
+5s stability dwell. Changed boots, source epochs or publication require fresh
+stability. Fast500ms probes, original1s records and all source/PT expiry remain
+independent. No new timer storage, queue or ownership buffer is added.
+
+The148 physical run met the GM receiver policy but failed HOT durability:78/78
+cohorts over600s had no network/radio errors, with a longest complete ACTIVE/HOT
+interval of53.938s. LoRa TX and RC correction progressed. The first readiness
+horizon lapse remains unexplained; the subsequent10s repair timeout is confirmed.
+Version149 is an offline candidate until separately built and observed on hardware.
 
 Version148 permits passive LoRa reception on a solo GM, including a solo
 serving GNSS GM. Recent authenticated BLE participation suppresses GM reception
@@ -116,7 +132,7 @@ True COLD clocks and this COLD forwarding leaf must be measured separately.
 
 ACTIVE chooses quality dataset tiers, then local successful-acquisition history,
 then fewer local failures, then full identity. One selected identity first enters
-a private CONTACT scheduling subphase with an original30s deadline. It has no
+a private CONTACT scheduling subphase with an original45s deadline. It has no
 PREPARE/COMMIT readiness or grant and supplies no persistent control promotion.
 STATUS0 reports no appointment during CONTACT. The first matching causal outgoing
 STATUS1 (server) or STATUS2 (client) construction starts one distinct original45s
@@ -126,14 +142,11 @@ wrong boot/phase or expired exchange cannot arm it. This uses one existing selec
 identity and the same timestamp storage, with no new role or wire handshake.
 An unreachable best-ranked identity expires through normal failure history; idle
 NO_CANDIDATE checks do not invent a failed-attempt deadline. Total contact plus
-acquisition may therefore take75s before failure. Version137 separated contact
-and acquisition into30s each; version140 changes only new acquisition attempts
-to45s. The existing5s stable-READY dwell must fit inside acquisition. A delivered
-map arriving25s after appointment left insufficient scheduling/transport margin
-in the previous30s budget. This policy adds no FIT/READY role, timer renewal or
-authority, and can delay replacement of an unsuccessful candidate by15s.
-Established HOT loss withdraws readiness immediately and permits one
-original10s repair. Failed attempts use30/60/120/240/300s cooldown, retained across
+acquisition may therefore take90s before failure when no successor grant was issued.
+The initial5s stable-READY dwell must fit inside acquisition. Established HOT loss
+withdraws readiness immediately and permits one original45s repair. An outstanding
+issued grant retains its control owner through original expiry; a phase timeout
+cannot silently abandon that obligation while the issuer continues serving. Failed attempts use30/60/120/240/300s cooldown, retained across
 reboots/source epochs of the same full identity; starts are at least5s apart.
 Inventory replacement with another identity discards that old local history.
 No eligible candidate means NO HOT while a healthy ACTIVE continues serving.
@@ -142,7 +155,7 @@ The pair dispatcher rotates response, HELLO, SERVICE and management classes,
 advancing only after actual transport acceptance. Each continuously due class
 gets a turn within four accepted opportunities; expiring responses do not bypass
 that order. Authenticated established HELLO, SERVICE and management share500ms
-probes (coordination lease/10). Bootstrap HELLO remains200ms, and new source
+probes, independent of the45s control budget. Bootstrap HELLO remains200ms, and new source
 permits still request HELLO immediately. G5 records retain one original1s
 lifetime (two probes); legacy records retain250ms. ACK/READY expiry is clipped
 to the original mapped request deadline. Four issued SERVICE slots retain every
@@ -164,7 +177,7 @@ they do not establish native RF delay or physical durability.
 
 Actual source, authenticated transport/map, captured precision and management
 readiness must all pass. After5s sustained readiness, ACTIVE issues an original
-15s successor grant, scoped to full ACTIVE/HOT identity and boot, both physical
+90s successor grant, scoped to full ACTIVE/HOT identity and boot, both physical
 source contexts and pair generation. Local issuer generations and received
 root-scoped generation floors are separate. Retransmission/map refinement can
 only shorten a grant. A cleared/retired generation cannot be resurrected.
@@ -174,11 +187,16 @@ HOT does not prove that ACTIVE received that acknowledgement. Lost COMMIT/ACK
 is conservatively treated as possibly issued. Before appointing a replacement,
 ACTIVE waits through the last issued grant plus50ms. Thus an uncertain old HOT
 and a new successor never receive overlapping original grants from that issuer.
-Original source permits remain independent of management. Grant expiry clears
+The original phase timestamp remains unchanged while an outstanding grant owns
+retirement. Pending confirmation survives READY/PT gaps; retries carry the same
+generation and original expiry. Reconnection still obeys its original native
+resource deadline, clipped to the original issued obligation when the phase has
+expired. Confirmed exact-tuple renewal skips another5s dwell; an unconfirmed or
+changed tuple cannot. Original source permits remain independent of management. Grant expiry clears
 local HOT and takeover authority immediately, even if a management lease survives.
 
 A valid finite successor may react to explicit authenticated root withdrawal or
-the original2s liveness suspicion, then completes the original3s output fence.
+the original45s liveness suspicion, then completes the original3s output fence.
 Its own source/incarnation and finite grant must still be valid at promotion.
 Negative source creation time/epoch survives ACL cleanup in bounded inventory;
 a delayed prewithdrawal positive STATUS cannot revive that exact retired root.
@@ -196,14 +214,14 @@ root/boot/epoch through the original constraint deadline, without rolling it.
 A COLD clock has no fast-takeover authority. Silence retains the last authenticated
 incumbent contact for at most120s, then a30..32s discovery round and original3s
 output fence. A newer exact-root COLD/ineligible report or actual withdrawal
-shortens that contact hold to at most15.05s from its first negative observation,
-conservatively outwaiting any already issued15s successor grant. Repeated negative
+shortens that contact hold to at most90.05s from its first negative observation,
+conservatively outwaiting any already issued90s successor grant. Repeated negative
 reports cannot extend it. Simulator recovery assertions freeze the maximum surviving original contact
 expiry at each actual failure, then add32s discovery and3s output fencing. A
 confirmed HOT fixture bound also freezes surviving inventory expiries at failure.
 It allows one30s serialized inventory round, up to three inventory identities'
-fixed30s contact+45s acquisition+5s failed-attempt spacing, original10s repair,
-15.05s uncertain-grant retirement,5s stability and100ms modeled control delivery.
+fixed45s contact+45s acquisition+5s failed-attempt spacing, original45s repair,
+90.05s uncertain-grant retirement,5s stability and100ms modeled control delivery.
 The separate stale120s inventory TTL prevents a silent old best candidate from
 being refreshed forever. These conservative fixture bounds assume its stable
 qualified survivors, reliable modeled contact/PA and bounded serialized
@@ -266,8 +284,10 @@ its600s physical observation failed durability:86 cohorts included40 complete
 four-device cohorts; the longest complete ACTIVE/HOT interval was34.564s.
 A subsequent native missing-disconnect-callback terminal error propagated to a
 matching retained watchdog capsule. The underlying callback cause remains open.
-Version148 changes only GM LoRa RX participation policy; it is an offline
-candidate and does not establish a PT/controller repair or hardware acceptance.
+Version148 verified GM LoRa RX participation but failed HOT durability:78/78
+cohorts over600s, longest complete pair53.938s, no network/radio errors, and
+continued TX/RC correction. The first horizon lapse is unknown; the later10s
+repair timeout is confirmed. Version149 remains an offline control-policy candidate.
 A separate146 watchdog recovery was observed with a valid retained worker-stall
 capsule from the worker/terminal-service watchdog path; this does not by itself
 prove a frozen worker. Its fault boot differs from the last observed boot, leaving an unobserved

@@ -5,10 +5,26 @@
 *Illustrative firmware-rendered RC screen; displayed values are not measured
 performance. [Image provenance](../../docs/images/README.md).*
 
-**PToB owns T096 RC7 development.** Current source version **0.15.148** supplies the
+**PToB owns T096 RC7 development.** Current source version **0.15.149** supplies the
 ordinary **GM** and **RC** mesh profiles, with USB timing compiled by default.
 [Build from source](../../docs/t096/build.md) with pinned public dependencies
 and ignored local enrollment. No enrolled binary is distributed.
+
+Version149 unifies G5 management freshness, READY, contact, acquisition and repair
+around one45s control budget. The original90s successor grant is conditional:
+an ACTIVE issuer retains its outstanding control owner through that grant's
+original expiry, even if a phase or peer-proof window expires. It cannot mint a
+replacement while confirmation is pending. Matching confirmation completes the
+original attempt; a confirmed unchanged tuple renews without repeating the initial
+5s stability dwell. Changed boots, source epochs or publication require fresh
+stability. Fast500ms probes, original1s records and all source/PT expiry remain
+independent. No new timer storage, queue or ownership buffer is added.
+
+The148 physical run met the GM receiver policy but failed HOT durability:78/78
+cohorts over600s had no network/radio errors, with a longest complete ACTIVE/HOT
+interval of53.938s. LoRa TX and RC correction progressed. The first readiness
+horizon lapse remains unexplained; the subsequent10s repair timeout is confirmed.
+Version149 is an offline candidate until separately built and observed on hardware.
 
 Version148 permits passive LoRa reception on a solo GM, including a solo
 serving GNSS GM. Recent authenticated BLE participation suppresses GM reception
@@ -21,8 +37,7 @@ RC reception and the sole configured GM transmitter are unaffected. Manual
 `requested` remains separate from `rx_suppressed`; old LoRa UTC/coordination is
 fenced immediately, while physical closure still requires every acknowledgement
 within the original200ms drain. A stalled owner retains conservative suppression
-until the existing watchdog recovery. This is an offline candidate, not durable
-HOT or hardware acceptance.
+until the existing watchdog recovery. The148 hardware observation verified this RX policy, but not durable HOT.
 
 Version147 uses one fair four-class G5 dispatcher, a shared500ms probe cadence
 and1s original G5 control records. Legacy records retain250ms. The5s coordination

@@ -1035,3 +1035,14 @@ A MISSED snapshot shows gates at closure, not which gate blocked earlier polls.
 These records diagnose the still-unresolved field CONTACT failure; they do not
 change discovery or establish its cause. Original source/boot/cursor and journal
 overwrite reporting remain necessary when interpreting a missing record.
+
+### Version149 HOT withdrawal causes
+
+The existing HOT transition record retains actual predicate bits:32 means PT
+synchronization is invalid,64 means management expiry, and1024 means the ACTIVE
+issuer lacks a fresh remote READY. Source bits retain their existing meanings.
+Version149 no longer forces PT/source bits merely because a management or READY
+window expired. Historical148 reason96 can therefore be64 plus a forced32; it
+does not independently establish PT loss. These edge snapshots identify failed
+predicates, not the earlier scheduling or radio cause. No new journal storage
+or periodic records are introduced.

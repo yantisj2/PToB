@@ -20,6 +20,15 @@ try:
  stages.append('compile_simulator_and_fences')
  with (out/'fences.run.log').open('x')as log:subprocess.run([str(out/'fences')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
  stages.append('fences')
+ retirement_units=[x for x in units if x.name not in ('gm_standby_test.c','network.c')]+[app/'tests/gm_standby_retirement_test.c']
+ with (out/'retirement.compile.log').open('x')as log:subprocess.run(cmd[:cmd.index(str(units[0]))]+list(map(str,retirement_units))+['-o',str(out/'retirement')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=60)
+ with (out/'retirement.run.log').open('x')as log:subprocess.run([str(out/'retirement')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
+ stages.append('original_outstanding_grant_retirement')
+ recovery_units=[app/'tests/gm_standby_recovery_test.c',*units[1:]]
+ with (out/'recovery.compile.log').open('x')as log:subprocess.run(cmd[:cmd.index(str(units[0]))]+list(map(str,recovery_units))+['-o',str(out/'recovery')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=60)
+ for gap,negative,management in [(v,0,1)for v in [6,12,20,30,50]]+[(v,0,0)for v in [12,20,30,50]]+[(20,1,0)]:
+  with (out/f'recovery-{gap}-{negative}-{management}.log').open('x')as log:subprocess.run([str(out/'recovery'),str(gap),str(negative),str(management)],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
+ stages.append('ten_actual_wire_management_loss_and_precision_recovery_cases')
  owner_units=[x for x in units if x.name not in ('gm_standby_test.c','network.c')]+[app/'tests/gm_standby_owner_test.c']
  with (out/'owner.compile.log').open('x')as log:subprocess.run(cmd[:cmd.index(str(units[0]))]+list(map(str,owner_units))+['-o',str(out/'owner')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=60)
  for period in [100000,125000,150000,175000,200000,250000,0]:

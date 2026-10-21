@@ -20,6 +20,7 @@ static uint64_t return_at,return_hot_deadline,phase_anchor,phase_failure;
 static unsigned failure_phase;
 static uint64_t renewal_deadline[N],renewal_gap[N];
 static uint64_t failure_at,contact_origin,active_deadline,hot_deadline,merge_deadline,replacement_deadline;
+static uint64_t control_gap_until;
 static uint64_t now,join_at[N],next_status[N][N],nonce=1000;
 static uint64_t local(unsigned p,uint64_t t){return t+1000000+p*137000;}
 static uint64_t identity(unsigned p){return 100+p;}
@@ -104,14 +105,15 @@ static void transport(void)
   if(!reach(p,other)||!r2_gm5_wants_control(&n[p],identity(other))){
    r2_network_link(&n[p],1,false,local(p,now));memset(&n[p].peer[1],0,sizeof n[p].peer[1]);paired[p]=-1;continue;
   }
-  if((scenario==16||scenario==17)&&now<next_send[p])continue;
+  if((scenario==16||scenario==17||scenario==18)&&now<next_send[p])continue;
   uint8_t dest,w[R2_GROUP_CONTROL_MAX];bool hello;
   bool sent=r2_network_next_ready(&n[p],2,&dest,w,&hello);
   if(getenv("GM5_DEBUG")&&now>90000000&&now<90030000)fprintf(stderr,"send t%llu p%u yes%u stopped%u wanted%llu id%llu connected%u nonce%llu/%llu role%u\n",(unsigned long long)now,p,sent,n[p].stopped,(unsigned long long)r2_gm5_control_peer(&n[p]),(unsigned long long)n[p].peer[1].identity,n[p].peer[1].connected,(unsigned long long)n[p].peer[1].own_nonce,(unsigned long long)n[p].peer[1].nonce,n[p].gm5.role);
   if(sent){
-   if(scenario==16||scenario==17)next_send[p]=now+100000;
+   if(scenario==16||scenario==17||scenario==18)next_send[p]=now+100000;
    assert(dest==1);r2_network_sent(&n[p],hello,1,w);tx_counts[p][w[1]]++;
    if(drop_commit&&w[1]==R2_AUTH_COMMIT)continue;
+   if(now>=200000000&&now<control_gap_until&&(w[1]==R2_AUTH_COMMIT||w[1]==R2_AUTH_READY))continue;
    if(scenario==17&&phase_anchor&&now<=phase_failure&&(w[1]==R2_AUTH_COMMIT||w[1]==R2_AUTH_READY))continue;
    /* Selective management reply loss: ordinary HELLO/SERVICE/ACK and actual
     * PA tuples continue. A1.1s outage exceeds the old independent READY bound. */
@@ -124,7 +126,7 @@ static void transport(void)
      uint64_t t=now-200000000,cycle=t/10000000;
      if(t%10000000<2400000+(cycle%3)*100000)continue;
     }
-    if(now>=250000000&&now<257000000)continue; /* Beyond the5s lease. */
+    if(now>=250000000&&now<300000000)continue; /* Beyond the45s lease. */
    }
    for(unsigned copy=0;copy<((scenario==13&&now>=200000000&&now<240000000)?4u:1u);copy++){assert(tail-head<256);struct flight *f=&q[tail++%256];f->a=p;f->b=other;f->due=now+25000;f->size=r2_control_wire_size(w);memcpy(f->data,w,f->size);}
   }
@@ -260,7 +262,7 @@ int main(int argc,char **argv)
     renewal_deadline[p]=n[p].management_until;
    }
   }
-  if(scenario==16&&now==256000000)assert(!n[root].hot_ready&&!n[standby].hot_ready);
+  if(scenario==16&&now==296000000)assert(!n[root].hot_ready&&!n[standby].hot_ready);
   if(now>=200000000){++observed;int a=active();source_gaps+=a<0||(a>=0&&!n[a].ready);hot_gaps+=hot()<0;}
   if(scenario==12&&now>350000000)assert(active()==fallback);
   if(scenario==11&&merge_deadline&&now>=merge_deadline){assert(active()==root&&hot()==standby);}
@@ -270,9 +272,9 @@ int main(int argc,char **argv)
   if(scenario==12&&now>=return_hot_deadline&&return_hot_deadline){int a=active();assert(hot()>=0&&a>=0&&n[a].hot_ready);}
   if(hot_deadline&&now>=hot_deadline){int a=active();assert(hot()>=0&&a>=0&&n[a].hot_ready);}
   if(scenario>=7&&scenario<=10&&now>hot_deadline&&hot_deadline)assert(phase_failed);
-  if(now==208000000&&scenario==3)assert(active()>=0);
-  if(scenario==17&&phase_failure&&now==phase_failure+8100000){
-   assert(n[standby].local_gm&&active()==standby); /* Original grant must fund5s+3s. */
+  if(now==200000000+R2_GM5_COORDINATION_US+3100000&&scenario==3)assert(active()>=0);
+  if(scenario==17&&phase_failure&&now==phase_failure+R2_GM5_COORDINATION_US+3100000){
+   assert(n[standby].local_gm&&active()==standby); /* Original grant must fund45s+3s. */
   }
   if(replacement_deadline&&now>=replacement_deadline)assert(hot()>=0);
 
@@ -284,11 +286,13 @@ int main(int argc,char **argv)
  printf("RETURN at_us=%llu confirmed_hot_by_us=%llu replacement_by_us=%llu\n",(unsigned long long)return_at,(unsigned long long)return_hot_deadline,(unsigned long long)replacement_deadline);
  if(scenario==12&&nodes==3)assert(n[root].gm5.generation==100&&n[root].management_generation<100&&n[root].hot_ready);
  if(scenario==13)assert(rx_refused>0);
- if(scenario==14)assert(n[root].gm5.failures>=2&&n[root].gm5.attempts>=3);
+ /* Retain the outstanding90s obligation, then replace; do not require retry churn. */
+ if(scenario==14)assert(n[root].gm5.failures>=1&&n[root].gm5.attempts>=2);
  for(unsigned p=0;p<nodes;p++)if(online[p]){
   struct r2_gm5_diagnostic d={.state=n[p].gm5,.at=n[p].now};char json[2200];
   for(unsigned page=0;page<5;page++){int length=r2_gm_diagnostic_format(json,sizeof json,&d,page,"synthetic",1);assert(length>0&&length<2200);}
  }
  printf("BOUNDS failure_us=%llu original_contact_until_us=%llu active_by_us=%llu hot_by_us=%llu merge_by_us=%llu first_active_offset_us=%llu first_confirmed_hot_offset_us=%llu\n",(unsigned long long)failure_at,(unsigned long long)contact_origin,(unsigned long long)active_deadline,(unsigned long long)hot_deadline,(unsigned long long)merge_deadline,(unsigned long long)(first_active?first_active-failure_at:0),(unsigned long long)(first_hot?first_hot-failure_at:0));
  printf("PASS G5 scenario=%u nodes=%u active=%d hot=%d active_unavailable_us=%llu no_hot_us=%llu observation_us=%llu rx_budget_refused=%u status_tx=%u/%u/%u/%u\n",scenario,nodes,active(),hot(),(unsigned long long)source_gaps*2500,(unsigned long long)hot_gaps*2500,(unsigned long long)observed*2500,rx_refused,n[0].gm5.status_tx,n[1].gm5.status_tx,n[2].gm5.status_tx,n[3].gm5.status_tx);
+ return 0;
 }

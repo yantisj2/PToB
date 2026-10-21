@@ -217,6 +217,15 @@ static void admission_boundary_tests(void)
  }
  reset();ready_guest(3);n.gm5.attempt_until=n.now+30000;
  r2_group_admission_tick(&n,n.now);assert(exchange.until==n.gm5.attempt_until);
+ for(int edge=0;edge<=1;edge++){
+  reset();ready_guest(3);n.gm5.role=R2_GM5_ACTIVE;
+  uint64_t phase=n.now+30000,resource=peers[4].provisional_until;
+  n.gm5.attempt_until=phase;n.gm5.issued_until=phase+R2_GM5_GRANT_US;
+  n.now=phase-1;fake_time=phase+edge; /* Network snapshot precedes actual caller time. */
+  r2_group_admission_tick(&n,fake_time);
+  assert(active&&exchange.until==resource&&exchange.until>fake_time);
+  assert(n.gm5.attempt_until==phase); /* Original phase is never rolled. */
+ }
  puts("PASS actual service policy: pending/callback before/after window sampling,100ms -1/at/+1, late callback refusal, original5s -1/at/+1, delayed JOIN and phase clip, callback/ref drain");
 }
 static void abandoned_phase_tests(void)
