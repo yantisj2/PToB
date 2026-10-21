@@ -436,6 +436,17 @@ termination is not excluded. Zero expiry counters alone do not prove missing
 connection events. Both failures subsequently recovered through the watchdog.
 Diagnostics overhead remains a plausible contributor, not an established cause.
 
+A later source154 GM failure independently repeated the same current-handle,
+TERMINATE/IDLE signature on another controller handle, after an accepted close
+reached its original6s deadline. The prior identified connection had already
+retired; its identity cannot be assigned to this anonymous failing connection.
+A subsequent observation gap contained an additional boot and a retained CONTROL
+service-error watchdog record for that intervening boot. The retained record does
+not match the earlier live-fault boot, whose capsule is missing. These are separate
+failure observations, not one continuously observed reset chain. Both GMs remained
+source-qualified across repeated HOT losses and reformation. Lower console polling
+did not eliminate the failures, but was not a controlled CPU-load comparison.
+
 The remaining work has separate causes and evidence requirements. First retain
 a stable two-GM pair with the third GM remaining COLD; only then exercise newcomer
 and four-device admission, keeping the ordinary RC in its RC profile:
