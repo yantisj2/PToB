@@ -256,9 +256,102 @@ static void dispatcher_tests(void)
  gm5_tick(&n,true,n.now,NULL);assert(!n.hot_ready&&n.gm5.role==R2_GM5_ACQUIRING&&n.gm5.attempt_until==n.now+R2_GM5_REPAIR_US);
  puts("PASS original response expiry -1/at/+1, urgency preserves ordinary turn; stalled submissions cannot advance cursor/leases and original management expiry withdraws HOT");
 }
+static void recovery_join(struct r2_network *a,struct r2_network *b,uint64_t at,
+                        struct r2_join_exchange *c,struct r2_join_exchange *s)
+{
+ static uint64_t nonce=100;
+ assert(!r2_group_join_begin(c,false,a->identity,b->identity,a->boot,++nonce,at));
+ assert(!r2_group_join_begin(s,true,b->identity,a->identity,b->boot,++nonce,at));
+ for(unsigned k=R2_JOIN_REQUEST;k<=R2_JOIN_ACCEPT;k++){
+  bool client=k==R2_JOIN_REQUEST||k==R2_JOIN_PROOF;
+  struct r2_network *from=client?a:b,*to=client?b:a;
+  if(k==R2_JOIN_REQUEST)c->request_at=at;
+  if(k==R2_JOIN_CHALLENGE)s->challenge_at=at;
+  if(k==R2_JOIN_PROOF)c->proof_at=at;
+  struct r2_join_record r={.kind=k,.capabilities=3,.sender=from->identity,.receiver=to->identity,
+   .sender_boot=from->boot,.receiver_boot=k==R2_JOIN_REQUEST?0:to->boot,
+   .client_nonce=c->nonce,.server_nonce=k==R2_JOIN_REQUEST?0:s->nonce,.sequence=k,.created_us=at,
+   .echo_us=k==R2_JOIN_CHALLENGE?c->request_at:k==R2_JOIN_PROOF?s->challenge_at:k==R2_JOIN_ACCEPT?c->proof_at:0,.name="Synthetic"};
+  uint8_t wire[R2_GROUP_JOIN_BYTES];assert(!r2_group_join_encode(wire,&r,&from->group));
+  assert(!r2_group_join_decode(&r,wire,sizeof wire,&to->group));
+  assert(!r2_group_join_receive(client?s:c,&r,at));at++;
+ }
+ s->accepted=true;a->now=b->now=at;
+}
+static int recovery_status(struct r2_network *a,struct r2_network *b,uint64_t at)
+{
+ struct r2_join_exchange c,s;recovery_join(a,b,at,&c,&s);
+ uint8_t wire[R2_GM5_STATUS_BYTES];assert(!r2_gm5_status_encode(b,&s,0,wire));
+ return r2_gm5_status_receive(a,&c,0,wire,sizeof wire,a->now);
+}
+static void same_epoch_requalification_tests(void)
+{
+ struct r2_network a=base(true),b;
+ assert(!r2_network_init(&b,0,2,200,20,44,40000,0));b.group=a.group;b.gm5.enabled=true;b.capabilities=3;
+ b.gm5.role=R2_GM5_COLD;b.gm5.active=100;b.gm5.active_boot=10;
+ a.gm5.selected=0;a.gm5.next_attempt=UINT64_MAX;a.hot_ready=a.standby_authorized=false;
+ const uint64_t fault=80000000,recovered=150000000;
+ r2_admission_init(&b.admission,0);
+ for(uint64_t t=0;t<=fault-1000000;t+=1000000)r2_admission_update(&b.admission,true,true,true,19,t+1500000,t);
+ b.candidate.generation=19;b.candidate.available=true;b.candidate.valid_until_us=fault+1500000;
+ assert(b.admission.eligible&&!recovery_status(&a,&b,fault-1000000));
+ struct r2_gm5_candidate *c=gm5_candidate(&a,200,false);assert(c&&c->eligible);
+ b.candidate.generation=20;b.candidate.available=false;
+ assert(!r2_admission_update(&b.admission,true,true,false,20,0,fault));
+ assert(!recovery_status(&a,&b,fault));assert(!c->eligible&&c->withdraw_epoch==20);
+ uint64_t floor=c->withdraw_created;
+ for(uint64_t t=fault+1000000;t<=recovered;t+=1000000)
+  r2_admission_update(&b.admission,true,true,true,20,t+1500000,t);
+ assert(r2_admission_update(&b.admission,true,true,true,20,recovered+1500000,recovered));
+ b.candidate.available=true;b.candidate.valid_until_us=recovered+1500000;
+ assert(b.admission.source_epoch==20&&b.candidate.generation==20&&b.admission.eligible);
+ a.gm5.next_attempt=0;
+ int rc=recovery_status(&a,&b,recovered);
+ assert(!rc&&c->eligible&&a.gm5.selected==200&&a.gm5.contacting);
+ assert(c->withdraw_created==floor&&c->withdraw_epoch==20&&!a.hot_ready&&!a.standby_authorized&&!a.gm5.grant_until);
+ /* Eligibility can return; positive ACTIVE authority remains fenced even after
+  * that descriptive update. Older/equal positives cannot undo the withdrawal. */
+ uint64_t retired=a.gm5.retire_until;uint32_t generation=a.gm5.generation;
+ b.gm5.role=R2_GM5_ACTIVE;b.gm5.active=b.identity;b.gm5.active_boot=b.boot;
+ assert(recovery_status(&a,&b,recovered+100)==-ESTALE);
+ b.gm5.role=R2_GM5_COLD;b.gm5.active=a.identity;b.gm5.active_boot=a.boot;
+ for(unsigned old=0;old<2;old++){
+  struct r2_join_exchange local,remote;recovery_join(&a,&b,recovered+200+old*100,&local,&remote);
+  uint8_t wire[R2_GM5_STATUS_BYTES];b.now=floor-old;
+  assert(!r2_gm5_status_encode(&b,&remote,0,wire));
+  assert(r2_gm5_status_receive(&a,&local,0,wire,sizeof wire,a.now)==-ESTALE);
+ }
+ assert(c->eligible&&c->withdraw_created==floor&&c->withdraw_epoch==20&&a.gm5.retire_until==retired&&a.gm5.generation==generation);
+ /* Real causal STATUS appointment then actual joined owners still carry no
+  * offset/source map. A fresh positive HELLO is the separate fence-clear path. */
+ struct r2_join_exchange client,server;recovery_join(&b,&a,recovered+1000,&client,&server);
+ a.candidate.valid_until_us=a.now+1500000;
+ uint8_t wire[R2_GROUP_CONTROL_MAX];
+ assert(!r2_gm5_status_encode(&b,&client,0,wire));assert(!r2_gm5_status_receive(&a,&server,0,wire,R2_GM5_STATUS_BYTES,a.now));
+ assert(!r2_gm5_status_encode(&a,&server,1,wire));assert(!r2_gm5_status_receive(&b,&client,1,wire,R2_GM5_STATUS_BYTES,b.now));
+ assert(!r2_gm5_status_encode(&b,&client,2,wire));assert(!r2_gm5_status_receive(&a,&server,2,wire,R2_GM5_STATUS_BYTES,a.now));
+ assert(r2_gm5_wants_control(&a,b.identity)&&r2_gm5_wants_control(&b,a.identity));
+ assert(c->withdraw_created==floor&&c->withdraw_epoch==20&&!a.hot_ready&&!b.hot_ready);
+ client.control=server.control=true;r2_network_joined(&a,1,&server,a.now);r2_network_joined(&b,1,&client,b.now);
+ assert(!a.peer[1].map_valid&&!b.peer[1].map_valid&&!a.peer[1].candidate_until&&!b.peer[1].candidate_until);
+ strcpy(a.name,"Active");strcpy(b.name,"Recovered");
+ for(unsigned i=0;i<3;i++){
+  struct r2_network *from=i==1?&b:&a,*to=i==1?&a:&b;
+  a.now=b.now=recovered+2000+i*1000;
+  from->peer[1].next_hello=0;from->peer[1].next_service=from->peer[1].next_management=UINT64_MAX;
+  uint8_t peer;bool hello;
+  assert(r2_network_next_ready(from,2,&peer,wire,&hello)&&hello&&peer==1);
+  r2_network_sent(from,hello,peer,wire);
+  assert(!r2_network_receive(to,1,wire,r2_control_wire_size(wire),to->now,to->now));
+  if(!i)assert(c->withdraw_epoch==20&&!b.peer[1].map_valid);
+ }
+ assert(c->withdraw_created==floor&&!c->withdraw_epoch&&a.peer[1].map_valid&&b.peer[1].map_valid);
+ assert(!a.hot_ready&&!b.hot_ready&&!a.standby_authorized&&!b.standby_authorized&&!a.gm5.grant_until&&!b.gm5.grant_until);
+ puts("PASS sameepoch60s requalification: newer COLD inventory permits nomination; old/equal/ACTIVE claims remain fenced, STATUS retains withdrawal, causal JOIN/HELLO gates map, no HOT/grant fabricated");
+}
 int main(void)
 {
- lifecycle_boundary_tests();dispatcher_tests();
+ same_epoch_requalification_tests();lifecycle_boundary_tests();dispatcher_tests();
  late_map_acquire_tests();
  hello_source_refresh_tests();
  contact_tests();

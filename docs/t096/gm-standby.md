@@ -3,7 +3,7 @@
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
 Version0.15.134 introduces G5 coordination for the ordinary GM profile; current
-version0.15.141 includes one original admission lifetime, one selected-peer retry
+version0.15.142 includes one original admission lifetime, one selected-peer retry
 policy and fair pair dispatch, retaining causal timing handoff, latched PT closure,
 GM watchdog coverage and the fixed45s successor acquisition budget. This is
 an implementation and host-test contract, not hardware acceptance or a claim of
@@ -156,7 +156,11 @@ the original2s liveness suspicion, then completes the original3s output fence.
 Its own source/incarnation and finite grant must still be valid at promotion.
 Negative source creation time/epoch survives ACL cleanup in bounded inventory;
 a delayed prewithdrawal positive STATUS cannot revive that exact retired root.
-STATUS does not clear a same-epoch negative floor. Fresh actual positive causal
+STATUS does not clear a same-epoch negative floor. A newer non-ACTIVE STATUS
+may restore descriptive physical eligibility after the original60s qualification
+in that same epoch, allowing nomination/contact. Old/equal creation times and
+same-epoch ACTIVE claims remain rejected, including after eligibility returns.
+This descriptive recovery grants no source map, HOT, takeover or finite grant. Fresh actual positive causal
 HELLO, a new source epoch or a new boot supplies its appropriate new context.
 A live LoRa constraint restricts root selection even when local physical GPS is
 qualified; same-incumbent acquisition may seek direct proof without granting
@@ -226,7 +230,7 @@ query time nor a historical maximum renews any authority.
 
 ## Development checkpoint and remaining acceptance
 
-Version0.15.141 remains a development checkpoint. Matching installed image
+Version0.15.142 remains a development checkpoint. Matching installed image
 identities and passing host/native checks do not establish a durable physical
 ACTIVE/HOT pair, three-GM stability or four-GM newcomer acceptance.
 

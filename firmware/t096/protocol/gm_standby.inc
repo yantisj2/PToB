@@ -344,9 +344,10 @@ int r2_gm5_status_receive(struct r2_network *n,const struct r2_join_exchange *e,
  uint64_t created=r2_group_get(w+56,8);uint32_t epoch=(uint32_t)r2_group_get(w+64,4);
  /* A delayed, authenticated positive inside the still-live JOIN must not undo
   * a newer withdrawal, including after the finite successor has taken over.
-  * Only a new source epoch/incarnation or actual positive causal HELLO can
-  * retire the same-epoch negative floor; STATUS never clears it. */
- if(c->withdraw_created&&(created<=c->withdraw_created||((w[68]&1)&&(w[3]==R2_GM5_ACTIVE||!c->eligible)&&epoch==c->withdraw_epoch)))return -ESTALE;
+  * A newer non-ACTIVE report may describe physical requalification in the
+  * same epoch and permit nomination. It cannot revive an ACTIVE claim or clear
+  * the withdrawal floor; only actual positive causal HELLO retires that fence. */
+ if(c->withdraw_created&&(created<=c->withdraw_created||((w[68]&1)&&w[3]==R2_GM5_ACTIVE&&epoch==c->withdraw_epoch)))return -ESTALE;
  c->identity=e->peer;c->boot=boot;
  if((c->eligible&&!(w[68]&1))||(g->active==c->identity&&g->active_boot==boot&&w[3]!=R2_GM5_ACTIVE))gm5_negative(n,c,created,epoch);
  c->at=now;c->until=now+R2_GM5_STATUS_US;c->physical_at=now;c->physical_until=0;c->role=w[3];c->eligible=w[68]&1;c->inhibited=w[68]&2;c->epoch=(uint32_t)r2_group_get(w+64,4);

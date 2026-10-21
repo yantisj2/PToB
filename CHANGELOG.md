@@ -2,6 +2,17 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 20 October 2026 — T0960.15.142 same-epoch candidate requalification
+
+A newer non-ACTIVE STATUS may restore descriptive candidate eligibility after
+physical qualification recovers in the same source epoch. Previously an earlier
+ineligible report could block that recovery until a HELLO requiring appointment
+had already arrived. The original withdrawal floor remains: old/equal reports
+and same-epoch ACTIVE claims stay rejected; actual causal HELLO still gates its
+retirement. Inventory can nominate, but supplies no map, HOT, takeover or grant.
+No timer, state, slot, reserve or wire change. Production-code regression covers
+source dwell, causal JOIN/STATUS/HELLO and retained replay/authority fences.
+
 ## 20 October 2026 — T0960.15.141 unified G5 ownership and dispatch
 
 Discovery windows gate new work; accepted G5 initiation retains its original100ms
