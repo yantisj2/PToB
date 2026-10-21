@@ -424,3 +424,11 @@ streams. Explicit timing queries, the bounded journal and watchdog remain active
 in ordinary builds. Compare exact ordinary and diagnostic images under the same
 placement, roles and bounded observation cadence before attributing any failure
 to diagnostic load; host and native checks alone do not measure that effect.
+
+Version151 shares the existing1s G5 duration across initiation and aggregate GATT
+work per CONTROL pass. G5 scan-stop retries use the existing5s retirement budget.
+Queued G5 STATUS and non-HELLO control records retain original session/signed
+expiry instead of an additional500ms queue-age gate. Ordinary RC, HELLO, source
+and precision checks remain unchanged. Public tests include delayed callbacks,
+queue work, original expiry and reference retention; physical radio fairness
+and sustained HOT durability still require field checks.

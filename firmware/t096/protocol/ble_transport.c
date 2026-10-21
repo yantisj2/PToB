@@ -4,6 +4,7 @@
  * one complete record or records completion. No election work in callbacks.
  */
 #include "ble_transport.h"
+#include "gm_standby.h"
 #include "timing_events.h"
 #include "initiator_diag.h"
 #if defined(R2_SWITCHABLE_FIELD)
@@ -156,9 +157,9 @@ static void transport_error(int error,const char *operation,unsigned peer){
  printk("R2_CLIENT_TRANSPORT_ERROR operation=%s error=%d peer=%u\n",operation,error,peer);
 #endif
 }
-/* Command Disallowed can race a controller scan transition. Keep ownership
- * until the public stop succeeds; retry only native GM control, for at most
- * 500ms from the FIRST refusal. This is never evidence of healthy scanning. */
+/* A transient refusal retains scan ownership. G5 core/client use the existing
+ * callback-retirement budget from the FIRST refusal; legacy core keeps500ms.
+ * The20ms retry cadence never renews that original deadline. */
 static bool stop_scan(uint64_t now){
  if(scan_stop_until&&now>=scan_stop_until){
   scan_stop_until=0;transport_error(-ETIMEDOUT,"SCAN_STOP",self);stop_error=-ETIMEDOUT;return false;
@@ -170,8 +171,8 @@ static bool stop_scan(uint64_t now){
   if(until&&now_us()>=until){transport_error(-ETIMEDOUT,"SCAN_STOP",self);stop_error=-ETIMEDOUT;return false;}
   return true;
  }
- if(!stop_error&&group_id&&!group_client&&(rc==-EACCES||rc==-EBUSY||rc==-EAGAIN)){
-  if(!scan_stop_until){scan_stop_until=now+500000;r2_timing_event(R2_TIMING_GM_CONTROL,rc,local_identity,17,500,0);}
+ if(!stop_error&&group_id&&(!group_client||gm5_mode)&&(rc==-EACCES||rc==-EBUSY||rc==-EAGAIN)){
+  if(!scan_stop_until){scan_stop_until=now+(gm5_mode?R2_CALLBACK_RETIRE_US:500000);r2_timing_event(R2_TIMING_GM_CONTROL,rc,local_identity,17,(uint32_t)((scan_stop_until-now)/1000),0);}
   scan_stop_next_ms=(uint32_t)(now/1000)+20;return false;
  }
  transport_error(rc,"SCAN_STOP",self);stop_error=rc;return false;
@@ -265,7 +266,7 @@ static int gatt_call(unsigned peer,enum gatt_operation operation,unsigned slot,b
  if(stopping||!p->conn||!atomic_get(&p->connected)||atomic_get(&p->dead)){
   k_spin_unlock(&lock,key);return -ENOTCONN;
  }
- uint64_t request_deadline=now+100000;
+ uint64_t request_deadline=now+(gm5_mode?R2_GM5_IO_US:100000);
  if(owner_deadline&&owner_deadline<request_deadline)request_deadline=owner_deadline;
  if(p->provisional_until&&!p->authenticated&&p->provisional_until<request_deadline)request_deadline=p->provisional_until;
  if(now>=request_deadline){k_spin_unlock(&lock,key);return -ETIMEDOUT;}
@@ -858,7 +859,7 @@ static void poll_owned(uint64_t now)
     struct peer *p=&peers[i];
     /* Window permission starts NEW work only. Re-read this actual owner here,
      * after callbacks/GATT work, rather than trusting a caller's connected
-     * sample. Accepted initiation still ends at its original100ms cap. */
+     * sample. Accepted initiation still ends at its original role-specific cap. */
     bool retained=gm5_mode&&i==admission_peer&&!p->release&&!p->disconnect_requested&&
       !atomic_get(&p->dead)&&now<p->provisional_until&&
       (atomic_get(&p->connected)||(p->connect_until&&now<p->connect_until));
@@ -994,8 +995,8 @@ static void poll_owned(uint64_t now)
      * into next_poll before reopening work. Reuse the RC cooldown storage. */
     if(gm5_mode){gm5_inventory_snapshot(true,now);recent_admission_until=now;gm5_inventory_due=false;}
     /* Publish before the sleeping public call: its connected callback may run
-     * before create returns, including on the100ms boundary. */
-    if(group_client||(group_id&&i==CONTROL_PEERS))p->connect_until=now+100000;
+     * before create returns, including on the original deadline boundary. */
+    if(group_client||(group_id&&i==CONTROL_PEERS))p->connect_until=now+(gm5_mode?R2_GM5_IO_US:100000);
     int rc=bt_conn_le_create(&p->address,create,BT_LE_CONN_PARAM(interval,interval,0,supervision),&conn);
     if(!rc){
       /* A connected callback can run while the synchronous create command
@@ -1013,9 +1014,9 @@ static void poll_owned(uint64_t now)
       }
       if(already_owned)bt_conn_unref(conn);
       if(group_id&&i==CONTROL_PEERS&&!p->first_seen)p->provisional_until=now+5000000;
-      /* Core discovery cannot scan as initiator for the controller's2s
-       * default while healthy1.5s source permissions expire. Use the same
-       * original100ms create opportunity as the transient client path. */
+      /* All G5 roles use the existing1s discovery budget. Ordinary RC
+       * keeps100ms.
+       * Neither public-call delay nor a callback renews the original cap. */
       if(gm5_mode&&(p->release||(!atomic_get(&p->connected)&&p->connect_until&&now_us()>=p->connect_until))){
        p->release=true;r2_ble_disconnect(i);
       }

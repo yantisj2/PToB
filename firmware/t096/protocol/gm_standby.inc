@@ -87,7 +87,7 @@ uint64_t r2_gm5_control_peer(const struct r2_network *n)
 bool r2_gm5_wants_control(const struct r2_network *n,uint64_t id)
 {return id&&r2_gm5_control_peer(n)==id&&!(n->gm5.role==R2_GM5_ACTIVE&&n->gm5.contacting);}
 bool r2_gm5_poll_due(const struct r2_network *n,uint64_t now)
-{return n->gm5.enabled&&now>=n->gm5.next_poll&&now-n->gm5.next_poll<1000000;}
+{return n->gm5.enabled&&now>=n->gm5.next_poll&&now-n->gm5.next_poll<R2_GM5_IO_US;}
 void r2_gm5_poll_completed(struct r2_network *n,uint64_t now)
 {
  struct r2_gm5 *g=&n->gm5;if(now<g->next_poll)return;
@@ -180,7 +180,7 @@ static void gm5_tick(struct r2_network *n,bool physical,uint64_t now,const struc
   gm5_grant_clear(n,R2_GM5_INHIBITED);g->role=R2_GM5_COLD;gm5_attempt_clear(g);g->active=g->active_boot=g->active_until=g->selected=0;
   gm5_set_root(n,255);gm5_event(n,R2_GM5_INHIBITED,coord->root);
  }
- if(now>=g->next_poll&&now-g->next_poll>=1000000)r2_gm5_poll_completed(n,now);
+ if(now>=g->next_poll&&now-g->next_poll>=R2_GM5_IO_US)r2_gm5_poll_completed(n,now);
  if(!g->round_until)g->round_until=n->admission.boot_at+R2_ELECTION_STABLE_US+5000000+(n->identity%3)*1000000;
  n->members_mask=own?1u<<n->self:0;
  for(unsigned p=0;p<n->count;p++)if(p!=n->self&&live(n,p)&&now<n->peer[p].candidate_until)n->members_mask|=1u<<p;

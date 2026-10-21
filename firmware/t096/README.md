@@ -5,11 +5,17 @@
 *Illustrative firmware-rendered RC screen; displayed values are not measured
 performance. [Image provenance](../../docs/images/README.md).*
 
-**PToB owns T096 RC7 development.** Current source version **0.15.150** supplies the
+**PToB owns T096 RC7 development.** Current source version **0.15.151** supplies the
 ordinary **GM** and **RC** mesh profiles, with USB timing compiled by default.
 [Build from source](../../docs/t096/build.md) with pinned public dependencies
 and ignored local enrollment. No enrolled binary is distributed.
 
+Version151 shares the existing1s budget across G5 initiation and each CONTROL
+pass's GATT work; ordinary RC retains100ms. G5 scan-stop retries share the existing
+5s retirement bound. G5 inventory/control queues defer to original authenticated
+expiry, while HELLO and legacy coarse-time guards remain. Delayed callback and
+JOIN/STATUS tests cover renewal, aggregate work and original expiry. Physical radio fairness
+and sustained pair durability remain unqualified.
 Version150 keeps unsolicited timing and controller console streams in explicit
 controller-diagnostic builds only. Ordinary images retain the bounded timing
 journal, explicit queries and independent watchdog/fault capture. This reduces
@@ -109,7 +115,8 @@ changing source, map, management, grant or repair gates. No role or state is add
 an unsuccessful selected candidate can occupy the pair15s longer. Physical
 convergence and continued HOT renewal still require independent testing.
 Version141 makes discovery windows start new work only. An accepted G5 transient
-retains its original100ms initiation cap and5s resource expiry; JOIN/STATUS share
+retains its original initiation cap (1s for G5 since151, otherwise100ms)
+and5s resource expiry; JOIN/STATUS share
 that original expiry, clipped by the current phase. One consumed initiation sets
 the existing G5 retry opportunity, without a separate completion cooldown or
 selected-anchor override. A fair pair dispatcher retains original message due

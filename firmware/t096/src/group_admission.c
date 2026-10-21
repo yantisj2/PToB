@@ -527,8 +527,7 @@ void r2_group_admission_receive(struct r2_network *n,
                                 const struct r2_ble_event *event,
                                 uint64_t now) {
   if(active)admission_clip(n,now);
-  if (event->peer != r2_ble_admission_peer() || now < event->at ||
-      now - event->at >= 500000)
+  if (event->peer != r2_ble_admission_peer() || now < event->at)
     return;
 #if defined(R2_GM5_NATIVE)
   if(n->gm5.enabled&&event->length==R2_GM5_STATUS_BYTES&&event->data[0]==19&&event->data[1]<3){
@@ -541,6 +540,9 @@ void r2_group_admission_receive(struct r2_network *n,
    return;
   }
 #endif
+  /* G5 inventory above uses its original authenticated JOIN lifetime.
+   * Legacy JOIN/coarse-time retains its independent receive-age guard. */
+  if(now-event->at>=500000)return;
   struct r2_join_record r;
   if (r2_group_join_decode(&r, event->data, event->length, &n->group))
     return;

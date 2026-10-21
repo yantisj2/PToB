@@ -566,8 +566,22 @@ static void issued_history_tests(void)
  puts("PASS four actual issued slots never evict unexpired500ms SERVICE records; ACK accepted only before original1s expiry and retains original source permit");
 }
 
+
+static void queued_g5_original_expiry(void) {
+ struct r2_network n=field_base();uint64_t start=n.now;
+ struct r2_auth_record r=control(&n,R2_AUTH_COMMIT,start);r.expires_us=start+R2_GM5_RECORD_US;
+ uint8_t w[R2_GROUP_CONTROL_MAX];assert(!encode_control(&n,w,&r,n.peer[1].rx_key));
+ assert(!r2_network_receive(&n,1,w,r2_control_wire_size(w),start+20000,start+620000));
+ uint64_t grant=n.gm5.grant_until;assert(grant&&grant<=r.permit_until_us);
+ assert(r2_network_receive(&n,1,w,r2_control_wire_size(w),start+20000,start+620001)==-ESTALE);
+ n=field_base();assert(r2_network_receive(&n,1,w,r2_control_wire_size(w),start+20000,start+1100000)==-ESTALE&&!n.gm5.grant_until);
+ n=field_base();assert(r2_network_receive(&n,1,w,r2_control_wire_size(w),start+700000,start+620000)==-EACCES);
+ n=field_base();n.gm5.enabled=false;r.expires_us=start+250000;assert(!encode_control(&n,w,&r,n.peer[1].rx_key));
+ assert(r2_network_receive(&n,1,w,r2_control_wire_size(w),start+20000,start+620000)==-EACCES);
+ puts("PASS actual G5 signed1s record queued600ms keeps received timestamp/original expiry; replay,expired,future arrival and legacy age rejected");
+}
 int main(void)
-{
+{queued_g5_original_expiry();
  record_budget_tests();issued_history_tests();clock_field_boundary_tests();clock_rate_corner_tests();delay_burst_tests();
  same_epoch_requalification_tests();lifecycle_boundary_tests();dispatcher_tests();
  late_map_acquire_tests();coordination_boundary_tests();

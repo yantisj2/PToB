@@ -212,8 +212,9 @@ static void cycle(struct k_work *work)
 #if defined(CONFIG_BT_PER_ADV)
  struct r2_radio_precision_view timing;
 #endif
- r2_ble_owner_deadline(0); /* Each control request owns its own bounded lifetime. */
  uint64_t now=now_us();
+ /* All G5 GATT calls in this pass share one original budget, never1s each. */
+ r2_ble_owner_deadline(net.gm5.enabled?now+R2_GM5_IO_US:0);
  (void)k_mutex_lock(&lock,K_FOREVER);
  if(name_pending){memcpy(net.name,pending_name,sizeof net.name);name_pending=false;for(unsigned p=0;p<net.count;p++)net.peer[p].next_hello=0;}
  (void)k_mutex_unlock(&lock);

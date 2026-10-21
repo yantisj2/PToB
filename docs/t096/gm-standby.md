@@ -3,7 +3,7 @@
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
 Version0.15.134 introduces G5 coordination for the ordinary GM profile; current
-version0.15.150 retains147's500ms G5 probes and1s original control records with the
+version0.15.151 retains147's500ms G5 probes and1s original control records with the
 shared45s control window and90s finite grants, one
 original admission lifetime, one selected-peer retry policy and fair pair
 dispatch, retaining causal timing handoff, latched PT closure,
@@ -105,8 +105,9 @@ current timing permission and output authority are distinct facts.
 
 A COLD clock ordinarily has no persistent GM ACL, PA precision acquisition or
 continuous bootstrap scan. Inventory opportunities last at most1s and gate new
-scan/create work only. An accepted pending owner keeps its original100ms initiation
-cap; an early connected callback leaves that cap and retains the original5s
+scan/create work only. Since151 a G5 pending owner keeps an original1s
+initiation cap in every role; ordinary RC keeps100ms. An early connected
+callback leaves that cap and retains the original5s
 resource lifetime. A callback at/after cancellation or expiry cannot revive it.
 The serialized transport rechecks ownership after public calls, so a sampled
 window/connected race cannot cancel an otherwise live owner or renew an expired
@@ -525,3 +526,34 @@ itself: the same test requires original expiry and finite ordinary fallback.
 ACTIVE still inventories candidates and partitions; appointed control repair and
 an existing required parent retain precedence. This fixes a demonstrated native
 scheduler gap, not the unexplained physical missing-disconnect callback.
+
+Version151 consolidates software work budgets without renewing authority. Public
+production-owner tests cover50/200/900/1100ms callbacks across G5 roles,50ms JOIN
+steps,600ms STATUS/control queue delay, original scan-stop expiry and aggregate
+GATT waiting. The old100ms initiation body loses a reachable incumbent with200ms
+callbacks. Original signed expiry, replay, future-receive, legacy queue guards,
+source permits and deferred references remain checked. Host fakes do not establish
+radio fairness, HCI/deferred-L2CAP behavior or physical durability.
+
+| Control-path timer | Meaning and151 handling |
+| --- | --- |
+| G5 initiation1s | Original discovery/work budget, all roles; ordinary RC100ms unchanged. A callback cannot restart it. |
+| G5 GATT1s | One original CONTROL-pass budget in existing owner_deadline, clipped by provisional expiry. Multiple calls share it; ordinary RC per-call100ms unchanged. |
+| G5 scan-stop5s | Existing callback-retirement budget from first transient refusal;20ms retry cadence. Legacy core500ms/client behavior unchanged. Timeout retains ownership and faults. |
+| G5 STATUS5s session | Original authenticated JOIN expiry replaces redundant500ms local queue-age check. Boot/nonces/MAC/phase still required. |
+| G5 non-HELLO record1s | Original signed/mapped expiry replaces redundant500ms queue-age check; captured receive time, evidence ordering and replay remain. |
+| HELLO/legacy receive500ms | Causal/coarse-time guard retained, including HELLO offset-width/source checks. |
+| Source/PT and coarse-map bounds | Precision/physical authority, not work budgets; unchanged. |
+| JOIN/provisional5s and callback retirement5s | Original owner lifetimes and actual reference drain; no synthetic completion. |
+| Management/acquire/repair45s; issued grant90s | Original G5 obligations unchanged; legacy R2_MANAGEMENT_LEASE_US remains2s with G5 override45s. |
+| Inventory contact120s; sparse retry30s/5s | Original contact permission and scheduling cadence unchanged; only accepted STATUS refreshes contact. |
+| Probe500ms; UI/report/retry cadences | Scheduling rates, not failure limits; unchanged. |
+| Owner queue100ms diagnostic threshold | Counter only, not fatal; unchanged. |
+| RC dynamic sync-close500ms/2s | Separate resource/closure bounds; unchanged and flagged for follow-up lifecycle testing. No PA geometry change. |
+| Admission close50ms/2ms | Grace/cadence with actual ownership recheck, not permission renewal; unchanged. |
+| HELLO80ms, coarse-time100ms, record250ms, PPS1.5s | Causal width/precision/source bounds or legacy signed lifetime; unchanged. |
+| R2_REPLY_MS2s / host query2.5s | Diagnostic reply/reader timeout only, not firmware authority; keep missing responses separate from device failures. |
+
+A pass can still spend up to1s waiting for GATT. This bounded work must be checked
+against healthy ACTIVE/HOT radio service in the field; the host test proves fixed
+budget and reference ownership, not timely radio delivery under real contention.

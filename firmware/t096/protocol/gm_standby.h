@@ -20,6 +20,8 @@
  * owner until acknowledgement or original expiry, even after phase timeout. */
 #define R2_GM5_GRANT_US (2 * R2_GM5_CONTROL_US)
 #define R2_GM5_RETIRE_GUARD_US UINT64_C(50000)
+/* Discovery, initiation and one aggregate CONTROL GATT pass share this bound. */
+#define R2_GM5_IO_US UINT64_C(1000000)
 #define R2_GM5_STATUS_US UINT64_C(120000000)
 enum r2_gm5_role {R2_GM5_COLD,R2_GM5_ACQUIRING,R2_GM5_HOT,R2_GM5_ACTIVE};
 enum r2_gm5_reason {R2_GM5_NONE,R2_GM5_SELECTED,R2_GM5_SOURCE,R2_GM5_INHIBITED,

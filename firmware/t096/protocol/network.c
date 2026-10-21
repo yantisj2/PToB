@@ -394,7 +394,7 @@ int r2_network_receive(struct r2_network *n,uint8_t p,const uint8_t *data,size_t
 {
  if(!n||p>=n->count||p==n->self||!clock_now(n,now))return -EINVAL;
  struct r2_net_peer *m=&n->peer[p];struct r2_auth_record r;char name[25]={0};uint8_t caps=0;struct r2_group_pair_hint hint;int rc=decode_control(n,&r,data,size,p,m->rx_key,name,&caps,&hint);
- if(rc||!m->connected||r.sender!=p||r.target!=n->self||r.created_us>INT64_MAX/4||received>now||now-received>=500000){count(&n->rejected);return -EACCES;}
+ if(rc||!m->connected||r.sender!=p||r.target!=n->self||r.created_us>INT64_MAX/4||received>now||((!n->gm5.enabled||r.kind==R2_AUTH_HELLO)&&now-received>=500000)){count(&n->rejected);return -EACCES;}
  if(n->gm5.enabled)count(&n->gm5.control_rx);
  if(r.kind==R2_AUTH_HELLO){
   uint8_t old_gm=n->gm_mask,old_gnss=n->gnss_mask;

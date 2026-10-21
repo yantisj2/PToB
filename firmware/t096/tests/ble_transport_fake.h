@@ -97,9 +97,12 @@ static int k_work_submit(struct k_work *w){
 }
 static void k_sem_reset(struct k_sem *s){s->count=0;}
 static void k_sem_give(struct k_sem *s){s->count=1;}
+static uint64_t fake_dispatch_due;
 static int k_sem_take(struct k_sem *s,uint64_t timeout){
  if(fake_stale_wake){fake_stale_wake=false;return 0;}
- if(s->count){s->count=0;return 0;}fake_time+=timeout;return -EAGAIN;
+ if(s->count){s->count=0;return 0;}
+ if(fake_queued&&fake_dispatch_due&&fake_dispatch_due<=fake_time+timeout){fake_time=fake_dispatch_due;fake_dispatch_due=0;fake_dispatch();return 0;}
+ fake_time+=timeout;return -EAGAIN;
 }
 static int k_msgq_put(void *q,void *event,int wait){return 0;}
 static unsigned queue_purges;
@@ -126,7 +129,8 @@ static unsigned adv_stops;
 static int bt_le_adv_stop(void){++adv_stops;return 0;}
 static struct bt_le_scan_param last_scan;static unsigned scan_starts,scan_stops;
 static int bt_le_scan_start(const void *p,void (*cb)(const bt_addr_le_t *,int8_t,uint8_t,struct net_buf_simple *)){last_scan=*(const struct bt_le_scan_param *)p;assert(last_scan.window<=last_scan.interval);++scan_starts;return 0;}
-static int bt_le_scan_stop(void){++scan_stops;return 0;}
+static uint64_t fake_scan_ready;
+static int bt_le_scan_stop(void){++scan_stops;return fake_time<fake_scan_ready?-EBUSY:0;}
 static int disconnect_result;
 static unsigned disconnects;static struct bt_conn *last_disconnect;
 static int bt_conn_disconnect(struct bt_conn *c,uint8_t reason){++disconnects;last_disconnect=c;return disconnect_result;}
