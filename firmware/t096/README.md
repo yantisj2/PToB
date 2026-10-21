@@ -5,10 +5,17 @@
 *Illustrative firmware-rendered RC screen; displayed values are not measured
 performance. [Image provenance](../../docs/images/README.md).*
 
-**PToB owns T096 RC7 development.** Current source version **0.15.153** supplies the
+**PToB owns T096 RC7 development.** Current source version **0.15.154** supplies the
 ordinary **GM** and **RC** mesh profiles, with USB timing compiled by default.
 [Build from source](../../docs/t096/build.md) with pinned public dependencies
 and ignored local enrollment. No enrolled binary is distributed.
+
+Version154 extends that first-disconnect snapshot with current controller/LLCP
+scalars under the same short native IRQ fence. Three fault-only journal records
+report handle matching, local procedure/state, PRT and expiry counters. No SDK
+patch, reference change, periodic probe, queue or static storage is added.
+A current handle is not a controller incarnation; an inactive slot cannot prove
+HCI-buffer blockage. Timer, pairing and radio behavior remain frozen.
 
 Version153 adds a fault-only internal host snapshot at the existing first
 unretired-disconnect timeout. Host state and TX/deferred work flags occupy
