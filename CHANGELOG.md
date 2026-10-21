@@ -12,6 +12,9 @@ no stored state, timer, queue or buffer is added. Actual-production host checks
 cover a fixed delivery burst, expiry/source boundaries, grant/replay fences and
 clock-rate corners. This isolates a software failure; native RF durability and
 the separate controller preparation assertion remain unqualified.
+An additional native143 observation reproduced that controller assertion and
+captured the subsequent automatic watchdog restart. The controller trigger and
+a general reset-latency bound remain unresolved.
 
 ## 20 October 2026 — T0960.15.142 same-epoch candidate requalification
 
