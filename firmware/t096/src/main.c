@@ -486,8 +486,10 @@ int main(void)
     struct r2_clock local_clock;r2_time_copy(&local_clock);r2_service_clock(&local_clock);
     struct r2_service_status service;r2_service_snapshot(&service);
     r2_timing_sample(&service,now);
-    r2_timing_console(identity.boot,now);
 #ifdef R2_CONTROLLER_DIAGNOSTICS
+    /* Ordinary images retain the journal and explicit queries without the
+     * unsolicited formatter/USB stream. Watchdog observation stays independent. */
+    r2_timing_console(identity.boot,now);
     r2_controller_diag_console(identity.boot,now);
 #endif
 #ifdef R2_RC_PROFILE

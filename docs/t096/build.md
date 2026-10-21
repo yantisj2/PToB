@@ -417,3 +417,10 @@ CC=clang python3 firmware/t096/tools/controller_diag_tests.py --deps artifacts/d
 CC=clang python3 firmware/t096/tools/gm_drain_tests.py --deps artifacts/deps --out artifacts/check-gm-retirement
 CC=clang python3 firmware/t096/tools/health_tests.py --out artifacts/check-health-capsules
 ```
+
+Version150 ordinary GM/RC builds also omit the unsolicited timing console stream.
+The existing `--controller-diagnostics` option enables both timing and controller
+streams. Explicit timing queries, the bounded journal and watchdog remain active
+in ordinary builds. Compare exact ordinary and diagnostic images under the same
+placement, roles and bounded observation cadence before attributing any failure
+to diagnostic load; host and native checks alone do not measure that effect.

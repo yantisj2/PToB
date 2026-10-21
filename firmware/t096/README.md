@@ -5,10 +5,17 @@
 *Illustrative firmware-rendered RC screen; displayed values are not measured
 performance. [Image provenance](../../docs/images/README.md).*
 
-**PToB owns T096 RC7 development.** Current source version **0.15.149** supplies the
+**PToB owns T096 RC7 development.** Current source version **0.15.150** supplies the
 ordinary **GM** and **RC** mesh profiles, with USB timing compiled by default.
 [Build from source](../../docs/t096/build.md) with pinned public dependencies
 and ignored local enrollment. No enrolled binary is distributed.
+
+Version150 keeps unsolicited timing and controller console streams in explicit
+controller-diagnostic builds only. Ordinary images retain the bounded timing
+journal, explicit queries and independent watchdog/fault capture. This reduces
+formatting and USB work without changing protocol, source or ownership bounds.
+The149 physical run failed with an unretired incoming connection; this diagnostic
+reduction is not a demonstrated fix or proof that diagnostics caused the failure.
 
 Version149 unifies G5 management freshness, READY, contact, acquisition and repair
 around one45s control budget. The original90s successor grant is conditional:
