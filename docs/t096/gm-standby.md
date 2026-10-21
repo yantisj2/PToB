@@ -1,5 +1,13 @@
 # T096 G5 ACTIVE, HOT and COLD
 
+Version157 orders force before age within the existing ticker class. A queued
+connection restart could otherwise cause two competing ACL reservations to defer
+to each other indefinitely. The focused actual-body regression reproduces this
+under oversubscribed DLE reservations; it proves sampled callback progress, not
+field causation or universal fairness. Cross-class precision precedence, timers,
+pairing, RF configuration and source156 diagnostics remain unchanged. Native and
+field qualification are separate gates.
+
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
 Version0.15.134 introduces G5 coordination for the ordinary GM profile; current

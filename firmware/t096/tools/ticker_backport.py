@@ -37,6 +37,11 @@ def generate(deps,out,fault_diagnostics=False):
             }
 #endif
 '''+needle)
+            # Force must precede age within a class: otherwise a forced young
+            # node yields to an older peer which then yields back to its force.
+            age='(next_has_priority && !current_is_older)'
+            assert fixed.count(age)==1
+            fixed=fixed.replace(age, '(equal_force && next_has_priority && !current_is_older)')
             # Use a distinct queued operation field, initialized by ALL normal
             # update calls. It fits within the existing start-operation union.
             fixed=fixed.replace('struct ticker_user_op_update {',

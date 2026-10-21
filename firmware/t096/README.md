@@ -5,10 +5,18 @@
 *Illustrative firmware-rendered RC screen; displayed values are not measured
 performance. [Image provenance](../../docs/images/README.md).*
 
-**PToB owns T096 RC7 development.** Current source version **0.15.156** supplies the
+**PToB owns T096 RC7 development.** Current source version **0.15.157** supplies the
 ordinary **GM** and **RC** mesh profiles, with USB timing compiled by default.
 [Build from source](../../docs/t096/build.md) with pinned public dependencies
 and ignored local enrollment. No enrolled binary is distributed.
+
+Version157 orders force before age within the existing ticker class. A queued
+connection restart could otherwise cause two competing ACL reservations to defer
+to each other indefinitely. The focused actual-body regression reproduces this
+under oversubscribed DLE reservations; it proves sampled callback progress, not
+field causation or universal fairness. Cross-class precision precedence, timers,
+pairing, RF configuration and source156 diagnostics remain unchanged. Native and
+field qualification are separate gates.
 
 Version156 reuses the existing prepare-FIFO observer only when enqueue fails.
 Normal native GM/RC images retain the failed owner and seven queued owners/flags,

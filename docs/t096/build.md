@@ -1,5 +1,18 @@
 # Build T096 RC7
 
+Version157 orders force before age within the existing ticker class. A queued
+connection restart could otherwise cause two competing ACL reservations to defer
+to each other indefinitely. The focused actual-body regression reproduces this
+under oversubscribed DLE reservations; it proves sampled callback progress, not
+field causation or universal fairness. Cross-class precision precedence, timers,
+pairing, RF configuration and source156 diagnostics remain unchanged. Native and
+field qualification are separate gates.
+Run the focused portable regression with
+`python3 firmware/t096/tools/ticker_fairness_tests.py --deps artifacts/deps --out artifacts/ticker-fairness`.
+It extracts queued production bodies from the pinned dependency; counter/compare
+HAL, mayfly delivery and LLCP/LLL completion remain explicit fake boundaries.
+The ordinary `tools/test.py` suite includes it.
+
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
 The common mesh image has two profiles: **GM** and **RC**. The separate,
