@@ -369,6 +369,50 @@ less than one second apart. The standby reported HOT in 12/89 samples of the nex
 delivered BLE map remained locked. That brief recovery does not establish pair
 durability; missing ACTIVE-reader cohorts are not filled by the separate check.
 
+Continued version152 observation produced six separately bound terminal
+CONTROL-service recoveries with errno `-116`. Three complete event tails show an
+accepted disconnect request, no outstanding transport TX, and no application
+disconnect completion by negotiated supervision plus the original5s allowance.
+One occurred with the local source qualified throughout; source withdrawal is
+therefore not necessary for this failure. A seventh recovery has a different
+cause: retained kernel-OOPS evidence and the exact image identify the controller
+`ticker_update_latency_cancel_op_cb` SUCCESS assertion. The original callback
+status is unavailable. These populations must not be combined into one cause.
+
+Version153 adds a first-fault host-state/work snapshot without changing timers,
+pairing or radio policy. All four images passed native and host checks and
+received one application write plus actual startup source/build/default checks.
+Its first600s capture attempted91 cohorts,15 complete. An operator reset and a
+terminal GM failure account for separate reader gaps. Two subsequent complete
+GM failure tails show accepted disconnect requests and expiration of the
+original5.5s budget:500ms negotiated supervision plus5s. At expiry the host was
+still internally DISCONNECTING, with no queued TX or deferred-cleanup work. The
+watchdog recovered both failures. This places the observed stall before priority
+disconnect completion, but does not distinguish controller retirement from
+integrated HCI delivery. A separate LoRa-start error also recovered through the
+watchdog; its exact resource-initialization subcall remains unknown.
+
+Better GNSS placement restored source qualification and episodic HOT, but did
+not restore durability. A frozen source153 snapshot contains229 asynchronous
+GM samples across four capture segments. Every sample has physical eligibility
+and network error0; each device's source epoch and GNSS fault count remain
+unchanged. Nevertheless, the ACTIVE GM lacks confirmed HOT in25/99 samples of
+one completed segment, with57 counted withdrawals. The standby changes roles
+and also counts withdrawals. These are separate device populations with capture
+gaps, not229 simultaneous pair checks. Positive polls cannot establish continuity
+between polls. Withdrawal masks identify coordination freshness/binding and
+readiness/synchronization predicates; they do not identify the initiating loss.
+
+The offline gap is now explicit. The coarse COLD model omits the configured
+LoRa-transmitter bridge workload. Stock controller termination tests omit the
+production connection-event PRT/supervision progression and execute no queued
+mayfly callbacks. Expanded production-body tests demonstrate that prescribed
+control-node exhaustion can delay termination until a node is released, and
+that a prescribed ticker stop/update failure reaches the actual assertion.
+Both are conditional reproductions; field pool occupancy and the initiating
+ticker ordering remain unproved. No timer widening, ignored error or controller
+workaround follows from them.
+
 The remaining work has separate causes and evidence requirements. First retain
 a stable two-GM pair with the third GM remaining COLD; only then exercise newcomer
 and four-device admission, keeping the ordinary RC in its RC profile:

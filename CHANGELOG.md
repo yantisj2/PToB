@@ -2,6 +2,17 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 21 October 2026 — T096 0.15.153 disconnect failure isolation
+
+Add a fault-only host state and work snapshot at the first unretired-disconnect
+error. Timer, pairing and radio behavior remain frozen. All four native images
+and the host suite pass; actual startup checks confirm installation. Two GM
+failures remained DISCONNECTING at the original negotiated deadline and recovered
+through the watchdog. Source-qualified HOT still drops and reforms. Document
+the separate controller assertion, source-independent withdrawal observations
+and controller/workload modeling gaps without treating conditional reproductions
+as field root causes or accepting durable HOT.
+
 ## 21 October 2026 — T096 0.15.152 retained failure classification
 
 The existing CONTROL watchdog capsule now records which accepted failure
