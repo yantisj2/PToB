@@ -191,6 +191,43 @@ static void control_capsule_detail_cases(void){
  restart_error=-EIO;capsule(WD_RECOVERY_FAILED,7);assert((int32_t)r2_watchdog_capsule[32]==-EIO);
  puts("PASS CONTROL capsule: masks/combinations/phases, signed error, accepted mailbox race, sequence rejection, CRC and unchanged other reasons");
 }
+static void host_detail_cases(void){
+ /* Current fault/profile gates, all compact detail values, accepted snapshot. */
+ for(unsigned detail=0;detail<65536;detail+=8){
+  clear_runtime();r2_watchdog_enable(true);advance(40000);
+  struct r2_service_status s={.active=true,.at=40000000,.error=-ETIMEDOUT,
+   .transport_fault={.error=-ETIMEDOUT,.operation=3,.host_detail=(uint16_t)(detail|7)}};
+  r2_watchdog_observe(&s,true);
+  assert((uint32_t)report_worker_stalled==(((uint32_t)(uint16_t)-ETIMEDOUT<<16)|2u|detail));
+ }
+ for(unsigned gate=0;gate<5;gate++){
+  clear_runtime();r2_watchdog_enable(true);advance(100);
+  struct r2_service_status s={.active=true,.at=100000,.error=-ETIMEDOUT,
+   .transport_fault={.error=-ETIMEDOUT,.operation=3,.host_detail=0xfff8}};
+  if(gate==0)s.profile_rc=true;
+  if(gate==1)s.error=-EIO;
+  if(gate==2)s.transport_fault.error=-EIO;
+  if(gate==3)s.transport_fault.operation=4;
+  if(gate==4)s.error=0;
+  r2_watchdog_observe(&s,true);assert(((uint32_t)report_worker_stalled&0xfff8)==0);
+ }
+ clear_runtime();r2_watchdog_enable(true);advance(100);
+ struct r2_service_status s={.active=true,.at=100000,.error=-ETIMEDOUT,
+  .transport_fault={.error=-ETIMEDOUT,.operation=3,.host_detail=0xa5d8}};
+ r2_watchdog_observe(&s,true);s.transport_fault.host_detail=0;
+ on_atomic_get=replace_accepted_report;assert(!step_at(100));
+ assert(!report_worker_stalled&&r2_watchdog_capsule[32]==(((uint32_t)(uint16_t)-ETIMEDOUT<<16)|0xa5dau)&&previous_bound(&id));
+ /* Diagnostic bits by themselves never satisfy the low-three predicate. */
+ clear_runtime();r2_watchdog_enable(true);advance(100);
+ s=(struct r2_service_status){.active=true,.at=100000};r2_watchdog_observe(&s,true);
+ report_worker_stalled=(atomic_val_t)0x8000fff8u;assert(step_at(100)&&!reset_reason);
+ const int errors[]={-32768,-116,-5,-1,0,1,32767};
+ for(unsigned i=0;i<sizeof(errors)/sizeof(errors[0]);i++)for(unsigned mask=0;mask<8;mask++){
+  uint32_t value=((uint32_t)(uint16_t)errors[i]<<16)|0xfff8u|mask;
+  capsule(WD_RC_WORKER_STALL,value);assert(r2_watchdog_capsule[32]==value&&r2_watchdog_capsule[33]==crc(r2_watchdog_capsule));
+ }
+ puts("PASS host detail8192values/currentfault/profile gates; accepted-mailbox race; diagnostic-only bits never reset; signed capsule packing");
+}
 int main(int argc,char **argv)
 {
  cleanup_recovery_budget();
@@ -409,5 +446,6 @@ int main(int argc,char **argv)
 #endif
  owner_failure_cases();
  control_capsule_detail_cases();
+ host_detail_cases();
  puts("PASS production watchdog: GM20/RC30, intermittent progress vs sustained retry reset, initial+3 retries, wrap, stale snapshots, cancellation, recovery, core/fatal, CRC bindings, deadline/refusal/UF2 continuation; hardware timing remains UNKNOWN");
 }

@@ -432,3 +432,9 @@ expiry instead of an additional500ms queue-age gate. Ordinary RC, HELLO, source
 and precision checks remain unchanged. Public tests include delayed callbacks,
 queue work, original expiry and reference retention; physical radio fairness
 and sustained HOT durability still require field checks.
+
+Version153 normal native GM/RC images include a fault-only host-retirement
+snapshot; the verbose `--controller-diagnostics` mode is unnecessary for it.
+It uses existing fault-record padding and existing watchdog word32 bits.
+Native resource checks and authorized exact-device observations remain required;
+this diagnostic does not correct or qualify HOT durability.

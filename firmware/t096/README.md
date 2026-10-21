@@ -5,10 +5,17 @@
 *Illustrative firmware-rendered RC screen; displayed values are not measured
 performance. [Image provenance](../../docs/images/README.md).*
 
-**PToB owns T096 RC7 development.** Current source version **0.15.152** supplies the
+**PToB owns T096 RC7 development.** Current source version **0.15.153** supplies the
 ordinary **GM** and **RC** mesh profiles, with USB timing compiled by default.
 [Build from source](../../docs/t096/build.md) with pinned public dependencies
 and ignored local enrollment. No enrolled binary is distributed.
+
+Version153 adds a fault-only internal host snapshot at the existing first
+unretired-disconnect timeout. Host state and TX/deferred work flags occupy
+existing fault-record padding and unused watchdog detail bits; no timer,
+pairing, radio rule, storage capacity or console cadence changes. These separate
+samples narrow the stalled boundary without proving its cause. Durable physical
+HOT remains unqualified. See [snapshot decoding](../../docs/t096/diagnostics.md#disconnect-host-snapshot-source153).
 
 Version152 records the accepted CONTROL failure subtype and service error in the
 existing watchdog capsule, without changing reset behavior, deadlines or storage.

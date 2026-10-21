@@ -7,6 +7,7 @@
 #include "gm_standby.h"
 #include "timing_events.h"
 #include "initiator_diag.h"
+#include "disconnect_diag.h"
 #if defined(R2_SWITCHABLE_FIELD)
 #include "ble_service.h"
 #endif
@@ -150,12 +151,14 @@ void r2_ble_public_client(unsigned peer){public_client=peer<nodes?peer:PEERS;}
 static atomic_t drop_count,rx_count,error_count;
 static struct r2_transport_fault first_fault;
 static uint64_t now_us(void);
-static void transport_error(int error,const char *operation,unsigned peer){
+static bool transport_error(int error,const char *operation,unsigned peer){
  atomic_inc(&error_count);
- if(!first_fault.operation)first_fault=(struct r2_transport_fault){.at=now_us(),.error=error,.peer=peer,.operation=!strcmp(operation,"MTU")?1:!strcmp(operation,"DISCOVER")?2:!strcmp(operation,"SCAN_START")?4:!strcmp(operation,"ADV_UPDATE")?5:!strcmp(operation,"SCAN_STOP")?6:3};
+ bool first=!first_fault.operation;
+ if(first)first_fault=(struct r2_transport_fault){.at=now_us(),.error=error,.peer=peer,.operation=!strcmp(operation,"MTU")?1:!strcmp(operation,"DISCOVER")?2:!strcmp(operation,"SCAN_START")?4:!strcmp(operation,"ADV_UPDATE")?5:!strcmp(operation,"SCAN_STOP")?6:3};
 #if defined(R2_SERVICE_CLIENTS)
  printk("R2_CLIENT_TRANSPORT_ERROR operation=%s error=%d peer=%u\n",operation,error,peer);
 #endif
+ return first;
 }
 /* A transient refusal retains scan ownership. G5 core/client use the existing
  * callback-retirement budget from the FIRST refusal; legacy core keeps500ms.
@@ -771,7 +774,12 @@ static void poll_owned(uint64_t now)
      * path resets it. The first request/callback owns this unextended budget. */
     if(p->disconnect_requested&&p->conn&&p->connect_until&&now>=p->connect_until&&
        (!atomic_get(&p->dead)||atomic_get(&p->tx_busy)||gatt_pending(i))&&!stop_error){
-     stop_error=-ETIMEDOUT;transport_error(stop_error,"DISCONNECT",i);
+     /* Sample only this existing first terminal, with its retained host ref.
+      * An earlier unrelated first fault stays untouched. No application lock
+      * is held while the nonwaiting work getters take their kernel lock. */
+     uint16_t host_detail=first_fault.operation?0:r2_disconnect_snapshot(p->conn,p->identity,p->incarnation);
+     stop_error=-ETIMEDOUT;
+     if(transport_error(stop_error,"DISCONNECT",i))first_fault.host_detail=host_detail;
      r2_timing_event(R2_TIMING_GM_CONTROL,stop_error,p->identity,22,p->incarnation,(uint32_t)atomic_get(&p->tx_busy));
     }
     if(gatt_pending(i))continue; /* never mutate an outstanding call's params */

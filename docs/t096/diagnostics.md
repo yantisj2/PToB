@@ -1049,7 +1049,7 @@ or periodic records are introduced.
 
 ## CONTROL watchdog detail (source152)
 
-For source152 and later, watchdog reason5 word32 describes the accepted CONTROL
+For source152, watchdog reason5 word32 describes the accepted CONTROL
 mailbox: low bits1/2/4 mean stale publication / nonzero service error / expired
 incomplete close. Multiple bits may be set. Bits16..31 contain the signed16-bit
 service errno; bits3..15 are zero. Decode the error by sign-extending the upper16
@@ -1068,3 +1068,37 @@ quiescence, event limits and asynchronous saving can omit the terminal edge.
 Production-body host tests cover predicate combinations, lifecycle phases,
 sequence rejection, producer replacement during capsule fill, signed errno and
 CRC. Native resource checks and physical reset behavior require separate evidence.
+
+## Disconnect host snapshot (source153)
+
+Source153 retains the same reason5 low-three failure predicates and signed errno
+in word32 bits16–31. A normal GM backend's matching first disconnect-retirement
+error may also supply these diagnostic fields:
+
+| Bits | Observation |
+| --- | --- |
+| 3–5 | Host state:0 unavailable,1 CONNECTED,2 DISCONNECTING,3 DISCONNECT_COMPLETE,4 DISCONNECTED,5 other |
+| 6–10 | TX-completion work busy mask |
+| 11–15 | Deferred work busy mask |
+
+Work mask bits are1 running,2 canceling,4 queued,8 delayed,16 flushing, from the
+pinned native SDK. The state and two work masks are separate, nontransactional
+samples of the host object still held by the original application reference.
+DISCONNECT_COMPLETE shows that priority disconnect delivery reached host state.
+DISCONNECTED is written before TX flush and deferred L2CAP cleanup, so it does
+not establish callback completion. Deferred work also serves other connection
+tasks; a busy flag alone does not identify its branch. DISCONNECTING cannot
+separate controller delay from HCI event-buffer backpressure.
+
+Timing kind32/detail25 records raw native state in `result`, application
+incarnation in `a`, and handle in `b` bits0–15, TX mask16–20 and deferred mask21–25.
+Existing detail19 API return and detail22 terminal record remain unchanged. A
+prior first fault makes this snapshot unavailable; it is never replaced by a
+later close. The compact fields reuse padding in the existing40-byte fault
+record, then follow the service snapshot and accepted watchdog mailbox before
+CRC. No controller call, recurring probe, SDK patch, new queue or fault-record
+capacity is added. Diagnostic bits never participate in the reset predicate.
+
+Decode against the exact source and build binding: source151 word32 was a
+restart error; source152 used only predicates and errno; source153 adds these
+observations. A missing snapshot is not evidence that the controller progressed.

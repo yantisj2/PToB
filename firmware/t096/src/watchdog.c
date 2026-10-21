@@ -143,6 +143,10 @@ void r2_watchdog_observe(const struct r2_service_status *s,bool allowed)
  if(s->closing&&!s->closed&&s->close_deadline&&now>=s->close_deadline)stalled|=4u;
  /* Preserve the failure predicates; pack detail in the existing atomic. */
  stalled|=(uint32_t)(uint16_t)s->error<<16;
+ /* Source153: copy only the matching normal-backend first retirement detail
+  * into the accepted mailbox. Diagnostic bits never participate in reset. */
+ if(!s->profile_rc&&s->error==-ETIMEDOUT&&s->transport_fault.error==s->error&&s->transport_fault.operation==3)
+  stalled|=s->transport_fault.host_detail&UINT32_C(0xfff8);
  atomic_inc(&sequence);
  atomic_set(&report_at,(atomic_val_t)k_uptime_get_32());atomic_set(&report_rc,s->profile_rc);
  /* Bit1 is a legitimate coordinated operating mode, NOT qualified time.

@@ -2,6 +2,7 @@
 #pragma once
 #include <stdbool.h>
 #include <stdint.h>
+#include <stddef.h>
 #include "authority_codec.h"
 #include "group_control.h"
 struct r2_ble_event {uint64_t at;uint32_t incarnation;uint8_t peer;uint16_t length;uint8_t data[R2_GROUP_CONTROL_MAX];};
@@ -112,7 +113,10 @@ int r2_ble_owner_bind(struct k_thread *owner);
  * Public GATT calls execute on syswork and return synchronously to this owner. */
 void r2_ble_owner_deadline(uint64_t until);
 struct r2_transport_fault {uint64_t at;int error;unsigned peer,operation;
- uint32_t bridge_calls,bridge_queue_max_us,bridge_call_max_us,bridge_timeouts;bool bridge_pending;};
+ uint32_t bridge_calls,bridge_queue_max_us,bridge_call_max_us,bridge_timeouts;bool bridge_pending;
+ /* Existing tail padding: source153 first-retirement host/work snapshot. */
+ uint16_t host_detail;};
+_Static_assert(sizeof(struct r2_transport_fault)==40&&offsetof(struct r2_transport_fault,host_detail)==38,"Preserve existing fault storage");
 void r2_ble_fault_snapshot(struct r2_transport_fault *out);
 /* Diagnostic-only fixed vector, source/boot bound by the existing JOIN reply.
  * No controller calls or authority. Schema layout is documented with the build. */
