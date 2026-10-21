@@ -12,6 +12,8 @@ and same-epoch ACTIVE claims stay rejected; actual causal HELLO still gates its
 retirement. Inventory can nominate, but supplies no map, HOT, takeover or grant.
 No timer, state, slot, reserve or wire change. Production-code regression covers
 source dwell, causal JOIN/STATUS/HELLO and retained replay/authority fences.
+The separately observed native controller preparation assertion remains open;
+watchdog restart was observed, but its cause and reset latency are unresolved.
 
 ## 20 October 2026 — T0960.15.141 unified G5 ownership and dispatch
 

@@ -250,6 +250,10 @@ The remaining work has separate causes and evidence requirements:
 - Measure eventual recovery from an injected owner stall or terminal drain fault.
   Production watchdog checks pass; physical reset latency remains unmeasured.
   Healthy COLD operation and absent GPS/RF alone must not request a reset.
+- Keep the observed native controller preparation assertion open. Retained
+  failure evidence shows an assertion followed by a watchdog reset; its initial
+  cause and reset latency remain unresolved. The candidate requalification fix
+  and passing host tests do not establish a repair for that controller failure.
 
 The next authorized test round should first establish one ACTIVE and one
 confirmed HOT with a third capable clock COLD, retaining source faults, NO HOT
