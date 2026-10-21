@@ -20,6 +20,11 @@ try:
  stages.append('compile_simulator_and_fences')
  with (out/'fences.run.log').open('x')as log:subprocess.run([str(out/'fences')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
  stages.append('fences')
+ owner_units=[x for x in units if x.name not in ('gm_standby_test.c','network.c')]+[app/'tests/gm_standby_owner_test.c']
+ with (out/'owner.compile.log').open('x')as log:subprocess.run(cmd[:cmd.index(str(units[0]))]+list(map(str,owner_units))+['-o',str(out/'owner')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=60)
+ for period in [100000,125000,150000,175000,200000,250000,0]:
+  with (out/f'owner-{period}.log').open('x')as log:subprocess.run([str(out/'owner'),str(period)],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
+ stages.append('paired_owner_RX2_FIFO32_seven_delayed_and_explicit_burst_cases')
  for name in ['kernel.h','sys/atomic.h','random/random.h','bluetooth/bluetooth.h','bluetooth/conn.h','bluetooth/gatt.h']:
   h=out/'zephyr'/name;h.parent.mkdir(parents=True,exist_ok=True);h.write_text('/* Fake public controller boundary. */\n')
  transport_units=[app/'tests/gm_standby_transport_test.c',*[x for x in units if x.name not in ('gm_standby_test.c','radio_precision.c')]]
@@ -47,7 +52,7 @@ try:
  passed=True
 finally:
  unchanged=frozen==source_map()and all(hashlib.sha256((app.parents[1]/x).read_bytes()).hexdigest()==digest for x,digest in supporting.items())
- sources=set(units+[app/'tests/gm_standby_fence_test.c',app/'tests/gm_standby_transport_test.c',app/'src/group_admission.c',app/'protocol/ble_transport.c',app/'protocol/gm_standby.inc',app/'protocol/gm_standby.h',app/'protocol/network.h'])
+ sources=set(units+[app/'tests/gm_standby_owner_test.c',app/'tests/gm_standby_fence_test.c',app/'tests/gm_standby_transport_test.c',app/'src/group_admission.c',app/'protocol/ble_transport.c',app/'protocol/gm_standby.inc',app/'protocol/gm_standby.h',app/'protocol/network.h'])
  (out/'receipt.json').write_text(json.dumps(dict(passed=passed and unchanged,source_unchanged=unchanged,source_sha256=source_sha,source_files=frozen,supporting_files=supporting,elapsed_s=time.monotonic()-started,hardware=False,production_control_slots=2,stages_completed=stages,expected_cases=len(cases)+5 if'cases'in globals()else None,results=results,command=cmd,sources={str(x):hashlib.sha256(x.read_bytes()).hexdigest()for x in sources}),indent=2)+'\n')
 if not unchanged:raise RuntimeError('T096 source changed during run; receipt not accepted')
 print('PASS G5 production owner, causal JOIN and physical-tuple precision; no hardware')

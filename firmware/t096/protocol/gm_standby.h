@@ -11,6 +11,8 @@
 #define R2_GM5_ACQUIRE_US UINT64_C(45000000)
 #define R2_GM5_STABLE_US UINT64_C(5000000)
 #define R2_GM5_COORDINATION_US UINT64_C(5000000)
+#define R2_GM5_PROBE_US (R2_GM5_COORDINATION_US / 10)
+#define R2_GM5_RECORD_US (2 * R2_GM5_PROBE_US)
 /* Finite per-generation grant funds coordination silence plus takeover fence.
  * Fifteen seconds fits between renewal age+silence+takeover (2+5+3s)
  * and repair closure+silence+takeover (10+5+3s). Independent source/PT/

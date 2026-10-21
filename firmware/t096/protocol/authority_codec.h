@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 #pragma once
 #include <stddef.h>
+#include <stdbool.h>
 #include <stdint.h>
 
 #define R2_AUTH_BYTES 154u
@@ -40,8 +41,9 @@ int r2_auth_decode(struct r2_auth_record *record,
 #define R2_AUTH_READY 12u
 #define R2_AUTH_COMMIT 13u
 
-/* Internal parser: caller MUST verify a versioned MAC over the complete body. */
-int r2_auth_parse_authenticated(struct r2_auth_record *,const uint8_t *wire);
+/* Internal parser: caller MUST verify a versioned MAC over the complete body.
+ * gm5 is true only for outer19/domain5; legacy codecs retain250ms. */
+int r2_auth_parse_authenticated(struct r2_auth_record *,const uint8_t *wire,bool gm5);
 
 /* Body serializer; caller must authenticate the complete outer record. */
-int r2_auth_encode_body(uint8_t out[R2_AUTH_BYTES],const struct r2_auth_record *);
+int r2_auth_encode_body(uint8_t out[R2_AUTH_BYTES],const struct r2_auth_record *,bool gm5);

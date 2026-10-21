@@ -153,7 +153,8 @@ static void hello_source_refresh_tests(void)
   n.peer[1].next_hello=n.now+owner;n.peer[1].next_service=n.peer[1].next_management=n.now+1000000;
   struct r2_clock source={0};source.view.source_available=true;source.view.source_epoch=1;
   source.last_pair_edge=source.last_rmc=n.now;source.last_pair_utc=INT64_C(1791417600000000);
-  uint64_t at=n.now;r2_network_tick(&n,&source,at);
+  uint64_t at=n.now,service_due=n.peer[1].next_service;r2_network_tick(&n,&source,at);
+  assert(n.peer[1].next_service==service_due); /* New PPS cannot overwrite live issued history. */
   uint8_t peer,wire[R2_GROUP_CONTROL_MAX];bool hello=false;
   assert(r2_network_next_ready(&n,2,&peer,wire,&hello)&&peer==1&&hello);
   struct r2_auth_record record;char name[25];uint8_t caps;
@@ -227,7 +228,7 @@ static void late_map_acquire_tests(void)
    if(elapsed%10000==0&&a.gm5.selected){late_map_wire(&a,&b,sent);late_map_wire(&b,&a,sent);}
    if(a.gm5.attempt_until)assert(a.gm5.attempt_until==deadline);
    if(a.hot_ready&&b.hot_ready){first_hot=elapsed;break;}
-   if(mode!=1&&elapsed>=31000000)break;
+   if(mode!=1&&elapsed>=32000000)break;
   }
   if(mode==1){assert(!first_hot&&!a.gm5.selected&&a.gm5.failures==1);assert(!b.hot_ready&&!b.standby_authorized);continue;}
   assert(first_hot>=25643000+R2_GM5_STABLE_US&&first_hot<32000000);
@@ -389,7 +390,7 @@ static void dispatcher_tests(void)
   struct r2_auth_record request={.decision=1,.source_epoch=1,.sequence=1,.coordinator_boot=n.coordinator_boot};
   response(&n,1,&request,R2_AUTH_ACK,n.now+100000);
   uint64_t expiry=n.peer[1].response.expires_us;assert(expiry==n.now+100000);
-  n.next_peer=1;n.now=expiry+boundary;n.peer[1].seen=n.peer[1].alive=n.now;
+  n.next_peer=0;n.now=expiry+boundary;n.peer[1].seen=n.peer[1].alive=n.now;
   uint8_t p,w[R2_GROUP_CONTROL_MAX];bool h;
   assert(r2_network_next_ready(&n,2,&p,w,&h));
   struct r2_auth_record r;char name[25];uint8_t caps;
@@ -409,7 +410,7 @@ static void dispatcher_tests(void)
  n.now=lease;n.peer[1].seen=n.peer[1].alive=n.now;n.peer[1].candidate_until=n.now+1500000;
  n.candidate.valid_until_us=n.view.valid_until_us=n.service_until=n.now+1500000;
  gm5_tick(&n,true,n.now,NULL);assert(!n.hot_ready&&n.gm5.role==R2_GM5_ACQUIRING&&n.gm5.attempt_until==n.now+R2_GM5_REPAIR_US);
- puts("PASS original response expiry -1/at/+1, urgency preserves ordinary turn; stalled submissions cannot advance cursor/leases and original management expiry withdraws HOT");
+ puts("PASS original response expiry -1/at/+1, fair response selection preserves the next class; stalled submissions cannot advance cursor/leases and original management expiry withdraws HOT");
 }
 static void recovery_join(struct r2_network *a,struct r2_network *b,uint64_t at,
                         struct r2_join_exchange *c,struct r2_join_exchange *s)
@@ -504,9 +505,70 @@ static void same_epoch_requalification_tests(void)
  assert(!a.hot_ready&&!b.hot_ready&&!a.standby_authorized&&!b.standby_authorized&&!a.gm5.grant_until&&!b.gm5.grant_until);
  puts("PASS sameepoch60s requalification: newer COLD inventory permits nomination; old/equal/ACTIVE claims remain fenced, STATUS retains withdrawal, causal JOIN/HELLO gates map, no HOT/grant fabricated");
 }
+static void record_budget_tests(void)
+{
+ /* MAC-correct overlong records must fail in their own envelope, not merely
+  * because a G5 frame was presented to a legacy decoder. */
+ for(unsigned gm5=0;gm5<2;gm5++)for(int edge=-1;edge<=1;edge++){
+  struct r2_network n=base(false);struct r2_auth_record r=control(&n,R2_AUTH_COMMIT,n.now),decoded;
+  uint64_t ttl=gm5?R2_GM5_RECORD_US:R2_AUTH_ORIGINAL_TTL_US;
+  uint64_t ids[4]={100,200,0,0};uint8_t wire[R2_GROUP_CONTROL_MAX],caps;char name[25];
+  r.expires_us=r.created_us+ttl+edge;
+  int encoded=gm5?r2_group_control_encode5(wire,&r,&n.group,ids,"Sender",3):r2_group_control_encode(wire,&r,&n.group,ids,"Sender",3);
+  assert((encoded==0)==(edge<=0));
+  r.expires_us=r.created_us+ttl;assert(!(gm5?r2_group_control_encode5(wire,&r,&n.group,ids,"Sender",3):r2_group_control_encode(wire,&r,&n.group,ids,"Sender",3)));
+  r2_group_put(wire+81,r.created_us+ttl+edge,8);size_t len=r2_control_wire_size(wire);
+  assert(!r2_group_mac(wire+len-16,&n.group,gm5?"PTOBG5C5":"PTOBG1C1",wire,len-16));
+  int rc=gm5?r2_group_control_decode5(&decoded,wire,len,&n.group,ids,200,name,&caps,NULL):r2_group_control_decode(&decoded,wire,len,&n.group,ids,200,name,&caps);
+  assert((rc==0)==(edge<=0));
+  if(gm5)assert(r2_group_control_decode(&decoded,wire,len,&n.group,ids,200,name,&caps));
+  else assert(r2_group_control_decode5(&decoded,wire,len,&n.group,ids,200,name,&caps,NULL));
+  uint8_t key[16]={1};r.expires_us=r.created_us+250000+edge;
+  assert((r2_auth_encode(wire,&r,key)==0)==(edge<=0));
+ }
+ /* Mapped original1s record boundary and response clipping remain immutable. */
+ for(int edge=-1;edge<=1;edge++){
+  struct r2_network n=field_base();struct r2_auth_record r=control(&n,R2_AUTH_COMMIT,n.now);
+  r.expires_us=r.created_us+R2_GM5_RECORD_US;
+  uint64_t expiry=r.expires_us-10000-map_drift(&n.peer[1],r.expires_us,r.created_us);
+  int rc=deliver(&n,&r,expiry+edge);
+  if(edge<0){assert(!rc&&n.peer[1].response.expires_us==expiry);assert(deliver(&n,&r,expiry-1)==-ESTALE);}
+  else assert(rc==-ESTALE&&!n.gm5.grant_until);
+ }
+ puts("PASS MAC-correct legacy250ms/G5 1s codec -1/at/+1 and cross-domain refusal; mapped1s expiry/response clip/replay boundaries");
+}
+static void issued_history_tests(void)
+{
+ _Static_assert(R2_ISSUED_RECORDS==4,"exercise actual native history capacity");
+ for(int edge=-1;edge<=1;edge++){
+  struct r2_network n=base(true);n.peer[1].own_nonce=31;n.peer[1].nonce=41;
+  uint64_t start=n.now,expiry=start+R2_GM5_RECORD_US;
+  for(unsigned i=0;i<2;i++){
+   n.now=start+i*R2_GM5_PROBE_US;struct r2_auth_record r=record(&n,1,R2_AUTH_SERVICE);
+   r.sequence=i+1;r.decision=n.publication;r.permit_until_us=n.service_until;
+   uint8_t w[R2_GROUP_CONTROL_MAX];assert(!encode_control(&n,w,&r,n.peer[1].tx_key));r2_network_sent(&n,false,1,w);
+   assert(n.peer[1].next_service==n.now+R2_GM5_PROBE_US);
+  }
+  n.peer[1].offset_low=n.peer[1].offset_high=0;n.peer[1].map_anchor=start;
+  struct r2_auth_record ack=control(&n,R2_AUTH_ACK,expiry+edge-1000);
+  ack.root=0;ack.root_boot=ack.coordinator_boot=10;ack.decision=n.publication;ack.source_second=1;
+  int rc=deliver(&n,&ack,expiry+edge);
+  assert((rc==0)==(edge<0));if(edge<0)assert(n.peer[1].acked_permit==start+1500000);
+ }
+ struct r2_network n=base(true);n.peer[1].nonce=41;uint64_t start=n.now;
+ for(unsigned i=0;i<6;i++){
+  n.now=start+i*R2_GM5_PROBE_US;struct r2_auth_record r=record(&n,1,R2_AUTH_SERVICE);r.sequence=i+1;r.decision=1;
+  uint8_t w[R2_GROUP_CONTROL_MAX];assert(!encode_control(&n,w,&r,n.peer[1].tx_key));
+  unsigned slot=n.peer[1].issued_head%R2_ISSUED_RECORDS;
+  assert(!n.peer[1].issued[slot].sequence||n.peer[1].issued[slot].expiry<=n.now);
+  r2_network_sent(&n,false,1,w);
+ }
+ puts("PASS four actual issued slots never evict unexpired500ms SERVICE records; ACK accepted only before original1s expiry and retains original source permit");
+}
+
 int main(void)
 {
- clock_field_boundary_tests();clock_rate_corner_tests();delay_burst_tests();
+ record_budget_tests();issued_history_tests();clock_field_boundary_tests();clock_rate_corner_tests();delay_burst_tests();
  same_epoch_requalification_tests();lifecycle_boundary_tests();dispatcher_tests();
  late_map_acquire_tests();coordination_boundary_tests();
  hello_source_refresh_tests();

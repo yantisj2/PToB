@@ -179,7 +179,7 @@ void r2_network_link(struct r2_network *n,uint8_t p,bool connected,uint64_t now)
 }
 static struct r2_auth_record record(struct r2_network *n,unsigned p,unsigned kind)
 {
- struct r2_auth_record r={.kind=kind,.sender=n->self,.target=p,.root=n->choice,.boot=n->boot,.coordinator_boot=n->root_boot,.root_boot=n->root_boot,.challenge=n->peer[p].nonce,.config_epoch=R2_AUTH_CONFIG,.created_us=n->now,.evidence_us=n->now,.expires_us=n->now+R2_AUTH_ORIGINAL_TTL_US};
+ struct r2_auth_record r={.kind=kind,.sender=n->self,.target=p,.root=n->choice,.boot=n->boot,.coordinator_boot=n->root_boot,.root_boot=n->root_boot,.challenge=n->peer[p].nonce,.config_epoch=R2_AUTH_CONFIG,.created_us=n->now,.evidence_us=n->now,.expires_us=n->now+(n->gm5.enabled?R2_GM5_RECORD_US:R2_AUTH_ORIGINAL_TTL_US)};
  return r;
 }
 static void response(struct r2_network *n,unsigned p,const struct r2_auth_record *r,unsigned kind,uint64_t expiry)
@@ -451,7 +451,7 @@ int r2_network_receive(struct r2_network *n,uint8_t p,const uint8_t *data,size_t
  }else if(r.kind==R2_AUTH_ACK){
   if(!n->local_gm||r.root!=n->self||r.root_boot!=n->boot||r.coordinator_boot!=n->boot||r.source_epoch!=n->candidate.generation||r.decision!=n->publication)return -ESTALE;
   bool issued=false;for(unsigned i=0;i<R2_ISSUED_RECORDS;i++)if(m->issued[i].sequence==r.source_second&&m->issued[i].publication==r.decision&&now<m->issued[i].expiry){issued=true;
-   /* The original exchange must arrive within250ms. Once authenticated, its
+   /* The exchange must arrive before its original record expiry. Its
     * delivery evidence lasts only through the immutable source permit it
     * acknowledged, not through the transport record's acceptance deadline. */
    if(m->issued[i].permit==n->service_until||m->acked_publication!=m->issued[i].publication||(m->acked_permit!=n->service_until&&m->acked_permit<m->issued[i].permit))m->acked_permit=m->issued[i].permit;
@@ -869,19 +869,19 @@ void r2_network_sent(struct r2_network *n,bool h,uint8_t p,const uint8_t *bytes)
  struct r2_auth_record r;char name[25];uint8_t caps;struct r2_net_peer *m=&n->peer[p];if(decode_control(n,&r,bytes,r2_control_wire_size(bytes),n->self,m->tx_key,name,&caps,NULL))return;
  if(n->gm5.enabled){
   count(&n->gm5.control_tx);
-  /* An urgent response cannot rewind the ordinary fair turn it preempted. */
+  /* Accepted traffic advances exactly one class in the four-class order. */
   if(h)n->next_peer=2;
   else if(r.kind==R2_AUTH_SERVICE)n->next_peer=3;
   else if(r.kind==R2_AUTH_COMMIT||r.kind==R2_AUTH_PREPARE)n->next_peer=0;
-  else if(!n->next_peer)n->next_peer=1;
+  else n->next_peer=1;
  }
- if(h){m->next_hello=n->now+(m->authenticated&&n->now>=m->seen&&n->now-m->seen<1000000?400000:200000);m->sent[m->sent_head++%4]=r.created_us;}
+ if(h){m->next_hello=n->now+(m->authenticated&&n->now>=m->seen&&n->now-m->seen<1000000?(n->gm5.enabled?R2_GM5_PROBE_US:400000):200000);m->sent[m->sent_head++%4]=r.created_us;}
  else if(r.kind==R2_AUTH_SERVICE){unsigned i=m->issued_head++%R2_ISSUED_RECORDS;m->issued[i].sequence=r.sequence;m->issued[i].expiry=r.expires_us;m->issued[i].permit=r.permit_until_us;m->issued[i].publication=(uint32_t)r.decision;
-   /* Fixed100ms cadence avoids turning late/lost ACKs into extra controller
-    * queue pressure. Original record/source expiry remains unchanged. */
-   m->next_service=n->now+100000;}
+   /* G5 uses the shared probe cadence; legacy remains100ms. Neither
+    * retries nor responses renew original record/source expiry. */
+   m->next_service=n->now+(n->gm5.enabled?R2_GM5_PROBE_US:100000);}
  else if(r.kind==R2_AUTH_ACK||r.kind==R2_AUTH_READY)m->response_pending=false;
- else m->next_management=n->now+(r.kind==R2_AUTH_COMMIT?500000:100000);
+ else m->next_management=n->now+(n->gm5.enabled?R2_GM5_PROBE_US:(r.kind==R2_AUTH_COMMIT?500000:100000));
 }
 void r2_network_stop(struct r2_network *n,uint64_t now){n->now=now;authority_clear(n);n->stopped=true;n->follower_clock_valid=false;}
 

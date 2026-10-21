@@ -33,7 +33,7 @@ static int control_encode(uint8_t out[R2_GROUP_CONTROL_MAX],
       caps > 3)
     return -EINVAL;
   uint8_t legacy[R2_AUTH_BYTES];
-  int rc = r2_auth_encode_body(legacy, r);
+  int rc = r2_auth_encode_body(legacy, r, v14==5);
   if (rc)
     return rc;
   size_t body = r2_auth_size(r->kind) - 8, n = r2_group_control_size(r->kind);
@@ -92,7 +92,7 @@ static int control_decode(struct r2_auth_record *r, const uint8_t *w,
   if (!dictionary(remote) || w[2] >= 4 || remote[w[2]] != expected_sender)
     return -EACCES;
   struct r2_auth_record x;
-  int rc = r2_auth_parse_authenticated(&x, w);
+  int rc = r2_auth_parse_authenticated(&x, w, v14==5);
   if (rc)
     return rc;
   struct r2_group_pair_hint extracted={0};

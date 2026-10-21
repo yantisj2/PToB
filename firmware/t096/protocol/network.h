@@ -16,7 +16,8 @@
 #endif
 /* Retain every50ms issuance through its original250ms ACK lifetime. */
 #if defined(R2_GM5_NATIVE)
-/* Fixed100ms SERVICE cadence: retain the original250ms ACK window plus one. */
+/* G5 SERVICE cadence500ms retains every original1s ACK record in four slots.
+ * Legacy100ms SERVICE retains its original250ms window. */
 #define R2_ISSUED_RECORDS 4
 #else
 #define R2_ISSUED_RECORDS 8

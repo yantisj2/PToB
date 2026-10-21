@@ -3,7 +3,8 @@
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
 Version0.15.134 introduces G5 coordination for the ordinary GM profile; current
-version0.15.146 adds a shared5s coordination lease and15s finite grants to one
+version0.15.147 uses500ms G5 probes and1s original control records with the
+shared5s coordination lease and15s finite grants, one
 original admission lifetime, one selected-peer retry policy and fair pair
 dispatch, retaining causal timing handoff, latched PT closure,
 GM watchdog coverage and the fixed45s successor acquisition budget. This is
@@ -123,22 +124,23 @@ reboots/source epochs of the same full identity; starts are at least5s apart.
 Inventory replacement with another identity discards that old local history.
 No eligible candidate means NO HOT while a healthy ACTIVE continues serving.
 
-The pair dispatcher rotates existing response, HELLO, SERVICE and management
-classes, advancing its cursor only after actual transport acceptance. HELLO keeps
-its200/400ms due policy, unacknowledged SERVICE100ms and COMMIT500ms. A response
-within100ms of its original expiry takes the next available opportunity without
-rewinding the ordinary turn. G5 response expiry is clipped to the mapped original
-request expiry. With an accepted opportunity every100ms and at most one response
-per400ms, a continuously due ordinary class gets a turn within600ms. This is a
-conditional software scheduling bound; GATT submission and air delivery consume
-remaining time, and overload or stalled callbacks can still lose a record.
-Source permits, READY freshness, management leases and finite grants expire on
-their original evidence. Unrelated traffic and dispatch cannot renew them.
+The pair dispatcher rotates response, HELLO, SERVICE and management classes,
+advancing only after actual transport acceptance. Each continuously due class
+gets a turn within four accepted opportunities; expiring responses do not bypass
+that order. Authenticated established HELLO, SERVICE and management share500ms
+probes (coordination lease/10). Bootstrap HELLO remains200ms, and new source
+permits still request HELLO immediately. G5 records retain one original1s
+lifetime (two probes); legacy records retain250ms. ACK/READY expiry is clipped
+to the original mapped request deadline. Four issued SERVICE slots retain every
+unexpired1s record at500ms cadence; source refresh cannot reset SERVICE cadence.
+These conditional software bounds do not guarantee controller or air delivery.
+Source permits, READY freshness, management leases and finite grants retain
+their independent original evidence; unrelated traffic cannot renew them.
 
 Each authenticated remote instant uses its own conservative offset guard:
 2000ppm over the greater of elapsed map age and its distance from the causal
 anchor, plus100us. A future grant retains its full long-distance guard; that
-guard cannot also shorten a separate250ms record expiry. Evidence uses the same
+guard cannot also shorten a separate record expiry. Evidence uses the same
 guard for both interval endpoints. Original response clipping and all source,
 message, management and grant deadlines remain. Host tests include a fixed
 finite delivery burst, original expiry boundaries and bounded-rate corners;
@@ -240,14 +242,18 @@ query time nor a historical maximum renews any authority.
 
 ## Development checkpoint and remaining acceptance
 
-Version0.15.145 produced a physical ACTIVE/HOT episode followed by management
-lease withdrawal while both physical sources remained qualified. Higher-rate
-journal snapshots showed only management expiry at the first withdrawal; map
-degradation followed. Version0.15.146 is an offline candidate addressing the
-equal2s grant-renewal/acknowledgement-lease coupling, not an installed or accepted
-hardware result. Matching installed image
-identities and passing host/native checks do not establish a durable physical
-ACTIVE/HOT pair, three-GM stability or four-GM newcomer acceptance.
+Version0.15.145 produced physical HOT followed by management expiry while both
+sources remained qualified. Version146 formed HOT with the longer coordination
+lease, then lost the selected peer's source permit before the later queue maximum.
+A delayed-owner replay reproduces the8→38 refusal sequence: response dispatch
+can starve HELLO; merely widening records while retrying at100ms can also overload
+servicing. Version147 is an offline candidate addressing that scheduling gap.
+It has not established durable physical HOT or newcomer acceptance.
+A separate146 watchdog recovery was observed with a valid retained worker-stall
+capsule from the worker/terminal-service watchdog path; this does not by itself
+prove a frozen worker. Its fault boot differs from the last observed boot, leaving an unobserved
+intermediate incarnation. The initiating cause and reset latency remain unresolved.
+Matching installed images and host/native checks do not establish output accuracy.
 
 The remaining work has separate causes and evidence requirements:
 
@@ -399,3 +405,27 @@ and pre-failure renewal loss; the15s finite grant funds takeover where the
 withdraws HOT. Original lease boundaries, stale timing, source loss and replay
 remain separate negative controls. These synthetic schedules do not reproduce
 native ISR/HCI congestion; CONTACT admission failures are a separate question.
+
+### Owner servicing in0.15.147
+
+Earlier renewal fixtures limited accepted offers but did not service RX and TX
+through the same delayed owner or continuously replenish response traffic. The
+ordinary response wrap also failed to advance the cursor, while the expiring
+response exception bypassed fairness. The shared500ms probes and pure round
+robin replace those competing rules without new state or queues.
+
+The durable paired test uses actual network/codec bodies, two RX records per
+owner cycle and a32-record FIFO. Physical callbacks precede processing by a
+separate timestamp. It compares100/125/150/175/200/250ms owner cycles and an
+explicit repeating100/150/250ms burst. Exact146 fails five of these seven
+schedules; the147 candidate passes all seven. Initialized authentication,
+1Hz physical source and ideal PT remain fixture inputs; native interrupt/RF
+scheduling and query interference are outside this model.
+
+Only authenticated G5 outer19/domain5 accepts the1s record budget. MAC-correct
+legacy250ms and G5 1s boundaries, original response clipping, four-slot ACK
+history, replay, stale source and invalid PT remain negative controls. PPS
+permission1.5s, GNSS freshness2.5s, PT publication250ms, causal echo500ms,
+map width80ms, callback age500ms and original15s grants are unchanged. Longer
+messages neither renew source permission nor make stale timing usable. This
+change requires matching GM firmware and awaits physical acceptance.

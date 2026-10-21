@@ -33,10 +33,12 @@ revision/cleanliness and SDK archive checks. It is not necessary to have a priva
 sibling checkout. Builds put all generated and secret-bearing output under
 ignored `artifacts/` with owner-only permissions.
 
-Normal GM version0.15.146 uses [G5 ACTIVE/HOT/COLD](gm-standby.md).
+Normal GM version0.15.147 uses [G5 ACTIVE/HOT/COLD](gm-standby.md).
 Authenticated control maps each remote instant with its own original conservative
 clock-drift guard; a long finite-grant deadline cannot shorten a separate record
-TTL. This changes no original authority lifetime, wire format or stored state.
+TTL. G5 uses1s original control records and500ms probes; source/PT validity,15s
+finite grants, wire layout and stored state remain unchanged. Legacy control
+records retain250ms.
 Its outer coordination type19/domain5 is distinct from the preserved inner
 AUTH_CONFIG5, legacy JOINv4 and RC7 timing. During a staged update, updated RC
 images can receive legacy timing; enter GM only with the explicitly compatible

@@ -5,17 +5,19 @@
 *Illustrative firmware-rendered RC screen; displayed values are not measured
 performance. [Image provenance](../../docs/images/README.md).*
 
-**PToB owns T096 RC7 development.** Current source version **0.15.146** supplies the
+**PToB owns T096 RC7 development.** Current source version **0.15.147** supplies the
 ordinary **GM** and **RC** mesh profiles, with USB timing compiled by default.
 [Build from source](../../docs/t096/build.md) with pinned public dependencies
 and ignored local enrollment. No enrolled binary is distributed.
 
-Version146 gives G5 management/READY and peer liveness one5s coordination lease
-and15s immutable finite grants, retaining2s issuance cadence and independent
-source/PT/packet expiry. Matching GM versions are required; longer uncertain-grant
-retirement is intentional. Phase-varying renewal and silent-failure host tests
-address gaps in fixed-delivery modeling, but do not establish stable physical HOT
-or resolve CONTACT rendezvous failures.
+Version147 uses one fair four-class G5 dispatcher, a shared500ms probe cadence
+and1s original G5 control records. Legacy records retain250ms. The5s coordination
+lease,15s finite grants and independent source/PT/replay fences remain unchanged.
+Version146 formed physical HOT but lost source permission; delayed-owner wire
+replays expose response traffic starving HELLO and exceeding retry capacity.
+The147 host candidate passes those bounded schedules; durable physical HOT,
+controller recovery and CONTACT reliability remain unaccepted. Matching GM
+versions are required.
 
 The display uses an exact 17-color palette and one bounded DMA staging buffer,
 recovering 7,680 bytes of static RAM without changing its pixels or cadence.

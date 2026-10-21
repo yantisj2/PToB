@@ -2,6 +2,17 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 21 October 2026 — T0960.15.147 fair G5 owner servicing
+
+G5 uses one four-class round robin and shared500ms HELLO/SERVICE/management
+probes, with1s original records; legacy records retain250ms. Original response
+clipping, source/PT validity,15s grants and replay fences remain. No queues or
+stored fields are added. Actual same-owner RX2/TX delayed-cycle tests reproduce
+146 HOT loss and cover100–250ms and explicit burst schedules. Version146 physical
+HOT withdrawal and a separate worker/terminal-service watchdog recovery remain failures,
+not147 acceptance. Native controller/RF scheduling and durable physical HOT
+still require observation.
+
 ## 21 October 2026 — T0960.15.146 G5 coordination margin
 
 G5 management, READY and authenticated peer/root liveness share a5s lease,

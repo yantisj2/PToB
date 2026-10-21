@@ -256,13 +256,11 @@ static void gm5_tick(struct r2_network *n,bool physical,uint64_t now,const struc
  if(g->selected&&g->role==R2_GM5_ACTIVE&&g->generation==0)g->generation=1;
  if(g->role==R2_GM5_ACTIVE)n->management_generation=g->generation;
 }
-/* Four classes share the existing network cursor. Advance only after actual
- * transport acceptance (network_sent), so failed submission invents no service.
- * A response at its last100ms opportunity preempts without rewinding the
- * ordinary cursor. With one accepted opportunity/100ms and <=one response per
- *400ms, each due ordinary class gets a turn within600ms. Response expiry and
- * source/grant/management authority stay original; overload withdraws safely.
- * Due times retain HELLO200/400ms, SERVICE100ms and COMMIT500ms contracts. */
+/* Four classes share the existing cursor, advanced only on transport acceptance.
+ * Every due class gets a turn within four accepted opportunities. Responses do
+ * not bypass that order; their original expiry still clips acceptance. Shared
+ * 500ms probes bound production, with 1s G5 records covering delayed owners.
+ * Bootstrap HELLO remains200ms; overload cannot extend source/grant authority. */
 static bool gm5_next(struct r2_network *n,uint8_t available,uint8_t *peer,uint8_t *bytes,bool *is_hello)
 {
  uint64_t wanted=r2_gm5_control_peer(n);unsigned p=gm5_slot(n,wanted);
@@ -277,8 +275,7 @@ static bool gm5_next(struct r2_network *n,uint8_t available,uint8_t *peer,uint8_
   authenticated&&g->role==R2_GM5_ACTIVE&&!g->contacting&&n->ready&&
    n->coordinator==p&&n->now>=m->next_management};
  unsigned kind=4;
- if(due[0]&&m->response.expires_us-n->now<=100000)kind=0;
- else for(unsigned i=0;i<4;i++){unsigned k=(n->next_peer+i)%4;if(due[k]){kind=k;break;}}
+ for(unsigned i=0;i<4;i++){unsigned k=(n->next_peer+i)%4;if(due[k]){kind=k;break;}}
  if(kind==0)r=m->response;
  else if(kind==1){
   if(n->hello_sequence==UINT64_MAX){r2_network_stop(n,n->now);return false;}

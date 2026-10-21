@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: Apache-2.0 */
+#include "gm_standby.h"
 #include "authority_codec.h"
 #include <errno.h>
 #include <string.h>
@@ -47,13 +48,13 @@ static uint64_t control_tag(const uint8_t wire[R2_AUTH_BODY_BYTES], const uint8_
   for (unsigned i = 0; i < 4; i++) { sip_round(v); }
   return v[0] ^ v[1] ^ v[2] ^ v[3];
 }
-static int valid(const struct r2_auth_record *r)
+static int valid(const struct r2_auth_record *r,bool gm5)
 {
   if (!r || r->kind<8 || r->kind>13 || r->sender==255 || r->target==255 ||
       r->sender==r->target || (r->flags&~7u) || r->config_epoch!=R2_AUTH_CONFIG ||
       !r->boot || !r->coordinator_boot || !r->challenge || !r->sequence ||
       r->expires_us<=r->created_us || r->evidence_us>r->created_us ||
-      r->expires_us-r->created_us>R2_AUTH_ORIGINAL_TTL_US) return -EINVAL;
+      r->expires_us-r->created_us>(gm5?R2_GM5_RECORD_US:R2_AUTH_ORIGINAL_TTL_US)) return -EINVAL;
   if(r->pair_until_us){
     if(r->kind!=R2_AUTH_HELLO||r->pair_root>=4||r->pair_standby>=4||r->pair_root==r->pair_standby||
        (r->sender!=r->pair_root&&r->sender!=r->pair_standby)||!r->pair_root_boot||!r->pair_standby_boot||!r->pair_epoch||
@@ -61,9 +62,9 @@ static int valid(const struct r2_auth_record *r)
   }else if(r->pair_root||r->pair_standby||r->pair_root_boot||r->pair_standby_boot||r->pair_epoch)return -EINVAL;
   return 0;
 }
-int r2_auth_encode_body(uint8_t out[R2_AUTH_BYTES],const struct r2_auth_record *r)
+int r2_auth_encode_body(uint8_t out[R2_AUTH_BYTES],const struct r2_auth_record *r,bool gm5)
 {
-  if (!out || valid(r)) { return -EINVAL; }
+  if (!out || valid(r,gm5)) { return -EINVAL; }
   memset(out,0,R2_AUTH_BYTES);
   out[0] = 12; out[1] = r->kind; out[2] = r->sender; out[3] = r->target;
 #define PUT(o, field, n) put_le(out + (o), r->field, (n))
@@ -80,7 +81,7 @@ int r2_auth_encode_body(uint8_t out[R2_AUTH_BYTES],const struct r2_auth_record *
 }
 RETAIN int r2_auth_encode(uint8_t out[R2_AUTH_BYTES],const struct r2_auth_record *r,const uint8_t key[16]){
  if(!key)return -EINVAL;
- int rc=r2_auth_encode_body(out,r);if(rc)return rc;
+ int rc=r2_auth_encode_body(out,r,false);if(rc)return rc;
  size_t body=r2_auth_size(r->kind)-8;put_le(out+body,control_tag(out,key,body),8);return 0;
 }
 RETAIN int r2_auth_decode(struct r2_auth_record *r, const uint8_t *wire,
@@ -93,9 +94,9 @@ RETAIN int r2_auth_decode(struct r2_auth_record *r, const uint8_t *wire,
   put_le(computed, control_tag(wire, key,length-8), 8);
   for (unsigned i = 0; i < 8; i++) { mismatch |= computed[i] ^ wire[length-8 + i]; }
   if (mismatch) { return -EACCES; }
-  return r2_auth_parse_authenticated(r,wire);
+  return r2_auth_parse_authenticated(r,wire,false);
 }
-int r2_auth_parse_authenticated(struct r2_auth_record *r,const uint8_t *wire)
+int r2_auth_parse_authenticated(struct r2_auth_record *r,const uint8_t *wire,bool gm5)
 {
   struct r2_auth_record candidate = {0};
   candidate.kind = wire[1]; candidate.sender = wire[2]; candidate.target = wire[3];
@@ -109,7 +110,7 @@ int r2_auth_parse_authenticated(struct r2_auth_record *r,const uint8_t *wire)
   GET(97, config_epoch, 4);GET(106,variance,2);GET(108,boot_age_ms,4);GET(112,source_age_ms,4);
   if(candidate.kind==R2_AUTH_HELLO){candidate.pair_root=wire[116];candidate.pair_standby=wire[117];GET(118,pair_root_boot,8);GET(126,pair_standby_boot,8);GET(134,pair_epoch,4);GET(138,pair_until_us,8);}
 #undef GET
-  if (valid(&candidate)) { return -EINVAL; }
+  if (valid(&candidate,gm5)) { return -EINVAL; }
   *r = candidate;
   return 0;
 }
