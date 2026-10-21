@@ -5,10 +5,19 @@
 *Illustrative firmware-rendered RC screen; displayed values are not measured
 performance. [Image provenance](../../docs/images/README.md).*
 
-**PToB owns T096 RC7 development.** Current source version **0.15.154** supplies the
+**PToB owns T096 RC7 development.** Current source version **0.15.155** supplies the
 ordinary **GM** and **RC** mesh profiles, with USB timing compiled by default.
 [Build from source](../../docs/t096/build.md) with pinned public dependencies
 and ignored local enrollment. No enrolled binary is distributed.
+
+Version155 adds failure-only capture of the original peripheral latency-cancel
+callback status before its unchanged controller assertion. Three more first-fault
+journal records expose current connection/ticker counters and marks. Generated
+controller copies use a separate pinned diagnostic patch; the upstream backport
+and existing precision scheduling policy remain unchanged. No timer, retry,
+pairing rule, periodic probe or retained storage is added. These diagnostics
+classify failures; they do not establish a fix or durable HOT operation.
+See [source155 decoding](../../docs/t096/diagnostics.md#controller-failure-snapshot-source155).
 
 Version154 extends that first-disconnect snapshot with current controller/LLCP
 scalars under the same short native IRQ fence. Three fault-only journal records

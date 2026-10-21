@@ -1136,3 +1136,61 @@ be stale. With host DISCONNECTING it narrows teardown/event delivery, but cannot
 distinguish mayfly/queue delay from HCI event-buffer allocation. Host references
 do not retain controller slots; matching is current-handle evidence, without a
 controller generation claim. These records classify failures, not correct them.
+
+
+## Controller failure snapshot (source155)
+
+Source155 preserves watchdog word32 and source154 details25–28. Normal native
+GM/RC builds add a separate hash-pinned patch to generated controller copies,
+after the unchanged upstream backport and precision policy. DC/PC exclude this
+patch. It adds one failure-only callback hook before the original peripheral
+latency-cancel SUCCESS assertion, plus a bounded ticker scalar getter used only
+by the existing first-disconnect-fault capture. Assertions, timers, scheduler
+policy, pairing and radio behavior remain unchanged.
+
+The hook reuses the existing PA health-operation lane (three words21–23 in the
+64-word fatal capsule). Validate capsule CRC, exact source/build, factory and
+failed boot before interpreting it. Operation high byte0xC1 marks this callback:
+
+| Operation bits | Observation |
+| --- | --- |
+| 0–15 | Current controller handle;0xffff if no pool-address match |
+| 16–19 | Pool-address match, update-mark match, disable-mark match, latency-cancel flag |
+| 20–23 | Pool slot0–5;15 if unknown |
+| 24–31 | Marker0xC1 |
+
+The result preserves the original unsigned32-bit ticker status, including values
+that appear negative in a signed console field. The third word retains the
+existing operation timestamp semantics. An unrecognized marker is unknown, not
+this failure. The hook checks at most six pool addresses before dereferencing its
+parameter. Current/reused slots do not establish the original callback generation.
+On the pinned UP, non-low-latency Nordic configuration this JOB callback executes
+in ULL ISR context; existing PA writers are thread-only and cannot overwrite the
+lane before the unchanged assertion/fatal copy. Native configuration checks reject
+unsupported IRQ/low-latency assumptions. This lifetime argument is specific to the
+pinned source/configuration, not a general-purpose persistent fault lane.
+
+Three additional kind32 records extend the same first-fault journal cut:
+
+| Detail | `result` | `b` |
+| --- | --- | --- |
+| 29 | Event counter low16, role bit16 | Current access address, little-endian32 |
+| 30 | Latency-event count low16, ULL reference count16–23, latency-cancel/update-mark/disable-mark bits24–26 | Ticker request low8, acknowledge8–15, current lazy count16–31 |
+| 31 | Ticker valid/context-match bits0–1, job guard8–15, worker trigger16–23 | Periodic ticker ticks32 |
+
+Require the complete seven-record details25–31 set, with matching source, boot,
+peer and application incarnation, and unique ordered sequence numbers. Other
+journal activity can interleave; adjacency is not required. Missing, overwritten
+or ambiguous records are unknown. Seven records occupy the existing bounded
+journal, evicting up to three more older records than154; capacity and console
+cadence do not increase. Host/controller/ticker scalars share the existing short
+IRQ fence; work flags and journal writes remain separate observations.
+
+Ticker and connection values are a current scalar cut. Stale/free slot bytes,
+request/acknowledge differences, access-address equality or a matching context
+cannot prove uninterrupted progress, original connection generation, elapsed
+starvation, RF activity or pool exhaustion. No scheduler queues are traversed.
+`tools/controller_fault_decode.py` provides pure `decode_pa`, `decode_capsule`
+and `decode_disconnect` helpers; callers must retain the enclosing binding and
+complete-journal checks. These diagnostics do not correct the observed failures
+or qualify physical HOT durability.

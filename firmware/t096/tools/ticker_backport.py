@@ -3,7 +3,7 @@
 from pathlib import Path
 import hashlib,json,sys
 APP=Path(__file__).resolve().parents[1]
-def generate(deps,out):
+def generate(deps,out,fault_diagnostics=False):
     manifest=json.loads((APP/'cmake/ticker-backport.json').read_text())
     patch=(APP/'cmake/zephyr-91430.patch').read_bytes()
     assert hashlib.sha256(patch).hexdigest()==manifest['patch_sha256']
@@ -91,4 +91,45 @@ uint8_t r2_ticker_phase_step(uint8_t instance_index, uint8_t user_id,
             fixed+=api
         dest=out/Path(name).relative_to('subsys/bluetooth/controller');dest.parent.mkdir(parents=True,exist_ok=True)
         if not dest.is_file() or dest.read_text()!=fixed:dest.write_text(fixed)
-if __name__=='__main__':generate(Path(sys.argv[1]),Path(sys.argv[2]))
+    if fault_diagnostics:
+        diagnostic_sources(deps, out)
+
+def diagnostic_sources(deps, out):
+    """Apply only the separately pinned diagnostic hunks to generated copies."""
+    manifest=json.loads((APP/'cmake/controller-fault-diag.json').read_text())
+    patch=(APP/'cmake/controller-fault-diag.patch').read_bytes()
+    assert manifest['schema']==1
+    assert hashlib.sha256(patch).hexdigest()==manifest['patch_sha256']
+    names={'subsys/bluetooth/controller/ll_sw/ull_peripheral.c',
+           'subsys/bluetooth/controller/ticker/ticker.c'}
+    assert set(manifest['files'])==names
+    edits={};name=None;old=[];new=[]
+    def finish():
+        if old or new:edits.setdefault(name,[]).append((''.join(old),''.join(new)))
+    for line in patch.decode().splitlines(keepends=True):
+        if line.startswith('diff --git '):
+            finish();name=line.split(' b/',1)[1].strip();old=[];new=[]
+        elif line.startswith('@@'):
+            finish();old=[];new=[]
+        elif name and not line.startswith(('index ','--- ','+++ ')):
+            if line.startswith(' '):old.append(line[1:]);new.append(line[1:])
+            elif line.startswith('-'):old.append(line[1:])
+            elif line.startswith('+'):new.append(line[1:])
+            else:raise ValueError('Unexpected diagnostic patch syntax')
+    finish();assert set(edits)==names
+    for name,hunks in edits.items():
+        relative=Path(name).relative_to('subsys/bluetooth/controller')
+        source=out/relative if name.endswith('ticker/ticker.c') else deps/name
+        body=source.read_text()
+        assert hashlib.sha256(body.encode()).hexdigest()==manifest['files'][name]['before'],name
+        for before,after in hunks:
+            assert before and body.count(before)==1,name
+            body=body.replace(before,after,1)
+        assert hashlib.sha256(body.encode()).hexdigest()==manifest['files'][name]['after'],name
+        dest=out/relative;dest.parent.mkdir(parents=True,exist_ok=True)
+        if not dest.is_file() or dest.read_text()!=body:dest.write_text(body)
+
+if __name__=='__main__':
+    assert len(sys.argv) in (3,4)
+    if len(sys.argv)==4:assert sys.argv[3]=='--fault-diagnostics'
+    generate(Path(sys.argv[1]),Path(sys.argv[2]),len(sys.argv)==4)

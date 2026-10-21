@@ -438,3 +438,22 @@ snapshot; the verbose `--controller-diagnostics` mode is unnecessary for it.
 It uses existing fault-record padding and existing watchdog word32 bits.
 Native resource checks and authorized exact-device observations remain required;
 this diagnostic does not correct or qualify HOT durability.
+
+
+Version155 normal native GM/RC builds apply a separate hash-pinned controller
+diagnostic patch to generated copies of ticker.c and ull_peripheral.c. The
+upstream91430 patch, existing precision scheduling policy and SDK checkout stay
+unchanged. Native inspection requires exact generated hashes and one compiled
+copy of each of the three controller translation units; DC/PC exclude the new
+fault diagnostics. Run with ordinary, nonoptimized Python so generator assertions
+remain enabled. The focused production-body/decoder/generator checks are:
+
+```sh
+CC=clang python3 firmware/t096/tools/controller_fault_diag_tests.py --deps artifacts/deps --out artifacts/check-controller-fault
+```
+
+The full host runner includes these checks. Fault hooks use the existing fatal
+PA lane and first-fault journal, documented in the [source155 schema](diagnostics.md#controller-failure-snapshot-source155).
+Full native static/stack/flash checks, exact-device installation and bounded
+observations remain separate gates. Passing fixture schedules does not establish
+field ordering, a controller fix or HOT durability.

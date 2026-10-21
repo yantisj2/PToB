@@ -51,5 +51,20 @@ uint16_t r2_disconnect_snapshot(struct bt_conn *conn,uint64_t peer,uint32_t inca
   controller.local_prt|((uint32_t)controller.remote_prt<<16));
  r2_timing_event(R2_TIMING_GM_CONTROL,controller.prt_reload,peer,28,incarnation,
   controller.supervision_expire|((uint32_t)controller.connect_expire<<16));
+ /* These three extra records consume the existing journal only, once at
+  * this first fault. Inactive slot fields can be stale; equality is current-only. */
+ r2_timing_event(R2_TIMING_GM_CONTROL,
+  controller.event_counter|((uint32_t)controller.role<<16),peer,29,incarnation,
+  controller.access_address);
+ r2_timing_event(R2_TIMING_GM_CONTROL,
+  controller.latency_event|((uint32_t)controller.ull_ref<<16)|
+  ((uint32_t)controller.latency_cancel<<24)|((uint32_t)controller.update_mark<<25)|
+  ((uint32_t)controller.disable_mark<<26),peer,30,incarnation,
+  controller.ticker.req|((uint32_t)controller.ticker.ack<<8)|
+  ((uint32_t)controller.ticker.lazy_current<<16));
+ r2_timing_event(R2_TIMING_GM_CONTROL,
+  controller.ticker.valid|((uint32_t)controller.ticker.context_matches<<1)|
+  ((uint32_t)controller.ticker.job_guard<<8)|((uint32_t)controller.ticker.worker_trigger<<16),
+  peer,31,incarnation,controller.ticker.ticks_periodic);
  return (uint16_t)((state<<3)|((tx&31u)<<6)|((deferred&31u)<<11));
 }

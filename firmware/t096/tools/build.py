@@ -132,6 +132,9 @@ def main():
                'device_config_sha256':sha(args.device_config),
                'lora_transmitter_factory':transmitter,
                'secondary_lora_class':'RC8' if int(transmitter,16) else 'DISABLED'}
+    receipt['controller_fault_diagnostics'] = None if dc or pc else {
+        'manifest_sha256':sha(APP/'cmake/controller-fault-diag.json'),
+        'patch_sha256':sha(APP/'cmake/controller-fault-diag.patch')}
     write(out/'receipt.json',receipt)
     for name in source:
         dst=out/'source'/name;dst.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(APP/name,dst)

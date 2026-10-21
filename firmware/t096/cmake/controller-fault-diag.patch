@@ -1,0 +1,70 @@
+diff --git a/subsys/bluetooth/controller/ll_sw/ull_peripheral.c b/subsys/bluetooth/controller/ll_sw/ull_peripheral.c
+--- a/subsys/bluetooth/controller/ll_sw/ull_peripheral.c
++++ b/subsys/bluetooth/controller/ll_sw/ull_peripheral.c
+@@ -59,6 +59,10 @@
+ #include "ll_sw/ull_llcp.h"
+ 
+ #include "hal/debug.h"
++
++/* Original PToB diagnostics: Copyright (c) 2026 Jonathan Yantis. MIT.
++ * Surrounding Zephyr source retains its Apache-2.0 terms. */
++#include "controller_snapshot.h"
+ 
+ static void invalid_release(struct ull_hdr *hdr, struct lll_conn *lll,
+ 			    memq_link_t *link, struct node_rx_pdu *rx);
+@@ -671,6 +675,10 @@
+ {
+ 	struct ll_conn *conn = param;
+ 
++	if (ticker_status != TICKER_STATUS_SUCCESS) {
++		ptob_latency_cancel_fault(ticker_status, param);
++	}
++
+ 	LL_ASSERT(ticker_status == TICKER_STATUS_SUCCESS);
+ 
+ 	conn->periph.latency_cancel = 0U;
+diff --git a/subsys/bluetooth/controller/ticker/ticker.c b/subsys/bluetooth/controller/ticker/ticker.c
+--- a/subsys/bluetooth/controller/ticker/ticker.c
++++ b/subsys/bluetooth/controller/ticker/ticker.c
+@@ -16,6 +16,10 @@
+ #include "ticker.h"
+ 
+ #include "hal/debug.h"
++
++/* Original PToB diagnostics: Copyright (c) 2026 Jonathan Yantis. MIT.
++ * Surrounding Zephyr source retains its Apache-2.0 terms. */
++#include "controller_snapshot.h"
+ 
+ /*****************************************************************************
+  * Defines
+@@ -359,6 +363,30 @@
+ #define TICKER_INSTANCE_MAX 1
+ static struct ticker_instance _instance[TICKER_INSTANCE_MAX];
+ 
++/* Caller holds the existing UP IRQ mask. Raw counters/context are a current
++ * scalar cut, not proof of on-air activity, progress or connection generation. */
++void ptob_ticker_snapshot_locked(uint8_t instance_index, uint8_t ticker_id,
++                                const void *context, struct ptob_ticker_snapshot *out)
++{
++    *out = (struct ptob_ticker_snapshot){0};
++    if (instance_index >= TICKER_INSTANCE_MAX) {
++        return;
++    }
++    const struct ticker_instance *instance = &_instance[instance_index];
++    if (!instance->nodes || ticker_id >= instance->count_node) {
++        return;
++    }
++    const struct ticker_node *node = &instance->nodes[ticker_id];
++    out->valid = 1;
++    out->context_matches = node->context == context;
++    out->req = node->req;
++    out->ack = node->ack;
++    out->lazy_current = node->lazy_current;
++    out->ticks_periodic = node->ticks_periodic;
++    out->job_guard = instance->job_guard;
++    out->worker_trigger = instance->worker_trigger;
++}
++
+ /*****************************************************************************
+  * Static Functions
+  ****************************************************************************/

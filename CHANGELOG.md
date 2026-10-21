@@ -2,6 +2,16 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 21 October 2026 — T096 0.15.155 controller failure diagnostics
+
+Preserve the original peripheral latency-cancel assertion status in the existing
+fatal capsule, and extend the first-disconnect snapshot with bounded current
+connection/ticker counters. A separate pinned patch changes generated controller
+copies only; the upstream backport, scheduler policy, assertions, timers, pairing
+and RF behavior remain unchanged. Focused sanitizer checks and independent review
+pass. Full native resource validation and field observation remain separate gates;
+this diagnostic candidate does not establish a fix or durable HOT operation.
+
 ## 21 October 2026 — T096 0.15.154 controller retirement snapshot
 
 Extend the existing first-disconnect fault record with a bounded current

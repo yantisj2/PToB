@@ -47,12 +47,15 @@ void r2_timing_event(unsigned k,int r,uint64_t p,uint32_t d,uint32_t a,uint32_t 
  else if(d==26){assert((unsigned)r==injected.lll_handle);assert(b==(injected.handle_in_range|(injected.handle_matches<<1)|(injected.head_present<<2)|(injected.head_done<<3)|(injected.local_state<<8)|(injected.remote_state<<12)|(injected.head_proc<<16)|((uint32_t)injected.head_state<<24)));}
  else if(d==27){assert((unsigned)r==injected.reason_final);assert(b==(injected.local_prt|((uint32_t)injected.remote_prt<<16)));}
  else if(d==28){assert((unsigned)r==injected.prt_reload);assert(b==(injected.supervision_expire|((uint32_t)injected.connect_expire<<16)));}
+ else if(d==29){assert((unsigned)r==(injected.event_counter|((uint32_t)injected.role<<16)));assert(b==injected.access_address);}
+ else if(d==30){assert((unsigned)r==(injected.latency_event|((uint32_t)injected.ull_ref<<16)|((uint32_t)injected.latency_cancel<<24)|((uint32_t)injected.update_mark<<25)|((uint32_t)injected.disable_mark<<26)));assert(b==(injected.ticker.req|((uint32_t)injected.ticker.ack<<8)|((uint32_t)injected.ticker.lazy_current<<16)));}
+ else if(d==31){assert((unsigned)r==(injected.ticker.valid|((uint32_t)injected.ticker.context_matches<<1)|((uint32_t)injected.ticker.job_guard<<8)|((uint32_t)injected.ticker.worker_trigger<<16)));assert(b==injected.ticker.ticks_periodic);}
  else assert(0);
 }
 #include "../src/disconnect_diag.c"
 int main(void){
  assert(!r2_disconnect_snapshot(NULL,1,2)&&!events&&!tx_calls&&!deferred_calls);
- injected=(struct ptob_controller_snapshot){.lll_handle=5,.handle_in_range=1,.handle_matches=1,.head_present=1,.head_done=1,.local_state=3,.remote_state=4,.head_proc=10,.head_state=2,.local_prt=133,.remote_prt=21,.prt_reload=134,.supervision_expire=9,.connect_expire=2,.reason_final=22};
+ injected=(struct ptob_controller_snapshot){.lll_handle=5,.handle_in_range=1,.handle_matches=1,.head_present=1,.head_done=1,.local_state=3,.remote_state=4,.head_proc=10,.head_state=2,.local_prt=133,.remote_prt=21,.prt_reload=134,.supervision_expire=9,.connect_expire=2,.reason_final=22,.access_address=0xfedcba98,.event_counter=65535,.role=1,.latency_event=65534,.ull_ref=255,.latency_cancel=1,.update_mark=1,.disable_mark=1,.ticker={.valid=1,.context_matches=1,.req=255,.ack=254,.lazy_current=65535,.ticks_periodic=UINT32_MAX,.job_guard=255,.worker_trigger=254}};
  for(unsigned raw=0;raw<256;raw++)for(unsigned tx=0;tx<32;tx++)for(unsigned deferred=0;deferred<32;deferred++){
   struct bt_conn c={.state=(bt_conn_state_t)raw,.handle=0xbeef,.tx_complete_work={.flags=tx},.deferred_work={.work={.flags=deferred}}};
   unsigned expected=raw==BT_CONN_CONNECTED?1:raw==BT_CONN_DISCONNECTING?2:raw==BT_CONN_DISCONNECT_COMPLETE?3:raw==BT_CONN_DISCONNECTED?4:5;
@@ -63,7 +66,7 @@ int main(void){
   unsigned observed_tx=0;
 #endif
   assert(got==((expected<<3)|(observed_tx<<6)|(deferred<<11))&&!(got&7));
-  assert(events==before+4&&raw_seen==raw&&peer_seen==0x123456789abcdef0ULL&&detail_seen==25&&a_seen==1506);
+  assert(events==before+7&&raw_seen==raw&&peer_seen==0x123456789abcdef0ULL&&detail_seen==25&&a_seen==1506);
   assert(b_seen==(0xbeef|(observed_tx<<16)|(deferred<<21)));
  }
 #ifdef CONFIG_BT_CONN_TX
@@ -77,7 +80,7 @@ int main(void){
  assert((r2_disconnect_snapshot(&locked,7,8)&56)==16);
  assert(raw_seen==BT_CONN_DISCONNECTING&&(b_seen&0xffff)==2);
  mutate_on_lock=0;
- assert(deferred_calls*4==events&&controller_calls==deferred_calls&&locks==controller_calls&&unlocks==locks&&!irq_depth);
+ assert(deferred_calls*7==events&&controller_calls==deferred_calls&&locks==controller_calls&&unlocks==locks&&!irq_depth);
  puts("PASS actual snapshot:256raw states x32x32work masks; unavailable; event fields; shared IRQ snapshot; unlocked work and journal; legacy bits preserved");
 }
 #endif

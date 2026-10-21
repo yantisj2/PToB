@@ -1,6 +1,7 @@
 /* Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT */
 #include <zephyr/kernel.h>
 #include <soc.h>
+#include <string.h>
 #include <zephyr/bluetooth/hci_types.h>
 #include <zephyr/sys/byteorder.h>
 
@@ -73,8 +74,18 @@
 
 
 #include "controller_snapshot.h"
+#include "health.h"
 BUILD_ASSERT(!IS_ENABLED(CONFIG_SMP));
 BUILD_ASSERT(!IS_ENABLED(CONFIG_ZERO_LATENCY_IRQS));
 BUILD_ASSERT(CONFIG_BT_MAX_CONN == 6);
 BUILD_ASSERT(PROC_TERMINATE == 10);
+BUILD_ASSERT(sizeof(int) == sizeof(uint32_t));
+BUILD_ASSERT(!IS_ENABLED(CONFIG_BT_CTLR_LOW_LAT));
+BUILD_ASSERT(!IS_ENABLED(CONFIG_BT_CTLR_LOW_LAT_ULL));
+BUILD_ASSERT(!IS_ENABLED(CONFIG_BT_CTLR_LOW_LAT_ULL_DONE));
+BUILD_ASSERT(TICKER_ID_CONN_BASE + CONFIG_BT_MAX_CONN <= UINT8_MAX);
+BUILD_ASSERT(sizeof(((struct lll_conn *)0)->access_addr) == 4);
+BUILD_ASSERT(sizeof(((struct lll_conn *)0)->event_counter) == 2);
+BUILD_ASSERT(sizeof(((struct lll_conn *)0)->latency_event) == 2);
+BUILD_ASSERT(sizeof(((struct ull_hdr *)0)->ref) == 1);
 #include "controller_snapshot_body.inc"

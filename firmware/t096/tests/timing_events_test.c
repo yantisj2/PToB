@@ -70,6 +70,13 @@ int main(void){
  int frame_n=r2_frame(frame,sizeof frame,UINT32_MAX,UINT32_MAX,wide);assert(frame_n>wide_n&&frame_n<3072);
  unsigned request,sequence,size,crc;assert(sscanf(frame,"R2 %x %x %u %x",&request,&sequence,&size,&crc)==4);
  const char *payload=strchr(frame,'\n')+1;assert(size==(unsigned)wide_n&&!memcmp(payload,wide,size)&&r2_crc32(payload,size)==crc);
+ /* A source155 terminal snapshot appends details25..31 once, using seven
+  * existing slots. At a full ring it evicts exactly seven, three more than154. */
+ unsigned first_fault_sequence=produced+1;
+ for(unsigned d=25;d<=31;d++)r2_timing_event(R2_TIMING_GM_CONTROL,0,7,d,8,9);
+ assert(produced==first_fault_sequence+6);
+ for(unsigned d=25;d<=31;d++)assert(records[(first_fault_sequence+d-26)%R2_TIMING_EVENT_CAPACITY].detail==d);
+ assert(r2_timing_json(json,sizeof json,1,first_fault_sequence-1)>0&&strstr(json,"\"detail\":25"));
  /* Do not alias a new record to an old cursor after sequence exhaustion. */
  produced=UINT32_MAX-2;
  r2_timing_event(1,0,0,0,0,0);assert(records[(UINT32_MAX-2)%R2_TIMING_EVENT_CAPACITY].sequence==UINT32_MAX-1);
