@@ -175,6 +175,8 @@ static void lt_disconnect(unsigned reason) {
   if (lt_conn && lt_phase != LT_CLOSE) {
     struct bt_conn_info info;
     bool known=!bt_conn_get_info(lt_conn,&info);
+    if(!known||((info.state==BT_CONN_STATE_CONNECTED||info.state==BT_CONN_STATE_DISCONNECTING)&&
+                (!info.le.timeout||info.le.timeout>3200)))check(false,"GATT close parameters");
     bool initiating=known&&
         info.role==BT_CONN_ROLE_CENTRAL&&info.state==BT_CONN_STATE_CONNECTING;
     /* The stock host has its own original two-second create timeout. A
@@ -1315,7 +1317,10 @@ static void lt_retire_events(void) {
 }
 static bool lt_close(void) {
   /* One absolute local drain budget, inside the original outer close. */
-  uint64_t until = k_uptime_get() + 500;
+  uint64_t until = k_uptime_get() + (R2_LE_SUPERVISION_MAX_US+R2_CALLBACK_RETIRE_US)/1000;
+  k_mutex_lock(&state_lock,K_FOREVER);
+  if(status.close_deadline&&status.close_deadline/1000<until)until=status.close_deadline/1000;
+  k_mutex_unlock(&state_lock);
   if(lt_close_until&&lt_close_until/1000<until)until=lt_close_until/1000;
   bool closed = true;
   lt_retirement_error = false;
@@ -1346,6 +1351,12 @@ static bool lt_close(void) {
   }
   bool drained = false;
   while ((uint64_t)k_uptime_get() < until) {
+    /* Actual bounded cleanup polling is progress, never timing authority.
+     * A blocked driver call still leaves this timestamp stale. The original
+     * outer deadline is unchanged and independently observed by the watchdog. */
+    k_mutex_lock(&state_lock,K_FOREVER);
+    if(status.closing)status.at=mono_us();
+    k_mutex_unlock(&state_lock);
     lt_retire_events();
     bool pending = false;
     for (unsigned i = 0; i < CONFIG_BT_MAX_CONN; ++i) {

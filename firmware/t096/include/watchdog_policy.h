@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 #pragma once
+#include "cleanup_budget.h"
 #include <stdbool.h>
 #include <stdint.h>
 #define R2_WD_GM_MS 1200000u
@@ -8,7 +9,7 @@
 #define R2_WD_RC_MS 1800000u
 #define R2_WD_RETRIES 3u
 #define R2_WD_RC_HEALTHY_MS 30000u
-#define R2_WD_RECOVERY_MS 30000u
+#define R2_WD_RECOVERY_MS ((2*R2_CLEANUP_US+R2_CLEANUP_DISPATCH_US)/1000)
 /* One initial attempt followed by three retries. Unsigned elapsed arithmetic
  * is valid across uptime wrap; every interval is less than 2^31 ms. */
 enum r2_wd_action { R2_WD_NONE, R2_WD_RESTART, R2_WD_RESET };

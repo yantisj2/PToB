@@ -1001,4 +1001,10 @@ The ordinary timing journal adds GM_CONTROL details19 (one actual disconnect
 result, incarnation, original retirement deadline in truncated32-bit milliseconds),
 20 (disconnect callback, incarnation, TX mask),21 (TX retirement during closure,
 incarnation, remaining TX mask),22 (terminal retirement timeout, incarnation, TX
-mask). Existing source/boot/cursor framing and overwrite reporting apply.
+mask). Version145 adds detail23: result is actual LE supervision in10ms units
+(or a negative parameter-query error), a packs interval in its low16 bits and
+latency in its high16 bits, b is the native incarnation (zero for a duplicate
+owner). Detail19 reports the original negotiated-supervision plus5s retirement
+deadline, or5s when no live LL termination is pending. Neither retries nor
+callbacks extend that deadline. Existing source/boot/cursor framing and overwrite
+reporting apply.

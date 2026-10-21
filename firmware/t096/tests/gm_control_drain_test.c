@@ -34,16 +34,16 @@ static void normal_owner_retirement(void){
   atomic_set(&p->connected,1);atomic_set(&p->tx_busy,3);
   close_result=response==0?0:response==1?-EACCES:response==2?-ENOTCONN:-EIO;
   unsigned calls=disconnects;r2_ble_disconnect(1);
-  assert(disconnects==calls+1&&p->connect_until==3000000&&p->disconnect_requested);
+  assert(disconnects==calls+1&&p->connect_until==6000000&&p->disconnect_requested);
   assert(stop_error==(response==3?-EIO:0)&&!r2_ble_ready(1));
   for(unsigned n=0;n<100;n++)r2_ble_disconnect(1);
-  assert(disconnects==calls+1&&p->connect_until==3000000);
+  assert(disconnects==calls+1&&p->connect_until==6000000);
   if(order==0)callbacks.disconnected(&conn,19);
   if(order!=2){atomic_clear(&p->tx_busy);if(order==1)callbacks.disconnected(&conn,19);}
-  fake_time=2999999;r2_ble_poll(fake_time);
+  fake_time=5999999;r2_ble_poll(fake_time);
   if(order!=2){assert(!p->conn&&conn.refs==1&&!p->identity);}
   else{
-   assert(p->conn==&conn&&conn.refs==2);fake_time=3000000;r2_ble_poll(fake_time);
+   assert(p->conn==&conn&&conn.refs==2);fake_time=6000000;r2_ble_poll(fake_time);
    assert(stop_error&&p->conn==&conn&&atomic_get(&p->tx_busy)==3);
    callbacks.disconnected(&conn,19);r2_ble_poll(++fake_time);assert(p->conn==&conn);
    atomic_clear(&p->tx_busy);r2_ble_poll(++fake_time);assert(!p->conn&&conn.refs==1&&stop_error);
@@ -55,17 +55,46 @@ static void normal_owner_retirement(void){
  struct bt_conn conn={.refs=2};struct peer *p=&peers[1];p->conn=&conn;p->identity=20;
  atomic_set(&p->connected,1);atomic_set(&p->tx_busy,1);
  callbacks.disconnected(&conn,19);fake_time=2000000;callbacks.disconnected(&conn,19);
- assert(p->connect_until==3000000);gatt_request.pending=true;gatt_request.peer=1;
- fake_time=3000000;r2_ble_poll(fake_time);assert(stop_error==-ETIMEDOUT&&conn.refs==2);
+ assert(p->connect_until==6000000);gatt_request.pending=true;gatt_request.peer=1;
+ fake_time=6000000;r2_ble_poll(fake_time);assert(stop_error==-ETIMEDOUT&&conn.refs==2);
  gatt_request.pending=false;atomic_clear(&p->tx_busy);r2_ble_poll(++fake_time);assert(conn.refs==1&&!p->conn);
  /* A synchronous natural callback during HCI refusal also retires exactly once. */
  reset();scanning=false;nodes=2;gm5_mode=true;p=&peers[1];p->conn=&conn;conn.refs=2;
  close_result=-ENOTCONN;disconnect_during_call=true;r2_ble_disconnect(1);r2_ble_poll(++fake_time);
  assert(!stop_error&&!p->conn&&conn.refs==1);
  gm5_mode=false;
- puts("PASS normal owner one-shot close; actual rc; immutable2s; both callback orders; missing TX/disconnect/GATT retain ownership and fault; natural loss and synchronous race");
+ puts("PASS normal owner one-shot close; actual rc; immutable5s; both callback orders; missing TX/disconnect/GATT retain ownership and fault; natural loss and synchronous race");
+}
+static void negotiated_retirement(void){
+ for(unsigned withheld=0;withheld<2;withheld++){
+  reset();scanning=false;nodes=2;gm5_mode=true;
+  struct bt_conn c={.refs=2,.role=BT_CONN_ROLE_PERIPHERAL,.state=BT_CONN_STATE_CONNECTED,
+                    .interval=40,.latency=4,.timeout=500};
+  struct peer *p=&peers[1];p->conn=&c;p->identity=20;p->incarnation=443;
+  atomic_set(&p->connected,1);atomic_set(&p->tx_busy,3);
+  unsigned calls=disconnects;r2_ble_disconnect(1);uint64_t until=p->connect_until;
+  assert(disconnects==calls+1);
+  fake_time=4000000;r2_ble_poll(fake_time);assert(!stop_error&&p->conn==&c&&c.refs==2);
+  assert(until==11000000);
+  c.timeout=3200;r2_ble_disconnect(1);assert(p->connect_until==until&&disconnects==calls+1);
+  if(!withheld){callbacks.disconnected(&c,19);atomic_clear(&p->tx_busy);r2_ble_poll(++fake_time);
+   assert(!stop_error&&!p->conn&&c.refs==1);}
+  else {fake_time=until-1;r2_ble_poll(fake_time);assert(!stop_error&&p->conn==&c);
+   fake_time=until;r2_ble_poll(fake_time);assert(stop_error==-ETIMEDOUT&&p->conn==&c&&c.refs==2);
+   callbacks.disconnected(&c,19);r2_ble_poll(++fake_time);assert(p->conn==&c);
+   atomic_clear(&p->tx_busy);r2_ble_poll(++fake_time);assert(!p->conn&&c.refs==1);}
+ }
+ /* Failed parameter reads retain ownership and preserve their actual error. */
+ reset();scanning=false;nodes=2;struct bt_conn c={.refs=2,.info_error=-EIO};
+ peers[1].conn=&c;r2_ble_disconnect(1);assert(stop_error==-EIO&&peers[1].conn==&c&&c.refs==2);
+ reset();scanning=false;nodes=2;c=(struct bt_conn){.refs=2,.state=BT_CONN_STATE_CONNECTED,.timeout=3200};
+ peers[1].conn=&c;r2_ble_disconnect(1);assert(!stop_error&&peers[1].connect_until==38000000);
+ reset();scanning=false;nodes=2;c=(struct bt_conn){.refs=2,.state=BT_CONN_STATE_CONNECTED};
+ peers[1].conn=&c;r2_ble_disconnect(1);assert(stop_error==-EINVAL&&peers[1].conn==&c);
+ puts("PASS negotiated5s supervision + original5s callback allowance; late legal close, immutable boundary, unknown info fenced");
 }
 int main(void){
+ negotiated_retirement();
  normal_owner_retirement();
  for(unsigned reason=0;reason<2;reason++){
   reset();struct bt_conn orphan={.address={.type=1,.a={{99,0,0,0,0,0xc0}}},.refs=1};
@@ -78,9 +107,9 @@ int main(void){
  reset();struct bt_conn orphan={.address={.type=1,.a={{99,0,0,0,0,0xc0}}},.refs=1};
  duplicate_track(&orphan,fake_time);close_result=-EACCES;unsigned calls=disconnects;
  duplicate_poll(fake_time);assert(!stop_error&&orphan.refs==2);
- fake_time=2999999;duplicate_poll(fake_time);assert(!stop_error&&orphan.refs==2&&disconnects==calls+1);
- callbacks.connected(&orphan,0);assert(duplicates[3].until==3000000); /* no rearm */
- fake_time=3000000;duplicate_poll(fake_time);assert(stop_error==-ETIMEDOUT&&orphan.refs==2);
+ fake_time=5999999;duplicate_poll(fake_time);assert(!stop_error&&orphan.refs==2&&disconnects==calls+1);
+ callbacks.connected(&orphan,0);assert(duplicates[3].until==6000000); /* no rearm */
+ fake_time=6000000;duplicate_poll(fake_time);assert(stop_error==-ETIMEDOUT&&orphan.refs==2);
  callbacks.disconnected(&orphan,62);duplicate_poll(++fake_time);assert(orphan.refs==1&&stop_error==-ETIMEDOUT);
  reset();duplicate_track(&orphan,fake_time);close_result=-EIO;duplicate_poll(fake_time);
  assert(stop_error==-EIO&&orphan.refs==2);callbacks.disconnected(&orphan,19);duplicate_poll(++fake_time);assert(orphan.refs==1);

@@ -1,3 +1,4 @@
+#include "cleanup_budget.h"
 /* SPDX-License-Identifier: Apache-2.0
  * Dynamic RC7 profile. Separate reusable controller owner; no GM election.
  * TIMER3 and the native observation adapter supply every timing capture.
@@ -2349,7 +2350,7 @@ void r2_service_stop(void) {
   k_mutex_lock(&state_lock, K_FOREVER);
   if (!status.closing) {
     status.closing = true;
-    status.close_deadline = mono_us() + 2000000;
+    status.close_deadline = mono_us() + R2_CLEANUP_US;
   }
   k_mutex_unlock(&state_lock);
   atomic_set(&stop_requested, 1);

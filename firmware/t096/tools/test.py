@@ -22,6 +22,7 @@ with (nullcontext(str(args.out.resolve())) if args.out else tempfile.TemporaryDi
     subprocess.run([sys.executable,str(APP/'tools/gm_standby_tests.py'),'--deps',str(args.deps),'--out',str(out/'gm-standby')],env={**os.environ,'CC':compiler},check=True,timeout=240)
     subprocess.run([sys.executable,str(APP/'tools/lora_gm_tests.py'),'--deps',str(args.deps),'--out',str(out/'lora-gm')],env={**os.environ,'CC':compiler},check=True,timeout=120)
     subprocess.run([sys.executable,str(APP/'tools/watchdog_tests.py'),'--deps',str(args.deps),'--out',str(out/'watchdog')],env={**os.environ,'CC':compiler},check=True,timeout=120)
+    subprocess.run([sys.executable,str(APP/'tools/gnss_recovery_tests.py'),'--out',str(out/'gnss-recovery')],env={**os.environ,'CC':compiler},check=True,timeout=120)
     # Two actual production harnesses share the observed terminal result. The
     # service publication bridge is source-checked, not a simulated worker run.
     service=(APP/'src/ble_service.c').read_text()

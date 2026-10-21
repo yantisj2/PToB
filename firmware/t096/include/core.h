@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 #ifndef R2_CORE_H
 #define R2_CORE_H
+#include "cleanup_budget.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -9,7 +10,7 @@
 #define R2_COMMAND_SLOTS 4
 #define R2_TX_SLOTS 2
 #define R2_REPLY_MS 2000
-#define R2_MAINTENANCE_MS 2000
+#define R2_MAINTENANCE_MS R2_CLEANUP_MS
 #define R2_BOOT_MS 2000
 #define R2_CLOCK_MS 20
 #define R2_TRACE_COUNT 32

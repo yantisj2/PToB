@@ -1,3 +1,4 @@
+#include "cleanup_budget.h"
 /* SPDX-License-Identifier: Apache-2.0
  * Fixed storage, public GATT APIs, single polling owner. Callback work copies
  * one complete record or records completion. No election work in callbacks.
@@ -288,6 +289,20 @@ static int gatt_call(unsigned peer,enum gatt_operation operation,unsigned slot,b
 }
 /* At most four controller ACL objects can require duplicate teardown. A
  * callback only retains the object; the polling owner issues and drains close. */
+static uint64_t close_allowance(struct bt_conn *conn,int *result,uint32_t *parameters,uint32_t *supervision){
+ /* Pinned get_info reads host state and negotiated LE parameters without
+  * waiting. Incoming links choose their own supervision timeout; the LL
+  * termination procedure may legally consume it before callback retirement.
+  * Keep the first deadline in the existing field, never refresh on retries. */
+ struct bt_conn_info info;int info_rc=bt_conn_get_info(conn,&info);
+ uint64_t allowance=R2_CALLBACK_RETIRE_US;*parameters=*supervision=0;
+ if(!info_rc&&(info.state==BT_CONN_STATE_CONNECTED||info.state==BT_CONN_STATE_DISCONNECTING)){
+  if(info.type!=BT_CONN_TYPE_LE||!info.le.timeout||info.le.timeout>3200)info_rc=-EINVAL;
+  else {*supervision=info.le.timeout;*parameters=info.le.interval|((uint32_t)info.le.latency<<16);
+   allowance+=(uint64_t)*supervision*10000;}
+ }
+ *result=info_rc;return allowance;
+}
 struct duplicate_owner {struct bt_conn *conn;uint64_t until;bool requested,dead;};
 static struct duplicate_owner duplicates[4];
 static void duplicate_track(struct bt_conn *conn,uint64_t now){
@@ -296,7 +311,12 @@ static void duplicate_track(struct bt_conn *conn,uint64_t now){
   if(duplicates[i].conn==conn){k_spin_unlock(&lock,k);return;}
   if(!duplicates[i].conn)free=i;
  }
- if(free<4)duplicates[free]=(struct duplicate_owner){.conn=bt_conn_ref(conn),.until=now+2000000};
+ if(free<4){
+  int rc;uint32_t parameters,supervision;uint64_t allowance=close_allowance(conn,&rc,&parameters,&supervision);
+  duplicates[free]=(struct duplicate_owner){.conn=bt_conn_ref(conn),.until=now+allowance};
+  if(rc)stop_error=rc;
+  r2_timing_event(R2_TIMING_GM_CONTROL,rc?rc:(int)supervision,0,23,parameters,0);
+ }
  else stop_error=-ENOSPC;
  k_spin_unlock(&lock,k);
 }
@@ -312,7 +332,7 @@ static void duplicate_poll(uint64_t now){
    int rc=bt_conn_disconnect(conn,BT_HCI_ERR_REMOTE_USER_TERM_CONN);
    /* A natural disconnect can win while this synchronous HCI call sleeps.
     * These responses do not release our reference: only its callback does,
-    * and a missing callback still faults at the original two-second limit. */
+    * and a missing callback still faults at the original negotiated cleanup limit. */
    if(rc&&rc!=-EACCES&&rc!=-ENOTCONN)stop_error=rc;
    if(rc)r2_timing_event(R2_TIMING_GM_CONTROL,rc,0,18,i,(uint32_t)(d->until>now?d->until-now:0));
   }
@@ -449,7 +469,7 @@ static void disconnected(struct bt_conn *conn,uint8_t reason)
   k_spinlock_key_t key=k_spin_lock(&lock);int i=index_conn(conn);
   diag_link_event(1,16,22,i<0?255u:(unsigned)i,reason);
   if(i>=0){struct peer *p=&peers[i];
-   if(!p->disconnect_requested){p->disconnect_requested=true;p->connect_until=now_us()+2000000;}
+   if(!p->disconnect_requested){p->disconnect_requested=true;p->connect_until=now_us()+R2_CALLBACK_RETIRE_US;}
    r2_timing_event(R2_TIMING_GM_CONTROL,reason,p->identity,20,p->incarnation,(uint32_t)atomic_get(&p->tx_busy));
    atomic_clear(&p->att_mtu);atomic_clear(&p->connected);atomic_set(&p->dead,1);}
   else for(unsigned d=0;d<4;d++)if(duplicates[d].conn==conn)duplicates[d].dead=true;
@@ -981,9 +1001,16 @@ int r2_ble_send(unsigned i,const uint8_t *data)
 static int disconnect_owned(unsigned i){
  k_spinlock_key_t key=k_spin_lock(&lock);struct bt_conn *conn=i<nodes?peers[i].conn:NULL;
  if(!conn||peers[i].disconnect_requested){k_spin_unlock(&lock,key);return conn?0:-ENOTCONN;}
- struct peer *p=&peers[i];p->disconnect_requested=true;p->connect_until=now_us()+2000000;diag_count(3);
+ struct peer *p=&peers[i];
+ int info_rc;uint32_t parameters,supervision;
+ uint64_t allowance=close_allowance(conn,&info_rc,&parameters,&supervision);
+ p->disconnect_requested=true;p->connect_until=now_us()+allowance;diag_count(3);
  uint64_t identity=p->identity;uint32_t incarnation=p->incarnation;
  k_spin_unlock(&lock,key);
+ /* Unknown negotiated parameters are a terminal observation, not permission
+  * to invent a shorter timeout or release controller-owned storage. */
+ if(info_rc){stop_error=info_rc;transport_error(info_rc,"DISCONNECT",i);}
+ r2_timing_event(R2_TIMING_GM_CONTROL,info_rc?info_rc:(int)supervision,identity,23,parameters,incarnation);
  int rc=bt_conn_disconnect(conn,BT_HCI_ERR_REMOTE_USER_TERM_CONN);
  /* Public close refusal can race a natural callback. Neither response alone
   * proves retirement. Unexpected failures are terminal; no request storm. */

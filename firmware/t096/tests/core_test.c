@@ -72,22 +72,22 @@ static void maintenance_tests(void)
   struct r2_maint m={0};
   assert(r2_prepare(&m,1,10,11,false)==-EACCES && m.phase==R2_IDLE);
   assert(r2_prepare(&m,1,11,10,true)==-ETIMEDOUT);
-  assert(r2_prepare(&m,1,10,2010,true)==-ETIMEDOUT);
-  assert(!r2_prepare(&m,1,10,20,true) && m.deadline==2010);
+  assert(r2_prepare(&m,1,10,10+R2_MAINTENANCE_MS,true)==-ETIMEDOUT);
+  assert(!r2_prepare(&m,1,10,20,true) && m.deadline==10+R2_MAINTENANCE_MS);
   assert(r2_prepare(&m,2,20,20,true)==-EACCES && m.nonce==1);
   assert(r2_commit(&m,1,20,21)==-EACCES);
-  assert(!r2_closed(&m,100,0) && m.deadline==2100 && m.phase==R2_READY);
+  assert(!r2_closed(&m,100,0) && m.deadline==100+R2_MAINTENANCE_MS && m.phase==R2_READY);
   assert(r2_commit(&m,2,100,101)==-EACCES);
   assert(!r2_commit(&m,1,100,101) && m.phase==R2_RESET);
   assert(r2_commit(&m,1,100,101)==-EACCES);
   m=(struct r2_maint){0}; assert(!r2_prepare(&m,4,0,0,true));
-  assert(r2_closed(&m,2000,0)==-EACCES && m.error==-ETIMEDOUT);
+  assert(r2_closed(&m,R2_MAINTENANCE_MS,0)==-EACCES && m.error==-ETIMEDOUT);
   assert(r2_prepare(&m,5,2001,2001,true)==-EACCES);
   m=(struct r2_maint){0}; assert(!r2_prepare(&m,4,0,0,true));
   assert(r2_closed(&m,1999,-EIO)==-EIO && m.phase==R2_FAULT);
   m=(struct r2_maint){0}; assert(!r2_prepare(&m,4,0,0,true));
-  assert(!r2_closed(&m,1999,0)); r2_expire(&m,3999);
-  assert(r2_commit(&m,4,3998,3999)==-EACCES && m.phase==R2_FAULT);
+  assert(!r2_closed(&m,1999,0)); r2_expire(&m,m.deadline);
+  assert(r2_commit(&m,4,m.deadline-1,m.deadline)==-EACCES && m.phase==R2_FAULT);
 }
 int main(void)
 {

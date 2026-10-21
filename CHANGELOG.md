@@ -2,6 +2,17 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 21 October 2026 — T0960.15.145 negotiated connection cleanup
+
+Replace the implementation-chosen2s ACL retirement limit with actual negotiated
+LE supervision plus5s callback allowance. Connecting cancellation and natural
+disconnect retirement use5s; normal GM/RC outer stop/profile and maintenance
+share a40s total budget. Existing source, message and output authority still expire
+on their original deadlines. A real latched GNSS driver fault in idle normal GM
+requests existing watchdog recovery; ordinary missing fixes do not. No persistent
+state, queue or timer is added. Production-body host regressions cover late legal
+callbacks and terminal recovery. Physical HOT reliability remains unqualified.
+
 ## 21 October 2026 — T0960.15.144 bounded connection retirement
 
 Normal control closure now issues one public disconnect request, records its

@@ -1,3 +1,4 @@
+#include "cleanup_budget.h"
 /* SPDX-License-Identifier: Apache-2.0 */
 #include "ble_service.h"
 #include "group_admission.h"
@@ -503,7 +504,7 @@ static void service_stop_owned(bool migration)
  r2_radio_service_withdraw();
 #endif
  (void)k_mutex_lock(&lock,K_FOREVER);
- if(!atomic_get(&stop_requested)){close_deadline=now_us()+2000000;status.close_deadline=close_deadline;status.closing=true;status.serving=status.follower=false;atomic_set(&stop_requested,1);}
+ if(!atomic_get(&stop_requested)){close_deadline=now_us()+R2_CLEANUP_US;status.close_deadline=close_deadline;status.closing=true;status.serving=status.follower=false;atomic_set(&stop_requested,1);}
  (void)k_mutex_unlock(&lock);
 }
 void r2_service_stop(void){service_stop_owned(false);}
@@ -713,7 +714,7 @@ static int profile_restart(uint64_t now){
   * deadline is mandatory. No reboot, driver recreation or flash operation. */
  (void)k_mutex_lock(&lock,K_FOREVER);bool closed=status.closed;int failure=status.error;(void)k_mutex_unlock(&lock);
  if(!closed||failure||!r2_ble_closed()||!r2_radio_service_closed()||!r2_relay_service_closed())return failure?failure:-EAGAIN;
- if(profile_phase==1){profile_phase=2;profile_reset_until=now+2000000;}
+ if(profile_phase==1){profile_phase=2;profile_reset_until=now+R2_CLEANUP_US;}
  int rc=r2_radio_service_reset(profile_changes+1);
  if(rc==-EAGAIN)return now<profile_reset_until?rc:-ETIMEDOUT;
  if(rc)return rc;
@@ -780,7 +781,7 @@ static void __attribute__((noinline)) normal_relay_tick(struct r2_radio_scope sc
   /* A direct RC remains on the independently owned normal receiver. A
    * coarse bootstrap is not a relay request; migrate only for authenticated
    * incoming downstream demand or an accepted upstream relay request. */
-  if(relay_transition)relay_transition_until=now+2000000;
+  if(relay_transition)relay_transition_until=now+R2_CLEANUP_US;
  }
  if(relay_transition&&!relay_selected){
   r2_radio_service_handoff_request(local_demand.root,local_demand.root_boot,local_demand.source_epoch);

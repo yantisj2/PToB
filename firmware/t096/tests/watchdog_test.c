@@ -106,6 +106,19 @@ static void policy_cases(bool rc)
  assert(r2_wd_policy_step(&p,span+R2_WD_RECOVERY_MS-1,true,rc,false,true,0)==R2_WD_NONE);
  assert(r2_wd_policy_step(&p,span+R2_WD_RECOVERY_MS,true,rc,false,true,0)==R2_WD_RESET);
 }
+static void cleanup_recovery_budget(void){
+ struct r2_wd_policy p={0};uint32_t start=100;
+ assert(r2_wd_policy_step(&p,start,true,false,false,false,0)==R2_WD_NONE);
+ start+=R2_WD_GM_MS;assert(r2_wd_policy_step(&p,start,true,false,false,false,0)==R2_WD_RESTART);
+ uint32_t original=p.recovery_at;
+ for(unsigned ms=37000;ms<=80000;ms+=1000){
+  assert(r2_wd_policy_step(&p,start+ms,true,false,false,true,0)==R2_WD_NONE);
+  assert(p.recovery_at==original);
+ }
+ struct r2_wd_policy missing=p;
+ assert(r2_wd_policy_step(&p,start+R2_WD_RECOVERY_MS-1,true,false,false,false,1)==R2_WD_NONE&&!p.recovering);
+ assert(r2_wd_policy_step(&missing,start+R2_WD_RECOVERY_MS,true,false,false,true,0)==R2_WD_RESET);
+}
 static void owner_failure_cases(void)
 {
  for(unsigned rc=0;rc<2;rc++)for(unsigned pending=0;pending<2;pending++){
@@ -141,6 +154,7 @@ static void owner_failure_cases(void)
 }
 int main(int argc,char **argv)
 {
+ cleanup_recovery_budget();
  if(argc==2){
   int error=0;FILE *f=fopen(argv[1],"rb");assert(f&&fread(&error,sizeof error,1,f)==1&&!fclose(f)&&error==-ETIMEDOUT);
   clear_runtime();r2_watchdog_enable(true);advance(72000);

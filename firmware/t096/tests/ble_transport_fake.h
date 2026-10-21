@@ -42,8 +42,11 @@ struct bt_uuid {int unused;};
 struct bt_uuid_128 {struct bt_uuid uuid;};
 typedef struct {uint8_t type;struct {uint8_t val[6];} a;} bt_addr_le_t;
 struct bt_le_conn_param {unsigned interval_min,interval_max,latency,timeout;};
-struct bt_conn {bt_addr_le_t address;int refs;unsigned role;};
+struct bt_conn {bt_addr_le_t address;int refs;unsigned role,state,interval,latency,timeout;int info_error;};
 #define BT_CONN_ROLE_PERIPHERAL 1
+#define BT_CONN_TYPE_LE 1
+#define BT_CONN_STATE_CONNECTED 2
+#define BT_CONN_STATE_DISCONNECTING 3
 struct callbacks {void (*connected)(struct bt_conn *,uint8_t);void (*disconnected)(struct bt_conn *,uint8_t);};
 struct bt_gatt_read_params {uint8_t (*func)(struct bt_conn *,uint8_t,struct bt_gatt_read_params *,const void *,uint16_t);uint16_t handle_count;struct {uint16_t start_handle,end_handle;struct bt_uuid *uuid;} by_uuid;};
 struct bt_gatt_attr {void *user_data;};
@@ -56,7 +59,7 @@ struct bt_data {uint8_t type,data_len;const uint8_t *data;};
 struct net_buf_simple {unsigned len;uint8_t *data;};
 struct bt_le_scan_param {unsigned type,interval,window;};
 struct data_len {unsigned tx_max_len;};
-struct bt_conn_info {unsigned role;struct {unsigned interval;struct data_len *data_len;} le;};
+struct bt_conn_info {unsigned role,state,type;struct {unsigned interval,latency,timeout;struct data_len *data_len;} le;};
 struct k_spinlock {int unused;};typedef int k_spinlock_key_t;typedef int atomic_t;
 static int k_sys_work_q;
 static int atomic_get(const atomic_t *p){return *p;}
@@ -127,7 +130,7 @@ static int bt_le_scan_stop(void){++scan_stops;return 0;}
 static int disconnect_result;
 static unsigned disconnects;static struct bt_conn *last_disconnect;
 static int bt_conn_disconnect(struct bt_conn *c,uint8_t reason){++disconnects;last_disconnect=c;return disconnect_result;}
-static int bt_conn_get_info(struct bt_conn *c,struct bt_conn_info *i){static struct data_len length;memset(i,0,sizeof *i);i->role=c->role;i->le.data_len=&length;return 0;}
+static int bt_conn_get_info(struct bt_conn *c,struct bt_conn_info *i){static struct data_len length;memset(i,0,sizeof *i);i->role=c->role;i->state=c->state;i->type=BT_CONN_TYPE_LE;i->le.interval=c->interval;i->le.latency=c->latency;i->le.timeout=c->timeout;i->le.data_len=&length;return c->info_error;}
 static int bt_conn_le_create(const bt_addr_le_t *,const void *,const void *,struct bt_conn **);
 
 static unsigned k_msgq_num_used_get(void *q){return 0;}

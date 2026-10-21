@@ -10,6 +10,10 @@
 #include "rc_admission_policy.h"
 #define CONFIG_BT_MAX_CONN 6
 #define K_NO_WAIT 0
+#define K_FOREVER -1
+static int state_lock;static struct {bool closing;uint64_t at,close_deadline;} status;
+static void k_mutex_lock(int *p,int timeout){(void)timeout;assert(!*p);*p=1;}
+static void k_mutex_unlock(int *p){assert(*p);*p=0;}
 #define K_MSEC(x) (x)
 #define BT_HCI_ERR_REMOTE_USER_TERM_CONN 0x13
 #define BT_HCI_ERR_CONN_LIMIT_EXCEEDED 9
@@ -114,19 +118,19 @@ int main(void){
  seed();lt_attempts=3;startup_admitted=true;live_precision=true;timing.bound=true;timing.context_until=80000000;
  lt_retry_after(0,0,0);assert(!lt_attempts&&lt_budget_until==320000000&&timing.context_until==80000000);
  /* A connected peer may disappear before replying to termination. Its1s
-  * supervision is inside the1.5s normal drain, without relaxing shutdown. */
+  * supervision is inside the6s normal drain, without renewing its deadline. */
  seed();lt_adv=NULL;advertising_live=false;pool[0]=(struct bt_conn){.refs=1,.active=true};lt_conn=&pool[0];lt_attempts=2;
- lt_disconnect(1);assert(!fault&&lt_close_until==1500000);
+ lt_disconnect(1);assert(!fault&&lt_close_until==6000000);
  now=1000;assert(lt_closed_poll(lt_now())&&!fault&&lt_conn);
- now=1499;pool[0].active=false;lt_dead=true;
+ now=5999;pool[0].active=false;lt_dead=true;
  assert(!lt_closed_poll(lt_now())&&!fault&&!lt_conn&&!pool[0].refs&&lt_renew_at==lt_now()+80000000);
  seed();lt_adv=NULL;advertising_live=false;pool[0]=(struct bt_conn){.refs=1,.active=true};lt_conn=&pool[0];
- lt_disconnect(1);now=1500;assert(lt_closed_poll(lt_now())&&fault&&lt_conn&&drain_result==-ETIMEDOUT);
+ lt_disconnect(1);now=6000;assert(lt_closed_poll(lt_now())&&fault&&lt_conn&&drain_result==-ETIMEDOUT);
  /* A duplicate native timeout cancel is completion-pending, not permission
   * to discard ownership or declare a permanent radio-owner fault. */
  seed();lt_adv=NULL;advertising_live=false;pool[0]=(struct bt_conn){.refs=1,.initiating=true};lt_conn=&pool[0];lt_phase=LT_CONNECT;cancel_race=true;
- lt_disconnect(6);assert(!fault&&lt_phase==LT_CLOSE&&lt_close_until==500000&&pool[0].refs==1);
- now=499;pool[0].initiating=false;lt_apply_connected(&pool[0],2);
+ lt_disconnect(6);assert(!fault&&lt_phase==LT_CLOSE&&lt_close_until==5000000&&pool[0].refs==1);
+ now=4999;pool[0].initiating=false;lt_apply_connected(&pool[0],2);
  assert(!lt_closed_poll(lt_now())&&!lt_conn&&!pool[0].refs&&!fault&&drain_events==1&&!drain_result);
  /* A success after cancellation is drained; it never becomes MTU/JOIN. */
  seed();lt_adv=NULL;advertising_live=false;pool[0]=(struct bt_conn){.refs=1,.initiating=true};lt_conn=&pool[0];lt_phase=LT_CONNECT;cancel_race=true;
@@ -135,20 +139,20 @@ int main(void){
  pool[0].active=false;lt_dead=true;assert(!lt_closed_poll(lt_now())&&!lt_conn&&!pool[0].refs);
  /* Missing and late completion remain explicit failures with owned refs. */
  seed();lt_adv=NULL;advertising_live=false;pool[0]=(struct bt_conn){.refs=1,.initiating=true};lt_conn=&pool[0];lt_phase=LT_CONNECT;cancel_race=true;
- lt_disconnect(6);now=500;assert(lt_closed_poll(lt_now())&&fault&&lt_conn&&pool[0].refs==1&&drain_result==-ETIMEDOUT);
+ lt_disconnect(6);now=5000;assert(lt_closed_poll(lt_now())&&fault&&lt_conn&&pool[0].refs==1&&drain_result==-ETIMEDOUT);
  pool[0].initiating=false;lt_apply_connected(&pool[0],2);assert(lt_closed_poll(lt_now())&&!lt_conn&&!pool[0].refs&&fault);
  seed();pool[0]=(struct bt_conn){.refs=1,.initiating=true};lt_conn=&pool[0];cancel_race=true;assert(lt_close()&&!fault);balanced();
  seed();pool[0]=(struct bt_conn){.refs=1,.initiating=true};lt_conn=&pool[0];cancel_race=late_success=true;assert(lt_close()&&disconnect_calls==2&&now==4);balanced();
- seed();pool[0]=(struct bt_conn){.refs=1,.initiating=true};lt_conn=&pool[0];cancel_race=true;delay_ms=501;assert(!lt_close()&&now==500&&pool[0].refs==1);
+ seed();pool[0]=(struct bt_conn){.refs=1,.initiating=true};lt_conn=&pool[0];cancel_race=true;delay_ms=37001;assert(!lt_close()&&now==37000&&pool[0].refs==1);
  /* Entering shutdown cannot replace an already running drain deadline. */
  seed();pool[0]=(struct bt_conn){.refs=1,.initiating=true};lt_conn=&pool[0];lt_close_until=3000;delay_ms=4;assert(!lt_close()&&now==3&&pool[0].refs==1);
  seed();queue_connected(0);assert(lt_close());assert(disconnect_calls==1&&records==1);balanced();
  seed();arrival=&pool[0];assert(lt_close());assert(disconnect_calls==1);balanced();
  seed();pool[0]=(struct bt_conn){.refs=1,.initiating=true};lt_conn=&pool[0];assert(lt_close());balanced();
  seed();pool[0]=(struct bt_conn){.refs=1,.active=true};lt_conn=&pool[0];queue_connected(1);assert(lt_close());assert(disconnect_calls==2);balanced();
- seed();queue_connected(0);delay_ms=499;assert(lt_close()&&now==499);balanced();
- seed();queue_connected(0);delay_ms=500;assert(!lt_close()&&now==500);assert(!pool[0].active&&!pool[0].refs);
- seed();queue_connected(0);delay_ms=501;assert(!lt_close()&&now==500);assert(pool[0].refs==1&&lt_retired[0].conn==&pool[0]);assert(!lt_reset());
+ seed();queue_connected(0);delay_ms=36999;assert(lt_close()&&now==36999);balanced();
+ seed();queue_connected(0);delay_ms=37000;assert(!lt_close()&&now==37000);assert(!pool[0].active&&!pool[0].refs);
+ seed();queue_connected(0);delay_ms=37001;assert(!lt_close()&&now==37000);assert(pool[0].refs==1&&lt_retired[0].conn==&pool[0]);assert(!lt_reset());
  seed();delete_fails=true;assert(!lt_close()&&lt_adv);assert(!lt_reset());
  seed();lt_adv=NULL;queue_connected(0);assert(!lt_reset()&&!pool[0].refs&&pool[0].active); /* reject unknown live scope */
  seed();pool[0]=(struct bt_conn){.refs=2,.active=true,.ucs=true};put(LT_CONNECTED,&pool[0],0);assert(lt_close());assert(pool[0].refs==1&&pool[0].active&&!disconnect_calls);assert(lt_reset());
@@ -159,6 +163,14 @@ int main(void){
   queue_connected(slot);assert(lt_close());balanced();
  }
  assert(disconnect_calls==CONFIG_BT_MAX_CONN*2);
+ seed();queue_connected(0);status.closing=true;status.close_deadline=40000000;delay_ms=31000;
+ assert(lt_close()&&now==31000&&status.at>=30999000&&status.close_deadline==40000000);balanced();
+ memset(&status,0,sizeof status);
+ seed();queue_connected(0);status.closing=true;status.close_deadline=25000000;delay_ms=26000;
+ assert(!lt_close()&&now==25000&&status.at==24999000&&pool[0].refs==1);
+ uint64_t poll_at=status.at;now+=30001;assert(status.at==poll_at); /* no poll cannot invent progress */
+ memset(&status,0,sizeof status);
+
  puts("PASS cancel EACCES races, late-success cleanup without MTU/JOIN, original callback/shutdown deadlines, unknown ownership, UCS preservation and12 capacity cycles");
  return 0;
 }

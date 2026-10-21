@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Jonathan Yantis.
  */
 #pragma once
+#include "cleanup_budget.h"
 #include <stdbool.h>
 #include <stdint.h>
 /* Extended discovery/capability events use625us GAP units. They carry no
@@ -60,9 +61,9 @@ static inline bool rc_admission_start_allowed(const uint64_t starts[2],uint64_t 
 }
 /* Connected links may complete teardown through their negotiated supervision
  * timeout. Add a finite callback margin. A create/cancel has no live ACL and
- * retains500ms; explicit profile/update shutdown separately retains500ms. */
+ * uses the shared callback allowance; explicit shutdown retains a bounded outer budget. */
 static inline uint64_t rc_admission_drain_us(bool connected,unsigned supervision){
- return UINT64_C(500000)+(connected?(uint64_t)supervision*10000:0);
+ return R2_CALLBACK_RETIRE_US+(connected?(uint64_t)(supervision>3200?3200:supervision)*10000:0);
 }
 struct rc_admission_scan {uint16_t interval,window;};
 /* GAP units of 625 us. Every attempt gets a fresh non-continuous scan pattern

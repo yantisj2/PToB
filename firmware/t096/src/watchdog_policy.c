@@ -7,8 +7,9 @@ enum r2_wd_action r2_wd_policy_step(struct r2_wd_policy *p,uint32_t now,
  if(!enabled){*p=(struct r2_wd_policy){0};return R2_WD_NONE;}
  if(!p->armed){*p=(struct r2_wd_policy){.armed=true,.rc=rc,.since=now,.generation=generation};}
  if(p->recovering){
-  /* Existing owners retain their own original 2s drain and 2s PT-ack
-   * deadlines. This longer failure observer cannot renew either deadline. */
+  /* Existing owners retain original cleanup and subsequent PT/profile restart
+   * deadlines. Cover both finite phases plus dispatch; never renew either
+   * phase or this observer when progress is reported. */
   if((uint32_t)(now-p->recovery_at)>=R2_WD_RECOVERY_MS)return R2_WD_RESET;
   if(pending||generation==p->generation)return R2_WD_NONE;
   p->recovering=false;p->generation=generation;p->rc=rc;p->since=now;p->healthy_seen=false;

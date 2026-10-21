@@ -1,3 +1,4 @@
+#include "cleanup_budget.h"
 /* SPDX-License-Identifier: Apache-2.0
  * Backend dispatcher only. GM source/election/timing live in the unchanged
  * normal owner; RC7 has its own code, state, callbacks, queues and lifecycle.
@@ -148,7 +149,7 @@ static int transition(bool next, uint64_t arrival) {
     return -ENOTSUP;
   target = next;
   pending = true;
-  until = now + 2000000;
+  until = now + R2_CLEANUP_US;
   r2_shadow_normal_withdraw();
   if (r2_switch_rc_active())
     r2_dynamic_service_stop();
@@ -297,7 +298,7 @@ void r2_service_supervise(void) {
     rc = r2_normal_service_resume_gm(next, changes);
     if (!rc) {
       resuming = true;
-      until = now_us() + 2000000;
+      until = now_us() + R2_CLEANUP_US;
       return;
     }
   }

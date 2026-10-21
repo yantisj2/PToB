@@ -284,8 +284,9 @@ without becoming ACTIVE/HOT; an actual serving GM retains its own source gate.
 
 ### Retirement and READY freshness in0.15.144
 
-Normal native control connections issue one disconnect request. The original2s
-retirement budget starts on that request or the first natural disconnect callback.
+Normal native control connections issue one disconnect request. Version144 used an
+implementation-chosen2s retirement budget; version145 replaces it as described below.
+The immutable retirement budget starts on that request or the first natural disconnect callback.
 The same budget covers outstanding TX and bridged GATT work; a request result
 alone never releases references or immutable TX storage. Missing retirement is
 terminal and reaches the existing watchdog path, even while CONTROL publishes.
@@ -311,3 +312,40 @@ as a complete worker. These tests distinguish authority expiry from liveness:
 every closing resource must actually retire or become terminal by its original
 deadline. Real HCI, ISR scheduling and controller FIFO coexistence still require
 the diagnostic/native boundary and separately authorized physical observations.
+
+### Negotiated cleanup in0.15.145
+
+Incoming ACL connections can negotiate up to32s supervision; the pinned controller
+also uses that timeout for LL termination. Version145 reads actual public connection
+parameters and adds a shared5s callback allowance. Connecting cancellation and a
+completed natural disconnect use only5s. Duplicate owners use the same policy.
+Every deadline stays anchored to its first close; retries never renew it and
+timeout never permits buffer/reference reuse. Event23 records supervision in10ms
+units in result (negative means parameter-query failure), interval/latency packed
+in a (low/high16 bits), and native incarnation in b (zero for duplicate owners).
+An unavailable or invalid negotiated value is terminal, never guessed.
+
+Normal GM/RC outer stop, profile and maintenance budgets share40s: maximum32s LL
+termination,5s callback retirement and3s dispatch allowance. The outer budget is
+a total fail-safe, not a promise of arbitrary scheduler progress. Existing PA
+synchronization, scan/HCI request, source, PT, message, READY and grant deadlines
+are separate and unchanged. The independent30s owner-stall observer detects stale
+publication, not a healthy owner polling a long cleanup. RC synchronous ACL
+retirement polls publish only the existing closing timestamp; their original
+37s local/40s outer limits remain finite, and no source authority is renewed. Firmware maintenance
+PREPARE and READY use the same40s bounded phase budget. The existing watchdog
+restart observer spans both sequential40s drain/reinitialization phases plus3s
+dispatch (83s), without extending either phase or tolerating a terminal error.
+
+A latched GNSS driver error now requests the existing watchdog recovery only in
+ordinary runtime GM while idle, outside profile transition and intentional poweroff.
+No-fix, VOID, missing PPS and source silence do not trigger this hook. RC/DC/PC
+behavior remains separate. Persistent driver faults can cause repeated resets;
+no new backoff, timer or retained state is introduced. The capsule preserves the
+error but does not uniquely identify its caller.
+
+Host tests exercise actual native ownership with delayed legal callbacks beyond2s,
+original negotiated expiry, missing TX/GATT callbacks and the production GNSS latch
+to watchdog path. The former fixed2s implementation fails the same delayed-callback
+regression. Native resource checks and physical HOT durability remain required;
+these changes do not establish the cause of the earlier controller FIFO assertion.

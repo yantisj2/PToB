@@ -96,7 +96,7 @@ static void missed_active_polls(bool pending)
    }
    if(pending&&started){
     if(at<started+100000)assert(disconnects==closed+round);
-    if(at==started+100000)assert(disconnects==closed+round+1&&peers[4].disconnect_requested&&peers[4].connect_until==fake_time+2000000);
+    if(at==started+100000)assert(disconnects==closed+round+1&&peers[4].disconnect_requested&&peers[4].connect_until==fake_time+R2_CALLBACK_RETIRE_US);
     if(at>=started+100000&&at<started+150000)assert(peers[4].conn==&connection&&connection.refs==1&&peers[4].provisional_until==original_until);
     if(at==started+150000){callbacks.connected(&connection,2);callback=true;}
     if(at>started+150000)assert(callback&&!peers[4].conn&&connection.refs==0);

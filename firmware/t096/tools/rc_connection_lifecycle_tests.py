@@ -18,5 +18,5 @@ try:
   subprocess.run([*flags,str(app/'tests/rc_connection_lifecycle_test.c'),'-o',str(out/'test')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
   subprocess.run([str(out/'test')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=10)
  passed=True
-finally:(out/'receipt.json').write_text(json.dumps({'passed':passed,'actual_production_functions':['lt_retry_after','lt_disconnect','lt_closed_poll','lt_apply_connected','lt_retired_find','lt_retired_take','lt_retire_events','lt_close','lt_reset'],'source_sha256':hashlib.sha256(source.read_bytes()).hexdigest(),'physical':'UNKNOWN','shutdown_deadline_ms':500,'create_cancel_deadline_ms':500,'connected_supervision_margin_ms':500,'tested_pool_capacity':6,'cycles':12},indent=2)+'\n')
+finally:(out/'receipt.json').write_text(json.dumps({'passed':passed,'actual_production_functions':['lt_retry_after','lt_disconnect','lt_closed_poll','lt_apply_connected','lt_retired_find','lt_retired_take','lt_retire_events','lt_close','lt_reset'],'source_sha256':hashlib.sha256(source.read_bytes()).hexdigest(),'physical':'UNKNOWN','shutdown_deadline_ms':37000,'create_cancel_deadline_ms':5000,'connected_supervision_margin_ms':5000,'tested_pool_capacity':6,'cycles':12},indent=2)+'\n')
 print((out/'test.log').read_text())

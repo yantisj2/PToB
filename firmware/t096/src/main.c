@@ -498,6 +498,16 @@ int main(void)
       maintenance.phase==R2_IDLE&&!poweroff_requested&&!r2_ui_poweroff_requested()
 #endif
     );
+#ifndef R2_PC_PROFILE
+    /* A latched GNSS driver failure cannot recover in place. Ordinary
+     * no-fix, VOID, PPS absence and source expiry never set this latch.
+     * Keep RC, PC, maintenance and intentional poweroff outside this policy. */
+    if(normal_started&&service.normal&&!service.profile_rc&&!service.profile_pending&&
+       maintenance.phase==R2_IDLE&&!poweroff_requested&&!r2_ui_poweroff_requested()){
+      int gnss_error=r2_gnss_input_error();
+      if(gnss_error)r2_watchdog_restart_result(gnss_error);
+    }
+#endif
     unsigned watchdog_retry=r2_watchdog_take_restart();
     if(watchdog_retry){
       r2_diag_watchdog(watchdog_retry,-ETIMEDOUT);

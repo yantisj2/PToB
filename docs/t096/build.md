@@ -33,7 +33,7 @@ revision/cleanliness and SDK archive checks. It is not necessary to have a priva
 sibling checkout. Builds put all generated and secret-bearing output under
 ignored `artifacts/` with owner-only permissions.
 
-Normal GM version0.15.143 uses [G5 ACTIVE/HOT/COLD](gm-standby.md).
+Normal GM version0.15.145 uses [G5 ACTIVE/HOT/COLD](gm-standby.md).
 Authenticated control maps each remote instant with its own original conservative
 clock-drift guard; a long finite-grant deadline cannot shorten a separate record
 TTL. This changes no original authority lifetime, wire format or stored state.
@@ -137,7 +137,7 @@ display, BLE/USB service and stack observations remain exact-device gates.
 
 ## Hardware update boundary
 
-Normal0.15.144 builds include the [RC8 wire3 integration](../../protocol/rc8/README.md).
+Normal0.15.145 builds include the [RC8 wire3 integration](../../protocol/rc8/README.md).
 The default transmitter factory is zero, so LoRa hardware does not start. An
 explicit normal-only `--lora-transmitter-factory` takes a16-digit exact factory
 identity verified against ignored T096 registry metadata. It is included in the
@@ -250,7 +250,8 @@ recovery interval, with public stop retries at most every 20ms. Success must be
 observed before releasing scan ownership. A duplicate connection whose close
 races a natural disconnect retains its reference until its actual callback;
 Command Disallowed/Not Connected responses cannot alone release it. Missing
-callbacks retain the original two-second failure deadline. Terminal transport
+callbacks originally retained a two-second failure deadline; version145 uses the
+negotiated supervision plus5s and a shared40s outer cleanup budget. Terminal transport
 diagnostics are saved without needing a pre-fault console poll. These checks
 do not extend source, authentication, election or maintenance deadlines.
 Bounded native transport indices use eight-bit storage to retain the unchanged
@@ -307,7 +308,8 @@ created. No stack/controller/USB reserve is reduced. The `lora` response adds
 [RC8 guide](../../protocol/rc8/README.md). Real transport errors remain latched
 until physical watchdog reset; no unretired DMA buffer is reused. Journal writes
 use only existing bank0 at0xe1000..0xe2fff, with normal radio-aware admission,
-readback/CRC/commit and the original2s deadline. App-only updates and all672
+readback/CRC/commit and the original finite maintenance deadline (40s in145;
+older images retain their own deadline). App-only updates and all672
 protected-block comparisons retain their original scope; journal storage is
 already outside that protected population. Conditional retained-RAM evidence is
 not a power-loss durability guarantee. Physical recovery/retention and live

@@ -182,6 +182,6 @@ int main(void){
  assert(!lt_advertising&&precision_synced(fake_tick));
  unsigned before=starts;lt_advertise(fake_tick);assert(starts==before);
  routes.node[0].transmitter=true;lt_advertise(fake_tick);assert(lt_advertising);
- assert(rc_admission_drain_us(false,3200)==500000&&rc_admission_drain_us(true,100)==1500000&&rc_admission_drain_us(true,3200)==32500000);
+ assert(rc_admission_drain_us(false,3200)==5000000&&rc_admission_drain_us(true,100)==6000000&&rc_admission_drain_us(true,3200)==37000000);
  puts("PASS production RC/UCS discovery: management discovery during timing loss, all output precision gates, withdrawal/recovery, idle-relay discovery, existing client preservation and failed stop");
 }

@@ -46,6 +46,7 @@ int r2_ble_group_start(uint64_t id,uint64_t group,uint32_t epoch,const uint8_t a
 void r2_radio_service_activate(void){activates++;}
 #include "group_admission.h"
 #include "runtime_profile_under_test.h"
+void r2_ble_gm5_policy(bool enabled,uint64_t selected,bool inventory_due){(void)enabled;(void)selected;(void)inventory_due;}
 static void fresh(void){memset(&status,0,sizeof status);status.normal=status.active=status.configured=true;status.serving=status.hot_ready=status.standby_authorized=true;status.authority_until=status.role_until=status.service_until=9999999;status.precision.map_valid=status.precision.authorized=true;status.follower_clock_valid=true;stop_requested=0;ble_closed=radio_closed=relay_closed=ack=false;profile_rc=profile_target_rc=profile_pending=false;profile_changes=profile_phase=starts=resets=withdraws=activates=start_failure=0;roster.group.id=1;roster.group.epoch=1;roster.map_bound_us=40000;roster.identity[0]=profile_identity;}
 static void drain(void){status.closed=true;ble_closed=radio_closed=relay_closed=true;}
 int main(void){
@@ -57,7 +58,7 @@ int main(void){
  drain();assert(profile_restart(now)==-EAGAIN&&!starts);ack=true;assert(!profile_restart(now));assert(profile_rc&&!profile_pending&&!stop_requested&&status.active&&!status.closed&&starts==1&&activates==1&&net.gm_mask==0&&net.capabilities==6&&!net.local_gm&&net.boot!=physical_boot);
  uint64_t prior=net.boot;
  for(unsigned i=0;i<1000;i++){assert(!r2_service_profile(R2_PROFILE_TOGGLE,now/1000));drain();ack=true;assert(!profile_restart(now));assert(!profile_pending&&net.boot!=prior&&net.boot&&net.capabilities==r2_profile_caps(profile_rc)&&net.gm_mask==(profile_rc?0:1)&&!net.local_gm);prior=net.boot;}
- fresh();assert(!r2_service_profile(1,now/1000));drain();assert(profile_restart(now)==-EAGAIN);assert(profile_restart(now+2000000)==-ETIMEDOUT&&!starts);
+ fresh();assert(!r2_service_profile(1,now/1000));drain();assert(profile_restart(now)==-EAGAIN);assert(profile_restart(now+R2_CLEANUP_US)==-ETIMEDOUT&&!starts);
  fresh();assert(!r2_service_profile(1,now/1000));status.error=-EIO;drain();assert(profile_restart(now)==-EIO&&!starts);
  puts("PASS production profile request/restart: same-mode idempotence, stale/busy refusal, immediate authority fence, no reuse before real drain/PT ack, clean1001 mode cycles/new scope, original drain plus bounded reset ack, failures cannot restart; defaults derived anew in RAM");
 }
