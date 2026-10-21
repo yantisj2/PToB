@@ -519,6 +519,40 @@ corrections advanced. Subsequent reduced polling again captured readiness
 withdrawals and reformation with unchanged sampled source epochs. This confirms
 that the diagnostic update has not resolved HOT durability.
 
+Source157 adds one same-class scheduler condition so force wins before age;
+critical and cross-class precision precedence remain unchanged. An independently
+reviewed actual queued-controller host population stalls48/2160 cases with the
+previous condition and0/2160 with the candidate. The reduced DLE example exceeds
+available reservation capacity, so this tests progress under contention rather
+than capacity or field causation. Four native builds, profile composition and the
+full host suite pass, with unchanged static objects/stack frames and52 fewer flash
+bytes than156. All four authorized units passed actual source/build/default
+startup checks and intended runtime restoration.
+
+The first157180s observation has23/23 matching ACTIVE/global-HOT and local-HOT
+cohorts, spanning167.59s between first and last samples, with zero observed
+withdrawals and advancing LoRa/RC counters. Subsequent reduced polling failed:
+the HOT peer stopped replying, then rebooted through a matching watchdog fatal
+record. Its source/boot/CRC-bound schema3 capsule captures the exact
+`lll_prepare_resolve():891` failed allocation assertion and all seven queued
+prepare owners: three central, two scan, one ordinary advertiser and one periodic
+receiver. All are nonresume/nonaborted at that cut. The failed eighth prepare is
+ordinary advertising. Current active owner, queued timestamps, controller
+incarnations and preempt/done dispatch progress remain unknown. This does not
+establish a widened-receive or starvation cause;157 has not resolved controller
+crashes or qualified durable HOT.
+
+A separate source156 pre-update observation confirms that the successor did
+promote and serve after its issuer was updated. Recorded software values show
+45.003s root-health suspicion plus the existing3s output fence; clients were not
+simultaneously observed during that transition. The requested design now makes
+valid stream continuity primary and includes planned yield to a better qualified
+successor. A draft stream-expiry-only change remains withheld: an existing
+actual-owner recovery case produces two serving roots for16.625s and fails to
+restore HOT by its270s endpoint. Ownership transfer and receiver-local loss need
+a concise rule before another field candidate; the long management renewal
+window must not become the outage detection delay.
+
 The remaining work has separate causes and evidence requirements. First retain
 a stable two-GM pair with the third GM remaining COLD; only then exercise newcomer
 and four-device admission, keeping the ordinary RC in its RC profile:
