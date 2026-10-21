@@ -343,6 +343,32 @@ requalification; the final cohort again had no qualified source or valid RC map.
 Radio requests remain ON in the intended profiles. This source-limited population
 must remain separate from the earlier source-qualified version 150 pair runs.
 
+Version 152 changes only retained watchdog failure classification. Timer, pairing,
+transport, radio and source behavior remain identical to 151. All four ordinary
+images passed native builds and actual startup checks. In the first 600 s field
+capture, 89 cohorts were attempted and 31 included all four participants. One GM
+reset; its failed reader and subsequent gaps remain in the denominator. No
+complete qualified ACTIVE/HOT cohort was observed. LoRa transmission and RC
+corrections advanced without a sampled radio fault or OFF request.
+
+Two separately recovered, image-bound capsules subsequently classified that GM's
+resets as terminal service error `-116`, with progressing CONTROL. Neither stale
+CONTROL nor expiration of the overall closure budget caused feed withdrawal.
+The first live failure retained an anonymous incoming admission connection after
+disconnect request, with no pending TX or GATT bridge and no matching application
+disconnect completion. The newest event tail was not retrieved before reset, so
+the exact public disconnect result and host/controller state remain unknown.
+A different identified management link had timed out earlier during acquisition;
+these are separate observed links and failure times. This is failure isolation,
+not a demonstrated correction. Firmware and timer changes remain frozen while
+the unchanged images are observed for a durable pair.
+
+A later pair check observed matching ACTIVE/HOT tuples in separate snapshots
+less than one second apart. The standby reported HOT in 12/89 samples of the next
+600 s capture, then withdrew local source permission after GNSS loss while its
+delivered BLE map remained locked. That brief recovery does not establish pair
+durability; missing ACTIVE-reader cohorts are not filled by the separate check.
+
 The remaining work has separate causes and evidence requirements. First retain
 a stable two-GM pair with the third GM remaining COLD; only then exercise newcomer
 and four-device admission, keeping the ordinary RC in its RC profile:

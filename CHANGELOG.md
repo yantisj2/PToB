@@ -2,6 +2,16 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 21 October 2026 — T096 0.15.152 retained failure classification
+
+The existing CONTROL watchdog capsule now records which accepted failure
+predicate fired and its service errno. Reset behavior, timers, pairing, transport
+and radio policy remain unchanged. Four ordinary images passed native builds and
+startup checks. Subsequent retained capsules identify two terminal service-error
+watchdog recoveries; an incoming connection remained unretired in the first live
+capture. The controller/host cause and durable HOT pairing remain unresolved.
+Further firmware and timer changes are frozen during fault isolation.
+
 ## 21 October 2026 — T096 0.15.151 shared control work budgets
 
 G5 shares one 1 s initiation/GATT work budget per owner pass and the existing 5 s
