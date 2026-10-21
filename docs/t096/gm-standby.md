@@ -477,6 +477,19 @@ investigation during the failure interval, which does not rule out firmware
 instrumentation or workload effects. The watchdog eventually recovered the unit
 and LoRa forwarding resumed. Physical reset latency remains unmeasured.
 
+A separate source155 GM disconnect failure also has a complete first-fault cut
+and a matching service-error watchdog record from the same failed physical boot.
+The anonymous incoming connection retained a matching current controller handle,
+an unprocessed TERMINATE/IDLE head and zero ULL references after its accepted
+close reached the original supervision-plus5s deadline. The ticker was valid with
+matching current context, request/acknowledge distance1 and accumulated lazy1461.
+This favors a scheduled but deferred connection over ordinary stopped-ticker
+state. Lazy is not an RF-loss count or a measured starvation duration; a single
+cut cannot prove generation, list membership or the blocker. Controller supervision
+advances through completed events, so its stored zero is not proof that a wall-clock
+supervision deadline elapsed. The watchdog recovered this failure too. Its cause
+remains separate from the bridge's full-prepare assertion.
+
 With the exact LOW_LAT_ULL_DONE-off configuration, prepare dequeue occurs in
 `lll_done` before later ULL done notification. Delayed HCI/ULL completion alone
 therefore does not explain the full prepare FIFO. Existing earlier canary captures
