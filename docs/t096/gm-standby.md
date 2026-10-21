@@ -3,7 +3,7 @@
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
 Version0.15.134 introduces G5 coordination for the ordinary GM profile; current
-version0.15.142 includes one original admission lifetime, one selected-peer retry
+version0.15.143 includes one original admission lifetime, one selected-peer retry
 policy and fair pair dispatch, retaining causal timing handoff, latched PT closure,
 GM watchdog coverage and the fixed45s successor acquisition budget. This is
 an implementation and host-test contract, not hardware acceptance or a claim of
@@ -134,6 +134,15 @@ remaining time, and overload or stalled callbacks can still lose a record.
 Source permits, READY freshness, management leases and finite grants expire on
 their original evidence. Unrelated traffic and dispatch cannot renew them.
 
+Each authenticated remote instant uses its own conservative offset guard:
+2000ppm over the greater of elapsed map age and its distance from the causal
+anchor, plus100us. A future grant retains its full long-distance guard; that
+guard cannot also shorten a separate250ms record expiry. Evidence uses the same
+guard for both interval endpoints. Original response clipping and all source,
+message, management and grant deadlines remain. Host tests include a fixed
+finite delivery burst, original expiry boundaries and bounded-rate corners;
+they do not establish native RF delay or physical durability.
+
 ## Finite successor authority and recovery
 
 Actual source, authenticated transport/map, captured precision and management
@@ -230,7 +239,7 @@ query time nor a historical maximum renews any authority.
 
 ## Development checkpoint and remaining acceptance
 
-Version0.15.142 remains a development checkpoint. Matching installed image
+Version0.15.143 remains a development checkpoint. Matching installed image
 identities and passing host/native checks do not establish a durable physical
 ACTIVE/HOT pair, three-GM stability or four-GM newcomer acceptance.
 

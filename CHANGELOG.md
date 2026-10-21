@@ -2,6 +2,17 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 20 October 2026 — T0960.15.143 per-timestamp clock bounds
+
+Authenticated control now maps each timestamp with its own conservative drift
+distance. A future finite grant keeps its complete guard without unnecessarily
+shortening a separate message expiry and its clipped response. Original TTLs,
+source/grant limits, cadences, response clipping and repair dwell remain unchanged;
+no stored state, timer, queue or buffer is added. Actual-production host checks
+cover a fixed delivery burst, expiry/source boundaries, grant/replay fences and
+clock-rate corners. This isolates a software failure; native RF durability and
+the separate controller preparation assertion remain unqualified.
+
 ## 20 October 2026 — T0960.15.142 same-epoch candidate requalification
 
 A newer non-ACTIVE STATUS may restore descriptive candidate eligibility after

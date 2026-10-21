@@ -60,6 +60,14 @@ static void pair_trace(const struct r2_network *n,unsigned why,unsigned root,uns
 #endif
 static uint64_t mapped(uint64_t t,int64_t offset)
 {return offset<0&&t<(uint64_t)-offset?0:(uint64_t)((int64_t)t+offset);}
+/* Each remote instant grows its own conservative offset bound. A future
+ * finite grant must not lend its longer drift distance to a short record TTL. */
+static uint64_t map_drift(const struct r2_net_peer *m,uint64_t t,uint64_t now)
+{
+ uint64_t distance=now-m->seen;
+ if(t){uint64_t d=t>m->map_anchor?t-m->map_anchor:m->map_anchor-t;if(d>distance)distance=d;}
+ return distance/1000000*2000+(distance%1000000)*2000/1000000+100;
+}
 /* Pair IDs can be authenticated before its other partner is discovered. This
  * single bounded hint only withdraws output; it never admits a clock map or
  * gives an unknown identity source, management or HOT authority. */
@@ -398,11 +406,10 @@ int r2_network_receive(struct r2_network *n,uint8_t p,const uint8_t *data,size_t
  if((now>=230000000&&now<234000000)||(now>=502000000&&now<508000000))printk("R2_REJECT_BOUND self=%u peer=%u bound=%u boot=%u challenge=%u seq=%llu last=%llu seen=%llu\n",n->self,p,bound(n,p),r.boot==m->boot,r.challenge==m->own_nonce,(unsigned long long)r.sequence,(unsigned long long)m->sequence,(unsigned long long)m->seen);
 #endif
  count(&n->rejected);return -ESTALE;}
- uint64_t distance=now-m->seen,fields[]={r.created_us,r.evidence_us,r.expires_us,r.permit_until_us};
- for(unsigned i=0;i<4;i++){if(!fields[i])continue;if(fields[i]>INT64_MAX/4)return -ERANGE;uint64_t d=fields[i]>m->map_anchor?fields[i]-m->map_anchor:m->map_anchor-fields[i];if(d>distance)distance=d;}
- uint64_t drift=distance/1000000*2000+(distance%1000000)*2000/1000000+100;int64_t lo=m->offset_low-(int64_t)drift;
- uint64_t expiry=mapped(r.expires_us,lo),evidence=mapped(r.evidence_us,lo),permit=r.permit_until_us?mapped(r.permit_until_us,lo):0;
- uint64_t created=mapped(r.created_us,lo),age=now>=created?now-created:0;
+ if(r.created_us>INT64_MAX/4||r.evidence_us>INT64_MAX/4||r.expires_us>INT64_MAX/4||r.permit_until_us>INT64_MAX/4)return -ERANGE;
+ uint64_t drift=map_drift(m,r.evidence_us,now);int64_t lo=m->offset_low-(int64_t)map_drift(m,r.expires_us,now);
+ uint64_t expiry=mapped(r.expires_us,lo),evidence=mapped(r.evidence_us,m->offset_low-(int64_t)drift),permit=r.permit_until_us?mapped(r.permit_until_us,m->offset_low-(int64_t)map_drift(m,r.permit_until_us,now)):0;
+ uint64_t created=mapped(r.created_us,m->offset_low-(int64_t)map_drift(m,r.created_us,now)),age=now>=created?now-created:0;
  n->record_age_us=age>UINT32_MAX?UINT32_MAX:(uint32_t)age;
  if(age>n->record_age_max_us)n->record_age_max_us=age>UINT32_MAX?UINT32_MAX:(uint32_t)age;
  if(expiry<=now||evidence>received){

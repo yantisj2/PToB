@@ -5,7 +5,7 @@
 *Illustrative firmware-rendered RC screen; displayed values are not measured
 performance. [Image provenance](../../docs/images/README.md).*
 
-**PToB owns T096 RC7 development.** Current source version **0.15.142** supplies the
+**PToB owns T096 RC7 development.** Current source version **0.15.143** supplies the
 ordinary **GM** and **RC** mesh profiles, with USB timing compiled by default.
 [Build from source](../../docs/t096/build.md) with pinned public dependencies
 and ignored local enrollment. No enrolled binary is distributed.
@@ -72,6 +72,12 @@ requalification in the same source epoch. The withdrawal floor remains stored:
 old/equal reports and same-epoch ACTIVE claims stay rejected until the existing
 causal HELLO path supplies its independent proof. Inventory can nominate a peer;
 it supplies no source map, HOT status or grant. No timer, state or resource changes.
+Version143 bounds each authenticated remote timestamp by its own causal-map
+clock-drift distance. A future finite grant keeps its full conservative guard
+without shortening a separate short message expiry. Original response clipping,
+source/grant lifetimes, all cadences and repair dwell remain unchanged. A fixed
+host delivery-burst regression checks continued HOT within valid map bounds;
+physical RF durability and the controller preparation assertion remain open.
 The [remaining acceptance plan](../../docs/t096/gm-standby.md#development-checkpoint-and-remaining-acceptance)
 keeps admission, source qualification, HOT renewal, watchdog reset measurement
 and fourth-participant testing as separate open checks.

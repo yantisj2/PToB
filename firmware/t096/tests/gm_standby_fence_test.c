@@ -19,6 +19,124 @@ static struct r2_network base(bool active)
  n.gm5.role=active?R2_GM5_ACTIVE:R2_GM5_ACQUIRING;n.gm5.active=active?100:200;n.gm5.active_boot=n.root_boot;n.gm5.active_until=n.now+120000000;
  n.gm5.selected=active?200:0;n.gm5.generation=7;n.management_generation=7;return n;
 }
+static struct r2_auth_record control(struct r2_network *n,unsigned kind,uint64_t created)
+{
+ struct r2_auth_record r={.kind=kind,.sender=1,.target=0,.root=1,.boot=20,.root_boot=20,.coordinator_boot=10,.challenge=31,.sequence=1,.config_epoch=R2_AUTH_CONFIG,.created_us=created,.evidence_us=created,.expires_us=created+250000,.permit_until_us=created+10000000,.source_epoch=1,.source_second=descriptor(n),.decision=8,.flags=1};return r;
+}
+static struct r2_network field_base(void)
+{
+ struct r2_network n=base(false);n.peer[1].own_nonce=31;n.peer[1].nonce=41;
+ n.peer[1].offset_low=-10000;n.peer[1].offset_high=10000;n.peer[1].map_anchor=n.now-1000000;return n;
+}
+static int deliver(struct r2_network *n,struct r2_auth_record *r,uint64_t at)
+{uint8_t wire[R2_GROUP_CONTROL_MAX];assert(!encode_control(n,wire,r,n->peer[1].rx_key));return r2_network_receive(n,1,wire,r2_control_wire_size(wire),at,at);}
+static void clock_field_boundary_tests(void)
+{
+ const uint64_t created=70000000,grant=created+10000000-10000-22100;
+ const uint64_t expiry=created+250000-10000-2600;
+ for(int delta=-1;delta<=1;delta++){
+  struct r2_network n=field_base();struct r2_auth_record r=control(&n,R2_AUTH_COMMIT,created);
+  int rc=deliver(&n,&r,expiry+delta);
+  if(delta<0){assert(!rc&&n.gm5.grant_until==grant&&n.management_committed);assert(n.peer[1].response.expires_us==expiry);}
+  else assert(rc==-ESTALE&&!n.gm5.grant_until&&!n.management_committed);
+ }
+ struct r2_network n=field_base();struct r2_auth_record r=control(&n,R2_AUTH_COMMIT,created);
+ assert(!deliver(&n,&r,created+200000)&&n.gm5.grant_until==grant);
+ assert(deliver(&n,&r,created+200001)==-ESTALE); /* Same sequence cannot replay. */
+ r.sequence++;r.created_us+=1000;r.evidence_us+=1000;r.expires_us+=1000;r.permit_until_us+=1000;
+ assert(!deliver(&n,&r,created+201000)&&n.gm5.grant_until==grant); /* Same generation cannot extend grant. */
+ gm5_grant_clear(&n,R2_GM5_GRANT_EXPIRED);r.sequence++;assert(deliver(&n,&r,created+201001)==-ESTALE&&!n.gm5.grant_until);
+ for(unsigned why=0;why<5;why++){
+  n=field_base();r=control(&n,R2_AUTH_COMMIT,created);
+  if(why==0)r.permit_until_us++; /* Original 10s is a hard maximum. */
+  if(why==1)r.source_epoch++;
+  if(why==2)r.root_boot++;
+  if(why==3)r.coordinator_boot++;
+  if(why==4)r.source_second++;
+  assert(deliver(&n,&r,created+100000)&&!n.gm5.grant_until&&!n.hot_ready);
+ }
+ /* A short direct-source permit is not replaced by the record TTL. */
+ const uint64_t permit=created+100000-10000-2300;
+ for(int delta=-1;delta<=1;delta++){
+  n=field_base();r=control(&n,R2_AUTH_SERVICE,created);r.coordinator_boot=20;r.decision=n.publication;r.source_second=1791417600;r.permit_until_us=created+100000;
+  int rc=deliver(&n,&r,permit+delta);if(delta<0)assert(!rc&&n.peer[1].candidate_until==permit);else assert(rc&&!n.management_committed);
+ }
+ printf("PASS actual codec/receive original record expiry -1/at/+1=%llu, full10sgrant lowerdeadline=%llu, sourcepermit -1/at/+1=%llu, replay/generation/retired/source/boot/descriptor fences\n",(unsigned long long)expiry,(unsigned long long)grant,(unsigned long long)permit);
+ }
+
+static void clock_rate_corner_tests(void)
+{
+ const uint64_t anchors[]={20000000,70000000,INT64_MAX/4-20000000};
+ const int64_t deltas[]={-10000000,-1000000,-250000,-501,-500,-499,-1,0,1,499,500,501,250000,1000000,10000000};
+ const uint64_t ages[]={0,1,249999,1000000,9999999};const int64_t offsets[]={-40000,0,40000};const int rates[]={-2000,0,2000};unsigned cases=0;
+ for(unsigned a=0;a<3;a++)for(unsigned d=0;d<15;d++)for(unsigned g=0;g<5;g++)for(unsigned o=0;o<3;o++)for(unsigned edge=0;edge<2;edge++)for(unsigned r=0;r<3;r++){
+  struct r2_net_peer m={.seen=anchors[a]+1000,.map_anchor=anchors[a],.offset_low=offsets[o],.offset_high=offsets[o]+80000};
+  uint64_t t=anchors[a]+deltas[d],now=m.seen+ages[g],guard=map_drift(&m,t,now);
+  int64_t at_anchor=edge?m.offset_high:m.offset_low;
+  __int128 exact=(__int128)(t+at_anchor)*1000000+(__int128)rates[r]*deltas[d];
+  uint64_t lower=mapped(t,m.offset_low-(int64_t)guard),upper=mapped(t,m.offset_high+(int64_t)guard);
+  assert((__int128)lower*1000000<=exact&&(__int128)upper*1000000>=exact);cases++;
+ }
+ /* A 10s grant keeps its complete 11s anchor distance; a 250ms TTL uses its
+  * own1.25s distance. Arrival-age floor can only make either more cautious. */
+ struct r2_net_peer m={.seen=70000000,.map_anchor=69000000};
+ assert(map_drift(&m,80000000,70200000)==22100);
+ assert(map_drift(&m,70250000,70200000)==2600);
+ assert(map_drift(&m,70000000,79999999)==20099);
+ printf("PASS %u rational corner checks: +/-2000ppm, both offset endpoints, past/future timestamps, rounding boundaries, near INT64_MAX/4; per-field lower never exceeds earliest allowed time; upper never precedes latest allowed time; full10sgrant guard unchanged\n",cases);
+}
+
+/* Actual serialized owner and wire at100ms accepted opportunities. Initial
+ * admission/clock context and ideal captured PT are controlled fixture inputs;
+ * this finite delivery burst is not a controller/RF qualification. */
+static void delay_burst_tests(void)
+{
+ struct r2_network pair[2]={base(true),base(false)};struct r2_network *a=&pair[0],*b=&pair[1];
+ b->identity=200;b->boot=20;b->peer[1].identity=100;b->peer[1].boot=10;
+ b->root_boot=b->gm5.active_boot=b->timing_boot=10;b->gm5.active=100;b->coordinator_boot=20;
+ a->peer[1].own_nonce=11;a->peer[1].nonce=22;b->peer[1].own_nonce=22;b->peer[1].nonce=11;
+ strcpy(a->name,"Active");strcpy(b->name,"Successor");uint64_t start=a->now;
+ for(unsigned k=0;k<2;k++){
+  struct r2_network *n=&pair[k];n->admission.boot_at=n->admission.stable_at=0;n->admission.last_expiry=start+1500000;
+  n->candidate.utc_second=n->view.utc_second=INT64_C(1791417600);n->candidate.evidence_us=n->view.evidence_us=start;
+  n->peer[1].map_anchor=start;n->gm5.attempt_started=start;n->gm5.attempt_until=start+R2_GM5_ACQUIRE_US;
+ }
+ /* Delay is always below the100ms offer period: one in-flight record per
+  * direction suffices, without a second transport or ideal timer algorithm. */
+ struct {uint64_t due;size_t size;uint8_t wire[R2_GROUP_CONTROL_MAX];} flight[2]={0};
+ uint64_t first_hot=0,withdraw=0,first_ready_rejection=0,max_width=0;unsigned reason=0,post_hot_rejections=0;
+ for(uint64_t elapsed=0;elapsed<=45000000;elapsed+=1000){uint64_t now=start+elapsed;
+  a->now=b->now=now;
+  for(unsigned k=0;k<2;k++)if(flight[k].due&&now>=flight[k].due){
+   struct r2_network *n=&pair[1-k];struct r2_auth_record r;char name[25];uint8_t caps;
+   assert(!decode_control(n,&r,flight[k].wire,flight[k].size,1,n->peer[1].rx_key,name,&caps,NULL));
+   int rc=r2_network_receive(n,1,flight[k].wire,flight[k].size,now,now);
+   if(first_hot&&rc){post_hot_rejections++;if(r.kind==R2_AUTH_READY&&!first_ready_rejection)first_ready_rejection=elapsed;}
+   uint64_t width=n->peer[1].offset_high-n->peer[1].offset_low;if(width>max_width)max_width=width;
+   flight[k].due=0;
+  }
+  for(unsigned k=0;k<2;k++){
+   struct r2_network *n=&pair[k];struct r2_clock source={0};source.view.source_available=true;source.view.source_epoch=1;
+   uint64_t second=elapsed/1000000*1000000;source.last_pair_edge=source.last_rmc=start+second;source.last_pair_utc=INT64_C(1791417600000000)+second;
+   r2_network_timing(n,n->root_boot,n->view.generation,n->publication,n->local_gm,true,now);
+   bool was_hot=n->hot_ready;r2_network_tick(n,&source,now);
+   if(was_hot&&!n->hot_ready&&!withdraw){withdraw=elapsed;reason=n->hot_withdrawal_reason;}
+  }
+  if(!first_hot&&a->hot_ready&&b->hot_ready)first_hot=elapsed;
+  for(unsigned k=0;k<2;k++)if(elapsed>=k*50000&&(elapsed-k*50000)%100000==0){
+   uint8_t peer,wire[R2_GROUP_CONTROL_MAX];bool hello;
+   if(!r2_network_next_ready(&pair[k],2,&peer,wire,&hello))continue;
+   assert(peer==1&&!flight[k].due);r2_network_sent(&pair[k],hello,peer,wire);
+   flight[k].due=now+(elapsed>=4000000&&elapsed<8000000?54000:25000);
+   flight[k].size=r2_control_wire_size(wire);memcpy(flight[k].wire,wire,flight[k].size);
+  }
+ }
+ printf("G5 fixed25/54ms burst4..8s: first_hot=%llu first_ready_rejection=%llu post_hot_rejections=%u withdraw=%llu reason=%u max_map_width=%llu final_hot=%u/%u\n",(unsigned long long)first_hot,(unsigned long long)first_ready_rejection,post_hot_rejections,(unsigned long long)withdraw,reason,(unsigned long long)max_width,a->hot_ready,b->hot_ready);fflush(stdout);
+ assert(first_hot&&first_hot<8000000&&!first_ready_rejection&&!post_hot_rejections&&!withdraw);
+ assert(max_width<80000&&!a->hello_map_refusals&&!b->hello_map_refusals&&a->hot_ready&&b->hot_ready);
+ puts("PASS actual fixed delay burst retains HOT through45s within original source/TTL/map/READY/management/grant bounds");
+}
+
 /* New source permission must be offered at the current CONTROL opportunity,
  * before the sparse HELLO cadence. These are actual producer/encoded-wire
  * boundary checks, not a claim of complete RF/PA recovery. */
@@ -351,6 +469,7 @@ static void same_epoch_requalification_tests(void)
 }
 int main(void)
 {
+ clock_field_boundary_tests();clock_rate_corner_tests();delay_burst_tests();
  same_epoch_requalification_tests();lifecycle_boundary_tests();dispatcher_tests();
  late_map_acquire_tests();
  hello_source_refresh_tests();
