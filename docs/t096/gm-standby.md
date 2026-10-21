@@ -421,6 +421,21 @@ controller incarnation, and WAIT_TX does not measure allocator occupancy. The
 fault-time records classify the next failure; they do not fix HOT churn or the
 controller assertion. Timer, pairing and radio behavior remain frozen.
 
+The first180s source154 observation completed24/24 four-device cohorts without
+a sampled network/radio error or observed reboot. Two GMs qualified; the third
+remained source-limited COLD while forwarding timing to LoRa. Transmissions and
+RC corrections advanced. HOT withdrawals still occurred. Subsequent reduced
+console polling did not eliminate them or the failures: one GM repeated the
+same source-bound controller ticker assertion, and another reached an anonymous
+connection's original6s disconnect deadline. The new snapshot retained a matching
+controller handle with a pending TERMINATE procedure and both its procedure and
+local request machine still IDLE. For the same unchanged context this places
+the missing progress before its first completed LLCP RUN, rather than at TX-node
+allocation or completed teardown. Controller-slot reuse or a replacement
+termination is not excluded. Zero expiry counters alone do not prove missing
+connection events. Both failures subsequently recovered through the watchdog.
+Diagnostics overhead remains a plausible contributor, not an established cause.
+
 The remaining work has separate causes and evidence requirements. First retain
 a stable two-GM pair with the third GM remaining COLD; only then exercise newcomer
 and four-device admission, keeping the ordinary RC in its RC profile:
