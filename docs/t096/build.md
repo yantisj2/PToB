@@ -33,7 +33,7 @@ revision/cleanliness and SDK archive checks. It is not necessary to have a priva
 sibling checkout. Builds put all generated and secret-bearing output under
 ignored `artifacts/` with owner-only permissions.
 
-Normal GM version0.15.145 uses [G5 ACTIVE/HOT/COLD](gm-standby.md).
+Normal GM version0.15.146 uses [G5 ACTIVE/HOT/COLD](gm-standby.md).
 Authenticated control maps each remote instant with its own original conservative
 clock-drift guard; a long finite-grant deadline cannot shorten a separate record
 TTL. This changes no original authority lifetime, wire format or stored state.
@@ -137,7 +137,7 @@ display, BLE/USB service and stack observations remain exact-device gates.
 
 ## Hardware update boundary
 
-Normal0.15.145 builds include the [RC8 wire3 integration](../../protocol/rc8/README.md).
+Normal0.15.146 builds include the [RC8 wire3 integration](../../protocol/rc8/README.md).
 The default transmitter factory is zero, so LoRa hardware does not start. An
 explicit normal-only `--lora-transmitter-factory` takes a16-digit exact factory
 identity verified against ignored T096 registry metadata. It is included in the

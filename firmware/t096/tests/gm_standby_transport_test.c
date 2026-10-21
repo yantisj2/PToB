@@ -2,7 +2,12 @@
  * Actual native transport + JOIN owner, public controller callbacks faked.
  * Measures quiet COLD work, one selected control slot and ordinary RC fairness.
  */
+#define R2_TIMING_EVENTS_TEST 1
 #include "ble_transport_fake.h"
+static unsigned inventory_events,inventory_consumed;static int inventory_flags;static uint32_t inventory_counts,inventory_age;static uint64_t inventory_selected;
+void r2_timing_event(unsigned kind,int result,uint64_t peer,uint32_t detail,uint32_t a,uint32_t b){
+ (void)kind;if(detail==24){++inventory_events;inventory_consumed+=(result&1)!=0;inventory_flags=result;inventory_selected=peer;inventory_counts=a;inventory_age=b;}
+}
 static unsigned initiations;
 static bool create_pending,create_callback;static uint64_t create_delay,create_return_delay;
 static struct bt_conn connection;
@@ -72,13 +77,42 @@ static void authenticated_withdrawal(uint64_t at)
  uint64_t ids[4]={111,333};uint8_t wire[R2_GROUP_CONTROL_MAX];assert(!r2_group_control_encode5(wire,&r,&n.group,ids,"Remote",3));
  assert(!r2_network_receive(&n,1,wire,r2_control_wire_size(wire),at,at));assert(n.peer[1].source_withdrawn);
 }
+static void inventory_snapshot_tests(void)
+{
+ reset();gm5_inventory_due=false;unsigned before=inventory_events;
+ fake_time=71000000;gm5_selected=700;admission_parent=700;candidate_since=fake_time-40000;
+ candidates[0]=(struct discovery_candidate){.identity=700,.seen=fake_time-10000};
+ candidates[1]=(struct discovery_candidate){.identity=800,.seen=fake_time-20000};
+ candidates[2]=(struct discovery_candidate){.identity=900,.seen=fake_time-200000};
+ r2_ble_gm5_policy(true,700,true);r2_ble_gm5_policy(true,700,false);
+ r2_ble_gm5_policy(true,700,false); /* no repeated expiry record */
+#if defined(R2_CONTROLLER_DIAGNOSTICS)
+ assert(inventory_events==before+1&&!(inventory_flags&1)&&inventory_selected==700);
+ assert(inventory_counts==(3u|(2u<<8)|(2u<<16)|(1u<<24))&&inventory_age==10000);
+ assert((inventory_flags&(1u<<12))&&(inventory_flags&(1u<<14)));
+ assert((inventory_flags&0x1f8000)==((1u<<15)|(1u<<16)|(1u<<17)|(1u<<20)));
+#else
+ assert(inventory_events==before);
+#endif
+ candidates[0].seen=fake_time-250000;r2_ble_gm5_policy(true,700,true);r2_ble_gm5_policy(true,700,false);
+#if defined(R2_CONTROLLER_DIAGNOSTICS)
+ assert(inventory_age==250000&&(inventory_flags&(1u<<15))&&!(inventory_flags&(1u<<16)));
+#endif
+ candidates[0].identity=0;r2_ble_gm5_policy(true,700,true);r2_ble_gm5_policy(true,700,false);
+#if defined(R2_CONTROLLER_DIAGNOSTICS)
+ assert(inventory_age==UINT32_MAX&&!(inventory_flags&(1u<<15)));
+#endif
+ before=inventory_events;r2_ble_gm5_policy(false,0,true);r2_ble_gm5_policy(false,0,false);
+ assert(inventory_events==before);admission_parent=0;
+ puts("PASS inventory opportunity diagnostic: original due edge once, packed current candidate gates, ordinary/RC image emits none");
+}
 static void missed_active_polls(bool pending)
 {
  reset();create_pending=pending;n.admission.boot_at=n.admission.stable_at=0;
  n.admission.observing=true;n.admission.source_epoch=1;n.admission.last_expiry=n.now+1500000;
  n.gm5.role=R2_GM5_ACTIVE;n.gm5.active=n.identity;n.gm5.active_boot=n.boot;
  n.gm5.next_poll=n.now;n.local_gm=n.ready=true;n.choice=0;n.root_boot=n.boot;
- uint64_t due=n.now;unsigned before=initiations,closed=disconnects;
+ uint64_t due=n.now;unsigned before=initiations,closed=disconnects,events_before=inventory_events,consumed_before=inventory_consumed;
  bt_addr_le_t address={.type=BT_ADDR_LE_RANDOM,.a={{7}}};
  for(unsigned round=0;round<4;round++){
   unsigned calls=initiations;bool callback=false;uint64_t started=0,original_until=0;
@@ -120,6 +154,11 @@ static void missed_active_polls(bool pending)
   due=next;
  }
  assert(initiations==before+4);create_pending=false;
+#if defined(R2_CONTROLLER_DIAGNOSTICS)
+ assert(inventory_events==events_before+4&&inventory_consumed==consumed_before+4);
+#else
+ assert(inventory_events==events_before&&inventory_consumed==consumed_before);
+#endif
  puts(pending?"PASS four actual ACTIVE missed poll windows:100ms pending create cancellation, delayed callback drain,one consumed attempt, fixed5s next opportunities and continuous source service":
               "PASS four actual ACTIVE missed poll windows: native create EBUSY,one consumed attempt, fixed5s next opportunities and continuous source service");
 }
@@ -260,7 +299,7 @@ int main(int argc,char **argv)
  if(argc==3&&!strcmp(argv[1],"--terminal")){int error=stranded_control();FILE *f=fopen(argv[2],"wb");assert(f&&fwrite(&error,sizeof error,1,f)==1&&!fclose(f));return 0;}
  stranded_control();
  if(argc==2){write_handoff(argv[1]);return 0;}assert(argc==1);
- late_appointment();
+ inventory_snapshot_tests();late_appointment();
  abandoned_phase_tests();admission_boundary_tests();missed_active_polls(false);missed_active_polls(true);
  reset();n.gm5.role=R2_GM5_ACTIVE;n.gm5.active=n.identity;n.gm5.active_boot=n.boot;n.local_gm=n.ready=true;n.choice=0;n.root_boot=n.boot;
  (void)authenticate_client(true);

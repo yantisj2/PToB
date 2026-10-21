@@ -1011,3 +1011,27 @@ owner). Detail19 reports the original negotiated-supervision plus5s retirement
 deadline, or5s when no live LL termination is pending. Neither retries nor
 callbacks extend that deadline. Existing source/boot/cursor framing and overwrite
 reporting apply.
+
+Version146 adds GM_CONTROL detail24 only in the opt-in controller diagnostic
+image. It records one inventory opportunity when the policy closes an unconsumed
+`due` window (MISSED), or immediately before a public create consumes it
+(CONSUMED, including a refused create). The existing due flag bounds emission;
+no additional timer, queue or state is allocated. `peer` is the selected identity,
+or zero for unappointed COLD. Result bits are:0 CONSUMED,1 group client,
+2 client window,3 scanning,4 advertising,5 precision draining,6 sync acquiring,
+7 transient connection owned,8 release requested,9 transient TX busy,
+10 public GATT pending,11 admission allowed,12 parent filter present,
+13 nonzero parent differs from nonzero selected identity,14 candidate collection
+has matured40ms; bits15..19 describe the selected candidate: present, fresh,
+unconsumed, still in cooldown, already a control member; bit20 means local
+identity is lower than selected identity. Four bytes of `a`, low to high, count present candidates,
+fresh candidates (age below200ms), fresh unconsumed candidates, and those also
+passing cooldown, parent and existing-member filters. `b` is the selected candidate age when a selection exists, otherwise the
+minimum candidate age, in microseconds saturated at UINT32_MAX (also used when
+the relevant candidate is absent or its observation is in the future). Counts are successive filters. The CONSUMED snapshot follows the
+existing candidate consumption, scan-stop and advertising-stop operations.
+
+A MISSED snapshot shows gates at closure, not which gate blocked earlier polls.
+These records diagnose the still-unresolved field CONTACT failure; they do not
+change discovery or establish its cause. Original source/boot/cursor and journal
+overwrite reporting remain necessary when interpreting a missing record.

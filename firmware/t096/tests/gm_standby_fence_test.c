@@ -6,6 +6,10 @@
 #include <assert.h>
 #include <stdio.h>
 #include "gm_diagnostics.h"
+/* Both sides matter: delayed renewal must fund takeover, while deliberate
+ * repair closure must not leave a grant valid through silence and takeover. */
+_Static_assert(R2_GM5_GRANT_US>2000000+R2_GM5_COORDINATION_US+3000000+R2_GM5_RETIRE_GUARD_US,"grant must fund renewal age, silence and takeover");
+_Static_assert(R2_GM5_GRANT_US+R2_GM5_RETIRE_GUARD_US<R2_GM5_REPAIR_US+R2_GM5_COORDINATION_US+3000000,"grant must expire before post-repair false takeover");
 static struct r2_network base(bool active)
 {
  struct r2_network n;assert(!r2_network_init(&n,0,2,100,10,22,40000,70000000));
@@ -21,7 +25,7 @@ static struct r2_network base(bool active)
 }
 static struct r2_auth_record control(struct r2_network *n,unsigned kind,uint64_t created)
 {
- struct r2_auth_record r={.kind=kind,.sender=1,.target=0,.root=1,.boot=20,.root_boot=20,.coordinator_boot=10,.challenge=31,.sequence=1,.config_epoch=R2_AUTH_CONFIG,.created_us=created,.evidence_us=created,.expires_us=created+250000,.permit_until_us=created+10000000,.source_epoch=1,.source_second=descriptor(n),.decision=8,.flags=1};return r;
+ struct r2_auth_record r={.kind=kind,.sender=1,.target=0,.root=1,.boot=20,.root_boot=20,.coordinator_boot=10,.challenge=31,.sequence=1,.config_epoch=R2_AUTH_CONFIG,.created_us=created,.evidence_us=created,.expires_us=created+250000,.permit_until_us=created+R2_GM5_GRANT_US,.source_epoch=1,.source_second=descriptor(n),.decision=8,.flags=1};return r;
 }
 static struct r2_network field_base(void)
 {
@@ -32,7 +36,7 @@ static int deliver(struct r2_network *n,struct r2_auth_record *r,uint64_t at)
 {uint8_t wire[R2_GROUP_CONTROL_MAX];assert(!encode_control(n,wire,r,n->peer[1].rx_key));return r2_network_receive(n,1,wire,r2_control_wire_size(wire),at,at);}
 static void clock_field_boundary_tests(void)
 {
- const uint64_t created=70000000,grant=created+10000000-10000-22100;
+ const uint64_t created=70000000,grant=created+15000000-10000-32100;
  const uint64_t expiry=created+250000-10000-2600;
  for(int delta=-1;delta<=1;delta++){
   struct r2_network n=field_base();struct r2_auth_record r=control(&n,R2_AUTH_COMMIT,created);
@@ -48,7 +52,7 @@ static void clock_field_boundary_tests(void)
  gm5_grant_clear(&n,R2_GM5_GRANT_EXPIRED);r.sequence++;assert(deliver(&n,&r,created+201001)==-ESTALE&&!n.gm5.grant_until);
  for(unsigned why=0;why<5;why++){
   n=field_base();r=control(&n,R2_AUTH_COMMIT,created);
-  if(why==0)r.permit_until_us++; /* Original 10s is a hard maximum. */
+  if(why==0)r.permit_until_us++; /* Original15s is a hard maximum. */
   if(why==1)r.source_epoch++;
   if(why==2)r.root_boot++;
   if(why==3)r.coordinator_boot++;
@@ -61,7 +65,7 @@ static void clock_field_boundary_tests(void)
   n=field_base();r=control(&n,R2_AUTH_SERVICE,created);r.coordinator_boot=20;r.decision=n.publication;r.source_second=1791417600;r.permit_until_us=created+100000;
   int rc=deliver(&n,&r,permit+delta);if(delta<0)assert(!rc&&n.peer[1].candidate_until==permit);else assert(rc&&!n.management_committed);
  }
- printf("PASS actual codec/receive original record expiry -1/at/+1=%llu, full10sgrant lowerdeadline=%llu, sourcepermit -1/at/+1=%llu, replay/generation/retired/source/boot/descriptor fences\n",(unsigned long long)expiry,(unsigned long long)grant,(unsigned long long)permit);
+ printf("PASS actual codec/receive original record expiry -1/at/+1=%llu, full15sgrant lowerdeadline=%llu, sourcepermit -1/at/+1=%llu, replay/generation/retired/source/boot/descriptor fences\n",(unsigned long long)expiry,(unsigned long long)grant,(unsigned long long)permit);
  }
 
 static void clock_rate_corner_tests(void)
@@ -169,7 +173,7 @@ static void hello_source_refresh_tests(void)
   if(fault==0)source.last_pair_edge=source.last_rmc=n.now-1500000; /* Actual original permit expired. */
   if(fault==1)source.view.source_epoch=2; /* New epoch must requalify for60s. */
   if(fault==2)n.timing_valid=false; /* Source HELLO cannot fabricate PA/map readiness. */
-  if(fault==3)n.gm5.ready_at=n.now-R2_MANAGEMENT_LEASE_US; /* Nor can it renew remote READY. */
+  if(fault==3)n.gm5.ready_at=n.now-R2_GM5_COORDINATION_US; /* Nor can it renew remote READY. */
   r2_network_tick(&n,&source,n.now);assert(!n.hot_ready&&!n.standby_authorized);
   if(fault<2)assert(!n.admission.eligible&&!n.local_gm&&!n.ready&&n.peer[1].next_hello==n.now+300000);
   else assert(n.local_gm&&n.gm5.attempt_until==n.now+R2_GM5_REPAIR_US);
@@ -233,7 +237,7 @@ static void late_map_acquire_tests(void)
   assert(b.gm5.grant_until<=a.gm5.issued_until&&b.gm5.grant_until>b.now);
   if(mode==2){a.now++;gm5_tick(&a,false,a.now,NULL);assert(!a.hot_ready&&!a.local_gm&&!a.ready&&!a.gm5.selected);}
  }
- puts("PASS controlled PT map first at25.643s then original5s stability: encoded READY/COMMIT/ACK confirms HOT; unproductive fixed ACQUIRE expires; real source withdrawal and10s grants unchanged");
+ puts("PASS controlled PT map first at25.643s then original5s stability: encoded READY/COMMIT/ACK confirms HOT; unproductive fixed ACQUIRE expires; real source withdrawal and15s original grants");
 }
 static struct r2_network contact_base(void)
 {
@@ -278,7 +282,7 @@ static void contact_tests(void)
   if(source){n.peer[1].source_withdrawn=true;n.peer[1].candidate_until=0;n.gm5.candidate[0].eligible=false;}
   gm5_tick(&n,source,n.now,NULL);assert(!n.gm5.selected&&!n.gm5.contacting&&!n.hot_ready&&!n.standby_authorized&&n.gm5.failures==1);
  }
- n=contact_base();n.gm5.retire_until=n.now+10000000;gm5_select(&n);assert(!n.gm5.selected);n.now=n.gm5.retire_until;gm5_select(&n);assert(n.gm5.contacting);
+ n=contact_base();n.gm5.retire_until=n.now+R2_GM5_GRANT_US+R2_GM5_RETIRE_GUARD_US;gm5_select(&n);assert(!n.gm5.selected);n.now=n.gm5.retire_until;gm5_select(&n);assert(n.gm5.contacting);
  puts("PASS local/remote source withdrawal in CONTACT and ACQUIRE; original retirement prevents nomination, with no grant or takeover supplied by status");
  n=contact_base();memset(n.gm5.candidate,0,sizeof n.gm5.candidate);gm5_select(&n);assert(!n.gm5.next_attempt&&n.gm5.last_reason==R2_GM5_NO_CANDIDATE);
  n.gm5.next_attempt=n.now+5000000;gm5_select(&n);assert(n.gm5.next_attempt==n.now+5000000); /* Real failed-attempt floor is never discarded. */
@@ -297,7 +301,7 @@ static void lifecycle_boundary_tests(void)
   struct r2_network q=base(true);uint64_t ready=q.now;
   q.gm5.ready_at=ready;q.gm5.stable_since=ready-R2_GM5_STABLE_US;
   q.hot_ready=true;q.gm5.successes=1;q.gm5.issued_until=ready+R2_GM5_GRANT_US;
-  phase_evidence(&q,ready+R2_MANAGEMENT_LEASE_US+edge);
+  phase_evidence(&q,ready+R2_GM5_COORDINATION_US+edge);
   gm5_tick(&q,true,q.now,NULL);
   assert(q.gm5.ready_at==ready);
   assert(q.hot_ready==(edge<0));
@@ -305,7 +309,7 @@ static void lifecycle_boundary_tests(void)
  }
 
  struct r2_network n=base(true);n.gm5.attempt_until=n.now+R2_GM5_ACQUIRE_US;
- n.gm5.stable_since=n.now-R2_GM5_STABLE_US+1;n.gm5.ready_at=n.now-R2_MANAGEMENT_LEASE_US;
+ n.gm5.stable_since=n.now-R2_GM5_STABLE_US+1;n.gm5.ready_at=n.now-R2_GM5_COORDINATION_US;
  gm5_tick(&n,true,n.now,NULL);assert(!n.gm5.stable_since&&!n.gm5.issued_until);
  uint64_t restart=n.now+1;
  for(unsigned i=0;i<=10;i++){
@@ -324,6 +328,26 @@ static void lifecycle_boundary_tests(void)
   if(boundary>=0)assert(n.gm5.failures==1&&!n.gm5.attempt_until);
  }
  puts("PASS READY freshness glitch before5s requires full new stable dwell; partial repair cannot renew original10s and expires at -1/at/+1 boundaries");
+}
+static void coordination_boundary_tests(void)
+{
+ struct r2_network legacy=base(true);legacy.gm5.enabled=false;
+ assert(coordination_lease(&legacy)==2000000);
+ for(int edge=-1;edge<=1;edge++){
+  struct r2_network n=field_base();struct r2_auth_record r=control(&n,R2_AUTH_COMMIT,n.now);
+  assert(!deliver(&n,&r,n.now+25000));assert(n.hot_ready);
+  uint64_t accepted=n.now,until=n.management_until,grant=n.gm5.grant_until;
+  assert(until==accepted+5000000&&grant<r.permit_until_us);
+  phase_evidence(&n,until+edge);gm5_tick(&n,true,n.now,NULL);
+  assert(n.hot_ready==(edge<0));assert(n.management_until==until&&n.gm5.grant_until==grant);
+  /* A valid original grant does not excuse a stale timing map. */
+  n=field_base();r=control(&n,R2_AUTH_COMMIT,n.now);assert(!deliver(&n,&r,n.now+25000));
+  n.timing_valid=false;gm5_tick(&n,true,n.now,NULL);assert(!n.hot_ready);
+  /* Peer liveness is identity only: no fresh source permission is invented. */
+  n=base(true);uint64_t alive=n.peer[1].alive;n.now=alive+5000000+edge;
+  assert(live(&n,1)==(edge<0));assert(n.now>=n.peer[1].candidate_until);
+ }
+ puts("PASS actual wire COMMIT gives5s coordination; original -1/at/+1 lease and peer liveness, stale PT refusal, unchanged legacy2s and finite grant");
 }
 static void dispatcher_tests(void)
 {
@@ -484,7 +508,7 @@ int main(void)
 {
  clock_field_boundary_tests();clock_rate_corner_tests();delay_burst_tests();
  same_epoch_requalification_tests();lifecycle_boundary_tests();dispatcher_tests();
- late_map_acquire_tests();
+ late_map_acquire_tests();coordination_boundary_tests();
  hello_source_refresh_tests();
  contact_tests();
  const struct {unsigned role;uint64_t active,selected;bool connected;uint64_t delay;} cadence[]={

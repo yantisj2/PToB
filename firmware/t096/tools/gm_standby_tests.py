@@ -26,21 +26,28 @@ try:
  with (out/'transport.compile.log').open('x')as log:subprocess.run(cmd[:cmd.index(str(units[0]))]+['-Wno-unused-function','-Wno-unused-variable','-Wno-unused-parameter',f'-I{out}',f'-I{app/"tests"}']+list(map(str,transport_units))+['-o',str(out/'transport')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=60)
  with (out/'transport.run.log').open('x')as log:subprocess.run([str(out/'transport')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
  stages.append('native_admission_transport')
+ with (out/'transport-diag.compile.log').open('x')as log:subprocess.run(cmd[:cmd.index(str(units[0]))]+['-DR2_CONTROLLER_DIAGNOSTICS=1','-Wno-unused-function','-Wno-unused-variable','-Wno-unused-parameter',f'-I{out}',f'-I{app/"tests"}']+list(map(str,transport_units))+['-o',str(out/'transport-diag')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=60)
+ with (out/'transport-diag.run.log').open('x')as log:subprocess.run([str(out/'transport-diag')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
+ stages.append('native_inventory_diagnostic_edges_and_normal_off')
  radio_units=[app/'tests/radio_service_test.c',*[app/'src'/x for x in ['radio_precision.c','relay_precision.c','core.c','clock.c','nmea.c','precision.c']],*[app/'protocol'/x for x in ['role_announcement.c','group_join.c','group_auth.c','group_control.c','group_precision.c','authority_codec.c','precision_codec.c','relay_codec.c']],*[tiny/'source'/x for x in ['hmac.c','sha256.c','utils.c']]]
  with (out/'handoff.compile.log').open('x')as log:subprocess.run(cmd[:cmd.index(str(units[0]))]+['-Wno-unused-parameter',f'-I{out}',f'-I{app/"tests"}']+list(map(str,radio_units))+['-o',str(out/'handoff')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=60)
  with (out/'handoff.producer.log').open('x')as log:subprocess.run([str(out/'transport'),str(out/'handoff.bin')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
  for mode in range(35,50):
   with (out/f'handoff-{mode}.log').open('x')as log:subprocess.run([str(out/'handoff'),str(mode),str(out/'handoff.bin')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
  stages.append('actual_producer_precision_mailbox_15_cases')
- cases=[(0,i,4)for i in range(1 if a.quick else 24)]+[(i,0,k)for i in range(1,16)for k in ([4]if a.quick else [3,4])]+([]if a.quick else [(0,i,3)for i in range(6)])
+ cases=[(0,i,4)for i in range(1 if a.quick else 24)]+[(i,0,k)for i in range(1,18)for k in ([4]if a.quick else [3,4])]+([]if a.quick else [(0,i,3)for i in range(6)])
  for scenario,order,nodes in cases:
   with (out/f'{scenario}-{order}-{nodes}.log').open('x')as log:r=subprocess.run([str(out/'simulator'),str(scenario),str(order),str(nodes)],stdout=log,stderr=subprocess.STDOUT,timeout=60)
   results.append(dict(scenario=scenario,order=order,nodes=nodes,returncode=r.returncode));
+  if r.returncode:raise RuntimeError(f'failed {results[-1]}')
+ for phase in range(1,6):
+  with (out/f'17-phase-{phase}.log').open('x')as log:r=subprocess.run([str(out/'simulator'),'17','0','3',str(phase)],stdout=log,stderr=subprocess.STDOUT,timeout=60)
+  results.append(dict(scenario=17,order=0,nodes=3,failure_phase=phase,returncode=r.returncode))
   if r.returncode:raise RuntimeError(f'failed {results[-1]}')
  passed=True
 finally:
  unchanged=frozen==source_map()and all(hashlib.sha256((app.parents[1]/x).read_bytes()).hexdigest()==digest for x,digest in supporting.items())
  sources=set(units+[app/'tests/gm_standby_fence_test.c',app/'tests/gm_standby_transport_test.c',app/'src/group_admission.c',app/'protocol/ble_transport.c',app/'protocol/gm_standby.inc',app/'protocol/gm_standby.h',app/'protocol/network.h'])
- (out/'receipt.json').write_text(json.dumps(dict(passed=passed and unchanged,source_unchanged=unchanged,source_sha256=source_sha,source_files=frozen,supporting_files=supporting,elapsed_s=time.monotonic()-started,hardware=False,production_control_slots=2,stages_completed=stages,expected_cases=len(cases)if'cases'in globals()else None,results=results,command=cmd,sources={str(x):hashlib.sha256(x.read_bytes()).hexdigest()for x in sources}),indent=2)+'\n')
+ (out/'receipt.json').write_text(json.dumps(dict(passed=passed and unchanged,source_unchanged=unchanged,source_sha256=source_sha,source_files=frozen,supporting_files=supporting,elapsed_s=time.monotonic()-started,hardware=False,production_control_slots=2,stages_completed=stages,expected_cases=len(cases)+5 if'cases'in globals()else None,results=results,command=cmd,sources={str(x):hashlib.sha256(x.read_bytes()).hexdigest()for x in sources}),indent=2)+'\n')
 if not unchanged:raise RuntimeError('T096 source changed during run; receipt not accepted')
 print('PASS G5 production owner, causal JOIN and physical-tuple precision; no hardware')

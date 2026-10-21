@@ -10,7 +10,12 @@
 #define R2_GM5_CONTACT_US UINT64_C(30000000)
 #define R2_GM5_ACQUIRE_US UINT64_C(45000000)
 #define R2_GM5_STABLE_US UINT64_C(5000000)
-#define R2_GM5_GRANT_US UINT64_C(10000000)
+#define R2_GM5_COORDINATION_US UINT64_C(5000000)
+/* Finite per-generation grant funds coordination silence plus takeover fence.
+ * Fifteen seconds fits between renewal age+silence+takeover (2+5+3s)
+ * and repair closure+silence+takeover (10+5+3s). Independent source/PT/
+ * packet validity and the2s issuance cadence remain unchanged. */
+#define R2_GM5_GRANT_US (3 * R2_GM5_COORDINATION_US)
 #define R2_GM5_RETIRE_GUARD_US UINT64_C(50000)
 #define R2_GM5_STATUS_US UINT64_C(120000000)
 enum r2_gm5_role {R2_GM5_COLD,R2_GM5_ACQUIRING,R2_GM5_HOT,R2_GM5_ACTIVE};

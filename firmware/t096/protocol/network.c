@@ -14,6 +14,10 @@ extern bool r2_rc7_fixture_gm_pair(void);
 #endif
 static void count(uint32_t *v){if(*v!=UINT32_MAX)++*v;}
 static uint64_t earlier(uint64_t a,uint64_t b){return a<b?a:b;}
+/* G5 renews finite grants every2s. A5s coordination lease tolerates changing
+ * acknowledgement latency without extending any original grant or source. */
+static uint64_t coordination_lease(const struct r2_network *n)
+{return n->gm5.enabled?R2_GM5_COORDINATION_US:R2_MANAGEMENT_LEASE_US;}
 /* Mapping and source evidence retain their own original bounds. Management
  * heartbeat loss must not revoke a still-valid direct source permission. */
 static bool bound(const struct r2_network *n,unsigned p)
@@ -21,12 +25,12 @@ static bool bound(const struct r2_network *n,unsigned p)
 bool r2_network_member(const struct r2_network *n,unsigned p)
 {return p<n->count&&p!=n->self&&n->peer[p].member&&n->now>=n->peer[p].member_at&&n->now-n->peer[p].member_at<R2_V14_MEMBERSHIP_US;}
 static bool live(const struct r2_network *n,unsigned p)
-{return bound(n,p)&&n->now>=n->peer[p].alive&&n->now-n->peer[p].alive<R2_MANAGEMENT_LEASE_US;}
+{return bound(n,p)&&n->now>=n->peer[p].alive&&n->now-n->peer[p].alive<coordination_lease(n);}
 /* Retaining an established partner is identity preference, not timing or
  * source permission. A rejected new map must not turn a live partner into
  * a failed identity; actual source/management/HOT gates still use bound(). */
 static bool preference_live(const struct r2_network *n,unsigned p)
-{return p<n->count&&p!=n->self&&n->peer[p].connected&&n->peer[p].authenticated&&!n->peer[p].source_withdrawn&&n->now>=n->peer[p].alive&&n->now-n->peer[p].alive<R2_V14_SUSPICION_US;}
+{return p<n->count&&p!=n->self&&n->peer[p].connected&&n->peer[p].authenticated&&!n->peer[p].source_withdrawn&&n->now>=n->peer[p].alive&&n->now-n->peer[p].alive<coordination_lease(n);}
 static bool unresolved_join_candidate(const struct r2_network *n)
 {
  if(!n->group.id)return false;
@@ -192,7 +196,7 @@ static bool causal_echo(const struct r2_net_peer *m,const struct r2_auth_record 
 }
 /* Expired authority can still carry evidence of past identity activity. Use
  * only its conservative creation lower bound, never receipt time. Replays
- * cannot advance that bound, and silence still expires at activity+2s. This
+ * cannot advance that bound, and silence still expires at the original coordination deadline. This
  * does not accept the HELLO or renew any timing/source/pair permission. */
 static void identity_activity(struct r2_network *n,unsigned p,const struct r2_auth_record *r,
                               int64_t lo,int64_t hi,uint64_t received)
@@ -202,7 +206,7 @@ static void identity_activity(struct r2_network *n,unsigned p,const struct r2_au
     m->nonce!=r->challenge||m->own_nonce!=r->decision||r->root_boot!=n->boot||
     r->root!=p||r->flags!=1||!m->candidate_epoch||m->candidate_epoch!=r->source_epoch||lo>hi)return;
  uint64_t at=mapped(r->created_us,lo);
- if(!at||at>received||n->now<at||n->now-at>=R2_V14_SUSPICION_US||at<=m->alive)return;
+ if(!at||at>received||n->now<at||n->now-at>=coordination_lease(n)||at<=m->alive)return;
  m->alive=at;if(p==n->choice&&at>n->root_health_at)n->root_health_at=at;
 #if defined(R2_RC_DYNAMIC_FIXTURE)
  if(r2_rc7_fixture_gm_pair())printk("GM_PAIR_ACTIVITY id=%llx peer=%llx at=%llu activity=%llu lower_expiry=%llu\n",
@@ -212,7 +216,7 @@ static void identity_activity(struct r2_network *n,unsigned p,const struct r2_au
 }
 /* Negative source/contact evidence survives ACL drain in the identity inventory.
  * Its creation watermark belongs to this remote boot, never our local clock.
- * A COLD fallback waits out every possibly issued10s grant before its ordinary
+ * A COLD fallback waits out every possibly issued15s grant before its ordinary
  *30..32s discovery round; repeated negatives can only shorten the original hold. */
 static void gm5_negative(struct r2_network *n,struct r2_gm5_candidate *c,uint64_t created,uint32_t epoch)
 {
@@ -465,7 +469,7 @@ int r2_network_receive(struct r2_network *n,uint8_t p,const uint8_t *data,size_t
   }else if(r.kind==R2_AUTH_READY&&n->coordinator==n->self&&r.decision==n->management_generation&&now<n->management_pending_until){
    if(r.flags&1)n->management_ready|=1u<<p;
   }else if(r.kind==R2_AUTH_COMMIT&&p==n->coordinator&&r.decision>=n->management_generation&&r.flags==1){
-   if(permit<=now||r.permit_until_us-r.created_us>R2_MANAGEMENT_LEASE_US)return -ESTALE;
+   if(permit<=now||r.permit_until_us-r.created_us>coordination_lease(n))return -ESTALE;
    /* A complete fresh commit repairs a locally cleared handshake. The common
     * checks above bind the authenticated current coordinator boot, root boot,
     * source epoch and complete current descriptor; original TTL/lease and
@@ -529,7 +533,7 @@ bool r2_network_coordination_direct(const struct r2_network *n,const struct r2_g
      (c->epoch==m->candidate_epoch||(m->source_withdrawn&&!m->candidate_epoch))&&
      m->connected&&m->authenticated&&m->member&&m->map_valid&&
      (m->capabilities&3)==3&&now>=m->seen&&now-m->seen<10000000&&
-     now>=m->alive&&now-m->alive<R2_MANAGEMENT_LEASE_US&&
+     now>=m->alive&&now-m->alive<coordination_lease(n)&&
      now>=m->member_at&&now-m->member_at<R2_V14_MEMBERSHIP_US)return true;
  }
  return false;
@@ -575,7 +579,7 @@ void r2_network_tick_coordinated(struct r2_network *n,const struct r2_clock *clo
    /* Retain only the prior HOT takeover already fenced against its old root.
     * An unrelated unresolved JOIN cannot revoke that recovery authorization. */
   }else if((bound(n,n->choice)&&n->peer[n->choice].source_withdrawn)||
-    (n->root_health_at&&now>=n->root_health_at&&now-n->root_health_at>=R2_V14_SUSPICION_US)){
+    (n->root_health_at&&now>=n->root_health_at&&now-n->root_health_at>=coordination_lease(n))){
    /* Explicit authenticated withdrawal is different from lost heartbeats.
     * The same3s output fence still outlasts the original1.5s source permit. */
    if(!n->takeover_pending){n->takeover_pending=true;n->takeover_started=now;
@@ -706,7 +710,7 @@ void r2_network_tick_coordinated(struct r2_network *n,const struct r2_clock *clo
    const struct r2_net_peer *m=&n->peer[p];
    if(p!=n->self&&m->identity==coord->root&&m->boot==coord->boot&&
       m->source_withdrawn&&!m->candidate_epoch&&m->connected&&m->authenticated&&
-      now>=m->alive&&now-m->alive<R2_MANAGEMENT_LEASE_US){
+      now>=m->alive&&now-m->alive<coordination_lease(n)){
     replacement=true;retired_until=m->serving_until;break;
    }
   }
@@ -784,13 +788,13 @@ void r2_network_tick_coordinated(struct r2_network *n,const struct r2_clock *clo
   if(!pair_source){withdraw_hot(n,0);n->management_committed=false;}
   if(!n->management_hash||(!n->management_committed&&now>=n->management_pending_until)){
    if(n->management_generation==UINT32_MAX){r2_network_stop(n,now);return;}
-   ++n->management_generation;n->management_hash=descriptor(n);n->management_pending_until=now+R2_MANAGEMENT_LEASE_US;n->management_ready=0;
+   ++n->management_generation;n->management_hash=descriptor(n);n->management_pending_until=now+coordination_lease(n);n->management_ready=0;
    for(unsigned p=0;p<n->count;p++)n->peer[p].next_management=0;
   }
   if(pair_source)n->management_ready|=1u<<n->self;else n->management_ready&=~(1u<<n->self);
   uint8_t required=(1u<<n->choice)|(1u<<n->coordinator);
   if((n->management_ready&required)==required&&pair_source){
-   n->hot_ready=synced(n);n->management_committed=true;n->management_until=now+R2_MANAGEMENT_LEASE_US;
+   n->hot_ready=synced(n);n->management_committed=true;n->management_until=now+coordination_lease(n);
    n->management_pending_until=n->management_until;
    if(n->hot_ready){pair_trace(n,3,n->choice,n->self);n->pair=(struct r2_pair){n->root_boot,n->boot,now+R2_PAIR_RESERVE_US,n->view.generation,n->choice,n->self};}
   }

@@ -119,7 +119,7 @@ static int gm5_management_receive(struct r2_network *n,unsigned p,const struct r
   g->ready_at=n->now;
   if((r->flags&4)&&g->grant_pending&&n->now<g->issued_until){
    g->grant_pending=false;n->hot_ready=true;n->management_committed=true;
-   n->management_until=n->now+R2_MANAGEMENT_LEASE_US;
+   n->management_until=n->now+coordination_lease(n);
    if(g->attempt_until){gm5_attempt_done(g);count(&g->successes);struct r2_gm5_candidate *c=gm5_candidate(n,g->selected,false);if(c&&c->successes!=UINT16_MAX)++c->successes;gm5_event(n,R2_GM5_COMMITTED,g->selected);}
   }
   return 0;
@@ -139,7 +139,7 @@ static int gm5_management_receive(struct r2_network *n,unsigned p,const struct r
    if(r->decision>g->grant_generation){g->grant_generation=(uint32_t)r->decision;g->grant_until=permit;}
    else if(permit<g->grant_until)g->grant_until=permit;
    n->management_generation=(uint32_t)r->decision;
-   n->management_hash=r->source_second;n->management_until=n->now+R2_MANAGEMENT_LEASE_US;
+   n->management_hash=r->source_second;n->management_until=n->now+coordination_lease(n);
    n->management_committed=true;
    if(synced(n)&&n->admission.eligible&&!g->inhibited){
     n->hot_ready=n->standby_authorized=true;g->role=R2_GM5_HOT;gm5_attempt_done(g);
@@ -191,7 +191,7 @@ static void gm5_tick(struct r2_network *n,bool physical,uint64_t now,const struc
  struct r2_gm5_candidate *root_candidate=gm5_candidate(n,g->active,false);
  bool withdrawn=root_candidate&&root_candidate->boot==g->active_boot&&root_candidate->withdraw_created&&root_candidate->withdraw_epoch==n->pair.epoch;
  bool root_failed=g->active&&g->active!=n->identity&&((retired&&g->active==coord->root)||withdrawn||(active<n->count&&bound(n,active)&&n->peer[active].source_withdrawn)||
-  (n->root_health_at&&now>=n->root_health_at&&now-n->root_health_at>=R2_V14_SUSPICION_US));
+  (n->root_health_at&&now>=n->root_health_at&&now-n->root_health_at>=coordination_lease(n)));
  if(n->standby_authorized&&own&&g->active_boot==n->standby_root_boot&&n->candidate.generation==n->standby_source_epoch&&g->grant_until>now&&root_failed){
   if(!n->takeover_pending){n->takeover_pending=true;n->takeover_started=now;n->takeover_not_before=now+3000000;gm5_event(n,R2_GM5_TAKEOVER,g->active);}
   if(now>=n->takeover_not_before&&now<g->grant_until){
@@ -218,7 +218,7 @@ static void gm5_tick(struct r2_network *n,bool physical,uint64_t now,const struc
    unsigned p=gm5_slot(n,g->selected);struct r2_gm5_candidate *c=gm5_candidate(n,g->selected,false);
    bool source=p<n->count&&live(n,p)&&now<n->peer[p].candidate_until&&!n->peer[p].source_withdrawn;
    bool physical=source||(c&&c->eligible&&(!c->inhibited||c->negative_root==n->identity)&&now<c->until);
-   bool ready=source&&g->ready_at&&now>=g->ready_at&&now-g->ready_at<R2_MANAGEMENT_LEASE_US;
+   bool ready=source&&g->ready_at&&now>=g->ready_at&&now-g->ready_at<coordination_lease(n);
    if(!ready||!own||!n->ready||!synced(n)){
     bool was_hot=n->hot_ready||g->successes;withdraw_hot(n,ready?32:8);g->stable_since=0;g->grant_pending=false;
     if(was_hot&&!g->attempt_until){gm5_repair(n);count(&g->attempts);gm5_event(n,R2_GM5_MAP,g->selected);}

@@ -2,6 +2,19 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 21 October 2026 — T0960.15.146 G5 coordination margin
+
+G5 management, READY and authenticated peer/root liveness share a5s lease,
+with a finite15s grant derived as three coordination leases. Grant issuance
+remains every2s; each
+original grant, source permission, packet and precision map keeps its deadline.
+Legacy coordination remains2s. This removes the zero-margin coupling between
+2s grant renewal and2s acknowledgement expiry, without adding state or queues.
+Actual production-wire regressions include selective renewal loss with varying
+phase, longer outages and unchanged source/PT/replay refusals. The opt-in diagnostic image also records missed/consumed inventory opportunity
+gates without changing CONTACT behavior. Stable physical HOT and CONTACT retry
+reliability remain subject to hardware observation.
+
 ## 21 October 2026 — T0960.15.145 negotiated connection cleanup
 
 Replace the implementation-chosen2s ACL retirement limit with actual negotiated

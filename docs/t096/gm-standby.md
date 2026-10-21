@@ -3,8 +3,9 @@
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
 Version0.15.134 introduces G5 coordination for the ordinary GM profile; current
-version0.15.143 includes one original admission lifetime, one selected-peer retry
-policy and fair pair dispatch, retaining causal timing handoff, latched PT closure,
+version0.15.146 adds a shared5s coordination lease and15s finite grants to one
+original admission lifetime, one selected-peer retry policy and fair pair
+dispatch, retaining causal timing handoff, latched PT closure,
 GM watchdog coverage and the fixed45s successor acquisition budget. This is
 an implementation and host-test contract, not hardware acceptance or a claim of
 UTC/output accuracy. RC7 clients, USB, GNSS qualification, BLE capture and LoRa
@@ -147,7 +148,7 @@ they do not establish native RF delay or physical durability.
 
 Actual source, authenticated transport/map, captured precision and management
 readiness must all pass. After5s sustained readiness, ACTIVE issues an original
-10s successor grant, scoped to full ACTIVE/HOT identity and boot, both physical
+15s successor grant, scoped to full ACTIVE/HOT identity and boot, both physical
 source contexts and pair generation. Local issuer generations and received
 root-scoped generation floors are separate. Retransmission/map refinement can
 only shorten a grant. A cleared/retired generation cannot be resurrected.
@@ -179,14 +180,14 @@ root/boot/epoch through the original constraint deadline, without rolling it.
 A COLD clock has no fast-takeover authority. Silence retains the last authenticated
 incumbent contact for at most120s, then a30..32s discovery round and original3s
 output fence. A newer exact-root COLD/ineligible report or actual withdrawal
-shortens that contact hold to at most10.05s from its first negative observation,
-conservatively outwaiting any already issued10s successor grant. Repeated negative
+shortens that contact hold to at most15.05s from its first negative observation,
+conservatively outwaiting any already issued15s successor grant. Repeated negative
 reports cannot extend it. Simulator recovery assertions freeze the maximum surviving original contact
 expiry at each actual failure, then add32s discovery and3s output fencing. A
 confirmed HOT fixture bound also freezes surviving inventory expiries at failure.
 It allows one30s serialized inventory round, up to three inventory identities'
 fixed30s contact+45s acquisition+5s failed-attempt spacing, original10s repair,
-10.05s uncertain-grant retirement,5s stability and100ms modeled control delivery.
+15.05s uncertain-grant retirement,5s stability and100ms modeled control delivery.
 The separate stale120s inventory TTL prevents a silent old best candidate from
 being refreshed forever. These conservative fixture bounds assume its stable
 qualified survivors, reliable modeled contact/PA and bounded serialized
@@ -239,7 +240,12 @@ query time nor a historical maximum renews any authority.
 
 ## Development checkpoint and remaining acceptance
 
-Version0.15.143 remains a development checkpoint. Matching installed image
+Version0.15.145 produced a physical ACTIVE/HOT episode followed by management
+lease withdrawal while both physical sources remained qualified. Higher-rate
+journal snapshots showed only management expiry at the first withdrawal; map
+degradation followed. Version0.15.146 is an offline candidate addressing the
+equal2s grant-renewal/acknowledgement-lease coupling, not an installed or accepted
+hardware result. Matching installed image
 identities and passing host/native checks do not establish a durable physical
 ACTIVE/HOT pair, three-GM stability or four-GM newcomer acceptance.
 
@@ -252,7 +258,8 @@ The remaining work has separate causes and evidence requirements:
 - Observe actual PA/map convergence and sustained HOT renewal. The fixed45s
   acquisition budget passes a controlled late-map host case; it cannot repair
   failed contact or establish physical convergence by itself. An earlier
-  management-expiry withdrawal with progressing workers remains unexplained.
+  management-expiry withdrawal is reproduced by varying renewal acknowledgement
+  latency; the new coordination margin still needs sustained field observation.
 - Retain physical-source qualification failures. A void GNSS fix resets the
   original60s dwell even when a later snapshot shows satellites or PPS. Source
   availability, authenticated map readiness and watchdog health are separate.
@@ -333,9 +340,9 @@ synchronization, scan/HCI request, source, PT, message, READY and grant deadline
 are separate and unchanged. The independent30s owner-stall observer detects stale
 publication, not a healthy owner polling a long cleanup. RC synchronous ACL
 retirement polls publish only the existing closing timestamp; their original
-37s local/40s outer limits remain finite, and no source authority is renewed. UCS
+LT37s local/40s outer limits remain finite, and no source authority is renewed. UCS
 client disconnects begin before the RC link wait, so both drain concurrently
-inside the original budget. The pinned UATT stack copies notification storage
+inside the original40s outer deadline with no additional local UCS timer. The pinned UATT stack copies notification storage
 at submission and drains/detaches it before the disconnected callback; cleanup
 also waits for submission return and the worker to finish, retaining references
 on failure. Firmware maintenance
@@ -355,3 +362,40 @@ original negotiated expiry, missing TX/GATT callbacks and the production GNSS la
 to watchdog path. The former fixed2s implementation fails the same delayed-callback
 regression. Native resource checks and physical HOT durability remain required;
 these changes do not establish the cause of the earlier controller FIFO assertion.
+
+### Coordination margin in0.15.146
+
+G5 uses one5s coordination lease for management,
+READY freshness and authenticated peer/root liveness. Legacy profiles retain2s.
+Finite grants last at most15s (three coordination leases) and renew on the
+existing2s issuance cadence;
+the lease allows3s nominal margin for variation in renewal acknowledgement time,
+provided accepted acknowledgements remain less than5s apart. The15s grant also
+funds the2s issuance age,5s identity silence and existing3s takeover fence
+after a lost renewal. It also expires before the10s repair closure plus5s
+silence and3s fence could turn a deliberate closure into a false takeover.
+These nominal relationships retain the50ms retirement guard; they do not
+establish exclusivity under arbitrary asymmetric radio partitions.
+A tested20s draft violated that second relationship; the existing precision-loss
+regression exposed it, and that draft is not the146 policy.
+Each original grant remains immutable; uncertain retirement waits through its
+original expiry plus50ms. The changed grant cap requires matching GM firmware
+and intentionally permits slower retirement of an uncertain grant.
+A replay cannot renew a grant, and a new source epoch still requires qualification.
+Independent1.5s PPS/source permits,2.5s GNSS freshness,250ms original control
+records and current precision-map validity are unchanged. Coordination grace
+never makes an expired source or timing map usable.
+
+Previous offline coverage exercised regular25ms delivery and isolated READY
+loss, but did not vary both COMMIT and READY renewal availability across the
+2s issuance boundary. That left the equal renewal/lease periods untested. The
+production-wire fixture now suppresses both renewal classes for phase-varying
+2.4–2.6s bursts while HELLO, SERVICE and actual precision tuples continue; the
+fixture offers at most one accepted send per100ms per peer. The old2s policy
+loses HOT and the5s policy preserves it, with measured acknowledgement gaps
+above2s but below5s. Six silent-primary failure phases span renewal boundaries
+and pre-failure renewal loss; the15s finite grant funds takeover where the
+10s grant can expire first. A longer outage still
+withdraws HOT. Original lease boundaries, stale timing, source loss and replay
+remain separate negative controls. These synthetic schedules do not reproduce
+native ISR/HCI congestion; CONTACT admission failures are a separate question.

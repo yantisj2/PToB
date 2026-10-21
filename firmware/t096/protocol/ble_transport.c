@@ -53,7 +53,16 @@ static bool field_admission_allowed=true,field_admission_renewal,bootstrap_urgen
 static bool relay_server;
 static bool group_client,client_window=true,bootstrap_needed=true;
 static bool gm5_mode,gm5_inventory_due;static uint64_t gm5_selected;
-void r2_ble_gm5_policy(bool enabled,uint64_t selected,bool due){gm5_mode=enabled;gm5_selected=selected;gm5_inventory_due=due;}
+static uint64_t now_us(void);
+#if defined(R2_CONTROLLER_DIAGNOSTICS)
+static void gm5_inventory_snapshot(bool consumed,uint64_t now);
+#else
+#define gm5_inventory_snapshot(consumed,now) ((void)0)
+#endif
+void r2_ble_gm5_policy(bool enabled,uint64_t selected,bool due){
+ if(gm5_mode&&gm5_inventory_due&&!due)gm5_inventory_snapshot(false,now_us());
+ gm5_mode=enabled;gm5_selected=selected;gm5_inventory_due=due;
+}
 static uint32_t client_phase;static uint64_t client_resume;static bool client_aligned,client_search_seen;
 static uint8_t admission_peer=R2_BLE_ADMISSION_PEER;static bool field_profile;
 static uint64_t group_id,local_identity;static uint32_t group_epoch;
@@ -599,6 +608,39 @@ static void candidate_select(uint64_t now){
  }else p->advertised_at=0;
  k_spin_unlock(&lock,k);
 }
+#if defined(R2_CONTROLLER_DIAGNOSTICS)
+/* One owner-boundary record per closed inventory opportunity. This is a
+ * current gate snapshot, not a reconstruction of its earlier missed polls. */
+static void gm5_inventory_snapshot(bool consumed,uint64_t now)
+{
+ unsigned present=0,fresh=0,unconsumed=0,eligible=0,selected_flags=0;uint32_t age=UINT32_MAX;
+ k_spinlock_key_t key=k_spin_lock(&lock);struct peer *p=&peers[CONTROL_PEERS];
+ for(unsigned i=0;i<DISCOVERY_CANDIDATES;i++){
+  const struct discovery_candidate *c=&candidates[i];if(!c->identity)continue;++present;
+  bool member=false;for(unsigned j=0;j<CONTROL_PEERS;j++)member|=peers[j].identity==c->identity;
+  bool selected=gm5_selected&&c->identity==gm5_selected;
+  if(selected){selected_flags|=(1u<<15)|((unsigned)(now<c->cooldown)<<18)|((unsigned)member<<19);
+   if(c->seen>c->consumed)selected_flags|=1u<<17;}
+  if(now<c->seen)continue;uint64_t elapsed=now-c->seen;
+  if((selected||!gm5_selected)&&elapsed<age)age=(uint32_t)elapsed;
+  if(selected&&elapsed<200000)selected_flags|=1u<<16;
+  if(elapsed>=200000)continue;++fresh;
+  if(c->seen<=c->consumed)continue;++unconsumed;
+  if(now<c->cooldown||(admission_parent&&c->identity!=admission_parent))continue;
+  if(!member)++eligible;
+ }
+ unsigned flags=selected_flags|((unsigned)(gm5_selected&&local_identity<gm5_selected)<<20)|(unsigned)consumed|((unsigned)group_client<<1)|((unsigned)client_window<<2)|
+  ((unsigned)scanning<<3)|((unsigned)advertising<<4)|((unsigned)precision_draining<<5)|
+  ((unsigned)sync_acquiring<<6)|((unsigned)(p->conn!=NULL)<<7)|((unsigned)p->release<<8)|
+  ((unsigned)(atomic_get(&p->tx_busy)!=0)<<9)|((unsigned)gatt_request.pending<<10)|
+  ((unsigned)field_admission_allowed<<11)|((unsigned)(admission_parent!=0)<<12)|
+  ((unsigned)(gm5_selected&&admission_parent&&admission_parent!=gm5_selected)<<13)|
+  ((unsigned)(candidate_since&&now>=candidate_since&&now-candidate_since>=40000)<<14);
+ uint64_t selected=gm5_selected;k_spin_unlock(&lock,key);
+ r2_timing_event(R2_TIMING_GM_CONTROL,(int)flags,selected,24,
+                 present|(fresh<<8)|(unconsumed<<16)|(eligible<<24),age);
+}
+#endif
 static void scan_report(const bt_addr_le_t *address,int8_t rssi,uint8_t type,struct net_buf_simple *ad)
 {
 #if defined(R2_SWITCHABLE_FIELD)
@@ -945,7 +987,7 @@ static void poll_owned(uint64_t now)
     /* One G5 initiation consumes this opportunity, including a refused public
      * create. The serialized control owner consumes this original timestamp
      * into next_poll before reopening work. Reuse the RC cooldown storage. */
-    if(gm5_mode){recent_admission_until=now;gm5_inventory_due=false;}
+    if(gm5_mode){gm5_inventory_snapshot(true,now);recent_admission_until=now;gm5_inventory_due=false;}
     /* Publish before the sleeping public call: its connected callback may run
      * before create returns, including on the100ms boundary. */
     if(group_client||(group_id&&i==CONTROL_PEERS))p->connect_until=now+100000;
