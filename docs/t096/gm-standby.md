@@ -2,8 +2,8 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
-Version0.15.134 introduces G5 coordination for the ordinary GM profile; current
-version0.15.151 retains147's500ms G5 probes and1s original control records with the
+Version0.15.134 introduces G5 coordination for the ordinary GM profile. Since
+version0.15.151 the implementation retains147's500ms G5 probes and1s original control records with the
 shared45s control window and90s finite grants, one
 original admission lifetime, one selected-peer retry policy and fair pair
 dispatch, retaining causal timing handoff, latched PT closure,
@@ -498,6 +498,17 @@ next discriminator is a failure-only copy of queued owners and resume/aborted
 flags using the existing observer and capsule storage, without enabling routine
 success counters or periodic controller/timing console streams. Queue capacity,
 assertions, timers, RF and pairing remain frozen; no corrective change is proved.
+
+Source156 implements that quiet prepare capture after independent review. The
+copy validates FIFO indices, masks IRQs across at most seven entries and marks
+partial or unavailable data UNKNOWN. It reuses existing scratch and schema3
+capsule storage; successful prepare paths have no observer calls or counters.
+Four native builds, profile exclusions, the full host suite and actual four-device
+startup/runtime checks pass. Static free space remains4708 bytes and flash grows
+232 bytes relative to155. The fatal handler's compiler frame grows24 to120 bytes;
+the conditional prepare/fatal stack estimate does not qualify arbitrary nested
+IRQ chains or measured latency. Schema3 trades the secondary interrupted-thread
+frame and IRQ-latency fields for queue owners. Field durability remains unaccepted.
 
 The remaining work has separate causes and evidence requirements. First retain
 a stable two-GM pair with the third GM remaining COLD; only then exercise newcomer
