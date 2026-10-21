@@ -413,6 +413,14 @@ Both are conditional reproductions; field pool occupancy and the initiating
 ticker ordering remain unproved. No timer widening, ignored error or controller
 workaround follows from them.
 
+Version154 adds only a bounded current-controller/LLCP snapshot at the existing
+first-disconnect fault. All four devices passed actual startup and intended
+runtime checks with ordinary radio requests ON. Four native builds and the host
+suite pass; static storage is unchanged. Current handle matching does not prove
+controller incarnation, and WAIT_TX does not measure allocator occupancy. The
+fault-time records classify the next failure; they do not fix HOT churn or the
+controller assertion. Timer, pairing and radio behavior remain frozen.
+
 The remaining work has separate causes and evidence requirements. First retain
 a stable two-GM pair with the third GM remaining COLD; only then exercise newcomer
 and four-device admission, keeping the ordinary RC in its RC profile:

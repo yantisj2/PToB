@@ -2,6 +2,15 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 21 October 2026 — T096 0.15.154 controller retirement snapshot
+
+Extend the existing first-disconnect fault record with a bounded current
+controller/LLCP snapshot. Native configuration assertions and one IRQ fence
+protect the scalar copy; journal writes remain outside it. No timer, pairing,
+radio, reference or SDK behavior changes. Four native builds, the host suite
+and all four actual startup/runtime checks pass. Static storage is unchanged;
+the additional evidence does not establish the initiating cause or durable HOT.
+
 ## 21 October 2026 — T096 0.15.153 disconnect failure isolation
 
 Add a fault-only host state and work snapshot at the first unretired-disconnect
