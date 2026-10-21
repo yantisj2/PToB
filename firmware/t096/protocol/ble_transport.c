@@ -616,16 +616,21 @@ static void gm5_inventory_snapshot(bool consumed,uint64_t now)
  unsigned present=0,fresh=0,unconsumed=0,eligible=0,selected_flags=0;uint32_t age=UINT32_MAX;
  k_spinlock_key_t key=k_spin_lock(&lock);struct peer *p=&peers[CONTROL_PEERS];
  for(unsigned i=0;i<DISCOVERY_CANDIDATES;i++){
-  const struct discovery_candidate *c=&candidates[i];if(!c->identity)continue;++present;
+  const struct discovery_candidate *c=&candidates[i];
+  if(!c->identity)continue;
+  ++present;
   bool member=false;for(unsigned j=0;j<CONTROL_PEERS;j++)member|=peers[j].identity==c->identity;
   bool selected=gm5_selected&&c->identity==gm5_selected;
   if(selected){selected_flags|=(1u<<15)|((unsigned)(now<c->cooldown)<<18)|((unsigned)member<<19);
    if(c->seen>c->consumed)selected_flags|=1u<<17;}
-  if(now<c->seen)continue;uint64_t elapsed=now-c->seen;
+  if(now<c->seen)continue;
+  uint64_t elapsed=now-c->seen;
   if((selected||!gm5_selected)&&elapsed<age)age=(uint32_t)elapsed;
   if(selected&&elapsed<200000)selected_flags|=1u<<16;
-  if(elapsed>=200000)continue;++fresh;
-  if(c->seen<=c->consumed)continue;++unconsumed;
+  if(elapsed>=200000)continue;
+  ++fresh;
+  if(c->seen<=c->consumed)continue;
+  ++unconsumed;
   if(now<c->cooldown||(admission_parent&&c->identity!=admission_parent))continue;
   if(!member)++eligible;
  }
