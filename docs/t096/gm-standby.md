@@ -447,6 +447,25 @@ failure observations, not one continuously observed reset chain. Both GMs remain
 source-qualified across repeated HOT losses and reformation. Lower console polling
 did not eliminate the failures, but was not a controlled CPU-load comparison.
 
+The separately sealed source155 diagnostic candidate retains the original
+latency-cancel callback status before its unchanged assertion and adds bounded
+current connection/ticker counters at the same first-disconnect fault. Independent
+review, the full host suite, four native images, DC/PC exclusions and optional
+GM diagnostic composition passed. Static storage remains unchanged; the first-fault
+capture's compiler-reported stack frame increases from80 to112 bytes. No timer,
+pairing, RF or scheduler policy changed. All four authorized devices passed actual
+source/build/default startup checks and intended runtime/radio restoration.
+
+Its first180s observation completed24/24 four-device cohorts without a sampled
+network/radio error or reboot. The two GMs were independently source-qualified in
+23/24 samples each;15 complete cohorts reported the intended ACTIVE/HOT pair,
+spanning106.53s between first and last observations. The third GM remained
+source-limited COLD; LoRa transmissions and RC corrections advanced. Early in the
+subsequent reduced-polling phase each GM recorded a HOT withdrawal and reformed
+the pair, with unchanged sampled source epochs and no service error. This is a
+diagnostic installation and finite private hardware observation, not a controller
+fix, a public evidence dataset, calibrated timing or durable HOT acceptance.
+
 The remaining work has separate causes and evidence requirements. First retain
 a stable two-GM pair with the third GM remaining COLD; only then exercise newcomer
 and four-device admission, keeping the ordinary RC in its RC profile:
