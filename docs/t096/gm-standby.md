@@ -287,7 +287,22 @@ matching retained watchdog capsule. The underlying callback cause remains open.
 Version148 verified GM LoRa RX participation but failed HOT durability:78/78
 cohorts over600s, longest complete pair53.938s, no network/radio errors, and
 continued TX/RC correction. The first horizon lapse is unknown; the later10s
-repair timeout is confirmed. Version149 remains an offline control-policy candidate.
+repair timeout is confirmed.
+
+The local version149 observation ran for600s with89 attempted cohorts; only15
+included all four devices before one GM reset. The remaining three readers
+continued, showing physical HOT and advancing transmitter/RC LoRa corrections,
+but those partial cohorts do not establish complete-population HOT durability.
+The failed GM's incoming connection completed connection and MTU setup, then
+remained unidentified through its5s guest allowance. A disconnect request
+succeeded, but actual retirement did not arrive within negotiated supervision
+plus the original5s allowance. The resulting terminal error reached the watchdog;
+the next boot's matching retained capsule and fresh runtime confirmed automatic
+recovery into GM. The missing completion's initiating cause remains unknown.
+Version149 therefore remains unaccepted for durable HOT despite restored timing.
+These images received one application write and source/build/default startup
+checks; repeated application byte readbacks were explicitly skipped by the
+operator. Protected-region checks before writing remain a separate observation.
 A separate146 watchdog recovery was observed with a valid retained worker-stall
 capsule from the worker/terminal-service watchdog path; this does not by itself
 prove a frozen worker. Its fault boot differs from the last observed boot, leaving an unobserved
@@ -302,6 +317,13 @@ and four-device admission, keeping the ordinary RC in its RC profile:
   can occur without completing admission; preserve connection callbacks, GATT
   setup errors, local cancellation and original transient deadlines separately.
   The first failed exchange still needs to be identified.
+- Exercise partial connections and one-device restarts while other production
+  owners retain their peer caches, grants, delayed messages and pending callbacks.
+  Reuse peer/session invalidation on proved incarnation changes; software cache
+  cleanup cannot substitute for actual hardware retirement.
+- Compare ordinary images and reduced console traffic with diagnostic images.
+  Diagnostic formatting, controller hooks and host polling consume resources;
+  static memory checks alone do not establish that observation is neutral.
 - Observe actual PA/map convergence and sustained HOT renewal. The fixed45s
   acquisition budget passes a controlled late-map host case; it cannot repair
   failed contact or establish physical convergence by itself. An earlier
