@@ -23,7 +23,7 @@ Start with the target matching your hardware:
 | Heltec T096 | GM/RC mesh clock or separate DC GNSS/USB image | [T096 README](firmware/t096/README.md) |
 | Meshnology W12 | Receiver; optional experimental relay with estimated transmit timing | [W12 README](firmware/w12/README.md) |
 | M5Stack StickS3 (SS3) | Receiver and experimental relay with estimated transmit timing | [SS3 README](firmware/ss3/README.md) |
-| Meshnology N30 | Offline RC target; portrait UI; hardware bring-up pending | [N30 README](firmware/n30/README.md) |
+| Meshnology N30 | BLE RC with passive LoRa timing fallback and portrait OLED | [N30 README](firmware/n30/README.md) |
 | macOS | USB time client and chrony bridge | [macOS README](clients/macos/README.md) |
 
 See the [changelog](CHANGELOG.md) for recent development updates.
@@ -43,16 +43,16 @@ describes the proposed future storage/API; it is not implemented firmware.
 
 ## See the clocks
 
-| T096 · relay clock | W12 · relay clock | StickS3 · network health |
-| :---: | :---: | :---: |
-| [<img src="docs/images/t096-rc-preview.png" width="120" alt="T096 preview with digital time, analog dial and BLE source status">](firmware/t096/README.md) | [<img src="docs/images/w12-rc-preview.png" width="192" alt="W12 OLED preview with time, relay parent and timing diagnostics">](firmware/w12/README.md) | [<img src="docs/images/ss3-health-preview.png" width="135" alt="StickS3 preview with network delivery, signal and source health">](firmware/ss3/README.md) |
+| T096 · relay clock | W12 · relay clock | StickS3 · network health | N30 · BLE + LoRa clock |
+| :---: | :---: | :---: | :---: |
+| [<img src="docs/images/t096-rc-preview.png" width="120" alt="T096 preview with digital time, analog dial and BLE source status">](firmware/t096/README.md) | [<img src="docs/images/w12-rc-preview.png" width="192" alt="W12 OLED preview with time, relay parent and timing diagnostics">](firmware/w12/README.md) | [<img src="docs/images/ss3-health-preview.png" width="135" alt="StickS3 preview with network delivery, signal and source health">](firmware/ss3/README.md) | [<img src="docs/images/n30-clock-preview.png" width="96" alt="N30 portrait OLED clock dashboard with UTC, analog dial and BLE source">](firmware/n30/README.md) |
 
 Firmware-rendered previews with illustrative values, not live measurements.
 Select a screen to open its target guide.
 
-[N30 portrait clock and RF previews](firmware/n30/README.md) are available for the
-offline RC target; N3-1/N3-2 onboarding uses verified factory identities; hardware qualification
-remains separate.
+[N30 clock, dual BLE/LoRa and receiver screens](firmware/n30/README.md) show its
+independent timing inputs and passive LoRa display fallback. N3-1/N3-2 onboarding
+requires verified factory identities; hardware qualification remains separate.
 
 For USB timing, ChronyControl tracking and client development updates, see the
 [macOS client README](clients/macos/README.md).

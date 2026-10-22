@@ -103,12 +103,29 @@ Original screenshot/data contributions: Jonathan Yantis, CC BY 4.0. Third-party
 ChronyControl interface rights remain unchanged. The manifest records exact bytes,
 dimensions, metadata hashes and the existing display selection.
 
-## N30 offline portrait previews — 20 October 2026
+## N30 portrait previews
 
-`n30-clock-preview.png` and `n30-rf-preview.png` are native64×128 monochrome
-outputs from the production N30 renderer, using synthetic N3-1 clock/activity
-values. The manifest binds renderer, model, font and fixture hashes. Reproduce
-with `python3 firmware/n30/tools/preview.py --out artifacts/n30-preview`.
-No N30 hardware was accessed, and no measured precision or interoperability is
-claimed. The N3-1/N3-2 factory identities remain pending arrival. Original
-ordinary interface documentation, Jonathan Yantis, MIT.
+The three main N30 screens were regenerated on 21 October 2026 from the
+version 0.2.4 production renderer, using synthetic N3-1 values:
+
+- `n30-clock-preview.png`: clock dashboard (`clock` fixture).
+- `n30-rf-preview.png`: simultaneous BLE/LoRa clocks and activity (`rf-dual`).
+- `n30-lora-preview.png`: passive LoRa receiver status (`lora-on`).
+
+All are native 64×128 monochrome images. README markup enlarges them without
+altering the files. The manifest records the selected generated filename,
+source commit, renderer/model/font/fixture hashes, generator hash and image
+identity. The dual-clock difference, drift and link quality are illustrative,
+not measured timing results.
+
+Reproduce the selected source variants with:
+
+```sh
+python3 firmware/n30/tools/preview.py --out artifacts/n30-preview --alias N3-1
+```
+
+Preview generation opens no hardware. N3-1 is a display alias in these synthetic
+fixtures; no factory identity or enrollment is included. Prior screensaver
+assets and their original dated source hashes remain available as historical
+previews; these main-screen replacements are preserved in Git history.
+Original ordinary interface documentation, Jonathan Yantis, MIT.

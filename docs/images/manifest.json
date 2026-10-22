@@ -269,40 +269,54 @@
     {
       "file": "n30-clock-preview.png",
       "source": "firmware/n30/tools/preview.py",
+      "source_variant": "n30-clock-preview.png",
+      "selected": "2026-10-21",
+      "source_commit": "ce00f95fc189b99559b5fdf62a349cf10764b50a",
+      "firmware_version": "0.2.4",
       "sha256": "ee5235c3b2b1483b420652b9e5e35d5f65d2bb0233d426d4487c37ffd4199a73",
       "bytes": 834,
       "dimensions": [
         64,
         128
       ],
-      "transformation": "Native monochrome production-renderer output; no pixel rescaling.",
-      "scope": "Offline N30 page clock; synthetic illustrative N3-1 state, no hardware or precision evidence.",
+      "transformation": "Native monochrome production-renderer output; no pixel rescaling. README display sizes only enlarge the preview.",
+      "scope": "Clock dashboard; synthetic UTC, BLE source and relative synchronization diagnostics. Illustrative N3-1 values; no hardware capture, measured precision or battery evidence.",
       "source_files": {
-        "tools/preview.cpp": "3a553ac7ab712da3afee07cb542f4bb5167bf08dd5debb0c6bb928b9cc19e7ab",
-        "main/ui.hpp": "078dc07fe19e5567e049622234eb57c940bf3b2ab199c59cb5cc3646c5d8db53",
-        "main/ui_model.cpp": "581aa11520f93bf8d70af1da790281d4a32c1159888fca3454a53881ecd90339",
-        "main/ui_render.cpp": "715161b1d58b73406398fe786d2377a507b96912263b44028d1e80b7e7fd7fed",
+        "tools/preview.cpp": "f178e222d70d69393f9449025dc0c608ef607bd3293fc1fe2a7ca5703481af8b",
+        "main/ui.hpp": "f6207993e53462b516e7020cd5822013fc31b104a1b992ffa45f607acfe96746",
+        "main/ui_model.cpp": "d692ccbd05badbcb8dfb805fd43867de415b23834840c0ffaffe7c764fff6ffd",
+        "main/ui_render.cpp": "e17825d8137c24c51c7b9e36ea5140addd8cd0f7a92ef1288d8b9217f3d76814",
         "main/font.inc": "814ce6f3ffd7b828706765284e56393ca0e53874ee4fd3f823213ddd4d3d44df"
-      }
+      },
+      "generator_sha256": "f4084623789f7da734c5154f374e1ad35521cc0ebed23ee288fbc34b236165e6",
+      "author": "Jonathan Yantis",
+      "license": "MIT"
     },
     {
       "file": "n30-rf-preview.png",
       "source": "firmware/n30/tools/preview.py",
-      "sha256": "882c9f64b594a762041ceb43304589cafbcf62695d26d623c7d23d8e39070b17",
-      "bytes": 700,
+      "source_variant": "n30-rf-dual-preview.png",
+      "selected": "2026-10-21",
+      "source_commit": "ce00f95fc189b99559b5fdf62a349cf10764b50a",
+      "firmware_version": "0.2.4",
+      "sha256": "805fa43066f60816510c33d7db5630d4e4587d77bb0557d3019871cbbee30272",
+      "bytes": 745,
       "dimensions": [
         64,
         128
       ],
-      "transformation": "Native monochrome production-renderer output; no pixel rescaling.",
-      "scope": "Offline N30 page rf; synthetic illustrative N3-1 state, no hardware or precision evidence.",
+      "transformation": "Native monochrome production-renderer output; no pixel rescaling. README display sizes only enlarge the preview.",
+      "scope": "Dual-radio page; independent synthetic BLE/LoRa clocks, activity, relative difference and drift. Illustrative N3-1 values; no hardware capture, measured precision or battery evidence.",
       "source_files": {
-        "tools/preview.cpp": "3a553ac7ab712da3afee07cb542f4bb5167bf08dd5debb0c6bb928b9cc19e7ab",
-        "main/ui.hpp": "078dc07fe19e5567e049622234eb57c940bf3b2ab199c59cb5cc3646c5d8db53",
-        "main/ui_model.cpp": "581aa11520f93bf8d70af1da790281d4a32c1159888fca3454a53881ecd90339",
-        "main/ui_render.cpp": "715161b1d58b73406398fe786d2377a507b96912263b44028d1e80b7e7fd7fed",
+        "tools/preview.cpp": "f178e222d70d69393f9449025dc0c608ef607bd3293fc1fe2a7ca5703481af8b",
+        "main/ui.hpp": "f6207993e53462b516e7020cd5822013fc31b104a1b992ffa45f607acfe96746",
+        "main/ui_model.cpp": "d692ccbd05badbcb8dfb805fd43867de415b23834840c0ffaffe7c764fff6ffd",
+        "main/ui_render.cpp": "e17825d8137c24c51c7b9e36ea5140addd8cd0f7a92ef1288d8b9217f3d76814",
         "main/font.inc": "814ce6f3ffd7b828706765284e56393ca0e53874ee4fd3f823213ddd4d3d44df"
-      }
+      },
+      "generator_sha256": "f4084623789f7da734c5154f374e1ad35521cc0ebed23ee288fbc34b236165e6",
+      "author": "Jonathan Yantis",
+      "license": "MIT"
     },
     {
       "file": "n30-saver-ble-preview.png",
@@ -360,6 +374,32 @@
         "main/ui_render.cpp": "715161b1d58b73406398fe786d2377a507b96912263b44028d1e80b7e7fd7fed",
         "main/font.inc": "814ce6f3ffd7b828706765284e56393ca0e53874ee4fd3f823213ddd4d3d44df"
       }
+    },
+    {
+      "file": "n30-lora-preview.png",
+      "source": "firmware/n30/tools/preview.py",
+      "source_variant": "n30-lora-on-preview.png",
+      "selected": "2026-10-21",
+      "source_commit": "ce00f95fc189b99559b5fdf62a349cf10764b50a",
+      "firmware_version": "0.2.4",
+      "sha256": "e1ce8a2d5c57394ff3ddb6f8e9a62c618a612e294fccea11f095b725364462d7",
+      "bytes": 886,
+      "dimensions": [
+        64,
+        128
+      ],
+      "transformation": "Native monochrome production-renderer output; no pixel rescaling. README display sizes only enlarge the preview.",
+      "scope": "LoRa receiver page; synthetic KEEP ON receive state, time and link diagnostics. Illustrative N3-1 values; no hardware capture, measured precision or battery evidence.",
+      "source_files": {
+        "tools/preview.cpp": "f178e222d70d69393f9449025dc0c608ef607bd3293fc1fe2a7ca5703481af8b",
+        "main/ui.hpp": "f6207993e53462b516e7020cd5822013fc31b104a1b992ffa45f607acfe96746",
+        "main/ui_model.cpp": "d692ccbd05badbcb8dfb805fd43867de415b23834840c0ffaffe7c764fff6ffd",
+        "main/ui_render.cpp": "e17825d8137c24c51c7b9e36ea5140addd8cd0f7a92ef1288d8b9217f3d76814",
+        "main/font.inc": "814ce6f3ffd7b828706765284e56393ca0e53874ee4fd3f823213ddd4d3d44df"
+      },
+      "generator_sha256": "f4084623789f7da734c5154f374e1ad35521cc0ebed23ee288fbc34b236165e6",
+      "author": "Jonathan Yantis",
+      "license": "MIT"
     }
   ],
   "updated": "2026-10-17"

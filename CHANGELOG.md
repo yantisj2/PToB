@@ -2,6 +2,15 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 21 October 2026 — N30 main-screen guide and dual timing inputs
+
+Lead the N30 target guide with the clock, dual BLE/LoRa and LoRa receiver
+screens. Explain independent timing inputs, receive-only LoRa display fallback,
+BLE lock preference and AUTO dwell, with controls and build links. Regenerate
+only the three selected main-screen previews with recorded fixture/source hashes;
+values remain illustrative. Add N30 to the project display gallery. Firmware and
+hardware acceptance are unchanged.
+
 ## 21 October 2026 — N30 0.2.4 OLED saver power reduction
 
 Set both screensaver modes to half normal OLED contrast. Keep the normal4Hz
