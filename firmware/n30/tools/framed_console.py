@@ -2,11 +2,28 @@
 """N30 ten-row CRC console parser. Import opens no hardware.
 Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT
 """
-import importlib.util,re
+import importlib.util,re,zlib
 from pathlib import Path
 p=Path(__file__).resolve().parents[2]/'w12/tools/framed_console.py'
 spec=importlib.util.spec_from_file_location('n30_w12_console',p);base=importlib.util.module_from_spec(spec);spec.loader.exec_module(base)
 fields=base.fields;fresh_nonce=base.fresh_nonce;status_command=base.status_command
+
+# New N30 TX-only LOGv2. The wire CRC excludes only its own field; the
+# protected bytes include the leading delimiter, deterministic header, exact
+# normalized payload byte length and final newline. Partial expiry is invalid.
+_TX_LOG=re.compile(rb'W12_V12_LOG version=2 mode=TX capture_id=([0-9a-f]{16}) log_seq=([1-9][0-9]*) enqueue_us=([1-9][0-9]*) record_bytes=([1-9][0-9]*) record_crc32=([0-9a-f]{8}) record=(.*)\Z',re.S)
+def parse_tx_log(line,capture_id=None):
+ base.require(isinstance(line,bytes) and len(line)<1536,'TX LOG bounded complete bytes required')
+ match=_TX_LOG.fullmatch(line);base.require(match is not None,'TX LOGv2 envelope required')
+ cid,seq,enqueue,length,crc,payload=match.groups();seq,enqueue,length=int(seq),int(enqueue),int(length)
+ base.require(int(cid,16)>0 and seq<2**64 and enqueue<2**64 and length==len(payload) and 0<length<1536,'TX LOG identity/length bounds')
+ base.require(capture_id is None or cid.decode()==capture_id,'TX LOG capture scope changed')
+ base.require(payload.endswith(b'\n') and b'\n' not in payload[:-1] and all(32<=b<127 or b==10 for b in payload),'TX LOG normalized single line required')
+ base.require(payload.startswith((b'W12_G1_TX_EST ',b'W12_G1_TX_PATH ')) and payload.endswith(b' bound=UNKNOWN\n'),'TX LOG complete selected record required')
+ header=line.split(b' record_crc32=',1)[0]
+ base.require(zlib.crc32(b'\n'+header+b' record='+payload)==int(crc,16),'TX LOG header/payload CRC mismatch')
+ return dict(capture_id=cid.decode(),log_seq=seq,enqueue_us=enqueue,record_bytes=length,record_crc32=crc.decode(),record=payload.decode().rstrip('\n'))
+
 # Alternate frame carries logical receiver diagnostics under the same envelope.
 LORA_NUMBERS={
  'CONTEXT':'source_epoch kind scale metadata_known',
@@ -120,6 +137,8 @@ class Parser(base.Parser):
    if self.manifest.get('n30_frame_kind')=='TIMING':validate_timing(f['rows'])
    if self.manifest.get('n30_frame_kind')=='FINE':validate_fine(f['rows'])
    mesh=f['rows']['W12_R2_STATUS'];ui=f['rows']['N30_UI'];status=f['rows']['W12_V12_STATUS'];m=self.manifest
+   if 'xf' in f['end']:base.require(f['end']['xf'].isdigit() and 0<=int(f['end']['xf'])<2**32,'TX filtered counter range')
+   if m.get('n30_tx_capture_crc'):base.require('xf' in f['end'],'TX capture mode/counter missing')
    # The inherited whole-frame/nonce/CRC/boot/source/deadline checks still run.
    # Its historical nine-row G1 branch does not apply to this ten-row target;
    # validate the exact N30 G1 identity/capability separately here.
@@ -132,6 +151,8 @@ class Parser(base.Parser):
   return frames
 
 def mutation_command(frame,nonce,action):
+ tx_capture=bool(re.fullmatch(r'capture tx [1-9][0-9]*',action))
+ if tx_capture:base.require(1000<=int(action.split()[2])<=10000,'TX capture duration bound')
  fine=action.startswith('fine ')
  probe=bool(re.fullmatch(r'fine probe [1-9][0-9]* [1-9][0-9]*',action))
  if probe:
@@ -141,6 +162,6 @@ def mutation_command(frame,nonce,action):
  if timing:
   nums=[int(x) for x in checked.split()[2:]]
   base.require(not nums or (0<=nums[0]<2**32 if checked.startswith('timing read ') else 1000<=nums[0]<=600000 and 1<=nums[1]<=64),'Timing command bounds')
- if not timing and not probe and action not in ('ui page 0','ui page 1','ui page 2','lora diag','lora auto','lora on','lora off'):return base.mutation_command(frame,nonce,action)
+ if not timing and not probe and not tx_capture and action not in ('ui page 0','ui page 1','ui page 2','lora diag','lora auto','lora on','lora off'):return base.mutation_command(frame,nonce,action)
  base.require(base.HEX16.fullmatch(nonce) and int(nonce,16) and nonce!=frame['begin']['nonce'],'Fresh UI request nonce required')
  b=frame['begin'];return f"v12 do {b['ticket']} {nonce} {b['factory']} {b['session']} {action}\n".encode()

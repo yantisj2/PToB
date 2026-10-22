@@ -30,7 +30,9 @@ bool n30_timing_start(uint64_t,uint64_t,uint32_t ms,uint32_t every){++timing_sta
 void n30_timing_stop(){++timing_stops;}
 bool mode=false,action_pending=false;
 namespace v12 {
+unsigned tx_starts=0;
 void capture_stop(){}
+bool n30_capture_tx_begin(uint64_t,uint32_t ms){++tx_starts;return ms>=1000&&ms<=10000;}
 bool capture_begin(uint64_t,uint32_t){return true;}
 bool capture_rolling_begin(uint64_t,uint32_t){return true;}
 struct LoRa {bool enabled=false,requested=false,worker_busy=false,off_acknowledged=true,failed=false;};
@@ -78,6 +80,8 @@ int main(){
  action_pending=true;poll_display_action();assert(mode&&radio_changes==1&&!action_pending);
  poll_display_action();assert(radio_changes==1);
  action_pending=true;poll_display_action();assert(!mode&&radio_changes==2);
+ send(101,"capture tx 5000");assert(last_command.accepted&&v12::tx_starts==1&&std::string(last_command.action)=="CAPTURE_TX");
+ for(const char* bad:{"capture tx 999","capture tx 10001","capture tx 4294968296","capture tx 5000 extra","capture tx -1"}){send(++now,bad);assert(!last_command.accepted&&v12::tx_starts==1);}
  send(20,"ui page 2");assert(last_command.accepted&&selected==2&&pages==3&&radio_changes==2);
  send(21,"ui page 0");assert(last_command.accepted&&pages==4&&radio_changes==2);
  send(22,"lora on");assert(last_command.accepted&&lora_changes==1&&radio_changes==2);

@@ -4,6 +4,7 @@
 #include "native_device_binding.hpp"
 #include "capture_contract.hpp"
 #include "bounded_log.hpp"
+#include "tx_capture.hpp"
 #include "public_observer.hpp"
 #include "native_lora.hpp"
 #include "native_direct.hpp"
@@ -586,6 +587,11 @@ void command(const char* text){
 #endif
   else if(!std::strcmp(action,"capture stop")){
     v12::capture_stop();last_command={nonce,admitted,true,"CAPTURE_STOP","OBSERVER_ONLY_SERVICE_UNCHANGED"};
+  }
+  else if(!std::strncmp(action,"capture tx ",11)){
+    const char* value=action+11;const bool bounded=n30::timing::number(value,duration)&&!*value&&duration>=1000&&duration<=10000;
+    const bool ok=bounded&&v12::n30_capture_tx_begin(nonce,duration);
+    last_command={nonce,admitted,ok,"CAPTURE_TX",ok?"FINITE_TX_CRC_OBSERVER_LEASE":"BUSY_OR_BOUND"};
   }
   else if(std::sscanf(action,"capture rolling %" SCNu32 " %c",&duration,&extra)==1){
     const bool ok=v12::capture_rolling_begin(nonce,duration);last_command={nonce,admitted,ok,"CAPTURE_ROLLING",ok?"BOUNDED_OBSERVER_ORIGINAL_DEADLINE":"BUSY_OR_BOUND"};

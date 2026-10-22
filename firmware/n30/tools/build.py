@@ -7,7 +7,7 @@ from pathlib import Path
 APP=Path(__file__).resolve().parents[1];REPO=APP.parents[1]
 sys.path.insert(0,str(REPO/'registry'))
 from registry import load as load_registry,header as registry_header
-VERSION='0.2.14'
+VERSION='0.2.15'
 T096_LORA_FILES=['protocol/lora_rc8.c','protocol/lora_rc8.h','protocol/group_auth.h','include/lora_rc8_policy.h','include/precision_servo.h','src/lora_rc8_policy.c']
 def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
 def git(p,*args):return subprocess.check_output(['git','-C',str(p),*args],text=True).strip()
@@ -67,7 +67,7 @@ def check_main_stack(out):
  path=REPO/'firmware/w12/tools/stack_budget.py'
  spec=importlib.util.spec_from_file_location('n30_selected_stack',path);module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
  result=module.check(out)
- if json.loads((Path(out)/'receipt.json').read_text()).get('version') not in ('0.2.0','0.2.1','0.2.2','0.2.3','0.2.4','0.2.5','0.2.6','0.2.7','0.2.8','0.2.9','0.2.10','0.2.11','0.2.12','0.2.13','0.2.14'):return result
+ if json.loads((Path(out)/'receipt.json').read_text()).get('version') not in ('0.2.0','0.2.1','0.2.2','0.2.3','0.2.4','0.2.5','0.2.6','0.2.7','0.2.8','0.2.9','0.2.10','0.2.11','0.2.12','0.2.13','0.2.14','0.2.15'):return result
  # Selected extra chains with explicit reserve; not a complete call graph.
  usage=[]
  for file in (Path(out)/'target').rglob('*.su'):
@@ -88,16 +88,16 @@ def check_main_stack(out):
   return int(rows[0][1])
  paths['display_worker']=(4096,1536,in_file('display.cpp','void {anonymous}::worker(void*)')+frame('void n30::ClockHold::draw(uint8_t*, const n30::Model&, const n30::View&, uint64_t) const')+frame('void n30::render(uint8_t*, const Model&, const View&, uint64_t)')+frame('void n30::{anonymous}::dial(uint8_t*, int, uint64_t, uint16_t)')+frame('void n30::{anonymous}::line(uint8_t*, int, int, int, int)')+frame('void n30::{anonymous}::pixel(uint8_t*, int, int, bool)'))
  paths['radio_receive']=(8192,4096,in_file('native_lora.cpp','void {anonymous}::worker(void*)')+in_file('native_lora.cpp','void {anonymous}::worker_step(bool)')+in_file('native_lora.cpp','int {anonymous}::receive()')+frame('n30_rc8_receive')+frame('rc8_receiver_process')+frame('rc8_receiver_process_origin'))
- if json.loads((Path(out)/'receipt.json').read_text()).get('version') in ('0.2.9','0.2.10','0.2.11','0.2.12','0.2.13','0.2.14'):
+ if json.loads((Path(out)/'receipt.json').read_text()).get('version') in ('0.2.9','0.2.10','0.2.11','0.2.12','0.2.13','0.2.14','0.2.15'):
   paths['timing_reply']=(result['configured_bytes'],4096,root+frame('void {anonymous}::respond_status(uint64_t, uint64_t)')+frame('void {anonymous}::lora_status_frame(uint64_t, uint64_t)')+frame('void n30_timing_frame(v12::ConsoleFrame&, uint32_t, uint64_t)'))
   paths['timing_start']=(result['configured_bytes'],4096,root+frame('bool n30_timing_start(uint64_t, uint64_t, uint32_t, uint32_t)')+frame('bool n30::timing::Recorder::start(uint64_t, uint64_t, uint32_t, uint32_t, uint64_t)'))
   config=(Path(out)/'target/sdkconfig').read_text();host=re.findall(r'^CONFIG_BT_NIMBLE_HOST_TASK_STACK_SIZE=(\d+)$',config,re.M)
   if len(host)!=1:raise ValueError('One N30 BLE host stack configuration required')
   paths['timing_pair_worker']=(int(host[0]),4096,frame('void v12::r2_host_poll()')+frame('void v12::{anonymous}::active_poll(uint64_t)')+frame('unsigned int v12::{anonymous}::periodic_poll(uint64_t, unsigned int)')+frame('bool v12::G1CorrectedClock::receive(const r2_relay_packet&, const v12::periodic_rx::Stamp&, uint64_t, uint64_t, const v12::G1Anchor&, rc5_origin*)')+frame('void v12::G1CorrectedClock::observe_clock(const Original&, uint64_t, uint64_t)')+frame('void {anonymous}::pair(const v12::n30_probe::Pair&)')+frame('void n30::timing::Recorder::pair(const v12::n30_probe::Pair&, uint64_t)'))
- if json.loads((Path(out)/'receipt.json').read_text()).get('version') in ('0.2.12','0.2.13','0.2.14'):
+ if json.loads((Path(out)/'receipt.json').read_text()).get('version') in ('0.2.12','0.2.13','0.2.14','0.2.15'):
   paths['fine_reply']=(result['configured_bytes'],4096,root+frame('void {anonymous}::respond_status(uint64_t, uint64_t)')+frame('void {anonymous}::lora_status_frame(uint64_t, uint64_t)')+frame('void n30_fine_frame(v12::ConsoleFrame&, uint32_t, uint64_t)'))
   paths['fine_start']=(result['configured_bytes'],4096,root+frame('bool n30_fine_start(uint64_t, uint64_t, uint64_t, uint32_t, uint32_t)')+frame('bool n30::fine::History::start(uint64_t, uint64_t, uint32_t, uint32_t)'))
-  if json.loads((Path(out)/'receipt.json').read_text()).get('version') in ('0.2.13','0.2.14'):
+  if json.loads((Path(out)/'receipt.json').read_text()).get('version') in ('0.2.13','0.2.14','0.2.15'):
    def fine_function(name):
     unit=list((Path(out)/'target').rglob('fine_capture.cpp.su'))
     if len(unit)!=1:raise ValueError('One fine capture stack unit required')

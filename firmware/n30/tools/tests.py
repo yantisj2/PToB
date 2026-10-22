@@ -32,7 +32,8 @@ def main():
  subprocess.run([sys.executable,'-B',APP/'tests/inputs_test.py'],check=True)
  subprocess.run([sys.executable,'-B',APP/'tests/console_test.py'],check=True)
  worker=[*cmd[:cmd.index(str(APP/'tests/ui_test.cpp'))],'-I'+str(APP/'tests/console_fakes'),'-I'+str(APP.parent/'w12/tests/console_fakes'),'-I'+str(APP.parent/'w12/main'),str(APP/'tests/console_worker_test.cpp'),'-o',str(out/'console-worker-test')]
- subprocess.run(worker,check=True,timeout=40);subprocess.run([out/'console-worker-test'],check=True,timeout=10)
+ subprocess.run(worker,check=True,timeout=40);subprocess.run([out/'console-worker-test',out/'actual-tx-log.txt'],check=True,timeout=10)
+ subprocess.run([sys.executable,'-B',APP/'tests/tx_capture_test.py','--wire',out/'actual-tx-log.txt'],check=True,timeout=10)
  subprocess.run([sys.executable,'-B',APP/'tests/status_budget_test.py'],check=True,timeout=10)
  subprocess.run([sys.executable,'-B',APP/'tests/command_test.py','--out',out/'command-dispatch'],check=True,timeout=40)
  subprocess.run([sys.executable,'-B',APP/'tools/fine_tests.py','--out',out/'fine-shadow'],check=True,timeout=120)

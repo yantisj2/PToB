@@ -31,15 +31,17 @@ def pp(text,relay):
  return subprocess.check_output([os.environ.get('CXX','clang++'),'-E','-P','-x','c++','-'],input=defs+text,text=True)
 src=(APP/'main/native_main.cpp').read_text();log=(APP/'main/bounded_log.cpp').read_text();ui=(APP/'main/display.cpp').read_text()
 begin=log[log.index('void frame_begin('):log.index('bool frame_submit(')]
-trailer=log[log.index('const int n=std::snprintf(trailer,'):log.index('if(n<=0||n>=int(sizeof(trailer)))')].replace('std::snprintf(trailer,sizeof(trailer),','trailer_format(')
+trailer=log[log.index('int n=std::snprintf(trailer,'):log.index('if(n<=0||n>=int(sizeof(trailer)))')].replace('std::snprintf(trailer,sizeof(trailer),','trailer_format(')
 cases=[]
 for relay in (False,True):
  fs=formats(pp(src[src.index('void status('):src.index('void ui(')],relay),'response.format')+formats(ui[ui.index('void n30_display_status('):],'f.format');assert len(fs)==10
  for wide in (False,True):
   body=len(render(w.formats(pp(begin,relay),'f.format')[0],wide))+sum(len(render(f,wide)) for f in fs)
   end=len(render(w.formats(pp(trailer,relay),'trailer_format')[0],True))+len(' end_crc32=ffffffff\n')
-  assert body<8704-800 and end<800 and body+end<=8704,(relay,wide,body,end)
-  cases.append(dict(estimated_relay=relay,max_numeric_widths=wide,body_bytes=body,end_max_bytes=end,whole_bytes=body+end))
+  for tx in (False,True):
+   actual_end=end+(len(render(" xf=%u",True)) if tx else 0)
+   assert body<8704-800 and actual_end<800 and body+actual_end<=8704,(relay,wide,tx,body,actual_end)
+   cases.append(dict(estimated_relay=relay,max_numeric_widths=wide,TX_filtered_mode=tx,body_bytes=body,end_max_bytes=actual_end,whole_bytes=body+actual_end))
 print(json.dumps(dict(status='PASS',rows=10,whole_capacity=8704,original_response_us=1500000,cases=cases)))
 
 w.TEXT.update(mode='KEEP_OFF',context='f'*32,timestamp='HARDWARE_DIO1_MAPPED',physical_bias='UNKNOWN',durable_fault_journal='UNAVAILABLE',TX='FORBIDDEN',source_freshness='UNKNOWN',uncertainty='UNKNOWN',bound='UNKNOWN')
@@ -48,7 +50,7 @@ diag=(APP/'main/lora_diagnostics.cpp').read_text();fs=formats(pp(src[src.index('
 for wide in (False,True):
  body=len(render(w.formats(pp(begin,False),'f.format')[0],wide))+sum(len(render(f,wide)) for f in fs)
  end=len(render(w.formats(pp(trailer,False),'trailer_format')[0],True))+len(' end_crc32=ffffffff\n')
- assert body<8704-800 and end<800 and body+end<=8704,(wide,body,end)
+ assert body<8704-800 and end+14<800 and body+end+14<=8704,(wide,body,end)
 print(json.dumps(dict(status='PASS',frame='LORA',rows=10,max_body=body,max_whole=body+end,whole_capacity=8704)))
 
 fine=(APP/'main/fine_capture.cpp').read_text();fine_formats=formats(pp(re.sub(r'^#include.*$', '', fine, flags=re.M),False),'f.format');assert len(fine_formats)==4
@@ -56,5 +58,14 @@ common=formats(pp(src[src.index('[[gnu::noinline]] void lora_status_frame('):src
 for wide in (False,True):
  body=len(render(w.formats(pp(begin,False),'f.format')[0],wide))+sum(len(render(f,wide)) for f in common+[fine_formats[0],*[fine_formats[2]]*4,fine_formats[3]])
  end=len(render(w.formats(pp(trailer,False),'trailer_format')[0],True))+len(' end_crc32=ffffffff\n')
- assert body<8704-800 and body+end<=8704,(wide,body,end)
+ assert body<8704-800 and end+14<800 and body+end+14<=8704,(wide,body,end)
 print(json.dumps(dict(status='PASS',frame='FINE',rows=10,max_body=body,max_whole=body+end,whole_capacity=8704)))
+
+# Timing cursors can be read after a TX capture has stopped; the retained mode
+# adds the same bounded END field without changing the four-row sample batch.
+timing=(APP/'main/timing_diagnostics.cpp').read_text();timing_formats=formats(pp(re.sub(r'^#include.*$', '', timing, flags=re.M),False),'f.format');assert len(timing_formats)==4
+for wide in (False,True):
+ body=len(render(w.formats(pp(begin,False),'f.format')[0],wide))+sum(len(render(f,wide)) for f in common+[timing_formats[0],*[timing_formats[2]]*4,timing_formats[3]])
+ end=len(render(w.formats(pp(trailer,False),'trailer_format')[0],True))+len(' end_crc32=ffffffff\n')+len(render(' xf=%u',True))
+ assert body<8704-800 and end<800 and body+end<=8704,(wide,body,end)
+print(json.dumps(dict(status='PASS',frame='TIMING_WITH_RETAINED_TX_MODE',rows=10,max_body=body,max_END=end,max_whole=body+end,whole_capacity=8704)))

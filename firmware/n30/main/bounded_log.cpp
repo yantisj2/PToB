@@ -1,6 +1,7 @@
 #include "bounded_log.hpp"
 #include "client_lifecycle.hpp"
 #include "n30_console.hpp"
+#include "tx_capture.hpp"
 #include "esp_timer.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
@@ -16,7 +17,8 @@ Ring<ConsoleFrame,2> frames;
 portMUX_TYPE log_mux=portMUX_INITIALIZER_UNLOCKED;
 LogStatus stats;
 TaskHandle_t log_task=nullptr;
-uint64_t live_next_us=0;
+uint64_t live_next_us=0,capture_generation=0;
+bool tx_mode=false;uint32_t tx_filtered=0;
 uint64_t now_us(){const auto n=esp_timer_get_time();return n>0?uint64_t(n):0;}
 void increment(uint32_t& n){if(n!=UINT32_MAX)++n;else stats.counter_exhausted=true;}
 void add(uint64_t& n,uint64_t amount){if(amount>UINT64_MAX-n){n=UINT64_MAX;stats.counter_exhausted=true;}else n+=amount;}
@@ -51,10 +53,13 @@ void output(void*){
         // use the supported zero-timeout driver drain query; never block callers.
         if(offset==current_frame.length&&!ending){
           if(n30_console::drained()!=ESP_OK)break;
-          const auto s=log_status();const uint64_t finished=now_us();
+          LogStatus s;N30TxCaptureStatus tx;
+          portENTER_CRITICAL(&log_mux);s=stats;tx={tx_mode,tx_filtered};portEXIT_CRITICAL(&log_mux);
+          s.capture_active=s.capture_active&&now_us()<s.capture_deadline_us;
+          const uint64_t finished=now_us();
           if(finished>=current_frame.deadline_us)continue;
           const auto& base=current_frame.request_stats;
-          const int n=std::snprintf(trailer,sizeof(trailer),
+          int n=std::snprintf(trailer,sizeof(trailer),
             "W12_V12_END version=3 nonce=%016" PRIx64 " ticket=%016" PRIx64 " rows=%u crc32=%08" PRIx32
             " request_us=%" PRIu64 " completed_us=%" PRIu64 " deadline_us=%" PRIu64 " body_driver_drained=1"
             " capture_id=%016" PRIx64 " capture_active=%u capture_deadline_us=%" PRIu64
@@ -67,6 +72,14 @@ void output(void*){
             s.dropped,s.truncated,s.isr_refused,s.write_errors,s.expired,s.frame_drops,
             s.base_dropped,s.base_truncated,s.base_isr,s.base_errors,s.base_expired,s.base_frames,base.dropped,base.truncated,base.isr_refused,base.write_errors,base.expired,base.frame_drops,unsigned(s.counter_exhausted));
           if(n<=0||n>=int(sizeof(trailer))){portENTER_CRITICAL(&log_mux);frame_drop();portEXIT_CRITICAL(&log_mux);frame_active=false;break;}
+          // The existing body has only one spare byte at maximum widths.
+          // END reserves800 bytes: TX-only ` xf=UINT32_MAX` adds14, yielding
+          // at most799 complete END bytes. ALL/default wire bytes stay exact.
+          if(tx.selected){
+            const int extra=std::snprintf(trailer+n,sizeof(trailer)-unsigned(n)," xf=%" PRIu32,tx.filtered);
+            if(extra<=0||unsigned(extra)>=sizeof(trailer)-unsigned(n)){portENTER_CRITICAL(&log_mux);frame_drop();portEXIT_CRITICAL(&log_mux);frame_active=false;break;}
+            n+=extra;
+          }
           const uint32_t full_crc=console_crc(trailer,size_t(n),console_crc(current_frame.bytes,current_frame.length));
           const int tail=std::snprintf(trailer+n,sizeof(trailer)-unsigned(n)," end_crc32=%08" PRIx32 "\n",full_crc);
           if(tail<=0||unsigned(tail)>=sizeof(trailer)-unsigned(n)){portENTER_CRITICAL(&log_mux);frame_drop();portEXIT_CRITICAL(&log_mux);frame_active=false;break;}
@@ -131,21 +144,41 @@ bool frame_submit(const ConsoleFrame& f){
   if(!accepted)frame_drop();
   portEXIT_CRITICAL(&log_mux);return accepted;
 }
-static bool capture_admit(uint64_t id,uint32_t duration,uint32_t maximum){
+static bool capture_admit(uint64_t id,uint32_t duration,uint32_t maximum,bool tx=false){
   const auto now=now_us();portENTER_CRITICAL(&log_mux);
   const bool active=stats.capture_active&&now<stats.capture_deadline_us;
+  if(capture_generation==UINT64_MAX)stats.counter_exhausted=true;
   const bool ok=id&&duration>=1000&&duration<=maximum&&!active&&!stats.counter_exhausted&&now<=UINT64_MAX-uint64_t(duration)*1000;
-  if(ok){stats.capture_id=id;stats.capture_deadline_us=now+uint64_t(duration)*1000;stats.capture_active=true;
+  if(ok){++capture_generation;tx_mode=tx;tx_filtered=0;stats.capture_id=id;stats.capture_deadline_us=now+uint64_t(duration)*1000;stats.capture_active=true;
     stats.base_dropped=stats.dropped;stats.base_truncated=stats.truncated;stats.base_isr=stats.isr_refused;
     stats.base_errors=stats.write_errors;stats.base_expired=stats.expired;stats.base_frames=stats.frame_drops;}
   portEXIT_CRITICAL(&log_mux);return ok;
 }
 bool capture_begin(uint64_t id,uint32_t duration){return capture_admit(id,duration,10000);}
+bool n30_capture_tx_begin(uint64_t id,uint32_t duration){return capture_admit(id,duration,10000,true);}
+N30TxCaptureStatus n30_capture_tx_status(){portENTER_CRITICAL(&log_mux);const N30TxCaptureStatus s{tx_mode,tx_filtered};portEXIT_CRITICAL(&log_mux);return s;}
 bool capture_rolling_begin(uint64_t id,uint32_t duration){return duration>=10000&&capture_admit(id,duration,600000);}
 void capture_stop(){portENTER_CRITICAL(&log_mux);stats.capture_active=false;portEXIT_CRITICAL(&log_mux);}
+static int finish_log(Line& line,uint64_t begin,bool tx,uint64_t generation,uint64_t id,bool truncated,bool malformed){
+  portENTER_CRITICAL(&log_mux);
+  bool accepted=false;
+  if(tx&&(generation!=capture_generation||!tx_mode||id!=stats.capture_id)){line_drop();}
+  else if(truncated||malformed){increment(stats.truncated);line_drop();}
+  else if(now_us()>=line.deadline){line_drop(true);}
+  else if(!(accepted=lines.push(line))){line_drop();}
+  stats.peak=lines.peak;const uint64_t work=now_us()-begin;add(stats.enqueue_work_us,work);
+  if(work>stats.enqueue_max_us)stats.enqueue_max_us=work>UINT32_MAX?UINT32_MAX:uint32_t(work);
+  portEXIT_CRITICAL(&log_mux);return accepted?int(line.length):0;
+}
+static int filtered_log(uint64_t generation,uint64_t id){
+  portENTER_CRITICAL(&log_mux);
+  if(generation==capture_generation&&tx_mode&&id==stats.capture_id){increment(tx_filtered);if(stats.counter_exhausted)stats.capture_active=false;}
+  else line_drop();
+  portEXIT_CRITICAL(&log_mux);return 0;
+}
 static int logv_impl(const char* format,va_list args,bool live){
   if(xPortInIsrContext()){portENTER_CRITICAL_ISR(&log_mux);increment(stats.isr_refused);portEXIT_CRITICAL_ISR(&log_mux);return 0;}
-  const uint64_t begin=now_us();uint64_t id=0,seq=0,deadline=0;
+  const uint64_t begin=now_us();uint64_t id=0,seq=0,deadline=0,generation=0;bool tx=false;
   portENTER_CRITICAL(&log_mux);
   if(live){if(begin<live_next_us){portEXIT_CRITICAL(&log_mux);return 0;}
     if(begin>UINT64_MAX-10000000){stats.counter_exhausted=true;portEXIT_CRITICAL(&log_mux);return 0;}live_next_us=begin+10000000;}
@@ -156,22 +189,29 @@ static int logv_impl(const char* format,va_list args,bool live){
     // Capture id0 explicitly denotes a live snapshot, not a retained interval.
     deadline=begin+ConsoleLineUs;
   }else{
-    id=stats.capture_id;deadline=stats.capture_deadline_us;
+    id=stats.capture_id;deadline=stats.capture_deadline_us;tx=tx_mode;generation=capture_generation;
   }
   if(stats.log_sequence==UINT64_MAX){stats.counter_exhausted=true;portEXIT_CRITICAL(&log_mux);return 0;}
   seq=++stats.log_sequence;portEXIT_CRITICAL(&log_mux);
   Line line;line.deadline=begin+ConsoleLineUs<deadline?begin+ConsoleLineUs:deadline;
-  const int prefix=std::snprintf(line.bytes,sizeof(line.bytes),"\nW12_V12_LOG capture_id=%016" PRIx64 " log_seq=%" PRIu64 " enqueue_us=%" PRIu64 " record=",id,seq,begin);
+  const int prefix=tx?256:std::snprintf(line.bytes,sizeof(line.bytes),"\nW12_V12_LOG capture_id=%016" PRIx64 " log_seq=%" PRIu64 " enqueue_us=%" PRIu64 " record=",id,seq,begin);
   if(prefix<=0||prefix>=int(sizeof(line.bytes)))return 0;
   const int wanted=std::vsnprintf(line.bytes+prefix,sizeof(line.bytes)-unsigned(prefix),format,args);
   if(wanted<=0)return wanted;
   bool malformed=false;
   bool truncated=wanted>=int(sizeof(line.bytes)-unsigned(prefix));
+  if(tx&&!truncated){
+    const char* record=line.bytes+prefix;
+    constexpr char estimate[]="W12_G1_TX_EST ",path[]="W12_G1_TX_PATH ";
+    if(std::strncmp(record,estimate,sizeof(estimate)-1)&&std::strncmp(record,path,sizeof(path)-1)){
+      return filtered_log(generation,id);
+    }
+  }
   if(!truncated){line.length=uint16_t(unsigned(prefix)+unsigned(wanted));
     // A normal record occupies one line. Embedded newlines/terminal bytes do
     // not become fabricated control records; reject the complete record.
-    for(unsigned i=unsigned(prefix);i<line.length;++i){const unsigned char c=line.bytes[i];if((c=='\n'&&i+1!=line.length)||(c<32&&c!='\n'&&c!='\r'&&c!='\t'))malformed=true;}
-    if(malformed){
+    for(unsigned i=unsigned(prefix);i<line.length;++i){const unsigned char c=line.bytes[i];if((c=='\n'&&i+1!=line.length)||(c<32&&c!='\n'&&c!='\r'&&c!='\t')||(tx&&((c<32&&c!='\n')||c>=127)))malformed=true;}
+    if(malformed&&!tx){
       // Preserve vendor multiline/control-byte diagnostics as one explicit hex
       // record. Do not let terminal bytes forge a control frame, and do not
       // silently discard the failure message that triggered the observation.
@@ -186,16 +226,27 @@ static int logv_impl(const char* format,va_list args,bool live){
         line.bytes[line.length-1]='\n';malformed=false;
       }
     }
-    if(!truncated&&line.bytes[line.length-1]!='\n'&&line.length+1<sizeof(line.bytes))line.bytes[line.length++]='\n';
+    if(!truncated&&line.bytes[line.length-1]!='\n'){
+      if(line.length+1<sizeof(line.bytes))line.bytes[line.length++]='\n';
+      else if(tx)truncated=true;
+    }
   }
-  portENTER_CRITICAL(&log_mux);
-  bool accepted=false;
-  if(truncated||malformed){increment(stats.truncated);line_drop();}
-  else if(now_us()>=line.deadline){line_drop(true);}
-  else if(!(accepted=lines.push(line))){line_drop();}
-  stats.peak=lines.peak;const uint64_t work=now_us()-begin;add(stats.enqueue_work_us,work);
-  if(work>stats.enqueue_max_us)stats.enqueue_max_us=work>UINT32_MAX?UINT32_MAX:uint32_t(work);
-  portEXIT_CRITICAL(&log_mux);return accepted?int(line.length):0;
+  if(tx&&!truncated&&!malformed){
+    const unsigned payload_bytes=unsigned(line.length)-unsigned(prefix);
+    char header[256];
+    const int n=std::snprintf(header,sizeof header,"\nW12_V12_LOG version=2 mode=TX capture_id=%016" PRIx64
+      " log_seq=%" PRIu64 " enqueue_us=%" PRIu64 " record_bytes=%u",id,seq,begin,payload_bytes);
+    if(n<=0||n>=int(sizeof header))truncated=true;
+    else{
+      // CRC excludes only its own field. The canonical bytes are this exact
+      // header, literal ` record=`, and the complete normalized payload/newline.
+      const auto crc=console_crc(line.bytes+prefix,payload_bytes,console_crc(" record=",8,console_crc(header,unsigned(n))));
+      const int tail=std::snprintf(header+n,sizeof header-unsigned(n)," record_crc32=%08" PRIx32 " record=",crc);
+      if(tail<=0||unsigned(n+tail)>=sizeof header||unsigned(n+tail)+payload_bytes>=sizeof line.bytes)truncated=true;
+      else{std::memmove(line.bytes+n+tail,line.bytes+prefix,payload_bytes);std::memcpy(line.bytes,header,unsigned(n+tail));line.length=uint16_t(unsigned(n+tail)+payload_bytes);}
+    }
+  }
+  return finish_log(line,begin,tx,generation,id,truncated,malformed);
 }
 int logv(const char* format,va_list args){return logv_impl(format,args,false);}
 int logf(const char* format,...){va_list args;va_start(args,format);const int n=logv(format,args);va_end(args);return n;}

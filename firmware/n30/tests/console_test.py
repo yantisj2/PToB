@@ -101,3 +101,16 @@ for original,manifest in ((frame(),m),(lora_frame(),lm),(timing_frame(),tm)):
   except RuntimeError:pass
   else:raise AssertionError('Undisclosed or mismatched N30 profile accepted')
 print('PASS N30 configured profile binding in normal, LoRa and timing CRC frames')
+
+# TX-only filtered count is protected by the existing complete END CRC. The
+# expectation flag is per request; it is not a global firmware capability.
+def filtered_end(raw,value):
+ body,end=raw.split(b'W12_V12_END ',1);end=b'W12_V12_END '+end.split(b' end_crc32=')[0]+b' xf='+value.encode()
+ return body+end+f' end_crc32={zlib.crc32(end,zlib.crc32(body)):08x}\n'.encode()
+for value in ('0','4294967295'):
+ assert c.Parser(nonce,dict(m,n30_tx_capture_crc=True)).feed(filtered_end(frame(),value))[0]['end']['xf']==value
+for raw in (frame(),filtered_end(frame(),'-1'),filtered_end(frame(),'4294967296'),filtered_end(frame(),'bad'),filtered_end(frame(),'0').replace(b' xf=0',b' xf=1')):
+ try:c.Parser(nonce,dict(m,n30_tx_capture_crc=True)).feed(raw)
+ except RuntimeError:pass
+ else:raise AssertionError('Missing/invalid/corrupt TX END filtered count accepted')
+print('PASS TX-only END filtered uint32, completeENDCRC and per-request mode expectation')
