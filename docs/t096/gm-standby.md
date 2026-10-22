@@ -1,5 +1,21 @@
 # T096 G5 ACTIVE, HOT and COLD
 
+Version162 keeps authenticated current-session source health fresh through the
+existing accepted clock map when a new HELLO echo is too wide to replace that
+map. It rechecks the original record expiry with the old map and its drift;
+map evidence, source expiry, finite grants and all timers remain unchanged.
+Changed sessions, missing or aged maps cannot use this path. A production-wire
+regression covers the refresh and negative cases in the ordinary G5 suite.
+This fixes an offline reproduced source-refresh inconsistency matching a field
+withdrawal class; it does not establish the cause of the separate silent peer
+or qualify physical HOT durability.
+
+Version162 also retires receiver generation floors when a former ACTIVE
+leaves that role. Its own issuance counter and outstanding grant deadlines are
+preserved; an unrelated new GM may start at a lower generation. Same-GM
+HOT/COLD retries retain their replay floors. The regression composes actual
+native JOIN admission, STATUS and signed management after the role change.
+
 Version161 restores the continuous PPS duration on every GM precision screen
 and the HOT duration for the standby, using the existing hold timestamps.
 The GM Bluetooth beat icon is restored beside RMS. ACTIVE duration, COLD

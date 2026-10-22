@@ -313,7 +313,14 @@ static int hello(struct r2_network *n,unsigned p,const struct r2_auth_record *r,
  if(causal&&hi-lo>(int64_t)n->map_bound_us*2){
   count(&n->hello_map_refusals);
   n->hello_width_us=hi-lo>UINT32_MAX?UINT32_MAX:(uint32_t)(hi-lo);
-  return 0;
+  /* Reject this new map without discarding current-session source health.
+   * Use the same still-live accepted map as an unechoed HELLO. Its original
+   * age, drift and record/source expiry remain hard bounds; this cannot
+   * refresh map evidence or admit a new boot/session. */
+  if(!hint_session||!m->map_valid||!bound(n,p))return 0;
+  causal=false;lo=m->offset_low-(int64_t)map_growth;
+  hi=m->offset_high+(int64_t)map_growth;
+  if(mapped(r->expires_us,lo-(int64_t)ttl_guard)<=n->now)return -ESTALE;
  }
  m->authenticated=true;m->alive=received;if(causal){m->map_valid=true;m->seen=received;m->offset_low=lo;m->offset_high=hi;m->map_anchor=r->created_us;}count(&n->hello_rx);
  uint64_t expiry_guard=(candidate?r->permit_until_us-r->created_us:0)*2000/1000000+100;

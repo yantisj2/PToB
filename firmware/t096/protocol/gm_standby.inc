@@ -158,7 +158,7 @@ static int gm5_management_receive(struct r2_network *n,unsigned p,const struct r
 }
 static void gm5_tick(struct r2_network *n,bool physical,uint64_t now,const struct r2_gm_coordination *coord)
 {
- struct r2_gm5 *g=&n->gm5;
+ struct r2_gm5 *g=&n->gm5;bool was_active=g->role==R2_GM5_ACTIVE;
  bool constrained=r2_gm_coordination_live(coord,n->identity,now);
  bool direct=constrained&&r2_network_coordination_direct(n,coord,now);
  unsigned constrained_peer=constrained?gm5_slot(n,coord->root):255;
@@ -269,6 +269,12 @@ static void gm5_tick(struct r2_network *n,bool physical,uint64_t now,const struc
  n->follower_clock_valid=n->follower_last_good&&now-n->follower_last_good<R2_HOLDOVER_US;
  if(g->selected&&g->role==R2_GM5_ACTIVE&&g->generation==0)g->generation=1;
  if(g->role==R2_GM5_ACTIVE)n->management_generation=g->generation;
+ else if(was_active){
+  /* An issuer counter is not a receive floor for the next ACTIVE. Keep the
+   * original issued grant and own generation; only retire receiver scope.
+   * Ordinary HOT/COLD retries retain their same-issuer replay floors. */
+  n->management_generation=0;g->grant_generation=0;
+ }
 }
 /* Four classes share the existing cursor, advanced only on transport acceptance.
  * Every due class gets a turn within four accepted opportunities. Responses do

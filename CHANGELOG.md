@@ -1,5 +1,18 @@
 # Changelog
 
+## T096 0.15.162 — current-session source refresh (2026-10-22)
+
+- A rejected wide HELLO echo can refresh authenticated source health through
+  the existing live clock map, with its original age/drift and record/source
+  expiry. It cannot renew map evidence or successor grants. No timer, election,
+  controller, radio or display policy changes.
+- Retire the former ACTIVE's receiver generation floors on role exit, keeping
+  its own issuance counter and outstanding grant deadlines. This prevents an
+  old issuer counter from blocking a different GM's lower generation.
+- Add the actual authenticated-wire regression and boot/nonce/map-age/expiry
+  negative cases to the ordinary G5 runner. Native and field results remain
+  separate; the earlier silent HOT peer failure is still unclassified.
+
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
 ## 22 October 2026 — N30 0.2.5 continuous saver session

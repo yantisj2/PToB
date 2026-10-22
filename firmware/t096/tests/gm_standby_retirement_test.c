@@ -132,8 +132,40 @@ static void partial_restart_tests(void) {
  }
 }
 
+static void issuer_exit_scope_tests(void)
+{
+ for(unsigned path=0;path<2;path++){
+  struct r2_network a=initial(true);a.gm5.generation=a.management_generation=3886;a.gm5.grant_generation=37;
+  a.gm5.issued_until=a.now+R2_GM5_GRANT_US;uint64_t issued=a.gm5.issued_until;
+  a.gm5.retire_until=a.now+1000;
+  struct r2_gm_coordination foreign={.root=999,.boot=99,.epoch=1,.until=a.now+12000000};
+  gm5_tick(&a,path!=0,a.now,path?&foreign:NULL);
+  assert(a.gm5.role==R2_GM5_COLD&&!a.local_gm&&!a.hot_ready);
+  assert(a.gm5.generation==3886&&a.gm5.issued_until==issued);
+  assert(a.gm5.retire_until==issued+R2_GM5_RETIRE_GUARD_US);
+  assert(!a.management_generation&&!a.gm5.grant_generation);
+  printf("PASS ACTIVEexit%u receiver_floor%u grant_floor%u own_generation%u issued%llu retire%llu\n",path,a.management_generation,a.gm5.grant_generation,a.gm5.generation,(unsigned long long)a.gm5.issued_until,(unsigned long long)a.gm5.retire_until);
+ }
+ /* Same-issuer HOT/COLD receive replay floors must survive unrelated loss. */
+ struct r2_network hot=initial(false);hot.gm5.role=R2_GM5_HOT;
+ hot.management_generation=hot.gm5.grant_generation=37;
+ hot.gm5.attempt_until=hot.now;hot.gm5.grant_until=0;hot.standby_authorized=false;
+ gm5_tick(&hot,false,hot.now,NULL);
+ assert(hot.gm5.role==R2_GM5_COLD&&!hot.hot_ready);
+ assert(hot.management_generation==37&&hot.gm5.grant_generation==37);
+ gm5_tick(&hot,true,hot.now+1,NULL);
+ assert(hot.management_generation==37&&hot.gm5.grant_generation==37);
+ puts("PASS HOT->ACQUIRING->COLD original timeout early return + COLD retry preserve same-issuer receive floors");
+ struct r2_network active=initial(true);active.management_generation=active.gm5.generation=3886;active.gm5.grant_generation=37;
+ gm5_tick(&active,true,active.now,NULL);
+ assert(active.gm5.role==R2_GM5_ACTIVE&&active.management_generation==3886&&active.gm5.generation==3886&&active.gm5.grant_generation==37);
+ puts("PASS continuing ACTIVE retains own issuance generation and unchanged receiver floor; no hardware");
+
+}
+
 int main(void)
 {
+ issuer_exit_scope_tests();
  partial_restart_tests();
  confirmed_renewal_tests();
  for(int edge=-1;edge<=1;edge++){

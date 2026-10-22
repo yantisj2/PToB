@@ -24,6 +24,10 @@ try:
  with (out/'retirement.compile.log').open('x')as log:subprocess.run(cmd[:cmd.index(str(units[0]))]+list(map(str,retirement_units))+['-o',str(out/'retirement')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=60)
  with (out/'retirement.run.log').open('x')as log:subprocess.run([str(out/'retirement')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
  stages.append('original_outstanding_grant_retirement')
+ source_refresh_units=[x for x in units if x.name not in ('gm_standby_test.c','network.c')]+[app/'tests/gm_source_refresh_test.c']
+ with (out/'source-refresh.compile.log').open('x')as log:subprocess.run(cmd[:cmd.index(str(units[0]))]+list(map(str,source_refresh_units))+['-o',str(out/'source-refresh')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=60)
+ with (out/'source-refresh.run.log').open('x')as log:subprocess.run([str(out/'source-refresh')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
+ stages.append('current_session_source_refresh_existing_map')
  recovery_units=[app/'tests/gm_standby_recovery_test.c',*units[1:]]
  with (out/'recovery.compile.log').open('x')as log:subprocess.run(cmd[:cmd.index(str(units[0]))]+list(map(str,recovery_units))+['-o',str(out/'recovery')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=60)
  for gap,negative,management in [(v,0,1)for v in [6,12,20,30,50]]+[(v,0,0)for v in [12,20,30,50]]+[(20,1,0)]:
@@ -47,6 +51,10 @@ try:
  with (out/'transport.compile.log').open('x')as log:subprocess.run(cmd[:cmd.index(str(units[0]))]+['-Wno-unused-function','-Wno-unused-variable','-Wno-unused-parameter',f'-I{out}',f'-I{app/"tests"}']+list(map(str,transport_units))+['-o',str(out/'transport')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=60)
  with (out/'transport.run.log').open('x')as log:subprocess.run([str(out/'transport')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
  stages.append('native_admission_transport')
+ role_reentry_units=[app/'tests/gm_role_reentry_test.c',*[x for x in units if x.name not in ('gm_standby_test.c','network.c','radio_precision.c')]]
+ with (out/'role-reentry.compile.log').open('x')as log:subprocess.run(cmd[:cmd.index(str(units[0]))]+['-Wno-unused-function','-Wno-unused-variable','-Wno-unused-parameter',f'-I{out}',f'-I{app/"tests"}']+list(map(str,role_reentry_units))+['-o',str(out/'role-reentry')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=60)
+ with (out/'role-reentry.run.log').open('x')as log:subprocess.run([str(out/'role-reentry')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
+ stages.append('former_ACTIVE_source_exit_native_JOIN_STATUS_new_GM_lower_generation')
  stages.append('five_guest_retirement_faults_and_actual_newboot_JOIN_STATUS_with_retained_cache')
  stages.append('native_COLD_incumbent_refresh_over120s_and_unavailable_incumbent_expiry')
  stages.append('native_COLD_50_200_900_1100ms_callbacks_and_50ms_JOIN_STATUS_owner_delays')
@@ -73,7 +81,7 @@ try:
  passed=True
 finally:
  unchanged=frozen==source_map()and all(hashlib.sha256((app.parents[1]/x).read_bytes()).hexdigest()==digest for x,digest in supporting.items())
- sources=set(units+[app/'tests/gm_standby_owner_test.c',app/'tests/gm_standby_fence_test.c',app/'tests/gm_standby_transport_test.c',app/'src/group_admission.c',app/'protocol/ble_transport.c',app/'protocol/gm_standby.inc',app/'protocol/gm_standby.h',app/'protocol/network.h'])
+ sources=set(units+[app/'tests/gm_standby_owner_test.c',app/'tests/gm_source_refresh_test.c',app/'tests/gm_role_reentry_test.c',app/'tests/gm_standby_retirement_test.c',app/'tests/gm_standby_fence_test.c',app/'tests/gm_standby_transport_test.c',app/'src/group_admission.c',app/'protocol/ble_transport.c',app/'protocol/gm_standby.inc',app/'protocol/gm_standby.h',app/'protocol/network.h'])
  (out/'receipt.json').write_text(json.dumps(dict(passed=passed and unchanged,source_unchanged=unchanged,source_sha256=source_sha,source_files=frozen,supporting_files=supporting,elapsed_s=time.monotonic()-started,hardware=False,production_control_slots=2,stages_completed=stages,expected_cases=len(cases)+5 if'cases'in globals()else None,results=results,restart_results=restart_results,mutated_state_limits="Fake public controller callbacks; no HCI/deferred-L2CAP scheduler or physical cause proof",command=cmd,sources={str(x):hashlib.sha256(x.read_bytes()).hexdigest()for x in sources}),indent=2)+'\n')
 if not unchanged:raise RuntimeError('T096 source changed during run; receipt not accepted')
 print('PASS G5 production owner, causal JOIN and physical-tuple precision; no hardware')
