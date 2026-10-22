@@ -13,12 +13,13 @@ void clear_error(){fake_gpio_failure=0;fake_gpio_failure_pin=-1;fake_enable_fail
 void edge(unsigned channel){mcpwm_capture_event_data_t e{fake_raw,1};assert(channels[channel]->cb);channels[channel]->cb(channels[channel],&e,channels[channel]->context);}
 void storm_during_enable(unsigned channel){if(channel==0)for(unsigned i=0;i<65;++i)edge(0);}
 int main(){
- assert(n30_fine_released()&&fake_allocated==0&&fake_gpio_calls==0);
+ assert(n30_fine_released()&&fake_allocated==0&&fake_gpio_calls==0);for(unsigned i=166;i<=168;++i)GPIO.func_in_sel_cfg[i].val=0xabcd0000+i;
  assert(!n30_fine_start(1,0,fake_now,1000,1)&&fake_gpio_calls==0);
+ for(unsigned periph=0;periph<2;++periph)for(unsigned inv=0;inv<2;++inv){gpio_ll_set_output_enable_ctrl(&GPIO,4,bool(periph),bool(inv));gpio_io_config_t io{};assert(gpio_get_io_config(4,&io)==0&&io.oe_ctrl_by_periph==bool(periph)&&io.oe_inv==bool(inv));}
  assert(n30_fine_start(1,PTOB_N30_FINE_FACTORY,fake_now,1000,1));
  assert(active&&routed&&fake_group==1&&fake_callbacks==2&&fake_channels[0].fsm&&fake_channels[1].fsm&&fake_channels[2].fsm);
- assert(GPIO.oe[4]&&GPIO.oe[5]&&GPIO.ie[4]&&GPIO.ie[5]);assert(GPIO.func_out_sel_cfg[4].val==230&&GPIO.func_out_sel_cfg[5].val==235);assert(GPIO.func_in_sel_cfg[0].val==132&&GPIO.func_in_sel_cfg[1].val==133);
- static v12::ConsoleFrame frame;frame={};n30_fine_frame(frame,0,fake_now);assert(!frame.failed&&snapshot.rx_out==230&&snapshot.tx_out==235&&snapshot.rx_in==132&&snapshot.tx_in==133&&snapshot.oe==3&&snapshot.channel_mask==7&&snapshot.irq_mask==3);
+ assert(GPIO.oe[4]&&GPIO.oe[5]&&GPIO.ie[4]&&GPIO.ie[5]);assert(GPIO.func_out_sel_cfg[4].val==1254&&GPIO.func_out_sel_cfg[5].val==1259);assert(GPIO.func_in_sel_cfg[175].val==132&&GPIO.func_in_sel_cfg[176].val==133);
+ static v12::ConsoleFrame frame;frame={};n30_fine_frame(frame,0,fake_now);assert(!frame.failed&&snapshot.rx_out==1254&&snapshot.tx_out==1259&&snapshot.rx_in==132&&snapshot.tx_in==133&&snapshot.oe==3&&snapshot.channel_mask==7&&snapshot.irq_mask==3);
  assert((fake_device.int_ena.val&(3u<<27))==(3u<<27)&&!(fake_device.int_ena.val&(1u<<29)));
  for(unsigned i=0;i<65;++i)edge(i%2);
  assert(contained&&!active&&error==-18&&total_callbacks==65&&history.seen()==64&&budget_refused==1);
@@ -37,5 +38,6 @@ int main(){
  for(int channel=0;channel<2;++channel){fake_enable_fail=channel;assert(!n30_fine_start(20+channel,PTOB_N30_FINE_FACTORY,fake_now,1000,1));assert(error==-7&&n30_fine_released()&&!GPIO.oe[4]&&!GPIO.oe[5]);clear_error();}
  fake_start_delay=2000000;const auto calls=fake_gpio_calls;assert(!n30_fine_start(30,PTOB_N30_FINE_FACTORY,fake_now,1000,1));assert(n30_fine_released()&&fake_gpio_calls==calls);fake_start_delay=0;clear_error();
  assert(n30_fine_start(31,PTOB_N30_FINE_FACTORY,fake_now,1000,1));n30_fine_stop();assert(n30_fine_released()&&!GPIO.oe[4]&&!GPIO.oe[5]);
+ for(unsigned i=166;i<=168;++i)assert(GPIO.func_in_sel_cfg[i].val==0xabcd0000+i);
  std::puts("PASS actual NATIVE branch: GPIO4/5 route/readback, all8 API/matrix failure classes eachpad, partial2ndchannel enable, bothpad failclosed cleanup, startupIRQstorm/expiredlease IRQ containment, ISR preservesCH2 and group1-only API guards");
 }

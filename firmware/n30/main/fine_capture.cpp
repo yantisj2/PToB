@@ -62,13 +62,19 @@ bool current(uint64_t now,n30::fine::Time& out){
  latest_raw32=raw;
  last_raw80=out.raw80;return true;
 }
+#if PTOB_N30_FINE_PINS
+void pad_off(int pin){
+ // Force software OE control before clearing OE, including partial ROM routes.
+ gpio_ll_set_output_enable_ctrl(&GPIO,pin,false,false);gpio_ll_output_disable(&GPIO,pin);
+}
+#endif
 void contain(){
  // This sole group1 owner contains unknown native signals before returningISR.
  auto* dev=timer->group->hal.dev;
  mcpwm_ll_intr_enable(dev,UINT32_C(3)<<27,false);
  mcpwm_ll_capture_enable_channel(dev,0,false);mcpwm_ll_capture_enable_channel(dev,1,false);
 #if PTOB_N30_FINE_PINS
- gpio_ll_output_disable(&GPIO,PTOB_N30_FINE_RX_GPIO);gpio_ll_output_disable(&GPIO,PTOB_N30_FINE_TX_GPIO);
+ pad_off(PTOB_N30_FINE_RX_GPIO);pad_off(PTOB_N30_FINE_TX_GPIO);
 #endif
  contained=true;active=false;history.stop();
 }
@@ -112,7 +118,7 @@ bool route(bool enable){
  constexpr int signals[2]={SYNCFOUND_FLAG_IDX,PKT_TX_ON_IDX};
  // Mark partial ownership before any pad mutation; failed setup must unwind.
  if(enable)routed=true;
- else for(const auto pin:pins)gpio_ll_output_disable(&GPIO,pin);
+ else for(const auto pin:pins)pad_off(pin);
  bool ok=true;
  for(unsigned i=0;i<2;++i){
   if(enable){
@@ -133,10 +139,10 @@ bool route(bool enable){
    esp_rom_gpio_connect_out_signal(pins[i],SIG_GPIO_OUT_IDX,false,false);
    esp_rom_gpio_connect_in_signal(GPIO_MATRIX_CONST_ZERO_INPUT,mcpwm_periph_signals.groups[1].captures[i].cap_sig,false);
    if(gpio_reset_pin(gpio_num_t(pins[i]))!=ESP_OK)ok=false;
-   gpio_ll_output_disable(&GPIO,pins[i]);
+   pad_off(pins[i]);
    gpio_io_config_t io{};
    const uint32_t input=GPIO.func_in_sel_cfg[mcpwm_periph_signals.groups[1].captures[i].cap_sig].val;
-   if(gpio_get_io_config(gpio_num_t(pins[i]),&io)!=ESP_OK||io.oe||io.sig_out!=SIG_GPIO_OUT_IDX||
+   if(gpio_get_io_config(gpio_num_t(pins[i]),&io)!=ESP_OK||io.oe||io.oe_ctrl_by_periph||io.oe_inv||io.sig_out!=SIG_GPIO_OUT_IDX||
       !(input&(1u<<7))||(input&63)!=GPIO_MATRIX_CONST_ZERO_INPUT||(input&(1u<<6)))ok=false;
   }
  }
