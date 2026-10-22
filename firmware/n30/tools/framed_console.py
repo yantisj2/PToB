@@ -21,10 +21,11 @@ TIMING_ROWS=('W12_R2_STATUS','W12_V12_STATUS','N30_TIMING_STATUS',*(f'N30_TIMING
 FINE_ROWS=('W12_R2_STATUS','W12_V12_STATUS','N30_FINE_STATUS',*(f'N30_FINE_EDGE{i}' for i in range(4)),'N30_FINE_CONTRACT','W12_V12_COMMAND','N30_UI')
 def validate_fine(rows):
  s=rows['N30_FINE_STATUS'];base.require(s.get('schema')=='1' and bool(base.HEX16.fullmatch(s.get('id',''))),'Fine schema/id')
- for key in ('every','seen','RX','TX','sampled','overwritten','oldest','after','count','incarnation','hz','current','timeout','invalid','poll_max','cycles_max','service_max_us','first32','latest32','wraps'):timing_number(s,key)
+ for key in ('every','seen','RX','TX','sampled','overwritten','oldest','after','count','incarnation','hz','current','timeout','invalid','poll_max','cycles_max','service_max_us','first32','latest32','wraps','callbacks','budget_refused','expired_refused','inactive_callbacks','rx_out','tx_out','rx_in','tx_in','OE','channels','IRQ'):timing_number(s,key)
  for key in ('until_us','latest80','first_us','last_us'):timing_number(s,key,64)
  timing_number(s,'error',32,True)
- for key in ('active','pins','released'):base.require(s.get(key) in ('0','1'),'Fine boolean '+key)
+ for key in ('active','pins','released','contained'):base.require(s.get(key) in ('0','1'),'Fine boolean '+key)
+ base.require(int(s['OE'])<=3 and int(s['channels'])<=7 and int(s['IRQ'])<=3,'Fine hardware masks')
  base.require(int(s['every'])<=64 and int(s['count'])<=4 and int(s['RX'])+int(s['TX'])==int(s['seen']) and int(s['sampled'])<=int(s['seen']),'Fine bounds/counters')
  if s['active']=='1':base.require(s['hz']=='80000000' and s['error']=='0' and int(s['current'])>=2 and int(s['incarnation'])>0,'Fine active latch/domain')
  count=0;last=int(s['after'])

@@ -656,8 +656,8 @@ RF delay or actual packet association. Hardware latches have no FIFO; software
 callback/ring counts cannot certify absence of coalesced physical events.
 
 The `N30_FINE_CONTRACT` retains RAW_ONLY, UNKNOWN endpoint/RF/UTC/coalescing,
-NONE packet association and NONE clock update. The current provisional47133ns
-aggregate correction belongs solely to the legacy programmed endpoint and does
+NONE packet association and NONE clock update. The configured provisional aggregate correction
+belongs solely to the legacy programmed endpoint and does
 not calibrate these markers. A future authoritative path requires independently
 validated marker semantics, unique immutable payload/event/channel association,
 one common physical counter for all production times, separate RX/TX endpoint
@@ -677,3 +677,26 @@ actual maintenance drain refusal after failed cleanup and maximum frame widths.
 These tests do not simulate RF semantics. All hardware work remains a separately
 scoped exact-device experiment; keep its finite observations and unqualified
 claims distinct from software test results.
+
+
+### Version 0.2.12 native activity trial guards
+
+The optional reviewed GPIO4/5 profile now arms ISR containment before enabling
+native capture inputs. A callback budget or expired lease immediately masks only
+group1 RX/TX interrupts, disables those hardware channels and both pad outputs;
+main-task cleanup then retires the public driver owners. The driver CURRENT
+channel remains separate. Partial route or cleanup failures attempt both pads
+and keep maintenance unavailable until all owned resources acknowledge release.
+
+CRC status retains actual GPIO output/input matrix registers, output-enable
+bits, capture-channel and interrupt masks, total callbacks, budget/expiry
+refusals and containment. A callback count describes observed callbacks; it is
+not a count of every RF edge. Synthetic tests compile both CURRENT-only and
+native profiles and inject pad/API/readback failures, partial channel enable,
+callbacks during enable, a callback storm and expiry without a main-task poll.
+
+The first native trial may test signal activity only. A flat signal under a
+verified route and observed traffic limits this pinned configuration; it does
+not rule out other documented ESP32-S3 capture facilities. Active signals still
+need an immutable packet/window journal and independent RF endpoint evidence
+before packet association, timing improvement or production migration.

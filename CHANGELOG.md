@@ -1,6 +1,18 @@
 # Changelog
 
 
+## 2026-10-22 — N30 0.2.12 native activity trial guards
+
+- Bound native GPIO4/5 callback storms and expired leases in the ISR, including
+  callbacks during channel enable; preserve MCPWM group0 and CURRENT channel2.
+- Attempt both pad releases after partial failures and keep maintenance closed
+  until all hardware owners acknowledge cleanup. Export actual matrix/OE,
+  channel/IRQ masks and callback refusal counters in bounded CRC diagnostics.
+- Compile and exercise the actual optional native profile in offline ASan/UBSan
+  tests. Signal activity, RF endpoint, coalescence, packet association and UTC
+  accuracy remain separate hardware questions; the observer never trains the
+  production clock or changes the configured legacy aggregate correction.
+
 ## 2026-10-22 — N30 0.2.11 raw native marker observer
 
 - Add an identity-bound, default-OFF MCPWM group1 raw observer, with no-pad

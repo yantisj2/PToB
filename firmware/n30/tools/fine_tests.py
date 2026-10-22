@@ -11,7 +11,7 @@ def main():
  src=(APP/'main/native_main.cpp').read_text();(out/'actual_fine_update_gate.hpp').write_text(src[src.index('[[gnu::noinline]] void poll_update_drain('):src.index('[[gnu::noinline]] void poll_display_action(')])
  flags=['-std=c++20','-O1','-g','-Wall','-Wextra','-Werror','-fsanitize=address,undefined','-fno-sanitize-recover=all']
  for path in (out,APP/'tests/fine_fakes',APP/'main',APP.parent/'w12/main'):flags+=['-I'+str(path)]
- for name in ('fine_counter','fine_capture'):
+ for name in ('fine_counter','fine_capture','fine_capture_native'):
   with (out/(name+'-compile.log')).open('w') as log:subprocess.run([cxx,*flags,APP/'tests'/(name+'_test.cpp'),'-o',out/name],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=40)
   with (out/(name+'.log')).open('w') as log:subprocess.run([out/name],cwd=out,stdout=log,stderr=subprocess.STDOUT,check=True,timeout=15)
  spec=importlib.util.spec_from_file_location('n30_fine_console',APP/'tools/framed_console.py');console=importlib.util.module_from_spec(spec);spec.loader.exec_module(console)
@@ -21,7 +21,7 @@ def main():
   try:console.validate_fine(altered)
   except Exception:pass
   else:raise AssertionError('fine parser accepted '+row+'.'+key)
- paths=[*sorted((APP/'tests/fine_fakes').rglob('*')),APP/'tools/framed_console.py',APP/'main/native_main.cpp',APP/'main/fine_counter.hpp',APP/'main/fine_capture.cpp',APP/'main/fine_capture.hpp',APP/'tests/fine_counter_test.cpp',APP/'tests/fine_capture_test.cpp']
+ paths=[*sorted((APP/'tests/fine_fakes').rglob('*')),APP/'tools/framed_console.py',APP/'main/native_main.cpp',APP/'main/fine_counter.hpp',APP/'main/fine_capture.cpp',APP/'main/fine_capture.hpp',APP/'tests/fine_counter_test.cpp',APP/'tests/fine_capture_test.cpp',APP/'tests/fine_capture_native_test.cpp']
  (out/'receipt.json').write_text(json.dumps({'status':'PASS','scope':'ACTUAL_OWNER_SYNTHETIC_PERIPHERAL_AND_COUNTER_ASAN_UBSAN','hardware_access':False,'sources':{str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in paths if p.is_file()}},indent=2)+'\n')
  print('PASS fine raw-owner and counter lifecycle with ASan/UBSan; physical endpoint remains unknown')
 if __name__=='__main__':main()
