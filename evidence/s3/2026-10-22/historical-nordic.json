@@ -1,0 +1,35 @@
+{
+  "duration_s": 601.5761865,
+  "nominal_boundaries": 602,
+  "observed_edges": 504,
+  "reference_valid_causal": {
+    "n": 436,
+    "bias_ns": -18.41743119266055,
+    "rms_including_bias_ns": 62.50387143972866,
+    "jitter_rms_ns": 59.72882196408818,
+    "abs_p50_ns": 43.0,
+    "abs_p95_ns": 123.25,
+    "abs_p99_ns": 160.2499999999999,
+    "abs_max_ns": 191
+  },
+  "all_causal": {
+    "n": 501,
+    "bias_ns": 822982.9481037924,
+    "rms_including_bias_ns": 3929463.788051649,
+    "jitter_rms_ns": 3842315.022058916,
+    "abs_p50_ns": 46.0,
+    "abs_p95_ns": 175.0,
+    "abs_p99_ns": 19016178.0,
+    "abs_max_ns": 19752827
+  },
+  "invalid_reference": 65,
+  "reference_valid_expired": 3,
+  "unobserved_conservative": 98,
+  "max_witness_gap_s": 59.0171903125,
+  "schema": 1,
+  "author": "Jonathan Yantis",
+  "evidence_license": "CC-BY-4.0",
+  "classification": "HISTORICAL_NORDIC_V14_SEPARATE_POPULATION",
+  "source": "evidence/v14/2026-10-12/summary.json",
+  "source_sha256": "a4ecdefdd9e8f08f266a15ce3ab09bc5419d535cbf02633bd6d7fcd10aca4e4b"
+}

@@ -1,0 +1,70 @@
+{
+  "schema": 1,
+  "author": "Jonathan Yantis",
+  "records": [
+    {
+      "role": "production estimator",
+      "commit": "341acaedeff942360211da9d4cfa395ea6e34e44",
+      "path": "firmware/w12/main/g1_corrected_clock.hpp",
+      "bytes": 33835,
+      "sha256": "462208b62a5f76b3d2aef8475b8dbd063c07810d5c4a43e174e917c59e4f1ba0",
+      "license": "MIT",
+      "qualification": "Source identity only; physical evidence remains separate."
+    },
+    {
+      "role": "production phase actuator",
+      "commit": "341acaedeff942360211da9d4cfa395ea6e34e44",
+      "path": "firmware/w12/main/g1_clock_prediction.hpp",
+      "bytes": 1898,
+      "sha256": "26fa4c624da1b56d4db1c4c75f47652e13e3083c711780e3517f32343ab6a722",
+      "license": "MIT",
+      "qualification": "Source identity only; physical evidence remains separate."
+    },
+    {
+      "role": "production quality",
+      "commit": "341acaedeff942360211da9d4cfa395ea6e34e44",
+      "path": "firmware/w12/main/g1_relative_quality.hpp",
+      "bytes": 3161,
+      "sha256": "46f0a226db5235e4ec698641fd07c5eb7574c2de99aaa483dfb47023f1cb1659",
+      "license": "MIT",
+      "qualification": "Source identity only; physical evidence remains separate."
+    },
+    {
+      "role": "S3 descriptor mapping",
+      "commit": "341acaedeff942360211da9d4cfa395ea6e34e44",
+      "path": "firmware/w12/legacy/reference/clock_s3_rx_descriptor.hpp",
+      "bytes": 1502,
+      "sha256": "2e194e3604fe8582ef14838dfb512c327b0b7e7ee1027d323366736b6bed4475",
+      "license": "MIT",
+      "qualification": "Source identity only; physical evidence remains separate."
+    },
+    {
+      "role": "native observer",
+      "commit": "2b2770881c060e2a82da262a8f73960b7f9b78de",
+      "path": "firmware/n30/main/fine_capture.cpp",
+      "bytes": 22207,
+      "sha256": "82dfded8c271bd72b254d88f39b44be1fbb829c56fcf56ede4d750861b22de29",
+      "license": "MIT",
+      "qualification": "Source identity only; physical evidence remains separate."
+    },
+    {
+      "role": "fine counter arithmetic",
+      "commit": "2b2770881c060e2a82da262a8f73960b7f9b78de",
+      "path": "firmware/n30/main/fine_counter.hpp",
+      "bytes": 3836,
+      "sha256": "71736e02487e93d85bd8c93711c8b334f6da3fd2c3c09a4fc48d83673f1b3a89",
+      "license": "MIT",
+      "qualification": "Source identity only; physical evidence remains separate."
+    },
+    {
+      "role": "Historical installed Nordic diagnostic UI/session ownership gate; a possible disable mechanism, not proven outage attribution",
+      "commit": "c48c3d35a9bb6a46a1569ddb111d9dda68a6e4a0",
+      "path": "firmware/t096/src/ui_service.c",
+      "bytes": 16157,
+      "sha256": "9af76951dbb04b64871c6f42d8495b5089c756e70c6b2eb0a0c57f672e7e7f2b",
+      "license": "MIT",
+      "qualification": "Source identity only; exact disable trigger during the experiment is unknown."
+    }
+  ],
+  "evidence_license": "CC-BY-4.0"
+}

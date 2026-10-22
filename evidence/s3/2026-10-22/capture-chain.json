@@ -1,0 +1,70 @@
+{
+  "schema": 1,
+  "author": "Jonathan Yantis",
+  "evidence_license": "CC-BY-4.0",
+  "classification": "HARDWARE_OBSERVER_ACTIVITY_NOT_PACKET_TIMESTAMP",
+  "synthetic": {
+    "leases": [
+      16,
+      8
+    ],
+    "unique": 24,
+    "raw80_mod5": {
+      "0": 5,
+      "1": 7,
+      "2": 4,
+      "3": 6,
+      "4": 2
+    },
+    "sorted_difference_gcd_ticks80": 1,
+    "lost_or_invalid_or_timeout": 0,
+    "narrow_pulse_completeness": "UNKNOWN",
+    "RF_endpoint": "UNKNOWN"
+  },
+  "native_RW": {
+    "observation_s": 10,
+    "callbacks": 1262,
+    "RX_callbacks": 510,
+    "TX_callbacks": 752,
+    "exported_unique": 112,
+    "interior_missing": 1146,
+    "terminal_unread": 4,
+    "raw80_mod5": {
+      "3": 112
+    },
+    "sorted_difference_gcd_ticks80": 5,
+    "rising": 56,
+    "falling": 56,
+    "invalid": 0,
+    "timeout": 0,
+    "error": 0,
+    "max_service_us": 16585,
+    "service_target_us": 10000,
+    "service_target_met": false,
+    "packet_association": "UNESTABLISHED",
+    "RF_endpoint": "UNKNOWN",
+    "physical_event_completeness": "UNKNOWN",
+    "production_estimator_changed": false
+  },
+  "actual_counter_hz": 80000000,
+  "raw_bits": 32,
+  "wrap_s": 53.6870912,
+  "half_wrap_s": 26.8435456,
+  "provenance": [
+    {
+      "selected_original_record": "RW_vs_SYNTHETIC_counter-grid01.json",
+      "original_sha256": "07d6c5c66b4eacfe615587d9da9cad8cea7576433ad2e5b415a44ae1a135012b",
+      "transformation": "Explicit aggregate allowlist; device/boot/USB/capture identifiers and private paths omitted; no raw logs included."
+    },
+    {
+      "selected_original_record": "RW_SIGNAL-activity-certificate01.json",
+      "original_sha256": "e67928ca4d1ab9f2dabc2ba0b70eb69f112323f2ae653896067118c2e93153a4",
+      "transformation": "Explicit aggregate allowlist; device/boot/USB/capture identifiers and private paths omitted; no raw logs included."
+    },
+    {
+      "selected_original_record": "SYNTHETIC_GPIO-certificate01.json",
+      "original_sha256": "0bcaa576cfc1d05d60ca02f797dd4f7bfcc9d970204d72199ba7e8e054056b07",
+      "transformation": "Explicit aggregate allowlist; device/boot/USB/capture identifiers and private paths omitted; no raw logs included."
+    }
+  ]
+}

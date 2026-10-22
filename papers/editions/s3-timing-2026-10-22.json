@@ -1,0 +1,273 @@
+{
+  "author": "Jonathan Yantis",
+  "base_repository_commit": "d31eea79f3c194bb51a6a27f03e379ce9a1961a9",
+  "code_and_documentation_license": "MIT",
+  "compiler": {
+    "binary_acquisition": "https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic%400.17.0/tectonic-0.17.0-aarch64-apple-darwin.tar.gz",
+    "binary_sha256": "b52b5a730e2b0b33087304f7720f649603953f270a6b1c88bb031e1ae01f7f9c",
+    "command": "tectonic --only-cached --keep-logs --keep-intermediates --outdir artifacts/papers papers/ptob-esp32s3-timing-preprint.tex",
+    "engine": "Tectonic",
+    "log_sha256": "eac6d26666c5cf1db6a723d359e625b3b3182a5a90b27d51672ac3a0b340a33d",
+    "public_bundle_hashes": [
+      {
+        "bundle_hash": "6ffe055852f8faf66c0acbe1a7fb27f87b869a90bad1204f3bf4d9683f597c7c",
+        "cache_receipt": "https,58,,47,,47,relay.fullyjustified.net,47,default_bundle_v33.tar"
+      }
+    ],
+    "standalone": true,
+    "version": "Tectonic 0.17.0",
+    "warning_details": [
+      {
+        "classification": "Benign automatic float-placement adjustment; no observed layout defect.",
+        "log_line": 821,
+        "message": "LaTeX Warning: `h' float specifier changed to `ht'."
+      },
+      {
+        "classification": "Benign automatic float-placement adjustment; no observed layout defect.",
+        "log_line": 838,
+        "message": "LaTeX Warning: `h' float specifier changed to `ht'."
+      }
+    ],
+    "warnings": true
+  },
+  "edition_date": "2026-10-22",
+  "evidence_cutoff": "2026-10-22T22:36:30.730117+00:00",
+  "evidence_license": "CC-BY-4.0",
+  "files": [
+    {
+      "bytes": 6064,
+      "license": "MIT",
+      "path": "evidence/s3/2026-10-22/README.md",
+      "sha256": "ea004539049cb397ea330c1d5646012cfb88bfdcf9b6a6db0423dcd0111df8b5"
+    },
+    {
+      "bytes": 2198,
+      "license": "CC-BY-4.0",
+      "path": "evidence/s3/2026-10-22/capture-chain.json",
+      "sha256": "b094db36edbca6e10d63941c938dc3b828c35d339e506cabb6c3be560f53eb6d"
+    },
+    {
+      "bytes": 1047,
+      "license": "CC-BY-4.0",
+      "path": "evidence/s3/2026-10-22/historical-nordic.json",
+      "sha256": "454ade31efe7cee01cc1c2eb57be2d0a52d966db5f22c98c95d56630ad6e4d98"
+    },
+    {
+      "bytes": 13009,
+      "license": "CC-BY-4.0",
+      "path": "evidence/s3/2026-10-22/internal-quality-sanitized.csv",
+      "sha256": "c8116177fcea32f093e4c595d45344c6c55b7530801535aa727dc89a2d3170ac"
+    },
+    {
+      "bytes": 6196,
+      "license": "CC-BY-4.0",
+      "path": "evidence/s3/2026-10-22/manifest.json",
+      "sha256": "bdfb6c1e1ed79fe0fe1dd664b37bbe039cc2b211f8d1bfa425be922df68144a1"
+    },
+    {
+      "bytes": 63317,
+      "license": "CC-BY-4.0",
+      "path": "evidence/s3/2026-10-22/pps-sanitized.csv",
+      "sha256": "2b4ad6765af4689ed657e8cf44468d1f03f042d260c2aadf72f4b032848d7470"
+    },
+    {
+      "bytes": 2735,
+      "license": "CC-BY-4.0",
+      "path": "evidence/s3/2026-10-22/primary-sources.json",
+      "sha256": "2734a96f65fac667be79334c52a3b2f1898963364df950ab448ae00bac345fc7"
+    },
+    {
+      "bytes": 9071,
+      "license": "CC-BY-4.0",
+      "path": "evidence/s3/2026-10-22/protocol.json",
+      "sha256": "9dffa32a1c2c98139c657cbc622782ee52f37e22d7f0f3aee7dd64e9f1b9eadb"
+    },
+    {
+      "bytes": 9291,
+      "license": "CC-BY-4.0",
+      "path": "evidence/s3/2026-10-22/results.json",
+      "sha256": "a6198b22b650b7bad7b3c39a893588a38754e6d56a09ace4a15ee9d2e4fd6bec"
+    },
+    {
+      "bytes": 2896,
+      "license": "CC-BY-4.0",
+      "path": "evidence/s3/2026-10-22/source-context.json",
+      "sha256": "7820392ec96a31a040b8de2d53b1233dc0e3f572e782d83cadeca5a95a556fba"
+    },
+    {
+      "bytes": 91505,
+      "license": "CC-BY-4.0",
+      "path": "papers/ptob-esp32s3-timing-preprint.pdf",
+      "sha256": "3a067811ca2798a80071f0f682afb70c4c79e0961065896c7a4739ad54392b78"
+    },
+    {
+      "bytes": 64031,
+      "license": "CC-BY-4.0",
+      "path": "papers/ptob-esp32s3-timing-preprint.tex",
+      "sha256": "9b5f6942f41e3056a134eeebe6a5940e555841b4473baf921646f9b88befdde3"
+    },
+    {
+      "bytes": 12396,
+      "license": "MIT",
+      "path": "tools/verify_s3_paper.py",
+      "sha256": "496b71d6b0877d80a55b8f2306dec557fd94f46b4de062d68e2cebdfaaa37530"
+    }
+  ],
+  "license": "MIT",
+  "limitations": [
+    "The fixed660s run ended FAILED: collection became disabled and no required post-window PPS fence was obtained. Its observed prefix and ending unknown interval remain explicit.",
+    "660 =615 eligible+1 invalid+44 unrecorded is nominal1Hz opportunity accounting, not independently counted physical pulses. Zero software sequence gaps does not cover disabled collection.",
+    "Relative fractional PPS only; association is zero; absolute UTC and electrical output accuracy are not established.",
+    "Internal causal Sync RMS is different from downstream PPS error; rolling quality snapshots do not prove continuous lock.",
+    "No independent S3 RF endpoint, path-delay or propagation qualification; the80MHz observer was OFF throughout this experiment.",
+    "One finite hardware path and calibration scope, with distinct publisher boots; no controlled platform ranking or long-term stability claim.",
+    "UI/session-dependent missingness may be nonrandom; conditional phase errors cannot bound the unavailable ending."
+  ],
+  "local_commit_policy": "Commit matching source/PDF, supplement, verifier, edition receipt and scoped manuscript changelog together. No push, submission or promotion authorized.",
+  "long_cohort": {
+    "edge_span_s": 615.0002536875,
+    "invalid": 1,
+    "native_counter_window_s": 660,
+    "original_run_status": "FAILED",
+    "recorded": 616,
+    "valid": 615
+  },
+  "paper_license": "CC-BY-4.0",
+  "populations_kept_separate": [
+    "Nominal first32 training",
+    "Nominal next32 reserved/counterfactual",
+    "Actual46965 first48 training for+28",
+    "Actual46993 fresh48",
+    "Actual46993 fixed660s",
+    "Sampled internal rolling quality",
+    "Separate earlier80MHz observer trials",
+    "Historical Nordic V14"
+  ],
+  "previous_edition": null,
+  "primary_sources": [
+    {
+      "bibliography_key": "rbs",
+      "retrieval_scope": "Original research paper, PDF text inspected.",
+      "urls": [
+        "https://www.usenix.org/events/osdi02/tech/full_papers/elson/elson.pdf"
+      ]
+    },
+    {
+      "bibliography_key": "ftsp",
+      "retrieval_scope": "Original author-institution research paper, PDF text inspected.",
+      "urls": [
+        "https://www.isis.vanderbilt.edu/sites/isis.vanderbilt.edu/files/bibcite_files/Maroti_M_11_3_2004_The_Floodi_0.pdf"
+      ]
+    },
+    {
+      "bibliography_key": "btcore",
+      "retrieval_scope": "Bluetooth SIG Core6.0 primary specification, explicit edition; transport context, not PToB adoption.",
+      "urls": [
+        "https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core-60/out/en/low-energy-controller/link-layer-specification.html"
+      ]
+    },
+    {
+      "bibliography_key": "gptimer",
+      "retrieval_scope": "Pinned ESP-IDFv5.5.5 primary documentation, clock selection and resolution.",
+      "urls": [
+        "https://docs.espressif.com/projects/esp-idf/en/v5.5.5/esp32s3/api-reference/peripherals/gptimer.html"
+      ]
+    },
+    {
+      "bibliography_key": "nordictimer",
+      "retrieval_scope": "Nordic primary product specification, TIMER source/capture and RADIO ADDRESS.",
+      "urls": [
+        "https://docs.nordicsemi.com/r/bundle/ps_nrf52840/page/timer.html",
+        "https://docs.nordicsemi.com/r/bundle/ps_nrf52840/page/radio.html"
+      ]
+    },
+    {
+      "bibliography_key": "nordicppi",
+      "retrieval_scope": "Nordic primary product specification indexed text, 16MHz synchronization and ADDRESS-to-TIMER capture route. Plain URL fetch later exceeded tool size limit.",
+      "urls": [
+        "https://docs.nordicsemi.com/r/bundle/ps_nrf52840/page/ppi.html?contentId=Zp7tr4w5Gk_894YIQpStEA"
+      ]
+    },
+    {
+      "bibliography_key": "mcpwm",
+      "retrieval_scope": "Pinned ESP-IDFv5.5.5 primary documentation; S3 APB capture clock, queried actual resolution and event latch.",
+      "urls": [
+        "https://docs.espressif.com/projects/esp-idf/en/v5.5.5/esp32s3/api-reference/peripherals/mcpwm.html"
+      ]
+    },
+    {
+      "bibliography_key": "s3trm",
+      "retrieval_scope": "Manufacturer-indexed MCPWM capture section, version1.8. Full PDF retrieval exceeded tool size limit; no diagram or uninspected RF endpoint semantics used.",
+      "urls": [
+        "https://documentation.espressif.com/esp32-s3_technical_reference_manual_en.pdf"
+      ]
+    }
+  ],
+  "production_timing": "20MHzXTAL GPTimer;500ns descriptor RX; programmed estimated TX plus frozen46993ns composite;80MHz observer OFF.",
+  "review": {
+    "all_pages_rendered_and_visually_inspected": true,
+    "figures": 4,
+    "final_caption_correction": "ECDF caption now describes conditional eligibility; no time-band description appears there.",
+    "final_changed_pages_reinspected": [
+      5,
+      6,
+      7,
+      8
+    ],
+    "layout_warnings": false,
+    "pages": 8,
+    "pdf_attachments": false,
+    "pdf_extracted_words": 4994,
+    "pdf_forms": false,
+    "privacy": "PASS: selected text/metadata/CSV/JSON and PDF scanned against known private identities and paths; raw captures and enrolled images excluded.",
+    "references": 10,
+    "render_tool": "Poppler pdftoppm -scale-to1800 -png",
+    "rendered_pages": [
+      {
+        "page": 1,
+        "sha256": "3b8a34c9211bc887d9c75074ed7af97fa6f9e899a0c8e178ae2dca9927fdf3d1"
+      },
+      {
+        "page": 2,
+        "sha256": "540a6a59d75402e8eb73708a48fff489401b2c11d790d2a42629291e19e7a9dd"
+      },
+      {
+        "page": 3,
+        "sha256": "f93984eceaf43a8e49b4ecd62f8cf6acc39a27d607d0b52362c0c02a4ac41218"
+      },
+      {
+        "page": 4,
+        "sha256": "c7e5dd18c264a5cd72fc321e5c0aeaec1302fe0b32d114d00b547d35697a1742"
+      },
+      {
+        "page": 5,
+        "sha256": "926c6ffeb278f615dc4f528ce55b6cfc753cec70758fe60d4d8584deebf0e008"
+      },
+      {
+        "page": 6,
+        "sha256": "9a250739fa1c74e5d8bd0c8d05ae80dd2cb27260a990f9833ebc2e37fad81411"
+      },
+      {
+        "page": 7,
+        "sha256": "1482e9432fc59b58860ba5f52a65284942064038c0446b9a93d7d8b793104960"
+      },
+      {
+        "page": 8,
+        "sha256": "68dbdcd5bf7abb1ea633250e449596d5e2e60afdac13fac5591d8a559ec8aa2b"
+      }
+    ],
+    "reviewer": "Paper author agent; primary independently reviewed all eight pages and data before the factual ECDF caption correction.",
+    "source_and_pdf_match": true,
+    "tables": 3,
+    "unresolved_references": false,
+    "visual_defects": []
+  },
+  "schema": 1,
+  "status": "RESEARCH_DRAFT_NOT_SUBMITTED_NOT_PROMOTED_NOT_PUSHED",
+  "title": "Precision Bluetooth Timing on ESP32-S3: Causal Clock Discipline and Hardware Event Capture",
+  "verification_commands": [
+    "python3 tools/verify_s3_paper.py --require-long-cohort",
+    "python3 tools/verify_v14.py",
+    "git diff --check"
+  ]
+}

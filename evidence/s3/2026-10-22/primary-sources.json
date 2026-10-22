@@ -1,0 +1,64 @@
+{
+  "schema": 1,
+  "accessed": "2026-10-22",
+  "source_policy": "Primary manufacturer, standards-body or original research sources only; versions explicit. No third-party performance ranking inferred.",
+  "sources": [
+    {
+      "bibliography_key": "rbs",
+      "urls": [
+        "https://www.usenix.org/events/osdi02/tech/full_papers/elson/elson.pdf"
+      ],
+      "retrieval_scope": "Original research paper, PDF text inspected."
+    },
+    {
+      "bibliography_key": "ftsp",
+      "urls": [
+        "https://www.isis.vanderbilt.edu/sites/isis.vanderbilt.edu/files/bibcite_files/Maroti_M_11_3_2004_The_Floodi_0.pdf"
+      ],
+      "retrieval_scope": "Original author-institution research paper, PDF text inspected."
+    },
+    {
+      "bibliography_key": "btcore",
+      "urls": [
+        "https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core-60/out/en/low-energy-controller/link-layer-specification.html"
+      ],
+      "retrieval_scope": "Bluetooth SIG Core6.0 primary specification, explicit edition; transport context, not PToB adoption."
+    },
+    {
+      "bibliography_key": "gptimer",
+      "urls": [
+        "https://docs.espressif.com/projects/esp-idf/en/v5.5.5/esp32s3/api-reference/peripherals/gptimer.html"
+      ],
+      "retrieval_scope": "Pinned ESP-IDFv5.5.5 primary documentation, clock selection and resolution."
+    },
+    {
+      "bibliography_key": "nordictimer",
+      "urls": [
+        "https://docs.nordicsemi.com/r/bundle/ps_nrf52840/page/timer.html",
+        "https://docs.nordicsemi.com/r/bundle/ps_nrf52840/page/radio.html"
+      ],
+      "retrieval_scope": "Nordic primary product specification, TIMER source/capture and RADIO ADDRESS."
+    },
+    {
+      "bibliography_key": "nordicppi",
+      "urls": [
+        "https://docs.nordicsemi.com/r/bundle/ps_nrf52840/page/ppi.html?contentId=Zp7tr4w5Gk_894YIQpStEA"
+      ],
+      "retrieval_scope": "Nordic primary product specification indexed text, 16MHz synchronization and ADDRESS-to-TIMER capture route. Plain URL fetch later exceeded tool size limit."
+    },
+    {
+      "bibliography_key": "mcpwm",
+      "urls": [
+        "https://docs.espressif.com/projects/esp-idf/en/v5.5.5/esp32s3/api-reference/peripherals/mcpwm.html"
+      ],
+      "retrieval_scope": "Pinned ESP-IDFv5.5.5 primary documentation; S3 APB capture clock, queried actual resolution and event latch."
+    },
+    {
+      "bibliography_key": "s3trm",
+      "urls": [
+        "https://documentation.espressif.com/esp32-s3_technical_reference_manual_en.pdf"
+      ],
+      "retrieval_scope": "Manufacturer-indexed MCPWM capture section, version1.8. Full PDF retrieval exceeded tool size limit; no diagram or uninspected RF endpoint semantics used."
+    }
+  ]
+}
