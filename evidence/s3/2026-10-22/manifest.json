@@ -1,0 +1,176 @@
+{
+  "author": "Jonathan Yantis",
+  "documentation_license": "MIT",
+  "evidence_license": "CC-BY-4.0",
+  "files": [
+    {
+      "bytes": 6064,
+      "license": "MIT",
+      "path": "evidence/s3/2026-10-22/README.md",
+      "sha256": "ea004539049cb397ea330c1d5646012cfb88bfdcf9b6a6db0423dcd0111df8b5"
+    },
+    {
+      "bytes": 2198,
+      "license": "CC-BY-4.0",
+      "path": "evidence/s3/2026-10-22/capture-chain.json",
+      "sha256": "b094db36edbca6e10d63941c938dc3b828c35d339e506cabb6c3be560f53eb6d"
+    },
+    {
+      "bytes": 1047,
+      "license": "CC-BY-4.0",
+      "path": "evidence/s3/2026-10-22/historical-nordic.json",
+      "sha256": "454ade31efe7cee01cc1c2eb57be2d0a52d966db5f22c98c95d56630ad6e4d98"
+    },
+    {
+      "bytes": 13009,
+      "license": "CC-BY-4.0",
+      "path": "evidence/s3/2026-10-22/internal-quality-sanitized.csv",
+      "sha256": "c8116177fcea32f093e4c595d45344c6c55b7530801535aa727dc89a2d3170ac"
+    },
+    {
+      "bytes": 63317,
+      "license": "CC-BY-4.0",
+      "path": "evidence/s3/2026-10-22/pps-sanitized.csv",
+      "sha256": "2b4ad6765af4689ed657e8cf44468d1f03f042d260c2aadf72f4b032848d7470"
+    },
+    {
+      "bytes": 2735,
+      "license": "CC-BY-4.0",
+      "path": "evidence/s3/2026-10-22/primary-sources.json",
+      "sha256": "2734a96f65fac667be79334c52a3b2f1898963364df950ab448ae00bac345fc7"
+    },
+    {
+      "bytes": 9071,
+      "license": "CC-BY-4.0",
+      "path": "evidence/s3/2026-10-22/protocol.json",
+      "sha256": "9dffa32a1c2c98139c657cbc622782ee52f37e22d7f0f3aee7dd64e9f1b9eadb"
+    },
+    {
+      "bytes": 9291,
+      "license": "CC-BY-4.0",
+      "path": "evidence/s3/2026-10-22/results.json",
+      "sha256": "a6198b22b650b7bad7b3c39a893588a38754e6d56a09ace4a15ee9d2e4fd6bec"
+    },
+    {
+      "bytes": 2896,
+      "license": "CC-BY-4.0",
+      "path": "evidence/s3/2026-10-22/source-context.json",
+      "sha256": "7820392ec96a31a040b8de2d53b1233dc0e3f572e782d83cadeca5a95a556fba"
+    }
+  ],
+  "schema": 1,
+  "scientific_limits": [
+    "The fixed660s run ended FAILED: collection became disabled and no required post-window PPS fence was obtained. Its observed prefix and ending unknown interval remain explicit.",
+    "660 =615 eligible+1 invalid+44 unrecorded is nominal1Hz opportunity accounting, not independently counted physical pulses. Zero software sequence gaps does not cover disabled collection.",
+    "Relative fractional PPS only; association is zero; absolute UTC and electrical output accuracy are not established.",
+    "Internal causal Sync RMS is different from downstream PPS error; rolling quality snapshots do not prove continuous lock.",
+    "No independent S3 RF endpoint, path-delay or propagation qualification; the80MHz observer was OFF throughout this experiment.",
+    "One finite hardware path and calibration scope, with distinct publisher boots; no controlled platform ranking or long-term stability claim.",
+    "UI/session-dependent missingness may be nonrandom; conditional phase errors cannot bound the unavailable ending."
+  ],
+  "selection": "Explicit per-column and aggregate allowlist; no wholesale raw/private copy.",
+  "source_populations": [
+    {
+      "cohort": "calibration32_then_check32",
+      "exported_columns": [
+        "cohort",
+        "ordinal",
+        "sequence_from_first",
+        "relative_edge_ticks16m",
+        "relative_edge_s",
+        "phase_ns",
+        "valid",
+        "diagnostic_enabled",
+        "map_valid",
+        "reference_seen",
+        "reference_fix",
+        "reference_pps",
+        "association",
+        "reference_reason",
+        "reason",
+        "same_scope"
+      ],
+      "selected": 64,
+      "sha256": "1cdc35fc5fa237619b4f92a7a74b45c8cedd08133729803fb2ab21924d98c127"
+    },
+    {
+      "cohort": "actual46965_training48",
+      "exported_columns": [
+        "cohort",
+        "ordinal",
+        "sequence_from_first",
+        "relative_edge_ticks16m",
+        "relative_edge_s",
+        "phase_ns",
+        "valid",
+        "diagnostic_enabled",
+        "map_valid",
+        "reference_seen",
+        "reference_fix",
+        "reference_pps",
+        "association",
+        "reference_reason",
+        "reason",
+        "same_scope"
+      ],
+      "selected": 48,
+      "sha256": "0ae3ef914f834c0963b30030b9aa4b4e8b7b71a8f8a1b3ad03089cf676fa9045"
+    },
+    {
+      "cohort": "actual46993_heldout48",
+      "exported_columns": [
+        "cohort",
+        "ordinal",
+        "sequence_from_first",
+        "relative_edge_ticks16m",
+        "relative_edge_s",
+        "phase_ns",
+        "valid",
+        "diagnostic_enabled",
+        "map_valid",
+        "reference_seen",
+        "reference_fix",
+        "reference_pps",
+        "association",
+        "reference_reason",
+        "reason",
+        "same_scope"
+      ],
+      "selected": 48,
+      "sha256": "497476ceb7e1b12d8e279b99ffc594944d650119ac9d0cb79e091fa1962bd19f"
+    },
+    {
+      "cohort": "actual46993_fixed660s",
+      "exported_columns": [
+        "cohort",
+        "ordinal",
+        "sequence_from_first",
+        "relative_edge_ticks16m",
+        "relative_edge_s",
+        "phase_ns",
+        "valid",
+        "diagnostic_enabled",
+        "map_valid",
+        "reference_seen",
+        "reference_fix",
+        "reference_pps",
+        "association",
+        "reference_reason",
+        "reason",
+        "same_scope"
+      ],
+      "selected": 616,
+      "sha256": "9da932386f50d7c0d1d475bcb64a5a5228a80216c0ff4c5cb17aab2dc48ccea8"
+    }
+  ],
+  "status": "RESEARCH_DRAFT_SELECTED_DERIVED_EVIDENCE_NOT_UTC_OR_OUTPUT_QUALIFICATION",
+  "title": "ESP32-S3 timing: selected derived evidence",
+  "transformations": [
+    "Explicit selected numeric/boolean columns and aggregate allowlists only",
+    "Relative physical counter coordinates replace absolute times",
+    "Factory, MAC, USB, private path, deviceboot and enrollment identifiers omitted",
+    "Original immutable scope equality is reduced to a boolean; physical identity verification cannot be reconstructed independently from this derivative.",
+    "No raw captures, firmware images or privateGit history included"
+  ],
+  "verification": "python3 tools/verify_s3_paper.py --require-long-cohort"
+}

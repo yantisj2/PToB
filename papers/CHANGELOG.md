@@ -1,5 +1,17 @@
 # Manuscript history
 
+## 2026-10-22 — ESP32-S3 precision timing research draft
+
+- Add an eight-page draft with matching LaTeX/PDF and a selected, sanitized
+  evidence supplement for causal S3 timing, aggregate relay calibration and
+  a prospective 660-second relative-PPS attempt. Retain its incomplete ending,
+  invalid reference record, nominal missing opportunities and earlier failures.
+- Compare with a separate historical Nordic population and distinguish
+  production controller timestamps from the default-OFF 80 MHz observer.
+  Packet endpoint, path-delay and independent output qualification remain open.
+- Include an offline statistical verifier, exact edition/source/PDF identities
+  and provenance. No submission, push or promotion of the research draft.
+
 ## 2026-10-22 — Bluetooth timecode public draft review
 
 - Jonathan Yantis approved the 22 October Bluetooth timecode paper for public

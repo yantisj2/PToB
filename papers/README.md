@@ -1,7 +1,8 @@
 # Research papers — drafts
 
 These are working drafts by **Jonathan Yantis**. The latest addition is the
-**22 October 2026** shared time base and Bluetooth timecode compatibility study.
+**22 October 2026** ESP32-S3 precision timing study. The shared time base and
+Bluetooth timecode compatibility study retains its **22 October** edition.
 The awake timing information and power scheduling pilot retains its
 **19 October 2026** edition. The
 USB/chrony, White Rabbit and viability papers retain their **15–17 October** editions.
@@ -24,10 +25,21 @@ draft status.
 
 | Draft | Read | Edit | Edition |
 | --- | --- | --- | --- |
+| Precision Bluetooth Timing on ESP32-S3: Causal Clock Discipline and Hardware Event Capture | [PDF](ptob-esp32s3-timing-preprint.pdf) | [LaTeX](ptob-esp32s3-timing-preprint.tex) | 22 October 2026, frozen-profile relative PPS observation and separate Nordic history |
 | A Shared Time Base for Bluetooth Timecode Ecosystems: PToB Architecture, Compatibility Boundaries, and a Validation Programme | [PDF](ptob-bluetooth-timecode-preprint.pdf) | [LaTeX](ptob-bluetooth-timecode-preprint.tex) | 22 October 2026, proposed media contract and compatibility layers |
 | How Much Timing Information Is Enough? Awake Hardware Evidence and Wake/Listen Energy Models for PToB | [PDF](ptob-power-scheduling-preprint.pdf) | [LaTeX](ptob-power-scheduling-preprint.tex) | 19 October 2026, awake PC117 pilot and hypothetical energy models |
 | Beyond USB Packet Arrival: Frame-Identified Time Transfer to macOS | [PDF](usb-macos-time-transfer-preprint.pdf) | [LaTeX](usb-macos-time-transfer-preprint.tex) | 17 October 2026, shared-bus RC/DC revision |
 | From Virtual Clock Discipline to Physical Synchronization: White Rabbit Lessons for PToB and Future Tunable Targets | [PDF](white-rabbit-study-20261015.pdf) | [LaTeX](white-rabbit-study-20261015.tex) | 15 October 2026 |
+
+The ESP32-S3 paper has a [22 October edition manifest](editions/s3-timing-2026-10-22.json)
+and [sanitized observation supplement](../evidence/s3/2026-10-22/README.md).
+Its fixed 660-second attempt retains 615 valid relative PPS samples, one
+reference-unavailable record and 44 nominal unrecorded opportunities after
+collection disabled. The original incomplete outcome is preserved. The 80 MHz
+raw observer remains separate from production timing; a qualified fine RF
+endpoint, calibrated path delay and independent output accuracy remain future
+work. Historical Nordic results retain their distinct population and denominator.
+This is a locally prepared research draft, without submission or promotion.
 
 The Bluetooth timecode paper was **approved for public draft review on
 22 October 2026** and remains a research draft. It has a

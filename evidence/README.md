@@ -5,6 +5,7 @@ single pooled benchmark or a statement of current firmware acceptance.
 
 | Claim or question | Evidence | Boundary |
 | --- | --- | --- |
+| ESP32-S3 relative timing and the gap to Nordic event timestamps | [October 22 S3 study](s3/2026-10-22/README.md) | Incomplete fixed 660-second attempt, 615 valid / 660 nominal opportunities; disabled capture ending and separate historical Nordic population; raw 80 MHz activity is not a qualified RF timestamp |
 | Awake training-window budget and potential wake/listen power tradeoffs | [October 19 PC117 pilot](power/2026-10-19/README.md) | Six separate runs, all windows and missing observations; RF stayed on, energy/drift curves hypothetical, sleep and calibrated output pending |
 | Current BLE-derived RC versus USB Direct timing | [October 17 USB comparison](usb/2026-10-17/README.md) | Fixed shared-bus window; sanitized observations, separate RX/chrony/availability populations; clean-bus and independent UTC validation pending |
 | Current admission/continuity fixes and unresolved USB blackouts | [October 16 stability engineering](stability/2026-10-16/README.md) | Separate v63/v67/v68/v69 and W12 observations; failures retained; no durability or UTC qualification |
@@ -31,6 +32,7 @@ python3 tools/verify_research.py
 python3 tools/verify_stability.py
 python3 tools/verify_usb_results.py
 python3 tools/verify_power.py
+python3 tools/verify_s3_paper.py --require-long-cohort
 ```
 
 This checks all imported evidence files against the [import manifest](imports/2026-10-09.json)
