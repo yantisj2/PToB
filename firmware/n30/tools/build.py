@@ -2,12 +2,12 @@
 """Build offline N30 RC with public ESP-IDF and ignored local inputs; never opens USB.
 Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT
 """
-import argparse,hashlib,json,os,re,shutil,subprocess,sys
+import argparse,hashlib,importlib.util,json,os,re,shutil,subprocess,sys
 from pathlib import Path
 APP=Path(__file__).resolve().parents[1];REPO=APP.parents[1]
 sys.path.insert(0,str(REPO/'registry'))
 from registry import load as load_registry,header as registry_header
-VERSION='0.2.9'
+VERSION='0.2.10'
 T096_LORA_FILES=['protocol/lora_rc8.c','protocol/lora_rc8.h','protocol/group_auth.h','include/lora_rc8_policy.h','include/precision_servo.h','src/lora_rc8_policy.c']
 def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
 def git(p,*args):return subprocess.check_output(['git','-C',str(p),*args],text=True).strip()
@@ -16,23 +16,35 @@ def source_files():
  roots=[APP,REPO/'firmware/w12/main',REPO/'firmware/w12/legacy',REPO/'firmware/w12/tests/console_fakes']
  files={p for base in roots for p in base.rglob('*') if p.is_file() and '__pycache__' not in p.parts and p.suffix!='.pyc'}
  files|={REPO/'firmware/t096'/p for p in T096_LORA_FILES}
- files|={REPO/'registry/registry.py',REPO/'firmware/w12/tools/stack_budget.py',REPO/'firmware/w12/tools/framed_console.py',REPO/'firmware/w12/tools/status_budget_test.py'}
+ files|={REPO/'registry/registry.py',REPO/'firmware/w12/tools/build.py',REPO/'firmware/w12/tests/rc7_provisional_path_test.cpp',REPO/'firmware/w12/tools/stack_budget.py',REPO/'firmware/w12/tools/framed_console.py',REPO/'firmware/w12/tools/status_budget_test.py'}
  return sorted(files)
+def shared_path_builder():
+ name='_n30_w12_path_builder'
+ if name not in sys.modules:
+  spec=importlib.util.spec_from_file_location(name,REPO/'firmware/w12/tools/build.py')
+  module=importlib.util.module_from_spec(spec);sys.modules[name]=module;spec.loader.exec_module(module)
+ return sys.modules[name]
+def provisional_profile(device):return shared_path_builder().provisional_profile(device)
+def validate_profile_mode(device,relay,listening):
+ if provisional_profile(device) and not(relay and listening==100):raise ValueError('Provisional aggregate-path profile requires estimated relay BLE100')
 def validate_inputs(enrollment,device):
  if set(enrollment)!={'group_id','key_epoch','psk'}:raise ValueError('Expected shared group enrollment schema')
  group=enrollment['group_id'];epoch=enrollment['key_epoch'];key=bytes.fromhex(enrollment['psk'])
  if not(re.fullmatch('[0-9a-f]{16}',group) and int(group,16) and type(epoch)is int and 0<epoch<2**32 and len(key)==32 and any(key)):raise ValueError('Invalid group enrollment')
  required={'board','factory_mac','device_id','label','legacy_wire_id','display_rotation'}
- if set(device)!=required:raise ValueError('Exact N30 input fields required; GPS and pin overrides are unsupported')
+ if not required<=set(device) or set(device)-required-{'provisional_path'}:raise ValueError('Exact N30 input fields required; GPS and pin overrides are unsupported')
  mac=device['factory_mac'];identity=device['device_id'];label=device['label'];wire=device['legacy_wire_id']
  if not(device['board']=='meshnology_n30_heltec_v3' and re.fullmatch('[0-9a-f]{2}(:[0-9a-f]{2}){5}',mac) and int(mac.replace(':',''),16) and not int(mac[:2],16)&1 and identity=='0000'+mac.replace(':','') and label in ('N3-1','N3-2') and type(wire)is int and 1<=wire<=254 and device['display_rotation'] in ('cw','ccw')):raise ValueError('Explicit N30 identity, reserved label and rotation required')
+ provisional_profile(device)
  return key
 
 def validate_transmitter(factory,device,registry):
  if not re.fullmatch('[0-9a-f]{16}',factory) or (int(factory,16) and (registry['devices'].get(factory,{}).get('target')!='t096' or factory==device['device_id'])):raise ValueError('Exact existing T096 factory identity required for passive LoRa')
 
 def device_header(device):
- return '#pragma once\n#define PTOB_FACTORY_MAC {'+','.join('0x'+x for x in device['factory_mac'].split(':'))+'}\n#define PTOB_DEVICE_LABEL '+json.dumps(device['label'])+'\n#define PTOB_LEGACY_WIRE_ID '+str(device['legacy_wire_id'])+'\n#define PTOB_GNSS_INDICATORS 0\n#define PTOB_N30_ROTATE_CW '+str(int(device['display_rotation']=='cw'))+'\n'
+ # Reuse the reviewed schema1 TOTAL-from-programmed-endpoint semantics. This
+ # preserves the nominal ADDRESS conversion exactly once for every child.
+ return shared_path_builder().device_header(device)+'#define PTOB_N30_ROTATE_CW '+str(int(device['display_rotation']=='cw'))+'\n'
 def lora_config_header(device,enrollment,transmitter):
  key=bytes.fromhex(enrollment['psk'])
  return '#pragma once\n#include <cstdint>\n#define PTOB_N30_FACTORY_ID UINT64_C(0x'+device['device_id']+')\n#define PTOB_N30_LORA_TX_FACTORY UINT64_C(0x'+transmitter+')\n#define PTOB_N30_GROUP_ID UINT64_C(0x'+enrollment['group_id']+')\n#define PTOB_N30_KEY_EPOCH '+str(enrollment['key_epoch'])+'\nstatic constexpr uint8_t PTOB_N30_GROUP_KEY[32]={'+','.join(map(str,key))+'};\n'
@@ -41,7 +53,7 @@ def check_main_stack(out):
  path=REPO/'firmware/w12/tools/stack_budget.py'
  spec=importlib.util.spec_from_file_location('n30_selected_stack',path);module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
  result=module.check(out)
- if json.loads((Path(out)/'receipt.json').read_text()).get('version') not in ('0.2.0','0.2.1','0.2.2','0.2.3','0.2.4','0.2.5','0.2.6','0.2.7','0.2.8','0.2.9'):return result
+ if json.loads((Path(out)/'receipt.json').read_text()).get('version') not in ('0.2.0','0.2.1','0.2.2','0.2.3','0.2.4','0.2.5','0.2.6','0.2.7','0.2.8','0.2.9','0.2.10'):return result
  # Selected extra chains with explicit reserve; not a complete call graph.
  usage=[]
  for file in (Path(out)/'target').rglob('*.su'):
@@ -62,7 +74,7 @@ def check_main_stack(out):
   return int(rows[0][1])
  paths['display_worker']=(4096,1536,in_file('display.cpp','void {anonymous}::worker(void*)')+frame('void n30::ClockHold::draw(uint8_t*, const n30::Model&, const n30::View&, uint64_t) const')+frame('void n30::render(uint8_t*, const Model&, const View&, uint64_t)')+frame('void n30::{anonymous}::dial(uint8_t*, int, uint64_t, uint16_t)')+frame('void n30::{anonymous}::line(uint8_t*, int, int, int, int)')+frame('void n30::{anonymous}::pixel(uint8_t*, int, int, bool)'))
  paths['radio_receive']=(8192,4096,in_file('native_lora.cpp','void {anonymous}::worker(void*)')+in_file('native_lora.cpp','void {anonymous}::worker_step(bool)')+in_file('native_lora.cpp','int {anonymous}::receive()')+frame('n30_rc8_receive')+frame('rc8_receiver_process')+frame('rc8_receiver_process_origin'))
- if json.loads((Path(out)/'receipt.json').read_text()).get('version')=='0.2.9':
+ if json.loads((Path(out)/'receipt.json').read_text()).get('version') in ('0.2.9','0.2.10'):
   paths['timing_reply']=(result['configured_bytes'],4096,root+frame('void {anonymous}::respond_status(uint64_t, uint64_t)')+frame('void {anonymous}::lora_status_frame(uint64_t, uint64_t)')+frame('void n30_timing_frame(v12::ConsoleFrame&, uint32_t, uint64_t)'))
   paths['timing_start']=(result['configured_bytes'],4096,root+frame('bool n30_timing_start(uint64_t, uint64_t, uint32_t, uint32_t)')+frame('bool n30::timing::Recorder::start(uint64_t, uint64_t, uint32_t, uint32_t, uint64_t)'))
   config=(Path(out)/'target/sdkconfig').read_text();host=re.findall(r'^CONFIG_BT_NIMBLE_HOST_TASK_STACK_SIZE=(\d+)$',config,re.M)
@@ -112,6 +124,7 @@ def main():
  if dirty and not a.development:p.error('Commit reviewed public inputs before a candidate build')
  lock=json.loads((APP/'dependencies.lock.json').read_text());modules=verify_sdk(sdk,lock)
  e=json.loads(a.enrollment.read_text());d=json.loads(a.device_config.read_text());key=validate_inputs(e,d);registry=load_registry(a.registry)
+ validate_profile_mode(d,a.estimated_relay,a.listening_percent)
  if registry['devices'].get(d['device_id'])!={'alias':d['label'],'target':'n30'} and not (registry['devices'].get(d['device_id'],{}).get('alias')==d['label'] and registry['devices'][d['device_id']].get('target')=='n30'):p.error('Onboard the exact N30 factory identity in the shared registry first')
  tx_factory=a.lora_transmitter_factory
  validate_transmitter(tx_factory,d,registry)
@@ -125,7 +138,7 @@ def main():
  lora_header=inputs/'n30_lora_config.h';lora_header.write_text(lora_config_header(d,e,tx_factory))
  # Registry/generator/device hashes bind display metadata and local input changes into runtime enrollment identity.
  enrollment_header=inputs/'r2-enrollment.h';enrollment_header.write_text('/* source:'+source_hash+' registry:'+sha(a.registry)+' generator:'+sha(REPO/'registry/registry.py')+' device:'+sha(a.device_config)+' */\nstatic const r2_group_enrollment provision={{{'+','.join(map(str,key))+'},UINT64_C(0x'+e['group_id']+'),'+str(e['key_epoch'])+'},UINT64_C(0x'+d['device_id']+'),'+json.dumps(d['label'])+',40000};\n')
- r={'schema':1,'artifact_class':'PTOB_N30_RC','version':VERSION,'status':'INCOMPLETE','public_commit':git(REPO,'rev-parse','HEAD'),'source_dirty':dirty,'source_sha256':source_hash,'sources':sources,'dependencies':lock,'sdk_path':str(sdk),'app_path':str(APP),'sdk_submodules':modules.splitlines(),'profile':'RC','listening_percent':a.listening_percent,'estimated_relay':a.estimated_relay,'tx_actual_capture':False,'precision':'UNQUALIFIED','installed':False,'no_time_sync_watchdog_us':300000000,'source_recovery_policy':'ACCUMULATED_LOCK_LOSS_V1','physical_fit_policy':'CAPTURE_FROZEN_DENSE64_1S_ACCEL_V1','timing_diagnostics':'RUNTIME_RING16_CURSOR_V1','commissioning_candidate':a.commissioning,'hardware_validation':'NOT_PERFORMED','deployment_authorized':False,'registry_sha256':sha(a.registry),'registry_generator_sha256':sha(REPO/'registry/registry.py'),'lora_transmitter_factory':tx_factory,'lora_contract':'RC8_WIRE3_PASSIVE_RX_SX1262_915_V3','enrollment_mode':'LOCAL_BUILD_TIME_NO_NVS_WRITE','device_config_sha256':sha(a.device_config)}
+ r={'schema':1,'artifact_class':'PTOB_N30_RC','version':VERSION,'status':'INCOMPLETE','public_commit':git(REPO,'rev-parse','HEAD'),'source_dirty':dirty,'source_sha256':source_hash,'sources':sources,'dependencies':lock,'sdk_path':str(sdk),'app_path':str(APP),'sdk_submodules':modules.splitlines(),'profile':'RC','listening_percent':a.listening_percent,'estimated_relay':a.estimated_relay,'tx_actual_capture':False,'precision':'UNQUALIFIED','installed':False,'no_time_sync_watchdog_us':300000000,'source_recovery_policy':'ACCUMULATED_LOCK_LOSS_V1','physical_fit_policy':'CAPTURE_FROZEN_DENSE64_1S_ACCEL_V1','timing_diagnostics':'RUNTIME_RING16_CURSOR_V1','commissioning_candidate':a.commissioning,'hardware_validation':'NOT_PERFORMED','deployment_authorized':False,'registry_sha256':sha(a.registry),'registry_generator_sha256':sha(REPO/'registry/registry.py'),'lora_transmitter_factory':tx_factory,'lora_contract':'RC8_WIRE3_PASSIVE_RX_SX1262_915_V3','enrollment_mode':'LOCAL_BUILD_TIME_NO_NVS_WRITE','device_config_sha256':sha(a.device_config),'provisional_path_profile':provisional_profile(d)}
  dump(out/'receipt.json',r)
  env=os.environ.copy()
  for k in ['CFLAGS','CXXFLAGS','CPPFLAGS','LDFLAGS','EXTRA_COMPONENT_DIRS','SDKCONFIG_DEFAULTS']:env.pop(k,None)

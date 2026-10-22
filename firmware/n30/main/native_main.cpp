@@ -176,7 +176,7 @@ void pps(const gnss_pps::Observation& edge){
 [[gnu::noinline]] void lora_status_frame(uint64_t nonce,uint64_t begin){
  const auto next=ticket.issue(begin);v12::frame_begin(response,nonce,next,begin,factory_text,session,V12_SOURCE_REVISION,V12_BUILD_ID);
  const auto mesh=v12::r2_status();
- response.format("W12_R2_STATUS profile=%s enrollment_sha=%s self=3 client_capabilities=0 client_control=0 source=0 serving=0 group_id=%016" PRIx64 " key_epoch=%" PRIu32 " client_identity=%016" PRIx64 " following=%u requested=%u fault=%u\n",V12_R2_PROFILE,V12_R2_ENROLLMENT_SHA,mesh.group_id,mesh.key_epoch,mesh.client_identity,unsigned(mesh.following),unsigned(mesh.requested),unsigned(mesh.fault));
+  response.format("W12_R2_STATUS profile=%s enrollment_sha=%s self=3 client_capabilities=0 client_control=0 source=0 serving=0 group_id=%016" PRIx64 " key_epoch=%" PRIu32 " client_identity=%016" PRIx64 " following=%u requested=%u fault=%u pcfg=%08" PRIx32 "\n",V12_R2_PROFILE,V12_R2_ENROLLMENT_SHA,mesh.group_id,mesh.key_epoch,mesh.client_identity,unsigned(mesh.following),unsigned(mesh.requested),unsigned(mesh.fault),uint32_t(v12::rc7_provisional_config().id>>32));
  response.format("W12_V12_STATUS factory=%s source=%s build=%s session=%016" PRIx64 " GPS_inputs=0\n",factory_text,V12_SOURCE_REVISION,V12_BUILD_ID,session);
  if(timing_diagnostic_response)n30_timing_frame(response,timing_after,begin);else n30_lora_diagnostics(response);
  response.format("W12_V12_COMMAND nonce=%016" PRIx64 " action=%s accepted=%u reason=%s admitted_us=%" PRIu64 " NVS=PRESERVED\n",last_command.nonce,last_command.action,unsigned(last_command.accepted),last_command.reason,last_command.admitted_us);
@@ -708,7 +708,7 @@ extern "C" void app_main(){
     " max_data=191 max_GMs=4 activities=6 syncs=2 adv_sets=2 mtu=247"
     " precision=UNAVAILABLE GM=DISABLED LoRa=OFF WiFi=OFF PTS=OFF\n",
     V12_UNIT,factory_text,unsigned(identity),session,V12_SOURCE_REVISION,V12_BUILD_ID);
-  std::printf("N30_TARGET version=0.2.9 profile=RC GPS=ABSENT flash_mb=8 console=UART0_43_44 hardware=UNVALIDATED\n");
+  std::printf("N30_TARGET version=0.2.10 profile=RC GPS=ABSENT flash_mb=8 console=UART0_43_44 hardware=UNVALIDATED\n");
   if(!identity||!session){std::printf("W12_V12_FATAL reason=FACTORY_OR_BOOT_BINDING peripherals=UNTOUCHED\n");return;}
   n30_timing_init();
   if(!v12::fault_watchdog_start(factory,session)){std::printf("W12_V12_FATAL reason=FAULT_SUPERVISOR\n");return;}

@@ -560,3 +560,55 @@ parent/root/boot/epoch context, preserve startup and missing/invalid records,
 and restore the reviewed parent/page afterward. That comparison includes N30
 receive/model/estimated-TX behavior, T096 receive/model behavior and its local
 GNSS/PPS reference. It cannot uniquely calibrate N30 RX, TX or absolute UTC.
+
+
+## Version 0.2.10 downstream composite offset
+
+The optional `provisional_path` object in the ignored N30 device input uses the
+[existing W12 schema1 profile](../w12/build.md#provisional-aggregate-path-offset).
+It requires `--estimated-relay` and BLE100. Absence selects no profile. The N30
+builder reuses the same public validator/header generator; the full profile,
+evidence hashes and publisher identity enter its receipt and runtime identity.
+The inspector verifies the retained input and compiled header. Keep real device
+identities and evidence in ignored local artifacts.
+
+Schema1 `offset_ns` is the **total from the programmed packet endpoint**, not an
+additional adjustment to the nominal ADDRESS endpoint. With a nominal40000ns
+conversion, a measured composite phase of−7133ns calls for47133ns total: the
+additional correction is+7133ns. This illustrates the sign and once-only
+arithmetic; it is not a board-wide default or a calibration for another unit.
+Use the actual recorded endpoint decomposition when selecting a profile.
+
+The offset changes the canonical RC7 correction timestamps broadcast by this
+publisher, so every downstream receiver receives the adjustment through the
+ordinary authenticated codec. No receiver-specific configuration or second
+application is required. It does not change the publisher's fitted RX clock.
+The existing valid-reference, RC1, publisher and exact root/boot/source guards
+remain; outside that scope the ordinary nominal conversion applies. Source
+epoch transfer requires the profile's explicit existing opt-in and remains an
+unmeasured transfer. No profile extends source expiry or supplies an RF/UTC
+uncertainty bound. Keep bias, residual jitter and availability separate.
+
+Supply the receipt's full `provisional_path_profile` in the console manifest.
+`pcfg` is a compact configured-profile prefix; it alone does not prove a selected
+packet used the offset. During an authorized bounded capture, the existing
+`W12_G1_TX_PATH` record reports the actual selected publication/event/channel,
+raw and advertised timestamps, profile id, nominal `base_ns`, residual and
+`applied_ns`. Check `tx_ns = raw_tx_ns + applied_ns` and the matching nominal
+ADDRESS decomposition, then verify an independent downstream T096 shadow-PPS
+population with matching publisher/root/boot/epoch context. Preserve invalid
+and expired maps, missing records and startup separately; a valid-only RMS is
+not a continuous-service qualification. No new wire profile is introduced.
+
+The generated-header integration check executes the actual RC7 codec, HMAC,
+capture association and receiver map for two synthetic receiver identities:
+
+```sh
+python3 firmware/w12/tools/g1_host_tests.py --out artifacts/n30-shared-g1-tests
+python3 firmware/n30/tests/provisional_generated_test.py \
+  --objects artifacts/n30-shared-g1-tests --out artifacts/n30-offset-generated
+```
+
+The ordinary N30 suite also checks malformed profiles, zero defaults, mode
+restrictions, generated capability flags and provenance changes. These software
+checks establish arithmetic and scope, not RF accuracy.

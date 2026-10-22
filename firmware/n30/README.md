@@ -10,7 +10,7 @@ Select a screen for its native 64×128 image.
 
 Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
 
-**PToB owns N30 native G1/RC7 development.** Version **0.2.9** supports an **RC**
+**PToB owns N30 native G1/RC7 development.** Version **0.2.10** supports an **RC**
 with **two timing inputs: BLE and passive LoRa**, a portrait OLED clock and a
 receiver-status console. The Meshnology N30 / Heltec WiFi LoRa32 V3 route uses
 an ESP32-S3, 8 MB flash and a 128×64 OLED mounted as 64×128. Start with the
@@ -82,6 +82,14 @@ does not change the delivered clock, quality gates, source permission or radio
 schedule. An offline interval-fit shadow and pinned SDK audit help distinguish
 500 ns descriptor quantization from clock estimation and hardware-capture leads.
 See the [timing investigation workflow](../../docs/n30/build.md#version-029-reusable-timing-diagnostics).
+
+An optional, evidence-bound aggregate-path profile adjusts the estimated relay's
+advertised correction for every downstream receiver. It reuses the W12 schema1
+total adjustment, including the nominal ADDRESS conversion exactly once. The
+profile requires BLE100 estimated relay, this publisher and the measured direct
+root/boot/source scope; other scopes select the ordinary nominal conversion.
+It leaves the received clock and unknown RF/UTC bounds unchanged. See the
+[provisional offset workflow](../../docs/n30/build.md#version-0210-downstream-composite-offset).
 
 ## Screens and controls
 
