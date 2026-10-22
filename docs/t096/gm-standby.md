@@ -1,5 +1,14 @@
 # T096 G5 ACTIVE, HOT and COLD
 
+Version159 refreshes coherent direct PT input before the G5 HOT/ACQUIRING
+readiness tick, preserving the PT owner's observation timestamp and expiry.
+ACTIVE, COLD, RC and relay paths retain their existing timing update. This fixes
+an offline reproduced stale CONTROL-input refusal; it changes no election,
+takeover, timer or RF policy and does not resolve the open controller failures.
+The normal HOT page is observational; only dedicated shadow page6 requests
+and arms PPS sampling. This is not evidence of a controller-crash cause.
+The separate stream-loss takeover draft remains evaluation-only.
+
 Version157 orders force before age within the existing ticker class. A queued
 connection restart could otherwise cause two competing ACL reservations to defer
 to each other indefinitely. The focused actual-body regression reproduces this

@@ -1,11 +1,20 @@
 # T096 firmware example
 
+Version159 refreshes coherent direct PT input before the G5 HOT/ACQUIRING
+readiness tick, preserving the PT owner's observation timestamp and expiry.
+ACTIVE, COLD, RC and relay paths retain their existing timing update. This fixes
+an offline reproduced stale CONTROL-input refusal; it changes no election,
+takeover, timer or RF policy and does not resolve the open controller failures.
+The normal HOT page is observational; only dedicated shadow page6 requests
+and arms PPS sampling. This is not evidence of a controller-crash cause.
+The separate stream-loss takeover draft remains evaluation-only.
+
 <a href="../../docs/images/t096-rc-preview.png"><img src="../../docs/images/t096-rc-preview.png" width="160" alt="T096 RC display preview with digital time, analog dial and BLE source status"></a>
 
 *Illustrative firmware-rendered RC screen; displayed values are not measured
 performance. [Image provenance](../../docs/images/README.md).*
 
-**PToB owns T096 RC7 development.** Current source version **0.15.157** supplies the
+**PToB owns T096 RC7 development.** Current source version **0.15.159** supplies the
 ordinary **GM** and **RC** mesh profiles, with USB timing compiled by default.
 [Build from source](../../docs/t096/build.md) with pinned public dependencies
 and ignored local enrollment. No enrolled binary is distributed.

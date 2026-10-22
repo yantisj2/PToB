@@ -206,6 +206,24 @@ static void worker_end(void)
  if(bounded>d->owner_max_us)d->owner_max_us=bounded;
  d->state=0;atomic_clear(&busy);(void)k_mutex_unlock(&lock);
 }
+#if defined(CONFIG_BT_PER_ADV)
+/* Refresh only the direct standby input before readiness consumes it. The
+ * coherent PT owner retains its original observation time and expiry. */
+static bool __attribute__((noinline)) refresh_direct_gm5_timing(void)
+{
+ if(!net.gm5.enabled||relay_selected||
+    (net.gm5.role!=R2_GM5_ACQUIRING&&net.gm5.role!=R2_GM5_HOT))return false;
+ struct r2_radio_precision_view view;
+ struct r2_group_client context,coarse;uint64_t frame;
+ r2_radio_service_snapshot(&view,&context,&coarse,&frame,now_us());
+ bool valid=view.authorized&&view.map_valid&&context.source&&
+   net.choice<net.count&&context.root==net.peer[net.choice].identity&&
+   context.publication==view.train;
+ r2_network_timing(&net,context.boot,context.source_epoch,view.train,false,valid,context.at);
+ return true;
+}
+#endif
+
 static void cycle(struct k_work *work)
 {
  worker_begin();
@@ -302,6 +320,9 @@ static void cycle(struct k_work *work)
   source_work=source_input;
 #endif
   (void)k_mutex_unlock(&lock);
+#if defined(CONFIG_BT_PER_ADV)
+  bool direct_gm5_timing=refresh_direct_gm5_timing();
+#endif
   now=now_us();r2_clock_advance(&clock,(int64_t)now);
 #if defined(CONFIG_BT_PER_ADV)
   struct r2_capture captured;uint64_t relative,generation;
@@ -343,6 +364,7 @@ static void cycle(struct k_work *work)
   r2_radio_service_role(&role,&roster.group);
   normal_relay_tick(scope,now,utc);
   if(relay_selected){struct r2_relay_status route;r2_relay_service_snapshot(&route,&timing,now);}else r2_radio_service_view(&timing,now);
+  if(!direct_gm5_timing)
   r2_network_timing(&net,scope.boot,scope.source_epoch,timing.train,scope.gm,timing.authorized&&(scope.gm?timing.rms_valid:timing.map_valid),now);
   if(r2_radio_service_error()){(void)k_mutex_lock(&lock,K_FOREVER);status.error=r2_radio_service_error();(void)k_mutex_unlock(&lock);r2_service_stop();}
 #endif

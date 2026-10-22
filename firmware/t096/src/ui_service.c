@@ -41,13 +41,14 @@ static struct k_thread thread;
 static void add(uint32_t *v){if(*v<UINT32_MAX)++*v;}
 void r2_ui_publish(const struct r2_ui_model *m){k_spinlock_key_t k=k_spin_lock(&lock);r2_ui_holds_update(&status.holds,&model,m->sampled_ms);model=*m;r2_ui_holds_update(&status.holds,m,m->sampled_ms);k_spin_unlock(&lock,k);}
 void r2_ui_snapshot(struct r2_ui_status *out){k_spinlock_key_t k=k_spin_lock(&lock);*out=status;k_spin_unlock(&lock,k);}
-int r2_ui_page(unsigned page){if(page>=R2_UI_PAGES)return -EINVAL;k_spinlock_key_t k=k_spin_lock(&lock);status.page=page;status.help=false;if(r2_ui_witness_page(&model,page)){status.screensaver=false;status.screensaver_position=0;}else{status.shadow.active=false;status.shadow.state=R2_SHADOW_OFF;}k_spin_unlock(&lock,k);return 0;}
-bool r2_ui_shadow_requested(void){k_spinlock_key_t key=k_spin_lock(&lock);bool requested=r2_ui_witness_page(&model,status.page)&&!status.help&&!status.stopped&&!(model.scope_active&&model.role==R2_UI_GM);k_spin_unlock(&lock,key);return requested;}
+static bool shadow_page(const struct r2_ui_model *m,unsigned page){return page==R2_UI_SHADOW_PAGE&&r2_ui_witness_page(m,page);}
+int r2_ui_page(unsigned page){if(page>=R2_UI_PAGES)return -EINVAL;k_spinlock_key_t k=k_spin_lock(&lock);status.page=page;status.help=false;if(r2_ui_witness_page(&model,page)){status.screensaver=false;status.screensaver_position=0;}if(!shadow_page(&model,page)){status.shadow.active=false;status.shadow.state=R2_SHADOW_OFF;}k_spin_unlock(&lock,k);return 0;}
+bool r2_ui_shadow_requested(void){k_spinlock_key_t key=k_spin_lock(&lock);bool requested=shadow_page(&model,status.page)&&!status.help&&!status.stopped&&!(model.scope_active&&model.role==R2_UI_GM);k_spin_unlock(&lock,key);return requested;}
 bool r2_ui_take_profile_toggle(void){return atomic_cas(&profile_toggle,1,0);}
 void r2_ui_profile_flash(bool rc){k_spinlock_key_t key=k_spin_lock(&lock);status.profile_target_rc=rc;status.profile_flash_until=k_uptime_get()+4000;k_spin_unlock(&lock,key);}
 static void shadow_tick(const struct r2_ui_model *m,const struct r2_ui_status *s,uint64_t now,bool display_ok){
  bool fresh=now>=m->sampled_ms&&now-m->sampled_ms<=2500;
- bool visible=r2_ui_witness_page(m,s->page)&&!s->help&&s->ready&&r2_ui_witness_page(m,s->drawn_page)&&display_ok&&fresh&&!m->profile_switching;
+ bool visible=shadow_page(m,s->page)&&!s->help&&s->ready&&shadow_page(m,s->drawn_page)&&display_ok&&fresh&&!m->profile_switching;
  bool gm=m->scope_active&&m->role==R2_UI_GM;
 #ifdef R2_DC_PROFILE
  gm=true; /* No mesh witness session, including while GNSS is unavailable. */
