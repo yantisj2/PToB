@@ -20,8 +20,9 @@ int main(){
  for(unsigned periph=0;periph<2;++periph)for(unsigned inv=0;inv<2;++inv){gpio_ll_set_output_enable_ctrl(&GPIO,4,bool(periph),bool(inv));gpio_io_config_t io{};assert(gpio_get_io_config(4,&io)==0&&io.oe_ctrl_by_periph==bool(periph)&&io.oe_inv==bool(inv));}
  assert(n30_fine_start(1,PTOB_N30_FINE_FACTORY,fake_now,1000,1));
  assert(active&&routed&&fake_group==1&&fake_callbacks==2&&fake_channels[0].fsm&&fake_channels[1].fsm&&fake_channels[2].fsm);
- assert(GPIO.oe[4]&&GPIO.oe[5]&&GPIO.ie[4]&&GPIO.ie[5]);assert(GPIO.func_out_sel_cfg[4].val==1254&&GPIO.func_out_sel_cfg[5].val==1259);assert(GPIO.func_in_sel_cfg[175].val==132&&GPIO.func_in_sel_cfg[176].val==133);
- static v12::ConsoleFrame frame;frame={};n30_fine_frame(frame,0,fake_now);assert(!frame.failed&&snapshot.rx_out==1254&&snapshot.tx_out==1259&&snapshot.rx_in==132&&snapshot.tx_in==133&&snapshot.oe==3&&snapshot.channel_mask==7&&snapshot.irq_mask==3);
+ assert(GPIO.oe[4]&&GPIO.oe[5]&&GPIO.ie[4]&&GPIO.ie[5]);assert(GPIO.func_out_sel_cfg[4].val==unsigned(NativeRxSignal+1024)&&GPIO.func_out_sel_cfg[5].val==unsigned(NativeTxSignal+1024));assert(GPIO.func_in_sel_cfg[175].val==132&&GPIO.func_in_sel_cfg[176].val==133);
+ static v12::ConsoleFrame frame;frame={};n30_fine_frame(frame,0,fake_now);assert(!frame.failed&&snapshot.rx_out==unsigned(NativeRxSignal+1024)&&snapshot.tx_out==unsigned(NativeTxSignal+1024)&&snapshot.rx_in==132&&snapshot.tx_in==133&&snapshot.oe==3&&snapshot.channel_mask==7&&snapshot.irq_mask==3);
+ {FILE* out=std::fopen(PTOB_N30_FINE_RW?"fine-rw-radio-frame.txt":"fine-native-radio-frame.txt","w");assert(out);std::fwrite(frame.bytes,1,frame.length,out);std::fclose(out);}
  assert((fake_device.int_ena.val&(3u<<27))==(3u<<27)&&!(fake_device.int_ena.val&(1u<<29)));
  for(unsigned i=0;i<65;++i)edge(i%2);
  assert(contained&&!active&&error==-18&&total_callbacks==65&&history.seen()==64&&budget_refused==1);

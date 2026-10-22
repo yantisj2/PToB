@@ -4,6 +4,7 @@
 #include "native_device_binding.hpp"
 #include "capture_contract.hpp"
 #include "bounded_log.hpp"
+#include "tx_capture.hpp"
 #include "public_observer.hpp"
 #include "native_lora.hpp"
 #include "native_direct.hpp"
@@ -587,6 +588,11 @@ void command(const char* text){
   else if(!std::strcmp(action,"capture stop")){
     v12::capture_stop();last_command={nonce,admitted,true,"CAPTURE_STOP","OBSERVER_ONLY_SERVICE_UNCHANGED"};
   }
+  else if(!std::strncmp(action,"capture tx ",11)){
+    const char* value=action+11;const bool bounded=n30::timing::number(value,duration)&&!*value&&duration>=1000&&duration<=10000;
+    const bool ok=bounded&&v12::n30_capture_tx_begin(nonce,duration);
+    last_command={nonce,admitted,ok,"CAPTURE_TX",ok?"FINITE_TX_CRC_OBSERVER_LEASE":"BUSY_OR_BOUND"};
+  }
   else if(std::sscanf(action,"capture rolling %" SCNu32 " %c",&duration,&extra)==1){
     const bool ok=v12::capture_rolling_begin(nonce,duration);last_command={nonce,admitted,ok,"CAPTURE_ROLLING",ok?"BOUNDED_OBSERVER_ORIGINAL_DEADLINE":"BUSY_OR_BOUND"};
   }
@@ -731,7 +737,7 @@ extern "C" void app_main(){
     " max_data=191 max_GMs=4 activities=6 syncs=2 adv_sets=2 mtu=247"
     " precision=UNAVAILABLE GM=DISABLED LoRa=OFF WiFi=OFF PTS=OFF\n",
     V12_UNIT,factory_text,unsigned(identity),session,V12_SOURCE_REVISION,V12_BUILD_ID);
-  std::printf("N30_TARGET version=0.2.13 profile=RC GPS=ABSENT flash_mb=8 console=UART0_43_44 hardware=UNVALIDATED\n");
+  std::printf("N30_TARGET version=0.2.15 profile=RC GPS=ABSENT flash_mb=8 console=UART0_43_44 hardware=UNVALIDATED\n");
   if(!identity||!session){std::printf("W12_V12_FATAL reason=FACTORY_OR_BOOT_BINDING peripherals=UNTOUCHED\n");return;}
   for(const auto byte:factory)fine_factory=(fine_factory<<8)|byte;
   n30_timing_init();

@@ -742,3 +742,77 @@ Every stop, expiry and containment path prevents future writes and disables
 RX/TX capture/IRQ before releasing pad outputs. The group0 LoRa owner remains
 independent. This mode requires the same exact factory and physical pin review
 as native capture and defaults OFF.
+
+
+### Version 0.2.14 fixed RW marker observation
+
+The optional `NATIVE_RW_GPIO4_5_SHADOW` profile selects the pinned SDK's
+RW_RX_ON238 and RW_TX_ON237 outputs on the same reviewed GPIO4/5 pair. It
+retains exact factory, schematic and physical-review hashes. The builder accepts
+only the named fixed pairs; no arbitrary signal index or GPIO console option
+exists. The original 230/235 profile remains selectable and byte-identical in
+its generated configuration. No baseband, coexistence or debug-enable register
+is changed.
+
+Native RW records use immutable `NATIVE_RW_SIGNAL` provenance and explicit
+RW names in their CRC contract. This is a raw activity experiment with unknown
+RF endpoint, latency, coalescence, packet association and UTC bounds. Synthetic
+GPIO pulses retain their separate provenance and finite issued/captured-count
+contract. All modes default OFF, preserve the production GPTimer clock and
+legacy correction scope, and share the existing IRQ/expiry/cleanup guards.
+
+
+From version0.2.14, the runtime build ID also binds the generated fine-capture
+configuration header. Builds of the same source and device with different
+fixed marker profiles therefore retain distinct runtime identities. The
+inspector preserves the original identity formula when reading older builds;
+no historical source or receipt is rewritten.
+
+
+### Version 0.2.15 targeted TX diagnostic capture
+
+The finite N30-only `capture tx <ms>` command accepts1000–10000ms through the
+normal fresh ticket/nonce, exact factory and boot guards. It filters the complete
+formatted record to `W12_G1_TX_EST ` or `W12_G1_TX_PATH ` before enqueue. The
+existing `capture` and `capture rolling` ALL behavior and wire bytes remain
+unchanged. A rejected start preserves the prior mode and counter. Stop and
+expiry retain the selected mode for final diagnostics; the next successful ALL
+capture clears it. This observer grants no RF, clock or publication authority.
+
+TX-only LOGv2 uses this exact order, preceded by its ordinary LF delimiter:
+
+```text
+W12_V12_LOG version=2 mode=TX capture_id=<16hex> log_seq=<u64> enqueue_us=<u64> record_bytes=<u16> record_crc32=<8hex> record=<payload><LF>
+```
+
+`record_bytes` counts the normalized complete payload, including its final LF.
+The CRC32/IEEE seed is0. Its protected bytes are the leading LF, the header
+through the `record_bytes` value, literal ` record=`, and the complete payload.
+Only the inserted ` record_crc32=<8hex>` field is excluded. `parse_tx_log` checks
+this exact grammar, capture ID, length, printable single-line payload and CRC
+before a caller joins the immutable TX tuples. A CRC establishes record identity;
+it does not establish an RF endpoint, delay bound or timestamp accuracy.
+
+The original250ms line expiry can abandon a partially transmitted record. The
+host must retain and reject partial, expired or CRC-invalid records; it cannot
+complete a prefix from a later line. Queues, response priority and deadlines are
+unchanged. The original log sequence includes intentionally filtered attempts,
+so sequence gaps alone are not a transport-loss count. The TX-only END field
+`xf` is the saturating per-capture filtered count, separate from dropped,
+expired, truncated and frame-loss counters. It remains covered by the complete
+END CRC after stop or expiry. The parser's optional `n30_tx_capture_crc` flag is
+a per-request expectation, not a global application capability.
+
+The maximum normal body remains7903 bytes in its original7904-byte buffer. A
+TX-only END adds at most14 bytes for ` xf=4294967295`: the conservative complete
+END bound is799 bytes including its CRC and final LF, leaving its NUL within
+800 bytes. Maximum whole-frame use is8702/8704 bytes. ALL/default maximum use
+remains8688/8704. The actual output worker and independently checked CRCs are
+covered by host tests; this is not a UART-delivery or RF qualification.
+
+The small public logging wrapper rejects ISR calls before entering its noinline
+formatter, whose automatic record/header storage is task-only. The live-snapshot
+entry retains its own early refusal. ISR refusal increments its bounded counter
+without reading the format or snapshot; host tests cover every public entry, and
+native stack/disassembly review checks the branch before the large allocation.
+This selected call-path review is not a complete vendor/libc stack bound.

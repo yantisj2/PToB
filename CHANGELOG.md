@@ -15,6 +15,27 @@
   future work. Historical evidence retains its separate populations and limits.
   No new hardware test, vendor integration, submission or draft promotion.
 
+## N30 0.2.15 — targeted TX diagnostics with record CRC
+
+- Reject ISR logging in the small public wrapper before entering the noinline
+  task formatter; test all public entries without touching format data.
+
+- Add the N30-only finite `capture tx <ms>` observer. It keeps only complete
+  formatted TX estimate/path records, binds each header and payload to a CRC,
+  and reports intentionally filtered records separately from transport losses.
+- Preserve existing ALL/default console bytes, fixed queues, original deadlines,
+  W12/T096 behavior, production clock selection and timestamp endpoints. Keep
+  the RW observer disabled by default.
+- Verify actual producer/worker expiry, lease changes, record corruption and the
+  original fixed frame buffers, including the TX-only END filtered counter.
+
+## N30 0.2.14 — fixed RW marker observer profile
+
+- Add an explicit reviewed GPIO4/5 profile for native RW_RX_ON238 and
+  RW_TX_ON237, with distinct immutable provenance and retained raw contracts.
+  Preserve the original pair and synthetic chain diagnostic; no arbitrary
+  signal routing or baseband configuration writes are introduced.
+- Keep RF endpoint, packet association, timing improvement and UTC unqualified.
 
 ## N30 0.2.13 — finite synthetic capture-chain diagnostic
 
