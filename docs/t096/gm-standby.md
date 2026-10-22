@@ -4,7 +4,9 @@ Version161 restores the continuous PPS duration on every GM precision screen
 and the HOT duration for the standby, using the existing hold timestamps.
 The GM Bluetooth beat icon is restored beside RMS. ACTIVE duration, COLD
 reception and stream RMS remain visible. This corrects
-the160 display regression; no protocol timer or shadow-sampling policy changes.
+the160 display regression. Dedicated shadow page6 again works for GM and RC
+profiles under its existing source/serving-GM guards; GM precision page2 stays
+observational, while RC precision sampling remains enabled. No protocol timer changes.
 
 Version160 lets every COLD GM follow the ordinary authenticated precision stream
 using the existing passive leaf receiver path. COLD remains outside the selected
@@ -14,8 +16,8 @@ exception. Independent local GNSS qualification continues.
 
 The precision screen always presents current stream RMS (or -- when unavailable),
 with COLD STANDBY/TIMING SYNC status for an unappointed receiver. GM shadow-PPS
-sampling is held off on all pages while troubleshooting. RC precision page2 and
-dedicated page6 retain intentional shadow sampling; stream RMS and shadow PPS
+sampling is held off on precision page2 while troubleshooting. RC precision page2
+and dedicated page6 in either profile retain intentional shadow sampling; stream RMS and shadow PPS
 statistics are distinct. Timer, election and controller policies are unchanged;
 the retained prepare-FIFO fatal remains unresolved.
 

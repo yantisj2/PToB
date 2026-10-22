@@ -125,7 +125,7 @@ with (nullcontext(str(args.out.resolve())) if args.out else tempfile.TemporaryDi
     subprocess.run([*flags,'-I'+str(out),str(APP/'tests/rc_ui_binding_test.c'),str(out/'ui_render.o'),str(out/'precision.o'),'-o',str(out/'rc_ui_binding')],check=True,timeout=30)
     subprocess.run([str(out/'rc_ui_binding')],check=True,timeout=30)
     subprocess.run([*flags,'-I'+str(out),'-include',str(APP/'tests/ui_service_fake.h'),str(APP/'tests/ui_service_test.c'),str(out/'ui_render.o'),str(out/'precision.o'),'-o',str(out/'ui_service')],check=True,timeout=30)
-    for mode in map(str,[*range(34),*range(35,42),52]):
+    for mode in map(str,[*range(34),*range(35,42),52,53]):
         subprocess.run([str(out/'ui_service'),mode],check=True,timeout=30)
     subprocess.run([*flags,'-I'+str(out),'-include',str(APP/'tests/ui_service_fake.h'),str(APP/'tests/ui_sync_worker_test.c'),str(out/'ui_render.o'),str(out/'precision.o'),'-o',str(out/'ui_sync_worker')],check=True,timeout=30)
     subprocess.run([str(out/'ui_sync_worker')],check=True,timeout=30)
