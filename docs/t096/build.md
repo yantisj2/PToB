@@ -1,130 +1,24 @@
 # Build T096 RC7
 
-Version164 prevents the independent LoRa watchdog from interpreting startup
-flash-scan bytes as live owner state. One boot-zero atomic readiness word outside
-the reused scratch union is published after LoRa initialization and before worker
-launch. Until then the observer returns before reading that union. The original
-30s monitored-stall bound, terminal-first-cause rule and sticky hardware fault
-remain. This adds one atomic word; native resource deltas are a separate check.
-No timer, retry, controller, pairing or RF policy changes.
-
-A composed actual scanner/LoRa regression reproduces the old pre-initialization
-timeout and later START/EIO record with zero SPI transfers, using a synthetic
-valid public journal record and explicit observer interleavings. It verifies the
-new gate, initialization publication and unchanged post-initialization watchdog
-bounds. The ownership gap and unchanged LoRa bodies predate163. The two observed
-163 startup recoveries match this chain, but their erased prior scan rows are
-unavailable; the exact physical triggering row remains an inference. This fix
-does not address or classify the separate historical controller assertions.
-
-Version163 brings two pinned public controller fixes into generated copies of
-ordinary native GM/RC, including explicit verbose builds. The Zephyr
-[radio-disable fix](https://github.com/zephyrproject-rtos/zephyr/commit/355648a69f5137c68d86fe577ddb256e7da74d12)
-resets timer PPI/DPPI routes before clearing SHORTS and requesting DISABLE.
-The ZMK fork's [connection cancellation fix](https://github.com/zmkfirmware/zephyr/commit/10ba6d0cb38bc3d258775d27982f707599320085)
-changes same-owner zero-exchange central/peripheral preemption from EBUSY to
-ECANCELED. Forced-event protection and asynchronous completion remain. Full
-public patches, Apache-2.0 provenance, input/output hashes and exact source
-membership are recorded; the pinned SDK checkout is unchanged. DC/PC and
-BabbleSim are excluded. Queue capacity, assertions, priorities, timers, pairing,
-precision policy and RF configuration remain unchanged.
-
-Actual-source host controls distinguish the old cleanup route and cancellation
-behavior, retain ownership until an explicitly delivered fake DISABLED interrupt,
-then run actual connection ISR cleanup and FIFO retirement. Missing completion
-still reaches the original full-queue assertion. HAL/IRQ, LLCP/HCI, ticker and
-mayfly boundaries remain models. These fixes require native and field checks;
-neither test establishes the physical initiator of the source162 failures.
-
-Version163 also improves diagnostics for the unresolved controller fatal.
-On failed prepare allocation only, four previously unused counter words retain
-current LLL owner/abort callback and existing preempt, mayfly and ticker state
-under the same IRQ fence as the seven queued preparations. The two pre-existing
-preempt callback objects move one-for-one; no healthy controller hook, new state,
-queue capacity, timer, priority or protocol policy is added. Exact source/build
-mode and CRC are required for decoding. A current cut does not establish why
-retirement stopped. Native and physical acceptance remain separate.
-
-A rejected optional health note no longer consumes its detail window or reported
-counter changes. It retries through the existing one-second throttle and alternate
-watchdog opportunities, normally every two seconds; admitted healthy detail keeps
-its original60s cadence. This corrects reproduced diagnostic delivery loss, not
-the controller fatal. Console admission does not acknowledge host delivery.
-
-Version162 keeps authenticated current-session source health fresh through the
-existing accepted clock map when a new HELLO echo is too wide to replace that
-map. It rechecks the original record expiry with the old map and its drift;
-map evidence, source expiry, finite grants and all timers remain unchanged.
-Changed sessions, missing or aged maps cannot use this path. A production-wire
-regression covers the refresh and negative cases in the ordinary G5 suite.
-This fixes an offline reproduced source-refresh inconsistency matching a field
-withdrawal class; it does not establish the cause of the separate silent peer
-or qualify physical HOT durability.
-
-Version162 also retires receiver generation floors when a former ACTIVE
-leaves that role. Its own issuance counter and outstanding grant deadlines are
-preserved; an unrelated new GM may start at a lower generation. Same-GM
-HOT/COLD retries retain their replay floors. The regression composes actual
-native JOIN admission, STATUS and signed management after the role change.
-
-Version161 restores the continuous PPS duration on every GM precision screen
-and the HOT duration for the standby, using the existing hold timestamps.
-The GM Bluetooth beat icon is restored beside RMS. ACTIVE duration, COLD
-reception and stream RMS remain visible. This corrects
-the160 display regression. Dedicated shadow page6 again works for GM and RC
-profiles under its existing source/serving-GM guards; GM precision page2 stays
-observational, while RC precision sampling remains enabled. No protocol timer changes.
-
-Version160 lets every COLD GM follow the ordinary authenticated precision stream
-using the existing passive leaf receiver path. COLD remains outside the selected
-GM/HOT control pair and gains no successor grant or output permission by receiving
-time. This supersedes the earlier no-PA COLD policy and removes the LoRa-TX-only
-exception. Independent local GNSS qualification continues.
-
-The precision screen always presents current stream RMS (or -- when unavailable),
-with COLD STANDBY/TIMING SYNC status for an unappointed receiver. GM shadow-PPS
-sampling is held off on precision page2 while troubleshooting. RC precision page2
-and dedicated page6 in either profile retain intentional shadow sampling; stream RMS and shadow PPS
-statistics are distinct. Timer, election and controller policies are unchanged;
-the retained prepare-FIFO fatal remains unresolved.
-
-Version159 refreshes coherent direct PT input before the G5 HOT/ACQUIRING
-readiness tick, preserving the PT owner's observation timestamp and expiry.
-ACTIVE, COLD, RC and relay paths retain their existing timing update. This fixes
-an offline reproduced stale CONTROL-input refusal; it changes no election,
-takeover, timer or RF policy and does not resolve the open controller failures.
-The normal HOT page is observational; only dedicated shadow page6 requests
-and arms PPS sampling. This is not evidence of a controller-crash cause.
-The separate stream-loss takeover draft remains evaluation-only.
-
-Version157 orders force before age within the existing ticker class. A queued
-connection restart could otherwise cause two competing ACL reservations to defer
-to each other indefinitely. The focused actual-body regression reproduces this
-under oversubscribed DLE reservations; it proves sampled callback progress, not
-field causation or universal fairness. Cross-class precision precedence, timers,
-pairing, RF configuration and source156 diagnostics remain unchanged. Native and
-field qualification are separate gates.
-Run the focused portable regression with
-`python3 firmware/t096/tools/ticker_fairness_tests.py --deps artifacts/deps --out artifacts/ticker-fairness`.
-It extracts queued production bodies from the pinned dependency; counter/compare
-HAL, mayfly delivery and LLCP/LLL completion remain explicit fake boundaries.
-The ordinary `tools/test.py` suite includes it.
-
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
-The common mesh image has two profiles: **GM** and **RC**. The separate,
-flash-only **[DC image](direct-connect.md)** serves local GNSS over USB with
-Bluetooth disabled and no group enrollment. USB timing support is always compiled;
-source-map publication currently uses the RC backend. The reviewed normal GM
-backend does not supply a USB source map. Use a compatible RC for the macOS
-chain; see the [stability results](../../evidence/stability/2026-10-16/README.md).
-The public builder never opens hardware. It uses only this checkout, pinned
-public dependencies and your ignored local enrollment/device inputs.
+This guide builds and inspects T096 source **0.15.164** without opening hardware.
+For profile choices and controls, see the [T096 README](../../firmware/t096/README.md).
+Release-by-release implementation and validation notes are in the
+[T096 changelog](../../firmware/t096/CHANGELOG.md).
+
+The common mesh image has two profiles: **GM** and **RC**. USB timing is compiled
+by default; the RC backend publishes its accepted BLE source, while the normal
+GM backend does not publish a USB source map. The separate flash-only
+[DC image](direct-connect.md) serves GNSS over USB with Bluetooth disabled and no
+group enrollment. Use the [GM operating guide](gm-operations.md) for compatible
+G5 groups and the [macOS guide](../../clients/macos/README.md) for USB consumers.
 
 The separate [PC awake-only experiment](power-control.md) uses `--profile PC`,
 group enrollment and `--pc-parent` with a direct-GM identity or `auto` for
-authenticated direct-GM discovery. Record the selected source and epochs. It cannot
-switch profiles at runtime and preserves the ordinary images' timing policy.
+authenticated direct-GM discovery. It has no runtime profile switch.
+
+## Prerequisites and dependencies
 
 The first validated build host is Apple Silicon macOS. Install Git, CMake,
 Python 3.12+ and LLVM/Clang for host sanitizer tests. Linux/Windows SDK locks and
@@ -142,47 +36,6 @@ A previously acquired cache is accepted with `--deps PATH` only after repository
 revision/cleanliness and SDK archive checks. It is not necessary to have a private
 sibling checkout. Builds put all generated and secret-bearing output under
 ignored `artifacts/` with owner-only permissions.
-
-Version148 permits passive LoRa reception on a solo GM, including a solo
-serving GNSS GM. Recent authenticated BLE participation suppresses GM reception
-independently of brief PT/map loss: original10s remote membership, direct
-STATUS contact (original120s), current proved/accepted JOIN, or original client
-and demand leases. Local attempts and reported root/selected IDs are not contact.
-Expiry is evaluated by the progressing serialized owner; no new lease or timer
-is created. Silent passive listeners beyond their contact lease are unobservable.
-RC reception and the sole configured GM transmitter are unaffected. Manual
-`requested` remains separate from `rx_suppressed`; old LoRa UTC/coordination is
-fenced immediately, while physical closure still requires every acknowledgement
-within the original200ms drain. A stalled owner retains conservative suppression
-until the existing watchdog recovery. This is an offline candidate, not durable
-HOT or hardware acceptance.
-
-Version149 unifies G5 management freshness, READY, contact, acquisition and repair
-around one45s control budget. The original90s successor grant is conditional:
-an ACTIVE issuer retains its outstanding control owner through that grant's
-original expiry, even if a phase or peer-proof window expires. It cannot mint a
-replacement while confirmation is pending. Matching confirmation completes the
-original attempt; a confirmed unchanged tuple renews without repeating the initial
-5s stability dwell. Changed boots, source epochs or publication require fresh
-stability. Fast500ms probes, original1s records and all source/PT expiry remain
-independent. No new timer storage, queue or ownership buffer is added.
-
-The148 physical run met the GM receiver policy but failed HOT durability:78/78
-cohorts over600s had no network/radio errors, with a longest complete ACTIVE/HOT
-interval of53.938s. LoRa TX and RC correction progressed. The first readiness
-horizon lapse remains unexplained; the subsequent10s repair timeout is confirmed.
-Version149 is an offline candidate until separately built and observed on hardware.
-
-Normal GM version0.15.149 uses [G5 ACTIVE/HOT/COLD](gm-standby.md).
-Authenticated control maps each remote instant with its own original conservative
-clock-drift guard; a long finite-grant deadline cannot shorten a separate record
-TTL. G5 uses1s original control records and500ms probes with90s finite grants.
-Source/PT validity, wire layout and stored state remain unchanged. Legacy control
-records retain250ms.
-Its outer coordination type19/domain5 is distinct from the preserved inner
-AUTH_CONFIG5, legacy JOINv4 and RC7 timing. During a staged update, updated RC
-images can receive legacy timing; enter GM only with the explicitly compatible
-G5 population. Existing old GM control cannot mint a new finite successor grant.
 
 ## Local inputs
 
@@ -226,6 +79,55 @@ its exact device binding and local package remain private validation material.
 Checksums establish identity, not secrecy
 or authenticity. Runtime P1 provisioning is not yet implemented.
 
+Use `--registry artifacts/local/registry.json` to compile your deployment’s shared
+[name map](../../registry/README.md). The default is the synthetic public example.
+Keep the real map ignored, alongside local enrollment; the receipt records its
+hash and preserves a private build snapshot.
+
+## Optional LoRa configuration
+
+Normal GM/RC builds include the [RC8 wire 3 integration](../../protocol/rc8/README.md).
+The default transmitter factory is zero, so LoRa hardware does not start. The
+normal-only `--lora-transmitter-factory` option takes a 16-digit exact factory
+identity verified against ignored T096 registry metadata. It is included in the
+private build/watchdog identity; a display alias grants no permission.
+
+The configured transmitter requests TX ON only in GM profile, including when it
+follows an authenticated locked BLE source without local PPS. An actual serving
+GM retains its qualified local PPS/source requirement. Other enrolled T096s
+request passive RX, subject to the [GM participation policy](gm-operations.md).
+A configured transmitter in RC profile cannot consume its own stream.
+
+The `lora` query and page 7 expose role, source and radio diagnostics; `lora 00/01`
+or a 1.5-second page-7 hold changes the configured role's volatile request.
+Functional LoRa fallback has UNKNOWN freshness/total uncertainty and grants no
+normal RC7 source or future RC9 authority. See the
+[LoRa contract](../../protocol/rc8/README.md) for wire format, metrics and source
+fences. Native inspection retains the 4,096-byte added-static ceiling and all
+existing owner/controller/USB/stack gates.
+
+## Optional controller diagnostics
+
+Add `--controller-diagnostics` to a normal GM/RC build for unsolicited timing
+and controller console streams. It defaults off; DC/PC reject the option. The
+receipt, generated build identity, watchdog binding and
+`controller_diagnostics:true` status distinguish this image.
+
+Ordinary images retain explicit timing queries, the bounded journal, watchdog,
+and quiet failure-only snapshots. They do not emit periodic controller/timing
+streams. The verbose variant preserves the seven-entry controller FIFO and
+existing resource reserves; it is an observation variant, not a controller
+failure workaround. Use normal, nonoptimized Python so build-generator assertions
+remain enabled.
+
+See the [controller canary](diagnostics.md#controller-prepare-canary),
+[host-retirement snapshot](diagnostics.md#disconnect-host-snapshot-source153),
+[controller failure snapshot](diagnostics.md#controller-failure-snapshot-source155)
+and [prepare-FIFO capture](diagnostics.md#prepare-fifo-failure-only-capture-source156)
+for decoding requirements and UNKNOWN handling. Compare exact ordinary and
+verbose images under the same placement, roles and observation cadence before
+attributing a field failure to diagnostic load.
+
 ## Checks
 
 Recheck an existing build with the dependency environment (which includes
@@ -236,344 +138,43 @@ installation:
 artifacts/deps/venv/bin/python firmware/t096/tools/inspect_build.py artifacts/build-rc-01
 ```
 
+Run the complete production-body host suite and provisioning/console checks:
+
 ```sh
-python3 -m unittest discover -s firmware/t096/provisioning -p 'test_*.py' -v
-CC=clang python3 firmware/t096/tools/framebuffer_tests.py --out artifacts/check-framebuffer
-CC=clang python3 firmware/t096/tools/lora_rc8_tests.py --deps artifacts/deps --out artifacts/check-rc8
-CC=clang python3 firmware/t096/tools/gm_standby_tests.py --deps artifacts/deps --out artifacts/check-gm-standby
-CC=clang python3 firmware/t096/tools/dc_tests.py --out artifacts/check-dc
-CC=clang python3 firmware/t096/tools/dc_gnss_tests.py --out artifacts/check-dc-gnss
-CC=clang python3 firmware/t096/tools/usb_sof_tests.py --out artifacts/check-usb
-CC=clang python3 firmware/t096/tools/watchdog_tests.py --deps artifacts/deps --out artifacts/check-watchdog
-CC=clang python3 firmware/t096/tools/runtime_profile_tests.py --deps artifacts/deps --out artifacts/check-profile
 python3 firmware/t096/tools/test.py --deps artifacts/deps
-CC=clang python3 firmware/t096/tools/rc_gm_admission_tests.py --deps artifacts/deps --out artifacts/check-admission
-CC=clang python3 firmware/t096/tools/rc_delivery_tests.py --out artifacts/check-delivery
-CC=clang python3 firmware/t096/tools/rc_selection_tests.py --out artifacts/check-selection
-CC=clang python3 firmware/t096/tools/rc_relay_admission_tests.py --deps artifacts/deps --out artifacts/check-relay-admission
-CC=clang python3 firmware/t096/tools/rc_durability_tests.py --out artifacts/check-durability
-CC=clang python3 firmware/t096/tools/rc_publication_tests.py --out artifacts/check-publication
-CC=clang python3 firmware/t096/tools/usb_ep0_tests.py --deps artifacts/deps --out artifacts/check-ep0
-CC=clang python3 firmware/t096/tools/precision_schedule_tests.py --deps artifacts/deps --out artifacts/check-schedule
-CC=clang python3 firmware/t096/tools/rc_renewal_tests.py --deps artifacts/deps --out artifacts/check-renewal
-CC=clang python3 firmware/t096/tools/usb_lifecycle_tests.py --deps artifacts/deps --out artifacts/check-usb-lifecycle
+python3 -m unittest discover -s firmware/t096/provisioning -p 'test_*.py' -v
 python3 -m unittest discover -s firmware/t096/tests -p 'test_console*.py' -v
 ```
 
 Use a recent LLVM clang (the cutover checks use the installed Homebrew LLVM);
-Apple's system clang sanitizer runtime is not the validated runner. Keep each
-output directory fresh. Tests operate on production C bodies with fake hardware
-boundaries. They do not qualify physical timing or independent UTC accuracy.
+Apple's system clang sanitizer runtime is not the validated runner. The host
+runner selects Homebrew LLVM when available; use `CC` to select another compiler.
+Keep each output directory fresh. Focused runners and their invocation examples
+are retained with the relevant [release notes](../../firmware/t096/CHANGELOG.md)
+and [diagnostic schemas](diagnostics.md).
 
-Version 0.15.122 replaces the 25,600-byte RGB565 framebuffer with 12,800 bytes
-of palette indices and one persistent 5,120-byte DMA buffer. The fixed palette
-preserves all 17 original RGB565 colors; there is no second full conversion
-frame. Five pixel submissions share the original 250 ms deadline and keep the
-public synchronous driver's completion/abort ownership. A failed batch ends
-the frame before another conversion or submission. The 4 Hz ordinary and 8 Hz
-RF-page cadence, UI stack and all memory/controller inspection gates remain.
-`framebuffer_tests.py` checks exact reconstructed pixels against the production
-drawings' direct RGB565 sink, bounded conversion and every command/payload
-failure boundary; it is also included in the full host runner. Matching physical
-display, BLE/USB service and stack observations remain exact-device gates.
+Tests exercise production C bodies with explicit fake hardware boundaries.
+Native inspection separately checks linked resources, stack budgets, generated
+controller hashes and translation-unit membership. Neither check qualifies
+physical timing, radio coexistence, sustained HOT operation or UTC accuracy.
 
 ## Hardware update boundary
 
-Normal0.15.146 builds include the [RC8 wire3 integration](../../protocol/rc8/README.md).
-The default transmitter factory is zero, so LoRa hardware does not start. An
-explicit normal-only `--lora-transmitter-factory` takes a16-digit exact factory
-identity verified against ignored T096 registry metadata. It is included in the
-private build/watchdog identity; a display alias grants no permission. The
-configured transmitter requests TX ON only in GM profile, including when it is
-a locked authenticated GM-profile follower without local PPS. An actual serving
-GM retains its qualified own PPS/source requirement. Every other enrolled T096 requests passive
-RX ON. TC01 in RC profile cannot transmit or receive its own stream.
-
-The `lora` query exposes full context/root/boot/source epoch (unknown boots stay zero
-until a matching companion), current and corrected
-sequence, physical captured event, original source envelope/map generation,
-accept/reject/replay/cache/missing-map counters, UNKNOWN uncertainty, selected
-source, actual worker stack unused bytes and bounded closure status. `lora 00/01`
-controls only the configured role; page7 fires the same volatile request once at1.5 seconds. The claimed press
-cannot poweroff if held longer; intentional4-second poweroff remains on other pages. Functional UNKNOWN
-freshness is explicitly allowed as secondary time when normal BLE is unusable;
-it grants no normal-source or future RC9 authority. Host/source/worker/radio
-fake-boundary tests run in the full runner. They do not operate hardware or
-qualify RF, coexistence or output accuracy. Native linked RAM must prove the4096B
-added-static ceiling; existing owner/controller/USB/stack gates remain.
-Version125 populates the immutable context before validating a prior correction;
-version124 discarded that correction because its not-yet-populated context failed
-validation. A production-service test now feeds two service-generated physical
-timing packets through the receiver and requires an accepted prior event.
-Wire3 retains80-byte timing packets, adds128-byte descriptive companions roughly
-every120 seconds plus coalesced events, and carries root identity/source epoch
-in every timing packet. Companions never renew a timing sample. Current-context
-loss withdraws the sample; stale diagnostic floors cannot withdraw newer timing.
-The timing cutoff remains340ms chip/360ms FEM; companions use420ms/450ms.
-After packet preparation the radio owner rechecks the original timing deadline
-immediately before FEM enable. Missing parent GNSS/PPS evidence remains UNKNOWN.
-
-No general public flasher is shipped yet. The TC-04 cutover validation uses a
-local reviewed maintenance/update harness with exclusive ownership, fresh source/
-boot/silicon binding, app-only writes, exact protected-region checks, rollback,
-actual application readback and supported return. Do not substitute a mass erase,
-raw debugger write or guessed bootloader command. Public installation/recovery
+No general public flasher is shipped yet. The
+[cutover validation](cutover.md#attached-unit-validation) used a local reviewed
+maintenance/update harness with exclusive ownership, fresh source/boot/silicon
+binding, app-only writes, exact protected-region checks, rollback, actual
+application readback and supported return. Do not substitute a mass erase, raw
+debugger write or guessed bootloader command. Public installation/recovery
 instructions require their own generic-device acceptance.
 
-With 0.15.99, explicit maintenance still drains owners and accepts commit inside
-the original READY deadline. The subsequent hardware watchdog reset can take
-30 seconds. Exact-device update tools must use a finite post-commit enumeration
-allowance that accommodates this latency. Do not retry prepare/commit or extend
-their original deadlines while waiting for the bootloader.
+Explicit maintenance drains owners and accepts commit inside the original READY
+deadline. The subsequent hardware watchdog reset can take 30 seconds. Exact-device
+update tools must use a finite post-commit enumeration allowance that accommodates
+this latency. Do not retry prepare/commit or extend their original deadlines
+while waiting for the bootloader.
 
-Version139 stops feeding after30s of stale CONTROL publication in either ordinary
-profile, including a pending transition. A terminal service error or unfinished
-closure past its original deadline stops feeding immediately on observation; the
-existing30s hardware parent then resets the MCU. This adds no drain grace, state,
-timer or RAM. Completed closures with historical deadlines and live COLD workers
-remain valid. GPS/RF silence alone is not a worker failure. Production host tests
-cover the decision; physical reset latency requires a separate hardware check.
-
-Use `--registry artifacts/local/registry.json` to compile your deployment’s shared
-[name map](../../registry/README.md). The default is the synthetic public example.
-Keep the real map ignored, alongside local enrollment; the receipt records its
-hash and preserves a private build snapshot.
-
-Version 0.15.110 adds failed-parent retirement to the production selector and
-durability tests. Run `rc_selection_tests.py` and `rc_durability_tests.py` using
-the commands above. These cover loss deadlines, empty neighborhoods, fresh
-admission of returning identities and actual-owner drain boundaries with fake
-hardware. They do not qualify physical failover.
-
-Version 0.15.109 makes RC passive search finite (10 ms per 20 ms interval),
-retaining the degraded-parent 5 ms/20 ms watch. The focused test compiles the
-actual application scan parameters and pinned primary scan preemption callback:
-
-```sh
-CC=clang python3 firmware/t096/tools/rc_passive_scan_tests.py --deps artifacts/deps --out artifacts/check-passive-scan
-```
-
-`--legacy-continuous` is an expected-failure parameter control, not a controller
-queue-overflow reproduction. A canary must separately retain exact MCU boot,
-source, reset reason and fault capsule through the RC-to-GM transition. No
-controller assertion, queue capacity, RAM margin or cleanup deadline is changed.
-
-Version 0.15.108 holds the native GM G1 advertiser closed while its single
-incoming transient JOIN slot owns a connection. The pinned public
-`BT_LE_ADV_OPT_CONN` already includes one-time behavior; the owner now waits for
-actual slot release before restarting advertising. The production discovery
-suite covers retained ownership after a disconnect request and actual callback
-release. `--legacy-busy-advertiser` is an expected-failure control. No static
-state or deadline is added. RC marker callback tests preserve original ATT errors.
-
-Version 0.15.107 uses RC7's coarse replay interval consistently for initial
-GM admission and renewal, while preserving the normal GM/control adapter's
-strict 100 ms half-width. Both adapters share record validation and expiry math.
-The RC MTU completion regression verifies that a previously negotiated usable
-MTU can recover Unlikely Error only on a live link. No new static state or
-retry is added. Both focused suites are included in the full host runner:
-
-```sh
-CC=clang python3 firmware/t096/tools/rc_gm_admission_tests.py --deps artifacts/deps --out artifacts/check-gm-admission
-CC=clang python3 firmware/t096/tools/rc_mtu_tests.py --deps artifacts/deps --out artifacts/check-rc-mtu
-```
-
-Version 0.15.106 adds signed serving-GM discovery to the RC owner. Compact
-locator storage funds a fixed 40-byte failover state and queue arrival timestamps;
-the static RAM inspection minimum remains unchanged. Run its production selector
-and ingress checks with:
-
-```sh
-CC=clang python3 firmware/t096/tools/rc_gm_failover_tests.py --deps artifacts/deps --out artifacts/check-gm-failover
-```
-
-Version 0.15.105 bounds native GM scan-stop contention to a fixed 500ms
-recovery interval, with public stop retries at most every 20ms. Success must be
-observed before releasing scan ownership. A duplicate connection whose close
-races a natural disconnect retains its reference until its actual callback;
-Command Disallowed/Not Connected responses cannot alone release it. Missing
-callbacks originally retained a two-second failure deadline; version145 uses the
-negotiated supervision plus5s and a shared40s outer cleanup budget. Terminal transport
-diagnostics are saved without needing a pre-fault console poll. These checks
-do not extend source, authentication, election or maintenance deadlines.
-Bounded native transport indices use eight-bit storage to retain the unchanged
-1,024-byte static RAM inspection minimum with the additional retry state.
-
-```sh
-CC=clang python3 firmware/t096/tools/gm_drain_tests.py --deps artifacts/deps --out artifacts/check-gm-drain
-```
-
-Version 0.15.104 narrows three bounded route/admission indices without changing
-their values or reducing diagnostic, stack or transport capacity. Version
-0.15.103's eight-byte scheduling hint crossed a native alignment boundary and
-failed the unchanged 1,024-byte static margin gate; it was not deployable.
-Version 0.15.103 allows an explicit parent identity to select a direct GM as
-well as a relay, with no additional static state or change to automatic selection.
-Version 0.15.102 adds a source-unavailable scheduling hint to 0.15.101's
-preserved retry policy and pinned AUX observations. The hint adds eight bytes
-of state; native inspection still requires at least 1,024 unallocated bytes.
-Version 0.15.100 introduced transport hold and earlier RC7 renewal.
-Run the combined production policy and publication regressions with:
-
-```sh
-CC=clang python3 firmware/t096/tools/rc_relay_renewal_tests.py --deps artifacts/deps --out artifacts/check-relay-renewal
-CC=clang python3 firmware/t096/tools/rc_source_wait_tests.py --deps artifacts/deps --out artifacts/check-source-wait
-CC=clang python3 firmware/t096/tools/rc_transport_hold_tests.py --deps artifacts/deps --out artifacts/check-transport-hold
-CC=clang python3 firmware/t096/tools/initiator_aux_tests.py --deps artifacts/deps --out artifacts/check-initiator-aux
-```
-
-The full host runner includes these checks. A retained periodic train carries no timing
-corrections while the existing timing gates are invalid; it cannot extend a
-child lease, source, map or authentication deadline. Build/native inspection and
-actual protected-region/application readback remain separate hardware gates.
-
-Version0.15.125 keeps wire3 bytes/domains while correcting prior-event preparation,
-adding bounded ambiguous-launch recovery and page7 RX link affine residual RMS.
-`lora_rc8_tests.py` includes an independent high-precision Decimal residual oracle
-over synthetic corrected physical pairs; this is not a hardware accuracy result.
-The compact LoRa view stays48B; the RX-only sufficient statistics add56B inside
-the boot-role union. Complete native ELF and exact-device stack checks must still
-meet the original4096B added-static ceiling without reserve reductions.
-
-Version0.15.126 adds BUSY-high deadline recovery only for an unfinished SetTx
-with healthy retired DMA. Other BUSY/transport/completed-launch faults retain
-their bounds. Hardware diagnostics use existing padding for BUSY abort count
-and last opcode; `sizeof(r2_lora_hw_diag)` remains52. Page7, link-fit logic and
-all original reserves remain unchanged. The source change requires new exact-
-device functional/coexistence checks before field acceptance.
-
-
-Version0.15.127 adds a durable LoRa fault observer. The existing diagnostic scan
-scratch has a separate lifetime after initialization, before the LoRa thread is
-created. No stack/controller/USB reserve is reduced. The `lora` response adds
-`watchdog`, `fault_record` and `owner`; their layout is documented in the
-[RC8 guide](../../protocol/rc8/README.md). Real transport errors remain latched
-until physical watchdog reset; no unretired DMA buffer is reused. Journal writes
-use only existing bank0 at0xe1000..0xe2fff, with normal radio-aware admission,
-readback/CRC/commit and the original finite maintenance deadline (40s in145;
-older images retain their own deadline). App-only updates and all672
-protected-block comparisons retain their original scope; journal storage is
-already outside that protected population. Conditional retained-RAM evidence is
-not a power-loss durability guarantee. Physical recovery/retention and live
-stack/coexistence remain separately measured exact-device gates.
-
-Version0.15.128 advances the driver cancellation serial before a watchdog trip.
-A stalled start returning from capture/resource acquisition must fail its
-original reset-release fence. The production-driver regression fails against
-127 and passes with128; this does not fabricate a physical worker stall.
-
-
-Version0.15.129 keeps the original200ms drain bound, temporarily wakes/prioritizes
-only inhibited closure above priority10 console/diagnostic work, then restores
-normal priority11. BLE owner priorities remain unchanged. Before retiring a
-SetTx as phase3, its full340/420ms chip timeout must still fit the original
-360/450ms FEM window; a late unretired launch closes/counts/journals EINTR and
-keeps existing retry cadence. A previously latched DIO keeps its physical capture.
-Real phase3 timeout, SPI and unretired-DMA faults remain terminal. Stage8 records
-use word4 for the original FEM-enable millisecond so launch age remains visible.
-
-
-Version0.15.130 carries the primary LoRa fault in schema6 bank0 records until a
-newer terminal fault supersedes it. Original fault boot uses reserved words39/40;
-ordinary event boot remains4/5. Reason flags0x400/0x800/0x1000 identify new fault,
-carried copy and terminal primary. No extra append cadence or flash region is
-used: the ordinary verified commit hands off evidence before obsolete-page
-erase. Startup restores the newest valid copy. App changes keep existing
-source-bound journal initialization; preserve evidence before updating.
-
-Version0.15.131 supplies the accepted physical-pair root to election as a
-per-cycle negative constraint, without another static owner or reserve cut.
-Timing-only root/epoch may inhibit; a matching companion boot is required for
-eligibility restoration. Current authenticated direct JOIN plus direct captured
-BLE map, or current direct GM control/service, permits ordinary source
-readmission. The existing source/HOT/management/output fences still apply.
-Relay identities, advertisements and expired scopes cannot grant eligibility.
-The original LoRa hold is never renewed by metadata/query time. This policy
-does not grant RC7 timing authority or prove exclusion across RF partitions.
-
-Version0.15.132 corrects an RF launch-availability regression: worker wakeup
-after a completed SetTx was incorrectly used as the command's commit time.
-The dedicated SPI1 owner now controls NSS through public GPIO, with no CS
-owned by the SPI context. Successful asynchronous byte completion enables the
-original360/450ms FEM cutoff and releases NSS in the same bounded GPIO/timer
-fence. The later worker uses that commit upper bound; it never renews the timer.
-No SPI transfer or wait runs in the completion callback. Precommit has a separate
-finite360/450ms bound, the original metadata finish deadline is checked at commit,
-and BUSY30ms/DMA10ms and unsafe-buffer retirement remain unchanged. Cancellation
-or a rejected/failed transfer asserts reset before NSS can commit a partial
-command. A known committed launch with no DONE at cutoff remains a terminal
-fault; pending physical DIO capture still wins over delayed software callbacks.
-
-The `launch` diagnostic contains `[budget_us,precommit_us32,FEM_start_us32,
-NSS_commit_upper_us32,committed]`, all in the same boot-local monotonic domain.
-Unsigned subtraction handles its32-bit wrap; these observations are not radio
-TX-start timestamps or output-accuracy measurements. Stage9 first-fault records
-identify precommit/deadline aborts. The existing512B journal scratch funds these
-fields without increasing static RAM or reducing any reserve. Native inspection,
-sanitizer/fake-boundary controls and actual TX progress remain separate gates.
-
-## Optional controller diagnostic canary
-
-Version0.15.144 adds `--controller-diagnostics` to the normal GM/RC build command.
-It defaults off; DC/PC reject the option. The receipt, generated build identity,
-watchdog binding and `controller_diagnostics:true` status distinguish this image.
-It keeps the seven-entry controller FIFO and existing resource reserves. The
-[diagnostic schema](diagnostics.md#controller-prepare-canary) documents the bounded
-console summary and conditional retained failure snapshot. This is an observation
-variant, not a controller failure workaround or hardware acceptance.
-
-```sh
-CC=clang python3 firmware/t096/tools/controller_diag_tests.py --deps artifacts/deps --out artifacts/check-controller-diag
-CC=clang python3 firmware/t096/tools/gm_drain_tests.py --deps artifacts/deps --out artifacts/check-gm-retirement
-CC=clang python3 firmware/t096/tools/health_tests.py --out artifacts/check-health-capsules
-```
-
-Version150 ordinary GM/RC builds also omit the unsolicited timing console stream.
-The existing `--controller-diagnostics` option enables both timing and controller
-streams. Explicit timing queries, the bounded journal and watchdog remain active
-in ordinary builds. Compare exact ordinary and diagnostic images under the same
-placement, roles and bounded observation cadence before attributing any failure
-to diagnostic load; host and native checks alone do not measure that effect.
-
-Version151 shares the existing1s G5 duration across initiation and aggregate GATT
-work per CONTROL pass. G5 scan-stop retries use the existing5s retirement budget.
-Queued G5 STATUS and non-HELLO control records retain original session/signed
-expiry instead of an additional500ms queue-age gate. Ordinary RC, HELLO, source
-and precision checks remain unchanged. Public tests include delayed callbacks,
-queue work, original expiry and reference retention; physical radio fairness
-and sustained HOT durability still require field checks.
-
-Version153 normal native GM/RC images include a fault-only host-retirement
-snapshot; the verbose `--controller-diagnostics` mode is unnecessary for it.
-It uses existing fault-record padding and existing watchdog word32 bits.
-Native resource checks and authorized exact-device observations remain required;
-this diagnostic does not correct or qualify HOT durability.
-
-
-Version155 normal native GM/RC builds apply a separate hash-pinned controller
-diagnostic patch to generated copies of ticker.c and ull_peripheral.c. The
-upstream91430 patch, existing precision scheduling policy and SDK checkout stay
-unchanged. Native inspection requires exact generated hashes and one compiled
-copy of each of the three controller translation units; DC/PC exclude the new
-fault diagnostics. Run with ordinary, nonoptimized Python so generator assertions
-remain enabled. The focused production-body/decoder/generator checks are:
-
-```sh
-CC=clang python3 firmware/t096/tools/controller_fault_diag_tests.py --deps artifacts/deps --out artifacts/check-controller-fault
-```
-
-The full host runner includes these checks. Fault hooks use the existing fatal
-PA lane and first-fault journal, documented in the [source155 schema](diagnostics.md#controller-failure-snapshot-source155).
-Full native static/stack/flash checks, exact-device installation and bounded
-observations remain separate gates. Passing fixture schedules does not establish
-field ordering, a controller fix or HOT durability.
-
-
-Version156 normal native GM/RC builds include quiet prepare-FIFO failure capture.
-Its generated ULL mode/hash is pinned and inspected separately from the explicit
-verbose canary. Ordinary builds contain no success counters or periodic controller/
-timing streams; DC/PC exclude the capture. Source155's patch identities and the
-upstream scheduler policy remain frozen. The full host runner covers actual
-MFIFO and retained-capsule fixtures; native static/stack/flash and exact-device
-checks remain separate gates. See the [source156 schema](diagnostics.md#prepare-fifo-failure-only-capture-source156)
-for UNKNOWN handling and the schema3 loss of secondary IRQ/thread-frame fields.
+The [GM acceptance plan](gm-standby.md#development-checkpoint-and-remaining-acceptance)
+keeps installation, reset latency, source qualification, HOT renewal and physical
+multi-device observations as separate checks. Release records and simulations
+provide context; they do not authorize hardware operations.
