@@ -34,7 +34,27 @@ int main(int argc,char** argv){
  v12::Rc7PermissionInspect::seed(v12::corrected_clock,v12::anchor,fake_now);v12::admission_policy.acquired();
  assert(!v12::lock_protected(fake_now)&&v12::following(fake_now));
  const auto until=v12::anchor.until,deadline=v12::anchor.deadline();
- if(which=="n30-relay-retry-budget"){
+ if(which=="n30-source-return"||which=="n30-source-return-same-epoch"){
+  const auto lost=fake_now+60000000;fake_now=lost;
+  v12::parent_selection.locked(false,fake_now);assert(v12::parent_selection.needs_alternative());
+  // The GM remains powered but its signed time/replay scope expires. The
+  // actual owner must drain its old PA and retire authority before discovery.
+  v12::anchor.context_until=fake_now;v12::active_poll(fake_now);pump_cleanup();step(8);
+  assert(!v12::parent_selection.parent()&&!v12::anchor.source&&!v12::following(fake_now));
+  assert(!v12::synced&&!v12::sync_pending&&!v12::fault);
+  fake_now=lost+60000000;v12::window_start=v12::G1Window::start(fake_now);
+  v12::parent_selection.seen(501,false,-30,fake_now-50000);
+  assert(v12::parent_selection.deferred(501,false,fake_now));
+  const auto epoch=which=="n30-source-return"?3u:2u;
+  const auto train=which=="n30-source-return"?4u:3u;
+  // A fresh same-boot challenge exchange, not a cached clock/locator, must
+  // restore FOLLOW even though this parent's advisory failure is remembered.
+  fresh_direct(501,601,epoch,train);
+  assert(connected==1&&v12::parent_selection.parent()==501&&!v12::fault);
+  assert(v12::anchor.boot==601&&v12::anchor.source_epoch==epoch&&v12::anchor.publication==train);
+  assert(v12::parent_selection.needs_alternative()); // Rejoin is not precision lock.
+  assert(!v12::corrected_clock.covers(fake_now,fake_now));
+ }else if(which=="n30-relay-retry-budget"){
   // A previously good, now unlocked GM keeps getting control opportunities.
   // Its 10s retries can permanently starve the shared 20s/60s relay budget.
   const auto begin=fake_now;

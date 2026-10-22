@@ -15,6 +15,21 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 22 October 2026 — N30 0.2.7 returning GM and five-minute no-time recovery
+
+Fix the unbound failed-parent cache dead end after a GM loses and regains its
+source in the same boot. A fresh locator for the old trial can now use its
+bounded60s retry path when no eligible alternative exists; a new authenticated
+exchange replaces authority. The remembered trial no longer blocks that sole
+returning source forever. W12 defaults and T096 firmware behavior stay unchanged.
+
+Add a separate N30 supervisor timer that reboots after a full five continuous
+minutes without current BLE FOLLOW UTC or available LoRa time. Either source
+cancels the interval; HOLD, traffic and stale data cannot postpone it. OFF and
+update maintenance inhibit it. Existing120s fault supervision and RTC restart
+records remain. Production-native source-return and actual supervisor/reset
+boundary regressions use synthetic hardware; field recovery remains unqualified.
+
 ## 22 October 2026 — N30 0.2.6 field parent retry recovery
 
 Bound N30 admission retries to a failed BLE parent after its existing60s lock

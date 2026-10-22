@@ -10,7 +10,7 @@ Select a screen for its native 64×128 image.
 
 Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
 
-**PToB owns N30 native G1/RC7 development.** Version **0.2.6** supports an **RC**
+**PToB owns N30 native G1/RC7 development.** Version **0.2.7** supports an **RC**
 with **two timing inputs: BLE and passive LoRa**, a portrait OLED clock and a
 receiver-status console. The Meshnology N30 / Heltec WiFi LoRa32 V3 route uses
 an ESP32-S3, 8 MB flash and a 128×64 OLED mounted as 64×128. Start with the
@@ -35,6 +35,18 @@ lock, then seeks a fresh relay. A failed parent gets at most one new admission
 attempt per minute, leaving the shared radio budget available for relay attempts.
 The existing timing stream stays subject to its original expiry; user-selected
 named parents and relay-only mode keep their explicit policy.
+
+If a GM loses and later regains its source, a fresh returning-GM locator can
+use the bounded retry path even after its old binding expires. It must complete
+a new authenticated exchange; a remembered failure cannot blacklist that sole
+returning GM indefinitely. Fresh alternatives retain priority.
+
+A separate watchdog reboots after **five continuous minutes without current BLE
+FOLLOW time or available LoRa time** while reception is requested. Valid time
+from either input cancels that interval. Precision lock is not required;
+source-less membership, packet traffic, stale snapshots and local HOLD do not
+reset it. Explicit OFF and update maintenance inhibit this watchdog. Existing
+fault/stalled-worker supervision retains its independent two-minute timer.
 
 LoRa **AUTO** starts reception after **180 seconds without live BLE lock** and
 stops it after **180 seconds of continuous BLE lock**. A lock dip restarts the

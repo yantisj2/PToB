@@ -7,15 +7,15 @@ import argparse,json,os,subprocess
 from pathlib import Path
 from rc7_permission_e2e import native_fixture,replace_once,sha
 APP=Path(__file__).resolve().parents[1]
-CASES=('n30-relay-retry-budget','gm-dwell','gm-lock-fallback','gm-lock-search','gm-locked-retain','relay-failed-gm','quality-dip','warm-window','cold-window','source-expiry','model-expiry',
+CASES=('n30-source-return','n30-source-return-same-epoch','n30-relay-retry-budget','gm-dwell','gm-lock-fallback','gm-lock-search','gm-locked-retain','relay-failed-gm','quality-dip','warm-window','cold-window','source-expiry','model-expiry',
        'capture-gap','wrong-parent','clock-failure','control-drain','batch-budget','retry-bound','retry-unreserved','retry-relay','legacy-control','relay-control','control-gatt',
        'control-stop-bound','control-delayed','control-old','control-expired','precision-delayed')
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--out',type=Path,required=True)
     p.add_argument('--n30',action='store_true',help='Compile the production N30 parent policy');p.add_argument('--objects',type=Path,required=True);p.add_argument('--native-source',type=Path)
     p.add_argument('--cases',nargs='+',choices=CASES,default=None);a=p.parse_args()
-    if a.cases is None:a.cases=CASES if a.n30 else CASES[1:]
-    if 'n30-relay-retry-budget' in a.cases and not a.n30:p.error('N30 retry regression requires --n30')
+    if a.cases is None:a.cases=CASES if a.n30 else tuple(n for n in CASES if not n.startswith('n30-'))
+    if any(n.startswith('n30-') for n in a.cases) and not a.n30:p.error('N30 retry regression requires --n30')
     out=a.out.resolve();out.mkdir(parents=True,exist_ok=False);native_fixture(out)
     if a.native_source:
       original=a.native_source.read_text().replace('#include "native_device_binding.hpp"','#include "rc7_permission_device_fixture.hpp"')
@@ -38,7 +38,7 @@ def main():
     objects=[a.objects.resolve()/(n+'.o') for n in ('group_auth','group_join','group_precision','precision_codec','relay_codec','rc_dynamic','rc_boundary','rc_slots','g1_hmac','sha256','utils')]
     binary=out/'priority';cmd=[os.environ.get('CXX','clang++'),*flags,str(out/'priority.cpp'),*map(str,objects),'-o',str(binary)]
     with (out/'compile.log').open('w') as f:subprocess.run(cmd,stdout=f,stderr=subprocess.STDOUT,check=True,timeout=60)
-    result={'status':'RUNNING','cases':{},'native_sha256':sha(out/'native_g1_fixture.cpp'),'fixture_sha256':sha(APP/'tests/precision_priority_fixture.inc'),'scope':'SYNTHETIC_PUBLIC_SDK_BOUNDARY;NO_RF_OR_PRECISION_QUALIFICATION'}
+    result={'status':'RUNNING','cases':{},'parent_selection_sha256':sha(APP/'main/g1_parent_selection.hpp'),'native_sha256':sha(out/'native_g1_fixture.cpp'),'fixture_sha256':sha(APP/'tests/precision_priority_fixture.inc'),'scope':'SYNTHETIC_PUBLIC_SDK_BOUNDARY;NO_RF_OR_PRECISION_QUALIFICATION'}
     for name in a.cases:
       with (out/(name+'.log')).open('w') as f:r=subprocess.run([str(binary),name],stdout=f,stderr=subprocess.STDOUT,timeout=10)
       result['cases'][name]=r.returncode

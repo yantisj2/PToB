@@ -212,7 +212,7 @@ class G1ParentSelection {
     // a relay can lock out the GM. Named/relay-only choices keep their policy.
     const bool startup=startup_&&!parent_&&!force_relay_&&!target_;
     if(!collecting_||now<collecting_||now-collecting_<(startup?StartupCollectUs:CollectUs))return 0;
-    const Candidate* best=nullptr;const Candidate* incumbent=nullptr;const Candidate* active_relay=nullptr;
+    const Candidate* best=nullptr;const Candidate* incumbent=nullptr;const Candidate* unbound_retry=nullptr;const Candidate* active_relay=nullptr;
     const Candidate* best_relay=nullptr;const Candidate* best_gm=nullptr;const Candidate* pending=nullptr;const Candidate* recovery_gm=nullptr;bool waiting_gm=false;
     int best_points=INT16_MIN,current_points=INT16_MIN,gm_points=INT16_MIN;
     const bool trial_failed=needs_alternative();
@@ -237,7 +237,13 @@ class G1ParentSelection {
       if(c.identity==parent_){incumbent=&c;current_points=points;}
       // A failed precision trial remains distinct from successful packet
       // delivery. Keep a current locator for renewal if no alternative exists.
-      if(!target_&&!force_relay_&&(deferred(c.identity,c.relay,now)||(trial_failed&&c.identity==trial_)))continue;
+      if(!target_&&!force_relay_&&(deferred(c.identity,c.relay,now)||(trial_failed&&c.identity==trial_))){
+        // N30 may lose the active binding while the former parent's failed
+        // trial remains. Remember only its freshly observed locator for the
+        // bounded retry path; no old clock, permission or binding survives.
+        if(failed_retry_us_&&!parent_&&c.identity==trial_&&c.relay==trial_relay_&&retry_allowed(c.identity,c.relay,now))unbound_retry=&c;
+        continue;
+      }
       if(!c.relay&&c.identity==recovering_gm_)recovery_gm=&c;
       if(c.relay&&c.identity==pending_relay_)pending=&c;
       if(c.relay){
@@ -278,6 +284,7 @@ class G1ParentSelection {
        (score(*best_relay,now)==gm_points&&best_relay->identity<best->identity)))))best=best_relay;
     if(trial_failed&&best_relay)best=best_relay;
     if(!best&&incumbent&&retry_allowed(incumbent->identity,incumbent->relay,now))best=incumbent;
+    if(!best&&unbound_retry)best=unbound_retry;
     if(!best)return 0;
     best_points=score(*best,now);
     selection_.best_score=int16_t(best_points);

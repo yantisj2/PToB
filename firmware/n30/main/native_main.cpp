@@ -33,6 +33,7 @@
 #include "n30_console.hpp"
 #include "n30_display.hpp"
 #include "n30_lora.hpp"
+#include "sync_watchdog.hpp"
 #include "esp_mac.h"
 #include "esp_random.h"
 #include "esp_timer.h"
@@ -468,6 +469,7 @@ void respond_status(uint64_t nonce,uint64_t begin){if(lora_diagnostic_response)l
   n30_display_publish(mesh,state,micros());
 }
 void stop_all(){
+  v12::fault_watchdog_sync_progress(false,0);
 #ifdef V12_R2_ENABLED
   v12::r2_stop();
 #endif
@@ -640,6 +642,8 @@ void input(){
   if(update_gate.stage==v12::UpdateStage::Fault)mask|=v12::FaultUpdate;
 #ifdef V12_R2_ENABLED
   const auto mesh=v12::r2_status();
+  n30_lora_view lora_time;n30_lora_snapshot(lora_time);
+  v12::fault_watchdog_sync_progress(mesh.requested&&!update_gate.latched(),n30::synchronized_until(mesh,lora_time,micros()));
   if(mesh.fault||mesh.client.deadline_exceeded||mesh.rx_capture.fault)mask|=v12::FaultR2;
   api=uint8_t(mesh.first_error_api);rc=mesh.first_error_rc;
   parent=mesh.rc_parent.target;relay=mesh.rc_parent.relay;
@@ -687,7 +691,7 @@ extern "C" void app_main(){
     " max_data=191 max_GMs=4 activities=6 syncs=2 adv_sets=2 mtu=247"
     " precision=UNAVAILABLE GM=DISABLED LoRa=OFF WiFi=OFF PTS=OFF\n",
     V12_UNIT,factory_text,unsigned(identity),session,V12_SOURCE_REVISION,V12_BUILD_ID);
-  std::printf("N30_TARGET version=0.2.6 profile=RC GPS=ABSENT flash_mb=8 console=UART0_43_44 hardware=UNVALIDATED\n");
+  std::printf("N30_TARGET version=0.2.7 profile=RC GPS=ABSENT flash_mb=8 console=UART0_43_44 hardware=UNVALIDATED\n");
   if(!identity||!session){std::printf("W12_V12_FATAL reason=FACTORY_OR_BOOT_BINDING peripherals=UNTOUCHED\n");return;}
   if(!v12::fault_watchdog_start(factory,session)){std::printf("W12_V12_FATAL reason=FAULT_SUPERVISOR\n");return;}
   // This initial diagnostic candidate never initializes, migrates or writes

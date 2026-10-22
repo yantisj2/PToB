@@ -4,10 +4,11 @@
 namespace v12 {
 // Pure policy only. The platform supplies explicit fault/stalled-worker bits,
 // requests the existing immediate drain, records restart evidence and performs
-// the supported reset. Healthy service and ordinary source HOLD have no timer.
-class FaultWatchdogModel {
+// the supported reset. The120s fault alias ignores ordinary source loss;
+// N30 supplies that loss separately to its300s instance.
+template<uint64_t Delay> class ContinuousFaultWatchdogModel {
  public:
-  static constexpr uint64_t DelayUs=UINT64_C(120000000);
+  static constexpr uint64_t DelayUs=Delay;
 
   void observe(uint64_t now,uint32_t mask){
     check_time(now);
@@ -38,7 +39,7 @@ class FaultWatchdogModel {
 
  private:
   void check_time(uint64_t now){
-    // A regressed/wrapped time cannot prove a 120 s interval. This diagnostic
+    // A regressed/wrapped time cannot prove a full watchdog interval. This diagnostic
     // is sticky until construction of a fresh model; healthy input still
     // clears its fault interval. A separate platform/hardware watchdog remains
     // responsible for a broken monotonic clock or a stalled supervisor.
@@ -49,5 +50,6 @@ class FaultWatchdogModel {
   uint32_t current_mask_=0,first_mask_=0;
   bool active_=false,seen_time_=false,timing_fault_=false,restart_taken_=false;
 };
+using FaultWatchdogModel=ContinuousFaultWatchdogModel<UINT64_C(120000000)>;
 static_assert(sizeof(FaultWatchdogModel)<=32,"Fault watchdog model exceeds fixed RAM budget");
 }

@@ -345,3 +345,53 @@ preference over unlocked BLE throughout. These tests do not establish physical
 RF reception; RX ON alone supplies no time. No captured field trace explains
 the reported LoRa non-acquisition. Keep that uncertainty separate from the
 reproduced and fixed BLE admission starvation.
+
+
+## Version 0.2.7 returning source and no-time watchdog
+
+When the old source/replay scope expires, the BLE owner correctly withdraws its
+binding. The selector previously kept the failed precision trial but lost the
+incumbent locator used for bounded retries. Its trial exclusion could then
+reject the only returning GM forever, even after advisory history expired.
+N30 now allows a freshly observed locator for that unbound trial as a last
+candidate, after its60s retry gap. Eligible alternatives still win. The retry
+performs a new MAC/challenge/causal-time exchange; no old clock, source permission,
+PA handle or locator is revived. Same-boot GM recovery works with either a changed
+source epoch/publication or the same source scope. W12's default policy is unchanged.
+
+The existing100ms supervisor also owns a separate300000000us continuous no-time
+timer on N30. It runs while reception is requested and update maintenance is not
+latched. Fresh authenticated BLE FOLLOW UTC or available LoRa time cancels the
+interval; the next loss starts a new full five minutes. Relative precision lock
+is not required. The inputs retain their original source/anchor deadlines and
+250ms snapshot freshness. Local HOLD, membership, discovery, packet counters and
+repeated polls cannot count as sync. LoRa RX ON without an accepted timing pair
+cannot count either. Explicit OFF and maintenance cancel the timer immediately.
+No chip sleep/timebase behavior or display/saver cadence changes.
+
+At the full300s boundary the existing supervisor records factory/build-bound RTC
+restart evidence and calls the supported MCU restart. Its no-time mask is524288
+(`0x80000`); existing faults/stalled workers still use their separate120s timer.
+No new task, NVS write, or blocking logger is added. The restart restores only the
+existing explicit-parent intent, never old timing or automatic-parent caches.
+Volatile LoRa overrides still return to AUTO at boot. Without any source the
+unit may therefore reboot once per five-minute acquisition interval.
+
+The ordinary N30 host suite compiles the actual supervisor at synthetic FreeRTOS,
+clock and restart boundaries. It covers exact299999999/300000000us, recovery just
+before/at expiry, a fresh interval after recovery or OFF/maintenance, RTC reason,
+monotonic regression, the platform clock's upper range, and preserved W12/120s
+fault behavior. Its adapter test covers BLE/LoRa switching, expiry, stale/held
+inputs and no polling renewal. The production-native integration cases
+`n30-source-return` and `n30-source-return-same-epoch` fail on the prior selector
+and pass after the fix, performing a new signed exchange against the same GM
+boot. Run all N30 scheduling cases with:
+
+```sh
+python3 firmware/w12/tools/precision_priority_tests.py --n30 \
+  --objects artifacts/n30-shared-g1-tests --out artifacts/n30-source-return
+```
+
+Use the shared-codec preparation command above first. These are offline software
+regressions. Physical five-minute watchdog timing, GNSS loss/return in the field,
+and independently measured timing accuracy remain separate hardware observations.
