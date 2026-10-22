@@ -76,6 +76,16 @@ wire profiles and current firmware versions have separate identities. Historical
 results do not qualify later builds. PToB is not an adopted Bluetooth SIG or IEEE
 standard.
 
+**Research draft, 22 October 2026:** [Precision Bluetooth Timing on ESP32-S3:
+Causal Clock Discipline and Hardware Event Capture](papers/ptob-esp32s3-timing-preprint.pdf)
+reports 110.801 ns conditional RMS across 615 valid relative PPS observations,
+with a separate historical Nordic comparison. Its original 660-second attempt
+remains incomplete: one record was ineligible and 44 nominal opportunities were
+unrecorded. [LaTeX source](papers/ptob-esp32s3-timing-preprint.tex) and
+[edition manifest](papers/editions/s3-timing-2026-10-22.json) preserve the scope
+and limitations; fine RF timestamps and calibrated UTC and output accuracy
+remain unqualified.
+
 **Public review draft, 22 October 2026:** [A Shared Time Base for Bluetooth
 Timecode Ecosystems](papers/ptob-bluetooth-timecode-preprint.pdf) explores PToB
 as a shared timing source with proposed device-specific compatibility layers.
