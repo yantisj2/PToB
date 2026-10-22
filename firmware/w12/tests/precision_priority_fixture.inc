@@ -34,7 +34,31 @@ int main(int argc,char** argv){
  v12::Rc7PermissionInspect::seed(v12::corrected_clock,v12::anchor,fake_now);v12::admission_policy.acquired();
  assert(!v12::lock_protected(fake_now)&&v12::following(fake_now));
  const auto until=v12::anchor.until,deadline=v12::anchor.deadline();
- if(which=="gm-dwell"||which=="gm-lock-fallback"||which=="gm-lock-search"||which=="gm-locked-retain"){
+ if(which=="n30-relay-retry-budget"){
+  // A previously good, now unlocked GM keeps getting control opportunities.
+  // Its 10s retries can permanently starve the shared 20s/60s relay budget.
+  const auto begin=fake_now;
+  for(unsigned i=0;i<6;i++)v12::admission_policy.started(begin+i*10000000);
+  fake_now=begin+60000000;v12::parent_selection.locked(false,fake_now);
+  assert(v12::parent_selection.needs_alternative());
+  unsigned gm_attempts=0;bool relay_attempted=false;
+  for(unsigned seconds=0;seconds<=60;seconds+=10){
+   fake_now=begin+60000000+seconds*1000000;
+   v12::anchor.at=fake_now;v12::anchor.until=fake_now+1500000;
+   v12::Rc7PermissionInspect::seed(v12::corrected_clock,v12::anchor,fake_now);
+   v12::Discovery relay{};relay.address=v12::canonical(777);relay.sid=13;relay.at=fake_now;
+   const auto attempts=connected;v12::connect(relay,777,fake_now,true);
+   if(connected!=attempts){assert(v12::peer.relay&&v12::peer.identity==777);relay_attempted=true;break;}
+   v12::Discovery gm{};gm.address=v12::sync_address;gm.sid=12;gm.at=fake_now;
+   v12::connect(gm,501,fake_now);
+   if(connected!=attempts){
+    ++gm_attempts;ble_gap_event e{};e.type=BLE_GAP_EVENT_CONNECT;e.connect.status=1;
+    v12::gap(&e,conn_arg);assert(!v12::peer.connecting&&v12::peer.handle==v12::None);
+   }
+  }
+  std::printf("retry budget: GM attempts=%u relay attempted=%u\n",gm_attempts,unsigned(relay_attempted));
+  assert(relay_attempted&&gm_attempts<=1&&!v12::fault);
+ }else if(which=="gm-dwell"||which=="gm-lock-fallback"||which=="gm-lock-search"||which=="gm-locked-retain"){
   if(which=="gm-locked-retain")for(auto t=fake_now+57000000;t<=fake_now+59000000;t+=62500)v12::parent_selection.locked(true,t);
   fake_now+=which=="gm-dwell"?59999999:60000000;
   v12::window_start=v12::G1Window::start(fake_now);
