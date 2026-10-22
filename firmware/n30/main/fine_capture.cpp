@@ -207,7 +207,7 @@ void n30_fine_frame(v12::ConsoleFrame& f,uint32_t after,uint64_t now){
  tx_out=GPIO.func_out_sel_cfg[PTOB_N30_FINE_TX_GPIO].val;
  rx_in=GPIO.func_in_sel_cfg[mcpwm_periph_signals.groups[1].captures[0].cap_sig].val;
  tx_in=GPIO.func_in_sel_cfg[mcpwm_periph_signals.groups[1].captures[1].cap_sig].val;
- oe=((GPIO.enable.val>>PTOB_N30_FINE_RX_GPIO)&1u)|(((GPIO.enable.val>>PTOB_N30_FINE_TX_GPIO)&1u)<<1);
+ oe=((GPIO.enable>>PTOB_N30_FINE_RX_GPIO)&1u)|(((GPIO.enable>>PTOB_N30_FINE_TX_GPIO)&1u)<<1);
 #endif
  if(timer){const auto* dev=timer->group->hal.dev;for(unsigned i=0;i<3;++i)channel_mask|=uint32_t(dev->cap_chn_cfg[i].capn_en)<<i;irq_mask=(dev->int_ena.val>>27)&7;}
  snapshot={history.id(),history.until(),last_raw80,history.every(),history.seen(),history.rx(),history.tx(),history.sequence(),history.overwritten(),history.oldest(),incarnation,hz,current_reads,timeouts,invalid,poll_max,cycles_max,service_max_us,first_raw32,latest_raw32,wraps,total_callbacks,budget_refused,expired_refused,inactive_callbacks,rx_out,tx_out,rx_in,tx_in,oe,channel_mask,irq_mask,first_coarse,last_service,error,active,contained};

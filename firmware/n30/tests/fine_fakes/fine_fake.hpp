@@ -70,19 +70,19 @@ inline uint32_t mcpwm_ll_capture_get_value(FakeDevice*,int i){assert(i==2);retur
 
 inline struct {struct {struct {unsigned cap_sig=0;}captures[3]{{0},{1},{2}};}groups[2];}mcpwm_periph_signals;
 constexpr unsigned PIN_FUNC_GPIO=1;
-struct FakeGpio {struct Reg {uint32_t val=0;};Reg enable;Reg func_in_sel_cfg[3],func_out_sel_cfg[49];bool oe[49]{},ie[49]{};};
+struct FakeGpio {struct Reg {uint32_t val=0;};uint32_t enable=0;Reg func_in_sel_cfg[3],func_out_sel_cfg[49];bool oe[49]{},ie[49]{};};
 inline FakeGpio GPIO;
 inline int fake_gpio_failure=0,fake_gpio_failure_pin=-1;inline unsigned fake_gpio_calls=0,fake_output_disables[49]{};
 inline bool gpio_failure(int operation,int pin){return fake_gpio_failure==operation&&fake_gpio_failure_pin==pin;}
 struct gpio_io_config_t {uint32_t sig_out=0,fun_sel=PIN_FUNC_GPIO;bool ie=false,oe=false,oe_ctrl_by_periph=false,oe_inv=false;};
-inline int gpio_set_direction(gpio_num_t pin,int mode){assert(pin==4||pin==5);++fake_gpio_calls;if(gpio_failure(1,pin))return -1;GPIO.ie[pin]=true;GPIO.oe[pin]=mode==GPIO_MODE_INPUT_OUTPUT;if(GPIO.oe[pin])GPIO.enable.val|=1u<<pin;else GPIO.enable.val&=~(1u<<pin);GPIO.func_out_sel_cfg[pin].val=SIG_GPIO_OUT_IDX;return 0;}
+inline int gpio_set_direction(gpio_num_t pin,int mode){assert(pin==4||pin==5);++fake_gpio_calls;if(gpio_failure(1,pin))return -1;GPIO.ie[pin]=true;GPIO.oe[pin]=mode==GPIO_MODE_INPUT_OUTPUT;if(GPIO.oe[pin])GPIO.enable|=1u<<pin;else GPIO.enable&=~(1u<<pin);GPIO.func_out_sel_cfg[pin].val=SIG_GPIO_OUT_IDX;return 0;}
 inline int gpio_pullup_dis(gpio_num_t pin){++fake_gpio_calls;return gpio_failure(2,pin)?-1:0;}
 inline int gpio_pulldown_dis(gpio_num_t pin){++fake_gpio_calls;return gpio_failure(3,pin)?-1:0;}
-inline int gpio_reset_pin(gpio_num_t pin){++fake_gpio_calls;if(gpio_failure(4,pin))return -1;GPIO.oe[pin]=GPIO.ie[pin]=false;GPIO.enable.val&=~(1u<<pin);GPIO.func_out_sel_cfg[pin].val=SIG_GPIO_OUT_IDX;return 0;}
+inline int gpio_reset_pin(gpio_num_t pin){++fake_gpio_calls;if(gpio_failure(4,pin))return -1;GPIO.oe[pin]=GPIO.ie[pin]=false;GPIO.enable&=~(1u<<pin);GPIO.func_out_sel_cfg[pin].val=SIG_GPIO_OUT_IDX;return 0;}
 inline int gpio_get_io_config(gpio_num_t pin,gpio_io_config_t* io){++fake_gpio_calls;if(gpio_failure(5,pin))return -1;*io={GPIO.func_out_sel_cfg[pin].val&511,PIN_FUNC_GPIO,GPIO.ie[pin],GPIO.oe[pin],false,false};if(gpio_failure(6,pin))io->sig_out=999;return 0;}
 inline void esp_rom_gpio_connect_in_signal(int gpio,unsigned signal,bool inverted){assert(signal<3&&!inverted&&(gpio==GPIO_MATRIX_CONST_ZERO_INPUT||(PTOB_N30_FINE_PINS&&(gpio==4||gpio==5))));GPIO.func_in_sel_cfg[signal].val=(1u<<7)|unsigned(gpio);if(gpio_failure(7,gpio))GPIO.func_in_sel_cfg[signal].val^=1;}
 inline void esp_rom_gpio_connect_out_signal(int pin,int signal,bool inverted,bool oe_inverted){assert((pin==4||pin==5)&&!inverted&&!oe_inverted);if(signal==230||signal==235)assert(GPIO.ie[pin]&&GPIO.oe[pin]);GPIO.func_out_sel_cfg[pin].val=unsigned(signal);if(gpio_failure(8,pin))GPIO.func_out_sel_cfg[pin].val^=1;}
 inline void gpio_ll_set_output_enable_ctrl(FakeGpio* dev,int pin,bool inverted,bool peripheral){assert(dev==&GPIO&&!inverted&&!peripheral&&(pin==4||pin==5));}
-inline void gpio_ll_output_disable(FakeGpio* dev,int pin){assert(dev==&GPIO&&(pin==4||pin==5));dev->oe[pin]=false;dev->enable.val&=~(1u<<pin);++fake_output_disables[pin];}
+inline void gpio_ll_output_disable(FakeGpio* dev,int pin){assert(dev==&GPIO&&(pin==4||pin==5));dev->oe[pin]=false;dev->enable&=~(1u<<pin);++fake_output_disables[pin];}
 inline void mcpwm_ll_intr_enable(FakeDevice* dev,uint32_t bits,bool enable){assert(bits==(3u<<27));if(enable)dev->int_ena.val|=bits;else dev->int_ena.val&=~bits;}
 inline void mcpwm_ll_capture_enable_channel(FakeDevice* dev,int i,bool enable){assert(i<2);dev->cap_chn_cfg[i].capn_en=enable;}
