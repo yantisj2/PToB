@@ -2,6 +2,16 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 21 October 2026 — N30 0.2.4 OLED saver power reduction
+
+Set both screensaver modes to half normal OLED contrast. Keep the normal4Hz
+saver, then show only its moving source header and250ms PPS flash after15minutes
+of saver activity. Minimal mode renders only at pulse edges, blocks idle button
+polling and pauses unused legacy indicator work. BLE/LoRa timing stays active;
+the live XTAL timer retains its chip light-sleep guard. Host tests cover exact
+boundaries, wake/loss handling, all positions and unchanged normal cadence.
+Power draw and sustained hardware behavior remain separate observations.
+
 ## 21 October 2026 — T096 0.15.159 standby input and HOT page
 
 Refresh coherent direct HOT/ACQUIRING precision input before readiness consumes it,

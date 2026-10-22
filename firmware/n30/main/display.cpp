@@ -22,9 +22,15 @@ i2c_master_bus_handle_t bus=nullptr;i2c_master_dev_handle_t oled=nullptr;
 portMUX_TYPE mux=portMUX_INITIALIZER_UNLOCKED;
 n30::Model published; n30::Activity activity,lora_activity;n30::DualComparison comparison; int requested_page=-1;
 n30::ActionMailbox upstream_toggle,lora_toggle;
-struct Stats {uint32_t frames=0,errors=0,max_us=0,max_phase_us=0;uint64_t sampled=0;uint8_t page=0;bool ready=false,help=false,saver=false,blank=false;} stats;
+struct Stats {uint32_t frames=0,errors=0,max_us=0,max_phase_us=0;uint64_t sampled=0;uint8_t page=0;bool ready=false,help=false,saver=false,blank=false,minimal=false;} stats;
 TaskHandle_t ui_task=nullptr;esp_timer_handle_t frame_timer=nullptr;
+bool minimal_wait=false;
 void frame_wake(void*){if(ui_task)xTaskNotifyGive(ui_task);}
+void button_wake(void*){
+ BaseType_t higher=pdFALSE;
+ if(ui_task)vTaskNotifyGiveFromISR(ui_task,&higher);
+ if(higher)portYIELD_FROM_ISR();
+}
 uint8_t portrait[n30::FrameBytes],native[n30::FrameBytes],shadow[n30::FrameBytes];bool shadow_valid=false;
 uint64_t now_us(){return uint64_t(esp_timer_get_time());}
 bool command(uint8_t value){uint8_t data[]={0,value};return i2c_master_transmit(oled,data,sizeof data,10)==ESP_OK;}
@@ -41,24 +47,26 @@ bool flush(uint64_t deadline){
 }
 void worker(void*){
  static n30::ClockHold clock_hold; // One display owner; framebuffer stays off stack.
- n30::Input input(gpio_get_level(GPIO_NUM_0)==0);n30::View view;n30::FrameCadence cadence;
+ n30::Input input(gpio_get_level(GPIO_NUM_0)==0);n30::View view;n30::FrameCadence cadence;n30::SaverTimer saver_timer;
  uint64_t armed_due=0;bool force=true,off=false,dim=false;
  for(;;){
   const auto now=now_us();n30::Model m;portENTER_CRITICAL(&mux);m=published;portEXIT_CRITICAL(&mux);
   int request;portENTER_CRITICAL(&mux);request=requested_page;requested_page=-1;portEXIT_CRITICAL(&mux);
-  const auto prior=view;if(request>=0){view.page=uint8_t(request);view.help=false;view.blank=false;clock_hold.reset();force=true;}
+  const auto prior=view;if(request>=0){view.page=uint8_t(request);view.help=false;view.blank=false;input.activity(now);clock_hold.reset();force=true;}
   const auto action=input.update(gpio_get_level(GPIO_NUM_0)==0,now,view);
   if(action==n30::Action::ToggleRelayOnly||action==n30::Action::ToggleLoRa){portENTER_CRITICAL(&mux);(action==n30::Action::ToggleRelayOnly?upstream_toggle:lora_toggle).post(now);portEXIT_CRITICAL(&mux);}
   uint64_t utc;input.idle(now,m.locked&&m.source!=n30::Source::None&&m.state==n30::State::Follow&&n30::time(m,now,utc),view);
   clock_hold.update(m,view,now,input.saver_due(now,view));
-  if(prior.page!=view.page||prior.help!=view.help||prior.saver!=view.saver||prior.blank!=view.blank||prior.clock_frozen!=view.clock_frozen)force=true;
+  saver_timer.update(now,view);
+  portENTER_CRITICAL(&mux);minimal_wait=view.saver&&view.minimal;portEXIT_CRITICAL(&mux);
+  if(prior.page!=view.page||prior.help!=view.help||prior.saver!=view.saver||prior.blank!=view.blank||prior.clock_frozen!=view.clock_frozen||prior.minimal!=view.minimal)force=true;
   const auto phase=n30::frame_phase(m,view,now);const auto due=force?cadence.forced_deadline(phase,now):cadence.deadline(phase,now);
   if(now>=due){
    bool ok=true;if(off!=view.blank){ok=command(view.blank?0xae:0xaf);if(ok){off=view.blank;shadow_valid=false;}}
-   if(ok&&dim!=view.saver){ok=command(0x81)&&command(view.saver?0x20:0x60);if(ok)dim=view.saver;}
+   if(ok&&dim!=view.saver){ok=command(0x81)&&command(view.saver?n30::SaverContrast:n30::NormalContrast);if(ok)dim=view.saver;}
    if(ok&&!view.blank){clock_hold.draw(portrait,m,view,now);n30::rotate(native,portrait,PTOB_N30_ROTATE_CW);ok=flush(now+50000);if(ok)clock_hold.presented(m,view,now,portrait);}
    if(!ok)clock_hold.reset();
-   const auto end=now_us();portENTER_CRITICAL(&mux);stats.page=view.page;stats.help=view.help;stats.saver=view.saver;stats.blank=view.blank;stats.sampled=m.sampled_us;stats.ready=ok;
+   const auto end=now_us();portENTER_CRITICAL(&mux);stats.page=view.page;stats.help=view.help;stats.saver=view.saver;stats.blank=view.blank;stats.minimal=view.minimal;stats.sampled=m.sampled_us;stats.ready=ok;
    if(ok)stats.frames++;else stats.errors++;stats.max_us=std::max(stats.max_us,uint32_t(end-now));
    if(!force&&phase.utc){
     stats.max_phase_us=std::max(stats.max_phase_us,uint32_t(std::min<uint64_t>(now-due,UINT32_MAX)));
@@ -67,7 +75,12 @@ void worker(void*){
    cadence.completed(phase,n30::frame_phase(m,view,end));force=false;
   }
   const auto end=now_us();const auto end_phase=n30::frame_phase(m,view,end);
-  const auto next=force?cadence.forced_deadline(end_phase,end):cadence.deadline(end_phase,end);
+  auto next=force?cadence.forced_deadline(end_phase,end):cadence.deadline(end_phase,end);
+  if(view.minimal){
+   uint64_t utc;
+   if(n30::analog_time(m,end,utc))next=std::min(next,std::min(m.until_us,m.sampled_us+n30::SnapshotMaxUs));
+   const auto grace=clock_hold.deadline();if(grace>end)next=std::min(next,grace);
+  }
   if(next<=end)continue;
   if(next!=armed_due){
    if(armed_due)esp_timer_stop(frame_timer); // Already-expired timer is harmless.
@@ -76,7 +89,9 @@ void worker(void*){
   }
   // Precise frame wake interrupts the ordinary10ms button poll. The timer
   // callback only notifies; all rendering/I2C remains on this low-priority core1.
-  ulTaskNotifyTake(pdTRUE,pdMS_TO_TICKS(10));
+  // Minimal mode has no10ms idle polling. GPIO edges, fresh models and the
+  // next pulse edge wake us; debounce/held gestures retain their old cadence.
+  ulTaskNotifyTake(pdTRUE,view.minimal&&!input.polling()&&armed_due?portMAX_DELAY:pdMS_TO_TICKS(10));
  }
 }
 }
@@ -94,6 +109,8 @@ bool display_init(){
  for(auto x:init)if(!command(x))return false;
  esp_timer_create_args_t timer{};timer.callback=frame_wake;timer.name="n30_frame";
  if(esp_timer_create(&timer,&frame_timer)!=ESP_OK)return false;
+ const auto isr=gpio_install_isr_service(0);
+ if((isr!=ESP_OK&&isr!=ESP_ERR_INVALID_STATE)||gpio_set_intr_type(GPIO_NUM_0,GPIO_INTR_ANYEDGE)!=ESP_OK||gpio_isr_handler_add(GPIO_NUM_0,button_wake,nullptr)!=ESP_OK)return false;
  if(xTaskCreatePinnedToCore(worker,"n30_ui",4096,nullptr,1,&ui_task,1)==pdPASS)return true;
  esp_timer_delete(frame_timer);frame_timer=nullptr;return false;
 }
@@ -110,10 +127,11 @@ void n30_display_publish(const v12::R2Status& s,const DisplayState& d,uint64_t n
  activity.update(m,counts,s.root_identity,s.root_boot,now,s.requested&&!s.fault,radio.tx_armed);
  n30::Model events;const uint32_t lora_counts[]={lora.metadata,lora.sequence,lora.rx_done,0,lora.accepted,0,lora.map_accepted,lora.rejected+lora.crc_bad+lora.spi_error+lora.capture_overflow};
  lora_activity.update(events,lora_counts,lora.root,lora.root_boot,now,lora.active&&!lora.fault,false);std::memcpy(m.lora_lamps,events.lamps,sizeof m.lora_lamps);
- portENTER_CRITICAL(&mux);published=m;portEXIT_CRITICAL(&mux);
+ portENTER_CRITICAL(&mux);published=m;const bool wake=minimal_wait;portEXIT_CRITICAL(&mux);
+ if(wake&&ui_task)xTaskNotifyGive(ui_task); // Rephase/withdraw a lost source promptly.
 }
 void n30_display_status(v12::ConsoleFrame& f){Stats s;n30::Model m;portENTER_CRITICAL(&mux);s=stats;m=published;portEXIT_CRITICAL(&mux);
- f.format("N30_UI profile=RC GPS=ABSENT page=%u ready=%u help=%u saver=%u blank=%u frames=%lu errors=%lu max_frame_us=%lu model_us=%llu rotation=%s display=64x128 hardware=UNVALIDATED path=%s upstream=%s phase_us=%lu\n",unsigned(s.page),unsigned(s.ready),unsigned(s.help),unsigned(s.saver),unsigned(s.blank),(unsigned long)s.frames,(unsigned long)s.errors,(unsigned long)s.max_us,(unsigned long long)s.sampled,PTOB_N30_ROTATE_CW?"CW":"CCW",n30::source_label(m,now_us()),m.mode_pending?"PENDING":m.relay_only?"RELAY":"AUTO",(unsigned long)s.max_phase_us);
+ f.format("N30_UI profile=RC GPS=ABSENT page=%u ready=%u help=%u saver=%u blank=%u frames=%lu errors=%lu max_frame_us=%lu model_us=%llu rotation=%s display=64x128 hardware=UNVALIDATED path=%s upstream=%s phase_us=%lu m=%u\n",unsigned(s.page),unsigned(s.ready),unsigned(s.help),unsigned(s.saver),unsigned(s.blank),(unsigned long)s.frames,(unsigned long)s.errors,(unsigned long)s.max_us,(unsigned long long)s.sampled,PTOB_N30_ROTATE_CW?"CW":"CCW",n30::source_label(m,now_us()),m.mode_pending?"PENDING":m.relay_only?"RELAY":"AUTO",(unsigned long)s.max_phase_us,unsigned(s.minimal));
 }
 // Legacy presentation API retained only for the shared dashboard adapter.
 void display_show(const DisplayState&){}
@@ -125,3 +143,5 @@ bool n30_display_page(unsigned page){if(page>2)return false;portENTER_CRITICAL(&
 bool n30_display_take_upstream_toggle(uint64_t now){portENTER_CRITICAL(&mux);const bool take=upstream_toggle.take(now);portEXIT_CRITICAL(&mux);return take;}
 
 bool n30_display_take_lora_toggle(uint64_t now){portENTER_CRITICAL(&mux);const bool take=lora_toggle.take(now);portEXIT_CRITICAL(&mux);return take;}
+
+bool n30_display_minimal(){portENTER_CRITICAL(&mux);const bool value=minimal_wait;portEXIT_CRITICAL(&mux);return value;}

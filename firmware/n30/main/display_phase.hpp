@@ -9,9 +9,17 @@ struct FramePhase {
  uint64_t slot,edge,next;uint32_t period;bool utc;
 };
 inline FramePhase frame_phase(const Model& m,const View& v,uint64_t now){
- const uint32_t period=v.page==1&&!v.saver?125000:250000;
+ const uint32_t period=v.saver&&v.minimal?1000000:v.page==1&&!v.saver?125000:250000;
  uint64_t clock=now;const bool valid=time(m,now,clock);
  if(!valid)clock=now; // Unavailable time never acquires a UTC phase.
+ if(v.saver&&v.minimal){
+  // Two edges, not a2Hz grid:250ms lit,750ms with no routine render/I2C.
+  const auto phase=clock%1000000;
+  const bool dark=phase>=250000;
+  const auto elapsed=phase-(dark?250000:0),wait=(dark?1000000:250000)-phase;
+  return {2*(clock/1000000)+unsigned(dark),now>=elapsed?now-elapsed:0,
+          now<=UINT64_MAX-wait?now+wait:UINT64_MAX,period,valid};
+ }
  const auto phase=clock%period,wait=period-phase;
  return {clock/period,now>=phase?now-phase:0,
          now<=UINT64_MAX-wait?now+wait:UINT64_MAX,period,valid};

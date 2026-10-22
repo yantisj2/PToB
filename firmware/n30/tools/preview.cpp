@@ -13,8 +13,8 @@ int main(int argc,char** argv){
  const auto fixture_utc=m.utc_us;
  m.ble={m.utc_at_us,m.utc_us,m.until_us,1,2,3,true,true};
  uint8_t frame[n30::FrameBytes];n30::View view;
- const char* names[]={"clock","rf","saver-ble","saver-rc1","saver-rc2","clock-relay","clock-pending","clock-grace","clock-syncing","saver-grace","saver-recovered","saver-expired","clock-pps-off","saver-pps-off","lora-off","lora-on","lora-fallback","lora-fault","rf-dual"};
- for(unsigned i=0;i<19;i++){
+ const char* names[]={"clock","rf","saver-ble","saver-rc1","saver-rc2","clock-relay","clock-pending","clock-grace","clock-syncing","saver-grace","saver-recovered","saver-expired","clock-pps-off","saver-pps-off","lora-off","lora-on","lora-fallback","lora-fault","rf-dual","minimal-top-on","minimal-middle-on","minimal-bottom-on","minimal-top-off","minimal-middle-off","minimal-bottom-off"};
+ for(unsigned i=0;i<25;i++){
   view={};view.page=i==1;view.saver=i>=2&&i<=4;view.saver_position=view.saver?i-2:0;
   m.source=i==3?n30::Source::Rc1:i==4?n30::Source::Rc2:n30::Source::Ble;
   m.relay_only=i==5;m.mode_pending=i==6;if(m.mode_pending)m.valid=m.locked=false;
@@ -39,6 +39,12 @@ int main(int argc,char** argv){
    if(l.active){l.utc_us=fixture_utc;l.until_us=now+12000000;l.state=2;l.age_ms=400;l.root=0x1234;l.parent=0x5678;l.link_samples=16;l.link_rms_ns=275;l.metadata_known=true;l.kind=2;}
    if(i==16){m.ble.valid=false;m.source=n30::Source::LoRa;}
    if(i==18){m.delta_valid=m.drift_valid=true;m.delta_ns=-1123;m.drift_ppb=24;m.lora_lamps[0]=m.lora_lamps[2]=m.lora_lamps[4]=1;}
+  }
+  if(i>=19){
+   view={};view.saver=view.minimal=true;view.saver_position=(i-19)%3;
+   m.valid=m.locked=true;m.mode_pending=false;m.source=n30::Source::Ble;
+   m.sampled_us=m.utc_at_us=now;m.until_us=now+250000;m.utc_us=fixture_utc+(i>=22?250000:0);
+   hold.reset();
   }
   hold.draw(frame,m,view,now);char path[1024];std::snprintf(path,sizeof path,"%s/%s.pgm",argv[1],names[i]);
   auto f=std::fopen(path,"wb");if(!f)return 3;std::fprintf(f,"P5\n64 128\n255\n");

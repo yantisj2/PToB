@@ -8,6 +8,8 @@ namespace n30 {
 constexpr unsigned Width=64,Height=128,FrameBytes=1024;
 constexpr uint64_t SnapshotMaxUs=250000,IdleUs=300000000,MoveUs=30000000;
 constexpr uint64_t ClockGraceUs=500000;
+constexpr uint64_t MinimalAfterUs=900000000;
+constexpr uint8_t NormalContrast=0x60,SaverContrast=NormalContrast/2;
 enum class State:uint8_t {Off,Search,Join,Acquire,Follow,Hold,Fault};
 enum class Source:uint8_t {None,Ble,Rc1,Rc2,LoRa};
 enum class Action:uint8_t {None,ToggleRelayOnly,ToggleLoRa};
@@ -25,6 +27,21 @@ struct Model {
 struct View {
  uint8_t page=0,saver_position=0;bool help=false,saver=false,blank=false;
  bool clock_frozen=false;
+ bool minimal=false;
+};
+// Count actual saver residence, including its brief display-only loss grace.
+class SaverTimer {
+ uint64_t started_=0,last_=0;bool active_=false;
+ public:
+ void update(uint64_t now,View& v){
+  if(!v.saver||v.help||v.blank||(active_&&now<last_))active_=false;
+  v.minimal=false;
+  if(v.saver&&!v.help&&!v.blank){
+   if(!active_){started_=now;active_=true;}
+   v.minimal=now-started_>=MinimalAfterUs;
+  }
+  last_=now;
+ }
 };
 bool current(const Model&,uint64_t now);
 bool time(const Model&,uint64_t now,uint64_t& utc);
@@ -46,6 +63,7 @@ class ClockHold {
  void update(const Model&,View&,uint64_t now,bool saver_due=false);
  void draw(uint8_t frame[FrameBytes],const Model&,const View&,uint64_t now)const;
  void presented(const Model&,const View&,uint64_t now,const uint8_t frame[FrameBytes]);
+ uint64_t deadline()const{return saved_&&losing_?loss_at_+ClockGraceUs:UINT64_MAX;}
 };
 class Input {
  bool raw_=false,stable_=false,armed_=false,consumed_=false,wake_=false,main_press_=false,lora_press_=false,lora_eligible_=false;
@@ -55,6 +73,8 @@ class Input {
  Action update(bool pressed,uint64_t now,View& view);
  bool saver_due(uint64_t now,const View& view)const;
  void idle(uint64_t now,bool eligible,View& view)const;
+ bool polling()const{return raw_||stable_;} // Debounce/holds still use10ms.
+ void activity(uint64_t now){idle_=now;}
 };
 // Caller serializes access. One physical action, never a delayed toggle train.
 class ActionMailbox {

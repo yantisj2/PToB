@@ -58,6 +58,7 @@ void render(uint8_t f[FrameBytes],const Model& m,const View& v,uint64_t now){
   const int top=4+22*(v.saver_position%3);box(f,1,top,62,11);
   text(f,5,top+2,"UTC");text(f,33,top+2,source_label(m,now));
   if(pps_on(m,now))fill(f,56,top+3,3,5);
+  if(v.minimal)return;
   box(f,1,top+13,62,49);dial(f,top+37,utc,m.hz);header(f,m,true,top+64);return;
  }
  header(f,m,fresh);
@@ -90,5 +91,6 @@ void ClockHold::draw(uint8_t frame[FrameBytes],const Model& m,const View& v,uint
  // Cached clock pixels are never evidence of a fresh UTC edge. Keep the
  // assembly still during grace, but suppress its PPS lamp without a live gate.
  fill(frame,56,saver_?7+22*(position_%3):16,3,5,false);
+ if(saver_&&v.minimal)fill(frame,0,15+22*(position_%3),64,128,false);
 }
 }

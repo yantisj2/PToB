@@ -2,7 +2,8 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
 
-**Version 0.2.3 adds passive RC8 wire3 LoRa timing with BLE priority, 180-second
+**Version 0.2.4 adds a half-contrast OLED saver and a minimal moving header after
+15 minutes in the saver. Version 0.2.3 added passive RC8 wire3 LoRa timing with BLE priority, 180-second
 AUTO acquisition/recovery dwell and a third T096-style receiver page. Physical
 LoRa reception and timing accuracy require separate hardware observations.**
 Meshnology N30 / Heltec WiFi LoRa32 V3 is the proposed board route: ESP32-S3,
@@ -92,11 +93,28 @@ performance. [Reproduction and arrival checklist](../../docs/n30/build.md).
   upstream path, independent of requested mode; outside the brief presentation grace, stale/pending time shows `WAIT`
   and a valid local hold shows `HOLD`. No unavailable source is invented.
   There is no runtime GM/RC toggle. Boot-held buttons do not trigger actions.
+- Both saver modes use OLED contrast `0x30`, half the normal `0x60` setting
+  (not a measured luminance or battery-life ratio). Normal saver rendering stays
+  at4Hz. After15minutes of actual saver activity, only the moving UTC/source
+  header and250ms PPS lamp remain; the analog dial and identity strip disappear.
+  The three positions still advance every30s. Minimal mode renders at the
+  second edge and250ms later, with no routine render or I2C refresh for the
+  remaining750ms. Button/source changes, expiry, recovery and failures can wake
+  it earlier. Wake or sustained saver exit resets the15minute residence timer;
+  the existing500ms presentation grace does not reset it.
+- Minimal mode blocks the display task between timer/model/GPIO notifications
+  instead of polling an idle button every10ms; debounce and holds keep10ms
+  polling. The unused20ms legacy indicator calculations pause; radio workers,
+  current model publication and source-expiry checks continue. ESP32-S3 chip
+  light sleep remains inhibited by the live XTAL GPTimer's SDK power lock:
+  stopping that counter would invalidate BLE/LoRa timing. No manual light sleep,
+  radio suspension or battery-duration improvement is claimed. `N30_UI m=1`
+  identifies minimal mode. Software tests/previews do not measure power draw.
 - A sole low-priority display/button worker on core 1 owns I2C; the main timing
   task and BLE host/controller remain on core 0. Clock/saver updates target 4 Hz,
   RF 8 Hz and LoRa 4 Hz, aligned to the current modeled UTC quarter/eighth-second grid. An
   `esp_timer` one-shot only wakes the worker; it does no rendering or clock work.
-  Buttons retain 10 ms polling and page/wake redraws run promptly. Fresh models
+  Buttons retain 10 ms polling outside minimal idle, and page/wake redraws run promptly. Fresh models
   rephase pending wakes; missed frames are dropped without catch-up. Both clock
   surfaces show a 250 ms PPS lamp at the modeled second edge, only while live
   and relatively locked; HOLD/stale/fault/pending time cannot blink. OLED pages

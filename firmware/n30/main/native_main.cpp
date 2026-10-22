@@ -687,7 +687,7 @@ extern "C" void app_main(){
     " max_data=191 max_GMs=4 activities=6 syncs=2 adv_sets=2 mtu=247"
     " precision=UNAVAILABLE GM=DISABLED LoRa=OFF WiFi=OFF PTS=OFF\n",
     V12_UNIT,factory_text,unsigned(identity),session,V12_SOURCE_REVISION,V12_BUILD_ID);
-  std::printf("N30_TARGET version=0.2.3 profile=RC GPS=ABSENT flash_mb=8 console=UART0_43_44 hardware=UNVALIDATED\n");
+  std::printf("N30_TARGET version=0.2.4 profile=RC GPS=ABSENT flash_mb=8 console=UART0_43_44 hardware=UNVALIDATED\n");
   if(!identity||!session){std::printf("W12_V12_FATAL reason=FACTORY_OR_BOOT_BINDING peripherals=UNTOUCHED\n");return;}
   if(!v12::fault_watchdog_start(factory,session)){std::printf("W12_V12_FATAL reason=FAULT_SUPERVISOR\n");return;}
   // This initial diagnostic candidate never initializes, migrates or writes
@@ -818,14 +818,17 @@ extern "C" void app_main(){
     if(update_ui){last_ui=now;ui();}
 #if defined(V12_R2_ENABLED) && V12_R2_CONFIG == 13
     if(ui_ready&&now-last_indicator_us>=20000){
-      last_indicator_us=now;const auto now20=ticks();const auto gps=gnss_pps::activity(now20);
-      const auto radio=v12::r2_activity();
-      const auto lamps=indicator_model.update(now20,radio.rx,radio.tx,
-        radio.requested&&!radio.fault&&!radio.mode_pending,radio.tx_armed,gps.packet20,gps.pps20,gps.fix);
-      if(ui_subus&&!lamps.subus)last_ui=0; // Withdraw the header on the next main pass, too.
-      ui_subus=lamps.subus;ui_gps_present=false;
-      ui_gps_lamps=0;
-      // N30 has no physical GNSS/PPS lamps; its RF page uses semantic counters.
+      last_indicator_us=now;
+      if(!n30_display_minimal()){
+        const auto now20=ticks();const auto gps=gnss_pps::activity(now20);
+        const auto radio=v12::r2_activity();
+        const auto lamps=indicator_model.update(now20,radio.rx,radio.tx,
+          radio.requested&&!radio.fault&&!radio.mode_pending,radio.tx_armed,gps.packet20,gps.pps20,gps.fix);
+        if(ui_subus&&!lamps.subus)last_ui=0; // Withdraw the header on the next main pass, too.
+        ui_subus=lamps.subus;ui_gps_present=false;
+        ui_gps_lamps=0;
+        // N30 has no physical GNSS/PPS lamps; its RF page uses semantic counters.
+      }
     }
 #endif
     clock_fault_progress();

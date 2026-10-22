@@ -36,7 +36,8 @@ python3 registry/test_registry.py
 
 Use fresh output directories. `--alias N3-2` generates the other reserved name.
 Previews include all three pages, separate dual RF clocks and LoRa OFF/ON/fallback/fault states, BLE/RC1/RC2 savers at all three moving positions,
-and relay-only/pending main-page examples. They are native64×128 PNGs from the actual firmware renderer. Preview receipts
+minimal header-only PPS-on/off frames at all three positions, and
+relay-only/pending main-page examples. They are native64×128 PNGs from the actual firmware renderer. Preview receipts
 record source/fixture hashes and synthetic scope. The tests cover both8192-pixel
 rotations, bounds, unavailable/fault/expired states, input/wake/idle behavior,
 activity scope reset, no-GPS inputs and shared-map collision rejection.
@@ -272,3 +273,15 @@ clock or pending upstream change cannot hide that LOR clock or its modeled PPS
 lamp. Actual BLE lock restores BLE preference. This is presentation selection;
 radio180s dwell, source expiry, independent raw clocks/comparison, timing models
 and W12/T096 behavior remain unchanged.
+
+Version0.2.4 preserves normal4Hz saver refresh, sets both saver modes to half
+normal OLED contrast, and enters a header-only saver after900seconds of actual
+saver residence. Its two routine frame edges are0/250ms within each modeled
+second; the other750ms have no routine rendering or I2C. GPIO edges wake the
+blocked display worker; model notifications still rephase wakes and source
+expiry/grace deadlines remain bounded. Unused20ms legacy indicator calculations
+pause in minimal mode. The live20MHz XTAL GPTimer's SDK lock prevents chip light
+sleep, preserving the BLE/LoRa timebase; task blocking is not chip light sleep.
+Host tests cover exact residence/PPS boundaries, late initial lock, wake/reset,
+all positions, cached-clock loss and unchanged normal cadence. Physical power,
+long-duration operation and display-edge accuracy require separate observations.

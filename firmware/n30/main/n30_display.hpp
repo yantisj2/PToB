@@ -11,3 +11,4 @@ bool n30_display_page(unsigned page);
 bool n30_display_take_upstream_toggle(uint64_t now);
 
 bool n30_display_take_lora_toggle(uint64_t now);
+bool n30_display_minimal();
