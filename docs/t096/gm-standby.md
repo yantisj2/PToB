@@ -1101,3 +1101,46 @@ pair, then add qualified COLD participants one at a time. Exercise reboot with
 cached peer state, intermittent RF, local-source loss and eventual newcomer
 admission separately, preserving missing data and each original failure. Keep
 the stream-driven takeover/quality-yield draft separate from this release.
+
+## Source164 extended field checkpoint
+
+A separate1800s read-only run completed112 full three-unit cohorts on the same
+recorded source164 boots. Independent replay accepted2651/2651 CRC frames and
+matched all2645 cohort payloads to raw records. The earlier600s run and this run
+remain separate populations; the intervening reader gap is not continuous
+observation. All readers, serial aliases, guards and unit locks were released
+after collection, leaving normal service running.
+
+TC01 reported qualified HOT, valid maps and precision lock112/112, with unchanged
+local source epoch, ACTIVE partner incarnation and withdrawal count. Its sampled
+role interval spanned1799.816345s, with a maximum18.699981s sampling gap. There
+were111 observed generation-change boundaries,434→1331, across112 distinct
+sampled generations. These are observed changes, not a count of every renewal
+or one unchanged grant. The reported ACTIVE identity matched the offsite unit,
+last installed with source162; its running firmware and serving state were not
+independently captured. There were zero two-sided pair cohorts.
+
+TC02 and TC03 remained COLD with valid locked maps and delivered follower time
+112/112 each. Their independent local-source qualification was79/112 and0/112.
+TC02's local input and qualification changed without breaking its delivered
+timing. A bounded review found local raw-clock expiry as well as recovery;
+accepted precision-sample age alone cannot establish missing physical PPS edges.
+No new qualification or timer change is justified by these snapshots.
+
+Sampled network errors, new transport errors and HOT withdrawals were zero on
+all three units, with no observed boot change. Sparse LoRa observations showed
+zero faults in19,31 and19 samples respectively. The sole transmitter, TC03,
+advanced TX_DONE167→599 and accepted154→571. Its final sampled uptime2519422ms
+exceeded the earlier source162 fatal's2028137ms; different builds and schedules
+make this a bounded comparison, not proof that the original cause is removed.
+Bounded event drains returned1008 records and reported18893 missed records after
+initial cursor bootstrap, limiting detailed transition causality.
+
+The two public controller backports and startup ownership gate therefore have
+passing host/native checks and a completed longer field observation, without a
+new observed fatal. This run neither isolates either controller mechanism nor
+exercises forced precision loss, takeover or a controlled newcomer. Those tests
+and same-image observation of both pair members remain open. Keep TC02's local
+input recovery investigation separate from stable COLD reception, and retain
+failure-only controller context for any recurrence. No calibrated UTC or
+independently measured output-accuracy qualification follows from this run.
