@@ -442,9 +442,7 @@ int r2_service_configure(const struct r2_identity *id,const struct r2_enrollment
  net.group=roster.group;net.capabilities=e->group.id?roster.local_capabilities:3;
 #if defined(R2_GM5_NATIVE) && !defined(R2_PC_PROFILE)
  net.gm5.enabled=roster.group.id&&(net.capabilities&1)&&!profile_rc;
-#ifdef R2_LORA
- struct r2_lora_view bridge_view;r2_lora_view(&bridge_view);net.gm5.bridge=r2_gm5_bridge_needed(&net.gm5,bridge_view.transmitter,bridge_view.requested);
-#endif
+ net.gm5.bridge=r2_gm5_cold_listener(&net.gm5);
 #endif
  r2_ble_gm5_policy(net.gm5.enabled,0,true);
  r2_ble_group_client(roster.group.id&&!(net.capabilities&1));
@@ -751,9 +749,7 @@ static int profile_restart(uint64_t now){
  net.group=roster.group;net.capabilities=roster.local_capabilities;
 #if defined(R2_GM5_NATIVE)
  net.gm5.enabled=!profile_rc&&(net.capabilities&1);
-#ifdef R2_LORA
- struct r2_lora_view bridge_view;r2_lora_view(&bridge_view);net.gm5.bridge=r2_gm5_bridge_needed(&net.gm5,bridge_view.transmitter,bridge_view.requested);
-#endif
+ net.gm5.bridge=r2_gm5_cold_listener(&net.gm5);
 #endif
  r2_ble_gm5_policy(net.gm5.enabled,0,true);
  net.peer[0].identity=profile_identity;memcpy(net.name,saved_name,sizeof net.name);
