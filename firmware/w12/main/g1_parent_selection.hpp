@@ -32,6 +32,7 @@ class G1ParentSelection {
   uint64_t pending_relay_=0,pending_until_=0;
   uint64_t recovering_gm_=0,gm_recovery_until_=0;
   uint64_t bound_at_=0,usable_at_=0,usable_owned_=0,usable_good_=0;
+  uint64_t failed_retry_us_=0,retry_after_=0;
   uint64_t trial_=0,trial_since_=0,locked_at_=0,lock_candidate_since_=0,lock_sample_at_=0;
   int16_t bound_rssi_=-127;
   uint8_t missed_=0;bool scanner_=false,force_relay_=false,cold_poor_=false,target_relay_=true;
@@ -43,16 +44,17 @@ class G1ParentSelection {
   int score(const Candidate& c,uint64_t now)const{return G1ParentHistory::score(history_.find(c.identity,c.relay,now),c.relay,c.rssi,now,history_);}
   void begin_trial(uint64_t id,bool is_relay,uint64_t now){
     if(!id||!now||(trial_==id&&trial_relay_==is_relay))return;
-    trial_=id;trial_relay_=is_relay;trial_since_=now;locked_at_=lock_candidate_since_=lock_sample_at_=0;trial_bound_=trial_failed_=false;
+    trial_=id;trial_relay_=is_relay;trial_since_=now;locked_at_=lock_candidate_since_=lock_sample_at_=0;trial_bound_=trial_failed_=false;retry_after_=0;
   }
  public:
+  explicit G1ParentSelection(uint64_t failed_retry_us=0):failed_retry_us_(failed_retry_us){}
   // Retire every locator/current owner while retaining only advisory learning.
   void reset(){for(auto& c:candidates_)c={};quality_={};collecting_=discovery_since_=parent_=renew_at_=0;
     scan_at_=scan_owned_=target_=bound_at_=usable_at_=usable_owned_=usable_good_=startup_scan_owned_=0;missed_=0;
     scanner_=force_relay_=cold_poor_=target_relay_=parent_relay_=false;target_relay_=true;
     pending_relay_=pending_until_=0;
     recovering_gm_=gm_recovery_until_=0;
-    trial_=trial_since_=locked_at_=lock_candidate_since_=lock_sample_at_=0;trial_relay_=trial_bound_=trial_failed_=false;
+    trial_=trial_since_=locked_at_=lock_candidate_since_=lock_sample_at_=0;trial_relay_=trial_bound_=trial_failed_=false;retry_after_=0;
     bound_rssi_=-127;usable_value_=usable_reported_=usable_previous_=usable_previous_valid_=false;selection_={};}
   void clear_history(){history_.clear();}
   const G1ParentHistory& history()const{return history_;}
@@ -65,7 +67,14 @@ class G1ParentSelection {
   bool seeking_relay()const{return target_?target_relay_:force_relay_||cold_poor_||quality_.view.poor||needs_alternative();}
   bool needs_alternative()const{return !target_&&!force_relay_&&trial_&&trial_failed_;}
   bool deferred(uint64_t id,bool relay,uint64_t now)const{return history_.lock_deferred(id,relay,now);}
+  bool retry_allowed(uint64_t id,bool is_relay,uint64_t now)const{
+    return !failed_retry_us_||target_||force_relay_||!trial_failed_||
+      id!=trial_||is_relay!=trial_relay_||now>=retry_after_;
+  }
   void attempted(uint64_t id,bool is_relay,uint64_t now){
+    if(!retry_allowed(id,is_relay,now))return;
+    if(failed_retry_us_&&trial_failed_&&id==trial_&&is_relay==trial_relay_)
+      retry_after_=now>UINT64_MAX-failed_retry_us_?UINT64_MAX:now+failed_retry_us_;
     // Probing a relay must not make the old failed GM protected again. Only
     // a successful new binding replaces an existing parent's lock trial.
     if(!parent_)begin_trial(id,is_relay,now);
@@ -76,18 +85,22 @@ class G1ParentSelection {
   void locked(bool value,uint64_t now){
     if(!trial_||!trial_since_)return;
     if(now<trial_since_||(locked_at_&&now<locked_at_)){
-      trial_since_=now;locked_at_=lock_candidate_since_=lock_sample_at_=0;trial_failed_=false;return;
+      trial_since_=now;locked_at_=lock_candidate_since_=lock_sample_at_=0;trial_failed_=false;retry_after_=0;return;
     }
     if(value&&parent_==trial_){
       if(!lock_sample_at_||now<lock_sample_at_||now-lock_sample_at_>LockSampleGapUs)lock_candidate_since_=now;
       lock_sample_at_=now;
       if(now-lock_candidate_since_>=LockConfirmUs){
-        locked_at_=now;trial_failed_=false;history_.locked(trial_,trial_relay_,now);return;
+        locked_at_=now;trial_failed_=false;retry_after_=0;history_.locked(trial_,trial_relay_,now);return;
       }
     }else lock_candidate_since_=lock_sample_at_=0;
     const auto since=locked_at_?locked_at_:trial_since_;
     if(!trial_failed_&&now-since>=LockDwellUs){
-      trial_failed_=true;history_.lock_failed(trial_,trial_relay_,now);
+      trial_failed_=true;
+      // Leave a full admission-budget window for alternatives. Otherwise
+      // direct retries can keep the shared relay rate gate closed forever.
+      retry_after_=now>UINT64_MAX-failed_retry_us_?UINT64_MAX:now+failed_retry_us_;
+      history_.lock_failed(trial_,trial_relay_,now);
     }
   }
   uint64_t parent()const{return parent_;}
@@ -264,7 +277,7 @@ class G1ParentSelection {
     if(best_relay&&(!best||(!startup&&!return_gm&&!gm_first&&(score(*best_relay,now)>gm_points||
        (score(*best_relay,now)==gm_points&&best_relay->identity<best->identity)))))best=best_relay;
     if(trial_failed&&best_relay)best=best_relay;
-    if(!best&&incumbent)best=incumbent;
+    if(!best&&incumbent&&retry_allowed(incumbent->identity,incumbent->relay,now))best=incumbent;
     if(!best)return 0;
     best_points=score(*best,now);
     selection_.best_score=int16_t(best_points);

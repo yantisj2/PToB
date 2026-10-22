@@ -301,3 +301,47 @@ Production-pipeline regressions cover both layouts, all pages/positions, repeate
 source changes, partial lock loss, cache resets, exact499999/500000us loss and
 recovery boundaries, and a15minute transition during an outage. This does not
 extend radio source validity or independently qualify physical display timing.
+
+
+## Version 0.2.6 field parent recovery
+
+N30 enables a60s failed-parent admission retry gap in the shared W12 owner.
+After60s without two continuously observed seconds of raw relative lock and the
+existing one-second hold budget, automatic selection seeks alternatives. The
+failed parent cannot start another admission for60s, then gets at most one retry
+per60s until sustained lock or an actual new parent binding. Ordinary packet
+arrival, JOIN renewal, source-epoch changes and short lock flickers do not reset
+that failed-parent window. The old stream may continue only within its original
+source/model deadlines; this policy grants no time or admission authority.
+Named-parent and relay-only operator constraints retain their policy. The shared
+W12 default retry gap stays zero; T096 sources are unchanged.
+
+The prior one-minute selector alone was insufficient: direct-GM retries could
+keep sliding the common admission rate history forward, preventing a relay's
+20s/60s rate gate from opening. A synthetic production-native regression records
+seven more GM attempts with no relay before the change, and a relay opportunity
+within the next60s under the same history after it. This is an opportunity bound
+under those synthetic conditions, not a promise that an absent, unauthenticated
+or unreachable relay will synchronize.
+
+Run the retry integration check after building the shared host codec objects:
+
+```sh
+python3 firmware/w12/tools/g1_host_tests.py --out artifacts/n30-shared-g1-tests
+python3 firmware/w12/tools/precision_priority_tests.py --n30 \
+  --objects artifacts/n30-shared-g1-tests --out artifacts/n30-parent-recovery \
+  --cases n30-relay-retry-budget gm-dwell gm-lock-fallback gm-lock-search \
+    gm-locked-retain relay-failed-gm
+```
+
+The ordinary N30 host suite also covers exact retry boundaries, source renewal,
+unavailable/rebind, operator choices, brief/sustained lock recovery and preserved
+W12 defaults. The LoRa suite now links the actual SX1262 owner, RC8 codec/group
+HMAC, N30 bridge and display selector against synthetic peripherals. It starts
+AUTO RX after a late BLE loss, runs six simulated minutes through capture-counter
+wraps, drops a CRC packet, expires timing during total RF loss, and reacquires
+from fresh physical original/followup pairs. Available LoRa retains display
+preference over unlocked BLE throughout. These tests do not establish physical
+RF reception; RX ON alone supplies no time. No captured field trace explains
+the reported LoRa non-acquisition. Keep that uncertainty separate from the
+reproduced and fixed BLE admission starvation.

@@ -84,7 +84,11 @@ G1CoarseHold coarse_hold;
 G1CorrectedClock corrected_clock;
 G1AdmissionPolicy admission_policy;G1RetainedEstimate retained_estimate;G1ReceiveLoss receive_loss;
 uint32_t retained_accepted=0;bool corrected_was_live=false;
-Rc7Client rc_client;G1ParentSelection parent_selection;
+Rc7Client rc_client;
+#ifndef V12_G1_FAILED_PARENT_RETRY_US
+#define V12_G1_FAILED_PARENT_RETRY_US 0
+#endif
+G1ParentSelection parent_selection{V12_G1_FAILED_PARENT_RETRY_US};
 G1GmDiscovery gm_discovery;
 G1ParentJournal parent_journal;
 // A callback records one bounded outcome; only the serialized worker updates
@@ -547,7 +551,7 @@ bool connect_parameter_refusal(int rc,const ble_gap_conn_params& p){
     !p.min_ce_len&&!p.max_ce_len;
 }
 void connect(const Discovery& d,uint64_t id,uint64_t now,bool relay=false){
-  if(!admission_policy.allowed(now,full_listening()&&!relay))return;
+  if(!parent_selection.retry_allowed(id,relay,now)||!admission_policy.allowed(now,full_listening()&&!relay))return;
   relay_poll(now,true);if(!relay_acl_available())return;stop_scan();if(scan||!timely())return;
   if(nonce==UINT64_MAX){fault=true;return;}++nonce;
   if(incarnation==UINT32_MAX){fault=true;return;}

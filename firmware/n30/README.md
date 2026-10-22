@@ -10,7 +10,7 @@ Select a screen for its native 64×128 image.
 
 Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
 
-**PToB owns N30 native G1/RC7 development.** Version **0.2.5** supports an **RC**
+**PToB owns N30 native G1/RC7 development.** Version **0.2.6** supports an **RC**
 with **two timing inputs: BLE and passive LoRa**, a portrait OLED clock and a
 receiver-status console. The Meshnology N30 / Heltec WiFi LoRa32 V3 route uses
 an ESP32-S3, 8 MB flash and a 128×64 OLED mounted as 64×128. Start with the
@@ -29,6 +29,12 @@ transmitter provides display fallback. A valid, settled BLE relative lock has
 display preference. When BLE is marginal or pending and LoRa time is available,
 the clock dashboard uses `LOR`, keeps its analog dial and PPS lamp, and labels
 its quality `LINK RMS`.
+
+Automatic BLE selection gives a parent one minute to regain sustained relative
+lock, then seeks a fresh relay. A failed parent gets at most one new admission
+attempt per minute, leaving the shared radio budget available for relay attempts.
+The existing timing stream stays subject to its original expiry; user-selected
+named parents and relay-only mode keep their explicit policy.
 
 LoRa **AUTO** starts reception after **180 seconds without live BLE lock** and
 stops it after **180 seconds of continuous BLE lock**. A lock dip restarts the

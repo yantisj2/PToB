@@ -2,6 +2,22 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 22 October 2026 — N30 0.2.6 field parent retry recovery
+
+Bound N30 admission retries to a failed BLE parent after its existing60s lock
+trial. Repeated direct-GM retries previously kept the shared20s/60s relay rate
+gate closed indefinitely; a production-native synthetic regression reproduces
+seven GM attempts and zero relay attempts, then passes with the fix. Reserve60s
+for alternatives and allow at most one failed-parent retry per minute afterward.
+Keep actual source expiry, live reception, manual selection, LoRa AUTO timing and
+valid LoRa display preference. W12 defaults and T096 firmware behavior stay unchanged.
+
+Sanitized offline checks cover retry boundaries, renewal/rebind, recovery and
+manual choices, plus the actual N30 radio owner with authenticated RC8 pairs,
+late AUTO startup, six minutes of capture wraps, CRC loss and reacquisition.
+No field trace established why LoRa lacked time during the reported incident;
+physical handover and LoRa reception still require a separate hardware check.
+
 ## 22 October 2026 — N30 0.2.5 continuous saver session
 
 Keep the normal and minimal OLED savers in one session across BLE/LoRa switches,
