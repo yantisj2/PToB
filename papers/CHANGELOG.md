@@ -1,5 +1,14 @@
 # Manuscript history
 
+## 2026-10-22 — Bluetooth timecode public draft review
+
+- Jonathan Yantis approved the 22 October Bluetooth timecode paper for public
+  draft review alongside the repository's other research. Publish the reviewed
+  PDF, matching LaTeX, immutable edition receipt and offline verifier unchanged.
+- Link the paper from the root research section and record its public-review
+  status in the paper catalogue. This approval does not promote a stable edition,
+  submit the manuscript to a venue or qualify the proposed compatibility layers.
+
 ## 2026-10-22 — shared time base and Bluetooth timecode compatibility
 
 - Added a standalone research draft and matching PDF proposing a time/quality/event

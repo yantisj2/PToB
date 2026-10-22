@@ -29,7 +29,9 @@ draft status.
 | Beyond USB Packet Arrival: Frame-Identified Time Transfer to macOS | [PDF](usb-macos-time-transfer-preprint.pdf) | [LaTeX](usb-macos-time-transfer-preprint.tex) | 17 October 2026, shared-bus RC/DC revision |
 | From Virtual Clock Discipline to Physical Synchronization: White Rabbit Lessons for PToB and Future Tunable Targets | [PDF](white-rabbit-study-20261015.pdf) | [LaTeX](white-rabbit-study-20261015.tex) | 15 October 2026 |
 
-The Bluetooth timecode paper has a [22 October edition manifest](editions/bluetooth-timecode-2026-10-22.json)
+The Bluetooth timecode paper was **approved for public draft review on
+22 October 2026** and remains a research draft. It has a
+[22 October edition manifest](editions/bluetooth-timecode-2026-10-22.json)
 and [offline analytical verifier](../tools/verify_timecode_paper.py). It proposes
 a shared time/quality/event contract, exact rational frame and sample mapping,
 and ecosystem-specific adapters, with a dated manufacturer-source survey and
@@ -37,6 +39,8 @@ staged independent recorded-event validation. Commercial Bluetooth interoperabil
 LTC/MTC generation, TAI firmware support and capture/genlock qualification remain
 future work. Earlier evidence populations stay separate; no new hardware test,
 vendor integration, submission or draft promotion accompanies this edition.
+The immutable edition receipt records preparation before the GitHub push;
+the [manuscript history](CHANGELOG.md) records the subsequent public-review approval.
 
 The power scheduling paper has a [19 October edition manifest](editions/power-scheduling-2026-10-19.json)
 and [sanitized offline supplement](../evidence/power/2026-10-19/README.md).
