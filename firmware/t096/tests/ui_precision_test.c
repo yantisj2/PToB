@@ -18,9 +18,9 @@ static void fixture(const char *dir,const char *name,const struct r2_ui_model *m
 int main(int argc,char **argv){
  assert(argc==2);
  struct r2_ui_model m={.sampled_ms=1000,.profile_supported=true,.platform_ready=true,.ble_active=true,
-  .scope_active=true,.authenticated_gm=true,.role=R2_UI_FOLLOWER,.gm_capable=true,.local_hot_standby=true,
+  .scope_active=true,.authenticated_gm=true,.ble_time_selected=true,.ble_valid_until_us=63000000,.role=R2_UI_FOLLOWER,.gm_capable=true,.local_hot_standby=true,
   .clock={.pps_present=true,.pps_age_us=0,.fix_active=true,.sats_used=22},
-  .precision={.authorized=true,.map_valid=true,.locked=true}};
+  .precision={.authorized=true,.map_valid=true,.locked=true,.rms_valid=true,.rms_ns=137}};
  struct r2_ui_holds h={0};r2_ui_holds_update(&h,&m,1000);assert(h.pps_since==2&&h.hot_since==2);
  m.sampled_ms=62000;r2_ui_holds_update(&h,&m,62000);assert(h.pps_since==2&&h.hot_since==2);
  char text[24];hold_text(text,"PPS",h.pps_since,62000);assert(!strcmp(text,"PPS 01:01"));
@@ -31,7 +31,7 @@ int main(int argc,char **argv){
  m.sampled_ms=62000;m.clock.pps_age_us=R2_PPS_FRESH_US-1000;
  r2_ui_holds_update(&h,&m,62001);assert(!h.pps_since); /* age advances between models */
  m.clock.pps_age_us=0;m.profile_rc=true;r2_ui_holds_update(&h,&m,62000);assert(!h.hot_since);
- assert(!r2_ui_witness_page(&m,2));m.profile_rc=false;assert(r2_ui_witness_page(&m,2));
+ assert(r2_ui_witness_page(&m,2));m.profile_rc=false;assert(r2_ui_witness_page(&m,2));
  assert(r2_ui_witness_page(&m,6)&&!r2_ui_witness_page(&m,0));
  /* Role duration is distinct from PPS/HOT and survives repeated models. */
  m.role=R2_UI_GM;r2_ui_holds_update(&h,&m,62000);assert(h.active_since==63&&!h.hot_since);
@@ -51,23 +51,41 @@ int main(int argc,char **argv){
  fixture(argv[1],"precision-hot",&m,&s,62000);
  assert(color_count(20,7,R2_UI_RGB565_GREEN)&&!color_count(20,7,R2_UI_RGB565_AMBER));
  assert(color_count(32,10,R2_UI_RGB565_GREEN)&&!color_count(32,10,R2_UI_RGB565_AMBER));
- assert(color_count(64,7,R2_UI_RGB565_CYAN)&&color_count(92,7,R2_UI_RGB565_CYAN));
+ assert(color_count(64,7,R2_UI_RGB565_CYAN)&&!color_count(92,7,R2_UI_RGB565_CYAN));
+ /* Precision-page durations use the existing holds for HOT and every GM role. */
+ uint8_t pps_duration[80*2*7],hot_duration[80*2*7];
+ memcpy(pps_duration,fb+109*80*2,sizeof pps_duration);memcpy(hot_duration,fb+128*80*2,sizeof hot_duration);
+ s.holds.pps_since=62;s.holds.hot_since=62;
+ fixture(argv[1],"precision-hot-timers-reset",&m,&s,62000);
+ assert(memcmp(pps_duration,fb+109*80*2,sizeof pps_duration));
+ assert(memcmp(hot_duration,fb+128*80*2,sizeof hot_duration));
+ s.holds.pps_since=2;s.holds.hot_since=32;
+ fixture(argv[1],"precision-hot-timers-restored",&m,&s,62000);
+ m.local_hot_standby=false;m.gm_cold=true;
+ fixture(argv[1],"precision-cold-pps-timer",&m,&s,62000);
+ assert(!memcmp(pps_duration,fb+109*80*2,sizeof pps_duration));
+ m.gm_cold=false;m.local_hot_standby=true;
+ fixture(argv[1],"precision-hot",&m,&s,62000);
  memcpy(locked_fb,fb,sizeof fb);
  m.precision.locked=false; /* HOT remains eligible across short fit-lock changes. */
  fixture(argv[1],"precision-hot-fit-unlocked",&m,&s,62000);
  assert(!memcmp(locked_fb,fb,80*2*44));
  s.shadow=(struct r2_shadow_session_view){.state=R2_SHADOW_SETTLING,.settling_ms=5000};
- fixture(argv[1],"precision-settling",&m,&s,62000);assert(!color_count(64,35,R2_UI_RGB565_CYAN));
+ fixture(argv[1],"precision-settling",&m,&s,62000);assert(color_count(64,7,R2_UI_RGB565_CYAN)); /* stream RMS is independent of held GM shadow */
  s.shadow=(struct r2_shadow_session_view){.state=R2_SHADOW_RUNNING,.active=true,.valid=true,.mean_tenth_ns=-5000000000LL,.rms_ns=500000000,.samples=UINT32_MAX};
  fixture(argv[1],"precision-large",&m,&s,62000);
  m.clock.fix_active=m.clock.pps_present=false;m.local_hot_standby=false;
- fixture(argv[1],"precision-no-gps",&m,&s,62000);assert(!color_count(64,35,R2_UI_RGB565_CYAN));
+ fixture(argv[1],"precision-no-gps",&m,&s,62000);assert(color_count(64,7,R2_UI_RGB565_CYAN)); /* local GPS is not required for received timing */
  fixture(argv[1],"precision-stale",&m,&s,65001);assert(!color_count(20,24,R2_UI_RGB565_GREEN));
  m.role=R2_UI_GM;m.clock.fix_active=m.clock.pps_present=m.gm_source_fresh=true;m.pps_precision.rate_valid=true;
  m.precision.rms_valid=true;m.precision.rms_ns=88;m.precision.samples=32;m.precision.map_valid=false;
  fixture(argv[1],"precision-serving-gm",&m,&s,62000);assert(color_count(64,7,R2_UI_RGB565_CYAN)&&!color_count(92,7,R2_UI_RGB565_CYAN));
+ assert(!memcmp(pps_duration,fb+109*80*2,sizeof pps_duration));
+ /* Serving GM retains its existing Bluetooth beat badge beside RMS. */
+ uint8_t expected_badge[R2_UI_BYTES];memcpy(expected_badge,fb,sizeof fb);fill(expected_badge,4,49,11,11,C_BG);bluetooth_badge_at(expected_badge,4,49,true);
+ for(unsigned y=49;y<60;y++)assert(!memcmp(expected_badge+((y*80+4)*2),fb+((y*80+4)*2),11*2));
  assert(color_count(20,7,R2_UI_RGB565_GREEN)&&!color_count(20,7,R2_UI_RGB565_AMBER));
- assert(color_count(140,7,R2_UI_RGB565_GREEN)&&!color_count(140,7,R2_UI_RGB565_AMBER));
+ assert(color_count(128,7,R2_UI_RGB565_GREEN)&&!color_count(128,7,R2_UI_RGB565_AMBER));
  /* Long durations stay within the 80px display without losing seconds. */
  m.sampled_ms=6001000;fixture(argv[1],"precision-gm-active-100m",&m,&s,6001000);
  m.sampled_ms=600000000;fixture(argv[1],"precision-gm-active-9999m",&m,&s,600000000);
@@ -82,11 +100,11 @@ int main(int argc,char **argv){
  m.gm_source_fresh=true;fixture(argv[1],"precision-gm-stale",&m,&s,65001);assert(!color_count(64,7,R2_UI_RGB565_CYAN));
  m.precision.map_valid=true;
  m.role=R2_UI_FOLLOWER;m.local_hot_standby=false;m.source_eligible=false;m.admission_ms=42000;
- fixture(argv[1],"precision-hot-dwell",&m,&s,62000);assert(!strcmp(hot_reason(&m,true,false),"SOURCE DWELL")&&color_count(152,7,R2_UI_RGB565_DIM));
+ fixture(argv[1],"precision-hot-dwell",&m,&s,62000);assert(!strcmp(hot_reason(&m,true,false),"SOURCE DWELL")&&color_count(141,7,R2_UI_RGB565_DIM));
  m.source_eligible=true;
  const unsigned refusals[]={1,4,16,32};const char *reasons[]={"PEER WAIT","PEER SOURCE","AUTH WAIT","BLE MAP WAIT"};
  for(unsigned i=0;i<4;i++){m.hot_refusal=refusals[i];assert(!strcmp(hot_reason(&m,true,false),reasons[i]));}
- m.hot_refusal=16;fixture(argv[1],"precision-hot-auth",&m,&s,62000);assert(color_count(152,7,R2_UI_RGB565_DIM));
+ m.hot_refusal=16;fixture(argv[1],"precision-hot-auth",&m,&s,62000);assert(color_count(141,7,R2_UI_RGB565_DIM));
  m.profile_rc=m.boundary_clock=true;m.role=R2_UI_FOLLOWER;
  m.ble_time_selected=true;m.ble_valid_until_us=63000000;
  m.precision.rms_valid=true;m.precision.rms_ns=137;m.precision.correction_age_valid=true;m.precision.correction_age_ms=42;

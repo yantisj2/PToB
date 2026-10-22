@@ -1,5 +1,26 @@
 # T096 G5 ACTIVE, HOT and COLD
 
+Version161 restores the continuous PPS duration on every GM precision screen
+and the HOT duration for the standby, using the existing hold timestamps.
+The GM Bluetooth beat icon is restored beside RMS. ACTIVE duration, COLD
+reception and stream RMS remain visible. This corrects
+the160 display regression. Dedicated shadow page6 again works for GM and RC
+profiles under its existing source/serving-GM guards; GM precision page2 stays
+observational, while RC precision sampling remains enabled. No protocol timer changes.
+
+Version160 lets every COLD GM follow the ordinary authenticated precision stream
+using the existing passive leaf receiver path. COLD remains outside the selected
+GM/HOT control pair and gains no successor grant or output permission by receiving
+time. This supersedes the earlier no-PA COLD policy and removes the LoRa-TX-only
+exception. Independent local GNSS qualification continues.
+
+The precision screen always presents current stream RMS (or -- when unavailable),
+with COLD STANDBY/TIMING SYNC status for an unappointed receiver. GM shadow-PPS
+sampling is held off on precision page2 while troubleshooting. RC precision page2
+and dedicated page6 in either profile retain intentional shadow sampling; stream RMS and shadow PPS
+statistics are distinct. Timer, election and controller policies are unchanged;
+the retained prepare-FIFO fatal remains unresolved.
+
 Version159 refreshes coherent direct PT input before the G5 HOT/ACQUIRING
 readiness tick, preserving the PT owner's observation timestamp and expiry.
 ACTIVE, COLD, RC and relay paths retain their existing timing update. This fixes
@@ -92,10 +113,10 @@ The G5 owner determines passive timing mode before JOIN admission publishes its
 client mailbox. A foreign root's coarse JOIN evidence cannot briefly demote a
 serving ACTIVE into passive precision acquisition while awaiting G5 STATUS.
 
-The producer retains its original bounded JOIN timing anchor while COLD; the
-service still suppresses true COLD precision publication. After actual selected
-control promotion, PT may use the current causal anchor even if it never saw the
-earlier passive publication. The selected remote root/boot must match, as must
+The producer retains its original bounded JOIN timing anchor while COLD. Since
+160 the service publishes that passive client mailbox to PT under its original
+bounds. Reception grants no HOT or serving authority. After selected control
+promotion, PT may use a current causal anchor it did not previously observe. The selected remote root/boot must match, as must
 known source epoch/train. A current own ACTIVE or unrelated anchor cannot enter
 that bootstrap path. A previous matching anchor may survive a foreign/no-source
 mailbox update only through its original bounds. Replay-age evidence permits
@@ -120,8 +141,11 @@ foreign LoRa constraint. The original60s physical dwell and source epochs still
 reset on actual source faults. Physical eligibility, coordination inhibition,
 current timing permission and output authority are distinct facts.
 
-A COLD clock ordinarily has no persistent GM ACL, PA precision acquisition or
-continuous bootstrap scan. Inventory opportunities last at most1s and gate new
+A COLD clock has no persistent GM-control ACL. Since160 it may maintain ordinary
+passive PA reception and leaf JOIN/discovery renewal. This also makes inventory
+work eligible; RF/controller noninterference with the selected pair remains
+unqualified. No third control slot is added. Sparse G5 opportunities do not
+suppress that leaf demand. Inventory opportunities last at most1s and gate new
 scan/create work only. Since151 a G5 pending owner keeps an original1s
 initiation cap in every role; ordinary RC keeps100ms. An early connected
 callback leaves that cap and retains the original5s
@@ -141,12 +165,11 @@ selected-peer/parent precedence and full-identity failure history. Ordinary RC
 admission retains its own fairness/transport policy. This cadence is an offered
 opportunity, not a guarantee of radio contact.
 
-There is one explicit leaf exception: the configured sole LoRa transmitter may
-need ordinary BLE leaf timing while COLD to keep **requested** LoRa forwarding
-alive. It uses no extra GM-control link and gains no HOT/grant authority. Turning
-LoRa forwarding OFF suppresses the exception. Being ACTIVE/HOT adds no extra
-inventory/leaf work merely because the factory identity is the configured TX.
-True COLD clocks and this COLD forwarding leaf must be measured separately.
+Before160, the sole LoRa transmitter was the COLD leaf exception. All COLD GMs
+now use that authenticated receiver path independently of LoRa request state.
+The configured transmitter may forward selected BLE timing without an extra
+GM-control link or HOT grant. Being ACTIVE/HOT adds no leaf work merely because
+its factory identity is the configured transmitter.
 
 ACTIVE chooses quality dataset tiers, then local successful-acquisition history,
 then fewer local failures, then full identity. One selected identity first enters
@@ -289,6 +312,38 @@ prove the cause of an RF outage, or measure output accuracy. Compare counter
 increments and original timestamps across current owner publications; neither
 query time nor a historical maximum renews any authority.
 
+
+## Version161 checkpoint — 21 October 2026
+
+All four private enrolled devices received161 in operator order and passed actual
+startup source/build/boot checks. Protected-region comparison occurred before
+writing; repeated new application byte readback was waived by the operator.
+The preceding160 observation completed17/17 sequential cohorts with matching
+ACTIVE/HOT acknowledgements, two locked COLD receivers and LoRa transmission
+advancing from17 to59. It does not establish long-run durability or UTC accuracy.
+
+Version161 restores existing PPS/HOT duration labels and the GM Bluetooth beat
+icon while retaining the160 layout. Dedicated shadow page6 again supports GM/RC
+followers; a serving GM retains its original exclusion from measuring its own
+stream. GM precision page2 is observational; RC precision-page sampling remains
+enabled. Original source, settling, visibility and transition guards remain.
+No protocol/control timer changes are included.
+
+The source160 full regression suite is the unchanged protocol baseline. All four
+161 native/resource checks and43 focused UI worker cases pass, including elapsed
+durations, the badge and GM dedicated-page sampling with synthetic test records.
+Static storage is unchanged. Synthetic samples are separate from field evidence.
+
+The first161 observation ended after four complete four-device cohorts when one
+USB connection disappeared. Local FDs, guards, streams and locks closed, but its
+external USB identity could not be reverified. The remaining three clocks were
+released cleanly. This interrupted population does not qualify161 HOT durability;
+physical dedicated-shadow sampling remains pending. The operator requested that
+the absent clock remain excluded and monitoring continue on the other three.
+
+The prepare-FIFO fatal and long-run pair durability remain unresolved. Additional
+COLD receive/renewal work needs sustained unstable-RF and newcomer testing. The
+stream-driven handoff/quality-yield proposal remains evaluation-only.
 
 ## Development checkpoint and remaining acceptance
 

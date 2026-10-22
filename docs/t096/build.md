@@ -1,5 +1,26 @@
 # Build T096 RC7
 
+Version161 restores the continuous PPS duration on every GM precision screen
+and the HOT duration for the standby, using the existing hold timestamps.
+The GM Bluetooth beat icon is restored beside RMS. ACTIVE duration, COLD
+reception and stream RMS remain visible. This corrects
+the160 display regression. Dedicated shadow page6 again works for GM and RC
+profiles under its existing source/serving-GM guards; GM precision page2 stays
+observational, while RC precision sampling remains enabled. No protocol timer changes.
+
+Version160 lets every COLD GM follow the ordinary authenticated precision stream
+using the existing passive leaf receiver path. COLD remains outside the selected
+GM/HOT control pair and gains no successor grant or output permission by receiving
+time. This supersedes the earlier no-PA COLD policy and removes the LoRa-TX-only
+exception. Independent local GNSS qualification continues.
+
+The precision screen always presents current stream RMS (or -- when unavailable),
+with COLD STANDBY/TIMING SYNC status for an unappointed receiver. GM shadow-PPS
+sampling is held off on precision page2 while troubleshooting. RC precision page2
+and dedicated page6 in either profile retain intentional shadow sampling; stream RMS and shadow PPS
+statistics are distinct. Timer, election and controller policies are unchanged;
+the retained prepare-FIFO fatal remains unresolved.
+
 Version159 refreshes coherent direct PT input before the G5 HOT/ACQUIRING
 readiness tick, preserving the PT owner's observation timestamp and expiry.
 ACTIVE, COLD, RC and relay paths retain their existing timing update. This fixes

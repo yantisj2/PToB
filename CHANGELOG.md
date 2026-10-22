@@ -12,6 +12,33 @@ the live XTAL timer retains its chip light-sleep guard. Host tests cover exact
 boundaries, wake/loss handling, all positions and unchanged normal cadence.
 Power draw and sustained hardware behavior remain separate observations.
 
+## 21 October 2026 — T096 0.15.161 precision duration restoration
+
+Restore the PPS duration for all GMs and HOT duration for the standby on the
+precision screen. The160 layout inadvertently replaced those duration labels.
+Restore the serving GM Bluetooth beat icon beside RMS. Reuse the existing hold
+timestamps; COLD timing reception, ACTIVE duration, RMS,
+GM precision shadow OFF and RC precision shadow ON remain. Restore dedicated
+shadow-page sampling for GM and RC under its original source/serving-GM guards.
+No protocol timer changes.
+
+All four final images passed native/resource and actual startup checks. The
+source160 protocol baseline passed its full suite;161 passed43 focused UI worker
+cases and renderer/duration/icon checks under sanitizers. The initial161 field
+check was interrupted by USB loss after four complete cohorts. Dedicated-page
+hardware sampling remains pending; see the [checkpoint](docs/t096/gm-standby.md).
+
+## 21 October 2026 — T096 0.15.160 COLD timing reception
+
+All COLD GMs now use the existing passive precision receiver path previously
+reserved for the configured LoRa transmitter. Receiving timing does not appoint
+HOT or add a GM control slot. Precision pages show stream RMS independently of
+shadow PPS; COLD receivers report standby rather than failed HOT admission.
+GM shadow sampling is disabled, while RC precision/shadow pages retain it.
+Timers, election, controller policy and source expiry remain unchanged. Physical
+acceptance and the existing prepare-FIFO fault remain separate from host tests.
+
+
 ## 21 October 2026 — T096 0.15.159 standby input and HOT page
 
 Refresh coherent direct HOT/ACQUIRING precision input before readiness consumes it,

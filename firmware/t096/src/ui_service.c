@@ -41,7 +41,7 @@ static struct k_thread thread;
 static void add(uint32_t *v){if(*v<UINT32_MAX)++*v;}
 void r2_ui_publish(const struct r2_ui_model *m){k_spinlock_key_t k=k_spin_lock(&lock);r2_ui_holds_update(&status.holds,&model,m->sampled_ms);model=*m;r2_ui_holds_update(&status.holds,m,m->sampled_ms);k_spin_unlock(&lock,k);}
 void r2_ui_snapshot(struct r2_ui_status *out){k_spinlock_key_t k=k_spin_lock(&lock);*out=status;k_spin_unlock(&lock,k);}
-static bool shadow_page(const struct r2_ui_model *m,unsigned page){return page==R2_UI_SHADOW_PAGE&&r2_ui_witness_page(m,page);}
+static bool shadow_page(const struct r2_ui_model *m,unsigned page){return page==R2_UI_SHADOW_PAGE||(m->profile_rc&&page==R2_UI_PRECISION_PAGE);}
 int r2_ui_page(unsigned page){if(page>=R2_UI_PAGES)return -EINVAL;k_spinlock_key_t k=k_spin_lock(&lock);status.page=page;status.help=false;if(r2_ui_witness_page(&model,page)){status.screensaver=false;status.screensaver_position=0;}if(!shadow_page(&model,page)){status.shadow.active=false;status.shadow.state=R2_SHADOW_OFF;}k_spin_unlock(&lock,k);return 0;}
 bool r2_ui_shadow_requested(void){k_spinlock_key_t key=k_spin_lock(&lock);bool requested=shadow_page(&model,status.page)&&!status.help&&!status.stopped&&!(model.scope_active&&model.role==R2_UI_GM);k_spin_unlock(&lock,key);return requested;}
 bool r2_ui_take_profile_toggle(void){return atomic_cas(&profile_toggle,1,0);}

@@ -264,14 +264,11 @@ static void cycle(struct k_work *work)
  }else{
   struct r2_group_client public;r2_group_admission_client(&public);
   if(net.gm5.enabled){
-#ifdef R2_LORA
-   struct r2_lora_view bridge_view;r2_lora_view(&bridge_view);net.gm5.bridge=r2_gm5_bridge_needed(&net.gm5,bridge_view.transmitter,bridge_view.requested);
-#endif
+   net.gm5.bridge=r2_gm5_cold_listener(&net.gm5);
    r2_group_admission_gm5_policy(&net,now);
   }
   r2_ble_serving(net.local_gm&&net.ready&&now<net.service_until);
-  bool cold=net.gm5.enabled&&net.gm5.role==R2_GM5_COLD&&!net.gm5.bridge;
-  if(!cold)r2_ble_client_window(profile_supported||!(roster.group.id&&(public.passive||!(net.capabilities&1)))||r2_ble_client_window_open(now,400000));
+  r2_ble_client_window(profile_supported||!(roster.group.id&&(public.passive||!(net.capabilities&1)))||r2_ble_client_window_open(now,400000));
   r2_ble_poll(now);
   r2_ble_client_seek(now,!net.gm5.enabled&&public.passive&&!public.source);
   if(r2_ble_stop_error())r2_service_stop();
@@ -350,7 +347,6 @@ static void cycle(struct k_work *work)
 #if defined(CONFIG_BT_PER_ADV)
   worker_stage(4);
   r2_group_admission_client(&public);
-  if(net.gm5.enabled&&net.gm5.role==R2_GM5_COLD&&!net.gm5.bridge)public=(struct r2_group_client){.passive=true};
   r2_radio_service_client(&public,&roster,now);
   struct v12_dc_snapshot authority={0};r2_network_snapshot(&net,&authority);
   struct r2_radio_scope scope={.boot=authority.root_boot,.source_epoch=authority.coarse.generation,.publication_epoch=net.publication,.root=authority.elected_root};
@@ -446,9 +442,7 @@ int r2_service_configure(const struct r2_identity *id,const struct r2_enrollment
  net.group=roster.group;net.capabilities=e->group.id?roster.local_capabilities:3;
 #if defined(R2_GM5_NATIVE) && !defined(R2_PC_PROFILE)
  net.gm5.enabled=roster.group.id&&(net.capabilities&1)&&!profile_rc;
-#ifdef R2_LORA
- struct r2_lora_view bridge_view;r2_lora_view(&bridge_view);net.gm5.bridge=r2_gm5_bridge_needed(&net.gm5,bridge_view.transmitter,bridge_view.requested);
-#endif
+ net.gm5.bridge=r2_gm5_cold_listener(&net.gm5);
 #endif
  r2_ble_gm5_policy(net.gm5.enabled,0,true);
  r2_ble_group_client(roster.group.id&&!(net.capabilities&1));
@@ -633,7 +627,7 @@ void r2_service_ui(struct r2_ui_model *m)
  }
  if(s.profile_rc){m->clock.valid=false;}
  if(s.relay.selected)r2_ui_identity_name(m->upstream_name,s.relay.parent_identity,NULL);
- m->source_eligible=s.source_eligible;m->gm_capable=s.gm_capable;m->admission_ms=s.admission_ms;m->hot_ready=s.hot_ready;m->hot_refusal=s.hot_refusal;
+ m->source_eligible=s.source_eligible;m->gm_capable=s.gm_capable;m->gm_cold=s.gm_cold;m->admission_ms=s.admission_ms;m->hot_ready=s.hot_ready;m->hot_refusal=s.hot_refusal;
 #if defined(CONFIG_BT_PER_ADV)
  r2_time_precision_snapshot(&m->pps_precision);
 #endif
@@ -755,9 +749,7 @@ static int profile_restart(uint64_t now){
  net.group=roster.group;net.capabilities=roster.local_capabilities;
 #if defined(R2_GM5_NATIVE)
  net.gm5.enabled=!profile_rc&&(net.capabilities&1);
-#ifdef R2_LORA
- struct r2_lora_view bridge_view;r2_lora_view(&bridge_view);net.gm5.bridge=r2_gm5_bridge_needed(&net.gm5,bridge_view.transmitter,bridge_view.requested);
-#endif
+ net.gm5.bridge=r2_gm5_cold_listener(&net.gm5);
 #endif
  r2_ble_gm5_policy(net.gm5.enabled,0,true);
  net.peer[0].identity=profile_identity;memcpy(net.name,saved_name,sizeof net.name);
