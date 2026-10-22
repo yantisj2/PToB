@@ -21,6 +21,9 @@ prefix=r'''
 #define V12_R2_CONFIG 13
 uint64_t now=1000;unsigned radio_changes=0,pages=0,statuses=0,lora_changes=0,diag_frames=0;bool lora_diagnostic_response=false,lora_action=false;unsigned selected=0;
 bool owner_active=true;
+bool fine_diagnostic_response=false;uint32_t fine_after=0;uint64_t fine_factory=0x020000003001ULL;unsigned fine_starts=0,fine_stops=0;
+bool n30_fine_start(uint64_t,uint64_t,uint64_t,uint32_t ms,uint32_t every){++fine_starts;return ms>=1000&&ms<=600000&&every>=1&&every<=64;}
+void n30_fine_stop(){++fine_stops;}
 bool timing_diagnostic_response=false;uint32_t timing_after=0;unsigned timing_starts=0,timing_stops=0;
 bool n30_timing_start(uint64_t,uint64_t,uint32_t ms,uint32_t every){++timing_starts;return ms>=1000&&ms<=600000&&every>=1&&every<=64;}
 void n30_timing_stop(){++timing_stops;}
@@ -91,7 +94,14 @@ int main(){
  send(39,"timing read 4294967296");assert(!last_command.accepted);
  send(40,"timing read -1");assert(!last_command.accepted);
  lora_action=true;poll_display_action();assert(lora_changes==4&&!lora_action&&radio_changes==2);
+ send(50,"fine start 2000 4");assert(last_command.accepted&&fine_starts==1&&!fine_diagnostic_response&&radio_changes==2);
+ send(51,"fine read 3");assert(last_command.accepted&&fine_after==3);
+ send(52,"fine stop");assert(last_command.accepted&&fine_stops==1);
+ send(53,"fine start 600001 1");assert(!last_command.accepted&&fine_starts==1);
+ const std::string longzero="fine start "+std::string(100,'0')+"2000 4";send(56,longzero.c_str());assert(!last_command.accepted&&fine_starts==1);
+ send(54,"fine start 2000 4",factory_text,4);assert(!last_command.accepted&&fine_starts==1);
  update_gate.begin(now);send(8,"ui page 1");assert(!last_command.accepted&&pages==4&&radio_changes==2);
+ send(55,"fine start 2000 4");assert(!last_command.accepted&&fine_starts==1);
  send(37,"timing start 2000 4");assert(!last_command.accepted&&timing_starts==1);
  action_pending=true;lora_action=true;poll_display_action();assert(!mode&&radio_changes==2&&!action_pending&&!lora_action&&lora_changes==4);
  std::puts("PASS actual dispatch: active-radio pages, main-owner upstream toggle, maintenance consumption and identity/ticket fences");

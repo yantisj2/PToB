@@ -7,7 +7,7 @@ from pathlib import Path
 APP=Path(__file__).resolve().parents[1];REPO=APP.parents[1]
 sys.path.insert(0,str(REPO/'registry'))
 from registry import load as load_registry,header as registry_header
-VERSION='0.2.10'
+VERSION='0.2.11'
 T096_LORA_FILES=['protocol/lora_rc8.c','protocol/lora_rc8.h','protocol/group_auth.h','include/lora_rc8_policy.h','include/precision_servo.h','src/lora_rc8_policy.c']
 def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
 def git(p,*args):return subprocess.check_output(['git','-C',str(p),*args],text=True).strip()
@@ -48,12 +48,25 @@ def device_header(device):
 def lora_config_header(device,enrollment,transmitter):
  key=bytes.fromhex(enrollment['psk'])
  return '#pragma once\n#include <cstdint>\n#define PTOB_N30_FACTORY_ID UINT64_C(0x'+device['device_id']+')\n#define PTOB_N30_LORA_TX_FACTORY UINT64_C(0x'+transmitter+')\n#define PTOB_N30_GROUP_ID UINT64_C(0x'+enrollment['group_id']+')\n#define PTOB_N30_KEY_EPOCH '+str(enrollment['key_epoch'])+'\nstatic constexpr uint8_t PTOB_N30_GROUP_KEY[32]={'+','.join(map(str,key))+'};\n'
+def fine_profile(device,path):
+ # No pad is selected by default. Fixed experiment pair only, never arbitrary GPIO.
+ profile={'schema':1,'mode':'CURRENT_ONLY','factory':device['device_id'],'RX_GPIO':-1,'TX_GPIO':-1}
+ if path:
+  value=json.loads(Path(path).read_text())
+  if set(value)!={'schema','mode','factory','RX_GPIO','TX_GPIO','board_family','physical_review_sha256','schematic_review_sha256'}:raise ValueError('Exact raw-marker profile fields required')
+  if not(value['schema']==1 and value['mode']=='NATIVE_GPIO4_5_SHADOW' and value['factory']==device['device_id'] and value['RX_GPIO']==4 and value['TX_GPIO']==5 and value['board_family']=='HELTEC_V3_V31_V32' and all(re.fullmatch('[0-9a-f]{64}',value[k]) for k in ('physical_review_sha256','schematic_review_sha256'))):raise ValueError('Only exact reviewed HeltecV3 GPIO4/5 raw-shadow profile is supported')
+  profile=value
+ return profile
+
+def fine_header(profile):
+ return '#pragma once\n#include <cstdint>\n#define PTOB_N30_FINE_FACTORY UINT64_C(0x'+profile['factory']+')\n#define PTOB_N30_FINE_PINS '+str(int(profile['mode']=='NATIVE_GPIO4_5_SHADOW'))+'\n#define PTOB_N30_FINE_RX_GPIO '+str(profile['RX_GPIO'])+'\n#define PTOB_N30_FINE_TX_GPIO '+str(profile['TX_GPIO'])+'\n/* profile_sha256='+hashlib.sha256(json.dumps(profile,sort_keys=True).encode()).hexdigest()+' */\n'
+
 def check_main_stack(out):
  import importlib.util
  path=REPO/'firmware/w12/tools/stack_budget.py'
  spec=importlib.util.spec_from_file_location('n30_selected_stack',path);module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
  result=module.check(out)
- if json.loads((Path(out)/'receipt.json').read_text()).get('version') not in ('0.2.0','0.2.1','0.2.2','0.2.3','0.2.4','0.2.5','0.2.6','0.2.7','0.2.8','0.2.9','0.2.10'):return result
+ if json.loads((Path(out)/'receipt.json').read_text()).get('version') not in ('0.2.0','0.2.1','0.2.2','0.2.3','0.2.4','0.2.5','0.2.6','0.2.7','0.2.8','0.2.9','0.2.10','0.2.11'):return result
  # Selected extra chains with explicit reserve; not a complete call graph.
  usage=[]
  for file in (Path(out)/'target').rglob('*.su'):
@@ -74,7 +87,7 @@ def check_main_stack(out):
   return int(rows[0][1])
  paths['display_worker']=(4096,1536,in_file('display.cpp','void {anonymous}::worker(void*)')+frame('void n30::ClockHold::draw(uint8_t*, const n30::Model&, const n30::View&, uint64_t) const')+frame('void n30::render(uint8_t*, const Model&, const View&, uint64_t)')+frame('void n30::{anonymous}::dial(uint8_t*, int, uint64_t, uint16_t)')+frame('void n30::{anonymous}::line(uint8_t*, int, int, int, int)')+frame('void n30::{anonymous}::pixel(uint8_t*, int, int, bool)'))
  paths['radio_receive']=(8192,4096,in_file('native_lora.cpp','void {anonymous}::worker(void*)')+in_file('native_lora.cpp','void {anonymous}::worker_step(bool)')+in_file('native_lora.cpp','int {anonymous}::receive()')+frame('n30_rc8_receive')+frame('rc8_receiver_process')+frame('rc8_receiver_process_origin'))
- if json.loads((Path(out)/'receipt.json').read_text()).get('version') in ('0.2.9','0.2.10'):
+ if json.loads((Path(out)/'receipt.json').read_text()).get('version') in ('0.2.9','0.2.10','0.2.11'):
   paths['timing_reply']=(result['configured_bytes'],4096,root+frame('void {anonymous}::respond_status(uint64_t, uint64_t)')+frame('void {anonymous}::lora_status_frame(uint64_t, uint64_t)')+frame('void n30_timing_frame(v12::ConsoleFrame&, uint32_t, uint64_t)'))
   paths['timing_start']=(result['configured_bytes'],4096,root+frame('bool n30_timing_start(uint64_t, uint64_t, uint32_t, uint32_t)')+frame('bool n30::timing::Recorder::start(uint64_t, uint64_t, uint32_t, uint32_t, uint64_t)'))
   config=(Path(out)/'target/sdkconfig').read_text();host=re.findall(r'^CONFIG_BT_NIMBLE_HOST_TASK_STACK_SIZE=(\d+)$',config,re.M)
@@ -113,6 +126,7 @@ def main():
  for name in ['idf','out','enrollment','device-config']:p.add_argument('--'+name,type=Path,required=True)
  p.add_argument('--profile',choices=['RC'],required=True);p.add_argument('--listening-percent',type=int,choices=[50,100],default=100)
  p.add_argument('--lora-transmitter-factory',default='0000000000000000',help='Exact configured T096 RC8 transmitter factory; zero disables hardware. RX only, fixed915MHz wire3')
+ p.add_argument('--fine-shadow-profile',type=Path,help='Ignored exact-factory GPIO4/5 physical/schematic review profile; absent means CURRENT-only and no driven pads')
  p.add_argument('--commissioning',action='store_true',help='Clean-source candidate for separately authorized exact-device first installation; no hardware access');p.add_argument('--estimated-relay',action='store_true');p.add_argument('--registry',type=Path,default=REPO/'registry/example.json');p.add_argument('--development',action='store_true');a=p.parse_args()
  os.umask(0o077);sdk=a.idf.resolve();out=a.out.resolve()
  if out.exists() or REPO/'artifacts' not in out.parents:p.error('Fresh output directory below ignored artifacts/ required')
@@ -128,6 +142,8 @@ def main():
  if registry['devices'].get(d['device_id'])!={'alias':d['label'],'target':'n30'} and not (registry['devices'].get(d['device_id'],{}).get('alias')==d['label'] and registry['devices'][d['device_id']].get('target')=='n30'):p.error('Onboard the exact N30 factory identity in the shared registry first')
  tx_factory=a.lora_transmitter_factory
  validate_transmitter(tx_factory,d,registry)
+ fp=fine_profile(d,a.fine_shadow_profile)
+ if a.fine_shadow_profile and subprocess.run(['git','-C',str(REPO),'check-ignore','--quiet',str(a.fine_shadow_profile.resolve())]).returncode:p.error('Fine profile must be ignored local input')
  out.mkdir(parents=True);target=out/'target';target.mkdir();inputs=out/'local';inputs.mkdir()
  sources={str(f.relative_to(REPO)):sha(f) for f in source_files()};source_hash=hashlib.sha256(json.dumps(sources,sort_keys=True,separators=(',',':')).encode()).hexdigest()
  for n in sources:
@@ -135,16 +151,17 @@ def main():
  for path,name in [(a.enrollment,'enrollment.json'),(a.device_config,'device.json'),(a.registry,'registry.json'),(REPO/'registry/registry.py','registry_generator.py')]:shutil.copyfile(path,inputs/name)
  (inputs/'ptob_registry.h').write_text(registry_header(registry))
  (inputs/'ptob_device.h').write_text(device_header(d))
+ fine_config=inputs/'fine_capture_config.h';fine_config.write_text(fine_header(fp));dump(inputs/'fine-profile.json',fp)
  lora_header=inputs/'n30_lora_config.h';lora_header.write_text(lora_config_header(d,e,tx_factory))
  # Registry/generator/device hashes bind display metadata and local input changes into runtime enrollment identity.
- enrollment_header=inputs/'r2-enrollment.h';enrollment_header.write_text('/* source:'+source_hash+' registry:'+sha(a.registry)+' generator:'+sha(REPO/'registry/registry.py')+' device:'+sha(a.device_config)+' */\nstatic const r2_group_enrollment provision={{{'+','.join(map(str,key))+'},UINT64_C(0x'+e['group_id']+'),'+str(e['key_epoch'])+'},UINT64_C(0x'+d['device_id']+'),'+json.dumps(d['label'])+',40000};\n')
- r={'schema':1,'artifact_class':'PTOB_N30_RC','version':VERSION,'status':'INCOMPLETE','public_commit':git(REPO,'rev-parse','HEAD'),'source_dirty':dirty,'source_sha256':source_hash,'sources':sources,'dependencies':lock,'sdk_path':str(sdk),'app_path':str(APP),'sdk_submodules':modules.splitlines(),'profile':'RC','listening_percent':a.listening_percent,'estimated_relay':a.estimated_relay,'tx_actual_capture':False,'precision':'UNQUALIFIED','installed':False,'no_time_sync_watchdog_us':300000000,'source_recovery_policy':'ACCUMULATED_LOCK_LOSS_V1','physical_fit_policy':'CAPTURE_FROZEN_DENSE64_1S_ACCEL_V1','timing_diagnostics':'RUNTIME_RING16_CURSOR_V1','commissioning_candidate':a.commissioning,'hardware_validation':'NOT_PERFORMED','deployment_authorized':False,'registry_sha256':sha(a.registry),'registry_generator_sha256':sha(REPO/'registry/registry.py'),'lora_transmitter_factory':tx_factory,'lora_contract':'RC8_WIRE3_PASSIVE_RX_SX1262_915_V3','enrollment_mode':'LOCAL_BUILD_TIME_NO_NVS_WRITE','device_config_sha256':sha(a.device_config),'provisional_path_profile':provisional_profile(d)}
+ enrollment_header=inputs/'r2-enrollment.h';enrollment_header.write_text('/* source:'+source_hash+' registry:'+sha(a.registry)+' generator:'+sha(REPO/'registry/registry.py')+' device:'+sha(a.device_config)+' fine:'+sha(fine_config)+' */\nstatic const r2_group_enrollment provision={{{'+','.join(map(str,key))+'},UINT64_C(0x'+e['group_id']+'),'+str(e['key_epoch'])+'},UINT64_C(0x'+d['device_id']+'),'+json.dumps(d['label'])+',40000};\n')
+ r={'schema':1,'artifact_class':'PTOB_N30_RC','version':VERSION,'status':'INCOMPLETE','public_commit':git(REPO,'rev-parse','HEAD'),'source_dirty':dirty,'source_sha256':source_hash,'sources':sources,'dependencies':lock,'sdk_path':str(sdk),'app_path':str(APP),'sdk_submodules':modules.splitlines(),'profile':'RC','listening_percent':a.listening_percent,'estimated_relay':a.estimated_relay,'tx_actual_capture':False,'precision':'UNQUALIFIED','installed':False,'no_time_sync_watchdog_us':300000000,'source_recovery_policy':'ACCUMULATED_LOCK_LOSS_V1','physical_fit_policy':'CAPTURE_FROZEN_DENSE64_1S_ACCEL_V1','timing_diagnostics':'RUNTIME_RING16_CURSOR_V1','fine_capture_profile':fp,'fine_capture':'RAW_MCPWM1_CURRENT_SW128_RING32_V1','commissioning_candidate':a.commissioning,'hardware_validation':'NOT_PERFORMED','deployment_authorized':False,'registry_sha256':sha(a.registry),'registry_generator_sha256':sha(REPO/'registry/registry.py'),'lora_transmitter_factory':tx_factory,'lora_contract':'RC8_WIRE3_PASSIVE_RX_SX1262_915_V3','enrollment_mode':'LOCAL_BUILD_TIME_NO_NVS_WRITE','device_config_sha256':sha(a.device_config),'provisional_path_profile':provisional_profile(d)}
  dump(out/'receipt.json',r)
  env=os.environ.copy()
  for k in ['CFLAGS','CXXFLAGS','CPPFLAGS','LDFLAGS','EXTRA_COMPONENT_DIRS','SDKCONFIG_DEFAULTS']:env.pop(k,None)
  # This target has no managed components; use only the pinned SDK and local source.
  env.update(IDF_COMPONENT_MANAGER='0',IDF_PATH=str(sdk),PYTHONPYCACHEPREFIX=str(out/'pycache'),IDF_CCACHE_ENABLE='0')
- command=[sys.executable,str(sdk/'tools/idf.py'),'-C',str(APP),'-B',str(target),'-G','Unix Makefiles','-D','SDKCONFIG='+str(target/'sdkconfig'),'-D','V12_SOURCE_REVISION='+r['public_commit'],'-D','V12_R2_ENROLLMENT_HEADER='+str(enrollment_header),'-D','PTOB_DEVICE_HEADER='+str(inputs/'ptob_device.h'),'-D','PTOB_REGISTRY_HEADER='+str(inputs/'ptob_registry.h'),'-D','PTOB_LORA_HEADER='+str(lora_header),'-D','V12_R2_G1_LISTENING_PERCENT='+str(a.listening_percent),'-D','V12_R2_RC7_TX_ESTIMATE_LAB='+('ON' if a.estimated_relay else 'OFF'),'-D','CCACHE_ENABLE=OFF','build']
+ command=[sys.executable,str(sdk/'tools/idf.py'),'-C',str(APP),'-B',str(target),'-G','Unix Makefiles','-D','SDKCONFIG='+str(target/'sdkconfig'),'-D','V12_SOURCE_REVISION='+r['public_commit'],'-D','V12_R2_ENROLLMENT_HEADER='+str(enrollment_header),'-D','PTOB_DEVICE_HEADER='+str(inputs/'ptob_device.h'),'-D','PTOB_REGISTRY_HEADER='+str(inputs/'ptob_registry.h'),'-D','PTOB_LORA_HEADER='+str(lora_header),'-D','PTOB_FINE_HEADER='+str(fine_config),'-D','V12_R2_G1_LISTENING_PERCENT='+str(a.listening_percent),'-D','V12_R2_RC7_TX_ESTIMATE_LAB='+('ON' if a.estimated_relay else 'OFF'),'-D','CCACHE_ENABLE=OFF','build']
  dump(out/'command.json',command)
  try:
   with (out/'build.log').open('w') as log:subprocess.run(command,env=env,cwd=REPO,stdout=log,stderr=subprocess.STDOUT,check=True,timeout=900)
@@ -167,7 +184,7 @@ def main():
   symbols=subprocess.check_output([nm,str(target/'ptob_n30.elf')],text=True)
   if re.search(r'\b(esp_wifi_init|esp_wifi_start|nvs_flash_init|nvs_set_blob|nvs_set_u32)\b',symbols):raise ValueError('Unexpected WiFi activation or NVS write dependency')
   if '-DPTOB_N30_LORA_RX_ONLY=1' not in compiler['command']:raise ValueError('LoRa receiver-only boundary missing')
-  identity=json.loads((target/'v12_build_identity.json').read_text());r.update(runtime_identity=identity,application='target/ptob_n30.bin',application_sha256=sha(image),application_bytes=image.stat().st_size,artifacts={str(q.relative_to(out)):sha(q) for q in out.rglob('*') if q.is_file() and (q.suffix in ['.bin','.elf','.map','.su'] or q.name in ['sdkconfig','compile_commands.json','v12_build_identity.json','r2-enrollment.h','ptob_device.h','ptob_registry.h','enrollment.json','device.json','registry.json','registry_generator.py','n30_lora_config.h'])},status='COMMISSIONING_CANDIDATE_PHYSICAL_UNKNOWN' if a.commissioning else 'OFFLINE_NOT_FLASHABLE')
+  identity=json.loads((target/'v12_build_identity.json').read_text());r.update(runtime_identity=identity,application='target/ptob_n30.bin',application_sha256=sha(image),application_bytes=image.stat().st_size,artifacts={str(q.relative_to(out)):sha(q) for q in out.rglob('*') if q.is_file() and (q.suffix in ['.bin','.elf','.map','.su'] or q.name in ['sdkconfig','compile_commands.json','v12_build_identity.json','r2-enrollment.h','ptob_device.h','ptob_registry.h','enrollment.json','device.json','registry.json','registry_generator.py','n30_lora_config.h','fine_capture_config.h','fine-profile.json'])},status='COMMISSIONING_CANDIDATE_PHYSICAL_UNKNOWN' if a.commissioning else 'OFFLINE_NOT_FLASHABLE')
   r['main_stack_budget']=check_main_stack(out)
   r['compiled_sources']={}
   for row in json.loads((target/'compile_commands.json').read_text()):

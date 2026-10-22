@@ -18,6 +18,30 @@ LORA_NUMBERS={
 LORA_HEX='emitter emitter_boot stream root root_boot parent parent_boot'.split()
 LORA_FIXED={'ORIGINAL':{'bound':'UNKNOWN','BLE_update':'0'},'COUNTERS':{'TX':'FORBIDDEN'},'HARDWARE':{'timestamp':'HARDWARE_DIO1_MAPPED','physical_bias':'UNKNOWN','durable_fault_journal':'UNAVAILABLE'},'POLICY':{'acquire_us':'180000000','recover_us':'180000000','frequency_hz':'915000000','SF':'10','BW_hz':'500000','CR':'6','preamble':'12','RX_ONLY':'1','GPS':'ABSENT','source_freshness':'UNKNOWN','uncertainty':'UNKNOWN'}}
 TIMING_ROWS=('W12_R2_STATUS','W12_V12_STATUS','N30_TIMING_STATUS',*(f'N30_TIMING_SAMPLE{i}' for i in range(4)),'N30_TIMING_CONTRACT','W12_V12_COMMAND','N30_UI')
+FINE_ROWS=('W12_R2_STATUS','W12_V12_STATUS','N30_FINE_STATUS',*(f'N30_FINE_EDGE{i}' for i in range(4)),'N30_FINE_CONTRACT','W12_V12_COMMAND','N30_UI')
+def validate_fine(rows):
+ s=rows['N30_FINE_STATUS'];base.require(s.get('schema')=='1' and bool(base.HEX16.fullmatch(s.get('id',''))),'Fine schema/id')
+ for key in ('every','seen','RX','TX','sampled','overwritten','oldest','after','count','incarnation','hz','current','timeout','invalid','poll_max','cycles_max','service_max_us','first32','latest32','wraps'):timing_number(s,key)
+ for key in ('until_us','latest80','first_us','last_us'):timing_number(s,key,64)
+ timing_number(s,'error',32,True)
+ for key in ('active','pins','released'):base.require(s.get(key) in ('0','1'),'Fine boolean '+key)
+ base.require(int(s['every'])<=64 and int(s['count'])<=4 and int(s['RX'])+int(s['TX'])==int(s['seen']) and int(s['sampled'])<=int(s['seen']),'Fine bounds/counters')
+ if s['active']=='1':base.require(s['hz']=='80000000' and s['error']=='0' and int(s['current'])>=2 and int(s['incarnation'])>0,'Fine active latch/domain')
+ count=0;last=int(s['after'])
+ for i in range(4):
+  r=rows[f'N30_FINE_EDGE{i}'];base.require(r.get('present') in ('0','1'),'Fine edge presence')
+  if r['present']=='0':continue
+  base.require(i==count,'Fine batch hole');count+=1
+  for key in ('n','raw32','incarnation'):timing_number(r,key)
+  for key in ('raw80','tick20','seen_us'):timing_number(r,key,64)
+  for key in ('kind','extended'):base.require(r.get(key) in ('0','1'),'Fine edge boolean '+key)
+  base.require(r.get('polarity') in ('0','1','2') and r.get('association')=='UNESTABLISHED','Fine polarity/association')
+  base.require(last<int(r['n'])<=int(s['sampled']) and r['incarnation']==s['incarnation'],'Fine cursor/incarnation');last=int(r['n'])
+  if r['extended']=='1':base.require(int(r['raw80'])%2**32==int(r['raw32']) and int(r['tick20'])>=1000000,'Fine raw counter identity')
+ base.require(count==int(s['count']),'Fine count')
+ contract={'observer':'RAW_ONLY','domain':'MCPWM1_80MHZ','RX':'SYNCFOUND_230','TX':'PKT_TX_ON_235','CURRENT':'CH2_SW128','capture_channels':'0/1/2','edge':'RISING_AND_FALLING','endpoint':'UNKNOWN','coalesced':'UNKNOWN','packet_association':'NONE','RF_bound':'UNKNOWN','UTC_bound':'UNKNOWN','clock_update':'NONE','production':'GPTIMER20','offset':'LEGACY_ONLY'}
+ for key,value in contract.items():base.require(rows['N30_FINE_CONTRACT'].get(key)==value,'Fine contract '+key)
+
 def timing_number(row,key,bits=32,signed=False):
  value=row.get(key,'');base.require(bool(re.fullmatch(r'-?(?:0|[1-9][0-9]*)' if signed else r'(?:0|[1-9][0-9]*)',value)),'Invalid timing number: '+key)
  n=int(value);base.require(-(2**(bits-1))<=n<2**(bits-1) if signed else 0<=n<2**bits,'Timing number range: '+key);return n
@@ -73,11 +97,13 @@ class Parser(base.Parser):
   self.expected_rows=(*self.expected_rows,'N30_UI')
   if manifest.get('n30_frame_kind')=='LORA':self.expected_rows=('W12_R2_STATUS','W12_V12_STATUS','N30_LORA_CONTEXT','N30_LORA_ORIGINAL','N30_LORA_QUALITY','N30_LORA_COUNTERS','N30_LORA_HARDWARE','N30_LORA_POLICY','W12_V12_COMMAND','N30_UI')
   if manifest.get('n30_frame_kind')=='TIMING':self.expected_rows=TIMING_ROWS
+  if manifest.get('n30_frame_kind')=='FINE':self.expected_rows=FINE_ROWS
  def feed(self,data):
   frames=super().feed(data)
   for f in frames:
    if self.manifest.get('n30_frame_kind')=='LORA':validate_lora(f['rows'])
    if self.manifest.get('n30_frame_kind')=='TIMING':validate_timing(f['rows'])
+   if self.manifest.get('n30_frame_kind')=='FINE':validate_fine(f['rows'])
    mesh=f['rows']['W12_R2_STATUS'];ui=f['rows']['N30_UI'];status=f['rows']['W12_V12_STATUS'];m=self.manifest
    # The inherited whole-frame/nonce/CRC/boot/source/deadline checks still run.
    # Its historical nine-row G1 branch does not apply to this ten-row target;
@@ -91,10 +117,12 @@ class Parser(base.Parser):
   return frames
 
 def mutation_command(frame,nonce,action):
- timing=action=='timing stop' or bool(re.fullmatch(r'timing read (0|[1-9][0-9]*)',action)) or bool(re.fullmatch(r'timing start [1-9][0-9]* [1-9][0-9]*',action))
+ fine=action.startswith('fine ')
+ checked='timing '+action[5:] if fine else action
+ timing=checked=='timing stop' or bool(re.fullmatch(r'timing read (0|[1-9][0-9]*)',checked)) or bool(re.fullmatch(r'timing start [1-9][0-9]* [1-9][0-9]*',checked))
  if timing:
-  nums=[int(x) for x in action.split()[2:]]
-  base.require(not nums or (0<=nums[0]<2**32 if action.startswith('timing read ') else 1000<=nums[0]<=600000 and 1<=nums[1]<=64),'Timing command bounds')
+  nums=[int(x) for x in checked.split()[2:]]
+  base.require(not nums or (0<=nums[0]<2**32 if checked.startswith('timing read ') else 1000<=nums[0]<=600000 and 1<=nums[1]<=64),'Timing command bounds')
  if not timing and action not in ('ui page 0','ui page 1','ui page 2','lora diag','lora auto','lora on','lora off'):return base.mutation_command(frame,nonce,action)
  base.require(base.HEX16.fullmatch(nonce) and int(nonce,16) and nonce!=frame['begin']['nonce'],'Fresh UI request nonce required')
  b=frame['begin'];return f"v12 do {b['ticket']} {nonce} {b['factory']} {b['session']} {action}\n".encode()

@@ -1,6 +1,19 @@
 # Changelog
 
 
+## 2026-10-22 — N30 0.2.11 raw native marker observer
+
+- Add an identity-bound, default-OFF MCPWM group1 raw observer, with no-pad
+  CURRENT-only default and separately reviewed fixed GPIO4/5 native marker
+  profile. Keep LoRa group0 and production clock/legacy offset behavior.
+- Bound synchronous CH2 latch polling, unwrap/lifecycle health, finite CRC
+  history and cleanup/update drain. Retain unknown RF endpoints, coalescing,
+  packet association and UTC/output bounds; do not promote marker authority.
+- Add actual-owner synthetic failure/maintenance/formatter checks and sanitizer
+  counter lifecycle tests. Hardware acceptance and endpoint calibration remain
+  separate from these offline checks.
+
+
 ## N30 0.2.10 — provisional downstream composite offset
 
 - Accept the evidence-bound W12 schema1 aggregate-path profile in an ignored
