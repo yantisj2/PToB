@@ -3,6 +3,9 @@
 #include "fine_capture.hpp"
 #include "fine_counter.hpp"
 #include "fine_capture_config.h"
+#ifndef PTOB_N30_FINE_RW
+#define PTOB_N30_FINE_RW 0
+#endif
 #include "bounded_log.hpp"
 #include "driver/mcpwm_cap.h"
 #include "driver/gpio.h"
@@ -33,7 +36,13 @@ uint64_t first_coarse=0,last_service=0,last_raw80=0;int error=0;
 bool allocated=false,active=false,timer_enabled=false,timer_started=false,routed=false;
 bool channel_enabled[3]{};uint64_t burst_at=0;uint32_t burst_count=0,total_callbacks=0,budget_refused=0,expired_refused=0,inactive_callbacks=0;bool contained=false;
 constexpr uint32_t CurrentMask=UINT32_C(1)<<29,RadioMask=UINT32_C(3)<<27;
-static_assert(SYNCFOUND_FLAG_IDX==230&&PKT_TX_ON_IDX==235,"Pinned native signal IDs changed");
+static_assert(SYNCFOUND_FLAG_IDX==230&&PKT_TX_ON_IDX==235&&RW_RX_ON_IDX==238&&RW_TX_ON_IDX==237,"Pinned native signal IDs changed");
+static_assert(PTOB_N30_FINE_RW==0||(PTOB_N30_FINE_RW==1&&PTOB_N30_FINE_PINS),"RW profile requires reviewed fixed pads");
+constexpr int NativeRxSignal=PTOB_N30_FINE_RW?RW_RX_ON_IDX:SYNCFOUND_FLAG_IDX;
+constexpr int NativeTxSignal=PTOB_N30_FINE_RW?RW_TX_ON_IDX:PKT_TX_ON_IDX;
+constexpr const char* NativeMode=PTOB_N30_FINE_PINS?(PTOB_N30_FINE_RW?"NATIVE_RW_SIGNAL":"NATIVE_SIGNAL"):"CURRENT_ONLY";
+constexpr const char* NativeRxName=PTOB_N30_FINE_RW?"RW_RX_ON_238":"SYNCFOUND_230";
+constexpr const char* NativeTxName=PTOB_N30_FINE_RW?"RW_TX_ON_237":"PKT_TX_ON_235";
 uint64_t coarse(){const auto t=esp_timer_get_time();return t>0?uint64_t(t):0;}
 void inc(uint32_t& x){if(x!=UINT32_MAX)++x;}
 // Pinned private ABI/register adapter; not a stable public IDF API.
@@ -147,7 +156,7 @@ bool allocate(){
 bool route(bool enable){
 #if PTOB_N30_FINE_PINS
  constexpr int pins[2]={PTOB_N30_FINE_RX_GPIO,PTOB_N30_FINE_TX_GPIO};
- const int signals[2]={probe.synthetic?SIG_GPIO_OUT_IDX:SYNCFOUND_FLAG_IDX,probe.synthetic?SIG_GPIO_OUT_IDX:PKT_TX_ON_IDX};
+ const int signals[2]={probe.synthetic?SIG_GPIO_OUT_IDX:NativeRxSignal,probe.synthetic?SIG_GPIO_OUT_IDX:NativeTxSignal};
  // Mark partial ownership before any pad mutation; failed setup must unwind.
  if(enable)routed=true;
  else for(const auto pin:pins)pad_off(pin);
@@ -302,15 +311,15 @@ void n30_fine_frame(v12::ConsoleFrame& f,uint32_t after,uint64_t now){
  snapshot={history.id(),history.until(),last_raw80,history.every(),history.seen(),history.rx(),history.tx(),history.sequence(),history.overwritten(),history.oldest(),incarnation,hz,current_reads,timeouts,invalid,poll_max,cycles_max,service_max_us,first_raw32,latest_raw32,wraps,total_callbacks,budget_refused,expired_refused,inactive_callbacks,rx_out,tx_out,rx_in,tx_in,oe,channel_mask,irq_mask,first_coarse,last_service,error,active,contained};
  portEXIT_CRITICAL(&mux);
  const auto& q=snapshot;const auto& p=probe_snapshot;
- const char* mode=p.synthetic?"SYNTHETIC_GPIO":(PTOB_N30_FINE_PINS?"NATIVE_SIGNAL":"CURRENT_ONLY");
+ const char* mode=p.synthetic?"SYNTHETIC_GPIO":NativeMode;
  const auto quiet_at=p.stopped_us?p.stopped_us:q.last_us;
  const auto quiet=p.last_issue_us&&quiet_at>=p.last_issue_us?quiet_at-p.last_issue_us:0;
  f.format("N30_FINE_STATUS schema=1 id=%016" PRIx64 " active=%u until_us=%" PRIu64 " every=%" PRIu32 " seen=%" PRIu32 " RX=%" PRIu32 " TX=%" PRIu32 " sampled=%" PRIu32 " overwritten=%" PRIu32 " oldest=%" PRIu32 " after=%" PRIu32 " count=%u incarnation=%" PRIu32 " hz=%" PRIu32 " current=%" PRIu32 " timeout=%" PRIu32 " invalid=%" PRIu32 " poll_max=%" PRIu32 " cycles_max=%" PRIu32 " service_max_us=%" PRIu32 " latest80=%" PRIu64 " first32=%" PRIu32 " latest32=%" PRIu32 " wraps=%" PRIu32 " first_us=%" PRIu64 " last_us=%" PRIu64 " released=%u error=%d pins=%u callbacks=%" PRIu32 " budget_refused=%" PRIu32 " expired_refused=%" PRIu32 " inactive_callbacks=%" PRIu32 " contained=%u rx_out=%" PRIu32 " tx_out=%" PRIu32 " rx_in=%" PRIu32 " tx_in=%" PRIu32 " OE=%" PRIu32 " channels=%" PRIu32 " IRQ=%" PRIu32 " mode=%s probe_spacing_ms=%" PRIu32 " probe_goal=%" PRIu32 " attempted=%" PRIu32 " issued0=%" PRIu32 " issued1=%" PRIu32 " rise0=%" PRIu32 " fall0=%" PRIu32 " rise1=%" PRIu32 " fall1=%" PRIu32 " initial_low=%" PRIu32 " verified_levels=%" PRIu32 " input_levels=%" PRIu32 " level_poll_max=%" PRIu32 " last_issue_us=%" PRIu64 " stopped_us=%" PRIu64 " quiet_us=%" PRIu64 " start_mode=%s start_reads=%" PRIu32 " start_timeouts=%" PRIu32 " start_poll_max=%" PRIu32 " start_cycles_max=%" PRIu32 "\n",
- q.id,unsigned(q.active),q.until,q.every,q.seen,q.rx,q.tx,q.sampled,q.overwritten,q.oldest,after,count,q.incarnation,q.hz,q.current,q.timeout,q.invalid,q.poll,q.cycles,q.service,q.latest,q.first32,q.latest32,q.wraps,q.first_us,q.last_us,unsigned(n30_fine_released()),q.error,unsigned(PTOB_N30_FINE_PINS),q.callbacks,q.budget_refused,q.expired_refused,q.inactive_callbacks,unsigned(q.contained),q.rx_out,q.tx_out,q.rx_in,q.tx_in,q.oe,q.channel_mask,q.irq_mask,mode,p.spacing_ms,p.goal,p.attempted,p.issued[0],p.issued[1],p.rise[0],p.fall[0],p.rise[1],p.fall[1],p.initial_low,p.verified_levels,input_levels_snapshot,p.level_poll_max,p.last_issue_us,p.stopped_us,quiet,start_synthetic_snapshot?"SYNTHETIC_GPIO":(PTOB_N30_FINE_PINS?"NATIVE_SIGNAL":"CURRENT_ONLY"),start_snapshot.reads,start_snapshot.timeouts,start_snapshot.poll_max,start_snapshot.cycles_max);
+ q.id,unsigned(q.active),q.until,q.every,q.seen,q.rx,q.tx,q.sampled,q.overwritten,q.oldest,after,count,q.incarnation,q.hz,q.current,q.timeout,q.invalid,q.poll,q.cycles,q.service,q.latest,q.first32,q.latest32,q.wraps,q.first_us,q.last_us,unsigned(n30_fine_released()),q.error,unsigned(PTOB_N30_FINE_PINS),q.callbacks,q.budget_refused,q.expired_refused,q.inactive_callbacks,unsigned(q.contained),q.rx_out,q.tx_out,q.rx_in,q.tx_in,q.oe,q.channel_mask,q.irq_mask,mode,p.spacing_ms,p.goal,p.attempted,p.issued[0],p.issued[1],p.rise[0],p.fall[0],p.rise[1],p.fall[1],p.initial_low,p.verified_levels,input_levels_snapshot,p.level_poll_max,p.last_issue_us,p.stopped_us,quiet,start_synthetic_snapshot?"SYNTHETIC_GPIO":NativeMode,start_snapshot.reads,start_snapshot.timeouts,start_snapshot.poll_max,start_snapshot.cycles_max);
  for(unsigned i=0;i<4;++i){
   if(i>=count){f.format("N30_FINE_EDGE%u present=0\n",i);continue;}
   const auto& e=batch[i];
   f.format("N30_FINE_EDGE%u present=1 n=%" PRIu32 " raw32=%" PRIu32 " raw80=%" PRIu64 " tick20=%" PRIu64 " seen_us=%" PRIu64 " incarnation=%" PRIu32 " kind=%u polarity=%u extended=%u association=UNESTABLISHED provenance=%s\n",i,e.number,e.raw32,e.raw80,e.tick20,e.seen_us,e.incarnation,unsigned(e.kind),unsigned(e.polarity),unsigned(e.valid),mode);
  }
- f.format("N30_FINE_CONTRACT observer=RAW_ONLY domain=MCPWM1_80MHZ RX=%s TX=%s CURRENT=CH2_SW128 capture_channels=0/1/2 edge=RISING_AND_FALLING endpoint=UNKNOWN coalesced=UNKNOWN packet_association=NONE RF_bound=UNKNOWN UTC_bound=UNKNOWN clock_update=NONE production=GPTIMER20 offset=LEGACY_ONLY provenance=%s expected=%s\n",p.synthetic?"GPIO4_SYNTHETIC":"SYNCFOUND_230",p.synthetic?"GPIO5_SYNTHETIC":"PKT_TX_ON_235",mode,p.synthetic?"SYNTHETIC_VERIFIED_PAD_TRANSITIONS_ONLY":"NONE");
+ f.format("N30_FINE_CONTRACT observer=RAW_ONLY domain=MCPWM1_80MHZ RX=%s TX=%s CURRENT=CH2_SW128 capture_channels=0/1/2 edge=RISING_AND_FALLING endpoint=UNKNOWN coalesced=UNKNOWN packet_association=NONE RF_bound=UNKNOWN UTC_bound=UNKNOWN clock_update=NONE production=GPTIMER20 offset=LEGACY_ONLY provenance=%s expected=%s\n",p.synthetic?"GPIO4_SYNTHETIC":NativeRxName,p.synthetic?"GPIO5_SYNTHETIC":NativeTxName,mode,p.synthetic?"SYNTHETIC_VERIFIED_PAD_TRANSITIONS_ONLY":"NONE");
 }

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Shared map and no-GPS N30 inputs; synthetic identities only."""
-import copy,json,sys,tempfile,unittest
+import copy,hashlib,json,sys,tempfile,unittest
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[3];sys.path.insert(0,str(ROOT/'firmware/n30/tools'))
 from onboard import prepare,onboard
-from build import validate_inputs,device_header,validate_transmitter,lora_config_header,provisional_profile,validate_profile_mode
+from build import validate_inputs,device_header,validate_transmitter,lora_config_header,provisional_profile,validate_profile_mode,fine_profile,fine_header
 class Inputs(unittest.TestCase):
  def setUp(self):self.data={'schema':1,'devices':{'0000000000000001':{'alias':'Existing','target':'t096'}}}
  def test_provisional_multicast_profile(self):
@@ -23,6 +23,20 @@ class Inputs(unittest.TestCase):
   # Profile provenance and publisher identity cannot silently change.
   other=copy.deepcopy(enabled);other['provisional_path']['offset_ns']+=1
   self.assertNotEqual(provisional_profile(other)['id'],profile['id'])
+ def test_named_fixed_marker_profiles(self):
+  _,d=prepare(self.data,'N3-2','02:00:00:00:30:02')
+  bindings=set()
+  with tempfile.TemporaryDirectory() as tmp:
+   p=Path(tmp)/'profile.json'
+   for mode in ('NATIVE_GPIO4_5_SHADOW','NATIVE_RW_GPIO4_5_SHADOW'):
+    value=dict(schema=1,mode=mode,factory=d['device_id'],RX_GPIO=4,TX_GPIO=5,board_family='HELTEC_V3_V31_V32',physical_review_sha256='1'*64,schematic_review_sha256='2'*64)
+    p.write_text(json.dumps(value));got=fine_profile(d,p);header=fine_header(got)
+    bindings.add(hashlib.sha256(('same-source-and-device|'+hashlib.sha256(header.encode()).hexdigest()+'|PTOB_N30_0.2.14').encode()).hexdigest())
+    self.assertIn('PTOB_N30_FINE_PINS 1',header);self.assertEqual('PTOB_N30_FINE_RW 1' in header,mode=='NATIVE_RW_GPIO4_5_SHADOW')
+    for bad in ({**value,'mode':'CUSTOM'},{**value,'RX_GPIO':6},{**value,'RX_SIGNAL':238}):
+     p.write_text(json.dumps(bad))
+     with self.assertRaises(ValueError):fine_profile(d,p)
+  current=fine_header(fine_profile(d,None));bindings.add(hashlib.sha256(('same-source-and-device|'+hashlib.sha256(current.encode()).hexdigest()+'|PTOB_N30_0.2.14').encode()).hexdigest());self.assertEqual(len(bindings),3)
  def test_both_names_and_identity(self):
   data,d1=prepare(self.data,'N3-1','02:00:00:00:30:01');data,d2=prepare(data,'N3-2','02:00:00:00:30:02')
   self.assertEqual(d1['device_id'],'0000020000003001');self.assertEqual(data['devices']['0000000000000001'],self.data['devices']['0000000000000001'])

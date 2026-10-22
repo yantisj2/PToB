@@ -1,6 +1,15 @@
 # Changelog
 
 
+## N30 0.2.14 — fixed RW marker observer profile
+
+- Add an explicit reviewed GPIO4/5 profile for native RW_RX_ON238 and
+  RW_TX_ON237, with distinct immutable provenance and retained raw contracts.
+  Preserve the original pair and synthetic chain diagnostic; no arbitrary
+  signal routing or baseband configuration writes are introduced.
+- Keep RF endpoint, packet association, timing improvement and UTC unqualified.
+
+
 ## N30 0.2.13 — finite synthetic capture-chain diagnostic
 
 - Add a default-OFF fixed GPIO4/5 pulse mode to isolate the raw group1 capture

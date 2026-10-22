@@ -30,7 +30,7 @@ def validate_fine(rows):
  if s['active']=='1':base.require(s['hz']=='80000000' and s['error']=='0' and int(s['current'])>=2 and int(s['incarnation'])>0,'Fine active latch/domain')
  mode=s.get('mode')
  if mode is not None:
-  base.require(mode in ('NATIVE_SIGNAL','SYNTHETIC_GPIO','CURRENT_ONLY') and s.get('start_mode') in ('NATIVE_SIGNAL','SYNTHETIC_GPIO','CURRENT_ONLY'),'Fine provenance mode')
+  base.require(mode in ('NATIVE_SIGNAL','NATIVE_RW_SIGNAL','SYNTHETIC_GPIO','CURRENT_ONLY') and s.get('start_mode') in ('NATIVE_SIGNAL','NATIVE_RW_SIGNAL','SYNTHETIC_GPIO','CURRENT_ONLY'),'Fine provenance mode')
   for key in ('probe_spacing_ms','probe_goal','attempted','issued0','issued1','rise0','fall0','rise1','fall1','initial_low','verified_levels','input_levels','level_poll_max','start_reads','start_timeouts','start_poll_max','start_cycles_max'):timing_number(s,key)
   for key in ('last_issue_us','stopped_us','quiet_us'):timing_number(s,key,64)
   base.require(all(int(s[k])<=3 for k in ('initial_low','verified_levels','input_levels')) and int(s['level_poll_max'])<=128,'Probe level masks/polls')
@@ -53,6 +53,7 @@ def validate_fine(rows):
  base.require(count==int(s['count']),'Fine count')
  contract={'observer':'RAW_ONLY','domain':'MCPWM1_80MHZ','RX':'SYNCFOUND_230','TX':'PKT_TX_ON_235','CURRENT':'CH2_SW128','capture_channels':'0/1/2','edge':'RISING_AND_FALLING','endpoint':'UNKNOWN','coalesced':'UNKNOWN','packet_association':'NONE','RF_bound':'UNKNOWN','UTC_bound':'UNKNOWN','clock_update':'NONE','production':'GPTIMER20','offset':'LEGACY_ONLY'}
  if mode=='SYNTHETIC_GPIO':contract.update(RX='GPIO4_SYNTHETIC',TX='GPIO5_SYNTHETIC')
+ if mode=='NATIVE_RW_SIGNAL':contract.update(RX='RW_RX_ON_238',TX='RW_TX_ON_237')
  if mode is not None:contract.update(provenance=mode,expected='SYNTHETIC_VERIFIED_PAD_TRANSITIONS_ONLY' if mode=='SYNTHETIC_GPIO' else 'NONE')
  for key,value in contract.items():base.require(rows['N30_FINE_CONTRACT'].get(key)==value,'Fine contract '+key)
 

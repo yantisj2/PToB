@@ -742,3 +742,28 @@ Every stop, expiry and containment path prevents future writes and disables
 RX/TX capture/IRQ before releasing pad outputs. The group0 LoRa owner remains
 independent. This mode requires the same exact factory and physical pin review
 as native capture and defaults OFF.
+
+
+### Version 0.2.14 fixed RW marker observation
+
+The optional `NATIVE_RW_GPIO4_5_SHADOW` profile selects the pinned SDK's
+RW_RX_ON238 and RW_TX_ON237 outputs on the same reviewed GPIO4/5 pair. It
+retains exact factory, schematic and physical-review hashes. The builder accepts
+only the named fixed pairs; no arbitrary signal index or GPIO console option
+exists. The original 230/235 profile remains selectable and byte-identical in
+its generated configuration. No baseband, coexistence or debug-enable register
+is changed.
+
+Native RW records use immutable `NATIVE_RW_SIGNAL` provenance and explicit
+RW names in their CRC contract. This is a raw activity experiment with unknown
+RF endpoint, latency, coalescence, packet association and UTC bounds. Synthetic
+GPIO pulses retain their separate provenance and finite issued/captured-count
+contract. All modes default OFF, preserve the production GPTimer clock and
+legacy correction scope, and share the existing IRQ/expiry/cleanup guards.
+
+
+From version0.2.14, the runtime build ID also binds the generated fine-capture
+configuration header. Builds of the same source and device with different
+fixed marker profiles therefore retain distinct runtime identities. The
+inspector preserves the original identity formula when reading older builds;
+no historical source or receipt is rewritten.
