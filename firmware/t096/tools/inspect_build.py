@@ -119,6 +119,24 @@ def inspect(out,allow_development=False):
                 'manifest_sha256':prepare['manifest_sha256']},'Prepare generated manifest/mode mismatch')
             require(sha(out/'target/r2_controller_diag/ull.c')==pinned['output_sha256'][mode],
                     'Prepare generated ULL hash mismatch')
+    if tuple(map(int,r['version'].split('.'))) >= (0,15,163):
+        radio_fixes=r.get('controller_radio_fixes')
+        if dc or pc:
+            require(radio_fixes is None,'Radio fixes leaked into DC/PC')
+            require('/r2_radio_fixes/' not in commands,'Radio fixes source leaked into DC/PC')
+        else:
+            require(radio_fixes=={'manifest_sha256':sha(out/'source/cmake/controller-radio-fixes.json'),
+                'generator_sha256':sha(out/'source/tools/controller_radio_fixes.py')},'Radio fixes receipt mismatch')
+            pinned_radio=json.loads((out/'source/cmake/controller-radio-fixes.json').read_text())
+            require(json.loads((out/'target/r2_radio_fixes/manifest.json').read_text())==pinned_radio,'Radio fixes generated manifest mismatch')
+            require(sha(out/'source/cmake/controller-radio-fixes.patch')==pinned_radio['patch_sha256'],'Combined radio patch identity mismatch')
+            for upstream in pinned_radio['upstream']:
+                require(sha(out/'source/cmake'/upstream['patch'])==upstream['patch_sha256'],'Upstream radio patch identity mismatch')
+            for name,hashes in pinned_radio['files'].items():
+                leaf=Path(name).name
+                candidates=[c['file']for c in json.loads(commands)if c['file'].endswith('/'+leaf)]
+                require(len(candidates)==1 and candidates[0].endswith('/r2_radio_fixes/'+leaf),'Radio fixes source membership: '+leaf)
+                require(sha(out/'target/r2_radio_fixes'/leaf)==hashes['output_sha256'],'Radio fixes generated hash: '+leaf)
     dts=(out/'target/zephyr/zephyr.dts').read_text()
     if dc and 'src/dc_gnss.c' in r['sources']:
         require(r.get('dc_gnss_bridge') is True,'Missing DC GNSS bridge receipt')

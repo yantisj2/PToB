@@ -1298,8 +1298,10 @@ separate. A legacy decoder encountering nonzero quiet words correctly refuses to
 interpret them. Do not decode them as successful counters.
 
 The generated LLL input/output/patch hashes and exact single translation-unit
-membership are inspected. The existing radio hooks, ticker behavior, queue and
-assertions remain unchanged. Host extraction tests cover readiness, all FIFO wraps,
+membership are inspected. The diagnostic getter leaves radio hooks, ticker
+behavior, queue and assertions unchanged. Source163 separately applies the two public radio runtime
+fixes described in the [build guide](build.md). Host extraction tests cover
+readiness, all FIFO wraps,
 partial/corrupt cuts, first-failure freeze, scalar/configuration/decoder controls
 and unchanged healthy bodies. Native resource/stack/instruction checks and field
 observations are separate gates; zero additional static RAM is not zero stack cost.

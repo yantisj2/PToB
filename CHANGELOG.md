@@ -1,10 +1,18 @@
 # Changelog
 
-## T096 0.15.163 — bounded fatal context candidate (2026-10-22)
+## T096 0.15.163 — pinned radio fixes and bounded fatal context (2026-10-22)
 
+- Backport Zephyr355648a timer-route cleanup before radio DISABLE and ZMK10ba6d0
+  same-owner zero-exchange cancellation through hash-pinned generated copies.
+  Preserve forced guards, asynchronous ownership, assertions and queue capacity;
+  keep the SDK checkout unchanged and exclude DC/PC/BabbleSim.
+- Add actual-body old/new HAL, preempt, connection ISR cleanup and real FIFO
+  controls with explicit hardware/IRQ/LLCP boundaries. Physical causation and
+  durability remain field gates.
 - Reuse four unused failure-only prepare words for current LLL/preempt state
   under the existing complete queue-copy mask. Preserve all queue entries,
-  source/boot/CRC and assertions; no healthy hook or controller policy change.
+  source/boot/CRC and assertions; no healthy diagnostic hook or additional
+  controller policy change.
 - Retain pending health detail across console admission refusal, using existing
   throttle/watchdog alternation and normal60s cadence after acceptance.
 - Add actual-body source/configuration/decoder/delivery regressions and record

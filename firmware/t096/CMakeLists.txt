@@ -123,6 +123,7 @@ include(cmake/ticker_backport.cmake)
 include(cmake/radio_capture.cmake)
 include(cmake/precision_schedule.cmake)
 include(cmake/controller_diag.cmake)
+include(cmake/controller-radio-fixes.cmake)
 target_compile_options(app PRIVATE -Wall -Wextra -Werror -Wno-unused-parameter)
 
 target_compile_definitions(app PRIVATE R2_NATIVE_BLE=1)

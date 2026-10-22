@@ -1,0 +1,32 @@
+From 10ba6d0cb38bc3d258775d27982f707599320085 Mon Sep 17 00:00:00 2001
+From: carrefinho <carrefinho@proton.me>
+Date: Thu, 13 Aug 2026 21:56:34 -0400
+Subject: [PATCH] Bluetooth: Controller: Fix prepare pipeline overflow Fixes
+ ZMK split central lockups caused by controller prepare pipeline overflow
+
+---
+ subsys/bluetooth/controller/ll_sw/nordic/lll/lll_conn.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/subsys/bluetooth/controller/ll_sw/nordic/lll/lll_conn.c b/subsys/bluetooth/controller/ll_sw/nordic/lll/lll_conn.c
+index 3ff4e29efea8..4b9e9f5d57f7 100644
+--- a/subsys/bluetooth/controller/ll_sw/nordic/lll/lll_conn.c
++++ b/subsys/bluetooth/controller/ll_sw/nordic/lll/lll_conn.c
+@@ -174,7 +174,7 @@ int lll_conn_central_is_abort_cb(void *next, void *curr,
+ 	 * exchanged.
+ 	 */
+ 	if ((next == curr) && (trx_cnt < 1U)) {
+-		return -EBUSY;
++		return -ECANCELED;
+ 	}
+ 
+ 	return -ECANCELED;
+@@ -196,7 +196,7 @@ int lll_conn_peripheral_is_abort_cb(void *next, void *curr,
+ 	 * been exchanged.
+ 	 */
+ 	if ((next == curr) && (tx_cnt < 1U)) {
+-		return -EBUSY;
++		return -ECANCELED;
+ 	}
+ 
+ 	return -ECANCELED;
