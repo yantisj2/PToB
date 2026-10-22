@@ -27,7 +27,7 @@ uint32_t latest_raw32=0,first_raw32=0,wraps=0;
 uint64_t first_coarse=0,last_service=0,last_raw80=0;int error=0;
 bool allocated=false,active=false,timer_enabled=false,timer_started=false,routed=false;
 bool channel_enabled[3]{};uint64_t burst_at=0;uint32_t burst_count=0,total_callbacks=0,budget_refused=0,expired_refused=0,inactive_callbacks=0;bool contained=false;
-constexpr uint32_t CurrentMask=UINT32_C(1)<<29;
+constexpr uint32_t CurrentMask=UINT32_C(1)<<29,RadioMask=UINT32_C(3)<<27;
 static_assert(SYNCFOUND_FLAG_IDX==230&&PKT_TX_ON_IDX==235,"Pinned native signal IDs changed");
 uint64_t coarse(){const auto t=esp_timer_get_time();return t>0?uint64_t(t):0;}
 void inc(uint32_t& x){if(x!=UINT32_MAX)++x;}
@@ -68,11 +68,26 @@ void pad_off(int pin){
  gpio_ll_set_output_enable_ctrl(&GPIO,pin,false,false);gpio_ll_output_disable(&GPIO,pin);
 }
 #endif
+void radio_capture_off(){
+ auto* dev=timer->group->hal.dev;
+ mcpwm_ll_intr_enable(dev,RadioMask,false);
+ mcpwm_ll_capture_enable_channel(dev,0,false);mcpwm_ll_capture_enable_channel(dev,1,false);
+}
+#if PTOB_N30_FINE_PINS
+bool radio_prepare(){
+ // Public channel enable toggles CPU IRQ/capn_en; it does NOT restore INT_ENA.
+ // Both hardware channels stay disabled while only their stale RAW bits clear.
+ radio_capture_off();auto* dev=timer->group->hal.dev;dev->int_clr.val=RadioMask;
+ unsigned n=0;for(;n<128;++n)if(!(dev->int_raw.val&RadioMask))break;
+ if(n==128){error=-19;return false;}
+ mcpwm_ll_intr_enable(dev,RadioMask,true);
+ if((dev->int_ena.val&RadioMask)!=RadioMask){error=-20;return false;}
+ return true;
+}
+#endif
 void contain(){
  // This sole group1 owner contains unknown native signals before returningISR.
- auto* dev=timer->group->hal.dev;
- mcpwm_ll_intr_enable(dev,UINT32_C(3)<<27,false);
- mcpwm_ll_capture_enable_channel(dev,0,false);mcpwm_ll_capture_enable_channel(dev,1,false);
+ radio_capture_off();
 #if PTOB_N30_FINE_PINS
  pad_off(PTOB_N30_FINE_RX_GPIO);pad_off(PTOB_N30_FINE_TX_GPIO);
 #endif
@@ -110,6 +125,9 @@ bool allocate(){
  }
  // No registration forCH2: its raw completion bit is polled, IRQ stays masked.
  if(timer->group->hal.dev->int_ena.val&CurrentMask)return false;
+#if PTOB_N30_FINE_PINS
+ radio_capture_off();
+#endif
  allocated=true;return true;
 }
 bool route(bool enable){
@@ -170,8 +188,13 @@ bool n30_fine_start(uint64_t id,uint64_t factory,uint64_t now,uint32_t ms,uint32
  if(!ok){n30_fine_stop();return false;}
  if(!route(true)){error=-15;n30_fine_stop();return false;}
  // Arm finite ISR containment before enabling the first unknown native input.
- portENTER_CRITICAL(&mux);active=history.active(coarse());bool live=active;portEXIT_CRITICAL(&mux);
- if(!live){error=-17;n30_fine_stop();return false;}
+ portENTER_CRITICAL(&mux);
+ bool live=history.active(coarse());
+#if PTOB_N30_FINE_PINS
+ if(live)live=radio_prepare();
+#endif
+ active=live;portEXIT_CRITICAL(&mux);
+ if(!live){if(!error)error=-17;n30_fine_stop();return false;}
 #if PTOB_N30_FINE_PINS
  for(unsigned i=0;i<2;++i){
   if(mcpwm_capture_channel_enable(channels[i])!=ESP_OK){error=-7;n30_fine_stop();return false;}channel_enabled[i]=true;
@@ -181,10 +204,14 @@ bool n30_fine_start(uint64_t id,uint64_t factory,uint64_t now,uint32_t ms,uint32
  }
 #endif
  portENTER_CRITICAL(&mux);live=active&&!contained&&!error&&history.active(coarse());portEXIT_CRITICAL(&mux);
- if(!live){error=-17;n30_fine_stop();return false;}return true;
+ if(!live){if(!error)error=-17;n30_fine_stop();return false;}return true;
 }
 void n30_fine_stop(){
- portENTER_CRITICAL(&mux);active=false;history.stop();portEXIT_CRITICAL(&mux);
+ portENTER_CRITICAL(&mux);active=false;history.stop();
+#if PTOB_N30_FINE_PINS
+ if(timer){radio_capture_off();pad_off(PTOB_N30_FINE_RX_GPIO);pad_off(PTOB_N30_FINE_TX_GPIO);}
+#endif
+ portEXIT_CRITICAL(&mux);
  if(routed&&!route(false))error=-16;
  for(unsigned i=0;i<3;++i)if(channel_enabled[i]){if(mcpwm_capture_channel_disable(channels[i])!=ESP_OK)error=-9;else channel_enabled[i]=false;}
  if(timer_started){if(mcpwm_capture_timer_stop(timer)!=ESP_OK)error=-10;else timer_started=false;}

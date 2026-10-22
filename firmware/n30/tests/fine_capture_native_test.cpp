@@ -9,8 +9,9 @@
 namespace v12 {
 bool ConsoleFrame::format(const char* fmt,...){va_list args;va_start(args,fmt);const int n=std::vsnprintf(bytes+length,sizeof(bytes)-length,fmt,args);va_end(args);if(n<=0||unsigned(n)>=sizeof(bytes)-length){failed=true;return false;}for(int i=0;i<n;++i)rows+=bytes[length+i]=='\n';length+=uint16_t(n);return true;}
 }
-void clear_error(){fake_gpio_failure=0;fake_gpio_failure_pin=-1;fake_enable_fail=-1;fake_enable_inject=nullptr;fake_disable_ok=true;n30_fine_stop();assert(n30_fine_released());error=0;fake_complete=fake_clear_ok=true;fake_stale=false;fake_cycle_step=32;fake_device.int_raw.val=0;}
-void edge(unsigned channel){mcpwm_capture_event_data_t e{fake_raw,1};assert(channels[channel]->cb);channels[channel]->cb(channels[channel],&e,channels[channel]->context);}
+void clear_error(){fake_gpio_failure=0;fake_gpio_failure_pin=-1;fake_enable_fail=-1;fake_enable_inject=nullptr;fake_disable_ok=fake_radio_clear_ok=fake_irq_restore_ok=true;n30_fine_stop();assert(n30_fine_released());error=0;fake_complete=fake_clear_ok=true;fake_stale=false;fake_cycle_step=32;fake_device.int_raw.val=0;}
+void delivered_callback(unsigned channel){mcpwm_capture_event_data_t e{fake_raw,1};assert(channels[channel]->cb);channels[channel]->cb(channels[channel],&e,channels[channel]->context);}
+void edge(unsigned channel){if(fake_device.cap_chn_cfg[channel].capn_en&&(fake_device.int_ena.val&(1u<<(27+channel))))delivered_callback(channel);}
 void storm_during_enable(unsigned channel){if(channel==0)for(unsigned i=0;i<65;++i)edge(0);}
 int main(){
  assert(n30_fine_released()&&fake_allocated==0&&fake_gpio_calls==0);for(unsigned i=166;i<=168;++i)GPIO.func_in_sel_cfg[i].val=0xabcd0000+i;
@@ -24,8 +25,15 @@ int main(){
  for(unsigned i=0;i<65;++i)edge(i%2);
  assert(contained&&!active&&error==-18&&total_callbacks==65&&history.seen()==64&&budget_refused==1);
  assert(!GPIO.oe[4]&&!GPIO.oe[5]&&!(fake_device.int_ena.val&(3u<<27))&&!fake_device.cap_chn_cfg[0].capn_en&&!fake_device.cap_chn_cfg[1].capn_en&&fake_device.cap_chn_cfg[2].capn_en);
- edge(0);assert(inactive_callbacks==1&&!GPIO.oe[4]&&!GPIO.oe[5]);clear_error();
+ delivered_callback(0);assert(inactive_callbacks==1&&!GPIO.oe[4]&&!GPIO.oe[5]);clear_error();
  assert(n30_fine_start(2,PTOB_N30_FINE_FACTORY,fake_now,1000,1));fake_now=history.until();edge(0);assert(contained&&!active&&expired_refused==1&&!GPIO.oe[4]&&!GPIO.oe[5]);clear_error();
+ // Real public enable does not set peripheral INT_ENA: restore on EVERY lease.
+ assert(n30_fine_start(40,PTOB_N30_FINE_FACTORY,fake_now,1000,1));fake_now=history.until();edge(0);assert(contained&&!active&&error==0);n30_fine_poll(fake_now);assert(n30_fine_released());
+ fake_device.int_raw.val=(3u<<27)|(1u<<10);
+ assert(n30_fine_start(41,PTOB_N30_FINE_FACTORY,fake_now,1000,1));assert((fake_device.int_ena.val&(3u<<27))==(3u<<27)&&!(fake_device.int_raw.val&(3u<<27))&&(fake_device.int_raw.val&(1u<<10)));assert(history.seen()==0);edge(0);assert(history.seen()==1);n30_fine_stop();assert(n30_fine_released()&&!(fake_device.int_ena.val&(3u<<27)));delivered_callback(0);assert(inactive_callbacks==1);
+ assert(n30_fine_start(42,PTOB_N30_FINE_FACTORY,fake_now,1000,1));assert((fake_device.int_ena.val&(3u<<27))==(3u<<27));n30_fine_stop();clear_error();
+ fake_radio_clear_ok=false;fake_device.int_raw.val=3u<<27;assert(!n30_fine_start(43,PTOB_N30_FINE_FACTORY,fake_now,1000,1));assert(error==-19&&n30_fine_released()&&!GPIO.oe[4]&&!GPIO.oe[5]);clear_error();
+ fake_irq_restore_ok=false;assert(!n30_fine_start(44,PTOB_N30_FINE_FACTORY,fake_now,1000,1));assert(error==-20&&n30_fine_released()&&!GPIO.oe[4]&&!GPIO.oe[5]);clear_error();
  fake_enable_inject=storm_during_enable;assert(!n30_fine_start(3,PTOB_N30_FINE_FACTORY,fake_now,1000,1));assert(error==-18&&contained&&n30_fine_released()&&!fake_channels[1].fsm);clear_error();
  for(int pin=4;pin<=5;++pin)for(int operation=1;operation<=8;++operation){
   fake_gpio_failure_pin=pin;fake_gpio_failure=operation;

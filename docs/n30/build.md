@@ -700,3 +700,11 @@ verified route and observed traffic limits this pinned configuration; it does
 not rule out other documented ESP32-S3 capture facilities. Active signals still
 need an immutable packet/window journal and independent RF endpoint evidence
 before packet association, timing improvement or production migration.
+
+Every native start explicitly clears only RX/TX pending RAW bits while those
+hardware channels are disabled, then restores their peripheral IRQ masks before
+public channel enable. The pinned driver owns CPU interrupt enable separately;
+its channel-enable API does not restore a mask cleared by containment. Normal
+stop quiesces those hardware channels and IRQs before disconnecting pads. Host
+regressions exercise expiry containment, cleanup, restart and a new callback,
+plus stale pending bits and refused clear/mask restoration.
