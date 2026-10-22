@@ -1,5 +1,22 @@
 # T096 G5 ACTIVE, HOT and COLD
 
+Version164 prevents the independent LoRa watchdog from interpreting startup
+flash-scan bytes as live owner state. One boot-zero atomic readiness word outside
+the reused scratch union is published after LoRa initialization and before worker
+launch. Until then the observer returns before reading that union. The original
+30s monitored-stall bound, terminal-first-cause rule and sticky hardware fault
+remain. This adds one atomic word; native resource deltas are a separate check.
+No timer, retry, controller, pairing or RF policy changes.
+
+A composed actual scanner/LoRa regression reproduces the old pre-initialization
+timeout and later START/EIO record with zero SPI transfers, using a synthetic
+valid public journal record and explicit observer interleavings. It verifies the
+new gate, initialization publication and unchanged post-initialization watchdog
+bounds. The ownership gap and unchanged LoRa bodies predate163. The two observed
+163 startup recoveries match this chain, but their erased prior scan rows are
+unavailable; the exact physical triggering row remains an inference. This fix
+does not address or classify the separate historical controller assertions.
+
 Version163 brings two pinned public controller fixes into generated copies of
 ordinary native GM/RC, including explicit verbose builds. The Zephyr
 [radio-disable fix](https://github.com/zephyrproject-rtos/zephyr/commit/355648a69f5137c68d86fe577ddb256e7da74d12)
@@ -1012,3 +1029,29 @@ TC03, then COLD and the sole LoRa transmitter, subsequently supplied a matching
 reason3 fatal/watchdog record without a detailed assertion capsule. The unresolved
 fatal is therefore not established as specific to HOT operation. No controller
 fix or physical-cause conclusion follows from these retained records.
+
+## Source163 bounded field checkpoint
+
+Three USB-observed source163 clocks completed600s with40 complete cohorts and
+948/948 CRC-valid frames. The ACTIVE root remained source-eligible and reported
+HOT acknowledgment throughout40/40 samples, spanning596.160737s. Its appointed
+HOT was a separately powered source162 clock offsite from USB observation;
+there were zero complete two-sided pair samples. This is root-side acknowledgment,
+not a measured continuous HOT interval or a durability qualification.
+
+Both observed COLD followers retained valid locked maps40/40. Their independent
+GNSS qualification was35/40 and0/40 respectively. The sole LoRa transmitter's
+sparse samples37/40 showed TX_DONE30→167 and accepted26→155, with no sampled LoRa
+fault. One MTU ENOTCONN event occurred; sampled network errors were zero. No reset
+or root withdrawal was observed during this600s interval. Bounded cursor drains
+missed records, so fine-grained transition causality is unavailable. Relative
+stream lock does not establish calibrated UTC or output precision.
+
+Before that run, two first source163 boots recovered through dedicated LoRa
+watchdog reason6, START/EIO, closure31 and generation0. One exposed zero SPI
+transfers and a sticky native timeout before its generic EIO record. These were
+separate from the earlier source162 kernel-fatal/prepare-FIFO population. The
+actual-body startup lifetime reproduction above matches this chain; exact prior
+scan rows were not preserved. Subsequent healthy boots and the bounded run do
+not remove those failures from the record. Hardware readers were released at the
+end; the offsite clock was not opened or changed.

@@ -1317,3 +1317,25 @@ all64 retained words fit in1186 of the1536-byte buffer in the actual formatter
 fixture. Successful admission is not USB delivery: a queued note can expire or
 be lost on disconnect. Missing HEALTH alone does not prove the retained capsule
 is absent, nor that diagnostic scheduling caused a controller fatal.
+
+## LoRa observer initialization lifetime (source164)
+
+The hardware watchdog thread starts before the startup diagnostic scan. That
+scan reuses the512B LoRa/controller scratch union. In163 and earlier, the LoRa
+observer could interpret a valid record's source-hash words as `beat/monitor`
+and its previous pair epoch as `terminal`. A stale-looking, nonterminal record
+could therefore trip the real sticky LoRa hardware timeout before LoRa init.
+Initialization cleared the scratch fault history while the hardware fault stayed
+latched; the first start then failed before SPI, followed by a generic service
+EIO and dedicated LoRa watchdog reset. Such a record does not identify a failed
+radio transfer or a kernel assertion.
+
+Source164 adds one independent boot-zero atomic readiness word. Init clears it,
+initializes scratch and LoRa state, then publishes readiness before creating the
+worker. The observer returns before reading scratch until publication. Synthetic
+valid-record tests interleave observation at scanner read/CRC and init cuts,
+retain original-negative evidence, and preserve monitored29999/30000ms and
+terminal-first-cause controls. This establishes the software lifetime defect;
+the prior bytes from the observed failed boots were erased and cannot identify
+the exact physical triggering scan row. Native RAM/resource and field checks
+remain separate, with no hardware fault clearing or watchdog deadline change.
