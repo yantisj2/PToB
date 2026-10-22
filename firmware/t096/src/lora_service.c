@@ -26,6 +26,8 @@
 #define DIAGNOSTIC_MIN_US UINT64_C(2000000)
 #define CONTEXT_REPEAT_US UINT64_C(16000000)
 #define CADENCE_US UINT64_C(4000000)
+/* Independent of the union while startup flash scanning owns its bytes. */
+static atomic_t observer_ready;
 static atomic_t flags,closed=1,faulted;
 static struct k_spinlock lock;
 static const struct r2_group_config *group;
@@ -487,6 +489,7 @@ static void worker(void *a,void *b,void *c){
 }
 
 void r2_lora_init(uint64_t factory,uint64_t boot,uint64_t tx,const struct r2_group_config *g){
+ atomic_set(&observer_ready,0);
  /* The completed scanner restores the committed primary fault in the tail.
   * A failed scan grants no retained evidence. The rest is this boot's owner. */
  memset(&r2_diag_scratch.lora,0,r2_diag_state()>=1?
@@ -504,10 +507,13 @@ void r2_lora_init(uint64_t factory,uint64_t boot,uint64_t tx,const struct r2_gro
  struct rc8_requests requests=rc8_requests_default(&binding);
  if(!transmitter)(void)rc8_receiver_init(&role.rx,&binding);
  atomic_set(&flags,(requests.tx||requests.rx)?REQUESTED:0);
+ /* Publish the initialized lifetime before the worker can enable monitoring. */
+ atomic_set(&observer_ready,1);
  k_thread_create(&worker_thread,worker_stack,K_THREAD_STACK_SIZEOF(worker_stack),worker,NULL,NULL,NULL,WORKER_PRIORITY,0,K_NO_WAIT);
  k_thread_name_set(&worker_thread,"rc8-radio");
 }
 void r2_lora_watchdog_check(void){
+ if(!atomic_get(&observer_ready))return;
  /* Called by the independent priority4 observer. RF silence/source absence
   * is never a worker fault. A frozen owner cannot be hidden by live USB/UI.
   * Timestamp is read before comparison time, including wrap/preemption. */
