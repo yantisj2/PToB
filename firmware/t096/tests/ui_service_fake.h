@@ -78,9 +78,10 @@ static void k_sleep(unsigned ms){fake_now+=ms;
   }
   if(mode==22&&fake_now>=300700){m.clock.pps_present=false;m.gm_source_fresh=false;}
   if(mode==23&&fake_now>=300700)m.clock.pps_age_us=R2_PPS_FRESH_US;
+  if(mode>=24&&mode<34)m.profile_rc=true;
   if(mode>=35){m.gm_capable=true;m.clock.fix_active=mode!=38;
    if(mode==36)m.role=R2_UI_GM;
-   if(mode==37)m.profile_rc=m.boundary_clock=true;
+   if(mode==37||mode==39)m.profile_rc=m.boundary_clock=true;
   }
   r2_ui_publish(&m);
   if(mode==39&&fake_now>=14000&&fake_now<14020)(void)r2_ui_page(R2_UI_SHADOW_PAGE);
@@ -90,7 +91,7 @@ static void k_sleep(unsigned ms){fake_now+=ms;
   if(fake_now>=(mode==35||mode==36||mode==40?622000:mode==41?316000:mode==39?30000:mode>=26?25000:mode==24?622000:mode==25?316000:mode==16?367000:mode>=18?301200:3500))r2_ui_stop();
   return;
  }
- if(mode>=8&&mode<14){struct r2_ui_model m={.sampled_ms=fake_now,.unit="TC-03",.scope_active=true,.role=(mode==9||(mode==13&&fake_now>=3500&&fake_now<4500))?R2_UI_GM:R2_UI_FOLLOWER,.clock={.pps_present=mode!=12,.pps_age_us=10},.precision={.map_valid=true}};r2_ui_publish(&m);
+ if(mode>=8&&mode<14){struct r2_ui_model m={.profile_rc=true,.sampled_ms=fake_now,.unit="TC-03",.scope_active=true,.role=(mode==9||(mode==13&&fake_now>=3500&&fake_now<4500))?R2_UI_GM:R2_UI_FOLLOWER,.clock={.pps_present=mode!=12,.pps_age_us=10},.precision={.map_valid=true}};r2_ui_publish(&m);
   if(mode==11&&fake_now>=2000&&fake_now<2020)(void)r2_ui_page(0);
   if(mode==11&&fake_now>=2800&&fake_now<2820)(void)r2_ui_page(R2_UI_SHADOW_PAGE);
  }

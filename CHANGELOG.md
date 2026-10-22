@@ -2,6 +2,17 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 21 October 2026 — T096 0.15.160 COLD timing reception
+
+All COLD GMs now use the existing passive precision receiver path previously
+reserved for the configured LoRa transmitter. Receiving timing does not appoint
+HOT or add a GM control slot. Precision pages show stream RMS independently of
+shadow PPS; COLD receivers report standby rather than failed HOT admission.
+GM shadow sampling is disabled, while RC precision/shadow pages retain it.
+Timers, election, controller policy and source expiry remain unchanged. Physical
+acceptance and the existing prepare-FIFO fault remain separate from host tests.
+
+
 ## 21 October 2026 — T096 0.15.159 standby input and HOT page
 
 Refresh coherent direct HOT/ACQUIRING precision input before readiness consumes it,

@@ -12,6 +12,21 @@ static void save(const char *dir,const char *name,struct r2_ui_model *m,struct r
  for(unsigned i=0;i<R2_UI_BYTES;i+=2){unsigned p=((unsigned)framebuffer[i]<<8)|framebuffer[i+1];fputc((p>>11)*255/31,f);fputc(((p>>5)&63)*255/63,f);fputc((p&31)*255/31,f);}fclose(f);
 }
 int main(int argc,char **argv){
+ struct r2_ui_model cold={.sampled_ms=1000,.unit="TC-01",.platform_ready=true,.profile_supported=true,
+  .gm_capable=true,.gm_cold=true,.source_eligible=true,.scope_active=true,.role=R2_UI_FOLLOWER,
+  .authenticated_gm=true,.follower_pps_valid=true,.ble_active=true,.ble_time_selected=true,.ble_valid_until_us=2000000,
+  .clock={.valid=true,.utc_us=36642000000LL,.fix_active=true,.pps_present=true},
+  .precision={.authorized=true,.map_valid=true,.locked=true,.fit_valid=true,.rms_valid=true,.rms_ns=137}};
+ struct r2_ui_status precision_page={.page=2};uint8_t rms137[R2_UI_BYTES];
+ save(argv[1],"cold-gm-precision",&cold,&precision_page);memcpy(rms137,framebuffer,sizeof rms137);
+ cold.hot_refusal=1;save(argv[1],"cold-gm-peer-refusal",&cold,&precision_page);assert(!memcmp(rms137,framebuffer,sizeof rms137));
+ cold.precision.rms_ns=238;save(argv[1],"cold-gm-rms238",&cold,&precision_page);
+ assert(memcmp(rms137+2*49*80,framebuffer+2*49*80,2*25*80));
+ cold.profile_rc=true;cold.gm_cold=false;save(argv[1],"rc-stream-rms-shadow-off",&cold,&precision_page);memcpy(rms137,framebuffer,sizeof rms137);
+ cold.precision.rms_ns=137;save(argv[1],"rc-stream-rms137-shadow-off",&cold,&precision_page);
+ assert(memcmp(rms137+2*49*80,framebuffer+2*49*80,2*25*80));
+ precision_page.shadow=(struct r2_shadow_session_view){.state=R2_SHADOW_RUNNING,.active=true,.valid=true,.samples=50,.mean_tenth_ns=-370,.rms_ns=42};
+ save(argv[1],"rc-stream-rms-shadow-running",&cold,&precision_page);
  char name[25];
  r2_ui_identity_name(name,UINT64_C(0x1000000000000001),"Clock-1000000000000001");assert(!strcmp(name,"0001"));
  r2_ui_identity_name(name,UINT64_C(0x1000000000000002),"Clock-1000000000000002");assert(!strcmp(name,"0002"));

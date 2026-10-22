@@ -527,17 +527,17 @@ int main(int argc,char **argv)
  (void)authenticate_client(true);
  puts("PASS real authenticated foreign timing JOIN ACCEPT cannot publish passive timing mode on a serving G5 ACTIVE before STATUS selection");
  reset();for(unsigned role=0;role<4;role++)for(unsigned tx=0;tx<2;tx++)for(unsigned requested=0;requested<2;requested++){
-  n.gm5.role=role;assert(r2_gm5_bridge_needed(&n.gm5,tx,requested)==(role==R2_GM5_COLD&&tx&&requested));
+  n.gm5.role=role;assert(r2_gm5_cold_listener(&n.gm5)==(role==R2_GM5_COLD));
  }
  n.gm5.role=R2_GM5_COLD;
- puts("PASS bridge exception only while COLD and configured transmitter explicitly requests forwarding; OFF/ACTIVE/HOT do not add leaf work");
+ puts("PASS all COLD GMs receive timing independently of LoRa TX/request; ACTIVE/HOT do not add leaf work");
  client=(struct r2_group_client){.passive=true,.source=true,.root=111,.boot=11,.source_epoch=1,.publication=1,.at=n.now,.until=n.now+1500000,.uncertainty_us=40000};
  uint64_t original_anchor=client.at,original_permit=client.until;
  unsigned starts=scan_starts,calls=initiations;
  for(unsigned i=0;i<10000;i++){fake_time=70000000+i*1000;n.now=fake_time;r2_group_admission_tick(&n,fake_time);r2_ble_client_window(false);r2_ble_poll(fake_time);r2_ble_client_seek(fake_time,true);}
  assert(scan_starts==starts&&initiations==calls&&!scanning&&!advertising&&!precision_discovery&&!sync_acquiring);
  assert(client.source&&client.at==original_anchor&&client.until==original_permit);
- puts("PASS10s healthy COLD: zero scan starts, initiations, precision acquisitions or standing control links between status opportunities");
+ puts("PASS10s explicitly closed client window: zero scan starts, initiations or precision acquisitions; retained anchor unchanged");
  reset();unsigned visits[3]={0};bt_addr_le_t address={.type=BT_ADDR_LE_RANDOM};r2_ble_admission_policy(0,false);
  for(unsigned opportunity=0;opportunity<9;opportunity++){
   uint64_t at=70000000+opportunity*30000000;fake_time=at;r2_ble_gm5_policy(true,0,true);

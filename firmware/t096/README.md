@@ -1,5 +1,18 @@
 # T096 firmware example
 
+Version160 lets every COLD GM follow the ordinary authenticated precision stream
+using the existing passive leaf receiver path. COLD remains outside the selected
+GM/HOT control pair and gains no successor grant or output permission by receiving
+time. This supersedes the earlier no-PA COLD policy and removes the LoRa-TX-only
+exception. Independent local GNSS qualification continues.
+
+The precision screen always presents current stream RMS (or -- when unavailable),
+with COLD STANDBY/TIMING SYNC status for an unappointed receiver. GM shadow-PPS
+sampling is held off on all pages while troubleshooting. RC precision page2 and
+dedicated page6 retain intentional shadow sampling; stream RMS and shadow PPS
+statistics are distinct. Timer, election and controller policies are unchanged;
+the retained prepare-FIFO fatal remains unresolved.
+
 Version159 refreshes coherent direct PT input before the G5 HOT/ACQUIRING
 readiness tick, preserving the PT owner's observation timestamp and expiry.
 ACTIVE, COLD, RC and relay paths retain their existing timing update. This fixes
@@ -14,7 +27,7 @@ The separate stream-loss takeover draft remains evaluation-only.
 *Illustrative firmware-rendered RC screen; displayed values are not measured
 performance. [Image provenance](../../docs/images/README.md).*
 
-**PToB owns T096 RC7 development.** Current source version **0.15.159** supplies the
+**PToB owns T096 RC7 development.** Current source version **0.15.160** supplies the
 ordinary **GM** and **RC** mesh profiles, with USB timing compiled by default.
 [Build from source](../../docs/t096/build.md) with pinned public dependencies
 and ignored local enrollment. No enrolled binary is distributed.

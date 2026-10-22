@@ -47,8 +47,10 @@ struct r2_gm5 {
  uint32_t attempts,failures,successes,status_tx,status_rx,control_tx,control_rx;
  uint8_t role;bool enabled,inhibited,bridge,repair_used,grant_pending,contacting;
 };
-static inline bool r2_gm5_bridge_needed(const struct r2_gm5 *g,bool transmitter,bool requested)
-{return g->enabled&&g->role==R2_GM5_COLD&&transmitter&&requested;}
+/* Every COLD GM follows the ordinary timing stream as a passive leaf.
+ * The existing bridge flag selects that receive path; it grants no HOT role. */
+static inline bool r2_gm5_cold_listener(const struct r2_gm5 *g)
+{return g->enabled&&g->role==R2_GM5_COLD;}
 struct r2_network;
 /* STATUS is accepted only inside the authenticated, still-live causal JOIN.
  * It is candidate inventory and negative incumbent evidence, never timing or

@@ -20,6 +20,7 @@ with (nullcontext(str(args.out.resolve())) if args.out else tempfile.TemporaryDi
     subprocess.run([sys.executable,str(APP/'tools/lora_runtime_tests.py'),'--deps',str(args.deps),'--out',str(out/'lora-runtime')],env={**os.environ,'CC':compiler},check=True,timeout=60)
     subprocess.run([sys.executable,str(APP/'tools/lora_hw_tests.py'),'--out',str(out/'lora-hw')],env={**os.environ,'CC':compiler},check=True,timeout=60)
     subprocess.run([sys.executable,str(APP/'tools/gm_input_order_tests.py'),'--deps',str(args.deps),'--out',str(out/'gm-input-order')],env={**os.environ,'CC':compiler},check=True,timeout=60)
+    subprocess.run([sys.executable,str(APP/'tools/cold_client_tests.py'),'--out',str(out/'cold-client')],check=True,timeout=90)
     subprocess.run([sys.executable,str(APP/'tools/gm_standby_tests.py'),'--deps',str(args.deps),'--out',str(out/'gm-standby')],env={**os.environ,'CC':compiler},check=True,timeout=360)
     subprocess.run([sys.executable,str(APP/'tools/lora_gm_tests.py'),'--deps',str(args.deps),'--out',str(out/'lora-gm')],env={**os.environ,'CC':compiler},check=True,timeout=120)
     subprocess.run([sys.executable,str(APP/'tools/disconnect_diag_tests.py'),'--deps',str(args.deps),'--out',str(out/'disconnect-diag')],env={**os.environ,'CC':compiler},check=True,timeout=120)

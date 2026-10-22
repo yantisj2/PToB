@@ -1,5 +1,18 @@
 # T096 G5 ACTIVE, HOT and COLD
 
+Version160 lets every COLD GM follow the ordinary authenticated precision stream
+using the existing passive leaf receiver path. COLD remains outside the selected
+GM/HOT control pair and gains no successor grant or output permission by receiving
+time. This supersedes the earlier no-PA COLD policy and removes the LoRa-TX-only
+exception. Independent local GNSS qualification continues.
+
+The precision screen always presents current stream RMS (or -- when unavailable),
+with COLD STANDBY/TIMING SYNC status for an unappointed receiver. GM shadow-PPS
+sampling is held off on all pages while troubleshooting. RC precision page2 and
+dedicated page6 retain intentional shadow sampling; stream RMS and shadow PPS
+statistics are distinct. Timer, election and controller policies are unchanged;
+the retained prepare-FIFO fatal remains unresolved.
+
 Version159 refreshes coherent direct PT input before the G5 HOT/ACQUIRING
 readiness tick, preserving the PT owner's observation timestamp and expiry.
 ACTIVE, COLD, RC and relay paths retain their existing timing update. This fixes
