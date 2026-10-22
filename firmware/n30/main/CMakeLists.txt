@@ -24,7 +24,7 @@ idf_component_register(SRCS "native_main.cpp" "${w12}/main/fault_watchdog.cpp" "
   "${w12}/../t096/protocol/lora_rc8.c" "${w12}/../t096/src/lora_rc8_policy.c"
   "${w12}/main/native_direct.cpp" "${w12}/main/native_credentials.cpp" "${w12}/main/native_diagnostic_tx.cpp" "${w12}/main/periodic_rx.cpp" "${w12}/main/periodic_tx.cpp" "${w12}/main/s3_clock_reference.c" "${w12}/main/direct_auth.cpp" "${control_source}" ${r2_sources}
   "${w12}/main/shared/public_codec.c" "${w12}/main/shared/p256_canonical.c" "${w12}/main/public_observer.cpp"
-  "gnss_absent.cpp" "display.cpp" "ui_render.cpp" "ui_model.cpp" "timing_diagnostics.cpp"
+  "gnss_absent.cpp" "display.cpp" "ui_render.cpp" "ui_model.cpp" "timing_diagnostics.cpp" "fine_capture.cpp"
   INCLUDE_DIRS "." "${w12}/main" "${w12}/legacy" "${w12}/legacy/reference" ${r2_includes} "${w12}/../t096/include" "${w12}/../t096/protocol"
   REQUIRES bt mbedtls esp_driver_spi esp_driver_gptimer esp_driver_i2c esp_driver_gpio
     esp_driver_usb_serial_jtag esp_driver_uart esp_driver_mcpwm esp_pm esp_timer esp_hw_support)
@@ -111,3 +111,20 @@ endif()
 target_compile_definitions(${COMPONENT_LIB} PRIVATE PTOB_N30=1 PTOB_GNSS_DISABLED=1 V12_G1_FAILED_PARENT_RETRY_US=60000000)
 
 configure_file("${PTOB_LORA_HEADER}" "${CMAKE_CURRENT_BINARY_DIR}/n30_lora_config.h" COPYONLY)
+
+# This adapter is explicitly private and bound to the reviewed SDK implementation.
+foreach(pair
+ "components/esp_driver_mcpwm/src/mcpwm_private.h|4513dc83f66bcdd96be518114f98cab813a5c4f31604997453c5df5123ae213e"
+ "components/esp_driver_mcpwm/src/mcpwm_cap.c|d02bbe2251fdba5d4c14c79bf852101cb45b636e0c5cd286fba07a1f3af8cbd2"
+ "components/hal/esp32s3/include/hal/mcpwm_ll.h|28f77239ff7fbf5786d7dcc79e75d0880664ec79a5cab5dfca035defbc65a7a1"
+ "components/soc/esp32s3/register/soc/mcpwm_struct.h|70d9a09b98106376e4ebff17509ca220e0a6611e8da199d86a5a0c50cca0aef4")
+ string(REPLACE "|" ";" fields "${pair}")
+ list(GET fields 0 source)
+ list(GET fields 1 expected)
+ file(SHA256 "$ENV{IDF_PATH}/${source}" actual)
+ if(NOT actual STREQUAL expected)
+  message(FATAL_ERROR "Pinned N30 raw MCPWM adapter input changed: ${source}")
+ endif()
+endforeach()
+target_include_directories(${COMPONENT_LIB} PRIVATE "$ENV{IDF_PATH}/components/esp_driver_mcpwm/src")
+configure_file("${PTOB_FINE_HEADER}" "${CMAKE_CURRENT_BINARY_DIR}/fine_capture_config.h" COPYONLY)

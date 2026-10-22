@@ -10,7 +10,7 @@ Select a screen for its native 64×128 image.
 
 Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
 
-**PToB owns N30 native G1/RC7 development.** Version **0.2.10** supports an **RC**
+**PToB owns N30 native G1/RC7 development.** Version **0.2.11** supports an **RC**
 with **two timing inputs: BLE and passive LoRa**, a portrait OLED clock and a
 receiver-status console. The Meshnology N30 / Heltec WiFi LoRa32 V3 route uses
 an ESP32-S3, 8 MB flash and a 128×64 OLED mounted as 64×128. Start with the
@@ -90,6 +90,15 @@ profile requires BLE100 estimated relay, this publisher and the measured direct
 root/boot/source scope; other scopes select the ordinary nominal conversion.
 It leaves the received clock and unknown RF/UTC bounds unchanged. See the
 [provisional offset workflow](../../docs/n30/build.md#version-0210-downstream-composite-offset).
+
+
+A default-OFF raw marker observer reserves MCPWM group1 separately from LoRa
+only after an identity-bound finite command. The default build drives no pins
+and tests the synchronous CURRENT latch alone. An optional, separately reviewed
+exact-board GPIO4/5 profile observes native SYNCFOUND and PKT_TX_ON edges on the
+same 80MHz counter. Its RF endpoint, coalesced-edge count and packet association
+remain unknown; the observer never trains the delivered clock or changes its
+existing aggregate offset. See the [raw-capture experiment](../../docs/n30/build.md#version-0211-raw-native-marker-observer).
 
 ## Screens and controls
 

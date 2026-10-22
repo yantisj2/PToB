@@ -36,6 +36,7 @@
 #include "sync_watchdog.hpp"
 #include "timing_diagnostics_api.hpp"
 #include "timing_command.hpp"
+#include "fine_capture.hpp"
 #include "esp_mac.h"
 #include "esp_random.h"
 #include "esp_timer.h"
@@ -87,6 +88,7 @@ v12::ConsoleTicket ticket;
 v12::ConsoleFrame response;
 uint64_t last_nonce=0,update_completed_us=0;bool lora_diagnostic_response=false;
 bool timing_diagnostic_response=false;uint32_t timing_after=0;
+bool fine_diagnostic_response=false;uint32_t fine_after=0;uint64_t fine_factory=0;
 struct CommandResult {uint64_t nonce=0,admitted_us=0;bool accepted=false;const char* action="STATUS";const char* reason="READ_ONLY";} last_command;
 uint64_t ticks(){uint64_t t=0;return clock_timer&&gptimer_get_raw_count(clock_timer,&t)==ESP_OK?t:0;}
 uint64_t micros(){const int64_t t=esp_timer_get_time();return t>0?uint64_t(t):0;}
@@ -178,7 +180,7 @@ void pps(const gnss_pps::Observation& edge){
  const auto mesh=v12::r2_status();
   response.format("W12_R2_STATUS profile=%s enrollment_sha=%s self=3 client_capabilities=0 client_control=0 source=0 serving=0 group_id=%016" PRIx64 " key_epoch=%" PRIu32 " client_identity=%016" PRIx64 " following=%u requested=%u fault=%u pcfg=%08" PRIx32 "\n",V12_R2_PROFILE,V12_R2_ENROLLMENT_SHA,mesh.group_id,mesh.key_epoch,mesh.client_identity,unsigned(mesh.following),unsigned(mesh.requested),unsigned(mesh.fault),uint32_t(v12::rc7_provisional_config().id>>32));
  response.format("W12_V12_STATUS factory=%s source=%s build=%s session=%016" PRIx64 " GPS_inputs=0\n",factory_text,V12_SOURCE_REVISION,V12_BUILD_ID,session);
- if(timing_diagnostic_response)n30_timing_frame(response,timing_after,begin);else n30_lora_diagnostics(response);
+ if(fine_diagnostic_response)n30_fine_frame(response,fine_after,begin);else if(timing_diagnostic_response)n30_timing_frame(response,timing_after,begin);else n30_lora_diagnostics(response);
  response.format("W12_V12_COMMAND nonce=%016" PRIx64 " action=%s accepted=%u reason=%s admitted_us=%" PRIu64 " NVS=PRESERVED\n",last_command.nonce,last_command.action,unsigned(last_command.accepted),last_command.reason,last_command.admitted_us);
  n30_display_status(response);v12::frame_submit(response);
 }
@@ -403,7 +405,7 @@ void pps(const gnss_pps::Observation& edge){
   n30_display_status(response);
   v12::frame_submit(response);
 }
-void respond_status(uint64_t nonce,uint64_t begin){if(lora_diagnostic_response||timing_diagnostic_response)lora_status_frame(nonce,begin);else status(nonce,begin);}
+void respond_status(uint64_t nonce,uint64_t begin){if(lora_diagnostic_response||timing_diagnostic_response||fine_diagnostic_response)lora_status_frame(nonce,begin);else status(nonce,begin);}
 [[gnu::noinline]] void ui(){
   if(!ui_ready)return;
   const auto s=v12::transport_status();const auto gps=gnss_pps::shadow_view(ticks());
@@ -472,7 +474,7 @@ void respond_status(uint64_t nonce,uint64_t begin){if(lora_diagnostic_response||
   n30_display_publish(mesh,state,micros());
 }
 void stop_all(){
-  n30_timing_stop();
+  n30_timing_stop();n30_fine_stop();
   v12::fault_watchdog_sync_progress(false,0);
 #ifdef V12_R2_ENABLED
   v12::r2_stop();
@@ -511,6 +513,19 @@ void command(const char* text){
     const bool ok=n30_display_page(action[8]-'0');last_command={nonce,admitted,ok,"UI_PAGE",ok?"DISPLAY_ONLY":"INVALID_PAGE"};
   }
   else if(!std::strcmp(action,"lora diag")){lora_diagnostic_response=true;last_command={nonce,admitted,true,"LORA_DIAG","READ_ONLY_CRC_SNAPSHOT"};}
+  else if(!std::strncmp(action,"fine ",5)){
+    char translated[80]{};const auto length=std::snprintf(translated,sizeof translated,"timing %s",action+5);
+    const auto request=length>=0&&unsigned(length)<sizeof translated?n30::timing::parse(translated):n30::timing::Request{};fine_diagnostic_response=true;
+    last_command={nonce,admitted,false,"FINE","INVALID_BOUNDS_OR_SYNTAX"};
+    if(request.command==n30::timing::Command::Stop){
+      n30_fine_stop();fine_after=0;last_command={nonce,admitted,true,"FINE_STOP","RAW_OBSERVER_ONLY"};
+    }else if(request.command==n30::timing::Command::Read){
+      fine_after=request.after;last_command={nonce,admitted,true,"FINE_READ","NONCONSUMING_CRC_CURSOR"};
+    }else if(request.command==n30::timing::Command::Start){
+      const bool ok=n30_fine_start(nonce,fine_factory,admitted,request.duration,request.every);fine_after=0;
+      last_command={nonce,admitted,ok,"FINE_START",ok?"FINITE_RAW_OBSERVER":"BINDING_RESOURCE_OR_LATCH_REFUSED"};
+    }
+  }
   else if(!std::strncmp(action,"timing ",7)){
     const auto request=n30::timing::parse(action);timing_diagnostic_response=true;
     last_command={nonce,admitted,false,"TIMING","INVALID_BOUNDS_OR_SYNTAX"};
@@ -571,7 +586,7 @@ void command(const char* text){
     const bool ok=v12::capture_begin(nonce,duration);last_command={nonce,admitted,ok,"CAPTURE",ok?"FINITE_OBSERVER_LEASE":"BUSY_OR_BOUND"};
   }else{last_command.reason="UNKNOWN_OR_UNAVAILABLE_PROTOCOL";}
   if(!last_command.accepted&&commands_rejected!=UINT32_MAX)++commands_rejected;
-  respond_status(nonce,admitted);lora_diagnostic_response=timing_diagnostic_response=false;
+  respond_status(nonce,admitted);lora_diagnostic_response=timing_diagnostic_response=fine_diagnostic_response=false;
 }
 void input(){
   static char line[192]{};static unsigned used=0;static bool discard=false;
@@ -625,9 +640,9 @@ void input(){
       const auto rx=v12::transport_status();const auto tx=v12::diagnostic_tx_status();
       const auto acl=v12::direct_status();const auto lora=v12::lora_status();
       v12::Services services;services.scan=rx.client.scan||rx.radio_requested;services.pending=rx.client.pending;
-      services.host=rx.host_work_busy||rx.command_pending||!rx.off_acknowledged||tx.owner_busy||tx.lease.pending||!tx.off_acknowledged;services.sync=rx.client.synced;services.periodic=tx.periodic||tx.requested;services.discovery=tx.discovery;
+      services.host=!n30_fine_released()||rx.host_work_busy||rx.command_pending||!rx.off_acknowledged||tx.owner_busy||tx.lease.pending||!tx.off_acknowledged;services.sync=rx.client.synced;services.periodic=tx.periodic||tx.requested;services.discovery=tx.discovery;
       services.acl=acl.stage!=v12::DirectStage::Off;services.lora=lora.enabled||lora.requested||lora.worker_busy||!lora.off_acknowledged;
-      services.fault=rx.client.state==v12::Lifecycle::Fault||tx.fault||acl.stage==v12::DirectStage::Fault||lora.failed;
+      services.fault=n30_fine_cleanup_fault()||rx.client.state==v12::Lifecycle::Fault||tx.fault||acl.stage==v12::DirectStage::Fault||lora.failed;
 #ifdef V12_R2_ENABLED
       const auto mesh=v12::r2_status();services.scan|=mesh.scan||mesh.requested;services.pending|=mesh.sync_pending||mesh.connecting;
       services.sync|=mesh.synced;services.discovery|=mesh.advertising;services.acl|=mesh.connections!=0;
@@ -708,8 +723,9 @@ extern "C" void app_main(){
     " max_data=191 max_GMs=4 activities=6 syncs=2 adv_sets=2 mtu=247"
     " precision=UNAVAILABLE GM=DISABLED LoRa=OFF WiFi=OFF PTS=OFF\n",
     V12_UNIT,factory_text,unsigned(identity),session,V12_SOURCE_REVISION,V12_BUILD_ID);
-  std::printf("N30_TARGET version=0.2.10 profile=RC GPS=ABSENT flash_mb=8 console=UART0_43_44 hardware=UNVALIDATED\n");
+  std::printf("N30_TARGET version=0.2.11 profile=RC GPS=ABSENT flash_mb=8 console=UART0_43_44 hardware=UNVALIDATED\n");
   if(!identity||!session){std::printf("W12_V12_FATAL reason=FACTORY_OR_BOOT_BINDING peripherals=UNTOUCHED\n");return;}
+  for(const auto byte:factory)fine_factory=(fine_factory<<8)|byte;
   n30_timing_init();
   if(!v12::fault_watchdog_start(factory,session)){std::printf("W12_V12_FATAL reason=FAULT_SUPERVISOR\n");return;}
   // This initial diagnostic candidate never initializes, migrates or writes
@@ -853,6 +869,7 @@ extern "C" void app_main(){
       }
     }
 #endif
+    n30_fine_poll(micros());
     clock_fault_progress();
     vTaskDelay(pdMS_TO_TICKS(1));
   }

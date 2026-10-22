@@ -612,3 +612,68 @@ python3 firmware/n30/tests/provisional_generated_test.py \
 The ordinary N30 suite also checks malformed profiles, zero defaults, mode
 restrictions, generated capability flags and provenance changes. These software
 checks establish arithmetic and scope, not RF accuracy.
+
+
+## Version 0.2.11 raw native marker observer
+
+The finite raw observer defaults OFF and allocates no peripheral or pin before
+an exact factory/boot/ticket-bound `fine start <milliseconds> <every>` command.
+Duration is 1000–600000ms and event decimation is1–64. `fine read <cursor>` uses
+an independent non-consuming32-record history, four records per ten-row CRC
+frame; `fine stop`, OFF, expiry and maintenance disconnect the route and stop
+all three channels and the timer. Missed ring records remain counted. Failed
+cleanup blocks the original two-second update drain. Ordinary timing, source
+expiry, clock quality and estimated relay payloads retain their existing path.
+
+By default, the generated profile is `CURRENT_ONLY`: no GPIO is driven or
+connected to a radio signal. MCPWM group1 provides channels0/1 reserved for RX/TX
+and channel2 for synchronous software CURRENT. LoRa retains group0. The timer
+must report80000000Hz; external edges and IRQ are disabled on CURRENT. A pinned
+private driver/register adapter clears onlyCH2, verifies RAW0, triggers SW,
+waits for RAW1 within128 polling reads/4096 CPU cycles, then reads and clears the
+hardware latch. This is not a stable public IDF synchronous API. Build hashes
+bind the private driver, HAL and register definitions; allocated group/channel
+IDs are checked at runtime. Failures return unavailable, with no stale fallback.
+
+The arbitrary fixed counter origin supplies raw80 and observer tick20=floor of
+the same counter divided by4. Current reads unwrap32 bits; a half-wrap service
+gap, coarse reversal, stopped/stale counter, gross frequency mismatch or wrong
+incarnation invalidates it. Coarse time guards lifecycle only, never phase.
+Telemetry includes first/latest raw32, wraps, extended80, service gap and latch
+latency. The production clock continues using its existing GPTimer domain: these
+observer ticks must never be mixed into production models or mapped through the
+old descriptor/BleMapping brackets and described as fine precision.
+
+A marker build accepts only the fixed `NATIVE_GPIO4_5_SHADOW` local profile via
+`--fine-shadow-profile`, with exact factory, HeltecV3/V3.1/V3.2 board family and
+SHA256 identities for both schematic and actual physical wiring reviews. Keep
+that profile ignored. GPIO4/5 are MCU-to-header nets in the reviewed official
+schematics; exact-board external attachments must still be verified before
+driving them. RX uses native signal230 (SYNCFOUND), TX235 (PKT_TX_ON). Route
+setup checks API results and actual matrix/input/output readback, observing both
+polarities. Marker names establish no ADDRESS endpoint, polarity, native phase,
+RF delay or actual packet association. Hardware latches have no FIFO; software
+callback/ring counts cannot certify absence of coalesced physical events.
+
+The `N30_FINE_CONTRACT` retains RAW_ONLY, UNKNOWN endpoint/RF/UTC/coalescing,
+NONE packet association and NONE clock update. The current provisional47133ns
+aggregate correction belongs solely to the legacy programmed endpoint and does
+not calibrate these markers. A future authoritative path requires independently
+validated marker semantics, unique immutable payload/event/channel association,
+one common physical counter for all production times, separate RX/TX endpoint
+calibration and held-out causal scoring. A raw observer flash or CURRENT wrap
+check does not meet those later gates or certify UTC/output accuracy.
+
+Run the actual-owner synthetic peripheral/counter failure checks offline:
+
+```sh
+python3 firmware/n30/tools/fine_tests.py --out artifacts/n30-fine-tests
+```
+
+The tests cover default resource inactivity, group/channel identity, stale raw
+status/latch, timeout/cycle bounds, stopped/rate/wrap arithmetic, setup expiry,
+old-admission/ISR interleaving, overwrite/decimation/non-consuming cursors,
+actual maintenance drain refusal after failed cleanup and maximum frame widths.
+These tests do not simulate RF semantics. All hardware work remains a separately
+scoped exact-device experiment; keep its finite observations and unqualified
+claims distinct from software test results.

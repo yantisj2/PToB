@@ -50,3 +50,11 @@ for wide in (False,True):
  end=len(render(w.formats(pp(trailer,False),'trailer_format')[0],True))+len(' end_crc32=ffffffff\n')
  assert body<8704-800 and end<800 and body+end<=8704,(wide,body,end)
 print(json.dumps(dict(status='PASS',frame='LORA',rows=10,max_body=body,max_whole=body+end,whole_capacity=8704)))
+
+fine=(APP/'main/fine_capture.cpp').read_text();fine_formats=formats(pp(re.sub(r'^#include.*$', '', fine, flags=re.M),False),'f.format');assert len(fine_formats)==4
+common=formats(pp(src[src.index('[[gnu::noinline]] void lora_status_frame('):src.index('void status(')],False),'response.format')+formats(ui[ui.index('void n30_display_status('):],'f.format');assert len(common)==4
+for wide in (False,True):
+ body=len(render(w.formats(pp(begin,False),'f.format')[0],wide))+sum(len(render(f,wide)) for f in common+[fine_formats[0],*[fine_formats[2]]*4,fine_formats[3]])
+ end=len(render(w.formats(pp(trailer,False),'trailer_format')[0],True))+len(' end_crc32=ffffffff\n')
+ assert body<8704-800 and body+end<=8704,(wide,body,end)
+print(json.dumps(dict(status='PASS',frame='FINE',rows=10,max_body=body,max_whole=body+end,whole_capacity=8704)))
