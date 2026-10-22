@@ -52,14 +52,16 @@ void render(uint8_t f[FrameBytes],const Model& m,const View& v,uint64_t now){
  std::memset(f,0,FrameBytes);if(v.blank)return;if(v.help){help(f,v);return;}
  if(v.page==2&&!v.saver){lora_page(f,m,now);return;}
  const bool fresh=current(m,now);uint64_t utc=0;const bool valid=time(m,now,utc),locked=analog_time(m,now,utc);
- if(v.saver&&locked){
+ if(v.saver){
   // T096's moving assembly: source strip, analog panel, identity strip.
   // Rigidly translated and scaled to64x128; no digital dashboard in saver.
   const int top=4+22*(v.saver_position%3);box(f,1,top,62,11);
   text(f,5,top+2,"UTC");text(f,33,top+2,source_label(m,now));
   if(pps_on(m,now))fill(f,56,top+3,3,5);
   if(v.minimal)return;
-  box(f,1,top+13,62,49);dial(f,top+37,utc,m.hz);header(f,m,true,top+64);return;
+  box(f,1,top+13,62,49);
+  if(saver_time(m,now,utc))dial(f,top+37,utc,m.hz);else{center(f,top+28,"WAIT");center(f,top+42,"NO TIME");}
+  header(f,m,fresh,top+64);return;
  }
  header(f,m,fresh);
  if(v.page==0){

@@ -29,23 +29,28 @@ struct View {
  bool clock_frozen=false;
  bool minimal=false;
 };
-// Count actual saver residence, including its brief display-only loss grace.
+// One latched session for both saver layouts, independent of pixel history.
 class SaverTimer {
- uint64_t started_=0,last_=0;bool active_=false;
+ uint64_t started_=0,last_=0,loss_at_=0;bool active_=false,losing_=false;
  public:
- void update(uint64_t now,View& v){
-  if(!v.saver||v.help||v.blank||(active_&&now<last_))active_=false;
-  v.minimal=false;
-  if(v.saver&&!v.help&&!v.blank){
-   if(!active_){started_=now;active_=true;}
-   v.minimal=now-started_>=MinimalAfterUs;
+ void update(uint64_t now,View& v,bool synchronized,bool due){
+  if(!due||v.help||v.blank||(active_&&now<last_))active_=losing_=false;
+  if(due&&!v.help&&!v.blank){
+   if(!active_&&v.saver&&synchronized){started_=now;active_=true;losing_=false;}
+   if(active_){
+    if(synchronized)losing_=false;
+    else if(!losing_){loss_at_=now;losing_=true;}
+    if(losing_&&now>=loss_at_&&now-loss_at_>=ClockGraceUs)active_=losing_=false;
+   }
   }
-  last_=now;
+  v.saver=active_;v.minimal=active_&&now-started_>=MinimalAfterUs;last_=now;
  }
+ uint64_t deadline()const{return active_&&losing_&&loss_at_<=UINT64_MAX-ClockGraceUs?loss_at_+ClockGraceUs:UINT64_MAX;}
 };
 bool current(const Model&,uint64_t now);
 bool time(const Model&,uint64_t now,uint64_t& utc);
 bool analog_time(const Model&,uint64_t now,uint64_t& utc);
+bool saver_time(const Model&,uint64_t now,uint64_t& utc);
 bool pps_on(const Model&,uint64_t now);
 const char* source_label(const Model&,uint64_t now);
 void render(uint8_t frame[FrameBytes],const Model&,const View&,uint64_t now);
@@ -76,6 +81,8 @@ class Input {
  bool polling()const{return raw_||stable_;} // Debounce/holds still use10ms.
  void activity(uint64_t now){idle_=now;}
 };
+// The actual worker/test pipeline: both layouts share entry, loss and residence.
+void update_saver(Input&,ClockHold&,SaverTimer&,const Model&,View&,uint64_t now);
 // Caller serializes access. One physical action, never a delayed toggle train.
 class ActionMailbox {
  bool pending_=false;uint64_t posted_=0;

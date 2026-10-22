@@ -285,3 +285,19 @@ sleep, preserving the BLE/LoRa timebase; task blocking is not chip light sleep.
 Host tests cover exact residence/PPS boundaries, late initial lock, wake/reset,
 all positions, cached-clock loss and unchanged normal cadence. Physical power,
 long-duration operation and display-edge accuracy require separate observations.
+
+
+Version0.2.5 gives both saver layouts one latched session, independent of the
+successfully transferred pixel cache. BLE/LOR source switches and a precision
+lock dip with valid following time keep the original15minute residence and30s
+movement clocks. Only500ms of continuous total timing loss (neither live following
+BLE nor available LoRa), or user wake/navigation, exits that session. Raw local
+HOLD and stale snapshots do not renew it. Resetting the cache after an I2C failure
+does not reset residence. The ordinary page0 precision-quality grace and the PPS
+lock gate remain unchanged. During a brief total outage, cached saver pixels
+stay bounded by500ms; without a cache, its own layout shows WAIT/NO TIME. Minimal
+mode retains its0/250ms cadence and also arms the shared loss deadline.
+Production-pipeline regressions cover both layouts, all pages/positions, repeated
+source changes, partial lock loss, cache resets, exact499999/500000us loss and
+recovery boundaries, and a15minute transition during an outage. This does not
+extend radio source validity or independently qualify physical display timing.

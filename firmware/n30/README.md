@@ -10,7 +10,7 @@ Select a screen for its native 64×128 image.
 
 Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
 
-**PToB owns N30 native G1/RC7 development.** Version **0.2.4** supports an **RC**
+**PToB owns N30 native G1/RC7 development.** Version **0.2.5** supports an **RC**
 with **two timing inputs: BLE and passive LoRa**, a portrait OLED clock and a
 receiver-status console. The Meshnology N30 / Heltec WiFi LoRa32 V3 route uses
 an ESP32-S3, 8 MB flash and a 128×64 OLED mounted as 64×128. Start with the
@@ -75,6 +75,13 @@ half the normal OLED contrast. Normal saver refresh remains 4 Hz. After
 15 minutes of actual saver activity, only the moving UTC/source header and
 250 ms PPS lamp remain, with no routine rendering or I2C refresh during the
 remaining 750 ms of each second. Positions advance every 30 seconds.
+
+Both layouts share one saver session and its 15-minute timer. BLE/LoRa source
+switches, a precision-lock dip with usable following time, and a reset of the
+pixel cache keep that session running. The saver exits only after 500 ms with
+neither live following BLE time nor available LoRa time, or an explicit user
+wake/navigation action. Local HOLD and stale snapshots do not count as live
+synchronization. The PPS lamp keeps its existing live-lock gate.
 
 Minimal mode blocks the display task between timer, model and button events;
 unused legacy indicator calculations pause. BLE/LoRa workers and source expiry

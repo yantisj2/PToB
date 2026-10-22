@@ -55,9 +55,7 @@ void worker(void*){
   const auto prior=view;if(request>=0){view.page=uint8_t(request);view.help=false;view.blank=false;input.activity(now);clock_hold.reset();force=true;}
   const auto action=input.update(gpio_get_level(GPIO_NUM_0)==0,now,view);
   if(action==n30::Action::ToggleRelayOnly||action==n30::Action::ToggleLoRa){portENTER_CRITICAL(&mux);(action==n30::Action::ToggleRelayOnly?upstream_toggle:lora_toggle).post(now);portEXIT_CRITICAL(&mux);}
-  uint64_t utc;input.idle(now,m.locked&&m.source!=n30::Source::None&&m.state==n30::State::Follow&&n30::time(m,now,utc),view);
-  clock_hold.update(m,view,now,input.saver_due(now,view));
-  saver_timer.update(now,view);
+  n30::update_saver(input,clock_hold,saver_timer,m,view,now);
   portENTER_CRITICAL(&mux);minimal_wait=view.saver&&view.minimal;portEXIT_CRITICAL(&mux);
   if(prior.page!=view.page||prior.help!=view.help||prior.saver!=view.saver||prior.blank!=view.blank||prior.clock_frozen!=view.clock_frozen||prior.minimal!=view.minimal)force=true;
   const auto phase=n30::frame_phase(m,view,now);const auto due=force?cadence.forced_deadline(phase,now):cadence.deadline(phase,now);
@@ -78,8 +76,8 @@ void worker(void*){
   auto next=force?cadence.forced_deadline(end_phase,end):cadence.deadline(end_phase,end);
   if(view.minimal){
    uint64_t utc;
-   if(n30::analog_time(m,end,utc))next=std::min(next,std::min(m.until_us,m.sampled_us+n30::SnapshotMaxUs));
-   const auto grace=clock_hold.deadline();if(grace>end)next=std::min(next,grace);
+   if(n30::saver_time(m,end,utc))next=std::min(next,std::min(m.until_us,m.sampled_us+n30::SnapshotMaxUs));
+   const auto grace=std::min(clock_hold.deadline(),saver_timer.deadline());if(grace>end)next=std::min(next,grace);
   }
   if(next<=end)continue;
   if(next!=armed_due){

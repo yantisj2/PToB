@@ -2,6 +2,15 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 22 October 2026 — N30 0.2.5 continuous saver session
+
+Keep the normal and minimal OLED savers in one session across BLE/LoRa switches,
+precision-lock dips with usable time, and display-cache resets. After15minutes
+in that session, keep the minimal layout until user wake/navigation or500ms of
+continuous loss of both timing inputs. Local HOLD/stale data cannot renew it;
+PPS permission and radio timing/source validity are unchanged. Production-pipeline
+regressions cover exact loss/recovery/15minute boundaries and all saver contexts.
+
 ## 21 October 2026 — N30 main-screen guide and dual timing inputs
 
 Lead the N30 target guide with the clock, dual BLE/LoRa and LoRa receiver

@@ -73,6 +73,6 @@ int main(){
  // An ordinary30s movement boundary does not become a normal-page roundtrip.
  n30::ClockHold moving;n30::Input idle;n30::View mv;const auto edge=n30::IdleUs+2*n30::MoveUs;
  m=good(edge-100000);idle.idle(edge-100000,true,mv);assert(mv.saver_position==1);present(moving,m,mv,edge-100000,original,true);
- m.locked=false;idle.idle(edge-50000,false,mv);moving.update(m,mv,edge-50000,true);idle.idle(edge+50000,false,mv);moving.update(m,mv,edge+50000,true);assert(mv.saver&&mv.saver_position==1);
+ m.valid=m.locked=false;idle.idle(edge-50000,false,mv);moving.update(m,mv,edge-50000,true);idle.idle(edge+50000,false,mv);moving.update(m,mv,edge+50000,true);assert(mv.saver&&mv.saver_position==1);
  m=good(edge+100000);idle.idle(edge+100000,true,mv);moving.update(m,mv,edge+100000,true);assert(mv.saver&&!mv.clock_frozen&&mv.saver_position==2);
 }

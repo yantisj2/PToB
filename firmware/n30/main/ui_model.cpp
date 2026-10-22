@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Jonathan Yantis.
 #include "ui.hpp"
+#include "dual_time.hpp"
 #include <cstring>
 namespace n30 {
 bool current(const Model& m,uint64_t now){return now>=m.sampled_us&&now-m.sampled_us<SnapshotMaxUs;}
@@ -8,7 +9,8 @@ bool time(const Model& m,uint64_t now,uint64_t& utc){
  if(!current(m,now)||!m.valid||now<m.utc_at_us||now>=m.until_us||m.state==State::Fault||m.state==State::Off||now-m.utc_at_us>UINT64_MAX-m.utc_us)return false;
  utc=m.utc_us+(now-m.utc_at_us);return true;
 }
-bool analog_time(const Model& m,uint64_t now,uint64_t& utc){return time(m,now,utc)&&m.locked&&m.state==State::Follow&&m.source!=Source::None;}
+bool saver_time(const Model& m,uint64_t now,uint64_t& utc){return time(m,now,utc)&&m.state==State::Follow&&m.source!=Source::None;}
+bool analog_time(const Model& m,uint64_t now,uint64_t& utc){return saver_time(m,now,utc)&&m.locked;}
 bool pps_on(const Model& m,uint64_t now){uint64_t utc;return (!m.mode_pending||m.source==Source::LoRa)&&analog_time(m,now,utc)&&utc%1000000<250000;}
 void ClockHold::update(const Model& m,View& v,uint64_t now,bool saver_due){
  v.clock_frozen=false;
@@ -18,7 +20,8 @@ void ClockHold::update(const Model& m,View& v,uint64_t now,bool saver_due){
  if(saved_&&(v.page!=page_||(saver_&&!saver_due)||(!saver_&&v.saver)))reset();
  if(v.page!=0&&!v.saver&&!(saved_&&saver_&&saver_due)){reset();return;}
  seen_=true;observed_=now;uint64_t utc;
- if(analog_time(m,now,utc)){losing_=false;return;}
+ const bool saver_surface=v.saver||(saved_&&saver_&&saver_due);
+ if(saver_surface?saver_time(m,now,utc):analog_time(m,now,utc)){losing_=false;return;}
  if(!saved_)return;
  if(!losing_){losing_=true;loss_at_=now;}
  if(!active(now)){saved_=false;return;}
@@ -26,7 +29,7 @@ void ClockHold::update(const Model& m,View& v,uint64_t now,bool saver_due){
  if(saver_){v.saver=true;v.saver_position=position_;}
 }
 void ClockHold::presented(const Model& m,const View& v,uint64_t now,const uint8_t frame[FrameBytes]){
- uint64_t utc;if(!v.help&&!v.blank&&(v.saver||v.page==0)&&!v.clock_frozen&&analog_time(m,now,utc)){
+ uint64_t utc;if(!v.help&&!v.blank&&(v.saver||v.page==0)&&!v.clock_frozen&&(v.saver?saver_time(m,now,utc):analog_time(m,now,utc))){
   std::memcpy(image_,frame,FrameBytes);saved_=true;losing_=false;saver_=v.saver;page_=v.page;position_=v.saver_position;
  }
 }
@@ -74,7 +77,16 @@ Action Input::update(bool pressed,uint64_t now,View& v){
 bool Input::saver_due(uint64_t now,const View& v)const{return !v.blank&&!stable_&&!v.help&&now>=idle_&&now-idle_>=IdleUs;}
 void Input::idle(uint64_t now,bool eligible,View& v)const{
  v.saver=eligible&&saver_due(now,v);
- if(v.saver)v.saver_position=uint8_t(((now-idle_-IdleUs)/MoveUs)%3);
+ if(saver_due(now,v))v.saver_position=uint8_t(((now-idle_-IdleUs)/MoveUs)%3);
+}
+void update_saver(Input& input,ClockHold& hold,SaverTimer& timer,const Model& m,View& v,uint64_t now){
+ uint64_t utc;input.idle(now,analog_time(m,now,utc),v);
+ const bool due=input.saver_due(now,v);
+ hold.update(m,v,now,due);
+ // A precision dip is not total sync loss. Either live following input keeps
+ // this one session alive; raw local HOLD never counts as synchronization.
+ const bool synchronized=saver_time(m,now,utc)||(m.ble.following&&ble_time(m,now,utc))||lora_time(m.lora,now,utc);
+ timer.update(now,v,synchronized,due);
 }
 void Activity::update(Model& m,const uint32_t c[8],uint64_t root,uint64_t boot,uint64_t now,bool enabled,bool tx){
  if(!seen_||root!=root_||boot!=boot_||now<last_||!enabled){
