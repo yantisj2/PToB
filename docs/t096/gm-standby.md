@@ -1144,3 +1144,36 @@ and same-image observation of both pair members remain open. Keep TC02's local
 input recovery investigation separate from stable COLD reception, and retain
 failure-only controller context for any recurrence. No calibrated UTC or
 independently measured output-accuracy qualification follows from this run.
+
+## Source164 later HOT withdrawal
+
+After the completed soak, the operator reported a short HOT duration despite
+continuous local PPS. A new read-only TC01 capture confirmed one withdrawal at
+3028595245us of uptime, refusal34, on the same physical boot and own source
+epoch20. Its UI PPS hold still dated from21s after boot; HOT hold restarted
+around3029s.
+It was qualified HOT and locked throughout29 subsequent sampled cohorts. Replay
+validated374 observation frames and46 diagnostic-read frames; readers released.
+The earlier112 clean cohorts remain a separate bounded observation.
+
+A matching committed schema5 record captured delivered timing becoming invalid
+just before withdrawal, then recovering in its post sample. Local PPS age was
+497ms and own eligibility remained true. The recorded pair and management
+remainders were89335ms and44587ms before withdrawal. These observations do not
+support management expiry or local-source loss as its trigger. Local PPS duration
+does not measure uninterrupted reception of the serving GM's precision stream.
+
+Raw SERVICE readiness expiry is the leading inference, with its initiating
+delivery/renewal failure unresolved. Reason34 includes not-ready and not-synced;
+the latter follows automatically when ready is false. Actual-source controls
+produce34 for SERVICE expiry with valid timing,32 for timing-only loss, and retain
+the original finite successor authorization in both cases. These synthetic
+controls do not establish the physical cause or certify takeover.
+
+The retained field named service remaining is the projected PT-map deadline,
+not the raw network SERVICE deadline. Its fresh map state is combined with an
+older CONTROL publication timestamp. That reporting gap prevents a definitive
+SERVICE-versus-map diagnosis from this record. The next focused diagnostic
+should preserve raw control readiness/deadline and PT scope/map deadlines with
+their observation times at the first withdrawal. No timer or behavior change
+was made. The offsite serving unit was not opened or changed.
