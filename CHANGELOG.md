@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-22 — Bluetooth timecode public draft review
+
+- Record approval to publish the reviewed Bluetooth timecode research draft on
+  GitHub alongside the other papers, and link its PDF, source and edition receipt
+  from the root research section. Preserve the reviewed artifacts and draft status.
+
 ## 2026-10-22 — Bluetooth timecode research draft
 
 - Added a [shared time base and Bluetooth timecode study](papers/ptob-bluetooth-timecode-preprint.pdf),

@@ -76,6 +76,14 @@ wire profiles and current firmware versions have separate identities. Historical
 results do not qualify later builds. PToB is not an adopted Bluetooth SIG or IEEE
 standard.
 
+**Public review draft, 22 October 2026:** [A Shared Time Base for Bluetooth
+Timecode Ecosystems](papers/ptob-bluetooth-timecode-preprint.pdf) explores PToB
+as a shared timing source with proposed device-specific compatibility layers.
+[LaTeX source](papers/ptob-bluetooth-timecode-preprint.tex) and
+[edition manifest](papers/editions/bluetooth-timecode-2026-10-22.json) accompany
+the paper; commercial interoperability and physical capture timing remain
+unqualified.
+
 For review, identify the target and commit or paper edition, the behavior or claim,
 and a reproducible check. Keep credentials and raw private captures out of issues.
 See the [publication review checklist](docs/PUBLICATION_REVIEW.md) for remaining
