@@ -1,5 +1,20 @@
 # T096 firmware example
 
+Version163 is a diagnostic candidate for the unresolved controller fatal.
+On failed prepare allocation only, four previously unused counter words retain
+current LLL owner/abort callback and existing preempt, mayfly and ticker state
+under the same IRQ fence as the seven queued preparations. The two pre-existing
+preempt callback objects move one-for-one; no healthy controller hook, new state,
+queue capacity, timer, priority or protocol policy is added. Exact source/build
+mode and CRC are required for decoding. A current cut does not establish why
+retirement stopped. Native and physical acceptance remain separate.
+
+A rejected optional health note no longer consumes its detail window or reported
+counter changes. It retries through the existing one-second throttle and alternate
+watchdog opportunities, normally every two seconds; admitted healthy detail keeps
+its original60s cadence. This corrects reproduced diagnostic delivery loss, not
+the controller fatal. Console admission does not acknowledge host delivery.
+
 Version162 keeps authenticated current-session source health fresh through the
 existing accepted clock map when a new HELLO echo is too wide to replace that
 map. It rechecks the original record expiry with the old map and its drift;
@@ -51,7 +66,7 @@ The separate stream-loss takeover draft remains evaluation-only.
 *Illustrative firmware-rendered RC screen; displayed values are not measured
 performance. [Image provenance](../../docs/images/README.md).*
 
-**PToB owns T096 RC7 development.** Current source version **0.15.162** supplies the
+**PToB owns T096 RC7 development.** Current source version **0.15.163** supplies the
 ordinary **GM** and **RC** mesh profiles, with USB timing compiled by default.
 [Build from source](../../docs/t096/build.md) with pinned public dependencies
 and ignored local enrollment. No enrolled binary is distributed.

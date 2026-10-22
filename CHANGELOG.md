@@ -1,5 +1,16 @@
 # Changelog
 
+## T096 0.15.163 — bounded fatal context candidate (2026-10-22)
+
+- Reuse four unused failure-only prepare words for current LLL/preempt state
+  under the existing complete queue-copy mask. Preserve all queue entries,
+  source/boot/CRC and assertions; no healthy hook or controller policy change.
+- Retain pending health detail across console admission refusal, using existing
+  throttle/watchdog alternation and normal60s cadence after acceptance.
+- Add actual-body source/configuration/decoder/delivery regressions and record
+  source162's failed field runs separately from its two validated protocol fixes.
+  Controller durability and initiating failure cause remain unresolved.
+
 ## T096 0.15.162 — current-session source refresh (2026-10-22)
 
 - A rejected wide HELLO echo can refresh authenticated source health through

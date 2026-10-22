@@ -91,10 +91,25 @@ def inspect(out,allow_development=False):
             require(prepare is None,'Prepare capture leaked into DC/PC receipt')
         else:
             mode='verbose' if diagnostic else 'failure-only'
-            require(prepare=={'mode':mode,
+            expected_prepare={'mode':mode,
                 'manifest_sha256':sha(out/'source/cmake/controller-prepare-diag.json'),
                 'patch_sha256':sha(out/'source/cmake/controller-prepare-fault.patch'),
-                'generator_sha256':sha(out/'source/tools/controller_diag_hooks.py')},'Prepare observer receipt mismatch')
+                'generator_sha256':sha(out/'source/tools/controller_diag_hooks.py')}
+            context=tuple(map(int,r['version'].split('.'))) >= (0,15,163) and not diagnostic
+            if tuple(map(int,r['version'].split('.'))) >= (0,15,163):
+                expected_prepare['lll_context']=None if diagnostic else {
+                    'manifest_sha256':sha(out/'source/cmake/controller-prepare-context.json'),
+                    'generator_sha256':sha(out/'source/tools/controller_prepare_context.py')}
+            require(prepare==expected_prepare,'Prepare observer receipt mismatch')
+            if tuple(map(int,r['version'].split('.'))) >= (0,15,163):
+                require(('/r2_controller_diag/lll.c' in commands)==context,'LLL context source mode mismatch')
+                candidates=[c['file'] for c in json.loads(commands) if c['file'].endswith('/lll/lll.c') or c['file'].endswith('/r2_controller_diag/lll.c')]
+                require(len(candidates)==1,'Missing/duplicate LLL core')
+                if context:
+                    pinned_context=json.loads((out/'source/cmake/controller-prepare-context.json').read_text())
+                    require(json.loads((out/'target/r2_controller_diag/lll-context-manifest.json').read_text())==pinned_context,'LLL generated manifest mismatch')
+                    require(sha(out/'target/r2_controller_diag/lll.c')==pinned_context['output_sha256'],'LLL context hash mismatch')
+                    require(sha(out/'source/cmake/controller-prepare-context.patch')==pinned_context['patch_sha256'],'LLL context patch hash mismatch')
             pinned=json.loads((out/'source/cmake/controller-prepare-diag.json').read_text())
             generated=json.loads((out/'target/r2_controller_diag/manifest.json').read_text())
             require(pinned['failure_patch_sha256']==prepare['patch_sha256'],'Prepare patch hash mismatch')

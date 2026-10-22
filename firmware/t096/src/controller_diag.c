@@ -26,25 +26,33 @@ void r2_controller_diag_count(unsigned word)
  irq_unlock(key);
 }
 #endif
-bool r2_controller_diag_failure(uintptr_t callback,uintptr_t param)
+bool r2_controller_diag_failure_locked(uintptr_t callback,uintptr_t param)
 {
- unsigned key=irq_lock();
- if(!r2_controller_diag_ready_locked()||diag_words[6]){irq_unlock(key);return false;}
+ if(!r2_controller_diag_ready_locked()||diag_words[6])return false;
  {diag_words[22]|=R2_CONTROLLER_DIAG_UNKNOWN;diag_words[4]=(uint32_t)callback;diag_words[5]=(uint32_t)param;diag_words[6]=1;diag_words[21]=k_uptime_get_32();}
- irq_unlock(key);return true;
+ return true;
 }
-void r2_controller_diag_entry(unsigned index,uintptr_t callback,uintptr_t param,unsigned flags)
+void r2_controller_diag_entry_locked(unsigned index,uintptr_t callback,uintptr_t param,unsigned flags)
 {
  if(index>=7)return;
- unsigned key=irq_lock();diag_words[7+2*index]=(uint32_t)callback;diag_words[8+2*index]=(uint32_t)param;
- diag_words[22]|=(flags&3u)<<(2*index);diag_words[6]=2+index;irq_unlock(key);
+ diag_words[7+2*index]=(uint32_t)callback;diag_words[8+2*index]=(uint32_t)param;
+ diag_words[22]|=(flags&3u)<<(2*index);diag_words[6]=2+index;
 }
-void r2_controller_diag_complete(bool known)
+void r2_controller_diag_complete_locked(bool known)
 {
- unsigned key=irq_lock();
  if(known&&diag_words[6]==8)diag_words[22]&=~R2_CONTROLLER_DIAG_UNKNOWN;
- irq_unlock(key);
 }
+#ifndef R2_CONTROLLER_DIAGNOSTICS
+void r2_controller_diag_context_locked(uint32_t owner,uint32_t abort_cb,
+                                      uint32_t ticker,uint32_t flags)
+{
+ /* Only the first claimed failure, before entries, can publish this cut.
+  * The format tag also prevents a second context write before completion. */
+ if(diag_words[6]!=1||(diag_words[3]>>28)==0xd)return;
+ diag_words[0]=owner;diag_words[1]=abort_cb;diag_words[2]=ticker;
+ diag_words[3]=flags;
+}
+#endif
 void r2_controller_diag_snapshot(uint32_t out[R2_CONTROLLER_DIAG_WORDS])
 {
  unsigned key=irq_lock();

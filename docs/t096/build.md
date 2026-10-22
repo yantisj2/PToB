@@ -1,5 +1,20 @@
 # Build T096 RC7
 
+Version163 is a diagnostic candidate for the unresolved controller fatal.
+On failed prepare allocation only, four previously unused counter words retain
+current LLL owner/abort callback and existing preempt, mayfly and ticker state
+under the same IRQ fence as the seven queued preparations. The two pre-existing
+preempt callback objects move one-for-one; no healthy controller hook, new state,
+queue capacity, timer, priority or protocol policy is added. Exact source/build
+mode and CRC are required for decoding. A current cut does not establish why
+retirement stopped. Native and physical acceptance remain separate.
+
+A rejected optional health note no longer consumes its detail window or reported
+counter changes. It retries through the existing one-second throttle and alternate
+watchdog opportunities, normally every two seconds; admitted healthy detail keeps
+its original60s cadence. This corrects reproduced diagnostic delivery loss, not
+the controller fatal. Console admission does not acknowledge host delivery.
+
 Version162 keeps authenticated current-session source health fresh through the
 existing accepted clock map when a new HELLO echo is too wide to replace that
 map. It rechecks the original record expiry with the old map and its drift;

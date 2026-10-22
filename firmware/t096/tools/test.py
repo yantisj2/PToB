@@ -36,6 +36,7 @@ with (nullcontext(str(args.out.resolve())) if args.out else tempfile.TemporaryDi
     subprocess.run([str(out/'gm-standby/transport'),'--terminal',str(out/'native-terminal.bin')],check=True,timeout=30)
     subprocess.run([str(out/'watchdog/watchdog-test'),str(out/'native-terminal.bin')],check=True,timeout=30)
     subprocess.run([sys.executable,str(APP/'tools/controller_diag_tests.py'),'--deps',str(args.deps),'--out',str(out/'controller-diag')],env={**os.environ,'CC':compiler},check=True,timeout=60)
+    subprocess.run([sys.executable,str(APP/'tools/health_console_tests.py'),'--out',str(out/'health-console')],env={**os.environ,'CC':compiler},check=True,timeout=60)
     subprocess.run([sys.executable,'-m','unittest',str(APP/'tests/test_lora_build_binding.py')],check=True,timeout=60)
     subprocess.run([sys.executable,str(APP/'tools/framebuffer_tests.py'),'--out',str(out/'framebuffer')],
                    env={**os.environ,'CC':compiler},check=True,timeout=60)

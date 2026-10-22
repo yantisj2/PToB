@@ -1242,3 +1242,76 @@ or retained storage is allocated. Passing host fixtures and native resource chec
 are separate from field queue ownership, physical IRQ latency, calibrated timing
 and durable HOT acceptance. This capture supplies missing failure evidence; it is
 not a controller workaround.
+
+
+## Failure-only current LLL context (source163)
+
+The native ordinary GM/RC build retains schema3 and23 prepare words. Relative
+words0–3 (fatal40–43), formerly unused successful-operation counters, now hold a
+current context cut only when prepare allocation fails. Existing successful
+enqueue/dequeue/preempt paths gain no hook. The existing preempt mayfly/link move
+from callback-local to file scope one-for-one; no pointer cache, counter, timestamp,
+state, buffer or retained capacity is added. DC/PC and explicit verbose builds
+keep their previous selection; verbose words0–3 remain counters. Unsupported SMP,
+zero-latency controller, low-latency ULL-done, IRQ priority or pointer-width builds
+fail the pinned generation/native guard.
+
+| Relative word | Source163 failure-only value |
+| --- | --- |
+|0|Current `event.curr.param`, opaque owner address|
+|1|Current abort callback address; resolve against exact installed ELF|
+|2|Preempt ticker lazy low16, request16–23, acknowledge24–31|
+|3|Job guard0–7, worker trigger8–15; flags below|
+
+Word3 flags: bit16 ticker index/instance snapshot valid;17 outstanding preempt
+start;18 outstanding stop;19 scheduled expiry not acknowledged;20–21 raw specific
+preempt mayfly state;22 current abort callback non-NULL;23 current owner non-NULL;
+24 last preempt mayfly parameter equals current owner;25 ticker context equals
+that parameter;26 `is_done_sync()` (constant true in this configuration);27
+LOW_LAT_ULL_DONE (required zero);28–31 format tag13 (`0xD`). Ticker validity is not
+list membership or proof of scheduling. Equality of zero or reused addresses is
+not connection identity or generation. The request/ack predicates are current
+relations, not historical completion totals.
+
+Mayfly state0 means idle/cleaned,1 ready/queued,2 marked run (executing or returned
+before dequeue),3 unexpected/intermediate. State2 alone is not a call-stack proof
+that `preempt()` is executing. A current absent abort callback is a done/unset
+sentinel, not proof that historical progress occurred. No successful progress
+counter exists in this mode. The snapshot does not identify the initiating delay.
+
+The ULL failure helper checks readiness and claims the first failure before
+reading context. One outer IRQ mask covers current context and all seven FIFO
+entries; locked scratch accessors introduce no nested diagnostic mask. Queue
+indices are checked before iteration. Original failure timestamp semantics,
+assertion, source/boot/CRC, PA/C1 lane and UNKNOWN handling remain. A complete
+context cannot upgrade a partial/corrupt queue. Later failures cannot overwrite
+the first cut, including after the queue drains.
+
+Use the exact native receipt's `controller_prepare_capture.lll_context` and
+failure-only mode to select `decode_prepare_capsule(words, source, failed_boot,
+context=True)` from `tools/controller_fault_decode.py`. Require matching failed
+source/boot and CRC first. A missing/wrong tag, pointer-presence inconsistency or
+unsupported mode is UNKNOWN. A non-prepare fatal can legitimately have no captured
+prepare failure/context. Legacy source156–162 failure-only uses the default
+`context=False`; schema2 stays unavailable, and explicit `verbose=True` remains
+separate. A legacy decoder encountering nonzero quiet words correctly refuses to
+interpret them. Do not decode them as successful counters.
+
+The generated LLL input/output/patch hashes and exact single translation-unit
+membership are inspected. The existing radio hooks, ticker behavior, queue and
+assertions remain unchanged. Host extraction tests cover readiness, all FIFO wraps,
+partial/corrupt cuts, first-failure freeze, scalar/configuration/decoder controls
+and unchanged healthy bodies. Native resource/stack/instruction checks and field
+observations are separate gates; zero additional static RAM is not zero stack cost.
+
+### Optional health-note admission
+
+The health writer now advances its existing60s detail deadline and reported
+counter/error snapshot only after `r2_console_note` accepts the note. A busy reply
+queue/producer no longer consumes that detail opportunity. The existing1s entry
+gate and alternate watchdog opportunity still bound retries; no new timer or
+buffer is added. DTRfalse still suppresses formatting. Maximum scalar fields and
+all64 retained words fit in1186 of the1536-byte buffer in the actual formatter
+fixture. Successful admission is not USB delivery: a queued note can expire or
+be lost on disconnect. Missing HEALTH alone does not prove the retained capsule
+is absent, nor that diagnostic scheduling caused a controller fatal.

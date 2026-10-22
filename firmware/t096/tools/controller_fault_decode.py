@@ -55,12 +55,13 @@ def decode_disconnect(detail,result,incarnation,b):
     return out
 
 
-def decode_prepare_capsule(words,source,boot,verbose=False):
+def decode_prepare_capsule(words,source,boot,verbose=False,context=False):
     """Source156 prepare observer; bind mode to the exact native build receipt.
     Schema3 replaces schema2 IRQ latency/interrupted-thread-frame words40..62.
     Callback/param words are opaque addresses, requiring the matching ELF.
     """
-    if type(verbose) is not bool:raise ValueError('Expected explicit verbose mode')
+    if type(verbose) is not bool or type(context) is not bool or verbose and context:
+        raise ValueError('Expected distinct explicit verbose/context modes')
     pa=decode_capsule(words,source,boot)
     out={'schema':words[1],'pa':pa}
     if words[1]!=3:
@@ -70,10 +71,30 @@ def decode_prepare_capsule(words,source,boot,verbose=False):
     valid_mode=(w[22]&(1<<30))==mode
     count=w[6]-1 if 1<=w[6]<=8 else 0
     unknown=bool(w[22]&(1<<31)) or not valid_mode or w[6]>8 or bool(w[22]&0x3fffc000)
-    if not verbose and any(w[:4]):unknown=True
+    cut={'availability':'UNAVAILABLE_LEGACY'}
+    if context and not w[6]:
+        cut={'availability':'UNAVAILABLE_NO_FAILURE'}
+        if any(w[:4]):unknown=True;cut={'availability':'UNKNOWN'}
+    elif context:
+        f=w[3]
+        valid=(f>>28)==13 and not(f&(1<<27)) and bool(f&(1<<26))
+        valid=valid and bool(f&(1<<22))==bool(w[1]) and bool(f&(1<<23))==bool(w[0])
+        if not(f&(1<<16)) and (w[2] or f&0x0200ffff):valid=False
+        if not valid:unknown=True;cut={'availability':'UNKNOWN'}
+        else:
+            cut={'availability':'CURRENT_CUT','owner':w[0],'abort_callback':w[1],
+                'ticker_valid':bool(f&(1<<16)),'ticker_lazy':w[2]&65535,
+                'ticker_req':(w[2]>>16)&255,'ticker_ack':w[2]>>24,
+                'job_guard':f&255,'worker_trigger':(f>>8)&255,
+                'start_pending':bool(f&(1<<17)),'stop_pending':bool(f&(1<<18)),
+                'expiry_pending':bool(f&(1<<19)),'mayfly_state':(f>>20)&3,
+                'mayfly_owner_equal':bool(f&(1<<24)),
+                'ticker_context_equal':bool(f&(1<<25)),
+                'done_sync':True,'low_latency_ull_done':False}
+    elif not verbose and any(w[:4]):unknown=True;cut={'availability':'UNKNOWN_WRONG_CONTEXT_MODE'}
     availability='UNKNOWN' if unknown else 'NO_FAILURE_CAPTURED' if not w[6] else 'COMPLETE' if count==7 else 'UNKNOWN'
     out['schema3_omits']=['irq_latency','interrupted_thread_frame']
-    out['prepare']={'availability':availability,'mode':'verbose' if verbose else 'failure-only',
+    out['prepare']={'availability':availability,'mode':'verbose' if verbose else 'failure-only','context':cut,
         'success_counters':{'state':('UNAVAILABLE' if unknown else 'ENABLED_VERBOSE') if verbose else 'DISABLED',
                             'values':w[:4] if verbose and not unknown else None},
         'raw_completion':w[6],'copied_entries':count if valid_mode else None,
