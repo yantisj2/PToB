@@ -15,12 +15,20 @@ def main():
   with (out/(name+'-compile.log')).open('w') as log:subprocess.run([cxx,*flags,APP/'tests'/(name+'_test.cpp'),'-o',out/name],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=40)
   with (out/(name+'.log')).open('w') as log:subprocess.run([out/name],cwd=out,stdout=log,stderr=subprocess.STDOUT,check=True,timeout=15)
  spec=importlib.util.spec_from_file_location('n30_fine_console',APP/'tools/framed_console.py');console=importlib.util.module_from_spec(spec);spec.loader.exec_module(console)
- rows={line.split()[0]:console.fields(line) for line in (out/'fine-frame.txt').read_text().splitlines()};console.validate_fine(rows)
+ for filename in ('fine-frame.txt','fine-native-frame.txt'):
+  rows={line.split()[0]:console.fields(line) for line in (out/filename).read_text().splitlines()};console.validate_fine(rows)
+ rows={line.split()[0]:console.fields(line) for line in (out/'fine-frame.txt').read_text().splitlines()}
  for row,key,value in [('N30_FINE_STATUS','hz','20000000'),('N30_FINE_STATUS','count','5'),('N30_FINE_STATUS','latest80','-1'),('N30_FINE_EDGE0','incarnation','999'),('N30_FINE_CONTRACT','clock_update','YES'),('N30_FINE_CONTRACT','coalesced','0')]:
   altered={name:dict(values) for name,values in rows.items()};altered[row][key]=value
   try:console.validate_fine(altered)
   except Exception:pass
   else:raise AssertionError('fine parser accepted '+row+'.'+key)
+ synthetic={line.split()[0]:console.fields(line) for line in (out/'fine-native-frame.txt').read_text().splitlines()}
+ for row,key,value in [('N30_FINE_STATUS','probe_goal','15'),('N30_FINE_STATUS','probe_spacing_ms','49'),('N30_FINE_EDGE0','provenance','NATIVE_SIGNAL'),('N30_FINE_STATUS','issued0','7'),('N30_FINE_CONTRACT','RX','SYNCFOUND_230')]:
+  altered={name:dict(values) for name,values in synthetic.items()};altered[row][key]=value
+  try:console.validate_fine(altered)
+  except Exception:pass
+  else:raise AssertionError('synthetic parser accepted '+row+'.'+key)
  paths=[*sorted((APP/'tests/fine_fakes').rglob('*')),APP/'tools/framed_console.py',APP/'main/native_main.cpp',APP/'main/fine_counter.hpp',APP/'main/fine_capture.cpp',APP/'main/fine_capture.hpp',APP/'tests/fine_counter_test.cpp',APP/'tests/fine_capture_test.cpp',APP/'tests/fine_capture_native_test.cpp']
  (out/'receipt.json').write_text(json.dumps({'status':'PASS','scope':'ACTUAL_OWNER_SYNTHETIC_PERIPHERAL_AND_COUNTER_ASAN_UBSAN','hardware_access':False,'sources':{str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in paths if p.is_file()}},indent=2)+'\n')
  print('PASS fine raw-owner and counter lifecycle with ASan/UBSan; physical endpoint remains unknown')

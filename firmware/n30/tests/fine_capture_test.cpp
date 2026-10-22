@@ -30,6 +30,7 @@ void clear_error(){assert(n30_fine_released());error=0;fake_complete=fake_clear_
 int main(){
  assert(n30_fine_released()&&fake_allocated==0);
  assert(!n30_fine_start(1,0,fake_now,1000,1)&&!n30_fine_start(0,PTOB_N30_FINE_FACTORY,fake_now,1000,1));
+ assert(!n30_fine_probe(1,PTOB_N30_FINE_FACTORY,fake_now,100,16)&&fake_allocated==0);
  assert(fake_allocated==0&&!n30_fine_start(1,PTOB_N30_FINE_FACTORY,fake_now,999,1));
  assert(n30_fine_start(1,PTOB_N30_FINE_FACTORY,fake_now,1000,1));
  assert(fake_group==1&&fake_allocated==3&&fake_callbacks==0&&!fake_channels[2].cb&&!routed&&!n30_fine_released());
@@ -57,10 +58,10 @@ int main(){
  update_gate={};assert(update_gate.begin(fake_now));poll_update_drain(fake_now);assert(update_gate.stage==v12::UpdateStage::Ready);
  fake_start_delay=2000000;assert(!n30_fine_start(99,PTOB_N30_FINE_FACTORY,fake_now,1000,1));assert(n30_fine_released()&&!routed);fake_start_delay=0;clear_error();
  // Fresh raw-completion cannot be fabricated by stale INT_RAW or CAP value.
- fake_device.int_raw.val=1u<<29;fake_clear_ok=false;assert(!n30_fine_start(3,PTOB_N30_FINE_FACTORY,fake_now,1000,1));assert(error==-8&&timeouts==1);clear_error();
- fake_complete=false;assert(!n30_fine_start(4,PTOB_N30_FINE_FACTORY,fake_now,1000,1));assert(timeouts==1);clear_error();
+ fake_device.int_raw.val=1u<<29;fake_clear_ok=false;assert(!n30_fine_start(3,PTOB_N30_FINE_FACTORY,fake_now,1000,1));assert(error==-14&&last_start.timeouts==1);clear_error();
+ fake_complete=false;assert(!n30_fine_start(4,PTOB_N30_FINE_FACTORY,fake_now,1000,1));assert(last_start.timeouts==1);clear_error();
  fake_stale=true;assert(!n30_fine_start(5,PTOB_N30_FINE_FACTORY,fake_now,1000,1));clear_error();
- fake_cycle_step=5000;assert(!n30_fine_start(6,PTOB_N30_FINE_FACTORY,fake_now,1000,1));assert(timeouts==1);clear_error();
+ fake_cycle_step=5000;assert(!n30_fine_start(6,PTOB_N30_FINE_FACTORY,fake_now,1000,1));assert(last_start.timeouts==1);clear_error();
  assert(n30_fine_start(7,PTOB_N30_FINE_FACTORY,fake_now,1000,1));fake_device.cap_timer_cfg.cap_timer_en=false;n30_fine_poll(fake_now);assert(n30_fine_released()&&error==-13);clear_error();
  assert(n30_fine_start(8,PTOB_N30_FINE_FACTORY,fake_now,1000,1));fake_now=history.until();n30_fine_poll(fake_now);assert(n30_fine_released());
  // Real adapter formatter at maximum field widths and four retained records.

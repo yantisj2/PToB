@@ -514,10 +514,18 @@ void command(const char* text){
   }
   else if(!std::strcmp(action,"lora diag")){lora_diagnostic_response=true;last_command={nonce,admitted,true,"LORA_DIAG","READ_ONLY_CRC_SNAPSHOT"};}
   else if(!std::strncmp(action,"fine ",5)){
+    uint32_t spacing=0,edges=0;bool synthetic=false;
+    if(!std::strncmp(action,"fine probe ",11)&&std::strlen(action)<80){
+      const char* p=action+11;
+      if(n30::timing::number(p,spacing)&&*p==' '){++p;synthetic=n30::timing::number(p,edges)&&!*p&&spacing>=50&&spacing<=1000&&edges>=4&&edges<=24&&edges%4==0;}
+    }
     char translated[80]{};const auto length=std::snprintf(translated,sizeof translated,"timing %s",action+5);
     const auto request=length>=0&&unsigned(length)<sizeof translated?n30::timing::parse(translated):n30::timing::Request{};fine_diagnostic_response=true;
     last_command={nonce,admitted,false,"FINE","INVALID_BOUNDS_OR_SYNTAX"};
-    if(request.command==n30::timing::Command::Stop){
+    if(synthetic){
+      const bool ok=n30_fine_probe(nonce,fine_factory,admitted,spacing,edges);fine_after=0;
+      last_command={nonce,admitted,ok,"FINE_PROBE",ok?"FINITE_SYNTHETIC_GPIO_ONLY":"BINDING_RESOURCE_OR_LATCH_REFUSED"};
+    }else if(request.command==n30::timing::Command::Stop){
       n30_fine_stop();fine_after=0;last_command={nonce,admitted,true,"FINE_STOP","RAW_OBSERVER_ONLY"};
     }else if(request.command==n30::timing::Command::Read){
       fine_after=request.after;last_command={nonce,admitted,true,"FINE_READ","NONCONSUMING_CRC_CURSOR"};
@@ -723,7 +731,7 @@ extern "C" void app_main(){
     " max_data=191 max_GMs=4 activities=6 syncs=2 adv_sets=2 mtu=247"
     " precision=UNAVAILABLE GM=DISABLED LoRa=OFF WiFi=OFF PTS=OFF\n",
     V12_UNIT,factory_text,unsigned(identity),session,V12_SOURCE_REVISION,V12_BUILD_ID);
-  std::printf("N30_TARGET version=0.2.12 profile=RC GPS=ABSENT flash_mb=8 console=UART0_43_44 hardware=UNVALIDATED\n");
+  std::printf("N30_TARGET version=0.2.13 profile=RC GPS=ABSENT flash_mb=8 console=UART0_43_44 hardware=UNVALIDATED\n");
   if(!identity||!session){std::printf("W12_V12_FATAL reason=FACTORY_OR_BOOT_BINDING peripherals=UNTOUCHED\n");return;}
   for(const auto byte:factory)fine_factory=(fine_factory<<8)|byte;
   n30_timing_init();

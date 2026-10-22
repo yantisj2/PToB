@@ -708,3 +708,37 @@ its channel-enable API does not restore a mask cleared by containment. Normal
 stop quiesces those hardware channels and IRQs before disconnecting pads. Host
 regressions exercise expiry containment, cleanup, restart and a new callback,
 plus stale pending bits and refused clear/mask restoration.
+
+
+### Version 0.2.13 synthetic capture-chain isolation
+
+A reviewed native GPIO4/5 build also accepts `fine probe <spacing_ms> <edges>`.
+Spacing is 50–1000 ms and total edges is 4–24 in multiples of four. This finite
+mode drives only the fixed reviewed pins, alternately high/high/low/low through
+ordinary GPIO output256, and feeds the same pad inputs into group1 channels0/1.
+It verifies initial LOW before capture/IRQ arming. The lease is fixed at
+`spacing_ms * edges + 1000` ms; each main-task poll can issue at most one
+transition, with no catch-up burst or extension. Delays can consume the nominal
+quiet tail and leave the pattern incomplete.
+
+CRC records retain immutable `SYNTHETIC_GPIO` provenance through stop and a new
+incarnation for each successful history. A refused or failed start cannot
+relabel an older retained history. Startup stages its latch statistics and
+counter origin, committing history/domain/provenance together; separate
+`start_*` fields retain the attempted mode and latch outcomes on failure. Attempted writes, verified pad transitions
+by channel/polarity, actual pad input levels, initial LOW mask, bounded level
+poll count, last issue and stop times are separate from captured callbacks.
+`initial_low=3` means both pads were verified LOW before arming; level polling
+is limited to 128 reads. Quiet time is the actual interval from the last
+verified transition to stop, not a promised one-second observation.
+
+A complete chain check compares all unique captured edges with the verified
+issued counts after an observed quiet interval, retaining missing, extra,
+coalesced, overwritten or invalid records. CPU output intent is not an RF
+reference or a measured RF timestamp. Synthetic pulses do not prove BLE marker
+semantics, resolution, endpoint delay, packet association or UTC accuracy.
+The ordinary BLE/LoRa clocks and legacy correction scope remain unchanged.
+Every stop, expiry and containment path prevents future writes and disables
+RX/TX capture/IRQ before releasing pad outputs. The group0 LoRa owner remains
+independent. This mode requires the same exact factory and physical pin review
+as native capture and defaults OFF.

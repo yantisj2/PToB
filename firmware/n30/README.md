@@ -10,7 +10,7 @@ Select a screen for its native 64×128 image.
 
 Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
 
-**PToB owns N30 native G1/RC7 development.** Version **0.2.12** supports an **RC**
+**PToB owns N30 native G1/RC7 development.** Version **0.2.13** supports an **RC**
 with **two timing inputs: BLE and passive LoRa**, a portrait OLED clock and a
 receiver-status console. The Meshnology N30 / Heltec WiFi LoRa32 V3 route uses
 an ESP32-S3, 8 MB flash and a 128×64 OLED mounted as 64×128. Start with the
@@ -166,3 +166,11 @@ interoperability, 180-second physical AUTO dwell, estimated relay accuracy,
 failover or independently measured UTC/PPS accuracy. Preserve failures and
 missing intervals separately. See the [project changelog](../../CHANGELOG.md)
 and [build guide](../../docs/n30/build.md) for development history and limits.
+
+
+A separately reviewed synthetic capture-chain mode drives only fixed GPIO4/5
+with a short, slow pattern and records issued versus captured transitions.
+Its immutable `SYNTHETIC_GPIO` provenance separates it from native radio
+signals. It establishes digital capture-chain behavior only; it does not
+qualify an RF endpoint, packet timestamp or UTC output. See the
+[finite probe contract](../../docs/n30/build.md#version-0213-synthetic-capture-chain-isolation).

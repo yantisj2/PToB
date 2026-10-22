@@ -72,7 +72,7 @@ struct FakeSignals {struct {struct {unsigned cap_sig=0;}captures[3];}groups[2];}
 inline FakeSignals mcpwm_periph_signals=[](){FakeSignals v{};for(unsigned i=0;i<3;++i){v.groups[0].captures[i].cap_sig=166+i;v.groups[1].captures[i].cap_sig=175+i;}return v;}();
 constexpr unsigned PIN_FUNC_GPIO=1;
 struct FakeGpio {struct Reg {uint32_t val=0;};uint32_t enable=0;Reg func_in_sel_cfg[256],func_out_sel_cfg[49];bool oe[49]{},ie[49]{};};
-inline FakeGpio GPIO;
+inline FakeGpio GPIO;inline uint32_t fake_levels=0;inline bool fake_gpio_capture=true;
 inline int fake_gpio_failure=0,fake_gpio_failure_pin=-1;inline unsigned fake_gpio_calls=0,fake_output_disables[49]{};
 inline bool gpio_failure(int operation,int pin){return fake_gpio_failure==operation&&fake_gpio_failure_pin==pin;}
 struct gpio_io_config_t {uint32_t sig_out=0,fun_sel=PIN_FUNC_GPIO;bool ie=false,oe=false,oe_ctrl_by_periph=false,oe_inv=false;};
@@ -87,3 +87,14 @@ inline void gpio_ll_set_output_enable_ctrl(FakeGpio* dev,int pin,bool ctrl_by_pe
 inline void gpio_ll_output_disable(FakeGpio* dev,int pin){assert(dev==&GPIO&&(pin==4||pin==5));dev->oe[pin]=false;dev->enable&=~(1u<<pin);++fake_output_disables[pin];}
 inline void mcpwm_ll_intr_enable(FakeDevice* dev,uint32_t bits,bool enable){assert(bits==(3u<<27));if(enable&&fake_irq_restore_ok)dev->int_ena.val|=bits;else dev->int_ena.val&=~bits;}
 inline void mcpwm_ll_capture_enable_channel(FakeDevice* dev,int i,bool enable){assert(i<2);dev->cap_chn_cfg[i].capn_en=enable;}
+
+inline int gpio_get_level(gpio_num_t pin){assert(pin==4||pin==5);const auto level=(fake_levels>>pin)&1u;return int(gpio_failure(10,pin)?level^1u:level);}
+inline int gpio_set_level(gpio_num_t pin,int level){
+ assert((pin==4||pin==5)&&(level==0||level==1));++fake_gpio_calls;if(gpio_failure(9,pin))return -1;
+ const auto old=(fake_levels>>pin)&1u;fake_levels=(fake_levels&~(1u<<pin))|(uint32_t(level)<<pin);
+ const unsigned ch=pin==4?0:1;
+ if(old!=unsigned(level)&&fake_gpio_capture&&GPIO.oe[pin]&&GPIO.ie[pin]&&(GPIO.func_out_sel_cfg[pin].val&511)==SIG_GPIO_OUT_IDX&&GPIO.func_in_sel_cfg[175+ch].val==unsigned(128+pin)&&fake_device.cap_chn_cfg[ch].capn_en&&(fake_device.int_ena.val&(1u<<(27+ch)))){
+  mcpwm_capture_event_data_t event{fake_raw,uint32_t(level?0:1)};fake_channels[ch].cb(&fake_channels[ch],&event,fake_channels[ch].context);
+ }
+ return 0;
+}

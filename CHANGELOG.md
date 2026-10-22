@@ -1,6 +1,16 @@
 # Changelog
 
 
+## N30 0.2.13 — finite synthetic capture-chain diagnostic
+
+- Add a default-OFF fixed GPIO4/5 pulse mode to isolate the raw group1 capture
+  path from undocumented native marker behavior. Preserve immutable synthetic
+  provenance, bounded issued/captured counts, actual level readback and quiet
+  time across finite stop/expiry cleanup.
+- Keep BLE/LoRa production timing, correction scopes, W12 and T096 unchanged.
+  Synthetic pulses and native activity observations do not certify RF timing.
+
+
 ## 2026-10-22 — N30 0.2.12 native activity trial guards
 
 - Bound native GPIO4/5 callback storms and expired leases in the ISR, including

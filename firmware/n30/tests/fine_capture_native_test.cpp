@@ -2,6 +2,7 @@
 #include <cassert>
 #include <cstdarg>
 #include <cstdio>
+#include <cstring>
 #define V12_R2_ENABLED 1
 #define PTOB_N30 1
 #define PTOB_N30_FINE_PINS 1
@@ -46,6 +47,33 @@ int main(){
  for(int channel=0;channel<2;++channel){fake_enable_fail=channel;assert(!n30_fine_start(20+channel,PTOB_N30_FINE_FACTORY,fake_now,1000,1));assert(error==-7&&n30_fine_released()&&!GPIO.oe[4]&&!GPIO.oe[5]);clear_error();}
  fake_start_delay=2000000;const auto calls=fake_gpio_calls;assert(!n30_fine_start(30,PTOB_N30_FINE_FACTORY,fake_now,1000,1));assert(n30_fine_released()&&fake_gpio_calls==calls);fake_start_delay=0;clear_error();
  assert(n30_fine_start(31,PTOB_N30_FINE_FACTORY,fake_now,1000,1));n30_fine_stop();assert(n30_fine_released()&&!GPIO.oe[4]&&!GPIO.oe[5]);
+
+ // A known fixed, slow GPIO source isolates CH0/1 independently of native RF.
+ assert(!n30_fine_probe(50,PTOB_N30_FINE_FACTORY,fake_now,49,16));
+ assert(!n30_fine_probe(50,PTOB_N30_FINE_FACTORY,fake_now,100,15));
+ assert(n30_fine_probe(50,PTOB_N30_FINE_FACTORY,fake_now,100,16));assert(probe.synthetic&&probe.initial_low==3&&history.seen()==0);
+ assert(GPIO.func_out_sel_cfg[4].val==1280&&GPIO.func_out_sel_cfg[5].val==1280);
+ assert(!n30_fine_start(51,PTOB_N30_FINE_FACTORY,fake_now,1000,1)&&probe.synthetic);
+ const auto lease_end=history.until();
+ auto advance=[](uint64_t us){fake_now+=us;fake_raw+=uint32_t(us*80);};
+ for(unsigned i=0;i<16;++i){advance(100000);n30_fine_poll(0);assert(probe.attempted==i+1&&history.seen()==i+1&&history.until()==lease_end);}
+ assert(probe.issued[0]==8&&probe.issued[1]==8&&probe.rise[0]==4&&probe.fall[0]==4&&probe.rise[1]==4&&probe.fall[1]==4&&probe.verified_levels==0);
+ assert(history.rx()==8&&history.tx()==8&&history.overwritten()==0);
+ advance(200000);n30_fine_poll(0);assert(probe.attempted==16);n30_fine_stop();const auto stopped=probe.stopped_us;assert(probe.synthetic&&stopped-probe.last_issue_us>=200000&&n30_fine_released());
+ frame={};n30_fine_frame(frame,0,0);assert(!frame.failed&&std::strstr(frame.bytes,"mode=SYNTHETIC_GPIO")&&std::strstr(frame.bytes,"provenance=SYNTHETIC_GPIO")&&std::strstr(frame.bytes,"RX=GPIO4_SYNTHETIC"));
+ {FILE* out=std::fopen("fine-native-frame.txt","w");assert(out);std::fwrite(frame.bytes,1,frame.length,out);std::fclose(out);}
+ // Refused or failed starts cannot relabel retained history after stop.
+ const auto old_first=first_raw32,old_inc=incarnation;const auto old_latest=last_raw80;
+ fake_complete=false;assert(!n30_fine_start(52,PTOB_N30_FINE_FACTORY,fake_now,1000,1)&&probe.synthetic&&probe.stopped_us==stopped&&first_raw32==old_first&&last_raw80==old_latest&&incarnation==old_inc&&history.seen()==16&&last_start.timeouts==1);clear_error();
+ fake_start_delay=2000000;assert(!n30_fine_start(52,PTOB_N30_FINE_FACTORY,fake_now,1000,1)&&probe.synthetic&&probe.stopped_us==stopped&&first_raw32==old_first&&last_raw80==old_latest&&incarnation==old_inc&&history.seen()==16);fake_start_delay=0;clear_error();
+ assert(n30_fine_probe(53,PTOB_N30_FINE_FACTORY,fake_now,100,4));advance(400000);n30_fine_poll(0);assert(probe.attempted==1);n30_fine_poll(0);assert(probe.attempted==1); // no catchup
+ fake_now=history.until();const auto attempts=probe.attempted;n30_fine_poll(0);assert(probe.attempted==attempts&&n30_fine_released());
+ // A missing capture edge remains missing, never invented from CPU writes.
+ clear_error();fake_gpio_capture=false;assert(n30_fine_probe(54,PTOB_N30_FINE_FACTORY,fake_now,100,4));advance(100000);n30_fine_poll(0);assert(probe.attempted==1&&probe.issued[0]==1&&history.seen()==0);n30_fine_stop();fake_gpio_capture=true;clear_error();
+ // Initial/readback/API failures preserve attempted-versus-verified counts.
+ for(int pin=4;pin<=5;++pin)for(int failure=9;failure<=10;++failure){fake_gpio_failure_pin=pin;fake_gpio_failure=failure;assert(!n30_fine_probe(55,PTOB_N30_FINE_FACTORY,fake_now,100,4)&&error==(failure==9?-21:-22)&&n30_fine_released());clear_error();}
+ assert(n30_fine_probe(57,PTOB_N30_FINE_FACTORY,fake_now,100,4));fake_gpio_failure_pin=4;fake_gpio_failure=9;advance(100000);n30_fine_poll(0);assert(error==-21&&probe.attempted==1&&probe.issued[0]==0&&contained&&n30_fine_released());clear_error();
+ assert(n30_fine_probe(56,PTOB_N30_FINE_FACTORY,fake_now,100,4));fake_gpio_failure_pin=4;fake_gpio_failure=10;advance(100000);n30_fine_poll(0);assert(error==-23&&probe.attempted==1&&probe.issued[0]==0&&contained&&n30_fine_released());clear_error();
  for(unsigned i=166;i<=168;++i)assert(GPIO.func_in_sel_cfg[i].val==0xabcd0000+i);
  std::puts("PASS actual NATIVE branch: GPIO4/5 route/readback, all8 API/matrix failure classes eachpad, partial2ndchannel enable, bothpad failclosed cleanup, startupIRQstorm/expiredlease IRQ containment, ISR preservesCH2 and group1-only API guards");
 }

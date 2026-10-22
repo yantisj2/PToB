@@ -28,6 +28,16 @@ def validate_fine(rows):
  base.require(int(s['OE'])<=3 and int(s['channels'])<=7 and int(s['IRQ'])<=3,'Fine hardware masks')
  base.require(int(s['every'])<=64 and int(s['count'])<=4 and int(s['RX'])+int(s['TX'])==int(s['seen']) and int(s['sampled'])<=int(s['seen']),'Fine bounds/counters')
  if s['active']=='1':base.require(s['hz']=='80000000' and s['error']=='0' and int(s['current'])>=2 and int(s['incarnation'])>0,'Fine active latch/domain')
+ mode=s.get('mode')
+ if mode is not None:
+  base.require(mode in ('NATIVE_SIGNAL','SYNTHETIC_GPIO','CURRENT_ONLY') and s.get('start_mode') in ('NATIVE_SIGNAL','SYNTHETIC_GPIO','CURRENT_ONLY'),'Fine provenance mode')
+  for key in ('probe_spacing_ms','probe_goal','attempted','issued0','issued1','rise0','fall0','rise1','fall1','initial_low','verified_levels','input_levels','level_poll_max','start_reads','start_timeouts','start_poll_max','start_cycles_max'):timing_number(s,key)
+  for key in ('last_issue_us','stopped_us','quiet_us'):timing_number(s,key,64)
+  base.require(all(int(s[k])<=3 for k in ('initial_low','verified_levels','input_levels')) and int(s['level_poll_max'])<=128,'Probe level masks/polls')
+  base.require(int(s['issued0'])==int(s['rise0'])+int(s['fall0']) and int(s['issued1'])==int(s['rise1'])+int(s['fall1']) and int(s['attempted'])>=int(s['issued0'])+int(s['issued1']),'Probe issued/polarity counts')
+  if mode=='SYNTHETIC_GPIO':
+   base.require(s['pins']=='1' and s['every']=='1' and 50<=int(s['probe_spacing_ms'])<=1000 and 4<=int(s['probe_goal'])<=24 and int(s['probe_goal'])%4==0 and int(s['attempted'])<=int(s['probe_goal']),'Probe fixed bounded pattern')
+  else:base.require(all(s[k]=='0' for k in ('probe_spacing_ms','probe_goal','attempted','issued0','issued1','initial_low','verified_levels','last_issue_us','stopped_us','quiet_us')),'Nonprobe carries synthetic intent')
  count=0;last=int(s['after'])
  for i in range(4):
   r=rows[f'N30_FINE_EDGE{i}'];base.require(r.get('present') in ('0','1'),'Fine edge presence')
@@ -38,9 +48,12 @@ def validate_fine(rows):
   for key in ('kind','extended'):base.require(r.get(key) in ('0','1'),'Fine edge boolean '+key)
   base.require(r.get('polarity') in ('0','1','2') and r.get('association')=='UNESTABLISHED','Fine polarity/association')
   base.require(last<int(r['n'])<=int(s['sampled']) and r['incarnation']==s['incarnation'],'Fine cursor/incarnation');last=int(r['n'])
+  if mode is not None:base.require(r.get('provenance')==mode,'Edge immutable provenance')
   if r['extended']=='1':base.require(int(r['raw80'])%2**32==int(r['raw32']) and int(r['tick20'])>=1000000,'Fine raw counter identity')
  base.require(count==int(s['count']),'Fine count')
  contract={'observer':'RAW_ONLY','domain':'MCPWM1_80MHZ','RX':'SYNCFOUND_230','TX':'PKT_TX_ON_235','CURRENT':'CH2_SW128','capture_channels':'0/1/2','edge':'RISING_AND_FALLING','endpoint':'UNKNOWN','coalesced':'UNKNOWN','packet_association':'NONE','RF_bound':'UNKNOWN','UTC_bound':'UNKNOWN','clock_update':'NONE','production':'GPTIMER20','offset':'LEGACY_ONLY'}
+ if mode=='SYNTHETIC_GPIO':contract.update(RX='GPIO4_SYNTHETIC',TX='GPIO5_SYNTHETIC')
+ if mode is not None:contract.update(provenance=mode,expected='SYNTHETIC_VERIFIED_PAD_TRANSITIONS_ONLY' if mode=='SYNTHETIC_GPIO' else 'NONE')
  for key,value in contract.items():base.require(rows['N30_FINE_CONTRACT'].get(key)==value,'Fine contract '+key)
 
 def timing_number(row,key,bits=32,signed=False):
@@ -119,11 +132,14 @@ class Parser(base.Parser):
 
 def mutation_command(frame,nonce,action):
  fine=action.startswith('fine ')
+ probe=bool(re.fullmatch(r'fine probe [1-9][0-9]* [1-9][0-9]*',action))
+ if probe:
+  spacing,edges=map(int,action.split()[2:]);base.require(50<=spacing<=1000 and 4<=edges<=24 and edges%4==0,'Fixed synthetic probe bounds')
  checked='timing '+action[5:] if fine else action
  timing=checked=='timing stop' or bool(re.fullmatch(r'timing read (0|[1-9][0-9]*)',checked)) or bool(re.fullmatch(r'timing start [1-9][0-9]* [1-9][0-9]*',checked))
  if timing:
   nums=[int(x) for x in checked.split()[2:]]
   base.require(not nums or (0<=nums[0]<2**32 if checked.startswith('timing read ') else 1000<=nums[0]<=600000 and 1<=nums[1]<=64),'Timing command bounds')
- if not timing and action not in ('ui page 0','ui page 1','ui page 2','lora diag','lora auto','lora on','lora off'):return base.mutation_command(frame,nonce,action)
+ if not timing and not probe and action not in ('ui page 0','ui page 1','ui page 2','lora diag','lora auto','lora on','lora off'):return base.mutation_command(frame,nonce,action)
  base.require(base.HEX16.fullmatch(nonce) and int(nonce,16) and nonce!=frame['begin']['nonce'],'Fresh UI request nonce required')
  b=frame['begin'];return f"v12 do {b['ticket']} {nonce} {b['factory']} {b['session']} {action}\n".encode()
