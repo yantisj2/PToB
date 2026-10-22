@@ -1,5 +1,22 @@
 # T096 G5 ACTIVE, HOT and COLD
 
+Version159 refreshes coherent direct PT input before the G5 HOT/ACQUIRING
+readiness tick, preserving the PT owner's observation timestamp and expiry.
+ACTIVE, COLD, RC and relay paths retain their existing timing update. This fixes
+an offline reproduced stale CONTROL-input refusal; it changes no election,
+takeover, timer or RF policy and does not resolve the open controller failures.
+The normal HOT page is observational; only dedicated shadow page6 requests
+and arms PPS sampling. This is not evidence of a controller-crash cause.
+The separate stream-loss takeover draft remains evaluation-only.
+
+Version157 orders force before age within the existing ticker class. A queued
+connection restart could otherwise cause two competing ACL reservations to defer
+to each other indefinitely. The focused actual-body regression reproduces this
+under oversubscribed DLE reservations; it proves sampled callback progress, not
+field causation or universal fairness. Cross-class precision precedence, timers,
+pairing, RF configuration and source156 diagnostics remain unchanged. Native and
+field qualification are separate gates.
+
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
 Version0.15.134 introduces G5 coordination for the ordinary GM profile. Since
@@ -552,6 +569,53 @@ actual-owner recovery case produces two serving roots for16.625s and fails to
 restore HOT by its270s endpoint. Ownership transfer and receiver-local loss need
 a concise rule before another field candidate; the long management renewal
 window must not become the outage detection delay.
+
+Source159 refreshes coherent direct HOT/ACQUIRING precision input before readiness
+uses it, preserving the original observation time and expiry. It also makes the
+ordinary HOT page observational; intentional shadow sampling remains on page6.
+No election, takeover, timer, queue, controller or RF policy changes are included.
+The separate stream-driven takeover/quality-yield draft remains evaluation-only.
+
+All four source159 native images, DC/PC/verbose composition, the complete host
+suite, actual input-order tests and42 UI sanitizer modes pass. Writable static
+objects and4708 bytes of unallocated RAM are unchanged. A new328-byte helper
+frame runs on the existing8192-byte CONTROL stack; inspected frames are not a
+whole-system stack or execution-time qualification.
+
+The first source159180s observation completed24/24 four-device cohorts. Following
+source qualification,13 cohorts matched TC-02 ACTIVE/global-HOT with TC-04 local
+HOT, spanning90.39s between first and last observations. No network/radio errors,
+HOT withdrawals or boot changes occurred in that sampled interval. TC-03 remained
+COLD and unqualified locally, but acquired BLE timing and advanced LoRa TX2→17;
+TC-01's accepted LoRa count advanced4→13 and correction sequence0→10.
+
+The following HOT-page session failed during USB opening, before any page command
+was sent. A fresh exact-device capture confirms a source159 fatal at277674ms of
+the failed boot and matching watchdog recovery. The complete seven-entry prepare
+queue contains four central, one advertising, one periodic receiver and one scan
+entry, all ordinary nonresume/nonaborted; the eighth failed preparation is central.
+The exact ELF resolves the same prepare-allocation assertion as157. The current
+active owner and preempt/DONE dispatch history remain unknown. USB opening is not
+proved neutral, but that attempted page selection did not precede the failure.
+A separate pre-update157 watchdog/fatal was also preserved. Source159 therefore
+fails durable HOT acceptance despite its short successful pair observation.
+
+After that recovery, TC-04 requalified, reacquired HOT and passed the separate15s
+HOT-page check:5/5 samples reported sampler OFF, unchanged session/sample counts,
+and retained local HOT. Its original page was restored. A later TC-02 observation
+acknowledged the recovered appointment. Final brief checks retained01RC,
+02/03/04GM and all radio requests ON;03 remained the sole configured transmitter
+with TX80, while01 reported74 accepted LoRa packets and correction sequence71.
+Every reader was closed. These sequential checks establish functional recovery,
+not uninterrupted pairing, reset latency, neutral diagnostics or UTC accuracy.
+
+The next investigation should isolate controller prepare/preempt/DONE progress
+at the full-queue failure. Keep timer and pairing changes frozen while retaining
+fault-only evidence. The offline input/UI gaps now have actual-body coverage;
+real ISR/mayfly dispatch and RF contention still require distinct evidence.
+The current four-device population has three GM profiles and one RC. A capable
+newcomer/fourth-GM test remains a separate next-round population after a durable
+pair is demonstrated; other powered enrolled clocks remain observed RF context.
 
 The remaining work has separate causes and evidence requirements. First retain
 a stable two-GM pair with the third GM remaining COLD; only then exercise newcomer

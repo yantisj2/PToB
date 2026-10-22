@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 #include "diagnostic.h"
+#include "controller_diag.h"
 #include "health.h"
 #include "core.h"
 #include "time_service.h"
@@ -223,6 +224,11 @@ int r2_diag_init(const struct r2_identity *id)
   if(!rc&&(uint64_t)k_uptime_get()-begin>=500)rc=-ETIMEDOUT;
   if(rc){phase=rc;return rc;}select_target();
  }
+ /* Publish observer readiness only after the scanner has retired. Before
+  * phase1, fatal capture returns synthetic UNKNOWN without reading this tail. */
+#if defined(R2_CONTROLLER_FAULT_CAPTURE) || defined(R2_CONTROLLER_DIAGNOSTICS)
+ r2_controller_diag_init();
+#endif
  phase=1;return 0;
 }
 int r2_diag_arm(uint64_t arrival,uint32_t seconds)
@@ -408,6 +414,11 @@ void r2_diag_poll(void)
  k_sem_give(&save_requested);
 }
 
+#if defined(R2_CONTROLLER_FAULT_CAPTURE) || defined(R2_CONTROLLER_DIAGNOSTICS)
+/* Fatal/failure readers already hold the UP IRQ mask. Do not reacquire the
+ * diagnostic spinlock: a fatal may have interrupted its owner. No state added. */
+bool r2_controller_diag_ready_locked(void){return phase>=1;}
+#endif
 int r2_diag_state(void){k_spinlock_key_t key=k_spin_lock(&lock);int p=phase;k_spin_unlock(&lock,key);return p;}
 int r2_diag_read(unsigned bank,unsigned chunk,uint8_t out[64])
 {if(bank>=2||chunk>=128||!device_is_ready(flash)||r2_diag_busy())return -EACCES;return flash_read(flash,R2_DIAG_START+bank*8192+chunk*64,out,64);}

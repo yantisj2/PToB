@@ -1,0 +1,60 @@
+diff --git a/subsys/bluetooth/controller/ll_sw/ull.c b/subsys/bluetooth/controller/ll_sw/ull.c
+--- a/subsys/bluetooth/controller/ll_sw/ull.c
++++ b/subsys/bluetooth/controller/ll_sw/ull.c
+@@ -1,3 +1,4 @@
++#include "controller_diag.h"
+ /*
+  * Copyright (c) 2017-2021 Nordic Semiconductor ASA
+  *
+@@ -2086,6 +2087,42 @@
+ 	ull_rx_sched();
+ }
+ 
++
++/* Original PToB diagnostic addition: Copyright (c) 2026 Jonathan Yantis. MIT.
++ * Surrounding Zephyr source retains Apache-2.0. Failure path only; no mutation
++ * of the prepare FIFO. Caller failure/strict assertion remain unchanged. */
++static __noinline struct lll_event *r2_prepare_failure(lll_prepare_cb_t prepare_cb,
++                                                     struct lll_prepare_param *prepare_param)
++{
++    unsigned key = irq_lock();
++    if (!r2_controller_diag_failure((uintptr_t)prepare_cb,
++                                    (uintptr_t)prepare_param->param)) {
++        irq_unlock(key);
++        return NULL;
++    }
++    unsigned copied = 0;
++    uint8_t cursor = UINT8_MAX;
++    /* Validate every index source before the iterator can form a pointer.
++     * IRQs stay masked across this complete bounded cut. A partial/corrupt
++     * cut remains UNKNOWN; it never justifies an unsafe extra read. */
++    if (mfifo_prep.n == 8 && mfifo_prep.s == MROUND(sizeof(struct lll_event)) &&
++        mfifo_fifo_prep.f < mfifo_prep.n && mfifo_fifo_prep.l < mfifo_prep.n) {
++        for (unsigned i = 0; i < 7; ++i) {
++            struct lll_event *queued = MFIFO_DEQUEUE_ITER_GET(prep, &cursor);
++            if (!queued) {
++                break;
++            }
++            r2_controller_diag_entry(i, (uintptr_t)queued->prepare_cb,
++                (uintptr_t)queued->prepare_param.param,
++                queued->is_resume | (queued->is_aborted << 1));
++            ++copied;
++        }
++    }
++    r2_controller_diag_complete(copied == 7);
++    irq_unlock(key);
++    return NULL;
++}
++
+ struct lll_event *ull_prepare_enqueue(lll_is_abort_cb_t is_abort_cb,
+ 				      lll_abort_cb_t abort_cb,
+ 				      struct lll_prepare_param *prepare_param,
+@@ -2097,7 +2134,7 @@
+ 
+ 	idx = MFIFO_ENQUEUE_GET(prep, (void **)&e);
+ 	if (!e) {
+-		return NULL;
++		return r2_prepare_failure(prepare_cb, prepare_param);
+ 	}
+ 
+ 	memcpy(&e->prepare_param, prepare_param, sizeof(e->prepare_param));

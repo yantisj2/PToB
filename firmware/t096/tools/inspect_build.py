@@ -57,9 +57,53 @@ def inspect(out,allow_development=False):
     diagnostic=r.get('controller_diagnostics',False)
     require(type(diagnostic) is bool,'Invalid diagnostic variant flag')
     require(not diagnostic or not (dc or pc),'Diagnostic variant leaked into DC/PC')
-    require(('/src/controller_diag.c' in commands)==diagnostic,'Diagnostic variant source mismatch')
-    require(('/r2_controller_diag/ull.c' in commands)==diagnostic,'Diagnostic controller hook mismatch')
+    prepare_capture=tuple(map(int,r['version'].split('.'))) >= (0,15,156) and not (dc or pc)
+    observer=diagnostic or prepare_capture
+    require(('/src/controller_diag.c' in commands)==observer,'Diagnostic observer source mismatch')
+    require(('/r2_controller_diag/ull.c' in commands)==observer,'Diagnostic controller hook mismatch')
+    require(('R2_CONTROLLER_FAULT_CAPTURE=1' in commands)==prepare_capture,'Prepare capture compiler mode mismatch')
     require(('R2_CONTROLLER_DIAGNOSTICS=1' in commands)==diagnostic,'Diagnostic compiler mode mismatch')
+    if tuple(map(int,r['version'].split('.'))) >= (0,15,155):
+        fault_diag=r.get('controller_fault_diagnostics')
+        if dc or pc:
+            require(fault_diag is None,'Fault diagnostics leaked into DC/PC receipt')
+            require('/src/controller_snapshot.c' not in commands and '/r2_controller/ll_sw/ull_peripheral.c' not in commands,
+                    'Fault diagnostics leaked into DC/PC controller')
+        else:
+            require(fault_diag=={'manifest_sha256':sha(out/'source/cmake/controller-fault-diag.json'),
+                                'patch_sha256':sha(out/'source/cmake/controller-fault-diag.patch')},
+                    'Fault diagnostic patch/manifest receipt mismatch')
+            manifest=json.loads((out/'source/cmake/controller-fault-diag.json').read_text())
+            require(manifest['patch_sha256']==fault_diag['patch_sha256'],'Fault diagnostic patch identity mismatch')
+            units=json.loads(commands)
+            for suffix,expected in [('ticker/ticker.c','/r2_controller/ticker/ticker.c'),
+                                    ('ll_sw/ull_peripheral.c','/r2_controller/ll_sw/ull_peripheral.c'),
+                                    ('ll_sw/ull.c','/r2_controller_diag/ull.c' if observer else '/r2_controller/ll_sw/ull.c')]:
+                candidates=[c['file'] for c in units if c['file'].endswith('/'+suffix) or
+                            suffix=='ll_sw/ull.c' and c['file'].endswith('/r2_controller_diag/ull.c')]
+                require(len(candidates)==1 and candidates[0].endswith(expected),'Fault diagnostic controller membership: '+suffix)
+            for name,hashes in manifest['files'].items():
+                relative=Path(name).relative_to('subsys/bluetooth/controller')
+                require(sha(out/'target/r2_controller'/relative)==hashes['after'],'Generated fault diagnostic hash: '+name)
+    if tuple(map(int,r['version'].split('.'))) >= (0,15,156):
+        prepare=r.get('controller_prepare_capture')
+        if dc or pc:
+            require(prepare is None,'Prepare capture leaked into DC/PC receipt')
+        else:
+            mode='verbose' if diagnostic else 'failure-only'
+            require(prepare=={'mode':mode,
+                'manifest_sha256':sha(out/'source/cmake/controller-prepare-diag.json'),
+                'patch_sha256':sha(out/'source/cmake/controller-prepare-fault.patch'),
+                'generator_sha256':sha(out/'source/tools/controller_diag_hooks.py')},'Prepare observer receipt mismatch')
+            pinned=json.loads((out/'source/cmake/controller-prepare-diag.json').read_text())
+            generated=json.loads((out/'target/r2_controller_diag/manifest.json').read_text())
+            require(pinned['failure_patch_sha256']==prepare['patch_sha256'],'Prepare patch hash mismatch')
+            require(generated=={'input_sha256':pinned['input_sha256'],
+                'output_sha256':pinned['output_sha256'][mode],'class':'PREPARE_FIFO_OBSERVATION_ONLY',
+                'mode':mode,'capacity':7,'assertion_unchanged':True,
+                'manifest_sha256':prepare['manifest_sha256']},'Prepare generated manifest/mode mismatch')
+            require(sha(out/'target/r2_controller_diag/ull.c')==pinned['output_sha256'][mode],
+                    'Prepare generated ULL hash mismatch')
     dts=(out/'target/zephyr/zephyr.dts').read_text()
     if dc and 'src/dc_gnss.c' in r['sources']:
         require(r.get('dc_gnss_bridge') is True,'Missing DC GNSS bridge receipt')

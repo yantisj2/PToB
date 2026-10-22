@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "capacity": 7,
+  "description": "Failure-only bounded prepare FIFO observation; optional verbose counters remain explicit.",
+  "original_additions": "Copyright (c) 2026 Jonathan Yantis. MIT. Zephyr source retains Apache-2.0.",
+  "input_sha256": "b57dedd4690419aa905d35af822037fe86c2a3c257884e5d1e031c46dac94ebb",
+  "failure_patch_sha256": "1a01fdb35f90e35d290d66e2cf8b593e47d4e4d104daae8b6df60a0f0bd45c72",
+  "output_sha256": {
+    "failure-only": "d88bc6767dfe72fafba6f97b309c950ae898d48ba5ce966c645b9cb8c3ced6e9",
+    "verbose": "a70549f6c11a4f9d4ee780930c02e4c2990946ff37c00b48068094a668f23e74"
+  }
+}

@@ -4,7 +4,28 @@
 #include "../src/ui_service.c"
 int main(int argc,char **argv){
  assert(argc==2);mode=atoi(argv[1]);
- if(mode==0){r2_ui_stop();r2_ui_start();assert(!entry&&!init_calls&&!r2_ui_close_result());}
+ if(mode==52){
+  struct r2_ui_model m={.sampled_ms=1000,.gm_capable=true,.scope_active=true,
+   .role=R2_UI_FOLLOWER,.clock={.pps_present=true},.precision={.map_valid=true}};
+  r2_ui_publish(&m);status.ready=true;fake_now=1000;
+  assert(!r2_ui_page(2));status.drawn_page=2;assert(!r2_ui_shadow_requested());
+  shadow_tick(&model,&status,fake_now,true);assert(!shadow_session.entered&&!witness_enabled);
+  assert(!r2_ui_page(6));status.drawn_page=2;
+  shadow_tick(&model,&status,fake_now,true);assert(!shadow_session.entered);
+  status.drawn_page=6;assert(r2_ui_shadow_requested());
+  shadow_tick(&model,&status,fake_now,true);assert(shadow_session.entered&&!witness_enabled);
+  fake_now=2000;shadow_tick(&model,&status,fake_now,true);assert(witness_enabled);
+  assert(r2_shadow_session_begin(&shadow_session,fake_now,32000000,1,2));
+  assert(!r2_ui_page(2));assert(!r2_ui_shadow_requested()&&!status.shadow.active);
+  shadow_tick(&model,&status,fake_now,true);assert(!shadow_session.active&&!witness_enabled);
+  m.role=R2_UI_GM;r2_ui_publish(&m);assert(!r2_ui_page(6));status.drawn_page=6;
+  assert(!r2_ui_shadow_requested());shadow_tick(&model,&status,fake_now,true);
+  assert(!shadow_session.active&&!witness_enabled);
+  m.profile_rc=true;m.role=R2_UI_FOLLOWER;r2_ui_publish(&m);assert(!r2_ui_page(0));
+  assert(!r2_ui_shadow_requested());shadow_tick(&model,&status,fake_now,true);
+  assert(!shadow_session.entered&&!witness_enabled);
+ }
+ else if(mode==0){r2_ui_stop();r2_ui_start();assert(!entry&&!init_calls&&!r2_ui_close_result());}
  else{
   struct r2_ui_model m={.unit="TC-01",.profile_supported=mode>=14};r2_ui_publish(&m);if((mode>=8&&mode<14)||mode==24||mode>=26)assert(!r2_ui_page(R2_UI_SHADOW_PAGE));if(mode==16)assert(!r2_ui_page(3));if(mode>=35)assert(!r2_ui_page(mode==40?5:mode==41?0:2));if(mode==17)assert(!r2_ui_page(1));r2_ui_start();assert(entry&&priority==6);entry(NULL,NULL,NULL);
   if(mode==1)assert(!init_calls&&!frame_calls&&off_calls==1&&!r2_ui_close_result());
@@ -25,8 +46,8 @@ int main(int argc,char **argv){
    if(mode==31)assert(shadow_session.epoch==2&&shadow_session.start_tick>=UINT64_C(20000000)*16);
    if(mode==32||mode==33)assert(status.shadow.warmup_resets&&shadow_session.start_tick>=UINT64_C(18000000)*16);
   }
-  if(mode==35)assert(status.shadow.samples>=600&&dim_seen&&first_saver);
-  if(mode==35||mode==39)assert(status.shadow.session==1&&status.shadow.samples>=3&&status.shadow.rms_ns==37&&(mode==35||!first_saver));
+  if(mode==35)assert(!status.shadow.session&&!status.shadow.samples&&dim_seen&&first_saver);
+  if(mode==39)assert(status.shadow.session==1&&status.shadow.samples>=3&&status.shadow.rms_ns==37&&!first_saver);
   if(mode==40)assert(first_saver&&dim_seen&&!status.shadow.samples);
   if(mode==41)assert(first_saver&&dim_seen&&awake_after_dim&&!status.screensaver&&status.page==4);
   if(mode==36||mode==37||mode==38)assert(!status.shadow.session&&!status.shadow.samples);

@@ -2,6 +2,48 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 21 October 2026 — T096 0.15.159 standby input and HOT page
+
+Refresh coherent direct HOT/ACQUIRING precision input before readiness consumes it,
+retaining its original observation time and expiry. Make the ordinary HOT page
+observational; only dedicated shadow page6 requests sampling. Election, takeover,
+timers and RF policy remain unchanged. The stream-driven handoff draft stays
+for evaluation only.
+
+All four native images, profile composition, focused sanitizer checks and the
+full host suite pass. Four-device field observation formed an acknowledged pair
+and restored LoRa forwarding, but TC-04 then suffered the retained prepare-FIFO
+fatal and watchdog recovery. After recovery, the HOT-page check kept sampling OFF
+and the pair was acknowledged again. Controller failure and HOT durability remain
+unresolved; see the [field checkpoint](docs/t096/gm-standby.md).
+
+## 21 October 2026 — T096 0.15.157 ticker progress
+
+Order force before age within the existing ticker class to prevent reciprocal
+ACL deferral. Actual queued-controller regressions and native checks pass;
+subsequent physical prepare-FIFO failures remain separate and unresolved.
+
+## 21 October 2026 — T096 0.15.156 prepare failure capture
+
+Normal native GM/RC images retain the failed prepare callback and a bounded,
+read-only snapshot of the seven controller queue owners, using existing scratch
+and fatal-capsule storage. Healthy prepare paths add no diagnostic counter calls
+or periodic streams. Startup and invalid queue cuts report UNKNOWN; fatal capture
+uses no application spinlock. Timers, pairing, RF policy, queue capacity and
+assertions remain frozen. Focused sanitizer checks and independent review pass;
+full native and field checks remain separate. This diagnostic does not resolve
+the observed queue assertion or establish durable HOT operation.
+
+## 21 October 2026 — T096 0.15.155 controller failure diagnostics
+
+Preserve the original peripheral latency-cancel assertion status in the existing
+fatal capsule, and extend the first-disconnect snapshot with bounded current
+connection/ticker counters. A separate pinned patch changes generated controller
+copies only; the upstream backport, scheduler policy, assertions, timers, pairing
+and RF behavior remain unchanged. Focused sanitizer checks and independent review
+pass. Full native resource validation and field observation remain separate gates;
+this diagnostic candidate does not establish a fix or durable HOT operation.
+
 ## 21 October 2026 — T096 0.15.154 controller retirement snapshot
 
 Extend the existing first-disconnect fault record with a bounded current

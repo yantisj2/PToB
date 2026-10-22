@@ -1,14 +1,49 @@
 # T096 firmware example
 
+Version159 refreshes coherent direct PT input before the G5 HOT/ACQUIRING
+readiness tick, preserving the PT owner's observation timestamp and expiry.
+ACTIVE, COLD, RC and relay paths retain their existing timing update. This fixes
+an offline reproduced stale CONTROL-input refusal; it changes no election,
+takeover, timer or RF policy and does not resolve the open controller failures.
+The normal HOT page is observational; only dedicated shadow page6 requests
+and arms PPS sampling. This is not evidence of a controller-crash cause.
+The separate stream-loss takeover draft remains evaluation-only.
+
 <a href="../../docs/images/t096-rc-preview.png"><img src="../../docs/images/t096-rc-preview.png" width="160" alt="T096 RC display preview with digital time, analog dial and BLE source status"></a>
 
 *Illustrative firmware-rendered RC screen; displayed values are not measured
 performance. [Image provenance](../../docs/images/README.md).*
 
-**PToB owns T096 RC7 development.** Current source version **0.15.154** supplies the
+**PToB owns T096 RC7 development.** Current source version **0.15.159** supplies the
 ordinary **GM** and **RC** mesh profiles, with USB timing compiled by default.
 [Build from source](../../docs/t096/build.md) with pinned public dependencies
 and ignored local enrollment. No enrolled binary is distributed.
+
+Version157 orders force before age within the existing ticker class. A queued
+connection restart could otherwise cause two competing ACL reservations to defer
+to each other indefinitely. The focused actual-body regression reproduces this
+under oversubscribed DLE reservations; it proves sampled callback progress, not
+field causation or universal fairness. Cross-class precision precedence, timers,
+pairing, RF configuration and source156 diagnostics remain unchanged. Native and
+field qualification are separate gates.
+
+Version156 reuses the existing prepare-FIFO observer only when enqueue fails.
+Normal native GM/RC images retain the failed owner and seven queued owners/flags,
+without successful-operation counters or periodic timing/controller streams.
+Existing capsule schema3 replaces its latency/interrupted-frame region; source,
+boot, assertion, PA status and CRC remain. Unavailable or incomplete cuts are
+UNKNOWN. Queue capacity, assertions, timers, pairing and RF policy are unchanged.
+This diagnostic candidate still requires native/field checks and does not fix
+or qualify HOT durability. See [source156 decoding](../../docs/t096/diagnostics.md#prepare-fifo-failure-only-capture-source156).
+
+Version155 adds failure-only capture of the original peripheral latency-cancel
+callback status before its unchanged controller assertion. Three more first-fault
+journal records expose current connection/ticker counters and marks. Generated
+controller copies use a separate pinned diagnostic patch; the upstream backport
+and existing precision scheduling policy remain unchanged. No timer, retry,
+pairing rule, periodic probe or retained storage is added. These diagnostics
+classify failures; they do not establish a fix or durable HOT operation.
+See [source155 decoding](../../docs/t096/diagnostics.md#controller-failure-snapshot-source155).
 
 Version154 extends that first-disconnect snapshot with current controller/LLCP
 scalars under the same short native IRQ fence. Three fault-only journal records

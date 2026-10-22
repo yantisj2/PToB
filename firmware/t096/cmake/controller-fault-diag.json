@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "description": "Failure-only latency-cancel hook and bounded fault-only ticker scalar getter; no controller behavior change.",
+  "original_additions": "Copyright (c) 2026 Jonathan Yantis. MIT. Surrounding Zephyr code remains Apache-2.0.",
+  "patch_sha256": "68b26d9a4662959f287b725468d7d6ad1fb6a70b54991c1ee559304c48354337",
+  "files": {
+    "subsys/bluetooth/controller/ll_sw/ull_peripheral.c": {
+      "before": "3806d00bc5780937e86419b6a492059a52c5fd0036873acee3a7fc5e25d9a9c8",
+      "after": "a2bd050ae7ba175903c358f614cbf30b329e044b644d36213bb416f1654fe3b4"
+    },
+    "subsys/bluetooth/controller/ticker/ticker.c": {
+      "before": "6c129532d11db2310aa5f53ea266b6822aa87e82f708b64a8b1448ddcc86ca30",
+      "after": "ea722429404dfa1e6cfaf09161976ae74ca3b177d09e5cbbd8d0e338288b9d46"
+    }
+  }
+}
