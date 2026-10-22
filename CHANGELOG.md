@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-22 — Bluetooth timecode research draft
+
+- Added a [shared time base and Bluetooth timecode study](papers/ptob-bluetooth-timecode-preprint.pdf),
+  editable LaTeX source, dated edition manifest and offline analytical verifier.
+  It proposes compatibility layers and an independent validation programme;
+  timecode interoperability, physical output and TAI firmware support remain
+  future work. Historical evidence retains its separate populations and limits.
+  No new hardware test, vendor integration, submission or draft promotion.
+
 
 ## N30 0.2.13 — finite synthetic capture-chain diagnostic
 

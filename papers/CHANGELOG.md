@@ -1,5 +1,17 @@
 # Manuscript history
 
+## 2026-10-22 — shared time base and Bluetooth timecode compatibility
+
+- Added a standalone research draft and matching PDF proposing a time/quality/event
+  contract, exact rational media coordinates and ecosystem-specific presentation
+  adapters, with an original vector architecture figure.
+- Added a dated primary-manufacturer/standards survey, explicit proprietary-interface
+  and legacy-quality limits, separate historical PToB evidence populations, an
+  unknown-preserving error budget and staged independent recorded-event validation.
+- Added an offline arithmetic/edition verifier and a new source/PDF/build/review
+  manifest. Preserved prior editions and draft status; no firmware change, new
+  hardware measurement, vendor integration, submission, push or promotion.
+
 ## 2026-10-19 — awake timing information and wake/listen power potential
 
 - Added the new standalone research draft, matching PDF, four reproducible vector

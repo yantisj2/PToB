@@ -1,0 +1,347 @@
+{
+  "author": "Jonathan Yantis",
+  "base_repository_commit": "3b9876f7a7fd164192d548b044f6a67a0e5ba85e",
+  "cited_local_sources": [
+    {
+      "bytes": 57050,
+      "path": "papers/ptob-viability-preprint.tex",
+      "sha256": "ead863576330e5b04994c5115c55dda9e1c48d71fa8d8934165a9e9bc30a752b"
+    },
+    {
+      "bytes": 35874,
+      "path": "papers/usb-macos-time-transfer-preprint.tex",
+      "sha256": "b4f21857a9c2842b702da7f78510872d428e3b3749e1d2a7d207ea3817e2d49c"
+    },
+    {
+      "bytes": 63524,
+      "path": "papers/ptob-power-scheduling-preprint.tex",
+      "sha256": "24fdff480c2b419171906eb4a816b3d118951c3a60428072e6bf85c94cb9dd66"
+    },
+    {
+      "bytes": 6365,
+      "path": "evidence/v14/2026-10-12/README.md",
+      "sha256": "fed662aa81e3e36fcbe90627df0e7c4e53dc7c59a5a3600617cc2e7fd5271361"
+    },
+    {
+      "bytes": 2382,
+      "path": "evidence/v14/2026-10-12/summary.json",
+      "sha256": "a4ecdefdd9e8f08f266a15ce3ab09bc5419d535cbf02633bd6d7fcd10aca4e4b"
+    },
+    {
+      "bytes": 4756,
+      "path": "evidence/usb/2026-10-17/README.md",
+      "sha256": "ac5f01a0df2b9cb310b054bc327e2679f5d53e9b26e891281fb8c9d933da7b09"
+    },
+    {
+      "bytes": 3926,
+      "path": "evidence/usb/2026-10-17/manifest.json",
+      "sha256": "e9debfa5d61412074682a9afde01d0fc4768653b45c328473738a3b66a0e1276"
+    },
+    {
+      "bytes": 8430,
+      "path": "clients/macos/results/2026-10-17-ble-vs-direct.json",
+      "sha256": "e1193c0e77e39e6770a4a1eb6647f3832d49a0db0eed61cd08523f5fd0c35863"
+    },
+    {
+      "bytes": 8779,
+      "path": "evidence/power/2026-10-19/README.md",
+      "sha256": "54ae1fc0a37128a59e4dc04c2a8693f475e8acd1e486cbcea78321273d40adda"
+    },
+    {
+      "bytes": 19477,
+      "path": "evidence/power/2026-10-19/results.json",
+      "sha256": "50199a53931d754c1d417068253de2c0bc881ee332b4da0f4dfaf26d7a266b76"
+    },
+    {
+      "bytes": 4676,
+      "path": "evidence/power/2026-10-19/manifest.json",
+      "sha256": "4e0e26c5949b7c28262f119d66fa833cbb09e8f7c6b6784c47c244842747232b"
+    }
+  ],
+  "code_license": "MIT",
+  "compiler": {
+    "binary_acquisition": "https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic%400.17.0/tectonic-0.17.0-aarch64-apple-darwin.tar.gz",
+    "binary_sha256": "b52b5a730e2b0b33087304f7720f649603953f270a6b1c88bb031e1ae01f7f9c",
+    "command": "tectonic --only-cached --keep-logs --keep-intermediates --outdir artifacts/timecode-paper-20261022/build papers/ptob-bluetooth-timecode-preprint.tex",
+    "engine": "Tectonic",
+    "log_sha256": "d41abb4fe545b2670ba256f4e58ec8640a3e41fa494a3b1707e77c83b91ec02f",
+    "public_bundle_hashes": [
+      "6ffe055852f8faf66c0acbe1a7fb27f87b869a90bad1204f3bf4d9683f597c7c"
+    ],
+    "standalone": true,
+    "version": "0.17.0",
+    "warnings": false
+  },
+  "edition_date": "2026-10-22",
+  "evidence_cutoff": {
+    "collections_kept_separate": [
+      "V14 2026-10-12 one-relay causal fractional-second phase",
+      "USB 2026-10-17 fixed concurrent shared-bus 180 s RC/DC window",
+      "Power 2026-10-19 six separate awake PC117 runs"
+    ],
+    "latest_discussed_physical_collection": "2026-10-19",
+    "new_measurements": false,
+    "precision_pooling": false,
+    "vendor_claims": "Manufacturer specifications and integration guidance accessed 22 October 2026; not independently measured."
+  },
+  "files": [
+    {
+      "bytes": 58448,
+      "license": "CC-BY-4.0",
+      "path": "papers/ptob-bluetooth-timecode-preprint.tex",
+      "sha256": "390f28244b157a02de8183f43b1c14c449f4b0d2eae9aab29fa8d4c8a5517ae3"
+    },
+    {
+      "bytes": 102790,
+      "license": "CC-BY-4.0",
+      "path": "papers/ptob-bluetooth-timecode-preprint.pdf",
+      "sha256": "5a3c43ddd9070ab945351f1d23fa6b3ea18b4163f94afc2b81ff075a66c4f159"
+    },
+    {
+      "bytes": 6421,
+      "license": "MIT",
+      "path": "tools/verify_timecode_paper.py",
+      "sha256": "4d4e2ab136b378b4d3373a3c6c19da737e8c13c19a8908a6db459d12e17ccf25"
+    }
+  ],
+  "license": "MIT",
+  "limitations": [
+    "All timecode, LTC/MTC and vendor compatibility adapters are proposed, unimplemented and unqualified.",
+    "Vendor BLE protocol/SDK access and applicable implementation permissions were not established; no universal BLE timecode standard asserted.",
+    "Current root-relative and POSIX-style UTC association is not relabelled as implemented TAI.",
+    "Historical PToB metrics remain separate conditional source-relative populations; no calibrated absolute UTC, media-output or sensor/genlock qualification.",
+    "Frame, sample, payload, drift and holdover examples are analytical scenarios, not new hardware measurements.",
+    "Legacy or vendor timecode may not preserve source quality, validity or upstream authentication; downstream behavior and recorded events need independent validation."
+  ],
+  "local_commit_policy": "Commit matching source, PDF, verifier, edition manifest and changelog together. No push, submission or draft promotion authorized.",
+  "paper_license": "CC-BY-4.0",
+  "previous_edition": null,
+  "primary_sources": [
+    {
+      "accessed": "2026-10-22",
+      "bibliography_key": "st12",
+      "retrieval_scope": "Primary manufacturer or standards-organization page/document inspected.",
+      "urls": [
+        "https://pub.smpte.org/pub/st12-1/st0012-1-2014.pdf"
+      ]
+    },
+    {
+      "accessed": "2026-10-22",
+      "bibliography_key": "st2059",
+      "retrieval_scope": "Primary manufacturer or standards-organization page/document inspected.",
+      "urls": [
+        "https://pub.smpte.org/pub/st2059-1/st2059-1-2021.pdf"
+      ]
+    },
+    {
+      "accessed": "2026-10-22",
+      "bibliography_key": "atomos",
+      "retrieval_scope": "Primary manufacturer or standards-organization page/document inspected.",
+      "urls": [
+        "https://www.atomos.com/tech-specs/ultrasync-blue/"
+      ]
+    },
+    {
+      "accessed": "2026-10-22",
+      "bibliography_key": "nikon",
+      "retrieval_scope": "Primary manufacturer or standards-organization page/document inspected.",
+      "urls": [
+        "https://onlinemanual.nikonimglib.com/z6III/en/nwm_atomos_airglu_bt_options_367.html"
+      ]
+    },
+    {
+      "accessed": "2026-10-22",
+      "bibliography_key": "zoom",
+      "retrieval_scope": "Primary manufacturer or standards-organization page/document inspected.",
+      "urls": [
+        "https://zoomcorp.com/manuals/f3-en/"
+      ]
+    },
+    {
+      "accessed": "2026-10-22",
+      "bibliography_key": "tentacle",
+      "retrieval_scope": "Primary manufacturer or standards-organization page/document inspected.",
+      "urls": [
+        "https://tentaclesync.com/products/sync-e"
+      ]
+    },
+    {
+      "accessed": "2026-10-22",
+      "bibliography_key": "blackmagic",
+      "retrieval_scope": "Primary manufacturer or standards-organization page/document inspected.",
+      "urls": [
+        "https://support.tentaclesync.com/hc/en-us/articles/14392455042973-Blackmagic-Camera-App-Tentacle-Sync"
+      ]
+    },
+    {
+      "accessed": "2026-10-22",
+      "bibliography_key": "epic",
+      "retrieval_scope": "Official application documentation and manufacturer application-support context inspected; platform-specific workflow only.",
+      "urls": [
+        "https://dev.epicgames.com/documentation/unreal-engine/recording-face-animation-on-ios-device-in-unreal-engine?lang=en-US"
+      ]
+    },
+    {
+      "accessed": "2026-10-22",
+      "bibliography_key": "ambient",
+      "retrieval_scope": "Primary manufacturer or standards-organization page/document inspected.",
+      "urls": [
+        "https://ambient.de/en/products/lockit-bt"
+      ]
+    },
+    {
+      "accessed": "2026-10-22",
+      "bibliography_key": "deityguide",
+      "retrieval_scope": "Primary manufacturer or standards-organization page/document inspected.",
+      "urls": [
+        "https://help.deitymic.com/en/tc-1/modes-menu-and-timecode-sync"
+      ]
+    },
+    {
+      "accessed": "2026-10-22",
+      "bibliography_key": "panasonic",
+      "retrieval_scope": "Manufacturer indexed text inspected; direct retrieval entered a redirect loop. Mode-level behavior not inferred.",
+      "urls": [
+        "https://www.panasonic.com.au/lumixs1iiseries/S1II"
+      ]
+    },
+    {
+      "accessed": "2026-10-22",
+      "bibliography_key": "tascam",
+      "retrieval_scope": "Indexed manufacturer catalogue text and manufacturer FAQ inspected; direct catalogue retrieval restricted. Historical optional AK-BT1 feature only.",
+      "urls": [
+        "https://tascam.jp/downloads/catalogs/tascam/english/d7439_dr-10l_pro_en_20230821.pdf",
+        "https://tascam.jp/jp/product/dr-10l_pro/faq"
+      ]
+    },
+    {
+      "accessed": "2026-10-22",
+      "bibliography_key": "ambientaccuracy",
+      "retrieval_scope": "Primary manufacturer or standards-organization page/document inspected.",
+      "urls": [
+        "https://faq.ambient.de/hc/en-001/articles/5226056144402-How-accurate-is-Lockit-timecode"
+      ]
+    },
+    {
+      "accessed": "2026-10-22",
+      "bibliography_key": "deity",
+      "retrieval_scope": "Primary manufacturer or standards-organization page/document inspected.",
+      "urls": [
+        "https://deitymic.com/products/tc-1-timecode-box/"
+      ]
+    },
+    {
+      "accessed": "2026-10-22",
+      "bibliography_key": "bipm",
+      "retrieval_scope": "Primary manufacturer or standards-organization page/document inspected.",
+      "urls": [
+        "https://www.bipm.org/en/time-metrology"
+      ]
+    },
+    {
+      "accessed": "2026-10-22",
+      "bibliography_key": "midi",
+      "retrieval_scope": "Primary manufacturer or standards-organization page/document inspected.",
+      "urls": [
+        "https://midi.org/midi-time-code"
+      ]
+    }
+  ],
+  "review": {
+    "all_pages_rendered_and_visually_inspected": true,
+    "figures": 1,
+    "final_changed_pages_reinspected": [
+      14,
+      15,
+      16
+    ],
+    "layout_warnings": false,
+    "pages": 16,
+    "pdf_attachments": false,
+    "pdf_extracted_words": 7421,
+    "pdf_forms": false,
+    "privacy": "Original public-source synthesis; no private paths, factory identities, enrollment, keys, raw captures, firmware images or private work copied into the manuscript.",
+    "references": 20,
+    "render_tool": "Poppler pdftoppm, -scale-to 1800 -png",
+    "rendered_pages": [
+      {
+        "page": 1,
+        "sha256": "4c7352c707bcb0e3b13b0b1e979a1b830a607d4d8d1da2992e5e103ef8739f5f"
+      },
+      {
+        "page": 2,
+        "sha256": "36f8108f93a1e513814118ae84269b64180910b225e5967fb070f595803e4ba5"
+      },
+      {
+        "page": 3,
+        "sha256": "8587772f653de396df8da1a74cc42fcb75250eb3f43221e0266c8b81d4bee380"
+      },
+      {
+        "page": 4,
+        "sha256": "63322ce63ccc34fcee1d42fc3eb1ff2002b95939b412b4679abffac6187c50b7"
+      },
+      {
+        "page": 5,
+        "sha256": "89bf3119aadb84a27f31cbcac08e5d8ebeee4726328a5e76ba730ee07beb536f"
+      },
+      {
+        "page": 6,
+        "sha256": "b54749a900f64208353651523f481a3b37b49781e6bfc7b4b81a79bdc04d2434"
+      },
+      {
+        "page": 7,
+        "sha256": "eddf72a0b8a5cbea6106f848e3d5bd7704c3abfa9428e444aa566d3a9ccfaba6"
+      },
+      {
+        "page": 8,
+        "sha256": "9007a96e30d27a59041810c268a094627246105dc4453334ff531a90091682b6"
+      },
+      {
+        "page": 9,
+        "sha256": "1c12d3062ba0995f213542f30a66b6bdd04d66925fa071ee8c6f93b123053f49"
+      },
+      {
+        "page": 10,
+        "sha256": "8362467ef5d803ea49e1be4ce6e2e26278ff5f226cb52dc83521e9008b2adc90"
+      },
+      {
+        "page": 11,
+        "sha256": "90e42dd6969964bb6ee42001f7f9877622b3b85294b5658678d31739c23d1d0a"
+      },
+      {
+        "page": 12,
+        "sha256": "f896327b40baf6238adb5c9653697ea7ff05a9c576a6d5aaedf2e35e7b5f90c6"
+      },
+      {
+        "page": 13,
+        "sha256": "fcbff67e3ea00710d4d5e762cba749d80ed74d862e8940ed51a6c5ccc4fb5a3e"
+      },
+      {
+        "page": 14,
+        "sha256": "14948e31aa0d2700ee8aab9530f19c5a237a7860d7c12b822465ad194c3b11cf"
+      },
+      {
+        "page": 15,
+        "sha256": "84030e1ff77eb16a1c18a7efa20f5e6a37f951a3c8f4f6e17d7f9ead70611a38"
+      },
+      {
+        "page": 16,
+        "sha256": "65e7e9958c7f7bb3e1ec555200266b9f2ca8ef3c4605aa0debba2e85215031a9"
+      }
+    ],
+    "source_and_pdf_match": true,
+    "tables": 4,
+    "unresolved_references": false
+  },
+  "schema": 1,
+  "status": "RESEARCH_DRAFT_NOT_SUBMITTED_NOT_PROMOTED_NOT_PUSHED",
+  "title": "A Shared Time Base for Bluetooth Timecode Ecosystems: PToB Architecture, Compatibility Boundaries, and a Validation Programme",
+  "verification_commands": [
+    "python3 tools/verify_timecode_paper.py",
+    "python3 tools/verify_v14.py",
+    "python3 tools/verify_usb_results.py",
+    "python3 tools/verify_power.py",
+    "python3 tools/verify_research.py",
+    "git diff --check"
+  ]
+}

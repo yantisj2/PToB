@@ -1,5 +1,12 @@
 # Reproduction tools
 
+Run `python3 tools/verify_timecode_paper.py` to check the 22 October Bluetooth
+timecode draft's exact rational frame/sample examples, all nominal-day drop-frame
+minute transitions and invalid labels, boundary ambiguity, hypothetical drift and
+holdover arithmetic, bibliography keys, and edition/source/PDF identity. This
+standard-library check does not implement a vendor protocol or qualify hardware
+or interoperability. See the [paper catalogue](../papers/README.md).
+
 Run `python3 tools/verify_v14.py` from the repository root with Python 3.9+ to
 check the V14 import hashes, both separate PPS-phase populations, complete
 opportunity accounting, diagnostic deltas, and proposal tables/examples/HMACs.
