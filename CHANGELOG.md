@@ -3,6 +3,9 @@
 
 ## N30 0.2.15 — targeted TX diagnostics with record CRC
 
+- Reject ISR logging in the small public wrapper before entering the noinline
+  task formatter; test all public entries without touching format data.
+
 - Add the N30-only finite `capture tx <ms>` observer. It keeps only complete
   formatted TX estimate/path records, binds each header and payload to a CRC,
   and reports intentionally filtered records separately from transport losses.

@@ -809,3 +809,10 @@ END bound is799 bytes including its CRC and final LF, leaving its NUL within
 800 bytes. Maximum whole-frame use is8702/8704 bytes. ALL/default maximum use
 remains8688/8704. The actual output worker and independently checked CRCs are
 covered by host tests; this is not a UART-delivery or RF qualification.
+
+The small public logging wrapper rejects ISR calls before entering its noinline
+formatter, whose automatic record/header storage is task-only. The live-snapshot
+entry retains its own early refusal. ISR refusal increments its bounded counter
+without reading the format or snapshot; host tests cover every public entry, and
+native stack/disassembly review checks the branch before the large allocation.
+This selected call-path review is not a complete vendor/libc stack bound.

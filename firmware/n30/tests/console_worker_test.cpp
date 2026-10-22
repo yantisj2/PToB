@@ -6,6 +6,12 @@
 #include <cstdio>
 #include <string>
 #include <fstream>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+// Override only this translation unit after loading the shared fake header.
+// Shared W12 fake behavior and source remain unchanged.
+bool fake_isr=false;
+#define xPortInIsrContext() fake_isr
 #define V12_R2_ENABLED 1
 uint64_t fake_now=1000;unsigned turns=0,stop_after=0;bool reader=true;
 std::string wire;struct Stop{};
@@ -15,14 +21,28 @@ int uart_tx_chars(int port,const char* p,uint32_t n){assert(port==0);if(!reader)
 int uart_wait_tx_done(int port,unsigned timeout){assert(port==0&&timeout==0);return reader?0:-1;}
 void vTaskDelay(unsigned n){fake_now+=uint64_t(n)*1000;if(++turns>=stop_after)throw Stop{};}
 #include "../main/bounded_log.cpp"
+#undef xPortInIsrContext
+int invoke_logv(const char* format,...){va_list args;va_start(args,format);const int n=v12::logv(format,args);va_end(args);return n;}
 void run(unsigned n){turns=0;stop_after=n;try{v12::output(nullptr);}catch(const Stop&){}assert(turns==n);}
-void clear(){fake_now=1000;wire.clear();reader=true;v12::stats={};v12::frames={};v12::lines={};v12::current_frame={};v12::current_line={};v12::tx_mode=false;v12::tx_filtered=0;v12::capture_generation=0;v12::live_next_us=0;}
+void clear(){fake_isr=false;fake_now=1000;wire.clear();reader=true;v12::stats={};v12::frames={};v12::lines={};v12::current_frame={};v12::current_line={};v12::tx_mode=false;v12::tx_filtered=0;v12::capture_generation=0;v12::live_next_us=0;}
 void make(v12::ConsoleFrame& f,unsigned rows){
  v12::frame_begin(f,1,2,fake_now,"02:00:00:00:30:01",3,"source","build");
  for(unsigned i=0;i<rows;i++)f.format(i==9?"N30_UI profile=RC GPS=ABSENT page=0\n":"ROW_%u value=0\n",i);
 }
 int main(int argc,char** argv){
  static v12::ConsoleFrame f;
+ // Every public entry must reject ISR calls without reading a format/snapshot
+ // or touching capture/queue state. An invalid pointer catches accidental
+ // formatting; native disassembly separately verifies the small stack gate.
+ clear();assert(v12::n30_capture_tx_begin(8,1000));fake_isr=true;
+ const auto invalid=reinterpret_cast<const char*>(uintptr_t(1));
+ assert(invoke_logv(invalid)==0);assert(v12::logf(invalid)==0);
+ assert(__wrap_printf(invalid)==0);assert(__wrap_puts(invalid)==0);
+ assert(wc12_v9_observer_printf(invalid)==0);assert(v12::log_live(invalid)==0);
+ assert(v12::stats.isr_refused==6&&v12::stats.log_sequence==0&&v12::tx_filtered==0);
+ assert(v12::stats.enqueue_work_us==0&&v12::stats.suppressed_no_capture==0&&wire.empty());
+ fake_isr=false;assert(v12::logf("W12_G1_TX_EST x=1 bound=UNKNOWN\n")>0);run(20);
+ assert(!wire.empty()&&v12::stats.isr_refused==6);
  clear();make(f,10);assert(v12::frame_submit(f));run(100);
  auto b=wire.find("W12_V12_BEGIN"),e=wire.find("W12_V12_END");
  assert(b!=std::string::npos&&e>b&&wire.find("N30_UI",b)<e);

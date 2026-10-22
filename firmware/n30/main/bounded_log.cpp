@@ -176,7 +176,8 @@ static int filtered_log(uint64_t generation,uint64_t id){
   else line_drop();
   portEXIT_CRITICAL(&log_mux);return 0;
 }
-static int logv_impl(const char* format,va_list args,bool live){
+// Keep this large formatting frame out of every public ISR refusal path.
+static __attribute__((noinline)) int logv_impl(const char* format,va_list args,bool live){
   if(xPortInIsrContext()){portENTER_CRITICAL_ISR(&log_mux);increment(stats.isr_refused);portEXIT_CRITICAL_ISR(&log_mux);return 0;}
   const uint64_t begin=now_us();uint64_t id=0,seq=0,deadline=0,generation=0;bool tx=false;
   portENTER_CRITICAL(&log_mux);
@@ -248,7 +249,12 @@ static int logv_impl(const char* format,va_list args,bool live){
   }
   return finish_log(line,begin,tx,generation,id,truncated,malformed);
 }
-int logv(const char* format,va_list args){return logv_impl(format,args,false);}
+__attribute__((noinline)) int logv(const char* format,va_list args){
+  // Refuse before calling the noinline formatter: its stack frame exceeds the
+  // configured ISR stack, even when formatting would immediately return.
+  if(xPortInIsrContext()){portENTER_CRITICAL_ISR(&log_mux);increment(stats.isr_refused);portEXIT_CRITICAL_ISR(&log_mux);return 0;}
+  return logv_impl(format,args,false);
+}
 int logf(const char* format,...){va_list args;va_start(args,format);const int n=logv(format,args);va_end(args);return n;}
 static int live_format(const char* format,...){va_list args;va_start(args,format);const int n=logv_impl(format,args,true);va_end(args);return n;}
 int log_live(const char* snapshot){
