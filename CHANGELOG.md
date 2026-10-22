@@ -1,5 +1,18 @@
 # Changelog
 
+
+## N30 0.2.10 — provisional downstream composite offset
+
+- Accept the evidence-bound W12 schema1 aggregate-path profile in an ignored
+  N30 device input, requiring estimated relay and BLE100. Reuse its validator
+  and generated firmware binding; inspect the complete profile and provenance.
+- Apply the existing publisher-wide canonical RC7 timestamp correction for all
+  downstream receivers, preserving total-from-programmed-endpoint semantics,
+  exact scope, once-only nominal ADDRESS conversion, expiry and unknown bounds.
+  The received clock and shared W12/T096 firmware remain unchanged.
+- Add actual generated-config/codec/HMAC/receiver-map checks for two synthetic
+  receivers, default and wrong-scope behavior, plus N30 input/mode guards.
+
 ## N30 0.2.9 — reusable timing diagnostics and conditional shadow analysis
 
 - Add default-OFF runtime timing recording with a finite ten-minute maximum,

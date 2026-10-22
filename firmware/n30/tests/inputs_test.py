@@ -1,12 +1,28 @@
 #!/usr/bin/env python3
 """Shared map and no-GPS N30 inputs; synthetic identities only."""
-import json,sys,tempfile,unittest
+import copy,json,sys,tempfile,unittest
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[3];sys.path.insert(0,str(ROOT/'firmware/n30/tools'))
 from onboard import prepare,onboard
-from build import validate_inputs,device_header,validate_transmitter,lora_config_header
+from build import validate_inputs,device_header,validate_transmitter,lora_config_header,provisional_profile,validate_profile_mode
 class Inputs(unittest.TestCase):
  def setUp(self):self.data={'schema':1,'devices':{'0000000000000001':{'alias':'Existing','target':'t096'}}}
+ def test_provisional_multicast_profile(self):
+  _,d=prepare(self.data,'N3-2','02:00:00:00:30:02')
+  e={'group_id':'0123456789abcdef','key_epoch':1,'psk':bytes(range(32)).hex()}
+  self.assertIsNone(provisional_profile(d));self.assertNotIn('PTOB_PROVISIONAL_',device_header(d))
+  p={'schema':1,'scope':'AGGREGATE_PATH_RELATIVE_PPS','offset_ns':47133,'root':'0000000000000001','root_boot':'0000000000000002','source_epoch':9,'receiver':'0000000000000003','receiver_source_sha256':'1'*64,'receiver_phase_correction_ns':10543,'evidence_sha256':'2'*64,'baseline_evidence_sha256':'3'*64}
+  enabled={**d,'provisional_path':p};validate_inputs(e,enabled);profile=provisional_profile(enabled)
+  self.assertEqual(profile['publisher'],d['device_id']);self.assertEqual(profile['offset_ns'],47133)
+  self.assertIn('PTOB_PROVISIONAL_OFFSET_NS 47133',device_header(enabled));self.assertIn('PTOB_GNSS_INDICATORS 0',device_header(enabled))
+  self.assertIn('PTOB_N30_ROTATE_CW 1',device_header(enabled));validate_profile_mode(enabled,True,100)
+  for relay,listen in ((False,100),(True,50),(False,50)):
+   with self.assertRaises(ValueError):validate_profile_mode(enabled,relay,listen)
+  for value in (None,False,{},dict(p,offset_ns=0),dict(p,offset_ns=100001),dict(p,offset_ns=47133.0),dict(p,root_boot='0'*16),dict(p,source_epoch=True),dict(p,evidence_sha256='x'*64),dict(p,unknown=True)):
+   with self.subTest(value=value),self.assertRaises(ValueError):validate_inputs(e,{**d,'provisional_path':value})
+  # Profile provenance and publisher identity cannot silently change.
+  other=copy.deepcopy(enabled);other['provisional_path']['offset_ns']+=1
+  self.assertNotEqual(provisional_profile(other)['id'],profile['id'])
  def test_both_names_and_identity(self):
   data,d1=prepare(self.data,'N3-1','02:00:00:00:30:01');data,d2=prepare(data,'N3-2','02:00:00:00:30:02')
   self.assertEqual(d1['device_id'],'0000020000003001');self.assertEqual(data['devices']['0000000000000001'],self.data['devices']['0000000000000001'])

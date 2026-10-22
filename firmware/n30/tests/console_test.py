@@ -83,3 +83,21 @@ for fault in [(0,'count','2'),(0,'queued','17'),(1,'n','0'),(1,'coarse',str(2**2
  except RuntimeError:pass
  else:raise AssertionError('Invalid timing schema admitted: '+str(fault))
 print('PASS timing CRC schema: complete scope, cursor/order, descriptor bounds, original envelope, command limits and observational contract')
+
+# The configured profile must be disclosed in normal, LoRa and timing frames.
+# Recompute both CRCs so refusal proves provenance checks, not damaged bytes.
+from build import provisional_profile
+profile=provisional_profile({'device_id':m['r2_client_identity'],'provisional_path':{'schema':1,'scope':'AGGREGATE_PATH_RELATIVE_PPS','offset_ns':47133,'root':'000000000000000b','root_boot':'0000000000000016','source_epoch':9,'receiver':'000000000000012c','receiver_source_sha256':'1'*64,'receiver_phase_correction_ns':10543,'evidence_sha256':'2'*64,'baseline_evidence_sha256':'3'*64}})
+def profile_frame(raw,prefix):
+ import re
+ body,end=raw.split(b'W12_V12_END ',1);body=body.replace(b'W12_R2_STATUS ',('W12_R2_STATUS pcfg='+prefix+' ').encode(),1)
+ end=b'W12_V12_END '+end.split(b' end_crc32=')[0];end=re.sub(rb'crc32=[0-9a-f]{8}',f'crc32={zlib.crc32(body):08x}'.encode(),end)
+ return body+end+f' end_crc32={zlib.crc32(end,zlib.crc32(body)):08x}\n'.encode()
+for original,manifest in ((frame(),m),(lora_frame(),lm),(timing_frame(),tm)):
+ configured=dict(manifest,provisional_path_profile=profile)
+ assert len(c.Parser(nonce,configured).feed(profile_frame(original,profile['id'][:8])))==1
+ for bad,expected in ((original,configured),(profile_frame(original,'00000000'),configured),(profile_frame(original,profile['id'][:8]),manifest)):
+  try:c.Parser(nonce,expected).feed(bad)
+  except RuntimeError:pass
+  else:raise AssertionError('Undisclosed or mismatched N30 profile accepted')
+print('PASS N30 configured profile binding in normal, LoRa and timing CRC frames')
