@@ -1014,7 +1014,8 @@ four-clock cohorts plus partial eighth,398 validated CRC frames, followed by
 TC02 silence and exact-source/boot/ELF proof of `LL_ASSERT(next)` after a full
 seven-entry prepare queue. Watchdog recovery was observed. The second retained
 39 complete cohorts plus partial40,1889 CRC frames, and another TC02 fatal/
-watchdog recovery; its reason3 is bound to that second failed boot, but no detailed
+watchdog recovery; its Zephyr fatal reason3 (watchdog capsule19) is bound to that
+second failed boot, but no detailed
 assertion capsule arrived. Do not assign the first FIFO site to the second boot.
 The longest matched ACTIVE/HOT sampled interval was229.438507s. Neither run
 qualifies durable HOT, calibrated UTC accuracy or independently measured output.
@@ -1026,7 +1027,7 @@ mapvalid24/26 and locked21/26, then locked in all21 samples19–39 after its rol
 transition. These are normal precision reception observations, not HOT authority.
 A later three-clock observation ended after16 complete cohorts/658 CRC frames;
 TC03, then COLD and the sole LoRa transmitter, subsequently supplied a matching
-reason3 fatal/watchdog record without a detailed assertion capsule. The unresolved
+Zephyr fatal reason3 (watchdog capsule19) record without a detailed assertion capsule. The unresolved
 fatal is therefore not established as specific to HOT operation. No controller
 fix or physical-cause conclusion follows from these retained records.
 
@@ -1055,3 +1056,48 @@ actual-body startup lifetime reproduction above matches this chain; exact prior
 scan rows were not preserved. Subsequent healthy boots and the bounded run do
 not remove those failures from the record. Hardware readers were released at the
 end; the offsite clock was not opened or changed.
+
+## Source164 startup and first field checkpoint
+
+The three observed units received source164 (`4e13a51`), retaining the two
+source163 controller backports and adding only the atomic startup ownership gate.
+All three reached normal service on their first recorded application boot, with
+no sampled LoRa startup fault or intervening watchdog recovery. Their boot
+defaults remain RC, RC and GM; all three used GM mode during this test. The third
+unit remains the sole configured LoRa transmitter. Images and enrollment remain
+private; application-byte readback was skipped under the operator's existing
+waiver, with app-only bounds, protected-prefix checks and recovery retained.
+
+The requested600s read-only observation completed37 full cohorts. Independent
+replay accepted882/882 CRC frames and matched all876 cohort payloads to the raw
+frames. TC01 reported HOT with a qualified local source and a locked map37/37.
+Its stable source/partner/withdrawal state spanned584.745788s in published samples,
+with a maximum18.432128s sampling gap. Pair generation changed at36 observed
+boundaries,103→395, without a HOT withdrawal; this is not a count of every renewal
+or one unchanged grant. The ACTIVE partner was the unobserved offsite source162
+clock, so there were zero independently observed two-sided pair cohorts.
+
+TC02 remained COLD and maplocked37/37 while its own qualification changed
+(23/37 qualified samples). TC03 remained COLD with valid maps37/37 and lock36/37,
+acquiring after its first sample; its own source qualified0/37. Sparse LoRa
+observations showed TC03 TX_DONE2→147 and accepted0→135. LoRa faults were absent
+in7,9 and7 observations respectively. All three retained their recorded boots,
+with zero new transport errors, sampled terminal network errors or HOT
+withdrawals. The bounds are this observed population and interval; cursor loss,
+sequential snapshots and the unobserved ACTIVE peer limit stronger conclusions.
+
+The remaining gates are a longer soak, independently observed pairing and
+precision-loss/takeover tests, and a controlled fourth-participant return.
+The earlier controller failure's physical initiating sequence remains unproved;
+the new failure-only context is available if it recurs. Startup tests now cover
+scanner/observer overlap, but the exact scan bytes that triggered the earlier
+physical startup failures were unavailable. Neither successful startup nor this
+interval establishes durable failover, calibrated UTC or independently measured
+output accuracy.
+
+When the fourth unit returns for an authorized update, first bind its exact
+identity and bring it onto the same reviewed image. Observe a stable serving/HOT
+pair, then add qualified COLD participants one at a time. Exercise reboot with
+cached peer state, intermittent RF, local-source loss and eventual newcomer
+admission separately, preserving missing data and each original failure. Keep
+the stream-driven takeover/quality-yield draft separate from this release.
