@@ -507,13 +507,17 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
   bool ble_rms=!gm&&authorized&&m->ble_active&&r2_ui_ble_current(m,now)&&
     m->precision.map_valid&&m->precision.rms_valid&&m->precision.rms_ns!=UINT32_MAX;
   bool beat=gm&&authorized&&m->ble_active&&m->gm_source_fresh&&m->precision.rms_valid&&m->precision.rms_ns!=UINT32_MAX;
-  label(fb,4,51,gm?"BEAT RMS":"BLE RMS",1,C_DIM);
+  if(gm){bluetooth_badge_at(fb,4,49,beat);label(fb,19,51,"BEAT RMS",1,C_DIM);}
+  else label(fb,4,51,"BLE RMS",1,C_DIM);
   shadow_value(value,m->precision.rms_ns,gm?beat:ble_rms);
   label(fb,4,64,value,1,(gm?beat:ble_rms)?C_CYAN:C_DIM);
   label(fb,4,83,!fresh?"GPS --":m->clock.fix_active?"GPS FIX":"GPS NO FIX",1,fresh&&m->clock.fix_active?C_GREEN:C_AMBER);
   snprintf(value,sizeof(value),"SV USED %u",fresh?m->clock.sats_used:0);label(fb,4,96,value,1,C_WHITE);
-  label(fb,4,109,gps_pps_live(m,fresh)?"PPS LIVE":"PPS WAIT",1,gps_pps_live(m,fresh)?C_GREEN:C_AMBER);
-  if(active)hold_text(value,"ACTIVE",status->holds.active_since,now);else snprintf(value,sizeof value,"%s",hot_title(m,fresh,s.native_hot_standby));
+  bool pps=local_pps_current(m,now);
+  hold_text(value,"PPS",pps?status->holds.pps_since:0,now);label(fb,4,109,value,1,pps?C_GREEN:C_AMBER);
+  if(active)hold_text(value,"ACTIVE",status->holds.active_since,now);
+  else if(hot_current(m,now))hold_text(value,"HOT",status->holds.hot_since,now);
+  else snprintf(value,sizeof value,"%s",hot_title(m,fresh,s.native_hot_standby));
   if(active)active_hold_label(fb,128,value);else label(fb,4,128,value,1,s.native_hot_standby?C_GREEN:m->gm_cold?C_CYAN:C_AMBER);
   const char *why=hot_reason(m,fresh,s.native_hot_standby);
   if(!strcmp(why,"SOURCE DWELL"))snprintf(value,sizeof(value),"DWELL %us",(m->admission_ms+999)/1000);

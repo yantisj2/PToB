@@ -1,5 +1,11 @@
 # Build T096 RC7
 
+Version161 restores the continuous PPS duration on every GM precision screen
+and the HOT duration for the standby, using the existing hold timestamps.
+The GM Bluetooth beat icon is restored beside RMS. ACTIVE duration, COLD
+reception and stream RMS remain visible. This corrects
+the160 display regression; no protocol timer or shadow-sampling policy changes.
+
 Version160 lets every COLD GM follow the ordinary authenticated precision stream
 using the existing passive leaf receiver path. COLD remains outside the selected
 GM/HOT control pair and gains no successor grant or output permission by receiving

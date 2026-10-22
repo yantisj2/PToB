@@ -52,6 +52,20 @@ int main(int argc,char **argv){
  assert(color_count(20,7,R2_UI_RGB565_GREEN)&&!color_count(20,7,R2_UI_RGB565_AMBER));
  assert(color_count(32,10,R2_UI_RGB565_GREEN)&&!color_count(32,10,R2_UI_RGB565_AMBER));
  assert(color_count(64,7,R2_UI_RGB565_CYAN)&&!color_count(92,7,R2_UI_RGB565_CYAN));
+ /* Precision-page durations use the existing holds for HOT and every GM role. */
+ uint8_t pps_duration[80*2*7],hot_duration[80*2*7];
+ memcpy(pps_duration,fb+109*80*2,sizeof pps_duration);memcpy(hot_duration,fb+128*80*2,sizeof hot_duration);
+ s.holds.pps_since=62;s.holds.hot_since=62;
+ fixture(argv[1],"precision-hot-timers-reset",&m,&s,62000);
+ assert(memcmp(pps_duration,fb+109*80*2,sizeof pps_duration));
+ assert(memcmp(hot_duration,fb+128*80*2,sizeof hot_duration));
+ s.holds.pps_since=2;s.holds.hot_since=32;
+ fixture(argv[1],"precision-hot-timers-restored",&m,&s,62000);
+ m.local_hot_standby=false;m.gm_cold=true;
+ fixture(argv[1],"precision-cold-pps-timer",&m,&s,62000);
+ assert(!memcmp(pps_duration,fb+109*80*2,sizeof pps_duration));
+ m.gm_cold=false;m.local_hot_standby=true;
+ fixture(argv[1],"precision-hot",&m,&s,62000);
  memcpy(locked_fb,fb,sizeof fb);
  m.precision.locked=false; /* HOT remains eligible across short fit-lock changes. */
  fixture(argv[1],"precision-hot-fit-unlocked",&m,&s,62000);
@@ -66,6 +80,10 @@ int main(int argc,char **argv){
  m.role=R2_UI_GM;m.clock.fix_active=m.clock.pps_present=m.gm_source_fresh=true;m.pps_precision.rate_valid=true;
  m.precision.rms_valid=true;m.precision.rms_ns=88;m.precision.samples=32;m.precision.map_valid=false;
  fixture(argv[1],"precision-serving-gm",&m,&s,62000);assert(color_count(64,7,R2_UI_RGB565_CYAN)&&!color_count(92,7,R2_UI_RGB565_CYAN));
+ assert(!memcmp(pps_duration,fb+109*80*2,sizeof pps_duration));
+ /* Serving GM retains its existing Bluetooth beat badge beside RMS. */
+ uint8_t expected_badge[R2_UI_BYTES];memcpy(expected_badge,fb,sizeof fb);fill(expected_badge,4,49,11,11,C_BG);bluetooth_badge_at(expected_badge,4,49,true);
+ for(unsigned y=49;y<60;y++)assert(!memcmp(expected_badge+((y*80+4)*2),fb+((y*80+4)*2),11*2));
  assert(color_count(20,7,R2_UI_RGB565_GREEN)&&!color_count(20,7,R2_UI_RGB565_AMBER));
  assert(color_count(128,7,R2_UI_RGB565_GREEN)&&!color_count(128,7,R2_UI_RGB565_AMBER));
  /* Long durations stay within the 80px display without losing seconds. */

@@ -2,6 +2,14 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 21 October 2026 — T096 0.15.161 precision duration restoration
+
+Restore the PPS duration for all GMs and HOT duration for the standby on the
+precision screen. The160 layout inadvertently replaced those duration labels.
+Restore the serving GM Bluetooth beat icon beside RMS. Reuse the existing hold
+timestamps; COLD timing reception, ACTIVE duration, RMS,
+GM shadow OFF and RC shadow ON remain unchanged. No protocol timer changes.
+
 ## 21 October 2026 — T096 0.15.160 COLD timing reception
 
 All COLD GMs now use the existing passive precision receiver path previously
