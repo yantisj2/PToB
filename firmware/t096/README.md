@@ -1,5 +1,8 @@
 # T096 firmware example
 
+For a three/four-GM group, receivers, relays and macOS USB, start with the
+**[GM operating guide](../../docs/t096/gm-operations.md)** and its current field limits.
+
 Version164 prevents the independent LoRa watchdog from interpreting startup
 flash-scan bytes as live owner state. One boot-zero atomic readiness word outside
 the reused scratch union is published after LoRa initialization and before worker

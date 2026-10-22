@@ -12,8 +12,18 @@
   tests and real RC8/receive-owner integration with synthetic peripherals.
   Physical field acquisition and accuracy remain unqualified.
 
-## T096 0.15.164 — LoRa observer initialization gate (2026-10-22)
+## T096 0.15.164 — G5 GM checkpoint and LoRa startup guard (2026-10-22)
 
+- Record **0.15.164 / G5 control protocol 5** as the accepted GM development
+  checkpoint, retaining RC7 timing and LoRa wire 3. Add a short
+  [GM operating guide](docs/t096/gm-operations.md), linked from both READMEs,
+  for staged three/four-GM setup, receivers/relays and RC/DC macOS USB paths.
+- Retain the separate completed 1,800-second observation and
+  [later HOT withdrawal](docs/t096/gm-standby.md#source164-later-hot-withdrawal)
+  despite steady local PPS. SERVICE expiry is an inference with unresolved
+  initiating delivery/renewal failure; durable failover, same-image two-sided
+  pair observation, fourth-GM acceptance and independent UTC accuracy remain open.
+  This documentation checkpoint changes no firmware behavior, timers or wire version.
 - Publish one atomic readiness word outside reused startup scan scratch before
   the LoRa worker starts. The independent observer reads no union state before
   that publication. Preserve the30s bound and sticky hardware faults; no timer,
