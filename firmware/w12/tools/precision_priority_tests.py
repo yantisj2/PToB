@@ -7,7 +7,7 @@ import argparse,json,os,subprocess
 from pathlib import Path
 from rc7_permission_e2e import native_fixture,replace_once,sha
 APP=Path(__file__).resolve().parents[1]
-CASES=('n30-source-return','n30-source-return-same-epoch','n30-relay-retry-budget','gm-dwell','gm-lock-fallback','gm-lock-search','gm-locked-retain','relay-failed-gm','quality-dip','warm-window','cold-window','source-expiry','model-expiry',
+CASES=('n30-failed-lock-discovery','n30-flickering-gm-roam','n30-source-return','n30-source-return-same-epoch','n30-relay-retry-budget','gm-dwell','gm-lock-fallback','gm-lock-search','gm-locked-retain','relay-failed-gm','quality-dip','warm-window','cold-window','source-expiry','model-expiry',
        'capture-gap','wrong-parent','clock-failure','control-drain','batch-budget','retry-bound','retry-unreserved','retry-relay','legacy-control','relay-control','control-gatt',
        'control-stop-bound','control-delayed','control-old','control-expired','precision-delayed')
 def main():
@@ -33,7 +33,7 @@ def main():
     flags=['-std=c++20','-O1','-g','-Wall','-Wextra','-Werror','-Wno-misleading-indentation','-Wno-missing-field-initializers',
       '-fsanitize=address,undefined','-DV12_R2_ENABLED=1','-DV12_R2_FIELD_CLIENT=1','-DV12_R2_CONFIG=13',
       '-DV12_UNIT="C1"','-DV12_R2_G1_LISTENING_PERCENT=100','-DCONFIG_BT_NIMBLE_HOST_TASK_STACK_SIZE=8192']
-    if a.n30:flags+=['-DV12_G1_FAILED_PARENT_RETRY_US=60000000']
+    if a.n30:flags+=['-DPTOB_N30=1','-DV12_G1_FAILED_PARENT_RETRY_US=60000000']
     for path in [out,APP/'tests',APP/'tests/r2_fakes',APP/'tests/console_fakes',APP/'main',APP/'legacy/reference',APP/'main/r2/r2-g1',APP/'main/r2/rc7/include',crypto]:flags+=['-I'+str(path)]
     objects=[a.objects.resolve()/(n+'.o') for n in ('group_auth','group_join','group_precision','precision_codec','relay_codec','rc_dynamic','rc_boundary','rc_slots','g1_hmac','sha256','utils')]
     binary=out/'priority';cmd=[os.environ.get('CXX','clang++'),*flags,str(out/'priority.cpp'),*map(str,objects),'-o',str(binary)]

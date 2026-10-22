@@ -113,8 +113,7 @@ bool display_init(){
  esp_timer_delete(frame_timer);frame_timer=nullptr;return false;
 }
 void n30_display_publish(const v12::R2Status& s,const DisplayState& d,uint64_t now){
- auto m=n30::model(s,d,now);uint64_t live;
- n30_lora_control(n30::analog_time(m,now,live),now,s.requested&&!s.fault);
+ auto m=n30::model(s,d,now);
  n30_lora_view lora;n30_lora_snapshot(lora);now=now_us();m.sampled_us=now;
  n30::select_lora(m,lora,now);comparison.update(m,now);
  if(m.source==n30::Source::LoRa){const auto* name=ptob_registry_name(lora.emitter);if(name)std::snprintf(m.parent,sizeof m.parent,"%s",name);else std::snprintf(m.parent,sizeof m.parent,"%04X",unsigned(lora.emitter&65535));}

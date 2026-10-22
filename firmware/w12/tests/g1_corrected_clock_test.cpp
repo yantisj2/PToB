@@ -79,7 +79,11 @@ int main(){
     }
     assert(trained_at&&trained_at<UINT64_C(5000000));
     assert(locked_at&&locked_at<UINT64_C(9000000));
+#ifdef PTOB_N30
+    assert(quick.clock.fit_span_ms()>=3000&&std::abs(quick.clock.prediction().rate-direction*500)<20);
+#else
     assert(quick.clock.fit_span_ms()>=15000&&std::abs(quick.clock.prediction().rate-direction*500)<20);
+#endif
     std::printf("EARLY_FIT direction=%d trained_us=%llu lock_us=%llu\n",direction,
       (unsigned long long)(trained_at-1000000),(unsigned long long)(locked_at-1000000));
   }
@@ -143,7 +147,13 @@ int main(){
   // noisy correction between fit points must not steer the delivered clock
   // toward that raw error; its complete causal tail must still withdraw lock.
   steady.feed(89100000,4,4000,false);assert(steady.feed(89162500,4));
+#ifdef PTOB_N30
+  // Dense fitting includes this extra physical point; its small steering
+  // influence still cannot erase the complete causal tail or qualify lock.
+  assert(std::abs(steady.clock.prediction().phase)<1000);
+#else
   assert(std::abs(steady.clock.prediction().phase)<200);
+#endif
   const auto noisy=steady.clock.quality(89162510);
   assert(noisy.max_ns>=3900&&!noisy.locked(steady.clock.prediction().tick,steady.clock.prediction()));
   // Prior-model causal error cannot subsume an independent fresh phase.

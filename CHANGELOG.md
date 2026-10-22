@@ -1,5 +1,18 @@
 # Changelog
 
+
+## N30 0.2.8 — intermittent GM fallback and faster physical acquisition
+
+- Accumulate BLE lock loss so brief good intervals cannot indefinitely suppress
+  relay search or LoRa AUTO. Keep discovery open after a failed trial, preserve
+  bounded GM retries, and drive radio fallback independently of the OLED.
+- Retain N30 delayed physical corrections with capture-time causal predictions,
+  dense64-point fitting and a one-second acceleration baseline. Preserve the
+  existing1µs gates, causal tails, source expiry and default W12 behavior.
+- Add negative controls, actual native relay cases, changing-frequency clock
+  tests and real RC8/receive-owner integration with synthetic peripherals.
+  Physical field acquisition and accuracy remain unqualified.
+
 ## T096 0.15.163 — pinned radio fixes and bounded fatal context (2026-10-22)
 
 - Backport Zephyr355648a timer-route cleanup before radio DISABLE and ZMK10ba6d0

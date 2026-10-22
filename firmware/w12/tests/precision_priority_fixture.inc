@@ -6,6 +6,9 @@ struct Rc7PermissionInspect {
  static void seed(G1CorrectedClock& c,const G1Anchor& a,uint64_t now){
   c.clear();c.scope_=a;c.until_=a.until;c.clock_={now*20,int64_t(now*1000),0,0,INT64_C(1700000000000000000)};
   c.phase_fit_tick_=now*20;c.frequency_trained_=true;c.rate_guard_=100;c.last_original_=now*20;
+#ifdef PTOB_N30
+  c.acceleration_at_=now*20;c.acceleration_rate_=0;c.acceleration_ready_=true;
+#endif
   c.quality_second_=now/1000000;auto& b=c.quality_[c.quality_second_%16];b.second=uint16_t(c.quality_second_);
   b.count=16;b.squares=160000;b.peak=1500; // Deliberately fails the unchanged1us lock gate.
  }
@@ -34,7 +37,35 @@ int main(int argc,char** argv){
  v12::Rc7PermissionInspect::seed(v12::corrected_clock,v12::anchor,fake_now);v12::admission_policy.acquired();
  assert(!v12::lock_protected(fake_now)&&v12::following(fake_now));
  const auto until=v12::anchor.until,deadline=v12::anchor.deadline();
- if(which=="n30-source-return"||which=="n30-source-return-same-epoch"){
+ if(which=="n30-failed-lock-discovery"||which=="n30-flickering-gm-roam"){
+  const auto start=fake_now;
+  if(which=="n30-failed-lock-discovery"){
+   // A failed trial plus a transient raw lock must not discard discovery.
+   fake_now+=60000000;v12::parent_selection.locked(false,fake_now);
+   assert(v12::parent_selection.needs_alternative());
+   v12::anchor.at=fake_now;v12::anchor.until=fake_now+1500000;
+   v12::Rc7PermissionInspect::seed(v12::corrected_clock,v12::anchor,fake_now);
+   v12::Rc7PermissionInspect::allow_lock(v12::corrected_clock);
+   assert(v12::lock_protected(fake_now));
+  }else{
+   for(uint64_t dt=0;dt<=90000000;dt+=62500){
+    fake_now=start+dt;v12::parent_selection.locked(dt%20000000<4000000,fake_now);
+    if(v12::parent_selection.needs_alternative())break;
+   }
+   assert(v12::parent_selection.needs_alternative());
+   v12::anchor.at=fake_now;v12::anchor.until=fake_now+1500000;
+   v12::Rc7PermissionInspect::seed(v12::corrected_clock,v12::anchor,fake_now);
+  }
+  v12::window_start=v12::G1Window::start(fake_now);
+  v12::parent_selection.seen(501,false,-95,fake_now-50000);
+  v12::parent_selection.seen(777,true,-40,fake_now-50000,true);
+  v12::locator_ids[0]=501;v12::locators[0].address=v12::sync_address;v12::locators[0].sid=12;v12::locators[0].at=fake_now;
+  v12::locator_ids[1]=777;v12::locators[1].address=v12::canonical(777);v12::locators[1].sid=13;v12::locators[1].at=fake_now;
+  const auto until=v12::anchor.until,deadline=v12::anchor.deadline();
+  v12::active_poll(fake_now);
+  assert(connected==1&&v12::peer.identity==777&&v12::peer.relay&&!v12::fault);
+  assert(v12::anchor.until==until&&v12::anchor.deadline()==deadline);
+ }else if(which=="n30-source-return"||which=="n30-source-return-same-epoch"){
   const auto lost=fake_now+60000000;fake_now=lost;
   v12::parent_selection.locked(false,fake_now);assert(v12::parent_selection.needs_alternative());
   // The GM remains powered but its signed time/replay scope expires. The

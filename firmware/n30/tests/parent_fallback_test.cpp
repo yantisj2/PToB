@@ -23,8 +23,8 @@ int main(){
  // Sub-two-second lock pulses cannot turn retries back into a tight loop.
  for(uint64_t t=failed+minute+100000;t<=failed+minute+1100000;t+=62500)p.locked(true,t);
  p.locked(false,failed+minute+1200000);assert(p.needs_alternative()&&!p.retry_allowed(11,false,failed+minute+1200000));
- for(uint64_t t=failed+minute+2000000;t<=failed+minute+4000000;t+=62500)p.locked(true,t);
- assert(!p.needs_alternative()&&p.retry_allowed(11,false,failed+minute+4000000));
+ for(uint64_t t=failed+minute+2000000;t<=failed+2*minute+2000000;t+=62500)p.locked(true,t);
+ assert(!p.needs_alternative()&&p.retry_allowed(11,false,failed+2*minute+2000000));
  // Reset keeps the configured retry policy. Default W12 policy stays unchanged.
  p.reset();p.seen(11,false,-20,start);p.bind(11,111,1,start);p.locked(false,failed);
  assert(!p.retry_allowed(11,false,failed));

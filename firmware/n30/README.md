@@ -10,7 +10,7 @@ Select a screen for its native 64×128 image.
 
 Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
 
-**PToB owns N30 native G1/RC7 development.** Version **0.2.7** supports an **RC**
+**PToB owns N30 native G1/RC7 development.** Version **0.2.8** supports an **RC**
 with **two timing inputs: BLE and passive LoRa**, a portrait OLED clock and a
 receiver-status console. The Meshnology N30 / Heltec WiFi LoRa32 V3 route uses
 an ESP32-S3, 8 MB flash and a 128×64 OLED mounted as 64×128. Start with the
@@ -30,11 +30,13 @@ display preference. When BLE is marginal or pending and LoRa time is available,
 the clock dashboard uses `LOR`, keeps its analog dial and PPS lamp, and labels
 its quality `LINK RMS`.
 
-Automatic BLE selection gives a parent one minute to regain sustained relative
-lock, then seeks a fresh relay. A failed parent gets at most one new admission
-attempt per minute, leaving the shared radio budget available for relay attempts.
-The existing timing stream stays subject to its original expiry; user-selected
-named parents and relay-only mode keep their explicit policy.
+Automatic BLE selection accumulates one minute without relative lock, then
+seeks a fresh relay. Brief lock flickers pause this loss budget; only a full
+minute of continuously observed lock clears it. A failed parent gets at most
+one new admission attempt per minute, leaving radio opportunities for relays.
+Even a transient raw lock cannot suppress discovery after that trial fails.
+Named-parent and relay-only choices retain their explicit policy. All timing
+streams keep their original permission, model and source expiry.
 
 If a GM loses and later regains its source, a fresh returning-GM locator can
 use the bounded retry path even after its old binding expires. It must complete
@@ -48,13 +50,22 @@ source-less membership, packet traffic, stale snapshots and local HOLD do not
 reset it. Explicit OFF and update maintenance inhibit this watchdog. Existing
 fault/stalled-worker supervision retains its independent two-minute timer.
 
-LoRa **AUTO** starts reception after **180 seconds without live BLE lock** and
-stops it after **180 seconds of continuous BLE lock**. A lock dip restarts the
-recovery interval. The LoRa driver is receive-only, using the fixed 915 MHz
+LoRa **AUTO** starts after **180 accumulated seconds without live BLE lock**.
+Brief good samples pause that budget rather than restarting it. Only
+**180 seconds of continuous BLE lock** clears the loss and stops AUTO reception.
+A lock dip restarts that recovery interval. Radio control runs independently of
+the OLED, its displayed lock settlement and the screensaver. The LoRa driver is receive-only, using the fixed 915 MHz
 SX1262 configuration, shared group authentication and exact transmitter identity.
 LoRa hardware stays disabled unless the build binds a transmitter from the shared
 registry. Its 12-second functional hold does not establish source freshness. LoRa never
 trains the BLE clock or grants downstream timing authority.
+
+N30 retains delayed authenticated physical corrections instead of discarding
+those captured before the latest model publication. Each original carries its
+capture-time prediction for causal scoring. A dense 64-point fit follows
+oscillator changes, and acceleration uses an observed one-second rate baseline.
+The 1 µs lock threshold, full causal tails and 16-second quality history remain
+unchanged. See the [acquisition and recovery tests](../../docs/n30/build.md#version-028-intermittent-gm-recovery-and-acquisition).
 
 The dual-radio page shows each clock separately, BLE and LoRa activity, `DNS`
 (BLE minus LoRa nanoseconds) and drift in `PPB`. Comparison requires matching

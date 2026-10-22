@@ -7,7 +7,7 @@ from pathlib import Path
 APP=Path(__file__).resolve().parents[1];REPO=APP.parents[1]
 sys.path.insert(0,str(REPO/'registry'))
 from registry import load as load_registry,header as registry_header
-VERSION='0.2.7'
+VERSION='0.2.8'
 T096_LORA_FILES=['protocol/lora_rc8.c','protocol/lora_rc8.h','protocol/group_auth.h','include/lora_rc8_policy.h','include/precision_servo.h','src/lora_rc8_policy.c']
 def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
 def git(p,*args):return subprocess.check_output(['git','-C',str(p),*args],text=True).strip()
@@ -41,7 +41,7 @@ def check_main_stack(out):
  path=REPO/'firmware/w12/tools/stack_budget.py'
  spec=importlib.util.spec_from_file_location('n30_selected_stack',path);module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
  result=module.check(out)
- if json.loads((Path(out)/'receipt.json').read_text()).get('version') not in ('0.2.0','0.2.1','0.2.2','0.2.3','0.2.4','0.2.5','0.2.6','0.2.7'):return result
+ if json.loads((Path(out)/'receipt.json').read_text()).get('version') not in ('0.2.0','0.2.1','0.2.2','0.2.3','0.2.4','0.2.5','0.2.6','0.2.7','0.2.8'):return result
  # Selected extra chains with explicit reserve; not a complete call graph.
  usage=[]
  for file in (Path(out)/'target').rglob('*.su'):
@@ -119,7 +119,7 @@ def main():
  lora_header=inputs/'n30_lora_config.h';lora_header.write_text(lora_config_header(d,e,tx_factory))
  # Registry/generator/device hashes bind display metadata and local input changes into runtime enrollment identity.
  enrollment_header=inputs/'r2-enrollment.h';enrollment_header.write_text('/* source:'+source_hash+' registry:'+sha(a.registry)+' generator:'+sha(REPO/'registry/registry.py')+' device:'+sha(a.device_config)+' */\nstatic const r2_group_enrollment provision={{{'+','.join(map(str,key))+'},UINT64_C(0x'+e['group_id']+'),'+str(e['key_epoch'])+'},UINT64_C(0x'+d['device_id']+'),'+json.dumps(d['label'])+',40000};\n')
- r={'schema':1,'artifact_class':'PTOB_N30_RC','version':VERSION,'status':'INCOMPLETE','public_commit':git(REPO,'rev-parse','HEAD'),'source_dirty':dirty,'source_sha256':source_hash,'sources':sources,'dependencies':lock,'sdk_path':str(sdk),'app_path':str(APP),'sdk_submodules':modules.splitlines(),'profile':'RC','listening_percent':a.listening_percent,'estimated_relay':a.estimated_relay,'tx_actual_capture':False,'precision':'UNQUALIFIED','installed':False,'no_time_sync_watchdog_us':300000000,'commissioning_candidate':a.commissioning,'hardware_validation':'NOT_PERFORMED','deployment_authorized':False,'registry_sha256':sha(a.registry),'registry_generator_sha256':sha(REPO/'registry/registry.py'),'lora_transmitter_factory':tx_factory,'lora_contract':'RC8_WIRE3_PASSIVE_RX_SX1262_915_V3','enrollment_mode':'LOCAL_BUILD_TIME_NO_NVS_WRITE','device_config_sha256':sha(a.device_config)}
+ r={'schema':1,'artifact_class':'PTOB_N30_RC','version':VERSION,'status':'INCOMPLETE','public_commit':git(REPO,'rev-parse','HEAD'),'source_dirty':dirty,'source_sha256':source_hash,'sources':sources,'dependencies':lock,'sdk_path':str(sdk),'app_path':str(APP),'sdk_submodules':modules.splitlines(),'profile':'RC','listening_percent':a.listening_percent,'estimated_relay':a.estimated_relay,'tx_actual_capture':False,'precision':'UNQUALIFIED','installed':False,'no_time_sync_watchdog_us':300000000,'source_recovery_policy':'ACCUMULATED_LOCK_LOSS_V1','physical_fit_policy':'CAPTURE_FROZEN_DENSE64_1S_ACCEL_V1','commissioning_candidate':a.commissioning,'hardware_validation':'NOT_PERFORMED','deployment_authorized':False,'registry_sha256':sha(a.registry),'registry_generator_sha256':sha(REPO/'registry/registry.py'),'lora_transmitter_factory':tx_factory,'lora_contract':'RC8_WIRE3_PASSIVE_RX_SX1262_915_V3','enrollment_mode':'LOCAL_BUILD_TIME_NO_NVS_WRITE','device_config_sha256':sha(a.device_config)}
  dump(out/'receipt.json',r)
  env=os.environ.copy()
  for k in ['CFLAGS','CXXFLAGS','CPPFLAGS','LDFLAGS','EXTRA_COMPONENT_DIRS','SDKCONFIG_DEFAULTS']:env.pop(k,None)

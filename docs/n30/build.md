@@ -395,3 +395,69 @@ python3 firmware/w12/tools/precision_priority_tests.py --n30 \
 Use the shared-codec preparation command above first. These are offline software
 regressions. Physical five-minute watchdog timing, GNSS loss/return in the field,
 and independently measured timing accuracy remain separate hardware observations.
+
+
+## Version 0.2.8 intermittent GM recovery and acquisition
+
+The old one-minute trial could be renewed by two seconds of raw lock, and any
+brief displayed lock restarted LoRa's three-minute acquisition timer. Repeating
+short good intervals could therefore suppress both relay discovery and LoRa
+AUTO for ten minutes. N30 now accumulates60s of observed lock loss, paused by
+brief good samples and cleared only by60s of continuous observed lock. A failed
+trial leaves discovery open even if raw lock briefly returns. Existing60s failed
+parent retry bounds, fresh locators, authenticated JOIN and operator choices
+remain. The shared W12 default selection policy stays unchanged.
+
+LoRa AUTO likewise accumulates180s of loss and requires180s of continuous lock
+to clear it and stop reception. The main radio/supervisor path supplies actual
+current BLE quality directly; OLED initialization, blanking, minimal mode and
+displayed lock settlement do not control backup acquisition. Explicit KEEP OFF,
+receiver OFF, faults and update maintenance retain their fences. Once an
+original/follow-up pair provides available authenticated LoRa UTC, it replaces
+HOLD, acquisition or marginal BLE on the main clock. Being in range or RX ON
+alone cannot manufacture that time. LoRa never disciplines the BLE model.
+
+The acquisition fix retains N30 corrections whose original capture preceded
+the most recent model publication. Each direct original freezes its delivered
+prediction before training, so its later correction is scored against that
+capture-time map rather than a newer fitted map. Missing predictions stay
+explicitly missing. The same eight pending slots add128B; the clock remains
+within2KiB. Source/path/capture/replay checks, increasing originals and remote
+time, original expiry and discontinuity fences still apply.
+
+N30 also keeps every eligible16Hz fitting opportunity in its existing64-point
+history, instead of decimating after the first fit into a roughly16s window.
+It measures acceleration across at least one observed second: differences
+between adjacent overlapping fits had amplified channel/quantization noise
+into an infinite guard. The unchanged255/unknown guard still applies to large
+observed acceleration. W12 retains its original fitting and scoring paths.
+The16s physical-time quality buckets retain every eligible causal tail; no
+outlier removal, threshold relaxation, clock step or source deadline extension
+is introduced. RC7 authenticated timing and its existing mapping fences remain.
+
+```sh
+python3 firmware/w12/tools/g1_host_tests.py --out artifacts/n30-shared-g1-tests
+python3 firmware/n30/tools/recovery_tests.py \
+  --objects artifacts/n30-shared-g1-tests --out artifacts/n30-recovery-tests
+python3 firmware/w12/tools/precision_priority_tests.py --n30 \
+  --objects artifacts/n30-shared-g1-tests --out artifacts/n30-native-recovery
+python3 firmware/n30/tools/lora_tests.py --idf "$IDF_PATH" \
+  --out artifacts/n30-lora-recovery
+```
+
+Synthetic4s-good/16s-bad cases previously selected no relay and never enabled
+LoRa during600s. The corrected selector exposes the fresh relay opportunity
+by76s and enables AUTO before240s under the same observations. Actual native
+owner tests cover transient raw lock after failure and relay admission.
+The real SX1262-owner/RC8/HMAC test continues through authenticated LoRa pair
+acquisition, CRC loss, total RF loss and reacquisition using synthetic peripherals.
+
+A synthetic hopping-channel test with±5ppm initial frequency and±100ppb/s rate
+change previously never locked during120s. The corrected N30 reaches the
+unchanged relative lock gate at18s and stays locked for all1280 observations
+after40s; observed causal maxima are below350ns in those two scenarios. Its
+separate dense-stream check retains all150 eligible corrections, preserves nine
+signed-envelope refusals, and records two unavailable startup predictions.
+These are deterministic software regressions, not field RF evidence or an
+independently measured UTC/PPS/output guarantee. Physical acquisition speed,
+intermittent-GM roaming and five-minute watchdog behavior still need retesting.

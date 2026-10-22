@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include "g1_parent_history.hpp"
+#include "g1_recovery_budget.hpp"
 extern "C" {
 #include "r2/r2-g1/link_quality.h"
 }
@@ -26,6 +27,9 @@ class G1ParentSelection {
   Candidate candidates_[8]{};
   r2_link_quality quality_{};
   G1ParentHistory history_{};
+#ifdef PTOB_N30
+  G1RecoveryBudget lock_budget_;
+#endif
   uint64_t collecting_=0,discovery_since_=0,parent_=0,renew_at_=0;
   uint64_t scan_at_=0,scan_owned_=0,target_=0;
   uint64_t startup_scan_owned_=0;
@@ -44,6 +48,9 @@ class G1ParentSelection {
   int score(const Candidate& c,uint64_t now)const{return G1ParentHistory::score(history_.find(c.identity,c.relay,now),c.relay,c.rssi,now,history_);}
   void begin_trial(uint64_t id,bool is_relay,uint64_t now){
     if(!id||!now||(trial_==id&&trial_relay_==is_relay))return;
+#ifdef PTOB_N30
+    lock_budget_.reset(now);
+#endif
     trial_=id;trial_relay_=is_relay;trial_since_=now;locked_at_=lock_candidate_since_=lock_sample_at_=0;trial_bound_=trial_failed_=false;retry_after_=0;
   }
  public:
@@ -55,6 +62,9 @@ class G1ParentSelection {
     pending_relay_=pending_until_=0;
     recovering_gm_=gm_recovery_until_=0;
     trial_=trial_since_=locked_at_=lock_candidate_since_=lock_sample_at_=0;trial_relay_=trial_bound_=trial_failed_=false;retry_after_=0;
+#ifdef PTOB_N30
+    lock_budget_.reset();
+#endif
     bound_rssi_=-127;usable_value_=usable_reported_=usable_previous_=usable_previous_valid_=false;selection_={};}
   void clear_history(){history_.clear();}
   const G1ParentHistory& history()const{return history_;}
@@ -79,14 +89,31 @@ class G1ParentSelection {
     // a successful new binding replaces an existing parent's lock trial.
     if(!parent_)begin_trial(id,is_relay,now);
   }
-  // Require two observed seconds of raw relative lock plus the existing
-  // one-second hold gate. Brief lock flickers, FOLLOW and packet delivery
-  // cannot postpone fallback. Renewals cannot restart the trial.
+  // W12 requires two observed seconds of raw relative lock plus its existing
+  // one-second hold gate. N30's separate loss budget below requires sustained
+  // recovery. FOLLOW/packets and renewals never establish relative lock.
   void locked(bool value,uint64_t now){
     if(!trial_||!trial_since_)return;
     if(now<trial_since_||(locked_at_&&now<locked_at_)){
+#ifdef PTOB_N30
+      lock_budget_.reset(now);
+#endif
       trial_since_=now;locked_at_=lock_candidate_since_=lock_sample_at_=0;trial_failed_=false;retry_after_=0;return;
     }
+#ifdef PTOB_N30
+    // N30's weak links can briefly pass raw lock for two seconds while
+    // spending minutes in HOLD. Count all observed loss until a full minute
+    // of uninterrupted lock recovers the parent; pulses cannot renew its trial.
+    if(failed_retry_us_){
+      lock_budget_.observe(value&&parent_==trial_,now,LockDwellUs,LockSampleGapUs);
+      if(lock_budget_.stable(now,LockDwellUs)){
+        locked_at_=now;trial_failed_=false;retry_after_=0;history_.locked(trial_,trial_relay_,now);return;
+      }
+      if(trial_failed_||lock_budget_.lost()<LockDwellUs)return;
+      trial_failed_=true;retry_after_=now>UINT64_MAX-failed_retry_us_?UINT64_MAX:now+failed_retry_us_;
+      history_.lock_failed(trial_,trial_relay_,now);return;
+    }
+#endif
     if(value&&parent_==trial_){
       if(!lock_sample_at_||now<lock_sample_at_||now-lock_sample_at_>LockSampleGapUs)lock_candidate_since_=now;
       lock_sample_at_=now;

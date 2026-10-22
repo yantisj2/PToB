@@ -8,6 +8,15 @@ int main(){
  s.follower_snapshot_us=now;s.follower_utc_us=1700000000000000;s.g1_anchor_deadline_us=now+2000000;s.service_until_us=now+1000000;
  assert(n30::synchronized_until(s,l,now)==now+n30::SnapshotMaxUs); // No precision lock required.
  assert(n30::synchronized_until(s,l,now+n30::SnapshotMaxUs)==0); // Polls cannot renew stale snapshots.
+ assert(!n30::ble_locked(s,now)); // Coarse FOLLOW is not a radio lock.
+ auto locked=s;locked.g1_corrected_until_us=now+2000000;
+ locked.g1_clock_model={now*20,int64_t(now*1000),0,0,0};
+ auto& q=locked.g1_relative_quality;q.evaluated20=q.original20=now*20;q.samples=16;q.rms_ns=50;q.max_ns=100;q.rate_guard_ppb=20;q.accel_guard_ppb_s=10;
+ assert(n30::ble_locked(locked,now));
+ assert(!n30::ble_locked(locked,now+n30::SnapshotMaxUs));
+ locked.following=false;assert(!n30::ble_locked(locked,now));locked.following=true;
+ locked.g1_retained_estimate=true;assert(!n30::ble_locked(locked,now));locked.g1_retained_estimate=false;
+ locked.g1_corrected_until_us=now;assert(!n30::ble_locked(locked,now));
  auto valid=s;s.service_until_us=now+1;assert(n30::synchronized_until(s,l,now)==now+1);
  assert(n30::synchronized_until(s,l,now+1)==0);s=valid;
  for(unsigned failure=0;failure<6;failure++){

@@ -17,7 +17,12 @@ uint64_t packet_edge(unsigned size,bool crc_bad=false){
 }
 }
 int main(){
- cold();fake::us=900000000;step(true,0);step(false,1000);step(false,n30::BleAcquireUs);
+ cold();fake::us=900000000;const auto began=fake::us;step(true,0);
+ // The real radio owner must enable AUTO despite recurring4s BLE lock bursts.
+ while(!owned.enabled&&fake::us-began<240000000){
+  const auto dt=fake::us-began;step(dt%20000000<4000000,2000);
+ }
+ assert(owned.enabled&&fake::us-began<=240000000);
  assert(owned.enabled&&published.active&&published.state==1);run_for(10000);
  rc8_companion meta{};meta.scope=interop_scope;meta.sequence=1;meta.time_valid=true;
  assert(!rc8_companion_encode(fake::packet.data(),&meta,&interop_group));packet_edge(128);

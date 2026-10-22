@@ -641,7 +641,8 @@ void input(){
   if(lora.failed&&lora.request_generation)mask|=v12::FaultLoRa;
   if(update_gate.stage==v12::UpdateStage::Fault)mask|=v12::FaultUpdate;
 #ifdef V12_R2_ENABLED
-  const auto mesh=v12::r2_status();
+  const auto mesh=v12::r2_status();const auto source_now=micros();
+  n30_lora_control(n30::ble_locked(mesh,source_now),source_now,mesh.requested&&!mesh.fault&&!update_gate.latched());
   n30_lora_view lora_time;n30_lora_snapshot(lora_time);
   v12::fault_watchdog_sync_progress(mesh.requested&&!update_gate.latched(),n30::synchronized_until(mesh,lora_time,micros()));
   if(mesh.fault||mesh.client.deadline_exceeded||mesh.rx_capture.fault)mask|=v12::FaultR2;
@@ -691,7 +692,7 @@ extern "C" void app_main(){
     " max_data=191 max_GMs=4 activities=6 syncs=2 adv_sets=2 mtu=247"
     " precision=UNAVAILABLE GM=DISABLED LoRa=OFF WiFi=OFF PTS=OFF\n",
     V12_UNIT,factory_text,unsigned(identity),session,V12_SOURCE_REVISION,V12_BUILD_ID);
-  std::printf("N30_TARGET version=0.2.7 profile=RC GPS=ABSENT flash_mb=8 console=UART0_43_44 hardware=UNVALIDATED\n");
+  std::printf("N30_TARGET version=0.2.8 profile=RC GPS=ABSENT flash_mb=8 console=UART0_43_44 hardware=UNVALIDATED\n");
   if(!identity||!session){std::printf("W12_V12_FATAL reason=FACTORY_OR_BOOT_BINDING peripherals=UNTOUCHED\n");return;}
   if(!v12::fault_watchdog_start(factory,session)){std::printf("W12_V12_FATAL reason=FAULT_SUPERVISOR\n");return;}
   // This initial diagnostic candidate never initializes, migrates or writes

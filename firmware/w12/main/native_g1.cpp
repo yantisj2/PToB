@@ -198,6 +198,9 @@ bool lock_protected(uint64_t now){
 #endif
 }
 bool selection_protected(uint64_t now){
+  // Once N30 exhausts its lock trial, even a brief raw-lock return must leave
+  // discovery/admission room for alternatives until sustained recovery.
+  if(V12_G1_FAILED_PARENT_RETRY_US&&parent_selection.needs_alternative())return false;
   return lock_protected(now)||(precision_reserved(now)&&!parent_selection.needs_alternative());
 }
 int64_t coarse_ns(uint64_t now){if(!usable_utc()||!anchor_valid(now)||anchor.utc>uint64_t(INT64_MAX)/1000||now-anchor.at>uint64_t(INT64_MAX)/1000-anchor.utc)return -1;return int64_t((anchor.utc+now-anchor.at)*1000);}
