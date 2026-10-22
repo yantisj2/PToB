@@ -1,0 +1,8 @@
+{
+  "schema": 1,
+  "description": "Failure-only four-word current LLL/preempt context; existing objects moved one-for-one; no healthy hook",
+  "format_tag": 13,
+  "input_sha256": "3d73f3202133cb3f86842510dd30f76b98c9fb6415fb96cd9e7d5074d8fd5f53",
+  "output_sha256": "3e75b5acde2e51daa7fc5975443686f555bbd80084245cab1449b1c5a6f3647a",
+  "patch_sha256": "1b130f376eb03fd4c96738c034b36aeab46d0391156a22a8c1e5b7a90a113cd9"
+}

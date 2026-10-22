@@ -20,7 +20,7 @@ static __noinline struct lll_event *r2_prepare_failure(lll_prepare_cb_t prepare_
                                                      struct lll_prepare_param *prepare_param)
 {
     unsigned key = irq_lock();
-    if (!r2_controller_diag_failure((uintptr_t)prepare_cb,
+    if (!r2_controller_diag_failure_locked((uintptr_t)prepare_cb,
                                     (uintptr_t)prepare_param->param)) {
         irq_unlock(key);
         return NULL;
@@ -37,18 +37,21 @@ static __noinline struct lll_event *r2_prepare_failure(lll_prepare_cb_t prepare_
             if (!queued) {
                 break;
             }
-            r2_controller_diag_entry(i, (uintptr_t)queued->prepare_cb,
+            r2_controller_diag_entry_locked(i, (uintptr_t)queued->prepare_cb,
                 (uintptr_t)queued->prepare_param.param,
                 queued->is_resume | (queued->is_aborted << 1));
             ++copied;
         }
     }
-    r2_controller_diag_complete(copied == 7);
+    r2_controller_diag_complete_locked(copied == 7);
     irq_unlock(key);
     return NULL;
 }
 
 '''
+    if mode=='failure-only':
+        helper=helper.replace('    unsigned copied = 0;',
+            '    r2_controller_diag_lll_context_locked();\n    unsigned copied = 0;')
     change('struct lll_event *ull_prepare_enqueue(',helper+'struct lll_event *ull_prepare_enqueue(')
     change('\tif (!e) {\n\t\treturn NULL;\n\t}\n\n\tmemcpy(&e->prepare_param',
            '\tif (!e) {\n\t\treturn r2_prepare_failure(prepare_cb, prepare_param);\n\t}\n\n\tmemcpy(&e->prepare_param')

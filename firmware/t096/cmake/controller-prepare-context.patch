@@ -1,0 +1,79 @@
+--- a/subsys/bluetooth/controller/ll_sw/nordic/lll/lll.c
++++ b/subsys/bluetooth/controller/ll_sw/nordic/lll/lll.c
+@@ -35,6 +35,18 @@
+ #include "lll_prof_internal.h"
+ 
+ #include "hal/debug.h"
++/* Original PToB diagnostics: Copyright (c)2026 Jonathan Yantis. MIT.
++ * Surrounding Zephyr source retains Apache-2.0. Failure path only. */
++#include "controller_diag.h"
++#include "controller_snapshot.h"
++#if !defined(CONFIG_ARM) || defined(CONFIG_SMP) || defined(CONFIG_ZERO_LATENCY_IRQS) || \
++    defined(CONFIG_BT_CTLR_ZLI) || defined(CONFIG_BT_CTLR_LOW_LAT) || \
++    defined(CONFIG_BT_CTLR_LOW_LAT_ULL_DONE) || \
++    CONFIG_BT_CTLR_LLL_PRIO != 0 || CONFIG_BT_CTLR_ULL_HIGH_PRIO != 1 || \
++    CONFIG_BT_CTLR_ULL_LOW_PRIO != 1 || defined(R2_CONTROLLER_DIAGNOSTICS)
++#error "Prepare fault context requires the pinned ordinary UP/IRQ controller"
++#endif
++BUILD_ASSERT(sizeof(uintptr_t) == 4, "Prepare context needs 32-bit addresses");
+ 
+ #if defined(CONFIG_BT_CTLR_ZLI)
+ #define IRQ_CONNECT_FLAGS IRQ_ZERO_LATENCY
+@@ -83,6 +95,10 @@
+ 			      uint32_t remainder, uint16_t lazy, uint8_t force,
+ 			      void *param);
+ static void preempt(void *param);
++/* The same two pre-existing callback-local objects, moved without duplication.
++ * Only a failed enqueue reads their state under the caller's IRQ mask. */
++static memq_link_t r2_preempt_link;
++static struct mayfly r2_preempt_mfy = {0, 0, &r2_preempt_link, NULL, preempt};
+ #else /* CONFIG_BT_CTLR_LOW_LAT */
+ #if (CONFIG_BT_CTLR_LLL_PRIO == CONFIG_BT_CTLR_ULL_LOW_PRIO)
+ static void mfy_ticker_job_idle_get(void *param);
+@@ -1190,16 +1206,14 @@
+ 			      uint32_t remainder, uint16_t lazy, uint8_t force,
+ 			      void *param)
+ {
+-	static memq_link_t link;
+-	static struct mayfly mfy = {0, 0, &link, NULL, preempt};
+ 	uint32_t ret;
+ 
+ 	LL_ASSERT(preempt_ack != preempt_req);
+ 	preempt_ack = preempt_req;
+ 
+-	mfy.param = param;
++	r2_preempt_mfy.param = param;
+ 	ret = mayfly_enqueue(TICKER_USER_ID_ULL_HIGH, TICKER_USER_ID_LLL,
+-			     0, &mfy);
++			     0, &r2_preempt_mfy);
+ 	LL_ASSERT(!ret);
+ }
+ 
+@@ -1399,3 +1413,27 @@
+ #endif
+ 
+ #endif /* CONFIG_BT_CTLR_LOW_LAT */
++
++/* Caller holds the SAME outer mask as the seven-entry ULL failure cut.
++ * No arbitrary owner dereference, wait, clock sample or controller mutation. */
++void r2_controller_diag_lll_context_locked(void)
++{
++    struct ptob_ticker_snapshot t;
++    ptob_ticker_snapshot_locked(TICKER_INSTANCE_ID_CTLR, TICKER_ID_LLL_PREEMPT,
++                                r2_preempt_mfy.param, &t);
++    uint32_t flags = (uint32_t)t.job_guard | ((uint32_t)t.worker_trigger << 8) |
++        ((uint32_t)t.valid << 16) |
++        ((uint32_t)(preempt_start_req != preempt_start_ack) << 17) |
++        ((uint32_t)(preempt_stop_req != preempt_stop_ack) << 18) |
++        ((uint32_t)(preempt_req != preempt_ack) << 19) |
++        ((uint32_t)((r2_preempt_mfy._req - r2_preempt_mfy._ack) & 3u) << 20) |
++        ((uint32_t)(event.curr.abort_cb != NULL) << 22) |
++        ((uint32_t)(event.curr.param != NULL) << 23) |
++        ((uint32_t)(r2_preempt_mfy.param == event.curr.param) << 24) |
++        ((uint32_t)t.context_matches << 25) |
++        ((uint32_t)is_done_sync() << 26) | R2_CONTROLLER_DIAG_CONTEXT_TAG;
++    r2_controller_diag_context_locked((uint32_t)(uintptr_t)event.curr.param,
++        (uint32_t)(uintptr_t)event.curr.abort_cb,
++        (uint32_t)t.lazy_current | ((uint32_t)t.req << 16) | ((uint32_t)t.ack << 24),
++        flags);
++}

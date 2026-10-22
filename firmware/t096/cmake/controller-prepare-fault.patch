@@ -1,4 +1,3 @@
-diff --git a/subsys/bluetooth/controller/ll_sw/ull.c b/subsys/bluetooth/controller/ll_sw/ull.c
 --- a/subsys/bluetooth/controller/ll_sw/ull.c
 +++ b/subsys/bluetooth/controller/ll_sw/ull.c
 @@ -1,3 +1,4 @@
@@ -6,7 +5,7 @@ diff --git a/subsys/bluetooth/controller/ll_sw/ull.c b/subsys/bluetooth/controll
  /*
   * Copyright (c) 2017-2021 Nordic Semiconductor ASA
   *
-@@ -2086,6 +2087,42 @@
+@@ -2086,6 +2087,43 @@
  	ull_rx_sched();
  }
  
@@ -18,11 +17,12 @@ diff --git a/subsys/bluetooth/controller/ll_sw/ull.c b/subsys/bluetooth/controll
 +                                                     struct lll_prepare_param *prepare_param)
 +{
 +    unsigned key = irq_lock();
-+    if (!r2_controller_diag_failure((uintptr_t)prepare_cb,
++    if (!r2_controller_diag_failure_locked((uintptr_t)prepare_cb,
 +                                    (uintptr_t)prepare_param->param)) {
 +        irq_unlock(key);
 +        return NULL;
 +    }
++    r2_controller_diag_lll_context_locked();
 +    unsigned copied = 0;
 +    uint8_t cursor = UINT8_MAX;
 +    /* Validate every index source before the iterator can form a pointer.
@@ -35,13 +35,13 @@ diff --git a/subsys/bluetooth/controller/ll_sw/ull.c b/subsys/bluetooth/controll
 +            if (!queued) {
 +                break;
 +            }
-+            r2_controller_diag_entry(i, (uintptr_t)queued->prepare_cb,
++            r2_controller_diag_entry_locked(i, (uintptr_t)queued->prepare_cb,
 +                (uintptr_t)queued->prepare_param.param,
 +                queued->is_resume | (queued->is_aborted << 1));
 +            ++copied;
 +        }
 +    }
-+    r2_controller_diag_complete(copied == 7);
++    r2_controller_diag_complete_locked(copied == 7);
 +    irq_unlock(key);
 +    return NULL;
 +}
@@ -49,7 +49,7 @@ diff --git a/subsys/bluetooth/controller/ll_sw/ull.c b/subsys/bluetooth/controll
  struct lll_event *ull_prepare_enqueue(lll_is_abort_cb_t is_abort_cb,
  				      lll_abort_cb_t abort_cb,
  				      struct lll_prepare_param *prepare_param,
-@@ -2097,7 +2134,7 @@
+@@ -2097,7 +2135,7 @@
  
  	idx = MFIFO_ENQUEUE_GET(prep, (void **)&e);
  	if (!e) {

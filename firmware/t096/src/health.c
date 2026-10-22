@@ -115,8 +115,6 @@ void r2_health_console(void)
  bool changed=io.tx_drops!=reported_drops||io.tx_expired!=reported_expired||
   flash_error!=reported_flash_error||pa_error!=reported_pa_error;
  if(!changed&&now<detail_due)return;
- detail_due=now+60000;reported_drops=io.tx_drops;reported_expired=io.tx_expired;
- reported_flash_error=flash_error;reported_pa_error=pa_error;
  size_t unused=0;int stack_rc=k_thread_stack_space_get(k_current_get(),&unused);
  int n=snprintf(line,sizeof line,
   "R2_HEALTH {\"source\":\"%s\",\"boot\":\"%016llx\",\"ms\":%llu,\"main\":[%u,%u],\"flash\":[%u,%d,%u],\"pa\":[%u,%d,%u],\"console_free\":%u,\"diag_free\":%u,\"tx_drops\":%u,\"tx_expired\":%u,\"irq_mask\":[%u,%u,%u,%u,%u,%u,%u,%u,%u],\"previous_fault\":[",
@@ -132,7 +130,12 @@ void r2_health_console(void)
  }
  if((size_t)n+4>=sizeof line)return;
  memcpy(line+n,"]}\n",3);n+=3;
- (void)r2_console_note(line,(size_t)n,now+250);
+ /* Keep the pending detail through best-effort admission refusal. The
+  * existing one-second/alternating watchdog gates bound the next attempt. */
+ if(!r2_console_note(line,(size_t)n,now+250)){
+  detail_due=now+60000;reported_drops=io.tx_drops;reported_expired=io.tx_expired;
+  reported_flash_error=flash_error;reported_pa_error=pa_error;
+ }
 }
 static inline bool stack_window_valid(uintptr_t start,size_t size,uintptr_t sp)
 {

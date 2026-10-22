@@ -1,0 +1,34 @@
+From 355648a69f5137c68d86fe577ddb256e7da74d12 Mon Sep 17 00:00:00 2001
+From: Vinayak Kariappa Chettimada <vich@nordicsemi.no>
+Date: Fri, 11 Jul 2025 09:03:52 +0200
+Subject: [PATCH] Bluetooth: Controller: Fix missing radio tmr status reset
+
+Fix missing radio tmr status reset on radio_disable call,
+without this which disables PPI/DPPI caused under race
+conditions the radio to transition into Tx or Rx state and
+put the Controller's state out of sync with the Radio
+peripherals internal state. The symptoms being that the
+Central role was not transmitting in the next interval;
+also, caused the defer iterations to reach maximum events
+being enqueued in the pipeline, and manifesting as large
+CPU overheads in redundant prepare of deferred events.
+
+Signed-off-by: Vinayak Kariappa Chettimada <vich@nordicsemi.no>
+---
+ .../bluetooth/controller/ll_sw/nordic/hal/nrf5/radio/radio.c   | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/subsys/bluetooth/controller/ll_sw/nordic/hal/nrf5/radio/radio.c b/subsys/bluetooth/controller/ll_sw/nordic/hal/nrf5/radio/radio.c
+index 81df96981dd2..646b1a8a3383 100644
+--- a/subsys/bluetooth/controller/ll_sw/nordic/hal/nrf5/radio/radio.c
++++ b/subsys/bluetooth/controller/ll_sw/nordic/hal/nrf5/radio/radio.c
+@@ -573,6 +573,9 @@ void radio_disable(void)
+ 	hal_radio_sw_switch_cleanup();
+ #endif /* !CONFIG_BT_CTLR_TIFS_HW */
+ 
++	/* Reset/disable PPI/DPPI */
++	radio_tmr_status_reset();
++
+ 	NRF_RADIO->SHORTS = 0;
+ 	nrf_radio_task_trigger(NRF_RADIO, NRF_RADIO_TASK_DISABLE);
+ }

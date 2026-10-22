@@ -1,5 +1,39 @@
 # Build T096 RC7
 
+Version163 brings two pinned public controller fixes into generated copies of
+ordinary native GM/RC, including explicit verbose builds. The Zephyr
+[radio-disable fix](https://github.com/zephyrproject-rtos/zephyr/commit/355648a69f5137c68d86fe577ddb256e7da74d12)
+resets timer PPI/DPPI routes before clearing SHORTS and requesting DISABLE.
+The ZMK fork's [connection cancellation fix](https://github.com/zmkfirmware/zephyr/commit/10ba6d0cb38bc3d258775d27982f707599320085)
+changes same-owner zero-exchange central/peripheral preemption from EBUSY to
+ECANCELED. Forced-event protection and asynchronous completion remain. Full
+public patches, Apache-2.0 provenance, input/output hashes and exact source
+membership are recorded; the pinned SDK checkout is unchanged. DC/PC and
+BabbleSim are excluded. Queue capacity, assertions, priorities, timers, pairing,
+precision policy and RF configuration remain unchanged.
+
+Actual-source host controls distinguish the old cleanup route and cancellation
+behavior, retain ownership until an explicitly delivered fake DISABLED interrupt,
+then run actual connection ISR cleanup and FIFO retirement. Missing completion
+still reaches the original full-queue assertion. HAL/IRQ, LLCP/HCI, ticker and
+mayfly boundaries remain models. These fixes require native and field checks;
+neither test establishes the physical initiator of the source162 failures.
+
+Version163 also improves diagnostics for the unresolved controller fatal.
+On failed prepare allocation only, four previously unused counter words retain
+current LLL owner/abort callback and existing preempt, mayfly and ticker state
+under the same IRQ fence as the seven queued preparations. The two pre-existing
+preempt callback objects move one-for-one; no healthy controller hook, new state,
+queue capacity, timer, priority or protocol policy is added. Exact source/build
+mode and CRC are required for decoding. A current cut does not establish why
+retirement stopped. Native and physical acceptance remain separate.
+
+A rejected optional health note no longer consumes its detail window or reported
+counter changes. It retries through the existing one-second throttle and alternate
+watchdog opportunities, normally every two seconds; admitted healthy detail keeps
+its original60s cadence. This corrects reproduced diagnostic delivery loss, not
+the controller fatal. Console admission does not acknowledge host delivery.
+
 Version162 keeps authenticated current-session source health fresh through the
 existing accepted clock map when a new HELLO echo is too wide to replace that
 map. It rechecks the original record expiry with the old map and its drift;

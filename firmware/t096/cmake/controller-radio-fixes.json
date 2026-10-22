@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "license": "Apache-2.0 (upstream sources/patches); MIT (PToB generator)",
+  "description": "Two explicit runtime fixes; executable edits from exact public commits, comments adapted to changed cancellation; no dependency checkout mutation",
+  "upstream": [
+    {
+      "commit": "355648a69f5137c68d86fe577ddb256e7da74d12",
+      "url": "https://github.com/zephyrproject-rtos/zephyr/commit/355648a69f5137c68d86fe577ddb256e7da74d12",
+      "patch": "zephyr-355648a.patch",
+      "patch_sha256": "144b3e18464afc5a6616248e46cba6f67a279580144dd84ea638e62979e164e4"
+    },
+    {
+      "commit": "10ba6d0cb38bc3d258775d27982f707599320085",
+      "url": "https://github.com/zmkfirmware/zephyr/commit/10ba6d0cb38bc3d258775d27982f707599320085",
+      "patch": "zmk-10ba6d0.patch",
+      "patch_sha256": "ba55d7c5d0b3e2a0fe461857d835525544fa1b38707c6b5eb049c69d2928cb72"
+    }
+  ],
+  "files": {
+    "subsys/bluetooth/controller/ll_sw/nordic/hal/nrf5/radio/radio.c": {
+      "input_sha256": "20368a5327b01ac2b92dca11fc883c2086c41b505567e8d1944646a2e8173cf4",
+      "output_sha256": "b53b94cbc4cbae096435a4c16bf298db629101133751fd1700342b1352f0bcc6"
+    },
+    "subsys/bluetooth/controller/ll_sw/nordic/lll/lll_conn.c": {
+      "input_sha256": "8c6c1953fd3968b778b9494cc3c1c1718a1e7c6c37b1d19254893773e97eed2c",
+      "output_sha256": "1ac5162d9ce3784767efde2b21c19574442a4949aba50d277e57ced9d07d8586"
+    }
+  },
+  "patch_sha256": "58373dfd8438fad9cb8cbba001f5284042217f4237d82a71e36c7cf70528ec8d"
+}
