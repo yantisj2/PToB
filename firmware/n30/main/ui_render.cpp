@@ -33,9 +33,13 @@ void signed_count(char* out,size_t size,int64_t value){
 }
 void precision_digit(uint8_t* f,int x,int y,unsigned digit){
  static const uint8_t masks[]={0x3f,6,0x5b,0x4f,0x66,0x6d,0x7d,7,0x7f,0x6f};const auto b=masks[digit%10];
- if(b&1)fill(f,x+2,y,6,2);if(b&2)fill(f,x+8,y+2,2,7);
- if(b&4)fill(f,x+8,y+12,2,7);if(b&8)fill(f,x+2,y+19,6,2);
- if(b&16)fill(f,x,y+12,2,7);if(b&32)fill(f,x,y+2,2,7);if(b&64)fill(f,x+2,y+9,6,2);
+ if(b&1){fill(f,x+2,y,6,2);}
+ if(b&2){fill(f,x+8,y+2,2,7);}
+ if(b&4){fill(f,x+8,y+12,2,7);}
+ if(b&8){fill(f,x+2,y+19,6,2);}
+ if(b&16){fill(f,x,y+12,2,7);}
+ if(b&32){fill(f,x,y+2,2,7);}
+ if(b&64){fill(f,x+2,y+9,6,2);}
 }
 void precision_page(uint8_t* f,const Model& m,uint64_t now){
  const auto& p=m.precision;const bool live=precision_current(m,now);
