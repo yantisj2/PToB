@@ -6,6 +6,7 @@
 #include "status_adapter.hpp"
 #include "display_phase.hpp"
 #include "dual_time.hpp"
+#include "fine_capture.hpp"
 #include "n30_lora.hpp"
 #include "ptob_registry.h"
 #include "display_budget.hpp"
@@ -20,7 +21,7 @@
 namespace {
 i2c_master_bus_handle_t bus=nullptr;i2c_master_dev_handle_t oled=nullptr;
 portMUX_TYPE mux=portMUX_INITIALIZER_UNLOCKED;
-n30::Model published; n30::Activity activity,lora_activity;n30::DualComparison comparison; int requested_page=-1;
+n30::Model published; n30::Activity activity,lora_activity;n30::DualComparison comparison;n30::LockTimer precision_lock; int requested_page=-1;
 n30::ActionMailbox upstream_toggle,lora_toggle;
 struct Stats {uint32_t frames=0,errors=0,max_us=0,max_phase_us=0;uint64_t sampled=0;uint8_t page=0;bool ready=false,help=false,saver=false,blank=false,minimal=false;} stats;
 TaskHandle_t ui_task=nullptr;esp_timer_handle_t frame_timer=nullptr;
@@ -114,6 +115,10 @@ bool display_init(){
 }
 void n30_display_publish(const v12::R2Status& s,const DisplayState& d,uint64_t now){
  auto m=n30::model(s,d,now);
+ const auto capture=n30_fine_clock_status(now);
+ if(capture.hz)m.precision.counter_hz=capture.hz;
+ m.precision.capture_active=capture.active;m.precision.capture_healthy=capture.healthy;m.precision.capture_until_us=capture.until_us;
+ precision_lock.update(m,now);
  n30_lora_view lora;n30_lora_snapshot(lora);now=now_us();m.sampled_us=now;
  n30::select_lora(m,lora,now);comparison.update(m,now);
  if(m.source==n30::Source::LoRa){const auto* name=ptob_registry_name(lora.emitter);if(name)std::snprintf(m.parent,sizeof m.parent,"%s",name);else std::snprintf(m.parent,sizeof m.parent,"%04X",unsigned(lora.emitter&65535));}
@@ -136,7 +141,7 @@ bool display_set_scan(DisplayTiming::Profile){return false;}
 void display_update_indicators(bool,bool,bool){}
 void display_sleep(){}void display_wake(){}void display_blank(){}
 
-bool n30_display_page(unsigned page){if(page>2)return false;portENTER_CRITICAL(&mux);requested_page=int(page);portEXIT_CRITICAL(&mux);if(ui_task)xTaskNotifyGive(ui_task);return true;}
+bool n30_display_page(unsigned page){if(page>=n30::PageCount)return false;portENTER_CRITICAL(&mux);requested_page=int(page);portEXIT_CRITICAL(&mux);if(ui_task)xTaskNotifyGive(ui_task);return true;}
 bool n30_display_take_upstream_toggle(uint64_t now){portENTER_CRITICAL(&mux);const bool take=upstream_toggle.take(now);portEXIT_CRITICAL(&mux);return take;}
 
 bool n30_display_take_lora_toggle(uint64_t now){portENTER_CRITICAL(&mux);const bool take=lora_toggle.take(now);portEXIT_CRITICAL(&mux);return take;}

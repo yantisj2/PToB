@@ -47,7 +47,7 @@ int main(){
  }
  // Arbitrary phase/model corrections, missed slots, pulse boundaries. Exactly
  // two routine frames per second; zero renders during the750ms dark interval.
- for(unsigned page=0;page<3;page++){
+ for(unsigned page=0;page<n30::PageCount;page++){
   n30::View w;w.page=page;w.saver=w.minimal=true;n30::FrameCadence cadence;unsigned frames=0;
   for(uint64_t now=1000000;now<61000000;now+=1000){
    auto m=good(now,now+777000);auto phase=n30::frame_phase(m,w,now);

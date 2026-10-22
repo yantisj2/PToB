@@ -35,7 +35,7 @@ python3 registry/test_registry.py
 ```
 
 Use fresh output directories. `--alias N3-2` generates the other reserved name.
-Previews include all three pages, separate dual RF clocks and LoRa OFF/ON/fallback/fault states, BLE/RC1/RC2 savers at all three moving positions,
+Previews include all four pages, separate dual RF clocks and LoRa OFF/ON/fallback/fault states, BLE/RC1/RC2 savers at all three moving positions,
 minimal header-only PPS-on/off frames at all three positions, and
 relay-only/pending main-page examples. They are native64×128 PNGs from the actual firmware renderer. Preview receipts
 record source/fixture hashes and synthetic scope. The tests cover both8192-pixel
@@ -109,7 +109,7 @@ installation is permitted on the assumption that Meshtastic has that layout.
    app-only updates reuse verified recovery, retain bounded application drain,
    exact write bounds, actual application readback and protected-prefix comparison.
    A full-flash backup is a separately requested operation.
-4. Test the console/framed responses, all three pages/buttons/blank/wake, then direct
+4. Test the console/framed responses, all four pages/buttons/blank/wake, then direct
    T096 reception and existing RC paths, loss/reacquisition and several admission/
    authentication renewal cycles. Record failed/missing opportunities.
 5. Compare BLE health with display activity, test both units together and record
@@ -134,7 +134,7 @@ actual readback as recovery for subsequent routine updates.
 
 The [N30 framed console parser](../../firmware/n30/tools/framed_console.py)
 validates the additional `N30_UI` row as part of the original nonce/CRC/boot/
-source/build/deadline frame. Bound `ui page 0` / `ui page 1` / `ui page 2` commands affect
+source/build/deadline frame. Bound `ui page 0` / `ui page 1` / `ui page 2` / `ui page 3` commands affect
 presentation only and do not change the radio or clock authority.
 
 Version0.1.2 keeps the shared8704-byte whole-frame and1.5s response limits,
@@ -816,3 +816,43 @@ entry retains its own early refusal. ISR refusal increments its bounded counter
 without reading the format or snapshot; host tests cover every public entry, and
 native stack/disassembly review checks the branch before the large allocation.
 This selected call-path review is not a complete vendor/libc stack bound.
+
+## Version 0.2.16: precision watch face
+
+The fourth portrait page adds a monochrome watch bezel, large segmented causal
+`SYNC RMS`, signed active-clock frequency correction in `PPB`, raw 80 MHz
+observer state and a segmented `HH:MM:SS` lock stopwatch. It uses the existing
+font, monochrome frame, button gestures and 4 Hz display schedule. A short press
+cycles clock, dual radio, LoRa, precision, then clock; a 1.5-second hold on
+precision opens help and a four-second hold blanks the display.
+
+The RMS comes from the active BLE dashboard's settled causal quality, matching
+the clock page. The value remains conditional on current following time and
+its original source/model deadlines. A downstream receiver's relative shadow-PPS
+RMS, an offline fit or a calibrated advertised relay offset is a different
+quantity and is never substituted. The signed ppb value rounds the active
+clock model's frequency correction to the nearest ppb; nonfinite or out-of-range
+values show dashes. Larger RMS values change units through ns, us, ms and s.
+
+The stopwatch begins when the final settled BLE lock is first observed. It
+continues across screen changes and ordinary clock-fit publications. Loss of
+lock, expired time, a publication gap of 250 ms, a backward observation time,
+or a change of clock origin, root boot, source epoch or causal-quality scope
+starts a new interval. Unlocked live time shows zero; stale/unavailable values
+show dashes. The display saturates at `99:59:59` and adds `+` afterward. This is
+observed relative lock duration, not an independent accuracy guarantee.
+
+The raw-counter indicator reads a cached owner snapshot only. Rendering and
+publication never allocate MCPWM, start capture, latch CURRENT or drive GPIO.
+`80MHz OFF` is the default. `OBS` requires an active healthy finite raw-observer
+lease; `ERR` describes an active unhealthy observer and `---` a stale UI snapshot.
+This indicator grants no packet association or authority to the delivered clock.
+Production timestamp selection and its RF/UTC uncertainty remain unchanged.
+
+The bound console accepts `ui page 3` without radio or timing mutations. Parser
+manifests for this image use `n30_ui_revision=4`; revision 3 still accepts only
+pages 0–2. The ten-row wire frame, response deadline and byte budgets are
+unchanged. Host tests cover scope/expiry/loss/gap resets, actual page-command
+dispatch, old-revision refusal, all RMS units, stale values, cached observer
+reads without resource activity and both mounted framebuffer rotations.
+Illustrative previews contain synthetic values and are not hardware acceptance.

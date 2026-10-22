@@ -49,7 +49,7 @@ int main(){
  m.locked=false;backwards.update(m,b,5100000);assert(b.clock_frozen);backwards.update(m,b,5099999);assert(!b.clock_frozen);backwards.update(m,b,5100001);assert(!b.clock_frozen);
  // Exercise the real idle eligibility path at every moving saver position,
  // on either underlying page. A bad snapshot must never flash the top page.
- for(unsigned page=0;page<3;page++)for(unsigned pos=0;pos<3;pos++){
+ for(unsigned page=0;page<n30::PageCount;page++)for(unsigned pos=0;pos<3;pos++){
   n30::ClockHold h;n30::Input input;n30::View s;s.page=page;
   const uint64_t at=n30::IdleUs+pos*n30::MoveUs+1000000;auto live=good(at);
   input.idle(at,true,s);assert(s.saver&&s.saver_position==pos);present(h,live,s,at,original,input.saver_due(at,s));

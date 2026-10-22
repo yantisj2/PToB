@@ -15,10 +15,12 @@ void delivered_callback(unsigned channel){mcpwm_capture_event_data_t e{fake_raw,
 void edge(unsigned channel){if(fake_device.cap_chn_cfg[channel].capn_en&&(fake_device.int_ena.val&(1u<<(27+channel))))delivered_callback(channel);}
 void storm_during_enable(unsigned channel){if(channel==0)for(unsigned i=0;i<65;++i)edge(0);}
 int main(){
+ const auto initial_clock=n30_fine_clock_status(fake_now);assert(!initial_clock.active&&!initial_clock.healthy&&fake_allocated==0&&fake_gpio_calls==0);
  assert(n30_fine_released()&&fake_allocated==0&&fake_gpio_calls==0);for(unsigned i=166;i<=168;++i)GPIO.func_in_sel_cfg[i].val=0xabcd0000+i;
  assert(!n30_fine_start(1,0,fake_now,1000,1)&&fake_gpio_calls==0);
  for(unsigned periph=0;periph<2;++periph)for(unsigned inv=0;inv<2;++inv){gpio_ll_set_output_enable_ctrl(&GPIO,4,bool(periph),bool(inv));gpio_io_config_t io{};assert(gpio_get_io_config(4,&io)==0&&io.oe_ctrl_by_periph==bool(periph)&&io.oe_inv==bool(inv));}
  assert(n30_fine_start(1,PTOB_N30_FINE_FACTORY,fake_now,1000,1));
+ const auto reads_before_ui=current_reads;const auto live_clock=n30_fine_clock_status(fake_now);assert(live_clock.active&&live_clock.healthy&&live_clock.hz==80000000&&current_reads==reads_before_ui);
  assert(active&&routed&&fake_group==1&&fake_callbacks==2&&fake_channels[0].fsm&&fake_channels[1].fsm&&fake_channels[2].fsm);
  assert(GPIO.oe[4]&&GPIO.oe[5]&&GPIO.ie[4]&&GPIO.ie[5]);assert(GPIO.func_out_sel_cfg[4].val==unsigned(NativeRxSignal+1024)&&GPIO.func_out_sel_cfg[5].val==unsigned(NativeTxSignal+1024));assert(GPIO.func_in_sel_cfg[175].val==132&&GPIO.func_in_sel_cfg[176].val==133);
  static v12::ConsoleFrame frame;frame={};n30_fine_frame(frame,0,fake_now);assert(!frame.failed&&snapshot.rx_out==unsigned(NativeRxSignal+1024)&&snapshot.tx_out==unsigned(NativeTxSignal+1024)&&snapshot.rx_in==132&&snapshot.tx_in==133&&snapshot.oe==3&&snapshot.channel_mask==7&&snapshot.irq_mask==3);

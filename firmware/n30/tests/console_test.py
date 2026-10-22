@@ -6,10 +6,10 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'tools'))
 import framed_console as c
 nonce='0000000000000001';ticket='0000000000000002';boot='0000000000000003'
 m={'factory_mac':'02:00:00:00:30:01','source_commit':'a'*40,'build_id':'b'*64,'r2_profile':'r2-g1','r2_enrollment_sha256':'c'*64,'r2_group_id':'0123456789abcdef','r2_key_epoch':1,'r2_client_identity':'0000020000003001'}
-def frame(group=None,gps='ABSENT',ui=''):
+def frame(group=None,gps='ABSENT',ui='',page=0):
  rows=[f"W12_R2_STATUS profile=r2-g1 enrollment_sha={m['r2_enrollment_sha256']} self=3 client_capabilities=0 client_control=0 source=0 serving=0 group_id={group or m['r2_group_id']} key_epoch=1 client_identity={m['r2_client_identity']}",f"W12_V12_STATUS factory={m['factory_mac']} source={m['source_commit']} build={m['build_id']} session={boot} GPS_inputs=0"]
  rows += [name+' valid=0' for name in c.base.ROWS[1:-1]]
- rows += [f'W12_V12_COMMAND nonce={nonce}',f'N30_UI profile=RC GPS={gps} page=0 display=64x128{ui}']
+ rows += [f'W12_V12_COMMAND nonce={nonce}',f'N30_UI profile=RC GPS={gps} page={page} display=64x128{ui}']
  body=(f"\nW12_V12_BEGIN version=3 nonce={nonce} ticket={ticket} factory={m['factory_mac']} session={boot} source={m['source_commit']} build={m['build_id']} request_us=1000000 deadline_us=2500000 ticket_deadline_us=3000000\n"+'\n'.join(rows)+'\n').encode()
  end=f'W12_V12_END version=3 nonce={nonce} ticket={ticket} rows=10 crc32={zlib.crc32(body):08x} request_us=1000000 completed_us=1500000 deadline_us=2500000 body_driver_drained=1 counter_exhausted=0 capture_id=0000000000000000 capture_active=0 capture_deadline_us=0'
  for key,value in c.base.COUNTERS.items():end+=f' {key}=0 {value}=0 req_{key}=0'
@@ -31,6 +31,15 @@ for ui in ('',' path=GPS upstream=AUTO',' path=BLE',' upstream=RELAY',' path=RC1
  except RuntimeError:pass
  else:raise AssertionError('Missing or invalid source/upstream accepted')
 print('PASS N30 ten-row production parser: nonce/CRC, fragmented delivery, group/GPS refusal, source/upstream and display-only command')
+
+for page in range(4):
+ assert len(c.Parser(nonce,dict(m,n30_ui_revision=4)).feed(frame(ui=' path=BLE upstream=AUTO',page=page)))==1
+for revision,page in ((3,3),(4,4)):
+ try:c.Parser(nonce,dict(m,n30_ui_revision=revision)).feed(frame(ui=' path=BLE upstream=AUTO',page=page))
+ except RuntimeError:pass
+ else:raise AssertionError('Page outside manifest UI revision accepted')
+assert c.mutation_command(frames[0],'0000000000000004','ui page 3').endswith(b' ui page 3\n')
+print('PASS four-page UI revision binding and PRECISION page command')
 
 # Build a complete synthetic alternate frame, then re-CRC intentional faults.
 def lora_frame(replace=None,omit=None):

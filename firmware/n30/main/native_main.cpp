@@ -510,7 +510,7 @@ void command(const char* text){
   }else if(update_gate.latched()){last_command.reason="UPDATE_GATE_LATCHED";}
   // Presentation owns no BLE resource. Retain ticket/boot/maintenance guards,
   // then admit it before the shared radio-ownership fence.
-  else if(!std::strcmp(action,"ui page 0")||!std::strcmp(action,"ui page 1")||!std::strcmp(action,"ui page 2")){
+  else if(!std::strcmp(action,"ui page 0")||!std::strcmp(action,"ui page 1")||!std::strcmp(action,"ui page 2")||!std::strcmp(action,"ui page 3")){
     const bool ok=n30_display_page(action[8]-'0');last_command={nonce,admitted,ok,"UI_PAGE",ok?"DISPLAY_ONLY":"INVALID_PAGE"};
   }
   else if(!std::strcmp(action,"lora diag")){lora_diagnostic_response=true;last_command={nonce,admitted,true,"LORA_DIAG","READ_ONLY_CRC_SNAPSHOT"};}

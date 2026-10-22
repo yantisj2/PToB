@@ -10,7 +10,7 @@ bool pixel(const uint8_t* f,unsigned x,unsigned y){return f[y*8+x/8]&(0x80u>>(x%
 }
 int main(){
  // Arbitrary boot phase, exact edges, new models, long misses and backwards UTC.
- for(unsigned page=0;page<3;page++)for(uint64_t phase:{0ULL,1ULL,124999ULL,125000ULL,249999ULL,999999ULL}){
+ for(unsigned page=0;page<n30::PageCount;page++)for(uint64_t phase:{0ULL,1ULL,124999ULL,125000ULL,249999ULL,999999ULL}){
   n30::View v;v.page=page;const uint64_t start=1234567;auto m=good(start,10000000+phase);n30::FrameCadence c;
   auto p=n30::frame_phase(m,v,start);assert(c.deadline(p,start)==start);c.rendered(p);
   assert(p.period==(page==1?125000:250000));assert(p.next-start==p.period-m.utc_us%p.period);const auto edge=p.next;
@@ -24,14 +24,14 @@ int main(){
   v.saver=true;assert(n30::frame_phase(at,v,edge).period==250000);
  }
  // A minute of irregular boot phase produces only the intended4/8Hz slots.
- for(unsigned page=0;page<3;page++){
+ for(unsigned page=0;page<n30::PageCount;page++){
   n30::View v;v.page=page;n30::FrameCadence c;unsigned frames=0;const uint64_t offset=777777,start=234567;
   for(uint64_t now=start;now<start+60000000;now+=1000){auto m=good(now,now+offset);auto p=n30::frame_phase(m,v,now);if(c.deadline(p,now)<=now){if(frames)assert((now+offset)%p.period<1000);c.rendered(p);frames++;}}
   assert(frames==(page==1?481:241));
  }
  // Page/wake transfer coalesces with a nearby edge; no catch-up after an
  // occupied slot. Test all starting phases and both dashboard/RF cadences.
- for(unsigned page=0;page<3;page++)for(uint64_t phase=0;phase<1000000;phase+=997){
+ for(unsigned page=0;page<n30::PageCount;page++)for(uint64_t phase=0;phase<1000000;phase+=997){
   n30::View v;v.page=page;n30::FrameCadence c;auto m=good(2000000,10000000+phase);auto p=n30::frame_phase(m,v,2000000);
   auto due=c.forced_deadline(p,2000000);assert(due>=2000000&&due-2000000<n30::FrameWorkUs);
   if(p.next-2000000<n30::FrameWorkUs)assert(due==p.next);else assert(due==2000000);

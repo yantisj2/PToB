@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "title": "N30 0.2.16 PRECISION portrait preview",
+  "copyright": "Jonathan Yantis",
+  "license": "MIT",
+  "scope": "PRODUCTION_RENDERER_SYNTHETIC_FIXTURE",
+  "hardware_access": false,
+  "dimensions": [
+    64,
+    128
+  ],
+  "generated_alias": "N3-1",
+  "fixture": "precision-lock",
+  "source_version": "0.2.16",
+  "source_basis_commit": "72d332506408e9d65ebac0c8cc35856f4ff99e37",
+  "source_identity": "Exact final source SHA256 values below; generated before this additive change was committed",
+  "sources": {
+    "firmware/n30/tools/preview.cpp": "bab1e05cc18a46ae153eb05489682c29687fb746f04fea17b5da5b76b45bcc72",
+    "firmware/n30/main/ui.hpp": "ac3e447530f3566aebb1bc3275c14330d3efca4f00a6bb590c63719b20b9ebfe",
+    "firmware/n30/main/ui_model.cpp": "c2736f1db8ca3322a52d54acbcafc2642fcae233b05dc8cadc2058744e8ff116",
+    "firmware/n30/main/ui_render.cpp": "5656727fce562745687f440d9e727dabd9e207d74a5af43e347048a46b9affc1",
+    "firmware/n30/main/font.inc": "814ce6f3ffd7b828706765284e56393ca0e53874ee4fd3f823213ddd4d3d44df"
+  },
+  "generator_sha256": "e14d7a2bce90a508ece1c476726ec040d2803fe3c2f532b8555212143849e166",
+  "image": "docs/images/n30-precision-preview.png",
+  "generated_filename": "n30-precision-lock-preview.png",
+  "image_sha256": "299d07ad76a1419c9485b298693a28556d72912fb7718b00456dbcb9d6066a79",
+  "reproduction": "python3 firmware/n30/tools/preview.py --out artifacts/n30-precision-preview --alias N3-1",
+  "limitations": "Synthetic UI values only. 80MHz OFF is observer state, not active qualified BLE packet timing. Causal RMS is not UTC error or downstream PPS RMS."
+}

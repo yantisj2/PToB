@@ -12,6 +12,15 @@ bool time(const Model& m,uint64_t now,uint64_t& utc){
 bool saver_time(const Model& m,uint64_t now,uint64_t& utc){return time(m,now,utc)&&m.state==State::Follow&&m.source!=Source::None;}
 bool analog_time(const Model& m,uint64_t now,uint64_t& utc){return saver_time(m,now,utc)&&m.locked;}
 bool pps_on(const Model& m,uint64_t now){uint64_t utc;return (!m.mode_pending||m.source==Source::LoRa)&&analog_time(m,now,utc)&&utc%1000000<250000;}
+bool precision_current(const Model& m,uint64_t now){return current(m,now)&&m.precision.valid&&now<m.precision.until_us;}
+void LockTimer::update(Model& m,uint64_t now){
+ auto& p=m.precision;
+ const bool live=precision_current(m,now)&&p.locked&&p.scope;
+ if(!live){active_=false;since_=scope_=0;}
+ if(!live||(active_&&(now<last_||now-last_>=SnapshotMaxUs||scope_!=p.scope||boot_!=p.root_boot||epoch_!=p.source_epoch||quality_!=p.quality_scope)))active_=false;
+ if(live&&!active_){since_=now;scope_=p.scope;boot_=p.root_boot;epoch_=p.source_epoch;quality_=p.quality_scope;active_=true;}
+ p.lock_since_us=since_;p.lock_age_valid=active_;last_=now;
+}
 void ClockHold::update(const Model& m,View& v,uint64_t now,bool saver_due){
  v.clock_frozen=false;
  if(v.help||v.blank||(seen_&&now<observed_)){reset();return;}
@@ -57,7 +66,7 @@ Action Input::update(bool pressed,uint64_t now,View& v){
   }else{
    if(armed_&&!consumed_){
     if((main_press_||lora_press_)&&now>=down_&&now-down_>=1500000)action=main_press_?Action::ToggleRelayOnly:lora_eligible_?Action::ToggleLoRa:Action::None;
-    else if(v.help)v.help=false;else v.page=(v.page+1)%3;
+    else if(v.help)v.help=false;else v.page=(v.page+1)%PageCount;
    }
    armed_=true;consumed_=wake_=false;down_=0;idle_=now;
   }

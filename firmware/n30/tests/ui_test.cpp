@@ -15,7 +15,7 @@ int main(){
  uint64_t utc;assert(n30::time(m,1000100,utc)&&utc==123456889);assert(!n30::time(m,999999,utc));assert(!n30::time(m,1250000,utc));
  m.state=n30::State::Fault;assert(!n30::time(m,1000100,utc));m.state=n30::State::Follow;
  struct Guard {uint8_t before[32],frame[n30::FrameBytes],after[32];} g;std::memset(&g,0xa5,sizeof g);
- for(unsigned page=0;page<3;page++)for(unsigned state=0;state<7;state++)for(bool help:{false,true}){
+ for(unsigned page=0;page<n30::PageCount;page++)for(unsigned state=0;state<7;state++)for(bool help:{false,true}){
   n30::View v;v.page=page;v.help=help;m.state=n30::State(state);std::memset(m.unit,'X',24);m.unit[24]=0;std::memset(m.parent,'Y',24);m.parent[24]=0;
   n30::render(g.frame,m,v,1000001);for(auto b:g.before)assert(b==0xa5);for(auto b:g.after)assert(b==0xa5);
  }
@@ -60,9 +60,9 @@ int main(){
  assert(cancelled.update(true,150000,cv)==n30::Action::None);cv.page=2;
  assert(cancelled.update(true,1600000,cv)==n30::Action::None);
  cancelled.update(false,5100000,cv);assert(cancelled.update(false,5140000,cv)==n30::Action::None&&cv.page==2);
- // Short presses complete the three-screen cycle.
+ // Short presses complete the four-screen cycle.
  n30::Input cycle;n30::View cyc;
- for(unsigned n=1;n<=3;n++){auto at=uint64_t(n)*1000000;cycle.update(true,at,cyc);cycle.update(true,at+40000,cyc);cycle.update(false,at+100000,cyc);cycle.update(false,at+140000,cyc);assert(cyc.page==n%3);}
+ for(unsigned n=1;n<=4;n++){auto at=uint64_t(n)*1000000;cycle.update(true,at,cyc);cycle.update(true,at+40000,cyc);cycle.update(false,at+100000,cyc);cycle.update(false,at+140000,cyc);assert(cyc.page==n%n30::PageCount);}
  n30::ActionMailbox mail;assert(mail.post(100));assert(!mail.post(101));assert(mail.take(102));assert(!mail.take(103));
  assert(mail.post(200));assert(!mail.take(199));assert(!mail.take(201));assert(mail.post(300));assert(!mail.take(300+n30::SnapshotMaxUs));
  m.sampled_us=m.utc_at_us=1000000;m.until_us=1250000;m.valid=m.locked=true;m.state=n30::State::Follow;

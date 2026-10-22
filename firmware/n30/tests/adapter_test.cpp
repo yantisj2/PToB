@@ -19,6 +19,11 @@ int main(){
  s.following=false;s.g1_retained_estimate=true;m=n30::model(s,d,1000001);assert(m.valid&&!m.locked&&!m.serving&&m.state==n30::State::Hold&&m.rms_ns==UINT32_MAX);
  s.fault=true;m=n30::model(s,d,1000001);assert(!m.valid&&!m.locked&&m.state==n30::State::Fault);
  s.fault=false;s.requested=false;m=n30::model(s,d,1000001);assert(!m.valid&&m.state==n30::State::Off);
+ s.requested=s.following=true;s.g1_clock_model.tick=20000000;s.g1_clock_model.rate=-5486.737;s.g1_clock_origin=7;
+ s.rms_ns=12345;d.rms_ns=170;m=n30::model(s,d,1000001);
+ assert(m.precision.valid&&m.precision.rms_ns==170&&m.rms_ns==170&&m.precision.rate_known&&m.precision.rate_ppb==-5487&&m.precision.scope==7);
+ s.g1_clock_model.rate=std::nan("");m=n30::model(s,d,1000001);assert(!m.precision.rate_known);
+ s.g1_clock_model.rate=50001;m=n30::model(s,d,1000001);assert(!m.precision.rate_known);
  s.requested=s.following=true;s.root_boot=0;m=n30::model(s,d,1000001);assert(!m.valid&&!m.locked);
  s.root_boot=2;s.rc7_upstream_mode_pending=true;m=n30::model(s,d,1000001);assert(!m.valid&&!m.locked&&m.state==n30::State::Acquire&&m.mode_pending&&m.source==n30::Source::None);
 }

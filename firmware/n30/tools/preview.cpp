@@ -51,4 +51,21 @@ int main(int argc,char** argv){
   for(unsigned y=0;y<128;y++)for(unsigned x=0;x<64;x++)std::fputc(frame[y*8+x/8]&(0x80>>(x%8))?255:0,f);
   std::fclose(f);
  }
+ // New page fixtures exercise the actual renderer, not a graphic mockup.
+ const char* precision_names[]={"precision-lock","precision-acquire","precision-stale","precision-observer","precision-microseconds","precision-long-lock"};
+ for(unsigned i=0;i<6;++i){
+  n30::Model p;p.sampled_us=p.utc_at_us=5000000000;p.until_us=p.sampled_us+250000;
+  p.valid=p.locked=true;p.state=n30::State::Follow;p.source=n30::Source::Ble;
+  auto& q=p.precision;q.valid=q.locked=q.lock_age_valid=q.rate_known=true;q.scope=1;
+  q.until_us=p.until_us;q.rms_ns=170;q.rate_ppb=-5487;q.lock_since_us=p.sampled_us-754000000;
+  if(i==1){q.locked=q.lock_age_valid=false;q.rms_ns=UINT32_MAX;q.rate_known=false;}
+  if(i==3){q.capture_active=q.capture_healthy=true;q.capture_until_us=p.sampled_us+10000000;}
+  if(i==4)q.rms_ns=1234;
+  if(i==5){p.sampled_us=p.utc_at_us=400000000000;p.until_us=p.sampled_us+250000;q.until_us=p.until_us;q.lock_since_us=1;}
+  n30::View v;v.page=3;n30::render(frame,p,v,p.sampled_us+(i==2?250000:0));
+  char path[1024];std::snprintf(path,sizeof path,"%s/%s.pgm",argv[1],precision_names[i]);
+  auto f=std::fopen(path,"wb");if(!f)return 3;std::fprintf(f,"P5\n64 128\n255\n");
+  for(unsigned y=0;y<128;y++)for(unsigned x=0;x<64;x++)std::fputc(frame[y*8+x/8]&(0x80>>(x%8))?255:0,f);
+  std::fclose(f);
+ }
 }

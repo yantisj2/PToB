@@ -6,6 +6,7 @@
 #include "lora_view.h"
 namespace n30 {
 constexpr unsigned Width=64,Height=128,FrameBytes=1024;
+constexpr unsigned PageCount=4;
 constexpr uint64_t SnapshotMaxUs=250000,IdleUs=300000000,MoveUs=30000000;
 constexpr uint64_t ClockGraceUs=500000;
 constexpr uint64_t MinimalAfterUs=900000000;
@@ -20,6 +21,13 @@ struct Model {
  bool valid=false,locked=false,serving=false,relay_only=false,mode_pending=false;
  Source source=Source::None;
  struct BleClock {uint64_t at_us=0,utc_us=0,until_us=0,root=0,boot=0;uint32_t epoch=0;bool valid=false,following=false;} ble;
+ struct Precision {
+  uint64_t until_us=0,scope=0,root_boot=0,lock_since_us=0,capture_until_us=0;
+  uint32_t source_epoch=0,quality_scope=0,counter_hz=80000000,rms_ns=UINT32_MAX;
+  int32_t rate_ppb=0;
+  bool valid=false,rate_known=false,locked=false,lock_age_valid=false;
+  bool capture_active=false,capture_healthy=false;
+ } precision;
  n30_lora_view lora{};uint8_t lora_lamps[8]{};
  int64_t delta_ns=0;int32_t drift_ppb=0;bool delta_valid=false,drift_valid=false;
  State state=State::Search;uint8_t lamps[8]{}; // 0 inactive,1 RX/event,2 TX/API
@@ -52,6 +60,14 @@ bool time(const Model&,uint64_t now,uint64_t& utc);
 bool analog_time(const Model&,uint64_t now,uint64_t& utc);
 bool saver_time(const Model&,uint64_t now,uint64_t& utc);
 bool pps_on(const Model&,uint64_t now);
+bool precision_current(const Model&,uint64_t now);
+// Duration of the final live, settled BLE lock. Scope, loss, expiry and a
+// missing publication reset it; navigation and new fit generations do not.
+class LockTimer {
+ uint64_t since_=0,last_=0,scope_=0,boot_=0;uint32_t epoch_=0,quality_=0;bool active_=false;
+ public:
+ void update(Model&,uint64_t now);
+};
 const char* source_label(const Model&,uint64_t now);
 void render(uint8_t frame[FrameBytes],const Model&,const View&,uint64_t now);
 // Logical portrait bitmap -> native 128x64 OLED pages. Both mounted rotations.

@@ -13,8 +13,8 @@ namespace n30 { namespace {
 void pixel(uint8_t* f,int x,int y,bool on=true){if(x>=0&&x<64&&y>=0&&y<128){const auto bit=uint8_t(0x80>>(x%8));if(on)f[y*8+x/8]|=bit;else f[y*8+x/8]&=uint8_t(~bit);}}
 void fill(uint8_t* f,int x,int y,int w,int h,bool on=true){for(int j=0;j<h;j++)for(int i=0;i<w;i++)pixel(f,x+i,y+j,on);}
 void box(uint8_t* f,int x,int y,int w,int h){fill(f,x+1,y,w-2,1);fill(f,x+1,y+h-1,w-2,1);fill(f,x,y+1,1,h-2);fill(f,x+w-1,y+1,1,h-2);}
-void text(uint8_t* f,int x,int y,const char* s){for(;*s&&x<64;s++,x+=6){const auto g=glyph(*s);for(int c=0;c<5;c++)for(int r=0;r<7;r++)if(g[c]&(1<<r))pixel(f,x+c,y+r);}}
-void center(uint8_t* f,int y,const char* s){text(f,(64-int(std::strlen(s))*6+1)/2,y,s);}
+void text(uint8_t* f,int x,int y,const char* s,bool on=true){for(;*s&&x<64;s++,x+=6){const auto g=glyph(*s);for(int c=0;c<5;c++)for(int r=0;r<7;r++)if(g[c]&(1<<r))pixel(f,x+c,y+r,on);}}
+void center(uint8_t* f,int y,const char* s,bool on=true){text(f,(64-int(std::strlen(s))*6+1)/2,y,s,on);}
 void line(uint8_t* f,int x,int y,int xx,int yy){int dx=std::abs(xx-x),sx=x<xx?1:-1,dy=-std::abs(yy-y),sy=y<yy?1:-1,e=dx+dy;for(;;){pixel(f,x,y);if(x==xx&&y==yy)break;const int q=2*e;if(q>=dy){e+=dy;x+=sx;}if(q<=dx){e+=dx;y+=sy;}}}
 void circle(uint8_t* f,int cx,int cy,int r){int x=r,y=0,e=1-r;while(x>=y){for(int a:{-1,1})for(int b:{-1,1}){pixel(f,cx+a*x,cy+b*y);pixel(f,cx+a*y,cy+b*x);}y++;if(e<0)e+=2*y+1;else{x--;e+=2*(y-x)+1;}}}
 void header(uint8_t* f,const Model& m,bool fresh,int top=0){char s[12];if(fresh&&m.valid)std::snprintf(s,sizeof s,"%.4s>%.5s",m.unit,m.parent);else std::snprintf(s,sizeof s,"%.10s",m.unit);box(f,1,top,62,11);center(f,top+2,s);}
@@ -31,6 +31,49 @@ void signed_count(char* out,size_t size,int64_t value){
  else if(n<1000000000)std::snprintf(out,size,"%c%uM",sign,unsigned(n/1000000));
  else std::snprintf(out,size,"%c>1G",sign);
 }
+void precision_digit(uint8_t* f,int x,int y,unsigned digit){
+ static const uint8_t masks[]={0x3f,6,0x5b,0x4f,0x66,0x6d,0x7d,7,0x7f,0x6f};const auto b=masks[digit%10];
+ if(b&1)fill(f,x+2,y,6,2);if(b&2)fill(f,x+8,y+2,2,7);
+ if(b&4)fill(f,x+8,y+12,2,7);if(b&8)fill(f,x+2,y+19,6,2);
+ if(b&16)fill(f,x,y+12,2,7);if(b&32)fill(f,x,y+2,2,7);if(b&64)fill(f,x+2,y+9,6,2);
+}
+void precision_page(uint8_t* f,const Model& m,uint64_t now){
+ const auto& p=m.precision;const bool live=precision_current(m,now);
+ const bool locked=live&&p.locked&&p.lock_age_valid&&now>=p.lock_since_us;
+ // A watch bezel, one LCD measurement well and a segmented stopwatch. All
+ // measurements retain their own validity; the raw latch is not a fine map.
+ box(f,1,0,62,128);fill(f,2,1,60,11);center(f,3,"PRECISION",false);
+ char out[20];std::snprintf(out,sizeof out,"%uMHz",unsigned(p.counter_hz/1000000));text(f,5,18,out);
+ const bool capture=p.capture_active&&now<p.capture_until_us;
+ text(f,43,18,!current(m,now)?"---":capture?(p.capture_healthy?"OBS":"ERR"):"OFF");
+ center(f,29,!live?"NO SYNC":locked?"LOCK EST":"SYNCING");
+ fill(f,4,39,56,1);center(f,43,"SYNC RMS");
+ unsigned value=p.rms_ns;const char* unit="ns";int dot=0;
+ const bool known=live&&value!=UINT32_MAX;
+ const unsigned scale=value>=1000000000?1000000000:value>=1000000?1000000:value>=1000?1000:1;
+ unit=scale==1000000000?"s":scale==1000000?"ms":scale==1000?"us":"ns";
+ if(scale>1&&value/scale<10){value=unsigned(uint64_t(value)*100/scale);dot=1;}
+ else if(scale>1&&value/scale<100){value=unsigned(uint64_t(value)*10/scale);dot=2;}
+ else value/=scale;
+ value=std::min(value,999u);
+ for(unsigned i=0;i<3;i++){
+  const int x=7+int(i)*13;
+  if(known)precision_digit(f,x,54,value/(i==0?100:i==1?10:1)%10);
+  else fill(f,x+2,63,6,2);
+ }
+ if(known&&dot)fill(f,dot==1?18:31,73,2,2);
+ text(f,47,67,known?unit:"ns");
+ fill(f,4,79,56,1);text(f,5,85,"PPB");
+ if(live&&p.rate_known)signed_count(out,sizeof out,p.rate_ppb);else std::snprintf(out,sizeof out,"--");
+ text(f,61-int(std::strlen(out))*6,85,out);
+ fill(f,4,98,56,1);
+ if(locked){box(f,7,101,6,7);fill(f,6,106,8,6);fill(f,9,108,2,2,false);}else{line(f,8,102,12,102);line(f,8,102,8,106);box(f,6,106,8,6);}
+ text(f,23,102,"LOCK");
+ if(locked&&(now-p.lock_since_us)/1000000>359999)text(f,50,102,"+");
+ uint64_t elapsed=locked?(now-p.lock_since_us)/1000000:0;elapsed=std::min<uint64_t>(elapsed,359999);
+ unsigned v[]={unsigned(elapsed/3600/10),unsigned(elapsed/3600%10),unsigned(elapsed/60%60/10),unsigned(elapsed/60%10),unsigned(elapsed%60/10),unsigned(elapsed%10)};
+ int x=7;for(unsigned i=0;i<6;i++){if(live)number(f,x,113,v[i]);else fill(f,x+1,119,4,1);x+=7;if(i==1||i==3){pixel(f,x,117);pixel(f,x,121);x+=4;}}
+}
 void lora_page(uint8_t* f,const Model& m,uint64_t now){
  const auto& l=m.lora;const bool fresh=current(m,now)&&now>=l.sampled_us&&now-l.sampled_us<SnapshotMaxUs;
  box(f,1,0,62,11);center(f,2,"LORA RC8");char out[24];
@@ -46,11 +89,12 @@ void lora_page(uint8_t* f,const Model& m,uint64_t now){
  if(l.age_ms==UINT32_MAX)center(f,101,"AGE --");else if(l.age_ms>=12000)center(f,101,"AGE >12s");else{std::snprintf(out,sizeof out,"AGE %u.%us",unsigned(l.age_ms/1000),unsigned(l.age_ms%1000/100));center(f,101,out);}
  uint64_t ble;center(f,111,ble_time(m,now,ble)&&m.ble.following?"BLE SELECT":m.source==Source::LoRa&&valid?"RC8 SELECT":"NO CLOCK");center(f,121,"HOLD 1.5S");
 }
-void help(uint8_t* f,const View& v){box(f,1,0,62,11);center(f,2,v.page?"RF KEY":"CLOCK KEY");if(v.page){const char* names[]={"HEL SCAN","SRC GROUP","PRE PA RX","ACK JOIN","CMT MODEL","SRV TX API","RDY N/A","ERR REJECT"};for(unsigned i=0;i<8;i++)text(f,2,15+int(i)*10,names[i]);center(f,99,"DOT RX");center(f,109,"FILL TX");}else{const char* names[]={"RC ONLY","GPS ABSENT","LOCK EST","RELATIVE","RMS IS NOT","UTC ERROR","HOLD LOCAL","4S BLANK"};for(unsigned i=0;i<8;i++)center(f,16+int(i)*11,names[i]);}center(f,120,"PRESS BACK");}
+void help(uint8_t* f,const View& v){box(f,1,0,62,11);center(f,2,v.page==3?"PRECISION":v.page?"RF KEY":"CLOCK KEY");if(v.page==3){const char* names[]={"80M LATCH","OBS IS RAW","RMS CAUSAL","PPB TRIM","LOCK HELD","LOSS RESET","UTC ERROR","UNKNOWN"};for(unsigned i=0;i<8;i++)center(f,16+int(i)*11,names[i]);}else if(v.page){const char* names[]={"HEL SCAN","SRC GROUP","PRE PA RX","ACK JOIN","CMT MODEL","SRV TX API","RDY N/A","ERR REJECT"};for(unsigned i=0;i<8;i++)text(f,2,15+int(i)*10,names[i]);center(f,99,"DOT RX");center(f,109,"FILL TX");}else{const char* names[]={"RC ONLY","GPS ABSENT","LOCK EST","RELATIVE","RMS IS NOT","UTC ERROR","HOLD LOCAL","4S BLANK"};for(unsigned i=0;i<8;i++)center(f,16+int(i)*11,names[i]);}center(f,120,"PRESS BACK");}
 }
 void render(uint8_t f[FrameBytes],const Model& m,const View& v,uint64_t now){
  std::memset(f,0,FrameBytes);if(v.blank)return;if(v.help){help(f,v);return;}
  if(v.page==2&&!v.saver){lora_page(f,m,now);return;}
+ if(v.page==3&&!v.saver){precision_page(f,m,now);return;}
  const bool fresh=current(m,now);uint64_t utc=0;const bool valid=time(m,now,utc),locked=analog_time(m,now,utc);
  if(v.saver){
   // T096's moving assembly: source strip, analog panel, identity strip.

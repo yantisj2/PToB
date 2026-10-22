@@ -36,7 +36,7 @@ void minimal_only(const Worker& w){
 }
 int main(){
  using namespace n30;
- for(unsigned page=0;page<3;page++)for(unsigned pos=0;pos<3;pos++)for(bool minimal:{false,true}){
+ for(unsigned page=0;page<n30::PageCount;page++)for(unsigned pos=0;pos<3;pos++)for(bool minimal:{false,true}){
   Worker w;w.view.page=page;const uint64_t entry=IdleUs+pos*MoveUs+1000000;
   w.step(live(entry),entry);assert(w.view.saver&&!w.view.minimal&&w.view.saver_position==pos);
   const uint64_t at=entry+(minimal?MinimalAfterUs:1000000);
@@ -70,7 +70,7 @@ int main(){
  }
  // The fifteen-minute boundary can occur inside a brief total outage. Recovery
  // by the other input keeps minimal mode; later independent outages get500ms.
- for(unsigned page=0;page<3;page++){
+ for(unsigned page=0;page<n30::PageCount;page++){
   Worker w;w.view.page=page;const auto start=IdleUs+1000000,edge=start+MinimalAfterUs;
   w.step(live(start),start);w.step(live(edge-200000),edge-200000);
   w.step(absent(edge-100000),edge-100000);assert(w.view.saver&&!w.view.minimal&&w.view.clock_frozen);

@@ -1,5 +1,16 @@
 # Changelog
 
+## N30 0.2.16 — precision watch face
+
+- Add a fourth portrait PRECISION page with segmented causal SYNC RMS, signed
+  active-clock ppb correction, cached 80 MHz observer state and continuous
+  settled-lock duration. Preserve existing monochrome typography and controls.
+- Reset lock duration on loss, expiry, publication gaps or timing-scope changes;
+  show stale metrics as unavailable. Keep downstream PPS quality separate from
+  the clock's own RMS and keep the raw observer disabled by default.
+- Extend bound page commands and synthetic previews, with sanitizer checks for
+  validity, controls and rendering. No change to timing authority or RF endpoints.
+
 ## 2026-10-22 — Bluetooth timecode public draft review
 
 - Record approval to publish the reviewed Bluetooth timecode research draft on

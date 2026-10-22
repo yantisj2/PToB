@@ -8,9 +8,14 @@
 Select a screen for its native 64×128 image.
 [Image provenance](../../docs/images/README.md#n30-portrait-previews).*
 
+
+[<img src="../../docs/images/n30-precision-preview.png" width="192" alt="N30 PRECISION watch face with segmented causal SYNC RMS, frequency correction, disabled raw observer and continuous lock duration">](../../docs/images/n30-precision-preview.png)
+
+*PRECISION · page 3. Synthetic renderer fixture; [image provenance](../../docs/images/README.md#n30-precision-preview).*
+
 Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
 
-**PToB owns N30 native G1/RC7 development.** Version **0.2.15** supports an **RC**
+**PToB owns N30 native G1/RC7 development.** Version **0.2.16** supports an **RC**
 with **two timing inputs: BLE and passive LoRa**, a portrait OLED clock and a
 receiver-status console. The Meshnology N30 / Heltec WiFi LoRa32 V3 route uses
 an ESP32-S3, 8 MB flash and a 128×64 OLED mounted as 64×128. Start with the
@@ -102,7 +107,7 @@ existing aggregate offset. See the [raw-capture experiment](../../docs/n30/build
 
 ## Screens and controls
 
-A short press cycles **clock → dual radio → LoRa → clock**. The first press
+A short press cycles **clock → dual radio → LoRa → precision → clock**. The first press
 while blanked or in the saver wakes the screen and is consumed.
 
 | Screen | What it shows | Hold action |
@@ -110,18 +115,32 @@ while blanked or in the saver wakes the screen and is consumed.
 | Clock | UTC, admitted source, analog clock, relative RMS, reception mode and bars | 1.5 s toggles automatic upstream selection / relay-only reception. This does not enable relay transmission. |
 | Dual radio | Independent BLE/LoRa clocks, producer activity, relative difference and drift | 1.5 s opens RF help; 4 s blanks the display while timing continues. |
 | LoRa | RX state, AUTO/manual policy, time, link fit, root/parent and age | 1.5 s overrides AUTO to the opposite RX state; KEEP ON → KEEP OFF → AUTO. |
+| Precision | Segmented causal SYNC RMS, signed oscillator correction in ppb, 80 MHz raw-observer state and continuous settled-lock duration | 1.5 s opens precision help; 4 s blanks the display. |
 
 `BLE`, `RC1` and `RC2` describe the admitted BLE upstream path; `LOR` identifies
 the LoRa display fallback. The clock footer shows `R` for relay-only reception
 and `>` during a pending mode change. Holds produce one action per press;
 LoRa overrides are volatile and boot into AUTO.
 
-The clock and LoRa pages refresh at 4 Hz; the dual-radio page at 8 Hz. Clock
+The clock, LoRa and precision pages refresh at 4 Hz; the dual-radio page at 8 Hz. Clock
 frames follow the modeled UTC phase. The PPS lamp is a 250 ms display pulse
 with a live timing gate, not a physical PPS output. A 500 ms presentation grace
 holds the last displayed clock through a brief quality dip, with PPS suppressed
 while the live gate is lost. Timing validity and radio authority retain their
 actual expiry throughout that visual grace.
+
+The PRECISION page uses the same settled causal BLE quality as the clock's
+`SYNC RMS`, with live source/model expiry. Its `LOCK` stopwatch measures
+continuous observation of the final settled BLE lock, independently of screen
+navigation. Loss, a missing display publication, or a root/boot/source/quality
+scope change resets it. It saturates at `99:59:59` with a `+` marker.
+
+`80MHz OFF` describes the disabled raw capture observer; `OBS` means its finite
+capture lease is active and healthy. It does not mean that the delivered BLE
+clock uses a qualified 80 MHz packet timestamp. The ppb field is the active
+clock's frequency correction, not a measurement of raw-counter accuracy.
+External shadow-PPS RMS and aggregate relay bias do not replace the clock's
+causal RMS. [Precision screen and validity details](../../docs/n30/build.md#version-0216-precision-watch-face).
 
 ## OLED screensaver
 

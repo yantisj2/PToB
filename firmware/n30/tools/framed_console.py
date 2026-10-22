@@ -144,7 +144,7 @@ class Parser(base.Parser):
    # validate the exact N30 G1 identity/capability separately here.
    for key,value in [('profile','r2-g1'),('enrollment_sha',m['r2_enrollment_sha256']),('self','3'),('client_capabilities','0'),('client_control','0'),('source','0'),('serving','0'),('group_id',m['r2_group_id']),('key_epoch',str(m['r2_key_epoch'])),('client_identity',m['r2_client_identity'])]:base.require(mesh.get(key)==value,'N30 G1 identity/capability mismatch: '+key)
    base.validate_provisional_profile(mesh,m)
-   base.require(ui.get('profile')=='RC' and ui.get('GPS')=='ABSENT' and ui.get('display')=='64x128' and ui.get('page') in (('0','1','2') if m.get('n30_ui_revision',0)>=3 else ('0','1')),'N30 display/capability mismatch')
+   base.require(ui.get('profile')=='RC' and ui.get('GPS')=='ABSENT' and ui.get('display')=='64x128' and ui.get('page') in (('0','1','2','3') if m.get('n30_ui_revision',0)>=4 else ('0','1','2') if m.get('n30_ui_revision',0)>=3 else ('0','1')),'N30 display/capability mismatch')
    base.require(status.get('GPS_inputs')=='0','N30 physical GNSS unexpectedly enabled')
    if m.get('n30_ui_revision',0)>=2 or 'path' in ui or 'upstream' in ui:
     base.require(ui.get('path') in (('BLE','RC1','RC2','LOR','HOLD','WAIT','--') if m.get('n30_ui_revision',0)>=3 else ('BLE','RC1','RC2','HOLD','WAIT','--')) and ui.get('upstream') in ('AUTO','RELAY','PENDING'),'Invalid N30 source/upstream mode')
@@ -162,6 +162,6 @@ def mutation_command(frame,nonce,action):
  if timing:
   nums=[int(x) for x in checked.split()[2:]]
   base.require(not nums or (0<=nums[0]<2**32 if checked.startswith('timing read ') else 1000<=nums[0]<=600000 and 1<=nums[1]<=64),'Timing command bounds')
- if not timing and not probe and not tx_capture and action not in ('ui page 0','ui page 1','ui page 2','lora diag','lora auto','lora on','lora off'):return base.mutation_command(frame,nonce,action)
+ if not timing and not probe and not tx_capture and action not in ('ui page 0','ui page 1','ui page 2','ui page 3','lora diag','lora auto','lora on','lora off'):return base.mutation_command(frame,nonce,action)
  base.require(base.HEX16.fullmatch(nonce) and int(nonce,16) and nonce!=frame['begin']['nonce'],'Fresh UI request nonce required')
  b=frame['begin'];return f"v12 do {b['ticket']} {nonce} {b['factory']} {b['session']} {action}\n".encode()

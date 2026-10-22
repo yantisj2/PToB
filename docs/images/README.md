@@ -129,3 +129,17 @@ fixtures; no factory identity or enrollment is included. Prior screensaver
 assets and their original dated source hashes remain available as historical
 previews; these main-screen replacements are preserved in Git history.
 Original ordinary interface documentation, Jonathan Yantis, MIT.
+
+## N30 precision preview
+
+`n30-precision-preview.png` is the version 0.2.16 fourth-page watch face,
+generated on 22 October 2026 from the actual 64×128 renderer with the synthetic
+`precision-lock` N3-1 fixture. Its segmented 170 ns causal RMS, signed ppb
+correction and lock duration are illustrative. `80MHz OFF` describes the raw
+observer state; it does not claim qualified fine Bluetooth timestamps.
+
+The [separate provenance record](n30-precision-provenance.json) records exact
+renderer/model/font/fixture/generator hashes and the selected PNG hash. Earlier
+preview manifests and historical hashes remain unchanged. Reproduce with the
+N30 preview command above and select `n30-precision-lock-preview.png`.
+Original interface artwork and documentation, Jonathan Yantis, MIT.

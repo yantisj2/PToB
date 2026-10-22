@@ -291,6 +291,12 @@ void n30_fine_poll(uint64_t){
  else stop=timer_started||timer_enabled||routed||channel_enabled[0]||channel_enabled[1]||channel_enabled[2];
  portEXIT_CRITICAL(&mux);if(stop)n30_fine_stop();
 }
+N30FineClockStatus n30_fine_clock_status(uint64_t now){
+ portENTER_CRITICAL(&mux);
+ const bool running=active&&now<history.until();
+ const N30FineClockStatus status{history.until(),hz,running,running&&!error&&!contained&&hz==80000000};
+ portEXIT_CRITICAL(&mux);return status;
+}
 void n30_fine_frame(v12::ConsoleFrame& f,uint32_t after,uint64_t now){
  n30_fine_poll(now);
  portENTER_CRITICAL(&mux);

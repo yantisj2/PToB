@@ -6,6 +6,7 @@
 #include "display.hpp"
 #include <algorithm>
 #include <cstdio>
+#include <cmath>
 namespace n30 {
 inline Model model(const v12::R2Status& s,const DisplayState& d,uint64_t now){
  Model m;std::snprintf(m.unit,sizeof m.unit,"%s",d.unit_label);std::snprintf(m.parent,sizeof m.parent,"%s",d.followed_clock);
@@ -23,6 +24,14 @@ inline Model model(const v12::R2Status& s,const DisplayState& d,uint64_t now){
   m.source=relayed?(s.rc7_depth==1?Source::Rc1:Source::Rc2):s.rc7_bound?Source::None:Source::Ble;
  }
  m.rms_ns=m.valid&&s.following?d.rms_ns:UINT32_MAX;
+ // The dashboard's settled causal quality belongs to the active BLE model.
+ // Neither the strict-discipline counters nor an external PPS witness replace it.
+ auto& p=m.precision;p.until_us=m.until_us;p.scope=s.g1_clock_origin;
+ p.root_boot=s.root_boot;p.source_epoch=s.source_epoch;p.quality_scope=s.g1_relative_quality.scope_generation;
+ p.valid=m.valid&&s.following&&s.g1_clock_model.tick;
+ p.rms_ns=p.valid?m.rms_ns:UINT32_MAX;p.locked=p.valid&&m.locked;
+ p.rate_known=p.valid&&std::isfinite(s.g1_clock_model.rate)&&std::abs(s.g1_clock_model.rate)<=50000;
+ if(p.rate_known)p.rate_ppb=int32_t(std::llround(s.g1_clock_model.rate));
  m.hz=s.following?s.precision_hz:0;
  m.serving=healthy&&m.valid&&s.following&&(s.rc7_server_flags&(1u<<4));
  // Delivery denominator is available for admitted RC7 paths only. Scan/PA

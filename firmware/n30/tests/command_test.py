@@ -57,7 +57,7 @@ bool n30_lora_mode(n30::LoRaMode){lora_changes++;return true;}
 bool n30_lora_cycle(){lora_changes++;return true;}
 bool n30_display_take_lora_toggle(uint64_t){bool take=lora_action;lora_action=false;return take;}
 bool r2_command_off_ack(){return !owner_active;}
-bool n30_display_page(unsigned n){if(n>2)return false;selected=n;++pages;return true;}
+bool n30_display_page(unsigned n){if(n>3)return false;selected=n;++pages;return true;}
 bool n30_display_take_upstream_toggle(uint64_t){bool take=action_pending;action_pending=false;return take;}
 '''
 suffix=r'''
@@ -71,7 +71,7 @@ int main(){
  send(1,"ui page 1");assert(last_command.accepted&&selected==1&&pages==1&&radio_changes==0&&owner_active);
  send(2,"ui page 0");assert(last_command.accepted&&selected==0&&pages==2&&radio_changes==0);
  send(2,"ui page 1");assert(!last_command.accepted&&pages==2); // nonce replay
- send(3,"ui page 3");assert(!last_command.accepted&&pages==2);
+ send(3,"ui page 4");assert(!last_command.accepted&&pages==2);
  send(4,"ui page 1","02:00:00:00:30:02");assert(!last_command.accepted&&pages==2);
  send(5,"ui page 1",factory_text,4);assert(!last_command.accepted&&pages==2);
  send(6,"ui page 1",factory_text,3,true);assert(!last_command.accepted&&pages==2);
@@ -108,7 +108,9 @@ int main(){
  send(58,"fine probe 100 15");assert(!last_command.accepted&&fine_probes==1);
  send(59,"fine probe 49 16");assert(!last_command.accepted&&fine_probes==1);
  send(54,"fine start 2000 4",factory_text,4);assert(!last_command.accepted&&fine_starts==1);
- update_gate.begin(now);send(8,"ui page 1");assert(!last_command.accepted&&pages==4&&radio_changes==2);
+ send(212,"ui page 3");assert(last_command.accepted&&selected==3&&pages==5&&radio_changes==2);
+ send(213,"ui page 0");assert(last_command.accepted&&pages==6&&radio_changes==2);
+ update_gate.begin(now);send(8,"ui page 1");assert(!last_command.accepted&&pages==6&&radio_changes==2);
  send(60,"fine probe 100 16");assert(!last_command.accepted&&fine_probes==1);
  send(55,"fine start 2000 4");assert(!last_command.accepted&&fine_starts==1);
  send(37,"timing start 2000 4");assert(!last_command.accepted&&timing_starts==1);
