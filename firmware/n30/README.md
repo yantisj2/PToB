@@ -10,7 +10,7 @@ Select a screen for its native 64×128 image.
 
 Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
 
-**PToB owns N30 native G1/RC7 development.** Version **0.2.8** supports an **RC**
+**PToB owns N30 native G1/RC7 development.** Version **0.2.9** supports an **RC**
 with **two timing inputs: BLE and passive LoRa**, a portrait OLED clock and a
 receiver-status console. The Meshnology N30 / Heltec WiFi LoRa32 V3 route uses
 an ESP32-S3, 8 MB flash and a 128×64 OLED mounted as 64×128. Start with the
@@ -73,6 +73,15 @@ full root identity, root boot and source epoch, with current LoRa companion
 metadata. Unavailable or mismatched inputs show dashes. These are relative
 estimates; display refreshes do not create new comparison samples or qualify
 absolute UTC accuracy. See the [LoRa build and timing details](../../docs/n30/build.md#version-023-passive-lora-receiver).
+
+Reusable timing diagnostics default OFF and can be enabled through the bound
+console for up to ten minutes, with selectable sampling. A fixed RAM history
+retains descriptor fields, clock-mapping brackets and matched causal corrections.
+CRC reads use a non-consuming cursor; missing records remain counted. Recording
+does not change the delivered clock, quality gates, source permission or radio
+schedule. An offline interval-fit shadow and pinned SDK audit help distinguish
+500 ns descriptor quantization from clock estimation and hardware-capture leads.
+See the [timing investigation workflow](../../docs/n30/build.md#version-029-reusable-timing-diagnostics).
 
 ## Screens and controls
 

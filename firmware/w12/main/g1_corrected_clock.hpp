@@ -4,6 +4,9 @@
 #include "g1_clock_prediction.hpp"
 #include "g1_relative_quality.hpp"
 #include "rc7_client.hpp"
+#ifdef PTOB_N30
+#include "n30_timing_probe.hpp"
+#endif
 extern "C" {
 #include "r2/r2-g1/relay_codec.h"
 }
@@ -162,6 +165,10 @@ class G1CorrectedClock {
     }
     // All pre-update errors enter physical one-second buckets, independently
     // of channel/time selection for fitting. Full cumulative tails stay above.
+#ifdef PTOB_N30
+    if(n30_probe::pair_sink)n30_probe::pair_sink({scope_.root,scope_.boot,o.local,available,remote,
+      predicted,scope_.source_epoch,scope_.publication,o.epoch,o.publication,o.event,o.channel,causal_available,o.created,o.expires});
+#endif
     quality_add(o.local,causal,causal_available);
     double rate=clock_.rate;bool fitted=false;
     // N30 must track oscillator warm-up, not average its rate over sixteen

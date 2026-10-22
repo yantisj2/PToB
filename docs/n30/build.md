@@ -461,3 +461,102 @@ signed-envelope refusals, and records two unavailable startup predictions.
 These are deterministic software regressions, not field RF evidence or an
 independently measured UTC/PPS/output guarantee. Physical acquisition speed,
 intermittent-GM roaming and five-minute watchdog behavior still need retesting.
+
+## Version 0.2.9 reusable timing diagnostics
+
+Timing diagnostics are a volatile runtime observer, OFF at boot. The existing
+factory/boot/ticket/nonce and update-maintenance checks apply to these actions:
+
+```text
+timing start DURATION_MS EVERY
+timing read AFTER_RECORD_NUMBER
+timing stop
+```
+
+Duration is1000–600000ms and EVERY is1–64. A running session cannot be extended
+or replaced by another start. Stop it explicitly before starting a new session.
+Reboot, ordinary OFF and update preparation stop recording. No NVS is written.
+The deadline starts at command admission; response reads do not renew it.
+Numbers outside uint32 or malformed commands are refused before configuration.
+
+Use `firmware/n30/tools/framed_console.py` to generate the bound command from
+a fresh verified status frame. Parse its response with `n30_frame_kind="TIMING"`
+in the same installation manifest. Each alternate response keeps the original
+ten-row8704-byte/1.5s envelope and carries status, four sample slots and an
+explicit observational contract. A fresh nonce/ticket is required for each
+request. Advance the host cursor only after complete CRC validation. Reads do
+not consume records, so a failed response can be retried. A new diagnostic id
+starts a separate cursor population.
+
+The fixed16-sample RAM ring records matched descriptor captures in the host
+worker, then attaches only authenticated corrections accepted by the existing
+clock. Raw captures without accepted corrections remain explicitly unmatched;
+they are not zero-valued timing errors. Records wait for their correction or
+the original250ms association horizon before export. `seen` counts stable
+consume-once captures, not every RF opportunity. `pair_missing` includes
+intentional decimation. Sample numbers and `sampled`/`overwritten` counters
+expose records not obtained by the host. Neither a RAM read nor queue admission
+proves delivery to the host.
+
+EVERY4 with one read per second is a conservative starting point at16Hz. Faster
+sampling requires enough successful batch reads and UART capacity; EVERY1
+requires four batches per second before accounting for other output. Keep
+overwrites, missed CRC frames and unavailable corrections in the population.
+Default-OFF callbacks use a fast disabled check, with no additional ISR work or
+descriptor/register writes. The observer preserves exact raw fields and frozen
+causal predictions; it supplies no timestamp or source authority of its own.
+
+Offline verification and analysis:
+
+```sh
+python3 firmware/n30/tools/timing_tests.py --out artifacts/n30-timing-tests
+python3 firmware/n30/tools/timing_analyze.py \
+  --raw artifacts/local/timing.raw --manifest artifacts/local/installed-manifest.json \
+  --out artifacts/n30-timing-analysis
+python3 firmware/n30/tools/timing_analyze.py \
+  --raw artifacts/local/timing.raw --manifest artifacts/local/installed-manifest.json \
+  --assume-centered-bins --accel-bound-ppb-s 100 --work-margin-us 1000 \
+  --out artifacts/n30-conditional-shadow
+```
+
+The analyzer revalidates CRC/factory/source/boot binding and accounts for
+incomplete frames, conflicting records, missing samples and unavailable causal
+predictions. It separates complete device/diagnostic/root/boot/source/train/local
+capture scopes. Channel summaries retain signed means and full RMS. Fine-field
+high bits and mapping bracket widths are observations, not calibrated phases.
+
+The optional shadow intersects affine phase/rate constraints on up to64 points.
+It retains the full recorded mapping enclosure, a500ns descriptor interval,
+TX tick quantization and the explicitly assumed acceleration envelope. An
+original is scored before its later correction can train the hypothetical
+model; the work margin is a model assumption, not measured firmware execution.
+Inconsistent, stale or insufficient observations produce unavailable estimates.
+Coherent phase can remain unidentified even when residual RMS is zero.
+Centered bins, channel/RF delay and the acceleration envelope are not calibrated
+by this tool. Its conditional interval never replaces displayed causal RMS,
+lock gates, signed source expiry or an absolute UTC/output bound. No shadow
+estimate is installed in the firmware clock.
+
+Audit obtainable S3 implementation leads independently:
+
+```sh
+python3 firmware/n30/tools/s3_timestamp_audit.py --idf "$IDF_PATH" \
+  --objdump /path/to/xtensa-esp-elf-objdump --out artifacts/n30-s3-audit
+```
+
+This checks the pinned archive hash, receive10-bit624/625 arithmetic, diagnostic
+GPIO names and the SDK MCPWM APB capture path. It does not read live ROM or
+operate GPIOs. The SDK's BLE-log timestamp-sync GPIO is toggled by software;
+it is not an ADDRESS event latch. Diagnostic GPIO names alone do not establish
+a usable BLE RX/TX marker or its delay. A supported finer latch/marker and exact
+packet association remain prerequisites for replacing descriptor timestamps.
+MCPWM capture resolution must be queried; selecting a faster timer cannot
+recover phase absent from a500ns descriptor. Preserve existing LoRa capture
+ownership when evaluating any additional route.
+
+A T096 subscribed through the optional N30 estimated relay can provide its
+shadow-PPS witness. Keep a direct and a relay population separate, bind complete
+parent/root/boot/epoch context, preserve startup and missing/invalid records,
+and restore the reviewed parent/page afterward. That comparison includes N30
+receive/model/estimated-TX behavior, T096 receive/model behavior and its local
+GNSS/PPS reference. It cannot uniquely calibrate N30 RX, TX or absolute UTC.

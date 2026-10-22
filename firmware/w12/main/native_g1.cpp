@@ -505,7 +505,11 @@ int gap(ble_gap_event* e,void* arg){
       if(p.data_status!=BLE_HCI_PERIODIC_DATA_STATUS_COMPLETE||(p.data_length!=158&&p.data_length!=190)||
          (mode==R2Mode::Client&&!full_listening()&&(!client_window_active(now,window_phase)||now-window_start>=G1Window::Nominal)))r.refusal=2;
 #ifdef V12_R2_RX_SHADOW
-      uint64_t tick=0;clock_reference_read(&tick);if(!r.refusal)periodic_rx::match(p.sync_handle,p.data,p.data_length,tick,r.rx_stamp);
+      uint64_t tick=0;clock_reference_read(&tick);
+#ifdef PTOB_N30
+      n30_probe::packet_rssi=p.rssi;
+#endif
+      if(!r.refusal)periodic_rx::match(p.sync_handle,p.data,p.data_length,tick,r.rx_stamp);
 #endif
       transport_record(r);if(!r.refusal){Periodic row{};row.at=now;row.identity=sync_identity;row.capture=r.rx_stamp;row.length=uint8_t(p.data_length);std::memcpy(row.bytes,p.data,p.data_length);periodic.push(row);}else inc(p1_bad);
     }

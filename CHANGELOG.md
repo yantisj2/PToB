@@ -1,5 +1,20 @@
 # Changelog
 
+## N30 0.2.9 — reusable timing diagnostics and conditional shadow analysis
+
+- Add default-OFF runtime timing recording with a finite ten-minute maximum,
+  selectable sampling, fixed16-record RAM history and non-consuming CRC reads.
+  Retain raw mapping brackets, descriptor fields and authenticated causal pairs;
+  preserve missing populations, source expiry, clock fitting and radio policy.
+- Add an offline interval-fit shadow with explicit quantizer/drift assumptions,
+  causal availability, inconsistent/stale refusal and unknown RF/UTC bounds.
+  Preserve displayed RMS and every production timing gate.
+- Audit pinned S3 receive arithmetic and hardware-capture leads. Diagnostic
+  GPIO names and software timestamp-sync toggles do not establish an RF latch.
+- Test actual recorder/adapter/command/parser behavior and exact observer
+  ON/OFF clock/quality/permission equivalence. Physical precision remains a
+  separately scoped measurement outcome.
+
 ## N30 0.2.8 — intermittent GM fallback and faster physical acquisition
 
 - Accumulate BLE lock loss so brief good intervals cannot indefinitely suppress

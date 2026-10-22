@@ -24,7 +24,7 @@ idf_component_register(SRCS "native_main.cpp" "${w12}/main/fault_watchdog.cpp" "
   "${w12}/../t096/protocol/lora_rc8.c" "${w12}/../t096/src/lora_rc8_policy.c"
   "${w12}/main/native_direct.cpp" "${w12}/main/native_credentials.cpp" "${w12}/main/native_diagnostic_tx.cpp" "${w12}/main/periodic_rx.cpp" "${w12}/main/periodic_tx.cpp" "${w12}/main/s3_clock_reference.c" "${w12}/main/direct_auth.cpp" "${control_source}" ${r2_sources}
   "${w12}/main/shared/public_codec.c" "${w12}/main/shared/p256_canonical.c" "${w12}/main/public_observer.cpp"
-  "gnss_absent.cpp" "display.cpp" "ui_render.cpp" "ui_model.cpp"
+  "gnss_absent.cpp" "display.cpp" "ui_render.cpp" "ui_model.cpp" "timing_diagnostics.cpp"
   INCLUDE_DIRS "." "${w12}/main" "${w12}/legacy" "${w12}/legacy/reference" ${r2_includes} "${w12}/../t096/include" "${w12}/../t096/protocol"
   REQUIRES bt mbedtls esp_driver_spi esp_driver_gptimer esp_driver_i2c esp_driver_gpio
     esp_driver_usb_serial_jtag esp_driver_uart esp_driver_mcpwm esp_pm esp_timer esp_hw_support)

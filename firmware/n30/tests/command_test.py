@@ -16,10 +16,14 @@ prefix=r'''
 #include "console_protocol.hpp"
 #include "update_gate.hpp"
 #include "lora_policy.hpp"
+#include "timing_command.hpp"
 #define V12_R2_ENABLED 1
 #define V12_R2_CONFIG 13
 uint64_t now=1000;unsigned radio_changes=0,pages=0,statuses=0,lora_changes=0,diag_frames=0;bool lora_diagnostic_response=false,lora_action=false;unsigned selected=0;
 bool owner_active=true;
+bool timing_diagnostic_response=false;uint32_t timing_after=0;unsigned timing_starts=0,timing_stops=0;
+bool n30_timing_start(uint64_t,uint64_t,uint32_t ms,uint32_t every){++timing_starts;return ms>=1000&&ms<=600000&&every>=1&&every<=64;}
+void n30_timing_stop(){++timing_stops;}
 bool mode=false,action_pending=false;
 namespace v12 {
 void capture_stop(){}
@@ -76,8 +80,19 @@ int main(){
  send(23,"lora off");assert(last_command.accepted&&lora_changes==2);
  send(24,"lora auto");assert(last_command.accepted&&lora_changes==3);
  send(25,"lora diag");assert(last_command.accepted&&diag_frames==1&&!lora_diagnostic_response);
+ send(30,"timing start 600000 4");assert(last_command.accepted&&timing_starts==1&&!timing_diagnostic_response&&radio_changes==2);
+ send(31,"timing read 7");assert(last_command.accepted&&timing_after==7&&timing_starts==1&&radio_changes==2);
+ send(32,"timing stop");assert(last_command.accepted&&timing_stops==1&&radio_changes==2);
+ send(33,"timing start 600001 1");assert(!last_command.accepted);
+ send(34,"timing start 2000 0");assert(!last_command.accepted);
+ send(35,"timing start 2000 4 extra");assert(!last_command.accepted);
+ send(36,"timing start 2000 4",factory_text,4);assert(!last_command.accepted&&timing_starts==1);
+ send(38,"timing start 4294968296 1");assert(!last_command.accepted&&timing_starts==1);
+ send(39,"timing read 4294967296");assert(!last_command.accepted);
+ send(40,"timing read -1");assert(!last_command.accepted);
  lora_action=true;poll_display_action();assert(lora_changes==4&&!lora_action&&radio_changes==2);
  update_gate.begin(now);send(8,"ui page 1");assert(!last_command.accepted&&pages==4&&radio_changes==2);
+ send(37,"timing start 2000 4");assert(!last_command.accepted&&timing_starts==1);
  action_pending=true;lora_action=true;poll_display_action();assert(!mode&&radio_changes==2&&!action_pending&&!lora_action&&lora_changes==4);
  std::puts("PASS actual dispatch: active-radio pages, main-owner upstream toggle, maintenance consumption and identity/ticket fences");
 }
