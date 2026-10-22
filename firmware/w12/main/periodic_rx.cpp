@@ -5,6 +5,9 @@
 #include "periodic_rx.hpp"
 #include "../legacy/reference/clock_ble_mapping.hpp"
 #include "native_transport.hpp"
+#ifdef PTOB_N30
+#include "n30_timing_probe.hpp"
+#endif
 #include <cstdlib>
 #ifdef V12_R2_RX_SHADOW
 #include "sdkconfig.h"
@@ -234,7 +237,17 @@ bool match(uint16_t selected,const uint8_t* bytes,size_t size,uint64_t callback2
   barrier();if(ambiguous)++ambiguities;
   if(!ok||head!=before||fault||used[(sequence-1)%Capacity]==sequence){++missed;result={};return false;}
   used[(sequence-1)%Capacity]=sequence;++matched;if(count>peak)peak=count;
-  last_reference={result.radio_reference_applied,result.phy,result.radio_extra_us,result.epoch};return true;
+  last_reference={result.radio_reference_applied,result.phy,result.radio_extra_us,result.epoch};
+#ifdef PTOB_N30
+  // Host worker only, after stable consume-once matching. No extra ISR work
+  // or descriptor reads; the original anchor/capture are copied unchanged.
+  if(n30_probe::capture_sink){
+    const auto& row=records[(sequence-1)%Capacity];
+    const auto anchor=row.anchor;barrier();
+    if(row.stamp.sequence==sequence&&head==before)n30_probe::capture_sink(result,anchor,n30_probe::packet_rssi);
+  }
+#endif
+  return true;
 }
 RfReference rf_reference(){
   if(!installed||fault||xPortGetCoreID()!=0||last_reference.epoch!=epoch)return {};

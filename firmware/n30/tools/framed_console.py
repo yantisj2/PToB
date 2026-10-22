@@ -2,7 +2,7 @@
 """N30 ten-row CRC console parser. Import opens no hardware.
 Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT
 """
-import importlib.util
+import importlib.util,re
 from pathlib import Path
 p=Path(__file__).resolve().parents[2]/'w12/tools/framed_console.py'
 spec=importlib.util.spec_from_file_location('n30_w12_console',p);base=importlib.util.module_from_spec(spec);spec.loader.exec_module(base)
@@ -17,6 +17,37 @@ LORA_NUMBERS={
  'POLICY':'remaining_ms acquire_us recover_us state sampled_us UTC_us frequency_hz SF BW_hz CR preamble RX_ONLY'}
 LORA_HEX='emitter emitter_boot stream root root_boot parent parent_boot'.split()
 LORA_FIXED={'ORIGINAL':{'bound':'UNKNOWN','BLE_update':'0'},'COUNTERS':{'TX':'FORBIDDEN'},'HARDWARE':{'timestamp':'HARDWARE_DIO1_MAPPED','physical_bias':'UNKNOWN','durable_fault_journal':'UNAVAILABLE'},'POLICY':{'acquire_us':'180000000','recover_us':'180000000','frequency_hz':'915000000','SF':'10','BW_hz':'500000','CR':'6','preamble':'12','RX_ONLY':'1','GPS':'ABSENT','source_freshness':'UNKNOWN','uncertainty':'UNKNOWN'}}
+TIMING_ROWS=('W12_R2_STATUS','W12_V12_STATUS','N30_TIMING_STATUS',*(f'N30_TIMING_SAMPLE{i}' for i in range(4)),'N30_TIMING_CONTRACT','W12_V12_COMMAND','N30_UI')
+def timing_number(row,key,bits=32,signed=False):
+ value=row.get(key,'');base.require(bool(re.fullmatch(r'-?(?:0|[1-9][0-9]*)' if signed else r'(?:0|[1-9][0-9]*)',value)),'Invalid timing number: '+key)
+ n=int(value);base.require(-(2**(bits-1))<=n<2**(bits-1) if signed else 0<=n<2**bits,'Timing number range: '+key);return n
+def validate_timing(rows):
+ s=rows['N30_TIMING_STATUS'];base.require(s.get('schema')=='1' and bool(base.HEX16.fullmatch(s.get('id',''))),'Timing schema/id')
+ for key in ('every','seen','sampled','matched','overwritten','pair_missing','oldest','after','count'):timing_number(s,key)
+ for key in ('active','queued'):timing_number(s,key,8)
+ timing_number(s,'until_us',64)
+ base.require(int(s['active'])<=1 and int(s['queued'])<=16 and int(s['count'])<=4 and int(s['every'])<=64,'Timing configuration bounds')
+ count=0;last=int(s['after'])
+ for i in range(4):
+  r=rows[f'N30_TIMING_SAMPLE{i}'];base.require(r.get('valid') in ('0','1'),'Timing validity')
+  if r['valid']=='0':continue
+  base.require(i==count,'Timing batch has a hole');count+=1
+  for key in ('n','epoch','seq','coarse','bt_slot','bt_hus','enclosure_ns','source','train','publication'):timing_number(r,key)
+  for key in ('received_us','local20','available20','before20','after20','remote_ns','corrected20','created_ns','expires_ns'):timing_number(r,key,64)
+  timing_number(r,'predicted_ns',64,True)
+  for key in ('fine','event','raw_metadata'):timing_number(r,key,16)
+  for key in ('channel','phy','extra_us'):timing_number(r,key,8)
+  for key in ('refine20','rssi'):timing_number(r,key,8,True)
+  for key in ('refined','matched','causal','associated'):base.require(r.get(key) in ('0','1'),'Timing boolean: '+key)
+  for key in ('root','boot'):base.require(bool(base.HEX16.fullmatch(r.get(key,''))),'Timing identity: '+key)
+  base.require(int(r['n'])>last and int(r['n'])<=int(s['sampled']),'Timing cursor/order');last=int(r['n'])
+  base.require(0<int(r['local20'])<=int(r['available20']) and 0<int(r['before20'])<=int(r['after20']),'Timing timestamp order')
+  base.require(int(r['bt_hus'])<=624 and int(r['coarse'])<2**28 and int(r['bt_slot'])<2**28 and (int(r['fine'])&1023)<=624 and (int(r['channel'])<=36 or r['channel']=='255'),'Timing descriptor range')
+  if r['matched']=='1':base.require(int(r['corrected20'])>=int(r['available20']) and int(r['created_ns'])<=int(r['remote_ns'])<int(r['expires_ns']),'Timing correction causality/envelope')
+  base.require(r['matched']=='1' or (r['causal']=='0' and r['remote_ns']=='0'),'Unmatched timing sample supplied a correction')
+ base.require(count==int(s['count']),'Timing batch count')
+ contract={'observer':'WORKER_ONLY','cursor':'NONCONSUMING','records':'16','batch':'4','max_ms':'600000','timestamp':'DESCRIPTOR_500NS_TO_TIMER_50NS','RF_bias':'UNKNOWN','UTC_bound':'UNKNOWN','clock_update':'NONE'}
+ for key,value in contract.items():base.require(rows['N30_TIMING_CONTRACT'].get(key)==value,'Timing contract: '+key)
 def validate_lora(rows):
  for suffix,names in LORA_NUMBERS.items():
   row=rows['N30_LORA_'+suffix]
@@ -41,10 +72,12 @@ class Parser(base.Parser):
   super().__init__(nonce,manifest,session,capture_base);base.require(manifest.get('r2_profile')=='r2-g1','N30 G1 only')
   self.expected_rows=(*self.expected_rows,'N30_UI')
   if manifest.get('n30_frame_kind')=='LORA':self.expected_rows=('W12_R2_STATUS','W12_V12_STATUS','N30_LORA_CONTEXT','N30_LORA_ORIGINAL','N30_LORA_QUALITY','N30_LORA_COUNTERS','N30_LORA_HARDWARE','N30_LORA_POLICY','W12_V12_COMMAND','N30_UI')
+  if manifest.get('n30_frame_kind')=='TIMING':self.expected_rows=TIMING_ROWS
  def feed(self,data):
   frames=super().feed(data)
   for f in frames:
    if self.manifest.get('n30_frame_kind')=='LORA':validate_lora(f['rows'])
+   if self.manifest.get('n30_frame_kind')=='TIMING':validate_timing(f['rows'])
    mesh=f['rows']['W12_R2_STATUS'];ui=f['rows']['N30_UI'];status=f['rows']['W12_V12_STATUS'];m=self.manifest
    # The inherited whole-frame/nonce/CRC/boot/source/deadline checks still run.
    # Its historical nine-row G1 branch does not apply to this ten-row target;
@@ -58,6 +91,10 @@ class Parser(base.Parser):
   return frames
 
 def mutation_command(frame,nonce,action):
- if action not in ('ui page 0','ui page 1','ui page 2','lora diag','lora auto','lora on','lora off'):return base.mutation_command(frame,nonce,action)
+ timing=action=='timing stop' or bool(re.fullmatch(r'timing read (0|[1-9][0-9]*)',action)) or bool(re.fullmatch(r'timing start [1-9][0-9]* [1-9][0-9]*',action))
+ if timing:
+  nums=[int(x) for x in action.split()[2:]]
+  base.require(not nums or (0<=nums[0]<2**32 if action.startswith('timing read ') else 1000<=nums[0]<=600000 and 1<=nums[1]<=64),'Timing command bounds')
+ if not timing and action not in ('ui page 0','ui page 1','ui page 2','lora diag','lora auto','lora on','lora off'):return base.mutation_command(frame,nonce,action)
  base.require(base.HEX16.fullmatch(nonce) and int(nonce,16) and nonce!=frame['begin']['nonce'],'Fresh UI request nonce required')
  b=frame['begin'];return f"v12 do {b['ticket']} {nonce} {b['factory']} {b['session']} {action}\n".encode()

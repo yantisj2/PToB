@@ -58,3 +58,28 @@ try:c.Parser(nonce,lm).feed(lora_frame(omit='QUALITY'))
 except RuntimeError:pass
 else:raise AssertionError('Missing LoRa row accepted')
 print('PASS LoRa CRC frame schema, bound identity, numeric ranges and RX-only/unknown contracts')
+
+def timing_frame(fault=None):
+ status=dict(schema='1',id='0000000000000005',active='1',until_us='60000000',every='1',seen='1',sampled='1',matched='1',overwritten='0',pair_missing='0',queued='1',oldest='1',after='0',count='1')
+ sample=dict(valid='1',n='1',received_us='1000000',local20='20000000',available20='20000200',epoch='1',seq='1',coarse='3200',fine='584',raw_metadata='0',associated='1',before20='20000000',after20='20000004',bt_slot='3200',bt_hus='40',refine20='0',refined='0',phy='0',extra_us='0',enclosure_ns='1000',rssi='-70',matched='1',root='000000000000006f',boot='0000000000000037',source='2',train='3',publication='1',event='1',channel='0',remote_ns='1000000000',predicted_ns='999999950',causal='1',corrected20='21250200',created_ns='900000000',expires_ns='1500000000')
+ contract=dict(observer='WORKER_ONLY',cursor='NONCONSUMING',records='16',batch='4',max_ms='600000',timestamp='DESCRIPTOR_500NS_TO_TIMER_50NS',RF_bias='UNKNOWN',UTC_bound='UNKNOWN',clock_update='NONE')
+ groups=[status,sample,contract]
+ if fault:groups[fault[0]][fault[1]]=fault[2]
+ extra=[('N30_TIMING_STATUS',status),('N30_TIMING_SAMPLE0',sample),*[(f'N30_TIMING_SAMPLE{i}',{'valid':'0'}) for i in range(1,4)],('N30_TIMING_CONTRACT',contract)]
+ original=frame(ui=' path=BLE upstream=AUTO');lines=original[:original.index(b'W12_V12_END')].decode().splitlines(True)
+ body=(''.join(lines[:4])+''.join(name+' '+' '.join(k+'='+v for k,v in row.items())+'\n' for name,row in extra)+''.join(lines[-2:])).encode()
+ end=original[original.index(b'W12_V12_END'):].split(b' end_crc32=')[0]
+ import re
+ end=re.sub(rb'crc32=[0-9a-f]{8}',f'crc32={zlib.crc32(body):08x}'.encode(),end)
+ return body+end+f' end_crc32={zlib.crc32(end,zlib.crc32(body)):08x}\n'.encode()
+tm=dict(m,n30_ui_revision=3,n30_frame_kind='TIMING');tf=c.Parser(nonce,tm).feed(timing_frame());assert len(tf)==1
+for action in ('timing start 600000 4','timing read 0','timing read 4294967295','timing stop'):assert c.mutation_command(tf[0],'0000000000000004',action).endswith((' '+action+'\n').encode())
+for action in ('timing start 600001 1','timing start 1000 65','timing read 4294967296','timing read -1'):
+ try:c.mutation_command(tf[0],'0000000000000004',action)
+ except RuntimeError:pass
+ else:raise AssertionError('Invalid timing action admitted: '+action)
+for fault in [(0,'count','2'),(0,'queued','17'),(1,'n','0'),(1,'coarse',str(2**28)),(1,'after20','19999999'),(1,'corrected20','19999999'),(1,'remote_ns','2000000000'),(1,'root','xyz'),(1,'matched','0'),(1,'rssi','-129'),(2,'clock_update','ENABLED'),(2,'RF_bias','KNOWN')]:
+ try:c.Parser(nonce,tm).feed(timing_frame(fault))
+ except RuntimeError:pass
+ else:raise AssertionError('Invalid timing schema admitted: '+str(fault))
+print('PASS timing CRC schema: complete scope, cursor/order, descriptor bounds, original envelope, command limits and observational contract')
