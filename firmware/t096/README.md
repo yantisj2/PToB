@@ -1,5 +1,22 @@
 # T096 firmware example
 
+Version164 prevents the independent LoRa watchdog from interpreting startup
+flash-scan bytes as live owner state. One boot-zero atomic readiness word outside
+the reused scratch union is published after LoRa initialization and before worker
+launch. Until then the observer returns before reading that union. The original
+30s monitored-stall bound, terminal-first-cause rule and sticky hardware fault
+remain. This adds one atomic word; native resource deltas are a separate check.
+No timer, retry, controller, pairing or RF policy changes.
+
+A composed actual scanner/LoRa regression reproduces the old pre-initialization
+timeout and later START/EIO record with zero SPI transfers, using a synthetic
+valid public journal record and explicit observer interleavings. It verifies the
+new gate, initialization publication and unchanged post-initialization watchdog
+bounds. The ownership gap and unchanged LoRa bodies predate163. The two observed
+163 startup recoveries match this chain, but their erased prior scan rows are
+unavailable; the exact physical triggering row remains an inference. This fix
+does not address or classify the separate historical controller assertions.
+
 Version163 brings two pinned public controller fixes into generated copies of
 ordinary native GM/RC, including explicit verbose builds. The Zephyr
 [radio-disable fix](https://github.com/zephyrproject-rtos/zephyr/commit/355648a69f5137c68d86fe577ddb256e7da74d12)
@@ -85,7 +102,7 @@ The separate stream-loss takeover draft remains evaluation-only.
 *Illustrative firmware-rendered RC screen; displayed values are not measured
 performance. [Image provenance](../../docs/images/README.md).*
 
-**PToB owns T096 RC7 development.** Current source version **0.15.163** supplies the
+**PToB owns T096 RC7 development.** Current source version **0.15.164** supplies the
 ordinary **GM** and **RC** mesh profiles, with USB timing compiled by default.
 [Build from source](../../docs/t096/build.md) with pinned public dependencies
 and ignored local enrollment. No enrolled binary is distributed.

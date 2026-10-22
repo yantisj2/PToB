@@ -1,5 +1,18 @@
 # Changelog
 
+## T096 0.15.164 — LoRa observer initialization gate (2026-10-22)
+
+- Publish one atomic readiness word outside reused startup scan scratch before
+  the LoRa worker starts. The independent observer reads no union state before
+  that publication. Preserve the30s bound and sticky hardware faults; no timer,
+  retry, controller, pairing or RF changes. Native RAM delta is measured separately.
+- Add a composed actual scanner/owner/service regression with a synthetic valid
+  journal record, deterministic observer cuts, original negative, initialization
+  ordering and post-initialization watchdog controls.
+- Preserve163's two startup failures and the limits of its completed600s field
+  observation. Neither host reproduction nor that run qualifies controller/HOT
+  durability or independently measured timing accuracy.
+
 ## T096 0.15.163 — pinned radio fixes and bounded fatal context (2026-10-22)
 
 - Backport Zephyr355648a timer-route cleanup before radio DISABLE and ZMK10ba6d0
