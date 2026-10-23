@@ -628,3 +628,16 @@ page repaint retains that boundary; a render crossing it schedules an immediate
 fresh paint. `rc9 diag` includes selected time, sample, completed paint and next
 boundary timestamps under its original nonce/CRC deadline. These observations
 measure local scheduling, not independently calibrated UTC or optical latency.
+
+AUTO's quality forecast matches the native G1 controller: coarse and corrected
+packet permission must each be live now, while the one-second forecast uses the
+original replay anchor. Frequent short packet renewals do not revoke an
+otherwise healthy fit. This policy grants no future clock output permission;
+actual source/correction expiry still withdraws synchronization immediately.
+The separate fixed ten-row RC9 diagnostic writer retains the normal nine-row
+status writer, whole-frame capacity and original deadline. Test the real native
+formatter, output worker and CRC parser together:
+
+```sh
+python3 firmware/w12/tools/rc9_console_tests.py --out artifacts/w12-rc9-console
+```

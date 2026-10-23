@@ -193,7 +193,7 @@ void pps(const gnss_pps::Observation& edge){
 [[gnu::noinline]] void rc9_status_frame(uint64_t nonce,uint64_t begin){
  const auto next=ticket.issue(begin);v12::frame_begin(response,nonce,next,begin,factory_text,session,V12_SOURCE_REVISION,V12_BUILD_ID);
  const auto mesh=v12::r2_status();const auto r=v12::r2_rc9_status();w12_lora_view l;w12_lora_snapshot(l);
- response.format("W12_R2_STATUS profile=%s enrollment_sha=%s self=3 client_capabilities=0 client_control=0 source=0 serving=0 group_id=%016" PRIx64 " key_epoch=%" PRIu32 " client_identity=%016" PRIx64 " fault=%u rc7_flags=%" PRIu32 "\n",V12_R2_PROFILE,V12_R2_ENROLLMENT_SHA,mesh.group_id,mesh.key_epoch,mesh.client_identity,unsigned(mesh.fault),mesh.rc7_server_flags);
+ response.format("W12_R2_STATUS profile=%s enrollment_sha=%s self=3 client_capabilities=0 client_control=0 source=0 serving=0 group_id=%016" PRIx64 " key_epoch=%" PRIu32 " client_identity=%016" PRIx64 " fault=%u rc7_flags=%" PRIu32 " ble_lock=%u service_until=%" PRIu64 " corrected_until=%" PRIu64 " anchor_until=%" PRIu64 " forecast_ms=%" PRIu32 "\n",V12_R2_PROFILE,V12_R2_ENROLLMENT_SHA,mesh.group_id,mesh.key_epoch,mesh.client_identity,unsigned(mesh.fault),mesh.rc7_server_flags,unsigned(w12::ble_locked(mesh,micros())),mesh.service_until_us,mesh.g1_corrected_until_us,mesh.g1_anchor_deadline_us,mesh.g1_relative_quality.hold_ms(mesh.g1_relative_quality.evaluated20,mesh.g1_clock_model,UINT64_MAX));
  response.format("W12_V12_STATUS factory=%s source=%s build=%s session=%016" PRIx64 " GPS_inputs=%u\n",factory_text,V12_SOURCE_REVISION,V12_BUILD_ID,session,unsigned(gps_ready));
  response.format("W12_RC9_STATUS sampled_us=%" PRIu64 " UTC_us=%" PRIu64 " until_us=%" PRIu64 " valid=%u following=%u fault=%u\n",r.sampled_us,r.utc_us,r.until_us,unsigned(r.valid),unsigned(r.following),unsigned(r.fault));
  response.format("W12_RC9_ORIGIN server=%016" PRIx64 " server_boot=%016" PRIx64 " root=%016" PRIx64 " root_boot=%016" PRIx64 " source_epoch=%" PRIu32 " emitter=%016" PRIx64 " emitter_boot=%016" PRIx64 "\n",r.server,r.server_boot,r.root,r.root_boot,r.source_epoch,r.emitter,r.emitter_boot);
@@ -203,7 +203,7 @@ void pps(const gnss_pps::Observation& edge){
  response.format("W12_RC9_CONTRACT wire=1 source=RC8 hops=1 precision=UNKNOWN BLE_training=NONE GM=NONE LoRa_TX=OFF lora_active=%u lora_accepted=%" PRIu32 " lora_rms_ns=%" PRIu32 "\n",unsigned(l.active),l.accepted,l.link_rms_ns);
  response.format("W12_UI_CLOCK page=%u valid=%u UTC=%" PRIu32 " sampled_us=%" PRIu64 " UTC_us=%" PRIu64 " drawn_us=%" PRIu64 " paint_us=%" PRIu32 " next_us=%" PRIu64 " phase=UTC_SECOND\n",unsigned(page),unsigned(ui_valid),ui_utc,ui_sampled_us,ui_utc_us,ui_drawn_us,ui_paint_us,ui_deadline.deadline());
  response.format("W12_V12_COMMAND nonce=%016" PRIx64 " action=%s accepted=%u reason=%s admitted_us=%" PRIu64 " NVS=PRESERVED\n",last_command.nonce,last_command.action,unsigned(last_command.accepted),last_command.reason,last_command.admitted_us);
- v12::frame_submit(response);
+ v12::frame_submit_rc9(response);
 }
 #endif
 [[gnu::noinline]] void status(uint64_t nonce,uint64_t begin){

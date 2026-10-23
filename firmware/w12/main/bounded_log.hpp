@@ -24,6 +24,10 @@ struct ConsoleFrame {
 void frame_begin(ConsoleFrame&,uint64_t nonce,uint64_t ticket,uint64_t request_us,
                  const char* factory,uint64_t boot,const char* source,const char* build);
 bool frame_submit(const ConsoleFrame&);
+#ifdef PTOB_RC9
+// Separate fixed10-row diagnostic; normal W12 status remains exactly9 rows.
+bool frame_submit_rc9(const ConsoleFrame&);
+#endif
 bool capture_begin(uint64_t id,uint32_t duration_ms);
 // Longer explicitly requested observer interval; fixed queues and per-record
 // expiry remain unchanged. This grants no radio or clock authority.

@@ -122,12 +122,16 @@ void frame_begin(ConsoleFrame& f,uint64_t nonce,uint64_t ticket,uint64_t now,con
     nonce,ticket,factory,boot,source,build,now,f.deadline_us,now+ConsoleTicketUs);
   f.rows=0;
 }
-bool frame_submit(const ConsoleFrame& f){
+static bool frame_submit_rows(const ConsoleFrame& f,unsigned rows){
   portENTER_CRITICAL(&log_mux);
-  const bool accepted=!f.failed&&f.rows==ConsoleResponseRows&&now_us()<f.deadline_us&&frames.push(f);
+  const bool accepted=!f.failed&&f.rows==rows&&now_us()<f.deadline_us&&frames.push(f);
   if(!accepted)frame_drop();
   portEXIT_CRITICAL(&log_mux);return accepted;
 }
+bool frame_submit(const ConsoleFrame& f){return frame_submit_rows(f,ConsoleResponseRows);}
+#ifdef PTOB_RC9
+bool frame_submit_rc9(const ConsoleFrame& f){return frame_submit_rows(f,10);}
+#endif
 static bool capture_admit(uint64_t id,uint32_t duration,uint32_t maximum){
   const auto now=now_us();portENTER_CRITICAL(&log_mux);
   const bool active=stats.capture_active&&now<stats.capture_deadline_us;

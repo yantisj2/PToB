@@ -49,7 +49,8 @@ int main(){
   assert(w12::ble_locked(s,now));
   assert(!w12::ble_locked(s,now+100000));
   s.service_until_us=now+5000000;s.g1_corrected_until_us=now+999999;
-  assert(!w12::ble_locked(s,now));
+  assert(w12::ble_locked(s,now));
+  s.g1_corrected_until_us=now+1;assert(w12::ble_locked(s,now));assert(!w12::ble_locked(s,now+1));
   s.g1_corrected_until_us=now+5000000;q.max_ns=1000;
   assert(!w12::ble_locked(s,now));
 }

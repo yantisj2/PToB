@@ -101,4 +101,5 @@ int main(int argc,char** argv){
   std::string body(v12::ConsoleFrameBytes+100,'B');assert(!oversized.format("%s\n",body.c_str()));assert(!v12::frame_submit(oversized));
   assert(v12::log_status().frame_drops==1&&v12::log_status().dropped==2);
   std::puts("PASS actual bounded_log worker: reader absent expiry, queue saturation, finite leases, whole priority frame, CRC trailer and sticky loss");
+  return 0;
 }

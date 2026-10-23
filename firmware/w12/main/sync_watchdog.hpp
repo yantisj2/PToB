@@ -12,8 +12,12 @@ inline bool ble_locked(const v12::R2Status& s,uint64_t now){
  // precision model and is not the horizon of a one-second quality forecast.
  // Capping that forecast by each short coarse renewal made healthy BLE lock
  // oscillate and prevented AUTO's continuous recovery from completing.
- if(s.service_until_us<=now)return false;
- const auto until=std::min(s.g1_anchor_deadline_us,s.g1_corrected_until_us);
+ if(s.service_until_us<=now||s.g1_corrected_until_us<=now)return false;
+ // Match the sole G1 controller's lock_protected_quality(): current packet
+ // permission must be live now; the quality forecast uses the original
+ // replay anchor. Short corrected-pair renewals cannot make a healthy stream
+ // alternate between BLE and RC8. This grants no future output permission.
+ const auto until=s.g1_anchor_deadline_us;
  const auto tick=s.g1_relative_quality.evaluated20;
  return until>now&&s.g1_relative_quality.locked(tick,s.g1_clock_model)&&s.g1_relative_quality.hold_ms(tick,s.g1_clock_model,until-now)>=1000;
 }
