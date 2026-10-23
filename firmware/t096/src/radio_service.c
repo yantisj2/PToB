@@ -144,7 +144,7 @@ static void output_read(struct pt_output *out,uint64_t now){
   * fresh authenticated JOIN needed to recover. This grants no time authority. */
  out->acquisition=out->acquisition&&!stopped&&now>=out->bootstrap.at&&
    now<r2_group_anchor_deadline(out->bootstrap.at,out->bootstrap.uncertainty_us);
- if(out->scope.gm&&(!source_ready||epoch!=out->scope.source_epoch)){out->scope.gm=false;out->view.authorized=false;}
+ if(out->scope.gm&&(!source_ready||epoch!=r2_radio_local_epoch(out->scope))){out->scope.gm=false;out->view.authorized=false;}
  if(stopped||now<out->sampled||now>=out->scope.until_us){out->scope.gm=false;if(stopped||!out->acquisition)out->scope.follower=false;out->view.authorized=false;}
  struct r2_capture capture;
  bool capture_valid=r2_capture_now(&capture)&&capture.epoch==out->capture_epoch&&capture.tick>=out->capture_tick&&capture.tick<out->capture_until;
@@ -173,7 +173,7 @@ static void fault(int rc) {
 }
 static bool same(struct r2_radio_scope a, struct r2_radio_scope b) {
   return ((a.root_identity&&b.root_identity)?a.root_identity==b.root_identity:a.root==b.root) && a.boot == b.boot &&
-         a.source_epoch == b.source_epoch && a.publication_epoch == b.publication_epoch && a.gm == b.gm &&
+         a.source_epoch == b.source_epoch && a.local_source_epoch == b.local_source_epoch && a.publication_epoch == b.publication_epoch && a.gm == b.gm &&
          a.follower == b.follower;
 }
 static void scan_received(const struct bt_le_scan_recv_info *info,
@@ -431,7 +431,7 @@ static void follower_poll(uint64_t now) {
 static uint64_t follower_frame;
 static int prepare_data(const struct r2_source_clock *source,struct r2_capture current,uint64_t now,struct pt_output *out){
  uint64_t ns,generation,expiry;int64_t translated;
- if(!r2_source_utc_read(source,current,active_scope.source_epoch,&translated)||!r2_source_clock_read(source,current,&ns,&generation)||!r2_source_clock_expiry(source,current,&expiry)||ns>INT64_MAX||active_scope.until_us<=now)return -ESTALE;
+ if(!r2_source_utc_read(source,current,r2_radio_local_epoch(active_scope),&translated)||!r2_source_clock_read(source,current,&ns,&generation)||!r2_source_clock_expiry(source,current,&expiry)||ns>INT64_MAX||active_scope.until_us<=now)return -ESTALE;
  uint64_t permit=active_scope.until_us-now;
  if(permit<=1500000&&permit*1000<=UINT64_MAX-ns&&ns+permit*1000<expiry)expiry=ns+permit*1000;
  if(publication==UINT32_MAX)return -EOVERFLOW;
@@ -449,7 +449,7 @@ static bool direct_grant_live(const struct pt_input *in,uint64_t now){
  const struct r2_radio_scope *g=&in->grant;
  return !in->stopped&&g->root<in->roster.count&&g->boot&&g->source_epoch&&
   g->publication_epoch&&now<g->until_us&&
-  (g->follower||(g->gm&&in->source_ready&&in->source_epoch==g->source_epoch));
+  (g->follower||(g->gm&&in->source_ready&&in->source_epoch==r2_radio_local_epoch(*g)));
 }
 static bool selected_anchor(const struct pt_input *in,const struct r2_group_client *c,uint64_t now){
  const struct r2_radio_scope *g=&in->grant;
@@ -506,7 +506,7 @@ static void precision_step(uint64_t now){
  const struct r2_source_clock *source=&in.source;
  struct r2_capture current={0};bool captured=r2_capture_now(&current);
  bool acquisition=public_client&&client_anchor_valid(now)&&scope.follower;out.acquisition=acquisition&&!in.stopped;
- if(in.stopped||!captured||(!acquisition&&scope.until_us<=now)||scope.root>=enrollment.count||(scope.gm&&(!in.source_ready||in.source_epoch!=scope.source_epoch)))scope=(struct r2_radio_scope){0};
+ if(in.stopped||!captured||(!acquisition&&scope.until_us<=now)||scope.root>=enrollment.count||(scope.gm&&(!in.source_ready||in.source_epoch!=r2_radio_local_epoch(scope))))scope=(struct r2_radio_scope){0};
  if(!same(scope,active_scope)){
   active_scope=scope;out.length=0;out.payload_until=0;out.payload_sequence=0;
   if(scope.gm){train=scope.publication_epoch;publication=0;generic_frame=0;memset(&generic_origin,0,sizeof generic_origin);last_published_capture=UINT32_MAX;updated_at=0;}
@@ -650,8 +650,13 @@ static void precision_step(uint64_t now){
  bool lvalid=false;
  if(paired&&!in.stopped&&sampled<scope.until_us&&scope.until_us-sampled<=(UINT64_MAX-current.tick)/16){
   uint64_t until=current.tick+(scope.until_us-sampled)*16;
-  if(scope.gm&&in.source_ready&&in.source_epoch==scope.source_epoch)
-   lvalid=r2_lora_source_own(&lora,source,lscope,current,until);
+  if(scope.gm&&in.source_ready&&in.source_epoch==r2_radio_local_epoch(scope)){
+   /* Validate the physical source first, then label the authenticated export
+    * with its mesh lineage. Neither value can qualify the other. */
+   struct rc8_scope own_scope=lscope;own_scope.source_epoch=in.source_epoch;
+   lvalid=r2_lora_source_own(&lora,source,own_scope,current,until);
+   if(lvalid)lora.scope.source_epoch=lscope.source_epoch;
+  }
   else if(scope.follower&&out.utc_valid&&out.view.locked&&out.valid_until>sampled&&r2_radio_precision_map(&precision,&delivered)){
    uint64_t limit=current.tick+(out.valid_until-sampled)*16;
    lvalid=r2_lora_source_follower(&lora,&delivered,lscope,current,limit,

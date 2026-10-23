@@ -2,8 +2,8 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
-The accepted development checkpoint is **T096 0.15.164**, using **G5 control
-protocol 5**, **RC7 timing** and **LoRa wire 3**. This guide covers a connected
+The accepted development checkpoint is **T096 0.15.165**, using **G5 STATUS
+protocol 6**, **RC7 timing** and **LoRa wire 3**. This guide covers a connected
 group with three or four GM-capable clocks and one or more receivers. Durable
 failover, fourth-GM participation and independent UTC accuracy remain unqualified.
 

@@ -212,7 +212,12 @@ static void gm5_tick(struct r2_network *n,bool physical,uint64_t now,const struc
  if(g->role==R2_GM5_COLD&&!g->active&&own&&(!constrained||retired)&&(!n->observed_root||n->observed_root==n->identity||now>=n->observed_until)&&now>=g->round_until&&now>=g->retire_until){
   bool preferred=true;
   for(unsigned i=0;i<R2_GM5_CANDIDATES;i++){struct r2_gm5_candidate *c=&g->candidate[i];if(gm5_eligible(n,c)&&r2_quality_compare(&c->quality,&n->quality)<0)preferred=false;}
-  if(preferred){gm5_attempt_clear(g);g->role=R2_GM5_ACTIVE;g->active=n->identity;g->active_boot=n->boot;gm5_set_root(n,n->self);gm5_event(n,R2_GM5_SELECTED,n->identity);}
+  if(preferred){
+   /* Only a first standalone election creates lineage. Boot is already a
+    * fresh random incarnation; mix both halves and identity into 32 bits.
+    * This is a label, never a monotonic source generation or authority. */
+   if(!n->mesh_epoch){uint64_t seed=n->boot^n->identity;seed^=seed>>33;seed*=UINT64_C(0xff51afd7ed558ccd);seed^=seed>>33;n->mesh_epoch=(uint32_t)(seed^(seed>>32));if(!n->mesh_epoch)n->mesh_epoch=1;}
+   gm5_attempt_clear(g);g->role=R2_GM5_ACTIVE;g->active=n->identity;g->active_boot=n->boot;gm5_set_root(n,n->self);gm5_event(n,R2_GM5_SELECTED,n->identity);}
  }
  if(g->role==R2_GM5_ACTIVE&&own){
   gm5_set_root(n,n->self);
@@ -333,7 +338,7 @@ int r2_gm5_status_encode(struct r2_network *n,const struct r2_join_exchange *e,u
   g->contacting=false;gm5_attempt_start(n,R2_GM5_ACQUIRE_US);
   gm5_event(n,R2_GM5_SELECTED,g->selected);
  }
- memset(out,0,R2_GM5_STATUS_BYTES);out[0]=19;out[1]=phase;out[2]=5;out[3]=g->role;
+ memset(out,0,R2_GM5_STATUS_BYTES);out[0]=19;out[1]=phase;out[2]=R2_GM5_PROTOCOL;out[3]=g->role;
  r2_group_put(out+4,n->group.epoch,4);
 #define P(o,v,b) r2_group_put(out+o,v,b)
  P(8,n->identity,8);P(16,e->peer,8);P(24,n->boot,8);P(32,e->peer_boot,8);
@@ -344,15 +349,16 @@ int r2_gm5_status_encode(struct r2_network *n,const struct r2_join_exchange *e,u
  unsigned p=gm5_slot(n,g->selected);P(100,p<n->count?n->peer[p].boot:0,8);
  P(108,g->role==R2_GM5_ACTIVE?g->generation:n->management_generation,4);P(112,g->role==R2_GM5_ACTIVE?g->issued_until:g->grant_until,8);P(120,g->attempt_until,8);
  P(128,n->admission.observing?milliseconds(n->now-n->admission.stable_at):0,4);P(132,g->last_reason,4);P(136,g->negative_root,8);
+ P(144,n->mesh_epoch,4);
 #undef P
- int rc=r2_group_mac(out+144,&n->group,"PTOBG5S5",out,144);if(!rc)count(&g->status_tx);return rc;
+ int rc=r2_group_mac(out+148,&n->group,"PTOBG5S6",out,148);if(!rc)count(&g->status_tx);return rc;
 }
 int r2_gm5_status_receive(struct r2_network *n,const struct r2_join_exchange *e,unsigned phase,const uint8_t *w,size_t size,uint64_t now)
 {
- if(!n||!e||!n->gm5.enabled||!e->accepted||now>=e->until||size!=R2_GM5_STATUS_BYTES||w[0]!=19||w[1]!=phase||w[2]!=5||w[3]>R2_GM5_ACTIVE||w[68]>3||w[75]||
+ if(!n||!e||!n->gm5.enabled||!e->accepted||now>=e->until||size!=R2_GM5_STATUS_BYTES||w[0]!=19||w[1]!=phase||w[2]!=R2_GM5_PROTOCOL||w[3]>R2_GM5_ACTIVE||w[68]>3||w[75]||
   r2_group_get(w+4,4)!=n->group.epoch||r2_group_get(w+8,8)!=e->peer||r2_group_get(w+16,8)!=n->identity||r2_group_get(w+24,8)!=e->peer_boot||r2_group_get(w+32,8)!=n->boot||
   r2_group_get(w+40,8)!=(e->server?e->remote_nonce:e->nonce)||r2_group_get(w+48,8)!=(e->server?e->nonce:e->remote_nonce)||
-  !r2_group_verify(w+144,&n->group,"PTOBG5S5",w,144))return -EACCES;
+  !r2_group_verify(w+148,&n->group,"PTOBG5S6",w,148))return -EACCES;
  struct r2_gm5_candidate *c=gm5_candidate(n,e->peer,true);if(!c)return -ENOSPC;
  struct r2_gm5 *g=&n->gm5;n->now=now;
  uint64_t boot=r2_group_get(w+24,8);if(c->identity!=e->peer){*c=(struct r2_gm5_candidate){0};}
@@ -374,11 +380,17 @@ int r2_gm5_status_receive(struct r2_network *n,const struct r2_join_exchange *e,
  /* Reported remote history is descriptive. Our failures/successes/cooldown
   * remain local observations, not overwritten by the candidate's claims. */
  count(&g->status_rx);
+ uint32_t reported_mesh=(uint32_t)r2_group_get(w+144,4);
+ if(!n->mesh_epoch&&g->role!=R2_GM5_ACTIVE&&reported_mesh)n->mesh_epoch=reported_mesh;
  bool constrained=g->negative_root!=0;
  bool retired=constrained&&g->retired_root==g->negative_root&&g->retired_boot==g->negative_boot&&g->retired_epoch==g->negative_epoch&&now<g->retired_until;
  if(c->eligible&&c->epoch&&c->role==R2_GM5_ACTIVE&&c->root==c->identity&&c->root_boot==c->boot&&(!constrained||retired||(c->identity==g->negative_root&&(!g->negative_boot||c->boot==g->negative_boot)&&c->epoch==g->negative_epoch))){
   bool wins=g->role!=R2_GM5_ACTIVE||c->identity<n->identity;
   if(wins){
+   /* Adopt only the ACTIVE selected by the existing authenticated election.
+    * STATUS conveys lineage, not source, precision or successor permission. */
+   uint32_t mesh=(uint32_t)r2_group_get(w+144,4);
+   if(mesh)n->mesh_epoch=mesh;
    if(g->role==R2_GM5_ACTIVE){if(g->selected)gm5_failed(n,R2_GM5_MERGE);gm5_set_root(n,255);gm5_grant_clear(n,R2_GM5_MERGE);g->role=R2_GM5_COLD;gm5_attempt_clear(g);gm5_event(n,R2_GM5_MERGE,c->identity);}
    if(g->active!=c->identity||g->active_boot!=c->boot){gm5_grant_clear(n,R2_GM5_ROOT_CHANGED);n->management_generation=0;g->grant_generation=0;g->role=R2_GM5_COLD;gm5_attempt_clear(g);gm5_set_root(n,255);}
    g->active=c->identity;g->active_boot=c->boot;g->active_until=c->until;

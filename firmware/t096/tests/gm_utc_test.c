@@ -53,10 +53,10 @@ int main(void){
   assert(join.source_flags==1&&join.utc_us==(uint64_t)utc/1000);
   struct r2_join_time anchor;assert(r2_group_join_time(&anchor,&join,now-10000,now+10000,40000));
   assert(anchor.until<n.service_until&&anchor.utc_us==join.utc_us+10000);
-  active_scope=(struct r2_radio_scope){.boot=500,.source_epoch=c.view.source_epoch,.until_us=n.service_until,.gm=true};
+  active_scope=(struct r2_radio_scope){.boot=500,.source_epoch=1234567,.local_source_epoch=c.view.source_epoch,.until_us=n.service_until,.gm=true};
   struct pt_output out={0};assert(!prepare_data(&s,at,now,&out));assert(out.length==190);
   struct r2_relay_packet decoded;assert(!r2_group_relay_decode3(&decoded,out.payload,out.length,&enrollment.group,enrollment.identity));
-  assert(decoded.origin.utc_offset_ns==base&&decoded.origin.source_epoch==c.view.source_epoch);
+  assert(decoded.origin.utc_offset_ns==base&&decoded.origin.source_epoch==1234567);
   if(decoded.origin.created_ns!=last_origin){++renewals;last_origin=decoded.origin.created_ns;}
   /* Retries and fresh JOIN do not modify the authenticated offset. */
   assert(!prepare_data(&s,at,now,&out));assert(generic_origin.utc_offset_ns==base);

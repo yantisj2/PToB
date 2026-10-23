@@ -40,6 +40,10 @@ try:
   restart_results.append(dict(reset_role='ACTIVE'if role else'HOT',disconnect_delay_ms=delay,returncode=r.returncode))
   if r.returncode:raise RuntimeError(f'failed {restart_results[-1]}')
  stages.append('four_partial_reboot_retained_remote_cache_and_COLD_replacement_schedules')
+ mesh_units=[app/'tests/gm_mesh_epoch_test.c',*units[1:]]
+ with (out/'mesh.compile.log').open('x')as log:subprocess.run(cmd[:cmd.index(str(units[0]))]+list(map(str,mesh_units))+['-o',str(out/'mesh')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=60)
+ with (out/'mesh.run.log').open('x')as log:subprocess.run([str(out/'mesh')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=90)
+ stages.append('eight_successive_GM_replacements_mesh_inheritance_and_independent_source_requalification')
  owner_units=[x for x in units if x.name not in ('gm_standby_test.c','network.c')]+[app/'tests/gm_standby_owner_test.c']
  with (out/'owner.compile.log').open('x')as log:subprocess.run(cmd[:cmd.index(str(units[0]))]+list(map(str,owner_units))+['-o',str(out/'owner')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=60)
  for period in [100000,125000,150000,175000,200000,250000,0]:

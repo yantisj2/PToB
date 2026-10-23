@@ -174,7 +174,7 @@ void r2_network_relay_timing(struct r2_network *n,uint8_t root,uint64_t boot,uin
  n->timing_relay=true;
 }
 static bool synced(const struct r2_network *n)
-{return n->ready&&n->timing_valid&&n->timing_boot==n->root_boot&&n->timing_epoch==n->view.generation&&(n->timing_relay?n->profile_root==n->choice&&n->timing_train!=0:n->timing_train==n->publication)&&n->now>=n->timing_at&&n->now-n->timing_at<250000;}
+{return n->ready&&n->timing_valid&&n->timing_boot==n->root_boot&&n->timing_epoch==r2_network_source_epoch(n)&&(n->timing_relay?n->profile_root==n->choice&&n->timing_train!=0:n->timing_train==n->publication)&&n->now>=n->timing_at&&n->now-n->timing_at<250000;}
 void r2_network_link(struct r2_network *n,uint8_t p,bool connected,uint64_t now)
 {
  if(p>=n->count||p==n->self||!clock_now(n,now))return;
@@ -540,6 +540,15 @@ static struct v12_dc_coarse local_source(struct r2_network *n,const struct r2_cl
   source.relative_ready=source.available&&n->relative_source;
   return source;
 }
+static uint32_t coordination_epoch(const struct r2_network *n,const struct r2_gm_coordination *c)
+{
+ if(n->gm5.enabled&&n->mesh_epoch&&c&&c->epoch==n->mesh_epoch&&
+    c->root==n->gm5.active&&c->boot==n->gm5.active_boot){
+  if(n->pair.root_boot==c->boot&&n->pair.epoch)return n->pair.epoch;
+  for(unsigned p=0;p<n->count;p++)if(p!=n->self&&n->peer[p].identity==c->root&&n->peer[p].boot==c->boot&&n->peer[p].candidate_epoch)return n->peer[p].candidate_epoch;
+ }
+ return c?c->epoch:0;
+}
 bool r2_network_coordination_direct(const struct r2_network *n,const struct r2_gm_coordination *c,uint64_t now)
 {
  if(!r2_gm_coordination_live(c,n->identity,now)||!c->boot)return false;
@@ -549,7 +558,7 @@ bool r2_network_coordination_direct(const struct r2_network *n,const struct r2_g
  for(unsigned p=0;p<n->count;p++){
   const struct r2_net_peer *m=&n->peer[p];
   if(p!=n->self&&c->root==m->identity&&c->boot==m->boot&&
-     (c->epoch==m->candidate_epoch||(m->source_withdrawn&&!m->candidate_epoch))&&
+     (coordination_epoch(n,c)==m->candidate_epoch||(m->source_withdrawn&&!m->candidate_epoch))&&
      m->connected&&m->authenticated&&m->member&&m->map_valid&&
      (m->capabilities&3)==3&&now>=m->seen&&now-m->seen<10000000&&
      now>=m->alive&&now-m->alive<coordination_lease(n)&&
@@ -566,6 +575,8 @@ void r2_network_tick(struct r2_network *n,const struct r2_clock *clock,uint64_t 
 void r2_network_tick_coordinated(struct r2_network *n,const struct r2_clock *clock,uint64_t now,const struct r2_gm_coordination *coord)
 {
  if(!clock_now(n,now))return;
+ struct r2_gm_coordination physical_coord;
+ if(coord){physical_coord=*coord;physical_coord.epoch=coordination_epoch(n,coord);coord=&physical_coord;}
  bool constrained=r2_gm_coordination_live(coord,n->identity,now);
  bool direct=constrained&&r2_network_coordination_direct(n,coord,now);
  uint64_t elapsed=n->follower_at?now-n->follower_at:0;
@@ -829,6 +840,7 @@ void r2_network_snapshot(const struct r2_network *n,struct v12_dc_snapshot *s)
  memset(s,0,sizeof(*s));s->self_wire=n->self;s->coordinator_wire=n->coordinator;s->coordinator=n->coordinator==n->self;
  s->elected_root=n->choice;s->root_boot=n->root_boot;s->hot_standby=n->hot_ready?n->coordinator:255;
  s->config_epoch=R2_AUTH_CONFIG;s->decision=n->publication;s->last_now_us=n->now;s->coarse=n->view;
+ s->coarse.generation=r2_network_source_epoch(n);
  s->role_until_us=s->view_until_us=s->service_until_us=n->service_until;s->local_gm_ready=n->ready&&n->local_gm;
  s->functional_service=n->follower_valid;
  for(unsigned p=0;p<n->count;p++)if(s->local_gm_ready&&bound(n,p)&&n->peer[p].acked_publication==n->publication&&n->now<n->peer[p].acked_permit)s->serving=true;

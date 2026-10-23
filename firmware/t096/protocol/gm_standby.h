@@ -2,8 +2,8 @@
 #pragma once
 #include "group_join.h"
 #include "election_policy.h"
-#define R2_GM5_STATUS_BYTES 160u
-#define R2_GM5_PROTOCOL 5u
+#define R2_GM5_STATUS_BYTES 164u
+#define R2_GM5_PROTOCOL 6u
 #define R2_GM5_CANDIDATES 3u
 #define R2_GM5_HISTORY 3u
 /* One generous control/recovery window; source/PT validity stays independent. */

@@ -55,10 +55,10 @@ before serving time. COLD can receive BLE timing while qualifying locally.
 | Display | **80 × 160** portrait color TFT; digital UTC, analog clock, RF activity, precision, GNSS quality, system and shadow-PPS pages; LoRa page in LoRa-enabled builds. |
 | Display behavior | Normal refresh **4 Hz**, RF page **8 Hz**. When eligible, a moving screensaver starts after **5 minutes** idle at **50% brightness**. |
 | BLE timing | Shared **G1/RC7** mesh with compatible T096, W12, StickS3 and N30 targets. Relay transmit support depends on the target/profile. |
-| GM coordination | **G5 control protocol 5**; authenticated source admission, finite successor grants, and independent local GNSS qualification. |
+| GM coordination | **G5 STATUS protocol 6**; authenticated source admission, finite successor grants, and independent local GNSS qualification. |
 | LoRa timing | Optional **RC8 wire 3** fallback with root/source identity. BLE is preferred while usable; a configured transmitter can export qualified local GM time or its accepted locked BLE source. |
 | USB | Hardware-captured USB frame boundaries; RC exports BLE time, DC exports local GNSS time. The macOS client uses an owned, unprivileged `chronyd -x` user clock. |
-| Deployment | Source **0.15.164**, Zephyr-based native builds with pinned public dependencies. GM/RC uses private enrollment and verified device binding; no enrolled binary is distributed. |
+| Deployment | Source **0.15.165**, Zephyr-based native builds with pinned public dependencies. GM/RC uses private enrollment and verified device binding; no enrolled binary is distributed. |
 
 LoRa is disabled by default and requires build-time configuration. GM mesh
 participation can suppress passive RX. Fit the appropriate antenna before

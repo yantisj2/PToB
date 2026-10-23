@@ -1,5 +1,24 @@
 # T096 G5 ACTIVE, HOT and COLD
 
+Source165 retains one mesh `source_epoch` across successive ACTIVE/HOT and GM
+replacements. A GM learns it from current authenticated STATUS6 membership; an
+existing standalone mesh yields its epoch only to the ACTIVE chosen by the
+existing election. Only a first standalone activation without an inherited
+epoch creates one. Temporary source/transport loss and runtime role changes
+retain it; a rebooted replacement relearns it from surviving members. A complete
+mesh power loss has no flash-restoration contract.
+
+Local physical source generations remain separate: GNSS/PPS qualification,
+60-second dwell, source withdrawal, grant binding, all deadlines and takeover
+fences are unchanged. Mesh lineage conveys no authority or phase continuity.
+Root/boot/publication/train/capture changes still invalidate affected maps.
+
+G5 STATUS6 adds a four-byte mesh epoch and its own MAC domain (164 bytes); all
+participating GMs must use this revision. Existing G5 control source-generation
+fields, G1 JOIN and RC7/LoRa timing layouts remain unchanged. Public timing
+`source_epoch` identifies the mesh; `gm 00` also reports `local_source_epoch`.
+
+
 Version164 prevents the independent LoRa watchdog from interpreting startup
 flash-scan bytes as live owner state. One boot-zero atomic readiness word outside
 the reused scratch union is published after LoRa initialization and before worker

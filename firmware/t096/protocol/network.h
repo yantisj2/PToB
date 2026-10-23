@@ -68,6 +68,9 @@ struct r2_network {
  struct r2_source_admission admission;
  struct r2_clock_quality quality;
  struct v12_dc_coarse candidate,view;
+ /* Mesh lineage survives source/authority loss. Physical generations above
+  * remain independent qualification and finite-grant fences. */
+ uint32_t mesh_epoch;
  uint64_t identity,boot,nonce,next_nonce,hello_sequence,tx_sequence,now,fence;
  uint64_t root_boot,coordinator_boot,service_until,service_acked_until;
  uint64_t follower_utc,follower_at,follower_until,follower_last_good;
@@ -99,6 +102,8 @@ void r2_network_tick_coordinated(struct r2_network *,const struct r2_clock *,uin
  * source withdrawal; never relay provenance, RSSI or cached membership. */
 bool r2_network_coordination_direct(const struct r2_network *,const struct r2_gm_coordination *,uint64_t now);
 void r2_network_snapshot(const struct r2_network *,struct v12_dc_snapshot *);
+static inline uint32_t r2_network_source_epoch(const struct r2_network *n)
+{return n->gm5.enabled&&n->mesh_epoch?n->mesh_epoch:n->view.generation;}
 bool r2_network_next(struct r2_network *,uint8_t *,uint8_t *bytes,bool *hello);
 bool r2_network_next_ready(struct r2_network *,uint8_t available,uint8_t *,uint8_t *bytes,bool *hello);
 void r2_network_sent(struct r2_network *,bool hello,uint8_t peer,const uint8_t *bytes);

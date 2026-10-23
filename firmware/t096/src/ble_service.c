@@ -106,7 +106,7 @@ static void publish(uint64_t now)
  (void)k_mutex_lock(&lock,K_FOREVER);
 #if defined(R2_GM5_NATIVE)
  gm_diagnostic.state=net.gm5;gm_diagnostic.at=now;gm_diagnostic.boot=net.boot;
- gm_diagnostic.source_until=net.candidate.valid_until_us;gm_diagnostic.source_epoch=net.candidate.generation;
+ gm_diagnostic.source_until=net.candidate.valid_until_us;gm_diagnostic.source_epoch=net.candidate.generation;gm_diagnostic.mesh_epoch=net.mesh_epoch;
  gm_diagnostic.root_health_at=net.root_health_at;gm_diagnostic.output_not_before=net.fence>net.takeover_not_before?net.fence:net.takeover_not_before;gm_diagnostic.refusal=hot_refusal;gm_diagnostic.pair_generation=net.management_generation;
  gm_diagnostic.physical_eligible=net.admission.eligible;gm_diagnostic.global_hot_known=net.gm5.role==R2_GM5_ACTIVE;
  gm_diagnostic.global_hot=gm_diagnostic.global_hot_known&&net.hot_ready;
@@ -148,7 +148,7 @@ static void publish(uint64_t now)
  status.hot_refusal=hot_refusal;status.record_age_us=net.record_age_us;status.record_age_max_us=net.record_age_max_us;status.rx_latency_max_us=rx_latency_max_us;status.rx_queue_peak=rx_queue_peak;status.backlog=backlog;
  status.hello_map_refusals=net.hello_map_refusals;status.hello_width_us=net.hello_width_us;
  status.authority_until=net.service_until;
- status.root_boot=view.root_boot;status.source_epoch=view.coarse.generation;status.service_until=view.service_until_us;status.service_receipts=view.service_receipts;status.rx=r2_ble_receipts();status.authenticated=net.authenticated_rx;status.rejected=net.rejected;
+ status.root_boot=view.root_boot;status.source_epoch=view.coarse.generation;status.local_source_epoch=net.candidate.generation;status.service_until=view.service_until_us;status.service_receipts=view.service_receipts;status.rx=r2_ble_receipts();status.authenticated=net.authenticated_rx;status.rejected=net.rejected;
  status.drops=r2_ble_drops();status.errors=r2_ble_errors();status.transport_fault=transport_fault;
  status.serving=!profile_rc&&!profile_pending&&started&&!atomic_get(&stop_requested)&&view.local_gm_ready;
  status.storage_window=storage_ready;
@@ -339,7 +339,7 @@ static void cycle(struct k_work *work)
   struct r2_gm_coordination coordination;r2_lora_coordination(&coordination);
   coordination.direct=r2_group_admission_coordination_direct(&coordination,now);
   r2_network_tick_coordinated(&net,&clock,now,&coordination);
-  r2_lora_origin(!profile_rc&&!profile_pending&&net.local_gm&&net.ready&&now<net.service_until,net.boot,net.candidate.generation);
+  r2_lora_origin(!profile_rc&&!profile_pending&&net.local_gm&&net.ready&&now<net.service_until,net.boot,r2_network_source_epoch(&net));
 #else
   r2_network_tick(&net,&clock,now);
 #endif
@@ -351,7 +351,7 @@ static void cycle(struct k_work *work)
   struct v12_dc_snapshot authority={0};r2_network_snapshot(&net,&authority);
   struct r2_radio_scope scope={.boot=authority.root_boot,.source_epoch=authority.coarse.generation,.publication_epoch=net.publication,.root=authority.elected_root};
   if(authority.relative_precision_permitted){
-   scope.gm=authority.local_gm_ready;scope.follower=net.follower_valid&&net.follower_clock_valid&&!scope.gm;
+   scope.gm=authority.local_gm_ready;scope.local_source_epoch=scope.gm?net.candidate.generation:0;scope.follower=net.follower_valid&&net.follower_clock_valid&&!scope.gm;
    scope.until_us=scope.gm?authority.coarse.valid_until_us:authority.service_until_us;
   }
   int64_t utc=scope.follower?(int64_t)net.follower_utc:clock.view.utc_us;
@@ -646,7 +646,7 @@ void r2_service_ui(struct r2_ui_model *m)
  m->role=m->scope_active?(s.serving?R2_UI_GM:R2_UI_FOLLOWER):R2_UI_NO_ROLE;
  m->authenticated_gm=m->scope_active&&!s.serving;
  m->local_hot_standby=fresh&&m->scope_active&&s.follower&&s.hot_ready&&s.standby==s.self&&s.precision.authorized&&s.precision.map_valid;
- m->gm_source_fresh=m->scope_active&&s.serving&&s.source_epoch==m->clock.source_epoch&&m->clock.fix_active&&m->clock.pps_present;
+ m->gm_source_fresh=m->scope_active&&s.serving&&s.local_source_epoch==m->clock.source_epoch&&m->clock.fix_active&&m->clock.pps_present;
  /* A nonbootstrap authenticated GR3 origin comes from the root physical
   * PPS-derived source map. Captured
   * corrections plus the locked receiver map establish synchronization to
@@ -745,7 +745,8 @@ static int profile_restart(uint64_t now){
  memset(roster.identity+1,0,sizeof roster.identity-sizeof roster.identity[0]);memset(roster.address+1,0,sizeof roster.address-sizeof roster.address[0]);
  uint64_t incarnation=r2_profile_incarnation(physical_boot,profile_changes);
  rc=r2_relay_service_profile_reset(incarnation);if(rc)return rc;
- rc=r2_network_init(&net,0,R2_NET_PEERS,profile_identity,incarnation,incarnation^UINT64_C(0x52424c453031),roster.map_bound_us,now);if(rc)return rc;
+ uint32_t mesh_epoch=net.mesh_epoch;
+ rc=r2_network_init(&net,0,R2_NET_PEERS,profile_identity,incarnation,incarnation^UINT64_C(0x52424c453031),roster.map_bound_us,now);if(rc)return rc;net.mesh_epoch=mesh_epoch;
  net.group=roster.group;net.capabilities=roster.local_capabilities;
 #if defined(R2_GM5_NATIVE)
  net.gm5.enabled=!profile_rc&&(net.capabilities&1);

@@ -142,7 +142,7 @@ static struct r2_join_record message(const struct r2_network *n, unsigned kind,
       now >= n->view.evidence_us) {
     r.root = n->choice == n->self ? n->identity : n->peer[n->choice].identity;
     r.root_boot = n->root_boot;
-    r.source_epoch = n->view.generation;
+    r.source_epoch = r2_network_source_epoch(n);
     r.publication = n->publication;
     r.utc_us = n->view.utc_second * 1000000 + now - n->view.evidence_us;
     r.remaining_us = (uint32_t)(n->service_until - now);

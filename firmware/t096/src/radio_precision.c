@@ -42,7 +42,7 @@ bool r2_radio_precision_rebind_train(struct r2_radio_precision *s,
 void r2_radio_precision_scope(struct r2_radio_precision *s,
                               struct r2_radio_scope p, uint64_t epoch) {
   bool change = s->scope.boot != p.boot ||
-                s->scope.source_epoch != p.source_epoch || s->scope.publication_epoch != p.publication_epoch ||
+                s->scope.source_epoch != p.source_epoch || s->scope.local_source_epoch != p.local_source_epoch || s->scope.publication_epoch != p.publication_epoch ||
                 ((s->scope.root_identity&&p.root_identity)?s->scope.root_identity!=p.root_identity:s->scope.root!=p.root) || s->scope.gm != p.gm ||
                 s->scope.follower != p.follower || s->local_epoch != epoch;
   if (change) {

@@ -66,7 +66,7 @@ struct r2_service_status {
  bool source_eligible,gm_capable,hot_ready,gm_cold;
  uint32_t lease_expired,core_refusal;
  uint32_t hello_map_refusals,hello_width_us;
- uint32_t source_epoch,service_receipts,cycles,rx,authenticated,rejected,drops,errors,worker_max_us;
+ uint32_t source_epoch,local_source_epoch,service_receipts,cycles,rx,authenticated,rejected,drops,errors,worker_max_us;
  unsigned self,coordinator,root,standby,members,phase;
  int error;
  uint8_t lamps[8];

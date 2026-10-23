@@ -23,7 +23,8 @@ static uint64_t failure_at,contact_origin,active_deadline,hot_deadline,merge_dea
 static uint64_t control_gap_until;
 static uint64_t now,join_at[N],next_status[N][N],nonce=1000;
 static uint64_t local(unsigned p,uint64_t t){return t+1000000+p*137000;}
-static uint64_t identity(unsigned p){return 100+p;}
+static uint64_t identity_offset[N]; /* Optional successive replacement fixture. */
+static uint64_t identity(unsigned p){return 100+p+identity_offset[p];}
 static bool reach(unsigned a,unsigned b){return online[a]&&online[b]&&(!split||(a<2)==(b<2));}
 static uint64_t model_replacement_budget(void)
 {
@@ -136,12 +137,12 @@ static void precision(void)
 {
  for(unsigned p=0;p<nodes;p++)if(online[p]){
   struct r2_radio_scope scope={.boot=n[p].root_boot,.root=n[p].choice,.root_identity=n[p].choice==0?identity(p):paired[p]>=0?identity((unsigned)paired[p]):0,
-   .source_epoch=n[p].view.generation,.publication_epoch=n[p].publication,.until_us=n[p].service_until,.gm=n[p].local_gm,.follower=n[p].follower_valid};
+   .source_epoch=r2_network_source_epoch(&n[p]),.publication_epoch=n[p].publication,.until_us=n[p].service_until,.gm=n[p].local_gm,.follower=n[p].follower_valid};
   r2_radio_precision_scope(&pt[p],scope,epoch[p]+1);
  }
  if(now%62500==0)for(unsigned p=0;p<nodes;p++)if(online[p]&&n[p].local_gm&&n[p].ready){
   uint64_t us=local(p,now),ns=us*1000;
-  struct r2_precision_packet out={.boot=n[p].boot,.source_epoch=n[p].candidate.generation,.root=0,.train=n[p].publication,.capture_epoch=epoch[p]+1,.flags=1,.publication=++packet[p],.created_ns=ns-1000000,.expires_ns=ns+1000000000,.utc_offset_ns=INT64_C(1791417600000000000)-(int64_t)(local(p,0)*1000),.count=pt[p].sent_count};
+  struct r2_precision_packet out={.boot=n[p].boot,.source_epoch=r2_network_source_epoch(&n[p]),.root=0,.train=n[p].publication,.capture_epoch=epoch[p]+1,.flags=1,.publication=++packet[p],.created_ns=ns-1000000,.expires_ns=ns+1000000000,.utc_offset_ns=INT64_C(1791417600000000000)-(int64_t)(local(p,0)*1000),.count=pt[p].sent_count};
   memcpy(out.correction,pt[p].sent,sizeof out.correction);uint16_t event=(uint16_t)packet[p];unsigned channel=packet[p]%37;
   if(paired[p]>=0){unsigned b=(unsigned)paired[p];if(reach(p,b)&&pa[b]&&n[b].follower_valid){
    struct r2_precision_packet rx=out;rx.root=1;

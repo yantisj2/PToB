@@ -15,6 +15,23 @@ failures, missing observations and unknown accuracy bounds remain part of each r
 Copyright (c) 2026 Jonathan Yantis. Original documentation: MIT. Third-party
 patches retain their [source notices](NOTICE.md).
 
+## 0.15.165 — Mesh epoch inheritance
+
+One mesh source epoch is inherited through authenticated G5 STATUS6 and retained
+through successive GM replacements, failovers, temporary source/transport loss
+and runtime role changes. Only an unassociated first standalone ACTIVE creates
+a new epoch. Local physical generations continue to fence qualification,
+withdrawal, UTC translation and finite grants independently. Root, boot and
+publication/train changes still fence old timing maps. The group key epoch is
+unchanged. STATUS is now 164 bytes with a versioned MAC; upgrade participating
+GMs together. Public G1/RC7/LoRa timing layouts are unchanged.
+
+The production-body regression exercises eight successive replacements until
+all original identities are gone, plus independent source requalification.
+UTC-path tests use distinct local and mesh epochs. Host/native results and
+finite hardware observations are separate; no phase-continuous handoff or
+absolute UTC accuracy is implied.
+
 ## 0.15.164 — LoRa startup watchdog ownership
 
 Version164 prevents the independent LoRa watchdog from interpreting startup

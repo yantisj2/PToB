@@ -12,7 +12,7 @@ size_t r2_group_control_size(unsigned k) {
 size_t r2_control_wire_size(const uint8_t *w) {
   if (w[0] == 14)
     return R2_GROUP_JOIN_BYTES;
-  if(w[0]==19&&w[1]<3)return 160;
+  if(w[0]==19&&w[1]<3)return w[2]==6?164:160;
   return (w[0] == 13 || w[0] == 15 || w[0] == 17 || w[0]==19) ? r2_group_control_size(w[1]) : r2_auth_size(w[1]);
 }
 static bool dictionary(const uint64_t ids[4]) {

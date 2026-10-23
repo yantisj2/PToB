@@ -8,7 +8,7 @@ shutil.copytree(app,out/'source',ignore=shutil.ignore_patterns('__pycache__','*.
 def extract(path,start,end):
  s=(src/path).read_text();return s[s.index(start):s.index(end,s.index(start))]
 (out/'gm_utc_under_test.h').write_text('\n'.join([
- extract('protocol/network.c','static struct v12_dc_coarse local_source(','\nvoid r2_network_tick('),
+ extract('protocol/network.c','static struct v12_dc_coarse local_source(','\nstatic uint32_t coordination_epoch('),
  extract('src/group_admission.c','static struct r2_join_record message(','\nstatic void accepted_peer('),
  extract('src/radio_service.c','static int generic_encode(','\nstatic void '),
  extract('src/radio_service.c','static int prepare_data(','\n/* Control admission')]))
