@@ -79,7 +79,7 @@ void worker(void*){
   if(view.minimal){
    uint64_t utc;
    if(n30::saver_time(m,end,utc))next=std::min(next,std::min(m.until_us,m.sampled_us+n30::SnapshotMaxUs));
-   const auto grace=std::min(clock_hold.deadline(),saver_timer.deadline());if(grace>end)next=std::min(next,grace);
+   const auto grace=clock_hold.deadline();if(grace>end)next=std::min(next,grace);
   }
   if(next<=end)continue;
   if(next!=armed_due){

@@ -1,5 +1,16 @@
 # Changelog
 
+## N30 0.2.21 — earlier fine slew and persistent screensaver
+
+Enter the existing 1 ppm fine phase slew below 2000 ns of phase backlog on
+N30; keep the shared targets' 1000 ns default. Keep an active screensaver
+resident through timing loss, so the underlying Precision page cannot flash
+between source withdrawal and recovery. Expire cached time after the existing
+500 ms grace and show WAIT on the saver; user activity still wakes immediately.
+Preserve settled-lock, source expiry and RF/UTC qualification gates. Validate
+signed mode boundaries and saver loss/recovery/wake with offline host checks;
+native builds do not establish hardware acceptance.
+
 ## 2026-10-22 — N30 measured precision follow-up
 
 Replace the S3 timing draft with an eight-page results-first edition and a

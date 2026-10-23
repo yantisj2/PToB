@@ -865,6 +865,22 @@ trend admission, both counter labels, long root names and both mounted
 framebuffer rotations.
 Illustrative previews contain synthetic values and are not hardware acceptance.
 
+### Version 0.2.21 fine slew and screensaver continuity
+
+N30 selects the existing 1 ppm fine phase slew when the absolute phase backlog
+is below 2000 ns; at 2000 ns and above it retains bounded acquisition steering.
+The shared W12/SS3 default remains within 1000 ns. This changes phase steering,
+not settled-lock qualification, RF calibration or source/model expiry.
+
+An entered screensaver now remains resident until button activity or an explicit
+page request. Timing loss cannot briefly reveal Precision or another underlying
+page. The existing 500 ms clock-pixel grace still expires: the full saver then
+shows WAIT / NO TIME, while the minimal saver retains only its WAIT header.
+The PPS lamp continues to require fresh locked time. Recovery preserves the
+same saver residence and movement schedule. Host checks exercise signed
+1999/2000 ns slew boundaries, both shared defaults, every underlying page and
+saver position, stale/held inputs, long outages, transfer failure and wake.
+
 ### Empirical fine-receiver candidate
 
 Version0.2.19 accepts the explicit ignored fixed-pin profile mode

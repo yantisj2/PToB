@@ -38,23 +38,16 @@ struct View {
  bool clock_frozen=false;
  bool minimal=false;
 };
-// One latched session for both saver layouts, independent of pixel history.
+// Once entered, both saver layouts stay resident until user activity. Source
+// loss expires clock pixels, never exposes the page hidden behind the saver.
 class SaverTimer {
- uint64_t started_=0,last_=0,loss_at_=0;bool active_=false,losing_=false;
+ uint64_t started_=0,last_=0;bool active_=false;
  public:
  void update(uint64_t now,View& v,bool synchronized,bool due){
-  if(!due||v.help||v.blank||(active_&&now<last_))active_=losing_=false;
-  if(due&&!v.help&&!v.blank){
-   if(!active_&&v.saver&&synchronized){started_=now;active_=true;losing_=false;}
-   if(active_){
-    if(synchronized)losing_=false;
-    else if(!losing_){loss_at_=now;losing_=true;}
-    if(losing_&&now>=loss_at_&&now-loss_at_>=ClockGraceUs)active_=losing_=false;
-   }
-  }
+  if(!due||v.help||v.blank||(active_&&now<last_))active_=false;
+  if(due&&!v.help&&!v.blank&&!active_&&v.saver&&synchronized){started_=now;active_=true;}
   v.saver=active_;v.minimal=active_&&now-started_>=MinimalAfterUs;last_=now;
  }
- uint64_t deadline()const{return active_&&losing_&&loss_at_<=UINT64_MAX-ClockGraceUs?loss_at_+ClockGraceUs:UINT64_MAX;}
 };
 bool current(const Model&,uint64_t now);
 bool time(const Model&,uint64_t now,uint64_t& utc);
