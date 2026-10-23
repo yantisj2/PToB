@@ -752,7 +752,8 @@ void page_precision(const DisplayState& s){
  text(2,27,n,2);
  if(lora){
   if(s.lora_time_valid)std::snprintf(n,sizeof n,"LORA FIT %u/16",unsigned(s.lora_link_samples));
-  else std::snprintf(n,sizeof n,"LORA NO LIVE FIT");text(2,45,n);
+  else std::snprintf(n,sizeof n,"LORA NO LIVE FIT");
+  text(2,45,n);
   text(2,55,"RX ONLY");text(92,55,s.precision_fine?"80MHz":"20MHz");return;
  }
  std::snprintf(n,sizeof n,"LOCK %02llu:%02u:%02u",(unsigned long long)(s.r2_lock_seconds/3600),unsigned(s.r2_lock_seconds/60%60),unsigned(s.r2_lock_seconds%60));text(2,45,n);
