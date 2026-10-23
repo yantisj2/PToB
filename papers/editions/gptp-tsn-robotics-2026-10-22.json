@@ -1,0 +1,374 @@
+{
+  "author": "Jonathan Yantis",
+  "base_repository_commit": "938bdecf6d64c70e88890cf0a109389db8baf5c5",
+  "cited_local_sources": [
+    {
+      "bytes": 57050,
+      "path": "papers/ptob-viability-preprint.tex",
+      "sha256": "ead863576330e5b04994c5115c55dda9e1c48d71fa8d8934165a9e9bc30a752b"
+    },
+    {
+      "bytes": 58448,
+      "path": "papers/ptob-bluetooth-timecode-preprint.tex",
+      "sha256": "390f28244b157a02de8183f43b1c14c449f4b0d2eae9aab29fa8d4c8a5517ae3"
+    },
+    {
+      "bytes": 12828,
+      "path": "papers/editions/bluetooth-timecode-2026-10-22.json",
+      "sha256": "00c8b8a432ea741605414b482170aa9c8dd4e2e567ea555a6da21ccc2c76d1a3"
+    },
+    {
+      "bytes": 64031,
+      "path": "papers/ptob-esp32s3-timing-preprint.tex",
+      "sha256": "9b5f6942f41e3056a134eeebe6a5940e555841b4473baf921646f9b88befdde3"
+    },
+    {
+      "bytes": 35874,
+      "path": "papers/usb-macos-time-transfer-preprint.tex",
+      "sha256": "b4f21857a9c2842b702da7f78510872d428e3b3749e1d2a7d207ea3817e2d49c"
+    },
+    {
+      "bytes": 6365,
+      "path": "evidence/v14/2026-10-12/README.md",
+      "sha256": "fed662aa81e3e36fcbe90627df0e7c4e53dc7c59a5a3600617cc2e7fd5271361"
+    },
+    {
+      "bytes": 2382,
+      "path": "evidence/v14/2026-10-12/summary.json",
+      "sha256": "a4ecdefdd9e8f08f266a15ce3ab09bc5419d535cbf02633bd6d7fcd10aca4e4b"
+    },
+    {
+      "bytes": 6064,
+      "path": "evidence/s3/2026-10-22/README.md",
+      "sha256": "ea004539049cb397ea330c1d5646012cfb88bfdcf9b6a6db0423dcd0111df8b5"
+    },
+    {
+      "bytes": 9291,
+      "path": "evidence/s3/2026-10-22/results.json",
+      "sha256": "a6198b22b650b7bad7b3c39a893588a38754e6d56a09ace4a15ee9d2e4fd6bec"
+    },
+    {
+      "bytes": 9071,
+      "path": "evidence/s3/2026-10-22/protocol.json",
+      "sha256": "9dffa32a1c2c98139c657cbc622782ee52f37e22d7f0f3aee7dd64e9f1b9eadb"
+    },
+    {
+      "bytes": 6196,
+      "path": "evidence/s3/2026-10-22/manifest.json",
+      "sha256": "bdfb6c1e1ed79fe0fe1dd664b37bbe039cc2b211f8d1bfa425be922df68144a1"
+    },
+    {
+      "bytes": 4756,
+      "path": "evidence/usb/2026-10-17/README.md",
+      "sha256": "ac5f01a0df2b9cb310b054bc327e2679f5d53e9b26e891281fb8c9d933da7b09"
+    },
+    {
+      "bytes": 3926,
+      "path": "evidence/usb/2026-10-17/manifest.json",
+      "sha256": "e9debfa5d61412074682a9afde01d0fc4768653b45c328473738a3b66a0e1276"
+    }
+  ],
+  "code_license": "MIT",
+  "compiler": {
+    "binary_acquisition": "https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic%400.17.0/tectonic-0.17.0-aarch64-apple-darwin.tar.gz",
+    "binary_sha256": "b52b5a730e2b0b33087304f7720f649603953f270a6b1c88bb031e1ae01f7f9c",
+    "cache_note": "Local build reused an existing cache of the public Tectonic bundle. A fresh build can fetch public typesetting dependencies; no private checkout or SDK is required.",
+    "command": "tectonic --only-cached --keep-logs --keep-intermediates --outdir artifacts/robotics-paper-20261022/build papers/ptob-gptp-tsn-robotics-preprint.tex",
+    "engine": "Tectonic",
+    "fresh_checkout_command": "tectonic --outdir artifacts/papers papers/ptob-gptp-tsn-robotics-preprint.tex",
+    "log_sha256": "d438d8869b0a32c9709d39562c65cc9cb1c56fe023a05f8b53afb96cd65dc154",
+    "public_bundle_hashes": [
+      "6ffe055852f8faf66c0acbe1a7fb27f87b869a90bad1204f3bf4d9683f597c7c"
+    ],
+    "standalone": true,
+    "version": "Tectonic 0.17.0",
+    "warnings": false
+  },
+  "edition_date": "2026-10-22",
+  "evidence_cutoff": {
+    "collections_kept_separate": [
+      "V14 2026-10-12 relative fractional PPS phase, 436 usable / 602 nominal opportunities",
+      "S3 2026-10-22 fixed 660 s incomplete attempt: 615 valid + 1 invalid + 44 unrecorded nominal opportunities",
+      "USB 2026-10-17 concurrent shared-bus 180 s RC/DC comparison"
+    ],
+    "external_research": "Original 2018 robotics Ethernet/ROS studies; historical platforms/endpoints, not a PToB comparison.",
+    "latest_discussed_physical_collection": "2026-10-22",
+    "new_measurements": false,
+    "precision_pooling": false,
+    "standards_status": "IEEE 802.1AS-2025 published 2025-12-17; IEC/IEEE 60802-2026 published 2026-06-29, verified against official status pages on 2026-10-22. Full normative texts not audited."
+  },
+  "files": [
+    {
+      "bytes": 56581,
+      "license": "CC-BY-4.0",
+      "path": "papers/ptob-gptp-tsn-robotics-preprint.tex",
+      "sha256": "0e994f12bdfc1344df65d3d0e79366550cd5003e1308fce056244178ee7c2063"
+    },
+    {
+      "bytes": 98492,
+      "license": "CC-BY-4.0",
+      "path": "papers/ptob-gptp-tsn-robotics-preprint.pdf",
+      "sha256": "0f86c39671bf384a612da8e0d574e3419068f5bab5661d241e30fb8678ea02da"
+    },
+    {
+      "bytes": 9022,
+      "license": "MIT",
+      "path": "tools/verify_robotics_paper.py",
+      "sha256": "4262692edfff6d1a4ebed583510b88e4230b44896b79efd4270290634b923d0c"
+    }
+  ],
+  "license": "MIT",
+  "limitations": [
+    "All robotics adapters and PHC-to-radio transfers are proposed, unimplemented and unqualified by this manuscript.",
+    "No gPTP interoperability, IEEE 802.1AS or IEC/IEEE 60802 conformance, wireless TSN data plane, robot-output or functional-safety qualification is asserted.",
+    "Mode A follows the wired domain; Mode B Ethernet egress is later research; Mode C transparent/network-segment gPTP over BLE is outside the initial implementation.",
+    "TAI representation and time-property propagation are future explicit firmware work, not a relabelling of current root-relative/POSIX-style coordinates.",
+    "Historical PToB residuals remain conditional source-relative populations, with missingness and failures retained; no absolute UTC, RF-endpoint or independent sensor/output accuracy inferred.",
+    "Motion, holdover, wire occupancy, simplified gate-window, Bernoulli and candidate pilot examples are analytical proposals, not measurements or universal robotics requirements.",
+    "Standards survey inspects official status/scope and implementation documentation, not full normative standards, amendments or conformance clauses.",
+    "Public derivatives reproduce selected analysis; private raw extraction and operational hardware records were not imported or rerun."
+  ],
+  "local_commit_policy": "Keep matching source, PDF, verifier, edition manifest and changelog together. Local preparation only; no push, release, submission or draft promotion authorized.",
+  "paper_license": "CC-BY-4.0",
+  "previous_edition": null,
+  "primary_sources": [
+    {
+      "accessed": "2026-10-22",
+      "bibliography_key": "modular",
+      "retrieval_scope": "Original research manuscript HTML, including experimental endpoints/results; historical setup only.",
+      "urls": [
+        "https://arxiv.org/html/1809.07295v1"
+      ]
+    },
+    {
+      "accessed": "2026-10-22",
+      "bibliography_key": "robottsn",
+      "retrieval_scope": "Original research manuscript HTML, including experimental endpoints/results; historical setup only.",
+      "urls": [
+        "https://arxiv.org/html/1804.07643v2"
+      ]
+    },
+    {
+      "accessed": "2026-10-22",
+      "bibliography_key": "as2025",
+      "retrieval_scope": "Official standards-organization scope/status inspected; full normative text and amendments not audited.",
+      "urls": [
+        "https://standards.ieee.org/ieee/802.1AS/11968/"
+      ]
+    },
+    {
+      "accessed": "2026-10-22",
+      "bibliography_key": "industrial",
+      "retrieval_scope": "Official standards-organization scope/status inspected; full normative text and amendments not audited.",
+      "urls": [
+        "https://1.ieee802.org/tsn/iec-ieee-60802/"
+      ]
+    },
+    {
+      "accessed": "2026-10-22",
+      "bibliography_key": "qbv",
+      "retrieval_scope": "Official originating-project scope inspected; future implementation must select applicable consolidated standard/profile.",
+      "urls": [
+        "https://www.ieee802.org/1/pages/802.1bv.html"
+      ]
+    },
+    {
+      "accessed": "2026-10-22",
+      "bibliography_key": "qbu",
+      "retrieval_scope": "Official originating-project scope inspected; future implementation must select applicable consolidated standard/profile.",
+      "urls": [
+        "https://www.ieee802.org/1/pages/802.1bu.html"
+      ]
+    },
+    {
+      "accessed": "2026-10-22",
+      "bibliography_key": "qci",
+      "retrieval_scope": "Official originating-project scope inspected; future implementation must select applicable consolidated standard/profile.",
+      "urls": [
+        "https://1.ieee802.org/tsn/802-1qci/"
+      ]
+    },
+    {
+      "accessed": "2026-10-22",
+      "bibliography_key": "qcc",
+      "retrieval_scope": "Official originating-project scope inspected; future implementation must select applicable consolidated standard/profile.",
+      "urls": [
+        "https://1.ieee802.org/tsn/802-1qcc/"
+      ]
+    },
+    {
+      "accessed": "2026-10-22",
+      "bibliography_key": "cb",
+      "retrieval_scope": "Official originating-project scope inspected; future implementation must select applicable consolidated standard/profile.",
+      "urls": [
+        "https://1.ieee802.org/tsn/802-1cb/"
+      ]
+    },
+    {
+      "accessed": "2026-10-22",
+      "bibliography_key": "ptp4l",
+      "retrieval_scope": "Official documentation/source inspected; capability or semantic background, not integration acceptance.",
+      "urls": [
+        "https://www.linuxptp.org/documentation/ptp4l/"
+      ]
+    },
+    {
+      "accessed": "2026-10-22",
+      "bibliography_key": "gptpconfig",
+      "retrieval_scope": "Official example configuration inspected; not a complete IEEE 802.1AS-2025/IEC/IEEE 60802 configuration.",
+      "urls": [
+        "https://www.linuxptp.org/documentation/configs/gptp/"
+      ]
+    },
+    {
+      "accessed": "2026-10-22",
+      "bibliography_key": "phc",
+      "retrieval_scope": "Official documentation/source inspected; capability or semantic background, not integration acceptance.",
+      "urls": [
+        "https://docs.kernel.org/driver-api/ptp.html"
+      ]
+    },
+    {
+      "accessed": "2026-10-22",
+      "bibliography_key": "timestamping",
+      "retrieval_scope": "Official documentation/source inspected; capability or semantic background, not integration acceptance.",
+      "urls": [
+        "https://cdn.kernel.org/doc/html/latest/networking/timestamping.html"
+      ]
+    },
+    {
+      "accessed": "2026-10-22",
+      "bibliography_key": "phc2sys",
+      "retrieval_scope": "Official documentation/source inspected; capability or semantic background, not integration acceptance.",
+      "urls": [
+        "https://www.linuxptp.org/documentation/phc2sys/"
+      ]
+    },
+    {
+      "accessed": "2026-10-22",
+      "bibliography_key": "rosclock",
+      "retrieval_scope": "Official documentation/source inspected; capability or semantic background, not integration acceptance.",
+      "urls": [
+        "https://design.ros2.org/articles/clock_and_time.html"
+      ]
+    },
+    {
+      "accessed": "2026-10-22",
+      "bibliography_key": "rosimage",
+      "retrieval_scope": "Original official rolling-branch message source inspected; mutable URL. Rendered documentation was access-restricted.",
+      "urls": [
+        "https://raw.githubusercontent.com/ros2/common_interfaces/rolling/sensor_msgs/msg/Image.msg"
+      ]
+    },
+    {
+      "accessed": "2026-10-22",
+      "bibliography_key": "basler",
+      "retrieval_scope": "Manufacturer documentation with draft-version banner; model-specific features only, no exact-device/firmware or gPTP qualification.",
+      "urls": [
+        "https://docs.baslerweb.com/precision-time-protocol"
+      ]
+    }
+  ],
+  "review": {
+    "all_pages_rendered_and_visually_inspected": true,
+    "external_primary_references": 17,
+    "figures": 1,
+    "final_changed_pages_reinspected": [
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "layout_warnings": false,
+    "pages": 15,
+    "pdf_attachments": false,
+    "pdf_extracted_words": 7116,
+    "pdf_forms": false,
+    "privacy": "Original synthesis of cited public sources. No private paths, factory identities, enrollment, keys, raw lab captures or firmware images copied into the manuscript. Concurrent gateway work was not used as a cited dependency.",
+    "references": 22,
+    "render_tool": "Poppler pdftoppm, -scale-to 1800 -png; contact sheets and full-page architecture inspection",
+    "rendered_pages": [
+      {
+        "page": 1,
+        "sha256": "f92ee4e098501e2e315f5478a1b021e5d4242418f720d60a8857233e05f265e0"
+      },
+      {
+        "page": 2,
+        "sha256": "995247bd1c2b30d44f2b568225676959d9f6cb690b9366bcbd9c9dd19e4e5302"
+      },
+      {
+        "page": 3,
+        "sha256": "1b953f8f4939e0bd2ee2d5c90ab258a977c3757bf349d618227da05947ae2ce5"
+      },
+      {
+        "page": 4,
+        "sha256": "143f5bf544f8b83750055a6c676e0b724b6ac0862e4598e1e5c4b1704514a6a8"
+      },
+      {
+        "page": 5,
+        "sha256": "dfcf4616a8d0186c662a26642b045e4f24ce1764471f2e90de1ec0339c56512c"
+      },
+      {
+        "page": 6,
+        "sha256": "6e119dc1387fca4950910ef04bd8116ce551fb53f7c334d3def4386b1e037d70"
+      },
+      {
+        "page": 7,
+        "sha256": "d2b80a487aedcfbc8a6817ed380e75f926fa596ac489e9e0bf7f4e6265760fc5"
+      },
+      {
+        "page": 8,
+        "sha256": "329f2ea3afb698deb4b684b67e4ec4964e9d3907c1e8fdbd2c4d1ab3061f68f9"
+      },
+      {
+        "page": 9,
+        "sha256": "549a2d770b00f48c70ba8de663874c6523df5509df9bd4a64236c439cc9a37a7"
+      },
+      {
+        "page": 10,
+        "sha256": "c472852b65b0ab53fd434a6622718fd360b65a67d24fe923095e6f9b6e64255f"
+      },
+      {
+        "page": 11,
+        "sha256": "87f8ae2149f68073ff1fc8f2f1364a1ad6bab4ee54e47d092da02c3d9a5d4702"
+      },
+      {
+        "page": 12,
+        "sha256": "0804ab8a0fa19f2b24b051fabc9c04788fb00bd73331615ab9f47b8adeed6d5a"
+      },
+      {
+        "page": 13,
+        "sha256": "214a0d39926476f892db12b2716fb2df1b248b925b2a49ed85a47948c1fcd164"
+      },
+      {
+        "page": 14,
+        "sha256": "b354d7341cf339ad773c58e6762f5d11d5be961a7581061cd2d13140ffa932d9"
+      },
+      {
+        "page": 15,
+        "sha256": "cfcfd0073515b6bc65842253fe67d7d8a1912b9b64a263b221884bc78c365484"
+      }
+    ],
+    "source_and_pdf_match": true,
+    "tables": 4,
+    "unresolved_references": false
+  },
+  "schema": 1,
+  "status": "RESEARCH_DRAFT_NOT_SUBMITTED_NOT_PROMOTED_NOT_PUSHED",
+  "title": "A Shared Time Base for Robotic gPTP and TSN Systems: PToB Edge Adaptation, Compatibility Boundaries, and a Validation Programme",
+  "verification_commands": [
+    "python3 tools/verify_robotics_paper.py",
+    "python3 tools/verify_v14.py",
+    "python3 tools/verify_s3_paper.py --require-long-cohort",
+    "python3 tools/verify_usb_results.py",
+    "python3 tools/verify_timecode_paper.py",
+    "git diff --check"
+  ]
+}
