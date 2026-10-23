@@ -1799,3 +1799,11 @@ metrology readiness or independent UTC accuracy.
 - Add independent authenticated RC9 client/service with original source expiry,
   distinct BLE class and client leases pinning AUTO LoRa through BLE recovery.
 - Preserve GNSS inputs, normal G1 precision isolation and original owner drains.
+
+## W12 0.2.5 — normal flash preparation
+
+- Keep RC9 capability discovery active through speculative upstream retry;
+  yield only for actual outgoing admission/ACL ownership.
+- Expose RC9 service-owner flags without changing the normal status frame.
+- Preserve UTC-boundary display paints, current source expiry, original client
+  leases, GNSS inputs and the existing normal RC7 scheduling policy.

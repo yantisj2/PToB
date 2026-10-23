@@ -7,7 +7,7 @@ RC role. [Image provenance](../../docs/images/README.md).*
 
 Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
 
-**PToB owns W12 native G1/RC7 development.** Current version **0.2.4** supports
+**PToB owns W12 native G1/RC7 development.** Current version **0.2.5** supports
 **RC**: a BLE50 client or BLE100 receiver with an optional experimental
 estimated-TX relay. It receives from the shared T096/W12/StickS3 mesh; it has no
 GM profile or USB timing stream. Start with the
@@ -110,3 +110,11 @@ matches N30's functional RC8 pre-companion display path, leaving unknown origin
 boots and bounds unknown. See [RC9](../../docs/w12/rc9.md) for the separate wire
 service, lease controls and offline checks. Hardware outcomes remain tied to
 exact installed image and device records; link RMS is not UTC accuracy.
+
+Version0.2.5 keeps RC9 capability discovery available during RC8 fallback when
+no actual upstream admission is in progress. A real outgoing admission still
+yields the same sole connectable owner before creating its ACL. Normal RC7
+scheduling is unchanged. Service flags in the separate RC9 diagnostic expose
+configured/periodic/discovery/connectable owners. Offline native SDK tests
+cover speculative retry, real admission yield and recovery; full RF/lease
+acceptance remains a separate exact-image/device observation.

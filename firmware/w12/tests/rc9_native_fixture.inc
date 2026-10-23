@@ -25,7 +25,11 @@ int main(int argc,char** argv){assert(argc==2);const std::string which=argv[1];
  assert(!v12::relay_flags(fake_now*20));v12::rc9::Time p;assert(v12::rc9::decode_time(p,pa_wire.data(),190,v12::provision.group)&&p.valid);
  assert(p.link_rms_ns==123&&p.root_boot==0&&p.emitter_boot==0&&p.edge_us==rc9_radio.edge_us&&p.until_us==rc9_radio.until_us);
  const auto physical_until=p.until_us;
- if(which=="race"){
+ if(which=="speculative"){
+  v12::relay_poll(fake_now,true);assert(ext_active[1]&&v12::rc9_server_flags()==15&&!v12::fault);
+  v12::relay_poll(fake_now,true,true);assert(!ext_active[1]&&v12::rc9_server_flags()==7&&!v12::fault);
+  v12::relay_poll(fake_now,true);assert(ext_active[1]&&v12::rc9_server_flags()==15);
+ }else if(which=="race"){
   snapshot_race=true;fake_now+=300000;v12::relay_poll(fake_now,false);
   assert(v12::rc9::decode_time(p,pa_wire.data(),190,v12::provision.group)&&p.valid&&p.sampled_us>=rc9_radio.sampled_us);
  }else{

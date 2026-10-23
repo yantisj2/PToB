@@ -8,6 +8,10 @@ uint64_t rc9_server_demand_until(){return relay_profile==9?relay_demand_until():
 uint8_t rc9_server_clients(uint64_t now){
  uint8_t n=0;if(relay_profile==9)for(const auto& c:relay_children)if(c.id&&rc5_demand_live(&c.demand,now))++n;return n;
 }
+uint8_t rc9_server_flags(){
+ if(relay_profile!=9||relay_stopping)return 0;
+ return uint8_t(relay_configured)|uint8_t(relay_pa)<<1|uint8_t(relay_discovery)<<2|uint8_t(relay_advertising)<<3;
+}
 bool rc9_server_selected(uint64_t now){
  w12_lora_view l;w12_lora_snapshot(l);now=micros();uint64_t utc=0;
  const bool permit=full_listening()&&!closing&&!fault&&!stop_pending&&l.mode!=uint8_t(w12::LoRaMode::KeepOff)&&!l.fault;
@@ -93,5 +97,6 @@ void rc9_server_poll(uint64_t now,bool upstream_due){
 uint64_t rc9_server_demand_until(){return 0;}
 uint8_t rc9_server_clients(uint64_t){return 0;}
 bool rc9_server_selected(uint64_t){return false;}
+uint8_t rc9_server_flags(){return 0;}
 #endif
 #endif

@@ -68,18 +68,18 @@ def check(out):
  target=Path(out)/'target';files=sorted(target.rglob('native_main.cpp.su'))
  if len(files)!=1:raise ValueError('One retained native_main GCC stack-usage file required')
  gnss_usage=None;fast_map_usage=None;receipt=Path(out)/'receipt.json';device=Path(out)/'local/device.json';r=json.loads(receipt.read_text()) if receipt.exists() else {}
- if r.get('version') in ('0.1.22','0.1.23','0.2.0','0.2.1','0.2.2','0.2.3','0.2.4') and type(r.get('gnss_fast_map_diagnostic'))is not bool:raise ValueError('Explicit fast-map stack metadata required')
- if receipt.exists() and device.exists() and r.get('version') in ('0.1.21','0.1.22','0.1.23','0.2.0','0.2.1','0.2.2','0.2.3','0.2.4') and 'gnss_profile' in json.loads(device.read_text()):
+ if r.get('version') in ('0.1.22','0.1.23','0.2.0','0.2.1','0.2.2','0.2.3','0.2.4','0.2.5') and type(r.get('gnss_fast_map_diagnostic'))is not bool:raise ValueError('Explicit fast-map stack metadata required')
+ if receipt.exists() and device.exists() and r.get('version') in ('0.1.21','0.1.22','0.1.23','0.2.0','0.2.1','0.2.2','0.2.3','0.2.4','0.2.5') and 'gnss_profile' in json.loads(device.read_text()):
   gnss=sorted(target.rglob('gnss_pps.cpp.su'))
   if len(gnss)!=1:raise ValueError('One retained GNSS PPS GCC stack-usage file required')
   gnss_usage=gnss[0].read_text()
- if r.get('version') in ('0.1.22','0.1.23','0.2.0','0.2.1','0.2.2','0.2.3','0.2.4') and r.get('gnss_fast_map_diagnostic'):
+ if r.get('version') in ('0.1.22','0.1.23','0.2.0','0.2.1','0.2.2','0.2.3','0.2.4','0.2.5') and r.get('gnss_fast_map_diagnostic'):
   if gnss_usage is None:raise ValueError('Fast map requires retained GNSS PPS frames')
   fast=sorted(target.rglob('s3_clock_reference.c.su'))
   if len(fast)!=1:raise ValueError('One retained fast map GCC stack-usage file required')
   fast_map_usage=fast[0].read_text()
  result=measure((target/'sdkconfig').read_text(),files[0].read_text(),gnss_usage,fast_map_usage)
- if r.get('version') in ('0.1.23','0.2.0','0.2.1','0.2.2','0.2.3','0.2.4') and r.get('fine_clock'):
+ if r.get('version') in ('0.1.23','0.2.0','0.2.1','0.2.2','0.2.3','0.2.4','0.2.5') and r.get('fine_clock'):
   owners=sorted(target.rglob('w12_fine_clock.cpp.su'))
   if len(owners)!=1:raise ValueError('One retained W12 fine-owner stack unit required')
   all_rows=[line.split('\t') for f in target.rglob('*.su') for line in f.read_text().splitlines() if line.strip()]
@@ -104,7 +104,7 @@ def check(out):
   for name,(size,used) in paths.items():
    if used+RESERVE_BYTES>size:raise ValueError('Fine clock selected path exceeds reserved stack: '+name)
    result['fine_paths'][name]={'configured_bytes':size,'selected_static_bytes':used,'reserve_bytes':RESERVE_BYTES,'headroom_after_reserve_bytes':size-used-RESERVE_BYTES}
- if r.get('version') in ('0.2.0','0.2.1','0.2.2','0.2.3','0.2.4') and r.get('lora_rx'):
+ if r.get('version') in ('0.2.0','0.2.1','0.2.2','0.2.3','0.2.4','0.2.5') and r.get('lora_rx'):
   radio=sorted(target.rglob('w12_lora_radio.cpp.su'))
   if len(radio)!=1:raise ValueError('One retained LR2021 owner frame unit required')
   rows=[line.split('\t') for q in target.rglob('*.su') for line in q.read_text().splitlines() if line.strip()]

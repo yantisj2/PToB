@@ -25,7 +25,7 @@ struct Rc9Status {
   uint64_t sampled_us=0,utc_us=0,until_us=0,server=0,server_boot=0;
   uint64_t root=0,root_boot=0,emitter=0,emitter_boot=0,client_until_us=0;
   uint32_t source_epoch=0,sequence=0,rms_ns=UINT32_MAX,accepted=0,rejected=0;
-  uint8_t clients=0,assurance=0,authority=0;
+  uint8_t clients=0,assurance=0,authority=0,service_flags=0;
   bool valid=false,following=false,serving=false,metadata_known=false,fault=false;
 };
 Rc9Status r2_rc9_status();

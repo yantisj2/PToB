@@ -42,3 +42,10 @@ python3 firmware/w12/tools/dual_display_tests.py --out artifacts/dual-display
 These use real authentication codecs and the actual native controller adapter
 with synthetic SDK callbacks. They are not RF interoperability or precision
 qualification. Preserve failed hardware populations and exact-image records.
+
+Version0.2.5 distinguishes an actual outgoing admission from a speculative
+upstream retry. An unavailable BLE parent cannot starve RC9's connectable
+capability advertisement. Actual admission, ACL ownership, quarantine and the
+original drain still pause/refuse new clients. `service_flags` is the sum of
+configured=1, periodic=2, SyncInfo discovery=4 and connectable capability=8;
+normal RC7 status remains zero while profile9 owns the publisher.

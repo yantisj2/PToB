@@ -103,6 +103,7 @@ bool rc9_bound(){return rc9_client.view(uint64_t(esp_timer_get_time())).bound;}
 bool rc9_server_selected(uint64_t);
 uint64_t rc9_server_demand_until();
 uint8_t rc9_server_clients(uint64_t);
+uint8_t rc9_server_flags();
 void rc9_publish_status(uint64_t);
 #endif
 #ifdef PTOB_N30
@@ -262,7 +263,7 @@ void failed_admission(uint64_t now){
   if(!parent_failure.identity)parent_failure={peer.identity,now,peer.relay};
 }
 bool relay_slot_scanning();
-void relay_fence();void relay_close(uint64_t now,bool preserve_demand=false);bool relay_owned();bool relay_acl_available();void relay_poll(uint64_t now,bool upstream_due);
+void relay_fence();void relay_close(uint64_t now,bool preserve_demand=false);bool relay_owned();bool relay_acl_available();void relay_poll(uint64_t now,bool upstream_due,bool admitting=false);
 void parent_record(G1ParentReason reason,uint64_t now);
 void begin_close(uint64_t now){if(closing)return;closing=true;
 #ifdef PTOB_RC9
@@ -620,7 +621,7 @@ bool connect_parameter_refusal(int rc,const ble_gap_conn_params& p){
 }
 void connect(const Discovery& d,uint64_t id,uint64_t now,bool relay=false,bool is_rc9=false){
   if((!is_rc9&&!parent_selection.retry_allowed(id,relay,now))||!admission_policy.allowed(now,full_listening()&&!relay))return;
-  relay_poll(now,true);if(!relay_acl_available())return;stop_scan();if(scan||!timely())return;
+  relay_poll(now,true,true);if(!relay_acl_available())return;stop_scan();if(scan||!timely())return;
   if(nonce==UINT64_MAX){fault=true;return;}++nonce;
   if(incarnation==UINT32_MAX){fault=true;return;}
   const bool rescan=false; // Poor delivery never establishes slot contention.

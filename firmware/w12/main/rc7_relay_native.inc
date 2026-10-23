@@ -445,7 +445,8 @@ bool relay_check_lock(){
   return relay_admission_locked&&!fault;
 }
 #include "rc9_server_native.inc"
-void relay_poll(uint64_t now,bool upstream_due){
+void relay_poll(uint64_t now,bool upstream_due,bool admitting){
+  (void)admitting;
   if(!full_listening()||closing||fault){if(relay_owned())relay_close(now);return;}
 #ifdef PTOB_RC9
   if(rc9_bound()&&!rc9_server_selected(now)){if(relay_owned())relay_close(now);return;}
@@ -462,8 +463,12 @@ void relay_poll(uint64_t now,bool upstream_due){
    relay_map.fence();relay_hold.clear();relay_cap_dirty=relay_data_dirty=true;
   }
   if(relay_profile==9){
-   if(upstream_due||peer.connecting||peer.handle!=None)relay_pause_cap();
-   rc9_server_poll(now,upstream_due);return;
+   // A missing upstream clock is not an actual admission owner. Otherwise
+   // speculative due=true starves CAP throughout the very RC8 fallback that
+   // must advertise RC9. connect() yields CAP explicitly before its real ACL.
+   const bool actual_upstream=admitting||peer.connecting||peer.handle!=None;
+   if(actual_upstream)relay_pause_cap();
+   rc9_server_poll(now,actual_upstream);return;
   }
 #endif
   relay_quarantine_poll(now);
@@ -603,6 +608,7 @@ void relay_poll(uint64_t now,bool upstream_due){
 uint64_t rc9_server_demand_until(){return 0;}
 uint8_t rc9_server_clients(uint64_t){return 0;}
 bool rc9_server_selected(uint64_t){return false;}
+uint8_t rc9_server_flags(){return 0;}
 #endif
 bool relay_slot_scanning(){return false;}
 void relay_slot_observe(const rc7_control&,int8_t,uint64_t){}
@@ -610,5 +616,5 @@ void relay_fence(){}
 void relay_close(uint64_t,bool){}
 bool relay_owned(){return false;}
 bool relay_acl_available(){return true;}
-void relay_poll(uint64_t,bool){}
+void relay_poll(uint64_t,bool,bool){}
 #endif

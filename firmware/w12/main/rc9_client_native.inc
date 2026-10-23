@@ -66,7 +66,7 @@ void rc9_publish_status(uint64_t now){
  const auto view=rc9_client.view(now);Rc9Status result;
  result.sampled_us=now;result.server=view.server;result.server_boot=view.server_boot;
  result.client_until_us=rc9_server_demand_until();result.clients=rc9_server_clients(now);
- result.serving=rc9_server_selected(now)&&result.clients!=0;result.fault=fault;
+ result.service_flags=rc9_server_flags();result.serving=rc9_server_selected(now)&&result.clients!=0;result.fault=fault;
  result.accepted=rc9_client.accepted;result.rejected=rc9_client.rejected;
  if(!closing&&!fault&&!parent_diagnostic.pending()&&view.valid){
   result.valid=result.following=true;result.utc_us=view.utc_us;result.until_us=view.until_us;
