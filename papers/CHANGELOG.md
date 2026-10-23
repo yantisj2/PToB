@@ -1,5 +1,27 @@
 # Manuscript history
 
+## 2026-10-22 — robotic gPTP/TSN public draft review
+
+- Jonathan Yantis approved adding the robotic gPTP/TSN paper to the public
+  research collection. Publish the reviewed PDF, matching LaTeX, immutable
+  edition receipt and offline verifier together, with catalogue and root links.
+- Retain research-draft status, historical evidence populations and all stated
+  limits. This approval does not qualify interoperability, standards conformance
+  or hardware, promote a stable edition, or authorize manuscript submission.
+
+## 2026-10-22 — robotic gPTP/TSN edge-adaptation research draft
+
+- Add a standalone paper and matching PDF in the Bluetooth timecode study's
+  style, with a dated primary-source review, original architecture figure,
+  proposed domain/source/event/quality contract and ROS 2 acquisition adapters.
+- Distinguish wired-domain ingress, later isolated Ethernet egress and the
+  unimplemented BLE media adaptation; derive motion, holdover and schedule
+  examples and propose independent validation with complete failure accounting.
+- Add an offline analytical verifier and source/PDF/build/review receipt.
+  Preserve separate historical populations and prior editions. No firmware
+  change, new hardware measurement, conformance claim, submission, push or
+  public-review promotion accompanies this local preparation.
+
 ## 2026-10-22 — ESP32-S3 precision timing research draft
 
 - Add an eight-page draft with matching LaTeX/PDF and a selected, sanitized

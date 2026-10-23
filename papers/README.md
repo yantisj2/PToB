@@ -1,7 +1,8 @@
 # Research papers — drafts
 
 These are working drafts by **Jonathan Yantis**. The latest addition is the
-**22 October 2026** ESP32-S3 precision timing study. The shared time base and
+**22 October 2026** robotic gPTP/TSN edge-adaptation study. The ESP32-S3 precision
+timing study retains its **22 October** edition. The shared time base and
 Bluetooth timecode compatibility study retains its **22 October** edition.
 The awake timing information and power scheduling pilot retains its
 **19 October 2026** edition. The
@@ -25,11 +26,28 @@ draft status.
 
 | Draft | Read | Edit | Edition |
 | --- | --- | --- | --- |
+| A Shared Time Base for Robotic gPTP and TSN Systems: PToB Edge Adaptation, Compatibility Boundaries, and a Validation Programme | [PDF](ptob-gptp-tsn-robotics-preprint.pdf) | [LaTeX](ptob-gptp-tsn-robotics-preprint.tex) | 22 October 2026, proposed wired-domain ingress, wireless acquisition timestamps and staged validation |
 | Precision Bluetooth Timing on ESP32-S3: Causal Clock Discipline and Hardware Event Capture | [PDF](ptob-esp32s3-timing-preprint.pdf) | [LaTeX](ptob-esp32s3-timing-preprint.tex) | 22 October 2026, frozen-profile relative PPS observation and separate Nordic history |
 | A Shared Time Base for Bluetooth Timecode Ecosystems: PToB Architecture, Compatibility Boundaries, and a Validation Programme | [PDF](ptob-bluetooth-timecode-preprint.pdf) | [LaTeX](ptob-bluetooth-timecode-preprint.tex) | 22 October 2026, proposed media contract and compatibility layers |
 | How Much Timing Information Is Enough? Awake Hardware Evidence and Wake/Listen Energy Models for PToB | [PDF](ptob-power-scheduling-preprint.pdf) | [LaTeX](ptob-power-scheduling-preprint.tex) | 19 October 2026, awake PC117 pilot and hypothetical energy models |
 | Beyond USB Packet Arrival: Frame-Identified Time Transfer to macOS | [PDF](usb-macos-time-transfer-preprint.pdf) | [LaTeX](usb-macos-time-transfer-preprint.tex) | 17 October 2026, shared-bus RC/DC revision |
 | From Virtual Clock Discipline to Physical Synchronization: White Rabbit Lessons for PToB and Future Tunable Targets | [PDF](white-rabbit-study-20261015.pdf) | [LaTeX](white-rabbit-study-20261015.tex) | 15 October 2026 |
+
+The robotics gPTP/TSN paper was **approved for public draft review on
+22 October 2026** and remains a research draft. It has a
+[22 October edition manifest](editions/gptp-tsn-robotics-2026-10-22.json) and
+[offline analytical verifier](../tools/verify_robotics_paper.py). In the style of
+the timecode study, it proposes a common domain/source/event/quality contract,
+an Ethernet-PHC-to-radio clock bridge, ROS 2 acquisition-time adapters, explicit
+motion/holdover/schedule budgets and independent validation gates. Its dated
+primary-source review uses IEEE 802.1AS-2025 and the published IEC/IEEE 60802-2026
+profile; full normative conformance remains unaudited. Historical PToB populations
+remain separate. All robotics adapters, gPTP interoperability, Ethernet egress,
+TSN conformance and physical actuation qualification remain future work. This
+edition adds no hardware experiment, firmware change, submission or promotion
+to a stable paper. The immutable edition receipt records local preparation
+before the GitHub push; the [manuscript history](CHANGELOG.md) records the
+subsequent public-review approval.
 
 The ESP32-S3 paper has a [22 October edition manifest](editions/s3-timing-2026-10-22.json)
 and [sanitized observation supplement](../evidence/s3/2026-10-22/README.md).

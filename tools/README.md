@@ -1,5 +1,12 @@
 # Reproduction tools
 
+Run `python3 tools/verify_robotics_paper.py` to check the 22 October robotic
+gPTP/TSN draft's causal map composition and validity, unknown-bound propagation,
+motion, holdover, serialization and simplified schedule examples, candidate
+pilot denominator, statistical illustration, separate historical populations,
+bibliography and edition identities. This offline standard-library check does
+not implement gPTP, operate devices or establish TSN/robotics qualification.
+
 Run `python3 tools/verify_timecode_paper.py` to check the 22 October Bluetooth
 timecode draft's exact rational frame/sample examples, all nominal-day drop-frame
 minute transitions and invalid labels, boundary ambiguity, hypothetical drift and

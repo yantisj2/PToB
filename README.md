@@ -76,6 +76,15 @@ wire profiles and current firmware versions have separate identities. Historical
 results do not qualify later builds. PToB is not an adopted Bluetooth SIG or IEEE
 standard.
 
+**Public review draft, 22 October 2026:** [A Shared Time Base for Robotic gPTP and
+TSN Systems](papers/ptob-gptp-tsn-robotics-preprint.pdf) investigates extending
+a wired robot time domain to wireless acquisition endpoints, with a proposed
+PHC-to-radio bridge, ROS 2 adapters and independent validation programme.
+[LaTeX source](papers/ptob-gptp-tsn-robotics-preprint.tex) and
+[edition manifest](papers/editions/gptp-tsn-robotics-2026-10-22.json) preserve its
+scope; gPTP interoperability, TSN conformance and physical actuation remain
+unqualified.
+
 **Research draft, 22 October 2026:** [Precision Bluetooth Timing on ESP32-S3:
 Causal Clock Discipline and Hardware Event Capture](papers/ptob-esp32s3-timing-preprint.pdf)
 reports 110.801 ns conditional RMS across 615 valid relative PPS observations,

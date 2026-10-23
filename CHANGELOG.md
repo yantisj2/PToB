@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-22 — robotic gPTP/TSN public draft review
+
+- Record approval to publish the reviewed robotics research draft in the
+  repository's paper collection, with public PDF, source, edition and verifier
+  links. Preserve the reviewed artifacts, evidence limits and draft status.
+
 ## N30 0.2.18 — continuous-counter validation journal
 
 Retain128 packet intervals in one continuous MCPWM domain, with persistent
@@ -14,6 +20,17 @@ CRC cursors, capture fences and retained late invalidation. Preserve the deliver
 clock, both quality displays, legacy offset and LoRa owner. Original descriptor
 scalars reuse N30-only padding without new reads or Report growth. Packet/RF
 association and finer-clock accuracy remain unqualified pending device evidence.
+
+## 2026-10-22 — robotic gPTP/TSN research draft
+
+- Add a [robotics timing adaptation study](papers/ptob-gptp-tsn-robotics-preprint.pdf)
+  with matching LaTeX, edition receipt and offline analytical verifier, following
+  the Bluetooth timecode paper's architecture and validation style.
+- Propose extending a wired gPTP authority to wireless acquisition timestamps,
+  with explicit clock-transfer, ROS 2, uncertainty, expiry and TSN boundaries.
+  Historical evidence stays separate; interoperability, conformance and physical
+  robot-output qualification remain future work. No hardware operation,
+  firmware change, publication or draft promotion.
 
 ## 2026-10-22 — ESP32-S3 precision timing research draft
 
