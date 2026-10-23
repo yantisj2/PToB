@@ -35,4 +35,18 @@ int main(){
   s=valid;s.service_until_us=now+1;
   assert(w12::synchronized_until(s,now)==now+1);
   assert(w12::synchronized_until(s,now+1)==0);
+  // Actual precision lock may coexist with a short, still-live UTC envelope.
+  // Its one-second forecast uses original precision/replay deadlines, while
+  // an expired coarse source still revokes lock immediately.
+  s=valid;s.g1_anchor_deadline_us=s.g1_corrected_until_us=now+5000000;
+  auto& q=s.g1_relative_quality;q.original20=q.evaluated20=20000000;q.samples=16;
+  q.rms_ns=100;q.max_ns=300;q.rate_guard_ppb=20;
+  s.g1_clock_model={20000000,10000000000,0,0,0};
+  s.service_until_us=now+100000;
+  assert(w12::ble_locked(s,now));
+  assert(!w12::ble_locked(s,now+100000));
+  s.service_until_us=now+5000000;s.g1_corrected_until_us=now+999999;
+  assert(!w12::ble_locked(s,now));
+  s.g1_corrected_until_us=now+5000000;q.max_ns=1000;
+  assert(!w12::ble_locked(s,now));
 }

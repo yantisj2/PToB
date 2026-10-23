@@ -742,12 +742,19 @@ void page_gps(const DisplayState& s){
 }
 #ifdef PTOB_W12_DUAL_UI
 void page_precision(const DisplayState& s){
- char n[28];text(2,17,"SYNC RMS");text(86,17,s.precision_fine?"12.5ns":"50ns");
+ const bool lora=s.precision_lora;
+ char n[28];text(2,17,lora?"LINK RMS":"SYNC RMS");text(86,17,lora?"50ns":s.precision_fine?"12.5ns":"50ns");
  if(s.precision_live&&s.rms_ns!=UINT32_MAX){
   const auto divisor=s.rms_ns>=1000000?1000000:s.rms_ns>=10000?1000:1;
   std::snprintf(n,sizeof n,"%lu %s",(unsigned long)(s.rms_ns/divisor),divisor==1?"ns":divisor==1000?"us":"ms");
- }else std::snprintf(n,sizeof n,"-- ns");
+ }else if(lora&&s.lora_time_valid)std::snprintf(n,sizeof n,"FIT %u/4",unsigned(s.lora_link_samples));
+ else std::snprintf(n,sizeof n,lora?"WAIT RX":"-- ns");
  text(2,27,n,2);
+ if(lora){
+  if(s.lora_time_valid)std::snprintf(n,sizeof n,"LORA FIT %u/16",unsigned(s.lora_link_samples));
+  else std::snprintf(n,sizeof n,"LORA NO LIVE FIT");text(2,45,n);
+  text(2,55,"RX ONLY");text(92,55,s.precision_fine?"80MHz":"20MHz");return;
+ }
  std::snprintf(n,sizeof n,"LOCK %02llu:%02u:%02u",(unsigned long long)(s.r2_lock_seconds/3600),unsigned(s.r2_lock_seconds/60%60),unsigned(s.r2_lock_seconds%60));text(2,45,n);
  if(s.precision_live)std::snprintf(n,sizeof n,"TRIM %+ldPPB",(long)s.precision_rate_ppb);else std::snprintf(n,sizeof n,"TRIM --PPB");text(2,55,n);
  text(92,55,s.precision_fine?"80MHz":"20MHz");
@@ -761,8 +768,10 @@ void page_w12_lora(const DisplayState& s){
  else if(s.lora_transition_ms&&s.lora_mode==0&&!s.lora_fault){std::snprintf(n,sizeof n,"%lus",(unsigned long)((s.lora_transition_ms+999)/1000));text(72,31,n);}
  else if(!s.lora_fault)text(44,31,s.lora_active?"WAIT SYNC":"STANDBY");
  if(s.lora_time_valid&&s.lora_link_rms_ns!=UINT32_MAX){
-  std::snprintf(n,sizeof n,"OK %lu LINK %lu%s",(unsigned long)s.lora_accepted,(unsigned long)(s.lora_link_rms_ns/(s.lora_link_rms_ns>=1000?1000:1)),s.lora_link_rms_ns>=1000?"us":"ns");
- }else std::snprintf(n,sizeof n,"OK %lu LINK --",(unsigned long)s.lora_accepted);
+  const auto divisor=s.lora_link_rms_ns>=1000000?1000000:s.lora_link_rms_ns>=1000?1000:1;
+  std::snprintf(n,sizeof n,"RMS %lu%s N %u",(unsigned long)(s.lora_link_rms_ns/divisor),divisor==1?"ns":divisor==1000?"us":"ms",unsigned(s.lora_link_samples));
+ }else if(s.lora_time_valid)std::snprintf(n,sizeof n,"FIT %u/4 RX %lu",unsigned(s.lora_link_samples),(unsigned long)s.lora_accepted);
+ else std::snprintf(n,sizeof n,"RMS WAIT RX");
  text(2,45,n);
  text(2,55,"HOLD: RX MODE");
 }

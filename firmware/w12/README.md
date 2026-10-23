@@ -7,7 +7,7 @@ RC role. [Image provenance](../../docs/images/README.md).*
 
 Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
 
-**PToB owns W12 native G1/RC7 development.** Current version **0.2.2** supports
+**PToB owns W12 native G1/RC7 development.** Current version **0.2.3** supports
 **RC**: a BLE50 client or BLE100 receiver with an optional experimental
 estimated-TX relay. It receives from the shared T096/W12/StickS3 mesh; it has no
 GM profile or USB timing stream. Start with the
@@ -63,6 +63,10 @@ source permissions and relay publication remain independent. Radio TX is blocked
 Tap cycles **Clock → Precision → LoRa → Clock**. Precision shows live causal
 SYNC RMS, the relative-lock timer, clock steering in PPB and the selected counter
 resolution. These are internal clock diagnostics, not independent UTC accuracy.
+When LoRa supplies time, Precision and Clock show its current LINK RMS instead
+of BLE RMS; warm-up and expired reception remain explicit. AUTO requires live
+coarse permission now and a separate one-second precision-model forecast, so
+short coarse renewals do not reset an otherwise healthy180s BLE recovery.
 Hold the LoRa page for 1.5 s to change its RX mode; the Clock-page relay gesture
 is preserved. The GNSS route and indicators remain available on configured units.
 

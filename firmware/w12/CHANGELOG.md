@@ -1,5 +1,18 @@
 # W12 changelog
 
+## 0.2.3 — source-aware RMS and AUTO recovery
+
+- Show current LoRa link RMS on the Clock and Precision pages when LoRa supplies
+  time. Label it LINK RMS and show fit warm-up or WAIT RX explicitly. The LoRa
+  page labels its own current link RMS; stale fits cannot appear as live values.
+- Keep BLE steering/lock diagnostics specific to BLE. LoRa's link residual is
+  neither BLE synchronization RMS nor an independently measured UTC bound.
+- Separate current coarse UTC permission from the original precision-model
+  forecast horizon in AUTO's BLE-lock input. Short coarse renewals no longer
+  reset continuous recovery; expired coarse permission, model/replay deadlines,
+  quality gates and the180s recovery requirement remain enforced.
+- Add actual native UI-source selection and short-permission boundary checks.
+
 ## 0.2.2 — independent LoRa timestamp reads
 
 - Follow N30's independent LoRa-reader fix: remove BLE association/fence work

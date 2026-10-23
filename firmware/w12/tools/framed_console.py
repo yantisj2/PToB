@@ -138,7 +138,7 @@ class Parser:
                     if self.manifest.get('r2_g1_discovery_diagnostic_revision')==1:
                         require(mesh.get('g1_discovery_diagnostic_revision')=='1' and mesh.get('g1_sdk_scan_active') in ('0','1'),'G1 discovery diagnostics version missing')
                         compact=self.manifest.get('w12_lora_status_contract')=='W12_RC8_LR2021_COMPACT_DISCOVERY_V1'
-                        if compact:require(self.manifest.get('version') in ('0.2.0','0.2.1','0.2.2') and self.manifest.get('lora_rx') is True,'Compact discovery requires exact W12 LoRa image contract')
+                        if compact:require(self.manifest.get('version') in ('0.2.0','0.2.1','0.2.2','0.2.3') and self.manifest.get('lora_rx') is True,'Compact discovery requires exact W12 LoRa image contract')
                         omitted=('g1_adv_incomplete','g1_adv_long','g1_adv_nonrandom','g1_discovery_checked','g1_group_records','g1_last_adv_at_us','g1_last_group_at_us')
                         if compact:require(all(key not in mesh for key in omitted),'Unexpected mixed compact discovery layout')
                         for key in ('g1_adv_callbacks','g1_last_key_epoch',*(() if compact else omitted)):

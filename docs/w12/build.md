@@ -486,7 +486,7 @@ the flag preserves the legacy GPTimer backend and its 1 µs fine-slew threshold.
 
 The fixed W12 route connects RW_RX_ON238 through **GPIO16** into MCPWM group 1,
 channel0. Channel2 supplies bounded software CURRENT captures; channel1 stays
-reserved, disabled and disconnected. There is no TX output or arbitrary pin
+disabled and disconnected unless the optional LoRa receiver borrows it. There is no TX output or arbitrary pin
 override. GPIO4 controls a PA rail and GPIO5 reaches the display interface, so
 N30's GPIO4/5 route is unsuitable. The manufacturer's
 [W12 schematic](https://wiki.meshnology.com/assets/files/W12-MB-V0.2%281%29-b62d4b0929d59c1a3c9ca5847eb65bf8.pdf)
@@ -495,7 +495,7 @@ GNSS and LR2021 routes. Confirm the actual board revision and absence of externa
 loads on IO16 before any separately authorized installation. A schematic and
 successful build do not verify an assembled unit's wiring.
 
-The entire delivered clock uses one fixed group 1 origin at 80 MHz, rescaled to
+The delivered BLE clock uses one fixed group 1 origin at 80 MHz, rescaled to
 the existing 20 MHz coordinate with nearest-50 ns rounding (ties upward).
 RX, current time, Bluetooth brackets, fitted maps, UI and estimated-TX
 projections share that origin. A failed, stopped, stale, wrongly clocked or
@@ -543,10 +543,13 @@ sub-2 µs accuracy, RF marker semantics, calibrated relay output or UTC accuracy
 
 ## Optional LR2021 dual timing and screens
 
-The 0.2.1 receiver borrows group 1 CH1 for the LR2021 DIO8 signal on W12
-GPIO14 ([board wiring](lr2021.md)). BLE RX remains on CH0/GPIO16 and CURRENT on CH2. LoRa shares the fixed
-80 MHz counter, so no software arrival timestamp or asynchronous counter map is
-substituted. GNSS keeps its group 0 timer, RX39/PPS41 and existing power/input
+The receiver borrows group 1 CH1 for the LR2021 DIO8 signal on W12
+GPIO14 ([board wiring](lr2021.md)), corrected in0.2.1. BLE RX remains on
+CH0/GPIO16 and CURRENT on CH2. Version0.2.2 retains that physical80MHz timer
+but gives LoRa its own software origin, extension and reader, separate from
+BLE association/fence processing. It polls this counter during packet silence;
+hardware CH1 edges remain the timestamp input. No software arrival timestamp,
+BLE clock model or asynchronous counter map is substituted. GNSS keeps its group 0 timer, RX39/PPS41 and existing power/input
 profile. LoRa OFF disconnects only CH1 and leaves the BLE counter alive.
 Maintenance stops every consumer before retiring that counter.
 
@@ -579,7 +582,12 @@ policy. A fresh actual BLE precision lock takes display priority. KEEP ON/OFF
 can be selected by holding 1.5 s on the LoRa page; settings reset on reboot.
 Tap navigates Clock, Precision and LoRa. Precision's SYNC RMS is the live BLE
 causal metric; TRIM is software-clock steering, not N30's display-only REL
-residual trend. GNSS indicators and the Clock-page relay control are preserved.
+residual trend. Version0.2.3 selects current LoRa LINK RMS on Clock and Precision
+when LoRa supplies time, with explicit fit warm-up and WAIT RX states. The LoRa
+page shows its own current link RMS. Expired fits remain unavailable. AUTO's
+one-second precision forecast uses the original model/replay deadlines while
+separately requiring coarse UTC permission to be live now; short coarse renewals
+do not restart the180s recovery countdown. GNSS indicators and the Clock-page relay control are preserved.
 The existing GPS diagnostic page remains accessible by bound `ui page 14`.
 
 Fresh ticket-bound commands `lora auto`, `lora on`, `lora off`, and

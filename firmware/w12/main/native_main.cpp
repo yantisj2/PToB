@@ -493,10 +493,14 @@ void pps(const gnss_pps::Observation& edge){
   w12_lora_view lv;w12_lora_snapshot(lv);uint64_t lora_utc=0;
   state.lora_mode=lv.mode;state.lora_state=lv.state;state.lora_active=lv.active;state.lora_fault=lv.fault;
   state.lora_configured=PTOB_W12_LORA_TX_FACTORY!=0;state.lora_transition_ms=lv.transition_remaining_ms;
-  state.lora_time_valid=w12::lora_time(lv,micros(),lora_utc);state.lora_link_rms_ns=lv.link_rms_ns;state.lora_accepted=lv.accepted;state.lora_crc=lv.crc_bad;
-  if(page!=display_pages::Precision&&!w12::ble_locked(mesh,micros())&&state.lora_time_valid){
+  state.lora_time_valid=w12::lora_time(lv,micros(),lora_utc);state.lora_link_rms_ns=lv.link_rms_ns;state.lora_link_samples=lv.link_samples;state.lora_accepted=lv.accepted;state.lora_crc=lv.crc_bad;
+  const bool ble_precision=w12::ble_locked(mesh,micros());
+  state.precision_lora=!ble_precision&&lv.requested&&lv.active&&!lv.fault;
+  if(state.precision_lora){state.precision_live=state.lora_time_valid;state.rms_ns=UINT32_MAX;}
+  if(!ble_precision&&state.lora_time_valid){
    state.valid=true;state.utc=uint32_t(lora_utc/1000000);state.timing_source=DisplayState::Lora;state.role="LORA";
-   state.followed_clock="LoRa";state.r2_root_clock=v12::R2Dashboard::name(lv.root);state.r2_relative_lock=false;state.rms_ns=UINT32_MAX;state.hold_1us_ms=0;
+   state.followed_clock="LoRa";state.r2_root_clock=v12::R2Dashboard::name(lv.root);state.r2_relative_lock=false;state.rms_ns=lv.link_samples>=4?lv.link_rms_ns:UINT32_MAX;state.hold_1us_ms=0;
+   state.precision_live=true;
   }
 #endif
 #endif
