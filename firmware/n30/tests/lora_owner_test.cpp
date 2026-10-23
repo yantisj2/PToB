@@ -13,6 +13,7 @@
 namespace fake {
 uint64_t us=1000000;std::array<int,50> gpio{};std::array<uint8_t,65536> regs{};
 unsigned writes=0,bus=0,starts=0,ends=0,core_inputs=0,high_after_cancel=0;
+unsigned lora_reference_reads=0,fine_reference_reads=0;
 uint32_t epoch=0,core_gen=0,raw_offset=0xfedc0000;
 std::vector<uint8_t> ops;spi_transaction_t* pending=nullptr;
 CaptureCallback physical=nullptr,software=nullptr;
@@ -61,7 +62,10 @@ esp_err_t mcpwm_capture_channel_disable(mcpwm_cap_channel_handle_t c){(c==reinte
 esp_err_t mcpwm_capture_timer_stop(mcpwm_cap_timer_handle_t){fake::timer_running=false;return 0;}
 esp_err_t mcpwm_capture_timer_disable(mcpwm_cap_timer_handle_t){fake::capture_timer=false;return 0;}
 esp_err_t mcpwm_capture_channel_trigger_soft_catch(mcpwm_cap_channel_handle_t c){mcpwm_capture_event_data_t e{fake::capture()};fake::software(c,&e,nullptr);return 0;}
-extern "C" bool clock_reference_read(uint64_t* out){*out=fake::us*20;return true;}
+extern "C" bool n30_lora_reference_read(uint64_t* out){++fake::lora_reference_reads;*out=fake::us*20;return true;}
+// A selected fine clock can spend longer than the LoRa map's20us enclosure
+// in cross-core receiver/fence work. It must never supply LoRa's brackets.
+extern "C" bool clock_reference_read(uint64_t* out){++fake::fine_reference_reads;fake::us+=50;*out=1000000+fake::us*20;return true;}
 // Separate codec/policy tests exercise real authenticated RC8. These stubs only
 // let the peripheral test observe whether the owner invents or loses an edge.
 #ifndef PTOB_N30_TEST_REAL_RC8
@@ -70,7 +74,10 @@ extern "C" uint32_t n30_rc8_switch(bool){return ++fake::core_gen;}
 extern "C" bool n30_rc8_receive(const uint8_t*,size_t n,uint64_t tick,uint64_t epoch,uint64_t local,uint64_t now,uint32_t gen){assert((n==80||n==128)&&epoch&&gen&&tick<=fake::us*16&&local<=now);fake::core_inputs++;return false;}
 extern "C" void n30_rc8_snapshot(n30_lora_view* out,uint64_t now){*out={};out->sampled_us=now;out->generation=fake::core_gen;}
 #endif
-#include "../main/native_lora.cpp"
+#ifndef N30_LORA_OWNER_SOURCE
+#define N30_LORA_OWNER_SOURCE "../main/native_lora.cpp"
+#endif
+#include N30_LORA_OWNER_SOURCE
 namespace {
 void cold(){
  fake::us=1000000;fake::gpio={};fake::regs={};fake::writes=fake::bus=fake::starts=fake::ends=fake::core_inputs=fake::high_after_cancel=0;fake::ops.clear();fake::pending=nullptr;fake::physical=fake::software=nullptr;fake::capture_timer=fake::timer_running=fake::physical_enabled=fake::software_enabled=false;fake::dma_fail=fake::cancel=fake::cancelled=false;fake::fail_enable=0;fake::irq=0;fake::core_gen=0;fake::packet_size=80;
@@ -87,6 +94,7 @@ int main(){
  cold();step(false,0);assert(!owner.requested&&fake::writes==0&&owner.drained());step(false,n30::BleAcquireUs-1);assert(!owner.requested&&fake::bus==0);step(false,1);assert(owned.enabled&&owner.requested&&fake::bus==1);
  for(unsigned i=0;i<1800;i++)step(true,100000);assert(owner.requested);step(true,100000);assert(!owner.requested&&!owned.enabled&&owner.drained()&&!fake::physical_enabled&&!fake::capture_timer);
  cold();force_on();assert(owned.enabled);step(true);step(true);fake::irq=2;fake::gpio[14]=1;mcpwm_capture_event_data_t e{fake::capture()};on_edge(edge_channel,&e,nullptr);step(true);assert(fake::core_inputs==1&&hardware.rx_done==1&&hardware.rssi_dbm==-70);
+ assert(fake::lora_reference_reads>0&&fake::fine_reference_reads==0);
  fake::irq=0x42;fake::gpio[14]=1;e.cap_value=fake::capture();on_edge(edge_channel,&e,nullptr);step(true);assert(fake::core_inputs==1&&hardware.crc_bad==1&&!failed);
  fake::packet_size=17;fake::irq=2;fake::gpio[14]=1;e.cap_value=fake::capture();on_edge(edge_channel,&e,nullptr);step(true);assert(hardware.malformed==1&&fake::core_inputs==1);
  assert(v12::lora_request(false,0));worker_step(true);worker_step(true);assert(owner.drained()&&!owned.enabled&&fake::gpio[12]==0);

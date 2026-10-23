@@ -1,5 +1,13 @@
 # Changelog
 
+## N30 0.2.24 — restore independent LoRa capture mapping
+
+Keep the LoRa DIO1 capture map on its original20MHz XTAL GPTimer when BLE
+selects the fine counter. This avoids receiver/fence work stretching LoRa's
+20us mapping brackets and rejecting otherwise received packets. BLE timing,
+calibration, LoRa modem settings and transmitter authentication remain unchanged.
+Add slow-fine-reader reception and actual exported-counter regressions.
+
 ## N30 0.2.23 — current-parent RF signal bars
 
 Replace clock-page relay-delivery bars with fresh authenticated BLE-parent RSSI

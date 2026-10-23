@@ -743,9 +743,14 @@ void input(){
 #endif
 
 }
+extern "C" bool IRAM_ATTR n30_lora_reference_read(uint64_t* count){
+  // The LoRa DIO1 map needs short brackets and never reads the BLE model.
+  // Its original counter remains running even when BLE selects MCPWM1.
+  return count&&clock_timer&&gptimer_get_raw_count(clock_timer,count)==ESP_OK;
+}
 extern "C" bool IRAM_ATTR clock_reference_read(uint64_t* count){
   if(n30_fine_backend_selected())return n30_fine_backend_current(count);
-  return count&&clock_timer&&gptimer_get_raw_count(clock_timer,count)==ESP_OK;
+  return n30_lora_reference_read(count);
 }
 extern "C" w12_ble_time_t r_rwip_time_get();
 extern "C" bool IRAM_ATTR clock_reference_bt_bracket(uint64_t* before,uint64_t* after,adv_rx::BleTime* time){
@@ -773,7 +778,7 @@ extern "C" void app_main(){
     " max_data=191 max_GMs=4 activities=6 syncs=2 adv_sets=2 mtu=247"
     " precision=UNAVAILABLE GM=DISABLED LoRa=OFF WiFi=OFF PTS=OFF\n",
     V12_UNIT,factory_text,unsigned(identity),session,V12_SOURCE_REVISION,V12_BUILD_ID);
-  std::printf("N30_TARGET version=0.2.23 profile=RC GPS=ABSENT flash_mb=8 console=UART0_43_44 hardware=UNVALIDATED\n");
+  std::printf("N30_TARGET version=0.2.24 profile=RC GPS=ABSENT flash_mb=8 console=UART0_43_44 hardware=UNVALIDATED\n");
   if(!identity||!session){std::printf("W12_V12_FATAL reason=FACTORY_OR_BOOT_BINDING peripherals=UNTOUCHED\n");return;}
   for(const auto byte:factory)fine_factory=(fine_factory<<8)|byte;
   n30_timing_init();

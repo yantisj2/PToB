@@ -950,8 +950,9 @@ already accepted interval invalidate the backend. The1568µs subtraction is an
 explicit empirical phase convention, not a qualified identification of RF END
 or a measured path-delay bound. A separate relative-PPS calibration is required.
 
-RX phase, current time, map availability/completion, retained maps, estimated-TX
-clock brackets and the LoRa map target all use the same fixed MCPWM1 origin.
+BLE RX phase, current time, map availability/completion, retained maps and
+estimated-TX clock brackets use the same fixed MCPWM1 origin. LoRa retains its
+independent XTAL counter for its DIO1 capture mapping, as described below.
 The delivered coordinate rounds to the nearest50ns, with ties upward; an80MHz
 counter does not imply12.5ns delivered or RF accuracy. LoRa group0 retains its
 existing owner. A fault cannot substitute live GPTimer coordinates into a fine
@@ -960,3 +961,26 @@ PRECISION counter label reports the selected counter tick size; raw-observer
 ON/OFF state is absent. Detailed association counts and the phase convention
 appear only in the FINE CRC frame.
 Ordinary status-frame capacity and the production estimator remain unchanged.
+
+
+## Version 0.2.24 independent LoRa capture reference
+
+LoRa's group0 DIO1 capture map again reads the original20MHz XTAL GPTimer.
+Selecting the BLE fine backend previously also redirected those reads through
+MCPWM1 receiver/fence work under a cross-core lock. A LoRa mapping bracket may
+then exceed the unchanged20us acceptance limit, withdrawing its anchors and
+refusing subsequent RX timestamps despite successful radio packets. A dedicated
+LoRa counter reader removes that dependency; BLE continues on its selected
+fine counter with the same calibration, phase slew and capture guards. Neither
+clock falls back into the other's coordinate domain.
+
+The owner regression supplies a deliberately slow fine reader and exercises
+actual authenticated original/follow-up reception through counter wraps. The
+LoRa suite also compiles the actual exported readers and checks independent
+counter values, unavailable clocks and preserved BLE backend selection.
+These offline checks do not establish physical RF reception or UTC accuracy.
+
+KEEP_ON controls the receiver policy; it does not change the exact transmitter
+factory filter. Check the configured transmitter against the shared registry
+when rebuilding. Device identities, enrolled images and live diagnostic traces
+remain in ignored local artifacts.

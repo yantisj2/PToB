@@ -24,6 +24,11 @@ def main():
   '-I'+str(APP/'tests/lora_fakes'),'-I'+str(REPO/'firmware/w12/main'),'-I'+str(REPO/'firmware/w12/legacy')]
  subprocess.run([*owner_flags,APP/'tests/lora_owner_test.cpp',APP/'main/ui_model.cpp',APP/'main/ui_render.cpp',bridge,*objects,'-o',owner],check=True,timeout=40)
  with (out/'n30-owner-interop.log').open('w') as f:subprocess.run([owner],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=30)
+ source=(APP/'main/native_main.cpp').read_text()
+ (out/'actual_lora_clock_reference.inc').write_text(source[source.index('extern "C" bool IRAM_ATTR n30_lora_reference_read('):source.index('extern "C" w12_ble_time_t r_rwip_time_get();',source.index('extern "C" bool IRAM_ATTR n30_lora_reference_read('))])
+ reference=out/'n30-lora-reference'
+ subprocess.run([cxx,'-std=c++20','-O1','-g','-Wall','-Wextra','-Werror','-fsanitize=address,undefined','-fno-sanitize-recover=all','-I'+str(out),APP/'tests/lora_reference_test.cpp','-o',reference],check=True,timeout=40)
+ subprocess.run([reference],check=True,timeout=10)
 
  spec=importlib.util.spec_from_file_location('t096_rc8_reference',T096/'tools/lora_rc8_tests.py');ref=importlib.util.module_from_spec(spec);spec.loader.exec_module(ref)
  vector=json.loads((REPO/'protocol/rc8/vectors-wire3.json').read_text());expected=ref.reference(vector);assert expected==vector['wire_hex']
@@ -38,6 +43,7 @@ def main():
   checked+=1
  assert checked==78
  extra=[APP/'main/lora_policy.hpp',APP/'main/dual_time.hpp',REPO/'firmware/w12/main/g1_recovery_budget.hpp',APP/'main/lora_core.c',APP/'main/lora_core.h',APP/'tests/lora_core_test.c',APP/'main/native_lora.cpp',APP/'tests/lora_owner_test.cpp',APP/'tests/lora_owner_interop.inc',T096/'tests/lora_rc8_test.c',T096/'tests/lora_link_fit_test.c',T096/'protocol/lora_rc8.h',T096/'include/lora_rc8_policy.h',T096/'include/precision_servo.h']
- report={'status':'PASS','hardware_access':False,'precision':'UNQUALIFIED','checks':['actualT096wire3codec/policy with actualW12groupHMAC','independentPython/Cwire3vectors','78independentDecimalOLSresiduals','actualN30SX1262owner+realRC8lateAUTO/6mincapturewrap/CRC/lossrecovery/LORpreference','N30bridgecoldacquisition/metadata/physicalpair/replay/tamper/expiry/OFF/selfbinding'],'sources':{str(x.relative_to(REPO)) if x.is_relative_to(REPO) else str(x):hashlib.sha256(x.read_bytes()).hexdigest() for x in sources+extra},'codec_output':codec_log.strip()}
+ extra += [APP/'main/native_main.cpp',APP/'tests/lora_reference_test.cpp',APP/'tools/lora_tests.py']
+ report={'status':'PASS','hardware_access':False,'precision':'UNQUALIFIED','checks':['actualT096wire3codec/policy with actualW12groupHMAC','independentPython/Cwire3vectors','78independentDecimalOLSresiduals','actualN30SX1262owner+realRC8lateAUTO/6mincapturewrap/CRC/lossrecovery/LORpreference','LoRaXTALreferenceindependentofslow_failing_BLEfinecounter_actualexportedreaders','N30bridgecoldacquisition/metadata/physicalpair/replay/tamper/expiry/OFF/selfbinding'],'sources':{str(x.relative_to(REPO)) if x.is_relative_to(REPO) else str(x):hashlib.sha256(x.read_bytes()).hexdigest() for x in sources+extra},'codec_output':codec_log.strip()}
  (out/'receipt.json').write_text(json.dumps(report,indent=2)+'\n');print('PASS actualN30/T096RC8interop, W12HMAC,78Decimalfit estimates, bridge original expiry/fences')
 if __name__=='__main__':main()

@@ -19,7 +19,7 @@
 #include <cstring>
 #include <cerrno>
 #include <cinttypes>
-extern "C" bool clock_reference_read(uint64_t*);
+extern "C" bool n30_lora_reference_read(uint64_t*);
 namespace {
 constexpr auto Nss=GPIO_NUM_8,Reset=GPIO_NUM_12,Busy=GPIO_NUM_13,Irq=GPIO_NUM_14;
 portMUX_TYPE mux=portMUX_INITIALIZER_UNLOCKED;
@@ -39,7 +39,9 @@ bool timer_enabled=false,timer_started=false,map_enabled=false,edge_enabled=fals
 uint32_t capture_drops=0,capture_invalid=0;
 uint64_t now(){return uint64_t(esp_timer_get_time());}
 void inc(uint32_t& v){if(v<UINT32_MAX)++v;}
-bool local(uint64_t& tick){return clock_reference_read(&tick)&&tick;}
+// LoRa owns an independent clock. Keep its short mapping brackets on the
+// original XTAL GPTimer, outside the BLE fine receiver's lock and fence work.
+bool local(uint64_t& tick){return n30_lora_reference_read(&tick)&&tick;}
 bool cancelled(){portENTER_CRITICAL(&mux);const bool result=cancel_serial!=active_serial||!allowed;portEXIT_CRITICAL(&mux);return result;}
 void reset_radio(){if(resources)gpio_set_level(Reset,0);}
 void fault(int error){reset_radio();if(!failed)hardware.error=error;failed=true;hardware.fault=true;}
