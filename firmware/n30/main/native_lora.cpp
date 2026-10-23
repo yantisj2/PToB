@@ -34,6 +34,7 @@ uint32_t cancel_serial=0,active_serial=0,core_generation=0,map_serial=0,map_expe
 uint32_t raw_capture=0,raw_generation=0,raw_serial=0;
 uint64_t capture_epoch=0;
 uint8_t requested_mode=0;bool mode_pending=false,cycle_pending=false,ble_locked=false,allowed=false;
+bool ble_lock_observed=false; // Worker-owned actual fresh policy input.
 bool resources=false,capture_active=false,inflight=false,latched=false,failed=false;
 bool timer_enabled=false,timer_started=false,map_enabled=false,edge_enabled=false,emergency=false;
 uint32_t capture_drops=0,capture_invalid=0;
@@ -207,7 +208,7 @@ void publish(){
  n30_lora_view view;n30_rc8_snapshot(&view,now());
  // Worker-owned protocol state and hardware counters are merged outside the
  // short cross-core publication lock. Unknown uncertainty remains unknown.
- view.requested=false;view.active=owned.enabled;view.fault=failed;view.mode=uint8_t(policy.mode());view.transition_remaining_ms=policy.remaining_ms(now());
+ view.requested=false;view.active=owned.enabled;view.fault=failed;view.mode=uint8_t(policy.mode());view.transition_remaining_ms=policy.remaining_ms(now());view.ble_locked=ble_lock_observed;
  view.rx_done=hardware.rx_done;view.crc_bad=hardware.crc_bad;view.malformed=hardware.malformed;view.spi_ok=hardware.spi_ok;view.spi_error=hardware.spi_error;view.invalid_capture=hardware.invalid_capture;view.capture_overflow=0;view.map_accepted=hardware.map_accepted;view.map_rejected=hardware.map_rejected;view.capture_bound_ns=hardware.capture_bound_ns;view.rssi_dbm=hardware.rssi_dbm;view.snr_quarter_db=hardware.snr_quarter_db;view.error=hardware.error;view.stage=hardware.stage;view.opcode=hardware.opcode;view.work_max_us=hardware.work_max_us;view.heartbeat_ms=uint32_t(now()/1000);view.stack_unused=uxTaskGetStackHighWaterMark(nullptr);
  view.spi_retired=!inflight;view.capture_released=!capture_active&&!edge_enabled&&!map_enabled&&!timer_enabled&&!timer_started;view.reset_asserted=resources&&gpio_get_level(Reset)==0;
  portENTER_CRITICAL(&mux);view.requested=owner.requested;view.invalid_capture+=capture_invalid;view.capture_overflow=capture_drops;view.request_generation=owner.generation;view.off_ack_generation=owner.off_ack;view.off_acknowledged=owner.drained();published=view;owned.failed=failed;owned.initialized=resources;owned.packets=hardware.rx_done;owned.crc_errors=hardware.crc_bad;owned.malformed=hardware.malformed;owned.status=int16_t(hardware.error);owned.radio_errors=hardware.spi_error;owned.work_max_us=hardware.work_max_us;basic=owned;portEXIT_CRITICAL(&mux);
@@ -217,7 +218,7 @@ void worker_step(bool configured){
   const auto begin=now();bool permit,locked,cycle,change;uint8_t mode;uint32_t generation,serial;bool tripped;
   portENTER_CRITICAL(&mux);permit=allowed;serial=cancel_serial;tripped=emergency;locked=ble_locked&&begin>=ble_at&&begin-ble_at<250000;cycle=cycle_pending&&begin>=request_at&&begin-request_at<250000;change=mode_pending&&begin>=request_at&&begin-request_at<250000;mode=requested_mode;cycle_pending=mode_pending=false;portEXIT_CRITICAL(&mux);
   if(tripped)fault(-ETIMEDOUT);
-  policy.update(locked,begin);if(cycle)policy.toggle();if(change)policy.set(n30::LoRaMode(mode));
+  ble_lock_observed=locked;policy.update(locked,begin);if(cycle)policy.toggle();if(change)policy.set(n30::LoRaMode(mode));
   bool want=configured&&permit&&!failed&&policy.requested();
   portENTER_CRITICAL(&mux);want=want&&allowed&&serial==cancel_serial;
   if(want!=owner.requested&&!owner.request(want)){failed=true;hardware.error=-EOVERFLOW;want=false;}

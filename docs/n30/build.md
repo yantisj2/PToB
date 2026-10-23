@@ -74,6 +74,11 @@ Version0.2.25 enables the independent RC9 client in both N30 builds. Read the
 [RC9 guide](rc9.md) for source priority, original expiry and UNKNOWN bounds.
 The normal BLE/fine capture calibration is unchanged; RC9 does not train it.
 
+Version0.2.26 keeps current coarse and corrected permissions mandatory for
+AUTO's BLE-lock input, but projects one-second quality against the original
+replay anchor. The `ble_locked` LoRa diagnostic is the worker's actual input.
+This changes radio policy only; UTC expiry and the180s dwell remain original.
+
 ## Native build
 
 Supply the existing group's ignored enrollment; see [PSK setup](../security/psk.md).

@@ -25,7 +25,7 @@ struct n30_lora_view {
  uint32_t request_generation,off_ack_generation;
  int32_t error;int16_t rssi_dbm,snr_quarter_db;
  uint8_t mode,stage,opcode;uint32_t transition_remaining_ms;
- bool off_acknowledged,spi_retired,capture_released,reset_asserted;
+ bool off_acknowledged,spi_retired,capture_released,reset_asserted,ble_locked;
 };
 #ifdef __cplusplus
 }

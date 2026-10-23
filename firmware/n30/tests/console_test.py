@@ -66,6 +66,10 @@ for fault in [('COUNTERS','TX','ALLOWED'),('POLICY','GPS','PRESENT'),('POLICY','
 try:c.Parser(nonce,lm).feed(lora_frame(omit='QUALITY'))
 except RuntimeError:pass
 else:raise AssertionError('Missing LoRa row accepted')
+for value in ('0','1'):assert len(c.Parser(nonce,lm).feed(lora_frame(('POLICY','ble_locked',value))))==1
+try:c.Parser(nonce,lm).feed(lora_frame(('POLICY','ble_locked','2')))
+except RuntimeError:pass
+else:raise AssertionError('Invalid actual BLE lock input accepted')
 print('PASS LoRa CRC frame schema, bound identity, numeric ranges and RX-only/unknown contracts')
 
 def timing_frame(fault=None):

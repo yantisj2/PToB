@@ -194,6 +194,7 @@ def validate_lora(rows):
   for key,value in LORA_FIXED.get(suffix,{}).items():base.require(row.get(key)==value,'LoRa contract mismatch: '+key)
  for key in LORA_HEX:base.require(bool(base.HEX16.fullmatch(rows['N30_LORA_CONTEXT'].get(key,''))),'LoRa identity syntax: '+key)
  base.require(bool(__import__('re').fullmatch('[0-9a-f]{32}',rows['N30_LORA_CONTEXT'].get('context',''))),'LoRa context syntax')
+ if 'ble_locked' in rows['N30_LORA_POLICY']:base.require(rows['N30_LORA_POLICY']['ble_locked'] in ('0','1'),'LoRa actual BLE lock input')
  base.require(rows['N30_LORA_POLICY'].get('mode') in ('AUTO','KEEP_ON','KEEP_OFF'),'LoRa override mode')
  for suffix,keys in [('CONTEXT','metadata_known'),('ORIGINAL','BLE_update'),('QUALITY','time_valid parent_quality_current'),('HARDWARE','requested active fault off_ack SPI_retired capture_released reset_asserted')]:
   for key in keys.split():base.require(rows['N30_LORA_'+suffix][key] in ('0','1'),'LoRa boolean: '+key)
