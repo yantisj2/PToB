@@ -1316,7 +1316,7 @@ void publish(uint64_t begin){const auto now=micros();uint64_t tick=0;
   snap.rc7_lease_until_us=rc_client.lease_until;snap.rc7_renew_at_us=rc_client.renew_at;
   snap.rc7_delivery=parent_selection.quality().delivery_per_mille;
 #ifdef PTOB_N30
-  snap.n30_signal=requested&&!fault&&!closing&&synced&&!sync_terminating&&sync_identity==joined_peer?signal_strength.snapshot(sync_identity,sync_capture_epoch,now):n30::Signal{};
+  snap.n30_signal=snap.requested&&!fault&&!closing&&synced&&!sync_terminating&&sync_identity==joined_peer?signal_strength.snapshot(sync_identity,sync_capture_epoch,now):n30::Signal{};
 #endif
   snap.g1_parent_entries=selection.entries;snap.g1_parent_score=selection.current_score;
   snap.g1_parent_best=selection.best_score;snap.g1_parent_reason=selection_locked&&!gm_discovery.active(now)?6:uint8_t(selection.reason);
