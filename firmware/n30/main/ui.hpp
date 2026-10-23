@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include "lora_view.h"
+#include "signal_strength.hpp"
 namespace n30 {
 constexpr unsigned Width=64,Height=128,FrameBytes=1024;
 constexpr unsigned PageCount=4;
@@ -21,6 +22,7 @@ struct Model {
  uint32_t rms_ns=UINT32_MAX;uint16_t hz=0,delivery=UINT16_MAX;
  bool valid=false,locked=false,serving=false,relay_only=false,mode_pending=false;
  Source source=Source::None;
+ Signal signal{};
  struct BleClock {uint64_t at_us=0,utc_us=0,until_us=0,root=0,boot=0;uint32_t epoch=0;bool valid=false,following=false;} ble;
  struct Precision {
   uint64_t until_us=0,scope=0,root_boot=0,lock_since_us=0;
@@ -62,6 +64,7 @@ bool analog_time(const Model&,uint64_t now,uint64_t& utc);
 bool saver_time(const Model&,uint64_t now,uint64_t& utc);
 bool pps_on(const Model&,uint64_t now);
 bool precision_current(const Model&,uint64_t now);
+inline unsigned rf_bars(const Model& m,uint64_t now){return current(m,now)&&m.source!=Source::LoRa?signal_bars(m.signal,now):0;}
 // Duration of the final live, settled BLE lock. Scope, loss, expiry and a
 // missing publication reset it; navigation and new fit generations do not.
 class LockTimer {

@@ -9,6 +9,17 @@ int main(){
  s.root_identity=1;s.root_boot=2;s.source_epoch=3;s.publication=4;
  s.follower_snapshot_us=1000000;s.follower_utc_us=123456789;s.g1_anchor_deadline_us=1200000;s.g1_corrected_until_us=1100000;
  auto m=n30::model(s,d,1000001);assert(m.valid&&m.locked&&m.until_us==1100000);assert(m.delivery==UINT16_MAX&&m.source==n30::Source::Ble);
+ // Direct GM signal is current-parent RF, independent of delivery/clock fit.
+ s.synced=true;s.joined_peer=1;s.n30_signal={1,1000000,7,-45};m=n30::model(s,d,1000001);assert(n30::rf_bars(m,1000001)==4);
+ for(unsigned reason=0;reason<6;reason++){
+  auto bad=s;if(reason==0)bad.n30_signal.peer=9;if(reason==1)bad.n30_signal.dbm=127;if(reason==2)bad.synced=false;
+  if(reason==3)bad.fault=true;if(reason==4)bad.rc7_upstream_mode_pending=true;if(reason==5)bad.n30_signal.at=1000002;
+  auto unknown=n30::model(bad,d,1000001);assert(n30::rf_bars(unknown,1000001)==0);
+ }
+ auto hold=s;hold.following=false;hold.g1_retained_estimate=true;auto hm=n30::model(hold,d,1000001);assert(!hm.locked&&n30::rf_bars(hm,1000001)==4);
+ s.rc7_bound=true;s.joined_peer=5;s.joined_boot=6;s.rc7_depth=1;s.n30_signal={5,1000000,8,-65};m=n30::model(s,d,1000001);assert(n30::rf_bars(m,1000001)==3);
+ s.rc7_depth=2;m=n30::model(s,d,1000001);assert(n30::rf_bars(m,1000001)==3);
+ s.rc7_bound=false;
  uint64_t utc;assert(n30::time(m,1000100,utc));assert(!n30::time(m,1100000,utc));
  s.rc7_bound=true;s.rc7_delivery=950;m=n30::model(s,d,1000001);assert(m.delivery==950);
  s.joined_peer=5;s.joined_boot=6;s.rc7_depth=1;m=n30::model(s,d,1000001);assert(m.source==n30::Source::Rc1);

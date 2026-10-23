@@ -1,5 +1,14 @@
 # Changelog
 
+## N30 0.2.23 — current-parent RF signal bars
+
+Replace clock-page relay-delivery bars with fresh authenticated BLE-parent RSSI
+for direct GM, RC1 and RC2 reception. Keep RF strength visible during live-RF
+HOLD, clear it on stale or changed scope, and keep timing/lock authority separate.
+Retain the 2 µs fine-slew threshold and original500ms saver failure exit. Add
+capture-only RSSI/bar observations for device checks; host checks cover signal
+scope, expiry, smoothing, thresholds and actual rendered pixels.
+
 ## N30 0.2.22 — fine slew with original saver failure exit
 
 Retain the N30-only fine phase slew below2000ns and restore the original500ms

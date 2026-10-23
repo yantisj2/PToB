@@ -14,6 +14,7 @@ inline Model model(const v12::R2Status& s,const DisplayState& d,uint64_t now,con
  m.sampled_us=now;m.utc_at_us=s.follower_snapshot_us;m.utc_us=s.follower_utc_us;
  m.until_us=now<=UINT64_MAX-SnapshotMaxUs?now+SnapshotMaxUs:now;
  const bool healthy=s.requested&&!s.fault&&!s.rc7_upstream_mode_pending;
+ if(healthy&&s.synced&&!s.rc_parent.pending()&&s.rc_parent.state!=4&&s.n30_signal.peer==s.joined_peer&&s.n30_signal.fresh(now))m.signal=s.n30_signal;
  m.relay_only=s.rc7_relay_only_requested;m.mode_pending=s.rc7_upstream_mode_pending;
  m.valid=healthy&&s.clock_valid&&d.valid&&(!s.following||(s.root_identity&&s.root_boot&&s.source_epoch&&s.publication));
  m.state=s.fault?State::Fault:!s.requested?State::Off:s.rc7_upstream_mode_pending?State::Acquire:

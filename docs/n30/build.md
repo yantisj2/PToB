@@ -893,6 +893,30 @@ change presentation or timing and emits no records with ordinary capture OFF;
 TX-only capture filters these records. Partial/expired UART lines remain
 unusable. This is software intent/driver evidence, not a camera or panel readback.
 
+### Version 0.2.23 BLE signal bars
+
+Clock-page bars now use the active parent's authenticated periodic-report RSSI
+for direct GM, RC1 and RC2 paths. Previously they showed relay delivery
+percentage, so direct-GM reception deliberately had no value and appeared
+empty even near a GM. Delivery diagnostics retain their original meanings.
+
+The radio callback preserves RSSI, receive time and capture incarnation with
+its immutable queued payload. The host observes it only after the corresponding
+decoder authenticates that packet. Samples from another parent/incarnation,
+old queue entries, unavailable127 RSSI and out-of-range values cannot refresh
+the display. The current parent/incarnation and two-second expiry precede a
+small3/4 EWMA. Valid signals show one bar below−85dBm, two from−85, three from−70
+and four from−55. A missing source model or HOLD does not hide live RF evidence;
+RF evidence never grants time, source validity, lock or output authority.
+UI snapshot expiry, stop, fault and pending parent changes still clear it.
+LoRa fallback leaves these BLE bars empty; its RF strength is not inferred.
+
+Ordinary bounded ALL capture includes `N30_UI_RF` once per second with the
+actual parent, capture incarnation, sample time, RSSI and rendered bar count.
+Capture OFF emits no records; TX-only filtering and framed-response budgets
+remain unchanged. These observer fields and the RSSI-only additions compile
+only into N30; shared W12/SS3 firmware behavior is preserved.
+
 ### Empirical fine-receiver candidate
 
 Version0.2.19 accepts the explicit ignored fixed-pin profile mode

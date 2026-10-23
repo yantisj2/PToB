@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <string>
 #include <fstream>
+#include "ui.hpp"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 // Override only this translation unit after loading the shared fake header.
@@ -114,5 +115,8 @@ int main(int argc,char** argv){
  assert(wire.find("written=ff ok=0\n")!=std::string::npos);
  clear();surfaces={};assert(v12::n30_capture_tx_begin(17,1000));assert(surfaces.push(surface));n30_display_trace_poll();run(20);
  assert(wire.empty()&&v12::n30_capture_tx_status().filtered==1);
+ clear();surfaces={};fake_now=2000000;published.sampled_us=fake_now;published.source=n30::Source::Ble;published.signal={7,fake_now,3,-45};
+ assert(v12::capture_begin(18,1000));n30_display_trace_poll();run(20);
+ assert(wire.find("N30_UI_RF at_us=2000000 peer=0000000000000007 epoch=3 sample_us=2000000 rssi_dbm=-45 bars=4\n")!=std::string::npos);
  std::puts("PASS actual N30 frame submit/output and capture-only surface trace: maximum widths, bounded drops, OFF silence, TX filtering");
 }

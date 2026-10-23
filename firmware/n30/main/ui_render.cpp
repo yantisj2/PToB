@@ -147,7 +147,8 @@ void render(uint8_t f[FrameBytes],const Model& m,const View& v,uint64_t now){
   box(f,1,42,62,49);if(locked)dial(f,66,utc,m.hz);else{center(f,54,state(m,fresh));center(f,70,valid?"REL CLOCK":"NO TIME");}
   box(f,1,93,62,35);center(f,96,m.source==Source::LoRa?"LINK RMS":"SYNC RMS");char s[16];rms(s,sizeof s,valid&&m.state==State::Follow?m.rms_ns:UINT32_MAX);center(f,107,s);
   if(locked&&m.source!=Source::LoRa){box(f,3,106,6,8);box(f,4,103,4,5);}fill(f,4,117,56,1);text(f,5,120,"RC");if(fresh&&m.mode_pending)text(f,23,120,">");else if(fresh&&m.relay_only)text(f,23,120,"R");if(fresh&&m.serving)fill(f,20,121,3,3);
-  for(unsigned i=0;i<4;i++){int x=35+int(i)*6,h=2+int(i)*2;const bool on=valid&&m.delivery!=UINT16_MAX&&m.delivery>=(i==0?1:i==1?500:i==2?750:900);if(on)fill(f,x,127-h,4,h);else{fill(f,x,127-h,4,1);fill(f,x,126,4,1);}}
+  const auto bars=rf_bars(m,now);
+  for(unsigned i=0;i<4;i++){int x=35+int(i)*6,h=2+int(i)*2;const bool on=i<bars;if(on)fill(f,x,127-h,4,h);else{if(i)fill(f,x,127-h,4,1);fill(f,x,126,4,1);}}
  }else{
   box(f,1,12,62,48);text(f,4,15,m.serving&&fresh?"BLE RX+TX":"BLE RX");text(f,4,39,!fresh||m.lora.fault?"LORA FAIL":m.lora.active?"LORA RX":m.lora.requested?"LORA START":"LORA OFF");
   for(unsigned row=0;row<2;row++)for(unsigned i=0;i<8;i++){int x=4+int(i)*7,y=25+int(row)*24;box(f,x,y,6,7);if(fresh&&(row?m.lora_lamps[i]:m.lamps[i])==1)fill(f,x+2,y+2,2,3);else if(fresh&&(row?m.lora_lamps[i]:m.lamps[i])==2)fill(f,x+1,y+1,4,5);}

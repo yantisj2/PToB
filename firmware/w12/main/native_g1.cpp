@@ -73,7 +73,15 @@ struct Peer {
 };
 struct Incoming {uint64_t at=0;uint32_t incarnation=0;uint8_t bytes[RC_DYNAMIC_CONTROL_BYTES]{};uint16_t length=R2_GROUP_JOIN_BYTES;};
 struct Discovery {int8_t rssi=127,tx_power=127;uint64_t at=0;ble_addr_t address{};uint16_t interval=0;uint8_t sid=0,props=0,legacy_event_type=0,primary_phy=0,secondary_phy=0,length=0;uint8_t bytes[191]{};};
-struct Periodic {uint64_t at=0,identity=0;uint8_t bytes[190]{};uint8_t length=0;periodic_rx::Stamp capture{};};
+struct Periodic {uint64_t at=0,identity=0;uint8_t bytes[190]{};uint8_t length=0;periodic_rx::Stamp capture{};
+#ifdef PTOB_N30
+ uint32_t signal_epoch=0;int8_t rssi=127;
+#endif
+};
+#ifdef PTOB_N30
+n30::SignalStrength signal_strength;
+void signal_received(const Periodic& row,uint64_t now,uint32_t epoch){if(row.signal_epoch==epoch)signal_strength.observe(row.identity,row.signal_epoch,row.rssi,row.at,now);}
+#endif
 struct Recent {uint64_t identity=0,until=0;};
 using Anchor=G1Anchor;
 portMUX_TYPE mux=portMUX_INITIALIZER_UNLOCKED;
@@ -514,7 +522,11 @@ int gap(ble_gap_event* e,void* arg){
 #endif
       if(!r.refusal)periodic_rx::match(p.sync_handle,p.data,p.data_length,tick,r.rx_stamp);
 #endif
-      transport_record(r);if(!r.refusal){Periodic row{};row.at=now;row.identity=sync_identity;row.capture=r.rx_stamp;row.length=uint8_t(p.data_length);std::memcpy(row.bytes,p.data,p.data_length);periodic.push(row);}else inc(p1_bad);
+      transport_record(r);if(!r.refusal){Periodic row{};row.at=now;row.identity=sync_identity;row.capture=r.rx_stamp;row.length=uint8_t(p.data_length);std::memcpy(row.bytes,p.data,p.data_length);
+#ifdef PTOB_N30
+       row.signal_epoch=sync_capture_epoch;row.rssi=p.rssi;
+#endif
+       periodic.push(row);}else inc(p1_bad);
     }
   }
   return 0;
@@ -870,6 +882,9 @@ unsigned periodic_poll(uint64_t now,unsigned budget=8){Periodic row{};unsigned p
     rc7_packet p{};
     if(row.length!=190||rc7_decode(&p,row.bytes,row.length,&rc_client.receiver.path,&provision.group)){inc(relay_bad);continue;}
     inc(relay_ok);
+#ifdef PTOB_N30
+    signal_received(row,now,sync_capture_epoch);
+#endif
 #ifdef V12_R2_RX_SHADOW
     uint64_t available=0;clock_reference_read(&available);
     // Match T096 RC7: delivery is a current-path authenticated physical PA
@@ -911,6 +926,9 @@ unsigned periodic_poll(uint64_t now,unsigned budget=8){Periodic row{};unsigned p
   if(row.length==158){
     const uint64_t ids[4]={row.identity,0,0,0};r2_precision_packet p{};
     if(r2_group_precision_decode(&p,row.bytes,158,&provision.group,ids)){inc(p1_bad);diagnostic.reason(G1Reason::PeriodicAuth,now);continue;}inc(p1_ok);
+#ifdef PTOB_N30
+    signal_received(row,now,sync_capture_epoch);
+#endif
     if(!anchor_valid(now))continue;
     const bool same=row.identity==anchor.root&&p.boot==anchor.boot&&p.source_epoch==anchor.source_epoch&&p.train==anchor.publication;
     if(!same){if(fresh_envelope(p.created_ns,p.expires_ns,p.utc_offset_ns,now))changed_scope(now);continue;}
@@ -926,6 +944,9 @@ unsigned periodic_poll(uint64_t now,unsigned budget=8){Periodic row{};unsigned p
     for(auto offset:offsets){const auto id=r2_group_get(row.bytes+offset,8);bool seen=false;for(unsigned j=0;j<count;j++)seen|=ids[j]==id;if(id&&!seen)ids[count++]=id;}
     r2_relay_packet p{};
     if(r2_group_relay_decode3(&p,row.bytes,190,&provision.group,ids)||ids[p.route.transmitter]!=row.identity||p.route.depth!=0||p.route.slot!=0||p.route.transmitter!=p.origin.root||p.route.parent!=p.origin.root||p.route.boot!=p.origin.boot){inc(relay_bad);diagnostic.reason(G1Reason::PeriodicAuth,now);continue;}inc(relay_ok);
+#ifdef PTOB_N30
+    signal_received(row,now,sync_capture_epoch);
+#endif
     if(!anchor_valid(now)){diagnostic.reason(G1Reason::Permission,now);continue;}
     const bool same=ids[p.origin.root]==anchor.root&&p.origin.boot==anchor.boot&&p.origin.source_epoch==anchor.source_epoch&&
       row.identity==joined_peer&&p.route.boot==joined_boot&&(!relay_train||relay_train==p.route.train);
@@ -1294,6 +1315,9 @@ void publish(uint64_t begin){const auto now=micros();uint64_t tick=0;
   snap.rc7_capabilities=rc_client.capabilities;snap.rc7_requests=rc_client.requests;snap.rc7_responses=rc_client.responses;snap.rc7_pending=rc_client.pending;
   snap.rc7_lease_until_us=rc_client.lease_until;snap.rc7_renew_at_us=rc_client.renew_at;
   snap.rc7_delivery=parent_selection.quality().delivery_per_mille;
+#ifdef PTOB_N30
+  snap.n30_signal=requested&&!fault&&!closing&&synced&&!sync_terminating&&sync_identity==joined_peer?signal_strength.snapshot(sync_identity,sync_capture_epoch,now):n30::Signal{};
+#endif
   snap.g1_parent_entries=selection.entries;snap.g1_parent_score=selection.current_score;
   snap.g1_parent_best=selection.best_score;snap.g1_parent_reason=selection_locked&&!gm_discovery.active(now)?6:uint8_t(selection.reason);
   snap.rc_parent=parent_diagnostic;

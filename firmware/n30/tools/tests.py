@@ -7,6 +7,8 @@ def main():
  p=argparse.ArgumentParser(description=__doc__);p.add_argument('--out',type=Path,required=True);a=p.parse_args();out=a.out.resolve();out.mkdir(parents=True,exist_ok=False)
  cmd=[os.environ.get('CXX','/opt/homebrew/opt/llvm/bin/clang++' if Path('/opt/homebrew/opt/llvm/bin/clang++').exists() else 'clang++'),'-std=c++20','-O1','-g','-Wall','-Wextra','-Werror','-fsanitize=address,undefined','-fno-sanitize-recover=all','-I'+str(APP/'main'),str(APP/'tests/ui_test.cpp'),str(APP/'main/ui_render.cpp'),str(APP/'main/ui_model.cpp'),'-o',str(out/'ui-test')]
  subprocess.run(cmd,check=True,timeout=40);subprocess.run([out/'ui-test'],check=True,timeout=40)
+ signal=[str(APP/'tests/signal_strength_test.cpp') if x==str(APP/'tests/ui_test.cpp') else str(out/'signal-strength-test') if x==str(out/'ui-test') else x for x in cmd]
+ subprocess.run(signal,check=True,timeout=40);subprocess.run([out/'signal-strength-test'],check=True,timeout=10)
  for n30 in (False,True):
   exe=out/('n30-clock-prediction' if n30 else 'shared-clock-prediction')
   prediction=[*cmd[:cmd.index(str(APP/'tests/ui_test.cpp'))],'-I'+str(APP.parent/'w12/main'),*(['-DPTOB_N30=1'] if n30 else []),str(APP/'tests/clock_prediction_test.cpp'),'-o',str(exe)]
@@ -32,7 +34,7 @@ def main():
  recovery=[str(APP/'tests/recovery_budget_test.cpp') if x==str(APP/'tests/parent_fallback_test.cpp') else str(out/'recovery-test') if x==str(out/'parent-fallback-test') else x for x in parent]
  subprocess.run(recovery,check=True,timeout=40)
  for case in ('parent','lora'):subprocess.run([out/'recovery-test',case],check=True,timeout=10)
- adapter=[*cmd[:cmd.index(str(APP/'tests/ui_test.cpp'))],'-I'+str(APP.parent/'w12/main'),'-I'+str(APP.parent/'w12/main/r2/r2-g1'),'-I'+str(APP.parent/'w12/main/r2/rc7/include'),'-I'+str(APP.parent/'w12/legacy'),'-I'+str(APP.parent/'w12/legacy/reference'),str(APP/'tests/adapter_test.cpp'),str(APP/'main/ui_model.cpp'),'-o',str(out/'adapter-test')]
+ adapter=[*cmd[:cmd.index(str(APP/'tests/ui_test.cpp'))],'-DPTOB_N30=1','-I'+str(APP.parent/'w12/main'),'-I'+str(APP.parent/'w12/main/r2/r2-g1'),'-I'+str(APP.parent/'w12/main/r2/rc7/include'),'-I'+str(APP.parent/'w12/legacy'),'-I'+str(APP.parent/'w12/legacy/reference'),str(APP/'tests/adapter_test.cpp'),str(APP/'main/ui_model.cpp'),'-o',str(out/'adapter-test')]
  subprocess.run(adapter,check=True,timeout=40);subprocess.run([out/'adapter-test'],check=True,timeout=10)
  sync=[str(APP/'tests/sync_watchdog_adapter_test.cpp') if x==str(APP/'tests/adapter_test.cpp') else str(out/'sync-adapter-test') if x==str(out/'adapter-test') else x for x in adapter]
  subprocess.run(sync,check=True,timeout=40);subprocess.run([out/'sync-adapter-test'],check=True,timeout=10)
@@ -40,7 +42,7 @@ def main():
  subprocess.run([sys.executable,'-B',APP/'tests/inputs_test.py'],check=True)
  subprocess.run([sys.executable,'-B',APP/'tests/console_test.py'],check=True)
  display=(APP/'main/display.cpp').read_text()
- (out/'surface_trace_actual.inc').write_text('portMUX_TYPE mux=portMUX_INITIALIZER_UNLOCKED;\n'+display[display.index('struct SurfaceRecord {'):display.index('void frame_wake(')]+display[display.index('void n30_display_trace_poll(){'):display.index('bool display_init(){')])
+ (out/'surface_trace_actual.inc').write_text('portMUX_TYPE mux=portMUX_INITIALIZER_UNLOCKED;\nn30::Model published;\nuint64_t now_us(){return uint64_t(read_clock());}\n'+display[display.index('struct SurfaceRecord {'):display.index('void frame_wake(')]+display[display.index('void n30_display_trace_poll(){'):display.index('bool display_init(){')])
  worker=[*cmd[:cmd.index(str(APP/'tests/ui_test.cpp'))],'-I'+str(out),'-I'+str(APP/'tests/console_fakes'),'-I'+str(APP.parent/'w12/tests/console_fakes'),'-I'+str(APP.parent/'w12/main'),str(APP/'tests/console_worker_test.cpp'),'-o',str(out/'console-worker-test')]
  subprocess.run(worker,check=True,timeout=40);subprocess.run([out/'console-worker-test',out/'actual-tx-log.txt'],check=True,timeout=10)
  subprocess.run([sys.executable,'-B',APP/'tests/tx_capture_test.py','--wire',out/'actual-tx-log.txt'],check=True,timeout=10)

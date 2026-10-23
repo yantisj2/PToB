@@ -116,9 +116,16 @@ void worker(void*){
 }
 void n30_display_trace_poll(){
  SurfaceRecord r;uint32_t dropped;portENTER_CRITICAL(&mux);const bool present=surfaces.pop(r);dropped=surfaces.drops;portEXIT_CRITICAL(&mux);
- if(!present)return;
- v12::logf("N30_UI_SURFACE seq=%lu dropped=%lu at_us=%llu end_us=%llu from_saver=%u saver=%u minimal=%u page=%u due=%u loss_us=%llu model_us=%llu until_us=%llu valid=%u locked=%u state=%u source=%u written=%02x ok=%u\n",
+ if(present)v12::logf("N30_UI_SURFACE seq=%lu dropped=%lu at_us=%llu end_us=%llu from_saver=%u saver=%u minimal=%u page=%u due=%u loss_us=%llu model_us=%llu until_us=%llu valid=%u locked=%u state=%u source=%u written=%02x ok=%u\n",
    (unsigned long)r.sequence,(unsigned long)dropped,(unsigned long long)r.at,(unsigned long long)r.end,unsigned(r.from),unsigned(r.saver),unsigned(r.minimal),unsigned(r.page),unsigned(r.due),(unsigned long long)r.loss,(unsigned long long)r.sampled,(unsigned long long)r.until,unsigned(r.valid),unsigned(r.locked),unsigned(r.state),unsigned(r.source),unsigned(r.written),unsigned(r.ok));
+ static uint64_t rf_at=0;const auto now=now_us();
+ if(now<rf_at){rf_at=now;return;}
+ if(now-rf_at<1000000)return;
+ rf_at=now;if(!v12::log_status().capture_active)return;
+ n30::Signal signal;uint64_t sampled;bool lora;
+ portENTER_CRITICAL(&mux);signal=published.signal;sampled=published.sampled_us;lora=published.source==n30::Source::LoRa;portEXIT_CRITICAL(&mux);
+ const auto bars=!lora&&now>=sampled&&now-sampled<n30::SnapshotMaxUs?n30::signal_bars(signal,now):0;
+ v12::logf("N30_UI_RF at_us=%llu peer=%016llx epoch=%lu sample_us=%llu rssi_dbm=%d bars=%u\n",(unsigned long long)now,(unsigned long long)signal.peer,(unsigned long)signal.epoch,(unsigned long long)signal.at,int(signal.dbm),unsigned(bars));
 }
 bool display_init(){
  uint8_t factory[6]{};const auto* device=v12::native_device_binding();

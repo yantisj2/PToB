@@ -13,10 +13,16 @@
 #include "g1_reset_recovery.hpp"
 #include "rc_parent_diagnostic.hpp"
 #include "../legacy/reference/clock_prediction.hpp"
+#ifdef PTOB_N30
+#include "signal_strength.hpp"
+#endif
 namespace v12 {
 enum class R2Mode:uint8_t {Off,Passive,Active,Client};
 enum class R2Api:uint8_t {None,DataLength,Mtu,Service,Characteristics,ControlWrite,SyncCreate,ScanStart,ScanStop,AdvStop,AdvRemove,Disconnect,ConnectCancel,SyncCancel,SyncTerminate,AdvConfigure,AdvData,AdvStart,Connect};
 struct R2Status {
+#ifdef PTOB_N30
+  n30::Signal n30_signal{}; // Fresh authenticated current-parent PA RSSI only.
+#endif
   R2Mode mode=R2Mode::Off;OwnerLease lease{};R2ClientService client{};
   bool requested=false,scan=false,advertising=false,sync_pending=false,synced=false;
   bool connecting=false,owner_busy=false,off_ack=true,fault=false,active_used=false;
