@@ -1791,3 +1791,11 @@ persistent USB/CDC nonresponse; v68 also retained controller assertions and MCU
 restarts. The new USB lifecycle investigation is a proposal, not an applied fix.
 These results do not establish continuous delivery, qualified HOT failover,
 metrology readiness or independent UTC accuracy.
+
+## W12 0.2.4 — separate RC9 and UTC-boundary display
+
+- Schedule OLED time paints from the selected UTC second instead of prior paint time.
+- Match N30 functional RC8 pre-companion time/RMS; preserve unknown origin bounds.
+- Add independent authenticated RC9 client/service with original source expiry,
+  distinct BLE class and client leases pinning AUTO LoRa through BLE recovery.
+- Preserve GNSS inputs, normal G1 precision isolation and original owner drains.

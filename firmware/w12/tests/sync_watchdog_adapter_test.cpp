@@ -27,6 +27,9 @@ int main(){
   w12_lora_view l{};l.active=l.requested=l.time_valid=true;l.state=2;l.emitter=1;l.root=2;l.root_boot=3;l.source_epoch=4;l.utc_us=1700000000000000;l.sampled_us=now;l.until_us=now+12000000;
   v12::R2Status lost;uint64_t utc=0;
   assert(w12::lora_time(l,now,utc)&&utc==l.utc_us);
+  l.root_boot=0;l.time_valid=false;l.metadata_known=false;
+  assert(w12::lora_time(l,now,utc)&&utc==l.utc_us); // N30 functional path; unknown scope stays unknown.
+  l.state=1;assert(!w12::lora_time(l,now,utc));l.state=2; // Withdrawal is enforced by the real core.
   assert(w12::synchronized_until(lost,l,now)==now+250000);
   assert(!w12::synchronized_until(lost,l,now+250000));
   l.fault=true;assert(!w12::synchronized_until(lost,l,now));l.fault=false;

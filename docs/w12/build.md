@@ -614,3 +614,17 @@ These host checks exercise actual policy/codec/HMAC, replay/expiry,180 s modes,
 failure retention and TX refusal. Native builds use the pinned real RadioLib;
 the owner fixture uses a synthetic RadioLib call boundary. These are separate
 from actual RF interoperability and independently measured clock accuracy.
+
+### Separate RC9 service and display cadence
+
+Add `--rc9` to an existing `--fine-clock --estimated-relay` LR2021 build to
+receive RC9 and serve current RC8 through the separate RC9 BLE service. The
+flag is bound into the runtime build ID. Normal RC7 advertisements are drained
+before SID14 periodic/SID15 connectable RC9 advertisements start. Original
+source expiry remains unchanged. See [the RC9 contract](rc9.md).
+
+The OLED redraw deadline follows the selected UTC fractional second. A forced
+page repaint retains that boundary; a render crossing it schedules an immediate
+fresh paint. `rc9 diag` includes selected time, sample, completed paint and next
+boundary timestamps under its original nonce/CRC deadline. These observations
+measure local scheduling, not independently calibrated UTC or optical latency.

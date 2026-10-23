@@ -31,4 +31,19 @@ int main(void){
  meta.sequence=2;assert(!rc8_companion_encode(wire,&meta,&group));assert(!w12_rc8_receive(wire,128,tick,7,before.until_us,before.until_us,gen));w12_rc8_snapshot(&after,before.until_us);assert(after.utc_us==0);
  w12_rc8_switch(false);w12_rc8_snapshot(&after,local);assert(after.state==0&&!after.utc_us&&after.accepted==before.accepted);
  assert(!w12_rc8_init(1,1,group.id,group.epoch,group.psk));
+ // Same N30 functional path: signed physical pairs can precede companion
+ // metadata. Do not invent the missing boot, metadata validity or authority.
+ assert(w12_rc8_init(2,1,group.id,group.epoch,group.psk));gen=w12_rc8_switch(true);
+ tick=16000000;local=1000000;ns=1000000000000ULL;
+ for(uint32_t i=1;i<=5;++i){
+  struct rc8_packet p={.sequence=i,.root=scope.root,.source_epoch=scope.source_epoch,.scale=scope.scale,.kind=scope.kind};assert(!rc8_context_id(p.context,&scope,&group));
+  if(i>1){p.corrected=true;p.correction=(struct rc8_correction){.sequence=i-1,.event_ns=ns,.created_ns=ns-1234,.expires_ns=ns+5000000000ULL,.map_generation=7,.upstream_bound_ns=RC8_UNKNOWN};}
+  assert(!rc8_encode(wire,&p,&group));assert(w12_rc8_receive(wire,80,tick,7,local,local,gen)==(i>1));
+  tick+=64000000;local+=4000000;if(i>1)ns+=4000000000ULL;
+ }
+ w12_rc8_snapshot(&after,local-4000000);assert(after.state==2&&after.utc_us&&after.link_samples==4&&after.link_rms_ns==0&&!after.root_boot&&!after.metadata_known&&!after.time_valid);
+ // A later matching signed withdrawal still revokes the functional sample.
+ meta.sequence=1;meta.timing_sequence=5;meta.time_valid=false;
+ assert(!rc8_companion_encode(wire,&meta,&group));assert(!w12_rc8_receive(wire,128,tick,7,local,local,gen));
+ w12_rc8_snapshot(&after,local);assert(after.state==1&&!after.utc_us&&!after.until_us);
 }

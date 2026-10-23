@@ -139,3 +139,8 @@ if(PTOB_W12_LORA_RX)
 else()
  target_compile_definitions(${COMPONENT_LIB} PRIVATE V12_LORA_FORCED_OFF=1)
 endif()
+
+if(PTOB_RC9)
+ target_sources(${COMPONENT_LIB} PRIVATE "rc9/rc9.cpp")
+ target_compile_definitions(${COMPONENT_LIB} PRIVATE PTOB_RC9=1)
+endif()

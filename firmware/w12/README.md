@@ -7,7 +7,7 @@ RC role. [Image provenance](../../docs/images/README.md).*
 
 Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
 
-**PToB owns W12 native G1/RC7 development.** Current version **0.2.3** supports
+**PToB owns W12 native G1/RC7 development.** Current version **0.2.4** supports
 **RC**: a BLE50 client or BLE100 receiver with an optional experimental
 estimated-TX relay. It receives from the shared T096/W12/StickS3 mesh; it has no
 GM profile or USB timing stream. Start with the
@@ -37,7 +37,10 @@ clock. Bounded production G1 PPS diagnostics distinguish local clock mapping,
 relative phase, output correction and source permission. The optional fast
 counter-map diagnostic defaults off. WiFi, PTS and donor correction experiments are excluded. Optional LR2021
 LoRa timing is a separate authenticated passive RC8 receiver; it does not
-train or publish through the BLE clock.
+train the normal BLE clock. Optional `--rc9` publishes a distinct functional
+RC9 service from current RC8, with unknown BLE delivery/UTC precision. An
+authenticated RC9 client lease keeps AUTO LoRa selected through BLE recovery;
+RC9 never becomes an RC1/RC2 or GM source.
 
 Version 0.2.2 follows N30's independent LoRa timestamp-reader fix. W12 keeps
 its CH1 capture on the continuous MCPWM1 timer, with a separate software epoch
@@ -100,3 +103,10 @@ remain pending. See the [cutover record](../../docs/w12/cutover.md),
 Logical receive, clock-discipline and relay paths.
 Select the preview to open the [full interactive schematic](https://ptob.dev/hardware/esp32-s3/timing/).
 [Capture provenance](../../docs/images/README.md).
+
+Version0.2.4 redraws the time at the selected UTC second boundary, including
+forced page changes, rather than carrying a free-running repaint phase. It also
+matches N30's functional RC8 pre-companion display path, leaving unknown origin
+boots and bounds unknown. See [RC9](../../docs/w12/rc9.md) for the separate wire
+service, lease controls and offline checks. Hardware outcomes remain tied to
+exact installed image and device records; link RMS is not UTC accuracy.

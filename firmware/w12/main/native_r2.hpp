@@ -19,6 +19,17 @@
 namespace v12 {
 enum class R2Mode:uint8_t {Off,Passive,Active,Client};
 enum class R2Api:uint8_t {None,DataLength,Mtu,Service,Characteristics,ControlWrite,SyncCreate,ScanStart,ScanStop,AdvStop,AdvRemove,Disconnect,ConnectCancel,SyncCancel,SyncTerminate,AdvConfigure,AdvData,AdvStart,Connect};
+// Independent RC9 functional stream. It cannot populate the normal G1 clock,
+// path, precision lock or GM authority. Original source expiry stays original.
+struct Rc9Status {
+  uint64_t sampled_us=0,utc_us=0,until_us=0,server=0,server_boot=0;
+  uint64_t root=0,root_boot=0,emitter=0,emitter_boot=0,client_until_us=0;
+  uint32_t source_epoch=0,sequence=0,rms_ns=UINT32_MAX,accepted=0,rejected=0;
+  uint8_t clients=0,assurance=0,authority=0;
+  bool valid=false,following=false,serving=false,metadata_known=false,fault=false;
+};
+Rc9Status r2_rc9_status();
+bool r2_rc9_parent(uint64_t identity); // Volatile direct RC9 parent;0 restores AUTO.
 struct R2Status {
 #ifdef PTOB_N30
   n30::Signal n30_signal{}; // Fresh authenticated current-parent PA RSSI only.

@@ -65,7 +65,7 @@ def status_command(nonce):
 
 def mutation_command(frame,nonce,action):
     require(HEX16.fullmatch(nonce) and int(nonce,16) and nonce!=frame['begin']['nonce'],'Fresh mutation nonce required')
-    require(action in ('off','prepare_update','r2 client','r2 client 50','r2 client 100','capture stop','watchdog-test','upstream auto','upstream relay','lora auto','lora on','lora off','ui page 0','ui page 9','ui page 14','ui page 15') or re.fullmatch(r'((rc|gm)-parent (auto|[0-9a-f]{16})|capture rolling [0-9]{5,6}|capture [0-9]{1,5}|tx (root|relay|rc7probe) [0-9]{1,5}|rx (full|half350|half400|half450|coarse) [0-9]{1,5}|lora_rx [0-9]{1,5}|r2 (passive|active) [0-9]{1,5})',action),'Known bounded observer/radio or explicit persistent client action required')
+    require(action in ('off','prepare_update','r2 client','r2 client 50','r2 client 100','capture stop','watchdog-test','upstream auto','upstream relay','lora auto','lora on','lora off','ui page 0','ui page 9','ui page 14','ui page 15','rc9 diag') or re.fullmatch(r'((rc|gm|rc9)-parent (auto|[0-9a-f]{16})|capture rolling [0-9]{5,6}|capture [0-9]{1,5}|tx (root|relay|rc7probe) [0-9]{1,5}|rx (full|half350|half400|half450|coarse) [0-9]{1,5}|lora_rx [0-9]{1,5}|r2 (passive|active) [0-9]{1,5})',action),'Known bounded observer/radio or explicit persistent client action required')
     b=frame['begin']
     return f"v12 do {b['ticket']} {nonce} {b['factory']} {b['session']} {action}\n".encode()
 
@@ -138,7 +138,7 @@ class Parser:
                     if self.manifest.get('r2_g1_discovery_diagnostic_revision')==1:
                         require(mesh.get('g1_discovery_diagnostic_revision')=='1' and mesh.get('g1_sdk_scan_active') in ('0','1'),'G1 discovery diagnostics version missing')
                         compact=self.manifest.get('w12_lora_status_contract')=='W12_RC8_LR2021_COMPACT_DISCOVERY_V1'
-                        if compact:require(self.manifest.get('version') in ('0.2.0','0.2.1','0.2.2','0.2.3') and self.manifest.get('lora_rx') is True,'Compact discovery requires exact W12 LoRa image contract')
+                        if compact:require(self.manifest.get('version') in ('0.2.0','0.2.1','0.2.2','0.2.3','0.2.4') and self.manifest.get('lora_rx') is True,'Compact discovery requires exact W12 LoRa image contract')
                         omitted=('g1_adv_incomplete','g1_adv_long','g1_adv_nonrandom','g1_discovery_checked','g1_group_records','g1_last_adv_at_us','g1_last_group_at_us')
                         if compact:require(all(key not in mesh for key in omitted),'Unexpected mixed compact discovery layout')
                         for key in ('g1_adv_callbacks','g1_last_key_epoch',*(() if compact else omitted)):

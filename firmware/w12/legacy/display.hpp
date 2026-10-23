@@ -14,11 +14,12 @@ struct DisplayState {
     } comparison[3]; // BLE, PTS, LoRa; precision is relative, not absolute UTC.
 #ifdef PTOB_W12_DUAL_UI
     uint8_t lora_mode=0,lora_state=0,lora_link_samples=0;bool lora_active=false,lora_fault=false,lora_configured=false,lora_time_valid=false;
+    uint32_t lora_client_hold_ms=0;bool rc9_serving=false;uint8_t rc9_clients=0;
     uint32_t lora_transition_ms=0,lora_link_rms_ns=UINT32_MAX,lora_accepted=0,lora_crc=0;
     bool precision_live=false,precision_fine=false,precision_lora=false;int32_t precision_rate_ppb=0;int64_t precision_phase_ns=0;
 #endif
     uint8_t page=0;
-    enum TimingSource : uint8_t { NoSource, Ble, Lora, Pts, Gps } timing_source=NoSource;
+    enum TimingSource : uint8_t { NoSource, Ble, Lora, Pts, Gps, Rc9 } timing_source=NoSource;
     bool gps_inputs=false,gps_valid=false,gps_source=false,gps_qualified=false;
     uint8_t gps_class=7;
     uint32_t gps_pps_age_ms=UINT32_MAX,gps_rmc_age_ms=UINT32_MAX;

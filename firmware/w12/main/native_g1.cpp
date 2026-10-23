@@ -6,6 +6,14 @@
 #include "native_direct.hpp"
 #include "native_diagnostic_tx.hpp"
 #include "periodic_rx.hpp"
+#ifdef PTOB_RC9
+#include "rc9/client.hpp"
+#ifdef PTOB_W12_LORA_RX
+#include "w12_lora.hpp"
+#include "sync_watchdog.hpp"
+#include "rc9_source_policy.hpp"
+#endif
+#endif
 #ifdef PTOB_N30
 #include "fine_backend_api.hpp"
 #elif defined(PTOB_W12_FINE_CLOCK)
@@ -63,6 +71,10 @@ const ble_uuid128_t service=BLE_UUID128_INIT(0x5c,0xd4,0x4e,0x7d,0x8a,0x18,0x4b,
 const ble_uuid128_t data_uuid=BLE_UUID128_INIT(0x5c,0xd4,0x4e,0x7d,0x8a,0x18,0x4b,0x97,0x75,0x47,0xef,0xa6,0x01,0x04,0x0d,0x85);
 const ble_uuid128_t rc_service=BLE_UUID128_INIT(0x07,0x00,0xbc,0x51,0xe2,0xd4,0x38,0x8c,0x94,0x4a,0xc4,0x76,0x38,0xe5,0xf6,0x48);
 const ble_uuid128_t rc_data_uuid=BLE_UUID128_INIT(0x07,0x00,0xbd,0x51,0xe2,0xd4,0x38,0x8c,0x94,0x4a,0xc4,0x76,0x38,0xe5,0xf6,0x48);
+#ifdef PTOB_RC9
+const ble_uuid128_t rc9_service=BLE_UUID128_INIT(0x09,0x00,0xbc,0x51,0xe2,0xd4,0x38,0x8c,0x94,0x4a,0xc4,0x76,0x38,0xe5,0xf6,0x48);
+const ble_uuid128_t rc9_data_uuid=BLE_UUID128_INIT(0x0a,0x00,0xbd,0x51,0xe2,0xd4,0x38,0x8c,0x94,0x4a,0xc4,0x76,0x38,0xe5,0xf6,0x48);
+#endif
 struct Peer {
   uint64_t identity=0,attempt_until=0,gatt_until=0,close_at=0,drain_until=0;
   uint64_t request_at=0,descriptor_at=0,probe_at=0,terminate_at=0;
@@ -71,6 +83,7 @@ struct Peer {
   unsigned stage=0;bool connecting=false,pending=false,ready=false,dead=false,terminating=false;
   ble_addr_t address{};r2_join_exchange exchange{};uint8_t send_kind=0;bool relay=false,rescan=false;uint64_t read_at=0;
   bool selection_accepted=false,selection_reported=false;
+  bool rc9=false;
   G1ParentReason parent_reason=G1ParentReason::Startup;
 };
 struct Incoming {uint64_t at=0;uint32_t incarnation=0;uint8_t bytes[RC_DYNAMIC_CONTROL_BYTES]{};uint16_t length=R2_GROUP_JOIN_BYTES;};
@@ -80,6 +93,18 @@ struct Periodic {uint64_t at=0,identity=0;uint8_t bytes[190]{};uint8_t length=0;
  uint32_t signal_epoch=0;int8_t rssi=127;
 #endif
 };
+#ifdef PTOB_RC9
+rc9::Client rc9_client;
+Rc9Status rc9_published;
+uint64_t rc9_target=0,rc9_retry_at=0;
+struct Rc9Locator {Discovery discovery{};uint64_t id=0,boot=0,seen=0;};
+Rc9Locator rc9_locators[4]{};
+bool rc9_bound(){return rc9_client.view(uint64_t(esp_timer_get_time())).bound;}
+bool rc9_server_selected(uint64_t);
+uint64_t rc9_server_demand_until();
+uint8_t rc9_server_clients(uint64_t);
+void rc9_publish_status(uint64_t);
+#endif
 #ifdef PTOB_N30
 n30::SignalStrength signal_strength;
 void signal_received(const Periodic& row,uint64_t now,uint32_t epoch){if(row.signal_epoch==epoch)signal_strength.observe(row.identity,row.signal_epoch,row.rssi,row.at,now);}
@@ -133,6 +158,7 @@ bool member=false;uint64_t boot_id=0,nonce=0,sequence=0,joined_peer=0,joined_boo
 uint64_t admission_root=0,admission_until=0; // Authenticated locator hint, never time authority.
 uint64_t close_until=0,next_poll=0,retry_at=0,scan_retry_at=0,scan_retry_until=0;
 uint64_t sync_identity=0,sync_acquire_until=0,sync_drain_until=0;
+uint8_t sync_selected_sid=12;
 uint32_t sync_capture_epoch=0;
 uint64_t sync_requested_at=0,sync_owner_window_start=UINT64_MAX;uint8_t sync_phy=0,sync_clock_accuracy=255;
 ble_addr_t own_address{},sync_address{};uint16_t sync_handle=None,observed_mtu=0;
@@ -229,13 +255,20 @@ void failed_admission(uint64_t now){
   // Deliberate profile quiet, explicit stop and rebind are local scheduling,
   // not observations that the remote server failed.
   if(!full_listening()&&now-G1Window::start(now,window_phase)>=400000)return;
+#ifdef PTOB_RC9
+  if(peer.rc9){peer.selection_reported=true;rc9_retry_at=now+1000000;return;}
+#endif
   peer.selection_reported=true;admission_failed(now);
   if(!parent_failure.identity)parent_failure={peer.identity,now,peer.relay};
 }
 bool relay_slot_scanning();
 void relay_fence();void relay_close(uint64_t now);bool relay_owned();bool relay_acl_available();void relay_poll(uint64_t now,bool upstream_due);
 void parent_record(G1ParentReason reason,uint64_t now);
-void begin_close(uint64_t now){if(closing)return;closing=true;corrected_was_live=false;retained_estimate.clear();relay_fence();member=false;anchor={};direct_session.clear();rc_client.fence();coarse_hold.clear();corrected_clock.clear();corrected_phase_aligned=false;close_until=now+2000000;portENTER_CRITICAL(&mux);if(mode==R2Mode::Client){client.stop(now);close_until=client.stop_deadline_us;}else if(lease.deadline_us&&lease.deadline_us<close_until)close_until=lease.deadline_us;portEXIT_CRITICAL(&mux);parent_record(G1ParentReason::Stop,now);}
+void begin_close(uint64_t now){if(closing)return;closing=true;
+#ifdef PTOB_RC9
+ rc9_client.fence();
+#endif
+corrected_was_live=false;retained_estimate.clear();relay_fence();member=false;anchor={};direct_session.clear();rc_client.fence();coarse_hold.clear();corrected_clock.clear();corrected_phase_aligned=false;close_until=now+2000000;portENTER_CRITICAL(&mux);if(mode==R2Mode::Client){client.stop(now);close_until=client.stop_deadline_us;}else if(lease.deadline_us&&lease.deadline_us<close_until)close_until=lease.deadline_us;portEXIT_CRITICAL(&mux);parent_record(G1ParentReason::Stop,now);}
 void stop_scan(){if(!scan)return;const int rc=ble_gap_disc_cancel();if(!rc||rc==BLE_HS_EALREADY)scan=false;else error(rc,R2Api::ScanStop);}
 int gap(ble_gap_event*,void*);
 struct LinkContext {uint32_t generation=0;
@@ -422,6 +455,9 @@ int service_done(uint16_t h,const ble_gatt_error* e,const ble_gatt_svc* s,void* 
 int char_done(uint16_t h,const ble_gatt_error* e,const ble_gatt_chr* c,void* arg){
   if(!live(h,arg))return 1;
   const auto* expected=peer.relay?&rc_data_uuid.u:&data_uuid.u;
+#ifdef PTOB_RC9
+  if(peer.rc9)expected=&rc9_data_uuid.u;
+#endif
   const bool properties=c&&(peer.relay?(c->properties&0x0a)==0x0a:(c->properties&0x04)!=0);
   if(!e->status&&c&&c->val_handle&&!ble_uuid_cmp(&c->uuid.u,expected)&&properties){
     peer.value=c->val_handle;peer.pending=false;
@@ -448,6 +484,9 @@ const ble_gatt_chr_def chars[]={[]{ble_gatt_chr_def c{};c.uuid=&data_uuid.u;c.ac
 const ble_gatt_svc_def services[]={{.type=BLE_GATT_SVC_TYPE_PRIMARY,.uuid=&service.u,.includes=nullptr,.characteristics=chars},
 #ifdef V12_R2_RC7_TX_ESTIMATE_LAB
 {.type=BLE_GATT_SVC_TYPE_PRIMARY,.uuid=&rc_service.u,.includes=nullptr,.characteristics=relay_chars},
+#if defined(PTOB_RC9) && defined(PTOB_W12_LORA_RX)
+{.type=BLE_GATT_SVC_TYPE_PRIMARY,.uuid=&rc9_service.u,.includes=nullptr,.characteristics=rc9_chars},
+#endif
 #endif
 {}};
 int gap(ble_gap_event* e,void* arg){
@@ -497,15 +536,20 @@ int gap(ble_gap_event* e,void* arg){
   }else if(e->type==BLE_GAP_EVENT_DISC_COMPLETE)scan=false;
   else if(e->type==BLE_GAP_EVENT_PERIODIC_SYNC){
     if(reinterpret_cast<uintptr_t>(arg)!=sync_capture_epoch){error(BLE_HS_EBUSY,R2Api::SyncCreate);return 0;}
+    bool source_owner=anchor_valid(now)&&parent_scope();
+#ifdef PTOB_RC9
+    const auto admitted_rc9=rc9_client.view(now);
+    source_owner|=admitted_rc9.bound&&admitted_rc9.server==sync_identity&&admitted_rc9.server_boot==joined_boot;
+#endif
     const bool capture_owner=sync_pending&&
       !sync_cancelled&&!sync_cleanup_requested&&!closing&&!fault&&
       (full_listening()||sync_owner_window_start==window_start)&&client_window_active(now,window_phase)&&
-      anchor_valid(now)&&parent_scope();
+      source_owner;
     const auto completion_context=sync_context();
     sync_phy=e->periodic_sync.adv_phy;sync_clock_accuracy=e->periodic_sync.adv_clk_accuracy;
     sync_trace(17,e->periodic_sync.sync_handle,e->periodic_sync.status);
     sync_pending=sync_selected=false;sync_cancelled=false;
-    if(!e->periodic_sync.status){sync_handle=e->periodic_sync.sync_handle;synced=true;sync_terminating=false;if(e->periodic_sync.sid!=12||e->periodic_sync.per_adv_ival!=50||!same_address(e->periodic_sync.adv_addr,sync_address))fault=true;if(capture_owner&&!fault){
+    if(!e->periodic_sync.status){sync_handle=e->periodic_sync.sync_handle;synced=true;sync_terminating=false;if(e->periodic_sync.sid!=sync_selected_sid||e->periodic_sync.per_adv_ival!=50||!same_address(e->periodic_sync.adv_addr,sync_address))fault=true;if(capture_owner&&!fault){
 #ifdef V12_R2_RX_SHADOW
       if(!periodic_rx::adopt(sync_handle,sync_capture_epoch))fault=true;
 #endif
@@ -514,7 +558,7 @@ int gap(ble_gap_event* e,void* arg){
     sync_quiet_return(completion_context);
   }else if(e->type==BLE_GAP_EVENT_PERIODIC_SYNC_LOST){sync_trace(20,e->periodic_sync_lost.sync_handle,0);if(reinterpret_cast<uintptr_t>(arg)==sync_capture_epoch&&e->periodic_sync_lost.sync_handle==sync_handle){const auto completion_context=sync_context();sync_quiet_return(completion_context);sync_handle=None;synced=false;sync_terminating=false;sync_identity=0;periodic_rx::scope(None);}}
   else if(e->type==BLE_GAP_EVENT_PERIODIC_REPORT){const auto& p=e->periodic_report;
-    if(!closing&&!sync_terminating&&synced&&p.sync_handle==sync_handle&&reinterpret_cast<uintptr_t>(arg)==sync_capture_epoch){inc(pa_reports);Report r{};r.kind=6;r.callback_us=now;r.handle=p.sync_handle;r.sid=12;r.address_type=sync_address.type;std::memcpy(r.address_le,sync_address.val,6);r.rssi=p.rssi;r.status=p.data_status;r.actual_length=p.data_length;r.length=uint8_t(p.data_length>MaxData?MaxData:p.data_length);if(fault)r.refusal|=4;if(r.length)std::memcpy(r.bytes,p.data,r.length);
+    if(!closing&&!sync_terminating&&synced&&p.sync_handle==sync_handle&&reinterpret_cast<uintptr_t>(arg)==sync_capture_epoch){inc(pa_reports);Report r{};r.kind=6;r.callback_us=now;r.handle=p.sync_handle;r.sid=sync_selected_sid;r.address_type=sync_address.type;std::memcpy(r.address_le,sync_address.val,6);r.rssi=p.rssi;r.status=p.data_status;r.actual_length=p.data_length;r.length=uint8_t(p.data_length>MaxData?MaxData:p.data_length);if(fault)r.refusal|=4;if(r.length)std::memcpy(r.bytes,p.data,r.length);
       if(p.data_status!=BLE_HCI_PERIODIC_DATA_STATUS_COMPLETE||(p.data_length!=158&&p.data_length!=190)||
          (mode==R2Mode::Client&&!full_listening()&&(!client_window_active(now,window_phase)||now-window_start>=G1Window::Nominal)))r.refusal=2;
 #ifdef V12_R2_RX_SHADOW
@@ -574,14 +618,15 @@ bool connect_parameter_refusal(int rc,const ble_gap_conn_params& p){
     !p.latency&&(p.supervision_timeout==10||p.supervision_timeout==50)&&
     !p.min_ce_len&&!p.max_ce_len;
 }
-void connect(const Discovery& d,uint64_t id,uint64_t now,bool relay=false){
-  if(!parent_selection.retry_allowed(id,relay,now)||!admission_policy.allowed(now,full_listening()&&!relay))return;
+void connect(const Discovery& d,uint64_t id,uint64_t now,bool relay=false,bool is_rc9=false){
+  if((!is_rc9&&!parent_selection.retry_allowed(id,relay,now))||!admission_policy.allowed(now,full_listening()&&!relay))return;
   relay_poll(now,true);if(!relay_acl_available())return;stop_scan();if(scan||!timely())return;
   if(nonce==UINT64_MAX){fault=true;return;}++nonce;
   if(incarnation==UINT32_MAX){fault=true;return;}
   const bool rescan=false; // Poor delivery never establishes slot contention.
-  parent_selection.attempted(id,relay,now);
+  if(!is_rc9)parent_selection.attempted(id,relay,now);
   peer={};peer.identity=id;peer.address=d.address;peer.incarnation=++incarnation;peer.request_at=now;peer.relay=relay;peer.rescan=rescan;
+  peer.rc9=is_rc9;
   const auto selection=parent_selection.selection_view(now);
   peer.parent_reason=parent_selection.pinned()?G1ParentReason::Manual:exclude_direct_gm?G1ParentReason::RelayOnly:
     gm_discovery.active(now)&&id==anchor.root&&!relay?G1ParentReason::ReturnGM:
@@ -633,7 +678,12 @@ void gatt_poll(uint64_t now){
     else if(peer.stage==2){site=R2Api::Service;
       // Pinned S3 ReadByType uses a19-byte flat buffer. Discover the RC
       // endpoint, then normal READ carries its exact212-byte capability.
-      if(peer.relay)rc=peer.value?ble_gattc_read(h,peer.value,rc_read_done,arg):ble_gattc_disc_svc_by_uuid(h,&rc_service.u,service_done,arg);
+      if(peer.relay){const auto* selected=&rc_service.u;
+#ifdef PTOB_RC9
+       if(peer.rc9)selected=&rc9_service.u;
+#endif
+       rc=peer.value?ble_gattc_read(h,peer.value,rc_read_done,arg):ble_gattc_disc_svc_by_uuid(h,selected,service_done,arg);
+      }
       else rc=ble_gattc_read_by_uuid(h,1,UINT16_MAX,&data_uuid.u,marker_done,arg);}
     else if(peer.relay&&peer.stage==6){if(now<peer.read_at){peer.pending=false;return;}site=R2Api::Service;rc=ble_gattc_read(h,peer.value,rc_read_done,arg);}
     else if(peer.stage==3){site=R2Api::Service;rc=ble_gattc_disc_svc_by_uuid(h,&service.u,service_done,arg);}
@@ -653,6 +703,7 @@ void send_join(uint64_t now){
   else if(rc){note(rc,R2Api::ControlWrite);if(rc==BLE_HS_ENOTCONN){peer.dead=true;inc(peer_losses);}else if(!transient(rc,R2Api::ControlWrite))error(rc,R2Api::ControlWrite);}
 }
 void changed_scope(uint64_t now,G1Reason reason=G1Reason::PeriodicScope,bool preserve_clock=false,G1ParentReason parent_reason=G1ParentReason::SourceChange);
+#include "rc9_client_native.inc"
 void parent_record(G1ParentReason reason,uint64_t now){
   G1ParentScope scope{};
   if(joined_peer&&(member||anchor.source||rc_bound())){
@@ -677,6 +728,9 @@ void scope_trace(const Anchor& old,const Anchor& next,G1Reason reason,uint64_t n
 }
 void receive_rc_control(const Incoming& row,uint64_t now){
   peer.pending=false;
+#ifdef PTOB_RC9
+  if(peer.rc9){rc9_receive_control(row,now);return;}
+#endif
   rc7_control c{};
   if(row.length!=212||rc7_control_decode(&c,row.bytes,row.length,&provision.group)||
      !rc_client.path_usable(c.path,provision.identity)){inc(rejected);peer.dead=true;return;}
@@ -732,6 +786,9 @@ void receive_rc_control(const Incoming& row,uint64_t now){
 }
 void send_rc_request(uint64_t now){
   if(!peer.relay||peer.stage!=5||!peer.send_kind||peer.pending||peer.dead||peer.terminating||!timely())return;
+#ifdef PTOB_RC9
+  if(peer.rc9){rc9_send_request(now);return;}
+#endif
   uint8_t wire[212];if(rc7_control_encode(wire,&rc_client.request,&provision.group)){peer.dead=true;inc(rejected);return;}
   peer.pending=true;peer.send_kind=0;rc_client.request_at=now;
   const auto h=peer.handle;const auto generation=peer.incarnation;
@@ -836,6 +893,9 @@ bool fresh_envelope(uint64_t created,uint64_t expires,int64_t offset,uint64_t no
     int64_t(expires)+offset>utc+int64_t(anchor.guard(now)*1000);
 }
 void changed_scope(uint64_t now,G1Reason reason,bool preserve_clock,G1ParentReason parent_reason){if(parent_reason==G1ParentReason::ClockStep)retained_estimate.clear();relay_fence();if(anchor.source){inc(diagnostic.scope_changes);scope_trace(anchor,{},reason,now);}
+#ifdef PTOB_RC9
+ if(!peer.rc9)rc9_client.fence();
+#endif
   parent_selection.unavailable(now);
   if(reason==G1Reason::Permission){if(usable_utc()&&anchor.valid(now))coarse_hold.retain(anchor);}
   else coarse_hold.clear();
@@ -860,6 +920,23 @@ unsigned periodic_poll(uint64_t now,unsigned budget=8){Periodic row{};unsigned p
 #endif
   if(!periodic.pop(row))break;
   now=micros();
+#ifdef PTOB_RC9
+  if(rc9_bound()){
+   const auto current=rc9_client.view(now);
+   if(row.identity==current.server&&row.identity==sync_identity&&now>=row.at&&now-row.at<50000&&client_window_active(row.at,window_phase)){
+    rc9::Time packet;
+    if(rc9::decode_time(packet,row.bytes,row.length,provision.group)){
+     if(rc9_client.receive(packet,now)){
+#ifdef PTOB_N30
+      signal_received(row,now,sync_capture_epoch);
+#endif
+      inc(auth);
+     }
+    }else inc(rejected);
+   }
+   continue; // Functional snapshots never enter RW fine fitting or RC7 maps.
+  }
+#endif
 #ifdef PTOB_N30
   if(n30_fine_backend_selected()&&row.identity==sync_identity&&now>=row.at&&now-row.at<50000&&client_window_active(row.at,window_phase)){
     const auto matched=n30_fine_backend_receive(row.capture);
@@ -1112,6 +1189,9 @@ void active_poll(uint64_t now){
   // the same fresh time rather than treating an older worker time as invalid.
   now=micros();parent_selection.locked(lock_protected(now),now);
   if((synced||sync_pending)&&((anchor_valid(now)&&sync_identity!=anchor.root&&sync_identity!=joined_peer)||(sync_pending&&now>=sync_acquire_until)))cancel_sync(now);
+#ifdef PTOB_RC9
+  if((synced||sync_pending)&&sync_selected_sid==14&&!rc9_bound())cancel_sync(now);
+#endif
   if((sync_cancelled&&sync_pending)||(sync_terminating&&synced)){if(now>=sync_drain_until)error(BLE_HS_ETIMEOUT,R2Api::SyncTerminate);}
   // Optional early JOIN can use an existing map covering this whole window.
   // Otherwise receive first. Original100ms initiation and duty stay intact.
@@ -1141,6 +1221,9 @@ void active_poll(uint64_t now){
     if(protected_parent&&!relay_slot_scanning())continue;
     if(now<d.at||now-d.at>250000||(mode==R2Mode::Client&&G1Window::start(d.at,window_phase)!=window_start))continue;
     observe_group(d);
+#ifdef PTOB_RC9
+    if(rc9_discovery(d))continue;
+#endif
     G1Reason filter=G1Reason::None;uint64_t id=discovery_identity(d,&filter);bool relay=false,relay_publishing=false;
     if(!id&&d.sid==13&&(d.props&1))for(unsigned at=0;at<d.length;){
       const unsigned n=d.bytes[at];if(!n||at+n>=d.length)break;
@@ -1174,7 +1257,11 @@ void active_poll(uint64_t now){
   const bool due=admission_due(now,renewal_map)||gm_available;
   const bool slot=full_listening()||G1Window::initiate(now,anchor,renewal_map,window_phase)||
     (rc_bound()&&now>=window_start&&now-window_start<G1Window::Initiate&&due);
-  if(mode==R2Mode::Client&&due&&slot&&peer.handle==None&&!peer.connecting&&now>=retry_at){
+  bool independent_rc9=false;
+#ifdef PTOB_RC9
+  independent_rc9=rc9_selection(now);
+#endif
+  if(!independent_rc9&&mode==R2Mode::Client&&due&&slot&&peer.handle==None&&!peer.connecting&&now>=retry_at){
     // A maintained lock may renew only its current authenticated publisher.
     // The retained address is a locator for a fresh challenge exchange, never
     // a cached permission. Recent physical PA, same binding and original
@@ -1195,7 +1282,13 @@ void active_poll(uint64_t now){
      }
     }
   }
-  if(!protected_parent&&!peer.connecting&&!scan&&(!synced||due||gm_observation))start_scan(gm_observation);
+  bool independent_scan=true;
+#ifdef PTOB_RC9
+  const auto rc9_view=rc9_client.view(now);
+  independent_scan=!independent_rc9||!rc9_view.valid||now>=rc9_client.renew_at;
+  if(!independent_scan)stop_scan();
+#endif
+  if(independent_scan&&!protected_parent&&!peer.connecting&&!scan&&(!synced||due||gm_observation))start_scan(gm_observation);
   if(!relay_slot_scanning()&&(protected_parent||(synced&&!due&&!gm_observation)))stop_scan();
   if(sync_selected&&peer.handle==None&&!peer.connecting&&!sync_pending&&!synced&&!sync_cleanup_queued&&timely()&&client_window_active(micros(),window_phase)){
     ble_gap_periodic_sync_params p{};p.skip=0;p.sync_timeout=100;sync_selected=false;sync_pending=true;sync_cancelled=false;sync_acquire_until=micros()+2000000;
@@ -1205,7 +1298,12 @@ void active_poll(uint64_t now){
 #ifdef V12_R2_RX_SHADOW
     if(!sync_capture_epoch){sync_pending=false;sync_identity=0;error(BLE_HS_EINVAL,R2Api::SyncCreate);return;}
 #endif
-    const int rc=ble_gap_periodic_adv_sync_create(&sync_address,12,&p,gap,reinterpret_cast<void*>(uintptr_t(sync_capture_epoch)));sync_trace(16,None,rc,&context);if(rc){periodic_rx::scope(None);sync_pending=false;sync_identity=0;if(!transient(rc,R2Api::SyncCreate))error(rc,R2Api::SyncCreate);}
+    uint8_t selected_sid=12;
+#ifdef PTOB_RC9
+    if(rc9_bound())selected_sid=14;
+#endif
+    sync_selected_sid=selected_sid;
+    const int rc=ble_gap_periodic_adv_sync_create(&sync_address,selected_sid,&p,gap,reinterpret_cast<void*>(uintptr_t(sync_capture_epoch)));sync_trace(16,None,rc,&context);if(rc){periodic_rx::scope(None);sync_pending=false;sync_identity=0;if(!transient(rc,R2Api::SyncCreate))error(rc,R2Api::SyncCreate);}
   }
   precision_work();
 }
@@ -1215,6 +1313,9 @@ void parent_diagnostic_poll(uint64_t now){
   portEXIT_CRITICAL(&mux);
   if(!control.pending())return;
   if(control.state==1){
+#ifdef PTOB_RC9
+    rc9_client.fence();
+#endif
     changed_scope(now,G1Reason::PeriodicScope,false,G1ParentReason::Manual);corrected_clock.clear();coarse_hold.clear();joined_peer=joined_boot=0;
     peer.selection_reported=true;peer.dead=true;sync_selected=false;
     Incoming in{};while(incoming.pop(in)){};Discovery d{};while(discoveries.pop(d)){};
@@ -1244,6 +1345,9 @@ void parent_diagnostic_poll(uint64_t now){
   portEXIT_CRITICAL(&mux);
 }
 void publish(uint64_t begin){const auto now=micros();uint64_t tick=0;
+#ifdef PTOB_RC9
+  rc9_publish_status(now);
+#endif
   parent_record(G1ParentReason::Scope,now);
   const bool sdk_scan_active=ble_gap_disc_active();
   sdk_connect_pending=ble_gap_conn_active();
@@ -1447,6 +1551,9 @@ void r2_host_poll(){if(!initialized)return;const auto begin=micros();bool start=
       anchor={};direct_session.clear();rc_client.fence();parent_selection.reset();parent_selection.diagnostic(exclude_direct_gm);parent_selection.target(parent_diagnostic.target,parent_diagnostic.relay);member=false;admission_root=admission_until=0;joined_peer=joined_boot=last_origin_ns=relay_train=0;
       phase_learning={};coarse_hold.clear();corrected_clock.clear();corrected_phase_aligned=false;
       peer={};sync_identity=0;retry_at=scan_retry_at=scan_retry_until=0;
+#ifdef PTOB_RC9
+      rc9_client.fence();
+#endif
       Incoming in{};while(incoming.pop(in)){};Discovery d{};while(discoveries.pop(d)){};
       Periodic p{};while(periodic.pop(p)){};
     }
@@ -1476,10 +1583,43 @@ bool r2_parent_select(uint64_t id,bool relay){
     !client.deadline_exceeded&&!fault&&!closing&&!stop_pending&&!command_pending&&
     !(id&&!relay&&exclude_direct_gm)&&
     parent_diagnostic.admit(id,micros(),relay);
+#ifdef PTOB_RC9
+  if(ok)rc9_target=0;
+#endif
   portEXIT_CRITICAL(&mux);return ok;
 }
 bool r2_rc_parent(uint64_t id){return r2_parent_select(id,true);}
 bool r2_gm_parent(uint64_t id){return r2_parent_select(id,false);}
+bool r2_rc9_parent(uint64_t id){
+#ifdef PTOB_RC9
+ if(!initialized||id==provision.identity)return false;
+ portENTER_CRITICAL(&mux);
+ const bool ok=host_ready&&mode==R2Mode::Client&&client.running&&!client.stopping&&
+  !client.deadline_exceeded&&!fault&&!closing&&!stop_pending&&!command_pending&&parent_diagnostic.admit(id,micros(),true);
+ if(ok)rc9_target=id;
+ portEXIT_CRITICAL(&mux);return ok;
+#else
+ (void)id;return false;
+#endif
+}
+Rc9Status r2_rc9_status(){
+ Rc9Status result;
+#ifdef PTOB_RC9
+ portENTER_CRITICAL(&mux);result=rc9_published;portEXIT_CRITICAL(&mux);
+ const auto now=micros();
+ if(now<result.sampled_us||now-result.sampled_us>=250000){
+  result.valid=result.following=result.serving=false;result.utc_us=result.until_us=0;
+  // A stale display snapshot withdraws UTC, never restarts or shortens the
+  // original authenticated client lease that pins RC8 reception.
+  if(now>=result.client_until_us){result.clients=0;result.client_until_us=0;}
+  return result;
+ }
+ if(!result.valid||now>=result.until_us||now-result.sampled_us>UINT64_MAX-result.utc_us){
+  result.valid=result.following=false;result.utc_us=result.until_us=0;
+ }else{result.utc_us+=now-result.sampled_us;result.sampled_us=now;}
+#endif
+ return result;
+}
 bool r2_set_relay_only(bool enabled){
   if(!initialized)return false;
   portENTER_CRITICAL(&mux);

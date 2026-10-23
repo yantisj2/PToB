@@ -35,7 +35,11 @@ inline uint64_t synchronized_until(const v12::R2Status& s,uint64_t now){
 namespace w12 {
 inline bool lora_time(const w12_lora_view& l,uint64_t now,uint64_t& utc){
  utc=0;
- if(!l.requested||!l.active||l.fault||l.state!=2||!l.time_valid||!l.utc_us||!l.until_us||!l.emitter||!l.root||!l.root_boot||!l.source_epoch||now<l.sampled_us||now-l.sampled_us>=SyncSnapshotMaxUs||now>=l.until_us)return false;
+ // Match N30's functional RC8 display/watchdog path. Authenticated physical
+ // pairs may arrive before their companion fills in boots/quality. The core
+ // enforces withdrawal, replay and its original hold; missing metadata never
+ // grants source authority or an RF/UTC bound, nor trains/publishes BLE time.
+ if(!l.requested||!l.active||l.fault||l.state!=2||!l.utc_us||!l.until_us||!l.emitter||!l.root||!l.source_epoch||now<l.sampled_us||now-l.sampled_us>=SyncSnapshotMaxUs||now>=l.until_us)return false;
  const auto age=now-l.sampled_us;if(l.utc_us>UINT64_MAX-age)return false;
  utc=l.utc_us+age;return true;
 }

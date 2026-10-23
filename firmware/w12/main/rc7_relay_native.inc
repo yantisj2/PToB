@@ -84,6 +84,9 @@ __attribute__((noinline)) void relay_tx_observation(const periodic_tx::EstimateR
 
 uint8_t relay_cap[212]{};rc7_path relay_cap_path{};
 bool relay_configured=false,relay_pa=false,relay_discovery=false,relay_advertising=false,relay_cap_dirty=true,relay_data_dirty=false;
+#ifdef PTOB_RC9
+uint8_t relay_profile=7;
+#endif
 bool relay_stopping=false;uint64_t relay_stop_deadline=0;
 bool relay_admission_locked=false;
 bool relay_parent_locked(uint64_t now){return lock_protected(now);}
@@ -106,7 +109,11 @@ uint64_t relay_quarantine_until[4]{};
 bool relay_quarantine_timed_out[4]{};
 uint32_t relay_admission_overlaps=0,relay_quarantine_timeouts=0;
 bool relay_api(int rc,R2Api site){if(!rc)return true;error(rc,site);return false;}
-uint32_t relay_flags(uint64_t now20){return 1u|2u|(uint32_t(relay_advertising)<<2)|(uint32_t(relay_pa)<<3)|
+uint32_t relay_flags(uint64_t now20){
+#ifdef PTOB_RC9
+ if(relay_profile==9)return 0;
+#endif
+ return 1u|2u|(uint32_t(relay_advertising)<<2)|(uint32_t(relay_pa)<<3)|
   (uint32_t(relay_map.ready(now20)&&relay_pa)<<4)|(uint32_t(relay_session.handle!=None)<<5)|
   (uint32_t(relay_selected!=0)<<6)|(uint32_t(relay_estimate_refused!=0)<<7)|(uint32_t(relay_admission_locked)<<8)|
   (uint32_t(relay_hold.deadline()!=0)<<9);}
@@ -160,7 +167,12 @@ void relay_quarantine_poll(uint64_t now){
     else relay_api(rc,R2Api::Disconnect);
   }
 }
-void relay_fence(){relay_hold.clear();relay_admission_locked=false;relay_slots.scanning=false;relay_rescan_pending=false;relay_map.fence();relay_cap_dirty=true;relay_data_dirty=false;relay_start20=0;relay_queue_diagnostic.busy_since=0;}
+void relay_fence(){
+#if defined(PTOB_RC9) && defined(PTOB_W12_LORA_RX)
+ // Background normal-BLE scope changes cannot retire a live RC9 source lease.
+ if(relay_profile==9&&!closing&&!fault&&!relay_stopping)return;
+#endif
+relay_hold.clear();relay_admission_locked=false;relay_slots.scanning=false;relay_rescan_pending=false;relay_map.fence();relay_cap_dirty=true;relay_data_dirty=false;relay_start20=0;relay_queue_diagnostic.busy_since=0;}
 void relay_pause_cap(){if(!relay_advertising)return;const int rc=ble_gap_ext_adv_stop(1);
   if(!rc||rc==BLE_HS_EALREADY)relay_advertising=false;else relay_api(rc,R2Api::AdvStop);}
 void relay_stop_pa(){
@@ -277,7 +289,13 @@ int relay_gap(ble_gap_event* e,void*){
   }
   return 0;
 }
-int relay_access(uint16_t h,uint16_t,ble_gatt_access_ctxt* ctx,void*){
+int relay_access(uint16_t h,uint16_t,ble_gatt_access_ctxt* ctx,void* profile){
+#if defined(PTOB_RC9) && defined(PTOB_W12_LORA_RX)
+  const auto expected=reinterpret_cast<uintptr_t>(profile)==9?9:7;
+  if(relay_profile!=expected)return BLE_ATT_ERR_UNLIKELY;
+#else
+  (void)profile;
+#endif
   if(!relay_admission_locked||h!=relay_session.handle||relay_session.terminating||relay_stopping||closing||fault||!full_listening()||
     micros()>=relay_session.until||ble_att_mtu(h)<226)return BLE_ATT_ERR_UNLIKELY;
   if(ctx->offset)return BLE_ATT_ERR_INVALID_ATTR_VALUE_LEN;
@@ -291,8 +309,15 @@ int relay_access(uint16_t h,uint16_t,ble_gatt_access_ctxt* ctx,void*){
 }
 const ble_gatt_chr_def relay_chars[]={[]{ble_gatt_chr_def c{};c.uuid=&rc_data_uuid.u;c.access_cb=relay_access;
   c.flags=BLE_GATT_CHR_F_WRITE|BLE_GATT_CHR_F_READ;return c;}(),{}};
+#if defined(PTOB_RC9) && defined(PTOB_W12_LORA_RX)
+const ble_gatt_chr_def rc9_chars[]={[]{ble_gatt_chr_def c{};c.uuid=&rc9_data_uuid.u;c.access_cb=relay_access;
+ c.arg=reinterpret_cast<void*>(uintptr_t(9));c.flags=BLE_GATT_CHR_F_WRITE|BLE_GATT_CHR_F_READ;return c;}(),{}};
+#endif
 void relay_input(const rc7_path& parent,const rc5_origin& origin,const uint8_t* proof,uint64_t original20,
                  uint32_t incarnation,uint64_t completion20,uint32_t inherited_age){
+#if defined(PTOB_RC9) && defined(PTOB_W12_LORA_RX)
+  if(relay_profile==9||rc9_server_selected(micros()))return;
+#endif
   if(!full_listening()||closing||fault||relay_stopping)return;
   const auto old=relay_map.path;
   const auto reference=periodic_rx::rf_reference();
@@ -322,11 +347,17 @@ bool relay_configure(){
   ble_gap_ext_adv_params a{};a.own_addr_type=BLE_OWN_ADDR_RANDOM;a.itvl_min=a.itvl_max=160; //100ms request
   static_assert(Rc7TxReference::Ble1MPhy==BLE_HCI_LE_PHY_1M,"Relay endpoint requires1M");
   a.primary_phy=a.secondary_phy=Rc7TxReference::Ble1MPhy;a.sid=12;a.tx_power=0;
+#if defined(PTOB_RC9) && defined(PTOB_W12_LORA_RX)
+  if(relay_profile==9)a.sid=14;
+#endif
   ble_gap_periodic_adv_params p{};p.itvl_min=p.itvl_max=50;
   int8_t power=127;if(!relay_api(ble_gap_ext_adv_configure(0,&a,&power,relay_gap,nullptr),R2Api::AdvConfigure))return false;
   relay_configured=true;
   if(!relay_api(ble_gap_periodic_adv_configure(0,&p),R2Api::AdvConfigure))return false;
   a.sid=13;a.connectable=1;
+#if defined(PTOB_RC9) && defined(PTOB_W12_LORA_RX)
+  if(relay_profile==9)a.sid=15;
+#endif
   return relay_api(ble_gap_ext_adv_configure(1,&a,&power,relay_gap,nullptr),R2Api::AdvConfigure);
 }
 void relay_requests(uint64_t now,uint64_t now20){
@@ -411,8 +442,24 @@ bool relay_check_lock(){
   }
   return relay_admission_locked&&!fault;
 }
+#include "rc9_server_native.inc"
 void relay_poll(uint64_t now,bool upstream_due){
   if(!full_listening()||closing||fault){if(relay_owned())relay_close(now);return;}
+#ifdef PTOB_RC9
+  if(rc9_bound()&&!rc9_server_selected(now)){if(relay_owned())relay_close(now);return;}
+#endif
+#if defined(PTOB_RC9) && defined(PTOB_W12_LORA_RX)
+  const uint8_t desired=rc9_server_selected(now)?9:7;
+  if(relay_profile!=desired){
+   if(relay_owned()){relay_close(now);if(relay_owned())return;}
+   relay_stopping=false;relay_stop_deadline=0;relay_profile=desired;
+   relay_map.fence();relay_hold.clear();relay_cap_dirty=relay_data_dirty=true;
+  }
+  if(relay_profile==9){
+   if(upstream_due||peer.connecting||peer.handle!=None)relay_pause_cap();
+   rc9_server_poll(now,upstream_due);return;
+  }
+#endif
   relay_quarantine_poll(now);
   if(fault)return;
   if(relay_stopping){if(relay_owned())return;relay_stopping=false;relay_stop_deadline=0;relay_cap_dirty=true;}
@@ -546,6 +593,11 @@ void relay_poll(uint64_t now,bool upstream_due){
   }
 }
 #else
+#ifdef PTOB_RC9
+uint64_t rc9_server_demand_until(){return 0;}
+uint8_t rc9_server_clients(uint64_t){return 0;}
+bool rc9_server_selected(uint64_t){return false;}
+#endif
 bool relay_slot_scanning(){return false;}
 void relay_slot_observe(const rc7_control&,int8_t,uint64_t){}
 void relay_fence(){}

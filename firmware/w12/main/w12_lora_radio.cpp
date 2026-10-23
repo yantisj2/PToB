@@ -30,6 +30,8 @@ spi_device_handle_t spi=nullptr;spi_transaction_t transaction{};
 DMA_ATTR uint8_t tx[512]{},rx[512]{};
 TaskHandle_t task=nullptr;
 uint64_t ble_at=0,request_at=0,stop_at=0;
+uint64_t rc9_client_until=0,rc9_source_until=0;
+uint64_t rc9_hold_observed_until=0;
 uint32_t cancel_serial=0,active_serial=0,core_generation=0;
 uint64_t raw_capture=0;uint32_t raw_generation=0,raw_serial=0;
 uint64_t capture_epoch=0;
@@ -177,17 +179,21 @@ void publish(){
  // short cross-core publication lock. Unknown uncertainty remains unknown.
  view.requested=false;view.active=owned.enabled;view.fault=failed;view.mode=uint8_t(policy.mode());view.transition_remaining_ms=policy.remaining_ms(now());
  view.ble_locked=ble_lock_observed;
+ const auto observed_now=now();
+ view.rc9_hold_remaining_ms=policy.mode()!=w12::LoRaMode::KeepOff&&observed_now<rc9_hold_observed_until?
+  uint32_t((rc9_hold_observed_until-observed_now+999)/1000):0;
  view.rx_done=hardware.rx_done;view.crc_bad=hardware.crc_bad;view.malformed=hardware.malformed;view.spi_ok=hardware.spi_ok;view.spi_error=hardware.spi_error;view.invalid_capture=hardware.invalid_capture;view.capture_overflow=0;view.map_accepted=hardware.map_accepted;view.map_rejected=hardware.map_rejected;view.capture_bound_ns=hardware.capture_bound_ns;view.rssi_dbm=hardware.rssi_dbm;view.snr_quarter_db=hardware.snr_quarter_db;view.error=hardware.error;view.stage=hardware.stage;view.opcode=hardware.opcode;view.work_max_us=hardware.work_max_us;view.heartbeat_ms=uint32_t(now()/1000);view.stack_unused=uxTaskGetStackHighWaterMark(nullptr);
  view.spi_retired=!inflight;view.capture_released=!capture_active&&!edge_enabled;view.reset_asserted=resources&&gpio_get_level(Reset)==0;
  portENTER_CRITICAL(&mux);view.requested=owner.requested;view.invalid_capture+=capture_invalid;view.capture_overflow=capture_drops;view.request_generation=owner.generation;view.off_ack_generation=owner.off_ack;view.off_acknowledged=owner.drained();published=view;owned.failed=failed;owned.initialized=resources;owned.packets=hardware.rx_done;owned.crc_errors=hardware.crc_bad;owned.malformed=hardware.malformed;owned.status=int16_t(hardware.error);owned.radio_errors=hardware.spi_error;owned.work_max_us=hardware.work_max_us;basic=owned;portEXIT_CRITICAL(&mux);
 }
 bool configured_receiver(){return PTOB_W12_LORA_TX_FACTORY&&w12_rc8_init(PTOB_W12_FACTORY_ID,PTOB_W12_LORA_TX_FACTORY,PTOB_W12_GROUP_ID,PTOB_W12_KEY_EPOCH,PTOB_W12_GROUP_KEY);}
 void worker_step(bool configured){
-  const auto begin=now();bool permit,locked,cycle,change;uint8_t mode;uint32_t generation,serial;bool tripped;
+  const auto begin=now();bool permit,locked,cycle,change,held,rc9_current;uint8_t mode;uint32_t generation,serial;bool tripped;
   portENTER_CRITICAL(&mux);permit=allowed;serial=cancel_serial;tripped=emergency;locked=ble_locked&&begin>=ble_at&&begin-ble_at<250000;cycle=cycle_pending&&begin>=request_at&&begin-request_at<250000;change=mode_pending&&begin>=request_at&&begin-request_at<250000;mode=requested_mode;cycle_pending=mode_pending=false;portEXIT_CRITICAL(&mux);
+  portENTER_CRITICAL(&mux);rc9_hold_observed_until=permit?rc9_client_until:0;held=begin<rc9_hold_observed_until;rc9_current=begin<rc9_source_until;portEXIT_CRITICAL(&mux);
   if(tripped)fault(-ETIMEDOUT);
   if(w12_fine_fault())fault(-EIO);
-  ble_lock_observed=locked;policy.update(locked,begin);if(cycle)policy.toggle();if(change)policy.set(w12::LoRaMode(mode));
+  ble_lock_observed=locked;policy.update(locked||rc9_current,begin,held);if(cycle)policy.toggle();if(change)policy.set(w12::LoRaMode(mode));
   bool want=configured&&permit&&!failed&&policy.requested();
   portENTER_CRITICAL(&mux);want=want&&allowed&&serial==cancel_serial;
   if(want!=owner.requested&&!owner.request(want)){failed=true;hardware.error=-EOVERFLOW;want=false;}
@@ -223,8 +229,12 @@ bool lora_request(bool enable,uint32_t){
 }
 LoRaStatus lora_status(){portENTER_CRITICAL(&mux);auto result=basic;result.failed|=emergency;result.requested=owner.requested;result.worker_busy=owner.busy;result.request_generation=owner.generation;result.off_ack_generation=owner.off_ack;result.off_acknowledged=owner.drained();portEXIT_CRITICAL(&mux);return result;}
 }
-void w12_lora_control(bool locked,uint64_t sampled,bool permit){
+void w12_lora_control(bool locked,uint64_t sampled,bool permit,uint64_t client_until,uint64_t source_until){
  portENTER_CRITICAL(&mux);ble_locked=locked;ble_at=sampled;
+ // Retain only original bounded leases/source deadlines, never a poll-based
+ // extension. Explicit OFF/maintenance and faults still override radio hold.
+ rc9_client_until=permit&&client_until>sampled&&client_until-sampled<=360000000?client_until:0;
+ rc9_source_until=permit&&source_until>sampled&&source_until-sampled<=12000000?source_until:0;
  if(allowed&&!permit){if(cancel_serial!=UINT32_MAX)cancel_serial++;else emergency=true;(void)owner.request(false);stop_at=sampled;reset_radio();}
  allowed=permit;
  if(published.active&&sampled/1000>=published.heartbeat_ms&&sampled/1000-published.heartbeat_ms>=30000){reset_radio();emergency=true;allowed=false;if(cancel_serial!=UINT32_MAX)cancel_serial++;(void)owner.request(false);stop_at=sampled;}

@@ -169,7 +169,7 @@ const char* mesh_role(uint8_t role){
 }
 void header(const DisplayState& s){
  // The green band carries selected source/state and the page title/date or UTC.
- const char* source=s.timing_source==DisplayState::Lora?"LORA":
+ const char* source=s.timing_source==DisplayState::Rc9?"RC9":s.timing_source==DisplayState::Lora?"LORA":
                     s.timing_source==DisplayState::Ble?"BLE":s.timing_source==DisplayState::Pts?"PTS":s.timing_source==DisplayState::Gps?"GPS":"--";
  if(s.mesh_profile)source="MESH";
  char copy_source[8];if(!s.mesh_profile && s.copy_profile && s.copy_channel>=37 && s.copy_channel<=39){std::snprintf(copy_source,sizeof(copy_source),"BLE%u",unsigned(s.copy_channel));source=copy_source;}
@@ -203,7 +203,10 @@ void header(const DisplayState& s){
   "CLK PPB","BLE RX","PTS RX","PKT LOSS","RX QUAL","TIME NET","LORA RX",
   "SOURCES","C4 DIAG","PTS FTM","SYSTEM","GPS / PPS","PRECISION"};
  const unsigned page=s.page%display_pages::Count;
- if(s.r2_dashboard && !page){
+ if(s.r2_dashboard && !page&&(s.timing_source==DisplayState::Lora||s.timing_source==DisplayState::Rc9)){
+  text(1,8,s.timing_source==DisplayState::Rc9?"RC9 UTC":"LORA UTC");text(65,8,s.valid?"LIVE":"WAIT RX");
+ }
+ else if(s.r2_dashboard && !page){
   italic_text(1,8,"Sub-1us");
   text(45,8,s.r2_relative_lock?(s.utc_holdover?" HOLD":" LOCK"):" ACQUIRING");
  }
@@ -254,6 +257,10 @@ void page_dashboard(const DisplayState& s){
  }else{text(2,21,"--:--:--",2);circle(112,37,12);text(100,34,"WAIT");}
  char footer[32];
  if(s.r2_dashboard){
+#ifdef PTOB_W12_DUAL_UI
+  if(s.timing_source==DisplayState::Lora&&s.rc9_serving)std::snprintf(footer,sizeof footer,"LORA RC9 %u CLIENT",unsigned(s.rc9_clients));
+  else
+#endif
   if(s.r2_relative_lock)
    std::snprintf(footer,sizeof(footer),"\1 %02llu:%02u %s %s",(unsigned long long)(s.r2_lock_seconds/60),unsigned(s.r2_lock_seconds%60),s.r2_connection,s.r2_root_clock);
   else if(!std::strcmp(s.role,"FOLLOW") || !std::strcmp(s.role,"HOLD"))
@@ -275,6 +282,10 @@ void page_dashboard(const DisplayState& s){
                     s.hold_precision_ns,s.hold_trials,s.hold_animation,s.hold_estimated,s.hold_percentile,s.hold_audit_required,s.hold_audit_samples);
  text(2,45,footer);
  if(s.r2_dashboard){
+#ifdef PTOB_W12_DUAL_UI
+  if(s.timing_source==DisplayState::Lora&&s.rms_ns!=UINT32_MAX)std::snprintf(footer,sizeof footer,"RMS %luns N:%u",(unsigned long)s.rms_ns,unsigned(s.lora_link_samples));
+  else
+#endif
   if(s.rms_ns!=UINT32_MAX&&s.samples){
    char duration[12];
    if(s.hold_estimated&&s.hold_1us_ms)format_hold_time(duration,sizeof(duration),s.hold_1us_ms);else std::snprintf(duration,sizeof(duration),s.hold_estimated?"0ms":"--");
@@ -742,6 +753,7 @@ void page_gps(const DisplayState& s){
 }
 #ifdef PTOB_W12_DUAL_UI
 void page_precision(const DisplayState& s){
+ if(s.timing_source==DisplayState::Rc9){text(2,17,"RC9 FROM LORA");text(2,30,"UTC LIVE",2);text(2,48,"PRECISION UNKNOWN");text(2,57,"DIRECT CLIENT");return;}
  const bool lora=s.precision_lora;
  char n[28];text(2,17,lora?"LINK RMS":"SYNC RMS");text(86,17,lora?"50ns":s.precision_fine?"12.5ns":"50ns");
  if(s.precision_live&&s.rms_ns!=UINT32_MAX){
@@ -774,7 +786,8 @@ void page_w12_lora(const DisplayState& s){
  }else if(s.lora_time_valid)std::snprintf(n,sizeof n,"FIT %u/4 RX %lu",unsigned(s.lora_link_samples),(unsigned long)s.lora_accepted);
  else std::snprintf(n,sizeof n,"RMS WAIT RX");
  text(2,45,n);
- text(2,55,"HOLD: RX MODE");
+ if(s.rc9_clients&&s.lora_client_hold_ms){std::snprintf(n,sizeof n,"RC9 %u HOLD %lus",unsigned(s.rc9_clients),(unsigned long)((s.lora_client_hold_ms+999)/1000));text(2,55,n);}
+ else text(2,55,s.rc9_serving?"RC9 AVAILABLE":"HOLD: RX MODE");
 }
 #endif
 void display_show(const DisplayState& s){
