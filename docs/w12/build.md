@@ -583,7 +583,7 @@ residual trend. GNSS indicators and the Clock-page relay control are preserved.
 The existing GPS diagnostic page remains accessible by bound `ui page 14`.
 
 Fresh ticket-bound commands `lora auto`, `lora on`, `lora off`, and
-`ui page 0`, `ui page 16`, `ui page 9` provide equivalent volatile controls.
+`ui page 0`, `ui page 15`, `ui page 9` provide equivalent volatile controls.
 Normal framed status keeps its 9 body rows,8704 byte whole limit and original
 1.5 s response deadline. LoRa builds omit seven historical discovery counters
 from the R2 row to accommodate current LoRa state/UTC/capture error counters.
