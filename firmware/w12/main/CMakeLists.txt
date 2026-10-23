@@ -105,3 +105,23 @@ endif()
 if(V12_UNIT STREQUAL "C3" AND V12_R2_PROFILE STREQUAL "r2-g1")
   target_compile_definitions(${COMPONENT_LIB} PRIVATE V12_GPS_SHADOW_OBSERVER=1 PTOB_GPS_PHYSICAL_REFERENCE_ONLY=1 V12_LORA_FORCED_OFF=1)
 endif()
+
+configure_file("${PTOB_FINE_HEADER}" "${CMAKE_CURRENT_BINARY_DIR}/w12_fine_config.h" COPYONLY)
+if(PTOB_W12_FINE_CLOCK)
+  target_sources(${COMPONENT_LIB} PRIVATE "w12_fine_clock.cpp")
+  target_compile_definitions(${COMPONENT_LIB} PRIVATE PTOB_W12_FINE_CLOCK=1)
+  foreach(pair
+    "components/esp_driver_mcpwm/src/mcpwm_private.h|4513dc83f66bcdd96be518114f98cab813a5c4f31604997453c5df5123ae213e"
+    "components/esp_driver_mcpwm/src/mcpwm_cap.c|d02bbe2251fdba5d4c14c79bf852101cb45b636e0c5cd286fba07a1f3af8cbd2"
+    "components/hal/esp32s3/include/hal/mcpwm_ll.h|28f77239ff7fbf5786d7dcc79e75d0880664ec79a5cab5dfca035defbc65a7a1"
+    "components/soc/esp32s3/register/soc/mcpwm_struct.h|70d9a09b98106376e4ebff17509ca220e0a6611e8da199d86a5a0c50cca0aef4")
+    string(REPLACE "|" ";" fields "${pair}")
+    list(GET fields 0 source)
+    list(GET fields 1 expected)
+    file(SHA256 "$ENV{IDF_PATH}/${source}" actual)
+    if(NOT actual STREQUAL expected)
+      message(FATAL_ERROR "Pinned W12 fine MCPWM adapter changed: ${source}")
+    endif()
+  endforeach()
+  target_include_directories(${COMPONENT_LIB} PRIVATE "$ENV{IDF_PATH}/components/esp_driver_mcpwm/src")
+endif()

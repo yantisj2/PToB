@@ -79,7 +79,7 @@ int main(){
     }
     assert(trained_at&&trained_at<UINT64_C(5000000));
     assert(locked_at&&locked_at<UINT64_C(9000000));
-#ifdef PTOB_N30
+#if defined(PTOB_N30) || defined(PTOB_W12_FINE_CLOCK)
     assert(quick.clock.fit_span_ms()>=3000&&std::abs(quick.clock.prediction().rate-direction*500)<20);
 #else
     assert(quick.clock.fit_span_ms()>=15000&&std::abs(quick.clock.prediction().rate-direction*500)<20);
@@ -147,7 +147,7 @@ int main(){
   // noisy correction between fit points must not steer the delivered clock
   // toward that raw error; its complete causal tail must still withdraw lock.
   steady.feed(89100000,4,4000,false);assert(steady.feed(89162500,4));
-#ifdef PTOB_N30
+#if defined(PTOB_N30) || defined(PTOB_W12_FINE_CLOCK)
   // Dense fitting includes this extra physical point; its small steering
   // influence still cannot erase the complete causal tail or qualify lock.
   assert(std::abs(steady.clock.prediction().phase)<1000);

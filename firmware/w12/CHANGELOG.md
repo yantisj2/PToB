@@ -1,5 +1,19 @@
 # W12 changelog
 
+## 0.1.23 — 23 October 2026
+
+- Add an opt-in BLE100 fine-clock test profile using a continuous 80 MHz MCPWM1
+  origin and a W12-specific RX-only GPIO16 route. Preserve group0 GNSS capture,
+  use one coordinate for all clock consumers and fail closed on counter faults.
+- Port N30's dense, capture-frozen fitting and 1 ppm phase slew strictly below
+  2 µs. Retain lock, causal-quality, source-expiry and downstream gates. Supported
+  relay packets use the experimental RW falling phase convention; direct GR3
+  remains descriptor-only. No RF/UTC calibration or N30 measured result transfers.
+- Bind the fine selection, factory header, ABI and source closure into build
+  receipts/runtime identity. Add bounded capture counters and actual-owner,
+  counter, slew, shutdown and selected stack checks. Retain legacy defaults,
+  LoRa OFF and separate hardware installation authority.
+
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
 ## 0.1.22 — 19 October 2026

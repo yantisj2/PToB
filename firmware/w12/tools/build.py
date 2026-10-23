@@ -7,7 +7,7 @@ from pathlib import Path
 APP=Path(__file__).resolve().parents[1];REPO=APP.parents[1]
 sys.path.insert(0,str(REPO/'registry'))
 from registry import load as load_registry,header as registry_header
-VERSION='0.1.22'
+VERSION='0.1.23'
 GNSS_PROFILE='meshnology_w12_l76k_rx39_pps41'
 def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
 def git(p,*args):return subprocess.check_output(['git','-C',str(p),*args],text=True).strip()
@@ -77,6 +77,29 @@ def device_header(device):
   provisional+='#define PTOB_PROVISIONAL_PROVENANCE_SHA256 "'+p['provenance_sha256']+'"\n'
  return provisional+('#pragma once\n#define PTOB_FACTORY_MAC {'+','.join('0x'+x for x in device['factory_mac'].split(':'))+'}\n#define PTOB_DEVICE_LABEL '+json.dumps(device['label'])+'\n#define PTOB_LEGACY_WIRE_ID '+str(device['legacy_wire_id'])+'\n#define PTOB_GNSS_INDICATORS '+str(int('gnss_profile' in device))+'\n')
 
+def fine_header(device,enabled):
+ return '#pragma once\n#include <stdint.h>\n#define PTOB_W12_FINE_FACTORY UINT64_C(0x'+device['device_id']+')\n#define PTOB_W12_FINE_RX_GPIO 16\n#define PTOB_W12_FINE_SELECTED '+str(int(enabled))+'\n'
+
+def fine_backend(enabled):
+ return {'mode':'MCPWM1_RW_RX_GPIO16_EXPERIMENTAL' if enabled else 'LEGACY_GPTIMER20',
+         'counter_hz':80000000 if enabled else 20000000,'coordinate_hz':20000000,
+         'fine_slew_threshold_ns':2000 if enabled else 1000,'fine_slew_boundary':'STRICTLY_BELOW' if enabled else 'INCLUSIVE',
+         'relay_phase_convention_ns':1568000 if enabled else None,'direct_GR3':'DESCRIPTOR_ONLY',
+         'RF_bound':'UNKNOWN','UTC_bound':'UNKNOWN','hardware_validation':'NOT_PERFORMED'}
+
+def validate_fine_compilation(receipt,device,compiled):
+ enabled=receipt.get('fine_clock')
+ if type(enabled)is not bool or receipt.get('clock_backend')!=fine_backend(enabled):raise ValueError('Exact fine-clock backend metadata required')
+ if enabled and (receipt['listening_percent']!=100 or receipt.get('gnss_fast_map_diagnostic')):raise ValueError('Fine clock requires BLE100 and ordinary GNSS mapping')
+ if enabled and provisional_profile(device):raise ValueError('Descriptor aggregate offsets cannot transfer to the fine backend')
+ for suffix in ('/native_main.cpp','/gnss_pps.cpp','/native_g1.cpp','/periodic_rx.cpp'):
+  rows=[row['command'].split() for row in compiled if row['file'].endswith(suffix)]
+  if len(rows)!=1:raise ValueError('One exact fine-clock source required: '+suffix)
+  if [x for x in rows[0] if x.startswith('-DPTOB_W12_FINE_CLOCK')]!=(['-DPTOB_W12_FINE_CLOCK=1'] if enabled else []):raise ValueError('Compiled fine-clock domain differs from selection')
+ owners=[row for row in compiled if row['file'].endswith('/w12_fine_clock.cpp')]
+ if len(owners)!=int(enabled):raise ValueError('Fine-clock peripheral owner differs from selection')
+ return enabled
+
 def verify_sdk(sdk,lock):
  pin=lock['esp_idf']
  if git(sdk,'rev-parse','HEAD')!=pin['commit'] or git(sdk,'status','--porcelain','--untracked-files=all'):raise ValueError('Pinned clean public ESP-IDF required')
@@ -85,6 +108,8 @@ def verify_sdk(sdk,lock):
  subprocess.run(['git','-C',str(sdk),'submodule','foreach','--recursive','--quiet','test -z "$(git status --porcelain --untracked-files=all)"'],check=True,stdout=subprocess.DEVNULL)
  for name,hashkey in [('components/bt/controller/lib_esp32c3_family/esp32s3/libbtdm_app.a','controller_sha256'),('components/esp_driver_gptimer/src/gptimer_priv.h','gptimer_private_header_sha256')]:
   if sha(sdk/name)!=pin[hashkey]:raise ValueError('SDK controller/private ABI mismatch')
+ for name,digest in lock.get('fine_capture_abi_sha256',{}).items():
+  if sha(sdk/name)!=digest:raise ValueError('Pinned fine-capture ABI changed: '+name)
  return status
 
 def main():
@@ -93,16 +118,21 @@ def main():
  p=argparse.ArgumentParser(description=__doc__)
  for name in ['idf','out','enrollment','device-config']:p.add_argument('--'+name,type=Path,required=True)
  p.add_argument('--profile',choices=['RC'],required=True);p.add_argument('--listening-percent',type=int,choices=[50,100],default=100)
- p.add_argument('--gnss-fast-map-diagnostic',action='store_true');p.add_argument('--estimated-relay',action='store_true');p.add_argument('--registry',type=Path,default=REPO/'registry/example.json');p.add_argument('--development',action='store_true');a=p.parse_args()
+ p.add_argument('--fine-clock',action='store_true',help='Experimental fixed W12 GPIO16 80MHz fine receiver, BLE100 only; physical validation separate');p.add_argument('--gnss-fast-map-diagnostic',action='store_true');p.add_argument('--estimated-relay',action='store_true');p.add_argument('--registry',type=Path,default=REPO/'registry/example.json');p.add_argument('--development',action='store_true');a=p.parse_args()
  os.umask(0o077);sdk=a.idf.resolve();out=a.out.resolve()
  if out.exists() or REPO/'artifacts' not in out.parents:p.error('Fresh output directory below ignored artifacts/ required')
  if a.estimated_relay and a.listening_percent!=100:p.error('Estimated relay requires BLE100')
+ if a.fine_clock and (a.listening_percent!=100 or a.gnss_fast_map_diagnostic):p.error('Fine clock requires BLE100 and ordinary GNSS mapping')
  for path in [a.enrollment,a.device_config]:
   if subprocess.run(['git','-C',str(REPO),'check-ignore','--quiet',str(path.resolve())]).returncode:p.error('Enrollment and device inputs must be Git-ignored')
- dirty=bool(git(REPO,'status','--porcelain','--untracked-files=all'))
+ repository_dirty=bool(git(REPO,'status','--porcelain','--untracked-files=all'))
+ # Only the complete W12 source closure and registry generator affect this
+ # image. Preserve/report unrelated work without mislabeling committed sources.
+ dirty=bool(git(REPO,'status','--porcelain','--untracked-files=all','--','firmware/w12','registry/registry.py'))
  if dirty and not a.development:p.error('Commit reviewed public inputs before a candidate build')
  lock=json.loads((APP/'dependencies.lock.json').read_text());modules=verify_sdk(sdk,lock)
  e=json.loads(a.enrollment.read_text());d=json.loads(a.device_config.read_text());key=validate_inputs(e,d);fast_map=gnss_map_diagnostic(d,a.gnss_fast_map_diagnostic);registry=load_registry(a.registry)
+ if a.fine_clock and provisional_profile(d):p.error('Fine clock requires an uncalibrated device input; descriptor offsets cannot transfer')
  if provisional_profile(d) and not(a.estimated_relay and a.listening_percent==100):p.error('Provisional aggregate-path profile requires estimated relay BLE100')
  out.mkdir(parents=True);target=out/'target';target.mkdir();inputs=out/'local';inputs.mkdir()
  sources={str(f.relative_to(APP)):sha(f) for f in source_files()};source_hash=hashlib.sha256(json.dumps(sources,sort_keys=True,separators=(',',':')).encode()).hexdigest()
@@ -111,15 +141,16 @@ def main():
  for path,name in [(a.enrollment,'enrollment.json'),(a.device_config,'device.json'),(a.registry,'registry.json'),(REPO/'registry/registry.py','registry_generator.py')]:shutil.copyfile(path,inputs/name)
  (inputs/'ptob_registry.h').write_text(registry_header(registry))
  (inputs/'ptob_device.h').write_text(device_header(d))
+ (inputs/'w12_fine_config.h').write_text(fine_header(d,a.fine_clock))
  # Registry/generator/device hashes bind display metadata and local input changes into runtime enrollment identity.
  enrollment_header=inputs/'r2-enrollment.h';enrollment_header.write_text('/* source:'+source_hash+' registry:'+sha(a.registry)+' generator:'+sha(REPO/'registry/registry.py')+' device:'+sha(a.device_config)+' */\nstatic const r2_group_enrollment provision={{{'+','.join(map(str,key))+'},UINT64_C(0x'+e['group_id']+'),'+str(e['key_epoch'])+'},UINT64_C(0x'+d['device_id']+'),'+json.dumps(d['label'])+',40000};\n')
- r={'schema':1,'artifact_class':'PTOB_W12_RC','version':VERSION,'status':'INCOMPLETE','public_commit':git(REPO,'rev-parse','HEAD'),'source_dirty':dirty,'source_sha256':source_hash,'sources':sources,'dependencies':lock,'sdk_path':str(sdk),'app_path':str(APP),'sdk_submodules':modules.splitlines(),'profile':'RC','listening_percent':a.listening_percent,'estimated_relay':a.estimated_relay,'tx_actual_capture':False,'precision':'UNQUALIFIED','installed':False,'gnss_fast_map_diagnostic':fast_map,'registry_sha256':sha(a.registry),'registry_generator_sha256':sha(REPO/'registry/registry.py'),'enrollment_mode':'LOCAL_BUILD_TIME_NO_NVS_WRITE','device_config_sha256':sha(a.device_config),'provisional_path_profile':provisional_profile(d)}
+ r={'schema':1,'artifact_class':'PTOB_W12_RC','version':VERSION,'status':'INCOMPLETE','public_commit':git(REPO,'rev-parse','HEAD'),'source_dirty':dirty,'repository_dirty':repository_dirty,'source_sha256':source_hash,'sources':sources,'dependencies':lock,'sdk_path':str(sdk),'app_path':str(APP),'sdk_submodules':modules.splitlines(),'profile':'RC','listening_percent':a.listening_percent,'estimated_relay':a.estimated_relay,'tx_actual_capture':False,'precision':'UNQUALIFIED','installed':False,'fine_clock':a.fine_clock,'clock_backend':fine_backend(a.fine_clock),'gnss_fast_map_diagnostic':fast_map,'registry_sha256':sha(a.registry),'registry_generator_sha256':sha(REPO/'registry/registry.py'),'enrollment_mode':'LOCAL_BUILD_TIME_NO_NVS_WRITE','device_config_sha256':sha(a.device_config),'provisional_path_profile':provisional_profile(d)}
  dump(out/'receipt.json',r)
  env=os.environ.copy()
  for k in ['CFLAGS','CXXFLAGS','CPPFLAGS','LDFLAGS','EXTRA_COMPONENT_DIRS','SDKCONFIG_DEFAULTS']:env.pop(k,None)
  # This target has no managed components; use only the pinned SDK and local source.
  env.update(IDF_COMPONENT_MANAGER='0',IDF_PATH=str(sdk),PYTHONPYCACHEPREFIX=str(out/'pycache'),IDF_CCACHE_ENABLE='0')
- command=[sys.executable,str(sdk/'tools/idf.py'),'-C',str(APP),'-B',str(target),'-G','Unix Makefiles','-D','SDKCONFIG='+str(target/'sdkconfig'),'-D','V12_SOURCE_REVISION='+r['public_commit'],'-D','V12_R2_ENROLLMENT_HEADER='+str(enrollment_header),'-D','PTOB_DEVICE_HEADER='+str(inputs/'ptob_device.h'),'-D','PTOB_REGISTRY_HEADER='+str(inputs/'ptob_registry.h'),'-D','PTOB_W12_GNSS_INDICATORS='+('ON' if 'gnss_profile' in d else 'OFF'),'-D','PTOB_W12_GNSS_FAST_MAP_DIAGNOSTIC='+('ON' if fast_map else 'OFF'),'-D','V12_R2_G1_LISTENING_PERCENT='+str(a.listening_percent),'-D','V12_R2_RC7_TX_ESTIMATE_LAB='+('ON' if a.estimated_relay else 'OFF'),'-D','CCACHE_ENABLE=OFF','build']
+ command=[sys.executable,str(sdk/'tools/idf.py'),'-C',str(APP),'-B',str(target),'-G','Unix Makefiles','-D','SDKCONFIG='+str(target/'sdkconfig'),'-D','V12_SOURCE_REVISION='+r['public_commit'],'-D','V12_R2_ENROLLMENT_HEADER='+str(enrollment_header),'-D','PTOB_DEVICE_HEADER='+str(inputs/'ptob_device.h'),'-D','PTOB_REGISTRY_HEADER='+str(inputs/'ptob_registry.h'),'-D','PTOB_FINE_HEADER='+str(inputs/'w12_fine_config.h'),'-D','PTOB_W12_FINE_CLOCK='+('ON' if a.fine_clock else 'OFF'),'-D','PTOB_W12_GNSS_INDICATORS='+('ON' if 'gnss_profile' in d else 'OFF'),'-D','PTOB_W12_GNSS_FAST_MAP_DIAGNOSTIC='+('ON' if fast_map else 'OFF'),'-D','V12_R2_G1_LISTENING_PERCENT='+str(a.listening_percent),'-D','V12_R2_RC7_TX_ESTIMATE_LAB='+('ON' if a.estimated_relay else 'OFF'),'-D','CCACHE_ENABLE=OFF','build']
  dump(out/'command.json',command)
  try:
   with (out/'build.log').open('w') as log:subprocess.run(command,env=env,cwd=REPO,stdout=log,stderr=subprocess.STDOUT,check=True,timeout=900)
@@ -130,6 +161,7 @@ def main():
   config=(target/'sdkconfig').read_text()
   for k in ['CONFIG_BT_NIMBLE_NVS_PERSIST=y','CONFIG_ESP_PHY_CALIBRATION_AND_DATA_STORAGE=y']:
    if k in config:raise ValueError('Forbidden storage/radio configuration')
+  validate_fine_compilation(r,d,json.loads((target/'compile_commands.json').read_text()))
   validate_map_compilation(r,d,json.loads((target/'compile_commands.json').read_text()),config)
   compiler=next(x for x in json.loads((target/'compile_commands.json').read_text()) if x['file'].endswith('/native_main.cpp'))
   toolchain_version=subprocess.check_output([compiler['command'].split()[0],'-dumpfullversion'],text=True).strip()
@@ -142,7 +174,7 @@ def main():
   symbols=subprocess.check_output([nm,str(target/'ptob_w12.elf')],text=True)
   if re.search(r'\b(esp_wifi_init|esp_wifi_start|nvs_flash_init|nvs_set_blob|nvs_set_u32)\b',symbols):raise ValueError('Unexpected WiFi activation or NVS write dependency')
   if '-DV12_LORA_FORCED_OFF=1' not in compiler['command']:raise ValueError('LoRa disabled boundary missing')
-  identity=json.loads((target/'v12_build_identity.json').read_text());r.update(runtime_identity=identity,application='target/ptob_w12.bin',application_sha256=sha(image),application_bytes=image.stat().st_size,artifacts={str(q.relative_to(out)):sha(q) for q in out.rglob('*') if q.is_file() and (q.suffix in ['.bin','.elf','.map','.su'] or q.name in ['sdkconfig','compile_commands.json','v12_build_identity.json','r2-enrollment.h','ptob_device.h','ptob_registry.h','enrollment.json','device.json','registry.json','registry_generator.py'])},status='DEVELOPMENT_NOT_FLASHABLE' if dirty else 'BUILD_COMPLETE_PHYSICAL_UNKNOWN')
+  identity=json.loads((target/'v12_build_identity.json').read_text());r.update(runtime_identity=identity,application='target/ptob_w12.bin',application_sha256=sha(image),application_bytes=image.stat().st_size,artifacts={str(q.relative_to(out)):sha(q) for q in out.rglob('*') if q.is_file() and (q.suffix in ['.bin','.elf','.map','.su'] or q.name in ['sdkconfig','compile_commands.json','v12_build_identity.json','r2-enrollment.h','ptob_device.h','ptob_registry.h','enrollment.json','device.json','registry.json','registry_generator.py','w12_fine_config.h'])},status='DEVELOPMENT_NOT_FLASHABLE' if dirty else 'BUILD_COMPLETE_PHYSICAL_UNKNOWN')
   from stack_budget import check as check_main_stack
   r['main_stack_budget']=check_main_stack(out)
   r['compiled_sources']={}

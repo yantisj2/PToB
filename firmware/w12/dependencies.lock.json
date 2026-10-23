@@ -17,5 +17,11 @@
   "application_max_bytes": 1048576,
   "protected_prefix_bytes": 65536,
   "radios": "BLE only; LoRa/WiFi/PTS OFF",
-  "precision": "UNQUALIFIED"
+  "precision": "UNQUALIFIED",
+  "fine_capture_abi_sha256": {
+    "components/esp_driver_mcpwm/src/mcpwm_private.h": "4513dc83f66bcdd96be518114f98cab813a5c4f31604997453c5df5123ae213e",
+    "components/esp_driver_mcpwm/src/mcpwm_cap.c": "d02bbe2251fdba5d4c14c79bf852101cb45b636e0c5cd286fba07a1f3af8cbd2",
+    "components/hal/esp32s3/include/hal/mcpwm_ll.h": "28f77239ff7fbf5786d7dcc79e75d0880664ec79a5cab5dfca035defbc65a7a1",
+    "components/soc/esp32s3/register/soc/mcpwm_struct.h": "70d9a09b98106376e4ebff17509ca220e0a6611e8da199d86a5a0c50cca0aef4"
+  }
 }

@@ -73,6 +73,8 @@ def main():
     run([CXX,'-std=c++20',*flags,'-DV12_R2_ENABLED=1','-DV12_R2_CONFIG=13','-Wno-unused-parameter','-Wno-sign-compare','-I'+str(APP/'legacy'),'-I'+str(APP/'legacy/reference'),'-I'+str(APP/'main'),APP/'tools/preview_r2_dashboard.cpp','-o',out/'dashboard-preview'],'dashboard-framebuffer-build')
     run([out/'dashboard-preview',out],'dashboard-causal-RMS-estimated-hold-layout')
     run([CXX,'-std=c++20',*flags,'-I'+str(APP/'legacy'),'-I'+str(APP/'legacy/reference'),'-I'+str(APP/'main'),APP/'tests/g1_corrected_clock_test.cpp',*objects,'-o',out/'corrected-clock-tests'],'corrected-clock-build')
+    run([CXX,'-std=c++20',*flags,'-DPTOB_W12_FINE_CLOCK=1','-I'+str(APP/'legacy'),'-I'+str(APP/'legacy/reference'),'-I'+str(APP/'main'),APP/'tests/g1_corrected_clock_test.cpp',*objects,'-o',out/'fine-corrected-clock-tests'],'fine-corrected-clock-build')
+    run([out/'fine-corrected-clock-tests'],'fine-corrected-clock')
     run([out/'corrected-clock-tests'],'functional-clock-frequency-scope-hold')
     run([CXX,'-std=c++20',*flags,'-I'+str(APP/'main'),APP/'tests/g1_direct_session_test.cpp',*objects,'-o',out/'direct-session-tests'],'direct-session-build')
     run([out/'direct-session-tests'],'direct-session-matched-maps-renewal-expiry-refusals')

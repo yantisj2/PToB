@@ -73,7 +73,16 @@ uint32_t map_epoch=1,shadow_work_max_ticks=0,shadow_log_max_ticks=0;
 uint64_t shadow_work_ticks=0,shadow_log_ticks=0;
 uint64_t physical_pps_consumed=0,last_packet=0;uint32_t checked_packets=0;
 char line[192]{};size_t length=0;bool discarding=false,ready=false,uart_ready=false;
-uint64_t now(){uint64_t value=0;return clock && gptimer_get_raw_count(clock,&value)==ESP_OK?value:0;}
+#ifdef PTOB_W12_FINE_CLOCK
+extern "C" bool clock_reference_read(uint64_t*);
+#endif
+uint64_t now(){uint64_t value=0;
+#ifdef PTOB_W12_FINE_CLOCK
+ return clock_reference_read(&value)?value:0;
+#else
+ return clock && gptimer_get_raw_count(clock,&value)==ESP_OK?value:0;
+#endif
+}
 bool capture_failed(const char* stage){
  // Release only handles allocated by this observer, including its APB lock.
  for(auto* channel:{&map_channel,&pps_channel})if(*channel){

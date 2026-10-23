@@ -36,6 +36,12 @@ The builder disables ESP-IDF's component manager: this selected target has no
 managed components. Builds use the pinned SDK and local source, without implicit
 component downloads or the manager's host process-enumeration requirement.
 
+Version 0.1.23 checks source cleanliness over the complete W12 tree and shared
+registry generator. It separately records unrelated repository changes in
+`repository_dirty`; every W12 source file still enters the immutable snapshot
+and runtime identity. A changed W12 source requires `--development` and produces
+`DEVELOPMENT_NOT_FLASHABLE` until committed. This does not authorize deployment.
+
 Create an ignored owner-only `artifacts/local/enrollment.json`, using the same
 group enrollment as your other targets. Group ID is a nonzero 16-digit lowercase
 hex value, epoch a nonzero uint32, and PSK 32 random bytes, not all zero expressed as
@@ -469,3 +475,74 @@ strict `pcfg`/manifest check refused startup acceptance. The builder-generated
 header now runs through the production config and emitted-timestamp regression,
 and native compile assertions compare all enabled fields with that header.
 Do not reinterpret a declared 0.1.16 profile as evidence that it was applied.
+
+## Fine-clock test profile
+
+Version 0.1.23 accepts `--fine-clock` on BLE100 builds. Add it to the ordinary
+build command using each unit's existing factory-bound device input and shared
+enrollment/registry. `--estimated-relay` remains an independent explicit option.
+BLE50 and `--gnss-fast-map-diagnostic` are refused with this profile. Omitting
+the flag preserves the legacy GPTimer backend and its 1 µs fine-slew threshold.
+
+The fixed W12 route connects RW_RX_ON238 through **GPIO16** into MCPWM group1,
+channel0. Channel2 supplies bounded software CURRENT captures; channel1 stays
+reserved, disabled and disconnected. There is no TX output or arbitrary pin
+override. GPIO4 controls a PA rail and GPIO5 reaches the display interface, so
+N30's GPIO4/5 route is unsuitable. The manufacturer's
+[W12 schematic](https://wiki.meshnology.com/assets/files/W12-MB-V0.2%281%29-b62d4b0929d59c1a3c9ca5847eb65bf8.pdf)
+shows IO16 between the MCU and expansion connector, separately from the OLED,
+GNSS and LR2021 routes. Confirm the actual board revision and absence of external
+loads on IO16 before any separately authorized installation. A schematic and
+successful build do not verify an assembled unit's wiring.
+
+The entire delivered clock uses one fixed group1 origin at 80 MHz, rescaled to
+the existing 20 MHz coordinate with nearest-50 ns rounding (ties upward).
+RX, current time, Bluetooth brackets, fitted maps, UI and estimated-TX
+projections share that origin. A failed, stopped, stale, wrongly clocked or
+late-event counter withdraws availability; it cannot substitute GPTimer ticks.
+GNSS retains its group0 capture owner and maps into this selected production
+coordinate. MCPWM private ABI/driver/register hashes are pinned and verified.
+
+For BLE1M, PDU191/ext0 relay packets, one unique rising/falling pair is required
+inside the immutable descriptor-located search interval. Missing, ambiguous,
+overwritten and unsupported observations are refused. The falling capture
+minus **1568 µs** is an explicit experimental phase convention inherited from
+N30's matching packet class, **not a W12 RF endpoint calibration**. The original
+coarse enclosure plus actual coordinate displacement still guards source life;
+it is not an RF accuracy bound. Direct GR3 PDU159/ext0 packets retain their
+descriptor phase on the same group1 origin: no fine phase convention has been
+qualified for that packet class. Other classes cannot silently inherit one.
+
+The profile also retains all 16 Hz fit opportunities in the bounded 64-point
+history, freezes predictions before corrections train them and observes rate
+acceleration over at least one second. It selects the existing 1 ppm fine slew
+when absolute phase backlog is **strictly below 2000 ns**; at exactly 2000 ns it
+retains bounded acquisition steering. Source/model expiry, causal tails, lock
+thresholds and downstream permissions are preserved. Existing aggregate-path
+profiles from the descriptor backend cannot transfer to this new phase path;
+fine test builds refuse those profiles pending separate W12 calibration.
+
+During ordinary bounded capture, `W12_FINE_STATUS` reports callbacks, fine
+claims, direct descriptor samples, pending searches, missing/ambiguous/unsupported
+results and faults. These are software observations with unknown RF coalescing,
+RF delay and UTC bounds. A callback is not proof of an RF packet. Normal framed
+status retains its existing byte/row/deadline bounds. Maintenance retains the
+counter until all RX hooks and clock consumers drain, then requires actual pad,
+channel and timer retirement within the original two-second deadline.
+
+```sh
+python3 firmware/w12/tools/fine_tests.py --out artifacts/w12-fine-tests
+```
+
+The runner exercises the actual owner and maintenance code with synthetic
+peripherals under ASan/UBSan, including wrap, late pending captures, counter
+failure, route/enable failures, interrupt bursts and cleanup refusal. The
+ordinary G1 host runner tests both legacy and fine clock fitting. Native builds
+retain selected main/NimBLE stack checks. These checks do not establish W12
+sub-2 µs accuracy, RF marker semantics, calibrated relay output or UTC accuracy.
+
+Phase two remains separate: port N30's independent BLE/LoRa clocks and 180 s
+loss/recovery AUTO policy to W12's LR2021. It needs its own authenticated RC8
+receiver, radio/IRQ timing route, shared group0 resource design with optional
+GNSS, bounded OFF acknowledgement and interoperability checks. LoRa remains
+compiled OFF in the fine-clock images; N30's SX1262 driver is not reused.

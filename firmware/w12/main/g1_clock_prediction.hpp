@@ -4,14 +4,14 @@
 #include <cstdint>
 namespace v12 {
 // Continuous20MHz software-clock actuator. Large acquisition phase uses at
-// most50ppm; N30 enters1ppm fine slew below2us, other targets within1us. Frequency remains
+// most50ppm; N30 and W12 fine builds enter1ppm slew below2us; legacy builds within1us. Frequency remains
 // within±50ppm. Neither software steering nor lock grants RF calibration.
 struct G1ClockPrediction {
   uint64_t tick=0;int64_t epoch=0,phase=0;double rate=0;int64_t utc_offset=0;
   int32_t output_correction_ns=0; // Snapshot-only untested experiment; raw fitter always zero.
   double phase_slew_ns_s()const {
     const double magnitude=std::abs(double(phase));
-#ifdef PTOB_N30
+#if defined(PTOB_N30) || defined(PTOB_W12_FINE_CLOCK)
     return magnitude<2000?1000:std::min(50000.0,4*magnitude);
 #else
     return magnitude<=1000?1000:std::min(50000.0,4*magnitude);

@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "source": "PToB public N30 fine receiver, selected local source files",
+  "license": "MIT",
+  "author": "Jonathan Yantis",
+  "files": {
+    "firmware/n30/main/fine_counter.hpp": {
+      "sha256": "02ad3c5837bd15fc6090b386cd5b2cddd03edf82071904da191d3efef1d5222a"
+    },
+    "firmware/n30/main/fine_receiver.hpp": {
+      "sha256": "5a895593448d5be5e07530c25bbf62b4065cde99d075f50ac9b0007c456db1e2"
+    },
+    "firmware/n30/main/fine_capture.cpp": {
+      "sha256": "314c587ae6c867a094a37692a99427a11aadd2eb4b8e4313c2fb9d118228b626"
+    },
+    "firmware/n30/tests/fine_shutdown_test.cpp": {
+      "sha256": "97c4057ffa992a57b1c1f4ed1af20931d235691cafd9766c68bd4da8988faecc"
+    },
+    "firmware/n30/tests/clock_prediction_test.cpp": {
+      "sha256": "ea19b2b9d25acb7d6bf21f21f7a691b994e40985b3925a304a08d6a45c9a9946"
+    }
+  },
+  "adaptation": "W12 namespace; omit unused finite observer history. No N30 calibration or hardware qualification transfers.",
+  "public_source_commit": "c3d47288984027933bf5ec869e6feb229178802e"
+}

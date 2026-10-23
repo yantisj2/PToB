@@ -7,7 +7,7 @@ RC role. [Image provenance](../../docs/images/README.md).*
 
 Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
 
-**PToB owns W12 native G1/RC7 development.** Current version **0.1.22** supports
+**PToB owns W12 native G1/RC7 development.** Current version **0.1.23** supports
 **RC**: a BLE50 client or BLE100 receiver with an optional experimental
 estimated-TX relay. It receives from the shared T096/W12/StickS3 mesh; it has no
 GM profile or USB timing stream. Start with the
@@ -37,6 +37,15 @@ clock. Bounded production G1 PPS diagnostics distinguish local clock mapping,
 relative phase, output correction and source permission. The optional fast
 counter-map diagnostic defaults off. LoRa, WiFi, PTS and donor correction
 experiments are excluded.
+
+The optional `--fine-clock` BLE100 test profile ports N30's continuous 80 MHz
+counter, capture-frozen dense fitting and 1 ppm phase slew below 2 µs. Its W12
+route uses **GPIO16 for RX only**, with no TX pad; N30's GPIO4/5 route conflicts
+with W12 board functions. Supported relay packets use an experimental captured
+RW falling-edge phase convention; direct-GM packets retain descriptor timing
+on the same counter. Counter ticks are 12.5 ns and delivered coordinates round
+to 50 ns. This has no W12 hardware validation or transferred N30 calibration.
+See the [fine-clock test profile](../../docs/w12/build.md#fine-clock-test-profile).
 
 Relay-path offsets and intermittent timing loss remain under investigation.
 Estimated TX has unknown RF/UTC bounds; a local OLED HOLD estimate grants no

@@ -27,6 +27,10 @@
 #include "fault_watchdog.hpp"
 #include "driver/gptimer.h"
 #include "s3_clock_reference.h"
+#ifdef PTOB_W12_FINE_CLOCK
+#include "w12_fine_clock.hpp"
+extern "C" bool clock_reference_read(uint64_t*);
+#endif
 #include "driver/gpio.h"
 #include "driver/usb_serial_jtag.h"
 #include "esp_mac.h"
@@ -80,7 +84,13 @@ v12::ConsoleTicket ticket;
 v12::ConsoleFrame response;
 uint64_t last_nonce=0,update_completed_us=0;
 struct CommandResult {uint64_t nonce=0,admitted_us=0;bool accepted=false;const char* action="STATUS";const char* reason="READ_ONLY";} last_command;
-uint64_t ticks(){uint64_t t=0;return clock_timer&&gptimer_get_raw_count(clock_timer,&t)==ESP_OK?t:0;}
+uint64_t ticks(){uint64_t t=0;
+#ifdef PTOB_W12_FINE_CLOCK
+  return w12_fine_current(&t)?t:0;
+#else
+  return clock_timer&&gptimer_get_raw_count(clock_timer,&t)==ESP_OK?t:0;
+#endif
+}
 uint64_t micros(){const int64_t t=esp_timer_get_time();return t>0?uint64_t(t):0;}
 #ifdef PTOB_G1_PPS_DIAGNOSTIC
 v12::G1PpsDiagnostic production_pps_diagnostic;
@@ -584,6 +594,11 @@ void input(){
     if(now>=last_g1_diagnostic+10000000){const auto begin=micros();last_g1_diagnostic=now;const auto mesh=v12::r2_status();char line[v12::G1DiagnosticLineBytes];
       const auto log=v12::log_status();
       if(log.capture_active){
+#ifdef PTOB_W12_FINE_CLOCK
+        const auto fine=w12_fine_status();
+        std::printf("W12_FINE_STATUS active=%u hz=80000000 RX_GPIO=16 callbacks=%" PRIu32 " claims=%" PRIu32 " direct_descriptor=%" PRIu32 " pending=%" PRIu32 " missing=%" PRIu32 " ambiguous=%" PRIu32 " unsupported=%" PRIu32 " error=%d RF=UNKNOWN UTC=UNKNOWN\n",
+          unsigned(fine.active),fine.callbacks,fine.claims,fine.direct,fine.pending,fine.missing,fine.ambiguous,fine.unsupported,fine.error);
+#endif
         if(g1_parent_history_capture!=log.capture_id){g1_parent_history_capture=log.capture_id;g1_parent_history_sequence=0;}
         for(unsigned i=0;i<2;i++){
           v12::G1ParentEvent event{};if(!v12::r2_parent_next(g1_parent_history_sequence,event))break;
@@ -626,6 +641,14 @@ void input(){
       services.sync|=mesh.synced;services.discovery|=mesh.advertising;services.acl|=mesh.connections!=0;
       services.host|=mesh.owner_busy||!mesh.off_ack;services.fault|=mesh.fault;
 #endif
+#ifdef PTOB_W12_FINE_CLOCK
+      bool closed=!services.scan&&!services.pending&&!services.sync&&!services.periodic&&!services.discovery&&!services.acl&&!services.lora&&!services.host;
+#ifdef V12_R2_ENABLED
+      closed=closed&&!mesh.rx_capture.installed&&!mesh.client.running&&!mesh.client.pending&&!mesh.client.stopping;
+#endif
+      if(closed&&!w12_fine_released())w12_fine_stop();
+      services.host|=!w12_fine_released();services.fault|=w12_fine_fault();
+#endif
       update_gate.poll(now,services);
       if(update_gate.stage==v12::UpdateStage::Ready||update_gate.stage==v12::UpdateStage::Fault)update_completed_us=micros();
     }
@@ -642,6 +665,9 @@ void input(){
   if(direct.stage==v12::DirectStage::Fault&&direct.incarnation)mask|=v12::FaultDirect;
   if(lora.failed&&lora.request_generation)mask|=v12::FaultLoRa;
   if(update_gate.stage==v12::UpdateStage::Fault)mask|=v12::FaultUpdate;
+#ifdef PTOB_W12_FINE_CLOCK
+  if(w12_fine_fault())mask|=v12::FaultR2;
+#endif
 #ifdef V12_R2_ENABLED
   const auto mesh=v12::r2_status();
   if(mesh.fault||mesh.client.deadline_exceeded||mesh.rx_capture.fault)mask|=v12::FaultR2;
@@ -672,12 +698,26 @@ void input(){
 
 }
 extern "C" bool IRAM_ATTR clock_reference_read(uint64_t* count){
+#ifdef PTOB_W12_FINE_CLOCK
+  return w12_fine_current(count);
+#else
   return count&&clock_timer&&gptimer_get_raw_count(clock_timer,count)==ESP_OK;
+#endif
 }
+extern "C" w12_ble_time_t r_rwip_time_get();
 extern "C" bool IRAM_ATTR clock_reference_bt_bracket(uint64_t* before,uint64_t* after,adv_rx::BleTime* time){
+#ifdef PTOB_W12_FINE_CLOCK
+  if(!before||!after||!time||xPortGetCoreID()!=CONFIG_BT_CTRL_PINNED_TO_CORE)return false;
+  const auto saved=portSET_INTERRUPT_MASK_FROM_ISR();
+  const bool a=clock_reference_read(before);const auto observed=r_rwip_time_get();const bool b=clock_reference_read(after);
+  portCLEAR_INTERRUPT_MASK_FROM_ISR(saved);
+  if(!a||!b||*after<*before)return false;
+  time->half_slots=observed.half_slots;time->half_us=observed.half_us;return true;
+#else
   w12_ble_time_t observed{};
   if(!time||w12_s3_ble_time_bracket(clock_timer,before,after,&observed)!=ESP_OK)return false;
   time->half_slots=observed.half_slots;time->half_us=observed.half_us;return true;
+#endif
 }
 extern "C" void app_main(){
   uint8_t factory[6]{};esp_read_mac(factory,ESP_MAC_EFUSE_FACTORY);
@@ -699,6 +739,12 @@ extern "C" void app_main(){
   timer.direction=GPTIMER_COUNT_UP;timer.resolution_hz=20000000;
   if(gptimer_new_timer(&timer,&clock_timer)!=ESP_OK||gptimer_enable(clock_timer)!=ESP_OK||gptimer_start(clock_timer)!=ESP_OK){
     v12::fault_watchdog_fatal();std::printf("W12_V12_FATAL reason=XTAL_TIMER\n");return;}
+#ifdef PTOB_W12_FINE_CLOCK
+  uint64_t fine_factory=0;for(const auto b:factory)fine_factory=(fine_factory<<8)|b;
+  if(!w12_fine_start(session,fine_factory,micros())){
+    v12::fault_watchdog_fatal();std::printf("W12_V12_FATAL reason=FINE_COUNTER_DOMAIN\n");return;}
+  std::printf("W12_FINE_CLOCK counter=MCPWM1 hz=80000000 grid_ns=50 RX_GPIO=16 RX=RW_RX_ON_238 TX=NONE relay_phase_ns=1568000 direct=DESCRIPTOR_ONLY fine_slew_lt_ns=2000 RF=UNKNOWN UTC=UNKNOWN\n");
+#endif
   usb_serial_jtag_driver_config_t console{};console.rx_buffer_size=512;console.tx_buffer_size=4096;
   if(usb_serial_jtag_driver_install(&console)!=ESP_OK){v12::fault_watchdog_fatal();std::printf("W12_V12_FATAL reason=CONSOLE_DRIVER\n");return;}
   if(!v12::log_start()){v12::fault_watchdog_fatal();std::printf("W12_V12_FATAL reason=CONSOLE_WORKER\n");return;}

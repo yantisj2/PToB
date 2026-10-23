@@ -64,7 +64,7 @@ inline __attribute__((always_inline)) void copy_record(Record& to,const Record& 
   to.stamp.refinement_ticks=from.stamp.refinement_ticks;to.stamp.refinement_applied=from.stamp.refinement_applied;
   to.stamp.phy=from.stamp.phy;to.stamp.radio_extra_us=from.stamp.radio_extra_us;
   to.stamp.radio_reference_valid=from.stamp.radio_reference_valid;to.stamp.radio_reference_applied=false;
-#ifdef PTOB_N30
+#if defined(PTOB_N30) || defined(PTOB_W12_FINE_CLOCK)
   to.stamp.pdu_length=from.stamp.pdu_length;to.stamp.ext_header=from.stamp.ext_header;to.stamp.descriptor_status=from.stamp.descriptor_status;
 #endif
   to.stable=from.stable;to.single=from.single;
@@ -104,7 +104,7 @@ extern "C" void IRAM_ATTR w12_periodic_aux_hook(uint8_t activity,uint8_t first){
               pending.stamp.refinement_ticks=refinement_ticks;pending.stamp.refinement_applied=refinement_ready;
               pending.stamp.event=0;pending.stamp.channel=255;pending.stamp.association_observed=false;
               pending.stamp.phy=255;pending.stamp.radio_reference_valid=false;pending.stamp.radio_extra_us=0;
-#ifdef PTOB_N30
+#if defined(PTOB_N30) || defined(PTOB_W12_FINE_CLOCK)
               pending.stamp.pdu_length=uint8_t(size);pending.stamp.ext_header=uint8_t(ext_header);pending.stamp.descriptor_status=status;
 #endif
               // The pinned packet checker copies this same activity's+74
