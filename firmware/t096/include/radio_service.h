@@ -7,9 +7,11 @@ struct r2_relay_precision;
 struct r2_role_record;
 struct r2_gnss_record;
 struct r2_group_config;
-/* Diagnostic extended-AD data on the existing GM advertiser only. */
+/* Diagnostic extended-AD data on the existing GM advertiser only.
+ * Group points to immutable enrollment lasting the service lifetime. */
 void r2_radio_service_role(const struct r2_role_record *,const struct r2_group_config *);
-void r2_radio_service_gnss(const struct r2_gnss_record *);
+/* Optional source snapshot, synchronous CONTROL call only; never retained. */
+void r2_radio_service_tick_reference(struct r2_radio_scope,const struct r2_source_clock *,int64_t,uint64_t,const struct r2_gnss_record *);
 uint32_t r2_radio_service_gnss_sequence(void);
 /* Preserve captured same-GM servo history across an owned RC publication
  * handover. No RF tuples, source grant, map or different-parent history moves. */

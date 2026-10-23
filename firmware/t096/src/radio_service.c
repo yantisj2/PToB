@@ -34,22 +34,17 @@ static struct r2_enrollment enrollment;
 static unsigned own,service_self;
 static struct bt_le_ext_adv *advertiser;
 static struct r2_role_record role_status;
-static struct r2_group_config role_group;
+static const struct r2_group_config *role_group;
 static uint64_t role_next_us;
 static atomic_t role_sequence,role_update_errors;
-static struct r2_gnss_record gnss_status;
 static uint64_t gnss_next_us;
 static atomic_t gnss_sequence;
 uint32_t r2_radio_service_gnss_sequence(void){return (uint32_t)atomic_get(&gnss_sequence);}
-void r2_radio_service_gnss(const struct r2_gnss_record *r){
- /* Serialized CONTROL mailbox, like role_status; never ISR/precision work. */
- gnss_status=r?*r:(struct r2_gnss_record){0};
-}
 static atomic_t gm_radio_state;
 void r2_radio_service_role(const struct r2_role_record *r,const struct r2_group_config *g){
  /* Same serialized CONTROL owner as radio_service_tick; no ISR/callback work. */
  role_status=r?*r:(struct r2_role_record){0};
- if(g)role_group=*g;
+ if(g)role_group=g;
 }
 static struct bt_le_per_adv_sync *sync_object;
 static struct k_spinlock cb_lock;
@@ -773,7 +768,7 @@ static int install_data(const struct pt_output *out){
  if(!rc)installed_payload=out->payload_sequence;
  return rc;
 }
-static void install_role_status(const struct pt_output *out,uint64_t now){
+static void install_role_status(const struct pt_output *out,uint64_t now,const struct r2_gnss_record *reference){
  if(now<role_next_us||!advertiser||!native_live(out,now))return;
  role_next_us=now+1000000; // One bounded owner update/s, no extra advertising set.
  struct r2_role_record r=role_status;
@@ -782,19 +777,19 @@ static void install_role_status(const struct pt_output *out,uint64_t now){
  /* GD replaces one nonprecision GS window per10s. Combined204B would exceed
   * the unchanged191B controller ceiling. No new advertiser or HCI update. */
  uint8_t wire[R2_ROLE_AD_BYTES];size_t length=R2_ROLE_AD_BYTES;
- struct r2_gnss_record d=gnss_status;
+ struct r2_gnss_record d=reference?*reference:(struct r2_gnss_record){0};
  bool diagnostic=now>=gnss_next_us&&(uint32_t)atomic_get(&gnss_sequence)!=UINT32_MAX&&
   d.root==r.root&&d.root_boot==r.root_boot&&d.mesh_epoch==r.source_epoch&&
   now>=d.sampled_us&&now-d.sampled_us<d.valid_us;
  if(diagnostic){
   d.valid_us-=(uint32_t)(now-d.sampled_us);d.sequence=(uint32_t)atomic_get(&gnss_sequence)+1;
-  if(r2_gnss_encode(wire,&d,&role_group))diagnostic=false;
+  if(r2_gnss_encode(wire,&d,role_group))diagnostic=false;
   else length=R2_GNSS_AD_BYTES;
  }
  if(!diagnostic){
   r.valid_us-=(uint32_t)(now-r.created_us);r.created_us=now;
   atomic_inc(&role_sequence);r.sequence=(uint32_t)atomic_get(&role_sequence);
-  if(r2_role_encode(wire,&r,&role_group))return;
+  if(r2_role_encode(wire,&r,role_group))return;
  }
  const struct bt_data ad={.type=BT_DATA_MANUFACTURER_DATA,.data_len=length-2,.data=wire+2};
  r2_health_operation(R2_HEALTH_PA,R2_HEALTH_ADV_DATA,-EINPROGRESS);
@@ -810,7 +805,7 @@ void r2_radio_service_gm_diagnostics(uint32_t out[6]){
  uint32_t state=(uint32_t)atomic_get(&gm_radio_state);
  out[2]=!!(state&1);out[3]=!!(state&2);out[4]=!!(state&4);out[5]=(uint32_t)atomic_get(&error);
 }
-static int start_gm(const struct pt_output *out){
+static int start_gm(const struct pt_output *out,const struct r2_gnss_record *reference){
  if(!out->length||!native_live(out,service_now()))return -ESTALE;
  const struct bt_le_adv_param param={.id=0,.sid=12,.options=BT_LE_ADV_OPT_NO_2M|BT_LE_ADV_OPT_EXT_ADV|BT_LE_ADV_OPT_USE_IDENTITY,.interval_min=50,.interval_max=50};
  r2_health_operation(R2_HEALTH_PA,R2_HEALTH_ADV_CREATE,-EINPROGRESS);
@@ -819,7 +814,7 @@ static int start_gm(const struct pt_output *out){
  const struct bt_le_per_adv_param periodic={.interval_min=R2_PRECISION_INTERVAL_UNITS,.interval_max=R2_PRECISION_INTERVAL_UNITS};
  if(!rc){r2_health_operation(R2_HEALTH_PA,R2_HEALTH_ADV_PARAM,-EINPROGRESS);rc=bt_le_per_adv_set_param(advertiser,&periodic);r2_health_operation(R2_HEALTH_PA,R2_HEALTH_ADV_PARAM,rc);}
  if(!rc)rc=install_data(out);
- if(!rc)install_role_status(out,service_now());
+ if(!rc)install_role_status(out,service_now(),reference);
  if(!rc&&!native_live(out,service_now()))rc=-ESTALE;
  if(!rc){r2_health_operation(R2_HEALTH_PA,R2_HEALTH_PA_START,-EINPROGRESS);rc=bt_le_per_adv_start(advertiser);r2_health_operation(R2_HEALTH_PA,R2_HEALTH_PA_START,rc);if(!rc)pa_started=true;}
  if(!rc&&!native_live(out,service_now()))rc=-ESTALE;
@@ -836,7 +831,7 @@ static void direct_window_align(const struct pt_output *out,uint64_t now){
     c->utc_us>UINT64_MAX-(now-c->at)||!r2_radio_service_closed())return;
  (void)r2_ble_client_align(now,c->utc_us+now-c->at);
 }
-static void tick_owned(struct r2_radio_scope scope,const struct r2_source_clock *source,int64_t utc,uint64_t now){
+static void tick_owned(struct r2_radio_scope scope,const struct r2_source_clock *source,int64_t utc,uint64_t now,const struct r2_gnss_record *reference){
  (void)source; /* Main supplies source revisions independently of this owner. */
  (void)k_mutex_lock(&pt_lock,K_FOREVER);pt_input.grant=scope;pt_input.utc=utc;pt_input.at=now;
  pt_input.quality_listening=false;
@@ -863,15 +858,21 @@ static void tick_owned(struct r2_radio_scope scope,const struct r2_source_clock 
  }
  native_scope=scope;
  (void)k_mutex_lock(&pt_lock,K_FOREVER);native_grant=scope;native_owned=scope.gm||scope.follower;(void)k_mutex_unlock(&pt_lock);
- if(scope.gm){int rc=!advertiser?start_gm(&out):out.payload_sequence!=installed_payload?install_data(&out):0;
-  if(!rc)install_role_status(&out,service_now());
+ if(scope.gm){int rc=!advertiser?start_gm(&out,reference):out.payload_sequence!=installed_payload?install_data(&out):0;
+  if(!rc)install_role_status(&out,service_now(),reference);
   if(rc){if(rc!=-ESTALE)fault(rc);begin_close(service_now());}
  }else if(scope.follower){follower_poll(now);if(pt_public_client&&(sync_object||creating||discovering))opportunity_seen=true;
   (void)k_mutex_lock(&pt_lock,K_FOREVER);pt_input.quality_listening=native_owned&&!closing&&!r2_ble_initiating();(void)k_mutex_unlock(&pt_lock);
  }
 }
 void r2_radio_service_tick(struct r2_radio_scope scope,const struct r2_source_clock *source,int64_t utc,uint64_t now){
- tick_owned(scope,source,utc,now);
+ tick_owned(scope,source,utc,now,NULL);
+ gm_radio_publish();
+}
+void r2_radio_service_tick_reference(struct r2_radio_scope scope,const struct r2_source_clock *source,int64_t utc,uint64_t now,const struct r2_gnss_record *reference){
+ /* Stack-owned optional snapshot lives through this synchronous CONTROL call.
+  * Nothing is retained by PT, callbacks or controller APIs after return. */
+ tick_owned(scope,source,utc,now,reference);
  gm_radio_publish();
 }
 void r2_radio_service_view(struct r2_radio_precision_view *out,uint64_t now){struct pt_output s;output_read(&s,now);*out=s.view;}

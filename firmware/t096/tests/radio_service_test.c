@@ -217,32 +217,32 @@ int main(int argc,char **argv){
    .priority1=128,.clock_class=248,.accuracy=254,.priority2=128,.variance=65535};
   pt_input.stopped=false;pt_input.source_ready=true;pt_input.source_epoch=4;
   pt_output=(struct pt_output){.sampled=1000000,.scope={.gm=true,.root_identity=1,.root=0,.boot=10,.source_epoch=4,.until_us=90000000},.payload_until=90000000};
-  struct pt_output out=pt_output;r2_radio_service_role(&r,&g);r2_radio_service_gnss(&d);install_role_status(&out,fake_time);
+  struct pt_output out=pt_output;r2_radio_service_role(&r,&g);install_role_status(&out,fake_time,&d);
   struct r2_gnss_record decoded;
   assert(role_ad_updates==1&&role_ad_length==88&&!r2_gnss_decode(&decoded,role_ad_wire,role_ad_length,&g));
   assert(decoded.sequence==1&&decoded.mesh_epoch==4&&decoded.sampled_us==1000000&&gnss_next_us==11000000&&role_sequence==0);
   for(unsigned i=1;i<10;i++){
-   fake_time=1000000+i*1000000;r.created_us=fake_time;r2_radio_service_role(&r,&g);install_role_status(&out,fake_time);
+   fake_time=1000000+i*1000000;r.created_us=fake_time;r2_radio_service_role(&r,&g);install_role_status(&out,fake_time,&d);
    assert(role_ad_updates==i+1&&role_ad_length==116&&gnss_sequence==1);
   }
-  fake_time=11000000;r.created_us=fake_time;r2_radio_service_role(&r,&g);install_role_status(&out,fake_time);
+  fake_time=11000000;r.created_us=fake_time;r2_radio_service_role(&r,&g);install_role_status(&out,fake_time,&d);
   assert(role_ad_updates==11&&role_ad_length==88&&!r2_gnss_decode(&decoded,role_ad_wire,role_ad_length,&g));
   assert(decoded.sequence==2&&decoded.sampled_us==1000000&&decoded.valid_us==20000000); // Original snapshot, reduced lifetime.
-  fake_time=21000000;r.created_us=fake_time;r2_radio_service_role(&r,&g);role_ad_error=-EIO;install_role_status(&out,fake_time);
+  fake_time=21000000;r.created_us=fake_time;r2_radio_service_role(&r,&g);role_ad_error=-EIO;install_role_status(&out,fake_time,&d);
   assert(role_ad_updates==12&&gnss_sequence==2&&gnss_next_us==21000000&&!error&&!closing);
-  fake_time=22000000;r.created_us=fake_time;r2_radio_service_role(&r,&g);role_ad_error=0;install_role_status(&out,fake_time);
+  fake_time=22000000;r.created_us=fake_time;r2_radio_service_role(&r,&g);role_ad_error=0;install_role_status(&out,fake_time,&d);
   assert(gnss_sequence==3&&gnss_next_us==32000000&&role_ad_updates==13);
-  fake_time=32000000;r.created_us=fake_time;r2_radio_service_role(&r,&g);install_role_status(&out,fake_time);
+  fake_time=32000000;r.created_us=fake_time;r2_radio_service_role(&r,&g);install_role_status(&out,fake_time,&d);
   assert(role_ad_updates==14&&role_ad_length==116&&gnss_sequence==3&&gnss_next_us==32000000); // Expired snapshot falls back once.
-  fake_time=33000000;r.created_us=fake_time;d.sampled_us=fake_time;d.mesh_epoch=5;r2_radio_service_role(&r,&g);r2_radio_service_gnss(&d);install_role_status(&out,fake_time);
+  fake_time=33000000;r.created_us=fake_time;d.sampled_us=fake_time;d.mesh_epoch=5;r2_radio_service_role(&r,&g);install_role_status(&out,fake_time,&d);
   assert(role_ad_updates==15&&role_ad_length==116&&gnss_sequence==3); // Wrong mesh scope cannot publish.
-  fake_time=34000000;r.created_us=fake_time;d.mesh_epoch=4;d.sampled_us=fake_time+1;r2_radio_service_role(&r,&g);r2_radio_service_gnss(&d);install_role_status(&out,fake_time);
+  fake_time=34000000;r.created_us=fake_time;d.mesh_epoch=4;d.sampled_us=fake_time+1;r2_radio_service_role(&r,&g);install_role_status(&out,fake_time,&d);
   assert(role_ad_updates==16&&role_ad_length==116&&gnss_sequence==3); // Future snapshot.
-  fake_time=35000000;r.created_us=fake_time;d.sampled_us=fake_time;d.values=255;r2_radio_service_role(&r,&g);r2_radio_service_gnss(&d);install_role_status(&out,fake_time);
+  fake_time=35000000;r.created_us=fake_time;d.sampled_us=fake_time;d.values=255;r2_radio_service_role(&r,&g);install_role_status(&out,fake_time,&d);
   assert(role_ad_updates==17&&role_ad_length==116&&gnss_sequence==3); // Invalid metadata cannot stop GS/precision.
-  fake_time=36000000;r.created_us=fake_time;d.values=7;r2_radio_service_role(&r,&g);r2_radio_service_gnss(&d);pt_input.source_ready=false;install_role_status(&out,fake_time);
+  fake_time=36000000;r.created_us=fake_time;d.values=7;r2_radio_service_role(&r,&g);pt_input.source_ready=false;install_role_status(&out,fake_time,&d);
   assert(role_ad_updates==17&&gnss_sequence==3&&!error); // Original physical source gate still owns advertising.
-  fake_time=37000000;r.created_us=fake_time;d.sampled_us=fake_time;r2_radio_service_role(&r,&g);r2_radio_service_gnss(&d);pt_input.source_ready=true;atomic_set(&gnss_sequence,UINT32_MAX);install_role_status(&out,fake_time);
+  fake_time=37000000;r.created_us=fake_time;d.sampled_us=fake_time;r2_radio_service_role(&r,&g);pt_input.source_ready=true;atomic_set(&gnss_sequence,UINT32_MAX);install_role_status(&out,fake_time,&d);
   assert(role_ad_updates==18&&role_ad_length==116&&(uint32_t)atomic_get(&gnss_sequence)==UINT32_MAX); // Never wrap the diagnostic sequence.
   puts("PASS actual GD/GS owner: one1s update,10s diagnostic rotation,original sample/TTL,failures/scope/expiry fallback,no precision authority");return 0;
  }
@@ -252,17 +252,17 @@ int main(int argc,char **argv){
   struct r2_role_record r={.sender=1,.root=1,.sender_boot=10,.root_boot=10,.hot=3,.hot_boot=20,.coordinator=3,.created_us=1000000,.source_epoch=4,.valid_us=2000000,.flags=3,.members=3};
   pt_input.stopped=false;pt_input.source_ready=true;pt_input.source_epoch=4;
   pt_output=(struct pt_output){.sampled=1000000,.scope={.gm=true,.root_identity=1,.root=0,.boot=10,.source_epoch=4,.until_us=9000000},.payload_until=9000000};
-  struct pt_output out=pt_output;r2_radio_service_role(&r,&g);install_role_status(&out,fake_time);
+  struct pt_output out=pt_output;r2_radio_service_role(&r,&g);install_role_status(&out,fake_time,NULL);
   struct r2_role_record decoded;assert(role_ad_updates==1&&!r2_role_decode(&decoded,role_ad_wire,sizeof role_ad_wire,&g)&&decoded.hot==3&&decoded.sequence==1);
-  install_role_status(&out,fake_time+999999);assert(role_ad_updates==1);
-  fake_time+=1000000;r.created_us=fake_time;r2_radio_service_role(&r,&g);role_ad_error=-EIO;install_role_status(&out,fake_time);
+  install_role_status(&out,fake_time+999999,NULL);assert(role_ad_updates==1);
+  fake_time+=1000000;r.created_us=fake_time;r2_radio_service_role(&r,&g);role_ad_error=-EIO;install_role_status(&out,fake_time,NULL);
   assert(role_ad_updates==2&&role_update_errors==1&&!error&&!closing); // Optional failure preserves timing.
   uint32_t diag[6];r2_radio_service_gm_diagnostics(diag);assert(diag[0]==2&&diag[1]==1&&!diag[5]);
-  fake_time+=1000000;role_ad_error=0;r.created_us=fake_time;r2_radio_service_role(&r,&g);pt_input.source_ready=false;install_role_status(&out,fake_time);assert(role_ad_updates==2);
-  pt_input.source_ready=true;r.root=r.sender=7;r2_radio_service_role(&r,&g);install_role_status(&out,fake_time);assert(role_ad_updates==2);
-  fake_time+=1000000;r.root=r.sender=1;r.created_us=fake_time-2000000;r2_radio_service_role(&r,&g);install_role_status(&out,fake_time);assert(role_ad_updates==2);
-  fake_time+=1000000;r.created_us=fake_time;r2_radio_service_role(&r,&g);install_role_status(&out,fake_time);assert(role_ad_updates==3&&!r2_role_decode(&decoded,role_ad_wire,sizeof role_ad_wire,&g)&&decoded.sequence==3);
-  pt_input.stopped=true;fake_time+=1000000;r.created_us=fake_time;r2_radio_service_role(&r,&g);install_role_status(&out,fake_time);assert(role_ad_updates==3&&!error);
+  fake_time+=1000000;role_ad_error=0;r.created_us=fake_time;r2_radio_service_role(&r,&g);pt_input.source_ready=false;install_role_status(&out,fake_time,NULL);assert(role_ad_updates==2);
+  pt_input.source_ready=true;r.root=r.sender=7;r2_radio_service_role(&r,&g);install_role_status(&out,fake_time,NULL);assert(role_ad_updates==2);
+  fake_time+=1000000;r.root=r.sender=1;r.created_us=fake_time-2000000;r2_radio_service_role(&r,&g);install_role_status(&out,fake_time,NULL);assert(role_ad_updates==2);
+  fake_time+=1000000;r.created_us=fake_time;r2_radio_service_role(&r,&g);install_role_status(&out,fake_time,NULL);assert(role_ad_updates==3&&!r2_role_decode(&decoded,role_ad_wire,sizeof role_ad_wire,&g)&&decoded.sequence==3);
+  pt_input.stopped=true;fake_time+=1000000;r.created_us=fake_time;r2_radio_service_role(&r,&g);install_role_status(&out,fake_time,NULL);assert(role_ad_updates==3&&!error);
   pa_started=ext_started=true;gm_radio_publish();r2_radio_service_gm_diagnostics(diag);assert(diag[2]&&diag[3]&&diag[4]);
   r2_radio_service_stop(fake_time+1);assert(r2_radio_service_closed());r2_radio_service_gm_diagnostics(diag);
   assert(!diag[2]&&!diag[3]&&!diag[4]); /* Direct close publishes without another tick. */

@@ -51,7 +51,7 @@ static void service_stop_owned(bool migration);
 static struct r2_local_demand local_demand;
 static bool relay_selected,relay_transition,relay_profile_set,relay_retiring;
 static uint64_t relay_activation_until,relay_transition_until,direct_check_due;
-static void normal_relay_tick(struct r2_radio_scope scope,uint64_t now,int64_t utc);
+static void normal_relay_tick(struct r2_radio_scope scope,uint64_t now,int64_t utc,const struct r2_gnss_record *reference);
 static char pending_name[25];static bool name_pending;
 static uint32_t rx_latency_max_us,rx_queue_peak;
 static uint64_t now_us(void){return k_ticks_to_us_floor64(k_uptime_ticks());}
@@ -359,8 +359,7 @@ static void cycle(struct k_work *work)
     public.passive,scope.until_us,scope.source_epoch);
   r2_radio_service_role(&role,&roster.group);
   const struct r2_gnss_record reference=r2_gm_gnss_status(&net,&clock.view,&role);
-  r2_radio_service_gnss(&reference);
-  normal_relay_tick(scope,now,utc);
+  normal_relay_tick(scope,now,utc,&reference);
   if(relay_selected){struct r2_relay_status route;r2_relay_service_snapshot(&route,&timing,now);}else r2_radio_service_view(&timing,now);
   if(!direct_gm5_timing)
   r2_network_timing(&net,scope.boot,scope.source_epoch,timing.train,scope.gm,timing.authorized&&(scope.gm?timing.rms_valid:timing.map_valid),now);
@@ -765,7 +764,7 @@ static int profile_restart(uint64_t now){
 
 /* RC always observes timing; downstream publication requires authenticated
  * demand, and a leaf never becomes a second relay or a GM-control participant. */
-static void __attribute__((noinline)) normal_relay_tick(struct r2_radio_scope scope,uint64_t now,int64_t utc){
+static void __attribute__((noinline)) normal_relay_tick(struct r2_radio_scope scope,uint64_t now,int64_t utc,const struct r2_gnss_record *reference){
  if(atomic_get(&stop_requested)){r2_relay_service_stop(now);return;}
  struct r2_local_demand incoming={0};r2_group_admission_demand(&incoming);
  struct r2_group_client anchor={0};r2_group_admission_client(&anchor);
@@ -832,7 +831,7 @@ static void __attribute__((noinline)) normal_relay_tick(struct r2_radio_scope sc
   if(anchor.source&&anchor.root&&anchor.boot&&anchor.source_epoch&&now>=anchor.at&&r2_group_coarse_upper(&bounded,anchor.at,now,&upper)&&anchor.utc_us<=INT64_MAX-(now-anchor.at))trusted=(int64_t)(anchor.utc_us+now-anchor.at);
   r2_relay_service_tick(scope,&source_work,trusted>=0&&trusted<=INT64_MAX/1000?trusted*1000:-1,trusted>=0,now);
   if(r2_relay_service_error()){(void)k_mutex_lock(&lock,K_FOREVER);status.error=r2_relay_service_error();(void)k_mutex_unlock(&lock);r2_service_stop();}
- }else r2_radio_service_tick(scope,&source_work,utc>=0&&utc<=INT64_MAX/1000?utc*1000:-1,now);
+ }else r2_radio_service_tick_reference(scope,&source_work,utc>=0&&utc<=INT64_MAX/1000?utc*1000:-1,now,reference);
 }
 
 #if defined(R2_SWITCHABLE_FIELD)

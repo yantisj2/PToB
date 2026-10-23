@@ -17,7 +17,7 @@ header=(app/'include/group_admission.h').read_text();start=header.index('struct 
 
 (out/'gm_input_order_control.inc').write_text(fn(control,'refresh_direct_gm5_timing')+'\n')
 (out/'gm_input_order_reader.inc').write_text(fn(radio,'output_read')+'\n'+fn(radio,'r2_radio_service_snapshot')+'\n')
-cycle=fn(control,'cycle');assert cycle.index('refresh_direct_gm5_timing()')<cycle.index('r2_network_tick_coordinated(')<cycle.index('normal_relay_tick(scope,now,utc)')
+cycle=fn(control,'cycle');assert cycle.index('refresh_direct_gm5_timing()')<cycle.index('r2_network_tick_coordinated(')<cycle.index('normal_relay_tick(scope,now,utc,&reference)')
 assert 'if(!direct_gm5_timing)\n  r2_network_timing(' in cycle
 assert 'false,valid,context.at)' in control
 cc=os.environ.get('CC') or shutil.which('clang');tiny=a.deps/'modules/crypto/tinycrypt/lib'
