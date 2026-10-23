@@ -20,7 +20,8 @@ inline void select_rc9(Model& m,const v12::Rc9Status& s,uint64_t now,const char*
  const auto fresh=s.sampled_us>UINT64_MAX-SnapshotMaxUs?UINT64_MAX:s.sampled_us+SnapshotMaxUs;
  m.utc_at_us=s.sampled_us;m.utc_us=s.utc_us;m.until_us=std::min(s.until_us,fresh);
  m.valid=true;m.locked=false;m.state=State::Follow;m.source=Source::Rc9;m.hz=0;
- m.serving=false;m.delivery=UINT16_MAX;m.rms_ns=UINT32_MAX;m.precision={};m.signal={};
+ m.serving=false;m.delivery=UINT16_MAX;m.rms_ns=UINT32_MAX;m.precision={};
+ if(m.signal.peer!=s.server)m.signal={};
  std::snprintf(m.parent,sizeof m.parent,"%s",server?server:"RC9");std::snprintf(m.root,sizeof m.root,"%s",root?root:"----");
 }
 }

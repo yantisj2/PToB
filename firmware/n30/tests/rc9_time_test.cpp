@@ -23,6 +23,10 @@ int main(){
  assert(m.valid&&!m.locked&&!m.serving&&m.source==Source::Rc9&&m.state==State::Follow);
  assert(!std::strcmp(source_label(m,now),"RC9")&&!std::strcmp(m.parent,"C-4")&&!std::strcmp(m.root,"TC-03"));
  assert(!precision_current(m,now)&&m.rms_ns==UINT32_MAX&&m.delivery==UINT16_MAX&&rf_bars(m,now)==0);
+ // The adapter already checks the exact current parent's authenticated RSSI.
+ m.signal={s.server,now,1,-45};select_rc9(m,s,now);assert(rf_bars(m,now)==4);
+ assert(rf_bars(m,now+SnapshotMaxUs)==0);
+ m.signal.peer=99;select_rc9(m,s,now);assert(rf_bars(m,now)==0);
  assert(time(m,now,utc)&&analog_time(m,now,utc)&&saver_time(m,now,utc));
  assert(!time(m,now+SnapshotMaxUs,utc));
  // A valid RC9 stream never inherits an earlier BLE precision/lock or relay.

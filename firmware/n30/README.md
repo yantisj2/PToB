@@ -77,7 +77,7 @@ optional console capture now records surface transitions and completed OLED
 write spans without changing that exit policy.
 
 The clock page's bars show fresh RSSI from the active BLE parent, for direct GM
-and relay reception. They remain independent of clock lock and expire after
+and relay or RC9 reception. They remain independent of clock lock and expire after
 two seconds without an authenticated packet. Unknown signal and LoRa fallback
 show empty bars. Strong-signal thresholds are −85, −70 and −55 dBm.
 
