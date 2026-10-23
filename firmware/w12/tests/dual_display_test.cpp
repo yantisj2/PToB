@@ -30,6 +30,7 @@ int main(){
   if(failure==3)radio.fault=true;
   if(failure==4)radio.state=1;
   s={};apply(s,mesh);assert(!s.valid&&!s.precision_live&&s.rms_ns==UINT32_MAX);
+  assert(!std::strchr(s.role,' '));
  }
  radio=valid;radio.root_boot=0;radio.time_valid=radio.metadata_known=false;
  s={};apply(s,mesh);assert(s.precision_lora&&s.precision_live&&s.rms_ns==123&&s.valid);

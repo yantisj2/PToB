@@ -532,7 +532,7 @@ void pps(const gnss_pps::Observation& edge){
   state.precision_lora=select_lora&&lv.requested&&lv.active&&!lv.fault;
   if(state.precision_lora){state.precision_live=state.lora_time_valid;state.rms_ns=UINT32_MAX;
    state.r2_relative_lock=false;state.hold_1us_ms=0;
-   if(!state.lora_time_valid){state.valid=false;state.utc=0;state.role="WAIT RX";state.timing_source=DisplayState::Lora;state.followed_clock="LoRa";state.r2_connection="RC9";}
+   if(!state.lora_time_valid){state.valid=false;state.utc=0;state.role="WAIT_RX";state.timing_source=DisplayState::Lora;state.followed_clock="LoRa";state.r2_connection="RC9";}
   }
   if(select_lora&&state.lora_time_valid){
    selected_utc=lora_utc;selected_at=micros();
