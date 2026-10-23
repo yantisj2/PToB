@@ -238,7 +238,11 @@ class G1ParentSelection {
     // First-source discovery gets several advertisement opportunities before
     // a relay can lock out the GM. Named/relay-only choices keep their policy.
     const bool startup=startup_&&!parent_&&!force_relay_&&!target_;
-    if(!collecting_||now<collecting_||now-collecting_<(startup?StartupCollectUs:CollectUs))return 0;
+    if(!collecting_||now<collecting_)return 0;
+    const bool collecting=now-collecting_<(startup?StartupCollectUs:CollectUs);
+#ifndef PTOB_N30
+    if(collecting)return 0;
+#endif
     const Candidate* best=nullptr;const Candidate* incumbent=nullptr;const Candidate* unbound_retry=nullptr;const Candidate* active_relay=nullptr;
     const Candidate* best_relay=nullptr;const Candidate* best_gm=nullptr;const Candidate* pending=nullptr;const Candidate* recovery_gm=nullptr;bool waiting_gm=false;
     int best_points=INT16_MIN,current_points=INT16_MIN,gm_points=INT16_MIN;
@@ -280,6 +284,12 @@ class G1ParentSelection {
            (c.rssi==active_relay->rssi&&c.identity<active_relay->identity)))active_relay=&c;
       }else if(!best_gm||points>gm_points||(points==gm_points&&c.identity<best_gm->identity)){best_gm=&c;gm_points=points;}
     }
+#ifdef PTOB_N30
+    // A fresh eligible GM locator ends N30's collection wait immediately.
+    // The native owner stops the actual scan before fresh authenticated JOIN;
+    // cooldown, consumed locators, operator choices and live-parent guards stay.
+    if(collecting&&!best_gm)return 0;
+#endif
     // Match T096's smoothed RSSI ordering among RCs. Reuse a nearby active
     // stream first, keeping existing GM comparison and current-link guards.
     if(best_relay&&!best_relay->publishing&&active_relay&&active_relay->rssi>=best_relay->rssi-ActiveRelayRssiMargin&&

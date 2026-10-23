@@ -1,6 +1,6 @@
 # N30 native RC target
 
-**Version 0.2.26** brings BLE reception, passive LoRa fallback and a portrait
+**Version 0.2.27** brings BLE reception, passive LoRa fallback and a portrait
 OLED to the Meshnology N30 / Heltec WiFi LoRa32 V3. It uses an ESP32-S3,
 8 MiB flash and a 64×128 display. N30 is RC-only, with no GNSS input; WiFi is
 disabled. Start with the [build guide](../../docs/n30/build.md).
@@ -73,6 +73,12 @@ these results and the remaining TX-event, RX-delay and causal-validation work.
 Earlier results remain in the historical paper editions.
 
 ## Screens and controls
+
+Boot shows a PToB splash for up to 1.5 seconds after its first successful OLED
+transfer. BLE reception and clock acquisition start before OLED initialization
+and continue throughout the splash. A current settled BLE lock with internal
+SYNC RMS below 1 µs ends it early. A fresh eligible GM starts admission
+immediately, without the initial discovery collection wait.
 
 A short press cycles **Clock → BLE + LoRa → Precision → LoRa → Clock**.
 

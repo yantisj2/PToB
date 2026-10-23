@@ -77,6 +77,9 @@ int main(int argc,char** argv){
   for(unsigned y=0;y<128;y++)for(unsigned x=0;x<64;x++)std::fputc(frame[y*8+x/8]&(0x80>>(x%8))?255:0,f);
   std::fclose(f);
  }
+ n30::render_splash(frame);
+ {char path[1024];std::snprintf(path,sizeof path,"%s/splash.pgm",argv[1]);auto f=std::fopen(path,"wb");if(!f)return 3;
+  std::fprintf(f,"P5\n64 128\n255\n");for(unsigned y=0;y<128;y++)for(unsigned x=0;x<64;x++)std::fputc(frame[y*8+x/8]&(0x80>>(x%8))?255:0,f);std::fclose(f);}
  const char* rc9_names[]={"clock-rc9","precision-rc9","saver-rc9"};
  for(unsigned i=0;i<3;i++){
   n30::Model p;p.sampled_us=p.utc_at_us=1000000;p.until_us=1250000;p.utc_us=fixture_utc;

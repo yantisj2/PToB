@@ -58,11 +58,24 @@ bool flush(uint64_t deadline,uint8_t* written){
 }
 void worker(void*){
  static n30::ClockHold clock_hold; // One display owner; framebuffer stays off stack.
+ n30::BootSplash splash;bool splash_done=false;
  n30::Input input(gpio_get_level(GPIO_NUM_0)==0);n30::View view;n30::FrameCadence cadence;n30::SaverTimer saver_timer;
  uint64_t armed_due=0,exit_loss_us=0;bool force=true,off=false,dim=false,attempted=false,attempted_saver=false;
  for(;;){
   n30::Model m;portENTER_CRITICAL(&mux);m=published;portEXIT_CRITICAL(&mux);
   const auto now=now_us(); // Evaluate a copied snapshot at/after its publication.
+  if(splash.active(m,now)){
+   if(!splash.shown()){
+    n30::render_splash(portrait);n30::rotate(native,portrait,PTOB_N30_ROTATE_CW);
+    uint8_t written=0;const bool ok=flush(now+50000,&written);const auto end=now_us();
+    if(ok)splash.presented(end);
+    portENTER_CRITICAL(&mux);stats.ready=ok;if(ok)stats.frames++;else stats.errors++;
+    stats.max_us=std::max(stats.max_us,uint32_t(end-now));portEXIT_CRITICAL(&mux);
+   }
+   // No radio owner, clock fitting or main task waits for this display deadline.
+   ulTaskNotifyTake(pdTRUE,pdMS_TO_TICKS(10));continue;
+  }
+  if(!splash_done){splash_done=true;input.activity(now);force=true;}
   int request;portENTER_CRITICAL(&mux);request=requested_page;requested_page=-1;portEXIT_CRITICAL(&mux);
   const auto prior=view;if(request>=0){view.page=uint8_t(request);view.help=false;view.blank=false;input.activity(now);clock_hold.reset();force=true;}
   const auto action=input.update(gpio_get_level(GPIO_NUM_0)==0,now,view);

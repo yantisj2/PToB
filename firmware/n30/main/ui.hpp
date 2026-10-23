@@ -74,6 +74,23 @@ class LockTimer {
 };
 const char* source_label(const Model&,uint64_t now);
 void render(uint8_t frame[FrameBytes],const Model&,const View&,uint64_t now);
+void render_splash(uint8_t frame[FrameBytes]);
+// Presentation only. Start residence after a successful full OLED transfer;
+// neither a failed transfer nor a stale/functional fallback clock ends it early.
+class BootSplash {
+ uint64_t shown_at_=0;bool shown_=false,finished_=false;
+ public:
+ static constexpr uint64_t DurationUs=1500000;
+ bool active(const Model& m,uint64_t now){
+  uint64_t utc=0;
+  const bool ble=m.source==Source::Ble||m.source==Source::Rc1||m.source==Source::Rc2;
+  if((ble&&m.locked&&m.state==State::Follow&&time(m,now,utc)&&precision_current(m,now)&&m.precision.locked&&m.precision.rms_ns<1000)||
+     (shown_&&(now<shown_at_||now-shown_at_>=DurationUs)))finished_=true;
+  return !finished_;
+ }
+ bool shown()const{return shown_;}
+ void presented(uint64_t now){if(!shown_){shown_at_=now;shown_=true;}}
+};
 // Logical portrait bitmap -> native 128x64 OLED pages. Both mounted rotations.
 void rotate(uint8_t native[FrameBytes],const uint8_t portrait[FrameBytes],bool clockwise);
 // Display-only grace: remember only a successfully displayed live clock frame.

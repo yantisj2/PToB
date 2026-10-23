@@ -1,5 +1,14 @@
 # Changelog
 
+## N30 0.2.27 — concurrent splash and immediate GM acquisition
+
+Start BLE before OLED initialization and show a display-only PToB splash for
+up to 1.5 seconds, ending early on current settled BLE lock below 1 µs internal
+causal RMS. Fresh eligible GM discovery bypasses N30 collection waits and uses
+the existing scanner cancellation and authenticated admission path. Preserve
+relay observation, W12 policy, source expiry and failed-parent retry fences.
+Add splash boundary/renderer and actual native scan-to-JOIN regressions.
+
 ## N30 0.2.24 — restore independent LoRa capture mapping
 
 Keep the LoRa DIO1 capture map on its original20MHz XTAL GPTimer when BLE

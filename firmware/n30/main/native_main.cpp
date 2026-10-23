@@ -787,7 +787,7 @@ extern "C" void app_main(){
     " max_data=191 max_GMs=4 activities=6 syncs=2 adv_sets=2 mtu=247"
     " precision=UNAVAILABLE GM=DISABLED LoRa=OFF WiFi=OFF PTS=OFF\n",
     V12_UNIT,factory_text,unsigned(identity),session,V12_SOURCE_REVISION,V12_BUILD_ID);
-  std::printf("N30_TARGET version=0.2.24 profile=RC GPS=ABSENT flash_mb=8 console=UART0_43_44 hardware=UNVALIDATED\n");
+  std::printf("N30_TARGET version=0.2.27 profile=RC GPS=ABSENT flash_mb=8 console=UART0_43_44 hardware=UNVALIDATED\n");
   if(!identity||!session){std::printf("W12_V12_FATAL reason=FACTORY_OR_BOOT_BINDING peripherals=UNTOUCHED\n");return;}
   for(const auto byte:factory)fine_factory=(fine_factory<<8)|byte;
   n30_timing_init();
@@ -806,7 +806,7 @@ extern "C" void app_main(){
   gpio_config_t button{};button.pin_bit_mask=1;button.mode=GPIO_MODE_INPUT;button.pull_up_en=GPIO_PULLUP_ENABLE;
   if(gpio_config(&button)!=ESP_OK){v12::fault_watchdog_fatal();std::printf("W12_V12_FATAL reason=BUTTON\n");return;}
   // The N30 display worker is the sole button interpreter.
-  ui_ready=display_init();gps_ready=gnss_pps::init(clock_timer,pps);
+  gps_ready=gnss_pps::init(clock_timer,pps);
 #ifdef V12_R2_ENABLED
   if(!v12::r2_init(session,factory)){v12::fault_watchdog_fatal();std::printf("W12_V12_FATAL reason=R2_ENROLLMENT\n");return;}
   gnss_pps::set_nmea_consumer([](const uint8_t* bytes,unsigned n){v12::r2_nmea(bytes,n,micros());});
@@ -822,9 +822,13 @@ extern "C" void app_main(){
 #endif
   v12::diagnostic_tx_identity(factory,session);
   const uint8_t wire_id=device->wire_id;
-  if(!ui_ready||!v12::lora_start_worker()||!v12::direct_init(factory,wire_id)||!v12::public_observer_init()||!v12::transport_init()){
+  if(!v12::lora_start_worker()||!v12::direct_init(factory,wire_id)||!v12::public_observer_init()||!v12::transport_init()){
     v12::fault_watchdog_fatal();std::printf("W12_V12_FATAL reason=UI_OR_NATIVE_HOST_INIT RF=OFF\n");return;}
   v12::fault_watchdog_host_expected();
+  // Start the BLE owner and its clock acquisition before OLED reset/I2C waits.
+  // The splash lives only in the independent low-priority display worker.
+  ui_ready=display_init();
+  if(!ui_ready){v12::fault_watchdog_fatal();std::printf("W12_V12_FATAL reason=UI_INIT\n");return;}
   while(true){
     // Independent of output and the NimBLE task: expiry remains visible even
     // when that owner is yielding inside an HCI enable/stop. This observer only

@@ -126,6 +126,16 @@ void lora_page(uint8_t* f,const Model& m,uint64_t now){
 }
 void help(uint8_t* f,const View& v){box(f,1,0,62,11);center(f,2,v.page==PrecisionPage?"PRECISION":v.page?"RF KEY":"CLOCK KEY");if(v.page==PrecisionPage){const char* names[]={"ROOT / HOP","TICK SIZE","NOT ERROR","RMS CAUSAL","REL PPB","TREND EST","LOCK HELD","LOSS RESET"};for(unsigned i=0;i<8;i++)center(f,16+int(i)*11,names[i]);}else if(v.page){const char* names[]={"HEL SCAN","SRC GROUP","PRE PA RX","ACK JOIN","CMT MODEL","SRV TX API","RDY N/A","ERR REJECT"};for(unsigned i=0;i<8;i++)text(f,2,15+int(i)*10,names[i]);center(f,99,"DOT RX");center(f,109,"FILL TX");}else{const char* names[]={"RC ONLY","GPS ABSENT","LOCK EST","RELATIVE","RMS IS NOT","UTC ERROR","HOLD LOCAL","4S BLANK"};for(unsigned i=0;i<8;i++)center(f,16+int(i)*11,names[i]);}center(f,120,"PRESS BACK");}
 }
+void render_splash(uint8_t f[FrameBytes]){
+ std::memset(f,0,FrameBytes);
+ // Scale the existing five-column face so the project name fills the portrait.
+ const char* name="PToB";
+ for(unsigned i=0;i<4;i++){
+  const auto g=glyph(name[i]);
+  for(int c=0;c<5;c++)for(int r=0;r<7;r++)if(g[c]&(1<<r))fill(f,9+int(i)*12+c*2,48+r*2,2,2);
+ }
+ fill(f,9,70,46,1);center(f,81,"PRECISION");center(f,92,"TIME");center(f,103,"OVER BLE");
+}
 void render(uint8_t f[FrameBytes],const Model& m,const View& v,uint64_t now){
  std::memset(f,0,FrameBytes);if(v.blank)return;if(v.help){help(f,v);return;}
  if(v.page==LoRaPage&&!v.saver){lora_page(f,m,now);return;}

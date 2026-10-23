@@ -7,6 +7,10 @@ def main():
  p=argparse.ArgumentParser(description=__doc__);p.add_argument('--out',type=Path,required=True);a=p.parse_args();out=a.out.resolve();out.mkdir(parents=True,exist_ok=False)
  cmd=[os.environ.get('CXX','/opt/homebrew/opt/llvm/bin/clang++' if Path('/opt/homebrew/opt/llvm/bin/clang++').exists() else 'clang++'),'-std=c++20','-O1','-g','-Wall','-Wextra','-Werror','-fsanitize=address,undefined','-fno-sanitize-recover=all','-I'+str(APP/'main'),str(APP/'tests/ui_test.cpp'),str(APP/'main/ui_render.cpp'),str(APP/'main/ui_model.cpp'),'-o',str(out/'ui-test')]
  subprocess.run(cmd,check=True,timeout=40);subprocess.run([out/'ui-test'],check=True,timeout=40)
+ for n30 in (False,True):
+  startup=[str(APP/'tests/startup_test.cpp') if x==str(APP/'tests/ui_test.cpp') else str(out/('startup-n30' if n30 else 'startup-w12')) if x==str(out/'ui-test') else x for x in cmd]
+  startup[1:1]=['-I'+str(APP.parent/'w12/main'),*(['-DPTOB_N30=1'] if n30 else [])]
+  subprocess.run(startup,check=True,timeout=40);subprocess.run([startup[-1]],check=True,timeout=10)
  signal=[str(APP/'tests/signal_strength_test.cpp') if x==str(APP/'tests/ui_test.cpp') else str(out/'signal-strength-test') if x==str(out/'ui-test') else x for x in cmd]
  subprocess.run(signal,check=True,timeout=40);subprocess.run([out/'signal-strength-test'],check=True,timeout=10)
  for n30 in (False,True):

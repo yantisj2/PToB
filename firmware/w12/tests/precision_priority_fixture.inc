@@ -29,6 +29,17 @@ void priority_join_written(){priority_empty_before_write=v12::periodic.count==0;
 int main(int argc,char** argv){
  assert(argc==2);const std::string which=argv[1];const uint8_t mac[]={2,3,4,5,6,7};
  assert(v12::r2_init(44,mac)&&v12::r2_host_init()&&v12::r2_host_sync());step(8);v12::stop_scan();
+ if(which=="n30-startup-gm"){
+  v12::start_scan();assert(scan_active&&v12::scan);const auto at=fake_now;
+  v12::Discovery d{};d.props=1;d.sid=12;d.interval=50;d.rssi=-60;d.at=fake_now;d.length=25;
+  d.bytes[0]=24;d.bytes[1]=0xff;auto* b=d.bytes+2;b[0]='G';b[1]='1';b[2]=1;
+  r2_group_put(b+3,v12::provision.group.id,8);r2_group_put(b+11,v12::provision.group.epoch,4);r2_group_put(b+15,501,8);d.address=v12::canonical(501);
+  assert(v12::discoveries.push(d));v12::active_poll(fake_now);
+  assert(fake_now==at&&connected==1&&v12::peer.connecting&&v12::peer.identity==501&&!v12::peer.relay);
+  assert(!scan_active&&!v12::scan&&!v12::scan_retry_at&&!v12::scan_retry_until&&!v12::fault);
+  assert(!v12::anchor.source&&!v12::following(fake_now)); // Locator never supplies time/authentication.
+  std::puts("PASS first GM report cancels actual scanner and initiates fresh JOIN without collection delay");return 0;
+ }
  fake_now=100000000;v12::window_start=v12::G1Window::start(fake_now);
  v12::anchor={true,501,601,UINT64_C(1700000000000000)+fake_now,fake_now,fake_now+1500000,2,3,160000};
  v12::joined_peer=501;v12::joined_boot=601;v12::member=true;

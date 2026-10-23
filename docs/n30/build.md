@@ -79,6 +79,28 @@ AUTO's BLE-lock input, but projects one-second quality against the original
 replay anchor. The `ble_locked` LoRa diagnostic is the worker's actual input.
 This changes radio policy only; UTC expiry and the180s dwell remain original.
 
+## Version 0.2.27 startup
+
+The BLE host starts before OLED reset and I2C initialization. Only the display
+worker holds the PToB splash, for1500000µs from the first successful transfer.
+Current settled BLE/RC1/RC2 lock with internal causal RMS strictly below1000ns
+ends it early; stale, HOLD, unknown RMS, LoRa and functional RC9 cannot do so.
+The first normal frame uses the latest clock publication. The software deadline
+is observed by the10ms display worker; OLED transfer/scanout adds latency.
+
+A fresh eligible GM locator bypasses N30's initial3s and ordinary40ms collection
+waits. The existing native owner cancels scanning before initiating a new JOIN.
+Discovery supplies no authenticated time. Freshness, consumed locators, failed
+parent cooldown, named/relay-only choices, admission budgets, source expiry and
+live-parent protection remain. Relay discovery retains its original startup
+observation window, and W12's collection behavior is unchanged.
+
+The ordinary N30 tests cover splash boundaries, early cancellation, renderer
+bounds and both N30/W12 selection policies. The native scheduling suite above
+includes `n30-startup-gm`, which checks actual scan cancellation and same-poll
+fresh admission without granting clock authority. These software regressions
+do not establish physical boot-to-lock time or calibrated UTC accuracy.
+
 ## Native build
 
 Supply the existing group's ignored enrollment; see [PSK setup](../security/psk.md).
