@@ -15,6 +15,18 @@ failures, missing observations and unknown accuracy bounds remain part of each r
 Copyright (c) 2026 Jonathan Yantis. Original documentation: MIT. Third-party
 patches retain their [source notices](NOTICE.md).
 
+## 0.15.166 — Occasional source diagnostics
+
+A compact authenticated GD1 announcement reports the serving root's actual GNSS
+fix/PPS observations, qualification result, satellites and snapshot ages, plus
+its unchanged election quality tuple. One existing nonprecision advertising
+window per ten seconds carries the 88-byte report; other windows retain GS.
+Precision packets, controller data limits and qualification/failover gates stay
+unchanged. Clients bind the original report to root/boot/mesh epoch and retain
+independent expiry/replay fences. Reported quality is descriptive, including
+unknown accuracy and variance; DOP, antenna health and UTC traceability are not
+measured. Host, native and field validation are recorded separately.
+
 ## 0.15.165 — Mesh epoch inheritance
 
 One mesh source epoch is inherited through authenticated G5 STATUS6 and retained

@@ -8,7 +8,7 @@ endif()
 set(R2_USB_SOURCE_STREAM ON)
 set(R2_USB_SOF_PROBE ON)
 set(R2_USB_REFERENCE_PROBE ON)
-project(ptob_t096 VERSION 0.15.165)
+project(ptob_t096 VERSION 0.15.166)
 option(R2_CONTROLLER_DIAGNOSTICS "Bounded controller diagnostic canary" OFF)
 if(R2_CONTROLLER_DIAGNOSTICS AND (R2_DC_PROFILE OR R2_PC_PROFILE))
  message(FATAL_ERROR "Controller diagnostic canary requires normal GM/RC")
@@ -141,7 +141,7 @@ endif()
 
 configure_file(${R2_ENROLLMENT_HEADER} ${CMAKE_CURRENT_BINARY_DIR}/r2_enrollment.h COPYONLY)
 
-target_sources(app PRIVATE protocol/gm_diagnostics.c protocol/group_join.c protocol/group_auth.c protocol/group_control.c protocol/group_precision.c protocol/role_announcement.c)
+target_sources(app PRIVATE protocol/gm_diagnostics.c protocol/group_join.c protocol/group_auth.c protocol/group_control.c protocol/group_precision.c protocol/role_announcement.c protocol/gnss_diagnostics.c)
 
 if(NOT R2_BOUNDARY_FIELD)
  target_sources(app PRIVATE src/group_admission.c)

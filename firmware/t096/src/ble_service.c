@@ -358,6 +358,8 @@ static void cycle(struct k_work *work)
   const struct r2_role_record role=r2_gm_role_status(&net,roster.identity,scope.gm,
     public.passive,scope.until_us,scope.source_epoch);
   r2_radio_service_role(&role,&roster.group);
+  const struct r2_gnss_record reference=r2_gm_gnss_status(&net,&clock.view,&role);
+  r2_radio_service_gnss(&reference);
   normal_relay_tick(scope,now,utc);
   if(relay_selected){struct r2_relay_status route;r2_relay_service_snapshot(&route,&timing,now);}else r2_radio_service_view(&timing,now);
   if(!direct_gm5_timing)

@@ -14,6 +14,7 @@ if args.out: args.out.resolve().mkdir(parents=True,exist_ok=False)
 with (nullcontext(str(args.out.resolve())) if args.out else tempfile.TemporaryDirectory(prefix='t096-r2-test-')) as directory:
     out=Path(directory)
     compiler=os.environ.get('CC') or ('/opt/homebrew/opt/llvm/bin/clang' if Path('/opt/homebrew/opt/llvm/bin/clang').is_file() else shutil.which('clang'))
+    subprocess.run([sys.executable,str(APP/'tools/gnss_diagnostic_tests.py'),'--deps',str(args.deps),'--out',str(out/'gnss-diagnostics')],env={**os.environ,'CC':compiler},check=True,timeout=60)
     subprocess.run([sys.executable,str(APP/'tools/lora_rc8_tests.py'),'--deps',str(args.deps),'--out',str(out/'rc8')],
                    env={**os.environ,'CC':compiler},check=True,timeout=60)
     subprocess.run([sys.executable,str(APP/'tools/lora_source_owner_tests.py'),'--deps',str(args.deps),'--out',str(out/'lora-source-owner')],env={**os.environ,'CC':compiler},check=True,timeout=60)
@@ -86,10 +87,10 @@ with (nullcontext(str(args.out.resolve())) if args.out else tempfile.TemporaryDi
     subprocess.run([str(out/'transport')],check=True,timeout=30)
     subprocess.run([sys.executable,str(APP/'tools/gm_drain_tests.py'),'--deps',str(args.deps),'--out',str(out/'gm-drain')],env={**os.environ,'CC':compiler},check=True,timeout=60)
 
-    subprocess.run([*flags,'-I'+str(out),'-I'+str(APP/'protocol'),str(APP/'tests/radio_service_test.c'),'-Wno-default-const-init-var-unsafe','-I'+str(args.deps/'modules/crypto/tinycrypt/lib/include'),*[str(APP/'src'/n) for n in ['radio_precision.c','relay_precision.c','core.c','clock.c','nmea.c','precision.c']],*[str(APP/'protocol'/n) for n in ['role_announcement.c','group_join.c','group_auth.c','group_control.c','group_precision.c','authority_codec.c','precision_codec.c','relay_codec.c']],*[str(args.deps/'modules/crypto/tinycrypt/lib/source'/n) for n in ['hmac.c','sha256.c','utils.c']],'-o',str(out/'radio_service')],check=True,timeout=30)
+    subprocess.run([*flags,'-I'+str(out),'-I'+str(APP/'protocol'),str(APP/'tests/radio_service_test.c'),'-Wno-default-const-init-var-unsafe','-I'+str(args.deps/'modules/crypto/tinycrypt/lib/include'),*[str(APP/'src'/n) for n in ['radio_precision.c','relay_precision.c','core.c','clock.c','nmea.c','precision.c']],*[str(APP/'protocol'/n) for n in ['gnss_diagnostics.c','role_announcement.c','group_join.c','group_auth.c','group_control.c','group_precision.c','authority_codec.c','precision_codec.c','relay_codec.c']],*[str(args.deps/'modules/crypto/tinycrypt/lib/source'/n) for n in ['hmac.c','sha256.c','utils.c']],'-o',str(out/'radio_service')],check=True,timeout=30)
     # Current RC7 reset/reconfiguration cases; legacy direct-service fixture
     # modes 0..5 predate the independent bootstrap contract.
-    for mode in (16,17,20,30,31,32,33,34):
+    for mode in (16,17,20,22,30,31,32,33,34,50):
         subprocess.run([str(out/'radio_service'),str(mode)],check=True,timeout=30)
 
     subprocess.run([*flags,'-std=gnu11','-I'+str(out),'-include',str(APP/'tests/gnss_fake.h'),str(APP/'tests/gnss_test.c'),'-o',str(out/'gnss')],check=True,timeout=30)

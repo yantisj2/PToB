@@ -264,16 +264,16 @@ static void __attribute__((noinline)) reply(const struct r2_request *r,uint64_t 
     int n=snprintf(json,sizeof json,"{\"source\":\"%s\",\"boot\":\"%016llx\",\"group_id\":\"%016llx\",\"key_epoch\":%u,\"name_utf8_hex\":\"%s\",\"authenticated_mask\":%u,\"control_capacity\":%u,\"peers\":[{\"id\":\"%016llx\",\"name_hex\":\"%s\"},{\"id\":\"%016llx\",\"name_hex\":\"%s\"},{\"id\":\"%016llx\",\"name_hex\":\"%s\"},{\"id\":\"%016llx\",\"name_hex\":\"%s\"}],\"gm_transport\":[",
       R2_SOURCE_SHA,(unsigned long long)identity.boot,(unsigned long long)s.group_id,s.key_epoch,names[0],s.authenticated_mask,R2_NET_PEERS,
       (unsigned long long)s.identities[0],names[1],(unsigned long long)s.identities[1],names[2],(unsigned long long)s.identities[2],names[3],(unsigned long long)s.identities[3],names[4]);
-    uint32_t gm[R2_GM_TRANSPORT_WORDS]={0},pa[6]={0};
+    uint32_t gm[R2_GM_TRANSPORT_WORDS]={0},pa[6]={0},reference_sequence=0;
 #ifndef R2_PC_PROFILE
-    if(!s.profile_rc){r2_ble_gm_diagnostics(gm);r2_radio_service_gm_diagnostics(pa);}
+    if(!s.profile_rc){r2_ble_gm_diagnostics(gm);r2_radio_service_gm_diagnostics(pa);reference_sequence=r2_radio_service_gnss_sequence();}
 #endif
     for(unsigned i=0;i<R2_GM_TRANSPORT_WORDS&&n>=0&&(size_t)n<sizeof json;i++){
       int added=snprintf(json+n,sizeof json-(size_t)n,"%s%u",i?",":"",gm[i]);
       if(added<0){n=-1;break;}n+=added;
     }
     if(n>=0&&(size_t)n<sizeof json){int added=snprintf(json+n,sizeof json-(size_t)n,
-      "],\"gm_radio\":[%u,%u,%u,%u,%u,%u]}",pa[0],pa[1],pa[2],pa[3],pa[4],pa[5]);if(added<0)n=-1;else n+=added;}
+      "],\"gm_radio\":[%u,%u,%u,%u,%u,%u],\"gnss_diagnostic_sequence\":%u}",pa[0],pa[1],pa[2],pa[3],pa[4],pa[5],reference_sequence);if(added<0)n=-1;else n+=added;}
     if(n<0||(size_t)n>=sizeof json||reply_sequence==UINT32_MAX)return;
     n=r2_frame(frame,sizeof frame,r->id,++reply_sequence,json);if(n>0)(void)r2_console_reply(frame,(size_t)n,arrival+R2_REPLY_MS);return;
   }

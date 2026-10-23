@@ -49,6 +49,9 @@ def inspect(out,allow_development=False):
     for line in ['CONFIG_ROM_END_OFFSET=0x6000','CONFIG_FLASH=y','CONFIG_USB_DEVICE_STACK=y','CONFIG_WATCHDOG=y']:
         require(line in config,'Required configuration: '+line)
     commands=(out/'target/compile_commands.json').read_text()
+    if tuple(map(int,r['version'].split('.'))) >= (0,15,166):
+        require(('/protocol/gnss_diagnostics.c' in commands)==(not dc and not pc),
+                'GNSS diagnostic codec membership mismatch')
     if not dc and tuple(map(int,r['version'].split('.'))) >= (0,15,101):
         units=json.loads(commands)
         aux=[x['file'] for x in units if x['file'].endswith('/lll_scan_aux.c')]

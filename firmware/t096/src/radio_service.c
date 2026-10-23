@@ -4,6 +4,7 @@
  */
 #include "radio_service.h"
 #include "role_announcement.h"
+#include "gnss_diagnostics.h"
 #include "health.h"
 #include "group_precision.h"
 #include "group_admission.h"
@@ -36,6 +37,14 @@ static struct r2_role_record role_status;
 static struct r2_group_config role_group;
 static uint64_t role_next_us;
 static atomic_t role_sequence,role_update_errors;
+static struct r2_gnss_record gnss_status;
+static uint64_t gnss_next_us;
+static atomic_t gnss_sequence;
+uint32_t r2_radio_service_gnss_sequence(void){return (uint32_t)atomic_get(&gnss_sequence);}
+void r2_radio_service_gnss(const struct r2_gnss_record *r){
+ /* Serialized CONTROL mailbox, like role_status; never ISR/precision work. */
+ gnss_status=r?*r:(struct r2_gnss_record){0};
+}
 static atomic_t gm_radio_state;
 void r2_radio_service_role(const struct r2_role_record *r,const struct r2_group_config *g){
  /* Same serialized CONTROL owner as radio_service_tick; no ISR/callback work. */
@@ -770,13 +779,28 @@ static void install_role_status(const struct pt_output *out,uint64_t now){
  struct r2_role_record r=role_status;
  if(!r.sender||r.root!=out->scope.root_identity||r.root_boot!=out->scope.boot||r.source_epoch!=out->scope.source_epoch||
     now<r.created_us||now-r.created_us>=r.valid_us||(uint32_t)atomic_get(&role_sequence)==UINT32_MAX)return;
- r.valid_us-=(uint32_t)(now-r.created_us);r.created_us=now;
- atomic_inc(&role_sequence);r.sequence=(uint32_t)atomic_get(&role_sequence);
- uint8_t wire[R2_ROLE_AD_BYTES];if(r2_role_encode(wire,&r,&role_group))return;
- const struct bt_data ad={.type=BT_DATA_MANUFACTURER_DATA,.data_len=sizeof wire-2,.data=wire+2};
+ /* GD replaces one nonprecision GS window per10s. Combined204B would exceed
+  * the unchanged191B controller ceiling. No new advertiser or HCI update. */
+ uint8_t wire[R2_ROLE_AD_BYTES];size_t length=R2_ROLE_AD_BYTES;
+ struct r2_gnss_record d=gnss_status;
+ bool diagnostic=now>=gnss_next_us&&(uint32_t)atomic_get(&gnss_sequence)!=UINT32_MAX&&
+  d.root==r.root&&d.root_boot==r.root_boot&&d.mesh_epoch==r.source_epoch&&
+  now>=d.sampled_us&&now-d.sampled_us<d.valid_us;
+ if(diagnostic){
+  d.valid_us-=(uint32_t)(now-d.sampled_us);d.sequence=(uint32_t)atomic_get(&gnss_sequence)+1;
+  if(r2_gnss_encode(wire,&d,&role_group))diagnostic=false;
+  else length=R2_GNSS_AD_BYTES;
+ }
+ if(!diagnostic){
+  r.valid_us-=(uint32_t)(now-r.created_us);r.created_us=now;
+  atomic_inc(&role_sequence);r.sequence=(uint32_t)atomic_get(&role_sequence);
+  if(r2_role_encode(wire,&r,&role_group))return;
+ }
+ const struct bt_data ad={.type=BT_DATA_MANUFACTURER_DATA,.data_len=length-2,.data=wire+2};
  r2_health_operation(R2_HEALTH_PA,R2_HEALTH_ADV_DATA,-EINPROGRESS);
  int rc=bt_le_ext_adv_set_data(advertiser,&ad,1,NULL,0);
  r2_health_operation(R2_HEALTH_PA,R2_HEALTH_ADV_DATA,rc);
+ if(!rc&&diagnostic){atomic_set(&gnss_sequence,d.sequence);gnss_next_us=now+10000000;}
  // Optional diagnostic metadata failure does not withdraw healthy timing.
  // Its old signed sequence is rejected on subsequent SS3 polls; keep a count.
  if(rc&&(uint32_t)atomic_get(&role_update_errors)!=UINT32_MAX)atomic_inc(&role_update_errors);

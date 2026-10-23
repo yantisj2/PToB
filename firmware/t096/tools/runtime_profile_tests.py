@@ -28,7 +28,7 @@ try:
    subprocess.run([str(out/name)],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
   results.append({'case':name,'passed':True})
  if a.deps:
-  tiny=a.deps.resolve()/'modules/crypto/tinycrypt/lib';crypto=[app/'protocol'/x for x in ['role_announcement.c','group_join.c','group_auth.c','group_control.c','group_precision.c','authority_codec.c','precision_codec.c','relay_codec.c']]+[tiny/'source'/x for x in ['hmac.c','sha256.c','utils.c']]
+  tiny=a.deps.resolve()/'modules/crypto/tinycrypt/lib';crypto=[app/'protocol'/x for x in ['gnss_diagnostics.c','role_announcement.c','group_join.c','group_auth.c','group_control.c','group_precision.c','authority_codec.c','precision_codec.c','relay_codec.c']]+[tiny/'source'/x for x in ['hmac.c','sha256.c','utils.c']]
   for name,files,extra,modes in [('transport',[app/'tests/runtime_transport_restart_test.c',*crypto],[],[[]]),('radio-reset',[app/'tests/radio_service_test.c',*[app/'src'/n for n in ['radio_precision.c','relay_precision.c','core.c','clock.c','nmea.c','precision.c']],*crypto],[],[['16'],['17'],['20']]),('reply',[app/'tests/reply_test.c',app/'src/core.c'],['-DR2_NATIVE_BLE=1','-include',str(app/'tests/zephyr_fake.h')],[[]])]:
    with (out/(name+'.log')).open('x') as log:
     subprocess.run([*flags,'-I'+str(tiny/'include'),*extra,*map(str,files),'-o',str(out/name)],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
