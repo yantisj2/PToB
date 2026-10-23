@@ -42,6 +42,7 @@ bool r2_radio_audit_read(uint32_t after,struct r2_radio_audit_record *q,struct r
 void r2_service_snapshot(struct r2_service_status *s){memset(s,0xff,sizeof(*s));s->profile_rc=s->profile_pending=s->profile_target_rc=true;s->profile_rc=!gm_diagnostic_reply;s->transport_fault.bridge_pending=s->standby_authorized=s->takeover_pending=s->field_profile=s->gm_capable=s->source_eligible=s->hot_ready=s->normal=s->configured=s->active=s->closing=s->closed=s->serving=s->follower=s->follower_clock_valid=s->peer_delivery_confirmed=s->relay_pending=true;s->precision.fit_valid=s->precision.correction_age_valid=s->precision.rms_valid=s->precision.map_valid=s->precision.locked=s->precision.authorized=true;s->relay.sync_creating=s->relay.sync_active=s->relay.phase_acquiring=s->relay.recovery_grace_active=s->relay.holdover_bound_known=s->relay.window_recovering=s->relay.held_time=s->relay.selected=s->relay.active=s->relay.map_valid=s->relay.phase_admitted=s->relay.quiet=true;}
 void r2_ble_gm_diagnostics(uint32_t out[R2_GM_TRANSPORT_WORDS]){for(unsigned i=0;i<R2_GM_TRANSPORT_WORDS;i++)out[i]=UINT32_MAX;}
 void r2_radio_service_gm_diagnostics(uint32_t out[6]){for(unsigned i=0;i<6;i++)out[i]=UINT32_MAX;}
+uint32_t r2_radio_service_gnss_sequence(void){return UINT32_MAX;}
 int r2_service_configure(const struct r2_identity *i,const struct r2_enrollment *e){return 0;}
 void r2_service_clock(const struct r2_clock *c){}
 void r2_service_supervise(void){}
