@@ -1,5 +1,15 @@
 # Manuscript history
 
+## 2026-10-22 — ESP32-S3 public draft review
+
+- Jonathan Yantis approved publishing the reviewed ESP32-S3 timing study and
+  its selected sanitized evidence alongside the robotics paper, so the cited
+  source populations and offline checks are publicly obtainable.
+- Publish the matching source/PDF, immutable receipts and verifier together.
+  Preserve the original incomplete 660-second outcome and all evidence limits.
+  This approval does not publish N30 firmware development, qualify hardware,
+  submit either paper or promote a stable edition.
+
 ## 2026-10-22 — robotic gPTP/TSN public draft review
 
 - Jonathan Yantis approved adding the robotic gPTP/TSN paper to the public

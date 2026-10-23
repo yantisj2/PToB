@@ -49,7 +49,8 @@ to a stable paper. The immutable edition receipt records local preparation
 before the GitHub push; the [manuscript history](CHANGELOG.md) records the
 subsequent public-review approval.
 
-The ESP32-S3 paper has a [22 October edition manifest](editions/s3-timing-2026-10-22.json)
+The ESP32-S3 paper was **approved for public draft review on 22 October 2026**
+and has a [22 October edition manifest](editions/s3-timing-2026-10-22.json)
 and [sanitized observation supplement](../evidence/s3/2026-10-22/README.md).
 Its fixed 660-second attempt retains 615 valid relative PPS samples, one
 reference-unavailable record and 44 nominal unrecorded opportunities after
@@ -57,7 +58,9 @@ collection disabled. The original incomplete outcome is preserved. The 80 MHz
 raw observer remains separate from production timing; a qualified fine RF
 endpoint, calibrated path delay and independent output accuracy remain future
 work. Historical Nordic results retain their distinct population and denominator.
-This is a locally prepared research draft, without submission or promotion.
+It remains a research draft, without submission or promotion to a stable paper.
+Its immutable edition receipt records preparation before public-review approval;
+the [manuscript history](CHANGELOG.md) records that subsequent approval.
 
 The Bluetooth timecode paper was **approved for public draft review on
 22 October 2026** and remains a research draft. It has a
