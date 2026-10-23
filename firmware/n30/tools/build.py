@@ -7,7 +7,7 @@ from pathlib import Path
 APP=Path(__file__).resolve().parents[1];REPO=APP.parents[1]
 sys.path.insert(0,str(REPO/'registry'))
 from registry import load as load_registry,header as registry_header
-VERSION='0.2.21'
+VERSION='0.2.22'
 T096_LORA_FILES=['protocol/lora_rc8.c','protocol/lora_rc8.h','protocol/group_auth.h','include/lora_rc8_policy.h','include/precision_servo.h','src/lora_rc8_policy.c']
 def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
 def git(p,*args):return subprocess.check_output(['git','-C',str(p),*args],text=True).strip()
@@ -87,7 +87,7 @@ def check_main_stack(out):
  path=REPO/'firmware/w12/tools/stack_budget.py'
  spec=importlib.util.spec_from_file_location('n30_selected_stack',path);module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
  result=module.check(out)
- if json.loads((Path(out)/'receipt.json').read_text()).get('version') not in ('0.2.0','0.2.1','0.2.2','0.2.3','0.2.4','0.2.5','0.2.6','0.2.7','0.2.8','0.2.9','0.2.10','0.2.11','0.2.12','0.2.13','0.2.14','0.2.15','0.2.16','0.2.17','0.2.18','0.2.19','0.2.20','0.2.21'):return result
+ if json.loads((Path(out)/'receipt.json').read_text()).get('version') not in ('0.2.0','0.2.1','0.2.2','0.2.3','0.2.4','0.2.5','0.2.6','0.2.7','0.2.8','0.2.9','0.2.10','0.2.11','0.2.12','0.2.13','0.2.14','0.2.15','0.2.16','0.2.17','0.2.18','0.2.19','0.2.20','0.2.21','0.2.22'):return result
  # Selected extra chains with explicit reserve; not a complete call graph.
  usage=[]
  for file in (Path(out)/'target').rglob('*.su'):
@@ -97,7 +97,7 @@ def check_main_stack(out):
   if len(rows)!=1 or rows[0][2]!='static':raise ValueError('Missing/ambiguous N30 static frame: '+tail)
   return int(rows[0][1])
  f=result['frames_bytes'];root=f['main']+f['input']+f['command']
- history_start='bool n30::fine::History::start(uint64_t, uint64_t, uint32_t, uint32_t, bool)' if json.loads((Path(out)/'receipt.json').read_text())['version'] in ('0.2.19','0.2.20','0.2.21') else 'bool n30::fine::History::start(uint64_t, uint64_t, uint32_t, uint32_t)'
+ history_start='bool n30::fine::History::start(uint64_t, uint64_t, uint32_t, uint32_t, bool)' if json.loads((Path(out)/'receipt.json').read_text())['version'] in ('0.2.19','0.2.20','0.2.21','0.2.22') else 'bool n30::fine::History::start(uint64_t, uint64_t, uint32_t, uint32_t)'
  paths={
  'LoRa_status':(result['configured_bytes'],4096,root+frame('void {anonymous}::respond_status(uint64_t, uint64_t)')+frame('void {anonymous}::lora_status_frame(uint64_t, uint64_t)')+frame('void n30_lora_diagnostics(v12::ConsoleFrame&)')),
  'main_UI_publish':(result['configured_bytes'],4096,f['main']+f['ui']+frame('void n30_display_publish(const v12::R2Status&, const DisplayState&, uint64_t)')+frame('void n30::select_lora(Model&, const n30_lora_view&, uint64_t)'))}
@@ -109,16 +109,16 @@ def check_main_stack(out):
   return int(rows[0][1])
  paths['display_worker']=(4096,1536,in_file('display.cpp','void {anonymous}::worker(void*)')+frame('void n30::ClockHold::draw(uint8_t*, const n30::Model&, const n30::View&, uint64_t) const')+frame('void n30::render(uint8_t*, const Model&, const View&, uint64_t)')+frame('void n30::{anonymous}::dial(uint8_t*, int, uint64_t, uint16_t)')+frame('void n30::{anonymous}::line(uint8_t*, int, int, int, int)')+frame('void n30::{anonymous}::pixel(uint8_t*, int, int, bool)'))
  paths['radio_receive']=(8192,4096,in_file('native_lora.cpp','void {anonymous}::worker(void*)')+in_file('native_lora.cpp','void {anonymous}::worker_step(bool)')+in_file('native_lora.cpp','int {anonymous}::receive()')+frame('n30_rc8_receive')+frame('rc8_receiver_process')+frame('rc8_receiver_process_origin'))
- if json.loads((Path(out)/'receipt.json').read_text()).get('version') in ('0.2.9','0.2.10','0.2.11','0.2.12','0.2.13','0.2.14','0.2.15','0.2.16','0.2.17','0.2.18','0.2.19','0.2.20','0.2.21'):
+ if json.loads((Path(out)/'receipt.json').read_text()).get('version') in ('0.2.9','0.2.10','0.2.11','0.2.12','0.2.13','0.2.14','0.2.15','0.2.16','0.2.17','0.2.18','0.2.19','0.2.20','0.2.21','0.2.22'):
   paths['timing_reply']=(result['configured_bytes'],4096,root+frame('void {anonymous}::respond_status(uint64_t, uint64_t)')+frame('void {anonymous}::lora_status_frame(uint64_t, uint64_t)')+frame('void n30_timing_frame(v12::ConsoleFrame&, uint32_t, uint64_t)'))
   paths['timing_start']=(result['configured_bytes'],4096,root+frame('bool n30_timing_start(uint64_t, uint64_t, uint32_t, uint32_t)')+frame('bool n30::timing::Recorder::start(uint64_t, uint64_t, uint32_t, uint32_t, uint64_t)'))
   config=(Path(out)/'target/sdkconfig').read_text();host=re.findall(r'^CONFIG_BT_NIMBLE_HOST_TASK_STACK_SIZE=(\d+)$',config,re.M)
   if len(host)!=1:raise ValueError('One N30 BLE host stack configuration required')
   paths['timing_pair_worker']=(int(host[0]),4096,frame('void v12::r2_host_poll()')+frame('void v12::{anonymous}::active_poll(uint64_t)')+frame('unsigned int v12::{anonymous}::periodic_poll(uint64_t, unsigned int)')+frame('bool v12::G1CorrectedClock::receive(const r2_relay_packet&, const v12::periodic_rx::Stamp&, uint64_t, uint64_t, const v12::G1Anchor&, rc5_origin*)')+frame('void v12::G1CorrectedClock::observe_clock(const Original&, uint64_t, uint64_t)')+frame('void {anonymous}::pair(const v12::n30_probe::Pair&)')+frame('void n30::timing::Recorder::pair(const v12::n30_probe::Pair&, uint64_t)'))
- if json.loads((Path(out)/'receipt.json').read_text()).get('version') in ('0.2.12','0.2.13','0.2.14','0.2.15','0.2.16','0.2.17','0.2.18','0.2.19','0.2.20','0.2.21'):
+ if json.loads((Path(out)/'receipt.json').read_text()).get('version') in ('0.2.12','0.2.13','0.2.14','0.2.15','0.2.16','0.2.17','0.2.18','0.2.19','0.2.20','0.2.21','0.2.22'):
   paths['fine_reply']=(result['configured_bytes'],4096,root+frame('void {anonymous}::respond_status(uint64_t, uint64_t)')+frame('void {anonymous}::lora_status_frame(uint64_t, uint64_t)')+frame('void n30_fine_frame(v12::ConsoleFrame&, uint32_t, uint64_t)'))
   paths['fine_start']=(result['configured_bytes'],4096,root+frame('bool n30_fine_start(uint64_t, uint64_t, uint64_t, uint32_t, uint32_t)')+frame(history_start))
-  if json.loads((Path(out)/'receipt.json').read_text()).get('version') in ('0.2.13','0.2.14','0.2.15','0.2.16','0.2.17','0.2.18','0.2.19','0.2.20','0.2.21'):
+  if json.loads((Path(out)/'receipt.json').read_text()).get('version') in ('0.2.13','0.2.14','0.2.15','0.2.16','0.2.17','0.2.18','0.2.19','0.2.20','0.2.21','0.2.22'):
    def fine_function(name):
     unit=list((Path(out)/'target').rglob('fine_capture.cpp.su'))
     if len(unit)!=1:raise ValueError('One fine capture stack unit required')
@@ -131,11 +131,11 @@ def check_main_stack(out):
    paths['fine_poll']=(result['configured_bytes'],4096,f['main']+frame('void n30_fine_poll(uint64_t)')+fine_function('current')+fine_function('latch')+frame('bool n30::fine::Counter::current(uint32_t, uint32_t, uint64_t, n30::fine::Time&)')+fine_function('probe_tick')+fine_function('level_matches'))
   else:
    paths['fine_poll']=(result['configured_bytes'],4096,f['main']+frame('void n30_fine_poll(uint64_t)')+in_file('fine_capture.cpp','bool {anonymous}::current(uint64_t, n30::fine::Time&)')+in_file('fine_capture.cpp','bool {anonymous}::latch(uint32_t&)')+frame('bool n30::fine::Counter::current(uint32_t, uint32_t, uint64_t, n30::fine::Time&)'))
- if json.loads((Path(out)/'receipt.json').read_text()).get('version') in ('0.2.17','0.2.18','0.2.19','0.2.20','0.2.21'):
-  window_frame='void n30_window_frame(v12::ConsoleFrame&, bool, uint32_t, bool)' if json.loads((Path(out)/'receipt.json').read_text())['version'] in ('0.2.18','0.2.19','0.2.20','0.2.21') else 'void n30_window_frame(v12::ConsoleFrame&, bool, uint32_t)'
+ if json.loads((Path(out)/'receipt.json').read_text()).get('version') in ('0.2.17','0.2.18','0.2.19','0.2.20','0.2.21','0.2.22'):
+  window_frame='void n30_window_frame(v12::ConsoleFrame&, bool, uint32_t, bool)' if json.loads((Path(out)/'receipt.json').read_text())['version'] in ('0.2.18','0.2.19','0.2.20','0.2.21','0.2.22') else 'void n30_window_frame(v12::ConsoleFrame&, bool, uint32_t)'
   paths['window_reply']=(result['configured_bytes'],4096,root+frame('void {anonymous}::respond_status(uint64_t, uint64_t)')+frame('void {anonymous}::lora_status_frame(uint64_t, uint64_t)')+frame(window_frame)+frame('void n30_window_poll()')+frame('void n30_fine_poll(uint64_t)'))
   paths['window_report']=(result['configured_bytes'],4096,f['main']+frame('void n30_window_report(const v12::Report&)')+frame('bool n30_fine_window_bridge(bool (*)(uint64_t*), n30::fine::Bridge&)')+fine_function('current')+fine_function('latch'))
- if json.loads((Path(out)/'receipt.json').read_text()).get('version') in ('0.2.19','0.2.20','0.2.21'):
+ if json.loads((Path(out)/'receipt.json').read_text()).get('version') in ('0.2.19','0.2.20','0.2.21','0.2.22'):
   counter=frame('bool n30::fine::Counter::current(uint32_t, uint32_t, uint64_t, n30::fine::Time&)')
   current=fine_function('current')+fine_function('latch')+counter
   claim=frame('n30::fine::Receiver::Result n30::fine::Receiver::claim(uint64_t, uint32_t, uint8_t, uint8_t, uint8_t, uint32_t, uint32_t, uint64_t, uint32_t, Match&)')
@@ -145,6 +145,14 @@ def check_main_stack(out):
   paths['fine_receive_worker']=(host,4096,frame('void v12::r2_host_poll()')+frame('void v12::{anonymous}::active_poll(uint64_t)')+frame('unsigned int v12::{anonymous}::periodic_poll(uint64_t, unsigned int)')+frame('int n30_fine_backend_receive(v12::periodic_rx::Stamp&)')+max(claim,coordinate,current))
   paths['fine_current_main']=(result['configured_bytes'],4096,f['main']+frame('bool clock_reference_read(uint64_t*)')+frame('bool n30_fine_backend_current(uint64_t*)')+max(current,pending,coordinate))
   paths['fine_boot_start']=(result['configured_bytes'],4096,f['main']+frame('bool n30_fine_backend_start(uint64_t, uint64_t, uint64_t)')+fine_function('fine_start')+frame('void n30::fine::Receiver::begin(uint64_t, uint64_t, uint32_t)'))
+ if json.loads((Path(out)/'receipt.json').read_text()).get('version')=='0.2.22':
+  # Native GCC labels varargs wrappers as ')' in .su. Bind its source line
+  # explicitly, then include the actual formatter chain and libc reserve.
+  lines=(APP/'main/bounded_log.cpp').read_text().splitlines()
+  line=next(i+1 for i,s in enumerate(lines) if s.startswith('int logf('))
+  rows=[r for r in usage if len(r)==3 and re.search(r'/bounded_log\.cpp:'+str(line)+r':\d+:',r[0])]
+  if len(rows)!=1 or rows[0][2]!='static':raise ValueError('Missing surface-trace log wrapper stack frame')
+  paths['display_surface_trace']=(result['configured_bytes'],4096,f['main']+frame('void n30_display_trace_poll()')+int(rows[0][1])+frame('int v12::logv(const char*, va_list)')+frame('int v12::logv_impl(const char*, va_list, bool)'))
  result['n30_selected_paths']={}
  for name,(configured,reserve,selected) in paths.items():
   if selected+reserve>configured:raise ValueError('N30 stack budget exceeded: '+name)

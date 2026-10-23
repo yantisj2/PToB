@@ -22,6 +22,7 @@ int uart_wait_tx_done(int port,unsigned timeout){assert(port==0&&timeout==0);ret
 void vTaskDelay(unsigned n){fake_now+=uint64_t(n)*1000;if(++turns>=stop_after)throw Stop{};}
 #include "../main/bounded_log.cpp"
 #undef xPortInIsrContext
+#include "surface_trace_actual.inc"
 int invoke_logv(const char* format,...){va_list args;va_start(args,format);const int n=v12::logv(format,args);va_end(args);return n;}
 void run(unsigned n){turns=0;stop_after=n;try{v12::output(nullptr);}catch(const Stop&){}assert(turns==n);}
 void clear(){fake_isr=false;fake_now=1000;wire.clear();reader=true;v12::stats={};v12::frames={};v12::lines={};v12::current_frame={};v12::current_line={};v12::tx_mode=false;v12::tx_filtered=0;v12::capture_generation=0;v12::live_next_us=0;}
@@ -100,5 +101,18 @@ int main(int argc,char** argv){
  assert(v12::logf("W12_G1_TX_EST bad\tfield bound=UNKNOWN\n")==0&&v12::log_status().truncated==2);
  assert(v12::logf("W12_G1_TX_EST bad\rfield bound=UNKNOWN\n")==0&&v12::log_status().truncated==3);
  v12::capture_stop();assert(v12::capture_begin(15,1000));assert(!v12::n30_capture_tx_status().selected&&v12::n30_capture_tx_status().filtered==0);
- std::puts("PASS actual N30 frame submit/output: ten rows, nine-row refusal, original deadlines, no-reader expiry, overflow");
+ // Compile the real surface-record owner and poller, using the real bounded
+ // logger/UART worker. It must remain silent by default, retain dropped
+ // records explicitly, fit maximum widths, and obey TX-only filtering.
+ clear();surfaces={};SurfaceRecord surface{UINT64_MAX,UINT64_MAX,UINT64_MAX,UINT64_MAX,UINT64_MAX,UINT32_MAX,1,0,1,3,1,1,1,6,4,255,0};
+ assert(surfaces.push(surface));n30_display_trace_poll();run(10);assert(wire.empty()&&!surfaces.count);
+ clear();surfaces={};assert(v12::capture_begin(16,1000));
+ for(unsigned i=0;i<4;i++)assert(surfaces.push(surface));assert(!surfaces.push(surface)&&surfaces.drops==1);
+ for(unsigned i=0;i<4;i++){n30_display_trace_poll();run(20);}
+ assert(!surfaces.count&&v12::log_status().truncated==0&&v12::log_status().expired==0);
+ assert(wire.find("N30_UI_SURFACE seq=4294967295 dropped=1 at_us=18446744073709551615")!=std::string::npos);
+ assert(wire.find("written=ff ok=0\n")!=std::string::npos);
+ clear();surfaces={};assert(v12::n30_capture_tx_begin(17,1000));assert(surfaces.push(surface));n30_display_trace_poll();run(20);
+ assert(wire.empty()&&v12::n30_capture_tx_status().filtered==1);
+ std::puts("PASS actual N30 frame submit/output and capture-only surface trace: maximum widths, bounded drops, OFF silence, TX filtering");
 }

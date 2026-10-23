@@ -1,15 +1,15 @@
 # Changelog
 
-## N30 0.2.21 — earlier fine slew and persistent screensaver
+## N30 0.2.22 — fine slew with original saver failure exit
 
-Enter the existing 1 ppm fine phase slew below 2000 ns of phase backlog on
-N30; keep the shared targets' 1000 ns default. Keep an active screensaver
-resident through timing loss, so the underlying Precision page cannot flash
-between source withdrawal and recovery. Expire cached time after the existing
-500 ms grace and show WAIT on the saver; user activity still wakes immediately.
-Preserve settled-lock, source expiry and RF/UTC qualification gates. Validate
-signed mode boundaries and saver loss/recovery/wake with offline host checks;
-native builds do not establish hardware acceptance.
+Retain the N30-only fine phase slew below2000ns and restore the original500ms
+screensaver exit on continuous total timing loss. Withdraw the uninstalled
+0.2.21 persistent-saver candidate. Test sub100ms dips on every worker turn and
+retain the exact failure boundary. Optional ALL console capture records bounded
+surface transitions and successful OLED write spans to investigate the reported
+brief Precision-header flash; its hardware cause and repair remain pending.
+Read a copied display model's observation time after its snapshot is copied.
+No source expiry, lock qualification or RF/UTC acceptance gate changes.
 
 ## 2026-10-22 — N30 measured precision follow-up
 

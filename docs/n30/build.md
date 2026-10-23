@@ -865,21 +865,33 @@ trend admission, both counter labels, long root names and both mounted
 framebuffer rotations.
 Illustrative previews contain synthetic values and are not hardware acceptance.
 
-### Version 0.2.21 fine slew and screensaver continuity
+### Version 0.2.22 fine slew and surface-transition observation
 
 N30 selects the existing 1 ppm fine phase slew when the absolute phase backlog
 is below 2000 ns; at 2000 ns and above it retains bounded acquisition steering.
 The shared W12/SS3 default remains within 1000 ns. This changes phase steering,
 not settled-lock qualification, RF calibration or source/model expiry.
 
-An entered screensaver now remains resident until button activity or an explicit
-page request. Timing loss cannot briefly reveal Precision or another underlying
-page. The existing 500 ms clock-pixel grace still expires: the full saver then
-shows WAIT / NO TIME, while the minimal saver retains only its WAIT header.
-The PPS lamp continues to require fresh locked time. Recovery preserves the
-same saver residence and movement schedule. Host checks exercise signed
-1999/2000 ns slew boundaries, both shared defaults, every underlying page and
-saver position, stale/held inputs, long outages, transfer failure and wake.
+The original screensaver policy remains:500 ms of continuous total timing loss
+exits the saver, while brief losses and quality dips retain it. The uninstalled
+0.2.21 persistent-saver candidate was withdrawn. Host checks verify losses
+of1,1000 and99000us at every worker turn, all pages/positions and both layouts,
+and preserve the exact499999/500000us failure boundary. A50ms visible page can
+also follow a genuine500ms outage; visible flash duration alone cannot identify
+its cause. The reported brief Precision-header flash remains unconfirmed in
+hardware and is not declared fixed.
+
+Ordinary bounded ALL console capture additionally carries `N30_UI_SURFACE`
+records for attempted saver transitions. They freeze worker and transfer end
+times, preceding continuous loss duration, snapshot/source deadlines, selected
+page, validity/lock/state/source and the mask of native OLED page spans that
+completed. `ok=0` can still include a partially written page: a failed I2C call
+cannot establish that no bytes reached the panel. Sequence and dropped counts
+preserve the four-record queue's missing records. Main-task formatting keeps
+the large logger frame off the display stack. The observer is bounded, does not
+change presentation or timing and emits no records with ordinary capture OFF;
+TX-only capture filters these records. Partial/expired UART lines remain
+unusable. This is software intent/driver evidence, not a camera or panel readback.
 
 ### Empirical fine-receiver candidate
 

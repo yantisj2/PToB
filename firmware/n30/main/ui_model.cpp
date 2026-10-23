@@ -92,8 +92,8 @@ void update_saver(Input& input,ClockHold& hold,SaverTimer& timer,const Model& m,
  uint64_t utc;input.idle(now,analog_time(m,now,utc),v);
  const bool due=input.saver_due(now,v);
  hold.update(m,v,now,due);
- // Live following time gates initial entry only. Once idle, source loss must
- // stay on this surface; ClockHold expires its old time after500ms.
+ // A precision dip is not total sync loss. Either live following input keeps
+ // this one session alive; raw local HOLD never counts as synchronization.
  const bool synchronized=saver_time(m,now,utc)||(m.ble.following&&ble_time(m,now,utc))||lora_time(m.lora,now,utc);
  timer.update(now,v,synchronized,due);
 }

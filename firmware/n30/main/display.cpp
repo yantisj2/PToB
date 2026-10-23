@@ -12,6 +12,7 @@
 #include "ptob_registry.h"
 #include "display_budget.hpp"
 #include "native_device_binding.hpp"
+#include "client_lifecycle.hpp"
 #include "driver/i2c_master.h"
 #include "driver/gpio.h"
 #include "esp_mac.h"
@@ -27,6 +28,11 @@ n30::ActionMailbox upstream_toggle,lora_toggle;
 struct Stats {uint32_t frames=0,errors=0,max_us=0,max_phase_us=0;uint64_t sampled=0;uint8_t page=0;bool ready=false,help=false,saver=false,blank=false,minimal=false;} stats;
 TaskHandle_t ui_task=nullptr;esp_timer_handle_t frame_timer=nullptr;
 bool minimal_wait=false;
+struct SurfaceRecord {
+ uint64_t at=0,end=0,loss=0,sampled=0,until=0;
+ uint32_t sequence=0;uint8_t from=0,saver=0,minimal=0,page=0,due=0,valid=0,locked=0,state=0,source=0,written=0,ok=0;
+};
+v12::Ring<SurfaceRecord,4> surfaces;uint32_t surface_sequence=0;
 void frame_wake(void*){if(ui_task)xTaskNotifyGive(ui_task);}
 void button_wake(void*){
  BaseType_t higher=pdFALSE;
@@ -40,31 +46,37 @@ bool send_before(const uint8_t* data,size_t size,uint64_t deadline){
  const int timeout=n30::transfer_timeout(deadline,now_us(),size);
  return timeout&&i2c_master_transmit(oled,data,size,timeout)==ESP_OK&&now_us()<deadline;
 }
-bool flush(uint64_t deadline){
+bool flush(uint64_t deadline,uint8_t* written){
  return n30::flush_clock_first(native,shadow,shadow_valid,PTOB_N30_ROTATE_CW,[&](unsigned page,unsigned first,const uint8_t* data,unsigned size){
   const uint8_t addr[]={0,uint8_t(0xb0|page),uint8_t(first&15),uint8_t(0x10|(first>>4))};
   uint8_t packet[129];packet[0]=0x40;std::memcpy(packet+1,data,size);
-  return send_before(addr,sizeof addr,deadline)&&send_before(packet,size+1,deadline);
+  const bool ok=send_before(addr,sizeof addr,deadline)&&send_before(packet,size+1,deadline);
+  if(ok)*written|=uint8_t(1u<<page);
+  return ok;
  });
 }
 void worker(void*){
  static n30::ClockHold clock_hold; // One display owner; framebuffer stays off stack.
  n30::Input input(gpio_get_level(GPIO_NUM_0)==0);n30::View view;n30::FrameCadence cadence;n30::SaverTimer saver_timer;
- uint64_t armed_due=0;bool force=true,off=false,dim=false;
+ uint64_t armed_due=0,exit_loss_us=0;bool force=true,off=false,dim=false,attempted=false,attempted_saver=false;
  for(;;){
-  const auto now=now_us();n30::Model m;portENTER_CRITICAL(&mux);m=published;portEXIT_CRITICAL(&mux);
+  n30::Model m;portENTER_CRITICAL(&mux);m=published;portEXIT_CRITICAL(&mux);
+  const auto now=now_us(); // Evaluate a copied snapshot at/after its publication.
   int request;portENTER_CRITICAL(&mux);request=requested_page;requested_page=-1;portEXIT_CRITICAL(&mux);
   const auto prior=view;if(request>=0){view.page=uint8_t(request);view.help=false;view.blank=false;input.activity(now);clock_hold.reset();force=true;}
   const auto action=input.update(gpio_get_level(GPIO_NUM_0)==0,now,view);
   if(action==n30::Action::ToggleRelayOnly||action==n30::Action::ToggleLoRa){portENTER_CRITICAL(&mux);(action==n30::Action::ToggleRelayOnly?upstream_toggle:lora_toggle).post(now);portEXIT_CRITICAL(&mux);}
+  const auto loss_deadline=saver_timer.deadline();
   n30::update_saver(input,clock_hold,saver_timer,m,view,now);
+  if(prior.saver&&!view.saver)exit_loss_us=loss_deadline!=UINT64_MAX&&loss_deadline>=n30::ClockGraceUs&&now>=loss_deadline-n30::ClockGraceUs?now-(loss_deadline-n30::ClockGraceUs):0;
   portENTER_CRITICAL(&mux);minimal_wait=view.saver&&view.minimal;portEXIT_CRITICAL(&mux);
   if(prior.page!=view.page||prior.help!=view.help||prior.saver!=view.saver||prior.blank!=view.blank||prior.clock_frozen!=view.clock_frozen||prior.minimal!=view.minimal)force=true;
   const auto phase=n30::frame_phase(m,view,now);const auto due=force?cadence.forced_deadline(phase,now):cadence.deadline(phase,now);
   if(now>=due){
    bool ok=true;if(off!=view.blank){ok=command(view.blank?0xae:0xaf);if(ok){off=view.blank;shadow_valid=false;}}
    if(ok&&dim!=view.saver){ok=command(0x81)&&command(view.saver?n30::SaverContrast:n30::NormalContrast);if(ok)dim=view.saver;}
-   if(ok&&!view.blank){clock_hold.draw(portrait,m,view,now);n30::rotate(native,portrait,PTOB_N30_ROTATE_CW);ok=flush(now+50000);if(ok)clock_hold.presented(m,view,now,portrait);}
+   uint8_t written=0;
+   if(ok&&!view.blank){clock_hold.draw(portrait,m,view,now);n30::rotate(native,portrait,PTOB_N30_ROTATE_CW);ok=flush(now+50000,&written);if(ok)clock_hold.presented(m,view,now,portrait);}
    if(!ok)clock_hold.reset();
    const auto end=now_us();portENTER_CRITICAL(&mux);stats.page=view.page;stats.help=view.help;stats.saver=view.saver;stats.blank=view.blank;stats.minimal=view.minimal;stats.sampled=m.sampled_us;stats.ready=ok;
    if(ok)stats.frames++;else stats.errors++;stats.max_us=std::max(stats.max_us,uint32_t(end-now));
@@ -72,6 +84,13 @@ void worker(void*){
     stats.max_phase_us=std::max(stats.max_phase_us,uint32_t(std::min<uint64_t>(now-due,UINT32_MAX)));
    }
    portEXIT_CRITICAL(&mux);
+   // Freeze attempted transitions, including partial writes. The main owner
+   // formats them later: the display task must not carry the log formatter.
+   if((attempted&&attempted_saver!=view.saver)||!ok){
+    SurfaceRecord r{now,end,exit_loss_us,m.sampled_us,m.until_us,0,uint8_t(attempted_saver),uint8_t(view.saver),uint8_t(view.minimal),view.page,uint8_t(input.saver_due(now,view)),uint8_t(m.valid),uint8_t(m.locked),uint8_t(m.state),uint8_t(m.source),written,uint8_t(ok)};
+    portENTER_CRITICAL(&mux);if(surface_sequence!=UINT32_MAX){r.sequence=++surface_sequence;surfaces.push(r);}portEXIT_CRITICAL(&mux);
+   }
+   if(!view.blank){attempted=true;attempted_saver=view.saver;}
    cadence.completed(phase,n30::frame_phase(m,view,end));force=false;
   }
   const auto end=now_us();const auto end_phase=n30::frame_phase(m,view,end);
@@ -79,7 +98,7 @@ void worker(void*){
   if(view.minimal){
    uint64_t utc;
    if(n30::saver_time(m,end,utc))next=std::min(next,std::min(m.until_us,m.sampled_us+n30::SnapshotMaxUs));
-   const auto grace=clock_hold.deadline();if(grace>end)next=std::min(next,grace);
+   const auto grace=std::min(clock_hold.deadline(),saver_timer.deadline());if(grace>end)next=std::min(next,grace);
   }
   if(next<=end)continue;
   if(next!=armed_due){
@@ -94,6 +113,12 @@ void worker(void*){
   ulTaskNotifyTake(pdTRUE,view.minimal&&!input.polling()&&armed_due?portMAX_DELAY:pdMS_TO_TICKS(10));
  }
 }
+}
+void n30_display_trace_poll(){
+ SurfaceRecord r;uint32_t dropped;portENTER_CRITICAL(&mux);const bool present=surfaces.pop(r);dropped=surfaces.drops;portEXIT_CRITICAL(&mux);
+ if(!present)return;
+ v12::logf("N30_UI_SURFACE seq=%lu dropped=%lu at_us=%llu end_us=%llu from_saver=%u saver=%u minimal=%u page=%u due=%u loss_us=%llu model_us=%llu until_us=%llu valid=%u locked=%u state=%u source=%u written=%02x ok=%u\n",
+   (unsigned long)r.sequence,(unsigned long)dropped,(unsigned long long)r.at,(unsigned long long)r.end,unsigned(r.from),unsigned(r.saver),unsigned(r.minimal),unsigned(r.page),unsigned(r.due),(unsigned long long)r.loss,(unsigned long long)r.sampled,(unsigned long long)r.until,unsigned(r.valid),unsigned(r.locked),unsigned(r.state),unsigned(r.source),unsigned(r.written),unsigned(r.ok));
 }
 bool display_init(){
  uint8_t factory[6]{};const auto* device=v12::native_device_binding();
