@@ -9,13 +9,22 @@ def main():
  p=argparse.ArgumentParser(description=__doc__);p.add_argument('--out',type=Path,required=True);a=p.parse_args();out=a.out.resolve();out.mkdir(parents=True,exist_ok=False)
  cxx=os.environ.get('CXX','/opt/homebrew/opt/llvm/bin/clang++' if Path('/opt/homebrew/opt/llvm/bin/clang++').exists() else 'clang++')
  src=(APP/'main/native_main.cpp').read_text();(out/'actual_fine_update_gate.hpp').write_text(src[src.index('[[gnu::noinline]] void poll_update_drain('):src.index('[[gnu::noinline]] void poll_display_action(')])
+ (out/'actual_fine_stop_all.hpp').write_text(src[src.index('void stop_all(){'):src.index('#ifdef V12_R2_ENABLED\n// Keep',src.index('void stop_all(){'))])
  flags=['-std=c++20','-O1','-g','-Wall','-Wextra','-Werror','-fsanitize=address,undefined','-fno-sanitize-recover=all']
  for path in (out,APP/'tests/fine_fakes',APP/'main',APP.parent/'w12/main'):flags+=['-I'+str(path)]
- for name in ('fine_counter','fine_capture','fine_capture_native','fine_capture_rw'):
+ for name in ('fine_counter','fine_receiver','fine_capture','fine_capture_native','fine_capture_rw','fine_backend'):
   with (out/(name+'-compile.log')).open('w') as log:subprocess.run([cxx,*flags,APP/'tests'/(name+'_test.cpp'),'-o',out/name],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=40)
   with (out/(name+'.log')).open('w') as log:subprocess.run([out/name],cwd=out,stdout=log,stderr=subprocess.STDOUT,check=True,timeout=15)
+ name='fine_backend_snapshot'
+ with (out/(name+'-compile.log')).open('w') as log:subprocess.run([cxx,*flags,APP/'tests'/(name+'_test.cpp'),'-o',out/name],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=40)
+ for case in ('future','wrap','stale'):
+  with (out/(name+'-'+case+'.log')).open('w') as log:subprocess.run([out/name,case],cwd=out,stdout=log,stderr=subprocess.STDOUT,check=True,timeout=15)
+ name='fine_shutdown'
+ with (out/(name+'-compile.log')).open('w') as log:subprocess.run([cxx,*flags,APP/'tests'/(name+'_test.cpp'),'-o',out/name],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=40)
+ for case in ('clean','off','timeout','cleanup','fault'):
+  with (out/(name+'-'+case+'.log')).open('w') as log:subprocess.run([out/name,case],cwd=out,stdout=log,stderr=subprocess.STDOUT,check=True,timeout=15)
  spec=importlib.util.spec_from_file_location('n30_fine_console',APP/'tools/framed_console.py');console=importlib.util.module_from_spec(spec);spec.loader.exec_module(console)
- for filename in ('fine-frame.txt','fine-native-frame.txt','fine-native-radio-frame.txt','fine-rw-radio-frame.txt'):
+ for filename in ('fine-frame.txt','fine-native-frame.txt','fine-native-radio-frame.txt','fine-rw-radio-frame.txt','fine-backend-frame.txt'):
   rows={line.split()[0]:console.fields(line) for line in (out/filename).read_text().splitlines()};console.validate_fine(rows)
  rows={line.split()[0]:console.fields(line) for line in (out/'fine-frame.txt').read_text().splitlines()}
  for row,key,value in [('N30_FINE_STATUS','hz','20000000'),('N30_FINE_STATUS','count','5'),('N30_FINE_STATUS','latest80','-1'),('N30_FINE_EDGE0','incarnation','999'),('N30_FINE_CONTRACT','clock_update','YES'),('N30_FINE_CONTRACT','coalesced','0')]:
@@ -29,7 +38,8 @@ def main():
   try:console.validate_fine(altered)
   except Exception:pass
   else:raise AssertionError('synthetic parser accepted '+row+'.'+key)
- paths=[*sorted((APP/'tests/fine_fakes').rglob('*')),APP/'tools/framed_console.py',APP/'main/native_main.cpp',APP/'main/fine_counter.hpp',APP/'main/fine_capture.cpp',APP/'main/fine_capture.hpp',APP/'tests/fine_counter_test.cpp',APP/'tests/fine_capture_test.cpp',APP/'tests/fine_capture_native_test.cpp',APP/'tests/fine_capture_rw_test.cpp']
+ paths=[*sorted((APP/'tests/fine_fakes').rglob('*')),APP/'tools/fine_tests.py',APP/'tools/framed_console.py',APP/'main/native_main.cpp',APP/'main/fine_counter.hpp',APP/'main/fine_receiver.hpp',APP/'main/fine_backend_api.hpp',APP/'main/fine_capture.cpp',APP/'main/fine_capture.hpp',APP/'tests/fine_counter_test.cpp',APP/'tests/fine_receiver_test.cpp',APP/'tests/fine_backend_test.cpp',APP/'tests/fine_backend_snapshot_test.cpp',APP/'tests/fine_capture_test.cpp',APP/'tests/fine_capture_native_test.cpp',APP/'tests/fine_capture_rw_test.cpp']
+ paths.append(APP/'tests/fine_shutdown_test.cpp')
  (out/'receipt.json').write_text(json.dumps({'status':'PASS','scope':'ACTUAL_OWNER_SYNTHETIC_PERIPHERAL_AND_COUNTER_ASAN_UBSAN','hardware_access':False,'sources':{str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in paths if p.is_file()}},indent=2)+'\n')
  print('PASS fine raw-owner and counter lifecycle with ASan/UBSan; physical endpoint remains unknown')
 if __name__=='__main__':main()

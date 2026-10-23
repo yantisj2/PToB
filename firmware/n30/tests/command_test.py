@@ -30,6 +30,7 @@ bool fine_diagnostic_response=false;uint32_t fine_after=0;uint64_t fine_factory=
 bool n30_fine_start(uint64_t,uint64_t,uint64_t,uint32_t ms,uint32_t every){++fine_starts;return ms>=1000&&ms<=600000&&every>=1&&every<=64;}
 bool n30_fine_probe(uint64_t,uint64_t,uint64_t,uint32_t spacing,uint32_t edges){++fine_probes;return spacing>=50&&spacing<=1000&&edges>=4&&edges<=24&&edges%4==0;}
 void n30_fine_stop(){++fine_stops;}
+bool fine_backend=false;bool n30_fine_backend_selected(){return fine_backend;}
 bool timing_diagnostic_response=false;uint32_t timing_after=0;unsigned timing_starts=0,timing_stops=0;
 bool n30_timing_start(uint64_t,uint64_t,uint32_t ms,uint32_t every){++timing_starts;return ms>=1000&&ms<=600000&&every>=1&&every<=64;}
 void n30_timing_stop(){++timing_stops;}
@@ -121,6 +122,7 @@ int main(){
  send(219,"window late 128");assert(last_command.accepted&&window_late_response&&window_after==128);
  send(217,"window ack 1");assert(last_command.accepted&&window_acks==1);
  for(const char* bad:{"window start 600001 8","window start 1000 129","window ack 0","window edges -1","window start 1000 8 extra"}){send(++now,bad);assert(!last_command.accepted&&window_starts==1);}
+ fine_backend=true;send(++now,"fine stop");assert(!last_command.accepted&&fine_stops==1);send(++now,"window stop");assert(!last_command.accepted);fine_backend=false;
  update_gate.begin(now);send(218,"window start 1000 8");assert(!last_command.accepted&&window_starts==1);send(8,"ui page 1");assert(!last_command.accepted&&pages==6&&radio_changes==2);
  send(60,"fine probe 100 16");assert(!last_command.accepted&&fine_probes==1);
  send(55,"fine start 2000 4");assert(!last_command.accepted&&fine_starts==1);

@@ -107,6 +107,7 @@ def validate_window(rows,edges=False,late=False):
    timing_number(a,'predicted_ns',64,True)
    if a['matched']=='1':base.require(a['epoch']==c['epoch'] and a['local20']==c['tick20'] and a['event']==c['event'] and a['channel']==c['channel'],'Window exact Pair join')
  contract={'observer':'PACKET_CANDIDATES_ONLY','domain':'MCPWM1_80MHZ','marker':'RW238_237','edge':'BOTH','selection':'FIRST_EVENT_AND15_ZERO','slots':'128','callback_capacity':'64','search_us':'3100_PLUS_OLD_ENCLOSURE','bridge':'SEARCH_ONLY','cursor':'NONCONSUMING','capture_between_windows':'QUIESCED','counter':'CONTINUOUS','polarity':'UNSELECTED','endpoint':'UNKNOWN','coalesced':'UNKNOWN','RF_bound':'UNKNOWN','UTC_bound':'UNKNOWN','clock_update':'NONE','production':'GPTIMER20','offset':'LEGACY_ONLY','PDU':'ORIGINAL_LOADED_SCALARS_ONLY','flags':'UNKNOWN','late':'FIRST_SEQUENCE_STICKY128'}
+ if rows['N30_WINDOW_CONTRACT'].get('production')=='MCPWM1_20':contract.update(production='MCPWM1_20',offset='FINE_SPECIFIC')
  for k,v in contract.items():base.require(rows['N30_WINDOW_CONTRACT'].get(k)==v,'Window contract '+k)
 def validate_fine(rows):
  s=rows['N30_FINE_STATUS'];base.require(s.get('schema')=='1' and bool(base.HEX16.fullmatch(s.get('id',''))),'Fine schema/id')
@@ -143,6 +144,12 @@ def validate_fine(rows):
  contract={'observer':'RAW_ONLY','domain':'MCPWM1_80MHZ','RX':'SYNCFOUND_230','TX':'PKT_TX_ON_235','CURRENT':'CH2_SW128','capture_channels':'0/1/2','edge':'RISING_AND_FALLING','endpoint':'UNKNOWN','coalesced':'UNKNOWN','packet_association':'NONE','RF_bound':'UNKNOWN','UTC_bound':'UNKNOWN','clock_update':'NONE','production':'GPTIMER20','offset':'LEGACY_ONLY'}
  if mode=='SYNTHETIC_GPIO':contract.update(RX='GPIO4_SYNTHETIC',TX='GPIO5_SYNTHETIC')
  if mode=='NATIVE_RW_SIGNAL':contract.update(RX='RW_RX_ON_238',TX='RW_TX_ON_237')
+ if rows['N30_FINE_CONTRACT'].get('backend')=='1':
+  base.require(mode=='NATIVE_RW_SIGNAL','Fine backend requires fixed RW provenance')
+  contract.update(observer='RAW_AND_G1',packet_association='EMPIRICAL_CLASS_UNIQUE_FALL',clock_update='G1_RX',production='MCPWM1_20',offset='FINE_SPECIFIC')
+  base.require(rows['N30_FINE_CONTRACT'].get('phase80')=='125440','Fine empirical phase convention')
+  for key in ('claimed','callback_history','callback_overwritten','late','receiver_fault','receive_calls','pending_calls','missing_calls','ambiguous_calls','unsupported_calls'):timing_number(rows['N30_FINE_CONTRACT'],key)
+  for key in ('fall80','stamp20','available20'):timing_number(rows['N30_FINE_CONTRACT'],key,64)
  if mode is not None:contract.update(provenance=mode,expected='SYNTHETIC_VERIFIED_PAD_TRANSITIONS_ONLY' if mode=='SYNTHETIC_GPIO' else 'NONE')
  for key,value in contract.items():base.require(rows['N30_FINE_CONTRACT'].get(key)==value,'Fine contract '+key)
 
@@ -210,7 +217,9 @@ class Parser(base.Parser):
   for f in frames:
    if self.manifest.get('n30_frame_kind')=='LORA':validate_lora(f['rows'])
    if self.manifest.get('n30_frame_kind')=='TIMING':validate_timing(f['rows'])
-   if self.manifest.get('n30_frame_kind')=='FINE':validate_fine(f['rows'])
+   if self.manifest.get('n30_frame_kind')=='FINE':
+    validate_fine(f['rows'])
+    if 'clock_backend' in self.manifest:base.require(f['rows']['N30_FINE_CONTRACT'].get('backend')==str(int(self.manifest['clock_backend']['mode']=='MCPWM1_EMPIRICAL_RX_FALL')),'Fine backend differs from compiled manifest')
    if self.manifest.get('n30_frame_kind') in ('WINDOW_PACKET','WINDOW_EDGES','WINDOW_LATE'):validate_window(f['rows'],self.manifest['n30_frame_kind']=='WINDOW_EDGES',self.manifest['n30_frame_kind']=='WINDOW_LATE')
    mesh=f['rows']['W12_R2_STATUS'];ui=f['rows']['N30_UI'];status=f['rows']['W12_V12_STATUS'];m=self.manifest
    if 'xf' in f['end']:base.require(f['end']['xf'].isdigit() and 0<=int(f['end']['xf'])<2**32,'TX filtered counter range')

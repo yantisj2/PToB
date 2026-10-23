@@ -9,9 +9,10 @@
 #define V12_R2_ENABLED 1
 uint64_t fake_now=1000000;
 #include "../main/timing_diagnostics.cpp"
-unsigned window_captures=0,window_pairs=0;
+unsigned window_captures=0,window_pairs=0,relative_pairs=0;
 void n30_window_capture(const v12::periodic_rx::Stamp&,const adv_rx::BleAnchor&,int8_t){++window_captures;}
 void n30_window_pair(const v12::n30_probe::Pair&){++window_pairs;}
+void n30_relative_rate_pair(const v12::n30_probe::Pair&,uint64_t now){assert(now==fake_now);++relative_pairs;}
 namespace v12 {
 bool ConsoleFrame::format(const char* fmt,...){
  va_list args;va_start(args,fmt);const int n=std::vsnprintf(bytes+length,sizeof(bytes)-length,fmt,args);va_end(args);
@@ -27,6 +28,7 @@ v12::periodic_rx::Stamp stamp(unsigned n){
 adv_rx::BleAnchor anchor{20000000,20000004,{3200,40}};
 int main(){
  n30_timing_init();assert(v12::n30_probe::capture_sink&&v12::n30_probe::pair_sink);
+ v12::n30_probe::pair_sink({});assert(relative_pairs==1&&window_pairs==1&&!recorder.snapshot(fake_now).active);
  auto s=stamp(1);v12::n30_probe::capture_sink(s,anchor,-72);assert(recorder.snapshot(fake_now).seen==0&&window_captures==1);
  for(auto ms:{0u,999u,600001u})assert(!n30_timing_start(1,fake_now,ms,1));
  assert(!n30_timing_start(0,fake_now,1000,1));assert(!n30_timing_start(1,0,1000,1));

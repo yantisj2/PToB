@@ -41,17 +41,47 @@ void precision_digit(uint8_t* f,int x,int y,unsigned digit){
  if(b&32){fill(f,x,y+2,2,7);}
  if(b&64){fill(f,x+2,y+9,6,2);}
 }
+// A fixed3x5 pixel face keeps the full counter-tick label inside the bezel.
+// Root aliases use compact capitals; an explicit trailing dot marks truncation.
+void small_text(uint8_t* f,int x,int y,const char* s){
+ static const uint8_t letters3[26][5]={
+  {2,5,7,5,5},{6,5,6,5,6},{3,4,4,4,3},{6,5,5,5,6},{7,4,6,4,7},
+  {7,4,6,4,4},{3,4,5,5,3},{5,5,7,5,5},{7,2,2,2,7},{1,1,1,5,2},
+  {5,5,6,5,5},{4,4,4,4,7},{5,7,7,5,5},{5,7,7,7,5},{2,5,5,5,2},
+  {6,5,6,4,4},{2,5,5,7,3},{6,5,6,5,5},{3,4,2,1,6},{7,2,2,2,2},
+  {5,5,5,5,7},{5,5,5,5,2},{5,5,7,7,5},{5,5,2,5,5},{5,5,2,2,2},{7,1,2,4,7}};
+ static const uint8_t digits3[10][5]={{7,5,5,5,7},{2,6,2,2,7},{6,1,2,4,7},{6,1,2,1,6},{5,5,7,1,1},{7,4,6,1,6},{3,4,7,5,7},{7,1,2,2,2},{7,5,7,5,7},{7,5,7,1,6}};
+ for(;*s;s++,x+=4){
+  const char c=*s;uint8_t rows[5]{};
+  if(c>='A'&&c<='Z')std::memcpy(rows,letters3[c-'A'],5);
+  else if(c>='0'&&c<='9')std::memcpy(rows,digits3[c-'0'],5);
+  else if(c>='a'&&c<='z'){
+   if(c=='h'){const uint8_t a[]={4,4,6,5,5};std::memcpy(rows,a,5);}
+   else if(c=='z'){const uint8_t a[]={0,7,1,2,7};std::memcpy(rows,a,5);}
+   else if(c=='n'){const uint8_t a[]={0,6,5,5,5};std::memcpy(rows,a,5);}
+   else if(c=='s'){const uint8_t a[]={0,3,6,1,6};std::memcpy(rows,a,5);}
+   else std::memcpy(rows,letters3[c-'a'],5);
+  }else if(c=='-'){rows[2]=7;}else if(c=='_'){rows[4]=7;}
+  else if(c=='.'){rows[4]=2;}else if(c=='/'){rows[0]=1;rows[1]=1;rows[2]=2;rows[3]=4;rows[4]=4;}
+  for(unsigned r=0;r<5;r++)for(unsigned col=0;col<3;col++)if(rows[r]&(4>>col))pixel(f,x+int(col),y+int(r));
+ }
+}
 void precision_page(uint8_t* f,const Model& m,uint64_t now){
  const auto& p=m.precision;const bool live=precision_current(m,now);
  const bool locked=live&&p.locked&&p.lock_age_valid&&now>=p.lock_since_us;
- // A watch bezel, one LCD measurement well and a segmented stopwatch. All
- // measurements retain their own validity; the raw latch is not a fine map.
+ // Casio-style bezel, source strip, large LCD well and segmented stopwatch.
  box(f,1,0,62,128);fill(f,2,1,60,11);center(f,3,"PRECISION",false);
- char out[20];std::snprintf(out,sizeof out,"%uMHz",unsigned(p.counter_hz/1000000));text(f,5,18,out);
- const bool capture=p.capture_active&&now<p.capture_until_us;
- text(f,43,18,!current(m,now)?"---":capture?(p.capture_healthy?"OBS":"ERR"):"OFF");
- center(f,29,!live?"NO SYNC":locked?"LOCK EST":"SYNCING");
- fill(f,4,39,56,1);center(f,43,"SYNC RMS");
+ char out[24];std::snprintf(out,sizeof out,"%.6s",live?m.root:"----");
+ for(char* c=out;*c;c++)if(*c>='a'&&*c<='z')*c=char(*c-'a'+'A');
+ if(live&&std::strlen(m.root)>6)out[5]='.';
+ small_text(f,5,19,out);
+ const char* source=!live?"--":p.source==Source::Ble?"BLE":p.source==Source::Rc1?"RC1":p.source==Source::Rc2?"RC2":"--";
+ text(f,33,18,source);uint64_t utc=0;
+ if(live&&p.locked&&ble_time(m,now,utc)&&utc%1000000<250000)fill(f,56,19,3,5);
+ fill(f,4,29,56,1);
+ const char* resolution=p.counter_hz==80000000?"80MHz / 12.5ns":p.counter_hz==20000000?"20MHz / 50ns":"COUNTER --";
+ small_text(f,(64-int(std::strlen(resolution))*4+1)/2,34,resolution);
+ fill(f,4,43,56,1);center(f,47,"SYNC RMS");
  unsigned value=p.rms_ns;const char* unit="ns";int dot=0;
  const bool known=live&&value!=UINT32_MAX;
  const unsigned scale=value>=1000000000?1000000000:value>=1000000?1000000:value>=1000?1000:1;
@@ -62,14 +92,14 @@ void precision_page(uint8_t* f,const Model& m,uint64_t now){
  value=std::min(value,999u);
  for(unsigned i=0;i<3;i++){
   const int x=7+int(i)*13;
-  if(known)precision_digit(f,x,54,value/(i==0?100:i==1?10:1)%10);
-  else fill(f,x+2,63,6,2);
+  if(known)precision_digit(f,x,57,value/(i==0?100:i==1?10:1)%10);
+  else fill(f,x+2,66,6,2);
  }
- if(known&&dot)fill(f,dot==1?18:31,73,2,2);
- text(f,47,67,known?unit:"ns");
- fill(f,4,79,56,1);text(f,5,85,"PPB");
- if(live&&p.rate_known)signed_count(out,sizeof out,p.rate_ppb);else std::snprintf(out,sizeof out,"--");
- text(f,61-int(std::strlen(out))*6,85,out);
+ if(known&&dot)fill(f,dot==1?18:31,76,2,2);
+ text(f,47,70,known?unit:"ns");
+ fill(f,4,81,56,1);text(f,5,86,"REL");
+ if(live&&p.relative_known)signed_count(out,sizeof out,p.relative_ppb);else std::snprintf(out,sizeof out,"--");
+ text(f,61-int(std::strlen(out))*6,86,out);
  fill(f,4,98,56,1);
  if(locked){box(f,7,101,6,7);fill(f,6,106,8,6);fill(f,9,108,2,2,false);}else{line(f,8,102,12,102);line(f,8,102,8,106);box(f,6,106,8,6);}
  text(f,23,102,"LOCK");
@@ -93,12 +123,12 @@ void lora_page(uint8_t* f,const Model& m,uint64_t now){
  if(l.age_ms==UINT32_MAX)center(f,101,"AGE --");else if(l.age_ms>=12000)center(f,101,"AGE >12s");else{std::snprintf(out,sizeof out,"AGE %u.%us",unsigned(l.age_ms/1000),unsigned(l.age_ms%1000/100));center(f,101,out);}
  uint64_t ble;center(f,111,ble_time(m,now,ble)&&m.ble.following?"BLE SELECT":m.source==Source::LoRa&&valid?"RC8 SELECT":"NO CLOCK");center(f,121,"HOLD 1.5S");
 }
-void help(uint8_t* f,const View& v){box(f,1,0,62,11);center(f,2,v.page==3?"PRECISION":v.page?"RF KEY":"CLOCK KEY");if(v.page==3){const char* names[]={"80M LATCH","OBS IS RAW","RMS CAUSAL","PPB TRIM","LOCK HELD","LOSS RESET","UTC ERROR","UNKNOWN"};for(unsigned i=0;i<8;i++)center(f,16+int(i)*11,names[i]);}else if(v.page){const char* names[]={"HEL SCAN","SRC GROUP","PRE PA RX","ACK JOIN","CMT MODEL","SRV TX API","RDY N/A","ERR REJECT"};for(unsigned i=0;i<8;i++)text(f,2,15+int(i)*10,names[i]);center(f,99,"DOT RX");center(f,109,"FILL TX");}else{const char* names[]={"RC ONLY","GPS ABSENT","LOCK EST","RELATIVE","RMS IS NOT","UTC ERROR","HOLD LOCAL","4S BLANK"};for(unsigned i=0;i<8;i++)center(f,16+int(i)*11,names[i]);}center(f,120,"PRESS BACK");}
+void help(uint8_t* f,const View& v){box(f,1,0,62,11);center(f,2,v.page==PrecisionPage?"PRECISION":v.page?"RF KEY":"CLOCK KEY");if(v.page==PrecisionPage){const char* names[]={"ROOT / HOP","TICK SIZE","NOT ERROR","RMS CAUSAL","REL PPB","TREND EST","LOCK HELD","LOSS RESET"};for(unsigned i=0;i<8;i++)center(f,16+int(i)*11,names[i]);}else if(v.page){const char* names[]={"HEL SCAN","SRC GROUP","PRE PA RX","ACK JOIN","CMT MODEL","SRV TX API","RDY N/A","ERR REJECT"};for(unsigned i=0;i<8;i++)text(f,2,15+int(i)*10,names[i]);center(f,99,"DOT RX");center(f,109,"FILL TX");}else{const char* names[]={"RC ONLY","GPS ABSENT","LOCK EST","RELATIVE","RMS IS NOT","UTC ERROR","HOLD LOCAL","4S BLANK"};for(unsigned i=0;i<8;i++)center(f,16+int(i)*11,names[i]);}center(f,120,"PRESS BACK");}
 }
 void render(uint8_t f[FrameBytes],const Model& m,const View& v,uint64_t now){
  std::memset(f,0,FrameBytes);if(v.blank)return;if(v.help){help(f,v);return;}
- if(v.page==2&&!v.saver){lora_page(f,m,now);return;}
- if(v.page==3&&!v.saver){precision_page(f,m,now);return;}
+ if(v.page==LoRaPage&&!v.saver){lora_page(f,m,now);return;}
+ if(v.page==PrecisionPage&&!v.saver){precision_page(f,m,now);return;}
  const bool fresh=current(m,now);uint64_t utc=0;const bool valid=time(m,now,utc),locked=analog_time(m,now,utc);
  if(v.saver){
   // T096's moving assembly: source strip, analog panel, identity strip.

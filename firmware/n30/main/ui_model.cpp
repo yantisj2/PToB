@@ -57,12 +57,12 @@ void rotate(uint8_t out[FrameBytes],const uint8_t in[FrameBytes],bool cw){
 }
 Action Input::update(bool pressed,uint64_t now,View& v){
  Action action=Action::None;
- if(stable_&&lora_press_&&(v.page!=2||v.help||v.blank||v.saver))lora_eligible_=false;
+ if(stable_&&lora_press_&&(v.page!=LoRaPage||v.help||v.blank||v.saver))lora_eligible_=false;
  if(pressed!=raw_){raw_=pressed;changed_=now;}
  if(now>=changed_&&now-changed_>=40000&&raw_!=stable_){
   stable_=raw_;
   if(stable_){
-   if(armed_){down_=changed_;idle_=now;wake_=v.saver||v.blank;main_press_=!v.page&&!v.help;lora_press_=v.page==2&&!v.help;lora_eligible_=lora_press_;consumed_=wake_;v.saver=v.blank=false;}
+   if(armed_){down_=changed_;idle_=now;wake_=v.saver||v.blank;main_press_=!v.page&&!v.help;lora_press_=v.page==LoRaPage&&!v.help;lora_eligible_=lora_press_;consumed_=wake_;v.saver=v.blank=false;}
   }else{
    if(armed_&&!consumed_){
     if((main_press_||lora_press_)&&now>=down_&&now-down_>=1500000)action=main_press_?Action::ToggleRelayOnly:lora_eligible_?Action::ToggleLoRa:Action::None;

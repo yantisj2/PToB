@@ -132,14 +132,16 @@ Original ordinary interface documentation, Jonathan Yantis, MIT.
 
 ## N30 precision preview
 
-`n30-precision-preview.png` is the version 0.2.16 fourth-page watch face,
+`n30-precision-preview.png` is the version 0.2.20 third-page watch face,
 generated on 22 October 2026 from the actual 64×128 renderer with the synthetic
-`precision-lock` N3-1 fixture. Its segmented 170 ns causal RMS, signed ppb
-correction and lock duration are illustrative. `80MHz OFF` describes the raw
-observer state; it does not claim qualified fine Bluetooth timestamps.
+`precision-lock` N3-2 fixture. The root, BLE/PPS status, segmented 170 ns causal
+RMS, +123 ppb relative residual trend and lock duration are illustrative.
+`80MHz / 12.5ns` reports counter tick size; fine delivery still rounds to 50 ns,
+and neither value establishes timing accuracy.
 
 The [separate provenance record](n30-precision-provenance.json) records exact
 renderer/model/font/fixture/generator hashes and the selected PNG hash. Earlier
 preview manifests and historical hashes remain unchanged. Reproduce with the
-N30 preview command above and select `n30-precision-lock-preview.png`.
+N30 preview command above with`--alias N3-2` and select
+`n30-precision-lock-preview.png`.
 Original interface artwork and documentation, Jonathan Yantis, MIT.

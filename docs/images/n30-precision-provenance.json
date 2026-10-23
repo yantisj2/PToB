@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "title": "N30 0.2.16 PRECISION portrait preview",
+  "title": "N30 0.2.20 PRECISION portrait preview",
   "copyright": "Jonathan Yantis",
   "license": "MIT",
   "scope": "PRODUCTION_RENDERER_SYNTHETIC_FIXTURE",
@@ -9,22 +9,22 @@
     64,
     128
   ],
-  "generated_alias": "N3-1",
+  "generated_alias": "N3-2",
   "fixture": "precision-lock",
-  "source_version": "0.2.16",
-  "source_basis_commit": "72d332506408e9d65ebac0c8cc35856f4ff99e37",
-  "source_identity": "Exact final source SHA256 values below; generated before this additive change was committed",
+  "source_version": "0.2.20",
+  "source_basis_commit": "bca1d0bdf7fd9d7e6632b623ad84cfa714dca9fe",
+  "source_identity": "Exact final renderer source SHA256 values below; generated before the 0.2.20 change was committed",
   "sources": {
-    "firmware/n30/tools/preview.cpp": "bab1e05cc18a46ae153eb05489682c29687fb746f04fea17b5da5b76b45bcc72",
-    "firmware/n30/main/ui.hpp": "ac3e447530f3566aebb1bc3275c14330d3efca4f00a6bb590c63719b20b9ebfe",
-    "firmware/n30/main/ui_model.cpp": "c2736f1db8ca3322a52d54acbcafc2642fcae233b05dc8cadc2058744e8ff116",
-    "firmware/n30/main/ui_render.cpp": "5656727fce562745687f440d9e727dabd9e207d74a5af43e347048a46b9affc1",
+    "firmware/n30/tools/preview.cpp": "31ba66305f54255be106ed2e82ab884f678e39084d8c230b1503fc904821408f",
+    "firmware/n30/main/ui.hpp": "b419d0be39e9c92b83e3939feb7e5f0b6624ebb145ecc19266d2d8ff53a49100",
+    "firmware/n30/main/ui_model.cpp": "43d014d15bc2d5709a340d25f099626fbbdb70dedbe8f132b50231f68d15159b",
+    "firmware/n30/main/ui_render.cpp": "3c313c461905819b19b4d01476ab74a924568c6da783defc9bbe8bb42ebd1bc5",
     "firmware/n30/main/font.inc": "814ce6f3ffd7b828706765284e56393ca0e53874ee4fd3f823213ddd4d3d44df"
   },
-  "generator_sha256": "e14d7a2bce90a508ece1c476726ec040d2803fe3c2f532b8555212143849e166",
+  "generator_sha256": "4e8a142226126851c1f844dc76ab523cd3f1d4adb3bb9f988e795f70ed1ecda4",
   "image": "docs/images/n30-precision-preview.png",
   "generated_filename": "n30-precision-lock-preview.png",
-  "image_sha256": "299d07ad76a1419c9485b298693a28556d72912fb7718b00456dbcb9d6066a79",
-  "reproduction": "python3 firmware/n30/tools/preview.py --out artifacts/n30-precision-preview --alias N3-1",
-  "limitations": "Synthetic UI values only. 80MHz OFF is observer state, not active qualified BLE packet timing. Causal RMS is not UTC error or downstream PPS RMS."
+  "image_sha256": "721102307ef78bc72154d5391cd145ffc074cc38b8d4ff4eac97d534307fb2cd",
+  "reproduction": "python3 firmware/n30/tools/preview.py --out artifacts/n30-precision-preview --alias N3-2",
+  "limitations": "Synthetic UI values only. Counter tick size is not delivered resolution or accuracy; fine delivery rounds to50ns. REL is a causal prediction-error trend estimate, not raw oscillator trim or independent metrology. Causal RMS is not UTC error or downstream PPS RMS."
 }

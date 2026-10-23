@@ -7,7 +7,7 @@ from pathlib import Path
 APP=Path(__file__).resolve().parents[1];REPO=APP.parents[1]
 sys.path.insert(0,str(REPO/'registry'))
 from registry import load as load_registry,header as registry_header
-VERSION='0.2.18'
+VERSION='0.2.20'
 T096_LORA_FILES=['protocol/lora_rc8.c','protocol/lora_rc8.h','protocol/group_auth.h','include/lora_rc8_policy.h','include/precision_servo.h','src/lora_rc8_policy.c']
 def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
 def git(p,*args):return subprocess.check_output(['git','-C',str(p),*args],text=True).strip()
@@ -53,21 +53,41 @@ def fine_profile(device,path):
  profile={'schema':1,'mode':'CURRENT_ONLY','factory':device['device_id'],'RX_GPIO':-1,'TX_GPIO':-1}
  if path:
   value=json.loads(Path(path).read_text())
-  if set(value)!={'schema','mode','factory','RX_GPIO','TX_GPIO','board_family','physical_review_sha256','schematic_review_sha256'}:raise ValueError('Exact raw-marker profile fields required')
-  if not(value['schema']==1 and value['mode'] in ('NATIVE_GPIO4_5_SHADOW','NATIVE_RW_GPIO4_5_SHADOW') and value['factory']==device['device_id'] and value['RX_GPIO']==4 and value['TX_GPIO']==5 and value['board_family']=='HELTEC_V3_V31_V32' and all(re.fullmatch('[0-9a-f]{64}',value[k]) for k in ('physical_review_sha256','schematic_review_sha256'))):raise ValueError('Only exact reviewed HeltecV3 GPIO4/5 raw-shadow profile is supported')
+  backend=value.get('mode')=='NATIVE_RW_GPIO4_5_FINE_CANDIDATE'
+  fields={'schema','mode','factory','RX_GPIO','TX_GPIO','board_family','physical_review_sha256','schematic_review_sha256'}
+  if backend:fields|={'endpoint_class','phase_convention_ns','validation_evidence_sha256','calibration_evidence_sha256'}
+  if set(value)!=fields:raise ValueError('Exact fixed-marker profile fields required')
+  if not(value['schema']==1 and value['mode'] in ('NATIVE_GPIO4_5_SHADOW','NATIVE_RW_GPIO4_5_SHADOW','NATIVE_RW_GPIO4_5_FINE_CANDIDATE') and value['factory']==device['device_id'] and value['RX_GPIO']==4 and value['TX_GPIO']==5 and value['board_family']=='HELTEC_V3_V31_V32' and all(re.fullmatch('[0-9a-f]{64}',value[k]) for k in ('physical_review_sha256','schematic_review_sha256'))):raise ValueError('Only exact reviewed HeltecV3 GPIO4/5 fixed profile is supported')
+  if backend:
+   if value['endpoint_class']!='EMPIRICAL_RW_RX_FALL_PHY0_PDU191_EXT0_END_UNKNOWN' or type(value['phase_convention_ns'])is not int or value['phase_convention_ns']!=1568000:raise ValueError('Fixed empirical-class phase convention required; RF END is unqualified')
+   if not all(re.fullmatch('[0-9a-f]{64}',value[k]) for k in ('validation_evidence_sha256','calibration_evidence_sha256')) or not int(value['validation_evidence_sha256'],16):raise ValueError('Exact heldout validation provenance required')
+   evidence=device.get('provisional_path',{}).get('evidence_sha256','0'*64)
+   if value['calibration_evidence_sha256']!=evidence:raise ValueError('Fine-specific phase evidence must match this backend profile; legacy offset cannot transfer')
   profile=value
  return profile
 
 def fine_header(profile):
- header='#pragma once\n#include <cstdint>\n#define PTOB_N30_FINE_FACTORY UINT64_C(0x'+profile['factory']+')\n#define PTOB_N30_FINE_PINS '+str(int(profile['mode'] in ('NATIVE_GPIO4_5_SHADOW','NATIVE_RW_GPIO4_5_SHADOW')))+'\n#define PTOB_N30_FINE_RX_GPIO '+str(profile['RX_GPIO'])+'\n#define PTOB_N30_FINE_TX_GPIO '+str(profile['TX_GPIO'])+'\n/* profile_sha256='+hashlib.sha256(json.dumps(profile,sort_keys=True).encode()).hexdigest()+' */\n'
- return header+('#define PTOB_N30_FINE_RW 1\n' if profile['mode']=='NATIVE_RW_GPIO4_5_SHADOW' else '')
+ backend=profile['mode']=='NATIVE_RW_GPIO4_5_FINE_CANDIDATE'
+ header='#pragma once\n#include <cstdint>\n#define PTOB_N30_FINE_FACTORY UINT64_C(0x'+profile['factory']+')\n#define PTOB_N30_FINE_PINS '+str(int(profile['mode'] in ('NATIVE_GPIO4_5_SHADOW','NATIVE_RW_GPIO4_5_SHADOW','NATIVE_RW_GPIO4_5_FINE_CANDIDATE')))+'\n#define PTOB_N30_FINE_RX_GPIO '+str(profile['RX_GPIO'])+'\n#define PTOB_N30_FINE_TX_GPIO '+str(profile['TX_GPIO'])+'\n/* profile_sha256='+hashlib.sha256(json.dumps(profile,sort_keys=True).encode()).hexdigest()+' */\n'
+ header+=('#define PTOB_N30_FINE_RW 1\n' if profile['mode'] in ('NATIVE_RW_GPIO4_5_SHADOW','NATIVE_RW_GPIO4_5_FINE_CANDIDATE') else '')
+ if backend:header+='#define PTOB_N30_FINE_BACKEND 1\n#define PTOB_N30_FINE_TRANSLATION80 UINT64_C(125440)\n'
+ return header
+
+def clock_backend(profile):
+ if profile['mode']!='NATIVE_RW_GPIO4_5_FINE_CANDIDATE':return {'mode':'LEGACY_GPTIMER20'}
+ return {'mode':'MCPWM1_EMPIRICAL_RX_FALL','counter_hz':80000000,'coordinate_hz':20000000,
+         'rounding':'NEAREST_50NS_TIES_UP','owner':'PERSISTENT_BOOT_MAINTENANCE_DRAIN',
+         'endpoint_class':profile['endpoint_class'],'phase_convention_ns':profile['phase_convention_ns'],
+         'validation_evidence_sha256':profile['validation_evidence_sha256'],
+         'calibration_evidence_sha256':profile['calibration_evidence_sha256'],
+         'RF_endpoint':'UNKNOWN','RF_bound':'UNKNOWN','UTC_bound':'UNKNOWN'}
 
 def check_main_stack(out):
  import importlib.util
  path=REPO/'firmware/w12/tools/stack_budget.py'
  spec=importlib.util.spec_from_file_location('n30_selected_stack',path);module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
  result=module.check(out)
- if json.loads((Path(out)/'receipt.json').read_text()).get('version') not in ('0.2.0','0.2.1','0.2.2','0.2.3','0.2.4','0.2.5','0.2.6','0.2.7','0.2.8','0.2.9','0.2.10','0.2.11','0.2.12','0.2.13','0.2.14','0.2.15','0.2.16','0.2.17','0.2.18'):return result
+ if json.loads((Path(out)/'receipt.json').read_text()).get('version') not in ('0.2.0','0.2.1','0.2.2','0.2.3','0.2.4','0.2.5','0.2.6','0.2.7','0.2.8','0.2.9','0.2.10','0.2.11','0.2.12','0.2.13','0.2.14','0.2.15','0.2.16','0.2.17','0.2.18','0.2.19','0.2.20'):return result
  # Selected extra chains with explicit reserve; not a complete call graph.
  usage=[]
  for file in (Path(out)/'target').rglob('*.su'):
@@ -77,6 +97,7 @@ def check_main_stack(out):
   if len(rows)!=1 or rows[0][2]!='static':raise ValueError('Missing/ambiguous N30 static frame: '+tail)
   return int(rows[0][1])
  f=result['frames_bytes'];root=f['main']+f['input']+f['command']
+ history_start='bool n30::fine::History::start(uint64_t, uint64_t, uint32_t, uint32_t, bool)' if json.loads((Path(out)/'receipt.json').read_text())['version'] in ('0.2.19','0.2.20') else 'bool n30::fine::History::start(uint64_t, uint64_t, uint32_t, uint32_t)'
  paths={
  'LoRa_status':(result['configured_bytes'],4096,root+frame('void {anonymous}::respond_status(uint64_t, uint64_t)')+frame('void {anonymous}::lora_status_frame(uint64_t, uint64_t)')+frame('void n30_lora_diagnostics(v12::ConsoleFrame&)')),
  'main_UI_publish':(result['configured_bytes'],4096,f['main']+f['ui']+frame('void n30_display_publish(const v12::R2Status&, const DisplayState&, uint64_t)')+frame('void n30::select_lora(Model&, const n30_lora_view&, uint64_t)'))}
@@ -88,32 +109,42 @@ def check_main_stack(out):
   return int(rows[0][1])
  paths['display_worker']=(4096,1536,in_file('display.cpp','void {anonymous}::worker(void*)')+frame('void n30::ClockHold::draw(uint8_t*, const n30::Model&, const n30::View&, uint64_t) const')+frame('void n30::render(uint8_t*, const Model&, const View&, uint64_t)')+frame('void n30::{anonymous}::dial(uint8_t*, int, uint64_t, uint16_t)')+frame('void n30::{anonymous}::line(uint8_t*, int, int, int, int)')+frame('void n30::{anonymous}::pixel(uint8_t*, int, int, bool)'))
  paths['radio_receive']=(8192,4096,in_file('native_lora.cpp','void {anonymous}::worker(void*)')+in_file('native_lora.cpp','void {anonymous}::worker_step(bool)')+in_file('native_lora.cpp','int {anonymous}::receive()')+frame('n30_rc8_receive')+frame('rc8_receiver_process')+frame('rc8_receiver_process_origin'))
- if json.loads((Path(out)/'receipt.json').read_text()).get('version') in ('0.2.9','0.2.10','0.2.11','0.2.12','0.2.13','0.2.14','0.2.15','0.2.16','0.2.17','0.2.18'):
+ if json.loads((Path(out)/'receipt.json').read_text()).get('version') in ('0.2.9','0.2.10','0.2.11','0.2.12','0.2.13','0.2.14','0.2.15','0.2.16','0.2.17','0.2.18','0.2.19','0.2.20'):
   paths['timing_reply']=(result['configured_bytes'],4096,root+frame('void {anonymous}::respond_status(uint64_t, uint64_t)')+frame('void {anonymous}::lora_status_frame(uint64_t, uint64_t)')+frame('void n30_timing_frame(v12::ConsoleFrame&, uint32_t, uint64_t)'))
   paths['timing_start']=(result['configured_bytes'],4096,root+frame('bool n30_timing_start(uint64_t, uint64_t, uint32_t, uint32_t)')+frame('bool n30::timing::Recorder::start(uint64_t, uint64_t, uint32_t, uint32_t, uint64_t)'))
   config=(Path(out)/'target/sdkconfig').read_text();host=re.findall(r'^CONFIG_BT_NIMBLE_HOST_TASK_STACK_SIZE=(\d+)$',config,re.M)
   if len(host)!=1:raise ValueError('One N30 BLE host stack configuration required')
   paths['timing_pair_worker']=(int(host[0]),4096,frame('void v12::r2_host_poll()')+frame('void v12::{anonymous}::active_poll(uint64_t)')+frame('unsigned int v12::{anonymous}::periodic_poll(uint64_t, unsigned int)')+frame('bool v12::G1CorrectedClock::receive(const r2_relay_packet&, const v12::periodic_rx::Stamp&, uint64_t, uint64_t, const v12::G1Anchor&, rc5_origin*)')+frame('void v12::G1CorrectedClock::observe_clock(const Original&, uint64_t, uint64_t)')+frame('void {anonymous}::pair(const v12::n30_probe::Pair&)')+frame('void n30::timing::Recorder::pair(const v12::n30_probe::Pair&, uint64_t)'))
- if json.loads((Path(out)/'receipt.json').read_text()).get('version') in ('0.2.12','0.2.13','0.2.14','0.2.15','0.2.16','0.2.17','0.2.18'):
+ if json.loads((Path(out)/'receipt.json').read_text()).get('version') in ('0.2.12','0.2.13','0.2.14','0.2.15','0.2.16','0.2.17','0.2.18','0.2.19','0.2.20'):
   paths['fine_reply']=(result['configured_bytes'],4096,root+frame('void {anonymous}::respond_status(uint64_t, uint64_t)')+frame('void {anonymous}::lora_status_frame(uint64_t, uint64_t)')+frame('void n30_fine_frame(v12::ConsoleFrame&, uint32_t, uint64_t)'))
-  paths['fine_start']=(result['configured_bytes'],4096,root+frame('bool n30_fine_start(uint64_t, uint64_t, uint64_t, uint32_t, uint32_t)')+frame('bool n30::fine::History::start(uint64_t, uint64_t, uint32_t, uint32_t)'))
-  if json.loads((Path(out)/'receipt.json').read_text()).get('version') in ('0.2.13','0.2.14','0.2.15','0.2.16','0.2.17','0.2.18'):
+  paths['fine_start']=(result['configured_bytes'],4096,root+frame('bool n30_fine_start(uint64_t, uint64_t, uint64_t, uint32_t, uint32_t)')+frame(history_start))
+  if json.loads((Path(out)/'receipt.json').read_text()).get('version') in ('0.2.13','0.2.14','0.2.15','0.2.16','0.2.17','0.2.18','0.2.19','0.2.20'):
    def fine_function(name):
     unit=list((Path(out)/'target').rglob('fine_capture.cpp.su'))
     if len(unit)!=1:raise ValueError('One fine capture stack unit required')
     rows=[r.split('\t') for r in unit[0].read_text().splitlines() if re.search(r':bool (?:\{anonymous\}::)?'+re.escape(name)+r'\(',r.split('\t')[0])]
     if len(rows)!=1 or rows[0][2]!='static':raise ValueError('Missing/ambiguous fine stack function: '+name)
     return int(rows[0][1])
-   startup=fine_function('fine_start')+frame('bool n30::fine::History::start(uint64_t, uint64_t, uint32_t, uint32_t)')
+   startup=fine_function('fine_start')+frame(history_start)
    paths['fine_start']=(result['configured_bytes'],4096,root+frame('bool n30_fine_start(uint64_t, uint64_t, uint64_t, uint32_t, uint32_t)')+startup)
    paths['fine_probe']=(result['configured_bytes'],4096,root+frame('bool n30_fine_probe(uint64_t, uint64_t, uint64_t, uint32_t, uint32_t)')+startup)
    paths['fine_poll']=(result['configured_bytes'],4096,f['main']+frame('void n30_fine_poll(uint64_t)')+fine_function('current')+fine_function('latch')+frame('bool n30::fine::Counter::current(uint32_t, uint32_t, uint64_t, n30::fine::Time&)')+fine_function('probe_tick')+fine_function('level_matches'))
   else:
    paths['fine_poll']=(result['configured_bytes'],4096,f['main']+frame('void n30_fine_poll(uint64_t)')+in_file('fine_capture.cpp','bool {anonymous}::current(uint64_t, n30::fine::Time&)')+in_file('fine_capture.cpp','bool {anonymous}::latch(uint32_t&)')+frame('bool n30::fine::Counter::current(uint32_t, uint32_t, uint64_t, n30::fine::Time&)'))
- if json.loads((Path(out)/'receipt.json').read_text()).get('version') in ('0.2.17','0.2.18'):
-  window_frame='void n30_window_frame(v12::ConsoleFrame&, bool, uint32_t, bool)' if json.loads((Path(out)/'receipt.json').read_text())['version']=='0.2.18' else 'void n30_window_frame(v12::ConsoleFrame&, bool, uint32_t)'
+ if json.loads((Path(out)/'receipt.json').read_text()).get('version') in ('0.2.17','0.2.18','0.2.19','0.2.20'):
+  window_frame='void n30_window_frame(v12::ConsoleFrame&, bool, uint32_t, bool)' if json.loads((Path(out)/'receipt.json').read_text())['version'] in ('0.2.18','0.2.19','0.2.20') else 'void n30_window_frame(v12::ConsoleFrame&, bool, uint32_t)'
   paths['window_reply']=(result['configured_bytes'],4096,root+frame('void {anonymous}::respond_status(uint64_t, uint64_t)')+frame('void {anonymous}::lora_status_frame(uint64_t, uint64_t)')+frame(window_frame)+frame('void n30_window_poll()')+frame('void n30_fine_poll(uint64_t)'))
   paths['window_report']=(result['configured_bytes'],4096,f['main']+frame('void n30_window_report(const v12::Report&)')+frame('bool n30_fine_window_bridge(bool (*)(uint64_t*), n30::fine::Bridge&)')+fine_function('current')+fine_function('latch'))
+ if json.loads((Path(out)/'receipt.json').read_text()).get('version') in ('0.2.19','0.2.20'):
+  counter=frame('bool n30::fine::Counter::current(uint32_t, uint32_t, uint64_t, n30::fine::Time&)')
+  current=fine_function('current')+fine_function('latch')+counter
+  claim=frame('n30::fine::Receiver::Result n30::fine::Receiver::claim(uint64_t, uint32_t, uint8_t, uint8_t, uint8_t, uint32_t, uint32_t, uint64_t, uint32_t, Match&)')
+  coordinate=frame('bool n30::fine::Receiver::coordinate(uint64_t, uint64_t, uint64_t&) const')
+  pending=frame('bool n30::fine::Receiver::pending(uint64_t)')
+  host=int(re.search(r'^CONFIG_BT_NIMBLE_HOST_TASK_STACK_SIZE=(\d+)$',(Path(out)/'target/sdkconfig').read_text(),re.M).group(1))
+  paths['fine_receive_worker']=(host,4096,frame('void v12::r2_host_poll()')+frame('void v12::{anonymous}::active_poll(uint64_t)')+frame('unsigned int v12::{anonymous}::periodic_poll(uint64_t, unsigned int)')+frame('int n30_fine_backend_receive(v12::periodic_rx::Stamp&)')+max(claim,coordinate,current))
+  paths['fine_current_main']=(result['configured_bytes'],4096,f['main']+frame('bool clock_reference_read(uint64_t*)')+frame('bool n30_fine_backend_current(uint64_t*)')+max(current,pending,coordinate))
+  paths['fine_boot_start']=(result['configured_bytes'],4096,f['main']+frame('bool n30_fine_backend_start(uint64_t, uint64_t, uint64_t)')+fine_function('fine_start')+frame('void n30::fine::Receiver::begin(uint64_t, uint64_t, uint32_t)'))
  result['n30_selected_paths']={}
  for name,(configured,reserve,selected) in paths.items():
   if selected+reserve>configured:raise ValueError('N30 stack budget exceeded: '+name)
@@ -147,7 +178,7 @@ def main():
  for name in ['idf','out','enrollment','device-config']:p.add_argument('--'+name,type=Path,required=True)
  p.add_argument('--profile',choices=['RC'],required=True);p.add_argument('--listening-percent',type=int,choices=[50,100],default=100)
  p.add_argument('--lora-transmitter-factory',default='0000000000000000',help='Exact configured T096 RC8 transmitter factory; zero disables hardware. RX only, fixed915MHz wire3')
- p.add_argument('--fine-shadow-profile',type=Path,help='Ignored exact-factory GPIO4/5 physical/schematic review profile; absent means CURRENT-only and no driven pads')
+ p.add_argument('--fine-shadow-profile',type=Path,help='Ignored exact-factory fixed GPIO4/5 profile; candidate backend is explicit and phase evidence must be distinct from legacy. Absent means CURRENT-only/no driven pads')
  p.add_argument('--commissioning',action='store_true',help='Clean-source candidate for separately authorized exact-device first installation; no hardware access');p.add_argument('--estimated-relay',action='store_true');p.add_argument('--registry',type=Path,default=REPO/'registry/example.json');p.add_argument('--development',action='store_true');a=p.parse_args()
  os.umask(0o077);sdk=a.idf.resolve();out=a.out.resolve()
  if out.exists() or REPO/'artifacts' not in out.parents:p.error('Fresh output directory below ignored artifacts/ required')
@@ -177,6 +208,7 @@ def main():
  # Registry/generator/device hashes bind display metadata and local input changes into runtime enrollment identity.
  enrollment_header=inputs/'r2-enrollment.h';enrollment_header.write_text('/* source:'+source_hash+' registry:'+sha(a.registry)+' generator:'+sha(REPO/'registry/registry.py')+' device:'+sha(a.device_config)+' fine:'+sha(fine_config)+' */\nstatic const r2_group_enrollment provision={{{'+','.join(map(str,key))+'},UINT64_C(0x'+e['group_id']+'),'+str(e['key_epoch'])+'},UINT64_C(0x'+d['device_id']+'),'+json.dumps(d['label'])+',40000};\n')
  r={'schema':1,'artifact_class':'PTOB_N30_RC','version':VERSION,'status':'INCOMPLETE','public_commit':git(REPO,'rev-parse','HEAD'),'source_dirty':dirty,'source_sha256':source_hash,'sources':sources,'dependencies':lock,'sdk_path':str(sdk),'app_path':str(APP),'sdk_submodules':modules.splitlines(),'profile':'RC','listening_percent':a.listening_percent,'estimated_relay':a.estimated_relay,'tx_actual_capture':False,'precision':'UNQUALIFIED','installed':False,'no_time_sync_watchdog_us':300000000,'source_recovery_policy':'ACCUMULATED_LOCK_LOSS_V1','physical_fit_policy':'CAPTURE_FROZEN_DENSE64_1S_ACCEL_V1','timing_diagnostics':'RUNTIME_RING16_CURSOR_V1','packet_window_diagnostics':'FIXED128_CALLBACK64_CONTINUOUS_MCPWM1_LATE128_V1_DEFAULT_OFF','fine_capture_profile':fp,'fine_capture':'RAW_MCPWM1_CURRENT_SW128_RING32_V1','commissioning_candidate':a.commissioning,'hardware_validation':'NOT_PERFORMED','deployment_authorized':False,'registry_sha256':sha(a.registry),'registry_generator_sha256':sha(REPO/'registry/registry.py'),'lora_transmitter_factory':tx_factory,'lora_contract':'RC8_WIRE3_PASSIVE_RX_SX1262_915_V3','enrollment_mode':'LOCAL_BUILD_TIME_NO_NVS_WRITE','device_config_sha256':sha(a.device_config),'provisional_path_profile':provisional_profile(d)}
+ r['clock_backend']=clock_backend(fp)
  dump(out/'receipt.json',r)
  env=os.environ.copy()
  for k in ['CFLAGS','CXXFLAGS','CPPFLAGS','LDFLAGS','EXTRA_COMPONENT_DIRS','SDKCONFIG_DEFAULTS']:env.pop(k,None)

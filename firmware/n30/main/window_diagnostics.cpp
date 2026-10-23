@@ -2,6 +2,7 @@
 // Discovery evidence only. No calls to clock receive(), model or permissions.
 #include "window_diagnostics_api.hpp"
 #include "fine_capture.hpp"
+#include "fine_backend_api.hpp"
 #include "native_transport.hpp"
 #include "bounded_log.hpp"
 #include "esp_timer.h"
@@ -125,5 +126,5 @@ void n30_window_frame(v12::ConsoleFrame& f,bool edges,uint32_t after,bool late){
   f.format("N30_WINDOW_BRIDGE present=1 anchor_valid=%u before20=%" PRIu64 " after20=%" PRIu64 " bt_slot=%" PRIu32 " bt_hus=%" PRIu32 " cache_us=%" PRIu64 " workerA80=%" PRIu64 " workerG20=%" PRIu64 " workerB80=%" PRIu64 " worker_incarnation=%" PRIu32 " main_valid=%u mainA80=%" PRIu64 " mainG20=%" PRIu64 " mainB80=%" PRIu64 " main_incarnation=%" PRIu32 "\n",unsigned(p.anchor_valid),p.anchor.before,p.anchor.after,p.anchor.time.half_slots,p.anchor.time.half_us,p.cache_us,p.worker.before80,p.worker.gpt20,p.worker.after80,p.worker.incarnation,unsigned(p.main_valid),p.main.before80,p.main.gpt20,p.main.after80,p.main.incarnation);
   const auto& a=p.pair;f.format("N30_WINDOW_PAIR present=1 matched=%u root=%016" PRIx64 " boot=%016" PRIx64 " source=%" PRIu32 " train=%" PRIu32 " publication=%" PRIu32 " local20=%" PRIu64 " available20=%" PRIu64 " remote_ns=%" PRIu64 " predicted_ns=%" PRId64 " epoch=%" PRIu32 " event=%u channel=%u causal=%u created_ns=%" PRIu64 " expires_ns=%" PRIu64 "\n",unsigned(p.pair_valid),a.root,a.boot,a.source,a.train,a.publication,a.local20,a.available20,a.remote_ns,a.predicted_ns,a.epoch,unsigned(a.event),unsigned(a.channel),unsigned(a.causal),a.created_ns,a.expires_ns);
  }
- f.format("N30_WINDOW_CONTRACT observer=PACKET_CANDIDATES_ONLY domain=MCPWM1_80MHZ marker=RW238_237 edge=BOTH selection=FIRST_EVENT_AND15_ZERO slots=128 callback_capacity=64 search_us=3100_PLUS_OLD_ENCLOSURE bridge=SEARCH_ONLY cursor=NONCONSUMING capture_between_windows=QUIESCED counter=CONTINUOUS polarity=UNSELECTED endpoint=UNKNOWN coalesced=UNKNOWN RF_bound=UNKNOWN UTC_bound=UNKNOWN clock_update=NONE production=GPTIMER20 offset=LEGACY_ONLY PDU=ORIGINAL_LOADED_SCALARS_ONLY flags=UNKNOWN late=FIRST_SEQUENCE_STICKY128\n");
+ f.format("N30_WINDOW_CONTRACT observer=PACKET_CANDIDATES_ONLY domain=MCPWM1_80MHZ marker=RW238_237 edge=BOTH selection=FIRST_EVENT_AND15_ZERO slots=128 callback_capacity=64 search_us=3100_PLUS_OLD_ENCLOSURE bridge=SEARCH_ONLY cursor=NONCONSUMING capture_between_windows=QUIESCED counter=CONTINUOUS polarity=UNSELECTED endpoint=UNKNOWN coalesced=UNKNOWN RF_bound=UNKNOWN UTC_bound=UNKNOWN clock_update=NONE production=%s offset=%s PDU=ORIGINAL_LOADED_SCALARS_ONLY flags=UNKNOWN late=FIRST_SEQUENCE_STICKY128\n",n30_fine_backend_selected()?"MCPWM1_20":"GPTIMER20",n30_fine_backend_selected()?"FINE_SPECIFIC":"LEGACY_ONLY");
 }

@@ -50,16 +50,16 @@ int main(){
  // A screensaver wake consumes a long press too; it cannot change the mode.
  n30::Input wake;n30::View w;w.saver=true;wake.update(true,100000,w);wake.update(true,140000,w);
  assert(wake.update(true,5000000,w)==n30::Action::None&&!w.blank&&!w.help&&!w.saver);
- // Third-page hold is one-shot, never RF help/blank, and cancels on navigation.
- n30::Input third;n30::View t;t.page=2;third.update(true,100000,t);third.update(true,140000,t);
+ // Last-page LoRa hold is one-shot, never RF help/blank, and cancels on navigation.
+ n30::Input third;n30::View t;t.page=n30::LoRaPage;third.update(true,100000,t);third.update(true,140000,t);
  assert(third.update(true,1599999,t)==n30::Action::None);
  assert(third.update(true,1600000,t)==n30::Action::ToggleLoRa);
  assert(third.update(true,5000000,t)==n30::Action::None&&!t.blank&&!t.help);
- third.update(false,5100000,t);third.update(false,5140000,t);assert(t.page==2);
- n30::Input cancelled;n30::View cv;cv.page=2;cancelled.update(true,100000,cv);cancelled.update(true,140000,cv);cv.page=0;
- assert(cancelled.update(true,150000,cv)==n30::Action::None);cv.page=2;
+ third.update(false,5100000,t);third.update(false,5140000,t);assert(t.page==n30::LoRaPage);
+ n30::Input cancelled;n30::View cv;cv.page=n30::LoRaPage;cancelled.update(true,100000,cv);cancelled.update(true,140000,cv);cv.page=0;
+ assert(cancelled.update(true,150000,cv)==n30::Action::None);cv.page=n30::LoRaPage;
  assert(cancelled.update(true,1600000,cv)==n30::Action::None);
- cancelled.update(false,5100000,cv);assert(cancelled.update(false,5140000,cv)==n30::Action::None&&cv.page==2);
+ cancelled.update(false,5100000,cv);assert(cancelled.update(false,5140000,cv)==n30::Action::None&&cv.page==n30::LoRaPage);
  // Short presses complete the four-screen cycle.
  n30::Input cycle;n30::View cyc;
  for(unsigned n=1;n<=4;n++){auto at=uint64_t(n)*1000000;cycle.update(true,at,cyc);cycle.update(true,at+40000,cyc);cycle.update(false,at+100000,cyc);cycle.update(false,at+140000,cyc);assert(cyc.page==n%n30::PageCount);}

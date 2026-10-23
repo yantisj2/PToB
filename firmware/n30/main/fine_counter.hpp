@@ -41,9 +41,9 @@ struct Edge {uint64_t raw80=0,tick20=0,seen_us=0;uint32_t number=0,raw32=0,incar
 class History {
  public:
  static constexpr unsigned Capacity=32;
- bool start(uint64_t id,uint64_t now,uint32_t ms,uint32_t every){
+ bool start(uint64_t id,uint64_t now,uint32_t ms,uint32_t every,bool persistent=false){
   if(active_||!id||ms<1000||ms>600000||!every||every>64||now>UINT64_MAX-uint64_t(ms)*1000)return false;
-  *this={};id_=id;last_=now;until_=now+uint64_t(ms)*1000;every_=every;active_=true;return true;
+  *this={};id_=id;last_=now;until_=persistent?UINT64_MAX:now+uint64_t(ms)*1000;every_=every;active_=true;return true;
  }
  bool active(uint64_t now){if(now>=until_||now<last_)active_=false;last_=now;return active_;}
  void stop(){active_=false;}

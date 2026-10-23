@@ -2,9 +2,18 @@
 // Finite N30-only raw observer. No clock training, packet claim or RF correction.
 #include "fine_capture.hpp"
 #include "fine_counter.hpp"
+#include "fine_receiver.hpp"
+#include "fine_backend_api.hpp"
+#include "periodic_rx_model.hpp"
 #include "fine_capture_config.h"
 #ifndef PTOB_N30_FINE_RW
 #define PTOB_N30_FINE_RW 0
+#endif
+#ifndef PTOB_N30_FINE_BACKEND
+#define PTOB_N30_FINE_BACKEND 0
+#endif
+#ifndef PTOB_N30_FINE_TRANSLATION80
+#define PTOB_N30_FINE_TRANSLATION80 UINT64_C(125440)
 #endif
 #include "bounded_log.hpp"
 #include "driver/mcpwm_cap.h"
@@ -22,7 +31,32 @@ namespace {
 portMUX_TYPE mux=portMUX_INITIALIZER_UNLOCKED;
 mcpwm_cap_timer_handle_t timer=nullptr;mcpwm_cap_channel_handle_t channels[3]{};
 n30::fine::Counter counter;n30::fine::History history;
-n30::fine::Window packet_edges;bool window_owned=false;
+n30::fine::Receiver receiver;bool production_owned=false;
+struct BackendStats {uint64_t fall80=0,stamp20=0,available20=0;uint32_t calls=0,pending=0,missing=0,ambiguous=0,unsupported=0;};
+BackendStats backend_stats{};
+// Production owns this peripheral for the whole boot and refuses every finite
+// WINDOW start. Do not reserve the separate observer's 64 edges/128 fences in
+// that mutually exclusive image: the BLE controller shares the internal heap.
+#if PTOB_N30_FINE_BACKEND
+class InactivePacketWindow {
+ public:
+ void reset(const n30::fine::Bridge&){}
+ bool begin(uint32_t,uint64_t,uint64_t,const n30::fine::History&,uint32_t){return false;}
+ bool skip(uint32_t){return false;}
+ void arm(uint64_t){}
+ void observe(const n30::fine::Edge&){}
+ void seal(uint64_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t){}
+ void withdraw(){}
+ n30::fine::WindowStatus status()const{return {};}
+ unsigned read(uint32_t,n30::fine::Edge*,unsigned)const{return 0;}
+ unsigned late(uint32_t,n30::fine::Window::Late*,unsigned)const{return 0;}
+};
+InactivePacketWindow packet_edges;
+static_assert(sizeof(packet_edges)==1,"Production must not reserve finite WINDOW storage");
+#else
+n30::fine::Window packet_edges;
+#endif
+bool window_owned=false;
 n30::fine::Edge batch[4];
 struct Snapshot {uint64_t id,until,latest;uint32_t every,seen,rx,tx,sampled,overwritten,oldest,incarnation,hz,current,timeout,invalid,poll,cycles,service,first32,latest32,wraps,callbacks,budget_refused,expired_refused,inactive_callbacks,rx_out,tx_out,rx_in,tx_in,oe,channel_mask,irq_mask;uint64_t first_us,last_us;int error;bool active,contained;};
 Snapshot snapshot{};
@@ -39,6 +73,7 @@ bool channel_enabled[3]{};uint64_t burst_at=0;uint32_t burst_count=0,total_callb
 constexpr uint32_t CurrentMask=UINT32_C(1)<<29,RadioMask=UINT32_C(3)<<27;
 static_assert(SYNCFOUND_FLAG_IDX==230&&PKT_TX_ON_IDX==235&&RW_RX_ON_IDX==238&&RW_TX_ON_IDX==237,"Pinned native signal IDs changed");
 static_assert(PTOB_N30_FINE_RW==0||(PTOB_N30_FINE_RW==1&&PTOB_N30_FINE_PINS),"RW profile requires reviewed fixed pads");
+static_assert(!PTOB_N30_FINE_BACKEND||(PTOB_N30_FINE_RW&&PTOB_N30_FINE_PINS),"Fine backend requires the reviewed fixed RW profile");
 constexpr int NativeRxSignal=PTOB_N30_FINE_RW?RW_RX_ON_IDX:SYNCFOUND_FLAG_IDX;
 constexpr int NativeTxSignal=PTOB_N30_FINE_RW?RW_TX_ON_IDX:PKT_TX_ON_IDX;
 constexpr const char* NativeMode=PTOB_N30_FINE_PINS?(PTOB_N30_FINE_RW?"NATIVE_RW_SIGNAL":"NATIVE_SIGNAL"):"CURRENT_ONLY";
@@ -124,12 +159,13 @@ bool on_edge(mcpwm_cap_channel_handle_t,const mcpwm_capture_event_data_t* value,
   if(now<burst_at){error=-2;contain();portEXIT_CRITICAL_ISR(&mux);return false;}
   if(now-burst_at>=10000){burst_at=now;burst_count=0;}
   ++burst_count;
-  if(burst_count>64||total_callbacks>500000){inc(budget_refused);error=-18;contain();portEXIT_CRITICAL_ISR(&mux);return false;}
+  if(burst_count>64||(!production_owned&&total_callbacks>500000)){inc(budget_refused);error=-18;contain();portEXIT_CRITICAL_ISR(&mux);return false;}
   n30::fine::Time anchor{},edge{};
   const bool valid=current(now,anchor)&&counter.event(incarnation,value->cap_value,edge);
   if(!valid)inc(invalid);
   n30::fine::Edge observed{edge.raw80,edge.tick20,now,0,value->cap_value,incarnation,uint8_t(uintptr_t(context)),uint8_t(value->cap_edge),valid};
   history.append(observed);observed.number=history.sequence();
+  if(production_owned){receiver.observe(observed);if(receiver.status().fault){error=-25;}}
   if(window_owned)packet_edges.observe(observed);
   if(error)contain();
  }else if(active){inc(expired_refused);contain();}
@@ -218,8 +254,8 @@ bool route(bool enable){
  return true;
 }
 }
-[[gnu::noinline]] static bool fine_start(uint64_t id,uint64_t factory,uint64_t now,uint32_t ms,uint32_t every,bool synthetic,uint32_t spacing,uint32_t edges){
- if((synthetic&&!PTOB_N30_FINE_PINS)||active||window_owned||error||factory!=PTOB_N30_FINE_FACTORY||!id||!now||ms<1000||ms>600000||now>UINT64_MAX-uint64_t(ms)*1000||!every||every>64||incarnation==UINT32_MAX)return false;
+[[gnu::noinline]] static bool fine_start(uint64_t id,uint64_t factory,uint64_t now,uint32_t ms,uint32_t every,bool synthetic,uint32_t spacing,uint32_t edges,bool production=false){
+ if((PTOB_N30_FINE_BACKEND&&!production)||(production&&(!PTOB_N30_FINE_BACKEND||!PTOB_N30_FINE_PINS||!PTOB_N30_FINE_RW||synthetic||every!=1))||(synthetic&&!PTOB_N30_FINE_PINS)||active||window_owned||error||factory!=PTOB_N30_FINE_FACTORY||!id||!now||ms<1000||ms>600000||now>UINT64_MAX-uint64_t(ms)*1000||!every||every>64||incarnation==UINT32_MAX)return false;
  last_start={};last_start_synthetic=synthetic;
  if(!allocate()){error=-4;return false;}
  if(mcpwm_capture_timer_enable(timer)!=ESP_OK){error=-5;return false;}timer_enabled=true;
@@ -234,9 +270,9 @@ bool route(bool enable){
  if(ok)ok=fresh>=now&&fresh<now+uint64_t(ms)*1000&&candidate.begin(next_incarnation,second,admitted_current,hz);
  // History.start checks all bounds before mutation. No prior domain metadata
  // changes until it succeeds; latch failure leaves retained edges coherent.
- if(ok)ok=history.start(id,now,ms,every);
+ if(ok)ok=history.start(id,now,ms,every,production);
  if(ok){
-  incarnation=next_incarnation;counter=candidate;probe={};probe.synthetic=synthetic;probe.spacing_ms=spacing;probe.goal=edges;probe.next_us=coarse()+uint64_t(spacing)*1000;
+  incarnation=next_incarnation;counter=candidate;production_owned=production;if(production){receiver.begin(second,second,incarnation);backend_stats={};}probe={};probe.synthetic=synthetic;probe.spacing_ms=spacing;probe.goal=edges;probe.next_us=coarse()+uint64_t(spacing)*1000;
   current_reads=attempt.reads;timeouts=attempt.timeouts;poll_max=attempt.poll_max;cycles_max=attempt.cycles_max;invalid=service_max_us=0;last_service=admitted_current;
   last_raw80=second;latest_raw32=first_raw32=second;wraps=0;first_coarse=last_service;burst_at=last_service;burst_count=total_callbacks=budget_refused=expired_refused=inactive_callbacks=0;contained=false;
   ok=history.active(coarse());
@@ -305,8 +341,62 @@ void n30_fine_poll(uint64_t){
 N30FineClockStatus n30_fine_clock_status(uint64_t now){
  portENTER_CRITICAL(&mux);
  const bool running=active&&now<history.until();
- const N30FineClockStatus status{history.until(),hz,running,running&&!error&&!contained&&hz==80000000};
+ const N30FineClockStatus status{history.until(),hz,running,running&&!error&&!contained&&hz==80000000,production_owned};
  portEXIT_CRITICAL(&mux);return status;
+}
+bool n30_fine_backend_selected(){return bool(PTOB_N30_FINE_BACKEND);}
+bool n30_fine_backend_start(uint64_t boot,uint64_t factory,uint64_t now){
+ return fine_start(boot,factory,now,600000,1,false,0,0,true);
+}
+bool n30_fine_backend_current(uint64_t* tick20){
+ if(!tick20)return false;
+ *tick20=0;
+ portENTER_CRITICAL(&mux);n30::fine::Time t{};
+ bool ok=production_owned&&active&&!error&&!contained&&history.active(coarse());
+ uint32_t pending=0,captured[2]{};
+ if(ok){
+  // Snapshot pending radio values BEFORE CURRENT. The peripheral continues
+  // capturing while the CPU lock is held: reading CAP after CURRENT can see
+  // a legitimate newer edge, whose unsigned age would look invalid. A fresh
+  // CH2 latch after these reads anchors every saved value without accepting
+  // future values or weakening Counter::event's stale/epoch checks.
+  auto* d=timer->group->hal.dev;pending=(d->int_raw.val>>27)&3;
+  for(unsigned i=0;i<2;++i)if(pending&(1u<<i))captured[i]=mcpwm_ll_capture_get_value(d,i);
+  ok=current(coarse(),t)&&receiver.coordinate(t.raw80,0,*tick20);
+  for(unsigned i=0;i<2&&ok;++i)if(pending&(1u<<i)){n30::fine::Time edge{};
+   ok=counter.event(incarnation,captured[i],edge)&&receiver.pending(edge.raw80);
+  }
+ }
+ if(!ok&&production_owned&&active){if(!error)error=-26;contain();}
+ portEXIT_CRITICAL(&mux);return ok;
+}
+int n30_fine_backend_receive(v12::periodic_rx::Stamp& stamp){
+ if(!PTOB_N30_FINE_BACKEND)return 0;
+ portENTER_CRITICAL(&mux);n30::fine::Time t{};n30::fine::Receiver::Match found{};
+ inc(backend_stats.calls);
+ bool live=production_owned&&active&&!error&&!contained&&history.active(coarse())&&current(coarse(),t);
+ auto result=live?n30::fine::Receiver::Result::Unsupported:n30::fine::Receiver::Result::Fault;
+ if(live&&stamp.actual&&stamp.association_observed&&stamp.radio_reference_applied){
+  result=receiver.claim(stamp.raw_tick20(),stamp.map_enclosure_ns,stamp.phy,stamp.pdu_length,stamp.ext_header,
+    stamp.epoch,stamp.sequence,t.raw80,(timer->group->hal.dev->int_raw.val>>27)&3,found);
+ }
+ int outcome=0;
+ if(result==n30::fine::Receiver::Result::Pending){inc(backend_stats.pending);outcome=1;}
+ else if(result==n30::fine::Receiver::Result::Ready){
+  uint64_t tick=0,available=0;uint32_t guard=UINT32_MAX;
+  if(receiver.coordinate(found.fall.raw80,PTOB_N30_FINE_TRANSLATION80,tick)&&receiver.coordinate(t.raw80,0,available)&&tick<=available&&
+     n30::fine::Receiver::lifetime_guard(stamp.tick20,tick,stamp.map_enclosure_ns,guard)){
+   stamp.tick20=tick;stamp.available20=available;stamp.radio_extra_us=0;stamp.refinement_applied=false;stamp.refinement_ticks=0;
+   // Preserve signed expiry/coarse permission with the old guard plus the
+   // actual coordinate displacement and rounding. This is not an RF bound.
+   stamp.map_enclosure_ns=guard;stamp.edge_calibrated=false;backend_stats.fall80=found.fall.raw80;backend_stats.stamp20=tick;backend_stats.available20=available;outcome=2;
+  }
+ }
+ if(result==n30::fine::Receiver::Result::Missing)inc(backend_stats.missing);
+ if(result==n30::fine::Receiver::Result::Ambiguous)inc(backend_stats.ambiguous);
+ if(result==n30::fine::Receiver::Result::Unsupported)inc(backend_stats.unsupported);
+ if(result==n30::fine::Receiver::Result::Fault&&production_owned&&active){if(!error)error=-25;contain();}
+ portEXIT_CRITICAL(&mux);return outcome;
 }
 bool n30_fine_window_start(uint64_t id,uint64_t factory,uint64_t now,uint32_t duration){
  if(!PTOB_N30_FINE_PINS||!PTOB_N30_FINE_RW)return false;
@@ -348,6 +438,8 @@ void n30_fine_frame(v12::ConsoleFrame& f,uint32_t after,uint64_t now){
  n30_fine_poll(now);
  portENTER_CRITICAL(&mux);
  const unsigned count=history.read(after,batch,4);
+ const auto receiver_status=receiver.status();const bool backend=production_owned;
+ const auto bs=backend_stats;
  uint32_t rx_out=0,tx_out=0,rx_in=0,tx_in=0,oe=0,channel_mask=0,irq_mask=0;
 #if PTOB_N30_FINE_PINS
  rx_out=GPIO.func_out_sel_cfg[PTOB_N30_FINE_RX_GPIO].val;
@@ -374,5 +466,5 @@ void n30_fine_frame(v12::ConsoleFrame& f,uint32_t after,uint64_t now){
   const auto& e=batch[i];
   f.format("N30_FINE_EDGE%u present=1 n=%" PRIu32 " raw32=%" PRIu32 " raw80=%" PRIu64 " tick20=%" PRIu64 " seen_us=%" PRIu64 " incarnation=%" PRIu32 " kind=%u polarity=%u extended=%u association=UNESTABLISHED provenance=%s\n",i,e.number,e.raw32,e.raw80,e.tick20,e.seen_us,e.incarnation,unsigned(e.kind),unsigned(e.polarity),unsigned(e.valid),mode);
  }
- f.format("N30_FINE_CONTRACT observer=RAW_ONLY domain=MCPWM1_80MHZ RX=%s TX=%s CURRENT=CH2_SW128 capture_channels=0/1/2 edge=RISING_AND_FALLING endpoint=UNKNOWN coalesced=UNKNOWN packet_association=NONE RF_bound=UNKNOWN UTC_bound=UNKNOWN clock_update=NONE production=GPTIMER20 offset=LEGACY_ONLY provenance=%s expected=%s\n",p.synthetic?"GPIO4_SYNTHETIC":NativeRxName,p.synthetic?"GPIO5_SYNTHETIC":NativeTxName,mode,p.synthetic?"SYNTHETIC_VERIFIED_PAD_TRANSITIONS_ONLY":"NONE");
+ f.format("N30_FINE_CONTRACT observer=%s domain=MCPWM1_80MHZ RX=%s TX=%s CURRENT=CH2_SW128 capture_channels=0/1/2 edge=RISING_AND_FALLING endpoint=UNKNOWN coalesced=UNKNOWN packet_association=%s RF_bound=UNKNOWN UTC_bound=UNKNOWN clock_update=%s production=%s offset=%s provenance=%s expected=%s backend=%u phase80=%" PRIu64 " claimed=%" PRIu32 " callback_history=%" PRIu32 " callback_overwritten=%" PRIu32 " late=%" PRIu32 " receiver_fault=%" PRIu32 " receive_calls=%" PRIu32 " pending_calls=%" PRIu32 " missing_calls=%" PRIu32 " ambiguous_calls=%" PRIu32 " unsupported_calls=%" PRIu32 " fall80=%" PRIu64 " stamp20=%" PRIu64 " available20=%" PRIu64 "\n",backend?"RAW_AND_G1":"RAW_ONLY",p.synthetic?"GPIO4_SYNTHETIC":NativeRxName,p.synthetic?"GPIO5_SYNTHETIC":NativeTxName,backend?"EMPIRICAL_CLASS_UNIQUE_FALL":"NONE",backend?"G1_RX":"NONE",backend?"MCPWM1_20":"GPTIMER20",backend?"FINE_SPECIFIC":"LEGACY_ONLY",mode,p.synthetic?"SYNTHETIC_VERIFIED_PAD_TRANSITIONS_ONLY":"NONE",unsigned(backend),backend?PTOB_N30_FINE_TRANSLATION80:0,receiver_status.claimed,receiver_status.callbacks,receiver_status.overwritten,receiver_status.late,receiver_status.fault,bs.calls,bs.pending,bs.missing,bs.ambiguous,bs.unsupported,bs.fall80,bs.stamp20,bs.available20);
 }

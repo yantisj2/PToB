@@ -24,6 +24,8 @@ struct Lora {bool enabled=false,requested=false,worker_busy=false,off_acknowledg
 Rx transport_status(){return {};}Tx diagnostic_tx_status(){return {};}Direct direct_status(){return {};}Lora lora_status(){return {};}
 }
 v12::UpdateGate update_gate;uint64_t update_completed_us=0;
+bool fine_stop_pending=false;
+void n30_window_stop(){n30_fine_window_stop();}
 uint64_t micros(){return fake_now;}
 #include "actual_fine_update_gate.hpp"
 void clear_error(){assert(n30_fine_released());error=0;fake_complete=fake_clear_ok=fake_disable_ok=true;fake_stale=false;fake_cycle_step=32;fake_device.int_raw.val=0;}

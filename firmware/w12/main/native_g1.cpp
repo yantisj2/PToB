@@ -6,6 +6,9 @@
 #include "native_direct.hpp"
 #include "native_diagnostic_tx.hpp"
 #include "periodic_rx.hpp"
+#ifdef PTOB_N30
+#include "fine_backend_api.hpp"
+#endif
 #ifdef V12_R2_RC7_TX_ESTIMATE_LAB
 #include "bounded_log.hpp"
 #include "periodic_tx.hpp"
@@ -831,8 +834,25 @@ void renew_permission(uint64_t created,uint64_t expires,int64_t offset,uint64_t 
   const uint64_t left=uint64_t(int64_t(expires)+offset-coarse_ns(now))/1000-anchor.guard(now);
   if(left<=(immutable_origin?1650000:1500000)){anchor.until=now+left;last_origin_ns=created;}
 }
-unsigned periodic_poll(uint64_t now,unsigned budget=8){Periodic row{};unsigned processed=0;for(;processed<budget&&periodic.pop(row);++processed){
+unsigned periodic_poll(uint64_t now,unsigned budget=8){Periodic row{};unsigned processed=0;
+#ifdef PTOB_N30
+  // A fine association waits through its original search interval without a
+  // sleep, busy loop, queue reordering or renewed packet-age allowance.
+  static Periodic fine_pending{};static bool fine_waiting=false;
+#endif
+  for(;processed<budget;++processed){
+#ifdef PTOB_N30
+  if(fine_waiting){row=fine_pending;fine_waiting=false;}else
+#endif
+  if(!periodic.pop(row))break;
   now=micros();
+#ifdef PTOB_N30
+  if(n30_fine_backend_selected()&&row.identity==sync_identity&&now>=row.at&&now-row.at<50000&&client_window_active(row.at,window_phase)){
+    const auto matched=n30_fine_backend_receive(row.capture);
+    if(matched==1){fine_pending=row;fine_waiting=true;break;}
+    if(matched!=2){row.capture.actual=false;row.capture.association_observed=false;}
+  }
+#endif
   struct ReceiveObservation {
     const Periodic& row;uint64_t now;uint32_t authenticated,accepted,refused;
     ~ReceiveObservation(){

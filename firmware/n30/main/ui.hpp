@@ -7,6 +7,7 @@
 namespace n30 {
 constexpr unsigned Width=64,Height=128,FrameBytes=1024;
 constexpr unsigned PageCount=4;
+constexpr uint8_t PrecisionPage=2,LoRaPage=3;
 constexpr uint64_t SnapshotMaxUs=250000,IdleUs=300000000,MoveUs=30000000;
 constexpr uint64_t ClockGraceUs=500000;
 constexpr uint64_t MinimalAfterUs=900000000;
@@ -15,18 +16,18 @@ enum class State:uint8_t {Off,Search,Join,Acquire,Follow,Hold,Fault};
 enum class Source:uint8_t {None,Ble,Rc1,Rc2,LoRa};
 enum class Action:uint8_t {None,ToggleRelayOnly,ToggleLoRa};
 struct Model {
- char unit[25]="N30",parent[25]="NONE";
+ char unit[25]="N30",parent[25]="NONE",root[25]="----";
  uint64_t sampled_us=0,utc_at_us=0,utc_us=0,until_us=0;
  uint32_t rms_ns=UINT32_MAX;uint16_t hz=0,delivery=UINT16_MAX;
  bool valid=false,locked=false,serving=false,relay_only=false,mode_pending=false;
  Source source=Source::None;
  struct BleClock {uint64_t at_us=0,utc_us=0,until_us=0,root=0,boot=0;uint32_t epoch=0;bool valid=false,following=false;} ble;
  struct Precision {
-  uint64_t until_us=0,scope=0,root_boot=0,lock_since_us=0,capture_until_us=0;
-  uint32_t source_epoch=0,quality_scope=0,counter_hz=80000000,rms_ns=UINT32_MAX;
-  int32_t rate_ppb=0;
-  bool valid=false,rate_known=false,locked=false,lock_age_valid=false;
-  bool capture_active=false,capture_healthy=false;
+  uint64_t until_us=0,scope=0,root_boot=0,lock_since_us=0;
+  uint32_t source_epoch=0,quality_scope=0,counter_hz=20000000,rms_ns=UINT32_MAX;
+  int32_t relative_ppb=0;
+  bool valid=false,relative_known=false,locked=false,lock_age_valid=false;
+  Source source=Source::None;
  } precision;
  n30_lora_view lora{};uint8_t lora_lamps[8]{};
  int64_t delta_ns=0;int32_t drift_ppb=0;bool delta_valid=false,drift_valid=false;

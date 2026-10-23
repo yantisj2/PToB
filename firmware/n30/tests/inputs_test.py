@@ -4,7 +4,7 @@ import copy,hashlib,json,sys,tempfile,unittest
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[3];sys.path.insert(0,str(ROOT/'firmware/n30/tools'))
 from onboard import prepare,onboard
-from build import validate_inputs,device_header,validate_transmitter,lora_config_header,provisional_profile,validate_profile_mode,fine_profile,fine_header
+from build import validate_inputs,device_header,validate_transmitter,lora_config_header,provisional_profile,validate_profile_mode,fine_profile,fine_header,clock_backend
 class Inputs(unittest.TestCase):
  def setUp(self):self.data={'schema':1,'devices':{'0000000000000001':{'alias':'Existing','target':'t096'}}}
  def test_provisional_multicast_profile(self):
@@ -52,6 +52,19 @@ class Inputs(unittest.TestCase):
    with self.assertRaises(ValueError):prepare(data,'N3-1',mac)
   with self.assertRaises(ValueError):prepare(data,'N3-1','02:00:00:00:30:03')
   with self.assertRaises(ValueError):prepare(data,'N3-2',d1['factory_mac'])
+ def test_fine_backend_phase_profile(self):
+  _,d=prepare(self.data,'N3-2','02:00:00:00:30:02')
+  value=dict(schema=1,mode='NATIVE_RW_GPIO4_5_FINE_CANDIDATE',factory=d['device_id'],RX_GPIO=4,TX_GPIO=5,board_family='HELTEC_V3_V31_V32',physical_review_sha256='1'*64,schematic_review_sha256='2'*64,endpoint_class='EMPIRICAL_RW_RX_FALL_PHY0_PDU191_EXT0_END_UNKNOWN',phase_convention_ns=1568000,validation_evidence_sha256='3'*64,calibration_evidence_sha256='0'*64)
+  with tempfile.TemporaryDirectory() as tmp:
+   p=Path(tmp)/'fine.json';p.write_text(json.dumps(value));profile=fine_profile(d,p)
+   self.assertIn('PTOB_N30_FINE_BACKEND 1',fine_header(profile));self.assertEqual(clock_backend(profile)['rounding'],'NEAREST_50NS_TIES_UP')
+   legacy={**d,'provisional_path':{'evidence_sha256':'9'*64}}
+   with self.assertRaises(ValueError):fine_profile(legacy,p)
+   calibrated={**value,'calibration_evidence_sha256':'9'*64};p.write_text(json.dumps(calibrated));self.assertEqual(fine_profile(legacy,p),calibrated)
+   self.assertNotEqual(fine_header(profile),fine_header(calibrated))
+   for fields in ({'mode':'OTHER'},{'phase_convention_ns':1568000.0},{'phase_convention_ns':1567000},{'endpoint_class':'QUALIFIED_END'},{'validation_evidence_sha256':'0'*64},{'RX_GPIO':6},{'calibration_evidence_sha256':'1'*64}):
+    p.write_text(json.dumps({**value,**fields}))
+    with self.subTest(fields=fields),self.assertRaises(ValueError):fine_profile(d,p)
  def test_actual_map_transaction(self):
   with tempfile.TemporaryDirectory(dir=ROOT/'artifacts',prefix='n30-test-') as name:
    p=Path(name);registry=p/'registry.json';registry.write_text(json.dumps(self.data))

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Jonathan Yantis.
 #include "status_adapter.hpp"
 #include <cassert>
+#include <cstring>
 int main(){
  v12::R2Status s;DisplayState d;d.unit_label="N3-1";d.followed_clock="TC-02";
  s.requested=s.clock_valid=s.following=true;d.valid=d.r2_relative_lock=true;d.rms_ns=65;
@@ -21,9 +22,19 @@ int main(){
  s.fault=false;s.requested=false;m=n30::model(s,d,1000001);assert(!m.valid&&m.state==n30::State::Off);
  s.requested=s.following=true;s.g1_clock_model.tick=20000000;s.g1_clock_model.rate=-5486.737;s.g1_clock_origin=7;
  s.rms_ns=12345;d.rms_ns=170;m=n30::model(s,d,1000001);
- assert(m.precision.valid&&m.precision.rms_ns==170&&m.rms_ns==170&&m.precision.rate_known&&m.precision.rate_ppb==-5487&&m.precision.scope==7);
- s.g1_clock_model.rate=std::nan("");m=n30::model(s,d,1000001);assert(!m.precision.rate_known);
- s.g1_clock_model.rate=50001;m=n30::model(s,d,1000001);assert(!m.precision.rate_known);
+ assert(m.precision.valid&&m.precision.rms_ns==170&&m.rms_ns==170&&!m.precision.relative_known&&m.precision.scope==7);
+ s.g1_clock_model.rate=std::nan("");m=n30::model(s,d,1000001);assert(!m.precision.relative_known);
+ s.g1_clock_model.rate=50001;m=n30::model(s,d,1000001);assert(!m.precision.relative_known);
+ // Root identity and relative residual are independent of the parent/raw trim.
+ m=n30::model(s,d,1000001,"ROOT-02");assert(!std::strcmp(m.root,"ROOT-02")&&!std::strcmp(m.parent,"TC-02"));
+ n30::relative_rate(m,1,2,3,-123,true,1000000,1000001);assert(m.precision.relative_known&&m.precision.relative_ppb==-123);
+ for(unsigned fault=0;fault<7;fault++){
+  auto bad=m;if(fault==4)bad.ble.following=false;if(fault==5)bad.precision.valid=false;
+  n30::relative_rate(bad,fault==0?9:1,fault==1?9:2,fault==2?9:3,123,fault!=3,fault==6?1000002:1000000,1000001);
+  assert(!bad.precision.relative_known);
+ }
+ n30::relative_rate(m,1,2,3,123,true,1000000,1250000);assert(!m.precision.relative_known);
+ m=n30::model(s,d,1000001);assert(!std::strcmp(m.root,"----")&&!m.precision.relative_known);
  s.requested=s.following=true;s.root_boot=0;m=n30::model(s,d,1000001);assert(!m.valid&&!m.locked);
  s.root_boot=2;s.rc7_upstream_mode_pending=true;m=n30::model(s,d,1000001);assert(!m.valid&&!m.locked&&m.state==n30::State::Acquire&&m.mode_pending&&m.source==n30::Source::None);
 }

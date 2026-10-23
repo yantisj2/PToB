@@ -819,20 +819,26 @@ This selected call-path review is not a complete vendor/libc stack bound.
 
 ## Version 0.2.16: precision watch face
 
-The fourth portrait page adds a monochrome watch bezel, large segmented causal
-`SYNC RMS`, signed active-clock frequency correction in `PPB`, raw 80 MHz
-observer state and a segmented `HH:MM:SS` lock stopwatch. It uses the existing
-font, monochrome frame, button gestures and 4 Hz display schedule. A short press
-cycles clock, dual radio, LoRa, precision, then clock; a 1.5-second hold on
-precision opens help and a four-second hold blanks the display.
+The precision page retains a monochrome watch bezel, large segmented causal
+`SYNC RMS` and a segmented `HH:MM:SS` lock stopwatch. Version 0.2.20 places it
+third (internal page 2), before LoRa on the last page (internal page 3). The top
+strip shows the actual BLE root alias, BLE/RC1/RC2 path and live display PPS.
+Registry lookup uses the full root identity, independently of parent identity;
+long aliases end with a truncation dot. The monochrome frame, button gestures
+and 4 Hz display schedule remain. A 1.5-second hold opens precision help and a
+four-second hold blanks the display.
 
 The RMS comes from the active BLE dashboard's settled causal quality, matching
 the clock page. The value remains conditional on current following time and
 its original source/model deadlines. A downstream receiver's relative shadow-PPS
 RMS, an offline fit or a calibrated advertised relay offset is a different
-quantity and is never substituted. The signed ppb value rounds the active
-clock model's frequency correction to the nearest ppb; nonfinite or out-of-range
-values show dashes. Larger RMS values change units through ns, us, ms and s.
+quantity and is never substituted. Larger RMS values change units through ns,
+us, ms and s. `REL` reports an estimated signed trend of pre-update delivered
+clock error (prediction minus root correction), in ns/s = ppb. This read-only
+observer has its own baseline, scope and freshness gates; the UI also requires
+fresh following BLE time and matching full root, boot and source epoch. It
+never steers the clock or substitutes raw oscillator trim or a forecast guard.
+Missing or invalid trends show dashes.
 
 The stopwatch begins when the final settled BLE lock is first observed. It
 continues across screen changes and ordinary clock-fit publications. Loss of
@@ -842,17 +848,63 @@ starts a new interval. Unlocked live time shows zero; stale/unavailable values
 show dashes. The display saturates at `99:59:59` and adds `+` afterward. This is
 observed relative lock duration, not an independent accuracy guarantee.
 
-The raw-counter indicator reads a cached owner snapshot only. Rendering and
-publication never allocate MCPWM, start capture, latch CURRENT or drive GPIO.
-`80MHz OFF` is the default. `OBS` requires an active healthy finite raw-observer
-lease; `ERR` describes an active unhealthy observer and `---` a stale UI snapshot.
-This indicator grants no packet association or authority to the delivered clock.
-Production timestamp selection and its RF/UTC uncertainty remain unchanged.
+The counter label is exactly `80MHz / 12.5ns` for the boot-selected fine backend
+or `20MHz / 50ns` for legacy GPTimer delivery. It describes counter tick size,
+not delivered resolution or measured accuracy. Fine delivery still rounds to
+50ns. Raw capture diagnostics default OFF and do not influence the label.
+Rendering and publication never allocate MCPWM, start capture, latch CURRENT
+or drive GPIO. Production timestamp selection and its RF/UTC uncertainty remain
+unchanged.
 
-The bound console accepts `ui page 3` without radio or timing mutations. Parser
-manifests for this image use `n30_ui_revision=4`; revision 3 still accepts only
+The bound console accepts `ui page 2` for PRECISION and `ui page 3` for LoRa
+without radio or timing mutations. Parser manifests for this image use `n30_ui_revision=4`; revision 3 still accepts only
 pages 0–2. The ten-row wire frame, response deadline and byte budgets are
 unchanged. Host tests cover scope/expiry/loss/gap resets, actual page-command
-dispatch, old-revision refusal, all RMS units, stale values, cached observer
-reads without resource activity and both mounted framebuffer rotations.
+dispatch, old-revision refusal, all RMS units, stale values, signed relative
+trend admission, both counter labels, long root names and both mounted
+framebuffer rotations.
 Illustrative previews contain synthetic values and are not hardware acceptance.
+
+### Empirical fine-receiver candidate
+
+Version0.2.19 accepts the explicit ignored fixed-pin profile mode
+`NATIVE_RW_GPIO4_5_FINE_CANDIDATE` through `--fine-shadow-profile`. It requires
+the same factory, board-family and physical/schematic provenance as the raw RW
+observer, plus these fields:
+
+```json
+{
+  "endpoint_class": "EMPIRICAL_RW_RX_FALL_PHY0_PDU191_EXT0_END_UNKNOWN",
+  "phase_convention_ns": 1568000,
+  "validation_evidence_sha256": "<reviewed held-out evidence SHA-256>",
+  "calibration_evidence_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+}
+```
+
+These are additional fields in the full fixed-pin profile, not a standalone
+input. The candidate owns group1 continuously from its bound boot until
+maintenance or a fault; it is distinct from the finite diagnostic lease.
+Unconfigured builds retain GPTimer delivery. The initial candidate omits the
+device's `provisional_path`: its legacy aggregate offset cannot transfer to
+the new phase convention. A later separately reviewed fine-path provisional
+profile must carry the exact same calibration-evidence hash in both inputs.
+The full fine header enters the compiled runtime identity.
+
+The original descriptor coordinate only locates a bounded callback interval.
+One rise and one fall from the qualified PHY0/PDU191/ext0 class are required;
+missing, unsupported, overwritten and ambiguous intervals are refused. Capture
+continues between packets. Pending hardware captures and callbacks inside an
+already accepted interval invalidate the backend. The1568µs subtraction is an
+explicit empirical phase convention, not a qualified identification of RF END
+or a measured path-delay bound. A separate relative-PPS calibration is required.
+
+RX phase, current time, map availability/completion, retained maps, estimated-TX
+clock brackets and the LoRa map target all use the same fixed MCPWM1 origin.
+The delivered coordinate rounds to the nearest50ns, with ties upward; an80MHz
+counter does not imply12.5ns delivered or RF accuracy. LoRa group0 retains its
+existing owner. A fault cannot substitute live GPTimer coordinates into a fine
+map. Both screens keep the same delivered G1 model and causal quality. The
+PRECISION counter label reports the selected counter tick size; raw-observer
+ON/OFF state is absent. Detailed association counts and the phase convention
+appear only in the FINE CRC frame.
+Ordinary status-frame capacity and the production estimator remain unchanged.

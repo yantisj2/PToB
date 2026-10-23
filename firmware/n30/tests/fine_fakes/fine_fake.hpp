@@ -68,7 +68,9 @@ inline esp_err_t mcpwm_capture_timer_stop(mcpwm_cap_timer_handle_t){if(!fake_dis
 inline esp_err_t mcpwm_capture_channel_enable(mcpwm_cap_channel_handle_t c){if(c->cap_chan_id==fake_enable_fail)return -1;c->fsm=1;fake_device.cap_chn_cfg[c->cap_chan_id].capn_en=true;if(fake_enable_inject)fake_enable_inject(unsigned(c->cap_chan_id));return 0;}
 inline esp_err_t mcpwm_capture_channel_disable(mcpwm_cap_channel_handle_t c){if(!fake_disable_ok)return -1;c->fsm=0;fake_device.cap_chn_cfg[c->cap_chan_id].capn_en=false;return 0;}
 inline void mcpwm_ll_trigger_soft_capture(FakeDevice* dev,int i){assert(i==2&&!fake_current_irq);++fake_now;if(!fake_stale)fake_raw+=80;if(fake_complete)dev->int_raw.val|=1u<<29;}
-inline uint32_t mcpwm_ll_capture_get_value(FakeDevice*,int i){assert(i==2);return fake_raw;}
+inline uint32_t fake_radio_capture[2]{};
+inline void (*fake_capture_read_inject)(int)=nullptr;
+inline uint32_t mcpwm_ll_capture_get_value(FakeDevice*,int i){assert(i>=0&&i<=2);if(fake_capture_read_inject)fake_capture_read_inject(i);return i==2?fake_raw:fake_radio_capture[i];}
 
 struct FakeSignals {struct {struct {unsigned cap_sig=0;}captures[3];}groups[2];};
 inline FakeSignals mcpwm_periph_signals=[](){FakeSignals v{};for(unsigned i=0;i<3;++i){v.groups[0].captures[i].cap_sig=166+i;v.groups[1].captures[i].cap_sig=175+i;}return v;}();

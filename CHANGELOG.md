@@ -1,5 +1,36 @@
 # Changelog
 
+## N30 0.2.20 — refined precision watch face
+
+Keep the Casio-style segmented display and move PRECISION to page three, with
+LoRa last. Show the actual root alias and BLE/RC hop beside the PPS indicator,
+then the selected counter and tick size: 80 MHz / 12.5 ns or 20 MHz / 50 ns.
+Remove the extra lock-estimate line and retain the settled-lock stopwatch.
+Replace oscillator trim with a signed, scoped trend of frozen causal prediction
+errors over at least eight seconds. This read-only REL estimate works with
+finite diagnostic collection disabled and cannot steer the clock or alter RMS.
+Counter resolution, causal RMS and independently observed PPS error remain
+separate quantities; this interface revision makes no new accuracy claim.
+
+## N30 0.2.19 — empirical fine-receiver candidate
+
+Add an explicitly configured continuous MCPWM1 clock backend with bounded
+callback history, unique fixed-class falling-edge association and conservative
+late/pending-event withdrawal. Use one clock domain for RX, CURRENT, available
+and completed maps, estimated TX brackets, LoRa target mapping and both displays.
+Keep the existing causal G1 estimator, permission/expiry and settled-lock gates.
+Bind the empirical phase convention and separate calibration provenance into
+the build identity; refuse automatic legacy-offset transfer. Default builds
+retain the legacy backend. Delivered fine accuracy and absolute phase require
+on-device verification; the signal is not identified as a qualified RF END.
+
+Production fine images omit the mutually exclusive finite packet-window edge
+and fence storage, leaving more internal heap for the BLE controller. Keep the
+complete finite observer in legacy builds, preserve production capture history
+and reject observer starts before they can disturb the continuous owner.
+During shutdown, retain the production fine clock until every consumer and the
+periodic RX hook have closed, then release it within the original update drain.
+
 ## 2026-10-22 — ESP32-S3 public draft review
 
 - Record approval to publish the reviewed ESP32-S3 paper and selected sanitized

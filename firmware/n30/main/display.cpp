@@ -6,7 +6,8 @@
 #include "status_adapter.hpp"
 #include "display_phase.hpp"
 #include "dual_time.hpp"
-#include "fine_capture.hpp"
+#include "fine_backend_api.hpp"
+#include "relative_rate.hpp"
 #include "n30_lora.hpp"
 #include "ptob_registry.h"
 #include "display_budget.hpp"
@@ -114,10 +115,12 @@ bool display_init(){
  esp_timer_delete(frame_timer);frame_timer=nullptr;return false;
 }
 void n30_display_publish(const v12::R2Status& s,const DisplayState& d,uint64_t now){
- auto m=n30::model(s,d,now);
- const auto capture=n30_fine_clock_status(now);
- if(capture.hz)m.precision.counter_hz=capture.hz;
- m.precision.capture_active=capture.active;m.precision.capture_healthy=capture.healthy;m.precision.capture_until_us=capture.until_us;
+ auto m=n30::model(s,d,now,ptob_registry_name(s.root_identity));
+ // This is the boot-selected delivered counter, independent of raw diagnostics.
+ // Fine delivery still rounds to50ns; the label reports counter tick size only.
+ m.precision.counter_hz=n30_fine_backend_selected()?80000000:20000000;
+ const auto rate=n30_relative_rate_snapshot(now);
+ n30::relative_rate(m,rate.root,rate.boot,rate.source_epoch,rate.ppb,rate.valid,rate.sampled_us,now);
  precision_lock.update(m,now);
  n30_lora_view lora;n30_lora_snapshot(lora);now=now_us();m.sampled_us=now;
  n30::select_lora(m,lora,now);comparison.update(m,now);

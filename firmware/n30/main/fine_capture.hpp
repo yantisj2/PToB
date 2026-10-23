@@ -15,7 +15,7 @@ void n30_fine_frame(v12::ConsoleFrame&,uint32_t after,uint64_t now_us);
 bool n30_fine_released();
 bool n30_fine_cleanup_fault();
 // Cached owner state only: never starts a timer, latches CURRENT or drives pins.
-struct N30FineClockStatus {uint64_t until_us=0;uint32_t hz=0;bool active=false,healthy=false;};
+struct N30FineClockStatus {uint64_t until_us=0;uint32_t hz=0;bool active=false,healthy=false,production=false;};
 N30FineClockStatus n30_fine_clock_status(uint64_t now_us);
 // Fixed RW packet-window session, exclusive with ordinary fine/probe leases.
 // The bridge locates candidates only; it is never a fine phase clock map.

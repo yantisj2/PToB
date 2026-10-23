@@ -2,6 +2,7 @@
 #include "timing_diagnostics_api.hpp"
 #include "timing_diagnostics.hpp"
 #include "window_diagnostics_api.hpp"
+#include "relative_rate.hpp"
 #include "bounded_log.hpp"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
@@ -23,6 +24,7 @@ void capture(const v12::periodic_rx::Stamp& stamp,const adv_rx::BleAnchor& ancho
 }
 void pair(const v12::n30_probe::Pair& value){
  n30_window_pair(value);
+ n30_relative_rate_pair(value,now_us());
  if(!enabled.load(std::memory_order_relaxed))return;
  portENTER_CRITICAL(&mux);const auto now=now_us();
  recorder.pair(value,now);enabled.store(recorder.snapshot(now).active,std::memory_order_relaxed);

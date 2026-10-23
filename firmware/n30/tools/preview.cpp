@@ -33,7 +33,7 @@ int main(int argc,char** argv){
   }
   if(i>=12){m.valid=m.locked=true;m.mode_pending=false;m.sampled_us=m.utc_at_us=now;m.until_us=now+250000;m.utc_us=fixture_utc+250000;view={};view.saver=i==13;view.saver_position=2;m.source=i==13?n30::Source::Rc2:n30::Source::Ble;}
   if(i>=14){
-   view={};view.page=i==18?1:2;m.source=n30::Source::Ble;m.ble={now,fixture_utc,now+250000,1,2,3,true,true};m.sampled_us=now;
+   view={};view.page=i==18?1:n30::LoRaPage;m.source=n30::Source::Ble;m.ble={now,fixture_utc,now+250000,1,2,3,true,true};m.sampled_us=now;
    m.lora={};auto& l=m.lora;l.sampled_us=now;l.mode=i==15?1:0;l.transition_remaining_ms=127000;l.age_ms=UINT32_MAX;
    l.requested=l.active=i==15||i==16||i==18;l.fault=i==17;
    if(l.active){l.utc_us=fixture_utc;l.until_us=now+12000000;l.state=2;l.age_ms=400;l.root=0x1234;l.parent=0x5678;l.link_samples=16;l.link_rms_ns=275;l.metadata_known=true;l.kind=2;}
@@ -52,17 +52,25 @@ int main(int argc,char** argv){
   std::fclose(f);
  }
  // New page fixtures exercise the actual renderer, not a graphic mockup.
- const char* precision_names[]={"precision-lock","precision-acquire","precision-stale","precision-observer","precision-microseconds","precision-long-lock"};
- for(unsigned i=0;i<6;++i){
+ const char* precision_names[]={"precision-lock","precision-acquire","precision-stale","precision-legacy-rc1","precision-microseconds","precision-long-lock","precision-long-root-rc2","precision-rc1","precision-fault","precision-root-unknown","precision-rc2-pps-off"};
+ for(unsigned i=0;i<11;++i){
   n30::Model p;p.sampled_us=p.utc_at_us=5000000000;p.until_us=p.sampled_us+250000;
-  p.valid=p.locked=true;p.state=n30::State::Follow;p.source=n30::Source::Ble;
-  auto& q=p.precision;q.valid=q.locked=q.lock_age_valid=q.rate_known=true;q.scope=1;
-  q.until_us=p.until_us;q.rms_ns=170;q.rate_ppb=-5487;q.lock_since_us=p.sampled_us-754000000;
-  if(i==1){q.locked=q.lock_age_valid=false;q.rms_ns=UINT32_MAX;q.rate_known=false;}
-  if(i==3){q.capture_active=q.capture_healthy=true;q.capture_until_us=p.sampled_us+10000000;}
-  if(i==4)q.rms_ns=1234;
+  p.utc_us=10ULL*3600000000;p.valid=p.locked=true;p.state=n30::State::Follow;p.source=n30::Source::Ble;
+  std::snprintf(p.root,sizeof p.root,"TC-02");
+  auto& q=p.precision;q.valid=q.locked=q.lock_age_valid=q.relative_known=true;q.scope=1;
+  q.until_us=p.until_us;q.rms_ns=170;q.relative_ppb=123;q.lock_since_us=p.sampled_us-754000000;
+  q.counter_hz=80000000;q.source=p.source;
+  if(i==1){q.locked=q.lock_age_valid=false;q.rms_ns=UINT32_MAX;q.relative_known=false;}
+  if(i==3){q.counter_hz=20000000;q.source=n30::Source::Rc1;p.utc_us+=250000;q.relative_ppb=-123;}
+  if(i==4){q.rms_ns=1234;q.relative_ppb=-12;}
   if(i==5){p.sampled_us=p.utc_at_us=400000000000;p.until_us=p.sampled_us+250000;q.until_us=p.until_us;q.lock_since_us=1;}
-  n30::View v;v.page=3;n30::render(frame,p,v,p.sampled_us+(i==2?250000:0));
+  if(i==6){std::snprintf(p.root,sizeof p.root,"ABCDEFGHIJKLMNOPQRSTUVWX");q.source=n30::Source::Rc2;q.relative_known=false;}
+  if(i==7){q.source=n30::Source::Rc1;q.relative_ppb=-123;}
+  if(i==8){p.state=n30::State::Fault;p.valid=p.locked=q.valid=q.locked=q.lock_age_valid=q.relative_known=false;}
+  if(i==9)std::snprintf(p.root,sizeof p.root,"----");
+  if(i==10){q.source=n30::Source::Rc2;p.utc_us+=250000;q.relative_ppb=0;}
+  p.ble={p.utc_at_us,p.utc_us,p.until_us,1,2,3,p.valid,true};
+  n30::View v;v.page=n30::PrecisionPage;n30::render(frame,p,v,p.sampled_us+(i==2?250000:0));
   char path[1024];std::snprintf(path,sizeof path,"%s/%s.pgm",argv[1],precision_names[i]);
   auto f=std::fopen(path,"wb");if(!f)return 3;std::fprintf(f,"P5\n64 128\n255\n");
   for(unsigned y=0;y<128;y++)for(unsigned x=0;x<64;x++)std::fputc(frame[y*8+x/8]&(0x80>>(x%8))?255:0,f);

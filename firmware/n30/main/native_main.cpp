@@ -38,6 +38,7 @@
 #include "timing_diagnostics_api.hpp"
 #include "timing_command.hpp"
 #include "fine_capture.hpp"
+#include "fine_backend_api.hpp"
 #include "window_diagnostics_api.hpp"
 #include "window_command.hpp"
 #include "esp_mac.h"
@@ -57,6 +58,7 @@
 // ESP-IDF Xtensa reports high-water marks in bytes. Keep the historical
 // main_stack_free_words console key compatible; its value is bytes here.
 static_assert(sizeof(StackType_t)==1,"W12 main stack watermark unit changed");
+extern "C" bool clock_reference_read(uint64_t*);
 namespace {
 gptimer_handle_t clock_timer=nullptr;
 uint64_t session=0,last_ui=0,console_bytes=0,console_work=0;
@@ -87,6 +89,7 @@ uint8_t ui_hold_percentile=95;
 uint32_t ui_hold_ms=0,ui_hold_samples=0;
 uint32_t ui_rms_ns=UINT32_MAX;uint8_t ui_gps_lamps=0;
 v12::UpdateGate update_gate;
+bool fine_stop_pending=false;
 v12::ConsoleTicket ticket;
 v12::ConsoleFrame response;
 uint64_t last_nonce=0,update_completed_us=0;bool lora_diagnostic_response=false;
@@ -94,7 +97,7 @@ bool timing_diagnostic_response=false;uint32_t timing_after=0;
 bool fine_diagnostic_response=false;uint32_t fine_after=0;uint64_t fine_factory=0;
 bool window_diagnostic_response=false,window_edge_response=false,window_late_response=false;uint32_t window_after=0;
 struct CommandResult {uint64_t nonce=0,admitted_us=0;bool accepted=false;const char* action="STATUS";const char* reason="READ_ONLY";} last_command;
-uint64_t ticks(){uint64_t t=0;return clock_timer&&gptimer_get_raw_count(clock_timer,&t)==ESP_OK?t:0;}
+uint64_t ticks(){uint64_t t=0;return clock_reference_read(&t)?t:0;}
 uint64_t micros(){const int64_t t=esp_timer_get_time();return t>0?uint64_t(t):0;}
 #ifdef PTOB_G1_PPS_DIAGNOSTIC
 v12::G1PpsDiagnostic production_pps_diagnostic;
@@ -478,7 +481,11 @@ void respond_status(uint64_t nonce,uint64_t begin){if(lora_diagnostic_response||
   n30_display_publish(mesh,state,micros());
 }
 void stop_all(){
-  n30_window_stop();n30_timing_stop();n30_fine_stop();
+  // The host still reads the production clock while draining its RX hook.
+  // WINDOW stop also stops that clock, so defer both until consumers close.
+  fine_stop_pending=n30_fine_backend_selected();
+  if(!fine_stop_pending){n30_window_stop();n30_fine_stop();}
+  n30_timing_stop();
   v12::fault_watchdog_sync_progress(false,0);
 #ifdef V12_R2_ENABLED
   v12::r2_stop();
@@ -521,7 +528,7 @@ void command(const char* text){
     const auto request=n30::window::parse(action);window_diagnostic_response=true;window_edge_response=window_late_response=false;window_after=0;
     last_command={nonce,admitted,false,"WINDOW","INVALID_BOUNDS_OR_SYNTAX"};
     if(request.command==n30::window::Command::Start){const bool ok=n30_window_start(nonce,fine_factory,admitted,request.duration,request.count);last_command={nonce,admitted,ok,"WINDOW_START",ok?"FINITE_RW_PACKET_OBSERVER":"ACTIVE_BINDING_OR_LATCH_REFUSED"};}
-    else if(request.command==n30::window::Command::Stop){n30_window_stop();last_command={nonce,admitted,true,"WINDOW_STOP","OBSERVER_RELEASE_ONLY"};}
+    else if(request.command==n30::window::Command::Stop){const bool ok=!n30_fine_backend_selected();if(ok)n30_window_stop();last_command={nonce,admitted,ok,"WINDOW_STOP",ok?"OBSERVER_RELEASE_ONLY":"PRODUCTION_OWNER_MAINTENANCE_ONLY"};}
     else if(request.command==n30::window::Command::Packet){last_command={nonce,admitted,true,"WINDOW_PACKET","NONCONSUMING_CRC_METADATA"};}
     else if(request.command==n30::window::Command::Edges){window_edge_response=true;window_after=request.cursor;last_command={nonce,admitted,true,"WINDOW_EDGES","NONCONSUMING_CRC_CURSOR"};}
     else if(request.command==n30::window::Command::Late){window_late_response=true;window_after=request.cursor;last_command={nonce,admitted,true,"WINDOW_LATE","NONCONSUMING_STICKY_INVALIDATION"};}
@@ -540,7 +547,7 @@ void command(const char* text){
       const bool ok=n30_fine_probe(nonce,fine_factory,admitted,spacing,edges);fine_after=0;
       last_command={nonce,admitted,ok,"FINE_PROBE",ok?"FINITE_SYNTHETIC_GPIO_ONLY":"BINDING_RESOURCE_OR_LATCH_REFUSED"};
     }else if(request.command==n30::timing::Command::Stop){
-      n30_fine_stop();fine_after=0;last_command={nonce,admitted,true,"FINE_STOP","RAW_OBSERVER_ONLY"};
+      const bool ok=!n30_fine_backend_selected();if(ok)n30_fine_stop();fine_after=0;last_command={nonce,admitted,ok,"FINE_STOP",ok?"RAW_OBSERVER_ONLY":"PRODUCTION_OWNER_MAINTENANCE_ONLY"};
     }else if(request.command==n30::timing::Command::Read){
       fine_after=request.after;last_command={nonce,admitted,true,"FINE_READ","NONCONSUMING_CRC_CURSOR"};
     }else if(request.command==n30::timing::Command::Start){
@@ -663,20 +670,26 @@ void input(){
 }
 #endif
 [[gnu::noinline]] void poll_update_drain(uint64_t now){
-    if(update_gate.stage==v12::UpdateStage::Draining){
+    if(update_gate.stage==v12::UpdateStage::Draining||fine_stop_pending){
       const auto rx=v12::transport_status();const auto tx=v12::diagnostic_tx_status();
       const auto acl=v12::direct_status();const auto lora=v12::lora_status();
       v12::Services services;services.scan=rx.client.scan||rx.radio_requested;services.pending=rx.client.pending;
-      services.host=!n30_fine_released()||rx.host_work_busy||rx.command_pending||!rx.off_acknowledged||tx.owner_busy||tx.lease.pending||!tx.off_acknowledged;services.sync=rx.client.synced;services.periodic=tx.periodic||tx.requested;services.discovery=tx.discovery;
+      services.host=rx.host_work_busy||rx.command_pending||!rx.off_acknowledged||tx.owner_busy||tx.lease.pending||!tx.off_acknowledged;services.sync=rx.client.synced;services.periodic=tx.periodic||tx.requested;services.discovery=tx.discovery;
       services.acl=acl.stage!=v12::DirectStage::Off;services.lora=lora.enabled||lora.requested||lora.worker_busy||!lora.off_acknowledged;
       services.fault=n30_fine_cleanup_fault()||rx.client.state==v12::Lifecycle::Fault||tx.fault||acl.stage==v12::DirectStage::Fault||lora.failed;
+      bool consumers_closed=!services.scan&&!services.pending&&!services.sync&&!services.periodic&&!services.discovery&&!services.acl&&!services.lora&&!services.host;
 #ifdef V12_R2_ENABLED
       const auto mesh=v12::r2_status();services.scan|=mesh.scan||mesh.requested;services.pending|=mesh.sync_pending||mesh.connecting;
       services.sync|=mesh.synced;services.discovery|=mesh.advertising;services.acl|=mesh.connections!=0;
       services.host|=mesh.owner_busy||!mesh.off_ack;services.fault|=mesh.fault;
+      consumers_closed&=!mesh.requested&&!mesh.scan&&!mesh.sync_pending&&!mesh.connecting&&!mesh.synced&&!mesh.advertising&&!mesh.connections&&!mesh.owner_busy&&!mesh.rx_capture.installed&&!mesh.client.pending&&!mesh.client.running&&!mesh.client.stopping;
 #endif
-      update_gate.poll(now,services);
-      if(update_gate.stage==v12::UpdateStage::Ready||update_gate.stage==v12::UpdateStage::Fault)update_completed_us=micros();
+      if(fine_stop_pending&&consumers_closed){n30_window_stop();n30_fine_stop();fine_stop_pending=!n30_fine_released();}
+      services.host|=!n30_fine_released();services.fault|=n30_fine_cleanup_fault();
+      if(update_gate.stage==v12::UpdateStage::Draining){
+        update_gate.poll(now,services);
+        if(update_gate.stage==v12::UpdateStage::Ready||update_gate.stage==v12::UpdateStage::Fault)update_completed_us=micros();
+      }
     }
 
 }
@@ -731,9 +744,19 @@ void input(){
 
 }
 extern "C" bool IRAM_ATTR clock_reference_read(uint64_t* count){
+  if(n30_fine_backend_selected())return n30_fine_backend_current(count);
   return count&&clock_timer&&gptimer_get_raw_count(clock_timer,count)==ESP_OK;
 }
+extern "C" w12_ble_time_t r_rwip_time_get();
 extern "C" bool IRAM_ATTR clock_reference_bt_bracket(uint64_t* before,uint64_t* after,adv_rx::BleTime* time){
+  if(n30_fine_backend_selected()){
+    if(!before||!after||!time||xPortGetCoreID()!=CONFIG_BT_CTRL_PINNED_TO_CORE)return false;
+    const auto saved=portSET_INTERRUPT_MASK_FROM_ISR();
+    const bool a=clock_reference_read(before);const auto observed=r_rwip_time_get();const bool b=clock_reference_read(after);
+    portCLEAR_INTERRUPT_MASK_FROM_ISR(saved);
+    if(!a||!b||*after<*before)return false;
+    time->half_slots=observed.half_slots;time->half_us=observed.half_us;return true;
+  }
   w12_ble_time_t observed{};
   if(!time||w12_s3_ble_time_bracket(clock_timer,before,after,&observed)!=ESP_OK)return false;
   time->half_slots=observed.half_slots;time->half_us=observed.half_us;return true;
@@ -750,7 +773,7 @@ extern "C" void app_main(){
     " max_data=191 max_GMs=4 activities=6 syncs=2 adv_sets=2 mtu=247"
     " precision=UNAVAILABLE GM=DISABLED LoRa=OFF WiFi=OFF PTS=OFF\n",
     V12_UNIT,factory_text,unsigned(identity),session,V12_SOURCE_REVISION,V12_BUILD_ID);
-  std::printf("N30_TARGET version=0.2.15 profile=RC GPS=ABSENT flash_mb=8 console=UART0_43_44 hardware=UNVALIDATED\n");
+  std::printf("N30_TARGET version=0.2.20 profile=RC GPS=ABSENT flash_mb=8 console=UART0_43_44 hardware=UNVALIDATED\n");
   if(!identity||!session){std::printf("W12_V12_FATAL reason=FACTORY_OR_BOOT_BINDING peripherals=UNTOUCHED\n");return;}
   for(const auto byte:factory)fine_factory=(fine_factory<<8)|byte;
   n30_timing_init();
@@ -762,6 +785,8 @@ extern "C" void app_main(){
   timer.direction=GPTIMER_COUNT_UP;timer.resolution_hz=20000000;
   if(gptimer_new_timer(&timer,&clock_timer)!=ESP_OK||gptimer_enable(clock_timer)!=ESP_OK||gptimer_start(clock_timer)!=ESP_OK){
     v12::fault_watchdog_fatal();std::printf("W12_V12_FATAL reason=XTAL_TIMER\n");return;}
+  if(n30_fine_backend_selected()&&!n30_fine_backend_start(session,fine_factory,micros())){
+    v12::fault_watchdog_fatal();std::printf("W12_V12_FATAL reason=FINE_COUNTER_DOMAIN\n");return;}
   if(!n30_console::init()){v12::fault_watchdog_fatal();std::printf("W12_V12_FATAL reason=CONSOLE_DRIVER\n");return;}
   if(!v12::log_start()){v12::fault_watchdog_fatal();std::printf("W12_V12_FATAL reason=CONSOLE_WORKER\n");return;}
   gpio_config_t button{};button.pin_bit_mask=1;button.mode=GPIO_MODE_INPUT;button.pull_up_en=GPIO_PULLUP_ENABLE;
