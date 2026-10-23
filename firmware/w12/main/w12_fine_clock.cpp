@@ -23,6 +23,7 @@ portMUX_TYPE mux=portMUX_INITIALIZER_UNLOCKED;
 mcpwm_cap_timer_handle_t timer=nullptr;
 mcpwm_cap_channel_handle_t channels[3]{};
 w12::fine::Counter counter;
+w12::fine::Counter lora_counter;
 w12::fine::Receiver receiver;
 bool timer_enabled=false,timer_started=false,enabled[3]{},active=false,pad_owned=false;
 int error=0;
@@ -93,8 +94,12 @@ bool on_lora(mcpwm_cap_channel_handle_t,const mcpwm_capture_event_data_t* value,
   uint64_t tick=0;W12LoRaCapture deliver=nullptr;
   portENTER_CRITICAL_ISR(&mux);
   w12::fine::Time anchor{},edge{};
-  if(active&&lora_active&&value&&current(anchor)&&counter.event(1,value->cap_value,edge)&&receiver.coordinate(edge.raw80,0,tick))deliver=callback;
-  else if(active&&lora_active){error=-13;contain();}
+  // CH1 shares the physical timer with BLE, but never its association history,
+  // pending-edge fences or software counter origin. Group0 remains GNSS only.
+  uint32_t raw=0;
+  if(active&&lora_active&&value&&latch(raw)&&lora_counter.current(1,raw,coarse(),anchor)&&
+     lora_counter.event(1,value->cap_value,edge)){tick=edge.tick20;deliver=callback;}
+  else if(active&&lora_active)deliver=callback; // Invalid edge is refused by RX.
   portEXIT_CRITICAL_ISR(&mux);
   return deliver?deliver(tick):false;
 }
@@ -239,6 +244,8 @@ bool w12_fine_lora_start(W12LoRaCapture cb){
  if(!cb)return false;
  portENTER_CRITICAL(&mux);
  if(!active||error||lora_borrowed||enabled[1]){portEXIT_CRITICAL(&mux);return false;}
+ uint32_t raw=0;
+ if(!latch(raw)||!lora_counter.begin(1,raw,coarse(),80000000)){portEXIT_CRITICAL(&mux);return false;}
  callback=cb;lora_active=lora_borrowed=true;
  esp_rom_gpio_connect_in_signal(w12::lora_board::IrqGpio,mcpwm_periph_signals.groups[1].captures[1].cap_sig,false);
  timer->group->hal.dev->int_clr.val=UINT32_C(1)<<28;
@@ -246,6 +253,14 @@ bool w12_fine_lora_start(W12LoRaCapture cb){
  portEXIT_CRITICAL(&mux);
  const bool ok=mcpwm_capture_channel_enable(channels[1])==ESP_OK;
  portENTER_CRITICAL(&mux);enabled[1]=ok;if(!ok){lora_active=false;callback=nullptr;}
+ portEXIT_CRITICAL(&mux);return ok;
+}
+bool w12_fine_lora_current(uint64_t* tick20){
+ if(!tick20)return false;
+ *tick20=0;portENTER_CRITICAL(&mux);
+ uint32_t raw=0;w12::fine::Time t{};
+ const bool ok=active&&!error&&lora_active&&latch(raw)&&lora_counter.current(1,raw,coarse(),t);
+ if(ok)*tick20=t.tick20;
  portEXIT_CRITICAL(&mux);return ok;
 }
 bool w12_fine_lora_stop(){

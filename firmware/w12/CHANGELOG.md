@@ -1,5 +1,20 @@
 # W12 changelog
 
+## 0.2.2 — independent LoRa timestamp reads
+
+- Follow N30's independent LoRa-reader fix: remove BLE association/fence work
+  from the LR2021 receive timestamp path. W12 retains MCPWM1 CH1 and its verified
+  IRQ route, with a separate counter epoch/extension and constant-work reader.
+  GNSS continues to own group0; no N30 GPIO or calibration is imported.
+- Poll the independent counter while RX is active, including packet silence and
+  hardware wraps. Unavailable counters fail closed without substituting BLE time.
+- Expose the actual AUTO lock input and remaining transition time in the bounded
+  status response. Keep the 180 s loss/recovery policy, 300 s no-time watchdog,
+  source expiry, RX-only guard and original maintenance deadlines.
+- Exercise independent origins, six-minute wraps/silence, BLE-reader separation,
+  counter failure and peripheral drain with synthetic ASan/UBSan checks. These
+  checks do not establish physical timing accuracy or hardware acceptance.
+
 ## 0.2.1 — W12 radio wiring correction
 
 - Use LR2021 DIO8 / ESP32 GPIO14 for RX_DONE capture. DIO11 controls the

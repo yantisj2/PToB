@@ -18,4 +18,7 @@ W12FineStatus w12_fine_status(); // Cached observer only; never latches CURRENT.
 
 using W12LoRaCapture=bool(*)(uint64_t tick20);
 bool w12_fine_lora_start(W12LoRaCapture);
+// Independent LoRa epoch/extension; no BLE Receiver history/fence processing.
+// Same physical MCPWM1 timer as CH1. Never returns BLE or GPTimer coordinates.
+bool w12_fine_lora_current(uint64_t* tick20);
 bool w12_fine_lora_stop();

@@ -7,7 +7,7 @@
 #include <array>
 #include <cassert>
 #include <cstring>
-namespace fake {uint64_t us=1000000;std::array<int,50> gpio{};unsigned starts=0,ends=0,inputs=0;bool dma_fail=false,capture=false,cancel=false,capture_fail=false;spi_transaction_t* pending=nullptr;uint32_t gen=0;}
+namespace fake {uint64_t us=1000000;std::array<int,50> gpio{};unsigned starts=0,ends=0,inputs=0,fine_reads=0,lora_reads=0;bool dma_fail=false,capture=false,cancel=false,capture_fail=false,clock_ok=true;spi_transaction_t* pending=nullptr;uint32_t gen=0;}
 int64_t esp_timer_get_time(){return int64_t(fake::us);}
 void vTaskDelay(TickType_t t){fake::us+=uint64_t(t)*1000;}
 uint32_t ulTaskNotifyTake(BaseType_t,TickType_t){return 0;}
@@ -22,7 +22,8 @@ esp_err_t spi_bus_initialize(int h,const spi_bus_config_t* c,int){assert(h==2&&c
 esp_err_t spi_bus_add_device(int,const spi_device_interface_config_t*,spi_device_handle_t* o){*o=(void*)1;return 0;}
 esp_err_t spi_device_queue_trans(spi_device_handle_t,spi_transaction_t* t,TickType_t wait){assert(wait==5&&!fake::pending);fake::pending=t;++fake::starts;return 0;}
 esp_err_t spi_device_get_trans_result(spi_device_handle_t,spi_transaction_t** o,TickType_t wait){assert(wait==5&&fake::pending);if(fake::dma_fail)return -1;*o=fake::pending;std::memset((*o)->rx_buffer,0,(*o)->length/8);fake::pending=nullptr;++fake::ends;if(fake::cancel){fake::cancel=false;assert(v12::lora_request(false,0));}return 0;}
-extern "C" bool clock_reference_read(uint64_t* t){*t=fake::us*20;return true;}
+extern "C" bool clock_reference_read(uint64_t* t){++fake::fine_reads;fake::us+=50;*t=9000000+fake::us*20;return true;}
+bool w12_fine_lora_current(uint64_t* t){++fake::lora_reads;*t=fake::us*20;return fake::clock_ok;}
 bool w12_fine_lora_start(bool(*)(uint64_t)){fake::capture=true;return !fake::capture_fail;}
 bool w12_fine_fault(){return false;}
 bool w12_fine_lora_stop(){fake::capture=false;return true;}
@@ -39,8 +40,14 @@ int main(int argc,char** argv){
  if(!std::strcmp(mode,"capture")){worker_step(true);assert(failed&&!owned.enabled&&!fake::capture&&owner.drained()&&!fake::gpio[12]&&!fake::gpio[4]);return 0;}
  assert(test_irq_dio==8&&test_irq_gpio==14&&test_dio_modes[11]==2&&test_dio_modes[9]==0&&test_dio_modes[10]==0&&test_dio_modes[5]==0&&test_dio_modes[6]==0);
  assert(owned.enabled&&fake::capture&&fake::gpio[4]&&!fake::gpio[3]);
- if(!std::strcmp(mode,"normal")){
-  on_edge(fake::us*20);test_irq=2;step(false);assert(fake::inputs==1);
+ if(!std::strcmp(mode,"clock")){
+  fake::clock_ok=false;step(false);step(false);assert(failed&&!owned.enabled&&owner.drained()&&!fake::capture&&!fake::fine_reads);
+ }else if(!std::strcmp(mode,"normal")){
+  const auto before_reads=fake::lora_reads;
+  // Keep the independent counter alive through six minutes of RF silence.
+  for(unsigned i=0;i<3600;++i)step(false,100000);
+  assert(fake::lora_reads>=before_reads+3600&&!fake::fine_reads&&owned.enabled);
+  on_edge(fake::us*20);test_irq=2;step(false);assert(fake::inputs==1&&fake::lora_reads>0&&!fake::fine_reads);
   on_edge(fake::us*20);test_irq=4;step(false);assert(hardware.crc_bad==1&&fake::inputs==1);
   test_size=17;on_edge(fake::us*20);test_irq=2;step(false);assert(hardware.malformed==1);
   for(unsigned i=0;i<1801;i++)step(true,100000);

@@ -336,8 +336,8 @@ void pps(const gnss_pps::Observation& edge){
 #if defined(V12_R2_ENABLED) && V12_R2_CONFIG == 13
 #ifdef PTOB_W12_LORA_RX
   w12_lora_view lv;w12_lora_snapshot(lv);
-  response.format("W12_V12_LORA_STATUS enabled=%u initialized=%u failed=%u requested=%u worker_busy=%u off_ack=%u generation=%" PRIu32 " acknowledged_generation=%" PRIu32 " errors=%" PRIu32 " mode=%u state=%u rx=%" PRIu32 " accepted=%" PRIu32 " crc=%" PRIu32 " invalid=%" PRIu32 " error=%" PRId32 " stack=%" PRIu32 " rms_ns=%" PRIu32 " utc_us=%" PRIu64 " until_us=%" PRIu64 " TX=OFF RF=UNQUALIFIED\n",
-   unsigned(lora.enabled),unsigned(lora.initialized),unsigned(lora.failed),unsigned(lora.requested),unsigned(lora.worker_busy),unsigned(lora.off_acknowledged),lora.request_generation,lora.off_ack_generation,lora.radio_errors,unsigned(lv.mode),unsigned(lv.state),lv.rx_done,lv.accepted,lv.crc_bad,lv.invalid_capture,lv.error,lv.stack_unused,lv.link_rms_ns,lv.utc_us,lv.until_us);
+  response.format("W12_V12_LORA_STATUS enabled=%u initialized=%u failed=%u requested=%u worker_busy=%u off_ack=%u generation=%" PRIu32 " acknowledged_generation=%" PRIu32 " errors=%" PRIu32 " mode=%u state=%u rx=%" PRIu32 " accepted=%" PRIu32 " crc=%" PRIu32 " invalid=%" PRIu32 " error=%" PRId32 " stack=%" PRIu32 " rms_ns=%" PRIu32 " utc_us=%" PRIu64 " until_us=%" PRIu64 " auto=%u/%" PRIu32 " TX=OFF RF=UNQUALIFIED\n",
+   unsigned(lora.enabled),unsigned(lora.initialized),unsigned(lora.failed),unsigned(lora.requested),unsigned(lora.worker_busy),unsigned(lora.off_acknowledged),lora.request_generation,lora.off_ack_generation,lora.radio_errors,unsigned(lv.mode),unsigned(lv.state),lv.rx_done,lv.accepted,lv.crc_bad,lv.invalid_capture,lv.error,lv.stack_unused,lv.link_rms_ns,lv.utc_us,lv.until_us,unsigned(lv.ble_locked),lv.transition_remaining_ms);
 #else
   response.format("W12_V12_LORA_STATUS enabled=%u initialized=%u failed=%u requested=%u worker_busy=%u off_ack=%u"
     " generation=%" PRIu32 " acknowledged_generation=%" PRIu32 " errors=%" PRIu32 " TX=OFF RF=UNQUALIFIED\n",

@@ -7,7 +7,7 @@ RC role. [Image provenance](../../docs/images/README.md).*
 
 Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
 
-**PToB owns W12 native G1/RC7 development.** Current version **0.2.1** supports
+**PToB owns W12 native G1/RC7 development.** Current version **0.2.2** supports
 **RC**: a BLE50 client or BLE100 receiver with an optional experimental
 estimated-TX relay. It receives from the shared T096/W12/StickS3 mesh; it has no
 GM profile or USB timing stream. Start with the
@@ -38,6 +38,12 @@ relative phase, output correction and source permission. The optional fast
 counter-map diagnostic defaults off. WiFi, PTS and donor correction experiments are excluded. Optional LR2021
 LoRa timing is a separate authenticated passive RC8 receiver; it does not
 train or publish through the BLE clock.
+
+Version 0.2.2 follows N30's independent LoRa timestamp-reader fix. W12 keeps
+its CH1 capture on the continuous MCPWM1 timer, with a separate software epoch
+and counter extension that never evaluates BLE association history or fences.
+It polls that counter during packet silence. GNSS retains group0 and its
+verified inputs; the LoRa path never substitutes BLE clock-model coordinates.
 
 The optional `--fine-clock` BLE100 test profile ports N30's continuous 80 MHz
 counter, capture-frozen dense fitting and 1 ppm phase slew below 2 µs. Its W12

@@ -32,13 +32,29 @@ int main(int argc,char** argv){
   assert(!w12_fine_start(2,PTOB_W12_FINE_FACTORY,fake_now));
   uint64_t tick=0;assert(w12_fine_current(&tick)&&tick>=1000000);
   if(!std::strcmp(mode,"lora")){
+    assert(!w12_fine_lora_current(&tick)&&tick==0);
+    advance(1000);assert(w12_fine_current(&tick));
+    const auto ble_origin=tick;
     assert(w12_fine_lora_start(+[](uint64_t t){assert(t>=1000000);return false;}));
     assert(lora_active&&enabled[1]&&fake_device.cap_chn_cfg[1].capn_en);
     advance(1000);mcpwm_capture_event_data_t e{fake_raw,0};fake_channels[1].cb(&fake_channels[1],&e,nullptr);
     assert(w12_fine_current(&tick)&&!error&&active);
+    uint64_t lora_tick=0;assert(w12_fine_lora_current(&lora_tick)&&lora_tick<tick&&tick-lora_tick>=20000);
+    // Six minutes across hardware wraps with independently maintained epochs.
+    for(unsigned i=0;i<37;++i){advance(10000000);assert(w12_fine_current(&tick));assert(w12_fine_lora_current(&lora_tick));assert(tick-lora_tick==ble_origin-1000000);}
     fake_device.int_raw.val|=1u<<28;
     assert(w12_fine_lora_stop()&&!lora_active&&!enabled[1]&&enabled[0]&&active);
     assert(w12_fine_current(&tick)&&!error&&active);
+    assert(!w12_fine_lora_current(&lora_tick)&&!lora_tick);
+    advance(1000);assert(w12_fine_current(&tick));
+    assert(w12_fine_lora_start(+[](uint64_t t){assert(t>=1000000);return false;}));
+    // A BLE association failure must not be evaluated by the LoRa reader.
+    receiver.observe({});assert(receiver.status().fault);
+    assert(w12_fine_lora_current(&lora_tick)&&active&&!error);
+    e.cap_value=fake_raw;fake_channels[1].cb(&fake_channels[1],&e,nullptr);
+    assert(w12_fine_lora_stop());
+    assert(!w12_fine_current(&tick)&&w12_fine_fault());
+    w12_fine_stop();assert(w12_fine_released());return 0;
   }
   if(!std::strcmp(mode,"gap")){
     advance(w12::fine::Counter::HalfWrapUs);

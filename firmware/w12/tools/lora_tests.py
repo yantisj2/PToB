@@ -13,6 +13,6 @@ subprocess.run([cc,'-std=c11',*flags,APP/'tests/lora_core_test.c',APP/'main/lora
 subprocess.run([out/'core'],check=True)
 subprocess.run([cxx,'-std=c++20',*flags,APP/'tests/lora_policy_test.cpp','-o',out/'policy'],check=True);subprocess.run([out/'policy'],check=True)
 subprocess.run([cxx,'-std=c++20',*flags,'-Wno-misleading-indentation','-I'+str(APP/'tests/lora_fakes'),APP/'tests/lora_owner_test.cpp','-o',out/'owner'],check=True)
-for case in ['normal','dma','cancel','tx','capture']:subprocess.run([out/'owner',case],check=True)
+for case in ['normal','dma','cancel','tx','capture','clock']:subprocess.run([out/'owner',case],check=True)
 paths=[APP/'main/w12_lora_radio.cpp',APP/'main/lora_policy.hpp',APP/'main/lora_core.c',APP/'tests/lora_owner_test.cpp',APP/'tests/lora_core_test.c',APP/'tests/lora_policy_test.cpp',Path(__file__)]
 (out/'receipt.json').write_text(json.dumps({'status':'PASS','hardware_access':False,'scope':'REAL_RC8_AUTH_REPLAY_EXPIRY_AUTO180_OWNER_DMA_CANCEL_TX_BAN_ASAN_UBSAN','sources':{str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}},indent=2)+'\n')

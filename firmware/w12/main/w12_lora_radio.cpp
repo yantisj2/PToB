@@ -21,7 +21,6 @@
 #include <cstring>
 #include <cerrno>
 #include <cinttypes>
-extern "C" bool clock_reference_read(uint64_t*);
 namespace {
 constexpr auto Nss=GPIO_NUM_8,Reset=GPIO_NUM_12,Busy=GPIO_NUM_13,Irq=gpio_num_t(w12::lora_board::IrqGpio);
 portMUX_TYPE mux=portMUX_INITIALIZER_UNLOCKED;
@@ -34,13 +33,14 @@ uint64_t ble_at=0,request_at=0,stop_at=0;
 uint32_t cancel_serial=0,active_serial=0,core_generation=0;
 uint64_t raw_capture=0;uint32_t raw_generation=0,raw_serial=0;
 uint64_t capture_epoch=0;
+bool ble_lock_observed=false;
 uint8_t requested_mode=0;bool mode_pending=false,cycle_pending=false,ble_locked=false,allowed=false;
 bool resources=false,capture_active=false,inflight=false,latched=false,failed=false;
 bool edge_enabled=false,emergency=false;
 uint32_t capture_drops=0,capture_invalid=0;
 uint64_t now(){return uint64_t(esp_timer_get_time());}
 void inc(uint32_t& v){if(v<UINT32_MAX)++v;}
-bool local(uint64_t& tick){return clock_reference_read(&tick)&&tick;}
+bool local(uint64_t& tick){return w12_fine_lora_current(&tick)&&tick;}
 bool cancelled(){portENTER_CRITICAL(&mux);const bool result=cancel_serial!=active_serial||!allowed;portEXIT_CRITICAL(&mux);return result;}
 void reset_radio(){if(resources){gpio_set_level(Reset,0);gpio_set_level(GPIO_NUM_3,0);gpio_set_level(GPIO_NUM_4,0);}}
 void fault(int error){reset_radio();if(!failed)hardware.error=error;failed=true;hardware.fault=true;}
@@ -102,7 +102,7 @@ class Hal final:public RadioLibHal {
 Hal hal;Module module(&hal,Nss,Irq,Reset,Busy);LR2021 radio(&module);
 bool on_edge(uint64_t tick){
  BaseType_t wake=pdFALSE;portENTER_CRITICAL_ISR(&mux);
- if(!capture_active)inc(capture_invalid);
+ if(!capture_active||!tick)inc(capture_invalid);
  else if(latched)inc(capture_drops);
  else{raw_capture=tick;raw_generation=core_generation;raw_serial=active_serial;latched=true;}
  portEXIT_CRITICAL_ISR(&mux);if(task)vTaskNotifyGiveFromISR(task,&wake);return wake==pdTRUE;
@@ -176,6 +176,7 @@ void publish(){
  // Worker-owned protocol state and hardware counters are merged outside the
  // short cross-core publication lock. Unknown uncertainty remains unknown.
  view.requested=false;view.active=owned.enabled;view.fault=failed;view.mode=uint8_t(policy.mode());view.transition_remaining_ms=policy.remaining_ms(now());
+ view.ble_locked=ble_lock_observed;
  view.rx_done=hardware.rx_done;view.crc_bad=hardware.crc_bad;view.malformed=hardware.malformed;view.spi_ok=hardware.spi_ok;view.spi_error=hardware.spi_error;view.invalid_capture=hardware.invalid_capture;view.capture_overflow=0;view.map_accepted=hardware.map_accepted;view.map_rejected=hardware.map_rejected;view.capture_bound_ns=hardware.capture_bound_ns;view.rssi_dbm=hardware.rssi_dbm;view.snr_quarter_db=hardware.snr_quarter_db;view.error=hardware.error;view.stage=hardware.stage;view.opcode=hardware.opcode;view.work_max_us=hardware.work_max_us;view.heartbeat_ms=uint32_t(now()/1000);view.stack_unused=uxTaskGetStackHighWaterMark(nullptr);
  view.spi_retired=!inflight;view.capture_released=!capture_active&&!edge_enabled;view.reset_asserted=resources&&gpio_get_level(Reset)==0;
  portENTER_CRITICAL(&mux);view.requested=owner.requested;view.invalid_capture+=capture_invalid;view.capture_overflow=capture_drops;view.request_generation=owner.generation;view.off_ack_generation=owner.off_ack;view.off_acknowledged=owner.drained();published=view;owned.failed=failed;owned.initialized=resources;owned.packets=hardware.rx_done;owned.crc_errors=hardware.crc_bad;owned.malformed=hardware.malformed;owned.status=int16_t(hardware.error);owned.radio_errors=hardware.spi_error;owned.work_max_us=hardware.work_max_us;basic=owned;portEXIT_CRITICAL(&mux);
@@ -186,7 +187,7 @@ void worker_step(bool configured){
   portENTER_CRITICAL(&mux);permit=allowed;serial=cancel_serial;tripped=emergency;locked=ble_locked&&begin>=ble_at&&begin-ble_at<250000;cycle=cycle_pending&&begin>=request_at&&begin-request_at<250000;change=mode_pending&&begin>=request_at&&begin-request_at<250000;mode=requested_mode;cycle_pending=mode_pending=false;portEXIT_CRITICAL(&mux);
   if(tripped)fault(-ETIMEDOUT);
   if(w12_fine_fault())fault(-EIO);
-  policy.update(locked,begin);if(cycle)policy.toggle();if(change)policy.set(w12::LoRaMode(mode));
+  ble_lock_observed=locked;policy.update(locked,begin);if(cycle)policy.toggle();if(change)policy.set(w12::LoRaMode(mode));
   bool want=configured&&permit&&!failed&&policy.requested();
   portENTER_CRITICAL(&mux);want=want&&allowed&&serial==cancel_serial;
   if(want!=owner.requested&&!owner.request(want)){failed=true;hardware.error=-EOVERFLOW;want=false;}
@@ -197,7 +198,9 @@ void worker_step(bool configured){
    owned.enabled=rc==0;
   }
   if(owned.enabled&&!want){reset_radio();owned.enabled=false;}
-  if(owned.enabled){const int rc=receive();if(rc){if(rc!=-ECANCELED)fault(rc);reset_radio();owned.enabled=false;}}
+  // Extend CH1's independent counter even during packet silence/wraps. A lost
+  // counter cannot fall back to BLE coordinates or invent a capture timestamp.
+  if(owned.enabled){uint64_t tick=0;const int rc=local(tick)?receive():-EIO;if(rc){if(rc!=-ECANCELED)fault(rc);reset_radio();owned.enabled=false;}}
   if(!owned.enabled){
    if(capture_active||edge_enabled)capture_stop();
    if(core_generation){(void)w12_rc8_switch(false);portENTER_CRITICAL(&mux);core_generation=0;portEXIT_CRITICAL(&mux);}
