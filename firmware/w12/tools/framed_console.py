@@ -137,7 +137,11 @@ class Parser:
                             require(re.fullmatch(r'-?[0-9]+',mesh.get(key,'')) is not None,'Missing G1 connection result '+key)
                     if self.manifest.get('r2_g1_discovery_diagnostic_revision')==1:
                         require(mesh.get('g1_discovery_diagnostic_revision')=='1' and mesh.get('g1_sdk_scan_active') in ('0','1'),'G1 discovery diagnostics version missing')
-                        for key in ('g1_adv_callbacks','g1_adv_incomplete','g1_adv_long','g1_adv_nonrandom','g1_discovery_checked','g1_group_records','g1_last_adv_at_us','g1_last_key_epoch','g1_last_group_at_us'):
+                        compact=self.manifest.get('w12_lora_status_contract')=='W12_RC8_LR2021_COMPACT_DISCOVERY_V1'
+                        if compact:require(self.manifest.get('version')=='0.2.0' and self.manifest.get('lora_rx') is True,'Compact discovery requires exact W12 LoRa image contract')
+                        omitted=('g1_adv_incomplete','g1_adv_long','g1_adv_nonrandom','g1_discovery_checked','g1_group_records','g1_last_adv_at_us','g1_last_group_at_us')
+                        if compact:require(all(key not in mesh for key in omitted),'Unexpected mixed compact discovery layout')
+                        for key in ('g1_adv_callbacks','g1_last_key_epoch',*(() if compact else omitted)):
                             require(re.fullmatch(r'[0-9]+',mesh.get(key,'')) is not None,'Missing G1 discovery diagnostic '+key)
                         require(re.fullmatch(r'[0-9a-f]{16}',mesh.get('g1_last_group_id','')) is not None,'Invalid G1 observed group')
                     if self.manifest.get('parent_selector_revision') in (2,3):
