@@ -262,7 +262,7 @@ void failed_admission(uint64_t now){
   if(!parent_failure.identity)parent_failure={peer.identity,now,peer.relay};
 }
 bool relay_slot_scanning();
-void relay_fence();void relay_close(uint64_t now);bool relay_owned();bool relay_acl_available();void relay_poll(uint64_t now,bool upstream_due);
+void relay_fence();void relay_close(uint64_t now,bool preserve_demand=false);bool relay_owned();bool relay_acl_available();void relay_poll(uint64_t now,bool upstream_due);
 void parent_record(G1ParentReason reason,uint64_t now);
 void begin_close(uint64_t now){if(closing)return;closing=true;
 #ifdef PTOB_RC9
@@ -1322,7 +1322,12 @@ void parent_diagnostic_poll(uint64_t now){
     Periodic p{};while(periodic.pop(p)){};
     for(unsigned i=0;i<8;i++){locator_ids[i]=0;locators[i]={};recent[i]={};}
   }
-  relay_close(now);stop_scan();cancel_connect(now);terminate_peer(now);cancel_sync(now);
+  bool preserve_demand=false;
+#if defined(PTOB_RC9) && defined(PTOB_W12_LORA_RX)
+  uint64_t target9=0;portENTER_CRITICAL(&mux);target9=rc9_target;portEXIT_CRITICAL(&mux);
+  preserve_demand=!target9&&rc9_server_selected(now);
+#endif
+  relay_close(now,preserve_demand);stop_scan();cancel_connect(now);terminate_peer(now);cancel_sync(now);
   // A diagnostic rebind preserves the profile's existing quiet deadline.
   if(!full_listening())window_poll(micros());
   const bool closed=!owners_active()&&!ble_gap_disc_active()&&!ble_gap_conn_active()&&

@@ -207,9 +207,11 @@ void relay_terminate(uint64_t now){if(relay_session.handle==None||relay_session.
     if(rc==BLE_HS_ENOTCONN)relay_session={};
   }else relay_api(rc,R2Api::Disconnect);
 }
-void relay_close(uint64_t now){
-  if(!relay_stopping){relay_stopping=true;relay_stop_deadline=closing?close_until:client.stop_deadline_us?client.stop_deadline_us:now+2000000;relay_fence();
-    for(auto& child:relay_children)child={};}
+void relay_close(uint64_t now,bool preserve_demand){
+  if(!relay_stopping){relay_stopping=true;relay_stop_deadline=closing?close_until:client.stop_deadline_us?client.stop_deadline_us:now+2000000;relay_fence();}
+  // A normal-parent rebind does not revoke independent original RC9 leases.
+  // OFF/fault/profile switches use the ordinary clearing path.
+  if(!preserve_demand)for(auto& child:relay_children)child={};
   relay_pause_cap();relay_stop_pa();relay_terminate(now);
   // Retire frozen-bank references before a later explicit activation. No
   // stopped-scope estimate may survive as publication or block a fresh start.
@@ -449,6 +451,10 @@ void relay_poll(uint64_t now,bool upstream_due){
   if(rc9_bound()&&!rc9_server_selected(now)){if(relay_owned())relay_close(now);return;}
 #endif
 #if defined(PTOB_RC9) && defined(PTOB_W12_LORA_RX)
+  if(relay_stopping){
+   if(relay_owned())return;
+   relay_stopping=false;relay_stop_deadline=0;relay_cap_dirty=true;
+  }
   const uint8_t desired=rc9_server_selected(now)?9:7;
   if(relay_profile!=desired){
    if(relay_owned()){relay_close(now);if(relay_owned())return;}
@@ -601,7 +607,7 @@ bool rc9_server_selected(uint64_t){return false;}
 bool relay_slot_scanning(){return false;}
 void relay_slot_observe(const rc7_control&,int8_t,uint64_t){}
 void relay_fence(){}
-void relay_close(uint64_t){}
+void relay_close(uint64_t,bool){}
 bool relay_owned(){return false;}
 bool relay_acl_available(){return true;}
 void relay_poll(uint64_t,bool){}

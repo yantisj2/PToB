@@ -45,6 +45,12 @@ int main(int argc,char** argv){assert(argc==2);const std::string which=argv[1];
    v12::rc9_publish_status(fake_now);fake_now+=300000;auto s=v12::r2_rc9_status();
    assert(!s.valid&&!s.serving&&s.clients==1&&s.client_until_us==lease);
    fake_now=lease;assert(!v12::rc9_server_clients(fake_now));s=v12::r2_rc9_status();assert(!s.client_until_us&&!s.clients);
+  }else if(which=="rebind"){
+   assert(v12::r2_rc_parent(0));step(8);
+   assert(v12::parent_diagnostic.state==3&&!v12::fault&&v12::rc9_server_demand_until()==lease);
+   radio_live();v12::relay_poll(fake_now,false);
+   assert(!v12::relay_stopping&&pa_active&&ext_active[0]&&ext_active[1]&&v12::rc9_server_clients(fake_now)==1);
+   server_connect();(void)read9();server_disconnect();
   }else if(which=="off"){
    rc9_radio.mode=2;v12::relay_poll(fake_now,false);assert(v12::relay_profile==7&&!pa_active&&!ext_active[0]&&!v12::rc9_server_demand_until());
   }else assert(false);

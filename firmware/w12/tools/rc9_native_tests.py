@@ -26,7 +26,7 @@ for q in (out,APP/'tests',APP/'tests/r2_fakes',APP/'tests/console_fakes',APP/'ma
 objects=[a.objects.resolve()/(n+'.o') for n in ('group_auth','group_join','group_precision','precision_codec','relay_codec','rc_dynamic','rc_boundary','rc_slots','g1_hmac','sha256','utils')]
 cmd=[os.environ.get('CXX','/opt/homebrew/opt/llvm/bin/clang++'),*flags,out/'rc9.cpp',APP/'main/rc9/rc9.cpp',*objects,'-o',out/'native']
 with (out/'compile.log').open('w') as f:subprocess.run(list(map(str,cmd)),stdout=f,stderr=subprocess.STDOUT,check=True)
-cases=('client','race','withdraw','lease','off')
+cases=('client','race','withdraw','lease','rebind','off')
 for case in cases:
  with (out/(case+'.log')).open('w') as f:subprocess.run([out/'native',case],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=15)
 paths=[APP/'main/native_g1.cpp',APP/'main/rc7_relay_native.inc',APP/'main/rc9_client_native.inc',APP/'main/rc9_server_native.inc',APP/'tests/rc9_native_fixture.inc',Path(__file__)]
