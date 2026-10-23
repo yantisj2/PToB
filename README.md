@@ -85,7 +85,7 @@ PHC-to-radio bridge, ROS 2 adapters and independent validation programme.
 scope; gPTP interoperability, TSN conformance and physical actuation remain
 unqualified.
 
-**Research draft, 22 October 2026:** [Precision Bluetooth Timing on ESP32-S3:
+**Public review draft, 22 October 2026:** [Precision Bluetooth Timing on ESP32-S3:
 Causal Clock Discipline and Hardware Event Capture](papers/ptob-esp32s3-timing-preprint.pdf)
 reports 110.801 ns conditional RMS across 615 valid relative PPS observations,
 with a separate historical Nordic comparison. Its original 660-second attempt

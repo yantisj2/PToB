@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-22 — ESP32-S3 public draft review
+
+- Record approval to publish the reviewed ESP32-S3 paper and selected sanitized
+  evidence as supporting research for the robotics study. Link both papers,
+  their sources and immutable editions from the public research collection.
+  Preserve draft status and the original incomplete experiment outcome.
+  Unfinished N30 firmware development remains outside this publication.
+
 ## 2026-10-22 — robotic gPTP/TSN public draft review
 
 - Record approval to publish the reviewed robotics research draft in the
