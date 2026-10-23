@@ -1610,7 +1610,10 @@ bool r2_rc9_parent(uint64_t id){
 Rc9Status r2_rc9_status(){
  Rc9Status result;
 #ifdef PTOB_RC9
- portENTER_CRITICAL(&mux);result=rc9_published;portEXIT_CRITICAL(&mux);
+ portENTER_CRITICAL(&mux);result=rc9_published;
+ const bool revoked=fault||closing||stop_pending||mode!=R2Mode::Client||parent_diagnostic.pending()||parent_diagnostic.state==4;
+ result.fault|=fault;portEXIT_CRITICAL(&mux);
+ if(revoked){result.valid=result.following=result.serving=false;result.utc_us=result.until_us=0;}
  const auto now=micros();
  if(now<result.sampled_us||now-result.sampled_us>=250000){
   result.valid=result.following=result.serving=false;result.utc_us=result.until_us=0;

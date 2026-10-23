@@ -50,7 +50,7 @@ bool rc9_selection(uint64_t now){
   sync_address=canonical(view.server);sync_identity=view.server;sync_selected=true;
  }
  if(peer.handle!=None||peer.connecting||now<retry_at||now<rc9_retry_at)return bound||target;
- const bool seek=target||bound||(!following(now)&&!lock_protected(now));
+ const bool seek=target||bound||(!parent_selection.pinned()&&!following(now)&&!lock_protected(now));
  if(!seek)return false;
  if(bound&&now<rc9_client.renew_at&&view.valid)return true;
  unsigned best=4;
