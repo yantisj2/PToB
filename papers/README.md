@@ -2,7 +2,8 @@
 
 These are working drafts by **Jonathan Yantis**. The latest addition is the
 **22 October 2026** robotic gPTP/TSN edge-adaptation study. The ESP32-S3 precision
-timing study retains its **22 October** edition. The shared time base and
+timing study has a **22 October follow-up research draft**; its earlier reviewed
+edition remains preserved in Git. The shared time base and
 Bluetooth timecode compatibility study retains its **22 October** edition.
 The awake timing information and power scheduling pilot retains its
 **19 October 2026** edition. The
@@ -27,7 +28,7 @@ draft status.
 | Draft | Read | Edit | Edition |
 | --- | --- | --- | --- |
 | A Shared Time Base for Robotic gPTP and TSN Systems: PToB Edge Adaptation, Compatibility Boundaries, and a Validation Programme | [PDF](ptob-gptp-tsn-robotics-preprint.pdf) | [LaTeX](ptob-gptp-tsn-robotics-preprint.tex) | 22 October 2026, proposed wired-domain ingress, wireless acquisition timestamps and staged validation |
-| Precision Bluetooth Timing on ESP32-S3: Causal Clock Discipline and Hardware Event Capture | [PDF](ptob-esp32s3-timing-preprint.pdf) | [LaTeX](ptob-esp32s3-timing-preprint.tex) | 22 October 2026, frozen-profile relative PPS observation and separate Nordic history |
+| Precision Bluetooth Timing on ESP32-S3: Causal Clock Discipline and Hardware Event Capture | [PDF](ptob-esp32s3-timing-preprint.pdf) | [LaTeX](ptob-esp32s3-timing-preprint.tex) | 22 October 2026 follow-up, empirical fine capture and completed 660 s relative PPS, target unmet |
 | A Shared Time Base for Bluetooth Timecode Ecosystems: PToB Architecture, Compatibility Boundaries, and a Validation Programme | [PDF](ptob-bluetooth-timecode-preprint.pdf) | [LaTeX](ptob-bluetooth-timecode-preprint.tex) | 22 October 2026, proposed media contract and compatibility layers |
 | How Much Timing Information Is Enough? Awake Hardware Evidence and Wake/Listen Energy Models for PToB | [PDF](ptob-power-scheduling-preprint.pdf) | [LaTeX](ptob-power-scheduling-preprint.tex) | 19 October 2026, awake PC117 pilot and hypothetical energy models |
 | Beyond USB Packet Arrival: Frame-Identified Time Transfer to macOS | [PDF](usb-macos-time-transfer-preprint.pdf) | [LaTeX](usb-macos-time-transfer-preprint.tex) | 17 October 2026, shared-bus RC/DC revision |
@@ -49,18 +50,23 @@ to a stable paper. The immutable edition receipt records local preparation
 before the GitHub push; the [manuscript history](CHANGELOG.md) records the
 subsequent public-review approval.
 
-The ESP32-S3 paper was **approved for public draft review on 22 October 2026**
-and has a [22 October edition manifest](editions/s3-timing-2026-10-22.json)
-and [sanitized observation supplement](../evidence/s3/2026-10-22/README.md).
-Its fixed 660-second attempt retains 615 valid relative PPS samples, one
-reference-unavailable record and 44 nominal unrecorded opportunities after
-collection disabled. The original incomplete outcome is preserved. The 80 MHz
-raw observer remains separate from production timing; a qualified fine RF
-endpoint, calibrated path delay and independent output accuracy remain future
-work. Historical Nordic results retain their distinct population and denominator.
-It remains a research draft, without submission or promotion to a stable paper.
-Its immutable edition receipt records preparation before public-review approval;
-the [manuscript history](CHANGELOG.md) records that subsequent approval.
+The ESP32-S3 follow-up is a **research draft approved for repository publication**, with a
+[new edition manifest](editions/s3-timing-2026-10-22-fine.json) and
+[selected sanitized follow-up](../evidence/s3/2026-10-22-fine/README.md).
+The paper leads with measured results and retained tails, followed by the
+implemented method, fault repairs and concrete remaining improvements; it drops
+the general synchronization theory and numerical-clock model. Its completed
+660-second window has 657 eligible and three invalid records,
+zero nominal missing and an observed post-window fence. Actual relative-PPS
+RMS is 166.590 ns, with a 1591 ns maximum; near-50 ns internal causal quality
+is a different metric. A new 51016 ns offset reuses that window for calibration
+and a fresh N31 transfer has 48 eligible / 64 records, +115.167 ns mean and
+150.954 ns RMS; the same total is not mean-zero portable and the output target
+still fails. Estimated TX and empirical RX endpoint
+semantics still limit the output target. The [previous reviewed receipt](editions/s3-timing-2026-10-22.json)
+and [incomplete original cohort](../evidence/s3/2026-10-22/README.md) remain
+unchanged in Git. Prior public-review approval is recorded in the manuscript
+history; this replacement has no stable promotion or submission.
 
 The Bluetooth timecode paper was **approved for public draft review on
 22 October 2026** and remains a research draft. It has a

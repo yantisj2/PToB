@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-22 — N30 measured precision follow-up
+
+Replace the S3 timing draft with an eight-page results-first edition and a
+sanitized, reproducible supplement. Retain all 660 nominal opportunities in
+the completed N3-2 run (657 eligible, 166.590 ns RMS), its tails and the separate
+N3-1 fixed-correction transfer (48 eligible of 64, 150.954 ns RMS). The downstream
+sub-100 ns target remains unmet. Preserve the earlier edition and failures.
+Link the new edition from the research hub, shorten the N30 README and show
+the recorded 49 ns internal causal RMS in its renderer preview, with the metric
+and illustrative fields identified. Jonathan Yantis approved committing and
+pushing the follow-up and firmware to GitHub; the paper remains a draft.
+
 ## N30 0.2.20 — refined precision watch face
 
 Keep the Casio-style segmented display and move PRECISION to page three, with

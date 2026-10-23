@@ -60,6 +60,7 @@ int main(int argc,char** argv){
   auto& q=p.precision;q.valid=q.locked=q.lock_age_valid=q.relative_known=true;q.scope=1;
   q.until_us=p.until_us;q.rms_ns=170;q.relative_ppb=123;q.lock_since_us=p.sampled_us-754000000;
   q.counter_hz=80000000;q.source=p.source;
+  if(i==0)q.rms_ns=49; // Observed N3-2 internal causal RMS; other fields remain illustrative.
   if(i==1){q.locked=q.lock_age_valid=false;q.rms_ns=UINT32_MAX;q.relative_known=false;}
   if(i==3){q.counter_hz=20000000;q.source=n30::Source::Rc1;p.utc_us+=250000;q.relative_ppb=-123;}
   if(i==4){q.rms_ns=1234;q.relative_ppb=-12;}

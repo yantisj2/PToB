@@ -133,11 +133,14 @@ Original ordinary interface documentation, Jonathan Yantis, MIT.
 ## N30 precision preview
 
 `n30-precision-preview.png` is the version 0.2.20 third-page watch face,
-generated on 22 October 2026 from the actual 64×128 renderer with the synthetic
-`precision-lock` N3-2 fixture. The root, BLE/PPS status, segmented 170 ns causal
-RMS, +123 ppb relative residual trend and lock duration are illustrative.
-`80MHz / 12.5ns` reports counter tick size; fine delivery still rounds to 50 ns,
-and neither value establishes timing accuracy.
+generated on 22 October 2026 from the actual 64×128 renderer with the
+`precision-lock` N3-2 fixture. Its **49 ns internal causal RMS** reproduces the
+observed value in [the selected status dataset](../../evidence/s3/2026-10-22-fine/internal-quality-sanitized.csv),
+ordinal 244 (uptime 585.803371 s, `LOCK_EST`, no fault). This renderer image is
+not a hardware photograph. The root, BLE/PPS status, +123 ppb relative residual
+trend and lock duration are illustrative. The 49 ns value is separate from
+downstream PPS RMS, calibrated UTC error and physical output accuracy.
+`80MHz / 12.5ns` reports counter tick size; fine delivery still rounds to 50 ns.
 
 The [separate provenance record](n30-precision-provenance.json) records exact
 renderer/model/font/fixture/generator hashes and the selected PNG hash. Earlier

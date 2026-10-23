@@ -58,8 +58,24 @@
   "host_tool_followup": "Enable all existing fine stack probes for0.2.20; no timing algorithm or on-device behavior change.",
   "post_import_documentation": {
     "firmware/n30/README.md": {
-      "sha256": "b34bafc928ac6ccec43c9fb20fbc03e75c97bdefe4505063452c8ae65c93a241",
-      "change": "Refreshcurrentversion and distinguish implementedfinebackend, completedfinite660s result, historicalshortscore andpending51016verification; no newhardwarequalification"
+      "sha256": "a0b8bde537da0325f53cfdf366b5cc212cb50c5325e3d60b592895c8f31b00e1",
+      "change": "Document the measured fine-clock results and scope; shorten the target README and reconstruct its 49 ns internal-RMS preview. Preview fixture only; installed firmware behavior unchanged."
+    },
+    "docs/images/README.md": {
+      "sha256": "ecab719eadba279dcb14a048c3cdf3e2e62fb5d6401813804a8515cd9afc1aa9",
+      "change": "Document the measured fine-clock results and scope; shorten the target README and reconstruct its 49 ns internal-RMS preview. Preview fixture only; installed firmware behavior unchanged."
+    },
+    "docs/images/n30-precision-preview.png": {
+      "sha256": "99ad73f759397b1c28648e19b8cf54d95b2860e3826382e4314b8e41c8ee8512",
+      "change": "Document the measured fine-clock results and scope; shorten the target README and reconstruct its 49 ns internal-RMS preview. Preview fixture only; installed firmware behavior unchanged."
+    },
+    "docs/images/n30-precision-provenance.json": {
+      "sha256": "cb300ebb836080ba0b50298accf6f9f22b3eb188a5fa610fed9cfbf433d94800",
+      "change": "Document the measured fine-clock results and scope; shorten the target README and reconstruct its 49 ns internal-RMS preview. Preview fixture only; installed firmware behavior unchanged."
+    },
+    "firmware/n30/tools/preview.cpp": {
+      "sha256": "534ba51be78b0ffeee9777b413b231f55c72a11dba83a216b1814450c5cd08fa",
+      "change": "Document the measured fine-clock results and scope; shorten the target README and reconstruct its 49 ns internal-RMS preview. Preview fixture only; installed firmware behavior unchanged."
     }
   }
 }

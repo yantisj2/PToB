@@ -1,0 +1,122 @@
+{
+  "author": "Jonathan Yantis",
+  "final51016": {
+    "N31_mutations": false,
+    "N31_serial_opened": false,
+    "TC04_CRC_frames": 353,
+    "TC04_restored_released": true,
+    "TX_arithmetic": "Compiledprofilebound;notindividuallyloggedonN31",
+    "acquisition_s": 21.871466750000003,
+    "calibration": "N32completed660reusedtoselect51016;N31freshtransferneverpooledwithN32",
+    "cohort": "n31_51016_transfer48",
+    "diagnostic_leases_on_N31": false,
+    "disabled_edges_delta": 0,
+    "duplicates": 0,
+    "eligible_span_s": 63.0000311875,
+    "empty_polls": 225,
+    "field_release_held": false,
+    "interior_sequence_missing": 0,
+    "invalid": 16,
+    "invalid_reasons": {
+      "2": 16
+    },
+    "measurement_s": 65.413100625,
+    "no_within_run_retuning": true,
+    "not_mean_zero_portable": true,
+    "queue_drops_delta": 0,
+    "ram_overwritten_delta": 65,
+    "ram_retention_not_cursor_loss": true,
+    "recorded": 64,
+    "selection": "First48eligible, all64foundrecordsincluding16invalid; notfixed660",
+    "status": "COMPLETE_N31_FIXED51016_FRESH_FIRST48_RELATIVE_PPS_TRANSFER",
+    "sub100ns_target_met": false,
+    "terminal_unread_after_first48": 1,
+    "total_ns": 51016,
+    "valid": 48
+  },
+  "fine660": {
+    "N30_CRC_frames": 403,
+    "TX_CRC_envelopes": 18,
+    "TX_pairs": 9,
+    "TX_rejected": 0,
+    "advertised_total_ns": 50909,
+    "capture_epoch_is_local": true,
+    "counter_hz_nominal": 16000000,
+    "diagnostic_disabled_edges_delta": 0,
+    "duplicates": 0,
+    "eligible_span_s": 659.0003571875,
+    "empty_not_found_responses": 763,
+    "finite_stability_only": true,
+    "interior_sequence_missing": 0,
+    "invalid": 3,
+    "invalid_reasons": {
+      "2": 3
+    },
+    "measurement_elapsed_s": 664.022850709,
+    "nominal_1Hz_opportunities": 660,
+    "nominal_unrecorded": 0,
+    "outside_window_fence_records": 1,
+    "post_window_sequence_fence": true,
+    "queue_drops_delta": 0,
+    "ram_overwritten_baseline": 64,
+    "ram_overwritten_final": 728,
+    "ram_retention_is_not_cursor_loss": true,
+    "recorded": 660,
+    "request_loss_deltas": {
+      "dropped": 0,
+      "expired": 0,
+      "frame_drops": 0,
+      "isr_refused": 0,
+      "truncated": 0,
+      "write_errors": 0
+    },
+    "sampled_same_boot_healthy_to_s": 761.056472,
+    "start_inclusive_end_exclusive": true,
+    "status": "COMPLETE_FIXED660_FINE_PPS_AND_SAME_BOOT_HEALTH",
+    "tx_filtered": 432,
+    "unread_after_observed_post_window_fence": 3,
+    "valid": 657,
+    "window_s": 660,
+    "witness_CRC_frames": 1565
+  },
+  "license": "CC-BY-4.0",
+  "limitations": [
+    "Empirical RX-fall phase convention; no RF END/ADDRESS or fixed-delay calibration.",
+    "TX remains a programmed nominal software estimate.",
+    "Relative modulo PPS; absolute UTC/electrical output accuracy unknown.",
+    "Finite scope and sampled health; no long-term availability bound.",
+    "Three ineligible rows excluded from residual metrics and retained in CSV.",
+    "Original fixed660 population became calibration evidence for51016 after completion; it cannot verify51016."
+  ],
+  "measurement": "Signed fractional source-relative phase of downstream delivered map at a local physical PPS; no absolute UTC association or measured N30 output pin.",
+  "schema": 1,
+  "scope_aliases": {
+    "downstream_witness": "N-witness",
+    "fixed660_boot": "A-test",
+    "publisher": "S3-A",
+    "root": "R-new",
+    "training_boot": "A-train",
+    "transfer_board": "S3-B",
+    "transfer_boot": "B-test"
+  },
+  "training48": {
+    "TX_CRC_envelopes": 18,
+    "TX_pairs": 9,
+    "interior_missing": 0,
+    "invalid": 3,
+    "invalid_reasons": {
+      "2": 3
+    },
+    "nominal_total_ns_values": [
+      39999,
+      40000
+    ],
+    "not_corrected_accuracy": true,
+    "recorded": 51,
+    "rejected_envelopes": 1,
+    "selected_total_ns": 50909,
+    "status": "COMPLETE_FIRST48_ELIGIBLE_TRAINING",
+    "terminal_unread": 1,
+    "valid": 48
+  }
+}

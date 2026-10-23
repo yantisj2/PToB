@@ -1,0 +1,56 @@
+{
+  "author": "Jonathan Yantis",
+  "first8": {
+    "audit_missing": 0,
+    "clean_windows": 8,
+    "endpoint": "EMPIRICAL_FALL_NOT_VERIFIED_END",
+    "exact_common_packets": 7,
+    "exported_edges": 16,
+    "in_sample_affine_rms_ns": {
+      "fall": 55.52330738587436,
+      "legacy": 169.58817151779732,
+      "rise": 42737.65763064476
+    },
+    "late_invalidated": 0,
+    "max_drain_gap_s": 0.633633792,
+    "not_heldout": true,
+    "selected": 8,
+    "unpaired": 1
+  },
+  "fixed128": {
+    "audit_missing": 0,
+    "channels_incomplete": true,
+    "estimator": "Prespecified sparse last8 prior/min4 affine comparator; distinct from dense production G1",
+    "exact_common_packets": 122,
+    "fine_causal_rms_ns": 171.00359011806643,
+    "fine_max_abs_ns": 452.2328601892409,
+    "fine_mean_ns": -6.807234637946861,
+    "heldout": 64,
+    "heldout_scored": 62,
+    "heldout_unpaired": 2,
+    "heldout_unrecorded": 0,
+    "late_invalidated": 0,
+    "legacy_causal_rms_ns": 259.32356205401396,
+    "legacy_max_abs_ns": 642.9658322320593,
+    "legacy_mean_ns": -7.246889035169187,
+    "local80_wraps": 6,
+    "paired_span_s": 332.9976135,
+    "selected": 128,
+    "target_below100ns": false,
+    "total_unpaired": 6,
+    "training": 64,
+    "unique_marker_windows": 127
+  },
+  "license": "CC-BY-4.0",
+  "provenance": [
+    {
+      "role": "discovery",
+      "sha256": "4ad5cf52d75ceebee4f99b5d29809f8eab837a14a361a21e2f9d2ccb89cf9f9f"
+    },
+    {
+      "role": "fixed128 causal",
+      "sha256": "fc4137c284cfa556443ae80e2b8800c2c1e7d2e88035422e8887fab8940de8e6"
+    }
+  ],
+  "schema": 1
+}

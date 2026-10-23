@@ -53,7 +53,7 @@ describes the proposed future storage/API; it is not implemented firmware.
 Firmware-rendered previews with illustrative values, not live measurements.
 Select a screen to open its target guide.
 
-[N30 clock, dual BLE/LoRa and receiver screens](firmware/n30/README.md) show its
+[N30 clock, dual BLE/LoRa, Precision and receiver screens](firmware/n30/README.md) show its
 independent timing inputs and passive LoRa display fallback. N3-1/N3-2 onboarding
 requires verified factory identities; hardware qualification remains separate.
 
@@ -85,15 +85,17 @@ PHC-to-radio bridge, ROS 2 adapters and independent validation programme.
 scope; gPTP interoperability, TSN conformance and physical actuation remain
 unqualified.
 
-**Public review draft, 22 October 2026:** [Precision Bluetooth Timing on ESP32-S3:
-Causal Clock Discipline and Hardware Event Capture](papers/ptob-esp32s3-timing-preprint.pdf)
-reports 110.801 ns conditional RMS across 615 valid relative PPS observations,
-with a separate historical Nordic comparison. Its original 660-second attempt
-remains incomplete: one record was ineligible and 44 nominal opportunities were
-unrecorded. [LaTeX source](papers/ptob-esp32s3-timing-preprint.tex) and
-[edition manifest](papers/editions/s3-timing-2026-10-22.json) preserve the scope
-and limitations; fine RF timestamps and calibrated UTC and output accuracy
-remain unqualified.
+**Follow-up research draft, 22 October 2026:** [Precision Bluetooth Timing on
+ESP32-S3: Causal Clock Discipline and Hardware Event Capture](papers/ptob-esp32s3-timing-preprint.pdf)
+reports the completed 660-second experiment: **166.590 ns relative PPS RMS**
+across 657 eligible and three invalid records, with zero nominal missing and
+all tails retained. A separate N3-1 transfer measured **150.954 ns RMS** across
+48 eligible of 64 records. The observed 49 ns internal display RMS is a
+different metric; the sub-100 ns downstream target remains open.
+[LaTeX source](papers/ptob-esp32s3-timing-preprint.tex),
+[edition manifest](papers/editions/s3-timing-2026-10-22-fine.json) and
+[selected evidence](evidence/s3/2026-10-22-fine/README.md) preserve the measured
+scope, earlier failures and remaining TX-event/RX-delay validation work.
 
 **Public review draft, 22 October 2026:** [A Shared Time Base for Bluetooth
 Timecode Ecosystems](papers/ptob-bluetooth-timecode-preprint.pdf) explores PToB

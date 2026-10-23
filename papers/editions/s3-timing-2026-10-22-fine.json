@@ -1,0 +1,392 @@
+{
+  "author": "Jonathan Yantis",
+  "base_repository_commit": "9ce50242e884f8d8ad404a376ae058c5cdb4d9d5",
+  "code_and_documentation_license": "MIT",
+  "compiler": {
+    "binary_acquisition": "https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic%400.17.0/tectonic-0.17.0-aarch64-apple-darwin.tar.gz",
+    "binary_sha256": "b52b5a730e2b0b33087304f7720f649603953f270a6b1c88bb031e1ae01f7f9c",
+    "command": "tectonic --keep-logs --keep-intermediates --outdir artifacts/papers papers/ptob-esp32s3-timing-preprint.tex",
+    "engine": "Tectonic",
+    "log_sha256": "5592d084bac5db7dc69a2f751f6afcdd69d1afda7eac32a6ab15a5b66fca47d0",
+    "public_bundle_hashes": [
+      {
+        "bundle_hash": "6ffe055852f8faf66c0acbe1a7fb27f87b869a90bad1204f3bf4d9683f597c7c",
+        "cache_receipt": "https,58,,47,,47,relay.fullyjustified.net,47,default_bundle_v33.tar"
+      }
+    ],
+    "standalone": true,
+    "version": "Tectonic 0.17.0",
+    "warning_details": [],
+    "warnings": false
+  },
+  "edition": "EMPIRICAL_FINE_MEASURED_RESULTS_FOLLOWUP",
+  "edition_date": "2026-10-22",
+  "evidence_license": "CC-BY-4.0",
+  "files": [
+    {
+      "bytes": 4163,
+      "license": "MIT",
+      "path": "evidence/s3/2026-10-22-fine/README.md",
+      "sha256": "3a5d1a9cadd5d9ed1191413901e5aef0733a6a65640a8cf73480bb7d9a201cce"
+    },
+    {
+      "bytes": 1590,
+      "license": "CC-BY-4.0",
+      "path": "evidence/s3/2026-10-22-fine/association.json",
+      "sha256": "c6981614322cf7019400e0ff685ee5632038a1c45d584a80ce8bc9a5becf909e"
+    },
+    {
+      "bytes": 7616,
+      "license": "CC-BY-4.0",
+      "path": "evidence/s3/2026-10-22-fine/historical-context.json",
+      "sha256": "0d19f0d67fe0ade8f7a2eab93f92b20854deac78dfd377be4567aa888b37a2ab"
+    },
+    {
+      "bytes": 9238,
+      "license": "CC-BY-4.0",
+      "path": "evidence/s3/2026-10-22-fine/internal-quality-sanitized.csv",
+      "sha256": "408105abe54739f7a912c9b00f910cbd1981082722ebf4ee0a1d718d8c612413"
+    },
+    {
+      "bytes": 2125,
+      "license": "CC-BY-4.0",
+      "path": "evidence/s3/2026-10-22-fine/manifest.json",
+      "sha256": "dd357fb1d0b2be0f5559879d90dad93784d643af2a6f199ff715ce80e06e0aab"
+    },
+    {
+      "bytes": 60335,
+      "license": "CC-BY-4.0",
+      "path": "evidence/s3/2026-10-22-fine/pps-sanitized.csv",
+      "sha256": "636c8f2a6d5ab370343d35e18e5d8ad9cf35f46b91d8f05f53bf004c379e3ab2"
+    },
+    {
+      "bytes": 3936,
+      "license": "CC-BY-4.0",
+      "path": "evidence/s3/2026-10-22-fine/protocol.json",
+      "sha256": "8e28d3e917448194187761cb3445ffc940d5291d06c4e64ee2644e5024cffcae"
+    },
+    {
+      "bytes": 7140,
+      "license": "CC-BY-4.0",
+      "path": "evidence/s3/2026-10-22-fine/results.json",
+      "sha256": "5983fd09728d6dddda62977d549ae22b53664dcc7b7e7a981a1196c81236a24e"
+    },
+    {
+      "bytes": 3745,
+      "license": "CC-BY-4.0",
+      "path": "evidence/s3/2026-10-22-fine/source-context.json",
+      "sha256": "2b0a60ae7f2e92501fb212a3d344dbe59a32e94e9c9c8ee9487c15d609c5515c"
+    },
+    {
+      "bytes": 79321,
+      "license": "CC-BY-4.0",
+      "path": "papers/ptob-esp32s3-timing-preprint.pdf",
+      "sha256": "0a0d1c8e7a44e2479c35d072beb7f57d20216748019338062880cfea062441b6"
+    },
+    {
+      "bytes": 60546,
+      "license": "CC-BY-4.0",
+      "path": "papers/ptob-esp32s3-timing-preprint.tex",
+      "sha256": "99a1a1f0e5ae5677a96120920c8279ec750545ce3f562c77991a8b15cd13c89f"
+    },
+    {
+      "bytes": 7031,
+      "license": "MIT",
+      "path": "tools/verify_s3_fine_paper.py",
+      "sha256": "24b08c656784affef52733737dce9db1fbdfc8ec57ff80cba2992fda1d2f8e6f"
+    }
+  ],
+  "final51016_status": {
+    "N31_mutations": false,
+    "N31_serial_opened": false,
+    "TC04_CRC_frames": 353,
+    "TC04_restored_released": true,
+    "TX_arithmetic": "Compiledprofilebound;notindividuallyloggedonN31",
+    "acquisition_s": 21.871466750000003,
+    "calibration": "N32completed660reusedtoselect51016;N31freshtransferneverpooledwithN32",
+    "cohort": "n31_51016_transfer48",
+    "diagnostic_leases_on_N31": false,
+    "disabled_edges_delta": 0,
+    "duplicates": 0,
+    "eligible_span_s": 63.0000311875,
+    "empty_polls": 225,
+    "field_release_held": false,
+    "interior_sequence_missing": 0,
+    "invalid": 16,
+    "invalid_reasons": {
+      "2": 16
+    },
+    "measurement_s": 65.413100625,
+    "no_within_run_retuning": true,
+    "not_mean_zero_portable": true,
+    "queue_drops_delta": 0,
+    "ram_overwritten_delta": 65,
+    "ram_retention_not_cursor_loss": true,
+    "recorded": 64,
+    "selection": "First48eligible, all64foundrecordsincluding16invalid; notfixed660",
+    "status": "COMPLETE_N31_FIXED51016_FRESH_FIRST48_RELATIVE_PPS_TRANSFER",
+    "sub100ns_target_met": false,
+    "terminal_unread_after_first48": 1,
+    "total_ns": 51016,
+    "valid": 48
+  },
+  "license": "MIT",
+  "limitations": [
+    "Empirical RX-fall phase convention; no RF END/ADDRESS or fixed-delay calibration.",
+    "TX remains a programmed nominal software estimate.",
+    "Relative modulo PPS; absolute UTC/electrical output accuracy unknown.",
+    "Finite scope and sampled health; no long-term availability bound.",
+    "Three ineligible rows excluded from residual metrics and retained in CSV.",
+    "Original fixed660 population became calibration evidence for51016 after completion; it cannot verify51016."
+  ],
+  "local_policy": "Primary review before integration/commit; no hardware operations, submission, promotion or push by paper author",
+  "main_result": {
+    "abs_p50_ns": 100,
+    "abs_p95_ns": 239,
+    "abs_p99_ns": 310,
+    "duplicate_rows": 0,
+    "edge_span_s": 659.0003571875,
+    "interior_missing": 0,
+    "invalid": 3,
+    "max_abs_ns": 1591,
+    "max_ns": 190,
+    "mean_ns": -106.81126331811264,
+    "min_ns": -1591,
+    "minute_blocks": [
+      {
+        "abs_p50_ns": 144,
+        "abs_p95_ns": 259,
+        "abs_p99_ns": 284,
+        "end_s": 60,
+        "max_abs_ns": 284,
+        "max_ns": 98,
+        "mean_ns": -132.65,
+        "min_ns": -284,
+        "n": 60,
+        "rms_ns": 161.64627019101513,
+        "start_s": 0,
+        "std_ns": 92.37691360219101
+      },
+      {
+        "abs_p50_ns": 115,
+        "abs_p95_ns": 256,
+        "abs_p99_ns": 310,
+        "end_s": 120,
+        "max_abs_ns": 310,
+        "max_ns": 11,
+        "mean_ns": -132.71666666666667,
+        "min_ns": -310,
+        "n": 60,
+        "rms_ns": 152.74363052732073,
+        "start_s": 60,
+        "std_ns": 75.61020470515574
+      },
+      {
+        "abs_p50_ns": 115,
+        "abs_p95_ns": 271,
+        "abs_p99_ns": 1591,
+        "end_s": 180,
+        "max_abs_ns": 1591,
+        "max_ns": 55,
+        "mean_ns": -157.68333333333334,
+        "min_ns": -1591,
+        "n": 60,
+        "rms_ns": 291.2962123566548,
+        "start_s": 120,
+        "std_ns": 244.92743766720426
+      },
+      {
+        "abs_p50_ns": 88,
+        "abs_p95_ns": 243,
+        "abs_p99_ns": 283,
+        "end_s": 240,
+        "max_abs_ns": 283,
+        "max_ns": 92,
+        "mean_ns": -96.95,
+        "min_ns": -283,
+        "n": 60,
+        "rms_ns": 129.4736137854608,
+        "start_s": 180,
+        "std_ns": 85.81441700942021
+      },
+      {
+        "abs_p50_ns": 96,
+        "abs_p95_ns": 198,
+        "abs_p99_ns": 357,
+        "end_s": 300,
+        "max_abs_ns": 357,
+        "max_ns": 150,
+        "mean_ns": -86.8,
+        "min_ns": -357,
+        "n": 60,
+        "rms_ns": 124.22238123623295,
+        "start_s": 240,
+        "std_ns": 88.86484119155337
+      },
+      {
+        "abs_p50_ns": 87,
+        "abs_p95_ns": 223,
+        "abs_p99_ns": 246,
+        "end_s": 360,
+        "max_abs_ns": 246,
+        "max_ns": 190,
+        "mean_ns": -83.72413793103448,
+        "min_ns": -246,
+        "n": 58,
+        "rms_ns": 115.87567654082156,
+        "start_s": 300,
+        "std_ns": 80.10893296941495
+      },
+      {
+        "abs_p50_ns": 98,
+        "abs_p95_ns": 229,
+        "abs_p99_ns": 273,
+        "end_s": 420,
+        "max_abs_ns": 273,
+        "max_ns": 90,
+        "mean_ns": -92.95,
+        "min_ns": -273,
+        "n": 60,
+        "rms_ns": 125.24076812284409,
+        "start_s": 360,
+        "std_ns": 83.9377596794196
+      },
+      {
+        "abs_p50_ns": 70,
+        "abs_p95_ns": 235,
+        "abs_p99_ns": 1312,
+        "end_s": 480,
+        "max_abs_ns": 1312,
+        "max_ns": 149,
+        "mean_ns": -99.23333333333333,
+        "min_ns": -1312,
+        "n": 60,
+        "rms_ns": 254.7857923825424,
+        "start_s": 420,
+        "std_ns": 234.66688210217384
+      },
+      {
+        "abs_p50_ns": 128,
+        "abs_p95_ns": 212,
+        "abs_p99_ns": 289,
+        "end_s": 540,
+        "max_abs_ns": 289,
+        "max_ns": 184,
+        "mean_ns": -105.95,
+        "min_ns": -289,
+        "n": 60,
+        "rms_ns": 133.2199309412822,
+        "start_s": 480,
+        "std_ns": 80.75981364515398
+      },
+      {
+        "abs_p50_ns": 92,
+        "abs_p95_ns": 190,
+        "abs_p99_ns": 211,
+        "end_s": 600,
+        "max_abs_ns": 211,
+        "max_ns": 134,
+        "mean_ns": -86.31666666666666,
+        "min_ns": -211,
+        "n": 60,
+        "rms_ns": 109.49436819611621,
+        "start_s": 540,
+        "std_ns": 67.3680170572225
+      },
+      {
+        "abs_p50_ns": 97,
+        "abs_p95_ns": 197,
+        "abs_p99_ns": 299,
+        "end_s": 660,
+        "max_abs_ns": 299,
+        "max_ns": 59,
+        "mean_ns": -99.05084745762711,
+        "min_ns": -299,
+        "n": 59,
+        "rms_ns": 119.57793005371937,
+        "start_s": 600,
+        "std_ns": 66.991126082923
+      }
+    ],
+    "n": 657,
+    "recorded": 660,
+    "rms_ns": 166.58975851111458,
+    "std_ns": 127.84170551576776,
+    "valid": 657
+  },
+  "paper_license": "CC-BY-4.0",
+  "populations_kept_separate": [
+    "Previous legacy short and incomplete660",
+    "First8 discovery",
+    "Sparse64training/64heldout causal comparator",
+    "Fine nominal first48 training",
+    "Completed fine50909 fixed660 heldout score, subsequently reused as51016 calibration",
+    "First48 subset of completed fine660",
+    "Sampled internal causal quality",
+    "Historical Nordic V14",
+    "FreshN31same51016first48transfer:48eligible+16invalid,targetnotmet"
+  ],
+  "previous_edition": {
+    "manifest": "papers/editions/s3-timing-2026-10-22.json",
+    "manifest_sha256": "44e43cecc46cc6ec1b883866216c56d99807036af59b382a91e373b846850c3f",
+    "pdf_sha256": "3a067811ca2798a80071f0f682afb70c4c79e0961065896c7a4739ad54392b78",
+    "repository_revision": "70a9c69ad6f823b8ca1acaf28180c7c010fe748e",
+    "retention": "Previous manifest remains unchanged; reviewed source/PDF recoverable at this Git revision; no silent relabeling",
+    "source_sha256": "9b5f6942f41e3056a134eeebe6a5940e555841b4473baf921646f9b88befdde3"
+  },
+  "review": {
+    "all_pages_rendered_and_visually_inspected": true,
+    "figures": 3,
+    "layout_warnings": false,
+    "pages": 8,
+    "render_tool": "Poppler pdftoppm -scale-to1600 -png",
+    "rendered_pages": [
+      {
+        "page": 1,
+        "sha256": "9ecb66903d594f53d78350f214abeceda2081651e97b90dd7e40c41c7e283d85"
+      },
+      {
+        "page": 2,
+        "sha256": "33e2c920f3669b77f3873f9c15c3b85e5aa46f260e2dd41fbc126b0a6cd383bd"
+      },
+      {
+        "page": 3,
+        "sha256": "5f8e10bae01aedc9666d9741df33ae22e142844f439b90a09ad82380260c4d77"
+      },
+      {
+        "page": 4,
+        "sha256": "ecd92ae29f6a26a88a24fb6ea518be0d2435b4664b679afe66ca1a7083005024"
+      },
+      {
+        "page": 5,
+        "sha256": "906ad1b7c473778bc642605b7d6b57442e6676959216997d1110d56df8cb5e59"
+      },
+      {
+        "page": 6,
+        "sha256": "ae3bc93f0c434b4c502eac91c88c1d23420b96f52fb6bc6db51d51c3ae544305"
+      },
+      {
+        "page": 7,
+        "sha256": "1207f68e69aeec8aa4c330e01c899840338649cc794c9222c400faf867314704"
+      },
+      {
+        "page": 8,
+        "sha256": "e4137679343835d701464ef765f628ba857b4d51e7862f07bb3314a70ff4c2a4"
+      }
+    ],
+    "source_and_pdf_match": true,
+    "status": "PASS_AUTHOR_VISUAL_REVIEW",
+    "tables": 4,
+    "unresolved_references": false,
+    "visual_defects": []
+  },
+  "schema": 1,
+  "status": "RESEARCH_DRAFT_PREPARED_LOCALLY_NOT_SUBMITTED_NOT_PROMOTED",
+  "title": "Precision Bluetooth Timing on ESP32-S3: Causal Clock Discipline and Hardware Event Capture",
+  "verification_commands": [
+    "python3 tools/verify_s3_fine_paper.py",
+    "mkdir -p artifacts/papers",
+    "tectonic --keep-logs --keep-intermediates --outdir artifacts/papers papers/ptob-esp32s3-timing-preprint.tex",
+    "git diff --check"
+  ]
+}

@@ -1,5 +1,39 @@
 # Manuscript history
 
+## 2026-10-22 — ESP32-S3 follow-up repository publication
+
+- Jonathan Yantis approved committing and pushing the measured-results follow-up,
+  matching source/PDF, selected evidence and research-hub links to GitHub with
+  the N30 firmware changes. Retain draft status, all reported failures and the
+  distinction between internal causal RMS and downstream relative PPS error.
+  This does not promote a stable edition or submit the paper to a venue.
+
+## 2026-10-22 — ESP32-S3 empirical fine-capture follow-up draft
+
+- Replace the working source/PDF with an eight-page research-draft follow-up;
+  preserve the previous reviewed edition and manifest in Git and link its bytes
+  from the new `s3-timing-2026-10-22-fine.json` receipt.
+- Lead with measured output, complete-window coverage and all retained tails.
+  Remove general synchronization theory and the formal numerical-clock model;
+  retain the implemented method, reproducible accounting and concrete next steps.
+- Quantify four eligible excursions above 1 us (39.302% of uncentered squared
+  error) without removing them. Add public recomputation of that tail accounting.
+- Report exact packet-associated empirical RX-fall capture, one continuous
+  counter and a separate sparse causal comparison, with both target failure
+  and unavailable cases retained. RF END/ADDRESS and physical accuracy remain
+  unqualified; TX remains a programmed software estimate.
+- Add the completed fixed 660-second observation: 657 eligible, three invalid,
+  zero nominal missing, observed post-window fence; RMS 166.590 ns and maximum
+  1591 ns. Keep the old incomplete window and prior best short legacy result
+  distinct. Preserve all tails and the internal-quality/output distinction.
+- Record 51016 ns as a new provisional offset selected after reusing the
+  completed cohort for calibration; a separate fresh N31 first-48 transfer retained 48 eligible + 16 invalid,
+  mean +115.167 ns, RMS 150.954 ns and maximum 362 ns. Same-total transfer
+  retained positive bias and failed the sub-100 ns target; no retuning.
+  Add sanitized rows, reproducible standard-library verification and proposed
+  endpoint/TX/causal/tail-reduction gates. No stable promotion, submission,
+  commit or push is authorized by this local preparation.
+
 ## 2026-10-22 — ESP32-S3 public draft review
 
 - Jonathan Yantis approved publishing the reviewed ESP32-S3 timing study and

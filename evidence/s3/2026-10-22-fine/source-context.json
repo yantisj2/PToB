@@ -1,0 +1,57 @@
+{
+  "TX_mapping_inference": "Latency/asymmetry can plausibly contribute boot bias, not proven sole cause",
+  "application_sha256": "a745e431a57e860b34cfe077ab4ecaaff3f24edb8a481a5e584f00ce2ede86b8",
+  "author": "Jonathan Yantis",
+  "coordinate": "Nearest50ns delivered coordinate, ties up; raw12.5ns resolution not accuracy",
+  "counter": "Boot-owned extended MCPWM1 80MHz; RX, CURRENT, availability, completion, BT mapping and TX estimates share domain",
+  "legacy_comparison": "Different root/path, boots and backend; not controlled platform ranking",
+  "license": "CC-BY-4.0",
+  "maintenance": "Unused mutually exclusive WINDOW storage reclaimed about7488 allocatedDRAMbytes; shutdown ordering repaired after earlier HCI0x07 fault",
+  "mapping_review_sha256": "07e959a4abefe6e43c07b4f922a6ff4776cbbc3fdd8dba70c1029b330b5fbe1a",
+  "origins": [
+    {
+      "application_sha256": "66188a0d34e653444e2acc5df58ea3abdeaec93064224cd783ca45272b531d5d",
+      "cohort": "fine_nominal_training48",
+      "private_audit_sha256": "afc4f8ee3940a1fd9660c72cc4f0a7deb620f23194f7655418ef127b04355402",
+      "selected_rows_source_sha256": "ff1ced8a9f27602a126c44b437972fb3c2556e3c24afd9affd2aa89dc3be544a",
+      "source_commit": "bca1d0bdf7fd9d7e6632b623ad84cfa714dca9fe",
+      "transformation": "Explicit column allowlist; raw device/source identities compared privately then reduced to same_scope; absolute epochs and wall time removed; invalid rows retained."
+    },
+    {
+      "application_sha256": "a745e431a57e860b34cfe077ab4ecaaff3f24edb8a481a5e584f00ce2ede86b8",
+      "cohort": "fine50909_fixed660s",
+      "private_audit_sha256": "0fca13aa41c49e482f24a6ebbb5bbc693ddbbf0fe1bd8a3fb4ff9ee10dfe2712",
+      "selected_rows_source_sha256": "451252964dd616c0b18a2d056070213b99ccd331c3d07d39e5c04fc3b479e29c",
+      "source_commit": "bca1d0bdf7fd9d7e6632b623ad84cfa714dca9fe",
+      "transformation": "Explicit column allowlist; raw device/source identities compared privately then reduced to same_scope; absolute epochs and wall time removed; invalid rows retained."
+    }
+  ],
+  "packet_class": {
+    "AD_octets": 190,
+    "PDU_octets": 191,
+    "PHY_raw": 0,
+    "extended_header_length": 0
+  },
+  "primary_TX_arithmetic_proof_sha256": "4933e839bdaa0848252b0620c6063d059a40836bb6ad21d08587f4d7f0e0887e",
+  "receive": "GPIO4 RW_RX_ON238 unique immutable packet-class falling edge; empirical125440raw ticks (1568us) SUBTRACTED before rounding; RF endpoint unknown",
+  "schema": 1,
+  "search_only": "Descriptor/BT bracket locates +/-3100us candidate interval; no descriptor-derived receive phase",
+  "source_commit": "bca1d0bdf7fd9d7e6632b623ad84cfa714dca9fe",
+  "transfer_context": {
+    "N31_serial_opened": false,
+    "TX_proof": "Compiledsamealgorithm/profile;noN31TXpacketlogs",
+    "application_sha256": "118c555895118ae4092aa2d8e2b821b90a2540bc47f72c4e02f138dcbfcfa45f",
+    "board": "S3-B",
+    "controls_sha256": "21978466a75a64f32dacdd6fde2867f3d97906145d701ef0bbf48b378c821249",
+    "eligible_source_sha256": "c2e18d21321f8ab3eb9ee4164d1dc2c223df9c510a87a602e0e10ec7336dfbed",
+    "field_boot_unchanged": true,
+    "firmware": ".20",
+    "private_audit_sha256": "cd2ed43252e988d1d9f1812f2eb299fd664652d6f48a1b70529bc099ae1345f4",
+    "profile_total_ns": 51016,
+    "selected_rows_source_sha256": "06d6623040e115172387a394a24861e2eae4c134858c716fc59dd55f76432a56",
+    "source_commit": "48c6207bb794ded6bd7577cafdf51ec81047d5cd",
+    "state_sha256": "6c04f8041d475ad9fa5b39ae7e051e66ffc4b857f34e118d1ae0511babd9c025",
+    "witness": "SameN-witness,receive-onlyobservationalcollection"
+  },
+  "transmit": "PROGRAMMED_NOMINAL_ADDRESS_1M estimated; narrowest of four bracket midpoints; observed7.9..9.25us width,500ns controller quantization"
+}

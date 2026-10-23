@@ -1,0 +1,60 @@
+{
+  "author": "Jonathan Yantis",
+  "documentation_license": "MIT",
+  "evidence_license": "CC-BY-4.0",
+  "files": [
+    {
+      "bytes": 4163,
+      "license": "MIT",
+      "path": "evidence/s3/2026-10-22-fine/README.md",
+      "sha256": "3a5d1a9cadd5d9ed1191413901e5aef0733a6a65640a8cf73480bb7d9a201cce"
+    },
+    {
+      "bytes": 1590,
+      "license": "CC-BY-4.0",
+      "path": "evidence/s3/2026-10-22-fine/association.json",
+      "sha256": "c6981614322cf7019400e0ff685ee5632038a1c45d584a80ce8bc9a5becf909e"
+    },
+    {
+      "bytes": 7616,
+      "license": "CC-BY-4.0",
+      "path": "evidence/s3/2026-10-22-fine/historical-context.json",
+      "sha256": "0d19f0d67fe0ade8f7a2eab93f92b20854deac78dfd377be4567aa888b37a2ab"
+    },
+    {
+      "bytes": 9238,
+      "license": "CC-BY-4.0",
+      "path": "evidence/s3/2026-10-22-fine/internal-quality-sanitized.csv",
+      "sha256": "408105abe54739f7a912c9b00f910cbd1981082722ebf4ee0a1d718d8c612413"
+    },
+    {
+      "bytes": 60335,
+      "license": "CC-BY-4.0",
+      "path": "evidence/s3/2026-10-22-fine/pps-sanitized.csv",
+      "sha256": "636c8f2a6d5ab370343d35e18e5d8ad9cf35f46b91d8f05f53bf004c379e3ab2"
+    },
+    {
+      "bytes": 3936,
+      "license": "CC-BY-4.0",
+      "path": "evidence/s3/2026-10-22-fine/protocol.json",
+      "sha256": "8e28d3e917448194187761cb3445ffc940d5291d06c4e64ee2644e5024cffcae"
+    },
+    {
+      "bytes": 7140,
+      "license": "CC-BY-4.0",
+      "path": "evidence/s3/2026-10-22-fine/results.json",
+      "sha256": "5983fd09728d6dddda62977d549ae22b53664dcc7b7e7a981a1196c81236a24e"
+    },
+    {
+      "bytes": 3745,
+      "license": "CC-BY-4.0",
+      "path": "evidence/s3/2026-10-22-fine/source-context.json",
+      "sha256": "2b0a60ae7f2e92501fb212a3d344dbe59a32e94e9c9c8ee9487c15d609c5515c"
+    }
+  ],
+  "physical_extraction_reproducible_from_public_data": false,
+  "schema": 1,
+  "selection": "Explicit allowlist, relative counters and privately checked scope flags; no wholesale capture copy",
+  "status": "SELECTED_DERIVED_RESEARCH_DRAFT_NOT_ACCURACY_QUALIFICATION",
+  "verification": "python3 tools/verify_s3_fine_paper.py"
+}

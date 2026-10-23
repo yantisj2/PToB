@@ -1,5 +1,20 @@
 # Reproduction tools
 
+Run `python3 tools/verify_s3_fine_paper.py` from the repository root to check
+current ESP32-S3 follow-up rows, eligibility, full-window tails, training-derived
+offsets, subset identities, denominators and the matching source/PDF manifest.
+This standard-library offline verifier does not open hardware or reproduce the
+private physical extraction. The [fine-capture collection](../evidence/s3/2026-10-22-fine/README.md)
+retains the completed 660-second result and its unqualified output target.
+
+The original `tools/verify_s3_paper.py --require-long-cohort` binds the previous
+source/PDF bytes. Run it at the historical revision recorded in the
+[follow-up edition receipt](../papers/editions/s3-timing-2026-10-22-fine.json),
+`70a9c69ad6f823b8ca1acaf28180c7c010fe748e`, to reproduce that edition. Its
+[original manifest](../papers/editions/s3-timing-2026-10-22.json), evidence and
+verifier semantics remain unchanged; replacing the working paper does not
+reclassify the original incomplete 660-second attempt.
+
 Run `python3 tools/verify_robotics_paper.py` to check the 22 October robotic
 gPTP/TSN draft's causal map composition and validity, unknown-bound propagation,
 motion, holdover, serialization and simplified schedule examples, candidate

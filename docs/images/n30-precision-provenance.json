@@ -12,10 +12,10 @@
   "generated_alias": "N3-2",
   "fixture": "precision-lock",
   "source_version": "0.2.20",
-  "source_basis_commit": "bca1d0bdf7fd9d7e6632b623ad84cfa714dca9fe",
-  "source_identity": "Exact final renderer source SHA256 values below; generated before the 0.2.20 change was committed",
+  "source_basis_commit": "592eda9703774c8d4f53c86854f9534bdcdb3989",
+  "source_identity": "Exact renderer and fixture SHA256 values below; 49 ns fixture-value update is based on the committed 0.2.20 renderer",
   "sources": {
-    "firmware/n30/tools/preview.cpp": "31ba66305f54255be106ed2e82ab884f678e39084d8c230b1503fc904821408f",
+    "firmware/n30/tools/preview.cpp": "534ba51be78b0ffeee9777b413b231f55c72a11dba83a216b1814450c5cd08fa",
     "firmware/n30/main/ui.hpp": "b419d0be39e9c92b83e3939feb7e5f0b6624ebb145ecc19266d2d8ff53a49100",
     "firmware/n30/main/ui_model.cpp": "43d014d15bc2d5709a340d25f099626fbbdb70dedbe8f132b50231f68d15159b",
     "firmware/n30/main/ui_render.cpp": "3c313c461905819b19b4d01476ab74a924568c6da783defc9bbe8bb42ebd1bc5",
@@ -24,7 +24,28 @@
   "generator_sha256": "4e8a142226126851c1f844dc76ab523cd3f1d4adb3bb9f988e795f70ed1ecda4",
   "image": "docs/images/n30-precision-preview.png",
   "generated_filename": "n30-precision-lock-preview.png",
-  "image_sha256": "721102307ef78bc72154d5391cd145ffc074cc38b8d4ff4eac97d534307fb2cd",
+  "image_sha256": "99ad73f759397b1c28648e19b8cf54d95b2860e3826382e4314b8e41c8ee8512",
   "reproduction": "python3 firmware/n30/tools/preview.py --out artifacts/n30-precision-preview --alias N3-2",
-  "limitations": "Synthetic UI values only. Counter tick size is not delivered resolution or accuracy; fine delivery rounds to50ns. REL is a causal prediction-error trend estimate, not raw oscillator trim or independent metrology. Causal RMS is not UTC error or downstream PPS RMS."
+  "limitations": "Production-renderer reconstruction, not a hardware photograph. Only the 49 ns RMS value is drawn from the selected N3-2 internal-quality observation. Root, BLE/PPS status, REL +123 and lock duration are illustrative. Counter tick size is not delivered resolution or accuracy; fine delivery rounds to 50 ns. Causal RMS is not UTC error or downstream PPS RMS.",
+  "observed_rms": {
+    "metric": "N3-2 internal rolling causal RMS",
+    "value_ns": 49,
+    "evidence": "evidence/s3/2026-10-22-fine/internal-quality-sanitized.csv",
+    "evidence_sha256": "408105abe54739f7a912c9b00f910cbd1981082722ebf4ee0a1d718d8c612413",
+    "row": {
+      "ordinal": "244",
+      "uptime_s": "585.803371",
+      "state": "LOCK_EST",
+      "rolling_causal_rms_ns": "49",
+      "fault": "0"
+    },
+    "scope": "Selected observed internal-quality status value; not downstream PPS RMS, calibrated UTC error or physical output accuracy",
+    "source_firmware_version": "0.2.19"
+  },
+  "illustrative_fields": [
+    "root alias",
+    "BLE/PPS display state",
+    "relative residual trend",
+    "lock duration"
+  ]
 }
