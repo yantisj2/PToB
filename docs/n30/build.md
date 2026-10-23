@@ -68,6 +68,12 @@ hardware gate, not inferred from the product photograph. Share the same final
 map with T096, W12, SS3 and macOS builds. Existing images are not changed by a map
 edit. The registry grants no membership, timing authority or installation consent.
 
+## RC9 direct clients
+
+Version0.2.25 enables the independent RC9 client in both N30 builds. Read the
+[RC9 guide](rc9.md) for source priority, original expiry and UNKNOWN bounds.
+The normal BLE/fine capture calibration is unchanged; RC9 does not train it.
+
 ## Native build
 
 Supply the existing group's ignored enrollment; see [PSK setup](../security/psk.md).

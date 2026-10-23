@@ -199,6 +199,18 @@ def validate_lora(rows):
   for key in keys.split():base.require(rows['N30_LORA_'+suffix][key] in ('0','1'),'LoRa boolean: '+key)
  base.require(int(rows['N30_LORA_POLICY']['state'])<=3 and int(rows['N30_LORA_QUALITY']['link_samples'])<=16,'LoRa state/fit range')
 
+def validate_rc9(rows):
+ for name,keys in {'STATUS':'sampled_us UTC_us until_us valid following fault','ORIGIN':'source_epoch','QUALITY':'assurance authority metadata_known upstream_link_rms_ns','COUNTERS':'sequence accepted rejected','LEASE':'until_us clients serving'}.items():
+  for key in keys.split():
+   value=rows['N30_RC9_'+name].get(key,'');base.require(value.isdigit() and 0<=int(value)<2**64,'RC9 numeric '+key)
+ for key in ('server','server_boot','root','root_boot','emitter','emitter_boot'):base.require(base.HEX16.fullmatch(rows['N30_RC9_ORIGIN'].get(key,'')),'RC9 identity '+key)
+ for row,keys in [('STATUS','valid following fault'),('QUALITY','metadata_known'),('LEASE','serving')]:
+  for key in keys.split():base.require(rows['N30_RC9_'+row][key] in ('0','1'),'RC9 boolean '+key)
+ base.require(int(rows['N30_RC9_QUALITY']['assurance'])<=2 and int(rows['N30_RC9_QUALITY']['authority'])<=2,'RC9 assurance range')
+ base.require(rows['N30_RC9_QUALITY'].get('bound')=='UNKNOWN','RC9 bound')
+ base.require(rows['N30_RC9_LEASE']['clients']=='0' and rows['N30_RC9_LEASE']['serving']=='0','N30 RC9 must be client only')
+ for key,value in dict(wire='1',source='RC8',hops='1',precision='UNKNOWN',BLE_training='NONE',relay='NONE',GM='NONE',RX_ONLY='1').items():base.require(rows['N30_RC9_CONTRACT'].get(key)==value,'RC9 contract '+key)
+
 class Parser(base.Parser):
  def __init__(self,nonce,manifest,session=None,capture_base=None):
   manifest=dict(manifest)
@@ -206,6 +218,7 @@ class Parser(base.Parser):
   manifest.setdefault('fault_watchdog','SUSTAINED_FAULT_120S_V1')
   super().__init__(nonce,manifest,session,capture_base);base.require(manifest.get('r2_profile')=='r2-g1','N30 G1 only')
   self.expected_rows=(*self.expected_rows,'N30_UI')
+  if manifest.get('n30_frame_kind')=='RC9':self.expected_rows=('W12_R2_STATUS','W12_V12_STATUS','N30_RC9_STATUS','N30_RC9_ORIGIN','N30_RC9_QUALITY','N30_RC9_COUNTERS','N30_RC9_LEASE','N30_RC9_CONTRACT','W12_V12_COMMAND','N30_UI')
   if manifest.get('n30_frame_kind')=='LORA':self.expected_rows=('W12_R2_STATUS','W12_V12_STATUS','N30_LORA_CONTEXT','N30_LORA_ORIGINAL','N30_LORA_QUALITY','N30_LORA_COUNTERS','N30_LORA_HARDWARE','N30_LORA_POLICY','W12_V12_COMMAND','N30_UI')
   if manifest.get('n30_frame_kind')=='TIMING':self.expected_rows=TIMING_ROWS
   if manifest.get('n30_frame_kind')=='FINE':self.expected_rows=FINE_ROWS
@@ -215,6 +228,7 @@ class Parser(base.Parser):
  def feed(self,data):
   frames=super().feed(data)
   for f in frames:
+   if self.manifest.get('n30_frame_kind')=='RC9':validate_rc9(f['rows'])
    if self.manifest.get('n30_frame_kind')=='LORA':validate_lora(f['rows'])
    if self.manifest.get('n30_frame_kind')=='TIMING':validate_timing(f['rows'])
    if self.manifest.get('n30_frame_kind')=='FINE':
@@ -232,7 +246,7 @@ class Parser(base.Parser):
    base.require(ui.get('profile')=='RC' and ui.get('GPS')=='ABSENT' and ui.get('display')=='64x128' and ui.get('page') in (('0','1','2','3') if m.get('n30_ui_revision',0)>=4 else ('0','1','2') if m.get('n30_ui_revision',0)>=3 else ('0','1')),'N30 display/capability mismatch')
    base.require(status.get('GPS_inputs')=='0','N30 physical GNSS unexpectedly enabled')
    if m.get('n30_ui_revision',0)>=2 or 'path' in ui or 'upstream' in ui:
-    base.require(ui.get('path') in (('BLE','RC1','RC2','LOR','HOLD','WAIT','--') if m.get('n30_ui_revision',0)>=3 else ('BLE','RC1','RC2','HOLD','WAIT','--')) and ui.get('upstream') in ('AUTO','RELAY','PENDING'),'Invalid N30 source/upstream mode')
+    base.require(ui.get('path') in (('BLE','RC1','RC2','LOR','RC9','HOLD','WAIT','--') if m.get('n30_ui_revision',0)>=5 else ('BLE','RC1','RC2','LOR','HOLD','WAIT','--') if m.get('n30_ui_revision',0)>=3 else ('BLE','RC1','RC2','HOLD','WAIT','--')) and ui.get('upstream') in ('AUTO','RELAY','PENDING'),'Invalid N30 source/upstream mode')
   return frames
 
 def mutation_command(frame,nonce,action):
@@ -254,6 +268,7 @@ def mutation_command(frame,nonce,action):
  if timing:
   nums=[int(x) for x in checked.split()[2:]]
   base.require(not nums or (0<=nums[0]<2**32 if checked.startswith('timing read ') else 1000<=nums[0]<=600000 and 1<=nums[1]<=64),'Timing command bounds')
- if not window and not timing and not probe and not tx_capture and action not in ('ui page 0','ui page 1','ui page 2','ui page 3','lora diag','lora auto','lora on','lora off'):return base.mutation_command(frame,nonce,action)
+ rc9_parent=bool(re.fullmatch(r'rc9-parent (?:auto|[0-9a-f]{16})',action))
+ if not rc9_parent and not window and not timing and not probe and not tx_capture and action not in ('ui page 0','ui page 1','ui page 2','ui page 3','lora diag','rc9 diag','lora auto','lora on','lora off'):return base.mutation_command(frame,nonce,action)
  base.require(base.HEX16.fullmatch(nonce) and int(nonce,16) and nonce!=frame['begin']['nonce'],'Fresh UI request nonce required')
  b=frame['begin'];return f"v12 do {b['ticket']} {nonce} {b['factory']} {b['session']} {action}\n".encode()

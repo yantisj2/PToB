@@ -3,6 +3,7 @@
 #pragma once
 #include "native_r2.hpp"
 #include "dual_time.hpp"
+#include "rc9_time.hpp"
 #include <algorithm>
 namespace n30 {
 // Radio policy reads actual current BLE quality independently of rendering,
@@ -19,7 +20,7 @@ inline bool ble_locked(const v12::R2Status& s,uint64_t now){
 }
 // Current synchronized UTC, independent of precision lock and OLED caches.
 // These are the original source/worker deadlines, never now+hold on polling.
-inline uint64_t synchronized_until(const v12::R2Status& s,const n30_lora_view& l,uint64_t now){
+inline uint64_t synchronized_until(const v12::R2Status& s,const n30_lora_view& l,uint64_t now,const v12::Rc9Status& r={}){
  uint64_t until=0;
  if(s.requested&&!s.fault&&s.following&&s.clock_valid&&!s.g1_retained_estimate&&
     !s.rc7_upstream_mode_pending&&!s.rc_parent.pending()&&s.rc_parent.state!=4&&
@@ -32,6 +33,10 @@ inline uint64_t synchronized_until(const v12::R2Status& s,const n30_lora_view& l
  if(lora_time(l,now,utc)){
   const auto fresh=l.sampled_us>UINT64_MAX-SnapshotMaxUs?UINT64_MAX:l.sampled_us+SnapshotMaxUs;
   until=std::max(until,std::min(fresh,l.until_us));
+ }
+ if(s.requested&&!s.fault&&!s.rc7_upstream_mode_pending&&rc9_time(r,now,utc)){
+  const auto fresh=r.sampled_us>UINT64_MAX-SnapshotMaxUs?UINT64_MAX:r.sampled_us+SnapshotMaxUs;
+  until=std::max(until,std::min(fresh,r.until_us));
  }
  return until>now?until:0;
 }

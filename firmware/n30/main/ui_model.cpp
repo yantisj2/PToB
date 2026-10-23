@@ -10,7 +10,7 @@ bool time(const Model& m,uint64_t now,uint64_t& utc){
  utc=m.utc_us+(now-m.utc_at_us);return true;
 }
 bool saver_time(const Model& m,uint64_t now,uint64_t& utc){return time(m,now,utc)&&m.state==State::Follow&&m.source!=Source::None;}
-bool analog_time(const Model& m,uint64_t now,uint64_t& utc){return saver_time(m,now,utc)&&m.locked;}
+bool analog_time(const Model& m,uint64_t now,uint64_t& utc){return saver_time(m,now,utc)&&(m.locked||m.source==Source::Rc9);}
 bool pps_on(const Model& m,uint64_t now){uint64_t utc;return (!m.mode_pending||m.source==Source::LoRa)&&analog_time(m,now,utc)&&utc%1000000<250000;}
 bool precision_current(const Model& m,uint64_t now){return current(m,now)&&m.precision.valid&&now<m.precision.until_us;}
 void LockTimer::update(Model& m,uint64_t now){
@@ -45,7 +45,7 @@ void ClockHold::presented(const Model& m,const View& v,uint64_t now,const uint8_
 const char* source_label(const Model& m,uint64_t now){
  uint64_t utc;if((m.mode_pending&&m.source!=Source::LoRa)||!time(m,now,utc))return "WAIT";
  if(m.state==State::Hold)return "HOLD";
- switch(m.source){case Source::Ble:return "BLE";case Source::Rc1:return "RC1";case Source::Rc2:return "RC2";case Source::LoRa:return "LOR";case Source::None:return "--";}
+ switch(m.source){case Source::Ble:return "BLE";case Source::Rc1:return "RC1";case Source::Rc2:return "RC2";case Source::LoRa:return "LOR";case Source::Rc9:return "RC9";case Source::None:return "--";}
  return "--";
 }
 void rotate(uint8_t out[FrameBytes],const uint8_t in[FrameBytes],bool cw){

@@ -123,3 +123,38 @@ for raw in (frame(),filtered_end(frame(),'-1'),filtered_end(frame(),'4294967296'
  except RuntimeError:pass
  else:raise AssertionError('Missing/invalid/corrupt TX END filtered count accepted')
 print('PASS TX-only END filtered uint32, completeENDCRC and per-request mode expectation')
+
+# RC9 is a new independently framed functional service, never RC1 fallback.
+assert len(c.Parser(nonce,dict(m,n30_ui_revision=5)).feed(frame(ui=' path=RC9 upstream=AUTO')))==1
+try:c.Parser(nonce,dict(m,n30_ui_revision=4)).feed(frame(ui=' path=RC9 upstream=AUTO'))
+except RuntimeError:pass
+else:raise AssertionError('Old UI revision accepted RC9')
+assert c.mutation_command(frames[0],'0000000000000004','rc9-parent auto').endswith(b' rc9-parent auto\n')
+assert c.mutation_command(frames[0],'0000000000000004','rc9 diag').endswith(b' rc9 diag\n')
+def rc9_frame(change=None):
+ original=frame(ui=' path=RC9 upstream=AUTO');prefix=original[:original.index(b'W12_V12_END')].decode().splitlines(True)
+ values={
+  'N30_RC9_STATUS':dict(sampled_us='1000000',UTC_us='1700000000000000',until_us='12000000',valid='1',following='1',fault='0'),
+  'N30_RC9_ORIGIN':dict(server='0000000000000001',server_boot='0000000000000002',root='0000000000000003',root_boot='0000000000000000',source_epoch='1',emitter='0000000000000004',emitter_boot='0000000000000000'),
+  'N30_RC9_QUALITY':dict(assurance='0',authority='0',metadata_known='0',upstream_link_rms_ns='4294967295',bound='UNKNOWN'),
+  'N30_RC9_COUNTERS':dict(sequence='1',accepted='1',rejected='0'),
+  'N30_RC9_LEASE':dict(until_us='360000000',clients='0',serving='0'),
+  'N30_RC9_CONTRACT':dict(wire='1',source='RC8',hops='1',precision='UNKNOWN',BLE_training='NONE',relay='NONE',GM='NONE',RX_ONLY='1')}
+ if change:
+  row,key,value=change;values[row][key]=value
+ replacement=[name+' '+' '.join(k+'='+v for k,v in row.items())+'\n' for name,row in values.items()]
+ names=set(c.base.ROWS[1:-1]);result=[];inserted=False
+ for line in prefix:
+  if line.split() and line.split()[0] in names:
+   if not inserted:result.extend(replacement);inserted=True
+  else:result.append(line)
+ body=''.join(result).encode();end=original[original.index(b'W12_V12_END'):].decode().split(' end_crc32=')[0]
+ import re
+ end=re.sub(r'crc32=[0-9a-f]{8}',f'crc32={zlib.crc32(body):08x}',end).encode()
+ return body+end+f' end_crc32={zlib.crc32(end,zlib.crc32(body)):08x}\n'.encode()
+rm=dict(m,n30_ui_revision=5,n30_frame_kind='RC9');assert len(c.Parser(nonce,rm).feed(rc9_frame()))==1
+for change in [('N30_RC9_CONTRACT','precision','FINE'),('N30_RC9_CONTRACT','relay','RC1'),('N30_RC9_CONTRACT','BLE_training','YES'),('N30_RC9_LEASE','serving','1'),('N30_RC9_QUALITY','bound','100'),('N30_RC9_QUALITY','assurance','3'),('N30_RC9_ORIGIN','root','junk')]:
+ try:c.Parser(nonce,rm).feed(rc9_frame(change))
+ except RuntimeError:pass
+ else:raise AssertionError('Invalid RC9 claim accepted '+str(change))
+print('PASS RC9 ten-row nonce/CRC parser, revision and independent functional-only claims')

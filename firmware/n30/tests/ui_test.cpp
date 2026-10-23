@@ -66,8 +66,8 @@ int main(){
  n30::ActionMailbox mail;assert(mail.post(100));assert(!mail.post(101));assert(mail.take(102));assert(!mail.take(103));
  assert(mail.post(200));assert(!mail.take(199));assert(!mail.take(201));assert(mail.post(300));assert(!mail.take(300+n30::SnapshotMaxUs));
  m.sampled_us=m.utc_at_us=1000000;m.until_us=1250000;m.valid=m.locked=true;m.state=n30::State::Follow;
- for(auto source:{n30::Source::Ble,n30::Source::Rc1,n30::Source::Rc2,n30::Source::LoRa}){
-  m.source=source;assert(std::strcmp(n30::source_label(m,1000001),source==n30::Source::Ble?"BLE":source==n30::Source::Rc1?"RC1":source==n30::Source::Rc2?"RC2":"LOR")==0);
+ for(auto source:{n30::Source::Ble,n30::Source::Rc1,n30::Source::Rc2,n30::Source::LoRa,n30::Source::Rc9}){
+  m.source=source;assert(std::strcmp(n30::source_label(m,1000001),source==n30::Source::Ble?"BLE":source==n30::Source::Rc1?"RC1":source==n30::Source::Rc2?"RC2":source==n30::Source::Rc9?"RC9":"LOR")==0);
   for(unsigned pos=0;pos<3;pos++){
    n30::View saver;saver.saver=true;saver.saver_position=pos;n30::render(g.frame,m,saver,1000001);
    // A rigid75px T096-style assembly: strip, dial, identity. No dashboard.
@@ -76,7 +76,7 @@ int main(){
    for(auto z:g.before)assert(z==0xa5);for(auto z:g.after)assert(z==0xa5);
   }
  }
- assert(!std::strcmp(n30::source_label(m,1250000),"WAIT"));m.mode_pending=true;assert(!std::strcmp(n30::source_label(m,1000001),"LOR"));m.source=n30::Source::Ble;assert(!std::strcmp(n30::source_label(m,1000001),"WAIT"));m.mode_pending=false;
+ m.source=n30::Source::LoRa;assert(!std::strcmp(n30::source_label(m,1250000),"WAIT"));m.mode_pending=true;assert(!std::strcmp(n30::source_label(m,1000001),"LOR"));m.source=n30::Source::Ble;assert(!std::strcmp(n30::source_label(m,1000001),"WAIT"));m.mode_pending=false;
  m.state=n30::State::Hold;assert(!std::strcmp(n30::source_label(m,1000001),"HOLD"));
  n30::Activity a;uint32_t c[8]{};a.update(m,c,1,2,1000000,true,false);c[2]++;a.update(m,c,1,2,1000001,true,false);assert(m.lamps[2]==1);a.update(m,c,1,3,1000002,true,false);assert(!m.lamps[2]);a.update(m,c,1,3,1000003,false,false);for(auto l:m.lamps)assert(!l);
 }

@@ -20,7 +20,7 @@ prefix=r'''
 #include "window_command.hpp"
 #define V12_R2_ENABLED 1
 #define V12_R2_CONFIG 13
-uint64_t now=1000;unsigned radio_changes=0,pages=0,statuses=0,lora_changes=0,diag_frames=0;bool lora_diagnostic_response=false,lora_action=false;unsigned selected=0;
+uint64_t now=1000;unsigned radio_changes=0,pages=0,statuses=0,lora_changes=0,diag_frames=0;bool lora_diagnostic_response=false,lora_action=false,rc9_diagnostic_response=false;unsigned selected=0;
 bool owner_active=true;
 bool window_diagnostic_response=false,window_edge_response=false,window_late_response=false;uint32_t window_after=0;unsigned window_starts=0,window_acks=0;
 bool n30_window_start(uint64_t,uint64_t,uint64_t,uint32_t,uint32_t){++window_starts;return true;}
@@ -47,6 +47,7 @@ bool r2_client_start(uint64_t){++radio_changes;return true;}
 bool r2_set_relay_only(bool value){mode=value;++radio_changes;return true;}
 struct Activity {bool relay_only=false;};
 Activity r2_activity(){return {mode};}
+bool r2_rc9_parent(uint64_t){++radio_changes;return true;}
 bool r2_rc_parent(uint64_t){++radio_changes;return true;}
 bool r2_gm_parent(uint64_t){++radio_changes;return true;}
 bool r2_client_start_profile(uint64_t,unsigned){++radio_changes;return true;}

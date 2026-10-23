@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT
 #include "native_transport.hpp"
 #include "native_device_binding.hpp"
+#include "rc9_diagnostics.hpp"
 #include "capture_contract.hpp"
 #include "bounded_log.hpp"
 #include "tx_capture.hpp"
@@ -92,7 +93,7 @@ v12::UpdateGate update_gate;
 bool fine_stop_pending=false;
 v12::ConsoleTicket ticket;
 v12::ConsoleFrame response;
-uint64_t last_nonce=0,update_completed_us=0;bool lora_diagnostic_response=false;
+uint64_t last_nonce=0,update_completed_us=0;bool lora_diagnostic_response=false,rc9_diagnostic_response=false;
 bool timing_diagnostic_response=false;uint32_t timing_after=0;
 bool fine_diagnostic_response=false;uint32_t fine_after=0;uint64_t fine_factory=0;
 bool window_diagnostic_response=false,window_edge_response=false,window_late_response=false;uint32_t window_after=0;
@@ -187,7 +188,7 @@ void pps(const gnss_pps::Observation& edge){
  const auto mesh=v12::r2_status();
   response.format("W12_R2_STATUS profile=%s enrollment_sha=%s self=3 client_capabilities=0 client_control=0 source=0 serving=0 group_id=%016" PRIx64 " key_epoch=%" PRIu32 " client_identity=%016" PRIx64 " following=%u requested=%u fault=%u pcfg=%08" PRIx32 "\n",V12_R2_PROFILE,V12_R2_ENROLLMENT_SHA,mesh.group_id,mesh.key_epoch,mesh.client_identity,unsigned(mesh.following),unsigned(mesh.requested),unsigned(mesh.fault),uint32_t(v12::rc7_provisional_config().id>>32));
  response.format("W12_V12_STATUS factory=%s source=%s build=%s session=%016" PRIx64 " GPS_inputs=0\n",factory_text,V12_SOURCE_REVISION,V12_BUILD_ID,session);
- if(window_diagnostic_response)n30_window_frame(response,window_edge_response,window_after,window_late_response);else if(fine_diagnostic_response)n30_fine_frame(response,fine_after,begin);else if(timing_diagnostic_response)n30_timing_frame(response,timing_after,begin);else n30_lora_diagnostics(response);
+ if(rc9_diagnostic_response)n30_rc9_diagnostics(response);else if(window_diagnostic_response)n30_window_frame(response,window_edge_response,window_after,window_late_response);else if(fine_diagnostic_response)n30_fine_frame(response,fine_after,begin);else if(timing_diagnostic_response)n30_timing_frame(response,timing_after,begin);else n30_lora_diagnostics(response);
  response.format("W12_V12_COMMAND nonce=%016" PRIx64 " action=%s accepted=%u reason=%s admitted_us=%" PRIu64 " NVS=PRESERVED\n",last_command.nonce,last_command.action,unsigned(last_command.accepted),last_command.reason,last_command.admitted_us);
  n30_display_status(response);v12::frame_submit(response);
 }
@@ -412,7 +413,7 @@ void pps(const gnss_pps::Observation& edge){
   n30_display_status(response);
   v12::frame_submit(response);
 }
-void respond_status(uint64_t nonce,uint64_t begin){if(lora_diagnostic_response||timing_diagnostic_response||fine_diagnostic_response||window_diagnostic_response)lora_status_frame(nonce,begin);else status(nonce,begin);}
+void respond_status(uint64_t nonce,uint64_t begin){if(rc9_diagnostic_response||lora_diagnostic_response||timing_diagnostic_response||fine_diagnostic_response||window_diagnostic_response)lora_status_frame(nonce,begin);else status(nonce,begin);}
 [[gnu::noinline]] void ui(){
   if(!ui_ready)return;
   const auto s=v12::transport_status();const auto gps=gnss_pps::shadow_view(ticks());
@@ -524,6 +525,7 @@ void command(const char* text){
     const bool ok=n30_display_page(action[8]-'0');last_command={nonce,admitted,ok,"UI_PAGE",ok?"DISPLAY_ONLY":"INVALID_PAGE"};
   }
   else if(!std::strcmp(action,"lora diag")){lora_diagnostic_response=true;last_command={nonce,admitted,true,"LORA_DIAG","READ_ONLY_CRC_SNAPSHOT"};}
+  else if(!std::strcmp(action,"rc9 diag")){rc9_diagnostic_response=true;last_command={nonce,admitted,true,"RC9_DIAG","READ_ONLY_CRC_SNAPSHOT"};}
   else if(!std::strncmp(action,"window ",7)){
     const auto request=n30::window::parse(action);window_diagnostic_response=true;window_edge_response=window_late_response=false;window_after=0;
     last_command={nonce,admitted,false,"WINDOW","INVALID_BOUNDS_OR_SYNTAX"};
@@ -587,6 +589,12 @@ void command(const char* text){
     const bool ok=v12::r2_set_relay_only(!std::strcmp(action,"upstream relay"));
     last_command={nonce,admitted,ok,"UPSTREAM_MODE",ok?"AUTOMATIC_PARENT_ORIGINAL_2S_REBIND":"MODE_RESOURCE_OR_PENDING"};
   }
+  else if(!std::strncmp(action,"rc9-parent ",11)){
+    uint64_t target=0;const char* value=action+11;
+    const bool parsed=!std::strcmp(value,"auto")||(std::strlen(value)==16&&v12::hex_id(value,target));
+    const bool ok=parsed&&v12::r2_rc9_parent(target);
+    last_command={nonce,admitted,ok,"RC9_PARENT",ok?"VOLATILE_RC9_PARENT_ORIGINAL_2S_REBIND":"RC9_PARENT_RESOURCE_OR_PENDING"};
+  }
   else if(!std::strncmp(action,"rc-parent ",10)||!std::strncmp(action,"gm-parent ",10)){
     uint64_t target=0;const char* value=action+10;
     const bool parsed=!std::strcmp(value,"auto")||(std::strlen(value)==16&&v12::hex_id(value,target));
@@ -620,7 +628,7 @@ void command(const char* text){
     const bool ok=v12::capture_begin(nonce,duration);last_command={nonce,admitted,ok,"CAPTURE",ok?"FINITE_OBSERVER_LEASE":"BUSY_OR_BOUND"};
   }else{last_command.reason="UNKNOWN_OR_UNAVAILABLE_PROTOCOL";}
   if(!last_command.accepted&&commands_rejected!=UINT32_MAX)++commands_rejected;
-  respond_status(nonce,admitted);lora_diagnostic_response=timing_diagnostic_response=fine_diagnostic_response=window_diagnostic_response=false;
+  respond_status(nonce,admitted);rc9_diagnostic_response=lora_diagnostic_response=timing_diagnostic_response=fine_diagnostic_response=window_diagnostic_response=false;
 }
 void input(){
   static char line[192]{};static unsigned used=0;static bool discard=false;
@@ -715,7 +723,8 @@ void input(){
   const auto mesh=v12::r2_status();const auto source_now=micros();
   n30_lora_control(n30::ble_locked(mesh,source_now),source_now,mesh.requested&&!mesh.fault&&!update_gate.latched());
   n30_lora_view lora_time;n30_lora_snapshot(lora_time);
-  v12::fault_watchdog_sync_progress(mesh.requested&&!update_gate.latched(),n30::synchronized_until(mesh,lora_time,micros()));
+  const auto rc9_time=v12::r2_rc9_status();
+  v12::fault_watchdog_sync_progress(mesh.requested&&!update_gate.latched(),n30::synchronized_until(mesh,lora_time,micros(),rc9_time));
   if(mesh.fault||mesh.client.deadline_exceeded||mesh.rx_capture.fault)mask|=v12::FaultR2;
   api=uint8_t(mesh.first_error_api);rc=mesh.first_error_rc;
   parent=mesh.rc_parent.target;relay=mesh.rc_parent.relay;

@@ -77,4 +77,16 @@ int main(int argc,char** argv){
   for(unsigned y=0;y<128;y++)for(unsigned x=0;x<64;x++)std::fputc(frame[y*8+x/8]&(0x80>>(x%8))?255:0,f);
   std::fclose(f);
  }
+ const char* rc9_names[]={"clock-rc9","precision-rc9","saver-rc9"};
+ for(unsigned i=0;i<3;i++){
+  n30::Model p;p.sampled_us=p.utc_at_us=1000000;p.until_us=1250000;p.utc_us=fixture_utc;
+  p.valid=true;p.state=n30::State::Follow;p.source=n30::Source::Rc9;
+  std::snprintf(p.unit,sizeof p.unit,"%s",argv[2]);std::snprintf(p.parent,sizeof p.parent,"C-4");std::snprintf(p.root,sizeof p.root,"TC-03");
+  n30::View v;v.page=i==1?n30::PrecisionPage:0;v.saver=i==2;v.saver_position=1;
+  n30::render(frame,p,v,p.sampled_us);char path[1024];std::snprintf(path,sizeof path,"%s/%s.pgm",argv[1],rc9_names[i]);
+  auto f=std::fopen(path,"wb");if(!f)return 3;std::fprintf(f,"P5\n64 128\n255\n");
+  for(unsigned y=0;y<128;y++)for(unsigned x=0;x<64;x++)std::fputc(frame[y*8+x/8]&(0x80>>(x%8))?255:0,f);
+  std::fclose(f);
+ }
+
 }

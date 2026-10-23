@@ -36,6 +36,8 @@ def main():
  for case in ('parent','lora'):subprocess.run([out/'recovery-test',case],check=True,timeout=10)
  adapter=[*cmd[:cmd.index(str(APP/'tests/ui_test.cpp'))],'-DPTOB_N30=1','-I'+str(APP.parent/'w12/main'),'-I'+str(APP.parent/'w12/main/r2/r2-g1'),'-I'+str(APP.parent/'w12/main/r2/rc7/include'),'-I'+str(APP.parent/'w12/legacy'),'-I'+str(APP.parent/'w12/legacy/reference'),str(APP/'tests/adapter_test.cpp'),str(APP/'main/ui_model.cpp'),'-o',str(out/'adapter-test')]
  subprocess.run(adapter,check=True,timeout=40);subprocess.run([out/'adapter-test'],check=True,timeout=10)
+ rc9=[str(APP/'tests/rc9_time_test.cpp') if x==str(APP/'tests/adapter_test.cpp') else str(out/'rc9-time-test') if x==str(out/'adapter-test') else x for x in adapter]
+ rc9.insert(-2,str(APP/'main/ui_render.cpp'));subprocess.run(rc9,check=True,timeout=40);subprocess.run([out/'rc9-time-test'],check=True,timeout=10)
  sync=[str(APP/'tests/sync_watchdog_adapter_test.cpp') if x==str(APP/'tests/adapter_test.cpp') else str(out/'sync-adapter-test') if x==str(out/'adapter-test') else x for x in adapter]
  subprocess.run(sync,check=True,timeout=40);subprocess.run([out/'sync-adapter-test'],check=True,timeout=10)
  subprocess.run([sys.executable,'-B',APP/'tests/sync_watchdog_test.py','--out',out/'sync-watchdog'],check=True,timeout=80)

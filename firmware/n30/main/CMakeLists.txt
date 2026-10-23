@@ -12,7 +12,7 @@ if(V12_R2_PROFILE)
     set(r2_sources "${w12}/main/native_g1.cpp" "${w12}/main/g1_hci_trace.cpp" "${r2_directory}/group_auth.c" "${r2_directory}/group_join.c" "${r2_directory}/group_precision.c" "${r2_directory}/precision_codec.c" "${r2_directory}/relay_codec.c")
     set(g1_crypto "$ENV{IDF_PATH}/components/bt/host/nimble/nimble/ext/tinycrypt")
     list(APPEND r2_sources "${w12}/main/g1_hmac.c" "${g1_crypto}/src/sha256.c" "${g1_crypto}/src/utils.c")
-    list(APPEND r2_sources "${w12}/main/r2/rc7/protocol/rc_dynamic.c" "${w12}/main/r2/rc7/src/rc_boundary.c" "${w12}/main/r2/rc7/src/rc_slots.c")
+    list(APPEND r2_sources "${w12}/main/r2/rc7/protocol/rc_dynamic.c" "${w12}/main/r2/rc7/src/rc_boundary.c" "${w12}/main/r2/rc7/src/rc_slots.c" "${w12}/main/rc9/rc9.cpp")
   endif()
   configure_file("${V12_R2_ENROLLMENT_HEADER}" "${CMAKE_CURRENT_BINARY_DIR}/r2_bench_enrollment.h" COPYONLY)
   set(r2_includes "${r2_directory}" "${CMAKE_CURRENT_BINARY_DIR}")
@@ -108,7 +108,7 @@ if(V12_UNIT STREQUAL "C3" AND V12_R2_PROFILE STREQUAL "r2-g1")
   target_compile_definitions(${COMPONENT_LIB} PRIVATE V12_GPS_SHADOW_OBSERVER=1 PTOB_GPS_PHYSICAL_REFERENCE_ONLY=1 PTOB_N30_LORA_RX_ONLY=1)
 endif()
 
-target_compile_definitions(${COMPONENT_LIB} PRIVATE PTOB_N30=1 PTOB_GNSS_DISABLED=1 V12_G1_FAILED_PARENT_RETRY_US=60000000)
+target_compile_definitions(${COMPONENT_LIB} PRIVATE PTOB_N30=1 PTOB_RC9=1 PTOB_GNSS_DISABLED=1 V12_G1_FAILED_PARENT_RETRY_US=60000000)
 
 configure_file("${PTOB_LORA_HEADER}" "${CMAKE_CURRENT_BINARY_DIR}/n30_lora_config.h" COPYONLY)
 

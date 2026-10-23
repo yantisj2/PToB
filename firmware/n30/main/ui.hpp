@@ -14,7 +14,7 @@ constexpr uint64_t ClockGraceUs=500000;
 constexpr uint64_t MinimalAfterUs=900000000;
 constexpr uint8_t NormalContrast=0x60,SaverContrast=NormalContrast/2;
 enum class State:uint8_t {Off,Search,Join,Acquire,Follow,Hold,Fault};
-enum class Source:uint8_t {None,Ble,Rc1,Rc2,LoRa};
+enum class Source:uint8_t {None,Ble,Rc1,Rc2,LoRa,Rc9};
 enum class Action:uint8_t {None,ToggleRelayOnly,ToggleLoRa};
 struct Model {
  char unit[25]="N30",parent[25]="NONE",root[25]="----";

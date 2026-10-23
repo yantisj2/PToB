@@ -6,6 +6,7 @@
 #include "status_adapter.hpp"
 #include "display_phase.hpp"
 #include "dual_time.hpp"
+#include "rc9_time.hpp"
 #include "fine_backend_api.hpp"
 #include "relative_rate.hpp"
 #include "n30_lora.hpp"
@@ -156,6 +157,8 @@ void n30_display_publish(const v12::R2Status& s,const DisplayState& d,uint64_t n
  precision_lock.update(m,now);
  n30_lora_view lora;n30_lora_snapshot(lora);now=now_us();m.sampled_us=now;
  n30::select_lora(m,lora,now);comparison.update(m,now);
+ const auto rc9=v12::r2_rc9_status();now=now_us();m.sampled_us=now;
+ n30::select_rc9(m,rc9,now,ptob_registry_name(rc9.server),ptob_registry_name(rc9.root));
  if(m.source==n30::Source::LoRa){const auto* name=ptob_registry_name(lora.emitter);if(name)std::snprintf(m.parent,sizeof m.parent,"%s",name);else std::snprintf(m.parent,sizeof m.parent,"%04X",unsigned(lora.emitter&65535));}
  const auto radio=v12::r2_activity();
  // Producer counters retain their actual meaning. RDY has no equivalent

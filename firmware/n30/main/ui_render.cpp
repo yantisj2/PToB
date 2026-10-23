@@ -18,7 +18,7 @@ void center(uint8_t* f,int y,const char* s,bool on=true){text(f,(64-int(std::str
 void line(uint8_t* f,int x,int y,int xx,int yy){int dx=std::abs(xx-x),sx=x<xx?1:-1,dy=-std::abs(yy-y),sy=y<yy?1:-1,e=dx+dy;for(;;){pixel(f,x,y);if(x==xx&&y==yy)break;const int q=2*e;if(q>=dy){e+=dy;x+=sx;}if(q<=dx){e+=dx;y+=sy;}}}
 void circle(uint8_t* f,int cx,int cy,int r){int x=r,y=0,e=1-r;while(x>=y){for(int a:{-1,1})for(int b:{-1,1}){pixel(f,cx+a*x,cy+b*y);pixel(f,cx+a*y,cy+b*x);}y++;if(e<0)e+=2*y+1;else{x--;e+=2*(y-x)+1;}}}
 void header(uint8_t* f,const Model& m,bool fresh,int top=0){char s[12];if(fresh&&m.valid)std::snprintf(s,sizeof s,"%.4s>%.5s",m.unit,m.parent);else std::snprintf(s,sizeof s,"%.10s",m.unit);box(f,1,top,62,11);center(f,top+2,s);}
-const char* state(const Model& m,bool fresh){if(!fresh)return "STALE";switch(m.state){case State::Off:return "OFF";case State::Search:return "SEARCH";case State::Join:return "JOIN";case State::Acquire:return "ACQUIRE";case State::Follow:return m.locked?"LOCK EST":"SYNCING";case State::Hold:return "HOLD";case State::Fault:return "FAULT";}return "WAIT";}
+const char* state(const Model& m,bool fresh){if(!fresh)return "STALE";switch(m.state){case State::Off:return "OFF";case State::Search:return "SEARCH";case State::Join:return "JOIN";case State::Acquire:return "ACQUIRE";case State::Follow:return m.source==Source::Rc9?"RC9 UTC":m.locked?"LOCK EST":"SYNCING";case State::Hold:return "HOLD";case State::Fault:return "FAULT";}return "WAIT";}
 void number(uint8_t* f,int x,int y,unsigned n){static const uint8_t mask[]={0x3f,6,0x5b,0x4f,0x66,0x6d,0x7d,7,0x7f,0x6f};const auto b=mask[n%10];if(b&1)fill(f,x+1,y,4,1);if(b&2)fill(f,x+5,y+1,1,5);if(b&4)fill(f,x+5,y+7,1,5);if(b&8)fill(f,x+1,y+12,4,1);if(b&16)fill(f,x,y+7,1,5);if(b&32)fill(f,x,y+1,1,5);if(b&64)fill(f,x+1,y+6,4,1);}
 void digital(uint8_t* f,int y,bool valid,uint64_t utc){unsigned s=unsigned(utc/1000000%86400),v[]={s/3600/10,s/3600%10,s/60%60/10,s/60%10,s%60/10,s%10};int x=7;for(unsigned i=0;i<6;i++){if(valid)number(f,x,y,v[i]);else fill(f,x+1,y+6,4,1);x+=7;if(i==1||i==3){pixel(f,x,y+4);pixel(f,x,y+8);x+=4;}}}
 void dial(uint8_t* f,int cy,uint64_t utc,uint16_t hz){constexpr double pi=3.141592653589793;circle(f,32,cy,21);for(unsigned i=0;i<60;i++){const double a=i*pi/30;const int r=i%5==0?17:20;line(f,32+int(std::lround(std::sin(a)*r)),cy-int(std::lround(std::cos(a)*r)),32+int(std::lround(std::sin(a)*20)),cy-int(std::lround(std::cos(a)*20)));}const double sec=double(utc%60000000)/1000000,minute=double(utc/1000000%3600)/60,hour=double(utc/1000000%43200)/3600;for(auto h:{std::pair<double,int>{hour*pi/6,10},{minute*pi/30,15},{sec*pi/30,18}})line(f,32,cy,32+int(std::lround(std::sin(h.first)*h.second)),cy-int(std::lround(std::cos(h.first)*h.second)));fill(f,31,cy-1,3,3);char s[10];if(hz)std::snprintf(s,sizeof s,"%uHz",unsigned(hz));else std::snprintf(s,sizeof s,"--Hz");fill(f,18,cy+9,28,9,false);center(f,cy+10,s);}
@@ -68,18 +68,19 @@ void small_text(uint8_t* f,int x,int y,const char* s){
 }
 void precision_page(uint8_t* f,const Model& m,uint64_t now){
  const auto& p=m.precision;const bool live=precision_current(m,now);
+ uint64_t functional_utc=0;const bool rc9=m.source==Source::Rc9&&saver_time(m,now,functional_utc);
  const bool locked=live&&p.locked&&p.lock_age_valid&&now>=p.lock_since_us;
  // Casio-style bezel, source strip, large LCD well and segmented stopwatch.
  box(f,1,0,62,128);fill(f,2,1,60,11);center(f,3,"PRECISION",false);
- char out[24];std::snprintf(out,sizeof out,"%.6s",live?m.root:"----");
+ char out[24];std::snprintf(out,sizeof out,"%.6s",live||rc9?m.root:"----");
  for(char* c=out;*c;c++)if(*c>='a'&&*c<='z')*c=char(*c-'a'+'A');
  if(live&&std::strlen(m.root)>6)out[5]='.';
  small_text(f,5,19,out);
- const char* source=!live?"--":p.source==Source::Ble?"BLE":p.source==Source::Rc1?"RC1":p.source==Source::Rc2?"RC2":"--";
+ const char* source=rc9?"RC9":!live?"--":p.source==Source::Ble?"BLE":p.source==Source::Rc1?"RC1":p.source==Source::Rc2?"RC2":"--";
  text(f,33,18,source);uint64_t utc=0;
  if(live&&p.locked&&ble_time(m,now,utc)&&utc%1000000<250000)fill(f,56,19,3,5);
  fill(f,4,29,56,1);
- const char* resolution=p.counter_hz==80000000?"80MHz / 12.5ns":p.counter_hz==20000000?"20MHz / 50ns":"COUNTER --";
+ const char* resolution=rc9?"UTC / UNKNOWN":p.counter_hz==80000000?"80MHz / 12.5ns":p.counter_hz==20000000?"20MHz / 50ns":"COUNTER --";
  small_text(f,(64-int(std::strlen(resolution))*4+1)/2,34,resolution);
  fill(f,4,43,56,1);center(f,47,"SYNC RMS");
  unsigned value=p.rms_ns;const char* unit="ns";int dot=0;
