@@ -1,6 +1,7 @@
 // Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT
 #include "timing_diagnostics_api.hpp"
 #include "timing_diagnostics.hpp"
+#include "window_diagnostics_api.hpp"
 #include "bounded_log.hpp"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
@@ -14,12 +15,14 @@ portMUX_TYPE mux=portMUX_INITIALIZER_UNLOCKED;
 n30::timing::Sample batch[4];
 uint64_t now_us(){const auto n=esp_timer_get_time();return n>0?uint64_t(n):0;}
 void capture(const v12::periodic_rx::Stamp& stamp,const adv_rx::BleAnchor& anchor,int8_t rssi){
+ n30_window_capture(stamp,anchor,rssi);
  if(!enabled.load(std::memory_order_relaxed))return;
  portENTER_CRITICAL(&mux);const auto now=now_us();
  recorder.capture(stamp,anchor,rssi,now);enabled.store(recorder.snapshot(now).active,std::memory_order_relaxed);
  portEXIT_CRITICAL(&mux);
 }
 void pair(const v12::n30_probe::Pair& value){
+ n30_window_pair(value);
  if(!enabled.load(std::memory_order_relaxed))return;
  portENTER_CRITICAL(&mux);const auto now=now_us();
  recorder.pair(value,now);enabled.store(recorder.snapshot(now).active,std::memory_order_relaxed);

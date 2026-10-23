@@ -15,6 +15,11 @@ struct Stamp {
   bool refinement_applied:1=false,radio_reference_valid:1=false,radio_reference_applied:1=false;
   int8_t refinement_ticks=0;
   uint8_t phy=255,radio_extra_us=0;
+#ifdef PTOB_N30
+  // Existing tail padding only. Already-loaded descriptor scalars; no new
+  // controller reads or RF endpoint/CRC interpretation. Zero means unknown.
+  uint8_t pdu_length=0,ext_header=0;uint16_t descriptor_status=0;
+#endif
   uint64_t raw_tick20()const{return tick20+(radio_reference_applied?uint64_t(radio_extra_us)*20:0);}
 };
 static_assert(sizeof(Stamp)==48,"Periodic stamp must reuse existing padding");

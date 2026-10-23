@@ -1,5 +1,20 @@
 # Changelog
 
+## N30 0.2.18 — continuous-counter validation journal
+
+Retain128 packet intervals in one continuous MCPWM domain, with persistent
+late-invalidation fences and paged first-callback evidence. Default OFF; the
+delivered clock, calibration and precision qualification remain unchanged.
+
+## N30 0.2.17 — bounded packet-window journal
+
+Add a default-OFF full-AD/callback journal on one continuous MCPWM1 counter,
+with fixed eight-window selection, exact stamp/anchor/Pair joins, non-consuming
+CRC cursors, capture fences and retained late invalidation. Preserve the delivered
+clock, both quality displays, legacy offset and LoRa owner. Original descriptor
+scalars reuse N30-only padding without new reads or Report growth. Packet/RF
+association and finer-clock accuracy remain unqualified pending device evidence.
+
 ## 2026-10-22 — ESP32-S3 precision timing research draft
 
 - Add an eight-page draft with matching LaTeX/PDF and a selected, sanitized

@@ -17,10 +17,15 @@ prefix=r'''
 #include "update_gate.hpp"
 #include "lora_policy.hpp"
 #include "timing_command.hpp"
+#include "window_command.hpp"
 #define V12_R2_ENABLED 1
 #define V12_R2_CONFIG 13
 uint64_t now=1000;unsigned radio_changes=0,pages=0,statuses=0,lora_changes=0,diag_frames=0;bool lora_diagnostic_response=false,lora_action=false;unsigned selected=0;
 bool owner_active=true;
+bool window_diagnostic_response=false,window_edge_response=false,window_late_response=false;uint32_t window_after=0;unsigned window_starts=0,window_acks=0;
+bool n30_window_start(uint64_t,uint64_t,uint64_t,uint32_t,uint32_t){++window_starts;return true;}
+void n30_window_stop(){}
+bool n30_window_ack(uint32_t){++window_acks;return true;}
 bool fine_diagnostic_response=false;uint32_t fine_after=0;uint64_t fine_factory=0x020000003001ULL;unsigned fine_starts=0,fine_stops=0,fine_probes=0;
 bool n30_fine_start(uint64_t,uint64_t,uint64_t,uint32_t ms,uint32_t every){++fine_starts;return ms>=1000&&ms<=600000&&every>=1&&every<=64;}
 bool n30_fine_probe(uint64_t,uint64_t,uint64_t,uint32_t spacing,uint32_t edges){++fine_probes;return spacing>=50&&spacing<=1000&&edges>=4&&edges<=24&&edges%4==0;}
@@ -110,7 +115,13 @@ int main(){
  send(54,"fine start 2000 4",factory_text,4);assert(!last_command.accepted&&fine_starts==1);
  send(212,"ui page 3");assert(last_command.accepted&&selected==3&&pages==5&&radio_changes==2);
  send(213,"ui page 0");assert(last_command.accepted&&pages==6&&radio_changes==2);
- update_gate.begin(now);send(8,"ui page 1");assert(!last_command.accepted&&pages==6&&radio_changes==2);
+ send(214,"window start 600000 128");assert(last_command.accepted&&window_starts==1&&radio_changes==2);
+ send(215,"window packet");assert(last_command.accepted&&!window_diagnostic_response);
+ send(216,"window edges 4294967295");assert(last_command.accepted&&window_after==UINT32_MAX);
+ send(219,"window late 128");assert(last_command.accepted&&window_late_response&&window_after==128);
+ send(217,"window ack 1");assert(last_command.accepted&&window_acks==1);
+ for(const char* bad:{"window start 600001 8","window start 1000 129","window ack 0","window edges -1","window start 1000 8 extra"}){send(++now,bad);assert(!last_command.accepted&&window_starts==1);}
+ update_gate.begin(now);send(218,"window start 1000 8");assert(!last_command.accepted&&window_starts==1);send(8,"ui page 1");assert(!last_command.accepted&&pages==6&&radio_changes==2);
  send(60,"fine probe 100 16");assert(!last_command.accepted&&fine_probes==1);
  send(55,"fine start 2000 4");assert(!last_command.accepted&&fine_starts==1);
  send(37,"timing start 2000 4");assert(!last_command.accepted&&timing_starts==1);

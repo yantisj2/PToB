@@ -22,6 +22,7 @@ namespace {
 portMUX_TYPE mux=portMUX_INITIALIZER_UNLOCKED;
 mcpwm_cap_timer_handle_t timer=nullptr;mcpwm_cap_channel_handle_t channels[3]{};
 n30::fine::Counter counter;n30::fine::History history;
+n30::fine::Window packet_edges;bool window_owned=false;
 n30::fine::Edge batch[4];
 struct Snapshot {uint64_t id,until,latest;uint32_t every,seen,rx,tx,sampled,overwritten,oldest,incarnation,hz,current,timeout,invalid,poll,cycles,service,first32,latest32,wraps,callbacks,budget_refused,expired_refused,inactive_callbacks,rx_out,tx_out,rx_in,tx_in,oe,channel_mask,irq_mask;uint64_t first_us,last_us;int error;bool active,contained;};
 Snapshot snapshot{};
@@ -114,7 +115,7 @@ void contain(){
 #if PTOB_N30_FINE_PINS
  pad_off(PTOB_N30_FINE_RX_GPIO);pad_off(PTOB_N30_FINE_TX_GPIO);
 #endif
- contained=true;active=false;history.stop();if(probe.synthetic&&!probe.stopped_us)probe.stopped_us=coarse();
+ contained=true;active=false;history.stop();packet_edges.withdraw();if(probe.synthetic&&!probe.stopped_us)probe.stopped_us=coarse();
 }
 bool on_edge(mcpwm_cap_channel_handle_t,const mcpwm_capture_event_data_t* value,void* context){
  portENTER_CRITICAL_ISR(&mux);
@@ -127,7 +128,9 @@ bool on_edge(mcpwm_cap_channel_handle_t,const mcpwm_capture_event_data_t* value,
   n30::fine::Time anchor{},edge{};
   const bool valid=current(now,anchor)&&counter.event(incarnation,value->cap_value,edge);
   if(!valid)inc(invalid);
-  history.append({edge.raw80,edge.tick20,now,0,value->cap_value,incarnation,uint8_t(uintptr_t(context)),uint8_t(value->cap_edge),valid});
+  n30::fine::Edge observed{edge.raw80,edge.tick20,now,0,value->cap_value,incarnation,uint8_t(uintptr_t(context)),uint8_t(value->cap_edge),valid};
+  history.append(observed);observed.number=history.sequence();
+  if(window_owned)packet_edges.observe(observed);
   if(error)contain();
  }else if(active){inc(expired_refused);contain();}
  else {inc(inactive_callbacks);if(routed||channel_enabled[0]||channel_enabled[1])contain();}
@@ -216,7 +219,7 @@ bool route(bool enable){
 }
 }
 [[gnu::noinline]] static bool fine_start(uint64_t id,uint64_t factory,uint64_t now,uint32_t ms,uint32_t every,bool synthetic,uint32_t spacing,uint32_t edges){
- if((synthetic&&!PTOB_N30_FINE_PINS)||active||error||factory!=PTOB_N30_FINE_FACTORY||!id||!now||ms<1000||ms>600000||now>UINT64_MAX-uint64_t(ms)*1000||!every||every>64||incarnation==UINT32_MAX)return false;
+ if((synthetic&&!PTOB_N30_FINE_PINS)||active||window_owned||error||factory!=PTOB_N30_FINE_FACTORY||!id||!now||ms<1000||ms>600000||now>UINT64_MAX-uint64_t(ms)*1000||!every||every>64||incarnation==UINT32_MAX)return false;
  last_start={};last_start_synthetic=synthetic;
  if(!allocate()){error=-4;return false;}
  if(mcpwm_capture_timer_enable(timer)!=ESP_OK){error=-5;return false;}timer_enabled=true;
@@ -268,7 +271,7 @@ bool n30_fine_probe(uint64_t id,uint64_t factory,uint64_t now,uint32_t spacing,u
  return fine_start(id,factory,now,spacing*edges+1000,1,true,spacing,edges);
 }
 void n30_fine_stop(){
- portENTER_CRITICAL(&mux);active=false;history.stop();if(probe.synthetic&&!probe.stopped_us)probe.stopped_us=coarse();
+ portENTER_CRITICAL(&mux);active=false;history.stop();packet_edges.withdraw();if(probe.synthetic&&!probe.stopped_us)probe.stopped_us=coarse();
 #if PTOB_N30_FINE_PINS
  if(timer){radio_capture_off();pad_off(PTOB_N30_FINE_RX_GPIO);pad_off(PTOB_N30_FINE_TX_GPIO);}
 #endif
@@ -287,7 +290,15 @@ bool n30_fine_cleanup_fault(){return !n30_fine_released()&&error!=0;}
 void n30_fine_poll(uint64_t){
  portENTER_CRITICAL(&mux);
  const auto now=coarse();
- bool stop=false;if(active){n30::fine::Time t{};stop=!history.active(now)||!current(coarse(),t);if(!stop)stop=!probe_tick(coarse());}
+ bool stop=false;if(active){n30::fine::Time t{};stop=!history.active(now)||!current(coarse(),t);if(!stop)stop=!probe_tick(coarse());
+  if(!stop&&window_owned){auto* d=timer->group->hal.dev;const auto w=packet_edges.status();
+   if(w.collecting&&t.raw80>w.upper80){
+    // Freeze capture channels between packet windows; CURRENT remains live.
+    // Any callback already dispatched on the other core can still invalidate
+    // this sealed interval through the retained late-event fences.
+    radio_capture_off();uint32_t mask=0;for(unsigned i=0;i<3;++i)mask|=uint32_t(d->cap_chn_cfg[i].capn_en)<<i;
+    packet_edges.seal(t.raw80,history.sequence(),(d->int_raw.val>>27)&3,(d->int_ena.val>>27)&7,mask,(error||invalid||contained)?uint32_t(n30::fine::OwnerFault):0u);
+   }}}
  else stop=timer_started||timer_enabled||routed||channel_enabled[0]||channel_enabled[1]||channel_enabled[2];
  portEXIT_CRITICAL(&mux);if(stop)n30_fine_stop();
 }
@@ -297,6 +308,42 @@ N30FineClockStatus n30_fine_clock_status(uint64_t now){
  const N30FineClockStatus status{history.until(),hz,running,running&&!error&&!contained&&hz==80000000};
  portEXIT_CRITICAL(&mux);return status;
 }
+bool n30_fine_window_start(uint64_t id,uint64_t factory,uint64_t now,uint32_t duration){
+ if(!PTOB_N30_FINE_PINS||!PTOB_N30_FINE_RW)return false;
+ if(!n30_fine_start(id,factory,now,duration,1))return false;
+ portENTER_CRITICAL(&mux);
+ n30::fine::Time t{};const bool ok=current(coarse(),t);
+ if(ok){packet_edges.reset({t.raw80,0,t.raw80,first_raw32,history.id(),history.until(),incarnation,hz});window_owned=true;}
+ if(!ok)contain();
+ portEXIT_CRITICAL(&mux);if(!ok)n30_fine_stop();return ok;
+}
+void n30_fine_window_stop(){portENTER_CRITICAL(&mux);packet_edges.withdraw();window_owned=false;portEXIT_CRITICAL(&mux);n30_fine_stop();}
+bool n30_fine_window_bridge(bool (*read20)(uint64_t*),n30::fine::Bridge& b){
+ b={};portENTER_CRITICAL(&mux);n30::fine::Time a{},z{};uint64_t g=0;
+ const bool ok=window_owned&&active&&!probe.synthetic&&history.active(coarse())&&current(coarse(),a)&&read20&&read20(&g)&&current(coarse(),z)&&a.incarnation==z.incarnation;
+ if(ok)b={a.raw80,g,z.raw80,first_raw32,history.id(),history.until(),incarnation,hz};
+ if(error){contain();}portEXIT_CRITICAL(&mux);return ok;
+}
+bool n30_fine_window_begin(uint32_t id,uint64_t lower,uint64_t upper,uint32_t inc){
+ portENTER_CRITICAL(&mux);const bool ok=window_owned&&active&&!error&&history.active(coarse())&&packet_edges.begin(id,lower,upper,history,inc);portEXIT_CRITICAL(&mux);return ok;
+}
+bool n30_fine_window_refuse(uint32_t id){portENTER_CRITICAL(&mux);const bool ok=window_owned&&packet_edges.skip(id);if(ok)radio_capture_off();portEXIT_CRITICAL(&mux);return ok;}
+bool n30_fine_window_rearm(){
+ portENTER_CRITICAL(&mux);bool ok=window_owned&&active&&!error&&history.active(coarse())&&packet_edges.status().sealed;
+#if PTOB_N30_FINE_PINS
+ if(ok)ok=radio_prepare();
+ if(ok){auto* d=timer->group->hal.dev;mcpwm_ll_capture_enable_channel(d,0,true);mcpwm_ll_capture_enable_channel(d,1,true);
+  ok=d->cap_chn_cfg[0].capn_en&&d->cap_chn_cfg[1].capn_en;}
+#else
+ ok=false;
+#endif
+ n30::fine::Time t{};if(ok)ok=current(coarse(),t);if(ok)packet_edges.arm(t.raw80);else if(window_owned){error=-24;contain();}
+ portEXIT_CRITICAL(&mux);return ok;
+}
+static void window_snapshot_locked(n30::fine::WindowStatus& s){s=packet_edges.status();s.current80=last_raw80;s.current_incarnation=incarnation;s.hz=hz;s.timeouts=timeouts;s.invalid=invalid;s.inactive=inactive_callbacks;s.error=error;s.active=active;s.contained=contained;}
+n30::fine::WindowStatus n30_fine_window_status(){n30::fine::WindowStatus s{};portENTER_CRITICAL(&mux);window_snapshot_locked(s);portEXIT_CRITICAL(&mux);return s;}
+unsigned n30_fine_window_read(uint32_t after,n30::fine::Edge* out,unsigned capacity){portENTER_CRITICAL(&mux);const auto n=packet_edges.read(after,out,capacity);portEXIT_CRITICAL(&mux);return n;}
+unsigned n30_fine_window_late(uint32_t after,n30::fine::Window::Late* out,unsigned capacity,n30::fine::WindowStatus* snapshot){portENTER_CRITICAL(&mux);const auto n=packet_edges.late(after,out,capacity);if(snapshot){window_snapshot_locked(*snapshot);}portEXIT_CRITICAL(&mux);return n;}
 void n30_fine_frame(v12::ConsoleFrame& f,uint32_t after,uint64_t now){
  n30_fine_poll(now);
  portENTER_CRITICAL(&mux);

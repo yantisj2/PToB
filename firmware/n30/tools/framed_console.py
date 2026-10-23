@@ -36,6 +36,78 @@ LORA_HEX='emitter emitter_boot stream root root_boot parent parent_boot'.split()
 LORA_FIXED={'ORIGINAL':{'bound':'UNKNOWN','BLE_update':'0'},'COUNTERS':{'TX':'FORBIDDEN'},'HARDWARE':{'timestamp':'HARDWARE_DIO1_MAPPED','physical_bias':'UNKNOWN','durable_fault_journal':'UNAVAILABLE'},'POLICY':{'acquire_us':'180000000','recover_us':'180000000','frequency_hz':'915000000','SF':'10','BW_hz':'500000','CR':'6','preamble':'12','RX_ONLY':'1','GPS':'ABSENT','source_freshness':'UNKNOWN','uncertainty':'UNKNOWN'}}
 TIMING_ROWS=('W12_R2_STATUS','W12_V12_STATUS','N30_TIMING_STATUS',*(f'N30_TIMING_SAMPLE{i}' for i in range(4)),'N30_TIMING_CONTRACT','W12_V12_COMMAND','N30_UI')
 FINE_ROWS=('W12_R2_STATUS','W12_V12_STATUS','N30_FINE_STATUS',*(f'N30_FINE_EDGE{i}' for i in range(4)),'N30_FINE_CONTRACT','W12_V12_COMMAND','N30_UI')
+WINDOW_PACKET_ROWS=('W12_R2_STATUS','W12_V12_STATUS','N30_WINDOW_STATUS','N30_WINDOW_PACKET','N30_WINDOW_STAMP','N30_WINDOW_BRIDGE','N30_WINDOW_PAIR','N30_WINDOW_CONTRACT','W12_V12_COMMAND','N30_UI')
+WINDOW_EDGE_ROWS=('W12_R2_STATUS','W12_V12_STATUS','N30_WINDOW_STATUS',*(f'N30_WINDOW_EDGE{i}' for i in range(4)),'N30_WINDOW_CONTRACT','W12_V12_COMMAND','N30_UI')
+WINDOW_LATE_ROWS=('W12_R2_STATUS','W12_V12_STATUS','N30_WINDOW_STATUS',*(f'N30_WINDOW_LATE{i}' for i in range(4)),'N30_WINDOW_CONTRACT','W12_V12_COMMAND','N30_UI')
+def validate_window(rows,edges=False,late=False):
+ s=rows['N30_WINDOW_STATUS'];base.require(s.get('schema')=='1' and bool(base.HEX16.fullmatch(s.get('id',''))),'Window schema/id')
+ for k in ('active','ready','owner_active','contained','from_origin'):base.require(s.get(k) in ('0','1'),'Window boolean '+k)
+ for k in ('state','goal','selected','acked','window','reason','incarnation','hz','current_incarnation','timeout','invalid','inactive','fault','total_edges','begin_seq','seal_seq','oldest','overwritten','pending','IRQ','channels','late_mask','seen','candidates','decimated','refused','prelease','occupied','cache_overwritten','cache_missing','pair_missing','pair_ambiguous','pair_late','after','count','late_count','late_callbacks'):timing_number(s,k)
+ for k in ('until_us','origin80','current80','lower80','upper80','capture_from80','seal80','armed_us'):timing_number(s,k,64)
+ timing_number(s,'prearm')
+ timing_number(s,'owner_error',32,True)
+ base.require(0<=int(s['state'])<=5 and int(s['selected'])<=int(s['goal'])<=128 and int(s['acked'])<=int(s['selected']) and s['window']==s['selected'],'Window cohort bounds')
+ base.require(int(s['count'])<=4 and int(s['total_edges'])<=64 and int(s['pending'])<=3 and int(s['IRQ'])<=3 and int(s['channels'])<=7,'Window hardware/storage bounds')
+ base.require(bool(re.fullmatch('[0-9a-f]{8}',s.get('packet_crc',''))),'Window packet CRC format')
+ for k,n,bits in [('pred',2,32),('succ',2,32),('pred80',2,64),('succ80',2,64),('late',8,32),('late_words',4,32),('queue',3,32)]:
+  a=s.get(k,'').split('/');base.require(len(a)==n,'Window vector '+k)
+  for v in a:timing_number({'v':v},'v',bits)
+ words=list(map(int,s['late_words'].split('/')))
+ base.require(int(s['late_mask'])==words[0] and int(s['late_count'])==sum(bin(v).count('1') for v in words) and int(s['late_callbacks'])>=int(s['late_count']),'Sticky128 late bitmap/count')
+ if s['active']=='1':base.require(int(s['id'],16)>0 and s['hz']=='80000000' and int(s['incarnation'])>0 and s['incarnation']==s['current_incarnation'],'Window active counter identity')
+ if late:
+  count=0;after=int(s['after']);base.require(after<=128,'Late ID cursor bounds')
+  for i in range(4):
+   e=rows[f'N30_WINDOW_LATE{i}'];base.require(e.get('present') in ('0','1'),'Late presence')
+   if e['present']=='0':continue
+   base.require(i==count,'Holed late page');count+=1
+   for k in ('window','sequence'):timing_number(e,k)
+   ident=int(e['window']);base.require(after<ident<=128 and int(e['sequence'])>0 and words[(ident-1)//32]&(1<<((ident-1)%32)),'Late ID/bitmap/firstsequence');after=ident
+  base.require(count==int(s['count']),'Late count')
+ elif edges:
+  count=0;after=int(s['after'])
+  for i in range(4):
+   e=rows[f'N30_WINDOW_EDGE{i}'];base.require(e.get('present') in ('0','1'),'Window edge presence')
+   if e['present']=='0':continue
+   base.require(s['ready']=='1' and i==count,'Window unready/holed edges');count+=1
+   for k in ('window','n','raw32','incarnation'):timing_number(e,k)
+   for k in ('raw80','tick20','seen_us'):timing_number(e,k,64)
+   base.require(e['window']==s['window'] and e.get('packet_crc')==s['packet_crc'] and e['incarnation']==s['incarnation'],'Window edge identity')
+   raw=int(e['raw80']);base.require(after<int(e['n'])<=int(s['seal_seq']) and e.get('kind') in ('0','1') and e.get('polarity') in ('0','1') and e.get('extended')=='1','Window edge order/polarity')
+   base.require(int(s['lower80'])<=raw<=int(s['upper80']) and raw%2**32==int(e['raw32']) and int(e['tick20'])==1000000+(raw-int(s['origin80']))//4,'Window same-counter edge arithmetic');after=int(e['n'])
+  base.require(count==int(s['count']),'Window edge count')
+ else:
+  p=rows['N30_WINDOW_PACKET'];base.require(p.get('present')==s['ready'],'Window packet readiness')
+  for tag in ('STAMP','BRIDGE','PAIR'):base.require(rows['N30_WINDOW_'+tag].get('present')==p['present'],'Window metadata readiness')
+  if p['present']=='1':
+   for k in ('window','length','actual_length','handle','status','refusal','address_type'):timing_number(p,k)
+   for k in ('callback_us','selected_us'):timing_number(p,k,64)
+   base.require(int(s['armed_us'])<=int(p['callback_us'])<=int(p['selected_us']),'Window original arm/callback order')
+   timing_number(p,'rssi',8,True)
+   base.require(p['window']==s['window'] and p.get('crc')==s['packet_crc'] and p['length']==p['actual_length'] and int(p['length']) in (158,190),'Window complete packet identity')
+   ad=p.get('ad','');base.require(bool(re.fullmatch('[0-9a-f]{'+str(2*int(p['length']))+'}',ad)) and bool(re.fullmatch('[0-9a-f]{12}',p.get('address_le',''))),'Window AD/address hex')
+   data=bytes.fromhex(ad);base.require(data[:4]==bytes([len(data)-1,255,255,255]) and zlib.crc32(data)==int(p['crc'],16),'Window complete AD CRC')
+   c=rows['N30_WINDOW_STAMP']
+   for k in ('tick20','raw20','available20'):timing_number(c,k,64)
+   for k in ('epoch','seq','coarse','enclosure_ns','fine','metadata','activity','event','channel','phy','extra_us','pdu_length','ext_header','descriptor_status'):timing_number(c,k)
+   timing_number(c,'refine20',8,True)
+   for k in ('actual','association','event_valid','channel_valid','calibrated','refined','reference_valid','reference_applied','pdu_known'):base.require(c.get(k) in ('0','1'),'Window stamp boolean '+k)
+   base.require(c['actual']==c['association']=='1' and int(c['epoch'])>0 and int(c['seq'])>0 and int(c['event'])%16==0 and int(c['channel'])<=36,'Window deterministic capture selection')
+   base.require(int(c['tick20'])>0 and int(c['available20'])>=int(c['tick20']) and int(c['raw20'])==int(c['tick20'])+(int(c['extra_us'])*20 if c['reference_applied']=='1' else 0),'Window original stamp arithmetic')
+   if c['pdu_known']=='1':base.require(int(c['pdu_length'])==len(data)+1+(int(c['ext_header'])&63) and int(c['pdu_length'])<=195 and int(c['ext_header'])&192==0 and int(c['descriptor_status'])&0x603d==0,'Window retained accepted descriptor scalars')
+   b=rows['N30_WINDOW_BRIDGE']
+   for k in ('anchor_valid','main_valid'):base.require(b.get(k) in ('0','1'),'Window bridge boolean')
+   for k in ('before20','after20','cache_us','workerA80','workerG20','workerB80','mainA80','mainG20','mainB80'):timing_number(b,k,64)
+   for k in ('bt_slot','bt_hus','worker_incarnation','main_incarnation'):timing_number(b,k)
+   if b['anchor_valid']=='1':base.require(0<int(b['before20'])<=int(b['after20']),'Window anchor order')
+   a=rows['N30_WINDOW_PAIR'];base.require(a.get('matched') in ('0','1') and a.get('causal') in ('0','1'),'Window Pair validity')
+   for k in ('root','boot'):base.require(bool(base.HEX16.fullmatch(a.get(k,''))),'Window Pair identity')
+   for k in ('source','train','publication','epoch','event','channel'):timing_number(a,k)
+   for k in ('local20','available20','remote_ns','created_ns','expires_ns'):timing_number(a,k,64)
+   timing_number(a,'predicted_ns',64,True)
+   if a['matched']=='1':base.require(a['epoch']==c['epoch'] and a['local20']==c['tick20'] and a['event']==c['event'] and a['channel']==c['channel'],'Window exact Pair join')
+ contract={'observer':'PACKET_CANDIDATES_ONLY','domain':'MCPWM1_80MHZ','marker':'RW238_237','edge':'BOTH','selection':'FIRST_EVENT_AND15_ZERO','slots':'128','callback_capacity':'64','search_us':'3100_PLUS_OLD_ENCLOSURE','bridge':'SEARCH_ONLY','cursor':'NONCONSUMING','capture_between_windows':'QUIESCED','counter':'CONTINUOUS','polarity':'UNSELECTED','endpoint':'UNKNOWN','coalesced':'UNKNOWN','RF_bound':'UNKNOWN','UTC_bound':'UNKNOWN','clock_update':'NONE','production':'GPTIMER20','offset':'LEGACY_ONLY','PDU':'ORIGINAL_LOADED_SCALARS_ONLY','flags':'UNKNOWN','late':'FIRST_SEQUENCE_STICKY128'}
+ for k,v in contract.items():base.require(rows['N30_WINDOW_CONTRACT'].get(k)==v,'Window contract '+k)
 def validate_fine(rows):
  s=rows['N30_FINE_STATUS'];base.require(s.get('schema')=='1' and bool(base.HEX16.fullmatch(s.get('id',''))),'Fine schema/id')
  for key in ('every','seen','RX','TX','sampled','overwritten','oldest','after','count','incarnation','hz','current','timeout','invalid','poll_max','cycles_max','service_max_us','first32','latest32','wraps','callbacks','budget_refused','expired_refused','inactive_callbacks','rx_out','tx_out','rx_in','tx_in','OE','channels','IRQ'):timing_number(s,key)
@@ -130,12 +202,16 @@ class Parser(base.Parser):
   if manifest.get('n30_frame_kind')=='LORA':self.expected_rows=('W12_R2_STATUS','W12_V12_STATUS','N30_LORA_CONTEXT','N30_LORA_ORIGINAL','N30_LORA_QUALITY','N30_LORA_COUNTERS','N30_LORA_HARDWARE','N30_LORA_POLICY','W12_V12_COMMAND','N30_UI')
   if manifest.get('n30_frame_kind')=='TIMING':self.expected_rows=TIMING_ROWS
   if manifest.get('n30_frame_kind')=='FINE':self.expected_rows=FINE_ROWS
+  if manifest.get('n30_frame_kind')=='WINDOW_PACKET':self.expected_rows=WINDOW_PACKET_ROWS
+  if manifest.get('n30_frame_kind')=='WINDOW_EDGES':self.expected_rows=WINDOW_EDGE_ROWS
+  if manifest.get('n30_frame_kind')=='WINDOW_LATE':self.expected_rows=WINDOW_LATE_ROWS
  def feed(self,data):
   frames=super().feed(data)
   for f in frames:
    if self.manifest.get('n30_frame_kind')=='LORA':validate_lora(f['rows'])
    if self.manifest.get('n30_frame_kind')=='TIMING':validate_timing(f['rows'])
    if self.manifest.get('n30_frame_kind')=='FINE':validate_fine(f['rows'])
+   if self.manifest.get('n30_frame_kind') in ('WINDOW_PACKET','WINDOW_EDGES','WINDOW_LATE'):validate_window(f['rows'],self.manifest['n30_frame_kind']=='WINDOW_EDGES',self.manifest['n30_frame_kind']=='WINDOW_LATE')
    mesh=f['rows']['W12_R2_STATUS'];ui=f['rows']['N30_UI'];status=f['rows']['W12_V12_STATUS'];m=self.manifest
    if 'xf' in f['end']:base.require(f['end']['xf'].isdigit() and 0<=int(f['end']['xf'])<2**32,'TX filtered counter range')
    if m.get('n30_tx_capture_crc'):base.require('xf' in f['end'],'TX capture mode/counter missing')
@@ -151,6 +227,13 @@ class Parser(base.Parser):
   return frames
 
 def mutation_command(frame,nonce,action):
+ window=action in ('window packet','window stop') or bool(re.fullmatch(r'window (?:edges|ack|late) (?:0|[1-9][0-9]*)',action)) or bool(re.fullmatch(r'window start [1-9][0-9]* [1-9][0-9]*',action))
+ if window:
+  nums=[int(x) for x in action.split()[2:]]
+  if action.startswith('window start '):base.require(1000<=nums[0]<=600000 and 1<=nums[1]<=128,'Window finite cohort bounds')
+  elif action.startswith('window late '):base.require(nums[0]<=128,'Window late cursor bounds')
+  elif action.startswith('window ack '):base.require(1<=nums[0]<=128,'Window ACK bounds')
+  elif nums:base.require(0<=nums[0]<2**32,'Window cursor bounds')
  tx_capture=bool(re.fullmatch(r'capture tx [1-9][0-9]*',action))
  if tx_capture:base.require(1000<=int(action.split()[2])<=10000,'TX capture duration bound')
  fine=action.startswith('fine ')
@@ -162,6 +245,6 @@ def mutation_command(frame,nonce,action):
  if timing:
   nums=[int(x) for x in checked.split()[2:]]
   base.require(not nums or (0<=nums[0]<2**32 if checked.startswith('timing read ') else 1000<=nums[0]<=600000 and 1<=nums[1]<=64),'Timing command bounds')
- if not timing and not probe and not tx_capture and action not in ('ui page 0','ui page 1','ui page 2','ui page 3','lora diag','lora auto','lora on','lora off'):return base.mutation_command(frame,nonce,action)
+ if not window and not timing and not probe and not tx_capture and action not in ('ui page 0','ui page 1','ui page 2','ui page 3','lora diag','lora auto','lora on','lora off'):return base.mutation_command(frame,nonce,action)
  base.require(base.HEX16.fullmatch(nonce) and int(nonce,16) and nonce!=frame['begin']['nonce'],'Fresh UI request nonce required')
  b=frame['begin'];return f"v12 do {b['ticket']} {nonce} {b['factory']} {b['session']} {action}\n".encode()

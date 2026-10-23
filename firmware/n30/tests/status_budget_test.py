@@ -69,3 +69,15 @@ for wide in (False,True):
  end=len(render(w.formats(pp(trailer,False),'trailer_format')[0],True))+len(' end_crc32=ffffffff\n')+len(render(' xf=%u',True))
  assert body<8704-800 and end<800 and body+end<=8704,(wide,body,end)
 print(json.dumps(dict(status='PASS',frame='TIMING_WITH_RETAINED_TX_MODE',rows=10,max_body=body,max_END=end,max_whole=body+end,whole_capacity=8704)))
+
+# Actual .17 formats: full190-byte AD and independent raw-time edge pages.
+w.TEXT.update(ad='f'*380)
+window=(APP/'main/window_diagnostics.cpp').read_text();wf=formats(pp(re.sub(r'^#include.*$', '', window, flags=re.M),False),'f.format');assert len(wf)==14
+# Index by actual row tag rather than branch position.
+get=lambda tag:next(f for f in wf if f.startswith(tag))
+for kind,selected in [('WINDOW_PACKET',[get('N30_WINDOW_STATUS'),get('N30_WINDOW_PACKET present=1'),get('N30_WINDOW_STAMP present=1'),get('N30_WINDOW_BRIDGE present=1'),get('N30_WINDOW_PAIR present=1'),get('N30_WINDOW_CONTRACT')]),('WINDOW_EDGES',[get('N30_WINDOW_STATUS'),*[get('N30_WINDOW_EDGE%u present=1')]*4,get('N30_WINDOW_CONTRACT')]),('WINDOW_LATE',[get('N30_WINDOW_STATUS'),*[get('N30_WINDOW_LATE%u present=1')]*4,get('N30_WINDOW_CONTRACT')])]:
+ for wide in (False,True):
+  body=len(render(w.formats(pp(begin,False),'f.format')[0],wide))+sum(len(render(f,wide)) for f in common+selected)
+  end=len(render(w.formats(pp(trailer,False),'trailer_format')[0],True))+len(' end_crc32=ffffffff\n')+len(render(' xf=%u',True))
+  assert body<8704-800 and end<800 and body+end<=8704,(kind,wide,body,end)
+ print(json.dumps(dict(status='PASS',frame=kind,rows=10,max_body=body,max_END=end,max_whole=body+end,whole_capacity=8704)))
