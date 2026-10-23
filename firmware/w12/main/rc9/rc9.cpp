@@ -72,6 +72,7 @@ bool decode_time(Time& out,const uint8_t* w,size_t n,const r2_group_config& g){
  p.root=r2_group_get(w+68,8);p.root_boot=r2_group_get(w+76,8);p.emitter=r2_group_get(w+84,8);p.emitter_boot=r2_group_get(w+92,8);p.stream=r2_group_get(w+100,8);
  p.source_epoch=uint32_t(r2_group_get(w+108,4));p.generation=uint32_t(r2_group_get(w+112,4));std::memcpy(p.context,w+116,16);
  p.created_ns=r2_group_get(w+132,8);p.expires_ns=r2_group_get(w+140,8);p.link_rms_ns=uint32_t(r2_group_get(w+148,4));p.link_samples=w[152];p.kind=w[153];p.corrected_sequence=uint32_t(r2_group_get(w+160,4));
- if(!valid_time(p))return false;out=p;return true;
+ if(!valid_time(p))return false;
+ out=p;return true;
 }
 }

@@ -22,14 +22,16 @@ class Client {
  static void inc(uint32_t& n){if(n!=UINT32_MAX)++n;}
  static bool add(uint64_t a,uint64_t b,uint64_t& out){if(b>UINT64_MAX-a)return false;out=a+b;return true;}
  static bool scale(uint64_t us,uint64_t numerator,uint64_t denominator,uint64_t& out){
-  if(us>UINT64_MAX/numerator)return false;out=us*numerator/denominator;return true;
+  if(us>UINT64_MAX/numerator)return false;
+  out=us*numerator/denominator;return true;
  }
  bool interval(uint64_t now,uint64_t& lo,uint64_t& hi)const{
   if(!bound_||now<response_at_||now<origin_at_||now>=lease_until)return false;
   uint64_t a=0,b=0;return scale(now-response_at_,998000,1000000,a)&&scale(now-origin_at_,1002000,1000000,b)&&add(server_at_,a,lo)&&add(server_at_,b,hi);
  }
  bool deadline(uint64_t remote,uint64_t& local)const{
-  if(remote<=server_at_)return false;uint64_t delta=0;
+  if(remote<=server_at_)return false;
+  uint64_t delta=0;
   return scale(remote-server_at_,1000000,1002000,delta)&&add(origin_at_,delta,local);
  }
  public:
