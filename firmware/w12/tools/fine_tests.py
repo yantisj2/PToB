@@ -34,7 +34,7 @@ def main():
   dest=out/'fakes'/f.relative_to(N30/'tests/fine_fakes');dest.parent.mkdir(parents=True,exist_ok=True)
   s=f.read_text().replace('pin==4||pin==5','pin==16').replace('gpio==4||gpio==5','gpio==16')
   s=s.replace('c->flags.pos_edge==unsigned(i<2&&PTOB_N30_FINE_PINS)', 'c->flags.pos_edge==unsigned(i<2)').replace('c->flags.neg_edge==unsigned(i<2&&PTOB_N30_FINE_PINS)', 'c->flags.neg_edge==unsigned(i==0)')
-  s=s.replace('gpio==16','gpio==16||gpio==7').replace('assert(bits==(3u<<27))','assert(bits==(3u<<27)||bits==(1u<<28))').replace('assert(x==(1u<<29)||x==(3u<<27))','assert(x==(1u<<29)||x==(3u<<27)||x==(1u<<28))')
+  s=s.replace('gpio==16','gpio==16||gpio==14').replace('assert(bits==(3u<<27))','assert(bits==(3u<<27)||bits==(1u<<28))').replace('assert(x==(1u<<29)||x==(3u<<27))','assert(x==(1u<<29)||x==(3u<<27)||x==(1u<<28))')
   if f.name=='fine_fake.hpp':
    s=s.replace('(x==(3u<<27)&&fake_radio_clear_ok)', '((x==(3u<<27)||x==(1u<<28))&&fake_radio_clear_ok)')
    s+='\ninline int mcpwm_del_capture_channel(mcpwm_cap_channel_handle_t c){assert(!c->fsm);return fake_disable_ok?0:-1;}\ninline int mcpwm_del_capture_timer(mcpwm_cap_timer_handle_t t){assert(!t->fsm);return fake_disable_ok?0:-1;}\n'

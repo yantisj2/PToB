@@ -9,6 +9,10 @@ static struct rc8_scope scope={.emitter=1,.emitter_boot=22,.stream=1,.root=3,.ro
 int main(void){
  assert(w12_rc8_init(2,1,group.id,group.epoch,group.psk));uint32_t gen=w12_rc8_switch(true);uint64_t tick=16000000,local=1000000,ns=1000000000000ULL;
  uint8_t wire[128];struct rc8_companion meta={.scope=scope,.sequence=1,.time_valid=true,.quality={.known=RC8_Q_PARENT_CLASS|RC8_Q_PARENT_ACCURACY,.parent_class=248,.parent_accuracy=254}};
+ // Authenticated metadata from a different emitter cannot unlock this receiver.
+ struct rc8_companion foreign=meta;foreign.scope.emitter=4;
+ assert(!rc8_companion_encode(wire,&foreign,&group));assert(!w12_rc8_receive(wire,128,tick,7,local,local,gen));
+ struct w12_lora_view rejected;w12_rc8_snapshot(&rejected,local);assert(!rejected.metadata_known&&!rejected.accepted&&!rejected.utc_us);
  assert(!rc8_companion_encode(wire,&meta,&group));assert(!w12_rc8_receive(wire,128,tick,7,local,local,gen));
  for(uint32_t i=1;i<=7;i++){
   struct rc8_packet p={.sequence=i,.root=scope.root,.source_epoch=scope.source_epoch,.scale=scope.scale,.kind=scope.kind};assert(!rc8_context_id(p.context,&scope,&group));

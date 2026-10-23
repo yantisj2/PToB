@@ -4,7 +4,7 @@ Copyright (c) 2026 Jonathan Yantis. MIT.
 
 PToB owns the W12 native G1/RC7 application. The public target supports **RC**:
 a BLE50 or BLE100 receiver, optionally an experimental BLE100 relay. It does
-not provide a GM profile. LoRa, WiFi and PTS are disabled. GNSS input is disabled
+not provide a GM profile. LoRa defaults OFF; the optional LR2021 receiver is described below. WiFi and PTS are disabled. GNSS input is disabled
 by default; the explicit indicator profile below enables the reviewed Meshnology
 W12 L76K route. This selection does not support arbitrary ESP32-S3 boards or
 GPS-equipped variants.
@@ -543,8 +543,8 @@ sub-2 µs accuracy, RF marker semantics, calibrated relay output or UTC accuracy
 
 ## Optional LR2021 dual timing and screens
 
-The 0.2.0 receiver borrows group 1 CH1 for the LR2021 DIO11 signal on W12
-GPIO7. BLE RX remains on CH0/GPIO16 and CURRENT on CH2. LoRa shares the fixed
+The 0.2.1 receiver borrows group 1 CH1 for the LR2021 DIO8 signal on W12
+GPIO14 ([board wiring](lr2021.md)). BLE RX remains on CH0/GPIO16 and CURRENT on CH2. LoRa shares the fixed
 80 MHz counter, so no software arrival timestamp or asynchronous counter map is
 substituted. GNSS keeps its group 0 timer, RX39/PPS41 and existing power/input
 profile. LoRa OFF disconnects only CH1 and leaves the BLE counter alive.

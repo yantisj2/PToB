@@ -1,6 +1,7 @@
 // Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT
 // W12 adaptation of N30's persistent MCPWM owner. RX only: GPIO16; no TX pad.
 #include "w12_fine_clock.hpp"
+#include "w12_lora_board.hpp"
 #include "fine_counter.hpp"
 #include "fine_receiver.hpp"
 #include "periodic_rx_model.hpp"
@@ -239,7 +240,7 @@ bool w12_fine_lora_start(W12LoRaCapture cb){
  portENTER_CRITICAL(&mux);
  if(!active||error||lora_borrowed||enabled[1]){portEXIT_CRITICAL(&mux);return false;}
  callback=cb;lora_active=lora_borrowed=true;
- esp_rom_gpio_connect_in_signal(7,mcpwm_periph_signals.groups[1].captures[1].cap_sig,false);
+ esp_rom_gpio_connect_in_signal(w12::lora_board::IrqGpio,mcpwm_periph_signals.groups[1].captures[1].cap_sig,false);
  timer->group->hal.dev->int_clr.val=UINT32_C(1)<<28;
  mcpwm_ll_intr_enable(timer->group->hal.dev,UINT32_C(1)<<28,true);
  portEXIT_CRITICAL(&mux);

@@ -16,8 +16,8 @@ unsigned uxTaskGetStackHighWaterMark(TaskHandle_t){return 6144;}
 BaseType_t xTaskCreatePinnedToCore(void(*)(void*),const char*,uint32_t s,void*,unsigned p,TaskHandle_t* o,int c){assert(s==8192&&p==1&&c==1);*o=(void*)1;return pdPASS;}
 esp_err_t gpio_config(const gpio_config_t* c){assert(!(c->pin_bit_mask&((1ULL<<39)|(1ULL<<41)|(1ULL<<48)|(1ULL<<16))));return 0;}
 esp_err_t gpio_set_level(gpio_num_t p,int v){assert(p==3||p==4||p==8||p==12);fake::gpio[p]=v;return 0;}
-int gpio_get_level(gpio_num_t p){assert(p==7||p==13||p==12||p==8);return fake::gpio[p];}
-int gpio_set_direction(gpio_num_t p,int){assert(p==7||p==13||p==12||p==8);return 0;}
+int gpio_get_level(gpio_num_t p){assert(p==14||p==13||p==12||p==8);return fake::gpio[p];}
+int gpio_set_direction(gpio_num_t p,int){assert(p==14||p==13||p==12||p==8);return 0;}
 esp_err_t spi_bus_initialize(int h,const spi_bus_config_t* c,int){assert(h==2&&c->sclk_io_num==9&&c->mosi_io_num==10&&c->miso_io_num==11);return 0;}
 esp_err_t spi_bus_add_device(int,const spi_device_interface_config_t*,spi_device_handle_t* o){*o=(void*)1;return 0;}
 esp_err_t spi_device_queue_trans(spi_device_handle_t,spi_transaction_t* t,TickType_t wait){assert(wait==5&&!fake::pending);fake::pending=t;++fake::starts;return 0;}
@@ -37,6 +37,7 @@ int main(int argc,char** argv){
  if(!std::strcmp(mode,"capture"))fake::capture_fail=true;
  step(false,0);assert(!resources&&owner.drained());step(false,179999999);assert(!resources);step(false,1);
  if(!std::strcmp(mode,"capture")){worker_step(true);assert(failed&&!owned.enabled&&!fake::capture&&owner.drained()&&!fake::gpio[12]&&!fake::gpio[4]);return 0;}
+ assert(test_irq_dio==8&&test_irq_gpio==14&&test_dio_modes[11]==2&&test_dio_modes[9]==0&&test_dio_modes[10]==0&&test_dio_modes[5]==0&&test_dio_modes[6]==0);
  assert(owned.enabled&&fake::capture&&fake::gpio[4]&&!fake::gpio[3]);
  if(!std::strcmp(mode,"normal")){
   on_edge(fake::us*20);test_irq=2;step(false);assert(fake::inputs==1);

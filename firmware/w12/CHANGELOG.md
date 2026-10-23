@@ -1,5 +1,17 @@
 # W12 changelog
 
+## 0.2.1 — W12 radio wiring correction
+
+- Use LR2021 DIO8 / ESP32 GPIO14 for RX_DONE capture. DIO11 controls the
+  GC1109 shutdown input and cannot also serve as the interrupt output.
+- Enable the sub-GHz LNA with DIO11 high and DIO9/DIO10 low during RX, while
+  keeping DIO5/DIO6 and the2.4GHz power rail low. Check each DIO command and
+  allow100ms bounded front-end rail settling before configuration.
+- Test authenticated wrong-emitter refusal separately from packet reception;
+  transmitter enrollment remains an explicit exact-factory build input.
+- Preserve fine BLE clock, GNSS group0/input wiring, RX-only TX guard, existing
+  source deadlines, watchdog and maintenance drain.
+
 ## 0.2.0 — dual timing and sync-loss recovery
 
 - Add the 300 s continuous no-synchronized-time restart watchdog; current valid

@@ -7,6 +7,7 @@
 #include "lora_core.h"
 #include "lora_owner_gate.hpp"
 #include "w12_fine_clock.hpp"
+#include "w12_lora_board.hpp"
 #include <modules/LR2021/LR2021.h>
 #include "w12_lora_config.h"
 #include "driver/spi_master.h"
@@ -22,7 +23,7 @@
 #include <cinttypes>
 extern "C" bool clock_reference_read(uint64_t*);
 namespace {
-constexpr auto Nss=GPIO_NUM_8,Reset=GPIO_NUM_12,Busy=GPIO_NUM_13,Irq=GPIO_NUM_7;
+constexpr auto Nss=GPIO_NUM_8,Reset=GPIO_NUM_12,Busy=GPIO_NUM_13,Irq=gpio_num_t(w12::lora_board::IrqGpio);
 portMUX_TYPE mux=portMUX_INITIALIZER_UNLOCKED;
 v12::LoRaOwnerGate owner;v12::LoRaStatus basic,owned;w12_lora_view published,hardware;
 w12::LoRaPolicy policy;
@@ -131,13 +132,15 @@ int start(){
  portENTER_CRITICAL(&mux);const bool permit=allowed&&cancel_serial==active_serial;
  if(permit){gpio_set_level(GPIO_NUM_3,0);gpio_set_level(GPIO_NUM_4,1);}portEXIT_CRITICAL(&mux);
  if(!permit)return -ECANCELED;
- module.spiConfig.timeout=30;radio.irqDioNum=11;
+ // GC1109 rail settling, with cancellation observed on every10ms interval.
+ for(unsigned i=0;i<10;++i){if(cancelled())return -ECANCELED;vTaskDelay(pdMS_TO_TICKS(10));}
+ module.spiConfig.timeout=30;radio.irqDioNum=w12::lora_board::IrqDio;
  // Same T096 RC8 wire3 modem; XTAL0V, explicit header, CRC2, private sync0x12.
  int rc=checked(radio.begin(915.0f,500.0f,10,6,0x12,10,12,0.0f));
  // RadioLib's table convenience API discards status. Check every DIO command.
- for(const uint8_t dio:{uint8_t(5),uint8_t(8),uint8_t(9)}){
+ for(const uint8_t dio:w12::lora_board::SwitchDios){
   const uint8_t function[]={dio,uint8_t(RADIOLIB_LR2021_DIO_FUNCTION_RF_SWITCH|(dio==5?RADIOLIB_LR2021_DIO_SLEEP_PULL_UP:RADIOLIB_LR2021_DIO_SLEEP_PULL_AUTO))};
-  const uint8_t modes[]={dio,uint8_t(dio==9?1u<<(LR2021::MODE_RX-1):0)};
+  const uint8_t modes[]={dio,uint8_t(dio==w12::lora_board::RxSwitchDio?1u<<(LR2021::MODE_RX-1):0)};
   if(!rc)rc=checked(module.SPIwriteStream(RADIOLIB_LR2021_CMD_SET_DIO_FUNCTION,function,sizeof function));
   if(!rc)rc=checked(module.SPIwriteStream(RADIOLIB_LR2021_CMD_SET_DIO_RF_SWITCH_CONFIG,modes,sizeof modes));
  }
