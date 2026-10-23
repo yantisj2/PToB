@@ -20,17 +20,26 @@ int main(int argc,char** argv){
   if(!std::strcmp(mode,"stale_raw")){fake_device.int_raw.val=1u<<29;fake_clear_ok=false;}
   if(!std::strcmp(mode,"stale_radio")){fake_device.int_raw.val=1u<<27;fake_radio_clear_ok=false;}
   if(!std::strcmp(mode,"irq"))fake_irq_restore_ok=false;
-  if(std::strcmp(mode,"live")&&std::strcmp(mode,"pending_late")&&std::strcmp(mode,"cleanup")&&
+  if(std::strcmp(mode,"live")&&std::strcmp(mode,"lora")&&std::strcmp(mode,"pending_late")&&std::strcmp(mode,"cleanup")&&
      std::strcmp(mode,"wrap")&&std::strcmp(mode,"storm")&&std::strcmp(mode,"gap")){
     assert(!w12_fine_start(2,PTOB_W12_FINE_FACTORY,fake_now));
     assert(w12_fine_fault()&&!active&&!GPIO.oe[16]);
     fake_gpio_failure=0;w12_fine_stop();assert(w12_fine_released());return 0;
   }
   assert(w12_fine_start(2,PTOB_W12_FINE_FACTORY,fake_now));
-  assert(active&&fake_group==1&&fake_callbacks==1&&enabled[0]&&!enabled[1]&&enabled[2]);
+  assert(active&&fake_group==1&&fake_callbacks==2&&enabled[0]&&!enabled[1]&&enabled[2]);
   assert(GPIO.oe[16]&&!(fake_device.int_ena.val&(1u<<28)));
   assert(!w12_fine_start(2,PTOB_W12_FINE_FACTORY,fake_now));
   uint64_t tick=0;assert(w12_fine_current(&tick)&&tick>=1000000);
+  if(!std::strcmp(mode,"lora")){
+    assert(w12_fine_lora_start(+[](uint64_t t){assert(t>=1000000);return false;}));
+    assert(lora_active&&enabled[1]&&fake_device.cap_chn_cfg[1].capn_en);
+    advance(1000);mcpwm_capture_event_data_t e{fake_raw,0};fake_channels[1].cb(&fake_channels[1],&e,nullptr);
+    assert(w12_fine_current(&tick)&&!error&&active);
+    fake_device.int_raw.val|=1u<<28;
+    assert(w12_fine_lora_stop()&&!lora_active&&!enabled[1]&&enabled[0]&&active);
+    assert(w12_fine_current(&tick)&&!error&&active);
+  }
   if(!std::strcmp(mode,"gap")){
     advance(w12::fine::Counter::HalfWrapUs);
     assert(!w12_fine_current(&tick)&&!tick&&!active&&w12_fine_fault());

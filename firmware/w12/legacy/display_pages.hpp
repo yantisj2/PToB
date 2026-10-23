@@ -2,7 +2,7 @@
 #include <cstdint>
 namespace display_pages {
 enum Page : uint8_t { Front, Relative, Hold, Clock, BleRx, PtsRx,
-                     Packets, Quality, Network, LoraRx, Sources, Diagnostics, PtsFtm, System, Gps, Count };
+                     Packets, Quality, Network, LoraRx, Sources, Diagnostics, PtsFtm, System, Gps, Precision, Count };
 // Keep diagnostic IDs stable, but retire the old Bluetooth network/C4 pages
 // from normal navigation. The production SYSTEM page carries local identity and route capability.
 #if defined(V12_R2_ENABLED) && V12_R2_ENABLED && V12_R2_CONFIG == 13

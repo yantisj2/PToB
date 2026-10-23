@@ -1,9 +1,22 @@
 # W12 changelog
 
+## 0.2.0 — dual timing and sync-loss recovery
+
+- Add the 300 s continuous no-synchronized-time restart watchdog; current valid
+  BLE or RC8 UTC clears it, with original expiry and OFF/maintenance fences.
+- Port N30's 180 s AUTO/KEEP ON/KEEP OFF policy and authenticated RC8 receiver to
+  W12 LR2021. Share fine counter CH1 without taking GNSS group 0 resources.
+- Add Precision and LoRa OLED pages, one-shot LoRa RX hold control and bounded
+  ticket-bound commands; preserve Clock-page relay control and GNSS indicators.
+- Pin public RadioLib 7.8.1, retain its source/license with build artifacts, and
+  bind exact transmitter/enrollment to runtime identity. Receiver TX is blocked.
+- Keep RF/UTC calibration unqualified; distinguish PDU191 current GR3/RC7 fine
+  capture from legacy PDU159 descriptor phase and internal SYNC RMS.
+
 ## 0.1.23 — 23 October 2026
 
 - Add an opt-in BLE100 fine-clock test profile using a continuous 80 MHz MCPWM1
-  origin and a W12-specific RX-only GPIO16 route. Preserve group0 GNSS capture,
+  origin and a W12-specific RX-only GPIO16 route. Preserve group 0 GNSS capture,
   use one coordinate for all clock consumers and fail closed on counter faults.
 - Port N30's dense, capture-frozen fitting and 1 ppm phase slew strictly below
   2 µs. Retain lock, causal-quality, source-expiry and downstream gates. Supported

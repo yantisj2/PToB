@@ -1,0 +1,93 @@
+{
+  "license": "MIT",
+  "copyright": "Jonathan Yantis",
+  "imports": {
+    "main/lora_core.c": {
+      "source": "firmware/n30/main/lora_core.c",
+      "sha256": "129e51c1addacc9f7b3df783c7158e325e6fd87d15e0ef668a9afb1c4f42fc48"
+    },
+    "main/lora_core.h": {
+      "source": "firmware/n30/main/lora_core.h",
+      "sha256": "cc0fd717ad602dcaddbfbeaa4a6d081191674383efbef91d43fc0b2f28b013f5"
+    },
+    "main/lora_view.h": {
+      "source": "firmware/n30/main/lora_view.h",
+      "sha256": "05ba42137acb9c6d87718eee9838a0ab88e9e95b988f6636212014ab910312a8"
+    },
+    "main/lora_policy.hpp": {
+      "source": "firmware/n30/main/lora_policy.hpp",
+      "sha256": "47920744eaf752f593899203c64e0d13910b08fdd98d21daba3d8bef4e369420"
+    },
+    "main/w12_lora.hpp": {
+      "source": "firmware/n30/main/n30_lora.hpp",
+      "sha256": "c0c1eed81fa3cc6b96cd88be6ae0c0b263994182c0b8f2acf6e8a49db8bb4814"
+    },
+    "main/rc8/lora_rc8.c": {
+      "source": "firmware/t096/protocol/lora_rc8.c",
+      "sha256": "a361394970187bb75f4ae9b1c545ae1114ceb94d751abbfb85fba66e2300dd83"
+    },
+    "main/rc8/lora_rc8.h": {
+      "source": "firmware/t096/protocol/lora_rc8.h",
+      "sha256": "3ecd88cd163a1ab726d46cf9cd98f4605658cf0aaa942b3583dee3300e61e88c"
+    },
+    "main/rc8/group_auth.h": {
+      "source": "firmware/t096/protocol/group_auth.h",
+      "sha256": "959a6b7fed23100448ac7de442d38806a146897b4c53038a0087fce298caaf87"
+    },
+    "main/rc8/lora_rc8_policy.h": {
+      "source": "firmware/t096/include/lora_rc8_policy.h",
+      "sha256": "77a6f6250f856d86da4a4fff6f9759cef16373ad2e9923c90a760907f59fcbd1"
+    },
+    "main/rc8/precision_servo.h": {
+      "source": "firmware/t096/include/precision_servo.h",
+      "sha256": "40f567fc217c87a5cae6be75067b933d6cc53d715a10039072fcfd3d7f250e03"
+    },
+    "main/rc8/lora_rc8_policy.c": {
+      "source": "firmware/t096/src/lora_rc8_policy.c",
+      "sha256": "086f0a55b90c60ecd0281157c215bee07cc87da10cb93607ff170ac7c82f8f58"
+    },
+    "tests/lora_core_test.c": {
+      "source": "firmware/n30/tests/lora_core_test.c",
+      "sha256": "cdbdde60d0e762e20b5fdfecda9ae90c34639b3f372cae31adf32c03c1bcefc5"
+    },
+    "tests/lora_policy_test.cpp": {
+      "source": "firmware/n30/tests/lora_policy_test.cpp",
+      "sha256": "6a9eecb3678df3d29423e3b904bd4c226c9b83f8bd170ddfc728557c2804cc0f"
+    },
+    "tests/sync_watchdog_runtime_test.cpp": {
+      "source": "firmware/n30/tests/sync_watchdog_runtime_test.cpp",
+      "sha256": "c59195dd75f0a5f6be096221ec81d86822523114d294a9a8d82588b4b6cb5a0d"
+    },
+    "tests/lora_fakes/esp_attr.h": {
+      "source": "firmware/n30/tests/lora_fakes/esp_attr.h",
+      "sha256": "ee428296aebc0ce967846b6545886a71cb5b04e4093ebd2b940b02412ef5fdbc"
+    },
+    "tests/lora_fakes/esp_timer.h": {
+      "source": "firmware/n30/tests/lora_fakes/esp_timer.h",
+      "sha256": "12add051db55b2c76f23aa31b51999934def413cd52a8bd234f61f9abde067dc"
+    },
+    "tests/lora_fakes/driver/spi_master.h": {
+      "source": "firmware/n30/tests/lora_fakes/driver/spi_master.h",
+      "sha256": "28ea95dee0f4c49278b2a13140f1dcbdd50f737b23a22842db23b9151d7e930d"
+    },
+    "tests/lora_fakes/driver/gpio.h": {
+      "source": "firmware/n30/tests/lora_fakes/driver/gpio.h",
+      "sha256": "de28a4c3f4d8adf5c7cc0a6fc90552bbd5ab0b2ad559f70e3fd5ebe0f1283d8c"
+    },
+    "tests/lora_fakes/freertos/task.h": {
+      "source": "firmware/n30/tests/lora_fakes/freertos/task.h",
+      "sha256": "7a80cd33afb69f246c686d8122041435493aeca2a65ca7836a5d0254ad6aa2e9"
+    },
+    "tests/lora_fakes/freertos/FreeRTOS.h": {
+      "source": "firmware/n30/tests/lora_fakes/freertos/FreeRTOS.h",
+      "sha256": "b6b0886bb8e2363b674757b673735a2c60fb41ddcd04acb54387537dbd8621fe"
+    }
+  },
+  "source_commit": "64ebe5b6a6c896e272cc75fbefe720dde169bbec",
+  "transformations": [
+    "N30 identifiers renamed W12; recovery-budget include made local",
+    "RC8 policy include path flattened into rc8/",
+    "N30 runtime watchdog vectors selected with W12 macro",
+    "Synthetic SDK/RadioLib fixtures are host-only; native image uses pinned public RadioLib"
+  ]
+}

@@ -2,7 +2,7 @@
 #pragma once
 #include <cstdint>
 namespace v12::periodic_rx {struct Stamp;}
-// Fixed W12 RX-only GPIO16 route. Group0 remains available for GNSS/LoRa.
+// Fixed W12 RX-only GPIO16 route. Group0 remains exclusively available for GNSS.
 // One boot-selected counter domain; failure never substitutes GPTimer ticks.
 bool w12_fine_start(uint64_t boot, uint64_t factory, uint64_t now_us);
 bool w12_fine_current(uint64_t* tick20);
@@ -15,3 +15,7 @@ struct W12FineStatus {
   int error=0;bool active=false;
 };
 W12FineStatus w12_fine_status(); // Cached observer only; never latches CURRENT.
+
+using W12LoRaCapture=bool(*)(uint64_t tick20);
+bool w12_fine_lora_start(W12LoRaCapture);
+bool w12_fine_lora_stop();

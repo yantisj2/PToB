@@ -21,13 +21,13 @@ struct Input {
   uint64_t main_at=0,host_at=0,parent=0;
   uint32_t mask=0;int32_t rc=0;uint8_t api=0;
   bool host_seen=false,relay=false,fatal=false,test=false;
-#ifdef PTOB_N30
+#if defined(PTOB_N30) || defined(PTOB_W12_SYNC_WATCHDOG)
   uint64_t sync_until_us=0,sync_observed_us=0;bool sync_expected=false;
 #endif
 };
 portMUX_TYPE watchdog_mux=portMUX_INITIALIZER_UNLOCKED;
 Input input;FaultWatchdogModel model;FaultWatchdogStatus view;
-#ifdef PTOB_N30
+#if defined(PTOB_N30) || defined(PTOB_W12_SYNC_WATCHDOG)
 ContinuousFaultWatchdogModel<UINT64_C(300000000)> sync_model;uint64_t last_sync_observed_us=0;
 #endif
 uint64_t fingerprint=0,boot_id=0;
@@ -54,7 +54,7 @@ void supervise(void*){
     view.elapsed_us=model.active()&&now>=model.start_us()?now-model.start_us():0;
     view.test=current.test;
     restart=model.take_restart(now);
-#ifdef PTOB_N30
+#if defined(PTOB_N30) || defined(PTOB_W12_SYNC_WATCHDOG)
     // A valid observation can begin/end between100ms supervisor wakes. It
     // still breaks continuous loss; only this owner advances the timer model.
     if(current.sync_observed_us!=last_sync_observed_us){
@@ -87,7 +87,7 @@ bool fault_watchdog_start(const uint8_t factory[6],uint64_t boot){
   if(!factory||!boot||view.enabled)return false;
   fingerprint=bind(factory);boot_id=boot;const RestartIntent previous=intent;intent.magic=0;
   bool previous_delay=previous.elapsed>=FaultWatchdogModel::DelayUs;
-#ifdef PTOB_N30
+#if defined(PTOB_N30) || defined(PTOB_W12_SYNC_WATCHDOG)
   if(previous.mask==FaultNoTimeSync)previous_delay=previous.elapsed>=decltype(sync_model)::DelayUs;
 #endif
   if(esp_reset_reason()==ESP_RST_SW&&previous.magic==Magic&&previous.version==Version&&
@@ -113,7 +113,7 @@ void fault_watchdog_main_progress(uint32_t mask,uint8_t api,int32_t rc,uint64_t 
   if(!view.parent_pending&&parent_applied){input.parent=parent;input.relay=relay;}
   portEXIT_CRITICAL(&watchdog_mux);
 }
-#ifdef PTOB_N30
+#if defined(PTOB_N30) || defined(PTOB_W12_SYNC_WATCHDOG)
 void fault_watchdog_sync_progress(bool expected,uint64_t valid_until_us){
   portENTER_CRITICAL(&watchdog_mux);input.sync_expected=expected;input.sync_until_us=valid_until_us;
   const auto now=now_us();if(expected&&valid_until_us>now)input.sync_observed_us=now;

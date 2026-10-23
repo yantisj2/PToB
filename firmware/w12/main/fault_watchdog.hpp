@@ -15,7 +15,7 @@ bool fault_watchdog_start(const uint8_t factory[6],uint64_t boot);
 void fault_watchdog_fatal();
 void fault_watchdog_main_progress(uint32_t mask,uint8_t api,int32_t rc,
                                   uint64_t applied_parent,bool relay,bool parent_applied);
-#ifdef PTOB_N30
+#if defined(PTOB_N30) || defined(PTOB_W12_SYNC_WATCHDOG)
 // Absolute current-source deadline; polling never extends it. Maintenance and
 // explicitly stopped reception disable this separate continuous300s timer.
 void fault_watchdog_sync_progress(bool expected,uint64_t valid_until_us);

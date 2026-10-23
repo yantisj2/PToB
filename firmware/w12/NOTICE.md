@@ -12,3 +12,9 @@ SDK components are obtained separately through pinned public upstream sources
 under their own terms. No SDK, private history or private enrolled image is
 redistributed. See `imports/2026-10-16.json` for exact selected original bytes and
 public transformations; imported historical documents are not operating authority.
+
+Optional LR2021 builds link public RadioLib 7.8.1, Copyright (c) 2018 Jan Gromeš,
+MIT. Its complete upstream license is retained beside the dependency sources
+in each local image artifact. See the pinned release in dependencies.lock.json.
+Selected original RC8 and N30 receiver/policy imports are recorded in
+rc8-imports.json; original code is MIT, Copyright (c) 2026 Jonathan Yantis.

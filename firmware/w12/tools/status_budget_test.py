@@ -34,9 +34,10 @@ def render(f,wide):
   args.append(v)
  buf=ctypes.create_string_buffer(16384);n=LIB.snprintf(buf,len(buf),f.encode(),*args);assert 0<n<len(buf);return bytes(buf[:n])
 def main():
- ap=argparse.ArgumentParser();ap.add_argument("--gps-shadow",action="store_true");ap.add_argument("--rc7-estimate",action="store_true");args=ap.parse_args()
+ ap=argparse.ArgumentParser();ap.add_argument("--lora",action="store_true");ap.add_argument("--gps-shadow",action="store_true");ap.add_argument("--rc7-estimate",action="store_true");args=ap.parse_args()
  src=(APP/'main/native_main.cpp').read_text();status=src[src.index('void status('):src.index('void ui(')]
  defs='#define V12_R2_ENABLED 1\n#define V12_R2_CONFIG 13\n#define PRIu64 "llu"\n#define PRId64 "lld"\n#define PRIx64 "llx"\n#define PRIu32 "u"\n#define PRId32 "d"\n#define PRIx32 "x"\n'
+ if args.lora:defs+='#define PTOB_W12_LORA_RX 1\n'
  if args.rc7_estimate:defs+='#define V12_R2_RC7_TX_ESTIMATE_LAB 1\n'
  if args.gps_shadow:defs+='#define V12_GPS_SHADOW_OBSERVER 1\n'
  pp=subprocess.check_output(['/opt/homebrew/opt/llvm/bin/clang++','-E','-P','-x','c++','-'],input=defs+status,text=True)

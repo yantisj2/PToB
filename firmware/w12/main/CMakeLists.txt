@@ -40,9 +40,9 @@ else()
   set(ptob_board 2)
   set(ptob_gnss 0)
 endif()
-target_compile_definitions(${COMPONENT_LIB} PRIVATE V12_UNIT="W12"
+target_compile_definitions(${COMPONENT_LIB} PRIVATE V12_UNIT="W12" PTOB_W12_SYNC_WATCHDOG=1
   V12_SOURCE_REVISION="${V12_SOURCE_REVISION}" W12_UNIT_NAME="PToB W12"
-  W12_COPY_BOARD_PROFILE=${ptob_board} W12_GNSS_VERIFIED_INPUTS=${ptob_gnss} V12_LORA_FORCED_OFF=1
+  W12_COPY_BOARD_PROFILE=${ptob_board} W12_GNSS_VERIFIED_INPUTS=${ptob_gnss} PTOB_W12_DUAL_UI=1
   W12_GNSS_RX_PIN=39 W12_GNSS_PPS_PIN=41 W12_GNSS_BAUD=9600
   W12_GNSS_W12_POWER=${ptob_gnss} W12_GNSS_R8_POWER=0)
 if(PTOB_W12_GNSS_FAST_MAP_DIAGNOSTIC)
@@ -124,4 +124,18 @@ if(PTOB_W12_FINE_CLOCK)
     endif()
   endforeach()
   target_include_directories(${COMPONENT_LIB} PRIVATE "$ENV{IDF_PATH}/components/esp_driver_mcpwm/src")
+endif()
+
+configure_file("${PTOB_LORA_HEADER}" "${CMAKE_CURRENT_BINARY_DIR}/w12_lora_config.h" COPYONLY)
+if(PTOB_W12_LORA_RX)
+ if(NOT PTOB_W12_FINE_CLOCK OR NOT EXISTS "${PTOB_RADIOLIB}/src/Module.cpp")
+  message(FATAL_ERROR "LR2021 RX requires fine clock and pinned public RadioLib")
+ endif()
+ file(GLOB radio_sources "${PTOB_RADIOLIB}/src/modules/LR2021/*.cpp")
+ list(APPEND radio_sources "${PTOB_RADIOLIB}/src/Module.cpp" "${PTOB_RADIOLIB}/src/Hal.cpp" "${PTOB_RADIOLIB}/src/protocols/PhysicalLayer/PhysicalLayer.cpp" "${PTOB_RADIOLIB}/src/modules/LR11x0/LR_common.cpp")
+ target_sources(${COMPONENT_LIB} PRIVATE "w12_lora_radio.cpp" "lora_core.c" "rc8/lora_rc8.c" "rc8/lora_rc8_policy.c" ${radio_sources})
+ target_include_directories(${COMPONENT_LIB} PRIVATE "rc8" "${PTOB_RADIOLIB}/src")
+ target_compile_definitions(${COMPONENT_LIB} PRIVATE PTOB_W12_LORA_RX=1)
+else()
+ target_compile_definitions(${COMPONENT_LIB} PRIVATE V12_LORA_FORCED_OFF=1)
 endif()

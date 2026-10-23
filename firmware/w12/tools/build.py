@@ -7,7 +7,7 @@ from pathlib import Path
 APP=Path(__file__).resolve().parents[1];REPO=APP.parents[1]
 sys.path.insert(0,str(REPO/'registry'))
 from registry import load as load_registry,header as registry_header
-VERSION='0.1.23'
+VERSION='0.2.0'
 GNSS_PROFILE='meshnology_w12_l76k_rx39_pps41'
 def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
 def git(p,*args):return subprocess.check_output(['git','-C',str(p),*args],text=True).strip()
@@ -80,16 +80,16 @@ def device_header(device):
 def fine_header(device,enabled):
  return '#pragma once\n#include <stdint.h>\n#define PTOB_W12_FINE_FACTORY UINT64_C(0x'+device['device_id']+')\n#define PTOB_W12_FINE_RX_GPIO 16\n#define PTOB_W12_FINE_SELECTED '+str(int(enabled))+'\n'
 
-def fine_backend(enabled):
+def fine_backend(enabled,legacy=False):
  return {'mode':'MCPWM1_RW_RX_GPIO16_EXPERIMENTAL' if enabled else 'LEGACY_GPTIMER20',
          'counter_hz':80000000 if enabled else 20000000,'coordinate_hz':20000000,
          'fine_slew_threshold_ns':2000 if enabled else 1000,'fine_slew_boundary':'STRICTLY_BELOW' if enabled else 'INCLUSIVE',
-         'relay_phase_convention_ns':1568000 if enabled else None,'direct_GR3':'DESCRIPTOR_ONLY',
+         'relay_phase_convention_ns':1568000 if enabled else None,'direct_GR3':'DESCRIPTOR_ONLY' if legacy else 'PDU191_FINE_LEGACY_PDU159_DESCRIPTOR',
          'RF_bound':'UNKNOWN','UTC_bound':'UNKNOWN','hardware_validation':'NOT_PERFORMED'}
 
 def validate_fine_compilation(receipt,device,compiled):
  enabled=receipt.get('fine_clock')
- if type(enabled)is not bool or receipt.get('clock_backend')!=fine_backend(enabled):raise ValueError('Exact fine-clock backend metadata required')
+ if type(enabled)is not bool or receipt.get('clock_backend')!=fine_backend(enabled,receipt.get('version')=='0.1.23'):raise ValueError('Exact fine-clock backend metadata required')
  if enabled and (receipt['listening_percent']!=100 or receipt.get('gnss_fast_map_diagnostic')):raise ValueError('Fine clock requires BLE100 and ordinary GNSS mapping')
  if enabled and provisional_profile(device):raise ValueError('Descriptor aggregate offsets cannot transfer to the fine backend')
  for suffix in ('/native_main.cpp','/gnss_pps.cpp','/native_g1.cpp','/periodic_rx.cpp'):
@@ -112,13 +112,26 @@ def verify_sdk(sdk,lock):
   if sha(sdk/name)!=digest:raise ValueError('Pinned fine-capture ABI changed: '+name)
  return status
 
+def lora_header(device,enrollment,transmitter):
+ key=bytes.fromhex(enrollment['psk'])
+ return '#pragma once\n#include <cstdint>\n#define PTOB_W12_FACTORY_ID UINT64_C(0x'+device['device_id']+')\n#define PTOB_W12_LORA_TX_FACTORY UINT64_C(0x'+transmitter+')\n#define PTOB_W12_GROUP_ID UINT64_C(0x'+enrollment['group_id']+')\n#define PTOB_W12_KEY_EPOCH '+str(enrollment['key_epoch'])+'\nstatic constexpr uint8_t PTOB_W12_GROUP_KEY[32]={'+','.join(map(str,key))+'};\n'
+def verify_radio(path,lock):
+ if git(path,'rev-parse','HEAD')!=lock['radiolib']['commit'] or git(path,'status','--porcelain','--untracked-files=all'):raise ValueError('Pinned clean public RadioLib required')
+ if sha(path/'license.txt')!=lock['radiolib']['license_sha256']:raise ValueError('RadioLib license changed')
+def validate_dual_compilation(r,compiled):
+ tokens=next(x['command'].split() for x in compiled if x['file'].endswith('/native_main.cpp'))
+ for flag in ('-DPTOB_W12_SYNC_WATCHDOG=1','-DPTOB_W12_DUAL_UI=1','-DPTOB_W12_LORA_RX=1' if r['lora_rx'] else '-DV12_LORA_FORCED_OFF=1'):
+  if flag not in tokens:raise ValueError('Missing compiled runtime feature: '+flag)
+ if r.get('no_time_sync_watchdog_us')!=300000000:raise ValueError('Watchdog metadata differs')
+ if r['lora_rx'] and not r['fine_clock']:raise ValueError('LoRa requires fine counter')
+
 def main():
  match=re.search(r'^set\(PROJECT_VER "([^\"]+)"\)$',(APP/'CMakeLists.txt').read_text(),re.MULTILINE)
  if not match or match.group(1)!=VERSION:raise ValueError('Python/CMake firmware versions must agree before building')
  p=argparse.ArgumentParser(description=__doc__)
  for name in ['idf','out','enrollment','device-config']:p.add_argument('--'+name,type=Path,required=True)
  p.add_argument('--profile',choices=['RC'],required=True);p.add_argument('--listening-percent',type=int,choices=[50,100],default=100)
- p.add_argument('--fine-clock',action='store_true',help='Experimental fixed W12 GPIO16 80MHz fine receiver, BLE100 only; physical validation separate');p.add_argument('--gnss-fast-map-diagnostic',action='store_true');p.add_argument('--estimated-relay',action='store_true');p.add_argument('--registry',type=Path,default=REPO/'registry/example.json');p.add_argument('--development',action='store_true');a=p.parse_args()
+ p.add_argument('--fine-clock',action='store_true',help='Experimental fixed W12 GPIO16 80MHz fine receiver, BLE100 only; physical validation separate');p.add_argument('--gnss-fast-map-diagnostic',action='store_true');p.add_argument('--estimated-relay',action='store_true');p.add_argument('--registry',type=Path,default=REPO/'registry/example.json');p.add_argument('--radiolib',type=Path);p.add_argument('--lora-transmitter-factory',default='0000000000000000');p.add_argument('--development',action='store_true');a=p.parse_args()
  os.umask(0o077);sdk=a.idf.resolve();out=a.out.resolve()
  if out.exists() or REPO/'artifacts' not in out.parents:p.error('Fresh output directory below ignored artifacts/ required')
  if a.estimated_relay and a.listening_percent!=100:p.error('Estimated relay requires BLE100')
@@ -134,6 +147,10 @@ def main():
  e=json.loads(a.enrollment.read_text());d=json.loads(a.device_config.read_text());key=validate_inputs(e,d);fast_map=gnss_map_diagnostic(d,a.gnss_fast_map_diagnostic);registry=load_registry(a.registry)
  if a.fine_clock and provisional_profile(d):p.error('Fine clock requires an uncalibrated device input; descriptor offsets cannot transfer')
  if provisional_profile(d) and not(a.estimated_relay and a.listening_percent==100):p.error('Provisional aggregate-path profile requires estimated relay BLE100')
+ tx=a.lora_transmitter_factory
+ if not re.fullmatch('[0-9a-f]{16}',tx) or (int(tx,16) and (registry['devices'].get(tx,{}).get('target')!='t096' or tx==d['device_id'])):p.error('Exact registry T096 transmitter factory required')
+ if bool(a.radiolib)!=bool(int(tx,16)) or (a.radiolib and not a.fine_clock):p.error('LoRa RX requires fine clock, public RadioLib and explicit transmitter binding')
+ if a.radiolib:verify_radio(a.radiolib.resolve(),lock)
  out.mkdir(parents=True);target=out/'target';target.mkdir();inputs=out/'local';inputs.mkdir()
  sources={str(f.relative_to(APP)):sha(f) for f in source_files()};source_hash=hashlib.sha256(json.dumps(sources,sort_keys=True,separators=(',',':')).encode()).hexdigest()
  for n in sources:
@@ -141,16 +158,19 @@ def main():
  for path,name in [(a.enrollment,'enrollment.json'),(a.device_config,'device.json'),(a.registry,'registry.json'),(REPO/'registry/registry.py','registry_generator.py')]:shutil.copyfile(path,inputs/name)
  (inputs/'ptob_registry.h').write_text(registry_header(registry))
  (inputs/'ptob_device.h').write_text(device_header(d))
+ (inputs/'w12_lora_config.h').write_text(lora_header(d,e,tx))
  (inputs/'w12_fine_config.h').write_text(fine_header(d,a.fine_clock))
  # Registry/generator/device hashes bind display metadata and local input changes into runtime enrollment identity.
  enrollment_header=inputs/'r2-enrollment.h';enrollment_header.write_text('/* source:'+source_hash+' registry:'+sha(a.registry)+' generator:'+sha(REPO/'registry/registry.py')+' device:'+sha(a.device_config)+' */\nstatic const r2_group_enrollment provision={{{'+','.join(map(str,key))+'},UINT64_C(0x'+e['group_id']+'),'+str(e['key_epoch'])+'},UINT64_C(0x'+d['device_id']+'),'+json.dumps(d['label'])+',40000};\n')
- r={'schema':1,'artifact_class':'PTOB_W12_RC','version':VERSION,'status':'INCOMPLETE','public_commit':git(REPO,'rev-parse','HEAD'),'source_dirty':dirty,'repository_dirty':repository_dirty,'source_sha256':source_hash,'sources':sources,'dependencies':lock,'sdk_path':str(sdk),'app_path':str(APP),'sdk_submodules':modules.splitlines(),'profile':'RC','listening_percent':a.listening_percent,'estimated_relay':a.estimated_relay,'tx_actual_capture':False,'precision':'UNQUALIFIED','installed':False,'fine_clock':a.fine_clock,'clock_backend':fine_backend(a.fine_clock),'gnss_fast_map_diagnostic':fast_map,'registry_sha256':sha(a.registry),'registry_generator_sha256':sha(REPO/'registry/registry.py'),'enrollment_mode':'LOCAL_BUILD_TIME_NO_NVS_WRITE','device_config_sha256':sha(a.device_config),'provisional_path_profile':provisional_profile(d)}
+ r={'schema':1,'artifact_class':'PTOB_W12_RC','version':VERSION,'status':'INCOMPLETE','public_commit':git(REPO,'rev-parse','HEAD'),'source_dirty':dirty,'repository_dirty':repository_dirty,'source_sha256':source_hash,'sources':sources,'dependencies':lock,'sdk_path':str(sdk),'app_path':str(APP),'sdk_submodules':modules.splitlines(),'profile':'RC','listening_percent':a.listening_percent,'estimated_relay':a.estimated_relay,'tx_actual_capture':False,'precision':'UNQUALIFIED','installed':False,'fine_clock':a.fine_clock,'no_time_sync_watchdog_us':300000000,'lora_rx':bool(a.radiolib),'lora_transmitter_factory':tx,'radiolib_path':str(a.radiolib.resolve()) if a.radiolib else None,'clock_backend':fine_backend(a.fine_clock),'gnss_fast_map_diagnostic':fast_map,'registry_sha256':sha(a.registry),'registry_generator_sha256':sha(REPO/'registry/registry.py'),'enrollment_mode':'LOCAL_BUILD_TIME_NO_NVS_WRITE','device_config_sha256':sha(a.device_config),'provisional_path_profile':provisional_profile(d)}
  dump(out/'receipt.json',r)
  env=os.environ.copy()
  for k in ['CFLAGS','CXXFLAGS','CPPFLAGS','LDFLAGS','EXTRA_COMPONENT_DIRS','SDKCONFIG_DEFAULTS']:env.pop(k,None)
  # This target has no managed components; use only the pinned SDK and local source.
  env.update(IDF_COMPONENT_MANAGER='0',IDF_PATH=str(sdk),PYTHONPYCACHEPREFIX=str(out/'pycache'),IDF_CCACHE_ENABLE='0')
- command=[sys.executable,str(sdk/'tools/idf.py'),'-C',str(APP),'-B',str(target),'-G','Unix Makefiles','-D','SDKCONFIG='+str(target/'sdkconfig'),'-D','V12_SOURCE_REVISION='+r['public_commit'],'-D','V12_R2_ENROLLMENT_HEADER='+str(enrollment_header),'-D','PTOB_DEVICE_HEADER='+str(inputs/'ptob_device.h'),'-D','PTOB_REGISTRY_HEADER='+str(inputs/'ptob_registry.h'),'-D','PTOB_FINE_HEADER='+str(inputs/'w12_fine_config.h'),'-D','PTOB_W12_FINE_CLOCK='+('ON' if a.fine_clock else 'OFF'),'-D','PTOB_W12_GNSS_INDICATORS='+('ON' if 'gnss_profile' in d else 'OFF'),'-D','PTOB_W12_GNSS_FAST_MAP_DIAGNOSTIC='+('ON' if fast_map else 'OFF'),'-D','V12_R2_G1_LISTENING_PERCENT='+str(a.listening_percent),'-D','V12_R2_RC7_TX_ESTIMATE_LAB='+('ON' if a.estimated_relay else 'OFF'),'-D','CCACHE_ENABLE=OFF','build']
+ command=[sys.executable,str(sdk/'tools/idf.py'),'-C',str(APP),'-B',str(target),'-G','Unix Makefiles','-D','SDKCONFIG='+str(target/'sdkconfig'),'-D','V12_SOURCE_REVISION='+r['public_commit'],'-D','V12_R2_ENROLLMENT_HEADER='+str(enrollment_header),'-D','PTOB_DEVICE_HEADER='+str(inputs/'ptob_device.h'),'-D','PTOB_REGISTRY_HEADER='+str(inputs/'ptob_registry.h'),'-D','PTOB_FINE_HEADER='+str(inputs/'w12_fine_config.h'),'-D','PTOB_W12_FINE_CLOCK='+('ON' if a.fine_clock else 'OFF'),'-D','PTOB_W12_GNSS_INDICATORS='+('ON' if 'gnss_profile' in d else 'OFF'),'-D','PTOB_W12_GNSS_FAST_MAP_DIAGNOSTIC='+('ON' if fast_map else 'OFF'),'-D','V12_R2_G1_LISTENING_PERCENT='+str(a.listening_percent),'-D','V12_R2_RC7_TX_ESTIMATE_LAB='+('ON' if a.estimated_relay else 'OFF'),'-D','CCACHE_ENABLE=OFF']
+ command+=['-D','PTOB_LORA_HEADER='+str(inputs/'w12_lora_config.h'),'-D','PTOB_W12_LORA_RX='+('ON' if a.radiolib else 'OFF'),'-D','PTOB_RADIOLIB='+str(a.radiolib.resolve() if a.radiolib else '')]
+ command+=['build']
  dump(out/'command.json',command)
  try:
   with (out/'build.log').open('w') as log:subprocess.run(command,env=env,cwd=REPO,stdout=log,stderr=subprocess.STDOUT,check=True,timeout=900)
@@ -173,16 +193,22 @@ def main():
   nm=str(compiler_path.with_name(re.sub(r'(g\+\+|gcc)$','nm',compiler_path.name)))
   symbols=subprocess.check_output([nm,str(target/'ptob_w12.elf')],text=True)
   if re.search(r'\b(esp_wifi_init|esp_wifi_start|nvs_flash_init|nvs_set_blob|nvs_set_u32)\b',symbols):raise ValueError('Unexpected WiFi activation or NVS write dependency')
-  if '-DV12_LORA_FORCED_OFF=1' not in compiler['command']:raise ValueError('LoRa disabled boundary missing')
-  identity=json.loads((target/'v12_build_identity.json').read_text());r.update(runtime_identity=identity,application='target/ptob_w12.bin',application_sha256=sha(image),application_bytes=image.stat().st_size,artifacts={str(q.relative_to(out)):sha(q) for q in out.rglob('*') if q.is_file() and (q.suffix in ['.bin','.elf','.map','.su'] or q.name in ['sdkconfig','compile_commands.json','v12_build_identity.json','r2-enrollment.h','ptob_device.h','ptob_registry.h','enrollment.json','device.json','registry.json','registry_generator.py','w12_fine_config.h'])},status='DEVELOPMENT_NOT_FLASHABLE' if dirty else 'BUILD_COMPLETE_PHYSICAL_UNKNOWN')
+  validate_dual_compilation(r,json.loads((target/'compile_commands.json').read_text()))
+  identity=json.loads((target/'v12_build_identity.json').read_text());r.update(runtime_identity=identity,application='target/ptob_w12.bin',application_sha256=sha(image),application_bytes=image.stat().st_size,artifacts={str(q.relative_to(out)):sha(q) for q in out.rglob('*') if q.is_file() and (q.suffix in ['.bin','.elf','.map','.su'] or q.name in ['sdkconfig','compile_commands.json','v12_build_identity.json','r2-enrollment.h','ptob_device.h','ptob_registry.h','enrollment.json','device.json','registry.json','registry_generator.py','w12_fine_config.h','w12_lora_config.h'])},status='DEVELOPMENT_NOT_FLASHABLE' if dirty else 'BUILD_COMPLETE_PHYSICAL_UNKNOWN')
   from stack_budget import check as check_main_stack
   r['main_stack_budget']=check_main_stack(out)
   r['compiled_sources']={}
   for row in json.loads((target/'compile_commands.json').read_text()):
    q=Path(row['file']).resolve()
-   for prefix,base in [('sdk',sdk),('app',APP),('generated',out)]:
+   for prefix,base in [('sdk',sdk),('app',APP),('generated',out),*([('radiolib',a.radiolib.resolve())] if a.radiolib else [])]:
     if q.is_relative_to(base):r['compiled_sources'][prefix+'/'+str(q.relative_to(base))]=sha(q);break
    else:raise ValueError('Unexpected compiled source')
+  if a.radiolib:
+   verify_radio(a.radiolib.resolve(),lock)
+   for q in a.radiolib.resolve().rglob('*'):
+    if q.is_file() and '.git' not in q.parts:
+     dest=out/'dependencies/RadioLib'/q.relative_to(a.radiolib.resolve());dest.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(q,dest)
+   r['radiolib_sources']={str(q.relative_to(out/'dependencies/RadioLib')):sha(q) for q in (out/'dependencies/RadioLib').rglob('*') if q.is_file()}
   dump(out/'receipt.json',r)
   from inspect_build import inspect
   dump(out/'inspection.json',inspect(out,allow_development=a.development))

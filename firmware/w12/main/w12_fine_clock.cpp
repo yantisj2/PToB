@@ -25,6 +25,7 @@ w12::fine::Counter counter;
 w12::fine::Receiver receiver;
 bool timer_enabled=false,timer_started=false,enabled[3]{},active=false,pad_owned=false;
 int error=0;
+bool lora_active=false,lora_borrowed=false;W12LoRaCapture callback=nullptr;
 uint32_t sequence=0,burst=0;
 uint64_t burst_at=0;
 W12FineStatus stats{};
@@ -41,13 +42,13 @@ void capture_off(){
   mcpwm_ll_capture_enable_channel(d,0,false);
   mcpwm_ll_capture_enable_channel(d,1,false);
 }
-void contain(){active=false;capture_off();if(pad_owned)pad_off();}
+void contain(){active=false;lora_active=false;capture_off();if(pad_owned)pad_off();}
 // Bounded pinned-driver CURRENT latch. CH2 has no registered ISR.
 bool latch(uint32_t& raw){
   if(!timer_enabled||!timer_started||!enabled[2]||
      timer->fsm!=MCPWM_CAP_TIMER_FSM_ENABLE||channels[2]->fsm!=MCPWM_CAP_CHAN_FSM_ENABLE)return false;
   auto* d=timer->group->hal.dev;
-  if(!d->cap_timer_cfg.cap_timer_en||(d->int_ena.val&CurrentMask)||d->cap_chn_cfg[1].capn_en)return false;
+  if(!d->cap_timer_cfg.cap_timer_en||(d->int_ena.val&CurrentMask)||(!lora_borrowed&&d->cap_chn_cfg[1].capn_en))return false;
   const auto start=esp_cpu_get_cycle_count();
   d->int_clr.val=CurrentMask;
   unsigned n=0;for(;n<128;++n)if(!(d->int_raw.val&CurrentMask))break;
@@ -67,7 +68,7 @@ bool pending_ok(){
   // Read pending values before CURRENT: a capture can occur during the latch.
   uint32_t raw=0;if(pending&(1u<<27))raw=mcpwm_ll_capture_get_value(d,0);
   w12::fine::Time now{},edge{};
-  return !(pending&(1u<<28))&&current(now)&&
+  return (lora_borrowed||!(pending&(1u<<28)))&&current(now)&&
     (!(pending&(1u<<27))||(counter.event(1,raw,edge)&&receiver.pending(edge.raw80)));
 }
 bool on_edge(mcpwm_cap_channel_handle_t,const mcpwm_capture_event_data_t* value,void*){
@@ -86,6 +87,15 @@ bool on_edge(mcpwm_cap_channel_handle_t,const mcpwm_capture_event_data_t* value,
     }
   }
   portEXIT_CRITICAL_ISR(&mux);return false;
+}
+bool on_lora(mcpwm_cap_channel_handle_t,const mcpwm_capture_event_data_t* value,void*){
+  uint64_t tick=0;W12LoRaCapture deliver=nullptr;
+  portENTER_CRITICAL_ISR(&mux);
+  w12::fine::Time anchor{},edge{};
+  if(active&&lora_active&&value&&current(anchor)&&counter.event(1,value->cap_value,edge)&&receiver.coordinate(edge.raw80,0,tick))deliver=callback;
+  else if(active&&lora_active){error=-13;contain();}
+  portEXIT_CRITICAL_ISR(&mux);
+  return deliver?deliver(tick):false;
 }
 bool route(){
   // Claim before the first mutating call so every partial failure retires it.
@@ -109,13 +119,15 @@ bool start(uint64_t now){
      mcpwm_capture_timer_get_resolution(timer,&hz)!=ESP_OK||hz!=80000000||timer->group->group_id!=1)return false;
   for(unsigned i=0;i<3;++i){
     mcpwm_capture_channel_config_t ch{};ch.gpio_num=-1;ch.prescale=1;
-    ch.flags.pos_edge=ch.flags.neg_edge=i==0;
+    ch.flags.pos_edge=i<2;ch.flags.neg_edge=i==0;
     if(mcpwm_new_capture_channel(timer,&ch,&channels[i])!=ESP_OK||
        channels[i]->cap_chan_id!=int(i)||channels[i]->cap_timer!=timer)return false;
     esp_rom_gpio_connect_in_signal(GPIO_MATRIX_CONST_ZERO_INPUT,mcpwm_periph_signals.groups[1].captures[i].cap_sig,false);
   }
   const mcpwm_capture_event_callbacks_t cb={.on_cap=on_edge};
   if(mcpwm_capture_channel_register_event_callbacks(channels[0],&cb,nullptr)!=ESP_OK)return false;
+  const mcpwm_capture_event_callbacks_t lc={.on_cap=on_lora};
+  if(mcpwm_capture_channel_register_event_callbacks(channels[1],&lc,nullptr)!=ESP_OK)return false;
   capture_off();
   if(mcpwm_capture_timer_enable(timer)!=ESP_OK)return false;
   timer_enabled=true;
@@ -131,7 +143,7 @@ bool start(uint64_t now){
   auto* d=timer->group->hal.dev;d->int_clr.val=RadioMask;
   unsigned n=0;for(;n<128;++n)if(!(d->int_raw.val&RadioMask))break;
   if(n==128)return false;
-  // CH1 is reserved but has no GPIO, callback, interrupt or enable.
+  // CH1 remains disabled until the LoRa owner borrows it; group0 is GNSS only.
   mcpwm_ll_intr_enable(d,RadioMask,true);
   d->int_ena.val&=~(UINT32_C(1)<<28);
   if((d->int_ena.val&RadioMask)!=(UINT32_C(1)<<27))return false;
@@ -159,12 +171,13 @@ int w12_fine_receive(v12::periodic_rx::Stamp& stamp){
   const bool live=active&&!error&&pending_ok()&&current(t);
   if(!live){if(active){error=-3;contain();}}
   else if(stamp.actual&&stamp.association_observed&&stamp.radio_reference_applied){
-    // GR3/direct159 is deliberately descriptor-only on the SAME counter.
+    // Legacy PDU159 remains descriptor-only on the SAME counter.
+    // Current GR3 and RC7 PDU191 both use the empirical fine convention.
     // Its packet class has no reviewed fine phase convention. No guessed bias.
     if(stamp.phy==0&&stamp.pdu_length==159&&stamp.ext_header==0){inc(stats.direct);outcome=2;}
     else {
       const auto result=receiver.claim(stamp.raw_tick20(),stamp.map_enclosure_ns,stamp.phy,stamp.pdu_length,
-        stamp.ext_header,stamp.epoch,stamp.sequence,t.raw80,(timer->group->hal.dev->int_raw.val>>27)&3,found);
+        stamp.ext_header,stamp.epoch,stamp.sequence,t.raw80,(timer->group->hal.dev->int_raw.val>>27)&1,found);
       if(result==w12::fine::Receiver::Result::Pending){inc(stats.pending);outcome=1;}
       else if(result==w12::fine::Receiver::Result::Ready){
         uint64_t tick=0,available=0;uint32_t guard=UINT32_MAX;
@@ -219,4 +232,33 @@ bool w12_fine_fault(){
 W12FineStatus w12_fine_status(){
   portENTER_CRITICAL(&mux);auto result=stats;result.active=active;result.error=error;
   portEXIT_CRITICAL(&mux);return result;
+}
+
+bool w12_fine_lora_start(W12LoRaCapture cb){
+ if(!cb)return false;
+ portENTER_CRITICAL(&mux);
+ if(!active||error||lora_borrowed||enabled[1]){portEXIT_CRITICAL(&mux);return false;}
+ callback=cb;lora_active=lora_borrowed=true;
+ esp_rom_gpio_connect_in_signal(7,mcpwm_periph_signals.groups[1].captures[1].cap_sig,false);
+ timer->group->hal.dev->int_clr.val=UINT32_C(1)<<28;
+ mcpwm_ll_intr_enable(timer->group->hal.dev,UINT32_C(1)<<28,true);
+ portEXIT_CRITICAL(&mux);
+ const bool ok=mcpwm_capture_channel_enable(channels[1])==ESP_OK;
+ portENTER_CRITICAL(&mux);enabled[1]=ok;if(!ok){lora_active=false;callback=nullptr;}
+ portEXIT_CRITICAL(&mux);return ok;
+}
+bool w12_fine_lora_stop(){
+ portENTER_CRITICAL(&mux);lora_active=false;callback=nullptr;portEXIT_CRITICAL(&mux);
+ bool ok=true;
+ if(enabled[1]){ok=mcpwm_capture_channel_disable(channels[1])==ESP_OK;if(ok)enabled[1]=false;}
+ portENTER_CRITICAL(&mux);
+ if(timer){
+  auto* d=timer->group->hal.dev;mcpwm_ll_intr_enable(d,UINT32_C(1)<<28,false);
+  esp_rom_gpio_connect_in_signal(GPIO_MATRIX_CONST_ZERO_INPUT,mcpwm_periph_signals.groups[1].captures[1].cap_sig,false);
+  d->int_clr.val=UINT32_C(1)<<28;
+  unsigned tries=0;for(;tries<128;++tries)if(!(d->int_raw.val&(UINT32_C(1)<<28)))break;
+  ok=ok&&tries<128;
+ }
+ if(ok)lora_borrowed=false;
+ portEXIT_CRITICAL(&mux);return ok;
 }

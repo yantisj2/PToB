@@ -484,7 +484,7 @@ enrollment/registry. `--estimated-relay` remains an independent explicit option.
 BLE50 and `--gnss-fast-map-diagnostic` are refused with this profile. Omitting
 the flag preserves the legacy GPTimer backend and its 1 µs fine-slew threshold.
 
-The fixed W12 route connects RW_RX_ON238 through **GPIO16** into MCPWM group1,
+The fixed W12 route connects RW_RX_ON238 through **GPIO16** into MCPWM group 1,
 channel0. Channel2 supplies bounded software CURRENT captures; channel1 stays
 reserved, disabled and disconnected. There is no TX output or arbitrary pin
 override. GPIO4 controls a PA rail and GPIO5 reaches the display interface, so
@@ -495,22 +495,22 @@ GNSS and LR2021 routes. Confirm the actual board revision and absence of externa
 loads on IO16 before any separately authorized installation. A schematic and
 successful build do not verify an assembled unit's wiring.
 
-The entire delivered clock uses one fixed group1 origin at 80 MHz, rescaled to
+The entire delivered clock uses one fixed group 1 origin at 80 MHz, rescaled to
 the existing 20 MHz coordinate with nearest-50 ns rounding (ties upward).
 RX, current time, Bluetooth brackets, fitted maps, UI and estimated-TX
 projections share that origin. A failed, stopped, stale, wrongly clocked or
 late-event counter withdraws availability; it cannot substitute GPTimer ticks.
-GNSS retains its group0 capture owner and maps into this selected production
+GNSS retains its group 0 capture owner and maps into this selected production
 coordinate. MCPWM private ABI/driver/register hashes are pinned and verified.
 
-For BLE1M, PDU191/ext0 relay packets, one unique rising/falling pair is required
+For BLE1M, PDU191/ext0 current GR3 or RC7 packets, one unique rising/falling pair is required
 inside the immutable descriptor-located search interval. Missing, ambiguous,
 overwritten and unsupported observations are refused. The falling capture
 minus **1568 µs** is an explicit experimental phase convention inherited from
 N30's matching packet class, **not a W12 RF endpoint calibration**. The original
 coarse enclosure plus actual coordinate displacement still guards source life;
-it is not an RF accuracy bound. Direct GR3 PDU159/ext0 packets retain their
-descriptor phase on the same group1 origin: no fine phase convention has been
+it is not an RF accuracy bound. Legacy PDU159/ext0 packets retain their
+descriptor phase on the same group 1 origin: no fine phase convention has been
 qualified for that packet class. Other classes cannot silently inherit one.
 
 The profile also retains all 16 Hz fit opportunities in the bounded 64-point
@@ -541,8 +541,68 @@ ordinary G1 host runner tests both legacy and fine clock fitting. Native builds
 retain selected main/NimBLE stack checks. These checks do not establish W12
 sub-2 µs accuracy, RF marker semantics, calibrated relay output or UTC accuracy.
 
-Phase two remains separate: port N30's independent BLE/LoRa clocks and 180 s
-loss/recovery AUTO policy to W12's LR2021. It needs its own authenticated RC8
-receiver, radio/IRQ timing route, shared group0 resource design with optional
-GNSS, bounded OFF acknowledgement and interoperability checks. LoRa remains
-compiled OFF in the fine-clock images; N30's SX1262 driver is not reused.
+## Optional LR2021 dual timing and screens
+
+The 0.2.0 receiver borrows group 1 CH1 for the LR2021 DIO11 signal on W12
+GPIO7. BLE RX remains on CH0/GPIO16 and CURRENT on CH2. LoRa shares the fixed
+80 MHz counter, so no software arrival timestamp or asynchronous counter map is
+substituted. GNSS keeps its group 0 timer, RX39/PPS41 and existing power/input
+profile. LoRa OFF disconnects only CH1 and leaves the BLE counter alive.
+Maintenance stops every consumer before retiring that counter.
+
+Acquire the public MIT RadioLib 7.8.1 pin explicitly, then add both options to
+the ordinary fine-clock build command:
+
+```sh
+python3 firmware/w12/tools/radio_dependencies.py --dest artifacts/radiolib-7.8.1
+# Add to the existing build invocation, using an exact enrolled registry identity:
+# --fine-clock --radiolib artifacts/radiolib-7.8.1 \
+# --lora-transmitter-factory <exact-16-hex-T096-factory>
+```
+
+Zero transmitter identity is the default and compiles the radio OFF. A nonzero
+identity requires the pinned dependency and fine clock. The generated header
+binds that factory, receiver identity and existing group enrollment into the
+runtime build ID. Never select a transmitter from an unverified alias. The
+image retains the public dependency source and license in its ignored artifact;
+there is no private dependency or implicit download during compilation.
+
+The fixed RX modem is 915MHz, SF10/BW500/CR4/6, preamble 12, explicit header,
+CRC 2, private sync 0x12, matching RC8 wire3. The HAL refuses SetTx, TX test and
+automatic RX/TX commands. Actual RX_DONE capture precedes FIFO processing;
+authentication, replay, companion/context and original source deadlines remain
+those of the selected portable T096 policy. Chipset delay and total RF/UTC
+uncertainty remain unknown. RC8 link RMS describes fitted relative observations.
+
+AUTO uses N30's 180 s accumulated lock-loss and180 s continuous lock-recovery
+policy. A fresh actual BLE precision lock takes display priority. KEEP ON/OFF
+can be selected by holding 1.5 s on the LoRa page; settings reset on reboot.
+Tap navigates Clock, Precision and LoRa. Precision's SYNC RMS is the live BLE
+causal metric; TRIM is software-clock steering, not N30's display-only REL
+residual trend. GNSS indicators and the Clock-page relay control are preserved.
+The existing GPS diagnostic page remains accessible by bound `ui page 14`.
+
+Fresh ticket-bound commands `lora auto`, `lora on`, `lora off`, and
+`ui page 0`, `ui page 16`, `ui page 9` provide equivalent volatile controls.
+Normal framed status keeps its 9 body rows,8704 byte whole limit and original
+1.5 s response deadline. LoRa builds omit seven historical discovery counters
+from the R2 row to accommodate current LoRa state/UTC/capture error counters.
+All source, owner drain, fault and stop-generation checks remain.
+
+A separate 300 s no-time watchdog accepts fresh authenticated current BLE or RC8
+UTC until their original deadlines, regardless of UI page and precision lock.
+Retained HOLD, stale snapshots and GNSS packet receipt cannot reset it.
+Explicit OFF or maintenance disables only that source-loss timer. The 120 s
+continuous owner-fault watchdog and RTC restart evidence are preserved.
+
+```sh
+python3 firmware/w12/tools/sync_watchdog_tests.py --out artifacts/w12-sync-tests
+python3 firmware/w12/tools/lora_tests.py --idf artifacts/esp-idf --out artifacts/w12-lora-tests
+python3 firmware/w12/tools/status_budget_test.py --rc7-estimate --lora
+```
+
+These host checks exercise actual policy/codec/HMAC, replay/expiry,180 s modes,
+300 s supervisor/reset boundaries, capture coexistence, owner cancellation, DMA
+failure retention and TX refusal. Native builds use the pinned real RadioLib;
+the owner fixture uses a synthetic RadioLib call boundary. These are separate
+from actual RF interoperability and independently measured clock accuracy.

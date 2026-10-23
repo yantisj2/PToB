@@ -7,7 +7,7 @@ RC role. [Image provenance](../../docs/images/README.md).*
 
 Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
 
-**PToB owns W12 native G1/RC7 development.** Current version **0.1.23** supports
+**PToB owns W12 native G1/RC7 development.** Current version **0.2.0** supports
 **RC**: a BLE50 client or BLE100 receiver with an optional experimental
 estimated-TX relay. It receives from the shared T096/W12/StickS3 mesh; it has no
 GM profile or USB timing stream. Start with the
@@ -35,17 +35,36 @@ The explicit Meshnology W12 L76K profile enables verified GNSS inputs and
 PPS/fix indicators; GNSS is disabled by default and does not discipline the BLE
 clock. Bounded production G1 PPS diagnostics distinguish local clock mapping,
 relative phase, output correction and source permission. The optional fast
-counter-map diagnostic defaults off. LoRa, WiFi, PTS and donor correction
-experiments are excluded.
+counter-map diagnostic defaults off. WiFi, PTS and donor correction experiments are excluded. Optional LR2021
+LoRa timing is a separate authenticated passive RC8 receiver; it does not
+train or publish through the BLE clock.
 
 The optional `--fine-clock` BLE100 test profile ports N30's continuous 80 MHz
 counter, capture-frozen dense fitting and 1 ppm phase slew below 2 µs. Its W12
 route uses **GPIO16 for RX only**, with no TX pad; N30's GPIO4/5 route conflicts
-with W12 board functions. Supported relay packets use an experimental captured
-RW falling-edge phase convention; direct-GM packets retain descriptor timing
+with W12 board functions. Current GR3 and RC7 PDU191 packets use an experimental captured
+RW falling-edge phase convention; legacy PDU159 packets retain descriptor timing
 on the same counter. Counter ticks are 12.5 ns and delivered coordinates round
-to 50 ns. This has no W12 hardware validation or transferred N30 calibration.
+to 50 ns. RF and UTC bounds remain unknown; N30 calibration is not transferred.
 See the [fine-clock test profile](../../docs/w12/build.md#fine-clock-test-profile).
+
+Version 0.2.0 adds the N30 fallback policy: AUTO starts LoRa RX after 180 s of
+accumulated loss of actual BLE precision lock, then stops RX after 180 s of
+continuous recovered lock. KEEP ON and KEEP OFF are volatile overrides. A fresh
+RC8 UTC snapshot can supply the clock display when BLE lacks lock; BLE fitting,
+source permissions and relay publication remain independent. Radio TX is blocked.
+
+Tap cycles **Clock → Precision → LoRa → Clock**. Precision shows live causal
+SYNC RMS, the relative-lock timer, clock steering in PPB and the selected counter
+resolution. These are internal clock diagnostics, not independent UTC accuracy.
+Hold the LoRa page for 1.5 s to change its RX mode; the Clock-page relay gesture
+is preserved. The GNSS route and indicators remain available on configured units.
+
+A separate watchdog restarts after **300 s of continuous failure to obtain valid
+synchronized UTC** from either current authenticated BLE or LoRa. Fresh time clears
+that timer; stale snapshots, retained HOLD and precision lock alone cannot feed it.
+Explicit receiver OFF and maintenance suspend the no-time timer. Existing 120 s
+continuous owner-fault supervision is retained.
 
 Relay-path offsets and intermittent timing loss remain under investigation.
 Estimated TX has unknown RF/UTC bounds; a local OLED HOLD estimate grants no

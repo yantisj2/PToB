@@ -201,7 +201,7 @@ void header(const DisplayState& s){
  indicator_box(indicator_bits(s.pps_blink,s.d1_rx,s.d2_rx));
  static const char* const titles[display_pages::Count]={"LOCKING","REL PREC","HOLD/GM",
   "CLK PPB","BLE RX","PTS RX","PKT LOSS","RX QUAL","TIME NET","LORA RX",
-  "SOURCES","C4 DIAG","PTS FTM","SYSTEM","GPS / PPS"};
+  "SOURCES","C4 DIAG","PTS FTM","SYSTEM","GPS / PPS","PRECISION"};
  const unsigned page=s.page%display_pages::Count;
  if(s.r2_dashboard && !page){
   italic_text(1,8,"Sub-1us");
@@ -210,7 +210,7 @@ void header(const DisplayState& s){
  else if(s.copy_profile && !page)text(1,8,s.valid?(s.gps_source?"GPS UTC":"UTC"):"WAIT UTC");
  else if(s.basic_profile && !page)text(1,8,"BASIC UTC");
  else if(s.basic_profile){
-  static const char* const basic_titles[display_pages::Count]={"BASIC","REL TIME","HOLD/GATE","LOCAL CLK","BLE RX","PTS","PACKETS","RX QUAL","NETWORK","LORA","SOURCES","DIAG","PTS FTM","SYSTEM","GPS / PPS"};
+  static const char* const basic_titles[display_pages::Count]={"BASIC","REL TIME","HOLD/GATE","LOCAL CLK","BLE RX","PTS","PACKETS","RX QUAL","NETWORK","LORA","SOURCES","DIAG","PTS FTM","SYSTEM","GPS / PPS","PRECISION"};
   text(1,8,basic_titles[page]);
  }
  else if(!page && s.timing_source==DisplayState::Pts)
@@ -740,6 +740,33 @@ void page_gps(const DisplayState& s){
  field(44,"MAP RMS",n);
  field(53,"BLE FIT","SEPARATE");
 }
+#ifdef PTOB_W12_DUAL_UI
+void page_precision(const DisplayState& s){
+ char n[28];text(2,17,"SYNC RMS");text(86,17,s.precision_fine?"12.5ns":"50ns");
+ if(s.precision_live&&s.rms_ns!=UINT32_MAX){
+  const auto divisor=s.rms_ns>=1000000?1000000:s.rms_ns>=10000?1000:1;
+  std::snprintf(n,sizeof n,"%lu %s",(unsigned long)(s.rms_ns/divisor),divisor==1?"ns":divisor==1000?"us":"ms");
+ }else std::snprintf(n,sizeof n,"-- ns");
+ text(2,27,n,2);
+ std::snprintf(n,sizeof n,"LOCK %02llu:%02u:%02u",(unsigned long long)(s.r2_lock_seconds/3600),unsigned(s.r2_lock_seconds/60%60),unsigned(s.r2_lock_seconds%60));text(2,45,n);
+ if(s.precision_live)std::snprintf(n,sizeof n,"TRIM %+ldPPB",(long)s.precision_rate_ppb);else std::snprintf(n,sizeof n,"TRIM --PPB");text(2,55,n);
+ text(92,55,s.precision_fine?"80MHz":"20MHz");
+}
+void page_w12_lora(const DisplayState& s){
+ char n[28];const char* mode=s.lora_mode==1?"KEEP ON":s.lora_mode==2?"KEEP OFF":"AUTO";
+ std::snprintf(n,sizeof n,"RX %s",mode);text(2,17,n);
+ text(2,27,s.lora_fault?"FAULT":s.lora_active?"ON":"OFF",2);
+ if(!s.lora_configured)text(44,31,"NO TX ID");
+ else if(s.lora_time_valid)text(44,31,"UTC LIVE");
+ else if(s.lora_transition_ms&&s.lora_mode==0&&!s.lora_fault){std::snprintf(n,sizeof n,"%lus",(unsigned long)((s.lora_transition_ms+999)/1000));text(72,31,n);}
+ else if(!s.lora_fault)text(44,31,s.lora_active?"WAIT SYNC":"STANDBY");
+ if(s.lora_time_valid&&s.lora_link_rms_ns!=UINT32_MAX){
+  std::snprintf(n,sizeof n,"OK %lu LINK %lu%s",(unsigned long)s.lora_accepted,(unsigned long)(s.lora_link_rms_ns/(s.lora_link_rms_ns>=1000?1000:1)),s.lora_link_rms_ns>=1000?"us":"ns");
+ }else std::snprintf(n,sizeof n,"OK %lu LINK --",(unsigned long)s.lora_accepted);
+ text(2,45,n);
+ text(2,55,"HOLD: RX MODE");
+}
+#endif
 void display_show(const DisplayState& s){
 #ifndef W12_DISPLAY_PREVIEW
  if(!oled)return;
@@ -763,7 +790,16 @@ void display_show(const DisplayState& s){
   case display_pages::Packets:page_packets(s);break;
   case display_pages::Quality:page_quality(s);break;
   case display_pages::Network:if constexpr(!g1_only)page_network(s);break;
-  case display_pages::LoraRx:if constexpr(!g1_only)page_lora(s);break;
+  case display_pages::LoraRx:
+#ifdef PTOB_W12_DUAL_UI
+   page_w12_lora(s);
+#else
+   if constexpr(!g1_only)page_lora(s);
+#endif
+   break;
+#ifdef PTOB_W12_DUAL_UI
+  case display_pages::Precision:page_precision(s);break;
+#endif
   case display_pages::Sources:if constexpr(!g1_only)page_sources(s);break;
   case display_pages::System:page_system(s);break;
   case display_pages::Gps:page_gps(s);break;

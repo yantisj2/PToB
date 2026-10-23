@@ -4,6 +4,10 @@
 #include "bounded_log.hpp"
 #include "public_observer.hpp"
 #include "native_lora.hpp"
+#ifdef PTOB_W12_LORA_RX
+#include "w12_lora.hpp"
+#include "w12_lora_config.h"
+#endif
 #include "native_direct.hpp"
 #include "native_diagnostic_tx.hpp"
 #ifdef V12_R2_ENABLED
@@ -25,6 +29,9 @@
 #endif
 #include "update_gate.hpp"
 #include "fault_watchdog.hpp"
+#ifdef PTOB_W12_SYNC_WATCHDOG
+#include "sync_watchdog.hpp"
+#endif
 #include "driver/gptimer.h"
 #include "s3_clock_reference.h"
 #ifdef PTOB_W12_FINE_CLOCK
@@ -196,9 +203,11 @@ void pps(const gnss_pps::Observation& edge){
     " join_accepts=%" PRIu32 " join_rejected=%" PRIu32 " join_busy=%" PRIu32
     " client_capabilities=%u client_control=%u g1_connection_owner_revision=3 g1_pending_disconnects=%" PRIu32 " g1_pending_link_teardowns=%" PRIu32
     " g1_cancel_calls=%" PRIu32 " g1_cancel_rc=%" PRId32 " g1_sdk_connect_pending=%u g1_last_disconnect_reason=%" PRId32 " g1_last_disconnect_at_us=%"
-    PRIu64 " g1_discovery_diagnostic_revision=1 g1_adv_callbacks=%" PRIu32 " g1_adv_incomplete=%" PRIu32 " g1_adv_long=%" PRIu32 " g1_adv_nonrandom=%"
-    PRIu32 " g1_discovery_checked=%" PRIu32 " g1_group_records=%" PRIu32 " g1_sdk_scan_active=%u g1_last_adv_at_us=%" PRIu64 " g1_last_group_id=%016"
-    PRIx64 " g1_last_key_epoch=%" PRIu32 " g1_last_group_at_us=%" PRIu64 " root_boot=%016" PRIx64 " root_identity=%016" PRIx64 " source_epoch=%"
+    PRIu64 " g1_discovery_diagnostic_revision=1 g1_adv_callbacks=%" PRIu32
+#ifndef PTOB_W12_LORA_RX
+    " g1_adv_incomplete=%" PRIu32 " g1_adv_long=%" PRIu32 " g1_adv_nonrandom=%" PRIu32 " g1_discovery_checked=%" PRIu32 " g1_group_records=%" PRIu32 " g1_last_adv_at_us=%" PRIu64 " g1_last_group_at_us=%" PRIu64
+#endif
+    " g1_sdk_scan_active=%u g1_last_group_id=%016" PRIx64 " g1_last_key_epoch=%" PRIu32 " root_boot=%016" PRIx64 " root_identity=%016" PRIx64 " source_epoch=%"
     PRIu32 " publication=%" PRIu32 " service_until_us=%" PRIu64
     " peer_mtu_min=%u precision_interval_units=%u precision_hz=%u schedule_descriptor=%016" PRIx64 " link_diagnostics_version=2 peer_losses=%" PRIu32
     " setup_retries=%" PRIu32 " last_api=%u last_api_rc=%" PRId32 " last_api_peer=%u last_api_at_us=%" PRIu64
@@ -225,8 +234,11 @@ void pps(const gnss_pps::Observation& edge){
     V12_R2_PROFILE,V12_R2_ENROLLMENT_SHA,unsigned(mesh.self),unsigned(mesh.mode),unsigned(mesh.requested),unsigned(mesh.scan),unsigned(mesh.advertising),unsigned(mesh.sync_pending),unsigned(mesh.synced),unsigned(mesh.connecting),mesh.connections,unsigned(mesh.owner_busy),
     unsigned(mesh.off_ack),unsigned(mesh.fault),unsigned(mesh.coordinator),unsigned(mesh.root),unsigned(mesh.standby),unsigned(mesh.members),unsigned(mesh.role),unsigned(mesh.serving),unsigned(mesh.following),unsigned(mesh.source),unsigned(mesh.boot_client),unsigned(mesh.boot_client_attempted),
     unsigned(mesh.boot_client_cancelled),unsigned(mesh.group_member),mesh.group_id,mesh.key_epoch,mesh.client_identity,mesh.joined_peer,mesh.joined_boot,mesh.join_attempts,mesh.join_accepts,mesh.join_rejected,mesh.join_busy,unsigned(mesh.client_capabilities),
-    unsigned(mesh.client_control),mesh.g1_pending_disconnects,mesh.g1_pending_link_teardowns,mesh.g1_cancel_calls,mesh.g1_cancel_rc,unsigned(mesh.g1_sdk_connect_pending),mesh.g1_last_disconnect_reason,mesh.g1_last_disconnect_at_us,mesh.g1_adv_callbacks,mesh.g1_adv_incomplete,mesh.g1_adv_long,mesh.g1_adv_nonrandom,
-    mesh.g1_discovery_checked,mesh.g1_group_records,unsigned(mesh.g1_sdk_scan_active),mesh.g1_last_adv_at_us,mesh.g1_last_group_id,mesh.g1_last_key_epoch,mesh.g1_last_group_at_us,mesh.root_boot,mesh.root_identity,mesh.source_epoch,mesh.publication,mesh.service_until_us,
+    unsigned(mesh.client_control),mesh.g1_pending_disconnects,mesh.g1_pending_link_teardowns,mesh.g1_cancel_calls,mesh.g1_cancel_rc,unsigned(mesh.g1_sdk_connect_pending),mesh.g1_last_disconnect_reason,mesh.g1_last_disconnect_at_us,mesh.g1_adv_callbacks,
+#ifndef PTOB_W12_LORA_RX
+    mesh.g1_adv_incomplete,mesh.g1_adv_long,mesh.g1_adv_nonrandom,mesh.g1_discovery_checked,mesh.g1_group_records,mesh.g1_last_adv_at_us,mesh.g1_last_group_at_us,
+#endif
+    unsigned(mesh.g1_sdk_scan_active),mesh.g1_last_group_id,mesh.g1_last_key_epoch,mesh.root_boot,mesh.root_identity,mesh.source_epoch,mesh.publication,mesh.service_until_us,
     unsigned(mesh.peer_mtu_min),unsigned(mesh.precision_interval_units),unsigned(mesh.precision_hz),mesh.schedule_descriptor,mesh.peer_losses,mesh.setup_retries,unsigned(mesh.last_api),mesh.last_api_rc,unsigned(mesh.last_api_peer),mesh.last_api_at_us,unsigned(mesh.link_mask),unsigned(mesh.gatt_mask),
     unsigned(mesh.first_error_api),mesh.first_error_rc,mesh.first_error_at_us,mesh.scan_retry_deadline_us,mesh.adv_retry_deadline_us,mesh.drops,mesh.discoveries,mesh.pa_reports,mesh.p1_authenticated,mesh.p1_refused,mesh.api_errors,unsigned(mesh.lease.deadline_exceeded),
     mesh.lease.stop_generation,mesh.lease.stop_completed,mesh.client.generation,mesh.client.request_id,unsigned(mesh.client.pending),unsigned(mesh.client.running),unsigned(mesh.client.stopping),mesh.client.admitted_us,mesh.client.start_deadline_us,mesh.client.started_us,mesh.client.stop_requested_us,mesh.client.stop_deadline_us,
@@ -295,9 +307,7 @@ void pps(const gnss_pps::Observation& edge){
     " console_work_us=%" PRIu64 " console_max_us=%" PRIu32 " commands_rejected=%" PRIu32
     " rx_generation=%" PRIu32 " rx_id=%016" PRIx64 " rx_admitted_us=%" PRIu64 " rx_deadline_us=%" PRIu64
     " rx_started_us=%" PRIu64 " rx_completed_us=%" PRIu64 " rx_stop_generation=%" PRIu32 " rx_stop_completed=%" PRIu32 " rx_deadline_exceeded=%u"
-    " timestamp=TASK_DIAGNOSTIC physical_capture=UNSUPPORTED event_counter=UNSUPPORTED"
-    " payload_binding=UNSUPPORTED phase=UNSUPPORTED RF_listening=UNKNOWN RF_quiet=UNKNOWN"
-    " authority=NONE precision=UNAVAILABLE LoRa_transport=SEPARATE WiFi=OFF PTS=OFF"
+    " authority=NONE precision=UNAVAILABLE WiFi=OFF PTS=OFF"
     " ui_page=%u ui_ready=%u ui_valid=%u ui_utc=%" PRIu32 " ui_state=%s ui_follow=%s"
     " ui_hold_percentile=%u ui_hold_ms=%" PRIu32 " ui_hold_samples=%" PRIu32 " ui_rms_ns=%" PRIu32 "\n",
     factory_text,session,V12_SOURCE_REVISION,V12_BUILD_ID,begin,unsigned(s.client.mode),unsigned(s.client.state),
@@ -324,9 +334,15 @@ void pps(const gnss_pps::Observation& edge){
     unsigned(gps_ready),unsigned(gps.valid),physical_pps,gps.ns,gps.pps_age_ticks,gps.rmc_age_ticks,gps.map_bracket_ns,gps_activity.packets,unsigned(gps_activity.fix),unsigned(ui_gps_lamps),gnss_pps::aid_state());
 #endif
 #if defined(V12_R2_ENABLED) && V12_R2_CONFIG == 13
+#ifdef PTOB_W12_LORA_RX
+  w12_lora_view lv;w12_lora_snapshot(lv);
+  response.format("W12_V12_LORA_STATUS enabled=%u initialized=%u failed=%u requested=%u worker_busy=%u off_ack=%u generation=%" PRIu32 " acknowledged_generation=%" PRIu32 " errors=%" PRIu32 " mode=%u state=%u rx=%" PRIu32 " accepted=%" PRIu32 " crc=%" PRIu32 " invalid=%" PRIu32 " error=%" PRId32 " stack=%" PRIu32 " rms_ns=%" PRIu32 " utc_us=%" PRIu64 " until_us=%" PRIu64 " TX=OFF RF=UNQUALIFIED\n",
+   unsigned(lora.enabled),unsigned(lora.initialized),unsigned(lora.failed),unsigned(lora.requested),unsigned(lora.worker_busy),unsigned(lora.off_acknowledged),lora.request_generation,lora.off_ack_generation,lora.radio_errors,unsigned(lv.mode),unsigned(lv.state),lv.rx_done,lv.accepted,lv.crc_bad,lv.invalid_capture,lv.error,lv.stack_unused,lv.link_rms_ns,lv.utc_us,lv.until_us);
+#else
   response.format("W12_V12_LORA_STATUS enabled=%u initialized=%u failed=%u requested=%u worker_busy=%u off_ack=%u"
     " generation=%" PRIu32 " acknowledged_generation=%" PRIu32 " errors=%" PRIu32 " TX=OFF RF=UNQUALIFIED\n",
     unsigned(lora.enabled),unsigned(lora.initialized),unsigned(lora.failed),unsigned(lora.requested),unsigned(lora.worker_busy),unsigned(lora.off_acknowledged),lora.request_generation,lora.off_ack_generation,lora.radio_errors);
+#endif
 #else
   response.format("W12_V12_LORA_STATUS enabled=%u initialized=%u failed=%u packets=%" PRIu32
     " requested=%u worker_busy=%u off_ack=%u generation=%" PRIu32 " acknowledged_generation=%" PRIu32 " crc=%" PRIu32 " malformed=%" PRIu32 " errors=%" PRIu32 " status=%d work_max_us=%" PRIu64
@@ -464,6 +480,26 @@ void pps(const gnss_pps::Observation& edge){
   ui_gps_lamps=uint8_t(lamps.pps)|(uint8_t(lamps.rx)<<1)|(uint8_t(lamps.tx)<<2);
 #endif
 #endif
+#ifdef PTOB_W12_DUAL_UI
+  state.precision_fine=
+#ifdef PTOB_W12_FINE_CLOCK
+   true;
+#else
+   false;
+#endif
+  state.precision_live=w12::synchronized_until(mesh,micros())!=0;
+  if(state.precision_live){state.precision_rate_ppb=int32_t(std::llround(mesh.g1_clock_model.rate));state.precision_phase_ns=mesh.g1_clock_model.phase;}
+#ifdef PTOB_W12_LORA_RX
+  w12_lora_view lv;w12_lora_snapshot(lv);uint64_t lora_utc=0;
+  state.lora_mode=lv.mode;state.lora_state=lv.state;state.lora_active=lv.active;state.lora_fault=lv.fault;
+  state.lora_configured=PTOB_W12_LORA_TX_FACTORY!=0;state.lora_transition_ms=lv.transition_remaining_ms;
+  state.lora_time_valid=w12::lora_time(lv,micros(),lora_utc);state.lora_link_rms_ns=lv.link_rms_ns;state.lora_accepted=lv.accepted;state.lora_crc=lv.crc_bad;
+  if(page!=display_pages::Precision&&!w12::ble_locked(mesh,micros())&&state.lora_time_valid){
+   state.valid=true;state.utc=uint32_t(lora_utc/1000000);state.timing_source=DisplayState::Lora;state.role="LORA";
+   state.followed_clock="LoRa";state.r2_root_clock=v12::R2Dashboard::name(lv.root);state.r2_relative_lock=false;state.rms_ns=UINT32_MAX;state.hold_1us_ms=0;
+  }
+#endif
+#endif
   std::snprintf(ui_follow,sizeof ui_follow,"%s",state.followed_clock);
   for(auto& ch:ui_follow)if(ch==' ')ch='_'; // Console V3 fields remain single tokens; the OLED keeps spaces.
   ui_state=state.role;ui_utc=state.utc;ui_valid=state.valid;
@@ -481,6 +517,9 @@ void pps(const gnss_pps::Observation& edge){
   display_show(state);
 }
 void stop_all(){
+#ifdef PTOB_W12_SYNC_WATCHDOG
+  v12::fault_watchdog_sync_progress(false,0);
+#endif
 #ifdef V12_R2_ENABLED
   v12::r2_stop();
 #endif
@@ -512,6 +551,18 @@ void command(const char* text){
     const bool ok=update_gate.begin(admitted);if(ok){stop_all();v12::capture_stop();}
     last_command={nonce,admitted,ok,"PREPARE_UPDATE",ok?"ORIGINAL_2S_DRAIN":"LATCHED_OR_EXHAUSTED"};
   }else if(update_gate.latched()){last_command.reason="UPDATE_GATE_LATCHED";}
+#ifdef PTOB_W12_DUAL_UI
+  else if(std::sscanf(action,"ui page %" SCNu32 " %c",&duration,&extra)==1){
+   const bool ok=duration==display_pages::Front||duration==display_pages::Precision||duration==display_pages::LoraRx||(gps_ready&&duration==display_pages::Gps);
+   if(ok){page=uint8_t(duration);last_ui=0;}last_command={nonce,admitted,ok,"UI_PAGE",ok?"VOLATILE_PAGE":"UNSUPPORTED_PAGE"};
+  }
+#endif
+#ifdef PTOB_W12_LORA_RX
+  else if(!std::strcmp(action,"lora auto")||!std::strcmp(action,"lora on")||!std::strcmp(action,"lora off")){
+   const bool ok=w12_lora_mode(!std::strcmp(action,"lora auto")?w12::LoRaMode::Auto:!std::strcmp(action,"lora on")?w12::LoRaMode::KeepOn:w12::LoRaMode::KeepOff);
+   last_command={nonce,admitted,ok,"LORA_RX",ok?"VOLATILE_RX_MODE":"OWNER_UNAVAILABLE"};
+  }
+#endif
 #ifdef V12_R2_RC7_TX_ESTIMATE_LAB
   else if(!std::strcmp(action,"watchdog-test")){
     const bool ok=v12::fault_watchdog_test();if(ok)stop_all();
@@ -670,6 +721,15 @@ void input(){
 #endif
 #ifdef V12_R2_ENABLED
   const auto mesh=v12::r2_status();
+#ifdef PTOB_W12_SYNC_WATCHDOG
+  #ifdef PTOB_W12_LORA_RX
+  const auto source_now=micros();w12_lora_control(w12::ble_locked(mesh,source_now),source_now,mesh.requested&&!mesh.fault&&!update_gate.latched());
+  w12_lora_view lora_time;w12_lora_snapshot(lora_time);
+  v12::fault_watchdog_sync_progress(mesh.requested&&!update_gate.latched(),w12::synchronized_until(mesh,lora_time,micros()));
+#else
+  v12::fault_watchdog_sync_progress(mesh.requested&&!update_gate.latched(),w12::synchronized_until(mesh,micros()));
+#endif
+#endif
   if(mesh.fault||mesh.client.deadline_exceeded||mesh.rx_capture.fault)mask|=v12::FaultR2;
   api=uint8_t(mesh.first_error_api);rc=mesh.first_error_rc;
   parent=mesh.rc_parent.target;relay=mesh.rc_parent.relay;
@@ -813,8 +873,8 @@ extern "C" void app_main(){
 #else
     const bool relay_dashboard=false;
 #endif
-    const auto edge=buttons.update(gpio_get_level(GPIO_NUM_0)==0,button_now,false,false,false,false,false,relay_dashboard);
-    const auto held=buttons.held(button_now,false,false,false,false,false,relay_dashboard);
+    const auto edge=buttons.update(gpio_get_level(GPIO_NUM_0)==0,button_now,page==display_pages::LoraRx,false,false,false,false,relay_dashboard);
+    const auto held=buttons.held(button_now,page==display_pages::LoraRx,false,false,false,false,relay_dashboard);
     const auto action=held!=ButtonInput::None?held:edge;
 #if defined(V12_R2_ENABLED) && V12_R2_CONFIG == 13
     if(action==ButtonInput::ToggleRelayOnly&&!update_gate.latched()){
@@ -822,13 +882,16 @@ extern "C" void app_main(){
       (void)v12::r2_set_relay_only(!radio.relay_only);
     }
 #endif
+#ifdef PTOB_W12_LORA_RX
+    if(action==ButtonInput::ToggleTx&&page==display_pages::LoraRx&&!update_gate.latched()){(void)w12_lora_cycle();last_ui=0;}
+#endif
     if(action==ButtonInput::NextPage){
 #ifdef V12_R2_ENABLED
       // The R2 client has one clock dashboard; diagnostics stay on serial.
 #ifdef V12_GPS_SHADOW_OBSERVER
       page=page==display_pages::Front?display_pages::Gps:display_pages::Front;
 #else
-      page=display_pages::Front;
+      page=page==display_pages::Front?display_pages::Precision:page==display_pages::Precision?display_pages::LoraRx:display_pages::Front;last_ui=0;
 #endif
 #else
       page=display_pages::next(page);
