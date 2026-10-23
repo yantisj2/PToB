@@ -774,7 +774,7 @@ static void install_role_status(const struct pt_output *out,uint64_t now,const s
  struct r2_role_record r=role_status;
  if(!r.sender||r.root!=out->scope.root_identity||r.root_boot!=out->scope.boot||r.source_epoch!=out->scope.source_epoch||
     now<r.created_us||now-r.created_us>=r.valid_us||(uint32_t)atomic_get(&role_sequence)==UINT32_MAX)return;
- /* GD replaces one nonprecision GS window per10s. Combined204B would exceed
+ /* Alternate GD/GS nonprecision windows. Combined204B would exceed
   * the unchanged191B controller ceiling. No new advertiser or HCI update. */
  uint8_t wire[R2_ROLE_AD_BYTES];size_t length=R2_ROLE_AD_BYTES;
  struct r2_gnss_record d=reference?*reference:(struct r2_gnss_record){0};
@@ -795,7 +795,7 @@ static void install_role_status(const struct pt_output *out,uint64_t now,const s
  r2_health_operation(R2_HEALTH_PA,R2_HEALTH_ADV_DATA,-EINPROGRESS);
  int rc=bt_le_ext_adv_set_data(advertiser,&ad,1,NULL,0);
  r2_health_operation(R2_HEALTH_PA,R2_HEALTH_ADV_DATA,rc);
- if(!rc&&diagnostic){atomic_set(&gnss_sequence,d.sequence);gnss_next_us=now+10000000;}
+ if(!rc&&diagnostic){atomic_set(&gnss_sequence,d.sequence);gnss_next_us=now+2000000;}
  // Optional diagnostic metadata failure does not withdraw healthy timing.
  // Its old signed sequence is rejected on subsequent SS3 polls; keep a count.
  if(rc&&(uint32_t)atomic_get(&role_update_errors)!=UINT32_MAX)atomic_inc(&role_update_errors);

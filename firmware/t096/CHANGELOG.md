@@ -15,6 +15,16 @@ failures, missing observations and unknown accuracy bounds remain part of each r
 Copyright (c) 2026 Jonathan Yantis. Original documentation: MIT. Third-party
 patches retain their [source notices](NOTICE.md).
 
+## 0.15.167 — More frequent source diagnostic windows
+
+GD and GS alternate in the existing one-second nonprecision update, publishing
+a fresh GD report no earlier than two seconds after its last successful update.
+This gives passive clients five times the GD exposure of the original ten-second
+cadence. The 88-byte record, 30-second diagnostic TTL, advertiser count,
+controller limits, precision packets and qualification/failover gates are unchanged.
+Reception remains subject to the client's actual radio opportunities; retained
+historical diagnostics are not current source evidence.
+
 ## 0.15.166 — Occasional source diagnostics
 
 A compact authenticated GD1 announcement reports the serving root's actual GNSS

@@ -220,31 +220,39 @@ int main(int argc,char **argv){
   struct pt_output out=pt_output;r2_radio_service_role(&r,&g);install_role_status(&out,fake_time,&d);
   struct r2_gnss_record decoded;
   assert(role_ad_updates==1&&role_ad_length==88&&!r2_gnss_decode(&decoded,role_ad_wire,role_ad_length,&g));
-  assert(decoded.sequence==1&&decoded.mesh_epoch==4&&decoded.sampled_us==1000000&&gnss_next_us==11000000&&role_sequence==0);
+  assert(decoded.sequence==1&&decoded.mesh_epoch==4&&decoded.sampled_us==1000000&&gnss_next_us==3000000&&role_sequence==0);
+  const struct r2_radio_precision unchanged_precision=precision;
+  const struct r2_gnss_record unchanged_reference=d;
+  install_role_status(&out,fake_time+999999,&d);assert(role_ad_updates==1);
   for(unsigned i=1;i<10;i++){
    fake_time=1000000+i*1000000;r.created_us=fake_time;r2_radio_service_role(&r,&g);install_role_status(&out,fake_time,&d);
-   assert(role_ad_updates==i+1&&role_ad_length==116&&gnss_sequence==1);
+   assert(role_ad_updates==i+1&&role_ad_length==(i%2?116u:88u));
+   assert((uint32_t)atomic_get(&gnss_sequence)==1+i/2&&(uint32_t)atomic_get(&role_sequence)==(i+1)/2);
+   install_role_status(&out,fake_time,&d);assert(role_ad_updates==i+1); // Still at most one HCI update/s.
   }
+  assert(gnss_sequence==5&&role_sequence==5); // Five GD windows, formerly one, in the same ten updates.
+  assert(!memcmp(&precision,&unchanged_precision,sizeof precision)&&!memcmp(&d,&unchanged_reference,sizeof d));
   fake_time=11000000;r.created_us=fake_time;r2_radio_service_role(&r,&g);install_role_status(&out,fake_time,&d);
   assert(role_ad_updates==11&&role_ad_length==88&&!r2_gnss_decode(&decoded,role_ad_wire,role_ad_length,&g));
-  assert(decoded.sequence==2&&decoded.sampled_us==1000000&&decoded.valid_us==20000000); // Original snapshot, reduced lifetime.
-  fake_time=21000000;r.created_us=fake_time;r2_radio_service_role(&r,&g);role_ad_error=-EIO;install_role_status(&out,fake_time,&d);
-  assert(role_ad_updates==12&&gnss_sequence==2&&gnss_next_us==21000000&&!error&&!closing);
-  fake_time=22000000;r.created_us=fake_time;r2_radio_service_role(&r,&g);role_ad_error=0;install_role_status(&out,fake_time,&d);
-  assert(gnss_sequence==3&&gnss_next_us==32000000&&role_ad_updates==13);
-  fake_time=32000000;r.created_us=fake_time;r2_radio_service_role(&r,&g);install_role_status(&out,fake_time,&d);
-  assert(role_ad_updates==14&&role_ad_length==116&&gnss_sequence==3&&gnss_next_us==32000000); // Expired snapshot falls back once.
+  assert(decoded.sequence==6&&decoded.sampled_us==1000000&&decoded.valid_us==20000000); // Original snapshot, reduced lifetime.
+  fake_time=13000000;r.created_us=fake_time;r2_radio_service_role(&r,&g);role_ad_error=-EIO;install_role_status(&out,fake_time,&d);
+  assert(role_ad_updates==12&&gnss_sequence==6&&gnss_next_us==13000000&&!error&&!closing);
+  install_role_status(&out,fake_time+999999,&d);assert(role_ad_updates==12); // Failed optional update cannot trigger an extra call.
+  fake_time=14000000;r.created_us=fake_time;r2_radio_service_role(&r,&g);role_ad_error=0;install_role_status(&out,fake_time,&d);
+  assert(gnss_sequence==7&&gnss_next_us==16000000&&role_ad_updates==13);
+  fake_time=31000000;r.created_us=fake_time;r2_radio_service_role(&r,&g);install_role_status(&out,fake_time,&d);
+  assert(role_ad_updates==14&&role_ad_length==116&&gnss_sequence==7&&gnss_next_us==16000000); // Exact original TTL expiry falls back once.
   fake_time=33000000;r.created_us=fake_time;d.sampled_us=fake_time;d.mesh_epoch=5;r2_radio_service_role(&r,&g);install_role_status(&out,fake_time,&d);
-  assert(role_ad_updates==15&&role_ad_length==116&&gnss_sequence==3); // Wrong mesh scope cannot publish.
+  assert(role_ad_updates==15&&role_ad_length==116&&gnss_sequence==7); // Wrong mesh scope cannot publish.
   fake_time=34000000;r.created_us=fake_time;d.mesh_epoch=4;d.sampled_us=fake_time+1;r2_radio_service_role(&r,&g);install_role_status(&out,fake_time,&d);
-  assert(role_ad_updates==16&&role_ad_length==116&&gnss_sequence==3); // Future snapshot.
+  assert(role_ad_updates==16&&role_ad_length==116&&gnss_sequence==7); // Future snapshot.
   fake_time=35000000;r.created_us=fake_time;d.sampled_us=fake_time;d.values=255;r2_radio_service_role(&r,&g);install_role_status(&out,fake_time,&d);
-  assert(role_ad_updates==17&&role_ad_length==116&&gnss_sequence==3); // Invalid metadata cannot stop GS/precision.
+  assert(role_ad_updates==17&&role_ad_length==116&&gnss_sequence==7); // Invalid metadata cannot stop GS/precision.
   fake_time=36000000;r.created_us=fake_time;d.values=7;r2_radio_service_role(&r,&g);pt_input.source_ready=false;install_role_status(&out,fake_time,&d);
-  assert(role_ad_updates==17&&gnss_sequence==3&&!error); // Original physical source gate still owns advertising.
+  assert(role_ad_updates==17&&gnss_sequence==7&&!error); // Original physical source gate still owns advertising.
   fake_time=37000000;r.created_us=fake_time;d.sampled_us=fake_time;r2_radio_service_role(&r,&g);pt_input.source_ready=true;atomic_set(&gnss_sequence,UINT32_MAX);install_role_status(&out,fake_time,&d);
   assert(role_ad_updates==18&&role_ad_length==116&&(uint32_t)atomic_get(&gnss_sequence)==UINT32_MAX); // Never wrap the diagnostic sequence.
-  puts("PASS actual GD/GS owner: one1s update,10s diagnostic rotation,original sample/TTL,failures/scope/expiry fallback,no precision authority");return 0;
+  puts("PASS actual GD/GS owner: alternating1s windows,2s GD spacing,5x exposure,no extra HCI calls,original sample/TTL,failures/scope/expiry fallback,no precision authority");return 0;
  }
  if(mode==22){
   static struct bt_le_ext_adv ad;advertiser=&ad;
