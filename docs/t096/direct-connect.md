@@ -59,7 +59,11 @@ does not become a fresh chrony measurement. UTS1 valid observations remain
 withheld. A new source epoch or capture incarnation fences prior training.
 
 GNSS PPS-to-UTC-second association remains **unknown** on this board adapter.
-UTC is the existing `POSIX_UTC_ESTIMATE`, using a retained coarse RMC translation.
+UTC is `POSIX_UTC_ESTIMATE`. From source0.15.169, coarse RMC time chooses a
+retained whole-second translation of the PPS-relative coordinate. Its arbitrary
+UART/servo fraction no longer becomes a permanent UTC phase offset. Nearest-second
+selection does not commission the absolute UTC second label; exact half-second
+ties and integer overflow refuse a new binding.
 Error, rate and capture bounds remain unknown. Removing BLE hops does not qualify
 independent UTC accuracy, USB/host bias, uninterrupted delivery or long-term
 durability. A build and software tests cannot establish those hardware outcomes.

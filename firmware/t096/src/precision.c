@@ -246,9 +246,24 @@ bool r2_source_clock_expiry(const struct r2_source_clock *s,struct r2_capture ev
  return false;
 }
 
-/* The coarse observation and captured coordinate describe one bounded owner
- * sample. Ordinary UART jitter must never rewrite this offset. The existing raw-clock two-second
- * jump magnitude is the contradiction threshold, not a UTC accuracy/association bound. */
+/* The relative source has its integer-second origin on a physical PPS. Coarse
+ * UART UTC selects only a whole-second translation of that coordinate: keeping
+ * its arbitrary arrival/servo fraction here permanently shifts every outgoing
+ * UTC timestamp away from PPS, even after the relative clock has converged.
+ * Nearest-second selection is still an UNQUALIFIED label estimate; it cannot
+ * commission PPS/UTC association or establish an absolute error bound. */
+static bool source_utc_basis(int64_t offset,int64_t *basis){
+ const int64_t second=INT64_C(1000000000),half=INT64_C(500000000);
+ int64_t seconds=offset/second,remainder=offset%second;
+ if(remainder==half||remainder==-half)return false;
+ if(remainder>half)++seconds;
+ else if(remainder<-half)--seconds;
+ if(seconds>INT64_MAX/second||seconds<INT64_MIN/second)return false;
+ *basis=seconds*second;return true;
+}
+/* Ordinary UART jitter must never rewrite an established translation. The
+ * existing raw-clock two-second jump magnitude remains the contradiction
+ * threshold, not a UTC accuracy/association bound. */
 int r2_source_utc_bind(struct r2_source_clock *s,struct r2_capture event,
                        int64_t coarse_ns,uint32_t source_epoch,unsigned association){
  uint64_t ns,generation;
@@ -262,7 +277,8 @@ int r2_source_utc_bind(struct r2_source_clock *s,struct r2_capture event,
   if(difference>UINT64_C(2000000000)){s->utc_bound=false;return -1;}
   return 1;
  }
- s->utc_offset_ns=offset;s->utc_source_epoch=source_epoch;s->utc_association=association;
+ int64_t basis;if(!source_utc_basis(offset,&basis))return 0;
+ s->utc_offset_ns=basis;s->utc_source_epoch=source_epoch;s->utc_association=association;
  s->utc_bound=s->utc_ever_bound=true;return 1;
 }
 bool r2_source_utc_read(const struct r2_source_clock *s,struct r2_capture event,

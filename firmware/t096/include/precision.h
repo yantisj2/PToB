@@ -55,7 +55,9 @@ struct r2_source_clock {
   unsigned utc_association;
   bool utc_bound, utc_ever_bound;
 };
-/* Unqualified translation only: no PPS label or accuracy certificate. A -1
+/* Whole-second translation of the PPS-relative coordinate. Coarse UTC chooses
+ * the nearest integer offset; exact half-second ties/overflow refuse a bind.
+ * Still an unqualified label estimate, with no absolute UTC accuracy bound. A -1
  * bind result requires a new authenticated source epoch before retrying. */
 void r2_source_clock_invalidate(struct r2_source_clock *s);
 int r2_source_utc_bind(struct r2_source_clock *s, struct r2_capture event,

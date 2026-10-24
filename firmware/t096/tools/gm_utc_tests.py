@@ -19,6 +19,7 @@ cc=(__import__('os').environ.get('CC') or __import__('shutil').which('clang'))
 flags=[cc,'-std=c11','-Wall','-Wextra','-Werror','-Wno-default-const-init-var-unsafe','-fsanitize=address,undefined','-fno-sanitize-recover=all','-g', '-I'+str(src/'include'),'-I'+str(src/'protocol'),'-I'+str(out),'-I'+str(tiny/'include')]
 crypto=[src/'protocol'/x for x in ['group_join.c','group_auth.c','group_control.c','group_precision.c','authority_codec.c','precision_codec.c','relay_codec.c']]+[tiny/'source'/x for x in ['hmac.c','sha256.c','utils.c']]
 cases=[('gm-utc-owner',[src/'tests/gm_utc_owner_test.c',src/'src/clock.c',src/'src/nmea.c',src/'src/precision.c']),('gm-utc',[src/'tests/gm_utc_test.c',src/'src/precision.c',src/'src/clock.c',src/'src/nmea.c',*crypto]),('precision',[src/'tests/precision_test.c',src/'src/precision.c']),('clock',[src/'tests/clock_test.c',src/'src/clock.c',src/'src/nmea.c']),('group-join',[src/'tests/group_join_test.c',*crypto]),('group-network',[src/'tests/group_network_test.c',src/'protocol/network.c',src/'protocol/election_policy.c',*crypto]),('radio-precision',[src/'tests/radio_precision_test.c',src/'src/radio_precision.c']),('ui-binding',[src/'tests/ui_binding_test.c',src/'src/ui_render.c',src/'src/precision.c'])]
+cases.insert(0,('utc-basis',[src/'tests/utc_basis_test.c',src/'src/precision.c']))
 results=[]
 try:
  for name,files in cases:

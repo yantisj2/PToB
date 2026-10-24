@@ -15,6 +15,17 @@ failures, missing observations and unknown accuracy bounds remain part of each r
 Copyright (c) 2026 Jonathan Yantis. Original documentation: MIT. Third-party
 patches retain their [source notices](NOTICE.md).
 
+## 0.15.169 — Preserve PPS phase in the UTC basis
+
+The source UTC owner now selects a whole-second offset from its coarse UTC
+observation. Previously it froze the arbitrary UART/servo fraction into the
+authenticated offset, shifting every downstream UTC timestamp even after the
+PPS-relative map converged. Nearest-second selection refuses exact half-second
+ties and overflow. Existing offset immutability, contradiction/source fences,
+map availability and original deadlines remain. Unknown PPS/UTC association
+stays unknown; this arithmetic fix does not certify the absolute second label
+or GNSS/GPIO/RF accuracy. GM election and role policy are unchanged.
+
 ## 0.15.168 — Report actual GNSS HDOP
 
 GD2 adds checksum-valid GGA HDOP in dimensionless hundredths to the reported

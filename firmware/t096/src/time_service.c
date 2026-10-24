@@ -101,8 +101,9 @@ void r2_time_service(void)
   if(!r2_switch_rc_active())
 #endif
   {
-    /* Bound uptime/capture sampling skew; no assertion of exact UTC/PPS
-     * association. Advance the raw clock to the midpoint of this observation. */
+    /* Bound uptime/capture sampling skew. Coarse time selects only the
+     * whole-second UTC basis; its UART/servo fraction cannot set PPS phase.
+     * Association remains unqualified. Advance raw time to this midpoint. */
     int64_t before=r2_time_now_us();struct r2_capture at;
     bool captured=r2_gnss_capture_now(&at);int64_t after=r2_time_now_us();
     if(captured&&after>=before&&after-before<=100){
