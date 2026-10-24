@@ -57,15 +57,16 @@ def freeze_shared(root):
 
 def inspect(out):
  out=Path(out);r=json.loads((out/'receipt.json').read_text());
- if r.get('kind')!='CORESE_LIVE_CLIENT' or r.get('version') not in ('0.1.1','0.1.2','0.1.3','0.1.4','0.1.5','0.1.6','0.1.7','0.1.8','0.1.9','0.1.10','0.1.11'):raise ValueError('Wrong client artifact class/version')
+ if r.get('kind')!='CORESE_LIVE_CLIENT' or r.get('version') not in ('0.1.1','0.1.2','0.1.3','0.1.4','0.1.5','0.1.6','0.1.7','0.1.8','0.1.9','0.1.10','0.1.11','0.1.12'):raise ValueError('Wrong client artifact class/version')
  target=out/'target';i=json.loads((target/'v12_build_identity.json').read_text())
  for n,h in r['sources'].items():
   if sha(out/'source'/n)!=h:raise ValueError('Retained source mismatch: '+n)
  for n,h in r['artifacts'].items():
   if sha(out/n)!=h:raise ValueError('Build artifact mismatch: '+n)
- if r['version']=='0.1.11':
+ if r['version'] in ('0.1.11','0.1.12'):
   recovery=r.get('shared_source_recovery',{})
   if r['shared_source_git_ref']!=SHARED_REF or recovery.get('commit')!=RECOVERY_REF or recovery.get('policy')!=RECOVERY_POLICY or recovery.get('patch_sha256')!=sha(out/'source/firmware/corese/tools/auto_rc9_recovery.patch'):raise ValueError('Recovery backport provenance mismatch')
+ if r['version']=='0.1.12' and r.get('diagnostic_scan_policy')!='FRESH_ASSOCIATED_PA_12MS_MIN200MS_V1':raise ValueError('Diagnostic scan policy mismatch')
  config=(target/'sdkconfig').read_text().splitlines()
  for flag in ('CONFIG_SPIRAM=y','CONFIG_SPIRAM_MODE_QUAD=y','CONFIG_SPIRAM_SPEED_80M=y','CONFIG_SPIRAM_USE_MALLOC=y','CONFIG_BT_ENABLED=y','CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y','CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y','CONFIG_BT_CTRL_BLE_MAX_ACT_EFF=6'):
   if flag not in config:raise ValueError('Required setting missing: '+flag)
@@ -119,7 +120,7 @@ def main():
  (local/'r2-enrollment.h').write_text('/* CoreSE source:'+digest+' */\nstatic const r2_group_enrollment provision={{{'+','.join(map(str,key))+'},UINT64_C(0x'+e['group_id']+'),'+str(e['key_epoch'])+'},UINT64_C(0x'+d['device_id']+'),'+json.dumps(d['label'])+',40000};\n')
  prepare(out/'runtime',out/'source');commit=subprocess.check_output(['git','-C',str(REPO),'rev-parse','HEAD'],text=True).strip()
  dirty=bool(subprocess.check_output(['git','-C',str(REPO),'status','--porcelain']))
- r={'schema':1,'kind':'CORESE_LIVE_CLIENT','version':'0.1.11','status':'INCOMPLETE','public_commit':commit,'shared_source_git_ref':SHARED_REF,'shared_source_recovery':{'commit':RECOVERY_REF,'policy':RECOVERY_POLICY,'patch_sha256':sha(APP/'tools/auto_rc9_recovery.patch')},'source_dirty':dirty,'sources':snapshot,'source_sha256':digest,'dependencies':pins,'device_id':d['device_id'],'factory_mac':d['factory_mac'],'relay':False,'fine_gpio':[6,7],'calibration':'NONE','precision':'UNQUALIFIED','hardware_access':False,'installed':False}
+ r={'schema':1,'kind':'CORESE_LIVE_CLIENT','version':'0.1.12','status':'INCOMPLETE','public_commit':commit,'shared_source_git_ref':SHARED_REF,'diagnostic_scan_policy':'FRESH_ASSOCIATED_PA_12MS_MIN200MS_V1','shared_source_recovery':{'commit':RECOVERY_REF,'policy':RECOVERY_POLICY,'patch_sha256':sha(APP/'tools/auto_rc9_recovery.patch')},'source_dirty':dirty,'sources':snapshot,'source_sha256':digest,'dependencies':pins,'device_id':d['device_id'],'factory_mac':d['factory_mac'],'relay':False,'fine_gpio':[6,7],'calibration':'NONE','precision':'UNQUALIFIED','hardware_access':False,'installed':False}
  dump(out/'receipt.json',r);target=out/'target';env=os.environ.copy();env.update(IDF_PATH=str(sdk),IDF_COMPONENT_MANAGER='0',PYTHONPYCACHEPREFIX=str(out/'pycache'),IDF_CCACHE_ENABLE='0')
  for k in ('CFLAGS','CXXFLAGS','CPPFLAGS','LDFLAGS','EXTRA_COMPONENT_DIRS','SDKCONFIG_DEFAULTS'):env.pop(k,None)
  values={'SDKCONFIG':str(target/'sdkconfig'),'CORESE_LIVE':'ON','CORESE_DEPENDENCIES':str(deps),'CORESE_RUNTIME':str(out/'runtime'),'CORESE_SOURCE_SHA':digest,'V12_SOURCE_REVISION':commit,'V12_R2_ENROLLMENT_HEADER':str(local/'r2-enrollment.h'),'PTOB_DEVICE_HEADER':str(local/'ptob_device.h'),'PTOB_REGISTRY_HEADER':str(local/'ptob_registry.h'),'PTOB_FINE_HEADER':str(local/'fine_capture_config.h'),'PTOB_LORA_HEADER':str(local/'n30_lora_config.h'),'CCACHE_ENABLE':'OFF'}

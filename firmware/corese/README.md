@@ -1,6 +1,6 @@
 # CoreS3-SE precision diagnostics instrument
 
-**Version 0.1.11** turns the M5Stack CoreS3-SE (K128-SE) into a portable front
+**Version 0.1.12** turns the M5Stack CoreS3-SE (K128-SE) into a portable front
 panel for PToB timing: inspect receiver precision, source lineage, mesh roles and
 the grandmaster's GNSS/PTP quality on a 320×240 touchscreen. It is a dedicated
 client with an instrument-style display. Start with the
@@ -11,6 +11,12 @@ to its pinned receiver baseline. Bounded passive discovery can find a normal BLE
 source during a fallback lease; fresh authentication is required before switching.
 Root hints and failed admissions retain the original fallback expiry. Existing
 CoreSE clock coordinates, GPIO6/7 route and calibration policy remain unchanged.
+
+Version 0.1.12 limits optional diagnostic discovery to 12 ms windows after a
+fresh, authenticated, physically associated periodic reception, separated by at
+least 200 ms. It reduces overlap with the 62.5 ms timing train. A discovery
+window never grants or extends clock permission; diagnostic delivery stays
+unqualified.
 
 | Precision instrument | GM reference diagnostics |
 | :---: | :---: |
@@ -63,7 +69,8 @@ the previous source's values. Cached data never restores clock permission.
 
 PRIMARY/HOT timers measure time since an observed identity/boot change, not remote
 oscillator lock or proof of uninterrupted operation. Passive diagnostic listening
-uses protected 80 ms windows at most every 800 ms. Clock qualification, timing
+uses protected 12 ms windows at least 200 ms apart after fresh associated
+periodic reception. Clock qualification, timing
 source expiry and failover rules retain their existing behavior.
 
 ## Controls and build

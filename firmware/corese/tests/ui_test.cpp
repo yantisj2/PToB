@@ -21,27 +21,26 @@ int main(){
  duration_text(interval,sizeof interval,UINT64_MAX);assert(interval[sizeof interval-1]==0||std::strlen(interval)<sizeof interval);
 
  {
-  StatusScan scan;assert(!scan.poll(100000,false));assert(scan.poll(100000,true));
-  static_assert(StatusScan::WindowUs==80000&&StatusScan::IntervalUs==800000);
-  static_assert(StatusScan::WindowUs<200000); // Unchanged healthy-clock cover gate.
-  const auto deadline=scan.deadline();assert(deadline==180000&&scan.windows()==1);
-  assert(scan.poll(140000,true)&&scan.deadline()==deadline);
-  assert(scan.poll(179999,true)&&scan.deadline()==deadline&&scan.windows()==1);
-  assert(!scan.poll(180000,true)&&!scan.allows(180000));
-  assert(!scan.observed(99999)&&scan.observed(100000)&&scan.observed(179999)&&!scan.observed(180000));
-  assert(!scan.poll(899999,true)&&scan.poll(900000,true)&&scan.windows()==2);
-  assert(!scan.poll(900001,false)&&!scan.allows(900001));
-  assert(!scan.poll(900002,true)&&scan.windows()==2&&scan.deadline()==980000);
-  // Callback receipt timestamps keep the original, unextended historical fence.
-  assert(scan.observed(900000)&&scan.observed(979999)&&!scan.observed(980000));
-  assert(!scan.poll(1699999,true)&&scan.poll(1700000,true)&&scan.windows()==3);
-  assert(!scan.poll(1700001,false)&&!scan.allows(1700001));
-  assert(!scan.poll(1700002,false)&&scan.windows()==3);
-  assert(!scan.poll(1700003,true)&&scan.windows()==3);
-  assert(scan.poll(2500000,true)&&scan.windows()==4);
-  assert(!scan.observed(1700000)&&scan.observed(2500000)&&!scan.observed(2580000));
-  assert(!scan.poll(2499999,true)); // Clock reversal never opens a window.
-  StatusScan edge;assert(!edge.poll(UINT64_MAX-1,true));
+  StatusScan scan;
+  static_assert(StatusScan::WindowUs==12000&&StatusScan::IntervalUs==200000&&StatusScan::CaptureAgeUs==4000);
+  assert(!scan.poll(100000,false,1,0));
+  assert(!scan.poll(100000,true,0,0));
+  assert(!scan.poll(100000,true,1,4000));
+  assert(scan.poll(100000,true,1,3999));
+  const auto deadline=scan.deadline();assert(deadline==112000&&scan.windows()==1);
+  assert(scan.poll(111999,true,1,20000)&&scan.deadline()==deadline);
+  assert(!scan.poll(112000,true,1,0)&&!scan.allows(112000));
+  assert(!scan.observed(99999)&&scan.observed(100000)&&scan.observed(111999)&&!scan.observed(112000));
+  assert(!scan.poll(299999,true,2,0));
+  assert(!scan.poll(300000,true,1,0)); // One captured PA cannot reopen a window.
+  assert(scan.poll(300000,true,2,0)&&scan.windows()==2);
+  assert(!scan.poll(300001,false,2,0)&&!scan.allows(300001));
+  assert(!scan.poll(300002,true,3,0)&&scan.deadline()==312000);
+  assert(scan.observed(300000)&&scan.observed(311999)&&!scan.observed(312000));
+  assert(!scan.poll(500000,true,3,4000));
+  assert(scan.poll(500001,true,3,0));
+  assert(!scan.poll(500000,true,4,0)); // Reversal cannot open a window.
+  StatusScan edge;assert(!edge.poll(UINT64_MAX-1,true,1,0));
  }
  auto m=live();uint64_t utc=0;assert(time(m,1000100,utc)&&utc==10000100);
  assert(precision(m,1000100)&&offset(m,1000100));

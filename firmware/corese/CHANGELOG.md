@@ -2,6 +2,16 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 0.1.12 — 2026-10-24
+
+- Protect periodic timing reception from optional diagnostic discovery: replace
+  80 ms discovery windows with 12 ms windows at least 200 ms apart, started only
+  after a new authenticated, physically associated PA less than 4 ms old.
+- Preserve the original healthy-clock coverage requirement, passive scanning,
+  callback receipt fences, source deadlines and all time-authority rules.
+- Bind the new scheduling policy into inspected receipts. Diagnostic delivery
+  and continuous timing availability still require separate hardware evidence.
+
 ## 0.1.11 — 2026-10-24
 
 - Backport the shared AUTO RC9 recovery fix from `6ac2721` onto the existing
