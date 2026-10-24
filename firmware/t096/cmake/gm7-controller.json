@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "description": "GM7-only composition after preserved capture/prepare/precision transforms. Original additions Copyright 2026 Jonathan Yantis, MIT; generated Zephyr source retains Apache-2.0.",
+  "inputs": {
+    "ull.c": [
+      "eec341d5707674dc670128d6e678491f646e3125b6204fcac15812809032cb74",
+      "54abe8c0d1a3d00eb8d7f505db61a541950230d037c67dabf441c42396f6d8ae"
+    ],
+    "lll_scan.c": [
+      "866d98e66400eb3fe50dfa04f116c47bc0f6b8817f1c60e617dc671ff6c59ead"
+    ],
+    "lll_scan_aux.c": [
+      "24195a07274f350ef41505fcf073c8a265e53c830e2883fb0c966fa14298676d"
+    ],
+    "ull_adv_sync.c": [
+      "f0b04377de589f60ff00971ed641910878f5a13d21b0be5bd3f5d114341c8e93"
+    ]
+  }
+}

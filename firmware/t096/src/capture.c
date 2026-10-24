@@ -1,3 +1,7 @@
+#if defined(R2_GM7_NATIVE)
+#include "gm7_clock.h"
+#include "gm7_controller.h"
+#endif
 /* SPDX-License-Identifier: Apache-2.0
  * Pinned nRF52840 capture adapter: Zephyr owns GPIOTE IRQ; nrfx allocates PPI
  * excluding the compiled controller mask. No CLOCK/RADIO task writes.
@@ -51,6 +55,11 @@ BUILD_ASSERT(TIMER3_CC_NUM >= 5);
 #ifndef R2_DC_PROFILE
 static nrf_ppi_channel_t radio_channel;
 static bool radio_owned,radio_enabled;
+#if defined(R2_GM7_NATIVE)
+static nrf_ppi_channel_t gm7_end_route;
+static bool gm7_end_owned,gm7_enabled;
+BUILD_ASSERT(TIMER3_CC_NUM>=6);
+#endif
 #endif
 static bool requested, timer_owned, ppi_owned, used, pending;
 static atomic_t accepting, error;
@@ -58,6 +67,9 @@ static uint64_t epoch, extended;
 static uint32_t previous_raw;
 static int64_t request_at, previous_mono;
 static void fault(int rc) {
+#if defined(R2_GM7_NATIVE)
+  r2_gm7_clock_invalidate();
+#endif
   if (rc)
     atomic_cas(&error, 0, rc);
   atomic_clear(&accepting);
@@ -78,6 +90,9 @@ static bool extend(uint32_t raw, int64_t now) {
   extended += delta;
   previous_raw = raw;
   previous_mono = now;
+#if defined(R2_GM7_NATIVE)
+  r2_gm7_clock_publish(extended,raw,epoch,true);
+#endif
   return true;
 }
 int r2_capture_start(const struct gpio_dt_spec *pps, int64_t now) {
@@ -138,6 +153,12 @@ void r2_capture_poll(int64_t now) {
           nrfx_timer_capture_task_address_get(&timer,1)) != NRFX_SUCCESS)
       rc = -EIO;
 #endif
+#if defined(R2_GM7_NATIVE)
+    if(!rc){rc=nrfx_ppi_channel_alloc(&gm7_end_route)==NRFX_SUCCESS?0:-ENOMEM;if(!rc)gm7_end_owned=true;}
+    if(!rc&&nrfx_ppi_channel_assign(gm7_end_route,
+      nrf_radio_event_address_get(NRF_RADIO,NRF_RADIO_EVENT_END),
+      nrfx_timer_capture_task_address_get(&timer,5))!=NRFX_SUCCESS)rc=-EIO;
+#endif
     /* Disable retains the GPIO driver's allocated IN channel. Re-enable clears
      * stale event state before its event and IRQ are enabled in the pinned
      * driver. */
@@ -177,14 +198,24 @@ void r2_capture_poll(int64_t now) {
 #ifndef R2_DC_PROFILE
       rc = r2_radio_capture_enable((uint32_t)epoch,radio_channel);
       if (!rc) radio_enabled = true;
+#if defined(R2_GM7_NATIVE)
+      if(!rc){rc=r2_gm7_capture_enable((uint32_t)epoch,radio_channel,gm7_end_route);if(!rc)gm7_enabled=true;}
+#endif
 #endif
       if (!rc && nrfx_ppi_channel_enable(channel) != NRFX_SUCCESS)
         rc = -EIO;
 #ifdef R2_USB_SOF_PROBE
       if(!rc&&nrfx_ppi_channel_enable(usb_channel)!=NRFX_SUCCESS)rc=-EIO;
 #endif
-      if (!rc)
+      if (!rc){
         atomic_set(&accepting, 1);
+#if defined(R2_GM7_NATIVE)
+        k_spinlock_key_t gm7_key=k_spin_lock(&lock);
+        r2_gm7_clock_begin((uint32_t)epoch);
+        r2_gm7_clock_publish(extended,previous_raw,epoch,true);
+        k_spin_unlock(&lock,gm7_key);
+#endif
+      }
     }
     int gpio_rc =
         gpio_pin_interrupt_configure_dt(&pin, GPIO_INT_EDGE_TO_ACTIVE);
@@ -230,6 +261,9 @@ bool r2_capture_pps(struct r2_capture *edge, int64_t now) {
   return valid;
 }
 int r2_capture_stop(void) {
+#if defined(R2_GM7_NATIVE)
+  r2_gm7_clock_invalidate();
+#endif
   k_spinlock_key_t key = k_spin_lock(&lock);
 #if !defined(R2_DC_PROFILE) && !defined(R2_PC_PROFILE)
   /* LoRa must acknowledge its independent route release before this common
@@ -247,6 +281,13 @@ int r2_capture_stop(void) {
   }
 #endif
 #ifndef R2_DC_PROFILE
+#if defined(R2_GM7_NATIVE)
+  if(!rc&&gm7_enabled){rc=r2_gm7_capture_disable();if(!rc)gm7_enabled=false;}
+  if(!rc&&gm7_end_owned){
+   if(nrfx_ppi_channel_disable(gm7_end_route)!=NRFX_SUCCESS||nrfx_ppi_channel_free(gm7_end_route)!=NRFX_SUCCESS)rc=-EIO;
+   else gm7_end_owned=false;
+  }
+#endif
   if (!rc && radio_enabled) {
     rc = r2_radio_capture_disable();
     if (!rc) radio_enabled = false;

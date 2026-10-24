@@ -60,6 +60,8 @@ def main():
     parser.add_argument('--lora-transmitter-factory', help='Explicit normal-image sole LoRa TX factory ID; absent disables LoRa')
     parser.add_argument('--controller-diagnostics', action='store_true', help='Opt-in normal GM/RC prepare FIFO diagnostic canary')
     parser.add_argument('--development', action='store_true')
+    parser.add_argument('--gm7', action='store_true', help='Explicit normal GM7 selection (already the GM/RC default)')
+    parser.add_argument('--legacy-gm-regression', action='store_true', help='Historical GM5/6 regression image only; never an automatic fallback')
     args = parser.parse_args()
     os.umask(0o077)
     deps, out = args.deps.resolve(), args.out.resolve()
@@ -72,6 +74,9 @@ def main():
         parser.error('Controller diagnostics require normal GM/RC')
     dc = args.profile == 'DC'
     pc = args.profile == 'PC'
+    if (args.gm7 and args.legacy_gm_regression) or ((dc or pc) and (args.gm7 or args.legacy_gm_regression)):
+        parser.error('GM backend selectors apply only to normal GM/RC and are mutually exclusive')
+    args.gm7 = not (dc or pc or args.legacy_gm_regression)
     pc_auto = pc and args.pc_parent == 'auto'
     if pc:
         if not pc_auto and (not args.pc_parent or not re.fullmatch('[0-9a-f]{16}',args.pc_parent) or not int(args.pc_parent,16)):
@@ -124,7 +129,7 @@ def main():
     receipt = {'schema':1,'artifact_class':'PTOB_T096_DC1' if dc else 'PTOB_T096_PC1' if pc else 'PTOB_T096_RC7','version':version[1],
                'status':'INCOMPLETE','public_commit':git(REPO,'rev-parse','HEAD'),
                'child_commit':git(REPO,'rev-parse','HEAD'),'source_dirty':dirty,'sources':source,'source_sha256':source_hash,
-               'profile':args.profile,'controller_diagnostics':args.controller_diagnostics,'usb_source_stream':True,'dependencies':lock,
+               'profile':args.profile,'gm7_native':args.gm7,'legacy_gm_regression':args.legacy_gm_regression,'controller_diagnostics':args.controller_diagnostics,'usb_source_stream':True,'dependencies':lock,
                'installed':False,'precision':'UNQUALIFIED','hardware_tests':[],
                'enrollment_mode':'NONE_DC_LOCAL_GNSS' if dc else 'LOCAL_BUILD_TIME_P1_NOT_IMPLEMENTED',
                'registry_sha256':sha(args.registry),
@@ -132,6 +137,9 @@ def main():
                'device_config_sha256':sha(args.device_config),
                'lora_transmitter_factory':transmitter,
                'secondary_lora_class':'RC8' if int(transmitter,16) else 'DISABLED'}
+    receipt['gm7_controller'] = None if not args.gm7 else {
+        'manifest_sha256':sha(APP/'cmake/gm7-controller.json'),
+        'generator_sha256':sha(APP/'tools/gm7_controller_hooks.py')}
     receipt['controller_fault_diagnostics'] = None if dc or pc else {
         'manifest_sha256':sha(APP/'cmake/controller-fault-diag.json'),
         'patch_sha256':sha(APP/'cmake/controller-fault-diag.patch')}
@@ -187,6 +195,8 @@ def main():
     command=['cmake','-GNinja','-S',str(APP),'-B',str(out/'target'),'-DBOARD=t096_r2',
              '-DUSER_CACHE_DIR='+str(out/'cache'),'-DCMAKE_EXPORT_COMPILE_COMMANDS=ON','-DR2_ENROLLMENT_HEADER='+str(secret),
              '-DR2_SOURCE_SHA='+source_hash,'-DR2_CHILD_COMMIT='+receipt['public_commit'],
+             '-DR2_GM7_NATIVE='+('ON' if args.gm7 else 'OFF'),
+             '-DR2_LEGACY_GM_REGRESSION='+('ON' if args.legacy_gm_regression else 'OFF'),
              '-DR2_CONTROLLER_DIAGNOSTICS='+('ON' if args.controller_diagnostics else 'OFF'),
              '-DR2_SOURCE_DIRTY='+str(int(dirty)),
              '-DR2_LORA_TRANSMITTER_FACTORY='+transmitter,

@@ -126,3 +126,9 @@ void r2_ble_gm_diagnostics(uint32_t out[R2_GM_TRANSPORT_WORDS]);
 /* Normal G5 only. Exactly one wanted persistent coordination identity; all
  * other proved candidates remain in network inventory, outside control slots. */
 void r2_ble_gm5_policy(bool enabled,uint64_t selected,bool inventory_due);
+
+/* GM profile only: retain ordinary incoming client JOIN; disable outgoing
+ * GM coordination and promotion. Policy changes require an acknowledged scan
+ * stop before the management channel owner changes. RC defaults remain false. */
+void r2_ble_gm7_server(bool enabled);
+int r2_ble_gm7_scan(bool aligned);

@@ -66,11 +66,17 @@ static bool local_pps_current(const struct r2_ui_model *m,uint64_t now){
    (now-m->sampled_ms)*1000<(uint64_t)(R2_PPS_FRESH_US-age);
 }
 static bool hot_current(const struct r2_ui_model *m,uint64_t now){
+#ifdef R2_GM7_NATIVE
+ if(m->gm7_owner)return now>=m->sampled_ms&&now-m->sampled_ms<=2500&&!m->profile_rc&&!m->profile_switching&&m->local_hot_standby;
+#endif
  return now>=m->sampled_ms&&now-m->sampled_ms<=2500&&
    !m->profile_rc&&!m->profile_switching&&m->scope_active&&m->role==R2_UI_FOLLOWER&&
    m->local_hot_standby&&m->precision.authorized&&m->precision.map_valid;
 }
 static bool active_gm_current(const struct r2_ui_model *m,uint64_t now){
+#ifdef R2_GM7_NATIVE
+ if(m->gm7_owner)return now>=m->sampled_ms&&now-m->sampled_ms<=2500&&!m->profile_rc&&!m->profile_switching&&(m->gm7_known&2);
+#endif
  return now>=m->sampled_ms&&now-m->sampled_ms<=2500&&
    !m->profile_rc&&!m->profile_switching&&m->scope_active&&m->role==R2_UI_GM;
 }
@@ -79,6 +85,15 @@ void r2_ui_holds_update(struct r2_ui_holds *h,const struct r2_ui_model *m,uint64
  if(!local_pps_current(m,now))h->pps_since=0;else if(!h->pps_since||h->pps_since>stamp)h->pps_since=stamp;
  if(!hot_current(m,now))h->hot_since=0;else if(!h->hot_since||h->hot_since>stamp)h->hot_since=stamp;
  if(!active_gm_current(m,now))h->active_since=0;else if(!h->active_since||h->active_since>stamp)h->active_since=stamp;
+#ifdef R2_GM7_NATIVE
+ if(m->gm7_owner){
+  uint32_t *holds[3]={&h->hot_since,&h->active_since,&h->pps_since};
+  uint32_t durations[3]={m->gm7_hot_ms,m->gm7_active_ms,m->gm7_pps_ms};
+  for(unsigned i=0;i<3;i++)if(*holds[i]&&(m->gm7_known&(1u<<i))&&durations[i]!=UINT32_MAX&&m->gm7_at_ms>=durations[i]){
+   uint64_t start=(m->gm7_at_ms-durations[i])/1000+1;*holds[i]=start>UINT32_MAX?UINT32_MAX:(uint32_t)start;
+  }
+ }
+#endif
 }
 bool r2_ui_witness_page(const struct r2_ui_model *m,unsigned page){
  (void)m;return page==R2_UI_SHADOW_PAGE||page==R2_UI_PRECISION_PAGE;
@@ -449,6 +464,22 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
   else if(v->samples<100000&&v->skipped<100)snprintf(text,sizeof text,"N%u S%u",v->samples,v->skipped);else snprintf(text,sizeof text,"N %u",v->samples);
   label(fb,4,150,text,1,C_DIM);return;
  }
+#ifdef R2_GM7_NATIVE
+ if(m->gm7_owner&&!m->profile_rc&&!status->help&&status->page==5){
+  char value[25],peer[25];round_panel(fb,1,1,78,13,C_PANEL,C_BEZEL);label(fb,5,4,"GM PEER",1,C_WHITE);
+  r2_ui_identity_name(peer,m->gm7_peer_valid?m->gm7_peer_id:0,NULL);label(fb,3,23,peer,1,C_WHITE);
+  label(fb,3,40,!m->gm7_peer_valid?"NO REPORT":m->gm7_peer_current?"CURRENT SCOPE":"HISTORY",1,C_DIM);
+  const char *roles[]={"STANDBY","ACTIVE","PREPARING","HOT","RC"};
+  label(fb,3,57,m->gm7_peer_valid&&m->gm7_peer_role<5?roles[m->gm7_peer_role]:"ROLE --",1,m->gm7_peer_current?C_GREEN:C_AMBER);
+  uint32_t durations[3]={m->gm7_peer_hot_ms,m->gm7_peer_active_ms,m->gm7_peer_pps_ms};const char *names[3]={"HOT","ACTIVE","PPS"};
+  for(unsigned i=0;i<3;i++){
+   bool known=m->gm7_peer_valid&&(m->gm7_peer_known&(1u<<i))&&durations[i]!=UINT32_MAX;
+   if(known){uint32_t seconds=durations[i]/1000;if(seconds/60>9999)snprintf(value,sizeof value,"%s >9999m",names[i]);else snprintf(value,sizeof value,"%s %02u:%02u",names[i],seconds/60,seconds%60);}else snprintf(value,sizeof value,"%s --",names[i]);
+   active_hold_label(fb,78+17*i,value);
+  }
+  label(fb,3,136,"AT SAMPLE",1,C_DIM);label(fb,3,149,"NO AUTHORITY",1,C_DIM);return;
+ }
+#endif
  if(status->help||status->page==5){
   if(status->page==1){rf_live(fb,&s);return;}
   round_panel(fb,3,1,74,13,C_PANEL,C_BEZEL);label(fb,7,4,"CLOCK KEY",1,C_WHITE);

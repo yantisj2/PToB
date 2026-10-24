@@ -1,5 +1,20 @@
 # T096 changelog
 
+## 0.15.170 — GM7 offline engineering
+
+Replace GM-profile HOT/coordinator GATT policy with implementation2 connectionless
+STATUS/ANNOUNCE, causal REQUEST/ANCHOR freshness and local HOT preparation. Apply
+frozen A1 discovery and C1 provisional birth/exposure semantics. Keep normal
+GM-to-RC JOIN/G1/GRv3, RC7/UCS1/RC9, clients, USB, LoRa RC8, DC and PC contracts.
+Add scoped GM peer ROLE timers, local owner timers, bounded native complete-event
+management and prospective G1 phase arbitration. Historical GM5/6 is selected
+only by the explicit regression build option.
+
+Validation and unverified operating assumptions are recorded in the
+[GM7 implementation guide](../../docs/t096/gm7-implementation.md). Offline results
+and native images do not establish RF delivery, physical takeover timing,
+endurance or calibrated UTC accuracy. Hardware review remains separate.
+
 Detailed release and validation notes, moved from the T096 README and build guide.
 Entries describe their source version at the time; older policies, deadlines and
 candidate labels are historical, not current operating instructions.

@@ -2,7 +2,7 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
-This guide builds and inspects T096 source **0.15.169** without opening hardware.
+This guide builds and inspects T096 source **0.15.170** without opening hardware.
 For profile choices and controls, see the [T096 README](../../firmware/t096/README.md).
 Release-by-release implementation and validation notes are in the
 [T096 changelog](../../firmware/t096/CHANGELOG.md).
@@ -12,7 +12,7 @@ by default; the RC backend publishes its accepted BLE source, while the normal
 GM backend does not publish a USB source map. The separate flash-only
 [DC image](direct-connect.md) serves GNSS over USB with Bluetooth disabled and no
 group enrollment. Use the [GM operating guide](gm-operations.md) for compatible
-G5 groups and the [macOS guide](../../clients/macos/README.md) for USB consumers.
+GM7 groups and the [macOS guide](../../clients/macos/README.md) for USB consumers.
 
 The separate [PC awake-only experiment](power-control.md) uses `--profile PC`,
 group enrollment and `--pc-parent` with a direct-GM identity or `auto` for
@@ -66,6 +66,14 @@ artifacts/deps/venv/bin/python firmware/t096/tools/build.py \
   --profile RC --enrollment artifacts/local/enrollment.json \
   --device-config artifacts/local/device.json
 ```
+
+Normal GM/RC builds select GM7 for the GM backend. Normal RC GATT, UCS1,
+RC9 and relay services remain supported in the same image. `--gm7` is an
+optional explicit spelling of that default. `--legacy-gm-regression` selects
+the historical GM5/6 backend for regression builds only; runtime never falls
+back to it. DC and PC exclude GM7 and reject either GM selector. See the
+[GM7 implementation guide](gm7-implementation.md) for frozen contracts and
+current validation limits.
 
 Use `--profile GM` for a GM cold boot. For a dedicated GNSS/USB device, use
 `--profile DC` and omit `--enrollment`; DC rejects group credentials and has no

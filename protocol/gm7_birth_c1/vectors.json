@@ -1,0 +1,73 @@
+{
+  "public_key_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+  "vectors": [
+    {
+      "decoded": {
+        "accuracy": 255,
+        "active": 17,
+        "active_boot": 33,
+        "birth_us": 1792800000000000,
+        "boot": 33,
+        "capture_gen": 4,
+        "clock_class": 2,
+        "flags": 1,
+        "founder": 17,
+        "group": 72623859790382856,
+        "hot": 0,
+        "hot_boot": 0,
+        "key_epoch": 1,
+        "kind": 1,
+        "max_age_us": 2750000,
+        "priority1": 128,
+        "priority2": 128,
+        "sender": 17,
+        "sent_mono_us": 10000000,
+        "sent_utc_us": 1792800000000000,
+        "sequence": 1,
+        "shadow_gen": 0,
+        "source_gen": 3,
+        "source_valid_us": 1200000,
+        "term": 1,
+        "train_gen": 5,
+        "variance": 65535,
+        "yield_utc_us": 0
+      },
+      "hex": "47375632020100ae0001000001020304050607080000000100000000000000110000000000000021000000000000000100065e8ac72740000029f63000124f800000000300000004000000058002ff80ffff00065e8ac72740000000000000000011000000000000000100000000000000110000000000000021000000000000000000000000000000000000000000000000000000000000000000989680c04626a4408b4899f1a756794d7a60e8",
+      "name": "initial-reservation-first-announce"
+    },
+    {
+      "decoded": {
+        "accuracy": 255,
+        "active": 49,
+        "active_boot": 65,
+        "birth_us": 1792799990000000,
+        "boot": 65,
+        "capture_gen": 9,
+        "clock_class": 2,
+        "flags": 1,
+        "founder": 17,
+        "group": 72623859790382856,
+        "hot": 0,
+        "hot_boot": 0,
+        "key_epoch": 1,
+        "kind": 1,
+        "max_age_us": 2750000,
+        "priority1": 128,
+        "priority2": 128,
+        "sender": 49,
+        "sent_mono_us": 10000000,
+        "sent_utc_us": 1792800000000000,
+        "sequence": 1,
+        "shadow_gen": 0,
+        "source_gen": 8,
+        "source_valid_us": 1200000,
+        "term": 5,
+        "train_gen": 1,
+        "variance": 65535,
+        "yield_utc_us": 0
+      },
+      "hex": "47375632020100ae0001000001020304050607080000000100000000000000310000000000000041000000000000000100065e8ac72740000029f63000124f800000000800000009000000018002ff80ffff00065e8ac68ea9800000000000000011000000000000000500000000000000310000000000000041000000000000000000000000000000000000000000000000000000000000000000989680627b6cf042ac47107f53730ccd7c881a",
+      "name": "inherited-reservation-first-announce"
+    }
+  ]
+}

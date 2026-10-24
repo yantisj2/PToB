@@ -54,6 +54,7 @@ struct peer {
 static bool field_admission_allowed=true,field_admission_renewal,bootstrap_urgent=true;
 static bool relay_server;
 static bool group_client,client_window=true,bootstrap_needed=true;
+static bool gm7_server,gm7_scan_aligned;
 static bool gm5_mode,gm5_inventory_due;static uint64_t gm5_selected;
 static uint64_t now_us(void);
 #if defined(R2_CONTROLLER_DIAGNOSTICS)
@@ -139,6 +140,7 @@ static bool control_ready(void){
  return true;
 }
 static bool desired(unsigned peer){
+ if(gm7_server)return false;
  if(gm5_mode){if(peer<CONTROL_PEERS)return peer!=self&&peers[peer].identity&&peers[peer].identity==gm5_selected;
   /* A started transient keeps its original owner through STATUS/promotion;
    * provisional expiry/release still bound it. Poll cadence gates new work. */
@@ -655,6 +657,9 @@ static void scan_report(const bt_addr_le_t *address,int8_t rssi,uint8_t type,str
 #if defined(R2_SWITCHABLE_FIELD)
   if(r2_switch_rc_active())return;
 #endif
+  /* GM7 locators are consumed only by the connectionless capture owner.
+   * Normal RC clients still discover this GM through its G1 JOIN locator. */
+  if(gm7_server)return;
   /* Discovery creates no authority. Main owner alone initiates connections. */
   if(type!=BT_GAP_ADV_TYPE_ADV_IND)return;
   uint64_t candidate=0;bool passive_hint=false;
@@ -861,6 +866,7 @@ static void poll_owned(uint64_t now)
    bool opportunity=r2_ble_admission_reserves_scan(now)&&field_admission_allowed;
    need_scan=precision_discovery||opportunity;
   }
+  if(gm7_server){need_adv=true;need_scan=true;}
   if(group_client&&!client_window){
    need_adv=need_scan=false;
    for(unsigned i=0;i<nodes;i++)if(i!=self&&peers[i].conn){
@@ -923,6 +929,7 @@ static void poll_owned(uint64_t now)
   bool core_discovery=group_id&&!group_client&&!precision_discovery&&!sync_acquiring;
   uint16_t wanted_interval=(core_discovery||group_client||(field_profile&&(precision_discovery||self==1)))?0x20:0xa0;
   uint16_t wanted_window=core_discovery?0x08:group_client||(field_profile&&self==1&&precision_discovery)?wanted_interval:field_profile&&self==1?0x08:connected?0x10:0x50;
+  if(gm7_server){wanted_interval=0x20;wanted_window=0x20;}
 #if defined(R2_FIELD_FIXTURE)
   if(field_profile&&self==1&&now>=132000000&&now<134000000){
    static unsigned trace_state=UINT32_MAX;
@@ -1203,6 +1210,7 @@ bool r2_ble_control_member(void){
  return false;
 }
 int r2_ble_admission_promote(void){
+ if(gm7_server)return -EACCES; /* normal client JOIN never creates GM HOT/control owners */
  struct peer *p=&peers[CONTROL_PEERS];
  if(gm5_mode&&(now_us()>=p->provisional_until||p->release||p->disconnect_requested||atomic_get(&p->dead)))return -ETIMEDOUT;
  if(!r2_ble_ready(CONTROL_PEERS)||atomic_get(&p->tx_busy)||gatt_pending(CONTROL_PEERS))return -EAGAIN;
@@ -1282,4 +1290,22 @@ void r2_ble_gm_diagnostics(uint32_t out[R2_GM_TRANSPORT_WORDS]){
  memcpy(out,gm_diag_state,12*sizeof *out);memcpy(out+12,gm_link_events,sizeof gm_link_events);
  memcpy(out+40,gm_diag_state+12,44*sizeof *out);gm_diag_requested=true;
  k_spin_unlock(&lock,key);
+}
+
+void r2_ble_gm7_server(bool enabled){
+ gm7_server=enabled;gm7_scan_aligned=false;
+ if(enabled){gm5_mode=false;gm5_selected=0;gm5_inventory_due=false;group_client=false;}
+}
+int r2_ble_gm7_scan(bool aligned){
+#if defined(R2_GM7_NATIVE)
+ extern void r2_gm7_controller_scan(bool,bool,uint64_t);
+ if(!gm7_server)return -EACCES;
+ if(gm7_scan_aligned==aligned)return 0;
+ if(scanning&&!stop_scan(now_us()))return stop_error?stop_error:-EAGAIN;
+ /* No running stock scan can span this policy transition. poll restarts it
+  * after the fixed37/broad policy is coherently installed. */
+ r2_gm7_controller_scan(true,aligned,0);gm7_scan_aligned=aligned;return 0;
+#else
+ (void)aligned;(void)gm7_scan_aligned;return -ENOTSUP;
+#endif
 }

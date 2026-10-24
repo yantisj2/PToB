@@ -19,7 +19,7 @@ performance. [Image provenance](../../docs/images/README.md).*
 
 | Profile | What it does |
 | --- | --- |
-| **GM** | GNSS-backed grandmaster. G5 coordinates one serving **ACTIVE**, one appointed **HOT** successor and other **COLD** receivers. |
+| **GM** | GNSS-backed grandmaster. GM7 advertises one serving **ACTIVE** and a preferred **HOT** successor; standbys arm locally after independent qualification and physical shadow preparation. |
 | **RC** | Receives authenticated BLE time from a GM or relay, displays it, and exports it over USB. Supports the RC7 relay path; following an RC2 stream stays a leaf. |
 | **DC** | Dedicated GNSS-to-USB image with Bluetooth disabled and no enrollment. Includes a second GNSS serial/correction bridge. [DC guide](../../docs/t096/direct-connect.md). |
 
@@ -36,7 +36,7 @@ before serving time. COLD can receive BLE timing while qualifying locally.
    Keep enrolled images local; use the build guide's device-specific update path.
 2. **Start the source.** Select GM and give GNSS a clear view of the sky. Check
    fix, PPS and source readiness on the quality/precision screens. For several
-   GMs, establish an ACTIVE/HOT pair before adding COLD clocks; follow the
+   GMs, allow the ACTIVE nominee to finish local shadow preparation; follow the
    [GM operating guide](../../docs/t096/gm-operations.md).
 3. **Add receivers.** Select RC and start in range of the source. Check the actual
    selected parent, fresh timing and precision lock before adding another hop.
@@ -55,10 +55,10 @@ before serving time. COLD can receive BLE timing while qualifying locally.
 | Display | **80 × 160** portrait color TFT; digital UTC, analog clock, RF activity, precision, GNSS quality, system and shadow-PPS pages; LoRa page in LoRa-enabled builds. |
 | Display behavior | Normal refresh **4 Hz**, RF page **8 Hz**. When eligible, a moving screensaver starts after **5 minutes** idle at **50% brightness**. |
 | BLE timing | Shared **G1/RC7** mesh with compatible T096, W12, StickS3 and N30 targets. Relay transmit support depends on the target/profile. |
-| GM coordination | **G5 STATUS protocol 6**; authenticated source admission, finite successor grants, and independent local GNSS qualification. |
+| GM coordination | **GM7 implementation2** with A1/C1; connectionless GM coordination, causal freshness, local HOT arming and independent GNSS qualification. Normal client GATT admission remains. |
 | LoRa timing | Optional **RC8 wire 3** fallback with root/source identity. BLE is preferred while usable; a configured transmitter can export qualified local GM time or its accepted locked BLE source. |
 | USB | Hardware-captured USB frame boundaries; RC exports BLE time, DC exports local GNSS time. The macOS client uses an owned, unprivileged `chronyd -x` user clock. |
-| Deployment | Source **0.15.169**, Zephyr-based native builds with pinned public dependencies. GM/RC uses private enrollment and verified device binding; no enrolled binary is distributed. |
+| Deployment | Source **0.15.170**, Zephyr-based native builds with pinned public dependencies. GM/RC uses private enrollment and verified device binding; no enrolled binary is distributed. |
 
 LoRa is disabled by default and requires build-time configuration. GM mesh
 participation can suppress passive RX. Fit the appropriate antenna before
@@ -107,3 +107,8 @@ and [evidence](../../evidence/README.md).
 
 Copyright (c) 2026 Jonathan Yantis. Original documentation: [MIT](../../LICENSE).
 See [source notices](NOTICE.md) for third-party terms.
+
+GM7 implementation and compatibility details, explicit historical regression
+selection and current offline validation limits are recorded in the
+[implementation guide](../../docs/t096/gm7-implementation.md). Native builds
+are preparation; physical failover and calibrated accuracy remain unqualified.

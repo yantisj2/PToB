@@ -1,0 +1,10 @@
+{
+  "files": {
+    "README.md": "fa32c45367f2d9d2db9966d4e81034e61f728fbfdb8175901d5229a0c00f44a6",
+    "policy.py": "83918748ddcf6fb7fedb90168854a7072f304e85be02060cdb3eda7aaec4e0de",
+    "test_policy.py": "f00578891a09c362c06166db8d5f1d6f328d9c1e1855215482cb4bf95d29d77e",
+    "verify.py": "4f5c6b2c886a5ab6c0156649ba4de54a811823c3a58afde935d65b56a8e2039e"
+  },
+  "implementation2_manifest_sha256": "919bcecb786243dd9f71e5b76efdc77f303be578cc151f702bfb6920fdcebff3",
+  "revision": "GM7-scheduler-A1"
+}

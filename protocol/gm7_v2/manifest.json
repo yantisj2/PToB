@@ -1,0 +1,16 @@
+{
+  "clearance_report_sha256": "84fd1eba076a9a84e0dceb1fab94a4d9f5709a246ddd310e9feb15155e836f59",
+  "draft1_manifest_sha256": "d200141fc9f4cd2ea91b80843d0bd563d7f349c1ff6c2e40fd4f8a7415006ef4",
+  "files": {
+    "README.md": "087fa1339d02c3eb5325b68e92937d4118a575d9ac3391157505e369c1f951a4",
+    "admission.py": "2daefba3b42bd95eefd95f45abcfca2d9e9c42a5e70c1991ccb331b8b98065ed",
+    "reference.py": "f45ba62c87f1c91d9029a9302200f6916329e045f9af3b9c9c64fab3cd1fea84",
+    "test_reference.py": "8946d87b88b193d6f07e6227918b1fa6dddfa6cd866aba8823046495215162ab",
+    "test_windows.py": "b25b3f5746b9cd6397f19fad483b0727a082158bd9dbd9641ce08bd5730691a6",
+    "vectors.json": "fba5baadec731894871b9e4e1ca4d51ddd1557656cf968acc0e1415c177c7dc7",
+    "verify.py": "84b932bc5e8bc7db4ed8b026f592b4e8e9df2da70156acb97ea751b4ea43f6d1",
+    "windows.py": "8446327e8e66dfda36a155b0d3797e47baa89f835c7082992512935c69a8497e"
+  },
+  "license": "MIT; Jonathan Yantis 2026",
+  "revision": "GM7-implementation2"
+}

@@ -14,6 +14,7 @@ if args.out: args.out.resolve().mkdir(parents=True,exist_ok=False)
 with (nullcontext(str(args.out.resolve())) if args.out else tempfile.TemporaryDirectory(prefix='t096-r2-test-')) as directory:
     out=Path(directory)
     compiler=os.environ.get('CC') or ('/opt/homebrew/opt/llvm/bin/clang' if Path('/opt/homebrew/opt/llvm/bin/clang').is_file() else shutil.which('clang'))
+    subprocess.run([sys.executable,str(APP/'tools/gm7_tests.py'),'--deps',str(args.deps),'--out',str(out/'gm7')],env={**os.environ,'CC':compiler},check=True,timeout=120)
     subprocess.run([sys.executable,str(APP/'tools/gm_utc_tests.py'),'--deps',str(args.deps),'--out',str(out/'gm-utc')],env={**os.environ,'CC':compiler},check=True,timeout=90)
     subprocess.run([sys.executable,str(APP/'tools/gnss_diagnostic_tests.py'),'--deps',str(args.deps),'--out',str(out/'gnss-diagnostics')],env={**os.environ,'CC':compiler},check=True,timeout=60)
     subprocess.run([sys.executable,str(APP/'tools/lora_rc8_tests.py'),'--deps',str(args.deps),'--out',str(out/'rc8')],
@@ -23,7 +24,7 @@ with (nullcontext(str(args.out.resolve())) if args.out else tempfile.TemporaryDi
     subprocess.run([sys.executable,str(APP/'tools/lora_init_gate_tests.py'),'--deps',str(args.deps),'--out',str(out/'lora-init-gate')],env={**os.environ,'CC':compiler},check=True,timeout=90)
     subprocess.run([sys.executable,str(APP/'tools/lora_hw_tests.py'),'--out',str(out/'lora-hw')],env={**os.environ,'CC':compiler},check=True,timeout=60)
     subprocess.run([sys.executable,str(APP/'tools/gm_input_order_tests.py'),'--deps',str(args.deps),'--out',str(out/'gm-input-order')],env={**os.environ,'CC':compiler},check=True,timeout=60)
-    subprocess.run([sys.executable,str(APP/'tools/cold_client_tests.py'),'--out',str(out/'cold-client')],check=True,timeout=90)
+    subprocess.run([sys.executable,str(APP/'tools/cold_client_tests.py'),'--out',str(out/'cold-client')],env={**os.environ,'CC':compiler},check=True,timeout=90)
     subprocess.run([sys.executable,str(APP/'tools/gm_standby_tests.py'),'--deps',str(args.deps),'--out',str(out/'gm-standby')],env={**os.environ,'CC':compiler},check=True,timeout=360)
     subprocess.run([sys.executable,str(APP/'tools/lora_gm_tests.py'),'--deps',str(args.deps),'--out',str(out/'lora-gm')],env={**os.environ,'CC':compiler},check=True,timeout=120)
     subprocess.run([sys.executable,str(APP/'tools/disconnect_diag_tests.py'),'--deps',str(args.deps),'--out',str(out/'disconnect-diag')],env={**os.environ,'CC':compiler},check=True,timeout=120)

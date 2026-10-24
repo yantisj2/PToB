@@ -28,6 +28,12 @@ enum r2_ui_reset {R2_UI_RESET_UNKNOWN,R2_UI_RESET_PIN,R2_UI_RESET_SOFTWARE,
 const char *r2_ui_reset_text(unsigned reason);
 void r2_ui_uptime_text(char out[16],uint64_t uptime_ms);
 struct r2_ui_model {
+#ifdef R2_GM7_NATIVE
+ uint64_t gm7_at_ms,gm7_peer_id;
+ uint32_t gm7_hot_ms,gm7_active_ms,gm7_pps_ms,gm7_peer_hot_ms,gm7_peer_active_ms,gm7_peer_pps_ms;
+ uint8_t gm7_known,gm7_peer_role,gm7_peer_known;
+ bool gm7_owner,gm7_peer_valid,gm7_peer_current;
+#endif
 #ifdef R2_LORA
  struct r2_lora_view lora;
 #endif

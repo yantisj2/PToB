@@ -2,6 +2,9 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 #include "app.h"
 #include "gm_diagnostics.h"
+#ifdef R2_GM7_NATIVE
+#include "gm7_service.h"
+#endif
 #include "health.h"
 #include "timing_events.h"
 #include "initiator_diag.h"
@@ -245,7 +248,10 @@ static void __attribute__((noinline)) reply(const struct r2_request *r,uint64_t 
     n=r2_frame(frame,sizeof frame,r->id,++reply_sequence,json);if(n>0)(void)r2_console_reply(frame,(size_t)n,arrival+R2_REPLY_MS);return;
   }
   if(r->op==R2_GM){
-#ifdef R2_GM5_NATIVE
+#ifdef R2_GM7_NATIVE
+    uint32_t gm7_profile[5];r2_service_profile_status(gm7_profile);
+    int n=r2_gm7_diagnostic_format(json,sizeof json,(unsigned)r->nonce,R2_SOURCE_SHA,identity.boot,!gm7_profile[0]&&!gm7_profile[1]);
+#elif defined(R2_GM5_NATIVE)
     struct r2_gm5_diagnostic d={0};r2_gm_diagnostic_snapshot(&d);
     uint32_t gm_profile[5];r2_service_profile_status(gm_profile);if(gm_profile[0]||gm_profile[1])d.state.enabled=false;
     int n=r2_gm_diagnostic_format(json,sizeof json,&d,(unsigned)r->nonce,R2_SOURCE_SHA,identity.boot);

@@ -90,7 +90,13 @@ int r2_parse(const char *line, struct r2_request *out)
    out->seconds=1;return 0;
   }
 #endif
-  if(out->op==R2_GM)return count==7&&hex(parts[6],2,&out->nonce)&&out->nonce<=4?0:-EINVAL;
+  if(out->op==R2_GM)return count==7&&hex(parts[6],2,&out->nonce)&&out->nonce<=
+#ifdef R2_GM7_NATIVE
+   8
+#else
+   4
+#endif
+   ?0:-EINVAL;
   if(out->op==R2_EVENTS)return count==7&&hex(parts[6],8,&out->nonce)?0:-EINVAL;
 #ifdef R2_RC_PROFILE
   if(out->op==R2_RC_PARENT){

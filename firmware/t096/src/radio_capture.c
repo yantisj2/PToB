@@ -1,3 +1,6 @@
+#if defined(R2_GM7_NATIVE)
+#include "gm7_controller.h"
+#endif
 /* SPDX-License-Identifier: Apache-2.0 */
 #include "radio_capture.h"
 #include <errno.h>
@@ -99,6 +102,9 @@ void r2_radio_capture_arm(void *owner, const void *pdu, uint16_t event,
                           uint8_t channel, uint8_t phy, bool tx) {
   if (!__atomic_load_n(&enabled, __ATOMIC_ACQUIRE))
     return;
+#if defined(R2_GM7_NATIVE)
+  if(r2_gm7_capture_busy()){inc(&invalid);return;}
+#endif
   if (active.armed) {
     disarm();
     inc(&invalid);
@@ -198,6 +204,7 @@ void r2_radio_capture_complete(void *owner, bool done, bool crc) {
   r->channel = active.channel;
   r->tx = active.tx;
   r->length = ad_length;
+  r->pdu_length=(uint8_t)length;
   memcpy(r->ad, ad, ad_length);
   __atomic_store_n(&head, h + 1, __ATOMIC_RELEASE);
   inc(&completed);
@@ -228,3 +235,5 @@ void r2_radio_capture_stats(struct r2_radio_capture_stats *out) {
     .invalid=invalid,.overflow=overflow,.armed=active.armed,.rx=rx_stats};
   irq_unlock(key);
 }
+
+bool r2_radio_capture_available(void){return __atomic_load_n(&enabled,__ATOMIC_ACQUIRE)&&!active.armed;}

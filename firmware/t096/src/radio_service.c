@@ -3,6 +3,15 @@
  * Callbacks publish lifecycle facts only. Exact captured PDU bytes supply time.
  */
 #include "radio_service.h"
+#ifdef R2_GM7_NATIVE
+#include "gm7_timing.h"
+#include "gm7_controller.h"
+#include "precision_schedule.h"
+#include <zephyr/bluetooth/hci.h>
+#include "rc_direct_calibration.h"
+#include "../protocol/gm7_phase.h"
+#include "../protocol/gm7_promote.h"
+#endif
 #include "role_announcement.h"
 #include "gnss_diagnostics.h"
 #include "health.h"
@@ -78,6 +87,9 @@ struct pt_input {
  uint32_t source_epoch;bool source_ready, stopped,quality_listening;
 };
 struct pt_output {
+#ifdef R2_GM7_NATIVE
+ struct r2_gm7_timing gm7;
+#endif
  struct r2_radio_scope scope;
  struct r2_radio_precision_view view;
  struct r2_link_quality_view quality;
@@ -102,6 +114,11 @@ static struct {
  r2_servo_clock_t servo;
  uint64_t root,boot,counter_epoch,last_available,last_accepted;
  uint32_t epoch,train,remote_capture;
+#ifdef R2_GM7_NATIVE
+ int64_t utc_offset_ns;
+ uint32_t phase_enclosure_us;
+ uint64_t phase_evaluated_tick;
+#endif
  bool pending,valid;
 } handoff;
 void r2_radio_service_handoff_request(uint64_t root,uint64_t boot,uint32_t epoch){
@@ -515,6 +532,9 @@ static void precision_step(uint64_t now){
   active_scope=scope;out.length=0;out.payload_until=0;out.payload_sequence=0;
   if(scope.gm){train=scope.publication_epoch;publication=0;generic_frame=0;memset(&generic_origin,0,sizeof generic_origin);last_published_capture=UINT32_MAX;updated_at=0;}
   follower_frame=0;
+#ifdef R2_GM7_NATIVE
+  out.gm7=(struct r2_gm7_timing){0};
+#endif
  }
  active_scope=scope;
  bool shadow_changed=precision.scope.boot!=scope.boot||precision.scope.source_epoch!=scope.source_epoch||precision.scope.root_identity!=scope.root_identity||precision.local_epoch!=(captured?current.epoch:0)||precision.scope.follower!=scope.follower||precision.scope.gm!=scope.gm;
@@ -549,6 +569,24 @@ static void precision_step(uint64_t now){
         bool saved=r2_radio_precision_tx(&precision, &p, physical, record.event,
                                     record.channel, ns, generation, expiry,
                                     now);
+#ifdef R2_GM7_NATIVE
+        if(saved&&!out.gm7.first_tx_lo&&physical.tick>657){
+         /* G1 retains ADDRESS semantics; enclose standard LE1M preamble+AA,
+          * TX chain ceiling and capture quantization, rather than relabel it. */
+         out.gm7.first_tx_lo=physical.tick-657;
+         out.gm7.first_tx_hi=physical.tick-623;
+         out.gm7.first_tx_derived_end_hi=out.gm7.first_tx_hi+((uint64_t)(10+record.pdu_length)*8+1)*16;
+         out.gm7.first_tx_observed_complete=true;
+        }
+        if(saved){
+         int64_t tx_utc;
+         if(r2_source_utc_read(source,physical,r2_radio_local_epoch(scope),&tx_utc)&&tx_utc>=0){
+          int32_t phase=(int32_t)(((uint64_t)tx_utc/1000-40)%62500);
+          if(phase>31250)phase-=62500;
+          out.gm7.tx_phase_us=phase;out.gm7.last_tx=physical.tick;
+         }
+        }
+#endif
         if(saved)r2_ble_timing_lamps(true,p.count!=0,now);
         if(saved&&r2_radio_audit_selected(record.event)){
           struct r2_radio_audit_record q={.kind=R2_AUDIT_TX,.peer_boot=p.boot,.root_boot=p.boot,
@@ -624,6 +662,30 @@ static void precision_step(uint64_t now){
  out.bootstrap=client_clock;out.bootstrap.passive=public_client;out.bootstrap.until=scope.until_us;
  out.bootstrap.source=public_client&&client_anchor_valid(sampled)&&sampled<scope.until_us;
  out.context=(struct r2_group_client){.passive=public_client,.source=out.utc_valid,.root=scope.root<enrollment.count?enrollment.identity[scope.root]:0,.boot=scope.boot,.source_epoch=scope.source_epoch,.publication=scope.publication_epoch,.utc_us=out.utc,.at=sampled,.until=scope.until_us,.map_until=out.valid_until};
+#ifdef R2_GM7_NATIVE
+ out.gm7.scope=scope;out.gm7.view=out.view;out.gm7.counter_epoch=current.epoch;
+ out.gm7.evaluated_tick=current.tick;
+ out.gm7.last_correction=precision.last_accepted;out.gm7.until_us=out.valid_until;
+ out.gm7.utc_offset_ns=offset;out.gm7.capture_gen=precision.remote_capture;
+ out.gm7.shadow_gen=precision.accepted;
+ out.gm7.retained=scope.follower&&!precision.servo.fault&&precision.servo.fit_valid&&
+  r2_radio_precision_map(&precision,&out.gm7.map)&&current.tick>=precision.last_accepted&&
+  current.tick-precision.last_accepted<5*R2_CAPTURE_HZ;
+ out.gm7.phase_enclosure_us=UINT32_MAX;
+ if(out.gm7.retained){
+  /* Descriptive empirical phase enclosure for the reserved management
+   * owner: sqrt(sum(actual causal delivered error^2)) encloses every recorded
+   * error, plus remaining commanded phase slew, paired quantization and the
+   * assumed oscillator envelope since the last actual physical correction.
+   * No RMS-to-absolute-accuracy conversion or calibrated UTC claim. */
+  uint64_t squares=r2_servo_output_quality_sum(&precision.servo);
+  uint64_t phase=r2_servo_pll_phase_remaining(&precision.servo,current.tick);
+  bool bounded=precision.servo.output_quality.count&&squares!=UINT64_MAX&&phase!=UINT64_MAX;
+  uint64_t maximum=bounded?(uint64_t)r2_servo_rms_floor(squares,1)+1:UINT64_MAX;
+  uint64_t envelope=bounded?(maximum+phase+999)/1000+GM7_PHASE_BASE_US+(current.tick-precision.last_accepted+79999)/80000:UINT64_MAX;
+  if(envelope<=UINT32_MAX)out.gm7.phase_enclosure_us=(uint32_t)envelope;
+ }
+#endif
  if(scope.root<enrollment.count)memcpy(out.address,enrollment.address[scope.root],6);
  if(pt_cycles<UINT32_MAX)++pt_cycles;
  out.view.pt_cycles=pt_cycles;out.view.pt_wall_max_us=pt_wall_max_us;out.view.pt_capture_age_max_us=pt_capture_age_max_us;
@@ -722,6 +784,9 @@ static void precision_poll(uint64_t now,bool *was_running){
    * clears its old scope; copying is thread-only and under the mailbox lock. */
   handoff_root=handoff.root;handoff_boot=handoff.boot;handoff_epoch=handoff.epoch;
   handoff.valid=precision.scope.follower&&!precision.scope.gm&&precision.scope.root_identity==handoff.root&&precision.scope.boot==handoff.boot&&precision.scope.source_epoch==handoff.epoch&&precision.train&&precision.remote_capture&&!precision.servo.fault&&precision.servo.fit_valid&&precision.servo.session==precision.train;
+#ifdef R2_GM7_NATIVE
+  if(handoff.valid){handoff.utc_offset_ns=public_client?client_utc_offset:follower_utc_offset;handoff.phase_enclosure_us=pt_output.gm7.phase_enclosure_us;handoff.phase_evaluated_tick=pt_output.gm7.evaluated_tick;}
+#endif
   if(handoff.valid){handoff.servo=precision.servo;handoff.counter_epoch=precision.local_epoch;handoff.train=precision.train;handoff.remote_capture=precision.remote_capture;handoff.last_available=precision.last_available;handoff.last_accepted=precision.last_accepted;}
  }
  if(reset_requested!=reset_ack&&pt_input.stopped&&!native_owned){
@@ -816,6 +881,11 @@ static int start_gm(const struct pt_output *out,const struct r2_gnss_record *ref
  if(!rc)rc=install_data(out);
  if(!rc)install_role_status(out,service_now(),reference);
  if(!rc&&!native_live(out,service_now()))rc=-ESTALE;
+#ifdef R2_GM7_NATIVE
+ if(!rc){uint8_t handle;rc=bt_hci_get_adv_handle(advertiser,&handle);
+  if(!rc)r2_gm7_controller_precision_bind(handle,out->scope.publication_epoch);
+ }
+#endif
  if(!rc){r2_health_operation(R2_HEALTH_PA,R2_HEALTH_PA_START,-EINPROGRESS);rc=bt_le_per_adv_start(advertiser);r2_health_operation(R2_HEALTH_PA,R2_HEALTH_PA_START,rc);if(!rc)pa_started=true;}
  if(!rc&&!native_live(out,service_now()))rc=-ESTALE;
  if(!rc){r2_health_operation(R2_HEALTH_PA,R2_HEALTH_EXT_START,-EINPROGRESS);rc=bt_le_ext_adv_start(advertiser,BT_LE_EXT_ADV_START_DEFAULT);r2_health_operation(R2_HEALTH_PA,R2_HEALTH_EXT_START,rc);if(!rc)ext_started=true;}
@@ -916,3 +986,47 @@ int r2_radio_service_reset(uint32_t generation){
  reset_requested=generation;bool done=reset_ack==generation;(void)k_mutex_unlock(&pt_lock);return done?0:-EAGAIN;
 }
 uint32_t r2_radio_service_profile_flushes(void){(void)k_mutex_lock(&pt_lock,K_FOREVER);uint32_t count=reset_flushes;(void)k_mutex_unlock(&pt_lock);return count;}
+
+#ifdef R2_GM7_NATIVE
+void r2_radio_service_gm7_timing(struct r2_gm7_timing *out,uint64_t now){
+ if(!out)return;
+ struct pt_output s;output_read(&s,now);*out=s.gm7;out->view=s.view;
+ (void)k_mutex_lock(&pt_lock,K_FOREVER);
+ if(!out->retained&&handoff.valid){
+  *out=(struct r2_gm7_timing){.scope={.root=1,.root_identity=handoff.root,.boot=handoff.boot,.source_epoch=handoff.epoch,.publication_epoch=handoff.train,.follower=true},
+   .map=handoff.servo.output,.counter_epoch=handoff.counter_epoch,.last_correction=handoff.last_accepted,.evaluated_tick=handoff.phase_evaluated_tick,
+   .utc_offset_ns=handoff.utc_offset_ns,.capture_gen=handoff.remote_capture,.phase_enclosure_us=handoff.phase_enclosure_us,.retained=true};
+  if(!r2_empirical_phase_ns(out->map.anchor,&out->map.anchor))out->retained=false;
+ }
+ (void)k_mutex_unlock(&pt_lock);
+ struct r2_capture current;
+ if(!r2_capture_now(&current)||current.epoch!=out->counter_epoch||
+    current.tick<out->last_correction||current.tick-out->last_correction>=5*R2_CAPTURE_HZ||
+    !gm7_phase_grow(out->phase_enclosure_us,out->evaluated_tick,current.tick,&out->phase_enclosure_us))
+  out->retained=false;
+}
+int r2_radio_service_gm7_promote(struct r2_source_clock *to,uint64_t root,uint64_t boot,
+ uint32_t epoch,uint32_t train_epoch,uint32_t local_epoch,unsigned association,struct r2_capture current){
+ if(!to||!local_epoch||!r2_radio_service_closed())return -EBUSY;
+ (void)k_mutex_lock(&pt_lock,K_FOREVER);
+ bool valid=handoff.valid&&!handoff.pending&&handoff.root==root&&handoff.boot==boot&&
+  handoff.epoch==epoch&&handoff.train==train_epoch&&handoff.counter_epoch==current.epoch&&
+  current.kind==R2_CAPTURE_NOW&&current.tick>=handoff.last_accepted&&
+  current.tick-handoff.last_accepted<5*R2_CAPTURE_HZ;
+ uint32_t enclosure;valid=valid&&gm7_phase_grow(handoff.phase_enclosure_us,handoff.phase_evaluated_tick,current.tick,&enclosure)&&enclosure<=8000;
+ r2_servo_map_t delivered=handoff.servo.output;
+ int64_t offset=handoff.utc_offset_ns;
+ int64_t ns;valid=valid&&r2_empirical_phase_ns(delivered.anchor,&delivered.anchor)&&r2_servo_mapped(&delivered,current.tick,&ns)&&ns>=0;
+ handoff.valid=false;(void)k_mutex_unlock(&pt_lock);
+ if(!valid)return -ESTALE;
+ return gm7_promote_clock(to,&delivered,offset,current,local_epoch,association);
+}
+#endif
+
+#ifdef R2_GM7_NATIVE
+int r2_radio_service_gm7_phase_step(int step){
+ if(!advertiser||!native_scope.gm||closing)return -EAGAIN;
+ uint8_t handle;int rc=bt_hci_get_adv_handle(advertiser,&handle);
+ return rc?rc:r2_precision_phase_step(handle,step);
+}
+#endif

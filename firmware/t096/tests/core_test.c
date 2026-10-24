@@ -18,9 +18,15 @@ static void parse_tests(void)
   r.boot=123; assert(r2_bound(&r,silicon,source,123));
   snprintf(command,sizeof(command),"r2 00000002 %s %s 000000000000007b prepare 00000000000000ab",silicon,source);
   assert(!r2_parse(command,&r) && r.nonce==171 && r.boot==123);
-  for(unsigned page=0;page<6;page++){
+  for(unsigned page=0;page<10;page++){
    snprintf(command,sizeof command,"r2 00000002 %s %s 000000000000007b gm %02x",silicon,source,page);
-   if(page<=4)assert(!r2_parse(command,&r)&&r.op==R2_GM&&r.nonce==page&&r2_bound(&r,silicon,source,123));
+   if(page<=
+#ifdef R2_GM7_NATIVE
+   8
+#else
+   4
+#endif
+  )assert(!r2_parse(command,&r)&&r.op==R2_GM&&r.nonce==page&&r2_bound(&r,silicon,source,123));
    else assert(r2_parse(command,&r));
   }
   snprintf(command,sizeof command,"r2 00000002 %s %s 000000000000007b gm 0",silicon,source);assert(r2_parse(command,&r));

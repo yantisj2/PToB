@@ -2,7 +2,7 @@
 """Offline source/image/layout validation; not deployment authorization.
 Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT
 """
-import argparse,contextlib,hashlib,json,re,struct,sys
+import argparse,contextlib,hashlib,importlib.util,json,re,struct,sys,tempfile
 from pathlib import Path
 from elftools.elf.elffile import ELFFile
 from uf2 import verify
@@ -14,6 +14,8 @@ def inspect(out,allow_development=False):
     out=Path(out);r=json.loads((out/'receipt.json').read_text())
     dc=r['profile']=='DC'
     pc=r['profile']=='PC'
+    gm7=r.get('gm7_native',False)
+    require(type(gm7) is bool and not (gm7 and (dc or pc)),'Invalid GM7 profile selection')
     require((r['artifact_class']=='PTOB_T096_DC1' if dc else r['artifact_class']=='PTOB_T096_PC1' if pc else r['artifact_class']=='PTOB_T096_RC7' and r['profile'] in ('GM','RC')) and r['usb_source_stream'] is True,'Unknown profile')
     require(r['status']=='BUILD_COMPLETE_PHYSICAL_UNKNOWN' or allow_development and r['status']=='DEVELOPMENT_NOT_FLASHABLE','Unreviewable build')
     require(not r['source_dirty'] or allow_development,'Dirty source')
@@ -55,7 +57,7 @@ def inspect(out,allow_development=False):
     if not dc and tuple(map(int,r['version'].split('.'))) >= (0,15,101):
         units=json.loads(commands)
         aux=[x['file'] for x in units if x['file'].endswith('/lll_scan_aux.c')]
-        require(len(aux)==1 and aux[0].endswith('/r2_radio_controller/lll_scan_aux.c'),
+        require(len(aux)==1 and aux[0].endswith('/gm7_controller/lll_scan_aux.c' if gm7 else '/r2_radio_controller/lll_scan_aux.c'),
                 'Missing/duplicate pinned AUX initiation diagnostic source')
     diagnostic=r.get('controller_diagnostics',False)
     require(type(diagnostic) is bool,'Invalid diagnostic variant flag')
@@ -63,7 +65,7 @@ def inspect(out,allow_development=False):
     prepare_capture=tuple(map(int,r['version'].split('.'))) >= (0,15,156) and not (dc or pc)
     observer=diagnostic or prepare_capture
     require(('/src/controller_diag.c' in commands)==observer,'Diagnostic observer source mismatch')
-    require(('/r2_controller_diag/ull.c' in commands)==observer,'Diagnostic controller hook mismatch')
+    require(('/gm7_controller/ull.c' in commands if gm7 else '/r2_controller_diag/ull.c' in commands)==observer,'Diagnostic controller hook mismatch')
     require(('R2_CONTROLLER_FAULT_CAPTURE=1' in commands)==prepare_capture,'Prepare capture compiler mode mismatch')
     require(('R2_CONTROLLER_DIAGNOSTICS=1' in commands)==diagnostic,'Diagnostic compiler mode mismatch')
     if tuple(map(int,r['version'].split('.'))) >= (0,15,155):
@@ -81,9 +83,9 @@ def inspect(out,allow_development=False):
             units=json.loads(commands)
             for suffix,expected in [('ticker/ticker.c','/r2_controller/ticker/ticker.c'),
                                     ('ll_sw/ull_peripheral.c','/r2_controller/ll_sw/ull_peripheral.c'),
-                                    ('ll_sw/ull.c','/r2_controller_diag/ull.c' if observer else '/r2_controller/ll_sw/ull.c')]:
+                                    ('ll_sw/ull.c','/gm7_controller/ull.c' if gm7 else '/r2_controller_diag/ull.c' if observer else '/r2_controller/ll_sw/ull.c')]:
                 candidates=[c['file'] for c in units if c['file'].endswith('/'+suffix) or
-                            suffix=='ll_sw/ull.c' and c['file'].endswith('/r2_controller_diag/ull.c')]
+                            suffix=='ll_sw/ull.c' and c['file'].endswith('/gm7_controller/ull.c' if gm7 else '/r2_controller_diag/ull.c')]
                 require(len(candidates)==1 and candidates[0].endswith(expected),'Fault diagnostic controller membership: '+suffix)
             for name,hashes in manifest['files'].items():
                 relative=Path(name).relative_to('subsys/bluetooth/controller')
@@ -140,6 +142,32 @@ def inspect(out,allow_development=False):
                 candidates=[c['file']for c in json.loads(commands)if c['file'].endswith('/'+leaf)]
                 require(len(candidates)==1 and candidates[0].endswith('/r2_radio_fixes/'+leaf),'Radio fixes source membership: '+leaf)
                 require(sha(out/'target/r2_radio_fixes'/leaf)==hashes['output_sha256'],'Radio fixes generated hash: '+leaf)
+    if gm7:
+        require(r.get('gm7_controller')=={
+            'manifest_sha256':sha(out/'source/cmake/gm7-controller.json'),
+            'generator_sha256':sha(out/'source/tools/gm7_controller_hooks.py')},'GM7 generator/manifest binding')
+        gm7_inputs=[out/'target/r2_controller_diag/ull.c',
+                    out/'target/r2_radio_controller/lll_scan.c',
+                    out/'target/r2_radio_controller/lll_scan_aux.c',
+                    out/'target/r2_precision_controller/ull_adv_sync.c']
+        spec=importlib.util.spec_from_file_location('gm7_bound_generator',out/'source/tools/gm7_controller_hooks.py')
+        module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+        with tempfile.TemporaryDirectory(prefix='ptob-gm7-inspect-') as tmp:
+            generated=module.generate(*gm7_inputs,Path(tmp))
+            require(generated==json.loads((out/'target/gm7_controller/manifest.json').read_text()),'GM7 composed controller manifest')
+            for leaf,entry in generated.items():
+                require(sha(out/'target/gm7_controller'/leaf)==entry['output_sha256'],'GM7 exact composed hook: '+leaf)
+                candidates=[c['file']for c in json.loads(commands)if c['file'].endswith('/'+leaf)]
+                require(len(candidates)==1 and candidates[0].endswith('/gm7_controller/'+leaf),'GM7 unique compiled owner: '+leaf)
+        for leaf in ['gm7_service.c','gm7_controller.c','gm7_clock.c','gm7_capture.c','gm7_owner.c','gm7_session.c','gm7_codec.c']:
+            require(sum(c['file'].endswith('/'+leaf)for c in json.loads(commands))==1,'GM7 production membership: '+leaf)
+        require('/src/ble_service.c' not in commands,'Retired GM coordinator owner compiled in GM7')
+        require('CONFIG_BT_CTLR_PHY_2M=y' not in config,'GM7 management PHY changed ordinary ACL feature mask')
+        with (out/'target/zephyr/zephyr.elf').open('rb') as f:
+            symbols={s.name for s in ELFFile(f).get_section_by_name('.symtab').iter_symbols()}
+        require('r2_gm7_controller_submit' in symbols and 'r2_network_tick' not in symbols,'GM7 live owner closure')
+    else:
+        require(r.get('gm7_controller') is None and '/gm7_controller/' not in commands,'GM7 backend leaked into separate image')
     dts=(out/'target/zephyr/zephyr.dts').read_text()
     if dc and 'src/dc_gnss.c' in r['sources']:
         require(r.get('dc_gnss_bridge') is True,'Missing DC GNSS bridge receipt')
