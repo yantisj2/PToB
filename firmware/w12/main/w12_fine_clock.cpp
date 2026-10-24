@@ -173,7 +173,8 @@ bool w12_fine_current(uint64_t* tick20){
   portEXIT_CRITICAL(&mux);return ok;
 }
 bool w12_fine_gnss_map_bracket(mcpwm_cap_channel_t* channel,uint64_t* before,uint64_t* after){
-  if(before)*before=0;if(after)*after=0;
+  if(before)*before=0;
+  if(after)*after=0;
   if(!channel||!before||!after||before==after||!channel->cap_timer||
      !channel->cap_timer->group||channel->cap_chan_id!=1||
      channel->fsm!=MCPWM_CAP_CHAN_FSM_ENABLE||
