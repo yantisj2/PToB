@@ -56,12 +56,15 @@ with tempfile.TemporaryDirectory() as tmp:
  explicit_off=subprocess.check_output([*common,*defs,'-DPTOB_W12_GNSS_FAST_MAP_DIAGNOSTIC=0','-E','-P',source],text=True,timeout=20)
  assert default==explicit_off and 'w12_s3_gnss_map_bracket' not in default
  stripped=re.sub(r'^\s*#include .*$', '',(APP/'legacy/gnss_pps.cpp').read_text(),flags=re.M)
- def pp(enabled):return subprocess.check_output([CXX,'-E','-P','-x','c++','-'],input='#define PTOB_W12_GNSS_FAST_MAP_DIAGNOSTIC '+str(enabled)+'\n'+stripped,text=True,timeout=20)
+ def pp(enabled,fine=False):return subprocess.check_output([CXX,'-E','-P','-x','c++','-'],input=('#define PTOB_W12_FINE_CLOCK 1\n' if fine else '')+'#define PTOB_W12_GNSS_FAST_MAP_DIAGNOSTIC '+str(enabled)+'\n'+stripped,text=True,timeout=20)
  slow=pp(0);fast=pp(1)
  sequence='before=now();result=mcpwm_capture_channel_trigger_soft_catch(map_channel);after=now();'
  assert slow.count(sequence)==2 and 'w12_s3_gnss_map_bracket' not in slow
  assert fast.count(sequence)==1 and fast.count('result=w12_s3_gnss_map_bracket(clock,map_channel,&before,&after);')==1
  assert 'FAST_DRIVER_LATCH_DIAGNOSTIC' in fast and 'FAST_DRIVER_LATCH_DIAGNOSTIC' not in slow
+ narrow=pp(0,True)
+ assert narrow.count(sequence)==1 and narrow.count('result=w12_fine_gnss_map_bracket(map_channel,&before,&after)?ESP_OK:ESP_FAIL;')==1
+ assert 'FINE_COUNTER_BRACKET' in narrow and 'w12_s3_gnss_map_bracket' not in narrow
 print('PASS explicit profile/metadata/three compiled units/core gates, feature-off source behavior, guarded fast helper and IRQ/error/refusal controls')
 
 # Bound every modified map-treatment log format at ESP32 32-bit-long widths.

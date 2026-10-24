@@ -16,6 +16,12 @@ struct W12FineStatus {
 };
 W12FineStatus w12_fine_status(); // Cached observer only; never latches CURRENT.
 
+struct mcpwm_cap_channel_t;
+// Main-task GNSS group0 CH1 software capture enclosed by two group1 CURRENT
+// latches. Same production counter coordinates; no PPS/receiver model writes.
+// Caller holds its GNSS queue critical section until the bracket is complete.
+bool w12_fine_gnss_map_bracket(mcpwm_cap_channel_t*,uint64_t* before20,uint64_t* after20);
+
 using W12LoRaCapture=bool(*)(uint64_t tick20);
 bool w12_fine_lora_start(W12LoRaCapture);
 // Independent LoRa epoch/extension; no BLE Receiver history/fence processing.

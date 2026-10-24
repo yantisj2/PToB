@@ -172,6 +172,32 @@ bool w12_fine_current(uint64_t* tick20){
   if(!ok&&active){error=-2;contain();}
   portEXIT_CRITICAL(&mux);return ok;
 }
+bool w12_fine_gnss_map_bracket(mcpwm_cap_channel_t* channel,uint64_t* before,uint64_t* after){
+  if(before)*before=0;if(after)*after=0;
+  if(!channel||!before||!after||before==after||!channel->cap_timer||
+     !channel->cap_timer->group||channel->cap_chan_id!=1||
+     channel->fsm!=MCPWM_CAP_CHAN_FSM_ENABLE||
+     channel->cap_timer->fsm!=MCPWM_CAP_TIMER_FSM_ENABLE||
+     channel->cap_timer->resolution_hz!=80000000||
+     channel->cap_timer->group->group_id!=0)return false;
+  auto* gnss=channel->cap_timer->group->hal.dev;
+  if(!gnss||!gnss->cap_timer_cfg.cap_timer_en||!gnss->cap_chn_cfg[1].capn_en)return false;
+  portENTER_CRITICAL(&mux);
+  bool ok=active&&!error&&pending_ok();
+  uint32_t lo=0,hi=0;
+  if(ok){
+    // Keep counter extension, BLE association checks and coordinate conversion
+    // outside the aperture. This is the exact pinned public soft-catch primitive
+    // on the validated GNSS channel, between bounded driver-owned CURRENT latches.
+    ok=latch(lo);
+    if(ok){mcpwm_ll_trigger_soft_capture(gnss,1);ok=latch(hi);}
+  }
+  w12::fine::Time a{},b{};
+  if(ok)ok=counter.current(1,lo,coarse(),a)&&counter.current(1,hi,coarse(),b)&&
+    receiver.coordinate(a.raw80,0,*before)&&receiver.coordinate(b.raw80,0,*after)&&*after>=*before;
+  if(!ok)*before=*after=0;
+  portEXIT_CRITICAL(&mux);return ok;
+}
 int w12_fine_receive(v12::periodic_rx::Stamp& stamp){
   portENTER_CRITICAL(&mux);int outcome=0;w12::fine::Time t{};w12::fine::Receiver::Match found{};
   const bool live=active&&!error&&pending_ok()&&current(t);

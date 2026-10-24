@@ -1,5 +1,19 @@
 # W12 changelog
 
+## 0.2.6 — fine-counter shadow PPS mapping
+
+- Enclose the existing GNSS group0 software capture with group1 CURRENT
+  latches in the production fine-counter domain. Move counter extension,
+  association checks and coordinate conversion outside the sampled aperture.
+- Validate the GNSS channel, group, timer frequency and enabled state. Missing
+  latches fail the map without substituting GPTimer time or widening its gates.
+  Keep prior-anchor availability, expiry, mapping rejection and physical PPS
+  coverage explicit. Label this population `FINE_COUNTER_BRACKET`.
+- Exercise exact helper ordering, invalid channels, stopped latches and repeated
+  hardware wraps with synthetic ASan/UBSan checks. These do not certify physical
+  timing. Retain GNSS input-only wiring, no receiver aid, unchanged BLE fitting,
+  source permissions, LoRa ownership and app-only maintenance behavior.
+
 ## 0.2.3 — source-aware RMS and AUTO recovery
 
 - Show current LoRa link RMS on the Clock and Precision pages when LoRa supplies

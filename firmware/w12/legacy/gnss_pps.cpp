@@ -1,4 +1,7 @@
 #include "gnss_pps.hpp"
+#ifdef PTOB_W12_FINE_CLOCK
+#include "w12_fine_clock.hpp"
+#endif
 #if defined(PTOB_W12_GNSS_FAST_MAP_DIAGNOSTIC) && PTOB_W12_GNSS_FAST_MAP_DIAGNOSTIC
 #include "s3_clock_reference.h"
 #endif
@@ -63,7 +66,9 @@ ptob_gnss::Rmc rmc{};ptob_gnss::CounterMap mapping;
 ptob_gps::Shadow shadow;
 bool guarded_map=true,shadow_logs=true;
 const char* map_treatment(){
-#if defined(PTOB_W12_GNSS_FAST_MAP_DIAGNOSTIC) && PTOB_W12_GNSS_FAST_MAP_DIAGNOSTIC
+#ifdef PTOB_W12_FINE_CLOCK
+ return guarded_map?"FINE_COUNTER_BRACKET":"BASELINE";
+#elif defined(PTOB_W12_GNSS_FAST_MAP_DIAGNOSTIC) && PTOB_W12_GNSS_FAST_MAP_DIAGNOSTIC
  return guarded_map?"FAST_DRIVER_LATCH_DIAGNOSTIC":"BASELINE";
 #else
  return guarded_map?"GUARDED":"BASELINE";
@@ -281,14 +286,16 @@ void poll(uint64_t tick) {
  }
  if(!request_tick && (!last_map_request || tick-last_map_request>=5000000)){
   request_tick=tick;last_map_request=tick;
-  // A software capture interrupt between the two GPTimer reads adds its
-  // execution time to the old bracket. Enclose only these supported driver
-  // calls; defer the capture ISR until both reads finish. No controller hook,
-  // timer/GPIO rerouting, formatting, allocation or fit is in this section.
+  // Defer the capture ISR until both reads finish. Fine builds bracket the
+  // existing group0 trigger with group1 CURRENT latches; legacy builds retain
+  // their GPTimer path. No controller query, timer/GPIO rerouting, formatting,
+  // allocation or fit is in the aperture.
   esp_err_t result;
   if(guarded_map){
    portENTER_CRITICAL(&lock);request_serial=map_serial;
-#if defined(PTOB_W12_GNSS_FAST_MAP_DIAGNOSTIC) && PTOB_W12_GNSS_FAST_MAP_DIAGNOSTIC
+#ifdef PTOB_W12_FINE_CLOCK
+   result=w12_fine_gnss_map_bracket(map_channel,&before,&after)?ESP_OK:ESP_FAIL;
+#elif defined(PTOB_W12_GNSS_FAST_MAP_DIAGNOSTIC) && PTOB_W12_GNSS_FAST_MAP_DIAGNOSTIC
    result=w12_s3_gnss_map_bracket(clock,map_channel,&before,&after);
 #else
    before=now();result=mcpwm_capture_channel_trigger_soft_catch(map_channel);after=now();

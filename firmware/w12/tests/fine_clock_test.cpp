@@ -20,7 +20,7 @@ int main(int argc,char** argv){
   if(!std::strcmp(mode,"stale_raw")){fake_device.int_raw.val=1u<<29;fake_clear_ok=false;}
   if(!std::strcmp(mode,"stale_radio")){fake_device.int_raw.val=1u<<27;fake_radio_clear_ok=false;}
   if(!std::strcmp(mode,"irq"))fake_irq_restore_ok=false;
-  if(std::strcmp(mode,"live")&&std::strcmp(mode,"lora")&&std::strcmp(mode,"pending_late")&&std::strcmp(mode,"cleanup")&&
+  if(std::strcmp(mode,"live")&&std::strcmp(mode,"lora")&&std::strcmp(mode,"gnss")&&std::strcmp(mode,"pending_late")&&std::strcmp(mode,"cleanup")&&
      std::strcmp(mode,"wrap")&&std::strcmp(mode,"storm")&&std::strcmp(mode,"gap")){
     assert(!w12_fine_start(2,PTOB_W12_FINE_FACTORY,fake_now));
     assert(w12_fine_fault()&&!active&&!GPIO.oe[16]);
@@ -31,6 +31,49 @@ int main(int argc,char** argv){
   assert(GPIO.oe[16]&&!(fake_device.int_ena.val&(1u<<28)));
   assert(!w12_fine_start(2,PTOB_W12_FINE_FACTORY,fake_now));
   uint64_t tick=0;assert(w12_fine_current(&tick)&&tick>=1000000);
+  if(!std::strcmp(mode,"gnss")){
+    FakeDevice gps{};gps.cap_timer_cfg.cap_timer_en=true;gps.cap_chn_cfg[1].capn_en=true;
+    FakeGroup group{};group.group_id=0;group.hal.dev=&gps;
+    mcpwm_cap_timer_t gt{&group,MCPWM_CAP_TIMER_FSM_ENABLE};
+    mcpwm_cap_channel_t gc{1,&gt,MCPWM_CAP_CHAN_FSM_ENABLE,nullptr,nullptr};
+    uint64_t before=123,after=456;
+    const auto gpio_calls=fake_gpio_calls;const auto rx=receiver.status();
+    assert(!w12_fine_gnss_map_bracket(nullptr,&before,&after)&&!before&&!after);
+    assert(!w12_fine_gnss_map_bracket(&gc,nullptr,&after));
+    assert(!w12_fine_gnss_map_bracket(&gc,&before,nullptr));
+    assert(!w12_fine_gnss_map_bracket(&gc,&before,&before));
+    for(unsigned k=0;k<8;++k){
+      auto bad=gc;
+      if(k==0)bad.cap_timer=nullptr;
+      if(k==1)bad.cap_chan_id=0;
+      if(k==2)bad.fsm=0;
+      if(k==3)gt.fsm=0;
+      if(k==4)group.group_id=1;
+      if(k==5)gps.cap_timer_cfg.cap_timer_en=false;
+      if(k==6)gps.cap_chn_cfg[1].capn_en=false;
+      if(k==7)gt.resolution_hz=40000000;
+      assert(!w12_fine_gnss_map_bracket(&bad,&before,&after)&&!before&&!after&&!fake_gnss_triggers);
+      gt.fsm=MCPWM_CAP_TIMER_FSM_ENABLE;group.group_id=0;
+      gt.resolution_hz=80000000;
+      gps.cap_timer_cfg.cap_timer_en=gps.cap_chn_cfg[1].capn_en=true;
+    }
+    // The actual narrow helper crosses hardware wraps using the sole production
+    // counter origin. GNSS triggering must not train or claim any BLE capture.
+    for(unsigned i=0;i<61;++i){
+      advance(10000000);
+      assert(w12_fine_gnss_map_bracket(&gc,&before,&after)&&before>=tick&&after>=before);
+      uint64_t capture20=0;
+      w12::fine::Time capture{};assert(counter.event(1,fake_gnss_raw,capture));
+      assert(receiver.coordinate(capture.raw80,0,capture20)&&before<=capture20&&capture20<=after);
+      assert(w12_fine_current(&tick)&&tick>=after);
+    }
+    assert(fake_gnss_triggers==61&&fake_gpio_calls==gpio_calls&&fake_callbacks==2&&
+           receiver.status().callbacks==rx.callbacks&&receiver.status().claimed==rx.claimed);
+    fake_complete=false;
+    assert(!w12_fine_gnss_map_bracket(&gc,&before,&after)&&!before&&!after);
+    assert(!w12_fine_current(&tick)&&w12_fine_fault());
+    w12_fine_stop();assert(w12_fine_released());return 0;
+  }
   if(!std::strcmp(mode,"lora")){
     assert(!w12_fine_lora_current(&tick)&&tick==0);
     advance(1000);assert(w12_fine_current(&tick));

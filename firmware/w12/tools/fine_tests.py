@@ -36,7 +36,13 @@ def main():
   s=s.replace('c->flags.pos_edge==unsigned(i<2&&PTOB_N30_FINE_PINS)', 'c->flags.pos_edge==unsigned(i<2)').replace('c->flags.neg_edge==unsigned(i<2&&PTOB_N30_FINE_PINS)', 'c->flags.neg_edge==unsigned(i==0)')
   s=s.replace('gpio==16','gpio==16||gpio==14').replace('assert(bits==(3u<<27))','assert(bits==(3u<<27)||bits==(1u<<28))').replace('assert(x==(1u<<29)||x==(3u<<27))','assert(x==(1u<<29)||x==(3u<<27)||x==(1u<<28))')
   if f.name=='fine_fake.hpp':
+   s=s.replace('FakeGroup* group=nullptr;int fsm=0;',
+               'FakeGroup* group=nullptr;int fsm=0;uint32_t resolution_hz=80000000;')
    s=s.replace('(x==(3u<<27)&&fake_radio_clear_ok)', '((x==(3u<<27)||x==(1u<<28))&&fake_radio_clear_ok)')
+   s=s.replace('inline void mcpwm_ll_trigger_soft_capture(FakeDevice* dev,int i){',
+      'inline unsigned fake_gnss_triggers=0;inline uint32_t fake_gnss_raw=0;\n'
+      'inline void mcpwm_ll_trigger_soft_capture(FakeDevice* dev,int i){'
+      'if(dev!=&fake_device){assert(i==1);++fake_gnss_triggers;fake_gnss_raw=fake_raw;return;}')
    s+='\ninline int mcpwm_del_capture_channel(mcpwm_cap_channel_handle_t c){assert(!c->fsm);return fake_disable_ok?0:-1;}\ninline int mcpwm_del_capture_timer(mcpwm_cap_timer_handle_t t){assert(!t->fsm);return fake_disable_ok?0:-1;}\n'
   dest.write_text(s)
  (out/'fakes/w12_fine_config.h').write_text('#pragma once\n#define PTOB_W12_FINE_FACTORY UINT64_C(0x020000003001)\n#define PTOB_W12_FINE_RX_GPIO 16\n')
@@ -47,7 +53,7 @@ def main():
  def run(command,label):
   with (out/(label+'.log')).open('w') as log:subprocess.run(list(map(str,command)),cwd=out,stdout=log,stderr=subprocess.STDOUT,check=True,timeout=40)
  run([cxx,*flags,APP/'tests/fine_clock_test.cpp','-o',out/'owner'],'owner-compile')
- for case in ('live','lora','pending_late','cleanup','wrap','storm','gap','route','enable','timeout','stopped','stale_raw','stale_radio','irq'):run([out/'owner',case],'owner-'+case)
+ for case in ('live','lora','gnss','pending_late','cleanup','wrap','storm','gap','route','enable','timeout','stopped','stale_raw','stale_radio','irq'):run([out/'owner',case],'owner-'+case)
  run([cxx,*flags,APP/'tests/fine_shutdown_test.cpp','-o',out/'shutdown'],'shutdown-compile')
  for case in ('clean','timeout','cleanup'):run([out/'shutdown',case],'shutdown-'+case)
  for name in ('fine_counter','fine_receiver'):

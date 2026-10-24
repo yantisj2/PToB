@@ -102,6 +102,17 @@ read/rounding enclosure and original anchor availability/age rules remain in
 force. Measure the resulting enclosure and scatter before drawing conclusions;
 the option applies no bias correction and changes no BLE clock or permission.
 
+Fine-clock builds use `FINE_COUNTER_BRACKET` from version 0.2.6. They enclose
+the existing GNSS group0 CH1 software trigger between two group1 CURRENT
+latches, then extend and convert those captures using the production counter
+origin. Counter/association checks stay outside the aperture; the GNSS queue
+critical section defers its map callback until both latches finish. The pinned
+MCPWM driver ABI, enabled 80 MHz timer and expected channel/group are checked.
+Mapping gates and original availability rules are unchanged, and failures do
+not substitute another clock. Keep this population separate from `GUARDED`,
+`BASELINE` and the GPTimer fast-map diagnostic. Measured enclosure and causal
+PPS prediction remain distinct from calibrated UTC or relay TX performance.
+
 Supply the shared [display registry](../../registry/README.md)
 through the same ignored map used by T096:
 
