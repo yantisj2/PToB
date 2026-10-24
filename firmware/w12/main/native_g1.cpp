@@ -826,6 +826,16 @@ void receive_join(uint64_t now){Incoming row{};for(unsigned i=0;i<8&&incoming.po
       if(r.root!=r.sender||r.root_boot!=r.sender_boot){
         peer.selection_accepted=true;admission_failed(now);
         if(reply==G1AdmissionReply::ForeignRoot)parent_selection.cooldown(r.sender,now,60000000);
+#ifdef PTOB_RC9
+        // A root locator is not replacement timing. Keep the fallback lease,
+        // sample and PA owner until a direct normal root actually admits us.
+        if(rc9_client.view(now).bound){
+          joined_peer=previous_peer;joined_boot=previous_boot;member=previous_member;
+          admission_root=r.root;admission_until=time.until;
+          parent_selection.reobserve_gm(r.root,now);
+          diagnostic.reason(G1Reason::RootHint,now);continue;
+        }
+#endif
         // A cohort peer may describe a different serving root. This direct
         // client must authenticate that root itself before showing FOLLOW or
         // selecting its direct periodic train. Retain only a short locator
@@ -860,6 +870,9 @@ void receive_join(uint64_t now){Incoming row{};for(unsigned i=0;i<8&&incoming.po
       // A direct-root JOIN changes the transport owner even if root-only
       // scope identifiers match. Retire the RC7 path and clock state first.
       if(rc_bound()){changed_scope(now);member=true;}
+#ifdef PTOB_RC9
+      if(rc9_client.view(now).bound){rc9_client.fence();cancel_sync(now);}
+#endif
       admission_root=admission_until=0;
       parent_selection.bind(r.sender,r.sender_boot,r.source_epoch,now);
       parent_selection.authenticated(r.sender,false,r.sender_boot,r.root,r.root_boot,r.source_epoch,now);
@@ -1197,8 +1210,13 @@ void active_poll(uint64_t now){
   // Optional early JOIN can use an existing map covering this whole window.
   // Otherwise receive first. Original100ms initiation and duty stay intact.
   const bool renewal_map=window_corrected||corrected_clock.covers(now,G1Window::start(now,window_phase)+G1Window::Nominal);
-  const bool gm_observation=gm_discovery.observe(now,rc_bound()&&anchor.root&&!exclude_direct_gm&&
-    !parent_selection.deferred(anchor.root,false,now)&&!parent_selection.pinned()&&!parent_diagnostic.pending()&&!closing&&!fault);
+  bool fallback_observation=false;
+#ifdef PTOB_RC9
+  fallback_observation=rc9_auto_recovery(now);
+#endif
+  const bool gm_observation=gm_discovery.observe(now,((rc_bound()&&anchor.root&&
+    !parent_selection.deferred(anchor.root,false,now))||fallback_observation)&&!exclude_direct_gm&&
+    !parent_selection.pinned()&&!parent_diagnostic.pending()&&!closing&&!fault);
   // Recreate the known direct train immediately inside this window. Waiting
   // for another EXT_DISC report costs a discovery interval before the
   // controller can even acquire SyncInfo; late establishment leaves no room
@@ -1240,7 +1258,7 @@ void active_poll(uint64_t now){
     if(id&&parent_selection.accepts(id,relay)){
       // During a maintained relay lock, observe only its authenticated root's
       // direct locator. Other advertisements cannot churn the live parent.
-      if(gm_observation&&(relay||id!=anchor.root))continue;
+      if(gm_observation&&!fallback_observation&&(relay||id!=anchor.root))continue;
       parent_selection.seen(id,relay,d.rssi,d.at,relay_publishing);unsigned at=8;
       for(unsigned j=0;j<8;j++)if(locator_ids[j]==id){at=j;break;}
       if(at==8){at=0;for(unsigned j=0;j<8;j++)if(!locator_ids[j]||locators[j].at<locators[at].at)at=j;}
@@ -1286,7 +1304,7 @@ void active_poll(uint64_t now){
   bool independent_scan=true;
 #ifdef PTOB_RC9
   const auto rc9_view=rc9_client.view(now);
-  independent_scan=!independent_rc9||!rc9_view.valid||now>=rc9_client.renew_at;
+  independent_scan=gm_observation||!independent_rc9||!rc9_view.valid||now>=rc9_client.renew_at;
   if(!independent_scan)stop_scan();
 #endif
   if(independent_scan&&!protected_parent&&!peer.connecting&&!scan&&(!synced||due||gm_observation))start_scan(gm_observation);

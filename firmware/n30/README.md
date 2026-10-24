@@ -1,9 +1,14 @@
 # N30 native RC target
 
-**Version 0.2.27** brings BLE reception, passive LoRa fallback and a portrait
+**Version 0.2.28** brings BLE reception, passive LoRa fallback and a portrait
 OLED to the Meshnology N30 / Heltec WiFi LoRa32 V3. It uses an ESP32-S3,
 8 MiB flash and a 64×128 display. N30 is RC-only, with no GNSS input; WiFi is
 disabled. Start with the [build guide](../../docs/n30/build.md).
+
+Version 0.2.28 fixes automatic return from RC9 fallback to normal BLE after
+mesh recovery. It reuses bounded passive discovery, requires fresh normal
+admission and preserves fallback expiry, explicit pins and separate clock
+models. See [AUTO recovery](../../docs/w12/rc9.md#auto-client-return-to-normal-ble).
 
 | Clock | BLE + LoRa | Precision | LoRa receiver |
 | :---: | :---: | :---: | :---: |

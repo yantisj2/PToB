@@ -49,3 +49,27 @@ capability advertisement. Actual admission, ACL ownership, quarantine and the
 original drain still pause/refuse new clients. `service_flags` is the sum of
 configured=1, periodic=2, SyncInfo discovery=4 and connectable capability=8;
 normal RC7 status remains zero while profile9 owns the publisher.
+
+## AUTO client return to normal BLE
+
+W12 0.2.11 and N30 0.2.28 separate the server's original RC8 demand lease
+from the client's source selection. A valid automatic RC9 client passively
+re-observes normal sources for 1.5 seconds every 30 seconds, using the existing
+discovery scheduler. An unavailable RC9 snapshot already permits discovery.
+A fresh normal G1 or RC7 locator may request admission under the existing
+rate, cooldown and ownership bounds; a remembered locator cannot do so.
+
+RC9 remains available through failed admission, NO_SOURCE and indirect root
+hints, subject to its original sample and lease expiry. Only a successful
+normal admission retires the RC9 client and drains its old periodic owner.
+JOIN supplies coarse replay context, not a fine clock. New physically matched
+normal observations must build the normal clock independently. Explicit
+RC9 and normal-source pins retain their meaning. The server's existing lease
+is neither shortened nor renewed by a client returning to BLE.
+
+Earlier AUTO clients treated the six-minute RC9 lease as exclusive ownership
+and stopped scanning while RC9 time remained valid. A newly healthy mesh
+could remain hidden until a renewal or expiry. Native regressions cover
+discovery during valid fallback, return during valid/expired time, NO_SOURCE,
+indirect hints, explicit pins and actual owner teardown. These checks are
+synthetic controller-boundary tests, not RF or precision qualification.

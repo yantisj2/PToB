@@ -698,3 +698,7 @@ formatter, output worker and CRC parser together:
 ```sh
 python3 firmware/w12/tools/rc9_console_tests.py --out artifacts/w12-rc9-console
 ```
+
+
+Version 0.2.11 retains the 0.2.10 capture/offset/profile contracts and adds
+[bounded normal BLE recovery from AUTO RC9 fallback](rc9.md#auto-client-return-to-normal-ble).

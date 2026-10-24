@@ -6,6 +6,8 @@ Read [the target README](../../firmware/n30/README.md) for capabilities and
 unverified hardware assumptions. These commands build or inspect files; they do
 not connect, flash, start a serial reader or operate a device.
 
+Version 0.2.28 consumes the shared [AUTO RC9 recovery fix](../w12/rc9.md#auto-client-return-to-normal-ble). Normal BLE recovery no longer waits for a six-minute fallback lease.
+
 ## Public dependencies
 
 Use the same pinned ESP-IDF v5.5.5 and Xtensa GCC14.2.0 release as

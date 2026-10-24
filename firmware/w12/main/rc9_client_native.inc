@@ -39,8 +39,14 @@ bool rc9_discovery(const Discovery& d){
   }i+=n+1;
  }return false;
 }
-// Returns true while a direct RC9 binding owns source selection. All GAP
-// owners still use their existing callbacks and original2s drain deadlines.
+bool rc9_auto_recovery(uint64_t now){
+ uint64_t target=0;portENTER_CRITICAL(&mux);target=rc9_target;portEXIT_CRITICAL(&mux);
+ return !target&&!parent_selection.pinned()&&rc9_client.view(now).bound&&!rc9_server_selected(now);
+}
+// A fallback lease authorizes RC9 reception, not exclusive selection for six
+// minutes. AUTO may try a freshly observed normal source under the existing
+// admission budget, retaining RC9 until that source authenticates. Explicit
+// pins and every original source/lease/drain deadline remain independent.
 bool rc9_selection(uint64_t now){
  uint64_t target=0;portENTER_CRITICAL(&mux);target=rc9_target;portEXIT_CRITICAL(&mux);
  const auto view=rc9_client.view(now);
@@ -50,6 +56,12 @@ bool rc9_selection(uint64_t now){
   sync_address=canonical(view.server);sync_identity=view.server;sync_selected=true;
  }
  if(peer.handle!=None||peer.connecting||now<retry_at||now<rc9_retry_at)return bound||target;
+ if(!target&&!parent_selection.pinned()){
+  const auto normal=parent_selection.choose(now);
+  for(unsigned i=0;i<8;i++)if(normal&&locator_ids[i]==normal&&now>=locators[i].at&&
+     now-locators[i].at<G1ParentSelection::FreshUs&&!cooled(normal,now)&&
+     admission_policy.allowed(now,full_listening()&&locators[i].sid!=13))return false;
+ }
  const bool seek=target||bound||(!parent_selection.pinned()&&!following(now)&&!lock_protected(now));
  if(!seek)return false;
  if(bound&&now<rc9_client.renew_at&&view.valid)return true;

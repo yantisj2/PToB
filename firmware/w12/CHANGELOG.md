@@ -1,5 +1,15 @@
 # W12 changelog
 
+## 0.2.11 — normal BLE recovery from RC9 fallback
+
+- AUTO reuses bounded 1.5 s / 30 s passive discovery and existing admission
+  budgets instead of treating a six-minute fallback lease as exclusive selection.
+- Retain fallback through NO_SOURCE and indirect root hints; successful fresh
+  normal admission fences RC9 and drains its old periodic owner. Fallback never
+  trains the normal clock. Explicit pins and original deadlines remain intact.
+- Add native regressions for valid/expired fallback, scans, hints and pins;
+  preserve GNSS isolation, fine capture and provisional timing adjustments.
+
 ## 0.2.10 — four-observation programmed-clock estimate
 
 - W12 relay estimates average all four validated projections of the same

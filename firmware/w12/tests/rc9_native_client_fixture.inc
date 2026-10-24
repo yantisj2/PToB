@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT
-void client_case(bool normal_pin=false){
+void client_case(bool normal_pin=false,const std::string& recovery=""){
  const auto* mac=v12::native_device_binding()->factory;assert(v12::r2_init(44,mac)&&v12::r2_host_init()&&v12::r2_host_sync());step(8);
  if(normal_pin){assert(v12::r2_gm_parent(11));step(8);}
  v12::Discovery d{};d.sid=15;d.props=1;d.rssi=-30;d.at=fake_now;d.address=v12::canonical(77);d.length=167;
@@ -20,6 +20,65 @@ void client_case(bool normal_pin=false){
  v12::gap(&e,fixture_sync_arg);step(2);const auto r=v12::r2_rc9_status();const auto normal=v12::r2_status();
  assert(r.valid&&r.following&&r.server==77&&r.root==66&&r.accepted==1&&!r.serving&&!r.clients);
  assert(!normal.following&&!normal.clock_valid&&!normal.g1_clock_model.tick&&!normal.discipline_accepted&&!pa_active);
+ if(!recovery.empty()){
+  const auto original_lease=v12::rc9_client.lease_until;
+  const auto refresh=[&](){
+   p.publication++;p.corrected_sequence++;p.sampled_us=fake_now;p.edge_us=fake_now-100;
+   p.until_us=p.edge_us+12000000;p.event_ns=1700000000000000000ULL+fake_now*1000;
+   p.created_ns=p.event_ns-100;p.expires_ns=p.event_ns+1000000;
+   assert(v12::rc9_client.receive(p,fake_now));
+  };
+  if(recovery=="scan"){
+   v12::active_poll(fake_now);pump_cleanup();assert(!scan_active);
+   fake_now+=v12::G1GmDiscovery::IntervalUs+1;refresh();
+   v12::active_poll(fake_now);pump_cleanup();
+   assert(scan_active&&v12::gm_discovery.active(fake_now));
+   assert(v12::rc9_client.view(fake_now).valid&&v12::rc9_client.lease_until==original_lease);
+  }else{
+   if(recovery=="expired")fake_now+=12000001;
+   const bool had_time=v12::rc9_client.view(fake_now).valid;
+   assert(had_time==(recovery!="expired"));
+   // Real fresh discovery is still required; an RC9 lease grants no normal
+   // timing authority. Do not bypass startup collection or admission budgets.
+   v12::Discovery gm{};gm.props=1;gm.length=25;gm.rssi=-50;gm.address=v12::canonical(333);
+   gm.bytes[0]=24;gm.bytes[1]=255;auto* b=gm.bytes+2;b[0]='G';b[1]='1';b[2]=1;
+   r2_group_put(b+3,v12::provision.group.id,8);r2_group_put(b+11,v12::provision.group.epoch,4);r2_group_put(b+15,333,8);
+   const auto end=fake_now+4000000;
+   while(fake_now<end&&!v12::peer.connecting){
+    gm.at=fake_now;v12::discoveries.push(gm);v12::active_poll(fake_now);pump_cleanup();fake_now+=20000;
+   }
+   if(recovery=="pin")assert(!v12::peer.connecting&&v12::rc9_client.view(fake_now).bound);
+   else{
+    assert(v12::peer.connecting&&!v12::peer.rc9&&v12::peer.identity==333);
+    assert(v12::rc9_client.lease_until==original_lease&&v12::rc9_client.view(fake_now).bound);
+    assert(!v12::anchor.source&&!v12::corrected_clock.prediction().tick);
+    if(recovery=="no-source"||recovery=="hint"){
+     const auto old=v12::rc9_client.view(fake_now);const auto old_until=old.until_us;
+     ble_gap_event connect{};connect.type=BLE_GAP_EVENT_CONNECT;v12::gap(&connect,conn_arg);step(3);
+     r2_join_record request{};assert(!r2_group_join_decode(&request,output.back().data(),R2_GROUP_JOIN_BYTES,&v12::provision.group));
+     r2_join_record reply{};reply.kind=R2_JOIN_CHALLENGE;reply.sender=333;reply.receiver=v12::provision.identity;
+     reply.sender_boot=444;reply.receiver_boot=v12::boot_id;reply.client_nonce=request.client_nonce;
+     reply.server_nonce=99;reply.sequence=1;reply.created_us=fake_now+10000;reply.echo_us=request.created_us;
+     std::strcpy(reply.name,"SourceProbe");inject(reply);
+     r2_join_record proof{};assert(!r2_group_join_decode(&proof,output.back().data(),R2_GROUP_JOIN_BYTES,&v12::provision.group));
+     reply.kind=R2_JOIN_ACCEPT;reply.sequence=2;reply.created_us+=10000;reply.echo_us=proof.created_us;
+     if(recovery=="hint"){
+      reply.source_flags=1;reply.source_bound_us=40000;reply.root=555;reply.root_boot=666;
+      reply.source_epoch=7;reply.publication=8;reply.utc_us=1700000000000000+fake_now;reply.remaining_us=1000000;
+     }
+     inject(reply);const auto kept=v12::rc9_client.view(fake_now);
+     assert(kept.bound&&kept.valid&&kept.server==old.server&&kept.until_us==old_until);
+     assert(v12::rc9_client.lease_until==original_lease&&v12::joined_peer==old.server);
+     assert(!v12::anchor.source&&!v12::following(fake_now));
+    }else{
+     fresh_direct(333,444,7,8);
+     assert(!v12::rc9_client.view(fake_now).bound&&!v12::r2_rc9_status().valid);
+     assert(v12::anchor.root==333&&v12::anchor.boot==444&&v12::anchor.source_epoch==7);
+    }
+    assert(!v12::corrected_clock.prediction().tick); // JOIN is coarse permission only.
+   }
+  }
+ }
  v12::r2_stop();assert(!v12::r2_rc9_status().valid);step(8);assert(!v12::rc9_bound()&&!v12::r2_rc9_status().valid&&v12::r2_status().off_ack);
  puts("PASS actual RC9 discovery/GATT/SID14 capture/report/UTC isolation/OFF");
 }

@@ -18,6 +18,9 @@ void write9(const v12::rc9::Control& q){os_mbuf b;b.bytes.resize(212);assert(v12
  ble_gatt_access_ctxt c{};c.om=&b;assert(!v12::relay_access(33,0,&c,rc9_arg()));v12::relay_poll(fake_now,false);}
 int main(int argc,char** argv){assert(argc==2);const std::string which=argv[1];
  if(which=="client"||which=="client-pin"){client_case(which=="client-pin");return 0;}
+ if(which=="client-scan"||which=="client-return"||which=="client-expired"||which=="client-recovery-pin"||which=="client-no-source"||which=="client-hint"){
+  client_case(which=="client-recovery-pin",which=="client-scan"?"scan":which=="client-expired"?"expired":which=="client-recovery-pin"?"pin":which=="client-no-source"?"no-source":which=="client-hint"?"hint":"return");return 0;
+ }
  const auto* mac=v12::native_device_binding()->factory;assert(v12::r2_init(44,mac)&&v12::r2_host_init()&&v12::r2_host_sync());
  step(8);assert(v12::client.running);radio_live();v12::relay_poll(fake_now,false);
  std::fprintf(stderr,"state fault=%u profile=%u pa=%u adv=%u/%u selected=%u configured=%u stopping=%u api=%u rc=%d\n",v12::fault,v12::relay_profile,pa_active,ext_active[0],ext_active[1],v12::rc9_server_selected(fake_now),v12::relay_configured,v12::relay_stopping,unsigned(v12::first_error_api),v12::first_error_rc);
