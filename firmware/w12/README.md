@@ -7,11 +7,16 @@ RC role. [Image provenance](../../docs/images/README.md).*
 
 Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
 
-**PToB owns W12 native G1/RC7 development.** Current version **0.2.13** supports
+**PToB owns W12 native G1/RC7 development.** Current version **0.2.14** supports
 **RC**: a BLE50 client or BLE100 receiver with an optional experimental
 estimated-TX relay. It receives from the shared T096/W12/StickS3 mesh; it has no
 GM profile or USB timing stream. Start with the
 [build guide](../../docs/w12/build.md).
+
+Version 0.2.14 gives qualified normal BLE the local display even while original
+RC9 child leases keep LoRa reception and RC9 TIME active. Recovery stops new
+RC9 admissions and renewals; existing leases expire at their original bounds
+before the downstream publisher returns to RC7.
 
 Version 0.2.13 also clears old normal-source selection history when RC9 fallback
 first takes over, and when a direct root authenticates after an earlier empty

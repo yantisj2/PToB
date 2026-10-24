@@ -23,7 +23,7 @@ int main(int argc,char** argv){assert(argc==2);const std::string which=argv[1];
   client_case(which=="client-recovery-pin",which=="client-scan"?"scan":which=="client-expired"?"expired":which=="client-recovery-pin"?"pin":which=="client-no-source"?"no-source":which=="client-hint"?"hint":"return");return 0;
  }
  const auto* mac=v12::native_device_binding()->factory;assert(v12::r2_init(44,mac)&&v12::r2_host_init()&&v12::r2_host_sync());
- step(8);assert(v12::client.running);radio_live();v12::relay_poll(fake_now,false);
+ step(8);assert(v12::client.running);fixture_parent_locked=false;radio_live();v12::relay_poll(fake_now,false);
  std::fprintf(stderr,"state fault=%u profile=%u pa=%u adv=%u/%u selected=%u configured=%u stopping=%u api=%u rc=%d\n",v12::fault,v12::relay_profile,pa_active,ext_active[0],ext_active[1],v12::rc9_server_selected(fake_now),v12::relay_configured,v12::relay_stopping,unsigned(v12::first_error_api),v12::first_error_rc);
  assert(!v12::fault&&v12::relay_profile==9&&pa_active&&ext_active[0]&&ext_active[1]&&!v12::periodic_tx::tx_installed);
  assert(!v12::relay_flags(fake_now*20));v12::rc9::Time p;assert(v12::rc9::decode_time(p,pa_wire.data(),190,v12::provision.group)&&p.valid);
@@ -43,7 +43,30 @@ int main(int argc,char** argv){assert(argc==2);const std::string which=argv[1];
   const auto reply=read9();assert(child.bind(reply,fake_now));server_disconnect();v12::relay_poll(fake_now,false);
   const auto lease=v12::rc9_server_demand_until();assert(lease==fake_now+v12::rc9::LeaseUs);
   assert(v12::rc9_server_clients(fake_now)==1&&v12::rc9_server_selected(fake_now));
-  if(which=="withdraw"){
+  if(which=="recover"){
+   // The request is queued before recovery but the actual worker observes a
+   // qualified normal source before accepting it. Neither renewal nor a new
+   // client may perpetually pin fallback after this point.
+   server_connect();const auto renewal_cap=read9();v12::rc9::Client renewal;
+   assert(renewal.make_request(renewal_cap,77,88,100,fake_now));
+   const auto admissions=v12::relay_admissions;fixture_parent_locked=true;server_slow=true;
+   write9(renewal.request);assert(v12::relay_session.terminating);
+   const auto drain=v12::relay_session.drain;
+   assert(!v12::relay_admission_locked&&!ext_active[1]&&pa_active&&ext_active[0]);
+   assert(v12::relay_admissions==admissions&&v12::rc9_server_demand_until()==lease&&!v12::fault);
+   fake_now+=1000;v12::relay_poll(fake_now,false);assert(v12::relay_session.drain==drain);
+   server_disconnect();server_slow=false;
+   server_late_connect();assert(v12::relay_session.handle==v12::None&&v12::relay_quarantine_owned()&&!v12::fault);
+   v12::relay_poll(fake_now,false);assert(!v12::relay_quarantine_owned()&&!v12::fault);
+   fixture_parent_locked=false;radio_live();v12::relay_poll(fake_now,false);
+   assert(ext_active[1]&&v12::relay_admission_locked&&v12::rc9_server_demand_until()==lease);
+   fixture_parent_locked=true;v12::relay_poll(fake_now,false);
+   assert(!ext_active[1]&&!v12::relay_admission_locked&&v12::rc9_server_demand_until()==lease);
+   fake_now=lease-1;radio_live();v12::relay_poll(fake_now,false);
+   assert(v12::relay_profile==9&&pa_active&&!ext_active[1]&&v12::rc9_server_demand_until()==lease);
+   fake_now=lease;radio_live();v12::relay_poll(fake_now,false);
+   assert(v12::relay_profile==7&&!pa_active&&!v12::rc9_server_demand_until()&&!v12::fault);
+  }else if(which=="withdraw"){
    rc9_radio.state=1;v12::relay_poll(fake_now,false);
    assert(v12::rc9::decode_time(p,pa_wire.data(),190,v12::provision.group)&&!p.valid);
    assert(v12::rc9_server_demand_until()==lease&&v12::rc9_server_selected(fake_now));

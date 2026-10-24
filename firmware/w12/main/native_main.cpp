@@ -524,7 +524,7 @@ void pps(const gnss_pps::Observation& edge){
   const auto rc9=v12::r2_rc9_status();
   state.lora_client_hold_ms=lv.rc9_hold_remaining_ms;
   const auto source=w12::rc9_source(ble_precision,state.lora_time_valid,lv.active&&lv.requested,rc9.client_until_us,micros(),mesh.requested&&!mesh.fault&&!update_gate.latched()&&lv.mode!=2&&!lv.fault);
-  const bool select_lora=source.select_rc8;
+  const bool select_lora=source.display_rc8;
   state.rc9_serving=source.serve_rc9;state.rc9_clients=rc9.clients;
 #else
   const bool select_lora=!ble_precision;

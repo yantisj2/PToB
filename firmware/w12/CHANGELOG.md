@@ -1,5 +1,17 @@
 # W12 changelog
 
+## 0.2.14 — bounded RC9 server return to normal BLE
+
+- Qualified normal BLE takes the local display immediately, independently of
+  still-live downstream RC9 child leases.
+- Stop new RC9 capability admissions and refuse queued requests/renewals once
+  normal BLE qualifies. Existing child TIME and LoRa reception retain their
+  original lease and physical-source deadlines; the publisher returns to RC7
+  after those leases expire and its actual owners drain.
+- Resume fallback admission if normal BLE loses qualification. Native tests
+  retain the queued-renewal race, late connection quarantine, original drain,
+  expiry boundary and actual local UI selection with an active child lease.
+
 ## 0.2.13 — fallback transition cache fencing
 
 - Clear old normal-source selection/trial history on authenticated RC9 takeover.

@@ -1,6 +1,7 @@
 // Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT
 // Actual native UI selection block, actual source freshness gates and state.
 #include "sync_watchdog.hpp"
+#include "rc9_source_policy.hpp"
 #include "../legacy/display.hpp"
 #include <cassert>
 #include <cstring>
@@ -9,6 +10,10 @@ uint64_t micros(){return now;}
 w12_lora_view radio;
 void w12_lora_snapshot(w12_lora_view& out){out=radio;}
 namespace v12 {struct R2Dashboard {static const char* name(uint64_t){return "ROOT";}};}
+#ifdef PTOB_RC9
+namespace v12 {Rc9Status child_demand;Rc9Status r2_rc9_status(){return child_demand;}}
+struct {bool latched()const{return false;}} update_gate;
+#endif
 void apply(DisplayState& state,const v12::R2Status& mesh){
  [[maybe_unused]] uint64_t selected_utc=0,selected_at=0;
 #include "actual_dual_display.inc"
@@ -16,7 +21,11 @@ void apply(DisplayState& state,const v12::R2Status& mesh){
 int main(){
  radio.active=radio.requested=radio.time_valid=true;radio.state=2;radio.emitter=1;radio.root=2;radio.root_boot=3;radio.source_epoch=4;
  radio.utc_us=1700000000000000;radio.sampled_us=now;radio.until_us=now+12000000;radio.link_samples=8;radio.link_rms_ns=123;
- v12::R2Status mesh;DisplayState s;apply(s,mesh);
+ v12::R2Status mesh;mesh.requested=true;
+#ifdef PTOB_RC9
+ v12::child_demand.client_until_us=now+360000000;v12::child_demand.clients=1;
+#endif
+ DisplayState s;apply(s,mesh);
  assert(s.precision_lora&&s.precision_live&&s.rms_ns==123&&s.lora_link_samples==8&&s.timing_source==DisplayState::Lora);
  assert(s.valid&&s.utc==1700000000&&!std::strcmp(s.role,"LORA"));
  const auto valid=radio;
@@ -40,4 +49,7 @@ int main(){
  mesh.g1_clock_model={20000000,10000000000,0,0,0};assert(w12::ble_locked(mesh,now));
  s={};s.precision_live=true;s.rms_ns=49;s.timing_source=DisplayState::Ble;apply(s,mesh);
  assert(!s.precision_lora&&s.precision_live&&s.rms_ns==49&&s.timing_source==DisplayState::Ble);
+#ifdef PTOB_RC9
+ assert(s.rc9_serving&&s.rc9_clients==1); // Existing child service is independent of local display.
+#endif
 }

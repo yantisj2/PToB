@@ -138,7 +138,7 @@ class Parser:
                     if self.manifest.get('r2_g1_discovery_diagnostic_revision')==1:
                         require(mesh.get('g1_discovery_diagnostic_revision')=='1' and mesh.get('g1_sdk_scan_active') in ('0','1'),'G1 discovery diagnostics version missing')
                         compact=self.manifest.get('w12_lora_status_contract')=='W12_RC8_LR2021_COMPACT_DISCOVERY_V1'
-                        if compact:require(self.manifest.get('version') in ('0.2.0','0.2.1','0.2.2','0.2.3','0.2.4','0.2.5','0.2.6','0.2.7','0.2.8','0.2.9','0.2.10','0.2.11','0.2.12','0.2.13') and self.manifest.get('lora_rx') is True,'Compact discovery requires exact W12 LoRa image contract')
+                        if compact:require(self.manifest.get('version') in ('0.2.0','0.2.1','0.2.2','0.2.3','0.2.4','0.2.5','0.2.6','0.2.7','0.2.8','0.2.9','0.2.10','0.2.11','0.2.12','0.2.13','0.2.14') and self.manifest.get('lora_rx') is True,'Compact discovery requires exact W12 LoRa image contract')
                         omitted=('g1_adv_incomplete','g1_adv_long','g1_adv_nonrandom','g1_discovery_checked','g1_group_records','g1_last_adv_at_us','g1_last_group_at_us')
                         if compact:require(all(key not in mesh for key in omitted),'Unexpected mixed compact discovery layout')
                         for key in ('g1_adv_callbacks','g1_last_key_epoch',*(() if compact else omitted)):
@@ -188,9 +188,9 @@ class Parser:
                         for key in ('rx_installed','rx_armed','rx_fault','rx_calls','rx_candidates','rx_matched','rx_missed','rx_ambiguous','rx_overflow','rx_epoch','rx_peak','rx_hook_max_cycles','discipline_accepted','discipline_refused','rms_ns','hold_p99_ms','hold_p99_samples'):
                             require(re.fullmatch(r'[0-9]+',mesh.get(key,'')) is not None,'Missing/invalid periodic RX diagnostic '+key)
                         require(mesh['discipline_accepted']=='0' and mesh['hold_p99_ms']=='0','Unqualified shadow capture fed precision')
-                    if self.manifest.get('version') in ('0.2.8','0.2.9','0.2.10','0.2.11','0.2.12','0.2.13'):
+                    if self.manifest.get('version') in ('0.2.8','0.2.9','0.2.10','0.2.11','0.2.12','0.2.13','0.2.14'):
                         offsets=self.manifest.get('phase_offsets')
-                        require(isinstance(offsets,dict) and offsets.get('receive_ns')==7671 and offsets.get('relay_residual_ns')==(4026 if self.manifest.get('version') in ('0.2.10','0.2.11','0.2.12','0.2.13') else 3030),'Missing phase offset disclosure')
+                        require(isinstance(offsets,dict) and offsets.get('receive_ns')==7671 and offsets.get('relay_residual_ns')==(4026 if self.manifest.get('version') in ('0.2.10','0.2.11','0.2.12','0.2.13','0.2.14') else 3030),'Missing phase offset disclosure')
                         require(mesh.get('rxcal') in ('0','7671'),'Missing/invalid delivered receive phase')
                     if self.manifest.get('r2_rx_reference')=='CONTROLLER_1M_REF_DIRECT_BRACKET_V1':
                         require(mesh.get('cal') in ('0/0','3056/1'),'Missing/invalid experimental output correction status')

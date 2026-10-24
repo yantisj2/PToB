@@ -12,12 +12,13 @@ uint8_t rc9_server_flags(){
  if(relay_profile!=9||relay_stopping)return 0;
  return uint8_t(relay_configured)|uint8_t(relay_pa)<<1|uint8_t(relay_discovery)<<2|uint8_t(relay_advertising)<<3;
 }
-bool rc9_server_selected(uint64_t now){
+w12::Rc9SourceDecision rc9_server_source(uint64_t now){
  w12_lora_view l;w12_lora_snapshot(l);now=micros();uint64_t utc=0;
  const bool permit=full_listening()&&!closing&&!fault&&!stop_pending&&l.mode!=uint8_t(w12::LoRaMode::KeepOff)&&!l.fault;
- return w12::rc9_source(lock_protected(now),w12::lora_time(l,now,utc),l.active&&l.requested,
-   rc9_server_demand_until(),now,permit).select_rc8;
+ return w12::rc9_source(relay_parent_locked(now),w12::lora_time(l,now,utc),l.active&&l.requested,
+   rc9_server_demand_until(),now,permit);
 }
+bool rc9_server_selected(uint64_t now){return rc9_server_source(now).select_rc8;}
 bool rc9_cap_update(uint64_t now){
  if(relay_session.handle!=None||peer.connecting||peer.handle!=None)return false;
  relay_pause_cap();rc9::Control c;c.sender=provision.identity;c.sender_boot=boot_id;c.next_challenge=relay_challenge;
@@ -34,6 +35,9 @@ void rc9_requests(uint64_t now){
   rc9::Control q;
   if(!rc9::decode_control(q,row.wire,212,provision.group)||q.type!=rc9::Type::Request||q.target!=provision.identity||
      q.target_boot!=boot_id||q.challenge!=relay_session.challenge){inc(relay_refused);relay_terminate(now);continue;}
+  // A queued request cannot renew a fallback lease after qualified normal BLE
+  // has recovered. Existing child TIME keeps its original lease/RC8 deadlines.
+  if(relay_parent_locked(micros())){inc(relay_refused);relay_terminate(now);continue;}
   unsigned at=8;for(unsigned i=0;i<8;++i)if(relay_children[i].id==q.sender){at=i;break;}
   if(at==8)for(unsigned i=0;i<8;++i)if(!relay_children[i].id||!rc5_demand_live(&relay_children[i].demand,now)){at=i;break;}
   if(at==8||rc9_publication==UINT32_MAX){inc(relay_refused);relay_terminate(now);continue;}
@@ -68,9 +72,11 @@ bool rc9_make_time(uint64_t now,uint8_t wire[190]){
 void rc9_server_poll(uint64_t now,bool upstream_due){
  if(!relay_configured&&!relay_configure())return;
  relay_quarantine_poll(now);if(fault)return;
- relay_admission_locked=rc9_server_selected(now);if(!relay_admission_locked)return;
+ const auto source=rc9_server_source(now);
+ relay_admission_locked=source.admit_rc9;if(!source.select_rc8)return;
+ if(!relay_admission_locked)relay_pause_cap();
  if(relay_session.terminating&&now>=relay_session.drain){fault=true;return;}
- if(relay_session.handle!=None&&now>=relay_session.until)relay_terminate(now);
+ if(relay_session.handle!=None&&(now>=relay_session.until||!relay_admission_locked))relay_terminate(now);
  rc9_requests(now);if(fault)return;
  // Source withdrawal takes effect without waiting for the routine250ms update.
  w12_lora_view l;w12_lora_snapshot(l);now=micros();uint64_t utc=0;const bool live=w12::lora_time(l,now,utc);
@@ -87,7 +93,7 @@ void rc9_server_poll(uint64_t now,bool upstream_due){
   if(!relay_api(ble_gap_ext_adv_set_data(0,mb),R2Api::AdvData)||!relay_api(ble_gap_ext_adv_start(0,0,0),R2Api::AdvStart))return;
   relay_discovery=true;relay_cap_dirty=true;
  }
- if(!upstream_due&&relay_session.handle==None&&!peer.connecting&&peer.handle==None){
+ if(relay_admission_locked&&!upstream_due&&relay_session.handle==None&&!peer.connecting&&peer.handle==None){
   if(relay_cap_dirty&&!rc9_cap_update(micros()))return;
   if(!relay_advertising){const int rc=ble_gap_ext_adv_start(1,0,0);if(!rc)relay_advertising=true;else relay_api(rc,R2Api::AdvStart);}
  }

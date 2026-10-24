@@ -9,10 +9,15 @@ normal G1 from RC9, recascades RC9, or becomes GM. The same sole controller owne
 retains transient GATT admission, handle quarantine and original2s teardown.
 
 An authenticated direct child requests at most360s and renews at300s. The
-original lease pins RC8 selection and AUTO reception through healthy BLE
-recovery and temporary RC8 gaps. Gaps publish explicit withdrawal without
-restarting source expiry. When the final lease expires, ordinary BLE recovery
-policy resumes. Explicit KEEP OFF, owner fault and maintenance override demand.
+original lease keeps RC8 reception and RC9 TIME available through BLE recovery
+and temporary RC8 gaps. Version0.2.14 gives qualified normal BLE the local
+display immediately and stops new RC9 capability admissions and renewals.
+Requests queued before recovery cannot extend a lease afterward. Existing
+children retain their original lease while seeking normal BLE independently;
+after the final lease expires, the actual publisher drains and returns to RC7.
+Loss of BLE qualification permits fallback admissions again. Gaps publish
+explicit withdrawal without restarting source expiry. Explicit KEEP OFF,
+owner fault and maintenance override demand.
 A stale display snapshot withdraws time but cannot shorten or extend the original
 client lease. Server/client restart requires a new boot-bound exchange.
 
