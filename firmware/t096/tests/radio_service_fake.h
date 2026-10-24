@@ -64,7 +64,7 @@ static unsigned role_ad_updates;
 static int role_ad_error;
 static uint8_t role_ad_wire[116];static size_t role_ad_length;
 static int bt_le_ext_adv_set_data(struct bt_le_ext_adv *a,const struct bt_data *p,size_t count,const struct bt_data *sd,size_t sn){
- assert(a&&count==1&&p->type==255&&(p->data_len==114||p->data_len==86)&&!sd&&!sn);
+ assert(a&&count==1&&p->type==255&&(p->data_len==114||p->data_len==88)&&!sd&&!sn);
  ++role_ad_updates;role_ad_length=p->data_len+2;role_ad_wire[0]=role_ad_length-1;role_ad_wire[1]=255;memcpy(role_ad_wire+2,p->data,p->data_len);return role_ad_error;
 }
 static int bt_le_per_adv_start(struct bt_le_ext_adv *a){return 0;}

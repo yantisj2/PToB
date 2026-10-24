@@ -774,7 +774,7 @@ static void install_role_status(const struct pt_output *out,uint64_t now,const s
  struct r2_role_record r=role_status;
  if(!r.sender||r.root!=out->scope.root_identity||r.root_boot!=out->scope.boot||r.source_epoch!=out->scope.source_epoch||
     now<r.created_us||now-r.created_us>=r.valid_us||(uint32_t)atomic_get(&role_sequence)==UINT32_MAX)return;
- /* Alternate GD/GS nonprecision windows. Combined204B would exceed
+ /* Alternate GD/GS nonprecision windows. Combined206B would exceed
   * the unchanged191B controller ceiling. No new advertiser or HCI update. */
  uint8_t wire[R2_ROLE_AD_BYTES];size_t length=R2_ROLE_AD_BYTES;
  struct r2_gnss_record d=reference?*reference:(struct r2_gnss_record){0};

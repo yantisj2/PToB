@@ -2,6 +2,7 @@
 #include "clock.h"
 #include <limits.h>
 #include <string.h>
+_Static_assert(sizeof(struct r2_clock_view)==128,"HDOP must fit existing clock-view tail padding");
 static void sat(uint32_t *v) { if(*v<UINT32_MAX)++*v; }
 static int64_t absolute(int64_t v) { return v<0?-v:v; }
 static int64_t scale(int64_t dt,int32_t ppb) { return dt/1000000000*ppb+(dt%1000000000)*ppb/1000000000; }
@@ -34,7 +35,7 @@ static void refresh(struct r2_clock *c,int64_t now)
 void r2_clock_init(struct r2_clock *c,int64_t now,enum r2_association association)
 {
   *c=(struct r2_clock){.last_tick=now,.last_rmc=-1,.last_pps=-1,.last_pair_edge=-1,
-    .last_good=-1,.last_gga=-1,.last_rx=-1,.view={.generation=1,.source_epoch=1,.association=association}};
+    .last_good=-1,.last_gga=-1,.last_rx=-1,.view={.generation=1,.source_epoch=1,.association=association,.gga_hdop_centi=R2_GGA_HDOP_UNKNOWN}};
   if(now<0||now>R2_CLOCK_MAX_US||association>R2_ASSOC_PRECEDING_UTC_SECOND)c->fatal=true;
   refresh(c,now);
 }
@@ -157,7 +158,7 @@ void r2_clock_bytes(struct r2_clock *c,const uint8_t *bytes,size_t size,int64_t 
         if(received<c->line_start||received-c->line_start>500000)kind=-R2_INPUT_STALE;
         if(kind<0||kind==2) {sat(&c->view.rejected);r2_clock_fault(c,kind==2?R2_INPUT_VOID:(enum r2_clock_fault)-kind,now);}
         else if(kind==1)rmc(c,utc,received,now);
-        else if(kind==3) {c->view.sats_used=sats;c->last_gga=received;sat(&c->view.gga_count);}
+        else if(kind==3) {c->view.sats_used=sats;c->view.gga_hdop_centi=r2_nmea_gga_hdop(c->line);c->last_gga=received;sat(&c->view.gga_count);}
       }
       c->used=0;continue;
     }

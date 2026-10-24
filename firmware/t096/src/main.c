@@ -93,7 +93,7 @@ static void __attribute__((noinline)) clock_reply(const struct r2_request *r,uin
   struct r2_source_pps_view source_pps;r2_time_source_pps_snapshot(&source_pps);
   int n=snprintf(json,sizeof(json),
     "{\"source\":\"%s\",\"boot\":\"%016llx\",\"state\":%u,\"valid\":%s,"
-    "\"utc_us\":%lld,\"mono_us\":%lld,\"gps_age_us\":%lld,\"pps_age_us\":%lld,\"rx_age_us\":%lld,"
+    "\"utc_us\":%lld,\"mono_us\":%lld,\"gps_age_us\":%lld,\"pps_age_us\":%lld,\"rx_age_us\":%lld,\"gga_age_us\":%lld,\"gga_hdop_centi\":%u,"
     "\"input_error\":%d,\"rate_ppb\":%d,\"phase_us\":%lld,\"rate_valid\":%s,\"source_available\":%s,"
     "\"generation\":%u,\"source_epoch\":%u,\"pairs\":%u,\"accepted\":%u,\"rejected\":%u,"
     "\"faults\":%u,\"reason\":%u,\"association\":%u,\"pps_edges\":%u,\"pps_rejected\":%u,"
@@ -107,7 +107,7 @@ static void __attribute__((noinline)) clock_reply(const struct r2_request *r,uin
 #endif
     "\"precision\":\"UNKNOWN\",\"timescale\":\"POSIX_UTC_ESTIMATE\",\"uncertainty_us\":null}",
     R2_SOURCE_SHA,(unsigned long long)identity.boot,t.state,t.valid?"true":"false",
-    (long long)t.utc_us,(long long)t.mono_us,(long long)t.gps_age_us,(long long)t.pps_age_us,(long long)t.rx_age_us,
+    (long long)t.utc_us,(long long)t.mono_us,(long long)t.gps_age_us,(long long)t.pps_age_us,(long long)t.rx_age_us,(long long)t.gga_age_us,(unsigned)t.gga_hdop_centi,
     t.input_error,t.rate_ppb,(long long)t.phase_us,t.rate_valid?"true":"false",t.source_available?"true":"false",
     t.generation,t.source_epoch,t.pairs,t.accepted,t.rejected,t.faults,t.reason,t.association,
     t.pps_edges,t.pps_rejected,t.pps_present?"true":"false",t.fix_active?"true":"false",

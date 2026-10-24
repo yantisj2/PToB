@@ -214,26 +214,26 @@ int main(int argc,char **argv){
   struct r2_role_record r={.sender=1,.root=1,.sender_boot=10,.root_boot=10,.coordinator=1,.created_us=1000000,.source_epoch=4,.valid_us=2000000,.flags=1,.members=3};
   struct r2_gnss_record d={.root=1,.root_boot=10,.sampled_us=1000000,.mesh_epoch=4,.valid_us=30000000,
    .known=31,.values=7,.sats=12,.source_kind=1,.rmc_age_ms=20,.pps_age_ms=30,.gga_age_ms=40,
-   .priority1=128,.clock_class=248,.accuracy=254,.priority2=128,.variance=65535};
+   .priority1=128,.clock_class=248,.accuracy=254,.priority2=128,.variance=65535,.hdop_centi=R2_GNSS_HDOP_UNKNOWN};
   pt_input.stopped=false;pt_input.source_ready=true;pt_input.source_epoch=4;
   pt_output=(struct pt_output){.sampled=1000000,.scope={.gm=true,.root_identity=1,.root=0,.boot=10,.source_epoch=4,.until_us=90000000},.payload_until=90000000};
   struct pt_output out=pt_output;r2_radio_service_role(&r,&g);install_role_status(&out,fake_time,&d);
   struct r2_gnss_record decoded;
-  assert(role_ad_updates==1&&role_ad_length==88&&!r2_gnss_decode(&decoded,role_ad_wire,role_ad_length,&g));
+  assert(role_ad_updates==1&&role_ad_length==90&&!r2_gnss_decode(&decoded,role_ad_wire,role_ad_length,&g));
   assert(decoded.sequence==1&&decoded.mesh_epoch==4&&decoded.sampled_us==1000000&&gnss_next_us==3000000&&role_sequence==0);
   const struct r2_radio_precision unchanged_precision=precision;
   const struct r2_gnss_record unchanged_reference=d;
   install_role_status(&out,fake_time+999999,&d);assert(role_ad_updates==1);
   for(unsigned i=1;i<10;i++){
    fake_time=1000000+i*1000000;r.created_us=fake_time;r2_radio_service_role(&r,&g);install_role_status(&out,fake_time,&d);
-   assert(role_ad_updates==i+1&&role_ad_length==(i%2?116u:88u));
+   assert(role_ad_updates==i+1&&role_ad_length==(i%2?116u:90u));
    assert((uint32_t)atomic_get(&gnss_sequence)==1+i/2&&(uint32_t)atomic_get(&role_sequence)==(i+1)/2);
    install_role_status(&out,fake_time,&d);assert(role_ad_updates==i+1); // Still at most one HCI update/s.
   }
   assert(gnss_sequence==5&&role_sequence==5); // Five GD windows, formerly one, in the same ten updates.
   assert(!memcmp(&precision,&unchanged_precision,sizeof precision)&&!memcmp(&d,&unchanged_reference,sizeof d));
   fake_time=11000000;r.created_us=fake_time;r2_radio_service_role(&r,&g);install_role_status(&out,fake_time,&d);
-  assert(role_ad_updates==11&&role_ad_length==88&&!r2_gnss_decode(&decoded,role_ad_wire,role_ad_length,&g));
+  assert(role_ad_updates==11&&role_ad_length==90&&!r2_gnss_decode(&decoded,role_ad_wire,role_ad_length,&g));
   assert(decoded.sequence==6&&decoded.sampled_us==1000000&&decoded.valid_us==20000000); // Original snapshot, reduced lifetime.
   fake_time=13000000;r.created_us=fake_time;r2_radio_service_role(&r,&g);role_ad_error=-EIO;install_role_status(&out,fake_time,&d);
   assert(role_ad_updates==12&&gnss_sequence==6&&gnss_next_us==13000000&&!error&&!closing);

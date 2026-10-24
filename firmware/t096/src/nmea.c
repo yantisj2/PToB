@@ -48,3 +48,33 @@ int r2_nmea(const char *line,int64_t *utc_us,unsigned *satellites)
   *utc_us=((d+day-1)*86400+hour*3600+min*60+sec)*INT64_C(1000000)+fraction;
   return 1;
 }
+uint16_t r2_nmea_gga_hdop(const char *line)
+{
+  if(!line)return R2_GGA_HDOP_UNKNOWN;
+  size_t n=0;while(n<128&&line[n])++n;
+  if(n==128)return R2_GGA_HDOP_UNKNOWN;
+  int64_t utc=0;unsigned satellites=0;
+  if(r2_nmea(line,&utc,&satellites)!=3)return R2_GGA_HDOP_UNKNOWN;
+  const char *start=line+7,*end=NULL;unsigned field=0;
+  for(const char *p=start;*p;p++)if(*p==','||*p=='*'){
+    if(field==7){end=p;break;}
+    if(*p=='*')break;
+    ++field;start=p+1;
+  }
+  if(!end||start==end)return R2_GGA_HDOP_UNKNOWN;
+  uint32_t whole=0,fraction=0;unsigned decimals=0;bool point=false,digits=false;
+  for(const char *p=start;p<end;p++){
+    if(*p=='.'){
+      if(point||!digits)return R2_GGA_HDOP_UNKNOWN;
+      point=true;continue;
+    }
+    if(*p<'0'||*p>'9')return R2_GGA_HDOP_UNKNOWN;
+    digits=true;
+    if(point){if(++decimals>2)return R2_GGA_HDOP_UNKNOWN;fraction=fraction*10+(unsigned)(*p-'0');}
+    else {whole=whole*10+(unsigned)(*p-'0');if(whole>655)return R2_GGA_HDOP_UNKNOWN;}
+  }
+  if(point&&!decimals)return R2_GGA_HDOP_UNKNOWN;
+  if(decimals==1)fraction*=10;
+  uint32_t value=whole*100+fraction;
+  return value>=R2_GGA_HDOP_UNKNOWN?R2_GGA_HDOP_UNKNOWN:(uint16_t)value;
+}

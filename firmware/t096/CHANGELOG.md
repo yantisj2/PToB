@@ -15,6 +15,16 @@ failures, missing observations and unknown accuracy bounds remain part of each r
 Copyright (c) 2026 Jonathan Yantis. Original documentation: MIT. Third-party
 patches retain their [source notices](NOTICE.md).
 
+## 0.15.168 — Report actual GNSS HDOP
+
+GD2 adds checksum-valid GGA HDOP in dimensionless hundredths to the reported
+GNSS status and unchanged election quality. The 90-byte record has a new version
+and MAC domain; the decoder retains strict 88-byte GD1 support with HDOP unknown.
+Blank, negative, malformed, overflowing or unsupported-precision HDOP stays
+unknown without changing ordinary GGA/time acceptance. The field fits existing
+clock-view padding. Metadata cadence, TTL, precision and source qualification
+remain unchanged. The local clock query exposes GGA age and raw HDOP for audits.
+
 ## 0.15.167 — More frequent source diagnostic windows
 
 GD and GS alternate in the existing one-second nonprecision update, publishing

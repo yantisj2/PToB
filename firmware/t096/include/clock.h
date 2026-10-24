@@ -12,6 +12,7 @@
 #define R2_SLEW_PPB 5000000 /* 0.5%; output always advances, including negative corrections */
 #define R2_RATE_LIMIT_PPB 2000000
 #define R2_CLOCK_MAX_US (INT64_MAX/4)
+#define R2_GGA_HDOP_UNKNOWN UINT16_MAX
 enum r2_clock_state { R2_TIME_UNSET, R2_TIME_ACQUIRING, R2_TIME_COARSE,
   R2_TIME_DISCIPLINING, R2_TIME_SYNCED, R2_TIME_HOLDOVER, R2_TIME_EXPIRED, R2_TIME_FAULT };
 enum r2_association { R2_ASSOC_UNKNOWN, R2_ASSOC_PRECEDING_UTC_SECOND };
@@ -26,6 +27,7 @@ struct r2_clock_view {
   unsigned state, reason, association, sats_used;
   bool valid, source_available, rate_valid, pps_present, fix_active;
   uint8_t rmc_status,rmc_mode; /* Last checksum-valid RMC fields, ASCII codes. */
+  uint16_t gga_hdop_centi; /* Reported GGA HDOP only; never source/servo input. */
 };
 struct r2_clock {
   struct r2_clock_view view;
@@ -48,4 +50,8 @@ void r2_clock_bytes(struct r2_clock *c,const uint8_t *bytes,size_t size,int64_t 
 /* Parser returns 1 active RMC, 2 void/invalid mode RMC, 3 GGA, 0 unrelated,
  * negative for malformed/checksum-invalid input. UTC is POSIX, not TAI. */
 int r2_nmea(const char *line,int64_t *utc_us,unsigned *satellites);
+/* Diagnostic-only checksum-valid GGA field7; exact unsigned centi units.
+ * Blank, malformed, negative, >2 decimal places or overflow returns UNKNOWN.
+ * Does not change ordinary GGA/RMC acceptance or any clock qualification. */
+uint16_t r2_nmea_gga_hdop(const char *line);
 #endif
