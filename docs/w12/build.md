@@ -113,6 +113,18 @@ not substitute another clock. Keep this population separate from `GUARDED`,
 `BASELINE` and the GPTimer fast-map diagnostic. Measured enclosure and causal
 PPS prediction remain distinct from calibrated UTC or relay TX performance.
 
+From version 0.2.7, fine builds use a causal quadratic shadow predictor after
+32 consecutive physical PPS observations. It tracks at most 20 ppb/s frequency
+acceleration; missing/discontinuous PPS, unavailable prior models and forecasts
+beyond three seconds remain invalid. `raw_predictor` and `mapped_predictor`
+distinguish `QUADRATIC32` from `LINEAR_WARMUP`; legacy builds use `LINEAR32`.
+No shadow observation trains BLE or grants source authority. Check the analytic
+positive/negative drift and refusal cases without opening hardware:
+
+```sh
+python3 firmware/w12/tools/gps_shadow_tests.py --out artifacts/w12-gps-shadow-01
+```
+
 Supply the shared [display registry](../../registry/README.md)
 through the same ignored map used by T096:
 

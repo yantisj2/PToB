@@ -7,7 +7,7 @@ RC role. [Image provenance](../../docs/images/README.md).*
 
 Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
 
-**PToB owns W12 native G1/RC7 development.** Current version **0.2.6** supports
+**PToB owns W12 native G1/RC7 development.** Current version **0.2.7** supports
 **RC**: a BLE50 client or BLE100 receiver with an optional experimental
 estimated-TX relay. It receives from the shared T096/W12/StickS3 mesh; it has no
 GM profile or USB timing stream. Start with the
@@ -62,6 +62,12 @@ fine-counter latches. `FINE_COUNTER_BRACKET` records keep that measurement
 separate from the earlier `GUARDED` path. GNSS remains a shadow reference;
 PPS prediction, BLE-relative phase and output UTC phase are distinct metrics.
 No GNSS observation disciplines BLE or grants GM authority.
+
+Version 0.2.7 adds a bounded curvature fit to the fine build's independent
+GNSS shadow clock after 32 consecutive PPS observations. Earlier observations
+retain linear warm-up. Capture logs identify both predictor methods and retain
+causal prediction errors and invalid samples. This changes the shadow witness,
+with no new GM profile or BLE clock discipline.
 
 Version 0.2.0 adds the N30 fallback policy: AUTO starts LoRa RX after 180 s of
 accumulated loss of actual BLE precision lock, then stops RX after 180 s of

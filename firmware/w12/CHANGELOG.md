@@ -1,5 +1,19 @@
 # W12 changelog
 
+## 0.2.7 — causal shadow clock drift prediction
+
+- Fine builds fit bounded curvature after 32 consecutive captured PPS points;
+  warm-up and legacy builds retain linear prediction. Use a centered integer
+  fit and invert only the short relative counter interval, keeping UTC epochs
+  integer. Limit acceleration to 20 ppb/s and retain prior-model availability,
+  three-second expiry, missing-PPS resets and explicit invalid predictions.
+- Label raw and mapped predictor methods in capture diagnostics. Held-out
+  prediction errors remain separate from fitted residuals, BLE-relative phase,
+  output UTC phase and physical accuracy. GNSS never trains the BLE clock.
+- Add analytic positive/negative oscillator-drift checks for both counter rates,
+  legacy controls, availability/expiry and excessive-acceleration refusal.
+  Synthetic checks and saved-data replay are not hardware qualification.
+
 ## 0.2.6 — fine-counter shadow PPS mapping
 
 - Enclose the existing GNSS group0 software capture with group1 CURRENT

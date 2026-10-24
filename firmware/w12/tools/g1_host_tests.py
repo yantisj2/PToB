@@ -97,6 +97,7 @@ def main():
     run([CXX,'-std=c++20',*flags,'-I'+str(APP/'legacy'),'-I'+str(APP/'legacy/reference'),'-I'+str(APP/'main'),APP/'tests/g1_pps_diagnostic_test.cpp','-o',out/'g1-pps-diagnostic-tests'],'production-G1-PPS-diagnostic-build')
     run([out/'g1-pps-diagnostic-tests'],'production-G1-PPS-causal-scope-expiry-reference-separation')
     run(['python3',APP/'tests/g1_pps_diagnostic_render_test.py'],'production-G1-PPS-profile-and-log-capacity')
+    run(['python3',APP/'tools/gps_shadow_tests.py','--out',out/'gps-shadow-prediction'],'causal-GNSS-shadow-clock-drift-and-legacy-controls')
     run([CXX,'-std=c++20',*flags,APP/'tests/c3_lora_off_test.cpp','-o',out/'C3-lora-off-tests'],'C3-LoRa-forced-off-build')
     run([out/'C3-lora-off-tests'],'C3-LoRa-no-task-no-GPIO-no-admission')
     run(['python3',APP/'tests/g1_shared_reset_test.py'],'shared-reset-owner-participation')
