@@ -49,7 +49,8 @@ int main(){
   v12::Report r{};r.kind=8;r.length=32;r.callback_us=UINT64_MAX;r.cycle=UINT32_MAX;r.handle=UINT16_MAX;
   std::memset(r.bytes,255,32);r.bytes[0]=7;r.bytes[5]=2;
   const int n=v12::g1_render_link(line,sizeof line,r);assert(n>0&&unsigned(n)<sizeof line&&std::strstr(line,"TERMINATE_ACK")&&std::strstr(line,"rc=-1"));
-  for(unsigned event=15;event<=30;event++){r.bytes[0]=event;const int size=v12::g1_render_link(line,sizeof line,r);assert(size>0&&unsigned(size)<sizeof line);}
+  for(unsigned event=15;event<=31;event++){r.bytes[0]=event;const int size=v12::g1_render_link(line,sizeof line,r);assert(size>0&&unsigned(size)<sizeof line);}
+  r.bytes[0]=31;assert(v12::g1_render_link(line,sizeof line,r)>0&&std::strstr(line,"SYNC_DRAIN_EXPIRED"));
   r.bytes[0]=1;std::memset(r.bytes+1,0,4);r.bytes[7]=32;
   assert(v12::g1_render_link(line,sizeof line,r)>0&&std::strstr(line,"CONNECT_DRAIN_ACK"));
   r.bytes[7]=2;assert(v12::g1_render_link(line,sizeof line,r)>0&&std::strstr(line,"event=CONNECT rc=0"));

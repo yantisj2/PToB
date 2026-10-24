@@ -1,5 +1,18 @@
 # W12 changelog
 
+## 0.2.16 — exact PA terminate acknowledgement
+
+- Retire only the exact active PA owner after the pinned SDK returns successful
+  HCI termination or confirms the handle is absent. Its queued EDONE remains
+  a notification; a stale callback cannot close a replacement capture epoch.
+- Preserve actual pending-create cancellation, original drain and BLE50 quiet
+  deadlines. SDK errors and late returns remain faults.
+- Distinguish terminate SDK error, late return and unclosed owner expiry in the
+  existing compact fault-site byte; retain bounded call-start/return traces.
+- Native regressions cover delayed/inline notifications, reused handles, SDK
+  pool pressure, actual RC9-to-direct recovery and subsequent PA admission.
+  No hardware acceptance is implied.
+
 ## 0.2.15 — replacement RC7 lineage cache fence
 
 - Retire old advisory trials, locators and retry scheduling when an authenticated

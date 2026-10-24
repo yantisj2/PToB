@@ -195,7 +195,9 @@ void admission_slot(){
 }
 void stop(){
  fixture_clock_fail=fixture_clock_backwards=0;
- v12::r2_stop();step(8);assert(v12::r2_status().off_ack&&
+ v12::r2_stop();step(8);
+ if(!v12::r2_status().off_ack)std::fprintf(stderr,"stop fault=%u api=%u/%d site=%u now=%llu drain=%llu\n",v12::fault,unsigned(v12::first_error_api),v12::first_error_rc,unsigned(v12::first_fault_site),(unsigned long long)fake_now,(unsigned long long)v12::sync_drain_until);
+ assert(v12::r2_status().off_ack&&
    v12::client.completed_us<v12::client.stop_deadline_us&&!v12::fault);
 }
 void direct_session_stream(){
@@ -309,7 +311,7 @@ int run(const std::string& which){
      assert(choice==(changed?root:0));
      if(changed){
        cleared();assert(v12::sync_cleanup_requested&&v12::synced&&v12::sync_drain_until==drain);
-       sync_late=true;pump_cleanup();assert(v12::synced&&v12::sync_terminating&&v12::sync_drain_until==drain);
+       sync_late=true;pump_cleanup();assert(!v12::synced&&!v12::sync_terminating&&v12::sync_drain_until==drain);
        ble_gap_event lost{};lost.type=BLE_GAP_EVENT_PERIODIC_SYNC_LOST;lost.periodic_sync_lost.sync_handle=9;
        v12::gap(&lost,fixture_sync_arg);sync_late=false;assert(!v12::synced&&!v12::fault);
      }else assert(!v12::sync_cleanup_requested&&!v12::sync_terminating);
@@ -334,7 +336,7 @@ int run(const std::string& which){
      assert(current.g1_clock_model.tick==retained.clock.tick&&current.g1_clock_model.epoch==retained.clock.epoch);
    }else if(which=="rc7-foreign-root-hint"){
      v12::anchor.until=v12::corrected_clock.until();v12::member=true;
-     v12::synced=true;v12::sync_handle=9;v12::sync_identity=Parent;
+     v12::synced=true;v12::sync_handle=9;v12::sync_identity=Parent;v12::sync_drain_until=0;
      v12::sync_requested_at=v12::sync_owner_window_start=fake_now;
      fixture_sync_arg=reinterpret_cast<void*>(uintptr_t(v12::sync_capture_epoch));
      const auto old_anchor=v12::anchor;const auto old_client=v12::rc_client;const auto epoch=v12::sync_capture_epoch;

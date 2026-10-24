@@ -78,6 +78,8 @@ struct R2Status {
   RcParentDiagnostic rc_parent{};
   uint32_t rc7_server_flags=0,rc7_server_publication=0,rc7_server_admissions=0;
   uint32_t rc7_admission_overlaps=0,rc7_quarantine_active=0,rc7_quarantine_timeouts=0;
+  // Compact rcq site:1 outgoing ACL alias,2 quarantine alias,3 terminate SDK
+  // error,4 terminate return past original drain,5 unclosed PA drain expiry.
   uint8_t g1_first_fault_site=0;
   uint32_t host_stack_min_bytes=UINT32_MAX,host_stack_configured_bytes=0;
   uint32_t discipline_accepted=0,discipline_refused=0,rms_ns=UINT32_MAX,precision_ns=UINT32_MAX,hold_ms=0,hold_samples=0;

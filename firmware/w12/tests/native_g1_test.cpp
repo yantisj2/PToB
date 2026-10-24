@@ -8,7 +8,7 @@ void test_critical_enter(void*);
 #include "../main/native_g1.cpp"
 namespace {
 bool scan_active=false,small_mtu=false,rx_blocked=false,late_disconnect=false,marker_bad=false;int scan_error=0,connect_error=0;
-bool cleanup_scheduled=false,sync_cancel_timeout=false;unsigned sync_cancel_calls=0;
+bool cleanup_scheduled=false,sync_cancel_timeout=false;unsigned sync_cancel_calls=0;int sync_terminate_error=0;uint64_t sync_terminate_delay=0;bool sync_pool_held=false;
 bool connect_during_terminate=false,terminate_wrong_handle=false,terminate_stale=false;
 bool residual_sync_cache=false,stop_in_cache_check=false,arm_late_stop=false,stop_at_admit=false,aux_active=false;
 unsigned connected=0,terminated=0,last_init_interval=0,last_init_window=0,last_supervision=0;void* conn_arg=nullptr;bool inline_failure=false,inline_success=false,cancel_missing=false,hidden_link=false,sync_late=false,sync_cancel_disallowed=false,sync_cancel_inline=false;unsigned cancel_calls=0;std::vector<std::vector<uint8_t>> output;
@@ -53,10 +53,11 @@ int ble_gattc_disc_all_chrs(uint16_t h,uint16_t,uint16_t,int(*cb)(uint16_t,const
 int ble_gattc_write_no_rsp_flat(uint16_t,uint16_t,const void* p,unsigned n){assert(n==R2_GROUP_JOIN_BYTES);auto* b=static_cast<const uint8_t*>(p);output.emplace_back(b,b+n);return 0;}
 int ble_gattc_read(uint16_t,uint16_t,int(*)(uint16_t,const ble_gatt_error*,ble_gatt_attr*,void*),void*){return BLE_HS_ENOTCONN;}
 int ble_gattc_write_flat(uint16_t,uint16_t,const void*,uint16_t,int(*)(uint16_t,const ble_gatt_error*,ble_gatt_attr*,void*),void*){return BLE_HS_ENOTCONN;}
-int ble_gap_periodic_adv_sync_create(const ble_addr_t*,uint8_t sid,const ble_gap_periodic_sync_params*,int(*)(ble_gap_event*,void*),void*){assert(sid==12);return 0;}
+int ble_gap_periodic_adv_sync_create(const ble_addr_t*,uint8_t sid,const ble_gap_periodic_sync_params*,int(*)(ble_gap_event*,void*),void*){assert(sid==12);return sync_pool_held?BLE_HS_ENOMEM:0;}
 void sync_established(){ble_gap_event e;e.type=BLE_GAP_EVENT_PERIODIC_SYNC;e.periodic_sync.per_adv_ival=50;e.periodic_sync.adv_addr=v12::sync_address;v12::gap(&e,nullptr);}
 int ble_gap_periodic_adv_sync_create_cancel(){++sync_cancel_calls;if(!v12::sync_pending){if(stop_in_cache_check){stop_in_cache_check=false;v12::r2_stop();}return residual_sync_cache?BLE_HS_HCI_ERR(0x0c):BLE_HS_EALREADY;}if(sync_cancel_timeout){fake_now+=2000000;return BLE_HS_ETIMEOUT_HCI;}if(sync_cancel_disallowed){if(sync_cancel_inline)sync_established();return BLE_HS_HCI_ERR(0x0c);}ble_gap_event e;e.type=BLE_GAP_EVENT_PERIODIC_SYNC;e.periodic_sync.status=1;v12::gap(&e,nullptr);return 0;}
-int ble_gap_periodic_adv_sync_terminate(uint16_t){if(sync_late)return 0;ble_gap_event e;e.type=BLE_GAP_EVENT_PERIODIC_SYNC_LOST;v12::gap(&e,nullptr);return 0;}
+int ble_gap_periodic_adv_sync_terminate(uint16_t h){fake_now+=sync_terminate_delay;if(sync_terminate_error)return sync_terminate_error;
+ if(sync_late){sync_pool_held=true;return 0;}ble_gap_event e;e.type=BLE_GAP_EVENT_PERIODIC_SYNC_LOST;e.periodic_sync_lost.sync_handle=h;v12::gap(&e,reinterpret_cast<void*>(uintptr_t(v12::sync_capture_epoch)));return 0;}
 void pump_cleanup(){if(cleanup_scheduled){cleanup_scheduled=false;v12::r2_host_cleanup();}}
 void test_critical_enter(void* m){if(stop_at_admit&&m==&v12::mux){stop_at_admit=false;v12::r2_stop();}}
 void step(unsigned n=1){for(unsigned i=0;i<n;i++){fake_now+=2000;v12::r2_observe(fake_now);v12::r2_host_poll();pump_cleanup();}}
@@ -99,6 +100,72 @@ int main(int argc,char** argv){assert(argc==2);std::string which=argv[1];
     assert(!v12::member&&!v12::anchor.source&&!v12::following(fake_now));
     v12::r2_stop();step(6);assert(v12::r2_status().off_ack);return 0;
   }
+  if(which.starts_with("sync-term-")){
+    fake_now=1000000;v12::window_start=v12::sync_owner_window_start=fake_now;
+    v12::sync_capture_epoch=77;v12::sync_handle=9;v12::synced=true;v12::sync_identity=333;
+    v12::sync_requested_at=fake_now;v12::sync_owner_address=v12::canonical(333);
+    const auto epoch=v12::sync_capture_epoch;void* const arg=reinterpret_cast<void*>(uintptr_t(epoch));
+    if(which=="sync-term-ledger"){
+      v12::sync_terminating=true;v12::sync_drain_until=fake_now;
+      v12::active_poll(fake_now);assert(v12::fault&&v12::synced&&v12::sync_handle==9);
+      assert(v12::first_error_api==v12::R2Api::SyncTerminate&&v12::first_fault_site==5);return 0;
+    }
+    if(which=="sync-term-cancel-missing"){
+      v12::synced=false;v12::sync_pending=true;v12::sync_handle=v12::None;sync_cancel_disallowed=true;
+      v12::cancel_sync(fake_now);const auto deadline=v12::sync_drain_until;
+      fake_now+=v12::G1Window::SyncCancelGrace;pump_cleanup();
+      assert(v12::sync_pending&&v12::sync_cancelled&&!v12::fault&&v12::sync_drain_until==deadline);
+      fake_now=deadline;v12::active_poll(fake_now);
+      assert(v12::fault&&v12::sync_pending&&v12::sync_drain_until==deadline);
+      if(v12::full_listening())assert(v12::first_error_api==v12::R2Api::SyncTerminate&&v12::first_fault_site==5);
+      else assert(v12::quiet_faults==1);return 0;
+    }
+    sync_late=which!="sync-term-inline";
+    if(which=="sync-term-enotconn")sync_terminate_error=BLE_HS_ENOTCONN;
+    if(which=="sync-term-error")sync_terminate_error=BLE_HS_ETIMEOUT;
+    if(which=="sync-term-late")sync_terminate_delay=2000000;
+    if(which=="sync-term-quiet-late")sync_terminate_delay=v12::G1Window::Quiet;
+    v12::cancel_sync(fake_now);const auto deadline=v12::sync_drain_until;
+    if(which=="sync-term-queued-expired")fake_now=deadline;
+    pump_cleanup();assert(v12::sync_drain_until==deadline&&!v12::sync_pending);
+    uint64_t began=0,returned=0;unsigned lost_index=0,ack_index=0;
+    for(unsigned i=0;i<v12::diagnostic_records.size();i++){
+      const auto& row=v12::diagnostic_records[i];if(row.kind!=8)continue;
+      if(row.bytes[0]==24)began=row.callback_us;
+      if(row.bytes[0]==19){returned=row.callback_us;ack_index=i;
+        assert(int32_t(r2_group_get(row.bytes+1,4))==sync_terminate_error);}
+      if(row.bytes[0]==20)lost_index=i;
+    }
+    assert(began&&returned==began+sync_terminate_delay);
+    if(which=="sync-term-inline")assert(lost_index<ack_index);
+    if(which=="sync-term-error"){
+      assert(v12::fault&&v12::synced&&v12::sync_terminating&&v12::sync_handle==9);
+      assert(v12::first_error_api==v12::R2Api::SyncTerminate&&v12::first_error_rc==BLE_HS_ETIMEOUT&&v12::first_fault_site==3);return 0;
+    }
+    assert(!v12::synced&&!v12::sync_terminating&&v12::sync_handle==v12::None&&!v12::sync_identity);
+    if(which=="sync-term-late"||which=="sync-term-queued-expired"){
+      assert(v12::fault&&v12::first_error_api==v12::R2Api::SyncTerminate&&v12::first_fault_site==4);return 0;
+    }
+    if(which=="sync-term-quiet-late"&&!v12::full_listening()){
+      assert(v12::fault&&v12::quiet_faults==1&&v12::first_error_api==v12::R2Api::Disconnect);return 0;
+    }
+    assert(!v12::fault);
+    // The old SDK object can still occupy its pool until queued EDONE. A
+    // new create must report transient ENOMEM, then succeed after that event.
+    if(sync_pool_held){
+      const auto retries=v12::setup_retries;
+      const int rc=ble_gap_periodic_adv_sync_create(&v12::sync_owner_address,12,nullptr,v12::gap,arg);
+      assert(rc==BLE_HS_ENOMEM&&v12::transient(rc,v12::R2Api::SyncCreate)&&v12::setup_retries==retries+1&&!v12::fault);
+      sync_pool_held=false;
+    }
+    // Controller handles may be reused. A queued notification for the old
+    // callback epoch cannot close the new owner even with the same handle.
+    ++v12::sync_capture_epoch;v12::synced=true;v12::sync_handle=9;v12::sync_identity=444;
+    ble_gap_event lost{};lost.type=BLE_GAP_EVENT_PERIODIC_SYNC_LOST;lost.periodic_sync_lost.sync_handle=9;
+    v12::gap(&lost,arg);assert(v12::synced&&v12::sync_handle==9&&v12::sync_identity==444&&!v12::fault);
+    assert(!ble_gap_periodic_adv_sync_create(&v12::sync_owner_address,12,nullptr,v12::gap,arg));
+    sync_late=false;sync_terminate_delay=0;v12::cancel_sync(fake_now);pump_cleanup();assert(!v12::synced&&!v12::fault);return 0;
+  }
   if(which.starts_with("leader-incarnation-")){
     fake_now=1000000;v12::window_start=fake_now;
     v12::anchor={true,333,444,1700000000000000,fake_now,5000000,7,8,40000};
@@ -131,7 +198,7 @@ int main(int argc,char** argv){assert(argc==2);std::string which=argv[1];
     if(changed){
       // Keep the exact old controller owner and its original drain deadline.
       assert(v12::sync_cleanup_requested&&v12::synced&&v12::sync_drain_until==drain);
-      sync_late=true;pump_cleanup();assert(v12::synced&&v12::sync_terminating&&v12::sync_drain_until==drain);
+      sync_late=true;pump_cleanup();assert(!v12::synced&&!v12::sync_terminating&&v12::sync_drain_until==drain);
       ble_gap_event lost{};lost.type=BLE_GAP_EVENT_PERIODIC_SYNC_LOST;lost.periodic_sync_lost.sync_handle=9;
       v12::gap(&lost,reinterpret_cast<void*>(uintptr_t(v12::sync_capture_epoch)));sync_late=false;
       assert(!v12::synced&&!v12::fault);
@@ -372,7 +439,7 @@ int main(int argc,char** argv){assert(argc==2);std::string which=argv[1];
     assert(original_window);return 0;
   }
   if(which=="sync-tail-completion"||which=="sync-command-timeout"){
-    v12::window_start=0;v12::sync_identity=111;v12::sync_address=v12::canonical(111);
+    v12::window_start=0;v12::sync_identity=111;v12::sync_address=v12::canonical(111);v12::sync_owner_address=v12::sync_address;
     v12::sync_requested_at=300000;v12::sync_pending=true;fake_now=450000;
     v12::cancel_sync(fake_now);const auto deadline=v12::sync_drain_until;
     assert(cleanup_scheduled&&v12::sync_pending&&!v12::sync_cancelled&&sync_cancel_calls==0);
@@ -400,7 +467,7 @@ int main(int argc,char** argv){assert(argc==2);std::string which=argv[1];
     v12::G1CoarseHold overflow;auto huge=a;huge.utc=UINT64_MAX;overflow.retain(huge);uint64_t utc=0;assert(!overflow.deliver(100001,utc));return 0;
   }
   if(which=="sync-cancel-inline-race"||which=="sync-cancel-queued-race"||which=="sync-cancel-missing"){
-    v12::sync_identity=111;v12::sync_address=v12::canonical(111);v12::sync_requested_at=300000;v12::sync_pending=true;
+    v12::sync_identity=111;v12::sync_address=v12::canonical(111);v12::sync_owner_address=v12::sync_address;v12::sync_requested_at=300000;v12::sync_pending=true;
     sync_cancel_disallowed=true;sync_cancel_inline=which=="sync-cancel-inline-race";
     fake_now=450000;v12::active_poll(fake_now);pump_cleanup();const auto deadline=v12::sync_drain_until;
     assert(deadline==2450000&&!v12::fault&&!sync_cancel_calls);
@@ -605,9 +672,9 @@ int main(int argc,char** argv){assert(argc==2);std::string which=argv[1];
   }
   if(which=="sync-quiet"||which=="quiet-drain-blocked"){
     v12::anchor={true,1,2,1700000000000000,0,2000000,3,4,40000};
-    v12::synced=true;v12::sync_handle=9;sync_late=which=="quiet-drain-blocked";
+    v12::synced=true;v12::sync_handle=9;sync_late=which=="quiet-drain-blocked";if(sync_late)sync_terminate_delay=50000;
     fake_now=450000;v12::active_poll(fake_now);pump_cleanup();
-    if(sync_late){const auto original=v12::sync_drain_until;assert(v12::synced&&v12::sync_terminating);fake_now=480000;v12::active_poll(fake_now);assert(v12::sync_drain_until==original);fake_now=500000;v12::active_poll(fake_now);assert(v12::fault&&v12::quiet_faults==1);return 0;}
+    if(sync_late){assert(!v12::synced&&!v12::sync_terminating&&v12::fault&&v12::quiet_faults==1);return 0;}
     assert(!v12::synced&&!v12::sync_terminating&&v12::anchor.valid(fake_now)&&v12::following(fake_now));
     fake_now=1000000;v12::active_poll(fake_now);assert(!v12::fault&&v12::anchor.valid(fake_now));
     v12::r2_stop();step(2);assert(v12::r2_status().off_ack);return 0;

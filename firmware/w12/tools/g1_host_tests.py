@@ -35,7 +35,7 @@ def main():
     run(['python3',APP/'tools/g1_vectors.py',src/'v14_vectors.json'],'independent-hmac')
     # Focused current migration checks. Historical discovery/fixture expectations
     # predate the 3s startup selector and are retained outside this selected run.
-    cases=['boot-empty','leader-incarnation-boot','leader-incarnation-epoch','leader-incarnation-train','leader-incarnation-renewal',
+    cases=['sync-term-ledger','sync-term-cancel-missing','sync-term-ack-delayed','sync-term-inline','sync-term-enotconn','sync-term-error','sync-term-late','sync-term-quiet-late','sync-term-queued-expired','boot-empty','leader-incarnation-boot','leader-incarnation-epoch','leader-incarnation-train','leader-incarnation-renewal',
            'leader-loss','leader-loss-pin','leader-loss-boundary','leader-loss-switch','persist','cancel','blocked','late','listening-profile',
            'connect-refusal-contained','connect-refusal-other','connect-refusal-owned','connect-refusal-late',
            'terminate-yield-connect','terminate-yield-wrong-handle','terminate-yield-stale','terminate-yield-missing-disconnect',
@@ -52,6 +52,9 @@ def main():
         binary=out/unit
         run([CXX,'-std=c++20',*flags,'-Wno-missing-field-initializers','-DV12_R2_ENABLED=1','-DV12_R2_FIELD_CLIENT=1','-DV12_R2_CONFIG=13','-DV12_UNIT="'+unit+'"','-I'+str(APP/'tests/r2_fakes'),'-I'+str(APP/'tests/console_fakes'),'-I'+str(APP/'main'),'-I'+str(APP/'legacy/reference'),'-I'+str(out),APP/'tests/native_g1_test.cpp',*objects,'-o',binary],unit+'-build')
         for case in cases:run([binary,case],unit+'-'+case)
+        for case in ('sync-cancel-inline-race','sync-cancel-queued-race','sync-cancel-missing',
+                     'sync-tail-delayed','sync-tail-completion','sync-command-timeout','sync-quiet','quiet-drain-blocked'):
+            run([binary,case],unit+'-'+case)
         if unit in ('C2','C3'):
             full=out/(unit+'-default100')
             run([CXX,'-std=c++20',*flags,'-Wno-missing-field-initializers','-DV12_R2_ENABLED=1','-DV12_R2_FIELD_CLIENT=1','-DV12_R2_CONFIG=13','-DV12_R2_G1_LISTENING_PERCENT=100','-DV12_UNIT="'+unit+'"','-I'+str(APP/'tests/r2_fakes'),'-I'+str(APP/'tests/console_fakes'),'-I'+str(APP/'main'),'-I'+str(APP/'legacy/reference'),'-I'+str(out),APP/'tests/native_g1_test.cpp',*objects,'-o',full],unit+'-default100-build')

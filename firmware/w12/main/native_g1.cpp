@@ -389,9 +389,22 @@ void cancel_sync_worker(uint64_t now){
   }
   if(synced&&!sync_terminating){sync_terminating=true;if(!sync_drain_until)sync_drain_until=now+2000000;
     const auto context=sync_context();const auto handle=sync_handle;
+    const auto epoch=sync_capture_epoch;const auto deadline=sync_drain_until;
     sync_trace(24,handle,0,&context);
     const int rc=ble_gap_periodic_adv_sync_terminate(handle);sync_trace(19,handle,rc,&context);
-    if(rc==BLE_HS_ENOTCONN){synced=false;sync_terminating=false;sync_handle=None;periodic_rx::scope(None);}else if(rc)error(rc,R2Api::SyncTerminate);
+    // Pinned NimBLE returns0 only after HCI Command Complete and synchronous
+    // removal of this exact handle from its live list. Its queued EDONE frees
+    // the retired SDK object before notifying us; it is not another controller
+    // drain acknowledgement. A new create may transiently lack a pool object.
+    // Unlike create CANCEL, this return proves the active PA owner is closed.
+    if(!rc||rc==BLE_HS_ENOTCONN){
+      // An inline LOST may already have closed this owner. Never retire a
+      // replacement epoch/handle if a callback ran while the SDK call yielded.
+      if(sync_capture_epoch==epoch&&sync_handle==handle){
+        synced=false;sync_terminating=false;sync_handle=None;sync_identity=0;periodic_rx::scope(None);
+      }
+      if(micros()>=deadline)error(BLE_HS_ETIMEOUT,R2Api::SyncTerminate,4);
+    }else error(rc,R2Api::SyncTerminate,3);
     sync_quiet_return(context);}
 }
 void close_poll(uint64_t now){
@@ -1244,7 +1257,7 @@ void active_poll(uint64_t now){
 #ifdef PTOB_RC9
   if((synced||sync_pending)&&sync_selected_sid==14&&!rc9_bound())cancel_sync(now);
 #endif
-  if((sync_cancelled&&sync_pending)||(sync_terminating&&synced)){if(now>=sync_drain_until)error(BLE_HS_ETIMEOUT,R2Api::SyncTerminate);}
+  if((sync_cancelled&&sync_pending)||(sync_terminating&&synced)){if(now>=sync_drain_until){sync_trace(31,sync_handle,BLE_HS_ETIMEOUT);error(BLE_HS_ETIMEOUT,R2Api::SyncTerminate,5);}}
   // Optional early JOIN can use an existing map covering this whole window.
   // Otherwise receive first. Original100ms initiation and duty stay intact.
   const bool renewal_map=window_corrected||corrected_clock.covers(now,G1Window::start(now,window_phase)+G1Window::Nominal);

@@ -115,9 +115,28 @@ void client_case(bool normal_pin=false,const std::string& recovery=""){
      assert(v12::rc9_client.lease_until==original_lease&&v12::joined_peer==old.server);
      assert(!v12::anchor.source&&!v12::following(fake_now));
     }else{
+     const auto old_epoch=v12::sync_capture_epoch;const auto old_handle=v12::sync_handle;
+     if(recovery=="terminate-ack")sync_late=true;
      fresh_direct(333,444,7,8);
      assert(!v12::rc9_client.view(fake_now).bound&&!v12::r2_rc9_status().valid);
      assert(v12::anchor.root==333&&v12::anchor.boot==444&&v12::anchor.source_epoch==7);
+     if(recovery=="terminate-ack"){
+      assert(!v12::synced&&!v12::sync_terminating&&!v12::fault&&v12::sync_handle==v12::None);
+      // HCI terminate completed; only the SDK pool object waits for EDONE.
+      // Fresh normal admission survived and pool pressure is retryable.
+      assert(sync_pool_held&&!v12::periodic_rx::armed);
+      gm.sid=12;gm.interval=50;gm.at=fake_now;const auto retries=v12::setup_retries;
+      v12::discoveries.push(gm);step(2);
+      std::fprintf(stderr,"normal PA pool pending=%u fault=%u retries=%u/%u handle=%u connecting=%u selected=%u anchor=%u now=%llu until=%llu\n",v12::sync_pending,v12::fault,v12::setup_retries,retries,v12::peer.handle,v12::peer.connecting,v12::sync_selected,v12::anchor_valid(fake_now),(unsigned long long)fake_now,(unsigned long long)v12::anchor.until);
+      assert(!v12::sync_pending&&!v12::fault&&v12::setup_retries>retries);
+      ble_gap_event lost{};lost.type=BLE_GAP_EVENT_PERIODIC_SYNC_LOST;lost.periodic_sync_lost.sync_handle=old_handle;
+      sync_pool_held=false;v12::gap(&lost,reinterpret_cast<void*>(uintptr_t(old_epoch)));
+      sync_late=false;gm.at=fake_now;v12::discoveries.push(gm);step(6);assert(v12::sync_pending&&v12::sync_selected_sid==12&&!v12::fault);
+      sync_established();assert(v12::synced&&v12::periodic_rx::armed&&!v12::fault);
+      const auto handle=v12::sync_handle;const auto epoch=v12::sync_capture_epoch;
+      v12::gap(&lost,reinterpret_cast<void*>(uintptr_t(old_epoch)));
+      assert(v12::synced&&v12::sync_handle==handle&&v12::sync_capture_epoch==epoch&&!v12::fault);
+     }
     }
     assert(!v12::corrected_clock.prediction().tick); // JOIN is coarse permission only.
    }

@@ -110,7 +110,7 @@ int ble_gattc_write_flat(uint16_t h,uint16_t,const void* wire,uint16_t n,int(*cb
  fixture_cap.next_challenge=r.next_challenge;ble_gatt_error e;cb(h,&e,nullptr,arg);return 0;
 }''' + s[b:]
     s = replace_once(s, 'c.uuid.u128=v12::data_uuid;', 'c.uuid.u128=v12::peer.relay?v12::rc_data_uuid:v12::data_uuid;c.properties=v12::peer.relay?0x0a:0x04;')
-    s = replace_once(s, 'int ble_gap_periodic_adv_sync_create(const ble_addr_t*,uint8_t sid,const ble_gap_periodic_sync_params*,int(*)(ble_gap_event*,void*),void*){assert(sid==12);return 0;}', 'int ble_gap_periodic_adv_sync_create(const ble_addr_t*,uint8_t sid,const ble_gap_periodic_sync_params*,int(*)(ble_gap_event*,void*),void* arg){assert(sid==12);fixture_sync_arg=arg;return 0;}')
+    s = replace_once(s, 'int ble_gap_periodic_adv_sync_create(const ble_addr_t*,uint8_t sid,const ble_gap_periodic_sync_params*,int(*)(ble_gap_event*,void*),void*){assert(sid==12);return sync_pool_held?BLE_HS_ENOMEM:0;}', 'int ble_gap_periodic_adv_sync_create(const ble_addr_t*,uint8_t sid,const ble_gap_periodic_sync_params*,int(*)(ble_gap_event*,void*),void* arg){assert(sid==12);fixture_sync_arg=arg;return sync_pool_held?BLE_HS_ENOMEM:0;}')
     s = s.replace('v12::gap(&e,nullptr);', 'v12::gap(&e,fixture_sync_arg);')
     s = replace_once(s, 'challenge.receiver_boot=22', 'challenge.receiver_boot=v12::boot_id')
     s = replace_once(s, 'r2_group_put(b+11,1,4)', 'r2_group_put(b+11,v12::provision.group.epoch,4)')

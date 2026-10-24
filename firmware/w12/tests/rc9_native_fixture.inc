@@ -17,6 +17,7 @@ v12::rc9::Control read9(){os_mbuf b;ble_gatt_access_ctxt c{};c.op=BLE_GATT_ACCES
 void write9(const v12::rc9::Control& q){os_mbuf b;b.bytes.resize(212);assert(v12::rc9::encode_control(b.bytes.data(),q,v12::provision.group));
  ble_gatt_access_ctxt c{};c.om=&b;assert(!v12::relay_access(33,0,&c,rc9_arg()));v12::relay_poll(fake_now,false);}
 int main(int argc,char** argv){assert(argc==2);const std::string which=argv[1];
+ if(which=="client-terminate-ack"){client_case(false,"terminate-ack");return 0;}
  if(which=="client-cache-fence"){client_case(false,"cache-fence");return 0;}
  if(which=="client-pending-relay-return"){client_case(false,"pending-relay-return");return 0;}
  if(which=="client-relay-return"){client_case(false,"relay-return");return 0;}
