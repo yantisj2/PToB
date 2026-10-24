@@ -2,6 +2,16 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 0.1.17 — acknowledged periodic owner closure
+
+- Retire an exact periodic owner on the pinned SDK's successful HCI terminate
+  return and live-handle removal. Preserve original return/quiet deadlines;
+  create cancellation still requires its actual completion.
+- Treat queued EDONE as an old-owner notification, preserve later owner epochs,
+  and retry temporary SDK pool exhaustion until that notification frees it.
+- Distinguish SDK error, late return and unclosed-ledger expiry in existing
+  fault-site and bounded synchronization traces. Hardware acceptance is separate.
+
 ## 0.1.16 — relay lineage and pending-controller recovery
 
 - Clear deferred source trials and retry state when the same relay authenticates

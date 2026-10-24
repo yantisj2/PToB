@@ -1,7 +1,7 @@
 # Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT
 cmake_minimum_required(VERSION 3.16)
 set(IDF_TARGET esp32s3)
-set(PROJECT_VER "0.1.16")
+set(PROJECT_VER "0.1.17")
 set(COMPONENTS main)
 if(NOT EXISTS "${CORESE_DEPENDENCIES}/M5GFX/CMakeLists.txt" OR
    NOT EXISTS "${CORESE_DEPENDENCIES}/M5Unified/CMakeLists.txt")

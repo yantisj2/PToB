@@ -2,7 +2,7 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
-Read [the target README](../../firmware/corese/README.md). Version0.1.16 provides
+Read [the target README](../../firmware/corese/README.md). Version0.1.17 provides
 the live client; the earlier UI preparation build remains an offline design tool.
 
 ## Dependencies and offline checks
@@ -65,9 +65,9 @@ identity, PSRAM/client settings, relay exclusion and absent Wi-Fi runtime owner.
 Source snapshots may include uncommitted development; an exact operator-reviewed
 candidate and hardware authorization are still required before installation.
 
-Version0.1.16 applies the four-file
+Version0.1.17 applies the five-file
 [`leader_recovery.patch`](../../firmware/corese/tools/leader_recovery.patch)
-from `5840781e6dd4fc7774f13ccdbeaa9069139ec0f3`, recorded separately as
+from `7d9a3ef7cb05a4a139d0fe42e35ff2fbd86318d6`, recorded separately as
 `shared_source_leader_recovery` with policy
 `FENCED_SCOPE_CACHE_CLEAR_1500MS_V3`. It clears old sessions, estimators,
 locators, selection history, cooldowns and pending timing after sustained
@@ -80,7 +80,11 @@ requires live discovery and authentication. Original controller
 owners and drain deadlines remain real and must complete. Target-local
 source-bound capability/residual/scan observations are withdrawn on scope loss.
 Explicit historical GM reports retain their original expiry and cannot grant
-authority. No other target's phase adjustment or counter coordinate transfers.
+authority. The receipt also records `pa_termination_policy=SDK_HCI_ACK_EXACT_OWNER_V1`.
+The pinned SDK's successful terminate return acknowledges the exact controller
+handle; delayed EDONE frees its retired pool object. New owners retain their
+own epochs; pending-create cancellation and original deadlines are unchanged.
+No other target's phase adjustment or counter coordinate transfers.
 
 The fixed fine route drives otherwise unused GPIO6/7 with internal controller
 signals. Confirm a bare CoreS3-SE with both pads free before enabling it. Never

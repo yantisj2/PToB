@@ -1,10 +1,15 @@
 # CoreS3-SE precision diagnostics instrument
 
-**Version 0.1.16** turns the M5Stack CoreS3-SE (K128-SE) into a portable front
+**Version 0.1.17** turns the M5Stack CoreS3-SE (K128-SE) into a portable front
 panel for PToB timing: inspect receiver precision, source lineage, mesh roles and
 the grandmaster's GNSS/PTP quality on a 320×240 touchscreen. It is a dedicated
 client with an instrument-style display. Start with the
 [build guide](../../docs/corese/build.md).
+
+Version 0.1.17 retires the exact periodic owner when the pinned SDK confirms
+HCI termination and removes its live handle. A queued SDK notification cannot
+retire a replacement owner. Pending-create cancellation and the original drain
+deadline remain mandatory; timeout diagnostics distinguish the failure paths.
 
 Version 0.1.16 completes the cache fence for an authenticated GM change through
 the same relay. The current request and ACL survive, the relay role remains

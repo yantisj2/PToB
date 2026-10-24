@@ -12,7 +12,7 @@ out=a.out.resolve();out.mkdir(parents=True,exist_ok=False);root=out/'source';sou
 prepare(out/'runtime',root) # Also require every target-local overlay anchor.
 # Freeze the matching reviewed fixtures as other targets advance independently.
 # Production receiver retains the pinned baseline plus the scoped backports.
-fixture_ref='6fd28f952f2787df9491fcda65a71ed0d4f3fa35' # Matching client baseline, without W12-only server handback.
+fixture_ref=LEADER_REF # Reviewed current fixtures; server cases are excluded below.
 data=subprocess.check_output(['git','-C',str(REPO),'archive',fixture_ref,'firmware/w12/tests','firmware/w12/tools'])
 with tarfile.open(fileobj=io.BytesIO(data)) as archive:
  for item in archive:
@@ -47,7 +47,7 @@ flags=['-std=c++20','-O1','-g','-Wall','-Wextra','-Werror','-Wno-misleading-inde
 for path in [leader,root/'firmware/w12/main',root/'firmware/w12/legacy/reference',REPO/'firmware/w12/tests/r2_fakes',REPO/'firmware/w12/tests/console_fakes',root/'firmware/w12/main/r2/r2-g1',root/'firmware/w12/main/r2/rc7/include',Path(os.environ['IDF_PATH'])/'components/bt/host/nimble/nimble/ext/tinycrypt/include']:flags+=['-I'+str(path)]
 objects=[a.objects.resolve()/(n+'.o')for n in ('group_auth','group_join','group_precision','precision_codec','relay_codec','rc_dynamic','rc_boundary','rc_slots','g1_hmac','sha256','utils')]
 with (leader/'compile.log').open('w')as f:subprocess.run([os.environ.get('CXX','/opt/homebrew/opt/llvm/bin/clang++'),*flags,leader/'native.cpp',*objects,'-o',leader/'native'],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=60)
-leader_cases=['boot-empty','leader-incarnation-boot','leader-incarnation-epoch','leader-incarnation-train','leader-incarnation-renewal','leader-loss','leader-loss-boundary','leader-loss-pin','leader-loss-switch','no-source-held','foreign-root-held','warm-control-PA']
+leader_cases=['sync-term-ledger','sync-term-cancel-missing','sync-term-ack-delayed','sync-term-inline','sync-term-enotconn','sync-term-error','sync-term-late','sync-term-quiet-late','sync-term-queued-expired','boot-empty','leader-incarnation-boot','leader-incarnation-epoch','leader-incarnation-train','leader-incarnation-renewal','leader-loss','leader-loss-boundary','leader-loss-pin','leader-loss-switch','no-source-held','foreign-root-held','warm-control-PA']
 for case in leader_cases:
  with (leader/(case+'.log')).open('w')as f:subprocess.run([leader/'native',case],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=15)
 # Exercise the changed RC7 lineage and role paths in the actual pinned receiver.
