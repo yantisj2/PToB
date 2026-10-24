@@ -1,0 +1,43 @@
+{
+  "schema": 1,
+  "author": "Jonathan Yantis",
+  "edition_date": "2026-10-24",
+  "status": "APPROVED_FOR_PUBLIC_DRAFT_REVIEW",
+  "approval": "The paper is approved, add it to our timing measurement research page and link it from the ESP32 schematic and hardware page subtly as well as make sure it\u2019s organized in the git repo. The push to GitHub and push an update to the website after using impeccable to fix any SEO issues, don\u2019t leave any broken website issues for SEO lingering before the push.",
+  "additional_source_instruction": "Make sure the T096 fixes are included in the GitHub push",
+  "prepared_edition": "papers/editions/s3-low-level-2026-10-24.json",
+  "prepared_edition_sha256": "21139dbb567d6671a98809b16058fc16a26974314520c1350c8207d478861a4f",
+  "approved_files": [
+    {
+      "path": "papers/ptob-esp32s3-low-level-timing.tex",
+      "bytes": 30371,
+      "sha256": "cd51bb204b8d72e719ea58662c55253f8c46ade500e52c1ca8a4b3a9cb63ea57",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "papers/ptob-esp32s3-low-level-timing.pdf",
+      "bytes": 116584,
+      "sha256": "f98bd83e96088477626d7fab821a1211a758ea0bcb08a08904629faa26659060",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "papers/supplements/esp32s3-low-level-2026-10-24.json",
+      "bytes": 3401,
+      "sha256": "b4b3e4422a04e2f983c1136ee4c3383ec9a6c97ccd542b5bf7cca60079f499ba",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "tools/verify_s3_low_level_paper.py",
+      "bytes": 3072,
+      "sha256": "1627aef6a1dcb0b5835501d0590957b7f739a183e99d9427db129cf668696a26",
+      "license": "MIT"
+    }
+  ],
+  "source_commits": [
+    "b5ecbb0b13dbab955282327afe16e4d08d24d823",
+    "1a1fa96df54116b877a34cc7fa4445e91c2860f8"
+  ],
+  "paper_license": "CC-BY-4.0",
+  "draft_promoted_to_final": false,
+  "hardware_accuracy_qualification": "UNCHANGED_UNQUALIFIED"
+}

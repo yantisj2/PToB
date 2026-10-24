@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "selection": "Explicit post-169 two-window W12 baseline export; not a private repository or history import.",
+  "provenance": {
+    "captures": [
+      "UTC169-01",
+      "UTC169-02"
+    ],
+    "private_stream_sha256": [
+      {
+        "window": 1,
+        "stream": "W12",
+        "sha256": "ab1e76900c955eedbbb7ba7344382a7f7b626463f9654649e8467734b3a49c38"
+      },
+      {
+        "window": 1,
+        "stream": "T096",
+        "sha256": "f08b185c49c1d4b5bb34f67f980d503f5fd9badfcfdd93f82be9f0d02122b048"
+      },
+      {
+        "window": 2,
+        "stream": "W12",
+        "sha256": "3fca45713516a4ed2111066542380920d0bb850f89b3e7359f42a06040f44cd1"
+      },
+      {
+        "window": 2,
+        "stream": "T096",
+        "sha256": "6a95481884580df1a7b635fb06eac8fb303acf148af88a5ba00b40e24645b483"
+      }
+    ],
+    "raw_extraction": "Original complete CRC-framed streams validated by saved-only analyzers. Raw streams remain private and are unavailable for public reconstruction.",
+    "transformation": "All selected 600 W12 PPS, 600 downstream PPS, 120 sampled TX and GNSS-prediction rows retained in original order per window. Replace source identities with stable source-A/source-B aliases; omit factory/boot/group/session identities, absolute UTC/counters, USB paths, credentials and unrelated console/status records. Publish signed phase/residuals, eligibility, failure reasons and frozen adjustments. No outliers removed or offsets refitted.",
+    "review": "Selected numerical exports reviewed for public publication on 24 October 2026; hardware-observation evidence, not calibrated UTC certification."
+  },
+  "license": "CC-BY-4.0",
+  "credit": "Jonathan Yantis",
+  "files": [
+    {
+      "path": "w12-pps.csv",
+      "sha256": "f875c5170a30d28cee2ed2046ea18cd24558b66becf13c46dc59d6e79019d0be",
+      "bytes": 29500
+    },
+    {
+      "path": "downstream-pps.csv",
+      "sha256": "46c2119c0ed5247b2be91b0e5b89173e27f0053d1f1677199e84ce2792c91fe2",
+      "bytes": 27964
+    },
+    {
+      "path": "sampled-tx.csv",
+      "sha256": "96d615fe7150bb3dfa30a769b8d3af4569bfc9065dbf18868fbc5ca4e95409bd",
+      "bytes": 5976
+    },
+    {
+      "path": "gnss-prediction.csv",
+      "sha256": "ac03b820cb7ff840f9a75ebef387f136693372eac55356ae58a357437dfcd9c3",
+      "bytes": 10212
+    },
+    {
+      "path": "results.json",
+      "sha256": "4e130185c9ec2fa32358bb5ce4e26302fa0c3b613e59c281e9d6af545aa65918",
+      "bytes": 8164
+    }
+  ]
+}

@@ -1,0 +1,319 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-24",
+  "author": "Jonathan Yantis",
+  "license": "CC-BY-4.0",
+  "method": "Finite relative PPS: causal delivered clock queries at captured GNSS edges; separately sampled TX measured by adjacent-PPS interpolation at downstream RX. RMS includes bias. No trimming or post-window offset refit.",
+  "firmware": {
+    "W12": {
+      "version": "0.2.10",
+      "commit": "b5ecbb0b13dbab955282327afe16e4d08d24d823",
+      "receive_adjustment_ns": 7671,
+      "relay_adjustment_ns": 4026
+    },
+    "T096": {
+      "version": "0.15.169",
+      "commit": "1a1fa96df54116b877a34cc7fa4445e91c2860f8",
+      "receiver_adjustment_ns": 10543
+    }
+  },
+  "warmup_seconds": 120,
+  "window_seconds": 300,
+  "window_count": 2,
+  "w12": {
+    "logged": 600,
+    "eligible": 522,
+    "unscorable": 78,
+    "reasons": {
+      "source_unavailable": 78
+    },
+    "phase_ns": {
+      "n": 522,
+      "mean": 40.695402298850574,
+      "rms": 60.32766532085536,
+      "centered_std": 44.534384859340335,
+      "minimum": -87,
+      "maximum": 180,
+      "max_abs": 180,
+      "p95_abs": 122,
+      "p99_abs": 156,
+      "ge100": 56,
+      "ge200": 0
+    }
+  },
+  "downstream": {
+    "logged": 600,
+    "eligible": 451,
+    "unscorable": 149,
+    "reasons": {
+      "expired": 36,
+      "no_map": 109,
+      "reference_ineligible": 4
+    },
+    "phase_ns": {
+      "n": 451,
+      "mean": -5.545454545454546,
+      "rms": 61.92157617868208,
+      "centered_std": 61.67276165647705,
+      "minimum": -189,
+      "maximum": 211,
+      "max_abs": 211,
+      "p95_abs": 120,
+      "p99_abs": 154,
+      "ge100": 48,
+      "ge200": 1
+    }
+  },
+  "sampled_tx": {
+    "logged": 120,
+    "eligible": 58,
+    "unscorable": 62,
+    "reasons": {
+      "missing_followup_match": 61,
+      "no_pps_bracket": 1
+    },
+    "phase_ns": {
+      "n": 58,
+      "mean": 13.931034482758621,
+      "rms": 108.3057613012091,
+      "centered_std": 107.40607156615809,
+      "minimum": -226,
+      "maximum": 200,
+      "max_abs": 226,
+      "p95_abs": 200,
+      "p99_abs": 226,
+      "ge100": 26,
+      "ge200": 3
+    }
+  },
+  "windows": [
+    {
+      "window": 1,
+      "w12": {
+        "logged": 300,
+        "eligible": 222,
+        "unscorable": 78,
+        "reasons": {
+          "source_unavailable": 78
+        },
+        "phase_ns": {
+          "n": 222,
+          "mean": 67.66666666666667,
+          "rms": 81.08042942681074,
+          "centered_std": 44.668313805854126,
+          "minimum": -87,
+          "maximum": 180,
+          "max_abs": 180,
+          "p95_abs": 141,
+          "p99_abs": 164,
+          "ge100": 53,
+          "ge200": 0
+        }
+      },
+      "downstream": {
+        "logged": 300,
+        "eligible": 178,
+        "unscorable": 122,
+        "reasons": {
+          "expired": 35,
+          "no_map": 87
+        },
+        "phase_ns": {
+          "n": 178,
+          "mean": -10.275280898876405,
+          "rms": 58.55704027947566,
+          "centered_std": 57.64846545001281,
+          "minimum": -163,
+          "maximum": 150,
+          "max_abs": 163,
+          "p95_abs": 116,
+          "p99_abs": 154,
+          "ge100": 14,
+          "ge200": 0
+        }
+      },
+      "sampled_tx": {
+        "logged": 60,
+        "eligible": 34,
+        "unscorable": 26,
+        "reasons": {
+          "missing_followup_match": 25,
+          "no_pps_bracket": 1
+        },
+        "phase_ns": {
+          "n": 34,
+          "mean": 19.852941176470587,
+          "rms": 103.31547916597066,
+          "centered_std": 101.39008315381597,
+          "minimum": -226,
+          "maximum": 200,
+          "max_abs": 226,
+          "p95_abs": 200,
+          "p99_abs": 226,
+          "ge100": 14,
+          "ge200": 2
+        }
+      }
+    },
+    {
+      "window": 2,
+      "w12": {
+        "logged": 300,
+        "eligible": 300,
+        "unscorable": 0,
+        "reasons": {},
+        "phase_ns": {
+          "n": 300,
+          "mean": 20.736666666666668,
+          "rms": 38.31209556610897,
+          "centered_std": 32.21501702967456,
+          "minimum": -76,
+          "maximum": 121,
+          "max_abs": 121,
+          "p95_abs": 71,
+          "p99_abs": 97,
+          "ge100": 3,
+          "ge200": 0
+        }
+      },
+      "downstream": {
+        "logged": 300,
+        "eligible": 273,
+        "unscorable": 27,
+        "reasons": {
+          "no_map": 22,
+          "expired": 1,
+          "reference_ineligible": 4
+        },
+        "phase_ns": {
+          "n": 273,
+          "mean": -2.4615384615384617,
+          "rms": 64.02014335018904,
+          "centered_std": 63.97280346351191,
+          "minimum": -189,
+          "maximum": 211,
+          "max_abs": 211,
+          "p95_abs": 121,
+          "p99_abs": 168,
+          "ge100": 34,
+          "ge200": 1
+        }
+      },
+      "sampled_tx": {
+        "logged": 60,
+        "eligible": 24,
+        "unscorable": 36,
+        "reasons": {
+          "missing_followup_match": 36
+        },
+        "phase_ns": {
+          "n": 24,
+          "mean": 5.541666666666667,
+          "rms": 115.00525350319147,
+          "centered_std": 114.87165996837031,
+          "minimum": -214,
+          "maximum": 187,
+          "max_abs": 214,
+          "p95_abs": 195,
+          "p99_abs": 214,
+          "ge100": 12,
+          "ge200": 1
+        }
+      }
+    }
+  ],
+  "w12_sources": [
+    {
+      "source": "source-A",
+      "logged": 182,
+      "eligible": 182,
+      "unscorable": 0,
+      "reasons": {},
+      "phase_ns": {
+        "n": 182,
+        "mean": 76.52197802197803,
+        "rms": 86.84427771263097,
+        "centered_std": 41.0647714109367,
+        "minimum": -7,
+        "maximum": 180,
+        "max_abs": 180,
+        "p95_abs": 147,
+        "p99_abs": 165,
+        "ge100": 53,
+        "ge200": 0
+      }
+    },
+    {
+      "source": "source-B",
+      "logged": 340,
+      "eligible": 340,
+      "unscorable": 0,
+      "reasons": {},
+      "phase_ns": {
+        "n": 340,
+        "mean": 21.51764705882353,
+        "rms": 39.37564191820355,
+        "centered_std": 32.9762344958076,
+        "minimum": -87,
+        "maximum": 121,
+        "max_abs": 121,
+        "p95_abs": 73,
+        "p99_abs": 97,
+        "ge100": 3,
+        "ge200": 0
+      }
+    },
+    {
+      "source": "unavailable",
+      "logged": 78,
+      "eligible": 0,
+      "unscorable": 78,
+      "reasons": {
+        "source_unavailable": 78
+      },
+      "phase_ns": {
+        "n": 0
+      }
+    }
+  ],
+  "gnss_prediction": {
+    "raw": {
+      "n": 600,
+      "mean": -0.08166666666666667,
+      "rms": 35.21654440742305,
+      "centered_std": 35.216449715375276,
+      "minimum": -185,
+      "maximum": 129,
+      "max_abs": 185,
+      "p95_abs": 77,
+      "p99_abs": 166,
+      "ge100": 23,
+      "ge200": 0
+    },
+    "mapped": {
+      "n": 600,
+      "mean": -0.08333333333333333,
+      "rms": 41.85263830791714,
+      "centered_std": 41.85255534479214,
+      "minimum": -209,
+      "maximum": 131,
+      "max_abs": 209,
+      "p95_abs": 85,
+      "p99_abs": 156,
+      "ge100": 23,
+      "ge200": 1
+    }
+  },
+  "utc_fraction_checks_passed": 522,
+  "missing_logged_pps": 0,
+  "timing_gate": "NOT_MET",
+  "gm_work_started": false,
+  "offsets_refit": false,
+  "limits": [
+    "W12 source transition: 182 eligible on source-A, 78 unavailable, then 40 on source-B; window 2 has 300 on source-B. Populations remain separate.",
+    "451/600 downstream PPS eligible; maximum 211 ns. Sampled TX 58/120 scored, 61 missing matches and one lacking PPS brackets; maximum 226 ns. Radio diagnostic sequences also have gaps; they do not prove loss-free RF delivery.",
+    "All 600 logged PPS observations per device retained; status counter accounting does not independently prove every physical pulse.",
+    "GNSS prediction evaluates its own causal predictor and does not establish delivered BLE clock accuracy. GNSS witnesses do not train the BLE clock.",
+    "Calibration transfer to other W12 units/profiles remains unmeasured. RF endpoint, GNSS, GPIO/cable delays and absolute UTC association/accuracy remain unqualified. No physical W12 output-pin accuracy or GM qualification is asserted."
+  ]
+}

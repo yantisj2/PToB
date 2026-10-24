@@ -1,5 +1,22 @@
 # Manuscript history
 
+## 2026-10-24 — low-level ESP32-S3 public draft approved
+
+- Jonathan Yantis approved the seven-page instructional paper for public review,
+  its addition to the timing research page, and discreet links from the ESP32
+  schematic and hardware guide. Publish the matching source, PDF, manifest,
+  selected aggregate supplement and verifier together.
+- Keep the approved PDF and LaTeX bytes unchanged. Record publication approval
+  separately from the immutable preparation receipt. The paper remains a draft;
+  approval does not establish calibrated UTC or full timing qualification.
+- The authorized source push includes W12 0.2.10 and T096 0.15.169, including the
+  UTC-basis fix, regressions and documentation. Private enrollment, images and
+  raw laboratory records remain excluded.
+- Publish the later post-169 W12 baseline as a separate dated evidence collection:
+  all 600 W12 and 600 downstream PPS records, 120 selected TX records and 600
+  GNSS predictions. Preserve invalids and tails, with reproducible statistics;
+  the approved paper's earlier populations and bytes remain unchanged.
+
 ## 2026-10-24 — low-level ESP32-S3 implementation draft
 
 - Add a distinct seven-page instructional draft and matching LaTeX/PDF; preserve
