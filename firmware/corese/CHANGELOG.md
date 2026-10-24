@@ -2,6 +2,16 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 0.1.13 — 2026-10-24
+
+- Admit post-PA diagnostic windows for capture ages below 10 ms. The earlier
+  4 ms gate could close before fine association and authenticated decode finished.
+- Display native retained time as an amber HOLD estimate for at most 500 ms
+  from the last actual physical delivery. Repeated polls cannot renew it.
+  Current root/path, precision, offset and source pulse remain withheld.
+- Keep source permission and all timing/admission deadlines unchanged. HOLD is
+  presentation with unknown error, never current mesh time authority.
+
 ## 0.1.12 — 2026-10-24
 
 - Protect periodic timing reception from optional diagnostic discovery: replace

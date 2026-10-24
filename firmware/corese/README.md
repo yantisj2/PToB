@@ -1,6 +1,6 @@
 # CoreS3-SE precision diagnostics instrument
 
-**Version 0.1.12** turns the M5Stack CoreS3-SE (K128-SE) into a portable front
+**Version 0.1.13** turns the M5Stack CoreS3-SE (K128-SE) into a portable front
 panel for PToB timing: inspect receiver precision, source lineage, mesh roles and
 the grandmaster's GNSS/PTP quality on a 320×240 touchscreen. It is a dedicated
 client with an instrument-style display. Start with the
@@ -17,6 +17,13 @@ fresh, authenticated, physically associated periodic reception, separated by at
 least 200 ms. It reduces overlap with the 62.5 ms timing train. A discovery
 window never grants or extends clock permission; diagnostic delivery stays
 unqualified.
+
+Version 0.1.13 admits diagnostic windows within 10 ms of the associated PA and
+adds a labeled, amber **HOLD** display for at most 500 ms from the last actual
+physical clock delivery. Polling cannot renew that limit. HOLD withholds current
+source/path, precision, offset and PPS indications; it never grants mesh time
+authority. The clock disappears after that finite presentation allowance if no
+valid source returns.
 
 | Precision instrument | GM reference diagnostics |
 | :---: | :---: |

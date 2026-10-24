@@ -80,7 +80,8 @@ Diagnostics never query or modify a GM. Scanning is passive: it sends no
 BLE scan requests. In version0.1.12, a protected healthy fine clock and a fresh,
 authenticated, physically associated periodic reception may permit a12ms local
 listening window, at least200ms after the previous opening. A receipt older
-than4ms cannot open one; repeating the same captured event cannot reopen or
+than4ms cannot open one in0.1.12;0.1.13 admits receipts less than10ms old to
+account for fine association and decode latency. Repeating a captured event cannot reopen or
 extend it. Earlier0.1.10/0.1.11 used80ms windows every800ms. Normal timing admission/renewal
 remains independent; reading a screen or its cache triggers no master request.
 GD-only occasional windows do not clear GS role history or reset its independent

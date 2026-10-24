@@ -94,6 +94,10 @@ void n30_display_publish(const v12::R2Status& s,const DisplayState& d,uint64_t n
  m.source=m.utc_valid?(s.rc7_bound?(s.rc7_depth==2?Source::Relay2:Source::Relay1):Source::Grandmaster):Source::None;
  m.rms_ns=m.utc_valid?d.rms_ns:UINT32_MAX;m.precision_valid=m.utc_valid&&d.r2_relative_lock&&m.rms_ns!=UINT32_MAX;
  name(m.parent,sizeof m.parent,s.joined_peer);name(m.root_name,sizeof m.root_name,m.root);
+ if(healthy&&s.clock_valid&&s.g1_retained_estimate&&d.valid&&
+    retained_time(m,s.g1_estimate_observed_us,s.follower_snapshot_us,s.follower_utc_us,now)){
+  name(m.parent,sizeof m.parent,s.g1_retained_clock.root);name(m.root_name,sizeof m.root_name,s.g1_retained_clock.root);
+ }
  const auto rc9=v12::r2_rc9_status();
  if(!m.precision_valid&&healthy&&rc9.valid&&rc9.following&&!rc9.fault&&now>=rc9.sampled_us&&now-rc9.sampled_us<SnapshotMaxUs&&now<rc9.until_us){m.source=Source::Rc9;m.state=State::Acquire;m.utc_at_us=rc9.sampled_us;m.utc_us=rc9.utc_us;m.until_us=rc9.until_us;m.utc_valid=true;m.precision_valid=false;m.rms_ns=UINT32_MAX;m.root=rc9.root;m.boot=rc9.root_boot;m.source_epoch=rc9.source_epoch;name(m.parent,sizeof m.parent,rc9.server);name(m.root_name,sizeof m.root_name,m.root);}
  m.xtal_hz=xtal_hz;m.cpu_hz=cpu_hz;const auto fine=n30_fine_clock_status(now);m.counter_hz=n30_fine_backend_selected()?fine.hz:20000000;m.counter_healthy=!n30_fine_backend_selected()||(fine.active&&fine.healthy&&fine.production);
@@ -104,13 +108,13 @@ void n30_display_publish(const v12::R2Status& s,const DisplayState& d,uint64_t n
   m.offset_ns=observations.offset;m.offset_sampled_us=observations.offset_at;m.offset_until_us=observations.offset_at+SnapshotMaxUs;m.offset_root=observations.offset_scope.root;m.offset_boot=observations.offset_scope.boot;m.offset_epoch=observations.offset_scope.epoch;m.offset_valid=observations.offset_valid;
  }
  auto& p=m.mesh.path;p.sampled_us=now;p.until_us=m.until_us;p.source_epoch=m.source_epoch;
- if(m.utc_valid&&m.source!=Source::Rc9){
+ if(m.utc_valid&&m.source!=Source::Rc9&&m.source!=Source::Retained){
   if(s.rc7_bound){uint8_t raw[89]{};bool valid=true;for(unsigned i=0;i<89;++i){unsigned value=0;if(std::sscanf(s.rc7_path_hex+i*2,"%2x",&value)!=1){valid=false;break;}raw[i]=uint8_t(value);}if(valid){p.count=raw[4]+1;if(p.count>3)p.count=0;for(unsigned i=0;i<p.count;++i){const unsigned at=5+28*i;p.nodes[i].id=r2_group_get(raw+at,8);p.nodes[i].boot=r2_group_get(raw+at+8,8);p.nodes[i].train=uint32_t(r2_group_get(raw+at+16,4));p.nodes[i].epoch=uint32_t(r2_group_get(raw+at+20,4));name(p.nodes[i].name,25,p.nodes[i].id);}}}
   else{p.count=1;p.nodes[0].id=m.root;p.nodes[0].boot=m.boot;p.nodes[0].train=s.publication;p.nodes[0].epoch=s.rx_capture.epoch;name(p.nodes[0].name,25,m.root);}p.known=p.authenticated=p.count>0;
  }
- auto& l=m.mesh.link;l.scope={m.root,m.boot,m.source_epoch};l.sampled_us=now;l.until_us=m.until_us;l.known=m.utc_valid;
+ auto& l=m.mesh.link;l.scope={m.root,m.boot,m.source_epoch};l.sampled_us=now;l.until_us=m.until_us;l.known=m.utc_valid&&m.source!=Source::Retained;
  l.matched=s.g1_corrected_accepted;l.rejected=s.g1_corrected_refused;
- if(m.utc_valid&&m.source!=Source::Rc9){
+ if(m.utc_valid&&m.source!=Source::Rc9&&m.source!=Source::Retained){
   if(s.follower_received_us&&now>=s.follower_received_us)l.source_age_us=uint32_t(std::min<uint64_t>(now-s.follower_received_us,UINT32_MAX-1));
   if(m.until_us>now)l.source_ttl_us=uint32_t(std::min<uint64_t>(m.until_us-now,UINT32_MAX-1));
  }

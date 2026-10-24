@@ -8,7 +8,7 @@ namespace corese {
 class StatusScan {
  uint64_t last_=0,next_=0,start_=0,until_=0,used_capture_=0;uint32_t windows_=0;bool active_=false;
  public:
- static constexpr uint64_t WindowUs=12000,IntervalUs=200000,CaptureAgeUs=4000;
+ static constexpr uint64_t WindowUs=12000,IntervalUs=200000,CaptureAgeUs=10000;
  bool poll(uint64_t now,bool eligible,uint64_t capture,uint64_t capture_age_us){
   if(now<last_){active_=false;return false;}last_=now;
   if(!eligible){active_=false;return false;}

@@ -15,7 +15,7 @@ sanitizers='address,undefined' if a.address_sanitizer else 'undefined'
 flags=['-O1','-g','-Wall','-Wextra','-Werror','-fsanitize='+sanitizers,'-fno-omit-frame-pointer','-I'+str(APP/'main')]
 cmd=[os.environ.get('CXX','clang++'),'-std=c++20',*flags,str(APP/'tests/ui_test.cpp'),str(APP/'main/ui.cpp'),str(APP/'main/mesh_diagnostics.cpp'),'-o',str(a.out/'ui_test')]
 subprocess.run(cmd,check=True,timeout=60);subprocess.run([str(a.out/'ui_test')],check=True,timeout=30)
-print('PASS: expiry, UTC-phase pulse boundaries, RC9 precision exclusion, offset scope, overflow, 750 render combinations, multi-page touch navigation / cancellation; '+sanitizers)
+print('PASS: expiry, UTC-phase pulse boundaries, RC9/HOLD precision exclusion, nonrenewing500ms retained display, offset scope, overflow, render-state combinations, multi-page touch navigation / cancellation; '+sanitizers)
 if a.sdk:
  crypto=a.sdk.resolve()/'components/bt/host/nimble/nimble/ext/tinycrypt';protocol=APP.parent/'t096/protocol'
  sources=[protocol/'group_auth.c',protocol/'role_announcement.c',protocol/'gnss_diagnostics.c',APP.parent/'w12/main/g1_hmac.c',crypto/'src/sha256.c',crypto/'src/utils.c'];objects=[]

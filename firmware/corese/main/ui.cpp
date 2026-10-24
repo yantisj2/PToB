@@ -15,15 +15,23 @@ void duration_text(char* out,size_t size,uint64_t seconds){
  else std::snprintf(out,size,"%lluS",(unsigned long long)s);
 }
 bool fresh(const Model& m,uint64_t now){return now>=m.sampled_us&&now-m.sampled_us<SnapshotMaxUs;}
+bool retained_time(Model& m,uint64_t observed,uint64_t snapshot,uint64_t utc,uint64_t now){
+ if(!observed||!utc||now<observed||snapshot<observed||observed>UINT64_MAX-RetainedHoldUs||
+    now-observed>=RetainedHoldUs||snapshot-observed>=RetainedHoldUs)return false;
+ m.sampled_us=now;m.source=Source::Retained;m.state=State::Hold;m.utc_valid=true;
+ m.utc_at_us=snapshot;m.utc_us=utc;m.until_us=observed+RetainedHoldUs;
+ m.precision_valid=m.offset_valid=false;m.precision_until_us=0;m.rms_ns=UINT32_MAX;
+ m.root=m.boot=0;m.source_epoch=0;return true;
+}
 bool time(const Model& m,uint64_t now,uint64_t& utc){
  utc=0;
- if(!fresh(m,now)||!m.utc_valid||m.source==Source::None||m.state==State::Fault||m.state==State::Search||m.state==State::Hold||
+ if(!fresh(m,now)||!m.utc_valid||m.source==Source::None||m.state==State::Fault||m.state==State::Search||(m.state==State::Hold&&m.source!=Source::Retained)||(m.source==Source::Retained&&m.state!=State::Hold)||
     now<m.utc_at_us||now>=m.until_us||now-m.utc_at_us>UINT64_MAX-m.utc_us)return false;
  utc=m.utc_us+now-m.utc_at_us;return true;
 }
 bool precision(const Model& m,uint64_t now){
  uint64_t utc;return time(m,now,utc)&&m.precision_valid&&m.state==State::Locked&&
-  m.source!=Source::Rc9&&m.rms_ns!=UINT32_MAX&&now<m.precision_until_us;
+  m.source!=Source::Rc9&&m.source!=Source::Retained&&m.rms_ns!=UINT32_MAX&&now<m.precision_until_us;
 }
 bool offset(const Model& m,uint64_t now){
  return precision(m,now)&&m.offset_valid&&m.root&&m.boot&&m.source_epoch&&
@@ -31,7 +39,7 @@ bool offset(const Model& m,uint64_t now){
   now>=m.offset_sampled_us&&now-m.offset_sampled_us<SnapshotMaxUs&&now<m.offset_until_us;
 }
 bool source_pulse(const Model& m,uint64_t now){
- uint64_t utc;return time(m,now,utc)&&utc%1000000<SourcePulseUs;
+ uint64_t utc;return m.source!=Source::Retained&&time(m,now,utc)&&utc%1000000<SourcePulseUs;
 }
 void DisplayMemory::retain(Model& m){
  if(m.mesh.path.known)path_=m.mesh.path;else m.mesh.path=path_;
@@ -45,7 +53,7 @@ void DisplayMemory::retain(Model& m){
 const char* status(const Model& m,uint64_t now){
  if(!fresh(m,now))return "STALE";
  if(m.state==State::Fault)return "FAULT";
- if(m.state==State::Hold)return "HOLD";
+ if(m.state==State::Hold){uint64_t utc;return time(m,now,utc)?"HOLD":"NO SOURCE";}
  uint64_t utc;
  if(time(m,now,utc)){if(m.source==Source::Rc9)return "RC9 UTC";return precision(m,now)?"LOCK EST":"ACQUIRE";}
  return m.state==State::Search?"SEARCH":"NO SOURCE";
@@ -53,7 +61,7 @@ const char* status(const Model& m,uint64_t now){
 const char* source_name(const Model& m,uint64_t now){
  uint64_t utc;if(!time(m,now,utc))return "NONE";
  switch(m.source){case Source::Grandmaster:return "BLE";case Source::Relay1:return "RC1";
- case Source::Relay2:return "RC2";case Source::Rc9:return "RC9";case Source::None:return "NONE";}return "NONE";
+ case Source::Relay2:return "RC2";case Source::Rc9:return "RC9";case Source::Retained:return "HOLD";case Source::None:return "NONE";}return "NONE";
 }
 namespace {
 constexpr uint16_t rgb(unsigned r,unsigned g,unsigned b){return uint16_t((r>>3)<<11|(g>>2)<<5|(b>>3));}
@@ -131,7 +139,7 @@ void shell(Canvas& c,const Model& m,const char* title,uint64_t now,const char* s
  c.text(14,10,"PToB",Ink,2);c.text(76,10,title);c.text(76,22,subtitle);
  c.fill(12,34,296,1,Edge);c.fill(12,35,296,1,Light);
  uint64_t utc;const bool valid=time(m,now,utc);
- c.lamp(241,8,65,source_name(m,now),true,valid?(source_pulse(m,now)?Green:Dim):Amber);
+ c.lamp(241,8,65,source_name(m,now),true,valid&&m.source!=Source::Retained?(source_pulse(m,now)?Green:Dim):Amber);
  if(m.synthetic)c.text(14,229,"SYNTHETIC PREVIEW",Ink);
  else c.text(14,229,"CORE S3 SE",Ink);
  char parent[25];std::snprintf(parent,sizeof parent,"%.21s",valid?m.parent:"NO SOURCE");
@@ -142,7 +150,7 @@ void rail(Canvas& c,const Model& m,uint64_t now,int y){
  c.well(12,y,296,21);
  if(valid)std::snprintf(label,sizeof label,"%s  %.12s",source_name(m,now),m.parent);
  else std::snprintf(label,sizeof label,"NO CURRENT SOURCE");
- c.text(20,y+7,label,valid?Green:Amber,1,216);
+ c.text(20,y+7,label,valid&&m.source!=Source::Retained?Green:Amber,1,216);
  c.text(224,y+7,live?status(m,now):"STALE",m.state==State::Fault?Red:precision(m,now)?Green:Amber);
 }
 void navigation(Canvas& c,const View& v){
@@ -169,9 +177,10 @@ void launcher(Canvas& c,const Model& m,const View& v,uint64_t now){
 void clock(Canvas& c,const Model& m,const View& v,uint64_t now){
  shell(c,m,"TIME + PRECISION",now);rail(c,m,now,42);
  c.well(12,69,296,42);char t[12];clock_string(m,now,t);uint64_t utc;const bool valid=time(m,now,utc);
- c.text(20,77,"UTC",Dim);c.digital(52,74,t,28,29,valid?Green:Amber);
+ c.text(20,77,"UTC",Dim);c.digital(52,74,t,28,29,valid&&m.source!=Source::Retained?Green:Amber);
  char context[48];
- if(valid)std::snprintf(context,sizeof context,"ROOT %.8s / %s",m.root_name,m.source==Source::Rc9?"PRECISION UNKNOWN":"INTERNAL QUALITY");
+ if(valid&&m.source==Source::Retained)std::snprintf(context,sizeof context,"HOLD ESTIMATE / PRECISION UNKNOWN");
+ else if(valid)std::snprintf(context,sizeof context,"ROOT %.8s / %s",m.root_name,m.source==Source::Rc9?"PRECISION UNKNOWN":"INTERNAL QUALITY");
  else std::snprintf(context,sizeof context,"AWAITING LIVE SOURCE / PRECISION WITHHELD");
  c.text(20,113,context,Ink);
  c.well(12,124,142,39);c.well(162,124,146,39);

@@ -22,11 +22,11 @@ int main(){
 
  {
   StatusScan scan;
-  static_assert(StatusScan::WindowUs==12000&&StatusScan::IntervalUs==200000&&StatusScan::CaptureAgeUs==4000);
+  static_assert(StatusScan::WindowUs==12000&&StatusScan::IntervalUs==200000&&StatusScan::CaptureAgeUs==10000);
   assert(!scan.poll(100000,false,1,0));
   assert(!scan.poll(100000,true,0,0));
-  assert(!scan.poll(100000,true,1,4000));
-  assert(scan.poll(100000,true,1,3999));
+  assert(!scan.poll(100000,true,1,10000));
+  assert(scan.poll(100000,true,1,9999));
   const auto deadline=scan.deadline();assert(deadline==112000&&scan.windows()==1);
   assert(scan.poll(111999,true,1,20000)&&scan.deadline()==deadline);
   assert(!scan.poll(112000,true,1,0)&&!scan.allows(112000));
@@ -37,7 +37,7 @@ int main(){
   assert(!scan.poll(300001,false,2,0)&&!scan.allows(300001));
   assert(!scan.poll(300002,true,3,0)&&scan.deadline()==312000);
   assert(scan.observed(300000)&&scan.observed(311999)&&!scan.observed(312000));
-  assert(!scan.poll(500000,true,3,4000));
+  assert(!scan.poll(500000,true,3,10000));
   assert(scan.poll(500001,true,3,0));
   assert(!scan.poll(500000,true,4,0)); // Reversal cannot open a window.
   StatusScan edge;assert(!edge.poll(UINT64_MAX-1,true,1,0));
@@ -91,11 +91,26 @@ int main(){
  m=live();m.offset_epoch=9;assert(!offset(m,1000100));
  m=live();m.offset_sampled_us=1000101;assert(!offset(m,1000100));
  m=live();m.state=State::Hold;assert(!time(m,1000100,utc)&&!precision(m,1000100));
+ {
+  auto held=live();assert(retained_time(held,1000000,1100000,10100000,1100000));
+  assert(time(held,1100000,utc)&&utc==10100000);
+  assert(held.until_us==1500000&&held.root==0&&held.boot==0&&held.source_epoch==0);
+  assert(!precision(held,1100000)&&!offset(held,1100000)&&!source_pulse(held,1100000));
+  assert(!std::strcmp(status(held,1100000),"HOLD")&&!std::strcmp(source_name(held,1100000),"HOLD"));
+  // New snapshots cannot renew the last actual delivery's finite limit.
+  assert(retained_time(held,1000000,1499999,10499999,1499999));
+  assert(held.until_us==1500000&&time(held,1499999,utc));
+  assert(!time(held,1500000,utc)&&!retained_time(held,1000000,1500000,10500000,1500000));
+  assert(!retained_time(held,1100001,1100000,10000000,1100000));
+  assert(!retained_time(held,0,1100000,10000000,1100000));
+  assert(!retained_time(held,UINT64_MAX-100,UINT64_MAX-100,10000000,UINT64_MAX-100));
+  held=live();held.source=Source::Retained;assert(!time(held,1000100,utc)&&!precision(held,1000100));
+ }
  m=live();m.utc_us=UINT64_MAX;assert(!time(m,1000001,utc));
  // Exercise every pixel-producing surface/state with guard words and sanitizers.
  std::array<uint16_t,Pixels+2> buffer{};buffer.front()=0x1234;buffer.back()=0xabcd;
  for(unsigned state=0;state<=unsigned(State::Fault);++state)
-  for(unsigned source=0;source<=unsigned(Source::Rc9);++source)
+  for(unsigned source=0;source<=unsigned(Source::Retained);++source)
    for(unsigned screen=0;screen<=unsigned(Screen::Diagnostics);++screen)
     for(unsigned face=0;face<=unsigned(Face::UtcRegister);++face)
      for(unsigned page=0;page<unsigned(mesh::Page::Count);++page){

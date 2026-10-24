@@ -2,7 +2,7 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
-Read [the target README](../../firmware/corese/README.md). Version0.1.12 provides
+Read [the target README](../../firmware/corese/README.md). Version0.1.13 provides
 the live client; the earlier UI preparation build remains an offline design tool.
 
 ## Dependencies and offline checks

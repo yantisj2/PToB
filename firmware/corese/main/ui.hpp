@@ -11,9 +11,10 @@ constexpr int Width=320,Height=240;
 constexpr size_t Pixels=Width*Height,FrameBytes=Pixels*sizeof(uint16_t);
 constexpr uint64_t SnapshotMaxUs=250000;
 constexpr uint64_t SourcePulseUs=125000;
+constexpr uint64_t RetainedHoldUs=500000;
 enum class Screen:uint8_t {Launcher,Clock,Diagnostics};
 enum class Face:uint8_t {Instrument,UtcRegister};
-enum class Source:uint8_t {None,Grandmaster,Relay1,Relay2,Rc9};
+enum class Source:uint8_t {None,Grandmaster,Relay1,Relay2,Rc9,Retained};
 enum class State:uint8_t {Search,Acquire,Locked,Hold,Fault};
 enum class Action:uint8_t {None,OpenClock,OpenDiagnostics,Home,NextFace,PreviousDiagnostic,NextDiagnostic};
 struct Model {
@@ -39,6 +40,9 @@ class DisplayMemory {
 struct View {Screen screen=Screen::Launcher;Face face=Face::Instrument;Action pressed=Action::None;mesh::Page diagnostic=mesh::Page::Mesh;};
 bool fresh(const Model&,uint64_t now);
 bool time(const Model&,uint64_t now,uint64_t& utc);
+// Presentation only. The last physical delivery fixes the unextended deadline.
+// It carries no current source/path, precision, offset or PPS indication.
+bool retained_time(Model&,uint64_t observed_us,uint64_t snapshot_us,uint64_t utc_us,uint64_t now);
 bool precision(const Model&,uint64_t now);
 bool offset(const Model&,uint64_t now);
 // Modeled UTC phase only; never a physical PPS output or measured display edge.
