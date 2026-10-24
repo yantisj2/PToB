@@ -57,6 +57,7 @@ def prepare(out,source_root=None):
  # contaminate the fine receiver's candidate edge population.
  native=replace(native,'void observe_group(const Discovery& d){','void observe_group(const Discovery& d){\n  corese::owner::advertisement(d.bytes,d.length,d.sid,d.address.val,{anchor.root,anchor.boot,anchor.source_epoch},provision.group,d.at,micros());')
  native=replace(native,'inc(join_accepts);inc(diagnostic.peer(r.sender).accepts);','corese::owner::capabilities(r.sender,r.sender_boot,r.capabilities,row.at,peer.exchange.until);\n    inc(join_accepts);inc(diagnostic.peer(r.sender).accepts);')
+ native=replace(native,'void changed_scope(uint64_t now,G1Reason reason,bool preserve_clock,G1ParentReason parent_reason){','void changed_scope(uint64_t now,G1Reason reason,bool preserve_clock,G1ParentReason parent_reason){corese_status_scan.reset();corese_last_pa20=0;corese::owner::source_lost(now);')
  (out/'native_g1.cpp').write_text(native)
  rate=load('firmware/n30/main/relative_rate.cpp')
  rate='#define n30_relative_rate_pair corese_relative_rate_base\n'+rate+'\n#undef n30_relative_rate_pair\n#include "mesh_owner.hpp"\nvoid n30_relative_rate_pair(const v12::n30_probe::Pair& p,uint64_t now){corese_relative_rate_base(p,now);corese::owner::residual(p,now);}\n'

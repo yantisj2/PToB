@@ -4,6 +4,7 @@
 namespace v12::n30_probe {struct Pair;}
 namespace corese::owner {
 bool init();
+void source_lost(uint64_t now);
 void advertisement(const uint8_t*,unsigned,uint8_t,const uint8_t address_le[6],mesh::Scope,const r2_group_config&,uint64_t at,uint64_t now);
 void capabilities(uint64_t peer,uint64_t boot,uint8_t flags,uint64_t at,uint64_t until);
 void residual(const v12::n30_probe::Pair&,uint64_t now);

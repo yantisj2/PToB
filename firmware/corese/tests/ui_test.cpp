@@ -40,6 +40,9 @@ int main(){
   assert(!scan.poll(500000,true,3,10000));
   assert(scan.poll(500001,true,3,0));
   assert(!scan.poll(500000,true,4,0)); // Reversal cannot open a window.
+  const auto windows=scan.windows();scan.reset();
+  assert(!scan.observed(500001)&&!scan.allows(500001)&&scan.deadline()==0&&scan.windows()==windows);
+  assert(scan.poll(600000,true,4,0)); // New leader's fresh physical capture can schedule normally.
   StatusScan edge;assert(!edge.poll(UINT64_MAX-1,true,1,0));
  }
  auto m=live();uint64_t utc=0;assert(time(m,1000100,utc)&&utc==10000100);

@@ -45,5 +45,9 @@ int main(){
  assert(!r2_group_mac(legacy+R2_GNSS_LEGACY_AD_BODY,&group,"R2GNDG01",legacy,R2_GNSS_LEGACY_AD_BODY));
  owner::advertisement(legacy,sizeof legacy,12,address,scope,group,11000000,11000000);
  assert(owner::snapshot(o,11000000)&&o.reference.accepted==3&&o.reference.wire_version==1&&o.reference.hdop_centi==UINT16_MAX&&o.reference.until_us==41000000);
+ owner::capabilities(1,2,7,12000000,13000000);
+ owner::scan_state(true,12012000,8,12000000);owner::source_lost(12000001);
+ assert(owner::snapshot(o,12000001)&&!o.cap.known&&!o.offset_valid&&!o.offset_at&&!o.offset_scope.root&&!o.scan_allowed&&!o.scan_deadline);
+ assert(o.reference.accepted==3&&o.reference.until_us==41000000); // History cannot renew or become authority.
  std::puts("PASS actual passive owner: canonical advertiser and SID, independent GS/GD dispatch, no GS history reset, publication preserves original GD deadline");
 }

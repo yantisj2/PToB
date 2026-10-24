@@ -32,6 +32,12 @@ void advertisement(const uint8_t* data,unsigned size,uint8_t sid,const uint8_t a
   }off+=n+1;
  }
 }
+void source_lost(uint64_t now){
+ // Published diagnostics retain explicit historical reports and their original
+ // expiry. Current source-bound capability, residual and scan state is retired.
+ current.cap={};current.offset_scope={};current.offset=0;current.offset_at=0;
+ current.offset_valid=current.scan_allowed=false;current.scan_deadline=0;publish(now,true);
+}
 void capabilities(uint64_t peer,uint64_t boot,uint8_t flags,uint64_t at,uint64_t until){current.cap={peer,boot,at,until,flags,true};publish(at,true);}
 void scan_state(bool allowed,uint64_t deadline,uint32_t windows,uint64_t now){
  if(current.scan_allowed==allowed&&current.scan_deadline==deadline&&current.scan_windows==windows)return;

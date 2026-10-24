@@ -2,6 +2,17 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 0.1.14 — leader transition recovery
+
+- Backport the tested W12 leader-loss/changed-incarnation cache fence to the
+  pinned receiver. Retire old sessions, estimators, queued timing, locators,
+  trial history and backoff; preserve explicit pins and exact counter routing.
+- Clear current source-bound capability, residual and diagnostic scan state.
+  Historical reports keep their original deadlines and remain advisory.
+- Test loss boundaries, successful fresh new-leader admission, pins, repeated
+  invalidation throttling and actual pinned-source overlay generation. Hardware
+  failover and precision require separate exact-image/device observations.
+
 ## 0.1.13 — 2026-10-24
 
 - Admit post-PA diagnostic windows for capture ages below 10 ms. The earlier

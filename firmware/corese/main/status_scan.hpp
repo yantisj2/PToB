@@ -20,6 +20,7 @@ class StatusScan {
   if(windows_!=UINT32_MAX)++windows_;
   return true;
  }
+ void reset(){last_=next_=start_=until_=used_capture_=0;active_=false;}
  bool allows(uint64_t now)const{return active_&&now>=start_&&now<until_;}
  bool observed(uint64_t at)const{return start_&&at>=start_&&at<until_;}
  uint64_t deadline()const{return until_;}
