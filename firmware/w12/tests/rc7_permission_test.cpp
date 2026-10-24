@@ -246,7 +246,74 @@ int run(const std::string& which){
    Seed seed;fake_now=Samples[0].now_us;v12::corrected_clock=seed.clock;v12::anchor=seed.a;
    v12::rc_client.utc_known=true;v12::joined_peer=Parent;v12::joined_boot=ParentBoot;
    const auto generation=v12::client.generation;
-   if(which=="retained-new-coarse-root"){
+   if(which.starts_with("rc7-lineage-")){
+     // The same relay authenticates a replacement GM lineage while its old
+     // direct-GM trial and warm admission retry remain in advisory memory.
+     fake_now=100001000;v12::window_start=G1Window::start(fake_now,v12::window_phase);
+     const bool changed=which!="rc7-lineage-renewal";
+     auto cap=fixture_cap;
+     if(which=="rc7-lineage-root")cap.path.node[0].id=0x55555555;
+     if(which=="rc7-lineage-boot")++cap.path.node[0].boot;
+     if(which=="rc7-lineage-epoch")++cap.path.source_epoch;
+     if(which=="rc7-lineage-root-train")++cap.path.node[0].train;
+     if(which=="rc7-lineage-parent-train")++cap.path.node[1].train;
+     if(which=="rc7-lineage-pin")++cap.path.source_epoch;
+     const auto root=cap.path.node[0].id;
+     v12::parent_selection.leader_lost();
+     v12::parent_selection.target(0);
+     const auto trial=fake_now-G1ParentSelection::LockDwellUs-1;
+     v12::parent_selection.seen(root,false,-30,trial);
+     v12::parent_selection.bind(root,RootBoot,14,trial);
+     v12::parent_selection.authenticated(root,false,RootBoot,root,RootBoot,14,trial);
+     v12::parent_selection.locked(false,fake_now);
+     assert(v12::parent_selection.deferred(root,false,fake_now));
+     v12::parent_selection.seen(Parent,true,-40,fake_now);
+     v12::parent_selection.bind(Parent,ParentBoot,2,fake_now);
+     v12::parent_selection.authenticated(Parent,true,ParentBoot,Root,RootBoot,14,fake_now);
+     if(which=="rc7-lineage-pin")v12::parent_selection.target(Parent,true);
+     v12::admission_policy.acquired();v12::admission_policy.failed(fake_now,1000000);
+     v12::rc_client.retry_at=fake_now+60000000;const auto old_retry=v12::rc_client.retry_at;
+     assert(!v12::admission_policy.allowed(fake_now,true));
+     cap.next_challenge+=100;
+     assert(v12::rc_client.make_request(cap,Self,44,77,fake_now,false));
+     auto reply=v12::rc_client.request;reply.type=RC7_RESPONSE;
+     reply.sender=Parent;reply.target=Self;reply.sender_boot=ParentBoot;reply.target_boot=44;
+     reply.ready=true;reply.next_challenge=reply.challenge+1;reply.publication_floor=10;
+     reply.root_lo_ns=fake_now*1000-1000000;reply.root_hi_ns=fake_now*1000+1000000;
+     reply.source_expires_ns=fake_now*1000+1500000000;
+     v12::peer={};v12::peer.identity=Parent;v12::peer.handle=22;v12::peer.relay=true;
+     v12::peer.address=v12::canonical(Parent);v12::peer.incarnation=++v12::incarnation;v12::peer.stage=6;
+     conn_arg=v12::callback_arg();const auto acl=v12::peer.incarnation;
+     v12::synced=true;v12::sync_identity=Parent;v12::sync_handle=9;
+     v12::sync_requested_at=fake_now;v12::sync_owner_window_start=v12::window_start;
+     v12::sync_drain_until=fake_now+123456;const auto drain=v12::sync_drain_until;
+     fixture_sync_arg=reinterpret_cast<void*>(uintptr_t(v12::sync_capture_epoch));
+     v12::Incoming row{};row.at=fake_now;row.incarnation=acl;row.length=212;
+     assert(!rc7_control_encode(row.bytes,&reply,&v12::provision.group));
+     v12::receive_rc_control(row,fake_now);
+     assert(!v12::fault&&v12::rc_bound()&&v12::rc_client.receiver.path.node[0].id==root);
+     assert(v12::peer.handle==22&&v12::peer.incarnation==acl&&v12::peer.selection_accepted);
+     if(which=="rc7-lineage-pin"){
+       assert(v12::parent_selection.pinned()&&v12::parent_selection.accepts(Parent,true)&&!v12::parent_selection.accepts(root,false));
+       v12::parent_selection.target(0);
+     }
+     const auto choose_at=fake_now+G1ParentSelection::DwellUs+1;
+     v12::parent_selection.seen(root,false,-30,choose_at);
+     const auto choice=v12::parent_selection.choose(choose_at+G1ParentSelection::CollectUs+1);
+     std::fprintf(stderr,"lineage changed=%u deferred=%u allowed=%u choice=%llu expected=%llu\n",changed,
+       v12::parent_selection.deferred(root,false,choose_at),v12::admission_policy.allowed(fake_now,true),
+       (unsigned long long)choice,(unsigned long long)root);
+     assert(v12::parent_selection.deferred(root,false,choose_at)==!changed);
+     assert(v12::admission_policy.allowed(fake_now,true)==changed);
+     assert(v12::rc_client.retry_at==(changed?0:old_retry));
+     assert(choice==(changed?root:0));
+     if(changed){
+       cleared();assert(v12::sync_cleanup_requested&&v12::synced&&v12::sync_drain_until==drain);
+       sync_late=true;pump_cleanup();assert(v12::synced&&v12::sync_terminating&&v12::sync_drain_until==drain);
+       ble_gap_event lost{};lost.type=BLE_GAP_EVENT_PERIODIC_SYNC_LOST;lost.periodic_sync_lost.sync_handle=9;
+       v12::gap(&lost,fixture_sync_arg);sync_late=false;assert(!v12::synced&&!v12::fault);
+     }else assert(!v12::sync_cleanup_requested&&!v12::sync_terminating);
+   }else if(which=="retained-new-coarse-root"){
      v12::anchor.until=v12::corrected_clock.until();v12::publish(fake_now);
      const auto retained=v12::retained_estimate;assert(retained.root==Root);
      constexpr uint64_t NewRoot=0x55555555,NewBoot=0x66666666;

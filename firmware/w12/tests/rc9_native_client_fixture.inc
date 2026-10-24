@@ -28,7 +28,22 @@ void client_case(bool normal_pin=false,const std::string& recovery=""){
  v12::gap(&e,fixture_sync_arg);step(2);const auto r=v12::r2_rc9_status();const auto normal=v12::r2_status();
  assert(r.valid&&r.following&&r.server==77&&r.root==66&&r.accepted==1&&!r.serving&&!r.clients);
  assert(!normal.following&&!normal.clock_valid&&!normal.g1_clock_model.tick&&!normal.discipline_accepted&&!pa_active);
- if(!recovery.empty()&&recovery!="cache-fence"){
+ if(recovery=="relay-return"){
+  // A normal RC7 response must survive the complete old-RC9 cache fence.
+  // Its authenticated current ACL/request is retained while the old PA drains.
+  rc7_control cap{};cap.type=RC7_CAPABILITY;cap.sender=333;cap.sender_boot=444;cap.next_challenge=55;
+  cap.path.depth=1;cap.path.source_epoch=7;cap.path.node[0]={555,666,1,3,0,0};cap.path.node[1]={333,444,2,2,1,1};
+  assert(v12::rc_client.make_request(cap,v12::provision.identity,v12::boot_id,99,fake_now,false));
+  auto reply=v12::rc_client.request;reply.type=RC7_RESPONSE;reply.sender=333;reply.target=v12::provision.identity;
+  reply.sender_boot=444;reply.target_boot=v12::boot_id;reply.ready=true;reply.next_challenge=56;reply.publication_floor=10;
+  reply.root_lo_ns=fake_now*1000-1000000;reply.root_hi_ns=fake_now*1000+1000000;reply.source_expires_ns=fake_now*1000+1500000000;
+  v12::peer={};v12::peer.identity=333;v12::peer.handle=22;v12::peer.relay=true;v12::peer.stage=6;
+  v12::peer.address=v12::canonical(333);v12::peer.incarnation=++v12::incarnation;conn_arg=v12::callback_arg();
+  v12::Incoming row{};row.at=fake_now;row.incarnation=v12::peer.incarnation;row.length=212;
+  assert(!rc7_control_encode(row.bytes,&reply,&v12::provision.group));v12::receive_rc_control(row,fake_now);
+  assert(!v12::rc9_bound()&&v12::rc_bound()&&v12::peer.handle==22&&v12::peer.selection_accepted);
+  assert(v12::anchor.root==555&&v12::anchor.boot==666&&!v12::corrected_clock.prediction().tick&&!v12::fault);
+ }else if(!recovery.empty()&&recovery!="cache-fence"){
   const auto original_lease=v12::rc9_client.lease_until;
   const auto refresh=[&](){
    p.publication++;p.corrected_sequence++;p.sampled_us=fake_now;p.edge_us=fake_now-100;

@@ -1,5 +1,13 @@
 # N30 changelog
 
+## 0.2.31 — replacement RC7 lineage cache fence
+
+- Consume the shared W12 authenticated RC7 path fence: new root, boot, source
+  epoch or publisher path clears obsolete advisory trials and retry scheduling.
+- Preserve the current authenticated response/ACL, exact PA drain deadline,
+  operator pins and per-device calibration. Unchanged-path renewal remains
+  separate. Native regression outcomes establish software behavior only.
+
 ## 0.2.30 — fallback transition cache fencing
 
 - Clear old normal-source selection/trial history on authenticated RC9 takeover.

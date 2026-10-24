@@ -755,7 +755,9 @@ void receive_rc_control(const Incoming& row,uint64_t now){
       clock_reference_read(&tick);
 #endif
       const bool same=rc_bound()&&rc7_path_same(&rc_client.receiver.path,&c.path);
-      if(!same)changed_scope(now);
+      // A replacement authenticated path retires advisory trials and retry
+      // state too. Keep this ACL and request so its response can bind below.
+      if(!same)forget_leader(now,true);
       if(!rc_client.bind(c,now,tick)){inc(rejected);peer.dead=true;return;}
       direct_session.clear();
       if(!same){
@@ -934,7 +936,7 @@ void changed_scope(uint64_t now,G1Reason reason,bool preserve_clock,G1ParentReas
 void forget_leader(uint64_t now,bool keep_admission){
   // Revoke authority first. cancel_sync retains the exact SDK owner and its
   // original drain deadline; clearing a cache never fabricates radio OFF.
-  changed_scope(now);corrected_clock.clear();coarse_hold.clear();phase_learning={};
+  changed_scope(now);corrected_clock.clear();coarse_hold.clear();phase_learning={};rc_client.retry_at=0;
   if(!keep_admission){peer.selection_reported=true;peer.dead=true;cancel_connect(now);terminate_peer(now);}
   Incoming old_reply{};while(incoming.pop(old_reply)){};
   Discovery old_locator{};while(discoveries.pop(old_locator)){};

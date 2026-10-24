@@ -10,7 +10,8 @@ import subprocess
 
 APP = Path(__file__).resolve().parents[1]
 SDK_DEFAULT = Path(os.environ['IDF_PATH'])
-NATIVE_CASES = ('direct-session-native', 'autonomous-direct', 'typed-direct', 'direct-to-rc7',
+NATIVE_CASES = ('rc7-lineage-root', 'rc7-lineage-boot', 'rc7-lineage-epoch', 'rc7-lineage-root-train', 'rc7-lineage-parent-train', 'rc7-lineage-pin', 'rc7-lineage-renewal',
+                'direct-session-native', 'autonomous-direct', 'typed-direct', 'direct-to-rc7',
                 'changed-full-path', 'response-path-changed', 'permission-native',
                 'loss-recovery-preserved', 'retained-new-coarse-root', 'rc7-foreign-root-hint', 'retained-expiry', 'retained-clock-step', 'mapped-read-failure', 'mapped-finalize-failure', 'mapped-deliver-failure')
 SERVER_CASES = ('incoming-capacity', 'duplicate-active', 'tx-observation', 'provisional-output', 'warm-budget-publisher', 'lock-startup',

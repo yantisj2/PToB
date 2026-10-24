@@ -1,5 +1,16 @@
 # W12 changelog
 
+## 0.2.15 — replacement RC7 lineage cache fence
+
+- Retire old advisory trials, locators and retry scheduling when an authenticated
+  RC7 response replaces the root, boot, source epoch or full publisher path.
+- Preserve that current response/request, exact ACL and original PA drain so
+  the replacement binds without reusing an old model. Unchanged-path renewal
+  retains its current policy; explicit operator pins and calibration survive.
+- Actual native regressions reproduce stale GM deferral and admission backoff
+  before the fix, then cover replacement lineage, train changes, pins, unchanged
+  renewal and normal RC7 return from an active RC9 client.
+
 ## 0.2.14 — bounded RC9 server return to normal BLE
 
 - Qualified normal BLE takes the local display immediately, independently of

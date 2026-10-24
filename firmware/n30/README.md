@@ -5,6 +5,12 @@ OLED to the Meshnology N30 / Heltec WiFi LoRa32 V3. It uses an ESP32-S3,
 8 MiB flash and a 64×128 display. N30 is RC-only, with no GNSS input; WiFi is
 disabled. Start with the [build guide](../../docs/n30/build.md).
 
+Version 0.2.31 also clears obsolete trials and backoff when a freshly
+authenticated RC7 response changes the root, boot, source epoch or publisher
+path through the same relay. Its current response and ACL survive the fence;
+the old PA retains its actual drain deadline. An unchanged-path renewal keeps
+its existing policy. Operator pins and per-device calibration survive.
+
 Version 0.2.30 also clears old normal-source selection history when RC9 fallback
 first takes over, and when a direct root authenticates after an earlier empty
 scope. These transitions retain authenticated fallback expiry and actual radio
