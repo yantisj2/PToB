@@ -66,6 +66,16 @@ JOIN GNSS capability is not a substitute for GD1 sampled state. `mesh diag`
 exposes separate `gd_` scope, original receipt/expiry, wire version, sequence, flags, fixed
 source ages, HDOP centi-units, tuple and acceptance/rejection counters for bounded field verification.
 
+`status`, `fine read 0` and `mesh diag` are separate CRC-protected snapshots.
+Timing permission can expire or recover between their request timestamps. A
+status reply with an empty selection followed by a live diagnostic reply does
+not establish that both states existed simultaneously. When comparing scopes,
+bracket the diagnostic with normal status replies and retain changed or empty
+selections as unknown comparisons. Keep those samples and their denominators;
+check each report's original receipt and expiry independently. Even matching
+brackets are an observation interval, not an atomic timing-owner snapshot or
+proof of uninterrupted source availability.
+
 Diagnostics never query or modify a GM. Scanning is passive: it sends no
 BLE scan requests. When a protected healthy fine clock permits, an80ms local
 listening window may open at most every800ms. Normal timing admission/renewal
