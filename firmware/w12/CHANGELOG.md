@@ -7,6 +7,11 @@
 - Preserve that current response/request, exact ACL and original PA drain so
   the replacement binds without reusing an old model. Unchanged-path renewal
   retains its current policy; explicit operator pins and calibration survive.
+- Bind the freshly authenticated relay role explicitly after locator retirement,
+  keeping its new lock trial and failure deferral in the relay category.
+- Freeze each pending PA owner's address through cancellation. A late old
+  establishment drains against that original identity; fenced reports cannot
+  re-enter the receiver while cleanup is queued.
 - Actual native regressions reproduce stale GM deferral and admission backoff
   before the fix, then cover replacement lineage, train changes, pins, unchanged
   renewal and normal RC7 return from an active RC9 client.

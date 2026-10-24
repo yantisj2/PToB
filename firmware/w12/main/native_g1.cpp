@@ -165,7 +165,7 @@ uint64_t sync_identity=0,sync_acquire_until=0,sync_drain_until=0;
 uint8_t sync_selected_sid=12;
 uint32_t sync_capture_epoch=0;
 uint64_t sync_requested_at=0,sync_owner_window_start=UINT64_MAX;uint8_t sync_phy=0,sync_clock_accuracy=255;
-ble_addr_t own_address{},sync_address{};uint16_t sync_handle=None,observed_mtu=0;
+ble_addr_t own_address{},sync_address{},sync_owner_address{};uint16_t sync_handle=None,observed_mtu=0;
 uint8_t last_gatt_stage=0;
 uint32_t incarnation=0,rx=0,tx=0,auth=0,rejected=0,join_attempts=0,join_accepts=0,join_busy=0,pa_reports=0,p1_ok=0,p1_bad=0,discovery_count=0;
 uint32_t api_errors=0,setup_retries=0,peer_losses=0,pending_disconnects=0,pending_link_teardowns=0,cancel_calls=0,host_stack_min=UINT32_MAX;
@@ -287,7 +287,7 @@ LinkContext link_context(uint64_t now){LinkContext c;
 void admission_trace(uint8_t,uint16_t,int,const LinkContext* =nullptr);
 LinkContext sync_context(){
   auto context=link_context(micros());context.generation=0;context.identity=sync_identity;
-  context.address=sync_address;context.request_at=sync_requested_at;context.interval=PrecisionInterval;
+  context.address=sync_owner_address;context.request_at=sync_requested_at;context.interval=PrecisionInterval;
   context.window_start=sync_owner_window_start==UINT64_MAX?G1Window::start(sync_requested_at,window_phase):sync_owner_window_start;
   context.latency=0;context.supervision=100;context.stage=synced?2:sync_pending?1:0;
   context.pa_phy=sync_phy;context.pa_clock_accuracy=sync_clock_accuracy;return context;
@@ -553,7 +553,7 @@ int gap(ble_gap_event* e,void* arg){
     sync_phy=e->periodic_sync.adv_phy;sync_clock_accuracy=e->periodic_sync.adv_clk_accuracy;
     sync_trace(17,e->periodic_sync.sync_handle,e->periodic_sync.status);
     sync_pending=sync_selected=false;sync_cancelled=false;
-    if(!e->periodic_sync.status){sync_handle=e->periodic_sync.sync_handle;synced=true;sync_terminating=false;if(e->periodic_sync.sid!=sync_selected_sid||e->periodic_sync.per_adv_ival!=50||!same_address(e->periodic_sync.adv_addr,sync_address))fault=true;if(capture_owner&&!fault){
+    if(!e->periodic_sync.status){sync_handle=e->periodic_sync.sync_handle;synced=true;sync_terminating=false;if(e->periodic_sync.sid!=sync_selected_sid||e->periodic_sync.per_adv_ival!=50||!same_address(e->periodic_sync.adv_addr,sync_owner_address))fault=true;if(capture_owner&&!fault){
 #ifdef V12_R2_RX_SHADOW
       if(!periodic_rx::adopt(sync_handle,sync_capture_epoch))fault=true;
 #endif
@@ -562,7 +562,7 @@ int gap(ble_gap_event* e,void* arg){
     sync_quiet_return(completion_context);
   }else if(e->type==BLE_GAP_EVENT_PERIODIC_SYNC_LOST){sync_trace(20,e->periodic_sync_lost.sync_handle,0);if(reinterpret_cast<uintptr_t>(arg)==sync_capture_epoch&&e->periodic_sync_lost.sync_handle==sync_handle){const auto completion_context=sync_context();sync_quiet_return(completion_context);sync_handle=None;synced=false;sync_terminating=false;sync_identity=0;periodic_rx::scope(None);}}
   else if(e->type==BLE_GAP_EVENT_PERIODIC_REPORT){const auto& p=e->periodic_report;
-    if(!closing&&!sync_terminating&&synced&&p.sync_handle==sync_handle&&reinterpret_cast<uintptr_t>(arg)==sync_capture_epoch){inc(pa_reports);Report r{};r.kind=6;r.callback_us=now;r.handle=p.sync_handle;r.sid=sync_selected_sid;r.address_type=sync_address.type;std::memcpy(r.address_le,sync_address.val,6);r.rssi=p.rssi;r.status=p.data_status;r.actual_length=p.data_length;r.length=uint8_t(p.data_length>MaxData?MaxData:p.data_length);if(fault)r.refusal|=4;if(r.length)std::memcpy(r.bytes,p.data,r.length);
+    if(!closing&&!sync_cleanup_requested&&!sync_terminating&&synced&&p.sync_handle==sync_handle&&reinterpret_cast<uintptr_t>(arg)==sync_capture_epoch){inc(pa_reports);Report r{};r.kind=6;r.callback_us=now;r.handle=p.sync_handle;r.sid=sync_selected_sid;r.address_type=sync_owner_address.type;std::memcpy(r.address_le,sync_owner_address.val,6);r.rssi=p.rssi;r.status=p.data_status;r.actual_length=p.data_length;r.length=uint8_t(p.data_length>MaxData?MaxData:p.data_length);if(fault)r.refusal|=4;if(r.length)std::memcpy(r.bytes,p.data,r.length);
       if(p.data_status!=BLE_HCI_PERIODIC_DATA_STATUS_COMPLETE||(p.data_length!=158&&p.data_length!=190)||
          (mode==R2Mode::Client&&!full_listening()&&(!client_window_active(now,window_phase)||now-window_start>=G1Window::Nominal)))r.refusal=2;
 #ifdef V12_R2_RX_SHADOW
@@ -776,7 +776,7 @@ void receive_rc_control(const Incoming& row,uint64_t now){
       anchor.context_until=now+c.lease_us;anchor.drift_ppm=301;
       corrected_clock.scope(anchor);
       joined_peer=c.sender;joined_boot=c.sender_boot;member=true;sync_address=peer.address;
-      parent_selection.bind(c.sender,c.sender_boot,c.path.node[c.path.depth].epoch,now);
+      parent_selection.bind(c.sender,c.sender_boot,c.path.node[c.path.depth].epoch,now,true);
       parent_selection.authenticated(c.sender,true,c.sender_boot,c.path.node[0].id,c.path.node[0].boot,c.path.source_epoch,now);
       peer.selection_accepted=true;
       parent_record(peer.parent_reason,now);
@@ -1349,7 +1349,10 @@ void active_poll(uint64_t now){
   if(!relay_slot_scanning()&&(protected_parent||(synced&&!due&&!gm_observation)))stop_scan();
   if(sync_selected&&peer.handle==None&&!peer.connecting&&!sync_pending&&!synced&&!sync_cleanup_queued&&timely()&&client_window_active(micros(),window_phase)){
     ble_gap_periodic_sync_params p{};p.skip=0;p.sync_timeout=100;sync_selected=false;sync_pending=true;sync_cancelled=false;sync_acquire_until=micros()+2000000;
-    sync_requested_at=micros();sync_owner_window_start=G1Window::start(sync_requested_at,window_phase);sync_drain_until=0;sync_phy=0;sync_clock_accuracy=255;sync_trace(15,None,0);
+    sync_requested_at=micros();sync_owner_window_start=G1Window::start(sync_requested_at,window_phase);sync_drain_until=0;sync_phy=0;sync_clock_accuracy=255;
+    // Admission may replace the desired address while this controller create
+    // is still draining. Its actual completion belongs to this frozen owner.
+    sync_owner_address=sync_address;sync_trace(15,None,0);
     const auto context=sync_context();
     sync_capture_epoch=periodic_rx::scope(None,true);
 #ifdef V12_R2_RX_SHADOW

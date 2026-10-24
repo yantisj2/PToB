@@ -154,10 +154,13 @@ class G1ParentSelection {
       c.cooldown=now>UINT64_MAX-duration?UINT64_MAX:now+duration;c.consumed=c.seen;break;
     }
   }
-  void bind(uint64_t id,uint64_t boot,uint64_t epoch,uint64_t now){
+  void bind(uint64_t id,uint64_t boot,uint64_t epoch,uint64_t now){bind(id,boot,epoch,now,relay(id));}
+  // Fresh authentication knows the role even after all discovery locators
+  // have been retired. Do not infer a replacement relay's trial from a cache.
+  void bind(uint64_t id,uint64_t boot,uint64_t epoch,uint64_t now,bool is_relay){
     if(!id||!boot||!epoch)return;
     const bool changed=parent_!=id||quality_.parent!=id||quality_.boot!=boot||quality_.epoch!=epoch;
-    parent_relay_=relay(id);
+    parent_relay_=is_relay;
     begin_trial(id,parent_relay_,now);
     if(!trial_bound_){trial_since_=now;trial_bound_=true;}
     for(const auto& c:candidates_)if(c.identity==id&&c.relay==parent_relay_){bound_rssi_=c.rssi;break;}

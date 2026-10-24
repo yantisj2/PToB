@@ -313,6 +313,12 @@ int run(const std::string& which){
        ble_gap_event lost{};lost.type=BLE_GAP_EVENT_PERIODIC_SYNC_LOST;lost.periodic_sync_lost.sync_handle=9;
        v12::gap(&lost,fixture_sync_arg);sync_late=false;assert(!v12::synced&&!v12::fault);
      }else assert(!v12::sync_cleanup_requested&&!v12::sync_terminating);
+     // Full cache retirement removes the discovery candidate. The current
+     // authenticated RC7 response still establishes a RELAY lock trial.
+     const auto failed_at=fake_now+G1ParentSelection::LockDwellUs+1;
+     v12::parent_selection.locked(false,failed_at);
+     assert(v12::parent_selection.deferred(Parent,true,failed_at));
+     assert(!v12::parent_selection.deferred(Parent,false,failed_at));
    }else if(which=="retained-new-coarse-root"){
      v12::anchor.until=v12::corrected_clock.until();v12::publish(fake_now);
      const auto retained=v12::retained_estimate;assert(retained.root==Root);
