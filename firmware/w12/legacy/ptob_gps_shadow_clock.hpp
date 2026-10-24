@@ -64,7 +64,7 @@ public:
   const int64_t denom=int64_t(n)*sx2-sx*sx;
   int64_t slope=(int64_t(n)*sxy-sx*sy)*65536/denom;
   int64_t intercept=(sy*65536-slope*sx)/n,curve=0;
-#ifdef PTOB_W12_FINE_CLOCK
+#if defined(PTOB_W12_FINE_CLOCK) || (defined(W12_GNSS_VERIFIED_INPUTS) && W12_GNSS_VERIFIED_INPUTS)
   if(n==32){
    // Orthogonal centered integer basis: x=2*j-31, z=x*x-341.
    // Fit only the previous captured PPS population. Limit acceleration to
@@ -94,7 +94,7 @@ public:
  void release(uint64_t available){if(model.valid)model.available=available;}
  int32_t rate_ppb()const{return model.valid?int32_t(std::llround(double(model.rate_q16+2*model.curve_q16*(samples-1)-int64_t(Hz)*65536)*1e9/(double(Hz)*65536))):0;}
  const char* prediction_method()const{
-#ifdef PTOB_W12_FINE_CLOCK
+#if defined(PTOB_W12_FINE_CLOCK) || (defined(W12_GNSS_VERIFIED_INPUTS) && W12_GNSS_VERIFIED_INPUTS)
   return samples==32&&model.valid?"QUADRATIC32":"LINEAR_WARMUP";
 #else
   return "LINEAR32";

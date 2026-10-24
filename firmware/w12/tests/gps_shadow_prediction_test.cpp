@@ -17,7 +17,7 @@ template<uint32_t Hz> void oscillator(int sign){
    assert(clock.model.predict(tick,edge20,predicted));
    const auto error=std::llabs(predicted-int64_t(n)*1000000000);
    maximum=std::max(maximum,int64_t(error));++measured;
-#ifdef PTOB_W12_FINE_CLOCK
+#if defined(PTOB_W12_FINE_CLOCK) || (defined(W12_GNSS_VERIFIED_INPUTS) && W12_GNSS_VERIFIED_INPUTS)
    assert(error<100); // All held-out points, no de-biasing or tail exclusion.
 #endif
    assert(!clock.model.predict(tick,clock.model.available,predicted));
@@ -27,7 +27,7 @@ template<uint32_t Hz> void oscillator(int sign){
   assert(tick>last);last=tick;
  }
  assert(measured==128&&clock.samples==32&&clock.model.valid);
-#ifdef PTOB_W12_FINE_CLOCK
+#if defined(PTOB_W12_FINE_CLOCK) || (defined(W12_GNSS_VERIFIED_INPUTS) && W12_GNSS_VERIFIED_INPUTS)
  assert(clock.model.curve_q16!=0);
  assert(std::abs(clock.rate_ppb()-sign*3640)<10);
 #else
@@ -40,7 +40,7 @@ template<uint32_t Hz> void oscillator(int sign){
 }
 int main(){
  for(const int sign:{-1,1}){oscillator<80000000>(sign);oscillator<20000000>(sign);}
-#ifdef PTOB_W12_FINE_CLOCK
+#if defined(PTOB_W12_FINE_CLOCK) || (defined(W12_GNSS_VERIFIED_INPUTS) && W12_GNSS_VERIFIED_INPUTS)
  // Implausible curvature cannot silently publish an extrapolating clock.
  ptob_gps::Affine<80000000> bad;
  for(unsigned n=1;n<=32;++n)bad.observe(UINT64_C(1000000000)+uint64_t(n)*80000000+uint64_t(n)*n*8,n,uint64_t(n)*20000000+100);

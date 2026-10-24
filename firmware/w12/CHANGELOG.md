@@ -2,8 +2,8 @@
 
 ## 0.2.7 — causal shadow clock drift prediction
 
-- Fine builds fit bounded curvature after 32 consecutive captured PPS points;
-  warm-up and legacy builds retain linear prediction. Use a centered integer
+- GNSS-enabled BLE50 and BLE100 builds fit bounded curvature after 32 consecutive captured PPS points;
+  warm-up retains linear prediction. Non-GNSS profiles never enable shadow PPS. Use a centered integer
   fit and invert only the short relative counter interval, keeping UTC epochs
   integer. Limit acceleration to 20 ppb/s and retain prior-model availability,
   three-second expiry, missing-PPS resets and explicit invalid predictions.

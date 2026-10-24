@@ -63,8 +63,8 @@ separate from the earlier `GUARDED` path. GNSS remains a shadow reference;
 PPS prediction, BLE-relative phase and output UTC phase are distinct metrics.
 No GNSS observation disciplines BLE or grants GM authority.
 
-Version 0.2.7 adds a bounded curvature fit to the fine build's independent
-GNSS shadow clock after 32 consecutive PPS observations. Earlier observations
+Version 0.2.7 adds a bounded curvature fit to the GNSS profile's independent
+shadow clock, including BLE50 and BLE100, after 32 consecutive PPS observations. Earlier observations
 retain linear warm-up. Capture logs identify both predictor methods and retain
 causal prediction errors and invalid samples. This changes the shadow witness,
 with no new GM profile or BLE clock discipline.
