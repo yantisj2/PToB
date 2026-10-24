@@ -2,7 +2,7 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
-Read [the target README](../../firmware/corese/README.md). Version0.1.10 provides
+Read [the target README](../../firmware/corese/README.md). Version0.1.11 provides
 the live client; the earlier UI preparation build remains an offline design tool.
 
 ## Dependencies and offline checks
@@ -18,6 +18,8 @@ artifacts/corese-sdk/esp-idf/install.sh esp32s3
 python firmware/corese/tools/dependencies.py --dest artifacts/corese-deps
 python3 firmware/corese/tools/preview.py --out artifacts/corese-preview
 python3 firmware/corese/tools/tests.py --out artifacts/corese-tests --sdk artifacts/corese-sdk/esp-idf --dependencies artifacts/corese-deps
+IDF_PATH="$PWD/artifacts/corese-sdk/esp-idf" python3 firmware/w12/tools/g1_host_tests.py --out artifacts/shared-g1-tests
+IDF_PATH="$PWD/artifacts/corese-sdk/esp-idf" python3 firmware/corese/tools/recovery_tests.py --out artifacts/corese-recovery-tests --objects artifacts/shared-g1-tests
 python3 registry/test_registry.py
 ```
 
@@ -50,7 +52,12 @@ The live build does not open USB. The shared receiver source is pinned to public
 Git revision `699f100c4e01db563f8e4b0a9f8d01d15e8600a4`; concurrent work on other
 targets cannot silently change this receiver baseline. The GD1/GD2 diagnostic codec
 is a separately frozen current public dependency; it does not advance that
-receiver baseline. It freezes public sources, generated target
+receiver baseline. Version0.1.11 applies the narrowly scoped
+[`auto_rc9_recovery.patch`](../../firmware/corese/tools/auto_rc9_recovery.patch)
+from `6ac2721becf37b3c5d22919eea9e25e24a4054cf` to that frozen baseline before
+generating the CoreSE overlay. The receipt records the patch hash and
+`AUTO_RC9_PASSIVE_NORMAL_RETRY_V1` policy. No other target's timing offsets or
+coordinate changes are imported. It freezes public sources, generated target
 local overlays, private compiler inputs and hashes below ignored output. Runtime
 build identity binds the source closure, effective config, controller and local
 headers. The app is `target/ptob_corese.bin`; the receipt's inspector checks its
