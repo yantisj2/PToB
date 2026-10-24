@@ -5,6 +5,8 @@
 - Enclose the existing GNSS group0 software capture with group1 CURRENT
   latches in the production fine-counter domain. Move counter extension,
   association checks and coordinate conversion outside the sampled aperture.
+  Keep the bounded capture pair in instruction RAM and validate owners before
+  the first latch, avoiding repeated owner checks between physical samples.
 - Validate the GNSS channel, group, timer frequency and enabled state. Missing
   latches fail the map without substituting GPTimer time or widening its gates.
   Keep prior-anchor availability, expiry, mapping rejection and physical PPS

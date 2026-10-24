@@ -104,7 +104,7 @@ def check(out):
    paths['fine_gnss_map']=(result['configured_bytes'],f['main']+
     frame('void gnss_pps::poll(uint64_t)')+
     frame('bool w12_fine_gnss_map_bracket(mcpwm_cap_channel_t*, uint64_t*, uint64_t*)',owner_rows)+
-    max(pending,counter,frame('bool {anonymous}::latch(uint32_t&)',owner_rows),
+    max(pending,counter,frame('bool {anonymous}::gnss_aperture(mcpwm_dev_t*, mcpwm_dev_t*, uint32_t&, uint32_t&)',owner_rows),
         frame('bool w12::fine::Receiver::coordinate(uint64_t, uint64_t, uint64_t&) const',owner_rows)))
   result['fine_paths']={}
   for name,(size,used) in paths.items():

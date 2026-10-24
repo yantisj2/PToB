@@ -69,6 +69,15 @@ int main(int argc,char** argv){
     }
     assert(fake_gnss_triggers==61&&fake_gpio_calls==gpio_calls&&fake_callbacks==2&&
            receiver.status().callbacks==rx.callbacks&&receiver.status().claimed==rx.claimed);
+    uint32_t lo=0,hi=0;
+    fake_complete=false;
+    assert(!gnss_aperture(&fake_device,&gps,lo,hi)&&fake_gnss_triggers==61);
+    fake_complete=true;fake_clear_ok=false;fake_device.int_raw.val|=1u<<29;
+    assert(!gnss_aperture(&fake_device,&gps,lo,hi)&&fake_gnss_triggers==61);
+    fake_clear_ok=true;
+    fake_capture_read_inject=+[](int i){if(i==2)fake_complete=false;};
+    assert(!gnss_aperture(&fake_device,&gps,lo,hi)&&fake_gnss_triggers==62);
+    fake_capture_read_inject=nullptr;
     fake_complete=false;
     assert(!w12_fine_gnss_map_bracket(&gc,&before,&after)&&!before&&!after);
     assert(!w12_fine_current(&tick)&&w12_fine_fault());

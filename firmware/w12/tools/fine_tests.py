@@ -36,6 +36,7 @@ def main():
   s=s.replace('c->flags.pos_edge==unsigned(i<2&&PTOB_N30_FINE_PINS)', 'c->flags.pos_edge==unsigned(i<2)').replace('c->flags.neg_edge==unsigned(i<2&&PTOB_N30_FINE_PINS)', 'c->flags.neg_edge==unsigned(i==0)')
   s=s.replace('gpio==16','gpio==16||gpio==14').replace('assert(bits==(3u<<27))','assert(bits==(3u<<27)||bits==(1u<<28))').replace('assert(x==(1u<<29)||x==(3u<<27))','assert(x==(1u<<29)||x==(3u<<27)||x==(1u<<28))')
   if f.name=='fine_fake.hpp':
+   s=s.replace('inline FakeDevice fake_device;', 'using mcpwm_dev_t=FakeDevice;\ninline FakeDevice fake_device;')
    s=s.replace('FakeGroup* group=nullptr;int fsm=0;',
                'FakeGroup* group=nullptr;int fsm=0;uint32_t resolution_hz=80000000;')
    s=s.replace('(x==(3u<<27)&&fake_radio_clear_ok)', '((x==(3u<<27)||x==(1u<<28))&&fake_radio_clear_ok)')
@@ -45,6 +46,7 @@ def main():
       'if(dev!=&fake_device){assert(i==1);++fake_gnss_triggers;fake_gnss_raw=fake_raw;return;}')
    s+='\ninline int mcpwm_del_capture_channel(mcpwm_cap_channel_handle_t c){assert(!c->fsm);return fake_disable_ok?0:-1;}\ninline int mcpwm_del_capture_timer(mcpwm_cap_timer_handle_t t){assert(!t->fsm);return fake_disable_ok?0:-1;}\n'
   dest.write_text(s)
+ (out/'fakes/esp_attr.h').write_text('#pragma once\n#define IRAM_ATTR\n')
  (out/'fakes/w12_fine_config.h').write_text('#pragma once\n#define PTOB_W12_FINE_FACTORY UINT64_C(0x020000003001)\n#define PTOB_W12_FINE_RX_GPIO 16\n')
  src=(APP/'main/native_main.cpp').read_text()
  (out/'actual_fine_stop_all.hpp').write_text(src[src.index('void stop_all(){'):src.index('#ifdef V12_R2_ENABLED\n// Keep',src.index('void stop_all(){'))])

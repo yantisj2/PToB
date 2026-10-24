@@ -11,6 +11,7 @@
 #include "esp_rom_gpio.h"
 #include "esp_timer.h"
 #include "esp_cpu.h"
+#include "esp_attr.h"
 #include "freertos/FreeRTOS.h"
 #include "mcpwm_private.h"
 #include "soc/gpio_sig_map.h"
@@ -59,6 +60,28 @@ bool latch(uint32_t& raw){
   for(n=0;n<128;++n)if(d->int_raw.val&CurrentMask)break;
   if(n==128||uint32_t(esp_cpu_get_cycle_count()-start)>24000)return false;
   raw=mcpwm_ll_capture_get_value(d,2);return true;
+}
+// The caller validates both owners before entering this bounded aperture.
+// Keeping it in instruction RAM avoids flash-cache variation between latches.
+[[gnu::noinline]] bool IRAM_ATTR gnss_aperture(mcpwm_dev_t* local,mcpwm_dev_t* gnss,uint32_t& lo,uint32_t& hi){
+  const auto start=esp_cpu_get_cycle_count();
+  local->int_clr.val=CurrentMask;
+  unsigned n=0;
+  for(;n<128;++n)if(!(local->int_raw.val&CurrentMask))break;
+  if(n==128)return false;
+  mcpwm_ll_trigger_soft_capture(local,2);
+  for(n=0;n<128;++n)if(local->int_raw.val&CurrentMask)break;
+  if(n==128)return false;
+  lo=mcpwm_ll_capture_get_value(local,2);
+  local->int_clr.val=CurrentMask;
+  for(n=0;n<128;++n)if(!(local->int_raw.val&CurrentMask))break;
+  if(n==128)return false;
+  mcpwm_ll_trigger_soft_capture(gnss,1);
+  mcpwm_ll_trigger_soft_capture(local,2);
+  for(n=0;n<128;++n)if(local->int_raw.val&CurrentMask)break;
+  if(n==128||uint32_t(esp_cpu_get_cycle_count()-start)>24000)return false;
+  hi=mcpwm_ll_capture_get_value(local,2);
+  return true;
 }
 bool current(w12::fine::Time& t){
   uint32_t raw=0;
@@ -190,8 +213,7 @@ bool w12_fine_gnss_map_bracket(mcpwm_cap_channel_t* channel,uint64_t* before,uin
     // Keep counter extension, BLE association checks and coordinate conversion
     // outside the aperture. This is the exact pinned public soft-catch primitive
     // on the validated GNSS channel, between bounded driver-owned CURRENT latches.
-    ok=latch(lo);
-    if(ok){mcpwm_ll_trigger_soft_capture(gnss,1);ok=latch(hi);}
+    ok=gnss_aperture(timer->group->hal.dev,gnss,lo,hi);
   }
   w12::fine::Time a{},b{};
   if(ok)ok=counter.current(1,lo,coarse(),a)&&counter.current(1,hi,coarse(),b)&&
