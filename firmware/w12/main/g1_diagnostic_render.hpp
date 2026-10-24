@@ -35,7 +35,7 @@ inline int g1_render_relay_owner(char* out,unsigned capacity,const Report& r){
     unsigned(r.bytes[26]),unsigned(r.bytes[25]),unsigned(r.bytes[24]),unsigned(r.bytes[23]),unsigned(r.bytes[22]),unsigned(r.bytes[21]));
 }
 inline int g1_render_tx_estimate(char* out,unsigned capacity,const Report& r){
-  if(r.kind!=23||r.length!=184||r.bytes[0]!=1||r.bytes[1]!=1||r.bytes[3]!=5)return 0;
+  if(r.kind!=23||r.length!=184||r.bytes[0]!=1||(r.bytes[1]!=1&&r.bytes[1]!=2)||r.bytes[3]!=5)return 0;
   return std::snprintf(out,capacity,"W12_G1_TX_EST at_us=%" PRIu64
     " publisher=%016" PRIx64 "/%016" PRIx64 " root=%016" PRIx64 "/%016" PRIx64 "/%" PRIu64
     " train=%" PRIu64 " epoch=%" PRIu64 " pub=%" PRIu64 " event=%" PRIu64 " ch=%u"
@@ -43,19 +43,20 @@ inline int g1_render_tx_estimate(char* out,unsigned capacity,const Report& r){
     " bt=%" PRIu64 "/%" PRIu64 " tx_ns=%" PRIu64 " seen20=%" PRIu64
     " map20=%" PRIu64 " map_ns=%" PRId64 " phase_ns=%" PRId64 " rate_mppb=%" PRId32 " rate_known=%u"
     " original20=%" PRIu64 " queued20=%" PRIu64 " source_ns=%" PRIu64 "/%" PRIu64
-    " age_us=%" PRIu64 " reference=PROGRAMMED_HALF_SLOT actual=0 bound=UNKNOWN\n",
+    " age_us=%" PRIu64 " reference=%s actual=0 bound=UNKNOWN\n",
     r.callback_us,g1_diag_le(r.bytes+44,8),g1_diag_le(r.bytes+52,8),g1_diag_le(r.bytes+60,8),g1_diag_le(r.bytes+68,8),g1_diag_le(r.bytes+20,4),
     g1_diag_le(r.bytes+12,4),g1_diag_le(r.bytes+16,4),g1_diag_le(r.bytes+8,4),g1_diag_le(r.bytes+4,2),unsigned(r.bytes[2]),
     g1_diag_le(r.bytes+76,8),g1_diag_le(r.bytes+84,8),g1_diag_le(r.bytes+92,8),g1_diag_le(r.bytes+100,8),
     g1_diag_le(r.bytes+32,4),g1_diag_le(r.bytes+36,4),g1_diag_le(r.bytes+108,8),g1_diag_le(r.bytes+116,8),
     g1_diag_le(r.bytes+124,8),int64_t(g1_diag_le(r.bytes+132,8)),int64_t(g1_diag_le(r.bytes+140,8)),int32_t(g1_diag_le(r.bytes+180,4)),unsigned(r.bytes[6]),
-    g1_diag_le(r.bytes+148,8),g1_diag_le(r.bytes+156,8),g1_diag_le(r.bytes+164,8),g1_diag_le(r.bytes+172,8),g1_diag_le(r.bytes+24,4));
+    g1_diag_le(r.bytes+148,8),g1_diag_le(r.bytes+156,8),g1_diag_le(r.bytes+164,8),g1_diag_le(r.bytes+172,8),g1_diag_le(r.bytes+24,4),r.bytes[1]==2?"PROGRAMMED_HALF_SLOT_MEAN4":"PROGRAMMED_HALF_SLOT");
 }
 
 // Same tuple as W12_G1_TX_EST. V2 exposes the nominal1M ADDRESS endpoint and
 // the legacy-total decomposition. V1 remains a historical programmed estimate.
 inline int g1_render_tx_path(char* out,unsigned capacity,const Report& r){
-  const bool v3=r.length==128&&r.bytes[0]==3;
+  const bool v4=r.length==160&&r.bytes[0]==4;
+  const bool v3=(r.length==128&&r.bytes[0]==3)||v4;
   const bool v2=(r.length==124&&r.bytes[0]==2)||v3;
   if(r.kind!=24||(!v2&&(r.length!=96||r.bytes[0]!=1)))return 0;
   const int prefix=std::snprintf(out,capacity,"W12_G1_TX_PATH at_us=%" PRIu64
@@ -67,13 +68,20 @@ inline int g1_render_tx_path(char* out,unsigned capacity,const Report& r){
     g1_diag_le(r.bytes+8,4),g1_diag_le(r.bytes+12,4),g1_diag_le(r.bytes+4,4),g1_diag_le(r.bytes+2,2),unsigned(r.bytes[1]),g1_diag_le(r.bytes+56,8),
     g1_diag_le(r.bytes+64,8),g1_diag_le(r.bytes+72,8),int32_t(g1_diag_le(r.bytes+20,4)),g1_diag_le(r.bytes+80,8),g1_diag_le(r.bytes+88,8));
   if(prefix<0||unsigned(prefix)>=capacity)return prefix;
-  const int suffix=v2?std::snprintf(out+prefix,capacity-unsigned(prefix),
+  unsigned used=unsigned(prefix);
+  if(v4){
+    const auto n=std::snprintf(out+used,capacity-used," projections20=%" PRIu64 "/%" PRIu64 "/%" PRIu64 "/%" PRIu64,
+      g1_diag_le(r.bytes+128,8),g1_diag_le(r.bytes+136,8),g1_diag_le(r.bytes+144,8),g1_diag_le(r.bytes+152,8));
+    if(n<0||unsigned(n)>=capacity-used)return n<0?n:int(used)+n;
+    used+=unsigned(n);
+  }
+  const int suffix=v2?std::snprintf(out+used,capacity-used,
     " address20=%" PRIu64 " address_ns=%" PRIu64 " base_ns=%" PRId32 " residual_ns=%" PRId32 " applied_ns=%" PRId32
     " receive_correction_ns=%" PRId32 " reference=NOMINAL_ADDRESS_1M delay=UNKNOWN jitter=SEPARATE actual=0 bound=UNKNOWN\n",
     g1_diag_le(r.bytes+96,8),g1_diag_le(r.bytes+104,8),int32_t(g1_diag_le(r.bytes+112,4)),
     int32_t(g1_diag_le(r.bytes+116,4)),int32_t(g1_diag_le(r.bytes+120,4)),v3?int32_t(g1_diag_le(r.bytes+124,4)):0):
-    std::snprintf(out+prefix,capacity-unsigned(prefix)," scope=AGGREGATE_PROVISIONAL jitter=SEPARATE actual=0 bound=UNKNOWN absolute_UTC=UNKNOWN\n");
-  return suffix<0?suffix:prefix+suffix;
+    std::snprintf(out+used,capacity-used," scope=AGGREGATE_PROVISIONAL jitter=SEPARATE actual=0 bound=UNKNOWN absolute_UTC=UNKNOWN\n");
+  return suffix<0?suffix:int(used)+suffix;
 }
 
 // Main-task rendering only. Record size is fixed and independent of RF rate.

@@ -85,6 +85,13 @@ int main(){
   const int path3bytes=v12::g1_render_tx_path(line,sizeof line,path);
   assert(path3bytes>0&&unsigned(path3bytes)<sizeof line&&std::strstr(line,"receive_correction_ns=7671")&&std::strstr(line,"bound=UNKNOWN"));
   path.length=127;assert(!v12::g1_render_tx_path(line,sizeof line,path));
+  path.length=160;path.bytes[0]=4;
+  for(unsigned i=0;i<4;i++)for(unsigned j=0;j<8;j++)path.bytes[128+i*8+j]=uint8_t(UINT64_MAX>>(8*j));
+  const auto path4bytes=v12::g1_render_tx_path(line,sizeof line,path);
+  assert(path4bytes>0&&unsigned(path4bytes)<sizeof line&&std::strstr(line,"projections20=18446744073709551615/")&&std::strstr(line,"receive_correction_ns=7671"));
+  tx.bytes[1]=2;tx.bytes[3]=5;
+  const auto tx4bytes=v12::g1_render_tx_estimate(line,sizeof line,tx);
+  assert(tx4bytes>0&&unsigned(tx4bytes)<sizeof line&&std::strstr(line,"reference=PROGRAMMED_HALF_SLOT_MEAN4"));
 
   v12::R2Discipline discipline;v12::periodic_rx::Stamp capture;r2_precision_packet p{};
   assert(!discipline.authenticated_receive(p,capture,0,0,0));const auto q=discipline.view(0,0);

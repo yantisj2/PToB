@@ -68,6 +68,16 @@ int main(){
   // The28-bit controller clock wraps independently of the unsigned64 local
   // clock. Cover both rollover directions, signed64 crossing and overflow.
   uint64_t tick=0;tx_estimate::ClockAnchor a{20000000,20000000,1,0};
+  uint64_t mean=0;
+  for(uint64_t base:{UINT64_C(1),UINT64_C(20000000),UINT64_MAX-40}){
+    const uint64_t values[4]={base,base+2,base+5,base+8};
+    assert(tx_estimate::mean_programmed4(values,mean)&&mean==base+4);
+  }
+  const uint64_t absent[4]={100,0,102,103},spread[4]={100,141,102,103};
+  assert(!tx_estimate::mean_programmed4(absent,mean)&&!mean);
+  assert(!tx_estimate::mean_programmed4(spread,mean)&&!mean);
+  const uint64_t rounding[4]={100,100,101,101};
+  assert(tx_estimate::mean_programmed4(rounding,mean)&&mean==101);
   assert(tx_estimate::programmed_tick(a,tx_estimate::ClockMask,19995000,tick)&&tick==19987500);
   a={20000000,20000000,0,0};assert(tx_estimate::programmed_tick(a,tx_estimate::ClockMask,20000000,tick)&&tick==19993750);
   a={UINT64_C(1)<<63,UINT64_C(1)<<63,10,0};assert(tx_estimate::programmed_tick(a,10,a.before,tick)&&tick==a.before);

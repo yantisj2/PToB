@@ -8,7 +8,7 @@ namespace v12 {
 // or UTC uncertainty bounds. Never fit these constants from live GNSS data.
 struct W12PhaseOffsets {
   static constexpr int32_t ReceiveNs=7671;
-  static constexpr int32_t RelayNs=3030;
+  static constexpr int32_t RelayNs=4026;
   static G1ClockPrediction delivered(G1ClockPrediction raw){
     raw.receiver_phase_ns=raw.tick?ReceiveNs:0;
     return raw;

@@ -1,5 +1,21 @@
 # W12 changelog
 
+## 0.2.10 — four-observation programmed-clock estimate
+
+- W12 relay estimates average all four validated projections of the same
+  programmed packet. Missing observations or spread exceeding2µs refuse the
+  estimate; no residual is trimmed and no measured RF bound is asserted.
+  Keep the existing callback/age/channel/source/expected-bank checks.
+- Retain all four inputs in version4 sampled TX path records and label the
+  programmed-clock mean separately from earlier single-bracket estimates.
+  Preserve the previous behavior and allocation outside W12.
+- Revise the provisional relay residual to +4,026 ns from separate narrow-map
+  observations. The receive term remains +7,671 ns. Applying these terms to
+  the changed estimator and other units/profiles remains an unmeasured transfer
+  until a fresh hardware population is collected. No GNSS feedback trains BLE.
+- Exercise complete/missing/inconsistent reads, integer rounding, unsigned
+  overflow boundaries and version4 diagnostic capacity under ASan/UBSan.
+
 ## 0.2.9 — narrow fine-counter Bluetooth clock aperture
 
 - Enclose the unchanged pinned ROM Bluetooth-clock read with two raw,

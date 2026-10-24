@@ -199,15 +199,28 @@ bool pop_estimated(EstimateRecord& out){
     adv_rx::BleTime time;
     if(!clock_reference_bt_bracket(&anchor.before,&anchor.after,&time)||anchor.after<anchor.before)continue;
     anchor.half_slots=time.half_slots;anchor.half_us=time.half_us;
+#ifdef PTOB_W12_SYNC_WATCHDOG
+    (void)tx_estimate::programmed_tick(anchor,row.kind,row.before20,out.projections20[i]);
+#endif
     const auto width=anchor.after-anchor.before;
     if(width<best_width){best=anchor;best_width=width;}
   }
   if(best_width==UINT64_MAX){out.stage=2;return true;}
   out.anchor=best;
+#ifdef PTOB_W12_SYNC_WATCHDOG
+  if(!tx_estimate::mean_programmed4(out.projections20,out.tick20)){out.stage=3;return true;}
+#else
   if(!tx_estimate::programmed_tick(best,row.kind,row.before20,out.tick20)){out.stage=3;return true;}
+#endif
   if(!tx_estimate::channel(radio,row.selected.event,out.channel)){out.stage=4;return true;}
   out.stage=5;
-  out.provenance=tx_estimate::Provenance::ProgrammedHalfSlotAndCsa2;out.estimated=true;
+  out.provenance=
+#ifdef PTOB_W12_SYNC_WATCHDOG
+    tx_estimate::Provenance::ProgrammedHalfSlotMean4AndCsa2;
+#else
+    tx_estimate::Provenance::ProgrammedHalfSlotAndCsa2;
+#endif
+  out.estimated=true;
   return true;
 }
 #endif

@@ -34,6 +34,9 @@ constexpr bool estimated_capture_available(){return false;}
 struct EstimateRecord {
   Record observed{};
   uint64_t tick20=0;
+#ifdef PTOB_W12_SYNC_WATCHDOG
+  uint64_t projections20[4]{}; // All four inputs of the W12 worker mean; retained in sampled evidence.
+#endif
   tx_estimate::ClockAnchor anchor{}; // Worker diagnostic only; never an RF capture.
   uint32_t uncertainty_ns=tx_estimate::UnknownUncertainty;
   uint8_t channel=255;

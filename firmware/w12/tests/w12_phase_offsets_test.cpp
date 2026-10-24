@@ -36,7 +36,7 @@ int main(){
     assert(c.until()==until&&c.accepted()==accepted&&c.fit_points()==fit);
     const auto m=c.prediction();Rc7TxReference::Projection tx;
     assert(Rc7TxReference::project(m,m.tick,m.tick+800,1,false,0,tx));
-    assert(tx.emitted_ns==m.relative_at(m.tick+800)+3030&&tx.residual_ns==3030);
+    assert(tx.emitted_ns==m.relative_at(m.tick+800)+4026&&tx.residual_ns==4026);
     assert(Rc7TxReference::project(m,m.tick,m.tick+800,1,true,47000,tx));
     assert(tx.total_ns==47000); // Existing explicit total supersedes default relay residual.
   }

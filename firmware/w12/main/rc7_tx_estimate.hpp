@@ -7,7 +7,7 @@
 namespace v12::tx_estimate {
 constexpr uint32_t UnknownUncertainty=UINT32_MAX, ClockMask=0x0fffffff;
 constexpr unsigned Banks=4;
-enum class Provenance:uint8_t { None, ProgrammedHalfSlotAndCsa2=1 };
+enum class Provenance:uint8_t { None, ProgrammedHalfSlotAndCsa2=1, ProgrammedHalfSlotMean4AndCsa2=2 };
 inline uint32_t le32(const uint8_t* p){return uint32_t(p[0])|(uint32_t(p[1])<<8)|(uint32_t(p[2])<<16)|(uint32_t(p[3])<<24);}
 inline uint64_t le64(const uint8_t* p){return le32(p)|(uint64_t(le32(p+4))<<32);}
 inline bool validate(const uint8_t* p,unsigned n){
@@ -120,5 +120,15 @@ inline bool programmed_tick(const ClockAnchor& a,uint32_t cookie,uint64_t callba
   const uint64_t mapped=delta<0?mid-uint64_t(-delta):mid+uint64_t(delta);
   if(!mapped||mapped>callback20||callback20-mapped>5000000)return false;
   out=mapped;return true;
+}
+// Same programmed packet, four independently validated clock projections.
+// Average every projection; never choose by error or discard a wide residual.
+// Missing or inconsistent observations refuse this estimate as a whole.
+inline bool mean_programmed4(const uint64_t (&values)[4],uint64_t& out){
+  out=0;uint64_t lo=UINT64_MAX,hi=0;
+  for(const auto value:values){if(!value)return false;lo=value<lo?value:lo;hi=value>hi?value:hi;}
+  if(hi-lo>40)return false; // Finite2us consistency screen, not an RF bound.
+  uint64_t sum=0;for(const auto value:values)sum+=value-lo;
+  out=lo+(sum+2)/4;return true;
 }
 }

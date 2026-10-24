@@ -430,6 +430,14 @@ Refused or stopped reads never substitute another clock. Retain measured
 aperture widths and repeat relative-PPS comparisons: earlier path offsets and
 precision populations do not qualify this new mapping by assumption.
 
+Version0.2.10 requires four valid programmed-clock projections for a W12 relay
+estimate and uses their rounded arithmetic mean. It refuses missing inputs or
+spread over2µs without trimming a sample. The four ticks remain in version4
+TX path companions, and the estimate label is `PROGRAMMED_HALF_SLOT_MEAN4`.
+The provisional relay residual becomes4,026ns, while receive remains7,671ns.
+This changes the estimator; repeat the paired hardware measurement rather than
+carrying forward a prior precision claim. RF and UTC bounds remain unknown.
+
 Version 0.1.16 accepts an optional `provisional_path` object in the ignored,
 factory-bound device input. Its absence selects no provisional profile; the
 shared nominal ADDRESS conversion still applies. This is an operator
