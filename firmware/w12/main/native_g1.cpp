@@ -943,7 +943,8 @@ void forget_leader(uint64_t now,bool keep_admission){
   retry_at=scan_retry_at=scan_retry_until=0;
   for(unsigned i=0;i<8;i++){locator_ids[i]=0;locators[i]={};recent[i]={};}
 #ifdef PTOB_RC9
-  for(auto& locator:rc9_locators)locator={};rc9_retry_at=0;
+  for(auto& locator:rc9_locators)locator={};
+  rc9_retry_at=0;
 #endif
   Periodic discarded{};while(periodic.pop(discarded)){}
 #if defined(PTOB_N30) || defined(PTOB_W12_FINE_CLOCK)
