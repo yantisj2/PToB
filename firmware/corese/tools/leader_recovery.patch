@@ -16,7 +16,7 @@ index 24ec4e6..5dcc2fe 100644
    bool allowed(uint64_t now,bool continuous_direct=false)const {
      if(now<retry_at)return false;
 diff --git a/firmware/w12/main/g1_parent_selection.hpp b/firmware/w12/main/g1_parent_selection.hpp
-index e154aab..7bf761e 100644
+index e154aab..bc09472 100644
 --- a/firmware/w12/main/g1_parent_selection.hpp
 +++ b/firmware/w12/main/g1_parent_selection.hpp
 @@ -66,6 +66,11 @@ class G1ParentSelection {
@@ -31,8 +31,24 @@ index e154aab..7bf761e 100644
    void clear_history(){history_.clear();}
    const G1ParentHistory& history()const{return history_;}
    SelectionView selection_view(uint64_t now)const{auto v=selection_;v.entries=uint8_t(history_.entries(now));return v;}
+@@ -149,10 +154,13 @@ class G1ParentSelection {
+       c.cooldown=now>UINT64_MAX-duration?UINT64_MAX:now+duration;c.consumed=c.seen;break;
+     }
+   }
+-  void bind(uint64_t id,uint64_t boot,uint64_t epoch,uint64_t now){
++  void bind(uint64_t id,uint64_t boot,uint64_t epoch,uint64_t now){bind(id,boot,epoch,now,relay(id));}
++  // Fresh authentication knows the role even after all discovery locators
++  // have been retired. Do not infer a replacement relay's trial from a cache.
++  void bind(uint64_t id,uint64_t boot,uint64_t epoch,uint64_t now,bool is_relay){
+     if(!id||!boot||!epoch)return;
+     const bool changed=parent_!=id||quality_.parent!=id||quality_.boot!=boot||quality_.epoch!=epoch;
+-    parent_relay_=relay(id);
++    parent_relay_=is_relay;
+     begin_trial(id,parent_relay_,now);
+     if(!trial_bound_){trial_since_=now;trial_bound_=true;}
+     for(const auto& c:candidates_)if(c.identity==id&&c.relay==parent_relay_){bound_rssi_=c.rssi;break;}
 diff --git a/firmware/w12/main/native_g1.cpp b/firmware/w12/main/native_g1.cpp
-index 0c83fdd..74d73d3 100644
+index 0c83fdd..c1ac38b 100644
 --- a/firmware/w12/main/native_g1.cpp
 +++ b/firmware/w12/main/native_g1.cpp
 @@ -110,6 +110,9 @@ void rc9_publish_status(uint64_t);
@@ -45,6 +61,42 @@ index 0c83fdd..74d73d3 100644
  struct Recent {uint64_t identity=0,until=0;};
  using Anchor=G1Anchor;
  portMUX_TYPE mux=portMUX_INITIALIZER_UNLOCKED;
+@@ -162,7 +165,7 @@ uint64_t sync_identity=0,sync_acquire_until=0,sync_drain_until=0;
+ uint8_t sync_selected_sid=12;
+ uint32_t sync_capture_epoch=0;
+ uint64_t sync_requested_at=0,sync_owner_window_start=UINT64_MAX;uint8_t sync_phy=0,sync_clock_accuracy=255;
+-ble_addr_t own_address{},sync_address{};uint16_t sync_handle=None,observed_mtu=0;
++ble_addr_t own_address{},sync_address{},sync_owner_address{};uint16_t sync_handle=None,observed_mtu=0;
+ uint8_t last_gatt_stage=0;
+ uint32_t incarnation=0,rx=0,tx=0,auth=0,rejected=0,join_attempts=0,join_accepts=0,join_busy=0,pa_reports=0,p1_ok=0,p1_bad=0,discovery_count=0;
+ uint32_t api_errors=0,setup_retries=0,peer_losses=0,pending_disconnects=0,pending_link_teardowns=0,cancel_calls=0,host_stack_min=UINT32_MAX;
+@@ -284,7 +287,7 @@ LinkContext link_context(uint64_t now){LinkContext c;
+ void admission_trace(uint8_t,uint16_t,int,const LinkContext* =nullptr);
+ LinkContext sync_context(){
+   auto context=link_context(micros());context.generation=0;context.identity=sync_identity;
+-  context.address=sync_address;context.request_at=sync_requested_at;context.interval=PrecisionInterval;
++  context.address=sync_owner_address;context.request_at=sync_requested_at;context.interval=PrecisionInterval;
+   context.window_start=sync_owner_window_start==UINT64_MAX?G1Window::start(sync_requested_at,window_phase):sync_owner_window_start;
+   context.latency=0;context.supervision=100;context.stage=synced?2:sync_pending?1:0;
+   context.pa_phy=sync_phy;context.pa_clock_accuracy=sync_clock_accuracy;return context;
+@@ -550,7 +553,7 @@ int gap(ble_gap_event* e,void* arg){
+     sync_phy=e->periodic_sync.adv_phy;sync_clock_accuracy=e->periodic_sync.adv_clk_accuracy;
+     sync_trace(17,e->periodic_sync.sync_handle,e->periodic_sync.status);
+     sync_pending=sync_selected=false;sync_cancelled=false;
+-    if(!e->periodic_sync.status){sync_handle=e->periodic_sync.sync_handle;synced=true;sync_terminating=false;if(e->periodic_sync.sid!=sync_selected_sid||e->periodic_sync.per_adv_ival!=50||!same_address(e->periodic_sync.adv_addr,sync_address))fault=true;if(capture_owner&&!fault){
++    if(!e->periodic_sync.status){sync_handle=e->periodic_sync.sync_handle;synced=true;sync_terminating=false;if(e->periodic_sync.sid!=sync_selected_sid||e->periodic_sync.per_adv_ival!=50||!same_address(e->periodic_sync.adv_addr,sync_owner_address))fault=true;if(capture_owner&&!fault){
+ #ifdef V12_R2_RX_SHADOW
+       if(!periodic_rx::adopt(sync_handle,sync_capture_epoch))fault=true;
+ #endif
+@@ -559,7 +562,7 @@ int gap(ble_gap_event* e,void* arg){
+     sync_quiet_return(completion_context);
+   }else if(e->type==BLE_GAP_EVENT_PERIODIC_SYNC_LOST){sync_trace(20,e->periodic_sync_lost.sync_handle,0);if(reinterpret_cast<uintptr_t>(arg)==sync_capture_epoch&&e->periodic_sync_lost.sync_handle==sync_handle){const auto completion_context=sync_context();sync_quiet_return(completion_context);sync_handle=None;synced=false;sync_terminating=false;sync_identity=0;periodic_rx::scope(None);}}
+   else if(e->type==BLE_GAP_EVENT_PERIODIC_REPORT){const auto& p=e->periodic_report;
+-    if(!closing&&!sync_terminating&&synced&&p.sync_handle==sync_handle&&reinterpret_cast<uintptr_t>(arg)==sync_capture_epoch){inc(pa_reports);Report r{};r.kind=6;r.callback_us=now;r.handle=p.sync_handle;r.sid=sync_selected_sid;r.address_type=sync_address.type;std::memcpy(r.address_le,sync_address.val,6);r.rssi=p.rssi;r.status=p.data_status;r.actual_length=p.data_length;r.length=uint8_t(p.data_length>MaxData?MaxData:p.data_length);if(fault)r.refusal|=4;if(r.length)std::memcpy(r.bytes,p.data,r.length);
++    if(!closing&&!sync_cleanup_requested&&!sync_terminating&&synced&&p.sync_handle==sync_handle&&reinterpret_cast<uintptr_t>(arg)==sync_capture_epoch){inc(pa_reports);Report r{};r.kind=6;r.callback_us=now;r.handle=p.sync_handle;r.sid=sync_selected_sid;r.address_type=sync_owner_address.type;std::memcpy(r.address_le,sync_owner_address.val,6);r.rssi=p.rssi;r.status=p.data_status;r.actual_length=p.data_length;r.length=uint8_t(p.data_length>MaxData?MaxData:p.data_length);if(fault)r.refusal|=4;if(r.length)std::memcpy(r.bytes,p.data,r.length);
+       if(p.data_status!=BLE_HCI_PERIODIC_DATA_STATUS_COMPLETE||(p.data_length!=158&&p.data_length!=190)||
+          (mode==R2Mode::Client&&!full_listening()&&(!client_window_active(now,window_phase)||now-window_start>=G1Window::Nominal)))r.refusal=2;
+ #ifdef V12_R2_RX_SHADOW
 @@ -704,6 +707,8 @@ void send_join(uint64_t now){
    else if(rc){note(rc,R2Api::ControlWrite);if(rc==BLE_HS_ENOTCONN){peer.dead=true;inc(peer_losses);}else if(!transient(rc,R2Api::ControlWrite))error(rc,R2Api::ControlWrite);}
  }
@@ -54,7 +106,27 @@ index 0c83fdd..74d73d3 100644
  #include "rc9_client_native.inc"
  void parent_record(G1ParentReason reason,uint64_t now){
    G1ParentScope scope{};
-@@ -805,7 +810,7 @@ void receive_join(uint64_t now){Incoming row{};for(unsigned i=0;i<8&&incoming.po
+@@ -750,7 +755,9 @@ void receive_rc_control(const Incoming& row,uint64_t now){
+       clock_reference_read(&tick);
+ #endif
+       const bool same=rc_bound()&&rc7_path_same(&rc_client.receiver.path,&c.path);
+-      if(!same)changed_scope(now);
++      // A replacement authenticated path retires advisory trials and retry
++      // state too. Keep this ACL and request so its response can bind below.
++      if(!same)forget_leader(now,true);
+       if(!rc_client.bind(c,now,tick)){inc(rejected);peer.dead=true;return;}
+       direct_session.clear();
+       if(!same){
+@@ -769,7 +776,7 @@ void receive_rc_control(const Incoming& row,uint64_t now){
+       anchor.context_until=now+c.lease_us;anchor.drift_ppm=301;
+       corrected_clock.scope(anchor);
+       joined_peer=c.sender;joined_boot=c.sender_boot;member=true;sync_address=peer.address;
+-      parent_selection.bind(c.sender,c.sender_boot,c.path.node[c.path.depth].epoch,now);
++      parent_selection.bind(c.sender,c.sender_boot,c.path.node[c.path.depth].epoch,now,true);
+       parent_selection.authenticated(c.sender,true,c.sender_boot,c.path.node[0].id,c.path.node[0].boot,c.path.source_epoch,now);
+       peer.selection_accepted=true;
+       parent_record(peer.parent_reason,now);
+@@ -805,7 +812,7 @@ void receive_join(uint64_t now){Incoming row{};for(unsigned i=0;i<8&&incoming.po
    if(r.kind==R2_JOIN_BUSY){if(r.sender==peer.identity&&r.receiver==provision.identity&&r.receiver_boot==boot_id&&r.client_nonce==peer.exchange.nonce){inc(join_busy);peer.dead=true;diagnostic.reason(G1Reason::JoinBusy,now);}else{inc(rejected);diagnostic.reason(G1Reason::JoinExchange,now);}continue;}
    if(r2_group_join_receive(&peer.exchange,&r,row.at)){inc(rejected);diagnostic.reason(G1Reason::JoinExchange,now);continue;}inc(auth);
    if(r.kind==R2_JOIN_CHALLENGE){if((anchor.source&&joined_peer==r.sender&&joined_boot!=r.sender_boot)||
@@ -63,7 +135,7 @@ index 0c83fdd..74d73d3 100644
    else if(r.kind==R2_JOIN_ACCEPT){const auto previous_peer=joined_peer,previous_boot=joined_boot;const bool previous_member=member;
      inc(join_accepts);inc(diagnostic.peer(r.sender).accepts);r2_group_join_remember(display,&peer.exchange,now);peer.close_at=now+2000;
      const auto reply=g1_admission_reply(r);r2_join_time time{};
-@@ -821,6 +826,10 @@ void receive_join(uint64_t now){Incoming row{};for(unsigned i=0;i<8&&incoming.po
+@@ -821,6 +828,10 @@ void receive_join(uint64_t now){Incoming row{};for(unsigned i=0;i<8&&incoming.po
        if(!previous_member&&!anchor.source&&!rc_bound()){member=true;joined_peer=r.sender;joined_boot=r.sender_boot;}
        diagnostic.reason(G1Reason::JoinTime,now);continue;
      }
@@ -74,7 +146,7 @@ index 0c83fdd..74d73d3 100644
      member=true;joined_peer=r.sender;joined_boot=r.sender_boot;cooldown(r.sender,now,5000000);
      if(timed){
        if(r.root!=r.sender||r.root_boot!=r.sender_boot){
-@@ -854,15 +863,17 @@ void receive_join(uint64_t now){Incoming row{};for(unsigned i=0;i<8&&incoming.po
+@@ -854,15 +865,17 @@ void receive_join(uint64_t now){Incoming row{};for(unsigned i=0;i<8&&incoming.po
            path.node[path.depth].id==previous_peer&&path.node[path.depth].boot==previous_boot&&
            path.node[0].id==anchor.root&&path.node[0].boot==anchor.boot&&path.source_epoch==anchor.source_epoch;
          if(previous_member&&anchor.valid(now)&&(old_direct||old_relay)){
@@ -96,7 +168,7 @@ index 0c83fdd..74d73d3 100644
          Report hint{};hint.kind=9;hint.callback_us=now;hint.actual_length=hint.length=16;
          for(unsigned j=0;j<8;j++){hint.bytes[j]=uint8_t(admission_root>>(8*j));hint.bytes[8+j]=uint8_t(admission_until>>(8*j));}
          transport_record(hint);parent_record(G1ParentReason::RootHint,now);continue;
-@@ -915,19 +926,39 @@ void changed_scope(uint64_t now,G1Reason reason,bool preserve_clock,G1ParentReas
+@@ -915,19 +928,39 @@ void changed_scope(uint64_t now,G1Reason reason,bool preserve_clock,G1ParentReas
    else coarse_hold.clear();
    diagnostic.reason(reason,now);anchor={};direct_session.clear();rc_client.fence();member=false;admission_root=admission_until=0;last_origin_ns=relay_train=0;window_corrected=false;
    if(reason==G1Reason::Permission||preserve_clock)corrected_clock.hold();else corrected_clock.withdraw();
@@ -108,7 +180,7 @@ index 0c83fdd..74d73d3 100644
 +void forget_leader(uint64_t now,bool keep_admission){
 +  // Revoke authority first. cancel_sync retains the exact SDK owner and its
 +  // original drain deadline; clearing a cache never fabricates radio OFF.
-+  changed_scope(now);corrected_clock.clear();coarse_hold.clear();phase_learning={};
++  changed_scope(now);corrected_clock.clear();coarse_hold.clear();phase_learning={};rc_client.retry_at=0;
 +  if(!keep_admission){peer.selection_reported=true;peer.dead=true;cancel_connect(now);terminate_peer(now);}
 +  Incoming old_reply{};while(incoming.pop(old_reply)){};
 +  Discovery old_locator{};while(discoveries.pop(old_locator)){};
@@ -141,7 +213,7 @@ index 0c83fdd..74d73d3 100644
    for(;processed<budget;++processed){
  #if defined(PTOB_N30) || defined(PTOB_W12_FINE_CLOCK)
    if(fine_waiting){row=fine_pending;fine_waiting=false;}else
-@@ -1031,7 +1062,7 @@ unsigned periodic_poll(uint64_t now,unsigned budget=8){Periodic row{};unsigned p
+@@ -1031,7 +1064,7 @@ unsigned periodic_poll(uint64_t now,unsigned budget=8){Periodic row{};unsigned p
  #endif
      if(!anchor_valid(now))continue;
      const bool same=row.identity==anchor.root&&p.boot==anchor.boot&&p.source_epoch==anchor.source_epoch&&p.train==anchor.publication;
@@ -150,7 +222,7 @@ index 0c83fdd..74d73d3 100644
      renew_permission(p.created_ns,p.expires_ns,p.utc_offset_ns,now);discipline_scope(now);
  #ifdef V12_R2_RX_SHADOW
      uint64_t available=0;clock_reference_read(&available);
-@@ -1050,7 +1081,7 @@ unsigned periodic_poll(uint64_t now,unsigned budget=8){Periodic row{};unsigned p
+@@ -1050,7 +1083,7 @@ unsigned periodic_poll(uint64_t now,unsigned budget=8){Periodic row{};unsigned p
      if(!anchor_valid(now)){diagnostic.reason(G1Reason::Permission,now);continue;}
      const bool same=ids[p.origin.root]==anchor.root&&p.origin.boot==anchor.boot&&p.origin.source_epoch==anchor.source_epoch&&
        row.identity==joined_peer&&p.route.boot==joined_boot&&(!relay_train||relay_train==p.route.train);
@@ -159,7 +231,7 @@ index 0c83fdd..74d73d3 100644
      if(!fresh_envelope(p.origin.created_ns,p.origin.expires_ns,p.origin.utc_offset_ns,now,true)){diagnostic.reason(G1Reason::Permission,now);continue;}
      relay_train=p.route.train;
      if(row.capture.actual&&row.capture.association_observed)parent_selection.delivered(p.route.train,row.capture.event,now);
-@@ -1180,7 +1211,12 @@ void active_poll(uint64_t now){
+@@ -1180,7 +1213,12 @@ void active_poll(uint64_t now){
    // FOLLOW already ended at its signed deadline. Only a newly matched fresh
    // correction can restore it. Losing the anchor here also loses PA reception
    // and turns a missed window into repeated expensive JOIN-only acquisition.
@@ -173,6 +245,18 @@ index 0c83fdd..74d73d3 100644
    if(!rc_bound()&&anchor.source&&anchor.rebootstrap(now))member=false;
    if(usable_utc()&&anchor.valid(now)&&!anchor.live(now))coarse_hold.retain(anchor);
    if(admission_root&&now>=admission_until)admission_root=admission_until=0;
+@@ -1311,7 +1349,10 @@ void active_poll(uint64_t now){
+   if(!relay_slot_scanning()&&(protected_parent||(synced&&!due&&!gm_observation)))stop_scan();
+   if(sync_selected&&peer.handle==None&&!peer.connecting&&!sync_pending&&!synced&&!sync_cleanup_queued&&timely()&&client_window_active(micros(),window_phase)){
+     ble_gap_periodic_sync_params p{};p.skip=0;p.sync_timeout=100;sync_selected=false;sync_pending=true;sync_cancelled=false;sync_acquire_until=micros()+2000000;
+-    sync_requested_at=micros();sync_owner_window_start=G1Window::start(sync_requested_at,window_phase);sync_drain_until=0;sync_phy=0;sync_clock_accuracy=255;sync_trace(15,None,0);
++    sync_requested_at=micros();sync_owner_window_start=G1Window::start(sync_requested_at,window_phase);sync_drain_until=0;sync_phy=0;sync_clock_accuracy=255;
++    // Admission may replace the desired address while this controller create
++    // is still draining. Its actual completion belongs to this frozen owner.
++    sync_owner_address=sync_address;sync_trace(15,None,0);
+     const auto context=sync_context();
+     sync_capture_epoch=periodic_rx::scope(None,true);
+ #ifdef V12_R2_RX_SHADOW
 diff --git a/firmware/w12/main/rc9_client_native.inc b/firmware/w12/main/rc9_client_native.inc
 index ef461fd..a0e64b8 100644
 --- a/firmware/w12/main/rc9_client_native.inc

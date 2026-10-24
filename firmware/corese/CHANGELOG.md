@@ -2,6 +2,15 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 0.1.16 — relay lineage and pending-controller recovery
+
+- Clear deferred source trials and retry state when the same relay authenticates
+  a changed GM lineage, preserving the current request and explicit relay role.
+- Bind late periodic-create completion to the frozen actual owner address and
+  refuse reports once cleanup is queued. Preserve the original drain deadline.
+- Exercise actual pinned receiver RC7 lineage/role and RC9 pending-create return
+  paths alongside direct leader loss, boot and incarnation controls.
+
 ## 0.1.15 — complete fallback scope fencing
 
 - Clear normal-source selection history and retry state at authenticated RC9
