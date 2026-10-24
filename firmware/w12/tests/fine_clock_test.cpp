@@ -20,7 +20,7 @@ int main(int argc,char** argv){
   if(!std::strcmp(mode,"stale_raw")){fake_device.int_raw.val=1u<<29;fake_clear_ok=false;}
   if(!std::strcmp(mode,"stale_radio")){fake_device.int_raw.val=1u<<27;fake_radio_clear_ok=false;}
   if(!std::strcmp(mode,"irq"))fake_irq_restore_ok=false;
-  if(std::strcmp(mode,"live")&&std::strcmp(mode,"lora")&&std::strcmp(mode,"gnss")&&std::strcmp(mode,"pending_late")&&std::strcmp(mode,"cleanup")&&
+  if(std::strcmp(mode,"live")&&std::strcmp(mode,"lora")&&std::strcmp(mode,"gnss")&&std::strcmp(mode,"bt")&&std::strcmp(mode,"pending_late")&&std::strcmp(mode,"cleanup")&&
      std::strcmp(mode,"wrap")&&std::strcmp(mode,"storm")&&std::strcmp(mode,"gap")){
     assert(!w12_fine_start(2,PTOB_W12_FINE_FACTORY,fake_now));
     assert(w12_fine_fault()&&!active&&!GPIO.oe[16]);
@@ -31,6 +31,34 @@ int main(int argc,char** argv){
   assert(GPIO.oe[16]&&!(fake_device.int_ena.val&(1u<<28)));
   assert(!w12_fine_start(2,PTOB_W12_FINE_FACTORY,fake_now));
   uint64_t tick=0;assert(w12_fine_current(&tick)&&tick>=1000000);
+  if(!std::strcmp(mode,"bt")){
+    uint64_t before=1,after=2;uint32_t slots=3,half=4;
+    static unsigned calls=0;static uint32_t observed_raw=0;
+    const auto read=+[](uint32_t* s,uint32_t* h){++calls;observed_raw=fake_raw;*s=0x0fffffff;*h=624;return true;};
+    assert(!w12_fine_bt_bracket(nullptr,&after,&slots,&half,read)&&!after&&!slots&&!half);
+    assert(!w12_fine_bt_bracket(&before,&before,&slots,&half,read));
+    assert(!w12_fine_bt_bracket(&before,&after,&slots,&slots,read));
+    assert(!w12_fine_bt_bracket(&before,&after,&slots,&half,nullptr)&&!calls);
+    const auto rx=receiver.status();const auto gpio_calls=fake_gpio_calls;
+    for(unsigned i=0;i<61;++i){
+      advance(10000000);
+      assert(w12_fine_bt_bracket(&before,&after,&slots,&half,read)&&before>=tick&&after>=before&&slots==0x0fffffff&&half==624);
+      w12::fine::Time captured{};uint64_t reference=0;
+      assert(counter.event(1,observed_raw,captured)&&receiver.coordinate(captured.raw80,0,reference)&&before<=reference&&reference<=after);
+      assert(w12_fine_current(&tick)&&tick>=after);
+    }
+    assert(calls==61&&fake_gpio_calls==gpio_calls&&receiver.status().callbacks==rx.callbacks&&receiver.status().claimed==rx.claimed);
+    assert(!w12_fine_bt_bracket(&before,&after,&slots,&half,+[](uint32_t*s,uint32_t*h){*s=0x10000000;*h=0;return true;})&&!before&&!after);
+    assert(!w12_fine_bt_bracket(&before,&after,&slots,&half,+[](uint32_t*s,uint32_t*h){*s=0;*h=625;return true;}));
+    assert(!w12_fine_bt_bracket(&before,&after,&slots,&half,+[](uint32_t*,uint32_t*){return false;}));
+    fake_complete=false;assert(!w12_fine_bt_bracket(&before,&after,&slots,&half,read)&&calls==61);
+    fake_complete=true;fake_clear_ok=false;fake_device.int_raw.val|=1u<<29;
+    uint32_t lo=0,hi=0;assert(!bt_aperture(&fake_device,lo,hi,&slots,&half,read)&&calls==61);
+    fake_clear_ok=true;fake_capture_read_inject=+[](int i){if(i==2)fake_complete=false;};
+    assert(!bt_aperture(&fake_device,lo,hi,&slots,&half,read)&&calls==62);
+    fake_capture_read_inject=nullptr;fake_complete=true;w12_fine_stop();assert(w12_fine_released());
+    assert(!w12_fine_bt_bracket(&before,&after,&slots,&half,read)&&!before&&!after&&calls==62);return 0;
+  }
   if(!std::strcmp(mode,"gnss")){
     FakeDevice gps{};gps.cap_timer_cfg.cap_timer_en=true;gps.cap_chn_cfg[1].capn_en=true;
     FakeGroup group{};group.group_id=0;group.hal.dev=&gps;

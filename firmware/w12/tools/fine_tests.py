@@ -55,7 +55,7 @@ def main():
  def run(command,label):
   with (out/(label+'.log')).open('w') as log:subprocess.run(list(map(str,command)),cwd=out,stdout=log,stderr=subprocess.STDOUT,check=True,timeout=40)
  run([cxx,*flags,APP/'tests/fine_clock_test.cpp','-o',out/'owner'],'owner-compile')
- for case in ('live','lora','gnss','pending_late','cleanup','wrap','storm','gap','route','enable','timeout','stopped','stale_raw','stale_radio','irq'):run([out/'owner',case],'owner-'+case)
+ for case in ('live','lora','gnss','bt','pending_late','cleanup','wrap','storm','gap','route','enable','timeout','stopped','stale_raw','stale_radio','irq'):run([out/'owner',case],'owner-'+case)
  run([cxx,*flags,APP/'tests/fine_shutdown_test.cpp','-o',out/'shutdown'],'shutdown-compile')
  for case in ('clean','timeout','cleanup'):run([out/'shutdown',case],'shutdown-'+case)
  for name in ('fine_counter','fine_receiver'):

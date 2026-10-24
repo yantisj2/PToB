@@ -1,5 +1,19 @@
 # W12 changelog
 
+## 0.2.9 — narrow fine-counter Bluetooth clock aperture
+
+- Enclose the unchanged pinned ROM Bluetooth-clock read with two raw,
+  driver-owned CURRENT latches. Validate owners before sampling and perform
+  counter extension and coordinate conversion after the aperture. Keep the
+  aperture and its fixed reader in instruction RAM.
+- Preserve the production counter origin, missing/stopped-latch refusals,
+  capture ownership, packet association, PHY checks and timing authority.
+  No new RF timestamp or uncertainty bound is asserted. Existing phase terms
+  remain disclosed and need a new hardware comparison after this change.
+- Exercise wrap crossings, unavailable readers, invalid Bluetooth coordinates,
+  missing completion, stale IRQ flags and stopped owners under ASan/UBSan.
+
+
 ## 0.2.8 — provisional relative-PPS phase offsets
 
 - Apply +7,671 ns once to delivered W12 G1 clock copies, including retained

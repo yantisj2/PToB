@@ -6,6 +6,11 @@ namespace v12::periodic_rx {struct Stamp;}
 // One boot-selected counter domain; failure never substitutes GPTimer ticks.
 bool w12_fine_start(uint64_t boot, uint64_t factory, uint64_t now_us);
 bool w12_fine_current(uint64_t* tick20);
+// Driver-owned raw CURRENT latches around one pinned ROM clock read. Counter
+// extension and coordinate conversion occur outside the sampled aperture.
+using W12FineBleRead=bool(*)(uint32_t* half_slots,uint32_t* half_us);
+bool w12_fine_bt_bracket(uint64_t* before20,uint64_t* after20,
+                        uint32_t* half_slots,uint32_t* half_us,W12FineBleRead);
 int w12_fine_receive(v12::periodic_rx::Stamp&); // 0 refused,1 pending,2 accepted
 void w12_fine_stop();
 bool w12_fine_released();

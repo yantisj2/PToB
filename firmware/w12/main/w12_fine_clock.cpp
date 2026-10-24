@@ -87,6 +87,24 @@ bool current(w12::fine::Time& t){
   uint32_t raw=0;
   return latch(raw)&&counter.current(1,raw,coarse(),t);
 }
+[[gnu::noinline]] bool IRAM_ATTR bt_aperture(mcpwm_dev_t* local,uint32_t& lo,uint32_t& hi,
+    uint32_t* slots,uint32_t* half_us,W12FineBleRead read){
+  const auto start=esp_cpu_get_cycle_count();
+  local->int_clr.val=CurrentMask;unsigned n=0;
+  for(;n<128;++n)if(!(local->int_raw.val&CurrentMask))break;
+  if(n==128)return false;
+  mcpwm_ll_trigger_soft_capture(local,2);
+  for(n=0;n<128;++n)if(local->int_raw.val&CurrentMask)break;
+  if(n==128)return false;
+  lo=mcpwm_ll_capture_get_value(local,2);
+  local->int_clr.val=CurrentMask;
+  for(n=0;n<128;++n)if(!(local->int_raw.val&CurrentMask))break;
+  if(n==128||!read(slots,half_us))return false;
+  mcpwm_ll_trigger_soft_capture(local,2);
+  for(n=0;n<128;++n)if(local->int_raw.val&CurrentMask)break;
+  if(n==128||uint32_t(esp_cpu_get_cycle_count()-start)>24000)return false;
+  hi=mcpwm_ll_capture_get_value(local,2);return true;
+}
 bool pending_ok(){
   auto* d=timer->group->hal.dev;
   const auto pending=d->int_raw.val&RadioMask;
@@ -193,6 +211,24 @@ bool w12_fine_current(uint64_t* tick20){
   w12::fine::Time t{};
   const bool ok=active&&!error&&pending_ok()&&current(t)&&receiver.coordinate(t.raw80,0,*tick20);
   if(!ok&&active){error=-2;contain();}
+  portEXIT_CRITICAL(&mux);return ok;
+}
+bool w12_fine_bt_bracket(uint64_t* before,uint64_t* after,uint32_t* slots,uint32_t* half_us,W12FineBleRead read){
+  if(before)*before=0;
+  if(after)*after=0;
+  if(slots)*slots=0;
+  if(half_us)*half_us=0;
+  if(!before||!after||before==after||!slots||!half_us||slots==half_us||!read)return false;
+  portENTER_CRITICAL(&mux);
+  uint32_t lo=0,hi=0,observed_slots=0,observed_half=0;
+  bool ok=active&&!error&&pending_ok()&&
+    bt_aperture(timer->group->hal.dev,lo,hi,&observed_slots,&observed_half,read)&&
+    observed_slots<=0x0fffffff&&observed_half<=624;
+  w12::fine::Time a{},b{};
+  const auto now=coarse();
+  if(ok)ok=counter.current(1,lo,now,a)&&counter.current(1,hi,now,b)&&
+    receiver.coordinate(a.raw80,0,*before)&&receiver.coordinate(b.raw80,0,*after)&&*after>=*before;
+  if(ok){*slots=observed_slots;*half_us=observed_half;}else *before=*after=0;
   portEXIT_CRITICAL(&mux);return ok;
 }
 bool w12_fine_gnss_map_bracket(mcpwm_cap_channel_t* channel,uint64_t* before,uint64_t* after){

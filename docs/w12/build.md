@@ -422,6 +422,14 @@ which RF endpoint caused the combined bias, certify legacy/BLE50 behavior,
 reduce residual jitter, calibrate UTC, or establish an uncertainty bound.
 GNSS-off profiles receive the same clock adjustment without enabling shadow PPS.
 
+Version0.2.9 fine builds use `FINE_RAW_CURRENT_BRACKET` for the Bluetooth clock
+read. Two owner-validated raw latches enclose the unchanged pinned ROM reader;
+counter extension and coordinate conversion occur afterwards. The aperture
+and reader reside in instruction RAM. Legacy builds retain the GPTimer bracket.
+Refused or stopped reads never substitute another clock. Retain measured
+aperture widths and repeat relative-PPS comparisons: earlier path offsets and
+precision populations do not qualify this new mapping by assumption.
+
 Version 0.1.16 accepts an optional `provisional_path` object in the ignored,
 factory-bound device input. Its absence selects no provisional profile; the
 shared nominal ADDRESS conversion still applies. This is an operator

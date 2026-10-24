@@ -840,14 +840,15 @@ extern "C" bool IRAM_ATTR clock_reference_read(uint64_t* count){
 #endif
 }
 extern "C" w12_ble_time_t r_rwip_time_get();
+#ifdef PTOB_W12_FINE_CLOCK
+static bool IRAM_ATTR read_fine_ble_clock(uint32_t* slots,uint32_t* half_us){
+  const auto observed=r_rwip_time_get();*slots=observed.half_slots;*half_us=observed.half_us;return true;
+}
+#endif
 extern "C" bool IRAM_ATTR clock_reference_bt_bracket(uint64_t* before,uint64_t* after,adv_rx::BleTime* time){
 #ifdef PTOB_W12_FINE_CLOCK
   if(!before||!after||!time||xPortGetCoreID()!=CONFIG_BT_CTRL_PINNED_TO_CORE)return false;
-  const auto saved=portSET_INTERRUPT_MASK_FROM_ISR();
-  const bool a=clock_reference_read(before);const auto observed=r_rwip_time_get();const bool b=clock_reference_read(after);
-  portCLEAR_INTERRUPT_MASK_FROM_ISR(saved);
-  if(!a||!b||*after<*before)return false;
-  time->half_slots=observed.half_slots;time->half_us=observed.half_us;return true;
+  return w12_fine_bt_bracket(before,after,&time->half_slots,&time->half_us,read_fine_ble_clock);
 #else
   w12_ble_time_t observed{};
   if(!time||w12_s3_ble_time_bracket(clock_timer,before,after,&observed)!=ESP_OK)return false;
