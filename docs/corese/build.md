@@ -67,7 +67,7 @@ candidate and hardware authorization are still required before installation.
 
 Version0.1.15 applies the four-file
 [`leader_recovery.patch`](../../firmware/corese/tools/leader_recovery.patch)
-from `6fd28f952f2787df9491fcda65a71ed0d4f3fa35`, recorded separately as
+from `677c044e41bd86cdb9d08e5a20806a0b65248c8d`, recorded separately as
 `shared_source_leader_recovery` with policy
 `FENCED_SCOPE_CACHE_CLEAR_1500MS_V2`. It clears old sessions, estimators,
 locators, selection history, cooldowns and pending timing after sustained

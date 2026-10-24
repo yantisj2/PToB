@@ -32,7 +32,7 @@ index e154aab..7bf761e 100644
    const G1ParentHistory& history()const{return history_;}
    SelectionView selection_view(uint64_t now)const{auto v=selection_;v.entries=uint8_t(history_.entries(now));return v;}
 diff --git a/firmware/w12/main/native_g1.cpp b/firmware/w12/main/native_g1.cpp
-index 0c83fdd..16352c7 100644
+index 0c83fdd..74d73d3 100644
 --- a/firmware/w12/main/native_g1.cpp
 +++ b/firmware/w12/main/native_g1.cpp
 @@ -110,6 +110,9 @@ void rc9_publish_status(uint64_t);
@@ -96,7 +96,7 @@ index 0c83fdd..16352c7 100644
          Report hint{};hint.kind=9;hint.callback_us=now;hint.actual_length=hint.length=16;
          for(unsigned j=0;j<8;j++){hint.bytes[j]=uint8_t(admission_root>>(8*j));hint.bytes[8+j]=uint8_t(admission_until>>(8*j));}
          transport_record(hint);parent_record(G1ParentReason::RootHint,now);continue;
-@@ -915,19 +926,38 @@ void changed_scope(uint64_t now,G1Reason reason,bool preserve_clock,G1ParentReas
+@@ -915,19 +926,39 @@ void changed_scope(uint64_t now,G1Reason reason,bool preserve_clock,G1ParentReas
    else coarse_hold.clear();
    diagnostic.reason(reason,now);anchor={};direct_session.clear();rc_client.fence();member=false;admission_root=admission_until=0;last_origin_ns=relay_train=0;window_corrected=false;
    if(reason==G1Reason::Permission||preserve_clock)corrected_clock.hold();else corrected_clock.withdraw();
@@ -117,7 +117,8 @@ index 0c83fdd..16352c7 100644
 +  retry_at=scan_retry_at=scan_retry_until=0;
 +  for(unsigned i=0;i<8;i++){locator_ids[i]=0;locators[i]={};recent[i]={};}
 +#ifdef PTOB_RC9
-+  for(auto& locator:rc9_locators)locator={};rc9_retry_at=0;
++  for(auto& locator:rc9_locators)locator={};
++  rc9_retry_at=0;
 +#endif
 +  Periodic discarded{};while(periodic.pop(discarded)){}
 +#if defined(PTOB_N30) || defined(PTOB_W12_FINE_CLOCK)
@@ -140,7 +141,7 @@ index 0c83fdd..16352c7 100644
    for(;processed<budget;++processed){
  #if defined(PTOB_N30) || defined(PTOB_W12_FINE_CLOCK)
    if(fine_waiting){row=fine_pending;fine_waiting=false;}else
-@@ -1031,7 +1061,7 @@ unsigned periodic_poll(uint64_t now,unsigned budget=8){Periodic row{};unsigned p
+@@ -1031,7 +1062,7 @@ unsigned periodic_poll(uint64_t now,unsigned budget=8){Periodic row{};unsigned p
  #endif
      if(!anchor_valid(now))continue;
      const bool same=row.identity==anchor.root&&p.boot==anchor.boot&&p.source_epoch==anchor.source_epoch&&p.train==anchor.publication;
@@ -149,7 +150,7 @@ index 0c83fdd..16352c7 100644
      renew_permission(p.created_ns,p.expires_ns,p.utc_offset_ns,now);discipline_scope(now);
  #ifdef V12_R2_RX_SHADOW
      uint64_t available=0;clock_reference_read(&available);
-@@ -1050,7 +1080,7 @@ unsigned periodic_poll(uint64_t now,unsigned budget=8){Periodic row{};unsigned p
+@@ -1050,7 +1081,7 @@ unsigned periodic_poll(uint64_t now,unsigned budget=8){Periodic row{};unsigned p
      if(!anchor_valid(now)){diagnostic.reason(G1Reason::Permission,now);continue;}
      const bool same=ids[p.origin.root]==anchor.root&&p.origin.boot==anchor.boot&&p.origin.source_epoch==anchor.source_epoch&&
        row.identity==joined_peer&&p.route.boot==joined_boot&&(!relay_train||relay_train==p.route.train);
@@ -158,7 +159,7 @@ index 0c83fdd..16352c7 100644
      if(!fresh_envelope(p.origin.created_ns,p.origin.expires_ns,p.origin.utc_offset_ns,now,true)){diagnostic.reason(G1Reason::Permission,now);continue;}
      relay_train=p.route.train;
      if(row.capture.actual&&row.capture.association_observed)parent_selection.delivered(p.route.train,row.capture.event,now);
-@@ -1180,7 +1210,12 @@ void active_poll(uint64_t now){
+@@ -1180,7 +1211,12 @@ void active_poll(uint64_t now){
    // FOLLOW already ended at its signed deadline. Only a newly matched fresh
    // correction can restore it. Losing the anchor here also loses PA reception
    // and turns a missed window into repeated expensive JOIN-only acquisition.

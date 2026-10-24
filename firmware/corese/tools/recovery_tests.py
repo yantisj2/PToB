@@ -12,7 +12,8 @@ out=a.out.resolve();out.mkdir(parents=True,exist_ok=False);root=out/'source';sou
 prepare(out/'runtime',root) # Also require every target-local overlay anchor.
 # Freeze the matching reviewed fixtures as other targets advance independently.
 # Production receiver retains the pinned baseline plus the scoped backports.
-data=subprocess.check_output(['git','-C',str(REPO),'archive',LEADER_REF,'firmware/w12/tests','firmware/w12/tools'])
+fixture_ref='6fd28f952f2787df9491fcda65a71ed0d4f3fa35' # Matching client baseline, without W12-only server handback.
+data=subprocess.check_output(['git','-C',str(REPO),'archive',fixture_ref,'firmware/w12/tests','firmware/w12/tools'])
 with tarfile.open(fileobj=io.BytesIO(data)) as archive:
  for item in archive:
   name=Path(item.name)

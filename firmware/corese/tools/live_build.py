@@ -9,7 +9,7 @@ APP=Path(__file__).resolve().parents[1];REPO=APP.parents[1]
 SHARED_REF='699f100c4e01db563f8e4b0a9f8d01d15e8600a4'
 RECOVERY_REF='6ac2721becf37b3c5d22919eea9e25e24a4054cf'
 RECOVERY_POLICY='AUTO_RC9_PASSIVE_NORMAL_RETRY_V1'
-LEADER_REF='6fd28f952f2787df9491fcda65a71ed0d4f3fa35'
+LEADER_REF='677c044e41bd86cdb9d08e5a20806a0b65248c8d'
 LEADER_POLICY='FENCED_SCOPE_CACHE_CLEAR_1500MS_V2'
 SHARED_PATHS=['firmware/n30/main','firmware/n30/CMakeLists.txt','firmware/n30/sdkconfig.defaults','firmware/n30/sdkconfig.g1.defaults','firmware/w12/main','firmware/w12/legacy','firmware/ss3/main/td_publication.hpp',*['firmware/t096/protocol/'+n for n in ('role_announcement.c','role_announcement.h','group_auth.c','group_auth.h')]]
 sys.path.insert(0,str(REPO/'registry'))
