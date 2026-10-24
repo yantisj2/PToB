@@ -1,0 +1,120 @@
+{
+  "schema": 1,
+  "author": "Jonathan Yantis",
+  "edition": "LOW_LEVEL_IMPLEMENTATION_GUIDE",
+  "edition_date": "2026-10-24",
+  "review_status": "DRAFT_FOR_USER_REVIEW",
+  "page_count": 7,
+  "paper_license": "CC-BY-4.0",
+  "evidence_license": "CC-BY-4.0",
+  "code_documentation_license": "MIT",
+  "implementation_commit": "b5ecbb0b13dbab955282327afe16e4d08d24d823",
+  "prior_paper_unchanged": "papers/editions/s3-timing-2026-10-22-fine.json",
+  "hardware_operations_by_paper_author": false,
+  "push_or_deployment": false,
+  "current_source_pins_publication": "SEPARATE_AUTHORIZATION_REQUIRED",
+  "empirical_reproduction": "SELECTED_AGGREGATES_ONLY_NO_PUBLIC_RAW_ROWS",
+  "full_timing_certification": "FAIL",
+  "compiler": {
+    "engine": "Tectonic",
+    "version": "0.17.0",
+    "command": "tectonic --keep-logs --keep-intermediates --outdir artifacts/paper-build papers/ptob-esp32s3-low-level-timing.tex",
+    "warnings": false,
+    "log_sha256": "057793ba1ffa0aa242a244d1d9d8ed1c7f2717872f78e5ddc89113e78b27c5ef",
+    "native_codex_compiler": "SUCCESS_BEFORE_FINAL_LAYOUT_EDITS"
+  },
+  "checks": {
+    "fine_owner_counter_receiver": "PASS_ASAN_UBSAN_SYNTHETIC",
+    "gnss_shadow_prediction": "PASS_SYNTHETIC",
+    "full_g1_suite": "NOT_RERUN_NO_FIRMWARE_CHANGE",
+    "visual": "ALL_7_PAGES_RENDERED_AND_INSPECTED",
+    "statistics": "NEW_AGGREGATES_NOT_RAW_RECOMPUTATION"
+  },
+  "files": [
+    {
+      "path": "papers/ptob-esp32s3-low-level-timing.tex",
+      "bytes": 30371,
+      "sha256": "cd51bb204b8d72e719ea58662c55253f8c46ade500e52c1ca8a4b3a9cb63ea57",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "papers/ptob-esp32s3-low-level-timing.pdf",
+      "bytes": 116584,
+      "sha256": "f98bd83e96088477626d7fab821a1211a758ea0bcb08a08904629faa26659060",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "papers/supplements/esp32s3-low-level-2026-10-24.json",
+      "bytes": 3401,
+      "sha256": "b4b3e4422a04e2f983c1136ee4c3383ec9a6c97ccd542b5bf7cca60079f499ba",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "tools/verify_s3_low_level_paper.py",
+      "bytes": 3072,
+      "sha256": "1627aef6a1dcb0b5835501d0590957b7f739a183e99d9427db129cf668696a26",
+      "license": "MIT"
+    }
+  ],
+  "implementation_sources": [
+    {
+      "path": "firmware/w12/main/w12_fine_clock.cpp",
+      "at_commit": "b5ecbb0b13dbab955282327afe16e4d08d24d823",
+      "sha256": "b8285e82a5e6ac9a317ad8980f8ca1d3dd635db6e0c3cc0279a551f879f3ecee"
+    },
+    {
+      "path": "firmware/w12/main/fine_counter.hpp",
+      "at_commit": "b5ecbb0b13dbab955282327afe16e4d08d24d823",
+      "sha256": "d41651486c3d8e3d562325f02cb0d95ca118eb91fa0aedfbbccec2b4633728f9"
+    },
+    {
+      "path": "firmware/w12/main/fine_receiver.hpp",
+      "at_commit": "b5ecbb0b13dbab955282327afe16e4d08d24d823",
+      "sha256": "24f18a1c4cfebdb8a245a5689135ee284350aff35be28d29a45f96647b17ce9d"
+    },
+    {
+      "path": "firmware/w12/main/g1_corrected_clock.hpp",
+      "at_commit": "b5ecbb0b13dbab955282327afe16e4d08d24d823",
+      "sha256": "34ffc9558ef8fde73935050f6dc19856b770cb8bbdc736fe4ba3fd1dd9f7d825"
+    },
+    {
+      "path": "firmware/w12/main/g1_clock_prediction.hpp",
+      "at_commit": "b5ecbb0b13dbab955282327afe16e4d08d24d823",
+      "sha256": "77fe24a41a31971da9073e7069b13345446e3c3018c50a44f6e4461d0aca7d50"
+    },
+    {
+      "path": "firmware/w12/main/periodic_tx.cpp",
+      "at_commit": "b5ecbb0b13dbab955282327afe16e4d08d24d823",
+      "sha256": "69dbe9b839f1feadc39d5c647c2fb0661bd04f04c1d8bd5b4cb9670d0b96e354"
+    },
+    {
+      "path": "firmware/w12/main/rc7_tx_estimate.hpp",
+      "at_commit": "b5ecbb0b13dbab955282327afe16e4d08d24d823",
+      "sha256": "a7e35e394c8abe95d4333499d57237397e19a901c543c0743f071f560065a20a"
+    },
+    {
+      "path": "firmware/w12/legacy/ptob_gps_shadow_clock.hpp",
+      "at_commit": "b5ecbb0b13dbab955282327afe16e4d08d24d823",
+      "sha256": "ddf115a0f42ad5821eb026f4872b7b351189d5901b6275cfa551dc0e42e15b2f"
+    },
+    {
+      "path": "docs/w12/build.md",
+      "at_commit": "b5ecbb0b13dbab955282327afe16e4d08d24d823",
+      "sha256": "d251805f0def63181193b85c099471a4d47a15893d68882358bfd6bcbf947724"
+    },
+    {
+      "path": "docs/w12/tx-reference.md",
+      "at_commit": "b5ecbb0b13dbab955282327afe16e4d08d24d823",
+      "sha256": "6ff9ea9c58ae65f2d4f900557a2e7e259063f67e7aec3ef14e7e508d1e57ef0d"
+    }
+  ],
+  "limitations": [
+    "Captured RW fall is an empirical packet-class phase convention, not qualified RF endpoint.",
+    "Four projections estimate programmed schedule, not physical TX.",
+    "GNSS prediction, delivered relative PPS and received-output populations remain distinct.",
+    "Original source expiry and pre-edge model activation are required.",
+    "Offsets are provisional; transfer to other units/profiles unmeasured.",
+    "Absolute UTC, RF, cable, GPIO and reference physical bounds remain UNKNOWN.",
+    "No pending T096 source169 hardware outcome used in this edition."
+  ]
+}

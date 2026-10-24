@@ -1,5 +1,22 @@
 # Manuscript history
 
+## 2026-10-24 — low-level ESP32-S3 implementation draft
+
+- Add a distinct seven-page instructional draft and matching LaTeX/PDF; preserve
+  the reviewed 22 October empirical paper and its manifests unchanged.
+- Explain driver-owned continuous MCPWM capture, counter extension, exact packet
+  joins, narrow IRAM clock apertures, capture-frozen causal predictions, dense
+  channel-aware fitting, bounded GNSS shadow curvature and four-projection
+  programmed TX estimates. Keep source expiry and activation races explicit.
+- Select sanitized aggregate observations with explicit CC BY 4.0 licensing;
+  retain source populations, downstream missingness, all tails, unknown RF/UTC
+  bounds and FAIL full certification. Public raw-row recomputation is unavailable
+  for the new observations. Add an offline identity/accounting/equation verifier.
+- Record the T096 whole-second source repair without claiming fresh hardware
+  results. Current source pins and this paper await separate publication.
+  No hardware action, source push, deployment or draft promotion accompanies
+  this preparation.
+
 ## 2026-10-22 — ESP32-S3 follow-up repository publication
 
 - Jonathan Yantis approved committing and pushing the measured-results follow-up,

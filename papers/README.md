@@ -1,8 +1,21 @@
 # Research papers — drafts
 
-These are working drafts by **Jonathan Yantis**. The latest addition is the
-**22 October 2026** robotic gPTP/TSN edge-adaptation study. The ESP32-S3 precision
-timing study has a **22 October follow-up research draft**; its earlier reviewed
+**New local review draft, 24 October 2026:**
+[Low-Level Timing on ESP32-S3: Event Capture, Clock Bridges, and Causal Validation](ptob-esp32s3-low-level-timing.pdf)
+is a separate seven-page implementation guide, with
+[LaTeX source](ptob-esp32s3-low-level-timing.tex),
+[edition receipt](editions/s3-low-level-2026-10-24.json), and
+[selected aggregate supplement](supplements/README.md).
+It explains continuous capture, narrow IRAM clock bridges, causal dense fitting,
+bounded curvature and programmed TX estimates. Current source pins await separate
+publication; new aggregate-only evidence retains its reproduction limits,
+unscorable downstream records, tails and failed full certification. It does not
+replace the 22 October paper or claim new producer-fix hardware results.
+
+These are working drafts by **Jonathan Yantis**. The newest local review addition
+is the **24 October 2026** low-level ESP32-S3 implementation guide. The robotic
+gPTP/TSN study and ESP32-S3 empirical timing study retain their **22 October**
+editions; the earlier reviewed
 edition remains preserved in Git. The shared time base and
 Bluetooth timecode compatibility study retains its **22 October** edition.
 The awake timing information and power scheduling pilot retains its

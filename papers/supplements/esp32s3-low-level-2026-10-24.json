@@ -1,0 +1,102 @@
+{
+  "schema": 1,
+  "author": "Jonathan Yantis",
+  "license": "CC-BY-4.0",
+  "date": "2026-10-24",
+  "status": "DRAFT_SELECTED_AGGREGATES_NOT_RAW_REPRODUCTION",
+  "implementation": {
+    "w12_version": "0.2.10",
+    "w12_commit": "b5ecbb0b13dbab955282327afe16e4d08d24d823",
+    "shadow_version": "0.2.7",
+    "shadow_commit": "7d028b622ccb741e4bb517e1c80e8405593812e1",
+    "t096_source_repair": "1a1fa96df54116b877a34cc7fa4445e91c2860f8",
+    "new_source_repair_hardware_result_in_this_edition": false
+  },
+  "provenance": {
+    "selection": "Explicitly selected aggregate statistics from completed local 24 October W12 research summaries; no wholesale import.",
+    "transform": "Remove exact device aliases, IDs, boots, enrollment, raw logs and private paths. Retain source versions, populations, signed statistics, missingness and limitations.",
+    "raw_public": false,
+    "empirical_statistics_recomputable_from_public_rows": false
+  },
+  "predictor_0_2_7": {
+    "denominator": 600,
+    "raw": {
+      "eligible": 600,
+      "mean_ns": 0.568,
+      "rms_ns": 11.827,
+      "max_abs_ns": 101
+    },
+    "mapped": {
+      "eligible": 600,
+      "mean_ns": 0.76,
+      "rms_ns": 24.771,
+      "max_abs_ns": 85
+    },
+    "independent_replay_per_model": 568,
+    "initial_history_unavailable_for_replay": 32,
+    "all600_retained_in_metrics": true,
+    "map_read_rounding_enclosure_ns": [
+      438,
+      538
+    ]
+  },
+  "earlier_aperture_0_2_6_ns": [
+    650,
+    750
+  ],
+  "receive_0_2_10": {
+    "windows_s": [
+      300,
+      300
+    ],
+    "denominator": 600,
+    "eligible": 600,
+    "mean_ns": -27.121666666666666,
+    "rms_ns": 40.79466876933798,
+    "centered_std_ns": 30.47327020886046,
+    "max_abs_ns": 128,
+    "strict_below200": 600,
+    "strict_below100": 593,
+    "final_window_refit": false
+  },
+  "downstream_0_2_10": {
+    "denominator_logged": 600,
+    "eligible": 494,
+    "unscorable": 106,
+    "mean_ns": -52.24696356275304,
+    "rms_ns": 77.649868153729,
+    "centered_std_ns": 57.443509840223506,
+    "max_abs_ns": 372,
+    "at_least200": 2,
+    "boundary": "One positively identified post-window label retained in full logged population; not silently removed."
+  },
+  "sampled_received_path": {
+    "selected_tx": 120,
+    "rx_seen": 86,
+    "followup_matched": 66,
+    "pps_scored": 63,
+    "mean_ns": -62.888888888888886,
+    "rms_ns": 104.86378163318686,
+    "centered_std_ns": 83.91305233832033,
+    "max_abs_ns": 229,
+    "at_least200": 3
+  },
+  "offsets_ns": {
+    "delivered_receive": 7671,
+    "relay_residual_beyond_nominal_address": 4026,
+    "old_output_minus_relative_fraction": -28835875,
+    "nominal_le1m_start_to_address": 40000
+  },
+  "full_certification": "FAIL",
+  "RF_bound": "UNKNOWN",
+  "absolute_UTC": "UNKNOWN",
+  "other_units_profiles": "UNMEASURED_TRANSFER",
+  "limitations": [
+    "Relative-PPS and GNSS-next-edge prediction are different metrics.",
+    "Aggregate received-output path does not identify TX delay or calibrated RF endpoint.",
+    "Downstream unscorable records, mostly activation races, remain in denominator.",
+    "Reference, cable, GPIO and RF physical uncertainties remain unqualified.",
+    "Original source/model expiry, ownership, causal availability and finite observation limits remain.",
+    "No new hardware experiment, deployment, source push, draft promotion or publication accompanies paper preparation."
+  ]
+}
