@@ -1,10 +1,15 @@
 # CoreS3-SE precision diagnostics instrument
 
-**Version 0.1.14** turns the M5Stack CoreS3-SE (K128-SE) into a portable front
+**Version 0.1.15** turns the M5Stack CoreS3-SE (K128-SE) into a portable front
 panel for PToB timing: inspect receiver precision, source lineage, mesh roles and
 the grandmaster's GNSS/PTP quality on a 320×240 touchscreen. It is a dedicated
 client with an instrument-style display. Start with the
 [build guide](../../docs/corese/build.md).
+
+Version 0.1.15 also clears normal-source selection history when authenticated
+RC9 fallback takes over or a direct leader returns after an empty scope. Fresh
+boots retain no learned parent, timing model or retry history; explicit operator
+pins and calibration remain separate from discovery.
 
 Version 0.1.14 clears old leader selection, discovery, retry and estimator state
 on sustained source loss or an authenticated incarnation change. It backports

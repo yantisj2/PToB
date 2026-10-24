@@ -2,7 +2,7 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
-Read [the target README](../../firmware/corese/README.md). Version0.1.14 provides
+Read [the target README](../../firmware/corese/README.md). Version0.1.15 provides
 the live client; the earlier UI preparation build remains an offline design tool.
 
 ## Dependencies and offline checks
@@ -65,13 +65,16 @@ identity, PSRAM/client settings, relay exclusion and absent Wi-Fi runtime owner.
 Source snapshots may include uncommitted development; an exact operator-reviewed
 candidate and hardware authorization are still required before installation.
 
-Version0.1.14 also applies the three-file
+Version0.1.15 applies the four-file
 [`leader_recovery.patch`](../../firmware/corese/tools/leader_recovery.patch)
-from `c98f6f2af41ad4be6a3d505b34a473373c54bf76`, recorded separately as
+from `6fd28f952f2787df9491fcda65a71ed0d4f3fa35`, recorded separately as
 `shared_source_leader_recovery` with policy
-`FENCED_SCOPE_CACHE_CLEAR_1500MS_V1`. It clears old sessions, estimators,
+`FENCED_SCOPE_CACHE_CLEAR_1500MS_V2`. It clears old sessions, estimators,
 locators, selection history, cooldowns and pending timing after sustained
-source-permission loss, with bounded recovery admission. Original controller
+source-permission loss, with bounded recovery admission. It also fences old
+normal-source history at authenticated RC9 takeover and direct-root admission
+after an empty scope. Learned parents and models remain RAM-only; a fresh boot
+requires live discovery and authentication. Original controller
 owners and drain deadlines remain real and must complete. Target-local
 source-bound capability/residual/scan observations are withdrawn on scope loss.
 Explicit historical GM reports retain their original expiry and cannot grant

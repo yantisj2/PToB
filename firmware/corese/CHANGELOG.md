@@ -2,6 +2,15 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 0.1.15 — complete fallback scope fencing
+
+- Clear normal-source selection history and retry state at authenticated RC9
+  takeover and fresh direct-root admission after an empty scope. Preserve the
+  original authenticated lease and real controller drain deadlines.
+- Verify fresh-boot and same-address incarnation changes with production native
+  fixtures; learned parents and models are never restored from flash.
+- Keep the pinned receiver baseline and target GPIO6/7 counter route.
+
 ## 0.1.14 — leader transition recovery
 
 - Backport the tested W12 leader-loss/changed-incarnation cache fence to the

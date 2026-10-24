@@ -32,7 +32,7 @@ index e154aab..7bf761e 100644
    const G1ParentHistory& history()const{return history_;}
    SelectionView selection_view(uint64_t now)const{auto v=selection_;v.entries=uint8_t(history_.entries(now));return v;}
 diff --git a/firmware/w12/main/native_g1.cpp b/firmware/w12/main/native_g1.cpp
-index 0c83fdd..a992b42 100644
+index 0c83fdd..16352c7 100644
 --- a/firmware/w12/main/native_g1.cpp
 +++ b/firmware/w12/main/native_g1.cpp
 @@ -110,6 +110,9 @@ void rc9_publish_status(uint64_t);
@@ -69,7 +69,7 @@ index 0c83fdd..a992b42 100644
      }
 +    // A newly authenticated direct leader retires all old estimator and
 +    // selection state before its coarse bootstrap is installed.
-+    if(r.root==r.sender&&r.root_boot==r.sender_boot&&anchor.source&&
++    if(r.root==r.sender&&r.root_boot==r.sender_boot&&
 +       (anchor.root!=r.root||anchor.boot!=r.root_boot||anchor.source_epoch!=r.source_epoch||anchor.publication!=r.publication))forget_leader(now,true);
      member=true;joined_peer=r.sender;joined_boot=r.sender_boot;cooldown(r.sender,now,5000000);
      if(timed){
@@ -117,7 +117,7 @@ index 0c83fdd..a992b42 100644
 +  retry_at=scan_retry_at=scan_retry_until=0;
 +  for(unsigned i=0;i<8;i++){locator_ids[i]=0;locators[i]={};recent[i]={};}
 +#ifdef PTOB_RC9
-+  for(auto& locator:rc9_locators)locator={};
++  for(auto& locator:rc9_locators)locator={};rc9_retry_at=0;
 +#endif
 +  Periodic discarded{};while(periodic.pop(discarded)){}
 +#if defined(PTOB_N30) || defined(PTOB_W12_FINE_CLOCK)
@@ -172,3 +172,16 @@ index 0c83fdd..a992b42 100644
    if(!rc_bound()&&anchor.source&&anchor.rebootstrap(now))member=false;
    if(usable_utc()&&anchor.valid(now)&&!anchor.live(now))coarse_hold.retain(anchor);
    if(admission_root&&now>=admission_until)admission_root=admission_until=0;
+diff --git a/firmware/w12/main/rc9_client_native.inc b/firmware/w12/main/rc9_client_native.inc
+index ef461fd..a0e64b8 100644
+--- a/firmware/w12/main/rc9_client_native.inc
++++ b/firmware/w12/main/rc9_client_native.inc
+@@ -10,7 +10,7 @@ void rc9_receive_control(const Incoming& row,uint64_t now){
+   peer.stage=5;peer.ready=true;peer.send_kind=uint8_t(rc9::Type::Request);
+  }else if(peer.stage==6&&c.type==rc9::Type::Response){
+   const auto old=rc9_client.view(now);
+-  if(!old.bound||old.server!=c.sender||old.server_boot!=c.sender_boot)changed_scope(now);
++  if(!old.bound||old.server!=c.sender||old.server_boot!=c.sender_boot)forget_leader(now,true);
+   if(!rc9_client.bind(c,now)){inc(rejected);peer.dead=true;return;}
+   joined_peer=c.sender;joined_boot=c.sender_boot;member=true;sync_address=peer.address;
+   sync_identity=c.sender;if(!synced&&!sync_pending)sync_selected=true;

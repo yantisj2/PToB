@@ -9,8 +9,8 @@ APP=Path(__file__).resolve().parents[1];REPO=APP.parents[1]
 SHARED_REF='699f100c4e01db563f8e4b0a9f8d01d15e8600a4'
 RECOVERY_REF='6ac2721becf37b3c5d22919eea9e25e24a4054cf'
 RECOVERY_POLICY='AUTO_RC9_PASSIVE_NORMAL_RETRY_V1'
-LEADER_REF='c98f6f2af41ad4be6a3d505b34a473373c54bf76'
-LEADER_POLICY='FENCED_SCOPE_CACHE_CLEAR_1500MS_V1'
+LEADER_REF='6fd28f952f2787df9491fcda65a71ed0d4f3fa35'
+LEADER_POLICY='FENCED_SCOPE_CACHE_CLEAR_1500MS_V2'
 SHARED_PATHS=['firmware/n30/main','firmware/n30/CMakeLists.txt','firmware/n30/sdkconfig.defaults','firmware/n30/sdkconfig.g1.defaults','firmware/w12/main','firmware/w12/legacy','firmware/ss3/main/td_publication.hpp',*['firmware/t096/protocol/'+n for n in ('role_announcement.c','role_announcement.h','group_auth.c','group_auth.h')]]
 sys.path.insert(0,str(REPO/'registry'))
 from registry import load,header
@@ -56,7 +56,7 @@ def freeze_shared(root):
  subprocess.run([*args,'--check',str(patch)],check=True,cwd=REPO)
  subprocess.run([*args,str(patch)],check=True,cwd=REPO)
  patch=APP/'tools/leader_recovery.patch'
- expected={'firmware/w12/main/native_g1.cpp','firmware/w12/main/g1_admission_policy.hpp','firmware/w12/main/g1_parent_selection.hpp'}
+ expected={'firmware/w12/main/native_g1.cpp','firmware/w12/main/g1_admission_policy.hpp','firmware/w12/main/g1_parent_selection.hpp','firmware/w12/main/rc9_client_native.inc'}
  if set(re.findall(r'^diff --git a/(\S+) b/\1$',patch.read_text(),re.M))!=expected:raise ValueError('Leader patch target scope changed')
  subprocess.run([*args,'--check',str(patch)],check=True,cwd=REPO)
  subprocess.run([*args,str(patch)],check=True,cwd=REPO)
@@ -64,20 +64,21 @@ def freeze_shared(root):
 
 def inspect(out):
  out=Path(out);r=json.loads((out/'receipt.json').read_text());
- if r.get('kind')!='CORESE_LIVE_CLIENT' or r.get('version') not in ('0.1.1','0.1.2','0.1.3','0.1.4','0.1.5','0.1.6','0.1.7','0.1.8','0.1.9','0.1.10','0.1.11','0.1.12','0.1.13','0.1.14'):raise ValueError('Wrong client artifact class/version')
+ if r.get('kind')!='CORESE_LIVE_CLIENT' or r.get('version') not in ('0.1.1','0.1.2','0.1.3','0.1.4','0.1.5','0.1.6','0.1.7','0.1.8','0.1.9','0.1.10','0.1.11','0.1.12','0.1.13','0.1.14','0.1.15'):raise ValueError('Wrong client artifact class/version')
  target=out/'target';i=json.loads((target/'v12_build_identity.json').read_text())
  for n,h in r['sources'].items():
   if sha(out/'source'/n)!=h:raise ValueError('Retained source mismatch: '+n)
  for n,h in r['artifacts'].items():
   if sha(out/n)!=h:raise ValueError('Build artifact mismatch: '+n)
- if r['version'] in ('0.1.11','0.1.12','0.1.13','0.1.14'):
+ if r['version'] in ('0.1.11','0.1.12','0.1.13','0.1.14','0.1.15'):
   recovery=r.get('shared_source_recovery',{})
   if r['shared_source_git_ref']!=SHARED_REF or recovery.get('commit')!=RECOVERY_REF or recovery.get('policy')!=RECOVERY_POLICY or recovery.get('patch_sha256')!=sha(out/'source/firmware/corese/tools/auto_rc9_recovery.patch'):raise ValueError('Recovery backport provenance mismatch')
  if r['version']=='0.1.12' and r.get('diagnostic_scan_policy')!='FRESH_ASSOCIATED_PA_12MS_MIN200MS_V1':raise ValueError('Diagnostic scan policy mismatch')
- if r['version'] in ('0.1.13','0.1.14') and (r.get('diagnostic_scan_policy')!='FRESH_ASSOCIATED_PA_12MS_MIN200MS_AGE10MS_V1' or r.get('retained_display_policy')!='LAST_PHYSICAL_DELIVERY_500MS_NO_PRECISION_V1'):raise ValueError('Scan/HOLD policy mismatch')
- if r['version']=='0.1.14':
+ if r['version'] in ('0.1.13','0.1.14','0.1.15') and (r.get('diagnostic_scan_policy')!='FRESH_ASSOCIATED_PA_12MS_MIN200MS_AGE10MS_V1' or r.get('retained_display_policy')!='LAST_PHYSICAL_DELIVERY_500MS_NO_PRECISION_V1'):raise ValueError('Scan/HOLD policy mismatch')
+ if r['version'] in ('0.1.14','0.1.15'):
   leader=r.get('shared_source_leader_recovery',{})
-  if leader.get('commit')!=LEADER_REF or leader.get('policy')!=LEADER_POLICY or leader.get('patch_sha256')!=sha(out/'source/firmware/corese/tools/leader_recovery.patch'):raise ValueError('Leader backport provenance mismatch')
+  leader_ref,leader_policy=('c98f6f2af41ad4be6a3d505b34a473373c54bf76','FENCED_SCOPE_CACHE_CLEAR_1500MS_V1') if r['version']=='0.1.14' else (LEADER_REF,LEADER_POLICY)
+  if leader.get('commit')!=leader_ref or leader.get('policy')!=leader_policy or leader.get('patch_sha256')!=sha(out/'source/firmware/corese/tools/leader_recovery.patch'):raise ValueError('Leader backport provenance mismatch')
  config=(target/'sdkconfig').read_text().splitlines()
  for flag in ('CONFIG_SPIRAM=y','CONFIG_SPIRAM_MODE_QUAD=y','CONFIG_SPIRAM_SPEED_80M=y','CONFIG_SPIRAM_USE_MALLOC=y','CONFIG_BT_ENABLED=y','CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y','CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y','CONFIG_BT_CTRL_BLE_MAX_ACT_EFF=6'):
   if flag not in config:raise ValueError('Required setting missing: '+flag)
@@ -131,7 +132,7 @@ def main():
  (local/'r2-enrollment.h').write_text('/* CoreSE source:'+digest+' */\nstatic const r2_group_enrollment provision={{{'+','.join(map(str,key))+'},UINT64_C(0x'+e['group_id']+'),'+str(e['key_epoch'])+'},UINT64_C(0x'+d['device_id']+'),'+json.dumps(d['label'])+',40000};\n')
  prepare(out/'runtime',out/'source');commit=subprocess.check_output(['git','-C',str(REPO),'rev-parse','HEAD'],text=True).strip()
  dirty=bool(subprocess.check_output(['git','-C',str(REPO),'status','--porcelain']))
- r={'schema':1,'kind':'CORESE_LIVE_CLIENT','version':'0.1.14','status':'INCOMPLETE','public_commit':commit,'shared_source_git_ref':SHARED_REF,'diagnostic_scan_policy':'FRESH_ASSOCIATED_PA_12MS_MIN200MS_AGE10MS_V1','retained_display_policy':'LAST_PHYSICAL_DELIVERY_500MS_NO_PRECISION_V1','shared_source_leader_recovery':{'commit':LEADER_REF,'policy':LEADER_POLICY,'patch_sha256':sha(APP/'tools/leader_recovery.patch')},'shared_source_recovery':{'commit':RECOVERY_REF,'policy':RECOVERY_POLICY,'patch_sha256':sha(APP/'tools/auto_rc9_recovery.patch')},'source_dirty':dirty,'sources':snapshot,'source_sha256':digest,'dependencies':pins,'device_id':d['device_id'],'factory_mac':d['factory_mac'],'relay':False,'fine_gpio':[6,7],'calibration':'NONE','precision':'UNQUALIFIED','hardware_access':False,'installed':False}
+ r={'schema':1,'kind':'CORESE_LIVE_CLIENT','version':'0.1.15','status':'INCOMPLETE','public_commit':commit,'shared_source_git_ref':SHARED_REF,'diagnostic_scan_policy':'FRESH_ASSOCIATED_PA_12MS_MIN200MS_AGE10MS_V1','retained_display_policy':'LAST_PHYSICAL_DELIVERY_500MS_NO_PRECISION_V1','shared_source_leader_recovery':{'commit':LEADER_REF,'policy':LEADER_POLICY,'patch_sha256':sha(APP/'tools/leader_recovery.patch')},'shared_source_recovery':{'commit':RECOVERY_REF,'policy':RECOVERY_POLICY,'patch_sha256':sha(APP/'tools/auto_rc9_recovery.patch')},'source_dirty':dirty,'sources':snapshot,'source_sha256':digest,'dependencies':pins,'device_id':d['device_id'],'factory_mac':d['factory_mac'],'relay':False,'fine_gpio':[6,7],'calibration':'NONE','precision':'UNQUALIFIED','hardware_access':False,'installed':False}
  dump(out/'receipt.json',r);target=out/'target';env=os.environ.copy();env.update(IDF_PATH=str(sdk),IDF_COMPONENT_MANAGER='0',PYTHONPYCACHEPREFIX=str(out/'pycache'),IDF_CCACHE_ENABLE='0')
  for k in ('CFLAGS','CXXFLAGS','CPPFLAGS','LDFLAGS','EXTRA_COMPONENT_DIRS','SDKCONFIG_DEFAULTS'):env.pop(k,None)
  values={'SDKCONFIG':str(target/'sdkconfig'),'CORESE_LIVE':'ON','CORESE_DEPENDENCIES':str(deps),'CORESE_RUNTIME':str(out/'runtime'),'CORESE_SOURCE_SHA':digest,'V12_SOURCE_REVISION':commit,'V12_R2_ENROLLMENT_HEADER':str(local/'r2-enrollment.h'),'PTOB_DEVICE_HEADER':str(local/'ptob_device.h'),'PTOB_REGISTRY_HEADER':str(local/'ptob_registry.h'),'PTOB_FINE_HEADER':str(local/'fine_capture_config.h'),'PTOB_LORA_HEADER':str(local/'n30_lora_config.h'),'CCACHE_ENABLE':'OFF'}
