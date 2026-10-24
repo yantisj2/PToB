@@ -25,7 +25,7 @@ void line_drop(bool expired=false){increment(stats.dropped);if(expired)increment
 // Static buffers keep the finite console task's stack independent of frame size.
 ConsoleFrame current_frame;
 Line current_line;
-char trailer[800]{};
+char trailer[790]{};
 void output(void*){
   size_t offset=0,line_offset=0,end_offset=0,end_length=0;bool frame_active=false,ending=false;
   while(true){

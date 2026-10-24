@@ -404,6 +404,24 @@ parent and precision gates are unchanged.
 
 ## Provisional aggregate-path offset
 
+Version0.2.8 also selects two shared provisional W12 relative-PPS constants:
+`receive_ns=7671` and `relay_residual_ns=3030`. The receive term appears once
+in delivered clock copies, including relay inputs, while the raw fitter stays
+unshifted. The relay term adds to the nominal ADDRESS projection unless an
+explicit aggregate total below supersedes that residual. Neither term changes
+source envelopes, deadlines, physical captures or the oscillator frequency fit.
+Receipts carry `phase_offsets`; status reports `rxcal`, PPS records retain
+`raw_relative_phase_ns` and `receive_correction_ns`, and version3 TX companions
+retain the receive term plus nominal/residual/total projection. An inspector
+and matching console manifest must disclose both constants.
+
+The measurements come from one fine BLE100 W12 and a T096 child with its
+existing receiver correction. Applying these defaults to all W12 units and
+profiles is an operator-selected, unmeasured transfer. It does not identify
+which RF endpoint caused the combined bias, certify legacy/BLE50 behavior,
+reduce residual jitter, calibrate UTC, or establish an uncertainty bound.
+GNSS-off profiles receive the same clock adjustment without enabling shadow PPS.
+
 Version 0.1.16 accepts an optional `provisional_path` object in the ignored,
 factory-bound device input. Its absence selects no provisional profile; the
 shared nominal ADDRESS conversion still applies. This is an operator

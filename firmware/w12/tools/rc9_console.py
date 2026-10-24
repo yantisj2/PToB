@@ -15,7 +15,7 @@ class Parser(base.Parser):
    for row,keys in [('STATUS','sampled_us UTC_us until_us valid following fault'),('QUALITY','assurance authority metadata_known upstream_link_rms_ns'),('COUNTERS','sequence accepted rejected'),('LEASE','until_us clients serving radio_hold_ms')]:
     for key in keys.split():base.require(rows['W12_RC9_'+row].get(key,'').isdigit(),'RC9 numeric '+key)
    for key in ('server','server_boot','root','root_boot','emitter','emitter_boot'):base.require(base.HEX16.fullmatch(rows['W12_RC9_ORIGIN'].get(key,'')),'RC9 identity '+key)
-   if self.manifest.get('version') in ('0.2.5','0.2.6','0.2.7'):base.require('service_flags' in rows['W12_RC9_LEASE'],'RC9 service flags required for version25/26')
+   if self.manifest.get('version') in ('0.2.5','0.2.6','0.2.7','0.2.8'):base.require('service_flags' in rows['W12_RC9_LEASE'],'RC9 service flags required for version25/26')
    if 'service_flags' in rows['W12_RC9_LEASE']:base.require(rows['W12_RC9_LEASE']['service_flags'].isdigit() and int(rows['W12_RC9_LEASE']['service_flags'])<=15,'RC9 service flags')
    base.require(int(rows['W12_RC9_LEASE']['clients'])<=8,'Bounded RC9 children')
    ui=rows['W12_UI_CLOCK'];base.require(ui.get('phase')=='UTC_SECOND','Display scheduler contract')

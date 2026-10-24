@@ -128,13 +128,13 @@ v12::G1PpsDiagnostic production_pps_diagnostic;
     " root=%016" PRIx64 " root_boot=%016" PRIx64 " source=%" PRIu32 " train=%" PRIu32 " scope=%" PRIu32
     " model20=%" PRIu64 " activation_lo20=%" PRIu64 " known20=%" PRIu64 " until20=%" PRIu64 " permission20=%" PRIu64
     " epoch_ns=%" PRId64 " phase_left_ns=%" PRId64 " rate_mppb=%" PRId64 " rate_known=%u UTC_offset_ns=%" PRId64
-    " relative_phase_ns=%" PRId32 " receiver_phase_ns=%" PRId32 " output_phase_ns=%" PRId32 " output_correction_ns=%" PRId32
+    " relative_phase_ns=%" PRId32 " receiver_phase_ns=%" PRId32 " output_phase_ns=%" PRId32 " output_correction_ns=%" PRId32 " receive_correction_ns=%" PRId32 " raw_relative_phase_ns=%" PRId32
     " GPS_epoch=%" PRIu32 " rmc20=%" PRIu64 " rmc_second=%" PRIu32
     " clock=PRODUCTION_G1_ACTUATOR association=EMPIRICAL_UNCALIBRATED RF_bound=UNKNOWN UTC_bound=UNKNOWN BLE_training=NONE\n",
     edge.number,edge.tick,edge.raw_extended,edge.map_bracket_ns,unsigned(score.map_valid),unsigned(r.reason),unsigned(r.reference),
     unsigned(r.following),unsigned(r.permission),r.session,m.root,m.boot,m.source,m.train,m.scope,m.clock.tick,m.lo,m.active,m.until,m.permission,
     m.clock.epoch,m.clock.phase,rate_mppb,unsigned(rate_known),m.clock.utc_offset,
-    r.phase_ns,receiver_phase,output_phase,m.clock.output_correction_ns,ref.epoch,ref.rmc20,ref.second);
+    r.phase_ns,receiver_phase,output_phase,m.clock.output_correction_ns,m.clock.receiver_phase_ns,v12::G1PpsDiagnostic::phase(score.relative_ns-m.clock.receiver_phase_ns),ref.epoch,ref.rmc20,ref.second);
 }
 #endif
 #ifdef V12_GPS_SHADOW_OBSERVER
@@ -249,7 +249,7 @@ void pps(const gnss_pps::Observation& edge){
     " window_start_us=%" PRIu64 " window_closed_us=%" PRIu64 " window_max_owned_us=%" PRIu64 " windows=%" PRIu32 " window_misses=%" PRIu32
     " quiet_faults=%" PRIu32 " GR_authenticated=%" PRIu32 " GR_refused=%" PRIu32
     " rc7=2/%u/%u/%u rq7=%" PRIu32 "/%" PRIu32 "/%" PRIu32 "/%" PRIu32 " rc7_until=%" PRIu64 "/%" PRIu64 " rc7_delivery=%u rp=%016" PRIx64 "/%" PRIu32 "/%u/%" PRIu64 "/%" PRIu64 "/%u"
-    " listening_percent=%u g1_rearm=%" PRIu32 " g1_join=%" PRIu32 "/%" PRIu32 " cal=%d/%u pcfg=%08" PRIx32
+    " listening_percent=%u g1_rearm=%" PRIu32 " g1_join=%" PRIu32 "/%" PRIu32 " cal=%d/%u rxcal=%d pcfg=%08" PRIx32
 #ifdef V12_R2_RC7_TX_ESTIMATE_LAB
     " rs7=%08" PRIx32 "/%08" PRIx32 "/%08" PRIx32 " rcq=%" PRIu32 "/%" PRIu32 "/%" PRIu32 "/%u"
 #endif
@@ -268,7 +268,7 @@ void pps(const gnss_pps::Observation& edge){
     mesh.lease.stop_generation,mesh.lease.stop_completed,mesh.client.generation,mesh.client.request_id,unsigned(mesh.client.pending),unsigned(mesh.client.running),unsigned(mesh.client.stopping),mesh.client.admitted_us,mesh.client.start_deadline_us,mesh.client.started_us,mesh.client.stop_requested_us,mesh.client.stop_deadline_us,
     mesh.client.completed_us,mesh.client.stop_generation,mesh.client.stop_completed,unsigned(mesh.client.deadline_exceeded),unsigned(mesh.rx_capture.installed),unsigned(mesh.rx_capture.armed),mesh.rx_capture.fault,mesh.rx_capture.calls,mesh.rx_capture.candidates,mesh.rx_capture.matched,mesh.rx_capture.missed,mesh.rx_capture.ambiguous,
     mesh.rx_capture.overflow,mesh.rx_capture.epoch,mesh.rx_capture.peak,mesh.rx_capture.hook_max_cycles,mesh.host_stack_min_bytes,mesh.host_stack_configured_bytes,mesh.discipline_accepted,mesh.discipline_refused,mesh.rms_ns,mesh.hold_ms,mesh.hold_samples,mesh.g1_anchor_deadline_us,
-    mesh.g1_anchor_guard_us,unsigned(mesh.g1_refresh_needed),unsigned(mesh.g1_refresh_urgent),mesh.g1_refresh_attempts,mesh.g1_window_start_us,mesh.g1_window_closed_us,mesh.g1_window_max_owned_us,mesh.g1_windows,mesh.g1_window_misses,mesh.g1_quiet_faults,mesh.g1_relay_authenticated,mesh.g1_relay_refused,unsigned(mesh.rc7_exclude_direct_gm),unsigned(mesh.rc7_bound),unsigned(mesh.rc7_depth),mesh.rc7_capabilities,mesh.rc7_requests,mesh.rc7_responses,mesh.rc7_pending,mesh.rc7_lease_until_us,mesh.rc7_renew_at_us,unsigned(mesh.rc7_delivery),mesh.rc_parent.target,mesh.rc_parent.generation,unsigned(mesh.rc_parent.state),mesh.rc_parent.deadline_us,mesh.rc_parent.completed_us,unsigned(mesh.rc_parent.relay),unsigned(mesh.g1_listening_percent),mesh.g1_recovery.rearms,mesh.rx,mesh.tx,int(mesh.g1_clock_model.output_correction_ns),unsigned(mesh.g1_clock_model.output_correction_ns!=0),uint32_t(v12::rc7_provisional_config().id>>32)
+    mesh.g1_anchor_guard_us,unsigned(mesh.g1_refresh_needed),unsigned(mesh.g1_refresh_urgent),mesh.g1_refresh_attempts,mesh.g1_window_start_us,mesh.g1_window_closed_us,mesh.g1_window_max_owned_us,mesh.g1_windows,mesh.g1_window_misses,mesh.g1_quiet_faults,mesh.g1_relay_authenticated,mesh.g1_relay_refused,unsigned(mesh.rc7_exclude_direct_gm),unsigned(mesh.rc7_bound),unsigned(mesh.rc7_depth),mesh.rc7_capabilities,mesh.rc7_requests,mesh.rc7_responses,mesh.rc7_pending,mesh.rc7_lease_until_us,mesh.rc7_renew_at_us,unsigned(mesh.rc7_delivery),mesh.rc_parent.target,mesh.rc_parent.generation,unsigned(mesh.rc_parent.state),mesh.rc_parent.deadline_us,mesh.rc_parent.completed_us,unsigned(mesh.rc_parent.relay),unsigned(mesh.g1_listening_percent),mesh.g1_recovery.rearms,mesh.rx,mesh.tx,int(mesh.g1_clock_model.output_correction_ns),unsigned(mesh.g1_clock_model.output_correction_ns!=0),int(mesh.g1_clock_model.receiver_phase_ns),uint32_t(v12::rc7_provisional_config().id>>32)
 #ifdef V12_R2_RC7_TX_ESTIMATE_LAB
     ,mesh.rc7_server_flags,mesh.rc7_server_publication,mesh.rc7_server_admissions,mesh.rc7_admission_overlaps,mesh.rc7_quarantine_active,mesh.rc7_quarantine_timeouts,unsigned(mesh.g1_first_fault_site)
 #endif

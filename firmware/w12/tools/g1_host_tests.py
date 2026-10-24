@@ -76,6 +76,10 @@ def main():
     run([CXX,'-std=c++20',*flags,'-DPTOB_W12_FINE_CLOCK=1','-I'+str(APP/'legacy'),'-I'+str(APP/'legacy/reference'),'-I'+str(APP/'main'),APP/'tests/g1_corrected_clock_test.cpp',*objects,'-o',out/'fine-corrected-clock-tests'],'fine-corrected-clock-build')
     run([out/'fine-corrected-clock-tests'],'fine-corrected-clock')
     run([out/'corrected-clock-tests'],'functional-clock-frequency-scope-hold')
+    for fine in (False,True):
+        binary=out/('w12-phase-fine' if fine else 'w12-phase-legacy')
+        run([CXX,'-std=c++20',*flags,'-DPTOB_W12_SYNC_WATCHDOG=1',*(['-DPTOB_W12_FINE_CLOCK=1'] if fine else []),'-I'+str(APP/'legacy'),'-I'+str(APP/'legacy/reference'),'-I'+str(APP/'main'),APP/'tests/w12_phase_offsets_test.cpp',*objects,'-o',binary],binary.name+'-build')
+        run([binary],binary.name+'-raw-fit-delivery-relay')
     run([CXX,'-std=c++20',*flags,'-I'+str(APP/'main'),APP/'tests/g1_direct_session_test.cpp',*objects,'-o',out/'direct-session-tests'],'direct-session-build')
     run([out/'direct-session-tests'],'direct-session-matched-maps-renewal-expiry-refusals')
     run([CXX,'-std=c++20',*flags,'-Wno-sign-compare','-I'+str(APP/'legacy'),'-I'+str(APP/'legacy/reference'),'-I'+str(APP/'main'),APP/'tests/g1_diagnostic_test.cpp','-o',out/'diagnostic-tests'],'diagnostic-build')

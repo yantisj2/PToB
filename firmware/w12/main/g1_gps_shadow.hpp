@@ -29,7 +29,7 @@ class G1GpsShadow {
   View stats_{};int64_t sum_=0;double squares_=0;int32_t minimum_=0,maximum_=0;
   static void inc(uint32_t& v){if(v!=UINT32_MAX)++v;}
   static bool same_model(const Map& a,const Map& b){return a.clock.tick==b.clock.tick&&a.clock.epoch==b.clock.epoch&&
-    a.clock.phase==b.clock.phase&&a.clock.rate==b.clock.rate&&a.clock.utc_offset==b.clock.utc_offset&&a.clock.output_correction_ns==b.clock.output_correction_ns&&
+    a.clock.phase==b.clock.phase&&a.clock.rate==b.clock.rate&&a.clock.utc_offset==b.clock.utc_offset&&a.clock.output_correction_ns==b.clock.output_correction_ns&&a.clock.receiver_phase_ns==b.clock.receiver_phase_ns&&
     a.root==b.root&&a.boot==b.boot&&a.source==b.source&&a.train==b.train&&a.scope==b.scope&&
     a.valid==b.valid&&a.following==b.following;}
   void remember(const Record& row){if(rows_count_==Tail)inc(stats_.overwritten);else ++rows_count_;rows_[tail_]=row;tail_=(tail_+1)%Tail;}

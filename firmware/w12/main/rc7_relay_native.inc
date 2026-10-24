@@ -41,7 +41,7 @@ __attribute__((noinline)) void relay_tx_path_observation(const periodic_tx::Esti
     const Rc7RelayEstimate::PreparedPublication& frozen,uint64_t capture_id){
   const auto& sent=relay_map.sent[0];const auto& own=frozen.path.node[frozen.path.depth];
   Report r{};r.kind=24;r.callback_us=micros();r.actual_length=r.length=96;
-  r.bytes[0]=2;r.bytes[1]=c.channel;r.bytes[2]=uint8_t(c.observed.selected.event);r.bytes[3]=uint8_t(c.observed.selected.event>>8);
+  r.bytes[0]=3;r.bytes[1]=c.channel;r.bytes[2]=uint8_t(c.observed.selected.event);r.bytes[3]=uint8_t(c.observed.selected.event>>8);
   const uint32_t words[]={sent.publication,sent.generation,own.epoch,frozen.origin.epoch,uint32_t(frozen.provisional_offset_ns)};
   for(unsigned i=0;i<5;i++)for(unsigned j=0;j<4;j++)r.bytes[4+4*i+j]=uint8_t(words[i]>>(8*j));
   const uint64_t fields[]={own.id,own.boot,frozen.origin.root,frozen.origin.boot,c.tick20,
@@ -52,6 +52,8 @@ __attribute__((noinline)) void relay_tx_path_observation(const periodic_tx::Esti
   for(unsigned i=0;i<2;i++)for(unsigned j=0;j<8;j++)r.bytes[96+8*i+j]=uint8_t(endpoints[i]>>(8*j));
   const int32_t adjustments[]={reference.base_ns,reference.residual_ns,reference.total_ns};
   for(unsigned i=0;i<3;i++)for(unsigned j=0;j<4;j++)r.bytes[112+4*i+j]=uint8_t(uint32_t(adjustments[i])>>(8*j));
+  r.actual_length=r.length=128;
+  for(unsigned j=0;j<4;j++)r.bytes[124+j]=uint8_t(uint32_t(frozen.map.receiver_phase_ns)>>(8*j));
   transport_record(r);
 }
 __attribute__((noinline)) void relay_tx_observation(const periodic_tx::EstimateRecord& c,uint64_t available20){

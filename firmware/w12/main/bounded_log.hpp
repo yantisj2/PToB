@@ -16,8 +16,9 @@ struct ConsoleFrame {
   // Reserve the fixed END buffer within the whole-frame contract before any
   // wire emission; an over-capacity builder is rejected as one complete job.
   // RC7 adds bounded admission/path counters. The maximum END is 785 bytes;
-  // reserve 800 and retain the original whole-frame8192/response1.5s contract.
-  char bytes[ConsoleFrameBytes-800]{};uint16_t length=0,rows=0;
+  // reserve 790 and retain the whole-frame8704/response1.5s contract. The
+  // bounded rxcal field uses only0 or7671, never an arbitrary signed value.
+  char bytes[ConsoleFrameBytes-790]{};uint16_t length=0,rows=0;
   uint64_t nonce=0,ticket=0,request_us=0,deadline_us=0;LogStatus request_stats{};bool failed=false;
   bool format(const char* fmt,...) __attribute__((format(printf,2,3)));
 };

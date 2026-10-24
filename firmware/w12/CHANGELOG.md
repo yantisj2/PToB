@@ -1,5 +1,22 @@
 # W12 changelog
 
+## 0.2.8 — provisional relative-PPS phase offsets
+
+- Apply +7,671 ns once to delivered W12 G1 clock copies, including retained
+  estimates and relay input. Keep raw captures, frequency/phase fitting,
+  causal quality, source envelopes and permission deadlines unchanged.
+- Add +3,030 ns to the nominal RC7 ADDRESS projection. An existing explicit
+  aggregate total supersedes this default residual. This is a relative-PPS
+  combined-path adjustment measured with a T096 receiver's existing correction,
+  not an independently identified TX or RX calibration. Transfer to other W12
+  units and profiles is provisional and has not been measured there.
+- Bind offsets into build receipts and disclose delivered receive adjustment
+  in CRC status, PPS logs and version3 TX path companions. Preserve raw-relative
+  PPS phase, corrected phase, jitter and unknown RF/UTC bounds separately.
+- Check both clock backends for single application, unchanged raw fit/finalize,
+  delivery/relay consistency, explicit-total precedence and arithmetic refusal.
+
+
 ## 0.2.7 — causal shadow clock drift prediction
 
 - GNSS-enabled BLE50 and BLE100 builds fit bounded curvature after 32 consecutive captured PPS points;

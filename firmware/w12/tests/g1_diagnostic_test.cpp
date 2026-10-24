@@ -80,6 +80,11 @@ int main(){
   const int path2bytes=v12::g1_render_tx_path(line,sizeof line,path);
   assert(path2bytes>0&&unsigned(path2bytes)<sizeof line&&std::strstr(line,"address20=")&&std::strstr(line,"address_ns=")&&
     std::strstr(line,"base_ns=")&&std::strstr(line,"residual_ns=")&&std::strstr(line,"applied_ns=")&&std::strstr(line,"reference=NOMINAL_ADDRESS_1M delay=UNKNOWN"));
+  path.length=128;path.bytes[0]=3;
+  for(unsigned j=0;j<4;j++)path.bytes[124+j]=uint8_t(uint32_t(7671)>>(8*j));
+  const int path3bytes=v12::g1_render_tx_path(line,sizeof line,path);
+  assert(path3bytes>0&&unsigned(path3bytes)<sizeof line&&std::strstr(line,"receive_correction_ns=7671")&&std::strstr(line,"bound=UNKNOWN"));
+  path.length=127;assert(!v12::g1_render_tx_path(line,sizeof line,path));
 
   v12::R2Discipline discipline;v12::periodic_rx::Stamp capture;r2_precision_packet p{};
   assert(!discipline.authenticated_receive(p,capture,0,0,0));const auto q=discipline.view(0,0);

@@ -7,7 +7,7 @@ RC role. [Image provenance](../../docs/images/README.md).*
 
 Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
 
-**PToB owns W12 native G1/RC7 development.** Current version **0.2.7** supports
+**PToB owns W12 native G1/RC7 development.** Current version **0.2.8** supports
 **RC**: a BLE50 client or BLE100 receiver with an optional experimental
 estimated-TX relay. It receives from the shared T096/W12/StickS3 mesh; it has no
 GM profile or USB timing stream. Start with the
@@ -68,6 +68,14 @@ shadow clock, including BLE50 and BLE100, after 32 consecutive PPS observations.
 retain linear warm-up. Capture logs identify both predictor methods and retain
 causal prediction errors and invalid samples. This changes the shadow witness,
 with no new GM profile or BLE clock discipline.
+
+Version 0.2.8 applies a provisional +7,671 ns receive-phase adjustment to
+delivered G1 clock copies and a separate +3,030 ns residual to nominal RC7
+relay estimates. Raw oscillator fitting remains unshifted. These constants
+come from a W12 fine receiver and a T096 child with its existing correction;
+their transfer to other W12 units and profiles is unmeasured. Runtime and build
+records disclose the adjustments. They establish no RF or UTC bound. Shadow
+PPS remains limited to explicitly enabled GNSS profiles.
 
 Version 0.2.0 adds the N30 fallback policy: AUTO starts LoRa RX after 180 s of
 accumulated loss of actual BLE precision lock, then stops RX after 180 s of

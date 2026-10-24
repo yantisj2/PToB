@@ -1,6 +1,9 @@
 // Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT
 #pragma once
 #include "g1_clock_prediction.hpp"
+#ifdef PTOB_W12_SYNC_WATCHDOG
+#include "w12_phase_offsets.hpp"
+#endif
 namespace v12 {
 // RC7 corrections use the ADDRESS endpoint. The pinned publisher schedules a
 // BLE1M packet at half-slot fine=0, before its 8-bit preamble and 32-bit address.
@@ -27,7 +30,11 @@ struct Rc7TxReference {
     const auto base=int32_t(address-raw);
     // Schema1 profiles describe TOTAL correction from the old programmed
     // endpoint. Preserve that meaning and exact output; never add40us twice.
-    const auto total=legacy_profile?legacy_total_ns:base;
+    const auto total=legacy_profile?legacy_total_ns:base
+#ifdef PTOB_W12_SYNC_WATCHDOG
+      +W12PhaseOffsets::RelayNs
+#endif
+      ;
     const auto residual=total-base;
     if((total>0&&raw>INT64_MAX-total)||(total<0&&raw<=-int64_t(total)))return false;
     out={address20,raw,address,raw+total,base,residual,total};return true;

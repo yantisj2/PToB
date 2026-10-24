@@ -55,7 +55,8 @@ inline int g1_render_tx_estimate(char* out,unsigned capacity,const Report& r){
 // Same tuple as W12_G1_TX_EST. V2 exposes the nominal1M ADDRESS endpoint and
 // the legacy-total decomposition. V1 remains a historical programmed estimate.
 inline int g1_render_tx_path(char* out,unsigned capacity,const Report& r){
-  const bool v2=r.length==124&&r.bytes[0]==2;
+  const bool v3=r.length==128&&r.bytes[0]==3;
+  const bool v2=(r.length==124&&r.bytes[0]==2)||v3;
   if(r.kind!=24||(!v2&&(r.length!=96||r.bytes[0]!=1)))return 0;
   const int prefix=std::snprintf(out,capacity,"W12_G1_TX_PATH at_us=%" PRIu64
     " publisher=%016" PRIx64 "/%016" PRIx64 " root=%016" PRIx64 "/%016" PRIx64 "/%" PRIu64
@@ -68,9 +69,9 @@ inline int g1_render_tx_path(char* out,unsigned capacity,const Report& r){
   if(prefix<0||unsigned(prefix)>=capacity)return prefix;
   const int suffix=v2?std::snprintf(out+prefix,capacity-unsigned(prefix),
     " address20=%" PRIu64 " address_ns=%" PRIu64 " base_ns=%" PRId32 " residual_ns=%" PRId32 " applied_ns=%" PRId32
-    " reference=NOMINAL_ADDRESS_1M delay=UNKNOWN jitter=SEPARATE actual=0 bound=UNKNOWN\n",
+    " receive_correction_ns=%" PRId32 " reference=NOMINAL_ADDRESS_1M delay=UNKNOWN jitter=SEPARATE actual=0 bound=UNKNOWN\n",
     g1_diag_le(r.bytes+96,8),g1_diag_le(r.bytes+104,8),int32_t(g1_diag_le(r.bytes+112,4)),
-    int32_t(g1_diag_le(r.bytes+116,4)),int32_t(g1_diag_le(r.bytes+120,4))):
+    int32_t(g1_diag_le(r.bytes+116,4)),int32_t(g1_diag_le(r.bytes+120,4)),v3?int32_t(g1_diag_le(r.bytes+124,4)):0):
     std::snprintf(out+prefix,capacity-unsigned(prefix)," scope=AGGREGATE_PROVISIONAL jitter=SEPARATE actual=0 bound=UNKNOWN absolute_UTC=UNKNOWN\n");
   return suffix<0?suffix:prefix+suffix;
 }

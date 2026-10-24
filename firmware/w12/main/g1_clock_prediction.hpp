@@ -9,6 +9,7 @@ namespace v12 {
 struct G1ClockPrediction {
   uint64_t tick=0;int64_t epoch=0,phase=0;double rate=0;int64_t utc_offset=0;
   int32_t output_correction_ns=0; // Snapshot-only untested experiment; raw fitter always zero.
+  int32_t receiver_phase_ns=0; // Delivered-copy adjustment; raw oscillator history remains unshifted.
   double phase_slew_ns_s()const {
     const double magnitude=std::abs(double(phase));
 #if defined(PTOB_N30) || defined(PTOB_W12_FINE_CLOCK)
@@ -31,7 +32,10 @@ struct G1ClockPrediction {
     if(epoch<0||elapsed>INT64_MAX-epoch)return 0;
     const int64_t nominal=epoch+elapsed;
     if((steer>0&&nominal>INT64_MAX-steer)||(steer<0&&nominal<-steer))return 0;
-    return nominal+steer;
+    const auto projected=nominal+steer;
+    if((receiver_phase_ns>0&&projected>INT64_MAX-receiver_phase_ns)||
+       (receiver_phase_ns<0&&projected<=-int64_t(receiver_phase_ns)))return 0;
+    return projected+receiver_phase_ns;
   }
   int64_t at(uint64_t now)const {
     const auto relative=relative_at(now);

@@ -2,6 +2,9 @@
 #include "g1_client_policy.hpp"
 #include "periodic_rx_model.hpp"
 #include "g1_clock_prediction.hpp"
+#ifdef PTOB_W12_SYNC_WATCHDOG
+#include "w12_phase_offsets.hpp"
+#endif
 #include "g1_relative_quality.hpp"
 #include "rc7_client.hpp"
 #ifdef PTOB_N30
@@ -302,7 +305,13 @@ class G1CorrectedClock {
   uint32_t fit_span_ms()const{return count_?uint32_t((local(points_[count_-1])-local(points_[0]))/20000):0;}
   uint8_t fit_reason()const{return fit_reason_;}
   uint32_t quality_missing()const{return quality_missing_;}
-  G1ClockPrediction prediction()const{return clock_;}
+  G1ClockPrediction prediction()const{
+#ifdef PTOB_W12_SYNC_WATCHDOG
+    return W12PhaseOffsets::delivered(clock_);
+#else
+    return clock_;
+#endif
+  }
   G1RelativeQuality quality(uint64_t now,uint64_t physical20=0)const{
     G1RelativeQuality q;q.original20=phase_fit_tick_;q.rate_guard_ppb=rate_guard_;
     q.scope_generation=quality_generation_==UINT32_MAX?0:quality_generation_;
@@ -338,7 +347,7 @@ class G1CorrectedClock {
     // Consumer sees clock validity only. Beyond original signed permission
     // this is bounded coarse HOLD, never a current followed-GM entitlement.
     if(!scope_.valid(now)||!clock_.tick||tick<clock_.tick)return false;
-    const auto utc=clock_.at(tick);if(utc<=0)return false;utc_us=uint64_t(utc)/1000;return true;
+    const auto utc=prediction().at(tick);if(utc<=0)return false;utc_us=uint64_t(utc)/1000;return true;
   }
   // Caller authenticates O3/R3 and the direct root/boot/source/train first.
   // Expired output may still acquire using the independent live replay anchor,
