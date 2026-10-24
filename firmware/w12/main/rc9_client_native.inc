@@ -10,7 +10,7 @@ void rc9_receive_control(const Incoming& row,uint64_t now){
   peer.stage=5;peer.ready=true;peer.send_kind=uint8_t(rc9::Type::Request);
  }else if(peer.stage==6&&c.type==rc9::Type::Response){
   const auto old=rc9_client.view(now);
-  if(!old.bound||old.server!=c.sender||old.server_boot!=c.sender_boot)changed_scope(now);
+  if(!old.bound||old.server!=c.sender||old.server_boot!=c.sender_boot)forget_leader(now,true);
   if(!rc9_client.bind(c,now)){inc(rejected);peer.dead=true;return;}
   joined_peer=c.sender;joined_boot=c.sender_boot;member=true;sync_address=peer.address;
   sync_identity=c.sender;if(!synced&&!sync_pending)sync_selected=true;

@@ -7,11 +7,23 @@ RC role. [Image provenance](../../docs/images/README.md).*
 
 Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
 
-**PToB owns W12 native G1/RC7 development.** Current version **0.2.12** supports
+**PToB owns W12 native G1/RC7 development.** Current version **0.2.13** supports
 **RC**: a BLE50 client or BLE100 receiver with an optional experimental
 estimated-TX relay. It receives from the shared T096/W12/StickS3 mesh; it has no
 GM profile or USB timing stream. Start with the
 [build guide](../../docs/w12/build.md).
+
+Version 0.2.13 also clears old normal-source selection history when RC9 fallback
+first takes over, and when a direct root authenticates after an earlier empty
+scope. These transitions retain authenticated fallback expiry and actual radio
+drain ownership; stale trial history cannot defer the replacement leader.
+
+Learned parents, leader sessions, clock models and retry history exist only in
+RAM and start empty on every boot. Bluetooth bonding/NVS persistence is disabled;
+the application does not load or write learned state in flash. A watchdog
+restart can restore only an explicit operator parent pin from its RTC record.
+Enrollment, registry and calibration remain build inputs. Fresh advertisements
+may select the same parent again, but require a new authenticated admission.
 
 Version 0.2.12 retires the old leader's session, timing model, queued timing
 samples, discovery locators, cooldowns and selection history after 1.5 seconds

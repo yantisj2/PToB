@@ -828,7 +828,7 @@ void receive_join(uint64_t now){Incoming row{};for(unsigned i=0;i<8&&incoming.po
     }
     // A newly authenticated direct leader retires all old estimator and
     // selection state before its coarse bootstrap is installed.
-    if(r.root==r.sender&&r.root_boot==r.sender_boot&&anchor.source&&
+    if(r.root==r.sender&&r.root_boot==r.sender_boot&&
        (anchor.root!=r.root||anchor.boot!=r.root_boot||anchor.source_epoch!=r.source_epoch||anchor.publication!=r.publication))forget_leader(now,true);
     member=true;joined_peer=r.sender;joined_boot=r.sender_boot;cooldown(r.sender,now,5000000);
     if(timed){
@@ -943,7 +943,7 @@ void forget_leader(uint64_t now,bool keep_admission){
   retry_at=scan_retry_at=scan_retry_until=0;
   for(unsigned i=0;i<8;i++){locator_ids[i]=0;locators[i]={};recent[i]={};}
 #ifdef PTOB_RC9
-  for(auto& locator:rc9_locators)locator={};
+  for(auto& locator:rc9_locators)locator={};rc9_retry_at=0;
 #endif
   Periodic discarded{};while(periodic.pop(discarded)){}
 #if defined(PTOB_N30) || defined(PTOB_W12_FINE_CLOCK)

@@ -85,6 +85,59 @@ int main(int argc,char** argv){assert(argc==2);std::string which=argv[1];
   step();assert(!v12::r2_status().serving&&!v12::r2_status().source);assert(!v12::r2_request(v12::R2Mode::Active,10000,44));
   if(which=="cancel"){assert(v12::r2_status().off_ack);return 0;}if(which=="blocked"||which=="late"){assert(v12::r2_status().fault);return 0;}
   assert(v12::r2_status().client.running);
+  if(which=="boot-empty"){
+    // A process boot starts with no learned leader, locator, failure history,
+    // timing model or retry budget. Group/address discovery is a locator only.
+    assert(!v12::member&&!v12::joined_peer&&!v12::joined_boot&&!v12::anchor.source);
+    assert(!v12::parent_selection.parent()&&!v12::parent_selection.history().entries(fake_now));
+    assert(!v12::corrected_clock.prediction().tick&&!v12::coarse_hold.saved.source);
+    assert(!v12::retry_at&&!v12::scan_retry_at&&!v12::admission_policy.retry_at);
+    v12::Discovery d{};d.props=1;d.length=25;d.rssi=-30;d.at=fake_now;d.address=v12::canonical(333);
+    d.bytes[0]=24;d.bytes[1]=255;auto* b=d.bytes+2;b[0]='G';b[1]='1';b[2]=1;
+    r2_group_put(b+3,v12::provision.group.id,8);r2_group_put(b+11,v12::provision.group.epoch,4);r2_group_put(b+15,333,8);
+    v12::discoveries.push(d);step();assert(v12::discovery_count==1);
+    assert(!v12::member&&!v12::anchor.source&&!v12::following(fake_now));
+    v12::r2_stop();step(6);assert(v12::r2_status().off_ack);return 0;
+  }
+  if(which.starts_with("leader-incarnation-")){
+    fake_now=1000000;v12::window_start=fake_now;
+    v12::anchor={true,333,444,1700000000000000,fake_now,5000000,7,8,40000};
+    v12::joined_peer=333;v12::joined_boot=444;v12::member=true;
+    v12::parent_selection.bind(333,444,7,fake_now);
+    v12::parent_selection.authenticated(333,false,444,333,444,7,fake_now);
+    v12::parent_selection.authenticated(999,false,998,999,998,5,fake_now);
+    v12::parent_selection.failed(999,false,fake_now);
+    v12::coarse_hold.retain(v12::anchor);
+    v12::synced=true;v12::sync_identity=333;v12::sync_handle=9;v12::sync_address=v12::canonical(333);
+    v12::sync_requested_at=v12::sync_owner_window_start=fake_now;
+    v12::sync_drain_until=fake_now+123456;const auto drain=v12::sync_drain_until;
+    v12::peer={};v12::peer.identity=333;v12::peer.handle=22;v12::peer.incarnation=++v12::incarnation;
+    conn_arg=v12::callback_arg();
+    assert(!r2_group_join_begin(&v12::peer.exchange,false,v12::provision.identity,333,22,77,fake_now));
+    auto& x=v12::peer.exchange;x.peer_boot=which=="leader-incarnation-boot"?445:444;
+    x.remote_nonce=88;x.proof_at=fake_now-1000;x.challenged=true;
+    r2_join_record reply{};reply.kind=R2_JOIN_ACCEPT;reply.sender=333;reply.receiver=v12::provision.identity;
+    reply.sender_boot=x.peer_boot;reply.receiver_boot=22;reply.client_nonce=77;reply.server_nonce=88;reply.sequence=2;
+    reply.created_us=fake_now;reply.echo_us=x.proof_at;std::strcpy(reply.name,"Fixture");
+    reply.source_flags=1;reply.source_bound_us=40000;reply.root=333;reply.root_boot=x.peer_boot;
+    reply.source_epoch=which=="leader-incarnation-epoch"?9:7;reply.publication=which=="leader-incarnation-train"?10:8;
+    reply.utc_us=1700000000000000;reply.remaining_us=1000000;
+    v12::Incoming row{};row.at=fake_now;row.incarnation=v12::peer.incarnation;
+    assert(!r2_group_join_encode(row.bytes,&reply,&v12::provision.group));v12::incoming.push(row);v12::receive_join(fake_now);
+    const bool changed=which!="leader-incarnation-renewal";
+    assert(bool(v12::parent_selection.history().find(999,false,fake_now))==!changed);
+    assert(v12::anchor.root==333&&v12::anchor.boot==reply.root_boot&&v12::anchor.source_epoch==reply.source_epoch&&v12::anchor.publication==reply.publication);
+    assert(v12::member&&!v12::fault&&!v12::corrected_clock.prediction().tick);
+    if(changed){
+      // Keep the exact old controller owner and its original drain deadline.
+      assert(v12::sync_cleanup_requested&&v12::synced&&v12::sync_drain_until==drain);
+      sync_late=true;pump_cleanup();assert(v12::synced&&v12::sync_terminating&&v12::sync_drain_until==drain);
+      ble_gap_event lost{};lost.type=BLE_GAP_EVENT_PERIODIC_SYNC_LOST;lost.periodic_sync_lost.sync_handle=9;
+      v12::gap(&lost,reinterpret_cast<void*>(uintptr_t(v12::sync_capture_epoch)));sync_late=false;
+      assert(!v12::synced&&!v12::fault);
+    }else assert(!v12::sync_cleanup_requested&&!v12::sync_terminating);
+    v12::r2_stop();step(6);assert(v12::r2_status().off_ack);return 0;
+  }
   if(which.starts_with("connect-refusal-")){
     fake_now=1000000;v12::window_start=fake_now;
     v12::anchor={true,333,444,1700000000000000,fake_now,5000000,7,8,40000};
@@ -489,7 +542,11 @@ int main(int argc,char** argv){assert(argc==2);std::string which=argv[1];
     assert(!v12::locator_ids[0]&&!v12::cooled(333,fake_now)&&!v12::synced);
     assert(v12::admission_policy.allowed(fake_now,true));
     if(which=="leader-loss-switch"){
+      // Old selection history can exist after an earlier source fence.
+      v12::parent_selection.authenticated(333,false,444,333,444,7,fake_now);
+      v12::parent_selection.failed(333,false,fake_now);
       fresh_direct(999,998,5,6);
+      assert(!v12::parent_selection.history().find(333,false,fake_now));
       assert(v12::anchor.root==999&&v12::anchor.boot==998&&v12::member&&!v12::fault);
       assert(!v12::corrected_clock.prediction().tick); // A JOIN grants no precision.
       v12::r2_stop();step(6);assert(v12::r2_status().off_ack);return 0;

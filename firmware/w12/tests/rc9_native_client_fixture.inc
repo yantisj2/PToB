@@ -2,6 +2,12 @@
 void client_case(bool normal_pin=false,const std::string& recovery=""){
  const auto* mac=v12::native_device_binding()->factory;assert(v12::r2_init(44,mac)&&v12::r2_host_init()&&v12::r2_host_sync());step(8);
  if(normal_pin){assert(v12::r2_gm_parent(11));step(8);}
+ if(recovery=="cache-fence"){
+  v12::parent_selection.authenticated(333,false,444,333,444,7,fake_now);
+  v12::parent_selection.failed(333,false,fake_now);
+  assert(v12::parent_selection.history().entries(fake_now)==1);
+ }
+
  v12::Discovery d{};d.sid=15;d.props=1;d.rssi=-30;d.at=fake_now;d.address=v12::canonical(77);d.length=167;
  d.bytes[0]=2;d.bytes[1]=1;d.bytes[2]=6;d.bytes[3]=17;d.bytes[4]=7;std::memcpy(d.bytes+5,v12::rc9_service.value,16);d.bytes[21]=145;d.bytes[22]=255;
  v12::rc9::Control cap;cap.sender=77;cap.sender_boot=88;cap.next_challenge=99;
@@ -11,6 +17,8 @@ void client_case(bool normal_pin=false,const std::string& recovery=""){
  assert(v12::peer.connecting&&v12::peer.rc9);
  ble_gap_event e{};e.type=BLE_GAP_EVENT_CONNECT;v12::gap(&e,conn_arg);step(18);
  assert(!v12::fault&&v12::rc9_bound()&&v12::sync_pending&&v12::sync_selected_sid==14);
+ if(recovery=="cache-fence")assert(!v12::parent_selection.history().entries(fake_now));
+
  sync_established();assert(v12::synced&&!v12::fault&&v12::periodic_rx::armed);
  v12::rc9::Time p;p.sender=77;p.sender_boot=88;p.publication=10;p.sampled_us=fake_now;p.edge_us=fake_now-100;
  p.until_us=p.edge_us+12000000;p.event_ns=1700000000000000000ULL;p.root=66;p.emitter=55;p.kind=2;
@@ -20,7 +28,7 @@ void client_case(bool normal_pin=false,const std::string& recovery=""){
  v12::gap(&e,fixture_sync_arg);step(2);const auto r=v12::r2_rc9_status();const auto normal=v12::r2_status();
  assert(r.valid&&r.following&&r.server==77&&r.root==66&&r.accepted==1&&!r.serving&&!r.clients);
  assert(!normal.following&&!normal.clock_valid&&!normal.g1_clock_model.tick&&!normal.discipline_accepted&&!pa_active);
- if(!recovery.empty()){
+ if(!recovery.empty()&&recovery!="cache-fence"){
   const auto original_lease=v12::rc9_client.lease_until;
   const auto refresh=[&](){
    p.publication++;p.corrected_sequence++;p.sampled_us=fake_now;p.edge_us=fake_now-100;

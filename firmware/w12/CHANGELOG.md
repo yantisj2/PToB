@@ -1,5 +1,14 @@
 # W12 changelog
 
+## 0.2.13 — fallback transition cache fencing
+
+- Clear old normal-source selection/trial history on authenticated RC9 takeover.
+- Fence the prior advisory caches even if a newly authenticated direct root
+  arrives after the earlier scope was already withdrawn.
+- Reset stale fallback retry scheduling; preserve explicit pins, source/lease
+  expiry and real controller drain deadlines. Actual native regressions cover
+  stale-history takeover and direct admission from an empty scope.
+
 ## 0.2.12 — leader recovery
 
 - Fence expired or changed source state and discard old leader selection caches,
