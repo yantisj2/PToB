@@ -18,7 +18,12 @@ struct G1AdmissionPolicy {
   uint64_t starts[2]{},older[4]{},retry_at=0;
   uint32_t failures=0,no_source=0,foreign_root=0,unusable=0;
   G1AdmissionReply last=G1AdmissionReply::None;
+  uint64_t reacquire_after=0;
   bool warm=false;
+  // Retire the old leader's backoff once. Repeated authenticated changes
+  // cannot grant more than one fresh recovery admission every five seconds.
+  void leader_lost(uint64_t now){warm=false;failures=0;retry_at=now<reacquire_after?reacquire_after:now;
+    reacquire_after=retry_at>UINT64_MAX-5000000?UINT64_MAX:retry_at+5000000;}
   void acquired(){warm=true;} // Actual corrected RX, never membership alone.
   bool allowed(uint64_t now,bool continuous_direct=false)const {
     if(now<retry_at)return false;

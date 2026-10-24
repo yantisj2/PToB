@@ -7,11 +7,22 @@ RC role. [Image provenance](../../docs/images/README.md).*
 
 Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
 
-**PToB owns W12 native G1/RC7 development.** Current version **0.2.11** supports
+**PToB owns W12 native G1/RC7 development.** Current version **0.2.12** supports
 **RC**: a BLE50 client or BLE100 receiver with an optional experimental
 estimated-TX relay. It receives from the shared T096/W12/StickS3 mesh; it has no
 GM profile or USB timing stream. Start with the
 [build guide](../../docs/w12/build.md).
+
+Version 0.2.12 retires the old leader's session, timing model, queued timing
+samples, discovery locators, cooldowns and selection history after 1.5 seconds
+of continuous source-permission loss, or immediately after an authenticated
+source-incarnation change. Short gaps retain acquisition. Operator pins and
+per-device calibration survive. Fresh discovery and authenticated admission
+are required before FOLLOW returns; a JOIN alone grants no precision. Repeated
+cache resets cannot grant a recovery admission more often than every five seconds.
+Exact duplicate incoming relay connections retain their existing owner and
+deadline; valid capacity overlaps are refused and drained by the worker.
+Hardware failover and precision remain subject to exact-image verification.
 
 Version 0.2.11 lets an automatic RC9 fallback client find and authenticate a
 normal BLE source without waiting for its six-minute fallback lease. Bounded

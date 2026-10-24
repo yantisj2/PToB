@@ -13,7 +13,7 @@ SDK_DEFAULT = Path(os.environ['IDF_PATH'])
 NATIVE_CASES = ('direct-session-native', 'autonomous-direct', 'typed-direct', 'direct-to-rc7',
                 'changed-full-path', 'response-path-changed', 'permission-native',
                 'loss-recovery-preserved', 'retained-new-coarse-root', 'rc7-foreign-root-hint', 'retained-expiry', 'retained-clock-step', 'mapped-read-failure', 'mapped-finalize-failure', 'mapped-deliver-failure')
-SERVER_CASES = ('tx-observation', 'provisional-output', 'warm-budget-publisher', 'lock-startup',
+SERVER_CASES = ('incoming-capacity', 'duplicate-active', 'tx-observation', 'provisional-output', 'warm-budget-publisher', 'lock-startup',
                 'hold-transient', 'hold-expiry', 'hold-flapping', 'hold-management',
                 'hold-lease-expiry', 'hold-scope', 'hold-stop', 'hold-drain-deadline', 'hold-queue-loss',
                 'slot-startup-t4', 'slot-startup-conflict', 'slot-startup-weak', 'slot-startup-foreign',
@@ -113,7 +113,6 @@ int ble_gattc_write_flat(uint16_t h,uint16_t,const void* wire,uint16_t n,int(*cb
     s = s.replace('v12::gap(&e,nullptr);', 'v12::gap(&e,fixture_sync_arg);')
     s = replace_once(s, 'challenge.receiver_boot=22', 'challenge.receiver_boot=v12::boot_id')
     s = replace_once(s, 'r2_group_put(b+11,1,4)', 'r2_group_put(b+11,v12::provision.group.epoch,4)')
-    s = replace_once(s, 'd.address=v12::canonical(identity);d.at=fake_now;v12::discoveries.push(d);step();assert(v12::peer.connecting);', 'd.address=v12::canonical(identity);d.rssi=-30;d.at=fake_now;v12::discoveries.push(d);step(21);assert(v12::peer.connecting);')
     s += '''
 void rc_discovery(){
  v12::Discovery d{};d.props=1;d.sid=13;d.rssi=-30;d.at=fake_now;d.address=v12::canonical(fixture_cap.sender);d.length=167;

@@ -66,6 +66,11 @@ class G1ParentSelection {
     lock_budget_.reset();
 #endif
     bound_rssi_=-127;usable_value_=usable_reported_=usable_previous_=usable_previous_valid_=false;selection_={};}
+  // A leader incarnation change invalidates selection learning and failed
+  // trials. Operator pins and profile policy survive; cold-start collection
+  // is not rearmed after an actual admission.
+  void leader_lost(){const auto target=target_;const auto relay=target_relay_;const auto forced=force_relay_;
+    reset();clear_history();target_=target;target_relay_=relay;force_relay_=forced;}
   void clear_history(){history_.clear();}
   const G1ParentHistory& history()const{return history_;}
   SelectionView selection_view(uint64_t now)const{auto v=selection_;v.entries=uint8_t(history_.entries(now));return v;}

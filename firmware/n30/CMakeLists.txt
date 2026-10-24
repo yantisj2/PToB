@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 # Offline N30 target: one RC receiver profile. No legacy bench roster or GM.
 set(IDF_TARGET esp32s3)
-set(PROJECT_VER "0.2.28")
+set(PROJECT_VER "0.2.29")
 set(COMPONENTS main)
 set(V12_R2_PROFILE "r2-g1")
 set(V12_UNIT "N30")

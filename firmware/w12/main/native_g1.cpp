@@ -110,6 +110,9 @@ void rc9_publish_status(uint64_t);
 n30::SignalStrength signal_strength;
 void signal_received(const Periodic& row,uint64_t now,uint32_t epoch){if(row.signal_epoch==epoch)signal_strength.observe(row.identity,row.signal_epoch,row.rssi,row.at,now);}
 #endif
+#if defined(PTOB_N30) || defined(PTOB_W12_FINE_CLOCK)
+Periodic fine_pending{};bool fine_waiting=false;
+#endif
 struct Recent {uint64_t identity=0,until=0;};
 using Anchor=G1Anchor;
 portMUX_TYPE mux=portMUX_INITIALIZER_UNLOCKED;
@@ -704,6 +707,8 @@ void send_join(uint64_t now){
   else if(rc){note(rc,R2Api::ControlWrite);if(rc==BLE_HS_ENOTCONN){peer.dead=true;inc(peer_losses);}else if(!transient(rc,R2Api::ControlWrite))error(rc,R2Api::ControlWrite);}
 }
 void changed_scope(uint64_t now,G1Reason reason=G1Reason::PeriodicScope,bool preserve_clock=false,G1ParentReason parent_reason=G1ParentReason::SourceChange);
+void forget_leader(uint64_t now,bool keep_admission=false);
+void cancel_connect(uint64_t now);
 #include "rc9_client_native.inc"
 void parent_record(G1ParentReason reason,uint64_t now){
   G1ParentScope scope{};
@@ -805,7 +810,7 @@ void receive_join(uint64_t now){Incoming row{};for(unsigned i=0;i<8&&incoming.po
   if(r.kind==R2_JOIN_BUSY){if(r.sender==peer.identity&&r.receiver==provision.identity&&r.receiver_boot==boot_id&&r.client_nonce==peer.exchange.nonce){inc(join_busy);peer.dead=true;diagnostic.reason(G1Reason::JoinBusy,now);}else{inc(rejected);diagnostic.reason(G1Reason::JoinExchange,now);}continue;}
   if(r2_group_join_receive(&peer.exchange,&r,row.at)){inc(rejected);diagnostic.reason(G1Reason::JoinExchange,now);continue;}inc(auth);
   if(r.kind==R2_JOIN_CHALLENGE){if((anchor.source&&joined_peer==r.sender&&joined_boot!=r.sender_boot)||
-      (coarse_hold.saved.source&&coarse_hold.saved.root==r.sender&&coarse_hold.saved.boot!=r.sender_boot)){changed_scope(now);}peer.send_kind=R2_JOIN_PROOF;}
+      (coarse_hold.saved.source&&coarse_hold.saved.root==r.sender&&coarse_hold.saved.boot!=r.sender_boot)){forget_leader(now,true);}peer.send_kind=R2_JOIN_PROOF;}
   else if(r.kind==R2_JOIN_ACCEPT){const auto previous_peer=joined_peer,previous_boot=joined_boot;const bool previous_member=member;
     inc(join_accepts);inc(diagnostic.peer(r.sender).accepts);r2_group_join_remember(display,&peer.exchange,now);peer.close_at=now+2000;
     const auto reply=g1_admission_reply(r);r2_join_time time{};
@@ -821,6 +826,10 @@ void receive_join(uint64_t now){Incoming row{};for(unsigned i=0;i<8&&incoming.po
       if(!previous_member&&!anchor.source&&!rc_bound()){member=true;joined_peer=r.sender;joined_boot=r.sender_boot;}
       diagnostic.reason(G1Reason::JoinTime,now);continue;
     }
+    // A newly authenticated direct leader retires all old estimator and
+    // selection state before its coarse bootstrap is installed.
+    if(r.root==r.sender&&r.root_boot==r.sender_boot&&anchor.source&&
+       (anchor.root!=r.root||anchor.boot!=r.root_boot||anchor.source_epoch!=r.source_epoch||anchor.publication!=r.publication))forget_leader(now,true);
     member=true;joined_peer=r.sender;joined_boot=r.sender_boot;cooldown(r.sender,now,5000000);
     if(timed){
       if(r.root!=r.sender||r.root_boot!=r.sender_boot){
@@ -854,15 +863,17 @@ void receive_join(uint64_t now){Incoming row{};for(unsigned i=0;i<8&&incoming.po
           path.node[path.depth].id==previous_peer&&path.node[path.depth].boot==previous_boot&&
           path.node[0].id==anchor.root&&path.node[0].boot==anchor.boot&&path.source_epoch==anchor.source_epoch;
         if(previous_member&&anchor.valid(now)&&(old_direct||old_relay)){
-          joined_peer=previous_peer;joined_boot=previous_boot;member=previous_member;
+          if(!following(now)&&!corrected_clock.covers(now,now)){
+            forget_leader(now,true);member=true;
+          }else{joined_peer=previous_peer;joined_boot=previous_boot;member=previous_member;}
           admission_root=r.root;admission_until=time.until;
-          if(old_direct)parent_selection.reobserve_gm(r.root,now);
+          parent_selection.reobserve_gm(r.root,now);
           diagnostic.reason(G1Reason::RootHint,now);continue;
         }
         auto historical=coarse_hold.saved.valid(now)?coarse_hold:G1CoarseHold{};
         if(anchor.valid(now))historical.retain(anchor);
-        const bool same_clock=historical.saved.valid(now)&&corrected_clock.same(historical.saved);
-        changed_scope(now,G1Reason::RootHint,same_clock);coarse_hold=historical;member=true;admission_root=r.root;admission_until=time.until;
+        forget_leader(now,true);coarse_hold=historical;member=true;admission_root=r.root;admission_until=time.until;
+        parent_selection.reobserve_gm(r.root,now);
         Report hint{};hint.kind=9;hint.callback_us=now;hint.actual_length=hint.length=16;
         for(unsigned j=0;j<8;j++){hint.bytes[j]=uint8_t(admission_root>>(8*j));hint.bytes[8+j]=uint8_t(admission_until>>(8*j));}
         transport_record(hint);parent_record(G1ParentReason::RootHint,now);continue;
@@ -915,19 +926,38 @@ void changed_scope(uint64_t now,G1Reason reason,bool preserve_clock,G1ParentReas
   else coarse_hold.clear();
   diagnostic.reason(reason,now);anchor={};direct_session.clear();rc_client.fence();member=false;admission_root=admission_until=0;last_origin_ns=relay_train=0;window_corrected=false;
   if(reason==G1Reason::Permission||preserve_clock)corrected_clock.hold();else corrected_clock.withdraw();
+#if defined(PTOB_N30) || defined(PTOB_W12_FINE_CLOCK)
+  fine_pending={};fine_waiting=false;
+#endif
   corrected_phase_aligned=false;cancel_sync(now);discipline_scope(now);
   parent_record(reason==G1Reason::Permission?G1ParentReason::ReplayExpired:reason==G1Reason::RootHint?G1ParentReason::RootHint:parent_reason,now);}
+void forget_leader(uint64_t now,bool keep_admission){
+  // Revoke authority first. cancel_sync retains the exact SDK owner and its
+  // original drain deadline; clearing a cache never fabricates radio OFF.
+  changed_scope(now);corrected_clock.clear();coarse_hold.clear();phase_learning={};
+  if(!keep_admission){peer.selection_reported=true;peer.dead=true;cancel_connect(now);terminate_peer(now);}
+  Incoming old_reply{};while(incoming.pop(old_reply)){};
+  Discovery old_locator{};while(discoveries.pop(old_locator)){};
+  parent_selection.leader_lost();parent_failure={};gm_discovery={};
+  admission_policy.leader_lost(now);joined_peer=joined_boot=0;
+  retry_at=scan_retry_at=scan_retry_until=0;
+  for(unsigned i=0;i<8;i++){locator_ids[i]=0;locators[i]={};recent[i]={};}
+#ifdef PTOB_RC9
+  for(auto& locator:rc9_locators)locator={};
+#endif
+  Periodic discarded{};while(periodic.pop(discarded)){}
+#if defined(PTOB_N30) || defined(PTOB_W12_FINE_CLOCK)
+  fine_pending={};fine_waiting=false;
+#endif
+}
 void renew_permission(uint64_t created,uint64_t expires,int64_t offset,uint64_t now,bool immutable_origin=false){
   if(created<last_origin_ns||!fresh_envelope(created,expires,offset,now,immutable_origin))return;
   const uint64_t left=uint64_t(int64_t(expires)+offset-coarse_ns(now))/1000-anchor.guard(now);
   if(left<=(immutable_origin?1650000:1500000)){anchor.until=now+left;last_origin_ns=created;}
 }
 unsigned periodic_poll(uint64_t now,unsigned budget=8){Periodic row{};unsigned processed=0;
-#if defined(PTOB_N30) || defined(PTOB_W12_FINE_CLOCK)
-  // A fine association waits through its original search interval without a
-  // sleep, busy loop, queue reordering or renewed packet-age allowance.
-  static Periodic fine_pending{};static bool fine_waiting=false;
-#endif
+  // A waiting fine association retains its original search interval. Scope
+  // invalidation clears the separate pending row before a new leader is used.
   for(;processed<budget;++processed){
 #if defined(PTOB_N30) || defined(PTOB_W12_FINE_CLOCK)
   if(fine_waiting){row=fine_pending;fine_waiting=false;}else
@@ -1031,7 +1061,7 @@ unsigned periodic_poll(uint64_t now,unsigned budget=8){Periodic row{};unsigned p
 #endif
     if(!anchor_valid(now))continue;
     const bool same=row.identity==anchor.root&&p.boot==anchor.boot&&p.source_epoch==anchor.source_epoch&&p.train==anchor.publication;
-    if(!same){if(fresh_envelope(p.created_ns,p.expires_ns,p.utc_offset_ns,now))changed_scope(now);continue;}
+    if(!same){if(fresh_envelope(p.created_ns,p.expires_ns,p.utc_offset_ns,now))forget_leader(now);continue;}
     renew_permission(p.created_ns,p.expires_ns,p.utc_offset_ns,now);discipline_scope(now);
 #ifdef V12_R2_RX_SHADOW
     uint64_t available=0;clock_reference_read(&available);
@@ -1050,7 +1080,7 @@ unsigned periodic_poll(uint64_t now,unsigned budget=8){Periodic row{};unsigned p
     if(!anchor_valid(now)){diagnostic.reason(G1Reason::Permission,now);continue;}
     const bool same=ids[p.origin.root]==anchor.root&&p.origin.boot==anchor.boot&&p.origin.source_epoch==anchor.source_epoch&&
       row.identity==joined_peer&&p.route.boot==joined_boot&&(!relay_train||relay_train==p.route.train);
-    if(!same){if(fresh_envelope(p.origin.created_ns,p.origin.expires_ns,p.origin.utc_offset_ns,now,true))changed_scope(now);continue;}
+    if(!same){if(fresh_envelope(p.origin.created_ns,p.origin.expires_ns,p.origin.utc_offset_ns,now,true))forget_leader(now);continue;}
     if(!fresh_envelope(p.origin.created_ns,p.origin.expires_ns,p.origin.utc_offset_ns,now,true)){diagnostic.reason(G1Reason::Permission,now);continue;}
     relay_train=p.route.train;
     if(row.capture.actual&&row.capture.association_observed)parent_selection.delivered(p.route.train,row.capture.event,now);
@@ -1180,7 +1210,12 @@ void active_poll(uint64_t now){
   // FOLLOW already ended at its signed deadline. Only a newly matched fresh
   // correction can restore it. Losing the anchor here also loses PA reception
   // and turns a missed window into repeated expensive JOIN-only acquisition.
-  if(anchor.source&&!anchor.valid(now))changed_scope(now,G1Reason::Permission);
+  // Source permission already withdrew FOLLOW at its signed expiry. After
+  // the existing1.5s acquisition-loss bound, stop retrying a six-minute old
+  // session and rediscover. Short packet gaps keep their current acquisition.
+  if(anchor.source&&anchor.until&&now>=anchor.until&&now-anchor.until>=1500000&&
+     !corrected_clock.covers(now,now))forget_leader(now);
+  else if(anchor.source&&!anchor.valid(now))forget_leader(now);
   if(!rc_bound()&&anchor.source&&anchor.rebootstrap(now))member=false;
   if(usable_utc()&&anchor.valid(now)&&!anchor.live(now))coarse_hold.retain(anchor);
   if(admission_root&&now>=admission_until)admission_root=admission_until=0;

@@ -702,3 +702,31 @@ python3 firmware/w12/tools/rc9_console_tests.py --out artifacts/w12-rc9-console
 
 Version 0.2.11 retains the 0.2.10 capture/offset/profile contracts and adds
 [bounded normal BLE recovery from AUTO RC9 fallback](rc9.md#auto-client-return-to-normal-ble).
+
+## Leader recovery
+
+Version 0.2.12 discloses `leader_recovery_policy` as
+`FENCED_SCOPE_CACHE_CLEAR_1500MS_V1`. Sustained loss beyond the existing
+1.5-second acquisition bound discards the old session, estimator, selection
+history, locators, cooldowns and queued timing records. Authenticated changed
+source incarnations also require fresh acquisition. Explicit pins and hardware
+profiles survive. Exact controller owners drain under their original deadlines;
+cleared software state does not constitute controller closure. New authenticated
+JOIN supplies a coarse bootstrap; precision requires newly matched corrections.
+Repeated invalidations cannot grant a recovery admission more often than once
+per five seconds. Short gaps and a live source seen alongside an advisory hint
+retain their original acquisition and permission limits.
+
+Run the offline owner, source-loss, new-leader admission and pin regressions:
+
+```sh
+python3 firmware/w12/tools/g1_host_tests.py --out artifacts/w12-leader-tests
+python3 firmware/w12/tools/rc7_permission_e2e.py --out artifacts/w12-owner-tests
+python3 firmware/w12/tools/rc9_native_tests.py \
+  --objects artifacts/w12-leader-tests --out artifacts/w12-rc9-tests
+```
+
+These use the pinned SDK's public crypto headers through `IDF_PATH` and synthetic
+radio callbacks. Hardware verification must preserve missing/expired samples,
+measure reacquisition separately from precision lock, and test actual GM changes.
+Neither host checks nor internal fit RMS establishes calibrated UTC accuracy.

@@ -65,7 +65,7 @@ void discovery(bool pending_only=false){v12::Discovery d{};d.props=1;d.length=28
 void fresh_direct(uint64_t identity,uint64_t boot,uint32_t source,uint32_t train){
   const auto before=output.size();v12::Discovery d{};d.props=1;d.length=25;d.bytes[0]=24;d.bytes[1]=0xff;
   auto* b=d.bytes+2;b[0]='G';b[1]='1';b[2]=1;r2_group_put(b+3,v12::provision.group.id,8);r2_group_put(b+11,1,4);r2_group_put(b+15,identity,8);
-  d.address=v12::canonical(identity);d.at=fake_now;v12::discoveries.push(d);step();assert(v12::peer.connecting);
+  d.address=v12::canonical(identity);d.rssi=-30;d.at=fake_now;v12::discoveries.push(d);step(21);assert(v12::peer.connecting);
   ble_gap_event e{};e.type=BLE_GAP_EVENT_CONNECT;v12::gap(&e,conn_arg);step(3);
   assert(output.size()==before+1);r2_join_record request{};assert(!r2_group_join_decode(&request,output.back().data(),R2_GROUP_JOIN_BYTES,&v12::provision.group));
   r2_join_record challenge{};challenge.kind=R2_JOIN_CHALLENGE;challenge.sender=identity;challenge.receiver=v12::provision.identity;
@@ -458,6 +458,46 @@ int main(int argc,char** argv){assert(argc==2);std::string which=argv[1];
     fake_now=1000000;v12::active_poll(fake_now);assert(scan_active&&!v12::fault);
     v12::r2_stop();step(2);assert(v12::r2_status().off_ack&&v12::client.stop_completed==2);
     v12::fault=true;assert(!v12::r2_client_start(24));return 0;
+  }
+  if(which=="leader-loss"||which=="leader-loss-pin"||which=="leader-loss-boundary"||which=="leader-loss-switch"){
+    fake_now=1000000;v12::window_start=fake_now;
+    v12::anchor={true,333,444,1700000000000000,fake_now,fake_now+100000,7,8,40000};
+    v12::anchor.context_until=fake_now+360000000;
+    v12::joined_peer=333;v12::joined_boot=444;v12::member=true;
+    v12::parent_selection.seen(333,false,-30,fake_now);
+    v12::parent_selection.bind(333,444,7,fake_now);
+    v12::parent_selection.authenticated(333,false,444,333,444,7,fake_now);
+    if(which=="leader-loss-pin")v12::parent_selection.target(333,false);
+    v12::admission_policy.acquired();v12::admission_policy.started(fake_now);
+    v12::admission_policy.failed(fake_now,10000000);
+    v12::locators[0].at=fake_now;v12::locator_ids[0]=333;v12::cooldown(333,fake_now,60000000);
+    v12::synced=true;v12::sync_identity=333;v12::sync_handle=9;
+    const auto until=v12::anchor.until;
+    fake_now=until+1500000-(which=="leader-loss-boundary");
+    // Scope/cache test inside a fresh synthetic radio window. Half-duty
+    // quiet/drain failures remain covered by their dedicated cases.
+    v12::window_phase=fake_now%v12::G1Window::Cycle;v12::window_start=fake_now;
+    v12::sync_requested_at=v12::sync_owner_window_start=fake_now;
+    v12::active_poll(fake_now);pump_cleanup();
+    if(which=="leader-loss-boundary"){assert(v12::anchor.source);return 0;}
+    if(v12::fault||v12::anchor.source||v12::member||v12::joined_peer||v12::joined_boot)
+      std::fprintf(stderr,"leader-loss fault=%u anchor=%u member=%u peer=%llu boot=%llu api=%u/%d quiet=%u\n",v12::fault,v12::anchor.source,v12::member,(unsigned long long)v12::joined_peer,(unsigned long long)v12::joined_boot,unsigned(v12::first_error_api),v12::first_error_rc,v12::quiet_faults);
+    assert(!v12::fault&&!v12::anchor.source&&!v12::member&&!v12::joined_peer&&!v12::joined_boot);
+    assert(!v12::parent_selection.parent()&&!v12::parent_selection.history().entries(fake_now));
+    assert(v12::parent_selection.pinned()==(which=="leader-loss-pin"));
+    assert(v12::parent_selection.accepts(999,false)==(which!="leader-loss-pin"));
+    assert(!v12::locator_ids[0]&&!v12::cooled(333,fake_now)&&!v12::synced);
+    assert(v12::admission_policy.allowed(fake_now,true));
+    if(which=="leader-loss-switch"){
+      fresh_direct(999,998,5,6);
+      assert(v12::anchor.root==999&&v12::anchor.boot==998&&v12::member&&!v12::fault);
+      assert(!v12::corrected_clock.prediction().tick); // A JOIN grants no precision.
+      v12::r2_stop();step(6);assert(v12::r2_status().off_ack);return 0;
+    }
+    const auto next=v12::admission_policy.reacquire_after;
+    v12::admission_policy.leader_lost(fake_now+1);
+    assert(!v12::admission_policy.allowed(next-1,true)&&v12::admission_policy.allowed(next,true));
+    v12::r2_stop();step(6);assert(v12::r2_status().off_ack);return 0;
   }
   if(which=="no-source-held"||which=="foreign-root-held"||which=="warm-control-PA"){
     // Use production authenticated exchange validation with an existing

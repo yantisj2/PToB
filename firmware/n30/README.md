@@ -5,6 +5,17 @@ OLED to the Meshnology N30 / Heltec WiFi LoRa32 V3. It uses an ESP32-S3,
 8 MiB flash and a 64×128 display. N30 is RC-only, with no GNSS input; WiFi is
 disabled. Start with the [build guide](../../docs/n30/build.md).
 
+Version 0.2.29 retires the old leader's session, timing model, queued timing
+samples, discovery locators, cooldowns and selection history after 1.5 seconds
+of continuous source-permission loss, or immediately after an authenticated
+source-incarnation change. Short gaps retain acquisition. Operator pins and
+per-device calibration survive. Fresh discovery and authenticated admission
+are required before FOLLOW returns; a JOIN alone grants no precision. Repeated
+cache resets cannot grant a recovery admission more often than every five seconds.
+Exact duplicate incoming relay connections retain their existing owner and
+deadline; valid capacity overlaps are refused and drained by the worker.
+Hardware failover and precision remain subject to exact-image verification.
+
 Version 0.2.28 fixes automatic return from RC9 fallback to normal BLE after
 mesh recovery. It reuses bounded passive discovery, requires fresh normal
 admission and preserves fallback expiry, explicit pins and separate clock

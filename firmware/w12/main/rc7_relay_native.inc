@@ -119,7 +119,7 @@ void relay_slot_observe(const rc7_control& cap,int8_t rssi,uint64_t now){
     rc_slots_contender(&relay_slots,cap.sender,now);
 }
 uint16_t relay_quarantined[4]={None,None,None,None};bool relay_quarantine_sent[4]{};
-uint64_t relay_quarantine_until[4]{};
+uint64_t relay_quarantine_until[4]{};ble_addr_t relay_quarantine_address[4]{};
 bool relay_quarantine_timed_out[4]{};
 uint32_t relay_admission_overlaps=0,relay_quarantine_timeouts=0;
 bool relay_api(int rc,R2Api site){if(!rc)return true;error(rc,site);return false;}
@@ -247,6 +247,16 @@ int relay_gap(ble_gap_event* e,void*){
     ble_gap_conn_desc d{};
     const int lookup=ble_gap_conn_find(e->connect.conn_handle,&d);
     const bool descriptor=!lookup&&d.role==BLE_GAP_ROLE_SLAVE;
+    // NimBLE may report the same established slave ACL again after remote
+    // feature/version exchange. The exact live descriptor acknowledges its
+    // existing owner; it cannot renew a challenge, lifetime or drain deadline.
+    if(descriptor&&e->connect.conn_handle==relay_session.handle&&same_address(d.peer_id_addr,relay_session.address)){
+      relay_owner_trace(1,4,e->connect.conn_handle,lookup,&d,0,255,relay_session.until,0);return 0;
+    }
+    for(unsigned i=0;i<4;i++)if(descriptor&&e->connect.conn_handle==relay_quarantined[i]&&
+        same_address(d.peer_id_addr,relay_quarantine_address[i])){
+      relay_owner_trace(1,4,e->connect.conn_handle,lookup,&d,0,uint8_t(i),relay_quarantine_until[i],0);return 0;
+    }
     const uint16_t observed_gates=uint16_t(!lookup)|uint16_t(descriptor)<<1|
       uint16_t(relay_admission_locked)<<2|uint16_t(relay_acl_available())<<3|
       uint16_t(peer.handle==None)<<4|uint16_t(!peer.connecting)<<5|uint16_t(full_listening())<<6|
@@ -268,12 +278,13 @@ int relay_gap(ble_gap_event* e,void*){
       // a missed original drain remain hard faults.
       const bool overlap=descriptor&&at<4&&relay_quarantined[at]==None&&
         e->connect.conn_handle!=peer.handle&&e->connect.conn_handle!=relay_session.handle&&
-        relay_session.handle==None&&(peer.connecting||peer.handle!=None||!relay_admission_locked)&&
+        (peer.connecting||peer.handle!=None||!relay_admission_locked||relay_session.handle!=None||relay_quarantine_owned())&&
         full_listening()&&client.running&&!client.stopping&&!closing&&!fault&&!relay_stopping&&
         !stop_pending&&relay_generation!=UINT32_MAX&&relay_challenge<UINT64_MAX-1&&now<=UINT64_MAX-2000000;
       const bool empty=at<4&&relay_quarantined[at]==None;
       if(empty){
-        relay_quarantined[at]=e->connect.conn_handle;relay_quarantine_sent[at]=relay_quarantine_timed_out[at]=false;
+        relay_quarantined[at]=e->connect.conn_handle;relay_quarantine_address[at]=d.peer_id_addr;
+        relay_quarantine_sent[at]=relay_quarantine_timed_out[at]=false;
         relay_quarantine_until[at]=now<=UINT64_MAX-2000000?now+2000000:now;
         if(closing&&close_until<relay_quarantine_until[at])relay_quarantine_until[at]=close_until;
         if(relay_stopping&&relay_stop_deadline<relay_quarantine_until[at])relay_quarantine_until[at]=relay_stop_deadline;

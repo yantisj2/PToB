@@ -1,5 +1,18 @@
 # W12 changelog
 
+## 0.2.12 — leader recovery
+
+- Fence expired or changed source state and discard old leader selection caches,
+  pending fine associations and queued packets before fresh admission.
+- Preserve explicit pins, enrollment, continuous counter and per-device offsets.
+- Bound recovery admission credits to one per five seconds; keep authenticated
+  deadlines and actual controller drain ownership unchanged.
+- Handle exact duplicate incoming ACL notifications idempotently and quarantine
+  valid capacity overlaps without granting service or faulting normal reception.
+- Offline regressions cover loss boundaries, new-leader admission, pins, repeated
+  reset throttling and duplicate/overlapping connections. These do not qualify RF
+  failover latency, UTC accuracy or precision.
+
 ## 0.2.11 — normal BLE recovery from RC9 fallback
 
 - AUTO reuses bounded 1.5 s / 30 s passive discovery and existing admission

@@ -279,7 +279,8 @@ int main(int argc,char** argv){assert(argc==2);const std::string which=argv[1];
      assert(count()==61&&v12::relay_tx_capture_left==59);
      unsigned companions=0;
      for(const auto& row:v12::diagnostic_records)if(row.kind==24){
-       ++companions;assert(row.length==124&&row.bytes[0]==2);
+       ++companions;assert(row.length==128&&row.bytes[0]==3);
+       assert(le(row.bytes+124,4)==uint32_t(map.receiver_phase_ns));
        const unsigned offset=which=="provisional-output"?47000:0;
        const unsigned applied=offset?offset:40000;
        assert(le(row.bytes+64,8)+applied==le(row.bytes+72,8)&&le(row.bytes+20,4)==offset&&le(row.bytes+80,8)==unsigned(offset!=0));
@@ -354,6 +355,30 @@ int main(int argc,char** argv){assert(argc==2);const std::string which=argv[1];
      assert(!v12::relay_hold.deadline());
      puts("PASS bounded downstream hold retains train/demand, withdraws timing, and preserves hard expiry/stop/scope gates");return 0;
    }
+   if(which=="incoming-capacity"){
+     assert(v12::client.pending&&v12::client.start(fake_now));
+     // The first admitted slave still owns its original deadline. A distinct
+     // second handle must enter worker quarantine, without replacing it.
+     v12::relay_session.handle=34;v12::relay_session.address=child_address;
+     v12::relay_session.until=fake_now+1000000;
+     const auto original=v12::relay_session.until;server_late_connect();
+     assert(!v12::fault&&v12::relay_quarantined[0]==33&&v12::relay_session.handle==34);
+     assert(v12::relay_session.until==original&&v12::relay_admission_overlaps==1);
+     const auto deadline=v12::relay_quarantine_until[0];fake_now+=1000;server_late_connect();
+     assert(!v12::fault&&v12::relay_quarantine_until[0]==deadline&&v12::relay_session.until==original);
+     server_disconnect();assert(!v12::relay_quarantine_owned()&&v12::relay_session.handle==34);
+     puts("PASS distinct incoming slave capacity is refused without replacing the admitted owner");return 0;
+   }
+   if(which=="duplicate-active"){
+     assert(v12::client.pending&&v12::client.start(fake_now));server_connect();
+     const auto generation=v12::relay_generation;const auto challenge=v12::relay_challenge;
+     const auto until=v12::relay_session.until;const auto errors=v12::api_errors;
+     fake_now+=1000;server_late_connect();
+     assert(!v12::fault&&v12::api_errors==errors&&v12::relay_session.handle==33);
+     assert(v12::relay_generation==generation&&v12::relay_challenge==challenge&&v12::relay_session.until==until);
+     assert(!v12::relay_quarantine_owned());server_disconnect();
+     puts("PASS exact duplicate incoming CONNECT cannot create a second owner, challenge or lifetime");return 0;
+   }
    if(which.rfind("overlap-",0)==0){
      // An active upstream admission is followed by a delayed successful slave
      // ACL after CAP stop. The existing periodic train must remain owned.
@@ -404,9 +429,10 @@ int main(int argc,char** argv){assert(argc==2);const std::string which=argv[1];
        server_unadmitted();assert(v12::relay_quarantine_until[0]==deadline);
        if(which=="overlap-duplicate"){
          fake_now+=1000;server_late_connect();
-         assert(v12::fault&&v12::api_errors==errors+1&&v12::relay_admission_overlaps==1);
+         assert(!v12::fault&&v12::api_errors==errors&&v12::relay_admission_overlaps==1);
          assert(v12::relay_quarantine_until[0]==deadline&&server_terminate_calls==1);
-         server_unadmitted();puts("PASS duplicate CONNECT stays hard fault without deadline extension or GATT authority");return 0;
+         server_unadmitted();server_disconnect();v12::relay_poll(fake_now,false);
+         puts("PASS duplicate quarantined CONNECT preserves original owner and deadline without authority");return 0;
        }
        fake_now=deadline-1;
        // Keep the parent physically fresh while testing the independent ACL
