@@ -1,0 +1,35 @@
+#!/usr/bin/env python3
+"""Host verification only; no USB or hardware access.
+Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT
+"""
+import argparse,os,subprocess
+from pathlib import Path
+APP=Path(__file__).resolve().parents[1]
+p=argparse.ArgumentParser(description=__doc__);p.add_argument('--out',type=Path,required=True)
+p.add_argument('--address-sanitizer',action='store_true',help='Also enable ASan on hosts with a working ASan runtime')
+p.add_argument('--dependencies',type=Path,help='Pinned M5 dependency directory for actual power-button logic test')
+p.add_argument('--sdk',type=Path,help='Pinned public ESP-IDF checkout for actual GS/HMAC codec tests')
+a=p.parse_args()
+a.out.mkdir(parents=True,exist_ok=False)
+sanitizers='address,undefined' if a.address_sanitizer else 'undefined'
+flags=['-O1','-g','-Wall','-Wextra','-Werror','-fsanitize='+sanitizers,'-fno-omit-frame-pointer','-I'+str(APP/'main')]
+cmd=[os.environ.get('CXX','clang++'),'-std=c++20',*flags,str(APP/'tests/ui_test.cpp'),str(APP/'main/ui.cpp'),str(APP/'main/mesh_diagnostics.cpp'),'-o',str(a.out/'ui_test')]
+subprocess.run(cmd,check=True,timeout=60);subprocess.run([str(a.out/'ui_test')],check=True,timeout=30)
+print('PASS: expiry, UTC-phase pulse boundaries, RC9 precision exclusion, offset scope, overflow, 750 render combinations, multi-page touch navigation / cancellation; '+sanitizers)
+if a.sdk:
+ crypto=a.sdk.resolve()/'components/bt/host/nimble/nimble/ext/tinycrypt';protocol=APP.parent/'t096/protocol'
+ sources=[protocol/'group_auth.c',protocol/'role_announcement.c',protocol/'gnss_diagnostics.c',APP.parent/'w12/main/g1_hmac.c',crypto/'src/sha256.c',crypto/'src/utils.c'];objects=[]
+ for source in sources:
+  obj=a.out/(source.stem+'.o');objects.append(obj)
+  subprocess.run([os.environ.get('CC','clang'),'-std=c11',*flags,'-I'+str(crypto/'include'),'-c',str(source),'-o',str(obj)],check=True,timeout=60)
+ for test in ('mesh_wire_test','reference_wire_test','mesh_owner_test'):
+  extra=[str(APP/'main/mesh_owner.cpp')] if test=='mesh_owner_test' else []
+  includes=['-I'+str(APP/'tests/stubs'),'-I'+str(APP.parent/'w12/main')]
+  subprocess.run([os.environ.get('CXX','clang++'),'-std=c++20',*flags,*includes,str(APP/('tests/'+test+'.cpp')),str(APP/'main/mesh_diagnostics.cpp'),str(APP/'main/mesh_wire.cpp'),*extra,*map(str,objects),'-o',str(a.out/test)],check=True,timeout=60)
+  subprocess.run([str(a.out/test)],check=True,timeout=30)
+else:print('GS/HMAC codec tests not run; supply --sdk with pinned public ESP-IDF.')
+
+if a.dependencies:
+ m5=a.dependencies.resolve()/'M5Unified/src'
+ subprocess.run([os.environ.get('CXX','clang++'),'-std=c++20',*flags,'-I'+str(m5),str(APP/'tests/button_test.cpp'),str(m5/'utility/Button_Class.cpp'),'-o',str(a.out/'button_test')],check=True,timeout=60)
+ subprocess.run([str(a.out/'button_test')],check=True,timeout=30)

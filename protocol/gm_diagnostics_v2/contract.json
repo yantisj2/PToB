@@ -1,0 +1,378 @@
+{
+  "schema": 1,
+  "id": "V14-GD2",
+  "wire_version": 2,
+  "status": "EXPERIMENTAL_IMPLEMENTATION_WITH_BOUNDED_FIELD_OBSERVATION",
+  "edition_date": "2026-10-23",
+  "license": "MIT",
+  "copyright": "Copyright (c) 2026 Jonathan Yantis",
+  "specification": "docs/V14_GM_DIAGNOSTICS_V2.md",
+  "relationship": "Additive current-implementation diagnostics extension; frozen V14-RC1 is unchanged.",
+  "byte_order": "little",
+  "wire": {
+    "bytes": 90,
+    "body_bytes": 74,
+    "domain": "R2GNDG02",
+    "fields": [
+      {
+        "name": "ad_length",
+        "offset": 0,
+        "bytes": 1,
+        "meaning": "89; includes every byte after this length"
+      },
+      {
+        "name": "ad_type",
+        "offset": 1,
+        "bytes": 1,
+        "meaning": "Manufacturer-specific data: 255"
+      },
+      {
+        "name": "company",
+        "offset": 2,
+        "bytes": 2,
+        "meaning": "Experimental 0xffff"
+      },
+      {
+        "name": "marker",
+        "offset": 4,
+        "bytes": 2,
+        "meaning": "ASCII GD"
+      },
+      {
+        "name": "version",
+        "offset": 6,
+        "bytes": 1,
+        "meaning": "2"
+      },
+      {
+        "name": "reserved",
+        "offset": 7,
+        "bytes": 1,
+        "meaning": "Zero"
+      },
+      {
+        "name": "group_id",
+        "offset": 8,
+        "bytes": 8,
+        "meaning": "Provisioned nonzero group identity"
+      },
+      {
+        "name": "key_epoch",
+        "offset": 16,
+        "bytes": 4,
+        "meaning": "Provisioned nonzero group key epoch"
+      },
+      {
+        "name": "root",
+        "offset": 20,
+        "bytes": 8,
+        "meaning": "Nonzero serving root identity; also the sender"
+      },
+      {
+        "name": "root_boot",
+        "offset": 28,
+        "bytes": 8,
+        "meaning": "Nonzero root timing/profile incarnation; the GS boot scope"
+      },
+      {
+        "name": "mesh_epoch",
+        "offset": 36,
+        "bytes": 4,
+        "meaning": "Nonzero inherited mesh source epoch"
+      },
+      {
+        "name": "sequence",
+        "offset": 40,
+        "bytes": 4,
+        "meaning": "Nonzero GD publication counter; never wraps"
+      },
+      {
+        "name": "sampled_us",
+        "offset": 44,
+        "bytes": 8,
+        "meaning": "Nonzero original root monotonic snapshot time, microseconds"
+      },
+      {
+        "name": "valid_us",
+        "offset": 52,
+        "bytes": 4,
+        "meaning": "Remaining diagnostic cache lifetime: 1..30000000 microseconds"
+      },
+      {
+        "name": "known",
+        "offset": 56,
+        "bytes": 1,
+        "meaning": "Known mask: FIX/PPS/QUAL/SV/PTP/HDOP in bits 0..5"
+      },
+      {
+        "name": "values",
+        "offset": 57,
+        "bytes": 1,
+        "meaning": "Boolean FIX/PPS/QUAL values in bits 0..2"
+      },
+      {
+        "name": "sats",
+        "offset": 58,
+        "bytes": 1,
+        "meaning": "Satellites used: 0..99 when known; otherwise 255"
+      },
+      {
+        "name": "source_kind",
+        "offset": 59,
+        "bytes": 1,
+        "meaning": "1 = local GNSS; GD-specific enumeration"
+      },
+      {
+        "name": "rmc_age_ms",
+        "offset": 60,
+        "bytes": 2,
+        "meaning": "Active RMC age at snapshot; sentinel rules below"
+      },
+      {
+        "name": "pps_age_ms",
+        "offset": 62,
+        "bytes": 2,
+        "meaning": "PPS edge age at snapshot; sentinel rules below"
+      },
+      {
+        "name": "gga_age_ms",
+        "offset": 64,
+        "bytes": 2,
+        "meaning": "GGA satellite-count and HDOP observation age at snapshot"
+      },
+      {
+        "name": "priority1",
+        "offset": 66,
+        "bytes": 1,
+        "meaning": "Actual election priority1"
+      },
+      {
+        "name": "clock_class",
+        "offset": 67,
+        "bytes": 1,
+        "meaning": "Actual election clock class"
+      },
+      {
+        "name": "accuracy",
+        "offset": 68,
+        "bytes": 1,
+        "meaning": "Actual election accuracy code; not a measured nanosecond bound"
+      },
+      {
+        "name": "priority2",
+        "offset": 69,
+        "bytes": 1,
+        "meaning": "Actual election priority2"
+      },
+      {
+        "name": "variance",
+        "offset": 70,
+        "bytes": 2,
+        "meaning": "Actual election variance code; not measured PPS or fit variance"
+      },
+      {
+        "name": "hdop_centi",
+        "offset": 72,
+        "bytes": 2,
+        "meaning": "Reported dimensionless horizontal DOP in centi-units; unknown = 65535"
+      },
+      {
+        "name": "tag",
+        "offset": 74,
+        "bytes": 16,
+        "meaning": "First 16 bytes of the record HMAC-SHA256"
+      }
+    ]
+  },
+  "authentication": {
+    "algorithm": "HMAC-SHA256",
+    "tag_bytes": 16,
+    "input": "domain8 || group_context13 || complete_body74",
+    "group_context": "version1:u8 || group_id:le64 || key_epoch:le32",
+    "group_context_version": 1,
+    "trust": "symmetric group PSK"
+  },
+  "known_bits": {
+    "fix": 0,
+    "pps": 1,
+    "source_qualified": 2,
+    "satellites": 3,
+    "ptp_dataset": 4,
+    "hdop": 5
+  },
+  "value_bits": {
+    "fix": 0,
+    "pps": 1,
+    "source_qualified": 2
+  },
+  "source_kind": {
+    "local_gnss": 1
+  },
+  "unknown": {
+    "age_ms": 65535,
+    "satellites": 255,
+    "ptp_tuple": [
+      128,
+      248,
+      254,
+      128,
+      65535
+    ],
+    "hdop_centi": 65535
+  },
+  "age_saturated_ms": 65534,
+  "freshness_ms": {
+    "true_fix_strictly_less_than": 2500,
+    "true_pps_strictly_less_than": 1500,
+    "known_satellites_strictly_less_than": 4000,
+    "known_hdop_strictly_less_than": 4000
+  },
+  "scheduler": {
+    "owner_update_min_us": 1000000,
+    "gd_next_due_after_success_us": 2000000,
+    "diagnostic_cache_max_us": 30000000,
+    "additional_advertisers": 0,
+    "controller_data_ceiling_bytes": 191,
+    "strategy": "GD-only window replaces one GS window; no precision record changes"
+  },
+  "authority": false,
+  "field_validation": {
+    "date": "2026-10-23",
+    "summary_license": "CC-BY-4.0",
+    "credit": "Jonathan Yantis",
+    "producer": {
+      "version": "0.15.168",
+      "source_commit": "23cbec6017f268fa107dd865012838aff9004ea6",
+      "source_sha256": "c6fac70c97c0ff31b774c0cbd2c1ab0853fbd1d11e3d937cef403809fbb739cc",
+      "wire_version": 2
+    },
+    "observer": {
+      "target": "CoreS3-SE",
+      "version": "0.1.10",
+      "build_id": "47347412a9a52ef320447782e1877614719fde3fe8e08887aaad09618e7a4942",
+      "passive_window_us": 80000,
+      "minimum_window_interval_us": 800000,
+      "clock_health_gate_unchanged": true
+    },
+    "binding": "One selected root identity, timing/profile incarnation and inherited mesh epoch; physical boots separately bound by CRC console.",
+    "receiver": {
+      "nominal_observation_s": 210,
+      "observed_receipt_deadline_span_us": 209809967,
+      "samples": 177,
+      "current_selected_samples": 176,
+      "empty_selection_last_GM_history_samples": 1,
+      "expired_report_samples": 0,
+      "distinct_GD2_reports": 61,
+      "first_sequence": 105,
+      "last_sequence": 209,
+      "maximum_interreport_gap_us": 12049297,
+      "minimum_replacement_margin_us": 17946095,
+      "original_deadline_nonrefresh": true,
+      "raw_console_frames_CRC_checked": 1279,
+      "unobserved_sequence_labels_in_inclusive_range": 44,
+      "RF_packet_loss_rate": null
+    },
+    "reported_HDOP_source_join": {
+      "received_reports": 61,
+      "same_GGA_event_exact_HDOP_and_SV_matches": 20,
+      "unmatched_reports": 41,
+      "source_clock_queries": 123,
+      "method": "GD.sampled_us minus floored GGA age defines the original GGA receipt-time interval; exact source mono_us minus gga_age_us must lie inside it. Only matched events establish value equality."
+    },
+    "producer_quad": {
+      "cohorts": 10,
+      "unit_observations": 40,
+      "raw_CRC_frames": 401,
+      "additional_root_clock_queries": 113,
+      "all_GM_same_mesh_epoch": true,
+      "ACTIVE_cohorts": 10,
+      "two_sided_HOT_cohorts": 7,
+      "GD_successful_HCI_counter": [
+        127,
+        172
+      ],
+      "HOT_acquiring_cohorts": 3
+    },
+    "LoRa_transmitter_local": {
+      "observations": 10,
+      "NO_SOURCE": 4,
+      "source_bearing_contexts": 6,
+      "pending_first_timing_event": 1,
+      "completed_timing_observations": 5,
+      "completed_sequence": [
+        3,
+        11
+      ],
+      "completed_TX_DONE": [
+        6,
+        15
+      ],
+      "independently_received_LoRa": false
+    },
+    "display": {
+      "device_live_model_renders": 8,
+      "completed_LCD_frame_captures": 1,
+      "pixel_CRC_checked": true,
+      "optical_readback": false
+    },
+    "retained_failures": {
+      "prior_Core018": {
+        "samples": 150,
+        "current_diagnostic_samples": 146,
+        "empty_selected_scope_samples": 1,
+        "expired_diagnostic_samples": 3,
+        "freshness_result": "INCOMPLETE"
+      },
+      "earlier_GD1": "Long delivery gaps retained; successful bounded reception is not steady freshness acceptance.",
+      "first_Core010_preflight": {
+        "result": "INCOMPLETE_HOST_OWNERSHIP_QUERY_TIMEOUT",
+        "samples": 0
+      }
+    },
+    "scope_limits": [
+      "Production decoder acceptance observed through CRC-framed console; raw received RF wire is unavailable.",
+      "The one empty selected source is descriptive LAST GM history, never current timing.",
+      "61 received reports and20 exact source-event matches are separate denominators.",
+      "Private raw captures and device/group enrollment are excluded; offline public wire tests do not reproduce the field extraction.",
+      "No delivery guarantee, guaranteed HOT, seamless handover, calibrated UTC, RF timestamp metrology or precision qualification."
+    ]
+  },
+  "descriptive_cache": {
+    "same_selected_scope_required_for_current": true,
+    "history_allowed_when_selection_matches_or_is_entirely_empty": true,
+    "entirely_empty_selection": "root=0,root_boot=0,mesh_epoch=0",
+    "empty_selection_label": "LAST GM / CACHED plus original receipt age",
+    "any_other_nonempty_selection_hides_history": true,
+    "may_retain_until_replaced_within_observer_boot": true,
+    "expired_label_required": "CACHED or STALE plus original receipt age",
+    "receipt_or_deadline_refresh_on_replay_or_reselection": false,
+    "timing_authority": false
+  },
+  "legacy_decoder": {
+    "wire_version": 1,
+    "bytes": 88,
+    "body_bytes": 72,
+    "domain": "R2GNDG01",
+    "known_mask": 31,
+    "hdop": "unavailable; known bit clear and hdop_centi65535",
+    "encode": false
+  },
+  "hdop_parser": {
+    "input": "checksum-valid GGA field7",
+    "units": "dimensionless centi-units",
+    "accepted_precision": "integer or one/two fractional digits",
+    "range_inclusive": [
+      0,
+      65534
+    ],
+    "invalid": "unknown; does not reject an otherwise accepted GGA",
+    "authority": false
+  },
+  "display_quality": {
+    "accuracy_unknown_raw": 254,
+    "accuracy_unknown_label": "ACC UNKNOWN",
+    "variance_unreported_raw": 65535,
+    "variance_unreported_label": "VAR NONE",
+    "sentinel_is_measured_zero": false
+  }
+}

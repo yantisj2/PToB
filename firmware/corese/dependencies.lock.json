@@ -1,0 +1,6 @@
+{
+  "schema": 1,
+  "esp-idf": {"repository": "https://github.com/espressif/esp-idf.git", "revision": "b774170ff46c393eeb5e495ea37936038d3f4f4f", "version": "v5.5.5"},
+  "M5GFX": {"repository": "https://github.com/m5stack/M5GFX.git", "revision": "d91077b9a607b59404e4e4a49f775c792bfae382", "version": "0.2.28", "license": "MIT and bundled component notices"},
+  "M5Unified": {"repository": "https://github.com/m5stack/M5Unified.git", "revision": "28c6a1f03d05f3ff3216adc89b09c9328448ad53", "version": "0.2.11", "license": "MIT"}
+}

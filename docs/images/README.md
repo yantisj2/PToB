@@ -148,3 +148,23 @@ preview manifests and historical hashes remain unchanged. Reproduce with the
 N30 preview command above with`--alias N3-2` and select
 `n30-precision-lock-preview.png`.
 Original interface artwork and documentation, Jonathan Yantis, MIT.
+
+## CoreS3-SE precision diagnostics instrument
+
+The four selected CoreS3-SE 0.1.10 screenshots show the instrument, local receiver
+quality, mesh role history and GM reference pages during a finite development
+field check on 23 October 2026. `corese-reference.png` is the actual completed
+LCD framebuffer. The other three use the on-device production renderer with
+the contemporaneous live model, without changing the visible Reference page.
+The complete 320×240 PNG files are copied unchanged; they are not photographs.
+
+The [provenance record](corese-provenance.json) identifies every selected image,
+its bytes, capture mode, pixel CRC and renderer sources. Readouts are snapshots:
+causal RMS is internal prediction quality, HDOP is GNSS geometry, and `VAR NONE`
+means unreported variance. Missing HOT and the unavailable delivery denominator
+are retained. These images do not establish calibrated UTC, physical PPS accuracy
+or continuous availability. Exact hardware identities, private enrollment and
+raw console logs are excluded.
+
+Original interface screenshots and ordinary documentation: Jonathan Yantis, MIT.
+The original observation provenance record uses CC BY 4.0.

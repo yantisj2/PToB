@@ -24,6 +24,7 @@ Start with the target matching your hardware:
 | Meshnology W12 | Receiver; optional experimental relay with estimated transmit timing | [W12 README](firmware/w12/README.md) |
 | M5Stack StickS3 (SS3) | Receiver and experimental relay with estimated transmit timing | [SS3 README](firmware/ss3/README.md) |
 | Meshnology N30 | BLE RC with passive LoRa timing fallback and portrait OLED | [N30 README](firmware/n30/README.md) |
+| M5Stack CoreS3-SE | Precision diagnostics instrument: receiver quality, mesh lineage and GM reference status | [CoreS3-SE README](firmware/corese/README.md) |
 | macOS | USB time client and chrony bridge | [macOS README](clients/macos/README.md) |
 
 For three or four T096 GMs, follow the **[GM operating guide](docs/t096/gm-operations.md)**

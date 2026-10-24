@@ -10,6 +10,12 @@ synthetic known-answer vectors. Read the [V14 proposal](../papers/ptob-v14-sig-p
 and [specification](../docs/V14_CLOCK_SPEC_RC1.md) together with its documented
 normative gaps. This candidate does not establish current firmware conformance.
 
+The [V14 GD2 GM diagnostics extension](gm_diagnostics_v2/README.md) describes the
+current T096 0.15.168/CoreS3-SE occasional GNSS and raw election-quality report,
+including real GGA HDOP, strict legacy GD1 decoding and bounded 23 October 2026
+field observations. Its descriptive cache grants no timing authority and does
+not revise the frozen V14-RC1 timing layouts or qualify UTC accuracy.
+
 Read the [v12-to-R2 background](../docs/V12_TO_R2.md) for the earlier service
 direction. The [October 2 proposal](../papers/ptob-proposal.pdf) preserves an earlier
 protocol edition; it should not be read as the current R2 wire contract.

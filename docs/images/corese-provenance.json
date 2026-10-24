@@ -1,0 +1,73 @@
+{
+  "schema": 1,
+  "title": "CoreS3-SE 0.1.10 selected instrument screenshots",
+  "date": "2026-10-23",
+  "author": "Jonathan Yantis",
+  "record_license": "CC-BY-4.0",
+  "interface_license": "MIT",
+  "selection": "Four explicitly selected screens from one completed finite development field check. The Reference image is a frozen completed LCD framebuffer; the other three are on-device production-renderer frames using the contemporaneous live model. The visible Reference screen was preserved while rendering the other pages.",
+  "device": "M5Stack CoreS3-SE (K128-SE)",
+  "firmware_version": "0.1.10",
+  "gm_firmware_version": "0.15.168",
+  "images": [
+    {
+      "file": "corese-instrument.png",
+      "title": "PToB precision instrument",
+      "width": 320,
+      "height": 240,
+      "sha256": "9a6703171f812e0045d832ab9d7b32c2251c19d8f75c34f17317648c485c7c33",
+      "origin": "ONDEVICE_LIVE_MODEL_RENDER",
+      "pixel_crc32": "3177da70",
+      "transformation": "None; selected complete native-resolution PNG bytes copied unchanged.",
+      "license": "MIT"
+    },
+    {
+      "file": "corese-reference.png",
+      "title": "Selected GM GNSS and PTP reference diagnostics",
+      "width": 320,
+      "height": 240,
+      "sha256": "f7f1a78aa802811dc46131dde6dd07ff3ec82b41624807fecf6ba53cda5701a7",
+      "origin": "COMPLETED_LCD_FRAME",
+      "pixel_crc32": "20d9fa60",
+      "transformation": "None; selected complete native-resolution PNG bytes copied unchanged.",
+      "license": "MIT"
+    },
+    {
+      "file": "corese-quality.png",
+      "title": "Local receiver timing quality",
+      "width": 320,
+      "height": 240,
+      "sha256": "7211a6311f8a48d9ebd9c5675b2a6ad4f5b9abc85a99b49b286e6caba23664bf",
+      "origin": "ONDEVICE_LIVE_MODEL_RENDER",
+      "pixel_crc32": "4d206a8b",
+      "transformation": "None; selected complete native-resolution PNG bytes copied unchanged.",
+      "license": "MIT"
+    },
+    {
+      "file": "corese-mesh.png",
+      "title": "Cached primary and HOT role report",
+      "width": 320,
+      "height": 240,
+      "sha256": "8ab9ae3903789dfc22eac6351a5eb862889df025129fd9257723b2a4ac39c6c7",
+      "origin": "ONDEVICE_LIVE_MODEL_RENDER",
+      "pixel_crc32": "a6a149b1",
+      "transformation": "None; selected complete native-resolution PNG bytes copied unchanged.",
+      "license": "MIT"
+    }
+  ],
+  "source_sha256": {
+    "firmware/corese/main/ui.cpp": "9a8be0bd75f199e12b6b76517535e6126a8843ec0f8ca6a0ce90ad2da705a637",
+    "firmware/corese/main/display.cpp": "a7b12d4bfe678eb875fdf0ab576a9e6f22c75ee49197b26de5151a77f7b2106d",
+    "firmware/corese/main/mesh_diagnostics.cpp": "66334d64b71ac830128fa25bbb77a7448b335fab92789c2bbb5651394f06ab5e",
+    "firmware/corese/main/status_scan.hpp": "31508b58d5f9ee73bc55aad2cd12172db371444ae32d5edad828d1d5848f807c",
+    "firmware/corese/main/mesh_owner.cpp": "18208167aa687e2f74b73e7cbc6c46c88369d894672fe1079a443a9825fce23c",
+    "firmware/corese/main/mesh_wire.cpp": "23ca901014a31e1986922d92953324214470f069134ba85ec61b66e7efe24f45"
+  },
+  "limits": [
+    "Not optical photographs or LCD transport verification.",
+    "Snapshot internal causal RMS and relative offset are internal receiver observations, not calibrated UTC or physical PPS accuracy.",
+    "Role history, missing HOT and unknown delivery denominator are preserved as displayed.",
+    "GNSS HDOP is receiver geometry; VAR NONE is unknown election variance, not measured zero.",
+    "Private enrollment, exact hardware identities, enrolled firmware images and raw console/pixel logs are excluded."
+  ]
+}

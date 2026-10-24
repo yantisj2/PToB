@@ -1,5 +1,37 @@
 # Changelog
 
+## CoreS3-SE 0.1.10 — precision diagnostics instrument (2026-10-23)
+
+Add the M5Stack CoreS3-SE client with an instrument display, UTC register and
+five diagnostic pages for mesh roles, source lineage, local timing quality,
+GM reference and wire integrity. Reuse the pinned receiver with an 80 MHz fine
+counter; keep internal causal RMS separate from calibrated UTC accuracy.
+Show real GM HDOP, larger satellites-used and FIX/PPS/QUAL indicators, with
+unknown PTP variance displayed as `VAR NONE`. Retain scoped report history
+without renewing its original validity. Protected passive listening improves
+diagnostic reception; clock qualification and failover rules remain unchanged.
+Add the target/build guides, selected on-device screenshots and public source
+notices. Offline tests, native build, app readback and a finite authenticated
+GD2 reception check passed; output accuracy remains unqualified.
+
+## T096 0.15.165–0.15.168 — inherited mesh epoch and GM diagnostics (2026-10-23)
+
+Joining GMs inherit the mesh source epoch and retain it through successive GM
+replacements and source withdrawal. A standalone GM forming a new cold mesh
+generates a fresh epoch; no lab epoch is compiled in or persisted as a new mesh's
+identity. Keep physical source generations, clock qualification and failover
+gates unchanged.
+
+Add authenticated occasional GNSS/PTP diagnostics within the existing
+nonprecision advertising schedule. The 90-byte GD2 report includes actual GGA
+HDOP and preserves explicit unknown quality codes; legacy GD1 decoding remains
+supported. Independent report sequences and original expiry prevent cache
+refresh by replay. Document the [versioned V14 diagnostics extension](docs/V14_GM_DIAGNOSTICS_V2.md)
+after field reception checks. Host tests, successive-replacement regressions
+and all six native profiles passed. All four attached GMs received verified
+app-only updates; TC-03's LoRa TX advanced with the inherited mesh epoch.
+These observations do not establish uninterrupted handover or calibrated UTC.
+
 ## N30 0.2.27 — concurrent splash and immediate GM acquisition
 
 Start BLE before OLED initialization and show a display-only PToB splash for

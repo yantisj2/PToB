@@ -11,3 +11,8 @@ separated, and where the planned phone/OS GATT service fits.
 Use the [papers](../papers/README.md) for dated research and the
 [evidence index](../evidence/README.md) for experiment-specific claims. Design
 direction, implemented behavior, and measured outcomes have different scopes.
+
+The [CoreS3-SE instrument](../firmware/corese/README.md) provides a dedicated
+client and five passive diagnostic pages. Its [build guide](corese/build.md) and
+[field provenance](corese/diagnostics.md) distinguish cached mesh roles, current
+clock validity, GM uptime and locally observed source-epoch duration.
