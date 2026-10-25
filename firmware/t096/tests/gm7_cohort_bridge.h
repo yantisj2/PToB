@@ -11,7 +11,9 @@ struct gm7_cohort_input {
   uint64_t kernel, hf, resume_until, root, boot;
   int64_t utc_ns;
   uint32_t source_epoch, timing_epoch;
-  bool source_ready, handoff;
+  uint64_t handoff_root,handoff_boot;
+  uint32_t handoff_epoch;
+  bool source_ready, handoff, stop, activate;
 };
 struct gm7_cohort_output {
   struct r2_gm7_timing timing;

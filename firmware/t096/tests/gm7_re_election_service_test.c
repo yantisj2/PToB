@@ -33,21 +33,11 @@ static void current_peer(bool incumbent) {
   p->kind = incumbent ? GM7_ANNOUNCE : GM7_STATUS;
   p->flags = GM7_ELIGIBLE | GM7_CAPABLE;
   p->original = fake_hf - 10;
-  p->session = (struct gm7_session){.valid = true,
-                                    .group = group.id, .key_epoch = group.epoch,
-                                    .local_boot = boot, .peer = p->identity,
-                                    .peer_boot = p->boot,
-                                    .established = fake_hf - 1000,
-                                    .until = fake_hf + 6000000,
-                                    .source_until = fake_hf + 1000000,
-                                    .control_until = fake_hf + 2000000,
-                                    .descriptor = {.timing_epoch = 8,
-                                                   .source_gen = 8,
-                                                   .capture_gen = 4,
-                                                   .train_gen = 8},
-                                    .anchor_flags = incumbent ? GM7_A_SERVING : 0,
-                                    .control = owner.selected};
-  struct gm7_control *c = &p->session.control;
+  p->received = (struct gm7_peer_control){.last_sequence=1,
+      .source_until=fake_hf+1000000,.control_until=fake_hf+2000000,
+      .control=owner.selected};
+  struct gm7_control *c=&p->received.control;
+  c->timing_epoch=8;
   c->sender = p->identity;
   c->boot = p->boot;
   c->source_gen = 8;

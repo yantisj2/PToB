@@ -10,7 +10,7 @@ a=p.parse_args();app=Path(__file__).resolve().parents[1];out=a.out.resolve();out
 tiny=a.deps.resolve()/'modules/crypto/tinycrypt/lib'
 for n in('kernel.h','sys/atomic.h','random/random.h','bluetooth/bluetooth.h','bluetooth/conn.h','bluetooth/gatt.h','bluetooth/hci.h'):
  f=out/'zephyr'/n;f.parent.mkdir(parents=True,exist_ok=True);f.write_text('/* Fake public platform boundary. */\n')
-sources=[app/'protocol'/n for n in('gm7_codec.c','gm7_session.c','gm7_owner.c','gm7_schedule.c','gm7_air.c','gm7_bridge.c','gm7_promote.c','group_auth.c','gnss_diagnostics.c')]
+sources=[app/'protocol'/n for n in('gm7_codec.c','gm7_control.c','gm7_owner.c','gm7_schedule.c','gm7_air.c','gm7_bridge.c','gm7_promote.c','group_auth.c','gnss_diagnostics.c')]
 sources += [app/'src'/n for n in('gm7_source.c','precision.c','ui_render.c')]
 sources += [tiny/'source'/n for n in('hmac.c','sha256.c','utils.c')]
 sources += [app/'tests/gm7_re_election_service_test.c']

@@ -4,13 +4,11 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-#define GM7_REVISION 2u
-#define GM7_CONTROL_BYTES 174u
-#define GM7_REQUEST_BYTES 96u
-#define GM7_ANCHOR_BYTES 186u
+#define GM7_REVISION 3u
+#define GM7_CONTROL_BYTES 178u
 #define GM7_ROLE_BYTES 168u
 #define GM7_GNSS_BYTES 156u
-#define GM7_MAX_BYTES GM7_ANCHOR_BYTES
+#define GM7_MAX_BYTES GM7_CONTROL_BYTES
 #define GM7_MAX_AD_BYTES (GM7_MAX_BYTES + 4u)
 #define GM7_UTC_MIN UINT64_C(946684800000000)
 #define GM7_UTC_MAX UINT64_C(4102444800000000)
@@ -18,9 +16,7 @@ enum gm7_kind {
   GM7_ANNOUNCE = 1,
   GM7_STATUS,
   GM7_WITHDRAW,
-  GM7_REQUEST,
-  GM7_ANCHOR,
-  GM7_ROLE,
+  GM7_ROLE = 6,
   GM7_GNSS
 };
 enum gm7_control_flag {
@@ -29,13 +25,6 @@ enum gm7_control_flag {
   GM7_HOT = 4,
   GM7_YIELD = 8,
   GM7_CAPABLE = 16
-};
-enum gm7_anchor_flag {
-  GM7_A_INDEPENDENT = 1,
-  GM7_A_SERVING = 2,
-  GM7_A_UTC = 4,
-  GM7_A_UTC_BOUND = 8,
-  GM7_A_RELAY = 16
 };
 enum gm7_wire_role {
   GM7_W_STANDBY,
@@ -84,40 +73,7 @@ struct gm7_control {
   uint64_t yield_utc_us;
   uint32_t shadow_gen;
   uint64_t sent_mono_us;
-};
-struct gm7_request {
-  uint64_t requester;
-  uint64_t requester_boot;
-  uint64_t target;
-  uint64_t target_boot;
-  uint64_t nonce_hi;
-  uint64_t nonce_lo;
-  uint64_t request_sequence;
-};
-struct gm7_anchor {
-  uint64_t requester;
-  uint64_t requester_boot;
-  uint64_t nonce_hi;
-  uint64_t nonce_lo;
-  uint64_t responder;
-  uint64_t responder_boot;
-  uint64_t response_sequence;
-  uint64_t sampled_mono_us;
-  uint64_t utc_us;
-  uint64_t birth_us;
-  uint64_t founder;
-  uint64_t term;
-  uint64_t active;
-  uint64_t active_boot;
   uint32_t timing_epoch;
-  uint32_t source_gen;
-  uint32_t capture_gen;
-  uint32_t train_gen;
-  uint64_t control_sequence;
-  uint32_t valid_us;
-  uint32_t utc_error_us;
-  uint8_t depth;
-  uint8_t reserved;
 };
 struct gm7_role {
   uint64_t sender;
@@ -181,8 +137,6 @@ struct gm7_packet {
   uint8_t kind;
   union {
     struct gm7_control control;
-    struct gm7_request request;
-    struct gm7_anchor anchor;
     struct gm7_role role;
     struct gm7_gnss gnss;
   } body;
@@ -190,7 +144,7 @@ struct gm7_packet {
 size_t gm7_wire_size(uint8_t kind);
 bool gm7_utc_valid(uint64_t utc);
 int gm7_validate(const struct gm7_packet *);
-/* Exact implementation2 domain, big endian, no packed-struct wire access. */
+/* Exact implementation3 domain, big endian, no packed-struct wire access. */
 int gm7_encode(uint8_t *, size_t, const struct gm7_packet *,
                const struct r2_group_config *);
 int gm7_decode(struct gm7_packet *, const uint8_t *, size_t,

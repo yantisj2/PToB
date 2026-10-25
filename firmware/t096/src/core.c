@@ -94,7 +94,7 @@ int r2_parse(const char *line, struct r2_request *out)
   if(out->op==R2_GM_YIELD)return count==6?0:-EINVAL;
   if(out->op==R2_GM)return count==7&&hex(parts[6],2,&out->nonce)&&out->nonce<=
 #ifdef R2_GM7_NATIVE
-   8
+   9
 #else
    4
 #endif

@@ -68,37 +68,6 @@ uint32_t gm7_discovery_offset(uint64_t id, uint64_t boot, uint64_t frame) {
     return 0;
   return 45000u + (digest[8] % 3u) * 5000u;
 }
-int gm7_response_window(struct gm7_window *w, uint64_t request_rx,
-                        uint64_t frame_start, uint64_t now,
-                        uint32_t enclosure) {
-  if (!w || enclosure > 2000 || request_rx > now ||
-      now - request_rx >= GM7_FRAME_US || now > UINT64_MAX - 3000 ||
-      frame_start > now || now - frame_start >= GM7_FRAME_US)
-    return -EINVAL;
-  /* One secondary owner. A received request has priority over a discovery
-   * copy/diagnostic not yet queued. Select using this receiver's actual phase;
-   * no assumption about the requester's UTC or frame is authority. */
-  const uint32_t offsets[] = {43000, 48000, 53000};
-  for (unsigned next = 0; next < 2; next++) {
-    for (unsigned i = 0; i < 3; i++) {
-      uint64_t nominal, end;
-      if (!add(frame_start, next * GM7_FRAME_US + offsets[i], &nominal) ||
-          !add(nominal, 4000, &end))
-        return -EOVERFLOW;
-      if (nominal < now + 3000)
-        continue;
-      /* Leave2ms for complete REQUEST airtime before its captured AUX END.
-       * Requester separately enforces its original actual-TX250ms deadline. */
-      if (end < request_rx || end - request_rx > GM7_FRAME_US - 2000)
-        return -ETIME;
-      *w = (struct gm7_window){.nominal = nominal,
-          .latest_start = nominal + 2000, .latest_end = end,
-          .enclosure_us = enclosure, .channel = 37, .physical = true};
-      return 0;
-    }
-  }
-  return -ETIME;
-}
 int gm7_complete_airtime(uint32_t *out, size_t ad, unsigned primary,
                          unsigned auxiliary, unsigned channels, unsigned phy) {
   if (!out || !ad || ad > 191 || primary > 37 || auxiliary > 10 ||
@@ -122,7 +91,7 @@ void gm7_scheduler_init(struct gm7_scheduler *s, uint64_t now) {
 int gm7_scheduler_submit(struct gm7_scheduler *s, unsigned slot,
                          const struct gm7_packet *p,
                          const struct r2_group_config *g, struct gm7_window w,
-                         uint64_t source_until, uint64_t request_deadline,
+                         uint64_t source_until, uint64_t event_deadline,
                          uint8_t handle, uint64_t now, uint64_t *ticket) {
   if (!s || !p || !ticket || slot >= GM7_JOB_SLOTS || !time_now(s, now) ||
       gm7_validate(p))
@@ -132,9 +101,9 @@ int gm7_scheduler_submit(struct gm7_scheduler *s, unsigned slot,
     return -EBUSY;
   if ((slot == GM7_PRIMARY && p->kind != GM7_ANNOUNCE &&
        p->kind != GM7_WITHDRAW) ||
-      (slot == GM7_SECONDARY && p->kind != GM7_ANCHOR && p->kind != GM7_ROLE &&
+      (slot == GM7_SECONDARY && p->kind != GM7_ROLE &&
        p->kind != GM7_GNSS && p->kind != GM7_ANNOUNCE) ||
-      (slot == GM7_STANDBY && p->kind != GM7_STATUS && p->kind != GM7_REQUEST))
+      (slot == GM7_STANDBY && p->kind != GM7_STATUS))
     return -EPROTO;
   /* The discovery copy carries the exact ordinary primary body, not a newly
    * sampled announcement and never an extra YIELD/event copy. Its primary
@@ -161,12 +130,12 @@ int gm7_scheduler_submit(struct gm7_scheduler *s, unsigned slot,
       w.latest_end < w.latest_start || w.latest_end - w.nominal > 4000 ||
       now > w.latest_start)
     return -ETIME;
-  bool positive = p->kind == GM7_ANNOUNCE || p->kind == GM7_ANCHOR ||
+  bool positive = p->kind == GM7_ANNOUNCE ||
                   (p->kind == GM7_STATUS &&
                    (p->flags & (GM7_ELIGIBLE | GM7_SHADOW | GM7_HOT)));
   if (positive && (!source_until || source_until <= w.latest_end))
     return -ESTALE;
-  if (request_deadline && w.latest_end > request_deadline)
+  if (event_deadline && w.latest_end > event_deadline)
     return -ETIME;
   if (s->next_ticket == UINT64_MAX || s->next_buffer == UINT32_MAX) {
     s->failed = true;
@@ -176,12 +145,10 @@ int gm7_scheduler_submit(struct gm7_scheduler *s, unsigned slot,
       .window = w,
       .ticket = ++s->next_ticket,
       .sequence = p->kind <= GM7_WITHDRAW  ? p->body.control.sequence
-                  : p->kind == GM7_REQUEST ? p->body.request.request_sequence
-                  : p->kind == GM7_ANCHOR  ? p->body.anchor.response_sequence
                   : p->kind == GM7_ROLE    ? p->body.role.sequence
                                            : p->body.gnss.sequence,
       .source_until = source_until,
-      .request_deadline = request_deadline,
+      .event_deadline = event_deadline,
       .generation = s->generation,
       .buffer_version = ++s->next_buffer,
       .length = (uint16_t)(gm7_wire_size(p->kind) + 4),
@@ -216,7 +183,7 @@ int gm7_scheduler_dispatch(struct gm7_scheduler *s, unsigned slot,
     return -EAGAIN;
   if (now > j->window.latest_start ||
       (j->positive && (!source_live || now >= j->source_until)) ||
-      (j->request_deadline && now >= j->request_deadline)) {
+      (j->event_deadline && now >= j->event_deadline)) {
     j->state = GM7_JOB_ABORTED;
     inc(&s->late);
     return -ETIME;
@@ -245,7 +212,7 @@ bool gm7_scheduler_aux_allowed(struct gm7_scheduler *s, unsigned slot,
       j->state != GM7_JOB_PRIMARY || !add(now, remaining, &end) ||
       end > j->window.latest_end ||
       (j->positive && (!source_live || end >= j->source_until)) ||
-      (j->request_deadline && end > j->request_deadline)) {
+      (j->event_deadline && end > j->event_deadline)) {
     if (j->state != GM7_JOB_EMPTY)
       j->state = GM7_JOB_ABORTED;
     return false;
@@ -286,7 +253,7 @@ int gm7_scheduler_complete(struct gm7_scheduler *s, unsigned slot,
   if (!complete || !j->aux_seen || end < j->first_start ||
       end - j->first_start > 2000 || end > j->window.latest_end ||
       (j->positive && end >= j->source_until) ||
-      (j->request_deadline && end > j->request_deadline)) {
+      (j->event_deadline && end > j->event_deadline)) {
     j->state = GM7_JOB_ABORTED;
     inc(&s->missed);
     return -ETIME;

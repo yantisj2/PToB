@@ -18,8 +18,8 @@ static void setup_pt(void){
 static void publish_own(uint64_t resume){struct r2_group_client empty={0};r2_radio_service_gm7_publish(grant,&empty,&path,1000000000000LL,fake_time,resume);}
 static void follower(void){
  anchor=(struct r2_group_client){.passive=true,.source=true,.root=99,.boot=77,.source_epoch=8,.publication=9,
-  .utc_us=UINT64_C(1792800001000000),.at=fake_time,.until=fake_time+1000000,.map_until=fake_time+1000000};
- grant=(struct r2_radio_scope){.root=1,.root_identity=99,.boot=77,.source_epoch=8,.publication_epoch=9,.until_us=anchor.until,.follower=true};
+  .uncertainty_us=UINT32_MAX,.utc_us=UINT64_C(1792800001000000),.at=fake_time,.until=fake_time+1000000,.map_until=fake_time+1000000};
+ grant=(struct r2_radio_scope){.root=1,.root_identity=99,.boot=77,.source_epoch=8,.publication_epoch=9,.remote_capture_epoch=4,.until_us=anchor.until,.follower=true};
  r2_radio_service_gm7_publish(grant,&anchor,&path,-1,fake_time,anchor.until);
 }
 static void replace_grant(void){fake_after_stats=NULL;++grant.boot;++grant.source_epoch;++grant.publication_epoch;publish_own(grant.until_us);}
@@ -45,6 +45,11 @@ int main(int argc,char **argv){
   grant=(struct r2_radio_scope){.root=0,.root_identity=17,.boot=88,.source_epoch=4,.local_source_epoch=3,.publication_epoch=5,.until_us=fake_time+1000000,.gm=true};
   publish_own(grant.until_us);assert(!pt_input.stopped&&handoff.valid&&handoff.root==99);
   r2_radio_service_gm7_tick(fake_time,NULL);assert(r2_radio_service_closed());
+  uint64_t completed_retry=retry_at;
+  for(unsigned n=1;n<=4;n++){fake_time=capture_us=1000000+n*50000;capture_tick=fake_time*16;
+   if(!r2_radio_service_closed())r2_radio_service_stop(fake_time);
+   assert(retry_at==completed_retry);
+  }
   fake_time=capture_us=1300000;capture_tick=fake_time*16;precision_poll(fake_time,&running);r2_radio_service_gm7_tick(fake_time,NULL);
   assert(publication==1&&pt_output.length&&fake_adv_creates==1&&native_gm_started&&r2_radio_service_serving(fake_time)&&pa_started&&ext_started&&!error);
   puts("PASS actual follower withdrawal/drain -> bounded ownGM resume -> payload and PA/EXT start; handoff not cleared");
@@ -127,6 +132,28 @@ int main(int argc,char **argv){
   precision_poll(fake_time,&running);r2_radio_service_gm7_tick(fake_time,NULL);
   assert(pt_input.stopped&&!pt_output.scope.follower&&!native_owned&&!fake_adv_creates);
   printf("PASS invalid authenticated follower resume gate%u retains stop\n",test);
+ }else if(test==21){
+  follower();precision_poll(fake_time,&running);assert(pt_output.scope.follower);
+  r2_radio_service_withdraw();precision_poll(fake_time,&running);assert(pt_input.stopped);
+  follower();assert(!pt_input.stopped);precision_poll(fake_time,&running);
+  assert(pt_output.scope.follower&&!pt_output.scope.gm&&!error);
+  puts("PASS stopped GM7 receipt-origin follower resumes only on fresh exact source grant; unknown UTC bound preserved");
+ }else if(test==22){
+  follower();precision_step(fake_time);
+  precision.servo.count=12;precision.servo.span=160000000;precision.servo.saturated=7;
+  precision_step(fake_time);struct r2_gm7_follow_diagnostic d;
+  r2_radio_service_gm7_follow_diagnostic(&d,fake_time);
+  assert(d.stats.count==12&&d.stats.span_us==10000000&&d.stats.saturated==7);
+  struct r2_gm7_timing t;r2_radio_service_gm7_timing(&t,fake_time);
+  assert(!t.first_tx_lo&&!t.first_tx_hi&&!t.first_tx_derived_end_hi&&!t.last_tx&&!t.tx_phase_us&&!t.first_tx_observed_complete);
+  grant=(struct r2_radio_scope){.root=0,.root_identity=17,.boot=88,.source_epoch=4,.local_source_epoch=3,.publication_epoch=5,.until_us=fake_time+1000000,.gm=true};
+  publish_own(grant.until_us);precision_step(fake_time);
+  assert(!pt_output.gm7.first_tx_lo&&!pt_output.gm7.first_tx_observed_complete);
+  pt_output.gm7.first_tx_lo=123;pt_output.gm7.first_tx_observed_complete=true;
+  follower();precision_step(fake_time);r2_radio_service_gm7_timing(&t,fake_time);
+  assert(!t.first_tx_lo&&!t.first_tx_observed_complete);
+  r2_radio_service_gm7_follow_diagnostic(&d,fake_time);assert(!d.stats.count&&!d.stats.saturated);
+  puts("PASS coherent follower diagnostics/GM firstTX40B union clears follower->GM->follower; no diagnostic value becomes TX proof");
  }else assert(false);
  assert(!pt_lock.held);return 0;
 }

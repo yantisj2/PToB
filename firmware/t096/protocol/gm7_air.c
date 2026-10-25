@@ -52,7 +52,7 @@ int gm7_air_received(const uint8_t *p, size_t available, const uint8_t **ad,
   size_t n = p[1] - 10u;
   const uint8_t *body = p + 12;
   if (n < 4 || n > GM7_MAX_AD_BYTES || body[0] + 1u != n || body[1] != 255 ||
-      body[2] != 255 || body[3] != 255 || n < 8 || memcmp(body + 4, "G7V2", 4))
+      body[2] != 255 || body[3] != 255 || n < 8 || memcmp(body + 4, "G7V3", 4))
     return -EPROTO;
   memcpy(address, p + 4, 6);
   *ad = body;

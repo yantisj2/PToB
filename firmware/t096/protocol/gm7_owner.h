@@ -1,6 +1,6 @@
 /* Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT */
 #pragma once
-#include "gm7_session.h"
+#include "gm7_control.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -8,7 +8,8 @@ extern "C" {
 #define GM7_RETAINED 8u
 #define GM7_DWELL_US UINT64_C(60000000)
 #define GM7_QUIET_US UINT64_C(5000000)
-#define GM7_BLACKOUT_US UINT64_C(2750000)
+#define GM7_BLACKOUT_US UINT64_C(2500000)
+#define GM7_CLOSURE_LEAD_US UINT64_C(350000)
 #define GM7_BLACKOUT_BOUND_US UINT64_C(3000000)
 #define GM7_ARM_RETAIN_US UINT64_C(5000000)
 #define GM7_PREPARE_US UINT64_C(5000000)
@@ -84,8 +85,8 @@ struct gm7_reported_role {
 };
 struct gm7_peer {
   struct gm7_reported_role reported;
-  struct gm7_session session;
-  uint64_t identity, boot, locator_at, locator_first, retry_at, original;
+  struct gm7_peer_control received;
+  uint64_t identity, boot, heard_at, original;
   uint16_t radio_refs;
   uint16_t flags;
   uint16_t heard_flags;
@@ -93,7 +94,7 @@ struct gm7_peer {
   uint32_t journal_at_ms;
   uint8_t heard_kind, heard_stage;
   uint8_t address[6], kind;
-  bool used, quarantined, locator_seen;
+  bool used, quarantined, heard;
 };
 /* Floors and terminal negatives share one bounded ledger. No live ledger entry
  * is silently evicted to admit an unfamiliar lineage. */
@@ -113,7 +114,8 @@ struct gm7_owner {
   void *clock_context;
   gm7_reservation_fence_fn reservation_fence;
   void *reservation_context;
-  struct gm7_requester requester;
+  struct r2_group_config group;
+  uint64_t identity, boot;
   struct gm7_peer peer[GM7_PEERS];
   struct gm7_retained retained[GM7_RETAINED];
   struct gm7_source source;
@@ -124,7 +126,7 @@ struct gm7_owner {
   bool reserved;
   struct gm7_control selected;
   struct gm7_event event;
-  uint64_t now, boot_at, sequence, response_sequence, role_sequence,
+  uint64_t now, boot_at, sequence, role_sequence,
       gnss_sequence;
   uint64_t source_since, source_previous_until, pps_since, active_since,
       armed_since, prepared_since, quiet_since;
@@ -135,7 +137,7 @@ struct gm7_owner {
   uint64_t yield_deadline, remote_yield_sequence, remote_yield_after, last_utc,
       last_utc_at;
   uint32_t timing_epoch, train, shadow_gen, event_generation, transitions,
-      duplicates, drops, late_windows, missed_bounds, overflow, reason;
+      duplicates, drops, late_windows, missed_bounds, overflow, peer_evictions, reason;
   uint16_t blockers;
   uint8_t role;
   bool gm_capable, eligible, source_observing, pps_observing, quiet, armed,
@@ -147,11 +149,11 @@ bool gm7_scope_same(struct gm7_scope, struct gm7_scope);
 bool gm7_calendar_clear(uint64_t utc_us);
 int gm7_owner_init(struct gm7_owner *, const struct r2_group_config *,
                    uint64_t identity, uint64_t boot, bool gm, uint64_t now);
-/* All owner entry points fence every session, permission, nonce and positive
+/* All owner entry points fence every permission, receipt inventory and positive
  * event on local monotonic regression. One serialized worker owns this state.
  */
-/* Set once before use. B1 adapters MUST supply their documented monotonic
- * reader so response U is captured after MAC authentication inside receive. */
+/* Set once before use. Sample processing time after MAC authentication;
+ * all receipt endpoints/deadlines remain the original native capture. */
 void gm7_owner_clock(struct gm7_owner *, gm7_now_fn, void *);
 void gm7_owner_reservation_guard(struct gm7_owner *, gm7_reservation_fence_fn,
                                  void *);
@@ -182,31 +184,15 @@ int gm7_owner_control(struct gm7_owner *, struct gm7_packet *, uint64_t now);
 /* Owner thread only, immediately before normal primary control construction.
  * Uses a current ordinary confirmed HOT; creates no appointment/nomination. */
 int gm7_owner_request_yield(struct gm7_owner *, uint64_t now);
-int gm7_owner_anchor(struct gm7_owner *, struct gm7_packet *,
-                     const struct gm7_packet *request, uint64_t received,
-                     uint64_t now);
 void gm7_owner_withdraw(struct gm7_owner *, unsigned reason, uint64_t now);
 /* Bind only the first primary opportunity. Negative TTL remains the original
  *1s; YIELD action remains its immutable original750ms deadline. */
 int gm7_owner_event_align(struct gm7_owner *, uint64_t first_primary,
                           uint64_t now);
 void gm7_owner_stop(struct gm7_owner *, uint64_t now);
-int gm7_owner_request_peer(struct gm7_owner *, struct gm7_packet *,
-                           uint64_t peer, uint64_t boot, uint64_t now,
-                           uint64_t planned_tx, gm7_random_fn, void *);
-int gm7_owner_next_request_at(struct gm7_owner *, struct gm7_packet *,
-                              uint64_t now, uint64_t planned_tx, gm7_random_fn,
-                              void *);
-int gm7_owner_next_request(struct gm7_owner *, struct gm7_packet *,
-                           uint64_t now, gm7_random_fn, void *);
-int gm7_owner_peer_pin(struct gm7_owner *, uint64_t peer, uint64_t boot,
-                       bool pin, uint64_t now);
-/* Pure conditional not-before check for a future reserved primary. No due,
- * serving, clock or timer state changes; activate rechecks live inventory. */
-bool gm7_owner_takeover_at(const struct gm7_owner *, uint64_t nominal,
-                           uint64_t complete, uint64_t now);
-bool gm7_owner_output(const struct gm7_owner *, uint64_t now);
-/* Receiver-derived association stays separate from decoded sender token0. */
+int gm7_owner_peer_pin(struct gm7_owner *,uint64_t peer,uint64_t boot,bool pin,uint64_t now);
+bool gm7_owner_takeover_at(const struct gm7_owner *,uint64_t nominal,uint64_t complete,uint64_t now);
+bool gm7_owner_output(const struct gm7_owner *,uint64_t now);
 bool gm7_candidate_mesh_current(const struct gm7_peer *,
                                 const struct gm7_scope *accepted_root,
                                 uint64_t now);

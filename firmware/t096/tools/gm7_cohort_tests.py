@@ -21,7 +21,7 @@ def build(deps, directory, physical=False):
         f.write_text('/* Public boundary supplied by fixture. */\n')
     compiler=os.environ.get('CC') or ('/opt/homebrew/opt/llvm/bin/clang' if
         Path('/opt/homebrew/opt/llvm/bin/clang').exists() else shutil.which('clang'))
-    sources=[app/'protocol'/name for name in ['gm7_codec.c','gm7_session.c',
+    sources=[app/'protocol'/name for name in ['gm7_codec.c','gm7_control.c',
         'gm7_owner.c','gm7_schedule.c','gm7_air.c','gm7_bridge.c','gm7_promote.c',
         'group_auth.c','gnss_diagnostics.c']]
     sources += [app/'src'/name for name in ['gm7_source.c','precision.c','ui_render.c']]
@@ -57,10 +57,11 @@ def build(deps, directory, physical=False):
     return directory/'node'
 
 
-def run(binary, count, phases, duration, loss=0, preempt=0, connect_after=0, physical=False, legacy_scan=False):
+def run(binary, count, phases, duration, loss=0, preempt=0, connect_after=0, physical=False, legacy_scan=False, event_mode=None):
     procs = [subprocess.Popen([str(binary)]+(['--physical'] if physical else []), stdin=subprocess.PIPE,
              stdout=subprocess.PIPE, text=True, bufsize=1) for _ in range(count)]
     states = [None] * count
+    precision_states=[None]*count
     jobs = {}
     completed = set()
     reasons = collections.Counter()
@@ -88,7 +89,14 @@ def run(binary, count, phases, duration, loss=0, preempt=0, connect_after=0, phy
                 return result
             if not line:
                 raise RuntimeError(f'node{i} exited {procs[i].poll()}')
-            result.append(line.split())
+            if line.startswith('M '):
+                assert physical
+                pts[i].stdin.write(line+'\n');pts[i].stdin.flush()
+                reply=pts[i].stdout.readline().strip();assert reply.startswith('M '),reply
+                assert pts[i].stdout.readline().strip()=='E'
+                send(i,reply);procs[i].stdin.flush()
+                events.append([now,i,'promotion_result',int(reply.split()[1])])
+            else: result.append(line.split())
 
     try:
         for i in range(count):
@@ -97,16 +105,25 @@ def run(binary, count, phases, duration, loss=0, preempt=0, connect_after=0, phy
         first_one = None
         converged_since = None
         held_one = False
+        event_triggered=target=successor=None;trigger_result=None
+        selected_originals=[0]*count;confirmed=[None]*count;last_positive=[None]*count
+        last_positive_before=None;last_selected_before=None;terminal_ads=set()
+        terminal_meta=[];terminal_completed=[];terminal_ordinal=0
+        first_new_g1_end=first_new_g1_proof_end=None;phase_report=[None]*count
         for now in range(66000000, 66000000 + duration * 1000000, 1000):
             for key,job in list(g1_jobs.items()):
                 if job['end']>now: continue
                 src,frame=key
                 del g1_jobs[key]
                 if not pt_states[src] or not pt_states[src][0]: continue
+                q=precision_states[src]
+                if not q or not q[0] or q[3]!=job['train'] or job['end']+origins[src]>q[2]:
+                    reasons['g1_permission_or_scope_cancel']+=1;continue
                 event=frame%65536
                 tick=(job['start']+40+origins[src])*16
                 pts[src].stdin.write(f'X {tick} {(now+origins[src])*16} {event} {job["hex"]}\n')
                 reasons['g1_tx']+=1
+                if event_triggered and src==successor and first_new_g1_end is None:first_new_g1_end=job['end']
                 for dst in range(count):
                     if dst==src or not states[dst] or states[dst][2]!=identities[src]: continue
                     blocked=any(k[0]==dst and j['start']<job['end'] and j['end']>job['start'] for k,j in jobs.items())
@@ -125,6 +142,15 @@ def run(binary, count, phases, duration, loss=0, preempt=0, connect_after=0, phy
                 completed.add(key)
                 send(src, f'C {slot} {ticket} 1')
                 reasons['completed_tx'] += 1
+                if job['kind']==1:
+                    wire=bytes.fromhex(job['hex'])[4:]
+                    seq=int.from_bytes(wire[40:48],'big')
+                    if not last_positive[src] or last_positive[src]['sequence']!=seq:
+                        last_positive[src]=dict(sequence=seq,sample_us=int.from_bytes(wire[150:158],'big')-origins[src],first_rf_start=job['start'],first_rf_end=job['end'])
+                terminal_copy=event_triggered and src==target and job['hex'] in terminal_ads
+                if terminal_copy:
+                    terminal_ordinal+=1
+                    terminal_completed.append(dict(start=job['start'],end=job['end'],hex=job['hex'],ordinal=terminal_ordinal))
                 for dst in range(count):
                     if dst == src:
                         continue
@@ -155,12 +181,18 @@ def run(binary, count, phases, duration, loss=0, preempt=0, connect_after=0, phy
                         reason = 'loss'
                     if not reason and preempt and preempt_trial % preempt == 0:
                         reason = 'aux_preempt'
+                    if event_triggered and dst==target and not event_mode.startswith('yield'):
+                        reason='receiver_closed'
+                    if event_triggered and src==target:
+                        if event_mode=='blackout':reason='blackout_all_communication'
+                        elif terminal_copy and ((event_mode=='yield-first' and terminal_ordinal!=1) or (event_mode=='yield-last' and terminal_ordinal!=3)):
+                            reason='intentional_terminal_copy_loss'
                     if not reason and states[dst] and states[dst][0]:
                         # Ordinary G1 owns its local phase at0/62.5ms for a
                         # conservative3ms. Competing management AUX cannot
                         # steal that radio reservation.
-                        begin=job['start']+phases[dst]
-                        end=job['end']+phases[dst]
+                        begin=job['start']+origins[dst]-(precision_states[dst][1] if precision_states[dst] else 0)
+                        end=job['end']+origins[dst]-(precision_states[dst][1] if precision_states[dst] else 0)
                         if begin//62500 != end//62500 or begin%62500<3000:
                             reason='g1_preempt'
                     if reason:
@@ -179,7 +211,7 @@ def run(binary, count, phases, duration, loss=0, preempt=0, connect_after=0, phy
                     if row[0] == 'S':
                         new_state = list(map(int, row[1:]))
                         if not legacy_scan:
-                            assert len(new_state)==14, 'S1 requires current-control schema14'
+                            assert len(new_state)==14, 'S2 requires current-control schema14'
                         if states[i] != new_state and (states[i] is None or states[i][:5] != new_state[:5]):
                             events.append([now, i, 'state', new_state])
                         states[i] = new_state
@@ -198,8 +230,30 @@ def run(binary, count, phases, duration, loss=0, preempt=0, connect_after=0, phy
                             fields=line.split()
                             if fields[0]=='P': send(i,'P '+fields[1])
                             elif fields[0]=='Q': pt_states[i]=list(map(int,fields[1:]))
+                            elif fields[0]=='L':
+                                if event_triggered:events.append([now,i,'pt_lifecycle',list(map(int,fields[1:]))])
+                            elif fields[0]=='Z':
+                                z=list(map(int,fields[1:]))
+                                if event_triggered and phase_report[i]!=z:
+                                    events.append([now,i,'pt_phase',z]);phase_report[i]=z
+                                if event_triggered and i==successor and z[1] and z[4] and first_new_g1_proof_end is None:
+                                    first_new_g1_proof_end=(z[5]+15)//16-origins[i]
                             elif fields[0]=='G': payloads[i]=fields[1]
                             else: raise ValueError(fields)
+                    elif row[0]=='C':
+                        if event_triggered:events.append([now,i,'takeover_phase',list(map(int,row[1:]))])
+                    elif row[0]=='K':
+                        if event_triggered:events.append([now,i,'service_calls',list(map(int,row[1:]))])
+                    elif row[0]=='H':confirmed[i]=list(map(int,row[1:]))
+                    elif row[0]=='F':
+                        selected_originals[i]=int(row[1])-origins[i] if int(row[1]) else 0
+                        if event_triggered:events.append([now,i,'handover_bounds',list(map(int,row[1:]))])
+                    elif row[0]=='N':
+                        meta=[i,*map(int,row[1:7]),row[7]]
+                        if meta not in terminal_meta:terminal_meta.append(meta)
+                        if i==target:terminal_ads.add(row[7])
+                    elif row[0] == 'A':
+                        precision_states[i]=list(map(int,row[1:]))
                     elif row[0] == 'J':
                         slot, ticket, start, end, positive, kind = map(int, row[1:7])
                         new_jobs[i, slot, ticket] = dict(start=start, end=start+1400,
@@ -213,34 +267,49 @@ def run(binary, count, phases, duration, loss=0, preempt=0, connect_after=0, phy
             if physical:
                 for i in range(count):
                     if not payloads[i]: continue
-                    frame=(now+phases[i])//62500+1
-                    start=frame*62500-phases[i]
+                    q=precision_states[i]
+                    if not q or not q[0] or not q[4]:continue
+                    start=q[5]-origins[i];frame=(q[5]-q[1])//62500
                     if 3000<=start-now<=7000 and (i,frame) not in g1_seen:
                         g1_seen.add((i,frame))
-                        g1_jobs[i,frame]=dict(start=start,end=start+1800,hex=payloads[i])
+                        g1_jobs[i,frame]=dict(start=start,end=start+1800,hex=payloads[i],train=q[3])
+            if event_mode and event_triggered is None and now>=196000000:
+                leaders=[i for i,s in enumerate(states) if s[0]]
+                hots=[i for i,s in enumerate(states) if s[1] and pt_states[i] and pt_states[i][4]]
+                if len(leaders)==1 and len(hots)==1 and confirmed[leaders[0]] and confirmed[leaders[0]][0]==identities[hots[0]] and confirmed[leaders[0]][2]:
+                    target=leaders[0];successor=hots[0];event_triggered=now
+                    last_positive_before=last_positive[target];last_selected_before=selected_originals[successor]
+                    send(target,'Y' if event_mode.startswith('yield') else 'W');trigger_result=read(target)
             active = sum(s[0] for s in states)
             serving = next((i for i,s in enumerate(states) if s[0]), None)
-            converged = active == 1 and all(s[2] == identities[serving] and
-                s[3:5] == states[serving][3:5] and
-                s[11:13] == states[serving][11:13] and
-                (len(s)<14 or s[13]) for s in states)
+            live=[i for i in range(count) if not(event_triggered and not event_mode.startswith("yield") and i==target)]
+            converged = active == 1 and all(states[i][2] == identities[serving] and
+                states[i][3:5] == states[serving][3:5] and
+                states[i][11:13] == states[serving][11:13] and
+                states[i][13] for i in live)
             if converged:
                 first_one = first_one or now
                 converged_since = converged_since or now
                 held_one |= now - converged_since >= 5000000
             else:
                 converged_since = None
-        return dict(nodes=count, phases=phases, origins=origins[:count],
+        return dict(event=event_mode,event_triggered=event_triggered,target=target,successor=successor,
+                    trigger_result=trigger_result,terminal_meta=terminal_meta,terminal_completed=terminal_completed,
+                    last_positive_before=last_positive_before,last_positive_final=last_positive[target] if target is not None else None,
+                    last_selected_before=last_selected_before,first_new_g1_end=first_new_g1_end,
+                    first_new_g1_proof_end=first_new_g1_proof_end,
+                    stopped_target_no_output=(not states[target][0] and not pt_states[target][0]) if target is not None else None,
+                    nodes=count, phases=phases, origins=origins[:count],
                     state_schema_columns=len(states[0]),
                     links={k:dict(v) for k,v in links.items()},
-                    states=[dict(zip(['serving','hot','active','birth','term','requests',
+                    states=[dict(zip(['serving','hot','active','birth','term','control_sequence',
                         'mac','accepted','rejected','error','scan_aligned','founder','active_boot','control_current'],s))
                         for s in states], counters=dict(reasons),
                     first_one_us=first_one, held_one_5s=held_one,
                     final_converged=converged, final_hold_us=(now-converged_since) if converged_since else 0,
-                    pt_states=pt_states, scanner='LEGACY_ROTATING' if legacy_scan else 'S1_CONTINUOUS_GM37',
+                    pt_states=pt_states, scanner='LEGACY_ROTATING' if legacy_scan else 'S2_CONTINUOUS_GM37',
                     events=events, duration_s=duration,
-                    limits='Production service/owner/codec/scheduler; modeled native completion, scan/AUX and collision. No real controller/RF/G1 precision or HOT acceptance.')
+                    limits='Actual production service/owner/codec/scheduler'+(' and PT/servo/promotion' if physical else '')+'; modeled native completion, scan/AUX, capture/RF and collisions. No physical RF, independent UTC or hardware HOT acceptance.')
     finally:
         for p in procs:
             p.stdin.close()
@@ -262,12 +331,13 @@ def main():
     p.add_argument('--connect-after',type=int,default=0)
     p.add_argument('--physical',action='store_true')
     p.add_argument('--legacy-scan',action='store_true')
+    p.add_argument('--event',choices=['yield','yield-first','yield-last','withdraw','blackout'])
     a = p.parse_args()
     if not a.binary:
         assert a.deps,'--deps or --binary is required'
         a.binary=build(a.deps,a.out.resolve().with_suffix('.build'),a.physical)
     result = run(a.binary.resolve(), a.nodes, list(map(int,a.phases.split(','))), a.duration,
-                 a.loss_mod,a.preempt_mod,a.connect_after,a.physical,a.legacy_scan)
+                 a.loss_mod,a.preempt_mod,a.connect_after,a.physical,a.legacy_scan,a.event)
     result['binary_sha256'] = hashlib.sha256(a.binary.read_bytes()).hexdigest()
     if a.physical:
         result['pt_binary_sha256']=hashlib.sha256((a.binary.parent/'pt').read_bytes()).hexdigest()

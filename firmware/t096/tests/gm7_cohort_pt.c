@@ -28,15 +28,19 @@ int main(void) {
       r2_radio_service_source(&in.source,in.source_ready,in.source_epoch);
       r2_radio_service_gm7_publish(in.scope,&in.anchor,&in.path,in.utc_ns,
                                   in.kernel,in.resume_until);
-      if(in.handoff) {
-        r2_radio_service_handoff_request(in.root,in.boot,in.timing_epoch);
-        r2_radio_service_stop(in.kernel);
-      }
+      if(in.handoff)r2_radio_service_handoff_request(in.handoff_root,in.handoff_boot,in.handoff_epoch);
+      if(in.stop)r2_radio_service_stop(in.kernel);
+      if(in.activate)r2_radio_service_activate();
       precision_poll(in.kernel,&running);
       r2_radio_service_gm7_tick(in.kernel,NULL);
       struct gm7_cohort_output out={.closed=r2_radio_service_closed(),
           .ready=r2_radio_service_handoff_ready(in.root,in.boot,in.timing_epoch)};
       r2_radio_service_gm7_timing(&out.timing,in.kernel);
+      static unsigned last_lifecycle=UINT_MAX;unsigned lifecycle=out.closed|(out.ready<<1)|(pt_input.stopped<<2);
+      if(lifecycle!=last_lifecycle){printf("L %llu %u %u %u %u\n",in.hf,out.closed,out.ready,pt_input.stopped,handoff.valid);last_lifecycle=lifecycle;}
+      printf("Z %llu %u %d %llu %u %llu\n",out.timing.scope.root_identity,
+        out.timing.scope.gm,out.timing.tx_phase_us,out.timing.last_tx,
+        out.timing.first_tx_observed_complete,out.timing.first_tx_derived_end_hi);
       printf("P ");
       for(unsigned i=0;i<sizeof out;i++)printf("%02x",((uint8_t*)&out)[i]);
       printf("\nQ %u %u %u %u %u %u\n",native_gm_started,!!sync_object,
@@ -47,6 +51,16 @@ int main(void) {
         putchar('\n');
       }
       puts("E");
+    } else if(line[0]=='M') {
+      unsigned long long root,boot,tick,epoch;unsigned timing,train,source,association;
+      assert(sscanf(line+2,"%llu %llu %u %u %u %u %llu %llu",&root,&boot,&timing,&train,&source,&association,&tick,&epoch)==8);
+      fake_time=capture_us=in.kernel+tick/16-in.hf;capture_tick=tick;
+      struct r2_source_clock promoted={0};
+      int rc=r2_radio_service_gm7_promote(&promoted,root,boot,timing,train,source,association,
+          (struct r2_capture){tick,epoch,R2_CAPTURE_NOW});
+      printf("M %d ",rc);
+      if(!rc)for(unsigned n=0;n<sizeof promoted;n++)printf("%02x",((uint8_t*)&promoted)[n]);
+      putchar('\n');puts("E");
     } else if(line[0]=='A') {
       unsigned long long root;assert(sscanf(line+2,"%llu",&root)==1);
       if(root==in.anchor.root && discovering) {

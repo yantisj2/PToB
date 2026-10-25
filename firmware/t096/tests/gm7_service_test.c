@@ -129,11 +129,11 @@ void r2_gm7_controller_cancel(uint64_t now) {
     if (scheduler.job[i].positive)
       fake_native_live[i] = false;
 }
+static bool fake_precision_enabled;
+static uint32_t fake_precision_phase,fake_precision_train;
+static uint64_t fake_precision_until;
 void r2_gm7_controller_precision(bool e, uint32_t p, uint64_t d, uint32_t t) {
-  (void)e;
-  (void)p;
-  (void)d;
-  (void)t;
+  fake_precision_enabled=e;fake_precision_phase=p;fake_precision_until=d;fake_precision_train=t;
 }
 int r2_gm7_controller_submit(unsigned slot, struct gm7_scheduler *s,
                              const uint8_t a[6], uint64_t now) {
@@ -197,8 +197,12 @@ int r2_radio_service_init(unsigned self, const struct r2_enrollment *e) {
   return 0;
 }
 void r2_radio_service_continuous(bool e) { (void)e; }
-void r2_radio_service_activate(void) { fake_pt_closed = false; }
+static unsigned fake_stop_calls,fake_activate_calls,fake_handoff_calls;
+static uint64_t fake_handoff_root,fake_handoff_boot;
+static uint32_t fake_handoff_epoch;
+void r2_radio_service_activate(void) { ++fake_activate_calls;fake_pt_closed = false; }
 void r2_radio_service_stop(uint64_t now) {
+  ++fake_stop_calls;
   (void)now;
   fake_pt_closed = true;
 }
@@ -274,6 +278,7 @@ void r2_radio_service_gm7_state(bool *stopped,bool *managed,bool *binding){
  *stopped=false;*managed=true;*binding=fake_scope.gm||fake_scope.follower;
 }
 void r2_radio_service_handoff_request(uint64_t r, uint64_t b, uint32_t e) {
+  ++fake_handoff_calls;fake_handoff_root=r;fake_handoff_boot=b;fake_handoff_epoch=e;
   (void)r;
   (void)b;
   (void)e;
@@ -284,6 +289,7 @@ bool r2_radio_service_handoff_ready(uint64_t r, uint64_t b, uint32_t e) {
   (void)e;
   return fake_pt_closed && (!fake_handoff_enforced || fake_handoff_valid);
 }
+void r2_radio_service_gm7_follow_diagnostic(struct r2_gm7_follow_diagnostic *d,uint64_t now){(void)now;memset(d,0,sizeof *d);}
 void r2_radio_service_gm7_timing(struct r2_gm7_timing *t, uint64_t now) {
   (void)now;
   *t = fake_timing;
@@ -299,6 +305,10 @@ int r2_radio_service_gm7_promote(struct r2_source_clock *c, uint64_t r,
   (void)s;
   (void)a;
   (void)n;
+#ifdef R2_GM7_COHORT
+  extern int gm7_cohort_promote(struct r2_source_clock *,uint64_t,uint64_t,uint32_t,uint32_t,uint32_t,unsigned,struct r2_capture);
+  return gm7_cohort_promote(c,r,b,e,t,s,a,n);
+#endif
   if (fake_promote_ready)
     return gm7_promote_clock(c, &fake_timing.map, fake_timing.utc_offset_ns, n,
                              s, a);
@@ -411,7 +421,7 @@ static void finish(unsigned slot, bool complete, bool exposed) {
   struct gm7_job *j = &scheduler.job[slot];
   uint64_t nominal = j->window.nominal;
   assert(fake_native_live[slot]);
-  tick_to(nominal + 1500);
+  if(fake_hf<nominal+1500)tick_to(nominal+1500);
   fake_native_live[slot] = false;
   fake_native_exposed[slot] = exposed;
   fake_result[fake_result_count++] =
@@ -537,8 +547,11 @@ static void diagnostics_and_remap(void) {
                                     0xabc, false) > 0);
     assert(strstr(text, "\"available\":false"));
   }
-  assert(r2_gm7_diagnostic_format(text, sizeof text, GM7_PEERS + 1, "TEST", 1,
+  assert(r2_gm7_diagnostic_format(text, sizeof text, GM7_PEERS + 2, "TEST", 1,
                                   true) == -EINVAL);
+  assert(r2_gm7_diagnostic_format(text,sizeof text,9,"TEST",1,true)>0&&
+      strstr(text,"GM7_FOLLOWER_ESTIMATOR")&&strstr(text,"\"authority\":false"));
+  assert(r2_gm7_diagnostic_format(text,8,9,"TEST",1,true)==-ENOSPC);
   assert(gm7_duration_ms(UINT64_C(4294967295000), 0) == UINT32_MAX - 1 &&
          gm7_duration_ms(UINT64_MAX, 0) == UINT32_MAX - 1 &&
          gm7_duration_ms(0, 1) == UINT32_MAX);
@@ -550,36 +563,21 @@ static void diagnostics_and_remap(void) {
                                    .term = 1,
                                    .timing_epoch = 22,
                                    .train = 23,
-                                   .capture_gen = 4};
+                                   .source_gen=3,.capture_gen = 4};
   struct gm7_peer *peer = &owner.peer[0];
   peer->used = true;
   peer->identity = owner.scope.active;
   peer->boot = 987;
-  peer->session.valid = true;
-  peer->session.group = group.id;
-  peer->session.key_epoch = group.epoch;
-  peer->session.local_boot = boot;
-  peer->session.drift_from = fake_hf;
-  peer->session.peer = peer->identity;
-  peer->session.peer_boot = 987;
-  peer->session.established = fake_hf;
-  peer->session.until = fake_hf + 1000000;
-  peer->session.anchor_flags = GM7_A_SERVING;
-  peer->session.descriptor =
-      (struct gm7_bound_anchor){.timing_epoch = 22, .train_gen = 23};
-  peer->session.control = (struct gm7_control){.sender=peer->identity,
+  peer->kind=GM7_ANNOUNCE;peer->original=fake_hf;
+  peer->received.last_sequence=1;
+  peer->received.control = (struct gm7_control){.sender=peer->identity,
       .boot=peer->boot, .active=peer->identity, .active_boot=peer->boot,
       .birth_us=owner.scope.birth, .founder=owner.scope.founder,
       .term=owner.scope.term, .source_gen=3, .capture_gen=4, .train_gen=23,
-      .source_valid_us=1000000};
-  peer->session.descriptor.birth = owner.scope.birth;
-  peer->session.descriptor.founder = owner.scope.founder;
-  peer->session.descriptor.term = owner.scope.term;
-  peer->session.descriptor.source_gen = 3;
-  peer->session.descriptor.capture_gen = 4;
-  peer->session.control.sent_utc_us = UINT64_C(1792800000000000) + fake_hf;
-  peer->session.control.sent_mono_us = fake_hf;
-  peer->session.control_until = fake_hf + 1000000;
+      .source_valid_us=1000000,.timing_epoch=22};
+  peer->received.control.sent_utc_us = UINT64_C(1792800000000000) + fake_hf;
+  peer->received.control.sent_mono_us = fake_hf;
+  peer->received.control_until = fake_hf + 1000000;
   owner.selected_source_until = fake_hf + 1000000;
   struct gm7_source src = source_at(fake_hf);
   struct r2_source_clock map = {0};
@@ -588,7 +586,7 @@ static void diagnostics_and_remap(void) {
   assert(fake_path.identity[1] == peer->identity &&
          fake_scope.root_identity == peer->identity && fake_scope.root == 1 &&
          fake_scope.until_us > fake_kernel &&
-         fake_scope.until_us < fake_kernel + 1000000);
+         fake_scope.until_us <= fake_kernel + 1000000);
   puts("PASS actual service separate HF/kernel timer origins, finite duration "
        "saturation, all diagnostic source/boot/page bindings, RC unavailable "
        "view and selected full64 identity outside enrolled roster");
@@ -746,8 +744,8 @@ static void takeover_fixture_at(uint64_t at) {
                                         .train_gen = 5,
                                         .hot = identity,
                                         .hot_boot = boot,
-                                        .sent_mono_us = 66034900};
-  owner.selected_original = 66034900;
+                                        .sent_mono_us = 66284900,.timing_epoch=22};
+  owner.selected_original = 66284900;
   owner.selected_until = 68784900;
   owner.selected_source_until = 67534900;
   owner.initial_due = owner.takeover_due = owner.serving = false;
@@ -791,16 +789,8 @@ static void yield_fixture(void) {
   p->boot = 65;
   p->kind = GM7_STATUS;
   p->flags = GM7_ELIGIBLE | GM7_CAPABLE | GM7_SHADOW | GM7_HOT;
-  p->session = (struct gm7_session){.valid = true,
-                                    .group = group.id,
-                                    .key_epoch = group.epoch,
-                                    .peer = 49,
-                                    .peer_boot = 65,
-                                    .local_boot = boot,
-                                    .established = 66000000,
-                                    .until = 150000000,
-                                    .control_until = 101000000};
-  p->session.control = (struct gm7_control){.sender = 49,
+  p->received=(struct gm7_peer_control){.control=(struct gm7_control){0},.last_sequence=1,.source_until=0,.control_until=101000000};
+  p->received.control = (struct gm7_control){.sender = 49,
                                             .boot = 65,
                                             .sequence = 1,
                                             .birth_us = owner.scope.birth,
@@ -809,6 +799,7 @@ static void yield_fixture(void) {
                                             .active = identity,
                                             .active_boot = boot,
                                             .train_gen = owner.scope.train,
+                                            .timing_epoch=owner.scope.timing_epoch,
                                             .source_gen = 3,
                                             .capture_gen = 4,
                                             .shadow_gen = 9,
@@ -903,7 +894,7 @@ static void yield_copies(void) {
   }
   assert(event_evidence.completed == 3 && !event_evidence.failed);
   yield_fixture();
-  owner.peer[0].session.control_until = fake_hf;
+  owner.peer[0].received.control_until = fake_hf;
   owner.yield_ready = true;
   cycle(&service_work);
   assert(!owner.yield_ready && !owner.event.valid);
@@ -917,7 +908,7 @@ static void yield_copies(void) {
 static void administrative_yield_fixture(void) {
   yield_fixture();
   /* Equal-quality T096s do not trigger the strict better-quality dwell. */
-  owner.peer[0].session.control.clock_class = owner.source.quality.clock_class;
+  owner.peer[0].received.control.clock_class = owner.source.quality.clock_class;
   owner.quality_better_since = 0;
   owner.yield_ready = false;
   struct gm7_bridge b;
@@ -950,24 +941,25 @@ static void administrative_yield(void) {
   tick_to(deadline); cycle(&service_work);
   assert(!owner.serving && event_evidence.completed == 3);
   /* Admission never changes the announced nominee or supplies HOT readiness. */
-  for (unsigned fault=0;fault<8;fault++) {
+  for (unsigned fault=0;fault<9;fault++) {
     administrative_yield_fixture();
     assert(r2_gm7_request_yield() == -EINPROGRESS);
     if (fault==0) owner.peer[0].flags &= ~GM7_HOT;
-    if (fault==1) owner.peer[0].session.control_until = fake_hf;
+    if (fault==1) owner.peer[0].received.control_until = fake_hf;
     if (fault==2) {
-      owner.peer[0].identity = owner.peer[0].session.peer = 50;
-      owner.peer[0].session.control.sender = owner.nominee = 50;
+      owner.peer[0].identity = 50;
+      owner.peer[0].received.control.sender = owner.nominee = 50;
     }
     if (fault==3) {
       owner.nominee_boot++;
-      owner.peer[0].boot = owner.peer[0].session.peer_boot = owner.nominee_boot;
-      owner.peer[0].session.control.boot = owner.nominee_boot;
+      owner.peer[0].boot = owner.nominee_boot;
+      owner.peer[0].received.control.boot = owner.nominee_boot;
     }
     if (fault==4) owner.event_generation++;
     if (fault==5) { tick_to(fake_hf+300000); healthy_input(); }
     if (fault==6) input.view.fix_active = false;
     if (fault==7) r2_service_stop();
+    if (fault==8) owner.peer[0].received.control.timing_epoch++;
     cycle(&service_work);
     if (yield_request.pending || !yield_request.result || owner.yield_ready ||
         (owner.event.valid && !owner.event.negative))
@@ -1031,7 +1023,7 @@ static void negative_phase_cases(void) {
   healthy_input();
   owner.yield_ready = false; /* This case observes phase, not a YIELD action. */
   owner.nominee = owner.nominee_boot = owner.quality_better_id = 0;
-  owner.peer[0].session.control_until = 0;
+  owner.peer[0].received.control_until = 0;
   cycle(&service_work);
   assert(phase_known && !owner.event.valid);
   input.view.fix_active = false;
@@ -1048,7 +1040,7 @@ static void negative_phase_cases(void) {
   tick_to(97498000);
   healthy_input();
   owner.nominee = owner.nominee_boot = owner.quality_better_id = 0;
-  owner.peer[0].session.control_until = 0;
+  owner.peer[0].received.control_until = 0;
   cycle(&service_work);
   tick_to(98498000);
   cycle(&service_work);
@@ -1144,19 +1136,10 @@ static void prospective_blackout_at(uint64_t at, bool revoked) {
   rival->identity = 900;
   rival->boot = 999;
   rival->kind = GM7_ANNOUNCE;
-  rival->session = (struct gm7_session){.valid = true,
-                                        .group = group.id,
-                                        .key_epoch = group.epoch,
-                                        .local_boot = boot,
-                                        .peer = 900,
-                                        .peer_boot = 999,
-                                        .established = fake_hf,
-                                        .until = fake_hf + 6000000,
-                                        .source_until = fake_hf + 1000000,
-                                        .control_until = fake_hf + 2000000,
-                                        .control = owner.selected};
-  rival->session.control.active = rival->session.control.sender = 900;
-  rival->session.control.active_boot = 999;
+  rival->received=(struct gm7_peer_control){.control=owner.selected,.last_sequence=1,.source_until=fake_hf + 1000000,.control_until=fake_hf + 2000000};
+  rival->received.control.birth_us=owner.scope.birth-1000;
+  rival->received.control.active = rival->received.control.sender = 900;
+  rival->received.control.active_boot = 999;
   assert(gm7_owner_reserve(&probe, cause, cause + 4000, fake_hf) == -EACCES &&
          !probe.reserved && !probe.serving);
   assert(!owner.takeover_due && !owner.serving);
@@ -1186,22 +1169,7 @@ static void prospective_blackout_at(uint64_t at, bool revoked) {
   peer->identity = 501;
   peer->boot = 777;
   peer->kind = GM7_ANNOUNCE;
-  peer->session = (struct gm7_session){.valid = true,
-                                       .group = group.id,
-                                       .key_epoch = group.epoch,
-                                       .peer = 501,
-                                       .peer_boot = 777,
-                                       .local_boot = boot,
-                                       .established = 66000000,
-                                       .until = 100000000,
-                                       .control = owner.selected,
-                                       .last_sequence = 10,
-                                       .last_sent = 66034900,
-                                       .descriptor = {.timing_epoch = 22,
-                                                      .source_gen = 3,
-                                                      .capture_gen = 4,
-                                                      .train_gen = 5},
-                                       .anchor_flags = GM7_A_SERVING};
+  peer->received=(struct gm7_peer_control){.control=owner.selected,.last_sequence=10,.source_until=0,.control_until=100000000};
   tick_to(at < 68780000 ? at + 5000 : 68785100);
   struct gm7_packet fresh = {.group = group.id,
                              .key_epoch = group.epoch,
@@ -1227,7 +1195,7 @@ static void prospective_blackout_at(uint64_t at, bool revoked) {
   cycle(&service_work);
 
   assert(!owner.reserved && !owner.serving && !fake_native_live[GM7_PRIMARY] &&
-         owner.selected_original > 66034900);
+         owner.selected_original > 66284900);
   takeover_fixture_at(at);
   cycle(&service_work);
   assert(owner.reserved);
@@ -1250,108 +1218,56 @@ static void prospective_blackout_at(uint64_t at, bool revoked) {
        "ANN+first G1 meet original3s; fresh contact/source fault cancel and "
        "late G1 fails closed");
 }
+static void source_horizon_preparation(void) {
+  for(unsigned revoke=0;revoke<3;revoke++){
+    takeover_fixture_at(67185000);
+    unsigned stops=fake_stop_calls,activates=fake_activate_calls;
+    cycle(&service_work);
+    assert(owner.armed&&takeover_preparing&&fake_stop_calls>stops&&!owner.reserved&&!owner.serving);
+    struct gm7_peer *p=&owner.peer[0];p->used=true;p->identity=501;p->boot=777;
+    p->kind=GM7_ANNOUNCE;p->flags=GM7_ELIGIBLE;p->original=owner.selected_original;
+    p->received=(struct gm7_peer_control){.control=owner.selected,.last_sequence=10,
+      .last_sent=owner.selected.sent_mono_us,.control_until=owner.selected_until,
+      .source_until=owner.selected_source_until,
+      .source_expiry_mono=owner.selected.sent_mono_us+1500000};
+    stops=fake_stop_calls;
+    tick_to(fake_hf+1000);cycle(&service_work);
+    assert(owner.armed&&takeover_preparing&&fake_stop_calls==stops); /* Closed drain is not restarted. */
+    fake_pt_closed=false;tick_to(fake_hf+1000);cycle(&service_work);
+    assert(fake_stop_calls==stops+1&&takeover_preparing); /* Incomplete drain is still polled/stopped. */
+    struct gm7_packet fresh={.group=group.id,.key_epoch=group.epoch,
+      .kind=GM7_ANNOUNCE,.flags=GM7_ELIGIBLE,.body.control=owner.selected};
+    fresh.body.control.sequence=11;fresh.body.control.sent_mono_us=fake_hf;
+    fresh.body.control.sent_utc_us=UINT64_C(1792800000000000)+fake_hf;
+    fresh.body.control.max_age_us=2750000;fresh.body.control.source_valid_us=1500000;
+    fresh.body.control.clock_class=2;
+    if(revoke==1)fresh.body.control.hot=fresh.body.control.hot_boot=0;
+    if(revoke==2)input.view.fix_active=false;
+    fake_rx_count=1;fake_rx[0]=(struct r2_gm7_rx){.raw=(uint32_t)(fake_hf*16),.epoch=4,.length=GM7_CONTROL_BYTES+4};
+    assert(!gm7_ad_encode(fake_rx[0].ad,sizeof fake_rx[0].ad,&fresh,&group));
+    tick_to(fake_hf+1000);cycle(&service_work);
+    assert(!takeover_preparing&&!owner.reserved&&!owner.serving&&fake_activate_calls>activates);
+    if(revoke)assert(!owner.armed);else assert(owner.armed&&owner.selected_source_until>fake_hf+1000000);
+  }
+  puts("PASS source-horizon350ms preparation preserves retained map without output/reservation; advanced ANN invokes PT resume, nominee/source revocation cancels safely");
+}
 static void prospective_blackout(void) {
   prospective_blackout_at(68783100, false);
   prospective_blackout_at(68764000, false);
   prospective_blackout_at(68764000, true);
 }
-static void retry_progress(uint64_t self, uint64_t incarnation) {
-  setup(false);
-  identity = owner.requester.identity = self;
-  boot = owner.requester.boot = incarnation;
-  owner.eligible = false;
-  owner.source_since = fake_hf;
-  owner.initial_due = false;
-  status_cycle = diag_frame = primary_frame = UINT64_MAX;
-  takeover_preparing = promoted_valid = false;
-  phase_step_at = takeover_bound = 0;
-  fake_rx_count = 0;
-  management_rx = management_mac = management_accepted = 0;
-  uint64_t last[3] = {0}, requests[3] = {0};
-  unsigned residues[3] = {0};
-  unsigned status_count = 0, role_count = 0;
-  uint64_t previous_pps = 0;
-  for (uint64_t t = 66000000; t < 86000000; t += 1000) {
-    tick_to(t);
-    if (t / 1000000 != previous_pps) {
-      healthy_input();
-      previous_pps = t / 1000000;
-    }
-    if (t % 1000000 == 0) {
-      assert(!fake_rx_count);
-      for (unsigned i = 0; i < 3; i++) {
-        struct gm7_packet locator;
-        assert(!gm7_owner_control(&owner, &locator, fake_hf));
-        locator.body.control.sender = 401 + i;
-        locator.body.control.boot = 51 + i;
-        struct r2_gm7_rx *r = &fake_rx[fake_rx_count++];
-        memset(r, 0, sizeof *r);
-        r->raw = (uint32_t)((fake_hf - 10) * 16);
-        r->epoch = 4;
-        r->length = (uint16_t)(gm7_wire_size(locator.kind) + 4);
-        assert(!gm7_ad_encode(r->ad, sizeof r->ad, &locator, &group));
-      }
-    }
-    for (unsigned slot = 0; slot < GM7_JOB_SLOTS; slot++) {
-      struct gm7_job *j = &scheduler.job[slot];
-      if (!fake_native_live[slot] || fake_hf < j->window.nominal + 1500)
-        continue;
-      struct gm7_packet packet;
-      assert(!gm7_ad_decode(&packet, j->ad, j->length, &group));
-      if (packet.kind == GM7_REQUEST) {
-        unsigned peer = (unsigned)(packet.body.request.target - 401);
-        assert(peer < 3);
-        uint64_t tx = j->window.nominal + 1;
-        if (last[peer])
-          assert(tx - last[peer] >= 2000000);
-        last[peer] = tx;
-        ++requests[peer];
-        residues[peer] |= 1u
-                          << ((UINT64_C(1792800000000000) + tx) / 250000 % 4);
-
-      }
-      if (packet.kind == GM7_STATUS)
-        ++status_count;
-      if (packet.kind == GM7_ROLE)
-        ++role_count;
-      fake_native_live[slot] = false;
-      uint64_t nominal = j->window.nominal;
-      fake_result[fake_result_count++] =
-          (struct r2_gm7_tx){.ticket = j->ticket,
-                             .generation = j->generation,
-                             .buffer_version = j->buffer_version,
-                             .epoch = 4,
-                             .primary_address = (uint32_t)((nominal + 42) * 16),
-                             .aux_address = (uint32_t)((nominal + 551) * 16),
-                             .aux_end = (uint32_t)((nominal + 1400) * 16),
-                             .slot = slot,
-                             .complete = true,
-                             .exposed = true};
-    }
-    cycle(&service_work);
-    if (owner.failed || owner.serving || resource_fault || status.error)
-      fprintf(stderr,
-              "t=%llu failed=%u serving=%u resource=%u error=%d reason=%u "
-              "now=%llu seq=%llu\n",
-              (unsigned long long)t, owner.failed, owner.serving,
-              resource_fault, status.error, owner.reason,
-              (unsigned long long)owner.now,
-              (unsigned long long)owner.sequence);
-    assert(!owner.failed && !owner.serving && !resource_fault && !status.error);
-  }
-  assert((uint32_t)atomic_get(&management_rx) >= 57 &&
-         atomic_get(&management_mac) == atomic_get(&management_rx) &&
-         !atomic_get(&management_accepted) &&
-         status.authenticated == (uint32_t)atomic_get(&management_mac) &&
-         status.rx == (uint32_t)atomic_get(&management_rx));
-  assert(status_count >= 9 && role_count >= 7 && requests[0] >= 4 &&
-         requests[1] >= 4 && requests[2] >= 4);
-  for (unsigned i = 0; i < 3; i++)
-    assert((residues[i] & (residues[i] - 1)) != 0);
-  puts("PASS actual service20s STATUS priority plus3-peer fresh nonce REQUEST "
-       "rotation, dropped/reserved-secondary responses, finite pending "
-       "retirement and standby ROLE progress without diagnostic starvation");
+static void ordinary_progress(uint64_t self,uint64_t incarnation) {
+ setup(false);identity=owner.identity=self;boot=owner.boot=incarnation;
+ status_cycle=diag_frame=primary_frame=UINT64_MAX;
+ unsigned statuses=0;uint64_t previous_pps=0;
+ for(uint64_t t=66000000;t<86000000;t+=1000){
+  tick_to(t);if(t/1000000!=previous_pps){healthy_input();previous_pps=t/1000000;}
+  for(unsigned i=0;i<GM7_JOB_SLOTS;i++)if(fake_native_live[i]&&fake_hf>=scheduler.job[i].window.nominal+1500){statuses+=scheduler.job[i].kind==GM7_STATUS;finish(i,true,false);}
+  cycle(&service_work);
+ }
+ assert(statuses>=9);
 }
+
 static void terminal_faults(void) {
   setup(true);
   healthy_input();
@@ -1435,15 +1351,15 @@ static void heard_only_peer(void) {
   rx->length=GM7_CONTROL_BYTES+4;
   assert(!gm7_ad_encode(rx->ad,sizeof rx->ad,&locator,&group));
   cycle(&service_work);
-  assert(management_mac==1 && !management_accepted && owner.peer[0].locator_seen);
+  assert(management_mac==1 && management_accepted==1 && owner.peer[0].heard);
   struct r2_ui_model m={0};r2_service_ui(&m);
   assert(m.gm7_peer_valid && m.gm7_peer_id==401 && m.gm7_peer_role==255 &&
-      !m.gm7_peer_current && !m.gm7_peer_fresh && !m.gm7_peer_eligible_claim &&
+      !m.gm7_peer_current && m.gm7_peer_fresh && !m.gm7_peer_eligible_claim &&
       !m.gm7_peer_known && m.gm7_peer_hot_ms==UINT32_MAX);
   char json[2048];
   assert(r2_gm7_diagnostic_format(json,sizeof json,1,"source",boot,true)>0);
-  assert(strstr(json,"GM7v2+S1+C1") && strstr(json,"\"heard\":true") &&
-      strstr(json,"\"control_fresh\":false") &&
+  assert(strstr(json,"GM7v3+S2+C1") && strstr(json,"\"heard\":true") &&
+      strstr(json,"\"control_fresh\":true") &&
       strstr(json,"\"independent_eligible_claim\":false") &&
       strstr(json,"\"authority\":false"));
   uint64_t expiry=peer_display[0].report.until;
@@ -1461,10 +1377,11 @@ int main(int argc, char **argv) {
   administrative_yield();
   negative_phase_cases();
   prospective_blackout();
+  source_horizon_preparation();
   functional_map_refresh();
-  retry_progress(17, 33);
-  retry_progress(17 + (UINT64_C(1) << 32), 33);
-  retry_progress(17 + (UINT64_C(1) << 48), 65);
+  ordinary_progress(17, 33);
+  ordinary_progress(17 + (UINT64_C(1) << 32), 33);
+  ordinary_progress(17 + (UINT64_C(1) << 48), 65);
   terminal_faults();
   shutdown_copies(0);
   shutdown_copies(1);

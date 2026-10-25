@@ -29,10 +29,9 @@ struct gm7_window {
 struct gm7_job {
   struct gm7_window window;
   uint64_t ticket, sequence;
-  /* Disjoint immutable job kinds: REQUEST is never positive and has no source
-   * permission. No retry-phase/UTC state is retained in a completed job. */
+  /* Immutable encoded ordinary control or optional diagnostic. */
   uint64_t source_until;
-  uint64_t request_deadline, first_start, final_end;
+  uint64_t event_deadline, first_start, final_end;
   uint32_t generation, buffer_version;
   uint16_t length;
   uint8_t pdu_prefix[12], ad[GM7_MAX_AD_BYTES], kind, opportunity, handle,
@@ -51,10 +50,6 @@ unsigned gm7_status_slot(uint64_t identity, uint64_t boot, uint64_t cycle);
 int gm7_status_offset(uint32_t *offset, uint64_t identity, uint64_t boot,
                       uint64_t cycle, int jitter);
 uint32_t gm7_discovery_offset(uint64_t identity, uint64_t boot, uint64_t frame);
-int gm7_response_window(struct gm7_window *, uint64_t request_rx_mono,
-                        uint64_t local_frame_start,
-                        uint64_t processing_now,
-                        uint32_t phase_enclosure_us);
 /* Complete primary+gap+AUX airtime model, not measured controller performance.
  * Runtime hooks must also validate these exact unchained headers/LE2M PHY. */
 int gm7_complete_airtime(uint32_t *us, size_t ad_length,
@@ -64,7 +59,7 @@ void gm7_scheduler_init(struct gm7_scheduler *, uint64_t now);
 int gm7_scheduler_submit(struct gm7_scheduler *, unsigned opportunity,
                          const struct gm7_packet *,
                          const struct r2_group_config *, struct gm7_window,
-                         uint64_t source_until, uint64_t request_deadline,
+                         uint64_t source_until, uint64_t event_deadline,
                          uint8_t handle, uint64_t now, uint64_t *ticket);
 /* Callers serialize these bodies with the controller callbacks. An HCI enqueue
  * does not call started()/complete() and supplies no RF completion evidence. */

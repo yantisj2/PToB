@@ -4,7 +4,7 @@ if(R2_GM7_NATIVE AND CONFIG_ARM AND NOT CONFIG_BOARD_NRF52_BSIM)
   message(FATAL_ERROR "GM7 is normal GM work only")
  endif()
  target_compile_definitions(app PRIVATE R2_GM7_NATIVE=1)
- target_sources(app PRIVATE protocol/gm7_codec.c protocol/gm7_session.c protocol/gm7_owner.c
+ target_sources(app PRIVATE protocol/gm7_codec.c protocol/gm7_control.c protocol/gm7_owner.c
   protocol/gm7_schedule.c protocol/gm7_air.c protocol/gm7_bridge.c protocol/gm7_promote.c src/gm7_source.c src/gm7_clock.c src/gm7_capture.c)
  target_compile_definitions(subsys__bluetooth__controller PRIVATE R2_GM7_NATIVE=1)
  target_compile_definitions(subsys__bluetooth__controller__ll_sw__nordic PRIVATE R2_GM7_NATIVE=1)

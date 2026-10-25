@@ -30,11 +30,14 @@ and founder while advancing the leader term. The existing 32-bit timing token
 remains separate. Older mesh birth wins when active meshes meet; the losing GM
 stops its positive output before following the winner.
 
-Source0.15.184 uses the [S1 simplification amendment](../../protocol/gm7_simplified_s1/README.md)
-with diagnostic identity `GM7v2+S1+C1`. S1 separates causal contact admission from
-physical descriptor matching and replaces A1 discovery/retry rules. A fresh older
-ANN stops losing output before physical timing acquisition. Authenticated heard
-acquiring peers remain visible with unproven freshness and unknown timers.
+Source0.15.185 uses the [ordinary-only S2 contract](../../protocol/gm7_simplified_s2/README.md)
+with diagnostic identity `GM7v3+S2+C1`. Ordinary ANN/STATUS carry the timing
+descriptor; dedicated REQUEST/ANCHOR, nonce/session/renewal/bootstrap and response
+scheduling are removed. Native receipt-anchored control/source deadlines and
+explicit first-observation replay limitations replace causal contact admission.
+Actual G1 still establishes physical following and HOT readiness. See S2 for
+wire bytes, source-expiry highwater rules, bounded cache semantics, diagnostics
+and the retained handoff/reservation fences. Source0.15.184/S1 remains historical.
 
 The [implementation2 wire contract](../../protocol/gm7_v2/README.md),
 [ACTIVE discovery amendment A1](../../protocol/gm7_scheduler_a1/README.md) and
@@ -163,7 +166,7 @@ unchanged30s progress watchdog before the first resumed publication. Queries
 and reset retries do not refresh this sample. These corrections do not explain
 the separate version174 CPU fault; version175 register diagnostics remain.
 
-Version177 also restores the permitted tentative locator bootstrap path. A fresh
+Historical version177 restored the permitted tentative locator bootstrap path. A fresh
 authenticated ordinary ANNOUNCE can place one bounded nonce REQUEST before a
 physical local or remote phase map exists. Its primary/discovery-copy placement
 is explicitly a guess. It never enables STATUS, ANNOUNCE, source permission,
@@ -330,7 +333,7 @@ and never substitutes for this review. B remains exact-device/source/image/
 transaction review; C remains physical RF airtime/coverage,3s takeover, loss,
 partition, output continuity and calibrated UTC qualification. These offline receipts establish no hardware installation or acceptance.
 
-Source178 refreshes the processing bridge after owner receive, before the next
+Historical source178 refreshed the processing bridge after owner receive, before the next
 REQUEST operation. An advancing-clock composition reproduces the stale-now
 failure in177; the correction preserves captured RX, original deadlines and
 qualification. Existing CPU corruption remains unresolved; offline validation

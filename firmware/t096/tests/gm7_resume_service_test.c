@@ -82,7 +82,7 @@ static void resumed(void) {
   assert(!dispatch_pending && !dispatch_failure && !resuming);
   assert(status.active && !status.closed && !status.error && used);
   assert(!r2_switch_rc_active() &&
-         owner.requester.boot == dispatch_incarnation);
+         owner.boot == dispatch_incarnation);
   assert(!owner.serving && !owner.armed && !fake_scope.gm);
 }
 static void resume_cases(void) {

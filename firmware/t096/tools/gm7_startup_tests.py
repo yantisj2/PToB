@@ -47,7 +47,7 @@ for n in ['capture','time']:
  cmd=common+['-c',str(out/(n+'.c')),'-o',str(out/(n+'.o'))];commands.append(cmd)
  with (out/(n+'.compile.log')).open('w')as f:subprocess.run(cmd,stdout=f,stderr=subprocess.STDOUT,check=True)
 tiny=args.deps.resolve()/'modules/crypto/tinycrypt/lib'
-sources=[app/'protocol'/n for n in ['gm7_codec.c','gm7_session.c','gm7_owner.c','gm7_schedule.c','gm7_air.c','gm7_bridge.c','gm7_promote.c','group_auth.c','gnss_diagnostics.c']]+[app/'src'/n for n in ['gm7_source.c','precision.c','ui_render.c']]+[tiny/'source'/n for n in ['hmac.c','sha256.c','utils.c']]+[app/'tests/gm7_startup_test.c']
+sources=[app/'protocol'/n for n in ['gm7_codec.c','gm7_control.c','gm7_owner.c','gm7_schedule.c','gm7_air.c','gm7_bridge.c','gm7_promote.c','group_auth.c','gnss_diagnostics.c']]+[app/'src'/n for n in ['gm7_source.c','precision.c','ui_render.c']]+[tiny/'source'/n for n in ['hmac.c','sha256.c','utils.c']]+[app/'tests/gm7_startup_test.c']
 cmd=common+['-DR2_GM5_NATIVE=1','-DR2_NATIVE_BLE=1','-DR2_SWITCHABLE_FIELD=1','-I'+str(app/'tests'),'-I'+str(tiny/'include'),*map(str,sources),str(out/'capture.o'),str(out/'time.o'),'-o',str(out/'startup-test')];commands.append(cmd)
 with (out/'startup.compile.log').open('w')as f:subprocess.run(cmd,stdout=f,stderr=subprocess.STDOUT,check=True)
 with (out/'startup.run.log').open('w')as f:

@@ -91,7 +91,7 @@ int main(int argc,char **argv){
   struct r2_gm7_timing t;r2_radio_service_gm7_timing(&t,fake_time);
   assert(t.scope.root_identity==555&&t.scope.boot==777&&t.scope.source_epoch==3&&t.scope.publication_epoch==4&&t.scope.follower);
   assert(t.view.authorized&&t.view.map_valid&&t.retained&&t.until_us==fake_time+1000&&t.capture_gen==9&&t.shadow_gen==10);
-  assert(t.first_tx_lo==100&&t.first_tx_hi==120&&t.first_tx_derived_end_hi==200&&t.first_tx_observed_complete);
+  assert(!t.first_tx_lo&&!t.first_tx_hi&&!t.first_tx_derived_end_hi&&!t.first_tx_observed_complete);
   fake_time=capture_us=1002000;capture_tick=capture_us*16;r2_radio_service_gm7_timing(&t,fake_time);
   assert(t.retained&&!t.view.authorized&&!t.view.map_valid&&!t.scope.follower&&t.scope.root_identity==555&&t.scope.boot==777&&t.scope.publication_epoch==4);
   assert(t.phase_enclosure_us>500&&pt_output.scope.follower); /* copy fencing, retained predictor unchanged */
@@ -522,7 +522,7 @@ int main(int argc,char **argv){
  if(mode==7){
   public_client=true;client_clock=(struct r2_group_client){.passive=true,.source=true,.at=1000,.uncertainty_us=75000};
   client_scope.until_us=1501000;
-  assert(client_anchor_valid(17001000)&&!client_anchor_valid(100001000));
+  assert(anchor_valid(&client_clock,17001000)&&!anchor_valid(&client_clock,100001000));
   struct r2_group_client state;r2_radio_service_client_state(&state,17001000);
   uint64_t utc;assert(!state.source&&!r2_radio_service_client_clock(&utc,17001000));
   puts("Coarse anchor survives fit acquisition but never extends original source permission PASS");return 0;

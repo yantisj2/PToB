@@ -14,6 +14,21 @@ struct r2_gm7_timing {
  uint32_t capture_gen,shadow_gen,phase_enclosure_us;
  bool retained;
 };
+/* Coherent query-only follower estimator facts; no timing authority. */
+struct r2_gm7_follow_stats {
+ uint32_t count,span_us,observations,resets,saturated,arithmetic_faults,unavailable;
+ int32_t rate;
+ uint32_t quality_count,flags; /* fit1,output2,fault4,PLLstate<<8,reason<<16 */
+};
+_Static_assert(sizeof(struct r2_gm7_follow_stats)==40,"Existing firstTX storage");
+struct r2_gm7_follow_diagnostic {
+ struct r2_radio_scope scope;
+ struct r2_gm7_follow_stats stats;
+ uint64_t sampled,until,counter_epoch,last_correction;
+ uint32_t train,capture_gen;
+ bool current;
+};
+void r2_radio_service_gm7_follow_diagnostic(struct r2_gm7_follow_diagnostic *,uint64_t now);
 void r2_radio_service_gm7_timing(struct r2_gm7_timing *,uint64_t now);
 struct r2_group_client;
 struct r2_enrollment;

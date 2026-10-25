@@ -10,7 +10,7 @@ for n in ['kernel.h','irq.h','sys/atomic.h','bluetooth/bluetooth.h','bluetooth/c
  q=O/'zephyr'/n;q.parent.mkdir(parents=True,exist_ok=True);q.write_text('/* Public kernel/HAL declarations supplied by test fixture. */\n')
 cc=os.environ.get('CC')or('/opt/homebrew/opt/llvm/bin/clang'if Path('/opt/homebrew/opt/llvm/bin/clang').exists()else shutil.which('clang'))
 flags=[cc,'-std=c11','-O1','-g','-Wall','-Wextra','-Werror','-Wno-unused-function','-Wno-unused-variable','-Wno-unused-parameter','-Wno-default-const-init-var-unsafe','-fsanitize=address,undefined','-fno-sanitize-recover=all','-DR2_GM7_NATIVE=1','-DR2_GM5_NATIVE=1',*['-I'+str(f)for f in[A/'include',A/'protocol',A/'tests',tiny/'include',O]]]
-sources=[A/'protocol'/n for n in ['gm7_codec.c','gm7_session.c','gm7_owner.c','gm7_schedule.c','gm7_air.c','gm7_bridge.c','gm7_promote.c','group_auth.c','gnss_diagnostics.c']]+[A/'src'/n for n in ['gm7_source.c','precision.c','ui_render.c']]+[tiny/'source'/n for n in ['hmac.c','sha256.c','utils.c']]+[A/'tests/gm7_source_order_test.c']
+sources=[A/'protocol'/n for n in ['gm7_codec.c','gm7_control.c','gm7_owner.c','gm7_schedule.c','gm7_air.c','gm7_bridge.c','gm7_promote.c','group_auth.c','gnss_diagnostics.c']]+[A/'src'/n for n in ['gm7_source.c','precision.c','ui_render.c']]+[tiny/'source'/n for n in ['hmac.c','sha256.c','utils.c']]+[A/'tests/gm7_source_order_test.c']
 inputs=set(sources+[A/'src/gm7_service.c',A/'tests/gm7_service_test.c',A/'tests/gm7_service_fake.h',Path(__file__).resolve()]+list((A/'include').glob('*.h'))+list((A/'protocol').glob('*.h')))
 legacy=[]
 if a.historical_source:

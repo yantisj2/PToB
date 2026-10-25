@@ -5,7 +5,8 @@
  * records are full u64 split low32/high32, associated by peer/kind/boot. */
 enum r2_gm7_journal_stage {
   R2_GM7_J_RX=1, R2_GM7_J_TX, R2_GM7_J_SEQUENCE,
-  R2_GM7_J_EVENT_DEADLINE, R2_GM7_J_MERGE, R2_GM7_J_SOURCE
+  R2_GM7_J_EVENT_DEADLINE, R2_GM7_J_MERGE, R2_GM7_J_SOURCE,
+  R2_GM7_J_FIRST_G1
 };
 #define R2_GM7_JOURNAL(stage,kind) (0x7000u | ((stage)<<8) | (kind))
 #include <stdint.h>

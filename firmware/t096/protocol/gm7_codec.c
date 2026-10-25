@@ -22,10 +22,6 @@ size_t gm7_wire_size(uint8_t k) {
   case GM7_STATUS:
   case GM7_WITHDRAW:
     return GM7_CONTROL_BYTES;
-  case GM7_REQUEST:
-    return GM7_REQUEST_BYTES;
-  case GM7_ANCHOR:
-    return GM7_ANCHOR_BYTES;
   case GM7_ROLE:
     return GM7_ROLE_BYTES;
   case GM7_GNSS:
@@ -36,7 +32,7 @@ size_t gm7_wire_size(uint8_t k) {
 }
 static int tag(uint8_t out[16], const struct r2_group_config *g,
                const uint8_t *p, size_t n) {
-  static const uint8_t domain[] = "PToB/GM7/implementation2";
+  static const uint8_t domain[] = "PToB/GM7/implementation3";
   uint8_t full[32];
   struct tc_hmac_state_struct h;
   if (!r2_group_valid(g) || !tc_hmac_set_key(&h, g->psk, 32) ||
@@ -72,7 +68,7 @@ int gm7_validate(const struct gm7_packet *p) {
       return -EINVAL;
     if (p->kind != GM7_STATUS &&
         (!c->birth_us || c->sender != c->active || c->boot != c->active_boot ||
-         !c->train_gen || c->shadow_gen || c->hot == c->active))
+         !c->timing_epoch || !c->train_gen || c->shadow_gen || c->hot == c->active))
       return -EINVAL;
     if (p->kind != GM7_ANNOUNCE && c->source_valid_us)
       return -EINVAL;
@@ -103,43 +99,6 @@ int gm7_validate(const struct gm7_packet *p) {
       } else if (c->hot)
         return -EINVAL;
     }
-  } else if (p->kind == GM7_REQUEST) {
-    const struct gm7_request *r = &p->body.request;
-    if (f || !r->requester || !r->requester_boot || !r->target ||
-        !r->target_boot || !r->request_sequence ||
-        !(r->nonce_hi || r->nonce_lo))
-      return -EINVAL;
-  } else if (p->kind == GM7_ANCHOR) {
-    const struct gm7_anchor *a = &p->body.anchor;
-    if ((f & ~31u) || (!(f & GM7_A_INDEPENDENT) && !(f & GM7_A_RELAY)) ||
-        !a->requester || !a->requester_boot || !a->responder ||
-        !a->responder_boot || !a->response_sequence || !a->control_sequence ||
-        !a->capture_gen || !(a->nonce_hi || a->nonce_lo) || !a->valid_us ||
-        a->valid_us > 1500000 || a->reserved)
-      return -EINVAL;
-    if (f & GM7_A_RELAY) {
-      if ((f & GM7_A_INDEPENDENT) || !(f & GM7_A_SERVING) ||
-          (a->depth != 1 && a->depth != 2) || a->active == a->responder ||
-          a->source_gen)
-        return -EINVAL;
-    } else if (a->depth || !a->source_gen)
-      return -EINVAL;
-    if (f & GM7_A_SERVING) {
-      if (!a->birth_us || !a->founder || !a->term || !a->active ||
-          !a->active_boot || !a->timing_epoch || !a->train_gen)
-        return -EINVAL;
-      if (!(f & GM7_A_RELAY) &&
-          (a->active != a->responder || a->active_boot != a->responder_boot))
-        return -EINVAL;
-    } else if (a->birth_us || a->founder || a->term || a->active ||
-               a->active_boot || a->timing_epoch || a->train_gen)
-      return -EINVAL;
-    if ((a->birth_us && !gm7_utc_valid(a->birth_us)) ||
-        (a->utc_us && !gm7_utc_valid(a->utc_us)) ||
-        !!(f & GM7_A_UTC) != !!a->utc_us ||
-        ((f & GM7_A_UTC_BOUND) &&
-         (!(f & GM7_A_UTC) || a->utc_error_us == UINT32_MAX)))
-      return -EINVAL;
   } else {
     const struct gm7_role *r = &p->body.role;
     const struct gm7_gnss *g = &p->body.gnss;
@@ -217,40 +176,7 @@ static void encode_body(uint8_t *w, const struct gm7_packet *p) {
     put(w + 138, p->body.control.yield_utc_us, 8);
     put(w + 146, p->body.control.shadow_gen, 4);
     put(w + 150, p->body.control.sent_mono_us, 8);
-    break;
-  case 4:
-    put(w + 24, p->body.request.requester, 8);
-    put(w + 32, p->body.request.requester_boot, 8);
-    put(w + 40, p->body.request.target, 8);
-    put(w + 48, p->body.request.target_boot, 8);
-    put(w + 56, p->body.request.nonce_hi, 8);
-    put(w + 64, p->body.request.nonce_lo, 8);
-    put(w + 72, p->body.request.request_sequence, 8);
-    break;
-  case 5:
-    put(w + 24, p->body.anchor.requester, 8);
-    put(w + 32, p->body.anchor.requester_boot, 8);
-    put(w + 40, p->body.anchor.nonce_hi, 8);
-    put(w + 48, p->body.anchor.nonce_lo, 8);
-    put(w + 56, p->body.anchor.responder, 8);
-    put(w + 64, p->body.anchor.responder_boot, 8);
-    put(w + 72, p->body.anchor.response_sequence, 8);
-    put(w + 80, p->body.anchor.sampled_mono_us, 8);
-    put(w + 88, p->body.anchor.utc_us, 8);
-    put(w + 96, p->body.anchor.birth_us, 8);
-    put(w + 104, p->body.anchor.founder, 8);
-    put(w + 112, p->body.anchor.term, 8);
-    put(w + 120, p->body.anchor.active, 8);
-    put(w + 128, p->body.anchor.active_boot, 8);
-    put(w + 136, p->body.anchor.timing_epoch, 4);
-    put(w + 140, p->body.anchor.source_gen, 4);
-    put(w + 144, p->body.anchor.capture_gen, 4);
-    put(w + 148, p->body.anchor.train_gen, 4);
-    put(w + 152, p->body.anchor.control_sequence, 8);
-    put(w + 160, p->body.anchor.valid_us, 4);
-    put(w + 164, p->body.anchor.utc_error_us, 4);
-    put(w + 168, p->body.anchor.depth, 1);
-    put(w + 169, p->body.anchor.reserved, 1);
+    put(w + 158, p->body.control.timing_epoch, 4);
     break;
   case 6:
     put(w + 24, p->body.role.sender, 8);
@@ -341,40 +267,7 @@ static void decode_body(struct gm7_packet *p, const uint8_t *w) {
     p->body.control.yield_utc_us = get(w + 138, 8);
     p->body.control.shadow_gen = get(w + 146, 4);
     p->body.control.sent_mono_us = get(w + 150, 8);
-    break;
-  case 4:
-    p->body.request.requester = get(w + 24, 8);
-    p->body.request.requester_boot = get(w + 32, 8);
-    p->body.request.target = get(w + 40, 8);
-    p->body.request.target_boot = get(w + 48, 8);
-    p->body.request.nonce_hi = get(w + 56, 8);
-    p->body.request.nonce_lo = get(w + 64, 8);
-    p->body.request.request_sequence = get(w + 72, 8);
-    break;
-  case 5:
-    p->body.anchor.requester = get(w + 24, 8);
-    p->body.anchor.requester_boot = get(w + 32, 8);
-    p->body.anchor.nonce_hi = get(w + 40, 8);
-    p->body.anchor.nonce_lo = get(w + 48, 8);
-    p->body.anchor.responder = get(w + 56, 8);
-    p->body.anchor.responder_boot = get(w + 64, 8);
-    p->body.anchor.response_sequence = get(w + 72, 8);
-    p->body.anchor.sampled_mono_us = get(w + 80, 8);
-    p->body.anchor.utc_us = get(w + 88, 8);
-    p->body.anchor.birth_us = get(w + 96, 8);
-    p->body.anchor.founder = get(w + 104, 8);
-    p->body.anchor.term = get(w + 112, 8);
-    p->body.anchor.active = get(w + 120, 8);
-    p->body.anchor.active_boot = get(w + 128, 8);
-    p->body.anchor.timing_epoch = get(w + 136, 4);
-    p->body.anchor.source_gen = get(w + 140, 4);
-    p->body.anchor.capture_gen = get(w + 144, 4);
-    p->body.anchor.train_gen = get(w + 148, 4);
-    p->body.anchor.control_sequence = get(w + 152, 8);
-    p->body.anchor.valid_us = get(w + 160, 4);
-    p->body.anchor.utc_error_us = get(w + 164, 4);
-    p->body.anchor.depth = get(w + 168, 1);
-    p->body.anchor.reserved = get(w + 169, 1);
+    p->body.control.timing_epoch = (uint32_t)get(w + 158, 4);
     break;
   case 6:
     p->body.role.sender = get(w + 24, 8);
@@ -445,8 +338,8 @@ int gm7_encode(uint8_t *w, size_t capacity, const struct gm7_packet *p,
   if (capacity < n)
     return -EMSGSIZE;
   memset(w, 0, n);
-  memcpy(w, "G7V2", 4);
-  w[4] = 2;
+  memcpy(w, "G7V3", 4);
+  w[4] = GM7_REVISION;
   w[5] = p->kind;
   put(w + 6, n, 2);
   put(w + 8, p->flags, 2);
@@ -457,8 +350,8 @@ int gm7_encode(uint8_t *w, size_t capacity, const struct gm7_packet *p,
 }
 int gm7_decode(struct gm7_packet *out, const uint8_t *w, size_t n,
                const struct r2_group_config *g) {
-  if (!out || !w || !r2_group_valid(g) || n < 40 || memcmp(w, "G7V2", 4) ||
-      w[4] != 2 || n != gm7_wire_size(w[5]) || get(w + 6, 2) != n ||
+  if (!out || !w || !r2_group_valid(g) || n < 40 || memcmp(w, "G7V3", 4) ||
+      w[4] != GM7_REVISION || n != gm7_wire_size(w[5]) || get(w + 6, 2) != n ||
       get(w + 10, 2) || get(w + 12, 8) != g->id || get(w + 20, 4) != g->epoch)
     return -EINVAL;
   uint8_t wanted[16], diff = 0;

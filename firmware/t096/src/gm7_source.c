@@ -76,7 +76,7 @@ uint32_t gm7_duration_ms(uint64_t now, uint64_t since) {
 }
 static bool current_lineage(const struct gm7_owner *o, uint64_t now) {
   return o->scope.birth && (o->serving || o->armed ||
-                            (o->scope.active != o->requester.identity &&
+                            (o->scope.active != o->identity &&
                              now >= o->selected_original &&
                              now - o->selected_original < GM7_ARM_RETAIN_US));
 }
@@ -107,11 +107,6 @@ static uint16_t wire_blockers(const struct gm7_owner *o, uint64_t now) {
     b |= GM7_W_UTC_UNAVAILABLE;
   if (o->blockers & (GM7_B_PHASE | GM7_B_UNCERTAINTY))
     b |= GM7_W_ALIGNMENT_UNTRUSTED;
-  for (unsigned i = 0; i < GM7_PENDING; i++)
-    if (o->requester.pending[i].used) {
-      b |= GM7_W_BOOTSTRAP_PENDING;
-      break;
-    }
   if (o->blockers & GM7_B_RESOURCE)
     b |= GM7_W_RESOURCE_LIMIT;
   /* Calendar inhibition has no wire blocker assignment. Its distinct reason
@@ -122,12 +117,12 @@ int gm7_role_snapshot(struct gm7_owner *o, struct gm7_packet *p, uint64_t now) {
   if (!o || !p || o->failed || o->stopped || now < o->now ||
       o->role_sequence == UINT64_MAX)
     return -ESTALE;
-  *p = (struct gm7_packet){.group = o->requester.group.id,
-                           .key_epoch = o->requester.group.epoch,
+  *p = (struct gm7_packet){.group = o->group.id,
+                           .key_epoch = o->group.epoch,
                            .kind = GM7_ROLE};
   struct gm7_role *r = &p->body.role;
-  r->sender = o->requester.identity;
-  r->boot = o->requester.boot;
+  r->sender = o->identity;
+  r->boot = o->boot;
   r->sequence = ++o->role_sequence;
   r->sampled_mono_us = now;
   r->valid_us = 4500000;
@@ -138,11 +133,11 @@ int gm7_role_snapshot(struct gm7_owner *o, struct gm7_packet *p, uint64_t now) {
     r->active = o->scope.active;
     r->active_boot = o->scope.boot;
   }
-  /* Non-serving candidate ANCHOR cannot bind a root timing token. Receiver
-   * association is stored separately, without changing this decoded token0. */
-  r->timing_epoch = o->serving ? o->scope.timing_epoch : 0;
-  r->hot = o->serving ? o->nominee : o->armed ? o->requester.identity : 0;
-  r->hot_boot = o->serving ? o->nominee_boot : o->armed ? o->requester.boot : 0;
+  /* Optional ROLE describes the ordinary ANN/STATUS scope only; it grants
+   * neither timing permission nor HOT authority. */
+  r->timing_epoch = o->scope.timing_epoch;
+  r->hot = o->serving ? o->nominee : o->armed ? o->identity : 0;
+  r->hot_boot = o->serving ? o->nominee_boot : o->armed ? o->boot : 0;
   r->source_gen = o->source.source_gen;
   r->capture_gen = o->source.capture_gen;
   r->train_gen = o->serving                  ? o->scope.train
@@ -152,8 +147,8 @@ int gm7_role_snapshot(struct gm7_owner *o, struct gm7_packet *p, uint64_t now) {
   r->role = !o->gm_capable             ? GM7_W_RC
             : o->armed                 ? GM7_W_HOT
             : gm7_owner_output(o, now) ? GM7_W_ACTIVE
-            : (o->selected.hot == o->requester.identity &&
-               o->selected.hot_boot == o->requester.boot)
+            : (o->selected.hot == o->identity &&
+               o->selected.hot_boot == o->boot)
                 ? GM7_W_PREPARING
                 : GM7_W_STANDBY;
   r->blockers = wire_blockers(o, now);
@@ -184,12 +179,12 @@ int gm7_gnss_snapshot(struct gm7_owner *o, struct gm7_packet *p,
   if (!o || !p || !v || o->failed || o->stopped || now < o->now ||
       o->gnss_sequence == UINT64_MAX)
     return -ESTALE;
-  *p = (struct gm7_packet){.group = o->requester.group.id,
-                           .key_epoch = o->requester.group.epoch,
+  *p = (struct gm7_packet){.group = o->group.id,
+                           .key_epoch = o->group.epoch,
                            .kind = GM7_GNSS};
   struct gm7_gnss *r = &p->body.gnss;
-  r->sender = o->requester.identity;
-  r->boot = o->requester.boot;
+  r->sender = o->identity;
+  r->boot = o->boot;
   r->sequence = ++o->gnss_sequence;
   r->sampled_mono_us = now;
   r->valid_us = 30000000;
@@ -200,7 +195,7 @@ int gm7_gnss_snapshot(struct gm7_owner *o, struct gm7_packet *p,
     r->active = o->scope.active;
     r->active_boot = o->scope.boot;
   }
-  r->timing_epoch = o->serving ? o->scope.timing_epoch : 0;
+  r->timing_epoch = o->scope.timing_epoch;
   r->source_gen = o->source.source_gen;
   r->capture_gen = o->source.capture_gen;
   r->train_gen = o->serving                  ? o->scope.train

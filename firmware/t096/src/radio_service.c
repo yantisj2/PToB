@@ -70,7 +70,6 @@ static bool anchor_valid(const struct r2_group_client *c,uint64_t now){
   * signed source expiry is checked separately on every timing operation. */
  return c->source&&now>=c->at&&now<r2_group_anchor_deadline(c->at,c->uncertainty_us);
 }
-static bool client_anchor_valid(uint64_t now){return anchor_valid(&client_clock,now);}
 static int64_t client_utc_offset,follower_utc_offset;
 static uint64_t close_until, retry_at, updated_at, sync_until;
 static bool opportunity_seen,opportunity_complete;
@@ -94,11 +93,15 @@ struct pt_output {
  /* scope/view already belong to this same coherent mailbox snapshot. */
  struct {
   r2_servo_map_t map;
-  uint64_t counter_epoch,last_correction,evaluated_tick,first_tx_lo,first_tx_hi,first_tx_derived_end_hi,last_tx;
+  uint64_t counter_epoch,last_correction,evaluated_tick;
+  union {
+   struct {uint64_t first_tx_lo,first_tx_hi,first_tx_derived_end_hi,last_tx;
+    int32_t tx_phase_us;bool first_tx_observed_complete;};
+   struct r2_gm7_follow_stats follow;
+  }; /* Disjoint GM/follower roles; cleared on every scope transition. */
   int64_t utc_offset_ns;
-  int32_t tx_phase_us;
   uint32_t capture_gen,shadow_gen,phase_enclosure_us;
-  bool retained,first_tx_observed_complete;
+  bool retained;
  } gm7;
 #endif
  struct r2_radio_scope scope;
@@ -213,7 +216,12 @@ static void output_read(struct pt_output *out,uint64_t now){
   * request too, so that stale output cannot keep PA discovery ahead of the
   * fresh authenticated JOIN needed to recover. This grants no time authority. */
  out->acquisition=out->acquisition&&!stopped&&now>=out->bootstrap.at&&
-   now<r2_group_anchor_deadline(out->bootstrap.at,out->bootstrap.uncertainty_us);
+   (
+#ifdef R2_GM7_NATIVE
+    managed&&out->bootstrap.uncertainty_us==UINT32_MAX ?
+      now<out->bootstrap.until&&now<out->scope.until_us :
+#endif
+    now<r2_group_anchor_deadline(out->bootstrap.at,out->bootstrap.uncertainty_us));
  if(out->scope.gm&&(!source_ready||epoch!=r2_radio_local_epoch(out->scope))){out->scope.gm=false;out->view.authorized=false;}
  if(stopped||now<out->sampled||now>=out->scope.until_us){out->scope.gm=false;if(stopped||!out->acquisition)out->scope.follower=false;out->view.authorized=false;}
  struct r2_capture capture;
@@ -532,6 +540,24 @@ static bool direct_grant_live(const struct pt_input *in,uint64_t now){
   g->publication_epoch&&now<g->until_us&&
   (g->follower||(g->gm&&in->source_ready&&in->source_epoch==r2_radio_local_epoch(*g)));
 }
+/* GM7v3 has explicit authenticated receipt-origin control, not a causal
+ * UTC anchor. Unknown uncertainty stays unknown. This grants only the exact
+ * managed root/source/train/capture and original receipt-bounded source life;
+ * captured G1 association/fitting remains unchanged. Ordinary RC uses JOIN. */
+static bool grant_anchor_valid(const struct pt_input *in,const struct r2_group_client *c,uint64_t now){
+#ifdef R2_GM7_NATIVE
+ if(in->gm7_managed){
+  const struct r2_radio_scope *g=&in->grant;
+  return c->passive&&c->source&&c->uncertainty_us==UINT32_MAX&&
+   g->follower&&!g->gm&&g->root<in->roster.count&&g->root_identity&&
+   g->root_identity==in->roster.identity[g->root]&&c->root==g->root_identity&&
+   c->boot==g->boot&&c->source_epoch==g->source_epoch&&
+   c->publication==g->publication_epoch&&g->remote_capture_epoch&&
+   c->at<=now&&now<c->until&&now<c->map_until&&now<g->until_us;
+ }
+#endif
+ return anchor_valid(c,now);
+}
 static bool selected_anchor(const struct pt_input *in,const struct r2_group_client *c,uint64_t now){
  const struct r2_radio_scope *g=&in->grant;
  /* The current producer anchor may arrive after control promotion but before
@@ -542,12 +568,12 @@ static bool selected_anchor(const struct pt_input *in,const struct r2_group_clie
  return !in->stopped&&g->boot&&c->source_epoch&&c->publication&&g->root<in->roster.count&&g->root!=service_self&&
   in->roster.identity[g->root]&&c->root==in->roster.identity[g->root]&&c->boot==g->boot&&
   (!g->source_epoch||c->source_epoch==g->source_epoch)&&
-  (!g->publication_epoch||c->publication==g->publication_epoch)&&anchor_valid(c,now);
+  (!g->publication_epoch||c->publication==g->publication_epoch)&&grant_anchor_valid(in,c,now);
 }
 static bool retain_public_timing(const struct pt_input *in,uint64_t now){
  bool selected=in->grant.boot&&in->grant.root<in->roster.count&&in->roster.identity[in->grant.root];
  return !in->client.passive&&!in->stopped&&!direct_grant_live(in,now)&&
-  ((public_client&&client_anchor_valid(now)&&(!selected||selected_anchor(in,&client_clock,now)))||selected_anchor(in,&in->client,now));
+  ((public_client&&grant_anchor_valid(in,&client_clock,now)&&(!selected||selected_anchor(in,&client_clock,now)))||selected_anchor(in,&in->client,now));
 }
 static void precision_step(uint64_t now){
  bool request_refresh=false,request_anchor=false;struct pt_input in;struct pt_output out;
@@ -561,7 +587,7 @@ static void precision_step(uint64_t now){
  if(retain_public_timing(&in,now)){
   /* Retain the original anchor if admission has no replacement. Never create
    * a new timestamp or extend its source/replay deadlines here. */
-  if(!selected_anchor(&in,&in.client,now)&&public_client&&client_anchor_valid(now))in.client=client_clock;
+  if(!selected_anchor(&in,&in.client,now)&&public_client&&grant_anchor_valid(&in,&client_clock,now))in.client=client_clock;
   in.client.passive=true;
  }
  if(in.grant.root<in.roster.count)in.grant.root_identity=in.roster.identity[in.grant.root];
@@ -577,6 +603,9 @@ static void precision_step(uint64_t now){
   if(public_client&&client_clock.source){own=0;enrollment.count=2;memset(enrollment.identity,0,sizeof enrollment.identity);enrollment.identity[0]=in.roster.identity[0];enrollment.identity[1]=client_clock.root;
    uint8_t address[16];r2_group_pair_key(address,&enrollment.group,client_clock.root,client_clock.root);memcpy(enrollment.address[1],address,6);enrollment.address[1][5]|=0xc0;
    client_scope=(struct r2_radio_scope){.boot=client_clock.boot,.until_us=client_clock.until,.source_epoch=client_clock.source_epoch,.publication_epoch=client_clock.publication,.root_identity=client_clock.root,.root=1,.follower=true};
+#ifdef R2_GM7_NATIVE
+   if(in.gm7_managed)client_scope.remote_capture_epoch=in.grant.remote_capture_epoch;
+#endif
    if(!was_public&&same(active_scope,client_scope))client_utc_offset=follower_utc_offset;
   }else if(public_client)client_scope=(struct r2_radio_scope){0};
  }
@@ -584,12 +613,12 @@ static void precision_step(uint64_t now){
  int64_t utc=in.utc;
  if(public_client){
   if(client_clock.source&&client_scope.until_us&&now>=client_scope.until_us&&now-client_scope.until_us>=1500000&&refresh_requested_until!=client_scope.until_us){refresh_requested_until=client_scope.until_us;request_refresh=true;}
-  if(!client_anchor_valid(now))scope=(struct r2_radio_scope){0};
+  if(!grant_anchor_valid(&in,&client_clock,now))scope=(struct r2_radio_scope){0};
   utc=client_clock.source?(int64_t)(client_clock.utc_us+now-client_clock.at)*1000:-1;
  }else if(utc>=0&&now>=in.at&&(now-in.at)<(uint64_t)(INT64_MAX-utc)/1000)utc+=(int64_t)(now-in.at)*1000;
  const struct r2_source_clock *source=&in.source;
  struct r2_capture current={0};bool captured=r2_capture_now(&current);
- bool acquisition=public_client&&client_anchor_valid(now)&&scope.follower;out.acquisition=acquisition&&!in.stopped;
+ bool acquisition=public_client&&grant_anchor_valid(&in,&client_clock,now)&&scope.follower;out.acquisition=acquisition&&!in.stopped;
  if(in.stopped||!captured||(!acquisition&&scope.until_us<=now)||scope.root>=enrollment.count||(scope.gm&&(!in.source_ready||in.source_epoch!=r2_radio_local_epoch(scope))))scope=(struct r2_radio_scope){0};
  if(!same(scope,active_scope)){
   active_scope=scope;out.length=0;out.payload_until=0;out.payload_sequence=0;
@@ -667,13 +696,20 @@ static void precision_step(uint64_t now){
         }
       }
     } else if (!record.tx && scope.follower) {
+#ifdef R2_GM7_NATIVE
+      if(in.gm7_managed&&p.capture_epoch!=scope.remote_capture_epoch)continue;
+#endif
 #if defined(R2_AUTO_ROUTE_FIXTURE)
       /* Model timing loss independently of still-audible G1/JOIN. This hook
        * is absent from every field image and grants no timing authority. */
       extern bool r2_auto_route_fixture_rx(uint16_t event,uint64_t now,bool direct);
       if(!r2_auto_route_fixture_rx(record.event,now,true))continue;
 #endif
-      if(public_client&&p.root==scope.root&&p.created_ns<=INT64_MAX&&p.expires_ns<=INT64_MAX&&p.utc_offset_ns>=0&&p.utc_offset_ns<=INT64_MAX-(int64_t)p.expires_ns){
+      if(public_client
+#ifdef R2_GM7_NATIVE
+         &&!in.gm7_managed
+#endif
+         &&p.root==scope.root&&p.created_ns<=INT64_MAX&&p.expires_ns<=INT64_MAX&&p.utc_offset_ns>=0&&p.utc_offset_ns<=INT64_MAX-(int64_t)p.expires_ns){
         int64_t created=(int64_t)p.created_ns+p.utc_offset_ns,expires=(int64_t)p.expires_ns+p.utc_offset_ns;
         uint64_t guard=client_clock.uncertainty_us+(now-client_clock.at)/500+100;
         if(utc>=created&&expires>utc+(int64_t)guard*1000){
@@ -699,7 +735,11 @@ static void precision_step(uint64_t now){
       }
       if (r2_capture_now(&current)) {
         if(enrollment.group.id?r2_radio_precision_rx_serving_origin(&precision,&p,physical,record.event,record.channel,current,now,utc):r2_radio_precision_rx(&precision, &p, physical, record.event,
-                                    record.channel, current, now, utc)){follower_utc_offset=p.utc_offset_ns;if(enrollment.group.id)follower_frame=decoded_frame;}
+                                    record.channel, current, now, utc)){follower_utc_offset=p.utc_offset_ns;
+#ifdef R2_GM7_NATIVE
+          if(in.gm7_managed&&public_client)client_utc_offset=p.utc_offset_ns;
+#endif
+          if(enrollment.group.id)follower_frame=decoded_frame;}
         (void)r2_radio_precision_step(&precision,current,now);
       }
     }
@@ -727,11 +767,20 @@ static void precision_step(uint64_t now){
  out.utc_valid=paired&&scope.follower&&r2_radio_precision_read(&precision,current,sampled,&relative)&&relative>=0&&offset>=0&&relative<=INT64_MAX-offset&&sampled<out.valid_until;
  out.utc=out.utc_valid?(uint64_t)(relative+offset)/1000:0;
  out.bootstrap=client_clock;out.bootstrap.passive=public_client;out.bootstrap.until=scope.until_us;
- out.bootstrap.source=public_client&&client_anchor_valid(sampled)&&sampled<scope.until_us;
+ out.bootstrap.source=public_client&&grant_anchor_valid(&in,&client_clock,sampled)&&sampled<scope.until_us;
  out.context=(struct r2_group_client){.passive=public_client,.source=out.utc_valid,.root=scope.root<enrollment.count?enrollment.identity[scope.root]:0,.boot=scope.boot,.source_epoch=scope.source_epoch,.publication=scope.publication_epoch,.utc_us=out.utc,.at=sampled,.until=scope.until_us,.map_until=out.valid_until};
 #ifdef R2_GM7_NATIVE
  out.gm7.counter_epoch=current.epoch;
  out.gm7.evaluated_tick=current.tick;
+ if(scope.follower&&!scope.gm){
+  const r2_servo_clock_t *c=&precision.servo;
+  out.gm7.follow=(struct r2_gm7_follow_stats){.count=c->count,
+   .span_us=(uint32_t)(c->span/16),.observations=c->observations,.resets=c->resets,
+   .saturated=c->saturated,.arithmetic_faults=c->arithmetic_faults,
+   .unavailable=c->unavailable,.rate=c->rate,.quality_count=c->quality_count,
+   .flags=(c->fit_valid?1u:0)|(c->output.valid?2u:0)|(c->fault?4u:0)|
+      ((uint32_t)c->pll.state<<8)|((uint32_t)c->pll.reason<<16)};
+ }
  out.gm7.last_correction=precision.last_accepted;
  out.gm7.utc_offset_ns=offset;out.gm7.capture_gen=precision.remote_capture;
  out.gm7.shadow_gen=precision.accepted;
@@ -849,7 +898,7 @@ static bool precision_needed(uint64_t now){
  (void)k_mutex_lock(&pt_lock,K_FOREVER);
  bool needed=!pt_input.stopped&&(retain_public_timing(&pt_input,now)||
   (pt_input.client.passive?(pt_input.client.source&&now>=pt_input.client.at&&
-   now<r2_group_anchor_deadline(pt_input.client.at,pt_input.client.uncertainty_us)):
+   grant_anchor_valid(&pt_input,&pt_input.client,now)):
    direct_grant_live(&pt_input,now)));
  (void)k_mutex_unlock(&pt_lock);return needed;
 }
@@ -1059,7 +1108,7 @@ void r2_radio_service_gm7_publish(struct r2_radio_scope scope,const struct r2_gr
  bool own=scope.gm&&!scope.follower&&scope.root==service_self&&pt_input.source_ready&&pt_input.source_epoch==r2_radio_local_epoch(scope);
  bool follow=scope.follower&&!scope.gm&&scope.root!=service_self&&client->passive&&client->source&&
   client->root==scope.root_identity&&client->boot==scope.boot&&client->source_epoch==scope.source_epoch&&
-  client->publication==scope.publication_epoch&&anchor_valid(client,now)&&now<client->until;
+  client->publication==scope.publication_epoch&&grant_anchor_valid(&pt_input,client,now)&&now<client->until;
  if(bounded&&(own||follow)&&!atomic_get(&error))pt_input.stopped=false;
  /* Handoff history survives. The owner may still need its original imported
   * source; only normal activation/reset owns clearing that state. */
@@ -1128,18 +1177,31 @@ int r2_radio_service_reset(uint32_t generation){
 uint32_t r2_radio_service_profile_flushes(void){(void)k_mutex_lock(&pt_lock,K_FOREVER);uint32_t count=reset_flushes;(void)k_mutex_unlock(&pt_lock);return count;}
 
 #ifdef R2_GM7_NATIVE
+void r2_radio_service_gm7_follow_diagnostic(struct r2_gm7_follow_diagnostic *out,uint64_t now){
+ if(!out)return;
+ (void)k_mutex_lock(&pt_lock,K_FOREVER);
+ *out=(struct r2_gm7_follow_diagnostic){.scope=pt_output.scope,
+  .sampled=pt_output.sampled,.until=pt_output.valid_until,
+  .counter_epoch=pt_output.gm7.counter_epoch,.last_correction=pt_output.gm7.last_correction,
+  .train=pt_output.view.train,.capture_gen=pt_output.gm7.capture_gen,
+  .current=pt_input.gm7_managed&&!pt_input.stopped&&!atomic_get(&error)&&
+    pt_output.scope.follower&&!pt_output.scope.gm&&same(pt_output.scope,pt_input.grant)&&
+    now>=pt_output.sampled&&now<pt_output.scope.until_us};
+ if(pt_output.scope.follower&&!pt_output.scope.gm)out->stats=pt_output.gm7.follow;
+ (void)k_mutex_unlock(&pt_lock);
+}
 void r2_radio_service_gm7_timing(struct r2_gm7_timing *out,uint64_t now){
  if(!out)return;
  struct pt_output s;output_read(&s,now);
  *out=(struct r2_gm7_timing){.scope=s.scope,.view=s.view,.map=s.gm7.map,
   .counter_epoch=s.gm7.counter_epoch,.last_correction=s.gm7.last_correction,
   .evaluated_tick=s.gm7.evaluated_tick,.until_us=s.valid_until,
-  .first_tx_lo=s.gm7.first_tx_lo,.first_tx_hi=s.gm7.first_tx_hi,
-  .first_tx_derived_end_hi=s.gm7.first_tx_derived_end_hi,.last_tx=s.gm7.last_tx,
-  .utc_offset_ns=s.gm7.utc_offset_ns,.tx_phase_us=s.gm7.tx_phase_us,
+  .first_tx_lo=s.scope.gm?s.gm7.first_tx_lo:0,.first_tx_hi=s.scope.gm?s.gm7.first_tx_hi:0,
+  .first_tx_derived_end_hi=s.scope.gm?s.gm7.first_tx_derived_end_hi:0,.last_tx=s.scope.gm?s.gm7.last_tx:0,
+  .utc_offset_ns=s.gm7.utc_offset_ns,.tx_phase_us=s.scope.gm?s.gm7.tx_phase_us:0,
   .capture_gen=s.gm7.capture_gen,.shadow_gen=s.gm7.shadow_gen,
   .phase_enclosure_us=s.gm7.phase_enclosure_us,.retained=s.gm7.retained,
-  .first_tx_observed_complete=s.gm7.first_tx_observed_complete};
+  .first_tx_observed_complete=s.scope.gm&&s.gm7.first_tx_observed_complete};
  (void)k_mutex_lock(&pt_lock,K_FOREVER);
  if(!out->retained&&handoff.valid){
   *out=(struct r2_gm7_timing){.scope={.root=1,.root_identity=handoff.root,.boot=handoff.boot,.source_epoch=handoff.epoch,.publication_epoch=handoff.train,.follower=true},

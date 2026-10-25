@@ -72,7 +72,7 @@ static bool live(const struct gm7_native_job *n, uint64_t now, uint32_t epoch,
     return false;
   const struct gm7_job *j = n->job;
   if (now > j->window.latest_end ||
-      (j->request_deadline && now >= j->request_deadline))
+      (j->event_deadline && now >= j->event_deadline))
     return false;
   if (j->positive) {
     if (now >= j->source_until || j->source_until - now <= remaining)

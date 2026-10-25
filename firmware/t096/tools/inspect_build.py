@@ -12,12 +12,12 @@ def require(ok,message):
     if not ok:raise ValueError(message)
 
 def crash_static_allowance(gm7,profile,version,config,symbols):
-    """Separate the .180-.184 GM diagnostic allocation from the RC8 ceiling.
+    """Separate the .180-.185 GM diagnostic allocation from the RC8 ceiling.
 
     Fail closed for other images/versions. The allowance is earned by the
     linked allocations, not by a receipt flag or an estimated C object size.
     """
-    if not(gm7 and profile=='GM' and version in ((0,15,180),(0,15,181),(0,15,182),(0,15,183),(0,15,184))):return 0
+    if not(gm7 and profile=='GM' and version in ((0,15,180),(0,15,181),(0,15,182),(0,15,183),(0,15,184),(0,15,185))):return 0
     for line in ('CONFIG_ISR_STACK_SIZE=3072','CONFIG_MP_MAX_NUM_CPUS=1',
                  'CONFIG_MPU_STACK_GUARD=y'):
         require(line in config.splitlines(),'Crash allocation configuration: '+line)
@@ -29,7 +29,7 @@ def crash_static_allowance(gm7,profile,version,config,symbols):
                 q['type']=='SHT_NOBITS' and
                 0x20002000<=q['address']<=0x20040000-size,
                 'Invalid linked crash allocation: '+name)
-    if version in ((0,15,182),(0,15,183),(0,15,184)):
+    if version in ((0,15,182),(0,15,183),(0,15,184),(0,15,185)):
         for name,size in (('pt_input',1128),('pt_output',728)):
             entries=symbols.get(name,[])
             require(len(entries)==1,'Missing/duplicate PT mailbox: '+name)
@@ -205,7 +205,7 @@ def inspect(out,allow_development=False):
                 require(sha(out/'target/gm7_controller'/leaf)==entry['output_sha256'],'GM7 exact composed hook: '+leaf)
                 candidates=[c['file']for c in json.loads(commands)if c['file'].endswith('/'+leaf)]
                 require(len(candidates)==1 and candidates[0].endswith('/gm7_controller/'+leaf),'GM7 unique compiled owner: '+leaf)
-        for leaf in ['gm7_service.c','gm7_controller.c','gm7_clock.c','gm7_capture.c','gm7_owner.c','gm7_session.c','gm7_codec.c']:
+        for leaf in ['gm7_service.c','gm7_controller.c','gm7_clock.c','gm7_capture.c','gm7_owner.c','gm7_control.c','gm7_codec.c']:
             require(sum(c['file'].endswith('/'+leaf)for c in json.loads(commands))==1,'GM7 production membership: '+leaf)
         require('/src/ble_service.c' not in commands,'Retired GM coordinator owner compiled in GM7')
         require('CONFIG_BT_CTLR_PHY_2M=y' not in config,'GM7 management PHY changed ordinary ACL feature mask')
@@ -268,7 +268,7 @@ def inspect(out,allow_development=False):
         require('CONFIG_NRFX_SPIM1=y' in config and 'CONFIG_NRFX_TIMER4=y' in config,'Missing LoRa peripheral owner')
         # The measured0.15.122 normal-image margin is8740B. Preserve the
         # separately agreed4096B incremental RC8 ceiling as well as1024B gate.
-        # .180-.184 GM have a separately verified512B retained crash record and
+        # .180-.185 GM have a separately verified512B retained crash record and
         #896B ISR allocation; neither changes the RC8 budget or absolute floor.
         require(0x20040000-ram_end+crash_allowance>=8740-4096,'RC8 exceeds4096B incremental static budget')
         private_sha=hashlib.sha256((private_sha+':lora-tx:'+transmitter).encode()).hexdigest()

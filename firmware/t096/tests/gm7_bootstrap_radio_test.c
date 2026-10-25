@@ -8,14 +8,12 @@ int main(int argc, char **argv) {
   assert(file && fread(&f, sizeof f, 1, file) == 1 && !fclose(file));
   assert(f.anchor.passive && f.anchor.source && f.scope.follower &&
          !f.scope.gm && f.anchor.root == f.scope.root_identity &&
-         f.anchor.boot == f.scope.boot && f.roster.identity[1] == 401);
+         f.anchor.boot == f.scope.boot && f.roster.identity[1] == f.anchor.root);
   assert(!r2_radio_service_init(0, &f.roster));
   fake_time = capture_us = f.at;
   capture_tick = 16000000;
   r2_radio_service_activate();
-  r2_radio_service_client(&f.anchor, &f.roster, f.at);
-  struct r2_source_clock empty = {0};
-  r2_radio_service_tick(f.scope, &empty, -1, f.at);
+  r2_radio_service_gm7_publish(f.scope,&f.anchor,&f.roster,-1,f.at,f.anchor.until);
   bool running = false;
   precision_poll(f.at, &running);
   assert(public_client && pt_output.acquisition &&
@@ -60,8 +58,8 @@ int main(int argc, char **argv) {
     queued = true;
     precision_step(fake_time);
     assert(!queued && !error && !pt_input.source_ready &&
-           active_scope.root_identity == 401 &&
-           precision.scope.boot == 51 && precision.remote_capture == 4 &&
+           active_scope.root_identity == f.anchor.root &&
+           precision.scope.boot == f.anchor.boot && precision.remote_capture == 4 &&
            !pt_output.scope.gm);
   }
   assert(precision.accepted >= 4 && !precision.rejected &&
@@ -71,7 +69,7 @@ int main(int argc, char **argv) {
   queued = true;
   precision_step(++fake_time);
   assert(precision.accepted == accepted);
-  printf("PASS actual nonce-accepted GM service output -> normal PA "
+  printf("PASS actual ordinary-ANN GM service output -> normal PA "
          "acquisition/full-identity GRv3 decode/captured G1 correction "
          "association accepted=%u; no localGNSS/ownsource/positiveGM "
          "authority; badMAC refused (synthetic RF edges only)\n", accepted);
