@@ -15,6 +15,9 @@ static struct r2_source_clock fake_raw;
 static bool fake_promote_ready;
 static bool fake_submit_refusal;
 static uint32_t fake_poll_advance;
+static int fake_capture_error, fake_gnss_error, fake_group_start_result;
+int r2_capture_error(void) { return fake_capture_error; }
+int r2_gnss_input_error(void) { return fake_gnss_error; }
 static struct r2_radio_scope fake_scope;
 static struct r2_enrollment fake_path;
 static struct r2_gm7_admission_source fake_join;
@@ -25,6 +28,8 @@ int r2_ble_group_start(uint64_t id, uint64_t g, uint32_t e,
   (void)g;
   (void)e;
   (void)a;
+  if (fake_group_start_result)
+    return fake_group_start_result;
   fake_ble_closed = false;
   return 0;
 }
@@ -349,6 +354,7 @@ static void setup(bool serving) {
       false;
   fake_submit_refusal = false;
   fake_poll_advance = 0;
+  fake_capture_error = fake_gnss_error = fake_group_start_result = 0;
   event_evidence.phase_sample_ms = (uint32_t)(fake_hf / 1000);
   atomic_clear(&stopping);
   atomic_clear(&busy);

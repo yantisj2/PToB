@@ -1340,6 +1340,32 @@ void r2_service_clock(const struct r2_clock *clock) {
   }
   (void)k_mutex_unlock(&lock);
 }
+int r2_gm7_start_ready(void) {
+  (void)k_mutex_lock(&lock, K_FOREVER);
+  int rc = status.error          ? status.error
+           : !configured || used ? -EACCES
+           : input.fatal         ? -EIO
+           : input.stopped       ? -ECANCELED
+                                 : 0;
+  (void)k_mutex_unlock(&lock);
+  if (!rc)
+    rc = r2_capture_error();
+  if (!rc)
+    rc = r2_gnss_input_error();
+  if (rc)
+    return rc;
+  struct gm7_bridge b;
+  return bridge(&b) ? 0 : -EAGAIN;
+}
+void r2_gm7_start_failed(int error) {
+  (void)k_mutex_lock(&lock, K_FOREVER);
+  if (!started && error < 0) {
+    status.error = error;
+    status.active = status.serving = status.follower = false;
+    status.normal = status.closed = true;
+  }
+  (void)k_mutex_unlock(&lock);
+}
 int r2_service_preflight(uint32_t seconds, uint64_t arrival) {
   uint64_t now = kernel_now();
   return !configured || used || !seconds || seconds > 120 ||
@@ -1764,6 +1790,9 @@ int r2_gm7_diagnostic_format(char *out, size_t capacity, unsigned page,
   if (page > GM7_PEERS)
     return -EINVAL;
   (void)k_mutex_lock(&lock, K_FOREVER);
+  bool startup_pending = runtime_gm && configured && !started && !status.error;
+  int startup_error = runtime_gm && !started ? status.error : 0;
+  runtime_gm = runtime_gm && started;
   if (page >= 1 && page <= GM7_PEERS) {
     unsigned i = page - 1;
     bool valid = runtime_gm && peer_display[i].valid &&
@@ -1794,7 +1823,8 @@ int r2_gm7_diagnostic_format(char *out, size_t capacity, unsigned page,
   int n = snprintf(
       out, capacity,
       "{\"schema\":7,\"protocol\":\"GM7v2+A1+C1\",\"source\":\"%s\",\"boot\":"
-      "\"%016llx\",\"page\":0,\"available\":%s,\"birth_utc_us\":%llu,"
+      "\"%016llx\",\"page\":0,\"available\":%s,"
+      "\"startup_pending\":%s,\"startup_error\":%d,\"birth_utc_us\":%llu,"
       "\"founder\":\"%"
       "016llx\",\"term\":%llu,\"active\":\"%016llx\",\"active_boot\":\"%"
       "016llx\",\"role\":%u,\"known\":%u,\"hot_ms\":%u,\"active_ms\":%u,\"pps_"
@@ -1806,6 +1836,7 @@ int r2_gm7_diagnostic_format(char *out, size_t capacity, unsigned page,
       "qualified\":false}",
       source, (unsigned long long)physical_boot,
       configured && runtime_gm ? "true" : "false",
+      startup_pending ? "true" : "false", startup_error,
       (unsigned long long)(runtime_gm ? diagnostic.birth : 0),
       (unsigned long long)(runtime_gm ? diagnostic.founder : 0),
       (unsigned long long)(runtime_gm ? diagnostic.term : 0),

@@ -2,7 +2,7 @@
 """Production GM7 bodies + immutable independent vectors, ASan/UBSan; offline.
 Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT
 """
-import argparse,hashlib,json,os,shutil,subprocess
+import argparse,hashlib,json,os,shutil,subprocess,sys
 from pathlib import Path
 p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--deps',required=True,type=Path)
@@ -25,7 +25,7 @@ sources+=[app/'src'/n for n in ['gm7_source.c','precision.c']]
 sources+=[tiny/'source'/n for n in ['hmac.c','sha256.c','utils.c']]
 sources+=[app/'tests/gm7_test.c']
 command=[cc,'-std=c11','-Wall','-Wextra','-Werror','-Wno-default-const-init-var-unsafe','-g','-fsanitize=address,undefined','-fno-sanitize-recover=all','-I'+str(app/'include'),'-I'+str(app/'protocol'),'-I'+str(out),'-I'+str(tiny/'include'),*map(str,sources),'-o',str(out/'gm7-test')]
-tracked=[*app.rglob('*.c'),*app.rglob('*.h'),*app.rglob('*.inc'),Path(__file__).resolve()]
+tracked=[*app.rglob('*.c'),*app.rglob('*.h'),*app.rglob('*.inc'),app/'tools/gm7_startup_tests.py',Path(__file__).resolve()]
 before={str(f.relative_to(repo)):hashlib.sha256(f.read_bytes()).hexdigest() for f in tracked}
 receipt={'sources':before,'status':'INCOMPLETE','compiler':cc,'command':command,'vectors_sha256':hashlib.sha256(vectors.read_bytes()).hexdigest(),'hardware':'NOT_TESTED'}
 try:
@@ -54,6 +54,7 @@ try:
  receipt['service_command']=service
  with (out/'service.compile.log').open('w') as f:subprocess.run(service,stdout=f,stderr=subprocess.STDOUT,check=True,timeout=45)
  with (out/'service.run.log').open('w') as f:subprocess.run([str(out/'service-test'),str(out)],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=30)
+ with (out/'startup.driver.log').open('w') as f:subprocess.run([sys.executable,str(app/'tools/gm7_startup_tests.py'),'--deps',str(a.deps),'--out',str(out/'startup')],env={**os.environ,'CC':cc},stdout=f,stderr=subprocess.STDOUT,check=True,timeout=45)
  native=(app/'src/gm7_controller.c').read_text()
  (out/'gm7_controller_under_test.h').write_text(native[native.index('struct gm7_lll {'):])
  native_sources=[p for p in sources if p.name!='gm7_test.c']+[app/'tests/gm7_controller_test.c']

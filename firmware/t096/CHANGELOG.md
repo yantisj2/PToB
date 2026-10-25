@@ -1,5 +1,20 @@
 # T096 changelog
 
+## 0.15.171 — Wait for the initial GM capture domain
+
+Initial GM startup waits for the existing asynchronous capture owner to publish
+its HF domain before arming diagnostics or attempting normal service. The
+original boot deadline and capture timeout remain fixed; driver faults, failed
+start, maintenance and poweroff cancel once and cannot revive later. Ordinary RC
+startup and runtime profile switching retain their existing paths. Report pending
+or terminal startup separately from active GM7 diagnostics. Version170 could
+attempt GM startup before capture publication, return ESTALE, and suppress the
+later start with its one-shot flag. The regression now composes actual main,
+time-start, capture and GM7 service bodies with fake public driver boundaries.
+
+New offline source/build review is required; earlier170 receipts are historical.
+No RF, output-continuity or calibrated UTC qualification follows from this fix.
+
 ## 0.15.170 — GM7 offline engineering
 
 Replace GM-profile HOT/coordinator GATT policy with implementation2 connectionless

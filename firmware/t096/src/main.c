@@ -488,6 +488,9 @@ int main(void)
   bool recorded_bt=false, recorded_close=false,source_started=false,close_started=false;
 #ifdef R2_NATIVE_BLE
   bool diagnostic_close_started=false,normal_started=false,poweroff_requested=false;int diagnostic_close_error=0;
+#ifdef R2_GM7_NATIVE
+  bool normal_start_failed=false;
+#endif
 #endif
   uint64_t ui_due=0;
   for(;;) {
@@ -624,6 +627,29 @@ int main(void)
     }
     if(platform_ready&&!source_started){source_started=true;r2_time_start();r2_ui_start();}
 #ifdef R2_NATIVE_BLE
+#ifdef R2_GM7_NATIVE
+    if(platform_ready&&source_started&&!normal_started&&!normal_start_failed&&!r2_switch_rc_active()){
+      /* time_start requests capture asynchronously. Do not arm diagnostics or
+       * consume the one normal start before the real HF domain is published.
+       * Keep the original boot deadline; failed/cancelled boot cannot revive. */
+      uint64_t start_now=k_uptime_get();
+      int rc=maintenance.phase!=R2_IDLE||poweroff_requested||r2_ui_poweroff_requested()?-ECANCELED:
+        start_now>=boot_deadline?-ETIMEDOUT:r2_gm7_start_ready();
+      if(rc!=-EAGAIN){
+        bool armed=false;
+        start_now=k_uptime_get();
+        if(!rc&&start_now>=boot_deadline)rc=-ETIMEDOUT;
+        if(!rc){
+          rc=r2_diag_arm(start_now,0);event(13,rc);armed=!rc;
+          if(!rc){start_now=k_uptime_get();rc=start_now>=boot_deadline?-ETIMEDOUT:r2_service_run(start_now);}
+        }
+        if(rc){normal_start_failed=true;r2_gm7_start_failed(rc);if(armed)r2_diag_cancel_arm(rc);}
+        else normal_started=true;
+        event(12,rc);
+      }
+    }
+    else if(r2_switch_rc_active())
+#endif
     if(platform_ready&&source_started&&!normal_started&&maintenance.phase==R2_IDLE){
       normal_started=true;int diagnostic_rc=r2_diag_arm(now,0);event(13,diagnostic_rc);
       int rc=r2_service_run(now);if(rc)r2_diag_cancel_arm(rc);
