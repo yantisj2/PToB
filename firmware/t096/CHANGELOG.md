@@ -1,5 +1,14 @@
 # T096 changelog
 
+## 0.15.178 — Refresh processing time after GM receive
+
+Refresh the same-epoch processing bridge after owner receive, which independently
+samples time during decoding. Passing its older timestamp to the next REQUEST
+operation could permanently stop a cold GM before its first request. Preserve
+the captured RX time, original deadlines and all qualification checks. The
+bootstrap composition now also runs with an advancing owner clock. The separate
+CPU pointer-corruption faults remain unresolved.
+
 ## 0.15.177 — Bootstrap GM followers before a physical phase map
 
 Allow an authenticated ordinary ANNOUNCE locator to place a bounded nonce

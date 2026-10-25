@@ -10,6 +10,14 @@ static uint64_t response_end;
 static unsigned requests, positive, statuses, anchors, refusals;
 static uint64_t prior_request;
 static unsigned residues;
+static bool advance_decode_clock;
+
+static uint64_t advancing_owner_clock(void *unused) {
+  (void)unused;
+  ++fake_hf;
+  ++fake_kernel;
+  return fake_hf;
+}
 
 static void input_at(unsigned source_mode) {
   healthy_input();
@@ -37,6 +45,8 @@ static void setup_bootstrap(bool retained, unsigned source_mode) {
     assert(!gm7_owner_init(&owner, &group, identity, boot, true, fake_hf));
     gm7_owner_reservation_guard(&owner, reservation_fence, NULL);
   }
+  if (advance_decode_clock)
+    gm7_owner_clock(&owner, advancing_owner_clock, NULL);
   memset(&fake_scope, 0, sizeof fake_scope);
   memset(&fake_timing, 0, sizeof fake_timing);
   memset(&fake_client, 0, sizeof fake_client);
@@ -160,5 +170,7 @@ int main(int argc, char **argv) {
   bootstrap(true, 0, true, 0, true, NULL);
   bootstrap(false, 1, true, 2, false, NULL);
   bootstrap(false, 0, false, 0, false, NULL);
+  advance_decode_clock = true;
+  bootstrap(false, 0, true, 0, false, NULL);
   return 0;
 }

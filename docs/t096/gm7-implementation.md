@@ -322,3 +322,9 @@ host matrix must retain a stable source identity. Local build output is ignored
 and never substitutes for this review. B remains exact-device/source/image/
 transaction review; C remains physical RF airtime/coverage,3s takeover, loss,
 partition, output continuity and calibrated UTC qualification. These offline receipts establish no hardware installation or acceptance.
+
+Source178 refreshes the processing bridge after owner receive, before the next
+REQUEST operation. An advancing-clock composition reproduces the stale-now
+failure in177; the correction preserves captured RX, original deadlines and
+qualification. Existing CPU corruption remains unresolved; offline validation
+is not hardware acceptance.

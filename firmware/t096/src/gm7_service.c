@@ -766,6 +766,10 @@ static __attribute__((noinline)) void receive(struct gm7_bridge b, uint64_t utc,
       uint32_t generation = owner.event_generation;
       if (!gm7_owner_receive(&owner, r.ad, r.length, r.address, rx, b.hf))
         management_count(&management_accepted);
+      /* Owner receive re-samples processing time after decode. Its next API
+       * must use a contemporary bridge; captured RX and leases stay original. */
+      if (!bridge(&b) || b.epoch != clock_epoch)
+        return;
       if (generation != owner.event_generation) {
         if (!owner.serving)
           r2_radio_service_withdraw();
