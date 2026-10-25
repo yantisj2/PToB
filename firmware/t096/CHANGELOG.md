@@ -1,5 +1,18 @@
 # T096 changelog
 
+## 0.15.172 — Serialize the GM clock pair
+
+Sample the kernel/HF bridge in a bounded IRQ critical section so scheduler or IRQ
+preemption cannot turn a healthy HF domain into a spurious wide-pair ESTALE. The
+100us enclosure, physical domain/epoch faults and original deadlines remain
+unchanged. Restore the prior IRQ key on every path. No HOT policy or RC service
+changes. Actual service plus actual HF-reader regressions cover preemption,
+intrinsic excess latency, stale/invalid domains, epoch replacement and drain.
+
+Version171 fixed initial asynchronous readiness, but a later worker could close
+on an unprotected software clock pair. These offline checks do not establish
+measured critical-section duration, RF behavior or UTC accuracy.
+
 ## 0.15.171 — Wait for the initial GM capture domain
 
 Initial GM startup waits for the existing asynchronous capture owner to publish

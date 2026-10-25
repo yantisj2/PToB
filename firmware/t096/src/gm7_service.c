@@ -141,11 +141,17 @@ static uint64_t kernel_now(void) {
   return k_ticks_to_us_floor64(k_uptime_ticks());
 }
 static bool bridge(struct gm7_bridge *b) {
+  /* Single-core, no zero-latency IRQs: pair the software clocks without a
+   * scheduler/IRQ gap or a competing CC2 capture. The HF reader is bounded,
+   * read-only and never waits/requests a clock. Restore even a nested key before
+   * validating the unchanged100us enclosure; real domain faults still fail. */
+  unsigned int key = irq_lock();
   b->kernel_lo = kernel_now();
-  if (!r2_gm7_clock_now(&b->hf, &b->epoch))
-    return false;
-  b->kernel_hi = kernel_now();
-  return gm7_bridge_valid(*b);
+  bool valid = r2_gm7_clock_now(&b->hf, &b->epoch);
+  if (valid)
+    b->kernel_hi = kernel_now();
+  irq_unlock(key);
+  return valid && gm7_bridge_valid(*b);
 }
 static uint64_t hf_read(void *context) {
   (void)context;

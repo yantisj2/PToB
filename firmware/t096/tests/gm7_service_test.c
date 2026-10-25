@@ -78,6 +78,7 @@ bool r2_capture_now(struct r2_capture *c) {
   *c = (struct r2_capture){fake_hf * 16, 4, R2_CAPTURE_NOW};
   return fake_hf_valid;
 }
+#ifndef R2_GM7_REAL_CLOCK
 bool r2_gm7_clock_now(uint64_t *us, uint32_t *epoch) {
   *us = fake_hf;
   *epoch = 4;
@@ -91,6 +92,7 @@ bool r2_gm7_clock_bounds(uint32_t raw, uint32_t epoch, unsigned prefix,
   *hi = (uint64_t)raw - prefix * 16 + chain * 16 + 1;
   return true;
 }
+#endif
 static uint32_t fake_overflow;
 uint32_t r2_gm7_capture_overflows(void) { return fake_overflow; }
 static struct r2_gm7_rx fake_rx[3];

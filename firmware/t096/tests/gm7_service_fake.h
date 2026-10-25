@@ -28,6 +28,13 @@ static int k_mutex_unlock(struct k_mutex *m) {
   (void)m;
   return 0;
 }
+static unsigned fake_irq_key;
+static unsigned irq_lock(void) {
+  unsigned prior = fake_irq_key;
+  fake_irq_key = 1;
+  return prior;
+}
+static void irq_unlock(unsigned prior) { fake_irq_key = prior; }
 typedef int atomic_t;
 static int atomic_get(atomic_t *p) { return *p; }
 static void atomic_set(atomic_t *p, int v) { *p = v; }

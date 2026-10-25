@@ -43,8 +43,8 @@ try:
  with (out/'transport.compile.log').open('w') as f:subprocess.run(transport,stdout=f,stderr=subprocess.STDOUT,check=True,timeout=45)
  with (out/'transport.run.log').open('w') as f:subprocess.run([str(out/'transport-test')],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=30)
  hal=out/'hal';hal.mkdir(exist_ok=True)
- (hal/'nrf_timer.h').write_text('#include <stdint.h>\nextern uint32_t gm7_fake_counter;\n#define NRF_TIMER3 ((void*)3)\n#define NRF_TIMER_TASK_CAPTURE2 2\n#define NRF_TIMER_CC_CHANNEL2 2\nstatic inline void nrf_timer_task_trigger(void *timer,int task){(void)timer;(void)task;}\nstatic inline uint32_t nrf_timer_cc_get(void *timer,int cc){(void)timer;(void)cc;return gm7_fake_counter;}\n')
- (hal/'nrf_rtc.h').write_text('#include <stdint.h>\nextern uint32_t gm7_fake_guard;\n#define NRF_RTC1 ((void*)1)\nstatic inline uint32_t nrf_rtc_counter_get(void *rtc){(void)rtc;return gm7_fake_guard;}\n')
+ (hal/'nrf_timer.h').write_text('#include <stdint.h>\nextern uint32_t gm7_fake_counter;\n#define NRF_TIMER3 ((void*)3)\n#define NRF_TIMER_TASK_CAPTURE2 2\n#define NRF_TIMER_CC_CHANNEL2 2\nstatic inline void nrf_timer_task_trigger(void *timer,int task){(void)timer;(void)task;}\nstatic inline uint32_t nrf_timer_cc_get(void *timer,int cc){(void)timer;(void)cc;\n#ifdef R2_GM7_SERVICE_CLOCK_TEST\n extern uint32_t gm7_test_counter_read(void);return gm7_test_counter_read();\n#else\n return gm7_fake_counter;\n#endif\n}\n')
+ (hal/'nrf_rtc.h').write_text('#include <stdint.h>\nextern uint32_t gm7_fake_guard;\n#define NRF_RTC1 ((void*)1)\nstatic inline uint32_t nrf_rtc_counter_get(void *rtc){(void)rtc;\n#ifdef R2_GM7_SERVICE_CLOCK_TEST\n extern uint32_t gm7_test_rtc_read(void);return gm7_test_rtc_read();\n#else\n return gm7_fake_guard;\n#endif\n}\n')
  clock=[cc,'-std=c11','-Wall','-Wextra','-Werror','-g','-fsanitize=address,undefined','-fno-sanitize-recover=all','-I'+str(out),'-I'+str(app/'include'),str(app/'src/gm7_clock.c'),str(app/'tests/gm7_clock_test.c'),'-o',str(out/'clock-test')]
  receipt['clock_command']=clock
  with (out/'clock.compile.log').open('w') as f:subprocess.run(clock,stdout=f,stderr=subprocess.STDOUT,check=True,timeout=30)
@@ -54,6 +54,12 @@ try:
  receipt['service_command']=service
  with (out/'service.compile.log').open('w') as f:subprocess.run(service,stdout=f,stderr=subprocess.STDOUT,check=True,timeout=45)
  with (out/'service.run.log').open('w') as f:subprocess.run([str(out/'service-test'),str(out)],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=30)
+ bridge_sources=[p for p in service_sources if p.name!='gm7_service_test.c']+[app/'tests/gm7_bridge_service_test.c',app/'src/gm7_clock.c']
+ bridge_command=service[:service.index(str(service_sources[0]))]+['-DR2_GM7_SERVICE_CLOCK_TEST=1',*map(str,bridge_sources),'-o',str(out/'bridge-service-test')]
+ receipt['bridge_service_command']=bridge_command
+ with (out/'bridge-service.compile.log').open('w')as f:subprocess.run(bridge_command,stdout=f,stderr=subprocess.STDOUT,check=True,timeout=45)
+ with (out/'bridge-service.run.log').open('w')as f:
+  for mode in range(6):subprocess.run([str(out/'bridge-service-test'),str(mode)],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=30)
  with (out/'startup.driver.log').open('w') as f:subprocess.run([sys.executable,str(app/'tools/gm7_startup_tests.py'),'--deps',str(a.deps),'--out',str(out/'startup')],env={**os.environ,'CC':cc},stdout=f,stderr=subprocess.STDOUT,check=True,timeout=45)
  native=(app/'src/gm7_controller.c').read_text()
  (out/'gm7_controller_under_test.h').write_text(native[native.index('struct gm7_lll {'):])
