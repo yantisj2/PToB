@@ -241,5 +241,4 @@ commit, source/configuration hashes and strict inspector result; the complete
 host matrix must retain a stable source identity. Local build output is ignored
 and never substitutes for this review. B remains exact-device/source/image/
 transaction review; C remains physical RF airtime/coverage,3s takeover, loss,
-partition, output continuity and calibrated UTC qualification. No device has
-been opened or flashed by this implementation work.
+partition, output continuity and calibrated UTC qualification. These offline receipts establish no hardware installation or acceptance.

@@ -1011,6 +1011,10 @@ static void cycle(struct k_work *work) {
       }
     }
   }
+  /* Receive/drain work can advance processing-now. Recheck the original
+   * phase lease at the contemporary bridge before constructing a negative. */
+  if (!aligned)
+    negative_aligned = negative_phase(b, &negative_base, &negative_enclosure);
   bool negative_only =
       !aligned && negative_aligned && owner.event.valid && owner.event.negative;
   if (negative_only) {

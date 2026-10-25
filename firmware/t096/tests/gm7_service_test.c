@@ -14,6 +14,7 @@ static struct r2_gm7_timing fake_timing;
 static struct r2_source_clock fake_raw;
 static bool fake_promote_ready;
 static bool fake_submit_refusal;
+static uint32_t fake_poll_advance;
 static struct r2_radio_scope fake_scope;
 static struct r2_enrollment fake_path;
 static struct r2_gm7_admission_source fake_join;
@@ -37,7 +38,12 @@ int r2_ble_owner_bind(struct k_thread *t) {
   return 0;
 }
 void r2_ble_owner_deadline(uint64_t until) { (void)until; }
-void r2_ble_poll(uint64_t now) { (void)now; }
+void r2_ble_poll(uint64_t now) {
+  (void)now;
+  fake_hf += fake_poll_advance;
+  fake_kernel += fake_poll_advance;
+  fake_poll_advance = 0;
+}
 void r2_ble_stop(void) { fake_ble_closed = true; }
 bool r2_ble_closed(void) { return fake_ble_closed; }
 int r2_ble_stop_error(void) { return fake_ble_error; }
@@ -342,6 +348,7 @@ static void setup(bool serving) {
   stop_begun = transport_stopped = resource_fault = scan_aligned = resuming =
       false;
   fake_submit_refusal = false;
+  fake_poll_advance = 0;
   event_evidence.phase_sample_ms = (uint32_t)(fake_hf / 1000);
   atomic_clear(&stopping);
   atomic_clear(&busy);
@@ -881,6 +888,22 @@ static void negative_phase_cases(void) {
   assert(bridge(&b));
   owner.now = b.hf + 1;
   assert(!negative_phase(b, &base, &width) && !phase_known);
+
+  /* A receive/drain pass crosses lease expiry but ends inside a legal
+   * primary construction window. Entry-only age checking would queue here. */
+  yield_fixture();
+  tick_to(97023000);
+  healthy_input();
+  cycle(&service_work);
+  assert(phase_known && !owner.event.valid);
+  input.view.fix_active = false;
+  tick_to(98010000);
+  fake_poll_advance = 23000;
+  cycle(&service_work);
+  assert(fake_hf == 98033000 && owner.event.valid && owner.event.negative &&
+         !phase_known && !fake_native_live[GM7_PRIMARY] &&
+         !fake_native_live[GM7_SECONDARY] && !fake_native_live[GM7_STANDBY] &&
+         !owner.serving && !fake_join.serving);
 
   /* Original positive map/PPS expires just after a healthy phase sample. */
   yield_fixture();
