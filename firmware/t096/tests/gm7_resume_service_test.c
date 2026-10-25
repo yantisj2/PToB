@@ -187,7 +187,7 @@ static void source_cases(void) {
   struct r2_clock c;
   uint64_t original_until = (uint64_t)input.last_pps + R2_PPS_FRESH_US;
   fake_capture_advance = 20000;
-  assert(source_read(&s, &map, &c, b));
+  assert(source_read(&s, &map, &c, &b));
   assert(s.physical_ready && s.sampled_us == fake_hf && s.sampled_us > b.hf);
   uint64_t converted;
   assert(gm7_bridge_to_hf(b, original_until, &converted));
@@ -203,7 +203,7 @@ static void source_cases(void) {
   input.translated_utc_us = INT64_C(1792800000000000) + (int64_t)fake_hf;
   assert(bridge(&b));
   fake_capture_advance = 20000;
-  assert(source_read(&s, &map, &c, b));
+  assert(source_read(&s, &map, &c, &b));
   assert(!s.physical_ready && s.utc_available && s.sampled_us == b.hf);
   assert(bridge(&b) && source_phase(&s, b, &utc));
   assert(utc == UINT64_C(1792800000000000) + fake_hf);

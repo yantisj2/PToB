@@ -1,5 +1,19 @@
 # T096 changelog
 
+## 0.15.183 — Sample source processing time after its coherent input
+
+Copy the GM7 clock metadata and physical source map together, then refresh the
+paired processing clock under that same bounded lock before evaluating ages.
+A PPS or RMC published after the earlier cycle timestamp could otherwise look
+like future input and reset qualification despite being current. Return the
+validated bridge to the caller; failed or changed clock domains remain fenced.
+Keep original GNSS/PPS timestamps, freshness horizons, dwell and HOT/stop gates.
+The focused regression fails on the original production ordering and passes
+with the correction, using synthetic kernel/capture interleavings. This does
+not establish the exact field withdrawal trigger or resolve CPU corruption.
+The offline crash decoder also stops before CFI when the original or recovered
+PC lies outside allocated executable ELF sections; raw registers remain intact.
+
 ## 0.15.182 — Reopen PT from a fresh GM control grant
 
 Publish the GM7 grant, anchor, roster and bounded resume atomically. A control

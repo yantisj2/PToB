@@ -2,7 +2,7 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
-This guide builds and inspects T096 source **0.15.182** without opening hardware.
+This guide builds and inspects T096 source **0.15.183** without opening hardware.
 For profile choices and controls, see the [T096 README](../../firmware/t096/README.md).
 Release-by-release implementation and validation notes are in the
 [T096 changelog](../../firmware/t096/CHANGELOG.md).
@@ -160,6 +160,12 @@ runner selects Homebrew LLVM when available; use `CC` to select another compiler
 Keep each output directory fresh. Focused runners and their invocation examples
 are retained with the relevant [release notes](../../firmware/t096/CHANGELOG.md)
 and [diagnostic schemas](diagnostics.md).
+
+For the GM7 source snapshot ordering and original freshness gates alone:
+
+```sh
+artifacts/deps/venv/bin/python firmware/t096/tools/gm7_source_order_tests.py --deps artifacts/deps --out artifacts/source-order-01
+```
 
 Tests exercise production C bodies with explicit fake hardware boundaries.
 Native inspection separately checks linked resources, stack budgets, generated

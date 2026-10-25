@@ -684,7 +684,7 @@ static void functional_map_refresh(void) {
                          .epoch = 4,
                          .kernel_lo = fake_kernel,
                          .kernel_hi = fake_kernel};
-  assert(source_read(&source, &copy, &copied, b) &&
+  assert(source_read(&source, &copy, &copied, &b) &&
          !memcmp(&copy, &functional_source, sizeof copy));
   fake_raw.utc_association++;
   r2_service_clock(&c);

@@ -43,10 +43,12 @@ try:
  class ELF:
   def get_section_by_name(self,n):return None
   def get_dwarf_info(self):return type('D',(),{'CFI_entries':lambda self:[F()]})()
+  def iter_sections(self):return iter([dict(sh_addr=0x1000,sh_size=0x100,sh_flags=6)])
  old=d.FDE;d.FDE=F
  try:
   misleading=[{'kind':'thread','address':0x20008000,'data':struct.pack('<I',0x1001)},{'kind':'ISR','address':0x20030000,'data':bytes(64)}]
   kind,selected=d.faulted_windows('0xfffffff1',misleading);assert kind=='ISR'and len(selected)==1;u=d.unwind(ELF(),{15:0x1000,13:0x20030020,4:0x20008000},selected);assert u['stop']=='saved register outside captured windows'and len(u['frames'])==1
+  u=d.unwind(ELF(),{15:0,13:0x20030020,14:0x10b},selected);assert u['stop']=='PC_outside_allocated_executable_sections'and len(u['frames'])==1
  finally:d.FDE=old
  # Actual savedchunk loader, preserving currentreadout identity separately.
  identity=dict(source='a'*64,commit='b'*40,silicon='123456789abcdef0',unit='TEST1',boot='0000000000000009')

@@ -75,6 +75,8 @@ def decode(raw):
 
 def unwind(elf,regs,windows):
     dwarf=elf.get_dwarf_info();entries=[q for q in dwarf.CFI_entries()if isinstance(q,FDE)]
+    executable=[(int(q['sh_addr']),int(q['sh_addr'])+int(q['sh_size']))for q in elf.iter_sections()if q['sh_flags']&6==6 and q['sh_size']]
+    def code(pc):return any(lo<=pc<hi for lo,hi in executable)
     symbols=[]
     symtab=elf.get_section_by_name('.symtab')
     if symtab:
@@ -92,6 +94,7 @@ def unwind(elf,regs,windows):
         pc=regs[15]&~1;sp=regs[13]
         if(pc,sp)in seen:stop='repeated_frame';break
         seen.add((pc,sp));frames.append(dict(pc=f'0x{pc:08x}',sp=f'0x{sp:08x}',symbol=symbol(pc),evidence='original_context'if len(frames)==0 else'DWARF_CFI'))
+        if not code(pc):stop='PC_outside_allocated_executable_sections';break
         fde=next((q for q in entries if q['initial_location']<=pc<q['initial_location']+q['address_range']),None)
         if fde is None:stop='no_DWARF_CFI';break
         row=next((q for q in reversed(fde.get_decoded().table)if q['pc']<=pc),None)
@@ -109,6 +112,7 @@ def unwind(elf,regs,windows):
                 elif rule.type!='SAME_VALUE':raise ValueError('unsupported CFI rule '+rule.type)
             ra=caller.get(int(fde.cie['return_address_register']))
             if not ra or not ra&1:raise ValueError('missing or non-Thumb return address')
+            if not code((ra&~1)-2):raise ValueError('caller_PC_outside_allocated_executable_sections')
             caller[13]=cfa;caller[15]=(ra&~1)-2;regs=caller
         except(KeyError,ValueError)as error:stop=str(error);break
     return dict(frames=frames,stop=stop,limits='ExactELF DWARF CFI only; no guessed pointer scan, missing-byte fill or guarantee through assembly/optimization/corruption.192B/64B windows are intentionally short. Recovered SP accounts for basic32B frame and xPSR alignment; noFP frame supported.')

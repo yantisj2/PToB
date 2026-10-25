@@ -197,7 +197,7 @@ static void fence(unsigned reason, uint64_t now) {
 static __attribute__((noinline)) bool source_read(struct gm7_source *s,
                                                   struct r2_source_clock *map,
                                                   struct r2_clock *clock,
-                                                  struct gm7_bridge b) {
+                                                  struct gm7_bridge *b) {
   (void)k_mutex_lock(&lock, K_FOREVER);
   memset(clock, 0, sizeof *clock);
   clock->view = input.view;
@@ -212,32 +212,44 @@ static __attribute__((noinline)) bool source_read(struct gm7_source *s,
   clock->stopped = input.stopped;
   clock->fatal = input.fatal;
   *map = functional_source;
+  /* Main may publish a PPS/UTC sample after the cycle's earlier bridge. Pair
+   * processing time after this coherent copy so fresh input is not evaluated
+   * as future. Its original timestamps and freshness horizons stay unchanged.
+   * Return the same bridge for subsequent source/owner decisions. */
+  struct gm7_bridge fresh;
+  bool paired = bridge(&fresh) && fresh.epoch == clock_epoch;
+  if (paired)
+    *b = fresh;
   (void)k_mutex_unlock(&lock);
+  if (!paired) {
+    resource_fault = true;
+    return false;
+  }
 
   if (clock->view.mono_us >= 0 &&
-      b.kernel_hi >= (uint64_t)clock->view.mono_us) {
-    uint64_t elapsed = b.kernel_hi - (uint64_t)clock->view.mono_us;
+      b->kernel_hi >= (uint64_t)clock->view.mono_us) {
+    uint64_t elapsed = b->kernel_hi - (uint64_t)clock->view.mono_us;
     int64_t *ages[4] = {&clock->view.gps_age_us, &clock->view.pps_age_us,
                         &clock->view.gga_age_us, &clock->view.rx_age_us};
     for (unsigned i = 0; i < 4; i++)
       if (*ages[i] >= 0 && elapsed <= (uint64_t)(INT64_MAX - *ages[i]))
         *ages[i] += (int64_t)elapsed;
-    clock->view.mono_us = (int64_t)b.kernel_hi;
+    clock->view.mono_us = (int64_t)b->kernel_hi;
   }
   struct r2_capture current = {0};
-  bool captured = r2_capture_now(&current) && current.epoch == b.epoch;
-  if (gm7_source_snapshot(s, clock, map, current, b.kernel_hi))
+  bool captured = r2_capture_now(&current) && current.epoch == b->epoch;
+  if (gm7_source_snapshot(s, clock, map, current, b->kernel_hi))
     return false;
   uint64_t until = 0, pps = 0;
-  bool live = gm7_bridge_to_hf(b, s->until_us, &until);
-  if (s->pps_healthy && !gm7_bridge_past(b, s->pps_at, &pps))
+  bool live = gm7_bridge_to_hf(*b, s->until_us, &until);
+  if (s->pps_healthy && !gm7_bridge_past(*b, s->pps_at, &pps))
     s->pps_healthy = false;
   s->until_us = live ? until : 0;
   s->pps_at = pps;
   s->physical_ready &= captured && live;
   /* Physical UTC was evaluated at this capture, not at the earlier software
    * bridge. A coarse fallback instead belongs to the original kernel sample. */
-  s->sampled_us = s->physical_ready ? current.tick / 16 : b.hf;
+  s->sampled_us = s->physical_ready ? current.tick / 16 : b->hf;
   s->gnss_healthy &= live;
   return true;
 }
@@ -1071,7 +1083,7 @@ static void cycle(struct k_work *work) {
   struct r2_clock clock;
   struct r2_source_clock map;
   struct gm7_source source;
-  if (!source_read(&source, &map, &clock, b)) {
+  if (!source_read(&source, &map, &clock, &b)) {
     fence(GM7_R_SOURCE, b.hf);
     goto finished;
   }
