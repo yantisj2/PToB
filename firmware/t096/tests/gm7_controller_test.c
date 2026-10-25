@@ -3,7 +3,14 @@
 #include "gm7_controller_under_test.h"
 #include <stdio.h>
 #include "gm7_vectors.h"
+static unsigned clock_reads, second_read_advance;
+static bool second_read_invalid;
 bool r2_gm7_clock_now(uint64_t *now, uint32_t *epoch) {
+  if (++clock_reads == 2) {
+    fake_now += second_read_advance;
+    if (second_read_invalid)
+      fake_clock_valid = false;
+  }
   *now = fake_now;
   *epoch = fake_epoch;
   return fake_clock_valid;
@@ -74,8 +81,10 @@ static void reset(void) {
   fake_ticker_status = 0;
   fake_mayfly = NULL;
   gm7_scheduler_init(&jobs, fake_now);
+  clock_reads = second_read_advance = 0;
+  second_read_invalid = false;
 }
-static void submit(void) {
+static void queued(void) {
   struct gm7_packet p = announce();
   assert(p.kind == GM7_ANNOUNCE);
   struct r2_group_config g = {.id = p.group, .epoch = p.key_epoch};
@@ -90,9 +99,46 @@ static void submit(void) {
   uint64_t ticket;
   assert(!gm7_scheduler_submit(&jobs, 0, &p, &g, w, 2500000, 0, 0, fake_now,
                                &ticket));
+}
+static void submit(void) {
+  queued();
   uint8_t address[6] = {1, 2, 3, 4, 5, 0xc6};
   assert(!r2_gm7_controller_submit(0, &jobs, address, fake_now));
   r2_gm7_controller_source(2500000, true);
+}
+static void admission_errors(void) {
+  uint8_t address[6] = {1, 2, 3, 4, 5, 0xc6};
+  for (unsigned mode = 0; mode < 7; ++mode) {
+    reset();
+    queued();
+    if (mode == 0)
+      fake_now = jobs.job[0].window.nominal - 2999;
+    if (mode == 1)
+      fake_clock_valid = false;
+    if (mode == 2)
+      second_read_advance = 10000;
+    if (mode == 3)
+      second_read_advance = 9900;
+    if (mode == 4)
+      second_read_invalid = true;
+    if (mode == 5)
+      fake_ticker_status = TICKER_STATUS_FAILURE;
+    if (mode == 6)
+      jobs.job[0].window.nominal = fake_now + 250001;
+    int expected[] = {-ETIMEDOUT, -ESTALE, -ETIME, -ERANGE,
+                      -ESTALE,    -EBUSY,  -EINVAL};
+    assert(r2_gm7_controller_submit(0, &jobs, address, 1000000) ==
+           expected[mode]);
+    assert(!native[0].owned && !r2_gm7_capture_busy());
+  }
+  reset();
+  queued();
+  fake_now = jobs.job[0].window.nominal - 3000;
+  assert(!r2_gm7_controller_submit(0, &jobs, address, 1000000));
+  assert(!r2_gm7_controller_drain(0, fake_now));
+  puts("PASS actual native admission exact3ms boundary and distinct entrylead, "
+       "clock/epoch, post-build expiry, prepare-offset, ticker and range "
+       "errors");
 }
 static void prepare(void) {
   gm7_ticker_job(1009000, 0, 0, 0, 0, &native[0]);
@@ -196,6 +242,7 @@ static void scan_and_anchor(void) {
        "stale/mismatched rejection and RC inactive bypass");
 }
 int main(void) {
+  admission_errors();
   successful_pair();
   shortened_and_cancelled();
   scan_and_anchor();

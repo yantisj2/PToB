@@ -118,7 +118,28 @@ source expiry, true backstep rejection and the independent60s GNSS dwell remain
 unchanged. The actual dispatcher/service/source regression includes cold and
 warm transitions, cancellation and61s of variable capture latency.
 
-Source0.15.173 selects GM7 by default for both normal GM/RC image defaults. The
+Version174 retires the first-ANNOUNCE reservation on control, scheduler or
+native submission failure, before releasing its job. A refused original primary
+opportunity is consumed once; a later opportunity uses a fresh sequence. Measured
+RF completions are processed before the original reservation-end retirement.
+Possible or unknown AUX exposure retains lineage and withdraws; a stale ticket
+cannot terminate a newer reservation. CPU construction may begin up to25ms before
+the unchanged38ms primary and paired43ms discovery event. Native admission still
+requires at least3ms remaining, and original RF windows, samples, source horizons,
+YIELD boundary and blackout target remain fixed. The negative-only phase lease
+includes the full29ms preparation-plus-END allowance. This is a functional CPU
+budget, not measured RF scheduling acceptance.
+
+GM00 reports descriptive `reservation_stage`, `reservation_rc` and saturating
+`reservation_failures`, using existing diagnostic padding. Stages are1 admission,
+2 control construction,3 scheduler/codec,4 native submission,5 completion and6
+original-end retirement. Native errors distinguish entry lead (`ETIMEDOUT`),
+clock/epoch (`ESTALE`), post-build nominal expiry (`ETIME`), prepare-offset range
+(`ERANGE`) and busy ticker/owner (`EBUSY`); the original generic failure handling
+remains. These counters do not grant authority. Version173 could leave a refused
+first reservation pending indefinitely after its controller job was released.
+
+Source0.15.174 selects GM7 by default for both normal GM/RC image defaults. The
 RC backend remains ordinary supported firmware. Historical GM5/6 is available
 only with `--legacy-gm-regression`; there is no runtime fallback. DC and PC omit
 GM7. Enabling management-only LE2M does not enable public controller2M features:

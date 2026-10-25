@@ -89,7 +89,23 @@ static struct {
   uint8_t role, known;
   bool pending;
   uint8_t event_queued, event_completed, event_failed, event_unsent;
+  uint8_t reservation_stage;
+  int16_t reservation_rc;
+  uint32_t reservation_failures;
 } diagnostic;
+_Static_assert(sizeof(diagnostic) == 80, "Use diagnostic padding only");
+enum {
+  RESERVE_ADMITTED = 1,
+  RESERVE_CONTROL,
+  RESERVE_SCHEDULER,
+  RESERVE_NATIVE,
+  RESERVE_COMPLETE,
+  RESERVE_EXPIRED
+};
+/* CPU construction lead only. Actual RF windows and native>=3ms admission
+ * remain unchanged; packet sample/horizon are never moved after construction.
+ */
+#define PRIMARY_PREPARE_US 25000u
 static struct {
   uint64_t sequence;
   /* Bounded negative-only phase lease; occupies existing alignment padding. */
@@ -264,8 +280,8 @@ static bool negative_phase(struct gm7_bridge b, uint64_t *base,
     return false;
   }
   /* Cached floor(ms) and current floor(ms) give outward age <(delta+1)ms.
-   * Include the maximum7ms submission lead plus4ms complete-event endpoint. */
-  uint32_t end_age = (elapsed_ms + 1) * 1000 + 11000;
+   * Include CPU preparation lead plus the4ms complete-event endpoint. */
+  uint32_t end_age = (elapsed_ms + 1) * 1000 + PRIMARY_PREPARE_US + 4000;
   if (end_age > 1000000)
     return false;
   uint32_t growth = (end_age + 4999) / 5000;
@@ -327,14 +343,43 @@ static struct gm7_window window(uint64_t nominal, uint32_t enclosure) {
                              .channel = 37,
                              .physical = true};
 }
+static void reservation_note(unsigned stage, int rc, bool failed) {
+  (void)k_mutex_lock(&lock, K_FOREVER);
+  diagnostic.reservation_stage = (uint8_t)stage;
+  diagnostic.reservation_rc = rc < INT16_MIN   ? INT16_MIN
+                              : rc > INT16_MAX ? INT16_MAX
+                                               : (int16_t)rc;
+  if (failed && diagnostic.reservation_failures != UINT32_MAX)
+    ++diagnostic.reservation_failures;
+  (void)k_mutex_unlock(&lock);
+}
+static void reservation_fail(uint64_t nominal, uint64_t sequence,
+                             unsigned stage, int rc, bool exposed,
+                             uint64_t now) {
+  if (!owner.reserved || owner.reserved_nominal != nominal ||
+      owner.reserved_sequence != sequence)
+    return;
+  reservation_note(stage, rc, true);
+  /* Cancellation fences native work before checking possible AUX exposure. */
+  r2_gm7_controller_cancel(now);
+  gm7_owner_reservation_failed(&owner, exposed, now);
+  gm7_scheduler_cancel_positive(&scheduler, now);
+}
 static int queue(unsigned slot, const struct gm7_packet *p, struct gm7_window w,
                  uint64_t deadline, struct gm7_bridge b) {
+  bool first = slot == GM7_PRIMARY && owner.reserved &&
+               owner.reserved_nominal == w.nominal && p->kind == GM7_ANNOUNCE &&
+               owner.reserved_sequence == p->body.control.sequence;
   uint64_t ticket;
   int rc =
       gm7_scheduler_submit(&scheduler, slot, p, &group, w,
                            owner.source.until_us, deadline, 0, b.hf, &ticket);
-  if (rc)
+  if (rc) {
+    if (first)
+      reservation_fail(w.nominal, p->body.control.sequence, RESERVE_SCHEDULER,
+                       rc, false, b.hf);
     return rc;
+  }
   if (owner.event.valid &&
       p->body.control.sequence == owner.event.packet.body.control.sequence &&
       (p->kind == GM7_WITHDRAW ||
@@ -348,13 +393,17 @@ static int queue(unsigned slot, const struct gm7_packet *p, struct gm7_window w,
   }
   rc = r2_gm7_controller_submit(slot, &scheduler, own_address, b.hf);
   if (rc) {
+    if (first)
+      reservation_fail(w.nominal, p->body.control.sequence, RESERVE_NATIVE, rc,
+                       false, b.hf);
     gm7_scheduler_abort(&scheduler, slot, ticket, b.hf);
     if (!r2_gm7_controller_drain(slot, b.hf)) {
       if (event_evidence.sequence == scheduler.job[slot].sequence)
         ++event_evidence.failed;
       gm7_scheduler_release(&scheduler, slot, ticket, true, b.hf);
     }
-  }
+  } else if (first)
+    reservation_note(RESERVE_NATIVE, 0, false);
   return rc;
 }
 static void results(struct gm7_bridge b) {
@@ -449,14 +498,19 @@ static void results(struct gm7_bridge b) {
       }
       if (owner.reserved && result.slot == GM7_PRIMARY &&
           job->sequence == owner.reserved_sequence) {
-        if (gm7_owner_reservation_commit(&owner, first, end, b.hf))
-          gm7_owner_reservation_failed(&owner, true, b.hf);
+        int rc = gm7_owner_reservation_commit(&owner, first, end, b.hf);
+        if (rc)
+          reservation_fail(job->window.nominal, job->sequence, RESERVE_COMPLETE,
+                           rc, true, b.hf);
+        else
+          reservation_note(RESERVE_COMPLETE, 0, false);
       }
       r2_ble_timing_lamps(true, false, b.kernel_hi);
     } else {
       gm7_scheduler_abort(&scheduler, result.slot, result.ticket, b.hf);
-      if (owner.reserved && result.slot == GM7_PRIMARY)
-        gm7_owner_reservation_failed(&owner, result.exposed, b.hf);
+      if (result.slot == GM7_PRIMARY)
+        reservation_fail(job->window.nominal, job->sequence, RESERVE_COMPLETE,
+                         -EIO, result.exposed, b.hf);
     }
   }
   for (unsigned slot = 0; slot < GM7_JOB_SLOTS; slot++) {
@@ -470,8 +524,9 @@ static void results(struct gm7_bridge b) {
       if (!r2_gm7_controller_drain(slot, b.hf)) {
         if (j->state != GM7_JOB_COMPLETE && j->state != GM7_JOB_ABORTED)
           gm7_scheduler_abort(&scheduler, slot, j->ticket, b.hf);
-        if (owner.reserved && slot == GM7_PRIMARY)
-          gm7_owner_reservation_failed(&owner, true, b.hf);
+        if (slot == GM7_PRIMARY)
+          reservation_fail(j->window.nominal, j->sequence, RESERVE_EXPIRED,
+                           -ETIME, true, b.hf);
         if (event_evidence.sequence == j->sequence &&
             (j->kind == GM7_WITHDRAW || j->negative ||
              (owner.event.valid && (owner.event.packet.flags & GM7_YIELD)))) {
@@ -484,6 +539,12 @@ static void results(struct gm7_bridge b) {
       }
     }
   }
+  /* Process measured results before original-end retirement: worker latency
+   * cannot turn a valid original RF completion into a missed event. Unknown
+   * exposure remains conservative, including an orphan without a ticket. */
+  if (owner.reserved && b.hf > owner.reserved_end)
+    reservation_fail(owner.reserved_nominal, owner.reserved_sequence,
+                     RESERVE_EXPIRED, -ETIME, true, b.hf);
 }
 static struct r2_gm7_admission_source admission(struct gm7_bridge b) {
   uint64_t until = 0, utc = owner.source.utc_us;
@@ -889,7 +950,8 @@ static void cycle(struct k_work *work) {
       if (nominal >= owner.event.first &&
           (nominal - owner.event.first) % GM7_FRAME_US == 0) {
         uint64_t copy = (nominal - owner.event.first) / GM7_FRAME_US;
-        if (copy < 3 && copy >= owner.event.sent && nominal <= b.hf + 7000 &&
+        if (copy < 3 && copy >= owner.event.sent &&
+            nominal <= b.hf + PRIMARY_PREPARE_US &&
             scheduler.job[GM7_PRIMARY].state == GM7_JOB_EMPTY) {
           owner.event.sent = (uint8_t)(copy + 1);
           (void)queue(GM7_PRIMARY, &owner.event.packet,
@@ -1064,7 +1126,7 @@ static void cycle(struct k_work *work) {
   }
   if ((aligned || negative_only) && frame_start) {
     uint64_t nominal = frame_start + GM7_PRIMARY_US;
-    if (nominal >= b.hf + 3000 && nominal <= b.hf + 7000 &&
+    if (nominal >= b.hf + 3000 && nominal <= b.hf + PRIMARY_PREPARE_US &&
         primary_frame != frame &&
         scheduler.job[GM7_PRIMARY].state == GM7_JOB_EMPTY) {
       if (!owner.serving &&
@@ -1109,13 +1171,20 @@ static void cycle(struct k_work *work) {
             }
           }
         }
-        if (ready)
-          (void)gm7_owner_reserve(&owner, nominal, nominal + 4000, b.hf);
+        if (ready) {
+          primary_frame = frame; /* Consume this original attempt on refusal. */
+          int rc = gm7_owner_reserve(&owner, nominal, nominal + 4000, b.hf);
+          reservation_note(RESERVE_ADMITTED, rc, rc != 0);
+        }
       }
       struct gm7_packet p;
       int rc = owner.reserved ? gm7_owner_planned_control(&owner, &p, b.hf)
                               : gm7_owner_control(&owner, &p, b.hf);
+      if (rc && owner.reserved)
+        reservation_fail(nominal, owner.reserved_sequence, RESERVE_CONTROL, rc,
+                         false, b.hf);
       if (!rc && (p.kind == GM7_ANNOUNCE || p.kind == GM7_WITHDRAW)) {
+        primary_frame = frame;
         bool aligned_event = true;
         if (owner.event.valid && !owner.event.sent &&
             (owner.event.first == UINT64_MAX ||
@@ -1880,7 +1949,9 @@ int r2_gm7_diagnostic_format(char *out, size_t capacity, unsigned page,
       "016llx\",\"term\":%llu,\"active\":\"%016llx\",\"active_boot\":\"%"
       "016llx\",\"role\":%u,\"known\":%u,\"hot_ms\":%u,\"active_ms\":%u,\"pps_"
       "ms\":%u,\"blockers_internal\":%u,\"reason\":%u,\"reservation_pending\":%"
-      "s,\"management_rx\":%u,\"management_mac_valid\":%u,\"management_"
+      "s,\"reservation_stage\":%u,\"reservation_rc\":%d,"
+      "\"reservation_failures\":%u,\"management_rx\":%u,"
+      "\"management_mac_valid\":%u,\"management_"
       "accepted\":%u,\"event_queued\":%u,\"event_completed\":%u,\"event_"
       "failed\":%u,"
       "\"event_unsent\":%u,\"absolute_utc_error_us\":null,\"rf_timing_"
@@ -1900,6 +1971,9 @@ int r2_gm7_diagnostic_format(char *out, size_t capacity, unsigned page,
       (unsigned)(runtime_gm ? diagnostic.pps_ms : UINT32_MAX),
       diagnostic.blockers, diagnostic.reason,
       runtime_gm && diagnostic.pending ? "true" : "false",
+      runtime_gm ? diagnostic.reservation_stage : 0,
+      runtime_gm ? (int)diagnostic.reservation_rc : 0,
+      runtime_gm ? diagnostic.reservation_failures : 0,
       runtime_gm ? (uint32_t)atomic_get(&management_rx) : 0,
       runtime_gm ? (uint32_t)atomic_get(&management_mac) : 0,
       runtime_gm ? (uint32_t)atomic_get(&management_accepted) : 0,

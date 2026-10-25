@@ -14,6 +14,8 @@ static struct r2_gm7_timing fake_timing;
 static struct r2_source_clock fake_raw;
 static bool fake_promote_ready;
 static bool fake_submit_refusal;
+static bool fake_submit_current_lead;
+static uint32_t fake_submit_advance;
 static uint32_t fake_poll_advance;
 static int fake_capture_error, fake_gnss_error, fake_group_start_result;
 static int fake_reset_result, fake_relay_reset_result;
@@ -137,6 +139,11 @@ int r2_gm7_controller_submit(unsigned slot, struct gm7_scheduler *s,
   (void)a;
   (void)now;
   assert(!fake_native_live[slot]);
+  fake_hf += fake_submit_advance;
+  fake_kernel += fake_submit_advance;
+  fake_submit_advance = 0;
+  if (fake_submit_current_lead && s->job[slot].window.nominal < fake_hf + 3000)
+    return -ETIMEDOUT;
   if (fake_submit_refusal)
     return -EBUSY;
   fake_native_live[slot] = true;
@@ -368,6 +375,8 @@ static void setup(bool serving) {
   stop_begun = transport_stopped = resource_fault = scan_aligned = resuming =
       false;
   fake_submit_refusal = false;
+  fake_submit_current_lead = false;
+  fake_submit_advance = 0;
   fake_poll_advance = 0;
   fake_capture_error = fake_gnss_error = fake_group_start_result = 0;
   fake_reset_result = fake_relay_reset_result = 0;
@@ -686,9 +695,9 @@ static void functional_map_refresh(void) {
        "original horizon only advances once, atomic metadata/map read, "
        "association/epoch/stale-raw fences");
 }
-static void takeover_fixture(void) {
+static void takeover_fixture_at(uint64_t at) {
   setup(false);
-  tick_to(68783100);
+  tick_to(at);
   healthy_input();
   owner.scope = (struct gm7_scope){.birth = UINT64_C(1792800000000000),
                                    .founder = 501,
@@ -743,6 +752,7 @@ static void takeover_fixture(void) {
   primary_frame = diag_frame = status_cycle = UINT64_MAX;
   fake_rx_count = 0;
 }
+static void takeover_fixture(void) { takeover_fixture_at(68783100); }
 static void yield_fixture(void) {
   setup(true);
   tick_to(96033000);
@@ -887,11 +897,11 @@ static void negative_phase_cases(void) {
   uint32_t width;
   assert(negative_phase(b, &base, &width) && width >= last_enclosure);
   uint64_t sampled = b.hf;
-  tick_to(sampled + 988000);
+  tick_to(sampled + 970000);
   assert(bridge(&b));
   owner.now = b.hf; /* Other healthy processing; no phase observation. */
   assert(negative_phase(b, &base, &width) && width == last_enclosure + 200);
-  tick_to(sampled + 989000);
+  tick_to(sampled + 971000);
   assert(bridge(&b));
   assert(!negative_phase(b, &base, &width) && phase_known);
   tick_to(sampled + 1000000);
@@ -919,6 +929,9 @@ static void negative_phase_cases(void) {
   yield_fixture();
   tick_to(97023000);
   healthy_input();
+  owner.yield_ready = false; /* This case observes phase, not a YIELD action. */
+  owner.nominee = owner.nominee_boot = owner.quality_better_id = 0;
+  owner.peer[0].session.control_until = 0;
   cycle(&service_work);
   assert(phase_known && !owner.event.valid);
   input.view.fix_active = false;
@@ -991,12 +1004,12 @@ static void negative_phase_cases(void) {
        "outward200ppm age, epoch/regression/long-gap/wrap retirement and "
        "missed original opportunity reports unsent without reanchor");
 }
-static void prospective_blackout(void) {
-  takeover_fixture();
+static void prospective_blackout_at(uint64_t at, bool revoked) {
+  takeover_fixture_at(at);
   cycle(&service_work);
   /* Last legal sample34.9ms; 33.1ms poll must reserve before35.1ms poll
    * passes the−3ms construction edge. No due/output authority exists yet. */
-  assert(fake_hf == 68783100 && !owner.takeover_due && !owner.serving &&
+  assert(fake_hf == at && !owner.takeover_due && !owner.serving &&
          owner.reserved && fake_native_live[GM7_PRIMARY]);
   assert(owner.reserved_nominal == 68788000 &&
          owner.reserved_nominal >= owner.selected_original + GM7_BLACKOUT_US &&
@@ -1064,7 +1077,7 @@ static void prospective_blackout(void) {
   fake_timing.first_tx_derived_end_hi = fake_hf * 16;
   cycle(&service_work);
   assert(owner.serving && !takeover_bound);
-  takeover_fixture();
+  takeover_fixture_at(at);
   cycle(&service_work);
   assert(owner.reserved);
   /* An accepted same-scope fresh ANN at the staggered next poll cancels the
@@ -1091,7 +1104,7 @@ static void prospective_blackout(void) {
                                                       .capture_gen = 4,
                                                       .train_gen = 5},
                                        .anchor_flags = GM7_A_SERVING};
-  tick_to(68785100);
+  tick_to(at < 68780000 ? at + 5000 : 68785100);
   struct gm7_packet fresh = {.group = group.id,
                              .key_epoch = group.epoch,
                              .kind = GM7_ANNOUNCE,
@@ -1106,6 +1119,8 @@ static void prospective_blackout(void) {
   fresh.body.control.accuracy = 255;
   fresh.body.control.priority1 = fresh.body.control.priority2 = 128;
   fresh.body.control.variance = 65535;
+  if (revoked)
+    fresh.body.control.hot = fresh.body.control.hot_boot = 0;
   fake_rx_count = 1;
   fake_rx[0] = (struct r2_gm7_rx){.raw = (uint32_t)((fake_hf - 10) * 16),
                                   .epoch = 4,
@@ -1115,14 +1130,14 @@ static void prospective_blackout(void) {
 
   assert(!owner.reserved && !owner.serving && !fake_native_live[GM7_PRIMARY] &&
          owner.selected_original > 66034900);
-  takeover_fixture();
+  takeover_fixture_at(at);
   cycle(&service_work);
   assert(owner.reserved);
   input.view.fix_active = false;
-  tick_to(68785100);
+  tick_to(at < 68780000 ? at + 5000 : 68785100);
   cycle(&service_work);
   assert(!owner.reserved && !owner.serving && !fake_native_live[GM7_PRIMARY]);
-  takeover_fixture();
+  takeover_fixture_at(at);
   cycle(&service_work);
   finish(GM7_PRIMARY, true, true);
   tick_to(takeover_bound + 1);
@@ -1136,6 +1151,11 @@ static void prospective_blackout(void) {
        "reserve conditional blackout without early due/output; completed "
        "ANN+first G1 meet original3s; fresh contact/source fault cancel and "
        "late G1 fails closed");
+}
+static void prospective_blackout(void) {
+  prospective_blackout_at(68783100, false);
+  prospective_blackout_at(68764000, false);
+  prospective_blackout_at(68764000, true);
 }
 static void retry_progress(uint64_t self, uint64_t incarnation) {
   setup(false);

@@ -68,6 +68,11 @@ try:
  receipt['resume_service_command']=resume
  with (out/'resume-service.compile.log').open('w')as f:subprocess.run(resume,stdout=f,stderr=subprocess.STDOUT,check=True,timeout=45)
  with (out/'resume-service.run.log').open('w')as f:subprocess.run([str(out/'resume-service-test')],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=30)
+ reservation_sources=[p for p in service_sources if p.name!='gm7_service_test.c']+[app/'tests/gm7_reservation_service_test.c']
+ reservation=service[:service.index(str(service_sources[0]))]+[*map(str,reservation_sources),'-o',str(out/'reservation-service-test')]
+ receipt['reservation_service_command']=reservation
+ with (out/'reservation-service.compile.log').open('w')as f:subprocess.run(reservation,stdout=f,stderr=subprocess.STDOUT,check=True,timeout=45)
+ with (out/'reservation-service.run.log').open('w')as f:subprocess.run([str(out/'reservation-service-test')],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=30)
  bridge_sources=[p for p in service_sources if p.name!='gm7_service_test.c']+[app/'tests/gm7_bridge_service_test.c',app/'src/gm7_clock.c']
  bridge_command=service[:service.index(str(service_sources[0]))]+['-DR2_GM7_SERVICE_CLOCK_TEST=1',*map(str,bridge_sources),'-o',str(out/'bridge-service-test')]
  receipt['bridge_service_command']=bridge_command

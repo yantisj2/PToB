@@ -1,5 +1,19 @@
 # T096 changelog
 
+## 0.15.174 — Retire refused GM reservations
+
+Roll back a refused first-ANNOUNCE reservation before releasing its job, and
+retire absent completion at the original end. Process measured results first;
+retain possibly exposed lineage and fence stale callbacks. Consume each original
+primary opportunity once. Allow25ms of CPU construction lead while preserving
+RF windows, actual3ms native admission, immutable samples/expiry and handoff
+deadlines. Include29ms in the negative-only phase enclosure. Add same-size local
+reservation-stage/error/failure diagnostics and distinct native timing refusal
+codes. Actual service/controller regressions cover refusal-to-success recovery,
+late result processing, early-queue cancellation and explicit fake CPU delays.
+Ordinary RC/GATT/relay and other clients remain unchanged. These offline results
+do not establish hardware acceptance or calibrated accuracy.
+
 ## 0.15.173 — Bind GM resume and physical UTC samples
 
 Bind the current capture epoch only when an explicit RC-to-GM transition has

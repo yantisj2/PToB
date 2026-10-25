@@ -270,10 +270,12 @@ int r2_gm7_controller_submit(unsigned slot, struct gm7_scheduler *scheduler,
     return -EBUSY;
   uint32_t epoch;
   uint64_t sampled = hf_now(&epoch);
-  if (sampled == UINT64_MAX || sampled < now ||
-      j->window.nominal < sampled + 3000 ||
-      j->window.nominal - sampled > 250000)
-    return -ETIME;
+  if (sampled == UINT64_MAX || sampled < now)
+    return -ESTALE;
+  if (j->window.nominal < sampled + 3000)
+    return -ETIMEDOUT;
+  if (j->window.nominal - sampled > 250000)
+    return -EINVAL;
   if (!n->initialized) {
     n->mayfly = (struct mayfly){0, 0, &n->link, &n->prepare, prepare_lll};
     n->initialized = true;
@@ -307,8 +309,11 @@ int r2_gm7_controller_submit(unsigned slot, struct gm7_scheduler *scheduler,
   __atomic_store_n(&n->owned, 1, __ATOMIC_RELEASE);
   uint32_t ticker_now = ticker_ticks_now_get();
   sampled = hf_now(&epoch);
-  if (sampled == UINT64_MAX || epoch != n->result.epoch ||
-      sampled >= j->window.nominal) {
+  if (sampled == UINT64_MAX || epoch != n->result.epoch) {
+    n->owned = 0;
+    return -ESTALE;
+  }
+  if (sampled >= j->window.nominal) {
     n->owned = 0;
     return -ETIME;
   }
@@ -319,7 +324,7 @@ int r2_gm7_controller_submit(unsigned slot, struct gm7_scheduler *scheduler,
                                            radio_tx_ready_delay_get(1, 0));
   if (advance <= offset) {
     n->owned = 0;
-    return -ETIME;
+    return -ERANGE;
   }
   uint32_t volatile completion = TICKER_STATUS_BUSY;
   uint32_t status = ticker_start(
@@ -468,8 +473,9 @@ bool r2_gm7_precision_anchor(uint16_t handle, void *header, uint32_t *anchor,
   int32_t remaining = (int32_t)(precision_deadline_raw - (uint32_t)(now * 16));
   if (remaining <= 0)
     return false;
-  uint32_t prep = (HAL_TICKER_TICKS_TO_US_64BIT(ull->ticks_prepare_to_start)+1);
-  uint32_t slot = (HAL_TICKER_TICKS_TO_US_64BIT(ull->ticks_slot)+1);
+  uint32_t prep =
+      (HAL_TICKER_TICKS_TO_US_64BIT(ull->ticks_prepare_to_start) + 1);
+  uint32_t slot = (HAL_TICKER_TICKS_TO_US_64BIT(ull->ticks_slot) + 1);
   if (!gm7_phase_plan(now, earliest, precision_phase, prep, slot,
                       now + (uint32_t)remaining / 16, &target))
     return false;
