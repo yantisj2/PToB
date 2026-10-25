@@ -4,7 +4,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-#define GM7_PENDING 4u
+#define GM7_PENDING 1u
 enum gm7_endpoint { GM7_ACTUAL_RF_ENDPOINTS, GM7_HOST_CAUSAL_BOUND_NOT_RF };
 #define GM7_RTT_US UINT64_C(250000)
 #define GM7_SESSION_US UINT64_C(360000000)
@@ -32,6 +32,7 @@ struct gm7_requester {
 /* After the one-shot nonce is consumed, keep only its bound clock/scope.
  * Request echo and duplicate identity fields remain in no authority cache. */
 struct gm7_bound_anchor {
+  uint64_t birth, founder, term;
   uint32_t timing_epoch, source_gen, capture_gen, train_gen;
 };
 struct gm7_session {
@@ -50,7 +51,7 @@ struct gm7_session {
   uint32_t key_epoch;
   struct gm7_bound_anchor descriptor;
   uint16_t anchor_flags;
-  bool valid, serving;
+  bool valid;
 };
 int gm7_requester_init(struct gm7_requester *, const struct r2_group_config *,
                        uint64_t identity, uint64_t boot, uint64_t now);
@@ -69,12 +70,16 @@ int gm7_anchor_accept(struct gm7_requester *, struct gm7_session *,
                       const struct gm7_packet *, uint64_t actual_rx,
                       uint64_t now);
 bool gm7_session_live(const struct gm7_session *, uint64_t now);
+bool gm7_session_timing_current(const struct gm7_session *);
 bool gm7_session_due(const struct gm7_session *, uint64_t now);
 /* Both results are conservative local monotonic bounds on ORIGINAL send. */
 int gm7_session_map(const struct gm7_session *, uint64_t remote, uint64_t now,
                     uint64_t *earliest, uint64_t *latest);
 /* MAC/structural decode precedes this contextual admission. Duplicates never
  * update any sequence, timestamp, expiry or source permission. */
+int gm7_session_control_check(struct gm7_session *, const struct gm7_packet *,
+    uint64_t actual_rx, uint64_t now, uint64_t *original, uint64_t *until,
+    uint64_t *source_until);
 int gm7_session_control(struct gm7_session *, const struct gm7_packet *,
                         uint64_t actual_rx, uint64_t now,
                         uint64_t *original_earliest, uint64_t *until);

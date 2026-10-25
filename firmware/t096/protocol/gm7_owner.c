@@ -375,6 +375,8 @@ int gm7_owner_receive(struct gm7_owner *o, const uint8_t *ad, size_t size,
       p->locator_first = rx;
     p->locator_seen = true;
     p->locator_at = rx;
+    p->heard_kind = packet.kind;
+    p->heard_flags = packet.flags;
     if (address)
       memcpy(p->address, address, 6);
   }
@@ -437,38 +439,16 @@ int gm7_owner_receive(struct gm7_owner *o, const uint8_t *ad, size_t size,
     return -EINVAL;
   const struct gm7_control prior = p->session.control;
   uint16_t prior_flags = p->flags;
-  uint64_t original, until;
-  rc = gm7_session_control(&p->session, &packet, rx, now, &original, &until);
+  uint64_t original, until, source_until;
+  rc = gm7_session_control_check(&p->session, &packet, rx, now, &original, &until, &source_until);
   if (rc) {
     if (rc == -EALREADY)
       count(&o->duplicates);
     else
       count(&o->drops);
-    if (rc == -EXDEV) {
-      p->reported = (struct gm7_reported_role){0};
-      gm7_session_clear(&p->session);
-      p->kind = 0;
-      p->session.control_until = 0;
-      if (o->scope.active == id && o->scope.boot == boot) {
-        o->selected_source_until = 0;
-        disarm(o, GM7_R_SCOPE);
-        o->prepared = false;
-        o->prepared_since = 0;
-      }
-    }
     return rc;
   }
   const struct gm7_control *c = &packet.body.control;
-  if (o->reserved)
-    gm7_owner_reservation_cancel(o, now);
-  if (packet.kind == GM7_WITHDRAW || prior.birth_us != c->birth_us ||
-      prior.founder != c->founder || prior.term != c->term ||
-      prior.active != c->active || prior.active_boot != c->active_boot ||
-      prior.source_gen != c->source_gen ||
-      prior.capture_gen != c->capture_gen || prior.train_gen != c->train_gen ||
-      prior.hot != c->hot || prior.hot_boot != c->hot_boot ||
-      ((prior_flags ^ packet.flags) & (GM7_HOT | GM7_SHADOW)))
-    p->reported = (struct gm7_reported_role){0};
   if (packet.kind == GM7_WITHDRAW) {
     if (!selected_same(o, c) ||
         (c->hot &&
@@ -500,7 +480,20 @@ int gm7_owner_receive(struct gm7_owner *o, const uint8_t *ad, size_t size,
       o->reason = GM7_R_MERGE;
     }
   }
+  if (o->reserved)
+    gm7_owner_reservation_cancel(o, now);
+  if (packet.kind == GM7_WITHDRAW || prior.birth_us != c->birth_us ||
+      prior.founder != c->founder || prior.term != c->term ||
+      prior.active != c->active || prior.active_boot != c->active_boot ||
+      prior.source_gen != c->source_gen ||
+      prior.capture_gen != c->capture_gen || prior.train_gen != c->train_gen ||
+      prior.hot != c->hot || prior.hot_boot != c->hot_boot ||
+      ((prior_flags ^ packet.flags) & (GM7_HOT | GM7_SHADOW)))
+    p->reported = (struct gm7_reported_role){0};
+  p->session.last_sequence = c->sequence;
+  p->session.last_sent = c->sent_mono_us;
   p->session.control = *c;
+  p->session.source_until = source_until;
   p->flags = packet.flags;
   p->kind = packet.kind;
   p->original = original;
@@ -621,6 +614,23 @@ static void nominate(struct gm7_owner *o) {
       !gm7_calendar_clear(utc) || utc > GM7_UTC_MAX - 750000 ||
       o->now > INT64_MAX - 750000)
     o->yield_ready = false;
+}
+int gm7_owner_request_yield(struct gm7_owner *o, uint64_t now) {
+  if (!clock_now(o,now) || o->stopped || !o->serving || !o->eligible ||
+      !source_current(o,now) || !o->source.physical_ready)
+    return -EACCES;
+  if (o->reserved || o->event.valid || o->yield_deadline)
+    return -EBUSY;
+  const struct gm7_peer *p=peer_for(o,o->nominee,o->nominee_boot,false);
+  if (!p || !remote_prepared(o,p) || !(p->flags&GM7_HOT))
+    return -ENODATA;
+  uint64_t utc;
+  if (!project(&o->source,now,&utc) || o->source.leap_ambiguous ||
+      !gm7_calendar_clear(utc) || utc>GM7_UTC_MAX-750000 ||
+      now>INT64_MAX-750000)
+    return -ESTALE;
+  o->yield_ready=true;
+  return 0;
 }
 void gm7_owner_update(struct gm7_owner *o, const struct gm7_source *source,
                       const struct gm7_preparation *prep, uint64_t now) {
@@ -1379,8 +1389,7 @@ bool gm7_candidate_mesh_current(const struct gm7_peer *p,
   return c->birth_us == root->birth && c->founder == root->founder &&
          c->term == root->term && c->active == root->active &&
          c->active_boot == root->boot && c->train_gen == root->train &&
-         c->shadow_gen && c->source_gen == p->session.descriptor.source_gen &&
-         c->capture_gen == p->session.descriptor.capture_gen;
+         c->shadow_gen;
 }
 
 bool gm7_peer_role(const struct gm7_owner *o, unsigned index, uint64_t now,

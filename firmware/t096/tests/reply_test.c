@@ -87,6 +87,7 @@ static struct r2_platform fixture;
 static char captured[R2_REPLY_BYTES+1];
 static int64_t fake_now=INT64_MAX;
 static bool dequeue_case,delivered;
+static const char *dequeue_verb="status";
 static jmp_buf completed;
 int64_t k_uptime_get(void) { return fake_now; }
 static inline void k_thread_priority_set(void *thread,int priority) {}
@@ -102,7 +103,7 @@ bool r2_console_get(struct r2_command *out) {
  if(!dequeue_case)return false;
  if(delivered)longjmp(completed,1);
  delivered=true;out->arrival=++fake_now;
- snprintf(out->text,sizeof(out->text),"r2 00000001 1111111111111111 %s 000000000000007b status",R2_SOURCE_SHA);
+ snprintf(out->text,sizeof(out->text),"r2 00000001 1111111111111111 %s 000000000000007b %s",R2_SOURCE_SHA,dequeue_verb);
  return true;
 }
 int r2_platform_close(void) {++platform_closes;return 0;}
@@ -165,4 +166,9 @@ int main(void) {
  puts("Actual main retains UI/time/platform after contained normal service fault PASS");
 #endif
  puts("Actual main accepts RX arriving after loop-start sample; original age gate retained PASS");
+ delivered=false;dequeue_verb="yield";last_request=0;captured[0]=0;
+ if(!setjmp(completed))r2_application_entry();
+ char unsupported[40];snprintf(unsupported,sizeof unsupported,"\"result\":%d",-ENOTSUP);
+ assert(last_request==1 && strstr(captured,unsupported));
+ puts("Actual non-GM7 native/DC main rejects YIELD with ENOTSUP PASS");
 }

@@ -250,11 +250,6 @@ int gm7_anchor_accept(struct gm7_requester *r, struct gm7_session *s,
                    s->peer == a->responder &&
                    s->peer_boot == a->responder_boot &&
                    s->local_boot == r->boot;
-  if (same_boot && (a->control_sequence < s->floor ||
-                    a->control_sequence < s->last_sequence)) {
-    gm7_session_clear(s);
-    return -ESTALE;
-  }
   struct gm7_session prior = *s;
   if (same_boot && s->valid) {
     uint64_t old_lo, old_hi;
@@ -278,7 +273,7 @@ int gm7_anchor_accept(struct gm7_requester *r, struct gm7_session *s,
       .peer = a->responder,
       .peer_boot = a->responder_boot,
       .local_boot = r->boot,
-      .floor = a->control_sequence,
+      .floor = same_boot && s->floor > a->control_sequence ? s->floor : a->control_sequence,
       .established = endpoint == GM7_HOST_CAUSAL_BOUND_NOT_RF ? now : rx,
       .until = (endpoint == GM7_HOST_CAUSAL_BOUND_NOT_RF ? now : rx) +
                GM7_SESSION_US,
@@ -301,44 +296,25 @@ int gm7_anchor_accept(struct gm7_requester *r, struct gm7_session *s,
                   .active_boot = a->active_boot,
                   .sent_mono_us = a->sampled_mono_us,
                   .sent_utc_us = a->utc_us},
-      .descriptor = {a->timing_epoch, a->source_gen, a->capture_gen,
-                     a->train_gen},
+      .descriptor = {.birth = a->birth_us, .founder = a->founder,
+          .term = a->term, .timing_epoch = a->timing_epoch,
+          .source_gen = a->source_gen, .capture_gen = a->capture_gen,
+          .train_gen = a->train_gen},
       .anchor_flags = p->flags,
-      .valid = true,
-      .serving = !!(p->flags & GM7_A_SERVING)};
+      .valid = true};
   if (same_boot) {
+    if (s->floor < prior.last_sequence) s->floor = prior.last_sequence;
     s->last_sequence = prior.last_sequence;
     s->last_sent = prior.last_sent;
     s->last_diag[0] = prior.last_diag[0];
     s->last_diag[1] = prior.last_diag[1];
-    /* Candidate ANCHOR has token/train/lineage0; its accepted STATUS can
-     * truthfully name the followed ACTIVE. That descriptive lineage must not
-     * make a same-physical candidate renewal revoke ordinary readiness. */
-    bool same_mode =
-        ((prior.anchor_flags ^ p->flags) & (GM7_A_SERVING | GM7_A_RELAY)) == 0;
-    bool same_lineage =
-        !(p->flags & GM7_A_SERVING) ||
-        (prior.control.birth_us == a->birth_us &&
-         prior.control.founder == a->founder && prior.control.term == a->term &&
-         prior.control.active == a->active &&
-         prior.control.active_boot == a->active_boot);
-    bool same_scope = same_mode && same_lineage &&
-                      prior.descriptor.timing_epoch == a->timing_epoch &&
-                      prior.descriptor.source_gen == a->source_gen &&
-                      prior.descriptor.capture_gen == a->capture_gen &&
-                      prior.descriptor.train_gen == a->train_gen;
-    if (same_scope) {
+    /* A new nonce refreshes only the causal clock bracket. Role, lineage,
+     * source and train changes must not erase accepted control/replay state.
+     * The separately sampled physical descriptor grants no control authority. */
+    if (prior.control_until) {
       s->control = prior.control;
       s->control_until = prior.control_until;
-      if ((p->flags & GM7_A_SERVING) && prior.control_until) {
-        /* Renewing freshness is not a new serving ANN. Retained control and
-         * its physical permission keep the same original horizon, including
-         * terminal WITHDRAW, until a genuinely new scope/control is accepted.
-         */
-        if (prior.source_until < s->source_until)
-          s->source_until = prior.source_until;
-        s->serving = prior.serving;
-      }
+      s->source_until = prior.source_until;
     }
   }
   return 0;
@@ -347,8 +323,21 @@ bool gm7_session_live(const struct gm7_session *s, uint64_t now) {
   return s && s->valid && s->group && s->key_epoch && s->peer && s->peer_boot &&
          s->local_boot && now >= s->established && now < s->until;
 }
+bool gm7_session_timing_current(const struct gm7_session *s) {
+  const struct gm7_control *c = &s->control;
+  const struct gm7_bound_anchor *a = &s->descriptor;
+  return s->control_until && c->source_valid_us && (s->anchor_flags & GM7_A_SERVING) &&
+         !(s->anchor_flags & GM7_A_RELAY) && a->timing_epoch &&
+         c->active == s->peer && c->active_boot == s->peer_boot &&
+         c->birth_us == a->birth && c->founder == a->founder &&
+         c->term == a->term &&
+         c->source_gen == a->source_gen && c->capture_gen == a->capture_gen &&
+         c->train_gen == a->train_gen;
+}
 bool gm7_session_due(const struct gm7_session *s, uint64_t now) {
-  return !gm7_session_live(s, now) || now >= s->renew_at;
+  return !gm7_session_live(s, now) || now >= s->renew_at ||
+         (s->control_until && s->control.active == s->peer &&
+          !gm7_session_timing_current(s));
 }
 static bool offset(uint64_t remote, int64_t delta, uint64_t *out) {
   if (delta >= 0)
@@ -376,10 +365,10 @@ int gm7_session_map(const struct gm7_session *s, uint64_t remote, uint64_t now,
     return -EOVERFLOW;
   return 0;
 }
-int gm7_session_control(struct gm7_session *s, const struct gm7_packet *p,
+int gm7_session_control_check(struct gm7_session *s, const struct gm7_packet *p,
                         uint64_t rx, uint64_t now, uint64_t *original,
-                        uint64_t *until) {
-  if (!s || !p || !original || !until || rx > now || gm7_validate(p) ||
+                        uint64_t *until, uint64_t *source_until) {
+  if (!s || !p || !original || !until || !source_until || rx > now || gm7_validate(p) ||
       p->kind > GM7_WITHDRAW || p->group != s->group ||
       p->key_epoch != s->key_epoch)
     return -EINVAL;
@@ -404,44 +393,40 @@ int gm7_session_control(struct gm7_session *s, const struct gm7_packet *p,
   uint64_t expiry;
   if (!plus(lo, c->max_age_us, &expiry) || now >= expiry)
     return -ESTALE;
-  if (p->kind == GM7_ANNOUNCE || p->kind == GM7_WITHDRAW) {
-    const struct gm7_bound_anchor *a = &s->descriptor;
-    const struct gm7_control *bound = &s->control;
-    if (!s->serving || (s->anchor_flags & GM7_A_RELAY) ||
-        c->birth_us != bound->birth_us || c->founder != bound->founder ||
-        c->term != bound->term || c->active != bound->active ||
-        c->active_boot != bound->active_boot ||
-        c->source_gen != a->source_gen || c->capture_gen != a->capture_gen ||
-        c->train_gen != a->train_gen)
-      return -EXDEV;
-    if (p->kind == GM7_ANNOUNCE) {
-      uint64_t source;
-      if (!plus(lo, c->source_valid_us, &source) || now >= source)
-        return -ESTALE;
-      s->source_until = source;
-    } else if (c->hot && s->last_sequence &&
-               (c->hot != s->control.hot || c->hot_boot != s->control.hot_boot))
+  if (p->kind == GM7_WITHDRAW && s->last_sequence) {
+    const struct gm7_control *current = &s->control;
+    if (c->birth_us != current->birth_us || c->founder != current->founder ||
+        c->term != current->term || c->active != current->active ||
+        c->active_boot != current->active_boot || c->train_gen != current->train_gen ||
+        (c->hot && (c->hot != current->hot || c->hot_boot != current->hot_boot)))
       return -EXDEV;
   }
-  /* A serving ANCHOR binds the canonical lineage. A different role must
-   * first prove a new candidate ANCHOR; STATUS cannot rewrite that binding. */
-  if (p->kind == GM7_STATUS && (s->anchor_flags & GM7_A_SERVING))
-    return -EXDEV;
-  if (p->kind == GM7_STATUS && (p->flags & GM7_ELIGIBLE) &&
-      (c->source_gen != s->descriptor.source_gen ||
-       c->capture_gen != s->descriptor.capture_gen))
-    return -EXDEV;
-  if (p->kind == GM7_WITHDRAW) {
-    s->source_until = now;
-    s->serving = false;
-  }
-  s->last_sequence = c->sequence;
-  s->last_sent = c->sent_mono_us;
-  s->control = *c;
-  s->control_until = expiry;
+  /* Fresh control is independent of timing descriptor admission. A role,
+   * source, train or lineage change cannot force a second liveness handshake
+   * before merge/stop-self or ordinary STATUS enters inventory. */
+  if (p->kind == GM7_ANNOUNCE) {
+    uint64_t source;
+    if (!plus(lo, c->source_valid_us, &source) || now >= source)
+      return -ESTALE;
+    *source_until = source;
+  } else
+    *source_until = p->kind == GM7_WITHDRAW ? now : s->source_until;
   *original = lo;
   *until = expiry;
   (void)hi;
+  return 0;
+}
+int gm7_session_control(struct gm7_session *s, const struct gm7_packet *p,
+                        uint64_t rx, uint64_t now, uint64_t *original,
+                        uint64_t *until) {
+  uint64_t source;
+  int rc = gm7_session_control_check(s, p, rx, now, original, until, &source);
+  if (rc) return rc;
+  s->last_sequence = p->body.control.sequence;
+  s->last_sent = p->body.control.sent_mono_us;
+  s->control = p->body.control;
+  s->control_until = *until;
+  s->source_until = source;
   return 0;
 }
 int gm7_session_diagnostic(struct gm7_session *s, const struct gm7_packet *p,
@@ -484,25 +469,15 @@ int gm7_session_diagnostic(struct gm7_session *s, const struct gm7_packet *p,
   if (sender != s->peer || boot != s->peer_boot ||
       sequence <= s->last_diag[index])
     return -ESTALE;
-  if (s->anchor_flags & GM7_A_SERVING) {
-    const struct gm7_control *bound = &s->control;
-    if (birth != bound->birth_us || founder != bound->founder ||
-        term != bound->term || active != bound->active ||
-        aboot != bound->active_boot || token != a->timing_epoch ||
-        source != a->source_gen || capture != a->capture_gen ||
-        train != a->train_gen)
-      return -ESTALE;
-  } else {
-    /* Candidate ANCHOR grants no serving/timing scope. Only its latest fresh
-     * accepted STATUS can describe shadow/role diagnostics, never permission.
-     */
-    const struct gm7_control *c = &s->control;
-    if (!s->last_sequence || now >= s->control_until || birth != c->birth_us ||
-        founder != c->founder || term != c->term || active != c->active ||
-        aboot != c->active_boot || source != c->source_gen ||
-        capture != c->capture_gen || train != c->train_gen || token)
-      return -ESTALE;
-  }
+  const struct gm7_control *c = &s->control;
+  bool serving = c->active == s->peer && c->active_boot == s->peer_boot;
+  if (!s->last_sequence || now >= s->control_until || birth != c->birth_us ||
+      founder != c->founder || term != c->term || active != c->active ||
+      aboot != c->active_boot || source != c->source_gen ||
+      capture != c->capture_gen || train != c->train_gen ||
+      (serving ? (!gm7_session_timing_current(s) || token != a->timing_epoch)
+               : token != 0))
+    return -ESTALE;
   uint64_t lo, hi;
   int rc = gm7_session_map(s, sampled, now, &lo, &hi);
   if (rc)

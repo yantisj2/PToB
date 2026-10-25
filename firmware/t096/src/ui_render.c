@@ -468,9 +468,9 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
  if(m->gm7_owner&&!m->profile_rc&&!status->help&&status->page==5){
   char value[25],peer[25];round_panel(fb,1,1,78,13,C_PANEL,C_BEZEL);label(fb,5,4,"GM PEER",1,C_WHITE);
   r2_ui_identity_name(peer,m->gm7_peer_valid?m->gm7_peer_id:0,NULL);label(fb,3,23,peer,1,C_WHITE);
-  label(fb,3,40,!m->gm7_peer_valid?"NO REPORT":m->gm7_peer_current?"CURRENT SCOPE":"HISTORY",1,C_DIM);
+  label(fb,3,40,!m->gm7_peer_valid?"NO REPORT":m->gm7_peer_current?"CURRENT SCOPE":m->gm7_peer_role==255?(m->gm7_peer_fresh?"FRESH CTRL":"HEARD ONLY"):"HISTORY",1,C_DIM);
   const char *roles[]={"STANDBY","ACTIVE","PREPARING","HOT","RC"};
-  label(fb,3,57,m->gm7_peer_valid&&m->gm7_peer_role<5?roles[m->gm7_peer_role]:"ROLE --",1,m->gm7_peer_current?C_GREEN:C_AMBER);
+  label(fb,3,57,m->gm7_peer_valid&&m->gm7_peer_role<5?roles[m->gm7_peer_role]:m->gm7_peer_valid?(m->gm7_peer_eligible_claim?"CLAIM ELIG":"UNQUALIFIED"):"ROLE --",1,m->gm7_peer_current?C_GREEN:C_AMBER);
   uint32_t durations[3]={m->gm7_peer_hot_ms,m->gm7_peer_active_ms,m->gm7_peer_pps_ms};const char *names[3]={"HOT","ACTIVE","PPS"};
   for(unsigned i=0;i<3;i++){
    bool known=m->gm7_peer_valid&&(m->gm7_peer_known&(1u<<i))&&durations[i]!=UINT32_MAX;

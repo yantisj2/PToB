@@ -62,56 +62,42 @@ int gm7_status_offset(uint32_t *out, uint64_t id, uint64_t boot, uint64_t cycle,
   *out = (uint32_t)(90000 + (int)slot * 2500 + jitter);
   return 0;
 }
-bool gm7_secondary_reserved(uint64_t frame) { return frame % 4 == 0; }
-enum gm7_discovery gm7_discovery_policy(uint64_t id, uint64_t frame,
-                                        bool aligned, bool eligible, bool event,
-                                        bool withdrawn) {
-  if (!aligned || !id)
-    return GM7_DISCOVERY_BROAD;
-  if (!gm7_secondary_reserved(frame))
-    return GM7_DISCOVERY_ORDINARY;
-  if (event || withdrawn || !eligible)
-    return GM7_DISCOVERY_LISTEN;
-  return (id >> ((frame / 4) % 64)) & 1u ? GM7_DISCOVERY_COPY
-                                         : GM7_DISCOVERY_LISTEN;
+uint32_t gm7_discovery_offset(uint64_t id, uint64_t boot, uint64_t frame) {
+  uint8_t digest[32];
+  if (!status_digest(digest, id, boot, frame))
+    return 0;
+  return 45000u + (digest[8] % 3u) * 5000u;
 }
-int gm7_retry_after(uint64_t *out, uint64_t last, uint64_t attempt,
-                    uint32_t offset) {
-  if (!out || offset < 89750 || offset > 107750 || last > UINT64_MAX - 2000000)
-    return -EINVAL;
-  uint64_t earliest = last + 2000000, n = 0;
-  if (earliest > offset) {
-    uint64_t d = earliest - offset;
-    n = d / GM7_FRAME_US + !!(d % GM7_FRAME_US);
-  }
-  uint64_t advance = (attempt % 4 + 4 - n % 4) % 4;
-  if (n > UINT64_MAX - advance)
-    return -EOVERFLOW;
-  n += advance;
-  if (n > (UINT64_MAX - offset) / GM7_FRAME_US)
-    return -EOVERFLOW;
-  *out = n * GM7_FRAME_US + offset;
-  return 0;
-}
-int gm7_response_window(struct gm7_window *w, uint64_t request_tx,
-                        uint64_t frame_start, uint64_t frame,
+int gm7_response_window(struct gm7_window *w, uint64_t request_rx,
+                        uint64_t frame_start, uint64_t now,
                         uint32_t enclosure) {
-  if (!w || enclosure > 2000 || frame == UINT64_MAX ||
-      gm7_secondary_reserved(frame + 1) || request_tx < frame_start ||
-      request_tx - frame_start >= GM7_FRAME_US)
+  if (!w || enclosure > 2000 || request_rx > now ||
+      now - request_rx >= GM7_FRAME_US || now > UINT64_MAX - 3000 ||
+      frame_start > now || now - frame_start >= GM7_FRAME_US)
     return -EINVAL;
-  uint64_t nominal, end;
-  if (!add(frame_start, GM7_FRAME_US + GM7_SECONDARY_US, &nominal) ||
-      !add(nominal, 4000, &end) || end < request_tx ||
-      end - request_tx > 250000)
-    return -ETIME;
-  *w = (struct gm7_window){.nominal = nominal,
-                           .latest_start = nominal + 2000,
-                           .latest_end = end,
-                           .enclosure_us = enclosure,
-                           .channel = 37,
-                           .physical = true};
-  return 0;
+  /* One secondary owner. A received request has priority over a discovery
+   * copy/diagnostic not yet queued. Select using this receiver's actual phase;
+   * no assumption about the requester's UTC or frame is authority. */
+  const uint32_t offsets[] = {43000, 48000, 53000};
+  for (unsigned next = 0; next < 2; next++) {
+    for (unsigned i = 0; i < 3; i++) {
+      uint64_t nominal, end;
+      if (!add(frame_start, next * GM7_FRAME_US + offsets[i], &nominal) ||
+          !add(nominal, 4000, &end))
+        return -EOVERFLOW;
+      if (nominal < now + 3000)
+        continue;
+      /* Leave2ms for complete REQUEST airtime before its captured AUX END.
+       * Requester separately enforces its original actual-TX250ms deadline. */
+      if (end < request_rx || end - request_rx > GM7_FRAME_US - 2000)
+        return -ETIME;
+      *w = (struct gm7_window){.nominal = nominal,
+          .latest_start = nominal + 2000, .latest_end = end,
+          .enclosure_us = enclosure, .channel = 37, .physical = true};
+      return 0;
+    }
+  }
+  return -ETIME;
 }
 int gm7_complete_airtime(uint32_t *out, size_t ad, unsigned primary,
                          unsigned auxiliary, unsigned channels, unsigned phy) {
@@ -161,7 +147,9 @@ int gm7_scheduler_submit(struct gm7_scheduler *s, unsigned slot,
          primary->state == GM7_JOB_ABORTED) ||
         primary->generation != s->generation ||
         w.nominal < primary->window.nominal ||
-        w.nominal - primary->window.nominal != 5000 ||
+        (w.nominal - primary->window.nominal != 7000 &&
+         w.nominal - primary->window.nominal != 12000 &&
+         w.nominal - primary->window.nominal != 17000) ||
         gm7_ad_encode(encoded, sizeof encoded, p, g) ||
         primary->length != gm7_wire_size(p->kind) + 4 ||
         memcmp(encoded, primary->ad, primary->length))

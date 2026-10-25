@@ -21,6 +21,7 @@
 #include "role_announcement.h"
 #include "runtime_profile.h"
 #include "time_service.h"
+#include "timing_events.h"
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -38,7 +39,11 @@ static struct {
   struct gm7_reported_role report;
   uint64_t identity, boot;
   bool valid, current;
+  uint8_t state, kind;
+  int16_t admission_rc;
 } peer_display[GM7_PEERS];
+enum { PEER_HEARD=1, PEER_FRESH=2, PEER_ELIGIBLE_CLAIM=4, PEER_TIMING=8,
+       PEER_ROLE_REPORT=16 };
 static struct {
   struct r2_clock_view view;
   int64_t translated_utc_us, translated_at_us, last_pps, last_rmc, last_rmc_utc,
@@ -55,7 +60,6 @@ static struct {
   uint64_t identity[2];
   uint8_t address[2][6];
   uint32_t map_bound_us;
-  unsigned count;
 } roster;
 /* GM publication only. The public compatibility snapshot is constructed on
  * read; unused RC/retired coordinator fields consume no persistent GM RAM. */
@@ -73,7 +77,7 @@ static struct {
   uint32_t key_epoch, admission_ms, hot_refusal, source_epoch,
       local_source_epoch, rx, authenticated, rejected, drops, errors, backlog,
       cycles, worker_max_us, profile_changes;
-  unsigned root, self, coordinator, standby;
+  unsigned root;
   int error;
   char name[25];
   uint8_t lamps[8];
@@ -81,6 +85,13 @@ static struct {
       follower_clock_valid, display_coarse_valid, closed, active, closing,
       configured, normal, profile_pending;
 } status;
+static struct {
+  uint64_t nominee, nominee_boot;
+  uint32_t published_generation, expected_generation, requested_ms;
+  int16_t result;
+  bool pending;
+} yield_request;
+_Static_assert(sizeof(yield_request)==32,"One bounded owner request");
 static struct r2_group_config group;
 static struct {
   uint64_t birth, founder, term, active, active_boot, at;
@@ -395,8 +406,6 @@ static int queue_at(unsigned slot, const struct gm7_packet *p,
                        rc, false, b.hf);
     return rc;
   }
-  if (p->kind == GM7_REQUEST)
-    scheduler.job[slot].request_utc = request_utc;
   if (owner.event.valid &&
       p->body.control.sequence == owner.event.packet.body.control.sequence &&
       (p->kind == GM7_WITHDRAW ||
@@ -463,43 +472,10 @@ static void results(struct gm7_bridge b) {
                                       result.generation, result.buffer_version,
                                       end, true);
     struct gm7_packet packet;
-    if (valid && !gm7_ad_decode(&packet, job->ad, job->length, &group)) {
-      if (packet.kind == GM7_REQUEST &&
-          !gm7_request_sent(&owner.requester, &packet.body.request, first,
-                            b.hf)) {
-        uint64_t utc, next;
-        for (unsigned i = 0; i < GM7_PEERS; i++) {
-          struct gm7_peer *p = &owner.peer[i];
-          if (!p->used || p->identity != packet.body.request.target ||
-              p->boot != packet.body.request.target_boot)
-            continue;
-          if (p->retry_attempt == UINT64_MAX || b.hf < first ||
-              first < job->window.nominal ||
-              !gm7_utc_valid(job->request_utc) ||
-              job->request_utc >
-                  UINT64_MAX - (first - job->window.nominal)) {
-            resource_fault = true;
-            break;
-          }
-          /* The completing ticket owns this guess even if a later locator,
-           * source snapshot or selected root changes before worker delivery. */
-          utc = job->request_utc + first - job->window.nominal;
-          uint32_t offset;
-          if (utc > UINT64_MAX - 2000000 ||
-              gm7_status_offset(&offset, identity, boot,
-                                (utc + 2000000) / 2000000,
-                                gm7_status_jitter(identity, boot,
-                                                  (utc + 2000000) / 2000000)) ||
-              gm7_retry_after(&next, utc, ++p->retry_attempt, offset) ||
-              next < utc || first > UINT64_MAX - (next - utc)) {
-            resource_fault = true;
-            break;
-          }
-          p->retry_offset = (uint16_t)(offset - 89750);
-          p->retry_at = first + next - utc;
-          break;
-        }
-      }
+    bool decoded=!gm7_ad_decode(&packet, job->ad, job->length, &group);
+    if (valid && decoded) {
+      if (packet.kind == GM7_REQUEST)
+        (void)gm7_request_sent(&owner.requester, &packet.body.request, first, b.hf);
       if (owner.reserved && result.slot == GM7_PRIMARY &&
           job->sequence == owner.reserved_sequence) {
         int rc = gm7_owner_reservation_commit(&owner, first, end, b.hf);
@@ -515,6 +491,25 @@ static void results(struct gm7_bridge b) {
       if (result.slot == GM7_PRIMARY)
         reservation_fail(job->window.nominal, job->sequence, RESERVE_COMPLETE,
                          -EIO, result.exposed, b.hf);
+    }
+    bool terminal_copy=job->kind==GM7_WITHDRAW ||
+        (decoded && packet.kind==GM7_ANNOUNCE && (packet.flags&GM7_YIELD));
+    if (terminal_copy || job->kind==GM7_REQUEST || job->kind==GM7_ANCHOR ||
+        (job->kind==GM7_ANNOUNCE && !(job->sequence%4))) {
+      int outcome=valid&&decoded?0:-EIO;
+      r2_timing_event(R2_TIMING_GM_CONTROL,outcome,identity,
+          R2_GM7_JOURNAL(R2_GM7_J_SEQUENCE,job->kind),
+          (uint32_t)job->sequence,(uint32_t)(job->sequence>>32));
+      r2_timing_event(R2_TIMING_GM_CONTROL,outcome,identity,
+          R2_GM7_JOURNAL(R2_GM7_J_TX,job->kind),
+          result.primary_address,result.aux_end);
+      if (terminal_copy && decoded) {
+        uint64_t deadline=packet.body.control.sent_mono_us+
+            (job->kind==GM7_WITHDRAW?1000000:750000);
+        r2_timing_event(R2_TIMING_GM_CONTROL,outcome,identity,
+            R2_GM7_JOURNAL(R2_GM7_J_EVENT_DEADLINE,job->kind),
+            (uint32_t)deadline,(uint32_t)(deadline>>32));
+      }
     }
   }
   for (unsigned slot = 0; slot < GM7_JOB_SLOTS; slot++) {
@@ -539,7 +534,15 @@ static void results(struct gm7_bridge b) {
           else
             ++event_evidence.failed;
         }
-        (void)gm7_scheduler_release(&scheduler, slot, j->ticket, true, b.hf);
+        /* Reuse the immutable completed primary for this frame's diversified
+         * copy. It is released after the decision or bounded21ms retention. */
+        bool retain_copy = slot == GM7_PRIMARY &&
+            j->state == GM7_JOB_COMPLETE && j->kind == GM7_ANNOUNCE &&
+            !owner.event.valid && !owner.withdrawn && owner.serving &&
+            b.hf < j->window.nominal + 21000 &&
+            diag_frame != primary_frame;
+        if (!retain_copy)
+          (void)gm7_scheduler_release(&scheduler, slot, j->ticket, true, b.hf);
       }
     }
   }
@@ -601,7 +604,7 @@ timing(struct gm7_bridge b, const struct gm7_source *s,
       const struct gm7_bound_anchor *a = &p->session.descriptor;
       const struct gm7_control *sample = &p->session.control;
       uint64_t lo, hi;
-      if (!(p->session.anchor_flags & GM7_A_SERVING) || !sample->sent_utc_us ||
+      if (!gm7_session_timing_current(&p->session) || !sample->sent_utc_us ||
           !p->session.control_until ||
           gm7_session_map(&p->session, sample->sent_mono_us, b.hf, &lo, &hi) ||
           b.hf < lo)
@@ -734,22 +737,9 @@ static void tentative_request(const struct gm7_packet *locator, uint64_t rx,
       gm7_status_offset(&offset, identity, boot, cycle,
                         gm7_status_jitter(identity, boot, cycle)))
     return;
-  if (peer->retry_attempt) {
-    tx = peer->retry_at;
-    if (tx < b.hf + 3000) {
-      uint64_t frames = (b.hf + 3000 - tx + 999999) / 1000000;
-      if (frames > (UINT64_MAX - tx) / 1000000)
-        return;
-      tx += frames * 1000000;
-      peer->retry_at = tx; /* Same A1 residue/frozen slot, no RF attempt. */
-      if (owner.late_windows != UINT32_MAX)
-        ++owner.late_windows;
-    }
-  } else {
-    tx = base + offset;
-    if (tx < b.hf + 3000)
-      tx += GM7_FRAME_US;
-  }
+  tx = base + offset;
+  if (tx < b.hf + 3000)
+    tx += GM7_FRAME_US;
   /* A fresh primary/copy normally leaves about45..70ms CPU preparation.
    * Misses wait another locator. Native admission still samples actual HF and
    * requires>=3ms; this does not enlarge any RF window or nonce deadline. */
@@ -783,7 +773,7 @@ static __attribute__((noinline)) void receive(struct gm7_bridge b, uint64_t utc,
       return;
     if (packet.kind == GM7_REQUEST) {
       struct gm7_window w;
-      if (!gm7_response_window(&w, lo / 16, frame_start, frame, enclosure) &&
+      if (!gm7_response_window(&w, lo / 16, frame_start, b.hf, enclosure) &&
           utc &&
           !gm7_owner_anchor(
               &owner, &packet,
@@ -799,8 +789,57 @@ static __attribute__((noinline)) void receive(struct gm7_bridge b, uint64_t utc,
       if (!bridge(&b) || b.epoch != clock_epoch)
         return;
       uint32_t generation = owner.event_generation;
-      if (!gm7_owner_receive(&owner, r.ad, r.length, r.address, rx, b.hf))
+      bool was_serving=owner.serving;
+      int received = gm7_owner_receive(&owner, r.ad, r.length, r.address, rx, b.hf);
+      if (!received)
         management_count(&management_accepted);
+      uint64_t peer = packet.kind <= GM7_WITHDRAW ? packet.body.control.sender
+          : packet.kind == GM7_ANCHOR ? packet.body.anchor.responder
+          : packet.kind == GM7_ROLE ? packet.body.role.sender
+          : packet.body.gnss.sender;
+      uint64_t sequence = packet.kind <= GM7_WITHDRAW ? packet.body.control.sequence
+          : packet.kind == GM7_ANCHOR ? packet.body.anchor.response_sequence
+          : packet.kind == GM7_ROLE ? packet.body.role.sequence
+          : packet.body.gnss.sequence;
+      uint64_t peer_boot = packet.kind<=GM7_WITHDRAW?packet.body.control.boot
+          : packet.kind==GM7_ANCHOR?packet.body.anchor.responder_boot
+          : packet.kind==GM7_ROLE?packet.body.role.boot:packet.body.gnss.boot;
+      bool terminal_copy=packet.kind==GM7_WITHDRAW ||
+          (packet.kind==GM7_ANNOUNCE && (packet.flags&GM7_YIELD));
+      for (unsigned i=0;i<GM7_PEERS;i++) {
+        struct gm7_peer *p=&owner.peer[i];
+        if (!p->used || p->identity!=peer || p->boot!=peer_boot) continue;
+        if (packet.kind>GM7_WITHDRAW && packet.kind!=GM7_ANCHOR) break;
+        unsigned stage=received?2u:packet.kind<=GM7_WITHDRAW?3u:1u;
+        uint32_t stamp=(uint32_t)(b.hf/1000);
+        bool changed=p->heard_stage!=stage || p->heard_rc!=received;
+        if (terminal_copy || (received!=-EALREADY && (changed ||
+            !p->journal_at_ms || stamp-p->journal_at_ms>=1000))) {
+          r2_timing_event(R2_TIMING_GM_CONTROL,received,peer,
+              R2_GM7_JOURNAL(R2_GM7_J_RX,packet.kind),
+              (uint32_t)sequence,r.raw);
+          p->journal_at_ms=stamp;
+          if (terminal_copy) {
+            uint64_t deadline=packet.body.control.sent_mono_us+
+                (packet.kind==GM7_WITHDRAW?1000000:750000);
+            r2_timing_event(R2_TIMING_GM_CONTROL,received,peer,
+                R2_GM7_JOURNAL(R2_GM7_J_SEQUENCE,packet.kind),
+                (uint32_t)sequence,(uint32_t)(sequence>>32));
+            r2_timing_event(R2_TIMING_GM_CONTROL,received,peer,
+                R2_GM7_JOURNAL(R2_GM7_J_EVENT_DEADLINE,packet.kind),
+                (uint32_t)deadline,(uint32_t)(deadline>>32));
+          }
+        }
+        if (received!=-EALREADY) {
+          p->heard_stage=(uint8_t)stage;
+          p->heard_rc=(int16_t)received;
+        }
+        break;
+      }
+      if (was_serving && !owner.serving)
+        r2_timing_event(R2_TIMING_GM_CONTROL,owner.reason,peer,
+            R2_GM7_JOURNAL(R2_GM7_J_MERGE,packet.kind),
+            (uint32_t)owner.source.until_us,(uint32_t)b.hf);
       /* Owner receive re-samples processing time after decode. Its next API
        * must use a contemporary bridge; captured RX and leases stay original. */
       if (!bridge(&b) || b.epoch != clock_epoch)
@@ -829,6 +868,19 @@ static __attribute__((noinline)) void publish(struct gm7_bridge b) {
   diagnostic.term = owner.scope.term;
   diagnostic.active = owner.scope.active;
   diagnostic.active_boot = owner.scope.boot;
+  yield_request.published_generation=owner.event_generation;
+  if (yield_request.pending &&
+      (yield_request.expected_generation!=owner.event_generation ||
+       yield_request.nominee!=owner.nominee ||
+       yield_request.nominee_boot!=owner.nominee_boot ||
+       (uint32_t)(b.kernel_hi/1000)-yield_request.requested_ms>=300 ||
+       !owner.serving || atomic_get(&stopping) || resuming)) {
+    yield_request.pending=false;yield_request.result=-ESTALE;
+  }
+  if (!yield_request.pending) {
+    yield_request.nominee=owner.nominee;
+    yield_request.nominee_boot=owner.nominee_boot;
+  }
   diagnostic.at = b.kernel_hi;
   diagnostic.role =
       owner.armed     ? GM7_W_HOT
@@ -867,6 +919,30 @@ static __attribute__((noinline)) void publish(struct gm7_bridge b) {
   for (unsigned i = 0; i < GM7_PEERS; i++) {
     peer_display[i].valid = false;
     peer_display[i].current = false;
+    peer_display[i].state = 0;
+    peer_display[i].kind = 0;
+    peer_display[i].admission_rc = 0;
+    const struct gm7_peer *peer=&owner.peer[i];
+    uint64_t heard_until;
+    if (peer->used && peer->locator_seen && b.hf>=peer->locator_at &&
+        b.hf-peer->locator_at<4500000 &&
+        gm7_bridge_to_kernel(b,peer->locator_at+4500000,&heard_until)) {
+      peer_display[i].valid=true;
+      peer_display[i].identity=peer->identity;
+      peer_display[i].boot=peer->boot;
+      peer_display[i].kind=peer->heard_kind;
+      peer_display[i].admission_rc=peer->heard_rc;
+      peer_display[i].state=PEER_HEARD |
+          ((peer->heard_flags&GM7_ELIGIBLE)?PEER_ELIGIBLE_CLAIM:0);
+      if (peer->kind && !peer->quarantined &&
+          gm7_session_live(&peer->session,b.hf) &&
+          b.hf<peer->session.control_until)
+        peer_display[i].state |= PEER_FRESH;
+      if (gm7_session_timing_current(&peer->session))
+        peer_display[i].state |= PEER_TIMING;
+      peer_display[i].report=(struct gm7_reported_role){.until=heard_until,
+          .hot_ms=UINT32_MAX,.active_ms=UINT32_MAX,.pps_ms=UINT32_MAX,.role=255};
+    }
     struct gm7_reported_role report;
     bool current;
     uint64_t expires;
@@ -878,6 +954,7 @@ static __attribute__((noinline)) void publish(struct gm7_bridge b) {
       peer_display[i].boot = owner.peer[i].boot;
       peer_display[i].valid = true;
       peer_display[i].current = current;
+      peer_display[i].state |= PEER_ROLE_REPORT;
     }
   }
   status.at = b.kernel_hi;
@@ -912,9 +989,6 @@ static __attribute__((noinline)) void publish(struct gm7_bridge b) {
   status.root = owner.scope.active == identity ? 0
                 : owner.scope.active           ? 1
                                                : 255;
-  status.self = 0;
-  status.coordinator = 255;
-  status.standby = owner.armed ? 0 : 255;
   status.root_boot = owner.scope.boot;
   status.source_epoch = owner.scope.timing_epoch;
   status.local_source_epoch = owner.source.source_gen;
@@ -1130,6 +1204,9 @@ static void cycle(struct k_work *work) {
     event_generation = owner.event_generation;
     gm7_scheduler_cancel_positive(&scheduler, b.hf);
     r2_gm7_controller_cancel(b.hf);
+    r2_timing_event(R2_TIMING_GM_CONTROL,owner.reason,identity,
+        R2_GM7_JOURNAL(R2_GM7_J_SOURCE,0),
+        (uint32_t)owner.source.until_us,(uint32_t)b.hf);
   }
   r2_gm7_controller_source(owner.source.until_us, owner.source.physical_ready &&
                                                       owner.eligible &&
@@ -1300,9 +1377,29 @@ static void cycle(struct k_work *work) {
           reservation_note(RESERVE_ADMITTED, rc, rc != 0);
         }
       }
+      bool administrative_yield = false;
+      (void)k_mutex_lock(&lock,K_FOREVER);
+      if (yield_request.pending) {
+        bool current=yield_request.expected_generation==owner.event_generation &&
+            yield_request.nominee==owner.nominee &&
+            yield_request.nominee_boot==owner.nominee_boot &&
+            (uint32_t)(b.kernel_hi/1000)-yield_request.requested_ms<300 &&
+            !atomic_get(&stopping) && !resuming && !resource_fault;
+        yield_request.pending=false;
+        yield_request.result=(int16_t)(current?
+            gm7_owner_request_yield(&owner,b.hf):-ESTALE);
+        administrative_yield = !yield_request.result;
+      }
+      (void)k_mutex_unlock(&lock);
       struct gm7_packet p;
       int rc = owner.reserved ? gm7_owner_planned_control(&owner, &p, b.hf)
                               : gm7_owner_control(&owner, &p, b.hf);
+      if (administrative_yield && rc) {
+        owner.yield_ready = false; /* A rejected one-shot cannot become latent. */
+        (void)k_mutex_lock(&lock,K_FOREVER);
+        yield_request.result = (int16_t)rc;
+        (void)k_mutex_unlock(&lock);
+      }
       if (rc && owner.reserved)
         reservation_fail(nominal, owner.reserved_sequence, RESERVE_CONTROL, rc,
                          false, b.hf);
@@ -1326,14 +1423,7 @@ static void cycle(struct k_work *work) {
             owner.event.sent = (uint8_t)(copy + 1);
           if (!queue(GM7_PRIMARY, &p, window(nominal, enclosure), 0, b)) {
             primary_frame = frame;
-            if (gm7_discovery_policy(
-                    identity, frame, true, owner.serving || owner.reserved,
-                    owner.event.valid, owner.withdrawn) == GM7_DISCOVERY_COPY &&
-                p.kind == GM7_ANNOUNCE && !(p.flags & GM7_YIELD)) {
-              if (!queue(GM7_SECONDARY, &p, window(nominal + 5000, enclosure),
-                         0, b))
-                diag_frame = frame;
-            }
+
           }
         }
       }
@@ -1357,21 +1447,6 @@ static void cycle(struct k_work *work) {
               !gm7_session_due(&p->session, b.hf))
             continue;
           uint64_t candidate = initial_tx;
-          if (p->retry_attempt) {
-            candidate = p->retry_at;
-            if (candidate < b.hf + 3000) {
-              uint64_t frames = (b.hf + 3000 - candidate + 999999) / 1000000;
-              if (frames > (UINT64_MAX - candidate) / 1000000) {
-                resource_fault = true;
-                continue;
-              }
-              candidate += frames * 1000000;
-              p->retry_at =
-                  candidate; /* Same residue/frozen slot; no RF attempt. */
-              if (owner.late_windows < UINT32_MAX)
-                ++owner.late_windows;
-            }
-          }
           if (candidate < b.hf + 3000 || candidate > b.hf + 7000 ||
               candidate < p->retry_at)
             continue;
@@ -1402,26 +1477,26 @@ static void cycle(struct k_work *work) {
           status_cycle = cycle;
       }
     }
-    uint64_t secondary = frame_start + GM7_SECONDARY_US;
-    if (secondary >= b.hf + 3000 && secondary <= b.hf + 7000 &&
-        diag_frame != frame &&
+    bool diagnostic_due = frame % 8 ==
+        1 + gm7_status_slot(identity, boot, cycle) % 3 +
+            4 * ((gm7_status_slot(identity, boot, cycle) / 3) & 1);
+    uint32_t secondary_offset = diagnostic_due ? GM7_SECONDARY_US
+        : gm7_discovery_offset(identity, boot, frame);
+    uint64_t secondary = frame_start + secondary_offset;
+    if (secondary_offset && secondary >= b.hf + 3000 &&
+        secondary <= b.hf + 7000 && diag_frame != frame &&
         scheduler.job[GM7_SECONDARY].state == GM7_JOB_EMPTY) {
       struct gm7_packet p;
-      enum gm7_discovery policy = gm7_discovery_policy(
-          identity, frame, true, owner.serving && !resource_fault,
-          owner.event.valid, owner.withdrawn);
-      if (policy == GM7_DISCOVERY_COPY &&
+      bool discovery_allowed=owner.serving && !resource_fault &&
+          !owner.event.valid && !owner.withdrawn;
+      if (diagnostic_due && !owner.event.valid &&
+          !gm7_role_snapshot(&owner, &p, b.hf)) {
+        if (!queue(GM7_SECONDARY, &p, window(secondary, enclosure), 0, b))
+          diag_frame = frame;
+      } else if (!diagnostic_due && discovery_allowed &&
           scheduler.job[GM7_PRIMARY].state == GM7_JOB_COMPLETE &&
           !gm7_ad_decode(&p, scheduler.job[GM7_PRIMARY].ad,
                          scheduler.job[GM7_PRIMARY].length, &group)) {
-        if (!queue(GM7_SECONDARY, &p, window(secondary, enclosure), 0, b))
-          diag_frame = frame;
-      } else if (policy == GM7_DISCOVERY_ORDINARY &&
-                 frame % 8 ==
-                     1 + gm7_status_slot(identity, boot, cycle) % 3 +
-                         4 * ((gm7_status_slot(identity, boot, cycle) / 3) &
-                              1) &&
-                 !gm7_role_snapshot(&owner, &p, b.hf)) {
         if (!queue(GM7_SECONDARY, &p, window(secondary, enclosure), 0, b))
           diag_frame = frame;
       }
@@ -1464,7 +1539,6 @@ int r2_service_configure(const struct r2_identity *id,
   boot = id->boot;
   group = e->group;
   roster.map_bound_us = e->map_bound_us;
-  roster.count = 2;
   memset(roster.identity, 0, sizeof roster.identity);
   memset(roster.address, 0, sizeof roster.address);
   roster.identity[0] = identity;
@@ -1506,8 +1580,7 @@ int r2_service_configure(const struct r2_identity *id,
   k_thread_name_set(&supervisor_thread, "gm7_supervisor");
   configured = status.configured = true;
   status.closed = true;
-  status.self = 0;
-  status.root = status.standby = status.coordinator = 255;
+  status.root = 255;
   return 0;
 }
 void r2_service_clock(const struct r2_clock *clock) {
@@ -1624,6 +1697,11 @@ static int start(uint64_t arrival, uint32_t seconds) {
   gm7_owner_clock(&owner, hf_read, NULL);
   gm7_owner_reservation_guard(&owner, reservation_fence, NULL);
   gm7_scheduler_init(&scheduler, b.hf);
+  (void)k_mutex_lock(&lock,K_FOREVER);
+  memset(&yield_request,0,sizeof yield_request);
+  yield_request.published_generation=owner.event_generation;
+  yield_request.result=-ENODATA;
+  (void)k_mutex_unlock(&lock);
   rc = r2_ble_group_start(identity, group.id, group.epoch, own_address);
   if (rc)
     return rc;
@@ -1647,6 +1725,9 @@ int r2_service_start(uint32_t seconds, uint64_t at) {
 }
 int r2_service_run(uint64_t at) { return start(at, 0); }
 void r2_service_stop(void) {
+  (void)k_mutex_lock(&lock,K_FOREVER);
+  yield_request.pending=false;yield_request.result=-ECANCELED;
+  (void)k_mutex_unlock(&lock);
   if (!started)
     return;
   (void)k_mutex_lock(&lock, K_FOREVER);
@@ -1734,9 +1815,9 @@ void r2_service_snapshot(struct r2_service_status *out) {
   P(worker_max_us);
   P(profile_changes);
   P(root);
-  P(self);
-  P(coordinator);
-  P(standby);
+  out->self=0;
+  out->coordinator=255;
+  out->standby=status.hot_ready?0:255;
   P(error);
   P(serving);
   P(hot_ready);
@@ -1763,6 +1844,23 @@ void r2_service_snapshot(struct r2_service_status *out) {
     out->precision.authorized = out->precision.map_valid =
         out->precision.locked = false;
   }
+}
+int r2_gm7_request_yield(void) {
+  (void)k_mutex_lock(&lock,K_FOREVER);
+  int rc;
+  if (!configured || !started || !status.active || !status.serving ||
+      status.closing || atomic_get(&stopping) || resuming)
+    rc=-EACCES;
+  else if (yield_request.pending)
+    rc=-EALREADY;
+  else {
+    yield_request.expected_generation=yield_request.published_generation;
+    yield_request.requested_ms=(uint32_t)(kernel_now()/1000);
+    yield_request.result=-EINPROGRESS;yield_request.pending=true;
+    rc=-EINPROGRESS;
+  }
+  (void)k_mutex_unlock(&lock);
+  return rc;
 }
 int r2_service_name(const char *next) {
   size_t n = next ? strlen(next) : 0;
@@ -1848,6 +1946,8 @@ void r2_service_ui(struct r2_ui_model *m) {
   uint64_t now = kernel_now();
   (void)k_mutex_lock(&lock, K_FOREVER);
   m->gm7_owner = true;
+  m->gm7_peer_valid=m->gm7_peer_current=m->gm7_peer_fresh=
+      m->gm7_peer_eligible_claim=false;
   m->gm7_known = diagnostic.known;
   m->gm7_at_ms = diagnostic.at / 1000;
   m->gm7_hot_ms = diagnostic.hot_ms;
@@ -1865,6 +1965,8 @@ void r2_service_ui(struct r2_ui_model *m) {
       m->gm7_peer_pps_ms = peer_display[i].report.pps_ms;
       m->gm7_peer_valid = true;
       m->gm7_peer_current = peer_display[i].current;
+      m->gm7_peer_fresh = !!(peer_display[i].state&PEER_FRESH);
+      m->gm7_peer_eligible_claim = !!(peer_display[i].state&PEER_ELIGIBLE_CLAIM);
       break;
     }
   }
@@ -2051,12 +2153,15 @@ int r2_gm7_diagnostic_format(char *out, size_t capacity, unsigned page,
     const struct gm7_reported_role *r = &peer_display[i].report;
     int n = snprintf(
         out, capacity,
-        "{\"schema\":7,\"protocol\":\"GM7v2+A1+C1\",\"source\":\"%s\",\"boot\":"
+        "{\"schema\":7,\"protocol\":\"GM7v2+S1+C1\",\"source\":\"%s\",\"boot\":"
         "\"%016llx\",\"page\":%u,\"available\":%"
         "s,\"peer\":\"%016llx\",\"peer_boot\":\"%016llx\",\"sender_sampled_"
         "mono_us\":%llu,\"expires_kernel_us\":%llu,\"mesh_current\":%s,"
         "\"role\":%u,\"known\":%u,\"hot_ms\":%u,\"active_ms\":%u,\"pps_ms\":%u,"
-        "\"timer_basis\":\"SENDER_REPORTED_AT_SAMPLE\",\"authority\":false}",
+        "\"timer_basis\":\"SENDER_REPORTED_AT_SAMPLE\","
+        "\"heard\":%s,\"control_fresh\":%s,\"independent_eligible_claim\":%s,"
+        "\"timing_descriptor_matches\":%s,\"kind\":%u,\"admission_rc\":%d,"
+        "\"authority\":false}",
         source, (unsigned long long)physical_boot, page,
         valid ? "true" : "false",
         (unsigned long long)(valid ? peer_display[i].identity : 0),
@@ -2067,7 +2172,12 @@ int r2_gm7_diagnostic_format(char *out, size_t capacity, unsigned page,
         valid ? r->role : 0, valid ? r->known : 0,
         (unsigned)(valid ? r->hot_ms : UINT32_MAX),
         (unsigned)(valid ? r->active_ms : UINT32_MAX),
-        (unsigned)(valid ? r->pps_ms : UINT32_MAX));
+        (unsigned)(valid ? r->pps_ms : UINT32_MAX),
+        valid&&(peer_display[i].state&PEER_HEARD)?"true":"false",
+        valid&&(peer_display[i].state&PEER_FRESH)?"true":"false",
+        valid&&(peer_display[i].state&PEER_ELIGIBLE_CLAIM)?"true":"false",
+        valid&&(peer_display[i].state&PEER_TIMING)?"true":"false",
+        valid?peer_display[i].kind:0, valid?peer_display[i].admission_rc:0);
     (void)k_mutex_unlock(&lock);
     return n >= 0 && (size_t)n < capacity ? n : -ENOSPC;
   }
@@ -2075,7 +2185,7 @@ int r2_gm7_diagnostic_format(char *out, size_t capacity, unsigned page,
   if(runtime_gm)r2_radio_service_gm7_state(&pt_stopped,&pt_managed,&pt_binding);
   int n = snprintf(
       out, capacity,
-      "{\"schema\":7,\"protocol\":\"GM7v2+A1+C1\",\"source\":\"%s\",\"boot\":"
+      "{\"schema\":7,\"protocol\":\"GM7v2+S1+C1\",\"source\":\"%s\",\"boot\":"
       "\"%016llx\",\"page\":0,\"available\":%s,"
       "\"startup_pending\":%s,\"startup_error\":%d,\"birth_utc_us\":%llu,"
       "\"founder\":\"%"
@@ -2087,7 +2197,8 @@ int r2_gm7_diagnostic_format(char *out, size_t capacity, unsigned page,
       "\"management_mac_valid\":%u,\"management_"
       "accepted\":%u,\"event_queued\":%u,\"event_completed\":%u,\"event_"
       "failed\":%u,"
-      "\"event_unsent\":%u,\"pt_stopped\":%s,\"pt_managed\":%s,"
+      "\"event_unsent\":%u,\"yield_request_pending\":%s,\"yield_request_result\":%d,"
+      "\"pt_stopped\":%s,\"pt_managed\":%s,"
       "\"pt_binding_matches\":%s,\"absolute_utc_error_us\":null,\"rf_timing_"
       "qualified\":false}",
       source, (unsigned long long)physical_boot,
@@ -2115,6 +2226,8 @@ int r2_gm7_diagnostic_format(char *out, size_t capacity, unsigned page,
       runtime_gm ? diagnostic.event_completed : 0,
       runtime_gm ? diagnostic.event_failed : 0,
       runtime_gm ? diagnostic.event_unsent : 0,
+      runtime_gm&&yield_request.pending?"true":"false",
+      runtime_gm?yield_request.result:-ENOTSUP,
       pt_stopped?"true":"false",pt_managed?"true":"false",pt_binding?"true":"false");
   (void)k_mutex_unlock(&lock);
   return n >= 0 && (size_t)n < capacity ? n : -ENOSPC;

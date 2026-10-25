@@ -81,8 +81,8 @@ static void complete_jobs(bool answer) {
         assert(actual - prior_request >= 2000000);
       prior_request = actual;
       ++requests;
-      assert(!j->positive && gm7_utc_valid(j->request_utc));
-      residues |= 1u << (j->request_utc / 250000 % 4);
+      assert(!j->positive);
+      residues |= 1u << (actual / 250000 % 4);
       if (answer) {
         struct gm7_preparation prep = {0};
         struct gm7_source s = source_at(fake_hf);
@@ -90,9 +90,7 @@ static void complete_jobs(bool answer) {
         assert(!gm7_owner_anchor(&server, &response, &p, actual, fake_hf));
         response_end = (actual / GM7_FRAME_US + 1) * GM7_FRAME_US +
                        GM7_SECONDARY_US + 1370;
-        if (gm7_secondary_reserved(
-                (UINT64_C(1792800000000000) + actual) / GM7_FRAME_US + 1))
-          response_end = 0; /* A1 reserves this response opportunity. */
+
       }
     }
     statuses += p.kind == GM7_STATUS;

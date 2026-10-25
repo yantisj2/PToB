@@ -31,6 +31,11 @@ static void parse_tests(void)
   }
   snprintf(command,sizeof command,"r2 00000002 %s %s 000000000000007b gm 0",silicon,source);assert(r2_parse(command,&r));
   snprintf(command,sizeof command,"r2 00000002 %s %s 0000000000000000 gm 00",silicon,source);assert(!r2_parse(command,&r)&&!r2_bound(&r,silicon,source,123));
+  snprintf(command,sizeof command,"r2 00000002 %s %s 000000000000007b yield",silicon,source);
+  assert(!r2_parse(command,&r)&&r.op==R2_GM_YIELD&&r2_bound(&r,silicon,source,123));
+  r.boot=0;assert(!r2_bound(&r,silicon,source,123));
+  snprintf(command,sizeof command,"r2 00000002 %s %s 000000000000007b yield 01",silicon,source);
+  assert(r2_parse(command,&r));
   for(unsigned chunk=255;chunk<=264;chunk++){
    snprintf(command,sizeof command,"r2 00000002 %s %s 000000000000007b diag %04x",silicon,source,chunk);
    if(chunk<264)assert(!r2_parse(command,&r)&&r.op==R2_DIAG&&r.trace_page==chunk);

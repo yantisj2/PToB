@@ -85,10 +85,13 @@ struct gm7_reported_role {
 struct gm7_peer {
   struct gm7_reported_role reported;
   struct gm7_session session;
-  uint64_t identity, boot, locator_at, locator_first, retry_at, retry_attempt,
-      original;
-  uint16_t radio_refs, retry_offset;
+  uint64_t identity, boot, locator_at, locator_first, retry_at, original;
+  uint16_t radio_refs;
   uint16_t flags;
+  uint16_t heard_flags;
+  int16_t heard_rc;
+  uint32_t journal_at_ms;
+  uint8_t heard_kind, heard_stage;
   uint8_t address[6], kind;
   bool used, quarantined, locator_seen;
 };
@@ -176,6 +179,9 @@ int gm7_owner_planned_control(struct gm7_owner *, struct gm7_packet *,
 int gm7_owner_activate(struct gm7_owner *, uint64_t nominal,
                        uint64_t latest_complete, uint64_t now);
 int gm7_owner_control(struct gm7_owner *, struct gm7_packet *, uint64_t now);
+/* Owner thread only, immediately before normal primary control construction.
+ * Uses a current ordinary confirmed HOT; creates no appointment/nomination. */
+int gm7_owner_request_yield(struct gm7_owner *, uint64_t now);
 int gm7_owner_anchor(struct gm7_owner *, struct gm7_packet *,
                      const struct gm7_packet *request, uint64_t received,
                      uint64_t now);

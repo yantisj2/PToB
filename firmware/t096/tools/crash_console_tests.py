@@ -16,6 +16,7 @@ def run(label,cmd):
 try:
  run('core-compile',[*flags,'-DR2_GM7_NATIVE=1',str(app/'tests/core_test.c'),str(app/'src/core.c'),'-o',str(out/'core')]);run('core',[str(out/'core')])
  run('reply-compile',[*flags,'-DR2_NATIVE_BLE=1','-include',str(app/'tests/zephyr_fake.h'),str(app/'tests/reply_test.c'),str(app/'src/core.c'),'-o',str(out/'reply')]);run('reply',[str(out/'reply')])
+ run('dc-reply-compile',[*flags,'-include',str(app/'tests/zephyr_fake.h'),str(app/'tests/reply_test.c'),str(app/'src/core.c'),'-o',str(out/'dc-reply')]);run('dc-reply',[str(out/'dc-reply')])
  assert all(sha(Path(p))==h for p,h in bound.items())
-finally:(out/'receipt.json').write_text(json.dumps(dict(passed=len(passed)==4,hardware=False,class_='ACTUAL_CORE_AND_MAIN_REPLY_FAKE_KERNEL_BOUNDARY',cases=passed,inputs=bound,coverage=['legacy00ff,new0100..0107,reject0108 parser','actualmain boundedresult/hex/fullCRCframe legacy255 andretained263 ENOENT','existingmaximumwidth responses andcoredeadlines'],limits=['Hostfakekernel/console; not actualCPU exception orUSB/hardware acceptance']),indent=2)+'\n')
+finally:(out/'receipt.json').write_text(json.dumps(dict(passed=len(passed)==6,hardware=False,class_='ACTUAL_CORE_AND_MAIN_REPLY_FAKE_KERNEL_BOUNDARY',cases=passed,inputs=bound,coverage=['legacy00ff,new0100..0107,reject0108 parser','actualmain boundedresult/hex/fullCRCframe legacy255 andretained263 ENOENT','existingmaximumwidth responses andcoredeadlines','actual native non-GM7 and DC YIELD ENOTSUP'],limits=['Hostfakekernel/console; not actualCPU exception orUSB/hardware acceptance']),indent=2)+'\n')
 print('PASS actual crash parser/reply surface')

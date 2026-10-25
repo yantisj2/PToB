@@ -1,5 +1,31 @@
 # T096 changelog
 
+## 0.15.184 — Simplified control admission and active-mesh discovery
+
+S1 separates one causal peer/boot freshness fact from physical timing descriptor
+admission. Fresh ordinary ANN/STATUS no longer renegotiate control on role,
+lineage or source/train changes; a losing newer ACTIVE stops before physical
+following. Keep exact descriptor lineage/token/generations, source expiry,
+replay/terminal floors and real timing readiness. Delayed ANCHOR cannot erase
+newer accepted control. Reduce pending nonces four→one and remove A1 reserved
+frames, identity-bit copies, frozen retry UTC/residues/attempt state. Diversify
+one immutable ordinary copy per frame across45/50/55ms, with the existing three
+controller contexts and one bounded response arbitration. Ordinary nomination,
+next STATUS HOT and three immutable YIELD/WITHDRAW copies retain their guards.
+Pin enabled GM scanning to37 without phase-driven restarts. Add one bounded,
+owner-validated USB YIELD request for an already announced, fresh ordinary HOT;
+equal-quality nodes can yield without inventing quality differences. DC/RC and
+stale source/scope/nominee requests remain fenced; command acceptance is not RF
+completion.
+
+Add authenticated heard-only peer display with unknown timers and distinct
+fresh-control/descriptor facts, plus bounded RX/TX/event/merge/source records in
+the existing journal. Preserve ordinary RC/client GATT/RC9, relays, USB, LoRa and
+the .181/.182/.183 fixes. Production-body offline tests and native inspection
+remain separate from actual RF convergence/HOT/events, unexplained CPU faults,
+endurance and calibrated UTC/output acceptance. See the S1 amendment and GM7
+implementation guide for exact scope and reproducible checks.
+
 ## 0.15.183 — Sample source processing time after its coherent input
 
 Copy the GM7 clock metadata and physical source map together, then refresh the

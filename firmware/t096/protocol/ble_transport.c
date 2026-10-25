@@ -77,7 +77,7 @@ struct peer {
 static bool field_admission_allowed=true,field_admission_renewal,bootstrap_urgent=true;
 static bool relay_server;
 static bool group_client,client_window=true,bootstrap_needed=true;
-static bool gm7_server,gm7_scan_aligned;
+static bool gm7_server;
 static bool gm5_mode,gm5_inventory_due;static uint64_t gm5_selected;
 static uint64_t now_us(void);
 #if defined(R2_CONTROLLER_DIAGNOSTICS)
@@ -1391,20 +1391,17 @@ void r2_ble_gm_diagnostics(uint32_t out[R2_GM_TRANSPORT_WORDS]){
 }
 
 void r2_ble_gm7_server(bool enabled){
- gm7_server=enabled;gm7_scan_aligned=false;
+ gm7_server=enabled;
  if(enabled){gm5_mode=false;gm5_selected=0;gm5_inventory_due=false;group_client=false;}
 }
 int r2_ble_gm7_scan(bool aligned){
+ (void)aligned;
 #if defined(R2_GM7_NATIVE)
- extern void r2_gm7_controller_scan(bool,bool,uint64_t);
- if(!gm7_server)return -EACCES;
- if(gm7_scan_aligned==aligned)return 0;
- if(scanning&&!stop_scan(now_us()))return stop_error?stop_error:-EAGAIN;
- /* No running stock scan can span this policy transition. poll restarts it
-  * after the fixed37/broad policy is coherently installed. */
- r2_gm7_controller_scan(true,aligned,0);gm7_scan_aligned=aligned;return 0;
+ /* S1 management is always primary37. Phase cannot change that channel or
+  * restart the scanner; normal RC/initiator scanning remains separate. */
+ return gm7_server?0:-EACCES;
 #else
- (void)aligned;(void)gm7_scan_aligned;return -ENOTSUP;
+ return -ENOTSUP;
 #endif
 }
 

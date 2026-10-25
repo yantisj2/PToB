@@ -60,7 +60,7 @@ struct gm7_native_job {
 };
 static struct gm7_native_job native[GM7_JOB_SLOTS];
 static uint32_t generation = 1, source_live, source_end, source_epoch,
-                scan_enabled, scan_aligned, scan_epoch;
+                scan_enabled, scan_epoch;
 static uint64_t hf_now(uint32_t *epoch) {
   uint64_t now;
   return r2_gm7_clock_now(&now, epoch) ? now : UINT64_MAX;
@@ -399,16 +399,15 @@ bool r2_gm7_controller_result(struct r2_gm7_tx *out) {
 }
 void r2_gm7_controller_scan(bool enabled, bool aligned, uint64_t start) {
   (void)start;
+  (void)aligned;
   __atomic_store_n(&scan_enabled, 0, __ATOMIC_RELEASE);
   uint32_t epoch;
   uint64_t now = hf_now(&epoch);
   scan_epoch = now == UINT64_MAX ? 0 : epoch;
-  __atomic_store_n(&scan_aligned, aligned, __ATOMIC_RELEASE);
   __atomic_store_n(&scan_enabled, enabled, __ATOMIC_RELEASE);
 }
 bool r2_gm7_controller_scan37(void) {
-  if (!__atomic_load_n(&scan_enabled, __ATOMIC_ACQUIRE) ||
-      !__atomic_load_n(&scan_aligned, __ATOMIC_ACQUIRE))
+  if (!__atomic_load_n(&scan_enabled, __ATOMIC_ACQUIRE))
     return false;
   uint32_t epoch;
   uint64_t now = hf_now(&epoch);

@@ -26,8 +26,8 @@ def generate(ull,scan,aux,sync,out):
    s=replace(s,'#include <stdint.h>','#include <stdint.h>\n#include "gm7_controller.h"')
    needle='lll_chan_set(37 + lll->chan);'
    # A live initiator never changes its channel policy. Passive GM discovery
-   # pins37 throughout the aligned management scan owner; policy transitions
-   # require an acknowledged stock scanner stop/restart. Unknown phase rotates.
+   # pins37 throughout the enabled S1 GM owner, independent of phase.
+   # Ordinary RC and live initiators keep their original channel policy.
    s=replace(s,needle,'lll_chan_set((!lll->conn && r2_gm7_controller_scan37()) ? 37 : 37 + lll->chan);',2)
   else:
    s=replace(s,'#include <stdint.h>','#include <stdint.h>\n#include "gm7_controller.h"')

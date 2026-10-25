@@ -12,12 +12,6 @@ extern "C" {
 #define GM7_RX_GUARD_US 8000u
 #define GM7_JOB_SLOTS 3u
 enum gm7_opportunity { GM7_PRIMARY, GM7_SECONDARY, GM7_STANDBY };
-enum gm7_discovery {
-  GM7_DISCOVERY_ORDINARY,
-  GM7_DISCOVERY_LISTEN,
-  GM7_DISCOVERY_COPY,
-  GM7_DISCOVERY_BROAD
-};
 enum gm7_job_state {
   GM7_JOB_EMPTY,
   GM7_JOB_QUEUED,
@@ -36,11 +30,8 @@ struct gm7_job {
   struct gm7_window window;
   uint64_t ticket, sequence;
   /* Disjoint immutable job kinds: REQUEST is never positive and has no source
-   * permission. Its tentative UTC is retry placement only, never map evidence. */
-  union {
-    uint64_t source_until;
-    uint64_t request_utc;
-  };
+   * permission. No retry-phase/UTC state is retained in a completed job. */
+  uint64_t source_until;
   uint64_t request_deadline, first_start, final_end;
   uint32_t generation, buffer_version;
   uint16_t length;
@@ -59,16 +50,10 @@ int gm7_status_jitter(uint64_t identity, uint64_t boot, uint64_t cycle);
 unsigned gm7_status_slot(uint64_t identity, uint64_t boot, uint64_t cycle);
 int gm7_status_offset(uint32_t *offset, uint64_t identity, uint64_t boot,
                       uint64_t cycle, int jitter);
-bool gm7_secondary_reserved(uint64_t absolute_frame);
-enum gm7_discovery gm7_discovery_policy(uint64_t identity,
-                                        uint64_t absolute_frame, bool aligned,
-                                        bool eligible, bool event,
-                                        bool withdrawn);
-int gm7_retry_after(uint64_t *out, uint64_t original_tx_utc, uint64_t attempt,
-                    uint32_t slot_offset);
-int gm7_response_window(struct gm7_window *, uint64_t request_tx_mono,
-                        uint64_t request_frame_start,
-                        uint64_t absolute_request_frame,
+uint32_t gm7_discovery_offset(uint64_t identity, uint64_t boot, uint64_t frame);
+int gm7_response_window(struct gm7_window *, uint64_t request_rx_mono,
+                        uint64_t local_frame_start,
+                        uint64_t processing_now,
                         uint32_t phase_enclosure_us);
 /* Complete primary+gap+AUX airtime model, not measured controller performance.
  * Runtime hooks must also validate these exact unchained headers/LE2M PHY. */

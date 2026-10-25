@@ -51,8 +51,8 @@ static void sessions(void){
  struct gm7_packet old=a;req=request(&r,17,33,1100000);assert(req.body.request.nonce_hi!=old.body.anchor.nonce_hi||req.body.request.nonce_lo!=old.body.anchor.nonce_lo);assert(!gm7_request_sent(&r,&req.body.request,1110000,1110000));assert(gm7_anchor_accept(&r,&s,&old,1120000,1120000));
  a=anchor(req,false,10110000);assert(!gm7_anchor_accept(&r,&s,&a,1130000,1130000));
  assert(s.last_sequence==7&&s.last_diag[0]==1);assert(gm7_session_control(&s,&c,1140000,1140000,&original,&until)==-EALREADY);
- struct gm7_packet wrong=fixture("withdraw");wrong.body.control.sent_mono_us=10120000;wrong.body.control.term++;wrong=authenticated(wrong);deadline=s.source_until;assert(gm7_session_control(&s,&wrong,1150000,1150000,&original,&until)==-EXDEV&&s.serving&&s.source_until==deadline);
- wrong=fixture("withdraw");wrong.body.control.sent_mono_us=10120000;wrong.body.control.train_gen++;wrong=authenticated(wrong);assert(gm7_session_control(&s,&wrong,1150000,1150000,&original,&until)==-EXDEV&&s.serving&&s.source_until==deadline);
+ struct gm7_packet wrong=fixture("withdraw");wrong.body.control.sent_mono_us=10120000;wrong.body.control.term++;wrong=authenticated(wrong);deadline=s.source_until;assert(gm7_session_control(&s,&wrong,1150000,1150000,&original,&until)==-EXDEV&&s.control.source_valid_us&&s.source_until==deadline);
+ wrong=fixture("withdraw");wrong.body.control.sent_mono_us=10120000;wrong.body.control.train_gen++;wrong=authenticated(wrong);assert(gm7_session_control(&s,&wrong,1150000,1150000,&original,&until)==-EXDEV&&s.control.source_valid_us&&s.source_until==deadline);
  req=request(&r,17,33,200000000);assert(!gm7_request_sent(&r,&req.body.request,200000000,200000000));a=anchor(req,false,209000000);assert(!gm7_anchor_accept(&r,&s,&a,200020000,200020000));assert(s.valid);
  req=request(&r,17,33,201000000);assert(!gm7_request_sent(&r,&req.body.request,201000000,201000000));a=anchor(req,false,215000000);assert(gm7_anchor_accept(&r,&s,&a,201020000,201020000)==-ERANGE);assert(!s.valid&&!s.source_until);
  struct gm7_requester failure={0};assert(!gm7_requester_init(&failure,&g,81,97,0));struct gm7_packet out={0};assert(gm7_request_begin(&failure,&out,17,33,1,random_bytes,(void *)1));assert(failure.failed);
@@ -87,23 +87,24 @@ static void canonical_renewals(void){
   if(!candidate){
    struct gm7_packet wrong=fixture("eligible-candidate-status");wrong.body.control.sender=id;wrong.body.control.boot=peerboot;
    wrong.body.control.sequence=sequence+1;wrong.body.control.sent_mono_us=10120000;wrong=authenticated(wrong);
-   assert(gm7_session_control(&s,&wrong,1150000,1150000,&original,&until)==-EXDEV);
-   assert(!memcmp(&s.control,&accepted,sizeof accepted)&&s.control_until==expiry);
+   assert(!gm7_session_control(&s,&wrong,1150000,1150000,&original,&until));
+   assert(s.control.sequence==sequence+1 && !gm7_session_timing_current(&s));
+   sequence++;
    struct gm7_packet fresh=c;fresh.body.control.sequence=++sequence;fresh.body.control.sent_mono_us=10130000;fresh=authenticated(fresh);
    assert(!gm7_session_control(&s,&fresh,1150000,1150000,&original,&until)&&s.source_until>source_until);
    struct gm7_packet negative=fixture("withdraw");negative.body.control.sequence=++sequence;negative.body.control.sent_mono_us=10140000;negative=authenticated(negative);
-   assert(!gm7_session_control(&s,&negative,1160000,1160000,&original,&until)&&!s.serving);
+   assert(!gm7_session_control(&s,&negative,1160000,1160000,&original,&until)&&!s.control.source_valid_us);
    source_until=s.source_until;
    q=request(&r,id,peerboot,1170000);assert(!gm7_request_sent(&r,&q.body.request,1180000,1180000));
    a=anchor(q,false,10180000);a.body.anchor.control_sequence=sequence;a=authenticated(a);
-   assert(!gm7_anchor_accept(&r,&s,&a,1200000,1200000)&&!s.serving&&s.source_until==source_until);
+   assert(!gm7_anchor_accept(&r,&s,&a,1200000,1200000)&&!s.control.source_valid_us&&s.source_until==source_until);
    assert(gm7_session_control(&s,&fresh,1200000,1200000,&original,&until)==-EALREADY);
   }
   q=request(&r,id,peerboot,1200000);assert(!gm7_request_sent(&r,&q.body.request,1210000,1210000));
   a=anchor(q,candidate,10210000);a.body.anchor.control_sequence=sequence;
   if(candidate)a.body.anchor.capture_gen++;else a.body.anchor.term++;
   a=authenticated(a);assert(!gm7_anchor_accept(&r,&s,&a,1230000,1230000));
-  assert(!s.control_until&&!s.control.sequence&&s.last_sequence==sequence&&s.floor==sequence);
+  assert(s.control_until&&s.control.sequence&&s.last_sequence==sequence&&s.floor==sequence);
  }
  /* Actual owner candidate cache survives only same-physical candidate renewal. */
  struct gm7_owner o;assert(!gm7_owner_init(&o,&g,81,97,true,1000000));
@@ -126,9 +127,9 @@ static void canonical_renewals(void){
    assert(!gm7_owner_receive(&o,ad,GM7_CONTROL_BYTES+4,NULL,at+60000,at+60000));
    peer->reported=(struct gm7_reported_role){.until=9999999,.role=GM7_W_HOT,.known=7};
   }else if(pass==1){assert(peer->kind==GM7_STATUS&&peer->session.control_until&&peer->reported.known==7);}
-  else {assert(!peer->kind&&!peer->session.control_until&&!peer->reported.known);}
+  else {assert(peer->kind==GM7_STATUS&&peer->session.control_until&&peer->reported.known==7);}
  }
- puts("PASS canonical ANCHOR seed grants no control; serving renewal preserves whole original ANN, candidate lineage-bearing STATUS/cache survives same-physical renewal, changed scope invalidates without lowering replay floors");
+ puts("PASS canonical ANCHOR seed grants no control; serving renewal preserves whole original ANN, candidate lineage-bearing STATUS/cache survives same-physical renewal, descriptor changes preserve control and replay floors");
 }
 static struct gm7_source local_source(uint64_t now){return (struct gm7_source){.utc_us=UINT64_C(1792800000000000)+now,.sampled_us=now,.until_us=now+1500000,.pps_at=now-now%1000000,.source_gen=3,.capture_gen=4,.association_gen=1,.quality={128,2,255,128,65535},.gnss_healthy=true,.pps_healthy=true,.utc_available=true,.physical_ready=true};}
 static void update(struct gm7_owner *o,uint64_t now,const struct gm7_preparation *prep){struct gm7_source source=local_source(now);struct gm7_preparation empty={0};gm7_owner_update(o,&source,prep?prep:&empty,now);}
@@ -209,14 +210,22 @@ static void host_endpoints(void){
 }
 static void schedule(void){
  for(uint64_t cycle=0;cycle<32;cycle++){uint32_t lo,hi;assert(!gm7_status_offset(&lo,17,33,cycle,-250));assert(!gm7_status_offset(&hi,17,33,cycle,250));assert(hi-lo==500&&lo>=89750&&hi<=107750);}
- for(unsigned bit=0;bit<64;bit++){uint64_t a=1,b=UINT64_C(1)<<bit;if(a==b)b|=2;bool differs=false;for(uint64_t n=4;n<=256;n+=4){enum gm7_discovery x=gm7_discovery_policy(a,n,true,true,false,false),y=gm7_discovery_policy(b,n,true,true,false,false);if(x!=y)differs=true;assert(gm7_discovery_policy(a,n,true,true,true,false)==GM7_DISCOVERY_LISTEN);}assert(differs);}
- for(uint64_t attempt=0;attempt<32;attempt++){uint64_t next;assert(!gm7_retry_after(&next,10090000,attempt,90000));assert(next>=12090000&&next<13090000&&(next/250000)%4==attempt%4);}
- /* Production A1 slot selection precedes residue calculation. Same low ID
-  * bits do not force collision; frozen offsets survive the target cycle. */
- for(unsigned n=0;n<64;n++)for(unsigned j=0;j<3;j++){
-  uint64_t id=17+(UINT64_C(1)<<(16+j*16));uint64_t tx=UINT64_C(1792800000000000)+n*250000+90000;uint32_t offset;int jitter=j==0?-250:j==1?0:250;assert(!gm7_status_offset(&offset,id,33,(tx+2000000)/2000000,jitter));uint64_t next;assert(!gm7_retry_after(&next,tx,n,offset));assert(next>=tx+2000000&&next<tx+3000000&&next%250000==offset&&(next/250000)%4==n%4);
+ for(unsigned bit=0;bit<64;bit++){
+  uint64_t a=1,b=UINT64_C(1)<<bit;if(a==b)b|=2;bool differs=false;
+  for(uint64_t n=4;n<=256;n++){
+   uint32_t x=gm7_discovery_offset(a,33,n),y=gm7_discovery_offset(b,33,n);
+   if(x!=y)differs=true;
+   assert(x>=45000 && x<=55000 && !(x%5000));
+  }
+  assert(differs);
  }
- struct gm7_window w;for(uint64_t frame=0;frame<8;frame++){int rc=gm7_response_window(&w,frame*250000+90000,frame*250000,frame,2000);assert(!!rc==gm7_secondary_reserved(frame+1));}
+ struct gm7_window w;
+ for(uint64_t now=0;now<500000;now++){
+  uint64_t base=now-now%250000;
+  int rc=gm7_response_window(&w,now,base,now,2000);
+  if(!rc)assert(w.nominal>=now+3000 && w.latest_end-now<=248000 &&
+               w.nominal%250000>=43000 && w.nominal%250000<=53000);
+ }
  uint32_t airtime;assert(!gm7_complete_airtime(&airtime,190,13,10,1,2)&&airtime==1328);assert(gm7_complete_airtime(&airtime,190,13,10,1,1));assert(gm7_complete_airtime(&airtime,190,13,10,3,2));
  struct gm7_scheduler s;gm7_scheduler_init(&s,9000000);struct gm7_packet p=fixture("announce");struct r2_group_config g=group();uint64_t ticket;
  w=(struct gm7_window){.nominal=10038000,.latest_start=10040000,.latest_end=10042000,.enclosure_us=500,.channel=37,.physical=true};
@@ -232,7 +241,7 @@ static void schedule(void){
  assert(!gm7_scheduler_started(&s,0,ticket,gen,version,w.nominal));assert(gm7_scheduler_aux_allowed(&s,0,ticket,gen,version,w.nominal+500,1000,false));assert(!gm7_scheduler_complete(&s,0,ticket,gen,version,w.nominal+1500,true));
  assert(!gm7_scheduler_release(&s,0,ticket,true,w.nominal+1501));
  p=fixture("eligible-candidate-status");assert(gm7_scheduler_submit(&s,0,&p,&g,w,11200000,0,1,w.nominal+1501,&ticket)==-EPROTO);
- puts("PASS production scheduler hashed STATUS slots, A1 full64ID diversity/reserved response/retry residues, completeLE1M+LE2M event airtime, actualSTART/AUXEND bounds, no HCI completion fiction, drain ownership and generation-fenced late AUX");
+ puts("PASS production scheduler hashed STATUS slots, per-frame full64ID discovery diversity and arbitrary-phase bounded response, completeLE1M+LE2M event airtime, actualSTART/AUXEND bounds, no HCI completion fiction, drain ownership and generation-fenced late AUX");
 }
 static void air(void){
  struct gm7_scheduler s;gm7_scheduler_init(&s,0);struct gm7_packet p=fixture("announce");struct r2_group_config g=group();
@@ -315,4 +324,89 @@ static void reservation(void){
  assert(!gm7_bridge_to_hf(b,1000031,&end));b.kernel_hi+=101;assert(!gm7_bridge_to_hf(b,2000000,&end));
  puts("PASS provisional future reservation, projected birth, no early serving/output, abort/retry sequence consumption, measured first complete ANN commit and conservative mixed-domain expiry");
 }
-int main(void){printf("sizeof owner=%zu peer=%zu session=%zu scheduler=%zu\n",sizeof(struct gm7_owner),sizeof(struct gm7_peer),sizeof(struct gm7_session),sizeof(struct gm7_scheduler));codec();sessions();canonical_renewals();owner();capacity_and_merge();phase_policy();reservation();promote();host_endpoints();schedule();air();diagnostics();return 0;}
+static void simplified_control(void) {
+ struct r2_group_config g=group();
+ struct gm7_owner old,young;
+ assert(!gm7_owner_init(&old,&g,17,33,true,0));
+ assert(!gm7_owner_init(&young,&g,49,65,true,0));
+ dwell(&old);dwell(&young);
+ for(uint64_t t=61000000;t<=66000000;t+=1000000){update(&old,t,NULL);update(&young,t,NULL);}
+ update(&young,66100000,NULL);
+ assert(!gm7_owner_activate(&old,66000000,66004000,66000000));
+ assert(!gm7_owner_activate(&young,66100000,66104000,66100000));
+ struct gm7_packet ann;
+ assert(!gm7_owner_control(&old,&ann,66200000));
+ assert(receive(&young,ann,66200010));
+ struct gm7_packet q;
+ assert(!gm7_owner_next_request(&young,&q,66200020,random_bytes,NULL));
+ assert(!gm7_request_sent(&young.requester,&q.body.request,66200030,66200030));
+ struct gm7_packet a;
+ assert(!gm7_owner_anchor(&old,&a,&q,66200040,66200050));
+ /* A live first-contact candidate snapshot has no serving descriptor. */
+ a.flags &= ~GM7_A_SERVING;
+ a.body.anchor.birth_us=a.body.anchor.founder=a.body.anchor.term=0;
+ a.body.anchor.active=a.body.anchor.active_boot=0;
+ a.body.anchor.timing_epoch=a.body.anchor.train_gen=0;
+ assert(!receive(&young,a,66200060));
+ uint64_t nonce_count=young.requester.sequence;
+ assert(!gm7_owner_control(&old,&ann,66200080));
+ assert(!receive(&young,ann,66200090));
+ assert(!young.serving && young.reason==GM7_R_MERGE);
+ assert(!gm7_owner_output(&young,66200090));
+ assert(young.requester.sequence==nonce_count);
+ struct gm7_peer *p=&young.peer[0];
+ assert(p->session.valid && p->kind==GM7_ANNOUNCE);
+ assert(!gm7_session_timing_current(&p->session));
+ update(&young,66200100,NULL);
+ assert(young.scope.active==17 && !young.scope.timing_epoch);
+ /* A descriptor refresh sampled before a newer ANN cannot erase that ANN. */
+ assert(!gm7_request_begin(&young.requester,&q,17,33,66300000,random_bytes,NULL));
+ assert(!gm7_request_sent(&young.requester,&q.body.request,66300010,66300010));
+ assert(!gm7_owner_anchor(&old,&a,&q,66300020,66300030));
+ assert(!gm7_owner_control(&old,&ann,66300040));
+ assert(!receive(&young,ann,66300050));
+ uint64_t seq=p->session.last_sequence, expiry=p->session.control_until;
+ uint64_t source=p->session.source_until;
+ assert(a.body.anchor.control_sequence<seq);
+ assert(!receive(&young,a,66300060));
+ assert(p->session.last_sequence==seq && p->session.floor>=seq &&
+        p->session.control_until==expiry && p->session.source_until==source);
+ assert(gm7_session_timing_current(&p->session));
+ /* Same generations never authorize a different lineage/term's timing. */
+ ann.body.control.sequence++;
+ ann.body.control.term++;
+ ann.body.control.sent_mono_us=66300070;
+ ann.body.control.sent_utc_us=UINT64_C(1792800066300070);
+ assert(!receive(&young,ann,66300080));
+ assert(p->session.valid && !gm7_session_timing_current(&p->session));
+ update(&young,66300090,NULL);
+ /* Invalid negative/retired term cannot cancel a pending local action,
+  * replace current control or move the original contact/expiry. */
+ young.reserved=true;young.armed=true;
+ struct gm7_control accepted=p->session.control;
+ uint64_t contact=young.selected_original;
+ source=p->session.source_until;expiry=p->session.control_until;
+ struct gm7_packet bad=ann;
+ bad.kind=GM7_WITHDRAW;bad.flags=0;
+ bad.body.control.source_valid_us=0;
+ bad.body.control.max_age_us=1000000;
+ bad.body.control.term++;
+ bad.body.control.sequence++;
+ bad.body.control.sent_mono_us=66300100;
+ bad.body.control.sent_utc_us=UINT64_C(1792800066300100);
+ assert(receive(&young,bad,66300110)==-EXDEV);
+ assert(young.reserved && young.armed && young.selected_original==contact &&
+        p->session.source_until==source && p->session.control_until==expiry &&
+        !memcmp(&p->session.control,&accepted,sizeof accepted));
+ bad=ann;bad.body.control.sequence++;
+ bad.body.control.term--;
+ bad.body.control.sent_mono_us=66300120;
+ bad.body.control.sent_utc_us=UINT64_C(1792800066300120);
+ assert(receive(&young,bad,66300130)==-ESTALE);
+ assert(young.reserved && young.armed &&
+        !memcmp(&p->session.control,&accepted,sizeof accepted));
+ puts("PASS S1 candidate contact admits fresh older ANN/immediate stop without timing; "
+      "new ANN before sampled ANCHOR retains floors/contact; full lineage timing "
+      "fence and invalid negative/retired term preserve reservation/HOT/control");
+}
+int main(void){printf("sizeof owner=%zu peer=%zu session=%zu scheduler=%zu\n",sizeof(struct gm7_owner),sizeof(struct gm7_peer),sizeof(struct gm7_session),sizeof(struct gm7_scheduler));codec();sessions();canonical_renewals();owner();simplified_control();capacity_and_merge();phase_policy();reservation();promote();host_endpoints();schedule();air();diagnostics();return 0;}

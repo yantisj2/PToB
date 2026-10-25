@@ -215,7 +215,7 @@ static void shortened_and_cancelled(void) {
 static void scan_and_anchor(void) {
   reset();
   r2_gm7_controller_scan(true, false, 0);
-  assert(!r2_gm7_controller_scan37());
+  assert(r2_gm7_controller_scan37());
   r2_gm7_controller_scan(true, true, 0);
   assert(r2_gm7_controller_scan37());
   ++fake_epoch;
@@ -237,7 +237,7 @@ static void scan_and_anchor(void) {
   assert(!r2_gm7_precision_anchor(3, &u, &anchor, 62500));
   r2_gm7_controller_precision(false, 0, 0, 0);
   assert(r2_gm7_precision_anchor(55, &u, &anchor, 62500));
-  puts("PASS actual controller broad/aligned37 policy and epoch fence, "
+  puts("PASS actual controller phase-independent GM37 policy and epoch fence, "
        "prospective exact-handle/train62.5ms G1 anchor, SyncInfo ticker phase, "
        "stale/mismatched rejection and RC inactive bypass");
 }

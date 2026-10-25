@@ -33,7 +33,7 @@ static void current_peer(bool incumbent) {
   p->kind = incumbent ? GM7_ANNOUNCE : GM7_STATUS;
   p->flags = GM7_ELIGIBLE | GM7_CAPABLE;
   p->original = fake_hf - 10;
-  p->session = (struct gm7_session){.valid = true, .serving = incumbent,
+  p->session = (struct gm7_session){.valid = true,
                                     .group = group.id, .key_epoch = group.epoch,
                                     .local_boot = boot, .peer = p->identity,
                                     .peer_boot = p->boot,

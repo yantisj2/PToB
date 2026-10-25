@@ -30,6 +30,12 @@ and founder while advancing the leader term. The existing 32-bit timing token
 remains separate. Older mesh birth wins when active meshes meet; the losing GM
 stops its positive output before following the winner.
 
+Source0.15.184 uses the [S1 simplification amendment](../../protocol/gm7_simplified_s1/README.md)
+with diagnostic identity `GM7v2+S1+C1`. S1 separates causal contact admission from
+physical descriptor matching and replaces A1 discovery/retry rules. A fresh older
+ANN stops losing output before physical timing acquisition. Authenticated heard
+acquiring peers remain visible with unproven freshness and unknown timers.
+
 The [implementation2 wire contract](../../protocol/gm7_v2/README.md),
 [ACTIVE discovery amendment A1](../../protocol/gm7_scheduler_a1/README.md) and
 [bootstrap endpoint amendment B1](../../protocol/gm7_bootstrap_b1/README.md)
@@ -192,19 +198,20 @@ make a live GM coordination owner.
 The dedicated controller reserves three immutable primary/AUX event contexts,
 three user ticker nodes/thread operations and two additional event-done buffers.
 Primary management uses channel37/LE1M; AUX uses a named data channel/LE2M with
-an unchained complete event bounded by2ms and at most2ms start lateness. Aligned
-passive management scan pins37 through an acknowledged stock scanner restart;
-phase-unknown discovery rotates broadly. Capture routes share the existing
+an unchained complete event bounded by2ms and at most2ms start lateness. Enabled passive GM management scan pins37 regardless of physical phase; normal
+RC and live initiator scanning retain their original channel policy. Capture routes share the existing
 TIMER3/epoch extension: exclusive ADDRESS CC1 and separately allocated END CC5,
 with CC0/2/3/4 owners preserved. HCI submission/callback times are never RF proof.
 
-A1 prequeues its ordinary secondary ANNOUNCE copy with the immutable primary.
-STATUS slots hash full identity, boot and changing cycle, with a bounded
-SHA256-derived jitter in[-250,+250]us. A completed REQUEST freezes its next
-valid hashed slot/jitter before computing the earliest rotating-residue frame
-at least2s later (nominal less than3s). STATUS/capacity deferral keeps that
-frozen slot/residue and records lateness, without inventing an on-air attempt.
-Response admission never rolls into a later frame to bypass reserved secondary.
+S1 retains one immutable ordinary copy per frame at45/50/55ms, diversified by
+full identity/boot/frame. A completed primary is retained through the bounded
+copy decision. One secondary context arbitrates responses, diagnostics and
+copies; response placement uses the receiver's actual phase and original RTT.
+Pending nonces reduce fromfour toone; old reserved-frame/bit-cycle refusal,
+retry attempts/residues/offsets and frozen retry UTC are removed. Source/role/
+train changes no longer destroy causal control freshness or replay floors.
+Exact physical descriptor matching remains mandatory for following and HOT.
+See S1 for finite journal fields, heard/fresh/current UI, commands and limits.
 
 C1 provisional scope cannot enable G1, client source admission or an ACTIVE
 timer. Complete first ANNOUNCE commits the scope; ACTIVE duration starts at

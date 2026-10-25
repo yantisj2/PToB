@@ -744,6 +744,14 @@ int main(void)
         } else if(r.op==R2_LORA_CONTROL){
           if(r.seconds){rc=maintenance.phase==R2_IDLE&&platform_ready?0:-EACCES;if(!rc)r2_lora_request(r.nonce!=0);}
 #endif
+        } else if(r.op==R2_GM_YIELD) {
+#ifdef R2_GM7_NATIVE
+          uint32_t profile[5];r2_service_profile_status(profile);
+          rc=maintenance.phase==R2_IDLE&&platform_ready&&!profile[0]&&!profile[1]
+              ?r2_gm7_request_yield():-EACCES;
+#else
+          rc=-ENOTSUP;
+#endif
         } else if(r.op==R2_WITNESS) {
           if(maintenance.phase!=R2_IDLE)rc=-EACCES;else r2_shadow_enable(r.nonce!=0);
         } else if(r.op==R2_PROFILE) {
@@ -776,6 +784,10 @@ int main(void)
         } else if(r.op==R2_RELAY){
           rc=platform_ready&&maintenance.phase==R2_IDLE?r2_service_relay(r.nonce,r.seconds,command.arrival):-EACCES;
           r2_diag_command(r.id,r.op,rc,command.arrival);
+#endif
+#ifndef R2_NATIVE_BLE
+        } else if(r.op==R2_GM_YIELD) {
+          rc=-ENOTSUP;
 #endif
 #ifdef R2_DC_PROFILE
         } else if(r.op==R2_PROFILE||r.op==R2_BLE||r.op==R2_RELAY||r.op==R2_WITNESS||r.op==R2_NAME) {

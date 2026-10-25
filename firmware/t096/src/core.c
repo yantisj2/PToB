@@ -46,6 +46,7 @@ int r2_parse(const char *line, struct r2_request *out)
   else if (!strcmp(parts[5],"ui")) out->op = R2_UI;
   else if (!strcmp(parts[5],"precision")) out->op = R2_PRECISION;
   else if (!strcmp(parts[5],"gm")) out->op = R2_GM;
+  else if (!strcmp(parts[5],"yield")) out->op = R2_GM_YIELD;
   else if (!strcmp(parts[5],"join")) out->op = R2_JOIN;
   else if (!strcmp(parts[5],"name")) out->op = R2_NAME;
   else if (!strcmp(parts[5],"relay")) out->op = R2_RELAY;
@@ -90,6 +91,7 @@ int r2_parse(const char *line, struct r2_request *out)
    out->seconds=1;return 0;
   }
 #endif
+  if(out->op==R2_GM_YIELD)return count==6?0:-EINVAL;
   if(out->op==R2_GM)return count==7&&hex(parts[6],2,&out->nonce)&&out->nonce<=
 #ifdef R2_GM7_NATIVE
    8
