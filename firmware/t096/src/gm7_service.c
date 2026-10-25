@@ -566,6 +566,7 @@ timing(struct gm7_bridge b, const struct gm7_source *s,
   struct r2_radio_scope scope = {0};
   struct r2_group_client anchor = {0};
   uint64_t until = 0;
+  uint64_t resume_until = 0;
   int64_t utc = -1;
   if (gm7_owner_output(&owner, b.hf) &&
       gm7_bridge_to_kernel(b, s->until_us, &until)) {
@@ -578,6 +579,7 @@ timing(struct gm7_bridge b, const struct gm7_source *s,
                                     .until_us = until,
                                     .gm = true};
     utc = (int64_t)s->utc_us;
+    resume_until = until;
   } else if (owner.scope.active && owner.scope.active != identity) {
     for (unsigned i = 0; i < GM7_PEERS; i++) {
       const struct gm7_peer *p = &owner.peer[i];
@@ -627,6 +629,16 @@ timing(struct gm7_bridge b, const struct gm7_source *s,
                                       .until_us = until,
                                       .follower = true};
       utc = (int64_t)projected;
+      /* Reopening PT requires a currently authenticated contact, not merely
+       * the retained selected lineage or its independently bounded map. */
+      uint64_t control = owner.selected_until < p->session.control_until
+                             ? owner.selected_until
+                             : p->session.control_until;
+      if (p->session.until < control)
+        control = p->session.until;
+      if (control > owner.selected_source_until)
+        control = owner.selected_source_until;
+      (void)gm7_bridge_to_kernel(b, control, &resume_until);
       break;
     }
   }
@@ -638,7 +650,6 @@ timing(struct gm7_bridge b, const struct gm7_source *s,
                                .gnss_mask = 1};
   memcpy(path.identity, roster.identity, sizeof roster.identity);
   memcpy(path.address, roster.address, sizeof roster.address);
-  r2_radio_service_client(&anchor, &path, b.kernel_hi);
   struct r2_role_record role = {.sender = identity,
                                 .sender_boot = boot,
                                 .root = scope.root_identity,
@@ -655,9 +666,21 @@ timing(struct gm7_bridge b, const struct gm7_source *s,
     const struct gm7_gnss *g = &diagnostic_packet.body.gnss;
     gm7_legacy_gnss(&reference, g, b.kernel_hi);
   }
-  r2_radio_service_tick_reference(
-      scope, map, utc >= 0 && utc <= INT64_MAX / 1000 ? utc * 1000 : -1,
-      b.kernel_hi, scope.gm ? &reference : NULL);
+  (void)map; /* Physical revisions arrive from the independent clock owner. */
+  (void)k_mutex_lock(&lock, K_FOREVER);
+  if (atomic_get(&stopping) || resource_fault || input.stopped || input.fatal) {
+    scope = (struct r2_radio_scope){0};
+    anchor = (struct r2_group_client){0};
+    resume_until = 0;
+  }
+  r2_radio_service_gm7_publish(
+      scope, &anchor, &path,
+      utc >= 0 && utc <= INT64_MAX / 1000 ? utc * 1000 : -1,
+      b.kernel_hi, resume_until);
+  (void)k_mutex_unlock(&lock);
+  /* The consumer does not rewrite the grant or clear stopped after this
+   * lifecycle check. HCI runs without the service lock. */
+  r2_radio_service_gm7_tick(b.kernel_hi, scope.gm ? &reference : NULL);
   r2_ble_serving(scope.gm);
   r2_lora_origin(scope.gm, boot, scope.source_epoch);
 }
@@ -1614,8 +1637,6 @@ int r2_service_run(uint64_t at) { return start(at, 0); }
 void r2_service_stop(void) {
   if (!started)
     return;
-  r2_radio_service_withdraw();
-  r2_gm7_controller_cancel(0);
   (void)k_mutex_lock(&lock, K_FOREVER);
   resuming = status.profile_pending = false;
   if (!atomic_get(&stopping)) {
@@ -1625,7 +1646,9 @@ void r2_service_stop(void) {
     status.serving = status.follower = false;
     atomic_set(&stopping, 1);
   }
+  r2_radio_service_withdraw();
   (void)k_mutex_unlock(&lock);
+  r2_gm7_controller_cancel(0);
 }
 void r2_service_supervise(void) {
   if (!started)
@@ -2036,6 +2059,8 @@ int r2_gm7_diagnostic_format(char *out, size_t capacity, unsigned page,
     (void)k_mutex_unlock(&lock);
     return n >= 0 && (size_t)n < capacity ? n : -ENOSPC;
   }
+  bool pt_stopped=false,pt_managed=false,pt_binding=false;
+  if(runtime_gm)r2_radio_service_gm7_state(&pt_stopped,&pt_managed,&pt_binding);
   int n = snprintf(
       out, capacity,
       "{\"schema\":7,\"protocol\":\"GM7v2+A1+C1\",\"source\":\"%s\",\"boot\":"
@@ -2050,7 +2075,8 @@ int r2_gm7_diagnostic_format(char *out, size_t capacity, unsigned page,
       "\"management_mac_valid\":%u,\"management_"
       "accepted\":%u,\"event_queued\":%u,\"event_completed\":%u,\"event_"
       "failed\":%u,"
-      "\"event_unsent\":%u,\"absolute_utc_error_us\":null,\"rf_timing_"
+      "\"event_unsent\":%u,\"pt_stopped\":%s,\"pt_managed\":%s,"
+      "\"pt_binding_matches\":%s,\"absolute_utc_error_us\":null,\"rf_timing_"
       "qualified\":false}",
       source, (unsigned long long)physical_boot,
       configured && runtime_gm ? "true" : "false",
@@ -2076,7 +2102,8 @@ int r2_gm7_diagnostic_format(char *out, size_t capacity, unsigned page,
       runtime_gm ? diagnostic.event_queued : 0,
       runtime_gm ? diagnostic.event_completed : 0,
       runtime_gm ? diagnostic.event_failed : 0,
-      runtime_gm ? diagnostic.event_unsent : 0);
+      runtime_gm ? diagnostic.event_unsent : 0,
+      pt_stopped?"true":"false",pt_managed?"true":"false",pt_binding?"true":"false");
   (void)k_mutex_unlock(&lock);
   return n >= 0 && (size_t)n < capacity ? n : -ENOSPC;
 }

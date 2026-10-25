@@ -62,8 +62,10 @@ bool r2_ble_client_window_open(uint64_t now,uint32_t window){return now%1000000<
 uint64_t r2_ble_client_window_start(uint64_t now){return now-now%1000000;}
 bool r2_capture_radio(uint32_t raw,uint32_t epoch,struct r2_capture *out){*out=(struct r2_capture){raw,epoch,R2_CAPTURE_RADIO};return true;}
 static bool queued;static struct r2_radio_record packet;
+static unsigned fake_capture_overflow;
+static void (*fake_after_stats)(void);
 bool r2_radio_capture_pop(struct r2_radio_record *out){if(mode==19)assert(pt_lock.held);if(!queued)return false;*out=packet;queued=false;return true;}
-void r2_radio_capture_stats(struct r2_radio_capture_stats *out){*out=(struct r2_radio_capture_stats){.armed=armed};}
+void r2_radio_capture_stats(struct r2_radio_capture_stats *out){*out=(struct r2_radio_capture_stats){.armed=armed,.overflow=fake_capture_overflow};if(fake_after_stats)fake_after_stats();}
 int r2_radio_capture_flush(void){if(armed)return -EBUSY;int n=queued;queued=false;return n;}
 static unsigned handoff_withdraw_probes;
 static void handoff_during_withdraw(void){assert(!r2_radio_service_handoff_ready(111,100,4));++handoff_withdraw_probes;}

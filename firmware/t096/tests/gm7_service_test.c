@@ -259,6 +259,19 @@ void r2_radio_service_tick_reference(struct r2_radio_scope s,
   (void)g;
   fake_scope = s;
 }
+static uint64_t fake_resume_until;
+static void (*fake_after_publish)(void);
+void r2_radio_service_gm7_publish(struct r2_radio_scope s,const struct r2_group_client *c,
+ const struct r2_enrollment *p,int64_t utc,uint64_t at,uint64_t resume_until){
+ fake_scope=s;fake_client=*c;fake_path=*p;fake_resume_until=resume_until;
+ (void)utc;(void)at;
+}
+void r2_radio_service_gm7_tick(uint64_t now,const struct r2_gnss_record *g){
+ (void)now;(void)g;if(fake_after_publish)fake_after_publish();
+}
+void r2_radio_service_gm7_state(bool *stopped,bool *managed,bool *binding){
+ *stopped=false;*managed=true;*binding=fake_scope.gm||fake_scope.follower;
+}
 void r2_radio_service_handoff_request(uint64_t r, uint64_t b, uint32_t e) {
   (void)r;
   (void)b;

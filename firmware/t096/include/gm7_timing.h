@@ -15,6 +15,17 @@ struct r2_gm7_timing {
  bool retained;
 };
 void r2_radio_service_gm7_timing(struct r2_gm7_timing *,uint64_t now);
+struct r2_group_client;
+struct r2_enrollment;
+struct r2_gnss_record;
+/* GM CONTROL publishes under its lifecycle lock; no HCI in this call. Resume
+ * is bounded by an original live owner/control permission, never a new lease.
+ * Native consumption follows after releasing that lock. */
+void r2_radio_service_gm7_publish(struct r2_radio_scope,
+ const struct r2_group_client *,const struct r2_enrollment *,int64_t utc_ns,
+ uint64_t sampled_us,uint64_t resume_until_us);
+void r2_radio_service_gm7_tick(uint64_t now,const struct r2_gnss_record *);
+void r2_radio_service_gm7_state(bool *stopped,bool *managed,bool *binding);
 /* Copy a scoped retained delivered map into an own source coordinate. Only
  * after old RF associations have drained; independent local GNSS permission
  * remains separately required for every subsequent publication. */

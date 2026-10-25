@@ -19,9 +19,15 @@ def main():
         checks.append(name)
     check('exact .180 GM linked allocation')
     check('exact .181 GM inherited allocation',version=(0,15,181))
+    pt=copy.deepcopy(SYMBOLS)
+    for name,size in [('pt_input',1128),('pt_output',728)]:pt[name]=[dict(size=size,address=0x20020000,section='bss',type='SHT_NOBITS')]
+    check('exact .182 GM unchanged PT allocations',version=(0,15,182),symbols=pt)
+    for name in ('pt_input','pt_output'):
+        q=copy.deepcopy(pt);q[name][0]['size']+=8
+        check('no hidden182 '+name+' growth',version=(0,15,182),symbols=q,reject=True)
     for profile in ('RC','DC','PC'):check('no '+profile+' allowance',profile=profile,expected=0)
     check('no legacy backend allowance',gm7=False,expected=0)
-    for version in ((0,15,179),(0,15,182)):check('no other version '+str(version),version=version,expected=0)
+    for version in ((0,15,179),(0,15,183)):check('no other version '+str(version),version=version,expected=0)
     for line in CONFIG.splitlines():check('requires '+line,config=CONFIG.replace(line,''),reject=True)
     for name in SYMBOLS:
         for field,value in [('size',511),('address',0x20040000),('section','bss'),('type','SHT_PROGBITS')]:

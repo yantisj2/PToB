@@ -1,5 +1,21 @@
 # T096 changelog
 
+## 0.15.182 — Reopen PT from a fresh GM control grant
+
+Publish the GM7 grant, anchor, roster and bounded resume atomically. A control
+withdrawal previously left PT stopped after a later valid local election or
+authenticated follower contact. Separate this fast mailbox operation from HCI
+consumption and preserve service stop, fatal/resource, original expiry and HOT
+handoff precedence. Fence old or in-flight PT output and LoRa/shadow exports
+against the current full binding and original horizons. First GM opt-in waits
+for an unmanaged PT job to finish its exports. Two bits use existing input
+padding; ordinary RC publication remains on its original path. Add named
+`pt_stopped`, `pt_managed` and `pt_binding_matches` observations to `gm 00`,
+without changing its existing keys or diagnostic storage. Focused tests execute
+the real producer, PT, codec and native start/stop bodies with fake HAL/HCI.
+These are offline behavior checks; actual RF delivery and the separate CPU
+corruption remain unqualified.
+
 ## 0.15.181 — Allow initial election after an expired remote timing map
 
 After the GM7 owner grants an initial election, use the independently qualified
