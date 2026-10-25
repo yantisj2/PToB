@@ -2,6 +2,7 @@
 #include "diagnostic.h"
 #include "controller_diag.h"
 #include "health.h"
+#include "crash_record.h"
 #include "core.h"
 #include "time_service.h"
 #include "build_identity.h"
@@ -33,6 +34,9 @@ static uint64_t previous_root_boot,previous_standby_boot;static uint32_t previou
 static struct k_spinlock lock;
 static int phase;
 static unsigned command_count,command_next,next_slot,latest_slot=R2_DIAG_SLOTS;
+static unsigned crash_slot=R2_DIAG_SLOTS,protected_event_slot=R2_DIAG_SLOTS;
+static uint64_t crash_generation;
+static int crash_persist_result;
 static bool occupied[R2_DIAG_SLOTS],writer_active,pending_post,normal,erase_needed,thread_started,finish_requested,quiescing,have_sample;
 static uint64_t due,post_until,sample_due,next_mark,generation,next_event,hour_start,last_event;
 static unsigned automatic_count;
@@ -63,14 +67,40 @@ static bool valid6(const uint32_t *p,unsigned slot)
  ((p[44]&0xc00u)==0x400u||(p[44]&0xc00u)==0x800u)&&!(p[44]&~0x1fffu)&&p[80]==0x4c525731&&r2_crc32(p,504)==p[126];}
 static bool valid_record(const uint32_t *p,unsigned slot)
 {return valid5(p,slot)||valid6(p,slot);}
+/* Crash schema is independently recognized across source versions. Only the
+ * factory is compared to this image; original source/build remain in record. */
+static bool valid_crash(const uint32_t *p,unsigned slot)
+{return p[2]==slot&&r2_crash_valid(p,false)&&r2_crash_silicon(p,identity.silicon);}
+static bool event_binding_any_source(const uint32_t *p)
+{
+ if(memcmp(&p[6],identity.silicon,16))return false;
+ const char *source=(const char *)&p[10];
+ for(unsigned i=0;i<64;i++)if(r2_crash_nibble(source[i])>15)return false;
+ return true;
+}
+static bool valid_event_any_source(const uint32_t *p,unsigned slot)
+{
+ bool shape=p[0]==0x44325231&&p[2]==slot&&p[3]==512&&p[127]==0x434f4d31&&event_binding_any_source(p)&&p[37]<=3&&p[38]<=3;
+ if(!shape||r2_crc32(p,504)!=p[126])return false;
+ if(p[1]==5)return !p[39]&&!p[40];
+ return p[1]==6&&(p[39]||p[40])&&((p[44]&0xc00u)==0x400u||(p[44]&0xc00u)==0x800u)&&!(p[44]&~0x1fffu)&&p[80]==0x4c525731;
+}
+static bool protected_page(unsigned page)
+{return (latest_slot<R2_DIAG_SLOTS&&latest_slot/8==page)||
+        (protected_event_slot<R2_DIAG_SLOTS&&protected_event_slot/8==page)||
+        (crash_slot<R2_DIAG_SLOTS&&crash_slot/8==page);}
 static void select_target(void)
 {
- unsigned page=latest_slot<R2_DIAG_SLOTS?latest_slot/8:0;
- unsigned begin=latest_slot<R2_DIAG_SLOTS?latest_slot%8+1:0;
- for(unsigned i=begin;i<8;i++)if(!occupied[page*8+i]){next_slot=page*8+i;erase_needed=false;return;}
- page^=1;
- for(unsigned i=0;i<8;i++)if(!occupied[page*8+i]){next_slot=page*8+i;erase_needed=false;return;}
- next_slot=page*8;erase_needed=true;
+ unsigned first=latest_slot<R2_DIAG_SLOTS?latest_slot/8:0;
+ for(unsigned j=0;j<2;j++)for(unsigned i=0;i<8;i++){
+  unsigned slot=(first^j)*8+i;
+  if(!occupied[slot]){next_slot=slot;erase_needed=false;return;}
+ }
+ for(unsigned j=0;j<2;j++){
+  unsigned page=first^j;if(protected_page(page))continue;
+  next_slot=page*8;erase_needed=true;return;
+ }
+ next_slot=R2_DIAG_SLOTS;erase_needed=false; /* both pages pinned: retain RAM */
 }
 static bool storage_window(void)
 {
@@ -86,7 +116,7 @@ static bool storage_window(void)
 }
 static int erase_page(unsigned page,bool runtime)
 {
- if(page>=2||(latest_slot<R2_DIAG_SLOTS&&latest_slot/8==page))return -EFAULT;
+ if(page>=2||protected_page(page))return -EACCES;
  r2_health_operation(R2_HEALTH_FLASH,R2_HEALTH_ERASE,-EINPROGRESS);
  int rc=flash_erase(flash,R2_DIAG_START+page*4096,4096);
  r2_health_operation(R2_HEALTH_FLASH,R2_HEALTH_ERASE,rc);
@@ -105,6 +135,7 @@ static int prepare_spare(void)
 {
  if(latest_slot>=R2_DIAG_SLOTS)return -EFAULT;
  unsigned page=(latest_slot/8)^1;bool dirty=false;
+ if(protected_page(page)){increment(&totals.erase_deferred);return 0;}
  for(unsigned i=0;i<8;i++)dirty|=occupied[page*8+i];
  if(!dirty)return 0;
  /* Current event is already committed. Preparation is event-coupled, optional,
@@ -149,7 +180,7 @@ static void store_once(void)
  if(!rc){rc=flash_read(flash,R2_DIAG_START+base+508,check,4);if(!rc&&check[0]!=package[127])rc=-EIO;}
  if(!rc&&(uint64_t)k_uptime_get()>=due)rc=-ETIMEDOUT;
  k_spinlock_key_t key=k_spin_lock(&lock);occupied[target]=true;
- if(!rc&&phase==3){latest_slot=target;increment(&totals.saved);}
+ if(!rc&&phase==3){latest_slot=protected_event_slot=target;increment(&totals.saved);}
  else if(!rc)rc=phase<0?phase:-EIO;
  k_spin_unlock(&lock,key);
  if(!rc)rc=prepare_spare();
@@ -163,11 +194,43 @@ static void store_once(void)
 }
 static void worker(void *a,void *b,void *c)
 {for(;;){(void)k_sem_take(&save_requested,K_FOREVER);store_once();}}
+/* Startup main owns package before the writer thread exists. Exactly the same
+ *508B+4B public driver commit/readback mechanics, one slot, no new partition. */
+static int store_boot_crash(const volatile uint32_t *retained)
+{
+ if(!retained)return 0;
+ if(next_slot>=R2_DIAG_SLOTS||generation==UINT64_MAX)return -ENOSPC;
+ uint64_t begin=k_uptime_get();int rc=0;
+ if(erase_needed)rc=erase_page(next_slot/8,false);
+ if(!rc&&(uint64_t)k_uptime_get()-begin>=500)rc=-ETIMEDOUT;
+ if(rc)return rc;
+ uint32_t id=retained[126];
+ for(unsigned i=0;i<128;i++)package[i]=retained[i];
+ package[2]=next_slot;generation++;memcpy(&package[56],&generation,8);package[58]=id;
+ package[126]=r2_crc32(package,504);package[127]=0x434f4d31;
+ if(!valid_crash(package,next_slot))return -EBADMSG;
+ unsigned base=next_slot*512;uint32_t check[16];
+ write_attempt(508);r2_health_operation(R2_HEALTH_FLASH,R2_HEALTH_WRITE,-EINPROGRESS);
+ rc=flash_write(flash,R2_DIAG_START+base,package,508);r2_health_operation(R2_HEALTH_FLASH,R2_HEALTH_WRITE,rc);
+ for(unsigned off=0;off<508&&!rc;off+=64){unsigned n=508-off;if(n>64)n=64;rc=flash_read(flash,R2_DIAG_START+base+off,check,n);if(!rc&&memcmp(check,(uint8_t *)package+off,n))rc=-EIO;}
+ if(!rc&&(uint64_t)k_uptime_get()-begin>=500)rc=-ETIMEDOUT;
+ if(!rc){write_attempt(4);r2_health_operation(R2_HEALTH_FLASH,R2_HEALTH_COMMIT,-EINPROGRESS);rc=flash_write(flash,R2_DIAG_START+base+508,&package[127],4);r2_health_operation(R2_HEALTH_FLASH,R2_HEALTH_COMMIT,rc);}
+ if(!rc){rc=flash_read(flash,R2_DIAG_START+base+508,check,4);if(!rc&&check[0]!=package[127])rc=-EIO;}
+ if(!rc&&(uint64_t)k_uptime_get()-begin>=500)rc=-ETIMEDOUT;
+ occupied[next_slot]=true;
+ if(rc)return rc; /* RAM stays pending and prior crash page stays protected. */
+ crash_slot=next_slot;crash_generation=generation;increment(&totals.saved);
+ r2_health_crash_saved(id); /* only after every payload byte+commit read back */
+ select_target();return 0;
+}
+
 int r2_diag_init(const struct r2_identity *id)
 {
  if(phase||!id||id->result)return -EINVAL;
  identity=*id;if(!device_is_ready(flash)){phase=-ENODEV;return phase;}
- int rc=0;latest_slot=R2_DIAG_SLOTS;generation=0;bool dirty=false;
+ int rc=0;latest_slot=crash_slot=protected_event_slot=R2_DIAG_SLOTS;generation=crash_generation=0;bool dirty=false;
+ uint64_t latest_event_generation=0,protected_generation=0;
+ const volatile uint32_t *pending=r2_health_crash_pending();bool pending_saved=false;
 #ifdef R2_LORA
  uint64_t fault_generation=0;unsigned fault_slot=R2_DIAG_SLOTS;
 #endif
@@ -181,8 +244,21 @@ int r2_diag_init(const struct r2_identity *id)
    for(unsigned k=0;k<(j==7?504u:512u);k++){crc^=bytes[k];for(unsigned bit=0;bit<8;bit++)crc=(crc>>1)^(0xedb88320u&-(crc&1u));}
    occupied[slot]=false;for(unsigned k=0;k<128;k++)if(p[k]!=UINT32_MAX)occupied[slot]=dirty=true;
    uint64_t seq=0;memcpy(&seq,&p[42],8);
-   bool valid=valid_record(p,slot);
-   if(valid&&seq&&(latest_slot==R2_DIAG_SLOTS||seq>generation)){generation=seq;latest_slot=slot;}
+   bool valid=valid_record(p,slot),any_event=valid_event_any_source(p,slot);
+   if(any_event&&seq){
+    if(seq>protected_generation){protected_generation=seq;protected_event_slot=slot;}
+    if(seq>generation)generation=seq;
+   }
+   if(valid&&seq&&(latest_slot==R2_DIAG_SLOTS||seq>latest_event_generation)){latest_event_generation=seq;latest_slot=slot;}
+   if(valid_crash(p,slot)){
+    uint64_t crash_seq;memcpy(&crash_seq,&p[56],8);
+    if(crash_seq>crash_generation){crash_generation=crash_seq;crash_slot=slot;}
+    if(crash_seq>generation)generation=crash_seq;
+    if(pending&&p[58]==pending[126]){
+     bool same=true;for(unsigned n=4;n<24;n++)same&=p[n]==pending[n];
+     if(same)pending_saved=true;
+    }
+   }
 #ifdef R2_LORA
    /* package has no writer during startup. Keep the newest committed fault
     * copy there until the512B scanner finishes; no second scan reserve. */
@@ -194,17 +270,19 @@ int r2_diag_init(const struct r2_identity *id)
   /* Legacy schema4 is scanned with512B RAM, never a retained4KiB buffer. */
   if(header[0]==0x44325231&&header[1]==4&&header[2]==page&&header[3]==4096&&scan_page[127]==0x434f4d31&&binding(header)&&scan_page[64]==64&&scan_page[65]==64&&~crc==scan_page[126]){
    uint64_t seq=0;memcpy(&seq,&header[42],8);for(unsigned j=0;j<8;j++)occupied[page*8+j]=true;
-   if(seq&&(latest_slot==R2_DIAG_SLOTS||seq>generation)){generation=seq;latest_slot=page*8+7;}
+   if(seq&&(latest_slot==R2_DIAG_SLOTS||seq>latest_event_generation)){latest_event_generation=seq;latest_slot=page*8+7;}
+   if(seq>protected_generation){protected_generation=seq;protected_event_slot=page*8+7;}if(seq>generation)generation=seq;
   }
  }
  /* New-image/malformed cleanup only before radio startup, original500ms. */
- if(latest_slot==R2_DIAG_SLOTS&&dirty){
+ if(latest_slot==R2_DIAG_SLOTS&&crash_slot==R2_DIAG_SLOTS&&protected_event_slot==R2_DIAG_SLOTS&&dirty){
   uint64_t begin=k_uptime_get();rc=flash_erase(flash,R2_DIAG_START,8192);
   if(!rc)rc=blank(0,8192);
   if(!rc&&(uint64_t)k_uptime_get()-begin>=500)rc=-ETIMEDOUT;
   if(rc){phase=rc;return rc;}
   memset(occupied,0,sizeof occupied);
  }
+ if(pending_saved){r2_health_crash_saved(pending[126]);pending=NULL;}
  memset(scan_page,0,sizeof scan_page);select_target();
 #ifdef R2_LORA
  if(fault_generation){
@@ -220,9 +298,15 @@ int r2_diag_init(const struct r2_identity *id)
 #endif
  /* Both pages full: prepare only the obsolete page before Bluetooth. Latest
   * committed evidence survives; this is capacity recovery, not a new event. */
- if(erase_needed){uint64_t begin=k_uptime_get();rc=erase_page(next_slot/8,false);
+ if(erase_needed&&!pending){uint64_t begin=k_uptime_get();rc=erase_page(next_slot/8,false);
   if(!rc&&(uint64_t)k_uptime_get()-begin>=500)rc=-ETIMEDOUT;
   if(rc){phase=rc;return rc;}select_target();
+ }
+ if(pending){
+  /* Optional crash persistence must never turn a healthy scanner into a
+   * normal-start failure. Preserve pendingRAM and freeze optional writes on
+   * error; original GM7 readiness/boot deadlines remain unchanged. */
+  crash_persist_result=store_boot_crash(pending);
  }
  /* Publish observer readiness only after the scanner has retired. Before
   * phase1, fatal capture returns synthetic UNKNOWN without reading this tail. */
@@ -260,7 +344,9 @@ static int submit(unsigned reason,int error)
 {
  if(quiescing&&reason!=2)return -ESHUTDOWN;
  if(r2_diag_state()<1||r2_diag_busy())return -EAGAIN;
+ if(crash_persist_result)return crash_persist_result;
  if(generation==UINT64_MAX)return -EOVERFLOW;
+ if(next_slot>=R2_DIAG_SLOTS)return -ENOSPC;
  uint64_t now=k_uptime_get(),trigger=(reason&64)&&last_service.hot_withdrawal_at?last_service.hot_withdrawal_at/1000:now;struct r2_ui_status ui;r2_ui_snapshot(&ui);
  if(trigger>now||now-trigger>=2000){phase=-ETIMEDOUT;return -ETIMEDOUT;}
  memset(package,0,sizeof package);package[0]=0x44325231;package[1]=5;package[2]=next_slot;package[3]=512;
@@ -419,6 +505,7 @@ void r2_diag_poll(void)
  * diagnostic spinlock: a fatal may have interrupted its owner. No state added. */
 bool r2_controller_diag_ready_locked(void){return phase>=1;}
 #endif
+int r2_diag_crash_result(void){return crash_persist_result;}
 int r2_diag_state(void){k_spinlock_key_t key=k_spin_lock(&lock);int p=phase;k_spin_unlock(&lock,key);return p;}
 int r2_diag_read(unsigned bank,unsigned chunk,uint8_t out[64])
 {if(bank>=2||chunk>=128||!device_is_ready(flash)||r2_diag_busy())return -EACCES;return flash_read(flash,R2_DIAG_START+bank*8192+chunk*64,out,64);}

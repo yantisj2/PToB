@@ -314,9 +314,9 @@ static void __attribute__((noinline)) reply(const struct r2_request *r,uint64_t 
     n=r2_frame(frame,sizeof(frame),r->id,++reply_sequence,json);if(n>0)(void)r2_console_reply(frame,(size_t)n,arrival+R2_REPLY_MS);return;
   }
   if(r->op==R2_DIAG){
-    uint8_t bytes[64];char encoded[129];int rc=r2_diag_read(r->trace_page/128,r->trace_page%128,bytes);
+    uint8_t bytes[64];char encoded[129];int rc=r->trace_page>=256?r2_health_crash_read(r->trace_page-256,bytes):r2_diag_read(r->trace_page/128,r->trace_page%128,bytes);
     for(unsigned i=0;i<64;i++)snprintf(encoded+2*i,3,"%02x",rc?0:bytes[i]);
-    int n=snprintf(json,sizeof(json),"{\"source\":\"%s\",\"commit\":\"%s\",\"silicon\":\"%s\",\"unit\":\"%s\",\"boot\":\"%016llx\",\"result\":%d,\"diag_state\":%d,\"chunk\":%u,\"hex\":\"%s\"}",R2_SOURCE_SHA,R2_CHILD_COMMIT,identity.silicon,identity.unit,(unsigned long long)identity.boot,rc,r2_diag_state(),r->trace_page,encoded);
+    int n=snprintf(json,sizeof(json),"{\"source\":\"%s\",\"commit\":\"%s\",\"silicon\":\"%s\",\"unit\":\"%s\",\"boot\":\"%016llx\",\"result\":%d,\"diag_state\":%d,\"crash_persist_result\":%d,\"chunk\":%u,\"hex\":\"%s\"}",R2_SOURCE_SHA,R2_CHILD_COMMIT,identity.silicon,identity.unit,(unsigned long long)identity.boot,rc,r2_diag_state(),r2_diag_crash_result(),r->trace_page,encoded);
     if(n<0||n>=(int)sizeof(json)||reply_sequence==UINT32_MAX)return;
     n=r2_frame(frame,sizeof(frame),r->id,++reply_sequence,json);if(n>0)(void)r2_console_reply(frame,(size_t)n,arrival+R2_REPLY_MS);return;
   }

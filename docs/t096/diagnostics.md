@@ -1356,3 +1356,42 @@ the failed source/boot binding. SCB values were read after kernel clearing, so
 BFAR validity remains unavailable. These records grant no time or role authority
 and do not establish a fix for the unexplained version174 fault. The separate
 watchdog record continues to control its existing bound runtime-role restoration.
+
+
+### Bounded CPU crash record (source0.15.180)
+
+The original256B HEALTH capsule remains unchanged. A separate single512B
+schema7 record retains original integer fault context and up to192B of thread
+stack plus64B of ISR stack, only from explicit known static allocations with
+reserved guard bytes excluded. Unlisted stacks and invalid addresses are
+UNKNOWN; a captured address is not proof of stack ownership. Stacking faults
+suppress byte windows. The basic-frame producer requires FPU disabled, and
+records SCB values as post-kernel-clear rather than claiming original BFAR
+validity. No fatal-time flash, locking, USB or stack walking occurs.
+
+After a reset with surviving valid RAM, the existing bank0 journal writer
+persists the record before radio startup using payload/CRC followed by commit
+and actual readback. Current image identity stays distinct from the crashed
+source/build/boot. Latest crash and ordinary event pages are independently
+protected; both full protected pages cause ENOSPC and preserve pending RAM.
+An optional crash persistence error is exposed as `crash_persist_result` in diag
+responses and does not prevent a healthy scanner from admitting normal startup.
+No bank1, enrollment or protected-region writes are added. Retention through
+bootloader/reset remains conditional; cold power loss before commit can lose it.
+
+Existing `diag 0000`–`diag 00ff` flash exports retain their meaning. Read-only
+`diag 0100`–`diag 0107` return eight64B chunks of the retained record, with normal
+request/source/factory/boot/CRC framing. There is no dump-clear command. A
+persisted512B slot is eight consecutive existing bank0 chunks. Preserve missing,
+rejected and mixed-boot replies; do not fill missing bytes. Raw stack records
+and enrolled ELFs remain local ignored evidence.
+
+`artifacts/deps/venv/bin/python firmware/t096/tools/crash_decode.py --input RECORD --build EXACT_BUILD --out NEW_JSON`
+accepts512B binary or eight saved framed JSON replies; use `--first-chunk` for a
+flash slot's first chunk (default256 for retained RAM). It checks whole record
+CRC and exact source/config binding, silicon and ELF receipt hash. DWARF CFI
+reads only the EXC_RETURN-selected faulted-context window; the other stack stays
+separate raw evidence. Missing registers/bytes/rules, hand assembly, corruption
+or optimized frames may prevent a complete trace. Pointer-looking words are not
+invented callers. A dump can expose a damaged caller slot without proving its
+earlier writer or a CPU-fault fix. Hardware operation requires separate scope.

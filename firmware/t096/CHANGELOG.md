@@ -1,5 +1,23 @@
 # T096 changelog
 
+## 0.15.180 — Retain a bounded CPU crash record and persist on reboot
+
+Keep the existing256B fault capsule and add one512B retained record with original
+integer registers, exact source/build/silicon/boot identity and up to192B of
+known thread stack plus64B of ISR stack. Fatal capture uses only bounded static
+storage and direct reads of known allocations, without flash or kernel locks.
+Before radio startup, the existing bank0 owner appends one schema7 journal slot
+and verifies payload plus commit before acknowledging RAM handoff. Latest crash
+and ordinary-event pages are independently preserved across source upgrades;
+no safe capacity or failed handoff leaves RAM pending and reports a separate
+persistence error without blocking healthy GM startup. No bank1 or enrollment
+writes are added. Read-only diag chunks0100–0107 export retained data; the offline
+decoder requires the exact build and stops CFI unwinding at unavailable context.
+Increase the GM7 ISR reserve from2176 to3072B for the fatal path; actual native
+resource review remains required. This diagnostic change does not identify or
+fix the unexplained CPU corruption, and does not qualify physical retention,
+failover, UTC accuracy or hardware operation.
+
 ## 0.15.179 — Keep GM owner liveness on the CONTROL watchdog
 
 Remove the GM7-only terminal check that counted queue and execution wall time

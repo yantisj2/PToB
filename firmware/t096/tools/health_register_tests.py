@@ -8,12 +8,12 @@ from controller_fault_decode import decode_register_capsule,decode_prepare_capsu
 p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--deps',required=True,type=Path);p.add_argument('--out',required=True,type=Path)
 a=p.parse_args();app=Path(__file__).resolve().parents[1];out=a.out.resolve();out.mkdir(parents=True,exist_ok=False)
-inputs=[app/'src/health.c',app/'tests/health_register_test.c',app/'tests/health_fake.h',Path(__file__).resolve(),app/'tools/controller_fault_decode.py']
+inputs=[app/'include/health.h',app/'include/crash_record.h',app/'src/health.c',app/'tests/health_register_test.c',app/'tests/health_fake.h',Path(__file__).resolve(),app/'tools/controller_fault_decode.py']
 def sha(p):return hashlib.sha256(p.read_bytes()).hexdigest()
 bound={str(f):sha(f)for f in inputs};passed=False
 try:
- for name in ['zephyr/fatal.h','zephyr/irq.h','zephyr/kernel.h','zephyr/timing/timing.h','cmsis_core.h','build_identity.h']:
-  f=out/name;f.parent.mkdir(parents=True,exist_ok=True);f.write_text('/* ARM boundary supplied by host fixture. */\n')
+ for name in ['zephyr/fatal.h','zephyr/irq.h','zephyr/kernel.h','zephyr/timing/timing.h','cmsis_core.h','build_identity.h','ptob_device.h']:
+  f=out/name;f.parent.mkdir(parents=True,exist_ok=True);f.write_text('#define PTOB_DEVICE_ID \"123456789abcdef0\"\n'if name=='ptob_device.h'else'/* ARM boundary supplied by host fixture. */\n')
  cc=os.environ.get('CC','clang')
  command=[cc,'-std=c11','-O1','-g','-Wall','-Wextra','-Werror','-Wno-unused-function','-Wno-unused-variable','-Wno-unused-parameter','-fsanitize=address,undefined','-fno-sanitize-recover=all','-I'+str(out),'-I'+str(app/'include'),'-I'+str(app/'protocol'),str(app/'tests/health_register_test.c'),'-o',str(out/'register-test')]
  with (out/'run.log').open('x')as log:

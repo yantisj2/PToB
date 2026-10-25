@@ -50,7 +50,9 @@ def inspect(out,allow_development=False):
         require(0x20040000-ram_end>=1024,'Insufficient static RAM margin')
     if gm7:
         isr=re.search(r'^CONFIG_ISR_STACK_SIZE=(\d+)$',config,re.M)
-        require(isr is not None and int(isr[1])>=2176,'Insufficient GM7 ISR stack')
+        require(isr is not None and int(isr[1])>=(3072 if tuple(map(int,r['version'].split('.'))) >= (0,15,180) else 2176),'Insufficient GM7 ISR stack')
+        if tuple(map(int,r['version'].split('.'))) >= (0,15,180):
+            require('# CONFIG_FPU is not set' in config,'Crash capture requires FPU disabled')
         if tuple(map(int,r['version'].split('.'))) >= (0,15,175):
             require('CONFIG_EXTRA_EXCEPTION_INFO=y' in config,'Missing GM7 integer fault capture')
     for line in ['CONFIG_ROM_END_OFFSET=0x6000','CONFIG_FLASH=y','CONFIG_USB_DEVICE_STACK=y','CONFIG_WATCHDOG=y']:
