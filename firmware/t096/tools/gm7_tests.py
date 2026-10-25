@@ -54,6 +54,20 @@ try:
  receipt['service_command']=service
  with (out/'service.compile.log').open('w') as f:subprocess.run(service,stdout=f,stderr=subprocess.STDOUT,check=True,timeout=45)
  with (out/'service.run.log').open('w') as f:subprocess.run([str(out/'service-test'),str(out)],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=30)
+ dispatcher=(app/'src/rc_profile_service.c').read_text()
+ bodies=dispatcher[dispatcher.index('static struct r2_identity physical;'):dispatcher.index('void r2_service_clock(')]
+ bodies+=dispatcher[dispatcher.index('int r2_service_run('):dispatcher.index('int r2_service_preflight(')]
+ bodies+=dispatcher[dispatcher.index('static int transition('):dispatcher.index('int r2_service_restart(')]
+ bodies+=dispatcher[dispatcher.index('void r2_service_supervise('):dispatcher.index('int r2_service_name(')]
+ names=['physical','enrollment','rc_active','configured','pending','target','resuming','running','until','incarnation','test_parent','changes','failure','now_us']
+ renamed={n:'dispatch_'+n for n in names}
+ renamed.update({'transition':'dispatcher_transition','r2_service_configure':'dispatcher_configure','r2_service_run':'dispatcher_run','r2_service_profile':'dispatcher_profile','r2_service_supervise':'dispatcher_supervise'})
+ (out/'gm7_dispatch_under_test.h').write_text(''.join(f'#define {k} {v}\n'for k,v in renamed.items())+bodies+'\n'+''.join(f'#undef {k}\n'for k in renamed))
+ resume_sources=[p for p in service_sources if p.name!='gm7_service_test.c']+[app/'tests/gm7_resume_service_test.c']
+ resume=service[:service.index(str(service_sources[0]))]+[*map(str,resume_sources),'-o',str(out/'resume-service-test')]
+ receipt['resume_service_command']=resume
+ with (out/'resume-service.compile.log').open('w')as f:subprocess.run(resume,stdout=f,stderr=subprocess.STDOUT,check=True,timeout=45)
+ with (out/'resume-service.run.log').open('w')as f:subprocess.run([str(out/'resume-service-test')],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=30)
  bridge_sources=[p for p in service_sources if p.name!='gm7_service_test.c']+[app/'tests/gm7_bridge_service_test.c',app/'src/gm7_clock.c']
  bridge_command=service[:service.index(str(service_sources[0]))]+['-DR2_GM7_SERVICE_CLOCK_TEST=1',*map(str,bridge_sources),'-o',str(out/'bridge-service-test')]
  receipt['bridge_service_command']=bridge_command

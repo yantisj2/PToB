@@ -143,8 +143,9 @@ static uint64_t kernel_now(void) {
 static bool bridge(struct gm7_bridge *b) {
   /* Single-core, no zero-latency IRQs: pair the software clocks without a
    * scheduler/IRQ gap or a competing CC2 capture. The HF reader is bounded,
-   * read-only and never waits/requests a clock. Restore even a nested key before
-   * validating the unchanged100us enclosure; real domain faults still fail. */
+   * read-only and never waits/requests a clock. Restore even a nested key
+   * before validating the unchanged100us enclosure; real domain faults still
+   * fail. */
   unsigned int key = irq_lock();
   b->kernel_lo = kernel_now();
   bool valid = r2_gm7_clock_now(&b->hf, &b->epoch);
@@ -216,11 +217,21 @@ static __attribute__((noinline)) bool source_read(struct gm7_source *s,
   if (s->pps_healthy && !gm7_bridge_past(b, s->pps_at, &pps))
     s->pps_healthy = false;
   s->until_us = live ? until : 0;
-  s->sampled_us = b.hf;
   s->pps_at = pps;
   s->physical_ready &= captured && live;
+  /* Physical UTC was evaluated at this capture, not at the earlier software
+   * bridge. A coarse fallback instead belongs to the original kernel sample. */
+  s->sampled_us = s->physical_ready ? current.tick / 16 : b.hf;
   s->gnss_healthy &= live;
   return true;
+}
+static bool source_phase(const struct gm7_source *s, struct gm7_bridge b,
+                         uint64_t *utc) {
+  if (!s->utc_available || s->sampled_us > b.hf ||
+      s->utc_us > UINT64_MAX - (b.hf - s->sampled_us))
+    return false;
+  *utc = s->utc_us + b.hf - s->sampled_us;
+  return gm7_utc_valid(*utc);
 }
 /* Root UTC and the local HF coordinate meet only through an actual selected
  * G1 delivered map. Nonce offset intervals never become phase evidence. */
@@ -824,21 +835,36 @@ static void cycle(struct k_work *work) {
       goto finished;
     if (!rc)
       rc = r2_relay_service_profile_reset(resume_boot);
+    (void)k_mutex_lock(&lock, K_FOREVER);
+    /* A stop may arrive during either asynchronous reset. It wins before
+     * committing the next incarnation; the worker never clears that stop. */
+    if (!resuming || atomic_get(&stopping)) {
+      (void)k_mutex_unlock(&lock);
+      goto finished;
+    }
     if (rc) {
       status.error = rc;
-      resuming = false;
+      resuming = status.profile_pending = false;
+      (void)k_mutex_unlock(&lock);
+      r2_service_stop();
       goto finished;
     }
     r2_group_admission_reset();
     boot = resume_boot;
     used = started = transport_stopped = stop_begun = false;
-    atomic_clear(&stopping);
     resuming = false;
     status.profile_pending = false;
     status.error = 0;
     rc = start(kernel_now() / 1000, 0);
-    if (rc)
+    if (rc) {
       status.error = rc;
+      /* A failed start may have acquired transport resources. Retain the
+       * worker's cleanup ownership until the ordinary drain completes. */
+      started = true;
+    }
+    (void)k_mutex_unlock(&lock);
+    if (rc)
+      r2_service_stop();
     goto finished;
   }
   if (atomic_get(&stopping)) {
@@ -899,6 +925,13 @@ static void cycle(struct k_work *work) {
     fence(GM7_R_SOURCE, b.hf);
     goto finished;
   }
+  /* Capture may have been delayed by other work. Use a contemporary same-domain
+   * coordinate for phase, while retaining the source's actual sample and its
+   * original expiry for owner freshness/dwell. */
+  if (!bridge(&b) || b.epoch != clock_epoch) {
+    resource_fault = true;
+    goto finished;
+  }
   if (r2_gm7_capture_overflows() != overflow_seen) {
     overflow_seen = r2_gm7_capture_overflows();
     resource_fault = true;
@@ -911,9 +944,10 @@ static void cycle(struct k_work *work) {
   r2_radio_service_gm7_timing(&t, b.kernel_hi);
   struct gm7_preparation prep;
   preparation(&prep, b, &t);
-  uint64_t utc = source.utc_us;
+  uint64_t utc = 0;
   uint32_t enclosure = 100;
-  bool aligned = source.physical_ready;
+  bool projected = source_phase(&source, b, &utc);
+  bool aligned = projected && source.physical_ready && b.hf < source.until_us;
   if (owner.scope.active && owner.scope.active != identity)
     aligned = phase_at(&t, b, &utc, &enclosure) && enclosure <= 2000;
   uint64_t frame = utc / GM7_FRAME_US, phase = utc % GM7_FRAME_US;
@@ -1422,6 +1456,7 @@ void r2_service_stop(void) {
   r2_radio_service_withdraw();
   r2_gm7_controller_cancel(0);
   (void)k_mutex_lock(&lock, K_FOREVER);
+  resuming = status.profile_pending = false;
   if (!atomic_get(&stopping)) {
     close_until = kernel_now() + R2_CLEANUP_US;
     status.close_deadline = close_until;
@@ -1586,13 +1621,23 @@ int r2_normal_service_resume_gm(uint64_t incarnation, uint32_t changes) {
     return -EBUSY;
   if (reset_generation == UINT32_MAX)
     return -EOVERFLOW;
+  struct gm7_bridge b;
+  if (!bridge(&b))
+    return -ESTALE;
+  (void)k_mutex_lock(&lock, K_FOREVER);
   reset_generation++;
   resume_boot = incarnation;
+  /* Only this explicit, fully drained lifecycle may bind a new capture domain.
+   * The ordinary worker comparison remains strict, including before reset. */
+  clock_epoch = b.epoch;
+  atomic_clear(&stopping);
   resuming = true;
+  status.closed = false;
   status.profile_pending = true;
   status.profile_changes = changes + 1;
   status.profile_incarnation = incarnation;
   started = true;
+  (void)k_mutex_unlock(&lock);
   k_timer_start(&service_timer, K_MSEC(2), K_MSEC(2));
   return 0;
 }

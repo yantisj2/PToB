@@ -107,7 +107,18 @@ its original100us enclosure and HF epoch/continuity checks still fail closed.
 Version171 could close a started worker when preemption widened that software
 bracket. This is separate from the fixed initial-capture readiness gate.
 
-Source0.15.172 selects GM7 by default for both normal GM/RC image defaults. The
+Version173 binds the capture epoch at explicit, fully drained RC-to-GM resume
+admission. The ordinary running-worker epoch fence remains strict. A stop during
+pending reset cancels resume; failed start retains cleanup ownership and its
+terminal error. RC dispatcher behavior and its finite transition deadline stay
+unchanged. Physical functional UTC retains its actual capture sample; scheduling
+projects it to a fresh same-epoch bridge rather than pairing it with an earlier
+software sample. Coarse fallback keeps its original kernel sample. Original
+source expiry, true backstep rejection and the independent60s GNSS dwell remain
+unchanged. The actual dispatcher/service/source regression includes cold and
+warm transitions, cancellation and61s of variable capture latency.
+
+Source0.15.173 selects GM7 by default for both normal GM/RC image defaults. The
 RC backend remains ordinary supported firmware. Historical GM5/6 is available
 only with `--legacy-gm-regression`; there is no runtime fallback. DC and PC omit
 GM7. Enabling management-only LE2M does not enable public controller2M features:

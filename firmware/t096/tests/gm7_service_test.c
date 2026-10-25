@@ -16,6 +16,9 @@ static bool fake_promote_ready;
 static bool fake_submit_refusal;
 static uint32_t fake_poll_advance;
 static int fake_capture_error, fake_gnss_error, fake_group_start_result;
+static int fake_reset_result, fake_relay_reset_result;
+static uint32_t fake_capture_advance, fake_clock_epoch = 4;
+static bool fake_stop_on_reset;
 int r2_capture_error(void) { return fake_capture_error; }
 int r2_gnss_input_error(void) { return fake_gnss_error; }
 static struct r2_radio_scope fake_scope;
@@ -75,13 +78,16 @@ void r2_ble_timing_lamps(bool tx, bool corr, uint64_t now) {
 }
 void r2_ble_serving(bool serving) { (void)serving; }
 bool r2_capture_now(struct r2_capture *c) {
-  *c = (struct r2_capture){fake_hf * 16, 4, R2_CAPTURE_NOW};
+  fake_hf += fake_capture_advance;
+  fake_kernel += fake_capture_advance;
+  fake_capture_advance = 0;
+  *c = (struct r2_capture){fake_hf * 16, fake_clock_epoch, R2_CAPTURE_NOW};
   return fake_hf_valid;
 }
 #ifndef R2_GM7_REAL_CLOCK
 bool r2_gm7_clock_now(uint64_t *us, uint32_t *epoch) {
   *us = fake_hf;
-  *epoch = 4;
+  *epoch = fake_clock_epoch;
   return fake_hf_valid;
 }
 bool r2_gm7_clock_bounds(uint32_t raw, uint32_t epoch, unsigned prefix,
@@ -199,7 +205,11 @@ bool r2_radio_service_serving(uint64_t now) {
 }
 int r2_radio_service_reset(uint32_t g) {
   (void)g;
-  return fake_pt_closed ? 0 : -EAGAIN;
+  if (fake_stop_on_reset) {
+    fake_stop_on_reset = false;
+    r2_service_stop();
+  }
+  return fake_reset_result ? fake_reset_result : fake_pt_closed ? 0 : -EAGAIN;
 }
 void r2_radio_service_link_quality(struct r2_link_quality_view *v) {
   memset(v, 0, sizeof *v);
@@ -286,7 +296,9 @@ int r2_relay_service_init(unsigned self, const struct r2_enrollment *r,
 }
 int r2_relay_service_profile_reset(uint64_t b) {
   (void)b;
-  return fake_relay_closed ? 0 : -EAGAIN;
+  return fake_relay_reset_result ? fake_relay_reset_result
+         : fake_relay_closed     ? 0
+                                 : -EAGAIN;
 }
 void r2_relay_service_stop(uint64_t now) {
   (void)now;
@@ -325,6 +337,7 @@ static void setup(bool serving) {
   fake_result_count = fake_submit_count = fake_completed_count = fake_overflow =
       overflow_seen = 0;
   fake_hf_valid = true;
+  fake_clock_epoch = 4;
   fake_ble_closed = fake_pt_closed = false;
   fake_relay_closed = true;
   fake_hf = 66000000;
@@ -357,6 +370,10 @@ static void setup(bool serving) {
   fake_submit_refusal = false;
   fake_poll_advance = 0;
   fake_capture_error = fake_gnss_error = fake_group_start_result = 0;
+  fake_reset_result = fake_relay_reset_result = 0;
+  fake_capture_advance = 0;
+  fake_stop_on_reset = false;
+  reset_generation = 0;
   event_evidence.phase_sample_ms = (uint32_t)(fake_hf / 1000);
   atomic_clear(&stopping);
   atomic_clear(&busy);

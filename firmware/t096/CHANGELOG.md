@@ -1,5 +1,19 @@
 # T096 changelog
 
+## 0.15.173 — Bind GM resume and physical UTC samples
+
+Bind the current capture epoch only when an explicit RC-to-GM transition has
+drained its old owners. Keep running-worker epoch faults terminal. Stop cancels
+pending reset/start; failed start retains ordinary cleanup ownership and error.
+Pair physical functional UTC with its actual capture tick and project to a fresh
+same-epoch bridge for phase scheduling. Preserve coarse fallback timestamps,
+original source horizons, backstep fences and the independent60s GNSS dwell.
+Version172 could reject cold RC-to-GM resume at epoch0, and variable capture
+latency could appear as a false UTC backstep. Actual dispatcher/service/source
+tests cover both failures, warm transitions, cancellation, expiry and errors.
+Ordinary RC/GATT/relay, USB, LoRa, DC and PC contracts remain unchanged. Offline
+tests and builds do not establish hardware acceptance or calibrated accuracy.
+
 ## 0.15.172 — Serialize the GM clock pair
 
 Sample the kernel/HF bridge in a bounded IRQ critical section so scheduler or IRQ
