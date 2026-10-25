@@ -1,5 +1,15 @@
 # T096 changelog
 
+## 0.15.179 — Keep GM owner liveness on the CONTROL watchdog
+
+Remove the GM7-only terminal check that counted queue and execution wall time
+against 100 ms. The transport's existing 100 ms operation deadline starts at
+worker execution; these were different budgets. Preserve serialization and cost
+diagnostics, the original 30-second accepted-CONTROL watchdog, source/RF expiry
+and the original cleanup deadline. RC behavior is unchanged. A focused production
+supervisor-to-watchdog composition retains stale-owner, expiry and error gates.
+The field wall overrun's delaying call and separate CPU corruption remain unknown.
+
 ## 0.15.178 — Refresh processing time after GM receive
 
 Refresh the same-epoch processing bridge after owner receive, which independently

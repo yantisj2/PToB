@@ -328,3 +328,12 @@ REQUEST operation. An advancing-clock composition reproduces the stale-now
 failure in177; the correction preserves captured RX, original deadlines and
 qualification. Existing CPU corruption remains unresolved; offline validation
 is not hardware acceptance.
+
+Source179 removes the redundant GM-only submitted-age 100 ms terminal latch.
+GM owner queue/execution costs remain diagnostic; the original accepted-CONTROL
+watchdog bounds a stalled owner at 30 seconds. The cycle-start transport deadline,
+source/RF authority and original cleanup deadline are unchanged. Run the focused
+production-supervisor/unchanged-watchdog composition with
+`python3 firmware/t096/tools/gm7_supervision_tests.py --out artifacts/gm7-supervision-01`.
+The observed wall overrun does not identify a delaying call, and the separate CPU
+corruption remains unresolved.

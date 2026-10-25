@@ -1613,17 +1613,9 @@ void r2_service_supervise(void) {
   if (atomic_get(&stopping) && !closed && now >= close_until && !status.error)
     status.error = -ETIMEDOUT;
   bool expired = status.deadline && now >= status.deadline;
-  if (atomic_get(&busy) && now >= status.supervision.submitted &&
-      now - status.supervision.submitted >= 100000) {
-    if (!status.supervision.fault_site) {
-      status.supervision.fault_site = 1;
-      status.supervision.fault_at = now;
-      status.supervision.fault_state = status.supervision.state;
-    }
-    if (!status.error)
-      status.error = -ETIMEDOUT;
-    expired = true;
-  }
+  /* Cycle wall/queue costs are diagnostic. The original accepted CONTROL
+   * watchdog bounds a stalled owner; transport and source deadlines do not
+   * change when this supervisor observes progress. */
   bool submit = (!closed || resuming) && atomic_cas(&busy, 0, 1);
   if (submit) {
     status.supervision.submitted = now;
