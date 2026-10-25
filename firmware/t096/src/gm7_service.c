@@ -46,7 +46,9 @@ static struct {
   uint32_t translated_epoch;
   bool stopped, fatal;
 } input;
-static struct r2_source_clock source_input, promoted;
+/* One retained delivered coordinate; raw GNSS remains in the time owner and
+ * input metadata. Promotion never becomes evidence of GNSS eligibility. */
+static struct r2_source_clock functional_source;
 static bool promoted_valid, takeover_preparing;
 static uint64_t takeover_bound, promoted_pps, phase_step_at;
 static struct {
@@ -96,7 +98,16 @@ static struct {
 static uint64_t identity, boot, close_until, primary_frame = UINT64_MAX,
                                              status_cycle = UINT64_MAX,
                                              diag_frame = UINT64_MAX;
-static uint32_t management_rx, management_mac, management_accepted;
+static atomic_t management_rx, management_mac, management_accepted;
+_Static_assert(sizeof(atomic_t) == sizeof(uint32_t),
+               "Management counters retain storage");
+/* Single owner updates; console readers use atomic loads, not a reader-only
+ * mutex. Saturation preserves evidence across runtime role transitions. */
+static void management_count(atomic_t *counter) {
+  uint32_t value = (uint32_t)atomic_get(counter);
+  if (value != UINT32_MAX)
+    atomic_set(counter, (int32_t)(value + 1));
+}
 static uint32_t clock_epoch, event_generation, overflow_seen, reset_generation,
     last_phase, last_enclosure;
 static bool phase_known, stop_begun;
@@ -174,7 +185,7 @@ static __attribute__((noinline)) bool source_read(struct gm7_source *s,
   clock->last_pair_utc = input.last_pair_utc;
   clock->stopped = input.stopped;
   clock->fatal = input.fatal;
-  *map = source_input;
+  *map = functional_source;
   (void)k_mutex_unlock(&lock);
 
   if (clock->view.mono_us >= 0 &&
@@ -189,31 +200,6 @@ static __attribute__((noinline)) bool source_read(struct gm7_source *s,
   }
   struct r2_capture current = {0};
   bool captured = r2_capture_now(&current) && current.epoch == b.epoch;
-  (void)k_mutex_lock(&lock, K_FOREVER);
-  if (promoted_valid) {
-    if (!captured || promoted.epoch != current.epoch ||
-        promoted.utc_source_epoch != clock->view.source_epoch ||
-        clock->stopped || clock->fatal || !clock->view.fix_active ||
-        !clock->view.pps_present)
-      promoted_valid = false;
-    else if (map->last_edge != promoted_pps && map->count) {
-      const struct r2_source_map *own =
-          &map->maps[(map->head + R2_SOURCE_MAP_HISTORY - 1) %
-                     R2_SOURCE_MAP_HISTORY];
-      struct r2_pps_precision pps = {.epoch = map->epoch,
-                                     .last = map->last_edge,
-                                     .rate_q16 = own->rate_q16,
-                                     .seen = true,
-                                     .rate_valid = true};
-      if (!r2_source_clock_publish(&promoted, &pps, current))
-        promoted_valid = false;
-      else
-        promoted_pps = map->last_edge;
-    }
-    if (promoted_valid)
-      *map = promoted;
-  }
-  (void)k_mutex_unlock(&lock);
   if (gm7_source_snapshot(s, clock, map, current, b.kernel_hi))
     return false;
   uint64_t until = 0, pps = 0;
@@ -493,15 +479,17 @@ timing(struct gm7_bridge b, const struct gm7_source *s,
           p->boot != owner.scope.boot || !gm7_session_live(&p->session, b.hf))
         continue;
       const struct gm7_bound_anchor *a = &p->session.descriptor;
+      const struct gm7_control *sample = &p->session.control;
       uint64_t lo, hi;
-      if (!(p->session.anchor_flags & GM7_A_SERVING) || !a->utc_us ||
-          gm7_session_map(&p->session, a->sampled_mono_us, b.hf, &lo, &hi) ||
+      if (!(p->session.anchor_flags & GM7_A_SERVING) || !sample->sent_utc_us ||
+          !p->session.control_until ||
+          gm7_session_map(&p->session, sample->sent_mono_us, b.hf, &lo, &hi) ||
           b.hf < lo)
         continue;
       uint64_t remaining = owner.selected_source_until;
       if (!gm7_bridge_to_kernel(b, remaining, &until))
         until = b.kernel_hi;
-      uint64_t projected = a->utc_us + (b.hf - lo), width = hi - lo;
+      uint64_t projected = sample->sent_utc_us + (b.hf - lo), width = hi - lo;
       anchor = (struct r2_group_client){
           .passive = true,
           .source = true,
@@ -559,24 +547,7 @@ timing(struct gm7_bridge b, const struct gm7_source *s,
   struct gm7_packet diagnostic_packet;
   if (scope.gm && !gm7_gnss_snapshot(&owner, &diagnostic_packet, clock, b.hf)) {
     const struct gm7_gnss *g = &diagnostic_packet.body.gnss;
-    reference = (struct r2_gnss_record){.root = identity,
-                                        .root_boot = boot,
-                                        .mesh_epoch = scope.source_epoch,
-                                        .sampled_us = b.kernel_hi,
-                                        .valid_us = R2_GNSS_MAX_VALID_US,
-                                        .source_kind = R2_GNSS_SOURCE_LOCAL,
-                                        .known = (uint8_t)g->known,
-                                        .values = (uint8_t)g->values,
-                                        .sats = g->sats,
-                                        .hdop_centi = g->hdop_centi,
-                                        .rmc_age_ms = g->rmc_age_ms,
-                                        .pps_age_ms = g->pps_age_ms,
-                                        .gga_age_ms = g->gga_age_ms,
-                                        .priority1 = g->priority1,
-                                        .clock_class = g->clock_class,
-                                        .accuracy = g->accuracy,
-                                        .priority2 = g->priority2,
-                                        .variance = g->variance};
+    gm7_legacy_gnss(&reference, g, b.kernel_hi);
   }
   r2_radio_service_tick_reference(
       scope, map, utc >= 0 && utc <= INT64_MAX / 1000 ? utc * 1000 : -1,
@@ -590,8 +561,7 @@ static __attribute__((noinline)) void receive(struct gm7_bridge b, uint64_t utc,
                                               uint32_t enclosure) {
   struct r2_gm7_rx r;
   for (unsigned count = 0; count < 2 && r2_gm7_capture_pop(&r); count++) {
-    if (management_rx < UINT32_MAX)
-      ++management_rx;
+    management_count(&management_rx);
     uint64_t lo, hi;
     if (!r2_gm7_clock_bounds(r.raw, r.epoch, 0, 5, &lo, &hi) ||
         r.epoch != b.epoch)
@@ -600,8 +570,7 @@ static __attribute__((noinline)) void receive(struct gm7_bridge b, uint64_t utc,
     struct gm7_packet packet;
     if (gm7_ad_decode(&packet, r.ad, r.length, &group))
       continue;
-    if (management_mac < UINT32_MAX)
-      ++management_mac;
+    management_count(&management_mac);
     if (!bridge(&b) || b.epoch != clock_epoch)
       return;
     if (packet.kind == GM7_REQUEST) {
@@ -615,17 +584,15 @@ static __attribute__((noinline)) void receive(struct gm7_bridge b, uint64_t utc,
                                    .kind = GM7_REQUEST,
                                    .body.request = packet.body.request},
               rx, b.hf)) {
-        if (management_accepted < UINT32_MAX)
-          ++management_accepted;
+        management_count(&management_accepted);
         (void)queue(GM7_SECONDARY, &packet, w, lo / 16 + 250000, b);
       }
     } else {
       if (!bridge(&b) || b.epoch != clock_epoch)
         return;
       uint32_t generation = owner.event_generation;
-      if (!gm7_owner_receive(&owner, r.ad, r.length, r.address, rx, b.hf) &&
-          management_accepted < UINT32_MAX)
-        ++management_accepted;
+      if (!gm7_owner_receive(&owner, r.ad, r.length, r.address, rx, b.hf))
+        management_count(&management_accepted);
       if (generation != owner.event_generation) {
         if (!owner.serving)
           r2_radio_service_withdraw();
@@ -746,10 +713,10 @@ static __attribute__((noinline)) void publish(struct gm7_bridge b) {
   status.display_coarse_utc = c.utc_us;
   status.display_coarse_at = c.at;
   uint32_t join_rx = r2_ble_receipts();
-  status.rx = management_rx > UINT32_MAX - join_rx ? UINT32_MAX
-                                                   : management_rx + join_rx;
-  status.authenticated =
-      management_mac; /* Verified GM7 MACs, never local TX sequences. */
+  uint32_t received = (uint32_t)atomic_get(&management_rx);
+  status.rx = received > UINT32_MAX - join_rx ? UINT32_MAX : received + join_rx;
+  status.authenticated = (uint32_t)atomic_get(
+      &management_mac); /* Verified GM7 MACs, never local TX sequences. */
   status.rejected = owner.drops;
   status.drops = r2_ble_drops();
   status.errors = r2_ble_errors();
@@ -1024,6 +991,7 @@ static void cycle(struct k_work *work) {
             owner.reason = GM7_R_MISSED_BOUND;
           }
           if (ready && !promoted_valid) {
+            uint64_t raw_pps = map.last_edge;
             struct r2_capture current;
             ready = r2_capture_now(&current) &&
                     !r2_radio_service_gm7_promote(
@@ -1032,9 +1000,15 @@ static void cycle(struct k_work *work) {
                         source.source_gen, map.utc_association, current);
             if (ready) {
               (void)k_mutex_lock(&lock, K_FOREVER);
-              promoted = map;
-              promoted_valid = true;
-              promoted_pps = source_input.last_edge;
+              ready = !input.stopped && !input.fatal &&
+                      input.view.source_epoch == source.source_gen &&
+                      functional_source.epoch == current.epoch &&
+                      functional_source.last_edge == raw_pps;
+              if (ready) {
+                functional_source = map;
+                promoted_valid = true;
+                promoted_pps = raw_pps;
+              }
               (void)k_mutex_unlock(&lock);
               takeover_bound = bound;
             }
@@ -1235,6 +1209,13 @@ int r2_service_configure(const struct r2_identity *id,
   return 0;
 }
 void r2_service_clock(const struct r2_clock *clock) {
+  struct r2_source_clock raw;
+  r2_time_source_snapshot(&raw);
+  struct r2_capture current = {0};
+  uint64_t relative, generation;
+  bool captured = r2_capture_now(&current);
+  bool raw_live =
+      captured && r2_source_clock_read(&raw, current, &relative, &generation);
   (void)k_mutex_lock(&lock, K_FOREVER);
   input.view = clock->view;
   input.translated_utc_us = clock->translated_utc_us;
@@ -1247,14 +1228,44 @@ void r2_service_clock(const struct r2_clock *clock) {
   input.last_pair_utc = clock->last_pair_utc;
   input.stopped = clock->stopped;
   input.fatal = clock->fatal;
-  r2_time_source_snapshot(&source_input);
-  bool healthy = !clock->stopped && !clock->fatal &&
+  bool healthy = raw_live && !clock->stopped && !clock->fatal &&
                  (clock->view.source_available ||
                   (clock->view.valid && clock->view.fix_active &&
                    clock->view.pps_present));
-  if (!healthy || promoted.utc_source_epoch != clock->view.source_epoch)
-    promoted_valid = false;
-  r2_radio_service_source(promoted_valid ? &promoted : &source_input, healthy,
+  if (promoted_valid) {
+    /* Serialize main refresh and promotion. Only a NEW physical PPS may
+     * discipline the retained delivered affine coordinate. A duplicate raw
+     * fit cannot renew its original horizon or overwrite its UTC/phase. */
+    bool same =
+        healthy && functional_source.epoch == current.epoch &&
+        raw.epoch == current.epoch && raw.utc_bound &&
+        raw.utc_source_epoch == clock->view.source_epoch &&
+        functional_source.utc_source_epoch == clock->view.source_epoch &&
+        raw.utc_association == functional_source.utc_association;
+    if (!same || raw.last_edge < promoted_pps) {
+      promoted_valid = false;
+      healthy = false;
+      r2_source_clock_invalidate(&functional_source);
+    } else if (raw.last_edge != promoted_pps) {
+      const struct r2_source_map *latest =
+          &raw.maps[(raw.head + R2_SOURCE_MAP_HISTORY - 1) %
+                    R2_SOURCE_MAP_HISTORY];
+      struct r2_pps_precision pps = {.epoch = raw.epoch,
+                                     .last = raw.last_edge,
+                                     .rate_q16 = latest->rate_q16,
+                                     .seen = true,
+                                     .rate_valid = true};
+      if (!r2_source_clock_publish(&functional_source, &pps, current)) {
+        promoted_valid = false;
+        healthy = false;
+      } else {
+        promoted_pps = raw.last_edge;
+      }
+    }
+  } else {
+    functional_source = raw;
+  }
+  r2_radio_service_source(&functional_source, healthy,
                           clock->view.source_epoch);
   if (!healthy) {
     status.serving = false;
@@ -1740,8 +1751,9 @@ int r2_gm7_diagnostic_format(char *out, size_t capacity, unsigned page,
       (unsigned)(runtime_gm ? diagnostic.pps_ms : UINT32_MAX),
       diagnostic.blockers, diagnostic.reason,
       runtime_gm && diagnostic.pending ? "true" : "false",
-      runtime_gm ? management_rx : 0, runtime_gm ? management_mac : 0,
-      runtime_gm ? management_accepted : 0,
+      runtime_gm ? (uint32_t)atomic_get(&management_rx) : 0,
+      runtime_gm ? (uint32_t)atomic_get(&management_mac) : 0,
+      runtime_gm ? (uint32_t)atomic_get(&management_accepted) : 0,
       runtime_gm ? diagnostic.event_queued : 0,
       runtime_gm ? diagnostic.event_completed : 0,
       runtime_gm ? diagnostic.event_failed : 0,

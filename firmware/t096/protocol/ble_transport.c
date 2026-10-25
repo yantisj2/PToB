@@ -3,6 +3,21 @@
  * Fixed storage, public GATT APIs, single polling owner. Callback work copies
  * one complete record or records completion. No election work in callbacks.
  */
+/* GM7 retains the normal JOIN connection, not the retired fixed GM control
+ * roster. Internal physical slot0 is private: the public admission index is
+ * still4 and public indices0..3 must never alias it. */
+#if defined(R2_GM7_NATIVE)
+#define r2_ble_ready join_slot_ready
+#define r2_ble_receive join_slot_receive
+#define r2_ble_send join_slot_send
+#define r2_ble_disconnect join_slot_disconnect
+#define r2_ble_parameters join_slot_parameters
+#define r2_ble_peer_identity join_slot_identity
+#define r2_ble_peer_authenticated join_slot_authenticated
+#define r2_ble_public_client join_slot_public_client
+#define r2_ble_topology join_slot_topology
+#define r2_ble_admission_peer join_slot_admission_peer
+#endif
 #include "ble_transport.h"
 #include "gm_standby.h"
 #include "timing_events.h"
@@ -27,8 +42,16 @@
 #endif
 #define R2_LOCK_UNIT 1u
 #include "health_lock.h"
+#if defined(R2_GM7_NATIVE)
+#define PEERS 1
+/* A variable bound also keeps the unchanged legacy loop bodies well formed
+ * under strict unsigned-comparison warnings. It is never changed. */
+static const unsigned control_peers;
+#define CONTROL_PEERS control_peers
+#else
 #define PEERS 5
 #define CONTROL_PEERS 4
+#endif
 #if defined(R2_FIELD_FIXTURE)
 static unsigned fixture_control_interval,fixture_admission_interval;
 void r2_ble_fixture_admission_interval(unsigned units){fixture_admission_interval=units;}
@@ -63,13 +86,28 @@ static void gm5_inventory_snapshot(bool consumed,uint64_t now);
 #define gm5_inventory_snapshot(consumed,now) ((void)0)
 #endif
 void r2_ble_gm5_policy(bool enabled,uint64_t selected,bool due){
+#if defined(R2_GM7_NATIVE)
+ (void)enabled;(void)selected;(void)due;gm5_mode=false;gm5_selected=0;gm5_inventory_due=false;return;
+#endif
  if(gm5_mode&&gm5_inventory_due&&!due)gm5_inventory_snapshot(false,now_us());
  gm5_mode=enabled;gm5_selected=selected;gm5_inventory_due=due;
 }
 static uint32_t client_phase;static uint64_t client_resume;static bool client_aligned,client_search_seen;
-static uint8_t admission_peer=R2_BLE_ADMISSION_PEER;static bool field_profile;
+#if defined(R2_GM7_NATIVE)
+static uint8_t admission_peer;
+#else
+static uint8_t admission_peer=R2_BLE_ADMISSION_PEER;
+#endif
+static bool field_profile;
 static uint64_t group_id,local_identity;static uint32_t group_epoch;
 static struct peer peers[PEERS];static uint8_t self,nodes;
+static unsigned logical_peer(unsigned physical){
+#if defined(R2_GM7_NATIVE)
+ return physical==0?R2_BLE_ADMISSION_PEER:physical;
+#else
+ return physical;
+#endif
+}
 static bool scanning,advertising,stopping,precision_discovery,precision_serving,precision_draining;
 /* The public start API returns EALREADY without replacing live AD data.
  * Keep the existing G1 hint current across local admission/profile changes. */
@@ -105,7 +143,7 @@ static void gm_diagnostic_publish(void);
 static void diag_count(unsigned word){if(gm_link_events[word]!=UINT32_MAX)++gm_link_events[word];}
 static void diag_link_event(unsigned counter,unsigned first,unsigned recent,unsigned peer,unsigned error){
  uint64_t at=now_us(),id=peer<nodes?peers[peer].identity:0;
- uint32_t record[6]={(uint32_t)at,(uint32_t)(at>>32),peer|(error<<8)|
+ uint32_t record[6]={(uint32_t)at,(uint32_t)(at>>32),logical_peer(peer)|(error<<8)|
   ((peer<nodes&&peers[peer].disconnect_requested)?1u<<16:0),
   peer<nodes?peers[peer].incarnation:0,(uint32_t)id,(uint32_t)(id>>32)};
  if(!gm_link_events[first]&&!gm_link_events[first+1])memcpy(gm_link_events+first,record,sizeof record);
@@ -470,14 +508,14 @@ static void connected(struct bt_conn *conn,uint8_t error)
     if(p->conn!=conn)i=-1; /* reject duplicate without replacing the owned link */
     else if(group_id){struct bt_conn_info info;if(!bt_conn_get_info(conn,&info))p->admission_server=info.role==BT_CONN_ROLE_PERIPHERAL;}
     if(p->conn==conn){
-     if(gm5_mode&&i==CONTROL_PEERS&&!error&&
+     if(gm5_mode&&(unsigned)i==CONTROL_PEERS&&!error&&
         (p->disconnect_requested||(p->connect_until&&now_us()>=p->connect_until)))p->release=true;
      if(!gm5_mode)p->disconnect_requested=false;
      else if(!error&&!p->release&&p->connect_until&&now_us()<p->connect_until)p->connect_until=0;
-     atomic_clear(&p->att_mtu);atomic_set(&p->connected,!error);atomic_set(&p->dead,error?1:0);if(i==CONTROL_PEERS&&!error)p->provisional_until=p->first_seen?p->first_seen+5000000:now_us()+5000000;++p->incarnation;}
+     atomic_clear(&p->att_mtu);atomic_set(&p->connected,!error);atomic_set(&p->dead,error?1:0);if((unsigned)i==CONTROL_PEERS&&!error)p->provisional_until=p->first_seen?p->first_seen+5000000:now_us()+5000000;++p->incarnation;}
   }
   r2_timing_event(R2_TIMING_GM_CONNECTED,error,i>=0?peers[i].identity:0,
-                  i<0?255u:(unsigned)i,i>=0?peers[i].incarnation:0,0);
+                  i<0?255u:logical_peer((unsigned)i),i>=0?peers[i].incarnation:0,0);
   bool own_init=group_id&&i>=0&&!peers[i].admission_server;
   uint64_t init_peer=own_init?peers[i].identity:0;
   k_spin_unlock(&lock,key);
@@ -550,7 +588,12 @@ static uint8_t located(struct bt_conn *conn,uint8_t error,struct bt_gatt_read_pa
  atomic_set(&p->lookup_done,1);return BT_GATT_ITER_STOP;
 }
 static void tx_done(struct bt_conn *conn,void *user_data){struct tx_context *c=user_data;
- k_spinlock_key_t key=k_spin_lock(&lock);lamp_times[lamp_kind(c->peer->tx[c->slot])][1]=now_us();
+ k_spinlock_key_t key=k_spin_lock(&lock);
+#if defined(R2_GM7_NATIVE)
+ if(c->peer!=&peers[0]||c->slot>=2||c->peer->conn!=conn||
+    !(atomic_get(&c->peer->tx_busy)&(1u<<c->slot))){k_spin_unlock(&lock,key);return;}
+#endif
+ lamp_times[lamp_kind(c->peer->tx[c->slot])][1]=now_us();
  atomic_clear_bit(&c->peer->tx_busy,c->slot);
  if(c->peer->disconnect_requested)r2_timing_event(R2_TIMING_GM_CONTROL,0,c->peer->identity,21,c->peer->incarnation,(uint32_t)atomic_get(&c->peer->tx_busy));
  k_spin_unlock(&lock,key);}
@@ -683,7 +726,7 @@ static void scan_report(const bt_addr_le_t *address,int8_t rssi,uint8_t type,str
    if(i>=0&&peers[i].identity!=candidate){k_spin_unlock(&lock,key);return;}
    if((group_client||gm5_mode)&&!field_profile){
     candidate_seen(address,candidate,passive_hint,rssi,now_us());
-    if(i<0||i==CONTROL_PEERS){k_spin_unlock(&lock,key);return;}
+    if(i<0||(unsigned)i==CONTROL_PEERS){k_spin_unlock(&lock,key);return;}
    }
    if(i<0){
     for(unsigned p=1;p<PEERS;p++)if(peers[p].identity==candidate){k_spin_unlock(&lock,key);return;}
@@ -699,9 +742,13 @@ static void scan_report(const bt_addr_le_t *address,int8_t rssi,uint8_t type,str
   if(i>=0&&!peers[i].conn){if(!peers[i].first_seen)peers[i].first_seen=now_us();peers[i].advertised_at=now_us();if(!peers[i].retry)peers[i].retry=1;}
   k_spin_unlock(&lock,key);
 }
-int r2_ble_start(unsigned unit,unsigned count,const uint8_t addresses[][6])
+static int start_owned(unsigned unit,unsigned count,const uint8_t addresses[][6])
 {
+#if defined(R2_GM7_NATIVE)
+  if(count!=1||unit!=255||!addresses)return -EINVAL;
+#else
   if(count>CONTROL_PEERS||unit>=count)return -EINVAL;
+#endif
   if(stop_error)return stop_error; /* Drained fault is not permission to restart. */
   k_spinlock_key_t key=k_spin_lock(&lock);bool pending=gatt_request.pending;k_spin_unlock(&lock,key);
   if(pending)return -EBUSY;
@@ -724,15 +771,31 @@ int r2_ble_start(unsigned unit,unsigned count,const uint8_t addresses[][6])
   for(unsigned i=0;i<count;i++){for(unsigned k=0;k<2;k++)peers[i].completion[k]=(struct tx_context){.peer=&peers[i],.slot=k};peers[i].address.type=BT_ADDR_LE_RANDOM;memcpy(peers[i].address.a.val,addresses[i],6);}
   return 0;
 }
+int r2_ble_start(unsigned unit,unsigned count,const uint8_t addresses[][6]){
+#if defined(R2_GM7_NATIVE)
+ (void)unit;(void)count;(void)addresses;return -ENOTSUP;
+#else
+ return start_owned(unit,count,addresses);
+#endif
+}
 int r2_ble_group_start(uint64_t identity,uint64_t group,uint32_t epoch,const uint8_t address[6]){
  if(!identity||!group||!epoch||!address)return -EINVAL;
+#if defined(R2_GM7_NATIVE)
+ uint8_t addresses[1][6]={{0}};
+ int rc=start_owned(255,1,addresses);if(rc)return rc;
+ local_identity=identity;group_id=group;group_epoch=epoch;
+#else
  uint8_t addresses[4][6]={{0}};memcpy(addresses[0],address,6);
  int rc=r2_ble_start(0,4,addresses);if(rc)return rc;
  local_identity=identity;group_id=group;group_epoch=epoch;peers[0].identity=identity;nodes=PEERS;
+#endif
  for(unsigned k=0;k<2;k++){peers[CONTROL_PEERS].completion[k]=(struct tx_context){.peer=&peers[CONTROL_PEERS],.slot=k};}
  return 0;
 }
 int r2_ble_field_start(unsigned unit,const uint64_t ids[4],const uint8_t addresses[][6]){
+#if defined(R2_GM7_NATIVE)
+ (void)unit;(void)ids;(void)addresses;return -ENOTSUP;
+#else
  int rc=r2_ble_start(unit,3,addresses);if(rc)return rc;
  field_admission_allowed=true;field_admission_renewal=false;
  field_profile=true;admission_peer=unit==1?2:1;group_client=unit==2;
@@ -741,6 +804,7 @@ int r2_ble_field_start(unsigned unit,const uint64_t ids[4],const uint8_t address
   * bootstrap. Its connection never enters the GM network state machine. */
  public_client=unit==0?2:unit==2?0:PEERS;
  return 0;
+#endif
 }
 unsigned r2_ble_admission_peer(void){return admission_peer;}
 uint64_t r2_ble_peer_identity(unsigned peer,uint8_t address[6]){
@@ -855,7 +919,7 @@ static void poll_owned(uint64_t now)
   bool control_full=true;for(unsigned i=1;i<CONTROL_PEERS;i++)if(!peers[i].identity)control_full=false;
   uint8_t discovery[23]={'G','1',1};if(control_full)discovery[2]|=128;if(group_client)discovery[2]|=64;r2_group_put(discovery+3,group_id,8);r2_group_put(discovery+11,group_epoch,4);r2_group_put(discovery+15,local_identity,8);
   const struct bt_data ad[]={BT_DATA_BYTES(BT_DATA_FLAGS,BT_LE_AD_GENERAL|BT_LE_AD_NO_BREDR),{.type=BT_DATA_MANUFACTURER_DATA,.data_len=23,.data=discovery}};
-  if(group_id){unsigned occupied=0;for(unsigned i=1;i<PEERS;i++)if(peers[i].conn)++occupied;if(occupied<4)need_adv=need_scan=true;}
+  if(group_id){unsigned occupied=0;for(unsigned i=0;i<PEERS;i++)if(i!=self&&peers[i].conn)++occupied;if(occupied<4)need_adv=need_scan=true;}
   /* Ready group cores must keep discovering partitions/newcomers. Advertising
    * alone deadlocks two established cores that both stopped scanning. This is
    * bounded G1 discovery, not a new timing acquisition/authority path. */
@@ -1011,7 +1075,7 @@ static void poll_owned(uint64_t now)
     if(gm5_mode){gm5_inventory_snapshot(true,now);recent_admission_until=now;gm5_inventory_due=false;}
     /* Publish before the sleeping public call: its connected callback may run
      * before create returns, including on the original deadline boundary. */
-    if(group_client||(group_id&&i==CONTROL_PEERS))p->connect_until=now+(gm5_mode?R2_GM5_IO_US:100000);
+    if(group_client||(group_id&&(unsigned)i==CONTROL_PEERS))p->connect_until=now+(gm5_mode?R2_GM5_IO_US:100000);
     int rc=bt_conn_le_create(&p->address,create,BT_LE_CONN_PARAM(interval,interval,0,supervision),&conn);
     if(!rc){
       /* A connected callback can run while the synchronous create command
@@ -1028,7 +1092,7 @@ static void poll_owned(uint64_t now)
         duplicate_track(conn,now);
       }
       if(already_owned)bt_conn_unref(conn);
-      if(group_id&&i==CONTROL_PEERS&&!p->first_seen)p->provisional_until=now+5000000;
+      if(group_id&&(unsigned)i==CONTROL_PEERS&&!p->first_seen)p->provisional_until=now+5000000;
       /* All G5 roles use the existing1s discovery budget. Ordinary RC
        * keeps100ms.
        * Neither public-call delay nor a callback renews the original cap. */
@@ -1202,14 +1266,25 @@ void r2_ble_client_window(bool enabled){client_window=enabled;}
 void r2_ble_client_defer(uint64_t until){if(group_client&&until>client_resume)client_resume=until;}
 
 bool r2_ble_control_available(void){
+#if defined(R2_GM7_NATIVE)
+ return false;
+#else
  for(unsigned i=1;i<(gm5_mode?2:CONTROL_PEERS);i++)if(!peers[i].identity&&!peers[i].conn)return true;
  return false;
+#endif
 }
 bool r2_ble_control_member(void){
+#if defined(R2_GM7_NATIVE)
+ return false;
+#else
  for(unsigned i=1;i<CONTROL_PEERS;i++)if(peers[i].identity)return true;
  return false;
+#endif
 }
 int r2_ble_admission_promote(void){
+#if defined(R2_GM7_NATIVE)
+ return -EACCES;
+#else
  if(gm7_server)return -EACCES; /* normal client JOIN never creates GM HOT/control owners */
  struct peer *p=&peers[CONTROL_PEERS];
  if(gm5_mode&&(now_us()>=p->provisional_until||p->release||p->disconnect_requested||atomic_get(&p->dead)))return -ETIMEDOUT;
@@ -1226,6 +1301,7 @@ int r2_ble_admission_promote(void){
  p->conn=NULL;p->identity=0;p->handle=0;p->retry=p->advertised_at=p->first_seen=0;p->release=false;p->mtu.func=NULL;p->discovery.func=NULL;p->lookup.func=NULL;atomic_clear(&p->lookup_done);++p->incarnation;
  atomic_clear(&p->connected);atomic_clear(&p->dead);atomic_clear(&p->mtu_done);atomic_clear(&p->discovered);
  k_spin_unlock(&lock,k);return (int)slot;
+#endif
 }
 
 int r2_ble_admission_bind(uint64_t id,const uint8_t address[6]){
@@ -1259,6 +1335,9 @@ void r2_ble_fault_snapshot(struct r2_transport_fault *out){
  out->bridge_calls=bridge_calls;out->bridge_queue_max_us=bridge_queue_max_us;
  out->bridge_call_max_us=bridge_call_max_us;out->bridge_timeouts=bridge_timeouts;
  out->bridge_pending=gatt_request.pending;k_spin_unlock(&lock,key);
+#if defined(R2_GM7_NATIVE)
+ if(out->operation&&out->peer==0)out->peer=R2_BLE_ADMISSION_PEER;
+#endif
 }
 static void gm_diagnostic_publish(void){
  k_spinlock_key_t key=k_spin_lock(&lock);
@@ -1270,7 +1349,11 @@ static void gm_diagnostic_publish(void){
  out[6]=nodes;out[7]=self;out[8]=(uint32_t)atomic_get(&error_count);
  out[9]=(uint32_t)stop_error;out[10]=(uint32_t)at;out[11]=(uint32_t)(at>>32);
  for(unsigned i=0;i<PEERS;i++){
-  struct peer *p=&peers[i];uint32_t *v=out+12+8*i;
+  unsigned published=i;
+#if defined(R2_GM7_NATIVE)
+  published=R2_BLE_ADMISSION_PEER;
+#endif
+  struct peer *p=&peers[i];uint32_t *v=out+12+8*published;
   v[0]=(uint32_t)p->identity;v[1]=(uint32_t)(p->identity>>32);v[2]=p->incarnation;
   v[3]=(p->conn!=NULL)|(atomic_get(&p->connected)?2u:0)|(atomic_get(&p->dead)?4u:0)|
    (p->authenticated?8u:0)|(atomic_get(&p->mtu_done)==1?16u:0)|
@@ -1309,3 +1392,32 @@ int r2_ble_gm7_scan(bool aligned){
  (void)aligned;(void)gm7_scan_aligned;return -ENOTSUP;
 #endif
 }
+
+#if defined(R2_GM7_NATIVE)
+#undef r2_ble_ready
+#undef r2_ble_receive
+#undef r2_ble_send
+#undef r2_ble_disconnect
+#undef r2_ble_parameters
+#undef r2_ble_peer_identity
+#undef r2_ble_peer_authenticated
+#undef r2_ble_public_client
+#undef r2_ble_topology
+#undef r2_ble_admission_peer
+/* The checked logical boundary is deliberately one-way. No control index,
+ * self index, sentinel or malformed index can mutate the physical JOIN row. */
+bool r2_ble_ready(unsigned p){return p==R2_BLE_ADMISSION_PEER&&join_slot_ready(0);}
+bool r2_ble_receive(struct r2_ble_event *event){
+ if(!join_slot_receive(event))return false;
+ if(event->peer==0)event->peer=R2_BLE_ADMISSION_PEER;
+ return true;
+}
+int r2_ble_send(unsigned p,const uint8_t *data){return p==R2_BLE_ADMISSION_PEER?join_slot_send(0,data):-ENOTCONN;}
+void r2_ble_disconnect(unsigned p){if(p==R2_BLE_ADMISSION_PEER)join_slot_disconnect(0);}
+uint32_t r2_ble_parameters(unsigned p){return p==R2_BLE_ADMISSION_PEER?join_slot_parameters(0):0;}
+uint64_t r2_ble_peer_identity(unsigned p,uint8_t address[6]){return p==R2_BLE_ADMISSION_PEER?join_slot_identity(0,address):0;}
+void r2_ble_peer_authenticated(unsigned p,bool authenticated){if(p==R2_BLE_ADMISSION_PEER)join_slot_authenticated(0,authenticated);}
+void r2_ble_public_client(unsigned p){(void)p;}
+void r2_ble_topology(unsigned value,unsigned members){(void)value;(void)members;}
+unsigned r2_ble_admission_peer(void){return R2_BLE_ADMISSION_PEER;}
+#endif

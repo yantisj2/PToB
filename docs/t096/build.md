@@ -11,8 +11,8 @@ The common mesh image has two profiles: **GM** and **RC**. USB timing is compile
 by default; the RC backend publishes its accepted BLE source, while the normal
 GM backend does not publish a USB source map. The separate flash-only
 [DC image](direct-connect.md) serves GNSS over USB with Bluetooth disabled and no
-group enrollment. Use the [GM operating guide](gm-operations.md) for compatible
-GM7 groups and the [macOS guide](../../clients/macos/README.md) for USB consumers.
+group enrollment. Use the [GM7 implementation guide](gm7-implementation.md) for current
+GM7 scope and compatibility and the [macOS guide](../../clients/macos/README.md) for USB consumers.
 
 The separate [PC awake-only experiment](power-control.md) uses `--profile PC`,
 group enrollment and `--pc-parent` with a direct-GM identity or `auto` for
@@ -103,7 +103,7 @@ private build/watchdog identity; a display alias grants no permission.
 The configured transmitter requests TX ON only in GM profile, including when it
 follows an authenticated locked BLE source without local PPS. An actual serving
 GM retains its qualified local PPS/source requirement. Other enrolled T096s
-request passive RX, subject to the [GM participation policy](gm-operations.md).
+request passive RX, subject to the [GM7 participation policy](gm7-implementation.md).
 A configured transmitter in RC profile cannot consume its own stream.
 
 The `lora` query and page 7 expose role, source and radio diagnostics; `lora 00/01`

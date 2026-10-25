@@ -425,6 +425,28 @@ static void hot_report(const struct r2_service_status *s,const struct r2_clock *
   }else next=now+1000;
 }
 #endif
+#ifdef R2_GM7_NATIVE
+/* Keep temporary UI scratch out of main's unrelated command/reply frame. */
+static uint64_t __attribute__((noinline)) gm7_ui_publish(uint64_t now,bool platform_ready,bool bt_ready){
+      struct r2_ui_model m={.sampled_ms=now,.platform_ready=platform_ready,.bt_ready=bt_ready,.reset_kind=r2_watchdog_reset_kind()};
+      memcpy(m.unit,identity.unit,sizeof(m.unit));r2_time_snapshot(&m.clock,&m.queue_drops);
+#ifdef R2_NATIVE_BLE
+      r2_service_ui(&m);
+      if(m.role==R2_UI_GM){
+        int64_t utc;bool valid=m.gm_source_fresh&&r2_time_source_utc_now(m.clock.source_epoch,&utc);
+        m.clock.valid=m.coarse_valid=valid;
+        if(valid){m.clock.utc_us=utc;m.coarse_utc_us=(uint64_t)utc;m.coarse_at_us=(uint64_t)r2_time_now_us();}
+      }
+#endif
+#ifdef R2_DC_PROFILE
+      r2_dc_ui(&m);
+#endif
+#ifdef R2_LORA
+      r2_lora_view(&m.lora);
+#endif
+      m.sampled_ms=k_uptime_get();r2_ui_publish(&m);return m.sampled_ms+20;
+}
+#endif
 int main(void)
 {
   k_thread_priority_set(k_current_get(),7);
@@ -609,6 +631,9 @@ int main(void)
     }
 #endif
     if(now>=ui_due){
+#ifdef R2_GM7_NATIVE
+      ui_due=gm7_ui_publish(now,platform_ready,p.bt_done&&!p.bt_result&&!p.bt_submit);
+#else
       struct r2_ui_model m={.sampled_ms=now,.platform_ready=platform_ready,.bt_ready=p.bt_done&&!p.bt_result&&!p.bt_submit,.reset_kind=r2_watchdog_reset_kind()};
       memcpy(m.unit,identity.unit,sizeof(m.unit));r2_time_snapshot(&m.clock,&m.queue_drops);
 #ifdef R2_NATIVE_BLE
@@ -626,6 +651,7 @@ int main(void)
       r2_lora_view(&m.lora);
 #endif
       m.sampled_ms=k_uptime_get();r2_ui_publish(&m);ui_due=m.sampled_ms+20;
+#endif
     }
     if(maintenance.phase==R2_CLOSING&&!close_started){
       int rc=r2_ui_close_result();

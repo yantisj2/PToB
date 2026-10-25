@@ -32,8 +32,6 @@ struct gm7_requester {
 /* After the one-shot nonce is consumed, keep only its bound clock/scope.
  * Request echo and duplicate identity fields remain in no authority cache. */
 struct gm7_bound_anchor {
-  uint64_t sampled_mono_us, utc_us, birth_us, founder, term, active,
-      active_boot;
   uint32_t timing_epoch, source_gen, capture_gen, train_gen;
 };
 struct gm7_session {
@@ -43,6 +41,10 @@ struct gm7_session {
   uint32_t conservative_elapsed_us;
   uint8_t endpoint;
   uint64_t last_sequence, last_sent, source_until, last_diag[2], control_until;
+  /* Canonical serving lineage/sample: ANCHOR seeds only its scope while
+   * control_until stays0. A live accepted control is never replaced by a
+   * renewal sample. Candidate STATUS supplies only candidate diagnostic scope.
+   */
   struct gm7_control control;
   int64_t offset_lo, offset_hi;
   uint32_t key_epoch;

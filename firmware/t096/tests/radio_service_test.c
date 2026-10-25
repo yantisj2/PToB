@@ -1,7 +1,15 @@
 /* Actual PA owner with cancellation/termination at hostile public boundaries. */
 #include "radio_service_fake.h"
 #include "../src/radio_audit.c"
+#ifdef R2_GM7_NATIVE
+int bt_hci_get_adv_handle(const struct bt_le_ext_adv *,uint8_t *);
+#endif
 #include "../src/radio_service.c"
+#ifdef R2_GM7_NATIVE
+int bt_hci_get_adv_handle(const struct bt_le_ext_adv *a,uint8_t *h){(void)a;*h=1;return 0;}
+void r2_gm7_controller_precision_bind(uint16_t h,uint32_t t){(void)h;(void)t;}
+int r2_precision_phase_step(uint8_t h,int step){(void)h;(void)step;return -EAGAIN;}
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include "relay_precision.h"
@@ -70,6 +78,25 @@ static void handoff_fixture(const struct r2_radio_precision *history){
 int main(int argc,char **argv){
  assert(argc==2||argc==3);mode=(unsigned)strtoul(argv[1],NULL,10);
  struct r2_enrollment roster={.count=2};assert(!r2_radio_service_init(0,&roster));
+#ifdef R2_GM7_NATIVE
+ if(mode==61){
+  fake_time=capture_us=1000000;capture_tick=capture_us*16;pt_input.stopped=false;
+  pt_output=(struct pt_output){.scope={.root=1,.root_identity=555,.boot=777,.source_epoch=3,.publication_epoch=4,.follower=true,.until_us=fake_time+1000},
+   .view={.authorized=true,.map_valid=true,.fit_valid=true,.locked=true},
+   .sampled=fake_time,.valid_until=fake_time+1000,.capture_epoch=1,.capture_tick=capture_tick,.capture_until=capture_tick+16000,
+   .gm7={.counter_epoch=1,.last_correction=capture_tick-160,.evaluated_tick=capture_tick,.phase_enclosure_us=500,.capture_gen=9,.shadow_gen=10,.retained=true,
+    .first_tx_lo=100,.first_tx_hi=120,.first_tx_derived_end_hi=200,.first_tx_observed_complete=true}};
+  struct r2_gm7_timing t;r2_radio_service_gm7_timing(&t,fake_time);
+  assert(t.scope.root_identity==555&&t.scope.boot==777&&t.scope.source_epoch==3&&t.scope.publication_epoch==4&&t.scope.follower);
+  assert(t.view.authorized&&t.view.map_valid&&t.retained&&t.until_us==fake_time+1000&&t.capture_gen==9&&t.shadow_gen==10);
+  assert(t.first_tx_lo==100&&t.first_tx_hi==120&&t.first_tx_derived_end_hi==200&&t.first_tx_observed_complete);
+  fake_time=capture_us=1002000;capture_tick=capture_us*16;r2_radio_service_gm7_timing(&t,fake_time);
+  assert(t.retained&&!t.view.authorized&&!t.view.map_valid&&!t.scope.follower&&t.scope.root_identity==555&&t.scope.boot==777&&t.scope.publication_epoch==4);
+  assert(t.phase_enclosure_us>500&&pt_output.scope.follower); /* copy fencing, retained predictor unchanged */
+  pt_input.stopped=true;r2_radio_service_gm7_timing(&t,fake_time);assert(!t.view.authorized&&!t.view.map_valid);
+  puts("PASS actual PT coherent compact snapshot preserves full scope/map/observed completion; expired permission/map cannot authorize output while retained predictor and original identity remain");return 0;
+ }
+#endif
  if(mode>=35&&mode<=49){
   assert(argc==3);struct gm5_handoff_fixture f;FILE *file=fopen(argv[2],"rb");assert(file&&fread(&f,sizeof f,1,file)==1&&!fclose(file));
   roster=(struct r2_enrollment){.count=2,.identity={333,111},.group={.id=7,.epoch=1,.psk={1}}};

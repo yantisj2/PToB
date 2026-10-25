@@ -20,22 +20,28 @@ for i,row in enumerate(rows):fixture+='{'+json.dumps(row['name'])+f',vector_{i},
 fixture+='};\n';(out/'gm7_vectors.h').write_text(fixture)
 cc=os.environ.get('CC') or ('/opt/homebrew/opt/llvm/bin/clang' if Path('/opt/homebrew/opt/llvm/bin/clang').exists() else shutil.which('clang'))
 tiny=a.deps.resolve()/'modules/crypto/tinycrypt/lib'
-sources=[app/'protocol'/n for n in ['gm7_codec.c','gm7_session.c','gm7_owner.c','gm7_schedule.c','gm7_air.c','gm7_bridge.c','gm7_promote.c','group_auth.c']]
+sources=[app/'protocol'/n for n in ['gm7_codec.c','gm7_session.c','gm7_owner.c','gm7_schedule.c','gm7_air.c','gm7_bridge.c','gm7_promote.c','group_auth.c','gnss_diagnostics.c']]
 sources+=[app/'src'/n for n in ['gm7_source.c','precision.c']]
 sources+=[tiny/'source'/n for n in ['hmac.c','sha256.c','utils.c']]
 sources+=[app/'tests/gm7_test.c']
 command=[cc,'-std=c11','-Wall','-Wextra','-Werror','-Wno-default-const-init-var-unsafe','-g','-fsanitize=address,undefined','-fno-sanitize-recover=all','-I'+str(app/'include'),'-I'+str(app/'protocol'),'-I'+str(out),'-I'+str(tiny/'include'),*map(str,sources),'-o',str(out/'gm7-test')]
-receipt={'status':'INCOMPLETE','compiler':cc,'command':command,'vectors_sha256':hashlib.sha256(vectors.read_bytes()).hexdigest(),'hardware':'NOT_TESTED'}
+tracked=[*app.rglob('*.c'),*app.rglob('*.h'),*app.rglob('*.inc'),Path(__file__).resolve()]
+before={str(f.relative_to(repo)):hashlib.sha256(f.read_bytes()).hexdigest() for f in tracked}
+receipt={'sources':before,'status':'INCOMPLETE','compiler':cc,'command':command,'vectors_sha256':hashlib.sha256(vectors.read_bytes()).hexdigest(),'hardware':'NOT_TESTED'}
 try:
  with (out/'compile.log').open('w') as f:subprocess.run(command,stdout=f,stderr=subprocess.STDOUT,check=True,timeout=45)
  with (out/'run.log').open('w') as f:subprocess.run([str(out/'gm7-test')],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=30)
- for name in ['kernel.h','sys/atomic.h','random/random.h','bluetooth/bluetooth.h','bluetooth/conn.h','bluetooth/gatt.h']:
+ for name in ['kernel.h','sys/atomic.h','random/random.h','bluetooth/bluetooth.h','bluetooth/conn.h','bluetooth/gatt.h','bluetooth/hci.h']:
   header=out/'zephyr'/name;header.parent.mkdir(parents=True,exist_ok=True);header.write_text('/* Fake public BLE boundary. */\n')
  compatibility=[app/'tests/gm7_admission_test.c',*[app/'protocol'/n for n in ['network.c','election_policy.c','gm_diagnostics.c','group_join.c','group_auth.c','group_control.c','authority_codec.c','precision_codec.c','relay_codec.c']],*[tiny/'source'/n for n in ['hmac.c','sha256.c','utils.c']]]
  compat=[cc,'-std=c11','-O1','-g','-Wall','-Wextra','-Werror','-Wno-unused-function','-Wno-unused-variable','-Wno-unused-parameter','-Wno-default-const-init-var-unsafe','-fsanitize=address,undefined','-fno-sanitize-recover=all','-DR2_GM5_NATIVE=1',*['-I'+str(x) for x in [app/'include',app/'protocol',app/'tests',tiny/'include',out]],*map(str,compatibility),'-o',str(out/'admission-test')]
  receipt['admission_command']=compat
  with (out/'admission.compile.log').open('w') as f:subprocess.run(compat,stdout=f,stderr=subprocess.STDOUT,check=True,timeout=45)
  with (out/'admission.run.log').open('w') as f:subprocess.run([str(out/'admission-test')],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=30)
+ transport=[cc,'-std=c11','-O1','-g','-Wall','-Wextra','-Werror','-Wno-unused-function','-Wno-unused-variable','-Wno-unused-parameter','-Wno-default-const-init-var-unsafe','-fsanitize=address,undefined','-fno-sanitize-recover=all','-DR2_GM7_NATIVE=1',*['-I'+str(x) for x in [app/'include',app/'protocol',app/'tests',tiny/'include',out]],str(app/'tests/gm7_transport_test.c'),*[str(app/'protocol'/n) for n in ['group_auth.c','group_control.c','authority_codec.c']],*[str(tiny/'source'/n) for n in ['hmac.c','sha256.c','utils.c']],'-o',str(out/'transport-test')]
+ receipt['transport_command']=transport
+ with (out/'transport.compile.log').open('w') as f:subprocess.run(transport,stdout=f,stderr=subprocess.STDOUT,check=True,timeout=45)
+ with (out/'transport.run.log').open('w') as f:subprocess.run([str(out/'transport-test')],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=30)
  hal=out/'hal';hal.mkdir(exist_ok=True)
  (hal/'nrf_timer.h').write_text('#include <stdint.h>\nextern uint32_t gm7_fake_counter;\n#define NRF_TIMER3 ((void*)3)\n#define NRF_TIMER_TASK_CAPTURE2 2\n#define NRF_TIMER_CC_CHANNEL2 2\nstatic inline void nrf_timer_task_trigger(void *timer,int task){(void)timer;(void)task;}\nstatic inline uint32_t nrf_timer_cc_get(void *timer,int cc){(void)timer;(void)cc;return gm7_fake_counter;}\n')
  (hal/'nrf_rtc.h').write_text('#include <stdint.h>\nextern uint32_t gm7_fake_guard;\n#define NRF_RTC1 ((void*)1)\nstatic inline uint32_t nrf_rtc_counter_get(void *rtc){(void)rtc;return gm7_fake_guard;}\n')
@@ -55,10 +61,17 @@ try:
  receipt['controller_command']=controller
  with (out/'controller.compile.log').open('w') as f:subprocess.run(controller,stdout=f,stderr=subprocess.STDOUT,check=True,timeout=45)
  with (out/'controller.run.log').open('w') as f:subprocess.run([str(out/'controller-test')],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=30)
+ radio_sources=[app/'tests/radio_service_test.c',*[app/'src'/n for n in ['radio_precision.c','relay_precision.c','core.c','clock.c','nmea.c','precision.c']],*[app/'protocol'/n for n in ['gm7_promote.c','gnss_diagnostics.c','role_announcement.c','group_join.c','group_auth.c','group_control.c','group_precision.c','authority_codec.c','precision_codec.c','relay_codec.c']],*[tiny/'source'/n for n in ['hmac.c','sha256.c','utils.c']]]
+ radio=[cc,'-std=c11','-O1','-g','-Wall','-Wextra','-Werror','-Wno-unused-function','-Wno-unused-variable','-Wno-unused-parameter','-Wno-default-const-init-var-unsafe','-fsanitize=address,undefined','-fno-sanitize-recover=all','-DR2_GM7_NATIVE=1',*['-I'+str(x) for x in [app/'include',app/'protocol',app/'tests',tiny/'include',out]],*map(str,radio_sources),'-o',str(out/'radio-test')]
+ receipt['radio_command']=radio
+ with (out/'radio.compile.log').open('w') as f:subprocess.run(radio,stdout=f,stderr=subprocess.STDOUT,check=True,timeout=45)
+ with (out/'radio.run.log').open('w') as f:
+  for mode in [61,16,17,20,22,30,31,32,33,34,50]:subprocess.run([str(out/'radio-test'),str(mode)],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=30)
  for mode in ['legacy','gm7']:
   core=[cc,'-std=c11','-Wall','-Wextra','-Werror','-fsanitize=address,undefined','-fno-sanitize-recover=all','-I'+str(app/'include'),*(['-DR2_GM7_NATIVE=1']if mode=='gm7' else[]),str(app/'src/core.c'),str(app/'tests/core_test.c'),'-o',str(out/('core-'+mode))]
   with (out/('core-'+mode+'.compile.log')).open('w')as f:subprocess.run(core,stdout=f,stderr=subprocess.STDOUT,check=True,timeout=30)
   with (out/('core-'+mode+'.run.log')).open('w')as f:subprocess.run([str(out/('core-'+mode))],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=30)
+ assert before=={str(f.relative_to(repo)):hashlib.sha256(f.read_bytes()).hexdigest() for f in tracked},'Source changed during GM7 suite'
  receipt['status']='PASS'
 
 finally:

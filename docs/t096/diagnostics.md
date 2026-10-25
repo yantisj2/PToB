@@ -2,6 +2,14 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+GM7 source0.15.170 uses schema7 `gm 00` through `gm 08`, including local
+source/physical-boot binding on every page. Local HOT/PPS/ACTIVE durations belong
+to their owner; peer ROLE durations are sender-reported values at the original
+sample, with current/history/unknown scope labels. Ordinary RC diagnostics and
+legacy GS/GD meanings remain supported. See the
+[GM7 implementation guide](gm7-implementation.md) for current scope and limits.
+The versioned records below retain their historical meanings.
+
 Version 0.15.56 adds a production RAM event journal for both GM and RC. Earlier
 versions expose `network`, `precision`, `rc-parent`, `clock`, `join`, health and
 watchdog snapshots, but do not retain a complete sequence of sync transitions.

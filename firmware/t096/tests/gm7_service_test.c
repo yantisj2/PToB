@@ -1,5 +1,6 @@
 /* Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT */
 #include "gm7_service_fake.h"
+/* Include production only after the public platform boundary. */
 #include "../src/gm7_service.c"
 
 static bool fake_ble_closed = true, fake_pt_closed = true,
@@ -9,6 +10,7 @@ static bool fake_native_live[GM7_JOB_SLOTS], fake_native_exposed[GM7_JOB_SLOTS];
 static struct r2_gm7_tx fake_result[GM7_JOB_SLOTS];
 static unsigned fake_result_count;
 static struct r2_gm7_timing fake_timing;
+static struct r2_source_clock fake_raw;
 static struct r2_radio_scope fake_scope;
 static struct r2_enrollment fake_path;
 static struct r2_gm7_admission_source fake_join;
@@ -270,9 +272,7 @@ void r2_relay_service_stop(uint64_t now) {
   fake_relay_closed = true;
 }
 bool r2_relay_service_closed(void) { return fake_relay_closed; }
-void r2_time_source_snapshot(struct r2_source_clock *s) {
-  memset(s, 0, sizeof *s);
-}
+void r2_time_source_snapshot(struct r2_source_clock *s) { *s = fake_raw; }
 static struct gm7_source source_at(uint64_t t) {
   return (struct gm7_source){.utc_us = UINT64_C(1792800000000000) + t,
                              .sampled_us = t,
@@ -500,10 +500,10 @@ static void diagnostics_and_remap(void) {
   peer->session.until = fake_hf + 1000000;
   peer->session.anchor_flags = GM7_A_SERVING;
   peer->session.descriptor =
-      (struct gm7_bound_anchor){.utc_us = UINT64_C(1792800000000000) + fake_hf,
-                                .sampled_mono_us = fake_hf,
-                                .timing_epoch = 22,
-                                .train_gen = 23};
+      (struct gm7_bound_anchor){.timing_epoch = 22, .train_gen = 23};
+  peer->session.control.sent_utc_us = UINT64_C(1792800000000000) + fake_hf;
+  peer->session.control.sent_mono_us = fake_hf;
+  peer->session.control_until = fake_hf + 1000000;
   owner.selected_source_until = fake_hf + 1000000;
   struct gm7_source src = source_at(fake_hf);
   struct r2_source_clock map = {0};
@@ -520,19 +520,19 @@ static void diagnostics_and_remap(void) {
 static void healthy_input(void) {
   struct r2_pps_precision pps;
   r2_pps_precision_init(&pps);
-  r2_source_clock_init(&source_input);
+  r2_source_clock_init(&functional_source);
   uint64_t edge = fake_hf - fake_hf % 1000000;
   for (uint64_t t = edge - 2000000; t <= edge; t += 1000000) {
     assert(r2_pps_precision_add(
         &pps, (struct r2_capture){t * 16, 4, R2_CAPTURE_PPS}));
     if (pps.rate_valid)
       assert(r2_source_clock_publish(
-          &source_input, &pps,
+          &functional_source, &pps,
           (struct r2_capture){t * 16 + 1, 4, R2_CAPTURE_NOW}));
   }
   struct r2_capture at = {fake_hf * 16, 4, R2_CAPTURE_NOW};
   assert(
-      r2_source_utc_bind(&source_input, at,
+      r2_source_utc_bind(&functional_source, at,
                          (INT64_C(1792800000000000) + (int64_t)fake_hf) * 1000,
                          3, R2_ASSOC_UNKNOWN) == 1);
   memset(&input, 0, sizeof input);
@@ -544,6 +544,105 @@ static void healthy_input(void) {
                                       .mono_us = (int64_t)fake_kernel};
   input.last_pps = (int64_t)(fake_kernel - fake_hf % 1000000);
   input.last_rmc = (int64_t)fake_kernel;
+}
+static struct r2_clock raw_clock(void) {
+  struct r2_clock c = {0};
+  c.view = input.view;
+  c.view.mono_us = (int64_t)fake_kernel;
+  c.last_pps = (int64_t)(fake_kernel - fake_hf % 1000000);
+  c.last_rmc = (int64_t)fake_kernel;
+  c.last_rmc_utc = INT64_C(1792800000000000) + (int64_t)fake_hf;
+  return c;
+}
+static void functional_map_refresh(void) {
+  setup(false);
+  healthy_input();
+  fake_raw = functional_source;
+  struct r2_clock c = raw_clock();
+  promoted_valid = true;
+  promoted_pps = fake_raw.last_edge;
+  /* A retained handoff has an actual phase/rate distinct from the raw GNSS fit.
+   */
+  for (unsigned i = 0; i < functional_source.count; i++) {
+    functional_source.maps[i].anchor_ns += 123456;
+    functional_source.maps[i].rate_q16 += 100;
+  }
+  int64_t offset = functional_source.utc_offset_ns;
+  struct r2_source_clock retained = functional_source;
+  r2_service_clock(&c);
+  assert(promoted_valid &&
+         !memcmp(&retained, &functional_source, sizeof retained));
+  tick_to(fake_hf + 100000);
+  c = raw_clock();
+  r2_service_clock(&c);
+  assert(promoted_valid &&
+         !memcmp(&retained, &functional_source, sizeof retained));
+  uint64_t old_end = retained
+                         .maps[(retained.head + R2_SOURCE_MAP_HISTORY - 1) %
+                               R2_SOURCE_MAP_HISTORY]
+                         .until;
+  /* Only a genuinely new PPS advances the delivered coordinate/horizon. */
+  tick_to(67000001);
+  c = raw_clock();
+  const struct r2_source_map *raw =
+      &fake_raw.maps[(fake_raw.head + R2_SOURCE_MAP_HISTORY - 1) %
+                     R2_SOURCE_MAP_HISTORY];
+  struct r2_pps_precision pps = {.epoch = 4,
+                                 .last = 67000000 * UINT64_C(16),
+                                 .rate_q16 = raw->rate_q16,
+                                 .seen = true,
+                                 .rate_valid = true};
+  struct r2_capture now = {fake_hf * 16, 4, R2_CAPTURE_NOW};
+  assert(r2_source_clock_publish(&fake_raw, &pps, now));
+  uint64_t predicted, generation;
+  assert(r2_source_clock_read(&retained, now, &predicted, &generation));
+  r2_service_clock(&c);
+  assert(promoted_valid && promoted_pps == pps.last &&
+         functional_source.utc_offset_ns == offset);
+  uint64_t delivered;
+  assert(
+      r2_source_clock_read(&functional_source, now, &delivered, &generation) &&
+      delivered == predicted);
+  assert(functional_source
+             .maps[(functional_source.head + R2_SOURCE_MAP_HISTORY - 1) %
+                   R2_SOURCE_MAP_HISTORY]
+             .until > old_end);
+  retained = functional_source;
+  r2_service_clock(&c);
+  assert(!memcmp(&retained, &functional_source, sizeof retained));
+  /* Atomic source_read sees the same promoted map plus raw eligibility
+   * metadata. */
+  struct gm7_source source;
+  struct r2_source_clock copy;
+  struct r2_clock copied;
+  struct gm7_bridge b = {.hf = fake_hf,
+                         .epoch = 4,
+                         .kernel_lo = fake_kernel,
+                         .kernel_hi = fake_kernel};
+  assert(source_read(&source, &copy, &copied, b) &&
+         !memcmp(&copy, &functional_source, sizeof copy));
+  fake_raw.utc_association++;
+  r2_service_clock(&c);
+  assert(!promoted_valid && !functional_source.count);
+  healthy_input();
+  fake_raw = functional_source;
+  promoted_valid = true;
+  promoted_pps = fake_raw.last_edge;
+  fake_raw.epoch++;
+  r2_service_clock(&c);
+  assert(!promoted_valid && !functional_source.count);
+  healthy_input();
+  fake_raw = functional_source;
+  promoted_valid = true;
+  promoted_pps = fake_raw.last_edge;
+  tick_to(fake_hf + 1600000);
+  c = raw_clock();
+  r2_service_clock(&c);
+  assert(!promoted_valid && !functional_source.count);
+  puts("PASS one persistent functional map: nonzero promoted phase/rate "
+       "survives duplicate raw PPS, new PPS preserves delivered continuity, "
+       "original horizon only advances once, atomic metadata/map read, "
+       "association/epoch/stale-raw fences");
 }
 static void retry_progress(uint64_t self, uint64_t incarnation) {
   setup(false);
@@ -634,9 +733,10 @@ static void retry_progress(uint64_t self, uint64_t incarnation) {
               (unsigned long long)owner.sequence);
     assert(!owner.failed && !owner.serving && !resource_fault && !status.error);
   }
-  assert(management_rx >= 57 && management_mac == management_rx &&
-         !management_accepted && status.authenticated == management_mac &&
-         status.rx == management_rx);
+  assert((uint32_t)atomic_get(&management_rx) >= 57 &&
+         atomic_get(&management_mac)==atomic_get(&management_rx) &&
+         !atomic_get(&management_accepted) && status.authenticated==(uint32_t)atomic_get(&management_mac) &&
+         status.rx==(uint32_t)atomic_get(&management_rx));
   assert(status_count >= 9 && role_count >= 7 && requests[0] >= 4 &&
          requests[1] >= 4 && requests[2] >= 4 && blocked);
   for (unsigned i = 0; i < 3; i++)
@@ -718,6 +818,7 @@ static void previews(const char *folder) {
 int main(int argc, char **argv) {
   (void)argc;
   (void)argv;
+  functional_map_refresh();
   retry_progress(17, 33);
   retry_progress(17 + (UINT64_C(1) << 32), 33);
   retry_progress(17 + (UINT64_C(1) << 48), 65);

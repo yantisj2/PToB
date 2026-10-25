@@ -242,3 +242,43 @@ int gm7_gnss_snapshot(struct gm7_owner *o, struct gm7_packet *p,
   r->variance = o->source.quality.variance;
   return gm7_validate(p);
 }
+
+void gm7_legacy_gnss(struct r2_gnss_record *r, const struct gm7_gnss *g,
+                     uint64_t sampled) {
+  *r = (struct r2_gnss_record){.root = g->sender,
+                               .root_boot = g->boot,
+                               .mesh_epoch = g->timing_epoch,
+                               .sampled_us = sampled,
+                               .valid_us = R2_GNSS_MAX_VALID_US,
+                               .source_kind = R2_GNSS_SOURCE_LOCAL,
+                               .priority1 = 128,
+                               .clock_class = 248,
+                               .accuracy = 254,
+                               .priority2 = 128,
+                               .variance = UINT16_MAX,
+                               .sats = R2_GNSS_SATS_UNKNOWN,
+                               .hdop_centi = R2_GNSS_HDOP_UNKNOWN,
+                               .rmc_age_ms = g->rmc_age_ms,
+                               .pps_age_ms = g->pps_age_ms,
+                               .gga_age_ms = g->gga_age_ms};
+  if (g->known & 1)
+    r->known |= R2_GNSS_K_FIX;
+  if (g->known & 2)
+    r->known |= R2_GNSS_K_PPS;
+  if (g->known & 4)
+    r->known |= R2_GNSS_K_QUALIFIED;
+  if (g->known & 8) {
+    r->known |= R2_GNSS_K_SATS;
+    r->sats = g->sats;
+  }
+  if (g->known & 32) {
+    r->known |= R2_GNSS_K_HDOP;
+    r->hdop_centi = g->hdop_centi;
+  }
+  if (g->values & 1)
+    r->values |= R2_GNSS_V_FIX;
+  if (g->values & 2)
+    r->values |= R2_GNSS_V_PPS;
+  if (g->values & 4)
+    r->values |= R2_GNSS_V_QUALIFIED;
+}

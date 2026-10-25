@@ -391,14 +391,9 @@ int gm7_owner_receive(struct gm7_owner *o, const uint8_t *ad, size_t size,
       }
       count(&o->drops);
     } else if (p->kind) {
-      const struct gm7_bound_anchor *a = &p->session.descriptor;
-      const struct gm7_control *c = &p->session.control;
-      bool changed =
-          c->source_gen != a->source_gen || c->capture_gen != a->capture_gen ||
-          (p->kind == GM7_ANNOUNCE &&
-           (c->birth_us != a->birth_us || c->founder != a->founder ||
-            c->term != a->term || c->active != a->active ||
-            c->active_boot != a->active_boot || c->train_gen != a->train_gen));
+      /* A different ANCHOR scope has no accepted control, even though its
+       * canonical lineage was seeded for subsequent scope comparisons. */
+      bool changed = !p->session.control_until;
       if (changed) {
         p->reported = (struct gm7_reported_role){0};
         p->kind = 0;

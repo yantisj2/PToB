@@ -59,6 +59,77 @@ static void sessions(void){
  assert(!gm7_requester_init(&failure,&g,81,97,100));req=request(&failure,17,33,101);gm7_requester_expire(&failure,99);assert(failure.failed&&!failure.pending[0].used);
  puts("PASS actualRF-only nonce admission, immutable250ms RTT, duplicate/consumed nonce, repeated RNG counter separation, source-vs-control expiry, stale diagnostic scopes, renewal replay watermarks, old-scope WITHDRAW refusal, overlapping renewal and same-boot step fence, entropy/timebase failure");
 }
+static void canonical_renewals(void){
+ struct r2_group_config g=group();
+ for(unsigned candidate=0;candidate<2;candidate++){
+  struct gm7_requester r={0};struct gm7_session s={0};
+  assert(!gm7_requester_init(&r,&g,81,97,1000000));
+  struct gm7_packet template=fixture(candidate?"eligible-candidate-status":"announce");
+  if(candidate){
+   struct gm7_control *c=&template.body.control;c->source_gen=3;c->capture_gen=4;c->birth_us=UINT64_C(1792799990000000);
+   c->founder=17;c->term=1;c->active=17;c->active_boot=33;c->train_gen=5;c->shadow_gen=1;template.flags|=GM7_SHADOW;
+  }else template.body.control.source_valid_us=100000;
+  uint64_t id=template.body.control.sender,peerboot=template.body.control.boot;
+  struct gm7_packet q=request(&r,id,peerboot,1000000);
+  assert(!gm7_request_sent(&r,&q.body.request,1010000,1010000));
+  struct gm7_packet a=anchor(q,candidate,10000000);
+  assert(!gm7_anchor_accept(&r,&s,&a,1050000,1060000));
+  assert(!s.control_until&&!s.last_sequence&&!s.control.sequence&&!s.last_diag[0]);
+  struct gm7_packet c=template;c.body.control.sent_mono_us=10010000;c=authenticated(c);
+  uint64_t original,until;assert(!gm7_session_control(&s,&c,1070000,1070000,&original,&until));
+  struct gm7_control accepted=s.control;uint64_t expiry=s.control_until,sequence=s.last_sequence,source_until=s.source_until;
+  q=request(&r,id,peerboot,1100000);assert(!gm7_request_sent(&r,&q.body.request,1110000,1110000));
+  a=anchor(q,candidate,10110000);a.body.anchor.control_sequence=sequence;a=authenticated(a);
+  assert(!gm7_anchor_accept(&r,&s,&a,1130000,1130000));
+  assert(s.control_until==expiry&&s.last_sequence==sequence&&!memcmp(&s.control,&accepted,sizeof accepted));
+  if(!candidate)assert(s.source_until==source_until);
+  assert(gm7_session_control(&s,&c,1140000,1140000,&original,&until)==-EALREADY);
+  if(!candidate){
+   struct gm7_packet wrong=fixture("eligible-candidate-status");wrong.body.control.sender=id;wrong.body.control.boot=peerboot;
+   wrong.body.control.sequence=sequence+1;wrong.body.control.sent_mono_us=10120000;wrong=authenticated(wrong);
+   assert(gm7_session_control(&s,&wrong,1150000,1150000,&original,&until)==-EXDEV);
+   assert(!memcmp(&s.control,&accepted,sizeof accepted)&&s.control_until==expiry);
+   struct gm7_packet fresh=c;fresh.body.control.sequence=++sequence;fresh.body.control.sent_mono_us=10130000;fresh=authenticated(fresh);
+   assert(!gm7_session_control(&s,&fresh,1150000,1150000,&original,&until)&&s.source_until>source_until);
+   struct gm7_packet negative=fixture("withdraw");negative.body.control.sequence=++sequence;negative.body.control.sent_mono_us=10140000;negative=authenticated(negative);
+   assert(!gm7_session_control(&s,&negative,1160000,1160000,&original,&until)&&!s.serving);
+   source_until=s.source_until;
+   q=request(&r,id,peerboot,1170000);assert(!gm7_request_sent(&r,&q.body.request,1180000,1180000));
+   a=anchor(q,false,10180000);a.body.anchor.control_sequence=sequence;a=authenticated(a);
+   assert(!gm7_anchor_accept(&r,&s,&a,1200000,1200000)&&!s.serving&&s.source_until==source_until);
+   assert(gm7_session_control(&s,&fresh,1200000,1200000,&original,&until)==-EALREADY);
+  }
+  q=request(&r,id,peerboot,1200000);assert(!gm7_request_sent(&r,&q.body.request,1210000,1210000));
+  a=anchor(q,candidate,10210000);a.body.anchor.control_sequence=sequence;
+  if(candidate)a.body.anchor.capture_gen++;else a.body.anchor.term++;
+  a=authenticated(a);assert(!gm7_anchor_accept(&r,&s,&a,1230000,1230000));
+  assert(!s.control_until&&!s.control.sequence&&s.last_sequence==sequence&&s.floor==sequence);
+ }
+ /* Actual owner candidate cache survives only same-physical candidate renewal. */
+ struct gm7_owner o;assert(!gm7_owner_init(&o,&g,81,97,true,1000000));
+ struct gm7_packet status=fixture("eligible-candidate-status");
+ status.body.control.source_gen=3;status.body.control.capture_gen=4;
+ status.body.control.birth_us=UINT64_C(1792799990000000);status.body.control.founder=17;
+ status.body.control.term=1;status.body.control.active=17;status.body.control.active_boot=33;
+ status.body.control.train_gen=5;status.body.control.shadow_gen=1;status.flags|=GM7_SHADOW;
+ struct gm7_peer *peer=&o.peer[0];peer->used=true;peer->identity=status.body.control.sender;peer->boot=status.body.control.boot;
+ for(unsigned pass=0;pass<3;pass++){
+  uint64_t at=1000000+pass*100000;
+  struct gm7_packet q=request(&o.requester,peer->identity,peer->boot,at);
+  assert(!gm7_request_sent(&o.requester,&q.body.request,at+10000,at+10000));
+  struct gm7_packet a=anchor(q,true,at+9000000);a.body.anchor.control_sequence=status.body.control.sequence;
+  if(pass==2)a.body.anchor.capture_gen++;
+  uint8_t ad[GM7_MAX_AD_BYTES];assert(!gm7_ad_encode(ad,sizeof ad,&a,&g));
+  assert(!gm7_owner_receive(&o,ad,GM7_ANCHOR_BYTES+4,NULL,at+50000,at+50000));
+  if(pass==0){
+   status.body.control.sent_mono_us=at+9010000;assert(!gm7_ad_encode(ad,sizeof ad,&status,&g));
+   assert(!gm7_owner_receive(&o,ad,GM7_CONTROL_BYTES+4,NULL,at+60000,at+60000));
+   peer->reported=(struct gm7_reported_role){.until=9999999,.role=GM7_W_HOT,.known=7};
+  }else if(pass==1){assert(peer->kind==GM7_STATUS&&peer->session.control_until&&peer->reported.known==7);}
+  else {assert(!peer->kind&&!peer->session.control_until&&!peer->reported.known);}
+ }
+ puts("PASS canonical ANCHOR seed grants no control; serving renewal preserves whole original ANN, candidate lineage-bearing STATUS/cache survives same-physical renewal, changed scope invalidates without lowering replay floors");
+}
 static struct gm7_source local_source(uint64_t now){return (struct gm7_source){.utc_us=UINT64_C(1792800000000000)+now,.sampled_us=now,.until_us=now+1500000,.pps_at=now-now%1000000,.source_gen=3,.capture_gen=4,.association_gen=1,.quality={128,2,255,128,65535},.gnss_healthy=true,.pps_healthy=true,.utc_available=true,.physical_ready=true};}
 static void update(struct gm7_owner *o,uint64_t now,const struct gm7_preparation *prep){struct gm7_source source=local_source(now);struct gm7_preparation empty={0};gm7_owner_update(o,&source,prep?prep:&empty,now);}
 static void dwell(struct gm7_owner *o){for(uint64_t now=0;now<=60000000;now+=1000000)update(o,now,NULL);assert(o->eligible&&!o->serving);}
@@ -185,6 +256,7 @@ static void diagnostics(void){
  o.source.pps_healthy=true;o.source.gnss_healthy=false;o.source.until_us=0;o.blockers=GM7_B_SOURCE;assert(!gm7_role_snapshot(&o,&p,o.now));assert((p.body.role.known&4)&&p.body.role.pps_duration_ms==66000);
  o.source.gnss_healthy=o.source.pps_healthy=true;o.blockers=GM7_B_CALENDAR;assert(!gm7_role_snapshot(&o,&p,o.now));assert(!p.body.role.blockers); /* calendar has no invented wire bit */
  struct r2_clock_view v={.gps_age_us=100000,.pps_age_us=20000,.gga_age_us=300000,.fix_active=true,.pps_present=true,.sats_used=12,.gga_hdop_centi=87};assert(!gm7_gnss_snapshot(&o,&p,&v,o.now));p=authenticated(p);assert(p.body.gnss.clock_class==2&&p.body.gnss.accuracy==255&&p.body.gnss.variance==65535&&p.body.gnss.hdop_centi==87&&p.body.gnss.utc_error_us==UINT32_MAX&&p.body.gnss.values==7);
+ o.serving=true;assert(!gm7_gnss_snapshot(&o,&p,&v,o.now));struct r2_gnss_record legacy,decoded;gm7_legacy_gnss(&legacy,&p.body.gnss,123456789);legacy.sequence=1;uint8_t gd[R2_GNSS_AD_BYTES];assert(!(legacy.known&R2_GNSS_K_PTP)&&legacy.clock_class==248&&legacy.accuracy==254&&legacy.values==7&&legacy.hdop_centi==87);assert(!r2_gnss_encode(gd,&legacy,&g)&&!r2_gnss_decode(&decoded,gd,sizeof gd,&g));assert(decoded.clock_class==248&&decoded.accuracy==254&&decoded.known==legacy.known&&decoded.values==legacy.values&&decoded.sats==12&&decoded.hdop_centi==87&&decoded.sampled_us==123456789);assert(p.body.gnss.clock_class==2&&p.body.gnss.accuracy==255);/* typed GM7 tuple stays separate */
  puts("PASS typed ROLE enum/blocker translation, owner HOT/PPS/ACTIVE known-duration semantics, calendar separation, and GNSS class2/unknown independent bounds through exact codec");
 }
 static void promote(void){
@@ -243,4 +315,4 @@ static void reservation(void){
  assert(!gm7_bridge_to_hf(b,1000031,&end));b.kernel_hi+=101;assert(!gm7_bridge_to_hf(b,2000000,&end));
  puts("PASS provisional future reservation, projected birth, no early serving/output, abort/retry sequence consumption, measured first complete ANN commit and conservative mixed-domain expiry");
 }
-int main(void){printf("sizeof owner=%zu peer=%zu session=%zu scheduler=%zu\n",sizeof(struct gm7_owner),sizeof(struct gm7_peer),sizeof(struct gm7_session),sizeof(struct gm7_scheduler));codec();sessions();owner();capacity_and_merge();phase_policy();reservation();promote();host_endpoints();schedule();air();diagnostics();return 0;}
+int main(void){printf("sizeof owner=%zu peer=%zu session=%zu scheduler=%zu\n",sizeof(struct gm7_owner),sizeof(struct gm7_peer),sizeof(struct gm7_session),sizeof(struct gm7_scheduler));codec();sessions();canonical_renewals();owner();capacity_and_merge();phase_policy();reservation();promote();host_endpoints();schedule();air();diagnostics();return 0;}

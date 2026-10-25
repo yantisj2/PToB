@@ -292,9 +292,17 @@ int gm7_anchor_accept(struct gm7_requester *r, struct gm7_session *s,
       .offset_lo = offset_lo,
       .offset_hi = offset_hi,
       .source_until = rx + a->valid_us - rtt,
-      .descriptor = {a->sampled_mono_us, a->utc_us, a->birth_us, a->founder,
-                     a->term, a->active, a->active_boot, a->timing_epoch,
-                     a->source_gen, a->capture_gen, a->train_gen},
+      .control = {.sender = a->responder,
+                  .boot = a->responder_boot,
+                  .birth_us = a->birth_us,
+                  .founder = a->founder,
+                  .term = a->term,
+                  .active = a->active,
+                  .active_boot = a->active_boot,
+                  .sent_mono_us = a->sampled_mono_us,
+                  .sent_utc_us = a->utc_us},
+      .descriptor = {a->timing_epoch, a->source_gen, a->capture_gen,
+                     a->train_gen},
       .anchor_flags = p->flags,
       .valid = true,
       .serving = !!(p->flags & GM7_A_SERVING)};
@@ -303,11 +311,18 @@ int gm7_anchor_accept(struct gm7_requester *r, struct gm7_session *s,
     s->last_sent = prior.last_sent;
     s->last_diag[0] = prior.last_diag[0];
     s->last_diag[1] = prior.last_diag[1];
-    bool same_scope = prior.descriptor.birth_us == a->birth_us &&
-                      prior.descriptor.founder == a->founder &&
-                      prior.descriptor.term == a->term &&
-                      prior.descriptor.active == a->active &&
-                      prior.descriptor.active_boot == a->active_boot &&
+    /* Candidate ANCHOR has token/train/lineage0; its accepted STATUS can
+     * truthfully name the followed ACTIVE. That descriptive lineage must not
+     * make a same-physical candidate renewal revoke ordinary readiness. */
+    bool same_mode =
+        ((prior.anchor_flags ^ p->flags) & (GM7_A_SERVING | GM7_A_RELAY)) == 0;
+    bool same_lineage =
+        !(p->flags & GM7_A_SERVING) ||
+        (prior.control.birth_us == a->birth_us &&
+         prior.control.founder == a->founder && prior.control.term == a->term &&
+         prior.control.active == a->active &&
+         prior.control.active_boot == a->active_boot);
+    bool same_scope = same_mode && same_lineage &&
                       prior.descriptor.timing_epoch == a->timing_epoch &&
                       prior.descriptor.source_gen == a->source_gen &&
                       prior.descriptor.capture_gen == a->capture_gen &&
@@ -315,6 +330,15 @@ int gm7_anchor_accept(struct gm7_requester *r, struct gm7_session *s,
     if (same_scope) {
       s->control = prior.control;
       s->control_until = prior.control_until;
+      if ((p->flags & GM7_A_SERVING) && prior.control_until) {
+        /* Renewing freshness is not a new serving ANN. Retained control and
+         * its physical permission keep the same original horizon, including
+         * terminal WITHDRAW, until a genuinely new scope/control is accepted.
+         */
+        if (prior.source_until < s->source_until)
+          s->source_until = prior.source_until;
+        s->serving = prior.serving;
+      }
     }
   }
   return 0;
@@ -382,11 +406,13 @@ int gm7_session_control(struct gm7_session *s, const struct gm7_packet *p,
     return -ESTALE;
   if (p->kind == GM7_ANNOUNCE || p->kind == GM7_WITHDRAW) {
     const struct gm7_bound_anchor *a = &s->descriptor;
+    const struct gm7_control *bound = &s->control;
     if (!s->serving || (s->anchor_flags & GM7_A_RELAY) ||
-        c->birth_us != a->birth_us || c->founder != a->founder ||
-        c->term != a->term || c->active != a->active ||
-        c->active_boot != a->active_boot || c->source_gen != a->source_gen ||
-        c->capture_gen != a->capture_gen || c->train_gen != a->train_gen)
+        c->birth_us != bound->birth_us || c->founder != bound->founder ||
+        c->term != bound->term || c->active != bound->active ||
+        c->active_boot != bound->active_boot ||
+        c->source_gen != a->source_gen || c->capture_gen != a->capture_gen ||
+        c->train_gen != a->train_gen)
       return -EXDEV;
     if (p->kind == GM7_ANNOUNCE) {
       uint64_t source;
@@ -397,6 +423,10 @@ int gm7_session_control(struct gm7_session *s, const struct gm7_packet *p,
                (c->hot != s->control.hot || c->hot_boot != s->control.hot_boot))
       return -EXDEV;
   }
+  /* A serving ANCHOR binds the canonical lineage. A different role must
+   * first prove a new candidate ANCHOR; STATUS cannot rewrite that binding. */
+  if (p->kind == GM7_STATUS && (s->anchor_flags & GM7_A_SERVING))
+    return -EXDEV;
   if (p->kind == GM7_STATUS && (p->flags & GM7_ELIGIBLE) &&
       (c->source_gen != s->descriptor.source_gen ||
        c->capture_gen != s->descriptor.capture_gen))
@@ -455,10 +485,12 @@ int gm7_session_diagnostic(struct gm7_session *s, const struct gm7_packet *p,
       sequence <= s->last_diag[index])
     return -ESTALE;
   if (s->anchor_flags & GM7_A_SERVING) {
-    if (birth != a->birth_us || founder != a->founder || term != a->term ||
-        active != a->active || aboot != a->active_boot ||
-        token != a->timing_epoch || source != a->source_gen ||
-        capture != a->capture_gen || train != a->train_gen)
+    const struct gm7_control *bound = &s->control;
+    if (birth != bound->birth_us || founder != bound->founder ||
+        term != bound->term || active != bound->active ||
+        aboot != bound->active_boot || token != a->timing_epoch ||
+        source != a->source_gen || capture != a->capture_gen ||
+        train != a->train_gen)
       return -ESTALE;
   } else {
     /* Candidate ANCHOR grants no serving/timing scope. Only its latest fresh

@@ -88,7 +88,15 @@ struct pt_input {
 };
 struct pt_output {
 #ifdef R2_GM7_NATIVE
- struct r2_gm7_timing gm7;
+ /* scope/view already belong to this same coherent mailbox snapshot. */
+ struct {
+  r2_servo_map_t map;
+  uint64_t counter_epoch,last_correction,evaluated_tick,first_tx_lo,first_tx_hi,first_tx_derived_end_hi,last_tx;
+  int64_t utc_offset_ns;
+  int32_t tx_phase_us;
+  uint32_t capture_gen,shadow_gen,phase_enclosure_us;
+  bool retained,first_tx_observed_complete;
+ } gm7;
 #endif
  struct r2_radio_scope scope;
  struct r2_radio_precision_view view;
@@ -533,7 +541,7 @@ static void precision_step(uint64_t now){
   if(scope.gm){train=scope.publication_epoch;publication=0;generic_frame=0;memset(&generic_origin,0,sizeof generic_origin);last_published_capture=UINT32_MAX;updated_at=0;}
   follower_frame=0;
 #ifdef R2_GM7_NATIVE
-  out.gm7=(struct r2_gm7_timing){0};
+  memset(&out.gm7,0,sizeof out.gm7);
 #endif
  }
  active_scope=scope;
@@ -663,9 +671,9 @@ static void precision_step(uint64_t now){
  out.bootstrap.source=public_client&&client_anchor_valid(sampled)&&sampled<scope.until_us;
  out.context=(struct r2_group_client){.passive=public_client,.source=out.utc_valid,.root=scope.root<enrollment.count?enrollment.identity[scope.root]:0,.boot=scope.boot,.source_epoch=scope.source_epoch,.publication=scope.publication_epoch,.utc_us=out.utc,.at=sampled,.until=scope.until_us,.map_until=out.valid_until};
 #ifdef R2_GM7_NATIVE
- out.gm7.scope=scope;out.gm7.view=out.view;out.gm7.counter_epoch=current.epoch;
+ out.gm7.counter_epoch=current.epoch;
  out.gm7.evaluated_tick=current.tick;
- out.gm7.last_correction=precision.last_accepted;out.gm7.until_us=out.valid_until;
+ out.gm7.last_correction=precision.last_accepted;
  out.gm7.utc_offset_ns=offset;out.gm7.capture_gen=precision.remote_capture;
  out.gm7.shadow_gen=precision.accepted;
  out.gm7.retained=scope.follower&&!precision.servo.fault&&precision.servo.fit_valid&&
@@ -990,7 +998,16 @@ uint32_t r2_radio_service_profile_flushes(void){(void)k_mutex_lock(&pt_lock,K_FO
 #ifdef R2_GM7_NATIVE
 void r2_radio_service_gm7_timing(struct r2_gm7_timing *out,uint64_t now){
  if(!out)return;
- struct pt_output s;output_read(&s,now);*out=s.gm7;out->view=s.view;
+ struct pt_output s;output_read(&s,now);
+ *out=(struct r2_gm7_timing){.scope=s.scope,.view=s.view,.map=s.gm7.map,
+  .counter_epoch=s.gm7.counter_epoch,.last_correction=s.gm7.last_correction,
+  .evaluated_tick=s.gm7.evaluated_tick,.until_us=s.valid_until,
+  .first_tx_lo=s.gm7.first_tx_lo,.first_tx_hi=s.gm7.first_tx_hi,
+  .first_tx_derived_end_hi=s.gm7.first_tx_derived_end_hi,.last_tx=s.gm7.last_tx,
+  .utc_offset_ns=s.gm7.utc_offset_ns,.tx_phase_us=s.gm7.tx_phase_us,
+  .capture_gen=s.gm7.capture_gen,.shadow_gen=s.gm7.shadow_gen,
+  .phase_enclosure_us=s.gm7.phase_enclosure_us,.retained=s.gm7.retained,
+  .first_tx_observed_complete=s.gm7.first_tx_observed_complete};
  (void)k_mutex_lock(&pt_lock,K_FOREVER);
  if(!out->retained&&handoff.valid){
   *out=(struct r2_gm7_timing){.scope={.root=1,.root_identity=handoff.root,.boot=handoff.boot,.source_epoch=handoff.epoch,.publication_epoch=handoff.train,.follower=true},
