@@ -134,7 +134,14 @@ and emits a terminal WITHDRAW; missing END cannot create a fresh replacement
 birth. First usable G1 is prospectively anchored on a safe62.5ms UTC phase and
 requires an observed complete unchanged G1 packet with captured ADDRESS and a
 conservative derived END enclosure. A takeover succeeds offline only when both
-management and first timing event satisfy their original deadline. Live phase
+management and first timing event satisfy their original deadline. A pending
+HOT reservation may anticipate blackout/YIELD becoming due by its immutable
+nominal primary, while owner processing time and current due/serving authority
+remain unchanged. Source permission covers the complete event; fresh contact,
+nominee/scope/source/clock changes cancel it. Physical START cannot precede the
+not-before edge. This avoids missing a valid primary when a legal late ANN
+sample and a staggered2ms poll place the due edge at the construction boundary.
+Live phase
 nudges occur at most once per distinct captured G1 and remain within the declared
 SCA displacement budget. GNSS/PPS/source faults fence immediately.
 
@@ -198,9 +205,13 @@ is4,168B/8,192B for the corrected native checkpoint. Remaining arithmetic space
 is unaccounted headroom, not a measured reserve. The cancellation cycle is
 state-bounded: exposed failure clears the pending reservation before withdrawal
 can disarm it; unexposed cancellation clears it or enters that same terminal
-path. Native IRQ priority/callback/nesting closure is a separate offline audit;
-192B for the largest management callback alone is not a total ISR budget.
-Runtime high-water remains a later hardware observation. Large GM
+path. Normal IRQ source/linked-callback accounting stacks the maxima for actual
+priorities6/5/1/0 plus four36B basic exception/alignment frames:1,968B of the
+unchanged2,048B ISR stack. FPU and zero-latency IRQs remain disabled. The80B
+arithmetic margin is narrow and is not a measured reserve; added callbacks or
+instrumentation require renewed review. The largest stock LLL preparation path
+dominates management's192B callback. Final exact ELF/config binding remains
+mandatory. Runtime high-water remains a later hardware observation. Large GM
 source/timing/publish helpers have explicit call-frame boundaries so their
 mutually exclusive scratch space is not all inlined into the JOIN owner frame.
 

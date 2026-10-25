@@ -2,6 +2,7 @@
 #include "gm7_service_fake.h"
 /* Include production only after the public platform boundary. */
 #include "../src/gm7_service.c"
+#include "gm7_promote.h"
 
 static bool fake_ble_closed = true, fake_pt_closed = true,
             fake_relay_closed = true, fake_hf_valid = true;
@@ -11,6 +12,7 @@ static struct r2_gm7_tx fake_result[GM7_JOB_SLOTS];
 static unsigned fake_result_count;
 static struct r2_gm7_timing fake_timing;
 static struct r2_source_clock fake_raw;
+static bool fake_promote_ready;
 static struct r2_radio_scope fake_scope;
 static struct r2_enrollment fake_path;
 static struct r2_gm7_admission_source fake_join;
@@ -249,6 +251,9 @@ int r2_radio_service_gm7_promote(struct r2_source_clock *c, uint64_t r,
   (void)s;
   (void)a;
   (void)n;
+  if (fake_promote_ready)
+    return gm7_promote_clock(c, &fake_timing.map, fake_timing.utc_offset_ns, n,
+                             s, a);
   return -EAGAIN;
 }
 int r2_radio_service_gm7_phase_step(int step) {
@@ -644,6 +649,209 @@ static void functional_map_refresh(void) {
        "original horizon only advances once, atomic metadata/map read, "
        "association/epoch/stale-raw fences");
 }
+static void takeover_fixture(void) {
+  setup(false);
+  tick_to(68783100);
+  healthy_input();
+  owner.scope = (struct gm7_scope){.birth = UINT64_C(1792800000000000),
+                                   .founder = 501,
+                                   .term = 1,
+                                   .active = 501,
+                                   .boot = 777,
+                                   .source_gen = 3,
+                                   .capture_gen = 4,
+                                   .train = 5,
+                                   .timing_epoch = 22};
+  owner.selected = (struct gm7_control){.sender = 501,
+                                        .boot = 777,
+                                        .sequence = 10,
+                                        .birth_us = owner.scope.birth,
+                                        .founder = 501,
+                                        .term = 1,
+                                        .active = 501,
+                                        .active_boot = 777,
+                                        .source_gen = 3,
+                                        .capture_gen = 4,
+                                        .train_gen = 5,
+                                        .hot = identity,
+                                        .hot_boot = boot,
+                                        .sent_mono_us = 66034900};
+  owner.selected_original = 66034900;
+  owner.selected_until = 68784900;
+  owner.selected_source_until = 67534900;
+  owner.initial_due = owner.takeover_due = owner.serving = false;
+  owner.armed = true;
+  owner.armed_since = 66000000;
+  owner.source_previous_until = fake_hf + 1500000;
+  owner.source = source_at(fake_hf);
+  fake_timing =
+      (struct r2_gm7_timing){.scope = {.root = 1,
+                                       .root_identity = 501,
+                                       .boot = 777,
+                                       .source_epoch = 22,
+                                       .publication_epoch = 5,
+                                       .follower = true},
+                             .counter_epoch = 4,
+                             .capture_gen = 4,
+                             .shadow_gen = 9,
+                             .phase_enclosure_us = 500,
+                             .retained = true,
+                             .map = {.valid = true,
+                                     .delivery = fake_hf * 16,
+                                     .anchor = (int64_t)fake_hf * 1000},
+                             .utc_offset_ns = INT64_C(1792800000000000000)};
+  fake_promote_ready = true;
+  promoted_valid = takeover_preparing = false;
+  takeover_bound = 0;
+  primary_frame = diag_frame = status_cycle = UINT64_MAX;
+  fake_rx_count = 0;
+}
+static void prospective_blackout(void) {
+  takeover_fixture();
+  cycle(&service_work);
+  /* Last legal sample34.9ms; 33.1ms poll must reserve before35.1ms poll
+   * passes the−3ms construction edge. No due/output authority exists yet. */
+  assert(fake_hf == 68783100 && !owner.takeover_due && !owner.serving &&
+         owner.reserved && fake_native_live[GM7_PRIMARY]);
+  assert(owner.reserved_nominal == 68788000 &&
+         owner.reserved_nominal >= owner.selected_original + GM7_BLACKOUT_US &&
+         !fake_join.serving);
+  assert(promoted_valid &&
+         takeover_bound == owner.selected_original + GM7_BLACKOUT_BOUND_US);
+  struct gm7_owner probe = owner;
+  probe.reserved = false;
+  uint64_t cause = probe.selected_original + GM7_BLACKOUT_US;
+  assert(!gm7_owner_takeover_at(&probe, cause - 1, cause + 3999, fake_hf));
+  assert(gm7_owner_takeover_at(&probe, cause, cause + 4000, fake_hf));
+  uint64_t permission = probe.source.until_us;
+  probe.source.until_us = cause + 4000;
+  assert(!gm7_owner_takeover_at(&probe, cause, cause + 4000, fake_hf));
+  probe.source.until_us = permission;
+  probe.selected.hot = 0;
+  assert(!gm7_owner_takeover_at(&probe, cause, cause + 4000, fake_hf));
+  probe.selected.hot = identity;
+  probe.selected_original=fake_hf-1000000;
+  probe.selected.yield_utc_us = probe.source.utc_us + 3000;
+  probe.remote_yield_sequence = probe.selected.sequence;
+  probe.remote_yield_after = fake_hf + 3000;
+  assert(
+      !gm7_owner_takeover_at(&probe, fake_hf + 2999, fake_hf + 6999, fake_hf));
+  assert(
+      gm7_owner_takeover_at(&probe, fake_hf + 3000, fake_hf + 7000, fake_hf));
+  probe.selected.yield_utc_us = probe.remote_yield_sequence =
+      probe.remote_yield_after = 0;
+  probe.selected_original=owner.selected_original;
+  struct gm7_peer *rival = &probe.peer[0];
+  rival->used = true;
+  rival->identity = 900;
+  rival->boot = 999;
+  rival->kind = GM7_ANNOUNCE;
+  rival->session = (struct gm7_session){.valid = true,
+                                        .serving = true,
+                                        .group = group.id,
+                                        .key_epoch = group.epoch,
+                                        .local_boot = boot,
+                                        .peer = 900,
+                                        .peer_boot = 999,
+                                        .established = fake_hf,
+                                        .until = fake_hf + 6000000,
+                                        .source_until = fake_hf + 1000000,
+                                        .control_until = fake_hf + 2000000,
+                                        .control = owner.selected};
+  rival->session.control.active = rival->session.control.sender = 900;
+  rival->session.control.active_boot = 999;
+  assert(gm7_owner_reserve(&probe, cause, cause + 4000, fake_hf) == -EACCES &&
+         !probe.reserved && !probe.serving);
+  assert(!owner.takeover_due && !owner.serving);
+  tick_to(68784800);
+  cycle(&service_work);
+  assert(owner.reserved&&!owner.serving&&!owner.takeover_due);
+  tick_to(68785100);
+  cycle(&service_work);
+  assert(owner.reserved && !owner.serving);
+  finish(GM7_PRIMARY, true, true);
+  assert(owner.serving && owner.active_since == fake_hf &&
+         owner.first_announce_start >= 68788000);
+  tick_to(68812500);
+  fake_timing.first_tx_observed_complete = true;
+  fake_timing.first_tx_lo = (fake_hf - 500) * 16;
+  fake_timing.first_tx_hi = (fake_hf - 498) * 16;
+  fake_timing.first_tx_derived_end_hi = fake_hf * 16;
+  cycle(&service_work);
+  assert(owner.serving && !takeover_bound);
+  takeover_fixture();
+  cycle(&service_work);
+  assert(owner.reserved);
+  /* An accepted same-scope fresh ANN at the staggered next poll cancels the
+   * conditional blackout, even when its nominee remains this HOT. */
+  struct gm7_peer *peer = &owner.peer[0];
+  peer->used = true;
+  peer->identity = 501;
+  peer->boot = 777;
+  peer->kind = GM7_ANNOUNCE;
+  peer->session = (struct gm7_session){.valid = true,
+                                       .serving = true,
+                                       .group = group.id,
+                                       .key_epoch = group.epoch,
+                                       .peer = 501,
+                                       .peer_boot = 777,
+                                       .local_boot = boot,
+                                       .established = 66000000,
+                                       .until = 100000000,
+                                       .control = owner.selected,
+                                       .last_sequence = 10,
+                                       .last_sent = 66034900,
+                                       .descriptor = {.timing_epoch = 22,
+                                                      .source_gen = 3,
+                                                      .capture_gen = 4,
+                                                      .train_gen = 5},
+                                       .anchor_flags = GM7_A_SERVING};
+  tick_to(68785100);
+  struct gm7_packet fresh = {.group = group.id,
+                             .key_epoch = group.epoch,
+                             .kind = GM7_ANNOUNCE,
+                             .flags = GM7_ELIGIBLE,
+                             .body.control = owner.selected};
+  fresh.body.control.sequence++;
+  fresh.body.control.sent_mono_us = fake_hf - 10;
+  fresh.body.control.sent_utc_us = UINT64_C(1792800000000000) + fake_hf - 10;
+  fresh.body.control.max_age_us = 2750000;
+  fresh.body.control.source_valid_us = 1500000;
+  fresh.body.control.clock_class = 2;
+  fresh.body.control.accuracy = 255;
+  fresh.body.control.priority1 = fresh.body.control.priority2 = 128;
+  fresh.body.control.variance = 65535;
+  fake_rx_count = 1;
+  fake_rx[0] = (struct r2_gm7_rx){.raw = (uint32_t)((fake_hf - 10) * 16),
+                                  .epoch = 4,
+                                  .length = GM7_CONTROL_BYTES + 4};
+  assert(!gm7_ad_encode(fake_rx[0].ad, sizeof fake_rx[0].ad, &fresh, &group));
+  cycle(&service_work);
+
+  assert(!owner.reserved && !owner.serving && !fake_native_live[GM7_PRIMARY] &&
+         owner.selected_original > 66034900);
+  takeover_fixture();
+  cycle(&service_work);
+  assert(owner.reserved);
+  input.view.fix_active = false;
+  tick_to(68785100);
+  cycle(&service_work);
+  assert(!owner.reserved && !owner.serving && !fake_native_live[GM7_PRIMARY]);
+  takeover_fixture();
+  cycle(&service_work);
+  finish(GM7_PRIMARY, true, true);
+  tick_to(takeover_bound + 1);
+  healthy_input();
+  fake_timing.first_tx_observed_complete = true;
+  fake_timing.first_tx_derived_end_hi = fake_hf * 16;
+  cycle(&service_work);
+  assert(!owner.serving && owner.reason == GM7_R_MISSED_BOUND);
+  fake_promote_ready = false;
+  puts("PASS actual service34.9ms last sample /33.1→35.1ms staggered polls "
+       "reserve conditional blackout without early due/output; completed "
+       "ANN+first G1 meet original3s; fresh contact/source fault cancel and "
+       "late G1 fails closed");
+}
 static void retry_progress(uint64_t self, uint64_t incarnation) {
   setup(false);
   identity = owner.requester.identity = self;
@@ -734,9 +942,10 @@ static void retry_progress(uint64_t self, uint64_t incarnation) {
     assert(!owner.failed && !owner.serving && !resource_fault && !status.error);
   }
   assert((uint32_t)atomic_get(&management_rx) >= 57 &&
-         atomic_get(&management_mac)==atomic_get(&management_rx) &&
-         !atomic_get(&management_accepted) && status.authenticated==(uint32_t)atomic_get(&management_mac) &&
-         status.rx==(uint32_t)atomic_get(&management_rx));
+         atomic_get(&management_mac) == atomic_get(&management_rx) &&
+         !atomic_get(&management_accepted) &&
+         status.authenticated == (uint32_t)atomic_get(&management_mac) &&
+         status.rx == (uint32_t)atomic_get(&management_rx));
   assert(status_count >= 9 && role_count >= 7 && requests[0] >= 4 &&
          requests[1] >= 4 && requests[2] >= 4 && blocked);
   for (unsigned i = 0; i < 3; i++)
@@ -818,6 +1027,7 @@ static void previews(const char *folder) {
 int main(int argc, char **argv) {
   (void)argc;
   (void)argv;
+  prospective_blackout();
   functional_map_refresh();
   retry_progress(17, 33);
   retry_progress(17 + (UINT64_C(1) << 32), 33);

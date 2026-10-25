@@ -842,11 +842,43 @@ bool gm7_owner_output(const struct gm7_owner *o, uint64_t now) {
          now >= o->active_since &&
          (!o->yield_deadline || now < o->yield_deadline);
 }
+/* A conditional reservation may anticipate an immutable not-before edge.
+ * It does not advance the owner clock or grant current output authority. */
+static bool hot_cause_at(const struct gm7_owner *o, uint64_t action) {
+  bool fixed_yield = o->selected.yield_utc_us &&
+                     o->remote_yield_sequence == o->selected.sequence &&
+                     o->remote_yield_after && action >= o->remote_yield_after;
+  bool silence = action >= o->selected_original &&
+                 action - o->selected_original >= GM7_BLACKOUT_US;
+  return o->armed && o->selected.hot == o->requester.identity &&
+         o->selected.hot_boot == o->requester.boot &&
+         o->preparation.retained_prediction &&
+         o->preparation.retained_enclosure_us <= 8000 &&
+         !o->preparation.health_lost &&
+         gm7_scope_same(o->preparation.scope, o->scope) &&
+         action >= o->selected_original &&
+         action - o->selected_original < GM7_ARM_RETAIN_US &&
+         (o->withdrawn || silence || fixed_yield);
+}
+bool gm7_owner_takeover_at(const struct gm7_owner *o, uint64_t nominal,
+                           uint64_t end, uint64_t now) {
+  uint64_t bound;
+  return o && !o->failed && !o->stopped && !o->serving && !o->reserved &&
+         o->gm_capable && now >= o->now && nominal >= now &&
+         nominal - now <= 250000 && end >= nominal && end - nominal <= 4000 &&
+         o->eligible && source_current(o, now) && o->source.physical_ready &&
+         o->source.until_us > end && hot_cause_at(o, nominal) &&
+         add(o->selected_original, GM7_BLACKOUT_BOUND_US, &bound) &&
+         end <= bound;
+}
 static int activate(struct gm7_owner *o, uint64_t nominal, uint64_t complete,
                     uint64_t now, bool reserve) {
   if (!clock_now(o, now) || o->reserved || o->stopped || !o->gm_capable ||
       !o->eligible || !source_current(o, now) || !o->source.physical_ready ||
-      (!o->initial_due && !o->takeover_due))
+      o->source.until_us <= complete ||
+      (!o->initial_due &&
+       !(reserve ? gm7_owner_takeover_at(o, nominal, complete, now)
+                 : o->takeover_due)))
     return -EACCES;
   if ((!reserve && (now < nominal || now - nominal > 2000)) ||
       (reserve && (nominal < now || nominal - now > 250000)) ||
@@ -854,21 +886,11 @@ static int activate(struct gm7_owner *o, uint64_t nominal, uint64_t complete,
     count(&o->late_windows);
     return -ETIME;
   }
+  uint64_t action = reserve ? nominal : now;
   bool fixed_yield = o->selected.yield_utc_us &&
                      o->remote_yield_sequence == o->selected.sequence &&
-                     o->remote_yield_after && now >= o->remote_yield_after;
-  bool nominated = o->selected.hot == o->requester.identity &&
-                   o->selected.hot_boot == o->requester.boot;
-  bool silence = now >= o->selected_original &&
-                 now - o->selected_original >= GM7_BLACKOUT_US;
-  bool hot_takeover = o->armed && nominated &&
-                      o->preparation.retained_prediction &&
-                      o->preparation.retained_enclosure_us <= 8000 &&
-                      !o->preparation.health_lost &&
-                      gm7_scope_same(o->preparation.scope, o->scope) &&
-                      now >= o->selected_original &&
-                      now - o->selected_original < GM7_ARM_RETAIN_US &&
-                      (o->withdrawn || silence || fixed_yield);
+                     o->remote_yield_after && action >= o->remote_yield_after;
+  bool hot_takeover = hot_cause_at(o, action);
   if (!o->initial_due && !hot_takeover) {
     o->takeover_due = false;
     return -EACCES;
@@ -888,8 +910,15 @@ static int activate(struct gm7_owner *o, uint64_t nominal, uint64_t complete,
     if (p->used && p->identity == o->scope.active && p->boot == o->scope.boot &&
         p->quarantined)
       return -EACCES;
+    bool conditional_incumbent =
+        reserve && hot_takeover &&
+        gm7_scope_same(
+            scope_of(&p->session.control, p->session.descriptor.timing_epoch),
+            o->scope) &&
+        nominal >= p->session.source_until;
     if (peer_current(p, now) && p->kind == GM7_ANNOUNCE &&
-        now < p->session.source_until && !fenced(o, &p->session.control) &&
+        now < p->session.source_until && !conditional_incumbent &&
+        !fenced(o, &p->session.control) &&
         !(fixed_yield && selected_same(o, &p->session.control) &&
           p->session.control.sequence == o->remote_yield_sequence))
       return -EACCES;
@@ -1126,7 +1155,8 @@ int gm7_owner_reservation_commit(struct gm7_owner *o, uint64_t first,
   if (!clock_now(o, now) || !o->reserved || !o->reserved_sequence ||
       first < o->reserved_nominal || first - o->reserved_nominal > 2000 ||
       end < first || end - first > 2000 || end > o->reserved_end || end > now ||
-      !o->eligible || !source_current(o, now) || !o->source.physical_ready)
+      !o->eligible || !source_current(o, now) || !o->source.physical_ready ||
+      (!o->initial_due && !hot_cause_at(o, first)))
     return -ESTALE;
   struct gm7_retained *floor =
       floor_for(o, o->reserved_scope.birth, o->reserved_scope.founder, true);

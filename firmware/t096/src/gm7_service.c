@@ -974,7 +974,9 @@ static void cycle(struct k_work *work) {
     if (nominal >= b.hf + 3000 && nominal <= b.hf + 7000 &&
         primary_frame != frame &&
         scheduler.job[GM7_PRIMARY].state == GM7_JOB_EMPTY) {
-      if (!owner.serving && (owner.initial_due || owner.takeover_due)) {
+      if (!owner.serving &&
+          (owner.initial_due ||
+           gm7_owner_takeover_at(&owner, nominal, nominal + 4000, b.hf))) {
         bool ready = true;
         if (owner.armed) {
           ready = takeover_preparing && r2_radio_service_closed() &&

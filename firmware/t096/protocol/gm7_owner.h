@@ -195,6 +195,10 @@ int gm7_owner_next_request(struct gm7_owner *, struct gm7_packet *,
                            uint64_t now, gm7_random_fn, void *);
 int gm7_owner_peer_pin(struct gm7_owner *, uint64_t peer, uint64_t boot,
                        bool pin, uint64_t now);
+/* Pure conditional not-before check for a future reserved primary. No due,
+ * serving, clock or timer state changes; activate rechecks live inventory. */
+bool gm7_owner_takeover_at(const struct gm7_owner *, uint64_t nominal,
+                           uint64_t complete, uint64_t now);
 bool gm7_owner_output(const struct gm7_owner *, uint64_t now);
 /* Receiver-derived association stays separate from decoded sender token0. */
 bool gm7_candidate_mesh_current(const struct gm7_peer *,
