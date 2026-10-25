@@ -10,6 +10,28 @@ from uf2 import verify
 def sha(p):return hashlib.sha256(p.read_bytes()).hexdigest()
 def require(ok,message):
     if not ok:raise ValueError(message)
+
+def crash_static_allowance(gm7,profile,version,config,symbols):
+    """Separate the .180 GM diagnostic allocation from the RC8 ceiling.
+
+    Fail closed for other images/versions. The allowance is earned by the
+    linked allocations, not by a receipt flag or an estimated C object size.
+    """
+    if not(gm7 and profile=='GM' and version==(0,15,180)):return 0
+    for line in ('CONFIG_ISR_STACK_SIZE=3072','CONFIG_MP_MAX_NUM_CPUS=1',
+                 'CONFIG_MPU_STACK_GUARD=y'):
+        require(line in config.splitlines(),'Crash allocation configuration: '+line)
+    for name,size in (('r2_crash_record',512),('z_interrupt_stacks',3136)):
+        entries=symbols.get(name,[])
+        require(len(entries)==1,'Missing/duplicate crash allocation: '+name)
+        q=entries[0]
+        require(q['size']==size and q['section']=='noinit' and
+                q['type']=='SHT_NOBITS' and
+                0x20002000<=q['address']<=0x20040000-size,
+                'Invalid linked crash allocation: '+name)
+    # One CPU, actual64B guard/prefix:3136-(2176+64)=896 new ISR bytes.
+    return symbols['r2_crash_record'][0]['size']+symbols['z_interrupt_stacks'][0]['size']-(2176+64)
+
 def inspect(out,allow_development=False):
     out=Path(out);r=json.loads((out/'receipt.json').read_text())
     dc=r['profile']=='DC'
@@ -30,7 +52,7 @@ def inspect(out,allow_development=False):
     payload=b''.join(data[i+32:i+288] for i in range(0,len(data),512))
     binary=(out/'target/zephyr/zephyr.bin').read_bytes()
     require(payload[:len(binary)]==binary and all(x==0 for x in payload[len(binary):]),'UF2/BIN mismatch')
-    flash_end=0;ram_end=0
+    flash_end=0;ram_end=0;allocations={}
     with (out/'target/zephyr/zephyr.elf').open('rb') as f:
         elf=ELFFile(f)
         for seg in elf.iter_segments():
@@ -41,7 +63,16 @@ def inspect(out,allow_development=False):
             if seg['p_vaddr']>=0x20000000 and seg['p_memsz']:
                 require(0x20002000<=seg['p_vaddr'] and seg['p_vaddr']+seg['p_memsz']<=0x20040000,'ELF RAM bounds')
                 ram_end=max(ram_end,seg['p_vaddr']+seg['p_memsz'])
+        for symbol in elf.get_section_by_name('.symtab').iter_symbols():
+            if symbol.name not in ('r2_crash_record','z_interrupt_stacks'):continue
+            index=symbol['st_shndx']
+            require(isinstance(index,int),'Unallocated crash symbol')
+            section=elf.get_section(index)
+            allocations.setdefault(symbol.name,[]).append(dict(
+                size=int(symbol['st_size']),address=int(symbol['st_value']),
+                section=section.name,type=section['sh_type']))
     config=(out/'target/zephyr/.config').read_text()
+    crash_allowance=crash_static_allowance(gm7,r['profile'],tuple(map(int,r['version'].split('.'))),config,allocations)
     if not dc and tuple(map(int,r['version'].split('.'))) >= (0,15,63):
         rx=re.search(r'^CONFIG_BT_CTLR_RX_BUFFERS=(\d+)$',config,re.M)
         work=re.search(r'^CONFIG_SYSTEM_WORKQUEUE_STACK_SIZE=(\d+)$',config,re.M)
@@ -229,7 +260,9 @@ def inspect(out,allow_development=False):
         require('CONFIG_NRFX_SPIM1=y' in config and 'CONFIG_NRFX_TIMER4=y' in config,'Missing LoRa peripheral owner')
         # The measured0.15.122 normal-image margin is8740B. Preserve the
         # separately agreed4096B incremental RC8 ceiling as well as1024B gate.
-        require(0x20040000-ram_end>=8740-4096,'RC8 exceeds4096B incremental static budget')
+        # .180 GM adds a separately verified512B retained crash record and
+        #896B ISR allocation; neither changes the RC8 budget or absolute floor.
+        require(0x20040000-ram_end+crash_allowance>=8740-4096,'RC8 exceeds4096B incremental static budget')
         private_sha=hashlib.sha256((private_sha+':lora-tx:'+transmitter).encode()).hexdigest()
     if dc or pc:
         with (out/'target/zephyr/zephyr.elf').open('rb') as f:
@@ -239,7 +272,7 @@ def inspect(out,allow_development=False):
     if diagnostic:private_sha=hashlib.sha256((private_sha+':controller-diag:1').encode()).hexdigest()
     binding=hashlib.sha256((r['source_sha256']+':'+private_sha+':'+sha(out/'target/zephyr/.config')).encode()).hexdigest()
     require(binding==r['watchdog_binding_sha256'],'Watchdog binding')
-    return {'status':'PASS','flash_load_end':flash_end,'ram_allocated_end':ram_end,'static_unallocated_bytes':0x20040000-ram_end,'hardware':'NOT_TESTED','deployment_authorized':False}
+    return {'status':'PASS','flash_load_end':flash_end,'ram_allocated_end':ram_end,'static_unallocated_bytes':0x20040000-ram_end,'crash_diagnostic_static_allowance_bytes':crash_allowance,'rc8_incremental_static_budget_bytes':4096,'hardware':'NOT_TESTED','deployment_authorized':False}
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
