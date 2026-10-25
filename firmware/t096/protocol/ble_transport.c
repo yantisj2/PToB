@@ -514,10 +514,13 @@ static void connected(struct bt_conn *conn,uint8_t error)
      else if(!error&&!p->release&&p->connect_until&&now_us()<p->connect_until)p->connect_until=0;
      atomic_clear(&p->att_mtu);atomic_set(&p->connected,!error);atomic_set(&p->dead,error?1:0);if((unsigned)i==CONTROL_PEERS&&!error)p->provisional_until=p->first_seen?p->first_seen+5000000:now_us()+5000000;++p->incarnation;}
   }
-  r2_timing_event(R2_TIMING_GM_CONNECTED,error,i>=0?peers[i].identity:0,
-                  i<0?255u:logical_peer((unsigned)i),i>=0?peers[i].incarnation:0,0);
-  bool own_init=group_id&&i>=0&&!peers[i].admission_server;
-  uint64_t init_peer=own_init?peers[i].identity:0;
+  /* Check the physical bound independently of the public logical mapping.
+   * A diagnostic index never becomes an array index after translation. */
+  struct peer *accepted=i>=0&&(unsigned)i<PEERS?&peers[i]:NULL;
+  r2_timing_event(R2_TIMING_GM_CONNECTED,error,accepted?accepted->identity:0,
+                  accepted?logical_peer((unsigned)i):255u,accepted?accepted->incarnation:0,0);
+  bool own_init=group_id&&accepted&&!accepted->admission_server;
+  uint64_t init_peer=own_init?accepted->identity:0;
   k_spin_unlock(&lock,key);
   if(own_init)native_init_observation(init_peer,error);
   if(i<0&&!error)duplicate_track(conn,now_us());
