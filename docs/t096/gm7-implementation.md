@@ -157,7 +157,22 @@ unchanged30s progress watchdog before the first resumed publication. Queries
 and reset retries do not refresh this sample. These corrections do not explain
 the separate version174 CPU fault; version175 register diagnostics remain.
 
-Source0.15.176 selects GM7 by default for both normal GM/RC image defaults. The
+Version177 also restores the permitted tentative locator bootstrap path. A fresh
+authenticated ordinary ANNOUNCE can place one bounded nonce REQUEST before a
+physical local or remote phase map exists. Its primary/discovery-copy placement
+is explicitly a guess. It never enables STATUS, ANNOUNCE, source permission,
+phase alignment, G1 output or HOT readiness. The immutable REQUEST job retains
+its own tentative UTC solely for A1 retry placement after actual RF completion;
+later locator or source changes cannot rewrite it. The existing job storage is
+shared by disjoint typed kinds, with no new persistent allocation. ANCHOR still
+requires the responder's own current source, original causal deadline and
+consume-once nonce; only subsequently accepted control and physical G1 frames
+can establish follower timing. Synthetic production-body composition covers no
+local UTC, an older retained self lineage, discovery copies, refused submissions,
+lost responses, and the normal full-identity GRv3/G1 receive path. These are
+offline checks, not measured RF reception or fault-free hardware evidence.
+
+Source0.15.177 selects GM7 by default for both normal GM/RC image defaults. The
 RC backend remains ordinary supported firmware. Historical GM5/6 is available
 only with `--legacy-gm-regression`; there is no runtime fallback. DC and PC omit
 GM7. Enabling management-only LE2M does not enable public controller2M features:

@@ -34,8 +34,14 @@ struct gm7_window {
 };
 struct gm7_job {
   struct gm7_window window;
-  uint64_t ticket, sequence, source_until, request_deadline, first_start,
-      final_end;
+  uint64_t ticket, sequence;
+  /* Disjoint immutable job kinds: REQUEST is never positive and has no source
+   * permission. Its tentative UTC is retry placement only, never map evidence. */
+  union {
+    uint64_t source_until;
+    uint64_t request_utc;
+  };
+  uint64_t request_deadline, first_start, final_end;
   uint32_t generation, buffer_version;
   uint16_t length;
   uint8_t pdu_prefix[12], ad[GM7_MAX_AD_BYTES], kind, opportunity, handle,

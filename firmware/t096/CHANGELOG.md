@@ -1,5 +1,20 @@
 # T096 changelog
 
+## 0.15.177 — Bootstrap GM followers before a physical phase map
+
+Allow an authenticated ordinary ANNOUNCE locator to place a bounded nonce
+REQUEST without qualified local GNSS or an already selected G1 map. Treat its
+primary/discovery-copy phase as a guess; it grants no positive output, STATUS,
+source, phase or HOT authority. Freeze retry-placement UTC in the immutable
+REQUEST job's existing storage and use its actual RF START at completion,
+preserving the A1 residues and original nonce/source deadlines. Keep ANCHOR,
+subsequent control and captured G1 admission independent. Production-body tests
+compose actual causal bootstrap with the normal full-identity GRv3/G1 receiver,
+including older retained self lineage, absent UTC, refusal and response loss.
+Includes version176's normal JOIN and resumed-progress corrections and retains
+version175's fault diagnostics. The separate version174 CPU fault remains
+unresolved; these offline checks establish no hardware qualification.
+
 ## 0.15.176 — Preserve time-client initialization and resumed progress
 
 Retain the GM7 server's incoming normal JOIN connection through its existing

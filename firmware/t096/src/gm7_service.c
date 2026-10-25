@@ -365,8 +365,11 @@ static void reservation_fail(uint64_t nominal, uint64_t sequence,
   gm7_owner_reservation_failed(&owner, exposed, now);
   gm7_scheduler_cancel_positive(&scheduler, now);
 }
-static int queue(unsigned slot, const struct gm7_packet *p, struct gm7_window w,
-                 uint64_t deadline, struct gm7_bridge b) {
+static int queue_at(unsigned slot, const struct gm7_packet *p,
+                    struct gm7_window w, uint64_t deadline,
+                    uint64_t request_utc, struct gm7_bridge b) {
+  if (p->kind == GM7_REQUEST && !gm7_utc_valid(request_utc))
+    return -EINVAL;
   bool first = slot == GM7_PRIMARY && owner.reserved &&
                owner.reserved_nominal == w.nominal && p->kind == GM7_ANNOUNCE &&
                owner.reserved_sequence == p->body.control.sequence;
@@ -380,6 +383,8 @@ static int queue(unsigned slot, const struct gm7_packet *p, struct gm7_window w,
                        rc, false, b.hf);
     return rc;
   }
+  if (p->kind == GM7_REQUEST)
+    scheduler.job[slot].request_utc = request_utc;
   if (owner.event.valid &&
       p->body.control.sequence == owner.event.packet.body.control.sequence &&
       (p->kind == GM7_WITHDRAW ||
@@ -405,6 +410,10 @@ static int queue(unsigned slot, const struct gm7_packet *p, struct gm7_window w,
   } else if (first)
     reservation_note(RESERVE_NATIVE, 0, false);
   return rc;
+}
+static int queue(unsigned slot, const struct gm7_packet *p, struct gm7_window w,
+                 uint64_t deadline, struct gm7_bridge b) {
+  return queue_at(slot, p, w, deadline, 0, b);
 }
 static void results(struct gm7_bridge b) {
   if (!bridge(&b) || b.epoch != clock_epoch)
@@ -452,34 +461,17 @@ static void results(struct gm7_bridge b) {
           if (!p->used || p->identity != packet.body.request.target ||
               p->boot != packet.body.request.target_boot)
             continue;
-          if (p->retry_attempt == UINT64_MAX || !phase_known || b.hf < first) {
+          if (p->retry_attempt == UINT64_MAX || b.hf < first ||
+              first < job->window.nominal ||
+              !gm7_utc_valid(job->request_utc) ||
+              job->request_utc >
+                  UINT64_MAX - (first - job->window.nominal)) {
             resource_fault = true;
             break;
           }
-          struct r2_gm7_timing current;
-          uint32_t enclosure;
-          r2_radio_service_gm7_timing(&current, b.kernel_hi);
-          if (owner.scope.active && owner.scope.active != identity) {
-            if (!phase_at(&current, b, &utc, &enclosure) ||
-                utc < b.hf - first) {
-              resource_fault = true;
-              break;
-            }
-            utc -= b.hf - first;
-          } else {
-            if (owner.source.sampled_us > b.hf ||
-                owner.source.utc_us >
-                    UINT64_MAX - (b.hf - owner.source.sampled_us)) {
-              resource_fault = true;
-              break;
-            }
-            utc = owner.source.utc_us + b.hf - owner.source.sampled_us;
-            if (utc < b.hf - first) {
-              resource_fault = true;
-              break;
-            }
-            utc -= b.hf - first;
-          }
+          /* The completing ticket owns this guess even if a later locator,
+           * source snapshot or selected root changes before worker delivery. */
+          utc = job->request_utc + first - job->window.nominal;
           uint32_t offset;
           if (utc > UINT64_MAX - 2000000 ||
               gm7_status_offset(&offset, identity, boot,
@@ -669,10 +661,77 @@ timing(struct gm7_bridge b, const struct gm7_source *s,
   r2_ble_serving(scope.gm);
   r2_lora_origin(scope.gm, boot, scope.source_epoch);
 }
+/* A MAC-valid locator is only a bounded guess at a REQUEST opportunity. An
+ * ordinary ANNOUNCE sample precedes the38ms primary in the same250ms UTC
+ * frame. Its complete LE2M AUX END is nominally525us plus its full packet
+ * airtime after primary START. A5ms
+ * discovery copy, controller lateness, propagation or a replay can make this
+ * guess wrong; none of it establishes physical phase or source authority.
+ * Use it immediately, not as a renewed locator/map cache. */
+static void tentative_request(const struct gm7_packet *locator, uint64_t rx,
+                               struct gm7_bridge b) {
+  const uint32_t end_phase =
+      GM7_PRIMARY_US + GM7_AUX_TARGET_US +
+      (11 + 10 + GM7_CONTROL_BYTES + 4) * 4;
+  if (locator->kind != GM7_ANNOUNCE || (locator->flags & GM7_YIELD) ||
+      resource_fault || owner.failed || owner.stopped ||
+      scheduler.job[GM7_STANDBY].state != GM7_JOB_EMPTY ||
+      rx > b.hf || b.hf - rx >= 250000 ||
+      rx < end_phase)
+    return;
+  const struct gm7_control *c = &locator->body.control;
+  struct gm7_peer *peer = NULL;
+  for (unsigned i = 0; i < GM7_PEERS; i++)
+    if (owner.peer[i].used && !owner.peer[i].quarantined &&
+        owner.peer[i].identity == c->sender && owner.peer[i].boot == c->boot) {
+      peer = &owner.peer[i];
+      break;
+    }
+  if (!peer || !peer->locator_seen || b.hf < peer->locator_at ||
+      b.hf - peer->locator_at >= 4500000 ||
+      !gm7_session_due(&peer->session, b.hf))
+    return;
+  uint64_t base = rx - end_phase;
+  uint64_t frame_utc = c->sent_utc_us - c->sent_utc_us % GM7_FRAME_US;
+  uint64_t cycle = frame_utc / 2000000, tx;
+  uint32_t offset;
+  if (!gm7_utc_valid(c->sent_utc_us) ||
+      gm7_status_offset(&offset, identity, boot, cycle,
+                        gm7_status_jitter(identity, boot, cycle)))
+    return;
+  if (peer->retry_attempt) {
+    tx = peer->retry_at;
+    if (tx < b.hf + 3000) {
+      uint64_t frames = (b.hf + 3000 - tx + 999999) / 1000000;
+      if (frames > (UINT64_MAX - tx) / 1000000)
+        return;
+      tx += frames * 1000000;
+      peer->retry_at = tx; /* Same A1 residue/frozen slot, no RF attempt. */
+      if (owner.late_windows != UINT32_MAX)
+        ++owner.late_windows;
+    }
+  } else {
+    tx = base + offset;
+    if (tx < b.hf + 3000)
+      tx += GM7_FRAME_US;
+  }
+  /* A fresh primary/copy normally leaves about45..70ms CPU preparation.
+   * Misses wait another locator. Native admission still samples actual HF and
+   * requires>=3ms; this does not enlarge any RF window or nonce deadline. */
+  if (tx < b.hf + 3000 || tx > b.hf + 70000 || tx < peer->retry_at ||
+      tx < base || frame_utc > UINT64_MAX - (tx - base))
+    return;
+  struct gm7_packet request;
+  if (!gm7_owner_request_peer(&owner, &request, peer->identity, peer->boot,
+                              b.hf, tx, entropy, NULL))
+    (void)queue_at(GM7_STANDBY, &request, window(tx, 2000), tx + 250000,
+                    frame_utc + tx - base, b);
+}
 static __attribute__((noinline)) void receive(struct gm7_bridge b, uint64_t utc,
                                               uint64_t frame_start,
                                               uint64_t frame,
-                                              uint32_t enclosure) {
+                                              uint32_t enclosure,
+                                              bool physical_aligned) {
   struct r2_gm7_rx r;
   for (unsigned count = 0; count < 2 && r2_gm7_capture_pop(&r); count++) {
     management_count(&management_rx);
@@ -713,6 +772,8 @@ static __attribute__((noinline)) void receive(struct gm7_bridge b, uint64_t utc,
         gm7_scheduler_cancel_positive(&scheduler, b.hf);
         r2_gm7_controller_cancel(b.hf);
       }
+      if (!physical_aligned)
+        tentative_request(&packet, rx, b);
     }
   }
 }
@@ -1020,7 +1081,7 @@ static void cycle(struct k_work *work) {
     last_enclosure = enclosure;
     event_evidence.phase_sample_ms = (uint32_t)(b.hf / 1000);
   }
-  receive(b, utc, frame_start, frame, enclosure);
+  receive(b, utc, frame_start, frame, enclosure, aligned);
   if (!bridge(&b) || b.epoch != clock_epoch) {
     resource_fault = true;
     goto finished;
@@ -1269,8 +1330,12 @@ static void cycle(struct k_work *work) {
                                 &owner, &p, request_peer->identity,
                                 request_peer->boot, b.hf, tx, entropy, NULL);
         if (!rc &&
-            !queue(GM7_STANDBY, &p, window(tx, enclosure),
-                   p.kind == GM7_REQUEST ? tx + 250000 : 0, b) &&
+            !queue_at(GM7_STANDBY, &p, window(tx, enclosure),
+                      p.kind == GM7_REQUEST ? tx + 250000 : 0,
+                      p.kind == GM7_REQUEST
+                          ? frame * GM7_FRAME_US + tx - frame_start
+                          : 0,
+                      b) &&
             ordinary)
           status_cycle = cycle;
       }

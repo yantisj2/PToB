@@ -26,6 +26,7 @@ int r2_gnss_input_error(void) { return fake_gnss_error; }
 static struct r2_radio_scope fake_scope;
 static struct r2_enrollment fake_path;
 static struct r2_gm7_admission_source fake_join;
+static struct r2_group_client fake_client;
 static int fake_ble_error, fake_pt_error, fake_pt_supervise;
 int r2_ble_group_start(uint64_t id, uint64_t g, uint32_t e,
                        const uint8_t a[6]) {
@@ -239,7 +240,7 @@ void r2_radio_service_source(const struct r2_source_clock *s, bool ready,
 }
 void r2_radio_service_client(const struct r2_group_client *a,
                              const struct r2_enrollment *p, uint64_t now) {
-  (void)a;
+  fake_client = *a;
   (void)now;
   fake_path = *p;
 }

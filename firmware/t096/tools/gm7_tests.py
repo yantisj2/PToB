@@ -58,6 +58,10 @@ try:
  receipt['service_command']=service
  with (out/'service.compile.log').open('w') as f:subprocess.run(service,stdout=f,stderr=subprocess.STDOUT,check=True,timeout=45)
  with (out/'service.run.log').open('w') as f:subprocess.run([str(out/'service-test'),str(out)],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=30)
+ bootstrap=service.copy();bootstrap[bootstrap.index(str(app/'tests/gm7_service_test.c'))]=str(app/'tests/gm7_bootstrap_service_test.c');bootstrap[-1]=str(out/'bootstrap-service-test')
+ receipt['bootstrap_service_command']=bootstrap
+ with (out/'bootstrap-service.compile.log').open('w')as f:subprocess.run(bootstrap,stdout=f,stderr=subprocess.STDOUT,check=True,timeout=45)
+ with (out/'bootstrap-service.run.log').open('w')as f:subprocess.run([str(out/'bootstrap-service-test'),str(out/'bootstrap.bin')],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=30)
  dispatcher=(app/'src/rc_profile_service.c').read_text()
  bodies=dispatcher[dispatcher.index('static struct r2_identity physical;'):dispatcher.index('void r2_service_clock(')]
  bodies+=dispatcher[dispatcher.index('int r2_service_run('):dispatcher.index('int r2_service_preflight(')]
@@ -117,6 +121,13 @@ try:
  with (out/'radio.compile.log').open('w') as f:subprocess.run(radio,stdout=f,stderr=subprocess.STDOUT,check=True,timeout=45)
  with (out/'radio.run.log').open('w') as f:
   for mode in [61,16,17,20,22,30,31,32,33,34,50]:subprocess.run([str(out/'radio-test'),str(mode)],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=30)
+ radio_fixture=(app/'tests/radio_service_test.c').read_text().replace('int main(int argc,char **argv)','int historical_radio_main(int argc,char **argv)')
+ assert radio_fixture.endswith('}\n');radio_fixture=radio_fixture[:-2]+' return 0;\n}\n'
+ (out/'gm7_radio_fixture.inc').write_text(radio_fixture)
+ bootstrap_radio=radio.copy();bootstrap_radio[bootstrap_radio.index(str(app/'tests/radio_service_test.c'))]=str(app/'tests/gm7_bootstrap_radio_test.c');bootstrap_radio[-1]=str(out/'bootstrap-radio-test')
+ receipt['bootstrap_radio_command']=bootstrap_radio
+ with (out/'bootstrap-radio.compile.log').open('w')as f:subprocess.run(bootstrap_radio,stdout=f,stderr=subprocess.STDOUT,check=True,timeout=45)
+ with (out/'bootstrap-radio.run.log').open('w')as f:subprocess.run([str(out/'bootstrap-radio-test'),str(out/'bootstrap.bin')],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=30)
  for mode in ['legacy','gm7']:
   core=[cc,'-std=c11','-Wall','-Wextra','-Werror','-fsanitize=address,undefined','-fno-sanitize-recover=all','-I'+str(app/'include'),*(['-DR2_GM7_NATIVE=1']if mode=='gm7' else[]),str(app/'src/core.c'),str(app/'tests/core_test.c'),'-o',str(out/('core-'+mode))]
   with (out/('core-'+mode+'.compile.log')).open('w')as f:subprocess.run(core,stdout=f,stderr=subprocess.STDOUT,check=True,timeout=30)
