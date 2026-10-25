@@ -1,5 +1,17 @@
 # T096 changelog
 
+## 0.15.181 — Allow initial election after an expired remote timing map
+
+After the GM7 owner grants an initial election, use the independently qualified
+local physical source to place its first ANNOUNCE. A retained remote lineage
+without a live delivered timing map previously suppressed the reservation even
+after all initial-election checks passed. Retain that lineage for birth, founder
+and term inheritance. Fresh incumbents, rank, quiet/backoff, local GNSS dwell,
+source expiry, HOT takeover and negative scheduling keep their existing checks.
+A focused production-cycle regression covers first-ANN completion and these
+guards with fake kernel/HAL/RF boundaries. This does not identify the separate
+CPU corruption or establish hardware election or timing qualification.
+
 ## 0.15.180 — Retain a bounded CPU crash record and persist on reboot
 
 Keep the existing256B fault capsule and add one512B retained record with original

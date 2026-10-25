@@ -1178,6 +1178,29 @@ static void cycle(struct k_work *work) {
       }
     }
   }
+  /* An expired remote lineage remains recorded for election term/floor
+   * inheritance. Its missing delivered map cannot suppress an independently
+   * qualified initial election. Choose local phase only AFTER update/receive
+   * granted initial_due; reserve still checks incumbent, rank and source.
+   * HOT takeover and ordinary following retain their remote physical phase. */
+  if (owner.initial_due && !owner.serving && !owner.armed && !owner.reserved) {
+    if (!bridge(&b) || b.epoch != clock_epoch) {
+      resource_fault = true;
+      goto finished;
+    }
+    aligned = source.physical_ready && b.hf < source.until_us &&
+              source_phase(&source, b, &utc);
+    if (aligned) {
+      enclosure = 100;
+      frame = utc / GM7_FRAME_US;
+      phase = utc % GM7_FRAME_US;
+      frame_start = b.hf >= phase ? b.hf - phase : 0;
+      phase_known = true;
+      last_phase = (uint32_t)(frame_start % GM7_FRAME_US);
+      last_enclosure = enclosure;
+      event_evidence.phase_sample_ms = (uint32_t)(b.hf / 1000);
+    }
+  }
   /* Receive/drain work can advance processing-now. Recheck the original
    * phase lease at the contemporary bridge before constructing a negative. */
   if (!aligned)

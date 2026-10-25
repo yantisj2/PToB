@@ -17,10 +17,11 @@ def main():
             assert reject,name
         else:assert not reject and value==expected,(name,value)
         checks.append(name)
-    check('exact GM linked allocation')
+    check('exact .180 GM linked allocation')
+    check('exact .181 GM inherited allocation',version=(0,15,181))
     for profile in ('RC','DC','PC'):check('no '+profile+' allowance',profile=profile,expected=0)
     check('no legacy backend allowance',gm7=False,expected=0)
-    for version in ((0,15,179),(0,15,181)):check('no other version '+str(version),version=version,expected=0)
+    for version in ((0,15,179),(0,15,182)):check('no other version '+str(version),version=version,expected=0)
     for line in CONFIG.splitlines():check('requires '+line,config=CONFIG.replace(line,''),reject=True)
     for name in SYMBOLS:
         for field,value in [('size',511),('address',0x20040000),('section','bss'),('type','SHT_PROGBITS')]:

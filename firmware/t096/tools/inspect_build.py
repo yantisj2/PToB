@@ -12,12 +12,12 @@ def require(ok,message):
     if not ok:raise ValueError(message)
 
 def crash_static_allowance(gm7,profile,version,config,symbols):
-    """Separate the .180 GM diagnostic allocation from the RC8 ceiling.
+    """Separate the .180/.181 GM diagnostic allocation from the RC8 ceiling.
 
     Fail closed for other images/versions. The allowance is earned by the
     linked allocations, not by a receipt flag or an estimated C object size.
     """
-    if not(gm7 and profile=='GM' and version==(0,15,180)):return 0
+    if not(gm7 and profile=='GM' and version in ((0,15,180),(0,15,181))):return 0
     for line in ('CONFIG_ISR_STACK_SIZE=3072','CONFIG_MP_MAX_NUM_CPUS=1',
                  'CONFIG_MPU_STACK_GUARD=y'):
         require(line in config.splitlines(),'Crash allocation configuration: '+line)
@@ -260,7 +260,7 @@ def inspect(out,allow_development=False):
         require('CONFIG_NRFX_SPIM1=y' in config and 'CONFIG_NRFX_TIMER4=y' in config,'Missing LoRa peripheral owner')
         # The measured0.15.122 normal-image margin is8740B. Preserve the
         # separately agreed4096B incremental RC8 ceiling as well as1024B gate.
-        # .180 GM adds a separately verified512B retained crash record and
+        # .180/.181 GM have a separately verified512B retained crash record and
         #896B ISR allocation; neither changes the RC8 budget or absolute floor.
         require(0x20040000-ram_end+crash_allowance>=8740-4096,'RC8 exceeds4096B incremental static budget')
         private_sha=hashlib.sha256((private_sha+':lora-tx:'+transmitter).encode()).hexdigest()
