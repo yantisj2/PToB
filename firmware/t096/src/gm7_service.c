@@ -1701,6 +1701,18 @@ int r2_normal_service_resume_gm(uint64_t incarnation, uint32_t changes) {
   clock_epoch = b.epoch;
   atomic_clear(&stopping);
   resuming = true;
+  /* A real accepted, fully drained handoff is CONTROL progress. The dormant
+   * GM publication may belong to boot or an earlier incarnation. Publish this
+   * sample once; reset EAGAIN, queries and supervision cannot renew it. Retire
+   * completed close state and old authority before making that sample fresh. */
+  status.at = b.kernel_hi;
+  status.closing = false;
+  status.close_deadline = 0;
+  status.serving = status.follower = status.follower_clock_valid =
+      status.hot_ready = false;
+  status.precision.map_valid = status.precision.authorized =
+      status.precision.locked = status.precision.rms_valid = false;
+  status.service_until = status.authority_until = 0;
   status.closed = false;
   status.profile_pending = true;
   status.profile_changes = changes + 1;

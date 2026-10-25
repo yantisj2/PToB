@@ -894,7 +894,7 @@ static void poll_owned(uint64_t now)
     /* A relay's own bootstrap need governs outgoing acquisition, not an
      * incoming client's bounded admission exchange. Provisional expiry,
      * release, quiet and shutdown still retire this guest independently. */
-    bool serving_guest=relay_server&&i==admission_peer&&p->admission_server;
+    bool serving_guest=(relay_server||gm7_server)&&i==admission_peer&&p->admission_server;
     if(!stopping&&p->conn&&!desired(i)&&!serving_guest){r2_ble_disconnect(i);continue;}
     if(!stopping&&!p->disconnect_requested&&atomic_get(&p->connected)){
       if(!p->mtu.func&&!usable_mtu(p)){p->mtu.func=mtu_done;int rc=gatt_call(i,GATT_MTU,0,NULL);if(rc){if(!gatt_pending(i))p->mtu.func=NULL;if(rc!=-EALREADY)transport_error(rc,"MTU",i);}}

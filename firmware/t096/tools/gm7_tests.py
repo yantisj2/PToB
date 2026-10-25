@@ -38,6 +38,10 @@ try:
  receipt['admission_command']=compat
  with (out/'admission.compile.log').open('w') as f:subprocess.run(compat,stdout=f,stderr=subprocess.STDOUT,check=True,timeout=45)
  with (out/'admission.run.log').open('w') as f:subprocess.run([str(out/'admission-test')],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=30)
+ join_compat=compat.copy();join_compat[join_compat.index(str(app/'tests/gm7_admission_test.c'))]=str(app/'tests/gm7_join_compat_test.c');join_compat[-1]=str(out/'join-compat-test');join_compat.insert(1,'-DR2_GM7_NATIVE=1')
+ receipt['join_compat_command']=join_compat
+ with (out/'join-compat.compile.log').open('w') as f:subprocess.run(join_compat,stdout=f,stderr=subprocess.STDOUT,check=True,timeout=45)
+ with (out/'join-compat.run.log').open('w') as f:subprocess.run([str(out/'join-compat-test')],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=30)
  transport=[cc,'-std=c11','-O1','-g','-Wall','-Wextra','-Werror','-Wno-unused-function','-Wno-unused-variable','-Wno-unused-parameter','-Wno-default-const-init-var-unsafe','-fsanitize=address,undefined','-fno-sanitize-recover=all','-DR2_GM7_NATIVE=1',*['-I'+str(x) for x in [app/'include',app/'protocol',app/'tests',tiny/'include',out]],str(app/'tests/gm7_transport_test.c'),*[str(app/'protocol'/n) for n in ['group_auth.c','group_control.c','authority_codec.c']],*[str(tiny/'source'/n) for n in ['hmac.c','sha256.c','utils.c']],'-o',str(out/'transport-test')]
  receipt['transport_command']=transport
  with (out/'transport.compile.log').open('w') as f:subprocess.run(transport,stdout=f,stderr=subprocess.STDOUT,check=True,timeout=45)
@@ -68,6 +72,26 @@ try:
  receipt['resume_service_command']=resume
  with (out/'resume-service.compile.log').open('w')as f:subprocess.run(resume,stdout=f,stderr=subprocess.STDOUT,check=True,timeout=45)
  with (out/'resume-service.run.log').open('w')as f:subprocess.run([str(out/'resume-service-test')],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=30)
+ # Execute original dispatcher snapshots and the original watchdog in distinct
+ # translation units, exchanging the complete production status structure.
+ resume_fixture=(app/'tests/gm7_resume_service_test.c').read_text().replace('int main(int argc, char **argv)','int historical_resume_main(int argc, char **argv)')
+ (out/'gm7_resume_fixture.inc').write_text(resume_fixture)
+ snapshot=dispatcher[dispatcher.index('void r2_service_snapshot('):dispatcher.index('void r2_service_ui(')]
+ snapshot_names={n:'dispatch_'+n for n in names};snapshot_names['r2_service_snapshot']='dispatcher_snapshot'
+ (out/'gm7_dispatch_snapshot.inc').write_text(''.join(f'#define {k} {v}\n'for k,v in snapshot_names.items())+snapshot+''.join(f'#undef {k}\n'for k in snapshot_names))
+ progress=resume.copy();progress[progress.index(str(app/'tests/gm7_resume_service_test.c'))]=str(app/'tests/gm7_resume_progress_test.c');progress[-1]=str(out/'resume-progress-test')
+ receipt['resume_progress_command']=progress
+ with (out/'resume-progress.compile.log').open('w')as f:subprocess.run(progress,stdout=f,stderr=subprocess.STDOUT,check=True,timeout=45)
+ with (out/'resume-progress.run.log').open('w')as f:subprocess.run([str(out/'resume-progress-test'),str(out/'resume-progress.bin')],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=30)
+ wd_fixture=(app/'tests/watchdog_test.c').read_text().replace('int main(int argc,char **argv)','int historical_watchdog_main(int argc,char **argv)')
+ assert wd_fixture.endswith('}\n');wd_fixture=wd_fixture[:-2]+' return 0;\n}\n'
+ (out/'gm7_watchdog_fixture.inc').write_text(wd_fixture)
+ for name in ['device.h','drivers/watchdog.h','drivers/hwinfo.h','sys/reboot.h','cmsis_core.h','build_identity.h']:
+  header=out/('zephyr/'+name if '/'in name or name=='device.h' else name);header.parent.mkdir(parents=True,exist_ok=True);header.write_text('/* Fake public platform boundary. */\n')
+ progress_wd=[cc,'-std=c11','-O1','-g','-Wall','-Wextra','-Werror','-Wno-unused-function','-Wno-unused-variable','-Wno-unused-parameter','-Wno-default-const-init-var-unsafe','-fsanitize=address,undefined','-fno-sanitize-recover=all',*['-I'+str(x)for x in [out,app/'include',app/'protocol',app/'tests']],str(app/'tests/gm7_resume_watchdog_test.c'),str(app/'src/watchdog_policy.c'),'-o',str(out/'resume-watchdog-test')]
+ receipt['resume_watchdog_command']=progress_wd
+ with (out/'resume-watchdog.compile.log').open('w')as f:subprocess.run(progress_wd,stdout=f,stderr=subprocess.STDOUT,check=True,timeout=45)
+ with (out/'resume-watchdog.run.log').open('w')as f:subprocess.run([str(out/'resume-watchdog-test'),str(out/'resume-progress.bin')],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=30)
  reservation_sources=[p for p in service_sources if p.name!='gm7_service_test.c']+[app/'tests/gm7_reservation_service_test.c']
  reservation=service[:service.index(str(service_sources[0]))]+[*map(str,reservation_sources),'-o',str(out/'reservation-service-test')]
  receipt['reservation_service_command']=reservation

@@ -1,5 +1,19 @@
 # T096 changelog
 
+## 0.15.176 — Preserve time-client initialization and resumed progress
+
+Retain the GM7 server's incoming normal JOIN connection through its existing
+MTU/discovery and authenticated time exchange. Previously its outgoing-control
+policy could retire that connection on the first owner poll. Keep the original
+expiry, release, shutdown and callback drain limits; ordinary RC services are
+unchanged. On a fully drained GM resume, record one actual CONTROL handoff sample
+and retire the prior completed close state and current authority flags. A dormant
+publication could otherwise trigger the unchanged30s progress watchdog before
+the first resumed publication, particularly after a long RC interval. Queries
+and pending reset retries do not refresh this sample. The original watchdog
+decisions, transition bounds and source validity checks remain. Version175's
+register diagnostics remain; the separate version174 CPU fault is unresolved.
+
 ## 0.15.175 — Preserve hardware fault registers
 
 Diagnostic-only normal GM/RC candidate: enable the pinned kernel's extra

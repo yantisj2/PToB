@@ -146,7 +146,18 @@ provenance. Controller assertion records and the separate watchdog role record
 remain unchanged. Post-clear SCB values cannot establish a valid fault address;
 the new record does not claim to fix the fault or establish hardware acceptance.
 
-Source0.15.175 selects GM7 by default for both normal GM/RC image defaults. The
+Version176 corrects two separately reproduced lifecycle problems. The GM7 server
+retains its actual incoming normal JOIN owner while initialization and the
+existing authenticated time exchange proceed. Its outgoing-control refusal
+still applies, and expiry, release and callback drain limits are unchanged.
+An accepted, fully drained GM resume records one current CONTROL progress
+sample, retires the completed old close state and clears current authority
+flags. The dormant GM publication previously could appear older than the
+unchanged30s progress watchdog before the first resumed publication. Queries
+and reset retries do not refresh this sample. These corrections do not explain
+the separate version174 CPU fault; version175 register diagnostics remain.
+
+Source0.15.176 selects GM7 by default for both normal GM/RC image defaults. The
 RC backend remains ordinary supported firmware. Historical GM5/6 is available
 only with `--legacy-gm-regression`; there is no runtime fallback. DC and PC omit
 GM7. Enabling management-only LE2M does not enable public controller2M features:
