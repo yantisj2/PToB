@@ -572,6 +572,7 @@ static void nominate(struct gm7_owner *o) {
       best = p;
   }
   if (!best) {
+    o->yield_ready = false;
     o->nominee = o->nominee_boot = o->nominee_better_since =
         o->nominee_better_id = o->quality_better_since = 0;
     return;

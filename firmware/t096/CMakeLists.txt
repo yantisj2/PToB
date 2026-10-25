@@ -1,5 +1,13 @@
 cmake_minimum_required(VERSION 3.20.0)
 list(APPEND BOARD_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
+# Fund the normal GM7 interrupt reserve from retired diagnostic storage.
+# DC/PC and explicit historical regression keep their original configuration.
+if(NOT R2_DC_PROFILE AND NOT R2_PC_PROFILE AND NOT R2_LEGACY_GM_REGRESSION)
+ if(DEFINED CONFIG_ISR_STACK_SIZE AND CONFIG_ISR_STACK_SIZE LESS 2176)
+  message(FATAL_ERROR "GM7 requires at least2176B ISR stack")
+ endif()
+ set(CONFIG_ISR_STACK_SIZE 2176 CACHE STRING "GM7 normal interrupt reserve")
+endif()
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 # One RC7 application, two runtime roles (GM and RC). USB export is standard.
 if(NOT R2_DC_PROFILE AND NOT R2_PC_PROFILE)

@@ -13,6 +13,7 @@ static unsigned fake_result_count;
 static struct r2_gm7_timing fake_timing;
 static struct r2_source_clock fake_raw;
 static bool fake_promote_ready;
+static bool fake_submit_refusal;
 static struct r2_radio_scope fake_scope;
 static struct r2_enrollment fake_path;
 static struct r2_gm7_admission_source fake_join;
@@ -117,6 +118,8 @@ int r2_gm7_controller_submit(unsigned slot, struct gm7_scheduler *s,
   (void)a;
   (void)now;
   assert(!fake_native_live[slot]);
+  if (fake_submit_refusal)
+    return -EBUSY;
   fake_native_live[slot] = true;
   s->job[slot].state = GM7_JOB_DISPATCHED;
   ++fake_submit_count;
@@ -338,6 +341,8 @@ static void setup(bool serving) {
   status.serving = serving;
   stop_begun = transport_stopped = resource_fault = scan_aligned = resuming =
       false;
+  fake_submit_refusal = false;
+  event_evidence.phase_sample_ms = (uint32_t)(fake_hf / 1000);
   atomic_clear(&stopping);
   atomic_clear(&busy);
   phase_known = true;
@@ -706,6 +711,238 @@ static void takeover_fixture(void) {
   primary_frame = diag_frame = status_cycle = UINT64_MAX;
   fake_rx_count = 0;
 }
+static void yield_fixture(void) {
+  setup(true);
+  tick_to(96033000);
+  healthy_input();
+  fake_timing = (struct r2_gm7_timing){0};
+  owner.source = source_at(fake_hf);
+  owner.source_previous_until = fake_hf + 1500000;
+  struct gm7_peer *p = &owner.peer[0];
+  p->used = true;
+  p->identity = 49;
+  p->boot = 65;
+  p->kind = GM7_STATUS;
+  p->flags = GM7_ELIGIBLE | GM7_CAPABLE | GM7_SHADOW | GM7_HOT;
+  p->session = (struct gm7_session){.valid = true,
+                                    .group = group.id,
+                                    .key_epoch = group.epoch,
+                                    .peer = 49,
+                                    .peer_boot = 65,
+                                    .local_boot = boot,
+                                    .established = 66000000,
+                                    .until = 150000000,
+                                    .control_until = 101000000};
+  p->session.control = (struct gm7_control){.sender = 49,
+                                            .boot = 65,
+                                            .sequence = 1,
+                                            .birth_us = owner.scope.birth,
+                                            .founder = owner.scope.founder,
+                                            .term = owner.scope.term,
+                                            .active = identity,
+                                            .active_boot = boot,
+                                            .train_gen = owner.scope.train,
+                                            .source_gen = 3,
+                                            .capture_gen = 4,
+                                            .shadow_gen = 9,
+                                            .hot = 49,
+                                            .hot_boot = 65,
+                                            .priority1 = 128,
+                                            .clock_class = 1,
+                                            .accuracy = 255,
+                                            .priority2 = 128,
+                                            .variance = 65535};
+  owner.nominee = owner.quality_better_id = 49;
+  owner.nominee_boot = owner.quality_better_boot = 65;
+  owner.quality_better_since = 66000000;
+  fake_submit_refusal = false;
+  takeover_bound = 0;
+  primary_frame = diag_frame = status_cycle = UINT64_MAX;
+}
+static void yield_copies(void) {
+  for (unsigned reject = 0; reject < 2; reject++) {
+    yield_fixture();
+    uint8_t original[GM7_MAX_AD_BYTES];
+    size_t length = 0;
+    uint64_t first = 0, deadline = 0;
+    for (unsigned i = 0; i < 3; i++) {
+      tick_to(96033000 + i * UINT64_C(250000));
+      fake_submit_refusal = reject && i == 0;
+      cycle(&service_work);
+      if (!i) {
+        first = owner.event.first;
+        deadline = owner.event.deadline;
+        assert(first >= 96038000 && first <= 96038002 &&
+               deadline ==
+                   owner.event.packet.body.control.sent_mono_us + 750000);
+        length = gm7_wire_size(GM7_ANNOUNCE) + 4;
+        assert(!gm7_ad_encode(original, sizeof original, &owner.event.packet,
+                              &group));
+      }
+      assert(owner.event.valid && !owner.event.negative &&
+             owner.event.first == first && owner.event.deadline == deadline);
+      assert(owner.event.packet.flags & GM7_YIELD);
+      assert(!fake_native_live[GM7_SECONDARY]);
+      if (reject && i == 0) {
+        assert(!fake_native_live[GM7_PRIMARY] && owner.event.sent == 1 &&
+               event_evidence.queued == 1 && event_evidence.failed == 1);
+        tick_to(fake_hf + 1000);
+        cycle(&service_work);
+        assert(event_evidence.queued == 1 && event_evidence.failed == 1 &&
+               owner.event.first == first);
+      } else {
+        assert(fake_native_live[GM7_PRIMARY]);
+        struct gm7_job *j = &scheduler.job[GM7_PRIMARY];
+        assert(j->window.nominal == first + i * GM7_FRAME_US &&
+               j->length == length && !memcmp(j->ad, original, length));
+        finish(GM7_PRIMARY, true, true);
+      }
+    }
+    fake_submit_refusal = false;
+    struct gm7_bridge b;
+    assert(bridge(&b));
+    publish(b);
+    assert(diagnostic.event_queued == 3 &&
+           diagnostic.event_completed == 3 - reject &&
+           diagnostic.event_failed == reject && !diagnostic.event_unsent);
+    tick_to(deadline - 1);
+    cycle(&service_work);
+    assert(owner.serving && owner.yield_deadline == deadline);
+    tick_to(deadline);
+    cycle(&service_work);
+    assert(!owner.serving && !fake_join.serving);
+  }
+  yield_fixture();
+  cycle(&service_work);
+  finish(GM7_PRIMARY, true, true);
+  input.view.fix_active = false;
+  tick_to(fake_hf + 500);
+  cycle(&service_work);
+  assert(!owner.serving && owner.event.valid && owner.event.negative);
+  uint64_t negative_sequence = owner.event.packet.body.control.sequence,
+           deadline = owner.event.deadline;
+  uint8_t original[GM7_MAX_AD_BYTES];
+  assert(
+      !gm7_ad_encode(original, sizeof original, &owner.event.packet, &group));
+  for (unsigned i = 0; i < 3; i++) {
+    tick_to(96283000 + i * UINT64_C(250000));
+    cycle(&service_work);
+    assert(fake_native_live[GM7_PRIMARY] && !fake_native_live[GM7_SECONDARY]);
+    assert(owner.event.packet.body.control.sequence == negative_sequence &&
+           owner.event.deadline == deadline);
+    assert(!memcmp(scheduler.job[GM7_PRIMARY].ad, original,
+                   GM7_CONTROL_BYTES + 4));
+    finish(GM7_PRIMARY, true, true);
+  }
+  assert(event_evidence.completed == 3 && !event_evidence.failed);
+  yield_fixture();
+  owner.peer[0].session.control_until = fake_hf;
+  owner.yield_ready = true;
+  cycle(&service_work);
+  assert(!owner.yield_ready && !owner.event.valid);
+  fake_submit_refusal = false;
+  puts("PASS actual service quality YIELD3 immutable primary copies/no "
+       "secondary, queue refusal consumes original opportunity without "
+       "reanchor/retry, truthful completed/failed/unsent counters, "
+       "original750ms stop, superseding WITHDRAW3 copies and expired nominee "
+       "readiness fence");
+}
+static void negative_phase_cases(void) {
+  setup(true);
+  struct gm7_bridge b;
+  assert(bridge(&b));
+  uint64_t base;
+  uint32_t width;
+  assert(negative_phase(b, &base, &width) && width >= last_enclosure);
+  uint64_t sampled = b.hf;
+  tick_to(sampled + 988000);
+  assert(bridge(&b));
+  owner.now = b.hf; /* Other healthy processing; no phase observation. */
+  assert(negative_phase(b, &base, &width) && width == last_enclosure + 200);
+  tick_to(sampled + 989000);
+  assert(bridge(&b));
+  assert(!negative_phase(b, &base, &width) && phase_known);
+  tick_to(sampled + 1000000);
+  assert(bridge(&b));
+  assert(!negative_phase(b, &base, &width) && !phase_known);
+  tick_to(sampled + (UINT64_C(1) << 32) * 1000);
+  owner.now = fake_hf;
+  assert(bridge(&b));
+  assert(!negative_phase(b, &base, &width)); /* Expiry never revives. */
+  setup(true);
+  assert(bridge(&b));
+  b.epoch++;
+  assert(!negative_phase(b, &base, &width) && !phase_known);
+  setup(true);
+  tick_to(fake_hf + (UINT64_C(1) << 32) * 1000);
+  assert(bridge(&b));
+  assert(!negative_phase(b, &base, &width) && !phase_known);
+  setup(true);
+  assert(bridge(&b));
+  owner.now = b.hf + 1;
+  assert(!negative_phase(b, &base, &width) && !phase_known);
+
+  /* Original positive map/PPS expires just after a healthy phase sample. */
+  yield_fixture();
+  tick_to(97498000);
+  healthy_input();
+  owner.nominee = owner.nominee_boot = owner.quality_better_id = 0;
+  owner.peer[0].session.control_until = 0;
+  cycle(&service_work);
+  tick_to(98498000);
+  cycle(&service_work);
+  assert(owner.serving && owner.source.utc_available && phase_known);
+  tick_to(98500001);
+  cycle(&service_work);
+  assert(!owner.serving && !owner.eligible && !owner.source.physical_ready &&
+         !owner.source.until_us && owner.event.valid && owner.event.negative);
+  /* Frozen v2 explicitly permits unknown UTC on a monotonic WITHDRAW. */
+  assert(!owner.event.packet.body.control.sent_utc_us);
+  assert(!fake_join.serving);
+  uint8_t original[GM7_MAX_AD_BYTES];
+  assert(
+      !gm7_ad_encode(original, sizeof original, &owner.event.packet, &group));
+  for (unsigned i = 0; i < 3; i++) {
+    tick_to(98533000 + (uint64_t)i * GM7_FRAME_US);
+    cycle(&service_work);
+    assert(fake_native_live[GM7_PRIMARY] && !fake_native_live[GM7_STANDBY] &&
+           !fake_native_live[GM7_SECONDARY] && !owner.serving &&
+           !fake_join.serving && !owner.yield_ready);
+    assert(!memcmp(scheduler.job[GM7_PRIMARY].ad, original,
+                   GM7_CONTROL_BYTES + 4));
+    finish(GM7_PRIMARY, true, true);
+  }
+  assert(event_evidence.completed == 3 && !event_evidence.failed);
+
+  /* Missing a middle original opportunity never slides later copies. */
+  yield_fixture();
+  cycle(&service_work);
+  uint64_t first = owner.event.first, deadline = owner.event.deadline;
+  finish(GM7_PRIMARY, true, true);
+  tick_to(96533000);
+  cycle(&service_work);
+  assert(owner.event.first == first && owner.event.deadline == deadline &&
+         scheduler.job[GM7_PRIMARY].window.nominal == first + 500000);
+  finish(GM7_PRIMARY, true, true);
+  assert(bridge(&b));
+  publish(b);
+  assert(diagnostic.event_queued == 2 && diagnostic.event_completed == 2 &&
+         !diagnostic.event_failed && diagnostic.event_unsent == 1);
+
+  /* UTC loss is explicitly represented as unknown; no expired UTC map or
+   * previous observed UTC becomes new timestamp/source authority. */
+  setup(true);
+  owner.source.utc_available = false;
+  owner.source.until_us = 0;
+  owner.last_utc_at = fake_hf - 1000001;
+  gm7_owner_withdraw(&owner, GM7_R_SOURCE, fake_hf);
+  assert(owner.event.valid && owner.event.negative && !owner.serving &&
+         !owner.event.packet.body.control.sent_utc_us);
+  puts("PASS source/PPS/map expiry WITHDRAW3 immutable primary copies with "
+       "no positive/JOIN/YIELD authority; negative-only phase1s boundary, "
+       "outward200ppm age, epoch/regression/long-gap/wrap retirement and "
+       "missed original opportunity reports unsent without reanchor");
+}
 static void prospective_blackout(void) {
   takeover_fixture();
   cycle(&service_work);
@@ -730,7 +967,7 @@ static void prospective_blackout(void) {
   probe.selected.hot = 0;
   assert(!gm7_owner_takeover_at(&probe, cause, cause + 4000, fake_hf));
   probe.selected.hot = identity;
-  probe.selected_original=fake_hf-1000000;
+  probe.selected_original = fake_hf - 1000000;
   probe.selected.yield_utc_us = probe.source.utc_us + 3000;
   probe.remote_yield_sequence = probe.selected.sequence;
   probe.remote_yield_after = fake_hf + 3000;
@@ -740,7 +977,7 @@ static void prospective_blackout(void) {
       gm7_owner_takeover_at(&probe, fake_hf + 3000, fake_hf + 7000, fake_hf));
   probe.selected.yield_utc_us = probe.remote_yield_sequence =
       probe.remote_yield_after = 0;
-  probe.selected_original=owner.selected_original;
+  probe.selected_original = owner.selected_original;
   struct gm7_peer *rival = &probe.peer[0];
   rival->used = true;
   rival->identity = 900;
@@ -765,7 +1002,7 @@ static void prospective_blackout(void) {
   assert(!owner.takeover_due && !owner.serving);
   tick_to(68784800);
   cycle(&service_work);
-  assert(owner.reserved&&!owner.serving&&!owner.takeover_due);
+  assert(owner.reserved && !owner.serving && !owner.takeover_due);
   tick_to(68785100);
   cycle(&service_work);
   assert(owner.reserved && !owner.serving);
@@ -1027,6 +1264,8 @@ static void previews(const char *folder) {
 int main(int argc, char **argv) {
   (void)argc;
   (void)argv;
+  yield_copies();
+  negative_phase_cases();
   prospective_blackout();
   functional_map_refresh();
   retry_progress(17, 33);

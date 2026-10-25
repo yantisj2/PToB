@@ -92,8 +92,11 @@ static struct {
 } diagnostic;
 static struct {
   uint64_t sequence;
+  /* Bounded negative-only phase lease; occupies existing alignment padding. */
+  uint32_t phase_sample_ms;
   uint8_t queued, completed, failed;
 } event_evidence;
+_Static_assert(sizeof(event_evidence) == 16, "Retain event evidence storage");
 
 static uint64_t identity, boot, close_until, primary_frame = UINT64_MAX,
                                              status_cycle = UINT64_MAX,
@@ -227,6 +230,38 @@ static bool phase_at(const struct r2_gm7_timing *t, struct gm7_bridge b,
   *width = t->phase_enclosure_us;
   return true;
 }
+/* An original physical phase may place already immutable negative copies
+ * after eligibility disappears. It never supplies UTC, positive authority or
+ * source permission. The owner last-processing64 proves a bounded polling gap;
+ * modulo32 ms is used only within this <=1s lease, never as a wrap extender.
+ * Expiry retires the cache even when no negative event is pending. */
+static bool negative_phase(struct gm7_bridge b, uint64_t *base,
+                           uint32_t *enclosure) {
+  if (!phase_known)
+    return false;
+  uint32_t elapsed_ms =
+      (uint32_t)(b.hf / 1000) - event_evidence.phase_sample_ms;
+  if (b.epoch != clock_epoch || b.hf < owner.now ||
+      b.hf - owner.now > 1000000 || elapsed_ms >= 1000) {
+    phase_known = false;
+    return false;
+  }
+  /* Cached floor(ms) and current floor(ms) give outward age <(delta+1)ms.
+   * Include the maximum7ms submission lead plus4ms complete-event endpoint. */
+  uint32_t end_age = (elapsed_ms + 1) * 1000 + 11000;
+  if (end_age > 1000000)
+    return false;
+  uint32_t growth = (end_age + 4999) / 5000;
+  if (last_enclosure > 2000 || growth > 2000 - last_enclosure) {
+    phase_known = false;
+    return false;
+  }
+  *enclosure = last_enclosure + growth;
+  *base = (b.hf / GM7_FRAME_US) * GM7_FRAME_US + last_phase;
+  if (*base > b.hf && *base >= GM7_FRAME_US)
+    *base -= GM7_FRAME_US;
+  return true;
+}
 static void preparation(struct gm7_preparation *p, struct gm7_bridge b,
                         const struct r2_gm7_timing *t) {
   *p = (struct gm7_preparation){.correction_age_us = UINT32_MAX,
@@ -288,7 +323,8 @@ static int queue(unsigned slot, const struct gm7_packet *p, struct gm7_window w,
       (p->kind == GM7_WITHDRAW ||
        (p->kind == GM7_ANNOUNCE && (p->flags & GM7_YIELD)))) {
     if (event_evidence.sequence != p->body.control.sequence) {
-      memset(&event_evidence, 0, sizeof event_evidence);
+      event_evidence.queued = event_evidence.completed = event_evidence.failed =
+          0;
       event_evidence.sequence = p->body.control.sequence;
     }
     ++event_evidence.queued;
@@ -632,7 +668,9 @@ static __attribute__((noinline)) void publish(struct gm7_bridge b) {
   diagnostic.event_queued = event_match ? event_evidence.queued : 0;
   diagnostic.event_completed = event_match ? event_evidence.completed : 0;
   diagnostic.event_failed = event_match ? event_evidence.failed : 0;
-  diagnostic.event_unsent = owner.event.valid ? 3 - diagnostic.event_queued : 0;
+  diagnostic.event_unsent = owner.event.valid && diagnostic.event_queued < 3
+                                ? 3 - diagnostic.event_queued
+                                : 0;
   diagnostic.hot_ms = diagnostic.active_ms = diagnostic.pps_ms = UINT32_MAX;
   if (owner.armed && b.hf >= owner.armed_since) {
     diagnostic.known |= 1;
@@ -745,6 +783,7 @@ static void cycle(struct k_work *work) {
   (void)k_mutex_unlock(&lock);
   struct gm7_bridge b;
   if (!bridge(&b) || b.epoch != clock_epoch) {
+    phase_known = false;
     r2_radio_service_withdraw();
     r2_gm7_controller_cancel(0);
     r2_gm7_controller_precision(false, 0, 0, 0);
@@ -768,6 +807,10 @@ static void cycle(struct k_work *work) {
     }
     goto finished;
   }
+  uint64_t negative_base = 0;
+  uint32_t negative_enclosure = 0;
+  bool negative_aligned =
+      negative_phase(b, &negative_base, &negative_enclosure);
   r2_ble_owner_deadline(cycle_started + 100000);
   if (resuming) {
     int rc = r2_radio_service_reset(reset_generation);
@@ -805,11 +848,8 @@ static void cycle(struct k_work *work) {
     r2_relay_service_stop(kernel_now());
     results(b);
     if (owner.event.valid && owner.event.negative && owner.event.sent < 3 &&
-        b.hf < owner.event.deadline && phase_known) {
-      uint64_t base = (b.hf / GM7_FRAME_US) * GM7_FRAME_US + last_phase;
-      if (base > b.hf && base >= GM7_FRAME_US)
-        base -= GM7_FRAME_US;
-      uint64_t nominal = base + GM7_PRIMARY_US;
+        b.hf < owner.event.deadline && negative_aligned) {
+      uint64_t nominal = negative_base + GM7_PRIMARY_US;
       if (nominal < b.hf + 3000)
         nominal += GM7_FRAME_US;
       if (owner.event.first == UINT64_MAX)
@@ -819,15 +859,16 @@ static void cycle(struct k_work *work) {
         uint64_t copy = (nominal - owner.event.first) / GM7_FRAME_US;
         if (copy < 3 && copy >= owner.event.sent && nominal <= b.hf + 7000 &&
             scheduler.job[GM7_PRIMARY].state == GM7_JOB_EMPTY) {
-          (void)queue(GM7_PRIMARY, &owner.event.packet,
-                      window(nominal, last_enclosure), owner.event.deadline, b);
           owner.event.sent = (uint8_t)(copy + 1);
+          (void)queue(GM7_PRIMARY, &owner.event.packet,
+                      window(nominal, negative_enclosure), owner.event.deadline,
+                      b);
         }
       }
     }
     bool copies_done = !owner.event.valid || !owner.event.negative ||
                        owner.event.sent >= 3 || b.hf >= owner.event.deadline ||
-                       !phase_known;
+                       !negative_aligned;
     if (copies_done) {
       gm7_owner_stop(&owner, b.hf);
       transport_stopped = true;
@@ -875,6 +916,7 @@ static void cycle(struct k_work *work) {
     phase_known = true;
     last_phase = (uint32_t)(frame_start % GM7_FRAME_US);
     last_enclosure = enclosure;
+    event_evidence.phase_sample_ms = (uint32_t)(b.hf / 1000);
   }
   receive(b, utc, frame_start, frame, enclosure);
   if (!bridge(&b) || b.epoch != clock_epoch) {
@@ -969,7 +1011,14 @@ static void cycle(struct k_work *work) {
       }
     }
   }
-  if (aligned && frame_start) {
+  bool negative_only =
+      !aligned && negative_aligned && owner.event.valid && owner.event.negative;
+  if (negative_only) {
+    frame_start = negative_base;
+    frame = b.hf / GM7_FRAME_US;
+    enclosure = negative_enclosure;
+  }
+  if ((aligned || negative_only) && frame_start) {
     uint64_t nominal = frame_start + GM7_PRIMARY_US;
     if (nominal >= b.hf + 3000 && nominal <= b.hf + 7000 &&
         primary_frame != frame &&
@@ -1023,14 +1072,22 @@ static void cycle(struct k_work *work) {
       int rc = owner.reserved ? gm7_owner_planned_control(&owner, &p, b.hf)
                               : gm7_owner_control(&owner, &p, b.hf);
       if (!rc && (p.kind == GM7_ANNOUNCE || p.kind == GM7_WITHDRAW)) {
-        if (owner.event.valid && owner.event.first == UINT64_MAX)
-          (void)gm7_owner_event_align(&owner, nominal, b.hf);
+        bool aligned_event = true;
+        if (owner.event.valid && !owner.event.sent &&
+            (owner.event.first == UINT64_MAX ||
+             owner.event.first == owner.event.packet.body.control.sent_mono_us))
+          aligned_event = !gm7_owner_event_align(&owner, nominal, b.hf);
         uint64_t copy = owner.event.valid && nominal >= owner.event.first
                             ? (nominal - owner.event.first) / GM7_FRAME_US
                             : 0;
-        if (!owner.event.valid ||
-            (copy < 3 && copy >= owner.event.sent &&
-             nominal == owner.event.first + copy * GM7_FRAME_US)) {
+        if (aligned_event &&
+            (!owner.event.valid ||
+             (copy < 3 && copy >= owner.event.sent &&
+              nominal == owner.event.first + copy * GM7_FRAME_US))) {
+          /* One original opportunity, including queue refusal. Retrying it at
+           * another poll cannot create an extra fourth event/counter. */
+          if (owner.event.valid)
+            owner.event.sent = (uint8_t)(copy + 1);
           if (!queue(GM7_PRIMARY, &p, window(nominal, enclosure), 0, b)) {
             primary_frame = frame;
             if (gm7_discovery_policy(
@@ -1041,12 +1098,14 @@ static void cycle(struct k_work *work) {
                          0, b))
                 diag_frame = frame;
             }
-            if (owner.event.valid)
-              owner.event.sent = (uint8_t)(copy + 1);
           }
         }
       }
     }
+    /* A retained negative phase cannot schedule STATUS/bootstrap/diagnostics.
+     */
+    if (negative_only)
+      goto published;
     uint32_t offset;
     uint64_t cycle = utc / 2000000;
     bool ordinary = !owner.serving && cycle != status_cycle;
@@ -1128,6 +1187,7 @@ static void cycle(struct k_work *work) {
       }
     }
   }
+published:
   publish(b);
 finished:
   (void)k_mutex_lock(&lock, K_FOREVER);
@@ -1294,6 +1354,7 @@ static int start(uint64_t arrival, uint32_t seconds) {
   if (rc)
     return rc;
   clock_epoch = b.epoch;
+  phase_known = false;
   gm7_owner_clock(&owner, hf_read, NULL);
   gm7_owner_reservation_guard(&owner, reservation_fence, NULL);
   gm7_scheduler_init(&scheduler, b.hf);

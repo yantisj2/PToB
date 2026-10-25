@@ -138,7 +138,16 @@ static uint32_t gm_adv_calls,gm_adv_errors,gm_mtu_errors;static int gm_adv_resul
 /* The main thread never reads owner-mutated connection/controller fields.
  * A query requests one bounded owner-boundary publication, returned by the
  * next query with its original timestamp. Callback records stay separate. */
-static uint32_t gm_diag_state[56];static bool gm_diag_requested;
+#if defined(R2_GM7_NATIVE)
+/* Header12 + physical JOIN row8 + tail4. Retired logical control rows are
+ * reconstructed as zeros at the public read boundary, never stored live. */
+static uint32_t gm_diag_state[24];
+#define GM_DIAG_TAIL 20
+#else
+static uint32_t gm_diag_state[56];
+#define GM_DIAG_TAIL 52
+#endif
+static bool gm_diag_requested;
 static void gm_diagnostic_publish(void);
 static void diag_count(unsigned word){if(gm_link_events[word]!=UINT32_MAX)++gm_link_events[word];}
 static void diag_link_event(unsigned counter,unsigned first,unsigned recent,unsigned peer,unsigned error){
@@ -1352,11 +1361,7 @@ static void gm_diagnostic_publish(void){
  out[6]=nodes;out[7]=self;out[8]=(uint32_t)atomic_get(&error_count);
  out[9]=(uint32_t)stop_error;out[10]=(uint32_t)at;out[11]=(uint32_t)(at>>32);
  for(unsigned i=0;i<PEERS;i++){
-  unsigned published=i;
-#if defined(R2_GM7_NATIVE)
-  published=R2_BLE_ADMISSION_PEER;
-#endif
-  struct peer *p=&peers[i];uint32_t *v=out+12+8*published;
+  struct peer *p=&peers[i];uint32_t *v=out+12+8*i;
   v[0]=(uint32_t)p->identity;v[1]=(uint32_t)(p->identity>>32);v[2]=p->incarnation;
   v[3]=(p->conn!=NULL)|(atomic_get(&p->connected)?2u:0)|(atomic_get(&p->dead)?4u:0)|
    (p->authenticated?8u:0)|(atomic_get(&p->mtu_done)==1?16u:0)|
@@ -1368,13 +1373,20 @@ static void gm_diagnostic_publish(void){
   uint64_t age=p->first_seen&&at>=p->first_seen?at-p->first_seen:UINT64_MAX;
   v[7]=age>UINT32_MAX?UINT32_MAX:(uint32_t)age;
  }
- out[52]=gm_adv_calls;out[53]=(uint32_t)gm_adv_result;out[54]=gm_adv_errors;out[55]=gm_mtu_errors;
+ out[GM_DIAG_TAIL]=gm_adv_calls;out[GM_DIAG_TAIL+1]=(uint32_t)gm_adv_result;out[GM_DIAG_TAIL+2]=gm_adv_errors;out[GM_DIAG_TAIL+3]=gm_mtu_errors;
  k_spin_unlock(&lock,key);
 }
 void r2_ble_gm_diagnostics(uint32_t out[R2_GM_TRANSPORT_WORDS]){
  k_spinlock_key_t key=k_spin_lock(&lock);
  memcpy(out,gm_diag_state,12*sizeof *out);memcpy(out+12,gm_link_events,sizeof gm_link_events);
- memcpy(out+40,gm_diag_state+12,44*sizeof *out);gm_diag_requested=true;
+#if defined(R2_GM7_NATIVE)
+ memset(out+40,0,40*sizeof *out);
+ memcpy(out+40+8*R2_BLE_ADMISSION_PEER,gm_diag_state+12,8*sizeof *out);
+ memcpy(out+80,gm_diag_state+GM_DIAG_TAIL,4*sizeof *out);
+#else
+ memcpy(out+40,gm_diag_state+12,44*sizeof *out);
+#endif
+ gm_diag_requested=true;
  k_spin_unlock(&lock,key);
 }
 

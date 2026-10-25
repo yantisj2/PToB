@@ -87,6 +87,21 @@ static void attach(struct bt_conn *c, uint64_t id) {
   assert(index_conn(c) == 0 && index_addr(&c->address) == 0 && self == 255 &&
          nodes == 1);
 }
+static void diagnostic_layout(void){
+ uint32_t guarded[R2_GM_TRANSPORT_WORDS+2];for(unsigned i=0;i<ARRAY_SIZE(guarded);i++)guarded[i]=0xabcdef01;
+ uint32_t expected[R2_GM_TRANSPORT_WORDS]={
+  [0]=1,[2]=32,[3]=8,[4]=255,[6]=1,[7]=255,[10]=1000000,
+  [12]=1, /* one actual connected callback */
+  [72]=999,[74]=1,[75]=323,[76]=226,[77]=6000000,[79]=UINT32_MAX,
+  [80]=7,[81]=(uint32_t)-EBUSY,[82]=3,[83]=2};
+ scan_interval=32;scan_window=8;gm_adv_calls=7;gm_adv_result=-EBUSY;gm_adv_errors=3;gm_mtu_errors=2;
+ unsigned scans=scan_starts,calls=fake_gatt_calls;
+ r2_ble_gm_diagnostics(guarded+1);gm_diagnostic_publish();r2_ble_gm_diagnostics(guarded+1);
+ assert(sizeof gm_diag_state==24*sizeof(uint32_t));
+ assert(guarded[0]==0xabcdef01&&guarded[R2_GM_TRANSPORT_WORDS+1]==0xabcdef01);
+ assert(!memcmp(guarded+1,expected,sizeof expected));
+ assert(scans==scan_starts&&calls==fake_gatt_calls); /* observer creates no radio work */
+}
 static void client_bootstrap(void) {
   const uint8_t own[6] = {1, 2, 3, 4, 5, 0xc0};
   assert(r2_ble_closed());
@@ -165,6 +180,7 @@ int main(void) {
          !r2_ble_control_available() && !r2_ble_control_member());
   struct bt_conn first = {0};
   attach(&first, 999);
+  diagnostic_layout();
   uint8_t low[R2_AUTH_BYTES] = {12, R2_AUTH_HELLO},
           high[R2_AUTH_BYTES] = {12, R2_AUTH_SERVICE};
   for (unsigned i = 0; i < 8; i++)

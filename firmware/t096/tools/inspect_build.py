@@ -48,6 +48,9 @@ def inspect(out,allow_development=False):
         require(rx is not None and int(rx[1])>=8,'Insufficient native RX reserve')
         require(work is not None and int(work[1])>=5120,'Insufficient workqueue stack')
         require(0x20040000-ram_end>=1024,'Insufficient static RAM margin')
+    if gm7:
+        isr=re.search(r'^CONFIG_ISR_STACK_SIZE=(\d+)$',config,re.M)
+        require(isr is not None and int(isr[1])>=2176,'Insufficient GM7 ISR stack')
     for line in ['CONFIG_ROM_END_OFFSET=0x6000','CONFIG_FLASH=y','CONFIG_USB_DEVICE_STACK=y','CONFIG_WATCHDOG=y']:
         require(line in config,'Required configuration: '+line)
     commands=(out/'target/compile_commands.json').read_text()
