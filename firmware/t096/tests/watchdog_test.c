@@ -447,5 +447,14 @@ int main(int argc,char **argv)
  owner_failure_cases();
  control_capsule_detail_cases();
  host_detail_cases();
+ /* Health schema4 is a separate diagnostic record: existing watchdog reason
+  * and source/silicon/CRC mailbox alone retain the previously reported role. */
+ for(unsigned role=0;role<=1;role++){
+  clear_runtime();assert(!r2_watchdog_boot(&id));atomic_set(&report_rc,(atomic_val_t)role);
+  r2_watchdog_fatal(25);assert(previous_bound(&id)&&r2_watchdog_capsule[4]==WD_FATAL+25);
+  id.reset_cause=RESET_WATCHDOG;clear_runtime();assert(!r2_watchdog_boot(&id));
+  mode=role==0;assert(r2_watchdog_restore_rc(&mode)&&mode==(role!=0));
+ }
+ puts("PASS precise BusFault retained GM/RC role from unchanged separate watchdog capsule; health register data grants no role");
  puts("PASS production watchdog: GM20/RC30, intermittent progress vs sustained retry reset, initial+3 retries, wrap, stale snapshots, cancellation, recovery, core/fatal, CRC bindings, deadline/refusal/UF2 continuation; hardware timing remains UNKNOWN");
 }

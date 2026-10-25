@@ -12,6 +12,7 @@ extern uint32_t r2_diag_stack_unused(void);
 #include <string.h>
 #include <zephyr/fatal.h>
 #include <zephyr/irq.h>
+#include <zephyr/kernel.h>
 #include <cmsis_core.h>
 #include <zephyr/timing/timing.h>
 /* No flash, reboot, allocation, USB or application locks in the fatal hook.
@@ -20,11 +21,15 @@ extern uint32_t r2_diag_stack_unused(void);
  * Words: magic, format, boot lo/hi, reason, pc, lr, xpsr, CFSR, HFSR,
  * MMFAR, BFAR, MSP, PSP, IPSR, current thread, main beat, main ms,
  * flash op/result/ms, PA op/result/ms, source SHA ASCII (16 words),
- * nine latency words, PSP-frame flag/eight words, active site/cycles, masks, CRC. */
+ * nine latency words, PSP-frame flag/eight words, active site/cycles, masks, CRC.
+ * Schema3 replaces40..62 with controller context. Schema4 replaces the same
+ * tail with supplied integer registers for hardware memory/bus/usage faults;
+ * it never recovers pre-kernel-clear SCB validity or grants role authority. */
 #define FAULT_WORDS 64
 #define FAULT_MAGIC 0x52324631u
 volatile uint32_t r2_fault_capsule[FAULT_WORDS] __noinit;
 static uint32_t previous[FAULT_WORDS];
+_Static_assert(sizeof r2_fault_capsule==256&&sizeof previous==256,"Fixed fault storage");
 /* hz, empty-probe min/max cycles, maximum site/cycles, last site/cycles,
  * outermost samples, samples >=100us. Never format or allocate while masked. */
 static uint32_t latency[9],active_site,active_cycle;
@@ -78,9 +83,67 @@ static uint32_t crc(const volatile uint32_t *words)
  }
  return ~value;
 }
+#if defined(R2_GM7_NATIVE) && defined(CONFIG_EXTRA_EXCEPTION_INFO)
+K_KERNEL_STACK_ARRAY_DECLARE(z_interrupt_stacks, CONFIG_MP_MAX_NUM_CPUS,
+                             CONFIG_ISR_STACK_SIZE);
+/* These bits describe supplied register provenance, never pre-clear SCB state.
+ * The pinned Zephyr handler clears CFSR before reaching this application hook. */
+enum { FAULT_BASIC = 1, FAULT_CALLEE = 2, FAULT_RETURN = 4,
+       FAULT_STACK_UNRELIABLE = 8, FAULT_SCB_POST_CLEAR = 16 };
+static bool cpu_fault(unsigned reason,unsigned vector)
+{
+ return (vector==4&&reason>=K_ERR_ARM_MEM_GENERIC&&reason<=K_ERR_ARM_MEM_FP_LAZY_STATE_PRESERVATION)||
+        (vector==5&&reason>=K_ERR_ARM_BUS_GENERIC&&reason<=K_ERR_ARM_BUS_FP_LAZY_STATE_PRESERVATION)||
+        (vector==6&&reason>=K_ERR_ARM_USAGE_GENERIC&&reason<=K_ERR_ARM_USAGE_UNDEFINED_INSTRUCTION);
+}
+static bool fault_return(uint32_t value)
+{
+ /* Cortex-M4, non-FP basic frame: handler MSP, thread MSP or thread PSP. */
+ return value==UINT32_C(0xfffffff1)||value==UINT32_C(0xfffffff9)||value==UINT32_C(0xfffffffd);
+}
+static bool callee_window(uintptr_t p,uintptr_t entry,uintptr_t start,size_t size)
+{
+ /* Pinned fault_s.S saves8 bytes then40 bytes. The callee record occupies
+  * r4..r11 +PSP (36 bytes); its final word is assembly padding. No stack walk. */
+ return !(p&3)&&size>=48&&start<=UINTPTR_MAX-size&&p>=start&&
+        p-start<=size-48&&entry>=48&&p==entry-48;
+}
+static void fault_registers(unsigned reason,const struct arch_esf *esf,unsigned saved_mask)
+{
+ uint32_t flags=FAULT_SCB_POST_CLEAR;
+ if(esf){
+  flags|=FAULT_BASIC;
+  r2_fault_capsule[41]=esf->basic.r0;r2_fault_capsule[42]=esf->basic.r1;
+  r2_fault_capsule[43]=esf->basic.r2;r2_fault_capsule[44]=esf->basic.r3;
+  r2_fault_capsule[45]=esf->basic.r12;
+  uint32_t ret=esf->extra_info.exc_return;
+  uintptr_t entry=esf->extra_info.msp,p=(uintptr_t)esf->extra_info.callee;
+  if(fault_return(ret)){
+   flags|=FAULT_RETURN;r2_fault_capsule[55]=(uint32_t)entry;r2_fault_capsule[56]=ret;
+   if(callee_window(p,entry,(uintptr_t)K_KERNEL_STACK_BUFFER(z_interrupt_stacks[0]),
+                    K_KERNEL_STACK_SIZEOF(z_interrupt_stacks[0]))){
+    const _callee_saved_t *c=esf->extra_info.callee;
+    r2_fault_capsule[46]=c->v1;r2_fault_capsule[47]=c->v2;
+    r2_fault_capsule[48]=c->v3;r2_fault_capsule[49]=c->v4;
+    r2_fault_capsule[50]=c->v5;r2_fault_capsule[51]=c->v6;
+    r2_fault_capsule[52]=c->v7;r2_fault_capsule[53]=c->v8;
+    r2_fault_capsule[54]=c->psp;flags|=FAULT_CALLEE;
+   }
+  }
+ }
+ if(reason==K_ERR_ARM_MEM_STACKING||reason==K_ERR_ARM_MEM_UNSTACKING||
+    reason==K_ERR_ARM_BUS_STACKING||reason==K_ERR_ARM_BUS_UNSTACKING||
+    reason==K_ERR_ARM_USAGE_STACK_OVERFLOW)flags|=FAULT_STACK_UNRELIABLE;
+ r2_fault_capsule[40]=flags;r2_fault_capsule[57]=saved_mask;
+ r2_fault_capsule[58]=__get_PRIMASK();r2_fault_capsule[59]=__get_CONTROL();
+ r2_fault_capsule[60]=active_site;
+ if(active_site&&timing_ready)r2_fault_capsule[61]=(uint32_t)timing_counter_get()-active_cycle;
+ r2_fault_capsule[1]=4;
+}
+#endif
 void r2_health_init(uint64_t boot)
 {
- if(r2_fault_capsule[0]==FAULT_MAGIC&&(r2_fault_capsule[1]==2||r2_fault_capsule[1]==3)&&
+ if(r2_fault_capsule[0]==FAULT_MAGIC&&(r2_fault_capsule[1]==2||r2_fault_capsule[1]==3||r2_fault_capsule[1]==4)&&
     r2_fault_capsule[FAULT_WORDS-1]==crc(r2_fault_capsule))
   for(unsigned i=0;i<FAULT_WORDS;i++)previous[i]=r2_fault_capsule[i];
  r2_fault_capsule[0]=0;boot_id=boot;timing_setup();detail_due=0;
@@ -161,6 +224,11 @@ void k_sys_fatal_error_handler(unsigned int reason,const struct arch_esf *esf)
   const char *s=&R2_SOURCE_SHA[4*i];
   r2_fault_capsule[24+i]=(uint32_t)(uint8_t)s[0]|((uint32_t)(uint8_t)s[1]<<8)|((uint32_t)(uint8_t)s[2]<<16)|((uint32_t)(uint8_t)s[3]<<24);
  }
+#if defined(R2_GM7_NATIVE) && defined(CONFIG_EXTRA_EXCEPTION_INFO)
+ if(cpu_fault(reason,__get_IPSR()&511))fault_registers(reason,esf,old_mask);
+ else
+#endif
+ {
 #if defined(R2_CONTROLLER_FAULT_CAPTURE) || defined(R2_CONTROLLER_DIAGNOSTICS)
  /* Schema3 trades latency/interrupted-stack details for the
   * frozen prepare queue. Original source/boot/PC/LR/reason and CRC remain. */
@@ -187,6 +255,7 @@ void k_sys_fatal_error_handler(unsigned int reason,const struct arch_esf *esf)
  if(active_site&&timing_ready)r2_fault_capsule[59]=(uint32_t)timing_counter_get()-active_cycle;
  r2_fault_capsule[60]=old_mask;r2_fault_capsule[61]=__get_PRIMASK();r2_fault_capsule[62]=__get_CONTROL();
  #endif
+ }
  r2_fault_capsule[FAULT_WORDS-1]=crc(r2_fault_capsule);__DMB();r2_fault_capsule[0]=FAULT_MAGIC;__DSB();
  k_fatal_halt(reason);CODE_UNREACHABLE;
 }

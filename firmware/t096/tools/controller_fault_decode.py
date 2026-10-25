@@ -33,11 +33,42 @@ def decode_capsule(words,source,boot):
     """Caller supplies the failed source/boot binding, never the recovery boot."""
     if len(words)!=64 or any(type(w) is not int or not 0<=w<=0xffffffff for w in words):
         raise ValueError('Invalid capsule words')
-    if words[0]!=0x52324631 or words[1] not in (2,3):raise ValueError('Invalid capsule schema')
+    if words[0]!=0x52324631 or words[1] not in (2,3,4):raise ValueError('Invalid capsule schema')
     if zlib.crc32(struct.pack('<62I',*words[1:63]))!=words[63]:raise ValueError('Invalid capsule CRC')
     actual=struct.pack('<16I',*words[24:40]).decode('ascii')
     if actual!=source or words[2]|(words[3]<<32)!=boot:raise ValueError('Wrong failed source/boot binding')
     return decode_pa(*words[21:24])
+
+def decode_register_capsule(words,source,boot):
+    """Source175 register provenance; SCB values were read after kernel clearing.
+    No inferred BFAR validity, memory contents, corruption cause or role authority.
+    """
+    pa=decode_capsule(words,source,boot)
+    if words[1]!=4:return {'schema':words[1],'pa':pa,'registers':{'availability':'UNAVAILABLE_LEGACY'}}
+    flags=words[40];basic=bool(flags&1);callee=bool(flags&2);returned=bool(flags&4)
+    if flags&~31 or not flags&16 or words[62] or callee and not(basic and returned):
+        raise ValueError('Invalid register flags')
+    if not basic and any(words[41:57]):raise ValueError('Registers without ESF')
+    if not callee and any(words[46:55]):raise ValueError('Unknown callee contains values')
+    if not returned and any(words[55:57]):raise ValueError('Unknown entry contains values')
+    if returned and words[56] not in (0xfffffff1,0xfffffff9,0xfffffffd):
+        raise ValueError('Invalid Cortex-M basic EXC_RETURN')
+    vector=words[14]&511;reason=words[4]
+    if not ((vector==4 and 16<=reason<=21) or (vector==5 and 22<=reason<=28) or (vector==6 and 29<=reason<=36)):
+        raise ValueError('Not a hardware memory/bus/usage fault')
+    unreliable=reason in (17,18,23,24,32)
+    if bool(flags&8)!=unreliable:raise ValueError('Stack provenance mismatch')
+    regs=None
+    if basic:
+        regs={**dict(zip(['r0','r1','r2','r3','r12'],words[41:46])),
+              'lr':words[6],'pc':words[5],'xpsr':words[7]}
+        if callee:regs.update(zip(['r4','r5','r6','r7','r8','r9','r10','r11','psp'],words[46:55]))
+    return {'schema':4,'pa':pa,'registers':{'availability':'SUPPLIED_UNRELIABLE_STACK' if unreliable else 'SUPPLIED' if basic else 'UNAVAILABLE',
+        'basic_supplied':basic,'callee_provenance_checked':callee,'values':regs,
+        'entry_msp':words[55] if returned else None,'exc_return':words[56] if returned else None,
+        'scb_provenance':'POST_KERNEL_CLEAR_BFAR_VALIDITY_UNAVAILABLE'},
+        'masks':{'saved':words[57],'primask':words[58],'control':words[59]},
+        'masked_site':words[60],'masked_cycles':words[61]}
 
 def decode_disconnect(detail,result,incarnation,b):
     result=u32(result);incarnation=u32(incarnation);b=u32(b)
@@ -65,7 +96,7 @@ def decode_prepare_capsule(words,source,boot,verbose=False,context=False):
     pa=decode_capsule(words,source,boot)
     out={'schema':words[1],'pa':pa}
     if words[1]!=3:
-        out['prepare']={'availability':'UNAVAILABLE_SCHEMA2'}
+        out['prepare']={'availability':'UNAVAILABLE_SCHEMA2' if words[1]==2 else 'UNAVAILABLE_SCHEMA4_REGISTERS'}
         return out
     w=words[40:63];mode=0 if verbose else 1<<30
     valid_mode=(w[22]&(1<<30))==mode

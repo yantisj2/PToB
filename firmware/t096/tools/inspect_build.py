@@ -51,6 +51,8 @@ def inspect(out,allow_development=False):
     if gm7:
         isr=re.search(r'^CONFIG_ISR_STACK_SIZE=(\d+)$',config,re.M)
         require(isr is not None and int(isr[1])>=2176,'Insufficient GM7 ISR stack')
+        if tuple(map(int,r['version'].split('.'))) >= (0,15,175):
+            require('CONFIG_EXTRA_EXCEPTION_INFO=y' in config,'Missing GM7 integer fault capture')
     for line in ['CONFIG_ROM_END_OFFSET=0x6000','CONFIG_FLASH=y','CONFIG_USB_DEVICE_STACK=y','CONFIG_WATCHDOG=y']:
         require(line in config,'Required configuration: '+line)
     commands=(out/'target/compile_commands.json').read_text()

@@ -1347,3 +1347,12 @@ terminal-first-cause controls. This establishes the software lifetime defect;
 the prior bytes from the observed failed boots were erased and cannot identify
 the exact physical triggering scan row. Native RAM/resource and field checks
 remain separate, with no hardware fault clearing or watchdog deadline change.
+Version175 adds diagnostic-only fault capsule format4 for actual Cortex-M
+memory, bus and usage faults. The256byte record retains the existing source,
+failed boot, reason, PC/LR and CRC fields. Words40–62 contain supplied integer
+registers and provenance flags; the unchanged controller/assertion path retains
+format3. `tools/controller_fault_decode.py::decode_register_capsule` requires
+the failed source/boot binding. SCB values were read after kernel clearing, so
+BFAR validity remains unavailable. These records grant no time or role authority
+and do not establish a fix for the unexplained version174 fault. The separate
+watchdog record continues to control its existing bound runtime-role restoration.

@@ -11,7 +11,12 @@
 #define __DSB() ((void)0)
 #define __get_MSP() 128u
 #define __get_PSP() 256u
+#if defined(HEALTH_FAKE_REGISTERS)
+static uint32_t fake_fault_vector=3;
+#define __get_IPSR() fake_fault_vector
+#else
 #define __get_IPSR() 3u
+#endif
 #define __get_PRIMASK() 0u
 #define __get_CONTROL() 0u
 struct k_thread {struct {uintptr_t start;size_t size;} stack_info;};
@@ -20,7 +25,28 @@ static void timing_init(void){}
 static void timing_start(void){}
 static uint64_t timing_freq_get(void){return 64000000;}
 static uint64_t timing_counter_get(void){cycle+=8;return cycle;}
-struct arch_esf {struct {uint32_t pc,lr,xpsr;} basic;};
+struct _callee_saved {uint32_t v1,v2,v3,v4,v5,v6,v7,v8,psp;};
+typedef struct _callee_saved _callee_saved_t;
+struct arch_esf {
+ struct {uint32_t r0,r1,r2,r3,r12,lr,pc,xpsr;} basic;
+#if defined(CONFIG_EXTRA_EXCEPTION_INFO)
+ struct {_callee_saved_t *callee;uintptr_t msp;uint32_t exc_return;} extra_info;
+#endif
+};
+#if defined(HEALTH_FAKE_REGISTERS)
+#define CONFIG_MP_MAX_NUM_CPUS 1
+#define CONFIG_ISR_STACK_SIZE 2176
+#define K_KERNEL_STACK_ARRAY_DECLARE(s,n,z) extern unsigned char s[n][z]
+#define K_KERNEL_STACK_BUFFER(s) (s)
+#define K_KERNEL_STACK_SIZEOF(s) sizeof(s)
+enum {K_ERR_ARM_MEM_GENERIC=16,K_ERR_ARM_MEM_STACKING,K_ERR_ARM_MEM_UNSTACKING,
+ K_ERR_ARM_MEM_DATA_ACCESS,K_ERR_ARM_MEM_INSTRUCTION_ACCESS,K_ERR_ARM_MEM_FP_LAZY_STATE_PRESERVATION,
+ K_ERR_ARM_BUS_GENERIC,K_ERR_ARM_BUS_STACKING,K_ERR_ARM_BUS_UNSTACKING,K_ERR_ARM_BUS_PRECISE_DATA_BUS,
+ K_ERR_ARM_BUS_IMPRECISE_DATA_BUS,K_ERR_ARM_BUS_INSTRUCTION_BUS,K_ERR_ARM_BUS_FP_LAZY_STATE_PRESERVATION,
+ K_ERR_ARM_USAGE_GENERIC,K_ERR_ARM_USAGE_DIV_0,K_ERR_ARM_USAGE_UNALIGNED_ACCESS,K_ERR_ARM_USAGE_STACK_OVERFLOW,
+ K_ERR_ARM_USAGE_NO_COPROCESSOR,K_ERR_ARM_USAGE_ILLEGAL_EXC_RETURN,K_ERR_ARM_USAGE_ILLEGAL_EPSR,
+ K_ERR_ARM_USAGE_UNDEFINED_INSTRUCTION};
+#endif
 static struct {uint32_t CFSR,HFSR,MMFAR,BFAR;} scb;
 #define SCB (&scb)
 static uint64_t clock_ms;

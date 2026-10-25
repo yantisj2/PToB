@@ -139,7 +139,14 @@ clock/epoch (`ESTALE`), post-build nominal expiry (`ETIME`), prepare-offset rang
 remains. These counters do not grant authority. Version173 could leave a refused
 first reservation pending indefinitely after its controller job was released.
 
-Source0.15.174 selects GM7 by default for both normal GM/RC image defaults. The
+Version175 is a diagnostic-only candidate following an unexplained version174
+hardware BusFault. It uses the pinned kernel's fault-entry register facility and
+the existing64word retained record to preserve integer registers with checked
+provenance. Controller assertion records and the separate watchdog role record
+remain unchanged. Post-clear SCB values cannot establish a valid fault address;
+the new record does not claim to fix the fault or establish hardware acceptance.
+
+Source0.15.175 selects GM7 by default for both normal GM/RC image defaults. The
 RC backend remains ordinary supported firmware. Historical GM5/6 is available
 only with `--legacy-gm-regression`; there is no runtime fallback. DC and PC omit
 GM7. Enabling management-only LE2M does not enable public controller2M features:

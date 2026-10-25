@@ -1,5 +1,17 @@
 # T096 changelog
 
+## 0.15.175 — Preserve hardware fault registers
+
+Diagnostic-only normal GM/RC candidate: enable the pinned kernel's extra
+exception information and retain supplied integer registers in the same64word
+fault capsule. Format4 uses actual memory/bus/usage exception provenance and
+checked ISR-stack bounds before reading the saved callee registers. Formats2/3
+remain readable; controller/assertion failures retain format3. SCB values are
+post-kernel-clear and cannot establish BFAR validity. The separate watchdog role
+record and all source, radio, HOT, RC/GATT/relay and timing behavior remain
+unchanged. This collects evidence for an unexplained hardware BusFault observed
+with version174; it does not claim to fix that fault or establish acceptance.
+
 ## 0.15.174 — Retire refused GM reservations
 
 Roll back a refused first-ANNOUNCE reservation before releasing its job, and

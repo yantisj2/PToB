@@ -3,7 +3,7 @@
 #include <assert.h>
 static int r2_console_note(const char *s,size_t n,uint64_t expiry){
  assert(!irq_depth);assert(n<sizeof sent);assert(expiry==clock_ms+250);
- memcpy(sent,s,n);sent[n]=0;++sends;return -ENOBUFS;
+ memcpy(sent,s,n);sent[n]=0;++sends;return 0;
 }
 #if defined(R2_WATCHDOG)
 static unsigned watchdog_reports;
@@ -43,7 +43,7 @@ int main(void){
 #if !defined(R2_WATCHDOG)
  dtr=true;clock_ms+=1000;r2_health_console();assert(sends==1);dtr=false;
 #endif
- struct arch_esf esf={.basic={0x123456,0x654321,0x21000000}};
+ struct arch_esf esf={.basic={.pc=0x123456,.lr=0x654321,.xpsr=0x21000000}};
  scb.CFSR=0x10;
  latency[7]=UINT32_MAX;latency[8]=UINT32_MAX;
  if(!setjmp(fatal_exit))k_sys_fatal_error_handler(2,&esf);
@@ -57,7 +57,8 @@ int main(void){
  assert(r2_fault_capsule[0]==FAULT_MAGIC&&r2_fault_capsule[FAULT_WORDS-1]==crc(r2_fault_capsule));
  assert(r2_fault_capsule[5]==esf.basic.pc&&r2_fault_capsule[8]==0x10&&r2_fault_capsule[18]==R2_HEALTH_WRITE);
  r2_health_init(9);assert(previous[2]==0x55667788&&previous[3]==0x11223344&&!r2_fault_capsule[0]);
- /* Full-width capsule must fit. Reporting never retries a saturated queue. */
+ /* Full-width capsule must fit. Successful note admission is paced.
+  * Actual refusal/retry and queue saturation use health_console_tests.py. */
  for(unsigned i=1;i<FAULT_WORDS;i++)previous[i]=UINT32_MAX;
  clock_ms+=1000;dtr=true;
 #if defined(R2_WATCHDOG)
