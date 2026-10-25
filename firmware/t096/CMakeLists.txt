@@ -10,7 +10,7 @@ if(NOT R2_DC_PROFILE AND NOT R2_PC_PROFILE AND NOT R2_LEGACY_GM_REGRESSION)
  if(DEFINED CONFIG_EXTRA_EXCEPTION_INFO AND NOT CONFIG_EXTRA_EXCEPTION_INFO)
   message(FATAL_ERROR "GM7 requires fault-entry integer register capture")
  endif()
- set(CONFIG_EXTRA_EXCEPTION_INFO ON CACHE BOOL "GM7 fault-entry integer registers")
+ set(CONFIG_EXTRA_EXCEPTION_INFO y CACHE STRING "GM7 fault-entry integer registers")
 endif()
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 # One RC7 application, two runtime roles (GM and RC). USB export is standard.
