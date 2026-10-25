@@ -72,7 +72,7 @@ def inspect(out,allow_development=False):
                 require(0x20002000<=seg['p_vaddr'] and seg['p_vaddr']+seg['p_memsz']<=0x20040000,'ELF RAM bounds')
                 ram_end=max(ram_end,seg['p_vaddr']+seg['p_memsz'])
         for symbol in elf.get_section_by_name('.symtab').iter_symbols():
-            if symbol.name not in ('r2_crash_record','z_interrupt_stacks'):continue
+            if symbol.name not in ('r2_crash_record','z_interrupt_stacks','pt_input','pt_output'):continue
             index=symbol['st_shndx']
             require(isinstance(index,int),'Unallocated crash symbol')
             section=elf.get_section(index)
