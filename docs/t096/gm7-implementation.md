@@ -2,7 +2,7 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
-Source **0.15.189** uses broadcast GM discovery, ordinary shadow STATUS and the
+Source **0.15.190** uses broadcast GM discovery, ordinary shadow STATUS and the
 existing RC G1 receive/matcher/fitter. A GM follows the selected source without
 JOIN, GATT, REQUEST/ANCHOR, nonces, admission sessions or ANN permission renewal.
 Normal RC client admission, GATT, RC9, relay, USB and LoRa remain supported.
@@ -44,6 +44,25 @@ If blocked, preserve `pending_crc32` and inspect the existing status
 `crash_persist_result`/diagnostic state. There is no export-as-ack command, automatic
 deadline extension or operator bypass. Normal startup persistence acknowledges
 only after actual payload+commit readback; failure remains explicitly blocked.
+
+Since .190, startup with a valid pending crash and no append capacity may retire
+the ordinary-event pin on a page whose eight records are all fully validated
+foreign-source schema5 ordinary events. Current-source, crash, fault, unknown,
+malformed and torn records cannot authorize this reclamation. The committed
+crash page survives the existing erase, payload, commit and readback transaction;
+only its successful durable acknowledgment can arm the witness. No allocation,
+partition or host acknowledgment is added. A partly erased protected page may
+conservatively remain full. True power loss may lose pending RAM; preserving the
+previous committed crash does not recreate that pending record. Journal sequence
+uses the maximum surviving committed generation after restart, not an immortal
+floor from retired ordinary history; it is unrelated to mesh birth or term.
+
+The shared controller also normalizes the periodic parent pointers in the
+non-chain ULL AUX classification branch to the existing LLL representation.
+Assertions, reference counts, release/flush ownership and timers are retained.
+Production-body host regressions demonstrate the corrected classification and
+cleanup paths; they do not prove the exact trigger of an observed controller
+assertion, full Zephyr concurrency or repair of the separate CPU corruption.
 
 ## GM behavior
 

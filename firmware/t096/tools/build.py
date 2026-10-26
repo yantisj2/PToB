@@ -146,6 +146,10 @@ def main():
     receipt['controller_radio_fixes'] = None if dc or pc else {
         'manifest_sha256':sha(APP/'cmake/controller-radio-fixes.json'),
         'generator_sha256':sha(APP/'tools/controller_radio_fixes.py')}
+    receipt['scan_aux_context'] = None if dc or pc else {
+        'manifest_sha256':sha(APP/'cmake/scan-aux-context.json'),
+        'generator_sha256':sha(APP/'tools/scan_aux_context.py'),
+        'patch_sha256':sha(APP/'cmake/scan-aux-context.patch')}
     receipt['controller_prepare_capture'] = None if dc or pc else {
         'mode':'verbose' if args.controller_diagnostics else 'failure-only',
         'manifest_sha256':sha(APP/'cmake/controller-prepare-diag.json'),

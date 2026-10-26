@@ -40,6 +40,7 @@ with (nullcontext(str(args.out.resolve())) if args.out else tempfile.TemporaryDi
     subprocess.run([str(out/'gm-standby/transport'),'--terminal',str(out/'native-terminal.bin')],check=True,timeout=30)
     subprocess.run([str(out/'watchdog/watchdog-test'),str(out/'native-terminal.bin')],check=True,timeout=30)
     subprocess.run([sys.executable,str(APP/'tools/controller_radio_fix_tests.py'),'--deps',str(args.deps),'--out',str(out/'controller-radio-fixes')],env={**os.environ,'CC':compiler},check=True,timeout=120)
+    subprocess.run([sys.executable,str(APP/'tools/scan_aux_context_tests.py'),'--deps',str(args.deps),'--out',str(out/'scan-aux-context'),'--cc',compiler],check=True,timeout=120)
     subprocess.run([sys.executable,str(APP/'tools/controller_diag_tests.py'),'--deps',str(args.deps),'--out',str(out/'controller-diag')],env={**os.environ,'CC':compiler},check=True,timeout=60)
     subprocess.run([sys.executable,str(APP/'tools/health_console_tests.py'),'--out',str(out/'health-console')],env={**os.environ,'CC':compiler},check=True,timeout=60)
     subprocess.run([sys.executable,str(APP/'tools/health_register_tests.py'),'--deps',str(args.deps),'--out',str(out/'health-registers')],env={**os.environ,'CC':compiler},check=True,timeout=60)

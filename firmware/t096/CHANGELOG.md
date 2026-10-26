@@ -1,5 +1,24 @@
 # T096 changelog
 
+## 0.15.190 — Bounded journal capacity and periodic AUX classification
+
+At startup only, a valid pending crash with no append capacity can reclaim a
+page containing eight fully validated foreign ordinary schema5 events. Current,
+crash, fault, unknown and malformed pages remain protected. The prior committed
+crash page survives every erase/write boundary; the unchanged508B payload plus
+4B commit and exact readbacks must succeed before acknowledgment or witness
+arming. Captured-bank and public synthetic regressions cover interrupted writes,
+conservative refusal and surviving-generation sequencing. Pending RAM is not
+guaranteed across power loss, and torn occupied protected pages may still block.
+
+Correct two parent pointers when the shared non-chain ULL AUX path has already
+classified a receive report as periodic sync. A hash-pinned generated source
+keeps the public dependency checkout unchanged. Actual production-body tests
+cover periodic completion/continuation/stop, extended scanning and deferred
+release; no assertion, reference-count, timer or exchange policy is removed.
+GM/RC profiles, GATT, RC9, relay, USB and precision policy are unchanged. This is
+offline preparation, not proof of a hardware trigger, CPU repair or sustained HOT.
+
 ## 0.15.189 — Functional GM shadow readiness separate from precision lock
 
 A GM with a current same-scope fitted map, physical phase enclosure at most2ms,

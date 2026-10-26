@@ -8,9 +8,10 @@
 enum {R2_HEALTH_FLASH,R2_HEALTH_PA,R2_HEALTH_LANES};
 enum {R2_HEALTH_ERASE=1,R2_HEALTH_WRITE,R2_HEALTH_COMMIT,R2_HEALTH_STORAGE_CHECK};
 static uint32_t retained[128];static bool pending;static unsigned handoffs;
+static void (*saved_observer)(uint32_t);
 static void r2_health_operation(unsigned l,unsigned op,int rc){}
 static const volatile uint32_t *r2_health_crash_pending(void){return pending?retained:NULL;}
-static void r2_health_crash_saved(uint32_t id){assert(id==retained[126]);pending=false;handoffs++;}
+static void r2_health_crash_saved(uint32_t id){assert(id==retained[126]);if(saved_observer)saved_observer(id);pending=false;handoffs++;}
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -26,6 +27,7 @@ static int64_t now;static unsigned writes,erases,mode,fail_write;
 static void diagnostic_sleep(int ms){now+=ms;}
 #define k_sleep diagnostic_sleep
 static unsigned read_failure,read_mismatch,read_calls,write_delay;
+static void (*flash_observer)(unsigned,unsigned,unsigned,size_t);
 static uint8_t storage[16384] __aligned(4);static bool closed;
 static struct r2_service_status radio_status;
 void r2_service_snapshot(struct r2_service_status *s){*s=radio_status;}
@@ -35,22 +37,24 @@ int64_t k_uptime_get(void){return now;}
 void r2_platform_snapshot(struct r2_platform *p){memset(p,0,sizeof(*p));p->close_done=closed;}
 int r2_ui_close_result(void){return closed?0:-EAGAIN;}
 int r2_time_close_result(void){return closed?0:-EAGAIN;}
-static int flash_read(const struct device *d,unsigned off,void *out,size_t n){assert(off>=R2_DIAG_START&&off+n<=R2_DIAG_START+sizeof(storage));read_calls++;if(read_failure==read_calls)return -EIO;memcpy(out,storage+(off-R2_DIAG_START),n);if(read_mismatch==read_calls)((uint8_t *)out)[0]^=1;return 0;}
+static int flash_read(const struct device *d,unsigned off,void *out,size_t n){assert(off>=R2_DIAG_START&&off+n<=R2_DIAG_START+sizeof(storage));if(flash_observer)flash_observer(1,0,off,n);read_calls++;if(read_failure==read_calls)return -EIO;memcpy(out,storage+(off-R2_DIAG_START),n);if(read_mismatch==read_calls)((uint8_t *)out)[0]^=1;if(flash_observer)flash_observer(1,1,off,n);return 0;}
 static int flash_write(const struct device *d,unsigned off,const void *in,size_t n){
+ if(flash_observer)flash_observer(2,0,off,n);
  writes++;now+=write_delay;assert(off>=R2_DIAG_START&&off+n<=R2_DIAG_START+8192);assert(n==508||n==4);
  if(mode==3)return -EIO;
  bool failing=fail_write&&writes==fail_write;size_t bytes=failing&&mode==8?n/2:n;
  if(failing&&mode!=8)return -EIO;
  for(size_t i=0;i<bytes;i++)assert((storage[off-R2_DIAG_START+i]&((const uint8_t*)in)[i])==((const uint8_t*)in)[i]);
- memcpy(storage+(off-R2_DIAG_START),in,bytes);return failing?-EIO:0;
+ memcpy(storage+(off-R2_DIAG_START),in,bytes);if(flash_observer)flash_observer(2,1,off,n);return failing?-EIO:0;
 }
 static int flash_erase(const struct device *d,unsigned off,size_t n){
+ if(flash_observer)flash_observer(3,0,off,n);
  assert((n==8192&&off==R2_DIAG_START)||(n==4096&&(off==R2_DIAG_START||off==R2_DIAG_START+4096)));erases++;
  bool partial=mode==1||(n==4096&&(mode==13||mode==17||mode==19));
  memset(storage+(off-R2_DIAG_START),255,partial?n/2:n);
  if(mode==2||(mode==18&&n==4096))now+=600;
  if(mode==14&&n==4096)now+=2100;
- return n==4096&&(mode==13||mode==17)?-EIO:0;
+ if(flash_observer)flash_observer(3,1,off,n);return n==4096&&(mode==13||mode==17)?-EIO:0;
 }
 #include "../src/diagnostic.c"
 static unsigned runs,failed_starts;static bool normal_started,normal_start_failed;static uint64_t boot_deadline=10000;
@@ -121,4 +125,5 @@ int main(int argc,char **argv)
  /* Original main deadline still rejects a late start even with healthy diag. */
  now=boot_deadline;normal_started=normal_start_failed=false;runs=failed_starts=0;actual_start_gate();assert(normal_start_failed&&!runs&&failed_starts==1);
  printf("PASS actual crash journal/start gate scenario%u, bank1 untouched, old event/crash preserved\n",scenario);
+ return 0;
 }

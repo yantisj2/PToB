@@ -190,6 +190,21 @@ def inspect(out,allow_development=False):
                 candidates=[c['file']for c in json.loads(commands)if c['file'].endswith('/'+leaf)]
                 require(len(candidates)==1 and candidates[0].endswith('/r2_radio_fixes/'+leaf),'Radio fixes source membership: '+leaf)
                 require(sha(out/'target/r2_radio_fixes'/leaf)==hashes['output_sha256'],'Radio fixes generated hash: '+leaf)
+    if tuple(map(int,r['version'].split('.'))) >= (0,15,190):
+        aux=r.get('scan_aux_context')
+        if dc or pc:
+            require(aux is None and '/r2_scan_aux_context/' not in commands,'Periodic AUX correction leaked into DC/PC')
+        else:
+            require(aux=={'manifest_sha256':sha(out/'source/cmake/scan-aux-context.json'),
+                'generator_sha256':sha(out/'source/tools/scan_aux_context.py'),
+                'patch_sha256':sha(out/'source/cmake/scan-aux-context.patch')},'Periodic AUX correction receipt')
+            pinned_aux=json.loads((out/'source/cmake/scan-aux-context.json').read_text())
+            require(json.loads((out/'target/r2_scan_aux_context/manifest.json').read_text())==pinned_aux,'Periodic AUX generated manifest')
+            require(sha(out/'source/cmake/scan-aux-context.patch')==pinned_aux['patch_sha256'],'Periodic AUX patch hash')
+            candidates=[c['file']for c in json.loads(commands)if c['file'].endswith('/ull_scan_aux.c')]
+            require(len(candidates)==1 and candidates[0].endswith('/r2_scan_aux_context/ull_scan_aux.c'),'Unique periodic AUX source')
+            require(sha(out/'target/r2_scan_aux_context/ull_scan_aux.c')==pinned_aux['output_sha256'],'Periodic AUX output hash')
+            require('CONFIG_BT_CTLR_SYNC_PERIODIC=y' in config.splitlines() and 'CONFIG_BT_CTLR_SCAN_AUX_USE_CHAINS=y' not in config.splitlines(),'Reviewed non-chain periodic AUX configuration')
     if gm7:
         require(r.get('gm7_controller')=={
             'manifest_sha256':sha(out/'source/cmake/gm7-controller.json'),

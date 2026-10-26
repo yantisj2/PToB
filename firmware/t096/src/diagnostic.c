@@ -230,6 +230,7 @@ int r2_diag_init(const struct r2_identity *id)
  identity=*id;if(!device_is_ready(flash)){phase=-ENODEV;return phase;}
  int rc=0;latest_slot=crash_slot=protected_event_slot=R2_DIAG_SLOTS;generation=crash_generation=0;bool dirty=false;
  uint64_t latest_event_generation=0,protected_generation=0;
+ bool foreign_page[2]={true,true};
  const volatile uint32_t *pending=r2_health_crash_pending();bool pending_saved=false;
 #ifdef R2_LORA
  uint64_t fault_generation=0;unsigned fault_slot=R2_DIAG_SLOTS;
@@ -245,6 +246,10 @@ int r2_diag_init(const struct r2_identity *id)
    occupied[slot]=false;for(unsigned k=0;k<128;k++)if(p[k]!=UINT32_MAX)occupied[slot]=dirty=true;
    uint64_t seq=0;memcpy(&seq,&p[42],8);
    bool valid=valid_record(p,slot),any_event=valid_event_any_source(p,slot);
+   /* Reuse this scanner's full CRC/commit/factory validation. Only foreign
+    * ordinary events qualify; current, fault, unknown or torn records do not. */
+   foreign_page[page]&=p[1]==5&&any_event&&seq&&
+    memcmp(&p[10],R2_SOURCE_SHA,64)&&!(p[44]&~0x3ffu)&&p[80]!=0x4c525731;
    if(any_event&&seq){
     if(seq>protected_generation){protected_generation=seq;protected_event_slot=slot;}
     if(seq>generation)generation=seq;
@@ -284,6 +289,17 @@ int r2_diag_init(const struct r2_identity *id)
  }
  if(pending_saved){r2_health_crash_saved(pending[126]);pending=NULL;}
  memset(scan_page,0,sizeof scan_page);select_target();
+ if(pending&&next_slot==R2_DIAG_SLOTS&&generation<UINT64_MAX&&
+    r2_crash_valid(pending,true)&&r2_crash_silicon(pending,identity.silicon)){
+  unsigned page=protected_event_slot/8;
+  if(page<2&&foreign_page[page]&&
+     (latest_slot>=R2_DIAG_SLOTS||latest_slot/8!=page)&&
+     (crash_slot>=R2_DIAG_SLOTS||crash_slot/8!=page)){
+   /* Only the foreign ordinary-event pin is retired. Existing erase/append
+    * keeps the committed crash page until a new complete crash is durable. */
+   protected_event_slot=R2_DIAG_SLOTS;select_target();
+  }
+ }
 #ifdef R2_LORA
  if(fault_generation){
   struct r2_lora_retained_fault *f=&r2_diag_scratch.lora.retained;

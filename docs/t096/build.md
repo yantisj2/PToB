@@ -2,7 +2,7 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
-This guide builds and inspects T096 source **0.15.189** without opening hardware.
+This guide builds and inspects T096 source **0.15.190** without opening hardware.
 For profile choices and controls, see the [T096 README](../../firmware/t096/README.md).
 Release-by-release implementation and validation notes are in the
 [T096 changelog](../../firmware/t096/CHANGELOG.md).
@@ -36,6 +36,18 @@ A previously acquired cache is accepted with `--deps PATH` only after repository
 revision/cleanliness and SDK archive checks. It is not necessary to have a private
 sibling checkout. Builds put all generated and secret-bearing output under
 ignored `artifacts/` with owner-only permissions.
+
+Normal GM/RC builds also select the hash-pinned non-chain periodic AUX context
+correction in `cmake/scan-aux-context.patch`. The dependency checkout stays clean;
+CMake compiles exactly one generated `ull_scan_aux.c` with its input, output and
+patch hashes recorded and inspected. This shared controller correction preserves
+normal RC periodic reception and extended scanning; it changes no GATT exchange
+or precision policy. Its production-body regression can run independently:
+
+```sh
+artifacts/deps/venv/bin/python firmware/t096/tools/scan_aux_context_tests.py \
+  --deps artifacts/deps --out artifacts/scan-aux-context-test-01
+```
 
 ## Local inputs
 
