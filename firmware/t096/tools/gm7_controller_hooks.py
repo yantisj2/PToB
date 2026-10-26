@@ -15,6 +15,7 @@ def generate(ull,scan,aux,sync,out,hci=None):
   assert before in pins[path.name],("Unpinned GM7 controller input",path.name,before)
   if path.name=='hci_driver.c':
    (out/'hci_driver.input').write_text(s)
+   s=replace(s,'#include "hci_internal.h"','#include "hci/hci_internal.h"')
    s=replace(s,'#include <zephyr/kernel.h>','#include <zephyr/kernel.h>\n#include "gm7_controller.h"')
    s=replace(s,'\tevt = hci_cmd_handle(buf, (void **) &node_rx);',
      '\tr2_gm7_thread_lock();\n\tevt = hci_cmd_handle(buf, (void **) &node_rx);\n\tr2_gm7_thread_unlock();')
