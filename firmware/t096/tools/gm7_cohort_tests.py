@@ -43,6 +43,10 @@ def build(deps, directory, physical=False):
         fixture=(app/'tests/radio_service_test.c').read_text().replace(
             'int main(int argc,char **argv)','int historical_radio_main(int argc,char **argv)')
         fixture=fixture.replace('capture_tick,1,R2_CAPTURE_NOW','capture_tick,4,R2_CAPTURE_NOW')
+        # The modeled capture is near capture_tick; preserve its full epoch
+        # across32-bit wraps during conservative30s fallback scenarios.
+        fixture=fixture.replace('{raw,epoch,R2_CAPTURE_RADIO}',
+            '{capture_tick-(uint32_t)(capture_tick-raw),epoch,R2_CAPTURE_RADIO}')
         assert fixture.endswith('}\n')
         (directory/'gm7_cohort_radio_fixture.inc').write_text(fixture[:-2]+' return 0;\n}\n')
         sources=[app/'tests/gm7_cohort_pt.c']
@@ -78,7 +82,7 @@ def run(binary, count, phases, duration, loss=0, preempt=0, connect_after=0, phy
     g1_seen=set()
     next_owner=[0]*count
     poll_index=[0]*count
-    before_restore=None
+    before_restore=before_reconnect=None
 
     def send(i, command):
         procs[i].stdin.write(command + '\n')
@@ -109,6 +113,7 @@ def run(binary, count, phases, duration, loss=0, preempt=0, connect_after=0, phy
         converged_since = None
         held_one = False
         event_triggered=target=successor=None;trigger_result=None;retired=set();prior_hot=None
+        cold_early_output=[];cold_contact_at_activation=None
         selected_originals=[0]*count;confirmed=[None]*count;last_positive=[None]*count
         last_positive_before=None;last_selected_before=None;terminal_ads=set()
         terminal_meta=[];terminal_completed=[];terminal_ordinal=0
@@ -126,7 +131,10 @@ def run(binary, count, phases, duration, loss=0, preempt=0, connect_after=0, phy
                 tick=(job['start']+40+origins[src])*16
                 pts[src].stdin.write(f'X {tick} {(now+origins[src])*16} {event} {job["hex"]}\n')
                 reasons['g1_tx']+=1
-                if event_triggered and src==successor and first_new_g1_end is None:first_new_g1_end=job['end']
+                if event_triggered and src==successor and first_new_g1_end is None:
+                    first_new_g1_end=job['end']
+                    if event_mode=='cold-fallback' and cold_contact_at_activation is not None and job['end']-cold_contact_at_activation<30000000:
+                        cold_early_output.append([job['end'],src,'G1',cold_contact_at_activation])
                 for dst in range(count):
                     if dst==src or not states[dst] or states[dst][2]!=identities[src]: continue
                     blocked=any(k[0]==dst and j['start']<job['end'] and j['end']>job['start'] for k,j in jobs.items())
@@ -222,6 +230,10 @@ def run(binary, count, phases, duration, loss=0, preempt=0, connect_after=0, phy
                 for row in read(i):
                     if row[0] == 'S':
                         new_state = list(map(int, row[1:]))
+                        if event_mode=='cold-fallback' and event_triggered and i not in retired and new_state[0] and states[i] and not states[i][0]:
+                            cold_contact_at_activation=selected_originals[i]
+                            if now-cold_contact_at_activation<30000000:
+                                cold_early_output.append([now,i,'ACTIVE',cold_contact_at_activation])
                         if not legacy_scan:
                             assert len(new_state)==14, 'S2 requires current-control schema14'
                         if states[i] != new_state and (states[i] is None or states[i][:5] != new_state[:5]):
@@ -298,6 +310,8 @@ def run(binary, count, phases, duration, loss=0, preempt=0, connect_after=0, phy
                     send(target,'Y' if event_mode.startswith('yield') else 'W');trigger_result=read(target)
                     if event_mode=='cold-fallback':
                         send(prior_hot,'W');read(prior_hot)
+            if connect_after and before_reconnect is None and now+1000>=66000000+connect_after*1000000:
+                before_reconnect=[list(state)for state in states]
             if announce_after and before_restore is None and now>=66000000+announce_after*1000000:
                 before_restore=[list(state)for state in states]
             active = sum(s[0] for s in states)
@@ -313,8 +327,8 @@ def run(binary, count, phases, duration, loss=0, preempt=0, connect_after=0, phy
                 held_one |= now - converged_since >= 5000000
             else:
                 converged_since = None
-        return dict(owner_delays_us=owner_delays,announce_after_s=announce_after,states_before_ANN_restore=before_restore,event=event_mode,event_triggered=event_triggered,target=target,successor=successor,prior_hot=prior_hot,retired=sorted(retired),
-                    trigger_result=trigger_result,terminal_meta=terminal_meta,terminal_completed=terminal_completed,
+        return dict(owner_delays_us=owner_delays,announce_after_s=announce_after,states_before_reconnect=before_reconnect,states_before_ANN_restore=before_restore,event=event_mode,event_triggered=event_triggered,target=target,successor=successor,prior_hot=prior_hot,retired=sorted(retired),
+                    trigger_result=trigger_result,cold_early_output=cold_early_output,cold_contact_at_activation=cold_contact_at_activation,terminal_meta=terminal_meta,terminal_completed=terminal_completed,
                     last_positive_before=last_positive_before,last_positive_final=last_positive[target] if target is not None else None,
                     last_selected_before=last_selected_before,first_new_g1_end=first_new_g1_end,
                     first_new_g1_proof_end=first_new_g1_proof_end,

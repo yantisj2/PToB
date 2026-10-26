@@ -102,10 +102,18 @@ bool r2_gm7_clock_now(uint64_t *us, uint32_t *epoch) {
 }
 bool r2_gm7_clock_bounds(uint32_t raw, uint32_t epoch, unsigned prefix,
                          unsigned chain, uint64_t *lo, uint64_t *hi) {
-  if (!fake_hf_valid || epoch != 4 || raw < prefix * 16)
+  if (!fake_hf_valid || epoch != 4)
     return false;
-  *lo = (uint64_t)raw - prefix * 16 - chain * 16 - 1;
-  *hi = (uint64_t)raw - prefix * 16 + chain * 16 + 1;
+  uint64_t captured=raw;
+#ifdef R2_GM7_COHORT
+  /* Long cohort runs cross TIMER32 wraps. The model supplies the actual
+   * completed capture near now; production clock tests verify its resolver. */
+  captured=(fake_hf*16&~UINT64_C(0xffffffff))|raw;
+  if(captured>fake_hf*16)captured-=UINT64_C(1)<<32;
+#endif
+  if(captured<prefix*16+chain*16+1)return false;
+  *lo = captured - prefix * 16 - chain * 16 - 1;
+  *hi = captured - prefix * 16 + chain * 16 + 1;
   return true;
 }
 #endif
@@ -399,6 +407,11 @@ static void setup(bool serving) {
     struct gm7_source src = source_at(t);
     gm7_owner_update(&owner, &src, &p, t);
   }
+  /* Downstream service cases start after a matured election prerequisite.
+   * Actual unseeded startup/quiet timing is covered by gm7_test and cohort. */
+  owner.quiet_since=fake_hf-GM7_QUIET_US-500000;
+  struct gm7_source ready=source_at(fake_hf);
+  gm7_owner_update(&owner,&ready,&p,fake_hf);
   if (serving)
     assert(!gm7_owner_activate(&owner, fake_hf, fake_hf + 4000, fake_hf));
   gm7_scheduler_init(&scheduler, fake_hf);
@@ -579,9 +592,8 @@ static void diagnostics_and_remap(void) {
   peer->used = true;
   peer->identity = owner.scope.active;
   peer->boot = 987;
-  peer->kind=GM7_ANNOUNCE;peer->original=fake_hf;
-  peer->received.last_sequence=1;
-  peer->received.control = (struct gm7_control){.sender=peer->identity,
+  peer->kind=GM7_ANNOUNCE;
+  peer->received.control = (struct gm7_control){.sequence=1,.max_age_us=1000000,.sender=peer->identity,
       .boot=peer->boot, .active=peer->identity, .active_boot=peer->boot,
       .birth_us=owner.scope.birth, .founder=owner.scope.founder,
       .term=owner.scope.term, .source_gen=3, .capture_gen=4, .train_gen=23,
@@ -797,7 +809,7 @@ static void yield_fixture(void) {
   p->boot = 65;
   p->kind = GM7_STATUS;
   p->flags = GM7_ELIGIBLE | GM7_CAPABLE | GM7_SHADOW | GM7_HOT;
-  p->received=(struct gm7_peer_control){.control=(struct gm7_control){0},.last_sequence=1,.control_until=101000000};
+  p->received=(struct gm7_peer_control){.control=(struct gm7_control){0},.control_until=101000000};
   p->received.control = (struct gm7_control){.sender = 49,
                                             .boot = 65,
                                             .sequence = 1,
@@ -1144,7 +1156,7 @@ static void prospective_blackout_at(uint64_t at, bool revoked) {
   rival->identity = 900;
   rival->boot = 999;
   rival->kind = GM7_ANNOUNCE;
-  rival->received=(struct gm7_peer_control){.control=owner.selected,.last_sequence=1,.control_until=fake_hf + 2000000};
+  rival->received=(struct gm7_peer_control){.control=owner.selected,.control_until=fake_hf + 2000000};
   rival->received.control.birth_us=owner.scope.birth-1000;
   rival->received.control.active = rival->received.control.sender = 900;
   rival->received.control.active_boot = 999;
@@ -1177,7 +1189,7 @@ static void prospective_blackout_at(uint64_t at, bool revoked) {
   peer->identity = 501;
   peer->boot = 777;
   peer->kind = GM7_ANNOUNCE;
-  peer->received=(struct gm7_peer_control){.control=owner.selected,.last_sequence=10,.control_until=100000000};
+  peer->received=(struct gm7_peer_control){.control=owner.selected,.control_until=100000000};
   tick_to(at < 68780000 ? at + 5000 : 68785100);
   struct gm7_packet fresh = {.group = group.id,
                              .key_epoch = group.epoch,
@@ -1233,11 +1245,10 @@ static void source_horizon_preparation(void) {
     cycle(&service_work);
     assert(owner.armed&&takeover_preparing&&fake_stop_calls>stops&&!owner.reserved&&!owner.serving);
     struct gm7_peer *p=&owner.peer[0];p->used=true;p->identity=501;p->boot=777;
-    p->kind=GM7_ANNOUNCE;p->flags=GM7_ELIGIBLE;p->original=owner.selected_contact;
-    p->received=(struct gm7_peer_control){.control=owner.selected,.last_sequence=10,
-      .last_sent=owner.selected.sent_mono_us,.control_until=owner.selected_until,
-
-      };
+    p->kind=GM7_ANNOUNCE;p->flags=GM7_ELIGIBLE;
+    p->received=(struct gm7_peer_control){.control=owner.selected,
+      .control_until=owner.selected_until};
+    p->received.control.max_age_us=(uint32_t)(owner.selected_until-owner.selected_contact);
     stops=fake_stop_calls;
     tick_to(fake_hf+1000);cycle(&service_work);
     assert(owner.armed&&takeover_preparing&&fake_stop_calls==stops); /* Closed drain is not restarted. */
@@ -1405,9 +1416,11 @@ static void durable_control_cases(void){
   }
   uint64_t last_contact=owner.selected_contact;
   bool fallback=false;
-  for(unsigned i=0;i<35&&!fallback;i++){
+  for(unsigned i=0;i<180&&!fallback;i++){
     tick_to(fake_hf+200000);continuing_input();cycle(&service_work);
     fallback=owner.reserved||owner.serving;
+    if(fake_hf-last_contact<GM7_QUIET_US)
+      assert(!fallback&&!fake_precision_enabled);
   }
   assert(fallback&&fake_hf-last_contact>=GM7_QUIET_US&&functional_source.count&&
       functional_source.utc_offset_ns==local_offset);

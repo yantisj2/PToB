@@ -9,7 +9,10 @@ Normal RC client admission, GATT, RC9, relay, USB and LoRa remain supported.
 
 ## GM behavior
 
-An initially qualified GM elects itself after the ordinary quiet/backoff period.
+An initially qualified GM elects itself after the ordinary30s quiet period
+plus deterministic backoff (up to500ms). This follows the existing independent
+60s GNSS qualification, so a continuous healthy cold startup normally needs
+about90s plus backoff. Only the designated HOT has the fast3s takeover path.
 The first successful reservation records full 64-bit functional UTC mesh birth;
 replacements inherit that birth and founder and advance the leader term. When
 ACTIVE meshes meet, earlier birth wins. Exact-birth ties use founder, then the
@@ -47,7 +50,7 @@ Diagnostic shadow history may be cleared on an incompatible source change;
 that does not stop the physical PPS engine.
 The qualified local functional map also survives silence and loss of all
 neighbors. A non-HOT can use that map for ordinary initial election after the
-existing5s quiet period plus deterministic backoff (up to500ms), without a
+30s quiet period plus deterministic backoff (up to500ms), without a
 second preparation dwell or rebuilding its local clock. Cold election chooses
 local PPS phase after the election is actually due, even if the retained remote
 map has expired. A GM whose independent GNSS/PPS qualification is unavailable
@@ -65,6 +68,7 @@ keeps receiving time but cannot start output from an expired remote map.
 | Ordinary STATUS | About2s,4.5s observation lifetime | Retained. Allows a missed ordinary report plus delayed worker service; bounded nomination observations are separate from data permission. |
 | ROLE observation |4.5s and prior matching ANN/generations |4.5s independent bounded discovery observation. It cannot extend a data map or overwrite HOT qualification. |
 | ANN observation | At most2.75s, coupled to source lease |2.75s bounded leader/successor observation spans many250ms reports and the2.5s HOT trigger. It cannot block authorized3s takeover or continuous G1 following. |
+| Ordinary fallback/startup |5s quiet plus backoff |30s quiet plus existing backoff; user-requested conservative behavior in uncertain RF. Only designated HOT uses the fast path. |
 | Shadow readiness | Correction at most250ms old plus continuous5s dwell | Actual RC map/fit/lock and live growing phase bound; remove the extra dwell and one-period cliff. |
 | Physical phase | Live2ms; retained8ms/5s | Retained physical limits for safe reservation/promotion, separate from ordinary visibility. |
 | Ordinary visibility without remote fit | Suppressed | Use local functional PPS phase, or best-effort native HF windows. These windows make no mesh-UTC/precision claim. GM37 discovery is continuous. |
@@ -124,8 +128,8 @@ handoff snapshot/drain behavior:
 python3 firmware/t096/tools/gm7_tests.py --deps artifacts/deps --out artifacts/gm7-host-01
 python3 firmware/t096/tools/gm7_pt_recovery_tests.py --deps artifacts/deps --out artifacts/gm7-pt-01
 python3 firmware/t096/tools/gm7_cohort_tests.py --deps artifacts/deps \
-  --out artifacts/gm7-cohort.json --physical --nodes 4 --duration 170 \
-  --connect-after 70 --announce-after 82 \
+  --out artifacts/gm7-cohort.json --physical --nodes 4 --duration 260 \
+  --connect-after 100 --announce-after 112 \
   --owner-delays-us 15000,15000,15000,82000,15000,15000,54000
 ```
 

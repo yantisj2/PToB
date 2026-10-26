@@ -19,7 +19,7 @@ static void re_election_setup(bool retained) {
     owner.selected = (struct gm7_control){.birth_us = owner.scope.birth,
                                            .founder = 99, .term = 4,
                                            .active = 99, .active_boot = 77};
-    owner.selected_contact = 50000000;
+    owner.selected_contact = 30000000;
   }
   tick_to(66020000);
   healthy_input();
@@ -31,11 +31,11 @@ static void current_peer(bool incumbent) {
   p->boot = 77;
   p->kind = incumbent ? GM7_ANNOUNCE : GM7_STATUS;
   p->flags = GM7_ELIGIBLE | GM7_CAPABLE;
-  p->original = fake_hf - 10;
-  p->received = (struct gm7_peer_control){.last_sequence=1,
+  p->received = (struct gm7_peer_control){
       .control_until=fake_hf+2000000,
       .control=owner.selected};
   struct gm7_control *c=&p->received.control;
+  c->sequence=1;c->max_age_us=2000010;
   c->timing_epoch=8;
   c->sender = p->identity;
   c->boot = p->boot;

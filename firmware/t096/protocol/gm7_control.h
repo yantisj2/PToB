@@ -3,8 +3,8 @@
 #include "gm7_codec.h"
 struct gm7_peer_control {
   struct gm7_control control;
-  uint64_t last_sequence,last_sent,control_until;
-  uint64_t last_diag[2], last_diag_sample[2];
+  uint64_t control_until;
+  uint64_t last_diag[2];
 };
 /* Authenticated receipt policy, NOT proof of remote original-send age/UTC.
  * All results are original native-receipt anchored, processing consumes them.

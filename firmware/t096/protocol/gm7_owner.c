@@ -303,8 +303,11 @@ static void select_peer(struct gm7_owner *o, const struct gm7_peer *p) {
   if (!selected_same(o, &p->received.control))
     o->selected_contact = 0;
   o->selected = p->received.control;
-  if (p->original > o->selected_contact)
-    o->selected_contact = p->original;
+  /* Accepted control_until is the checked, unchanged receipt+max_age sum.
+   * Derive its immutable native receipt instead of retaining a duplicate. */
+  uint64_t original=p->received.control_until-p->received.control.max_age_us;
+  if (original > o->selected_contact)
+    o->selected_contact = original;
   o->selected_until = p->received.control_until;
   o->quiet = false;
   o->takeover_due = false;
@@ -371,6 +374,8 @@ int gm7_owner_receive(struct gm7_owner *o, const uint8_t *ad, size_t size,
       struct gm7_control observed = {.birth_us=r->birth_us,.founder=r->founder,
           .term=r->term,.active=r->active,.active_boot=r->active_boot};
       if (r->birth_us && fenced(o, &observed)) return -ESTALE;
+      if (p->received.last_diag[0] &&
+          r->sampled_mono_us<p->reported.sampled_mono_us) return -ESTALE;
       rc = gm7_control_diagnostic(&p->received,&packet,rx,now,&until);
       if (rc) return rc;
       p->observed = (struct gm7_lineage){r->birth_us,r->founder,r->term,
@@ -452,12 +457,9 @@ int gm7_owner_receive(struct gm7_owner *o, const uint8_t *ad, size_t size,
     gm7_owner_reservation_cancel(o, now);
   if (packet.kind == GM7_WITHDRAW)
     p->reported.until = 0;
-  p->received.last_sequence = c->sequence;
-  p->received.last_sent = c->sent_mono_us;
   p->received.control = *c;
   p->flags = packet.flags;
   p->kind = packet.kind;
-  p->original = original;
   p->received.control_until = until;
   quarantine(o);
   if (packet.kind == GM7_ANNOUNCE) {

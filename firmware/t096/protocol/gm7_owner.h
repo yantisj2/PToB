@@ -7,7 +7,7 @@ extern "C" {
 #define GM7_PEERS 8u
 #define GM7_RETAINED 8u
 #define GM7_DWELL_US UINT64_C(60000000)
-#define GM7_QUIET_US UINT64_C(5000000)
+#define GM7_QUIET_US UINT64_C(30000000)
 #define GM7_BLACKOUT_US UINT64_C(2500000)
 #define GM7_CLOSURE_LEAD_US UINT64_C(350000)
 #define GM7_BLACKOUT_BOUND_US UINT64_C(3000000)
@@ -87,7 +87,7 @@ struct gm7_peer {
   struct gm7_lineage observed; /* ROLE observation only, never timing authority. */
   struct gm7_reported_role reported;
   struct gm7_peer_control received;
-  uint64_t identity, boot, heard_at, original;
+  uint64_t identity, boot, heard_at;
   uint16_t radio_refs;
   uint16_t flags;
   uint16_t heard_flags;

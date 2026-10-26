@@ -66,7 +66,7 @@ static void promote(void){
 
 static int admit(struct gm7_peer_control *s,struct gm7_packet p,uint64_t rx,uint64_t now){
  uint64_t original,until;int rc=gm7_control_check(s,&p,rx,now,&original,&until);
- if(!rc){s->control=p.body.control;s->last_sequence=p.body.control.sequence;s->last_sent=p.body.control.sent_mono_us;s->control_until=until;}return rc;
+ if(!rc){s->control=p.body.control;s->control_until=until;}return rc;
 }
 static void receipt_horizons(void){
  struct gm7_peer_control s={0};struct gm7_packet p=fixture("announce");
@@ -175,8 +175,8 @@ static struct gm7_source physical_source(uint64_t t){
 static void birth_and_ties(void){
  struct r2_group_config g=group();struct gm7_owner o;assert(!gm7_owner_init(&o,&g,17,33,true,0));
  struct gm7_preparation prep={0};
- for(uint64_t t=0;t<=66000000;t+=1000000){struct gm7_source source=physical_source(t);gm7_owner_update(&o,&source,&prep,t);}
- assert(o.initial_due&&!o.scope.birth);uint64_t t=66000000;
+ for(uint64_t t=0;t<=96000000;t+=1000000){struct gm7_source source=physical_source(t);gm7_owner_update(&o,&source,&prep,t);}
+ assert(o.initial_due&&!o.scope.birth);uint64_t t=96000000;
  assert(!gm7_owner_reserve(&o,t+10000,t+14000,t)&&!o.scope.birth);
  uint64_t failed_birth=o.reserved_scope.birth;gm7_owner_reservation_cancel(&o,t+1);assert(!o.scope.birth);
  assert(!gm7_owner_reserve(&o,t+20000,t+24000,t+2));
@@ -207,8 +207,13 @@ static void independent_role(void){
   assert(receive(&o,r,1000200)==-ESTALE&&o.peer[0].reported.until==until);
   v->sequence++;v->sampled_mono_us++;v->source_gen++;v->capture_gen++;v->train_gen++;
   assert(!receive(&o,r,1000300)&&o.peer[0].reported.until>until);
+  uint64_t floor=o.peer[0].received.last_diag[0],sample=v->sampled_mono_us;
+  v->sequence++;v->sampled_mono_us--;
+  assert(receive(&o,r,1000310)==-ESTALE&&o.peer[0].received.last_diag[0]==floor);
+  v->sampled_mono_us=sample;
+  assert(!receive(&o,r,1000320)); /* Rejected sample did not burn sequence. */
   struct gm7_reported_role report;bool current;
-  assert(gm7_peer_role(&o,0,1000300,&report,&current)&&!current);
+  assert(gm7_peer_role(&o,0,1000320,&report,&current)&&!current);
  }
  struct gm7_owner o;assert(!gm7_owner_init(&o,&g,81,97,true,1000000));
  o.serving=true;o.scope=(struct gm7_scope){.birth=v->birth_us-1,.founder=81,.term=1,.active=81,.boot=97};

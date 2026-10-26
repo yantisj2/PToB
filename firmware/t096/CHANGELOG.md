@@ -2,6 +2,8 @@
 
 ## 0.15.186 — Durable broadcast GM following and asymmetric merge
 
+- Ordinary non-HOT fallback and initial election wait at least30s of leader silence; designated HOT retains the fast3s path. Reuse retained control fields for replay floors/receipt derivation to preserve the normal RC static-memory budget.
+
 GM profiles follow authenticated direct G1 through the existing RC matcher and
 causal fitter without JOIN, ANN source leases or control refresh sessions.
 Ordinary ANN/ROLE selects identity and full UTC lineage; self-ACTIVE ROLE can
