@@ -77,6 +77,16 @@ wire profiles and current firmware versions have separate identities. Historical
 results do not qualify later builds. PToB is not an adopted Bluetooth SIG or IEEE
 standard.
 
+**Public review draft, 26 October 2026:**
+[PToB-IPS: Toward GNSS-like Indoor Positioning with Surveyed BLE Timing Beacons](papers/indoor-ips/main.pdf)
+explores a local constellation of surveyed timing beacons, with aligned periodic
+advertising offsets/rates and a GNSS-like position/clock solve. It quantifies
+averaging, bias, finer capture clocks and motion limits for future MCU robotics
+and drone PNT. [LaTeX and verification](papers/indoor-ips/README.md) and
+[publication approval](papers/editions/indoor-ips-2026-10-26-publication.json)
+accompany the theoretical draft; positioning and IPS implementation remain
+unqualified.
+
 **Public review draft, 22 October 2026:** [A Shared Time Base for Robotic gPTP and
 TSN Systems](papers/ptob-gptp-tsn-robotics-preprint.pdf) investigates extending
 a wired robot time domain to wireless acquisition endpoints, with a proposed

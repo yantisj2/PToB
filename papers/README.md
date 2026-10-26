@@ -1,5 +1,22 @@
 # Research papers — drafts
 
+**Approved public research draft, 26 October 2026:**
+[PToB-IPS: Toward GNSS-like Indoor Positioning with Surveyed BLE Timing Beacons](indoor-ips/main.pdf)
+proposes surveyed timing beacons and a GNSS-like position/receiver-clock solve.
+Aligned periodic advertising timers, assigned offsets and coordinated 16/8/4 Hz
+rates let one receiver track multiple trains in distinct receive windows.
+The theoretical study quantifies averaging, bias floors, capture resolution,
+geometry and motion, with a roadmap for commodity MCU robotics and drone PNT.
+UWB appears only as an optional intermediate reference or service.
+[LaTeX source](indoor-ips/main.tex), [build and verification](indoor-ips/README.md),
+[analytical model output](indoor-ips/analysis.json),
+[prepared edition](editions/indoor-ips-2026-10-26.json) and
+[publication approval](editions/indoor-ips-2026-10-26-publication.json)
+accompany the unchanged reviewed paper. No positioning accuracy, IPS firmware,
+GNSS equivalence or deployed-device compatibility is qualified. The original
+preparation receipt preserves its pending-approval checkpoint; the separate
+publication receipt records approval for public draft review.
+
 **Approved public research draft, 24 October 2026:**
 [Low-Level Timing on ESP32-S3: Event Capture, Clock Bridges, and Causal Validation](ptob-esp32s3-low-level-timing.pdf)
 is a separate seven-page implementation guide, with
@@ -18,7 +35,8 @@ publishes all selected PPS/TX rows and an offline verifier for later website
 results. It does not silently replace this approved paper's earlier aggregates.
 
 These are working drafts by **Jonathan Yantis**. The newest addition
-is the **24 October 2026** low-level ESP32-S3 implementation guide. The robotic
+is the **26 October 2026** theoretical PToB-IPS beacon study. The low-level
+ESP32-S3 implementation guide retains its **24 October** edition. The robotic
 gPTP/TSN study and ESP32-S3 empirical timing study retain their **22 October**
 editions; the earlier reviewed
 edition remains preserved in Git. The shared time base and
@@ -45,6 +63,7 @@ draft status.
 
 | Draft | Read | Edit | Edition |
 | --- | --- | --- | --- |
+| PToB-IPS: Toward GNSS-like Indoor Positioning with Surveyed BLE Timing Beacons | [PDF](indoor-ips/main.pdf) | [LaTeX](indoor-ips/main.tex) | 26 October 2026, approved public research draft; surveyed beacons, aligned multi-rate advertisements and theoretical positioning/refinement limits |
 | Low-Level Timing on ESP32-S3: Event Capture, Clock Bridges, and Causal Validation | [PDF](ptob-esp32s3-low-level-timing.pdf) | [LaTeX](ptob-esp32s3-low-level-timing.tex) | 24 October 2026, seven-page implementation guide; relative measurements and calibration limits remain distinct |
 | A Shared Time Base for Robotic gPTP and TSN Systems: PToB Edge Adaptation, Compatibility Boundaries, and a Validation Programme | [PDF](ptob-gptp-tsn-robotics-preprint.pdf) | [LaTeX](ptob-gptp-tsn-robotics-preprint.tex) | 22 October 2026, proposed wired-domain ingress, wireless acquisition timestamps and staged validation |
 | Precision Bluetooth Timing on ESP32-S3: Causal Clock Discipline and Hardware Event Capture | [PDF](ptob-esp32s3-timing-preprint.pdf) | [LaTeX](ptob-esp32s3-timing-preprint.tex) | 22 October 2026 follow-up, empirical fine capture and completed 660 s relative PPS, target unmet |

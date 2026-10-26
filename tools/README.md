@@ -1,5 +1,14 @@
 # Reproduction tools
 
+Run `python3 tools/verify_indoor_ips_paper.py` for the 26 October PToB-IPS public
+research draft. It checks pseudorange/clock recovery, geometry and covariance,
+quantization, correlated averaging and bias floors, aligned multi-rate receiver
+reservations and cyclic conflicts, motion arithmetic, selected W12/N30 data and
+publication identity. It needs only Python 3.9+ and the public checkout. The
+unpublished predecessor is not required. All IPS examples are analytical model
+output, not hardware or positioning qualification. See the
+[paper and build guide](../papers/indoor-ips/README.md).
+
 Run `python3 tools/verify_s3_fine_paper.py` from the repository root to check
 current ESP32-S3 follow-up rows, eligibility, full-window tails, training-derived
 offsets, subset identities, denominators and the matching source/PDF manifest.

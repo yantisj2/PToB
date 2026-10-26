@@ -1,0 +1,345 @@
+{
+  "schema_version": 1,
+  "license": "MIT",
+  "edition_date": "2026-10-26",
+  "status": "AUTHOR_REVIEW_THEORETICAL_DRAFT_PUBLICATION_APPROVAL_PENDING",
+  "author": "Jonathan Yantis",
+  "title": "PToB-IPS: Toward GNSS-like Indoor Positioning with Surveyed BLE Timing Beacons",
+  "paper_license": "CC-BY-4.0",
+  "analytical_model_output_license": "CC-BY-4.0",
+  "code_license": "MIT",
+  "previous_edition": null,
+  "base_repository_commit": "ea70b7f5b5bd6e57ceef21b45736fcd806be9059",
+  "editorial_scope": "New distinct theoretical IPS paper: surveyed fixed beacons, stable averaged relative clocks, GNSS-like pseudorange/clock solve, aligned multi-rate periodic advertising and finer MCU capture. UWB only optional intermediary. Earlier sensor-fusion draft preserved.",
+  "files": [
+    {
+      "path": "papers/indoor-ips/main.tex",
+      "bytes": 54328,
+      "sha256": "5f7fb6ecec1eeaab46f961880186cdd89ef2088653d34a5de7401af3b54e3b89",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "papers/indoor-ips/main.pdf",
+      "bytes": 103606,
+      "sha256": "7cb4d16d444314c058f9df033ef3dac16686339aa24f01098422c628a8471ed3",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "papers/indoor-ips/analysis.json",
+      "bytes": 4616,
+      "sha256": "3908520a1e8f72e59dc734eed5a7f53bfcdb492d3a36a4d9abd7a6ccc1b220a3",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "papers/indoor-ips/README.md",
+      "bytes": 3676,
+      "sha256": "9e77eeb24e372189ddcf07e54a0665a43796f16c257703eeac049f51c0ace8cc",
+      "license": "MIT"
+    },
+    {
+      "path": "tools/verify_indoor_ips_paper.py",
+      "bytes": 15144,
+      "sha256": "907ca2db65d7fbe5bfd0dea10e9c84b04cda8ea750982c176840b0610deb21eb",
+      "license": "MIT"
+    }
+  ],
+  "cited_local_sources": [
+    {
+      "path": "papers/ptob-viability-preprint.tex",
+      "bytes": 57050,
+      "sha256": "ead863576330e5b04994c5115c55dda9e1c48d71fa8d8934165a9e9bc30a752b"
+    },
+    {
+      "path": "papers/ptob-esp32s3-low-level-timing.tex",
+      "bytes": 30371,
+      "sha256": "cd51bb204b8d72e719ea58662c55253f8c46ade500e52c1ca8a4b3a9cb63ea57"
+    },
+    {
+      "path": "papers/ptob-v14-preprint.tex",
+      "bytes": 139879,
+      "sha256": "bea2c7ea55b2842296871de9073554e0ad0bca84b3780afd966145b263365abe"
+    },
+    {
+      "path": "evidence/s3/2026-10-24-w12-utc-basis/README.md",
+      "bytes": 4242,
+      "sha256": "70e08cdf3b3a3f56eacea266717ffa71ff9d045287b481f9f87f387aafc745f1"
+    },
+    {
+      "path": "evidence/s3/2026-10-24-w12-utc-basis/manifest.json",
+      "bytes": 2480,
+      "sha256": "d8c1c14c1e1eb5874c31908744789ef50b5afaeef3e2c7fae6fc61b87e17373b"
+    },
+    {
+      "path": "evidence/s3/2026-10-24-w12-utc-basis/results.json",
+      "bytes": 8164,
+      "sha256": "4e130185c9ec2fa32358bb5ce4e26302fa0c3b613e59c281e9d6af545aa65918"
+    },
+    {
+      "path": "evidence/s3/2026-10-24-w12-utc-basis/w12-pps.csv",
+      "bytes": 29500,
+      "sha256": "f875c5170a30d28cee2ed2046ea18cd24558b66becf13c46dc59d6e79019d0be"
+    },
+    {
+      "path": "evidence/s3/2026-10-24-w12-utc-basis/downstream-pps.csv",
+      "bytes": 27964,
+      "sha256": "46c2119c0ed5247b2be91b0e5b89173e27f0053d1f1677199e84ce2792c91fe2"
+    },
+    {
+      "path": "evidence/s3/2026-10-24-w12-utc-basis/sampled-tx.csv",
+      "bytes": 5976,
+      "sha256": "96d615fe7150bb3dfa30a769b8d3af4569bfc9065dbf18868fbc5ca4e95409bd"
+    },
+    {
+      "path": "evidence/s3/2026-10-24-w12-utc-basis/gnss-prediction.csv",
+      "bytes": 10212,
+      "sha256": "ac03b820cb7ff840f9a75ebef387f136693372eac55356ae58a357437dfcd9c3"
+    },
+    {
+      "path": "evidence/s3/2026-10-22-fine/README.md",
+      "bytes": 4163,
+      "sha256": "3a5d1a9cadd5d9ed1191413901e5aef0733a6a65640a8cf73480bb7d9a201cce"
+    },
+    {
+      "path": "evidence/s3/2026-10-22-fine/manifest.json",
+      "bytes": 2125,
+      "sha256": "dd357fb1d0b2be0f5559879d90dad93784d643af2a6f199ff715ce80e06e0aab"
+    },
+    {
+      "path": "evidence/s3/2026-10-22-fine/protocol.json",
+      "bytes": 3936,
+      "sha256": "8e28d3e917448194187761cb3445ffc940d5291d06c4e64ee2644e5024cffcae"
+    },
+    {
+      "path": "evidence/s3/2026-10-22-fine/results.json",
+      "bytes": 7140,
+      "sha256": "5983fd09728d6dddda62977d549ae22b53664dcc7b7e7a981a1196c81236a24e"
+    },
+    {
+      "path": "evidence/s3/2026-10-22-fine/pps-sanitized.csv",
+      "bytes": 60335,
+      "sha256": "636c8f2a6d5ab370343d35e18e5d8ad9cf35f46b91d8f05f53bf004c379e3ab2"
+    }
+  ],
+  "preserved_previous_draft": [
+    {
+      "path": "papers/indoor-pnt/main.tex",
+      "bytes": 47886,
+      "sha256": "405af60d71d0d1d6fe08393ffb9969b4ea4e6471b5c19b23517dde2bb9fdaee9"
+    },
+    {
+      "path": "papers/indoor-pnt/main.pdf",
+      "bytes": 96764,
+      "sha256": "184d3e8287c3c25d65c568d087798e94059b6e449e62e13c291c92f25f35ff60"
+    },
+    {
+      "path": "papers/indoor-pnt/README.md",
+      "bytes": 2758,
+      "sha256": "d1e7299124548613c04eaf5e8bbe51e439f787d0026a4187d45a02614625f98e"
+    },
+    {
+      "path": "papers/editions/indoor-pnt-2026-10-26.json",
+      "bytes": 12841,
+      "sha256": "bc241bb30473566a22b7427bc01867cc26ad59d187eca50714b1a78a0906fb82"
+    },
+    {
+      "path": "tools/verify_indoor_pnt_paper.py",
+      "bytes": 10095,
+      "sha256": "5bc0a582784d4e34cc5ee8c3a804e0d1a9f03431ed772aa41886fc7b62eea9b3"
+    }
+  ],
+  "evidence_cutoff": {
+    "latest_discussed_physical_collection": "2026-10-24",
+    "external_sources_accessed": "2026-10-26",
+    "new_hardware_measurements": false,
+    "new_localization_experiment": false,
+    "populations_pooled": false,
+    "model_noise_not_inferred_from_pps_rms": true,
+    "room_model": "Idealized eight-corner 10x8x3 m geometry; local linear covariance and explicit hypothetical noise/bias. Not a Monte Carlo or hardware campaign."
+  },
+  "proposed_schedule": {
+    "base_period_ms": 62.5,
+    "rates_hz": [
+      16,
+      8,
+      4
+    ],
+    "hyperperiod_ms": 250,
+    "frames_per_hyperperiod": 4,
+    "events_per_frame": [
+      6,
+      5,
+      6,
+      5
+    ],
+    "events_total": 22,
+    "concept": "Aligned physical periodic advertising timers with frame phases and offsets; one receiver merges time-separated train/channel windows.",
+    "assumptions": "Future compact event occupancy .6 ms, early/late guards .1 ms each, transition .2 ms. A 1 ms start separation has zero extra slack. Not current RC7 frame or PAwR implementation.",
+    "status": "ANALYTICAL_ADMISSION_MODEL_ONLY_CONTROLLER_PHASE_CONTROL_UNIMPLEMENTED"
+  },
+  "compiler": {
+    "engine": "Tectonic",
+    "version": "0.17.0",
+    "binary_sha256": "b52b5a730e2b0b33087304f7720f649603953f270a6b1c88bb031e1ae01f7f9c",
+    "binary_acquisition": "https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic%400.17.0/tectonic-0.17.0-aarch64-apple-darwin.tar.gz",
+    "public_bundle_hashes": [
+      "6ffe055852f8faf66c0acbe1a7fb27f87b869a90bad1204f3bf4d9683f597c7c"
+    ],
+    "command": "tectonic --only-cached --keep-logs --outdir artifacts/indoor-ips-paper-20261026/build papers/indoor-ips/main.tex",
+    "local_cache_note": "TECTONIC_CACHE_DIR selected an existing ignored public-resource cache; ordinary reproduction needs no private dependency.",
+    "fresh_checkout_command": "tectonic --outdir artifacts/indoor-ips-build papers/indoor-ips/main.tex",
+    "standalone": true,
+    "warnings": false,
+    "desktop_editor_compile": "SUCCESS_FINAL_SOURCE",
+    "log_sha256": "810f97f748108fc5dd86ade0ab8ec7c4272ef72f3501824347b5b915ff71535f"
+  },
+  "review": {
+    "pages": 15,
+    "figures": 3,
+    "tables": 6,
+    "references": 14,
+    "all_pages_rendered_and_visually_inspected": true,
+    "render_tool": "Poppler pdftoppm",
+    "render_scale_to_pixels": 1600,
+    "unresolved_references": false,
+    "layout_warnings": false,
+    "source_and_pdf_match": true,
+    "earlier_draft_source_pdf_receipt_readme_verifier_byte_identical": true,
+    "public_content_review": "No private raw captures, enrollment, images, keys, factory identities or private working paths imported. Existing public evidence cited only. Synthetic analytical data explicitly labeled and licensed.",
+    "rendered_pages": [
+      {
+        "page": 1,
+        "sha256": "bd61847837b9a80835b543e0d700ae41b99d353bc6798ff72164aa4b2b8454a9"
+      },
+      {
+        "page": 2,
+        "sha256": "18a3e67322242272c6c3e9e517dcfd242eda96743e0a9a3743669b7ea44b7c4f"
+      },
+      {
+        "page": 3,
+        "sha256": "0b195f4af91f17c9c7734e94cc44e93ce43604bce407af6f4c45d40024aec557"
+      },
+      {
+        "page": 4,
+        "sha256": "0191323ef7bddd36b9e5a5d4c2b227a2c4755cdbd825b018ec4320ec95949d46"
+      },
+      {
+        "page": 5,
+        "sha256": "c0407ccf55625d0774fba998bf9d6aba5350fa3913fa80599b21543555e58728"
+      },
+      {
+        "page": 6,
+        "sha256": "094f4a02dbeb5b93cb158d5841c1bb88af1f4019a25fc096878934db694966f3"
+      },
+      {
+        "page": 7,
+        "sha256": "71f3c68f12b009dff22e9d5170523813798ef3e4f7f1337c240de06897ffae19"
+      },
+      {
+        "page": 8,
+        "sha256": "833d7092df8dadf408ef5eec6a2292e779d80be7018e09ff06edf5bf863372b5"
+      },
+      {
+        "page": 9,
+        "sha256": "902332127e1f4d1632dbf443769eeff62374723d912d4203b9d1e066fad35058"
+      },
+      {
+        "page": 10,
+        "sha256": "559e785ca4b7c6a481104e2c07df77ef707ce108eaab7fc625c120c2b46dfc58"
+      },
+      {
+        "page": 11,
+        "sha256": "ecb46782ade648d9a3c4c914a4c69a68f6921d4f4f38781d9e8b262a8dd858bb"
+      },
+      {
+        "page": 12,
+        "sha256": "d11afe420d42e0f1b09d362ed94174b54735302cec8adeaca7f6f7b982a748d3"
+      },
+      {
+        "page": 13,
+        "sha256": "8aaf5ad9dabdc1157d6dc35d0cfd27e7017f4b962bbb5b27543e228841689236"
+      },
+      {
+        "page": 14,
+        "sha256": "be925d487b4b0d4d5458e00b054f0a25cf95a9a729516d91b546e175fce5b744"
+      },
+      {
+        "page": 15,
+        "sha256": "5ca2ccc7a6976ecce1df47f7ebce3401d22c3a53a6689c6db832131f87a153c4"
+      }
+    ]
+  },
+  "primary_sources": [
+    {
+      "bibliography_key": "esacode",
+      "url": "https://gssc.esa.int/navipedia/index.php/Code_Based_Positioning_(SPS)",
+      "accessed": "2026-10-26",
+      "retrieval_scope": "Original primary article search extraction inspected for pseudorange, clock-offset and least-squares model; direct page retrieval returned 502. No complete-text review asserted."
+    },
+    {
+      "bibliography_key": "esareceiver",
+      "url": "https://gssc.esa.int/navipedia/index.php/Generic_Receiver_Description",
+      "accessed": "2026-10-26",
+      "retrieval_scope": "Original primary article search extraction inspected for GNSS signal/code receiver concept; direct page retrieval returned 502. No complete-text review asserted."
+    },
+    {
+      "bibliography_key": "blecore",
+      "url": "https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core_v6.3/out/en/low-energy-controller/link-layer-specification.html",
+      "accessed": "2026-10-26",
+      "retrieval_scope": "Official Access Address and periodic advertising clauses inspected; not full normative conformance or controller capability audit."
+    },
+    {
+      "bibliography_key": "silabs",
+      "url": "https://docs.silabs.com/bluetooth/latest/bluetooth-fundamentals-advertising-scanning/periodic-advertising",
+      "accessed": "2026-10-26",
+      "retrieval_scope": "Official implementation documentation for periodic events, discovery, channel selection and train synchronization; dated general phone statement not used."
+    },
+    {
+      "bibliography_key": "nordic",
+      "url": "https://docs.nordicsemi.com/r/bundle/ps_nrf52840/page/timer.html",
+      "accessed": "2026-10-26",
+      "retrieval_scope": "Official peripheral source: TIMER base frequency and prescaler. No hypothetical higher frequency claimed as supported."
+    },
+    {
+      "bibliography_key": "espressif",
+      "url": "https://docs.espressif.com/projects/esp-idf/en/v5.5.5/esp32s3/api-reference/peripherals/mcpwm.html",
+      "accessed": "2026-10-26",
+      "retrieval_scope": "Official pinned-version capture timer and APB resolution documentation."
+    },
+    {
+      "bibliography_key": "nistindoor",
+      "url": "https://www.nist.gov/ctl/smart-connected-systems-division/indoor-localization",
+      "accessed": "2026-10-26",
+      "retrieval_scope": "Archived original NIST project summary: indoor propagation, direct-path isolation and multipath limits, not a current product comparison."
+    },
+    {
+      "bibliography_key": "market",
+      "url": "https://www.bluetooth.com/blog/bluetooth-technology-for-industrial-monitoring-tracking-and-predictive-maintenance/",
+      "accessed": "2026-10-26",
+      "retrieval_scope": "9 March 2026 industry article by Peter Karlsson hosted by Bluetooth SIG, attributing annual shipments exceeding five billion to ABI Research. Not installed count or compatible-device count."
+    },
+    {
+      "bibliography_key": "channelsounding",
+      "url": "https://www.bluetooth.com/channel-sounding-tech-overview/",
+      "accessed": "2026-10-26",
+      "retrieval_scope": "Official mechanism/support-boundary explanation; no claim of legacy feature support or standards compliance."
+    }
+  ],
+  "verification_commands": [
+    "python3 tools/verify_indoor_ips_paper.py",
+    "python3 tools/verify_indoor_ips_paper.py --write-analysis artifacts/indoor-ips-rebuilt.json",
+    "python3 tools/verify_indoor_pnt_paper.py",
+    "python3 tools/verify_w12_utc_results.py",
+    "python3 tools/verify_s3_fine_paper.py"
+  ],
+  "limitations": [
+    "IPS solver/collector, aligned multi-rate physical schedule, compact metadata/tickets and improved RF capture are proposed, not deployed or hardware qualified.",
+    "Existing relative PPS results do not establish pseudorange noise, anchor differential RF timing, calibrated UTC, GNSS equivalence or position accuracy. All cited denominators and tails retain their separate scope.",
+    "Finer counters only improve quantization; fixed detector delay, multipath, clock transfer, correlation, geometry and motion can dominate.",
+    "Clock-map discipline does not align physical advertising timers or establish RF carrier coherence. Multi-train capacity, scheduler phase control, actual channel switching and airtime require exact-target validation.",
+    "Scheduled time-separated observations are the baseline. Same-channel overlapping BLE packets are not GNSS-like orthogonal signals. True multiuser waveforms/baseband require additional hardware/protocol capability.",
+    "Toy noise, bias, static averaging, survey, quantization and scheduling assumptions are analytical sensitivity examples, not measured positioning or cost savings.",
+    "Billion-scale shipment context is not an installed or compatible MCU count. No all-MCU firmware upgrade path is established.",
+    "External review includes primary documentation and limited ESA search extractions; no full literature or normative standards conformance audit."
+  ],
+  "local_commit_policy": "Leave both new and earlier drafts uncommitted pending author review before any main-branch commitment. No staging, push, publication, release, submission, hardware action or firmware edit authorized by this preparation."
+}
