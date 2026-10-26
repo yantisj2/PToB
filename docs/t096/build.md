@@ -204,3 +204,8 @@ The [GM acceptance plan](gm-standby.md#development-checkpoint-and-remaining-acce
 keeps installation, reset latency, source qualification, HOT renewal and physical
 multi-device observations as separate checks. Release records and simulations
 provide context; they do not authorize hardware operations.
+
+The0.15.194 HOT retention and transition records add64B of linked static RAM,
+including alignment. Inspection accounts for this separately from the4096B
+RC8 incremental budget; the absolute1024B unallocated floor and existing stack
+allocations are unchanged. The four normal images leave4580B unallocated.
