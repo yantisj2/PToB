@@ -815,6 +815,29 @@ static void takeover_fixture_at(uint64_t at) {
   fake_rx_count = 0;
 }
 static void takeover_fixture(void) { takeover_fixture_at(68783100); }
+static void promoted_map_keeps_source_dwell(void) {
+  for (int offset = -1; offset <= 1; ++offset) {
+  takeover_fixture();
+  /* A healthy local GNSS map may be ahead of the leader being inherited.
+   * The first cycle still compares the local map; promotion changes that
+   * interpretation, not PPS/GNSS health or capture identity. */
+  functional_source.utc_offset_ns += offset * INT64_C(10000000);
+  cycle(&service_work);
+  assert(owner.reserved && promoted_valid && owner.eligible);
+  uint64_t observing = owner.source_since;
+  tick_to(fake_hf + 1000);
+  cycle(&service_work);
+  assert(owner.reserved && owner.eligible && owner.source_since == observing);
+  finish(GM7_PRIMARY, true, true);
+  assert(owner.serving);
+  struct gm7_source backwards = owner.source;
+  backwards.sampled_us = fake_hf + 1000;
+  backwards.utc_us = owner.last_utc - 10000;
+  gm7_owner_update(&owner, &backwards, &owner.preparation, fake_hf + 1000);
+  assert(!owner.eligible && !owner.serving);
+  }
+  puts("PASS authorized retained-map promotion preserves source dwell across positive/negative UTC offsets; subsequent backward samples still revoke source");
+}
 static void yield_fixture(void) {
   setup(true);
   tick_to(96033000);
@@ -1511,6 +1534,7 @@ static void nomination_diagnostics(void) {
 int main(int argc, char **argv) {
   (void)argc;
   (void)argv;
+  promoted_map_keeps_source_dwell();
   nomination_diagnostics();
   yield_copies();
   administrative_yield();

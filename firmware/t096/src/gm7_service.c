@@ -1425,6 +1425,11 @@ static void cycle(struct k_work *work) {
                       functional_source.last_edge == raw_pps;
               if (ready) {
                 functional_source = map;
+                /* This deliberate switch inherits the leader's UTC map.
+                 * Do not compare it against the prior local GNSS UTC sample:
+                 * a normal offset would falsely revoke healthy source dwell.
+                 * Subsequent samples use the normal monotonic guard again. */
+                owner.last_utc_at = 0;
                 promoted_valid = true;
                 promoted_pps = raw_pps;
               }

@@ -1,5 +1,12 @@
 # T096 changelog
 
+## 0.15.198 — Preserve qualification through inherited-map promotion
+
+A deliberate HOT takeover replaces the local GNSS UTC map with the retained
+leader map. Start the UTC comparison at that map switch so an ordinary offset
+does not falsely reset healthy-source dwell for30 seconds. All later UTC
+comparisons and existing GNSS/capture/expiry checks remain active.
+
 ## 0.15.197 — One-shot callback lifetime
 
 Keep ticker start completion with its native job slot. The pinned controller
