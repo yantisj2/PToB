@@ -14,6 +14,9 @@
     ],
     "ull_adv_sync.c": [
       "f0b04377de589f60ff00971ed641910878f5a13d21b0be5bd3f5d114341c8e93"
+    ],
+    "hci_driver.c": [
+      "61517cbb3440f86997a07925ff6a1ca0795207a9b544f406a929fce5462824cb"
     ]
   }
 }

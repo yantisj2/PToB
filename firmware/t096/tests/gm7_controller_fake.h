@@ -217,3 +217,7 @@ static unsigned radio_tx_chain_delay_get(unsigned p, unsigned f) {
   (void)f;
   return 1;
 }
+
+static unsigned fake_thread_locked;
+void r2_gm7_thread_lock(void) { assert(!fake_thread_locked); fake_thread_locked=1; }
+void r2_gm7_thread_unlock(void) { assert(fake_thread_locked); fake_thread_locked=0; }

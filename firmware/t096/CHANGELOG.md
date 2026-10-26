@@ -1,5 +1,16 @@
 # T096 changelog
 
+## 0.15.193 — Serialize native and HCI controller calls
+
+GM submit, drain and phase updates now share one thread-side lock with HCI
+commands. The pinned controller has a shared ticker completion semaphore, a
+single-producer THREAD queue and a shared disable mayfly. Concurrent callers
+could consume each other's completion and return with a stack callback still
+pending. The lock preserves that single-caller contract while interrupt radio
+work continues normally. No host Bluetooth call is made under the lock.
+This repairs a reproduced race; attribution of historical CPU faults remains
+unproven. GM protocol and scheduling tolerances are unchanged.
+
 ## 0.15.192 — Keep a successful takeover serving through schedule offset
 
 A valid first G1 could be followed by a forced withdrawal solely because its

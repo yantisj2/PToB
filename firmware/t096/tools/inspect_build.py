@@ -216,7 +216,10 @@ def inspect(out,allow_development=False):
         spec=importlib.util.spec_from_file_location('gm7_bound_generator',out/'source/tools/gm7_controller_hooks.py')
         module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
         with tempfile.TemporaryDirectory(prefix='ptob-gm7-inspect-') as tmp:
-            generated=module.generate(*gm7_inputs,Path(tmp))
+            hci_input=Path(tmp)/'input/hci_driver.c'
+            hci_input.parent.mkdir()
+            hci_input.write_bytes((out/'target/gm7_controller/hci_driver.input').read_bytes())
+            generated=module.generate(*gm7_inputs,Path(tmp),hci_input)
             require(generated==json.loads((out/'target/gm7_controller/manifest.json').read_text()),'GM7 composed controller manifest')
             for leaf,entry in generated.items():
                 require(sha(out/'target/gm7_controller'/leaf)==entry['output_sha256'],'GM7 exact composed hook: '+leaf)

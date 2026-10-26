@@ -56,3 +56,8 @@ void r2_gm7_capture_receive_arm(const void *pdu);
 void r2_gm7_controller_precision(bool enable,uint32_t hf_phase,uint64_t first_end_deadline,uint32_t train);
 void r2_gm7_controller_precision_bind(uint16_t handle,uint32_t train);
 bool r2_gm7_precision_anchor(uint16_t handle,void *ull_header,uint32_t *ticker_anchor,uint32_t interval_us);
+
+/* Serialize native thread operations with HCI's single-caller controller API.
+ * Never acquire from ISR/ULL/LLL callbacks or across a host Bluetooth call. */
+void r2_gm7_thread_lock(void);
+void r2_gm7_thread_unlock(void);

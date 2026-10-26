@@ -7,17 +7,42 @@ from pathlib import Path
 def replace(s,a,b,count=1):
  assert s.count(a)==count,(a,s.count(a),count)
  return s.replace(a,b)
-def generate(ull,scan,aux,sync,out):
+def generate(ull,scan,aux,sync,out,hci=None):
  out.mkdir(parents=True,exist_ok=True);manifest={}
  pins=json.loads((Path(__file__).resolve().parents[1]/"cmake/gm7-controller.json").read_text())["inputs"]
- for path in [ull,scan,aux,sync]:
+ for path in [ull,scan,aux,sync]+([hci] if hci is not None else []):
   s=path.read_text();before=hashlib.sha256(s.encode()).hexdigest()
   assert before in pins[path.name],("Unpinned GM7 controller input",path.name,before)
-  if path.name=='ull.c':
+  if path.name=='hci_driver.c':
+   (out/'hci_driver.input').write_text(s)
+   s=replace(s,'#include <zephyr/kernel.h>','#include <zephyr/kernel.h>\n#include "gm7_controller.h"')
+   s=replace(s,'\tevt = hci_cmd_handle(buf, (void **) &node_rx);',
+     '\tr2_gm7_thread_lock();\n\tevt = hci_cmd_handle(buf, (void **) &node_rx);\n\tr2_gm7_thread_unlock();')
+  elif path.name=='ull.c':
+   s=replace(s,'#include <zephyr/kernel.h>','#include <zephyr/kernel.h>\n#include "gm7_controller.h"')
+   s += '''
+/* Native GM calls and HCI share ticker THREAD queue/completion and disable
+ * mayfly state. Preserve the controller's single thread-caller contract.
+ * Interrupt controller jobs run normally while the caller waits. */
+K_MUTEX_DEFINE(gm7_thread_api);
+void r2_gm7_thread_lock(void) { k_mutex_lock(&gm7_thread_api, K_FOREVER); }
+void r2_gm7_thread_unlock(void) { k_mutex_unlock(&gm7_thread_api); }
+'''
    s=replace(s,'#define USER_TICKER_NODES         0','#define USER_TICKER_NODES         3 /* dedicated GM7 complete events */')
    s=replace(s,'#define TICKER_USER_THREAD_VENDOR_OPS 0','#define TICKER_USER_THREAD_VENDOR_OPS 3 /* bounded GM7 submissions/drain */')
    s=replace(s,'#define EVENT_DONE_MAX 5','#define EVENT_DONE_MAX 7 /* preserve stock5 plus GM7 prepare overlap */')
   elif path.name=='ull_adv_sync.c':
+   s=replace(s,'int r2_precision_phase_step(uint8_t handle, int step)',
+     'static int gm7_precision_phase_step(uint8_t handle, int step)')
+   s += '''
+int r2_precision_phase_step(uint8_t handle, int step)
+{
+    r2_gm7_thread_lock();
+    int rc = gm7_precision_phase_step(handle, step);
+    r2_gm7_thread_unlock();
+    return rc;
+}
+'''
    s=replace(s,'#include <zephyr/kernel.h>','#include <zephyr/kernel.h>\n#include "gm7_controller.h"')
    s=replace(s,'\tinterval_us = (uint32_t)sync->interval * PERIODIC_INT_UNIT_US;',
      '\tinterval_us = (uint32_t)sync->interval * PERIODIC_INT_UNIT_US;\n'

@@ -259,7 +259,7 @@ static void finish_isr(void *param) {
   __atomic_store_n(&n->ready, 1, __ATOMIC_RELEASE);
   lll_isr_cleanup(lll);
 }
-int r2_gm7_controller_submit(unsigned slot, struct gm7_scheduler *scheduler,
+static int controller_submit(unsigned slot, struct gm7_scheduler *scheduler,
                              const uint8_t address[6], uint64_t now) {
   if (slot >= GM7_JOB_SLOTS || !scheduler || !address)
     return -EINVAL;
@@ -339,7 +339,7 @@ int r2_gm7_controller_submit(unsigned slot, struct gm7_scheduler *scheduler,
   j->state = GM7_JOB_DISPATCHED;
   return 0;
 }
-int r2_gm7_controller_drain(unsigned slot, uint64_t now) {
+static int controller_drain(unsigned slot, uint64_t now) {
   (void)now;
   if (slot >= GM7_JOB_SLOTS)
     return -EINVAL;
@@ -483,4 +483,18 @@ bool r2_gm7_precision_anchor(uint16_t handle, void *header, uint32_t *anchor,
     return false;
   *anchor = ticker_now + advance - offset;
   return true;
+}
+
+int r2_gm7_controller_submit(unsigned slot, struct gm7_scheduler *scheduler,
+                             const uint8_t address[6], uint64_t now) {
+  r2_gm7_thread_lock();
+  int rc = controller_submit(slot, scheduler, address, now);
+  r2_gm7_thread_unlock();
+  return rc;
+}
+int r2_gm7_controller_drain(unsigned slot, uint64_t now) {
+  r2_gm7_thread_lock();
+  int rc = controller_drain(slot, now);
+  r2_gm7_thread_unlock();
+  return rc;
 }
