@@ -704,7 +704,10 @@ void gm7_owner_update(struct gm7_owner *o, const struct gm7_source *source,
     if (!peer_current(p, now) || p->kind != GM7_ANNOUNCE ||
         fenced(o, &p->received.control))
       continue;
-    if ((o->serving||o->armed||o->reserved)&&o->scope.active&&
+    /* A missed ANN does not release an older leader while its authenticated
+     * G1/ROLE contact advances. This applies to ordinary COLD followers too,
+     * not just serving or nominated GMs. */
+    if ((o->serving||o->armed||o->reserved||selected_contact_live(o,now))&&o->scope.active&&
         lineage_order(scope_of(&p->received.control,p->received.control.timing_epoch),o->scope)>0)
       continue;
     if (!best ||

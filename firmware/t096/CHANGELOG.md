@@ -1,6 +1,6 @@
 # T096 changelog
 
-## 0.15.191 — Release management capture on scanner preemption
+## 0.15.191 — Restore capture and retain the older live leader
 
 An LLL-scheduled management AUX receive uses the primary scanner's cleanup
 path when preempted or when its scan duration expires. Release its exact
@@ -8,6 +8,12 @@ PACKETPTR capture there, before the duplicate-done early return. Previously
 that path could leave CC1 owned by management and block subsequent G1 capture
 until another matching AUX completion. Queued cancellation cannot release the
 current radio owner. No timing thresholds or wire protocol changes.
+
+COLD followers also retain an older leader while authenticated G1/ROLE contact
+advances, even when its ANN expires. Previously only ACTIVE/HOT/reserved GMs
+excluded a newer contender at that point, allowing an ordinary follower to
+switch away from a live older mesh. Actual contact expiry still permits ordinary
+rediscovery. A regression reproduces the prior switch and checks both cases.
 
 The regression executes the generated scanner cleanup and both production
 capture adapters, reproduces the old failure, and verifies immediate G1 capture,

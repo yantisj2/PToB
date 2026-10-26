@@ -112,6 +112,28 @@ static void ordinary_inventory(void){
  assert(!receive(&o,p,1000500)&&!o.reserved); /* Current positive incumbent cancels. */
  puts("PASS first ordinary ANN immediate older-mesh stop, timing identity present, transactional wrong-scope negative/retired term, unrelated STATUS preserves reservation, current ANN cancels");
 }
+static void newcomer_during_announce_loss(void){
+ struct r2_group_config g=group();struct gm7_owner o;
+ assert(!gm7_owner_init(&o,&g,81,97,true,1000000));
+ struct gm7_packet old=fixture("announce"),newer=old;
+ struct gm7_source source={0};struct gm7_preparation prep={0};
+ assert(!receive(&o,old,1000000));gm7_owner_update(&o,&source,&prep,1000001);
+ uint64_t leader=o.scope.active,boot=o.scope.boot,birth=o.scope.birth;
+ /* Lose ANN for longer than its TTL, while authentic direct G1 advances.
+  * A COLD (not nominated) GM must follow the same older, live leader. */
+ uint64_t now=5000000;
+ gm7_owner_contact(&o,leader,boot,now,now);
+ newer.body.control.sender=newer.body.control.active=902;
+ newer.body.control.boot=newer.body.control.active_boot=903;
+ newer.body.control.founder=902;newer.body.control.birth_us=birth+1000000;
+ assert(!receive(&o,newer,now));gm7_owner_update(&o,&source,&prep,now);
+ assert(o.scope.active==leader&&o.scope.birth==birth&&!o.serving&&!o.armed);
+ /* Once contact actually expires, ordinary discovery can select a live mesh. */
+ now+=GM7_BLACKOUT_US;newer.body.control.sequence++;newer.body.control.sent_mono_us+=GM7_BLACKOUT_US;
+ assert(!receive(&o,newer,now));gm7_owner_update(&o,&source,&prep,now);
+ assert(o.scope.active==902&&!o.serving);
+ puts("PASS COLD GM keeps older live G1 leader across ANN loss and newer-mesh arrival; actual contact expiry permits rediscovery");
+}
 static void ordinary_schedule(void){
  struct r2_group_config g=group();struct gm7_packet p=fixture("announce");uint32_t air;
  assert(GM7_CONTROL_BYTES==178&&GM7_MAX_AD_BYTES==182);
@@ -224,4 +246,4 @@ static void independent_role(void){
  assert(!receive(&o,r,1000400)&&o.peer[0].quarantined&&o.peer[1].quarantined&&o.serving);
  puts("PASS ANN-free self-ACTIVE ROLE suppresses only newer lineage, exact-birth founder/term ties, independent generation churn, duplicate TTL, nonself/follower negatives and simultaneous reboot quarantine");
 }
-int main(void){printf("sizeof owner=%zu peer=%zu control=%zu scheduler=%zu\n",sizeof(struct gm7_owner),sizeof(struct gm7_peer),sizeof(struct gm7_peer_control),sizeof(struct gm7_scheduler));codec();receipt_horizons();ordinary_inventory();ordinary_schedule();capacity_pressure();terminal_dominance();birth_and_ties();independent_role();phase_policy();promote();return 0;}
+int main(void){printf("sizeof owner=%zu peer=%zu control=%zu scheduler=%zu\n",sizeof(struct gm7_owner),sizeof(struct gm7_peer),sizeof(struct gm7_peer_control),sizeof(struct gm7_scheduler));codec();receipt_horizons();ordinary_inventory();newcomer_during_announce_loss();ordinary_schedule();capacity_pressure();terminal_dominance();birth_and_ties();independent_role();phase_policy();promote();return 0;}
