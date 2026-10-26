@@ -768,9 +768,10 @@ void gm7_owner_update(struct gm7_owner *o, const struct gm7_source *source,
   if (!nominated)
     o->blockers |= GM7_B_NOMINATION;
   if (o->armed) {
-    bool retained = scope && prep->retained_prediction &&
-                    prep->retained_enclosure_us <= 8000 &&
-                    now >= o->selected_contact &&
+    /* HOT is a control commitment. Loss of the leader's precision stream
+     * is the takeover trigger, not a reason to discard that commitment.
+     * A promoted retained map is optional; local source health is not. */
+    bool retained = now >= o->selected_contact &&
                     now - o->selected_contact < GM7_ARM_RETAIN_US;
     if (!o->eligible || !nominated || prep->health_lost || !retained ||
         physical_change) {
@@ -860,10 +861,7 @@ static bool hot_cause_at(const struct gm7_owner *o, uint64_t action) {
                  action - o->selected_contact >= GM7_BLACKOUT_US;
   return o->armed && o->selected.hot == o->identity &&
          o->selected.hot_boot == o->boot &&
-         o->preparation.retained_prediction &&
-         o->preparation.retained_enclosure_us <= 8000 &&
          !o->preparation.health_lost &&
-         gm7_scope_same(o->preparation.scope, o->scope) &&
          action >= o->selected_contact &&
          action - o->selected_contact < GM7_ARM_RETAIN_US &&
          (o->withdrawn || silence || fixed_yield);
@@ -876,7 +874,7 @@ bool gm7_owner_takeover_at(const struct gm7_owner *o, uint64_t nominal,
          nominal - now <= 250000 && end >= nominal && end - nominal <= 4000 &&
          o->eligible && source_current(o, now) && o->source.physical_ready &&
          o->source.until_us > end && hot_cause_at(o, nominal) &&
-         add(o->selected_contact, GM7_BLACKOUT_BOUND_US, &bound) &&
+         add(o->selected_contact, GM7_ARM_RETAIN_US, &bound) &&
          end <= bound;
 }
 static int activate(struct gm7_owner *o, uint64_t nominal, uint64_t complete,
@@ -939,7 +937,7 @@ static int activate(struct gm7_owner *o, uint64_t nominal, uint64_t complete,
   bool inherit = next.birth && next.founder && next.term;
   if (hot_takeover) {
     uint64_t bound;
-    if (!add(o->selected_contact, GM7_BLACKOUT_BOUND_US, &bound) ||
+    if (!add(o->selected_contact, GM7_ARM_RETAIN_US, &bound) ||
         complete > bound) {
       count(&o->missed_bounds);
       o->reason = GM7_R_MISSED_BOUND;

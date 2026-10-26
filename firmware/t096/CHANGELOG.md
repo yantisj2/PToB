@@ -1,5 +1,16 @@
 # T096 changelog
 
+## 0.15.200 — Retain HOT across total leader loss
+
+Keep an already qualified, nominated HOT armed when the leader timing stream
+expires. Drain the old receiver and promote the retained map when available;
+otherwise use the independently qualified local source while preserving the
+original epoch. A delayed control attempt may use the existing five-second HOT
+lease instead of falling into the thirty-second cold election. Source health,
+nomination revocation and fresh incumbent contact still cancel takeover.
+Console gm00 reports hot_armed, takeover_due and takeover_clock without adding
+static memory. No precision qualification is inferred from local fallback.
+
 ## 0.15.199 — Keep healthy leadership after late first G1
 
 Treat the three-second first-G1 target as a latency diagnostic after committed

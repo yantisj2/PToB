@@ -325,7 +325,9 @@ static bool promoted_reservation_current(struct gm7_bridge b,
     const struct gm7_source *source) {
   return promoted_valid && takeover_preparing &&
       owner.armed && owner.reserved && !owner.serving &&
-      b.hf <= owner.reserved_end && takeover_bound && b.hf < takeover_bound &&
+      b.hf <= owner.reserved_end && takeover_bound &&
+      b.hf >= owner.selected_contact &&
+      b.hf-owner.selected_contact < GM7_ARM_RETAIN_US &&
       owner.selected.hot == identity && owner.selected.hot_boot == boot &&
       gm7_scope_same(owner.preparation.scope,owner.scope) &&
       owner.reserved_scope.active == identity && owner.reserved_scope.boot == boot &&
@@ -875,7 +877,9 @@ static __attribute__((noinline)) void publish(struct gm7_bridge b) {
   bool local_fresh = b.hf >= owner.source.sampled_us && b.hf < owner.source.until_us;
   diagnostic.flags = (owner.reserved ? 1u : 0u) | (owner.failed ? 2u : 0u) |
       (local_fresh && owner.source.utc_available ? 4u : 0u) |
-      (local_fresh && owner.source.physical_ready ? 8u : 0u);
+      (local_fresh && owner.source.physical_ready ? 8u : 0u) |
+      (owner.armed ? 16u : 0u) | (owner.takeover_due ? 32u : 0u) |
+      (promoted_valid ? 64u : 0u);
   diagnostic.time_rejects = owner.time_rejects;
   diagnostic.missed_bounds = owner.missed_bounds;
   bool event_match =
@@ -1283,9 +1287,7 @@ static void cycle(struct k_work *work) {
    * ANN expiry by itself must not close an advancing G1 receiver. */
   bool retained_takeover = owner.armed && !owner.serving &&
       owner.selected.hot == identity && owner.selected.hot_boot == boot &&
-      gm7_scope_same(owner.preparation.scope,owner.scope) &&
-      owner.preparation.retained_prediction && !owner.preparation.health_lost &&
-      owner.preparation.retained_enclosure_us <= 8000 &&
+      !owner.preparation.health_lost &&
       b.hf >= owner.selected_contact && b.hf-owner.selected_contact < GM7_ARM_RETAIN_US;
   if (retained_takeover)
     r2_radio_service_handoff_request(owner.scope.active,owner.scope.boot,
@@ -1362,8 +1364,13 @@ static void cycle(struct k_work *work) {
    * inheritance. Its missing delivered map cannot suppress an independently
    * qualified initial election. Choose local phase only AFTER update/receive
    * granted initial_due; reserve still checks incumbent, rank and source.
-   * HOT takeover and ordinary following retain their remote physical phase. */
-  if (owner.initial_due && !owner.serving && !owner.armed && !owner.reserved) {
+   * A previously qualified HOT also uses its live local source when the
+   * dead leader's retained phase is unavailable. Ordinary following does not. */
+  bool hot_local_phase = owner.armed && takeover_preparing && !aligned &&
+      b.hf >= owner.selected_contact &&
+      b.hf-owner.selected_contact >= GM7_BLACKOUT_US-GM7_CLOSURE_LEAD_US;
+  if (!owner.serving && !owner.reserved &&
+      ((owner.initial_due && !owner.armed) || hot_local_phase)) {
     if (!bridge(&b) || b.epoch != clock_epoch) {
       resource_fault = true;
       goto finished;
@@ -1409,10 +1416,9 @@ static void cycle(struct k_work *work) {
                                                  owner.scope.boot,
                                                  owner.scope.timing_epoch);
           uint64_t bound = owner.selected_contact + GM7_BLACKOUT_BOUND_US;
-          /* Leave a finite100ms native G1 acquisition/start/first-event budget;
-           * actual first START is checked independently, never HCI acceptance.
-           */
-          if (nominal + 104000 > bound) {
+          /* Retry within the retained HOT control lease. The three-second
+           * first-G1 target is diagnostic, not a cold-election trigger. */
+          if (nominal + 4000 >= owner.selected_contact + GM7_ARM_RETAIN_US) {
             ready = false;
             ++owner.missed_bounds;
             owner.reason = GM7_R_MISSED_BOUND;
@@ -1420,12 +1426,14 @@ static void cycle(struct k_work *work) {
           if (ready && !promoted_valid) {
             uint64_t raw_pps = map.last_edge;
             struct r2_capture current;
-            ready = r2_capture_now(&current) &&
+            bool inherited = r2_capture_now(&current) &&
                     !r2_radio_service_gm7_promote(
                         &map, owner.scope.active, owner.scope.boot,
                         owner.scope.timing_epoch, owner.scope.train,
                         source.source_gen, map.utc_association, current);
-            if (ready) {
+            /* No usable retained fit: continue on the already qualified
+             * local source. Never manufacture a precision-map promotion. */
+            if (inherited) {
               (void)k_mutex_lock(&lock, K_FOREVER);
               ready = !input.stopped && !input.fatal &&
                       input.view.source_epoch == source.source_gen &&
@@ -2245,6 +2253,7 @@ int r2_gm7_diagnostic_format(char *out, size_t capacity, unsigned page,
       "\"owner_failed\":%s,\"time_rejects\":%u,\"local_time_source\":\"%s\",\"reservation_pending\":%"
       "s,\"reservation_stage\":%u,\"reservation_rc\":%d,"
       "\"reservation_failures\":%u,\"peer_evictions\":%u,\"handover_deadline_misses\":%u,"
+      "\"hot_armed\":%s,\"takeover_due\":%s,\"takeover_clock\":\"%s\","
       "\"preferred_hot\":\"%016llx\",\"preferred_hot_boot\":\"%016llx\","
       "\"hot_change_cause\":\"%s\",\"hot_changes\":%u,\"hot_change_reason\":%u,\"hot_changed_kernel_us\":%llu,"
       "\"previous_hot\":\"%016llx\",\"previous_hot_boot\":\"%016llx\",\"hot_hold_ms\":%u,"
@@ -2281,6 +2290,10 @@ int r2_gm7_diagnostic_format(char *out, size_t capacity, unsigned page,
       runtime_gm ? diagnostic.reservation_failures : 0,
       runtime_gm ? diagnostic.peer_evictions : 0,
       runtime_gm ? diagnostic.missed_bounds : 0,
+      runtime_gm && (diagnostic.flags & 16u) ? "true" : "false",
+      runtime_gm && (diagnostic.flags & 32u) ? "true" : "false",
+      !runtime_gm || diagnostic.role!=GM7_W_ACTIVE ? "NONE" :
+          (diagnostic.flags & 64u) ? "INHERITED_MAP" : "LOCAL_SOURCE",
       (unsigned long long)(runtime_gm?diagnostic.preferred_hot:0),
       (unsigned long long)(runtime_gm?diagnostic.preferred_hot_boot:0),
       hot_cause,diagnostic.hot_changes,diagnostic.hot_change_reason,

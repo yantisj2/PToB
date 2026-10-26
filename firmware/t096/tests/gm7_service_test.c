@@ -838,6 +838,31 @@ static void promoted_map_keeps_source_dwell(void) {
   }
   puts("PASS authorized retained-map promotion preserves source dwell across positive/negative UTC offsets; subsequent backward samples still revoke source");
 }
+static void hot_survives_dead_stream(void) {
+  for (unsigned late=0; late<2; ++late) {
+    takeover_fixture_at(late ? 69783100 : 68783100);
+    /* Real total loss: G1 permissions and retained phase are already gone.
+     * The nominated, independently qualified HOT must keep its control role. */
+    fake_timing=(struct r2_gm7_timing){0};
+    fake_promote_ready=false;
+    cycle(&service_work);
+    assert(owner.armed && owner.eligible && takeover_preparing);
+    assert(owner.reserved && !owner.serving && !promoted_valid);
+    assert(owner.reserved_scope.birth==owner.scope.birth);
+    finish(GM7_PRIMARY,true,true);
+    assert(owner.serving && owner.scope.term==2);
+    assert(!promoted_valid); /* No stale delivered map is claimed. */
+    input.view.fix_active=false;
+    cycle(&service_work);
+    assert(!owner.serving);
+  }
+  takeover_fixture();
+  fake_timing=(struct r2_gm7_timing){0};
+  owner.selected.hot=0;
+  cycle(&service_work);
+  assert(!owner.armed && !owner.reserved && !owner.serving);
+  puts("PASS nominated HOT survives dead timing stream and delayed control opportunity, inherits epoch, uses live local source; source loss and nomination revoke still stop takeover");
+}
 static void yield_fixture(void) {
   setup(true);
   tick_to(96033000);
@@ -1485,6 +1510,10 @@ static void durable_control_cases(void){
     assert(!owner.serving&&!owner.initial_due&&!owner.reserved&&functional_source.count&&
         functional_source.utc_offset_ns==local_offset);
   }
+  /* Ordinary non-nominees still wait for the cold election. The nominated
+   * HOT path with the same dead stream is covered above. */
+  owner.selected.hot=owner.selected.hot_boot=0;
+  owner.armed=false;
   uint64_t last_contact=owner.selected_contact;
   bool fallback=false;
   for(unsigned i=0;i<180&&!fallback;i++){
@@ -1549,6 +1578,7 @@ static void nomination_diagnostics(void) {
 int main(int argc, char **argv) {
   (void)argc;
   (void)argv;
+  hot_survives_dead_stream();
   promoted_map_keeps_source_dwell();
   nomination_diagnostics();
   yield_copies();
