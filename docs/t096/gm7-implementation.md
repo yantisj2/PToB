@@ -2,7 +2,7 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
-Source **0.15.190** uses broadcast GM discovery, ordinary shadow STATUS and the
+Source **0.15.191** uses broadcast GM discovery, ordinary shadow STATUS and the
 existing RC G1 receive/matcher/fitter. A GM follows the selected source without
 JOIN, GATT, REQUEST/ANCHOR, nonces, admission sessions or ANN permission renewal.
 Normal RC client admission, GATT, RC9, relay, USB and LoRa remain supported.
@@ -63,6 +63,13 @@ Assertions, reference counts, release/flush ownership and timers are retained.
 Production-body host regressions demonstrate the corrected classification and
 cleanup paths; they do not prove the exact trigger of an observed controller
 assertion, full Zephyr concurrency or repair of the separate CPU corruption.
+
+Management AUX cancellation through the primary scanner now releases its
+hardware timestamp capture before cleanup returns. This includes immediate
+LLL AUX reception preempted by another radio event and scan-duration expiry.
+The original missing release could block G1 timestamp capture while ordinary
+management traffic continued. The production-body regression reproduces that
+failure and verifies recovery without changing HOT or precision thresholds.
 
 ## GM behavior
 

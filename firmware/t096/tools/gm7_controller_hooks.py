@@ -29,6 +29,14 @@ def generate(ull,scan,aux,sync,out):
    # pins37 throughout the enabled S1 GM owner, independent of phase.
    # Ordinary RC and live initiators keep their original channel policy.
    s=replace(s,needle,'lll_chan_set((!lll->conn && r2_gm7_controller_scan37()) ? 37 : 37 + lll->chan);',2)
+   # An LLL-scheduled AUX still belongs to the primary scanner. Its active
+   # preemption/duration-expiry path never enters lll_scan_aux.isr_done.
+   # Release the exact current PACKETPTR capture before scanner cleanup;
+   # queued aborts must not touch the radio's current capture owner.
+   s=replace(s,'static void isr_done_cleanup(void *param)\n{',
+     'static void isr_done_cleanup(void *param)\n{\n'
+     '\tr2_gm7_capture_abort((void *)(uintptr_t)NRF_RADIO->PACKETPTR);')
+
   else:
    s=replace(s,'#include <stdint.h>','#include <stdint.h>\n#include "gm7_controller.h"')
    # Both immediate LLL AUX follow and ULL-prepared AUX follow keep capture

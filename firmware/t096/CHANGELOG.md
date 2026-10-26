@@ -1,5 +1,19 @@
 # T096 changelog
 
+## 0.15.191 — Release management capture on scanner preemption
+
+An LLL-scheduled management AUX receive uses the primary scanner's cleanup
+path when preempted or when its scan duration expires. Release its exact
+PACKETPTR capture there, before the duplicate-done early return. Previously
+that path could leave CC1 owned by management and block subsequent G1 capture
+until another matching AUX completion. Queued cancellation cannot release the
+current radio owner. No timing thresholds or wire protocol changes.
+
+The regression executes the generated scanner cleanup and both production
+capture adapters, reproduces the old failure, and verifies immediate G1 capture,
+duplicate cleanup, foreign-owner rejection and failed-driver release behavior.
+Hardware validation is pending; the separate CPU fault remains unresolved.
+
 ## 0.15.190 — Bounded journal capacity and periodic AUX classification
 
 At startup only, a valid pending crash with no append capacity can reclaim a
