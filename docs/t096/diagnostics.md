@@ -1395,3 +1395,28 @@ separate raw evidence. Missing registers/bytes/rules, hand assembly, corruption
 or optimized frames may prevent a complete trace. Pointer-looking words are not
 invented callers. A dump can expose a damaged caller slot without proving its
 earlier writer or a CPU-fault fix. Hardware operation requires separate scope.
+
+
+### HOT nomination changes (0.15.194)
+
+`gm 00` separates `preferred_hot` from `ordinary_hot_confirmed`. The preference
+survives a transient STATUS/preparation gap for up to30 seconds after the last
+ready observation; confirmation retains the original received STATUS lifetime.
+`hot_hold_ms` is time since the nominee last passed the readiness check. It is
+not a timing bound. Explicit ineligibility, scope change or departure can remove
+the nominee sooner. Accuracy/variance fluctuations do not preempt a nominee.
+
+`hot_changes`, `hot_change_cause`, `hot_change_reason`,
+`hot_changed_kernel_us`, `previous_hot` and `previous_hot_boot` describe the
+last nomination transition; current identity/boot remain `preferred_hot` and
+`preferred_hot_boot`. Causes0..8 are NONE, SELECTED, STATUS_TIMEOUT,
+UNREADY_TIMEOUT, INELIGIBLE, SCOPE_CHANGED, BETTER_POLICY, DEPARTED,
+LEADER_CHANGED. Counts/times are local to this running service and boot.
+
+The timing journal stores adjacent GM_CONTROL stages8 (`0x7800`, old) and9
+(`0x7900`, new), with the same reason, peer identity and full boot split across
+`a` (low32) and `b` (high32). Stage10 (`0x7a00`) records a local role transition:
+`a` is old wire role, `b` is new wire role and result is the owner reason. This
+separates nomination churn from a follower's genuine preparation/source loss.
+Journal overwrites remain possible; the persistent console counters summarize
+observed transitions without claiming a lossless history.

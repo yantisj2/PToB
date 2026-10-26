@@ -98,6 +98,15 @@ uint8_t r2_ticker_phase_step(uint8_t instance_index, uint8_t user_id,
         if not dest.is_file() or dest.read_text()!=fixed:dest.write_text(fixed)
     if fault_diagnostics:
         diagnostic_sources(deps, out)
+    # Upstream PR123163 / e9f3e3f1cd48d76502963fb210d7b642eae98ffe.
+    # LLL can enqueue after manage; inquire must consume only managed entries.
+    ticker=out/'ticker/ticker.c'
+    body=ticker.read_text()
+    old='while (user->first != user->last)'
+    assert body.count(old)==1
+    body=body.replace(old,'while (user->first != user->middle)')
+    ticker.write_text(body)
+
 
 def diagnostic_sources(deps, out):
     """Apply only the separately pinned diagnostic hunks to generated copies."""

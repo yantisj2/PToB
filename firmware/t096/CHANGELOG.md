@@ -1,5 +1,17 @@
 # T096 changelog
 
+## 0.15.194 — Sticky HOT nomination and switchover diagnostics
+
+Retain the current same-scope candidate through up to30s of missing STATUS or
+transient preparation loss. Explicit ineligibility, withdrawal/quarantine and
+scope changes still remove it. Actual HOT confirmation and handover freshness
+remain unchanged. Accuracy/variance fluctuations do not preempt the nominee;
+configured priority or clock-class improvement retains the10s policy dwell.
+Console gm00 records nomination count, cause, previous identity/boot, change
+time and hold age; journal stages8/9 preserve old/new identities and full boots.
+Apply upstream Zephyr PR123163 inquiry boundary correction to generated ticker.
+Hardware acceptance is recorded separately; this is not a CPU-crash fix claim.
+
 ## 0.15.193 — Serialize native and HCI controller calls
 
 GM submit, drain and phase updates now share one thread-side lock with HCI

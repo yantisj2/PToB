@@ -11,6 +11,7 @@ extern "C" {
 #define GM7_BLACKOUT_US UINT64_C(2500000)
 #define GM7_CLOSURE_LEAD_US UINT64_C(350000)
 #define GM7_BLACKOUT_BOUND_US UINT64_C(3000000)
+#define GM7_NOMINEE_GRACE_US UINT64_C(30000000)
 #define GM7_ARM_RETAIN_US UINT64_C(5000000)
 typedef uint64_t (*gm7_now_fn)(void *context);
 typedef bool (*gm7_reservation_fence_fn)(void *context);
@@ -47,6 +48,9 @@ enum gm7_blocker {
   GM7_B_UNCERTAINTY = 2048,
   GM7_B_RESOURCE = 4096
 };
+enum gm7_nominee_reason { GM7_N_NONE, GM7_N_SELECTED, GM7_N_STATUS_TIMEOUT,
+  GM7_N_UNREADY_TIMEOUT, GM7_N_INELIGIBLE, GM7_N_SCOPE, GM7_N_POLICY,
+  GM7_N_DEPARTED, GM7_N_LEADER_CHANGED };
 struct gm7_quality {
   uint8_t priority1, clock_class, accuracy, priority2;
   uint16_t variance;
@@ -136,6 +140,8 @@ struct gm7_owner {
       nominee_boot, nominee_better_since, nominee_better_id,
       nominee_better_boot, quality_better_since, quality_better_id,
       quality_better_boot;
+  uint64_t nominee_ready_at;
+  uint32_t nominee_reason;
   uint64_t yield_deadline, remote_yield_sequence, remote_yield_after, last_utc,
       last_utc_at;
   uint32_t timing_epoch, train, shadow_gen, event_generation, transitions,

@@ -591,6 +591,8 @@ static void diagnostics_and_remap(void) {
   memset(&diagnostic,0xff,sizeof diagnostic);
   char maximum[3072-96];char source[65];memset(source,'f',64);source[64]=0;
   assert(r2_gm7_diagnostic_format(maximum,sizeof maximum,0,source,UINT64_MAX,true)>0);
+  assert(strstr(maximum,"\"hot_change_cause\":\"UNKNOWN\"") &&
+      strstr(maximum,"\"previous_hot_boot\":") && strstr(maximum,"\"hot_hold_ms\":"));
   assert(strstr(maximum,"\"snapshot_witness\":")&&strstr(maximum,"\"prior_crash_blocked\":"));
   assert(r2_gm7_diagnostic_format(maximum,8,0,source,UINT64_MAX,true)==-ENOSPC);
   assert(gm7_duration_ms(UINT64_C(4294967295000), 0) == UINT32_MAX - 1 &&
@@ -1486,9 +1488,30 @@ static void durable_control_cases(void){
   assert(owner.serving&&!owner.reserved&&owner.first_announce_end<=j.window.latest_end);
   puts("PASS raw contact cancels silence reservation/closure and inhibits cold election; PPS source stays live through completed non-HOT cold ANN/precision enable, no-fix capability remains visible, delayed completed ANN commits before reservation retirement");
 }
+static void nomination_diagnostics(void) {
+  setup(true);struct gm7_bridge b;assert(bridge(&b));
+  owner.nominee=49;owner.nominee_boot=65;owner.nominee_ready_at=b.hf;
+  owner.nominee_reason=GM7_N_SELECTED;publish(b);
+  assert(diagnostic.hot_changes==1 && diagnostic.preferred_hot==49 &&
+      diagnostic.previous_hot==0 && diagnostic.hot_hold_ms==0);
+  publish(b);assert(diagnostic.hot_changes==1);
+  tick_to(fake_hf+1000000);assert(bridge(&b));publish(b);
+  assert(diagnostic.hot_hold_ms==1000 && diagnostic.hot_changes==1);
+  owner.nominee=50;owner.nominee_boot=66;owner.nominee_reason=GM7_N_STATUS_TIMEOUT;
+  publish(b);assert(diagnostic.hot_changes==2 && diagnostic.previous_hot==49 &&
+      diagnostic.previous_hot_boot==65 && diagnostic.preferred_hot==50 &&
+      diagnostic.hot_changed_at==b.kernel_hi);
+  char text[2976];assert(r2_gm7_diagnostic_format(text,sizeof text,0,"TEST",boot,true)>0);
+  assert(strstr(text,"\"hot_change_cause\":\"STATUS_TIMEOUT\"") &&
+      strstr(text,"\"previous_hot\":\"0000000000000031\""));
+  owner.serving=false;publish(b);assert(diagnostic.hot_changes==3 &&
+      diagnostic.hot_change_reason==GM7_N_LEADER_CHANGED && !diagnostic.preferred_hot);
+  puts("PASS actual console nomination old/new boot identities, causes, count, hold age and leader departure");
+}
 int main(int argc, char **argv) {
   (void)argc;
   (void)argv;
+  nomination_diagnostics();
   yield_copies();
   administrative_yield();
   negative_phase_cases();

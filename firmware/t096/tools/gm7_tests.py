@@ -52,6 +52,12 @@ try:
  receipt['clock_command']=clock
  with (out/'clock.compile.log').open('w') as f:subprocess.run(clock,stdout=f,stderr=subprocess.STDOUT,check=True,timeout=30)
  with (out/'clock.run.log').open('w') as f:subprocess.run([str(out/'clock-test')],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=30)
+ nomination=[x for x in receipt['command'] if not x.endswith('/protocol/gm7_owner.c')]
+ nomination[nomination.index(str(app/'tests/gm7_test.c'))]=str(app/'tests/gm7_nomination_test.c')
+ nomination[-1]=str(out/'nomination-test')
+ receipt['nomination_command']=nomination
+ with (out/'nomination.compile.log').open('w')as f:subprocess.run(nomination,stdout=f,stderr=subprocess.STDOUT,check=True,timeout=45)
+ with (out/'nomination.run.log').open('w')as f:subprocess.run([str(out/'nomination-test')],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=30)
  service_sources=[p for p in sources if p.name!='gm7_test.c']+[app/'tests/gm7_service_test.c',app/'src/ui_render.c']
  service=[cc,'-std=c11','-O1','-g','-Wall','-Wextra','-Werror','-Wno-unused-function','-Wno-unused-variable','-Wno-unused-parameter','-Wno-default-const-init-var-unsafe','-fsanitize=address,undefined','-fno-sanitize-recover=all','-DR2_GM7_NATIVE=1','-DR2_GM5_NATIVE=1',*['-I'+str(x) for x in [app/'include',app/'protocol',app/'tests',tiny/'include',out]],*map(str,service_sources),'-o',str(out/'service-test')]
  receipt['service_command']=service

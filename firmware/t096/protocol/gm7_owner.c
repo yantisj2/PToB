@@ -501,52 +501,63 @@ static bool remote_prepared(const struct gm7_owner *o,
       (p->flags&(GM7_ELIGIBLE|GM7_SHADOW|GM7_CAPABLE))==
           (GM7_ELIGIBLE|GM7_SHADOW|GM7_CAPABLE);
 }
+/* Nomination is a stable preference, not a renewable precision grant.
+ * A brief STATUS/readiness gap must not revoke it and force a healthy HOT to
+ * disarm. Actual confirmation/YIELD/reservation checks remain fresh below. */
+static int policy_compare(struct gm7_quality a, struct gm7_quality b) {
+  if (a.priority1 != b.priority1) return a.priority1 < b.priority1 ? -1 : 1;
+  if (a.clock_class != b.clock_class) return a.clock_class < b.clock_class ? -1 : 1;
+  if (a.priority2 != b.priority2) return a.priority2 < b.priority2 ? -1 : 1;
+  return 0; /* accuracy/variance fluctuations never displace an incumbent */
+}
+static bool candidate_scope(const struct gm7_peer *p,const struct gm7_scope *s) {
+  const struct gm7_control *c=&p->received.control;
+  return c->birth_us==s->birth && c->founder==s->founder && c->term==s->term &&
+      c->active==s->active && c->active_boot==s->boot &&
+      c->timing_epoch==s->timing_epoch && c->train_gen==s->train;
+}
 static void nominate(struct gm7_owner *o) {
-  const struct gm7_peer *best = NULL, *current = NULL;
-  for (unsigned i = 0; i < GM7_PEERS; i++) {
-    const struct gm7_peer *p = &o->peer[i];
-    if (!remote_prepared(o, p))
-      continue;
-    if (p->identity == o->nominee && p->boot == o->nominee_boot)
-      current = p;
-    int q = best ? gm7_quality_compare(quality(&p->received.control),
-                                       quality(&best->received.control))
-                 : -1;
-    if (!best || q < 0 ||
-        (q == 0 && (p->identity < best->identity ||
-                    (p->identity == best->identity && p->boot < best->boot))))
-      best = p;
+  const struct gm7_peer *best=NULL,*current=NULL;
+  uint32_t why=GM7_N_SELECTED;
+  for(unsigned i=0;i<GM7_PEERS;i++) {
+    const struct gm7_peer *p=&o->peer[i];
+    if(p->used && p->identity==o->nominee && p->boot==o->nominee_boot)current=p;
+    if(!remote_prepared(o,p))continue;
+    int q=best?gm7_quality_compare(quality(&p->received.control),quality(&best->received.control)):-1;
+    if(!best || q<0 || (q==0 && (p->identity<best->identity ||
+        (p->identity==best->identity && p->boot<best->boot))))best=p;
   }
-  if (!best) {
-    o->yield_ready = false;
-    o->nominee = o->nominee_boot = o->nominee_better_since =
-        o->nominee_better_id = o->quality_better_since = 0;
-    return;
-  }
-  if (!current) {
-    o->nominee = best->identity;
-    o->nominee_boot = best->boot;
-    o->nominee_better_since = o->nominee_better_id = 0;
-  } else if (best != current &&
-             gm7_quality_compare(quality(&best->received.control),
-                                 quality(&current->received.control)) < 0) {
-    if ((o->nominee_better_id != best->identity ||
-         o->nominee_better_boot != best->boot)) {
-      o->nominee_better_id = best->identity;
-      o->nominee_better_boot = best->boot;
-      o->nominee_better_since = o->now;
-    } else if (o->now - o->nominee_better_since >= 10000000) {
-      o->nominee = best->identity;
-      o->nominee_boot = best->boot;
-      o->nominee_better_since = o->nominee_better_id = 0;
+  if(current) {
+    if(current->quarantined || current->kind==GM7_WITHDRAW)why=GM7_N_DEPARTED;
+    else if(!candidate_scope(current,&o->scope))why=GM7_N_SCOPE;
+    else if((current->flags&(GM7_ELIGIBLE|GM7_CAPABLE))!=(GM7_ELIGIBLE|GM7_CAPABLE))why=GM7_N_INELIGIBLE;
+    else if(remote_prepared(o,current))o->nominee_ready_at=o->now;
+    else if(o->now>=o->nominee_ready_at && o->now-o->nominee_ready_at<GM7_NOMINEE_GRACE_US) {
+      /* Keep preference only. An expired report is never a confirmed HOT. */
+    } else why=peer_current(current,o->now)?GM7_N_UNREADY_TIMEOUT:GM7_N_STATUS_TIMEOUT;
+    if(why!=GM7_N_SELECTED)current=NULL;
+  } else if(o->nominee)why=GM7_N_DEPARTED;
+  if(!current) {
+    uint64_t id=best?best->identity:0,boot=best?best->boot:0;
+    if(id!=o->nominee || boot!=o->nominee_boot) {
+      o->nominee_reason=why;o->nominee=id;o->nominee_boot=boot;
+      o->nominee_ready_at=best?o->now:0;
     }
-  } else
-    o->nominee_better_since = o->nominee_better_id = 0;
+    o->nominee_better_since=o->nominee_better_id=0;
+  } else if(best && best!=current &&
+      policy_compare(quality(&best->received.control),quality(&current->received.control))<0) {
+    if(o->nominee_better_id!=best->identity || o->nominee_better_boot!=best->boot) {
+      o->nominee_better_id=best->identity;o->nominee_better_boot=best->boot;o->nominee_better_since=o->now;
+    } else if(o->now-o->nominee_better_since>=10000000) {
+      o->nominee=best->identity;o->nominee_boot=best->boot;o->nominee_ready_at=o->now;
+      o->nominee_reason=GM7_N_POLICY;o->nominee_better_since=o->nominee_better_id=0;
+    }
+  } else o->nominee_better_since=o->nominee_better_id=0;
   const struct gm7_peer *chosen =
       peer_for(o, o->nominee, o->nominee_boot, false);
   bool better = chosen && remote_prepared(o, chosen) &&
                 (chosen->flags & GM7_HOT) &&
-                gm7_quality_compare(quality(&chosen->received.control),
+                policy_compare(quality(&chosen->received.control),
                                     o->source.quality) < 0;
   if (!better) {
     o->quality_better_since = o->quality_better_id = o->quality_better_boot = 0;

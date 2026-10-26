@@ -96,6 +96,8 @@ static struct r2_group_config group;
 static struct {
   uint64_t birth, founder, term, active, active_boot, at;
   uint64_t preferred_hot,preferred_hot_boot,hot_confirmation_until;
+  uint64_t previous_hot, previous_hot_boot, hot_changed_at;
+  uint32_t hot_changes, hot_change_reason, hot_hold_ms;
   uint32_t peer_evictions;
   uint32_t hot_ms, active_ms, pps_ms, reason;
   uint16_t blockers;
@@ -107,7 +109,7 @@ static struct {
   uint32_t reservation_failures;
   uint32_t time_rejects; /* Reuses the snapshot's original trailing padding. */
 } diagnostic;
-_Static_assert(sizeof(diagnostic) == 112, "Coherent observational nominee/counter snapshot");
+_Static_assert(sizeof(diagnostic) == 152, "Coherent observational nominee/counter snapshot");
 enum {
   RESERVE_ADMITTED = 1,
   RESERVE_CONTROL,
@@ -821,6 +823,23 @@ static __attribute__((noinline)) void publish(struct gm7_bridge b) {
     yield_request.nominee=owner.nominee;
     yield_request.nominee_boot=owner.nominee_boot;
   }
+  uint64_t next_hot=owner.serving?owner.nominee:0;
+  uint64_t next_boot=owner.serving?owner.nominee_boot:0;
+  if(next_hot!=diagnostic.preferred_hot || next_boot!=diagnostic.preferred_hot_boot) {
+    diagnostic.previous_hot=diagnostic.preferred_hot;
+    diagnostic.previous_hot_boot=diagnostic.preferred_hot_boot;
+    diagnostic.hot_changed_at=b.kernel_hi;
+    if(diagnostic.hot_changes<UINT32_MAX)++diagnostic.hot_changes;
+    diagnostic.hot_change_reason=owner.serving?owner.nominee_reason:GM7_N_LEADER_CHANGED;
+    r2_timing_event(R2_TIMING_GM_CONTROL,diagnostic.hot_change_reason,
+        diagnostic.previous_hot,R2_GM7_JOURNAL(R2_GM7_J_HOT_OLD,0),
+        (uint32_t)diagnostic.previous_hot_boot,(uint32_t)(diagnostic.previous_hot_boot>>32));
+    r2_timing_event(R2_TIMING_GM_CONTROL,diagnostic.hot_change_reason,
+        next_hot,R2_GM7_JOURNAL(R2_GM7_J_HOT_NEW,0),
+        (uint32_t)next_boot,(uint32_t)(next_boot>>32));
+  }
+  diagnostic.hot_hold_ms=owner.serving&&owner.nominee&&b.hf>=owner.nominee_ready_at?
+      gm7_duration_ms(b.hf,owner.nominee_ready_at):0;
   diagnostic.preferred_hot=owner.serving?owner.nominee:0;
   diagnostic.preferred_hot_boot=owner.serving?owner.nominee_boot:0;
   diagnostic.hot_confirmation_until=0;
@@ -838,12 +857,16 @@ static __attribute__((noinline)) void publish(struct gm7_bridge b) {
     }
   }
   diagnostic.at = b.kernel_hi;
+  uint8_t previous_role=diagnostic.role;
   diagnostic.role =
       owner.armed     ? GM7_W_HOT
       : owner.serving ? GM7_W_ACTIVE
       : (owner.selected.hot == identity && owner.selected.hot_boot == boot)
           ? GM7_W_PREPARING
           : GM7_W_STANDBY;
+  if(previous_role!=diagnostic.role)
+    r2_timing_event(R2_TIMING_GM_CONTROL,owner.reason,identity,
+        R2_GM7_JOURNAL(R2_GM7_J_HOT_ROLE,0),previous_role,diagnostic.role);
   diagnostic.known = 0;
   diagnostic.reason = owner.reason;
   diagnostic.peer_evictions=owner.peer_evictions;
@@ -2189,6 +2212,11 @@ int r2_gm7_diagnostic_format(char *out, size_t capacity, unsigned page,
       !atomic_get(&stopping)&&!resuming&&!input.stopped&&!input.fatal&&
       diagnostic.role==GM7_W_ACTIVE&&query_now>=diagnostic.at&&
       query_now-diagnostic.at<500000&&pt_managed&&!pt_stopped&&pt_binding;
+  static const char *const hot_causes[]={"NONE","SELECTED","STATUS_TIMEOUT",
+      "UNREADY_TIMEOUT","INELIGIBLE","SCOPE_CHANGED","BETTER_POLICY",
+      "DEPARTED","LEADER_CHANGED"};
+  const char *hot_cause=diagnostic.hot_change_reason<sizeof hot_causes/sizeof hot_causes[0]?
+      hot_causes[diagnostic.hot_change_reason]:"UNKNOWN";
   int n = snprintf(
       out, capacity,
       "{\"schema\":7,\"protocol\":\"GM7v3+S2+C1\",\"source\":\"%s\",\"boot\":"
@@ -2202,6 +2230,8 @@ int r2_gm7_diagnostic_format(char *out, size_t capacity, unsigned page,
       "s,\"reservation_stage\":%u,\"reservation_rc\":%d,"
       "\"reservation_failures\":%u,\"peer_evictions\":%u,"
       "\"preferred_hot\":\"%016llx\",\"preferred_hot_boot\":\"%016llx\","
+      "\"hot_change_cause\":\"%s\",\"hot_changes\":%u,\"hot_change_reason\":%u,\"hot_changed_kernel_us\":%llu,"
+      "\"previous_hot\":\"%016llx\",\"previous_hot_boot\":\"%016llx\",\"hot_hold_ms\":%u,"
       "\"hot_confirmation_available\":%s,\"ordinary_hot_confirmed\":%s,"
       "\"hot_confirmation_until_us\":%llu,\"management_rx\":%u,"
       "\"management_mac_valid\":%u,\"management_"
@@ -2236,6 +2266,10 @@ int r2_gm7_diagnostic_format(char *out, size_t capacity, unsigned page,
       runtime_gm ? diagnostic.peer_evictions : 0,
       (unsigned long long)(runtime_gm?diagnostic.preferred_hot:0),
       (unsigned long long)(runtime_gm?diagnostic.preferred_hot_boot:0),
+      hot_cause,diagnostic.hot_changes,diagnostic.hot_change_reason,
+      (unsigned long long)diagnostic.hot_changed_at,
+      (unsigned long long)diagnostic.previous_hot,
+      (unsigned long long)diagnostic.previous_hot_boot,diagnostic.hot_hold_ms,
       hot_available?"true":"false",
       hot_available&&query_now<diagnostic.hot_confirmation_until?"true":"false",
       (unsigned long long)(runtime_gm?diagnostic.hot_confirmation_until:0),
