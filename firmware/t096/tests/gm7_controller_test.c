@@ -79,6 +79,7 @@ static void reset(void) {
   generation = 1;
   source_live = 0;
   fake_ticker_status = 0;
+  fake_status_semaphore = 0;
   fake_mayfly = NULL;
   gm7_scheduler_init(&jobs, fake_now);
   clock_reads = second_read_advance = 0;
@@ -241,7 +242,31 @@ static void scan_and_anchor(void) {
        "prospective exact-handle/train62.5ms G1 anchor, SyncInfo ticker phase, "
        "stale/mismatched rejection and RC inactive bypass");
 }
+static void late_single_shot_completion(void) {
+  reset();
+  submit();
+  /* Pinned ticker worker calls the saved start callback again when a
+   * one-shot is skipped. Submit has returned; ASan checks its lifetime. */
+  assert(retained_start_callback && retained_start_context);
+  retained_start_callback(TICKER_STATUS_FAILURE, retained_start_context);
+  assert(native[0].owned && jobs.job[0].state == GM7_JOB_DISPATCHED);
+  assert(!fake_status_semaphore && native[0].aborted);
+  struct r2_gm7_tx result;
+  assert(r2_gm7_controller_result(&result) && !result.complete);
+  assert(!r2_gm7_controller_result(&result));
+  assert(!r2_gm7_controller_drain(0, fake_now));
+  assert(!retained_start_callback && r2_gm7_controller_idle());
+  gm7_scheduler_init(&jobs, fake_now);
+  clock_reads = 0;
+  queued();
+  uint8_t address[6] = {1, 2, 3, 4, 5, 0xc6};
+  assert(!r2_gm7_controller_submit(0, &jobs, address, fake_now));
+  retained_start_callback(TICKER_STATUS_FAILURE, retained_start_context);
+  assert(!r2_gm7_controller_drain(0, fake_now));
+  puts("PASS delayed one-shot failure callback after submit return and drained slot reuse");
+}
 int main(void) {
+  late_single_shot_completion();
   admission_errors();
   successful_pair();
   shortened_and_cancelled();

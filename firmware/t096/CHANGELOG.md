@@ -1,10 +1,22 @@
+# T096 changelog
+
+## 0.15.197 — One-shot callback lifetime
+
+Keep ticker start completion with its native job slot. The pinned controller
+retains one-shot callbacks after the start acknowledgment and can call them
+again when a collision skips the event. A late failure now reports a dropped
+control job; it cannot write a returned stack frame or release the operation
+semaphore twice. The regression exercises delayed failure and drained reuse.
+
+Disable the per-call source register witness. Ordinary retained crash capture,
+exact-build offline decoding and its192-byte thread stack window remain enabled.
+Follower reset counters and HOT transition diagnostics remain available.
+
 ## 0.15.196 — follower reset diagnostics
 
 GM7 page9 exposes cumulative receiver withdrawals, their calling PC, and scope
 reset counts/reason bits to diagnose repeated follower reacquisition. These
 observations confer no clock authority. Four counters add16 bytes of static RAM.
-
-# T096 changelog
 
 ## 0.15.195 — Distinguish unavailable association from scope change
 

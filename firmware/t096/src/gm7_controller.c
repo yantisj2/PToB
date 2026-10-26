@@ -54,6 +54,7 @@ struct gm7_native_job {
   struct gm7_job *job;
   struct r2_gm7_tx result;
   uint32_t cancel_generation;
+  volatile uint32_t start_completion;
   uint8_t primary[15], channel, slot;
   uint32_t queued, ready, owned;
   bool auxiliary, aborted, initialized;
@@ -259,6 +260,21 @@ static void finish_isr(void *param) {
   __atomic_store_n(&n->ready, 1, __ATOMIC_RELEASE);
   lll_isr_cleanup(lll);
 }
+static void ticker_start_complete(uint32_t status, void *param) {
+  struct gm7_native_job *n = param;
+  uint32_t busy = TICKER_STATUS_BUSY;
+  if (__atomic_compare_exchange_n(&n->start_completion, &busy, status, false,
+                                  __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE)) {
+    /* Only the operation ACK balances ull_ticker_status_take. */
+    ull_ticker_status_give(status, (void *)&n->start_completion);
+  } else if (status == TICKER_STATUS_FAILURE &&
+             __atomic_load_n(&n->owned, __ATOMIC_ACQUIRE)) {
+    /* A skipped one-shot is an ordinary lost control packet. It has no
+     * waiting thread and must not release the global ticker API semaphore. */
+    n->aborted = true;
+    __atomic_store_n(&n->ready, 1, __ATOMIC_RELEASE);
+  }
+}
 static int controller_submit(unsigned slot, struct gm7_scheduler *scheduler,
                              const uint8_t address[6], uint64_t now) {
   if (slot >= GM7_JOB_SLOTS || !scheduler || !address)
@@ -326,12 +342,15 @@ static int controller_submit(unsigned slot, struct gm7_scheduler *scheduler,
     n->owned = 0;
     return -ERANGE;
   }
-  uint32_t volatile completion = TICKER_STATUS_BUSY;
+  /* Nonperiodic ticker nodes retain this callback/context after start ACK.
+   * Collision retirement can call it again with FAILURE after we return.
+   * Keep the context with the slot until ticker/LLL drain, never on stack. */
+  n->start_completion = TICKER_STATUS_BUSY;
   uint32_t status = ticker_start(
       TICKER_INSTANCE_ID_CTLR, TICKER_USER_ID_THREAD, TICKER_ID_MAX + slot,
       ticker_now + advance - offset, 0, 0, 0, 0, n->ull.ticks_slot,
-      gm7_ticker_job, n, ull_ticker_status_give, (void *)&completion);
-  status = ull_ticker_status_take(status, &completion);
+      gm7_ticker_job, n, ticker_start_complete, n);
+  status = ull_ticker_status_take(status, &n->start_completion);
   if (status != TICKER_STATUS_SUCCESS) {
     n->owned = 0;
     return -EBUSY;

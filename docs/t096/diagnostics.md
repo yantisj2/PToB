@@ -1432,3 +1432,13 @@ removal. Explicit ineligibility is reported before an accompanying empty scope.
 role/mode16, local capture32; stopped64 and unavailable capture128 describe
 the reset context. The caller PC requires the exact installed ELF to decode.
 These cumulative counters survive estimator resets, not device reboots.
+
+### Crash capture after the one-shot callback repair (.197)
+
+The per-call source register witness is disabled. Normal crash capture remains
+active: original registers,192 bytes of bounded thread stack and up to64 bytes
+of ISR stack, retained across reset and persisted by the boot writer. Decode
+against the exact build ELF with `tools/crash_decode.py`. The offline DWARF
+trace is partial when saved registers lie outside the captured window; it never
+guesses missing frames. A delayed scheduler failure is a dropped control job,
+not a reason to halt or clear the receiver.

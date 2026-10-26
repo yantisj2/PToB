@@ -130,12 +130,20 @@ static uint32_t mayfly_enqueue(unsigned a, unsigned b, unsigned c,
   fake_mayfly = m;
   return 0;
 }
+static void (*retained_start_callback)(uint32_t, void *);
+static void *retained_start_context;
 static uint32_t ticker_ticks_now_get(void) { return fake_ticker_now; }
+static unsigned fake_status_semaphore;
 static void ull_ticker_status_give(uint32_t status, void *p) {
+  ++fake_status_semaphore;
   *(volatile uint32_t *)p = status;
 }
 static uint32_t ull_ticker_status_take(uint32_t status, volatile uint32_t *p) {
-  (void)p;
+  if (status == TICKER_STATUS_BUSY || *p != TICKER_STATUS_BUSY) {
+    assert(fake_status_semaphore);
+    --fake_status_semaphore;
+    return *p;
+  }
   return status;
 }
 static uint32_t
@@ -154,8 +162,9 @@ ticker_start(unsigned a, unsigned b, unsigned c, uint32_t d, uint32_t e,
   (void)i;
   (void)j;
   (void)k;
-  (void)l;
-  (void)m;
+  retained_start_callback = l;
+  retained_start_context = m;
+  l(fake_ticker_status, m);
   return fake_ticker_status;
 }
 static uint32_t ticker_stop(unsigned a, unsigned b, unsigned c,
@@ -163,8 +172,9 @@ static uint32_t ticker_stop(unsigned a, unsigned b, unsigned c,
   (void)a;
   (void)b;
   (void)c;
-  (void)d;
-  (void)e;
+  retained_start_callback = NULL;
+  retained_start_context = NULL;
+  d(TICKER_STATUS_SUCCESS, e);
   return TICKER_STATUS_SUCCESS;
 }
 static void radio_isr_set(void (*f)(void *), void *p) {
