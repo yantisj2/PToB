@@ -1,5 +1,14 @@
 # T096 changelog
 
+## 0.15.192 — Keep a successful takeover serving through schedule offset
+
+A valid first G1 could be followed by a forced withdrawal solely because its
+preferred management-frame placement differed by more than1.5ms. Continue
+serving and use the existing bounded8us phase nudges instead. Source expiry,
+actual first-G1 deadline, ownership and receiver precision checks are unchanged.
+The service regression reproduces the old withdrawal and covers both offset
+signs, near-half-frame offsets and repeated-sample suppression.
+
 ## 0.15.191 — Restore capture and retain the older live leader
 
 An LLL-scheduled management AUX receive uses the primary scanner's cleanup

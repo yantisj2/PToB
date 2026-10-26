@@ -334,8 +334,10 @@ int r2_radio_service_gm7_promote(struct r2_source_clock *c, uint64_t r,
                              s, a);
   return -EAGAIN;
 }
+static unsigned fake_phase_steps;
+static int fake_last_phase_step;
 int r2_radio_service_gm7_phase_step(int step) {
-  (void)step;
+  ++fake_phase_steps;fake_last_phase_step=step;
   return 0;
 }
 int r2_relay_service_init(unsigned self, const struct r2_enrollment *r,
@@ -1194,6 +1196,20 @@ static void prospective_blackout_at(uint64_t at, bool revoked) {
   fake_timing.first_tx_derived_end_hi = fake_hf * 16;
   cycle(&service_work);
   assert(owner.serving && !takeover_bound);
+  /* A successful takeover stays serving when the first train is off the
+   * preferred control phase. Correct it gradually; never force30s silence. */
+  phase_step_at=0; /* Independent synthetic timeline after fixture reset. */
+  const int32_t offsets[]={1501,-1501,31249,-31249};
+  for(unsigned i=0;i<sizeof offsets/sizeof offsets[0];i++){
+    tick_to(fake_hf+62500);
+    fake_timing.last_tx=fake_hf*16;
+    fake_timing.tx_phase_us=offsets[i];
+    unsigned before=fake_phase_steps;
+    cycle(&service_work);
+    assert(owner.serving && !owner.event.negative && !takeover_bound);
+    assert(fake_phase_steps==before+1 && fake_last_phase_step==(offsets[i]>0?-1:1));
+    cycle(&service_work);assert(fake_phase_steps==before+1);
+  }
   takeover_fixture_at(at);
   cycle(&service_work);
   assert(owner.reserved);

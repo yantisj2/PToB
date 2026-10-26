@@ -1312,9 +1312,11 @@ static void cycle(struct k_work *work) {
     r2_radio_service_gm7_timing(&onair, b.kernel_hi);
     bool recent = onair.last_tx && b.hf * 16 >= onair.last_tx &&
                   b.hf * 16 - onair.last_tx <= 4000000;
-    if (recent && (onair.tx_phase_us > 1500 || onair.tx_phase_us < -1500))
-      fence(GM7_R_MISSED_BOUND, b.hf);
-    else if (recent) {
+    /* Train placement is a preferred management schedule, not source health.
+     * A captured, timestamped G1 outside that phase still provides time.
+     * Keep serving and slew the schedule with the existing bounded nudges;
+     * occasional control collisions must not force a30s cold election. */
+    if (recent) {
       int step = gm7_phase_nudge(onair.tx_phase_us, onair.last_tx, b.hf * 16,
                                  phase_step_at);
       if (step) {
