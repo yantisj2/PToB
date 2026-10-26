@@ -9,6 +9,8 @@
 #include <stdbool.h>
 #include "ui_framebuffer.h"
 #define R2_UI_IDLE_MS UINT64_C(300000)
+/* UI-local high bit; the low three GM7 known bits remain duration validity. */
+#define R2_UI_GM7_OWNER_FAULT 0x80u
 #define R2_UI_SAVER_MOVE_MS UINT64_C(30000)
 /* Whole 92px watch assembly moves within equal4px top/bottom margins. */
 #define R2_UI_SAVER_HEIGHT 92

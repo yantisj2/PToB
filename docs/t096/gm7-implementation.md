@@ -2,7 +2,7 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
-Source **0.15.186** uses broadcast GM discovery, ordinary shadow STATUS and the
+Source **0.15.187** uses broadcast GM discovery, ordinary shadow STATUS and the
 existing RC G1 receive/matcher/fitter. A GM follows the selected source without
 JOIN, GATT, REQUEST/ANCHOR, nonces, admission sessions or ANN permission renewal.
 Normal RC client admission, GATT, RC9, relay, USB and LoRa remain supported.
@@ -87,8 +87,18 @@ YIELD retains its750ms boundary and three copies250ms apart; WITHDRAW stops
 output synchronously and attempts three immutable copies within its original1s
 negative lifetime. These bounds coordinate output ownership rather than control
 packet precision. Late or missing copies cannot slide the stop boundary. Real
-hardware capture, source expiry, clock regression, group authentication,
+hardware capture, source expiry, capture-domain continuity, group authentication,
 identity/boot ambiguity, terminal/term floors and no-double-output checks remain.
+
+Processing snapshots are separate from capture-domain continuity. Completion
+handling returns its refreshed bridge to the service; a late older snapshot or
+an unavailable post-MAC clock sample rejects that operation without erasing the
+mesh. No rejected sample can publish time, advance a control floor or replace
+the original captured RX receipt/expiry. A failed completion-time read consumes
+no callback, allowing the same original completion to be reconciled later.
+STOP and withdrawal always suppress output; an unavailable processing sample
+cannot invent an RF negative timestamp. Real capture-epoch changes still stop
+and drain the service through its existing clock-domain fence.
 
 ## Wire, diagnostics and replay limits
 
@@ -106,6 +116,13 @@ reported ROLE and actual current timing. ROLE durations stay values reported at
 the sender sample; queries never advance those durations. Existing journal
 records include packet-kind RX/TX outcomes and asymmetric merge. No new log
 collector or diagnostic ring is required.
+The existing `gm 00` page includes `owner_failed`, `time_rejects` (rejected
+processing snapshots or invalid activation windows), and `local_time_source`
+(`NONE`, `FUNCTIONAL_UTC`, or `GNSS_PPS_MAP`). The source category describes a
+current local map, independently of the GNSS qualification dwell and received
+BLE timing. It grants no output or precision qualification. Genuine owner
+failure retains its cause, reports a network error and displays `OWNER FAULT`.
+These fields reuse the existing owner counter and diagnostic/UI storage.
 
 Receipt freshness authenticates membership and integrity, not the original age
 of an unseen recording. Retained sequence/sample/publication and terminal floors

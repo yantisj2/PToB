@@ -58,7 +58,7 @@ static void original_end_cases(void) {
   tick_to(old.window.latest_end + 10000);
   struct gm7_bridge b;
   assert(bridge(&b));
-  results(b);
+  assert(results(&b));
   assert(owner.serving && !owner.reserved && owner.active_since == fake_hf);
 
   for (unsigned orphan = 0; orphan < 2; ++orphan) {
@@ -74,7 +74,7 @@ static void original_end_cases(void) {
       fake_native_exposed[GM7_PRIMARY] = true;
     tick_to(end + 1);
     assert(bridge(&b));
-    results(b);
+    assert(results(&b));
     assert(!owner.reserved && !owner.serving && owner.scope.birth == birth &&
            owner.event.valid && owner.event.negative &&
            diagnostic.reservation_stage == RESERVE_EXPIRED);
@@ -106,7 +106,7 @@ static void stages_and_stale(void) {
   uint64_t old_sequence = owner.reserved_sequence;
   gm7_owner_reservation_cancel(&owner, fake_hf);
   assert(bridge(&b));
-  results(b);
+  assert(results(&b));
   tick_to(fake_hf + GM7_FRAME_US);
   healthy_input();
   cycle(&service_work);
@@ -120,7 +120,7 @@ static void stages_and_stale(void) {
                          .complete = false,
                          .exposed = true};
   assert(bridge(&b));
-  results(b);
+  assert(results(&b));
   assert(owner.reserved && owner.reserved_sequence == current);
   finish(GM7_PRIMARY, true, true);
   assert(owner.serving);

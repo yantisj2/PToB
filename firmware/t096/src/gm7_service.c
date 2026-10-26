@@ -99,11 +99,12 @@ static struct {
   uint32_t hot_ms, active_ms, pps_ms, reason;
   uint16_t blockers;
   uint8_t role, known;
-  bool pending;
+  uint8_t flags; /* Reserved, failed, functional UTC and physical source. */
   uint8_t event_queued, event_completed, event_failed, event_unsent;
   uint8_t reservation_stage;
   int16_t reservation_rc;
   uint32_t reservation_failures;
+  uint32_t time_rejects; /* Reuses the snapshot's original trailing padding. */
 } diagnostic;
 _Static_assert(sizeof(diagnostic) == 112, "Coherent observational nominee/counter snapshot");
 enum {
@@ -497,9 +498,15 @@ static void ordinary_controls(struct gm7_bridge b,uint64_t frame_start,
       }
     }
 }
-static void results(struct gm7_bridge b) {
+static bool results(struct gm7_bridge *current) {
+  struct gm7_bridge b = *current;
+  /* A failed read consumes no callback. Retry the same original completion on
+   * a later valid cycle; the cycle's explicit domain fence remains separate. */
   if (!bridge(&b) || b.epoch != clock_epoch)
-    return;
+    return false;
+  /* Completion handling can advance owner.now. Its caller must retain this
+   * same-domain processing bridge before its next owner entry point. */
+  *current = b;
   struct r2_gm7_tx result;
   for (unsigned count = 0;
        count < GM7_JOB_SLOTS && r2_gm7_controller_result(&result); count++) {
@@ -603,6 +610,7 @@ static void results(struct gm7_bridge b) {
   if (owner.reserved && b.hf > owner.reserved_end)
     reservation_fail(owner.reserved_nominal, owner.reserved_sequence,
                      RESERVE_EXPIRED, -ETIME, true, b.hf);
+  return true;
 }
 static struct r2_gm7_admission_source admission(struct gm7_bridge b) {
   uint64_t until = 0, utc = owner.source.utc_us;
@@ -838,7 +846,11 @@ static __attribute__((noinline)) void publish(struct gm7_bridge b) {
   diagnostic.reason = owner.reason;
   diagnostic.peer_evictions=owner.peer_evictions;
   diagnostic.blockers = owner.blockers;
-  diagnostic.pending = owner.reserved;
+  bool local_fresh = b.hf >= owner.source.sampled_us && b.hf < owner.source.until_us;
+  diagnostic.flags = (owner.reserved ? 1u : 0u) | (owner.failed ? 2u : 0u) |
+      (local_fresh && owner.source.utc_available ? 4u : 0u) |
+      (local_fresh && owner.source.physical_ready ? 8u : 0u);
+  diagnostic.time_rejects = owner.time_rejects;
   bool event_match =
       owner.event.valid &&
       event_evidence.sequence == owner.event.packet.body.control.sequence;
@@ -905,6 +917,8 @@ static __attribute__((noinline)) void publish(struct gm7_bridge b) {
     }
   }
   status.at = b.kernel_hi;
+  if (owner.failed && !status.error)
+    status.error = owner.reason == GM7_R_EXHAUSTED ? -EOVERFLOW : -EIO;
   status.profile_incarnation = boot;
   status.group_id = group.id;
   status.key_epoch = group.epoch;
@@ -1061,7 +1075,9 @@ static void cycle(struct k_work *work) {
     r2_ble_poll(kernel_now());
     r2_radio_service_stop(kernel_now());
     r2_relay_service_stop(kernel_now());
-    results(b);
+    if (!results(&b)) {
+      goto finished;
+    }
     if (owner.event.valid && owner.event.negative && owner.event.sent < 3 &&
         b.hf < owner.event.deadline && negative_aligned) {
       uint64_t nominal = negative_base + GM7_PRIMARY_US;
@@ -1127,7 +1143,9 @@ static void cycle(struct k_work *work) {
   /* Complete RF evidence must be consumed before update can retire a
    * reservation/consumed handoff solely because callback processing is late.
    * Fresh source and merge negatives still run before publishing any G1. */
-  results(b);
+  if (!results(&b)) {
+    goto finished;
+  }
   struct r2_gm7_timing t;
   r2_radio_service_gm7_timing(&t, b.kernel_hi);
   uint64_t heard_root=0,heard_boot=0,heard_tick=0,heard_epoch=0;
@@ -1224,7 +1242,9 @@ static void cycle(struct k_work *work) {
        count < R2_OWNER_CONTROL_RX && r2_ble_receive(&event); count++)
     if (event.peer == r2_ble_admission_peer())
       r2_group_admission_gm7_receive(&join, &event, kernel_now());
-  results(b);
+  if (!results(&b)) {
+    goto finished;
+  }
   const uint64_t closure_lead = GM7_CLOSURE_LEAD_US;
   bool fixed_yield_lead = owner.selected.yield_utc_us &&
       owner.remote_yield_sequence == owner.selected.sequence && owner.remote_yield_after &&
@@ -1414,7 +1434,9 @@ static void cycle(struct k_work *work) {
         yield_request.result = (int16_t)rc;
         (void)k_mutex_unlock(&lock);
       }
-      if (rc && owner.reserved)
+      if (rc && owner.failed)
+        reservation_note(RESERVE_CONTROL, rc, true);
+      else if (rc && owner.reserved)
         reservation_fail(nominal, owner.reserved_sequence, RESERVE_CONTROL, rc,
                          false, b.hf);
       if (!rc && (p.kind == GM7_ANNOUNCE || p.kind == GM7_WITHDRAW)) {
@@ -1903,6 +1925,8 @@ void r2_service_ui(struct r2_ui_model *m) {
   m->gm7_peer_valid=m->gm7_peer_current=m->gm7_peer_fresh=
       m->gm7_peer_eligible_claim=false;
   m->gm7_known = diagnostic.known;
+  if (diagnostic.flags & 2u)
+    m->gm7_known |= R2_UI_GM7_OWNER_FAULT;
   m->gm7_at_ms = diagnostic.at / 1000;
   m->gm7_hot_ms = diagnostic.hot_ms;
   m->gm7_active_ms = diagnostic.active_ms;
@@ -2162,7 +2186,8 @@ int r2_gm7_diagnostic_format(char *out, size_t capacity, unsigned page,
       "\"founder\":\"%"
       "016llx\",\"term\":%llu,\"active\":\"%016llx\",\"active_boot\":\"%"
       "016llx\",\"role\":%u,\"known\":%u,\"hot_ms\":%u,\"active_ms\":%u,\"pps_"
-      "ms\":%u,\"blockers_internal\":%u,\"reason\":%u,\"reservation_pending\":%"
+      "ms\":%u,\"blockers_internal\":%u,\"reason\":%u,"
+      "\"owner_failed\":%s,\"time_rejects\":%u,\"local_time_source\":\"%s\",\"reservation_pending\":%"
       "s,\"reservation_stage\":%u,\"reservation_rc\":%d,"
       "\"reservation_failures\":%u,\"peer_evictions\":%u,"
       "\"preferred_hot\":\"%016llx\",\"preferred_hot_boot\":\"%016llx\","
@@ -2189,7 +2214,11 @@ int r2_gm7_diagnostic_format(char *out, size_t capacity, unsigned page,
       (unsigned)(runtime_gm ? diagnostic.active_ms : UINT32_MAX),
       (unsigned)(runtime_gm ? diagnostic.pps_ms : UINT32_MAX),
       diagnostic.blockers, diagnostic.reason,
-      runtime_gm && diagnostic.pending ? "true" : "false",
+      runtime_gm && (diagnostic.flags & 2u) ? "true" : "false",
+      runtime_gm ? diagnostic.time_rejects : 0,
+      !runtime_gm ? "NONE" : (diagnostic.flags & 8u) ? "GNSS_PPS_MAP" :
+          (diagnostic.flags & 4u) ? "FUNCTIONAL_UTC" : "NONE",
+      runtime_gm && (diagnostic.flags & 1u) ? "true" : "false",
       runtime_gm ? diagnostic.reservation_stage : 0,
       runtime_gm ? (int)diagnostic.reservation_rc : 0,
       runtime_gm ? diagnostic.reservation_failures : 0,

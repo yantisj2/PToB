@@ -101,6 +101,11 @@ try:
  receipt['reservation_service_command']=reservation
  with (out/'reservation-service.compile.log').open('w')as f:subprocess.run(reservation,stdout=f,stderr=subprocess.STDOUT,check=True,timeout=45)
  with (out/'reservation-service.run.log').open('w')as f:subprocess.run([str(out/'reservation-service-test')],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=30)
+ timebase=reservation.copy();timebase[timebase.index(str(app/'tests/gm7_reservation_service_test.c'))]=str(app/'tests/gm7_timebase_service_test.c');timebase[-1]=str(out/'timebase-service-test')
+ receipt['timebase_service_command']=timebase
+ with (out/'timebase-service.compile.log').open('w')as f:subprocess.run(timebase,stdout=f,stderr=subprocess.STDOUT,check=True,timeout=45)
+ with (out/'timebase-service.run.log').open('w')as f:
+  for mode in range(10):subprocess.run([str(out/'timebase-service-test'),str(mode)],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=30)
  bridge_sources=[p for p in service_sources if p.name!='gm7_service_test.c']+[app/'tests/gm7_bridge_service_test.c',app/'src/gm7_clock.c']
  bridge_command=service[:service.index(str(service_sources[0]))]+['-DR2_GM7_SERVICE_CLOCK_TEST=1',*map(str,bridge_sources),'-o',str(out/'bridge-service-test')]
  receipt['bridge_service_command']=bridge_command

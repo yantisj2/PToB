@@ -138,7 +138,7 @@ struct gm7_owner {
   uint64_t yield_deadline, remote_yield_sequence, remote_yield_after, last_utc,
       last_utc_at;
   uint32_t timing_epoch, train, shadow_gen, event_generation, transitions,
-      duplicates, drops, late_windows, missed_bounds, overflow, peer_evictions, reason;
+      duplicates, drops, time_rejects, missed_bounds, overflow, peer_evictions, reason;
   uint16_t blockers;
   uint8_t role;
   bool gm_capable, eligible, source_observing, pps_observing, quiet, armed,
@@ -150,9 +150,9 @@ bool gm7_scope_same(struct gm7_scope, struct gm7_scope);
 bool gm7_calendar_clear(uint64_t utc_us);
 int gm7_owner_init(struct gm7_owner *, const struct r2_group_config *,
                    uint64_t identity, uint64_t boot, bool gm, uint64_t now);
-/* All owner entry points fence every permission, receipt inventory and positive
- * event on local monotonic regression. One serialized worker owns this state.
- */
+/* One serialized worker owns this state. Older/unavailable processing snapshots
+ * reject that operation without changing receipt time or latching a mesh fault.
+ * The service/clock owner separately fences a real capture-domain change. */
 /* Set once before use. Sample processing time after MAC authentication;
  * all receipt endpoints/deadlines remain the original native capture. */
 void gm7_owner_clock(struct gm7_owner *, gm7_now_fn, void *);

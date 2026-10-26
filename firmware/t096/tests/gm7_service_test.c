@@ -27,6 +27,8 @@ static uint32_t fake_poll_advance;
 static int fake_capture_error, fake_gnss_error, fake_group_start_result;
 static int fake_reset_result, fake_relay_reset_result;
 static uint32_t fake_capture_advance, fake_clock_epoch = 4;
+static uint32_t fake_hf_read_advance;
+static unsigned fake_hf_reads, fake_hf_unavailable_at;
 static bool fake_stop_on_reset;
 int r2_capture_error(void) { return fake_capture_error; }
 int r2_gnss_input_error(void) { return fake_gnss_error; }
@@ -96,9 +98,11 @@ bool r2_capture_now(struct r2_capture *c) {
 }
 #ifndef R2_GM7_REAL_CLOCK
 bool r2_gm7_clock_now(uint64_t *us, uint32_t *epoch) {
+  fake_hf += fake_hf_read_advance;
+  fake_kernel += fake_hf_read_advance;
   *us = fake_hf;
   *epoch = fake_clock_epoch;
-  return fake_hf_valid;
+  return fake_hf_valid && ++fake_hf_reads != fake_hf_unavailable_at;
 }
 bool r2_gm7_clock_bounds(uint32_t raw, uint32_t epoch, unsigned prefix,
                          unsigned chain, uint64_t *lo, uint64_t *hi) {
@@ -389,6 +393,8 @@ static void setup(bool serving) {
   fake_result_count = fake_submit_count = fake_completed_count = fake_overflow =
       overflow_seen = 0;
   fake_hf_valid = true;
+  fake_hf_read_advance = 0;
+  fake_hf_reads = fake_hf_unavailable_at = 0;
   fake_clock_epoch = 4;
   fake_ble_closed = fake_pt_closed = false;
   fake_relay_closed = true;
@@ -461,7 +467,7 @@ static void finish(unsigned slot, bool complete, bool exposed) {
                          .exposed = exposed};
   struct gm7_bridge b;
   assert(bridge(&b));
-  results(b);
+  assert(results(&b));
   if (complete)
     ++fake_completed_count;
 }

@@ -1,5 +1,29 @@
 # T096 changelog
 
+## 0.15.187 — Recover from delayed GM processing snapshots
+
+Carry the completion handler's refreshed same-domain bridge back to its caller.
+A stale processing snapshot or unavailable post-MAC clock read rejects that
+operation without permanently failing the GM owner or erasing its lineage and
+peers. A rejected snapshot cannot publish output, renew a captured receipt or
+extend a source deadline. STOP and withdrawal always suppress output, including
+when processing time is unavailable; an invalid sample cannot create a fresh RF
+negative timestamp. An unread completion stays queued for a later valid cycle.
+
+The existing GM diagnostic page adds owner failure, time rejection count and
+local functional/physical source category without increasing static state.
+The quality page distinguishes an owner fault from ordinary synchronization wait.
+Real capture-domain changes, source/map expiry, physical HOT qualification,
+30-second ordinary election quiet and the three-second HOT bound remain.
+Wire packets and normal RC receive/GATT/RC9 behavior are unchanged.
+
+Host regressions execute the production completion/cycle/owner ordering with
+an advancing clock, delayed completion, transient clock unavailability, old and
+future receipts, original expiry, explicit stop, true epoch changes and genuine
+counter exhaustion. Offline tests and native builds do not establish hardware
+recovery or precision qualification; the previously observed CPU fault remains
+unresolved.
+
 ## 0.15.186 — Durable broadcast GM following and asymmetric merge
 
 - Ordinary non-HOT fallback and initial election wait at least30s of leader silence; designated HOT retains the fast3s path. Reuse retained control fields for replay floors/receipt derivation to preserve the normal RC static-memory budget.

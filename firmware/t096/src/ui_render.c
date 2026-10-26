@@ -131,6 +131,9 @@ static const char *hot_title(const struct r2_ui_model *m,bool fresh,bool hot){
  return m->role==R2_UI_GM?"ACTIVE GM":"HOT WAIT";
 }
 static const char *hot_reason(const struct r2_ui_model *m,bool fresh,bool hot){
+#ifdef R2_GM7_NATIVE
+ if(m->gm7_owner&&!m->profile_rc&&(m->gm7_known&R2_UI_GM7_OWNER_FAULT))return "OWNER FAULT";
+#endif
  if(!fresh)return "STATE STALE";
  if(m->profile_rc)return "RC MODE";
  if(hot)return "QUALIFIED";

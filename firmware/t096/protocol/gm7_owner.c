@@ -76,7 +76,8 @@ static void disarm(struct gm7_owner *o, unsigned reason) {
     o->armed = false;
     o->armed_since = 0;
     count(&o->transitions);
-    o->reason = reason;
+    if (!o->failed)
+      o->reason = reason;
   }
   if (!o->serving)
     o->role = o->gm_capable ? GM7_COLD : GM7_RECEIVER;
@@ -94,20 +95,14 @@ static void cancel_positive(struct gm7_owner *o) {
   o->yield_ready = false;
 }
 static bool clock_now(struct gm7_owner *o, uint64_t now) {
-  if (!o || o->failed || now < o->now || now > INT64_MAX) {
-    if (o) {
-      o->failed = true;
-      o->serving = o->eligible = o->armed = o->prepared = o->takeover_due =
-          false;
-      o->armed_since = o->active_since = 0;
-      o->event.valid = o->reserved = false;
-      o->scope = (struct gm7_scope){0};
-      o->selected = (struct gm7_control){0};
-      o->selected_until = 0;
-      memset(o->peer, 0, sizeof o->peer);
-      o->reason = GM7_R_TIMEBASE;
-      o->role = o->gm_capable ? GM7_COLD : GM7_RECEIVER;
-    }
+  if (!o || o->failed)
+    return false;
+  /* Entry time is a processing snapshot, not a hardware counter invariant.
+   * A nested completion or post-MAC read can already have advanced it. Reject
+   * this operation without renewing any receipt/deadline or retiring the mesh.
+   * Capture-domain changes are fenced explicitly by the service/clock owner. */
+  if (now < o->now || now > INT64_MAX) {
+    count(&o->time_rejects);
     return false;
   }
   o->now = now;
@@ -832,6 +827,7 @@ void gm7_owner_update(struct gm7_owner *o, const struct gm7_source *source,
 }
 bool gm7_owner_output(const struct gm7_owner *o, uint64_t now) {
   return o && !o->failed && !o->stopped && o->serving && o->eligible &&
+         now >= o->now && now <= INT64_MAX &&
          source_current(o, now) && o->source.physical_ready &&
          now >= o->active_since &&
          (!o->yield_deadline || now < o->yield_deadline);
@@ -877,7 +873,7 @@ static int activate(struct gm7_owner *o, uint64_t nominal, uint64_t complete,
   if ((!reserve && (now < nominal || now - nominal > 2000)) ||
       (reserve && (nominal < now || nominal - now > 250000)) ||
       complete < nominal || complete < now || complete - nominal > 4000) {
-    count(&o->late_windows);
+    count(&o->time_rejects);
     return -ETIME;
   }
   uint64_t action = reserve ? nominal : now;
@@ -1021,6 +1017,7 @@ static int control(struct gm7_owner *o, struct gm7_packet *p, uint64_t now,
     return 0;
   }
   if (o->sequence == UINT64_MAX) {
+    cancel_positive(o);
     o->failed = true;
     o->serving = false;
     o->reason = GM7_R_EXHAUSTED;
@@ -1178,8 +1175,9 @@ int gm7_owner_reservation_commit(struct gm7_owner *o, uint64_t first,
   return 0;
 }
 void gm7_owner_withdraw(struct gm7_owner *o, unsigned reason, uint64_t now) {
-  if (!clock_now(o, now))
+  if (!o)
     return;
+  bool timed = clock_now(o, now);
   bool was_serving = o->serving;
   /* Withdrawal is synchronous owner truth; no advertiser queue/copy/result can
    * defer output stop. Cancel the complete positive generation first. */
@@ -1188,8 +1186,11 @@ void gm7_owner_withdraw(struct gm7_owner *o, unsigned reason, uint64_t now) {
   disarm(o, reason);
   cancel_positive(o);
   o->initial_due = o->takeover_due = false;
-  o->reason = reason;
-  if (!was_serving || o->sequence == UINT64_MAX || !o->scope.birth)
+  if (!o->failed)
+    o->reason = reason;
+  /* A stop/negative always removes output. Without processing time, it cannot
+   * manufacture a new sent time or expiry for an RF terminal announcement. */
+  if (!timed || !was_serving || o->sequence == UINT64_MAX || !o->scope.birth)
     return;
   struct gm7_packet p = {.group = o->group.id,
                          .key_epoch = o->group.epoch,
@@ -1247,7 +1248,7 @@ int gm7_owner_event_align(struct gm7_owner *o, uint64_t first, uint64_t now) {
   return 0;
 }
 void gm7_owner_stop(struct gm7_owner *o, uint64_t now) {
-  if (!clock_now(o, now))
+  if (!o)
     return;
   gm7_owner_withdraw(o, GM7_R_STOP, now);
   o->stopped = true;
