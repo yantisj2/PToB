@@ -1420,3 +1420,7 @@ The timing journal stores adjacent GM_CONTROL stages8 (`0x7800`, old) and9
 separates nomination churn from a follower's genuine preparation/source loss.
 Journal overwrites remain possible; the persistent console counters summarize
 observed transitions without claiming a lossless history.
+
+In0.15.195, a temporarily unavailable (zero-birth) association uses the same
+bounded preference grace; a positively different scope remains an immediate
+removal. Explicit ineligibility is reported before an accompanying empty scope.

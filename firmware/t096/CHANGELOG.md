@@ -1,5 +1,12 @@
 # T096 changelog
 
+## 0.15.195 — Distinguish unavailable association from scope change
+
+Preserve bounded nomination preference when a same-boot candidate temporarily
+cannot report its mesh association; a positively different mesh still removes
+it immediately. Report explicit source ineligibility before the resulting empty
+association, so console diagnostics identify the actionable cause.
+
 ## 0.15.194 — Sticky HOT nomination and switchover diagnostics
 
 Retain the current same-scope candidate through up to30s of missing STATUS or

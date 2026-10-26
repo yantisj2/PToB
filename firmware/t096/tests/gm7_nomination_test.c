@@ -31,6 +31,11 @@ int main(void){
  o.now+=1000000;o.peer[0].flags |= GM7_SHADOW;nominate(&o);assert(o.nominee_ready_at==o.now);
  o.peer[0].flags &= ~GM7_ELIGIBLE;nominate(&o);assert(!o.nominee && o.nominee_reason==GM7_N_INELIGIBLE);
  puts("PASS transient SHADOW loss recovers; explicit ineligibility removes immediately");
+ o=setup();o.peer[0].received.control.birth_us=0;
+ nominate(&o);assert(o.nominee==900 && !remote_prepared(&o,&o.peer[0]));
+ o.peer[0].flags &= ~GM7_ELIGIBLE;nominate(&o);
+ assert(!o.nominee && o.nominee_reason==GM7_N_INELIGIBLE);
+ puts("PASS unavailable association retains only preference; invalid source reports INELIGIBLE before missing scope");
  o=setup();o.peer[0].received.control.term++;nominate(&o);assert(!o.nominee && o.nominee_reason==GM7_N_SCOPE);
  o=setup();o.peer[0].quarantined=true;nominate(&o);assert(!o.nominee && o.nominee_reason==GM7_N_DEPARTED);
  puts("PASS scope change and boot quarantine cannot retain stale preference");

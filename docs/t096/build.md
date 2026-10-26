@@ -2,7 +2,7 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
-This guide builds and inspects T096 source **0.15.194** without opening hardware.
+This guide builds and inspects T096 source **0.15.195** without opening hardware.
 For profile choices and controls, see the [T096 README](../../firmware/t096/README.md).
 Release-by-release implementation and validation notes are in the
 [T096 changelog](../../firmware/t096/CHANGELOG.md).
@@ -205,7 +205,7 @@ keeps installation, reset latency, source qualification, HOT renewal and physica
 multi-device observations as separate checks. Release records and simulations
 provide context; they do not authorize hardware operations.
 
-The0.15.194 HOT retention and transition records add64B of linked static RAM,
+The0.15.195 HOT retention and transition records add64B of linked static RAM,
 including alignment. Inspection accounts for this separately from the4096B
 RC8 incremental budget; the absolute1024B unallocated floor and existing stack
 allocations are unchanged. The four normal images leave4580B unallocated.

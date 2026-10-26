@@ -529,8 +529,10 @@ static void nominate(struct gm7_owner *o) {
   }
   if(current) {
     if(current->quarantined || current->kind==GM7_WITHDRAW)why=GM7_N_DEPARTED;
-    else if(!candidate_scope(current,&o->scope))why=GM7_N_SCOPE;
     else if((current->flags&(GM7_ELIGIBLE|GM7_CAPABLE))!=(GM7_ELIGIBLE|GM7_CAPABLE))why=GM7_N_INELIGIBLE;
+    /* Missing association is an unavailable observation, not a new mesh.
+     * Preserve preference briefly; a positively different scope still fences. */
+    else if(current->received.control.birth_us && !candidate_scope(current,&o->scope))why=GM7_N_SCOPE;
     else if(remote_prepared(o,current))o->nominee_ready_at=o->now;
     else if(o->now>=o->nominee_ready_at && o->now-o->nominee_ready_at<GM7_NOMINEE_GRACE_US) {
       /* Keep preference only. An expired report is never a confirmed HOT. */
