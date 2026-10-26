@@ -1,5 +1,24 @@
 # Manuscript history
 
+## 2026-10-26 — PToB-IPS public draft review approved
+
+- Jonathan Yantis approved the 15-page theoretical IPS paper for integration
+  into main and GitHub public review. Preserve the reviewed LaTeX, PDF and
+  analytical JSON bytes, with matching preparation and publication receipts.
+- Add the paper to the research catalogue and root research section. Publish
+  the standalone analytical/evidence verifier and build instructions. Update
+  only its identity adapter and publication README; the analysis is unchanged.
+- Keep the original preparation receipt immutable. Record approval and the
+  ancillary changes separately. The earlier sensor-fusion draft remains local;
+  its preservation seals are provenance metadata rather than public dependencies.
+- The paper proposes surveyed beacons, GNSS-like joint position/clock estimation,
+  aligned periodic advertising timers and a 16/8/4 Hz receive calendar. Clock
+  averaging, native capture resolution, bias floors and motion remain theoretical
+  budgets. No IPS implementation, positioning qualification, new hardware
+  measurement, firmware change, stable promotion or submission is asserted.
+- Publish only the paper and research integration. T096 branch work, other local
+  firmware commits, private working material and unrelated changes stay local.
+
 ## 2026-10-24 — low-level ESP32-S3 public draft approved
 
 - Jonathan Yantis approved the seven-page instructional paper for public review,

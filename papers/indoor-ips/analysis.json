@@ -1,0 +1,214 @@
+{
+  "schema_version": 1,
+  "author": "Jonathan Yantis",
+  "license": "CC-BY-4.0",
+  "evidence_type": "ANALYTICAL_MODEL_OUTPUT_NOT_HARDWARE_OR_LOCALIZATION_EVIDENCE",
+  "c_m_per_s": 299792458,
+  "assumptions": [
+    "Perfect surveyed eight-corner 10x8x3 m room; receiver at centre.",
+    "Local first-order covariance; equal independent scalar measurement noise.",
+    "30 ns per-epoch zero-mean pseudorange noise is hypothetical, not measured PToB PPS RMS.",
+    "5 ns independent per-anchor offset is fixed over each averaging window.",
+    "No multipath, receiver motion, clock-frequency noise, missingness or nonlinear ambiguity in the covariance curve.",
+    "Aligned multi-rate calendar uses hypothetical .6 ms occupancy, .1 ms early/late guards and .2 ms transitions; not current controller acceptance."
+  ],
+  "quantization": [
+    {
+      "capture_mhz": 16,
+      "tick_ns": 62.5,
+      "one_tick_range_m": 18.737,
+      "two_stamp_range_std_m": 7.649
+    },
+    {
+      "capture_mhz": 80,
+      "tick_ns": 12.5,
+      "one_tick_range_m": 3.747,
+      "two_stamp_range_std_m": 1.53
+    },
+    {
+      "capture_mhz": 160,
+      "tick_ns": 6.25,
+      "one_tick_range_m": 1.874,
+      "two_stamp_range_std_m": 0.765
+    },
+    {
+      "capture_mhz": 240,
+      "tick_ns": 4.166667,
+      "one_tick_range_m": 1.249,
+      "two_stamp_range_std_m": 0.51
+    },
+    {
+      "capture_mhz": 1000,
+      "tick_ns": 1.0,
+      "one_tick_range_m": 0.3,
+      "two_stamp_range_std_m": 0.122
+    }
+  ],
+  "room": {
+    "dimensions_m": [
+      10,
+      8,
+      3
+    ],
+    "receiver_m": [
+      5,
+      4,
+      1.5
+    ],
+    "anchors_m": [
+      [
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        3
+      ],
+      [
+        0,
+        8,
+        0
+      ],
+      [
+        0,
+        8,
+        3
+      ],
+      [
+        10,
+        0,
+        0
+      ],
+      [
+        10,
+        0,
+        3
+      ],
+      [
+        10,
+        8,
+        0
+      ],
+      [
+        10,
+        8,
+        3
+      ]
+    ],
+    "horizontal_dilution": 0.744406,
+    "position_dilution": 1.719569,
+    "full_rank": 4,
+    "symmetric_ceiling_only_rank": 3,
+    "persistent_floor_horizontal_rms_m": 1.116
+  },
+  "averaging": [
+    {
+      "epochs": 1,
+      "collection_seconds": 0.0625,
+      "independent_horizontal_rms_m": 6.695,
+      "persistent_floor_horizontal_rms_m": 6.787
+    },
+    {
+      "epochs": 16,
+      "collection_seconds": 1.0,
+      "independent_horizontal_rms_m": 1.674,
+      "persistent_floor_horizontal_rms_m": 2.012
+    },
+    {
+      "epochs": 256,
+      "collection_seconds": 16.0,
+      "independent_horizontal_rms_m": 0.418,
+      "persistent_floor_horizontal_rms_m": 1.192
+    }
+  ],
+  "ensemble": {
+    "members": 8,
+    "individual_std_ns": 30,
+    "independent_mean_std_ns": 10.607,
+    "correlation_half_mean_std_ns": 22.5
+  },
+  "schedule": {
+    "base_period_ms": 62.5,
+    "hyperperiod_ms": 250,
+    "events_per_hyperperiod": 22,
+    "frame_counts": [
+      6,
+      5,
+      6,
+      5
+    ],
+    "beacon_plan": [
+      {
+        "id": "A1",
+        "period_multiplier": 1,
+        "frame_phase": 0,
+        "offset_ms": 0,
+        "rate_hz": 16.0
+      },
+      {
+        "id": "A2",
+        "period_multiplier": 1,
+        "frame_phase": 0,
+        "offset_ms": 1,
+        "rate_hz": 16.0
+      },
+      {
+        "id": "A3",
+        "period_multiplier": 1,
+        "frame_phase": 0,
+        "offset_ms": 2,
+        "rate_hz": 16.0
+      },
+      {
+        "id": "A4",
+        "period_multiplier": 1,
+        "frame_phase": 0,
+        "offset_ms": 3,
+        "rate_hz": 16.0
+      },
+      {
+        "id": "A5",
+        "period_multiplier": 2,
+        "frame_phase": 0,
+        "offset_ms": 4,
+        "rate_hz": 8.0
+      },
+      {
+        "id": "A6",
+        "period_multiplier": 2,
+        "frame_phase": 1,
+        "offset_ms": 4,
+        "rate_hz": 8.0
+      },
+      {
+        "id": "A7",
+        "period_multiplier": 4,
+        "frame_phase": 0,
+        "offset_ms": 5,
+        "rate_hz": 4.0
+      },
+      {
+        "id": "A8",
+        "period_multiplier": 4,
+        "frame_phase": 2,
+        "offset_ms": 5,
+        "rate_hz": 4.0
+      }
+    ],
+    "admission_required_separation_ms": 1,
+    "tested_rejections": [
+      "same-slot conflict",
+      "retune margin exceeded",
+      "airtime exceeded",
+      "cyclic wrap conflict"
+    ]
+  },
+  "constructed_solver_checks": {
+    "noiseless_recovery": true,
+    "common_offset_gauge": true,
+    "persistent_bias_survives_averaging": true
+  },
+  "independent_clock_or_position_qualification": false
+}

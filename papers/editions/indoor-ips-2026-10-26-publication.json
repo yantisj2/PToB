@@ -1,0 +1,145 @@
+{
+  "schema_version": 1,
+  "license": "MIT",
+  "author": "Jonathan Yantis",
+  "edition_date": "2026-10-26",
+  "status": "APPROVED_FOR_PUBLIC_DRAFT_REVIEW",
+  "approval": "Approved, integrate the paper into the main branch research paper section and push the results to GitHub for public review. Keep the T096 branch work local for now",
+  "prepared_edition": "papers/editions/indoor-ips-2026-10-26.json",
+  "prepared_edition_sha256": "44244361ab32c47ec81f6f4cf4a40a31e0fba3c46dbfd995fc693270b02c8e71",
+  "public_base_commit": "147a53d151f9f7b9ce4b289cfe6ed22223f89a7e",
+  "reviewed_material_unchanged": true,
+  "approved_files": [
+    {
+      "path": "papers/indoor-ips/main.tex",
+      "bytes": 54328,
+      "sha256": "5f7fb6ecec1eeaab46f961880186cdd89ef2088653d34a5de7401af3b54e3b89",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "papers/indoor-ips/main.pdf",
+      "bytes": 103606,
+      "sha256": "7cb4d16d444314c058f9df033ef3dac16686339aa24f01098422c628a8471ed3",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "papers/indoor-ips/analysis.json",
+      "bytes": 4616,
+      "sha256": "3908520a1e8f72e59dc734eed5a7f53bfcdb492d3a36a4d9abd7a6ccc1b220a3",
+      "license": "CC-BY-4.0"
+    }
+  ],
+  "publication_files": [
+    {
+      "path": "papers/indoor-ips/main.tex",
+      "bytes": 54328,
+      "sha256": "5f7fb6ecec1eeaab46f961880186cdd89ef2088653d34a5de7401af3b54e3b89",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "papers/indoor-ips/main.pdf",
+      "bytes": 103606,
+      "sha256": "7cb4d16d444314c058f9df033ef3dac16686339aa24f01098422c628a8471ed3",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "papers/indoor-ips/analysis.json",
+      "bytes": 4616,
+      "sha256": "3908520a1e8f72e59dc734eed5a7f53bfcdb492d3a36a4d9abd7a6ccc1b220a3",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "papers/indoor-ips/README.md",
+      "bytes": 4293,
+      "sha256": "9894d3dab66d6dd17217ba257f2ab2485786329a12c4357658332d2a9844445f",
+      "license": "MIT"
+    },
+    {
+      "path": "tools/verify_indoor_ips_paper.py",
+      "bytes": 16755,
+      "sha256": "6f40d9c4ade062bb56c69d048ca2a3b00baf508e11a39b29f71e0a8b26c1de8c",
+      "license": "MIT"
+    }
+  ],
+  "ancillary_changes": [
+    {
+      "path": "papers/indoor-ips/README.md",
+      "prepared_sha256": "9e77eeb24e372189ddcf07e54a0665a43796f16c257703eeac049f51c0ace8cc",
+      "publication_sha256": "9894d3dab66d6dd17217ba257f2ab2485786329a12c4357658332d2a9844445f"
+    },
+    {
+      "path": "tools/verify_indoor_ips_paper.py",
+      "prepared_sha256": "907ca2db65d7fbe5bfd0dea10e9c84b04cda8ea750982c176840b0610deb21eb",
+      "publication_sha256": "6f40d9c4ade062bb56c69d048ca2a3b00baf508e11a39b29f71e0a8b26c1de8c"
+    }
+  ],
+  "verifier_changes": "Only identity() and the publication-receipt path constant changed. Analytical functions, geometry, solver, schedule admission, evidence recomputation and the command interface are unchanged. Public identity uses the immutable preparation receipt plus approved publication file seals; it does not depend on the unapproved predecessor.",
+  "analytical_functions_unchanged": [
+    "require",
+    "inverse",
+    "rank",
+    "geometry",
+    "normal_matrix",
+    "pseudoranges",
+    "solve_position",
+    "events",
+    "feasible",
+    "calculate",
+    "evidence",
+    "main"
+  ],
+  "unpublished_preparation_dependencies": [
+    {
+      "path": "papers/indoor-pnt/main.tex",
+      "bytes": 47886,
+      "sha256": "405af60d71d0d1d6fe08393ffb9969b4ea4e6471b5c19b23517dde2bb9fdaee9"
+    },
+    {
+      "path": "papers/indoor-pnt/main.pdf",
+      "bytes": 96764,
+      "sha256": "184d3e8287c3c25d65c568d087798e94059b6e449e62e13c291c92f25f35ff60"
+    },
+    {
+      "path": "papers/indoor-pnt/README.md",
+      "bytes": 2758,
+      "sha256": "d1e7299124548613c04eaf5e8bbe51e439f787d0026a4187d45a02614625f98e"
+    },
+    {
+      "path": "papers/editions/indoor-pnt-2026-10-26.json",
+      "bytes": 12841,
+      "sha256": "bc241bb30473566a22b7427bc01867cc26ad59d187eca50714b1a78a0906fb82"
+    },
+    {
+      "path": "tools/verify_indoor_pnt_paper.py",
+      "bytes": 10095,
+      "sha256": "5bc0a582784d4e34cc5ee8c3a804e0d1a9f03431ed772aa41886fc7b62eea9b3"
+    }
+  ],
+  "predecessor_policy": "Preservation hashes remain historical preparation metadata. The earlier sensor-fusion paper, its PDF/source, receipt and verifier stay local and are not included in this public commit.",
+  "preserved_approval_checkpoint": "Pending-approval text in the unchanged manuscript and preparation receipt describes the earlier preparation state. This separate publication receipt records subsequent approval without altering reviewed bytes.",
+  "publication_scope": [
+    "Approved theoretical IPS paper, analytical model output and standalone public verifier",
+    "Root research listing, paper catalogue, manuscript history and reproduction guide"
+  ],
+  "excluded_scope": [
+    "All local T096 branch commits and uncommitted T096 work",
+    "Other unpublished local firmware commits",
+    "Earlier indoor sensor-fusion draft",
+    "Unrelated root, design, gateway and proposal changes",
+    "Ignored private working material, raw captures, secrets and enrolled images"
+  ],
+  "paper_license": "CC-BY-4.0",
+  "analytical_model_output_license": "CC-BY-4.0",
+  "code_and_documentation_license": "MIT",
+  "draft_promoted_to_final": false,
+  "new_hardware_measurements": false,
+  "firmware_or_protocol_implementation": false,
+  "positioning_qualification": false,
+  "verification_commands": [
+    "python3 tools/verify_indoor_ips_paper.py",
+    "python3 tools/verify_w12_utc_results.py",
+    "python3 tools/verify_s3_fine_paper.py"
+  ],
+  "isolated_public_checkout_verification": "PASS before commit: only declared public inputs; unpublished predecessor absent; offline analytical/evidence/identity verifier passes; protected-source tamper and forged publication override rejected; all 125 relative research links resolve.",
+  "source_history_policy": "Publish one paper-only commit based on public main. Do not merge or push local T096 or other firmware history. Integrate the publication commit into local main separately without publishing its existing unpublished commits."
+}
