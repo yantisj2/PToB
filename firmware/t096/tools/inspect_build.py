@@ -137,7 +137,14 @@ def inspect(out,allow_development=False):
                 require(len(candidates)==1 and candidates[0].endswith(expected),'Fault diagnostic controller membership: '+suffix)
             for name,hashes in manifest['files'].items():
                 relative=Path(name).relative_to('subsys/bluetooth/controller')
-                require(sha(out/'target/r2_controller'/relative)==hashes['after'],'Generated fault diagnostic hash: '+name)
+                generated=(out/'target/r2_controller'/relative).read_bytes()
+                if name.endswith('ticker/ticker.c') and tuple(map(int,r['version'].split('.'))) >= (0,15,194):
+                    # Verify the upstream correction, then the pinned diagnostic body.
+                    before=b'while (user->first != user->last)'
+                    after=b'while (user->first != user->middle)'
+                    require(generated.count(after)==1 and before not in generated,'Ticker inquiry boundary correction missing')
+                    generated=generated.replace(after,before)
+                require(hashlib.sha256(generated).hexdigest()==hashes['after'],'Generated fault diagnostic hash: '+name)
     if tuple(map(int,r['version'].split('.'))) >= (0,15,156):
         prepare=r.get('controller_prepare_capture')
         if dc or pc:
