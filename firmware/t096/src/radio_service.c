@@ -35,6 +35,9 @@
 #define R2_LOCK_UNIT 9u
 #include "health_lock.h"
 static struct r2_radio_precision precision;
+#ifdef R2_GM7_NATIVE
+static atomic_t follow_scope_resets,follow_scope_bits,follow_stops,follow_stop_pc;
+#endif
 static uint64_t shadow_delivery,shadow_epoch;
 static struct r2_relay_origin generic_origin;
 static uint64_t generic_frame;
@@ -259,6 +262,10 @@ void r2_radio_service_source(const struct r2_source_clock *source,bool ready,uin
 }
 void r2_radio_service_activate(void){(void)k_mutex_lock(&pt_lock,K_FOREVER);pt_input.stopped=false;handoff.root=0;handoff.pending=handoff.valid=false;(void)k_mutex_unlock(&pt_lock);}
 void r2_radio_service_withdraw(void){
+#ifdef R2_GM7_NATIVE
+ atomic_inc(&follow_stops);
+ atomic_set(&follow_stop_pc,(uint32_t)(uintptr_t)__builtin_return_address(0));
+#endif
 #ifdef R2_GM7_NATIVE
  (void)k_mutex_lock(&pt_lock,K_FOREVER);
  if(pt_input.gm7_managed){
@@ -651,6 +658,14 @@ static void precision_step(uint64_t now){
  active_scope=scope;
  bool shadow_changed=precision.scope.boot!=scope.boot||precision.scope.source_epoch!=scope.source_epoch||precision.scope.root_identity!=scope.root_identity||precision.local_epoch!=(captured?current.epoch:0)||precision.scope.follower!=scope.follower||precision.scope.gm!=scope.gm;
  if(shadow_changed){r2_shadow_normal_withdraw();shadow_delivery=shadow_epoch=0;}
+#ifdef R2_GM7_NATIVE
+ uint32_t reset_bits=(precision.scope.root_identity!=scope.root_identity?1u:0u)|
+  (precision.scope.boot!=scope.boot?2u:0u)|(precision.scope.source_epoch!=scope.source_epoch?4u:0u)|
+  (precision.scope.publication_epoch!=scope.publication_epoch?8u:0u)|
+  (precision.scope.gm!=scope.gm||precision.scope.follower!=scope.follower||precision.scope.broadcast!=scope.broadcast?16u:0u)|
+  (precision.local_epoch!=(captured?current.epoch:0)?32u:0u);
+ if(reset_bits){atomic_inc(&follow_scope_resets);atomic_set(&follow_scope_bits,reset_bits|(in.stopped?64u:0u)|(!captured?128u:0u));}
+#endif
  r2_radio_precision_scope(&precision,scope,captured?current.epoch:0);
  struct r2_radio_capture_stats stats;r2_radio_capture_stats(&stats);
  if(stats.overflow!=last_overflow){
@@ -1280,6 +1295,8 @@ void r2_radio_service_gm7_follow_diagnostic(struct r2_gm7_follow_diagnostic *out
     pt_output.scope.follower&&!pt_output.scope.gm&&same(pt_output.scope,pt_input.grant)&&
     now>=pt_output.sampled&&now<pt_output.scope.until_us};
  if(pt_output.scope.follower&&!pt_output.scope.gm)out->stats=pt_output.gm7.follow;
+ out->scope_resets=atomic_get(&follow_scope_resets);out->scope_reset_bits=atomic_get(&follow_scope_bits);
+ out->stops=atomic_get(&follow_stops);out->stop_pc=atomic_get(&follow_stop_pc);
  (void)k_mutex_unlock(&pt_lock);
 }
 void r2_radio_service_gm7_timing(struct r2_gm7_timing *out,uint64_t now){

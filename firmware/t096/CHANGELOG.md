@@ -1,3 +1,9 @@
+## 0.15.196 — follower reset diagnostics
+
+GM7 page9 exposes cumulative receiver withdrawals, their calling PC, and scope
+reset counts/reason bits to diagnose repeated follower reacquisition. These
+observations confer no clock authority. Four counters add16 bytes of static RAM.
+
 # T096 changelog
 
 ## 0.15.195 — Distinguish unavailable association from scope change

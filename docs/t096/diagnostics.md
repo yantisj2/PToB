@@ -1424,3 +1424,11 @@ observed transitions without claiming a lossless history.
 In0.15.195, a temporarily unavailable (zero-birth) association uses the same
 bounded preference grace; a positively different scope remains an immediate
 removal. Explicit ineligibility is reported before an accompanying empty scope.
+
+### Follower reset diagnostics (.196)
+
+`gm 09` adds `scope_resets`, `scope_reset_bits`, `receiver_stops`, and
+`receiver_stop_pc`. Scope-change bits: identity1, boot2, source4, train8,
+role/mode16, local capture32; stopped64 and unavailable capture128 describe
+the reset context. The caller PC requires the exact installed ELF to decode.
+These cumulative counters survive estimator resets, not device reboots.

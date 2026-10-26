@@ -83,7 +83,7 @@ def inspect(out,allow_development=False):
     crash_allowance=crash_static_allowance(gm7,r['profile'],tuple(map(int,r['version'].split('.'))),config,allocations)
     # .194 adds64B of linked HOT retention/transition diagnostics (including alignment).
     # Account for it separately from the unchanged RC8 ceiling and absolute RAM floor.
-    hot_allowance=64 if gm7 and tuple(map(int,r['version'].split('.'))) >= (0,15,194) else 0
+    hot_allowance=(80 if tuple(map(int,r['version'].split('.'))) >= (0,15,196) else 64) if gm7 and tuple(map(int,r['version'].split('.'))) >= (0,15,194) else 0
     if not dc and tuple(map(int,r['version'].split('.'))) >= (0,15,63):
         rx=re.search(r'^CONFIG_BT_CTLR_RX_BUFFERS=(\d+)$',config,re.M)
         work=re.search(r'^CONFIG_SYSTEM_WORKQUEUE_STACK_SIZE=(\d+)$',config,re.M)

@@ -2154,13 +2154,14 @@ int r2_gm7_diagnostic_format(char *out, size_t capacity, unsigned page,
     struct r2_gm7_follow_diagnostic d={0};
     if(runtime_gm)r2_radio_service_gm7_follow_diagnostic(&d,kernel_now());
     int n=snprintf(out,capacity,
-      "{\"schema\":7,\"protocol\":\"GM7v3+S2+C1\",\"source\":\"%s\",\"boot\":\"%016llx\",\"page\":9,\"metric\":\"GM7_FOLLOWER_ESTIMATOR\",\"authority\":false,\"scope_current\":%s,\"root\":\"%016llx\",\"root_boot\":\"%016llx\",\"timing_epoch\":%u,\"train\":%u,\"capture_gen\":%u,\"counter_epoch\":%llu,\"sampled_us\":%llu,\"source_until_us\":%llu,\"last_correction_tick\":%llu,\"fit_count\":%u,\"fit_span_us\":%u,\"observations\":%u,\"resets\":%u,\"saturated\":%u,\"arithmetic_faults\":%u,\"unavailable\":%u,\"fit_rate\":%d,\"quality_bins\":%u,\"state_flags\":%u}",
+      "{\"schema\":7,\"protocol\":\"GM7v3+S2+C1\",\"source\":\"%s\",\"boot\":\"%016llx\",\"page\":9,\"metric\":\"GM7_FOLLOWER_ESTIMATOR\",\"authority\":false,\"scope_current\":%s,\"root\":\"%016llx\",\"root_boot\":\"%016llx\",\"timing_epoch\":%u,\"train\":%u,\"capture_gen\":%u,\"counter_epoch\":%llu,\"sampled_us\":%llu,\"source_until_us\":%llu,\"last_correction_tick\":%llu,\"fit_count\":%u,\"fit_span_us\":%u,\"observations\":%u,\"resets\":%u,\"saturated\":%u,\"arithmetic_faults\":%u,\"unavailable\":%u,\"fit_rate\":%d,\"quality_bins\":%u,\"state_flags\":%u,\"scope_resets\":%u,\"scope_reset_bits\":%u,\"receiver_stops\":%u,\"receiver_stop_pc\":%u}",
       source,(unsigned long long)physical_boot,d.current?"true":"false",
       (unsigned long long)d.scope.root_identity,(unsigned long long)d.scope.boot,
       d.scope.source_epoch,d.train,d.capture_gen,(unsigned long long)d.counter_epoch,
       (unsigned long long)d.sampled,(unsigned long long)d.until,(unsigned long long)d.last_correction,
       d.stats.count,d.stats.span_us,d.stats.observations,d.stats.resets,d.stats.saturated,
-      d.stats.arithmetic_faults,d.stats.unavailable,d.stats.rate,d.stats.quality_count,d.stats.flags);
+      d.stats.arithmetic_faults,d.stats.unavailable,d.stats.rate,d.stats.quality_count,d.stats.flags,
+      d.scope_resets,d.scope_reset_bits,d.stops,d.stop_pc);
     return n>=0&&(size_t)n<capacity?n:-ENOSPC;
   }
   if(page>GM7_PEERS)return -EINVAL;

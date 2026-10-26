@@ -25,7 +25,7 @@ struct r2_gm7_follow_diagnostic {
  struct r2_radio_scope scope;
  struct r2_gm7_follow_stats stats;
  uint64_t sampled,until,counter_epoch,last_correction;
- uint32_t train,capture_gen;
+ uint32_t train,capture_gen,scope_resets,scope_reset_bits,stops,stop_pc;
  bool current;
 };
 void r2_radio_service_gm7_follow_diagnostic(struct r2_gm7_follow_diagnostic *,uint64_t now);
