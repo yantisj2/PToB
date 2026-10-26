@@ -517,7 +517,11 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
   else if(gm)snprintf(value,sizeof(value),"GPS GM");
   else if(m->time_relay_hops)snprintf(value,sizeof(value),"BLE RC%u",m->time_relay_hops);
   else snprintf(value,sizeof(value),"BLE GM");
-  bool locked=!gm&&authorized&&m->precision.map_valid&&(m->precision.locked||face_locked||s.native_hot_standby);
+  bool strict_gm=false;
+#if defined(R2_GM7_NATIVE)
+  strict_gm=m->gm7_owner;
+#endif
+  bool locked=!gm&&authorized&&m->precision.map_valid&&(m->precision.locked||(!strict_gm&&(face_locked||s.native_hot_standby)));
   label(fb,4,20,value,1,active||locked||(gm&&fresh&&m->gm_source_fresh)?C_GREEN:C_AMBER);
   if(locked&&!m->boundary_clock){pair_lock(fb,4,32,C_GREEN);label(fb,17,33,"SoftPLL",1,C_GREEN);}
   else label(fb,4,33,state,1,m->boundary_clock?(r2_ui_analog(m,now)&&!m->rc_source_held?C_GREEN:C_AMBER):(gm&&fresh&&m->gm_source_fresh&&m->pps_precision.rate_valid?C_GREEN:C_AMBER));

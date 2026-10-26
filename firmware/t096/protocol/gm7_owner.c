@@ -727,13 +727,15 @@ void gm7_owner_update(struct gm7_owner *o, const struct gm7_source *source,
   }
   bool scope = gm7_scope_same(prep->scope, o->scope) && o->scope.active &&
                o->scope.active != o->identity;
-  bool physical = scope && prep->map_valid && prep->fit_valid && prep->locked &&
+  /* Functional HOT readiness uses the actual fitted map and physical phase
+   * envelope. The receiver's stricter precision PLL label remains descriptive. */
+  bool physical = scope && prep->map_valid && prep->fit_valid &&
                   prep->correction_age_us < GM7_ARM_RETAIN_US && prep->phase_available &&
                   prep->phase_enclosure_us <= 2000 && !prep->health_lost &&
                   true;
   if (!prep->map_valid)
     o->blockers |= GM7_B_MAP;
-  if (!prep->fit_valid || !prep->locked)
+  if (!prep->fit_valid)
     o->blockers |= GM7_B_LOCK;
   if (prep->correction_age_us >= GM7_ARM_RETAIN_US)
     o->blockers |= GM7_B_CORRECTION;

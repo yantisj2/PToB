@@ -119,6 +119,8 @@ with (nullcontext(str(args.out.resolve())) if args.out else tempfile.TemporaryDi
     subprocess.run([str(out/'ui'),str(out)],check=True,timeout=30)
     subprocess.run([*flags,str(APP/'src/precision.c'),str(APP/'tests/ui_precision_test.c'),'-o',str(out/'ui_precision')],check=True,timeout=30)
     subprocess.run([str(out/'ui_precision'),str(out)],check=True,timeout=30)
+    subprocess.run([*flags,'-DR2_GM7_NATIVE=1',str(APP/'src/precision.c'),str(APP/'tests/ui_precision_test.c'),'-o',str(out/'ui_precision_gm7')],check=True,timeout=30)
+    subprocess.run([str(out/'ui_precision_gm7'),str(out)],check=True,timeout=30)
     subprocess.run([*flags,str(APP/'src/ui_render.c'),str(APP/'src/precision.c'),str(APP/'tests/ui_sync_display_test.c'),'-o',str(out/'ui_sync_display')],check=True,timeout=30)
     subprocess.run([str(out/'ui_sync_display')],check=True,timeout=30)
     subprocess.run([*flags,'-I'+str(out),'-include',str(APP/'tests/display_fake.h'),str(APP/'tests/display_test.c'),'-o',str(out/'display')],check=True,timeout=30)

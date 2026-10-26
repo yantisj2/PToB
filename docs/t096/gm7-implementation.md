@@ -2,7 +2,7 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
-Source **0.15.188** uses broadcast GM discovery, ordinary shadow STATUS and the
+Source **0.15.189** uses broadcast GM discovery, ordinary shadow STATUS and the
 existing RC G1 receive/matcher/fitter. A GM follows the selected source without
 JOIN, GATT, REQUEST/ANCHOR, nonces, admission sessions or ANN permission renewal.
 Normal RC client admission, GATT, RC9, relay, USB and LoRa remain supported.
@@ -67,6 +67,16 @@ member's independent GNSS eligibility and actual shadow preparation. The leader
 chooses a HOT nominee and the nominee echoes HOT in its ordinary STATUS. There
 is no additional nomination or acknowledgement exchange.
 
+Functional GM shadow readiness requires the actual current same-scope map and
+fit, at most2ms physical phase enclosure, unexpired correction/source evidence
+and independent local GNSS/PPS qualification. It does not require the receiver's
+strict precision PLL LOCK label. That label retains its125ns phase-entry,
+strict200ns estimator/output histories and10s convergence dwell; actual RMS and
+LOCK remain unchanged. HOT role and duration are independent. On the GM7
+precision page only actual precision LOCK displays the SoftPLL badge; a HOT
+designation or a good face-display RMS cannot imply that badge. RC presentation
+and servo behavior remain unchanged.
+
 GM listening stays active across control loss. Authenticated direct G1 packets
 supply their own source/train/capture scope to the existing RC matcher and
 causal fitter. Source/train changes retire incompatible timing fits. An
@@ -107,7 +117,7 @@ keeps receiving time but cannot start output from an expired remote map.
 | ROLE observation |4.5s and prior matching ANN/generations |4.5s independent bounded discovery observation. It cannot extend a data map or overwrite HOT qualification. |
 | ANN observation | At most2.75s, coupled to source lease |2.75s bounded leader/successor observation spans many250ms reports and the2.5s HOT trigger. It cannot block authorized3s takeover or continuous G1 following. |
 | Ordinary fallback/startup |5s quiet plus backoff |30s quiet plus existing backoff; user-requested conservative behavior in uncertain RF. Only designated HOT uses the fast path. |
-| Shadow readiness | Correction at most250ms old plus continuous5s dwell | Actual RC map/fit/lock and live growing phase bound; remove the extra dwell and one-period cliff. |
+| Shadow readiness | Correction at most250ms old plus continuous5s dwell | Actual GM follower delivered map/fit and live growing phase bound; remove the extra dwell and one-period cliff. Since .189 strict PLL LOCK remains a precision label, independent of functional HOT readiness. Historical blocker bit32 now means missing fit, not an unlocked strict PLL. |
 | Physical phase | Live2ms; retained8ms/5s | Retained physical limits for safe reservation/promotion, separate from ordinary visibility. |
 | Ordinary visibility without remote fit | Suppressed | Use local functional PPS phase, or best-effort native HF windows. These windows make no mesh-UTC/precision claim. GM37 discovery is continuous. |
 | Management RX overflow | Permanently fence clock | Count/drop the lost observation. Existing bounded buffers remain. |

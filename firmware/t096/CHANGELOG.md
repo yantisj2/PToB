@@ -1,5 +1,23 @@
 # T096 changelog
 
+## 0.15.189 — Functional GM shadow readiness separate from precision lock
+
+A GM with a current same-scope fitted map, physical phase enclosure at most2ms,
+fresh correction/source evidence and independent qualified local GNSS/PPS can
+advertise shadow readiness and become the ordinary nominated HOT without the
+strict receiver PLL lock label. The receiver's125ns phase/strict200ns history
+and10s convergence dwell continue to govern its precision LOCK indication;
+they no longer gate functional GM nomination. Reported RMS and precision lock
+remain truthful. Missing or stale maps, wrong scope, unbounded phase and loss of
+local source qualification still prevent new readiness. The existing retained
+prediction bounds, source expiry, stop-before-start handoff, three-second HOT
+bound and30-second ordinary fallback are unchanged.
+
+The .188 ordinary-client eligibility and passive ARM witness remain included.
+Normal RC profile GATT, RC9, relay and all shared servo policy are unchanged.
+This is offline preparation: natural CPU corruption, sustained HOT and physical
+output accuracy remain unresolved or unqualified.
+
 ## 0.15.188 — Ordinary RC source selection and passive ARM snapshot witness
 
 Only an ACTIVE GM with the existing live JOIN source envelope advertises ordinary

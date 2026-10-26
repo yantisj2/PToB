@@ -57,6 +57,10 @@ try:
  receipt['service_command']=service
  with (out/'service.compile.log').open('w') as f:subprocess.run(service,stdout=f,stderr=subprocess.STDOUT,check=True,timeout=45)
  with (out/'service.run.log').open('w') as f:subprocess.run([str(out/'service-test'),str(out)],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=30)
+ readiness=service.copy();readiness[readiness.index(str(app/'tests/gm7_service_test.c'))]=str(app/'tests/gm7_readiness_service_test.c');readiness[-1]=str(out/'readiness-service-test')
+ receipt['readiness_service_command']=readiness
+ with (out/'readiness-service.compile.log').open('w')as f:subprocess.run(readiness,stdout=f,stderr=subprocess.STDOUT,check=True,timeout=45)
+ with (out/'readiness-service.run.log').open('w')as f:subprocess.run([str(out/'readiness-service-test')],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=30)
  join_service=service.copy();join_service[join_service.index(str(app/'tests/gm7_service_test.c'))]=str(app/'tests/gm7_join_service_test.c');join_service[-1]=str(out/'join-service-test')
  receipt['join_service_command']=join_service
  with (out/'join-service.compile.log').open('w')as f:subprocess.run(join_service,stdout=f,stderr=subprocess.STDOUT,check=True,timeout=45)

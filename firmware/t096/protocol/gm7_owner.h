@@ -38,7 +38,7 @@ enum gm7_blocker {
   GM7_B_UTC = 4,
   GM7_B_CALENDAR = 8,
   GM7_B_MAP = 16,
-  GM7_B_LOCK = 32,
+  GM7_B_LOCK = 32, /* Fitted map unavailable; strict PLL LOCK is diagnostic. */
   GM7_B_CORRECTION = 64,
   GM7_B_SCOPE = 128,
   GM7_B_PREPARE = 256,
@@ -73,6 +73,7 @@ struct gm7_preparation {
   uint64_t yield_sequence, yield_after_us, yield_before_us;
   bool map_valid, fit_valid, locked, phase_available, retained_prediction,
       health_lost, yield_phase_valid;
+  /* locked preserves the actual strict receiver label, not HOT authority. */
 };
 /* Descriptive only: reported durations remain values at the sender sample,
  * never observer-estimated continuity or an authority input. */
