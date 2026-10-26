@@ -1287,12 +1287,27 @@ static void prospective_blackout_at(uint64_t at, bool revoked) {
   fake_timing.first_tx_observed_complete = true;
   fake_timing.first_tx_derived_end_hi = fake_hf * 16;
   cycle(&service_work);
-  assert(!owner.serving && owner.reason == GM7_R_MISSED_BOUND);
+  assert(owner.serving && !owner.event.negative && !takeover_bound);
+  assert(owner.missed_bounds == 1);
+  /* No first-G1 observation is also a latency miss, not a new election. */
+  takeover_fixture_at(at);
+  cycle(&service_work);
+  finish(GM7_PRIMARY, true, true);
+  tick_to(takeover_bound + 1);
+  healthy_input();
+  fake_timing.first_tx_observed_complete = false;
+  cycle(&service_work);
+  assert(owner.serving && !owner.event.negative && !takeover_bound);
+  assert(owner.missed_bounds == 1);
+  /* The real source-health fence remains authoritative. */
+  input.view.fix_active = false;
+  cycle(&service_work);
+  assert(!owner.serving);
   fake_promote_ready = false;
   puts("PASS actual service34.9ms last sample /33.1→35.1ms staggered polls "
        "reserve conditional blackout without early due/output; completed "
        "ANN+first G1 meet original3s; fresh contact/source fault cancel and "
-       "late G1 fails closed");
+       "late/missing G1 retains leadership; real source loss still withdraws");
 }
 static void source_horizon_preparation(void) {
   for(unsigned revoke=0;revoke<3;revoke++){

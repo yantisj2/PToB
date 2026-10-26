@@ -107,7 +107,8 @@ static struct {
   uint8_t reservation_stage;
   int16_t reservation_rc;
   uint32_t reservation_failures;
-  uint32_t time_rejects; /* Reuses the snapshot's original trailing padding. */
+  uint32_t time_rejects;
+  uint32_t missed_bounds; /* Latency observation, never precision qualification. */
 } diagnostic;
 _Static_assert(sizeof(diagnostic) == 152, "Coherent observational nominee/counter snapshot");
 enum {
@@ -876,6 +877,7 @@ static __attribute__((noinline)) void publish(struct gm7_bridge b) {
       (local_fresh && owner.source.utc_available ? 4u : 0u) |
       (local_fresh && owner.source.physical_ready ? 8u : 0u);
   diagnostic.time_rejects = owner.time_rejects;
+  diagnostic.missed_bounds = owner.missed_bounds;
   bool event_match =
       owner.event.valid &&
       event_evidence.sequence == owner.event.packet.body.control.sequence;
@@ -1309,7 +1311,7 @@ static void cycle(struct k_work *work) {
   }
   r2_gm7_controller_precision(
       owner.serving && aligned, (uint32_t)(frame_start % 62500),
-      takeover_bound ? takeover_bound : owner.source.until_us,
+      owner.source.until_us,
       owner.scope.train);
   if (!takeover_preparing || owner.serving)
     timing(b, &source, &map, &clock.view);
@@ -1319,8 +1321,14 @@ static void cycle(struct k_work *work) {
     if ((onair.first_tx_observed_complete &&
          (onair.first_tx_derived_end_hi + 15) / 16 > takeover_bound) ||
         (!onair.first_tx_observed_complete && b.hf >= takeover_bound)) {
-      ++owner.missed_bounds;
-      fence(GM7_R_MISSED_BOUND, b.hf);
+      /* The three-second target measures handover latency. Once the new
+       * ACTIVE announcement is committed, a late/missed first-G1 observation
+       * must not withdraw a healthy GM and impose the cold-election delay.
+       * Precision publication still requires its own fresh source/capture. */
+      if (owner.missed_bounds != UINT32_MAX) ++owner.missed_bounds;
+      r2_timing_event(R2_TIMING_GM_CONTROL, -ETIME, identity,
+          R2_GM7_JOURNAL(R2_GM7_J_FIRST_G1, 1),
+          (uint32_t)takeover_bound, (uint32_t)b.hf);
       takeover_bound = 0;
     } else if (onair.first_tx_observed_complete) {
       r2_timing_event(R2_TIMING_GM_CONTROL,0,identity,
@@ -2236,7 +2244,7 @@ int r2_gm7_diagnostic_format(char *out, size_t capacity, unsigned page,
       "ms\":%u,\"blockers_internal\":%u,\"reason\":%u,"
       "\"owner_failed\":%s,\"time_rejects\":%u,\"local_time_source\":\"%s\",\"reservation_pending\":%"
       "s,\"reservation_stage\":%u,\"reservation_rc\":%d,"
-      "\"reservation_failures\":%u,\"peer_evictions\":%u,"
+      "\"reservation_failures\":%u,\"peer_evictions\":%u,\"handover_deadline_misses\":%u,"
       "\"preferred_hot\":\"%016llx\",\"preferred_hot_boot\":\"%016llx\","
       "\"hot_change_cause\":\"%s\",\"hot_changes\":%u,\"hot_change_reason\":%u,\"hot_changed_kernel_us\":%llu,"
       "\"previous_hot\":\"%016llx\",\"previous_hot_boot\":\"%016llx\",\"hot_hold_ms\":%u,"
@@ -2272,6 +2280,7 @@ int r2_gm7_diagnostic_format(char *out, size_t capacity, unsigned page,
       runtime_gm ? (int)diagnostic.reservation_rc : 0,
       runtime_gm ? diagnostic.reservation_failures : 0,
       runtime_gm ? diagnostic.peer_evictions : 0,
+      runtime_gm ? diagnostic.missed_bounds : 0,
       (unsigned long long)(runtime_gm?diagnostic.preferred_hot:0),
       (unsigned long long)(runtime_gm?diagnostic.preferred_hot_boot:0),
       hot_cause,diagnostic.hot_changes,diagnostic.hot_change_reason,

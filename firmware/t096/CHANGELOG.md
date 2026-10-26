@@ -1,5 +1,13 @@
 # T096 changelog
 
+## 0.15.199 — Keep healthy leadership after late first G1
+
+Treat the three-second first-G1 target as a latency diagnostic after committed
+HOT promotion. A late or missing observation no longer withdraws a healthy GM
+into the thirty-second cold election. Precision retains actual source expiry.
+Expose handover_deadline_misses on gm00 and record the missed target once in
+the existing journal. Source loss still withdraws; late/missing regressions pass.
+
 ## 0.15.198 — Preserve qualification through inherited-map promotion
 
 A deliberate HOT takeover replaces the local GNSS UTC map with the retained
