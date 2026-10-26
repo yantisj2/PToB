@@ -863,6 +863,28 @@ static void hot_survives_dead_stream(void) {
   assert(!owner.armed && !owner.reserved && !owner.serving);
   puts("PASS nominated HOT survives dead timing stream and delayed control opportunity, inherits epoch, uses live local source; source loss and nomination revoke still stop takeover");
 }
+static void hot_survives_leader_reboot(void) {
+  takeover_fixture();
+  /* Old ACTIVE cache is still live when the same unit starts advertising a
+   * new boot. The new boot has no right to renew the old leader's contact. */
+  owner.peer[0]=(struct gm7_peer){.used=true,.identity=501,.boot=777,
+      .kind=GM7_ANNOUNCE,.received={.control=owner.selected,
+      .control_until=owner.selected_until}};
+  owner.peer[0].received.control.max_age_us=2500000;
+  owner.peer[1]=(struct gm7_peer){.used=true,.identity=501,.boot=778,
+      .reported={.until=fake_hf+4500000,.role=GM7_W_STANDBY}};
+  fake_timing=(struct r2_gm7_timing){0};fake_promote_ready=false;
+  uint64_t contact=owner.selected_contact,birth=owner.scope.birth;
+  cycle(&service_work);
+  assert(owner.peer[0].quarantined&&owner.peer[1].quarantined);
+  assert(owner.selected_contact==contact&&owner.armed&&owner.eligible);
+  assert(takeover_preparing&&owner.reserved&&!owner.serving);
+  finish(GM7_PRIMARY,true,true);
+  assert(owner.serving&&owner.scope.birth==birth&&owner.scope.term==2);
+  cycle(&service_work);
+  assert(owner.serving&&fake_precision_enabled&&!promoted_valid);
+  puts("PASS reboot boot-overlap preserves exact old-leader HOT commitment through receiver closure, local-clock reservation, completed ANN and precision enable");
+}
 static void yield_fixture(void) {
   setup(true);
   tick_to(96033000);
@@ -1578,6 +1600,7 @@ static void nomination_diagnostics(void) {
 int main(int argc, char **argv) {
   (void)argc;
   (void)argv;
+  hot_survives_leader_reboot();
   hot_survives_dead_stream();
   promoted_map_keeps_source_dwell();
   nomination_diagnostics();

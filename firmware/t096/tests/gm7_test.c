@@ -244,6 +244,17 @@ static void independent_role(void){
  v->role=GM7_W_STANDBY;v->sequence++;assert(!receive(&o,r,1000300)&&o.serving);
  v->role=GM7_W_ACTIVE;v->sequence++;v->boot=v->active_boot=778;
  assert(!receive(&o,r,1000400)&&o.peer[0].quarantined&&o.peer[1].quarantined&&o.serving);
+ /* Even during boot overlap, genuine fresh contact from the exact selected
+  * old boot cancels a silence takeover. A new boot cannot extend that timer. */
+ assert(!gm7_owner_init(&o,&g,81,97,true,1000000));
+ o.scope=(struct gm7_scope){.birth=v->birth_us,.founder=501,.term=2,.active=501,.boot=777};
+ o.armed=true;o.selected_contact=1000000;
+ v->boot=v->active_boot=777;v->role=GM7_W_ACTIVE;v->sequence++;
+ assert(!receive(&o,r,1000100)&&o.selected_contact==1000100);
+ v->boot=v->active_boot=778;v->role=GM7_W_STANDBY;v->sequence++;
+ assert(!receive(&o,r,1000200)&&o.selected_contact==1000100&&o.armed);
+ v->boot=v->active_boot=777;v->role=GM7_W_ACTIVE;v->sequence++;v->sampled_mono_us++;
+ assert(!receive(&o,r,1000300)&&o.selected_contact==1000300&&o.armed);
  puts("PASS ANN-free self-ACTIVE ROLE suppresses only newer lineage, exact-birth founder/term ties, independent generation churn, duplicate TTL, nonself/follower negatives and simultaneous reboot quarantine");
 }
 int main(void){printf("sizeof owner=%zu peer=%zu control=%zu scheduler=%zu\n",sizeof(struct gm7_owner),sizeof(struct gm7_peer),sizeof(struct gm7_peer_control),sizeof(struct gm7_scheduler));codec();receipt_horizons();ordinary_inventory();newcomer_during_announce_loss();ordinary_schedule();capacity_pressure();terminal_dominance();birth_and_ties();independent_role();phase_policy();promote();return 0;}

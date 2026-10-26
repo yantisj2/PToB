@@ -379,6 +379,13 @@ int gm7_owner_receive(struct gm7_owner *o, const uint8_t *ad, size_t size,
           r->hot_duration_ms,r->active_duration_ms,r->pps_duration_ms,
           r->blockers,r->role,r->known};
       quarantine(o);
+      /* Ambiguous boot inventory cannot suppress genuine fresh contact from
+       * the exact selected incumbent, nor may a new boot renew its timer. */
+      if (r->role == GM7_W_ACTIVE && p->quarantined &&
+          id==o->scope.active && boot==o->scope.boot &&
+          r->birth_us==o->scope.birth && r->founder==o->scope.founder &&
+          r->term==o->scope.term)
+        gm7_owner_contact(o,id,boot,rx,now);
       if (r->role == GM7_W_ACTIVE && !p->quarantined) {
         struct gm7_scope seen = scope_of(&observed, 0);
         if (!o->scope.active || lineage_order(seen, o->scope) < 0) {
@@ -464,9 +471,9 @@ int gm7_owner_receive(struct gm7_owner *o, const uint8_t *ad, size_t size,
     if (selected_same(o, c))
       select_peer(o, p);
   }
-  if (p->quarantined && p->identity == o->scope.active &&
-      p->boot == o->scope.boot)
-    disarm(o, GM7_R_SCOPE);
+  /* A reboot overlaps the old cached boot. Quarantine prevents selecting
+   * either ambiguous peer, but does not revoke an already armed takeover
+   * from the exact old boot. Its original contact deadline still applies. */
 
   /* Ranking is recomputed from the complete current inventory in update(),
    * avoiding receive-order selection from partial simultaneous cohorts. */
@@ -707,7 +714,7 @@ void gm7_owner_update(struct gm7_owner *o, const struct gm7_source *source,
   quarantine(o);
   struct gm7_peer *selected_peer =
       peer_for(o, o->scope.active, o->scope.boot, false);
-  if (selected_peer && selected_peer->quarantined) {
+  if (selected_peer && selected_peer->quarantined && !o->armed) {
     disarm(o, GM7_R_SCOPE);
     o->takeover_due = false;
   }
@@ -916,7 +923,7 @@ static int activate(struct gm7_owner *o, uint64_t nominal, uint64_t complete,
       return -EACCES;
     }
     if (p->used && p->identity == o->scope.active && p->boot == o->scope.boot &&
-        p->quarantined)
+        p->quarantined && !hot_takeover)
       return -EACCES;
     bool conditional_incumbent =
         reserve && hot_takeover &&

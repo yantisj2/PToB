@@ -1,5 +1,15 @@
 # T096 changelog
 
+## 0.15.201 — Preserve armed takeover across leader reboot
+
+A new boot advertisement overlapping the old leader's cached advertisements
+no longer clears an already armed HOT commitment or rejects its reservation.
+Duplicate boots remain excluded from ordinary peer selection; only fresh
+contact from the exact old leader can renew its silence deadline. Console
+GM00 reports `leader_boot_overlap` using the existing snapshot storage.
+The service regression reproduces the old disarm and follows receiver closure,
+local-clock reservation, completed ANN, inherited epoch and precision enable.
+
 ## 0.15.200 — Retain HOT across total leader loss
 
 Keep an already qualified, nominated HOT armed when the leader timing stream

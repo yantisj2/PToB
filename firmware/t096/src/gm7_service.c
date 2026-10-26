@@ -913,6 +913,8 @@ static __attribute__((noinline)) void publish(struct gm7_bridge b) {
     peer_display[i].kind = 0;
     peer_display[i].admission_rc = 0;
     const struct gm7_peer *peer=&owner.peer[i];
+    if(peer->used && peer->quarantined && peer->identity==owner.scope.active &&
+       peer->boot==owner.scope.boot) diagnostic.flags |= 128u;
     uint64_t heard_until;
     if (peer->used && peer->heard && b.hf>=peer->heard_at &&
         b.hf-peer->heard_at<4500000 &&
@@ -2254,6 +2256,7 @@ int r2_gm7_diagnostic_format(char *out, size_t capacity, unsigned page,
       "s,\"reservation_stage\":%u,\"reservation_rc\":%d,"
       "\"reservation_failures\":%u,\"peer_evictions\":%u,\"handover_deadline_misses\":%u,"
       "\"hot_armed\":%s,\"takeover_due\":%s,\"takeover_clock\":\"%s\","
+      "\"leader_boot_overlap\":%s,"
       "\"preferred_hot\":\"%016llx\",\"preferred_hot_boot\":\"%016llx\","
       "\"hot_change_cause\":\"%s\",\"hot_changes\":%u,\"hot_change_reason\":%u,\"hot_changed_kernel_us\":%llu,"
       "\"previous_hot\":\"%016llx\",\"previous_hot_boot\":\"%016llx\",\"hot_hold_ms\":%u,"
@@ -2294,6 +2297,7 @@ int r2_gm7_diagnostic_format(char *out, size_t capacity, unsigned page,
       runtime_gm && (diagnostic.flags & 32u) ? "true" : "false",
       !runtime_gm || diagnostic.role!=GM7_W_ACTIVE ? "NONE" :
           (diagnostic.flags & 64u) ? "INHERITED_MAP" : "LOCAL_SOURCE",
+      runtime_gm && (diagnostic.flags & 128u) ? "true" : "false",
       (unsigned long long)(runtime_gm?diagnostic.preferred_hot:0),
       (unsigned long long)(runtime_gm?diagnostic.preferred_hot_boot:0),
       hot_cause,diagnostic.hot_changes,diagnostic.hot_change_reason,
