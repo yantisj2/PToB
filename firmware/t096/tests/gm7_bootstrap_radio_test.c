@@ -6,9 +6,8 @@ int main(int argc, char **argv) {
   struct gm7_bootstrap_fixture f;
   FILE *file = fopen(argv[1], "rb");
   assert(file && fread(&f, sizeof f, 1, file) == 1 && !fclose(file));
-  assert(f.anchor.passive && f.anchor.source && f.scope.follower &&
-         !f.scope.gm && f.anchor.root == f.scope.root_identity &&
-         f.anchor.boot == f.scope.boot && f.roster.identity[1] == f.anchor.root);
+  assert(!f.anchor.source && f.scope.follower && !f.scope.gm &&
+         f.roster.identity[1]==f.scope.root_identity);
   assert(!r2_radio_service_init(0, &f.roster));
   fake_time = capture_us = f.at;
   capture_tick = 16000000;
@@ -16,18 +15,17 @@ int main(int argc, char **argv) {
   r2_radio_service_gm7_publish(f.scope,&f.anchor,&f.roster,-1,f.at,f.anchor.until);
   bool running = false;
   precision_poll(f.at, &running);
-  assert(public_client && pt_output.acquisition &&
-         active_scope.root_identity == f.anchor.root &&
-         active_scope.boot == f.anchor.boot && !pt_input.source_ready &&
+  assert(!public_client && pt_output.scope.follower &&
+         active_scope.root_identity == f.scope.root_identity &&
+         active_scope.boot == f.scope.boot && !pt_input.source_ready &&
          !pt_input.source.count);
-  uint64_t root_ns =
-      (f.anchor.utc_us - UINT64_C(1792800000000000)) * 1000;
+  uint64_t root_ns = UINT64_C(66000000000);
   struct r2_enrollment receive_roster = enrollment;
   for (unsigned i = 0; i < 10; i++) {
     uint64_t ns = root_ns + (uint64_t)i * 62500000;
     struct r2_precision_packet p = {
-        .root = 0, .boot = f.anchor.boot,
-        .source_epoch = f.anchor.source_epoch, .train = f.anchor.publication,
+        .root = 0, .boot = f.scope.boot,
+        .source_epoch = f.scope.source_epoch, .train = f.scope.publication_epoch,
         .publication = i + 1, .capture_epoch = 4, .flags = 1,
         .created_ns = ns - 1000000,
         .expires_ns = root_ns + 1000000000,
@@ -37,13 +35,13 @@ int main(int argc, char **argv) {
       p.correction[0] = (struct r2_precise_correction){
           .publication = i, .event = (uint16_t)i, .channel = 3,
           .ticks = (root_ns + (uint64_t)(i - 1) * 62500000) * 2 / 125,
-          .generation = f.anchor.publication,
+          .generation = f.scope.publication_epoch,
           .expires_ns = root_ns + 1000000000};
     }
     /* Actual root-side GRv3 codec uses its own private path order; receiver
      * decodes the full root identity into its independently remapped slot1. */
     enrollment = receive_roster;
-    enrollment.identity[0] = f.anchor.root;
+    enrollment.identity[0] = f.scope.root_identity;
     enrollment.identity[1] = f.roster.identity[0];
     if (!i)
       generic_frame = ns - 2000000;
@@ -58,8 +56,8 @@ int main(int argc, char **argv) {
     queued = true;
     precision_step(fake_time);
     assert(!queued && !error && !pt_input.source_ready &&
-           active_scope.root_identity == f.anchor.root &&
-           precision.scope.boot == f.anchor.boot && precision.remote_capture == 4 &&
+           active_scope.root_identity == f.scope.root_identity &&
+           precision.scope.boot == f.scope.boot && precision.remote_capture == 4 &&
            !pt_output.scope.gm);
   }
   assert(precision.accepted >= 4 && !precision.rejected &&

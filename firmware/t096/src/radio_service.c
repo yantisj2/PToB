@@ -76,6 +76,15 @@ static bool opportunity_seen,opportunity_complete;
 static uint64_t refresh_requested_until;
 static uint32_t train, publication, last_overflow, last_published_capture;
 static atomic_t error;
+#ifdef R2_GM7_NATIVE
+/* One selected direct sender's retained header floor, independent of fit.
+ * Publication is compared only inside the same source/train/capture scope. */
+static struct {
+ uint64_t root,boot,tick,counter_epoch;
+ uint32_t source,train,capture,publication;
+} gm7_direct;
+
+#endif
 static struct r2_radio_scope active_scope, native_scope;
 struct pt_input {
  struct r2_radio_scope grant;
@@ -120,6 +129,13 @@ _Static_assert(sizeof(struct pt_output)==728,"Retain PT output allocation");
 /* Thread-only mailbox. Never acquired by ISR or Bluetooth callbacks.
  * Service -> PT is the only nested mutex order; PT never acquires service. */
 K_MUTEX_DEFINE(pt_lock);
+#ifdef R2_GM7_NATIVE
+void r2_radio_service_gm7_contact(uint64_t *root,uint64_t *boot,uint64_t *tick,uint64_t *epoch){
+ (void)k_mutex_lock(&pt_lock,K_FOREVER);
+ *root=gm7_direct.root;*boot=gm7_direct.boot;*tick=gm7_direct.tick;*epoch=gm7_direct.counter_epoch;
+ (void)k_mutex_unlock(&pt_lock);
+}
+#endif
 static struct pt_input pt_input;
 static struct pt_output pt_output;
 static struct r2_link_quality direct_quality;
@@ -179,7 +195,9 @@ static bool same(struct r2_radio_scope,struct r2_radio_scope);
 static bool gm7_bound_locked(struct pt_output *out,uint64_t now){
  if(!pt_input.gm7_managed)return true;
  uint64_t until=pt_input.grant.until_us;
- bool current=!pt_input.stopped&&!atomic_get(&error)&&same(out->scope,pt_input.grant)&&
+ bool identity_follow=out->scope.follower&&!out->scope.gm&&pt_input.grant.follower&&
+  !pt_input.grant.gm&&out->scope.root_identity==pt_input.grant.root_identity&&out->scope.boot==pt_input.grant.boot;
+ bool current=!pt_input.stopped&&!atomic_get(&error)&&(identity_follow||same(out->scope,pt_input.grant))&&
   (!out->scope.gm||(pt_input.source_ready&&pt_input.source_epoch==r2_radio_local_epoch(out->scope)));
  if(out->scope.until_us>until)out->scope.until_us=until;
  if(out->valid_until>until)out->valid_until=until;
@@ -263,7 +281,7 @@ static void fault(int rc) {
 static bool same(struct r2_radio_scope a, struct r2_radio_scope b) {
   return ((a.root_identity&&b.root_identity)?a.root_identity==b.root_identity:a.root==b.root) && a.boot == b.boot &&
          a.source_epoch == b.source_epoch && a.local_source_epoch == b.local_source_epoch && a.publication_epoch == b.publication_epoch && a.gm == b.gm &&
-         a.follower == b.follower;
+         a.follower == b.follower && a.broadcast == b.broadcast;
 }
 static void scan_received(const struct bt_le_scan_recv_info *info,
                           struct net_buf_simple *data) {
@@ -480,7 +498,7 @@ static void follower_poll(uint64_t now) {
   k_spinlock_key_t k = k_spin_lock(&cb_lock);
   bool need = !sync_object && !creating;
   discovering = need;
-  bool create = need && now>=retry_at && (found||pt_public_client) && !r2_ble_initiating();
+  bool create = need && now>=retry_at && (found||pt_public_client||native_scope.broadcast) && !r2_ble_initiating();
   if (create) {
     creating = true;
     if(!sync_until)sync_until = now + 2000000;
@@ -536,27 +554,18 @@ static int prepare_data(const struct r2_source_clock *source,struct r2_capture c
  * still bounded authenticated BLE anchor. Only the PT owner reads client_clock. */
 static bool direct_grant_live(const struct pt_input *in,uint64_t now){
  const struct r2_radio_scope *g=&in->grant;
+#ifdef R2_GM7_NATIVE
+ if(in->gm7_managed&&g->follower&&!g->gm)
+  return !in->stopped&&g->root<in->roster.count&&g->boot&&
+      g->root_identity==in->roster.identity[g->root];
+#endif
  return !in->stopped&&g->root<in->roster.count&&g->boot&&g->source_epoch&&
   g->publication_epoch&&now<g->until_us&&
   (g->follower||(g->gm&&in->source_ready&&in->source_epoch==r2_radio_local_epoch(*g)));
 }
-/* GM7v3 has explicit authenticated receipt-origin control, not a causal
- * UTC anchor. Unknown uncertainty stays unknown. This grants only the exact
- * managed root/source/train/capture and original receipt-bounded source life;
- * captured G1 association/fitting remains unchanged. Ordinary RC uses JOIN. */
+/* Ordinary RC causal JOIN anchor; broadcast GMs never enter this path. */
 static bool grant_anchor_valid(const struct pt_input *in,const struct r2_group_client *c,uint64_t now){
-#ifdef R2_GM7_NATIVE
- if(in->gm7_managed){
-  const struct r2_radio_scope *g=&in->grant;
-  return c->passive&&c->source&&c->uncertainty_us==UINT32_MAX&&
-   g->follower&&!g->gm&&g->root<in->roster.count&&g->root_identity&&
-   g->root_identity==in->roster.identity[g->root]&&c->root==g->root_identity&&
-   c->boot==g->boot&&c->source_epoch==g->source_epoch&&
-   c->publication==g->publication_epoch&&g->remote_capture_epoch&&
-   c->at<=now&&now<c->until&&now<c->map_until&&now<g->until_us;
- }
-#endif
- return anchor_valid(c,now);
+ (void)in;return anchor_valid(c,now);
 }
 static bool selected_anchor(const struct pt_input *in,const struct r2_group_client *c,uint64_t now){
  const struct r2_radio_scope *g=&in->grant;
@@ -584,6 +593,17 @@ static void precision_step(uint64_t now){
  pt_input.gm7_busy=true;
 #endif
  out=pt_output;in=pt_input;(void)k_mutex_unlock(&pt_lock);
+#ifdef R2_GM7_NATIVE
+ bool broadcast=in.gm7_managed&&in.grant.follower&&!in.grant.gm;
+ if(broadcast){
+  in.client=(struct r2_group_client){0};
+  in.grant.until_us=INT64_MAX;in.grant.broadcast=true;
+  if(gm7_direct.root==in.grant.root_identity&&gm7_direct.boot==in.grant.boot){
+   in.grant.source_epoch=gm7_direct.source;in.grant.publication_epoch=gm7_direct.train;
+   in.grant.remote_capture_epoch=gm7_direct.capture;
+  }
+ }
+#endif
  if(retain_public_timing(&in,now)){
   /* Retain the original anchor if admission has no replacement. Never create
    * a new timestamp or extend its source/replay deadlines here. */
@@ -633,11 +653,25 @@ static void precision_step(uint64_t now){
  if(shadow_changed){r2_shadow_normal_withdraw();shadow_delivery=shadow_epoch=0;}
  r2_radio_precision_scope(&precision,scope,captured?current.epoch:0);
  struct r2_radio_capture_stats stats;r2_radio_capture_stats(&stats);
- if(stats.overflow!=last_overflow){last_overflow=stats.overflow;(void)k_mutex_lock(&pt_lock,K_FOREVER);
+ if(stats.overflow!=last_overflow){
+  last_overflow=stats.overflow;
 #ifdef R2_GM7_NATIVE
-  if(in.gm7_managed)fault(-ENOBUFS);
+  if(in.gm7_managed){
+   /* A lost record is not a lost capture clock domain. Retire only pending
+    * tuples/fit, then use the same receiver and normal causal reacquisition.
+    * Actual epoch/HF/driver faults remain separate failures. */
+   r2_radio_precision_scope(&precision,(struct r2_radio_scope){0},current.epoch);
+   r2_radio_precision_scope(&precision,scope,current.epoch);
+   last_published_capture=UINT32_MAX;
+   r2_shadow_normal_withdraw();shadow_delivery=shadow_epoch=0;
+  }else
 #endif
-  pt_input.stopped=true;(void)k_mutex_unlock(&pt_lock);fault(-ENOBUFS);r2_shadow_normal_withdraw();shadow_delivery=shadow_epoch=0;scope=(struct r2_radio_scope){0};r2_radio_precision_scope(&precision,scope,current.epoch);}
+  {
+   (void)k_mutex_lock(&pt_lock,K_FOREVER);pt_input.stopped=true;(void)k_mutex_unlock(&pt_lock);
+   fault(-ENOBUFS);r2_shadow_normal_withdraw();shadow_delivery=shadow_epoch=0;
+   scope=(struct r2_radio_scope){0};r2_radio_precision_scope(&precision,scope,current.epoch);
+  }
+ }
  r2_link_quality_bind(&direct_quality,scope.root_identity,scope.boot,captured?current.epoch:0);
  r2_link_quality_tick(&direct_quality,scope.follower&&!in.stopped&&in.quality_listening,now);
  if(scope.gm||scope.follower){
@@ -697,7 +731,43 @@ static void precision_step(uint64_t now){
       }
     } else if (!record.tx && scope.follower) {
 #ifdef R2_GM7_NATIVE
-      if(in.gm7_managed&&p.capture_epoch!=scope.remote_capture_epoch)continue;
+      if(broadcast){
+        /* generic_decode authenticated the DIRECT root-to-self packet. Notice
+         * progression before capture-generation and fitter qualification. */
+        bool same_sender=gm7_direct.root==scope.root_identity&&gm7_direct.boot==p.boot;
+        bool same_stream=same_sender&&gm7_direct.source==p.source_epoch&&
+            gm7_direct.train==p.train&&gm7_direct.capture==p.capture_epoch;
+        bool progression=!same_sender||
+            (p.source_epoch>=gm7_direct.source&&p.train>=gm7_direct.train&&
+             (p.source_epoch!=gm7_direct.source||p.train!=gm7_direct.train||
+              p.publication>gm7_direct.publication));
+        if(p.root!=scope.root||p.boot!=scope.boot||!p.source_epoch||!p.train||!p.capture_epoch||
+            !p.publication||!progression||physical.epoch!=current.epoch||
+            current.tick<physical.tick||current.tick-physical.tick>R2_RADIO_MAX_AGE_TICKS||
+            p.created_ns>INT64_MAX||p.expires_ns>INT64_MAX||p.expires_ns<=p.created_ns||
+            p.expires_ns-p.created_ns>1650000000||p.utc_offset_ns<0||
+            p.utc_offset_ns>INT64_MAX-(int64_t)p.expires_ns)continue;
+        (void)k_mutex_lock(&pt_lock,K_FOREVER);
+        if(!pt_input.stopped&&pt_input.grant.follower&&
+            pt_input.grant.root_identity==scope.root_identity&&pt_input.grant.boot==p.boot){
+          gm7_direct.root=scope.root_identity;gm7_direct.boot=p.boot;
+          gm7_direct.tick=physical.tick;gm7_direct.counter_epoch=physical.epoch;
+          gm7_direct.source=p.source_epoch;gm7_direct.train=p.train;
+          gm7_direct.capture=p.capture_epoch;gm7_direct.publication=p.publication;
+        }
+        (void)k_mutex_unlock(&pt_lock);
+        if(same_sender&&p.source_epoch==scope.source_epoch&&
+            p.train==scope.publication_epoch&&p.capture_epoch!=scope.remote_capture_epoch)continue;
+        if(!same_stream){
+          scope.source_epoch=p.source_epoch;scope.publication_epoch=p.train;
+          scope.remote_capture_epoch=p.capture_epoch;active_scope=scope;
+          r2_radio_precision_scope(&precision,scope,current.epoch);
+        }
+        /* Receipt-origin bootstrap has UNKNOWN absolute uncertainty. The
+         * authenticated original/correction expiry and normal RC capture,
+         * matcher and causal fitter still govern every time publication. */
+        utc=(int64_t)p.created_ns+p.utc_offset_ns;
+      }
 #endif
 #if defined(R2_AUTO_ROUTE_FIXTURE)
       /* Model timing loss independently of still-audible G1/JOIN. This hook
@@ -763,12 +833,17 @@ static void precision_step(uint64_t now){
   remaining=remaining>remaining/500+1?remaining-remaining/500-1:0;
   if(sampled+remaining<out.valid_until)out.valid_until=sampled+remaining;
  }else out.valid_until=sampled;
+ if(scope.broadcast){
+  uint64_t remaining=paired&&precision.data_until>current.tick ?
+      (precision.data_until-current.tick)/(R2_CAPTURE_HZ/1000000):0;
+  if(sampled+remaining<out.valid_until)out.valid_until=sampled+remaining;
+ }
  int64_t offset=public_client?client_utc_offset:follower_utc_offset;
  out.utc_valid=paired&&scope.follower&&r2_radio_precision_read(&precision,current,sampled,&relative)&&relative>=0&&offset>=0&&relative<=INT64_MAX-offset&&sampled<out.valid_until;
  out.utc=out.utc_valid?(uint64_t)(relative+offset)/1000:0;
  out.bootstrap=client_clock;out.bootstrap.passive=public_client;out.bootstrap.until=scope.until_us;
  out.bootstrap.source=public_client&&grant_anchor_valid(&in,&client_clock,sampled)&&sampled<scope.until_us;
- out.context=(struct r2_group_client){.passive=public_client,.source=out.utc_valid,.root=scope.root<enrollment.count?enrollment.identity[scope.root]:0,.boot=scope.boot,.source_epoch=scope.source_epoch,.publication=scope.publication_epoch,.utc_us=out.utc,.at=sampled,.until=scope.until_us,.map_until=out.valid_until};
+ out.context=(struct r2_group_client){.passive=public_client,.source=out.utc_valid,.root=scope.root<enrollment.count?enrollment.identity[scope.root]:0,.boot=scope.boot,.source_epoch=scope.source_epoch,.publication=scope.publication_epoch,.utc_us=out.utc,.at=sampled,.until=scope.until_us,.map_until=out.valid_until,.uncertainty_us=scope.broadcast?UINT32_MAX:0};
 #ifdef R2_GM7_NATIVE
  out.gm7.counter_epoch=current.epoch;
  out.gm7.evaluated_tick=current.tick;
@@ -847,8 +922,9 @@ static void precision_step(uint64_t now){
   .root=scope.root_identity,.root_boot=scope.boot,.parent=scope.follower?scope.root_identity:0,.parent_boot=scope.follower?scope.boot:0,.source_epoch=scope.source_epoch,.scale=RC8_UTC,
   .kind=scope.gm?RC8_OWN_GM:RC8_SELECTED_BLE};
  bool lvalid=false;
- if(paired&&!in.stopped&&sampled<scope.until_us&&scope.until_us-sampled<=(UINT64_MAX-current.tick)/16){
-  uint64_t until=current.tick+(scope.until_us-sampled)*16;
+ uint64_t export_until=scope.broadcast?out.valid_until:scope.until_us;
+ if(paired&&!in.stopped&&sampled<export_until&&export_until-sampled<=(UINT64_MAX-current.tick)/16){
+  uint64_t until=current.tick+(export_until-sampled)*16;
   if(scope.gm&&in.source_ready&&in.source_epoch==r2_radio_local_epoch(scope)){
    /* Validate the physical source first, then label the authenticated export
     * with its mesh lineage. Neither value can qualify the other. */
@@ -921,15 +997,31 @@ static void idle_capture_drain(void){
 static void precision_poll(uint64_t now,bool *was_running){
  uint64_t handoff_root=0,handoff_boot=0;uint32_t handoff_epoch=0;
  (void)k_mutex_lock(&pt_lock,K_FOREVER);
- if(handoff.pending&&pt_input.stopped){
+ bool capture_handoff=pt_input.stopped;
+#ifdef R2_GM7_NATIVE
+ capture_handoff=capture_handoff||pt_input.gm7_managed;
+#endif
+ if(handoff.pending&&capture_handoff){
   /* PT is the sole history writer. Snapshot before the final withdrawal
    * clears its old scope; copying is thread-only and under the mailbox lock. */
   handoff_root=handoff.root;handoff_boot=handoff.boot;handoff_epoch=handoff.epoch;
-  handoff.valid=precision.scope.follower&&!precision.scope.gm&&precision.scope.root_identity==handoff.root&&precision.scope.boot==handoff.boot&&precision.scope.source_epoch==handoff.epoch&&precision.train&&precision.remote_capture&&!precision.servo.fault&&precision.servo.fit_valid&&precision.servo.session==precision.train;
+  bool snapshot_valid=precision.scope.follower&&!precision.scope.gm&&precision.scope.root_identity==handoff.root&&precision.scope.boot==handoff.boot&&precision.scope.source_epoch==handoff.epoch&&precision.train&&precision.remote_capture&&!precision.servo.fault&&precision.servo.fit_valid&&precision.servo.session==precision.train;
+  /* GM7 retains the most recent genuine fit before ANN permission expires.
+   * Listening continues; final ACK still requires stopped/drained. A repeat
+   * poll cannot renew the saved original capture or its prediction bounds. */
+#ifdef R2_GM7_NATIVE
+  bool refresh=snapshot_valid&&(!handoff.valid||precision.train!=handoff.train||
+      precision.remote_capture!=handoff.remote_capture||precision.local_epoch!=handoff.counter_epoch||
+      precision.last_accepted>handoff.last_accepted);
+#else
+  bool refresh=snapshot_valid;handoff.valid=snapshot_valid;
+#endif
+  if(refresh){handoff.valid=true;
 #ifdef R2_GM7_NATIVE
   if(handoff.valid){handoff.utc_offset_ns=public_client?client_utc_offset:follower_utc_offset;handoff.phase_enclosure_us=pt_output.gm7.phase_enclosure_us;handoff.phase_evaluated_tick=pt_output.gm7.evaluated_tick;}
 #endif
   if(handoff.valid){handoff.servo=precision.servo;handoff.counter_epoch=precision.local_epoch;handoff.train=precision.train;handoff.remote_capture=precision.remote_capture;handoff.last_available=precision.last_available;handoff.last_accepted=precision.last_accepted;}
+  }
  }
  if(reset_requested!=reset_ack&&pt_input.stopped&&!native_owned){
   /* Only the original PT owner clears estimator state, between jobs. */
@@ -1106,10 +1198,10 @@ void r2_radio_service_gm7_publish(struct r2_radio_scope scope,const struct r2_gr
  bool bounded=scope.root<roster->count&&scope.root_identity&&scope.root_identity==roster->identity[scope.root]&&
   scope.boot&&scope.source_epoch&&scope.publication_epoch&&sampled<=now&&now<scope.until_us&&now<resume_until;
  bool own=scope.gm&&!scope.follower&&scope.root==service_self&&pt_input.source_ready&&pt_input.source_epoch==r2_radio_local_epoch(scope);
- bool follow=scope.follower&&!scope.gm&&scope.root!=service_self&&client->passive&&client->source&&
-  client->root==scope.root_identity&&client->boot==scope.boot&&client->source_epoch==scope.source_epoch&&
-  client->publication==scope.publication_epoch&&grant_anchor_valid(&pt_input,client,now)&&now<client->until;
- if(bounded&&(own||follow)&&!atomic_get(&error))pt_input.stopped=false;
+ bool follow=scope.follower&&!scope.gm&&scope.root!=service_self&&
+  scope.root<roster->count&&scope.root_identity&&scope.root_identity==roster->identity[scope.root]&&scope.boot;
+ if(follow){pt_input.grant.until_us=INT64_MAX;pt_input.grant.broadcast=true;pt_input.client=(struct r2_group_client){0};}
+ if(((bounded&&own)||follow)&&!atomic_get(&error))pt_input.stopped=false;
  /* Handoff history survives. The owner may still need its original imported
   * source; only normal activation/reset owns clearing that state. */
  (void)k_mutex_unlock(&pt_lock);

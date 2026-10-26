@@ -103,7 +103,7 @@ static bool clock_now(struct gm7_owner *o, uint64_t now) {
       o->event.valid = o->reserved = false;
       o->scope = (struct gm7_scope){0};
       o->selected = (struct gm7_control){0};
-      o->selected_until = o->selected_source_until = 0;
+      o->selected_until = 0;
       memset(o->peer, 0, sizeof o->peer);
       o->reason = GM7_R_TIMEBASE;
       o->role = o->gm_capable ? GM7_COLD : GM7_RECEIVER;
@@ -225,7 +225,7 @@ static struct gm7_peer *peer_for(struct gm7_owner *o, uint64_t id,
        (p->identity==o->nominee&&p->boot==o->nominee_boot)||
        (p->identity==o->selected.hot&&p->boot==o->selected.hot_boot)||
        (o->reserved&&p->identity==o->reserved_scope.active&&p->boot==o->reserved_scope.boot);
-      bool expired=o->now>=p->received.control_until&&o->now>=p->received.source_until&&
+      bool expired=o->now>=p->received.control_until&&
        o->now>=p->reported.until&&(!p->heard||(o->now>=p->heard_at&&o->now-p->heard_at>=4500000));
       if(!protected&&expired&&(!free||p->heard_at<free->heard_at))free=p;
     }
@@ -270,11 +270,9 @@ static void quarantine(struct gm7_owner *o) {
     for (unsigned j = i + 1; j < GM7_PEERS; j++) {
       struct gm7_peer *a = &o->peer[i], *b = &o->peer[j];
       if (a->used && b->used && a->identity == b->identity &&
-          a->boot != b->boot && a->kind && b->kind &&
-          o->now < a->received.control_until &&
-          o->now < b->received.control_until &&
-          gm7_control_live(&a->received, o->now) &&
-          gm7_control_live(&b->received, o->now))
+          a->boot != b->boot &&
+          (gm7_control_live(&a->received,o->now) || o->now<a->reported.until) &&
+          (gm7_control_live(&b->received,o->now) || o->now<b->reported.until))
         a->quarantined = b->quarantined = true;
     }
 }
@@ -295,7 +293,6 @@ static void select_peer(struct gm7_owner *o, const struct gm7_peer *p) {
     disarm(o, GM7_R_SCOPE);
     cancel_positive(o);
     o->prepared = false;
-    o->prepared_since = 0;
     o->remote_yield_sequence = o->remote_yield_after = 0;
     o->withdrawn = o->takeover_due = o->initial_due = false;
     o->nominee = o->nominee_boot = 0;
@@ -303,10 +300,12 @@ static void select_peer(struct gm7_owner *o, const struct gm7_peer *p) {
     count(&o->transitions);
     o->reason = GM7_R_MERGE;
   }
+  if (!selected_same(o, &p->received.control))
+    o->selected_contact = 0;
   o->selected = p->received.control;
-  o->selected_original = p->original;
+  if (p->original > o->selected_contact)
+    o->selected_contact = p->original;
   o->selected_until = p->received.control_until;
-  o->selected_source_until = p->received.source_until;
   o->quiet = false;
   o->takeover_due = false;
   if (o->armed && (p->received.control.hot != o->identity ||
@@ -346,12 +345,15 @@ int gm7_owner_receive(struct gm7_owner *o, const uint8_t *ad, size_t size,
     boot = packet.body.gnss.boot;
   } else
     return -EPROTO;
+  if (packet.kind==GM7_ROLE && packet.body.role.role==GM7_W_ACTIVE &&
+      (!packet.body.role.birth_us || id!=packet.body.role.active ||
+       boot!=packet.body.role.active_boot)) return -EINVAL;
   if (id == o->identity)
     return -EADDRINUSE;
-  struct gm7_peer *p = peer_for(o, id, boot, packet.kind <= GM7_STATUS);
+  struct gm7_peer *p = peer_for(o, id, boot, packet.kind != GM7_WITHDRAW);
   if (!p)
     return -ENOSPC;
-  if (packet.kind <= GM7_STATUS) {
+  if (packet.kind != GM7_WITHDRAW) {
     p->heard = true;
     p->heard_at = rx;
     p->heard_kind = packet.kind;
@@ -359,24 +361,47 @@ int gm7_owner_receive(struct gm7_owner *o, const uint8_t *ad, size_t size,
     if (address)
       memcpy(p->address, address, 6);
   }
-  /* Preserve the small descriptive ROLE facts for updated GM peer screens.
-   * Remote GNSS remains in the unchanged GS/GD PT cache. Neither is authority.
-   */
+  /* Observe ROLE independently of ANN. Full lineage is used only to stop a
+   * newer transmitter and prioritize ordinary discovery; it grants no source,
+   * UTC map, nomination or HOT qualification. */
   if (packet.kind == GM7_ROLE || packet.kind == GM7_GNSS) {
     uint64_t until;
-    rc = gm7_control_diagnostic(&p->received, &packet, rx, now, &until);
-    if (!rc && packet.kind == GM7_ROLE) {
+    if (packet.kind == GM7_ROLE) {
       const struct gm7_role *r = &packet.body.role;
-      p->reported = (struct gm7_reported_role){r->sampled_mono_us,
-                                               until,
-                                               r->hot_duration_ms,
-                                               r->active_duration_ms,
-                                               r->pps_duration_ms,
-                                               r->blockers,
-                                               r->role,
-                                               r->known};
-    }
-    return rc;
+      struct gm7_control observed = {.birth_us=r->birth_us,.founder=r->founder,
+          .term=r->term,.active=r->active,.active_boot=r->active_boot};
+      if (r->birth_us && fenced(o, &observed)) return -ESTALE;
+      rc = gm7_control_diagnostic(&p->received,&packet,rx,now,&until);
+      if (rc) return rc;
+      p->observed = (struct gm7_lineage){r->birth_us,r->founder,r->term,
+                                          r->active,r->active_boot};
+      p->reported = (struct gm7_reported_role){r->sampled_mono_us,until,
+          r->hot_duration_ms,r->active_duration_ms,r->pps_duration_ms,
+          r->blockers,r->role,r->known};
+      quarantine(o);
+      if (r->role == GM7_W_ACTIVE && !p->quarantined) {
+        struct gm7_scope seen = scope_of(&observed, 0);
+        if (!o->scope.active || lineage_order(seen, o->scope) < 0) {
+          o->serving = false;
+          o->active_since = 0;
+          disarm(o, GM7_R_MERGE);
+          cancel_positive(o);
+          o->prepared = o->initial_due = o->takeover_due = false;
+          o->reason = GM7_R_MERGE;
+          o->role = o->gm_capable ? GM7_COLD : GM7_RECEIVER;
+          o->scope=seen;
+          o->scope.timing_epoch=r->timing_epoch;
+          o->scope.source_gen=r->source_gen;
+          o->scope.capture_gen=r->capture_gen;
+          o->scope.train=r->train_gen;
+          o->selected=(struct gm7_control){0};
+          o->selected_contact=rx;
+        }
+        if (o->scope.active && lineage_order(seen,o->scope)==0)
+          gm7_owner_contact(o, id, boot, rx, now);
+      }
+    } else return gm7_control_diagnostic(&p->received,&packet,rx,now,&until);
+    return 0;
   }
   if (packet.kind == GM7_ANNOUNCE && o->selected.yield_utc_us &&
       selected_same(o, &packet.body.control) &&
@@ -386,10 +411,8 @@ int gm7_owner_receive(struct gm7_owner *o, const uint8_t *ad, size_t size,
       packet.body.control.clock_class != 1 &&
       packet.body.control.clock_class != 2)
     return -EINVAL;
-  const struct gm7_control prior = p->received.control;
-  uint16_t prior_flags = p->flags;
-  uint64_t original, until, source_until, source_expiry_mono;
-  rc = gm7_control_check(&p->received, &packet, rx, now, &original, &until, &source_until, &source_expiry_mono);
+  uint64_t original, until;
+  rc = gm7_control_check(&p->received, &packet, rx, now, &original, &until);
   if (rc) {
     if (rc == -EALREADY)
       count(&o->duplicates);
@@ -399,12 +422,9 @@ int gm7_owner_receive(struct gm7_owner *o, const uint8_t *ad, size_t size,
   }
   const struct gm7_control *c = &packet.body.control;
   if (packet.kind == GM7_WITHDRAW) {
-    if (!selected_same(o, c) ||
-        (c->hot &&
-         (c->hot != o->selected.hot || c->hot_boot != o->selected.hot_boot)) ||
-        c->train_gen != o->selected.train_gen || !terminal(o, c))
+    if (!selected_same(o, c) || !terminal(o, c))
       return -ESTALE;
-    o->selected_source_until = o->selected_until = now;
+    o->selected_until = now;
     o->withdrawn = true;
     o->takeover_due = o->armed;
     cancel_positive(o);
@@ -430,19 +450,11 @@ int gm7_owner_receive(struct gm7_owner *o, const uint8_t *ad, size_t size,
   if (o->reserved && packet.kind==GM7_ANNOUNCE &&
       (!o->scope.active || lineage_order(scope_of(c,c->timing_epoch),o->scope)<=0))
     gm7_owner_reservation_cancel(o, now);
-  if (packet.kind == GM7_WITHDRAW || prior.birth_us != c->birth_us ||
-      prior.founder != c->founder || prior.term != c->term ||
-      prior.active != c->active || prior.active_boot != c->active_boot ||
-      prior.source_gen != c->source_gen ||
-      prior.capture_gen != c->capture_gen || prior.train_gen != c->train_gen ||
-      prior.hot != c->hot || prior.hot_boot != c->hot_boot ||
-      ((prior_flags ^ packet.flags) & (GM7_HOT | GM7_SHADOW)))
-    p->reported = (struct gm7_reported_role){0};
+  if (packet.kind == GM7_WITHDRAW)
+    p->reported.until = 0;
   p->received.last_sequence = c->sequence;
   p->received.last_sent = c->sent_mono_us;
   p->received.control = *c;
-  p->received.source_until = source_until;
-  p->received.source_expiry_mono = source_expiry_mono;
   p->flags = packet.flags;
   p->kind = packet.kind;
   p->original = original;
@@ -576,6 +588,34 @@ int gm7_owner_request_yield(struct gm7_owner *o, uint64_t now) {
   o->yield_ready=true;
   return 0;
 }
+/* The accepted ANN receipt stays separate from current transmitter contact:
+ * diagnostics/G1 inhibit a second GM without extending timing qualification. */
+void gm7_owner_contact(struct gm7_owner *o,uint64_t id,uint64_t boot,
+                        uint64_t rx,uint64_t now) {
+  if (!clock_now(o,now) || rx>now || o->stopped || o->withdrawn ||
+      id!=o->scope.active || boot!=o->scope.boot ||
+      rx<=o->selected_contact) return;
+  o->selected_contact=rx;
+  o->takeover_due=false;
+  if (o->reserved && !o->selected.yield_utc_us &&
+      o->reserved_nominal>=rx && o->reserved_nominal-rx<GM7_BLACKOUT_US)
+    gm7_owner_reservation_cancel(o,now);
+}
+static bool selected_contact_live(const struct gm7_owner *o,uint64_t now) {
+  return o->scope.active && o->scope.active!=o->identity && !o->withdrawn && now>=o->selected_contact &&
+      now-o->selected_contact<GM7_BLACKOUT_US;
+}
+static bool observed_incumbent(const struct gm7_owner *o,const struct gm7_peer *p,
+                                uint64_t now) {
+  const struct gm7_lineage *r=&p->observed;
+  if (!p->used || p->quarantined || now>=p->reported.until ||
+      p->reported.role!=GM7_W_ACTIVE || !r->birth ||
+      p->identity!=r->active || p->boot!=r->boot) return false;
+  struct gm7_control c={.birth_us=r->birth,.founder=r->founder,.term=r->term,
+      .active=r->active,.active_boot=r->boot};
+  return !fenced(o,&c) && (!o->scope.active ||
+      lineage_order(scope_of(&c,0),o->scope)<=0);
+}
 void gm7_owner_update(struct gm7_owner *o, const struct gm7_source *source,
                       const struct gm7_preparation *prep, uint64_t now) {
   if (!clock_now(o, now) || !source || !prep || o->stopped)
@@ -658,7 +698,6 @@ void gm7_owner_update(struct gm7_owner *o, const struct gm7_source *source,
   struct gm7_peer *selected_peer =
       peer_for(o, o->scope.active, o->scope.boot, false);
   if (selected_peer && selected_peer->quarantined) {
-    o->selected_source_until = now;
     disarm(o, GM7_R_SCOPE);
     o->takeover_due = false;
   }
@@ -666,7 +705,7 @@ void gm7_owner_update(struct gm7_owner *o, const struct gm7_source *source,
   for (unsigned i = 0; i < GM7_PEERS; i++) {
     const struct gm7_peer *p = &o->peer[i];
     if (!peer_current(p, now) || p->kind != GM7_ANNOUNCE ||
-        now >= p->received.source_until || fenced(o, &p->received.control))
+        fenced(o, &p->received.control))
       continue;
     if ((o->serving||o->armed||o->reserved)&&o->scope.active&&
         lineage_order(scope_of(&p->received.control,p->received.control.timing_epoch),o->scope)>0)
@@ -692,29 +731,21 @@ void gm7_owner_update(struct gm7_owner *o, const struct gm7_source *source,
   bool scope = gm7_scope_same(prep->scope, o->scope) && o->scope.active &&
                o->scope.active != o->identity;
   bool physical = scope && prep->map_valid && prep->fit_valid && prep->locked &&
-                  prep->correction_age_us <= 250000 && prep->phase_available &&
+                  prep->correction_age_us < GM7_ARM_RETAIN_US && prep->phase_available &&
                   prep->phase_enclosure_us <= 2000 && !prep->health_lost &&
-                  now < o->selected_source_until;
+                  true;
   if (!prep->map_valid)
     o->blockers |= GM7_B_MAP;
   if (!prep->fit_valid || !prep->locked)
     o->blockers |= GM7_B_LOCK;
-  if (prep->correction_age_us > 250000)
+  if (prep->correction_age_us >= GM7_ARM_RETAIN_US)
     o->blockers |= GM7_B_CORRECTION;
   if (!scope)
     o->blockers |= GM7_B_SCOPE;
   if (!prep->phase_available || prep->phase_enclosure_us > 2000)
     o->blockers |= GM7_B_PHASE;
-  if (physical && o->eligible) {
-    if (!o->prepared_since)
-      o->prepared_since = now;
-    o->prepared = now - o->prepared_since >= GM7_PREPARE_US;
-    if (o->prepared && prep->shadow_gen)
-      o->shadow_gen = prep->shadow_gen;
-  } else {
-    o->prepared = false;
-    o->prepared_since = 0;
-  }
+  o->prepared=physical&&o->eligible&&prep->shadow_gen;
+  if(o->prepared)o->shadow_gen=prep->shadow_gen;
   if (!o->prepared)
     o->blockers |= GM7_B_PREPARE;
   bool nominated = o->selected.hot == o->identity &&
@@ -724,15 +755,15 @@ void gm7_owner_update(struct gm7_owner *o, const struct gm7_source *source,
   if (o->armed) {
     bool retained = scope && prep->retained_prediction &&
                     prep->retained_enclosure_us <= 8000 &&
-                    now >= o->selected_original &&
-                    now - o->selected_original < GM7_ARM_RETAIN_US;
+                    now >= o->selected_contact &&
+                    now - o->selected_contact < GM7_ARM_RETAIN_US;
     if (!o->eligible || !nominated || prep->health_lost || !retained ||
         physical_change) {
       disarm(o, !o->eligible ? GM7_R_SOURCE : GM7_R_PREPARE);
       o->takeover_due = false;
     }
   } else if (o->eligible && o->prepared && o->shadow_gen && nominated &&
-             now < o->selected_until) {
+             o->selected.active) {
     o->armed = true;
     o->armed_since = now;
     o->role = GM7_ARMED;
@@ -742,8 +773,8 @@ void gm7_owner_update(struct gm7_owner *o, const struct gm7_source *source,
   o->takeover_due = false;
   if (o->armed) {
     o->role = GM7_ARMED;
-    if (o->withdrawn || (now >= o->selected_original &&
-                         now - o->selected_original >= GM7_BLACKOUT_US))
+    if (o->withdrawn || (now >= o->selected_contact &&
+                         now - o->selected_contact >= GM7_BLACKOUT_US))
       o->takeover_due = true;
     if (o->selected.yield_utc_us) {
       /* Offset freshness is broad. Timed YIELD requires the separately accepted
@@ -762,7 +793,11 @@ void gm7_owner_update(struct gm7_owner *o, const struct gm7_source *source,
     }
   } else
     o->role = o->gm_capable ? (physical ? GM7_WARM : GM7_COLD) : GM7_RECEIVER;
-  bool incumbent = best != NULL;
+  bool incumbent = best != NULL || selected_contact_live(o,now);
+  /* A selected HOT uses the contact-based silence rule, not ROLE TTL. */
+  if (!o->armed)
+    for (unsigned i=0;i<GM7_PEERS;i++)
+      incumbent = incumbent || observed_incumbent(o,&o->peer[i],now);
   if (incumbent || o->armed) {
     o->quiet = false;
     o->initial_due = false;
@@ -776,7 +811,7 @@ void gm7_owner_update(struct gm7_owner *o, const struct gm7_source *source,
   }
   if (!o->quiet) {
     o->quiet = true;
-    o->quiet_since = o->selected.active ? o->selected_original : now;
+    o->quiet_since = o->selected.active ? o->selected_contact : now;
   }
   bool rank = true;
   for (unsigned i = 0; i < GM7_PEERS; i++) {
@@ -805,16 +840,16 @@ static bool hot_cause_at(const struct gm7_owner *o, uint64_t action) {
   bool fixed_yield = o->selected.yield_utc_us &&
                      o->remote_yield_sequence == o->selected.sequence &&
                      o->remote_yield_after && action >= o->remote_yield_after;
-  bool silence = action >= o->selected_original &&
-                 action - o->selected_original >= GM7_BLACKOUT_US;
+  bool silence = action >= o->selected_contact &&
+                 action - o->selected_contact >= GM7_BLACKOUT_US;
   return o->armed && o->selected.hot == o->identity &&
          o->selected.hot_boot == o->boot &&
          o->preparation.retained_prediction &&
          o->preparation.retained_enclosure_us <= 8000 &&
          !o->preparation.health_lost &&
          gm7_scope_same(o->preparation.scope, o->scope) &&
-         action >= o->selected_original &&
-         action - o->selected_original < GM7_ARM_RETAIN_US &&
+         action >= o->selected_contact &&
+         action - o->selected_contact < GM7_ARM_RETAIN_US &&
          (o->withdrawn || silence || fixed_yield);
 }
 bool gm7_owner_takeover_at(const struct gm7_owner *o, uint64_t nominal,
@@ -825,7 +860,7 @@ bool gm7_owner_takeover_at(const struct gm7_owner *o, uint64_t nominal,
          nominal - now <= 250000 && end >= nominal && end - nominal <= 4000 &&
          o->eligible && source_current(o, now) && o->source.physical_ready &&
          o->source.until_us > end && hot_cause_at(o, nominal) &&
-         add(o->selected_original, GM7_BLACKOUT_BOUND_US, &bound) &&
+         add(o->selected_contact, GM7_BLACKOUT_BOUND_US, &bound) &&
          end <= bound;
 }
 static int activate(struct gm7_owner *o, uint64_t nominal, uint64_t complete,
@@ -857,6 +892,8 @@ static int activate(struct gm7_owner *o, uint64_t nominal, uint64_t complete,
    * exact incumbent's already elapsed physical, immutable YIELD deadline. */
   for (unsigned i = 0; i < GM7_PEERS; i++) {
     const struct gm7_peer *p = &o->peer[i];
+    if (o->initial_due && (observed_incumbent(o,p,now) || selected_contact_live(o,now)))
+      return -EACCES;
     if (o->initial_due && peer_current(p, now) && p->kind == GM7_STATUS &&
         (p->flags & (GM7_ELIGIBLE | GM7_CAPABLE)) ==
             (GM7_ELIGIBLE | GM7_CAPABLE) &&
@@ -872,10 +909,10 @@ static int activate(struct gm7_owner *o, uint64_t nominal, uint64_t complete,
         gm7_scope_same(
             scope_of(&p->received.control, p->received.control.timing_epoch),
             o->scope) &&
-        nominal >= p->received.source_until;
+        nominal>=o->selected_contact && nominal-o->selected_contact>=GM7_BLACKOUT_US;
     if (peer_current(p, now) && p->kind == GM7_ANNOUNCE &&
         (!o->scope.active||lineage_order(scope_of(&p->received.control,p->received.control.timing_epoch),o->scope)<=0) &&
-        now < p->received.source_until && !conditional_incumbent &&
+        !conditional_incumbent &&
         !fenced(o, &p->received.control) &&
         !(fixed_yield && selected_same(o, &p->received.control) &&
           p->received.control.sequence == o->remote_yield_sequence))
@@ -886,7 +923,7 @@ static int activate(struct gm7_owner *o, uint64_t nominal, uint64_t complete,
   bool inherit = next.birth && next.founder && next.term;
   if (hot_takeover) {
     uint64_t bound;
-    if (!add(o->selected_original, GM7_BLACKOUT_BOUND_US, &bound) ||
+    if (!add(o->selected_contact, GM7_BLACKOUT_BOUND_US, &bound) ||
         complete > bound) {
       count(&o->missed_bounds);
       o->reason = GM7_R_MISSED_BOUND;
@@ -952,9 +989,8 @@ static int activate(struct gm7_owner *o, uint64_t nominal, uint64_t complete,
   o->armed = false;
   o->armed_since = 0;
   o->prepared = false;
-  o->prepared_since = 0;
   o->selected = (struct gm7_control){0};
-  o->selected_until = o->selected_source_until = 0;
+  o->selected_until = 0;
   o->nominee = o->nominee_boot = 0;
   o->quiet = o->takeover_due = o->initial_due = o->withdrawn = false;
   cancel_positive(o);
@@ -1028,8 +1064,8 @@ static int control(struct gm7_owner *o, struct gm7_packet *p, uint64_t now,
     if (o->gm_capable)
       p->flags |= GM7_CAPABLE;
     if (o->scope.active && o->scope.active != o->identity &&
-        now >= o->selected_original &&
-        now - o->selected_original < GM7_ARM_RETAIN_US) {
+        now >= o->selected_contact &&
+        now - o->selected_contact < GM7_ARM_RETAIN_US) {
       c->birth_us = o->scope.birth;
       c->founder = o->scope.founder;
       c->term = o->scope.term;
@@ -1130,9 +1166,9 @@ int gm7_owner_reservation_commit(struct gm7_owner *o, uint64_t first,
   o->role = GM7_ACTIVE;
   o->reason = o->scope.term == 1 ? GM7_R_INITIAL : GM7_R_TAKEOVER;
   o->armed = o->prepared = false;
-  o->armed_since = o->prepared_since = 0;
+  o->armed_since = 0;
   o->selected = (struct gm7_control){0};
-  o->selected_until = o->selected_source_until = 0;
+  o->selected_until = 0;
   o->nominee = o->nominee_boot = 0;
   o->quiet = o->takeover_due = o->initial_due = o->withdrawn = false;
   cancel_positive(o);
@@ -1237,21 +1273,23 @@ bool gm7_peer_role(const struct gm7_owner *o, unsigned index, uint64_t now,
     return false;
   const struct gm7_peer *p = &o->peer[index];
   if (!p->used || !p->reported.until || now >= p->reported.until ||
-      !gm7_control_live(&p->received, now))
+      p->quarantined)
     return false;
   *out = p->reported;
   *current = false;
   bool physical = o->serving ||
                   (gm7_scope_same(o->preparation.scope, o->scope) &&
                    o->preparation.phase_available && (o->prepared || o->armed));
-  if (physical && peer_current(p, now)) {
+  bool observed_same = p->observed.birth==o->scope.birth &&
+      p->observed.founder==o->scope.founder && p->observed.term==o->scope.term &&
+      p->observed.active==o->scope.active && p->observed.boot==o->scope.boot;
+  if (physical && observed_same && peer_current(p, now)) {
     if (p->kind == GM7_STATUS)
       *current = gm7_candidate_mesh_current(p, &o->scope, now);
     else if (p->kind == GM7_ANNOUNCE)
       *current = gm7_scope_same(scope_of(&p->received.control,
                                          p->received.control.timing_epoch),
-                                o->scope) &&
-                 now < p->received.source_until;
+                                o->scope);
   }
   if (*current && p->reported.role == GM7_W_HOT) {
     uint64_t nominee = o->serving ? o->nominee : o->selected.hot;

@@ -21,9 +21,9 @@ static void refused_then_serving(void) {
     assert(diagnostic.reservation_stage == RESERVE_NATIVE &&
            diagnostic.reservation_rc == -EBUSY &&
            diagnostic.reservation_failures == i + 1);
-    uint64_t consumed = owner.sequence;
+    uint64_t consumed = primary_frame;
     cycle(&service_work);
-    assert(owner.sequence == consumed); /* Same opportunity never retries. */
+    assert(primary_frame == consumed && diagnostic.reservation_failures == i+1); /* Primary opportunity never retries; ordinary STATUS may advance. */
     tick_to(fake_hf + GM7_FRAME_US);
     healthy_input();
   }
@@ -157,9 +157,9 @@ static void preparation_cost(void) {
   assert(!owner.reserved && !owner.serving &&
          diagnostic.reservation_stage == RESERVE_NATIVE &&
          diagnostic.reservation_rc == -ETIMEDOUT);
-  uint64_t old = owner.sequence;
+  uint64_t old = diagnostic.reservation_failures;
   cycle(&service_work);
-  assert(owner.sequence == old);
+  assert(diagnostic.reservation_failures == old);
   tick_to(fake_hf + GM7_FRAME_US - 20000);
   healthy_input();
   cycle(&service_work);
@@ -178,7 +178,7 @@ static void preparation_cost(void) {
   assert(owner.reserved && polls < 45 && fake_native_live[GM7_PRIMARY]);
   finish(GM7_PRIMARY, true, true);
   assert(owner.serving);
-  puts("PASS bounded25ms CPU preparation with6ms injected elapsed encode/work; "
+  puts("PASS bounded100ms CPU preparation with6ms injected elapsed encode/work; "
        "unchanged packet sample/RF windows, currentHF refusal and next "
        "recovery");
 }

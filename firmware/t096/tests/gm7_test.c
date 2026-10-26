@@ -65,34 +65,26 @@ static void promote(void){
 }
 
 static int admit(struct gm7_peer_control *s,struct gm7_packet p,uint64_t rx,uint64_t now){
- uint64_t original,until,source,e;int rc=gm7_control_check(s,&p,rx,now,&original,&until,&source,&e);
- if(!rc){s->control=p.body.control;s->last_sequence=p.body.control.sequence;s->last_sent=p.body.control.sent_mono_us;s->control_until=until;s->source_until=source;s->source_expiry_mono=e;}return rc;
+ uint64_t original,until;int rc=gm7_control_check(s,&p,rx,now,&original,&until);
+ if(!rc){s->control=p.body.control;s->last_sequence=p.body.control.sequence;s->last_sent=p.body.control.sent_mono_us;s->control_until=until;}return rc;
 }
 static void receipt_horizons(void){
  struct gm7_peer_control s={0};struct gm7_packet p=fixture("announce");
- p.body.control.sequence=1;p.body.control.sent_mono_us=100000000;p.body.control.max_age_us=750000;p.body.control.source_valid_us=1000000;
- assert(!admit(&s,p,10000000,10200000));assert(s.control_until==10750000&&s.source_until==11000000&&s.source_expiry_mono==101000000);
+ p.body.control.sequence=1;p.body.control.sent_mono_us=100000000;
+ p.body.control.max_age_us=750000;p.body.control.source_valid_us=1000000;
+ assert(!admit(&s,p,10000000,10200000)&&s.control_until==10750000);
  struct gm7_peer_control saved=s;
  assert(admit(&s,p,10500000,10500000)==-EALREADY&&!memcmp(&s,&saved,sizeof s));
  assert(admit(&s,p,12000000,12000000)==-EALREADY&&!memcmp(&s,&saved,sizeof s));
- p.body.control.sequence++;p.body.control.sent_mono_us+=250000;p.body.control.source_valid_us=750000;
- assert(!admit(&s,p,10400000,10400000)&&s.source_until==11000000);
- saved=s;p.body.control.sequence++;p.body.control.source_gen++;
- assert(admit(&s,p,11100000,11100000)==-ESTALE&&!memcmp(&s,&saved,sizeof s));
- p.body.control.sent_mono_us+=250000;
- assert(!admit(&s,p,11100000,11100000)&&s.source_until==11850000&&s.source_expiry_mono==101250000);
- struct gm7_packet status=p;status.kind=GM7_STATUS;status.flags=GM7_CAPABLE|GM7_ELIGIBLE;
- status.body.control.source_valid_us=0;status.body.control.train_gen=0;status.body.control.shadow_gen=0;status.body.control.sequence++;status.body.control.hot=status.body.control.hot_boot=0;
- assert(!admit(&s,status,11200000,11200000)&&s.source_until==11850000);
- p.body.control.sequence=status.body.control.sequence+1;p.body.control.source_valid_us=500000;p.body.control.sent_mono_us+=250000;
- assert(!admit(&s,p,11300000,11300000)&&s.source_until==11800000);
- saved=s;p.body.control.sequence++;p.body.control.sent_mono_us=UINT64_MAX-1;
- assert(admit(&s,p,11400000,11400000)==-EOVERFLOW&&!memcmp(&s,&saved,sizeof s));
- p.body.control.sent_mono_us=101000000;
- assert(admit(&s,p,11400000,12150000)==-ESTALE&&!memcmp(&s,&saved,sizeof s));
- struct gm7_peer_control standby={0};status.body.control.sequence=1;
- assert(!admit(&standby,status,20000000,20000100)&&!standby.source_until&&gm7_control_live(&standby,20000100));
- puts("PASS native-receipt horizons, processing delay, immutable duplicates, same/nonadvancedE across expiry/source/role changes, advancedE, overflow, standalone qualified STATUS");
+ p.body.control.sequence++;p.body.control.source_gen++;
+ /* A control observation is not a short source permission session. */
+ assert(!admit(&s,p,12000000,12000100));
+ saved=s;p.body.control.sequence++;p.body.control.sent_mono_us--;
+ assert(admit(&s,p,12500000,12500000)==-ESTALE&&!memcmp(&s,&saved,sizeof s));
+ p.body.control.sent_mono_us++;
+ assert(admit(&s,p,12500000,13250000)==-ESTALE&&!memcmp(&s,&saved,sizeof s));
+ assert(admit(&s,p,UINT64_MAX-1,UINT64_MAX-1)==-ESTALE);
+ puts("PASS receipt-bounded ordinary observations, immutable duplicate/reordered floors, processing expiry/overflow; no ANN source lease");
 }
 static int receive(struct gm7_owner *o,struct gm7_packet p,uint64_t now){
  uint8_t ad[GM7_MAX_AD_BYTES];assert(!gm7_ad_encode(ad,sizeof ad,&p,&o->group));return gm7_owner_receive(o,ad,gm7_wire_size(p.kind)+4,NULL,now,now);
@@ -199,4 +191,32 @@ static void birth_and_ties(void){
  }
  puts("PASS full64bitUTC birth of successful firstGM initiation, cancelled unexposed election leaves no birth, founder/leader deterministic equalbirth ties and immediate loser stop before physical follow");
 }
-int main(void){printf("sizeof owner=%zu peer=%zu control=%zu scheduler=%zu\n",sizeof(struct gm7_owner),sizeof(struct gm7_peer),sizeof(struct gm7_peer_control),sizeof(struct gm7_scheduler));codec();receipt_horizons();ordinary_inventory();ordinary_schedule();capacity_pressure();terminal_dominance();birth_and_ties();phase_policy();promote();return 0;}
+static void independent_role(void){
+ struct r2_group_config g=group();struct gm7_packet r=fixture("role-diagnostic");
+ struct gm7_role *v=&r.body.role;
+ v->sender=v->active=501;v->boot=v->active_boot=777;v->role=GM7_W_ACTIVE;
+ v->birth_us=UINT64_C(1792800000000000);v->founder=501;v->term=2;
+ v->sequence=10;v->sampled_mono_us=1000000;
+ for(unsigned tie=0;tie<3;tie++){
+  struct gm7_owner o;assert(!gm7_owner_init(&o,&g,81,97,true,1000000));
+  o.serving=true;o.eligible=true;o.scope=(struct gm7_scope){.birth=v->birth_us+(tie?0:1),.founder=tie==1?502:501,.term=1,.active=81,.boot=97};
+  o.reserved=true;o.event.valid=true;o.event.negative=false;
+  assert(!receive(&o,r,1000100)&&!o.serving&&!o.reserved&&!o.event.valid&&o.reason==GM7_R_MERGE);
+  assert(!o.selected.active&&!o.armed&&o.scope.active==501);
+  uint64_t until=o.peer[0].reported.until;
+  assert(receive(&o,r,1000200)==-ESTALE&&o.peer[0].reported.until==until);
+  v->sequence++;v->sampled_mono_us++;v->source_gen++;v->capture_gen++;v->train_gen++;
+  assert(!receive(&o,r,1000300)&&o.peer[0].reported.until>until);
+  struct gm7_reported_role report;bool current;
+  assert(gm7_peer_role(&o,0,1000300,&report,&current)&&!current);
+ }
+ struct gm7_owner o;assert(!gm7_owner_init(&o,&g,81,97,true,1000000));
+ o.serving=true;o.scope=(struct gm7_scope){.birth=v->birth_us-1,.founder=81,.term=1,.active=81,.boot=97};
+ assert(!receive(&o,r,1000100)&&o.serving); /* Older local stays ACTIVE. */
+ v->sender=502;assert(receive(&o,r,1000200)==-EINVAL&&o.serving);v->sender=501;
+ v->role=GM7_W_STANDBY;v->sequence++;assert(!receive(&o,r,1000300)&&o.serving);
+ v->role=GM7_W_ACTIVE;v->sequence++;v->boot=v->active_boot=778;
+ assert(!receive(&o,r,1000400)&&o.peer[0].quarantined&&o.peer[1].quarantined&&o.serving);
+ puts("PASS ANN-free self-ACTIVE ROLE suppresses only newer lineage, exact-birth founder/term ties, independent generation churn, duplicate TTL, nonself/follower negatives and simultaneous reboot quarantine");
+}
+int main(void){printf("sizeof owner=%zu peer=%zu control=%zu scheduler=%zu\n",sizeof(struct gm7_owner),sizeof(struct gm7_peer),sizeof(struct gm7_peer_control),sizeof(struct gm7_scheduler));codec();receipt_horizons();ordinary_inventory();ordinary_schedule();capacity_pressure();terminal_dominance();birth_and_ties();independent_role();phase_policy();promote();return 0;}

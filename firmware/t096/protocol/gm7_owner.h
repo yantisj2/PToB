@@ -12,7 +12,6 @@ extern "C" {
 #define GM7_CLOSURE_LEAD_US UINT64_C(350000)
 #define GM7_BLACKOUT_BOUND_US UINT64_C(3000000)
 #define GM7_ARM_RETAIN_US UINT64_C(5000000)
-#define GM7_PREPARE_US UINT64_C(5000000)
 typedef uint64_t (*gm7_now_fn)(void *context);
 typedef bool (*gm7_reservation_fence_fn)(void *context);
 enum gm7_owner_role { GM7_COLD, GM7_ACTIVE, GM7_ARMED, GM7_WARM, GM7_RECEIVER };
@@ -83,7 +82,9 @@ struct gm7_reported_role {
   uint16_t blockers;
   uint8_t role, known;
 };
+struct gm7_lineage { uint64_t birth, founder, term, active, boot; };
 struct gm7_peer {
+  struct gm7_lineage observed; /* ROLE observation only, never timing authority. */
   struct gm7_reported_role reported;
   struct gm7_peer_control received;
   uint64_t identity, boot, heard_at, original;
@@ -129,8 +130,8 @@ struct gm7_owner {
   uint64_t now, boot_at, sequence, role_sequence,
       gnss_sequence;
   uint64_t source_since, source_previous_until, pps_since, active_since,
-      armed_since, prepared_since, quiet_since;
-  uint64_t selected_original, selected_until, selected_source_until, nominee,
+      armed_since, quiet_since;
+  uint64_t selected_contact, selected_until, nominee,
       nominee_boot, nominee_better_since, nominee_better_id,
       nominee_better_boot, quality_better_since, quality_better_id,
       quality_better_boot;
@@ -160,6 +161,10 @@ void gm7_owner_reservation_guard(struct gm7_owner *, gm7_reservation_fence_fn,
 int gm7_owner_receive(struct gm7_owner *, const uint8_t *ad, size_t,
                       const uint8_t address[6], uint64_t actual_rx,
                       uint64_t now);
+/* Already authenticated, advancing direct G1 reception. Identity/boot only
+ * inhibits duplicate output; this never refreshes ANN/source/HOT qualification. */
+void gm7_owner_contact(struct gm7_owner *,uint64_t identity,uint64_t boot,
+                        uint64_t actual_rx,uint64_t now);
 void gm7_owner_update(struct gm7_owner *, const struct gm7_source *,
                       const struct gm7_preparation *, uint64_t now);
 /* Only after the controller accepted the bounded opportunity; actual completion

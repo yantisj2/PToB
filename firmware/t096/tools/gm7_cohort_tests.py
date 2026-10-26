@@ -57,7 +57,7 @@ def build(deps, directory, physical=False):
     return directory/'node'
 
 
-def run(binary, count, phases, duration, loss=0, preempt=0, connect_after=0, physical=False, legacy_scan=False, event_mode=None):
+def run(binary, count, phases, duration, loss=0, preempt=0, connect_after=0, physical=False, legacy_scan=False, event_mode=None, owner_delays=(1000,), announce_after=0):
     procs = [subprocess.Popen([str(binary)]+(['--physical'] if physical else []), stdin=subprocess.PIPE,
              stdout=subprocess.PIPE, text=True, bufsize=1) for _ in range(count)]
     states = [None] * count
@@ -76,6 +76,9 @@ def run(binary, count, phases, duration, loss=0, preempt=0, connect_after=0, phy
     payloads=[None]*count
     g1_jobs={}
     g1_seen=set()
+    next_owner=[0]*count
+    poll_index=[0]*count
+    before_restore=None
 
     def send(i, command):
         procs[i].stdin.write(command + '\n')
@@ -105,7 +108,7 @@ def run(binary, count, phases, duration, loss=0, preempt=0, connect_after=0, phy
         first_one = None
         converged_since = None
         held_one = False
-        event_triggered=target=successor=None;trigger_result=None
+        event_triggered=target=successor=None;trigger_result=None;retired=set();prior_hot=None
         selected_originals=[0]*count;confirmed=[None]*count;last_positive=[None]*count
         last_positive_before=None;last_selected_before=None;terminal_ads=set()
         terminal_meta=[];terminal_completed=[];terminal_ordinal=0
@@ -177,15 +180,17 @@ def run(binary, count, phases, duration, loss=0, preempt=0, connect_after=0, phy
                         reasons['completed_tx'].to_bytes(8,'big')+bytes([src,dst])).digest()
                     loss_trial=int.from_bytes(trial[:8],'big')
                     preempt_trial=int.from_bytes(trial[8:16],'big')
+                    if job['kind']==1 and now<66000000+announce_after*1000000:
+                        reason='intentional_ANN_loss'
                     if not reason and loss and loss_trial % loss == 0:
                         reason = 'loss'
                     if not reason and preempt and preempt_trial % preempt == 0:
                         reason = 'aux_preempt'
-                    if event_triggered and dst==target and not event_mode.startswith('yield'):
+                    if event_triggered and dst in retired:
                         reason='receiver_closed'
                     if event_triggered and src==target:
                         if event_mode=='blackout':reason='blackout_all_communication'
-                        elif terminal_copy and ((event_mode=='yield-first' and terminal_ordinal!=1) or (event_mode=='yield-last' and terminal_ordinal!=3)):
+                        elif terminal_copy and ((event_mode.endswith('-first') and terminal_ordinal!=1) or (event_mode.endswith('-last') and terminal_ordinal!=3)):
                             reason='intentional_terminal_copy_loss'
                     if not reason and states[dst] and states[dst][0]:
                         # Ordinary G1 owns its local phase at0/62.5ms for a
@@ -202,10 +207,17 @@ def run(binary, count, phases, duration, loss=0, preempt=0, connect_after=0, phy
                         send(dst, f'D {job["end"]} {job["hex"]}')
                         reasons['delivered'] += 1
                         link['delivered']+=1
+                        link['kind_'+str(job['kind'])]+=1
                         if len(events) < 500:
                             events.append([job['end'], src, dst, job['kind'], 'delivered'])
             new_jobs = {}
             for i in range(count):
+                if now<next_owner[i]:
+                    for key,job in jobs.items():
+                        if key[0]==i and key not in completed:new_jobs[key]=job
+                    continue
+                next_owner[i]=now+owner_delays[poll_index[i]%len(owner_delays)]
+                poll_index[i]+=1
                 send(i, f'T {now}')
                 for row in read(i):
                     if row[0] == 'S':
@@ -277,12 +289,20 @@ def run(binary, count, phases, duration, loss=0, preempt=0, connect_after=0, phy
                 leaders=[i for i,s in enumerate(states) if s[0]]
                 hots=[i for i,s in enumerate(states) if s[1] and pt_states[i] and pt_states[i][4]]
                 if len(leaders)==1 and len(hots)==1 and confirmed[leaders[0]] and confirmed[leaders[0]][0]==identities[hots[0]] and confirmed[leaders[0]][2]:
-                    target=leaders[0];successor=hots[0];event_triggered=now
+                    target=leaders[0];prior_hot=hots[0];successor=prior_hot;event_triggered=now
+                    if event_mode=='cold-fallback':
+                        retired={target,prior_hot}
+                        successor=min((i for i in range(count)if i not in retired),key=lambda i:identities[i])
+                    elif not event_mode.startswith('yield'):retired={target}
                     last_positive_before=last_positive[target];last_selected_before=selected_originals[successor]
                     send(target,'Y' if event_mode.startswith('yield') else 'W');trigger_result=read(target)
+                    if event_mode=='cold-fallback':
+                        send(prior_hot,'W');read(prior_hot)
+            if announce_after and before_restore is None and now>=66000000+announce_after*1000000:
+                before_restore=[list(state)for state in states]
             active = sum(s[0] for s in states)
             serving = next((i for i,s in enumerate(states) if s[0]), None)
-            live=[i for i in range(count) if not(event_triggered and not event_mode.startswith("yield") and i==target)]
+            live=[i for i in range(count)if i not in retired]
             converged = active == 1 and all(states[i][2] == identities[serving] and
                 states[i][3:5] == states[serving][3:5] and
                 states[i][11:13] == states[serving][11:13] and
@@ -293,7 +313,7 @@ def run(binary, count, phases, duration, loss=0, preempt=0, connect_after=0, phy
                 held_one |= now - converged_since >= 5000000
             else:
                 converged_since = None
-        return dict(event=event_mode,event_triggered=event_triggered,target=target,successor=successor,
+        return dict(owner_delays_us=owner_delays,announce_after_s=announce_after,states_before_ANN_restore=before_restore,event=event_mode,event_triggered=event_triggered,target=target,successor=successor,prior_hot=prior_hot,retired=sorted(retired),
                     trigger_result=trigger_result,terminal_meta=terminal_meta,terminal_completed=terminal_completed,
                     last_positive_before=last_positive_before,last_positive_final=last_positive[target] if target is not None else None,
                     last_selected_before=last_selected_before,first_new_g1_end=first_new_g1_end,
@@ -331,13 +351,15 @@ def main():
     p.add_argument('--connect-after',type=int,default=0)
     p.add_argument('--physical',action='store_true')
     p.add_argument('--legacy-scan',action='store_true')
-    p.add_argument('--event',choices=['yield','yield-first','yield-last','withdraw','blackout'])
+    p.add_argument('--owner-delays-us',default='1000',help='Repeating owner cadence; radio endpoints remain independent1ms model steps')
+    p.add_argument('--announce-after',type=int,default=0,help='Drop all ANN copies until this elapsed second')
+    p.add_argument('--event',choices=['yield','yield-first','yield-last','withdraw','withdraw-first','withdraw-last','blackout','cold-fallback'])
     a = p.parse_args()
     if not a.binary:
         assert a.deps,'--deps or --binary is required'
         a.binary=build(a.deps,a.out.resolve().with_suffix('.build'),a.physical)
     result = run(a.binary.resolve(), a.nodes, list(map(int,a.phases.split(','))), a.duration,
-                 a.loss_mod,a.preempt_mod,a.connect_after,a.physical,a.legacy_scan,a.event)
+                 a.loss_mod,a.preempt_mod,a.connect_after,a.physical,a.legacy_scan,a.event,tuple(map(int,a.owner_delays_us.split(','))),a.announce_after)
     result['binary_sha256'] = hashlib.sha256(a.binary.read_bytes()).hexdigest()
     if a.physical:
         result['pt_binary_sha256']=hashlib.sha256((a.binary.parent/'pt').read_bytes()).hexdigest()

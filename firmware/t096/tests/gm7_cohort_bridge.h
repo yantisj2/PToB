@@ -16,6 +16,7 @@ struct gm7_cohort_input {
   bool source_ready, handoff, stop, activate;
 };
 struct gm7_cohort_output {
+  uint64_t contact[4];
   struct r2_gm7_timing timing;
   bool closed, ready;
 };

@@ -53,6 +53,8 @@ int main(int argc, char **argv) {
   /* A completed old close is not a current close deadline after a warm return. */
   assert(!dispatcher_profile(R2_PROFILE_RC, fake_kernel / 1000));
   cycle(&service_work);
+  for(unsigned i=0;i<GM7_JOB_SLOTS;i++)if(fake_native_live[i])finish(i,true,true);
+  cycle(&service_work);
   dispatcher_supervise();
   assert(r2_switch_rc_active() && status.closed && status.closing);
   tick_to(fake_hf + 60000000);

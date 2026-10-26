@@ -17,15 +17,15 @@ int main(int argc,char **argv){
  cycle(&service_work);
  assert(management_accepted&&owner.scope.active==501&&!owner.serving&&!owner.armed);
  assert(fake_scope.follower&&fake_scope.source_epoch==22&&fake_scope.publication_epoch==5&&fake_scope.remote_capture_epoch==4);
- assert(fake_client.source&&fake_client.uncertainty_us==UINT32_MAX&&fake_resume_until>fake_kernel);
+ assert(!fake_client.source&&fake_resume_until==INT64_MAX);
  for(unsigned i=0;i<GM7_JOB_SLOTS;i++)assert(!fake_native_live[i]||scheduler.job[i].kind==GM7_STATUS||scheduler.job[i].kind==GM7_ROLE||scheduler.job[i].kind==GM7_GNSS);
  struct gm7_bootstrap_fixture f={.roster=fake_path,.anchor=fake_client,.scope=fake_scope,.at=fake_kernel};
  FILE *file=fopen(argv[1],"wb");assert(file&&fwrite(&f,sizeof f,1,file)==1&&!fclose(file));
- uint64_t source_deadline=owner.selected_source_until;
+ uint64_t contact=owner.selected_contact;
  rx=&fake_rx[fake_rx_count++];memset(rx,0,sizeof *rx);rx->raw=(uint32_t)(fake_hf*16);rx->epoch=4;rx->length=GM7_CONTROL_BYTES+4;
  assert(!gm7_ad_encode(rx->ad,sizeof rx->ad,&ann,&group));tick_to(fake_hf+1000);cycle(&service_work);
- assert(owner.selected_source_until==source_deadline); /* Replay cannot renew. */
- tick_to(source_deadline+1);cycle(&service_work);
- assert(!fake_scope.follower&&!fake_client.source&&!owner.armed);
- puts("PASS first ordinary ANN directly selects+publishes exact receipt-origin follower descriptor, no exchange or finiteUTC bound; duplicate cannot renew and originalANN source expiry stops grant");return 0;
+ assert(owner.selected_contact==contact);
+ tick_to(fake_hf+1600000);cycle(&service_work);
+ assert(fake_scope.follower&&!fake_client.source&&!owner.armed);
+ puts("PASS ordinary ANN selects persistent identity/boot listening through normal G1 path; no anchor/session/source lease and duplicate cannot renew contact");return 0;
 }

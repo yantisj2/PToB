@@ -25,12 +25,13 @@ def main():
     check('exact .183 GM inherited allocations',version=(0,15,183),symbols=pt)
     check('exact .184 GM inherited allocations',version=(0,15,184),symbols=pt)
     check('exact .185 GM inherited allocations',version=(0,15,185),symbols=pt)
+    check('exact .186 GM inherited allocations',version=(0,15,186),symbols=pt)
     for name in ('pt_input','pt_output'):
         q=copy.deepcopy(pt);q[name][0]['size']+=8
         check('no hidden182 '+name+' growth',version=(0,15,182),symbols=q,reject=True)
     for profile in ('RC','DC','PC'):check('no '+profile+' allowance',profile=profile,expected=0)
     check('no legacy backend allowance',gm7=False,expected=0)
-    for version in ((0,15,179),(0,15,186)):check('no other version '+str(version),version=version,expected=0)
+    for version in ((0,15,179),(0,15,187)):check('no other version '+str(version),version=version,expected=0)
     for line in CONFIG.splitlines():check('requires '+line,config=CONFIG.replace(line,''),reject=True)
     for name in SYMBOLS:
         for field,value in [('size',511),('address',0x20040000),('section','bss'),('type','SHT_PROGBITS')]:

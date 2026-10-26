@@ -93,7 +93,8 @@ int main(int argc, char **argv) {
     } else if (sscanf(command, "D %llu", &a) == 1) {
       if(fake_ble_closed)continue;
       char *hex = strchr(command + 2, ' ');
-      assert(hex && fake_rx_count < 3);
+      assert(hex);
+      if(fake_rx_count>=2){++fake_overflow;printf("V %u %d 0 0 0 0\n",R2_TIMING_GM_CONTROL,-ENOSPC);continue;}
       ++hex;
       struct r2_gm7_rx *r = &fake_rx[fake_rx_count++];
       memset(r, 0, sizeof *r);
@@ -116,6 +117,7 @@ int main(int argc, char **argv) {
         unsigned v;assert(sscanf(command+2+n*2,"%2x",&v)==1);
         ((uint8_t *)&out)[n]=(uint8_t)v;
       }
+      memcpy(fake_direct_contact,out.contact,sizeof fake_direct_contact);
       fake_timing=out.timing;fake_pt_closed=out.closed;
       fake_handoff_valid=out.ready;fake_promote_ready=out.ready;
     } else if (sscanf(command, "T %llu", &a) == 1) {
@@ -123,14 +125,14 @@ int main(int argc, char **argv) {
       cohort_source();
       cycle(&service_work);
       bool control_live=owner.serving || (owner.scope.active &&
-          fake_hf<owner.selected_until && fake_hf<owner.selected_source_until);
+          fake_hf>=owner.selected_contact && fake_hf-owner.selected_contact<GM7_BLACKOUT_US);
       static uint64_t last_original,last_bound,last_reservation;
       static unsigned last_flags;unsigned state_flags=owner.armed|(takeover_preparing<<1)|(promoted_valid<<2);
-      if(owner.selected_original!=last_original||takeover_bound!=last_bound||owner.reserved_end!=last_reservation||state_flags!=last_flags){
+      if(owner.selected_contact!=last_original||takeover_bound!=last_bound||owner.reserved_end!=last_reservation||state_flags!=last_flags){
         last_flags=state_flags;
-        last_original=owner.selected_original;last_bound=takeover_bound;last_reservation=owner.reserved_end;
-        printf("F %llu %llu %llu %llu %llu %llu %llu %u %u %u\n",owner.selected_original,
-          owner.selected_until,owner.selected_source_until,takeover_bound,owner.remote_yield_after,
+        last_original=owner.selected_contact;last_bound=takeover_bound;last_reservation=owner.reserved_end;
+        printf("F %llu %llu %llu %llu %llu %llu %llu %u %u %u\n",owner.selected_contact,
+          owner.selected_until,UINT64_C(0),takeover_bound,owner.remote_yield_after,
           owner.reserved_nominal,owner.reserved_end,owner.armed,takeover_preparing,promoted_valid);
       }
       static uint64_t last_trace_frame;

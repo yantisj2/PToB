@@ -36,6 +36,7 @@ int main(void) {
       struct gm7_cohort_output out={.closed=r2_radio_service_closed(),
           .ready=r2_radio_service_handoff_ready(in.root,in.boot,in.timing_epoch)};
       r2_radio_service_gm7_timing(&out.timing,in.kernel);
+      r2_radio_service_gm7_contact(&out.contact[0],&out.contact[1],&out.contact[2],&out.contact[3]);
       static unsigned last_lifecycle=UINT_MAX;unsigned lifecycle=out.closed|(out.ready<<1)|(pt_input.stopped<<2);
       if(lifecycle!=last_lifecycle){printf("L %llu %u %u %u %u\n",in.hf,out.closed,out.ready,pt_input.stopped,handoff.valid);last_lifecycle=lifecycle;}
       printf("Z %llu %u %d %llu %u %llu\n",out.timing.scope.root_identity,
@@ -63,11 +64,11 @@ int main(void) {
       putchar('\n');puts("E");
     } else if(line[0]=='A') {
       unsigned long long root;assert(sscanf(line+2,"%llu",&root)==1);
-      if(root==in.anchor.root && discovering) {
+      if(root==in.scope.root_identity && discovering) {
         struct bt_le_scan_recv_info info={.sid=12,.interval=100,.addr=&target};
         scan_received(&info,NULL);
       }
-      if(root==in.anchor.root && sync_object && !established) {
+      if(root==in.scope.root_identity && sync_object && !established) {
         struct bt_le_per_adv_sync_synced_info info={.sid=12,.addr=&target};
         synced(sync_object,&info);
       }

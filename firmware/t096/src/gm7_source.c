@@ -77,8 +77,8 @@ uint32_t gm7_duration_ms(uint64_t now, uint64_t since) {
 static bool current_lineage(const struct gm7_owner *o, uint64_t now) {
   return o->scope.birth && (o->serving || o->armed ||
                             (o->scope.active != o->identity &&
-                             now >= o->selected_original &&
-                             now - o->selected_original < GM7_ARM_RETAIN_US));
+                             now >= o->selected_contact &&
+                             now - o->selected_contact < GM7_ARM_RETAIN_US));
 }
 static uint16_t wire_blockers(const struct gm7_owner *o, uint64_t now) {
   uint16_t b = 0;
@@ -96,8 +96,7 @@ static uint16_t wire_blockers(const struct gm7_owner *o, uint64_t now) {
   if (o->blockers & GM7_B_SCOPE)
     b |= GM7_W_WRONG_BOOT_TERM;
   if ((o->blockers & GM7_B_CORRECTION) ||
-      (o->source.until_us && now >= o->source.until_us) ||
-      (o->selected.active && now >= o->selected_source_until))
+      (o->source.until_us && now >= o->source.until_us))
     b |= GM7_W_STALE_EVIDENCE;
   if (o->withdrawn || (o->event.valid && o->event.negative))
     b |= GM7_W_WITHDRAWN;

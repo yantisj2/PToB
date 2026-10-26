@@ -8,6 +8,7 @@ static struct r2_service_status status;
 static bool started, resuming;
 static uint64_t close_until;
 static atomic_t stopping, busy;
+static struct { bool pending; int16_t result; } yield_request;
 K_MUTEX_DEFINE(lock);
 static struct k_work_q owner_queue;
 static struct k_work service_work;
@@ -48,7 +49,7 @@ int main(int argc,char **argv) {
  fake_kernel=130000000;current_supervise();assert(status.at==100000000&&!status.error);record(1);
  puts("PASS supervisor-only wedge preserves last actual CONTROL sample for exact30s watchdog");
  setup();status.deadline=100100000;fake_kernel=status.deadline-1;current_supervise();assert(!stopping);
- fake_kernel++;current_supervise();assert(stopping&&status.closing&&!status.error);
+ fake_kernel++;current_supervise();assert(stopping&&status.closing&&!status.error&&!yield_request.pending&&yield_request.result==-ECANCELED);
  uint64_t original=close_until;assert(original==fake_kernel+R2_CLEANUP_US);
  fake_kernel=original-1;current_supervise();assert(!status.error&&close_until==original);
  fake_kernel=original;current_supervise();assert(status.error==-ETIMEDOUT&&close_until==original);record(7);

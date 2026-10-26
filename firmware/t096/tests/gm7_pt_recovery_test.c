@@ -34,13 +34,27 @@ static void first_optin_probe(void){
  assert(!pt_input.gm7_managed&&pt_input.gm7_busy&&same(pt_input.grant,original));
 }
 static void expire_after_copy(void){fake_mutex_unlocked=NULL;fake_time=capture_us=grant.until_us;capture_tick=fake_time*16;}
+static void drive_stream(unsigned samples){
+  uint64_t base=1000000000;struct r2_enrollment receive_roster=enrollment;
+  for(unsigned i=0;i<samples;i++){
+   uint64_t ns=base+(uint64_t)i*62500000;
+   struct r2_precision_packet p={.root=0,.boot=77,.source_epoch=8,.train=9,.publication=i+1,.capture_epoch=4,.flags=1,
+    .created_ns=ns-1000000,.expires_ns=base+(i/16+1)*UINT64_C(1000000000)+450000000,.utc_offset_ns=INT64_C(1792800000000000000)};
+   if(i){p.count=1;p.correction[0]=(struct r2_precise_correction){.publication=i,.event=(uint16_t)i,.channel=3,.ticks=(base+(uint64_t)(i-1)*62500000)*2/125,.generation=9,.expires_ns=p.expires_ns};}
+   enrollment=receive_roster;enrollment.identity[0]=99;enrollment.identity[1]=17;if(!i)generic_frame=ns-2000000;
+   packet=(struct r2_radio_record){.raw=16000000+i*1000000+144,.epoch=1,.length=R2_RELAY_AD_BYTES,.event=(uint16_t)(i+1),.channel=3};
+   assert(!generic_encode(packet.ad,&p));enrollment=receive_roster;
+   fake_time=capture_us=1000000+(uint64_t)i*62500+1000;capture_tick=(uint64_t)packet.raw+16000;queued=true;precision_step(fake_time);
+   assert(!queued&&!error&&!pt_input.source_ready&&!pt_output.scope.gm);
+  }
+}
 int main(int argc,char **argv){
  assert(argc==2);unsigned test=(unsigned)strtoul(argv[1],NULL,10);
  if(test>=100){char mode_text[16];snprintf(mode_text,sizeof mode_text,"%u",test-100);char *historical[]={argv[0],mode_text};return historical_radio_main(2,historical);}
  setup_pt();
  if(test==0){
   follower();precision_poll(fake_time,&running);r2_radio_service_gm7_tick(fake_time,NULL);
-  assert(public_client&&pt_output.scope.follower&&native_owned&&sync_object);
+  assert(!public_client&&pt_output.scope.follower&&native_owned&&sync_object);
   handoff.root=99;handoff.valid=true;r2_radio_service_withdraw();precision_poll(fake_time,&running);
   grant=(struct r2_radio_scope){.root=0,.root_identity=17,.boot=88,.source_epoch=4,.local_source_epoch=3,.publication_epoch=5,.until_us=fake_time+1000000,.gm=true};
   publish_own(grant.until_us);assert(!pt_input.stopped&&handoff.valid&&handoff.root==99);
@@ -55,19 +69,8 @@ int main(int argc,char **argv){
   puts("PASS actual follower withdrawal/drain -> bounded ownGM resume -> payload and PA/EXT start; handoff not cleared");
  }else if(test==1){
   r2_radio_service_source(&(struct r2_source_clock){0},false,0);follower();precision_poll(fake_time,&running);r2_radio_service_gm7_tick(fake_time,NULL);
-  assert(public_client&&pt_output.scope.follower&&sync_object&&!pt_input.source_ready);
-  uint64_t base=1000000000;struct r2_enrollment receive_roster=enrollment;
-  for(unsigned i=0;i<10;i++){
-   uint64_t ns=base+(uint64_t)i*62500000;
-   struct r2_precision_packet p={.root=0,.boot=77,.source_epoch=8,.train=9,.publication=i+1,.capture_epoch=4,.flags=1,
-    .created_ns=ns-1000000,.expires_ns=base+1000000000,.utc_offset_ns=INT64_C(1792800000000000000)};
-   if(i){p.count=1;p.correction[0]=(struct r2_precise_correction){.publication=i,.event=(uint16_t)i,.channel=3,.ticks=(base+(uint64_t)(i-1)*62500000)*2/125,.generation=9,.expires_ns=base+1000000000};}
-   enrollment=receive_roster;enrollment.identity[0]=99;enrollment.identity[1]=17;if(!i)generic_frame=ns-2000000;
-   packet=(struct r2_radio_record){.raw=16000000+i*1000000+144,.epoch=1,.length=R2_RELAY_AD_BYTES,.event=(uint16_t)(i+1),.channel=3};
-   assert(!generic_encode(packet.ad,&p));enrollment=receive_roster;
-   fake_time=capture_us=1000000+(uint64_t)i*62500+1000;capture_tick=(uint64_t)packet.raw+16000;queued=true;precision_step(fake_time);
-   assert(!queued&&!error&&!pt_input.source_ready&&!pt_output.scope.gm);
-  }
+  assert(!public_client&&pt_output.scope.follower&&sync_object&&!pt_input.source_ready);
+  drive_stream(10);
   assert(precision.accepted>=4&&!precision.rejected);puts("PASS bounded authenticated follower resumes actual captured G1 association without local GNSS/ownGM authority");
  }else if(test>=2&&test<=8){
   uint64_t until=grant.until_us;
@@ -102,9 +105,10 @@ int main(int argc,char **argv){
   publish_own(0);r2_radio_service_gm7_tick(fake_time,NULL);assert(pt_input.stopped&&!fake_adv_creates);
   puts("PASS stop after publication and consume cannot clear stop or rewrite/resume grant");
  }else if(test==12){
-  publish_own(grant.until_us);fake_capture_overflow=1;fake_mutex_unlocked=overflow_resume_probe;precision_poll(fake_time,&running);
-  assert(!fake_mutex_unlocked&&pt_input.stopped&&error==-ENOBUFS&&!publication&&!fake_adv_creates);
-  puts("PASS PT overflow publishes harderror+stop atomically before attempted resume");
+  publish_own(grant.until_us);precision_poll(fake_time,&running);
+  fake_capture_overflow=1;precision_poll(fake_time,&running);r2_radio_service_gm7_tick(fake_time,NULL);
+  assert(!pt_input.stopped&&!error&&pt_output.scope.gm&&last_overflow==1);
+  puts("PASS GM precision record loss resets association and resumes existing capture path without retiring GNSS/PPS or latching error");
  }else if(test==13){
   publish_own(grant.until_us);precision_poll(fake_time,&running);unsigned before=lora_publishes;
   fake_after_stats=replace_grant;precision_step(fake_time);assert(!fake_after_stats&&!pt_output.scope.gm&&!pt_output.scope.follower&&lora_publishes==before);
@@ -121,17 +125,20 @@ int main(int argc,char **argv){
   assert(pt_output.scope.boot==grant.boot&&!pt_input.gm7_busy);
   puts("PASS first GM opt-in cannot overtake ordinary final-precheck/unlocked side export; unchanged grant retries after real quiescence");
  }else if(test==16){
-  follower();precision_poll(fake_time,&running);assert(pt_output.acquisition);
+  follower();precision_poll(fake_time,&running);assert(pt_output.scope.follower&&!pt_output.utc_valid);
   fake_mutex_unlocked=expire_after_copy;struct pt_output out;output_read(&out,fake_time);
-  assert(!out.scope.gm&&!out.scope.follower&&!out.acquisition&&!out.view.authorized&&!out.utc_valid&&!out.context.source);
-  puts("PASS fresh postcopy clock expiry fences managed follower acquisition too");
+  assert(!out.scope.gm&&out.scope.follower&&!out.acquisition&&!out.utc_valid&&!out.context.source);
+  puts("PASS old control deadline cannot close broadcast listening or fabricate data/map authority");
  }else if(test>=17&&test<=20){
   follower();pt_input.stopped=true;
-  if(test==17)++anchor.boot;if(test==18)++anchor.source_epoch;if(test==19)++anchor.publication;
-  r2_radio_service_gm7_publish(grant,&anchor,&path,-1,fake_time,test==20?fake_time:grant.until_us);
+  if(test==17)grant.root_identity=777;
+  if(test==18)grant.boot=0;
+  if(test==19)grant.root=0;
+  if(test==20)error=-EIO;
+  r2_radio_service_gm7_publish(grant,&anchor,&path,-1,fake_time,0);
   precision_poll(fake_time,&running);r2_radio_service_gm7_tick(fake_time,NULL);
   assert(pt_input.stopped&&!pt_output.scope.follower&&!native_owned&&!fake_adv_creates);
-  printf("PASS invalid authenticated follower resume gate%u retains stop\n",test);
+  printf("PASS invalid broadcast identity/boot/ownership/error%u retains stop\n",test);
  }else if(test==21){
   follower();precision_poll(fake_time,&running);assert(pt_output.scope.follower);
   r2_radio_service_withdraw();precision_poll(fake_time,&running);assert(pt_input.stopped);
@@ -154,6 +161,54 @@ int main(int argc,char **argv){
   assert(!t.first_tx_lo&&!t.first_tx_observed_complete);
   r2_radio_service_gm7_follow_diagnostic(&d,fake_time);assert(!d.stats.count&&!d.stats.saturated);
   puts("PASS coherent follower diagnostics/GM firstTX40B union clears follower->GM->follower; no diagnostic value becomes TX proof");
+ }else if(test>=23&&test<=26){
+  r2_radio_service_source(&(struct r2_source_clock){0},false,0);
+  follower();precision_poll(fake_time,&running);r2_radio_service_gm7_tick(fake_time,NULL);
+  drive_stream(test==25?200:10);assert(precision.accepted>=4&&!pt_input.source_ready&&!pt_output.scope.gm);
+  if(test==23){
+   uint64_t contact=gm7_direct.tick,until=precision.data_until;
+   fake_time=capture_us=grant.until_us+100000;capture_tick=fake_time*16;
+   precision_poll(fake_time,&running);r2_radio_service_gm7_tick(fake_time,NULL);
+   assert(pt_output.scope.follower&&!pt_input.stopped&&!pt_output.utc_valid&&
+       !pt_output.view.map_valid&&gm7_direct.tick==contact&&precision.data_until==until);
+   puts("PASS no localGNSS/control refresh: G1 following stays listening, actual matched packet expiry stops time and never renews contact");
+  }else if(test==24){
+   uint64_t contact=gm7_direct.tick;uint32_t accepted=precision.accepted;
+   struct r2_enrollment receive_roster=enrollment;
+   struct r2_precision_packet p={.root=0,.boot=77,.source_epoch=8,.train=9,.publication=11,
+       .capture_epoch=5,.flags=1,.created_ns=1600000000,.expires_ns=2000000000,
+       .utc_offset_ns=INT64_C(1792800000000000000)};
+   enrollment.identity[0]=99;enrollment.identity[1]=17;memset(&generic_origin,0,sizeof generic_origin);
+   packet.raw+=1000000;packet.event++;assert(!generic_encode(packet.ad,&p));enrollment=receive_roster;
+   fake_time=capture_us=1700000;capture_tick=(uint64_t)packet.raw+16000;queued=true;precision_step(fake_time);
+   assert(gm7_direct.tick>contact&&precision.accepted==accepted&&precision.remote_capture==4);
+   contact=gm7_direct.tick;packet.raw+=10000;capture_tick+=10000;queued=true;precision_step(++fake_time);
+   assert(gm7_direct.tick==contact); /* Same publication is retained replay. */
+   p.source_epoch=9;p.train=10;p.publication=1;
+   enrollment.identity[0]=99;enrollment.identity[1]=17;memset(&generic_origin,0,sizeof generic_origin);assert(!generic_encode(packet.ad,&p));enrollment=receive_roster;
+   packet.raw+=10000;capture_tick+=10000;queued=true;precision_step(++fake_time);
+   assert(gm7_direct.source==9&&gm7_direct.train==10&&gm7_direct.publication==1&&
+       precision.scope.source_epoch==9&&precision.train==10&&!precision.servo.fit_valid);
+   puts("PASS authenticated raw G1 liveness before bad capture/fit, no duplicate renewal, new source/train resets publication floor and retires timing fit");
+  }else if(test==25){
+   r2_radio_service_handoff_request(99,77,8);precision_poll(fake_time,&running);
+   assert(handoff.valid&&handoff.pending&&!r2_radio_service_handoff_ready(99,77,8));
+   uint64_t saved=handoff.last_accepted;precision_poll(fake_time,&running);
+   assert(handoff.last_accepted==saved&&handoff.pending);
+   r2_radio_service_stop(fake_time);precision_poll(fake_time,&running);
+   assert(!handoff.pending&&handoff.valid&&r2_radio_service_handoff_ready(99,77,8));
+   r2_radio_service_handoff_request(99,78,8);precision_poll(fake_time,&running);
+   assert(!handoff.valid); /* A different boot never inherits the fit. */
+   puts("PASS same real fit snapshot while listening, repeat immutability, ACK only after actual stop/drain and wrong-boot invalidation");
+  }else{
+   uint64_t contact=gm7_direct.tick;
+   packet.ad[20]^=1;packet.raw+=10000;capture_tick+=10000;queued=true;precision_step(++fake_time);
+   assert(gm7_direct.tick==contact);
+   struct r2_group_client empty={0};++grant.boot;
+   r2_radio_service_gm7_publish(grant,&empty,&path,-1,fake_time,0);precision_step(fake_time);
+   assert(!pt_output.utc_valid&&!pt_output.view.map_valid&&pt_output.scope.boot==grant.boot);
+   puts("PASS bad MAC cannot renew liveness, different selected boot cannot inherit delivered timing");
+  }
  }else assert(false);
  assert(!pt_lock.held);return 0;
 }

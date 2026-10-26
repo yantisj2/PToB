@@ -29,6 +29,8 @@ struct r2_gm7_follow_diagnostic {
  bool current;
 };
 void r2_radio_service_gm7_follow_diagnostic(struct r2_gm7_follow_diagnostic *,uint64_t now);
+/* Last progressing authenticated DIRECT header, before fitting. No time grant. */
+void r2_radio_service_gm7_contact(uint64_t *root,uint64_t *boot,uint64_t *tick,uint64_t *counter_epoch);
 void r2_radio_service_gm7_timing(struct r2_gm7_timing *,uint64_t now);
 struct r2_group_client;
 struct r2_enrollment;

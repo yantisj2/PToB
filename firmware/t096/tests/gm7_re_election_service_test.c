@@ -19,8 +19,7 @@ static void re_election_setup(bool retained) {
     owner.selected = (struct gm7_control){.birth_us = owner.scope.birth,
                                            .founder = 99, .term = 4,
                                            .active = 99, .active_boot = 77};
-    owner.selected_original = 50000000;
-    owner.selected_until = owner.selected_source_until = 0;
+    owner.selected_contact = 50000000;
   }
   tick_to(66020000);
   healthy_input();
@@ -34,7 +33,7 @@ static void current_peer(bool incumbent) {
   p->flags = GM7_ELIGIBLE | GM7_CAPABLE;
   p->original = fake_hf - 10;
   p->received = (struct gm7_peer_control){.last_sequence=1,
-      .source_until=fake_hf+1000000,.control_until=fake_hf+2000000,
+      .control_until=fake_hf+2000000,
       .control=owner.selected};
   struct gm7_control *c=&p->received.control;
   c->timing_epoch=8;
@@ -87,7 +86,7 @@ int main(void) {
 
   re_election_setup(true);
   owner.quiet = false;
-  owner.selected_original = fake_hf - 1000000;
+  owner.selected_contact = fake_hf - 1000000;
   cycle(&service_work);
   assert(!owner.initial_due && !owner.reserved && !fake_native_live[GM7_PRIMARY]);
   puts("PASS original quiet/backoff must elapse");

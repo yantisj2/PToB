@@ -1,5 +1,30 @@
 # T096 changelog
 
+## 0.15.186 — Durable broadcast GM following and asymmetric merge
+
+GM profiles follow authenticated direct G1 through the existing RC matcher and
+causal fitter without JOIN, ANN source leases or control refresh sessions.
+Ordinary ANN/ROLE selects identity and full UTC lineage; self-ACTIVE ROLE can
+independently stop a newer mesh and begin listening. Only the newer ACTIVE
+yields. A progressing authenticated direct header inhibits duplicate output
+before fitting; retained publication floors are scoped to source/train. Actual
+matched original/correction expiry still bounds time and map exports. Local
+GNSS/PPS capture and source maps continue across receive and role changes.
+
+Prepare ordinary traffic up to100ms ahead, including the next frame; remove
+the3–7ms lucky-poll gate, completed-primary copy dependency, ANN-only silence
+clock, source-expiry RX shutdown, exact diagnostic-generation gate, redundant
+250ms correction gate and additional5s shadow preparation dwell. Control RX
+overflow counts a lost observation; GM precision record loss retires association
+and reacquires through the same receiver. Real clock/driver faults stay distinct.
+HOT nomination/ordinary STATUS echo and three immutable YIELD/WITHDRAW copies
+remain. Normal RC admission/GATT, RC9, relay, USB and LoRa behavior is preserved.
+
+See the [implementation guide](../../docs/t096/gm7-implementation.md) for timer
+policy, replay limits and offline checks. Physical multi-GM acceptance and the
+separate unexplained CPU faults remain open; no flash or hardware qualification
+is implied.
+
 ## 0.15.184 — Simplified control admission and active-mesh discovery
 
 S1 separates one causal peer/boot freshness fact from physical timing descriptor

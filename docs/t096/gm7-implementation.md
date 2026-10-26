@@ -2,348 +2,143 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
-GM7 changes **GM-profile election and HOT coordination**. RC remains a normal,
-supported profile. Preserve ordinary GM-to-RC GATT time admission, RC1/RC2
-relaying, UCS1, RC9 and the existing client service contracts. Remove the GATT
-exchanges and ownership used for GM-to-GM HOT/coordinator work only.
-
-This is the current implementation scope following the operator's clarification.
-It supersedes broader client-migration and blanket GATT-removal requirements in
-the frozen [firmware clearance](gm7-firmware-clearance.md). The frozen review
-artifacts remain historical engineering inputs; they do not override this scope
-or establish firmware-image or hardware acceptance.
+Source **0.15.186** uses broadcast GM discovery, ordinary shadow STATUS and the
+existing RC G1 receive/matcher/fitter. A GM follows the selected source without
+JOIN, GATT, REQUEST/ANCHOR, nonces, admission sessions or ANN permission renewal.
+Normal RC client admission, GATT, RC9, relay, USB and LoRa remain supported.
 
 ## GM behavior
 
-Retain initial GM election. GM-profile standbys follow the current GM's timing
-stream, maintain their own shadow readiness and independent GNSS eligibility,
-and send periodic status. The serving GM advertises its preferred HOT nominee;
-that nominee echoes its armed state in its next ordinary status. HOT appointment
-has no coordinator, grant or GATT handshake.
+An initially qualified GM elects itself after the ordinary quiet/backoff period.
+The first successful reservation records full 64-bit functional UTC mesh birth;
+replacements inherit that birth and founder and advance the leader term. When
+ACTIVE meshes meet, earlier birth wins. Exact-birth ties use founder, then the
+existing term/identity/boot ordering. Only the newer mesh stops output and
+follows the older one. An older ACTIVE keeps serving and its existing nominee
+when an unrelated newer ACTIVE appears.
 
-Mesh birth follows [birth amendment C1](../../protocol/gm7_birth_c1/README.md):
-the first independently qualified elected GM samples actual functional UTC at
-its first valid reservation, pending a complete ANNOUNCE. It is logical mesh
-initiation, separate from later service and ACTIVE duration. The value is
-stored as full 64-bit UTC microseconds. Surviving replacements retain that birth
-and founder while advancing the leader term. The existing 32-bit timing token
-remains separate. Older mesh birth wins when active meshes meet; the losing GM
-stops its positive output before following the winner.
+Authenticated self-ACTIVE ROLE independently exposes full lineage and selects a
+listening identity/boot even if every ANN is lost. It need not match a previous
+ANN or any timing generation. It grants no time map, UTC accuracy or HOT rights.
+Follower ROLE and legacy packets without full birth cannot decide mesh order.
+ANN remains the ordinary leader/successor announcement; STATUS advertises each
+member's independent GNSS eligibility and actual shadow preparation. The leader
+chooses a HOT nominee and the nominee echoes HOT in its ordinary STATUS. There
+is no additional nomination or acknowledgement exchange.
 
-Source0.15.185 uses the [ordinary-only S2 contract](../../protocol/gm7_simplified_s2/README.md)
-with diagnostic identity `GM7v3+S2+C1`. Ordinary ANN/STATUS carry the timing
-descriptor; dedicated REQUEST/ANCHOR, nonce/session/renewal/bootstrap and response
-scheduling are removed. Native receipt-anchored control/source deadlines and
-explicit first-observation replay limitations replace causal contact admission.
-Actual G1 still establishes physical following and HOT readiness. See S2 for
-wire bytes, source-expiry highwater rules, bounded cache semantics, diagnostics
-and the retained handoff/reservation fences. Source0.15.184/S1 remains historical.
+GM listening stays active across control loss. Authenticated direct G1 packets
+supply their own source/train/capture scope to the existing RC matcher and
+causal fitter. Source/train changes retire incompatible timing fits. An
+advancing direct header also supplies conservative transmitter liveness before
+capture-generation or fitting qualification, so a still-transmitting selected
+GM cannot cause another GM to start merely because ANN is missing. Publication
+floors are compared within one source/train scope, never across a train reset.
+A capture-only mismatch may inhibit duplicate output but cannot train the clock.
 
-The [implementation2 wire contract](../../protocol/gm7_v2/README.md),
-[ACTIVE discovery amendment A1](../../protocol/gm7_scheduler_a1/README.md) and
-[bootstrap endpoint amendment B1](../../protocol/gm7_bootstrap_b1/README.md)
-preserve their frozen identities. B1's optional host endpoint mode does not
-authorize current client firmware changes or relax T096 control/HOT RF timing.
-YIELD and WITHDRAW retain three immutable primary copies; copies cannot move
-their original timing or permission deadlines. Radio delivery remains subject
-to loss, with blackout handling as the fallback.
+Each matched original/correction's actual authenticated expiry is converted
+from its correction TX coordinate to the captured RX coordinate, conservatively
+rounded down. Delivered time and exported maps obey that deadline and the
+existing capture/matcher/fit freshness. A persistent listening identity is not a
+persistent time grant. Local GNSS/PPS eligibility is independent: a GM with no
+fix or PPS can receive and follow, but cannot become eligible to transmit.
+Physical PPS capture and the local functional source clock continue while
+following, merging, losing control traffic or changing radio ownership.
+Diagnostic shadow history may be cleared on an incompatible source change;
+that does not stop the physical PPS engine.
+The qualified local functional map also survives silence and loss of all
+neighbors. A non-HOT can use that map for ordinary initial election after the
+existing5s quiet period plus deterministic backoff (up to500ms), without a
+second preparation dwell or rebuilding its local clock. Cold election chooses
+local PPS phase after the election is actually due, even if the retained remote
+map has expired. A GM whose independent GNSS/PPS qualification is unavailable
+keeps receiving time but cannot start output from an expired remote map.
 
-## Existing clients and services
+## Timer and check policy
 
-Keep normal client JOIN authentication and its wire format. The GM-side serving
-snapshot must come from current GM7 source truth and preserve original expiry,
-nonce, boot, timing-token, capture and train fences. Client JOIN cannot appoint
-HOT or promote a GM control connection. Preserve G1 publication and GRv3 original
-root proofs and held horizons so existing RC clients can receive and relay time
-without a firmware migration.
+| Policy | Before .186 | .186 behavior and reason |
+| --- | --- | --- |
+| Control construction | Primary3–25ms; STATUS/ROLE/copy3–7ms before slot | Up to100ms ahead, current or next frame. Native controller executes the original immutable window. |
+| Discovery copy | Wait for primary completion, retain it21ms | Queue the same immutable primary body ahead of time; no completion dependency or retention timer. |
+| GM following | ANN source permission at most1.5s; source-expiry preclose | Removed. Selected identity opens listening; actual authenticated G1 data/fit expiry bounds output. |
+| Silence | Last ANN only | Last advancing selected ANN, self-ACTIVE ROLE or direct G1 header. Duplicate/reordered packets never renew it. |
+| HOT failover |2.5s trigger, first G1 by3s | Retained, measured from last selected-GM communication; immutable YIELD/WITHDRAW takes precedence. |
+| Ordinary STATUS | About2s,4.5s observation lifetime | Retained. Allows a missed ordinary report plus delayed worker service; bounded nomination observations are separate from data permission. |
+| ROLE observation |4.5s and prior matching ANN/generations |4.5s independent bounded discovery observation. It cannot extend a data map or overwrite HOT qualification. |
+| ANN observation | At most2.75s, coupled to source lease |2.75s bounded leader/successor observation spans many250ms reports and the2.5s HOT trigger. It cannot block authorized3s takeover or continuous G1 following. |
+| Shadow readiness | Correction at most250ms old plus continuous5s dwell | Actual RC map/fit/lock and live growing phase bound; remove the extra dwell and one-period cliff. |
+| Physical phase | Live2ms; retained8ms/5s | Retained physical limits for safe reservation/promotion, separate from ordinary visibility. |
+| Ordinary visibility without remote fit | Suppressed | Use local functional PPS phase, or best-effort native HF windows. These windows make no mesh-UTC/precision claim. GM37 discovery is continuous. |
+| Management RX overflow | Permanently fence clock | Count/drop the lost observation. Existing bounded buffers remain. |
+| GM precision record overflow | Permanent stop/error | Retire tuples/fit and reacquire through the existing receiver. A missed record is not a broken capture clock domain. Ordinary RC policy remains unchanged. |
+| Independent GNSS qualification | Existing60s dwell/source/PPS bounds | Retained; control traffic cannot qualify GNSS or invent UTC accuracy. |
 
-Keep normal RC runtime dispatch, source selection, GATT services, UCS1 and RC9.
-Verify bounded GM/RC switching and maintenance, including stale callback fencing
-and service restoration. Client HOT target preloading is a later, optional
-extension; W12, N30, SS3 and CoreS3-SE firmware/UI migrations are outside this
-implementation.
+The same existing PT handoff snapshot can be refreshed while listening, only on
+advancing accepted G1 (or a genuinely new qualified timing scope). Its original
+sample and prediction bounds do not renew on a poll. Transfer acknowledgement
+is published only after actual stop/drain. Control expiry does not force that
+stop. Fresh selected-GM communication cancels a pending silence-only takeover;
+explicit YIELD/WITHDRAW retains its immutable stop-before-start semantics.
 
-## Diagnostics and display
+YIELD retains its750ms boundary and three copies250ms apart; WITHDRAW stops
+output synchronously and attempts three immutable copies within its original1s
+negative lifetime. These bounds coordinate output ownership rather than control
+packet precision. Late or missing copies cannot slide the stop boundary. Real
+hardware capture, source expiry, clock regression, group authentication,
+identity/boot ambiguity, terminal/term floors and no-double-output checks remain.
 
-Update GM-local versioned diagnostics and screens together. HOT duration belongs
-to the armed owner and survives the supported short received-map gap; PPS and
-ACTIVE durations retain their own provenance. Screen refreshes and diagnostic
-queries cannot reset timers or renew timing permission. Show UTC mesh birth,
-founder and leader term separately from the timing token and precision metrics.
+## Wire, diagnostics and replay limits
 
-Preserve useful source and quality information for existing diagnostic consumers
-through a GM-side compatibility adapter. Existing GS1 requires a coordinator
-when its HOT bit is set, so compatible GM7 serving reports leave that legacy HOT
-bit clear and coordinator zero. GS1 cannot describe a GM7 HOT nomination. Keep
-GD2's original quality meanings and unknown values; do not reinterpret its
-fields as GM7 quality ordinals. Full GM7 HOT details use the new diagnostics and
-updated GM-local and GM-peer UI. Existing RC/client HOT rendering remains
-deferred until a separately scoped client extension is implemented. GM peer
-ROLE durations remain sender-reported values at their sample; a receiver never
-turns them into an observed continuity timer. Revoked nomination, expired STATUS,
-changed root/train/boot/term or retired association clears the current HOT label.
-The existing selected-root GD2 GNSS/quality page and unknown values remain;
-detailed GNSS history for every peer is unavailable.
+Wire revision/domain3 and the `GM7v3+S2+C1` diagnostic identity remain compatible
+with .185. Existing source-valid fields are still decoded/emitted for wire
+compatibility; they no longer create a GM receive permission session. Frozen
+[S2](../../protocol/gm7_simplified_s2/README.md),
+[C1](../../protocol/gm7_birth_c1/README.md),
+[A1](../../protocol/gm7_scheduler_a1/README.md) and earlier contracts preserve
+historical identities. Their superseded implementation choices do not override
+this current operator-directed scope.
 
-## Implementation and deployment checks
+Peer screens distinguish authenticated heard, current control observation,
+reported ROLE and actual current timing. ROLE durations stay values reported at
+the sender sample; queries never advance those durations. Existing journal
+records include packet-kind RX/TX outcomes and asymmetric merge. No new log
+collector or diagnostic ring is required.
 
-Require production-body election, freshness, handoff, source-expiry, duplicate,
-schedule, diagnostic and timer tests; native GM/RC/DC/PC builds and resource
-inspection; unchanged-client JOIN/G1/RC1/RC2 interoperability checks; and bounded
-role-switch/maintenance checks. Native control integration must account for
-complete primary/AUX events and actual RF start/end, including the first serving
-timing transmission after takeover.
+Receipt freshness authenticates membership and integrity, not the original age
+of an unseen recording. Retained sequence/sample/publication and terminal floors
+reject known repeats; they cannot prove the age of arbitrary unseen first
+contact. That ordinary broadcast limitation is accepted and is not UTC accuracy.
+Peer memory is bounded: expired unprotected incarnations can be reused, while
+selected/nominee/radio-owned entries and live boot ambiguities are protected.
+An evicted incarnation becomes first-observation-limited again.
 
-Flashing is conditional on the finished candidate's review and fresh exact-device
-identity, ownership, recovery and app-only write/readback checks. Offline tests,
-reference schedules and native builds do not establish radio delivery, the
-physical three-second takeover target, endurance or calibrated UTC accuracy.
+## Offline checks and hardware limits
 
-## Implementation and repeatable offline checks
-
-Initial GM startup waits for the existing capture owner to publish its actual HF
-clock domain. It does not wait for GNSS fix or qualification dwell. Pending
-startup neither arms diagnostics nor starts management; the original boot and
-capture deadlines never renew. Driver fault, failed start, maintenance, poweroff
-or deadline expiry is terminal for that initial attempt. Schema7 page0 reports
-`startup_pending` and `startup_error`; availability remains false until actual
-service start. RC boot starts through its existing immediate branch, and runtime
-GM/RC switching keeps its separate bounded path. The actual-main/time-start/
-capture/GM7 regression replaces the earlier implicit ready-clock startup fixture;
-version170 could attempt its one-shot start before asynchronous capture completion.
-The kernel/HF paired sample is serialized against local IRQ/scheduler preemption;
-its original100us enclosure and HF epoch/continuity checks still fail closed.
-Version171 could close a started worker when preemption widened that software
-bracket. This is separate from the fixed initial-capture readiness gate.
-
-Version173 binds the capture epoch at explicit, fully drained RC-to-GM resume
-admission. The ordinary running-worker epoch fence remains strict. A stop during
-pending reset cancels resume; failed start retains cleanup ownership and its
-terminal error. RC dispatcher behavior and its finite transition deadline stay
-unchanged. Physical functional UTC retains its actual capture sample; scheduling
-projects it to a fresh same-epoch bridge rather than pairing it with an earlier
-software sample. Coarse fallback keeps its original kernel sample. Original
-source expiry, true backstep rejection and the independent60s GNSS dwell remain
-unchanged. The actual dispatcher/service/source regression includes cold and
-warm transitions, cancellation and61s of variable capture latency.
-
-Version174 retires the first-ANNOUNCE reservation on control, scheduler or
-native submission failure, before releasing its job. A refused original primary
-opportunity is consumed once; a later opportunity uses a fresh sequence. Measured
-RF completions are processed before the original reservation-end retirement.
-Possible or unknown AUX exposure retains lineage and withdraws; a stale ticket
-cannot terminate a newer reservation. CPU construction may begin up to25ms before
-the unchanged38ms primary and paired43ms discovery event. Native admission still
-requires at least3ms remaining, and original RF windows, samples, source horizons,
-YIELD boundary and blackout target remain fixed. The negative-only phase lease
-includes the full29ms preparation-plus-END allowance. This is a functional CPU
-budget, not measured RF scheduling acceptance.
-
-GM00 reports descriptive `reservation_stage`, `reservation_rc` and saturating
-`reservation_failures`, using existing diagnostic padding. Stages are1 admission,
-2 control construction,3 scheduler/codec,4 native submission,5 completion and6
-original-end retirement. Native errors distinguish entry lead (`ETIMEDOUT`),
-clock/epoch (`ESTALE`), post-build nominal expiry (`ETIME`), prepare-offset range
-(`ERANGE`) and busy ticker/owner (`EBUSY`); the original generic failure handling
-remains. These counters do not grant authority. Version173 could leave a refused
-first reservation pending indefinitely after its controller job was released.
-
-Version175 is a diagnostic-only candidate following an unexplained version174
-hardware BusFault. It uses the pinned kernel's fault-entry register facility and
-the existing64word retained record to preserve integer registers with checked
-provenance. Controller assertion records and the separate watchdog role record
-remain unchanged. Post-clear SCB values cannot establish a valid fault address;
-the new record does not claim to fix the fault or establish hardware acceptance.
-
-Version176 corrects two separately reproduced lifecycle problems. The GM7 server
-retains its actual incoming normal JOIN owner while initialization and the
-existing authenticated time exchange proceed. Its outgoing-control refusal
-still applies, and expiry, release and callback drain limits are unchanged.
-An accepted, fully drained GM resume records one current CONTROL progress
-sample, retires the completed old close state and clears current authority
-flags. The dormant GM publication previously could appear older than the
-unchanged30s progress watchdog before the first resumed publication. Queries
-and reset retries do not refresh this sample. These corrections do not explain
-the separate version174 CPU fault; version175 register diagnostics remain.
-
-Historical version177 restored the permitted tentative locator bootstrap path. A fresh
-authenticated ordinary ANNOUNCE can place one bounded nonce REQUEST before a
-physical local or remote phase map exists. Its primary/discovery-copy placement
-is explicitly a guess. It never enables STATUS, ANNOUNCE, source permission,
-phase alignment, G1 output or HOT readiness. The immutable REQUEST job retains
-its own tentative UTC solely for A1 retry placement after actual RF completion;
-later locator or source changes cannot rewrite it. The existing job storage is
-shared by disjoint typed kinds, with no new persistent allocation. ANCHOR still
-requires the responder's own current source, original causal deadline and
-consume-once nonce; only subsequently accepted control and physical G1 frames
-can establish follower timing. Synthetic production-body composition covers no
-local UTC, an older retained self lineage, discovery copies, refused submissions,
-lost responses, and the normal full-identity GRv3/G1 receive path. These are
-offline checks, not measured RF reception or fault-free hardware evidence.
-
-Source0.15.177 selects GM7 by default for both normal GM/RC image defaults. The
-RC backend remains ordinary supported firmware. Historical GM5/6 is available
-only with `--legacy-gm-regression`; there is no runtime fallback. DC and PC omit
-GM7. Enabling management-only LE2M does not enable public controller2M features:
-ordinary G1/relay advertisements retain LE1M and ordinary ACL defaults remain
-unchanged.
-
-`gm7_owner` owns qualification, election, nomination and scope floors;
-`gm7_session` owns fresh nonces and conservative causal intervals. Neither GATT
-JOIN nor diagnostics can appoint HOT. Normal GM runtime has no legacy network
-receive/tick owner and starts no outgoing HOT/coordinator GATT connection. The
-zero-initialized, short-lived JOIN compatibility facade supplies current GM7
-source truth to the original authenticated client protocol. Its full transient
-expiry, original permission, nonce and drain checks remain. Legacy GM5 helper
-symbols can remain linked through shared compatibility source; this does not
-make a live GM coordination owner.
-
-The dedicated controller reserves three immutable primary/AUX event contexts,
-three user ticker nodes/thread operations and two additional event-done buffers.
-Primary management uses channel37/LE1M; AUX uses a named data channel/LE2M with
-an unchained complete event bounded by2ms and at most2ms start lateness. Enabled passive GM management scan pins37 regardless of physical phase; normal
-RC and live initiator scanning retain their original channel policy. Capture routes share the existing
-TIMER3/epoch extension: exclusive ADDRESS CC1 and separately allocated END CC5,
-with CC0/2/3/4 owners preserved. HCI submission/callback times are never RF proof.
-
-S1 retains one immutable ordinary copy per frame at45/50/55ms, diversified by
-full identity/boot/frame. A completed primary is retained through the bounded
-copy decision. One secondary context arbitrates responses, diagnostics and
-copies; response placement uses the receiver's actual phase and original RTT.
-Pending nonces reduce fromfour toone; old reserved-frame/bit-cycle refusal,
-retry attempts/residues/offsets and frozen retry UTC are removed. Source/role/
-train changes no longer destroy causal control freshness or replay floors.
-Exact physical descriptor matching remains mandatory for following and HOT.
-See S1 for finite journal fields, heard/fresh/current UI, commands and limits.
-
-C1 provisional scope cannot enable G1, client source admission or an ACTIVE
-timer. Complete first ANNOUNCE commits the scope; ACTIVE duration starts at
-actual service commit processing time. Its measured primary START/final AUX END
-remain separate. Possible AUX exposure retains birth/founder/term on failure
-and emits a terminal WITHDRAW; missing END cannot create a fresh replacement
-birth. First usable G1 is prospectively anchored on a safe62.5ms UTC phase and
-requires an observed complete unchanged G1 packet with captured ADDRESS and a
-conservative derived END enclosure. A takeover succeeds offline only when both
-management and first timing event satisfy their original deadline. A pending
-HOT reservation may anticipate blackout/YIELD becoming due by its immutable
-nominal primary, while owner processing time and current due/serving authority
-remain unchanged. Source permission covers the complete event; fresh contact,
-nominee/scope/source/clock changes cancel it. Physical START cannot precede the
-not-before edge. This avoids missing a valid primary when a legal late ANN
-sample and a staggered2ms poll place the due edge at the construction boundary.
-Live phase
-nudges occur at most once per distinct captured G1 and remain within the declared
-SCA displacement budget. GNSS/PPS/source faults fence immediately.
-
-Shutdown/maintenance fences time output immediately and retains a healthy-clock
-management owner long enough to attempt the three original WITHDRAW copies.
-A new YIELD is aligned once to its first primary without moving the packet's
-original750ms deadline. Every original opportunity is consumed once, including
-refusal; missed copies never re-anchor the remaining ones. Actual completed,
-failed and unsent counts are distinct from queued copies.
-Clock/radio failure can make copies unavailable; the service drains and reports
-that fault without fabricating transmission. Fix/PPS/map loss may reuse only a
-same-HF-epoch original phase for immutable negative copies, with a nonrenewing
-one-second lease, outward quantization and200ppm growth through final END.
-Expiry is checked even without a pending event; a long poll gap, regression or
-epoch loss retires it. This does not enable STATUS, bootstrap, YIELD, JOIN or G1.
-WITHDRAW carries UTC zero when UTC is unavailable, as the frozen contract allows;
-no old UTC projection is needed. Public status/PT/console/UI times
-stay in kernel uptime; wire/session/controller times stay in HF. Contemporary
-paired brackets convert remaining horizons conservatively in either direction.
-
-Run ordinary verification with public pinned dependencies:
+Use the public dependency and build commands in [the build guide](build.md).
+The GM7 host runner exercises actual codec, owner, scheduler, controller and
+service bodies with explicit fake platform/RF boundaries. The PT recovery runner
+adds actual G1 encoding/decoding, correction matching, causal fitting, immutable
+data expiry, no-GNSS reception, raw liveness, replay/scope negatives and real
+handoff snapshot/drain behavior:
 
 ```sh
-CC=clang artifacts/deps/venv/bin/python firmware/t096/tools/test.py \
-  --deps artifacts/deps --out artifacts/test-gm7-01
-artifacts/deps/venv/bin/python firmware/t096/tools/build.py \
-  --deps artifacts/deps --out artifacts/build-gm7-gm-01 --profile GM \
-  --enrollment artifacts/local/enrollment.json --device-config artifacts/local/device.json
-artifacts/deps/venv/bin/python firmware/t096/tools/inspect_build.py artifacts/build-gm7-gm-01
-artifacts/deps/venv/bin/python firmware/t096/tools/gm7_resources.py \
-  --build artifacts/build-gm7-gm-01 --deps artifacts/deps \
-  --out artifacts/gm7-resources.json
+python3 firmware/t096/tools/gm7_tests.py --deps artifacts/deps --out artifacts/gm7-host-01
+python3 firmware/t096/tools/gm7_pt_recovery_tests.py --deps artifacts/deps --out artifacts/gm7-pt-01
+python3 firmware/t096/tools/gm7_cohort_tests.py --deps artifacts/deps \
+  --out artifacts/gm7-cohort.json --physical --nodes 4 --duration 170 \
+  --connect-after 70 --announce-after 82 \
+  --owner-delays-us 15000,15000,15000,82000,15000,15000,54000
 ```
 
-Use the documented RC/DC/PC build commands for their respective separate defaults
-and inputs. `--development` produces `DEVELOPMENT_NOT_FLASHABLE`; it does not
-bypass or relabel the clean-source candidate requirement. The strict inspector
-checks unique compiled native owners, exact input/output hashes for all four
-GM7-composed generated controller sources, inherited transformations, RF PHY
-feature isolation, image bounds and unchanged resource floors.
+The composed cohort runs actual separate GM and PT owners, with modeled native
+completion, RF capture, collision, loss and controller preemption. Its explicit
+partition reconnects; a permanently partitioned fixture is not a collision
+reproduction. Delayed owner cadence and completed packet counts are reported.
+Models and native builds do not establish field convergence, physical HOT
+failover, calibrated output accuracy or endurance. The observed .185 split-GM,
+no-confirmed-HOT result and separate unexplained CPU faults remain failed/open
+hardware acceptance. No CPU cause or repair follows from this control rework.
 
-The production host runner exercises independent frozen vectors, causal renewal
-and replay fences, election/merge/takeover/YIELD/WITHDRAW,3GM+1RC synthetic scope,
-peer retirement, local and reported timers, native HAL/ticker/LLL lifecycle and
-actual GM service bodies under explicitly fake physical/kernel/PT boundaries.
-It tests normal unchanged-client JOIN codecs/exchanges under ASan/UBSan. Synthetic
-80x160 peer previews include maximum finite, unknown, history and current cases.
-These are code/contract checks, not RF or calibrated timing observations.
-
-## Resource and qualification limits
-
-The corrected incremental GM7 link used249,308B of253,952B application RAM,
-leaving4,644B linker headroom, exactly the unchanged enrolled LoRa static floor.
-The earlier1,124B exact-enrolled failure remains a rejected build. The3,520B
-recovery removes four retired GM control transport rows and duplicate functional
-map, PT scope/view and session lineage/sample storage. Normal JOIN retains its
-single physical row, both immutable TX buffers and public logical admission
-index4; unsupported retired indices cannot alias that row. RC/UCS1/RC9 storage,
-stacks and controller pools are preserved. That is not runtime stack/heap qualification. Main/GM/PT/RC
-stacks and5120B system-workqueue reserve remain. GM7's ISR stack increases
-from2048B to2176B, funded by128B of retired GM transport diagnostic cache;
-the public84-word diagnostic layout still exposes the original56+28 fields,
-with the JOIN at logical row4 and retired rows zero. Heap pool size remains0;
-GM7 adds no malloc/calloc/realloc/k_malloc allocation. Existing RX8, ACL TX12,
-event RX20, command TX1, connection6, extended advertiser3 and periodic-sync1 pools
-remain; the explicitly named controller additions are accounted above.
-
-Compiler `.su` and linked direct-call evidence are generated by
-`gm7_resources.py`, including compiler clones, missing-library assembly frames
-and the linked `snprintf` callback. The known GM work chain plus queue/entry is
-6,488B/8,192B; normal main plus entry is7,196B/8,192B; RC is5,336B/8,192B and PT
-is4,168B/8,192B for the corrected incremental172-01 checkpoint. Remaining arithmetic space
-is unaccounted headroom, not a measured reserve. The cancellation cycle is
-state-bounded: exposed failure clears the pending reservation before withdrawal
-can disarm it; unexposed cancellation clears it or enters that same terminal
-path. Normal IRQ source/linked-callback accounting stacks the maxima for actual
-priorities6/5/1/0 plus four36B basic exception/alignment frames:2,032B of the
-2,176B ISR stack, including a64B preemptible PendSV software chain. FPU and zero-latency IRQs remain disabled. The144B
-arithmetic margin is narrow and is not a measured reserve; added callbacks or
-instrumentation require renewed review. The largest stock LLL preparation path
-dominates management's192B callback. Final exact ELF/config binding remains
-mandatory. Runtime high-water remains a later hardware observation. Large GM
-source/timing/publish helpers have explicit call-frame boundaries so their
-mutually exclusive scratch space is not all inlined into the JOIN owner frame.
-
-The finite200ppm session envelope and named phase components are explicitly
-unverified engineering operating assumptions. The public T096 schematic does
-not identify HFXO crystal tolerance, temperature or aging. Retained HFXO selection
-and lifecycle are verified in source, not measured oscillator performance. The
-functional phase enclosure includes TX/RX chain ceilings, quantization, paired
-association, declared100us propagation and250us implementation allowances plus
-200ppm age growth and actual recorded residuals. Recorded RMS/max residuals do
-not establish future UTC error. Unknown required components fail closed.
-
-Clean native GM/RC/DC/PC and exact-enrolled receipts must bind the reviewed
-commit, source/configuration hashes and strict inspector result; the complete
-host matrix must retain a stable source identity. Local build output is ignored
-and never substitutes for this review. B remains exact-device/source/image/
-transaction review; C remains physical RF airtime/coverage,3s takeover, loss,
-partition, output continuity and calibrated UTC qualification. These offline receipts establish no hardware installation or acceptance.
-
-Historical source178 refreshed the processing bridge after owner receive, before the next
-REQUEST operation. An advancing-clock composition reproduces the stale-now
-failure in177; the correction preserves captured RX, original deadlines and
-qualification. Existing CPU corruption remains unresolved; offline validation
-is not hardware acceptance.
-
-Source179 removes the redundant GM-only submitted-age 100 ms terminal latch.
-GM owner queue/execution costs remain diagnostic; the original accepted-CONTROL
-watchdog bounds a stalled owner at 30 seconds. The cycle-start transport deadline,
-source/RF authority and original cleanup deadline are unchanged. Run the focused
-production-supervisor/unchanged-watchdog composition with
-`python3 firmware/t096/tools/gm7_supervision_tests.py --out artifacts/gm7-supervision-01`.
-The observed wall overrun does not identify a delaying call, and the separate CPU
-corruption remains unresolved.
+Enrolled images stay private. Installation still needs separate authorization,
+exact-device ownership/recovery review, app-only bounds, actual new application
+readback and protected-prefix comparison. Offline preparation operates no
+hardware and does not authorize flashing.

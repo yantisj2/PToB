@@ -11,6 +11,12 @@ static bool fake_native_live[GM7_JOB_SLOTS], fake_native_exposed[GM7_JOB_SLOTS];
 static struct r2_gm7_tx fake_result[GM7_JOB_SLOTS];
 static unsigned fake_result_count;
 static struct r2_gm7_timing fake_timing;
+static uint64_t fake_direct_contact[4];
+void r2_radio_service_gm7_contact(uint64_t *root,uint64_t *boot,uint64_t *tick,uint64_t *epoch){
+ if(fake_direct_contact[0]){*root=fake_direct_contact[0];*boot=fake_direct_contact[1];*tick=fake_direct_contact[2];*epoch=fake_direct_contact[3];return;}
+ *root=fake_timing.scope.root_identity;*boot=fake_timing.scope.boot;
+ *tick=fake_timing.last_correction;*epoch=fake_timing.counter_epoch;
+}
 static struct r2_source_clock fake_raw;
 static bool fake_promote_ready;
 static bool fake_handoff_enforced, fake_handoff_valid;
@@ -358,6 +364,11 @@ static void tick_to(uint64_t t) {
   fake_hf = t;
 }
 static void setup(bool serving) {
+  memset(fake_direct_contact,0,sizeof fake_direct_contact);
+  memset(&fake_join,0,sizeof fake_join);
+  memset(&fake_scope,0,sizeof fake_scope);
+  memset(&fake_client,0,sizeof fake_client);
+  memset(&fake_timing,0,sizeof fake_timing);
   memset(&owner, 0, sizeof owner);
   memset(&scheduler, 0, sizeof scheduler);
   memset(&status, 0, sizeof status);
@@ -578,15 +589,13 @@ static void diagnostics_and_remap(void) {
   peer->received.control.sent_utc_us = UINT64_C(1792800000000000) + fake_hf;
   peer->received.control.sent_mono_us = fake_hf;
   peer->received.control_until = fake_hf + 1000000;
-  owner.selected_source_until = fake_hf + 1000000;
   struct gm7_source src = source_at(fake_hf);
   struct r2_source_clock map = {0};
   struct r2_clock_view cv = {0};
   timing(b, &src, &map, &cv);
   assert(fake_path.identity[1] == peer->identity &&
          fake_scope.root_identity == peer->identity && fake_scope.root == 1 &&
-         fake_scope.until_us > fake_kernel &&
-         fake_scope.until_us <= fake_kernel + 1000000);
+         fake_scope.until_us == INT64_MAX && !fake_client.source);
   puts("PASS actual service separate HF/kernel timer origins, finite duration "
        "saturation, all diagnostic source/boot/page bindings, RC unavailable "
        "view and selected full64 identity outside enrolled roster");
@@ -745,9 +754,8 @@ static void takeover_fixture_at(uint64_t at) {
                                         .hot = identity,
                                         .hot_boot = boot,
                                         .sent_mono_us = 66284900,.timing_epoch=22};
-  owner.selected_original = 66284900;
+  owner.selected_contact = 66284900;
   owner.selected_until = 68784900;
-  owner.selected_source_until = 67534900;
   owner.initial_due = owner.takeover_due = owner.serving = false;
   owner.armed = true;
   owner.armed_since = 66000000;
@@ -789,7 +797,7 @@ static void yield_fixture(void) {
   p->boot = 65;
   p->kind = GM7_STATUS;
   p->flags = GM7_ELIGIBLE | GM7_CAPABLE | GM7_SHADOW | GM7_HOT;
-  p->received=(struct gm7_peer_control){.control=(struct gm7_control){0},.last_sequence=1,.source_until=0,.control_until=101000000};
+  p->received=(struct gm7_peer_control){.control=(struct gm7_control){0},.last_sequence=1,.control_until=101000000};
   p->received.control = (struct gm7_control){.sender = 49,
                                             .boot = 65,
                                             .sequence = 1,
@@ -989,11 +997,11 @@ static void negative_phase_cases(void) {
   uint32_t width;
   assert(negative_phase(b, &base, &width) && width >= last_enclosure);
   uint64_t sampled = b.hf;
-  tick_to(sampled + 970000);
+  tick_to(sampled + 895000);
   assert(bridge(&b));
   owner.now = b.hf; /* Other healthy processing; no phase observation. */
   assert(negative_phase(b, &base, &width) && width == last_enclosure + 200);
-  tick_to(sampled + 971000);
+  tick_to(sampled + 896000);
   assert(bridge(&b));
   assert(!negative_phase(b, &base, &width) && phase_known);
   tick_to(sampled + 1000000);
@@ -1104,13 +1112,13 @@ static void prospective_blackout_at(uint64_t at, bool revoked) {
   assert(fake_hf == at && !owner.takeover_due && !owner.serving &&
          owner.reserved && fake_native_live[GM7_PRIMARY]);
   assert(owner.reserved_nominal == 68788000 &&
-         owner.reserved_nominal >= owner.selected_original + GM7_BLACKOUT_US &&
+         owner.reserved_nominal >= owner.selected_contact + GM7_BLACKOUT_US &&
          !fake_join.serving);
   assert(promoted_valid &&
-         takeover_bound == owner.selected_original + GM7_BLACKOUT_BOUND_US);
+         takeover_bound == owner.selected_contact + GM7_BLACKOUT_BOUND_US);
   struct gm7_owner probe = owner;
   probe.reserved = false;
-  uint64_t cause = probe.selected_original + GM7_BLACKOUT_US;
+  uint64_t cause = probe.selected_contact + GM7_BLACKOUT_US;
   assert(!gm7_owner_takeover_at(&probe, cause - 1, cause + 3999, fake_hf));
   assert(gm7_owner_takeover_at(&probe, cause, cause + 4000, fake_hf));
   uint64_t permission = probe.source.until_us;
@@ -1120,7 +1128,7 @@ static void prospective_blackout_at(uint64_t at, bool revoked) {
   probe.selected.hot = 0;
   assert(!gm7_owner_takeover_at(&probe, cause, cause + 4000, fake_hf));
   probe.selected.hot = identity;
-  probe.selected_original = fake_hf - 1000000;
+  probe.selected_contact = fake_hf - 1000000;
   probe.selected.yield_utc_us = probe.source.utc_us + 3000;
   probe.remote_yield_sequence = probe.selected.sequence;
   probe.remote_yield_after = fake_hf + 3000;
@@ -1130,13 +1138,13 @@ static void prospective_blackout_at(uint64_t at, bool revoked) {
       gm7_owner_takeover_at(&probe, fake_hf + 3000, fake_hf + 7000, fake_hf));
   probe.selected.yield_utc_us = probe.remote_yield_sequence =
       probe.remote_yield_after = 0;
-  probe.selected_original = owner.selected_original;
+  probe.selected_contact = owner.selected_contact;
   struct gm7_peer *rival = &probe.peer[0];
   rival->used = true;
   rival->identity = 900;
   rival->boot = 999;
   rival->kind = GM7_ANNOUNCE;
-  rival->received=(struct gm7_peer_control){.control=owner.selected,.last_sequence=1,.source_until=fake_hf + 1000000,.control_until=fake_hf + 2000000};
+  rival->received=(struct gm7_peer_control){.control=owner.selected,.last_sequence=1,.control_until=fake_hf + 2000000};
   rival->received.control.birth_us=owner.scope.birth-1000;
   rival->received.control.active = rival->received.control.sender = 900;
   rival->received.control.active_boot = 999;
@@ -1169,7 +1177,7 @@ static void prospective_blackout_at(uint64_t at, bool revoked) {
   peer->identity = 501;
   peer->boot = 777;
   peer->kind = GM7_ANNOUNCE;
-  peer->received=(struct gm7_peer_control){.control=owner.selected,.last_sequence=10,.source_until=0,.control_until=100000000};
+  peer->received=(struct gm7_peer_control){.control=owner.selected,.last_sequence=10,.control_until=100000000};
   tick_to(at < 68780000 ? at + 5000 : 68785100);
   struct gm7_packet fresh = {.group = group.id,
                              .key_epoch = group.epoch,
@@ -1195,7 +1203,7 @@ static void prospective_blackout_at(uint64_t at, bool revoked) {
   cycle(&service_work);
 
   assert(!owner.reserved && !owner.serving && !fake_native_live[GM7_PRIMARY] &&
-         owner.selected_original > 66284900);
+         owner.selected_contact > 66284900);
   takeover_fixture_at(at);
   cycle(&service_work);
   assert(owner.reserved);
@@ -1220,16 +1228,16 @@ static void prospective_blackout_at(uint64_t at, bool revoked) {
 }
 static void source_horizon_preparation(void) {
   for(unsigned revoke=0;revoke<3;revoke++){
-    takeover_fixture_at(67185000);
+    takeover_fixture_at(68435000);
     unsigned stops=fake_stop_calls,activates=fake_activate_calls;
     cycle(&service_work);
     assert(owner.armed&&takeover_preparing&&fake_stop_calls>stops&&!owner.reserved&&!owner.serving);
     struct gm7_peer *p=&owner.peer[0];p->used=true;p->identity=501;p->boot=777;
-    p->kind=GM7_ANNOUNCE;p->flags=GM7_ELIGIBLE;p->original=owner.selected_original;
+    p->kind=GM7_ANNOUNCE;p->flags=GM7_ELIGIBLE;p->original=owner.selected_contact;
     p->received=(struct gm7_peer_control){.control=owner.selected,.last_sequence=10,
       .last_sent=owner.selected.sent_mono_us,.control_until=owner.selected_until,
-      .source_until=owner.selected_source_until,
-      .source_expiry_mono=owner.selected.sent_mono_us+1500000};
+
+      };
     stops=fake_stop_calls;
     tick_to(fake_hf+1000);cycle(&service_work);
     assert(owner.armed&&takeover_preparing&&fake_stop_calls==stops); /* Closed drain is not restarted. */
@@ -1247,9 +1255,9 @@ static void source_horizon_preparation(void) {
     assert(!gm7_ad_encode(fake_rx[0].ad,sizeof fake_rx[0].ad,&fresh,&group));
     tick_to(fake_hf+1000);cycle(&service_work);
     assert(!takeover_preparing&&!owner.reserved&&!owner.serving&&fake_activate_calls>activates);
-    if(revoke)assert(!owner.armed);else assert(owner.armed&&owner.selected_source_until>fake_hf+1000000);
+    if(revoke)assert(!owner.armed);else assert(owner.armed);
   }
-  puts("PASS source-horizon350ms preparation preserves retained map without output/reservation; advanced ANN invokes PT resume, nominee/source revocation cancels safely");
+  puts("PASS contact-silence350ms preparation preserves retained map without output/reservation; advanced ANN invokes PT resume, nominee/source revocation cancels safely");
 }
 static void prospective_blackout(void) {
   prospective_blackout_at(68783100, false);
@@ -1271,14 +1279,15 @@ static void ordinary_progress(uint64_t self,uint64_t incarnation) {
 static void terminal_faults(void) {
   setup(true);
   healthy_input();
-  fake_overflow = 1;
+  struct gm7_source actual;struct r2_source_clock local_map;struct r2_clock local_clock;struct gm7_bridge b;
+  assert(bridge(&b)&&source_read(&actual,&local_map,&local_clock,&b));
+  owner.source=actual;owner.last_utc=actual.utc_us;owner.last_utc_at=fake_hf;
+  fake_overflow=1;
   cycle(&service_work);
-  assert(resource_fault && !owner.serving && !owner.armed &&
-         owner.event.negative);
-  healthy_input();
-  tick_to(fake_hf + 1000);
-  cycle(&service_work);
-  assert(resource_fault && !owner.eligible && !owner.armed && !owner.serving);
+  if(resource_fault||!owner.serving||owner.armed||status.drops!=1)fprintf(stderr,"overflow state fault%u serving%u armed%u drops%u reason%u source%u\n",resource_fault,owner.serving,owner.armed,status.drops,owner.reason,owner.eligible);
+  assert(!resource_fault&&owner.serving&&!owner.armed&&status.drops==1);
+  tick_to(fake_hf+1000);healthy_input();cycle(&service_work);
+  assert(!resource_fault&&owner.eligible&&owner.serving);
   setup(true);
   fake_hf_valid = false;
   cycle(&service_work);
@@ -1297,8 +1306,8 @@ static void terminal_faults(void) {
   cycle(&service_work);
   assert(status.error == -EIO && atomic_get(&stopping));
   fake_pt_error = 0;
-  puts("PASS actual service RX overflow latches readiness fault, healthy "
-       "updates cannot rearm, lost HF domain fences and drains without "
+  puts("PASS management observation overflow counts/drops without retiring GM; "
+       "lost HF domain fences and drains without "
        "fabricated copies, transport/PT faults preserve terminal stop guards");
 }
 static void previews(const char *folder) {
@@ -1370,6 +1379,69 @@ static void heard_only_peer(void) {
        "unqualified/freshness-unproven with unknown timers, original4.5s "
        "heard expiry and no timing/HOT/election authority");
 }
+static void continuing_input(void){
+  struct r2_source_clock retained=functional_source;
+  healthy_input();fake_raw=functional_source;
+  struct r2_clock c=raw_clock();
+  functional_source=retained;r2_service_clock(&c);
+}
+static void durable_control_cases(void){
+  takeover_fixture();cycle(&service_work);assert(owner.reserved);
+  uint64_t at=fake_hf;
+  fake_direct_contact[0]=501;fake_direct_contact[1]=777;
+  fake_direct_contact[2]=(at-10)*16;fake_direct_contact[3]=4;
+  tick_to(at+1000);cycle(&service_work);
+  assert(!owner.reserved&&!owner.serving&&!takeover_preparing&&!takeover_bound);
+  /* Even if timing qualification is lost, raw current-GM progression cannot
+   * open the cold initial-election path. Local PPS map remains available. */
+  memset(&fake_timing,0,sizeof fake_timing);
+  int64_t local_offset=functional_source.utc_offset_ns;
+  for(unsigned i=0;i<35;i++){
+    tick_to(fake_hf+200000);continuing_input();
+    fake_direct_contact[2]=(fake_hf-10)*16;
+    cycle(&service_work);
+    assert(!owner.serving&&!owner.initial_due&&!owner.reserved&&functional_source.count&&
+        functional_source.utc_offset_ns==local_offset);
+  }
+  uint64_t last_contact=owner.selected_contact;
+  bool fallback=false;
+  for(unsigned i=0;i<35&&!fallback;i++){
+    tick_to(fake_hf+200000);continuing_input();cycle(&service_work);
+    fallback=owner.reserved||owner.serving;
+  }
+  assert(fallback&&fake_hf-last_contact>=GM7_QUIET_US&&functional_source.count&&
+      functional_source.utc_offset_ns==local_offset);
+  assert(owner.reserved&&!owner.armed&&!owner.serving);
+  struct gm7_job cold=scheduler.job[GM7_PRIMARY];
+  fake_native_live[GM7_PRIMARY]=false;
+  fake_result[fake_result_count++]=(struct r2_gm7_tx){.ticket=cold.ticket,
+      .generation=cold.generation,.buffer_version=cold.buffer_version,.epoch=4,
+      .primary_address=(uint32_t)((cold.window.nominal+42)*16),
+      .aux_address=(uint32_t)((cold.window.nominal+551)*16),
+      .aux_end=(uint32_t)((cold.window.nominal+1400)*16),.slot=GM7_PRIMARY,.complete=true,.exposed=true};
+  tick_to(cold.window.latest_end+60000);continuing_input();cycle(&service_work);
+  assert(owner.serving&&!owner.reserved&&fake_precision_enabled&&functional_source.count&&
+      functional_source.utc_offset_ns==local_offset);
+  /* No remote fit and no local fix/PPS: ordinary unready capability is still
+   * visible from a best-effort native window, without clock authority. */
+  setup(false);healthy_input();input.view.fix_active=input.view.pps_present=false;
+  cycle(&service_work);
+  assert(!owner.eligible&&!owner.serving&&fake_native_live[GM7_STANDBY]&&
+      scheduler.job[GM7_STANDBY].kind==GM7_STATUS&&!scheduler.job[GM7_STANDBY].positive);
+  /* A real completed first ANN is processed before a delayed worker can
+   * discard the consumed handoff just because its reserved_end has passed. */
+  takeover_fixture();cycle(&service_work);assert(owner.reserved);
+  struct gm7_job j=scheduler.job[GM7_PRIMARY];
+  fake_native_live[GM7_PRIMARY]=false;
+  fake_result[fake_result_count++]=(struct r2_gm7_tx){.ticket=j.ticket,
+      .generation=j.generation,.buffer_version=j.buffer_version,.epoch=4,
+      .primary_address=(uint32_t)((j.window.nominal+42)*16),
+      .aux_address=(uint32_t)((j.window.nominal+551)*16),
+      .aux_end=(uint32_t)((j.window.nominal+1400)*16),.slot=GM7_PRIMARY,.complete=true,.exposed=true};
+  tick_to(j.window.latest_end+60000);healthy_input();cycle(&service_work);
+  assert(owner.serving&&!owner.reserved&&owner.first_announce_end<=j.window.latest_end);
+  puts("PASS raw contact cancels silence reservation/closure and inhibits cold election; PPS source stays live through completed non-HOT cold ANN/precision enable, no-fix capability remains visible, delayed completed ANN commits before reservation retirement");
+}
 int main(int argc, char **argv) {
   (void)argc;
   (void)argv;
@@ -1388,6 +1460,7 @@ int main(int argc, char **argv) {
   provisional_exposure();
   diagnostics_and_remap();
   heard_only_peer();
+  durable_control_cases();
   if (argc > 1)
     previews(argv[1]);
   return 0;

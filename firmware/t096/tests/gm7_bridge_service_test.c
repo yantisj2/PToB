@@ -48,6 +48,10 @@ int main(int argc, char **argv) {
     if (mode == 5) {
       r2_service_stop();
       cycle(&service_work);
+      /* Ordinary unqualified visibility may own a pending optional slot.
+       * Complete the fake native drain; production drain stops its ticker. */
+      memset(fake_native_live,0,sizeof fake_native_live);
+      cycle(&service_work);
       assert(status.closed && !status.active && !status.error && !fake_irq_key);
     }
   } else {
@@ -61,6 +65,10 @@ int main(int argc, char **argv) {
     }
     if (mode == 4)
       tick_to(fake_hf + 1000001); /* Original1s continuity lease. */
+    cycle(&service_work);
+    assert(status.error == -ESTALE && !owner.serving && !fake_precision_enabled &&
+           atomic_get(&stopping));
+    memset(fake_native_live,0,sizeof fake_native_live); /* Native drain ACK. */
     cycle(&service_work);
     assert(status.error == -ESTALE && !status.active && status.closed &&
            !fake_irq_key);
