@@ -176,6 +176,7 @@ int main(void) {
   assert(!transport_started && !r2_ble_group_start(123, 456, 1, own));
   r2_ble_gm7_server(true);
   r2_ble_group_relay(true);
+  r2_ble_gm7_source(true); /* Explicit live-source policy in this transport fixture. */
   assert(local_identity == 123 && !peers[0].identity &&
          !r2_ble_control_available() && !r2_ble_control_member());
   struct bt_conn first = {0};

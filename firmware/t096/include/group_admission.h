@@ -57,5 +57,11 @@ struct r2_gm7_admission_source {
  const char *name;
  bool serving;
 };
+/* Existing JOIN source envelope, not GM membership or a follow permission. */
+static inline bool r2_gm7_admission_live(const struct r2_gm7_admission_source *s,uint64_t now){
+ return s&&s->group&&s->serving&&s->identity&&s->boot&&s->timing_epoch&&s->train&&
+  now>=s->sampled_us&&now<s->until_us&&s->until_us-now<=1500000&&
+  s->utc_us<=UINT64_MAX-(now-s->sampled_us);
+}
 void r2_group_admission_gm7_tick(const struct r2_gm7_admission_source *,uint64_t now);
 void r2_group_admission_gm7_receive(const struct r2_gm7_admission_source *,const struct r2_ble_event *,uint64_t now);

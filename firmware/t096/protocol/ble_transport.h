@@ -131,4 +131,6 @@ void r2_ble_gm5_policy(bool enabled,uint64_t selected,bool inventory_due);
  * GM coordination and promotion. Policy changes require an acknowledged scan
  * stop before the management channel owner changes. RC defaults remain false. */
 void r2_ble_gm7_server(bool enabled);
+/* Ordinary RC service only. GM management scanning remains enabled. */
+void r2_ble_gm7_source(bool available);
 int r2_ble_gm7_scan(bool aligned);

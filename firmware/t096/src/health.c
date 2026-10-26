@@ -151,7 +151,32 @@ static void fault_registers(unsigned reason,const struct arch_esf *esf,unsigned 
  * capsule/previous copy below are unchanged. Normal export never clears it. */
 volatile uint32_t r2_crash_record[R2_CRASH_WORDS] __noinit;
 _Static_assert(sizeof r2_crash_record==512,"One journal slot only");
-static bool crash_handed_off;
+/* Reuses the original one-byte handoff state. Only a verified durable save
+ * (or no prior valid record) permits the GM owner to reuse witness payload. */
+volatile uint8_t r2_gm7_witness_state;
+void r2_health_gm_witness(bool enabled)
+{
+ unsigned key=irq_lock();
+ if(enabled)r2_gm7_witness_state=(r2_gm7_witness_state&R2_WITNESS_HANDOFF)|R2_WITNESS_GM;
+ else r2_gm7_witness_state&=(uint8_t)~(R2_WITNESS_GM|R2_WITNESS_STARTED);
+ irq_unlock(key);
+}
+void r2_health_gm_witness_view(struct r2_snapshot_witness_view *out)
+{
+ unsigned key=irq_lock();uint8_t state=r2_gm7_witness_state;
+ const volatile uint32_t *p=r2_crash_record+R2_WITNESS_WORD;
+ bool current=(state&R2_WITNESS_STARTED)&&r2_witness_valid(p);
+ *out=(struct r2_snapshot_witness_view){.boot=boot_id,
+   .enabled=(state&R2_WITNESS_GM)!=0,
+   .armed=(state&R2_WITNESS_REQUIRED)==R2_WITNESS_REQUIRED,
+   .prior_crash_blocked=(state&R2_WITNESS_GM)&&!(state&R2_WITNESS_HANDOFF),
+   .current=current,.sequence=current?p[2]:0,.stage=current?p[1]:0,
+   .capture_epoch_low32=current?p[30]:0,
+   /* Initialization validated this pending record. Never CRC512B while IRQs
+    * are masked just to format a read-only observation. */
+   .pending_crc=!(state&R2_WITNESS_HANDOFF)?r2_crash_record[126]:0};
+ irq_unlock(key);
+}
 K_THREAD_STACK_DECLARE(z_main_stack,CONFIG_MAIN_STACK_SIZE);
 K_THREAD_STACK_DECLARE(normal_owner_stack,8192);
 K_THREAD_STACK_DECLARE(owner_stack,8192);
@@ -205,9 +230,18 @@ static void crash_capture(unsigned reason,const struct arch_esf *esf,unsigned ma
  /* Fatal-only, IRQs already masked. No locks, driver, allocator, formatting,
   * flash, stack walk, variable-size locals or record-sized automatic arrays. */
  if(r2_health_crash_pending())return; /* preserve first unpersisted crash across another startup fault */
- crash_handed_off=false;r2_crash_record[127]=0;__DMB();
- for(unsigned i=0;i<127;i++)r2_crash_record[i]=0;
- r2_crash_record[0]=R2_CRASH_MAGIC;r2_crash_record[1]=R2_CRASH_SCHEMA;
+ /* IRQs are masked: freeze a completed/explicitly partial GM observation.
+  * Pending previous crashes were returned above and are never overwritten.
+  * RC/inactive/unavailable keeps the complete original192B thread window. */
+ bool witness=(r2_gm7_witness_state&R2_WITNESS_GM)&&
+   (r2_gm7_witness_state&R2_WITNESS_STARTED)&&
+   r2_witness_valid(r2_crash_record+R2_WITNESS_WORD);
+ r2_gm7_witness_state=0;r2_crash_record[127]=0;__DMB();
+ for(unsigned i=0;i<127;i++)
+  if(!witness||i<R2_WITNESS_WORD||i>=R2_WITNESS_WORD+R2_WITNESS_WORDS)r2_crash_record[i]=0;
+ r2_crash_record[0]=R2_CRASH_MAGIC;
+ r2_crash_record[1]=witness?R2_CRASH_WITNESS_SCHEMA:R2_CRASH_SCHEMA;
+ r2_crash_record[61]=witness?R2_CRASH_WITNESS_TAG:0;
  r2_crash_record[2]=UINT32_MAX;r2_crash_record[3]=512;
  r2_crash_record[4]=(uint32_t)boot_id;r2_crash_record[5]=boot_id>>32;
  r2_crash_record[6]=r2_crash_hex32(&PTOB_DEVICE_ID[8]);
@@ -245,10 +279,10 @@ static void crash_capture(unsigned reason,const struct arch_esf *esf,unsigned ma
     bool known=false;
     if(flags&R2_CRASH_CALLEE)for(unsigned i=0;i<sizeof crash_bounds/sizeof crash_bounds[0];i++){
      const struct crash_bound *b=&crash_bounds[i];
-     size_t n=r2_crash_window(b->start,b->size,r2_crash_record[42],R2_CRASH_THREAD_BYTES);
+     size_t n=r2_crash_window(b->start,b->size,r2_crash_record[42],witness?R2_CRASH_SHORT_THREAD_BYTES:R2_CRASH_THREAD_BYTES);
      if(!n)continue;
      known=true;r2_crash_record[51]=r2_crash_record[42];r2_crash_record[52]=n;r2_crash_record[55]=b->id;
-     crash_words(R2_CRASH_THREAD_WORD,r2_crash_record[42],n);flags|=R2_CRASH_THREAD;
+     crash_words(witness?R2_CRASH_SHORT_THREAD_WORD:R2_CRASH_THREAD_WORD,r2_crash_record[42],n);flags|=R2_CRASH_THREAD;
      if(b->size-(r2_crash_record[42]-b->start)>n)flags|=R2_CRASH_THREAD_TRUNCATED;
      break;
     }
@@ -267,9 +301,9 @@ static void crash_capture(unsigned reason,const struct arch_esf *esf,unsigned ma
  __DMB();r2_crash_record[127]=R2_CRASH_COMMIT;__DSB();
 }
 const volatile uint32_t *r2_health_crash_pending(void)
-{return !crash_handed_off&&r2_crash_valid(r2_crash_record,true)&&r2_crash_silicon(r2_crash_record,PTOB_DEVICE_ID)?r2_crash_record:NULL;}
+{return !(r2_gm7_witness_state&R2_WITNESS_HANDOFF)&&r2_crash_valid(r2_crash_record,true)&&r2_crash_silicon(r2_crash_record,PTOB_DEVICE_ID)?r2_crash_record:NULL;}
 void r2_health_crash_saved(uint32_t crc)
-{if(r2_health_crash_pending()&&r2_crash_record[126]==crc)crash_handed_off=true;}
+{if(r2_health_crash_pending()&&r2_crash_record[126]==crc){unsigned key=irq_lock();r2_gm7_witness_state|=R2_WITNESS_HANDOFF;irq_unlock(key);}}
 int r2_health_crash_read(unsigned chunk,uint8_t out[64])
 {
  if(chunk>=R2_CRASH_DIAG_CHUNKS)return -EINVAL;
@@ -288,6 +322,9 @@ int r2_health_crash_read(unsigned chunk,uint8_t out[64]){(void)chunk;(void)out;r
 
 void r2_health_init(uint64_t boot)
 {
+#if defined(R2_GM7_NATIVE) && defined(CONFIG_EXTRA_EXCEPTION_INFO)
+ r2_gm7_witness_state=r2_crash_valid(r2_crash_record,true)?0:R2_WITNESS_HANDOFF;
+#endif
  if(r2_fault_capsule[0]==FAULT_MAGIC&&(r2_fault_capsule[1]==2||r2_fault_capsule[1]==3||r2_fault_capsule[1]==4)&&
     r2_fault_capsule[FAULT_WORDS-1]==crc(r2_fault_capsule))
   for(unsigned i=0;i<FAULT_WORDS;i++)previous[i]=r2_fault_capsule[i];

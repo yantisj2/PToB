@@ -9,6 +9,11 @@ enum r2_health_lane { R2_HEALTH_FLASH, R2_HEALTH_PA, R2_HEALTH_LANES };
 enum r2_health_op { R2_HEALTH_ERASE=1, R2_HEALTH_WRITE, R2_HEALTH_COMMIT, R2_HEALTH_STORAGE_CHECK,
  R2_HEALTH_ADV_CREATE=10, R2_HEALTH_ADV_PARAM, R2_HEALTH_ADV_DATA,
  R2_HEALTH_PA_START, R2_HEALTH_EXT_START };
+struct r2_snapshot_witness_view {
+ uint64_t boot;
+ uint32_t sequence,stage,capture_epoch_low32,pending_crc;
+ bool enabled,armed,prior_crash_blocked,current;
+};
 #if defined(CONFIG_ARM)
 void r2_health_lock_enter(unsigned site,unsigned saved_mask);
 void r2_health_lock_leave(unsigned saved_mask);
@@ -21,6 +26,14 @@ void r2_health_console(void);
 const volatile uint32_t *r2_health_crash_pending(void);
 void r2_health_crash_saved(uint32_t retained_crc);
 int r2_health_crash_read(unsigned chunk,uint8_t out[64]);
+#if defined(R2_GM7_NATIVE)
+/* GM-only passive snapshot witness; ordinary RC retains full crash windows. */
+void r2_health_gm_witness(bool enabled);
+void r2_health_gm_witness_view(struct r2_snapshot_witness_view *out);
+#else
+static inline void r2_health_gm_witness(bool enabled){(void)enabled;}
+static inline void r2_health_gm_witness_view(struct r2_snapshot_witness_view *out){*out=(struct r2_snapshot_witness_view){0};}
+#endif
 #else
 static inline void r2_health_init(uint64_t boot){(void)boot;}
 static inline void r2_health_beat(void){}
@@ -30,5 +43,7 @@ static inline void r2_health_console(void){}
 static inline const volatile uint32_t *r2_health_crash_pending(void){return NULL;}
 static inline void r2_health_crash_saved(uint32_t c){(void)c;}
 static inline int r2_health_crash_read(unsigned c,uint8_t out[64]){(void)c;(void)out;return -2;}
+static inline void r2_health_gm_witness(bool enabled){(void)enabled;}
+static inline void r2_health_gm_witness_view(struct r2_snapshot_witness_view *out){*out=(struct r2_snapshot_witness_view){0};}
 #endif
 #endif

@@ -2,10 +2,48 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
-Source **0.15.187** uses broadcast GM discovery, ordinary shadow STATUS and the
+Source **0.15.188** uses broadcast GM discovery, ordinary shadow STATUS and the
 existing RC G1 receive/matcher/fitter. A GM follows the selected source without
 JOIN, GATT, REQUEST/ANCHOR, nonces, admission sessions or ANN permission renewal.
 Normal RC client admission, GATT, RC9, relay, USB and LoRa remain supported.
+
+Ordinary RC discovery and JOIN service are enabled only for actual ACTIVE output
+with the existing finite usable source envelope. Non-serving GMs keep management
+discovery and scanning but cannot attract clients into a source-less JOIN.
+An exchange loses eligibility through the existing asynchronous disconnect
+drain, without new negotiation or extended deadlines. GM following still has
+no admission exchange and keeps its own GNSS/PPS running.
+
+## Diagnostic canary
+
+Version188 observes the unresolved ARM snapshot call-boundary fault. Its explicit
+88B veneer frame records entry/post-inner/saved callee registers and traps an
+observed mismatch before restore; it never repairs a pointer or continues timing
+after a violation. This changes stack layout and may change occurrence. Clean
+QEMU/native checks are not a CPU repair or endurance result.
+
+The existing512B crash record is reused only after the prior crash's actual
+payload and commit have been read back by the diagnostic owner. Pending prior
+records remain complete and CRC-valid. Schema8 has a128B witness,64B thread window
+(original bytes64..191 lost) and unchanged64B ISR window. Normal RC and unavailable
+or inactive witnesses retain schema7/full192B thread capture. Old schema7 records
+are never reinterpreted. Live witness bytes invalidate retained `diag 0100..0107`
+until a new fatal record commits; the prior crash remains in the persisted journal.
+
+Read `gm 00` and inspect `snapshot_witness`: `enabled`, `armed`,
+`prior_crash_blocked`, `current`, `boot`, `sequence`, `stage`,
+`capture_epoch_low32`, and `pending_crc32`. `armed` is permission after durable
+handoff; `current` additionally requires a completed observation in this GM
+incarnation. Raw stage low2 bits are the completed view (1entry,2post-inner,3saved);
+bits4..5 identify a view still being written. Epoch low32 is descriptive only.
+Bit6 records comparison completion; three captured views alone are not a checked
+return. Decoder output retains unchecked differing views without inventing flags.
+CRC-valid capsules with inconsistent witness semantics keep their base fault
+header, registers and stack; the decoder marks only the witness inconsistent.
+If blocked, preserve `pending_crc32` and inspect the existing status
+`crash_persist_result`/diagnostic state. There is no export-as-ack command, automatic
+deadline extension or operator bypass. Normal startup persistence acknowledges
+only after actual payload+commit readback; failure remains explicitly blocked.
 
 ## GM behavior
 

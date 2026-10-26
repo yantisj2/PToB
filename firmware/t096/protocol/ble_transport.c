@@ -77,7 +77,10 @@ struct peer {
 static bool field_admission_allowed=true,field_admission_renewal,bootstrap_urgent=true;
 static bool relay_server;
 static bool group_client,client_window=true,bootstrap_needed=true;
-static bool gm7_server;
+/* Mode retains management discovery; bit2 permits only ordinary RC service.
+ * Reuses the original one-byte mode object, independent of HOT/shadow. */
+static uint8_t gm7_server;
+enum { GM7_SERVER_MODE=1, GM7_CLIENT_SOURCE=2 };
 static bool gm5_mode,gm5_inventory_due;static uint64_t gm5_selected;
 static uint64_t now_us(void);
 #if defined(R2_CONTROLLER_DIAGNOSTICS)
@@ -505,7 +508,10 @@ static void connected(struct bt_conn *conn,uint8_t error)
   diag_count(0);
   for(unsigned d=0;d<4;d++)if(duplicates[d].conn==conn){if(error)duplicates[d].dead=true;k_spin_unlock(&lock,key);return;}
   int i=index_addr(bt_conn_get_dst(conn));
-  if(i<0&&group_id&&!error&&!peers[CONTROL_PEERS].conn){
+  if(gm7_server&&!(gm7_server&GM7_CLIENT_SOURCE)&&!error&&
+     (i<0||peers[i].conn!=conn))i=-1;
+  if(i<0&&group_id&&!error&&!peers[CONTROL_PEERS].conn&&
+     (!gm7_server||(gm7_server&GM7_CLIENT_SOURCE))){
     /* A passive admission hint is not a reservation against a real incoming
      * connection. Its stable ID is bound later from a verified JOIN request
      * and the canonical group-derived address, before any authority. */
@@ -942,7 +948,7 @@ static void poll_owned(uint64_t now)
    bool opportunity=r2_ble_admission_reserves_scan(now)&&field_admission_allowed;
    need_scan=precision_discovery||opportunity;
   }
-  if(gm7_server){need_adv=true;need_scan=true;}
+  if(gm7_server){need_adv=(gm7_server&GM7_CLIENT_SOURCE)!=0;need_scan=true;}
   if(group_client&&!client_window){
    need_adv=need_scan=false;
    for(unsigned i=0;i<nodes;i++)if(i!=self&&peers[i].conn){
@@ -1391,8 +1397,11 @@ void r2_ble_gm_diagnostics(uint32_t out[R2_GM_TRANSPORT_WORDS]){
 }
 
 void r2_ble_gm7_server(bool enabled){
- gm7_server=enabled;
+ gm7_server=enabled?GM7_SERVER_MODE:0;
  if(enabled){gm5_mode=false;gm5_selected=0;gm5_inventory_due=false;group_client=false;}
+}
+void r2_ble_gm7_source(bool available){
+ if(gm7_server)gm7_server=GM7_SERVER_MODE|(available?GM7_CLIENT_SOURCE:0);
 }
 int r2_ble_gm7_scan(bool aligned){
  (void)aligned;

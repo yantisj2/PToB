@@ -8,7 +8,12 @@ static bool project(uint64_t utc, uint64_t at, uint64_t now, uint64_t *out) {
   *out = utc + now - at;
   return gm7_utc_valid(*out);
 }
-int gm7_source_snapshot(struct gm7_source *out, const struct r2_clock *c,
+#if defined(CONFIG_ARM) && defined(R2_GM7_NATIVE)
+#define SNAPSHOT_BODY gm7_source_snapshot_inner
+#else
+#define SNAPSHOT_BODY gm7_source_snapshot
+#endif
+int SNAPSHOT_BODY(struct gm7_source *out, const struct r2_clock *c,
                         const struct r2_source_clock *map,
                         struct r2_capture capture, uint64_t sampled) {
   if (!out || !c || !map || capture.epoch > UINT32_MAX ||

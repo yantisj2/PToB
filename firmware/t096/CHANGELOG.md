@@ -1,5 +1,35 @@
 # T096 changelog
 
+## 0.15.188 — Ordinary RC source selection and passive ARM snapshot witness
+
+Only an ACTIVE GM with the existing live JOIN source envelope advertises ordinary
+connectable RC service. Followers retain GM management discovery, scanning and
+local PPS/shadow readiness. Source loss, merge, yield or stop cancels an ordinary
+JOIN through its existing callback drain; it cannot return a source-less ACCEPT.
+Returning to actual ACTIVE restores ordinary admission. RC profile GATT, RC9,
+relay and the functional/strict timing estimators are unchanged.
+
+This diagnostic canary adds an explicit AAPCS assembly frame around the existing
+source snapshot body. It records entry, post-call and saved callee registers and
+traps a real mismatch before restoring or returning. It does not repair the
+unresolved CPU corruption. The additional active frame is88B; original32B stack
+arguments and return value are preserved. Native disassembly/CFI and actual
+Cortex-M4 QEMU tests cover the production source/UTC path and synthetic offline
+boundary violations. They do not reproduce full Zephyr/IRQ concurrency.
+
+No retained allocation is added. After a previous crash has been durably saved
+and read back, an active GM may reuse128B of the existing512B record for the
+witness. Crash schema8 retains64B thread and64B ISR windows; the lost thread
+range is original bytes64..191. Normal RC, inactive and unavailable witnesses
+retain schema7's full192B thread capture. Earlier formats remain distinct.
+The existing `gm 00` query exposes enabled/armed/current stage, sequence, boot,
+capture-epoch low32 and prior-crash blockage. Export never acknowledges a save.
+
+Thirty-second ordinary fallback, three-second HOT bound, source/physical expiry,
+GM/RC profile separation and all publication fences remain. This is offline
+diagnostic preparation; CPU repair, sustained HOT and output accuracy are not
+established by the image or tests.
+
 ## 0.15.187 — Recover from delayed GM processing snapshots
 
 Carry the completion handler's refreshed same-domain bridge back to its caller.

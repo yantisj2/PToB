@@ -199,10 +199,7 @@ static struct r2_join_record message(const struct r2_network *n, unsigned kind,
    /* Use the exact GM7 functional UTC sample, preserving its original finite
     * source permit. A proof/receipt never renews the source owner. */
    r.root=r.root_boot=r.utc_us=0;r.source_epoch=r.publication=r.remaining_us=0;r.source_flags=0;r.source_bound_us=0;r.control=false;r.demand=0;
-   if((kind==R2_JOIN_PROOF||kind==R2_JOIN_ACCEPT)&&gm7_source.serving&&
-      gm7_source.identity&&gm7_source.boot&&gm7_source.timing_epoch&&gm7_source.train&&
-      now>=gm7_source.sampled_us&&now<gm7_source.until_us&&
-      gm7_source.until_us-now<=1500000&&gm7_source.utc_us<=UINT64_MAX-(now-gm7_source.sampled_us)){
+   if((kind==R2_JOIN_PROOF||kind==R2_JOIN_ACCEPT)&&r2_gm7_admission_live(&gm7_source,now)){
     r.root=gm7_source.identity;r.root_boot=gm7_source.boot;r.source_epoch=gm7_source.timing_epoch;r.publication=gm7_source.train;
     r.utc_us=gm7_source.utc_us+now-gm7_source.sampled_us;r.remaining_us=(uint32_t)(gm7_source.until_us-now);r.source_flags=1;r.source_bound_us=gm7_source.map_bound_us;
    }
@@ -656,11 +653,25 @@ static void gm7_facade(struct r2_network *n,const struct r2_gm7_admission_source
  if(s->name){size_t length=0;while(length<sizeof n->name-1&&s->name[length])++length;memcpy(n->name,s->name,length);n->name[length]=0;}
  gm7_source=*s;gm7_server_only=true;
 }
+static bool gm7_client_service(const struct r2_gm7_admission_source *s,uint64_t now){
+ bool live=r2_gm7_admission_live(s,now);
+ r2_ble_gm7_source(live);
+ if(!live){
+  /* A follower/expired source cannot authenticate a client into a dead end.
+   * Cancel this ordinary exchange through its existing callback drain. No
+   * GM peer, shadow clock, management scanner or retry lifetime is reset. */
+  if(active||r2_ble_admission_connected())r2_ble_admission_release();
+  active=waiting=promote=false;close_at=0;
+ }
+ return live;
+}
 void r2_group_admission_gm7_tick(const struct r2_gm7_admission_source *s,uint64_t now){
  if(!s||!s->group)return;
- struct r2_network n;gm7_facade(&n,s,now);r2_group_admission_tick(&n,now);
+ struct r2_network n;gm7_facade(&n,s,now);
+ if(gm7_client_service(s,now))r2_group_admission_tick(&n,now);
 }
 void r2_group_admission_gm7_receive(const struct r2_gm7_admission_source *s,const struct r2_ble_event *e,uint64_t now){
  if(!s||!s->group||!e)return;
- struct r2_network n;gm7_facade(&n,s,now);r2_group_admission_receive(&n,e,now);
+ struct r2_network n;gm7_facade(&n,s,now);
+ if(gm7_client_service(s,now))r2_group_admission_receive(&n,e,now);
 }

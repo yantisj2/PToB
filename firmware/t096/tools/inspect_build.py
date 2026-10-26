@@ -97,6 +97,8 @@ def inspect(out,allow_development=False):
     for line in ['CONFIG_ROM_END_OFFSET=0x6000','CONFIG_FLASH=y','CONFIG_USB_DEVICE_STACK=y','CONFIG_WATCHDOG=y']:
         require(line in config,'Required configuration: '+line)
     commands=(out/'target/compile_commands.json').read_text()
+    if gm7 and tuple(map(int,r['version'].split('.'))) >= (0,15,188):
+        require(sum(q['file'].endswith('/src/gm7_snapshot_witness.S')for q in json.loads(commands))==1,'Missing/duplicate snapshot witness translation unit')
     if tuple(map(int,r['version'].split('.'))) >= (0,15,166):
         require(('/protocol/gnss_diagnostics.c' in commands)==(not dc and not pc),
                 'GNSS diagnostic codec membership mismatch')

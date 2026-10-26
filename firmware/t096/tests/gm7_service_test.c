@@ -49,6 +49,8 @@ int r2_ble_group_start(uint64_t id, uint64_t g, uint32_t e,
   return 0;
 }
 void r2_ble_gm7_server(bool enabled) { (void)enabled; }
+static bool fake_join_available;
+void r2_ble_gm7_source(bool available) { fake_join_available=available; }
 int r2_ble_gm7_scan(bool aligned) {
   (void)aligned;
   return 0;
@@ -582,6 +584,13 @@ static void diagnostics_and_remap(void) {
   assert(r2_gm7_diagnostic_format(text,sizeof text,9,"TEST",1,true)>0&&
       strstr(text,"GM7_FOLLOWER_ESTIMATOR")&&strstr(text,"\"authority\":false"));
   assert(r2_gm7_diagnostic_format(text,8,9,"TEST",1,true)==-ENOSPC);
+  /* Actual main console body is3072-96B. Exercise maximum scalar widths,
+   *64-char source and added witness object without growing its allocation. */
+  memset(&diagnostic,0xff,sizeof diagnostic);
+  char maximum[3072-96];char source[65];memset(source,'f',64);source[64]=0;
+  assert(r2_gm7_diagnostic_format(maximum,sizeof maximum,0,source,UINT64_MAX,true)>0);
+  assert(strstr(maximum,"\"snapshot_witness\":")&&strstr(maximum,"\"prior_crash_blocked\":"));
+  assert(r2_gm7_diagnostic_format(maximum,8,0,source,UINT64_MAX,true)==-ENOSPC);
   assert(gm7_duration_ms(UINT64_C(4294967295000), 0) == UINT32_MAX - 1 &&
          gm7_duration_ms(UINT64_MAX, 0) == UINT32_MAX - 1 &&
          gm7_duration_ms(0, 1) == UINT32_MAX);

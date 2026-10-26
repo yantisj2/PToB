@@ -12,7 +12,16 @@ static int r2_console_note(const char *s,size_t n,uint64_t e){return 0;}
 void r2_controller_diag_snapshot(uint32_t out[R2_CONTROLLER_DIAG_WORDS]){memset(out,0,R2_CONTROLLER_DIAG_WORDS*4);}
 static void capture(unsigned reason,const struct arch_esf *e)
 {if(!setjmp(fatal_exit))k_sys_fatal_error_handler(reason,e);irq_depth=0;assert(r2_fault_capsule[63]==crc(r2_fault_capsule));}
-static void fresh(void){r2_crash_record[127]=0;crash_handed_off=false;}
+static void fresh(void){r2_crash_record[127]=0;r2_gm7_witness_state=0;}
+static void witness(void){
+ volatile uint32_t *p=r2_crash_record+R2_WITNESS_WORD;
+ for(unsigned i=0;i<32;i++)p[i]=0;
+ p[0]=R2_WITNESS_MAGIC;p[1]=R2_WITNESS_VERSION|3|R2_WITNESS_COMPARED;p[2]=9;p[3]=0x20030900;
+ p[4]=p[29]=0x12345;p[30]=4;
+ for(unsigned i=0;i<8;i++)p[5+i]=p[13+i]=p[21+i]=0x44444444+i*0x11111111;
+ p[31]=p[2]^R2_WITNESS_COMMIT;
+ r2_gm7_witness_state=R2_WITNESS_REQUIRED|R2_WITNESS_STARTED;
+}
 int main(int argc,char **argv)
 {
  assert(argc==2);r2_health_init(UINT64_C(0x1122334455667788));fake_fault_vector=5;
@@ -45,5 +54,39 @@ int main(int argc,char **argv)
  fresh();fake_fault_vector=3;e.extra_info.callee=c;e.extra_info.msp=entry;e.extra_info.exc_return=0xfffffff1;capture(0,&e);assert(r2_crash_valid(r2_crash_record,true)&&(r2_crash_record[25]&R2_CRASH_CALLEE));
  for(unsigned i=0;i<128;i++){uint32_t w[128];memcpy(w,(const void *)r2_crash_record,512);w[i]^=1;assert(!r2_crash_valid(w,true));}
  fresh();capture(25,NULL);assert(r2_crash_valid(r2_crash_record,true)&&!(r2_crash_record[25]&R2_CRASH_BASIC));
+ /* Exact overlay lifecycle: durable acknowledgment, first entry, partial
+  *stage, reboot provenance and normalRC disarm use actual producer/getter. */
+ fresh();witness();capture(25,&e);assert(r2_crash_valid(r2_crash_record,true)&&r2_crash_record[1]==8&&r2_crash_record[61]==R2_CRASH_WITNESS_TAG);
+ uint32_t saved[128];memcpy(saved,(const void *)r2_crash_record,512);
+ r2_health_gm_witness(true);struct r2_snapshot_witness_view view;r2_health_gm_witness_view(&view);
+ assert(view.enabled&&view.prior_crash_blocked&&!view.armed&&!view.current&&view.pending_crc==saved[126]);
+ r2_health_crash_saved(saved[126]^1);assert(!memcmp(saved,(const void *)r2_crash_record,512));
+ r2_health_crash_saved(saved[126]);r2_health_gm_witness_view(&view);
+ assert(view.armed&&!view.prior_crash_blocked&&!view.current&&!memcmp(saved,(const void *)r2_crash_record,512));
+ char path[1024];assert(snprintf(path,sizeof path,"%s.witness",argv[1])>0);
+ f=fopen(path,"wb");assert(f&&fwrite(saved,4,128,f)==128&&!fclose(f));
+ /* A CRC-valid capsule remains exportable even when its witness is corrupt.
+  * This is crash evidence only, never a source/control authority. */
+ r2_crash_record[R2_WITNESS_WORD]=0;r2_crash_record[126]=r2_crash_crc(r2_crash_record);
+ assert(r2_crash_valid(r2_crash_record,true));uint8_t preserved[64];assert(!r2_health_crash_read(0,preserved));
+ /* Complete entry + partially written post-inner view is never a good return. */
+ fresh();witness();r2_crash_record[R2_WITNESS_WORD+1]=R2_WITNESS_VERSION|0x21;
+ r2_crash_record[R2_WITNESS_WORD+13]=1;
+ capture(25,&e);assert(r2_crash_valid(r2_crash_record,true)&&r2_crash_record[1]==8);
+ assert(snprintf(path,sizeof path,"%s.partial",argv[1])>0);f=fopen(path,"wb");assert(f&&fwrite((const void *)r2_crash_record,4,128,f)==128&&!fclose(f));
+ r2_health_init(UINT64_C(0xaabbccddeeff0011));r2_health_gm_witness(true);r2_health_gm_witness_view(&view);
+ assert(view.boot==UINT64_C(0xaabbccddeeff0011)&&view.prior_crash_blocked&&!view.current);
+ r2_health_crash_saved(r2_crash_record[126]);r2_health_gm_witness_view(&view);assert(view.armed&&!view.current);
+ /* All three views may finish before the comparison does. Differing views
+  *with no committed mismatch flags remain valuable, readable evidence. */
+ fresh();witness();r2_crash_record[R2_WITNESS_WORD+1]=R2_WITNESS_VERSION|3;
+ r2_crash_record[R2_WITNESS_WORD+14]=1;
+ capture(25,&e);assert(r2_crash_valid(r2_crash_record,true)&&r2_crash_record[1]==8);
+ assert(snprintf(path,sizeof path,"%s.unchecked",argv[1])>0);f=fopen(path,"wb");assert(f&&fwrite((const void *)r2_crash_record,4,128,f)==128&&!fclose(f));
+ fresh();witness();r2_health_gm_witness(false);capture(25,&e);
+ assert(r2_crash_record[1]==7&&r2_crash_record[61]==0&&r2_crash_valid(r2_crash_record,true));
+ fresh();r2_health_init(99);r2_health_gm_witness(true);r2_health_gm_witness_view(&view);
+ assert(view.armed&&!view.current&&!view.sequence);
  puts("PASS actual fatalregister+copy bodies; independent numericARM192/64 bounds; pending handoff,CRC/commit negatives, softwarefatal andHardFault");
+ puts("PASS schema8 witness/partial preservation, exact durableack, pendingoldrecord intact, reboot notcurrent, normalRC schema7 and read-only witness lifecycle");
 }

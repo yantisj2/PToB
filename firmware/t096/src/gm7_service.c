@@ -13,6 +13,7 @@
 #include "gm7_timing.h"
 #include "gm_diagnostics.h"
 #include "gnss_diagnostics.h"
+#include "health.h"
 #include "group_admission.h"
 #include "lora_service.h"
 #include "owner_budget.h"
@@ -614,7 +615,8 @@ static bool results(struct gm7_bridge *current) {
 }
 static struct r2_gm7_admission_source admission(struct gm7_bridge b) {
   uint64_t until = 0, utc = owner.source.utc_us;
-  bool source = gm7_owner_output(&owner, b.hf) &&
+  bool source = !atomic_get(&stopping) && !resuming &&
+                gm7_owner_output(&owner, b.hf) &&
                 gm7_bridge_to_kernel(b, owner.source.until_us, &until);
   if (b.hf >= owner.source.sampled_us &&
       utc <= UINT64_MAX - (b.hf - owner.source.sampled_us))
@@ -1066,6 +1068,7 @@ static void cycle(struct k_work *work) {
   }
   if (atomic_get(&stopping)) {
     if (!stop_begun) {
+      r2_health_gm_witness(false);
       fence(GM7_R_STOP, b.hf);
       r2_gm7_controller_scan(false, false, 0);
       r2_gm7_controller_precision(false, 0, 0, 0);
@@ -1225,6 +1228,8 @@ static void cycle(struct k_work *work) {
       fence(GM7_R_RESOURCE, b.hf);
     }
   }
+  struct r2_gm7_admission_source join = admission(b);
+  r2_ble_gm7_source(r2_gm7_admission_live(&join,b.kernel_hi));
   r2_ble_poll(b.kernel_hi);
   int transport_error = r2_ble_stop_error();
   int precision_error = r2_radio_service_error();
@@ -1235,8 +1240,7 @@ static void cycle(struct k_work *work) {
     r2_service_stop();
     goto finished;
   }
-  struct r2_gm7_admission_source join = admission(b);
-  r2_group_admission_gm7_tick(&join, b.kernel_hi);
+  r2_group_admission_gm7_tick(&join, kernel_now());
   struct r2_ble_event event;
   for (unsigned count = 0;
        count < R2_OWNER_CONTROL_RX && r2_ble_receive(&event); count++)
@@ -1682,6 +1686,7 @@ static int start(uint64_t arrival, uint32_t seconds) {
   if (rc)
     return rc;
   r2_ble_gm7_server(true);
+  r2_health_gm_witness(true);
   r2_gm7_controller_scan(true, false, 0);
   r2_radio_service_activate();
   used = started = true;
@@ -1701,6 +1706,8 @@ int r2_service_start(uint32_t seconds, uint64_t at) {
 }
 int r2_service_run(uint64_t at) { return start(at, 0); }
 void r2_service_stop(void) {
+  r2_health_gm_witness(false);
+  r2_ble_gm7_source(false);
   (void)k_mutex_lock(&lock,K_FOREVER);
   yield_request.pending=false;yield_request.result=-ECANCELED;
   (void)k_mutex_unlock(&lock);
@@ -2172,6 +2179,8 @@ int r2_gm7_diagnostic_format(char *out, size_t capacity, unsigned page,
     return n >= 0 && (size_t)n < capacity ? n : -ENOSPC;
   }
   bool pt_stopped=false,pt_managed=false,pt_binding=false;
+  struct r2_snapshot_witness_view witness;
+  r2_health_gm_witness_view(&witness);
   if(runtime_gm)r2_radio_service_gm7_state(&pt_stopped,&pt_managed,&pt_binding);
   uint64_t query_now=kernel_now();
   bool hot_available=runtime_gm&&status.active&&!status.closing&&!status.error&&
@@ -2198,7 +2207,7 @@ int r2_gm7_diagnostic_format(char *out, size_t capacity, unsigned page,
       "failed\":%u,"
       "\"event_unsent\":%u,\"yield_request_pending\":%s,\"yield_request_result\":%d,"
       "\"pt_stopped\":%s,\"pt_managed\":%s,"
-      "\"pt_binding_matches\":%s,\"absolute_utc_error_us\":null,\"rf_timing_"
+      "\"pt_binding_matches\":%s,\"snapshot_witness\":{\"version\":1,\"enabled\":%s,\"armed\":%s,\"prior_crash_blocked\":%s,\"current\":%s,\"boot\":\"%016llx\",\"sequence\":%u,\"stage\":%u,\"capture_epoch_low32\":%u,\"pending_crc32\":\"%08x\"},\"absolute_utc_error_us\":null,\"rf_timing_"
       "qualified\":false}",
       source, (unsigned long long)physical_boot,
       configured && runtime_gm ? "true" : "false",
@@ -2237,7 +2246,11 @@ int r2_gm7_diagnostic_format(char *out, size_t capacity, unsigned page,
       runtime_gm ? diagnostic.event_unsent : 0,
       runtime_gm&&yield_request.pending?"true":"false",
       runtime_gm?yield_request.result:-ENOTSUP,
-      pt_stopped?"true":"false",pt_managed?"true":"false",pt_binding?"true":"false");
+      pt_stopped?"true":"false",pt_managed?"true":"false",pt_binding?"true":"false",
+      witness.enabled?"true":"false",witness.armed?"true":"false",
+      witness.prior_crash_blocked?"true":"false",witness.current?"true":"false",
+      (unsigned long long)witness.boot,witness.sequence,witness.stage,
+      witness.capture_epoch_low32,witness.pending_crc);
   (void)k_mutex_unlock(&lock);
   return n >= 0 && (size_t)n < capacity ? n : -ENOSPC;
 }

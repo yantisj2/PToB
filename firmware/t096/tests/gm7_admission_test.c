@@ -18,6 +18,7 @@ static void one(bool serving,bool fault_before_proof,bool gm_request){
  struct r2_ble_event e={.peer=4,.at=fake_time,.length=R2_GROUP_JOIN_BYTES};
  assert(!r2_group_join_encode(e.data,&r,&n.group));r2_group_admission_gm7_receive(&source,&e,fake_time);
  r2_group_admission_gm7_tick(&source,++fake_time);
+ if(!serving){assert(!active&&!waiting&&!promote);r2_group_admission_reset();return;}
  struct r2_join_record reply;assert(!r2_group_join_decode(&reply,peers[4].tx[0],R2_GROUP_JOIN_BYTES,&n.group));
  assert(reply.kind==R2_JOIN_CHALLENGE&&!reply.control&&!strcmp(reply.name,"G"));
  assert(!r2_group_join_receive(&receiver,&reply,fake_time));
@@ -27,6 +28,7 @@ static void one(bool serving,bool fault_before_proof,bool gm_request){
  receiver.proof_at=fake_time;e.at=fake_time;
  assert(!r2_group_join_encode(e.data,&r,&n.group));r2_group_admission_gm7_receive(&source,&e,fake_time);
  r2_group_admission_gm7_tick(&source,++fake_time);
+ if(fault_before_proof){assert(!active&&!waiting&&!promote);r2_group_admission_reset();return;}
  assert(!r2_group_join_decode(&reply,peers[4].tx[0],R2_GROUP_JOIN_BYTES,&n.group));
  assert(reply.kind==R2_JOIN_ACCEPT&&!reply.control&&!promote&&exchange.accepted);
  assert(!r2_group_join_receive(&receiver,&reply,fake_time));

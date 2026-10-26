@@ -41,7 +41,6 @@ try:
  join_compat=compat.copy();join_compat[join_compat.index(str(app/'tests/gm7_admission_test.c'))]=str(app/'tests/gm7_join_compat_test.c');join_compat[-1]=str(out/'join-compat-test');join_compat.insert(1,'-DR2_GM7_NATIVE=1')
  receipt['join_compat_command']=join_compat
  with (out/'join-compat.compile.log').open('w') as f:subprocess.run(join_compat,stdout=f,stderr=subprocess.STDOUT,check=True,timeout=45)
- with (out/'join-compat.run.log').open('w') as f:subprocess.run([str(out/'join-compat-test')],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=30)
  transport=[cc,'-std=c11','-O1','-g','-Wall','-Wextra','-Werror','-Wno-unused-function','-Wno-unused-variable','-Wno-unused-parameter','-Wno-default-const-init-var-unsafe','-fsanitize=address,undefined','-fno-sanitize-recover=all','-DR2_GM7_NATIVE=1',*['-I'+str(x) for x in [app/'include',app/'protocol',app/'tests',tiny/'include',out]],str(app/'tests/gm7_transport_test.c'),*[str(app/'protocol'/n) for n in ['group_auth.c','group_control.c','authority_codec.c']],*[str(tiny/'source'/n) for n in ['hmac.c','sha256.c','utils.c']],'-o',str(out/'transport-test')]
  receipt['transport_command']=transport
  with (out/'transport.compile.log').open('w') as f:subprocess.run(transport,stdout=f,stderr=subprocess.STDOUT,check=True,timeout=45)
@@ -58,6 +57,12 @@ try:
  receipt['service_command']=service
  with (out/'service.compile.log').open('w') as f:subprocess.run(service,stdout=f,stderr=subprocess.STDOUT,check=True,timeout=45)
  with (out/'service.run.log').open('w') as f:subprocess.run([str(out/'service-test'),str(out)],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=30)
+ join_service=service.copy();join_service[join_service.index(str(app/'tests/gm7_service_test.c'))]=str(app/'tests/gm7_join_service_test.c');join_service[-1]=str(out/'join-service-test')
+ receipt['join_service_command']=join_service
+ with (out/'join-service.compile.log').open('w')as f:subprocess.run(join_service,stdout=f,stderr=subprocess.STDOUT,check=True,timeout=45)
+ with (out/'join-service.run.log').open('w')as f:subprocess.run([str(out/'join-service-test'),str(out/'join-service.bin')],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=30)
+ with (out/'join-compat.run.log').open('w')as f:
+  for case in range(5):subprocess.run([str(out/'join-compat-test'),str(out/'join-service.bin'),str(case)],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=30)
  bootstrap=service.copy();bootstrap[bootstrap.index(str(app/'tests/gm7_service_test.c'))]=str(app/'tests/gm7_bootstrap_service_test.c');bootstrap[-1]=str(out/'bootstrap-service-test')
  receipt['bootstrap_service_command']=bootstrap
  with (out/'bootstrap-service.compile.log').open('w')as f:subprocess.run(bootstrap,stdout=f,stderr=subprocess.STDOUT,check=True,timeout=45)

@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include "snapshot_witness.h"
 /* Schema7 is ONE existing512B bank0 slot, not a multi-slot dump. All scalars
  * little-endian. Binary SHA256/factory avoid duplicating ASCII headers.
  * 0..61 header;62..109 thread192B;110..125 ISR64B;126 CRC;127 commit.
@@ -19,10 +20,14 @@
 #define R2_CRASH_WORDS 128u
 #define R2_CRASH_BYTES 512u
 #define R2_CRASH_SCHEMA 7u
+#define R2_CRASH_WITNESS_SCHEMA 8u
+#define R2_CRASH_WITNESS_TAG UINT32_C(0x47574d31)
 #define R2_CRASH_MAGIC UINT32_C(0x44325231)
 #define R2_CRASH_COMMIT UINT32_C(0x434f4d31)
 #define R2_CRASH_THREAD_WORD 62u
 #define R2_CRASH_THREAD_BYTES 192u
+#define R2_CRASH_SHORT_THREAD_WORD 94u
+#define R2_CRASH_SHORT_THREAD_BYTES 64u
 #define R2_CRASH_ISR_WORD 110u
 #define R2_CRASH_ISR_BYTES 64u
 #define R2_CRASH_DIAG_CHUNK 256u
@@ -30,6 +35,8 @@
 _Static_assert(R2_CRASH_THREAD_WORD+R2_CRASH_THREAD_BYTES/4==R2_CRASH_ISR_WORD,"Thread window offset");
 _Static_assert(R2_CRASH_ISR_WORD+R2_CRASH_ISR_BYTES/4==126,"CRC follows both bounded windows");
 _Static_assert(R2_CRASH_WORDS*sizeof(uint32_t)==R2_CRASH_BYTES,"Exactly one journal slot");
+_Static_assert(R2_WITNESS_WORD+R2_WITNESS_WORDS==R2_CRASH_SHORT_THREAD_WORD,"Witness then short thread window");
+_Static_assert(R2_CRASH_SHORT_THREAD_WORD+R2_CRASH_SHORT_THREAD_BYTES/4==R2_CRASH_ISR_WORD,"Short thread then unchanged ISR window");
 enum { R2_CRASH_BASIC=1,R2_CRASH_CALLEE=2,R2_CRASH_RETURN=4,
  R2_CRASH_STACK_UNRELIABLE=8,R2_CRASH_SCB_POST_CLEAR=16,
  R2_CRASH_THREAD=32,R2_CRASH_ISR=64,R2_CRASH_UNKNOWN_THREAD=128,
@@ -67,9 +74,14 @@ static inline bool r2_crash_provenance(const volatile uint32_t *p)
 }
 static inline bool r2_crash_valid(const volatile uint32_t *p,bool retained)
 {
- return p[0]==R2_CRASH_MAGIC&&p[1]==R2_CRASH_SCHEMA&&p[3]==R2_CRASH_BYTES&&
-  (p[4]||p[5])&&(p[6]||p[7])&&r2_crash_provenance(p)&&!p[61]&&
-  p[52]<=R2_CRASH_THREAD_BYTES&&!(p[52]&3)&&p[54]<=R2_CRASH_ISR_BYTES&&!(p[54]&3)&&
+ bool witness=p[1]==R2_CRASH_WITNESS_SCHEMA;
+ return p[0]==R2_CRASH_MAGIC&&(witness||p[1]==R2_CRASH_SCHEMA)&&p[3]==R2_CRASH_BYTES&&
+  (p[4]||p[5])&&(p[6]||p[7])&&r2_crash_provenance(p)&&
+  /* Base crash evidence survives inconsistent witness semantics. The producer
+   * selects schema8 only from a valid live witness; journal/export preserve
+   * an already committed CRC-valid capsule without granting any authority. */
+  (witness?p[61]==R2_CRASH_WITNESS_TAG:!p[61])&&
+  p[52]<=(witness?R2_CRASH_SHORT_THREAD_BYTES:R2_CRASH_THREAD_BYTES)&&!(p[52]&3)&&p[54]<=R2_CRASH_ISR_BYTES&&!(p[54]&3)&&
   ((!p[52])||((p[25]&R2_CRASH_THREAD)&&!(p[51]&3)&&p[51]>=0x20002000u&&p[51]<=0x20040000u-p[52]))&&
   ((!p[54])||((p[25]&R2_CRASH_ISR)&&!(p[53]&3)&&p[53]>=0x20002000u&&p[53]<=0x20040000u-p[54]))&&
   (retained?(p[2]==UINT32_MAX&&!p[56]&&!p[57]&&!p[58]):(p[2]<16&&(p[56]||p[57])))&&
