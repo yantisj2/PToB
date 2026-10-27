@@ -3,6 +3,7 @@
 #include <cmath>
 #include <cstdint>
 #include "td_signal.hpp"
+#include "td_mesh.hpp"
 namespace v12 {
 constexpr uint16_t TdDeliveryWarningPermille=850;
 // Worker-owned observations, never source admission, output or clock training.
@@ -24,7 +25,9 @@ struct TdTrace {
   uint16_t delivery = UINT16_MAX;
   int8_t rssi=127;
 };
+constexpr unsigned TdPageCount=8;
 struct TdSnapshot {
+  td_mesh::Snapshot mesh{};
   TdPeer peers[8]{};
   TdTrace gm[24]{}, relay[24]{};
   uint64_t now_us = 0, target = 0, last_target = 0, request_target = 0, request_until_us = 0;

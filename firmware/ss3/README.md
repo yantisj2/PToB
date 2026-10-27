@@ -8,8 +8,30 @@ accuracy. [Image provenance](../../docs/images/README.md).*
 
 Copyright (c) 2026 Jonathan Yantis. MIT; inherited source notices apply.
 
-**PToB owns SS3 native G1/RC7 development.** Source firmware version **0.1.4**
-builds on imported source `56740553885420a7f6f301c12de10696a9c8d432`, the M5Stack StickS3
+**PToB owns SS3 native G1/RC7 development.** Source firmware version **0.1.5**
+adds the current authenticated GS mesh and GD1/GD2 reference diagnostics, adapted
+from CoreSE with [recorded source provenance](contracts/diagnostics_provenance.json).
+Side-button navigation now cycles eight diagnostics pages: Health, Stream Quality,
+Relay Test, RF Health, Sample Detail, Source Health, **Epoch** and **Reference**.
+Epoch shows the observed mesh label, how long this SS3 has seen it, estimated GM
+uptime and live/last GS status. The label's actual start is not on the wire.
+Reference shows the GM's reported fix, PPS, qualification, satellites, real GGA
+HDOP and raw PTP-shaped election tuple. Legacy GD1 leaves HDOP unknown. A reported
+qualification flag describes the GM; it does not qualify SS3 timing or output.
+
+Both decoders bind the canonical advertiser, observed GM identity, timing
+incarnation and mesh epoch, preserve original receipt deadlines and reject
+replay across root replacements. Expired or mismatched reference values become
+unknown; retained reports are explicitly LAST. Existing passive survey windows,
+radio ownership, source permissions and timing models are unchanged. The older
+health page retains its ten-second observed HOT dwell. Source version 0.1.4's
+bounded survey cleanup and LCD ownership/watchdog repairs remain in place.
+
+[<img src="../../docs/images/ss3-epoch-preview.png" width="135" alt="SS3 Epoch page showing the mesh label, local seen duration and estimated GM uptime">](../../docs/images/ss3-epoch-preview.png) [<img src="../../docs/images/ss3-reference-preview.png" width="135" alt="SS3 Reference page showing reported GNSS fix, PPS, satellites, HDOP and PTP tuple">](../../docs/images/ss3-reference-preview.png)
+
+*Current production renderer, synthetic values. [Preview provenance](../../docs/images/ss3-diagnostics-provenance.json).*
+
+The original baseline is imported source `56740553885420a7f6f301c12de10696a9c8d432`, the M5Stack StickS3
 K150 V17 application with TD diagnostics and a 150 ms health-display hold.
 The Relay Test screen keeps the four strongest nearby relays visible, ordered
 by fresh smoothed RSSI with stable identity ties. It shows the displayed/nearby

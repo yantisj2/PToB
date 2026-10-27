@@ -4,6 +4,7 @@
 #include "ss3_display_clock.hpp"
 #include "ss3_lcd_io.hpp"
 #include "fault_watchdog.hpp"
+#include "bounded_log.hpp"
 #include "../legacy/m5stick_s3/board.hpp"
 #include "../legacy/m5stick_s3/ui.hpp"
 #include "../legacy/m5stick_s3/dirty_rect.hpp"
@@ -169,7 +170,7 @@ void sticks3::present_native(const DisplayState& s,const v12::R2Status& m,uint64
  if(!ui_storage)return;
  // Sole main-task producer; complete PSRAM values copy outside IRQ masks.
  auto& n=ui_storage->constructed;n={};n.view=make_view(s);auto& v=n.view;v.native_dashboard=true;v.page=s.page==display_pages::Front?0:1;
- v.td=v12::r2_td_status();v.td_chart=chart%3;if(v.td.enabled)v.page=s.page%6;
+ v.td=v12::r2_td_status();v.td_chart=chart%3;if(v.td.enabled)v.page=s.page%v12::TdPageCount;
  std::snprintf(v.header,sizeof v.header,"SS3");std::snprintf(v.upstream,sizeof v.upstream,"%s",s.followed_clock);
  v.relay_only=m.rc7_relay_only;n.banner_until=banner_until20;
  if(banner)std::snprintf(v.mode_banner,sizeof v.mode_banner,"%s",banner);
@@ -221,7 +222,7 @@ void sticks3::display_status(){
  std::printf("SS3_HEALTH_DISPLAY active=%u status=%s input=%s level=%u input_level=%u pending=%u hold_us=150000 policy=GROUP150_REASON150_V1 changes=%lu cancelled=%lu transition_min_us=%lu raw_health=IMMEDIATE control=UNCHANGED\n",unsigned(word>>31),shown_text,input_text,unsigned((word>>16)&3),unsigned((word>>18)&3),unsigned((word>>20)&1),(unsigned long)health_changes.load(std::memory_order_relaxed),(unsigned long)health_cancelled.load(std::memory_order_relaxed),(unsigned long)health_min_us.load(std::memory_order_relaxed));
  const auto health=TdHealth::evaluate(d,ui_storage?ui_storage->constructed.view.radio_error:0);
  char health_text[24];std::snprintf(health_text,sizeof health_text,"%s",health.status);for(auto& ch:health_text)if(ch==' ')ch='_';
- std::printf("SS3_HEALTH status=%s level=%u delivery=%u sample_age_ms=%lu time_valid_at_TX=%u source_recent=%u source_epoch=%lu GPS_PPS=UNKNOWN UTC_error=UNKNOWN wire_added_bytes=0 pages=6 delivery_warning_permille=850 RSSI_policy=PER_PEER_EWMA1HZ_DEADBAND2_HYST3\n",health_text,unsigned(health.level),unsigned(health.delivery),(unsigned long)health.sample_age_ms,unsigned(health.time_valid),unsigned(health.source_recent),(unsigned long)(health.gm?health.gm->source_epoch:0));
+ std::printf("SS3_HEALTH status=%s level=%u delivery=%u sample_age_ms=%lu time_valid_at_TX=%u source_recent=%u source_epoch=%lu GPS_PPS=UNKNOWN UTC_error=UNKNOWN wire_added_bytes=0 pages=8 delivery_warning_permille=850 RSSI_policy=PER_PEER_EWMA1HZ_DEADBAND2_HYST3\n",health_text,unsigned(health.level),unsigned(health.delivery),(unsigned long)health.sample_age_ms,unsigned(health.time_valid),unsigned(health.source_recent),(unsigned long)(health.gm?health.gm->source_epoch:0));
  std::printf("SS3_GM_STATUS known=%u available=%u root=%016llx hot=%016llx boot=%016llx sequence=%lu source_epoch=%lu seen_us=%llu checked_us=%llu next_us=%llu checks=%lu misses=%lu result=%u poll_until_us=%llu poll_us=120000000 event_check_us=1000000 hot_stable_us=10000000 events=%lu authority=NONE chart=LOG10 header=BLUE\n",unsigned(d.role.known),unsigned(d.role.available),(unsigned long long)d.role.root,(unsigned long long)d.role.hot,(unsigned long long)d.role.root_boot,(unsigned long)d.role.sequence,(unsigned long)d.role.source_epoch,(unsigned long long)d.role.seen_us,(unsigned long long)d.role.checked_us,(unsigned long long)d.role.next_us,(unsigned long)d.role.checks,(unsigned long)d.role.misses,unsigned(d.role.result),(unsigned long long)d.role.until_us,(unsigned long)d.role.events);
  std::printf("SS3_STARTUP splash_shown_us=%llu splash_min_until_us=%llu first_dashboard_us=%llu minimum_us=1000000\n",(unsigned long long)splash_shown_us,(unsigned long long)splash_until_us,(unsigned long long)first_dashboard_us.load());
  for(const auto& p:d.peers)if(p.id)std::printf("SS3_TD_PEER id=%016llx root=%016llx relay=%u hop=%u rssi=%d rssi_min=%d rssi_max=%d publishing=%u ready=%u seen_us=%llu sampled_us=%llu adv=%lu PA=%lu matched=%lu rejected=%lu missed=%lu duplicates=%lu jitter_ns=%lu max_ns=%lu RSSI_smooth=%d bars=%u RSSI_seen_us=%llu RSSI_display_us=%llu channels=%010llx age_us=%lu PHY=%u source_epoch=%lu time_known=%u time_valid_at_TX=%u time_seen_us=%llu TX_age_us=%lu TX_ttl_us=%lu\n",(unsigned long long)p.id,(unsigned long long)p.root,unsigned(p.relay),unsigned(p.depth),int(p.rssi),int(p.rssi_min),int(p.rssi_max),unsigned(p.publishing),unsigned(p.ready),(unsigned long long)p.seen_us,(unsigned long long)p.sampled_us,(unsigned long)p.advertisements,(unsigned long)p.packets,(unsigned long)p.matched,(unsigned long)p.rejected,(unsigned long)p.missed,(unsigned long)p.duplicates,(unsigned long)p.jitter_ns,(unsigned long)p.max_ns,int(p.signal.fresh(d.now_us)?p.signal.value:127),unsigned(p.signal.fresh(d.now_us)?p.signal.bars:0),(unsigned long long)p.signal.seen_us,(unsigned long long)p.signal.display_us,(unsigned long long)p.channels,(unsigned long)p.source_age_us,unsigned(p.phy),(unsigned long)p.source_epoch,unsigned(p.time_known),unsigned(p.time_valid),(unsigned long long)p.time_seen_us,(unsigned long)p.origin_age_us,(unsigned long)p.source_ttl_us);
@@ -242,3 +243,17 @@ void display_update_indicators(bool,bool,bool){}
 void display_sleep(){awake.store(false);}
 void display_wake(){awake.store(true);}
 void display_blank(){awake.store(false);}
+
+// Main-task-only compact telemetry shares SS3_RC7_ID's CRC-protected row.
+// Read the existing published presentation; never allocate/copy a timing model.
+void sticks3::mesh_status(v12::ConsoleFrame& f){
+ if(!ui_storage){f.format(" mesh=UNAVAILABLE\n");return;}
+ const auto& d=ui_storage->constructed.view.td;const auto& m=d.mesh;
+ const auto& r=m.roles;const auto& q=m.reference;const auto now=uint64_t(esp_timer_get_time());
+ const bool fresh=now>=d.now_us&&now-d.now_us<=1000000;
+ const bool same=r.root==m.selected.root&&r.root_boot==m.selected.boot&&r.epoch==m.selected.epoch;
+ f.format(" mesh_sample_us=%llu mesh_now_us=%llu mesh_root=%016llx mesh_boot=%016llx mesh_epoch=%lu gs_live=%u gs_seq=%lu gs_rx=%lu gs_at=%llu gs_until=%llu gs_created=%llu epoch_seen=%llu gs_auth=%lu gs_scope=%lu gs_age=%lu gs_replay=%lu gs_changes=%lu",
+  (unsigned long long)d.now_us,(unsigned long long)now,(unsigned long long)r.root,(unsigned long long)r.root_boot,(unsigned long)r.epoch,unsigned(fresh&&same&&v12::td_mesh::live(r,now)),(unsigned long)r.sequence,(unsigned long)r.accepted,(unsigned long long)r.received_us,(unsigned long long)r.until_us,(unsigned long long)r.created_us,(unsigned long long)r.epoch_since_us,(unsigned long)r.rejected_auth,(unsigned long)r.rejected_scope,(unsigned long)r.rejected_age,(unsigned long)r.replayed,(unsigned long)r.changes);
+ f.format(" gd_live=%u gd_wire=%u gd_root=%016llx gd_boot=%016llx gd_epoch=%lu gd_seq=%lu gd_rx=%lu gd_at=%llu gd_until=%llu gd_sample=%llu gd_fields=%u gd_values=%u gd_sv=%u gd_hdop=%u gd_rmc_ms=%u gd_pps_ms=%u gd_gga_ms=%u gd_ptp=%u/%u/%u/%u/%u gd_auth=%lu gd_scope=%lu gd_age=%lu gd_replay=%lu ui_page=%u pages=8\n",
+  unsigned(fresh&&v12::td_mesh::current(q,m.selected,now)),unsigned(q.wire_version),(unsigned long long)q.scope.root,(unsigned long long)q.scope.boot,(unsigned long)q.scope.epoch,(unsigned long)q.sequence,(unsigned long)q.accepted,(unsigned long long)q.received_us,(unsigned long long)q.until_us,(unsigned long long)q.remote_sampled_us,unsigned(q.fields),unsigned(q.values),unsigned(q.sats),unsigned(q.hdop_centi),unsigned(q.rmc_age_ms),unsigned(q.pps_age_ms),unsigned(q.gga_age_ms),unsigned(q.priority1),unsigned(q.clock_class),unsigned(q.accuracy),unsigned(q.variance),unsigned(q.priority2),(unsigned long)q.rejected_auth,(unsigned long)q.rejected_scope,(unsigned long)q.rejected_age,(unsigned long)q.replayed,unsigned(ui_storage->constructed.view.page));
+}

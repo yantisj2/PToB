@@ -152,7 +152,7 @@ uint64_t micros(){const int64_t t=esp_timer_get_time();return t>0?uint64_t(t):0;
     ss3_banner="Mode Busy";ss3_banner_until=ticks()+40000000;
   }
 }
-void ss3_next_page(){if(v12::r2_td_status().enabled)page=(page+1)%6;else page=page==display_pages::Front?display_pages::System:display_pages::Front;}
+void ss3_next_page(){if(v12::r2_td_status().enabled)page=(page+1)%v12::TdPageCount;else page=page==display_pages::Front?display_pages::System:display_pages::Front;}
 #endif
 [[gnu::noinline]] void status(uint64_t nonce,uint64_t begin){
   const uint64_t next=ticket.issue(begin);
@@ -161,9 +161,10 @@ void ss3_next_page(){if(v12::r2_td_status().enabled)page=(page+1)%6;else page=pa
   char elf[65]{};const auto* app=esp_app_get_description();
   for(unsigned i=0;i<32;++i)std::snprintf(elf+2*i,3,"%02x",app->app_elf_sha256[i]);
   const auto lcd=sticks3::display_progress();const auto td=v12::r2_td_survey();
-  response.format("SS3_RC7_ID profile=PTOB_SS3_RC_0.1.4_V17 factory_mac=%s source=%s build=%s elf_sha256=%s GNSS=ABSENT LoRa=OFF WiFi=OFF PTS=OFF precision=UNQUALIFIED lcd=%lu/%lu/%lu/%lu/%lu/%lu/%u tds=%lu/%lu/%u/%u/%u\n",factory_text,V12_SOURCE_REVISION,V12_BUILD_ID,elf,
+  response.format("SS3_RC7_ID profile=PTOB_SS3_RC_0.1.5_V17 factory_mac=%s source=%s build=%s elf_sha256=%s GNSS=ABSENT LoRa=OFF WiFi=OFF PTS=OFF precision=UNQUALIFIED lcd=%lu/%lu/%lu/%lu/%lu/%lu/%u tds=%lu/%lu/%u/%u/%u",factory_text,V12_SOURCE_REVISION,V12_BUILD_ID,elf,
     (unsigned long)lcd.frames,(unsigned long)lcd.errors,(unsigned long)lcd.worker_ms,(unsigned long)lcd.paint_ms,(unsigned long)lcd.io_timeouts,(unsigned long)lcd.io_errors,unsigned(lcd.pending),
     (unsigned long)td.generation,(unsigned long)td.closing_ms,unsigned(td.handle),unsigned(td.phase),unsigned(td.flags));
+  sticks3::mesh_status(response);
 #endif
   const auto gps=gnss_pps::shadow_view(ticks());
   const auto log=v12::log_status();

@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "license": "MIT",
+  "credit": "Jonathan Yantis",
+  "source_repository": "https://github.com/yantisj2/PToB",
+  "source_commit": "11f4b8d6ce689eaf54395abfd05c1bfbc93766bb",
+  "selected_copies": [
+    {
+      "destination": "firmware/ss3/main/r2/r2-g1/gnss_diagnostics.c",
+      "source": "firmware/t096/protocol/gnss_diagnostics.c",
+      "sha256": "1c7ca4fa294cbaa938f80f061f9272dba4abecf07b9283cfda10f76f796c58ba"
+    },
+    {
+      "destination": "firmware/ss3/main/r2/r2-g1/gnss_diagnostics.h",
+      "source": "firmware/t096/protocol/gnss_diagnostics.h",
+      "sha256": "8455c5ccabfa3fbc0398e07496527e13c2c876e13993d44af463e8ea9e542b90"
+    }
+  ],
+  "adapted_monitors": {
+    "destination": [
+      "firmware/ss3/main/td_mesh.hpp",
+      "firmware/ss3/main/td_mesh.cpp"
+    ],
+    "source": [
+      "firmware/corese/main/mesh_diagnostics.hpp",
+      "firmware/corese/main/mesh_wire.cpp"
+    ],
+    "changes": "Target-local namespace and GS/GD-only presentation; scope is the fresh observed survey GM, never timing permission. Original authentication, age and eight-incarnation replay fences retained."
+  },
+  "wire_profiles": [
+    "GS v1",
+    "GD1 legacy, HDOP unknown",
+    "GD2"
+  ],
+  "hardware_acceptance": "NOT_ESTABLISHED_BY_IMPORT_OR_TESTS"
+}

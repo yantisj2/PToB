@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-27 — SS3 0.1.5 current diagnostics and epoch display
+
+- Receive authenticated GS mesh status and GD1/GD2 reference reports using the
+  current CoreSE/T096 codecs, with explicit source provenance, original expiry,
+  canonical advertiser/scope binding and replay fences across root replacements.
+- Add Epoch and Reference pages to the eight-page StickS3 diagnostics cycle.
+  Distinguish local epoch seen age from an unavailable epoch start, and reported
+  GNSS/PTP quality from SS3 timing/output qualification. Expose receiver counters
+  and original report deadlines in the existing CRC-protected identity row.
+- Preserve the passive survey schedule, timing permissions and LCD ownership
+  guards. Extend native signed-wire and full/strip renderer regressions.
+
 ## 2026-10-26 — N30/W12 successor recovery and latest research drafts
 
 - Publish N30 0.2.34 and W12 0.2.17 source, build/inspection tools, notices and

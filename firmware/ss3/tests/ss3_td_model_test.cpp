@@ -67,7 +67,7 @@ int main(int argc,char** argv){
  assert(!model.correction(23,8,4,1900000000,1900000));
  for(unsigned i=0;i<100;i++)model.seen(100+i,1,true,i%3,true,true,-50,1,2000000+i);assert(model.snapshot(2001000).count==8);
  // The real strip renderer must equal the full frame, with no clipping or text overlap.
- for(unsigned state=0;state<4;state++)for(unsigned metric=0;metric<3;metric++)for(unsigned page=0;page<6;page++){
+ for(unsigned state=0;state<4;state++)for(unsigned metric=0;metric<3;metric++)for(unsigned page=0;page<v12::TdPageCount;page++){
   sticks3::View view;view.native_dashboard=true;view.td.enabled=true;view.page=page;view.td_chart=metric;view.td.now_us=135000000;
   if(state){view.accepted=789;view.td.count=2;view.td.target=0x0000000000000001ULL;auto& gm=view.td.peers[0];gm.id=gm.root=view.td.target;gm.seen_us=gm.sampled_us=gm.quality_us=view.td.now_us;gm.rssi=-54;gm.rssi_min=-62;gm.rssi_max=-49;gm.publishing=true;gm.signal.observe(gm.rssi,view.td.now_us);gm.jitter_ns=180;gm.max_ns=750;gm.packets=789;gm.matched=755;gm.missed=21;gm.channels=0x1fffffffffULL;gm.time_known=gm.time_valid=true;gm.time_seen_us=view.td.now_us-200000;gm.origin_age_us=250000;gm.source_ttl_us=1400000;gm.source_epoch=4;
    auto& rc=view.td.peers[1];rc=gm;rc.id=0x0000000000000003ULL;rc.relay=true;rc.depth=1;rc.stream_slot=1;rc.rssi=-43;rc.signal={};rc.signal.observe(rc.rssi,view.td.now_us);rc.jitter_ns=620;rc.max_ns=2420;
@@ -77,12 +77,17 @@ int main(int argc,char** argv){
    view.td.count=5;
    view.td.chart_gm=view.td.plot_gm=gm.id;view.td.chart_relay=view.td.plot_relay=rc.id;view.td.role.known=view.td.role.available=true;view.td.role.hot=0x0000000000000004ULL;view.td.role.root=gm.id;view.td.role.root_boot=0x123456789abcdefULL;view.td.role.source_epoch=4;view.td.role.seen_us=view.td.now_us-2000000;
    for(unsigned i=0;i<24;i++){const auto at=10000000ULL+i*5000000;view.td.gm[i]={at,gm.id,180+i*4,980,int8_t(-60+i%4)};view.td.relay[i]={at,rc.id,i%6?620+i*7:UINT32_MAX,950,int8_t(-45+i%4)};}
+   auto& roles=view.td.mesh.roles;roles.known=true;roles.root=gm.id;roles.root_boot=view.td.role.root_boot;roles.epoch=state==3?UINT32_MAX:3093432306u;roles.sequence=state==3?UINT32_MAX:287;
+   roles.received_us=view.td.now_us-200000;roles.until_us=roles.received_us+2000000;roles.created_us=state==3?UINT64_MAX-1000000:UINT64_C(7)*86400000000;roles.epoch_since_us=1000000;
+   view.td.mesh.selected={roles.root,roles.root_boot,roles.epoch};
+   auto& ref=view.td.mesh.reference;ref.reported=true;ref.scope=view.td.mesh.selected;ref.received_us=roles.received_us;ref.until_us=ref.received_us+30000000;ref.wire_version=2;ref.fields=63;ref.values=7;ref.sats=state==3?99:12;ref.hdop_centi=state==3?65534:75;ref.clock_class=state==3?255:6;ref.priority1=ref.priority2=255;
+   if(state==2){ref.until_us=roles.until_us=1;view.td.mesh.selected={};}
    if(state==3){gm.id=gm.root=view.td.target=0x123456789abcdefULL;view.td.role.root=gm.id;view.td.role.hot=0xfedcba987654321ULL;gm.rssi=-127;gm.signal={};gm.signal.observe(gm.rssi,view.td.now_us);}
    if(state==2){rc.stream_slot=UINT8_MAX;view.td.role.available=false;view.td.role.seen_us=1;view.td.request=true;view.td.request_target=rc.id;view.td.pending=true;gm.jitter_ns=UINT32_MAX-1;rc.jitter_ns=UINT32_MAX-1;gm.packets=gm.matched=gm.missed=UINT32_MAX;gm.rssi_min=-127;gm.rssi_max=126;view.radio_error=UINT32_MAX;}
   }
   uint8_t frame[sticks3::FrameBytes]{},strip[sticks3::StripBytes]{};sticks3::RenderAudit audit;sticks3::render(frame,view,&audit);if(audit.clipped_pixels||audit.text_overflow)std::fprintf(stderr,"UI state=%u metric=%u page=%u clipped=%u overflow=%u\n",state,metric,page,audit.clipped_pixels,audit.text_overflow);assert(!audit.clipped_pixels&&!audit.text_overflow);
   for(unsigned row=0;row<sticks3::Height;row+=sticks3::StripRows){sticks3::render_strip(strip,row,view);assert(!std::memcmp(strip,frame+row*sticks3::Width*2,sticks3::StripBytes));}
-  if(argc>1&&state==1){std::ofstream out(std::string(argv[1])+"/screen-"+std::to_string(page)+"-"+std::to_string(metric)+".ppm",std::ios::binary);out<<"P6\n135 240\n255\n";for(unsigned i=0;i<sticks3::FrameBytes;i+=2){unsigned c=frame[i]*256+frame[i+1];char rgb[]={char((c>>11)*255/31),char(((c>>5)&63)*255/63),char((c&31)*255/31)};out.write(rgb,3);}}
+  if(argc>1&&(state==1||page>=6)){std::ofstream out(std::string(argv[1])+"/screen-"+std::to_string(page)+"-"+std::to_string(metric)+(state==1?"":"-state"+std::to_string(state))+".ppm",std::ios::binary);out<<"P6\n135 240\n255\n";for(unsigned i=0;i<sticks3::FrameBytes;i+=2){unsigned c=frame[i]*256+frame[i+1];char rgb[]={char((c>>11)*255/31),char(((c>>5)&63)*255/63),char((c&31)*255/31)};out.write(rgb,3);}}
  }
  {TdModel h;h.seen(1,1,false,0,true,true,-60,1,1000000);h.source(1,4,1000000000,2000000000,1200000000,1000000);
   assert(h.peer(1).time_valid&&h.peer(1).origin_age_us==200000&&h.peer(1).source_ttl_us==800000);
@@ -100,5 +105,5 @@ int main(int argc,char** argv){
   uint8_t frame[sticks3::FrameBytes]{};sticks3::RenderAudit audit;sticks3::render(frame,view,&audit);
   assert(!audit.clipped_pixels&&!audit.text_overflow);
  }
- puts("PASS passive model event wrap/gaps/consume-once/scope fences/8-row cap;72 real UI cases and strip equivalence");
+ puts("PASS passive model event wrap/gaps/consume-once/scope fences/8-row cap;96 real UI cases and strip equivalence");
 }

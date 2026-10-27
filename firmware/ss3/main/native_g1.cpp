@@ -43,6 +43,9 @@ extern "C" {
 #include "group_join.h"
 #include "group_precision.h"
 #include "role_announcement.h"
+#ifdef V12_SS3
+#include "gnss_diagnostics.h"
+#endif
 }
 namespace v12 {
 namespace {
@@ -100,8 +103,8 @@ bool exclude_direct_gm=false;
 bool relay_only_requested=exclude_direct_gm,upstream_mode_change=false;
 #ifdef V12_SS3
 bool td_enabled=true,td_requested=true,td_mode_change=false,td_test=false,td_test_requested=false,td_test_change=false;
-struct TdRoleCandidate {uint8_t wire[R2_ROLE_AD_BYTES]{};uint64_t id=0,at=0;ble_addr_t address{};bool checked=false;};
-struct TdStorage {TdModel model{};TdSnapshot published[3]{};Discovery locators[8]{};uint64_t ids[8]{};rc7_path paths[8]{};TdRoleCandidate roles[4]{};TdRoleUpdate role_update{};TdSurveyLifecycle survey{};};
+struct TdRoleCandidate {uint8_t wire[R2_ROLE_AD_BYTES]{};uint64_t id=0,at=0;ble_addr_t address{};bool checked=false,wire_checked=false;uint8_t length=0;};
+struct TdStorage {TdModel model{};TdSnapshot published[3]{};Discovery locators[8]{};uint64_t ids[8]{};rc7_path paths[8]{};TdRoleCandidate roles[4]{},references[4]{};td_mesh::RoleMonitor mesh_roles{};td_mesh::ReferenceMonitor mesh_reference{};uint64_t mesh_next_us=0;TdRoleUpdate role_update{};TdSurveyLifecycle survey{};};
 TdStorage* td_storage=nullptr;
 TdSurveyStatus td_survey_snapshot{};
 TdPublication td_publication; // Short locked internal DRAM metadata, never PSRAM.
@@ -923,20 +926,23 @@ void td_discovery(const Discovery &d) {
   if(d.sid==12)for(unsigned at=0;at<d.length;){
     const unsigned n=d.bytes[at];if(!n||at+n>=d.length)break;
     const auto* w=d.bytes+at;
-    if(n+1==R2_ROLE_AD_BYTES&&w[1]==0xff&&w[4]=='G'&&w[5]=='S'){
+    const bool gs=n+1==R2_ROLE_AD_BYTES&&w[4]=='G'&&w[5]=='S';
+    const bool gd=(n+1==R2_GNSS_AD_BYTES||n+1==R2_GNSS_LEGACY_AD_BYTES)&&w[4]=='G'&&w[5]=='D';
+    if(n>=7&&w[1]==0xff&&(gs||gd)){
+      auto& candidates=gs?td_storage->roles:td_storage->references;
       // Cache before the G1 locator arrives too. Bind the address at adoption,
       // so advertisement ordering cannot discard the first startup report.
       const auto id=r2_group_get(w+20,8);
-      if(id){unsigned slot=0;for(unsigned j=0;j<4;j++){if(td_storage->roles[j].id==id){slot=j;break;}if(!td_storage->roles[j].id||td_storage->roles[j].at<td_storage->roles[slot].at)slot=j;}
-        auto& row=td_storage->roles[slot];
+      if(id){unsigned slot=0;for(unsigned j=0;j<4;j++){if(candidates[j].id==id){slot=j;break;}if(!candidates[j].id||candidates[j].at<candidates[slot].at)slot=j;}
+        auto& row=candidates[slot];
         // Repeated copies of one signed publication never renew its arrival age.
-        if(row.id!=id||!same_address(row.address,d.address)||std::memcmp(row.wire,w,R2_ROLE_AD_BYTES)){
-          row.id=id;row.at=d.at;row.address=d.address;row.checked=false;std::memcpy(row.wire,w,R2_ROLE_AD_BYTES);
+        if(row.id!=id||!same_address(row.address,d.address)||row.length!=n+1||std::memcmp(row.wire,w,n+1)){
+          row.id=id;row.at=d.at;row.address=d.address;row.checked=row.wire_checked=false;row.length=uint8_t(n+1);std::memcpy(row.wire,w,n+1);
           // Existing bounded diagnostic queue only; no RF or callback formatting.
           // Preserve each distinct received publication during an explicit capture.
           Report raw{};raw.kind=21;raw.callback_us=d.at;raw.sid=d.sid;raw.address_type=d.address.type;
           std::memcpy(raw.address_le,d.address.val,6);raw.rssi=d.rssi;
-          raw.actual_length=raw.length=R2_ROLE_AD_BYTES;std::memcpy(raw.bytes,w,R2_ROLE_AD_BYTES);transport_record(raw);
+          raw.actual_length=raw.length=n+1;std::memcpy(raw.bytes,w,n+1);transport_record(raw);
         }
       }
     }
@@ -1143,6 +1149,41 @@ void td_role_poll(uint64_t now) {
   }
 }
 
+// One bounded diagnostic batch per second, inside existing passive scans.
+// No new scanner, radio owner, lease, timing model or task-priority changes.
+void td_mesh_poll(uint64_t now) {
+  if(now<td_storage->mesh_next_us)return;
+  td_storage->mesh_next_us=now+1000000;
+  auto& mesh=td_storage->model.view.mesh;
+  mesh.selected={};
+  const auto target=td_storage->model.best(false,now);
+  if(target){
+    const auto& p=td_storage->model.peer(target);
+    for(auto& c:td_storage->roles)if(c.id==target&&!c.wire_checked){
+      if(!same_address(c.address,canonical(target)))break;
+      r2_role_record r{};
+      // Decode before using a report to bootstrap an unsampled incarnation.
+      // Known physical boot/source fields always take precedence.
+      if(!r2_role_decode(&r,c.wire,c.length,&provision.group)){
+        const td_mesh::Scope selected{target,p.boot?p.boot:r.root_boot,p.source_epoch?p.source_epoch:r.source_epoch};
+        td_storage->mesh_roles.receive(c.wire,c.length,provision.group,target,selected,c.at,now);
+      }else td_storage->mesh_roles.receive(c.wire,c.length,provision.group,target,{},c.at,now);
+      c.wire_checked=true;break;
+    }
+    const auto r=td_storage->mesh_roles.snapshot(now);
+    mesh.selected={target,p.boot?p.boot:(r.root==target?r.root_boot:0),p.source_epoch?p.source_epoch:(r.root==target?r.epoch:0)};
+    for(auto& c:td_storage->references)if(c.id==target&&!c.wire_checked){
+      // A GD packet arriving before GS/physical scope waits for that scope;
+      // its original receipt timestamp/deadline are never renewed.
+      if(!mesh.selected.boot||!mesh.selected.epoch||!same_address(c.address,canonical(target)))break;
+      td_storage->mesh_reference.receive(c.wire,c.length,provision.group,target,mesh.selected,c.at,now);
+      c.wire_checked=true;break;
+    }
+  }
+  mesh.roles=td_storage->mesh_roles.snapshot(now);
+  mesh.reference=td_storage->mesh_reference.snapshot(now);
+}
+
 void td_poll(uint64_t now) {
   if (!td_until) {
     td_phase = 0;
@@ -1160,6 +1201,7 @@ void td_poll(uint64_t now) {
   td_periodic(now);
   td_storage->model.update_chart(now);
   td_role_poll(now);
+  td_mesh_poll(now);
   if (synced && !sync_terminating)
     stop_scan();
   auto& survey=td_storage->survey;
@@ -1396,7 +1438,7 @@ void parent_diagnostic_poll(uint64_t now){
   else if(closed&&parent_diagnostic.state==2){
     if(upstream_mode_change){exclude_direct_gm=relay_only_requested;upstream_mode_change=false;}
 #ifdef V12_SS3
-    if(td_mode_change){td_enabled=td_requested;td_mode_change=false;td_test=td_test_requested=false;td_test_change=false;td_phase=0;td_until=0;td_storage->model={};td_storage->role_update={};td_storage->survey={};for(auto& c:td_storage->roles)c={};}
+    if(td_mode_change){td_enabled=td_requested;td_mode_change=false;td_test=td_test_requested=false;td_test_change=false;td_phase=0;td_until=0;td_storage->model={};td_storage->role_update={};td_storage->survey={};for(auto& c:td_storage->roles)c={};for(auto& c:td_storage->references)c={};td_storage->mesh_roles={};td_storage->mesh_reference={};td_storage->mesh_next_us=0;}
     if(td_test_change){td_test=td_test_requested;td_test_change=false;td_until=0;td_phase=0;td_storage->survey={};td_storage->model.begin(td_test?control.target:0);}
 #endif
     parent_selection.reset();parent_selection.diagnostic(exclude_direct_gm);parent_selection.target(control.target,control.relay);

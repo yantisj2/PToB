@@ -1,0 +1,44 @@
+{
+  "schema": 1,
+  "version": "0.1.5",
+  "date": "2026-10-27",
+  "credit": "Jonathan Yantis",
+  "license": "MIT",
+  "images": [
+    {
+      "file": "ss3-epoch-preview.png",
+      "sha256": "cdb1b5da6012523143548fad4abdf7601cbc99ea34de0964ffec5282fdcd9c2e",
+      "dimensions": [
+        135,
+        240
+      ],
+      "page": 6,
+      "fixture": "ss3_td_model_test state1/metric0",
+      "kind": "OFFLINE_PRODUCTION_RENDER_SYNTHETIC_INPUTS"
+    },
+    {
+      "file": "ss3-reference-preview.png",
+      "sha256": "bd43561be278fdcc0ba06e065e50ae88ce809a09ab6ab702247aa01c863c698e",
+      "dimensions": [
+        135,
+        240
+      ],
+      "page": 7,
+      "fixture": "ss3_td_model_test state1/metric0",
+      "kind": "OFFLINE_PRODUCTION_RENDER_SYNTHETIC_INPUTS"
+    }
+  ],
+  "sources": {
+    "firmware/ss3/legacy/m5stick_s3/ui.cpp": "53d119a6e393a2578914fff19accc2b320bf05e00f65b0afd642ec18bb2044b5",
+    "firmware/ss3/main/ss3_td_model.hpp": "00b05dc188557c891b7acf6bf7ec1717633f8e26f71db70bc494c46721275387",
+    "firmware/ss3/main/td_mesh.hpp": "166b9f6a06841d3b40f189e7b7488a431ce89b796181536eb0def4191a989d4a",
+    "firmware/ss3/tests/ss3_td_model_test.cpp": "ea6e78814ee4e5dff871df3696408400e8df5a084769fe02dfad8c132f4b82b7",
+    "registry/example.json": "f33c79bba4ff169503e02cb0965996bf7d7d08c5b4e3dfc70caa19ed9f391b09"
+  },
+  "reproduce": [
+    "CXX=clang++ python3 firmware/ss3/tools/test.py --out artifacts/ss3-preview-tests",
+    "mkdir artifacts/ss3-preview-frames",
+    "artifacts/ss3-preview-tests/ss3_td_model_test artifacts/ss3-preview-frames"
+  ],
+  "meaning": "Illustrative current source UI, not optical readback, actual mesh state, GNSS/output accuracy or device qualification."
+}

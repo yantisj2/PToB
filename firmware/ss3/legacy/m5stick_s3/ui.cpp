@@ -210,8 +210,8 @@ void td_paint(Canvas &c, const View &s) {
   c.fill(0, 0, Width, 27, Blue);
   c.text(9, 7, "TD", 2, Bg);
   const char *titles[] = {"HEALTH", "STREAM QUALITY", "RELAY TEST", "RF HEALTH",
-                          "SAMPLE DETAIL", "SOURCE HEALTH"};
-  c.text(40, 10, titles[s.page % 6], 1, Bg);
+                          "SAMPLE DETAIL", "SOURCE HEALTH", "EPOCH", "REFERENCE"};
+  c.text(40, 10, titles[s.page % v12::TdPageCount], 1, Bg);
   // One-second LCD activity mark remains visible without a nearby source.
   // Its colour reflects snapshot freshness; it grants no timing permission.
   c.fill(130,11,3,3,d.owner_stale?Red:((d.now_us/1000000)%2?White:Bg));
@@ -395,7 +395,7 @@ void td_paint(Canvas &c, const View &s) {
     c.text(9, 213, "RELATIVE / SAMPLED", 1, Dim);
     c.text(9, 224, "NO OUTPUT ACCURACY", 1, Amber);
   }
-  else {
+  else if(s.page==5) {
     const auto* p=health.gm;
     td_name(name,sizeof name,d.role.known?d.role.root:p?p->id:0);c.row(57,"GM",name);
     td_name(name,sizeof name,d.role.hot);c.row(70,"HOT",d.role.known?(d.role.hot?name:"NONE"):"UNKNOWN");
@@ -412,6 +412,46 @@ void td_paint(Canvas &c, const View &s) {
     if(d.role.known)std::snprintf(v,sizeof v,"%016llX",(unsigned long long)d.role.root_boot);else std::snprintf(v,sizeof v,"--");
     c.text(9,218,v,1,White);
   }
+  else if(s.page==6) {
+    const auto& r=d.mesh.roles;const auto& selected=d.mesh.selected;
+    const bool same=r.known&&r.root==selected.root&&r.root_boot==selected.boot&&r.epoch==selected.epoch;
+    const bool live=!d.owner_stale&&same&&v12::td_mesh::live(r,d.now_us);
+    td_name(name,sizeof name,r.known?r.root:0);c.row(59,same?"GM":"LAST GM",name,r.known?White:Dim);
+    c.text(9,78,"MESH EPOCH",1,Dim);
+    if(r.known)std::snprintf(v,sizeof v,"%lu",(unsigned long)r.epoch);else std::snprintf(v,sizeof v,"--");
+    c.text(9,92,v,2,r.known?Cyan:Dim);
+    auto duration=[&](uint64_t seconds){
+      if(seconds>=86400)std::snprintf(v,sizeof v,"%llud %02u:%02u:%02u",(unsigned long long)(seconds/86400),unsigned(seconds/3600%24),unsigned(seconds/60%60),unsigned(seconds%60));
+      else std::snprintf(v,sizeof v,"%02u:%02u:%02u",unsigned(seconds/3600),unsigned(seconds/60%60),unsigned(seconds%60));
+    };
+    c.text(9,119,"EPOCH SEEN HERE",1,Dim);
+    if(r.known&&d.now_us>=r.epoch_since_us)duration((d.now_us-r.epoch_since_us)/1000000);else std::snprintf(v,sizeof v,"--");
+    c.text(9,133,v,std::strlen(v)<=9?2:1,r.known?White:Dim);
+    c.text(9,157,"GM UPTIME EST",1,Dim);
+    if(r.known&&d.now_us>=r.received_us&&r.created_us&&d.now_us-r.received_us<=UINT64_MAX-r.created_us)duration((r.created_us+d.now_us-r.received_us)/1000000);else std::snprintf(v,sizeof v,"--");
+    c.text(9,171,v,1,r.known?White:Dim);
+    c.row(190,"GS",live?"LIVE":r.known?"LAST":"WAITING",live?Green:Dim);
+    c.metric(204,"SEQ",r.known?r.sequence:UINT32_MAX);
+    c.text(9,219,"START NOT ON WIRE",1,Amber);
+  } else if(s.page==7) {
+    const auto& q=d.mesh.reference;
+    const bool live=!d.owner_stale&&v12::td_mesh::current(q,d.mesh.selected,d.now_us);
+    td_name(name,sizeof name,q.reported?q.scope.root:0);c.row(59,live?"GM":"LAST GM",name,q.reported?White:Dim);
+    if(q.reported)std::snprintf(v,sizeof v,"GD%u %s",unsigned(q.wire_version),live?"LIVE":"LAST");else std::snprintf(v,sizeof v,"WAITING");
+    c.row(73,"REPORT",v,live?Green:Dim);
+    const auto flag=[&](unsigned bit){return !live||!(q.fields&bit)?"--":q.values&bit?"YES":"NO";};
+    std::snprintf(v,sizeof v,"FIX %s / PPS %s",flag(v12::td_mesh::Fix),flag(v12::td_mesh::Pps));c.text(9,91,v,1,live?White:Dim);
+    c.row(106,"QUALIFIED",flag(v12::td_mesh::Qualified),live&&(q.fields&v12::td_mesh::Qualified)&&(q.values&v12::td_mesh::Qualified)?Green:Dim);
+    c.metric(122,"SV",live&&(q.fields&v12::td_mesh::Satellites)?q.sats:UINT32_MAX);
+    if(live&&(q.fields&v12::td_mesh::Hdop)&&q.hdop_centi!=UINT16_MAX)std::snprintf(v,sizeof v,"%u.%02u",q.hdop_centi/100,q.hdop_centi%100);else std::snprintf(v,sizeof v,"--");
+    c.row(138,"HDOP",v,live?Cyan:Dim);
+    const bool ptp=live&&(q.fields&v12::td_mesh::Ptp);
+    c.metric(154,"PTP CLASS",ptp?q.clock_class:UINT32_MAX);
+    if(ptp&&q.accuracy!=254)std::snprintf(v,sizeof v,"0x%02X",q.accuracy);else std::snprintf(v,sizeof v,ptp?"UNKNOWN":"--");c.row(170,"ACCURACY",v,Dim);
+    if(ptp&&q.variance!=UINT16_MAX)std::snprintf(v,sizeof v,"0x%04X",q.variance);else std::snprintf(v,sizeof v,ptp?"NONE":"--");c.row(186,"VAR",v,Dim);
+    if(ptp)std::snprintf(v,sizeof v,"%u/%u",q.priority1,q.priority2);else std::snprintf(v,sizeof v,"--");c.row(202,"P1/P2",v);
+    c.text(9,219,"REPORTED / NO UTC",1,Amber);
+  }
   if (s.mode_banner[0]) {
     c.fill(8, 104, 119, 34, Panel);
     char banner[24];
@@ -421,8 +461,8 @@ void td_paint(Canvas &c, const View &s) {
         ch = char(ch - 'a' + 'A');
     c.center(117, banner, 1, Cyan);
   }
-  for (unsigned i = 0; i < 6; i++)
-    c.fill(29 + i * 13, 234, 6, 3, i == s.page ? Amber : Bezel);
+  for (unsigned i = 0; i < v12::TdPageCount; i++)
+    c.fill(18 + i * 13, 234, 6, 3, i == s.page ? Amber : Bezel);
 }
 static void native_paint(Canvas& c,const View& s) {
  if(s.td.enabled){td_paint(c,s);return;}

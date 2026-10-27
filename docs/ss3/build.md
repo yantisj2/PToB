@@ -56,6 +56,45 @@ frames, frame errors, worker ms, paint ms, I/O timeouts, I/O errors and pending;
 `tds` lists survey generation, closing ms, sync handle, phase and owner flags.
 The millisecond counters wrap after about 49.7 days; compare ages modulo 32 bits.
 
+## Current diagnostics and epoch display (0.1.5)
+
+The target now receives the same public GS v1 and GD1/GD2 diagnostic records as
+CoreSE. The [GD2 contract](../../protocol/gm_diagnostics_v2/README.md) and
+[SS3 source provenance](../../firmware/ss3/contracts/diagnostics_provenance.json)
+identify the selected current codec separately from the original imported
+baseline. A bounded one-second worker uses existing passive survey scans, with
+no new scan schedule or radio owner. Canonical address, fresh observed GM,
+authenticated root timing incarnation, mesh epoch, original TTL and replay
+checks remain mandatory. Source/physical observations take precedence when
+known; an authenticated serving-root GS can bootstrap the diagnostic scope
+before periodic sampling. This is an observed survey scope, not JOIN admission.
+
+The side button cycles all eight TD pages. Page6 (Epoch) shows the full mesh epoch,
+local first-seen duration, estimated GM uptime from the signed remote monotonic
+sample, and GS LIVE/LAST. The epoch's start is not transmitted. Like CoreSE,
+local seen age survives a primary replacement with the same epoch label and
+resets on a different label. Page7 (Reference) shows reported GNSS fix/PPS/
+qualification, SV, HDOP and the PTP-shaped election tuple. Unknown accuracy and
+variance stay explicit; GD1 never supplies HDOP. Reference values expire at their
+original receipt deadline and disappear on observed scope mismatch.
+
+`v12 status NONCE` includes compact GS/GD fields in the existing CRC-protected
+`SS3_RC7_ID` row: `mesh_root/boot/epoch`, `gs_rx/seq/at/until/created`, `epoch_seen`,
+`gd_root/boot/epoch`, `gd_rx/seq/at/until/sample`, `gd_wire/fields/values/sv/hdop`,
+remote sample ages, PTP tuple and rejection counters. Ages are microseconds unless
+suffixed `_ms`; `gd_hdop` is dimensionless centi-HDOP or65535 unknown. These are
+receiver counters, distinct from producer advertisement counts. `gs_live` and
+`gd_live` additionally require a fresh presentation snapshot and matching
+observed GM scope. `ui_page` records the presentation; `pages=8`. Existing ticketed
+`td ui-next` follows the same physical-button route and changes no timing policy.
+
+The actual native diagnostic regression covers signed GS/GD2 and legacy GD1,
+packet ordering, canonical-address binding, MAC corruption, duplicate/replay,
+future/stale receipts, original deadlines, scope loss, root replacement and local
+epoch age. Renderer checks include all eight screens, empty/expired/maximal
+states and exact strip/full-frame equivalence. These are offline checks, not
+physical RF, optical or timing qualification.
+
 ## Dependencies and local inputs
 
 Use Git, CMake, Make and Python with ESP-IDF's Xtensa environment. The SDK pin is

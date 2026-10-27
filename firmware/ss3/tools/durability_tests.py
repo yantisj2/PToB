@@ -16,7 +16,7 @@ def main():
  (out/'esp_memory_utils.h').write_text('#pragma once\ninline bool esp_ptr_external_ram(const void* p){return p!=nullptr;}\n')
  crypto=a.sdk.resolve()/'components/bt/host/nimble/nimble/ext/tinycrypt';src=APP/'main/r2/r2-g1';cc=os.environ.get('CC','/opt/homebrew/opt/llvm/bin/clang');cxx=os.environ.get('CXX',cc+'++')
  flags=['-O1','-g','-Wall','-Wextra','-Werror','-Wno-misleading-indentation','-Wno-missing-field-initializers','-fsanitize=address,undefined','-fno-sanitize-recover=all',*['-I'+str(q)for q in (out,src,APP/'main/r2/rc7/include',crypto/'include',APP/'main',APP/'tests',APP/'tests/r2_fakes',APP/'tests/console_fakes',APP/'legacy/reference')]]
- sources=[src/(n+'.c')for n in ('group_auth','group_join','group_precision','precision_codec','relay_codec','role_announcement')]+[APP/'main/r2/rc7/protocol/rc_dynamic.c',APP/'main/r2/rc7/src/rc_boundary.c',APP/'main/g1_hmac.c',crypto/'src/sha256.c',crypto/'src/utils.c']
+ sources=[src/(n+'.c')for n in ('group_auth','group_join','group_precision','precision_codec','relay_codec','role_announcement','gnss_diagnostics')]+[APP/'main/r2/rc7/protocol/rc_dynamic.c',APP/'main/r2/rc7/src/rc_boundary.c',APP/'main/g1_hmac.c',crypto/'src/sha256.c',crypto/'src/utils.c']
  record={'status':'INCOMPLETE','hardware':False,'source_sha256':hashlib.sha256((APP/'main/native_g1.cpp').read_bytes()).hexdigest(),'completed':[]}
  def run(cmd,label):
   with (out/(label+'.log')).open('x')as log:subprocess.run(list(map(str,cmd)),stdout=log,stderr=subprocess.STDOUT,check=True,timeout=90)
@@ -24,8 +24,8 @@ def main():
   objects=[]
   for q in sources:
    obj=out/(q.stem+'.o');objects.append(obj);run([cc,'-std=c11',*flags,'-c',q,'-o',obj],q.stem+'-compile')
-  run([cxx,'-std=c++20',*flags,'-DV12_SS3=1','-DCONFIG_BT_NIMBLE_HOST_TASK_STACK_SIZE=8192','-DV12_R2_ENABLED=1','-DV12_R2_CONFIG=13','-DV12_R2_FIELD_CLIENT=1','-DV12_UNIT="SS3"','-DV12_R2_G1_LISTENING_PERCENT=100',native,*objects,'-o',out/'test'],'native-build')
-  for case in ('cleanup-create-failure','cleanup-worker-missing','long-empty-surveys'):
+  run([cxx,'-std=c++20',*flags,'-DV12_SS3=1','-DCONFIG_BT_NIMBLE_HOST_TASK_STACK_SIZE=8192','-DV12_R2_ENABLED=1','-DV12_R2_CONFIG=13','-DV12_R2_FIELD_CLIENT=1','-DV12_UNIT="SS3"','-DV12_R2_G1_LISTENING_PERCENT=100',native,APP/'main/td_mesh.cpp',*objects,'-o',out/'test'],'native-build')
+  for case in ('cleanup-create-failure','cleanup-worker-missing','long-empty-surveys','diagnostics-wire'):
    run([out/'test',case],case);record['completed'].append(case)
   record['status']='PASS'
  finally:(out/'receipt.json').write_text(json.dumps(record,indent=2)+'\n')
