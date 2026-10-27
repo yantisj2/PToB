@@ -7,7 +7,7 @@
   "images": [
     {
       "file": "ss3-epoch-preview.png",
-      "sha256": "ed9ff3931c0c6b78fcbfa23ecb2b78bc102b92e16225a14b387f1be60ae20baa",
+      "sha256": "5450f5bfbb55fd736a8d5e7fcc5c5fe7b2d7e626b9c8da16f06250e0c6c63984",
       "dimensions": [
         135,
         240
@@ -29,7 +29,7 @@
     }
   ],
   "sources": {
-    "firmware/ss3/legacy/m5stick_s3/ui.cpp": "9a31b05473accbd452dbf05c188ba0fad64bc9cdabda35adb82aae70b418daa5",
+    "firmware/ss3/legacy/m5stick_s3/ui.cpp": "3b30ec4da91426ff7e24ec0b4328aa27d0e350487f974624969e749dcee66a7e",
     "firmware/ss3/main/ss3_td_model.hpp": "00b05dc188557c891b7acf6bf7ec1717633f8e26f71db70bc494c46721275387",
     "firmware/ss3/main/td_mesh.hpp": "34e53a777c9b9c02c603dc5e7f549de97bdefb83da48e0e38d673b992ba1fb3a",
     "firmware/ss3/main/td_epoch.hpp": "45c187f659b89edfdbf5f521e2af541de15e483be80a32d87167a112acdbad08",

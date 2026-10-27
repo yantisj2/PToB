@@ -433,7 +433,7 @@ void td_paint(Canvas &c, const View &s) {
     if(up/86400>=1000)std::snprintf(v,sizeof v,"%llud",(unsigned long long)(up/86400));
     else if(up>=86400)std::snprintf(v,sizeof v,"%llud %02u:%02u",(unsigned long long)(up/86400),unsigned(up/3600%24),unsigned(up/60%60));
     else std::snprintf(v,sizeof v,"%02u:%02u:%02u",unsigned(up/3600),unsigned(up/60%60),unsigned(up%60));
-    c.row(181,"UPTIME",v,Dim);
+    c.row(181,"SS3 UP",v,Dim);
     td_name(name,sizeof name,r.known?r.root:0);c.row(197,"GM",name);
     c.text(9,216,known?(current?"GM7 UTC / LIVE":"GM7 UTC / LAST"):"WAIT FOR GM7 UTC",1,current?Green:Dim);
   } else if(s.page==7) {

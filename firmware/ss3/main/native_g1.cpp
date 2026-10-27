@@ -933,7 +933,8 @@ void td_discovery(const Discovery &d) {
         // Passive TD has no admitted timing selection. The GM7 monitor's
         // signed lineage/term ordering selects the observed epoch. A real
         // joined timing owner, when present, takes precedence over reports.
-        const td_mesh::Scope scope=anchor_valid(d.at)?td_mesh::Scope{anchor.root,anchor.boot,anchor.source_epoch}:td_mesh::Scope{};
+        const bool selected=following(micros())&&!fault&&!closing&&!parent_diagnostic.pending();
+        const td_mesh::Scope scope=selected?td_mesh::Scope{anchor.root,anchor.boot,anchor.source_epoch}:td_mesh::Scope{};
         td_storage->gm7.receive(w,n+1,provision.group,id,scope,d.at,micros());
       }
     }at+=n+1;
@@ -1201,7 +1202,12 @@ void td_mesh_poll(uint64_t now) {
   mesh.roles=gm7.known?gm7:td_storage->mesh_roles.snapshot(now);
   const auto reference=td_storage->gm7.reference(now);
   mesh.reference=reference.reported?reference:td_storage->mesh_reference.snapshot(now);
-  if(gm7.known)mesh.selected={gm7.root,gm7.root_boot,gm7.epoch};
+  if(gm7.known){
+    // A live timing selection also fences an already cached diagnostic. Do not
+    // display another incarnation's elapsed timer during a source handover.
+    const bool selected=following(now)&&!fault&&!closing&&!parent_diagnostic.pending();
+    mesh.selected=selected?td_mesh::Scope{anchor.root,anchor.boot,anchor.source_epoch}:td_mesh::Scope{gm7.root,gm7.root_boot,gm7.epoch};
+  }
 }
 
 void td_poll(uint64_t now) {

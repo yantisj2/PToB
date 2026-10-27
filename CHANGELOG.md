@@ -9,8 +9,9 @@
   was the wrong interpretation. Passive TD uses an explicitly labeled signed
   ANN UTC estimate; original report freshness and local uptime remain separate.
 - Receive GM7 GNSS metadata alongside legacy GD1/GD2, and add actual-wire/native
-  epoch regressions. Radio survey ownership, timing permissions and precision
-  models remain unchanged.
+  epoch regressions. Fence cached elapsed displays against the current admitted
+  timing selection during handover and label local uptime explicitly as SS3 UP.
+  Radio survey ownership, timing permissions and precision models remain unchanged.
 
 ## 2026-10-27 — SS3 0.1.5 current diagnostics and epoch display
 

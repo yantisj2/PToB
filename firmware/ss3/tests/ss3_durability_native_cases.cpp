@@ -105,6 +105,17 @@ int main(int argc,char** argv){
   c.sender=c.active=222;c.boot=c.active_boot=66;c.sequence=1;c.term=38;c.timing_epoch=7;c.sent_utc_us=birth+90000000000;
   d.address=v12::canonical(222);d.at=fake_now=4000000;assert(!gm7_ad_encode(d.bytes,sizeof d.bytes,&p,&v12::provision.group));v12::td_discovery(d);v12::td_mesh_poll(fake_now);
   m=store.model.view.mesh;assert(m.roles.root==222&&m.roles.birth_utc_us==birth&&m.roles.epoch_since_us==1000000&&m.roles.utc_sample_us==birth+90000000000);
+  // Current admitted timing takes precedence over an older cached GM7 report.
+  fake_now=5000000;v12::anchor={true,333,444,birth+90000000000,fake_now,fake_now+500000,9,1,0};
+  assert(v12::following(fake_now));v12::td_mesh_poll(fake_now);m=store.model.view.mesh;
+  assert(m.roles.root==222&&m.selected.root==333&&m.selected.boot==444&&m.selected.epoch==9);
+  // Retained replay context after permission expiry is not current selection.
+  fake_now=6000000;assert(v12::anchor_valid(fake_now)&&!v12::following(fake_now));
+  c.sender=c.active=555;c.boot=c.active_boot=777;c.sequence=1;c.term=39;c.timing_epoch=11;
+  d.address=v12::canonical(555);d.at=fake_now;assert(!gm7_ad_encode(d.bytes,sizeof d.bytes,&p,&v12::provision.group));
+  v12::td_discovery(d);v12::td_mesh_poll(fake_now);m=store.model.view.mesh;
+  assert(m.roles.root==555&&m.selected.root==555&&m.roles.birth_utc_us==birth);
+
  }else return 2;
  // Synthetic PSRAM is explicitly freed for sanitizer ownership checks.
  v12::td_storage->~TdStorage();heap_caps_free(v12::td_storage);v12::td_storage=nullptr;
