@@ -45,6 +45,7 @@ extern "C" {
 #include "role_announcement.h"
 #ifdef V12_SS3
 #include "gnss_diagnostics.h"
+#include "gm7/gm7_codec.h"
 #endif
 }
 namespace v12 {
@@ -104,7 +105,7 @@ bool relay_only_requested=exclude_direct_gm,upstream_mode_change=false;
 #ifdef V12_SS3
 bool td_enabled=true,td_requested=true,td_mode_change=false,td_test=false,td_test_requested=false,td_test_change=false;
 struct TdRoleCandidate {uint8_t wire[R2_ROLE_AD_BYTES]{};uint64_t id=0,at=0;ble_addr_t address{};bool checked=false,wire_checked=false;uint8_t length=0;};
-struct TdStorage {TdModel model{};TdSnapshot published[3]{};Discovery locators[8]{};uint64_t ids[8]{};rc7_path paths[8]{};TdRoleCandidate roles[4]{},references[4]{};td_mesh::RoleMonitor mesh_roles{};td_mesh::ReferenceMonitor mesh_reference{};uint64_t mesh_next_us=0;TdRoleUpdate role_update{};TdSurveyLifecycle survey{};};
+struct TdStorage {TdModel model{};TdSnapshot published[3]{};Discovery locators[8]{};uint64_t ids[8]{};rc7_path paths[8]{};TdRoleCandidate roles[4]{},references[4]{};td_mesh::Gm7Monitor gm7{};td_mesh::RoleMonitor mesh_roles{};td_mesh::ReferenceMonitor mesh_reference{};uint64_t mesh_next_us=0;TdRoleUpdate role_update{};TdSurveyLifecycle survey{};};
 TdStorage* td_storage=nullptr;
 TdSurveyStatus td_survey_snapshot{};
 TdPublication td_publication; // Short locked internal DRAM metadata, never PSRAM.
@@ -447,7 +448,7 @@ int gap(ble_gap_event* e,void* arg){
     const auto& d=e->ext_disc;inc(adv_callbacks);last_adv_at=now;
     if(d.data_status!=BLE_HCI_ADV_DATA_STATUS_COMPLETE){inc(adv_incomplete);return 0;}
     if(d.length_data>191){inc(adv_long);return 0;}
-    if(d.addr.type!=BLE_ADDR_RANDOM&&!(d.addr.type==BLE_ADDR_PUBLIC&&(d.sid==12||d.sid==13))){inc(adv_nonrandom);return 0;}
+    if(d.addr.type!=BLE_ADDR_RANDOM&&!(d.addr.type==BLE_ADDR_PUBLIC&&(d.sid==12||d.sid==13||d.sid==14))){inc(adv_nonrandom);return 0;}
     Discovery row{};row.rssi=d.rssi;row.tx_power=d.tx_power;row.at=now;row.address=d.addr;row.interval=d.periodic_adv_itvl;row.sid=d.sid;row.props=d.props;row.legacy_event_type=d.legacy_event_type;row.primary_phy=d.prim_phy;row.secondary_phy=d.sec_phy;row.length=uint8_t(d.length_data);if(row.length)std::memcpy(row.bytes,d.data,row.length);discoveries.push(row);
   }else if(e->type==BLE_GAP_EVENT_DISC_COMPLETE)scan=false;
   else if(e->type==BLE_GAP_EVENT_PERIODIC_SYNC){
@@ -921,6 +922,22 @@ bool admission_due(uint64_t now,bool renewal_map){
 
 #ifdef V12_SS3
 void td_discovery(const Discovery &d) {
+  // Decode complete GM7 management reports in the serialized worker. SID14
+  // is independent of periodic timing SID12; no GM/election operation follows.
+  if(d.sid==14)for(unsigned at=0;at<d.length;){
+    const unsigned n=d.bytes[at];if(!n||at+n>=d.length)break;
+    const auto* w=d.bytes+at;
+    if(n>=35&&w[1]==0xff&&!std::memcmp(w+4,"G7V3",4)){
+      uint64_t id=0;for(unsigned i=28;i<36;++i)id=(id<<8)|w[i];
+      if(id&&same_address(d.address,canonical(id))){
+        // Passive TD has no admitted timing selection. The GM7 monitor's
+        // signed lineage/term ordering selects the observed epoch. A real
+        // joined timing owner, when present, takes precedence over reports.
+        const td_mesh::Scope scope=anchor_valid(d.at)?td_mesh::Scope{anchor.root,anchor.boot,anchor.source_epoch}:td_mesh::Scope{};
+        td_storage->gm7.receive(w,n+1,provision.group,id,scope,d.at,micros());
+      }
+    }at+=n+1;
+  }
   // Retain one latest bounded raw announcement per GM. Authentication and
   // status adoption run in the bounded worker, never a callback.
   if(d.sid==12)for(unsigned at=0;at<d.length;){
@@ -1180,8 +1197,11 @@ void td_mesh_poll(uint64_t now) {
       c.wire_checked=true;break;
     }
   }
-  mesh.roles=td_storage->mesh_roles.snapshot(now);
-  mesh.reference=td_storage->mesh_reference.snapshot(now);
+  const auto gm7=td_storage->gm7.roles(now);
+  mesh.roles=gm7.known?gm7:td_storage->mesh_roles.snapshot(now);
+  const auto reference=td_storage->gm7.reference(now);
+  mesh.reference=reference.reported?reference:td_storage->mesh_reference.snapshot(now);
+  if(gm7.known)mesh.selected={gm7.root,gm7.root_boot,gm7.epoch};
 }
 
 void td_poll(uint64_t now) {
@@ -1438,7 +1458,7 @@ void parent_diagnostic_poll(uint64_t now){
   else if(closed&&parent_diagnostic.state==2){
     if(upstream_mode_change){exclude_direct_gm=relay_only_requested;upstream_mode_change=false;}
 #ifdef V12_SS3
-    if(td_mode_change){td_enabled=td_requested;td_mode_change=false;td_test=td_test_requested=false;td_test_change=false;td_phase=0;td_until=0;td_storage->model={};td_storage->role_update={};td_storage->survey={};for(auto& c:td_storage->roles)c={};for(auto& c:td_storage->references)c={};td_storage->mesh_roles={};td_storage->mesh_reference={};td_storage->mesh_next_us=0;}
+    if(td_mode_change){td_enabled=td_requested;td_mode_change=false;td_test=td_test_requested=false;td_test_change=false;td_phase=0;td_until=0;td_storage->model={};td_storage->role_update={};td_storage->survey={};for(auto& c:td_storage->roles)c={};for(auto& c:td_storage->references)c={};td_storage->mesh_roles={};td_storage->mesh_reference={};td_storage->gm7={};td_storage->mesh_next_us=0;}
     if(td_test_change){td_test=td_test_requested;td_test_change=false;td_until=0;td_phase=0;td_storage->survey={};td_storage->model.begin(td_test?control.target:0);}
 #endif
     parent_selection.reset();parent_selection.diagnostic(exclude_direct_gm);parent_selection.target(control.target,control.relay);

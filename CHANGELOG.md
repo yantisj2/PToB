@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-27 — SS3 0.1.6 signed mesh epoch correction
+
+- Port the current CoreSE 0.1.26 receive-only GM7 implementation3 codec/monitor,
+  with selected-file provenance, SID14 dispatch and 64-bit replay fences.
+- Correct Epoch to show the signed UTC mesh birth date/time and elapsed since
+  that birth across leader changes. The previous 0.1.5 local first-seen timer
+  was the wrong interpretation. Passive TD uses an explicitly labeled signed
+  ANN UTC estimate; original report freshness and local uptime remain separate.
+- Receive GM7 GNSS metadata alongside legacy GD1/GD2, and add actual-wire/native
+  epoch regressions. Radio survey ownership, timing permissions and precision
+  models remain unchanged.
+
 ## 2026-10-27 — SS3 0.1.5 current diagnostics and epoch display
 
 - Receive authenticated GS mesh status and GD1/GD2 reference reports using the

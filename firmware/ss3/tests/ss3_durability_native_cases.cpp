@@ -86,6 +86,25 @@ int main(int argc,char** argv){
   // Missing scans withdraw the observed selection; cached diagnostics remain history.
   v12::td_mesh_poll(40000000);assert(!mesh.selected.root&&!v12::td_mesh::current(mesh.reference,mesh.selected,40000000));
   assert(mesh.reference.until_us==40000000&&mesh.reference.received_us==10000000);
+ }else if(which=="gm7-epoch-discovery"){
+  auto& store=*v12::td_storage;store.mesh_next_us=0;constexpr uint64_t birth=1792986374188267;
+  gm7_packet p{};p.group=v12::provision.group.id;p.key_epoch=v12::provision.group.epoch;p.kind=GM7_ANNOUNCE;p.flags=GM7_ELIGIBLE;
+  auto& c=p.body.control;c.sender=c.active=111;c.boot=c.active_boot=55;c.sequence=UINT64_C(0x100000001);c.sent_utc_us=birth+86400000000;
+  c.max_age_us=2750000;c.source_valid_us=1500000;c.source_gen=c.capture_gen=c.train_gen=1;c.birth_us=birth;c.founder=111;c.term=37;c.timing_epoch=2;c.sent_mono_us=5000000;
+  v12::Discovery d{};d.sid=14;d.address=v12::canonical(111);d.length=GM7_CONTROL_BYTES+4;d.at=fake_now=1000000;
+  assert(!gm7_ad_encode(d.bytes,sizeof d.bytes,&p,&v12::provision.group));v12::td_discovery(d);v12::td_mesh_poll(fake_now);
+  auto m=store.model.view.mesh;assert(m.roles.known&&m.roles.wire_version==3&&m.roles.birth_utc_us==birth&&m.roles.term==37);
+  assert(m.selected.root==111&&m.roles.utc_sample_us==birth+86400000000&&m.roles.utc_received_us==1000000);
+  // A duplicated signed publication never advances UTC receipt or expiry.
+  d.at=fake_now=2000000;v12::td_discovery(d);v12::td_mesh_poll(fake_now);m=store.model.view.mesh;
+  assert(m.roles.announcements==1&&m.roles.utc_received_us==1000000&&m.roles.replayed==1);
+  // A changed MAC address cannot feed the observer even with a correct tag.
+  ++c.sequence;assert(!gm7_ad_encode(d.bytes,sizeof d.bytes,&p,&v12::provision.group));d.address.val[0]^=1;d.at=fake_now=3000000;
+  v12::td_discovery(d);v12::td_mesh_poll(fake_now);assert(store.model.view.mesh.roles.announcements==1);d.address.val[0]^=1;
+  // Leadership replacement preserves actual birth; receipt time is unrelated.
+  c.sender=c.active=222;c.boot=c.active_boot=66;c.sequence=1;c.term=38;c.timing_epoch=7;c.sent_utc_us=birth+90000000000;
+  d.address=v12::canonical(222);d.at=fake_now=4000000;assert(!gm7_ad_encode(d.bytes,sizeof d.bytes,&p,&v12::provision.group));v12::td_discovery(d);v12::td_mesh_poll(fake_now);
+  m=store.model.view.mesh;assert(m.roles.root==222&&m.roles.birth_utc_us==birth&&m.roles.epoch_since_us==1000000&&m.roles.utc_sample_us==birth+90000000000);
  }else return 2;
  // Synthetic PSRAM is explicitly freed for sanitizer ownership checks.
  v12::td_storage->~TdStorage();heap_caps_free(v12::td_storage);v12::td_storage=nullptr;

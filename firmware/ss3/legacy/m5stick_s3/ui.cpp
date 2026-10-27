@@ -4,6 +4,7 @@
 #include "td_chart.hpp"
 #include "td_health.hpp"
 #include "td_relays.hpp"
+#include "../../main/td_epoch.hpp"
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
@@ -413,31 +414,33 @@ void td_paint(Canvas &c, const View &s) {
     c.text(9,218,v,1,White);
   }
   else if(s.page==6) {
-    const auto& r=d.mesh.roles;const auto& selected=d.mesh.selected;
-    const bool same=r.known&&r.root==selected.root&&r.root_boot==selected.boot&&r.epoch==selected.epoch;
-    const bool live=!d.owner_stale&&same&&v12::td_mesh::live(r,d.now_us);
-    td_name(name,sizeof name,r.known?r.root:0);c.row(59,same?"GM":"LAST GM",name,r.known?White:Dim);
-    c.text(9,78,"MESH EPOCH",1,Dim);
-    if(r.known)std::snprintf(v,sizeof v,"%lu",(unsigned long)r.epoch);else std::snprintf(v,sizeof v,"--");
-    c.text(9,92,v,2,r.known?Cyan:Dim);
-    auto duration=[&](uint64_t seconds){
-      if(seconds>=86400)std::snprintf(v,sizeof v,"%llud %02u:%02u:%02u",(unsigned long long)(seconds/86400),unsigned(seconds/3600%24),unsigned(seconds/60%60),unsigned(seconds%60));
-      else std::snprintf(v,sizeof v,"%02u:%02u:%02u",unsigned(seconds/3600),unsigned(seconds/60%60),unsigned(seconds%60));
-    };
-    c.text(9,119,"EPOCH SEEN HERE",1,Dim);
-    if(r.known&&d.now_us>=r.epoch_since_us)duration((d.now_us-r.epoch_since_us)/1000000);else std::snprintf(v,sizeof v,"--");
-    c.text(9,133,v,std::strlen(v)<=9?2:1,r.known?White:Dim);
-    c.text(9,157,"GM UPTIME EST",1,Dim);
-    if(r.known&&d.now_us>=r.received_us&&r.created_us&&d.now_us-r.received_us<=UINT64_MAX-r.created_us)duration((r.created_us+d.now_us-r.received_us)/1000000);else std::snprintf(v,sizeof v,"--");
-    c.text(9,171,v,1,r.known?White:Dim);
-    c.row(190,"GS",live?"LIVE":r.known?"LAST":"WAITING",live?Green:Dim);
-    c.metric(204,"SEQ",r.known?r.sequence:UINT32_MAX);
-    c.text(9,219,"START NOT ON WIRE",1,Amber);
+    const auto& r=d.mesh.roles;
+    char birth[32];v12::td_mesh::epoch_start_text(birth,sizeof birth,r.birth_utc_us);
+    const auto epoch=v12::td_mesh::epoch_time(d.mesh,d.now_us);
+    const bool known=epoch.basis!=v12::td_mesh::EpochBasis::Unknown;
+    const bool current=known&&epoch.current&&!d.owner_stale;
+    c.text(9,57,"EPOCH START / UTC",1,Dim);
+    if(r.wire_version==3&&std::strlen(birth)==19){
+      birth[10]=0;c.text(9,74,birth,2,Cyan);c.text(20,96,birth+11,2,White);
+    }else{c.text(9,74,"--",2,Dim);c.text(9,98,"NO SIGNED START",1,Dim);}
+    c.text(9,124,epoch.basis==v12::td_mesh::EpochBasis::ReportedUtc?"ELAPSED EST":"ELAPSED",1,Dim);
+    const auto seconds=epoch.elapsed_us/1000000;
+    if(known&&seconds>=86400)std::snprintf(v,sizeof v,"%llud",(unsigned long long)(seconds/86400));else std::snprintf(v,sizeof v,"%s",known?" ":"--");
+    c.text(9,137,v,1,White);
+    if(known)std::snprintf(v,sizeof v,"%02u:%02u:%02u",unsigned(seconds/3600%24),unsigned(seconds/60%60),unsigned(seconds%60));else std::snprintf(v,sizeof v,"--:--:--");
+    c.text(9,151,v,2,known?White:Dim);
+    const auto up=d.now_us/1000000;
+    if(up/86400>=1000)std::snprintf(v,sizeof v,"%llud",(unsigned long long)(up/86400));
+    else if(up>=86400)std::snprintf(v,sizeof v,"%llud %02u:%02u",(unsigned long long)(up/86400),unsigned(up/3600%24),unsigned(up/60%60));
+    else std::snprintf(v,sizeof v,"%02u:%02u:%02u",unsigned(up/3600),unsigned(up/60%60),unsigned(up%60));
+    c.row(181,"UPTIME",v,Dim);
+    td_name(name,sizeof name,r.known?r.root:0);c.row(197,"GM",name);
+    c.text(9,216,known?(current?"GM7 UTC / LIVE":"GM7 UTC / LAST"):"WAIT FOR GM7 UTC",1,current?Green:Dim);
   } else if(s.page==7) {
     const auto& q=d.mesh.reference;
     const bool live=!d.owner_stale&&v12::td_mesh::current(q,d.mesh.selected,d.now_us);
     td_name(name,sizeof name,q.reported?q.scope.root:0);c.row(59,live?"GM":"LAST GM",name,q.reported?White:Dim);
-    if(q.reported)std::snprintf(v,sizeof v,"GD%u %s",unsigned(q.wire_version),live?"LIVE":"LAST");else std::snprintf(v,sizeof v,"WAITING");
+    if(q.reported)std::snprintf(v,sizeof v,"%s %s",q.wire_version==3?"GM7":q.wire_version==2?"GD2":"GD1",live?"LIVE":"LAST");else std::snprintf(v,sizeof v,"WAITING");
     c.row(73,"REPORT",v,live?Green:Dim);
     const auto flag=[&](unsigned bit){return !live||!(q.fields&bit)?"--":q.values&bit?"YES":"NO";};
     std::snprintf(v,sizeof v,"FIX %s / PPS %s",flag(v12::td_mesh::Fix),flag(v12::td_mesh::Pps));c.text(9,91,v,1,live?White:Dim);

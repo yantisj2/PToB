@@ -81,7 +81,10 @@ int main(int argc,char** argv){
    roles.received_us=view.td.now_us-200000;roles.until_us=roles.received_us+2000000;roles.created_us=state==3?UINT64_MAX-1000000:UINT64_C(7)*86400000000;roles.epoch_since_us=1000000;
    view.td.mesh.selected={roles.root,roles.root_boot,roles.epoch};
    auto& ref=view.td.mesh.reference;ref.reported=true;ref.scope=view.td.mesh.selected;ref.received_us=roles.received_us;ref.until_us=ref.received_us+30000000;ref.wire_version=2;ref.fields=63;ref.values=7;ref.sats=state==3?99:12;ref.hdop_centi=state==3?65534:75;ref.clock_class=state==3?255:6;ref.priority1=ref.priority2=255;
-   if(state==2){ref.until_us=roles.until_us=1;view.td.mesh.selected={};}
+   roles.wire_version=3;roles.birth_utc_us=1792986374188267;roles.founder=gm.id;roles.term=37;
+   roles.utc_sample_us=roles.birth_utc_us+(state==3?UINT64_C(10000):1)*86400000000+125000000;roles.utc_received_us=view.td.now_us-1000000;
+   ref.wire_version=3;
+   if(state==2){ref.until_us=roles.until_us=1;roles.utc_received_us=1;}
    if(state==3){gm.id=gm.root=view.td.target=0x123456789abcdefULL;view.td.role.root=gm.id;view.td.role.hot=0xfedcba987654321ULL;gm.rssi=-127;gm.signal={};gm.signal.observe(gm.rssi,view.td.now_us);}
    if(state==2){rc.stream_slot=UINT8_MAX;view.td.role.available=false;view.td.role.seen_us=1;view.td.request=true;view.td.request_target=rc.id;view.td.pending=true;gm.jitter_ns=UINT32_MAX-1;rc.jitter_ns=UINT32_MAX-1;gm.packets=gm.matched=gm.missed=UINT32_MAX;gm.rssi_min=-127;gm.rssi_max=126;view.radio_error=UINT32_MAX;}
   }

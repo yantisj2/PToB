@@ -1,13 +1,13 @@
 {
   "schema": 1,
-  "version": "0.1.5",
+  "version": "0.1.6",
   "date": "2026-10-27",
   "credit": "Jonathan Yantis",
   "license": "MIT",
   "images": [
     {
       "file": "ss3-epoch-preview.png",
-      "sha256": "cdb1b5da6012523143548fad4abdf7601cbc99ea34de0964ffec5282fdcd9c2e",
+      "sha256": "ed9ff3931c0c6b78fcbfa23ecb2b78bc102b92e16225a14b387f1be60ae20baa",
       "dimensions": [
         135,
         240
@@ -18,7 +18,7 @@
     },
     {
       "file": "ss3-reference-preview.png",
-      "sha256": "bd43561be278fdcc0ba06e065e50ae88ce809a09ab6ab702247aa01c863c698e",
+      "sha256": "e012b02aa79ce4721c311d8a61c438e94a26ce1e862db74a8c436cb4ff59f32f",
       "dimensions": [
         135,
         240
@@ -29,10 +29,11 @@
     }
   ],
   "sources": {
-    "firmware/ss3/legacy/m5stick_s3/ui.cpp": "53d119a6e393a2578914fff19accc2b320bf05e00f65b0afd642ec18bb2044b5",
+    "firmware/ss3/legacy/m5stick_s3/ui.cpp": "9a31b05473accbd452dbf05c188ba0fad64bc9cdabda35adb82aae70b418daa5",
     "firmware/ss3/main/ss3_td_model.hpp": "00b05dc188557c891b7acf6bf7ec1717633f8e26f71db70bc494c46721275387",
-    "firmware/ss3/main/td_mesh.hpp": "166b9f6a06841d3b40f189e7b7488a431ce89b796181536eb0def4191a989d4a",
-    "firmware/ss3/tests/ss3_td_model_test.cpp": "ea6e78814ee4e5dff871df3696408400e8df5a084769fe02dfad8c132f4b82b7",
+    "firmware/ss3/main/td_mesh.hpp": "34e53a777c9b9c02c603dc5e7f549de97bdefb83da48e0e38d673b992ba1fb3a",
+    "firmware/ss3/main/td_epoch.hpp": "45c187f659b89edfdbf5f521e2af541de15e483be80a32d87167a112acdbad08",
+    "firmware/ss3/tests/ss3_td_model_test.cpp": "93d0ff5276d331c8f26da3f4ba330aa69ffc01773be3961ecb0aeb24e2486cf9",
     "registry/example.json": "f33c79bba4ff169503e02cb0965996bf7d7d08c5b4e3dfc70caa19ed9f391b09"
   },
   "reproduce": [
@@ -40,5 +41,5 @@
     "mkdir artifacts/ss3-preview-frames",
     "artifacts/ss3-preview-tests/ss3_td_model_test artifacts/ss3-preview-frames"
   ],
-  "meaning": "Illustrative current source UI, not optical readback, actual mesh state, GNSS/output accuracy or device qualification."
+  "meaning": "Illustrative current source UI: signed mesh birth UTC date, estimated elapsed from reported UTC, separate local uptime; not an optical/hardware or accuracy claim."
 }

@@ -171,9 +171,9 @@ The original observation provenance record uses CC BY 4.0.
 
 ## SS3 current diagnostics — 27 October 2026
 
-`ss3-epoch-preview.png` and `ss3-reference-preview.png` use the SS3 0.1.5
-production renderer with the public synthetic fixture. Epoch seen age is local
-observation, GM uptime is a signed-monotonic estimate, and the GNSS/PTP values
-are illustrative reports. These are neither live hardware nor optical captures.
+`ss3-epoch-preview.png` and `ss3-reference-preview.png` use the SS3 0.1.6
+production renderer with the public synthetic fixture. Epoch shows a synthetic signed GM7 mesh birth UTC date, an elapsed estimate
+anchored to reported UTC, and separate local uptime. GNSS/PTP values are
+illustrative reports. These are neither live hardware nor optical captures.
 [Provenance, source hashes and reproduction](ss3-diagnostics-provenance.json).
 Original interface illustrations: Jonathan Yantis, MIT.

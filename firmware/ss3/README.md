@@ -8,24 +8,31 @@ accuracy. [Image provenance](../../docs/images/README.md).*
 
 Copyright (c) 2026 Jonathan Yantis. MIT; inherited source notices apply.
 
-**PToB owns SS3 native G1/RC7 development.** Source firmware version **0.1.5**
-adds the current authenticated GS mesh and GD1/GD2 reference diagnostics, adapted
-from CoreSE with [recorded source provenance](contracts/diagnostics_provenance.json).
-Side-button navigation now cycles eight diagnostics pages: Health, Stream Quality,
-Relay Test, RF Health, Sample Detail, Source Health, **Epoch** and **Reference**.
-Epoch shows the observed mesh label, how long this SS3 has seen it, estimated GM
-uptime and live/last GS status. The label's actual start is not on the wire.
-Reference shows the GM's reported fix, PPS, qualification, satellites, real GGA
-HDOP and raw PTP-shaped election tuple. Legacy GD1 leaves HDOP unknown. A reported
-qualification flag describes the GM; it does not qualify SS3 timing or output.
+**PToB owns SS3 native G1/RC7 development.** Source firmware version **0.1.6**
+receives the current **GM7 implementation3** diagnostics used by CoreSE 0.1.26,
+alongside legacy GS/GD1/GD2. The receive-only codec and monitor are selected with
+[explicit provenance](contracts/gm7_diagnostics_provenance.json); no election or
+GM transmitter is imported. Side-button navigation cycles eight pages: Health,
+Stream Quality, Relay Test, RF Health, Sample Detail, Source Health, **Epoch**
+and **Reference**.
 
-Both decoders bind the canonical advertiser, observed GM identity, timing
-incarnation and mesh epoch, preserve original receipt deadlines and reject
-replay across root replacements. Expired or mismatched reference values become
-unknown; retained reports are explicitly LAST. Existing passive survey windows,
-radio ownership, source permissions and timing models are unchanged. The older
-health page retains its ten-second observed HOT dwell. Source version 0.1.4's
-bounded survey cleanup and LCD ownership/watchdog repairs remain in place.
+**Epoch shows the signed mesh start as a UTC date and time, with a timer since
+that birth.** The mesh birth survives leader and timing-incarnation changes;
+it is independent of when SS3 booted or first received a report. Passive TD mode
+uses the authenticated GM7 ANN UTC sample plus local elapsed time, labeled
+**ELAPSED EST**. Original report freshness is shown as LIVE/LAST; this estimated
+diagnostic timer never supplies timing permission, clock training or output.
+Without a signed birth/UTC sample the missing values stay unknown. Local uptime
+is shown separately. Version 0.1.5's locally observed epoch timer did not provide
+the requested mesh-start semantics and is superseded.
+
+Reference shows reported fix, PPS, qualification, satellites, real GGA HDOP and
+the raw PTP-shaped election tuple from GM7 GNSS or legacy GD1/GD2. A reported
+qualification flag describes the GM, not SS3 output. Canonical advertiser,
+64-bit GM7 replay/sequence, lineage, current scope and original expiry guards
+are preserved. Expired or mismatched reference values become unknown. Existing
+passive survey windows, radio ownership, source permissions and timing models
+are unchanged; the older health page retains its ten-second observed HOT dwell.
 
 [<img src="../../docs/images/ss3-epoch-preview.png" width="135" alt="SS3 Epoch page showing the mesh label, local seen duration and estimated GM uptime">](../../docs/images/ss3-epoch-preview.png) [<img src="../../docs/images/ss3-reference-preview.png" width="135" alt="SS3 Reference page showing reported GNSS fix, PPS, satellites, HDOP and PTP tuple">](../../docs/images/ss3-reference-preview.png)
 

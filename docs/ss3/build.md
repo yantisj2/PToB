@@ -56,44 +56,64 @@ frames, frame errors, worker ms, paint ms, I/O timeouts, I/O errors and pending;
 `tds` lists survey generation, closing ms, sync handle, phase and owner flags.
 The millisecond counters wrap after about 49.7 days; compare ages modulo 32 bits.
 
-## Current diagnostics and epoch display (0.1.5)
+## Current GM7 diagnostics and mesh epoch (0.1.6)
 
-The target now receives the same public GS v1 and GD1/GD2 diagnostic records as
-CoreSE. The [GD2 contract](../../protocol/gm_diagnostics_v2/README.md) and
-[SS3 source provenance](../../firmware/ss3/contracts/diagnostics_provenance.json)
-identify the selected current codec separately from the original imported
-baseline. A bounded one-second worker uses existing passive survey scans, with
-no new scan schedule or radio owner. Canonical address, fresh observed GM,
-authenticated root timing incarnation, mesh epoch, original TTL and replay
-checks remain mandatory. Source/physical observations take precedence when
-known; an authenticated serving-root GS can bootstrap the diagnostic scope
-before periodic sampling. This is an observed survey scope, not JOIN admission.
+SS3 now uses the receive-only GM7 implementation3 codec and monitor from the
+actual CoreSE 0.1.26 build, with [selected-file provenance](../../firmware/ss3/contracts/gm7_diagnostics_provenance.json).
+The two-file codec is vendored in the target and normal builds/tests need no
+other checkout, private source or credentials. SID14 ANN, STATUS, ROLE, WITHDRAW
+and GNSS are distinct from SID12 precision traffic and legacy GS/GD1/GD2.
+Authentication, canonical advertiser, separate 64-bit replay spaces, lineage/
+term ordering, timing scope and original receipt expiry are checked. An admitted
+timing selection takes precedence; passive TD may observe an authenticated
+leader with no timing admission. No transmitter or election state is imported.
 
-The side button cycles all eight TD pages. Page6 (Epoch) shows the full mesh epoch,
-local first-seen duration, estimated GM uptime from the signed remote monotonic
-sample, and GS LIVE/LAST. The epoch's start is not transmitted. Like CoreSE,
-local seen age survives a primary replacement with the same epoch label and
-resets on a different label. Page7 (Reference) shows reported GNSS fix/PPS/
-qualification, SV, HDOP and the PTP-shaped election tuple. Unknown accuracy and
-variance stay explicit; GD1 never supplies HDOP. Reference values expire at their
-original receipt deadline and disappear on observed scope mismatch.
+Page6 (Epoch) shows the signed **mesh birth UTC date/time**, with elapsed time
+since that birth. Birth/founder identify the epoch independently of the active
+GM, its boot, term and timing generation. A new leader inherits the date/timer;
+SS3 receipt time and local uptime cannot replace them. The date conversion and
+birth subtraction match current CoreSE. A legacy GS-only observation has no
+birth and shows unknown; the incorrect 0.1.5 first-seen timer is removed.
 
-`v12 status NONCE` includes compact GS/GD fields in the existing CRC-protected
-`SS3_RC7_ID` row: `mesh_root/boot/epoch`, `gs_rx/seq/at/until/created`, `epoch_seen`,
-`gd_root/boot/epoch`, `gd_rx/seq/at/until/sample`, `gd_wire/fields/values/sv/hdop`,
-remote sample ages, PTP tuple and rejection counters. Ages are microseconds unless
-suffixed `_ms`; `gd_hdop` is dimensionless centi-HDOP or65535 unknown. These are
-receiver counters, distinct from producer advertisement counts. `gs_live` and
-`gd_live` additionally require a fresh presentation snapshot and matching
-observed GM scope. `ui_page` records the presentation; `pages=8`. Existing ticketed
-`td ui-next` follows the same physical-button route and changes no timing policy.
+SS3's default passive TD survey has no admitted UTC clock. Its display-only
+elapsed estimate uses the signed ANN UTC timestamp plus elapsed local monotonic
+time. It is labeled ELAPSED EST, with independent LIVE/LAST under that ANN's
+original 2.75s receipt horizon. LAST may continue as an explicit estimate between
+scan windows; no report, timing or source lease is renewed. A scope change,
+withdrawal, missing/future/invalid UTC or overflow withdraws the applicable
+projection. Local uptime is separate. This is second-scale descriptive epoch
+tracking, not qualified UTC, RF-delay compensation or output time.
 
-The actual native diagnostic regression covers signed GS/GD2 and legacy GD1,
-packet ordering, canonical-address binding, MAC corruption, duplicate/replay,
-future/stale receipts, original deadlines, scope loss, root replacement and local
-epoch age. Renderer checks include all eight screens, empty/expired/maximal
-states and exact strip/full-frame equivalence. These are offline checks, not
-physical RF, optical or timing qualification.
+Page7 (Reference) shows reported GM7 GNSS or legacy GD data with original expiry.
+Unknown accuracy/variance stay explicit; GD1 never supplies HDOP. A report's
+qualification flag belongs to the reporting GM. The eight-page side-button and
+ticketed `td ui-next` routes are unchanged. Existing passive radio survey timing,
+controller owners, correction matching and precision permissions are unchanged.
+
+The existing CRC-protected SS3_RC7_ID row carries GS/GD values plus `gm7_wire`,
+`gm7_birth_utc_us`, `gm7_founder`, `gm7_term`, ANN/STATUS/ROLE/WITHDRAW receive
+counts, `gm7_utc/utc_at`, `epoch_utc_us`, `epoch_elapsed_us`, `epoch_basis`
+(0unknown/1matched UTC/2reported UTC estimate), and `epoch_current`. These are
+actual receive counts and original UTC coordinates; legacy `epoch_seen` remains
+local first observation for debugging only. GS/GD sequences now retain all64bits
+when the current source is GM7. `gd_wire=3` means GM7 GNSS; 1/2 are legacy GD1/GD2.
+HDOP remains dimensionless centi-units or65535 unknown. `ui_page` and `pages=8`
+record presentation metadata, not optical readback.
+
+Run the signed monitor/epoch checks in addition to the standard offline suite:
+
+```sh
+CC=clang CXX=clang++ python3 firmware/ss3/tools/gm7_tests.py --sdk "$IDF_PATH" \
+  --out artifacts/ss3-gm7-tests
+```
+
+Tests cover actual codec/HMAC, ANN/STATUS/ROLE/GNSS, 64-bit replay, corrupt MAC,
+canonical advertiser, original expiry, independent HOT evidence, YIELD/WITHDRAW,
+signed birth across leader changes, real UTC date/leap boundaries and elapsed
+projection/freshness. Native tests exercise the real SID14 discovery dispatch;
+all eight renderer pages retain empty/expired/maximal states and exact strip/
+full-frame equivalence. Finite tests do not establish optical, continuous RF,
+endurance, admission-renewal or independent UTC/PPS/output qualification.
 
 ## Dependencies and local inputs
 
