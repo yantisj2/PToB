@@ -39,6 +39,9 @@ extern "C" {
 #include "rc7_provisional_config.hpp"
 #include "g1_parent_selection.hpp"
 #include "g1_gm_discovery.hpp"
+#ifdef PTOB_GM_SUCCESSOR
+#include "g1_gm_successor.hpp"
+#endif
 #include "rc7_path_snapshot.hpp"
 #include "host/ble_gap.h"
 #include "host/ble_gatt.h"
@@ -132,6 +135,11 @@ Rc7Client rc_client;
 #endif
 G1ParentSelection parent_selection{V12_G1_FAILED_PARENT_RETRY_US};
 G1GmDiscovery gm_discovery;
+#ifdef PTOB_GM_SUCCESSOR
+GmSuccessor gm_successor;
+GmControlScan gm_control_scan;
+uint64_t gm_control_capture20=0;
+#endif
 G1ParentJournal parent_journal;
 // A callback records one bounded outcome; only the serialized worker updates
 // advisory server history. The next attempt cannot start before its retry gap.
@@ -269,6 +277,9 @@ bool relay_slot_scanning();
 void relay_fence();void relay_close(uint64_t now,bool preserve_demand=false);bool relay_owned();bool relay_acl_available();void relay_poll(uint64_t now,bool upstream_due,bool admitting=false);
 void parent_record(G1ParentReason reason,uint64_t now);
 void begin_close(uint64_t now){if(closing)return;closing=true;
+#ifdef PTOB_GM_SUCCESSOR
+ gm_successor.clear();gm_control_scan.clear();gm_control_capture20=0;
+#endif
 #ifdef PTOB_RC9
  rc9_client.fence();
 #endif
@@ -296,6 +307,9 @@ void sync_trace(uint8_t event,uint16_t handle,int result,const LinkContext* save
   const auto context=saved?*saved:sync_context();admission_trace(event,handle,result,&context);
 }
 void start_scan(bool gm_observation=false){
+#ifdef PTOB_GM_SUCCESSOR
+  gm_observation=gm_observation||gm_control_scan.allows(micros());
+#endif
   if(!timely()||(!gm_observation&&!relay_slot_scanning()&&selection_protected(micros()))||micros()<scan_retry_at||(mode==R2Mode::Client&&!client_window_active(micros(),window_phase)))return;
   const auto now=micros();if(!scan_retry_until)scan_retry_until=now+2000000;
   if(now>=scan_retry_until){error(BLE_HS_ETIMEOUT,R2Api::ScanStart);return;}
@@ -763,6 +777,11 @@ void receive_rc_control(const Incoming& row,uint64_t now){
   }else if(peer.stage==6&&rc_client.response_matches(c,now)){
     ++rc_client.responses;
     if(c.ready){
+#ifdef PTOB_GM_SUCCESSOR
+      if(gm_successor.blocks(c.path.node[0].id,c.path.node[0].boot,c.path.node[0].train)){
+        inc(rejected);peer.dead=true;return;
+      }
+#endif
       uint64_t tick=0;
 #ifdef V12_R2_RX_SHADOW
       clock_reference_read(&tick);
@@ -787,6 +806,9 @@ void receive_rc_control(const Incoming& row,uint64_t now){
       else if(uncertainty>anchor.uncertainty)anchor.uncertainty=uncertainty;
       // A new lease cannot rebase old UTC when its corrected map expired.
       anchor.context_until=now+c.lease_us;anchor.drift_ppm=301;
+#ifdef PTOB_GM_SUCCESSOR
+      gm_successor.admitted(anchor);
+#endif
       corrected_clock.scope(anchor);
       joined_peer=c.sender;joined_boot=c.sender_boot;member=true;sync_address=peer.address;
       parent_selection.bind(c.sender,c.sender_boot,c.path.node[c.path.depth].epoch,now,true);
@@ -841,6 +863,12 @@ void receive_join(uint64_t now){Incoming row{};for(unsigned i=0;i<8&&incoming.po
       if(!previous_member&&!anchor.source&&!rc_bound()){member=true;joined_peer=r.sender;joined_boot=r.sender_boot;}
       diagnostic.reason(G1Reason::JoinTime,now);continue;
     }
+#ifdef PTOB_GM_SUCCESSOR
+    if(gm_successor.blocks(r.sender,r.sender_boot,r.publication)||
+       !gm_successor.expected(r.sender,r.sender_boot,now)){
+      inc(rejected);peer.dead=true;continue;
+    }
+#endif
     // A newly authenticated direct leader retires all old estimator and
     // selection state before its coarse bootstrap is installed.
     if(r.root==r.sender&&r.root_boot==r.sender_boot&&
@@ -914,6 +942,9 @@ void receive_join(uint64_t now){Incoming row{};for(unsigned i=0;i<8&&incoming.po
       phase_learning.accepted(next,now);
       if(!anchor.same(next)){scope_trace(anchor,next,G1Reason::None,now);last_origin_ns=relay_train=0;window_corrected=false;cancel_sync(now);}
       anchor=next;corrected_clock.scope(anchor);coarse_hold.clear();discipline_scope(now);
+#ifdef PTOB_GM_SUCCESSOR
+      gm_successor.admitted(anchor);
+#endif
       parent_record(peer.parent_reason,now);
     }
     // No-source membership creates neither a coarse clock nor precision.
@@ -933,6 +964,9 @@ bool fresh_envelope(uint64_t created,uint64_t expires,int64_t offset,uint64_t no
     int64_t(expires)+offset>utc+int64_t(anchor.guard(now)*1000);
 }
 void changed_scope(uint64_t now,G1Reason reason,bool preserve_clock,G1ParentReason parent_reason){if(parent_reason==G1ParentReason::ClockStep)retained_estimate.clear();relay_fence();if(anchor.source){inc(diagnostic.scope_changes);scope_trace(anchor,{},reason,now);}
+#ifdef PTOB_GM_SUCCESSOR
+  gm_control_scan.clear();gm_control_capture20=0;
+#endif
 #ifdef PTOB_RC9
  if(!peer.rc9)rc9_client.fence();
 #endif
@@ -947,6 +981,9 @@ void changed_scope(uint64_t now,G1Reason reason,bool preserve_clock,G1ParentReas
   corrected_phase_aligned=false;cancel_sync(now);discipline_scope(now);
   parent_record(reason==G1Reason::Permission?G1ParentReason::ReplayExpired:reason==G1Reason::RootHint?G1ParentReason::RootHint:parent_reason,now);}
 void forget_leader(uint64_t now,bool keep_admission){
+#ifdef PTOB_GM_SUCCESSOR
+  const auto successor=gm_successor.lost(anchor,now);
+#endif
   // Revoke authority first. cancel_sync retains the exact SDK owner and its
   // original drain deadline; clearing a cache never fabricates radio OFF.
   changed_scope(now);corrected_clock.clear();coarse_hold.clear();phase_learning={};rc_client.retry_at=0;
@@ -957,6 +994,10 @@ void forget_leader(uint64_t now,bool keep_admission){
   admission_policy.leader_lost(now);joined_peer=joined_boot=0;
   retry_at=scan_retry_at=scan_retry_until=0;
   for(unsigned i=0;i<8;i++){locator_ids[i]=0;locators[i]={};recent[i]={};}
+#ifdef PTOB_GM_SUCCESSOR
+  if(successor&&!exclude_direct_gm&&!parent_selection.pinned()&&!parent_selection.diagnostic())
+    parent_selection.reobserve_gm(successor,now);
+#endif
 #ifdef PTOB_RC9
   for(auto& locator:rc9_locators)locator={};
   rc9_retry_at=0;
@@ -1038,6 +1079,9 @@ unsigned periodic_poll(uint64_t now,unsigned budget=8){Periodic row{};unsigned p
     // This diagnostic cannot grant source permission or usable clock time.
     if(row.capture.epoch==sync_capture_epoch&&Rc7Client::captured(row.capture,available))
       parent_selection.delivered(p.train,row.capture.event,now);
+#ifdef PTOB_GM_SUCCESSOR
+    if(row.capture.epoch==sync_capture_epoch&&Rc7Client::captured(row.capture,available))gm_control_capture20=row.capture.tick20;
+#endif
     const auto discontinuities=corrected_clock.discontinuities();
     const auto* original=rc_client.receive(p,row.capture,available);
     G1CorrectedClock::Rc7Update update{};
@@ -1097,6 +1141,9 @@ unsigned periodic_poll(uint64_t now,unsigned budget=8){Periodic row{};unsigned p
     const bool same=ids[p.origin.root]==anchor.root&&p.origin.boot==anchor.boot&&p.origin.source_epoch==anchor.source_epoch&&
       row.identity==joined_peer&&p.route.boot==joined_boot&&(!relay_train||relay_train==p.route.train);
     if(!same){if(fresh_envelope(p.origin.created_ns,p.origin.expires_ns,p.origin.utc_offset_ns,now,true))forget_leader(now);continue;}
+#ifdef PTOB_GM_SUCCESSOR
+    if(row.capture.epoch==sync_capture_epoch&&row.capture.actual&&row.capture.association_observed)gm_control_capture20=row.capture.tick20;
+#endif
     if(!fresh_envelope(p.origin.created_ns,p.origin.expires_ns,p.origin.utc_offset_ns,now,true)){diagnostic.reason(G1Reason::Permission,now);continue;}
     relay_train=p.route.train;
     if(row.capture.actual&&row.capture.association_observed)parent_selection.delivered(p.route.train,row.capture.event,now);
@@ -1107,7 +1154,11 @@ unsigned periodic_poll(uint64_t now,unsigned budget=8){Periodic row{};unsigned p
     uint64_t available=0;clock_reference_read(&available);
     const auto discontinuities=corrected_clock.discontinuities();
     rc5_origin matched_origin{};
-    if(corrected_clock.receive(p,row.capture,available,now,anchor,&matched_origin)){
+    if(corrected_clock.receive(p,row.capture,available,now,anchor,&matched_origin
+#ifdef PTOB_N30
+       ,&retained_estimate
+#endif
+       )){
       uint64_t completion=0,utc=0;
       if(clock_reference_read(&completion)&&corrected_clock.finalize(completion)&&corrected_clock.deliver(completion,micros(),utc)&&utc>=micros()-anchor.at){
         const auto delivered=micros();anchor.until=corrected_clock.until();
@@ -1215,6 +1266,9 @@ bool admission_due(uint64_t now,bool renewal_map){
 }
 void active_poll(uint64_t now){
   if(now<radio_resume_at)return;
+#ifdef PTOB_GM_SUCCESSOR
+  if(gm_successor.due(now)&&gm_successor.bound(anchor))forget_leader(now);
+#endif
   const bool corrected_live=corrected_clock.covers(now,now);
   if(corrected_was_live&&!corrected_live&&corrected_clock.until()&&now>=corrected_clock.until())receive_loss.freeze(now);
   corrected_was_live=corrected_live;
@@ -1281,15 +1335,43 @@ void active_poll(uint64_t now){
     sync_identity=joined_peer;sync_selected=true;
   }
   const bool protected_parent=selection_protected(micros())&&!gm_observation;
+
+#ifdef PTOB_GM_SUCCESSOR
+  bool control_scan=false;
+  const auto control_now=micros();uint64_t control_tick=0,control_utc=0;
+  const bool control_eligible=client_window_active(control_now,window_phase)&&peer.handle==None&&!peer.connecting&&
+    !sync_cleanup_queued&&!sync_terminating&&current_parent_time(control_now)&&
+    control_now<=UINT64_MAX-200000&&corrected_clock.covers(control_now,control_now+200000)&&
+    clock_reference_read(&control_tick)&&control_tick>=gm_control_capture20&&
+    corrected_clock.deliver(control_tick,control_now,control_utc);
+  control_scan=gm_control_scan.poll(control_now,control_eligible,gm_control_capture20,
+    control_tick>=gm_control_capture20?(control_tick-gm_control_capture20)/20:UINT64_MAX,control_utc);
+#endif
+#ifdef PTOB_GM_SUCCESSOR
+  if(protected_parent&&!relay_slot_scanning()&&!control_scan){
+#else
   if(protected_parent&&!relay_slot_scanning()){
+#endif
     stop_scan();
     // Retire an abandoned logical BUSY retry only after actual scanner OFF.
     // Missing closure keeps its fault/owner deadline; it is never renewed.
     if(!scan&&!ble_gap_disc_active())scan_retry_at=scan_retry_until=0;
   }
   Discovery d{};for(unsigned i=0;i<16&&discoveries.pop(d);i++){
-    if(protected_parent&&!relay_slot_scanning())continue;
     if(now<d.at||now-d.at>250000||(mode==R2Mode::Client&&G1Window::start(d.at,window_phase)!=window_start))continue;
+#ifdef PTOB_GM_SUCCESSOR
+    if(d.sid==14){
+      gm7_packet control{};
+      if(!gm7_ad_decode(&control,d.bytes,d.length,&provision.group)&&
+         (control.kind==GM7_ANNOUNCE||control.kind==GM7_WITHDRAW)&&
+         same_address(d.address,canonical(control.body.control.sender))&&
+         gm_successor.receive(control,anchor,d.at,now)&&gm_successor.due(now)){
+        forget_leader(now);break;
+      }
+      continue;
+    }
+#endif
+    if(protected_parent&&!relay_slot_scanning())continue;
     observe_group(d);
 #ifdef PTOB_RC9
     if(rc9_discovery(d))continue;
@@ -1358,8 +1440,13 @@ void active_poll(uint64_t now){
   independent_scan=gm_observation||!independent_rc9||!rc9_view.valid||now>=rc9_client.renew_at;
   if(!independent_scan)stop_scan();
 #endif
+#ifdef PTOB_GM_SUCCESSOR
+  if(independent_scan&&(!protected_parent||control_scan)&&!peer.connecting&&!scan&&(!synced||due||gm_observation||control_scan))start_scan(gm_observation);
+  if(!control_scan&&!relay_slot_scanning()&&(protected_parent||(synced&&!due&&!gm_observation)))stop_scan();
+#else
   if(independent_scan&&!protected_parent&&!peer.connecting&&!scan&&(!synced||due||gm_observation))start_scan(gm_observation);
   if(!relay_slot_scanning()&&(protected_parent||(synced&&!due&&!gm_observation)))stop_scan();
+#endif
   if(sync_selected&&peer.handle==None&&!peer.connecting&&!sync_pending&&!synced&&!sync_cleanup_queued&&timely()&&client_window_active(micros(),window_phase)){
     ble_gap_periodic_sync_params p{};p.skip=0;p.sync_timeout=100;sync_selected=false;sync_pending=true;sync_cancelled=false;sync_acquire_until=micros()+2000000;
     sync_requested_at=micros();sync_owner_window_start=G1Window::start(sync_requested_at,window_phase);sync_drain_until=0;sync_phy=0;sync_clock_accuracy=255;
@@ -1436,7 +1523,8 @@ void publish(uint64_t begin){const auto now=micros();uint64_t tick=0;
   const bool disciplined=discipline.delivered(q,tick,delivered_utc);uint64_t held_utc=0;
   uint64_t corrected_utc=0;const bool corrected_valid=corrected_clock.deliver(tick,now,corrected_utc)&&!fault&&!closing;
   if(corrected_clock.accepted()!=retained_accepted&&corrected_valid&&corrected_clock.original20()){
-    if(retained_estimate.retain(corrected_clock.prediction(),anchor.root,anchor.boot,anchor.source_epoch,corrected_clock.original20(),now)){
+    if(retained_estimate.retain(corrected_clock.prediction(),anchor.root,anchor.boot,anchor.source_epoch,corrected_clock.original20(),now,
+        corrected_clock.frequency_trained(tick))){
       retained_accepted=corrected_clock.accepted();admission_policy.acquired();
       if(!receive_loss.generation)receive_loss.begin();
       else if(!corrected_was_live)receive_loss.reacquired();
@@ -1445,10 +1533,17 @@ void publish(uint64_t begin){const auto now=micros();uint64_t tick=0;
   }
   uint64_t retained_utc=0;const bool retained_valid=retained_estimate.deliver(tick,retained_utc)&&!fault&&!closing;
   const bool held=usable_utc()&&coarse_hold.deliver(now,held_utc)&&!fault&&!closing;
-  const bool following_now=following(now)&&!closing&&!fault;
+  bool following_now=following(now)&&!closing&&!fault;
   // A remembered model owns its old scope. A new coarse JOIN has no physical
   // model until its own first correction, and must never borrow the old one.
-  const bool retained_selected=retained_valid&&!corrected_valid&&!following_now&&!held;
+  bool retained_selected=retained_valid&&!corrected_valid&&!following_now&&!held;
+#ifdef PTOB_N30
+  // A new coarse JOIN is acquisition context. Keep the trained local clock
+  // in explicit HOLD until the successor provides its first physical pair.
+  if(retained_valid&&!corrected_valid&&retained_estimate.handoff_ready(tick)){
+    retained_selected=true;following_now=false;
+  }
+#endif
   const auto selection=parent_selection.selection_view(now);
   const auto relative_quality=corrected_valid?corrected_clock.quality(now,tick):G1RelativeQuality{};
   const bool selection_locked=lock_protected_quality(relative_quality,corrected_clock.prediction(),tick,now);

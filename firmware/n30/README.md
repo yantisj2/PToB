@@ -1,9 +1,22 @@
 # N30 native RC target
 
-**Version 0.2.32** brings BLE reception, passive LoRa fallback and a portrait
+**Version 0.2.34** brings BLE reception, passive LoRa fallback and a portrait
 OLED to the Meshnology N30 / Heltec WiFi LoRa32 V3. It uses an ESP32-S3,
 8 MiB flash and a 64×128 display. N30 is RC-only, with no GNSS input; WiFi is
 disabled. Start with the [build guide](../../docs/n30/build.md).
+
+Version 0.2.34 preserves a recently trained local clock through a direct GM
+handoff. The display stays in HOLD through the successor's coarse JOIN; its
+first authenticated physical correction resumes continuous phase steering
+with the learned rate. New source permission, fit points and lock quality are
+acquired independently. Carry expires30s after the last physical observation;
+large time steps still fence the clock and require ordinary acquisition.
+
+Version 0.2.33 consumes authenticated GM7 revision-3 successor announcements.
+Withdrawal, completed timed yield, an observed successor promotion or sustained
+source loss starts fresh recovery with a short preference for the named GM.
+The replacement still requires authenticated admission and new timing samples.
+See the [handoff behavior and offline checks](../../docs/w12/build.md#gm-successor-recovery).
 
 Version 0.2.32 retires an active periodic-sync owner when the pinned SDK
 returns a successful HCI terminate acknowledgement or confirms it is already

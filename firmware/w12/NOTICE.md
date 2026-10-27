@@ -1,5 +1,9 @@
 # W12 source notices
 
+The shared W12/N30 GM successor consumer includes a selected MIT GM7 revision-3
+codec snapshot from this repository's T096 source. Its exact selection and
+hashes are recorded in [the snapshot provenance](main/gm7/README.md).
+
 Original migration tooling and documentation: Copyright (c) 2026 Jonathan Yantis,
 MIT. Selected original source files retain their inherited Apache-2.0 SPDX
 notices, matching the T096 extraction policy; those notices are not replaced by

@@ -7,11 +7,17 @@ RC role. [Image provenance](../../docs/images/README.md).*
 
 Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
 
-**PToB owns W12 native G1/RC7 development.** Current version **0.2.16** supports
+**PToB owns W12 native G1/RC7 development.** Current version **0.2.17** supports
 **RC**: a BLE50 client or BLE100 receiver with an optional experimental
 estimated-TX relay. It receives from the shared T096/W12/StickS3 mesh; it has no
 GM profile or USB timing stream. Start with the
 [build guide](../../docs/w12/build.md).
+
+Version 0.2.17 consumes authenticated GM7 revision-3 successor announcements.
+Withdrawal, completed timed yield, an observed successor promotion or sustained
+source loss starts fresh recovery with a short preference for the named GM.
+The replacement still requires authenticated admission and new timing samples.
+See [GM successor recovery](../../docs/w12/build.md#gm-successor-recovery).
 
 Version 0.2.16 retires an active periodic-sync owner when the pinned SDK
 returns a successful HCI terminate acknowledgement or confirms it is already

@@ -2,6 +2,9 @@
 #include "g1_client_policy.hpp"
 #include "periodic_rx_model.hpp"
 #include "g1_clock_prediction.hpp"
+#ifdef PTOB_N30
+#include "g1_retained_estimate.hpp"
+#endif
 #ifdef PTOB_W12_SYNC_WATCHDOG
 #include "w12_phase_offsets.hpp"
 #endif
@@ -110,7 +113,7 @@ class G1CorrectedClock {
   bool refuse(){inc(refused_);return false;}
   static bool stale(uint64_t now,uint64_t before){return now<before||now-before>uint64_t(periodic_rx::MaxAgeUs)*20;}
   void pending_clear(){for(auto& o:originals_)o={};for(auto& c:corrections_)c={};}
-  bool discontinuity(const Original& o,uint64_t remote){
+  bool discontinuity(const Original& o,uint64_t remote,uint64_t held20=0){
 #if defined(PTOB_N30) || defined(PTOB_W12_FINE_CLOCK)
     const auto predicted=o.predicted!=INT64_MIN?o.predicted:clock_.relative_at(o.local);
 #else
@@ -122,7 +125,7 @@ class G1CorrectedClock {
     // Gross continuity screen only:1ms allowance plus the entire existing
     // +/-50ppm rate envelope over the actual held interval. It never grants
     // precision. A seconds-scale step must not enter phase steering.
-    const auto elapsed=o.local>=clock_.tick?o.local-clock_.tick:0;
+    const auto elapsed=std::max(held20,o.local>=clock_.tick?o.local-clock_.tick:0);
     const auto limit=UINT64_C(1000000)+elapsed/400+o.enclosure;
     if(error<=limit)return false;
     inc(predictions_);causal_max_=std::max(causal_max_,error);
@@ -353,7 +356,11 @@ class G1CorrectedClock {
   // Expired output may still acquire using the independent live replay anchor,
   // exactly as T096 radio_service precision_step keeps acquisition context.
   bool receive(const r2_relay_packet& p,const periodic_rx::Stamp& capture,
-               uint64_t available20,uint64_t now,const G1Anchor& anchor,rc5_origin* matched_origin=nullptr){
+               uint64_t available20,uint64_t now,const G1Anchor& anchor,rc5_origin* matched_origin=nullptr
+#ifdef PTOB_N30
+               ,const G1RetainedEstimate* handoff=nullptr
+#endif
+               ){
     scope(anchor);
     if(!anchor.valid(now)||!capture.actual||!capture.tick20||!capture.association_observed||
        capture.channel>36||!capture.epoch||!capture.sequence||capture.map_enclosure_ns==UINT32_MAX||
@@ -387,6 +394,19 @@ class G1CorrectedClock {
     originals_[slot].predicted=clock_.relative_at(capture.tick20);
     auto nominal=clock_;nominal.rate=0;
     originals_[slot].nominal=nominal.relative_at(capture.tick20);
+#ifdef PTOB_N30
+    if(!clock_.tick&&handoff&&p.origin.utc_offset_ns>=0&&handoff->handoff_ready(capture.tick20)){
+      // Freeze the clock actually held at this physical RX. Translate its
+      // UTC value into the successor's signed correction-tick coordinate;
+      // two GMs need not have the same boot-time counter or UTC offset.
+      const auto held=handoff->clock.at(capture.tick20);
+      auto held_nominal=handoff->clock;held_nominal.rate=0;
+      if(held>p.origin.utc_offset_ns&&held_nominal.at(capture.tick20)>p.origin.utc_offset_ns){
+        originals_[slot].predicted=held-p.origin.utc_offset_ns;
+        originals_[slot].nominal=held_nominal.at(capture.tick20)-p.origin.utc_offset_ns;
+      }
+    }
+#endif
 #endif
     for(unsigned k=0;k<p.count;k++){
       const auto& value=p.correction[k];if(value.generation!=p.route.map_generation||value.channel>36)return refuse();
@@ -430,7 +450,20 @@ class G1CorrectedClock {
     // Only an authenticated, matched physical pair with actual remaining
     // permission can retire a map. Preserve the full failed prediction and
     // require a new pair; no corrupt sample trains the replacement clock.
-    if(discontinuity(*best,remote))return refuse();
+    uint64_t held20=0;
+#ifdef PTOB_N30
+    if(!clock_.tick&&handoff&&handoff->handoff_ready(available20)&&
+       handoff->handoff_ready(best->local)&&best->predicted>0){
+      // No old tuples, fit points, quality, source permission or lock cross
+      // this boundary. Seed only the running actuator, after a new admitted,
+      // authenticated physical pair passed all original permission checks.
+      held20=best->local-handoff->original20;
+      clock_={best->local,best->predicted,handoff->clock.phase_remaining(best->local),
+        handoff->clock.rate,best->offset};
+    }
+    if(!clock_.tick){best->predicted=best->nominal=0;} // Expired/invalid carry uses ordinary cold acquisition.
+#endif
+    if(discontinuity(*best,remote,held20))return refuse();
     if(last_remote_ns_&&remote<=last_remote_ns_)return refuse();
     until_=now+remaining;
     last_remote_ns_=remote;

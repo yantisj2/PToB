@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "author": "Jonathan Yantis",
+  "license": "MIT",
+  "selected_date": "2026-10-26",
+  "source_base_commit": "ea70b7f5b5bd6e57ceef21b45736fcd806be9059",
+  "source_state": "T096 working-tree GM7 revision-3 change; not the base commit bytes",
+  "wire_revision": 3,
+  "files": {
+    "gm7_codec.h": {
+      "origin": "firmware/t096/protocol/gm7_codec.h",
+      "sha256": "92324b78cfd629b237c3505a497d67420f6ec1130e2cc37214b4189c636890c0",
+      "upstream_selected_sha256": "92324b78cfd629b237c3505a497d67420f6ec1130e2cc37214b4189c636890c0"
+    },
+    "gm7_codec.c": {
+      "origin": "firmware/t096/protocol/gm7_codec.c",
+      "sha256": "861d3d8cf8998503cb1c983c02e8e907c4e3383b853ad435a6a64e3f8f334265",
+      "upstream_selected_sha256": "6816a595591f772e96de9f359d097154329b958a609dca779e42cb216dbe673c"
+    }
+  },
+  "selection": "Revision-3 control codec subset: ANNOUNCE/STATUS/WITHDRAW; remove unused ROLE/GNSS size, validation and field branches without changing control semantics"
+}

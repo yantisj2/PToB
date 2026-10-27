@@ -21,3 +21,7 @@ see [the selected-source manifest](imports/2026-10-20-lora.json). T096's Zephyr
 hardware driver is a modem reference only; N30 owns its ESP-IDF RX-only driver.
 The existing CounterMap helper is used solely to relate hardware counter rates;
 no GNSS driver, input or authority is enabled. No RadioLib dependency is added.
+
+The shared W12 GM successor consumer compiles a selected MIT GM7 revision-3
+codec snapshot from this repository's T096 source. See its
+[selection and byte provenance](../w12/main/gm7/README.md).

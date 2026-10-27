@@ -1,5 +1,17 @@
 # W12 changelog
 
+## 0.2.17 — announced GM successor recovery
+
+- Share N30's authenticated GM7 revision-3 successor consumer and bounded
+  recovery preference, preserving exact root/boot/epoch/train and nominee boot.
+- Withdraw old timing on matching WITHDRAW, the immutable YIELD boundary or a
+  valid next-term successor announcement. Sustained source loss retains the
+  existing expiry policy and tries the announced successor first.
+- Preserve fresh admission, physical timing acquisition, actual PA/ACL drain,
+  explicit pins, relay-only policy, GNSS profiles and per-device offsets.
+- Add bounded passive control reception between actual timing events. Native
+  regressions and builds remain separate from physical failover qualification.
+
 ## 0.2.16 — exact PA terminate acknowledgement
 
 - Retire only the exact active PA owner after the pinned SDK returns successful

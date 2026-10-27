@@ -8,6 +8,32 @@ not connect, flash, start a serial reader or operate a device.
 
 Version 0.2.28 consumes the shared [AUTO RC9 recovery fix](../w12/rc9.md#auto-client-return-to-normal-ble). Normal BLE recovery no longer waits for a six-minute fallback lease.
 
+Version 0.2.33 shares [GM successor recovery](../w12/build.md#gm-successor-recovery)
+with W12. Its build receipt identifies the revision-3 control consumer and
+three-second advisory recovery preference; enrollment and calibration are unchanged.
+
+Version 0.2.34 adds `N30_TRAINED_ACTUATOR_30S_FRESH_PAIR_V1`. After direct GM
+loss, the display keeps the last trained clock in HOLD through a new coarse
+JOIN. Only a new authenticated, physically matched correction seeds its running
+actuator, preserving UTC continuity and the learned rate across GM counter
+origins. The successor receives fresh fit points, quality and signed permission;
+old lock evidence and source authority never transfer. The existing1ppm fine
+slew below2us and bounded acquisition steering above it remain unchanged.
+Reuse ends30s after the old original's physical counter value, without renewal
+by polling or JOIN. Missing training, backward counters, expiry and a gross
+time step retain the ordinary acquisition/fencing path. This applies to N30's
+direct GR3 path; W12/SS3 and relay fitting retain their existing behavior.
+
+Run the handoff model and production-owner checks offline:
+
+```sh
+python3 firmware/n30/tools/gm_successor_tests.py --idf "$IDF_PATH" \
+  --out artifacts/n30-handoff-tests
+```
+
+These checks establish software continuity and permission fences, not measured
+RF handoff latency, calibrated UTC or physical output precision.
+
 ## Public dependencies
 
 Use the same pinned ESP-IDF v5.5.5 and Xtensa GCC14.2.0 release as

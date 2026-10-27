@@ -13,6 +13,7 @@ struct Rc7PermissionInspect {
   b.count=16;b.squares=160000;b.peak=1500; // Deliberately fails the unchanged1us lock gate.
  }
  static void allow_lock(G1CorrectedClock& c){c.quality_[c.quality_second_%16].peak=100;}
+ static void physical_update(G1CorrectedClock& c){++c.accepted_;}
  static void expire(G1CorrectedClock& c,uint64_t now){c.until_=now;}
 };
 }
@@ -86,7 +87,7 @@ int main(int argc,char** argv){
   assert(!v12::synced&&!v12::sync_pending&&!v12::fault);
   fake_now=lost+60000000;v12::window_start=v12::G1Window::start(fake_now);
   v12::parent_selection.seen(501,false,-30,fake_now-50000);
-  assert(v12::parent_selection.deferred(501,false,fake_now));
+  assert(!v12::parent_selection.deferred(501,false,fake_now)); // Leader-loss fence cleared obsolete learning.
   const auto epoch=which=="n30-source-return"?3u:2u;
   const auto train=which=="n30-source-return"?4u:3u;
   // A fresh same-boot challenge exchange, not a cached clock/locator, must
@@ -94,7 +95,7 @@ int main(int argc,char** argv){
   fresh_direct(501,601,epoch,train);
   assert(connected==1&&v12::parent_selection.parent()==501&&!v12::fault);
   assert(v12::anchor.boot==601&&v12::anchor.source_epoch==epoch&&v12::anchor.publication==train);
-  assert(v12::parent_selection.needs_alternative()); // Rejoin is not precision lock.
+  assert(!v12::parent_selection.needs_alternative()); // New trial; JOIN is still not precision lock.
   assert(!v12::corrected_clock.covers(fake_now,fake_now));
  }else if(which=="n30-relay-retry-budget"){
   // A previously good, now unlocked GM keeps getting control opportunities.

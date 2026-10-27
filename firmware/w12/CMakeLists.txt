@@ -1,7 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 # Public W12 successor: one RC receiver profile. No legacy bench roster or GM.
 set(IDF_TARGET esp32s3)
-set(PROJECT_VER "0.2.16")
+set(PROJECT_VER "0.2.17")
+set(PTOB_GM_SUCCESSOR ON)
 set(COMPONENTS main)
 set(V12_R2_PROFILE "r2-g1")
 set(V12_UNIT "W12")

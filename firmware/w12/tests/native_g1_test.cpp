@@ -63,7 +63,7 @@ void test_critical_enter(void* m){if(stop_at_admit&&m==&v12::mux){stop_at_admit=
 void step(unsigned n=1){for(unsigned i=0;i<n;i++){fake_now+=2000;v12::r2_observe(fake_now);v12::r2_host_poll();pump_cleanup();}}
 void inject(const r2_join_record& r,bool corrupt=false){os_mbuf b;b.bytes.resize(R2_GROUP_JOIN_BYTES);assert(!r2_group_join_encode(b.bytes.data(),&r,&v12::provision.group));if(corrupt)b.bytes[145]^=1;ble_gatt_access_ctxt ctx;ctx.om=&b;assert(!v12::access(22,0,&ctx,nullptr));step();}
 void discovery(bool pending_only=false){v12::Discovery d{};d.props=1;d.length=28;d.bytes[0]=2;d.bytes[1]=1;d.bytes[2]=6;d.bytes[3]=24;d.bytes[4]=0xff;auto* p=d.bytes+5;p[0]='G';p[1]='1';p[2]=1;r2_group_put(p+3,v12::provision.group.id,8);r2_group_put(p+11,1,4);r2_group_put(p+15,111,8);d.address=v12::canonical(111);assert(v12::discovery_identity(d)==111);r2_group_put(p+15,UINT64_C(0x0000000000000001),8);d.address=v12::canonical(UINT64_C(0x0000000000000001));assert(v12::discovery_identity(d));d.address.val[0]^=1;assert(!v12::discovery_identity(d));d.address.val[0]^=1;p[2]|=64;assert(!v12::discovery_identity(d));p[2]&=~64;d.at=fake_now;v12::discoveries.push(d);step();assert(connected==1);ble_gap_event e;e.type=BLE_GAP_EVENT_CONNECT;if(!pending_only&&!inline_failure&&!inline_success)v12::gap(&e,conn_arg);step(3);}
-void fresh_direct(uint64_t identity,uint64_t boot,uint32_t source,uint32_t train){
+void fresh_direct(uint64_t identity,uint64_t boot,uint32_t source,uint32_t train,bool expect_hold=false){
   const auto before=output.size();v12::Discovery d{};d.props=1;d.length=25;d.bytes[0]=24;d.bytes[1]=0xff;
   auto* b=d.bytes+2;b[0]='G';b[1]='1';b[2]=1;r2_group_put(b+3,v12::provision.group.id,8);r2_group_put(b+11,1,4);r2_group_put(b+15,identity,8);
   d.address=v12::canonical(identity);d.rssi=-30;d.at=fake_now;v12::discoveries.push(d);step(21);assert(v12::peer.connecting);
@@ -75,7 +75,11 @@ void fresh_direct(uint64_t identity,uint64_t boot,uint32_t source,uint32_t train
   assert(output.size()==before+2);r2_join_record proof{};assert(!r2_group_join_decode(&proof,output.back().data(),R2_GROUP_JOIN_BYTES,&v12::provision.group));
   auto accept=challenge;accept.kind=R2_JOIN_ACCEPT;accept.sequence=2;accept.created_us+=10000;accept.echo_us=proof.created_us;
   accept.source_flags=1;accept.source_bound_us=40000;accept.root=identity;accept.root_boot=boot;accept.source_epoch=source;accept.publication=train;accept.utc_us=1700000000000000+fake_now;accept.remaining_us=250000;
-  inject(accept);const auto state=v12::r2_status();assert(state.following&&state.root_identity==identity&&state.root_boot==boot&&state.source_epoch==source&&state.publication==train&&state.clock_valid&&!state.fault);
+  inject(accept);const auto state=v12::r2_status();
+  assert(v12::anchor.root==identity&&v12::anchor.boot==boot&&v12::anchor.source_epoch==source&&v12::anchor.publication==train);
+  assert(state.clock_valid&&!state.fault);
+  if(expect_hold)assert(!state.following&&state.g1_retained_estimate&&!state.root_identity&&!state.root_boot&&!state.source_epoch&&!state.publication);
+  else assert(state.following&&state.root_identity==identity&&state.root_boot==boot&&state.source_epoch==source&&state.publication==train);
 }
 int main(int argc,char** argv){assert(argc==2);std::string which=argv[1];
   const uint8_t c1[]={2,0,0,0,0,5},c2[]={2,0,0,0,0,6},c3[]={2,0,0,0,0,7};

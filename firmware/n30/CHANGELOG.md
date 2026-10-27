@@ -1,5 +1,30 @@
 # N30 changelog
 
+## 0.2.34 — continuous clock through direct GM handoff
+
+- Retain the running local clock during the successor's coarse JOIN. Resume
+  phase steering with its learned rate only after a newly authenticated,
+  matched physical correction; translate between different GM counter origins.
+- Bound actuator reuse to30s after the original physical observation. Reset
+  fit points, causal quality and source permissions, and retain gross-step,
+  expired-carry, counter and invalid-capture fences. Cold start remains ordinary
+  acquisition. W12/SS3 keep their existing behavior.
+- Add actual-clock signed phase/rate/continuity and actual-owner JOIN/HOLD
+  regressions. Software checks do not establish physical failover precision.
+
+## 0.2.33 — announced GM successor recovery
+
+- Consume authenticated GM7 revision-3 announcements bound to the selected root,
+  boot, timing epoch and train. Retain the nominated successor's exact boot.
+- Honor terminal withdrawal and the original timed-yield boundary; recognize
+  the named successor's next-term announcement. Existing sustained source loss
+  also carries the nomination into a bounded three-second recovery preference.
+- Retire old source/model/queued samples through the existing owner drain.
+  Require a fresh locator, G1 authentication and new physical timing. Preserve
+  operator pins, relay-only policy, calibration and admission rate bounds.
+- Add short passive control-listening windows between associated PA receptions.
+  Offline regressions do not qualify physical handoff latency or precision.
+
 ## 0.2.32 — exact PA terminate acknowledgement
 
 - Retire only the exact active PA owner after the pinned SDK returns successful

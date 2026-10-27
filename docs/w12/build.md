@@ -344,6 +344,53 @@ scope/stop and unchanged admission drain deadlines. Relay flag bit 8 reports
 management eligibility (including a held train); bit 9 reports an active loss
 hold. Neither bit grants timing authority.
 
+## GM successor recovery
+
+W12 0.2.17 and N30 0.2.33 consume GM7 revision-3 ANNOUNCE and WITHDRAW.
+The bounded decoder snapshot is described in the
+[codec provenance](../../firmware/w12/main/gm7/README.md).
+Only the selected authenticated root, boot, timing epoch and train can nominate
+a successor. Control sequence, lineage, term, canonical advertiser and original
+freshness are checked. The current admitted G1 coarse replay interval bounds
+ANNOUNCE age; its paired UTC/monotonic sample bounds a later UTC-less WITHDRAW.
+These are receiver routing hints, with no GM election or takeover authority.
+
+A matching WITHDRAW immediately retires the old source. YIELD schedules that
+retirement at the conservative latest original 750 ms boundary; repeated copies
+cannot move it. A fresh announcement from the exact named successor boot in the
+next term also starts recovery. The existing sustained source-loss fence can
+reuse a recent nomination. Recovery clears obsolete selection history and gives
+the successor one three-second re-observation preference, then permits ordinary
+selection. Missing, changed, replayed or stale nominations cannot renew it.
+
+Every replacement needs a fresh connectable locator and authenticated G1
+admission, followed by new physical timing samples. Old models, permissions and
+controller handles are not reused. Original source/model expiry, five-second
+recovery credit, real PA/ACL drain, explicit pins and relay-only constraints
+remain. A terminal old train is refused during direct and relay admission.
+Fresh admission to a new scope clears the old control binding.
+
+While following, a current corrected model and associated PA can place an
+18 ms passive scan window at UTC quarter-frame offsets 32–50 ms, with an 8 ms
+start guard and an end before 56 ms after the actual PA. No fresh model/capture
+means no extra scan window. BLE50 remains within its existing listening window.
+Ordinary discovery also consumes complete control reports. Delivery can still
+miss control events; seamless handoff and RF latency remain unqualified.
+
+Run the policy and actual native-owner regressions without hardware:
+
+```sh
+python3 firmware/n30/tools/gm_successor_tests.py --idf "$IDF_PATH" \
+  --out artifacts/n30-gm-successor-tests
+python3 firmware/n30/tools/gm_successor_tests.py --w12 --idf "$IDF_PATH" \
+  --out artifacts/w12-gm-successor-tests
+```
+
+These cover withdrawal, fixed yield, promotion, loss, missing-successor fallback,
+pins, relay-only policy, bad MAC/address and protected listening, plus scope,
+freshness, duplicate and original-expiry boundaries. Host/native success does
+not establish hardware acceptance or independently measured timing accuracy.
+
 ## Hardware boundary
 
 The public builder never opens hardware. A generic public flasher is not yet

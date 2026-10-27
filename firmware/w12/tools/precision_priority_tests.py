@@ -35,8 +35,12 @@ def main():
       '-fsanitize=address,undefined','-DV12_R2_ENABLED=1','-DV12_R2_FIELD_CLIENT=1','-DV12_R2_CONFIG=13',
       '-DV12_UNIT="C1"','-DV12_R2_G1_LISTENING_PERCENT=100','-DCONFIG_BT_NIMBLE_HOST_TASK_STACK_SIZE=8192']
     if a.n30:flags+=['-DPTOB_N30=1','-DV12_G1_FAILED_PARENT_RETRY_US=60000000','-I'+str(APP.parent/'n30/main')]
+    flags+=['-DPTOB_GM_SUCCESSOR=1','-I'+str(APP/'main/gm7')]
     for path in [out,APP/'tests',APP/'tests/r2_fakes',APP/'tests/console_fakes',APP/'main',APP/'legacy/reference',APP/'main/r2/r2-g1',APP/'main/r2/rc7/include',crypto]:flags+=['-I'+str(path)]
     objects=[a.objects.resolve()/(n+'.o') for n in ('group_auth','group_join','group_precision','precision_codec','relay_codec','rc_dynamic','rc_boundary','rc_slots','g1_hmac','sha256','utils')]
+    codec=out/'gm7_codec.o'
+    with (out/'gm7-compile.log').open('w') as f:subprocess.run([os.environ.get('CC','clang'),'-std=c11',*flags[1:],'-c',str(APP/'main/gm7/gm7_codec.c'),'-o',str(codec)],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=30)
+    objects.append(codec)
     binary=out/'priority';cmd=[os.environ.get('CXX','clang++'),*flags,str(out/'priority.cpp'),*map(str,objects),'-o',str(binary)]
     with (out/'compile.log').open('w') as f:subprocess.run(cmd,stdout=f,stderr=subprocess.STDOUT,check=True,timeout=60)
     result={'status':'RUNNING','cases':{},'parent_selection_sha256':sha(APP/'main/g1_parent_selection.hpp'),'native_sha256':sha(out/'native_g1_fixture.cpp'),'fixture_sha256':sha(APP/'tests/precision_priority_fixture.inc'),'scope':'SYNTHETIC_PUBLIC_SDK_BOUNDARY;NO_RF_OR_PRECISION_QUALIFICATION'}
