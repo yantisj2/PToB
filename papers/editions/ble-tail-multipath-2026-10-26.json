@@ -1,0 +1,538 @@
+{
+  "schema_version": 1,
+  "license": "MIT",
+  "copyright": "2026 Jonathan Yantis",
+  "edition_date": "2026-10-26",
+  "status": "AUTHOR_REVIEW_DRAFT_PUBLICATION_APPROVAL_PENDING",
+  "author": "Jonathan Yantis",
+  "title": "Reducing Timing Tails and Multipath Sensitivity in an Operating BLE Precision Mesh",
+  "paper_license": "CC-BY-4.0",
+  "code_and_documentation_license": "MIT",
+  "derived_analysis_license": "CC-BY-4.0",
+  "page_count": 9,
+  "previous_published_edition": null,
+  "base_repository_commit": "ea70b7f5b5bd6e57ceef21b45736fcd806be9059",
+  "preparation_scope": "New author-review draft; same open main.tex revised on direct user request for coherence and historical context, expanding seven to nine pages including references. Existing main.pdf refreshed; no replacement document or editor tab. No firmware/hardware/daemon/private-lab action, staging, commit, push, submission, release or publication.",
+  "revision_scope": [
+    "Explain historical multipath and distinct detector-bias versus loss/aging/recovery routes.",
+    "Connect RBS, FTSP and CheepSync to PToB event capture/association and clock estimation.",
+    "Explain affine-clock offset/delay identifiability; retain all empirical and calibration limits."
+  ],
+  "files": [
+    {
+      "path": "papers/ble-tail-multipath/main.tex",
+      "bytes": 36382,
+      "sha256": "22e3ed0b0ae7cb70d55ccaa98418c93622d0e6da7f72facaf59a2662bbf44311",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "papers/ble-tail-multipath/main.pdf",
+      "bytes": 99607,
+      "sha256": "cc2cf6756e52c2a317b57e5cddb19f8e287acc26448dfd185d8d3df7ce762811",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "papers/ble-tail-multipath/README.md",
+      "bytes": 4756,
+      "sha256": "8405210cd0731653058731b3c8f3ae76a6ec8eff9c53f41dddc66256dd17d1d4",
+      "license": "MIT"
+    },
+    {
+      "path": "papers/ble-tail-multipath/analysis.json",
+      "bytes": 2793,
+      "sha256": "7752671eaa78f44d7f665bea648fb50f1d6e14268536683d2e33c46f56527c16",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "tools/verify_ble_tail_multipath_paper.py",
+      "bytes": 11039,
+      "sha256": "14c8ea7257f8aff0b5a06bcdcceb08f1bd06f54b0b147f1bc270642fe62b6b22",
+      "license": "MIT"
+    }
+  ],
+  "cited_git_sources": [
+    {
+      "path": "firmware/t096/protocol/precision_codec.h",
+      "revision": "ea70b7f5b5bd6e57ceef21b45736fcd806be9059",
+      "bytes": 1287,
+      "sha256": "c1a518ac78632f0d779d42f68c81439ff1dacd2b9834c399105d56ce267d8f0e"
+    },
+    {
+      "path": "firmware/t096/src/radio_capture.c",
+      "revision": "ea70b7f5b5bd6e57ceef21b45736fcd806be9059",
+      "bytes": 8820,
+      "sha256": "24d72781a21e851aed8251c7a4b6eeacce131e949314f6a5f81db8368aa2c49c"
+    },
+    {
+      "path": "firmware/t096/src/capture.c",
+      "revision": "ea70b7f5b5bd6e57ceef21b45736fcd806be9059",
+      "bytes": 15782,
+      "sha256": "efc7b8465a3a276f29f2cc0d33b795502702aa025f6cd83757fffc883e089edb"
+    },
+    {
+      "path": "firmware/w12/main/fine_receiver.hpp",
+      "revision": "ea70b7f5b5bd6e57ceef21b45736fcd806be9059",
+      "bytes": 6104,
+      "sha256": "24f18a1c4cfebdb8a245a5689135ee284350aff35be28d29a45f96647b17ce9d"
+    },
+    {
+      "path": "firmware/w12/main/periodic_rx_model.hpp",
+      "revision": "ea70b7f5b5bd6e57ceef21b45736fcd806be9059",
+      "bytes": 5532,
+      "sha256": "37bd363abe56033b2b37c27d31d1214226e1c47ecc6952543646f0ee6de256d4"
+    },
+    {
+      "path": "firmware/w12/main/g1_corrected_clock.hpp",
+      "revision": "ea70b7f5b5bd6e57ceef21b45736fcd806be9059",
+      "bytes": 34478,
+      "sha256": "34ffc9558ef8fde73935050f6dc19856b770cb8bbdc736fe4ba3fd1dd9f7d825"
+    },
+    {
+      "path": "firmware/w12/main/g1_clock_prediction.hpp",
+      "revision": "ea70b7f5b5bd6e57ceef21b45736fcd806be9059",
+      "bytes": 2362,
+      "sha256": "77fe24a41a31971da9073e7069b13345446e3c3018c50a44f6e4461d0aca7d50"
+    },
+    {
+      "path": "firmware/w12/main/native_g1.cpp",
+      "revision": "ea70b7f5b5bd6e57ceef21b45736fcd806be9059",
+      "bytes": 123785,
+      "sha256": "beb4b4a0c3d49b9fe8c10b908b719ec7588a7dfbb5f0210c2f74ef9778842b0f"
+    },
+    {
+      "path": "firmware/w12/README.md",
+      "revision": "ea70b7f5b5bd6e57ceef21b45736fcd806be9059",
+      "bytes": 12673,
+      "sha256": "80e2b7123e6af3882f9347b6e98f498a0c75313f1733e94094896055acaa8ec6"
+    },
+    {
+      "path": "docs/w12/build.md",
+      "revision": "ea70b7f5b5bd6e57ceef21b45736fcd806be9059",
+      "bytes": 46372,
+      "sha256": "b7f4d3bbf95f624f053e0d9f72174525862c286582dd595e5a8e4fa1df127a59"
+    },
+    {
+      "path": "docs/w12/tx-reference.md",
+      "revision": "ea70b7f5b5bd6e57ceef21b45736fcd806be9059",
+      "bytes": 4884,
+      "sha256": "6ff9ea9c58ae65f2d4f900557a2e7e259063f67e7aec3ef14e7e508d1e57ef0d"
+    },
+    {
+      "path": "firmware/ss3/README.md",
+      "revision": "ea70b7f5b5bd6e57ceef21b45736fcd806be9059",
+      "bytes": 4149,
+      "sha256": "6a7b4ca5e438cd3520da38476aa9b47ab62578a55b403738e21b2528f1175817"
+    },
+    {
+      "path": "docs/ss3/build.md",
+      "revision": "ea70b7f5b5bd6e57ceef21b45736fcd806be9059",
+      "bytes": 8143,
+      "sha256": "11df7ac8c470112eac0853708d320ed65b797a006ba19ad92f7e78a393578036"
+    },
+    {
+      "path": "firmware/n30/README.md",
+      "revision": "ea70b7f5b5bd6e57ceef21b45736fcd806be9059",
+      "bytes": 10187,
+      "sha256": "afc23d8bbf3d700d164d2f0fda44d8b72f3002231411458ff7ad01c3d482e0c4"
+    },
+    {
+      "path": "docs/n30/build.md",
+      "revision": "ea70b7f5b5bd6e57ceef21b45736fcd806be9059",
+      "bytes": 61825,
+      "sha256": "11ef1311a3e9b3494cc619857cdfd4cea2bd9b5e40ff9584c4d207c507f93050"
+    },
+    {
+      "path": "papers/ptob-esp32s3-low-level-timing.tex",
+      "revision": "ea70b7f5b5bd6e57ceef21b45736fcd806be9059",
+      "bytes": 30371,
+      "sha256": "cd51bb204b8d72e719ea58662c55253f8c46ade500e52c1ca8a4b3a9cb63ea57"
+    },
+    {
+      "path": "firmware/t096/README.md",
+      "revision": "ea70b7f5b5bd6e57ceef21b45736fcd806be9059",
+      "bytes": 7600,
+      "sha256": "5ef3331f8c2787b6a7b03a32253586676893ac178575681187b5427d5355878b"
+    },
+    {
+      "path": "docs/t096/build.md",
+      "revision": "ea70b7f5b5bd6e57ceef21b45736fcd806be9059",
+      "bytes": 9886,
+      "sha256": "0b9c5cf508393ef928a30ecb0631ae13fed4f721b675bc1b5aaf915f1c7e9480"
+    }
+  ],
+  "cited_local_sources": [
+    {
+      "path": "tools/verify_w12_utc_results.py",
+      "bytes": 4354,
+      "sha256": "ff5e26ba82f8cfe781ab59e581fba8e07d39cb959044114cfd164bc9073919ea"
+    },
+    {
+      "path": "tools/verify_s3_fine_paper.py",
+      "bytes": 7031,
+      "sha256": "24b08c656784affef52733737dce9db1fbdfc8ec57ff80cba2992fda1d2f8e6f"
+    },
+    {
+      "path": "evidence/s3/2026-10-24-w12-utc-basis/README.md",
+      "bytes": 4242,
+      "sha256": "70e08cdf3b3a3f56eacea266717ffa71ff9d045287b481f9f87f387aafc745f1"
+    },
+    {
+      "path": "evidence/s3/2026-10-24-w12-utc-basis/manifest.json",
+      "bytes": 2480,
+      "sha256": "d8c1c14c1e1eb5874c31908744789ef50b5afaeef3e2c7fae6fc61b87e17373b"
+    },
+    {
+      "path": "evidence/s3/2026-10-24-w12-utc-basis/results.json",
+      "bytes": 8164,
+      "sha256": "4e130185c9ec2fa32358bb5ce4e26302fa0c3b613e59c281e9d6af545aa65918"
+    },
+    {
+      "path": "evidence/s3/2026-10-24-w12-utc-basis/w12-pps.csv",
+      "bytes": 29500,
+      "sha256": "f875c5170a30d28cee2ed2046ea18cd24558b66becf13c46dc59d6e79019d0be"
+    },
+    {
+      "path": "evidence/s3/2026-10-24-w12-utc-basis/downstream-pps.csv",
+      "bytes": 27964,
+      "sha256": "46c2119c0ed5247b2be91b0e5b89173e27f0053d1f1677199e84ce2792c91fe2"
+    },
+    {
+      "path": "evidence/s3/2026-10-24-w12-utc-basis/sampled-tx.csv",
+      "bytes": 5976,
+      "sha256": "96d615fe7150bb3dfa30a769b8d3af4569bfc9065dbf18868fbc5ca4e95409bd"
+    },
+    {
+      "path": "evidence/s3/2026-10-22-fine/README.md",
+      "bytes": 4163,
+      "sha256": "3a5d1a9cadd5d9ed1191413901e5aef0733a6a65640a8cf73480bb7d9a201cce"
+    },
+    {
+      "path": "evidence/s3/2026-10-22-fine/manifest.json",
+      "bytes": 2125,
+      "sha256": "dd357fb1d0b2be0f5559879d90dad93784d643af2a6f199ff715ce80e06e0aab"
+    },
+    {
+      "path": "evidence/s3/2026-10-22-fine/protocol.json",
+      "bytes": 3936,
+      "sha256": "8e28d3e917448194187761cb3445ffc940d5291d06c4e64ee2644e5024cffcae"
+    },
+    {
+      "path": "evidence/s3/2026-10-22-fine/results.json",
+      "bytes": 7140,
+      "sha256": "5983fd09728d6dddda62977d549ae22b53664dcc7b7e7a981a1196c81236a24e"
+    },
+    {
+      "path": "evidence/s3/2026-10-22-fine/source-context.json",
+      "bytes": 3745,
+      "sha256": "2b0a60ae7f2e92501fb212a3d344dbe59a32e94e9c9c8ee9487c15d609c5515c"
+    },
+    {
+      "path": "evidence/s3/2026-10-22-fine/pps-sanitized.csv",
+      "bytes": 60335,
+      "sha256": "636c8f2a6d5ab370343d35e18e5d8ad9cf35f46b91d8f05f53bf004c379e3ab2"
+    }
+  ],
+  "consulted_working_tree_proposals": [
+    {
+      "path": "docs/t096/two-way-rc-phase1-proposal.md",
+      "bytes": 9922,
+      "sha256": "3ad7df0ac86a5d3f455e4d3efa925e5ede706bd7525749497cc834cee0ddb2c0",
+      "status": "EXISTING_UNTRACKED_PROPOSAL_NOT_IMPORTED",
+      "note": "Separately owned draft preserved in place; not required for numerical or edition verification, and no standalone copy is bundled. The manuscript states its unimplemented status."
+    }
+  ],
+  "consulted_T096_scope_guides": [
+    {
+      "path": "firmware/t096/README.md",
+      "initial_sha256": "5ef3331f8c2787b6a7b03a32253586676893ac178575681187b5427d5355878b",
+      "initial_documented_version": "0.15.174",
+      "note": "Read at start for target authority. Concurrent unrelated work later changed this guide to0.15.201; not an immutable verifier input or qualification of that firmware."
+    },
+    {
+      "path": "docs/t096/build.md",
+      "initial_sha256": "0b9c5cf508393ef928a30ecb0631ae13fed4f721b675bc1b5aaf915f1c7e9480",
+      "initial_documented_version": "0.15.174",
+      "note": "Read at start for target authority. Concurrent unrelated work later changed this guide to0.15.201; not an immutable verifier input or qualification of that firmware."
+    }
+  ],
+  "source_checkpoints": {
+    "reviewed_code": "Production code and target guides are bound to the exact repository preparation commit; current unrelated T096 and N30-conditional shared-worker edits are excluded.",
+    "historical_W12": "W12 0.2.10 / b5ecbb0; T096 0.15.169 / 1a1fa96",
+    "historical_N30_fixed": "bca1d0bdf7fd9d7e6632b623ad84cfa714dca9fe, fixed50909",
+    "historical_N30_transfer": "48c6207bb794ded6bd7577cafdf51ec81047d5cd, separate transfer51016",
+    "two_way": "Untracked working-tree proposal hashed above; not implemented"
+  },
+  "cited_evidence_populations": [
+    {
+      "name": "W12 delivered PPS,24October",
+      "eligible": 522,
+      "logged": 600,
+      "rms_including_bias_ns": 60.328,
+      "max_abs_ns": 180,
+      "source_unavailable": 78,
+      "frozen_adjustments_ns": {
+        "W12_receive": 7671,
+        "relay": 4026,
+        "downstream_receive": 10543
+      }
+    },
+    {
+      "name": "Downstream PPS,24October",
+      "eligible": 451,
+      "logged": 600,
+      "rms_including_bias_ns": 61.922,
+      "max_abs_ns": 211,
+      "unscorable": {
+        "no_map": 109,
+        "expired": 36,
+        "reference_ineligible": 4
+      }
+    },
+    {
+      "name": "Selected TX at downstream RX,24October",
+      "eligible": 58,
+      "selected": 120,
+      "rms_including_bias_ns": 108.306,
+      "max_abs_ns": 226,
+      "unscorable": {
+        "missing_followup": 61,
+        "no_PPS_bracket": 1
+      }
+    },
+    {
+      "name": "N30 fixed660,22October",
+      "eligible": 657,
+      "nominal": 660,
+      "invalid": 3,
+      "nominal_missing": 0,
+      "rms_including_bias_ns": 166.59,
+      "max_abs_ns": 1591,
+      "eligible_above_1us": 4,
+      "profile_total_ns": 50909,
+      "cause": "not isolated",
+      "calibration_warning": "Later reused to select51016; cannot validate that retuning"
+    },
+    {
+      "name": "Separate N30 second-board transfer",
+      "eligible": 48,
+      "recorded": 64,
+      "invalid": 16,
+      "rms_including_bias_ns": 150.954,
+      "max_abs_ns": 362,
+      "profile_total_ns": 51016,
+      "selection": "First48eligible/all64found records; no pooling or validation refit"
+    }
+  ],
+  "external_sources": [
+    {
+      "author_or_publisher": "Bluetooth SIG",
+      "identity": "Core Specification 6.1, Vol.6 Part B",
+      "url": "https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core-61/out/en/low-energy-controller/link-layer-specification.html",
+      "access_date": "2026-10-26",
+      "scope": "Sections2.1.1-2.1.2,4.4.2.2.3,4.4.5.1,4.5.8; interval/packet fields/channel ownership"
+    },
+    {
+      "author_or_publisher": "Bluetooth SIG",
+      "identity": "Core Specification 6.1, Vol.6 Part A",
+      "url": "https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core-61/out/en/low-energy-controller/physical-layer-specification.html",
+      "access_date": "2026-10-26",
+      "scope": "PHY context; no current-device Channel Sounding capability inferred"
+    },
+    {
+      "author_or_publisher": "Nordic Semiconductor",
+      "identity": "nRF52840 online Product Specification, RADIO",
+      "url": "https://docs.nordicsemi.com/r/bundle/ps_nrf52840/page/radio.html",
+      "access_date": "2026-10-26",
+      "scope": "Online revision not exposed in retrieved text; ADDRESS event, not first-path metrology"
+    },
+    {
+      "author_or_publisher": "Nordic Semiconductor",
+      "identity": "nRF52840 online Product Specification, PPI",
+      "url": "https://docs.nordicsemi.com/r/bundle/ps_nrf52840/page/ppi.html",
+      "access_date": "2026-10-26",
+      "scope": "Online revision not exposed; event/task routing"
+    },
+    {
+      "author_or_publisher": "Espressif",
+      "identity": "ESP-IDF v5.5.5 ESP32-S3 MCPWM",
+      "url": "https://docs.espressif.com/projects/esp-idf/en/v5.5.5/esp32s3/api-reference/peripherals/mcpwm.html",
+      "access_date": "2026-10-26",
+      "scope": "Capture, APB clock, power management and cache-safe interrupts"
+    },
+    {
+      "author_or_publisher": "Texas Instruments",
+      "identity": "AN085 / SWRA317, Implementing Diversity Using Low Power Radios",
+      "url": "https://www.ti.com/lit/pdf/swra317",
+      "access_date": "2026-10-26",
+      "scope": "Other-radio reception study; retrieved revision table has no reliable release date; no precision-timing transfer"
+    },
+    {
+      "author_or_publisher": "Texas Instruments",
+      "identity": "AN058 / SWRA161B, Antenna Selection Guide, 2010-10-05",
+      "url": "https://www.ti.com/lit/an/swra161b/swra161b.pdf",
+      "access_date": "2026-10-26",
+      "scope": "Polarization/ground/antenna characterization, no universal clearance"
+    },
+    {
+      "author_or_publisher": "Maroti, Kusy, Simon, Ledeczi",
+      "identity": "FTSP, SenSys2004, DOI10.1145/1031495.1031501",
+      "url": "https://www.isis.vanderbilt.edu/sites/isis.vanderbilt.edu/files/bibcite_files/Maroti_M_11_3_2004_The_Floodi_0.pdf",
+      "access_date": "2026-10-26",
+      "scope": "Original author-hosted paper; MAC timestamp/skew-estimation lineage"
+    },
+    {
+      "author_or_publisher": "Espressif",
+      "identity": "ESP-IDF v5.5.5 Wi-Fi FTM example",
+      "url": "https://raw.githubusercontent.com/espressif/esp-idf/v5.5.5/examples/wifi/ftm/README.md",
+      "access_date": "2026-10-26",
+      "scope": "Hardware TOA/TOD definitions; separate future comparison, not PToB functionality"
+    },
+    {
+      "author_or_publisher": "Saleh and Valenzuela / Bell Labs",
+      "identity": "IEEE JSAC5(2),1987, DOI10.1109/JSAC.1987.1146527",
+      "url": "https://www.nokia.com/bell-labs/publications-and-media/publications/a-statistical-model-for-indoor-multipath-propagation/",
+      "access_date": "2026-10-26",
+      "scope": "Primary institutional record/abstract: office-building pulse measurements. Full publisher PDF inaccessible; no detailed model parameters or BLE calibration imported"
+    },
+    {
+      "author_or_publisher": "Elson, Girod, Estrin",
+      "identity": "RBS, OSDI2002, especially Section3",
+      "url": "https://www.usenix.org/legacy/events/osdi02/tech/full_papers/elson/elson.pdf",
+      "access_date": "2026-10-26",
+      "scope": "Original publisher-hosted paper; sender uncertainty and propagation approximation at microsecond scale"
+    },
+    {
+      "author_or_publisher": "Freris, Graham, Kumar",
+      "identity": "IEEE TAC56(6),2011, DOI10.1109/TAC.2010.2089210",
+      "url": "https://cs.nyu.edu/~apanda/classes/sp25/papers/time-sync-limits.pdf",
+      "access_date": "2026-10-26",
+      "scope": "Original institution-hosted paper; affine-clock/unknown-delay identifiability, not a PToB bound"
+    },
+    {
+      "author_or_publisher": "Sridhar et al.",
+      "identity": "CheepSync, arXiv1501.06479v2,2016-04-08, first submitted2015",
+      "url": "https://arxiv.org/html/1501.06479v2",
+      "access_date": "2026-10-26",
+      "scope": "Original author manuscript; low-level BLE timestamp/drift management. Citation uses et al. because arXiv metadata and manuscript author lists differ"
+    }
+  ],
+  "external_identity_limit": "Cited works are not vendored. Versions/DOIs/access date identify consulted sources; online pages are not byte-sealed. No comprehensive normative conformance audit.",
+  "checks": [
+    {
+      "check": "Built-in compile_latex_document on saved main.tex",
+      "result": "success after revision"
+    },
+    {
+      "check": "Tectonic0.17.0, public bundlev33, cache6ffe055852f8faf66c0acbe1a7fb27f87b869a90bad1204f3bf4d9683f597c7c",
+      "result": "Nine letter pages; zero overfull boxes; one underfull table-cell hbox,badness1194,visually acceptable"
+    },
+    {
+      "check": "Poppler pdfinfo/pdftotext/pdftoppm110dpi",
+      "result": "All nine final pages visually inspected: text,margins,headers/footers,equations,two vector figures,matrix,16references; no clipping/overlap"
+    },
+    {
+      "check": "python3 tools/verify_ble_tail_multipath_paper.py",
+      "result": "PASS numerical/analytical invariants,five separate populations,edition identities; bundled pypdf page-tree check also passes"
+    },
+    {
+      "check": "python3 tools/verify_w12_utc_results.py",
+      "result": "PASS all selected windows,sources,invalids,tails,UTC fractions"
+    },
+    {
+      "check": "python3 tools/verify_s3_fine_paper.py",
+      "result": "PASS selected fine data,training/fixed/transfer distinctions and hashes"
+    },
+    {
+      "check": "git diff --check and index inspection",
+      "result": "PASS whitespace; no staged changes"
+    },
+    {
+      "check": "Scoped before/after preservation audit",
+      "result": "All200 prior paper/evidence files byte-identical,including earlier editions/immutable manifests. Reviewed production source is independently bound to recorded Git blobs; concurrent firmware changes remain untouched.",
+      "own_existing_documentation_edits": [
+        "LICENSING.md",
+        "papers/CHANGELOG.md",
+        "papers/README.md",
+        "tools/README.md"
+      ],
+      "concurrently_changed_unrelated_paths": [
+        "CHANGELOG.md",
+        "README.md",
+        "docs/t096/build.md",
+        "docs/t096/diagnostics.md",
+        "docs/t096/gm-operations.md",
+        "docs/t096/gm7-implementation.md",
+        "firmware/n30/main/CMakeLists.txt",
+        "firmware/t096/CHANGELOG.md",
+        "firmware/t096/CMakeLists.txt",
+        "firmware/t096/README.md",
+        "firmware/t096/cmake/gm7-controller.json",
+        "firmware/t096/cmake/gm7.cmake",
+        "firmware/t096/include/core.h",
+        "firmware/t096/include/diagnostic.h",
+        "firmware/t096/include/gm7_controller.h",
+        "firmware/t096/include/gm7_service.h",
+        "firmware/t096/include/gm7_timing.h",
+        "firmware/t096/include/group_admission.h",
+        "firmware/t096/include/health.h",
+        "firmware/t096/include/radio_precision.h",
+        "firmware/t096/include/ui.h",
+        "firmware/t096/protocol/ble_transport.c",
+        "firmware/t096/protocol/ble_transport.h",
+        "firmware/t096/protocol/gm7_air.c",
+        "firmware/t096/protocol/gm7_codec.c",
+        "firmware/t096/protocol/gm7_codec.h",
+        "firmware/t096/protocol/gm7_owner.c",
+        "firmware/t096/protocol/gm7_owner.h",
+        "firmware/t096/protocol/gm7_schedule.c",
+        "firmware/t096/protocol/gm7_schedule.h",
+        "firmware/t096/protocol/gm7_session.c",
+        "firmware/t096/protocol/gm7_session.h",
+        "firmware/t096/src/core.c",
+        "firmware/t096/src/diagnostic.c",
+        "firmware/t096/src/gm7_controller.c",
+        "firmware/t096/src/gm7_service.c",
+        "firmware/t096/src/gm7_source.c",
+        "firmware/t096/src/group_admission.c",
+        "firmware/t096/src/health.c",
+        "firmware/t096/src/main.c",
+        "firmware/t096/src/radio_precision.c",
+        "firmware/t096/src/radio_service.c",
+        "firmware/t096/src/ui_render.c",
+        "firmware/t096/tests/core_test.c",
+        "firmware/t096/tests/gm7_admission_test.c",
+        "firmware/t096/tests/gm7_bridge_service_test.c",
+        "firmware/t096/tests/gm7_controller_fake.h",
+        "firmware/t096/tests/gm7_controller_test.c",
+        "firmware/t096/tests/gm7_reservation_service_test.c",
+        "firmware/t096/tests/gm7_resume_service_test.c",
+        "firmware/t096/tests/gm7_service_test.c",
+        "firmware/t096/tests/gm7_test.c",
+        "firmware/t096/tests/gm7_transport_test.c",
+        "firmware/t096/tests/health_fake.h",
+        "firmware/t096/tests/health_test.c",
+        "firmware/t096/tests/radio_service_fake.h",
+        "firmware/t096/tests/radio_service_test.c",
+        "firmware/t096/tests/reply_test.c",
+        "firmware/t096/tests/ui_precision_test.c",
+        "firmware/t096/tests/watchdog_test.c",
+        "firmware/t096/tools/build.py",
+        "firmware/t096/tools/controller_fault_decode.py",
+        "firmware/t096/tools/gm7_controller_hooks.py",
+        "firmware/t096/tools/gm7_startup_tests.py",
+        "firmware/t096/tools/gm7_tests.py",
+        "firmware/t096/tools/inspect_build.py",
+        "firmware/t096/tools/test.py",
+        "firmware/t096/tools/ticker_backport.py",
+        "firmware/w12/main/native_g1.cpp"
+      ]
+    }
+  ],
+  "limits": [
+    "No new physical experiment or firmware acceptance; fault-injection and hardware matrix remain proposed.",
+    "Historical tail cause is not isolated; RF,interference,association,scheduling,bridging,activation,drift and reference errors remain distinct hypotheses.",
+    "Selected public data reproduce arithmetic,not private raw extraction or physical calibration.",
+    "First-path,detector equivalence,calibrated UTC,output-pin uncertainty and cross-device calibration portability remain unknown.",
+    "Analytical and independent-trial examples are not hardware/simulation outcomes or continuity bounds."
+  ]
+}

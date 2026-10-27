@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "license": "MIT",
+  "author": "Jonathan Yantis",
+  "edition_date": "2026-10-26",
+  "status": "APPROVED_FOR_PUBLIC_DRAFT_REVIEW",
+  "approval": "Make sure the latest N30 and W12 firmware along with the latest research papers are committed in main, clean, and push the results to Github",
+  "prepared_edition": "papers/editions/indoor-pnt-2026-10-26.json",
+  "prepared_edition_sha256": "bc241bb30473566a22b7427bc01867cc26ad59d187eca50714b1a78a0906fb82",
+  "publication_files": [
+    {
+      "path": "papers/indoor-pnt/main.tex",
+      "bytes": 47886,
+      "sha256": "405af60d71d0d1d6fe08393ffb9969b4ea4e6471b5c19b23517dde2bb9fdaee9",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "papers/indoor-pnt/main.pdf",
+      "bytes": 96764,
+      "sha256": "184d3e8287c3c25d65c568d087798e94059b6e449e62e13c291c92f25f35ff60",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "papers/indoor-pnt/README.md",
+      "bytes": 2994,
+      "sha256": "d4e1bccc6d7307840dca283c3266474a918ec4391d313bc067f734b032cc8817",
+      "license": "MIT"
+    },
+    {
+      "path": "tools/verify_indoor_pnt_paper.py",
+      "bytes": 11198,
+      "sha256": "555ece17a84ed6b96bcd1c8cd6d7214cd3d47f8bb1ea08b0b65f9847c30571b3",
+      "license": "MIT"
+    }
+  ],
+  "reviewed_material_unchanged": true,
+  "paper_license": "CC-BY-4.0",
+  "code_and_documentation_license": "MIT",
+  "draft_promoted_to_final": false,
+  "new_hardware_measurements": false,
+  "hardware_accuracy_qualification": "UNCHANGED_UNQUALIFIED",
+  "publication_scope": "Latest research draft on main and GitHub for public review; source/PDF and analytical material unchanged.",
+  "preserved_approval_checkpoint": "The unchanged manuscript and preparation receipt retain the earlier pending-approval state. This separate record documents subsequent publication approval.",
+  "verifier_changes": "Only publication identity handling and, where needed, selected historical-source retrieval changed. Analytical and evidence computations are unchanged.",
+  "verification_commands": [
+    "python3 tools/verify_indoor_pnt_paper.py",
+    "python3 tools/verify_w12_utc_results.py",
+    "python3 tools/verify_s3_fine_paper.py"
+  ],
+  "verification_result": "PASS: offline analytical/evidence/edition checks; reviewed manuscript, PDF and analytical bytes unchanged. Analytical and evidence verifier functions unchanged."
+}

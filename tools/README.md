@@ -1,5 +1,18 @@
 # Reproduction tools
 
+Run `python3 tools/verify_ble_tail_multipath_paper.py` to verify the latest
+26 October public review draft's cadence, propagation, channel-mix regression,
+holdover, loss-age and confidence examples, distinct W12/N30 populations and
+edition identities. Selected reviewed source snapshots make the check independent
+of unpublished branch history. See the [multipath paper](../papers/ble-tail-multipath/README.md).
+
+Run `python3 tools/verify_indoor_pnt_paper.py` to verify the 26 October indoor
+PNT draft's analytical timing/motion budgets, clock composition, correlation,
+geometry, hypothetical pilot/cost examples and separate historical populations.
+This standard-library offline analysis operates no hardware and qualifies no
+localization, UWB integration or GNSS equivalence.
+See the [indoor PNT paper](../papers/indoor-pnt/README.md).
+
 Run `python3 tools/verify_indoor_ips_paper.py` for the 26 October PToB-IPS public
 research draft. It checks pseudorange/clock recovery, geometry and covariance,
 quantization, correlated averaging and bias floors, aligned multi-rate receiver

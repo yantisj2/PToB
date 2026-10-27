@@ -1,0 +1,206 @@
+{
+  "schema_version": 1,
+  "license": "MIT",
+  "author": "Jonathan Yantis",
+  "edition_date": "2026-10-26",
+  "status": "APPROVED_FOR_PUBLIC_DRAFT_REVIEW",
+  "approval": "Make sure the latest N30 and W12 firmware along with the latest research papers are committed in main, clean, and push the results to Github",
+  "prepared_edition": "papers/editions/ble-tail-multipath-2026-10-26.json",
+  "prepared_edition_sha256": "7a767626c260915bd2c40005195b0afba8dfc644e8ae22c3df6d97411344a26d",
+  "publication_files": [
+    {
+      "path": "papers/ble-tail-multipath/main.tex",
+      "bytes": 36382,
+      "sha256": "22e3ed0b0ae7cb70d55ccaa98418c93622d0e6da7f72facaf59a2662bbf44311",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "papers/ble-tail-multipath/main.pdf",
+      "bytes": 99607,
+      "sha256": "cc2cf6756e52c2a317b57e5cddb19f8e287acc26448dfd185d8d3df7ce762811",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "papers/ble-tail-multipath/README.md",
+      "bytes": 5104,
+      "sha256": "5110a4b401ad02176bc5cd69fb7ba91030bb7296f5e37b590924da6039f16515",
+      "license": "MIT"
+    },
+    {
+      "path": "papers/ble-tail-multipath/analysis.json",
+      "bytes": 2793,
+      "sha256": "7752671eaa78f44d7f665bea648fb50f1d6e14268536683d2e33c46f56527c16",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "tools/verify_ble_tail_multipath_paper.py",
+      "bytes": 13156,
+      "sha256": "98fcf40243e5925901dee89c15f6afa6b11079c2d90aa9e1cde66205bfcb9f3c",
+      "license": "MIT"
+    }
+  ],
+  "reviewed_material_unchanged": true,
+  "paper_license": "CC-BY-4.0",
+  "code_and_documentation_license": "MIT",
+  "draft_promoted_to_final": false,
+  "new_hardware_measurements": false,
+  "hardware_accuracy_qualification": "UNCHANGED_UNQUALIFIED",
+  "publication_scope": "Latest research draft on main and GitHub for public review; source/PDF and analytical material unchanged.",
+  "preserved_approval_checkpoint": "The unchanged manuscript and preparation receipt retain the earlier pending-approval state. This separate record documents subsequent publication approval.",
+  "verifier_changes": "Only publication identity handling and, where needed, selected historical-source retrieval changed. Analytical and evidence computations are unchanged.",
+  "additional_instruction": "We need the latest multipath paper up for review",
+  "reviewed_source_snapshots": [
+    {
+      "path": "firmware/t096/protocol/precision_codec.h",
+      "revision": "ea70b7f5b5bd6e57ceef21b45736fcd806be9059",
+      "bytes": 1287,
+      "sha256": "c1a518ac78632f0d779d42f68c81439ff1dacd2b9834c399105d56ce267d8f0e",
+      "snapshot_path": "papers/ble-tail-multipath/reviewed-sources/firmware/t096/protocol/precision_codec.h.txt",
+      "license": "MIT"
+    },
+    {
+      "path": "firmware/t096/src/radio_capture.c",
+      "revision": "ea70b7f5b5bd6e57ceef21b45736fcd806be9059",
+      "bytes": 8820,
+      "sha256": "24d72781a21e851aed8251c7a4b6eeacce131e949314f6a5f81db8368aa2c49c",
+      "snapshot_path": "papers/ble-tail-multipath/reviewed-sources/firmware/t096/src/radio_capture.c.txt",
+      "license": "MIT"
+    },
+    {
+      "path": "firmware/t096/src/capture.c",
+      "revision": "ea70b7f5b5bd6e57ceef21b45736fcd806be9059",
+      "bytes": 15782,
+      "sha256": "efc7b8465a3a276f29f2cc0d33b795502702aa025f6cd83757fffc883e089edb",
+      "snapshot_path": "papers/ble-tail-multipath/reviewed-sources/firmware/t096/src/capture.c.txt",
+      "license": "MIT"
+    },
+    {
+      "path": "firmware/w12/main/fine_receiver.hpp",
+      "revision": "ea70b7f5b5bd6e57ceef21b45736fcd806be9059",
+      "bytes": 6104,
+      "sha256": "24f18a1c4cfebdb8a245a5689135ee284350aff35be28d29a45f96647b17ce9d",
+      "snapshot_path": "papers/ble-tail-multipath/reviewed-sources/firmware/w12/main/fine_receiver.hpp.txt",
+      "license": "MIT"
+    },
+    {
+      "path": "firmware/w12/main/periodic_rx_model.hpp",
+      "revision": "ea70b7f5b5bd6e57ceef21b45736fcd806be9059",
+      "bytes": 5532,
+      "sha256": "37bd363abe56033b2b37c27d31d1214226e1c47ecc6952543646f0ee6de256d4",
+      "snapshot_path": "papers/ble-tail-multipath/reviewed-sources/firmware/w12/main/periodic_rx_model.hpp.txt",
+      "license": "MIT"
+    },
+    {
+      "path": "firmware/w12/main/g1_corrected_clock.hpp",
+      "revision": "ea70b7f5b5bd6e57ceef21b45736fcd806be9059",
+      "bytes": 34478,
+      "sha256": "34ffc9558ef8fde73935050f6dc19856b770cb8bbdc736fe4ba3fd1dd9f7d825",
+      "snapshot_path": "papers/ble-tail-multipath/reviewed-sources/firmware/w12/main/g1_corrected_clock.hpp.txt",
+      "license": "MIT"
+    },
+    {
+      "path": "firmware/w12/main/g1_clock_prediction.hpp",
+      "revision": "ea70b7f5b5bd6e57ceef21b45736fcd806be9059",
+      "bytes": 2362,
+      "sha256": "77fe24a41a31971da9073e7069b13345446e3c3018c50a44f6e4461d0aca7d50",
+      "snapshot_path": "papers/ble-tail-multipath/reviewed-sources/firmware/w12/main/g1_clock_prediction.hpp.txt",
+      "license": "MIT"
+    },
+    {
+      "path": "firmware/w12/main/native_g1.cpp",
+      "revision": "ea70b7f5b5bd6e57ceef21b45736fcd806be9059",
+      "bytes": 123785,
+      "sha256": "beb4b4a0c3d49b9fe8c10b908b719ec7588a7dfbb5f0210c2f74ef9778842b0f",
+      "snapshot_path": "papers/ble-tail-multipath/reviewed-sources/firmware/w12/main/native_g1.cpp.txt",
+      "license": "MIT"
+    },
+    {
+      "path": "firmware/w12/README.md",
+      "revision": "ea70b7f5b5bd6e57ceef21b45736fcd806be9059",
+      "bytes": 12673,
+      "sha256": "80e2b7123e6af3882f9347b6e98f498a0c75313f1733e94094896055acaa8ec6",
+      "snapshot_path": "papers/ble-tail-multipath/reviewed-sources/firmware/w12/README.md.txt",
+      "license": "MIT"
+    },
+    {
+      "path": "docs/w12/build.md",
+      "revision": "ea70b7f5b5bd6e57ceef21b45736fcd806be9059",
+      "bytes": 46372,
+      "sha256": "b7f4d3bbf95f624f053e0d9f72174525862c286582dd595e5a8e4fa1df127a59",
+      "snapshot_path": "papers/ble-tail-multipath/reviewed-sources/docs/w12/build.md.txt",
+      "license": "MIT"
+    },
+    {
+      "path": "docs/w12/tx-reference.md",
+      "revision": "ea70b7f5b5bd6e57ceef21b45736fcd806be9059",
+      "bytes": 4884,
+      "sha256": "6ff9ea9c58ae65f2d4f900557a2e7e259063f67e7aec3ef14e7e508d1e57ef0d",
+      "snapshot_path": "papers/ble-tail-multipath/reviewed-sources/docs/w12/tx-reference.md.txt",
+      "license": "MIT"
+    },
+    {
+      "path": "firmware/ss3/README.md",
+      "revision": "ea70b7f5b5bd6e57ceef21b45736fcd806be9059",
+      "bytes": 4149,
+      "sha256": "6a7b4ca5e438cd3520da38476aa9b47ab62578a55b403738e21b2528f1175817",
+      "snapshot_path": "papers/ble-tail-multipath/reviewed-sources/firmware/ss3/README.md.txt",
+      "license": "MIT"
+    },
+    {
+      "path": "docs/ss3/build.md",
+      "revision": "ea70b7f5b5bd6e57ceef21b45736fcd806be9059",
+      "bytes": 8143,
+      "sha256": "11df7ac8c470112eac0853708d320ed65b797a006ba19ad92f7e78a393578036",
+      "snapshot_path": "papers/ble-tail-multipath/reviewed-sources/docs/ss3/build.md.txt",
+      "license": "MIT"
+    },
+    {
+      "path": "firmware/n30/README.md",
+      "revision": "ea70b7f5b5bd6e57ceef21b45736fcd806be9059",
+      "bytes": 10187,
+      "sha256": "afc23d8bbf3d700d164d2f0fda44d8b72f3002231411458ff7ad01c3d482e0c4",
+      "snapshot_path": "papers/ble-tail-multipath/reviewed-sources/firmware/n30/README.md.txt",
+      "license": "MIT"
+    },
+    {
+      "path": "docs/n30/build.md",
+      "revision": "ea70b7f5b5bd6e57ceef21b45736fcd806be9059",
+      "bytes": 61825,
+      "sha256": "11ef1311a3e9b3494cc619857cdfd4cea2bd9b5e40ff9584c4d207c507f93050",
+      "snapshot_path": "papers/ble-tail-multipath/reviewed-sources/docs/n30/build.md.txt",
+      "license": "MIT"
+    },
+    {
+      "path": "papers/ptob-esp32s3-low-level-timing.tex",
+      "revision": "ea70b7f5b5bd6e57ceef21b45736fcd806be9059",
+      "bytes": 30371,
+      "sha256": "cd51bb204b8d72e719ea58662c55253f8c46ade500e52c1ca8a4b3a9cb63ea57",
+      "snapshot_path": "papers/ble-tail-multipath/reviewed-sources/papers/ptob-esp32s3-low-level-timing.tex.txt",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "firmware/t096/README.md",
+      "revision": "ea70b7f5b5bd6e57ceef21b45736fcd806be9059",
+      "bytes": 7600,
+      "sha256": "5ef3331f8c2787b6a7b03a32253586676893ac178575681187b5427d5355878b",
+      "snapshot_path": "papers/ble-tail-multipath/reviewed-sources/firmware/t096/README.md.txt",
+      "license": "MIT"
+    },
+    {
+      "path": "docs/t096/build.md",
+      "revision": "ea70b7f5b5bd6e57ceef21b45736fcd806be9059",
+      "bytes": 9886,
+      "sha256": "0b9c5cf508393ef928a30ecb0631ae13fed4f721b675bc1b5aaf915f1c7e9480",
+      "snapshot_path": "papers/ble-tail-multipath/reviewed-sources/docs/t096/build.md.txt",
+      "license": "MIT"
+    }
+  ],
+  "source_snapshot_policy": "Explicit 18-file allowlist from the original preparation receipt; exact bytes exported without branch history. Frozen research references, not current firmware or hardware authorization.",
+  "analytical_model_output_license": "CC-BY-4.0",
+  "verification_commands": [
+    "python3 tools/verify_ble_tail_multipath_paper.py",
+    "python3 tools/verify_w12_utc_results.py",
+    "python3 tools/verify_s3_fine_paper.py"
+  ],
+  "verification_result": "PASS: offline analytical/evidence/edition checks; reviewed manuscript, PDF and analytical bytes unchanged. Analytical and evidence verifier functions unchanged."
+}

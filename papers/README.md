@@ -1,5 +1,28 @@
 # Research papers — drafts
 
+**Latest public review draft, 26 October 2026:**
+[Reducing Timing Tails and Multipath Sensitivity in an Operating BLE Precision Mesh](ble-tail-multipath/main.pdf)
+reviews capture, event association, channel-aware fitting and source ownership,
+then proposes placement, workload, estimator and recovery tests. The nine-page
+draft separates delivery latency, correction age, clock error and availability,
+preserving distinct W12/N30 populations and unexplained tails.
+[Source and reproduction](ble-tail-multipath/README.md),
+[analytical supplement](ble-tail-multipath/analysis.json),
+[prepared edition](editions/ble-tail-multipath-2026-10-26.json) and
+[publication record](editions/ble-tail-multipath-2026-10-26-publication.json)
+accompany the unchanged manuscript. No new experiment, demonstrated multipath
+cause or later-image qualification is claimed.
+
+**Public review draft, 26 October 2026:**
+[A Shared Time Base for Indoor PNT](indoor-pnt/main.pdf) investigates event timing
+beneath heterogeneous navigation sensors, with selective UWB and other positioning
+observations. It separates sensor-motion and radio-ranging budgets and proposes
+causal clock bridges, sensor fusion and independent validation.
+[Source and reproduction](indoor-pnt/README.md),
+[prepared edition](editions/indoor-pnt-2026-10-26.json) and
+[publication record](editions/indoor-pnt-2026-10-26-publication.json) preserve its
+scope. Indoor localization, UWB integration and GNSS equivalence remain unqualified.
+
 **Approved public research draft, 26 October 2026:**
 [PToB-IPS: Toward GNSS-like Indoor Positioning with Surveyed BLE Timing Beacons](indoor-ips/main.pdf)
 proposes surveyed timing beacons and a GNSS-like position/receiver-clock solve.
@@ -34,8 +57,9 @@ The distinct [post-repair W12 baseline](../evidence/s3/2026-10-24-w12-utc-basis/
 publishes all selected PPS/TX rows and an offline verifier for later website
 results. It does not silently replace this approved paper's earlier aggregates.
 
-These are working drafts by **Jonathan Yantis**. The newest addition
-is the **26 October 2026** theoretical PToB-IPS beacon study. The low-level
+These are working drafts by **Jonathan Yantis**. The newest additions are the
+**26 October 2026** BLE timing-tail/multipath, indoor PNT and theoretical PToB-IPS
+studies. The low-level
 ESP32-S3 implementation guide retains its **24 October** edition. The robotic
 gPTP/TSN study and ESP32-S3 empirical timing study retain their **22 October**
 editions; the earlier reviewed
@@ -63,6 +87,8 @@ draft status.
 
 | Draft | Read | Edit | Edition |
 | --- | --- | --- | --- |
+| Reducing Timing Tails and Multipath Sensitivity in an Operating BLE Precision Mesh | [PDF](ble-tail-multipath/main.pdf) | [LaTeX](ble-tail-multipath/main.tex) | 26 October 2026, public review draft; current mechanisms, analytical examples and proposed validation, no new hardware experiment |
+| A Shared Time Base for Indoor PNT: PToB Sensor Fusion, Selective UWB Augmentation, and a Validation Programme | [PDF](indoor-pnt/main.pdf) | [LaTeX](indoor-pnt/main.tex) | 26 October 2026, public review draft; proposed architecture and analytical budgets, no localization qualification |
 | PToB-IPS: Toward GNSS-like Indoor Positioning with Surveyed BLE Timing Beacons | [PDF](indoor-ips/main.pdf) | [LaTeX](indoor-ips/main.tex) | 26 October 2026, approved public research draft; surveyed beacons, aligned multi-rate advertisements and theoretical positioning/refinement limits |
 | Low-Level Timing on ESP32-S3: Event Capture, Clock Bridges, and Causal Validation | [PDF](ptob-esp32s3-low-level-timing.pdf) | [LaTeX](ptob-esp32s3-low-level-timing.tex) | 24 October 2026, seven-page implementation guide; relative measurements and calibration limits remain distinct |
 | A Shared Time Base for Robotic gPTP and TSN Systems: PToB Edge Adaptation, Compatibility Boundaries, and a Validation Programme | [PDF](ptob-gptp-tsn-robotics-preprint.pdf) | [LaTeX](ptob-gptp-tsn-robotics-preprint.tex) | 22 October 2026, proposed wired-domain ingress, wireless acquisition timestamps and staged validation |

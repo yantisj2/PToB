@@ -1,5 +1,20 @@
 # Manuscript history
 
+## 2026-10-26 — latest multipath and indoor PNT drafts approved for public review
+
+- Publish Jonathan Yantis's nine-page *Reducing Timing Tails and Multipath
+  Sensitivity in an Operating BLE Precision Mesh* and the separate *A Shared
+  Time Base for Indoor PNT*, with source, PDF, analysis/verification and licenses.
+- Preserve reviewed manuscript/PDF bytes and original pending-approval receipts.
+  Separate publication records bind the current approval and ancillary README
+  and verifier changes. Preserve the previously approved PToB-IPS edition.
+- Export only the multipath receipt's 18 explicitly selected historical source
+  files with unchanged bytes and recorded provenance, so reproduction needs no
+  unpublished branch. These are frozen research references, not current builds.
+- Retain failures, tails, missing/invalid records and population boundaries.
+  All papers remain research drafts; no new hardware experiment, demonstrated
+  multipath cause, localization qualification or stable promotion is claimed.
+
 ## 2026-10-26 — PToB-IPS public draft review approved
 
 - Jonathan Yantis approved the 15-page theoretical IPS paper for integration

@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-26 — N30/W12 successor recovery and latest research drafts
+
+- Publish N30 0.2.34 and W12 0.2.17 source, build/inspection tools, notices and
+  offline regressions. Both consume authenticated GM successor announcements;
+  N30 additionally preserves a recently trained local actuator through direct
+  GM handoff while requiring fresh source permission, timing and lock quality.
+- Add the nine-page BLE timing-tail/multipath paper and indoor PNT paper for
+  public draft review alongside the existing PToB-IPS study. Preserve prepared
+  manuscript/PDF bytes and receipts, with separate publication records and
+  reproducible analytical/evidence checks. No new hardware accuracy is qualified.
+
 ## CoreS3-SE 0.1.10 — precision diagnostics instrument (2026-10-23)
 
 Add the M5Stack CoreS3-SE client with an instrument display, UTC register and

@@ -11,6 +11,13 @@ draft, 16 October 2026. It brings together the architecture, experimental
 evidence, scaling limits and proposed path to a PTP edge extension.
 [Supporting research drafts and paper sources](papers/README.md).
 
+**Latest public review draft, 26 October 2026:**
+[Reducing Timing Tails and Multipath Sensitivity in an Operating BLE Precision Mesh](papers/ble-tail-multipath/main.pdf)
+reviews timing mechanisms and proposes practical placement, channel, workload
+and recovery tests. [Source, supplement and verification](papers/ble-tail-multipath/README.md)
+accompany the nine-page draft. Historical timing tails remain unexplained;
+no new hardware experiment or multipath-cause attribution is claimed.
+
 ## Get started
 
 Follow the **[setup guide](docs/GETTING_STARTED.md)** to plan two grandmasters

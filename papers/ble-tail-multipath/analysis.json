@@ -1,0 +1,129 @@
+{
+  "license": "CC-BY-4.0",
+  "copyright": "2026 Jonathan Yantis",
+  "analytical": {
+    "kind": "analytical_examples_not_hardware_evidence",
+    "interval_ms": 62.5,
+    "frequency_hz": 16,
+    "pooled_rate_ns_s": 60,
+    "within_channel_rate_ns_s": 20,
+    "hypothetical_envelope_ns": {
+      "1": 121,
+      "5": 225,
+      "10": 400
+    },
+    "zero_exceedance_independent_trials": 29956,
+    "independent_duration_min": 31.204167,
+    "upper_95_percent_at_600": 0.498044,
+    "hypothetical_age_curve": [
+      {
+        "age_s": 0,
+        "envelope_ns": 100,
+        "alternate_ns": 100
+      },
+      {
+        "age_s": 1,
+        "envelope_ns": 121,
+        "alternate_ns": 600
+      },
+      {
+        "age_s": 2,
+        "envelope_ns": 144,
+        "alternate_ns": 1100
+      },
+      {
+        "age_s": 3,
+        "envelope_ns": 169,
+        "alternate_ns": 1600
+      },
+      {
+        "age_s": 4,
+        "envelope_ns": 196,
+        "alternate_ns": 2100
+      },
+      {
+        "age_s": 5,
+        "envelope_ns": 225,
+        "alternate_ns": 2600
+      },
+      {
+        "age_s": 6,
+        "envelope_ns": 256,
+        "alternate_ns": 3100
+      },
+      {
+        "age_s": 7,
+        "envelope_ns": 289,
+        "alternate_ns": 3600
+      },
+      {
+        "age_s": 8,
+        "envelope_ns": 324,
+        "alternate_ns": 4100
+      },
+      {
+        "age_s": 9,
+        "envelope_ns": 361,
+        "alternate_ns": 4600
+      },
+      {
+        "age_s": 10,
+        "envelope_ns": 400,
+        "alternate_ns": 5100
+      }
+    ]
+  },
+  "separately_derived_historical_evidence": [
+    {
+      "path": "evidence/s3/2026-10-24-w12-utc-basis/w12-pps.csv",
+      "total": 600,
+      "eligible": 522,
+      "rms_ns": 60.328,
+      "max_abs_ns": 180,
+      "reasons": {
+        "source_unavailable": 78
+      }
+    },
+    {
+      "path": "evidence/s3/2026-10-24-w12-utc-basis/downstream-pps.csv",
+      "total": 600,
+      "eligible": 451,
+      "rms_ns": 61.922,
+      "max_abs_ns": 211,
+      "reasons": {
+        "expired": 36,
+        "no_map": 109,
+        "reference_ineligible": 4
+      }
+    },
+    {
+      "path": "evidence/s3/2026-10-24-w12-utc-basis/sampled-tx.csv",
+      "total": 120,
+      "eligible": 58,
+      "rms_ns": 108.306,
+      "max_abs_ns": 226,
+      "reasons": {
+        "missing_followup_match": 61,
+        "no_pps_bracket": 1
+      }
+    },
+    {
+      "cohort": "fine50909_fixed660s",
+      "total": 660,
+      "eligible": 657,
+      "rms_ns": 166.59,
+      "max_abs_ns": 1591,
+      "above_1us": 4
+    },
+    {
+      "cohort": "n31_51016_transfer48",
+      "total": 64,
+      "eligible": 48,
+      "rms_ns": 150.954,
+      "max_abs_ns": 362,
+      "above_1us": 0
+    }
+  ],
+  "new_hardware_experiment": false,
+  "multipath_cause_established": false
+}

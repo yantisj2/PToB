@@ -31,6 +31,13 @@ Draft status describes research maturity and does not change license permissions
 Licensing a paper does not claim ownership of cited research or relicense it.
 Do not apply these defaults to inherited third-party material without review.
 
+The original [BLE timing-tail/multipath analysis](papers/ble-tail-multipath/analysis.json)
+uses **CC BY 4.0**, credit Jonathan Yantis. Its analytical examples and separately
+derived historical summaries are not a new hardware dataset. The executable
+verifier, ordinary documentation and explicitly selected reviewed code snapshots
+use MIT; the archived paper source retains CC BY 4.0. Existing evidence and
+third-party terms remain unchanged.
+
 ## Imported source and dependencies
 
 The MIT default does not replace an explicit per-file license. Selected firmware

@@ -1,0 +1,304 @@
+{
+  "schema_version": 1,
+  "license": "MIT",
+  "edition_date": "2026-10-26",
+  "status": "AUTHOR_REVIEW_DRAFT_PUBLICATION_APPROVAL_PENDING",
+  "author": "Jonathan Yantis",
+  "title": "A Shared Time Base for Indoor PNT: PToB Sensor Fusion, Selective UWB Augmentation, and a Validation Programme",
+  "paper_license": "CC-BY-4.0",
+  "code_license": "MIT",
+  "previous_edition": null,
+  "base_repository_commit": "ea70b7f5b5bd6e57ceef21b45736fcd806be9059",
+  "preparation_scope": "New author-review draft in the existing working tree. Unrelated pre-existing changes preserved; no commit, staging, push, release, deployment, submission or hardware action.",
+  "files": [
+    {
+      "path": "papers/indoor-pnt/main.tex",
+      "bytes": 47886,
+      "sha256": "405af60d71d0d1d6fe08393ffb9969b4ea4e6471b5c19b23517dde2bb9fdaee9",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "papers/indoor-pnt/main.pdf",
+      "bytes": 96764,
+      "sha256": "184d3e8287c3c25d65c568d087798e94059b6e449e62e13c291c92f25f35ff60",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "papers/indoor-pnt/README.md",
+      "bytes": 2758,
+      "sha256": "d1e7299124548613c04eaf5e8bbe51e439f787d0026a4187d45a02614625f98e",
+      "license": "MIT"
+    },
+    {
+      "path": "tools/verify_indoor_pnt_paper.py",
+      "bytes": 10095,
+      "sha256": "5bc0a582784d4e34cc5ee8c3a804e0d1a9f03431ed772aa41886fc7b62eea9b3",
+      "license": "MIT"
+    }
+  ],
+  "cited_local_sources": [
+    {
+      "path": "papers/ptob-viability-preprint.tex",
+      "bytes": 57050,
+      "sha256": "ead863576330e5b04994c5115c55dda9e1c48d71fa8d8934165a9e9bc30a752b"
+    },
+    {
+      "path": "papers/ptob-esp32s3-low-level-timing.tex",
+      "bytes": 30371,
+      "sha256": "cd51bb204b8d72e719ea58662c55253f8c46ade500e52c1ca8a4b3a9cb63ea57"
+    },
+    {
+      "path": "papers/ptob-gptp-tsn-robotics-preprint.tex",
+      "bytes": 56581,
+      "sha256": "0e994f12bdfc1344df65d3d0e79366550cd5003e1308fce056244178ee7c2063"
+    },
+    {
+      "path": "papers/ptob-power-scheduling-preprint.tex",
+      "bytes": 63524,
+      "sha256": "24fdff480c2b419171906eb4a816b3d118951c3a60428072e6bf85c94cb9dd66"
+    },
+    {
+      "path": "evidence/s3/2026-10-24-w12-utc-basis/README.md",
+      "bytes": 4242,
+      "sha256": "70e08cdf3b3a3f56eacea266717ffa71ff9d045287b481f9f87f387aafc745f1"
+    },
+    {
+      "path": "evidence/s3/2026-10-24-w12-utc-basis/manifest.json",
+      "bytes": 2480,
+      "sha256": "d8c1c14c1e1eb5874c31908744789ef50b5afaeef3e2c7fae6fc61b87e17373b"
+    },
+    {
+      "path": "evidence/s3/2026-10-24-w12-utc-basis/results.json",
+      "bytes": 8164,
+      "sha256": "4e130185c9ec2fa32358bb5ce4e26302fa0c3b613e59c281e9d6af545aa65918"
+    },
+    {
+      "path": "evidence/s3/2026-10-24-w12-utc-basis/w12-pps.csv",
+      "bytes": 29500,
+      "sha256": "f875c5170a30d28cee2ed2046ea18cd24558b66becf13c46dc59d6e79019d0be"
+    },
+    {
+      "path": "evidence/s3/2026-10-24-w12-utc-basis/downstream-pps.csv",
+      "bytes": 27964,
+      "sha256": "46c2119c0ed5247b2be91b0e5b89173e27f0053d1f1677199e84ce2792c91fe2"
+    },
+    {
+      "path": "evidence/s3/2026-10-24-w12-utc-basis/sampled-tx.csv",
+      "bytes": 5976,
+      "sha256": "96d615fe7150bb3dfa30a769b8d3af4569bfc9065dbf18868fbc5ca4e95409bd"
+    },
+    {
+      "path": "evidence/s3/2026-10-24-w12-utc-basis/gnss-prediction.csv",
+      "bytes": 10212,
+      "sha256": "ac03b820cb7ff840f9a75ebef387f136693372eac55356ae58a357437dfcd9c3"
+    },
+    {
+      "path": "evidence/s3/2026-10-22-fine/README.md",
+      "bytes": 4163,
+      "sha256": "3a5d1a9cadd5d9ed1191413901e5aef0733a6a65640a8cf73480bb7d9a201cce"
+    },
+    {
+      "path": "evidence/s3/2026-10-22-fine/manifest.json",
+      "bytes": 2125,
+      "sha256": "dd357fb1d0b2be0f5559879d90dad93784d643af2a6f199ff715ce80e06e0aab"
+    },
+    {
+      "path": "evidence/s3/2026-10-22-fine/protocol.json",
+      "bytes": 3936,
+      "sha256": "8e28d3e917448194187761cb3445ffc940d5291d06c4e64ee2644e5024cffcae"
+    },
+    {
+      "path": "evidence/s3/2026-10-22-fine/results.json",
+      "bytes": 7140,
+      "sha256": "5983fd09728d6dddda62977d549ae22b53664dcc7b7e7a981a1196c81236a24e"
+    },
+    {
+      "path": "evidence/s3/2026-10-22-fine/pps-sanitized.csv",
+      "bytes": 60335,
+      "sha256": "636c8f2a6d5ab370343d35e18e5d8ad9cf35f46b91d8f05f53bf004c379e3ab2"
+    },
+    {
+      "path": "evidence/v14/2026-10-12/README.md",
+      "bytes": 6365,
+      "sha256": "fed662aa81e3e36fcbe90627df0e7c4e53dc7c59a5a3600617cc2e7fd5271361"
+    },
+    {
+      "path": "evidence/v14/2026-10-12/summary.json",
+      "bytes": 2382,
+      "sha256": "a4ecdefdd9e8f08f266a15ce3ab09bc5419d535cbf02633bd6d7fcd10aca4e4b"
+    }
+  ],
+  "evidence_cutoff": {
+    "latest_discussed_physical_collection": "2026-10-24",
+    "external_primary_sources_accessed": "2026-10-26",
+    "new_measurements": false,
+    "new_dataset": false,
+    "populations_pooled": false,
+    "stable_window_is_subset": true,
+    "collection_scope": [
+      "W12 2026-10-24: 522/600 eligible; complete second-window 300/300 subset, not additional population.",
+      "Downstream 2026-10-24: 451/600 eligible; selected received-path TX 58/120 eligible.",
+      "N30 2026-10-22: completed 657/660 and distinct 48/64 second-board transfer; invalids retained.",
+      "V14 2026-10-12: 436 reference-valid causal, 65 invalid, 3 expired, 98 unobserved / 602; separate 501 all-causal score."
+    ]
+  },
+  "compiler": {
+    "engine": "Tectonic",
+    "version": "0.17.0",
+    "binary_sha256": "b52b5a730e2b0b33087304f7720f649603953f270a6b1c88bb031e1ae01f7f9c",
+    "binary_acquisition": "https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic%400.17.0/tectonic-0.17.0-aarch64-apple-darwin.tar.gz",
+    "public_bundle_hashes": [
+      "6ffe055852f8faf66c0acbe1a7fb27f87b869a90bad1204f3bf4d9683f597c7c"
+    ],
+    "command": "tectonic --only-cached --keep-logs --outdir artifacts/indoor-pnt-paper-20261026/build papers/indoor-pnt/main.tex",
+    "local_cache_note": "TECTONIC_CACHE_DIR selected an existing ignored cache of public TeX resources. A fresh checkout can use the public command without this cache.",
+    "fresh_checkout_command": "tectonic --outdir artifacts/indoor-pnt-build papers/indoor-pnt/main.tex",
+    "log_sha256": "8a2ee72cc1d09938f6c1d4335b490b7fd83a1ceb7532b7c36fa66d1103e21605",
+    "standalone": true,
+    "warnings": false,
+    "desktop_editor_compile": "SUCCESS_FINAL_SOURCE"
+  },
+  "review": {
+    "pages": 14,
+    "figures": 2,
+    "tables": 4,
+    "bibliography_entries": 16,
+    "all_pages_rendered_and_visually_inspected": true,
+    "render_tool": "Poppler pdftoppm",
+    "render_scale_to_pixels": 1600,
+    "layout_warnings": false,
+    "unresolved_references": false,
+    "source_and_pdf_match": true,
+    "public_content_review": "No private identities, enrollment, keys, raw captures, images or private working paths imported. Only existing public evidence cited. Hypothetical navigation/cost examples labeled.",
+    "rendered_pages": [
+      {
+        "page": 1,
+        "sha256": "fd2718e2c06fdaee2efd71aee2320f54a6cc36280381aa0bd9b1999d3c4673eb"
+      },
+      {
+        "page": 2,
+        "sha256": "9af1944c6a9c2115e67e77402c6ac82d5075b3e028d9ab52a8281a1c356b0eb3"
+      },
+      {
+        "page": 3,
+        "sha256": "afe28e49b071dd2e5495b433394b348c904da610ffd639c49da0fba050e15af2"
+      },
+      {
+        "page": 4,
+        "sha256": "d99f5746c4b3f136b2ed08895f7c451f64ca238e647913d4b2f745aada52537c"
+      },
+      {
+        "page": 5,
+        "sha256": "9438294101c44569c0e00e429f6b2c9df6f7e77a00370aec099b235d45ec4b17"
+      },
+      {
+        "page": 6,
+        "sha256": "065812a4663b19a4fe9098317b06bead83301d9a320bbd6d719cedf6bf755ffe"
+      },
+      {
+        "page": 7,
+        "sha256": "c803fd029da3cd9354bc935d6e32a662d531cbc51d9851cdf4a6fd0df9136ad5"
+      },
+      {
+        "page": 8,
+        "sha256": "ca0f54029b386f1714a633a23ecdb00ce9b6562ee75c93c3d5c62e0e8f123808"
+      },
+      {
+        "page": 9,
+        "sha256": "707c24c62693393ff25bedf4fb324e692773508f5330b2b66f43e0f897b26acd"
+      },
+      {
+        "page": 10,
+        "sha256": "ce038e29b87f542d9e59c65194faf222e983938097ba8bf73621bf0ee591d356"
+      },
+      {
+        "page": 11,
+        "sha256": "7a58a5f701bac482c26a061b2e96a2a6aab7844a24759a5c8ca3a07897e99494"
+      },
+      {
+        "page": 12,
+        "sha256": "89b19a970dde65a37e053fbf4d18a8321a8b5b8cd4b4a06c3ae4735a33c485f2"
+      },
+      {
+        "page": 13,
+        "sha256": "015c89c6b68ef9cbc05dbe6ea1d08ebdfadfbeb71eab923066719f495ae77c4f"
+      },
+      {
+        "page": 14,
+        "sha256": "c1bf3bd3d241f395feab5cd399eeb65779f4cbfd0d306363cdb314dda8173863"
+      }
+    ]
+  },
+  "primary_sources": [
+    {
+      "bibliography_key": "gnssone",
+      "url": "https://www.nist.gov/pml/time-and-frequency-division/time-services/one-way-gnss-time-transfer",
+      "accessed": "2026-10-26",
+      "retrieval_scope": "Official explanatory page; averaging and endpoint qualifications retained."
+    },
+    {
+      "bibliography_key": "gnsscommon",
+      "url": "https://www.nist.gov/pml/time-and-frequency-division/time-services/common-view-gnss-time-transfer",
+      "accessed": "2026-10-26",
+      "retrieval_scope": "Official explanatory page; common-view mechanism and stated typical accuracy."
+    },
+    {
+      "bibliography_key": "nistindoor",
+      "url": "https://www.nist.gov/ctl/smart-connected-systems-division/indoor-localization",
+      "accessed": "2026-10-26",
+      "retrieval_scope": "Archived original project summary; propagation and NLOS limitations."
+    },
+    {
+      "bibliography_key": "qin",
+      "url": "https://arxiv.org/abs/1808.00692v1",
+      "accessed": "2026-10-26",
+      "retrieval_scope": "Original paper abstract; joint camera/IMU temporal calibration; no numerical performance borrowed."
+    },
+    {
+      "bibliography_key": "kalibr",
+      "url": "https://github.com/ethz-asl/kalibr/wiki/Camera-IMU-calibration",
+      "accessed": "2026-10-26",
+      "retrieval_scope": "Official project documentation; calibration scope, prerequisites and data collection."
+    },
+    {
+      "bibliography_key": "rathje",
+      "url": "https://arxiv.org/abs/2410.12826v2",
+      "accessed": "2026-10-26",
+      "retrieval_scope": "Original paper abstract; DS-TWR/DS-TDoA error modeling. Its reported accuracy is not a PToB result."
+    },
+    {
+      "bibliography_key": "hati",
+      "url": "https://www.nist.gov/publications/effect-local-oscillator-performance-uwb-based-indoor-localization-system",
+      "accessed": "2026-10-26",
+      "retrieval_scope": "Original authors/NIST abstract; oscillator noise, temperature drift and ranging stability."
+    },
+    {
+      "bibliography_key": "bitcraze",
+      "url": "https://www.bitcraze.io/documentation/repository/lps-node-firmware/master/protocols/",
+      "accessed": "2026-10-26",
+      "retrieval_scope": "Official protocol index only; names distinct TWR and TDoA implementations without claiming interoperability."
+    },
+    {
+      "bibliography_key": "channelsounding",
+      "url": "https://www.bluetooth.com/channel-sounding-tech-overview/",
+      "accessed": "2026-10-26",
+      "retrieval_scope": "Official technical overview; phase/rtt mechanisms, application processing, compatible controllers. No normative conformance audit."
+    }
+  ],
+  "verification_commands": [
+    "python3 tools/verify_indoor_pnt_paper.py",
+    "python3 tools/verify_w12_utc_results.py",
+    "python3 tools/verify_s3_fine_paper.py",
+    "python3 tools/verify_v14.py"
+  ],
+  "limitations": [
+    "Architecture and analytical study; no indoor PNT, sensor adapter or UWB integration is implemented or qualified by this manuscript.",
+    "Existing finite relative PPS observations do not establish GNSS time-transfer equivalence, calibrated UTC, independently measured electrical output or UWB differential anchor-clock performance.",
+    "All source outages, invalids, missingness and eligible tails retain their population scope. Stable-window metrics are a subset.",
+    "UWB TWR event alignment is a proposed first integration; fine TDoA requires independently qualified differential synchronization and spatial geometry.",
+    "Cost savings, pilot requirements, correlation, geometry, holdover and propagation examples are analytical assumptions, not field observations.",
+    "Public derived rows reproduce selected analysis, not the original private physical extraction or metrological calibration.",
+    "Selected primary-source review is not systematic or a full normative standards/conformance audit."
+  ],
+  "local_commit_policy": "Author requested PDF review before any main-branch commit. Leave matching source, PDF, verifier, receipt and catalogue/changelog changes uncommitted until approval. No push or publication authorized."
+}
