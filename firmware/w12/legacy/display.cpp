@@ -225,7 +225,12 @@ void header(const DisplayState& s){
  }
  else if(s.r2_dashboard && !page){
   italic_text(1,8,"Sub-1us");
-  text(45,8,s.r2_relative_lock?(s.utc_holdover?" HOLD":" LOCK"):" ACQUIRING");
+  text(45,8,s.r2_relative_lock?(s.utc_holdover?" HOLD":" LOCK"):
+#ifdef R2_TZ_WIRE
+    " ACQUIRE");
+#else
+    " ACQUIRING");
+#endif
  }
  else if(s.copy_profile && !page)text(1,8,s.valid?(s.gps_source?"GPS UTC":"UTC"):"WAIT UTC");
  else if(s.basic_profile && !page)text(1,8,"BASIC UTC");
