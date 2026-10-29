@@ -56,11 +56,10 @@ before serving time. COLD can receive BLE timing while qualifying locally.
 | Display behavior | Normal refresh **4 Hz**, RF page **8 Hz**. When eligible, a moving screensaver starts after **5 minutes** idle at **50% brightness**. |
 | BLE timing | **G1/RC7 precision layouts unchanged**, with a breaking TZ coarse-wire revision. Use matching new-wire T096 GM/RC images; other target ports remain deferred. |
 | GM coordination | **GM7v4+S2+C1+TZ1**; broadcast ANN/STATUS/ROLE, persistent RC-style G1 following without GM admission, local HOT readiness and independent GNSS qualification. Normal client GATT admission remains. |
-| Time zone | Manual **CDT**, ID 2 and UTC−300 minutes. RCs relay the authenticated mesh pair; the presence lease is three parent advertising periods. No automatic DST or geographic selection. |
 | LoRa timing | Optional **RC8 wire 3** fallback with root/source identity. BLE is preferred while usable; a configured transmitter can export qualified local GM time or its accepted locked BLE source. |
 | USB | Hardware-captured USB frame boundaries; RC exports BLE time, DC exports local GNSS time. The macOS client uses an owned, unprivileged `chronyd -x` user clock. |
 | Time zone | GM uses own GNSS location and pinned IANA offset calendars; manual-zone and fixed-offset overrides. [Coverage, DST and unknown behavior](../../docs/t096/auto-time-zone-plan.md). |
-| Deployment | Source **0.15.207**, Zephyr-based native builds with pinned public dependencies. GM/RC uses private enrollment and verified device binding; no enrolled binary is distributed. |
+| Deployment | Source **0.15.208**, Zephyr-based native builds with pinned public dependencies. GM/RC uses private enrollment and verified device binding; no enrolled binary is distributed. |
 
 LoRa is disabled by default and requires build-time configuration. GM mesh
 participation can suppress passive RX. Fit the appropriate antenna before

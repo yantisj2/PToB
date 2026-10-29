@@ -1033,9 +1033,10 @@ static __attribute__((noinline)) void publish(struct gm7_bridge b) {
 #ifdef R2_TZ_WIRE
   status.tz=r2_tz_current(&coarse_tz,b.kernel_hi);
   status.tz_until_us=coarse_tz.until_us;
+  /* A serving GM uses the own-UTC admission snapshot for its local label. */
   if(owner.scope.active==identity && owner.scope.timing_epoch)
 #ifdef R2_TZ_AUTO
-    {status.tz=r2_time_tz_at(b.kernel_hi,c.utc_us,c.source);status.tz_until_us=UINT64_MAX;}
+    {status.tz=admission(b).tz;status.tz_until_us=UINT64_MAX;}
 #else
     {status.tz=r2_tz_manual();status.tz_until_us=UINT64_MAX;}
 #endif

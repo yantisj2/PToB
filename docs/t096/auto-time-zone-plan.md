@@ -1,6 +1,6 @@
 # T096 GM automatic time zones
 
-Source 0.15.207, 29 October 2026. Software implemented; hardware acceptance is
+Source 0.15.208, 29 October 2026. Software implemented; hardware acceptance is
 recorded separately below. Copyright (c) 2026 Jonathan Yantis. MIT.
 
 The GM selects its timezone from its own GNSS position and computes the current
@@ -104,6 +104,14 @@ queues and copied snapshots. Existing controller ABI, radio/USB reserves,
 stack allocations and the absolute 1,024-byte static margin remain enforced.
 Host/native results are separate from hardware operation and UTC metrology.
 
+Frozen .207 commit `69f1b978cd3b26ce056b8922c35eb198d1c9e067` passed the complete
+production host suite, eight provisioning checks and nine console checks.
+An independent pinned-source regeneration reproduced the header, manifest and
+coverage file byte-for-byte. The three own-device native images passed inspection:
+224 bytes of total added mutable state, 4,148 bytes of static margin and the
+same 5,738-byte read-only dataset. These figures include the GNSS position and
+copied queue/snapshot state.
+
 The earlier [.205 hardware results](time-zone-test-plan.md#local-205-results-29-october-2026)
 remain historical: direct-RC display passed, relay availability failed and other
 successor gates were incomplete. The operator authorized automatic-TZ testing on
@@ -113,4 +121,9 @@ the original 240-second budget: the local position was in unresolved western
 Florida, and auto-TZ remained unknown. Source qualification and receiver timing
 availability are recorded separately from this geographic failure. The .207
 mapping adds a conservative western Panhandle cut, with public regression
-samples; new hardware results are pending.
+samples. All three .207 readbacks passed. Its direct acquisition also failed
+within 240 seconds: both receivers accepted `(2,-300)`, but the serving GM's
+display reported unknown because it consulted its absent follower clock. The
+.208 display uses the same own-UTC snapshot as admission; an actual-body
+regression reproduces the .207 failure and covers DST and source withdrawal.
+New hardware results are pending.

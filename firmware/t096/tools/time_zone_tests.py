@@ -2,7 +2,7 @@
 """Offline production TZ codecs and lease tests. MIT, Jonathan Yantis 2026."""
 import argparse,hashlib,hmac,json,os,subprocess
 from pathlib import Path
-p=argparse.ArgumentParser();p.add_argument('--deps',type=Path,required=True);p.add_argument('--out',type=Path,required=True);a=p.parse_args()
+p=argparse.ArgumentParser();p.add_argument('--deps',type=Path,required=True);p.add_argument('--out',type=Path,required=True);p.add_argument('--display-old-root',type=Path);a=p.parse_args()
 app=Path(__file__).resolve().parents[1];out=a.out.resolve();out.mkdir(parents=True,exist_ok=False)
 tiny=a.deps.resolve()/'modules/crypto/tinycrypt/lib'
 cc=os.environ.get('CC','/opt/homebrew/opt/llvm/bin/clang')
@@ -24,6 +24,20 @@ assert 'observe_coarse_tz(&packet, received, b.kernel_hi);' in service
 observer_cmd=[cc,'-std=c11','-Wall','-Wextra','-Werror','-g','-fsanitize=address,undefined','-fno-sanitize-recover=all','-DR2_TZ_WIRE=1','-I'+str(app/'protocol'),'-I'+str(out),str(app/'protocol/gm7_bridge.c'),str(app/'tests/gm7_time_zone_test.c'),'-o',str(out/'gm7-tz-observer')]
 with (out/'gm7-observer-compile.log').open('w')as f:subprocess.run(observer_cmd,stdout=f,stderr=subprocess.STDOUT,check=True,timeout=30)
 with (out/'gm7-observer-run.log').open('w')as f:subprocess.run([str(out/'gm7-tz-observer')],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=30)
+# The serving GM has no follower clock. Exercise its actual admission snapshot
+# and published TZ assignment together, including the original failed binding.
+start=service.index('static struct r2_gm7_admission_source admission(');brace=service.index('{',start);end=brace+1;depth=1
+while depth:
+ if service[end]=='{':depth+=1
+ elif service[end]=='}':depth-=1
+ end+=1
+display=(a.display_old_root/'src/gm7_service.c').read_text()if a.display_old_root else service
+anchor=display.index('  status.tz=r2_tz_current(&coarse_tz,b.kernel_hi);')
+block=display[display.rfind('#ifdef R2_TZ_WIRE',0,anchor):display.index('  status.time_sampled_us',anchor)]
+(out/'gm7_tz_display_under_test.h').write_text(service[start:end]+'\nstatic void publish_tz(struct gm7_bridge b){(void)c;(void)admission;\n'+block+'}\n')
+display_cmd=[cc,'-std=c11','-Wall','-Wextra','-Werror','-g','-fsanitize=address,undefined','-fno-sanitize-recover=all','-DR2_TZ_WIRE=1','-DR2_TZ_AUTO=1','-I'+str(app/'include'),'-I'+str(app/'protocol'),'-I'+str(out),str(app/'protocol/gm7_bridge.c'),str(app/'src/time_zone_selector.c'),str(app/'src/time_zone_database.c'),str(app/'tests/gm7_time_zone_display_test.c'),'-o',str(out/'gm7-tz-display')]
+with (out/'gm7-display-compile.log').open('w')as f:subprocess.run(display_cmd,stdout=f,stderr=subprocess.STDOUT,check=True,timeout=30)
+with (out/'gm7-display-run.log').open('w')as f:subprocess.run([str(out/'gm7-tz-display')],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=30)
 # Exercise the actual RC coarse-observation bodies with real authenticated
 # codecs, keeping only Bluetooth address comparison and queue ingress fake.
 rc=(app/'src/rc_dynamic_service.c').read_text()
@@ -49,5 +63,5 @@ for row in v['vectors']:
  w=bytes.fromhex(row['hex'])[row['body_offset']:];tag=row['tag_offset']
  assert w[row['tz_offset']:row['tz_offset']+4]==bytes.fromhex('0200d4fe')
  assert hmac.new(bytes.fromhex(v['key_hex']),row['domain'].encode()+ctx+w[:tag],hashlib.sha256).digest()[:16]==w[tag:]
-(out/'receipt.json').write_text(json.dumps({'status':'PASS','command':cmd,'gm_observer_command':observer_cmd},indent=2)+'\n')
-print('PASS TZ codecs, signed offsets, coarse 3-period lease/renewal, independent HMAC and frozen synthetic vectors')
+(out/'receipt.json').write_text(json.dumps({'status':'PASS','command':cmd,'gm_observer_command':observer_cmd,'gm_display_command':display_cmd,'rc_observer_command':rc_cmd},indent=2)+'\n')
+print('PASS TZ codecs, serving-GM own UTC/DST display, direct/relay updates, coarse lease, independent HMAC and frozen vectors')

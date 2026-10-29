@@ -1,5 +1,13 @@
 # T096 changelog
 
+## 0.15.208 — Serving GM local timezone display
+
+Evaluate the serving GM's local TZ status with its own qualified UTC snapshot,
+using the same admission snapshot as its receivers. A serving GM has no follower
+clock, so the prior display path reported unknown despite transmitting a known
+pair. Preserve UTC, timing permission and precision calculations. An actual-body
+regression covers the absent follower, DST transition and source-withdrawal gates.
+
 ## 0.15.207 — Western Florida automatic coverage
 
 Resolve Florida's western Panhandle west of 86W to the Chicago calendar, while
