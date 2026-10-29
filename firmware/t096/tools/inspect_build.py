@@ -6,6 +6,7 @@ import argparse,contextlib,hashlib,importlib.util,json,re,struct,sys,tempfile
 from pathlib import Path
 from elftools.elf.elffile import ELFFile
 from uf2 import verify
+from tz_compile_mode import require_tz_compile_mode
 
 def sha(p):return hashlib.sha256(p.read_bytes()).hexdigest()
 def require(ok,message):
@@ -86,6 +87,8 @@ def inspect(out,allow_development=False):
     # .197 adds one durable callback word per slot (24B with struct alignment).
     hot_allowance=(104 if tuple(map(int,r['version'].split('.'))) >= (0,15,197) else 80 if tuple(map(int,r['version'].split('.'))) >= (0,15,196) else 64) if gm7 and tuple(map(int,r['version'].split('.'))) >= (0,15,194) else 0
     commands=(out/'target/compile_commands.json').read_text()
+    if gm7 and tuple(map(int,r['version'].split('.'))) >= (0,15,202):
+        require_tz_compile_mode(json.loads(commands))
     # TZ1 adds208B static allocation versus the inspected .201 GM/RC image with the same inputs.
     # Charge it to its own bounded feature allocation, not the RC8 allowance.
     # Radio/USB buffers, stacks and the absolute1024B floor stay unchanged.

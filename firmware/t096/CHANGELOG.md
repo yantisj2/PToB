@@ -1,5 +1,14 @@
 # T096 changelog
 
+## 0.15.203 — Consistent coarse wire layout in the native controller
+
+Compile the application and both GM7 controller libraries with the same TZ wire
+selection. Their shared job contains the coarse advertisement array, so different
+selections change its layout and prevent reservations. Native inspection now
+rejects missing or inconsistent flags in the actual compiler commands, including
+the generated controller sources. Preserve the failed .202 acquisition attempt;
+this correction still requires fresh hardware certification.
+
 ## 0.15.202 — Coarse mesh time zone
 
 Add four authenticated TZ bytes to GM7 coarse control, JOIN and RC coarse control/capability

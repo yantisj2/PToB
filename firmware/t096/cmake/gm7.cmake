@@ -3,11 +3,12 @@ if(R2_GM7_NATIVE AND CONFIG_ARM AND NOT CONFIG_BOARD_NRF52_BSIM)
  if(R2_DC_PROFILE OR R2_PC_PROFILE)
   message(FATAL_ERROR "GM7 is normal GM work only")
  endif()
- target_compile_definitions(app PRIVATE R2_GM7_NATIVE=1)
+ # Coarse wire sizes occur in shared jobs; app and both controller targets must agree.
+ target_compile_definitions(app PRIVATE R2_GM7_NATIVE=1 R2_TZ_WIRE=1)
  target_sources(app PRIVATE protocol/gm7_codec.c protocol/gm7_control.c protocol/gm7_owner.c
   protocol/gm7_schedule.c protocol/gm7_air.c protocol/gm7_bridge.c protocol/gm7_promote.c src/gm7_source.c src/gm7_clock.c src/gm7_capture.c)
- target_compile_definitions(subsys__bluetooth__controller PRIVATE R2_GM7_NATIVE=1)
- target_compile_definitions(subsys__bluetooth__controller__ll_sw__nordic PRIVATE R2_GM7_NATIVE=1)
+ target_compile_definitions(subsys__bluetooth__controller PRIVATE R2_GM7_NATIVE=1 R2_TZ_WIRE=1)
+ target_compile_definitions(subsys__bluetooth__controller__ll_sw__nordic PRIVATE R2_GM7_NATIVE=1 R2_TZ_WIRE=1)
  target_sources(subsys__bluetooth__controller__ll_sw__nordic PRIVATE ${CMAKE_CURRENT_LIST_DIR}/../src/gm7_controller.c)
  set_source_files_properties(${CMAKE_CURRENT_LIST_DIR}/../src/gm7_controller.c TARGET_DIRECTORY subsys__bluetooth__controller__ll_sw__nordic PROPERTIES COMPILE_OPTIONS "-Wall;-Wextra;-Werror;-Wno-unused-parameter")
  target_include_directories(subsys__bluetooth__controller__ll_sw__nordic PRIVATE
