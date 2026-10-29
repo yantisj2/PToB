@@ -24,6 +24,22 @@ assert 'observe_coarse_tz(&packet, received, b.kernel_hi);' in service
 observer_cmd=[cc,'-std=c11','-Wall','-Wextra','-Werror','-g','-fsanitize=address,undefined','-fno-sanitize-recover=all','-DR2_TZ_WIRE=1','-I'+str(app/'protocol'),'-I'+str(out),str(app/'protocol/gm7_bridge.c'),str(app/'tests/gm7_time_zone_test.c'),'-o',str(out/'gm7-tz-observer')]
 with (out/'gm7-observer-compile.log').open('w')as f:subprocess.run(observer_cmd,stdout=f,stderr=subprocess.STDOUT,check=True,timeout=30)
 with (out/'gm7-observer-run.log').open('w')as f:subprocess.run([str(out/'gm7-tz-observer')],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=30)
+# Exercise the actual RC coarse-observation bodies with real authenticated
+# codecs, keeping only Bluetooth address comparison and queue ingress fake.
+rc=(app/'src/rc_dynamic_service.c').read_text()
+blocks=[]
+for name in ('gm_tz_observed','relay_tz_observed'):
+ start=rc.index('static void '+name+'(');brace=rc.index('{',start);end=brace+1;depth=1
+ while depth:
+  if rc[end]=='{':depth+=1
+  elif rc[end]=='}':depth-=1
+  end+=1
+ blocks.append(rc[start:end])
+(out/'rc_tz_observers_under_test.h').write_text('\n'.join(blocks)+'\n')
+rc_cmd=cmd.copy();rc_cmd[rc_cmd.index(str(app/'tests/time_zone_test.c'))]=str(app/'tests/rc_time_zone_test.c')
+rc_cmd.insert(1,'-I'+str(out));rc_cmd[-1]=str(out/'rc-observers')
+with (out/'rc-observer-compile.log').open('w')as f:subprocess.run(rc_cmd,stdout=f,stderr=subprocess.STDOUT,check=True,timeout=45)
+with (out/'rc-observer-run.log').open('w')as f:subprocess.run([str(out/'rc-observers')],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=30)
 # Frozen synthetic wire vectors plus an independent stdlib HMAC check.
 vpath=app.parents[1]/'protocol/time-zone-v1/vectors.json'
 v=json.loads(vpath.read_text());actual={line.split()[1]:line.split()[2] for line in (out/'run.log').read_text().splitlines() if line.startswith('VECTOR ')}

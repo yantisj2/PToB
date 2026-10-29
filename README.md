@@ -35,8 +35,9 @@ Start with the target matching your hardware:
 | macOS | USB time client and chrony bridge | [macOS README](clients/macos/README.md) |
 
 For T096 GMs, follow the **[current GM7 guide](docs/t096/gm7-implementation.md)**
-for ACTIVE/HOT/COLD behavior and compatibility. Source 0.15.205 adds manual CDT
-metadata and local clock display with a breaking coarse-wire revision;
+for ACTIVE/HOT/COLD behavior and compatibility. Source 0.15.206 adds
+[GM location-based TZ and automatic DST](docs/t096/auto-time-zone-plan.md)
+using the existing four-byte coarse metadata and local clock display;
 [certification and other target ports remain pending](docs/t096/time-zone-test-plan.md#local-205-results-29-october-2026).
 
 See the [changelog](CHANGELOG.md) for recent development updates.

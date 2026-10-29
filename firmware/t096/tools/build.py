@@ -48,6 +48,29 @@ def private_binding(enrollment_sha, transmitter):
         return enrollment_sha
     return hashlib.sha256((enrollment_sha+':lora-tx:'+transmitter).encode()).hexdigest()
 
+def time_zone_config(mode, zone, offset, gm7):
+    if not gm7:
+        if any(v is not None for v in (mode,zone,offset)):
+            raise ValueError('TZ configuration requires the normal GM7/RC image')
+        return None
+    mode = mode or 'auto'
+    if mode == 'auto' and (zone is not None or offset is not None):
+        raise ValueError('Automatic TZ does not take manual values')
+    if mode == 'manual-zone' and (zone is None or offset is not None):
+        raise ValueError('Manual zone requires only --tz-id')
+    if mode == 'manual-offset' and (zone is None or offset is None):
+        raise ValueError('Manual offset requires both --tz-id and --tz-offset-min')
+    if zone is not None and not 1 <= zone <= 65535:
+        raise ValueError('Invalid nonzero public TZ ID')
+    if offset is not None and (not -840 <= offset <= 840 or (zone == 1 and offset != 0)):
+        raise ValueError('Invalid TZ offset')
+    manifest = json.loads((APP/'data/manifest.json').read_text())
+    if mode == 'manual-zone' and zone not in {r['id'] for r in manifest['zones']}:
+        raise ValueError('Manual zone ID is absent from the selected database')
+    return dict(mode=mode,mode_number={'manual-offset':0,'manual-zone':1,'auto':2}[mode],
+                id=zone or 2,offset_min=offset if offset is not None else -300,
+                database_sha256=manifest['image_sha256'],database_version=manifest['sources']['tzdb'])
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--deps', type=Path, required=True)
@@ -62,6 +85,9 @@ def main():
     parser.add_argument('--development', action='store_true')
     parser.add_argument('--gm7', action='store_true', help='Explicit normal GM7 selection (already the GM/RC default)')
     parser.add_argument('--legacy-gm-regression', action='store_true', help='Historical GM5/6 regression image only; never an automatic fallback')
+    parser.add_argument('--tz-mode', choices=['auto','manual-zone','manual-offset'], help='Normal GM mode; default auto from own GNSS')
+    parser.add_argument('--tz-id', type=int, help='Explicit public zone ID for a manual mode')
+    parser.add_argument('--tz-offset-min', type=int, help='Manual effective minutes east of UTC')
     args = parser.parse_args()
     os.umask(0o077)
     deps, out = args.deps.resolve(), args.out.resolve()
@@ -77,6 +103,10 @@ def main():
     if (args.gm7 and args.legacy_gm_regression) or ((dc or pc) and (args.gm7 or args.legacy_gm_regression)):
         parser.error('GM backend selectors apply only to normal GM/RC and are mutually exclusive')
     args.gm7 = not (dc or pc or args.legacy_gm_regression)
+    try:
+        tz = time_zone_config(args.tz_mode,args.tz_id,args.tz_offset_min,args.gm7)
+    except ValueError as error:
+        parser.error(str(error))
     pc_auto = pc and args.pc_parent == 'auto'
     if pc:
         if not pc_auto and (not args.pc_parent or not re.fullmatch('[0-9a-f]{16}',args.pc_parent) or not int(args.pc_parent,16)):
@@ -137,6 +167,7 @@ def main():
                'device_config_sha256':sha(args.device_config),
                'lora_transmitter_factory':transmitter,
                'secondary_lora_class':'RC8' if int(transmitter,16) else 'DISABLED'}
+    receipt['time_zone'] = tz
     receipt['gm7_controller'] = None if not args.gm7 else {
         'manifest_sha256':sha(APP/'cmake/gm7-controller.json'),
         'generator_sha256':sha(APP/'tools/gm7_controller_hooks.py')}
@@ -185,6 +216,9 @@ def main():
                            relay_transmit=False,pc_parent=args.pc_parent,pc_auto_direct_gm=pc_auto,
                            timing_chain='AUTHENTICATED_DIRECT_GM_BLE_TIMER3_EXPERIMENTAL_HOLD')
             write(out/'receipt.json',receipt)
+    if tz:
+        with secret.open('a') as stream:
+            stream.write('/* time-zone-config-sha256: '+hashlib.sha256(json.dumps(tz,sort_keys=True).encode()).hexdigest()+' */\n')
     (out/'target/ptob_device.h').write_text('#define PTOB_DEVICE_ID "'+identity+'"\n'
         '#define PTOB_DEVICE_LABEL "'+label+'"\n#define PTOB_DEVICE_BATTERY '+str(battery)+'\n')
     env=os.environ.copy()
@@ -203,6 +237,8 @@ def main():
              '-DR2_LEGACY_GM_REGRESSION='+('ON' if args.legacy_gm_regression else 'OFF'),
              '-DR2_CONTROLLER_DIAGNOSTICS='+('ON' if args.controller_diagnostics else 'OFF'),
              '-DR2_SOURCE_DIRTY='+str(int(dirty)),
+             *(['-DR2_TZ_MODE='+str(tz['mode_number']),'-DR2_TZ_MANUAL_ID='+str(tz['id']),
+                '-DR2_TZ_MANUAL_MIN='+str(tz['offset_min'])] if tz else []),
              '-DR2_LORA_TRANSMITTER_FACTORY='+transmitter,
              '-DZEPHYR_MODULES='+';'.join(str(deps/p['path']) for p in lock['modules']),
              *(['-DR2_DC_PROFILE=ON','-DCONF_FILE='+str(APP/'dc.conf'),'-DDTC_OVERLAY_FILE='+str(APP/'dc.overlay')] if dc else

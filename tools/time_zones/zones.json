@@ -1,0 +1,401 @@
+{
+  "schema": 1,
+  "license": "CC-BY-4.0",
+  "copyright": "2026 Jonathan Yantis",
+  "append_only": true,
+  "unknown_id": 0,
+  "zones": [
+    {
+      "id": 1,
+      "name": "Etc/UTC"
+    },
+    {
+      "id": 2,
+      "name": "America/Chicago"
+    },
+    {
+      "id": 3,
+      "name": "Africa/Ceuta"
+    },
+    {
+      "id": 4,
+      "name": "America/Adak"
+    },
+    {
+      "id": 5,
+      "name": "America/Anchorage"
+    },
+    {
+      "id": 6,
+      "name": "America/Atikokan"
+    },
+    {
+      "id": 7,
+      "name": "America/Bahia_Banderas"
+    },
+    {
+      "id": 8,
+      "name": "America/Belize"
+    },
+    {
+      "id": 9,
+      "name": "America/Blanc-Sablon"
+    },
+    {
+      "id": 10,
+      "name": "America/Boise"
+    },
+    {
+      "id": 11,
+      "name": "America/Cambridge_Bay"
+    },
+    {
+      "id": 12,
+      "name": "America/Cancun"
+    },
+    {
+      "id": 13,
+      "name": "America/Chihuahua"
+    },
+    {
+      "id": 14,
+      "name": "America/Ciudad_Juarez"
+    },
+    {
+      "id": 15,
+      "name": "America/Costa_Rica"
+    },
+    {
+      "id": 16,
+      "name": "America/Creston"
+    },
+    {
+      "id": 17,
+      "name": "America/Dawson"
+    },
+    {
+      "id": 18,
+      "name": "America/Dawson_Creek"
+    },
+    {
+      "id": 19,
+      "name": "America/Denver"
+    },
+    {
+      "id": 20,
+      "name": "America/Detroit"
+    },
+    {
+      "id": 21,
+      "name": "America/Edmonton"
+    },
+    {
+      "id": 22,
+      "name": "America/El_Salvador"
+    },
+    {
+      "id": 23,
+      "name": "America/Fort_Nelson"
+    },
+    {
+      "id": 24,
+      "name": "America/Glace_Bay"
+    },
+    {
+      "id": 25,
+      "name": "America/Goose_Bay"
+    },
+    {
+      "id": 26,
+      "name": "America/Guatemala"
+    },
+    {
+      "id": 27,
+      "name": "America/Halifax"
+    },
+    {
+      "id": 28,
+      "name": "America/Hermosillo"
+    },
+    {
+      "id": 29,
+      "name": "America/Indiana/Indianapolis"
+    },
+    {
+      "id": 30,
+      "name": "America/Indiana/Knox"
+    },
+    {
+      "id": 31,
+      "name": "America/Indiana/Marengo"
+    },
+    {
+      "id": 32,
+      "name": "America/Indiana/Petersburg"
+    },
+    {
+      "id": 33,
+      "name": "America/Indiana/Tell_City"
+    },
+    {
+      "id": 34,
+      "name": "America/Indiana/Vevay"
+    },
+    {
+      "id": 35,
+      "name": "America/Indiana/Vincennes"
+    },
+    {
+      "id": 36,
+      "name": "America/Indiana/Winamac"
+    },
+    {
+      "id": 37,
+      "name": "America/Inuvik"
+    },
+    {
+      "id": 38,
+      "name": "America/Iqaluit"
+    },
+    {
+      "id": 39,
+      "name": "America/Juneau"
+    },
+    {
+      "id": 40,
+      "name": "America/Kentucky/Louisville"
+    },
+    {
+      "id": 41,
+      "name": "America/Kentucky/Monticello"
+    },
+    {
+      "id": 42,
+      "name": "America/Los_Angeles"
+    },
+    {
+      "id": 43,
+      "name": "America/Managua"
+    },
+    {
+      "id": 44,
+      "name": "America/Matamoros"
+    },
+    {
+      "id": 45,
+      "name": "America/Mazatlan"
+    },
+    {
+      "id": 46,
+      "name": "America/Menominee"
+    },
+    {
+      "id": 47,
+      "name": "America/Merida"
+    },
+    {
+      "id": 48,
+      "name": "America/Metlakatla"
+    },
+    {
+      "id": 49,
+      "name": "America/Mexico_City"
+    },
+    {
+      "id": 50,
+      "name": "America/Moncton"
+    },
+    {
+      "id": 51,
+      "name": "America/Monterrey"
+    },
+    {
+      "id": 52,
+      "name": "America/New_York"
+    },
+    {
+      "id": 53,
+      "name": "America/Nome"
+    },
+    {
+      "id": 54,
+      "name": "America/North_Dakota/Beulah"
+    },
+    {
+      "id": 55,
+      "name": "America/North_Dakota/Center"
+    },
+    {
+      "id": 56,
+      "name": "America/North_Dakota/New_Salem"
+    },
+    {
+      "id": 57,
+      "name": "America/Ojinaga"
+    },
+    {
+      "id": 58,
+      "name": "America/Panama"
+    },
+    {
+      "id": 59,
+      "name": "America/Phoenix"
+    },
+    {
+      "id": 60,
+      "name": "America/Rankin_Inlet"
+    },
+    {
+      "id": 61,
+      "name": "America/Regina"
+    },
+    {
+      "id": 62,
+      "name": "America/Resolute"
+    },
+    {
+      "id": 63,
+      "name": "America/Sitka"
+    },
+    {
+      "id": 64,
+      "name": "America/St_Johns"
+    },
+    {
+      "id": 65,
+      "name": "America/Swift_Current"
+    },
+    {
+      "id": 66,
+      "name": "America/Tegucigalpa"
+    },
+    {
+      "id": 67,
+      "name": "America/Tijuana"
+    },
+    {
+      "id": 68,
+      "name": "America/Toronto"
+    },
+    {
+      "id": 69,
+      "name": "America/Vancouver"
+    },
+    {
+      "id": 70,
+      "name": "America/Whitehorse"
+    },
+    {
+      "id": 71,
+      "name": "America/Winnipeg"
+    },
+    {
+      "id": 72,
+      "name": "America/Yakutat"
+    },
+    {
+      "id": 73,
+      "name": "Atlantic/Azores"
+    },
+    {
+      "id": 74,
+      "name": "Atlantic/Canary"
+    },
+    {
+      "id": 75,
+      "name": "Atlantic/Madeira"
+    },
+    {
+      "id": 76,
+      "name": "Atlantic/Reykjavik"
+    },
+    {
+      "id": 77,
+      "name": "Europe/Amsterdam"
+    },
+    {
+      "id": 78,
+      "name": "Europe/Andorra"
+    },
+    {
+      "id": 79,
+      "name": "Europe/Berlin"
+    },
+    {
+      "id": 80,
+      "name": "Europe/Brussels"
+    },
+    {
+      "id": 81,
+      "name": "Europe/Busingen"
+    },
+    {
+      "id": 82,
+      "name": "Europe/Copenhagen"
+    },
+    {
+      "id": 83,
+      "name": "Europe/Dublin"
+    },
+    {
+      "id": 84,
+      "name": "Europe/Lisbon"
+    },
+    {
+      "id": 85,
+      "name": "Europe/London"
+    },
+    {
+      "id": 86,
+      "name": "Europe/Luxembourg"
+    },
+    {
+      "id": 87,
+      "name": "Europe/Madrid"
+    },
+    {
+      "id": 88,
+      "name": "Europe/Monaco"
+    },
+    {
+      "id": 89,
+      "name": "Europe/Oslo"
+    },
+    {
+      "id": 90,
+      "name": "Europe/Paris"
+    },
+    {
+      "id": 91,
+      "name": "Europe/Rome"
+    },
+    {
+      "id": 92,
+      "name": "Europe/San_Marino"
+    },
+    {
+      "id": 93,
+      "name": "Europe/Stockholm"
+    },
+    {
+      "id": 94,
+      "name": "Europe/Vaduz"
+    },
+    {
+      "id": 95,
+      "name": "Europe/Vatican"
+    },
+    {
+      "id": 96,
+      "name": "Europe/Vienna"
+    },
+    {
+      "id": 97,
+      "name": "Europe/Zurich"
+    },
+    {
+      "id": 98,
+      "name": "Pacific/Honolulu"
+    }
+  ]
+}

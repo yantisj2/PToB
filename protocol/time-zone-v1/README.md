@@ -32,17 +32,35 @@ Precision G1/GR3/RC7 payloads, their authentication, source permits and timestam
 coordinates remain unchanged. Unchanged precision bytes cannot bootstrap an
 old coarse source through new-format admission.
 
-TZ is configured once for the enrolled mesh, learned from the authenticated
-selected parent, and relayed unchanged. Its coarse lease is three advertising
+From T096 source 0.15.206, the serving GM's current atomic pair can change with
+its selected zone/calendar or explicit manual configuration. An RC learns it
+from its authenticated selected parent and relays it unchanged. Its coarse lease is three advertising
 periods: 750 ms for the 250 ms GM cadence, 300 ms for the 100 ms RC cadence.
 Existing authenticated parent advertisements renew that lease independently of
 precision correction availability, clock lock and map expiry. Each hop renews
 its own presence lease. Do not preserve a precision-source deadline for TZ or
 add TZ to precision packets. Expired live metadata reports unknown/UTC while
-retaining the configured pair for renewal. Conflicting pairs are ignored; an
-explicit new mesh configuration/restart clears the cache.
+retaining the last accepted pair for matching presence renewal. An explicit
+unknown update clears the live value; later presence cannot resurrect an older
+known pair. Parent/path replacement clears metadata from the old context.
 
-See the [design](../../docs/time-zones.md) and [T096 test plan](../../docs/t096/time-zone-test-plan.md).
+This supersedes .205's immutable first-pair cache. Direct RCs authenticate GM
+ANN and check the admitted root/boot/epoch, sequence and original receipt age;
+the existing coarse UTC anchor supplies a replay envelope, not precision or
+timing permission. Initial JOIN metadata cannot downgrade a later ordered ANN.
+Relay capability uses the existing `next_challenge`: the producer increments
+its already monotonic admission challenge when the advertised pair changes.
+Within the admitted path, a higher challenge accepts a changed pair; an equal
+challenge renews only an identical pair. Older or equal-token conflicting pairs
+are rejected. Fresh nonce-bound relay responses can bootstrap or renew that
+same metadata scope. No counter or field is added to the wire.
+
+The byte layouts, domains and precision payloads remain unchanged. All T096
+participants must receive the dynamic-update implementation before relying on
+automatic DST; an old .205 receiver deliberately retains its first pair.
+
+See the [design](../../docs/time-zones.md), [automatic TZ guide](../../docs/t096/auto-time-zone-plan.md)
+and historical [T096 manual-wire test plan](../../docs/t096/time-zone-test-plan.md).
 
 `vectors.json` contains four public synthetic CDT packets. The T096 host runner
 checks their exact bytes and independently verifies their HMACs with Python’s

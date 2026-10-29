@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-29 — T096 GM automatic timezone and DST
+
+- Add own-GNSS regional selection, pinned IANA 2026f offset calendars through
+  2031, explicit manual modes, bounded position hold and unknown/UTC fallback.
+- Update authenticated direct/relay coarse metadata dynamically without changing
+  its four bytes, precision layouts, UTC coordinates, source or mesh epochs.
+- Include deterministic generation, explicit geographic cuts/omissions,
+  append-only IDs and dataset terms. Retain ambiguous outcomes and enforce
+  16 KiB data/256 B added mutable-state budgets. Hardware acceptance is separate.
+
 ## 2026-10-29 — Integrate current T096 development into main
 
 - Merge T096 source 0.15.205 and its GM7 development history, including controller

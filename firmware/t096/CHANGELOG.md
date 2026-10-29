@@ -1,5 +1,27 @@
 # T096 changelog
 
+## 0.15.206 — GM location-based timezone and DST
+
+Select a rough regional zone from newly accepted own-GNSS coordinates, then
+compute its current offset from pinned 2026f calendars through 2031. Three
+minute-spaced matching fixes establish a zone; ambiguous/stale input permits
+at most ten minutes from the last confirmation before unknown/UTC. Manual-zone
+mode follows a chosen calendar; explicit manual-offset mode remains fixed.
+
+Propagate dynamic pairs and explicit unknown through existing authenticated
+coarse fields. Direct receivers consume ordered selected-GM ANN; relays reuse
+the existing admission challenge to order changed snapshots. Scope/replay
+fences and unknown withdrawal prevent old pairs from returning. UTC, precision
+payloads, source/mesh epochs, USB coordinates and existing timing authority
+remain unchanged. Normal builds default to auto; separate profiles reject TZ
+configuration. Receipts bind the mode and selected database.
+
+The generated image is 5738 B: 98 public names share 20 calendars/135 transitions.
+All 97 IANA principal-location outcomes are retained (38 correct, 59 ambiguous,
+zero wrong); this is coverage, not geographic accuracy qualification. Complete
+added mutable state is capped at 256 B, with existing radio/USB/stack gates intact.
+Native preparation and actual hardware acceptance remain separate records.
+
 ## 0.15.205 — Local time on the front clock
 
 When coarse mesh TZ metadata is known and leased, page 1 and its analog

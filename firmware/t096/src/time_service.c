@@ -1,6 +1,10 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 #include "time_service.h"
 #include "rc_shadow.h"
+#ifdef R2_TZ_AUTO
+#include "time_zone_config.h"
+static struct r2_tz_selector tz_selector;
+#endif
 #if defined(R2_SWITCHABLE_FIELD)
 #include "ble_service.h"
 #endif
@@ -48,6 +52,9 @@ void r2_time_input_precise_pps(struct r2_capture capture,int64_t arrival)
 {struct input event={.at=arrival,.capture=capture,.pps=true};put(&event);}
 void r2_time_init(void)
 {
+#ifdef R2_TZ_AUTO
+  tz_selector=(struct r2_tz_selector){0};
+#endif
   head=tail=count=drops=0;pending=R2_INPUT_OK;accepting=started=false;
   r2_clock_init(&clock_state,r2_time_now_us(),r2_gnss_association());
   r2_pps_precision_init(&precision);last_capture=0;
@@ -96,6 +103,15 @@ void r2_time_service(void)
     else {r2_gnss_observe(event.bytes,event.size,event.at);r2_clock_bytes(&clock_state,event.bytes,event.size,event.at,now);}
   }
   r2_clock_advance(&clock_state,r2_time_now_us());
+#ifdef R2_TZ_AUTO
+  {
+    k_spinlock_key_t key=k_spin_lock(&lock);
+    r2_tz_selector_step(&tz_selector,&clock_state.position,
+      (uint64_t)clock_state.view.mono_us,(uint64_t)clock_state.view.utc_us,
+      !clock_state.stopped&&!clock_state.fatal&&clock_state.view.valid);
+    k_spin_unlock(&lock,key);
+  }
+#endif
   if(clock_state.translated_epoch!=clock_state.view.source_epoch||!source.utc_bound)clock_state.translated_epoch=0;
 #if defined(R2_SWITCHABLE_FIELD)
   if(!r2_switch_rc_active())
@@ -140,6 +156,11 @@ void r2_time_service(void)
 }
 void r2_time_stop(void)
 {
+#ifdef R2_TZ_AUTO
+  k_spinlock_key_t tz_key=k_spin_lock(&lock);
+  tz_selector=(struct r2_tz_selector){0};clock_state.position.valid=false;
+  k_spin_unlock(&lock,tz_key);
+#endif
   k_spinlock_key_t key=k_spin_lock(&lock);accepting=false;head=tail=count=0;pending=R2_INPUT_OK;k_spin_unlock(&lock,key);
   r2_clock_fault(&clock_state,R2_INPUT_STOP,r2_time_now_us());
   r2_pps_precision_init(&precision);last_capture=0;
@@ -180,3 +201,32 @@ bool r2_time_source_utc_now(uint32_t source_epoch,int64_t *utc_us){
  if(!r2_gnss_capture_now(&at)||!r2_source_utc_read(&source,at,source_epoch,&ns))return false;
  *utc_us=ns/1000;return true;
 }
+
+#ifdef R2_TZ_AUTO
+void r2_time_position_snapshot(struct r2_position *out){
+ k_spinlock_key_t key=k_spin_lock(&lock);*out=clock_state.position;k_spin_unlock(&lock,key);
+}
+struct r2_tz r2_time_tz_at(uint64_t now,uint64_t utc,bool valid){
+ k_spinlock_key_t key=k_spin_lock(&lock);
+ struct r2_tz_selector selected=tz_selector;
+ k_spin_unlock(&lock,key);
+ return r2_tz_selector_value(&selected,R2_TZ_MODE,
+  (struct r2_tz){R2_TZ_MANUAL_ID,R2_TZ_MANUAL_MIN},now,utc,valid);
+}
+void r2_time_tz_status(struct r2_tz_local_status *out,uint64_t now){
+ k_spinlock_key_t key=k_spin_lock(&lock);
+ struct r2_tz_selector s=tz_selector;struct r2_position p=clock_state.position;
+ bool utc_live=clock_state.view.valid&&!clock_state.stopped&&!clock_state.fatal;
+ bool window=clock_state.view.utc_us>=0&&r2_tz_db_window((uint64_t)clock_state.view.utc_us);
+ k_spin_unlock(&lock,key);
+ uint64_t age=p.valid&&p.received_us>=0&&now>=(uint64_t)p.received_us?
+  now-(uint64_t)p.received_us:UINT64_MAX;
+ uint64_t confirmed=s.selected&&now>=s.confirmed_at?now-s.confirmed_at:UINT64_MAX;
+ *out=(struct r2_tz_local_status){.position_age_us=age,.confirmed_age_us=confirmed,
+  .selected=R2_TZ_MODE==R2_TZ_MANUAL_ZONE?R2_TZ_MANUAL_ID:s.selected,
+  .mode=R2_TZ_MODE,.reason=R2_TZ_MODE==R2_TZ_MANUAL_OFFSET?R2_TZ_LIVE:
+    R2_TZ_MODE==R2_TZ_MANUAL_ZONE?(utc_live?(window?R2_TZ_LIVE:R2_TZ_DB_EXPIRED):R2_TZ_NO_UTC):s.reason,
+  .hold=R2_TZ_MODE==R2_TZ_AUTOMATIC&&utc_live&&window&&s.selected&&confirmed<R2_TZ_HOLD_US&&
+        (age>R2_TZ_POSITION_US||s.reason!=R2_TZ_LIVE)};
+}
+#endif

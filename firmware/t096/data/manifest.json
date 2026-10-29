@@ -1,0 +1,4456 @@
+{
+  "calendar_comparisons": {
+    "daily": 214718,
+    "transition_boundaries": 2596
+  },
+  "calendars": 20,
+  "copyright": "2026 Jonathan Yantis",
+  "generator_sha256": "62c4c362618435e28f3e99cbe7e2d24369d02702cfae0f2add8b08f59501c0dc",
+  "geographic_populations": [
+    {
+      "bytes": 1704,
+      "cells": {
+        "0": 6576,
+        "2": 261,
+        "5": 47,
+        "8": 2,
+        "10": 8,
+        "12": 3,
+        "13": 8,
+        "15": 4,
+        "19": 111,
+        "21": 128,
+        "26": 4,
+        "27": 11,
+        "28": 11,
+        "42": 109,
+        "43": 9,
+        "45": 24,
+        "47": 8,
+        "49": 70,
+        "50": 4,
+        "51": 11,
+        "52": 134,
+        "58": 13,
+        "59": 7,
+        "61": 66,
+        "64": 30,
+        "66": 8,
+        "67": 11,
+        "68": 71,
+        "69": 31,
+        "70": 23,
+        "71": 84,
+        "98": 21,
+        "255": 2492
+      },
+      "columns": 130,
+      "latitude_start": 5,
+      "longitude_start": -180,
+      "rows": 80
+    },
+    {
+      "bytes": 734,
+      "cells": {
+        "0": 2228,
+        "73": 7,
+        "74": 11,
+        "75": 5,
+        "76": 41,
+        "77": 4,
+        "79": 32,
+        "82": 11,
+        "83": 17,
+        "84": 7,
+        "85": 66,
+        "87": 65,
+        "89": 89,
+        "90": 66,
+        "91": 54,
+        "93": 81,
+        "96": 2,
+        "255": 158
+      },
+      "columns": 64,
+      "latitude_start": 26,
+      "longitude_start": -32,
+      "rows": 46
+    }
+  ],
+  "geographic_regions": [
+    {
+      "iso_3166_2": "US-WA",
+      "natural_earth_id": "USA-3519"
+    },
+    {
+      "iso_3166_2": "US-ID",
+      "natural_earth_id": "USA-3518"
+    },
+    {
+      "iso_3166_2": "US-MT",
+      "natural_earth_id": "USA-3515"
+    },
+    {
+      "iso_3166_2": "US-ND",
+      "natural_earth_id": "USA-3516"
+    },
+    {
+      "iso_3166_2": "US-MN",
+      "natural_earth_id": "USA-3514"
+    },
+    {
+      "iso_3166_2": "US-OH",
+      "natural_earth_id": "USA-3550"
+    },
+    {
+      "iso_3166_2": "US-PA",
+      "natural_earth_id": "USA-3560"
+    },
+    {
+      "iso_3166_2": "US-NY",
+      "natural_earth_id": "USA-3559"
+    },
+    {
+      "iso_3166_2": "US-VT",
+      "natural_earth_id": "USA-3540"
+    },
+    {
+      "iso_3166_2": "US-NH",
+      "natural_earth_id": "USA-3538"
+    },
+    {
+      "iso_3166_2": "US-ME",
+      "natural_earth_id": "USA-3561"
+    },
+    {
+      "iso_3166_2": "US-AZ",
+      "natural_earth_id": "USA-3520"
+    },
+    {
+      "iso_3166_2": "US-CA",
+      "natural_earth_id": "USA-3521"
+    },
+    {
+      "iso_3166_2": "US-NM",
+      "natural_earth_id": "USA-3524"
+    },
+    {
+      "iso_3166_2": "US-TX",
+      "natural_earth_id": "USA-3536"
+    },
+    {
+      "iso_3166_2": "US-AK",
+      "natural_earth_id": "USA-3563"
+    },
+    {
+      "iso_3166_2": "US-LA",
+      "natural_earth_id": "USA-3535"
+    },
+    {
+      "iso_3166_2": "US-MS",
+      "natural_earth_id": "USA-3544"
+    },
+    {
+      "iso_3166_2": "US-AL",
+      "natural_earth_id": "USA-3541"
+    },
+    {
+      "iso_3166_2": "US-FL",
+      "natural_earth_id": "USA-3542"
+    },
+    {
+      "iso_3166_2": "US-GA",
+      "natural_earth_id": "USA-3543"
+    },
+    {
+      "iso_3166_2": "US-SC",
+      "natural_earth_id": "USA-3545"
+    },
+    {
+      "iso_3166_2": "US-NC",
+      "natural_earth_id": "USA-3549"
+    },
+    {
+      "iso_3166_2": "US-VA",
+      "natural_earth_id": "USA-3552"
+    },
+    {
+      "iso_3166_2": "US-DC",
+      "natural_earth_id": "USA-3556"
+    },
+    {
+      "iso_3166_2": "US-MD",
+      "natural_earth_id": "USA-3557"
+    },
+    {
+      "iso_3166_2": "US-DE",
+      "natural_earth_id": "USA-3555"
+    },
+    {
+      "iso_3166_2": "US-NJ",
+      "natural_earth_id": "USA-3558"
+    },
+    {
+      "iso_3166_2": "US-CT",
+      "natural_earth_id": "USA-3537"
+    },
+    {
+      "iso_3166_2": "US-RI",
+      "natural_earth_id": "USA-3539"
+    },
+    {
+      "iso_3166_2": "US-MA",
+      "natural_earth_id": "USA-3513"
+    },
+    {
+      "iso_3166_2": "US-OR",
+      "natural_earth_id": "USA-3525"
+    },
+    {
+      "iso_3166_2": "US-HI",
+      "natural_earth_id": "USA-3517"
+    },
+    {
+      "iso_3166_2": "US-UT",
+      "natural_earth_id": "USA-3526"
+    },
+    {
+      "iso_3166_2": "US-WY",
+      "natural_earth_id": "USA-3527"
+    },
+    {
+      "iso_3166_2": "US-NV",
+      "natural_earth_id": "USA-3523"
+    },
+    {
+      "iso_3166_2": "US-CO",
+      "natural_earth_id": "USA-3522"
+    },
+    {
+      "iso_3166_2": "US-SD",
+      "natural_earth_id": "USA-3534"
+    },
+    {
+      "iso_3166_2": "US-NE",
+      "natural_earth_id": "USA-3532"
+    },
+    {
+      "iso_3166_2": "US-KS",
+      "natural_earth_id": "USA-3530"
+    },
+    {
+      "iso_3166_2": "US-OK",
+      "natural_earth_id": "USA-3533"
+    },
+    {
+      "iso_3166_2": "US-IA",
+      "natural_earth_id": "USA-3529"
+    },
+    {
+      "iso_3166_2": "US-MO",
+      "natural_earth_id": "USA-3531"
+    },
+    {
+      "iso_3166_2": "US-WI",
+      "natural_earth_id": "USA-3553"
+    },
+    {
+      "iso_3166_2": "US-IL",
+      "natural_earth_id": "USA-3546"
+    },
+    {
+      "iso_3166_2": "US-AR",
+      "natural_earth_id": "USA-3528"
+    },
+    {
+      "iso_3166_2": "US-TN",
+      "natural_earth_id": "USA-3551"
+    },
+    {
+      "iso_3166_2": "US-WV",
+      "natural_earth_id": "USA-3554"
+    },
+    {
+      "iso_3166_2": "US-IN",
+      "natural_earth_id": "USA-3547"
+    },
+    {
+      "iso_3166_2": "CA-BC",
+      "natural_earth_id": "CAN-633"
+    },
+    {
+      "iso_3166_2": "CA-AB",
+      "natural_earth_id": "CAN-632"
+    },
+    {
+      "iso_3166_2": "CA-SK",
+      "natural_earth_id": "CAN-631"
+    },
+    {
+      "iso_3166_2": "CA-MB",
+      "natural_earth_id": "CAN-630"
+    },
+    {
+      "iso_3166_2": "CA-ON",
+      "natural_earth_id": "CAN-682"
+    },
+    {
+      "iso_3166_2": "CA-QC",
+      "natural_earth_id": "CAN-683"
+    },
+    {
+      "iso_3166_2": "CA-NB",
+      "natural_earth_id": "CAN-684"
+    },
+    {
+      "iso_3166_2": "CA-YT",
+      "natural_earth_id": "CAN-636"
+    },
+    {
+      "iso_3166_2": "CA-NL",
+      "natural_earth_id": "CAN-686"
+    },
+    {
+      "iso_3166_2": "CA-NS",
+      "natural_earth_id": "CAN-685"
+    },
+    {
+      "iso_3166_2": "CA-NT",
+      "natural_earth_id": "CAN-635"
+    },
+    {
+      "iso_3166_2": "CA-PE",
+      "natural_earth_id": "CAN-687"
+    },
+    {
+      "iso_3166_2": "MX-SON",
+      "natural_earth_id": "MEX-2712"
+    },
+    {
+      "iso_3166_2": "MX-BCN",
+      "natural_earth_id": "MEX-2706"
+    },
+    {
+      "iso_3166_2": "MX-CHH",
+      "natural_earth_id": "MEX-2709"
+    },
+    {
+      "iso_3166_2": "MX-COA",
+      "natural_earth_id": "MEX-2708"
+    },
+    {
+      "iso_3166_2": "MX-TAM",
+      "natural_earth_id": "MEX-2716"
+    },
+    {
+      "iso_3166_2": "MX-NLE",
+      "natural_earth_id": "MEX-2714"
+    },
+    {
+      "iso_3166_2": "MX-ROO",
+      "natural_earth_id": "MEX-2736"
+    },
+    {
+      "iso_3166_2": "MX-CAM",
+      "natural_earth_id": "MEX-2722"
+    },
+    {
+      "iso_3166_2": "MX-TAB",
+      "natural_earth_id": "MEX-2725"
+    },
+    {
+      "iso_3166_2": "MX-CHP",
+      "natural_earth_id": "MEX-2735"
+    },
+    {
+      "iso_3166_2": "MX-COL",
+      "natural_earth_id": "MEX-2718"
+    },
+    {
+      "iso_3166_2": "MX-NAY",
+      "natural_earth_id": "MEX-2721"
+    },
+    {
+      "iso_3166_2": "MX-BCS",
+      "natural_earth_id": "MEX-2707"
+    },
+    {
+      "iso_3166_2": "MX-SIN",
+      "natural_earth_id": "MEX-2711"
+    },
+    {
+      "iso_3166_2": "MX-YUC",
+      "natural_earth_id": "MEX-2737"
+    },
+    {
+      "iso_3166_2": "MX-VER",
+      "natural_earth_id": "MEX-2734"
+    },
+    {
+      "iso_3166_2": "MX-JAL",
+      "natural_earth_id": "MEX-2719"
+    },
+    {
+      "iso_3166_2": "MX-MIC",
+      "natural_earth_id": "MEX-2720"
+    },
+    {
+      "iso_3166_2": "MX-GRO",
+      "natural_earth_id": "MEX-2729"
+    },
+    {
+      "iso_3166_2": "MX-OAX",
+      "natural_earth_id": "MEX-2723"
+    },
+    {
+      "iso_3166_2": "MX-MEX",
+      "natural_earth_id": "MEX-2731"
+    },
+    {
+      "iso_3166_2": "MX-PUE",
+      "natural_earth_id": "MEX-2724"
+    },
+    {
+      "iso_3166_2": "MX-MOR",
+      "natural_earth_id": "MEX-2732"
+    },
+    {
+      "iso_3166_2": "MX-QUE",
+      "natural_earth_id": "MEX-2733"
+    },
+    {
+      "iso_3166_2": "MX-HID",
+      "natural_earth_id": "MEX-2730"
+    },
+    {
+      "iso_3166_2": "MX-GUA",
+      "natural_earth_id": "MEX-2728"
+    },
+    {
+      "iso_3166_2": "MX-SLP",
+      "natural_earth_id": "MEX-2715"
+    },
+    {
+      "iso_3166_2": "MX-ZAC",
+      "natural_earth_id": "MEX-2713"
+    },
+    {
+      "iso_3166_2": "MX-AGU",
+      "natural_earth_id": "MEX-2717"
+    },
+    {
+      "iso_3166_2": "MX-DUR",
+      "natural_earth_id": "MEX-2710"
+    },
+    {
+      "iso_3166_2": "MX-TLA",
+      "natural_earth_id": "MEX-2726"
+    },
+    {
+      "iso_3166_2": "MX-DIF",
+      "natural_earth_id": "MEX-2727"
+    }
+  ],
+  "header_sha256": "df0bad22f067da35edb545ebd732cf28717363683f711f2d980c5ed96925ad2e",
+  "image_bytes": 5738,
+  "image_sha256": "9ab1a6c7e0ebddaf1319e1ee392d3b46c9cfc0fb7464858d71f542893215e811",
+  "inputs_sha256": {
+    "regions.json": "99f0025ae5e4954a713f4f080480750b860946bbcb90957b81d55ec315f9c061",
+    "requirements.txt": "d9b102ce7ec2c33ba25d6192309fa210b51c42a4c5d012354c8b3a49fdb94183",
+    "sources.lock.json": "30107d7dba4ed85d9dd6ec1796e4045c9baf20b3cb66aa1949c8da604dcf3dd7",
+    "zones.json": "2c765ff8ec319f11180a9466fcdac2bec8b27697129e0a8b25c1f33302dbbac3"
+  },
+  "license": "CC-BY-4.0",
+  "schema": 1,
+  "sections": {
+    "americas": 3300,
+    "calendars": 620,
+    "europe": 5004,
+    "names": 1550,
+    "transitions": 740,
+    "zones": 32
+  },
+  "sources": {
+    "inputs": [
+      {
+        "bytes": 483310,
+        "name": "tzdata2026f.tar.gz",
+        "sha256": "01b4a91cec5167ed48c11e8ab78f2048cead78ce94b0cafcad0ae8c5a3044d3d",
+        "url": "https://data.iana.org/time-zones/releases/tzdata2026f.tar.gz"
+      },
+      {
+        "bytes": 329832,
+        "name": "tzcode2026f.tar.gz",
+        "sha256": "5a18da01393679ef2559214dc687563f7f3d05691f6f58b7fbc0166f3e796cd6",
+        "url": "https://data.iana.org/time-zones/releases/tzcode2026f.tar.gz"
+      },
+      {
+        "bytes": 4930492,
+        "name": "ne_10m_admin_0_countries.zip",
+        "sha256": "ce1ac7036499a0edd641fbc093cd209a98f96a49d2eca8480aaacad35138a7f6",
+        "url": "https://naturalearth.s3.amazonaws.com/5.1.1/10m_cultural/ne_10m_admin_0_countries.zip"
+      },
+      {
+        "bytes": 14909524,
+        "name": "ne_10m_admin_1_states_provinces.zip",
+        "sha256": "efc59726337323058f9446210adc96673179cd344e053666ee3d28cb58ba2b05",
+        "url": "https://naturalearth.s3.amazonaws.com/5.1.1/10m_cultural/ne_10m_admin_1_states_provinces.zip"
+      },
+      {
+        "bytes": 2349685,
+        "name": "ne_10m_lakes.zip",
+        "sha256": "0803a06f9c3cb4671d89b68c48b142aad9366ba40f665245e12a913fbc61722a",
+        "url": "https://naturalearth.s3.amazonaws.com/5.0.0/10m_physical/ne_10m_lakes.zip"
+      }
+    ],
+    "natural_earth": "5.1.1",
+    "natural_earth_lakes": "5.0.0",
+    "schema": 1,
+    "tzdb": "2026f",
+    "valid_from": 1767225600,
+    "valid_until": 1956528000
+  },
+  "transitions": 135,
+  "zones": [
+    {
+      "calendar": 0,
+      "id": 1,
+      "initial_offset_min": 0,
+      "name": "Etc/UTC",
+      "transitions": []
+    },
+    {
+      "calendar": 1,
+      "id": 2,
+      "initial_offset_min": -360,
+      "name": "America/Chicago",
+      "transitions": [
+        [
+          1772956800,
+          -300
+        ],
+        [
+          1793516400,
+          -360
+        ],
+        [
+          1805011200,
+          -300
+        ],
+        [
+          1825570800,
+          -360
+        ],
+        [
+          1836460800,
+          -300
+        ],
+        [
+          1857020400,
+          -360
+        ],
+        [
+          1867910400,
+          -300
+        ],
+        [
+          1888470000,
+          -360
+        ],
+        [
+          1899360000,
+          -300
+        ],
+        [
+          1919919600,
+          -360
+        ],
+        [
+          1930809600,
+          -300
+        ],
+        [
+          1951369200,
+          -360
+        ]
+      ]
+    },
+    {
+      "calendar": 2,
+      "id": 3,
+      "initial_offset_min": 60,
+      "name": "Africa/Ceuta",
+      "transitions": [
+        [
+          1774746000,
+          120
+        ],
+        [
+          1792890000,
+          60
+        ],
+        [
+          1806195600,
+          120
+        ],
+        [
+          1824944400,
+          60
+        ],
+        [
+          1837645200,
+          120
+        ],
+        [
+          1856394000,
+          60
+        ],
+        [
+          1869094800,
+          120
+        ],
+        [
+          1887843600,
+          60
+        ],
+        [
+          1901149200,
+          120
+        ],
+        [
+          1919293200,
+          60
+        ],
+        [
+          1932598800,
+          120
+        ],
+        [
+          1950742800,
+          60
+        ]
+      ]
+    },
+    {
+      "calendar": 3,
+      "id": 4,
+      "initial_offset_min": -600,
+      "name": "America/Adak",
+      "transitions": [
+        [
+          1772971200,
+          -540
+        ],
+        [
+          1793530800,
+          -600
+        ],
+        [
+          1805025600,
+          -540
+        ],
+        [
+          1825585200,
+          -600
+        ],
+        [
+          1836475200,
+          -540
+        ],
+        [
+          1857034800,
+          -600
+        ],
+        [
+          1867924800,
+          -540
+        ],
+        [
+          1888484400,
+          -600
+        ],
+        [
+          1899374400,
+          -540
+        ],
+        [
+          1919934000,
+          -600
+        ],
+        [
+          1930824000,
+          -540
+        ],
+        [
+          1951383600,
+          -600
+        ]
+      ]
+    },
+    {
+      "calendar": 4,
+      "id": 5,
+      "initial_offset_min": -540,
+      "name": "America/Anchorage",
+      "transitions": [
+        [
+          1772967600,
+          -480
+        ],
+        [
+          1793527200,
+          -540
+        ],
+        [
+          1805022000,
+          -480
+        ],
+        [
+          1825581600,
+          -540
+        ],
+        [
+          1836471600,
+          -480
+        ],
+        [
+          1857031200,
+          -540
+        ],
+        [
+          1867921200,
+          -480
+        ],
+        [
+          1888480800,
+          -540
+        ],
+        [
+          1899370800,
+          -480
+        ],
+        [
+          1919930400,
+          -540
+        ],
+        [
+          1930820400,
+          -480
+        ],
+        [
+          1951380000,
+          -540
+        ]
+      ]
+    },
+    {
+      "calendar": 5,
+      "id": 6,
+      "initial_offset_min": -300,
+      "name": "America/Atikokan",
+      "transitions": []
+    },
+    {
+      "calendar": 6,
+      "id": 7,
+      "initial_offset_min": -360,
+      "name": "America/Bahia_Banderas",
+      "transitions": []
+    },
+    {
+      "calendar": 6,
+      "id": 8,
+      "initial_offset_min": -360,
+      "name": "America/Belize",
+      "transitions": []
+    },
+    {
+      "calendar": 7,
+      "id": 9,
+      "initial_offset_min": -240,
+      "name": "America/Blanc-Sablon",
+      "transitions": []
+    },
+    {
+      "calendar": 8,
+      "id": 10,
+      "initial_offset_min": -420,
+      "name": "America/Boise",
+      "transitions": [
+        [
+          1772960400,
+          -360
+        ],
+        [
+          1793520000,
+          -420
+        ],
+        [
+          1805014800,
+          -360
+        ],
+        [
+          1825574400,
+          -420
+        ],
+        [
+          1836464400,
+          -360
+        ],
+        [
+          1857024000,
+          -420
+        ],
+        [
+          1867914000,
+          -360
+        ],
+        [
+          1888473600,
+          -420
+        ],
+        [
+          1899363600,
+          -360
+        ],
+        [
+          1919923200,
+          -420
+        ],
+        [
+          1930813200,
+          -360
+        ],
+        [
+          1951372800,
+          -420
+        ]
+      ]
+    },
+    {
+      "calendar": 8,
+      "id": 11,
+      "initial_offset_min": -420,
+      "name": "America/Cambridge_Bay",
+      "transitions": [
+        [
+          1772960400,
+          -360
+        ],
+        [
+          1793520000,
+          -420
+        ],
+        [
+          1805014800,
+          -360
+        ],
+        [
+          1825574400,
+          -420
+        ],
+        [
+          1836464400,
+          -360
+        ],
+        [
+          1857024000,
+          -420
+        ],
+        [
+          1867914000,
+          -360
+        ],
+        [
+          1888473600,
+          -420
+        ],
+        [
+          1899363600,
+          -360
+        ],
+        [
+          1919923200,
+          -420
+        ],
+        [
+          1930813200,
+          -360
+        ],
+        [
+          1951372800,
+          -420
+        ]
+      ]
+    },
+    {
+      "calendar": 5,
+      "id": 12,
+      "initial_offset_min": -300,
+      "name": "America/Cancun",
+      "transitions": []
+    },
+    {
+      "calendar": 6,
+      "id": 13,
+      "initial_offset_min": -360,
+      "name": "America/Chihuahua",
+      "transitions": []
+    },
+    {
+      "calendar": 8,
+      "id": 14,
+      "initial_offset_min": -420,
+      "name": "America/Ciudad_Juarez",
+      "transitions": [
+        [
+          1772960400,
+          -360
+        ],
+        [
+          1793520000,
+          -420
+        ],
+        [
+          1805014800,
+          -360
+        ],
+        [
+          1825574400,
+          -420
+        ],
+        [
+          1836464400,
+          -360
+        ],
+        [
+          1857024000,
+          -420
+        ],
+        [
+          1867914000,
+          -360
+        ],
+        [
+          1888473600,
+          -420
+        ],
+        [
+          1899363600,
+          -360
+        ],
+        [
+          1919923200,
+          -420
+        ],
+        [
+          1930813200,
+          -360
+        ],
+        [
+          1951372800,
+          -420
+        ]
+      ]
+    },
+    {
+      "calendar": 6,
+      "id": 15,
+      "initial_offset_min": -360,
+      "name": "America/Costa_Rica",
+      "transitions": []
+    },
+    {
+      "calendar": 9,
+      "id": 16,
+      "initial_offset_min": -420,
+      "name": "America/Creston",
+      "transitions": []
+    },
+    {
+      "calendar": 9,
+      "id": 17,
+      "initial_offset_min": -420,
+      "name": "America/Dawson",
+      "transitions": []
+    },
+    {
+      "calendar": 9,
+      "id": 18,
+      "initial_offset_min": -420,
+      "name": "America/Dawson_Creek",
+      "transitions": []
+    },
+    {
+      "calendar": 8,
+      "id": 19,
+      "initial_offset_min": -420,
+      "name": "America/Denver",
+      "transitions": [
+        [
+          1772960400,
+          -360
+        ],
+        [
+          1793520000,
+          -420
+        ],
+        [
+          1805014800,
+          -360
+        ],
+        [
+          1825574400,
+          -420
+        ],
+        [
+          1836464400,
+          -360
+        ],
+        [
+          1857024000,
+          -420
+        ],
+        [
+          1867914000,
+          -360
+        ],
+        [
+          1888473600,
+          -420
+        ],
+        [
+          1899363600,
+          -360
+        ],
+        [
+          1919923200,
+          -420
+        ],
+        [
+          1930813200,
+          -360
+        ],
+        [
+          1951372800,
+          -420
+        ]
+      ]
+    },
+    {
+      "calendar": 10,
+      "id": 20,
+      "initial_offset_min": -300,
+      "name": "America/Detroit",
+      "transitions": [
+        [
+          1772953200,
+          -240
+        ],
+        [
+          1793512800,
+          -300
+        ],
+        [
+          1805007600,
+          -240
+        ],
+        [
+          1825567200,
+          -300
+        ],
+        [
+          1836457200,
+          -240
+        ],
+        [
+          1857016800,
+          -300
+        ],
+        [
+          1867906800,
+          -240
+        ],
+        [
+          1888466400,
+          -300
+        ],
+        [
+          1899356400,
+          -240
+        ],
+        [
+          1919916000,
+          -300
+        ],
+        [
+          1930806000,
+          -240
+        ],
+        [
+          1951365600,
+          -300
+        ]
+      ]
+    },
+    {
+      "calendar": 11,
+      "id": 21,
+      "initial_offset_min": -420,
+      "name": "America/Edmonton",
+      "transitions": [
+        [
+          1772960400,
+          -360
+        ]
+      ]
+    },
+    {
+      "calendar": 6,
+      "id": 22,
+      "initial_offset_min": -360,
+      "name": "America/El_Salvador",
+      "transitions": []
+    },
+    {
+      "calendar": 9,
+      "id": 23,
+      "initial_offset_min": -420,
+      "name": "America/Fort_Nelson",
+      "transitions": []
+    },
+    {
+      "calendar": 12,
+      "id": 24,
+      "initial_offset_min": -240,
+      "name": "America/Glace_Bay",
+      "transitions": [
+        [
+          1772949600,
+          -180
+        ],
+        [
+          1793509200,
+          -240
+        ],
+        [
+          1805004000,
+          -180
+        ],
+        [
+          1825563600,
+          -240
+        ],
+        [
+          1836453600,
+          -180
+        ],
+        [
+          1857013200,
+          -240
+        ],
+        [
+          1867903200,
+          -180
+        ],
+        [
+          1888462800,
+          -240
+        ],
+        [
+          1899352800,
+          -180
+        ],
+        [
+          1919912400,
+          -240
+        ],
+        [
+          1930802400,
+          -180
+        ],
+        [
+          1951362000,
+          -240
+        ]
+      ]
+    },
+    {
+      "calendar": 12,
+      "id": 25,
+      "initial_offset_min": -240,
+      "name": "America/Goose_Bay",
+      "transitions": [
+        [
+          1772949600,
+          -180
+        ],
+        [
+          1793509200,
+          -240
+        ],
+        [
+          1805004000,
+          -180
+        ],
+        [
+          1825563600,
+          -240
+        ],
+        [
+          1836453600,
+          -180
+        ],
+        [
+          1857013200,
+          -240
+        ],
+        [
+          1867903200,
+          -180
+        ],
+        [
+          1888462800,
+          -240
+        ],
+        [
+          1899352800,
+          -180
+        ],
+        [
+          1919912400,
+          -240
+        ],
+        [
+          1930802400,
+          -180
+        ],
+        [
+          1951362000,
+          -240
+        ]
+      ]
+    },
+    {
+      "calendar": 6,
+      "id": 26,
+      "initial_offset_min": -360,
+      "name": "America/Guatemala",
+      "transitions": []
+    },
+    {
+      "calendar": 12,
+      "id": 27,
+      "initial_offset_min": -240,
+      "name": "America/Halifax",
+      "transitions": [
+        [
+          1772949600,
+          -180
+        ],
+        [
+          1793509200,
+          -240
+        ],
+        [
+          1805004000,
+          -180
+        ],
+        [
+          1825563600,
+          -240
+        ],
+        [
+          1836453600,
+          -180
+        ],
+        [
+          1857013200,
+          -240
+        ],
+        [
+          1867903200,
+          -180
+        ],
+        [
+          1888462800,
+          -240
+        ],
+        [
+          1899352800,
+          -180
+        ],
+        [
+          1919912400,
+          -240
+        ],
+        [
+          1930802400,
+          -180
+        ],
+        [
+          1951362000,
+          -240
+        ]
+      ]
+    },
+    {
+      "calendar": 9,
+      "id": 28,
+      "initial_offset_min": -420,
+      "name": "America/Hermosillo",
+      "transitions": []
+    },
+    {
+      "calendar": 10,
+      "id": 29,
+      "initial_offset_min": -300,
+      "name": "America/Indiana/Indianapolis",
+      "transitions": [
+        [
+          1772953200,
+          -240
+        ],
+        [
+          1793512800,
+          -300
+        ],
+        [
+          1805007600,
+          -240
+        ],
+        [
+          1825567200,
+          -300
+        ],
+        [
+          1836457200,
+          -240
+        ],
+        [
+          1857016800,
+          -300
+        ],
+        [
+          1867906800,
+          -240
+        ],
+        [
+          1888466400,
+          -300
+        ],
+        [
+          1899356400,
+          -240
+        ],
+        [
+          1919916000,
+          -300
+        ],
+        [
+          1930806000,
+          -240
+        ],
+        [
+          1951365600,
+          -300
+        ]
+      ]
+    },
+    {
+      "calendar": 1,
+      "id": 30,
+      "initial_offset_min": -360,
+      "name": "America/Indiana/Knox",
+      "transitions": [
+        [
+          1772956800,
+          -300
+        ],
+        [
+          1793516400,
+          -360
+        ],
+        [
+          1805011200,
+          -300
+        ],
+        [
+          1825570800,
+          -360
+        ],
+        [
+          1836460800,
+          -300
+        ],
+        [
+          1857020400,
+          -360
+        ],
+        [
+          1867910400,
+          -300
+        ],
+        [
+          1888470000,
+          -360
+        ],
+        [
+          1899360000,
+          -300
+        ],
+        [
+          1919919600,
+          -360
+        ],
+        [
+          1930809600,
+          -300
+        ],
+        [
+          1951369200,
+          -360
+        ]
+      ]
+    },
+    {
+      "calendar": 10,
+      "id": 31,
+      "initial_offset_min": -300,
+      "name": "America/Indiana/Marengo",
+      "transitions": [
+        [
+          1772953200,
+          -240
+        ],
+        [
+          1793512800,
+          -300
+        ],
+        [
+          1805007600,
+          -240
+        ],
+        [
+          1825567200,
+          -300
+        ],
+        [
+          1836457200,
+          -240
+        ],
+        [
+          1857016800,
+          -300
+        ],
+        [
+          1867906800,
+          -240
+        ],
+        [
+          1888466400,
+          -300
+        ],
+        [
+          1899356400,
+          -240
+        ],
+        [
+          1919916000,
+          -300
+        ],
+        [
+          1930806000,
+          -240
+        ],
+        [
+          1951365600,
+          -300
+        ]
+      ]
+    },
+    {
+      "calendar": 10,
+      "id": 32,
+      "initial_offset_min": -300,
+      "name": "America/Indiana/Petersburg",
+      "transitions": [
+        [
+          1772953200,
+          -240
+        ],
+        [
+          1793512800,
+          -300
+        ],
+        [
+          1805007600,
+          -240
+        ],
+        [
+          1825567200,
+          -300
+        ],
+        [
+          1836457200,
+          -240
+        ],
+        [
+          1857016800,
+          -300
+        ],
+        [
+          1867906800,
+          -240
+        ],
+        [
+          1888466400,
+          -300
+        ],
+        [
+          1899356400,
+          -240
+        ],
+        [
+          1919916000,
+          -300
+        ],
+        [
+          1930806000,
+          -240
+        ],
+        [
+          1951365600,
+          -300
+        ]
+      ]
+    },
+    {
+      "calendar": 1,
+      "id": 33,
+      "initial_offset_min": -360,
+      "name": "America/Indiana/Tell_City",
+      "transitions": [
+        [
+          1772956800,
+          -300
+        ],
+        [
+          1793516400,
+          -360
+        ],
+        [
+          1805011200,
+          -300
+        ],
+        [
+          1825570800,
+          -360
+        ],
+        [
+          1836460800,
+          -300
+        ],
+        [
+          1857020400,
+          -360
+        ],
+        [
+          1867910400,
+          -300
+        ],
+        [
+          1888470000,
+          -360
+        ],
+        [
+          1899360000,
+          -300
+        ],
+        [
+          1919919600,
+          -360
+        ],
+        [
+          1930809600,
+          -300
+        ],
+        [
+          1951369200,
+          -360
+        ]
+      ]
+    },
+    {
+      "calendar": 10,
+      "id": 34,
+      "initial_offset_min": -300,
+      "name": "America/Indiana/Vevay",
+      "transitions": [
+        [
+          1772953200,
+          -240
+        ],
+        [
+          1793512800,
+          -300
+        ],
+        [
+          1805007600,
+          -240
+        ],
+        [
+          1825567200,
+          -300
+        ],
+        [
+          1836457200,
+          -240
+        ],
+        [
+          1857016800,
+          -300
+        ],
+        [
+          1867906800,
+          -240
+        ],
+        [
+          1888466400,
+          -300
+        ],
+        [
+          1899356400,
+          -240
+        ],
+        [
+          1919916000,
+          -300
+        ],
+        [
+          1930806000,
+          -240
+        ],
+        [
+          1951365600,
+          -300
+        ]
+      ]
+    },
+    {
+      "calendar": 10,
+      "id": 35,
+      "initial_offset_min": -300,
+      "name": "America/Indiana/Vincennes",
+      "transitions": [
+        [
+          1772953200,
+          -240
+        ],
+        [
+          1793512800,
+          -300
+        ],
+        [
+          1805007600,
+          -240
+        ],
+        [
+          1825567200,
+          -300
+        ],
+        [
+          1836457200,
+          -240
+        ],
+        [
+          1857016800,
+          -300
+        ],
+        [
+          1867906800,
+          -240
+        ],
+        [
+          1888466400,
+          -300
+        ],
+        [
+          1899356400,
+          -240
+        ],
+        [
+          1919916000,
+          -300
+        ],
+        [
+          1930806000,
+          -240
+        ],
+        [
+          1951365600,
+          -300
+        ]
+      ]
+    },
+    {
+      "calendar": 10,
+      "id": 36,
+      "initial_offset_min": -300,
+      "name": "America/Indiana/Winamac",
+      "transitions": [
+        [
+          1772953200,
+          -240
+        ],
+        [
+          1793512800,
+          -300
+        ],
+        [
+          1805007600,
+          -240
+        ],
+        [
+          1825567200,
+          -300
+        ],
+        [
+          1836457200,
+          -240
+        ],
+        [
+          1857016800,
+          -300
+        ],
+        [
+          1867906800,
+          -240
+        ],
+        [
+          1888466400,
+          -300
+        ],
+        [
+          1899356400,
+          -240
+        ],
+        [
+          1919916000,
+          -300
+        ],
+        [
+          1930806000,
+          -240
+        ],
+        [
+          1951365600,
+          -300
+        ]
+      ]
+    },
+    {
+      "calendar": 11,
+      "id": 37,
+      "initial_offset_min": -420,
+      "name": "America/Inuvik",
+      "transitions": [
+        [
+          1772960400,
+          -360
+        ]
+      ]
+    },
+    {
+      "calendar": 10,
+      "id": 38,
+      "initial_offset_min": -300,
+      "name": "America/Iqaluit",
+      "transitions": [
+        [
+          1772953200,
+          -240
+        ],
+        [
+          1793512800,
+          -300
+        ],
+        [
+          1805007600,
+          -240
+        ],
+        [
+          1825567200,
+          -300
+        ],
+        [
+          1836457200,
+          -240
+        ],
+        [
+          1857016800,
+          -300
+        ],
+        [
+          1867906800,
+          -240
+        ],
+        [
+          1888466400,
+          -300
+        ],
+        [
+          1899356400,
+          -240
+        ],
+        [
+          1919916000,
+          -300
+        ],
+        [
+          1930806000,
+          -240
+        ],
+        [
+          1951365600,
+          -300
+        ]
+      ]
+    },
+    {
+      "calendar": 4,
+      "id": 39,
+      "initial_offset_min": -540,
+      "name": "America/Juneau",
+      "transitions": [
+        [
+          1772967600,
+          -480
+        ],
+        [
+          1793527200,
+          -540
+        ],
+        [
+          1805022000,
+          -480
+        ],
+        [
+          1825581600,
+          -540
+        ],
+        [
+          1836471600,
+          -480
+        ],
+        [
+          1857031200,
+          -540
+        ],
+        [
+          1867921200,
+          -480
+        ],
+        [
+          1888480800,
+          -540
+        ],
+        [
+          1899370800,
+          -480
+        ],
+        [
+          1919930400,
+          -540
+        ],
+        [
+          1930820400,
+          -480
+        ],
+        [
+          1951380000,
+          -540
+        ]
+      ]
+    },
+    {
+      "calendar": 10,
+      "id": 40,
+      "initial_offset_min": -300,
+      "name": "America/Kentucky/Louisville",
+      "transitions": [
+        [
+          1772953200,
+          -240
+        ],
+        [
+          1793512800,
+          -300
+        ],
+        [
+          1805007600,
+          -240
+        ],
+        [
+          1825567200,
+          -300
+        ],
+        [
+          1836457200,
+          -240
+        ],
+        [
+          1857016800,
+          -300
+        ],
+        [
+          1867906800,
+          -240
+        ],
+        [
+          1888466400,
+          -300
+        ],
+        [
+          1899356400,
+          -240
+        ],
+        [
+          1919916000,
+          -300
+        ],
+        [
+          1930806000,
+          -240
+        ],
+        [
+          1951365600,
+          -300
+        ]
+      ]
+    },
+    {
+      "calendar": 10,
+      "id": 41,
+      "initial_offset_min": -300,
+      "name": "America/Kentucky/Monticello",
+      "transitions": [
+        [
+          1772953200,
+          -240
+        ],
+        [
+          1793512800,
+          -300
+        ],
+        [
+          1805007600,
+          -240
+        ],
+        [
+          1825567200,
+          -300
+        ],
+        [
+          1836457200,
+          -240
+        ],
+        [
+          1857016800,
+          -300
+        ],
+        [
+          1867906800,
+          -240
+        ],
+        [
+          1888466400,
+          -300
+        ],
+        [
+          1899356400,
+          -240
+        ],
+        [
+          1919916000,
+          -300
+        ],
+        [
+          1930806000,
+          -240
+        ],
+        [
+          1951365600,
+          -300
+        ]
+      ]
+    },
+    {
+      "calendar": 13,
+      "id": 42,
+      "initial_offset_min": -480,
+      "name": "America/Los_Angeles",
+      "transitions": [
+        [
+          1772964000,
+          -420
+        ],
+        [
+          1793523600,
+          -480
+        ],
+        [
+          1805018400,
+          -420
+        ],
+        [
+          1825578000,
+          -480
+        ],
+        [
+          1836468000,
+          -420
+        ],
+        [
+          1857027600,
+          -480
+        ],
+        [
+          1867917600,
+          -420
+        ],
+        [
+          1888477200,
+          -480
+        ],
+        [
+          1899367200,
+          -420
+        ],
+        [
+          1919926800,
+          -480
+        ],
+        [
+          1930816800,
+          -420
+        ],
+        [
+          1951376400,
+          -480
+        ]
+      ]
+    },
+    {
+      "calendar": 6,
+      "id": 43,
+      "initial_offset_min": -360,
+      "name": "America/Managua",
+      "transitions": []
+    },
+    {
+      "calendar": 1,
+      "id": 44,
+      "initial_offset_min": -360,
+      "name": "America/Matamoros",
+      "transitions": [
+        [
+          1772956800,
+          -300
+        ],
+        [
+          1793516400,
+          -360
+        ],
+        [
+          1805011200,
+          -300
+        ],
+        [
+          1825570800,
+          -360
+        ],
+        [
+          1836460800,
+          -300
+        ],
+        [
+          1857020400,
+          -360
+        ],
+        [
+          1867910400,
+          -300
+        ],
+        [
+          1888470000,
+          -360
+        ],
+        [
+          1899360000,
+          -300
+        ],
+        [
+          1919919600,
+          -360
+        ],
+        [
+          1930809600,
+          -300
+        ],
+        [
+          1951369200,
+          -360
+        ]
+      ]
+    },
+    {
+      "calendar": 9,
+      "id": 45,
+      "initial_offset_min": -420,
+      "name": "America/Mazatlan",
+      "transitions": []
+    },
+    {
+      "calendar": 1,
+      "id": 46,
+      "initial_offset_min": -360,
+      "name": "America/Menominee",
+      "transitions": [
+        [
+          1772956800,
+          -300
+        ],
+        [
+          1793516400,
+          -360
+        ],
+        [
+          1805011200,
+          -300
+        ],
+        [
+          1825570800,
+          -360
+        ],
+        [
+          1836460800,
+          -300
+        ],
+        [
+          1857020400,
+          -360
+        ],
+        [
+          1867910400,
+          -300
+        ],
+        [
+          1888470000,
+          -360
+        ],
+        [
+          1899360000,
+          -300
+        ],
+        [
+          1919919600,
+          -360
+        ],
+        [
+          1930809600,
+          -300
+        ],
+        [
+          1951369200,
+          -360
+        ]
+      ]
+    },
+    {
+      "calendar": 6,
+      "id": 47,
+      "initial_offset_min": -360,
+      "name": "America/Merida",
+      "transitions": []
+    },
+    {
+      "calendar": 4,
+      "id": 48,
+      "initial_offset_min": -540,
+      "name": "America/Metlakatla",
+      "transitions": [
+        [
+          1772967600,
+          -480
+        ],
+        [
+          1793527200,
+          -540
+        ],
+        [
+          1805022000,
+          -480
+        ],
+        [
+          1825581600,
+          -540
+        ],
+        [
+          1836471600,
+          -480
+        ],
+        [
+          1857031200,
+          -540
+        ],
+        [
+          1867921200,
+          -480
+        ],
+        [
+          1888480800,
+          -540
+        ],
+        [
+          1899370800,
+          -480
+        ],
+        [
+          1919930400,
+          -540
+        ],
+        [
+          1930820400,
+          -480
+        ],
+        [
+          1951380000,
+          -540
+        ]
+      ]
+    },
+    {
+      "calendar": 6,
+      "id": 49,
+      "initial_offset_min": -360,
+      "name": "America/Mexico_City",
+      "transitions": []
+    },
+    {
+      "calendar": 12,
+      "id": 50,
+      "initial_offset_min": -240,
+      "name": "America/Moncton",
+      "transitions": [
+        [
+          1772949600,
+          -180
+        ],
+        [
+          1793509200,
+          -240
+        ],
+        [
+          1805004000,
+          -180
+        ],
+        [
+          1825563600,
+          -240
+        ],
+        [
+          1836453600,
+          -180
+        ],
+        [
+          1857013200,
+          -240
+        ],
+        [
+          1867903200,
+          -180
+        ],
+        [
+          1888462800,
+          -240
+        ],
+        [
+          1899352800,
+          -180
+        ],
+        [
+          1919912400,
+          -240
+        ],
+        [
+          1930802400,
+          -180
+        ],
+        [
+          1951362000,
+          -240
+        ]
+      ]
+    },
+    {
+      "calendar": 6,
+      "id": 51,
+      "initial_offset_min": -360,
+      "name": "America/Monterrey",
+      "transitions": []
+    },
+    {
+      "calendar": 10,
+      "id": 52,
+      "initial_offset_min": -300,
+      "name": "America/New_York",
+      "transitions": [
+        [
+          1772953200,
+          -240
+        ],
+        [
+          1793512800,
+          -300
+        ],
+        [
+          1805007600,
+          -240
+        ],
+        [
+          1825567200,
+          -300
+        ],
+        [
+          1836457200,
+          -240
+        ],
+        [
+          1857016800,
+          -300
+        ],
+        [
+          1867906800,
+          -240
+        ],
+        [
+          1888466400,
+          -300
+        ],
+        [
+          1899356400,
+          -240
+        ],
+        [
+          1919916000,
+          -300
+        ],
+        [
+          1930806000,
+          -240
+        ],
+        [
+          1951365600,
+          -300
+        ]
+      ]
+    },
+    {
+      "calendar": 4,
+      "id": 53,
+      "initial_offset_min": -540,
+      "name": "America/Nome",
+      "transitions": [
+        [
+          1772967600,
+          -480
+        ],
+        [
+          1793527200,
+          -540
+        ],
+        [
+          1805022000,
+          -480
+        ],
+        [
+          1825581600,
+          -540
+        ],
+        [
+          1836471600,
+          -480
+        ],
+        [
+          1857031200,
+          -540
+        ],
+        [
+          1867921200,
+          -480
+        ],
+        [
+          1888480800,
+          -540
+        ],
+        [
+          1899370800,
+          -480
+        ],
+        [
+          1919930400,
+          -540
+        ],
+        [
+          1930820400,
+          -480
+        ],
+        [
+          1951380000,
+          -540
+        ]
+      ]
+    },
+    {
+      "calendar": 1,
+      "id": 54,
+      "initial_offset_min": -360,
+      "name": "America/North_Dakota/Beulah",
+      "transitions": [
+        [
+          1772956800,
+          -300
+        ],
+        [
+          1793516400,
+          -360
+        ],
+        [
+          1805011200,
+          -300
+        ],
+        [
+          1825570800,
+          -360
+        ],
+        [
+          1836460800,
+          -300
+        ],
+        [
+          1857020400,
+          -360
+        ],
+        [
+          1867910400,
+          -300
+        ],
+        [
+          1888470000,
+          -360
+        ],
+        [
+          1899360000,
+          -300
+        ],
+        [
+          1919919600,
+          -360
+        ],
+        [
+          1930809600,
+          -300
+        ],
+        [
+          1951369200,
+          -360
+        ]
+      ]
+    },
+    {
+      "calendar": 1,
+      "id": 55,
+      "initial_offset_min": -360,
+      "name": "America/North_Dakota/Center",
+      "transitions": [
+        [
+          1772956800,
+          -300
+        ],
+        [
+          1793516400,
+          -360
+        ],
+        [
+          1805011200,
+          -300
+        ],
+        [
+          1825570800,
+          -360
+        ],
+        [
+          1836460800,
+          -300
+        ],
+        [
+          1857020400,
+          -360
+        ],
+        [
+          1867910400,
+          -300
+        ],
+        [
+          1888470000,
+          -360
+        ],
+        [
+          1899360000,
+          -300
+        ],
+        [
+          1919919600,
+          -360
+        ],
+        [
+          1930809600,
+          -300
+        ],
+        [
+          1951369200,
+          -360
+        ]
+      ]
+    },
+    {
+      "calendar": 1,
+      "id": 56,
+      "initial_offset_min": -360,
+      "name": "America/North_Dakota/New_Salem",
+      "transitions": [
+        [
+          1772956800,
+          -300
+        ],
+        [
+          1793516400,
+          -360
+        ],
+        [
+          1805011200,
+          -300
+        ],
+        [
+          1825570800,
+          -360
+        ],
+        [
+          1836460800,
+          -300
+        ],
+        [
+          1857020400,
+          -360
+        ],
+        [
+          1867910400,
+          -300
+        ],
+        [
+          1888470000,
+          -360
+        ],
+        [
+          1899360000,
+          -300
+        ],
+        [
+          1919919600,
+          -360
+        ],
+        [
+          1930809600,
+          -300
+        ],
+        [
+          1951369200,
+          -360
+        ]
+      ]
+    },
+    {
+      "calendar": 1,
+      "id": 57,
+      "initial_offset_min": -360,
+      "name": "America/Ojinaga",
+      "transitions": [
+        [
+          1772956800,
+          -300
+        ],
+        [
+          1793516400,
+          -360
+        ],
+        [
+          1805011200,
+          -300
+        ],
+        [
+          1825570800,
+          -360
+        ],
+        [
+          1836460800,
+          -300
+        ],
+        [
+          1857020400,
+          -360
+        ],
+        [
+          1867910400,
+          -300
+        ],
+        [
+          1888470000,
+          -360
+        ],
+        [
+          1899360000,
+          -300
+        ],
+        [
+          1919919600,
+          -360
+        ],
+        [
+          1930809600,
+          -300
+        ],
+        [
+          1951369200,
+          -360
+        ]
+      ]
+    },
+    {
+      "calendar": 5,
+      "id": 58,
+      "initial_offset_min": -300,
+      "name": "America/Panama",
+      "transitions": []
+    },
+    {
+      "calendar": 9,
+      "id": 59,
+      "initial_offset_min": -420,
+      "name": "America/Phoenix",
+      "transitions": []
+    },
+    {
+      "calendar": 1,
+      "id": 60,
+      "initial_offset_min": -360,
+      "name": "America/Rankin_Inlet",
+      "transitions": [
+        [
+          1772956800,
+          -300
+        ],
+        [
+          1793516400,
+          -360
+        ],
+        [
+          1805011200,
+          -300
+        ],
+        [
+          1825570800,
+          -360
+        ],
+        [
+          1836460800,
+          -300
+        ],
+        [
+          1857020400,
+          -360
+        ],
+        [
+          1867910400,
+          -300
+        ],
+        [
+          1888470000,
+          -360
+        ],
+        [
+          1899360000,
+          -300
+        ],
+        [
+          1919919600,
+          -360
+        ],
+        [
+          1930809600,
+          -300
+        ],
+        [
+          1951369200,
+          -360
+        ]
+      ]
+    },
+    {
+      "calendar": 6,
+      "id": 61,
+      "initial_offset_min": -360,
+      "name": "America/Regina",
+      "transitions": []
+    },
+    {
+      "calendar": 1,
+      "id": 62,
+      "initial_offset_min": -360,
+      "name": "America/Resolute",
+      "transitions": [
+        [
+          1772956800,
+          -300
+        ],
+        [
+          1793516400,
+          -360
+        ],
+        [
+          1805011200,
+          -300
+        ],
+        [
+          1825570800,
+          -360
+        ],
+        [
+          1836460800,
+          -300
+        ],
+        [
+          1857020400,
+          -360
+        ],
+        [
+          1867910400,
+          -300
+        ],
+        [
+          1888470000,
+          -360
+        ],
+        [
+          1899360000,
+          -300
+        ],
+        [
+          1919919600,
+          -360
+        ],
+        [
+          1930809600,
+          -300
+        ],
+        [
+          1951369200,
+          -360
+        ]
+      ]
+    },
+    {
+      "calendar": 4,
+      "id": 63,
+      "initial_offset_min": -540,
+      "name": "America/Sitka",
+      "transitions": [
+        [
+          1772967600,
+          -480
+        ],
+        [
+          1793527200,
+          -540
+        ],
+        [
+          1805022000,
+          -480
+        ],
+        [
+          1825581600,
+          -540
+        ],
+        [
+          1836471600,
+          -480
+        ],
+        [
+          1857031200,
+          -540
+        ],
+        [
+          1867921200,
+          -480
+        ],
+        [
+          1888480800,
+          -540
+        ],
+        [
+          1899370800,
+          -480
+        ],
+        [
+          1919930400,
+          -540
+        ],
+        [
+          1930820400,
+          -480
+        ],
+        [
+          1951380000,
+          -540
+        ]
+      ]
+    },
+    {
+      "calendar": 14,
+      "id": 64,
+      "initial_offset_min": -210,
+      "name": "America/St_Johns",
+      "transitions": [
+        [
+          1772947800,
+          -150
+        ],
+        [
+          1793507400,
+          -210
+        ],
+        [
+          1805002200,
+          -150
+        ],
+        [
+          1825561800,
+          -210
+        ],
+        [
+          1836451800,
+          -150
+        ],
+        [
+          1857011400,
+          -210
+        ],
+        [
+          1867901400,
+          -150
+        ],
+        [
+          1888461000,
+          -210
+        ],
+        [
+          1899351000,
+          -150
+        ],
+        [
+          1919910600,
+          -210
+        ],
+        [
+          1930800600,
+          -150
+        ],
+        [
+          1951360200,
+          -210
+        ]
+      ]
+    },
+    {
+      "calendar": 6,
+      "id": 65,
+      "initial_offset_min": -360,
+      "name": "America/Swift_Current",
+      "transitions": []
+    },
+    {
+      "calendar": 6,
+      "id": 66,
+      "initial_offset_min": -360,
+      "name": "America/Tegucigalpa",
+      "transitions": []
+    },
+    {
+      "calendar": 13,
+      "id": 67,
+      "initial_offset_min": -480,
+      "name": "America/Tijuana",
+      "transitions": [
+        [
+          1772964000,
+          -420
+        ],
+        [
+          1793523600,
+          -480
+        ],
+        [
+          1805018400,
+          -420
+        ],
+        [
+          1825578000,
+          -480
+        ],
+        [
+          1836468000,
+          -420
+        ],
+        [
+          1857027600,
+          -480
+        ],
+        [
+          1867917600,
+          -420
+        ],
+        [
+          1888477200,
+          -480
+        ],
+        [
+          1899367200,
+          -420
+        ],
+        [
+          1919926800,
+          -480
+        ],
+        [
+          1930816800,
+          -420
+        ],
+        [
+          1951376400,
+          -480
+        ]
+      ]
+    },
+    {
+      "calendar": 10,
+      "id": 68,
+      "initial_offset_min": -300,
+      "name": "America/Toronto",
+      "transitions": [
+        [
+          1772953200,
+          -240
+        ],
+        [
+          1793512800,
+          -300
+        ],
+        [
+          1805007600,
+          -240
+        ],
+        [
+          1825567200,
+          -300
+        ],
+        [
+          1836457200,
+          -240
+        ],
+        [
+          1857016800,
+          -300
+        ],
+        [
+          1867906800,
+          -240
+        ],
+        [
+          1888466400,
+          -300
+        ],
+        [
+          1899356400,
+          -240
+        ],
+        [
+          1919916000,
+          -300
+        ],
+        [
+          1930806000,
+          -240
+        ],
+        [
+          1951365600,
+          -300
+        ]
+      ]
+    },
+    {
+      "calendar": 15,
+      "id": 69,
+      "initial_offset_min": -480,
+      "name": "America/Vancouver",
+      "transitions": [
+        [
+          1772964000,
+          -420
+        ]
+      ]
+    },
+    {
+      "calendar": 9,
+      "id": 70,
+      "initial_offset_min": -420,
+      "name": "America/Whitehorse",
+      "transitions": []
+    },
+    {
+      "calendar": 16,
+      "id": 71,
+      "initial_offset_min": -360,
+      "name": "America/Winnipeg",
+      "transitions": [
+        [
+          1772956800,
+          -300
+        ]
+      ]
+    },
+    {
+      "calendar": 4,
+      "id": 72,
+      "initial_offset_min": -540,
+      "name": "America/Yakutat",
+      "transitions": [
+        [
+          1772967600,
+          -480
+        ],
+        [
+          1793527200,
+          -540
+        ],
+        [
+          1805022000,
+          -480
+        ],
+        [
+          1825581600,
+          -540
+        ],
+        [
+          1836471600,
+          -480
+        ],
+        [
+          1857031200,
+          -540
+        ],
+        [
+          1867921200,
+          -480
+        ],
+        [
+          1888480800,
+          -540
+        ],
+        [
+          1899370800,
+          -480
+        ],
+        [
+          1919930400,
+          -540
+        ],
+        [
+          1930820400,
+          -480
+        ],
+        [
+          1951380000,
+          -540
+        ]
+      ]
+    },
+    {
+      "calendar": 17,
+      "id": 73,
+      "initial_offset_min": -60,
+      "name": "Atlantic/Azores",
+      "transitions": [
+        [
+          1774746000,
+          0
+        ],
+        [
+          1792890000,
+          -60
+        ],
+        [
+          1806195600,
+          0
+        ],
+        [
+          1824944400,
+          -60
+        ],
+        [
+          1837645200,
+          0
+        ],
+        [
+          1856394000,
+          -60
+        ],
+        [
+          1869094800,
+          0
+        ],
+        [
+          1887843600,
+          -60
+        ],
+        [
+          1901149200,
+          0
+        ],
+        [
+          1919293200,
+          -60
+        ],
+        [
+          1932598800,
+          0
+        ],
+        [
+          1950742800,
+          -60
+        ]
+      ]
+    },
+    {
+      "calendar": 18,
+      "id": 74,
+      "initial_offset_min": 0,
+      "name": "Atlantic/Canary",
+      "transitions": [
+        [
+          1774746000,
+          60
+        ],
+        [
+          1792890000,
+          0
+        ],
+        [
+          1806195600,
+          60
+        ],
+        [
+          1824944400,
+          0
+        ],
+        [
+          1837645200,
+          60
+        ],
+        [
+          1856394000,
+          0
+        ],
+        [
+          1869094800,
+          60
+        ],
+        [
+          1887843600,
+          0
+        ],
+        [
+          1901149200,
+          60
+        ],
+        [
+          1919293200,
+          0
+        ],
+        [
+          1932598800,
+          60
+        ],
+        [
+          1950742800,
+          0
+        ]
+      ]
+    },
+    {
+      "calendar": 18,
+      "id": 75,
+      "initial_offset_min": 0,
+      "name": "Atlantic/Madeira",
+      "transitions": [
+        [
+          1774746000,
+          60
+        ],
+        [
+          1792890000,
+          0
+        ],
+        [
+          1806195600,
+          60
+        ],
+        [
+          1824944400,
+          0
+        ],
+        [
+          1837645200,
+          60
+        ],
+        [
+          1856394000,
+          0
+        ],
+        [
+          1869094800,
+          60
+        ],
+        [
+          1887843600,
+          0
+        ],
+        [
+          1901149200,
+          60
+        ],
+        [
+          1919293200,
+          0
+        ],
+        [
+          1932598800,
+          60
+        ],
+        [
+          1950742800,
+          0
+        ]
+      ]
+    },
+    {
+      "calendar": 0,
+      "id": 76,
+      "initial_offset_min": 0,
+      "name": "Atlantic/Reykjavik",
+      "transitions": []
+    },
+    {
+      "calendar": 2,
+      "id": 77,
+      "initial_offset_min": 60,
+      "name": "Europe/Amsterdam",
+      "transitions": [
+        [
+          1774746000,
+          120
+        ],
+        [
+          1792890000,
+          60
+        ],
+        [
+          1806195600,
+          120
+        ],
+        [
+          1824944400,
+          60
+        ],
+        [
+          1837645200,
+          120
+        ],
+        [
+          1856394000,
+          60
+        ],
+        [
+          1869094800,
+          120
+        ],
+        [
+          1887843600,
+          60
+        ],
+        [
+          1901149200,
+          120
+        ],
+        [
+          1919293200,
+          60
+        ],
+        [
+          1932598800,
+          120
+        ],
+        [
+          1950742800,
+          60
+        ]
+      ]
+    },
+    {
+      "calendar": 2,
+      "id": 78,
+      "initial_offset_min": 60,
+      "name": "Europe/Andorra",
+      "transitions": [
+        [
+          1774746000,
+          120
+        ],
+        [
+          1792890000,
+          60
+        ],
+        [
+          1806195600,
+          120
+        ],
+        [
+          1824944400,
+          60
+        ],
+        [
+          1837645200,
+          120
+        ],
+        [
+          1856394000,
+          60
+        ],
+        [
+          1869094800,
+          120
+        ],
+        [
+          1887843600,
+          60
+        ],
+        [
+          1901149200,
+          120
+        ],
+        [
+          1919293200,
+          60
+        ],
+        [
+          1932598800,
+          120
+        ],
+        [
+          1950742800,
+          60
+        ]
+      ]
+    },
+    {
+      "calendar": 2,
+      "id": 79,
+      "initial_offset_min": 60,
+      "name": "Europe/Berlin",
+      "transitions": [
+        [
+          1774746000,
+          120
+        ],
+        [
+          1792890000,
+          60
+        ],
+        [
+          1806195600,
+          120
+        ],
+        [
+          1824944400,
+          60
+        ],
+        [
+          1837645200,
+          120
+        ],
+        [
+          1856394000,
+          60
+        ],
+        [
+          1869094800,
+          120
+        ],
+        [
+          1887843600,
+          60
+        ],
+        [
+          1901149200,
+          120
+        ],
+        [
+          1919293200,
+          60
+        ],
+        [
+          1932598800,
+          120
+        ],
+        [
+          1950742800,
+          60
+        ]
+      ]
+    },
+    {
+      "calendar": 2,
+      "id": 80,
+      "initial_offset_min": 60,
+      "name": "Europe/Brussels",
+      "transitions": [
+        [
+          1774746000,
+          120
+        ],
+        [
+          1792890000,
+          60
+        ],
+        [
+          1806195600,
+          120
+        ],
+        [
+          1824944400,
+          60
+        ],
+        [
+          1837645200,
+          120
+        ],
+        [
+          1856394000,
+          60
+        ],
+        [
+          1869094800,
+          120
+        ],
+        [
+          1887843600,
+          60
+        ],
+        [
+          1901149200,
+          120
+        ],
+        [
+          1919293200,
+          60
+        ],
+        [
+          1932598800,
+          120
+        ],
+        [
+          1950742800,
+          60
+        ]
+      ]
+    },
+    {
+      "calendar": 2,
+      "id": 81,
+      "initial_offset_min": 60,
+      "name": "Europe/Busingen",
+      "transitions": [
+        [
+          1774746000,
+          120
+        ],
+        [
+          1792890000,
+          60
+        ],
+        [
+          1806195600,
+          120
+        ],
+        [
+          1824944400,
+          60
+        ],
+        [
+          1837645200,
+          120
+        ],
+        [
+          1856394000,
+          60
+        ],
+        [
+          1869094800,
+          120
+        ],
+        [
+          1887843600,
+          60
+        ],
+        [
+          1901149200,
+          120
+        ],
+        [
+          1919293200,
+          60
+        ],
+        [
+          1932598800,
+          120
+        ],
+        [
+          1950742800,
+          60
+        ]
+      ]
+    },
+    {
+      "calendar": 2,
+      "id": 82,
+      "initial_offset_min": 60,
+      "name": "Europe/Copenhagen",
+      "transitions": [
+        [
+          1774746000,
+          120
+        ],
+        [
+          1792890000,
+          60
+        ],
+        [
+          1806195600,
+          120
+        ],
+        [
+          1824944400,
+          60
+        ],
+        [
+          1837645200,
+          120
+        ],
+        [
+          1856394000,
+          60
+        ],
+        [
+          1869094800,
+          120
+        ],
+        [
+          1887843600,
+          60
+        ],
+        [
+          1901149200,
+          120
+        ],
+        [
+          1919293200,
+          60
+        ],
+        [
+          1932598800,
+          120
+        ],
+        [
+          1950742800,
+          60
+        ]
+      ]
+    },
+    {
+      "calendar": 18,
+      "id": 83,
+      "initial_offset_min": 0,
+      "name": "Europe/Dublin",
+      "transitions": [
+        [
+          1774746000,
+          60
+        ],
+        [
+          1792890000,
+          0
+        ],
+        [
+          1806195600,
+          60
+        ],
+        [
+          1824944400,
+          0
+        ],
+        [
+          1837645200,
+          60
+        ],
+        [
+          1856394000,
+          0
+        ],
+        [
+          1869094800,
+          60
+        ],
+        [
+          1887843600,
+          0
+        ],
+        [
+          1901149200,
+          60
+        ],
+        [
+          1919293200,
+          0
+        ],
+        [
+          1932598800,
+          60
+        ],
+        [
+          1950742800,
+          0
+        ]
+      ]
+    },
+    {
+      "calendar": 18,
+      "id": 84,
+      "initial_offset_min": 0,
+      "name": "Europe/Lisbon",
+      "transitions": [
+        [
+          1774746000,
+          60
+        ],
+        [
+          1792890000,
+          0
+        ],
+        [
+          1806195600,
+          60
+        ],
+        [
+          1824944400,
+          0
+        ],
+        [
+          1837645200,
+          60
+        ],
+        [
+          1856394000,
+          0
+        ],
+        [
+          1869094800,
+          60
+        ],
+        [
+          1887843600,
+          0
+        ],
+        [
+          1901149200,
+          60
+        ],
+        [
+          1919293200,
+          0
+        ],
+        [
+          1932598800,
+          60
+        ],
+        [
+          1950742800,
+          0
+        ]
+      ]
+    },
+    {
+      "calendar": 18,
+      "id": 85,
+      "initial_offset_min": 0,
+      "name": "Europe/London",
+      "transitions": [
+        [
+          1774746000,
+          60
+        ],
+        [
+          1792890000,
+          0
+        ],
+        [
+          1806195600,
+          60
+        ],
+        [
+          1824944400,
+          0
+        ],
+        [
+          1837645200,
+          60
+        ],
+        [
+          1856394000,
+          0
+        ],
+        [
+          1869094800,
+          60
+        ],
+        [
+          1887843600,
+          0
+        ],
+        [
+          1901149200,
+          60
+        ],
+        [
+          1919293200,
+          0
+        ],
+        [
+          1932598800,
+          60
+        ],
+        [
+          1950742800,
+          0
+        ]
+      ]
+    },
+    {
+      "calendar": 2,
+      "id": 86,
+      "initial_offset_min": 60,
+      "name": "Europe/Luxembourg",
+      "transitions": [
+        [
+          1774746000,
+          120
+        ],
+        [
+          1792890000,
+          60
+        ],
+        [
+          1806195600,
+          120
+        ],
+        [
+          1824944400,
+          60
+        ],
+        [
+          1837645200,
+          120
+        ],
+        [
+          1856394000,
+          60
+        ],
+        [
+          1869094800,
+          120
+        ],
+        [
+          1887843600,
+          60
+        ],
+        [
+          1901149200,
+          120
+        ],
+        [
+          1919293200,
+          60
+        ],
+        [
+          1932598800,
+          120
+        ],
+        [
+          1950742800,
+          60
+        ]
+      ]
+    },
+    {
+      "calendar": 2,
+      "id": 87,
+      "initial_offset_min": 60,
+      "name": "Europe/Madrid",
+      "transitions": [
+        [
+          1774746000,
+          120
+        ],
+        [
+          1792890000,
+          60
+        ],
+        [
+          1806195600,
+          120
+        ],
+        [
+          1824944400,
+          60
+        ],
+        [
+          1837645200,
+          120
+        ],
+        [
+          1856394000,
+          60
+        ],
+        [
+          1869094800,
+          120
+        ],
+        [
+          1887843600,
+          60
+        ],
+        [
+          1901149200,
+          120
+        ],
+        [
+          1919293200,
+          60
+        ],
+        [
+          1932598800,
+          120
+        ],
+        [
+          1950742800,
+          60
+        ]
+      ]
+    },
+    {
+      "calendar": 2,
+      "id": 88,
+      "initial_offset_min": 60,
+      "name": "Europe/Monaco",
+      "transitions": [
+        [
+          1774746000,
+          120
+        ],
+        [
+          1792890000,
+          60
+        ],
+        [
+          1806195600,
+          120
+        ],
+        [
+          1824944400,
+          60
+        ],
+        [
+          1837645200,
+          120
+        ],
+        [
+          1856394000,
+          60
+        ],
+        [
+          1869094800,
+          120
+        ],
+        [
+          1887843600,
+          60
+        ],
+        [
+          1901149200,
+          120
+        ],
+        [
+          1919293200,
+          60
+        ],
+        [
+          1932598800,
+          120
+        ],
+        [
+          1950742800,
+          60
+        ]
+      ]
+    },
+    {
+      "calendar": 2,
+      "id": 89,
+      "initial_offset_min": 60,
+      "name": "Europe/Oslo",
+      "transitions": [
+        [
+          1774746000,
+          120
+        ],
+        [
+          1792890000,
+          60
+        ],
+        [
+          1806195600,
+          120
+        ],
+        [
+          1824944400,
+          60
+        ],
+        [
+          1837645200,
+          120
+        ],
+        [
+          1856394000,
+          60
+        ],
+        [
+          1869094800,
+          120
+        ],
+        [
+          1887843600,
+          60
+        ],
+        [
+          1901149200,
+          120
+        ],
+        [
+          1919293200,
+          60
+        ],
+        [
+          1932598800,
+          120
+        ],
+        [
+          1950742800,
+          60
+        ]
+      ]
+    },
+    {
+      "calendar": 2,
+      "id": 90,
+      "initial_offset_min": 60,
+      "name": "Europe/Paris",
+      "transitions": [
+        [
+          1774746000,
+          120
+        ],
+        [
+          1792890000,
+          60
+        ],
+        [
+          1806195600,
+          120
+        ],
+        [
+          1824944400,
+          60
+        ],
+        [
+          1837645200,
+          120
+        ],
+        [
+          1856394000,
+          60
+        ],
+        [
+          1869094800,
+          120
+        ],
+        [
+          1887843600,
+          60
+        ],
+        [
+          1901149200,
+          120
+        ],
+        [
+          1919293200,
+          60
+        ],
+        [
+          1932598800,
+          120
+        ],
+        [
+          1950742800,
+          60
+        ]
+      ]
+    },
+    {
+      "calendar": 2,
+      "id": 91,
+      "initial_offset_min": 60,
+      "name": "Europe/Rome",
+      "transitions": [
+        [
+          1774746000,
+          120
+        ],
+        [
+          1792890000,
+          60
+        ],
+        [
+          1806195600,
+          120
+        ],
+        [
+          1824944400,
+          60
+        ],
+        [
+          1837645200,
+          120
+        ],
+        [
+          1856394000,
+          60
+        ],
+        [
+          1869094800,
+          120
+        ],
+        [
+          1887843600,
+          60
+        ],
+        [
+          1901149200,
+          120
+        ],
+        [
+          1919293200,
+          60
+        ],
+        [
+          1932598800,
+          120
+        ],
+        [
+          1950742800,
+          60
+        ]
+      ]
+    },
+    {
+      "calendar": 2,
+      "id": 92,
+      "initial_offset_min": 60,
+      "name": "Europe/San_Marino",
+      "transitions": [
+        [
+          1774746000,
+          120
+        ],
+        [
+          1792890000,
+          60
+        ],
+        [
+          1806195600,
+          120
+        ],
+        [
+          1824944400,
+          60
+        ],
+        [
+          1837645200,
+          120
+        ],
+        [
+          1856394000,
+          60
+        ],
+        [
+          1869094800,
+          120
+        ],
+        [
+          1887843600,
+          60
+        ],
+        [
+          1901149200,
+          120
+        ],
+        [
+          1919293200,
+          60
+        ],
+        [
+          1932598800,
+          120
+        ],
+        [
+          1950742800,
+          60
+        ]
+      ]
+    },
+    {
+      "calendar": 2,
+      "id": 93,
+      "initial_offset_min": 60,
+      "name": "Europe/Stockholm",
+      "transitions": [
+        [
+          1774746000,
+          120
+        ],
+        [
+          1792890000,
+          60
+        ],
+        [
+          1806195600,
+          120
+        ],
+        [
+          1824944400,
+          60
+        ],
+        [
+          1837645200,
+          120
+        ],
+        [
+          1856394000,
+          60
+        ],
+        [
+          1869094800,
+          120
+        ],
+        [
+          1887843600,
+          60
+        ],
+        [
+          1901149200,
+          120
+        ],
+        [
+          1919293200,
+          60
+        ],
+        [
+          1932598800,
+          120
+        ],
+        [
+          1950742800,
+          60
+        ]
+      ]
+    },
+    {
+      "calendar": 2,
+      "id": 94,
+      "initial_offset_min": 60,
+      "name": "Europe/Vaduz",
+      "transitions": [
+        [
+          1774746000,
+          120
+        ],
+        [
+          1792890000,
+          60
+        ],
+        [
+          1806195600,
+          120
+        ],
+        [
+          1824944400,
+          60
+        ],
+        [
+          1837645200,
+          120
+        ],
+        [
+          1856394000,
+          60
+        ],
+        [
+          1869094800,
+          120
+        ],
+        [
+          1887843600,
+          60
+        ],
+        [
+          1901149200,
+          120
+        ],
+        [
+          1919293200,
+          60
+        ],
+        [
+          1932598800,
+          120
+        ],
+        [
+          1950742800,
+          60
+        ]
+      ]
+    },
+    {
+      "calendar": 2,
+      "id": 95,
+      "initial_offset_min": 60,
+      "name": "Europe/Vatican",
+      "transitions": [
+        [
+          1774746000,
+          120
+        ],
+        [
+          1792890000,
+          60
+        ],
+        [
+          1806195600,
+          120
+        ],
+        [
+          1824944400,
+          60
+        ],
+        [
+          1837645200,
+          120
+        ],
+        [
+          1856394000,
+          60
+        ],
+        [
+          1869094800,
+          120
+        ],
+        [
+          1887843600,
+          60
+        ],
+        [
+          1901149200,
+          120
+        ],
+        [
+          1919293200,
+          60
+        ],
+        [
+          1932598800,
+          120
+        ],
+        [
+          1950742800,
+          60
+        ]
+      ]
+    },
+    {
+      "calendar": 2,
+      "id": 96,
+      "initial_offset_min": 60,
+      "name": "Europe/Vienna",
+      "transitions": [
+        [
+          1774746000,
+          120
+        ],
+        [
+          1792890000,
+          60
+        ],
+        [
+          1806195600,
+          120
+        ],
+        [
+          1824944400,
+          60
+        ],
+        [
+          1837645200,
+          120
+        ],
+        [
+          1856394000,
+          60
+        ],
+        [
+          1869094800,
+          120
+        ],
+        [
+          1887843600,
+          60
+        ],
+        [
+          1901149200,
+          120
+        ],
+        [
+          1919293200,
+          60
+        ],
+        [
+          1932598800,
+          120
+        ],
+        [
+          1950742800,
+          60
+        ]
+      ]
+    },
+    {
+      "calendar": 2,
+      "id": 97,
+      "initial_offset_min": 60,
+      "name": "Europe/Zurich",
+      "transitions": [
+        [
+          1774746000,
+          120
+        ],
+        [
+          1792890000,
+          60
+        ],
+        [
+          1806195600,
+          120
+        ],
+        [
+          1824944400,
+          60
+        ],
+        [
+          1837645200,
+          120
+        ],
+        [
+          1856394000,
+          60
+        ],
+        [
+          1869094800,
+          120
+        ],
+        [
+          1887843600,
+          60
+        ],
+        [
+          1901149200,
+          120
+        ],
+        [
+          1919293200,
+          60
+        ],
+        [
+          1932598800,
+          120
+        ],
+        [
+          1950742800,
+          60
+        ]
+      ]
+    },
+    {
+      "calendar": 19,
+      "id": 98,
+      "initial_offset_min": -600,
+      "name": "Pacific/Honolulu",
+      "transitions": []
+    }
+  ]
+}

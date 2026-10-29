@@ -28,24 +28,21 @@ static inline struct r2_tz r2_tz_get(const uint8_t w[4]) {
   v<=INT16_MAX?(int16_t)v:(int16_t)(-1-(int32_t)(UINT16_MAX-v))};
  return r2_tz_valid(t)?t:r2_tz_unknown();
 }
-/* Coarse mesh configuration only. A repeated matching advertisement renews
- * this lease; no precision sample, source permit, clock fit or epoch is touched.
- * One mesh keeps its first configured value through lease gaps/GM handovers. */
+/* Call only after fresh selected-source authentication/context/replay checks.
+ * Changed pairs and explicit unknown are metadata updates, not timing events. */
 static inline bool r2_tz_observe(struct r2_tz_lease *s,
  struct r2_tz value,uint64_t received,uint64_t now,uint64_t period) {
  if(!s||!period||period>UINT64_MAX/3||received>now||
-    received>UINT64_MAX-period*3||now>=received+period*3||!r2_tz_valid(value))return false;
- if(s->value.id&&(s->value.id!=value.id||s->value.offset_min!=value.offset_min)){
-  if(s->conflicts<UINT16_MAX)++s->conflicts;
-  return false;
- }
+    received>UINT64_MAX-period*3||now>=received+period*3)return false;
+ if(!r2_tz_valid(value))value=r2_tz_unknown();
  s->value=value;s->until_us=received+period*3;
  if(s->received<UINT16_MAX)++s->received;
  return true;
 }
-/* Presence renews a mesh's fixed coarse configuration, including an
+/* Presence renews the last accepted known coarse metadata, including an
  * authenticated periodic advertisement with no usable precision correction.
- * The lease never consults a precision map or clock lock. */
+ * The lease never consults a precision map or clock lock. Explicit unknown
+ * clears value.id, so presence cannot resurrect an older known pair. */
 static inline void r2_tz_renew(struct r2_tz_lease *s,uint64_t now,uint64_t period) {
  if(s && s->value.id && period && period<=UINT64_MAX/3 && now<=UINT64_MAX-3*period)
   s->until_us=now+3*period;

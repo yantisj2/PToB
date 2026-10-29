@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include "time_zone_selector.h"
 /* Software UTC estimate only. Does not steer Zephyr uptime or CLOCK hardware. */
 #define R2_GPS_FRESH_US INT64_C(2500000)
 #define R2_PPS_FRESH_US INT64_C(1500000)
@@ -31,6 +32,9 @@ struct r2_clock_view {
 };
 struct r2_clock {
   struct r2_clock_view view;
+#ifdef R2_TZ_AUTO
+  struct r2_position position; /* Own UART only; never timing qualification. */
+#endif
   /* Source-owner translation snapshot; raw servo/eligibility stay separate. */
   int64_t translated_utc_us, translated_at_us;
   uint32_t translated_epoch;
@@ -50,6 +54,7 @@ void r2_clock_bytes(struct r2_clock *c,const uint8_t *bytes,size_t size,int64_t 
 /* Parser returns 1 active RMC, 2 void/invalid mode RMC, 3 GGA, 0 unrelated,
  * negative for malformed/checksum-invalid input. UTC is POSIX, not TAI. */
 int r2_nmea(const char *line,int64_t *utc_us,unsigned *satellites);
+bool r2_nmea_position(const char *line,struct r2_position *out,int64_t received);
 /* Diagnostic-only checksum-valid GGA field7; exact unsigned centi units.
  * Blank, malformed, negative, >2 decimal places or overflow returns UNKNOWN.
  * Does not change ordinary GGA/RMC acceptance or any clock qualification. */

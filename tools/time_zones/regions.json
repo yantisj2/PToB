@@ -1,0 +1,648 @@
+{
+  "copyright": "2026 Jonathan Yantis",
+  "country_clip": [
+    -32,
+    26,
+    32,
+    72
+  ],
+  "country_parts": {
+    "ESP": [
+      {
+        "include_boxes": [
+          [
+            -19,
+            26,
+            -13,
+            30
+          ]
+        ],
+        "zone": "Atlantic/Canary"
+      },
+      {
+        "include_boxes": [
+          [
+            -10,
+            35.95,
+            5,
+            45
+          ]
+        ],
+        "zone": "Europe/Madrid"
+      }
+    ],
+    "PRT": [
+      {
+        "include_boxes": [
+          [
+            -32,
+            26,
+            -24,
+            42
+          ]
+        ],
+        "zone": "Atlantic/Azores"
+      },
+      {
+        "include_boxes": [
+          [
+            -18,
+            26,
+            -15,
+            34
+          ]
+        ],
+        "zone": "Atlantic/Madeira"
+      },
+      {
+        "include_boxes": [
+          [
+            -12,
+            35,
+            -6,
+            44
+          ]
+        ],
+        "zone": "Europe/Lisbon"
+      }
+    ]
+  },
+  "country_property": "ADM0_A3",
+  "country_zones": {
+    "AND": "Europe/Andorra",
+    "AUT": "Europe/Vienna",
+    "BEL": "Europe/Brussels",
+    "BLZ": "America/Belize",
+    "CHE": "Europe/Zurich",
+    "CRI": "America/Costa_Rica",
+    "DEU": "Europe/Berlin",
+    "DNK": "Europe/Copenhagen",
+    "ESP": "Europe/Madrid",
+    "FRA": "Europe/Paris",
+    "GBR": "Europe/London",
+    "GTM": "America/Guatemala",
+    "HND": "America/Tegucigalpa",
+    "IRL": "Europe/Dublin",
+    "ISL": "Atlantic/Reykjavik",
+    "ITA": "Europe/Rome",
+    "LIE": "Europe/Vaduz",
+    "LUX": "Europe/Luxembourg",
+    "MCO": "Europe/Monaco",
+    "NIC": "America/Managua",
+    "NLD": "Europe/Amsterdam",
+    "NOR": "Europe/Oslo",
+    "PAN": "America/Panama",
+    "PRT": "Europe/Lisbon",
+    "SLV": "America/El_Salvador",
+    "SMR": "Europe/San_Marino",
+    "SWE": "Europe/Stockholm",
+    "VAT": "Europe/Vatican"
+  },
+  "license": "CC-BY-4.0",
+  "notes": [
+    "Administrative geography is not authoritative civil-time geography. Interior cuts are authored conservative approximations; remainder is ambiguous.",
+    "First edition omits enclave and county/municipal detail. Borders/coasts can be unresolved even far from the actual boundary.",
+    "US Arizona north of34N unresolved; Nevada east of115W unresolved; Texas west of103W unresolved.",
+    "Canada: split provinces use only documented interior cuts; small Saskatchewan exceptions explicitly excluded.",
+    "Mexico: border municipalities and Nayarit split unresolved outside conservative interior cuts.",
+    "European overseas territory excluded outside the Europe/Atlantic crop. Ceuta and Melilla excluded by the Spain mainland clip.",
+    "Only positive-area cell intersections count; zero-area polygon touches do not claim land in the half-open cell.",
+    "Indiana resolves only the northwest interior cut west of86.9W and north of41N, allowing the Chicago cell; remainder ambiguous."
+  ],
+  "schema": 1,
+  "state_property": "iso_3166_2",
+  "states": {
+    "CA-AB": {
+      "exclude_boxes": [
+        [
+          -111,
+          52,
+          -109,
+          55
+        ]
+      ],
+      "zone": "America/Edmonton"
+    },
+    "CA-BC": {
+      "include_boxes": [
+        [
+          -128,
+          48,
+          -122,
+          54
+        ]
+      ],
+      "zone": "America/Vancouver"
+    },
+    "CA-MB": {
+      "zone": "America/Winnipeg"
+    },
+    "CA-NB": {
+      "zone": "America/Moncton"
+    },
+    "CA-NL": {
+      "include_boxes": [
+        [
+          -60,
+          0,
+          180,
+          52
+        ]
+      ],
+      "zone": "America/St_Johns"
+    },
+    "CA-NS": {
+      "include_boxes": [
+        [
+          -180,
+          0,
+          -62,
+          90
+        ]
+      ],
+      "zone": "America/Halifax"
+    },
+    "CA-NT": {
+      "include_boxes": [
+        [
+          -120,
+          60,
+          -110,
+          65
+        ]
+      ],
+      "zone": "America/Edmonton"
+    },
+    "CA-ON": {
+      "include_boxes": [
+        [
+          -90,
+          0,
+          180,
+          48
+        ]
+      ],
+      "zone": "America/Toronto"
+    },
+    "CA-PE": {
+      "zone": "America/Halifax"
+    },
+    "CA-QC": {
+      "include_boxes": [
+        [
+          -80,
+          44,
+          -65,
+          50
+        ]
+      ],
+      "zone": "America/Toronto"
+    },
+    "CA-SK": {
+      "exclude_boxes": [
+        [
+          -111,
+          52,
+          -109,
+          55
+        ],
+        [
+          -109,
+          49,
+          -106,
+          51
+        ]
+      ],
+      "zone": "America/Regina"
+    },
+    "CA-YT": {
+      "include_boxes": [
+        [
+          -180,
+          0,
+          180,
+          63
+        ]
+      ],
+      "zone": "America/Whitehorse"
+    },
+    "MX-AGU": {
+      "zone": "America/Mexico_City"
+    },
+    "MX-BCN": {
+      "zone": "America/Tijuana"
+    },
+    "MX-BCS": {
+      "zone": "America/Mazatlan"
+    },
+    "MX-CAM": {
+      "zone": "America/Merida"
+    },
+    "MX-CHH": {
+      "include_boxes": [
+        [
+          -108,
+          26,
+          -103,
+          29
+        ]
+      ],
+      "zone": "America/Chihuahua"
+    },
+    "MX-CHP": {
+      "zone": "America/Mexico_City"
+    },
+    "MX-COA": {
+      "include_boxes": [
+        [
+          -180,
+          0,
+          180,
+          27
+        ]
+      ],
+      "zone": "America/Monterrey"
+    },
+    "MX-COL": {
+      "zone": "America/Mexico_City"
+    },
+    "MX-DIF": {
+      "zone": "America/Mexico_City"
+    },
+    "MX-DUR": {
+      "zone": "America/Monterrey"
+    },
+    "MX-GRO": {
+      "zone": "America/Mexico_City"
+    },
+    "MX-GUA": {
+      "zone": "America/Mexico_City"
+    },
+    "MX-HID": {
+      "zone": "America/Mexico_City"
+    },
+    "MX-JAL": {
+      "zone": "America/Mexico_City"
+    },
+    "MX-MEX": {
+      "zone": "America/Mexico_City"
+    },
+    "MX-MIC": {
+      "zone": "America/Mexico_City"
+    },
+    "MX-MOR": {
+      "zone": "America/Mexico_City"
+    },
+    "MX-NAY": {
+      "include_boxes": [
+        [
+          -180,
+          22,
+          180,
+          90
+        ]
+      ],
+      "zone": "America/Mazatlan"
+    },
+    "MX-NLE": {
+      "include_boxes": [
+        [
+          -180,
+          0,
+          180,
+          26
+        ]
+      ],
+      "zone": "America/Monterrey"
+    },
+    "MX-OAX": {
+      "zone": "America/Mexico_City"
+    },
+    "MX-PUE": {
+      "zone": "America/Mexico_City"
+    },
+    "MX-QUE": {
+      "zone": "America/Mexico_City"
+    },
+    "MX-ROO": {
+      "zone": "America/Cancun"
+    },
+    "MX-SIN": {
+      "zone": "America/Mazatlan"
+    },
+    "MX-SLP": {
+      "zone": "America/Mexico_City"
+    },
+    "MX-SON": {
+      "zone": "America/Hermosillo"
+    },
+    "MX-TAB": {
+      "zone": "America/Mexico_City"
+    },
+    "MX-TAM": {
+      "include_boxes": [
+        [
+          -180,
+          0,
+          180,
+          25
+        ]
+      ],
+      "zone": "America/Monterrey"
+    },
+    "MX-TLA": {
+      "zone": "America/Mexico_City"
+    },
+    "MX-VER": {
+      "zone": "America/Mexico_City"
+    },
+    "MX-YUC": {
+      "zone": "America/Merida"
+    },
+    "MX-ZAC": {
+      "zone": "America/Mexico_City"
+    },
+    "US-AK": {
+      "include_boxes": [
+        [
+          -153,
+          59,
+          -147,
+          63
+        ],
+        [
+          -150,
+          63,
+          -144,
+          67
+        ]
+      ],
+      "zone": "America/Anchorage"
+    },
+    "US-AL": {
+      "zone": "America/Chicago"
+    },
+    "US-AR": {
+      "zone": "America/Chicago"
+    },
+    "US-AZ": {
+      "include_boxes": [
+        [
+          -180,
+          0,
+          180,
+          34
+        ]
+      ],
+      "zone": "America/Phoenix"
+    },
+    "US-CA": {
+      "zone": "America/Los_Angeles"
+    },
+    "US-CO": {
+      "zone": "America/Denver"
+    },
+    "US-CT": {
+      "zone": "America/New_York"
+    },
+    "US-DC": {
+      "zone": "America/New_York"
+    },
+    "US-DE": {
+      "zone": "America/New_York"
+    },
+    "US-FL": {
+      "include_boxes": [
+        [
+          -85,
+          0,
+          180,
+          90
+        ]
+      ],
+      "zone": "America/New_York"
+    },
+    "US-GA": {
+      "zone": "America/New_York"
+    },
+    "US-HI": {
+      "zone": "Pacific/Honolulu"
+    },
+    "US-IA": {
+      "zone": "America/Chicago"
+    },
+    "US-ID": {
+      "include_boxes": [
+        [
+          -180,
+          0,
+          180,
+          45
+        ]
+      ],
+      "zone": "America/Boise"
+    },
+    "US-IL": {
+      "zone": "America/Chicago"
+    },
+    "US-IN": {
+      "include_boxes": [
+        [
+          -88,
+          41,
+          -86.9,
+          42
+        ]
+      ],
+      "zone": "America/Chicago"
+    },
+    "US-KS": {
+      "include_boxes": [
+        [
+          -101,
+          0,
+          180,
+          90
+        ]
+      ],
+      "zone": "America/Chicago"
+    },
+    "US-LA": {
+      "zone": "America/Chicago"
+    },
+    "US-MA": {
+      "zone": "America/New_York"
+    },
+    "US-MD": {
+      "zone": "America/New_York"
+    },
+    "US-ME": {
+      "zone": "America/New_York"
+    },
+    "US-MN": {
+      "zone": "America/Chicago"
+    },
+    "US-MO": {
+      "zone": "America/Chicago"
+    },
+    "US-MS": {
+      "zone": "America/Chicago"
+    },
+    "US-MT": {
+      "zone": "America/Denver"
+    },
+    "US-NC": {
+      "zone": "America/New_York"
+    },
+    "US-ND": {
+      "include_boxes": [
+        [
+          -100,
+          0,
+          180,
+          90
+        ]
+      ],
+      "zone": "America/Chicago"
+    },
+    "US-NE": {
+      "include_boxes": [
+        [
+          -101,
+          0,
+          180,
+          90
+        ]
+      ],
+      "zone": "America/Chicago"
+    },
+    "US-NH": {
+      "zone": "America/New_York"
+    },
+    "US-NJ": {
+      "zone": "America/New_York"
+    },
+    "US-NM": {
+      "zone": "America/Denver"
+    },
+    "US-NV": {
+      "include_boxes": [
+        [
+          -180,
+          0,
+          -115,
+          90
+        ]
+      ],
+      "zone": "America/Los_Angeles"
+    },
+    "US-NY": {
+      "zone": "America/New_York"
+    },
+    "US-OH": {
+      "zone": "America/New_York"
+    },
+    "US-OK": {
+      "zone": "America/Chicago"
+    },
+    "US-OR": {
+      "include_boxes": [
+        [
+          -180,
+          0,
+          -119,
+          90
+        ]
+      ],
+      "zone": "America/Los_Angeles"
+    },
+    "US-PA": {
+      "zone": "America/New_York"
+    },
+    "US-RI": {
+      "zone": "America/New_York"
+    },
+    "US-SC": {
+      "zone": "America/New_York"
+    },
+    "US-SD": {
+      "include_boxes": [
+        [
+          -100,
+          0,
+          180,
+          90
+        ]
+      ],
+      "zone": "America/Chicago"
+    },
+    "US-TN": {
+      "parts": [
+        {
+          "include_boxes": [
+            [
+              -180,
+              0,
+              -86.5,
+              90
+            ]
+          ],
+          "zone": "America/Chicago"
+        },
+        {
+          "include_boxes": [
+            [
+              -84.5,
+              0,
+              180,
+              90
+            ]
+          ],
+          "zone": "America/New_York"
+        }
+      ]
+    },
+    "US-TX": {
+      "include_boxes": [
+        [
+          -103,
+          0,
+          180,
+          90
+        ]
+      ],
+      "zone": "America/Chicago"
+    },
+    "US-UT": {
+      "zone": "America/Denver"
+    },
+    "US-VA": {
+      "zone": "America/New_York"
+    },
+    "US-VT": {
+      "zone": "America/New_York"
+    },
+    "US-WA": {
+      "zone": "America/Los_Angeles"
+    },
+    "US-WI": {
+      "zone": "America/Chicago"
+    },
+    "US-WV": {
+      "zone": "America/New_York"
+    },
+    "US-WY": {
+      "zone": "America/Denver"
+    }
+  },
+  "subdivision_countries": [
+    "USA",
+    "CAN",
+    "MEX"
+  ],
+  "whole_unresolved": [
+    "US-MI",
+    "US-KY",
+    "CA-NU"
+  ]
+}

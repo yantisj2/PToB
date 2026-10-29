@@ -139,7 +139,11 @@ static struct r2_join_record message(const struct r2_network *n, unsigned kind,
       .created_us = now};
   memcpy(r.name, n->name, 25);
 #ifdef R2_TZ_WIRE
+#ifdef R2_TZ_AUTO
+  if(gm7_server_only)r.tz=gm7_source.tz;
+#else
   if(gm7_server_only)r.tz=r2_tz_manual();
+#endif
 #endif
   if ((kind == R2_JOIN_PROOF || kind == R2_JOIN_ACCEPT) && n->ready &&
       n->view.available && n->view.relative_ready && n->choice < n->count &&

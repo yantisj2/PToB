@@ -16,8 +16,11 @@ The [time zone wire plan](time-zones.md) records the proposed four-byte zone ID
 and current UTC offset alongside coarse UTC, with manual GM configuration and
 unchanged RC forwarding. The separate [compact regional database proposal](time-zone-database.md)
 covers later GM offset calendars and rough GNSS selection for North America,
-Central America and Western Europe. The coarse-wire candidate is under T096 verification;
-automatic selection remains a proposal.
+Central America and Western Europe. Source .206 implements that bounded GM
+database/selector and dynamic receiver updates; hardware qualification is separate.
+
+The [T096 GM auto-TZ guide](t096/auto-time-zone-plan.md) records modes, location
+freshness, DST calendars, receiver update policy, verified data and limits.
 
 The [T096 test plan](t096/time-zone-test-plan.md) stages a breaking manual-CDT
 cohort on TC-01/TC-02/TC-04 before other target ports. Execution on the attached

@@ -8,6 +8,10 @@ Direct-RC verification passed; full hardware certification remains pending the
 [source and availability gates](t096/time-zone-test-plan.md#local-205-results-29-october-2026).
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+T096 source 0.15.206 implements [GM automatic zone/DST selection](t096/auto-time-zone-plan.md)
+and scoped dynamic receiver updates using the same four bytes. The .205
+observations above remain historical; .206 hardware acceptance is separate.
+
 UTC remains PToB's primary time base. Add four authenticated bytes to coarse UTC
 publications so receivers can display local civil time and relays can carry the
 selected source's time zone. Begin with manual GM configuration. The proposed
@@ -81,11 +85,12 @@ consistently across potential GMs. A timezone edit changes display metadata;
 it does not create a new mesh epoch, source generation or precision fit.
 
 An RC learns the atomic pair from its selected authenticated mesh parent and
-forwards it unchanged. TZ is coarse configuration, set once for an enrolled
-mesh. Keep that configured value through precision-map expiry, loss of lock,
-root handover and admission renewal. An RC never substitutes a local CDT default.
-Conflicting values in the same mesh are ignored and counted; an explicit mesh
-configuration change or restart establishes a new value.
+forwards it unchanged. The first manual .205 phase cached one fixed pair.
+From .206, fresh ordered selected-source metadata can change or withdraw it,
+including at DST and root replacement. The [wire contract](../protocol/time-zone-v1/README.md)
+specifies scope and ordering. Precision-map expiry and loss of lock alone do
+not clear TZ; an RC never substitutes a local CDT default. Old-context, older
+or same-token conflicting updates cannot replace the selected source's pair.
 
 **The TZ lease is three times the advertising period.** The current coarse
 cadences are 250 ms for GM announcements and 100 ms for RC discovery metadata,
@@ -100,7 +105,9 @@ Each relay renews its own coarse lease from its parent and advertises the same
 pair to children. There is no end-to-end precision deadline for TZ and no new
 TZ sequence counter. A local poll cannot renew the lease. After three missed
 advertising periods, live TZ is unknown and presentation falls back to UTC;
-the configured pair remains cached for matching advertisements to renew.
+the last accepted known pair remains cached for matching advertisements to
+renew. Explicit unknown clears it, and parent/path replacement fences the old
+context; ordinary presence cannot resurrect a withdrawn pair.
 
 Unavailable or invalid TZ affects metadata only. It neither invalidates UTC nor
 grants timing authority. Existing framing, authentication and path selection
@@ -153,14 +160,13 @@ The 2026 fall change is Sunday, 1 November, at 02:00 CDT, equivalent to
 hour follow [NIST's 2026 DST rules](https://www.nist.gov/pml/time-and-frequency-division/popular-links/daylight-saving-time-dst).
 The UTC conversion uses Chicago's -300 minute pre-transition offset.
 
-Initially, configure the mesh manually. A deliberate change from CDT to CST
-requires updating the mesh configuration consistently and restarting its TZ
-configuration cache; it is not inferred from precision timing. Propagation is not a simultaneous scheduled display
-change. Future GM automation can choose the current offset at publication time
-using the same four bytes; advance transition announcements would need a
-separate protocol design. Local repeated hours never replace UTC event identity.
-The first T096 test cohort stays explicitly set to CDT (`2, -300`), including
-across a calendar DST boundary until the operator changes the manual setting.
+The first .205 cohort stays explicitly set to CDT (`2, -300`), including across
+a calendar boundary until the operator changes it. In .206, automatic and
+manual-zone modes choose the current offset at publication time. Manual-offset
+mode remains fixed. Propagation is not a simultaneous scheduled display change;
+advance transition announcements would need a separate protocol design. Local
+repeated hours never replace UTC event identity. Update receivers for the
+dynamic policy before relying on automatic seasonal changes.
 
 ## Implementation and verification sequence
 

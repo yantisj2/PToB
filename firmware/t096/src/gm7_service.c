@@ -39,6 +39,9 @@
 static struct gm7_owner owner;
 #ifdef R2_TZ_WIRE
 static struct r2_tz_lease coarse_tz;
+#ifdef R2_TZ_AUTO
+#include "time_zone_config.h"
+#endif
 #endif
 static struct gm7_scheduler scheduler;
 /* Descriptive publication only; until is conservatively converted kernel time.
@@ -422,6 +425,16 @@ static void reservation_fail(uint64_t nominal, uint64_t sequence,
 static int queue_at(unsigned slot, const struct gm7_packet *p,
                     struct gm7_window w, uint64_t deadline,
                     uint64_t request_utc, struct gm7_bridge b) {
+#ifdef R2_TZ_AUTO
+  /* Snapshot at encoding, including immutable negative-event copies. Only
+   * metadata changes; event sequence/UTC/scope and reservation remain intact. */
+  struct gm7_packet local=*p;
+  if(p->kind<=GM7_WITHDRAW){
+    local.body.control.tz=r2_time_tz_at(b.kernel_hi,p->body.control.sent_utc_us,
+      gm7_utc_valid(p->body.control.sent_utc_us));
+    p=&local;
+  }
+#endif
   bool first = slot == GM7_PRIMARY && owner.reserved &&
                owner.reserved_nominal == w.nominal && p->kind == GM7_ANNOUNCE &&
                owner.reserved_sequence == p->body.control.sequence;
@@ -640,6 +653,9 @@ static struct r2_gm7_admission_source admission(struct gm7_bridge b) {
   else
     source = false;
   return (struct r2_gm7_admission_source){.group = &group,
+#ifdef R2_TZ_AUTO
+                                          .tz=r2_time_tz_at(b.kernel_hi,utc,source),
+#endif
                                           .identity = identity,
                                           .boot = boot,
                                           .utc_us = utc,
@@ -1018,7 +1034,11 @@ static __attribute__((noinline)) void publish(struct gm7_bridge b) {
   status.tz=r2_tz_current(&coarse_tz,b.kernel_hi);
   status.tz_until_us=coarse_tz.until_us;
   if(owner.scope.active==identity && owner.scope.timing_epoch)
+#ifdef R2_TZ_AUTO
+    {status.tz=r2_time_tz_at(b.kernel_hi,c.utc_us,c.source);status.tz_until_us=UINT64_MAX;}
+#else
     {status.tz=r2_tz_manual();status.tz_until_us=UINT64_MAX;}
+#endif
 #endif
   status.time_sampled_us = t.at;
   status.source_frame_ns = frame;
@@ -1751,6 +1771,9 @@ static int start(uint64_t arrival, uint32_t seconds) {
   rc = gm7_owner_init(&owner, &group, identity, boot, true, b.hf);
   if (rc)
     return rc;
+#ifdef R2_TZ_WIRE
+  coarse_tz=(struct r2_tz_lease){0};
+#endif
   clock_epoch = b.epoch;
   phase_known = false;
   gm7_owner_clock(&owner, hf_read, NULL);

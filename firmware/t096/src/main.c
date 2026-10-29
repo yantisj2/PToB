@@ -10,6 +10,9 @@
 #include "initiator_diag.h"
 #include "watchdog.h"
 #include "time_service.h"
+#ifdef R2_TZ_AUTO
+#include "time_zone_config.h"
+#endif
 #include "capture.h"
 #include "gnss_aid.h"
 #ifdef R2_PC_PROFILE
@@ -121,6 +124,17 @@ static void __attribute__((noinline)) clock_reply(const struct r2_request *r,uin
 #endif
     );
   if(n<0||(size_t)n>=sizeof(json)||reply_sequence==UINT32_MAX)return;
+#ifdef R2_TZ_AUTO
+  struct r2_position position;r2_time_position_snapshot(&position);
+  uint64_t now=(uint64_t)r2_time_now_us();
+  uint64_t age=position.valid&&position.received_us>=0&&now>=(uint64_t)position.received_us?
+    now-(uint64_t)position.received_us:UINT64_MAX;
+  int extra=snprintf(json+n-1,sizeof(json)-(size_t)n+1,
+    ",\"position\":{\"lat_e7\":%ld,\"lon_e7\":%ld,\"age_us\":%llu,\"valid\":%s}}",
+    (long)position.latitude_e7,(long)position.longitude_e7,(unsigned long long)age,
+    age<=R2_TZ_POSITION_US?"true":"false");
+  if(extra<0||(size_t)extra>=sizeof(json)-(size_t)n+1)return;
+#endif
   n=r2_frame(frame,sizeof(frame),r->id,++reply_sequence,json);
   if(n>0)(void)r2_console_reply(frame,(size_t)n,arrival+R2_REPLY_MS);
 }
@@ -405,6 +419,18 @@ static void __attribute__((noinline)) reply(const struct r2_request *r,uint64_t 
     ",\"tz\":{\"id\":%u,\"offset_min\":%d,\"local_valid\":%s,\"local_us\":%lld}}",
     tz.id,tz.offset_min,local_valid?"true":"false",(long long)local);
   if(extra<0 || (size_t)extra>=sizeof(json)-used-1)return;
+#ifdef R2_TZ_AUTO
+  struct r2_tz_local_status tz_local;
+  r2_time_tz_status(&tz_local,(uint64_t)k_uptime_get()*1000);
+  size_t tz_end=used+1+(size_t)extra;
+  int detail=snprintf(json+tz_end-2,sizeof(json)-tz_end+2,
+    ",\"mode\":%u,\"selected\":%u,\"position_age_us\":%llu,\"confirmed_age_us\":%llu,"
+    "\"hold\":%s,\"reason\":\"%s\",\"database\":\"%s\",\"database_until_utc\":1956528000}}",
+    tz_local.mode,tz_local.selected,(unsigned long long)tz_local.position_age_us,
+    (unsigned long long)tz_local.confirmed_age_us,tz_local.hold?"true":"false",
+    r2_tz_reason_name(tz_local.reason),r2_tz_db_version());
+  if(detail<0||(size_t)detail>=sizeof(json)-tz_end+2)return;
+#endif
 #endif
   if(reply_sequence==UINT32_MAX) return;
   n=r2_frame(frame,sizeof(frame),r->id,++reply_sequence,json);

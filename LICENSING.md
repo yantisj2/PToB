@@ -10,6 +10,7 @@ Copyright (c) 2026 Jonathan Yantis.
 | TinyCrypt HMAC copies in W12/SS3 | [Intel BSD-3-Clause notice](LICENSES/TinyCrypt-BSD-3-Clause.txt) retained in each file |
 | Other third-party material and separately acquired dependencies | Their existing license and attribution |
 | Included original evidence records and derived CSV datasets | [CC BY 4.0](evidence/LICENSE.md) |
+| Original regional TZ mappings, public ID assignments, generated runtime data and coverage records | [CC BY 4.0, with public-domain IANA/Natural Earth source terms](tools/time_zones/README.md#terms-and-provenance) |
 | Future third-party or differently licensed datasets | Explicit terms recorded with the import |
 
 The manuscript and figure license is Creative Commons Attribution 4.0

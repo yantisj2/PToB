@@ -51,6 +51,9 @@ bool r2_group_admission_mesh_contact(uint64_t now);
  * expiry and transport callback drain are shared unchanged with RC clients.
  * No incoming proof or cached JOIN time can become GM7 HOT/election input. */
 struct r2_gm7_admission_source {
+#ifdef R2_TZ_AUTO
+ struct r2_tz tz;
+#endif
  const struct r2_group_config *group;
  uint64_t identity,boot,utc_us,sampled_us,until_us;
  uint32_t timing_epoch,train,map_bound_us;

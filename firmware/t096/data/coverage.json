@@ -1,0 +1,788 @@
+{
+  "copyright": "2026 Jonathan Yantis",
+  "counts": {
+    "ambiguous": 59,
+    "correct": 38
+  },
+  "license": "CC-BY-4.0",
+  "locations": [
+    {
+      "actual_id": 2,
+      "expected_id": 2,
+      "latitude_e7": 418500000,
+      "longitude_e7": -876500000,
+      "name": "America/Chicago",
+      "outcome": "correct"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 3,
+      "latitude_e7": 358833333,
+      "longitude_e7": -53166666,
+      "name": "Africa/Ceuta",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 4,
+      "latitude_e7": 518800000,
+      "longitude_e7": -1766580555,
+      "name": "America/Adak",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 5,
+      "expected_id": 5,
+      "latitude_e7": 612180555,
+      "longitude_e7": -1499002777,
+      "name": "America/Anchorage",
+      "outcome": "correct"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 6,
+      "latitude_e7": 487586111,
+      "longitude_e7": -916216666,
+      "name": "America/Atikokan",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 7,
+      "latitude_e7": 208000000,
+      "longitude_e7": -1052500000,
+      "name": "America/Bahia_Banderas",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 8,
+      "latitude_e7": 175000000,
+      "longitude_e7": -882000000,
+      "name": "America/Belize",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 9,
+      "latitude_e7": 514166666,
+      "longitude_e7": -571166666,
+      "name": "America/Blanc-Sablon",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 10,
+      "latitude_e7": 436136111,
+      "longitude_e7": -1162025000,
+      "name": "America/Boise",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 11,
+      "latitude_e7": 691138888,
+      "longitude_e7": -1050527777,
+      "name": "America/Cambridge_Bay",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 12,
+      "expected_id": 12,
+      "latitude_e7": 210833333,
+      "longitude_e7": -867666666,
+      "name": "America/Cancun",
+      "outcome": "correct"
+    },
+    {
+      "actual_id": 13,
+      "expected_id": 13,
+      "latitude_e7": 286333333,
+      "longitude_e7": -1060833333,
+      "name": "America/Chihuahua",
+      "outcome": "correct"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 14,
+      "latitude_e7": 317333333,
+      "longitude_e7": -1064833333,
+      "name": "America/Ciudad_Juarez",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 15,
+      "expected_id": 15,
+      "latitude_e7": 99333333,
+      "longitude_e7": -840833333,
+      "name": "America/Costa_Rica",
+      "outcome": "correct"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 16,
+      "latitude_e7": 491000000,
+      "longitude_e7": -1165166666,
+      "name": "America/Creston",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 17,
+      "latitude_e7": 640666666,
+      "longitude_e7": -1394166666,
+      "name": "America/Dawson",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 18,
+      "latitude_e7": 557666666,
+      "longitude_e7": -1202333333,
+      "name": "America/Dawson_Creek",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 19,
+      "expected_id": 19,
+      "latitude_e7": 397391666,
+      "longitude_e7": -1049841666,
+      "name": "America/Denver",
+      "outcome": "correct"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 20,
+      "latitude_e7": 423313888,
+      "longitude_e7": -830458333,
+      "name": "America/Detroit",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 21,
+      "expected_id": 21,
+      "latitude_e7": 535500000,
+      "longitude_e7": -1134666666,
+      "name": "America/Edmonton",
+      "outcome": "correct"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 22,
+      "latitude_e7": 137000000,
+      "longitude_e7": -892000000,
+      "name": "America/El_Salvador",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 23,
+      "latitude_e7": 588000000,
+      "longitude_e7": -1227000000,
+      "name": "America/Fort_Nelson",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 24,
+      "latitude_e7": 462000000,
+      "longitude_e7": -599500000,
+      "name": "America/Glace_Bay",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 25,
+      "latitude_e7": 533333333,
+      "longitude_e7": -604166666,
+      "name": "America/Goose_Bay",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 26,
+      "expected_id": 26,
+      "latitude_e7": 146333333,
+      "longitude_e7": -905166666,
+      "name": "America/Guatemala",
+      "outcome": "correct"
+    },
+    {
+      "actual_id": 27,
+      "expected_id": 27,
+      "latitude_e7": 446500000,
+      "longitude_e7": -636000000,
+      "name": "America/Halifax",
+      "outcome": "correct"
+    },
+    {
+      "actual_id": 28,
+      "expected_id": 28,
+      "latitude_e7": 290666666,
+      "longitude_e7": -1109666666,
+      "name": "America/Hermosillo",
+      "outcome": "correct"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 29,
+      "latitude_e7": 397683333,
+      "longitude_e7": -861580555,
+      "name": "America/Indiana/Indianapolis",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 30,
+      "latitude_e7": 412958333,
+      "longitude_e7": -866250000,
+      "name": "America/Indiana/Knox",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 31,
+      "latitude_e7": 383755555,
+      "longitude_e7": -863447222,
+      "name": "America/Indiana/Marengo",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 32,
+      "latitude_e7": 384919444,
+      "longitude_e7": -872786111,
+      "name": "America/Indiana/Petersburg",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 33,
+      "latitude_e7": 379530555,
+      "longitude_e7": -867613888,
+      "name": "America/Indiana/Tell_City",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 34,
+      "latitude_e7": 387477777,
+      "longitude_e7": -850672222,
+      "name": "America/Indiana/Vevay",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 35,
+      "latitude_e7": 386772222,
+      "longitude_e7": -875286111,
+      "name": "America/Indiana/Vincennes",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 36,
+      "latitude_e7": 410513888,
+      "longitude_e7": -866030555,
+      "name": "America/Indiana/Winamac",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 37,
+      "latitude_e7": 683497222,
+      "longitude_e7": -1337166666,
+      "name": "America/Inuvik",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 38,
+      "latitude_e7": 637333333,
+      "longitude_e7": -684666666,
+      "name": "America/Iqaluit",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 39,
+      "latitude_e7": 583019444,
+      "longitude_e7": -1344197222,
+      "name": "America/Juneau",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 40,
+      "latitude_e7": 382541666,
+      "longitude_e7": -857594444,
+      "name": "America/Kentucky/Louisville",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 41,
+      "latitude_e7": 368297222,
+      "longitude_e7": -848491666,
+      "name": "America/Kentucky/Monticello",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 42,
+      "expected_id": 42,
+      "latitude_e7": 340522222,
+      "longitude_e7": -1182427777,
+      "name": "America/Los_Angeles",
+      "outcome": "correct"
+    },
+    {
+      "actual_id": 43,
+      "expected_id": 43,
+      "latitude_e7": 121500000,
+      "longitude_e7": -862833333,
+      "name": "America/Managua",
+      "outcome": "correct"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 44,
+      "latitude_e7": 258333333,
+      "longitude_e7": -975000000,
+      "name": "America/Matamoros",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 45,
+      "expected_id": 45,
+      "latitude_e7": 232166666,
+      "longitude_e7": -1064166666,
+      "name": "America/Mazatlan",
+      "outcome": "correct"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 46,
+      "latitude_e7": 451077777,
+      "longitude_e7": -876141666,
+      "name": "America/Menominee",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 47,
+      "expected_id": 47,
+      "latitude_e7": 209666666,
+      "longitude_e7": -896166666,
+      "name": "America/Merida",
+      "outcome": "correct"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 48,
+      "latitude_e7": 551269444,
+      "longitude_e7": -1315763888,
+      "name": "America/Metlakatla",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 49,
+      "expected_id": 49,
+      "latitude_e7": 194000000,
+      "longitude_e7": -991500000,
+      "name": "America/Mexico_City",
+      "outcome": "correct"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 50,
+      "latitude_e7": 461000000,
+      "longitude_e7": -647833333,
+      "name": "America/Moncton",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 51,
+      "expected_id": 51,
+      "latitude_e7": 256666666,
+      "longitude_e7": -1003166666,
+      "name": "America/Monterrey",
+      "outcome": "correct"
+    },
+    {
+      "actual_id": 52,
+      "expected_id": 52,
+      "latitude_e7": 407141666,
+      "longitude_e7": -740063888,
+      "name": "America/New_York",
+      "outcome": "correct"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 53,
+      "latitude_e7": 645011111,
+      "longitude_e7": -1654063888,
+      "name": "America/Nome",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 54,
+      "latitude_e7": 472641666,
+      "longitude_e7": -1017777777,
+      "name": "America/North_Dakota/Beulah",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 55,
+      "latitude_e7": 471163888,
+      "longitude_e7": -1012991666,
+      "name": "America/North_Dakota/Center",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 56,
+      "latitude_e7": 468450000,
+      "longitude_e7": -1014108333,
+      "name": "America/North_Dakota/New_Salem",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 57,
+      "latitude_e7": 295666666,
+      "longitude_e7": -1044166666,
+      "name": "America/Ojinaga",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 58,
+      "expected_id": 58,
+      "latitude_e7": 89666666,
+      "longitude_e7": -795333333,
+      "name": "America/Panama",
+      "outcome": "correct"
+    },
+    {
+      "actual_id": 59,
+      "expected_id": 59,
+      "latitude_e7": 334483333,
+      "longitude_e7": -1120733333,
+      "name": "America/Phoenix",
+      "outcome": "correct"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 60,
+      "latitude_e7": 628166666,
+      "longitude_e7": -920830555,
+      "name": "America/Rankin_Inlet",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 61,
+      "expected_id": 61,
+      "latitude_e7": 504000000,
+      "longitude_e7": -1046500000,
+      "name": "America/Regina",
+      "outcome": "correct"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 62,
+      "latitude_e7": 746955555,
+      "longitude_e7": -948291666,
+      "name": "America/Resolute",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 63,
+      "latitude_e7": 571763888,
+      "longitude_e7": -1353019444,
+      "name": "America/Sitka",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 64,
+      "expected_id": 64,
+      "latitude_e7": 475666666,
+      "longitude_e7": -527166666,
+      "name": "America/St_Johns",
+      "outcome": "correct"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 65,
+      "latitude_e7": 502833333,
+      "longitude_e7": -1078333333,
+      "name": "America/Swift_Current",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 66,
+      "expected_id": 66,
+      "latitude_e7": 141000000,
+      "longitude_e7": -872166666,
+      "name": "America/Tegucigalpa",
+      "outcome": "correct"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 67,
+      "latitude_e7": 325333333,
+      "longitude_e7": -1170166666,
+      "name": "America/Tijuana",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 68,
+      "latitude_e7": 436500000,
+      "longitude_e7": -793833333,
+      "name": "America/Toronto",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 69,
+      "expected_id": 69,
+      "latitude_e7": 492666666,
+      "longitude_e7": -1231166666,
+      "name": "America/Vancouver",
+      "outcome": "correct"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 70,
+      "latitude_e7": 607166666,
+      "longitude_e7": -1350500000,
+      "name": "America/Whitehorse",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 71,
+      "expected_id": 71,
+      "latitude_e7": 498833333,
+      "longitude_e7": -971500000,
+      "name": "America/Winnipeg",
+      "outcome": "correct"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 72,
+      "latitude_e7": 595469444,
+      "longitude_e7": -1397272222,
+      "name": "America/Yakutat",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 73,
+      "expected_id": 73,
+      "latitude_e7": 377333333,
+      "longitude_e7": -256666666,
+      "name": "Atlantic/Azores",
+      "outcome": "correct"
+    },
+    {
+      "actual_id": 74,
+      "expected_id": 74,
+      "latitude_e7": 281000000,
+      "longitude_e7": -154000000,
+      "name": "Atlantic/Canary",
+      "outcome": "correct"
+    },
+    {
+      "actual_id": 75,
+      "expected_id": 75,
+      "latitude_e7": 326333333,
+      "longitude_e7": -169000000,
+      "name": "Atlantic/Madeira",
+      "outcome": "correct"
+    },
+    {
+      "actual_id": 76,
+      "expected_id": 76,
+      "latitude_e7": 641500000,
+      "longitude_e7": -218500000,
+      "name": "Atlantic/Reykjavik",
+      "outcome": "correct"
+    },
+    {
+      "actual_id": 77,
+      "expected_id": 77,
+      "latitude_e7": 523666666,
+      "longitude_e7": 49000000,
+      "name": "Europe/Amsterdam",
+      "outcome": "correct"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 78,
+      "latitude_e7": 425000000,
+      "longitude_e7": 15166666,
+      "name": "Europe/Andorra",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 79,
+      "expected_id": 79,
+      "latitude_e7": 525000000,
+      "longitude_e7": 133666666,
+      "name": "Europe/Berlin",
+      "outcome": "correct"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 80,
+      "latitude_e7": 508333333,
+      "longitude_e7": 43333333,
+      "name": "Europe/Brussels",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 81,
+      "latitude_e7": 477000000,
+      "longitude_e7": 86833333,
+      "name": "Europe/Busingen",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 82,
+      "latitude_e7": 556666666,
+      "longitude_e7": 125833333,
+      "name": "Europe/Copenhagen",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 83,
+      "expected_id": 83,
+      "latitude_e7": 533333333,
+      "longitude_e7": -62500000,
+      "name": "Europe/Dublin",
+      "outcome": "correct"
+    },
+    {
+      "actual_id": 84,
+      "expected_id": 84,
+      "latitude_e7": 387166666,
+      "longitude_e7": -91333333,
+      "name": "Europe/Lisbon",
+      "outcome": "correct"
+    },
+    {
+      "actual_id": 85,
+      "expected_id": 85,
+      "latitude_e7": 515083333,
+      "longitude_e7": -1252777,
+      "name": "Europe/London",
+      "outcome": "correct"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 86,
+      "latitude_e7": 496000000,
+      "longitude_e7": 61500000,
+      "name": "Europe/Luxembourg",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 87,
+      "expected_id": 87,
+      "latitude_e7": 404000000,
+      "longitude_e7": -36833333,
+      "name": "Europe/Madrid",
+      "outcome": "correct"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 88,
+      "latitude_e7": 437000000,
+      "longitude_e7": 73833333,
+      "name": "Europe/Monaco",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 89,
+      "expected_id": 89,
+      "latitude_e7": 599166666,
+      "longitude_e7": 107500000,
+      "name": "Europe/Oslo",
+      "outcome": "correct"
+    },
+    {
+      "actual_id": 90,
+      "expected_id": 90,
+      "latitude_e7": 488666666,
+      "longitude_e7": 23333333,
+      "name": "Europe/Paris",
+      "outcome": "correct"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 91,
+      "latitude_e7": 419000000,
+      "longitude_e7": 124833333,
+      "name": "Europe/Rome",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 92,
+      "latitude_e7": 439166666,
+      "longitude_e7": 124666666,
+      "name": "Europe/San_Marino",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 93,
+      "expected_id": 93,
+      "latitude_e7": 593333333,
+      "longitude_e7": 180500000,
+      "name": "Europe/Stockholm",
+      "outcome": "correct"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 94,
+      "latitude_e7": 471500000,
+      "longitude_e7": 95166666,
+      "name": "Europe/Vaduz",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 95,
+      "latitude_e7": 419022222,
+      "longitude_e7": 124530555,
+      "name": "Europe/Vatican",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 96,
+      "latitude_e7": 482166666,
+      "longitude_e7": 163333333,
+      "name": "Europe/Vienna",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 65535,
+      "expected_id": 97,
+      "latitude_e7": 473833333,
+      "longitude_e7": 85333333,
+      "name": "Europe/Zurich",
+      "outcome": "ambiguous"
+    },
+    {
+      "actual_id": 98,
+      "expected_id": 98,
+      "latitude_e7": 213069444,
+      "longitude_e7": -1578583333,
+      "name": "Pacific/Honolulu",
+      "outcome": "correct"
+    }
+  ],
+  "population": "All 97 selected IANA zone.tab principal locations; not a representative accuracy sample",
+  "schema": 1
+}

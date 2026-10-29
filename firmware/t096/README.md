@@ -59,7 +59,8 @@ before serving time. COLD can receive BLE timing while qualifying locally.
 | Time zone | Manual **CDT**, ID 2 and UTC−300 minutes. RCs relay the authenticated mesh pair; the presence lease is three parent advertising periods. No automatic DST or geographic selection. |
 | LoRa timing | Optional **RC8 wire 3** fallback with root/source identity. BLE is preferred while usable; a configured transmitter can export qualified local GM time or its accepted locked BLE source. |
 | USB | Hardware-captured USB frame boundaries; RC exports BLE time, DC exports local GNSS time. The macOS client uses an owned, unprivileged `chronyd -x` user clock. |
-| Deployment | Source **0.15.205**, Zephyr-based native builds with pinned public dependencies. GM/RC uses private enrollment and verified device binding; no enrolled binary is distributed. |
+| Time zone | GM uses own GNSS location and pinned IANA offset calendars; manual-zone and fixed-offset overrides. [Coverage, DST and unknown behavior](../../docs/t096/auto-time-zone-plan.md). |
+| Deployment | Source **0.15.206**, Zephyr-based native builds with pinned public dependencies. GM/RC uses private enrollment and verified device binding; no enrolled binary is distributed. |
 
 LoRa is disabled by default and requires build-time configuration. GM mesh
 participation can suppress passive RX. Fit the appropriate antenna before

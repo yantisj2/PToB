@@ -4,8 +4,10 @@ The [time zone wire plan](../docs/time-zones.md) adds four authenticated
 bytes alongside coarse UTC: a stable zone ID and current offset, forwarded by
 RCs. It requires an explicit new coarse-packet revision and leaves existing
 precision layouts unchanged. The [candidate coarse-wire contract](time-zone-v1/README.md) records the
-new lengths and authentication domains; hardware certification is pending. The [regional database proposal](../docs/time-zone-database.md) is a later GM
-feature using the same fields.
+new lengths and authentication domains; hardware certification is pending.
+T096 .206 implements the [regional GM selector and DST calendars](../docs/t096/auto-time-zone-plan.md)
+using those fields, with scoped dynamic receiver updates. The
+[original regional design](../docs/time-zone-database.md) retains its coverage limits.
 
 The [T096 execution plan](../docs/t096/time-zone-test-plan.md) specifies
 new-wire-only GM/RC tests with manual CDT before any other target rollout.

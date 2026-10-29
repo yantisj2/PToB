@@ -14,7 +14,9 @@ if args.out: args.out.resolve().mkdir(parents=True,exist_ok=False)
 with (nullcontext(str(args.out.resolve())) if args.out else tempfile.TemporaryDirectory(prefix='t096-r2-test-')) as directory:
     out=Path(directory)
     compiler=os.environ.get('CC') or ('/opt/homebrew/opt/llvm/bin/clang' if Path('/opt/homebrew/opt/llvm/bin/clang').is_file() else shutil.which('clang'))
+    subprocess.run([sys.executable,str(APP/'tools/auto_time_zone_tests.py'),'--out',str(out/'auto-time-zone')],env={**os.environ,'CC':compiler},check=True,timeout=90)
     subprocess.run([sys.executable,str(APP/'tests/test_tz_compile_mode.py')],check=True,timeout=30)
+    subprocess.run([sys.executable,str(APP/'tests/test_time_zone_build.py')],check=True,timeout=30)
     subprocess.run([sys.executable,str(APP/'tools/time_zone_tests.py'),'--deps',str(args.deps),'--out',str(out/'time-zone')],env={**os.environ,'CC':compiler},check=True,timeout=90)
     subprocess.run([sys.executable,str(APP/'tools/gm7_tests.py'),'--deps',str(args.deps),'--out',str(out/'gm7')],env={**os.environ,'CC':compiler},check=True,timeout=120)
     subprocess.run([sys.executable,str(APP/'tools/gm_utc_tests.py'),'--deps',str(args.deps),'--out',str(out/'gm-utc')],env={**os.environ,'CC':compiler},check=True,timeout=90)
@@ -150,6 +152,8 @@ with (nullcontext(str(args.out.resolve())) if args.out else tempfile.TemporaryDi
 
     subprocess.run([*flags,'-I'+str(out),'-include',str(APP/'tests/zephyr_fake.h'),str(APP/'tests/time_service_test.c'),str(APP/'src/clock.c'),str(APP/'src/nmea.c'),str(APP/'src/precision.c'),'-o',str(out/'time_service')],check=True,timeout=30)
     subprocess.run([str(out/'time_service')],check=True,timeout=30)
+    subprocess.run([*flags,'-DR2_TZ_AUTO=1','-DR2_TZ_WIRE=1','-I'+str(out),'-include',str(APP/'tests/zephyr_fake.h'),str(APP/'tests/auto_time_zone_owner_test.c'),*[str(APP/'src'/n)for n in ['clock.c','nmea.c','precision.c','time_zone_selector.c','time_zone_database.c']],'-o',str(out/'auto_time_zone_owner')],check=True,timeout=30)
+    subprocess.run([str(out/'auto_time_zone_owner')],check=True,timeout=30)
 
     subprocess.run([*flags,'-DR2_LORA=1','-I'+str(APP/'protocol'),'-I'+str(out),'-include',str(APP/'tests/zephyr_fake.h'),str(APP/'tests/diagnostic_test.c'),str(APP/'src/core.c'),'-o',str(out/'diagnostic')],check=True,timeout=30)
     for mode in map(str,range(34)):

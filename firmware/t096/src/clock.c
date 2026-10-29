@@ -68,6 +68,9 @@ void r2_clock_advance(struct r2_clock *c,int64_t now)
 }
 void r2_clock_fault(struct r2_clock *c,enum r2_clock_fault reason,int64_t now)
 {
+#ifdef R2_TZ_AUTO
+  c->position.valid=false;
+#endif
   r2_clock_advance(c,now);sat(&c->view.faults);c->view.reason=reason;
   if(c->view.generation==UINT32_MAX)c->fatal=true;else ++c->view.generation;
   epoch(c);c->run_rmc=c->run_pair=c->fit_count=c->used=0;
@@ -157,7 +160,17 @@ void r2_clock_bytes(struct r2_clock *c,const uint8_t *bytes,size_t size,int64_t 
         }
         if(received<c->line_start||received-c->line_start>500000)kind=-R2_INPUT_STALE;
         if(kind<0||kind==2) {sat(&c->view.rejected);r2_clock_fault(c,kind==2?R2_INPUT_VOID:(enum r2_clock_fault)-kind,now);}
-        else if(kind==1)rmc(c,utc,received,now);
+        else if(kind==1){
+#ifdef R2_TZ_AUTO
+          int64_t prior=c->last_rmc;
+#endif
+          rmc(c,utc,received,now);
+#ifdef R2_TZ_AUTO
+          /* A duplicate/rejected navigation epoch cannot freshen position. */
+          if(c->last_rmc==received && c->last_rmc!=prior)
+            c->position.valid=r2_nmea_position(c->line,&c->position,c->line_start);
+#endif
+        }
         else if(kind==3) {c->view.sats_used=sats;c->view.gga_hdop_centi=r2_nmea_gga_hdop(c->line);c->last_gga=received;sat(&c->view.gga_count);}
       }
       c->used=0;continue;

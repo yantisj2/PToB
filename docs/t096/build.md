@@ -2,7 +2,7 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
-This guide builds and inspects T096 source **0.15.205** without opening hardware.
+This guide builds and inspects T096 source **0.15.206** without opening hardware.
 For profile choices and controls, see the [T096 README](../../firmware/t096/README.md).
 Release-by-release implementation and validation notes are in the
 [T096 changelog](../../firmware/t096/CHANGELOG.md).
@@ -98,8 +98,19 @@ must use matching new-wire images; other targets remain deferred. Manual CDT
 uses ID 2 and offset −300 minutes. Existing authenticated parent advertisements
 renew TZ for three advertising periods, independently of precision timing.
 Page 1 and the analog screensaver display local time while that lease is valid,
-then fall back to UTC. Automatic TZ/DST selection is not implemented. See the
+then fall back to UTC. Source .206 adds automatic GNSS zone/DST selection and
+dynamic selected-source metadata updates. All participating T096s need that
+update for automatic DST; old .205 receivers cache their first pair. See the
 [current bounded results and remaining gates](time-zone-test-plan.md#local-205-results-29-october-2026).
+
+Normal GM/RC builds default to `--tz-mode auto`. Geographic ambiguity, stale
+position or an expired calendar produce unknown/UTC. For a stationary GM,
+`--tz-mode manual-zone --tz-id 2` follows Chicago's DST calendar without needing
+location selection. Use `--tz-mode manual-offset --tz-id 2 --tz-offset-min -300`
+only for a deliberately fixed offset. Manual values are explicit and validated;
+DC, PC and historical regression images reject these options. Mode, values and
+database identity are bound into each private receipt/image. See the
+[automatic TZ guide](auto-time-zone-plan.md) and [ID registry](../../tools/time_zones/zones.json).
 
 Use `--profile GM` for a GM cold boot. For a dedicated GNSS/USB device, use
 `--profile DC` and omit `--enrollment`; DC rejects group credentials and has no
@@ -225,3 +236,9 @@ and 4,096-byte RC8 incremental budget. The absolute 1,024-byte unallocated floor
 and existing stack allocations are unchanged. The four locally installed .205
 images leave 4,372 bytes of linked static RAM unallocated; this is a linker
 result, not a runtime stack or endurance measurement.
+
+Source .206 separately caps the complete automatic-TZ mutable addition at
+256 bytes against that .205 baseline and generated flash data at 16 KiB.
+These limits include position, discovery queues and copied snapshots; they do
+not increase radio/USB or stack allocations. Actual native resource results
+are recorded with each candidate's inspector output.

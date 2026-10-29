@@ -17,6 +17,9 @@
 #include "../protocol/gm7_codec.h"
 static struct r2_tz_lease coarse_tz;
 static struct r2_tz advertised_tz;
+/* Existing GM sequence or relay challenge orders metadata within the admitted
+ * parent context. Reset only at an actual context replacement. */
+static uint64_t coarse_tz_sequence;
 #endif
 #include "rc_field_policy.h"
 #include "rc_gm_adapter.h"
@@ -311,6 +314,9 @@ static bool layout_path(const struct rc7_path *path) {
     slot_selected = false;
   }
   if (changed) {
+#ifdef R2_TZ_WIRE
+    coarse_tz=(struct r2_tz_lease){0};coarse_tz_sequence=0;
+#endif
     r2_shadow_normal_withdraw();
 #ifdef R2_USB_SOURCE_STREAM
     r2_usb_source_withdraw();
@@ -621,6 +627,9 @@ static void cleanup_progress(void) {
 /* Caller has drained the previous sync/publication and owns no transient ACL.
  * No phase/acquisition latch from that parent may inhibit the next admission. */
 static void parent_handoff_reset(void) {
+#ifdef R2_TZ_WIRE
+  coarse_tz=(struct r2_tz_lease){0};coarse_tz_sequence=0;
+#endif
   parent_count0_at=0;
   parent_ineligible=false;
   lt_acquiring = false;
@@ -792,7 +801,11 @@ struct discovery {
   int8_t rssi;
   bool connectable;
   union {
+#ifdef R2_TZ_WIRE
+    uint8_t data[GM7_TZ_MAX_AD_BYTES-2];
+#else
     uint8_t data[RC_DYNAMIC_CAPABILITY_BYTES];
+#endif
     /* Signed role data leaves room for local arrival time in the existing
      * fixed144B payload. This tail is host metadata, never wire content. */
     struct {uint8_t wire[R2_ROLE_AD_BYTES-2];
@@ -805,6 +818,10 @@ static bool scan_data(struct bt_data *d, void *user) {
   struct discovery *p = user;
   if (d->type == BT_DATA_MANUFACTURER_DATA &&
       (d->data_len == RC_DYNAMIC_CAPABILITY_BYTES || d->data_len == 23 ||
+#ifdef R2_TZ_WIRE
+       (d->data_len==GM7_TZ_MAX_AD_BYTES-2 && d->data[0]==255 && d->data[1]==255 &&
+        !memcmp(d->data+2,"G7V4",4) && d->data[7]==GM7_ANNOUNCE) ||
+#endif
        d->data_len == R2_ROLE_AD_BYTES-2)) {
     p->len = d->data_len;
 #ifdef R2_TZ_WIRE
@@ -1006,12 +1023,55 @@ static void gm_role_observed(const struct discovery *d,uint64_t now){
    break;
  }
 }
+#ifdef R2_TZ_WIRE
+static void gm_tz_observed(const struct discovery *input,uint64_t tick,uint64_t now){
+  const struct discovery *d=input;
+    if(d->len==GM7_TZ_MAX_AD_BYTES-2 && parent_known && !parent_relay &&
+       gm_context.authenticated && !bt_addr_le_cmp(&d->address,&parent)){
+      struct gm7_packet p;
+      /* Manufacturer framing was checked by ingress; decode/MAC runs here,
+       * on the owner, with original receipt age and the admitted root scope. */
+      if(!gm7_tz_decode(&p,d->data+2,d->len-2,&group) && p.kind==GM7_ANNOUNCE){
+        const struct gm7_control *c=&p.body.control;
+        if(c->sender==routes.node[parent_index].id && c->sender==c->active &&
+           c->boot==c->active_boot && c->boot==gm_context.source.root_boot &&
+           c->timing_epoch==gm_context.source.source_epoch &&
+           c->sequence>coarse_tz_sequence && d->received_us<=now &&
+           now-d->received_us<3*R2_TZ_GM_PERIOD_US &&
+           tick>=gm_context.at_tick){
+          uint64_t elapsed=(tick-gm_context.at_tick)/16;
+          uint64_t utc=gm_context.time.utc_us;
+          if(utc<=UINT64_MAX-elapsed){
+            utc+=elapsed;
+            uint64_t age=utc>=c->sent_utc_us?utc-c->sent_utc_us:c->sent_utc_us-utc;
+            if(age<3*R2_TZ_GM_PERIOD_US &&
+               r2_tz_observe(&coarse_tz,c->tz,d->received_us,now,R2_TZ_GM_PERIOD_US))
+              coarse_tz_sequence=c->sequence;
+          }
+        }
+      }
+    }
+}
+static void relay_tz_observed(const struct rc7_control *packet,const struct discovery *input,uint64_t now){
+ const struct rc7_control *c=packet;const struct discovery *d=input;
+ if(parent_known && parent_relay && c->sender==routes.node[parent_index].id &&
+    !bt_addr_le_cmp(&d->address,&parent) && rc7_path_same(&c->path,&upstream_path) &&
+    (c->next_challenge>coarse_tz_sequence ||
+     (c->next_challenge==coarse_tz_sequence && c->tz.id==coarse_tz.value.id &&
+      c->tz.offset_min==coarse_tz.value.offset_min)) &&
+    r2_tz_observe(&coarse_tz,c->tz,d->received_us,now,R2_TZ_RC_PERIOD_US))
+   coarse_tz_sequence=c->next_challenge;
+}
+#endif
 static void discover(uint64_t tick) {
   sync_events();
   struct discovery d;
   while (!k_msgq_get(&discovery_queue, &d, K_NO_WAIT)) {
     uint64_t now = mono_us();
     gm_role_observed(&d,now);
+#ifdef R2_TZ_WIRE
+    gm_tz_observed(&d,tick,now);
+#endif
     if (d.len == 23 && d.data[0] == 'G' && d.data[1] == '1' &&
         rc_admission_g1_direct(d.data[2],d.connectable) &&
         r2_group_get(d.data + 3, 8) == group.id &&
@@ -1025,9 +1085,7 @@ static void discover(uint64_t tick) {
       if (!rc7_capability_decode(&c, d.data, d.len, &group) &&
           c.type == RC7_CAPABILITY) {
 #ifdef R2_TZ_WIRE
-        if(parent_known && parent_relay && c.sender==routes.node[parent_index].id &&
-           rc7_path_same(&c.path,&upstream_path))
-          (void)r2_tz_observe(&coarse_tz,c.tz,d.received_us,now,R2_TZ_RC_PERIOD_US);
+        relay_tz_observed(&c,&d,now);
 #endif
         if (cap_authenticated != UINT32_MAX)
           ++cap_authenticated;
@@ -2244,7 +2302,7 @@ int r2_service_configure(const struct r2_identity *id,
       memcmp(group.psk,e->group.psk,sizeof group.psk))
     {stream_history=(struct rc_stream_history){0};gm_failover=(struct rc_gm_failover){0};
 #ifdef R2_TZ_WIRE
-     coarse_tz=(struct r2_tz_lease){0};
+     coarse_tz=(struct r2_tz_lease){0};coarse_tz_sequence=0;
 #endif
     }
   group = e->group;

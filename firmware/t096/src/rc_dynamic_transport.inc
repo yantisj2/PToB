@@ -235,6 +235,12 @@ static struct rc7_control capability(void) {
                           .next_challenge = lt_challenge};
 #ifdef R2_TZ_WIRE
   c.tz=r2_tz_current(&coarse_tz,mono_us());
+  /* Reuse the existing monotonic admission challenge as the coarse snapshot's
+   * ordering token. No precision field or new wire byte is introduced. */
+  if(c.tz.id!=advertised_tz.id || c.tz.offset_min!=advertised_tz.offset_min){
+    if(lt_challenge==UINT64_MAX){check(false,"TZ challenge exhausted");c.tz=r2_tz_unknown();}
+    else c.next_challenge=++lt_challenge;
+  }
 #endif
   if (make_publication_path()) {
     c.path = publication_path;
@@ -488,6 +494,9 @@ static bool gm_accept(const struct r2_join_record *r, uint64_t proof,
     return false;
   if(!gm_context.authenticated || gm_context.source.sender_boot!=r->sender_boot ||
       gm_context.source.root_boot!=r->root_boot || gm_context.source.source_epoch!=r->source_epoch){
+#ifdef R2_TZ_WIRE
+    coarse_tz=(struct r2_tz_lease){0};coarse_tz_sequence=0;
+#endif
     rc_stream_scope_changed(&stream_history,r->sender,false,tick/16);
     stream_sample=(struct rc_stream_sample){0};
   }
@@ -517,7 +526,8 @@ static void gm_apply(const uint8_t *wire) {
     if (bound) {
 #ifdef R2_TZ_WIRE
       uint64_t tz_at=mono_us();
-      (void)r2_tz_observe(&coarse_tz,r.tz,tz_at,tz_at,R2_TZ_GM_PERIOD_US);
+      if(!coarse_tz_sequence)
+        (void)r2_tz_observe(&coarse_tz,r.tz,tz_at,tz_at,R2_TZ_GM_PERIOD_US);
 #endif
       ++lt_bindings;
       startup_complete();
@@ -803,7 +813,10 @@ static void lt_apply_read(const struct rc7_control *c) {
       if (bound) {
 #ifdef R2_TZ_WIRE
         uint64_t tz_at=mono_us();
-        (void)r2_tz_observe(&coarse_tz,c->tz,tz_at,tz_at,R2_TZ_RC_PERIOD_US);
+        if(changed_scope)coarse_tz_sequence=0;
+        if(c->next_challenge>=coarse_tz_sequence &&
+           r2_tz_observe(&coarse_tz,c->tz,tz_at,tz_at,R2_TZ_RC_PERIOD_US))
+          coarse_tz_sequence=c->next_challenge;
 #endif
         parent_count0_at=0;
         if(changed_scope){

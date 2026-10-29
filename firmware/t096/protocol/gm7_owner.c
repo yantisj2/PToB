@@ -1055,7 +1055,11 @@ static int control(struct gm7_owner *o, struct gm7_packet *p, uint64_t now,
   c->sequence = ++o->sequence;
   c->sent_mono_us = now;
 #ifdef R2_TZ_WIRE
+#ifdef R2_TZ_AUTO
+  c->tz = r2_tz_unknown(); /* Service snapshots the effective pair at encoding. */
+#else
   c->tz = r2_tz_manual();
+#endif
 #endif
   c->timing_epoch = scope->timing_epoch;
   c->max_age_us = serving ? 2750000 : 4500000;

@@ -25,10 +25,13 @@ static void leases(void){
  assert(!r2_tz_current(&a,1750000).id);
  /* A precision map can expire at 1,010,000 without touching coarse state. */
  assert(r2_tz_current(&a,1200000).id==2);
- assert(!r2_tz_observe(&a,(struct r2_tz){2,-360},at+250000,at+250000,R2_TZ_GM_PERIOD_US));
- assert(a.conflicts==1&&a.until_us==1750000);
+ assert(r2_tz_observe(&a,(struct r2_tz){2,-360},at+250000,at+250000,R2_TZ_GM_PERIOD_US));
+ assert(a.value.offset_min==-360&&a.until_us==2000000);
  assert(r2_tz_observe(&a,r2_tz_manual(),1800000,1800000,R2_TZ_GM_PERIOD_US));
  assert(a.until_us==2550000); /* matching coarse advertisement renews */
+ assert(r2_tz_observe(&a,r2_tz_unknown(),1850000,1850000,R2_TZ_GM_PERIOD_US));
+ r2_tz_renew(&a,1900000,R2_TZ_GM_PERIOD_US);assert(!r2_tz_current(&a,1900000).id);
+ assert(r2_tz_observe(&a,r2_tz_manual(),1950000,1950000,R2_TZ_GM_PERIOD_US));
  assert(!r2_tz_observe(&a,r2_tz_manual(),1000000,1800000,R2_TZ_GM_PERIOD_US));
  assert(r2_tz_observe(&b,r2_tz_current(&a,1800000),1800000,1800000,R2_TZ_RC_PERIOD_US));
  assert(b.until_us==2100000&&b.value.offset_min==-300);
@@ -95,4 +98,4 @@ static void wires(void){
  c.tz=(struct r2_tz){1,300};assert(!rc7_capability_encode(cap,&c,&g));
  assert(!rc7_capability_decode(&d,cap,sizeof cap,&g)&&!d.tz.id);
 }
-int main(void){leases();wires();puts("PASS TZ coarse leases 3x cadence, mesh pinning, renewal, two-hop values, signed offsets, overflow and authenticated new-wire mutation checks");}
+int main(void){leases();wires();puts("PASS TZ coarse leases 3x cadence, dynamic updates/unknown withdrawal, renewal, two-hop values, signed offsets, overflow and authenticated new-wire mutation checks");}

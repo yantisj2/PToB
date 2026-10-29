@@ -46,4 +46,5 @@ int main(void){
  assert(!r2_time_source_read((struct r2_capture){current_capture,2,R2_CAPTURE_RADIO},&ns,&generation));
  ticks+=1500000;r2_time_precision_snapshot(&p);assert(!p.fit_valid&&!p.rate_valid);r2_time_source_pps_snapshot(&causal);assert(!causal.valid);
  puts("time owner IRQ-after-poll accepted; genuinely stale edge still refused");
+ return 0;
 }

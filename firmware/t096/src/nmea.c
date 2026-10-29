@@ -78,3 +78,48 @@ uint16_t r2_nmea_gga_hdop(const char *line)
   uint32_t value=whole*100+fraction;
   return value>=R2_GGA_HDOP_UNKNOWN?R2_GGA_HDOP_UNKNOWN:(uint16_t)value;
 }
+
+/* Position is independent of RMC time acceptance. No floating point, implied
+ * hemispheres, minutes>=60 or out-of-range endpoint coordinates. */
+static bool coordinate(const char *p,size_t n,unsigned degrees,unsigned limit,int32_t *out){
+ if(n<degrees+2 || n>degrees+10)return false;
+ unsigned whole=0,minutes=0;
+ for(unsigned i=0;i<degrees+2;i++){
+  if(p[i]<'0'||p[i]>'9')return false;
+  if(i<degrees)whole=whole*10+(unsigned)(p[i]-'0');
+  else minutes=minutes*10+(unsigned)(p[i]-'0');
+ }
+ uint32_t fraction=0,scale=1;
+ if(n>degrees+2){
+  if(p[degrees+2]!='.'||n==degrees+3)return false;
+  for(size_t i=degrees+3;i<n;i++){
+   if(p[i]<'0'||p[i]>'9'||scale==10000000)return false;
+   fraction=fraction*10+(unsigned)(p[i]-'0');scale*=10;
+  }
+ }
+ if(whole>limit||minutes>=60||(whole==limit&&(minutes||fraction)))return false;
+ *out=(int32_t)(whole*10000000+((uint64_t)minutes*scale+fraction)*10000000/(60*scale));
+ return true;
+}
+bool r2_nmea_position(const char *line,struct r2_position *out,int64_t received){
+ if(!line||!out||received<0)return false;
+ size_t n=0;while(n<128&&line[n])++n;
+ if(n==128)return false;
+ int64_t utc=0;unsigned satellites=0;
+ if(r2_nmea(line,&utc,&satellites)!=1)return false;
+ const char *fields[6]={0};size_t lengths[6]={0};unsigned field=0;
+ const char *start=line+7;
+ for(const char *p=start;*p&&field<6;p++)if(*p==','||*p=='*'){
+  fields[field]=start;lengths[field++]=(size_t)(p-start);start=p+1;
+ }
+ struct r2_position position={.received_us=received,.valid=true};
+ if(field<6||lengths[3]!=1||lengths[5]!=1||
+    !coordinate(fields[2],lengths[2],2,90,&position.latitude_e7)||
+    !coordinate(fields[4],lengths[4],3,180,&position.longitude_e7))return false;
+ if(*fields[3]=='S')position.latitude_e7=-position.latitude_e7;
+ else if(*fields[3]!='N')return false;
+ if(*fields[5]=='W')position.longitude_e7=-position.longitude_e7;
+ else if(*fields[5]!='E')return false;
+ if(position.longitude_e7==1800000000)position.longitude_e7=-1800000000;
+ *out=position;return true;
+}

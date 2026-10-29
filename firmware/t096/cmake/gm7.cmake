@@ -5,6 +5,14 @@ if(R2_GM7_NATIVE AND CONFIG_ARM AND NOT CONFIG_BOARD_NRF52_BSIM)
  endif()
  # Coarse wire sizes occur in shared jobs; app and both controller targets must agree.
  target_compile_definitions(app PRIVATE R2_GM7_NATIVE=1 R2_TZ_WIRE=1)
+ foreach(pair R2_TZ_MODE R2_TZ_MANUAL_ID R2_TZ_MANUAL_MIN)
+  if(NOT DEFINED ${pair})
+   message(FATAL_ERROR "Use the builder for explicit TZ configuration")
+  endif()
+ endforeach()
+ target_compile_definitions(app PRIVATE R2_TZ_AUTO=1
+  R2_TZ_MODE=${R2_TZ_MODE} R2_TZ_MANUAL_ID=${R2_TZ_MANUAL_ID} R2_TZ_MANUAL_MIN=${R2_TZ_MANUAL_MIN})
+ target_sources(app PRIVATE src/time_zone_database.c src/time_zone_selector.c)
  target_sources(app PRIVATE protocol/gm7_codec.c protocol/gm7_control.c protocol/gm7_owner.c
   protocol/gm7_schedule.c protocol/gm7_air.c protocol/gm7_bridge.c protocol/gm7_promote.c src/gm7_source.c src/gm7_clock.c src/gm7_capture.c)
  target_compile_definitions(subsys__bluetooth__controller PRIVATE R2_GM7_NATIVE=1 R2_TZ_WIRE=1)

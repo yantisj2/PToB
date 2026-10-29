@@ -1,8 +1,13 @@
 # Compact regional time zone database proposal
 
-Status: proposed follow-up to the [time zone wire plan](time-zones.md),
-27 October 2026; no database, detector or GM automation is implemented.
+Original regional design, 27 October 2026. Implemented in T096 source 0.15.206
+with the coverage and validation limits in the [current guide](t096/auto-time-zone-plan.md).
 Copyright (c) 2026 Jonathan Yantis. MIT.
+
+The [29 October T096 implementation](t096/auto-time-zone-plan.md) follows the
+design below, adds dynamic receiver metadata updates and records reproducible
+generation, explicit geographic cuts and manual overrides. Hardware acceptance
+is separate from this design and the generated database.
 
 Keep regional zone selection and offset calculation on the GM. Generate a small
 read-only database on a development host, containing shared UTC offset calendars
@@ -45,14 +50,17 @@ Generate current/future offset changes from a pinned
 `2026-01-01T00:00:00Z <= UTC < 2032-01-01T00:00:00Z`. This six-year window avoids
 shipping historical transitions or a general timezone rule interpreter. Extend
 the window with a reviewed database update, rather than extrapolating forever.
-The initial source candidate is tzdb **2026e**; obtain it from the
-[release archive](https://data.iana.org/time-zones/releases/) and record its
-actual archive SHA-256 before generating any data.
+The original source candidate was tzdb **2026e**. Execution preparation verified
+the newer **2026f** archives and recorded their actual SHA-256 values in the
+[generator source lock](../tools/time_zones/sources.lock.json).
+Use those pinned bytes from the [release archive](https://data.iana.org/time-zones/releases/)
+for the first implementation; re-evaluate later releases explicitly.
 
 Each supported IANA zone keeps a stable public PToB `tz_id`, even when another
 zone currently has identical offsets. Deduplicate only the internal calendar
-storage. Start with approximately 40-64 selected zone records; publish the exact
-allowlist before generation. Adding a needed ID is preferable to incorrectly
+storage. The initial 40–64-record estimate became 98 distinct records in the
+[selected ID registry](../tools/time_zones/zones.json), including UTC and aliases.
+Adding a needed ID is preferable to incorrectly
 collapsing two civil regions into one public ID.
 
 | Stored item | Proposed packed representation |
@@ -147,6 +155,12 @@ automatic zones on different GMs can legitimately disagree if geographically
 separated. A later serving-GM change carries the new selected source's metadata
 through the ordinary wire rules, without pretending that position is consensus.
 
+The first manual implementation deliberately caches an immutable mesh pair.
+Automatic DST and geographic changes therefore require the explicit
+[dynamic receiver policy](t096/auto-time-zone-plan.md#dynamic-metadata-and-verification),
+implemented in .206. The four-byte layout is sufficient; existing immutable-pair
+.205 receiver behavior is not.
+
 For automatic zone selection, begin with these tunable bounds:
 
 1. Require the GM's own valid position, at most 30 seconds old, and valid UTC
@@ -196,15 +210,17 @@ geographic source release and hashes, selected IDs, mapping edits, validity
 window, byte counts and output SHA-256. A deterministic generator should emit a
 small checked-in runtime image/header and a reviewable manifest. Builds consume
 that selected image without downloading maps or needing a private checkout.
-Generator commands and dependencies are to be supplied with implementation;
-none are claimed to exist yet.
+The [generator commands and pinned host dependencies](../tools/time_zones/README.md)
+now reproduce the checked-in [runtime dataset](../firmware/t096/data/README.md).
 
 Preserve the [IANA data terms](https://data.iana.org/time-zones/tzdb/LICENSE) and
 [Natural Earth terms](https://www.naturalearthdata.com/about/terms-of-use/), both
 public domain for the selected data. Record the actual generated dataset terms
 at import; original PToB dataset contributions use CC BY 4.0 and generator code
-uses MIT under [repository licensing](../LICENSING.md). This proposal imports no
-geographic dataset and assumes no license for a future alternate boundary source.
+uses MIT under [repository licensing](../LICENSING.md). The original proposal
+imported no geographic dataset. The .206 generated image records its actual
+terms and public input hashes; no raw source archive is tracked. No license is
+assumed for a future alternate boundary source.
 
 ## Offline delivery sequence
 
