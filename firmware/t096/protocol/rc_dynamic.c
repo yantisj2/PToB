@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: Apache-2.0 */
+#define RC_DYNAMIC_CODEC_IMPLEMENTATION
 #include "rc_dynamic.h"
 #include <errno.h>
 #include <string.h>
@@ -504,4 +505,36 @@ bool rc7_receive(struct rc7_receiver *s, const struct rc7_packet *p,
       .used = true};
   memcpy(q->packet.proof, p->proof, 16);
   return accepted;
+}
+
+int rc7_capability_encode_tz(uint8_t out[148],const struct rc7_control *c,const struct r2_group_config *g) {
+ uint8_t old[144];if(!out||rc7_capability_encode(old,c,g))return -EINVAL;
+ memcpy(out,old,128);out[0]=147;out[6]=8;r2_tz_put(out+128,c->tz);
+ return r2_group_mac(out+132,g,"PTOBTZC8",out,132);
+}
+int rc7_capability_decode_tz(struct rc7_control *out,const uint8_t *w,size_t n,const struct r2_group_config *g) {
+ if(!out||!w||n!=148||w[0]!=147||w[6]!=8||!r2_group_valid(g))return -EINVAL;
+ if(!r2_group_verify(w+132,g,"PTOBTZC8",w,132))return -EACCES;
+ uint8_t old[144],canonical[212]={0};memcpy(old,w,128);old[0]=211;old[6]=7;
+ unsigned at=0;for(unsigned i=0;i<4;i++){
+  if(at<128){unsigned len=cap_length[i];if(at+len>128)len=128-at;
+   memcpy(canonical+cap_offset[i],old+at,len);}at+=cap_length[i];
+ }
+ int rc=r2_group_mac(old+128,g,"RC7LOCAL",canonical,196);if(rc)return rc;
+ struct rc7_control c;if((rc=rc7_capability_decode(&c,old,sizeof old,g)))return rc;
+ c.tz=r2_tz_get(w+128);*out=c;return 0;
+}
+
+int rc7_control_encode_tz(uint8_t out[216],const struct rc7_control *c,const struct r2_group_config *g) {
+ uint8_t old[212];if(!out||rc7_control_encode(old,c,g))return -EINVAL;
+ memcpy(out,old,196);out[0]=215;out[6]=8;r2_tz_put(out+196,c->tz);
+ return r2_group_mac(out+200,g,"PTOBTZR8",out,200);
+}
+int rc7_control_decode_tz(struct rc7_control *out,const uint8_t *w,size_t n,const struct r2_group_config *g) {
+ if(!out||!w||n!=216||w[0]!=215||w[6]!=8||!r2_group_valid(g))return -EINVAL;
+ if(!r2_group_verify(w+200,g,"PTOBTZR8",w,200))return -EACCES;
+ uint8_t old[212];memcpy(old,w,196);old[0]=211;old[6]=7;
+ int rc=r2_group_mac(old+196,g,"RC7LOCAL",old,196);if(rc)return rc;
+ struct rc7_control c;if((rc=rc7_control_decode(&c,old,sizeof old,g)))return rc;
+ c.tz=r2_tz_get(w+196);*out=c;return 0;
 }

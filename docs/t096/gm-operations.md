@@ -2,6 +2,11 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+Current GM7 engineering and compatibility scope is documented in the
+[GM7 implementation guide](gm7-implementation.md). The retained G5 instructions
+below describe the historical0.15.165 checkpoint; its grant/ACK procedures do not
+operate GM7 HOT coordination or authorize a current hardware installation.
+
 The accepted development checkpoint is **T096 0.15.165**, using **G5 STATUS
 protocol 6**, **RC7 timing** and **LoRa wire 3**. This guide covers a connected
 group with three or four GM-capable clocks and one or more receivers. Durable

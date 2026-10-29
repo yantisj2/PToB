@@ -66,11 +66,17 @@ static bool local_pps_current(const struct r2_ui_model *m,uint64_t now){
    (now-m->sampled_ms)*1000<(uint64_t)(R2_PPS_FRESH_US-age);
 }
 static bool hot_current(const struct r2_ui_model *m,uint64_t now){
+#ifdef R2_GM7_NATIVE
+ if(m->gm7_owner)return now>=m->sampled_ms&&now-m->sampled_ms<=2500&&!m->profile_rc&&!m->profile_switching&&m->local_hot_standby;
+#endif
  return now>=m->sampled_ms&&now-m->sampled_ms<=2500&&
    !m->profile_rc&&!m->profile_switching&&m->scope_active&&m->role==R2_UI_FOLLOWER&&
    m->local_hot_standby&&m->precision.authorized&&m->precision.map_valid;
 }
 static bool active_gm_current(const struct r2_ui_model *m,uint64_t now){
+#ifdef R2_GM7_NATIVE
+ if(m->gm7_owner)return now>=m->sampled_ms&&now-m->sampled_ms<=2500&&!m->profile_rc&&!m->profile_switching&&(m->gm7_known&2);
+#endif
  return now>=m->sampled_ms&&now-m->sampled_ms<=2500&&
    !m->profile_rc&&!m->profile_switching&&m->scope_active&&m->role==R2_UI_GM;
 }
@@ -79,6 +85,15 @@ void r2_ui_holds_update(struct r2_ui_holds *h,const struct r2_ui_model *m,uint64
  if(!local_pps_current(m,now))h->pps_since=0;else if(!h->pps_since||h->pps_since>stamp)h->pps_since=stamp;
  if(!hot_current(m,now))h->hot_since=0;else if(!h->hot_since||h->hot_since>stamp)h->hot_since=stamp;
  if(!active_gm_current(m,now))h->active_since=0;else if(!h->active_since||h->active_since>stamp)h->active_since=stamp;
+#ifdef R2_GM7_NATIVE
+ if(m->gm7_owner){
+  uint32_t *holds[3]={&h->hot_since,&h->active_since,&h->pps_since};
+  uint32_t durations[3]={m->gm7_hot_ms,m->gm7_active_ms,m->gm7_pps_ms};
+  for(unsigned i=0;i<3;i++)if(*holds[i]&&(m->gm7_known&(1u<<i))&&durations[i]!=UINT32_MAX&&m->gm7_at_ms>=durations[i]){
+   uint64_t start=(m->gm7_at_ms-durations[i])/1000+1;*holds[i]=start>UINT32_MAX?UINT32_MAX:(uint32_t)start;
+  }
+ }
+#endif
 }
 bool r2_ui_witness_page(const struct r2_ui_model *m,unsigned page){
  (void)m;return page==R2_UI_SHADOW_PAGE||page==R2_UI_PRECISION_PAGE;
@@ -116,6 +131,9 @@ static const char *hot_title(const struct r2_ui_model *m,bool fresh,bool hot){
  return m->role==R2_UI_GM?"ACTIVE GM":"HOT WAIT";
 }
 static const char *hot_reason(const struct r2_ui_model *m,bool fresh,bool hot){
+#ifdef R2_GM7_NATIVE
+ if(m->gm7_owner&&!m->profile_rc&&(m->gm7_known&R2_UI_GM7_OWNER_FAULT))return "OWNER FAULT";
+#endif
  if(!fresh)return "STATE STALE";
  if(m->profile_rc)return "RC MODE";
  if(hot)return "QUALIFIED";
@@ -217,6 +235,21 @@ bool r2_ui_display_time(const struct r2_ui_model *m,uint64_t now,int64_t *utc,bo
     m->coarse_utc_us>INT64_MAX||now*1000-m->coarse_at_us>(uint64_t)INT64_MAX-m->coarse_utc_us)return false;
  *utc=(int64_t)(m->coarse_utc_us+now*1000-m->coarse_at_us);*coarse=true;return true;
 }
+#ifdef R2_TZ_WIRE
+/* A label/offset adapter only: the model, USB and timing owner retain UTC. */
+const char *r2_ui_clock_zone(const struct r2_ui_model *m,uint64_t now,int64_t utc,int64_t *shown){
+ *shown=utc;
+#ifdef R2_LORA
+ if(m->lora.choice==RC8_SELECT_LORA)return "UTC";
+#endif
+ if(now<m->sampled_ms||now-m->sampled_ms>2500||now>UINT64_MAX/1000||
+    now*1000>=m->tz_until_us||!r2_tz_local_us(m->tz,utc,shown))return "UTC";
+ if(m->tz.id==1)return "UTC";
+ if(m->tz.id==2&&m->tz.offset_min==-300)return "CDT";
+ if(m->tz.id==2&&m->tz.offset_min==-360)return "CST";
+ return "LOC"; /* Valid forwarded offset; no invented regional abbreviation. */
+}
+#endif
 static bool sync_display_context(const struct r2_ui_model *m,uint64_t now){
  return m->profile_supported&&m->profile_rc&&m->boundary_clock&&
    !m->profile_switching&&m->platform_ready&&m->ble_active&&
@@ -309,6 +342,16 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
  int64_t display_utc=0;bool coarse=false;
  s.utc_valid=r2_ui_display_time(m,now,&display_utc,&coarse);
  if(sync_grace){s.utc_valid=true;display_utc=grace_utc;coarse=true;}
+ const char *clock_zone=NULL;
+#ifdef R2_TZ_WIRE
+ if(status->page==0||status->screensaver){
+  int64_t shown;clock_zone=r2_ui_clock_zone(m,now,display_utc,&shown);
+  /* Normalize signed local dates before converting to the dial's day seconds. */
+  int64_t day=INT64_C(86400000000),tod=shown%day;
+  if(tod<0)tod+=day;
+  if(s.utc_valid)display_utc=tod;
+ }
+#endif
  s.utc_second=s.utc_valid?(uint32_t)(display_utc/1000000):0;
  s.subsecond_quarter=s.utc_valid?(display_utc%1000000)/250000:0;
  s.state=!s.utc_valid?CLOCK_NO_TIME:s.native_analog_eligible?CLOCK_LOCKED:CLOCK_ACQUIRING;
@@ -388,7 +431,7 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
   int top=(int)r2_ui_saver_top(status->screensaver_position);
   fill(fb,0,0,80,160,UI_COLOR(BLACK));
   round_panel(fb,3,top,74,13,C_PANEL,C_BEZEL);
-  label(fb,8,top+3,"UTC",1,C_DIM);
+  label(fb,8,top+3,clock_zone?clock_zone:"UTC",1,C_DIM);
   label(fb,36,top+3,s.native_ble_time?(s.native_time_relay_hops==1?"RC1":s.native_time_relay_hops==2?"RC2":"BLE"):"PPS",1,C_GREEN);
   ui_render_pulse_at(fb,s.pulse_indicator,66,(unsigned)(top+2));
   round_panel(fb,3,top+15,74,62,C_PANEL,C_BEZEL);
@@ -449,6 +492,22 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
   else if(v->samples<100000&&v->skipped<100)snprintf(text,sizeof text,"N%u S%u",v->samples,v->skipped);else snprintf(text,sizeof text,"N %u",v->samples);
   label(fb,4,150,text,1,C_DIM);return;
  }
+#ifdef R2_GM7_NATIVE
+ if(m->gm7_owner&&!m->profile_rc&&!status->help&&status->page==5){
+  char value[25],peer[25];round_panel(fb,1,1,78,13,C_PANEL,C_BEZEL);label(fb,5,4,"GM PEER",1,C_WHITE);
+  r2_ui_identity_name(peer,m->gm7_peer_valid?m->gm7_peer_id:0,NULL);label(fb,3,23,peer,1,C_WHITE);
+  label(fb,3,40,!m->gm7_peer_valid?"NO REPORT":m->gm7_peer_current?"CURRENT SCOPE":m->gm7_peer_role==255?(m->gm7_peer_fresh?"FRESH CTRL":"HEARD ONLY"):"HISTORY",1,C_DIM);
+  const char *roles[]={"STANDBY","ACTIVE","PREPARING","HOT","RC"};
+  label(fb,3,57,m->gm7_peer_valid&&m->gm7_peer_role<5?roles[m->gm7_peer_role]:m->gm7_peer_valid?(m->gm7_peer_eligible_claim?"CLAIM ELIG":"UNQUALIFIED"):"ROLE --",1,m->gm7_peer_current?C_GREEN:C_AMBER);
+  uint32_t durations[3]={m->gm7_peer_hot_ms,m->gm7_peer_active_ms,m->gm7_peer_pps_ms};const char *names[3]={"HOT","ACTIVE","PPS"};
+  for(unsigned i=0;i<3;i++){
+   bool known=m->gm7_peer_valid&&(m->gm7_peer_known&(1u<<i))&&durations[i]!=UINT32_MAX;
+   if(known){uint32_t seconds=durations[i]/1000;if(seconds/60>9999)snprintf(value,sizeof value,"%s >9999m",names[i]);else snprintf(value,sizeof value,"%s %02u:%02u",names[i],seconds/60,seconds%60);}else snprintf(value,sizeof value,"%s --",names[i]);
+   active_hold_label(fb,78+17*i,value);
+  }
+  label(fb,3,136,"AT SAMPLE",1,C_DIM);label(fb,3,149,"NO AUTHORITY",1,C_DIM);return;
+ }
+#endif
  if(status->help||status->page==5){
   if(status->page==1){rf_live(fb,&s);return;}
   round_panel(fb,3,1,74,13,C_PANEL,C_BEZEL);label(fb,7,4,"CLOCK KEY",1,C_WHITE);
@@ -457,7 +516,7 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
   label(fb,5,93,"SERVING GM",1,C_WHITE);label(fb,5,107,"OR BLE SYNC",1,C_WHITE);
   label(fb,5,131,"GM/RC: MODE",1,C_DIM);label(fb,5,148,"PRESS:BACK",1,C_DIM);return;
  }
- if(status->page==0){front_clock(fb,&s);
+ if(status->page==0){front_clock(fb,&s,clock_zone);
 #ifdef R2_LORA
   if(m->lora.choice==RC8_SELECT_LORA&&m->lora.until_us>now*1000){
    fill(fb,0,0,80,15,C_BG);label(fb,4,4,"RC8 UNKNOWN",1,C_AMBER);
@@ -483,7 +542,11 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
   else if(gm)snprintf(value,sizeof(value),"GPS GM");
   else if(m->time_relay_hops)snprintf(value,sizeof(value),"BLE RC%u",m->time_relay_hops);
   else snprintf(value,sizeof(value),"BLE GM");
-  bool locked=!gm&&authorized&&m->precision.map_valid&&(m->precision.locked||face_locked||s.native_hot_standby);
+  bool strict_gm=false;
+#if defined(R2_GM7_NATIVE)
+  strict_gm=m->gm7_owner;
+#endif
+  bool locked=!gm&&authorized&&m->precision.map_valid&&(m->precision.locked||(!strict_gm&&(face_locked||s.native_hot_standby)));
   label(fb,4,20,value,1,active||locked||(gm&&fresh&&m->gm_source_fresh)?C_GREEN:C_AMBER);
   if(locked&&!m->boundary_clock){pair_lock(fb,4,32,C_GREEN);label(fb,17,33,"SoftPLL",1,C_GREEN);}
   else label(fb,4,33,state,1,m->boundary_clock?(r2_ui_analog(m,now)&&!m->rc_source_held?C_GREEN:C_AMBER):(gm&&fresh&&m->gm_source_fresh&&m->pps_precision.rate_valid?C_GREEN:C_AMBER));

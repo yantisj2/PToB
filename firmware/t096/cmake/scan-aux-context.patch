@@ -1,0 +1,11 @@
+--- a/subsys/bluetooth/controller/ll_sw/ull_scan_aux.c
++++ b/subsys/bluetooth/controller/ll_sw/ull_scan_aux.c
+@@ -362,6 +362,8 @@
+ 			 * reuse the existing aux context to scan the chain.
+ 			 * hence lll_aux and aux are not released or set to NULL.
+ 			 */
++			sync_lll = &sync->lll;
++			lll = NULL;
+ 			sync = NULL;
+ 		}
+ 		break;

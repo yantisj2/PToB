@@ -2,7 +2,7 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
-This guide builds and inspects T096 source **0.15.169** without opening hardware.
+This guide builds and inspects T096 source **0.15.205** without opening hardware.
 For profile choices and controls, see the [T096 README](../../firmware/t096/README.md).
 Release-by-release implementation and validation notes are in the
 [T096 changelog](../../firmware/t096/CHANGELOG.md).
@@ -11,8 +11,8 @@ The common mesh image has two profiles: **GM** and **RC**. USB timing is compile
 by default; the RC backend publishes its accepted BLE source, while the normal
 GM backend does not publish a USB source map. The separate flash-only
 [DC image](direct-connect.md) serves GNSS over USB with Bluetooth disabled and no
-group enrollment. Use the [GM operating guide](gm-operations.md) for compatible
-G5 groups and the [macOS guide](../../clients/macos/README.md) for USB consumers.
+group enrollment. Use the [GM7 implementation guide](gm7-implementation.md) for current
+GM7 scope and compatibility and the [macOS guide](../../clients/macos/README.md) for USB consumers.
 
 The separate [PC awake-only experiment](power-control.md) uses `--profile PC`,
 group enrollment and `--pc-parent` with a direct-GM identity or `auto` for
@@ -36,6 +36,23 @@ A previously acquired cache is accepted with `--deps PATH` only after repository
 revision/cleanliness and SDK archive checks. It is not necessary to have a private
 sibling checkout. Builds put all generated and secret-bearing output under
 ignored `artifacts/` with owner-only permissions.
+
+The builder uses the shared `tools/firmware_artifacts.py` lifecycle: compiler
+output is disposable, the latest two successful bundles per device/profile/
+configuration are retained, and installed/recovery pins remain protected.
+Do not archive whole compiler trees or bypass this lifecycle.
+
+Normal GM/RC builds also select the hash-pinned non-chain periodic AUX context
+correction in `cmake/scan-aux-context.patch`. The dependency checkout stays clean;
+CMake compiles exactly one generated `ull_scan_aux.c` with its input, output and
+patch hashes recorded and inspected. This shared controller correction preserves
+normal RC periodic reception and extended scanning; it changes no GATT exchange
+or precision policy. Its production-body regression can run independently:
+
+```sh
+artifacts/deps/venv/bin/python firmware/t096/tools/scan_aux_context_tests.py \
+  --deps artifacts/deps --out artifacts/scan-aux-context-test-01
+```
 
 ## Local inputs
 
@@ -67,6 +84,23 @@ artifacts/deps/venv/bin/python firmware/t096/tools/build.py \
   --device-config artifacts/local/device.json
 ```
 
+Normal GM/RC builds select GM7 for the GM backend. Normal RC GATT, UCS1,
+RC9 and relay services remain supported in the same image. `--gm7` is an
+optional explicit spelling of that default. `--legacy-gm-regression` selects
+the historical GM5/6 backend for regression builds only; runtime never falls
+back to it. DC and PC exclude GM7 and reject either GM selector. See the
+[GM7 implementation guide](gm7-implementation.md) for frozen contracts and
+current validation limits.
+
+The normal image now selects the breaking [coarse TZ wire](../../protocol/time-zone-v1/README.md):
+GM revision 4, JOIN revision 5, and RC control/capability revision 8. GM and RC
+must use matching new-wire images; other targets remain deferred. Manual CDT
+uses ID 2 and offset −300 minutes. Existing authenticated parent advertisements
+renew TZ for three advertising periods, independently of precision timing.
+Page 1 and the analog screensaver display local time while that lease is valid,
+then fall back to UTC. Automatic TZ/DST selection is not implemented. See the
+[current bounded results and remaining gates](time-zone-test-plan.md#local-205-results-29-october-2026).
+
 Use `--profile GM` for a GM cold boot. For a dedicated GNSS/USB device, use
 `--profile DC` and omit `--enrollment`; DC rejects group credentials and has no
 runtime role switch. See the DC guide for its package command and USB RMS meaning.
@@ -95,7 +129,7 @@ private build/watchdog identity; a display alias grants no permission.
 The configured transmitter requests TX ON only in GM profile, including when it
 follows an authenticated locked BLE source without local PPS. An actual serving
 GM retains its qualified local PPS/source requirement. Other enrolled T096s
-request passive RX, subject to the [GM participation policy](gm-operations.md).
+request passive RX, subject to the [GM7 participation policy](gm7-implementation.md).
 A configured transmitter in RC profile cannot consume its own stream.
 
 The `lora` query and page 7 expose role, source and radio diagnostics; `lora 00/01`
@@ -153,6 +187,12 @@ Keep each output directory fresh. Focused runners and their invocation examples
 are retained with the relevant [release notes](../../firmware/t096/CHANGELOG.md)
 and [diagnostic schemas](diagnostics.md).
 
+For the GM7 source snapshot ordering and original freshness gates alone:
+
+```sh
+artifacts/deps/venv/bin/python firmware/t096/tools/gm7_source_order_tests.py --deps artifacts/deps --out artifacts/source-order-01
+```
+
 Tests exercise production C bodies with explicit fake hardware boundaries.
 Native inspection separately checks linked resources, stack budgets, generated
 controller hashes and translation-unit membership. Neither check qualifies
@@ -178,3 +218,10 @@ The [GM acceptance plan](gm-standby.md#development-checkpoint-and-remaining-acce
 keeps installation, reset latency, source qualification, HOT renewal and physical
 multi-device observations as separate checks. Release records and simulations
 provide context; they do not authorize hardware operations.
+
+Source 0.15.205 inspection separately accounts for the 104-byte HOT diagnostic
+allowance and 272-byte TZ allowance, alongside the existing crash diagnostics
+and 4,096-byte RC8 incremental budget. The absolute 1,024-byte unallocated floor
+and existing stack allocations are unchanged. The four locally installed .205
+images leave 4,372 bytes of linked static RAM unallocated; this is a linker
+result, not a runtime stack or endurance measurement.

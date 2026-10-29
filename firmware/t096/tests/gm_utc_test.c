@@ -8,6 +8,8 @@
 #include <stdio.h>
 #include <string.h>
 static struct r2_join_exchange exchange;
+static bool gm7_server_only;
+static struct r2_gm7_admission_source gm7_source;
 static struct r2_group_client timing_context,coarse_context,client;
 static struct r2_local_demand demand;
 static uint64_t sequence;

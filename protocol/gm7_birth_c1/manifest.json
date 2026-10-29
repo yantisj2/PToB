@@ -1,0 +1,16 @@
+{
+  "bindings": {
+    "gm7/draft1": "d200141fc9f4cd2ea91b80843d0bd563d7f349c1ff6c2e40fd4f8a7415006ef4",
+    "gm7_bootstrap_b1": "f17162dbb2bddd38813a8d1ce3fdf3bed3a860bfeeca25c4f937a50a4e6f2887",
+    "gm7_scheduler_a1": "5fbd32685e5e2b311bc318cd750fbd1a20b3590985ddbb0547db65e6e6181878",
+    "gm7_v2": "919bcecb786243dd9f71e5b76efdc77f303be578cc151f702bfb6920fdcebff3"
+  },
+  "files": {
+    "README.md": "4b4e9c838427a82be87e5f5b71b7f1e05876699199535a53776bbcfcc64f0753",
+    "policy.py": "55c0216a19d9b123e6937a6aa8e1fbd36699bcc6e45bad5c11eefa333ac876d9",
+    "test_policy.py": "d7cae58c76fd63e07026e5d17ea998ae02fd95c27cb57a3f92c2f40222a85c48",
+    "vectors.json": "104e50c3f4a698d80cef893677ca8699f252610f79401818c20af6f829a2dede",
+    "verify.py": "b2c51e15401018fde5bca0b9dcf55b1acc2269df90f502b6f711a46302ea6099"
+  },
+  "revision": "GM7-birth-C1"
+}

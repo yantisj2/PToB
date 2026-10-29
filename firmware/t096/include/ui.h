@@ -2,6 +2,9 @@
 #ifndef R2_UI_H
 #define R2_UI_H
 #include "clock.h"
+#ifdef R2_TZ_WIRE
+#include "../protocol/time_zone.h"
+#endif
 #include "../protocol/election_policy.h"
 #include "radio_precision.h"
 #include "link_quality.h"
@@ -9,6 +12,8 @@
 #include <stdbool.h>
 #include "ui_framebuffer.h"
 #define R2_UI_IDLE_MS UINT64_C(300000)
+/* UI-local high bit; the low three GM7 known bits remain duration validity. */
+#define R2_UI_GM7_OWNER_FAULT 0x80u
 #define R2_UI_SAVER_MOVE_MS UINT64_C(30000)
 /* Whole 92px watch assembly moves within equal4px top/bottom margins. */
 #define R2_UI_SAVER_HEIGHT 92
@@ -28,8 +33,18 @@ enum r2_ui_reset {R2_UI_RESET_UNKNOWN,R2_UI_RESET_PIN,R2_UI_RESET_SOFTWARE,
 const char *r2_ui_reset_text(unsigned reason);
 void r2_ui_uptime_text(char out[16],uint64_t uptime_ms);
 struct r2_ui_model {
+#ifdef R2_GM7_NATIVE
+ uint64_t gm7_at_ms,gm7_peer_id;
+ uint32_t gm7_hot_ms,gm7_active_ms,gm7_pps_ms,gm7_peer_hot_ms,gm7_peer_active_ms,gm7_peer_pps_ms;
+ uint8_t gm7_known,gm7_peer_role,gm7_peer_known;
+ bool gm7_owner,gm7_peer_valid,gm7_peer_current,gm7_peer_fresh,gm7_peer_eligible_claim;
+#endif
 #ifdef R2_LORA
  struct r2_lora_view lora;
+#endif
+#ifdef R2_TZ_WIRE
+ /* Coarse mesh metadata expiry in kernel uptime; presentation only. */
+ struct r2_tz tz;uint64_t tz_until_us;
 #endif
  struct r2_clock_view clock;
  struct r2_radio_precision_view precision;
@@ -79,6 +94,9 @@ bool r2_ui_face_locked(const struct r2_ui_model *,uint64_t now_ms);
 bool r2_ui_saver_allowed(const struct r2_ui_model *,uint64_t now_ms);
 bool r2_ui_analog(const struct r2_ui_model *m,uint64_t now);
 bool r2_ui_display_time(const struct r2_ui_model *,uint64_t now_ms,int64_t *utc_us,bool *coarse);
+#ifdef R2_TZ_WIRE
+const char *r2_ui_clock_zone(const struct r2_ui_model *,uint64_t now_ms,int64_t utc_us,int64_t *shown_us);
+#endif
 void r2_ui_sync_display_update(struct r2_ui_sync_display *,const struct r2_ui_model *,uint64_t now_ms,bool analog_drawn);
 bool r2_ui_sync_display_time(const struct r2_ui_sync_display *,const struct r2_ui_model *,uint64_t now_ms,int64_t *utc_us);
 void r2_ui_reception(struct r2_ui_model *,const struct r2_link_quality_view *,uint64_t now_us);

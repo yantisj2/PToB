@@ -8,9 +8,12 @@ struct r2_radio_scope {
   uint64_t boot, until_us;
   uint64_t root_identity; /* Stable identity across public/control roster slots. */
   uint32_t source_epoch, publication_epoch;
-  uint32_t local_source_epoch; /* Own GM qualification; never transmitted. */
+  union {
+    uint32_t local_source_epoch; /* Own GM qualification. */
+    uint32_t remote_capture_epoch; /* GM7 follower ANN capture binding. */
+  }; /* Disjoint roles, existing word; no wire or allocation change. */
   uint8_t root;
-  bool gm, follower;
+  bool gm, follower, broadcast; /* GM broadcast listening; no ANN/JOIN lease. */
 };
 static inline uint32_t r2_radio_local_epoch(struct r2_radio_scope s)
 {return s.local_source_epoch?s.local_source_epoch:s.source_epoch;}
@@ -29,6 +32,7 @@ struct r2_radio_correction {
 struct r2_radio_precision {
   struct r2_radio_scope scope;
   uint64_t local_epoch, last_available, last_accepted, last_tx_ns;
+  uint64_t data_until; /* Broadcast matched original/correction expiry in local ticks. */
 #ifdef R2_LORA
   uint64_t origin_created_ns,origin_expires_ns;
 #endif

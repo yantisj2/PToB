@@ -46,6 +46,7 @@ int r2_parse(const char *line, struct r2_request *out)
   else if (!strcmp(parts[5],"ui")) out->op = R2_UI;
   else if (!strcmp(parts[5],"precision")) out->op = R2_PRECISION;
   else if (!strcmp(parts[5],"gm")) out->op = R2_GM;
+  else if (!strcmp(parts[5],"yield")) out->op = R2_GM_YIELD;
   else if (!strcmp(parts[5],"join")) out->op = R2_JOIN;
   else if (!strcmp(parts[5],"name")) out->op = R2_NAME;
   else if (!strcmp(parts[5],"relay")) out->op = R2_RELAY;
@@ -90,7 +91,14 @@ int r2_parse(const char *line, struct r2_request *out)
    out->seconds=1;return 0;
   }
 #endif
-  if(out->op==R2_GM)return count==7&&hex(parts[6],2,&out->nonce)&&out->nonce<=4?0:-EINVAL;
+  if(out->op==R2_GM_YIELD)return count==6?0:-EINVAL;
+  if(out->op==R2_GM)return count==7&&hex(parts[6],2,&out->nonce)&&out->nonce<=
+#ifdef R2_GM7_NATIVE
+   9
+#else
+   4
+#endif
+   ?0:-EINVAL;
   if(out->op==R2_EVENTS)return count==7&&hex(parts[6],8,&out->nonce)?0:-EINVAL;
 #ifdef R2_RC_PROFILE
   if(out->op==R2_RC_PARENT){
@@ -111,7 +119,7 @@ int r2_parse(const char *line, struct r2_request *out)
    out->seconds=(uint32_t)seconds;return 0;
   }
   if(out->op==R2_SHADOW||out->op==R2_WITNESS||out->op==R2_RADIO_AUDIT){uint64_t value;if(count!=7||!hex(parts[6],8,&value)||value>UINT32_MAX||(out->op==R2_WITNESS&&value>1))return -EINVAL;out->nonce=value;return 0;}
-  if (out->op == R2_DIAG) {uint64_t chunk=0;if(count!=7||!hex(parts[6],4,&chunk)||chunk>=256)return -EINVAL;out->trace_page=(unsigned)chunk;return 0;}
+  if (out->op == R2_DIAG) {uint64_t chunk=0;if(count!=7||!hex(parts[6],4,&chunk)||chunk>=264)return -EINVAL;out->trace_page=(unsigned)chunk;return 0;}
   if (out->op == R2_BLE) return count==7 && hex(parts[6],8,&out->nonce) && out->nonce<=120 ? 0 : -EINVAL;
   if (out->op == R2_UI && count==6) {out->trace_page=R2_UI_PAGES;return 0;}
   if (out->op == R2_TRACE || out->op == R2_UI) {

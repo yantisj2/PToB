@@ -21,7 +21,8 @@ static void k_spin_unlock(struct k_spinlock *s,int k){assert(s->held);s->held=0;
 #define K_MUTEX_DEFINE(name) struct k_spinlock name
 #define K_FOREVER -1
 static int k_mutex_lock(struct k_spinlock *s,int wait){return k_spin_lock(s);}
-static int k_mutex_unlock(struct k_spinlock *s){k_spin_unlock(s,0);return 0;}
+static void (*fake_mutex_unlocked)(void);
+static int k_mutex_unlock(struct k_spinlock *s){k_spin_unlock(s,0);if(fake_mutex_unlocked)fake_mutex_unlocked();return 0;}
 typedef int atomic_t;
 static int atomic_get(const atomic_t *v){return *v;}
 static void atomic_set(atomic_t *v,int n){*v=n;}
@@ -57,7 +58,13 @@ struct bt_le_per_adv_sync_param {uint8_t sid;unsigned skip,timeout;bt_addr_le_t 
 struct bt_data {uint8_t type,data_len;const uint8_t *data;};
 static void bt_le_scan_cb_register(struct bt_le_scan_cb *c){}
 static int bt_le_per_adv_sync_cb_register(struct bt_le_per_adv_sync_cb *c){return 0;}
-static int bt_le_ext_adv_create(const struct bt_le_adv_param *p,void *cb,struct bt_le_ext_adv **out){return -1;}
+static bool fake_adv_success;
+static unsigned fake_adv_creates;
+static struct bt_le_ext_adv fake_advertiser;
+static int bt_le_ext_adv_create(const struct bt_le_adv_param *p,void *cb,struct bt_le_ext_adv **out){
+ if(!fake_adv_success)return -1;
+ *out=&fake_advertiser;++fake_adv_creates;return 0;
+}
 static int bt_le_per_adv_set_param(struct bt_le_ext_adv *a,const struct bt_le_per_adv_param *p){return 0;}
 static int bt_le_per_adv_set_data(struct bt_le_ext_adv *a,const struct bt_data *p,size_t count){return 0;}
 static unsigned role_ad_updates;

@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-29 — Integrate current T096 development into main
+
+- Merge T096 source 0.15.205 and its GM7 development history, including controller
+  lifecycle fixes, HOT retention, bounded diagnostics and production-body tests.
+- Include the breaking coarse TZ wire, manual CDT, three-advertising-period
+  leases and local digital/analog clock display with UTC fallback. Preserve UTC
+  transport and precision layouts; automatic TZ/DST and other target ports remain
+  deferred.
+- Retain the latest bounded test records and failed/incomplete certification
+  gates. Update current build and compatibility guidance without promoting
+  historical contracts or hardware qualification.
+
 ## 2026-10-29 — T096 manual CDT wire certification plan
 
 - Select a breaking T096-first coarse-wire introduction, with manual Chicago

@@ -67,6 +67,7 @@ bool r2_shadow_read(uint32_t after,struct rc_shadow_record *r,struct rc_shadow_s
 void r2_time_copy(struct r2_clock *c){memset(c,0,sizeof(*c));}
 int r2_diag_init(const struct r2_identity *i){return -ENOSPC;}
 int r2_diag_state(void){return INT_MIN;}
+int r2_diag_crash_result(void){return -ENOSPC;}
 int r2_diag_read(unsigned b,unsigned c,uint8_t out[64]){memset(out,0xff,64);return 0;}
 bool r2_diag_busy(void){return false;}
 bool r2_diag_saved(void){return false;}
@@ -86,6 +87,7 @@ static struct r2_platform fixture;
 static char captured[R2_REPLY_BYTES+1];
 static int64_t fake_now=INT64_MAX;
 static bool dequeue_case,delivered;
+static const char *dequeue_verb="status";
 static jmp_buf completed;
 int64_t k_uptime_get(void) { return fake_now; }
 static inline void k_thread_priority_set(void *thread,int priority) {}
@@ -101,7 +103,7 @@ bool r2_console_get(struct r2_command *out) {
  if(!dequeue_case)return false;
  if(delivered)longjmp(completed,1);
  delivered=true;out->arrival=++fake_now;
- snprintf(out->text,sizeof(out->text),"r2 00000001 1111111111111111 %s 000000000000007b status",R2_SOURCE_SHA);
+ snprintf(out->text,sizeof(out->text),"r2 00000001 1111111111111111 %s 000000000000007b %s",R2_SOURCE_SHA,dequeue_verb);
  return true;
 }
 int r2_platform_close(void) {++platform_closes;return 0;}
@@ -147,7 +149,8 @@ int main(void) {
  request.op=R2_NETWORK;captured[0]=0;reply(&request,1,0);assert(strstr(captured,"service_receipts")&&strstr(captured,"R2 END ffffffff"));
  assert(strstr(captured,"\"management_until_us\":18446744073709551615")&&strstr(captured,"\"last_hot_withdrawal_reason\":4294967295")&&strstr(captured,"\"rx_queue_peak\":4294967295"));
  assert(strlen(captured)<R2_REPLY_BYTES);
- request.op=R2_DIAG;request.trace_page=255;reply(&request,1,0);assert(strstr(captured,"chunk")&&strstr(captured,"R2 END ffffffff"));
+ request.op=R2_DIAG;request.trace_page=255;reply(&request,1,0);assert(strstr(captured,"chunk")&&strstr(captured,"crash_persist_result")&&strstr(captured,"R2 END ffffffff"));
+ request.trace_page=263;reply(&request,1,0);assert(strstr(captured,"\"chunk\":263")&&strstr(captured,"\"result\":-2")&&strstr(captured,"R2 END ffffffff"));
 #endif
  puts("R2 actual response formatter: all pages at maximum field widths PASS");
 
@@ -163,4 +166,9 @@ int main(void) {
  puts("Actual main retains UI/time/platform after contained normal service fault PASS");
 #endif
  puts("Actual main accepts RX arriving after loop-start sample; original age gate retained PASS");
+ delivered=false;dequeue_verb="yield";last_request=0;captured[0]=0;
+ if(!setjmp(completed))r2_application_entry();
+ char unsupported[40];snprintf(unsupported,sizeof unsupported,"\"result\":%d",-ENOTSUP);
+ assert(last_request==1 && strstr(captured,unsupported));
+ puts("Actual non-GM7 native/DC main rejects YIELD with ENOTSUP PASS");
 }

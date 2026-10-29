@@ -17,6 +17,7 @@ static void association_clear(struct r2_radio_precision *s) {
   memset(s->correction, 0, sizeof s->correction);
   memset(s->sent, 0, sizeof s->sent);
   s->sequence = 0;
+  s->data_until = 0;
   s->last_available = 0;
   s->last_accepted = 0;
   s->sent_count = s->beat_count = s->beat_head = 0;
@@ -44,7 +45,7 @@ void r2_radio_precision_scope(struct r2_radio_precision *s,
   bool change = s->scope.boot != p.boot ||
                 s->scope.source_epoch != p.source_epoch || s->scope.local_source_epoch != p.local_source_epoch || s->scope.publication_epoch != p.publication_epoch ||
                 ((s->scope.root_identity&&p.root_identity)?s->scope.root_identity!=p.root_identity:s->scope.root!=p.root) || s->scope.gm != p.gm ||
-                s->scope.follower != p.follower || s->local_epoch != epoch;
+                s->scope.follower != p.follower || s->scope.broadcast != p.broadcast || s->local_epoch != epoch;
   if (change) {
     history_clear(s);
     s->train = s->remote_capture = 0;
@@ -198,6 +199,13 @@ bool r2_radio_precision_step(struct r2_radio_precision *s,
       c.expires_ns > best->expires_ns || c.ticks * 125 / 2 < best->created_ns ||
       c.ticks * 125 / 2 >= c.expires_ns || s->sequence == UINT32_MAX)
     return reject(s);
+  uint64_t data_until=0;
+  if(s->scope.broadcast){
+    uint64_t duration=(c.expires_ns-c.ticks*125/2)/1000*(R2_CAPTURE_HZ/1000000);
+    if(best->local>UINT64_MAX-duration || available.tick>=best->local+duration)
+      return reject(s);
+    data_until=best->local+duration;
+  }
   r2_servo_sample_t sample = {.session = s->train,
                               .sequence = ++s->sequence,
                               .local = best->local,
@@ -210,6 +218,7 @@ bool r2_radio_precision_step(struct r2_radio_precision *s,
   s->last_available = available.tick;
   if (accepted) {
     s->last_accepted = available.tick;
+    s->data_until=data_until;
 #ifdef R2_LORA
     s->origin_created_ns=best->created_ns;
     s->origin_expires_ns=c.expires_ns; /* minimum original/correction permission */
@@ -297,6 +306,7 @@ bool r2_radio_precision_read(const struct r2_radio_precision *s,
          now.epoch == s->local_epoch && s->last_available &&
          now.tick >= s->last_available &&
          now.tick - s->last_available < R2_CAPTURE_HZ * 3 / 2 &&
+         (!s->scope.broadcast || (s->data_until && now.tick<s->data_until)) &&
          r2_radio_precision_map(s,&map) &&
          r2_servo_mapped(&map, now.tick, ns);
 }
@@ -312,7 +322,8 @@ void r2_radio_precision_view(const struct r2_radio_precision *s,
   bool fresh = live(s, us) && now.kind == R2_CAPTURE_NOW &&
                now.epoch == s->local_epoch && s->last_available &&
                now.tick >= s->last_available &&
-               now.tick - s->last_available < R2_CAPTURE_HZ * 3 / 2;
+               now.tick - s->last_available < R2_CAPTURE_HZ * 3 / 2 &&
+               (!s->scope.broadcast || (s->data_until && now.tick<s->data_until));
   if (s->scope.gm) {
     v->rms_ns = s->beat_rms_ns;
     v->samples = s->beat_count;

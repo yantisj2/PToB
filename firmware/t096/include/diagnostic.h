@@ -34,6 +34,8 @@ int r2_diag_record_result(uint64_t token);
 void r2_diag_finish(int error);
 void r2_diag_poll(void);
 int r2_diag_state(void);
+/* Separate optional boot-crash persistence result; does not gate GM startup. */
+int r2_diag_crash_result(void);
 int r2_diag_read(unsigned bank,unsigned chunk,uint8_t out[64]);
 
 bool r2_diag_busy(void);

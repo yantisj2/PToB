@@ -18,13 +18,29 @@ static void parse_tests(void)
   r.boot=123; assert(r2_bound(&r,silicon,source,123));
   snprintf(command,sizeof(command),"r2 00000002 %s %s 000000000000007b prepare 00000000000000ab",silicon,source);
   assert(!r2_parse(command,&r) && r.nonce==171 && r.boot==123);
-  for(unsigned page=0;page<6;page++){
+  for(unsigned page=0;page<11;page++){
    snprintf(command,sizeof command,"r2 00000002 %s %s 000000000000007b gm %02x",silicon,source,page);
-   if(page<=4)assert(!r2_parse(command,&r)&&r.op==R2_GM&&r.nonce==page&&r2_bound(&r,silicon,source,123));
+   if(page<=
+#ifdef R2_GM7_NATIVE
+   9
+#else
+   4
+#endif
+  )assert(!r2_parse(command,&r)&&r.op==R2_GM&&r.nonce==page&&r2_bound(&r,silicon,source,123));
    else assert(r2_parse(command,&r));
   }
   snprintf(command,sizeof command,"r2 00000002 %s %s 000000000000007b gm 0",silicon,source);assert(r2_parse(command,&r));
   snprintf(command,sizeof command,"r2 00000002 %s %s 0000000000000000 gm 00",silicon,source);assert(!r2_parse(command,&r)&&!r2_bound(&r,silicon,source,123));
+  snprintf(command,sizeof command,"r2 00000002 %s %s 000000000000007b yield",silicon,source);
+  assert(!r2_parse(command,&r)&&r.op==R2_GM_YIELD&&r2_bound(&r,silicon,source,123));
+  r.boot=0;assert(!r2_bound(&r,silicon,source,123));
+  snprintf(command,sizeof command,"r2 00000002 %s %s 000000000000007b yield 01",silicon,source);
+  assert(r2_parse(command,&r));
+  for(unsigned chunk=255;chunk<=264;chunk++){
+   snprintf(command,sizeof command,"r2 00000002 %s %s 000000000000007b diag %04x",silicon,source,chunk);
+   if(chunk<264)assert(!r2_parse(command,&r)&&r.op==R2_DIAG&&r.trace_page==chunk);
+   else assert(r2_parse(command,&r));
+  }
   const char *bad[]={"", "r2", "r2 00000000", " r2", "r2  1", "r2 1 ", "r2\t1"};
   for(unsigned i=0;i<sizeof(bad)/sizeof(bad[0]);i++) assert(r2_parse(bad[i],&r));
   command[strlen(command)-1]='G'; assert(r2_parse(command,&r));

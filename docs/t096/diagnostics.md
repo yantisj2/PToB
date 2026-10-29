@@ -2,6 +2,14 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+GM7 source0.15.170 uses schema7 `gm 00` through `gm 08`, including local
+source/physical-boot binding on every page. Local HOT/PPS/ACTIVE durations belong
+to their owner; peer ROLE durations are sender-reported values at the original
+sample, with current/history/unknown scope labels. Ordinary RC diagnostics and
+legacy GS/GD meanings remain supported. See the
+[GM7 implementation guide](gm7-implementation.md) for current scope and limits.
+The versioned records below retain their historical meanings.
+
 Version 0.15.56 adds a production RAM event journal for both GM and RC. Earlier
 versions expose `network`, `precision`, `rc-parent`, `clock`, `join`, health and
 watchdog snapshots, but do not retain a complete sequence of sync transitions.
@@ -1339,3 +1347,98 @@ terminal-first-cause controls. This establishes the software lifetime defect;
 the prior bytes from the observed failed boots were erased and cannot identify
 the exact physical triggering scan row. Native RAM/resource and field checks
 remain separate, with no hardware fault clearing or watchdog deadline change.
+Version175 adds diagnostic-only fault capsule format4 for actual Cortex-M
+memory, bus and usage faults. The256byte record retains the existing source,
+failed boot, reason, PC/LR and CRC fields. Words40–62 contain supplied integer
+registers and provenance flags; the unchanged controller/assertion path retains
+format3. `tools/controller_fault_decode.py::decode_register_capsule` requires
+the failed source/boot binding. SCB values were read after kernel clearing, so
+BFAR validity remains unavailable. These records grant no time or role authority
+and do not establish a fix for the unexplained version174 fault. The separate
+watchdog record continues to control its existing bound runtime-role restoration.
+
+
+### Bounded CPU crash record (source0.15.180)
+
+The original256B HEALTH capsule remains unchanged. A separate single512B
+schema7 record retains original integer fault context and up to192B of thread
+stack plus64B of ISR stack, only from explicit known static allocations with
+reserved guard bytes excluded. Unlisted stacks and invalid addresses are
+UNKNOWN; a captured address is not proof of stack ownership. Stacking faults
+suppress byte windows. The basic-frame producer requires FPU disabled, and
+records SCB values as post-kernel-clear rather than claiming original BFAR
+validity. No fatal-time flash, locking, USB or stack walking occurs.
+
+After a reset with surviving valid RAM, the existing bank0 journal writer
+persists the record before radio startup using payload/CRC followed by commit
+and actual readback. Current image identity stays distinct from the crashed
+source/build/boot. Latest crash and ordinary event pages are independently
+protected; both full protected pages cause ENOSPC and preserve pending RAM.
+An optional crash persistence error is exposed as `crash_persist_result` in diag
+responses and does not prevent a healthy scanner from admitting normal startup.
+No bank1, enrollment or protected-region writes are added. Retention through
+bootloader/reset remains conditional; cold power loss before commit can lose it.
+
+Existing `diag 0000`–`diag 00ff` flash exports retain their meaning. Read-only
+`diag 0100`–`diag 0107` return eight64B chunks of the retained record, with normal
+request/source/factory/boot/CRC framing. There is no dump-clear command. A
+persisted512B slot is eight consecutive existing bank0 chunks. Preserve missing,
+rejected and mixed-boot replies; do not fill missing bytes. Raw stack records
+and enrolled ELFs remain local ignored evidence.
+
+`artifacts/deps/venv/bin/python firmware/t096/tools/crash_decode.py --input RECORD --build EXACT_BUILD --out NEW_JSON`
+accepts512B binary or eight saved framed JSON replies; use `--first-chunk` for a
+flash slot's first chunk (default256 for retained RAM). It checks whole record
+CRC and exact source/config binding, silicon and ELF receipt hash. DWARF CFI
+reads only the EXC_RETURN-selected faulted-context window; the other stack stays
+separate raw evidence. Missing registers/bytes/rules, hand assembly, corruption
+or optimized frames may prevent a complete trace. Pointer-looking words are not
+invented callers. A dump can expose a damaged caller slot without proving its
+earlier writer or a CPU-fault fix. Hardware operation requires separate scope.
+
+
+### HOT nomination changes (0.15.194)
+
+`gm 00` separates `preferred_hot` from `ordinary_hot_confirmed`. The preference
+survives a transient STATUS/preparation gap for up to30 seconds after the last
+ready observation; confirmation retains the original received STATUS lifetime.
+`hot_hold_ms` is time since the nominee last passed the readiness check. It is
+not a timing bound. Explicit ineligibility, scope change or departure can remove
+the nominee sooner. Accuracy/variance fluctuations do not preempt a nominee.
+
+`hot_changes`, `hot_change_cause`, `hot_change_reason`,
+`hot_changed_kernel_us`, `previous_hot` and `previous_hot_boot` describe the
+last nomination transition; current identity/boot remain `preferred_hot` and
+`preferred_hot_boot`. Causes0..8 are NONE, SELECTED, STATUS_TIMEOUT,
+UNREADY_TIMEOUT, INELIGIBLE, SCOPE_CHANGED, BETTER_POLICY, DEPARTED,
+LEADER_CHANGED. Counts/times are local to this running service and boot.
+
+The timing journal stores adjacent GM_CONTROL stages8 (`0x7800`, old) and9
+(`0x7900`, new), with the same reason, peer identity and full boot split across
+`a` (low32) and `b` (high32). Stage10 (`0x7a00`) records a local role transition:
+`a` is old wire role, `b` is new wire role and result is the owner reason. This
+separates nomination churn from a follower's genuine preparation/source loss.
+Journal overwrites remain possible; the persistent console counters summarize
+observed transitions without claiming a lossless history.
+
+In0.15.195, a temporarily unavailable (zero-birth) association uses the same
+bounded preference grace; a positively different scope remains an immediate
+removal. Explicit ineligibility is reported before an accompanying empty scope.
+
+### Follower reset diagnostics (.196)
+
+`gm 09` adds `scope_resets`, `scope_reset_bits`, `receiver_stops`, and
+`receiver_stop_pc`. Scope-change bits: identity1, boot2, source4, train8,
+role/mode16, local capture32; stopped64 and unavailable capture128 describe
+the reset context. The caller PC requires the exact installed ELF to decode.
+These cumulative counters survive estimator resets, not device reboots.
+
+### Crash capture after the one-shot callback repair (.197)
+
+The per-call source register witness is disabled. Normal crash capture remains
+active: original registers,192 bytes of bounded thread stack and up to64 bytes
+of ISR stack, retained across reset and persisted by the boot writer. Decode
+against the exact build ELF with `tools/crash_decode.py`. The offline DWARF
+trace is partial when saved registers lie outside the captured window; it never
+guesses missing frames. A delayed scheduler failure is a dropped control job,
+not a reason to halt or clear the receiver.

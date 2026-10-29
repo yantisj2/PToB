@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include "rc_dynamic.h"
 #define BT_ATT_ERR_UNLIKELY 14
 #define BT_CONN_STATE_CONNECTED 2
 #define R2_TIMING_GM_CONTROL 32
@@ -29,9 +30,9 @@ int main(void){
  struct bt_conn c={.mtu=247,.state=2};
  lt_mtu_done(&c,0,NULL);assert(!event.error&&event.conn==&c&&calls==1&&!notes);
  lt_mtu_done(&c,14,NULL);assert(!event.error&&notes==1&&noted_mtu==247&&noted_live);
- c.mtu=214;lt_mtu_done(&c,14,NULL);assert(event.error==14&&notes==2);
+ c.mtu=RC_DYNAMIC_CONTROL_BYTES+2;lt_mtu_done(&c,14,NULL);assert(event.error==14&&notes==2);
  lt_mtu_done(&c,0,NULL);assert(event.error==14);
- c.mtu=215;lt_mtu_done(&c,0,NULL);assert(!event.error);
+ c.mtu=RC_DYNAMIC_CONTROL_BYTES+3;lt_mtu_done(&c,0,NULL);assert(!event.error);
  c.state=0;lt_mtu_done(&c,14,NULL);assert(event.error==14&&!noted_live);
  lt_mtu_done(&c,0,NULL);assert(event.error==14);
  c.state=2;c.info_error=-1;lt_mtu_done(&c,14,NULL);assert(event.error==14&&!noted_live);
@@ -41,5 +42,5 @@ int main(void){
  gm_located(&c,5,&read,NULL,0);assert(event.error==5);
  gm_located(&c,0,&read,NULL,0);assert(event.error==1);
  gm_located(&c,0,&read,"R2G1\1",5);assert(!event.error&&event.handle==42);
- puts("PASS actual MTU callback: live negotiated>=215 only; insufficient/disconnected/unknown/hard errors refused; no retry or deadline change");
+ puts("PASS actual MTU callback: live negotiated>=control+3 only; insufficient/disconnected/unknown/hard errors refused; no retry or deadline change");
 }

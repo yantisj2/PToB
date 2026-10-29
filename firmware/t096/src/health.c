@@ -12,6 +12,7 @@ extern uint32_t r2_diag_stack_unused(void);
 #include <string.h>
 #include <zephyr/fatal.h>
 #include <zephyr/irq.h>
+#include <zephyr/kernel.h>
 #include <cmsis_core.h>
 #include <zephyr/timing/timing.h>
 /* No flash, reboot, allocation, USB or application locks in the fatal hook.
@@ -20,11 +21,15 @@ extern uint32_t r2_diag_stack_unused(void);
  * Words: magic, format, boot lo/hi, reason, pc, lr, xpsr, CFSR, HFSR,
  * MMFAR, BFAR, MSP, PSP, IPSR, current thread, main beat, main ms,
  * flash op/result/ms, PA op/result/ms, source SHA ASCII (16 words),
- * nine latency words, PSP-frame flag/eight words, active site/cycles, masks, CRC. */
+ * nine latency words, PSP-frame flag/eight words, active site/cycles, masks, CRC.
+ * Schema3 replaces40..62 with controller context. Schema4 replaces the same
+ * tail with supplied integer registers for hardware memory/bus/usage faults;
+ * it never recovers pre-kernel-clear SCB validity or grants role authority. */
 #define FAULT_WORDS 64
 #define FAULT_MAGIC 0x52324631u
 volatile uint32_t r2_fault_capsule[FAULT_WORDS] __noinit;
 static uint32_t previous[FAULT_WORDS];
+_Static_assert(sizeof r2_fault_capsule==256&&sizeof previous==256,"Fixed fault storage");
 /* hz, empty-probe min/max cycles, maximum site/cycles, last site/cycles,
  * outermost samples, samples >=100us. Never format or allocate while masked. */
 static uint32_t latency[9],active_site,active_cycle;
@@ -78,9 +83,249 @@ static uint32_t crc(const volatile uint32_t *words)
  }
  return ~value;
 }
+#if defined(R2_GM7_NATIVE) && defined(CONFIG_EXTRA_EXCEPTION_INFO)
+K_KERNEL_STACK_ARRAY_DECLARE(z_interrupt_stacks, CONFIG_MP_MAX_NUM_CPUS,
+                             CONFIG_ISR_STACK_SIZE);
+/* These bits describe supplied register provenance, never pre-clear SCB state.
+ * The pinned Zephyr handler clears CFSR before reaching this application hook. */
+enum { FAULT_BASIC = 1, FAULT_CALLEE = 2, FAULT_RETURN = 4,
+       FAULT_STACK_UNRELIABLE = 8, FAULT_SCB_POST_CLEAR = 16 };
+static bool cpu_fault(unsigned reason,unsigned vector)
+{
+ return (vector==4&&reason>=K_ERR_ARM_MEM_GENERIC&&reason<=K_ERR_ARM_MEM_FP_LAZY_STATE_PRESERVATION)||
+        (vector==5&&reason>=K_ERR_ARM_BUS_GENERIC&&reason<=K_ERR_ARM_BUS_FP_LAZY_STATE_PRESERVATION)||
+        (vector==6&&reason>=K_ERR_ARM_USAGE_GENERIC&&reason<=K_ERR_ARM_USAGE_UNDEFINED_INSTRUCTION);
+}
+static bool fault_return(uint32_t value)
+{
+ /* Cortex-M4, non-FP basic frame: handler MSP, thread MSP or thread PSP. */
+ return value==UINT32_C(0xfffffff1)||value==UINT32_C(0xfffffff9)||value==UINT32_C(0xfffffffd);
+}
+static bool callee_window(uintptr_t p,uintptr_t entry,uintptr_t start,size_t size)
+{
+ /* Pinned fault_s.S saves8 bytes then40 bytes. The callee record occupies
+  * r4..r11 +PSP (36 bytes); its final word is assembly padding. No stack walk. */
+ return !(p&3)&&size>=48&&start<=UINTPTR_MAX-size&&p>=start&&
+        p-start<=size-48&&entry>=48&&p==entry-48;
+}
+static void fault_registers(unsigned reason,const struct arch_esf *esf,unsigned saved_mask)
+{
+ uint32_t flags=FAULT_SCB_POST_CLEAR;
+ if(esf){
+  flags|=FAULT_BASIC;
+  r2_fault_capsule[41]=esf->basic.r0;r2_fault_capsule[42]=esf->basic.r1;
+  r2_fault_capsule[43]=esf->basic.r2;r2_fault_capsule[44]=esf->basic.r3;
+  r2_fault_capsule[45]=esf->basic.r12;
+  uint32_t ret=esf->extra_info.exc_return;
+  uintptr_t entry=esf->extra_info.msp,p=(uintptr_t)esf->extra_info.callee;
+  if(fault_return(ret)){
+   flags|=FAULT_RETURN;r2_fault_capsule[55]=(uint32_t)entry;r2_fault_capsule[56]=ret;
+   if(callee_window(p,entry,(uintptr_t)K_KERNEL_STACK_BUFFER(z_interrupt_stacks[0]),
+                    K_KERNEL_STACK_SIZEOF(z_interrupt_stacks[0]))){
+    const _callee_saved_t *c=esf->extra_info.callee;
+    r2_fault_capsule[46]=c->v1;r2_fault_capsule[47]=c->v2;
+    r2_fault_capsule[48]=c->v3;r2_fault_capsule[49]=c->v4;
+    r2_fault_capsule[50]=c->v5;r2_fault_capsule[51]=c->v6;
+    r2_fault_capsule[52]=c->v7;r2_fault_capsule[53]=c->v8;
+    r2_fault_capsule[54]=c->psp;flags|=FAULT_CALLEE;
+   }
+  }
+ }
+ if(reason==K_ERR_ARM_MEM_STACKING||reason==K_ERR_ARM_MEM_UNSTACKING||
+    reason==K_ERR_ARM_BUS_STACKING||reason==K_ERR_ARM_BUS_UNSTACKING||
+    reason==K_ERR_ARM_USAGE_STACK_OVERFLOW)flags|=FAULT_STACK_UNRELIABLE;
+ r2_fault_capsule[40]=flags;r2_fault_capsule[57]=saved_mask;
+ r2_fault_capsule[58]=__get_PRIMASK();r2_fault_capsule[59]=__get_CONTROL();
+ r2_fault_capsule[60]=active_site;
+ if(active_site&&timing_ready)r2_fault_capsule[61]=(uint32_t)timing_counter_get()-active_cycle;
+ r2_fault_capsule[1]=4;
+}
+#endif
+#if defined(R2_GM7_NATIVE) && defined(CONFIG_EXTRA_EXCEPTION_INFO)
+#if defined(CONFIG_FPU) && CONFIG_FPU
+#error "Bounded crash capture requires basic integer exception frames (FPU off)"
+#endif
+#include "crash_record.h"
+#include "ptob_device.h"
+/* ONE512B retained record; no boot-time second stack dump. Existing256B
+ * capsule/previous copy below are unchanged. Normal export never clears it. */
+volatile uint32_t r2_crash_record[R2_CRASH_WORDS] __noinit;
+_Static_assert(sizeof r2_crash_record==512,"One journal slot only");
+/* Reuses the original one-byte handoff state. Only a verified durable save
+ * (or no prior valid record) permits the GM owner to reuse witness payload. */
+volatile uint8_t r2_gm7_witness_state;
+void r2_health_gm_witness(bool enabled)
+{
+ unsigned key=irq_lock();
+ if(enabled)r2_gm7_witness_state=(r2_gm7_witness_state&R2_WITNESS_HANDOFF)|R2_WITNESS_GM;
+ else r2_gm7_witness_state&=(uint8_t)~(R2_WITNESS_GM|R2_WITNESS_STARTED);
+ irq_unlock(key);
+}
+void r2_health_gm_witness_view(struct r2_snapshot_witness_view *out)
+{
+ unsigned key=irq_lock();uint8_t state=r2_gm7_witness_state;
+ const volatile uint32_t *p=r2_crash_record+R2_WITNESS_WORD;
+ bool current=(state&R2_WITNESS_STARTED)&&r2_witness_valid(p);
+ *out=(struct r2_snapshot_witness_view){.boot=boot_id,
+   .enabled=(state&R2_WITNESS_GM)!=0,
+   .armed=(state&R2_WITNESS_REQUIRED)==R2_WITNESS_REQUIRED,
+   .prior_crash_blocked=(state&R2_WITNESS_GM)&&!(state&R2_WITNESS_HANDOFF),
+   .current=current,.sequence=current?p[2]:0,.stage=current?p[1]:0,
+   .capture_epoch_low32=current?p[30]:0,
+   /* Initialization validated this pending record. Never CRC512B while IRQs
+    * are masked just to format a read-only observation. */
+   .pending_crc=!(state&R2_WITNESS_HANDOFF)?r2_crash_record[126]:0};
+ irq_unlock(key);
+}
+K_THREAD_STACK_DECLARE(z_main_stack,CONFIG_MAIN_STACK_SIZE);
+K_THREAD_STACK_DECLARE(normal_owner_stack,8192);
+K_THREAD_STACK_DECLARE(owner_stack,8192);
+K_THREAD_STACK_DECLARE(pt_stack,8192);
+K_THREAD_STACK_DECLARE(supervisor_stack,2048);
+K_THREAD_STACK_DECLARE(console_stack,2048);
+K_THREAD_STACK_DECLARE(platform_stack,2048);
+K_THREAD_STACK_DECLARE(gnss_stack,2048);
+K_THREAD_STACK_DECLARE(ui_stack,4096);
+K_THREAD_STACK_DECLARE(diagnostic_stack,2048);
+#if defined(R2_WATCHDOG)
+K_THREAD_STACK_DECLARE(watchdog_stack,1024);
+#endif
+#if defined(R2_LORA)
+K_THREAD_STACK_DECLARE(worker_stack,2048);
+#endif
+struct crash_bound {uintptr_t start;size_t size;uint32_t id;};
+#define CRASH_BOUND(s,i) {(uintptr_t)(s)+K_THREAD_STACK_RESERVED,K_THREAD_STACK_SIZEOF(s),i}
+/* Literal linker-owned allocations, excluding reserved guard bytes. A pointer
+ * into another known stack remains observed-SP evidence, not proof of ownership.
+ * Unlisted kernel/Bluetooth stacks are UNKNOWN; never dereference a TCB to guess. */
+static const struct crash_bound crash_bounds[]={
+ CRASH_BOUND(z_main_stack,1),CRASH_BOUND(normal_owner_stack,2),
+ CRASH_BOUND(owner_stack,3),CRASH_BOUND(pt_stack,4),
+ CRASH_BOUND(supervisor_stack,5),CRASH_BOUND(console_stack,6),
+ CRASH_BOUND(platform_stack,7),CRASH_BOUND(gnss_stack,8),
+ CRASH_BOUND(ui_stack,9),CRASH_BOUND(diagnostic_stack,10),
+#if defined(R2_WATCHDOG)
+ CRASH_BOUND(watchdog_stack,11),
+#endif
+#if defined(R2_LORA)
+ CRASH_BOUND(worker_stack,12),
+#endif
+};
+#undef CRASH_BOUND
+static void crash_digest(unsigned word,const char *hex)
+{
+ for(unsigned i=0;i<8;i++){
+  uint32_t v=0;for(unsigned b=0;b<4;b++)
+   v|=((r2_crash_nibble(hex[i*8+b*2])<<4)|r2_crash_nibble(hex[i*8+b*2+1]))<<(8*b);
+  r2_crash_record[word+i]=v;
+ }
+}
+static void crash_words(unsigned word,uintptr_t start,size_t bytes)
+{
+ const volatile uint32_t *src=(const volatile uint32_t *)start;
+ for(unsigned i=0;i<bytes/4;i++)r2_crash_record[word+i]=src[i];
+}
+static void crash_capture(unsigned reason,const struct arch_esf *esf,unsigned mask)
+{
+ /* Fatal-only, IRQs already masked. No locks, driver, allocator, formatting,
+  * flash, stack walk, variable-size locals or record-sized automatic arrays. */
+ if(r2_health_crash_pending())return; /* preserve first unpersisted crash across another startup fault */
+ /* IRQs are masked: freeze a completed/explicitly partial GM observation.
+  * Pending previous crashes were returned above and are never overwritten.
+  * RC/inactive/unavailable keeps the complete original192B thread window. */
+ bool witness=(r2_gm7_witness_state&R2_WITNESS_GM)&&
+   (r2_gm7_witness_state&R2_WITNESS_STARTED)&&
+   r2_witness_valid(r2_crash_record+R2_WITNESS_WORD);
+ r2_gm7_witness_state=0;r2_crash_record[127]=0;__DMB();
+ for(unsigned i=0;i<127;i++)
+  if(!witness||i<R2_WITNESS_WORD||i>=R2_WITNESS_WORD+R2_WITNESS_WORDS)r2_crash_record[i]=0;
+ r2_crash_record[0]=R2_CRASH_MAGIC;
+ r2_crash_record[1]=witness?R2_CRASH_WITNESS_SCHEMA:R2_CRASH_SCHEMA;
+ r2_crash_record[61]=witness?R2_CRASH_WITNESS_TAG:0;
+ r2_crash_record[2]=UINT32_MAX;r2_crash_record[3]=512;
+ r2_crash_record[4]=(uint32_t)boot_id;r2_crash_record[5]=boot_id>>32;
+ r2_crash_record[6]=r2_crash_hex32(&PTOB_DEVICE_ID[8]);
+ r2_crash_record[7]=r2_crash_hex32(PTOB_DEVICE_ID);
+ crash_digest(8,R2_SOURCE_SHA);crash_digest(16,R2_WATCHDOG_BINDING);
+ uint32_t flags=R2_CRASH_SCB_POST_CLEAR;r2_crash_record[24]=reason;
+ r2_crash_record[45]=(uint32_t)(uintptr_t)k_current_get();
+ r2_crash_record[46]=__get_IPSR();
+ r2_crash_record[47]=SCB->CFSR;r2_crash_record[48]=SCB->HFSR;
+ r2_crash_record[49]=SCB->MMFAR;r2_crash_record[50]=SCB->BFAR;
+ r2_crash_record[59]=mask;r2_crash_record[60]=__get_CONTROL();
+ if(reason==K_ERR_ARM_MEM_STACKING||reason==K_ERR_ARM_MEM_UNSTACKING||
+    reason==K_ERR_ARM_BUS_STACKING||reason==K_ERR_ARM_BUS_UNSTACKING||
+    reason==K_ERR_ARM_USAGE_STACK_OVERFLOW)flags|=R2_CRASH_STACK_UNRELIABLE;
+ if(esf){
+  flags|=R2_CRASH_BASIC;
+  r2_crash_record[26]=esf->basic.r0;r2_crash_record[27]=esf->basic.r1;
+  r2_crash_record[28]=esf->basic.r2;r2_crash_record[29]=esf->basic.r3;
+  r2_crash_record[30]=esf->basic.r12;r2_crash_record[31]=esf->basic.lr;
+  r2_crash_record[32]=esf->basic.pc;r2_crash_record[33]=esf->basic.xpsr;
+  if((__get_IPSR()&511)==3||cpu_fault(reason,__get_IPSR()&511)){
+  uintptr_t entry=esf->extra_info.msp,callee=(uintptr_t)esf->extra_info.callee;
+  uint32_t ret=esf->extra_info.exc_return;
+  if(fault_return(ret)){
+   flags|=R2_CRASH_RETURN;r2_crash_record[43]=entry;r2_crash_record[44]=ret;
+   if(callee_window(callee,entry,(uintptr_t)K_KERNEL_STACK_BUFFER(z_interrupt_stacks[0]),K_KERNEL_STACK_SIZEOF(z_interrupt_stacks[0]))){
+    const _callee_saved_t *c=esf->extra_info.callee;
+    r2_crash_record[34]=c->v1;r2_crash_record[35]=c->v2;
+    r2_crash_record[36]=c->v3;r2_crash_record[37]=c->v4;
+    r2_crash_record[38]=c->v5;r2_crash_record[39]=c->v6;
+    r2_crash_record[40]=c->v7;r2_crash_record[41]=c->v8;
+    r2_crash_record[42]=c->psp;flags|=R2_CRASH_CALLEE;
+   }
+   if(!(flags&R2_CRASH_STACK_UNRELIABLE)){
+    bool known=false;
+    if(flags&R2_CRASH_CALLEE)for(unsigned i=0;i<sizeof crash_bounds/sizeof crash_bounds[0];i++){
+     const struct crash_bound *b=&crash_bounds[i];
+     size_t n=r2_crash_window(b->start,b->size,r2_crash_record[42],witness?R2_CRASH_SHORT_THREAD_BYTES:R2_CRASH_THREAD_BYTES);
+     if(!n)continue;
+     known=true;r2_crash_record[51]=r2_crash_record[42];r2_crash_record[52]=n;r2_crash_record[55]=b->id;
+     crash_words(witness?R2_CRASH_SHORT_THREAD_WORD:R2_CRASH_THREAD_WORD,r2_crash_record[42],n);flags|=R2_CRASH_THREAD;
+     if(b->size-(r2_crash_record[42]-b->start)>n)flags|=R2_CRASH_THREAD_TRUNCATED;
+     break;
+    }
+    if(!known)flags|=R2_CRASH_UNKNOWN_THREAD;
+    /* Original entryMSP points at the faulted handler's basic frame for
+     * nested exceptions; for threadPSP faults this window may be empty. */
+    uintptr_t start=(uintptr_t)K_KERNEL_STACK_BUFFER(z_interrupt_stacks[0]);
+    size_t size=K_KERNEL_STACK_SIZEOF(z_interrupt_stacks[0]);
+    size_t n=r2_crash_window(start,size,entry,R2_CRASH_ISR_BYTES);
+    if(n){r2_crash_record[53]=entry;r2_crash_record[54]=n;crash_words(R2_CRASH_ISR_WORD,entry,n);flags|=R2_CRASH_ISR;if(size-(entry-start)>n)flags|=R2_CRASH_ISR_TRUNCATED;}
+   }
+  }
+ }
+ }
+ r2_crash_record[25]=flags;r2_crash_record[126]=r2_crash_crc(r2_crash_record);
+ __DMB();r2_crash_record[127]=R2_CRASH_COMMIT;__DSB();
+}
+const volatile uint32_t *r2_health_crash_pending(void)
+{return !(r2_gm7_witness_state&R2_WITNESS_HANDOFF)&&r2_crash_valid(r2_crash_record,true)&&r2_crash_silicon(r2_crash_record,PTOB_DEVICE_ID)?r2_crash_record:NULL;}
+void r2_health_crash_saved(uint32_t crc)
+{if(r2_health_crash_pending()&&r2_crash_record[126]==crc){unsigned key=irq_lock();r2_gm7_witness_state|=R2_WITNESS_HANDOFF;irq_unlock(key);}}
+int r2_health_crash_read(unsigned chunk,uint8_t out[64])
+{
+ if(chunk>=R2_CRASH_DIAG_CHUNKS)return -EINVAL;
+ if(!r2_crash_valid(r2_crash_record,true)||!r2_crash_silicon(r2_crash_record,PTOB_DEVICE_ID))return -ENOENT;
+ for(unsigned i=0;i<16;i++){
+  uint32_t v=r2_crash_record[chunk*16+i];
+  for(unsigned b=0;b<4;b++)out[i*4+b]=(uint8_t)(v>>(8*b));
+ }
+ return 0;
+}
+#else
+const volatile uint32_t *r2_health_crash_pending(void){return NULL;}
+void r2_health_crash_saved(uint32_t crc){(void)crc;}
+int r2_health_crash_read(unsigned chunk,uint8_t out[64]){(void)chunk;(void)out;return -ENOENT;}
+#endif
+
 void r2_health_init(uint64_t boot)
 {
- if(r2_fault_capsule[0]==FAULT_MAGIC&&(r2_fault_capsule[1]==2||r2_fault_capsule[1]==3)&&
+#if defined(R2_GM7_NATIVE) && defined(CONFIG_EXTRA_EXCEPTION_INFO)
+ r2_gm7_witness_state=r2_crash_valid(r2_crash_record,true)?0:R2_WITNESS_HANDOFF;
+#endif
+ if(r2_fault_capsule[0]==FAULT_MAGIC&&(r2_fault_capsule[1]==2||r2_fault_capsule[1]==3||r2_fault_capsule[1]==4)&&
     r2_fault_capsule[FAULT_WORDS-1]==crc(r2_fault_capsule))
   for(unsigned i=0;i<FAULT_WORDS;i++)previous[i]=r2_fault_capsule[i];
  r2_fault_capsule[0]=0;boot_id=boot;timing_setup();detail_due=0;
@@ -161,6 +406,11 @@ void k_sys_fatal_error_handler(unsigned int reason,const struct arch_esf *esf)
   const char *s=&R2_SOURCE_SHA[4*i];
   r2_fault_capsule[24+i]=(uint32_t)(uint8_t)s[0]|((uint32_t)(uint8_t)s[1]<<8)|((uint32_t)(uint8_t)s[2]<<16)|((uint32_t)(uint8_t)s[3]<<24);
  }
+#if defined(R2_GM7_NATIVE) && defined(CONFIG_EXTRA_EXCEPTION_INFO)
+ if(cpu_fault(reason,__get_IPSR()&511))fault_registers(reason,esf,old_mask);
+ else
+#endif
+ {
 #if defined(R2_CONTROLLER_FAULT_CAPTURE) || defined(R2_CONTROLLER_DIAGNOSTICS)
  /* Schema3 trades latency/interrupted-stack details for the
   * frozen prepare queue. Original source/boot/PC/LR/reason and CRC remain. */
@@ -187,7 +437,11 @@ void k_sys_fatal_error_handler(unsigned int reason,const struct arch_esf *esf)
  if(active_site&&timing_ready)r2_fault_capsule[59]=(uint32_t)timing_counter_get()-active_cycle;
  r2_fault_capsule[60]=old_mask;r2_fault_capsule[61]=__get_PRIMASK();r2_fault_capsule[62]=__get_CONTROL();
  #endif
+ }
  r2_fault_capsule[FAULT_WORDS-1]=crc(r2_fault_capsule);__DMB();r2_fault_capsule[0]=FAULT_MAGIC;__DSB();
+#if defined(R2_GM7_NATIVE) && defined(CONFIG_EXTRA_EXCEPTION_INFO)
+ crash_capture(reason,esf,old_mask);
+#endif
  k_fatal_halt(reason);CODE_UNREACHABLE;
 }
 #endif

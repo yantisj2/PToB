@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 #pragma once
+#include "../protocol/time_zone.h"
 #include "service_backend_alias.h"
 #define R2_FIELD_CLIENT_WINDOW_US 450000u /* explicit FIELD450_QUIET500_V1 treatment */
 #include "app.h"
@@ -74,6 +75,9 @@ struct r2_service_status {
  bool normal;
  bool configured,active,closing,closed,serving,follower,follower_clock_valid;
  bool peer_delivery_confirmed,storage_window;
+#ifdef R2_TZ_WIRE
+ struct r2_tz tz;uint64_t tz_until_us; /* Uses existing status tail alignment. */
+#endif
 };
 /* Before bt_enable. Provisioned identity and keys are not discovery inputs. */
 int r2_service_configure(const struct r2_identity *id,const struct r2_enrollment *enrollment);

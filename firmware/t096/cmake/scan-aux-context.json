@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "license": "Apache-2.0 (Zephyr source and patch); MIT (PToB generator)",
+  "description": "Normalize the already-classified non-chain periodic ULL AUX parent to the existing LLL periodic representation; no lifetime, assertion, state or timer change.",
+  "zephyr_commit": "7823374e872145b5bd018bfe447839eb36042611",
+  "file": "subsys/bluetooth/controller/ll_sw/ull_scan_aux.c",
+  "input_sha256": "49c92fe960ee3924db18d30f55adceb07f2aeab42300e1ee3df8005f4f6e6a68",
+  "output_sha256": "299191e59bb3ceb79858f49b50f3d52e6bd3c3657e06a5882f251699c2da10d0",
+  "patch_sha256": "c0ba93bee93e4f0aa0cb117d3c4596d5240d618d2427b9425dbc78db4406073c"
+}

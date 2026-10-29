@@ -1,0 +1,62 @@
+{
+  "copyright": "Copyright (c) 2026 Jonathan Yantis",
+  "excluded": [
+    "draft1/manifest.json (self-reference)"
+  ],
+  "files": {
+    "README.md": {
+      "bytes": 1381,
+      "sha256": "4627aba7fcad3eb51e77b95e5627431d21a9715f44f15cb36a1b6d48e593a243"
+    },
+    "draft1/INTEGRATION_PLAN.md": {
+      "bytes": 13458,
+      "sha256": "47e9de5b62a7eea3d95ac45154fc7ee0c2876782b1a6043fa4f96690952bdb87"
+    },
+    "draft1/SPEC.md": {
+      "bytes": 29585,
+      "sha256": "cef21eb9e00a31975c0a5e6384f20437236e4c592a29494c2678a7a7265b4a44"
+    },
+    "draft1/codec.py": {
+      "bytes": 7158,
+      "sha256": "d3fd00d61b222cb0b1ae988043eb50f6e2d411aaeeac4770285402ea7aa50238"
+    },
+    "draft1/examples.py": {
+      "bytes": 2200,
+      "sha256": "20ea3c332dcedb924c76b4c7fcb95a3b0f7548b387369404fb38207b5b5f336c"
+    },
+    "draft1/policy.py": {
+      "bytes": 7855,
+      "sha256": "14eb888fc82f328060bd91a6e94874fffbe670b995e570fa68e8c187a0d633a4"
+    },
+    "draft1/schedule.py": {
+      "bytes": 4652,
+      "sha256": "4a07206695650f937a3be95e85fc578202a9d3e93db13ab73be2f21a0bfd24a4"
+    },
+    "draft1/test_gm7.py": {
+      "bytes": 13945,
+      "sha256": "87af0f61085594557ff9e778964644f9c43f5592d44175982f5949ea2275c185"
+    },
+    "draft1/test_schedule.py": {
+      "bytes": 4529,
+      "sha256": "4be832d197f8cefb79aa364b93f90f2bd3dbbd846014babdd0aa227618eb05e0"
+    },
+    "draft1/vectors.json": {
+      "bytes": 7071,
+      "sha256": "92afbbd92f6d7e2102f2d3514c2e9c500edcaaac9029843d1fedb5838a1d9589"
+    },
+    "draft1/verify.py": {
+      "bytes": 1264,
+      "sha256": "cb7457efe5c07a71272036e4eb12c68aed3c24e3aa7e52006d77963ffe7c9803"
+    }
+  },
+  "hash": "SHA-256",
+  "license": "MIT",
+  "review_correction": "Three immutable YIELD/WITHDRAW copies, bounded RX/TX window model with guard/airtime checks, idempotent supersession and original first-TX deadline; diagnostics/UI schedule migration; pre-approval only.",
+  "revision": "GM7-draft1",
+  "status": "REVIEW CANDIDATE / NOT FIRMWARE CLEARED",
+  "superseded_preapproval_manifest_sha256": [
+    "2f4f2ec00988b5d09636ac2ff0a0c018db48a75e1ab0e81583f305dadcf617e4",
+    "3e87941a9f96c6a5ee818713a73f93352ad581973582cf371bda78b69ad122c8",
+    "b3d8618f7b18e32d1b955c79b58a6a0eedf8b3c942c000fbc37f5f31ac4874c6"
+  ]
+}

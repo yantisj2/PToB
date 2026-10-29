@@ -1,0 +1,13 @@
+{
+  "bindings": {
+    "gm7_scheduler_a1": "5fbd32685e5e2b311bc318cd750fbd1a20b3590985ddbb0547db65e6e6181878",
+    "gm7_v2": "919bcecb786243dd9f71e5b76efdc77f303be578cc151f702bfb6920fdcebff3"
+  },
+  "files": {
+    "README.md": "78fac2df7f58e9ed0333a26325cd13d3d6de004f2b086d6661f44c4b4b5fbf9a",
+    "reference.py": "5816ed78d79fdebd0b3c82e7efb18deadb9de401d0001f6a260b08d5f59fd300",
+    "test_reference.py": "1120235c66a60caf657ca0d1a653dc88709f400fbe255dd5d1d0fb141f0716b9",
+    "verify.py": "af50fef6daf9e633c369c3e6ab817bb9987ab25fa616cbd3236e0287ac9f1929"
+  },
+  "revision": "GM7-bootstrap-B1"
+}

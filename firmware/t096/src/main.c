@@ -2,6 +2,9 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 #include "app.h"
 #include "gm_diagnostics.h"
+#ifdef R2_GM7_NATIVE
+#include "gm7_service.h"
+#endif
 #include "health.h"
 #include "timing_events.h"
 #include "initiator_diag.h"
@@ -245,7 +248,10 @@ static void __attribute__((noinline)) reply(const struct r2_request *r,uint64_t 
     n=r2_frame(frame,sizeof frame,r->id,++reply_sequence,json);if(n>0)(void)r2_console_reply(frame,(size_t)n,arrival+R2_REPLY_MS);return;
   }
   if(r->op==R2_GM){
-#ifdef R2_GM5_NATIVE
+#ifdef R2_GM7_NATIVE
+    uint32_t gm7_profile[5];r2_service_profile_status(gm7_profile);
+    int n=r2_gm7_diagnostic_format(json,sizeof json,(unsigned)r->nonce,R2_SOURCE_SHA,identity.boot,!gm7_profile[0]&&!gm7_profile[1]);
+#elif defined(R2_GM5_NATIVE)
     struct r2_gm5_diagnostic d={0};r2_gm_diagnostic_snapshot(&d);
     uint32_t gm_profile[5];r2_service_profile_status(gm_profile);if(gm_profile[0]||gm_profile[1])d.state.enabled=false;
     int n=r2_gm_diagnostic_format(json,sizeof json,&d,(unsigned)r->nonce,R2_SOURCE_SHA,identity.boot);
@@ -308,9 +314,9 @@ static void __attribute__((noinline)) reply(const struct r2_request *r,uint64_t 
     n=r2_frame(frame,sizeof(frame),r->id,++reply_sequence,json);if(n>0)(void)r2_console_reply(frame,(size_t)n,arrival+R2_REPLY_MS);return;
   }
   if(r->op==R2_DIAG){
-    uint8_t bytes[64];char encoded[129];int rc=r2_diag_read(r->trace_page/128,r->trace_page%128,bytes);
+    uint8_t bytes[64];char encoded[129];int rc=r->trace_page>=256?r2_health_crash_read(r->trace_page-256,bytes):r2_diag_read(r->trace_page/128,r->trace_page%128,bytes);
     for(unsigned i=0;i<64;i++)snprintf(encoded+2*i,3,"%02x",rc?0:bytes[i]);
-    int n=snprintf(json,sizeof(json),"{\"source\":\"%s\",\"commit\":\"%s\",\"silicon\":\"%s\",\"unit\":\"%s\",\"boot\":\"%016llx\",\"result\":%d,\"diag_state\":%d,\"chunk\":%u,\"hex\":\"%s\"}",R2_SOURCE_SHA,R2_CHILD_COMMIT,identity.silicon,identity.unit,(unsigned long long)identity.boot,rc,r2_diag_state(),r->trace_page,encoded);
+    int n=snprintf(json,sizeof(json),"{\"source\":\"%s\",\"commit\":\"%s\",\"silicon\":\"%s\",\"unit\":\"%s\",\"boot\":\"%016llx\",\"result\":%d,\"diag_state\":%d,\"crash_persist_result\":%d,\"chunk\":%u,\"hex\":\"%s\"}",R2_SOURCE_SHA,R2_CHILD_COMMIT,identity.silicon,identity.unit,(unsigned long long)identity.boot,rc,r2_diag_state(),r2_diag_crash_result(),r->trace_page,encoded);
     if(n<0||n>=(int)sizeof(json)||reply_sequence==UINT32_MAX)return;
     n=r2_frame(frame,sizeof(frame),r->id,++reply_sequence,json);if(n>0)(void)r2_console_reply(frame,(size_t)n,arrival+R2_REPLY_MS);return;
   }
@@ -391,6 +397,15 @@ static void __attribute__((noinline)) reply(const struct r2_request *r,uint64_t 
   }
   if(used+3>sizeof(json)) return;
   memcpy(json+used,"]}",3);
+#if defined(R2_TZ_WIRE) && defined(R2_NATIVE_BLE)
+  struct r2_tz tz=net_status.tz;
+  int64_t local=0;
+  bool local_valid=u.drawn_time&&r2_tz_local_us(tz,u.drawn_utc_us,&local);
+  int extra=snprintf(json+used+1,sizeof(json)-used-1,
+    ",\"tz\":{\"id\":%u,\"offset_min\":%d,\"local_valid\":%s,\"local_us\":%lld}}",
+    tz.id,tz.offset_min,local_valid?"true":"false",(long long)local);
+  if(extra<0 || (size_t)extra>=sizeof(json)-used-1)return;
+#endif
   if(reply_sequence==UINT32_MAX) return;
   n=r2_frame(frame,sizeof(frame),r->id,++reply_sequence,json);
   if(n>0) (void)r2_console_reply(frame,(size_t)n,arrival+R2_REPLY_MS);
@@ -417,6 +432,28 @@ static void hot_report(const struct r2_service_status *s,const struct r2_clock *
   if(n>0&&(size_t)n<sizeof note&&!r2_console_note(note,(size_t)n,now+150)){
     next=now+60000;changed_after=now+5000;previous=signature;
   }else next=now+1000;
+}
+#endif
+#ifdef R2_GM7_NATIVE
+/* Keep temporary UI scratch out of main's unrelated command/reply frame. */
+static uint64_t __attribute__((noinline)) gm7_ui_publish(uint64_t now,bool platform_ready,bool bt_ready){
+      struct r2_ui_model m={.sampled_ms=now,.platform_ready=platform_ready,.bt_ready=bt_ready,.reset_kind=r2_watchdog_reset_kind()};
+      memcpy(m.unit,identity.unit,sizeof(m.unit));r2_time_snapshot(&m.clock,&m.queue_drops);
+#ifdef R2_NATIVE_BLE
+      r2_service_ui(&m);
+      if(m.role==R2_UI_GM){
+        int64_t utc;bool valid=m.gm_source_fresh&&r2_time_source_utc_now(m.clock.source_epoch,&utc);
+        m.clock.valid=m.coarse_valid=valid;
+        if(valid){m.clock.utc_us=utc;m.coarse_utc_us=(uint64_t)utc;m.coarse_at_us=(uint64_t)r2_time_now_us();}
+      }
+#endif
+#ifdef R2_DC_PROFILE
+      r2_dc_ui(&m);
+#endif
+#ifdef R2_LORA
+      r2_lora_view(&m.lora);
+#endif
+      m.sampled_ms=k_uptime_get();r2_ui_publish(&m);return m.sampled_ms+20;
 }
 #endif
 int main(void)
@@ -460,6 +497,9 @@ int main(void)
   bool recorded_bt=false, recorded_close=false,source_started=false,close_started=false;
 #ifdef R2_NATIVE_BLE
   bool diagnostic_close_started=false,normal_started=false,poweroff_requested=false;int diagnostic_close_error=0;
+#ifdef R2_GM7_NATIVE
+  bool normal_start_failed=false;
+#endif
 #endif
   uint64_t ui_due=0;
   for(;;) {
@@ -596,6 +636,29 @@ int main(void)
     }
     if(platform_ready&&!source_started){source_started=true;r2_time_start();r2_ui_start();}
 #ifdef R2_NATIVE_BLE
+#ifdef R2_GM7_NATIVE
+    if(platform_ready&&source_started&&!normal_started&&!normal_start_failed&&!r2_switch_rc_active()){
+      /* time_start requests capture asynchronously. Do not arm diagnostics or
+       * consume the one normal start before the real HF domain is published.
+       * Keep the original boot deadline; failed/cancelled boot cannot revive. */
+      uint64_t start_now=k_uptime_get();
+      int rc=maintenance.phase!=R2_IDLE||poweroff_requested||r2_ui_poweroff_requested()?-ECANCELED:
+        start_now>=boot_deadline?-ETIMEDOUT:r2_gm7_start_ready();
+      if(rc!=-EAGAIN){
+        bool armed=false;
+        start_now=k_uptime_get();
+        if(!rc&&start_now>=boot_deadline)rc=-ETIMEDOUT;
+        if(!rc){
+          rc=r2_diag_arm(start_now,0);event(13,rc);armed=!rc;
+          if(!rc){start_now=k_uptime_get();rc=start_now>=boot_deadline?-ETIMEDOUT:r2_service_run(start_now);}
+        }
+        if(rc){normal_start_failed=true;r2_gm7_start_failed(rc);if(armed)r2_diag_cancel_arm(rc);}
+        else normal_started=true;
+        event(12,rc);
+      }
+    }
+    else if(r2_switch_rc_active())
+#endif
     if(platform_ready&&source_started&&!normal_started&&maintenance.phase==R2_IDLE){
       normal_started=true;int diagnostic_rc=r2_diag_arm(now,0);event(13,diagnostic_rc);
       int rc=r2_service_run(now);if(rc)r2_diag_cancel_arm(rc);
@@ -603,6 +666,9 @@ int main(void)
     }
 #endif
     if(now>=ui_due){
+#ifdef R2_GM7_NATIVE
+      ui_due=gm7_ui_publish(now,platform_ready,p.bt_done&&!p.bt_result&&!p.bt_submit);
+#else
       struct r2_ui_model m={.sampled_ms=now,.platform_ready=platform_ready,.bt_ready=p.bt_done&&!p.bt_result&&!p.bt_submit,.reset_kind=r2_watchdog_reset_kind()};
       memcpy(m.unit,identity.unit,sizeof(m.unit));r2_time_snapshot(&m.clock,&m.queue_drops);
 #ifdef R2_NATIVE_BLE
@@ -620,6 +686,7 @@ int main(void)
       r2_lora_view(&m.lora);
 #endif
       m.sampled_ms=k_uptime_get();r2_ui_publish(&m);ui_due=m.sampled_ms+20;
+#endif
     }
     if(maintenance.phase==R2_CLOSING&&!close_started){
       int rc=r2_ui_close_result();
@@ -686,6 +753,14 @@ int main(void)
         } else if(r.op==R2_LORA_CONTROL){
           if(r.seconds){rc=maintenance.phase==R2_IDLE&&platform_ready?0:-EACCES;if(!rc)r2_lora_request(r.nonce!=0);}
 #endif
+        } else if(r.op==R2_GM_YIELD) {
+#ifdef R2_GM7_NATIVE
+          uint32_t profile[5];r2_service_profile_status(profile);
+          rc=maintenance.phase==R2_IDLE&&platform_ready&&!profile[0]&&!profile[1]
+              ?r2_gm7_request_yield():-EACCES;
+#else
+          rc=-ENOTSUP;
+#endif
         } else if(r.op==R2_WITNESS) {
           if(maintenance.phase!=R2_IDLE)rc=-EACCES;else r2_shadow_enable(r.nonce!=0);
         } else if(r.op==R2_PROFILE) {
@@ -718,6 +793,10 @@ int main(void)
         } else if(r.op==R2_RELAY){
           rc=platform_ready&&maintenance.phase==R2_IDLE?r2_service_relay(r.nonce,r.seconds,command.arrival):-EACCES;
           r2_diag_command(r.id,r.op,rc,command.arrival);
+#endif
+#ifndef R2_NATIVE_BLE
+        } else if(r.op==R2_GM_YIELD) {
+          rc=-ENOTSUP;
 #endif
 #ifdef R2_DC_PROFILE
         } else if(r.op==R2_PROFILE||r.op==R2_BLE||r.op==R2_RELAY||r.op==R2_WITNESS||r.op==R2_NAME) {

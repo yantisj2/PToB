@@ -1,5 +1,496 @@
 # T096 changelog
 
+## 0.15.205 — Local time on the front clock
+
+When coarse mesh TZ metadata is known and leased, page 1 and its analog
+screensaver show local time. Both clock faces use the same offset; Chicago
+-300 displays CDT and -360 displays CST. Unknown or expired metadata falls
+back to UTC. Other valid forwarded regions use LOC until a label is available.
+Source time, USB, diagnostics and precision remain UTC. No automatic DST or
+geographic detection is added.
+
+## 0.15.204 — Kernel uptime for standby GM time zone leases
+
+Start the standby GM's coarse TZ lease from kernel uptime after an accepted
+selected-root announcement. The prior path passed a past receipt timestamp to
+a future timing-permission converter, which rejected it and left TZ unknown.
+The four-byte wire format, three-period lease and precision behavior are unchanged.
+An actual production-body regression covers the rejected old conversion and
+selected-root/authentication gates.
+
+## 0.15.203 — Consistent coarse wire layout in the native controller
+
+Compile the application and both GM7 controller libraries with the same TZ wire
+selection. Their shared job contains the coarse advertisement array, so different
+selections change its layout and prevent reservations. Native inspection now
+rejects missing or inconsistent flags in the actual compiler commands, including
+the generated controller sources. Preserve the failed .202 acquisition attempt;
+this correction still requires fresh hardware certification.
+
+## 0.15.202 — Coarse mesh time zone
+
+Add four authenticated TZ bytes to GM7 coarse control, JOIN and RC coarse control/capability
+metadata, with explicit breaking coarse revisions and manual CDT (ID2/-300).
+An RC learns the mesh pair from its authenticated parent and relays it unchanged.
+Its coarse presence lease is three advertising periods and renews from existing
+parent advertisements independently of precision correction/lock/map expiry.
+G1/GR3/RC7 precision layouts, UTC clock calculations and USB timestamps retain
+their existing behavior. No automatic TZ/DST selection is enabled.
+
+The compact implementation uses a208B static allocation allowance versus the same-input
+.201 image and unchanged RC8/radio/USB/stack reserves.
+Builders use the shared compiler-output retention lifecycle. Offline historical
+codecs remain explicit; normal runtime does not accept the old coarse wire.
+Hardware installation and certification require their separate recorded gates.
+
+## 0.15.201 — Preserve armed takeover across leader reboot
+
+A new boot advertisement overlapping the old leader's cached advertisements
+no longer clears an already armed HOT commitment or rejects its reservation.
+Duplicate boots remain excluded from ordinary peer selection; only fresh
+contact from the exact old leader can renew its silence deadline. Console
+GM00 reports `leader_boot_overlap` using the existing snapshot storage.
+The service regression reproduces the old disarm and follows receiver closure,
+local-clock reservation, completed ANN, inherited epoch and precision enable.
+
+## 0.15.200 — Retain HOT across total leader loss
+
+Keep an already qualified, nominated HOT armed when the leader timing stream
+expires. Drain the old receiver and promote the retained map when available;
+otherwise use the independently qualified local source while preserving the
+original epoch. A delayed control attempt may use the existing five-second HOT
+lease instead of falling into the thirty-second cold election. Source health,
+nomination revocation and fresh incumbent contact still cancel takeover.
+Console gm00 reports hot_armed, takeover_due and takeover_clock without adding
+static memory. No precision qualification is inferred from local fallback.
+
+## 0.15.199 — Keep healthy leadership after late first G1
+
+Treat the three-second first-G1 target as a latency diagnostic after committed
+HOT promotion. A late or missing observation no longer withdraws a healthy GM
+into the thirty-second cold election. Precision retains actual source expiry.
+Expose handover_deadline_misses on gm00 and record the missed target once in
+the existing journal. Source loss still withdraws; late/missing regressions pass.
+
+## 0.15.198 — Preserve qualification through inherited-map promotion
+
+A deliberate HOT takeover replaces the local GNSS UTC map with the retained
+leader map. Start the UTC comparison at that map switch so an ordinary offset
+does not falsely reset healthy-source dwell for30 seconds. All later UTC
+comparisons and existing GNSS/capture/expiry checks remain active.
+
+## 0.15.197 — One-shot callback lifetime
+
+Keep ticker start completion with its native job slot. The pinned controller
+retains one-shot callbacks after the start acknowledgment and can call them
+again when a collision skips the event. A late failure now reports a dropped
+control job; it cannot write a returned stack frame or release the operation
+semaphore twice. The regression exercises delayed failure and drained reuse.
+
+Disable the per-call source register witness. Ordinary retained crash capture,
+exact-build offline decoding and its192-byte thread stack window remain enabled.
+Follower reset counters and HOT transition diagnostics remain available.
+
+## 0.15.196 — follower reset diagnostics
+
+GM7 page9 exposes cumulative receiver withdrawals, their calling PC, and scope
+reset counts/reason bits to diagnose repeated follower reacquisition. These
+observations confer no clock authority. Four counters add16 bytes of static RAM.
+
+## 0.15.195 — Distinguish unavailable association from scope change
+
+Preserve bounded nomination preference when a same-boot candidate temporarily
+cannot report its mesh association; a positively different mesh still removes
+it immediately. Report explicit source ineligibility before the resulting empty
+association, so console diagnostics identify the actionable cause.
+
+## 0.15.194 — Sticky HOT nomination and switchover diagnostics
+
+Retain the current same-scope candidate through up to30s of missing STATUS or
+transient preparation loss. Explicit ineligibility, withdrawal/quarantine and
+scope changes still remove it. Actual HOT confirmation and handover freshness
+remain unchanged. Accuracy/variance fluctuations do not preempt the nominee;
+configured priority or clock-class improvement retains the10s policy dwell.
+Console gm00 records nomination count, cause, previous identity/boot, change
+time and hold age; journal stages8/9 preserve old/new identities and full boots.
+Apply upstream Zephyr PR123163 inquiry boundary correction to generated ticker.
+Hardware acceptance is recorded separately; this is not a CPU-crash fix claim.
+
+## 0.15.193 — Serialize native and HCI controller calls
+
+GM submit, drain and phase updates now share one thread-side lock with HCI
+commands. The pinned controller has a shared ticker completion semaphore, a
+single-producer THREAD queue and a shared disable mayfly. Concurrent callers
+could consume each other's completion and return with a stack callback still
+pending. The lock preserves that single-caller contract while interrupt radio
+work continues normally. No host Bluetooth call is made under the lock.
+This repairs a reproduced race; attribution of historical CPU faults remains
+unproven. GM protocol and scheduling tolerances are unchanged.
+
+## 0.15.192 — Keep a successful takeover serving through schedule offset
+
+A valid first G1 could be followed by a forced withdrawal solely because its
+preferred management-frame placement differed by more than1.5ms. Continue
+serving and use the existing bounded8us phase nudges instead. Source expiry,
+actual first-G1 deadline, ownership and receiver precision checks are unchanged.
+The service regression reproduces the old withdrawal and covers both offset
+signs, near-half-frame offsets and repeated-sample suppression.
+
+## 0.15.191 — Restore capture and retain the older live leader
+
+An LLL-scheduled management AUX receive uses the primary scanner's cleanup
+path when preempted or when its scan duration expires. Release its exact
+PACKETPTR capture there, before the duplicate-done early return. Previously
+that path could leave CC1 owned by management and block subsequent G1 capture
+until another matching AUX completion. Queued cancellation cannot release the
+current radio owner. No timing thresholds or wire protocol changes.
+
+COLD followers also retain an older leader while authenticated G1/ROLE contact
+advances, even when its ANN expires. Previously only ACTIVE/HOT/reserved GMs
+excluded a newer contender at that point, allowing an ordinary follower to
+switch away from a live older mesh. Actual contact expiry still permits ordinary
+rediscovery. A regression reproduces the prior switch and checks both cases.
+
+The regression executes the generated scanner cleanup and both production
+capture adapters, reproduces the old failure, and verifies immediate G1 capture,
+duplicate cleanup, foreign-owner rejection and failed-driver release behavior.
+Hardware validation is pending; the separate CPU fault remains unresolved.
+
+## 0.15.190 — Bounded journal capacity and periodic AUX classification
+
+At startup only, a valid pending crash with no append capacity can reclaim a
+page containing eight fully validated foreign ordinary schema5 events. Current,
+crash, fault, unknown and malformed pages remain protected. The prior committed
+crash page survives every erase/write boundary; the unchanged508B payload plus
+4B commit and exact readbacks must succeed before acknowledgment or witness
+arming. Captured-bank and public synthetic regressions cover interrupted writes,
+conservative refusal and surviving-generation sequencing. Pending RAM is not
+guaranteed across power loss, and torn occupied protected pages may still block.
+
+Correct two parent pointers when the shared non-chain ULL AUX path has already
+classified a receive report as periodic sync. A hash-pinned generated source
+keeps the public dependency checkout unchanged. Actual production-body tests
+cover periodic completion/continuation/stop, extended scanning and deferred
+release; no assertion, reference-count, timer or exchange policy is removed.
+GM/RC profiles, GATT, RC9, relay, USB and precision policy are unchanged. This is
+offline preparation, not proof of a hardware trigger, CPU repair or sustained HOT.
+
+## 0.15.189 — Functional GM shadow readiness separate from precision lock
+
+A GM with a current same-scope fitted map, physical phase enclosure at most2ms,
+fresh correction/source evidence and independent qualified local GNSS/PPS can
+advertise shadow readiness and become the ordinary nominated HOT without the
+strict receiver PLL lock label. The receiver's125ns phase/strict200ns history
+and10s convergence dwell continue to govern its precision LOCK indication;
+they no longer gate functional GM nomination. Reported RMS and precision lock
+remain truthful. Missing or stale maps, wrong scope, unbounded phase and loss of
+local source qualification still prevent new readiness. The existing retained
+prediction bounds, source expiry, stop-before-start handoff, three-second HOT
+bound and30-second ordinary fallback are unchanged.
+
+The .188 ordinary-client eligibility and passive ARM witness remain included.
+Normal RC profile GATT, RC9, relay and all shared servo policy are unchanged.
+This is offline preparation: natural CPU corruption, sustained HOT and physical
+output accuracy remain unresolved or unqualified.
+
+## 0.15.188 — Ordinary RC source selection and passive ARM snapshot witness
+
+Only an ACTIVE GM with the existing live JOIN source envelope advertises ordinary
+connectable RC service. Followers retain GM management discovery, scanning and
+local PPS/shadow readiness. Source loss, merge, yield or stop cancels an ordinary
+JOIN through its existing callback drain; it cannot return a source-less ACCEPT.
+Returning to actual ACTIVE restores ordinary admission. RC profile GATT, RC9,
+relay and the functional/strict timing estimators are unchanged.
+
+This diagnostic canary adds an explicit AAPCS assembly frame around the existing
+source snapshot body. It records entry, post-call and saved callee registers and
+traps a real mismatch before restoring or returning. It does not repair the
+unresolved CPU corruption. The additional active frame is88B; original32B stack
+arguments and return value are preserved. Native disassembly/CFI and actual
+Cortex-M4 QEMU tests cover the production source/UTC path and synthetic offline
+boundary violations. They do not reproduce full Zephyr/IRQ concurrency.
+
+No retained allocation is added. After a previous crash has been durably saved
+and read back, an active GM may reuse128B of the existing512B record for the
+witness. Crash schema8 retains64B thread and64B ISR windows; the lost thread
+range is original bytes64..191. Normal RC, inactive and unavailable witnesses
+retain schema7's full192B thread capture. Earlier formats remain distinct.
+The existing `gm 00` query exposes enabled/armed/current stage, sequence, boot,
+capture-epoch low32 and prior-crash blockage. Export never acknowledges a save.
+
+Thirty-second ordinary fallback, three-second HOT bound, source/physical expiry,
+GM/RC profile separation and all publication fences remain. This is offline
+diagnostic preparation; CPU repair, sustained HOT and output accuracy are not
+established by the image or tests.
+
+## 0.15.187 — Recover from delayed GM processing snapshots
+
+Carry the completion handler's refreshed same-domain bridge back to its caller.
+A stale processing snapshot or unavailable post-MAC clock read rejects that
+operation without permanently failing the GM owner or erasing its lineage and
+peers. A rejected snapshot cannot publish output, renew a captured receipt or
+extend a source deadline. STOP and withdrawal always suppress output, including
+when processing time is unavailable; an invalid sample cannot create a fresh RF
+negative timestamp. An unread completion stays queued for a later valid cycle.
+
+The existing GM diagnostic page adds owner failure, time rejection count and
+local functional/physical source category without increasing static state.
+The quality page distinguishes an owner fault from ordinary synchronization wait.
+Real capture-domain changes, source/map expiry, physical HOT qualification,
+30-second ordinary election quiet and the three-second HOT bound remain.
+Wire packets and normal RC receive/GATT/RC9 behavior are unchanged.
+
+Host regressions execute the production completion/cycle/owner ordering with
+an advancing clock, delayed completion, transient clock unavailability, old and
+future receipts, original expiry, explicit stop, true epoch changes and genuine
+counter exhaustion. Offline tests and native builds do not establish hardware
+recovery or precision qualification; the previously observed CPU fault remains
+unresolved.
+
+## 0.15.186 — Durable broadcast GM following and asymmetric merge
+
+- Ordinary non-HOT fallback and initial election wait at least30s of leader silence; designated HOT retains the fast3s path. Reuse retained control fields for replay floors/receipt derivation to preserve the normal RC static-memory budget.
+
+GM profiles follow authenticated direct G1 through the existing RC matcher and
+causal fitter without JOIN, ANN source leases or control refresh sessions.
+Ordinary ANN/ROLE selects identity and full UTC lineage; self-ACTIVE ROLE can
+independently stop a newer mesh and begin listening. Only the newer ACTIVE
+yields. A progressing authenticated direct header inhibits duplicate output
+before fitting; retained publication floors are scoped to source/train. Actual
+matched original/correction expiry still bounds time and map exports. Local
+GNSS/PPS capture and source maps continue across receive and role changes.
+
+Prepare ordinary traffic up to100ms ahead, including the next frame; remove
+the3–7ms lucky-poll gate, completed-primary copy dependency, ANN-only silence
+clock, source-expiry RX shutdown, exact diagnostic-generation gate, redundant
+250ms correction gate and additional5s shadow preparation dwell. Control RX
+overflow counts a lost observation; GM precision record loss retires association
+and reacquires through the same receiver. Real clock/driver faults stay distinct.
+HOT nomination/ordinary STATUS echo and three immutable YIELD/WITHDRAW copies
+remain. Normal RC admission/GATT, RC9, relay, USB and LoRa behavior is preserved.
+
+See the [implementation guide](../../docs/t096/gm7-implementation.md) for timer
+policy, replay limits and offline checks. Physical multi-GM acceptance and the
+separate unexplained CPU faults remain open; no flash or hardware qualification
+is implied.
+
+## 0.15.184 — Simplified control admission and active-mesh discovery
+
+S1 separates one causal peer/boot freshness fact from physical timing descriptor
+admission. Fresh ordinary ANN/STATUS no longer renegotiate control on role,
+lineage or source/train changes; a losing newer ACTIVE stops before physical
+following. Keep exact descriptor lineage/token/generations, source expiry,
+replay/terminal floors and real timing readiness. Delayed ANCHOR cannot erase
+newer accepted control. Reduce pending nonces four→one and remove A1 reserved
+frames, identity-bit copies, frozen retry UTC/residues/attempt state. Diversify
+one immutable ordinary copy per frame across45/50/55ms, with the existing three
+controller contexts and one bounded response arbitration. Ordinary nomination,
+next STATUS HOT and three immutable YIELD/WITHDRAW copies retain their guards.
+Pin enabled GM scanning to37 without phase-driven restarts. Add one bounded,
+owner-validated USB YIELD request for an already announced, fresh ordinary HOT;
+equal-quality nodes can yield without inventing quality differences. DC/RC and
+stale source/scope/nominee requests remain fenced; command acceptance is not RF
+completion.
+
+Add authenticated heard-only peer display with unknown timers and distinct
+fresh-control/descriptor facts, plus bounded RX/TX/event/merge/source records in
+the existing journal. Preserve ordinary RC/client GATT/RC9, relays, USB, LoRa and
+the .181/.182/.183 fixes. Production-body offline tests and native inspection
+remain separate from actual RF convergence/HOT/events, unexplained CPU faults,
+endurance and calibrated UTC/output acceptance. See the S1 amendment and GM7
+implementation guide for exact scope and reproducible checks.
+
+## 0.15.183 — Sample source processing time after its coherent input
+
+Copy the GM7 clock metadata and physical source map together, then refresh the
+paired processing clock under that same bounded lock before evaluating ages.
+A PPS or RMC published after the earlier cycle timestamp could otherwise look
+like future input and reset qualification despite being current. Return the
+validated bridge to the caller; failed or changed clock domains remain fenced.
+Keep original GNSS/PPS timestamps, freshness horizons, dwell and HOT/stop gates.
+The focused regression fails on the original production ordering and passes
+with the correction, using synthetic kernel/capture interleavings. This does
+not establish the exact field withdrawal trigger or resolve CPU corruption.
+The offline crash decoder also stops before CFI when the original or recovered
+PC lies outside allocated executable ELF sections; raw registers remain intact.
+
+## 0.15.182 — Reopen PT from a fresh GM control grant
+
+Publish the GM7 grant, anchor, roster and bounded resume atomically. A control
+withdrawal previously left PT stopped after a later valid local election or
+authenticated follower contact. Separate this fast mailbox operation from HCI
+consumption and preserve service stop, fatal/resource, original expiry and HOT
+handoff precedence. Fence old or in-flight PT output and LoRa/shadow exports
+against the current full binding and original horizons. First GM opt-in waits
+for an unmanaged PT job to finish its exports. Two bits use existing input
+padding; ordinary RC publication remains on its original path. Add named
+`pt_stopped`, `pt_managed` and `pt_binding_matches` observations to `gm 00`,
+without changing its existing keys or diagnostic storage. Focused tests execute
+the real producer, PT, codec and native start/stop bodies with fake HAL/HCI.
+These are offline behavior checks; actual RF delivery and the separate CPU
+corruption remain unqualified.
+
+## 0.15.181 — Allow initial election after an expired remote timing map
+
+After the GM7 owner grants an initial election, use the independently qualified
+local physical source to place its first ANNOUNCE. A retained remote lineage
+without a live delivered timing map previously suppressed the reservation even
+after all initial-election checks passed. Retain that lineage for birth, founder
+and term inheritance. Fresh incumbents, rank, quiet/backoff, local GNSS dwell,
+source expiry, HOT takeover and negative scheduling keep their existing checks.
+A focused production-cycle regression covers first-ANN completion and these
+guards with fake kernel/HAL/RF boundaries. This does not identify the separate
+CPU corruption or establish hardware election or timing qualification.
+
+## 0.15.180 — Retain a bounded CPU crash record and persist on reboot
+
+Keep the existing256B fault capsule and add one512B retained record with original
+integer registers, exact source/build/silicon/boot identity and up to192B of
+known thread stack plus64B of ISR stack. Fatal capture uses only bounded static
+storage and direct reads of known allocations, without flash or kernel locks.
+Before radio startup, the existing bank0 owner appends one schema7 journal slot
+and verifies payload plus commit before acknowledging RAM handoff. Latest crash
+and ordinary-event pages are independently preserved across source upgrades;
+no safe capacity or failed handoff leaves RAM pending and reports a separate
+persistence error without blocking healthy GM startup. No bank1 or enrollment
+writes are added. Read-only diag chunks0100–0107 export retained data; the offline
+decoder requires the exact build and stops CFI unwinding at unavailable context.
+Increase the GM7 ISR reserve from2176 to3072B for the fatal path; actual native
+resource review remains required. This diagnostic change does not identify or
+fix the unexplained CPU corruption, and does not qualify physical retention,
+failover, UTC accuracy or hardware operation.
+
+## 0.15.179 — Keep GM owner liveness on the CONTROL watchdog
+
+Remove the GM7-only terminal check that counted queue and execution wall time
+against 100 ms. The transport's existing 100 ms operation deadline starts at
+worker execution; these were different budgets. Preserve serialization and cost
+diagnostics, the original 30-second accepted-CONTROL watchdog, source/RF expiry
+and the original cleanup deadline. RC behavior is unchanged. A focused production
+supervisor-to-watchdog composition retains stale-owner, expiry and error gates.
+The field wall overrun's delaying call and separate CPU corruption remain unknown.
+
+## 0.15.178 — Refresh processing time after GM receive
+
+Refresh the same-epoch processing bridge after owner receive, which independently
+samples time during decoding. Passing its older timestamp to the next REQUEST
+operation could permanently stop a cold GM before its first request. Preserve
+the captured RX time, original deadlines and all qualification checks. The
+bootstrap composition now also runs with an advancing owner clock. The separate
+CPU pointer-corruption faults remain unresolved.
+
+## 0.15.177 — Bootstrap GM followers before a physical phase map
+
+Allow an authenticated ordinary ANNOUNCE locator to place a bounded nonce
+REQUEST without qualified local GNSS or an already selected G1 map. Treat its
+primary/discovery-copy phase as a guess; it grants no positive output, STATUS,
+source, phase or HOT authority. Freeze retry-placement UTC in the immutable
+REQUEST job's existing storage and use its actual RF START at completion,
+preserving the A1 residues and original nonce/source deadlines. Keep ANCHOR,
+subsequent control and captured G1 admission independent. Production-body tests
+compose actual causal bootstrap with the normal full-identity GRv3/G1 receiver,
+including older retained self lineage, absent UTC, refusal and response loss.
+Includes version176's normal JOIN and resumed-progress corrections and retains
+version175's fault diagnostics. The separate version174 CPU fault remains
+unresolved; these offline checks establish no hardware qualification.
+
+## 0.15.176 — Preserve time-client initialization and resumed progress
+
+Retain the GM7 server's incoming normal JOIN connection through its existing
+MTU/discovery and authenticated time exchange. Previously its outgoing-control
+policy could retire that connection on the first owner poll. Keep the original
+expiry, release, shutdown and callback drain limits; ordinary RC services are
+unchanged. On a fully drained GM resume, record one actual CONTROL handoff sample
+and retire the prior completed close state and current authority flags. A dormant
+publication could otherwise trigger the unchanged30s progress watchdog before
+the first resumed publication, particularly after a long RC interval. Queries
+and pending reset retries do not refresh this sample. The original watchdog
+decisions, transition bounds and source validity checks remain. Version175's
+register diagnostics remain; the separate version174 CPU fault is unresolved.
+
+## 0.15.175 — Preserve hardware fault registers
+
+Diagnostic-only normal GM/RC candidate: enable the pinned kernel's extra
+exception information and retain supplied integer registers in the same64word
+fault capsule. Format4 uses actual memory/bus/usage exception provenance and
+checked ISR-stack bounds before reading the saved callee registers. Formats2/3
+remain readable; controller/assertion failures retain format3. SCB values are
+post-kernel-clear and cannot establish BFAR validity. The separate watchdog role
+record and all source, radio, HOT, RC/GATT/relay and timing behavior remain
+unchanged. This collects evidence for an unexplained hardware BusFault observed
+with version174; it does not claim to fix that fault or establish acceptance.
+
+## 0.15.174 — Retire refused GM reservations
+
+Roll back a refused first-ANNOUNCE reservation before releasing its job, and
+retire absent completion at the original end. Process measured results first;
+retain possibly exposed lineage and fence stale callbacks. Consume each original
+primary opportunity once. Allow25ms of CPU construction lead while preserving
+RF windows, actual3ms native admission, immutable samples/expiry and handoff
+deadlines. Include29ms in the negative-only phase enclosure. Add same-size local
+reservation-stage/error/failure diagnostics and distinct native timing refusal
+codes. Actual service/controller regressions cover refusal-to-success recovery,
+late result processing, early-queue cancellation and explicit fake CPU delays.
+Ordinary RC/GATT/relay and other clients remain unchanged. These offline results
+do not establish hardware acceptance or calibrated accuracy.
+
+## 0.15.173 — Bind GM resume and physical UTC samples
+
+Bind the current capture epoch only when an explicit RC-to-GM transition has
+drained its old owners. Keep running-worker epoch faults terminal. Stop cancels
+pending reset/start; failed start retains ordinary cleanup ownership and error.
+Pair physical functional UTC with its actual capture tick and project to a fresh
+same-epoch bridge for phase scheduling. Preserve coarse fallback timestamps,
+original source horizons, backstep fences and the independent60s GNSS dwell.
+Version172 could reject cold RC-to-GM resume at epoch0, and variable capture
+latency could appear as a false UTC backstep. Actual dispatcher/service/source
+tests cover both failures, warm transitions, cancellation, expiry and errors.
+Ordinary RC/GATT/relay, USB, LoRa, DC and PC contracts remain unchanged. Offline
+tests and builds do not establish hardware acceptance or calibrated accuracy.
+
+## 0.15.172 — Serialize the GM clock pair
+
+Sample the kernel/HF bridge in a bounded IRQ critical section so scheduler or IRQ
+preemption cannot turn a healthy HF domain into a spurious wide-pair ESTALE. The
+100us enclosure, physical domain/epoch faults and original deadlines remain
+unchanged. Restore the prior IRQ key on every path. No HOT policy or RC service
+changes. Actual service plus actual HF-reader regressions cover preemption,
+intrinsic excess latency, stale/invalid domains, epoch replacement and drain.
+
+Version171 fixed initial asynchronous readiness, but a later worker could close
+on an unprotected software clock pair. These offline checks do not establish
+measured critical-section duration, RF behavior or UTC accuracy.
+
+## 0.15.171 — Wait for the initial GM capture domain
+
+Initial GM startup waits for the existing asynchronous capture owner to publish
+its HF domain before arming diagnostics or attempting normal service. The
+original boot deadline and capture timeout remain fixed; driver faults, failed
+start, maintenance and poweroff cancel once and cannot revive later. Ordinary RC
+startup and runtime profile switching retain their existing paths. Report pending
+or terminal startup separately from active GM7 diagnostics. Version170 could
+attempt GM startup before capture publication, return ESTALE, and suppress the
+later start with its one-shot flag. The regression now composes actual main,
+time-start, capture and GM7 service bodies with fake public driver boundaries.
+
+New offline source/build review is required; earlier170 receipts are historical.
+No RF, output-continuity or calibrated UTC qualification follows from this fix.
+
+## 0.15.170 — GM7 offline engineering
+
+Replace GM-profile HOT/coordinator GATT policy with implementation2 connectionless
+STATUS/ANNOUNCE, causal REQUEST/ANCHOR freshness and local HOT preparation. Apply
+frozen A1 discovery and C1 provisional birth/exposure semantics. Keep normal
+GM-to-RC JOIN/G1/GRv3, RC7/UCS1/RC9, clients, USB, LoRa RC8, DC and PC contracts.
+Add scoped GM peer ROLE timers, local owner timers, bounded native complete-event
+management and prospective G1 phase arbitration. Historical GM5/6 is selected
+only by the explicit regression build option.
+
+Validation and unverified operating assumptions are recorded in the
+[GM7 implementation guide](../../docs/t096/gm7-implementation.md). Offline results
+and native images do not establish RF delivery, physical takeover timing,
+endurance or calibrated UTC accuracy. Hardware review remains separate.
+
 Detailed release and validation notes, moved from the T096 README and build guide.
 Entries describe their source version at the time; older policies, deadlines and
 candidate labels are historical, not current operating instructions.

@@ -11,7 +11,7 @@ struct r2_radio_record {
   uint32_t reservation_us, prepare_us, widening_us, receive_window_us;
   uintptr_t owner;
   uint16_t event;
-  uint8_t channel, length;
+  uint8_t channel, length, pdu_length;
   bool tx;
   uint8_t ad[R2_RADIO_CAPTURE_AD_MAX];
 };
@@ -72,3 +72,6 @@ struct r2_rx_loss_capsule {
 void r2_radio_capture_freeze_loss(void);
 void r2_radio_capture_schedule(void *owner,uint16_t event,uint32_t lazy,uint32_t skipped,bool queued);
 bool r2_radio_capture_loss(struct r2_rx_loss_capsule *);
+
+/* Serialized LLL owner check for the GM7 alternate ADDRESS consumer. */
+bool r2_radio_capture_available(void);

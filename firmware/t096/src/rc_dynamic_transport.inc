@@ -44,7 +44,7 @@ struct lt_retired_connection {
 static struct lt_retired_connection lt_retired[CONFIG_BT_MAX_CONN];
 static bool lt_retirement_error;
 static struct rc7_control lt_request, lt_incoming, lt_reply;
-static uint8_t lt_wire[212], lt_read_wire[212], lt_server_wire[212],
+static uint8_t lt_wire[RC_DYNAMIC_CONTROL_BYTES], lt_read_wire[RC_DYNAMIC_CONTROL_BYTES], lt_server_wire[RC_DYNAMIC_CONTROL_BYTES],
     gm_wire[R2_GROUP_JOIN_BYTES];
 static size_t lt_read_size;
 static uint16_t lt_handle;
@@ -80,7 +80,7 @@ struct lt_event {
   struct bt_conn *conn;
   uint8_t error;
   uint16_t handle;
-  uint8_t wire[212];
+  uint8_t wire[RC_DYNAMIC_CONTROL_BYTES];
 };
 K_MSGQ_DEFINE(lt_events, sizeof(struct lt_event), 4, 4);
 K_MUTEX_DEFINE(lt_reply_lock);
@@ -233,6 +233,9 @@ static struct rc7_control capability(void) {
                           .sender = self_identity,
                           .sender_boot = local_boot,
                           .next_challenge = lt_challenge};
+#ifdef R2_TZ_WIRE
+  c.tz=r2_tz_current(&coarse_tz,mono_us());
+#endif
   if (make_publication_path()) {
     c.path = publication_path;
     c.publishing = downstream_ready(lt_now());
@@ -240,13 +243,17 @@ static struct rc7_control capability(void) {
   return c;
 }
 static void lt_publish_reply(const struct rc7_control *c) {
-  uint8_t wire[212];
-  if (rc7_control_encode(wire, c, &group)) {
+  uint8_t wire[RC_DYNAMIC_CONTROL_BYTES];
+  struct rc7_control reply=*c;
+#ifdef R2_TZ_WIRE
+  reply.tz=r2_tz_current(&coarse_tz,mono_us());
+#endif
+  if (rc7_control_encode(wire, &reply, &group)) {
     check(false, "RQ7 reply encode");
     return;
   }
   k_mutex_lock(&lt_reply_lock, K_FOREVER);
-  memcpy(lt_server_wire, wire, 212);
+  memcpy(lt_server_wire, wire, RC_DYNAMIC_CONTROL_BYTES);
   k_mutex_unlock(&lt_reply_lock);
 }
 static ssize_t lt_server_read(struct bt_conn *conn,
@@ -256,7 +263,7 @@ static ssize_t lt_server_read(struct bt_conn *conn,
     return BT_GATT_ERR(BT_ATT_ERR_UNLIKELY);
   k_mutex_lock(&lt_reply_lock, K_FOREVER);
   ssize_t ret =
-      bt_gatt_attr_read(conn, attr, buf, len, offset, lt_server_wire, 212);
+      bt_gatt_attr_read(conn, attr, buf, len, offset, lt_server_wire, RC_DYNAMIC_CONTROL_BYTES);
   k_mutex_unlock(&lt_reply_lock);
   return ret;
 }
@@ -266,7 +273,7 @@ static ssize_t lt_server_write(struct bt_conn *conn,
   (void)attr;
   (void)flags;
   if (!r2_switch_rc_active() || conn != lt_conn || !lt_server || offset ||
-      len != 212)
+      len != RC_DYNAMIC_CONTROL_BYTES)
     return BT_GATT_ERR(BT_ATT_ERR_UNLIKELY);
   struct lt_event e = {.type = LT_SERVER_WRITE, .conn = conn};
   memcpy(e.wire, buf, len);
@@ -341,9 +348,9 @@ static void lt_mtu_done(struct bt_conn *conn, uint8_t error,
   struct bt_conn_info info;
   bool live = !bt_conn_get_info(conn, &info) &&
       info.state == BT_CONN_STATE_CONNECTED;
-  if (error == BT_ATT_ERR_UNLIKELY && live && mtu >= 215)
+  if (error == BT_ATT_ERR_UNLIKELY && live && mtu >= RC_DYNAMIC_CONTROL_BYTES+3u)
     e.error = 0;
-  if (!e.error && (!live || mtu < 215))
+  if (!e.error && (!live || mtu < RC_DYNAMIC_CONTROL_BYTES+3u))
     e.error = BT_ATT_ERR_UNLIKELY;
   if (error)
     r2_timing_event(R2_TIMING_GM_CONTROL,error,0,21,mtu,live);
@@ -359,20 +366,20 @@ static uint8_t lt_read_done(struct bt_conn *conn, uint8_t error,
                             struct bt_gatt_read_params *p, const void *data,
                             uint16_t length) {
   struct lt_event e = {.type = LT_READ, .conn = conn, .error = error};
-  if (lt_read_size + length > 212)
+  if (lt_read_size + length > RC_DYNAMIC_CONTROL_BYTES)
     e.error = 1;
   if (!e.error && data) {
     memcpy(lt_read_wire + lt_read_size, data, length);
     lt_read_size += length;
-    if (lt_read_size < 212)
+    if (lt_read_size < RC_DYNAMIC_CONTROL_BYTES)
       return BT_GATT_ITER_CONTINUE;
     if (!p->handle_count)
       e.handle = p->by_uuid.start_handle;
   }
-  if (!e.error && lt_read_size != 212)
+  if (!e.error && lt_read_size != RC_DYNAMIC_CONTROL_BYTES)
     e.error = 1;
   if (!e.error)
-    memcpy(e.wire, lt_read_wire, 212);
+    memcpy(e.wire, lt_read_wire, RC_DYNAMIC_CONTROL_BYTES);
   lt_event_put(&e);
   return BT_GATT_ITER_STOP;
 }
@@ -394,7 +401,7 @@ static uint8_t lt_relay_located(struct bt_conn *conn,
 }
 /* Discover the small characteristic declaration, then read its value by handle.
  * The pinned NimBLE Read By Type server flattens values through a 19-byte buffer;
- * asking for the 212-byte capability by UUID therefore returns ATT 0x0e even
+ * asking for the full coarse capability by UUID therefore returns ATT 0x0e even
  * with a sufficient MTU and a healthy server. No cached handle crosses ACLs. */
 static int lt_relay_locate(void) {
   lt_discovery = (struct bt_gatt_discover_params){
@@ -494,7 +501,7 @@ static bool gm_accept(const struct r2_join_record *r, uint64_t proof,
 static void gm_apply(const uint8_t *wire) {
   struct r2_join_record r;
   uint64_t tick = lt_now(), now = tick / 16;
-  int decoded = r2_group_join_decode(&r, wire, 164, &group);
+  int decoded = r2_group_join_decode(&r, wire, R2_GROUP_JOIN_BYTES, &group);
   if (decoded || r.control || r2_group_join_receive(&gm_exchange, &r, now)) {
     gm_admission_record(decoded ? NULL : &r, gm_exchange.proof_at,
                         now, decoded ? 1 : 2);
@@ -508,6 +515,10 @@ static void gm_apply(const uint8_t *wire) {
   } else if (r.kind == R2_JOIN_ACCEPT) {
     bool bound = gm_accept(&r, gm_exchange.proof_at, now, tick);
     if (bound) {
+#ifdef R2_TZ_WIRE
+      uint64_t tz_at=mono_us();
+      (void)r2_tz_observe(&coarse_tz,r.tz,tz_at,tz_at,R2_TZ_GM_PERIOD_US);
+#endif
       ++lt_bindings;
       startup_complete();
       lt_attempts = 0;
@@ -552,7 +563,7 @@ static int gm_send(unsigned kind, uint64_t tick) {
   int rc = r2_group_join_encode(gm_wire, &r, &group);
   if (rc)
     return rc;
-  rc = bt_gatt_write_without_response_cb(lt_conn, lt_handle, gm_wire, 164,
+  rc = bt_gatt_write_without_response_cb(lt_conn, lt_handle, gm_wire, R2_GROUP_JOIN_BYTES,
                                          false, gm_sent, NULL);
   if (!rc) {
     gm_write_busy = true;
@@ -790,6 +801,10 @@ static void lt_apply_read(const struct rc7_control *c) {
             rc7_bind(&receiver, &c->path, self_identity,
                      routes.node[node].transmitter, routes.node[node].slot, &a);
       if (bound) {
+#ifdef R2_TZ_WIRE
+        uint64_t tz_at=mono_us();
+        (void)r2_tz_observe(&coarse_tz,c->tz,tz_at,tz_at,R2_TZ_RC_PERIOD_US);
+#endif
         parent_count0_at=0;
         if(changed_scope){
           rc_stream_scope_changed(&stream_history,c->sender,true,tick/16);
@@ -898,7 +913,7 @@ static void lt_drain(void) {
       break;
     case LT_READ: {
       struct rc7_control c;
-      if (rc7_control_decode(&c, e.wire, 212, &group)) {
+      if (rc7_control_decode(&c, e.wire, RC_DYNAMIC_CONTROL_BYTES, &group)) {
         ++lt_rejects;
         lt_deadline = 0;
         break;
@@ -909,7 +924,7 @@ static void lt_drain(void) {
       break;
     }
     case LT_SERVER_WRITE:
-      if (rc7_control_decode(&lt_incoming, e.wire, 212, &group) ||
+      if (rc7_control_decode(&lt_incoming, e.wire, RC_DYNAMIC_CONTROL_BYTES, &group) ||
           lt_incoming.type != RC7_REQUEST ||
           lt_incoming.target != self_identity ||
           lt_incoming.target_boot != local_boot ||
@@ -974,6 +989,9 @@ static void slot_hint_update(void) {
     check(false, "RQ7 capability encode");
     return;
   }
+#ifdef R2_TZ_WIRE
+  advertised_tz=c.tz;
+#endif
   static const uint8_t flags = BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR;
   struct bt_data data[] = {
       {.type = BT_DATA_FLAGS, .data_len = 1, .data = &flags},
@@ -1004,6 +1022,10 @@ static void lt_init(void) {
 }
 static void lt_advertise(uint64_t tick) {
   if(!lt_adv)return;
+#ifdef R2_TZ_WIRE
+  struct r2_tz tz=r2_tz_current(&coarse_tz,mono_us());
+  if(tz.id!=advertised_tz.id || tz.offset_min!=advertised_tz.offset_min)slot_hint_update();
+#endif
   if(!routes.node[node].transmitter){
     if(lt_advertising){
       int rc=bt_le_ext_adv_stop(lt_adv);
@@ -1175,7 +1197,7 @@ static void lt_poll(uint64_t tick, bool window) {
                                                .handle = lt_handle,
                                                .offset = 0,
                                                .data = lt_wire,
-                                               .length = 212};
+                                               .length = RC_DYNAMIC_CONTROL_BYTES};
       lt_request_at = tick;
       lt_phase = LT_CONNECT;
       rc = bt_gatt_write(lt_conn, &lt_write);

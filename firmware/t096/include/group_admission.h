@@ -46,3 +46,22 @@ void r2_group_admission_relay_ready(bool);
 
 /* Serialized owner only; RX policy, independent of fine timing validity. */
 bool r2_group_admission_mesh_contact(uint64_t now);
+
+/* GM7 server facade. The existing JOIN nonce/exchange/codec, original transient
+ * expiry and transport callback drain are shared unchanged with RC clients.
+ * No incoming proof or cached JOIN time can become GM7 HOT/election input. */
+struct r2_gm7_admission_source {
+ const struct r2_group_config *group;
+ uint64_t identity,boot,utc_us,sampled_us,until_us;
+ uint32_t timing_epoch,train,map_bound_us;
+ const char *name;
+ bool serving;
+};
+/* Existing JOIN source envelope, not GM membership or a follow permission. */
+static inline bool r2_gm7_admission_live(const struct r2_gm7_admission_source *s,uint64_t now){
+ return s&&s->group&&s->serving&&s->identity&&s->boot&&s->timing_epoch&&s->train&&
+  now>=s->sampled_us&&now<s->until_us&&s->until_us-now<=1500000&&
+  s->utc_us<=UINT64_MAX-(now-s->sampled_us);
+}
+void r2_group_admission_gm7_tick(const struct r2_gm7_admission_source *,uint64_t now);
+void r2_group_admission_gm7_receive(const struct r2_gm7_admission_source *,const struct r2_ble_event *,uint64_t now);

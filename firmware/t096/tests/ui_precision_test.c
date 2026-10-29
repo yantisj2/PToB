@@ -70,6 +70,26 @@ int main(int argc,char **argv){
  m.precision.locked=false; /* HOT remains eligible across short fit-lock changes. */
  fixture(argv[1],"precision-hot-fit-unlocked",&m,&s,62000);
  assert(!memcmp(locked_fb,fb,80*2*44));
+#if defined(R2_GM7_NATIVE)
+ /* Functional GM7 HOT and face quality do not manufacture strict SoftPLL. */
+ m.gm7_owner=true;
+ fixture(argv[1],"precision-gm7-hot-unlocked",&m,&s,62000);
+ uint8_t unlocked_label[80*2*12];memcpy(unlocked_label,fb+32*80*2,sizeof unlocked_label);
+ assert(!color_count(32,10,R2_UI_RGB565_GREEN));
+ assert(color_count(128,7,R2_UI_RGB565_GREEN));
+ m.face_lock_until_us=63000000;m.face_rms_ns=137;
+ m.clock.valid=true;m.clock.utc_us=36642000000LL;
+ assert(r2_ui_face_locked(&m,62000));
+ fixture(argv[1],"precision-gm7-hot-face-only",&m,&s,62000);
+ assert(!color_count(32,10,R2_UI_RGB565_GREEN));
+ memcpy(unlocked_label,fb+32*80*2,sizeof unlocked_label);
+ m.local_hot_standby=false;fixture(argv[1],"precision-gm7-cold-unlocked",&m,&s,62000);
+ assert(!memcmp(unlocked_label,fb+32*80*2,sizeof unlocked_label));
+ m.local_hot_standby=true;m.precision.locked=true;
+ fixture(argv[1],"precision-gm7-hot-locked",&m,&s,62000);
+ assert(memcmp(unlocked_label,fb+32*80*2,sizeof unlocked_label)&&color_count(32,10,R2_UI_RGB565_GREEN));
+ m.gm7_owner=false;m.precision.locked=false;m.face_lock_until_us=0;m.clock.valid=false;
+#endif
  s.shadow=(struct r2_shadow_session_view){.state=R2_SHADOW_SETTLING,.settling_ms=5000};
  fixture(argv[1],"precision-settling",&m,&s,62000);assert(color_count(64,7,R2_UI_RGB565_CYAN)); /* stream RMS is independent of held GM shadow */
  s.shadow=(struct r2_shadow_session_view){.state=R2_SHADOW_RUNNING,.active=true,.valid=true,.mean_tenth_ns=-5000000000LL,.rms_ns=500000000,.samples=UINT32_MAX};

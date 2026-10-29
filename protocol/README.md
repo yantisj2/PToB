@@ -1,6 +1,6 @@
 # Protocol contracts
 
-The [time zone wire plan](../docs/time-zones.md) proposes four authenticated
+The [time zone wire plan](../docs/time-zones.md) adds four authenticated
 bytes alongside coarse UTC: a stable zone ID and current offset, forwarded by
 RCs. It requires an explicit new coarse-packet revision and leaves existing
 precision layouts unchanged. The [candidate coarse-wire contract](time-zone-v1/README.md) records the
@@ -8,8 +8,15 @@ new lengths and authentication domains; hardware certification is pending. The [
 feature using the same fields.
 
 The [T096 execution plan](../docs/t096/time-zone-test-plan.md) specifies
-new-wire-only GM/RC tests with manual CDT before any other target rollout;
-the attached TC-01/TC-02/TC-04 execution is operator authorized and underway.
+new-wire-only GM/RC tests with manual CDT before any other target rollout.
+T096 source 0.15.205 is installed locally on TC-01 through TC-04; its
+[bounded results](../docs/t096/time-zone-test-plan.md#local-205-results-29-october-2026)
+retain incomplete GM successor gates and failed relay availability.
+
+The [current T096 GM7 implementation](../docs/t096/gm7-implementation.md) uses
+GM7v4+S2+C1+TZ1. The separate [GM7 draft 1](gm7/README.md),
+[v2 baseline](gm7_v2/README.md) and later S1/S2/C1 contracts retain their own
+frozen versions and synthetic fixtures; they do not establish hardware acceptance.
 
 [RC8 LoRa version 2](rc8/README.md) freezes the offline T096 source/packet,
 event-association, functional availability, freshness/authority and bounded-hold contract. Its portable

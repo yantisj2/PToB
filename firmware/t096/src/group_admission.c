@@ -15,6 +15,8 @@
 #if defined(R2_RC_DYNAMIC_FIXTURE)
 extern bool r2_rc7_fixture_gm_hot(void);
 #endif
+static bool gm7_server_only;
+static struct r2_gm7_admission_source gm7_source;
 static struct r2_join_exchange exchange;
 static struct r2_group_client client;
 static struct r2_join_record pending;
@@ -119,7 +121,7 @@ static void control_result(const struct r2_join_record *r, uint64_t now) {
     control_denied_until=now>UINT64_MAX-5000000?UINT64_MAX:now+5000000;
 }
 static bool control_available(const struct r2_network *n) {
-  return !n->gm5.enabled && !control_blocked(n->now) && n->admission.eligible && (n->capabilities & 1) && r2_ble_control_available();
+  return !gm7_server_only && !n->gm5.enabled && !control_blocked(n->now) && n->admission.eligible && (n->capabilities & 1) && r2_ble_control_available();
 }
 static struct r2_join_record message(const struct r2_network *n, unsigned kind,
                                      uint64_t now) {
@@ -136,6 +138,9 @@ static struct r2_join_record message(const struct r2_network *n, unsigned kind,
       .sequence = ++sequence,
       .created_us = now};
   memcpy(r.name, n->name, 25);
+#ifdef R2_TZ_WIRE
+  if(gm7_server_only)r.tz=r2_tz_manual();
+#endif
   if ((kind == R2_JOIN_PROOF || kind == R2_JOIN_ACCEPT) && n->ready &&
       n->view.available && n->view.relative_ready && n->choice < n->count &&
       n->service_until > now && n->service_until - now <= 1500000 &&
@@ -193,6 +198,15 @@ static struct r2_join_record message(const struct r2_network *n, unsigned kind,
    if(!allowed&&!n->local_gm){r.root=r.root_boot=r.utc_us=0;r.source_epoch=r.publication=0;
     r.remaining_us=0;r.source_flags=0;r.source_bound_us=0;}
   }
+  if(gm7_server_only){
+   /* Use the exact GM7 functional UTC sample, preserving its original finite
+    * source permit. A proof/receipt never renews the source owner. */
+   r.root=r.root_boot=r.utc_us=0;r.source_epoch=r.publication=r.remaining_us=0;r.source_flags=0;r.source_bound_us=0;r.control=false;r.demand=0;
+   if((kind==R2_JOIN_PROOF||kind==R2_JOIN_ACCEPT)&&r2_gm7_admission_live(&gm7_source,now)){
+    r.root=gm7_source.identity;r.root_boot=gm7_source.boot;r.source_epoch=gm7_source.timing_epoch;r.publication=gm7_source.train;
+    r.utc_us=gm7_source.utc_us+now-gm7_source.sampled_us;r.remaining_us=(uint32_t)(gm7_source.until_us-now);r.source_flags=1;r.source_bound_us=gm7_source.map_bound_us;
+   }
+  }
   /* JOIN coarse bootstrap keeps its older1.5s ceiling. GR3's independent
    *1650ms serving permission must not make this existing codec reject JOIN. */
   if(r.remaining_us>1500000)r.remaining_us=1500000;
@@ -201,6 +215,7 @@ static struct r2_join_record message(const struct r2_network *n, unsigned kind,
 static void accepted_peer(struct r2_network *n, const struct r2_join_record *r,
                           uint64_t causal_sent, uint64_t now) {
   if(!exchange.control)r2_ble_admission_completed(exchange.peer,now);
+  if(gm7_server_only)return; /* authenticated client, never a GM coordination source */
   if((n->capabilities&4)&&r->demand==1&&!exchange.control&&exchange.server){received_request=true;}
   /* A fresh completed proof without demand cancels only this peer's still
    * pending acquisition. It cannot withdraw an aggregate live service lease
@@ -338,6 +353,7 @@ void r2_group_admission_tick(struct r2_network *n, uint64_t now) {
   }
 #endif
   if(active)admission_clip(n,now);
+  if(!gm7_server_only){
   anchor_from_live_map(n,now);
   if(now>=pending_parent_until)pending_parent=pending_parent_boot=pending_parent_until=0;
   bool cancel_pending=pending_parent&&!poor_direct&&direct_receive_since_quality;
@@ -401,6 +417,7 @@ void r2_group_admission_tick(struct r2_network *n, uint64_t now) {
    r2_ble_client_bootstrap(cancel_pending||refresh_required||!client.source||now>=client.until||guard>=100000||(!(demand.received&&now<demand.until)&&(poor_direct||parent)&&(demand.until<=now||(now>=demand.at&&now-demand.at>=R2_LOCAL_DEMAND_RENEW_US))),
                           refresh_required||!client.source||now>=client.until||guard>=125000);
   }
+  }
   bool ready = r2_ble_ready(r2_ble_admission_peer());
   uint64_t peer = r2_ble_peer_identity(r2_ble_admission_peer(), NULL);
 #if defined(R2_GM5_NATIVE)
@@ -451,7 +468,7 @@ void r2_group_admission_tick(struct r2_network *n, uint64_t now) {
 #endif
     retry_at = now + 200000;
   }
-  if (!active && ready && peer && (n->gm5.enabled&&!n->gm5.bridge?r2_ble_admission_deadline()>now:now>=retry_at)) {
+  if (!active && ready && peer && (!gm7_server_only||r2_ble_admission_server()) && (n->gm5.enabled&&!n->gm5.bridge?r2_ble_admission_deadline()>now:now>=retry_at)) {
     uint64_t nonce;
     if (r2_ble_admission_nonce(&nonce)) {
       r2_ble_admission_release();
@@ -517,7 +534,7 @@ void r2_group_admission_tick(struct r2_network *n, uint64_t now) {
       active = waiting = promote = false;
     }
   }
-  if (client.passive&&!n->gm5.enabled) {
+  if (!gm7_server_only&&client.passive&&!n->gm5.enabled) {
     n->profile_client = n->self;
     r2_ble_group_client(true);
   }
@@ -621,6 +638,7 @@ void r2_group_admission_receive(struct r2_network *n,
 }
 
 void r2_group_admission_reset(void){
+ gm7_server_only=false;gm7_source=(struct r2_gm7_admission_source){0};
  relay_allowed=true;relay_ready=false;
  exchange=(struct r2_join_exchange){0};client=(struct r2_group_client){0};pending=(struct r2_join_record){0};
  gm5_phase=0;gm5_send=gm5_done=false;
@@ -628,4 +646,35 @@ void r2_group_admission_reset(void){
  demand=queued_demand=(struct r2_local_demand){0};timing_context=coarse_context=(struct r2_group_client){0};direct_accepted=missed_opportunities=0;
  direct_progress_at=direct_receive_since_quality=discovery_since=0;direct_delivery_seen=false;r2_ble_admission_policy(0,false);
  pending_parent=pending_parent_boot=pending_parent_until=direct_receive_since=0;
+}
+
+/* The full historical network is temporary adapter storage, never a live G5
+ * owner. Only the client JOIN implementation sees it. No network tick, receive,
+ * promotion or coordinator state machine runs on this GM7 path. */
+static void gm7_facade(struct r2_network *n,const struct r2_gm7_admission_source *s,uint64_t now){
+ *n=(struct r2_network){.group=*s->group,.identity=s->identity,.boot=s->boot,.capabilities=3,.count=1,.choice=0,.now=now,.map_bound_us=s->map_bound_us,.local_gm=s->serving};
+ if(s->name){size_t length=0;while(length<sizeof n->name-1&&s->name[length])++length;memcpy(n->name,s->name,length);n->name[length]=0;}
+ gm7_source=*s;gm7_server_only=true;
+}
+static bool gm7_client_service(const struct r2_gm7_admission_source *s,uint64_t now){
+ bool live=r2_gm7_admission_live(s,now);
+ r2_ble_gm7_source(live);
+ if(!live){
+  /* A follower/expired source cannot authenticate a client into a dead end.
+   * Cancel this ordinary exchange through its existing callback drain. No
+   * GM peer, shadow clock, management scanner or retry lifetime is reset. */
+  if(active||r2_ble_admission_connected())r2_ble_admission_release();
+  active=waiting=promote=false;close_at=0;
+ }
+ return live;
+}
+void r2_group_admission_gm7_tick(const struct r2_gm7_admission_source *s,uint64_t now){
+ if(!s||!s->group)return;
+ struct r2_network n;gm7_facade(&n,s,now);
+ if(gm7_client_service(s,now))r2_group_admission_tick(&n,now);
+}
+void r2_group_admission_gm7_receive(const struct r2_gm7_admission_source *s,const struct r2_ble_event *e,uint64_t now){
+ if(!s||!s->group||!e)return;
+ struct r2_network n;gm7_facade(&n,s,now);
+ if(gm7_client_service(s,now))r2_group_admission_receive(&n,e,now);
 }

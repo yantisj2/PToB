@@ -5,7 +5,7 @@ grandmaster, a BLE receiver/relay with a local clock display, or a dedicated
 GNSS-to-USB source for macOS. Optional LoRa supplies a separate fallback timing
 path.
 
-**[Set up a group](../../docs/t096/gm-operations.md)** ·
+**[Set up a group](../../docs/t096/gm7-implementation.md)** ·
 [Build firmware](../../docs/t096/build.md) ·
 [Troubleshoot](../../docs/t096/diagnostics.md) ·
 [Changelog](CHANGELOG.md)
@@ -19,7 +19,7 @@ performance. [Image provenance](../../docs/images/README.md).*
 
 | Profile | What it does |
 | --- | --- |
-| **GM** | GNSS-backed grandmaster. G5 coordinates one serving **ACTIVE**, one appointed **HOT** successor and other **COLD** receivers. |
+| **GM** | GNSS-backed grandmaster. GM7 advertises one serving **ACTIVE** and a preferred **HOT** successor; standbys arm locally after independent qualification and physical shadow preparation. |
 | **RC** | Receives authenticated BLE time from a GM or relay, displays it, and exports it over USB. Supports the RC7 relay path; following an RC2 stream stays a leaf. |
 | **DC** | Dedicated GNSS-to-USB image with Bluetooth disabled and no enrollment. Includes a second GNSS serial/correction bridge. [DC guide](../../docs/t096/direct-connect.md). |
 
@@ -36,8 +36,8 @@ before serving time. COLD can receive BLE timing while qualifying locally.
    Keep enrolled images local; use the build guide's device-specific update path.
 2. **Start the source.** Select GM and give GNSS a clear view of the sky. Check
    fix, PPS and source readiness on the quality/precision screens. For several
-   GMs, establish an ACTIVE/HOT pair before adding COLD clocks; follow the
-   [GM operating guide](../../docs/t096/gm-operations.md).
+   GMs, allow the ACTIVE nominee to finish local shadow preparation; follow the
+   [GM7 implementation guide](../../docs/t096/gm7-implementation.md).
 3. **Add receivers.** Select RC and start in range of the source. Check the actual
    selected parent, fresh timing and precision lock before adding another hop.
    Parent selection is automatic and considers timing delivery as well as signal
@@ -52,13 +52,14 @@ before serving time. COLD can receive BLE timing while qualifying locally.
 | Area | Supported configuration |
 | --- | --- |
 | Hardware | Heltec T096 / HT-n5262G; Nordic **nRF52840**, **UC6580 GNSS** with PPS, **SX1262 LoRa** radio. |
-| Display | **80 × 160** portrait color TFT; digital UTC, analog clock, RF activity, precision, GNSS quality, system and shadow-PPS pages; LoRa page in LoRa-enabled builds. |
+| Display | **80 × 160** portrait color TFT; digital and analog local time when mesh TZ is leased, UTC otherwise; RF activity, precision, GNSS quality, system and shadow-PPS pages; LoRa page in LoRa-enabled builds. |
 | Display behavior | Normal refresh **4 Hz**, RF page **8 Hz**. When eligible, a moving screensaver starts after **5 minutes** idle at **50% brightness**. |
-| BLE timing | Shared **G1/RC7** mesh with compatible T096, W12, StickS3 and N30 targets. Relay transmit support depends on the target/profile. |
-| GM coordination | **G5 STATUS protocol 6**; authenticated source admission, finite successor grants, and independent local GNSS qualification. |
+| BLE timing | **G1/RC7 precision layouts unchanged**, with a breaking TZ coarse-wire revision. Use matching new-wire T096 GM/RC images; other target ports remain deferred. |
+| GM coordination | **GM7v4+S2+C1+TZ1**; broadcast ANN/STATUS/ROLE, persistent RC-style G1 following without GM admission, local HOT readiness and independent GNSS qualification. Normal client GATT admission remains. |
+| Time zone | Manual **CDT**, ID 2 and UTC−300 minutes. RCs relay the authenticated mesh pair; the presence lease is three parent advertising periods. No automatic DST or geographic selection. |
 | LoRa timing | Optional **RC8 wire 3** fallback with root/source identity. BLE is preferred while usable; a configured transmitter can export qualified local GM time or its accepted locked BLE source. |
 | USB | Hardware-captured USB frame boundaries; RC exports BLE time, DC exports local GNSS time. The macOS client uses an owned, unprivileged `chronyd -x` user clock. |
-| Deployment | Source **0.15.169**, Zephyr-based native builds with pinned public dependencies. GM/RC uses private enrollment and verified device binding; no enrolled binary is distributed. |
+| Deployment | Source **0.15.205**, Zephyr-based native builds with pinned public dependencies. GM/RC uses private enrollment and verified device binding; no enrolled binary is distributed. |
 
 LoRa is disabled by default and requires build-time configuration. GM mesh
 participation can suppress passive RX. Fit the appropriate antenna before
@@ -85,6 +86,10 @@ This is development firmware. Continuous BLE/USB availability, durable multi-GM
 failover and calibrated UTC/output accuracy remain unqualified. Controller
 failures and timing interruptions are retained in the
 [GM field record and acceptance plan](../../docs/t096/gm-standby.md#development-checkpoint-and-remaining-acceptance).
+The [0.15.205 TZ results](../../docs/t096/time-zone-test-plan.md#local-205-results-29-october-2026)
+record a passing direct-RC display run, failed relay availability and incomplete
+GM successor gates. The new wire is not fully certified. Clock calculations,
+USB timestamps and diagnostics remain UTC.
 Host tests and previews do not qualify hardware. A general public flasher and
 runtime provisioning are still pending. The macOS client does not set the OS
 clock or serve LAN time by default.
@@ -93,7 +98,7 @@ clock or serve LAN time by default.
 
 | Task | Guide |
 | --- | --- |
-| Enroll and operate a group | [Group setup](../../docs/GETTING_STARTED.md) · [GM operations](../../docs/t096/gm-operations.md) |
+| Enroll and operate a group | [Group setup](../../docs/GETTING_STARTED.md) · [Current GM7 scope](../../docs/t096/gm7-implementation.md) · [Historical G5 operations](../../docs/t096/gm-operations.md) |
 | Build and inspect an image | [Build guide](../../docs/t096/build.md) |
 | Investigate source selection, timing or faults | [Diagnostics](../../docs/t096/diagnostics.md) · [GM coordination](../../docs/t096/gm-standby.md) |
 | Use GNSS directly over USB | [Direct Connect](../../docs/t096/direct-connect.md) · [macOS client](../../clients/macos/README.md) |
@@ -107,3 +112,8 @@ and [evidence](../../evidence/README.md).
 
 Copyright (c) 2026 Jonathan Yantis. Original documentation: [MIT](../../LICENSE).
 See [source notices](NOTICE.md) for third-party terms.
+
+GM7 implementation and compatibility details, explicit historical regression
+selection and current offline validation limits are recorded in the
+[implementation guide](../../docs/t096/gm7-implementation.md). Native builds
+are preparation; physical failover and calibrated accuracy remain unqualified.

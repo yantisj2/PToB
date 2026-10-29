@@ -2,7 +2,7 @@
 #pragma once
 #include "precision.h"
 struct gpio_dt_spec;
-/* TIMER3 CC0=PPS, CC1=BLE ADDRESS, CC2=extension, CC3=USB SOF, CC4=LoRa. */
+/* TIMER3 CC0=PPS, CC1=BLE ADDRESS, CC2=extension, CC3=USB SOF, CC4=LoRa, CC5=GM7 END (normal image). */
 int r2_capture_start(const struct gpio_dt_spec *pps, int64_t now);
 void r2_capture_poll(int64_t now);
 bool r2_capture_pps(struct r2_capture *edge, int64_t now);

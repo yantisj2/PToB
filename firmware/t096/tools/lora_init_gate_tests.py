@@ -19,7 +19,7 @@ def noincludes(s):return re.sub(r'^#(?:include|define R2_LOCK_UNIT)[^\n]*\n','',
 hw=noincludes((APP/'src/lora_hw.c').read_text());hw=re.sub(r'(?<![.])(?<!->)\bgeneration\b','hw_generation',hw);(O/'actual_hw.inc').write_text(hw)
 fixture=(APP/'tests/lora_hw_test.c').read_text().split('static void inject(int flags)')[0].replace('#include R2_LORA_OWNER_BODY','#include "actual_hw.inc"')
 (O/'actual_hw_fixture.inc').write_text(fixture)
-diagnostic=(APP/'src/diagnostic.c').read_text();selected='\n'.join(fn(diagnostic,n)for n in ['blank','binding','valid5','valid6','valid_record','select_target','r2_diag_init'])
+diagnostic=(APP/'src/diagnostic.c').read_text();selected='\n'.join(fn(diagnostic,n)for n in ['blank','binding','valid5','valid6','valid_record','valid_crash','event_binding_any_source','valid_event_any_source','protected_page','select_target','r2_diag_init'])
 for old,new in [('phase','diag_phase'),('generation','diag_generation'),('binding','scan_binding')]:selected=re.sub(r'(?<![.])(?<!->)\b'+old+r'\b',new,selected)
 # A deterministic high-priority observer at the flash-read and CRC-loop cuts;
 # these probes are test-only, never generated into firmware.
