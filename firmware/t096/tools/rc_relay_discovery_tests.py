@@ -31,11 +31,14 @@ names = ['lt_read_done','lt_relay_located','lt_relay_locate','lt_relay_read','lt
 (out/'rc_relay_discovery_under_test.h').write_text('\n'.join(function(n) for n in names)+'\n')
 test = app/'tests/rc_relay_discovery_test.c'
 command = [os.environ.get('CC') or shutil.which('clang'), '-std=c11','-Wall','-Wextra','-Werror',
-           '-fsanitize=address,undefined','-fno-sanitize-recover=all','-I'+str(out),str(test),'-o',str(out/'test')]
+           '-fsanitize=address,undefined','-fno-sanitize-recover=all','-I'+str(out),'-I'+str(app/'include'),'-I'+str(app/'protocol'),str(test),'-o',str(out/'test')]
 passed = False
 try:
     subprocess.run(command, check=True, timeout=30)
     subprocess.run([str(out/'test')], check=True, timeout=10)
+    tz_command=command.copy();tz_command.insert(1,'-DR2_TZ_WIRE=1');tz_command[-1]=str(out/'tz-test')
+    subprocess.run(tz_command,check=True,timeout=30)
+    subprocess.run([str(out/'tz-test')],check=True,timeout=10)
     passed = True
 finally:
     (out/'receipt.json').write_text(json.dumps({'passed':passed,'hardware':False,'production_functions':names,

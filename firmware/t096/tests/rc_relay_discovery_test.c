@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include "rc_dynamic.h"
 #define BT_GATT_ITER_STOP 0
 #define BT_GATT_ITER_CONTINUE 1
 #define BT_GATT_DISCOVER_CHARACTERISTIC 3
@@ -32,7 +33,7 @@ struct bt_gatt_read_params {
 };
 enum {LT_DISCOVERED,LT_READ};
 enum {LT_CAP,LT_REPLY};
-struct lt_event {unsigned type;struct bt_conn *conn;uint8_t error;uint16_t handle;uint8_t wire[212];};
+struct lt_event {unsigned type;struct bt_conn *conn;uint8_t error;uint16_t handle;uint8_t wire[RC_DYNAMIC_CONTROL_BYTES];};
 static struct lt_event queued;
 static unsigned events,discovered,by_handle,by_uuid;
 static struct bt_conn peer={1},foreign={2},*lt_conn=&peer;
@@ -42,7 +43,7 @@ static uint64_t lt_next,lt_deadline=123456;
 static uint16_t lt_handle;
 static unsigned lt_phase=LT_CAP;
 static size_t lt_read_size;
-static uint8_t lt_read_wire[212],capability[212];
+static uint8_t lt_read_wire[RC_DYNAMIC_CONTROL_BYTES],capability[RC_DYNAMIC_CONTROL_BYTES];
 static void lt_event_put(const struct lt_event *e){queued=*e;++events;}
 static int bt_gatt_discover(struct bt_conn *c,struct bt_gatt_discover_params *p){
  assert(c==lt_conn&&p->uuid==&lt_data_uuid.uuid&&p->type==BT_GATT_DISCOVER_CHARACTERISTIC);
@@ -72,17 +73,17 @@ int main(void){
  /* Deliver the owner's discovered-handle event; discovery grants no timing. */
  lt_handle=queued.handle;lt_read_size=17;
  CHECK(!lt_relay_fetch());CHECK(by_handle==1&&!by_uuid&&queued.type==LT_READ);
- CHECK(lt_read_size==212&&!queued.error&&!memcmp(queued.wire,capability,212));
+ CHECK(lt_read_size==RC_DYNAMIC_CONTROL_BYTES&&!queued.error&&!memcmp(queued.wire,capability,RC_DYNAMIC_CONTROL_BYTES));
  CHECK(lt_deadline==123456);
  lt_phase=LT_REPLY;CHECK(!lt_relay_fetch());CHECK(by_handle==2&&discovered==1);
  lt_handle=0;CHECK(lt_relay_read()==-EINVAL&&by_handle==2);
  /* A normal read supports chunks, but never a partial/oversized value. */
  lt_read_size=0;CHECK(lt_read_done(&peer,0,&lt_read,capability,100)==BT_GATT_ITER_CONTINUE);
- CHECK(lt_read_done(&peer,0,&lt_read,capability+100,112)==BT_GATT_ITER_STOP);
- CHECK(!queued.error&&!memcmp(queued.wire,capability,212));
+ CHECK(lt_read_done(&peer,0,&lt_read,capability+100,RC_DYNAMIC_CONTROL_BYTES-100)==BT_GATT_ITER_STOP);
+ CHECK(!queued.error&&!memcmp(queued.wire,capability,RC_DYNAMIC_CONTROL_BYTES));
  lt_read_size=0;lt_read_done(&peer,0,&lt_read,capability,100);
  CHECK(lt_read_done(&peer,0,&lt_read,NULL,0)==BT_GATT_ITER_STOP&&queued.error);
- lt_read_size=211;CHECK(lt_read_done(&peer,0,&lt_read,capability,2)==BT_GATT_ITER_STOP&&queued.error);
+ lt_read_size=RC_DYNAMIC_CONTROL_BYTES-1;CHECK(lt_read_done(&peer,0,&lt_read,capability,2)==BT_GATT_ITER_STOP&&queued.error);
  /* Missing, malformed or wrong characteristic metadata is refused. */
  CHECK(lt_relay_located(&peer,NULL,&lt_discovery)==BT_GATT_ITER_STOP&&queued.error);
  chrc.value_handle=0;lt_relay_located(&peer,&attr,&lt_discovery);CHECK(queued.error&&!queued.handle);
@@ -95,5 +96,5 @@ int main(void){
  /* Negative peer operation: old read-by-UUID fails before any valid wire. */
  struct bt_gatt_read_params old={.func=lt_read_done,.handle_count=0};lt_read_size=0;
  CHECK(!bt_gatt_read(&peer,&old));CHECK(by_uuid==1&&queued.error==14&&!lt_read_size);
- printf("PASS %u production relay discovery/read assertions;212-byte handle read,19-byte ReadByType refusal, unchanged deadline\n",checks);
+ printf("PASS %u production relay discovery/read assertions;full control handle read,19-byte ReadByType refusal, unchanged deadline\n",checks);
 }

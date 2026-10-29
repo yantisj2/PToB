@@ -23,6 +23,11 @@
 #include "runtime_profile.h"
 #include "time_service.h"
 #include "timing_events.h"
+#ifdef R2_TZ_WIRE
+#define GM7_DIAG_PROTOCOL "GM7v4+S2+C1+TZ1"
+#else
+#define GM7_DIAG_PROTOCOL "GM7v3+S2+C1"
+#endif
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -2203,7 +2208,7 @@ int r2_gm7_diagnostic_format(char *out, size_t capacity, unsigned page,
     struct r2_gm7_follow_diagnostic d={0};
     if(runtime_gm)r2_radio_service_gm7_follow_diagnostic(&d,kernel_now());
     int n=snprintf(out,capacity,
-      "{\"schema\":7,\"protocol\":\"GM7v3+S2+C1\",\"source\":\"%s\",\"boot\":\"%016llx\",\"page\":9,\"metric\":\"GM7_FOLLOWER_ESTIMATOR\",\"authority\":false,\"scope_current\":%s,\"root\":\"%016llx\",\"root_boot\":\"%016llx\",\"timing_epoch\":%u,\"train\":%u,\"capture_gen\":%u,\"counter_epoch\":%llu,\"sampled_us\":%llu,\"source_until_us\":%llu,\"last_correction_tick\":%llu,\"fit_count\":%u,\"fit_span_us\":%u,\"observations\":%u,\"resets\":%u,\"saturated\":%u,\"arithmetic_faults\":%u,\"unavailable\":%u,\"fit_rate\":%d,\"quality_bins\":%u,\"state_flags\":%u,\"scope_resets\":%u,\"scope_reset_bits\":%u,\"receiver_stops\":%u,\"receiver_stop_pc\":%u}",
+      "{\"schema\":7,\"protocol\":\"" GM7_DIAG_PROTOCOL "\",\"source\":\"%s\",\"boot\":\"%016llx\",\"page\":9,\"metric\":\"GM7_FOLLOWER_ESTIMATOR\",\"authority\":false,\"scope_current\":%s,\"root\":\"%016llx\",\"root_boot\":\"%016llx\",\"timing_epoch\":%u,\"train\":%u,\"capture_gen\":%u,\"counter_epoch\":%llu,\"sampled_us\":%llu,\"source_until_us\":%llu,\"last_correction_tick\":%llu,\"fit_count\":%u,\"fit_span_us\":%u,\"observations\":%u,\"resets\":%u,\"saturated\":%u,\"arithmetic_faults\":%u,\"unavailable\":%u,\"fit_rate\":%d,\"quality_bins\":%u,\"state_flags\":%u,\"scope_resets\":%u,\"scope_reset_bits\":%u,\"receiver_stops\":%u,\"receiver_stop_pc\":%u}",
       source,(unsigned long long)physical_boot,d.current?"true":"false",
       (unsigned long long)d.scope.root_identity,(unsigned long long)d.scope.boot,
       d.scope.source_epoch,d.train,d.capture_gen,(unsigned long long)d.counter_epoch,
@@ -2225,7 +2230,7 @@ int r2_gm7_diagnostic_format(char *out, size_t capacity, unsigned page,
     const struct gm7_reported_role *r = &peer_display[i].report;
     int n = snprintf(
         out, capacity,
-        "{\"schema\":7,\"protocol\":\"GM7v3+S2+C1\",\"source\":\"%s\",\"boot\":"
+        "{\"schema\":7,\"protocol\":\"" GM7_DIAG_PROTOCOL "\",\"source\":\"%s\",\"boot\":"
         "\"%016llx\",\"page\":%u,\"available\":%"
         "s,\"peer\":\"%016llx\",\"peer_boot\":\"%016llx\",\"sender_sampled_"
         "mono_us\":%llu,\"expires_kernel_us\":%llu,\"mesh_current\":%s,"
@@ -2269,7 +2274,7 @@ int r2_gm7_diagnostic_format(char *out, size_t capacity, unsigned page,
       hot_causes[diagnostic.hot_change_reason]:"UNKNOWN";
   int n = snprintf(
       out, capacity,
-      "{\"schema\":7,\"protocol\":\"GM7v3+S2+C1\",\"source\":\"%s\",\"boot\":"
+      "{\"schema\":7,\"protocol\":\"" GM7_DIAG_PROTOCOL "\",\"source\":\"%s\",\"boot\":"
       "\"%016llx\",\"page\":0,\"available\":%s,"
       "\"startup_pending\":%s,\"startup_error\":%d,\"birth_utc_us\":%llu,"
       "\"founder\":\"%"
