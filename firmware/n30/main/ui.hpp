@@ -111,7 +111,7 @@ class ClockHold {
  r2_tz saved_tz_{};uint64_t saved_tz_until_=0;Source saved_source_=Source::None;bool saved_local_=false;
  bool same_zone(const Model& m,uint64_t now)const{
   const bool old_local=saved_source_!=Source::LoRa&&saved_source_!=Source::Rc9&&r2_tz_valid(saved_tz_)&&now<saved_tz_until_;
-  const bool new_local=m.source!=Source::LoRa&&m.source!=Source::Rc9&&r2_tz_valid(m.tz)&&now<m.tz_until_us;
+  const bool new_local=now>=m.sampled_us&&now-m.sampled_us<SnapshotMaxUs&&m.source!=Source::LoRa&&m.source!=Source::Rc9&&r2_tz_valid(m.tz)&&now<m.tz_until_us;
   return saved_local_==old_local&&old_local==new_local&&(!old_local||(saved_tz_.id==m.tz.id&&saved_tz_.offset_min==m.tz.offset_min));
  }
  uint8_t image_[FrameBytes]{};

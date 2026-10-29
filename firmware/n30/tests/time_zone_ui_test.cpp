@@ -36,6 +36,12 @@ int main(int argc,char** argv){
  m.valid=m.locked=false;m.state=n30::State::Acquire;m.sampled_us=at+100000;
  hold.update(m,v,at+100000);assert(v.clock_frozen);
  m.sampled_us=at+200000;hold.update(m,v,at+200000);assert(!v.clock_frozen);
+ // A stalled UI publisher also cannot keep a local label after snapshot freshness ends.
+ n30::ClockHold stale;m.valid=m.locked=true;m.state=n30::State::Follow;m.sampled_us=at;m.tz_until_us=at+750000;
+ stale.update(m,v,at);stale.draw(a,m,v,at);stale.presented(m,v,at,a);
+ m.valid=m.locked=false;m.state=n30::State::Acquire;
+ stale.update(m,v,at+100000);assert(v.clock_frozen);
+ stale.update(m,v,at+250000);assert(!v.clock_frozen);
  // RF diagnostics retain UTC and its difference calculations.
  m.valid=m.locked=true;m.state=n30::State::Follow;m.sampled_us=at;m.tz_until_us=at+200000;v.page=1;
  n30::render(a,m,v,at);m.tz_until_us=0;n30::render(b,m,v,at);assert(!std::memcmp(a,b,1024));
