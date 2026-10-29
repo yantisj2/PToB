@@ -2,7 +2,7 @@
 """Offline production TZ codecs and lease tests. MIT, Jonathan Yantis 2026."""
 import argparse,hashlib,hmac,json,os,subprocess
 from pathlib import Path
-p=argparse.ArgumentParser();p.add_argument('--deps',type=Path,required=True);p.add_argument('--out',type=Path,required=True);p.add_argument('--display-old-root',type=Path);a=p.parse_args()
+p=argparse.ArgumentParser();p.add_argument('--deps',type=Path,required=True);p.add_argument('--out',type=Path,required=True);p.add_argument('--display-old-root',type=Path);p.add_argument('--scan-old-root',type=Path);a=p.parse_args()
 app=Path(__file__).resolve().parents[1];out=a.out.resolve();out.mkdir(parents=True,exist_ok=False)
 tiny=a.deps.resolve()/'modules/crypto/tinycrypt/lib'
 cc=os.environ.get('CC','/opt/homebrew/opt/llvm/bin/clang')
@@ -41,6 +41,21 @@ with (out/'gm7-display-run.log').open('w')as f:subprocess.run([str(out/'gm7-tz-d
 # Exercise the actual RC coarse-observation bodies with real authenticated
 # codecs, keeping only Bluetooth address comparison and queue ingress fake.
 rc=(app/'src/rc_dynamic_service.c').read_text()
+def c_block(source,start):
+ brace=source.index('{',start);end=brace+1;depth=1
+ while depth:
+  if source[end]=='{':depth+=1
+  elif source[end]=='}':depth-=1
+  end+=1
+ return end
+start=rc.index('struct discovery {');end=c_block(rc,start)
+declaration=rc[start:end+1]
+start=rc.index('static bool scan_data(');end=c_block(rc,start)
+(out/'rc_tz_discovery_under_test.h').write_text(declaration+'\n'+rc[start:end]+'\n')
+policy=(a.scan_old_root/'src/rc_dynamic_service.c').read_text()if a.scan_old_root else rc
+marker='    pc_management_scan(window);\n#else\n'
+start=policy.index(marker)+len(marker);end=policy.index('\n#endif\n    /* Invalid time withdraws',start)
+(out/'rc_tz_scan_policy_under_test.h').write_text('static void scan_policy(bool window){\n'+policy[start:end]+'}\n')
 blocks=[]
 for name in ('gm_tz_observed','relay_tz_observed'):
  start=rc.index('static void '+name+'(');brace=rc.index('{',start);end=brace+1;depth=1

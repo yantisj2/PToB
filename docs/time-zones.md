@@ -97,7 +97,9 @@ cadences are 250 ms for GM announcements and 100 ms for RC discovery metadata,
 giving 750 ms and 300 ms leases respectively. An accepted coarse publication
 sets the pair. Existing authenticated advertisements from the selected parent
 renew its presence lease, including periodic advertisements with no usable
-precision correction. No new packet stream or scan schedule is needed.
+precision correction. Source .209 retains the existing passive scan after
+normal T096 synchronization so changed coarse metadata reaches the owner.
+Its configured interval/window stays unchanged; no packet stream is added.
 
 This lease uses local monotonic receipt time. It is independent of precision
 sample age, clock fits, source permissions, map expiry and UTC uncertainty.

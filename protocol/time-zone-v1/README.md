@@ -56,8 +56,10 @@ are rejected. Fresh nonce-bound relay responses can bootstrap or renew that
 same metadata scope. No counter or field is added to the wire.
 
 The byte layouts, domains and precision payloads remain unchanged. All T096
-participants must receive the dynamic-update implementation before relying on
-automatic DST; an old .205 receiver deliberately retains its first pair.
+participants need .209 or newer before relying on automatic DST. It retains
+the existing passive scan after synchronization, so later coarse changes reach
+the owner. An old .205 receiver deliberately retains its first pair; development
+.206–.208 receivers miss later changes while their normal scan is stopped.
 
 See the [design](../../docs/time-zones.md), [automatic TZ guide](../../docs/t096/auto-time-zone-plan.md)
 and historical [T096 manual-wire test plan](../../docs/t096/time-zone-test-plan.md).

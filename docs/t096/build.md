@@ -2,7 +2,7 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
-This guide builds and inspects T096 source **0.15.208** without opening hardware.
+This guide builds and inspects T096 source **0.15.209** without opening hardware.
 For profile choices and controls, see the [T096 README](../../firmware/t096/README.md).
 Release-by-release implementation and validation notes are in the
 [T096 changelog](../../firmware/t096/CHANGELOG.md).
@@ -99,8 +99,9 @@ uses ID 2 and offset −300 minutes. Existing authenticated parent advertisement
 renew TZ for three advertising periods, independently of precision timing.
 Page 1 and the analog screensaver display local time while that lease is valid,
 then fall back to UTC. Source .206 adds automatic GNSS zone/DST selection and
-dynamic selected-source metadata updates. All participating T096s need that
-update for automatic DST; old .205 receivers cache their first pair. See the
+dynamic selected-source metadata updates. All participating T096s need .209 or
+newer for automatic DST after synchronization; old .205 receivers cache their
+first pair and .206–.208 stop normal scanning while timing is usable. See the
 [current bounded results and remaining gates](time-zone-test-plan.md#local-205-results-29-october-2026).
 
 Normal GM/RC builds default to `--tz-mode auto`. Geographic ambiguity, stale

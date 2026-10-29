@@ -3,12 +3,19 @@
 #include "gm7_codec.h"
 #include "rc_dynamic.h"
 #include "rc_gm_adapter.h"
+#include "role_announcement.h"
 #include <assert.h>
+#include <errno.h>
 #include <stdio.h>
 #include <string.h>
 typedef struct {uint8_t bytes[7];} bt_addr_le_t;
 static int bt_addr_le_cmp(const bt_addr_le_t *a,const bt_addr_le_t *b){return memcmp(a,b,sizeof *a);}
-struct discovery {bt_addr_le_t address;uint64_t received_us;uint8_t len,data[GM7_TZ_MAX_AD_BYTES-2];};
+enum {BT_DATA_MANUFACTURER_DATA=255,BT_LE_SCAN_TYPE_PASSIVE=0};
+struct bt_data {uint8_t type,data_len;const uint8_t *data;};
+static uint64_t capture_us;
+static uint64_t mono_us(void){return capture_us;}
+static uint32_t k_uptime_get_32(void){return (uint32_t)(capture_us/1000);}
+#include "rc_tz_discovery_under_test.h"
 static struct r2_group_config group;
 static struct r2_tz_lease coarse_tz;
 static uint64_t coarse_tz_sequence;
@@ -18,15 +25,39 @@ static struct rc5_gm_context gm_context;
 static bt_addr_le_t parent;
 static unsigned parent_index;
 static bool parent_known,parent_relay;
+static bool parent_synced,upstream_usable,scanning,creating,lt_paused,relay_fallback,slot_scan_failed;
+static void *lt_conn;
+static unsigned node=1,scan_starts,scan_stops;
+static struct {bool scanning;} slot_state;
+struct bt_le_scan_param {unsigned type,interval,window;};
+static struct bt_le_scan_param last_scan;
+static int bt_le_scan_start(const struct bt_le_scan_param *p,void *cb){
+ assert(!cb);last_scan=*p;++scan_starts;return 0;
+}
+static int bt_le_scan_stop(void){++scan_stops;return 0;}
+static void check(bool value,const char *reason){(void)reason;assert(value);}
+#include "rc_tz_scan_policy_under_test.h"
 #include "rc_tz_observers_under_test.h"
 static void emit(struct discovery *d,struct gm7_packet *p){
  uint8_t ad[GM7_TZ_MAX_AD_BYTES];assert(!gm7_tz_ad_encode(ad,sizeof ad,p,&group));
- memcpy(d->data,ad+2,sizeof ad-2);d->len=sizeof ad-2;
+ struct discovery received={.address=d->address};capture_us=d->received_us;
+ struct bt_data element={.type=BT_DATA_MANUFACTURER_DATA,.data_len=sizeof ad-2,.data=ad+2};
+ assert(!scan_data(&element,&received)&&received.len==sizeof ad-2&&received.received_us==capture_us);
+ *d=received;
 }
 int main(void){
  group=(struct r2_group_config){.id=0x123456789abcdef0ULL,.epoch=7};
  for(unsigned i=0;i<32;i++)group.psk[i]=(uint8_t)(i+1);
  parent_known=true;routes.count=2;routes.node[0].id=11;
+ /* Initial admission may supply unknown. Stable timing must keep listening
+  * for the later authenticated selection, without changing scan parameters. */
+ parent_synced=upstream_usable=scanning=true;
+ scan_policy(true);assert(scanning&&!scan_stops);
+ scanning=false;lt_conn=(void *)1;scan_policy(true);assert(!scanning&&!scan_starts);
+ lt_conn=NULL;lt_paused=true;scan_policy(true);assert(!scanning&&!scan_starts);
+ lt_paused=false;scan_policy(false);assert(!scanning&&!scan_starts);
+ scan_policy(true);assert(scanning&&scan_starts==1&&last_scan.interval==32&&last_scan.window==8);
+ assert(!slot_scan_failed&&!coarse_tz.value.id);
  const uint64_t utc=1700000000000000ULL,tick=16000000;
  gm_context=(struct rc5_gm_context){.source={.root=11,.root_boot=22,.source_epoch=9},
   .time={.utc_us=utc},.at_tick=tick,.authenticated=true};
@@ -69,5 +100,5 @@ int main(void){
  assert(!coarse_tz.value.id);r2_tz_renew(&coarse_tz,300,R2_TZ_RC_PERIOD_US);assert(!coarse_tz.value.id);
  cap.next_challenge=13;cap.tz=r2_tz_manual();cap.path.source_epoch=10;
  relay_tz_observed(&cap,&d,200);assert(coarse_tz_sequence==12);
- puts("PASS actual direct/relay TZ receipt bodies: auth, scope, DST, ordered replay, unknown and presence");
+ puts("PASS actual stable scan/ingress and direct/relay TZ receipt: auth, scope, DST, replay, unknown and presence");
 }

@@ -1,5 +1,14 @@
 # T096 changelog
 
+## 0.15.209 — Receive coarse changes while timing is locked
+
+Keep the existing passive scan active for a selected normal TZ parent after
+precision synchronization. The previous policy stopped it once timing was
+usable, preventing later GM ANN/relay capability changes from reaching the
+metadata owner. Preserve the scan interval/window, GATT/closure guards, PC and
+legacy policy, precision payloads and timing authority. An ingress/owner
+regression covers initial unknown followed by fresh authenticated TZ updates.
+
 ## 0.15.208 — Serving GM local timezone display
 
 Evaluate the serving GM's local TZ status with its own qualified UTC snapshot,

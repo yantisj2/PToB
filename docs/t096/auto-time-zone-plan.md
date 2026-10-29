@@ -1,6 +1,6 @@
 # T096 GM automatic time zones
 
-Source 0.15.208, 29 October 2026. Software implemented; hardware acceptance is
+Source 0.15.209, 29 October 2026. Software implemented; hardware acceptance is
 recorded separately below. Copyright (c) 2026 Jonathan Yantis. MIT.
 
 The GM selects its timezone from its own GNSS position and computes the current
@@ -28,7 +28,9 @@ these options. Runtime persistent configuration remains separate work.
 The receipt records the mode, manual values and database identity. Generated
 build identity binds that configuration. Existing manual .205 images do not
 gain DST behavior through a GM update alone: update every participating T096
-receiver/relay for dynamic changes before relying on automatic offsets.
+receiver/relay to .209 or newer before relying on automatic offsets. Development
+images .206–.208 do not receive later coarse changes while their normal scan is
+stopped after timing synchronization.
 
 ## Location and hold behavior
 
@@ -90,6 +92,13 @@ cannot restore a previous offset. Matching advertisements renew presence
 independently of precision lock/corrections; explicit unknown cannot resurrect
 an older known value. Parent/path replacement fences metadata to the new scope.
 
+Normal T096 receivers retain the existing passive scan after synchronization
+to receive changed GM ANN and relay capability metadata. The configured
+synchronized interval/window remains 20/5 ms, with existing GATT, acquisition,
+closure and slot-scan guards. PC and historical non-TZ policies remain unchanged.
+This receive lifecycle change is necessary for updates after initial admission;
+G1 presence alone contains no new pair.
+
 Offline checks cover the actual NMEA/time-owner boundary, all selector bounds,
 manual overrides, reboot/stop, direct and relay receipt bodies, authentication,
 scope/replay, unknown withdrawal and unchanged UTC. The production C reader
@@ -126,4 +135,9 @@ within 240 seconds: both receivers accepted `(2,-300)`, but the serving GM's
 display reported unknown because it consulted its absent follower clock. The
 .208 display uses the same own-UTC snapshot as admission; an actual-body
 regression reproduces the .207 failure and covers DST and source withdrawal.
-New hardware results are pending.
+All three .208 readbacks passed. Its 240-second direct acquisition failed with
+the GM reporting known TZ and both timing-locked receivers reporting unknown:
+initial admission preceded selection, and the normal RC policy had stopped
+coarse scanning. The .209 actual-ingress/owner regression reproduces that quiet
+scan failure and retains listening for later updates. New hardware results are
+pending.

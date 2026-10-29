@@ -1999,12 +1999,19 @@ static void owner(void *a, void *b, void *c) {
 #ifdef R2_PC_PROFILE
     pc_management_scan(window);
 #else
-    if (parent_synced && upstream_usable && scanning && !slot_state.scanning && !relay_fallback) {
+#ifdef R2_TZ_WIRE
+    /* G1 presence can renew a coarse lease, but cannot carry a changed pair.
+     * Keep the existing passive scan while following for GM/relay TZ updates. */
+    const bool coarse_listen=parent_known;
+#else
+    const bool coarse_listen=false;
+#endif
+    if (parent_synced && upstream_usable && scanning && !slot_state.scanning && !relay_fallback && !coarse_listen) {
       check(!bt_le_scan_stop(), "scan stop");
       scanning = false;
     }
     if (node && window && !creating && !scanning && !lt_conn && !lt_paused &&
-        (!parent_synced || !upstream_usable || slot_state.scanning || relay_fallback)) {
+        (!parent_synced || !upstream_usable || slot_state.scanning || relay_fallback || coarse_listen)) {
       struct bt_le_scan_param q = {
           .type = BT_LE_SCAN_TYPE_PASSIVE, .interval = 32, .window = parent_synced?8:16};
       int rc = bt_le_scan_start(&q, NULL);
