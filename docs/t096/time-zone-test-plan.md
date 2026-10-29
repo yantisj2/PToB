@@ -1,8 +1,9 @@
 # T096 time zone wire test plan
 
-Status: execution authorized by the operator on attached TC-01, TC-02 and TC-04,
-29 October 2026. Offline verification and pre-update baseline are underway.
-No candidate installation or certification is claimed by this plan.
+Status: execution authorized by the operator on attached TC-01, TC-02 and TC-04;
+TC-03 was added to the authorized cohort on 29 October 2026. The first candidate
+was installed on the original three units; acquisition failed and is preserved.
+A corrected candidate is under verification. No certification is claimed.
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
 Introduce the [four-byte time zone extension](../time-zones.md) as a breaking
@@ -15,7 +16,7 @@ outside this phase.
 
 | Item | Selected test direction |
 | --- | --- |
-| Units | TC-01, TC-02 and TC-04, subject to fresh exact factory/USB identity verification |
+| Units | TC-01, TC-02, TC-03 and TC-04, subject to fresh exact factory/USB identity verification |
 | Software | One reviewed source commit and coarse-wire revision across the cohort; per-device build bindings remain distinct |
 | GM configuration | `tz_id = 2` (`America/Chicago`), `tz_offset_min = -300`; label CDT |
 | Four extension bytes | `02 00 D4 FE`, little endian |
@@ -103,7 +104,7 @@ results and requires the corresponding checks again.
 ## Gate 3 Exact-device installation after operator go ahead
 
 Connection alone does not start testing. When the operator explicitly starts the
-session, verify the three identities, USB ownership, installed source/build/boot,
+session, verify all four identities, USB ownership, installed source/build/boot,
 local inputs and recovery records. Aliases are labels, not identity evidence.
 Record the isolation arrangement and finite test window before changing roles.
 
@@ -124,7 +125,7 @@ the installation sequence.
 
 During mixed-version installation, do not use partial acquisition as a test
 result or permit a live old/new timing bridge. Start candidate topology tests
-only after all three installations and the isolation checks pass.
+only after all four installations and the isolation checks pass.
 
 ## Gate 4 Bounded live topology tests
 
@@ -142,17 +143,17 @@ Retain startup and failed acquisition records alongside stable observations.
 
 | Run | Intended topology | Minimum observation or repetitions |
 | --- | --- | --- |
-| D1 | TC-01 GM to TC-02 RC and TC-04 RC directly | 600 seconds |
-| D2 | TC-02 GM to TC-01 RC and TC-04 RC directly | 600 seconds |
-| R1 | TC-01 GM to TC-02 RC relay to TC-04 RC leaf | 600 seconds |
-| R2 | TC-02 GM to TC-01 RC relay to TC-04 RC leaf | 600 seconds |
-| H1 | TC-01 and TC-02 GM candidates, TC-04 RC | Three controlled serving-root loss/return cycles, observing actual identity changes |
+| D1 | TC-01 GM to TC-02, TC-03 and TC-04 RC directly | 600 seconds |
+| D2 | TC-02 GM to TC-01, TC-03 and TC-04 RC directly | 600 seconds |
+| R1 | TC-01 GM to TC-02 RC relay to TC-04 RC leaf; TC-03 follows TC-01 directly | 600 seconds |
+| R2 | TC-02 GM to TC-01 RC relay to TC-04 RC leaf; TC-03 follows TC-02 directly | 600 seconds |
+| H1 | TC-01 and TC-02 GM candidates, TC-03 and TC-04 RC | Three controlled serving-root loss/return cycles, observing actual identity changes |
 | B1 | Repeat a chain with the selected relay rebooted, then the serving GM rebooted | One of each; verify fresh boot/scope and reacquisition |
 | S1 | One fixed proved relay chain | 1,800 seconds, with at least three observed successful renewals on each applicable direct-GM and relay admission path |
 
-This covers GM on TC-01/TC-02 and RC on all three units, with two BLE links and
-one intermediate RC. It does not certify TC-04 as a serving GM or larger mesh
-capacity. Add a separate rotation if TC-04 GM qualification is later needed.
+This covers GM on TC-01/TC-02 and RC on all four units, with two BLE links and
+one intermediate RC. TC-03 participates as an additional direct RC. It does not certify TC-03/TC-04 as serving GMs or larger mesh
+capacity. Add a separate rotation if additional GM qualification is later needed.
 
 For H1, establish the ordinarily eligible ACTIVE/HOT relationship where the
 candidate supports it, including both sides' acknowledged current state. Use
@@ -237,6 +238,17 @@ Only after all required gates pass:
 LoRa TZ transport remains outside the certificate; fallback must not label its
 UTC with stale BLE TZ. Automatic zone detection and calendar-based DST remain
 separate later phases. A T096 pass alone never certifies another target.
+
+## Execution checkpoint
+
+The initial .202 candidate passed host tests and the existing native inspection,
+but its bounded live acquisition failed before a stable observation window.
+Application and controller translation units selected different coarse wire sizes
+for a shared job structure. Preserve this failure separately from later runs.
+The .203 correction applies the same wire selection to the application and both
+controller libraries. Native inspection now checks the actual compiler commands;
+the failed .202 commands provide a negative control. Neither the correction nor
+TC-03's inclusion relaxes the original acquisition or availability criteria.
 
 ## Failure and closure
 
