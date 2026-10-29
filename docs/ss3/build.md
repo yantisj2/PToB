@@ -2,6 +2,9 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+Native builds [clean compiler output and retain the latest two image bundles](../firmware-storage.md)
+per device/profile, with installed/recovery pins preserved.
+
 PToB owns normal SS3 native G1/RC7 development. The selected M5Stack StickS3
 K150 ESP32-S3 target is **RC, BLE100**, with an experimental estimated-TX relay.
 It has no GM, local election or GNSS input. LoRa, WiFi, PTS and external PPS are

@@ -2,6 +2,9 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+Native builds [clean compiler output and retain the latest two image bundles](../firmware-storage.md)
+per device/profile, with installed/recovery pins preserved.
+
 Read [the target README](../../firmware/n30/README.md) for capabilities and
 unverified hardware assumptions. These commands build or inspect files; they do
 not connect, flash, start a serial reader or operate a device.

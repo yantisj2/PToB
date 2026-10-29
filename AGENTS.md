@@ -12,6 +12,16 @@ never stage, force-add, publish, or copy it into public documentation. Its absen
 in a fresh clone is expected. Keep private keys, enrollment, raw lab logs, and
 unreviewed imports out of tracked files.
 
+## Build output retention
+
+Native builders use `tools/firmware_artifacts.py` to release compiler output and
+retain the latest two successful bundles per device/profile/configuration, with
+installed/recovery pins preserved. See `docs/firmware-storage.md`. Do not archive
+whole compiler trees or bypass this lifecycle. After using historical builders
+without the hook, run the shared plan/apply routine from the owning repository
+once those builders have stopped. Preserve receipts, failure logs and evidence;
+use ignored `artifacts/local/firmware-retention.json` for explicit candidate pins.
+
 ## Publication discipline
 
 - Import explicitly selected files with recorded provenance; no wholesale sync

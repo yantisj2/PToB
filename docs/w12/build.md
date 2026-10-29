@@ -2,6 +2,9 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+Native builds [clean compiler output and retain the latest two image bundles](../firmware-storage.md)
+per device/profile, with installed/recovery pins preserved.
+
 PToB owns the W12 native G1/RC7 application. The public target supports **RC**:
 a BLE50 or BLE100 receiver, optionally an experimental BLE100 relay. It does
 not provide a GM profile. LoRa defaults OFF; the optional LR2021 receiver is described below. Version 0.2.2 separates LoRa timestamp reads and counter extension from BLE association/fence processing while retaining GNSS capture resources. WiFi and PTS are disabled. GNSS input is disabled

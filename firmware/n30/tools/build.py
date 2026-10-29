@@ -262,4 +262,8 @@ def main():
   dump(out/'inspection.json',inspect(out))
   print('Offline build and identity/layout checks passed (hardware unvalidated):',out)
  except BaseException:r['status']='FAILED';dump(out/'receipt.json',r);raise
-if __name__=='__main__':main()
+if __name__=='__main__':
+    import sys
+    sys.path.insert(0, str(REPO / 'tools'))
+    from firmware_artifacts import run_builder
+    run_builder(main, REPO)

@@ -104,13 +104,13 @@ def inspect(out):
 def main():
  p=argparse.ArgumentParser(description=__doc__)
  for n in ('idf','dependencies','out','enrollment','device','registry'):p.add_argument('--'+n,type=Path,required=True)
- p.add_argument('--resume-failed',action='store_true',help='Retain a failed attempt and reuse its public SDK object build')
+ p.add_argument('--resume-failed',action='store_true',help='Retain failed-attempt diagnostics and rebuild cleaned compiler output')
  a=p.parse_args();os.umask(0o077);out=a.out.resolve();sdk=a.idf.resolve();deps=a.dependencies.resolve()
  if REPO/'artifacts' not in out.parents:p.error('Ignored artifacts directory required')
  if out.exists():
   if not a.resume_failed or json.loads((out/'receipt.json').read_text()).get('status')!='FAILED':p.error('Only explicitly selected failed builds can resume')
   attempt=out/('failed-attempt-'+str(len(list(out.glob('failed-attempt-*')))+1));attempt.mkdir()
-  for n in ('source','runtime','local','receipt.json','command.json','build.log'):
+  for n in ('source','runtime','local','receipt.json','command.json','build.log','storage-retired.json','storage-bundle.json'):
    if (out/n).exists():shutil.move(str(out/n),attempt/n)
  for path in (a.enrollment,a.device,a.registry):
   if subprocess.run(['git','-C',str(REPO),'check-ignore','--quiet',str(path.resolve())]).returncode:p.error('Local inputs must be ignored')
@@ -148,4 +148,8 @@ def main():
   r.update(application='target/ptob_corese.bin',application_bytes=image.stat().st_size,application_sha256=sha(image),runtime_identity=json.loads((target/'v12_build_identity.json').read_text()),artifacts={str(q.relative_to(out)):sha(q) for q in out.rglob('*') if q.is_file() and (q.suffix in ('.bin','.elf','.map','.su') or q.parent in (local,out/'runtime') or q.name in ('sdkconfig','compile_commands.json','v12_build_identity.json'))},status='BUILD_COMPLETE')
   dump(out/'receipt.json',r);print(json.dumps(inspect(out),indent=2))
  except Exception as error:r.update(status='FAILED',error=str(error));dump(out/'receipt.json',r);raise
-if __name__=='__main__':main()
+if __name__=='__main__':
+    import sys
+    sys.path.insert(0, str(REPO / 'tools'))
+    from firmware_artifacts import run_builder
+    run_builder(main, REPO)

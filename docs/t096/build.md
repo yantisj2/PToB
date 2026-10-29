@@ -2,6 +2,9 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+Native builds [clean compiler output and retain the latest two image bundles](../firmware-storage.md)
+per device/profile, with installed/recovery pins preserved.
+
 This guide builds and inspects T096 source **0.15.209** without opening hardware.
 For profile choices and controls, see the [T096 README](../../firmware/t096/README.md).
 Release-by-release implementation and validation notes are in the

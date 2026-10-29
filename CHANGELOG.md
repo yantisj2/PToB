@@ -10,6 +10,15 @@
   append-only IDs and dataset terms. Retain ambiguous outcomes and enforce
   16 KiB data/256 B added mutable-state budgets. Hardware acceptance is separate.
 
+## 2026-10-29 — Bound firmware build storage
+
+- Add shared native-build retention: latest/previous per exact device/profile,
+  installed/recovery pins, disposable compiler cleanup, and audited retirement
+  without rewriting historical receipts or deleting experiment logs.
+- Add offline storage inspection, stale-plan and concurrency guards, a 2 GiB
+  free-space preflight, and synthetic destructive-operation regression tests.
+  Firmware behavior, hardware authority and enrolled-image privacy are unchanged.
+
 ## 2026-10-29 — Integrate current T096 development into main
 
 - Merge T096 source 0.15.205 and its GM7 development history, including controller

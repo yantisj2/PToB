@@ -2,6 +2,9 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+Native builds [clean compiler output and retain the latest two image bundles](../firmware-storage.md)
+per device/profile, with installed/recovery pins preserved.
+
 Read [the target README](../../firmware/corese/README.md). Version0.1.17 provides
 the live client; the earlier UI preparation build remains an offline design tool.
 

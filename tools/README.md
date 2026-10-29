@@ -1,5 +1,11 @@
 # Reproduction tools
 
+Native firmware builds automatically retain the latest two successful images per
+device/profile and release compiler intermediates. Use
+`python3 -B tools/firmware_artifacts.py plan --out artifacts/storage-plan.json`
+to review cleanup of existing output. See [firmware storage](../docs/firmware-storage.md)
+for recovery pins, applying plans and offline verification.
+
 Run `python3 tools/verify_ble_tail_multipath_paper.py` to verify the latest
 26 October public review draft's cadence, propagation, channel-mix regression,
 holdover, loss-age and confidence examples, distinct W12/N30 populations and
