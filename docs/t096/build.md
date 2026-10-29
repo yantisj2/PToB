@@ -102,7 +102,7 @@ then fall back to UTC. Source .206 adds automatic GNSS zone/DST selection and
 dynamic selected-source metadata updates. All participating T096s need .209 or
 newer for automatic DST after synchronization; old .205 receivers cache their
 first pair and .206–.208 stop normal scanning while timing is usable. See the
-[current bounded results and remaining gates](time-zone-test-plan.md#local-205-results-29-october-2026).
+[current automatic-TZ results and remaining gates](auto-time-zone-plan.md#local-209-results--29-october-2026).
 
 Normal GM/RC builds default to `--tz-mode auto`. Geographic ambiguity, stale
 position or an expired calendar produce unknown/UTC. For a stationary GM,

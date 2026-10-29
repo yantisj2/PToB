@@ -9,6 +9,16 @@ metadata owner. Preserve the scan interval/window, GATT/closure guards, PC and
 legacy policy, precision payloads and timing authority. An ingress/owner
 regression covers initial unknown followed by fresh authenticated TZ updates.
 
+The complete frozen production host suite, eight provisioning checks, nine
+console checks and all three own-device native inspections passed. TC-01/02/04
+received .209 with actual application/protected-region readback; TC-03 was
+excluded. The finite direct window failed availability amid qualified-source
+dropouts, despite correct accepted pairs and local conversions. The full relay
+window also failed availability with 26/117 known pairs per unit. The 600-request
+USB probe returned only unavailable timing sources. See the
+[automatic-TZ results](../../docs/t096/auto-time-zone-plan.md#local-209-results--29-october-2026)
+for populations, retained predecessor failures and outstanding hardware gates.
+
 ## 0.15.208 — Serving GM local timezone display
 
 Evaluate the serving GM's local TZ status with its own qualified UTC snapshot,

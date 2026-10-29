@@ -113,13 +113,15 @@ queues and copied snapshots. Existing controller ABI, radio/USB reserves,
 stack allocations and the absolute 1,024-byte static margin remain enforced.
 Host/native results are separate from hardware operation and UTC metrology.
 
-Frozen .207 commit `69f1b978cd3b26ce056b8922c35eb198d1c9e067` passed the complete
+Frozen .209 commit `b5732ed7e5ec988138f341ad485899ae53c1d074` passed the complete
 production host suite, eight provisioning checks and nine console checks.
 An independent pinned-source regeneration reproduced the header, manifest and
 coverage file byte-for-byte. The three own-device native images passed inspection:
 224 bytes of total added mutable state, 4,148 bytes of static margin and the
 same 5,738-byte read-only dataset. These figures include the GNSS position and
-copied queue/snapshot state.
+copied queue/snapshot state. The .209 suite also exercises the actual serving-GM
+display and synchronized receiver scan/ingress bodies; the corresponding older
+implementations fail the regression assertions.
 
 The earlier [.205 hardware results](time-zone-test-plan.md#local-205-results-29-october-2026)
 remain historical: direct-RC display passed, relay availability failed and other
@@ -139,5 +141,69 @@ All three .208 readbacks passed. Its 240-second direct acquisition failed with
 the GM reporting known TZ and both timing-locked receivers reporting unknown:
 initial admission preceded selection, and the normal RC policy had stopped
 coarse scanning. The .209 actual-ingress/owner regression reproduces that quiet
-scan failure and retains listening for later updates. New hardware results are
-pending.
+scan failure and retains listening for later updates.
+
+## Local .209 results — 29 October 2026
+
+All three application updates passed complete new-application readback,
+protected-prefix and final-sector-tail comparison, followed by fresh source/boot
+checks. TC-03 was not operated and retains its older image; it needs a compatible
+update before depending on automatic DST propagation.
+
+The TC-02 GM acquisition exhausted the original 240 seconds with zero reported
+satellites and no usable own GNSS fix. The GM did not serve, and its automatic
+offset stayed unknown. Testing then used TC-01 as GM, with TC-02 and TC-04 as
+receivers. The direct route acquired the correct Chicago pair `(2,-300)` in
+226.75 seconds, inside the same 240-second limit. Its complete 600-second
+observation failed the unchanged 99% availability gate:
+
+| Direct route sample population | TC-01 GM | TC-02 RC | TC-04 RC |
+| --- | ---: | ---: | ---: |
+| Known correct pair / status replies | 77/117 | 76/117 | 76/117 |
+| Explicit unknown / status replies | 40/117 | 41/117 | 41/117 |
+| Correct local conversions / known replies | 77/77 | 76/76 | 76/76 |
+| Serving / network replies | 76/116 | — | — |
+| Correct selected route / route replies | — | 75/116 | 75/116 |
+| Precision lock / precision replies | — | 74/116 | 75/116 |
+| Valid precision map / precision replies | — | 74/116 | 75/116 |
+
+No incorrect accepted pair was observed. All 116 GM position/calendar checks
+resolved to Chicago; position validity did not confer timing authority. The GM's
+qualified timing source dropped during the window, and receiver metadata became
+unknown during unavailable intervals. Both receivers changed bindings twice.
+The samples include every captured interval, rather than a selected stable tail.
+All console captures closed without a timeout or refused frame. Source thresholds
+and failed windows are retained; reception could not be adjusted during the run.
+
+The finite TC-04 vendor-USB probe completed all 600 requests with zero request
+failures or malformed records. All 600 precision-source records were unavailable,
+so both its availability gate and live UTC-coordinate check failed. A successful
+USB transfer does not establish a usable clock. The probe started no daemon and
+changed no device or host clock.
+
+The forced relay route TC-01 GM → TC-02 RC → TC-04 RC acquired `(2,-300)` in
+101.46 seconds, including receiver precision lock and valid maps. TC-02 inherited
+the pair while its own geographic selection was unknown; a receiver's local
+position is not substituted for the GM's metadata.
+
+Its full 600-second observation also failed the unchanged 99% gate. Each unit
+reported 26/117 correct known pairs and 91/117 unknown pairs, with all 26 known
+local conversions correct. The GM served in 25/116 network replies. Each receiver
+had the intended route, precision lock and valid map in 25/116 respective replies;
+neither changed bindings during the window. The GM had valid position in 25/116
+clock replies and invalid position in 91/116. All valid position/calendar checks
+resolved to Chicago. No incorrect accepted pair, console timeout or refused frame
+was observed. Source loss and every unknown interval remain in the population.
+
+Final inspection confirmed the volatile layout TC-01 GM, TC-02/TC-04 RC forced
+directly to TC-01, with LoRa off. All console handles and unit locks were released.
+No extra acquisition window was selected after these failures. Build-time boot
+profiles are unchanged. Live availability remains failed, independently of the
+passing installation and resource-release checks.
+
+Chicago's forthcoming physical DST boundary has not been observed. Calendar and
+production-owner/packet regressions cover that boundary and the complete database
+window; they do not replace live transition, sustained availability, GM successor
+or independent UTC accuracy qualification.
+Raw enrolled-device captures and images remain local private validation material;
+the public record contains these aggregates and the reproducible offline tests.
