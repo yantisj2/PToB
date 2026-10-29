@@ -1,5 +1,14 @@
 # T096 changelog
 
+## 0.15.204 — Kernel uptime for standby GM time zone leases
+
+Start the standby GM's coarse TZ lease from kernel uptime after an accepted
+selected-root announcement. The prior path passed a past receipt timestamp to
+a future timing-permission converter, which rejected it and left TZ unknown.
+The four-byte wire format, three-period lease and precision behavior are unchanged.
+An actual production-body regression covers the rejected old conversion and
+selected-root/authentication gates.
+
 ## 0.15.203 — Consistent coarse wire layout in the native controller
 
 Compile the application and both GM7 controller libraries with the same TZ wire

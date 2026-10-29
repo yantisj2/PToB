@@ -732,6 +732,17 @@ timing(struct gm7_bridge b, const struct gm7_source *s,
   r2_ble_serving(scope.gm);
   r2_lora_origin(scope.gm, boot, scope.source_epoch);
 }
+#ifdef R2_TZ_WIRE
+/* Fixed mesh metadata uses kernel uptime, not a future timing permission. */
+static void observe_coarse_tz(const struct gm7_packet *packet, int received,
+                              uint64_t now) {
+  if (!received && packet->kind == GM7_ANNOUNCE &&
+      packet->body.control.active == owner.scope.active &&
+      packet->body.control.active_boot == owner.scope.boot)
+    (void)r2_tz_observe(&coarse_tz, packet->body.control.tz, now, now,
+                       R2_TZ_GM_PERIOD_US);
+}
+#endif
 static __attribute__((noinline)) void receive(struct gm7_bridge b, uint64_t utc,
                                               uint64_t frame_start,
                                               uint64_t frame,
@@ -757,14 +768,7 @@ static __attribute__((noinline)) void receive(struct gm7_bridge b, uint64_t utc,
     if (!received)
       management_count(&management_accepted);
 #ifdef R2_TZ_WIRE
-    if(!received && packet.kind==GM7_ANNOUNCE &&
-       packet.body.control.active==owner.scope.active &&
-       packet.body.control.active_boot==owner.scope.boot){
-      uint64_t at;
-      if(gm7_bridge_to_kernel(b,rx,&at))
-        (void)r2_tz_observe(&coarse_tz,
-          packet.body.control.tz,at,b.kernel_hi,R2_TZ_GM_PERIOD_US);
-    }
+    observe_coarse_tz(&packet, received, b.kernel_hi);
 #endif
     uint64_t peer = packet.kind <= GM7_WITHDRAW ? packet.body.control.sender
         : packet.kind == GM7_ROLE ? packet.body.role.sender
