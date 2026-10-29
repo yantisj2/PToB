@@ -983,7 +983,9 @@ void changed_scope(uint64_t now,G1Reason reason,bool preserve_clock,G1ParentReas
 #ifdef R2_TZ_WIRE
  coarse_tz={};coarse_tz_order={};
 #endif
-if(parent_reason==G1ParentReason::ClockStep)retained_estimate.clear();relay_fence();if(anchor.source){inc(diagnostic.scope_changes);scope_trace(anchor,{},reason,now);}
+  if(parent_reason==G1ParentReason::ClockStep){retained_estimate.clear();}
+  relay_fence();
+  if(anchor.source){inc(diagnostic.scope_changes);scope_trace(anchor,{},reason,now);}
 #ifdef PTOB_GM_SUCCESSOR
   gm_control_scan.clear();gm_control_capture20=0;
 #endif
