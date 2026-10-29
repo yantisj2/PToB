@@ -1709,6 +1709,7 @@ static void snapshot_publish(struct r2_capture now) {
   status.at = mono_us();
 #ifdef R2_TZ_WIRE
   status.tz=r2_tz_current(&coarse_tz,mono_us());
+  status.tz_until_us=coarse_tz.until_us;
 #endif
   status.cycles++;
   status.rx = rx;
@@ -2442,6 +2443,9 @@ void r2_dynamic_service_acquisition_snapshot(uint32_t out[20]) {
 void r2_service_ui(struct r2_ui_model *m) {
   struct r2_service_status s;
   r2_service_snapshot(&s);
+#ifdef R2_TZ_WIRE
+  m->tz=s.tz;m->tz_until_us=s.tz_until_us;
+#endif
   m->profile_supported = true;
   m->profile_rc = true;
   m->profile_switching = false;

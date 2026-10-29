@@ -118,6 +118,8 @@ with (nullcontext(str(args.out.resolve())) if args.out else tempfile.TemporaryDi
     subprocess.run([str(out/'reply-native')],check=True,timeout=30)
 
 
+    subprocess.run([*flags,'-DR2_TZ_WIRE=1',str(APP/'src/precision.c'),str(APP/'tests/ui_time_zone_test.c'),'-o',str(out/'ui_time_zone')],check=True,timeout=30)
+    subprocess.run([str(out/'ui_time_zone'),str(out)],check=True,timeout=30)
     subprocess.run([*flags,str(APP/'src/ui_render.c'),str(APP/'src/precision.c'),str(APP/'tests/ui_test.c'),'-o',str(out/'ui')],check=True,timeout=30)
     subprocess.run([str(out/'ui'),str(out)],check=True,timeout=30)
     subprocess.run([*flags,str(APP/'src/precision.c'),str(APP/'tests/ui_precision_test.c'),'-o',str(out/'ui_precision')],check=True,timeout=30)
@@ -136,6 +138,8 @@ with (nullcontext(str(args.out.resolve())) if args.out else tempfile.TemporaryDi
     (out/'rc_ui_binding_under_test.h').write_text(dynamic_ui[begin:dynamic_ui.index('\nint r2_service_relay(',begin)])
     subprocess.run([*flags,'-I'+str(out),str(APP/'tests/rc_ui_binding_test.c'),str(out/'ui_render.o'),str(out/'precision.o'),'-o',str(out/'rc_ui_binding')],check=True,timeout=30)
     subprocess.run([str(out/'rc_ui_binding')],check=True,timeout=30)
+    subprocess.run([*flags,'-DR2_TZ_WIRE=1','-I'+str(out),str(APP/'tests/rc_ui_binding_test.c'),str(APP/'src/ui_render.c'),str(APP/'src/precision.c'),'-o',str(out/'rc_ui_binding_tz')],check=True,timeout=30)
+    subprocess.run([str(out/'rc_ui_binding_tz')],check=True,timeout=30)
     subprocess.run([*flags,'-I'+str(out),'-include',str(APP/'tests/ui_service_fake.h'),str(APP/'tests/ui_service_test.c'),str(out/'ui_render.o'),str(out/'precision.o'),'-o',str(out/'ui_service')],check=True,timeout=30)
     for mode in map(str,[*range(34),*range(35,42),52,53]):
         subprocess.run([str(out/'ui_service'),mode],check=True,timeout=30)

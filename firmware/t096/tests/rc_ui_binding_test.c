@@ -17,9 +17,15 @@ void r2_time_precision_snapshot(struct r2_pps_precision_view *p){memset(p,0,size
 int main(void){
  routes.node[0].id=UINT64_C(0x1000000000000001);
  fixture.active=true;fixture.lamps[1]=1;fixture.lamps[5]=2;
+#ifdef R2_TZ_WIRE
+ fixture.tz=r2_tz_manual();fixture.tz_until_us=1750000;
+#endif
  struct r2_ui_model m={.sampled_ms=1000,.platform_ready=true};
  r2_service_ui(&m);
  assert(m.ble_active&&m.lamps[1]==1&&m.lamps[5]==2);
+#ifdef R2_TZ_WIRE
+ assert(m.tz.id==2&&m.tz.offset_min==-300&&m.tz_until_us==1750000);
+#endif
  assert(!m.scope_active&&!m.precision.authorized&&!m.precision.map_valid&&!r2_ui_analog(&m,1000));
  fixture.follower=fixture.follower_clock_valid=true;fixture.service_until=2000000;
  fixture.time_sampled_us=current;fixture.follower_utc=1000000000000;

@@ -1016,8 +1016,9 @@ static __attribute__((noinline)) void publish(struct gm7_bridge b) {
   status.follower_utc = t.utc_us;
 #ifdef R2_TZ_WIRE
   status.tz=r2_tz_current(&coarse_tz,b.kernel_hi);
+  status.tz_until_us=coarse_tz.until_us;
   if(owner.scope.active==identity && owner.scope.timing_epoch)
-    status.tz=r2_tz_manual();
+    {status.tz=r2_tz_manual();status.tz_until_us=UINT64_MAX;}
 #endif
   status.time_sampled_us = t.at;
   status.source_frame_ns = frame;
@@ -1845,7 +1846,7 @@ void r2_service_snapshot(struct r2_service_status *out) {
   memset(out, 0, sizeof *out);
 #define P(field) out->field = status.field
 #ifdef R2_TZ_WIRE
-  P(tz);
+  P(tz);P(tz_until_us);
 #endif
   P(supervision);
   P(transport_fault);
@@ -2040,6 +2041,9 @@ void r2_service_ui(struct r2_ui_model *m) {
   }
   (void)k_mutex_unlock(&lock);
 
+#ifdef R2_TZ_WIRE
+  m->tz=s.tz;m->tz_until_us=s.tz_until_us;
+#endif
   m->ble_active = s.active && !s.closing;
   m->root = s.root;
   m->rx = s.rx;

@@ -710,7 +710,7 @@ static void pair_lock(uint8_t *fb,int x,int y,uint16_t color) {
     fill(fb,x+6,y+1,1,3,color);fill(fb,x,y+4,8,5,color);
     fill(fb,x+3,y+5,2,2,C_PANEL);pixel(fb,x+4,y+7,C_PANEL);
 }
-static void front_clock(uint8_t *fb, const ui_snapshot_t *s) {
+static void front_clock(uint8_t *fb, const ui_snapshot_t *s,const char *zone_label) {
     /* One shared watch face. A follower substitutes only its served-clock
        snapshot, header and existing beat panel; local GPS stays diagnostic. */
     ui_snapshot_t served;
@@ -734,7 +734,7 @@ static void front_clock(uint8_t *fb, const ui_snapshot_t *s) {
        Precision remains unknown; never substitute boot uptime as its time. */
     role_header(fb,s);
     round_panel(fb, 3, 17, 74, 35, C_PANEL, C_BEZEL);
-    label(fb, 8, 20, s->gnss_native_health&&s->native_served_time?"UTC":s->lora_only?"UTC":s->source_provisional?"UTC":s->mesh_profile ? (s->mesh_utc?"UTC":"REL") : s->acquiring_first_lock ? "ACQ" : "UTC", 1, C_DIM);
+    label(fb, 8, 20, zone_label?zone_label:s->gnss_native_health&&s->native_served_time?"UTC":s->lora_only?"UTC":s->source_provisional?"UTC":s->mesh_profile ? (s->mesh_utc?"UTC":"REL") : s->acquiring_first_lock ? "ACQ" : "UTC", 1, C_DIM);
     const char *source = s->gnss_native_health&&s->native_reason==UI_NATIVE_NONE&&!s->native_analog_eligible?"SYNC":s->gnss_native_health&&s->native_ble_time?(s->native_time_relay_hops==1?"RC1":s->native_time_relay_hops==2?"RC2":"BLE"):s->gnss_native_health&&s->native_analog_eligible?"PPS":s->gnss_native_health&&s->native_served_time?"COARSE":s->gnss_native_health&&s->utc_valid?"HOLD":s->lora_only?"LOR":s->source_provisional?"PROV":s->acquiring_first_lock ?
                              (s->boot_elapsed_seconds >= 360000u ? "99H+" : "WAIT") :
                          s->utc_valid ? (s->state==CLOCK_HOLDOVER ? "HOLD" : s->network_time ? "NET" : "GPS") :

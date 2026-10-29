@@ -235,6 +235,18 @@ bool r2_ui_display_time(const struct r2_ui_model *m,uint64_t now,int64_t *utc,bo
     m->coarse_utc_us>INT64_MAX||now*1000-m->coarse_at_us>(uint64_t)INT64_MAX-m->coarse_utc_us)return false;
  *utc=(int64_t)(m->coarse_utc_us+now*1000-m->coarse_at_us);*coarse=true;return true;
 }
+#ifdef R2_TZ_WIRE
+/* A label/offset adapter only: the model, USB and timing owner retain UTC. */
+const char *r2_ui_clock_zone(const struct r2_ui_model *m,uint64_t now,int64_t utc,int64_t *shown){
+ *shown=utc;
+ if(now<m->sampled_ms||now-m->sampled_ms>2500||now>UINT64_MAX/1000||
+    now*1000>=m->tz_until_us||!r2_tz_local_us(m->tz,utc,shown))return "UTC";
+ if(m->tz.id==1)return "UTC";
+ if(m->tz.id==2&&m->tz.offset_min==-300)return "CDT";
+ if(m->tz.id==2&&m->tz.offset_min==-360)return "CST";
+ return "LOC"; /* Valid forwarded offset; no invented regional abbreviation. */
+}
+#endif
 static bool sync_display_context(const struct r2_ui_model *m,uint64_t now){
  return m->profile_supported&&m->profile_rc&&m->boundary_clock&&
    !m->profile_switching&&m->platform_ready&&m->ble_active&&
@@ -327,6 +339,16 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
  int64_t display_utc=0;bool coarse=false;
  s.utc_valid=r2_ui_display_time(m,now,&display_utc,&coarse);
  if(sync_grace){s.utc_valid=true;display_utc=grace_utc;coarse=true;}
+ const char *clock_zone=NULL;
+#ifdef R2_TZ_WIRE
+ if(s.utc_valid&&(status->page==0||status->screensaver)){
+  int64_t shown;clock_zone=r2_ui_clock_zone(m,now,display_utc,&shown);
+  /* Normalize signed local dates before converting to the dial's day seconds. */
+  int64_t day=INT64_C(86400000000),tod=shown%day;
+  if(tod<0)tod+=day;
+  display_utc=tod;
+ }
+#endif
  s.utc_second=s.utc_valid?(uint32_t)(display_utc/1000000):0;
  s.subsecond_quarter=s.utc_valid?(display_utc%1000000)/250000:0;
  s.state=!s.utc_valid?CLOCK_NO_TIME:s.native_analog_eligible?CLOCK_LOCKED:CLOCK_ACQUIRING;
@@ -406,7 +428,7 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
   int top=(int)r2_ui_saver_top(status->screensaver_position);
   fill(fb,0,0,80,160,UI_COLOR(BLACK));
   round_panel(fb,3,top,74,13,C_PANEL,C_BEZEL);
-  label(fb,8,top+3,"UTC",1,C_DIM);
+  label(fb,8,top+3,clock_zone?clock_zone:"UTC",1,C_DIM);
   label(fb,36,top+3,s.native_ble_time?(s.native_time_relay_hops==1?"RC1":s.native_time_relay_hops==2?"RC2":"BLE"):"PPS",1,C_GREEN);
   ui_render_pulse_at(fb,s.pulse_indicator,66,(unsigned)(top+2));
   round_panel(fb,3,top+15,74,62,C_PANEL,C_BEZEL);
@@ -491,7 +513,7 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
   label(fb,5,93,"SERVING GM",1,C_WHITE);label(fb,5,107,"OR BLE SYNC",1,C_WHITE);
   label(fb,5,131,"GM/RC: MODE",1,C_DIM);label(fb,5,148,"PRESS:BACK",1,C_DIM);return;
  }
- if(status->page==0){front_clock(fb,&s);
+ if(status->page==0){front_clock(fb,&s,clock_zone);
 #ifdef R2_LORA
   if(m->lora.choice==RC8_SELECT_LORA&&m->lora.until_us>now*1000){
    fill(fb,0,0,80,15,C_BG);label(fb,4,4,"RC8 UNKNOWN",1,C_AMBER);

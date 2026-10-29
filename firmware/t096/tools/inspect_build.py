@@ -89,10 +89,11 @@ def inspect(out,allow_development=False):
     commands=(out/'target/compile_commands.json').read_text()
     if gm7 and tuple(map(int,r['version'].split('.'))) >= (0,15,202):
         require_tz_compile_mode(json.loads(commands))
-    # TZ1 adds208B static allocation versus the inspected .201 GM/RC image with the same inputs.
+    # TZ1 wire/cache allocation is208B versus the inspected .201 GM/RC image.
+    # Source205 adds a bounded64B for leased TZ snapshots used by the UI.
     # Charge it to its own bounded feature allocation, not the RC8 allowance.
     # Radio/USB buffers, stacks and the absolute1024B floor stay unchanged.
-    tz_allowance=208 if gm7 and 'R2_TZ_WIRE=1' in commands else 0
+    tz_allowance=(272 if tuple(map(int,r['version'].split('.'))) >= (0,15,205) else 208) if gm7 and 'R2_TZ_WIRE=1' in commands else 0
     if not dc and tuple(map(int,r['version'].split('.'))) >= (0,15,63):
         rx=re.search(r'^CONFIG_BT_CTLR_RX_BUFFERS=(\d+)$',config,re.M)
         work=re.search(r'^CONFIG_SYSTEM_WORKQUEUE_STACK_SIZE=(\d+)$',config,re.M)

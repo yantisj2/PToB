@@ -1,5 +1,14 @@
 # T096 changelog
 
+## 0.15.205 — Local time on the front clock
+
+When coarse mesh TZ metadata is known and leased, page 1 and its analog
+screensaver show local time. Both clock faces use the same offset; Chicago
+-300 displays CDT and -360 displays CST. Unknown or expired metadata falls
+back to UTC. Other valid forwarded regions use LOC until a label is available.
+Source time, USB, diagnostics and precision remain UTC. No automatic DST or
+geographic detection is added.
+
 ## 0.15.204 — Kernel uptime for standby GM time zone leases
 
 Start the standby GM's coarse TZ lease from kernel uptime after an accepted

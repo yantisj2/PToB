@@ -76,7 +76,7 @@ struct r2_service_status {
  bool configured,active,closing,closed,serving,follower,follower_clock_valid;
  bool peer_delivery_confirmed,storage_window;
 #ifdef R2_TZ_WIRE
- struct r2_tz tz; /* Uses existing status tail alignment. */
+ struct r2_tz tz;uint64_t tz_until_us; /* Uses existing status tail alignment. */
 #endif
 };
 /* Before bt_enable. Provisioned identity and keys are not discovery inputs. */

@@ -2,6 +2,9 @@
 #ifndef R2_UI_H
 #define R2_UI_H
 #include "clock.h"
+#ifdef R2_TZ_WIRE
+#include "../protocol/time_zone.h"
+#endif
 #include "../protocol/election_policy.h"
 #include "radio_precision.h"
 #include "link_quality.h"
@@ -38,6 +41,10 @@ struct r2_ui_model {
 #endif
 #ifdef R2_LORA
  struct r2_lora_view lora;
+#endif
+#ifdef R2_TZ_WIRE
+ /* Coarse mesh metadata expiry in kernel uptime; presentation only. */
+ struct r2_tz tz;uint64_t tz_until_us;
 #endif
  struct r2_clock_view clock;
  struct r2_radio_precision_view precision;
@@ -87,6 +94,9 @@ bool r2_ui_face_locked(const struct r2_ui_model *,uint64_t now_ms);
 bool r2_ui_saver_allowed(const struct r2_ui_model *,uint64_t now_ms);
 bool r2_ui_analog(const struct r2_ui_model *m,uint64_t now);
 bool r2_ui_display_time(const struct r2_ui_model *,uint64_t now_ms,int64_t *utc_us,bool *coarse);
+#ifdef R2_TZ_WIRE
+const char *r2_ui_clock_zone(const struct r2_ui_model *,uint64_t now_ms,int64_t utc_us,int64_t *shown_us);
+#endif
 void r2_ui_sync_display_update(struct r2_ui_sync_display *,const struct r2_ui_model *,uint64_t now_ms,bool analog_drawn);
 bool r2_ui_sync_display_time(const struct r2_ui_sync_display *,const struct r2_ui_model *,uint64_t now_ms,int64_t *utc_us);
 void r2_ui_reception(struct r2_ui_model *,const struct r2_link_quality_view *,uint64_t now_us);
