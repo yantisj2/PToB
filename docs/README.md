@@ -12,6 +12,11 @@ Use the [papers](../papers/README.md) for dated research and the
 [evidence index](../evidence/README.md) for experiment-specific claims. Design
 direction, implemented behavior, and measured outcomes have different scopes.
 
+The [RC round-trip ranging proposal](t096/round-trip-ranging.md) studies a
+GM-granted, low-priority T096 exchange, conditional averaging, shadow-PPS
+validation and per-link propagation correction. It includes reproducible
+synthetic arithmetic; ranging and automatic compensation are not implemented.
+
 The [time zone wire plan](time-zones.md) records the proposed four-byte zone ID
 and current UTC offset alongside coarse UTC, with manual GM configuration and
 unchanged RC forwarding. The separate [compact regional database proposal](time-zone-database.md)
