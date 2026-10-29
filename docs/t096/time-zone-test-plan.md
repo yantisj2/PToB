@@ -168,9 +168,10 @@ These finite cycles test TZ behavior during GM replacement, not seamless or
 generally durable failover.
 
 During R1/R2 or B1, retain a bounded source-loss interval exceeding three
-advertising periods without authenticated parent broadcasts. Verify that the
-relay and leaf report unknown/UTC and
-cannot fall back to their compiled CDT default. Renewed service must supply a
+advertising periods without authenticated parent broadcasts. Each receiver whose immediate parent
+broadcasts disappear must report unknown/UTC and cannot fall back to its compiled
+CDT default. A descendant that still receives authenticated parent presence may
+retain the fixed mesh TZ even while upstream precision is unavailable. Renewed service must supply a
 fresh matching pair. Production timing/holdover rules remain independently in
 force. Keep fault injection and outages separate from stable S1 statistics.
 
