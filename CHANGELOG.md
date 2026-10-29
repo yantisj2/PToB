@@ -1,5 +1,27 @@
 # Changelog
 
+## 2026-10-29 — T096 manual CDT wire certification plan
+
+- Select a breaking T096-first coarse-wire introduction, with manual Chicago
+  ID 2 / -300 minute CDT and no runtime old-format fallback.
+- Document offline contract/codec gates, exact-device preparation and scoped
+  TC-01/TC-02/TC-04 direct, relay, GM replacement, reboot and renewal tests.
+  Gate other target ports on the scoped T096 GM/RC results.
+- Set the coarse TZ lease to three advertising periods, independent of precision
+  timing. Existing authenticated parent advertisements renew the fixed mesh TZ;
+  precision layouts, maps and clock algorithms stay unchanged. Candidate
+  verification is underway; installation and certification remain separate.
+
+## 2026-10-27 — time zone protocol and regional database plans
+
+- Record the proposed four-byte coarse UTC extension with stable zone IDs,
+  signed current offsets, manual GM configuration, authenticated RC forwarding,
+  a coarse lease and an explicit compatibility revision.
+- Propose a compact GM database with shared offset calendars, a coarse regional
+  map, manual overrides and bounded rough GNSS selection. Document coverage,
+  ambiguity, source licensing, storage targets and offline validation gates.
+  These documentation changes implement no firmware behavior.
+
 ## 2026-10-27 — SS3 0.1.6 signed mesh epoch correction
 
 - Port the current CoreSE 0.1.26 receive-only GM7 implementation3 codec/monitor,

@@ -1,5 +1,16 @@
 # Protocol contracts
 
+The [time zone wire plan](../docs/time-zones.md) proposes four authenticated
+bytes alongside coarse UTC: a stable zone ID and current offset, forwarded by
+RCs. It requires an explicit new coarse-packet revision and leaves existing
+precision layouts unchanged. The [candidate coarse-wire contract](time-zone-v1/README.md) records the
+new lengths and authentication domains; hardware certification is pending. The [regional database proposal](../docs/time-zone-database.md) is a later GM
+feature using the same fields.
+
+The [T096 execution plan](../docs/t096/time-zone-test-plan.md) specifies
+new-wire-only GM/RC tests with manual CDT before any other target rollout;
+the attached TC-01/TC-02/TC-04 execution is operator authorized and underway.
+
 [RC8 LoRa version 2](rc8/README.md) freezes the offline T096 source/packet,
 event-association, functional availability, freshness/authority and bounded-hold contract. Its portable
 codec/policies have host tests; no radio owner or deployed RC8 service is enabled.
