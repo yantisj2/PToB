@@ -2,8 +2,10 @@
 
 Status: selected design direction, 27 October 2026, revised 29 October for a
 breaking T096-first introduction. The 29 October lease decision below supersedes
-earlier proposals to bind TZ to precision-source expiry. T096 implementation and
-attached-device verification are in progress; hardware certification is pending.
+earlier proposals to bind TZ to precision-source expiry. Local T096 .205 images
+are installed on the four-device cohort, including the local clock display.
+Direct-RC verification passed; full hardware certification remains pending the
+[source and availability gates](t096/time-zone-test-plan.md#local-205-results-29-october-2026).
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
 UTC remains PToB's primary time base. Add four authenticated bytes to coarse UTC

@@ -3,9 +3,10 @@
 Status: execution authorized by the operator on attached TC-01, TC-02 and TC-04;
 TC-03 was added to the authorized cohort on 29 October 2026. The first candidate
 was installed on the original three units; acquisition failed and is preserved.
-All four units received readback-verified .203 images. The standby-TZ correction
-in .204 and the requested local clock display in .205 supersede that candidate;
-updating and bounded qualification are in progress. No certification is claimed.
+All four units have readback-verified local .205 images, including the standby
+TZ correction and requested local clock display. Direct-RC verification passed;
+handover qualification and relay availability did not pass. No full wire
+certification is claimed.
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
 Introduce the [four-byte time zone extension](../time-zones.md) as a breaking
@@ -301,6 +302,56 @@ CST, date rollover and unknown/expired UTC fallback, and retain UTC in the
 underlying model and other diagnostic pages. Its screensaver follows the same
 presentation. Repeat the required live matrix on one frozen successor across
 all four units; do not combine earlier source versions into its certificate.
+
+### Local .205 results, 29 October 2026
+
+The frozen native-development candidate is commit
+`13bfcfadc1e0122f9d9e1bcc9bf6413afa7427a1`. All four app-only installations
+passed actual application readback and protected-region/tail comparison. The
+complete production-body host suite and all four native inspections passed.
+Renderer checks cover both faces, CDT/CST labels, date rollover, the saver,
+known TZ while acquiring, unknown/expired UTC fallback and LoRa UTC fallback.
+Primary status and USB timestamps remain UTC.
+
+Two complete 600-second observations produced the following known-CDT status
+populations. Unknown samples remain in their denominators; neither window
+accepted an incorrect TZ pair.
+
+| Run | TC-01 | TC-02 | TC-03 | TC-04 | Result |
+| --- | ---: | ---: | ---: | ---: | --- |
+| D3, TC-03 GM and three direct RCs | 117/117 | 117/117 | 118/118 | 117/117 | PASS |
+| R3, TC-03 → TC-02 → TC-04, TC-01 direct | 72/117 | 76/117 | 117/117 | 77/117 | FAIL, below 99% availability |
+
+Every sampled direct RC map in D3 was valid and locked (116/116 per RC).
+During R3, TC-03 served in 76/116 network samples; the receivers withdrew their
+maps and live TZ during the interruption, then recovered. Its PPS-rejection
+counter increased from 1 to 15 and its reported source epoch changed. These
+are diagnostic observations; the cause of the serving interruption is unresolved.
+All R3 collectors completed and closed, with no reported runtime or transport
+error. A good tail does not replace the failed whole window.
+
+The first H1 attempt exhausted its original 240-second source-readiness budget
+before YIELD: TC-02 had no GNSS fix or PPS. Its fix/PPS subsequently returned,
+but qualification was not sustained. A later request was queued asynchronously
+and then rejected as stale; no completed handover is counted. That attempt also
+exposed a harness error: the pinned embedded SDK defines `EINPROGRESS` as 119,
+where the test had expected Linux's 115. Preserve that capture. A fresh harness
+using the target value again exhausted the original readiness budget before
+YIELD. The three required verified cycles remain incomplete. At the end of the
+first H1 capture, all four units reported received/configured CDT, valid local
+conversion and active analog faces despite TC-02's local-source failure.
+
+An additional exact-TC-04 USB check under the qualified D3 root returned
+600/600 fresh valid UTC records with matching device, physical boot and root
+mesh-session identities. This confirms the display offset did not shift those
+UTC records. The overall probe failed with one SOF request failure, also seen
+on .203. Preserve that failure; USB durability and calibrated UTC accuracy
+remain unqualified.
+
+D2, R2, B1 and the 1,800-second S3 gate have not completed on .205. The earlier
+.203 successes do not fill those gaps. Enrolled images and raw captures remain
+local private artifacts. Other target ports remain deferred pending the required
+GM/RC wire certification and a stable source test population.
 
 ## Failure and closure
 
