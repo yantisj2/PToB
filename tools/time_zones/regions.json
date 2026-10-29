@@ -107,7 +107,8 @@
     "Mexico: border municipalities and Nayarit split unresolved outside conservative interior cuts.",
     "European overseas territory excluded outside the Europe/Atlantic crop. Ceuta and Melilla excluded by the Spain mainland clip.",
     "Only positive-area cell intersections count; zero-area polygon touches do not claim land in the half-open cell.",
-    "Indiana resolves only the northwest interior cut west of86.9W and north of41N, allowing the Chicago cell; remainder ambiguous."
+    "Indiana resolves only the northwest interior cut west of86.9W and north of41N, allowing the Chicago cell; remainder ambiguous.",
+    "Florida resolves the western Panhandle west of86W as Central and the existing interior east of85W as Eastern. The intervening band stays ambiguous. These conservative authored cuts follow the separation described by 49 CFR71.5(f), checked2026-10-29: https://www.ecfr.gov/current/title-49/subtitle-A/part-71/section-71.5 . They do not encode the river, waterway or county boundary."
   ],
   "schema": 1,
   "state_property": "iso_3166_2",
@@ -412,15 +413,16 @@
       "zone": "America/New_York"
     },
     "US-FL": {
-      "include_boxes": [
-        [
-          -85,
-          0,
-          180,
-          90
-        ]
-      ],
-      "zone": "America/New_York"
+      "parts": [
+        {
+          "include_boxes": [[-180, 0, -86, 90]],
+          "zone": "America/Chicago"
+        },
+        {
+          "include_boxes": [[-85, 0, 180, 90]],
+          "zone": "America/New_York"
+        }
+      ]
     },
     "US-GA": {
       "zone": "America/New_York"

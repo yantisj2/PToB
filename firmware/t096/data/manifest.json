@@ -11,7 +11,7 @@
       "bytes": 1704,
       "cells": {
         "0": 6576,
-        "2": 261,
+        "2": 263,
         "5": 47,
         "8": 2,
         "10": 8,
@@ -42,7 +42,7 @@
         "70": 23,
         "71": 84,
         "98": 21,
-        "255": 2492
+        "255": 2490
       },
       "columns": 130,
       "latitude_start": 5,
@@ -451,11 +451,11 @@
       "natural_earth_id": "MEX-2727"
     }
   ],
-  "header_sha256": "df0bad22f067da35edb545ebd732cf28717363683f711f2d980c5ed96925ad2e",
+  "header_sha256": "24c26a66e0dabff9649e0ef23a8c248e649519069ebdaf8b18783277d7a0014f",
   "image_bytes": 5738,
-  "image_sha256": "9ab1a6c7e0ebddaf1319e1ee392d3b46c9cfc0fb7464858d71f542893215e811",
+  "image_sha256": "c1d4bce11924a9a879ca5f00e5f58ddf6abcd6d7ed08376bfa98ccbad8bb3bb8",
   "inputs_sha256": {
-    "regions.json": "99f0025ae5e4954a713f4f080480750b860946bbcb90957b81d55ec315f9c061",
+    "regions.json": "3252512cf315401d4fa0008d4e842795f1b5f378abb743d31b311d5c7f33591b",
     "requirements.txt": "d9b102ce7ec2c33ba25d6192309fa210b51c42a4c5d012354c8b3a49fdb94183",
     "sources.lock.json": "30107d7dba4ed85d9dd6ec1796e4045c9baf20b3cb66aa1949c8da604dcf3dd7",
     "zones.json": "2c765ff8ec319f11180a9466fcdac2bec8b27697129e0a8b25c1f33302dbbac3"

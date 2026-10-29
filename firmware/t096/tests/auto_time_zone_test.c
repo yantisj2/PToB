@@ -51,6 +51,12 @@ static void geographic(void){
  assert(r2_tz_db_geo(334500000,-1120700000)==zone("America/Phoenix"));
  assert(r2_tz_db_geo(476000000,-1223300000)==zone("America/Los_Angeles"));
  assert(r2_tz_db_geo(407100000,-740100000)==zone("America/New_York"));
+ /* Public interior samples, not the private bench position. Preserve the
+  * unresolved band instead of claiming the exact Florida civil boundary. */
+ assert(r2_tz_db_geo(305000000,-875000000)==2);
+ assert(r2_tz_db_geo(305000000,-865000000)==2);
+ assert(r2_tz_db_geo(305000000,-855000000)==UINT16_MAX);
+ assert(r2_tz_db_geo(275000000,-815000000)==zone("America/New_York"));
  assert(r2_tz_db_geo(515000000,-1200000)==zone("Europe/London"));
  assert(r2_tz_db_geo(533400000,-62600000)==zone("Europe/Dublin"));
  assert(r2_tz_db_geo(386800000,-918000000)==2); /* negative longitude floors west */

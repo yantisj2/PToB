@@ -6,7 +6,7 @@ This ordinary guide uses MIT. [Terms, public inputs and reproducible generation]
 `time_zone_data.h` contains **5,738 bytes** of read-only packed data: 98 public
 zone records, 20 shared offset calendars, 135 offset transitions, names and two
 cropped geographic grids. Its SHA-256 as packed bytes is
-`9ab1a6c7e0ebddaf1319e1ee392d3b46c9cfc0fb7464858d71f542893215e811`.
+`c1d4bce11924a9a879ca5f00e5f58ddf6abcd6d7ed08376bfa98ccbad8bb3bb8`.
 The selected window is `2026-01-01T00:00:00Z <= UTC < 2032-01-01T00:00:00Z`.
 Expiry produces unknown; firmware does not extrapolate seasonal rules.
 

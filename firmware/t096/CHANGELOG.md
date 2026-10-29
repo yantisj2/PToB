@@ -1,5 +1,14 @@
 # T096 changelog
 
+## 0.15.207 — Western Florida automatic coverage
+
+Resolve Florida's western Panhandle west of 86W to the Chicago calendar, while
+keeping the 86W–85W band ambiguous and the eastern interior on New York. The
+authored interior cuts reference the federal boundary description; they do not
+claim to reproduce its river, waterway or county detail. Public interior and
+ambiguous-band tests accompany the mapping. The .206 live acquisition exposed
+the omitted western region and is preserved as a failed test.
+
 ## 0.15.206 — GM location-based timezone and DST
 
 Select a rough regional zone from newly accepted own-GNSS coordinates, then

@@ -57,6 +57,12 @@ Positive-area intersections count; touching only along a polygon/cell edge does
 not claim land in a half-open cell. These are coarse cartographic choices,
 without an accuracy or maximum border-error guarantee.
 
+Florida's western Panhandle west of 86W maps to Chicago; the interior east of
+85W maps to New York. The intervening band stays ambiguous. These authored
+interior cuts reference [49 CFR 71.5(f)](https://www.ecfr.gov/current/title-49/subtitle-A/part-71/section-71.5),
+checked 29 October 2026; they do not encode its river, waterway or county detail.
+Public western, eastern and ambiguous-band samples supplement the IANA population.
+
 The generated `coverage.json` retains all 97 selected IANA `zone.tab` principal
 locations: 38 resolve to the expected public ID, 59 are ambiguous, zero are wrong
 and zero unsupported. This population includes deliberately unimplemented split

@@ -1,6 +1,6 @@
 # T096 GM automatic time zones
 
-Source 0.15.206, 29 October 2026. Software implemented; hardware acceptance is
+Source 0.15.207, 29 October 2026. Software implemented; hardware acceptance is
 recorded separately below. Copyright (c) 2026 Jonathan Yantis. MIT.
 
 The GM selects its timezone from its own GNSS position and computes the current
@@ -106,5 +106,11 @@ Host/native results are separate from hardware operation and UTC metrology.
 
 The earlier [.205 hardware results](time-zone-test-plan.md#local-205-results-29-october-2026)
 remain historical: direct-RC display passed, relay availability failed and other
-successor gates were incomplete. The operator authorized .206 testing on
-TC-01, TC-02 and TC-04; TC-03 is excluded. New hardware results are pending.
+successor gates were incomplete. The operator authorized automatic-TZ testing on
+TC-01, TC-02 and TC-04; TC-03 is excluded. All three .206 application readbacks
+and fresh boots passed. Its first direct-topology acquisition failed within
+the original 240-second budget: the local position was in unresolved western
+Florida, and auto-TZ remained unknown. Source qualification and receiver timing
+availability are recorded separately from this geographic failure. The .207
+mapping adds a conservative western Panhandle cut, with public regression
+samples; new hardware results are pending.
