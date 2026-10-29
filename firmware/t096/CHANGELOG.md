@@ -10,7 +10,7 @@ parent advertisements independently of precision correction/lock/map expiry.
 G1/GR3/RC7 precision layouts, UTC clock calculations and USB timestamps retain
 their existing behavior. No automatic TZ/DST selection is enabled.
 
-The compact implementation uses a160B static allocation allowance versus the same-input
+The compact implementation uses a208B static allocation allowance versus the same-input
 .201 image and unchanged RC8/radio/USB/stack reserves.
 Builders use the shared compiler-output retention lifecycle. Offline historical
 codecs remain explicit; normal runtime does not accept the old coarse wire.

@@ -348,9 +348,9 @@ static void lt_mtu_done(struct bt_conn *conn, uint8_t error,
   struct bt_conn_info info;
   bool live = !bt_conn_get_info(conn, &info) &&
       info.state == BT_CONN_STATE_CONNECTED;
-  if (error == BT_ATT_ERR_UNLIKELY && live && mtu >= 215)
+  if (error == BT_ATT_ERR_UNLIKELY && live && mtu >= RC_DYNAMIC_CONTROL_BYTES+3u)
     e.error = 0;
-  if (!e.error && (!live || mtu < 215))
+  if (!e.error && (!live || mtu < RC_DYNAMIC_CONTROL_BYTES+3u))
     e.error = BT_ATT_ERR_UNLIKELY;
   if (error)
     r2_timing_event(R2_TIMING_GM_CONTROL,error,0,21,mtu,live);

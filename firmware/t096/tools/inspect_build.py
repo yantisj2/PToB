@@ -86,10 +86,10 @@ def inspect(out,allow_development=False):
     # .197 adds one durable callback word per slot (24B with struct alignment).
     hot_allowance=(104 if tuple(map(int,r['version'].split('.'))) >= (0,15,197) else 80 if tuple(map(int,r['version'].split('.'))) >= (0,15,196) else 64) if gm7 and tuple(map(int,r['version'].split('.'))) >= (0,15,194) else 0
     commands=(out/'target/compile_commands.json').read_text()
-    # TZ1 has a160B allocation cap versus the inspected .201 GM/RC image with the same inputs.
+    # TZ1 adds208B static allocation versus the inspected .201 GM/RC image with the same inputs.
     # Charge it to its own bounded feature allocation, not the RC8 allowance.
     # Radio/USB buffers, stacks and the absolute1024B floor stay unchanged.
-    tz_allowance=160 if gm7 and 'R2_TZ_WIRE=1' in commands else 0
+    tz_allowance=208 if gm7 and 'R2_TZ_WIRE=1' in commands else 0
     if not dc and tuple(map(int,r['version'].split('.'))) >= (0,15,63):
         rx=re.search(r'^CONFIG_BT_CTLR_RX_BUFFERS=(\d+)$',config,re.M)
         work=re.search(r'^CONFIG_SYSTEM_WORKQUEUE_STACK_SIZE=(\d+)$',config,re.M)
