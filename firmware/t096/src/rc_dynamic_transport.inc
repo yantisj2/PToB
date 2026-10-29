@@ -516,7 +516,8 @@ static void gm_apply(const uint8_t *wire) {
     bool bound = gm_accept(&r, gm_exchange.proof_at, now, tick);
     if (bound) {
 #ifdef R2_TZ_WIRE
-      (void)r2_tz_observe(&coarse_tz,r.tz,now,now,R2_TZ_GM_PERIOD_US);
+      uint64_t tz_at=mono_us();
+      (void)r2_tz_observe(&coarse_tz,r.tz,tz_at,tz_at,R2_TZ_GM_PERIOD_US);
 #endif
       ++lt_bindings;
       startup_complete();
@@ -801,7 +802,8 @@ static void lt_apply_read(const struct rc7_control *c) {
                      routes.node[node].transmitter, routes.node[node].slot, &a);
       if (bound) {
 #ifdef R2_TZ_WIRE
-        (void)r2_tz_observe(&coarse_tz,c->tz,tick/16,tick/16,R2_TZ_RC_PERIOD_US);
+        uint64_t tz_at=mono_us();
+        (void)r2_tz_observe(&coarse_tz,c->tz,tz_at,tz_at,R2_TZ_RC_PERIOD_US);
 #endif
         parent_count0_at=0;
         if(changed_scope){
