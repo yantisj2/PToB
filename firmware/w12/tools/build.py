@@ -7,7 +7,7 @@ from pathlib import Path
 APP=Path(__file__).resolve().parents[1];REPO=APP.parents[1]
 sys.path.insert(0,str(REPO/'registry'))
 from registry import load as load_registry,header as registry_header
-VERSION='0.2.17'
+VERSION='0.2.18'
 GNSS_PROFILE='meshnology_w12_l76k_rx39_pps41'
 def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
 def git(p,*args):return subprocess.check_output(['git','-C',str(p),*args],text=True).strip()
@@ -19,6 +19,7 @@ def validate_gm_successor_compilation(receipt,compiled):
   rows=[r for r in compiled if r['file'].endswith(suffix)]
   if len(rows)!=1 or '-DPTOB_GM_SUCCESSOR=1' not in rows[0]['command'].split():raise ValueError('GM successor consumer/codec not compiled: '+suffix)
   if suffix.endswith('gm7_codec.c') and '-Os' not in rows[0]['command'].split():raise ValueError('Size-bounded GM control codec required')
+  if receipt.get('time_zone_contract') and '-DR2_TZ_WIRE=1' not in rows[0]['command'].split():raise ValueError('Current coarse TZ wire not compiled: '+suffix)
 def validate_inputs(enrollment,device):
  if set(enrollment)!={'group_id','key_epoch','psk'}:raise ValueError('Expected shared group enrollment schema')
  group=enrollment['group_id'];epoch=enrollment['key_epoch'];key=bytes.fromhex(enrollment['psk'])
@@ -174,7 +175,7 @@ def main():
  (inputs/'w12_fine_config.h').write_text(fine_header(d,a.fine_clock))
  # Registry/generator/device hashes bind display metadata and local input changes into runtime enrollment identity.
  enrollment_header=inputs/'r2-enrollment.h';enrollment_header.write_text('/* source:'+source_hash+' registry:'+sha(a.registry)+' generator:'+sha(REPO/'registry/registry.py')+' device:'+sha(a.device_config)+' */\nstatic const r2_group_enrollment provision={{{'+','.join(map(str,key))+'},UINT64_C(0x'+e['group_id']+'),'+str(e['key_epoch'])+'},UINT64_C(0x'+d['device_id']+'),'+json.dumps(d['label'])+',40000};\n')
- r={'schema':1,'artifact_class':'PTOB_W12_RC','version':VERSION,'status':'INCOMPLETE','public_commit':git(REPO,'rev-parse','HEAD'),'source_dirty':dirty,'repository_dirty':repository_dirty,'source_sha256':source_hash,'sources':sources,'dependencies':lock,'sdk_path':str(sdk),'app_path':str(APP),'sdk_submodules':modules.splitlines(),'profile':'RC','listening_percent':a.listening_percent,'estimated_relay':a.estimated_relay,'tx_actual_capture':False,'precision':'UNQUALIFIED','installed':False,'fine_clock':a.fine_clock,'no_time_sync_watchdog_us':300000000,'lora_rx':bool(a.radiolib),'rc9':a.rc9,'pa_termination_policy':'SDK_HCI_ACK_EXACT_OWNER_V1','leader_recovery_policy':'FENCED_SCOPE_CACHE_CLEAR_1500MS_V3','gm_successor_policy':'GM7_V3_AUTHENTICATED_NOMINEE_RECOVERY_3S_V1','rc9_server_recovery_policy':'QUALIFIED_BLE_DISPLAY_DRAIN_ORIGINAL_CHILD_LEASE_V1' if a.rc9 else None,'fallback_recovery_policy':'AUTO_RC9_PASSIVE_NORMAL_RETRY_V1' if a.rc9 else None,'lora_transmitter_factory':tx,'radiolib_path':str(a.radiolib.resolve()) if a.radiolib else None,'clock_backend':fine_backend(a.fine_clock),'gnss_fast_map_diagnostic':fast_map,'registry_sha256':sha(a.registry),'registry_generator_sha256':sha(REPO/'registry/registry.py'),'enrollment_mode':'LOCAL_BUILD_TIME_NO_NVS_WRITE','device_config_sha256':sha(a.device_config),'provisional_path_profile':provisional_profile(d),'phase_offsets':phase_offsets(),'bluetooth_clock_map':'FINE_RAW_CURRENT_BRACKET' if a.fine_clock else 'GPTIMER_DRIVER_BRACKET','programmed_clock_projection':'MEAN4_VALIDATED_NO_TRIMMING' if a.estimated_relay else None}
+ r={'schema':1,'artifact_class':'PTOB_W12_RC','version':VERSION,'status':'INCOMPLETE','public_commit':git(REPO,'rev-parse','HEAD'),'source_dirty':dirty,'repository_dirty':repository_dirty,'source_sha256':source_hash,'sources':sources,'dependencies':lock,'sdk_path':str(sdk),'app_path':str(APP),'sdk_submodules':modules.splitlines(),'time_zone_contract':'COARSE_TZ_V1_FIXED_MESH_3_PERIOD_LOCAL_DISPLAY','profile':'RC','listening_percent':a.listening_percent,'estimated_relay':a.estimated_relay,'tx_actual_capture':False,'precision':'UNQUALIFIED','installed':False,'fine_clock':a.fine_clock,'no_time_sync_watchdog_us':300000000,'lora_rx':bool(a.radiolib),'rc9':a.rc9,'pa_termination_policy':'SDK_HCI_ACK_EXACT_OWNER_V1','leader_recovery_policy':'FENCED_SCOPE_CACHE_CLEAR_1500MS_V3','gm_successor_policy':'GM7_V3_AUTHENTICATED_NOMINEE_RECOVERY_3S_V1','rc9_server_recovery_policy':'QUALIFIED_BLE_DISPLAY_DRAIN_ORIGINAL_CHILD_LEASE_V1' if a.rc9 else None,'fallback_recovery_policy':'AUTO_RC9_PASSIVE_NORMAL_RETRY_V1' if a.rc9 else None,'lora_transmitter_factory':tx,'radiolib_path':str(a.radiolib.resolve()) if a.radiolib else None,'clock_backend':fine_backend(a.fine_clock),'gnss_fast_map_diagnostic':fast_map,'registry_sha256':sha(a.registry),'registry_generator_sha256':sha(REPO/'registry/registry.py'),'enrollment_mode':'LOCAL_BUILD_TIME_NO_NVS_WRITE','device_config_sha256':sha(a.device_config),'provisional_path_profile':provisional_profile(d),'phase_offsets':phase_offsets(),'bluetooth_clock_map':'FINE_RAW_CURRENT_BRACKET' if a.fine_clock else 'GPTIMER_DRIVER_BRACKET','programmed_clock_projection':'MEAN4_VALIDATED_NO_TRIMMING' if a.estimated_relay else None}
  dump(out/'receipt.json',r)
  env=os.environ.copy()
  for k in ['CFLAGS','CXXFLAGS','CPPFLAGS','LDFLAGS','EXTRA_COMPONENT_DIRS','SDKCONFIG_DEFAULTS']:env.pop(k,None)
@@ -207,6 +208,7 @@ def main():
   symbols=subprocess.check_output([nm,str(target/'ptob_w12.elf')],text=True)
   if re.search(r'\b(esp_wifi_init|esp_wifi_start|nvs_flash_init|nvs_set_blob|nvs_set_u32)\b',symbols):raise ValueError('Unexpected WiFi activation or NVS write dependency')
   validate_dual_compilation(r,json.loads((target/'compile_commands.json').read_text()))
+  validate_gm_successor_compilation(r,json.loads((target/'compile_commands.json').read_text()))
   identity=json.loads((target/'v12_build_identity.json').read_text());r.update(runtime_identity=identity,application='target/ptob_w12.bin',application_sha256=sha(image),application_bytes=image.stat().st_size,artifacts={str(q.relative_to(out)):sha(q) for q in out.rglob('*') if q.is_file() and (q.suffix in ['.bin','.elf','.map','.su'] or q.name in ['sdkconfig','compile_commands.json','v12_build_identity.json','r2-enrollment.h','ptob_device.h','ptob_registry.h','enrollment.json','device.json','registry.json','registry_generator.py','w12_fine_config.h','w12_lora_config.h'])},status='DEVELOPMENT_NOT_FLASHABLE' if dirty else 'BUILD_COMPLETE_PHYSICAL_UNKNOWN')
   from stack_budget import check as check_main_stack
   r['main_stack_budget']=check_main_stack(out)

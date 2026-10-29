@@ -12,6 +12,9 @@ inline Model model(const v12::R2Status& s,const DisplayState& d,uint64_t now,con
  Model m;std::snprintf(m.unit,sizeof m.unit,"%s",d.unit_label);std::snprintf(m.parent,sizeof m.parent,"%s",d.followed_clock);
  if(s.root_identity&&root_alias)std::snprintf(m.root,sizeof m.root,"%s",root_alias);
  m.sampled_us=now;m.utc_at_us=s.follower_snapshot_us;m.utc_us=s.follower_utc_us;
+#ifdef R2_TZ_WIRE
+ m.tz=s.tz;m.tz_until_us=s.tz_until_us;
+#endif
  m.until_us=now<=UINT64_MAX-SnapshotMaxUs?now+SnapshotMaxUs:now;
  const bool healthy=s.requested&&!s.fault&&!s.rc7_upstream_mode_pending;
  if(healthy&&s.synced&&!s.rc_parent.pending()&&s.rc_parent.state!=4&&s.n30_signal.peer==s.joined_peer&&s.n30_signal.fresh(now))m.signal=s.n30_signal;

@@ -138,3 +138,6 @@ foreach(pair
 endforeach()
 target_include_directories(${COMPONENT_LIB} PRIVATE "$ENV{IDF_PATH}/components/esp_driver_mcpwm/src")
 configure_file("${PTOB_FINE_HEADER}" "${CMAKE_CURRENT_BINARY_DIR}/fine_capture_config.h" COPYONLY)
+
+# Current coarse TZ wire; other derived targets retain their selected profile.
+target_compile_definitions(${COMPONENT_LIB} PRIVATE R2_TZ_WIRE=1)

@@ -5,14 +5,23 @@
 #pragma once
 #include "../include/rc_boundary.h"
 #include "../../r2-g1/group_auth.h"
+#include "../../r2-g1/time_zone.h"
 #define RC_DYNAMIC_CODEC_REVISION 2u
 #define RC_DYNAMIC_WIRE_VERSION 7u
 #define RC_DYNAMIC_PROFILE 5u
 #define RC_DYNAMIC_TIMING_BYTES 190u
+#if defined(R2_TZ_WIRE) && !defined(RC_DYNAMIC_CODEC_IMPLEMENTATION)
+#define RC_DYNAMIC_CONTROL_BYTES 216u
+#else
 #define RC_DYNAMIC_CONTROL_BYTES 212u
+#endif
 #define RC_DYNAMIC_CAP_ADV_BYTES 144u
 /* Existing T096 owner spelling; the shared spec name above is canonical. */
+#if defined(R2_TZ_WIRE) && !defined(RC_DYNAMIC_CODEC_IMPLEMENTATION)
+#define RC_DYNAMIC_CAPABILITY_BYTES 148u
+#else
 #define RC_DYNAMIC_CAPABILITY_BYTES RC_DYNAMIC_CAP_ADV_BYTES
+#endif
 #define RC_DYNAMIC_MAX_DEPTH 2u
 #define RC_DYNAMIC_PATH_NODES 3u
 #define RC_DYNAMIC_RENEW_US UINT64_C(300000000)
@@ -31,6 +40,7 @@ struct rc7_path {
 };
 struct rc7_control {
   struct rc7_path path;
+  struct r2_tz tz;
   uint8_t type, operation;
   bool ready, publishing;
   uint64_t sender, target, sender_boot, target_boot, challenge, nonce,
@@ -79,3 +89,17 @@ bool rc7_bind(struct rc7_receiver *, const struct rc7_path *, uint64_t self,
               bool transmitter, uint8_t own_slot, const struct rc5_admission *);
 bool rc7_receive(struct rc7_receiver *, const struct rc7_packet *, uint64_t rx,
                  uint16_t event, uint8_t channel, uint64_t now);
+
+int rc7_capability_encode_tz(uint8_t[148],const struct rc7_control *,const struct r2_group_config *);
+int rc7_capability_decode_tz(struct rc7_control *,const uint8_t *,size_t,const struct r2_group_config *);
+#if defined(R2_TZ_WIRE) && !defined(RC_DYNAMIC_CODEC_IMPLEMENTATION)
+#define rc7_capability_encode rc7_capability_encode_tz
+#define rc7_capability_decode rc7_capability_decode_tz
+#endif
+
+int rc7_control_encode_tz(uint8_t[216],const struct rc7_control *,const struct r2_group_config *);
+int rc7_control_decode_tz(struct rc7_control *,const uint8_t *,size_t,const struct r2_group_config *);
+#if defined(R2_TZ_WIRE) && !defined(RC_DYNAMIC_CODEC_IMPLEMENTATION)
+#define rc7_control_encode rc7_control_encode_tz
+#define rc7_control_decode rc7_control_decode_tz
+#endif

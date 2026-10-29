@@ -201,7 +201,11 @@ void pps(const gnss_pps::Observation& edge){
  response.format("W12_RC9_COUNTERS sequence=%" PRIu32 " accepted=%" PRIu32 " rejected=%" PRIu32 "\n",r.sequence,r.accepted,r.rejected);
  response.format("W12_RC9_LEASE until_us=%" PRIu64 " clients=%u serving=%u service_flags=%u radio_hold_ms=%" PRIu32 "\n",r.client_until_us,unsigned(r.clients),unsigned(r.serving),unsigned(r.service_flags),l.rc9_hold_remaining_ms);
  response.format("W12_RC9_CONTRACT wire=1 source=RC8 hops=1 precision=UNKNOWN BLE_training=NONE GM=NONE LoRa_TX=OFF lora_active=%u lora_accepted=%" PRIu32 " lora_rms_ns=%" PRIu32 "\n",unsigned(l.active),l.accepted,l.link_rms_ns);
+#ifdef R2_TZ_WIRE
+ response.format("W12_UI_CLOCK page=%u valid=%u UTC=%" PRIu32 " sampled_us=%" PRIu64 " UTC_us=%" PRIu64 " drawn_us=%" PRIu64 " paint_us=%" PRIu32 " next_us=%" PRIu64 " phase=UTC_SECOND tz_id=%u tz_offset=%d tz_until=%" PRIu64 " tz_rx=%u tz_conflicts=%u\n",unsigned(page),unsigned(ui_valid),ui_utc,ui_sampled_us,ui_utc_us,ui_drawn_us,ui_paint_us,ui_deadline.deadline(),unsigned(mesh.tz.id),int(mesh.tz.offset_min),mesh.tz_until_us,unsigned(mesh.tz_received),unsigned(mesh.tz_conflicts));
+#else
  response.format("W12_UI_CLOCK page=%u valid=%u UTC=%" PRIu32 " sampled_us=%" PRIu64 " UTC_us=%" PRIu64 " drawn_us=%" PRIu64 " paint_us=%" PRIu32 " next_us=%" PRIu64 " phase=UTC_SECOND\n",unsigned(page),unsigned(ui_valid),ui_utc,ui_sampled_us,ui_utc_us,ui_drawn_us,ui_paint_us,ui_deadline.deadline());
+#endif
  response.format("W12_V12_COMMAND nonce=%016" PRIx64 " action=%s accepted=%u reason=%s admitted_us=%" PRIu64 " NVS=PRESERVED\n",last_command.nonce,last_command.action,unsigned(last_command.accepted),last_command.reason,last_command.admitted_us);
  v12::frame_submit_rc9(response);
 }

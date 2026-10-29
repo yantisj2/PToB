@@ -141,21 +141,22 @@ void render(uint8_t f[FrameBytes],const Model& m,const View& v,uint64_t now){
  if(v.page==LoRaPage&&!v.saver){lora_page(f,m,now);return;}
  if(v.page==PrecisionPage&&!v.saver){precision_page(f,m,now);return;}
  const bool fresh=current(m,now);uint64_t utc=0;const bool valid=time(m,now,utc),locked=analog_time(m,now,utc);
+ uint64_t local=utc;const char* zone=clock_zone(m,now,utc,local);
  if(v.saver){
   // T096's moving assembly: source strip, analog panel, identity strip.
   // Rigidly translated and scaled to64x128; no digital dashboard in saver.
   const int top=4+22*(v.saver_position%3);box(f,1,top,62,11);
-  text(f,5,top+2,"UTC");text(f,33,top+2,source_label(m,now));
+  text(f,5,top+2,zone);text(f,33,top+2,source_label(m,now));
   if(pps_on(m,now))fill(f,56,top+3,3,5);
   if(v.minimal)return;
   box(f,1,top+13,62,49);
-  if(saver_time(m,now,utc))dial(f,top+37,utc,m.hz);else{center(f,top+28,"WAIT");center(f,top+42,"NO TIME");}
+  if(saver_time(m,now,utc))dial(f,top+37,local,m.hz);else{center(f,top+28,"WAIT");center(f,top+42,"NO TIME");}
   header(f,m,fresh,top+64);return;
  }
  header(f,m,fresh);
  if(v.page==0){
-  box(f,1,12,62,28);text(f,5,15,"UTC");text(f,33,15,source_label(m,now));if(pps_on(m,now))fill(f,56,16,3,5);digital(f,24,valid,utc);
-  box(f,1,42,62,49);if(locked)dial(f,66,utc,m.hz);else{center(f,54,state(m,fresh));center(f,70,valid?"REL CLOCK":"NO TIME");}
+  box(f,1,12,62,28);text(f,5,15,zone);text(f,33,15,source_label(m,now));if(pps_on(m,now))fill(f,56,16,3,5);digital(f,24,valid,local);
+  box(f,1,42,62,49);if(locked)dial(f,66,local,m.hz);else{center(f,54,state(m,fresh));center(f,70,valid?"REL CLOCK":"NO TIME");}
   box(f,1,93,62,35);center(f,96,m.source==Source::LoRa?"LINK RMS":"SYNC RMS");char s[16];rms(s,sizeof s,valid&&m.state==State::Follow?m.rms_ns:UINT32_MAX);center(f,107,s);
   if(locked&&m.source!=Source::LoRa){box(f,3,106,6,8);box(f,4,103,4,5);}fill(f,4,117,56,1);text(f,5,120,"RC");if(fresh&&m.mode_pending)text(f,23,120,">");else if(fresh&&m.relay_only)text(f,23,120,"R");if(fresh&&m.serving)fill(f,20,121,3,3);
   const auto bars=rf_bars(m,now);
@@ -172,7 +173,7 @@ void render(uint8_t f[FrameBytes],const Model& m,const View& v,uint64_t now){
 }
 void ClockHold::draw(uint8_t frame[FrameBytes],const Model& m,const View& v,uint64_t now)const{
  render(frame,m,v,now);
- if(!v.clock_frozen||!active(now)||v.page!=page_||v.saver!=saver_||v.help||v.blank)return;
+ if(!v.clock_frozen||!same_zone(m,now)||!active(now)||v.page!=page_||v.saver!=saver_||v.help||v.blank)return;
  if(saver_)std::memcpy(frame,image_,FrameBytes);
  else{
   // Only RMS digits and the lock (rows103..115) remain live during grace.

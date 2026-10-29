@@ -15,10 +15,17 @@ class R2Dashboard {
   uint8_t last_depth=0;bool last_rc_bound=false;char followed_label[24]{},root_label[12]{};
   uint64_t locked_since20=0;
   G1QualityDisplay quality_display;
+#ifdef R2_TZ_WIRE
+  r2_tz last_tz{};
+#endif
  public:
   uint8_t settlement_pending()const{return quality_display.pending();}
   bool needs_authority_update(const R2Status& mesh)const{
-    return !seen||last_requested!=mesh.requested||last_fault!=mesh.fault||
+    return
+#ifdef R2_TZ_WIRE
+      last_tz.id!=mesh.tz.id||last_tz.offset_min!=mesh.tz.offset_min||
+#endif
+      !seen||last_requested!=mesh.requested||last_fault!=mesh.fault||
       last_relay_only!=mesh.rc7_relay_only_requested||last_mode_pending!=mesh.rc7_upstream_mode_pending||
       last_valid!=mesh.clock_valid||last_following!=mesh.following||
       last_root!=mesh.root_identity||last_boot!=mesh.root_boot||last_clock_origin!=mesh.g1_clock_origin||
@@ -41,6 +48,9 @@ class R2Dashboard {
     last_root=mesh.root_identity;last_boot=mesh.root_boot;last_clock_origin=mesh.g1_clock_origin;last_source=mesh.source_epoch;last_train=mesh.publication;
     last_parent=mesh.joined_peer;last_parent_boot=mesh.joined_boot;last_depth=mesh.rc7_depth;last_rc_bound=mesh.rc7_bound;
     state.r2_dashboard=true;state.basic_profile=false;
+#ifdef R2_TZ_WIRE
+    last_tz=mesh.tz;state.tz=mesh.tz;state.tz_until_us=mesh.tz_until_us;state.tz_sampled_us=mesh.follower_snapshot_us;
+#endif
     state.r2_relay_only=mesh.rc7_relay_only_requested;state.r2_mode_pending=mesh.rc7_upstream_mode_pending;
     state.ble_rx_enabled=mesh.requested;state.scan=mesh.scan;
     const bool usable=mesh.requested&&!mesh.fault&&!mesh.rc7_upstream_mode_pending&&mesh.clock_valid;

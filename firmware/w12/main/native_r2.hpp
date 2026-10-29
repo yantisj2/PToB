@@ -5,6 +5,9 @@
 #include "g1_retained_estimate.hpp"
 #include "g1_relative_quality.hpp"
 #include <cstdint>
+#ifdef R2_TZ_WIRE
+#include "r2/r2-g1/time_zone.h"
+#endif
 #include "console_protocol.hpp"
 #include "r2_client_service.hpp"
 #include "periodic_rx_model.hpp"
@@ -31,6 +34,9 @@ struct Rc9Status {
 Rc9Status r2_rc9_status();
 bool r2_rc9_parent(uint64_t identity); // Volatile direct RC9 parent;0 restores AUTO.
 struct R2Status {
+#ifdef R2_TZ_WIRE
+  r2_tz tz{};uint64_t tz_until_us=0;uint16_t tz_received=0,tz_conflicts=0;
+#endif
 #ifdef PTOB_N30
   n30::Signal n30_signal{}; // Fresh authenticated current-parent PA RSSI only.
 #endif

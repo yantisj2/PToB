@@ -97,11 +97,11 @@ bool fixture_response_path_change=false;void* fixture_sync_arg=nullptr;
  ble_gatt_attr a;a.om=&b;ble_gatt_error e;cb(h,&e,&a,arg);return 0;
 }
 int ble_gattc_read(uint16_t h,uint16_t,int(*cb)(uint16_t,const ble_gatt_error*,ble_gatt_attr*,void*),void* arg){
- os_mbuf b;b.bytes.resize(212);const auto& c=v12::peer.stage==2?fixture_cap:fixture_response;
+ os_mbuf b;b.bytes.resize(RC_DYNAMIC_CONTROL_BYTES);const auto& c=v12::peer.stage==2?fixture_cap:fixture_response;
  assert(!rc7_control_encode(b.bytes.data(),&c,&v12::provision.group));ble_gatt_attr a;a.om=&b;ble_gatt_error e;cb(h,&e,&a,arg);return 0;
 }
 int ble_gattc_write_flat(uint16_t h,uint16_t,const void* wire,uint16_t n,int(*cb)(uint16_t,const ble_gatt_error*,ble_gatt_attr*,void*),void* arg){
- assert(n==212);assert(!rc7_control_decode(&fixture_request,static_cast<const uint8_t*>(wire),n,&v12::provision.group));
+ assert(n==RC_DYNAMIC_CONTROL_BYTES);assert(!rc7_control_decode(&fixture_request,static_cast<const uint8_t*>(wire),n,&v12::provision.group));
  fixture_response={};auto& r=fixture_response;const auto& q=fixture_request;r.type=RC7_RESPONSE;
  r.sender=q.target;r.target=q.sender;r.sender_boot=q.target_boot;r.target_boot=q.sender_boot;
  r.challenge=q.challenge;r.nonce=q.nonce;r.sequence=q.sequence;r.lease_us=q.lease_us;r.next_challenge=q.challenge+1;
@@ -116,9 +116,9 @@ int ble_gattc_write_flat(uint16_t h,uint16_t,const void* wire,uint16_t n,int(*cb
     s = replace_once(s, 'r2_group_put(b+11,1,4)', 'r2_group_put(b+11,v12::provision.group.epoch,4)')
     s += '''
 void rc_discovery(){
- v12::Discovery d{};d.props=1;d.sid=13;d.rssi=-30;d.at=fake_now;d.address=v12::canonical(fixture_cap.sender);d.length=167;
+ v12::Discovery d{};d.props=1;d.sid=13;d.rssi=-30;d.at=fake_now;d.address=v12::canonical(fixture_cap.sender);d.length=23+RC_DYNAMIC_CAPABILITY_BYTES;
  d.bytes[0]=2;d.bytes[1]=1;d.bytes[2]=6;d.bytes[3]=17;d.bytes[4]=7;std::memcpy(d.bytes+5,v12::rc_service.value,16);
- d.bytes[21]=145;d.bytes[22]=255;assert(!rc7_capability_encode(d.bytes+23,&fixture_cap,&v12::provision.group));
+ d.bytes[21]=RC_DYNAMIC_CAPABILITY_BYTES+1;d.bytes[22]=255;assert(!rc7_capability_encode(d.bytes+23,&fixture_cap,&v12::provision.group));
  ble_gap_event e{};e.type=BLE_GAP_EVENT_EXT_DISC;e.ext_disc.addr=d.address;e.ext_disc.rssi=d.rssi;e.ext_disc.sid=13;e.ext_disc.props=1;e.ext_disc.data_status=BLE_HCI_ADV_DATA_STATUS_COMPLETE;e.ext_disc.length_data=d.length;e.ext_disc.data=d.bytes;
  v12::gap(&e,nullptr);step(21);assert(v12::peer.connecting);e={};e.type=BLE_GAP_EVENT_CONNECT;v12::gap(&e,conn_arg);step(18);
 }

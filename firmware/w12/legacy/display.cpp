@@ -167,6 +167,23 @@ const char* mesh_role(uint8_t role){
  static const char* const names[]={"WAIT","CAND","GM","FOLLOW"};
  return names[std::min<unsigned>(role,3)];
 }
+
+int64_t shown_clock(const DisplayState& s){
+ int64_t shown=int64_t(s.utc)*1000000;
+#ifdef R2_TZ_WIRE
+ if(s.timing_source!=DisplayState::Lora&&s.timing_source!=DisplayState::Rc9)
+  (void)v12::clock_zone(s.tz,s.tz_until_us,s.tz_sampled_us,int64_t(s.utc)*1000000,shown);
+#endif
+ return shown/1000000;
+}
+[[maybe_unused]] const char* shown_zone(const DisplayState& s){
+#ifdef R2_TZ_WIRE
+ int64_t shown=0;
+ if(s.timing_source!=DisplayState::Lora&&s.timing_source!=DisplayState::Rc9)
+  return v12::clock_zone(s.tz,s.tz_until_us,s.tz_sampled_us,int64_t(s.utc)*1000000,shown);
+#endif
+ return "UTC";
+}
 void header(const DisplayState& s){
  // The green band carries selected source/state and the page title/date or UTC.
  const char* source=s.timing_source==DisplayState::Rc9?"RC9":s.timing_source==DisplayState::Lora?"LORA":
@@ -227,11 +244,15 @@ void header(const DisplayState& s){
  }else text(1,8,titles[page]);
  char clock[12];
  std::snprintf(clock,sizeof(clock),"%s",page?"--:--:--":"--/--/--");
- if(s.valid){time_t t=s.utc;struct tm tm{};gmtime_r(&t,&tm);
+ if(s.valid){time_t t=page?s.utc:shown_clock(s);struct tm tm{};gmtime_r(&t,&tm);
   if(page)std::snprintf(clock,sizeof(clock),"%02d:%02d:%02d",
                          tm.tm_hour,tm.tm_min,tm.tm_sec);
   else if(s.copy_profile && s.copy_local)std::snprintf(clock,sizeof(clock),"ELAPSED");
   else std::strftime(clock,sizeof(clock),"%m/%d/%y",&tm);}
+#ifdef R2_TZ_WIRE
+ if(s.r2_dashboard&&!page&&s.timing_source!=DisplayState::Lora&&s.timing_source!=DisplayState::Rc9)text(104,8,shown_zone(s));
+ else
+#endif
  if(!(s.r2_dashboard&&!page))text(70,8,clock);
 }
 void analog(uint32_t utc){
@@ -249,11 +270,11 @@ void analog(uint32_t utc){
  circle(cx,cy,1);
 }
 void page_dashboard(const DisplayState& s){
- if(s.valid){time_t t=s.utc;struct tm tm{};gmtime_r(&t,&tm);
+ if(s.valid){time_t t=shown_clock(s);struct tm tm{};gmtime_r(&t,&tm);
   char hhmmss[12];std::snprintf(hhmmss,sizeof(hhmmss),"%02d:%02d:%02d",
                                 tm.tm_hour,tm.tm_min,tm.tm_sec);
   text(2,21,hhmmss,2);
-  if(!s.r2_dashboard||s.fit)analog(s.utc);
+  if(!s.r2_dashboard||s.fit)analog(uint32_t((shown_clock(s)%86400+86400)%86400));
  }else{text(2,21,"--:--:--",2);circle(112,37,12);text(100,34,"WAIT");}
  char footer[32];
  if(s.r2_dashboard){

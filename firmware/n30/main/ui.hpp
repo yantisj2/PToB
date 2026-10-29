@@ -3,6 +3,7 @@
 #pragma once
 #include <cstddef>
 #include <cstdint>
+#include "../../w12/main/coarse_time_zone.hpp"
 #include "lora_view.h"
 #include "signal_strength.hpp"
 namespace n30 {
@@ -17,6 +18,7 @@ enum class State:uint8_t {Off,Search,Join,Acquire,Follow,Hold,Fault};
 enum class Source:uint8_t {None,Ble,Rc1,Rc2,LoRa,Rc9};
 enum class Action:uint8_t {None,ToggleRelayOnly,ToggleLoRa};
 struct Model {
+ r2_tz tz{};uint64_t tz_until_us=0;
  char unit[25]="N30",parent[25]="NONE",root[25]="----";
  uint64_t sampled_us=0,utc_at_us=0,utc_us=0,until_us=0;
  uint32_t rms_ns=UINT32_MAX;uint16_t hz=0,delivery=UINT16_MAX;
@@ -59,6 +61,14 @@ class SaverTimer {
  uint64_t deadline()const{return active_&&losing_&&loss_at_<=UINT64_MAX-ClockGraceUs?loss_at_+ClockGraceUs:UINT64_MAX;}
 };
 bool current(const Model&,uint64_t now);
+inline const char* clock_zone(const Model& m,uint64_t now,uint64_t utc,uint64_t& shown){
+ shown=utc;
+ if(now<m.sampled_us||now-m.sampled_us>=SnapshotMaxUs||m.source==Source::LoRa||m.source==Source::Rc9||utc>INT64_MAX)return "UTC";
+ int64_t local=0;const auto* zone=v12::clock_zone(m.tz,m.tz_until_us,now,int64_t(utc),local);
+ // Portrait has no date field; normalize signed pre-epoch clock values by day.
+ shown=local<0?uint64_t((local%INT64_C(86400000000)+INT64_C(86400000000))%INT64_C(86400000000)):uint64_t(local);
+ return zone;
+}
 bool time(const Model&,uint64_t now,uint64_t& utc);
 bool analog_time(const Model&,uint64_t now,uint64_t& utc);
 bool saver_time(const Model&,uint64_t now,uint64_t& utc);
@@ -98,6 +108,12 @@ void rotate(uint8_t native[FrameBytes],const uint8_t portrait[FrameBytes],bool c
 class ClockHold {
  bool saved_=false,losing_=false,seen_=false,saver_=false;
  uint8_t page_=0,position_=0;uint64_t observed_=0,loss_at_=0;
+ r2_tz saved_tz_{};uint64_t saved_tz_until_=0;Source saved_source_=Source::None;bool saved_local_=false;
+ bool same_zone(const Model& m,uint64_t now)const{
+  const bool old_local=saved_source_!=Source::LoRa&&saved_source_!=Source::Rc9&&r2_tz_valid(saved_tz_)&&now<saved_tz_until_;
+  const bool new_local=m.source!=Source::LoRa&&m.source!=Source::Rc9&&r2_tz_valid(m.tz)&&now<m.tz_until_us;
+  return saved_local_==old_local&&old_local==new_local&&(!old_local||(saved_tz_.id==m.tz.id&&saved_tz_.offset_min==m.tz.offset_min));
+ }
  uint8_t image_[FrameBytes]{};
  bool active(uint64_t now)const{return saved_&&losing_&&now>=loss_at_&&now-loss_at_<ClockGraceUs;}
  public:

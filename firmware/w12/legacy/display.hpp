@@ -1,10 +1,16 @@
 #pragma once
 #include <cstdint>
+#ifdef R2_TZ_WIRE
+#include "coarse_time_zone.hpp"
+#endif
 #include "display_pages.hpp"
 #include "display_timing.hpp"
 #include "ptob_ui_role.h"
 
 struct DisplayState {
+#ifdef R2_TZ_WIRE
+    r2_tz tz{};uint64_t tz_until_us=0,tz_sampled_us=0;
+#endif
     ptob_ui_role_t ui_role{};
     struct SourcePanel {
         bool enabled=false,present=false,fresh=false,fit=false,hold=false;

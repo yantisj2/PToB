@@ -154,3 +154,6 @@ if(PTOB_RC9)
  target_sources(${COMPONENT_LIB} PRIVATE "rc9/rc9.cpp")
  target_compile_definitions(${COMPONENT_LIB} PRIVATE PTOB_RC9=1)
 endif()
+
+# Current coarse TZ wire; other derived targets retain their selected profile.
+target_compile_definitions(${COMPONENT_LIB} PRIVATE R2_TZ_WIRE=1)

@@ -1,5 +1,18 @@
 # W12 changelog
 
+## 0.2.18 — coarse TZ and local clock display
+
+- Consume GM7 v4, direct JOIN v5 and RC capability/control v8 using the selected
+  T096 TZ codecs. Historical codecs remain explicit offline entry points.
+- Learn the authenticated selected parent's fixed mesh pair; renew its 750 ms
+  direct / 300 ms relay presence lease independently of precision fitting.
+- Forward the current pair in RC coarse advertisements/admission. Keep timing
+  payloads, clock fitting, source permission and per-device calibration unchanged.
+- Show local digital/analog time and the current zone label; expire to UTC.
+  Preserve UTC on LoRa/RC9 and diagnostics. N30's pixel cache respects TZ expiry.
+- Add production-codec/vector, native owner and actual-renderer regressions.
+  Offline checks do not establish hardware or UTC/output qualification.
+
 ## 0.2.17 — announced GM successor recovery
 
 - Share N30's authenticated GM7 revision-3 successor consumer and bounded

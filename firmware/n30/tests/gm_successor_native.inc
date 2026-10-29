@@ -7,9 +7,12 @@ v12::Discovery successor_ad(uint64_t sender,uint64_t boot,uint64_t seq,bool nega
   c.max_age_us=negative?1000000:2750000;c.source_valid_us=negative?0:1500000;
   c.source_gen=4;c.capture_gen=5;c.train_gen=sender==501?3:9;c.timing_epoch=sender==501?2:4;c.birth_us=1700000000000000;c.founder=501;c.term=sender==501?2:3;
   if(sender==501){c.hot=777;c.hot_boot=877;}
+#ifdef R2_TZ_WIRE
+  c.tz=r2_tz_manual();
+#endif
   if(yield){p.flags|=GM7_YIELD;c.yield_utc_us=c.sent_utc_us+750000;}
   v12::Discovery d{};d.sid=14;d.address=v12::canonical(sender);d.at=fake_now;d.rssi=-70;
-  assert(!gm7_ad_encode(d.bytes,sizeof d.bytes,&p,&v12::provision.group));d.length=GM7_CONTROL_BYTES+4;return d;
+  assert(!gm7_ad_encode(d.bytes,sizeof d.bytes,&p,&v12::provision.group));d.length=gm7_wire_size(p.kind)+4;return d;
 }
 v12::Discovery locator(uint64_t id,int8_t rssi){
   v12::Discovery d{};d.props=1;d.sid=12;d.interval=50;d.rssi=rssi;d.at=fake_now;d.length=25;
@@ -27,6 +30,30 @@ int main(int argc,char** argv){
   v12::Rc7PermissionInspect::seed(v12::corrected_clock,v12::anchor,fake_now);v12::admission_policy.acquired();
   v12::Rc7PermissionInspect::allow_lock(v12::corrected_clock);assert(v12::selection_protected(fake_now));
   const auto at=fake_now;
+#ifdef R2_TZ_WIRE
+  if(which=="tz"){
+    const auto time_until=v12::anchor.until;
+    auto ann=successor_ad(501,601,1);assert(v12::discoveries.push(ann));v12::active_poll(fake_now);
+    assert(v12::coarse_tz.value.id==2&&v12::coarse_tz.value.offset_min==-300);
+    assert(v12::coarse_tz.until_us==fake_now+750000&&v12::anchor.until==time_until);
+    // Authenticated current-parent presence renews TZ before clock/fit permission.
+    fake_now+=100000;v12::anchor.until=0;
+    const uint64_t ids[4]={501,0,0,0};r2_relay_packet p{};
+    p.origin={0,1,601,2,1000000,1651000000,1000000,INT64_C(1699999999999000000)};
+    p.route={0,0,0,0,601,3,8,9,3,UINT32_MAX};
+    v12::Periodic row{};row.at=fake_now;row.identity=501;row.length=190;uint8_t proof[32]{};
+    assert(!r2_group_origin_sign3(proof,&p.origin,&v12::provision.group,ids));
+    assert(!r2_group_relay_encode3(row.bytes,&p,proof,&v12::provision.group,ids));
+    assert(v12::periodic.push(row));v12::periodic_poll(fake_now);
+    const auto deadline=fake_now+750000;assert(v12::coarse_tz.until_us==deadline&&!v12::anchor.until);
+    fake_now+=100000;row.at=fake_now;row.bytes[175]^=1;
+    assert(v12::periodic.push(row));v12::periodic_poll(fake_now);assert(v12::coarse_tz.until_us==deadline);
+    v12::publish(fake_now);assert(v12::r2_status().tz.id==2&&!v12::r2_status().following);
+    fake_now=deadline;assert(!v12::r2_status().tz.id); // A stalled worker cannot retain live metadata.
+    assert(!v12::anchor.until&&!v12::fault);puts("PASS actual parent ANN/presence coarse TZ renewal without precision permission, bad MAC refusal and hard expiry");return 0;
+  }
+#endif
+
 #ifdef PTOB_N30
   if(which=="handoff-join"||which=="handoff-clock-step"){
     v12::Rc7PermissionInspect::physical_update(v12::corrected_clock);

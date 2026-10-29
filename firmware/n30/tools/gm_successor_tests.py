@@ -8,7 +8,7 @@ APP=Path(__file__).resolve().parents[1]
 W12=APP.parent/'w12'
 sys.path.insert(0,str(W12/'tools'))
 def main():
- p=argparse.ArgumentParser(description=__doc__);p.add_argument('--out',type=Path,required=True);p.add_argument('--w12',action='store_true');p.add_argument('--idf',type=Path,default=os.environ.get('IDF_PATH'));a=p.parse_args()
+ p=argparse.ArgumentParser(description=__doc__);p.add_argument('--out',type=Path,required=True);p.add_argument('--w12',action='store_true');p.add_argument('--tz',action='store_true');p.add_argument('--idf',type=Path,default=os.environ.get('IDF_PATH'));a=p.parse_args()
  if not a.idf:p.error('--idf or IDF_PATH is required for public TinyCrypt headers')
  os.environ['IDF_PATH']=str(a.idf.resolve())
  from rc7_permission_e2e import native_fixture,sha
@@ -18,6 +18,7 @@ def main():
  flags=['-O1','-g','-Wall','-Wextra','-Werror','-Wno-misleading-indentation','-fsanitize=address,undefined','-fno-sanitize-recover=all']
  includes=[out,APP/'main',W12/'main/gm7',W12/'main',W12/'main/r2/r2-g1',W12/'main/r2/rc7/include',crypto/'include']
  flags+=['-I'+str(x) for x in includes]
+ if a.tz:flags+=['-DR2_TZ_WIRE=1']
  records=[]
  def run(cmd,name):
   with (out/(name+'.log')).open('w') as f:subprocess.run(list(map(str,cmd)),stdout=f,stderr=subprocess.STDOUT,check=True,timeout=60)
@@ -38,6 +39,7 @@ def main():
  native_flags+=['-I'+str(x) for x in (APP/'tests',W12/'tests/r2_fakes',W12/'tests/console_fakes',W12/'legacy/reference')]
  run([cxx,'-std=c++20',*flags,*native_flags,out/'successor.cpp',*objects,'-o',out/'native'],'native-build')
  for case in ('withdraw','yield','switchover','loss','fallback','pin','relay-only','bad-mac','bad-address','scan'):run([out/'native',case],'native-'+case)
+ if a.tz:run([out/'native','tz'],'native-tz')
  if not a.w12:
   for case in ('handoff-join','handoff-clock-step'):run([out/'native',case],'native-'+case)
  (out/'receipt.json').write_text(json.dumps({'status':'PASS','checks':records,'native_source_sha256':sha(W12/'main/native_g1.cpp'),'policy_sha256':sha(W12/'main/g1_gm_successor.hpp'),'wire_revision':3,'target':'W12' if a.w12 else 'N30','hardware_access':False,'precision':'UNQUALIFIED'},indent=2)+'\n')

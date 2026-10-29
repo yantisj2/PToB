@@ -126,6 +126,9 @@ Recent recent[8]{};r2_join_display display[8]{};Anchor anchor;G1StrictDiscipline
 G1PhaseLearning phase_learning;
 G1DirectSession direct_session;
 G1CoarseHold coarse_hold;
+#ifdef R2_TZ_WIRE
+r2_tz_lease coarse_tz{}; // Mesh configuration survives timing/parent loss, not restart.
+#endif
 G1CorrectedClock corrected_clock;
 G1AdmissionPolicy admission_policy;G1RetainedEstimate retained_estimate;G1ReceiveLoss receive_loss;
 uint32_t retained_accepted=0;bool corrected_was_live=false;
@@ -765,7 +768,7 @@ void receive_rc_control(const Incoming& row,uint64_t now){
   if(peer.rc9){rc9_receive_control(row,now);return;}
 #endif
   rc7_control c{};
-  if(row.length!=212||rc7_control_decode(&c,row.bytes,row.length,&provision.group)||
+  if(row.length!=RC_DYNAMIC_CONTROL_BYTES||rc7_control_decode(&c,row.bytes,row.length,&provision.group)||
      !rc_client.path_usable(c.path,provision.identity)){inc(rejected);peer.dead=true;return;}
   inc(auth);
   if(peer.stage==2&&c.type==RC7_CAPABILITY&&c.sender==peer.identity){
@@ -811,6 +814,9 @@ void receive_rc_control(const Incoming& row,uint64_t now){
 #endif
       corrected_clock.scope(anchor);
       joined_peer=c.sender;joined_boot=c.sender_boot;member=true;sync_address=peer.address;
+#ifdef R2_TZ_WIRE
+      (void)r2_tz_observe(&coarse_tz,c.tz,row.at,now,R2_TZ_RC_PERIOD_US);
+#endif
       parent_selection.bind(c.sender,c.sender_boot,c.path.node[c.path.depth].epoch,now,true);
       parent_selection.authenticated(c.sender,true,c.sender_boot,c.path.node[0].id,c.path.node[0].boot,c.path.source_epoch,now);
       peer.selection_accepted=true;
@@ -832,7 +838,7 @@ void send_rc_request(uint64_t now){
 #ifdef PTOB_RC9
   if(peer.rc9){rc9_send_request(now);return;}
 #endif
-  uint8_t wire[212];if(rc7_control_encode(wire,&rc_client.request,&provision.group)){peer.dead=true;inc(rejected);return;}
+  uint8_t wire[RC_DYNAMIC_CONTROL_BYTES];if(rc7_control_encode(wire,&rc_client.request,&provision.group)){peer.dead=true;inc(rejected);return;}
   peer.pending=true;peer.send_kind=0;rc_client.request_at=now;
   const auto h=peer.handle;const auto generation=peer.incarnation;
   const int rc=ble_gattc_write_flat(h,peer.value,wire,sizeof wire,rc_written,callback_arg());
@@ -874,6 +880,9 @@ void receive_join(uint64_t now){Incoming row{};for(unsigned i=0;i<8&&incoming.po
     if(r.root==r.sender&&r.root_boot==r.sender_boot&&
        (anchor.root!=r.root||anchor.boot!=r.root_boot||anchor.source_epoch!=r.source_epoch||anchor.publication!=r.publication))forget_leader(now,true);
     member=true;joined_peer=r.sender;joined_boot=r.sender_boot;cooldown(r.sender,now,5000000);
+#ifdef R2_TZ_WIRE
+    (void)r2_tz_observe(&coarse_tz,r.tz,row.at,now,R2_TZ_GM_PERIOD_US);
+#endif
     if(timed){
       if(r.root!=r.sender||r.root_boot!=r.sender_boot){
         peer.selection_accepted=true;admission_failed(now);
@@ -1069,6 +1078,9 @@ unsigned periodic_poll(uint64_t now,unsigned budget=8){Periodic row{};unsigned p
     rc7_packet p{};
     if(row.length!=190||rc7_decode(&p,row.bytes,row.length,&rc_client.receiver.path,&provision.group)){inc(relay_bad);continue;}
     inc(relay_ok);
+#ifdef R2_TZ_WIRE
+    if(row.identity==joined_peer)r2_tz_renew(&coarse_tz,row.at,R2_TZ_RC_PERIOD_US);
+#endif
 #ifdef PTOB_N30
     signal_received(row,now,sync_capture_epoch);
 #endif
@@ -1116,6 +1128,9 @@ unsigned periodic_poll(uint64_t now,unsigned budget=8){Periodic row{};unsigned p
   if(row.length==158){
     const uint64_t ids[4]={row.identity,0,0,0};r2_precision_packet p{};
     if(r2_group_precision_decode(&p,row.bytes,158,&provision.group,ids)){inc(p1_bad);diagnostic.reason(G1Reason::PeriodicAuth,now);continue;}inc(p1_ok);
+#ifdef R2_TZ_WIRE
+    if(row.identity==joined_peer&&p.boot==joined_boot)r2_tz_renew(&coarse_tz,row.at,R2_TZ_GM_PERIOD_US);
+#endif
 #ifdef PTOB_N30
     signal_received(row,now,sync_capture_epoch);
 #endif
@@ -1134,6 +1149,9 @@ unsigned periodic_poll(uint64_t now,unsigned budget=8){Periodic row{};unsigned p
     for(auto offset:offsets){const auto id=r2_group_get(row.bytes+offset,8);bool seen=false;for(unsigned j=0;j<count;j++)seen|=ids[j]==id;if(id&&!seen)ids[count++]=id;}
     r2_relay_packet p{};
     if(r2_group_relay_decode3(&p,row.bytes,190,&provision.group,ids)||ids[p.route.transmitter]!=row.identity||p.route.depth!=0||p.route.slot!=0||p.route.transmitter!=p.origin.root||p.route.parent!=p.origin.root||p.route.boot!=p.origin.boot){inc(relay_bad);diagnostic.reason(G1Reason::PeriodicAuth,now);continue;}inc(relay_ok);
+#ifdef R2_TZ_WIRE
+    if(row.identity==joined_peer&&p.route.boot==joined_boot)r2_tz_renew(&coarse_tz,row.at,R2_TZ_GM_PERIOD_US);
+#endif
 #ifdef PTOB_N30
     signal_received(row,now,sync_capture_epoch);
 #endif
@@ -1363,10 +1381,14 @@ void active_poll(uint64_t now){
     if(d.sid==14){
       gm7_packet control{};
       if(!gm7_ad_decode(&control,d.bytes,d.length,&provision.group)&&
-         (control.kind==GM7_ANNOUNCE||control.kind==GM7_WITHDRAW)&&
-         same_address(d.address,canonical(control.body.control.sender))&&
-         gm_successor.receive(control,anchor,d.at,now)&&gm_successor.due(now)){
-        forget_leader(now);break;
+         same_address(d.address,canonical(control.body.control.sender))){
+        const bool accepted=gm_successor.receive(control,anchor,d.at,now);
+#ifdef R2_TZ_WIRE
+        const auto& c=control.body.control;
+        if(accepted&&!rc_bound()&&c.sender==joined_peer&&c.boot==joined_boot&&control.kind!=GM7_WITHDRAW)
+          (void)r2_tz_observe(&coarse_tz,c.tz,d.at,now,R2_TZ_GM_PERIOD_US);
+#endif
+        if(accepted&&gm_successor.due(now)){forget_leader(now);break;}
       }
       continue;
     }
@@ -1379,8 +1401,13 @@ void active_poll(uint64_t now){
     G1Reason filter=G1Reason::None;uint64_t id=discovery_identity(d,&filter);bool relay=false,relay_publishing=false;
     if(!id&&d.sid==13&&(d.props&1))for(unsigned at=0;at<d.length;){
       const unsigned n=d.bytes[at];if(!n||at+n>=d.length)break;
-      if(n==145&&d.bytes[at+1]==0xff){rc7_control cap{};
-        if(!rc7_capability_decode(&cap,d.bytes+at+2,144,&provision.group)){
+      if(n==RC_DYNAMIC_CAPABILITY_BYTES+1&&d.bytes[at+1]==0xff){rc7_control cap{};
+        if(!rc7_capability_decode(&cap,d.bytes+at+2,RC_DYNAMIC_CAPABILITY_BYTES,&provision.group)){
+#ifdef R2_TZ_WIRE
+          if(rc_bound()&&cap.sender==joined_peer&&same_address(d.address,canonical(cap.sender))&&
+             rc7_path_same(&cap.path,&rc_client.receiver.path))
+            (void)r2_tz_observe(&coarse_tz,cap.tz,d.at,now,R2_TZ_RC_PERIOD_US);
+#endif
           relay_slot_observe(cap,d.rssi,d.at);
           if(rc_client.path_usable(cap.path,provision.identity)&&cap.sender!=provision.identity){id=cap.sender;relay=true;relay_publishing=cap.publishing;}
         }
@@ -1556,6 +1583,10 @@ void publish(uint64_t begin){const auto now=micros();uint64_t tick=0;
   snap.boot_client_attempted=boot_client_attempted;snap.boot_client_cancelled=boot_client_cancelled;
   snap.group_member=member;snap.group_id=provision.group.id;snap.key_epoch=provision.group.epoch;snap.client_identity=provision.identity;snap.joined_peer=joined_peer;snap.joined_boot=joined_boot;snap.join_attempts=join_attempts;snap.join_accepts=join_accepts;snap.join_rejected=rejected;snap.join_busy=join_busy;
   snap.follower_snapshot_us=now;snap.follower_received_us=anchor.at;
+#ifdef R2_TZ_WIRE
+  snap.tz=mode==R2Mode::Client&&!fault&&!closing?r2_tz_current(&coarse_tz,now):r2_tz_unknown();snap.tz_until_us=coarse_tz.until_us;
+  snap.tz_received=coarse_tz.received;snap.tz_conflicts=coarse_tz.conflicts;
+#endif
   snap.ready=member&&!closing;snap.following=following_now;snap.clock_valid=corrected_valid||snap.following||held||retained_selected;snap.follower_utc_us=corrected_valid?corrected_utc:snap.following?(disciplined?delivered_utc:anchor.utc+now-anchor.at):held?held_utc:retained_selected?retained_utc:0;
   snap.root_identity=snap.following?anchor.root:0;snap.root=snap.following?0:255;snap.root_boot=snap.following?anchor.boot:0;snap.source_epoch=snap.following?anchor.source_epoch:0;snap.publication=snap.following?anchor.publication:0;snap.service_until_us=snap.following?anchor.until:0;
   snap.serving=snap.source=false;snap.coordinator=snap.standby=255;snap.members=snap.role=0;
@@ -1833,6 +1864,9 @@ R2Status r2_status(){
   result.rc7_exclude_direct_gm=result.rc7_relay_only=exclude_direct_gm;
   result.rc7_relay_only_requested=relay_only_requested;result.rc7_upstream_mode_pending=upstream_mode_change&&parent_diagnostic.pending();
   portEXIT_CRITICAL(&mux);const auto now=micros();
+#ifdef R2_TZ_WIRE
+  if(!result.requested||result.fault||now>=result.tz_until_us)result.tz=r2_tz_unknown();
+#endif
   if(result.rc_parent.pending()||result.rc_parent.state==4){result.clock_valid=result.following=false;result.rc7_bound=false;result.rc7_depth=0;result.joined_peer=result.joined_boot=0;}
   if(!result.rc7_bound)rc7_path_snapshot::clear(result.rc7_path_hex);
   // Main/console reads must fence a signed source even while the host is

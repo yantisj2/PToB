@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "selected_commit": "a5ecf89a2adec05c712f55a80f3673dad036f0dc",
+  "wire": "protocol/time-zone-v1",
+  "source_files": {
+    "main/r2/r2-g1/group_join.c": "faeedb95492239b3cbb8df2118446ba86f5a830742c3ad721277445411b2cb7c",
+    "main/r2/r2-g1/group_join.h": "1067bb13ccb269a7e9bd831fc37d34b6aea54692003c4042b6fbdc8fa1205efd",
+    "main/r2/r2-g1/time_zone.h": "6ee2da0eda7b8086b4a522806977d6bd7d06c5ec809d78aa186e0d38fb01edcc",
+    "main/r2/rc7/protocol/rc_dynamic.c": "3ba864290164f6b358a9cc2283b55a31dcdb92cccc45451d33d5a4325593a9cc",
+    "main/r2/rc7/protocol/rc_dynamic.h": "e5548c7b5908b7907b2e3d72c49a9e1f19d3d5da245085fef166b7488c12d471",
+    "main/gm7/gm7_codec.c": "8911aacbcb4596e91df28219f73d19edd580d914ccceb925163e6f073e3f9e83",
+    "main/gm7/gm7_codec.h": "516c088ddf35a34985d9a90931cffcdfa3a73a1cc2a73046820a36b4e01a913c"
+  }
+}

@@ -24,6 +24,7 @@ void LockTimer::update(Model& m,uint64_t now){
 void ClockHold::update(const Model& m,View& v,uint64_t now,bool saver_due){
  v.clock_frozen=false;
  if(v.help||v.blank||(seen_&&now<observed_)){reset();return;}
+ if(saved_&&!same_zone(m,now))reset();
  // Real user navigation/wake wins immediately. A quality dip may retain an
  // already displayed saver only while the original idle timer still wants it.
  if(saved_&&(v.page!=page_||(saver_&&!saver_due)||(!saver_&&v.saver)))reset();
@@ -39,6 +40,8 @@ void ClockHold::update(const Model& m,View& v,uint64_t now,bool saver_due){
 }
 void ClockHold::presented(const Model& m,const View& v,uint64_t now,const uint8_t frame[FrameBytes]){
  uint64_t utc;if(!v.help&&!v.blank&&(v.saver||v.page==0)&&!v.clock_frozen&&(v.saver?saver_time(m,now,utc):analog_time(m,now,utc))){
+  saved_tz_=m.tz;saved_tz_until_=m.tz_until_us;saved_source_=m.source;
+  saved_local_=m.source!=Source::LoRa&&m.source!=Source::Rc9&&r2_tz_valid(m.tz)&&now<m.tz_until_us;
   std::memcpy(image_,frame,FrameBytes);saved_=true;losing_=false;saver_=v.saver;page_=v.page;position_=v.saver_position;
  }
 }
