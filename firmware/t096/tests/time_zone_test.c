@@ -1,6 +1,7 @@
 /* Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT */
 #include "time_zone.h"
 #include "gm7_codec.h"
+#include "gm7_air.h"
 #include "group_join.h"
 #include "rc_dynamic.h"
 #include <assert.h>
@@ -56,6 +57,15 @@ static void wires(void){
  assert(!memcmp(ad+166,"\x02\x00\xd4\xfe",4));
  assert(!gm7_ad_decode(&q,ad,sizeof ad,&g));assert(q.body.control.tz.offset_min==-300);
  vector("gm-announce-cdt",ad,sizeof ad);
+ struct gm7_job job={.state=GM7_JOB_QUEUED,.length=sizeof ad};
+ memcpy(job.ad,ad,sizeof ad);uint8_t primary[15],address[6]={1,2,3,4,5,0xc0},actual_address[6];
+ const uint8_t *on_air=NULL;size_t on_air_bytes=0;
+ assert(!gm7_air_build(primary,&job,address,5));
+ assert(!gm7_air_received(job.pdu_prefix,12+sizeof ad,&on_air,&on_air_bytes,actual_address));
+ assert(on_air_bytes==sizeof ad && !memcmp(on_air,ad,sizeof ad) && !memcmp(address,actual_address,6));
+ assert(!gm7_ad_decode(&q,on_air,on_air_bytes,&g));
+ job.ad[7]='3';assert(gm7_air_received(job.pdu_prefix,12+sizeof ad,&on_air,&on_air_bytes,actual_address));
+
  for(unsigned i=0;i<sizeof ad;i++){
   ad[i]^=1;assert(gm7_ad_decode(&q,ad,sizeof ad,&g));ad[i]^=1;
  }

@@ -6,7 +6,7 @@ p=argparse.ArgumentParser();p.add_argument('--deps',type=Path,required=True);p.a
 app=Path(__file__).resolve().parents[1];out=a.out.resolve();out.mkdir(parents=True,exist_ok=False)
 tiny=a.deps.resolve()/'modules/crypto/tinycrypt/lib'
 cc=os.environ.get('CC','/opt/homebrew/opt/llvm/bin/clang')
-sources=[app/'protocol'/n for n in ['group_auth.c','gm7_codec.c','group_join.c','rc_dynamic.c']]
+sources=[app/'protocol'/n for n in ['group_auth.c','gm7_codec.c','gm7_air.c','gm7_schedule.c','group_join.c','rc_dynamic.c']]
 sources += [tiny/'source'/n for n in ['hmac.c','sha256.c','utils.c']]
 cmd=[cc,'-std=c11','-Wall','-Wextra','-Werror','-Wno-default-const-init-var-unsafe','-g','-fsanitize=address,undefined','-fno-sanitize-recover=all','-ffunction-sections','-fdata-sections','-Wl,-dead_strip','-DR2_TZ_WIRE=1',*['-I'+str(d) for d in [app/'include',app/'protocol',tiny/'include']],*map(str,sources),str(app/'tests/time_zone_test.c'),'-o',str(out/'test')]
 with (out/'compile.log').open('w') as f:subprocess.run(cmd,stdout=f,stderr=subprocess.STDOUT,check=True,timeout=60)

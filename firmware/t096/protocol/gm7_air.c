@@ -2,6 +2,11 @@
 #include "gm7_air.h"
 #include <errno.h>
 #include <string.h>
+#ifdef R2_TZ_WIRE
+#define GM7_AIR_MAGIC "G7V4"
+#else
+#define GM7_AIR_MAGIC "G7V3"
+#endif
 _Static_assert(offsetof(struct gm7_job, ad) ==
                    offsetof(struct gm7_job, pdu_prefix) + 12,
                "Frozen AUX header and AD must be contiguous");
@@ -52,7 +57,7 @@ int gm7_air_received(const uint8_t *p, size_t available, const uint8_t **ad,
   size_t n = p[1] - 10u;
   const uint8_t *body = p + 12;
   if (n < 4 || n > GM7_MAX_AD_BYTES || body[0] + 1u != n || body[1] != 255 ||
-      body[2] != 255 || body[3] != 255 || n < 8 || memcmp(body + 4, "G7V3", 4))
+      body[2] != 255 || body[3] != 255 || n < 8 || memcmp(body + 4, GM7_AIR_MAGIC, 4))
     return -EPROTO;
   memcpy(address, p + 4, 6);
   *ad = body;
