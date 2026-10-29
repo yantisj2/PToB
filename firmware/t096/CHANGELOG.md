@@ -19,6 +19,18 @@ USB probe returned only unavailable timing sources. See the
 [automatic-TZ results](../../docs/t096/auto-time-zone-plan.md#local-209-results--29-october-2026)
 for populations, retained predecessor failures and outstanding hardware gates.
 
+The subsequent operator-authorized TC-03 update passed its own native inspection,
+complete application/protected-prefix/tail readback and fresh RC boot, bringing
+all four devices to .209. Its default TZ mode is auto; GM selects from own GNSS
+and receivers inherit the serving source's pair.
+
+The four-device 600-second direct window passed; both TC-03 and TC-04 returned
+600/600 fresh valid USB UTC records. The 600-second relay window failed availability:
+TC-03 had its intended route and precision lock/map in 96/116 samples, with 20
+unavailable local conversions. Its TZ pair stayed correct in all 117 status
+replies. Preserve the complete failed population; relay timing and full wire
+certification remain open.
+
 ## 0.15.208 — Serving GM local timezone display
 
 Evaluate the serving GM's local TZ status with its own qualified UTC snapshot,

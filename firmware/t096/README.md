@@ -88,8 +88,9 @@ failures and timing interruptions are retained in the
 [GM field record and acceptance plan](../../docs/t096/gm-standby.md#development-checkpoint-and-remaining-acceptance).
 The [0.15.205 TZ results](../../docs/t096/time-zone-test-plan.md#local-205-results-29-october-2026)
 record a passing direct-RC display run, failed relay availability and incomplete
-GM successor gates. The [.209 automatic-TZ results](../../docs/t096/auto-time-zone-plan.md#local-209-results--29-october-2026)
-retain the installation checks and source-limited availability failures. The
+GM successor gates. The [.209 four-device follow-up](../../docs/t096/auto-time-zone-plan.md#four-device-follow-up--29-october-2026)
+records a passing direct window and TC-03/TC-04 USB UTC checks, with failed
+TC-03 relay route/timing availability. Earlier failures remain retained. The
 new wire is not fully certified. Clock calculations,
 USB timestamps and diagnostics remain UTC.
 Host tests and previews do not qualify hardware. A general public flasher and

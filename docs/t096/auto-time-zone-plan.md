@@ -147,8 +147,8 @@ scan failure and retains listening for later updates.
 
 All three application updates passed complete new-application readback,
 protected-prefix and final-sector-tail comparison, followed by fresh source/boot
-checks. TC-03 was not operated and retains its older image; it needs a compatible
-update before depending on automatic DST propagation.
+checks. That initial session excluded TC-03, which still used .205 and needed
+a compatible update before depending on automatic DST propagation.
 
 The TC-02 GM acquisition exhausted the original 240 seconds with zero reported
 satellites and no usable own GNSS fix. The GM did not serve, and its automatic
@@ -207,3 +207,83 @@ window; they do not replace live transition, sustained availability, GM successo
 or independent UTC accuracy qualification.
 Raw enrolled-device captures and images remain local private validation material;
 the public record contains these aggregates and the reproducible offline tests.
+
+## Four-device follow-up — 29 October 2026
+
+The operator subsequently made TC-03 available for update and retesting. Its
+.209 auto-mode image uses RC as the boot default and preserves its own enrollment,
+device/registry binding and radio configuration. Native inspection passed with
+4,148 bytes of static margin. Complete application readback, all 672 protected
+blocks and the final-sector tail comparison passed, followed by a fresh RC boot.
+All four T096s now use the same frozen .209 source. The earlier failed populations
+above remain unchanged.
+
+Fresh pretest probes reported valid GNSS time on all four units with 11–20
+satellites. The four-device direct route from TC-01 acquired `(2,-300)`, receiver
+precision lock and valid maps in 113.82 seconds, within the original 240-second
+budget. Its full observation is recorded separately from that acquisition.
+CRC-bound acquisition samples also show TC-03 changing from unknown to the
+correct pair while precision lock and a valid map were present in both samples,
+with the same observed root boot, source epoch and parent route. This is a live
+update after timing lock; it does not establish a propagation-latency bound or
+observe a physical DST boundary.
+
+The complete 600-second direct window passed the unchanged 99% gate:
+
+| Direct route sample population | TC-01 GM | TC-02 RC | TC-03 RC | TC-04 RC |
+| --- | ---: | ---: | ---: | ---: |
+| Correct known pair and local conversion / status replies | 118/118 | 117/117 | 117/117 | 117/117 |
+| Explicit unknown replies | 0 | 0 | 0 | 0 |
+| Serving / network replies | 117/117 | — | — | — |
+| Correct selected route / route replies | — | 116/116 | 116/116 | 116/116 |
+| Precision lock and valid map / precision replies | — | 116/116 | 116/116 | 116/116 |
+
+All 117 GM position/calendar checks resolved to Chicago. Each receiver's binding
+counter increased twice during the window; no unavailable TZ, invalid map or lost
+lock appeared in the sampled population. No incorrect accepted pair, console
+timeout or refused frame was observed. All four captures completed and closed.
+
+The subsequent finite vendor-USB probes on TC-03 and TC-04 each completed 600/600
+requests with 600 fresh valid UTC records, zero source-unavailable/missing records
+and zero request failures. Both UTC-coordinate and availability checks passed,
+with exact receiver boot and serving-root scope bindings. Comparing against host
+wall time within 60 seconds distinguishes UTC from a five-hour CDT shift; it does
+not measure absolute UTC accuracy. Both probes reported UTC about 0.22 seconds
+ahead of that uncalibrated host reference. No device/host clock or daemon was changed.
+
+The follow-up relay route was TC-01 GM → TC-02 RC → TC-03/TC-04 RC. It acquired
+the correct pair, both downstream routes, precision lock and valid maps in
+149.75 seconds, within the original 240-second budget. The parent checks exclude
+a direct-GM bypass by either leaf.
+
+The full 600-second relay window failed the unchanged 99% route-availability
+gate because TC-03 lost its route and timing map in 20 of 116 samples:
+
+| Relay route sample population | TC-01 GM | TC-02 relay | TC-03 leaf | TC-04 leaf |
+| --- | ---: | ---: | ---: | ---: |
+| Correct known pair / status replies | 118/118 | 117/117 | 117/117 | 117/117 |
+| Correct local conversion / status replies | 118/118 | 117/117 | 97/117 | 117/117 |
+| Local conversion unavailable | 0 | 0 | 20 | 0 |
+| Serving / network replies | 117/117 | — | — | — |
+| Correct selected route / route replies | — | 116/116 | 96/116 | 116/116 |
+| Precision lock and valid map / precision replies | — | 116/116 | 96/116 | 116/116 |
+
+All 117 GM position/calendar checks resolved to Chicago. No incorrect accepted
+TZ pair, console timeout or refused frame was observed. TC-03's metadata stayed
+known while its precision map was unavailable, consistent with the independent
+coarse-presence lease. Its binding counter increased once; TC-02/TC-04 increased
+twice. The timing and route gaps remain in the full population. This run does
+not qualify relay timing, and the cause of TC-03's interruption is unresolved.
+
+This follow-up covers the four-device direct route, the stated relay branch and
+two USB UTC checks. It does not close the other GM/topology, handover, reboot,
+1,800-second renewal or comparable pre-update baseline gates in the
+[full wire test plan](time-zone-test-plan.md). The physical DST boundary remains
+unobserved; the passing production calendar/owner tests remain separate evidence.
+
+The final direct layout reacquired successfully with TC-01 serving and TC-02/03/04
+following TC-01, all with the correct pair, valid timing maps and precision lock.
+LoRa was off. Fresh identity/source/boot, profile and parent checks passed, and
+all console handles and unit locks were released. This successful return does
+not replace the failed relay population above. TC-03 now boots as RC; the other
+units' build-time boot profiles are unchanged.
