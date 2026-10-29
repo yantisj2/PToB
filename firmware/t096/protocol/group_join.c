@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: Apache-2.0 */
+#define R2_JOIN_CODEC_IMPLEMENTATION
 #include "group_join.h"
 #include <errno.h>
 #include <string.h>
@@ -240,4 +241,20 @@ void r2_group_join_remember(struct r2_join_display cache[8],
   cache[slot] = (struct r2_join_display){
       .identity = s->peer, .boot = s->peer_boot, .seen = now};
   memcpy(cache[slot].name, s->name, 25);
+}
+
+int r2_group_join_encode_tz(uint8_t w[168],const struct r2_join_record *r,const struct r2_group_config *g) {
+ uint8_t old[164];if(!w||r2_group_join_encode(old,r,g))return -EINVAL;
+ memcpy(w,old,148);w[2]=5;r2_tz_put(w+148,r->tz);
+ return r2_group_mac(w+152,g,"PTOBTZJ5",w,152);
+}
+int r2_group_join_decode_tz(struct r2_join_record *out,const uint8_t *w,size_t n,const struct r2_group_config *g) {
+ if(!out||!w||n!=168||w[0]!=14||w[2]!=5||!r2_group_valid(g))return -EINVAL;
+ if(!r2_group_verify(w+152,g,"PTOBTZJ5",w,152))return -EACCES;
+ /* Reuse the strict historical structural parser only after new-wire auth.
+  * No legacy frame is accepted on this runtime entry point. */
+ uint8_t old[164];memcpy(old,w,148);old[2]=4;
+ int rc=r2_group_mac(old+148,g,"PTOBG4J4",old,148);if(rc)return rc;
+ struct r2_join_record r;if((rc=r2_group_join_decode(&r,old,sizeof old,g)))return rc;
+ r.tz=r2_tz_get(w+148);*out=r;return 0;
 }

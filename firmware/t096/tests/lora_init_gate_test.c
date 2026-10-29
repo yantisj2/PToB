@@ -2,6 +2,7 @@
  * Actual scanner + LoRa owner/service; explicit flash/IRQ/kernel peripherals. */
 #include "app.h"
 #include "lora_service.h"
+#include "crash_record.h"
 #include "actual_hw_fixture.inc"
 static long atomic_and(atomic_t *p,long v){long old=*p;*p&=v;return old;}
 static void atomic_or(atomic_t *p,long v){*p|=v;}
@@ -26,7 +27,14 @@ static int diag_phase;
 static uint32_t package[128];
 static struct r2_identity identity;
 static unsigned latest_slot=R2_DIAG_SLOTS,next_slot;
-static uint64_t diag_generation;
+static uint64_t diag_generation,crash_generation;
+static unsigned crash_slot=R2_DIAG_SLOTS,protected_event_slot=R2_DIAG_SLOTS;
+static int crash_persist_result;
+/* This scanner/LoRa fixture has no retained crash; crash persistence is tested
+ * separately by watchdog_tests.py. Keep that unexercised leaf explicit. */
+static const volatile uint32_t *r2_health_crash_pending(void){return NULL;}
+static void r2_health_crash_saved(uint32_t crc){(void)crc;assert(false);}
+static int store_boot_crash(const volatile uint32_t *p){(void)p;assert(false);return -EIO;}
 static bool occupied[R2_DIAG_SLOTS],erase_needed;
 static const struct device *flash=&device;
 static uint8_t storage[8192];

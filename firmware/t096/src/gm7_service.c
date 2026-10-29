@@ -32,6 +32,9 @@
 #define R2_LOCK_UNIT 2u
 #include "health_lock.h"
 static struct gm7_owner owner;
+#ifdef R2_TZ_WIRE
+static struct r2_tz_lease coarse_tz;
+#endif
 static struct gm7_scheduler scheduler;
 /* Descriptive publication only; until is conservatively converted kernel time.
  * Original sender sample/durations are never incremented by a receiver. */
@@ -64,6 +67,9 @@ static struct {
 /* GM publication only. The public compatibility snapshot is constructed on
  * read; unused RC/retired coordinator fields consume no persistent GM RAM. */
 static struct {
+#ifdef R2_TZ_WIRE
+  struct r2_tz tz;
+#endif
   struct r2_supervision supervision;
   struct r2_transport_fault transport_fault;
   struct r2_radio_precision_view precision;
@@ -745,6 +751,16 @@ static __attribute__((noinline)) void receive(struct gm7_bridge b, uint64_t utc,
     int received = gm7_owner_receive(&owner, r.ad, r.length, r.address, rx, b.hf);
     if (!received)
       management_count(&management_accepted);
+#ifdef R2_TZ_WIRE
+    if(!received && packet.kind==GM7_ANNOUNCE &&
+       packet.body.control.active==owner.scope.active &&
+       packet.body.control.active_boot==owner.scope.boot){
+      uint64_t at;
+      if(gm7_bridge_to_kernel(b,rx,&at))
+        (void)r2_tz_observe(&coarse_tz,
+          packet.body.control.tz,at,b.kernel_hi,R2_TZ_GM_PERIOD_US);
+    }
+#endif
     uint64_t peer = packet.kind <= GM7_WITHDRAW ? packet.body.control.sender
         : packet.kind == GM7_ROLE ? packet.body.role.sender
         : packet.body.gnss.sender;
@@ -989,6 +1005,11 @@ static __attribute__((noinline)) void publish(struct gm7_bridge b) {
   status.follower = t.source;
   status.follower_clock_valid = t.source;
   status.follower_utc = t.utc_us;
+#ifdef R2_TZ_WIRE
+  status.tz=r2_tz_current(&coarse_tz,b.kernel_hi);
+  if(owner.scope.active==identity && owner.scope.timing_epoch)
+    status.tz=r2_tz_manual();
+#endif
   status.time_sampled_us = t.at;
   status.source_frame_ns = frame;
   status.service_until = t.map_until;
@@ -1814,6 +1835,9 @@ void r2_service_snapshot(struct r2_service_status *out) {
   (void)k_mutex_lock(&lock, K_FOREVER);
   memset(out, 0, sizeof *out);
 #define P(field) out->field = status.field
+#ifdef R2_TZ_WIRE
+  P(tz);
+#endif
   P(supervision);
   P(transport_fault);
   P(precision);

@@ -206,7 +206,7 @@ int main(int argc,char **argv)
   reboot(&id);assert(latest_slot==saved&&generation==gen&&next_slot!=saved+1);assert(!r2_diag_arm(now,0));mode=0;fail_write=0;now+=60000;assert(!r2_diag_mark());finish_write();assert(generation==gen+1);return 0;
  }
  if(mode==9){
-  unsigned saved=latest_slot;now+=60000;assert(!r2_diag_mark());next_slot=saved/8*8;erase_needed=true;finish_write();assert(phase==-EFAULT);assert(valid5((uint32_t*)(storage+saved*512),saved));return 0;
+  unsigned saved=latest_slot;now+=60000;assert(!r2_diag_mark());next_slot=saved/8*8;erase_needed=true;finish_write();assert(phase==-EACCES);assert(valid5((uint32_t*)(storage+saved*512),saved));return 0;
  }
  /*32 records consume16KiB programming; three event-coupled spare preparations
   * for a fresh bank, with no mandatory erase before those appends. */

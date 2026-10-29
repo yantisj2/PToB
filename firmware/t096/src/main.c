@@ -397,6 +397,15 @@ static void __attribute__((noinline)) reply(const struct r2_request *r,uint64_t 
   }
   if(used+3>sizeof(json)) return;
   memcpy(json+used,"]}",3);
+#if defined(R2_TZ_WIRE) && defined(R2_NATIVE_BLE)
+  struct r2_tz tz=net_status.tz;
+  int64_t local=0;
+  bool local_valid=u.drawn_time&&r2_tz_local_us(tz,u.drawn_utc_us,&local);
+  int extra=snprintf(json+used+1,sizeof(json)-used-1,
+    ",\"tz\":{\"id\":%u,\"offset_min\":%d,\"local_valid\":%s,\"local_us\":%lld}}",
+    tz.id,tz.offset_min,local_valid?"true":"false",(long long)local);
+  if(extra<0 || (size_t)extra>=sizeof(json)-used-1)return;
+#endif
   if(reply_sequence==UINT32_MAX) return;
   n=r2_frame(frame,sizeof(frame),r->id,++reply_sequence,json);
   if(n>0) (void)r2_console_reply(frame,(size_t)n,arrival+R2_REPLY_MS);

@@ -1,5 +1,21 @@
 # T096 changelog
 
+## 0.15.202 — Coarse mesh time zone
+
+Add four authenticated TZ bytes to GM7 coarse control, JOIN and RC coarse control/capability
+metadata, with explicit breaking coarse revisions and manual CDT (ID2/-300).
+An RC learns the mesh pair from its authenticated parent and relays it unchanged.
+Its coarse presence lease is three advertising periods and renews from existing
+parent advertisements independently of precision correction/lock/map expiry.
+G1/GR3/RC7 precision layouts, UTC clock calculations and USB timestamps retain
+their existing behavior. No automatic TZ/DST selection is enabled.
+
+The compact implementation uses a160B static allocation allowance versus the same-input
+.201 image and unchanged RC8/radio/USB/stack reserves.
+Builders use the shared compiler-output retention lifecycle. Offline historical
+codecs remain explicit; normal runtime does not accept the old coarse wire.
+Hardware installation and certification require their separate recorded gates.
+
 ## 0.15.201 — Preserve armed takeover across leader reboot
 
 A new boot advertisement overlapping the old leader's cached advertisements

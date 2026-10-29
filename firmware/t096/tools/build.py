@@ -238,4 +238,6 @@ def main():
         receipt['status']='FAILED';write(out/'receipt.json',receipt);raise
 
 if __name__=='__main__':
-    main()
+    sys.path.insert(0, str(REPO / 'tools'))
+    from firmware_artifacts import run_builder
+    run_builder(main, REPO)

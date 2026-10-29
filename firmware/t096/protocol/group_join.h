@@ -1,7 +1,13 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 #pragma once
 #include "group_auth.h"
+#include "time_zone.h"
+#define R2_GROUP_JOIN_LEGACY_BYTES 164u
+#if defined(R2_TZ_WIRE) && !defined(R2_JOIN_CODEC_IMPLEMENTATION)
+#define R2_GROUP_JOIN_BYTES 168u
+#else
 #define R2_GROUP_JOIN_BYTES 164u
+#endif
 #define R2_GROUP_JOIN_TTL_US 250000u /* Time extraction only; authentication uses exchange lifetime. */
 #define R2_GROUP_JOIN_LIFETIME_US 5000000u
 enum r2_join_kind {
@@ -21,6 +27,7 @@ struct r2_join_record {
   uint32_t source_epoch, publication, remaining_us, source_bound_us;
   uint8_t kind, capabilities, source_flags, control;
   uint8_t demand; /* JOINv4: 0none/1request/2accepted/3refused/4pending; local only. */
+  struct r2_tz tz;
   char name[R2_GROUP_NAME_MAX + 1];
 };
 int r2_group_join_encode(uint8_t out[R2_GROUP_JOIN_BYTES],
@@ -72,3 +79,10 @@ struct r2_join_display {
 void r2_group_join_remember(
     struct r2_join_display cache[R2_GROUP_DISPLAY_CACHE],
     const struct r2_join_exchange *, uint64_t now);
+
+int r2_group_join_encode_tz(uint8_t[168],const struct r2_join_record *,const struct r2_group_config *);
+int r2_group_join_decode_tz(struct r2_join_record *,const uint8_t *,size_t,const struct r2_group_config *);
+#if defined(R2_TZ_WIRE) && !defined(R2_JOIN_CODEC_IMPLEMENTATION)
+#define r2_group_join_encode r2_group_join_encode_tz
+#define r2_group_join_decode r2_group_join_decode_tz
+#endif

@@ -1054,6 +1054,9 @@ static int control(struct gm7_owner *o, struct gm7_packet *p, uint64_t now,
   c->boot = o->boot;
   c->sequence = ++o->sequence;
   c->sent_mono_us = now;
+#ifdef R2_TZ_WIRE
+  c->tz = r2_tz_manual();
+#endif
   c->timing_epoch = scope->timing_epoch;
   c->max_age_us = serving ? 2750000 : 4500000;
   (void)project(&o->source, now, &c->sent_utc_us);

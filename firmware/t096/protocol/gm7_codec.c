@@ -1,4 +1,5 @@
 /* Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT */
+#define GM7_CODEC_IMPLEMENTATION
 #include "gm7_codec.h"
 #include <errno.h>
 #include <string.h>
@@ -389,4 +390,34 @@ int gm7_ad_decode(struct gm7_packet *p, const uint8_t *w, size_t n,
       w[2] != 255 || w[3] != 255)
     return -EINVAL;
   return gm7_decode(p, w + 4, n - 4, g);
+}
+
+size_t gm7_tz_wire_size(uint8_t k) {
+ size_t n=gm7_wire_size(k);return n&&k<=GM7_WITHDRAW?n+4:n;
+}
+int gm7_tz_encode(uint8_t *w,size_t capacity,const struct gm7_packet *p,const struct r2_group_config *g) {
+ if(!w||!p||!r2_group_valid(g)||p->group!=g->id||p->key_epoch!=g->epoch||gm7_validate(p))return -EINVAL;
+ size_t n=gm7_tz_wire_size(p->kind);if(capacity<n)return -EMSGSIZE;
+ memset(w,0,n);memcpy(w,"G7V4",4);w[4]=4;w[5]=p->kind;put(w+6,n,2);
+ put(w+8,p->flags,2);put(w+12,p->group,8);put(w+20,p->key_epoch,4);encode_body(w,p);
+ if(p->kind<=GM7_WITHDRAW)r2_tz_put(w+162,p->body.control.tz);
+ return r2_group_mac(w+n-16,g,"PTOBTZ04",w,n-16);
+}
+int gm7_tz_decode(struct gm7_packet *out,const uint8_t *w,size_t n,const struct r2_group_config *g) {
+ if(!out||!w||!r2_group_valid(g)||n<40||memcmp(w,"G7V4",4)||w[4]!=4||
+    !gm7_tz_wire_size(w[5])||n!=gm7_tz_wire_size(w[5])||get(w+6,2)!=n||get(w+10,2)||
+    get(w+12,8)!=g->id||get(w+20,4)!=g->epoch)return -EINVAL;
+ if(!r2_group_verify(w+n-16,g,"PTOBTZ04",w,n-16))return -EACCES;
+ struct gm7_packet p={.kind=w[5],.flags=(uint16_t)get(w+8,2),.group=g->id,.key_epoch=g->epoch};
+ decode_body(&p,w);if(p.kind<=GM7_WITHDRAW)p.body.control.tz=r2_tz_get(w+162);
+ int rc=gm7_validate(&p);if(!rc)*out=p;return rc;
+}
+int gm7_tz_ad_encode(uint8_t *w,size_t capacity,const struct gm7_packet *p,const struct r2_group_config *g) {
+ size_t n=p?gm7_tz_wire_size(p->kind):0;if(!w||!n||capacity<n+4)return -EMSGSIZE;
+ int rc=gm7_tz_encode(w+4,capacity-4,p,g);if(rc)return rc;
+ w[0]=(uint8_t)(n+3);w[1]=w[2]=w[3]=255;return 0;
+}
+int gm7_tz_ad_decode(struct gm7_packet *p,const uint8_t *w,size_t n,const struct r2_group_config *g) {
+ if(!w||n<4||n>GM7_TZ_MAX_AD_BYTES||w[0]!=n-1||w[1]!=255||w[2]!=255||w[3]!=255)return -EINVAL;
+ return gm7_tz_decode(p,w+4,n-4,g);
 }

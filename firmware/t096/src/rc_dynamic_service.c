@@ -13,6 +13,11 @@
 #include "rc_boundary.h"
 #include "rc_direct_calibration.h"
 #include "rc_dynamic.h"
+#ifdef R2_TZ_WIRE
+#include "../protocol/gm7_codec.h"
+static struct r2_tz_lease coarse_tz;
+static struct r2_tz advertised_tz;
+#endif
 #include "rc_field_policy.h"
 #include "rc_gm_adapter.h"
 #include "rc_admission_policy.h"
@@ -781,6 +786,9 @@ struct discovery {
   bt_addr_le_t address;
   uint16_t interval;
   uint8_t sid, len;
+#ifdef R2_TZ_WIRE
+  uint64_t received_us;
+#endif
   int8_t rssi;
   bool connectable;
   union {
@@ -799,6 +807,9 @@ static bool scan_data(struct bt_data *d, void *user) {
       (d->data_len == RC_DYNAMIC_CAPABILITY_BYTES || d->data_len == 23 ||
        d->data_len == R2_ROLE_AD_BYTES-2)) {
     p->len = d->data_len;
+#ifdef R2_TZ_WIRE
+    p->received_us=mono_us();
+#endif
     memcpy(p->data, d->data, p->len);
     if(p->len==R2_ROLE_AD_BYTES-2)p->role.received_ms=k_uptime_get_32();
     return false;
@@ -1013,6 +1024,11 @@ static void discover(uint64_t tick) {
       struct rc7_control c;
       if (!rc7_capability_decode(&c, d.data, d.len, &group) &&
           c.type == RC7_CAPABILITY) {
+#ifdef R2_TZ_WIRE
+        if(parent_known && parent_relay && c.sender==routes.node[parent_index].id &&
+           rc7_path_same(&c.path,&upstream_path))
+          (void)r2_tz_observe(&coarse_tz,c.tz,d.received_us,now,R2_TZ_RC_PERIOD_US);
+#endif
         if (cap_authenticated != UINT32_MAX)
           ++cap_authenticated;
         if (c.publishing && c.sender != self_identity)
@@ -1355,6 +1371,10 @@ static void captures(struct r2_capture now) {
       ++wire_rejected;
       continue;
     }
+#ifdef R2_TZ_WIRE
+    if(!r.tx && parent_known && packet.sender==routes.node[parent_index].id)
+      r2_tz_renew(&coarse_tz,mono_us(),parent_relay?R2_TZ_RC_PERIOD_US:R2_TZ_GM_PERIOD_US);
+#endif
 #if defined(R2_RC_DYNAMIC_FIXTURE)
     extern bool r2_rc7_fixture_receive(uint64_t, uint64_t);
     if (!r.tx && !r2_rc7_fixture_receive(self_identity, packet.sender))
@@ -1687,6 +1707,9 @@ static void snapshot_publish(struct r2_capture now) {
     status.identities[i] = routes.node[i].id;
   status.self = node;
   status.at = mono_us();
+#ifdef R2_TZ_WIRE
+  status.tz=r2_tz_current(&coarse_tz,mono_us());
+#endif
   status.cycles++;
   status.rx = rx;
   status.authenticated = timing.accepted;
@@ -2218,7 +2241,11 @@ int r2_service_configure(const struct r2_identity *id,
   identity = *id;
   if(group.id!=e->group.id || group.epoch!=e->group.epoch ||
       memcmp(group.psk,e->group.psk,sizeof group.psk))
-    {stream_history=(struct rc_stream_history){0};gm_failover=(struct rc_gm_failover){0};}
+    {stream_history=(struct rc_stream_history){0};gm_failover=(struct rc_gm_failover){0};
+#ifdef R2_TZ_WIRE
+     coarse_tz=(struct r2_tz_lease){0};
+#endif
+    }
   group = e->group;
   local_boot = id->boot;
   self_identity = strtoull(id->silicon, NULL, 16);
