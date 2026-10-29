@@ -364,6 +364,11 @@ bool relay_cap_update(uint64_t now){
   auto c=relay_map.capability(provision.identity,boot_id,relay_challenge,relay_pa);
 #ifdef R2_TZ_WIRE
   c.tz=r2_tz_current(&coarse_tz,now);
+  const auto previous=r2_tz_get(relay_cap+196);
+  if(relay_cap_at&&!G1TimeZoneOrder::same(previous,c.tz)){
+    if(relay_challenge>=UINT64_MAX-1){fault=true;return false;}
+    c.next_challenge=++relay_challenge; // Reuse the existing monotonic admission token.
+  }
 #endif
   uint8_t wire[23+RC_DYNAMIC_CAPABILITY_BYTES]={2,1,6,17,7};std::memcpy(wire+5,rc_service.value,16);wire[21]=RC_DYNAMIC_CAPABILITY_BYTES+1;wire[22]=255;
   if(rc7_control_encode(relay_cap,&c,&provision.group)||rc7_capability_encode(wire+23,&c,&provision.group)){fault=true;return false;}

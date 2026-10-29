@@ -24,8 +24,8 @@ static void leases(void){
  assert(!r2_tz_current(&a,1750000).id);
  /* A precision map can expire at 1,010,000 without touching coarse state. */
  assert(r2_tz_current(&a,1200000).id==2);
- assert(!r2_tz_observe(&a,(struct r2_tz){2,-360},at+250000,at+250000,R2_TZ_GM_PERIOD_US));
- assert(a.conflicts==1&&a.until_us==1750000);
+ assert(r2_tz_observe(&a,(struct r2_tz){2,-360},at+250000,at+250000,R2_TZ_GM_PERIOD_US));
+ assert(a.conflicts==0&&a.until_us==2000000&&a.value.offset_min==-360);
  assert(r2_tz_observe(&a,r2_tz_manual(),1800000,1800000,R2_TZ_GM_PERIOD_US));
  assert(a.until_us==2550000); /* matching coarse advertisement renews */
  assert(!r2_tz_observe(&a,r2_tz_manual(),1000000,1800000,R2_TZ_GM_PERIOD_US));

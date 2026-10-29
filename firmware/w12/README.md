@@ -7,19 +7,18 @@ RC role. [Image provenance](../../docs/images/README.md).*
 
 Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
 
-**PToB owns W12 native G1/RC7 development.** Current version **0.2.18** supports
+**PToB owns W12 native G1/RC7 development.** Current version **0.2.19** supports
 **RC**: a BLE50 client or BLE100 receiver with an optional experimental
 estimated-TX relay. It receives from the shared T096/W12/StickS3 mesh; it has no
 GM profile or USB timing stream. Start with the
 [build guide](../../docs/w12/build.md).
 
-Version 0.2.18 receives and forwards T096's authenticated coarse TZ metadata.
-The front digital/analog clock uses local time with `CDT`, `CST` or `LOC` while
-its selected parent's TZ lease is live, and returns to `UTC` on expiry/unknown.
-LoRa/RC9 and timing diagnostics
-retain UTC. This uses the fixed mesh configuration from T096 0.15.205;
-automatic geographic/DST selection is not implemented. Old coarse revisions
-cannot admit this profile. See [wire compatibility and checks](../../docs/esp32-time-zones.md).
+Version 0.2.19 follows T096 0.15.206's ordered TZ updates, including changed
+UTC offsets and explicit unknown withdrawals. Its front digital/analog clock
+shows local time and `CDT`, `CST` or `LOC` while metadata is live, then falls back
+to UTC. LoRa/RC9 and timing diagnostics retain UTC.
+The GM owns location/DST selection; these receivers need no regional database.
+See [wire compatibility and checks](../../docs/esp32-time-zones.md).
 
 Version 0.2.17 consumes authenticated GM7 revision-3 successor announcements.
 Withdrawal, completed timed yield, an observed successor promotion or sustained

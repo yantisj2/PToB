@@ -31,6 +31,9 @@ extern "C" {
 #include "r2_discipline.hpp"
 #include "g1_client_policy.hpp"
 #include "g1_direct_session.hpp"
+#ifdef R2_TZ_WIRE
+#include "g1_time_zone.hpp"
+#endif
 #include "g1_admission_policy.hpp"
 #include "g1_retained_estimate.hpp"
 #include "g1_receive_loss.hpp"
@@ -127,7 +130,8 @@ G1PhaseLearning phase_learning;
 G1DirectSession direct_session;
 G1CoarseHold coarse_hold;
 #ifdef R2_TZ_WIRE
-r2_tz_lease coarse_tz{}; // Mesh configuration survives timing/parent loss, not restart.
+r2_tz_lease coarse_tz{};
+G1TimeZoneOrder coarse_tz_order; // Ordered within the admitted parent context.
 #endif
 G1CorrectedClock corrected_clock;
 G1AdmissionPolicy admission_policy;G1RetainedEstimate retained_estimate;G1ReceiveLoss receive_loss;
@@ -280,6 +284,9 @@ bool relay_slot_scanning();
 void relay_fence();void relay_close(uint64_t now,bool preserve_demand=false);bool relay_owned();bool relay_acl_available();void relay_poll(uint64_t now,bool upstream_due,bool admitting=false);
 void parent_record(G1ParentReason reason,uint64_t now);
 void begin_close(uint64_t now){if(closing)return;closing=true;
+#ifdef R2_TZ_WIRE
+ coarse_tz={};coarse_tz_order={};
+#endif
 #ifdef PTOB_GM_SUCCESSOR
  gm_successor.clear();gm_control_scan.clear();gm_control_capture20=0;
 #endif
@@ -815,7 +822,7 @@ void receive_rc_control(const Incoming& row,uint64_t now){
       corrected_clock.scope(anchor);
       joined_peer=c.sender;joined_boot=c.sender_boot;member=true;sync_address=peer.address;
 #ifdef R2_TZ_WIRE
-      (void)r2_tz_observe(&coarse_tz,c.tz,row.at,now,R2_TZ_RC_PERIOD_US);
+      (void)coarse_tz_order.observe(coarse_tz,c.tz,c.next_challenge,row.at,now,R2_TZ_RC_PERIOD_US,true);
 #endif
       parent_selection.bind(c.sender,c.sender_boot,c.path.node[c.path.depth].epoch,now,true);
       parent_selection.authenticated(c.sender,true,c.sender_boot,c.path.node[0].id,c.path.node[0].boot,c.path.source_epoch,now);
@@ -881,7 +888,7 @@ void receive_join(uint64_t now){Incoming row{};for(unsigned i=0;i<8&&incoming.po
        (anchor.root!=r.root||anchor.boot!=r.root_boot||anchor.source_epoch!=r.source_epoch||anchor.publication!=r.publication))forget_leader(now,true);
     member=true;joined_peer=r.sender;joined_boot=r.sender_boot;cooldown(r.sender,now,5000000);
 #ifdef R2_TZ_WIRE
-    (void)r2_tz_observe(&coarse_tz,r.tz,row.at,now,R2_TZ_GM_PERIOD_US);
+    (void)coarse_tz_order.bootstrap(coarse_tz,r.tz,row.at,now);
 #endif
     if(timed){
       if(r.root!=r.sender||r.root_boot!=r.sender_boot){
@@ -972,7 +979,11 @@ bool fresh_envelope(uint64_t created,uint64_t expires,int64_t offset,uint64_t no
     (immutable_origin||utc-(int64_t(created)+offset)<250000000)&&
     int64_t(expires)+offset>utc+int64_t(anchor.guard(now)*1000);
 }
-void changed_scope(uint64_t now,G1Reason reason,bool preserve_clock,G1ParentReason parent_reason){if(parent_reason==G1ParentReason::ClockStep)retained_estimate.clear();relay_fence();if(anchor.source){inc(diagnostic.scope_changes);scope_trace(anchor,{},reason,now);}
+void changed_scope(uint64_t now,G1Reason reason,bool preserve_clock,G1ParentReason parent_reason){
+#ifdef R2_TZ_WIRE
+ coarse_tz={};coarse_tz_order={};
+#endif
+if(parent_reason==G1ParentReason::ClockStep)retained_estimate.clear();relay_fence();if(anchor.source){inc(diagnostic.scope_changes);scope_trace(anchor,{},reason,now);}
 #ifdef PTOB_GM_SUCCESSOR
   gm_control_scan.clear();gm_control_capture20=0;
 #endif
@@ -1282,6 +1293,22 @@ bool admission_due(uint64_t now,bool renewal_map){
   if(full_listening()&&direct_session.matches(anchor))return direct_session.due(anchor,now);
   return full_listening()?anchor.refresh(now,true):G1Window::initiate(now,anchor,renewal_map,window_phase);
 }
+#ifdef R2_TZ_WIRE
+void coarse_relay_observed(const Discovery& d,uint64_t now){
+    if(rc_bound()&&d.sid==13&&(d.props&1)&&same_address(d.address,canonical(joined_peer))){
+      for(unsigned at=0;at<d.length;){
+        const unsigned n=d.bytes[at];if(!n||at+n>=d.length)break;
+        if(n==RC_DYNAMIC_CAPABILITY_BYTES+1&&d.bytes[at+1]==0xff){
+          rc7_control cap{};
+          if(!rc7_capability_decode(&cap,d.bytes+at+2,RC_DYNAMIC_CAPABILITY_BYTES,&provision.group)&&
+             cap.sender==joined_peer&&cap.sender_boot==joined_boot&&rc7_path_same(&cap.path,&rc_client.receiver.path))
+            (void)coarse_tz_order.observe(coarse_tz,cap.tz,cap.next_challenge,d.at,now,R2_TZ_RC_PERIOD_US,true);
+        }
+        at+=n+1;
+      }
+    }
+}
+#endif
 void active_poll(uint64_t now){
   if(now<radio_resume_at)return;
 #ifdef PTOB_GM_SUCCESSOR
@@ -1385,13 +1412,24 @@ void active_poll(uint64_t now){
         const bool accepted=gm_successor.receive(control,anchor,d.at,now);
 #ifdef R2_TZ_WIRE
         const auto& c=control.body.control;
-        if(accepted&&!rc_bound()&&c.sender==joined_peer&&c.boot==joined_boot&&control.kind!=GM7_WITHDRAW)
-          (void)r2_tz_observe(&coarse_tz,c.tz,d.at,now,R2_TZ_GM_PERIOD_US);
+        // Coarse replay context remains usable independently of precision permission.
+        if(control.kind==GM7_ANNOUNCE&&!rc_bound()&&anchor.valid(now)&&
+           c.sender==joined_peer&&c.boot==joined_boot&&c.sender==c.active&&c.boot==c.active_boot&&
+           c.active==anchor.root&&c.active_boot==anchor.boot&&c.timing_epoch==anchor.source_epoch&&c.train_gen==anchor.publication&&
+           now>=anchor.at&&now-anchor.at<=UINT64_MAX-anchor.utc){
+          const auto utc=anchor.utc+now-anchor.at;
+          const auto age=utc>=c.sent_utc_us?utc-c.sent_utc_us:c.sent_utc_us-utc;
+          if(age<3*R2_TZ_GM_PERIOD_US)
+            (void)coarse_tz_order.observe(coarse_tz,c.tz,c.sequence,d.at,now,R2_TZ_GM_PERIOD_US,false);
+        }
 #endif
         if(accepted&&gm_successor.due(now)){forget_leader(now);break;}
       }
       continue;
     }
+#endif
+#ifdef R2_TZ_WIRE
+    coarse_relay_observed(d,now);
 #endif
     if(protected_parent&&!relay_slot_scanning())continue;
     observe_group(d);
@@ -1403,11 +1441,6 @@ void active_poll(uint64_t now){
       const unsigned n=d.bytes[at];if(!n||at+n>=d.length)break;
       if(n==RC_DYNAMIC_CAPABILITY_BYTES+1&&d.bytes[at+1]==0xff){rc7_control cap{};
         if(!rc7_capability_decode(&cap,d.bytes+at+2,RC_DYNAMIC_CAPABILITY_BYTES,&provision.group)){
-#ifdef R2_TZ_WIRE
-          if(rc_bound()&&cap.sender==joined_peer&&same_address(d.address,canonical(cap.sender))&&
-             rc7_path_same(&cap.path,&rc_client.receiver.path))
-            (void)r2_tz_observe(&coarse_tz,cap.tz,d.at,now,R2_TZ_RC_PERIOD_US);
-#endif
           relay_slot_observe(cap,d.rssi,d.at);
           if(rc_client.path_usable(cap.path,provision.identity)&&cap.sender!=provision.identity){id=cap.sender;relay=true;relay_publishing=cap.publishing;}
         }

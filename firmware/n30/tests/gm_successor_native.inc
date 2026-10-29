@@ -31,6 +31,38 @@ int main(int argc,char** argv){
   v12::Rc7PermissionInspect::allow_lock(v12::corrected_clock);assert(v12::selection_protected(fake_now));
   const auto at=fake_now;
 #ifdef R2_TZ_WIRE
+  if(which=="tz-updates"){
+    auto announce=[&](r2_tz zone,uint64_t sequence){
+      auto d=successor_ad(501,601,sequence);gm7_packet p{};assert(!gm7_ad_decode(&p,d.bytes,d.length,&v12::provision.group));
+      p.body.control.tz=zone;assert(!gm7_ad_encode(d.bytes,sizeof d.bytes,&p,&v12::provision.group));return d;
+    };
+    auto first=announce({2,-300},1);assert(v12::discoveries.push(first));v12::active_poll(fake_now);assert(v12::coarse_tz.value.offset_min==-300);
+    fake_now+=100000;v12::anchor.until=0;
+    auto winter=announce({2,-360},2);assert(v12::discoveries.push(winter));v12::active_poll(fake_now);assert(v12::coarse_tz.value.offset_min==-360&&!v12::anchor.until);
+    const auto until=v12::coarse_tz.until_us;
+    first.at=fake_now;assert(v12::discoveries.push(first));v12::active_poll(fake_now);assert(v12::coarse_tz.value.offset_min==-360&&v12::coarse_tz.until_us==until);
+    assert(!v12::coarse_tz_order.bootstrap(v12::coarse_tz,{2,-300},fake_now,fake_now));
+    auto unknown=announce(r2_tz_unknown(),3);assert(v12::discoveries.push(unknown));v12::active_poll(fake_now);assert(!v12::coarse_tz.value.id);
+    r2_tz_renew(&v12::coarse_tz,fake_now+50000,R2_TZ_GM_PERIOD_US);assert(!v12::coarse_tz.value.id);
+    // Actual authenticated capability decoder and current-path/advertiser gates.
+    v12::coarse_tz={};v12::coarse_tz_order={};rc7_path path{};path.source_epoch=2;path.depth=1;
+    path.node[0]={501,601,3,2,0,0};path.node[1]={777,877,5,8,1,1};assert(rc7_path_valid(&path));
+    v12::rc_client.receiver.path=path;v12::rc_client.receiver.clock.bound=true;v12::joined_peer=v12::sync_identity=777;v12::joined_boot=877;
+    auto cap=[&](r2_tz zone,uint64_t token){
+      rc7_control c{};c.type=RC7_CAPABILITY;c.sender=777;c.sender_boot=877;c.next_challenge=token;c.path=path;c.tz=zone;
+      v12::Discovery d{};d.props=1;d.sid=13;d.address=v12::canonical(777);d.at=fake_now;d.length=RC_DYNAMIC_CAPABILITY_BYTES+2;
+      d.bytes[0]=RC_DYNAMIC_CAPABILITY_BYTES+1;d.bytes[1]=255;assert(!rc7_capability_encode(d.bytes+2,&c,&v12::provision.group));return d;
+    };
+    auto c=cap({2,-300},10);v12::coarse_relay_observed(c,fake_now);assert(v12::coarse_tz.value.offset_min==-300);
+    c=cap({2,-360},11);v12::coarse_relay_observed(c,fake_now);assert(v12::coarse_tz.value.offset_min==-360);
+    const auto deadline=v12::coarse_tz.until_us;c=cap({2,-300},11);v12::coarse_relay_observed(c,fake_now);assert(v12::coarse_tz.value.offset_min==-360&&v12::coarse_tz.until_us==deadline);
+    c=cap({2,-300},10);v12::coarse_relay_observed(c,fake_now);assert(v12::coarse_tz.value.offset_min==-360);
+    c=cap(r2_tz_unknown(),12);v12::coarse_relay_observed(c,fake_now);assert(!v12::coarse_tz.value.id);
+    c=cap({2,-300},13);c.address=v12::canonical(778);v12::coarse_relay_observed(c,fake_now);assert(!v12::coarse_tz.value.id);
+    c=cap({2,-300},13);c.bytes[c.length-1]^=1;v12::coarse_relay_observed(c,fake_now);assert(!v12::coarse_tz.value.id);
+    v12::changed_scope(fake_now);assert(!v12::coarse_tz.value.id&&!v12::coarse_tz_order.ordered);
+    puts("PASS actual ordered direct/relay TZ updates, stale/same-token refusal, JOIN non-downgrade, explicit unknown and parent fencing without UTC permission");return 0;
+  }
   if(which=="tz"){
     const auto time_until=v12::anchor.until;
     auto ann=successor_ad(501,601,1);assert(v12::discoveries.push(ann));v12::active_poll(fake_now);

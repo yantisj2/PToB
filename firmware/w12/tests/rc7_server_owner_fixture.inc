@@ -41,18 +41,18 @@ int ble_gap_periodic_adv_stop(unsigned i){assert(i==0);fake_now+=stop_advance_us
 void server_connect(){assert(ext_active[1]&&v12::relay_acl_available());server_connected=true;ext_active[1]=false;
  ble_gap_event e{};e.type=BLE_GAP_EVENT_CONNECT;e.connect.conn_handle=33;v12::relay_gap(&e,nullptr);assert(v12::relay_session.handle==33);}
 rc7_control server_read(){os_mbuf b;ble_gatt_access_ctxt c{};c.op=BLE_GATT_ACCESS_OP_READ_CHR;c.om=&b;
- assert(!v12::relay_access(33,0,&c,nullptr));assert(b.bytes.size()==212);rc7_control out{};
+ assert(!v12::relay_access(33,0,&c,nullptr));assert(b.bytes.size()==RC_DYNAMIC_CONTROL_BYTES);rc7_control out{};
  assert(!rc7_control_decode(&out,b.bytes.data(),b.bytes.size(),&v12::provision.group));return out;}
-void server_request(const rc7_control& c,bool bad=false){os_mbuf b;b.bytes.resize(212);assert(!rc7_control_encode(b.bytes.data(),&c,&v12::provision.group));
- if(bad)b.bytes[211]^=1;ble_gatt_access_ctxt ctx{};ctx.om=&b;assert(!v12::relay_access(33,0,&ctx,nullptr));v12::relay_poll(fake_now,false);}
+void server_request(const rc7_control& c,bool bad=false){os_mbuf b;b.bytes.resize(RC_DYNAMIC_CONTROL_BYTES);assert(!rc7_control_encode(b.bytes.data(),&c,&v12::provision.group));
+ if(bad)b.bytes[RC_DYNAMIC_CONTROL_BYTES-1]^=1;ble_gatt_access_ctxt ctx{};ctx.om=&b;assert(!v12::relay_access(33,0,&ctx,nullptr));v12::relay_poll(fake_now,false);}
 void server_unadmitted(){
  const auto admissions=v12::relay_admissions,generation=v12::relay_generation;const auto challenge=v12::relay_challenge;
  assert(v12::relay_session.handle==UINT16_MAX);
  for(const auto op:{BLE_GATT_ACCESS_OP_READ_CHR,BLE_GATT_ACCESS_OP_WRITE_CHR}){
-   os_mbuf b;if(op==BLE_GATT_ACCESS_OP_WRITE_CHR)b.bytes.resize(212);
+   os_mbuf b;if(op==BLE_GATT_ACCESS_OP_WRITE_CHR)b.bytes.resize(RC_DYNAMIC_CONTROL_BYTES);
    ble_gatt_access_ctxt c{};c.op=op;c.om=&b;
    assert(v12::relay_access(33,0,&c,nullptr)==BLE_ATT_ERR_UNLIKELY);
-   assert(b.bytes.size()==(op==BLE_GATT_ACCESS_OP_WRITE_CHR?212u:0u));
+   assert(b.bytes.size()==(op==BLE_GATT_ACCESS_OP_WRITE_CHR?RC_DYNAMIC_CONTROL_BYTES:0u));
  }
  assert(v12::relay_admissions==admissions&&v12::relay_challenge==challenge&&v12::relay_generation==generation);
 }
@@ -71,6 +71,24 @@ int main(int argc,char** argv){assert(argc==2);const std::string which=argv[1];
  tx_observation_fixture=which=="tx-observation"||which=="provisional-output";
  const auto* mac=v12::native_device_binding()->factory;assert(v12::r2_init(44,mac));assert(v12::r2_host_init());assert(v12::r2_host_sync());
  v12::mode=v12::R2Mode::Client;v12::relay_poll(fake_now,false);assert(discovery_configured==3&&!ext_active[1]&&!ext_active[0]&&!pa_active);
+#ifdef R2_TZ_WIRE
+ if(which=="tz-publisher"){
+   fake_now=1000000;assert(r2_tz_observe(&v12::coarse_tz,{2,-300},fake_now,fake_now,R2_TZ_GM_PERIOD_US));
+   assert(v12::relay_cap_update(fake_now));rc7_control a{},b{};
+   assert(!rc7_control_decode(&a,v12::relay_cap,sizeof v12::relay_cap,&v12::provision.group));
+   assert(a.tz.offset_min==-300);
+   fake_now+=10000;assert(r2_tz_observe(&v12::coarse_tz,{2,-360},fake_now,fake_now,R2_TZ_GM_PERIOD_US));
+   assert(v12::relay_cap_update(fake_now));assert(!rc7_control_decode(&b,v12::relay_cap,sizeof v12::relay_cap,&v12::provision.group));
+   assert(b.tz.offset_min==-360&&b.next_challenge==a.next_challenge+1);a=b;
+   assert(v12::relay_cap_update(fake_now));assert(v12::relay_challenge==a.next_challenge);
+   assert(r2_tz_observe(&v12::coarse_tz,r2_tz_unknown(),fake_now,fake_now,R2_TZ_GM_PERIOD_US));
+   assert(v12::relay_cap_update(fake_now));assert(!rc7_control_decode(&b,v12::relay_cap,sizeof v12::relay_cap,&v12::provision.group));
+   assert(!b.tz.id&&b.next_challenge==a.next_challenge+1);
+   v12::relay_challenge=UINT64_MAX-1;assert(r2_tz_observe(&v12::coarse_tz,{2,-300},fake_now,fake_now,R2_TZ_GM_PERIOD_US));
+   assert(!v12::relay_cap_update(fake_now)&&v12::fault&&v12::relay_challenge==UINT64_MAX-1);
+   puts("PASS actual relay publisher: ordered changed pair/unknown, unchanged token stability, overflow refusal; no timing authority");return 0;
+ }
+#endif
  if(which=="capture-budget"){
    const auto initial=v12::diagnostic_records.size();assert(initial==1&&v12::diagnostic_records.back().length==173&&v12::diagnostic_records.back().bytes[0]==4);
    for(unsigned i=0;i<70;++i){fake_now+=1000000;v12::relay_poll(fake_now,false);}

@@ -1,5 +1,18 @@
 # N30 changelog
 
+## 0.2.36 — ordered dynamic TZ updates
+
+- Follow the T096 0.15.206 amendment on the unchanged coarse wire. Accept
+  changed pairs and explicit unknown from the fresh authenticated current
+  parent; fence metadata on parent/path replacement.
+- Order direct ANN by GM sequence and relay capability by its existing
+  admission challenge. Refuse older or same-token conflicting snapshots and
+  prevent a delayed JOIN from replacing a later ANN.
+- Consume current-parent capability metadata during protected following.
+  Increment the publisher's existing challenge when its advertised pair changes.
+- Preserve the three-period lease, UTC timing, physical fitting, controller
+  drains and calibration. Add actual decoder/owner update and withdrawal tests.
+
 ## 0.2.35 — coarse TZ and local clock display
 
 - Consume GM7 v4, direct JOIN v5 and RC capability/control v8 using the selected

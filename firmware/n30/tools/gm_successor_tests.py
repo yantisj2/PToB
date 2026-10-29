@@ -39,7 +39,8 @@ def main():
  native_flags+=['-I'+str(x) for x in (APP/'tests',W12/'tests/r2_fakes',W12/'tests/console_fakes',W12/'legacy/reference')]
  run([cxx,'-std=c++20',*flags,*native_flags,out/'successor.cpp',*objects,'-o',out/'native'],'native-build')
  for case in ('withdraw','yield','switchover','loss','fallback','pin','relay-only','bad-mac','bad-address','scan'):run([out/'native',case],'native-'+case)
- if a.tz:run([out/'native','tz'],'native-tz')
+ if a.tz:
+  for case in ('tz','tz-updates'):run([out/'native',case],'native-'+case)
  if not a.w12:
   for case in ('handoff-join','handoff-clock-step'):run([out/'native',case],'native-'+case)
  (out/'receipt.json').write_text(json.dumps({'status':'PASS','checks':records,'native_source_sha256':sha(W12/'main/native_g1.cpp'),'policy_sha256':sha(W12/'main/g1_gm_successor.hpp'),'wire_revision':3,'target':'W12' if a.w12 else 'N30','hardware_access':False,'precision':'UNQUALIFIED'},indent=2)+'\n')

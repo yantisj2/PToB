@@ -14,6 +14,7 @@ def verify_sources():
     assert sha(src/'group_vectors.json')==m['vectors_sha256']
     assert sha(src/'v14_vectors.json')==m['v14_vectors_sha256']
     tz=json.loads((APP/'contracts/time_zone_v1.json').read_text())
+    tz['source_files'].update(tz.get('dynamic_extension',{}).get('source_files',{}))
     for n,h in m['source_files'].items():assert sha(src/n)==tz['source_files'].get('main/r2/r2-g1/'+n,h),n
     for n,h in tz['source_files'].items():assert sha(APP/n)==h,n
     assert sha(APP/'contracts/g1_upstream_field_profile.md')==m['upstream_field_profile_sha256']

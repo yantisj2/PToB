@@ -1,17 +1,16 @@
 # N30 native RC target
 
-**Version 0.2.35** brings BLE reception, passive LoRa fallback and a portrait
+**Version 0.2.36** brings BLE reception, passive LoRa fallback and a portrait
 OLED to the Meshnology N30 / Heltec WiFi LoRa32 V3. It uses an ESP32-S3,
 8 MiB flash and a 64×128 display. N30 is RC-only, with no GNSS input; WiFi is
 disabled. Start with the [build guide](../../docs/n30/build.md).
 
-Version 0.2.35 receives and forwards T096's authenticated coarse TZ metadata.
-The front digital/analog clock uses local time with `CDT`, `CST` or `LOC` while
-its selected parent's TZ lease is live, and returns to `UTC` on expiry/unknown.
-N30's clock screensaver follows the same rule. LoRa/RC9 and timing diagnostics
-retain UTC. This uses the fixed mesh configuration from T096 0.15.205;
-automatic geographic/DST selection is not implemented. Old coarse revisions
-cannot admit this profile. See [wire compatibility and checks](../../docs/esp32-time-zones.md).
+Version 0.2.36 follows T096 0.15.206's ordered TZ updates, including changed
+UTC offsets and explicit unknown withdrawals. Its front digital/analog clock
+shows local time and `CDT`, `CST` or `LOC` while metadata is live, then falls back
+to UTC. N30 clock savers follow the same rule. LoRa/RC9 and timing diagnostics retain UTC.
+The GM owns location/DST selection; these receivers need no regional database.
+See [wire compatibility and checks](../../docs/esp32-time-zones.md).
 
 Version 0.2.34 preserves a recently trained local clock through a direct GM
 handoff. The display stays in HOLD through the successor's coarse JOIN; its

@@ -23,9 +23,14 @@ it does not follow unrelated T096 source changes automatically.
 
 ## Current TZ wire adapter
 
-W12 0.2.18 / N30 0.2.35 explicitly select `R2_TZ_WIRE`: GM7 revision 4 and
+W12 0.2.19 / N30 0.2.36 explicitly select `R2_TZ_WIRE`: GM7 revision 4 and
 `PTOBTZ04`, preserving the control-only subset. The additive entry points and
 four-byte field are selected from T096 0.15.205 at `a5ecf89`; the original
 revision-3 snapshot seal above remains historical. Current selected hashes are
 in [the TZ amendment](../../contracts/time_zone_v1.json). JOIN and RC coarse
 adapters share that amendment. Other derived targets keep their existing wire.
+
+The .206 dynamic amendment changes receive ordering and lease semantics, without
+changing these codec bytes. Its selected parent updates and explicit unknown
+withdrawals are implemented by the shared G1 owner, with separate direct ANN
+sequence and relay challenge ordering. The amendment manifest retains prior seals.

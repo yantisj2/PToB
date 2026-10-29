@@ -10,5 +10,13 @@
     "main/r2/rc7/protocol/rc_dynamic.h": "e5548c7b5908b7907b2e3d72c49a9e1f19d3d5da245085fef166b7488c12d471",
     "main/gm7/gm7_codec.c": "8911aacbcb4596e91df28219f73d19edd580d914ccceb925163e6f073e3f9e83",
     "main/gm7/gm7_codec.h": "516c088ddf35a34985d9a90931cffcdfa3a73a1cc2a73046820a36b4e01a913c"
+  },
+  "dynamic_extension": {
+    "selected_commit": "4282f7488faf118d67433cf00dfc7bbf59a11abb",
+    "policy": "ORDERED_CURRENT_PARENT_UNKNOWN_WITHDRAWAL",
+    "source_files": {
+      "main/r2/r2-g1/time_zone.h": "32c5c86867f8c19f85efe4f19badee55ee7744d2e0164fbd8e79438df163329d",
+      "main/g1_time_zone.hpp": "54753721ba4b81c7cf74dabe134d2bdf73ab040ecfba6e472679782519339d43"
+    }
   }
 }

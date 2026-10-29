@@ -159,6 +159,7 @@ def main():
     parser.add_argument('--sdk', type=Path, default=SDK_DEFAULT)
     parser.add_argument('--cc', default='/opt/homebrew/opt/llvm/bin/clang')
     parser.add_argument('--model-only', action='store_true')
+    parser.add_argument('--tz', action='store_true')
     args = parser.parse_args()
     out = args.out.resolve()
     out.mkdir(parents=True, exist_ok=False)  # Never replace a retained attempt.
@@ -201,6 +202,7 @@ def main():
         flags = ['-O1', '-g', '-Wall', '-Wextra', '-Werror', '-Wno-misleading-indentation',
                  '-fsanitize=address,undefined', '-fno-omit-frame-pointer',
                  *['-I' + str(p) for p in (out, src, APP / 'main/r2/rc7/include', crypto / 'include', APP / 'main')]]
+        if args.tz:flags.append("-DR2_TZ_WIRE=1")
         objects = []
         for source in c_sources:
             obj = out / (source.stem + '.o')
@@ -228,7 +230,7 @@ def main():
                  '-DV12_R2_G1_LISTENING_PERCENT=100', '-DV12_R2_TX_SHADOW=1',
                  '-DV12_R2_RC7_TX_ESTIMATE_LAB=1', out / 'server.cpp', *objects, '-o', server], 'server-build')
             receipt['server_cases'] = []
-            for case in SERVER_CASES:
+            for case in [*SERVER_CASES,*(['tz-publisher'] if args.tz else [])]:
                 run([server, case], 'server-' + case)
                 receipt['server_cases'].append(case)
         changed = [str(p) for p in inputs if sha(p) != before[str(p)]]
