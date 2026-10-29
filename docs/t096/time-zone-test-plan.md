@@ -3,7 +3,8 @@
 Status: execution authorized by the operator on attached TC-01, TC-02 and TC-04;
 TC-03 was added to the authorized cohort on 29 October 2026. The first candidate
 was installed on the original three units; acquisition failed and is preserved.
-A corrected candidate is under verification. No certification is claimed.
+All four units now have readback-verified .203 images. Bounded qualification is
+in progress. No certification is claimed.
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
 Introduce the [four-byte time zone extension](../time-zones.md) as a breaking
@@ -152,8 +153,9 @@ Retain startup and failed acquisition records alongside stable observations.
 | S1 | One fixed proved relay chain | 1,800 seconds, with at least three observed successful renewals on each applicable direct-GM and relay admission path |
 
 This covers GM on TC-01/TC-02 and RC on all four units, with two BLE links and
-one intermediate RC. TC-03 participates as an additional direct RC. It does not certify TC-03/TC-04 as serving GMs or larger mesh
-capacity. Add a separate rotation if additional GM qualification is later needed.
+one intermediate RC. The original matrix added TC-03 as a direct RC; the
+source-availability adjustment below extends its GM and relay tests. TC-04 GM
+and larger mesh capacity remain outside this scope.
 
 For H1, establish the ordinarily eligible ACTIVE/HOT relationship where the
 candidate supports it, including both sides' acknowledged current state. Use
@@ -249,6 +251,37 @@ The .203 correction applies the same wire selection to the application and both
 controller libraries. Native inspection now checks the actual compiler commands;
 the failed .202 commands provide a negative control. Neither the correction nor
 TC-03's inclusion relaxes the original acquisition or availability criteria.
+
+All four .203 installations passed complete application readback and protected
+region/tail comparison. The first .203 D1 acquisition then exhausted its original
+240-second budget: TC-01 lacked a GNSS fix/PPS and could not qualify as GM. Its
+input subsequently returned intermittently. Preserve that failure as a separate
+hardware/source-availability result; it is not a passing GM test for TC-01.
+
+The operator-added TC-03 has live GNSS/PPS. The execution matrix therefore uses
+TC-02 and TC-03 for the two GM rotations, retaining the same source qualification,
+acquisition budget, durations, availability threshold and failure rules:
+
+| Run | Execution topology | Required observation |
+| --- | --- | --- |
+| D2 | TC-02 GM; TC-01/03/04 direct RCs | 600 seconds |
+| D3 | TC-03 GM; TC-01/02/04 direct RCs | 600 seconds |
+| R2 | TC-02 GM → TC-01 relay → TC-04 leaf; TC-03 direct | 600 seconds |
+| R3 | TC-03 GM → TC-02 relay → TC-04 leaf; TC-01 direct | 600 seconds |
+| H1 | TC-02/03 eligible GM pair; TC-01/04 RCs | Three actual supported YIELD cycles |
+| B1 | TC-02 GM, TC-01 relay, TC-04 leaf, TC-03 direct | Guarded relay and root reboot/return, actual fresh boots and reacquisition |
+| S3 | TC-02 GM → TC-03 relay → TC-04 leaf; TC-01 direct | 1,800 seconds and at least three actual renewals per applicable path |
+
+Any resulting certificate must identify TC-02/03 as the tested GMs and retain
+TC-01's failed GM attempt. It must not promote TC-01 or TC-04 to serving-GM
+acceptance. The TZ format and three-advertising-period lease are unchanged.
+
+The initial D2 stable collector stopped on an ambiguous USB ownership result;
+all handles closed. Its incomplete window is retained. Collector subprocess
+inventory scans are now serialized inside the original eight-second budget,
+with both serial aliases checked and every foreign PID still rejected. A fresh
+full observation window is required; do not splice its samples into the failed
+capture.
 
 ## Failure and closure
 
