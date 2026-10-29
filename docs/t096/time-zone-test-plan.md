@@ -3,8 +3,9 @@
 Status: execution authorized by the operator on attached TC-01, TC-02 and TC-04;
 TC-03 was added to the authorized cohort on 29 October 2026. The first candidate
 was installed on the original three units; acquisition failed and is preserved.
-All four units now have readback-verified .203 images. Bounded qualification is
-in progress. No certification is claimed.
+All four units received readback-verified .203 images. The standby-TZ correction
+in .204 and the requested local clock display in .205 supersede that candidate;
+updating and bounded qualification are in progress. No certification is claimed.
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
 Introduce the [four-byte time zone extension](../time-zones.md) as a breaking
@@ -24,6 +25,7 @@ outside this phase.
 | RC configuration | Inherit the selected authenticated source's pair; no local default masquerading as received TZ |
 | Wire migration | New revision only on affected coarse paths; old revisions rejected, no negotiation or downgrade |
 | Primary transport | BLE; explicitly disable LoRa fallback for the bench window so it cannot mask BLE loss |
+| Page 1 | Known leased CDT changes the label and both analog/digital faces to local time; unknown/expired TZ falls back to UTC |
 | Other targets | No W12, N30, SS3, CoreS3-SE or macOS client port/installation in this stage |
 
 Keep compiled per-device enrollment, calibration and radio configuration
@@ -283,6 +285,22 @@ inventory scans are now serialized inside the original eight-second budget,
 with both serial aliases checked and every foreign PID still rejected. A fresh
 full observation window is required; do not splice its samples into the failed
 capture.
+
+The .203 direct and relay rotations completed their 600-second observation
+windows. Its H1 precondition failed before any YIELD: the standby GM's coarse
+TZ remained unknown despite ordinary HOT admission. The receipt path had used
+a future precision-deadline converter for a past receive timestamp. The .204
+correction starts the same three-period coarse lease from kernel uptime after
+an accepted selected-root announcement. A production-body regression rejects
+the old behavior. Preserve the .203 results; they do not certify its successor.
+
+The operator subsequently requested a local-time page 1. Candidate .205 carries
+that presentation change forward: exact renderer checks compare both clock
+faces and the three-letter label against the expected local time, cover CDT,
+CST, date rollover and unknown/expired UTC fallback, and retain UTC in the
+underlying model and other diagnostic pages. Its screensaver follows the same
+presentation. Repeat the required live matrix on one frozen successor across
+all four units; do not combine earlier source versions into its certificate.
 
 ## Failure and closure
 

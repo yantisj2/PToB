@@ -2,8 +2,8 @@
 
 Status: selected design direction, 27 October 2026, revised 29 October for a
 breaking T096-first introduction. The 29 October lease decision below supersedes
-earlier proposals to bind TZ to precision-source expiry. A T096 candidate is in
-offline verification; hardware certification is pending.
+earlier proposals to bind TZ to precision-source expiry. T096 implementation and
+attached-device verification are in progress; hardware certification is pending.
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
 UTC remains PToB's primary time base. Add four authenticated bytes to coarse UTC
@@ -13,9 +13,9 @@ selected source's time zone. Begin with manual GM configuration. The proposed
 the same fields.
 
 The [T096 test plan](t096/time-zone-test-plan.md) starts with manual CDT on
-TC-01, TC-02 and TC-04, and gates other targets on GM/RC wire certification.
-The operator authorized execution on the attached three-device cohort; results
-remain separate from this design.
+TC-01, TC-02, TC-03 and TC-04, and gates other targets on GM/RC wire certification.
+The operator selected TC-02/03 for the GM rotations; results remain separate
+from this design.
 
 ## Four byte extension
 
@@ -54,6 +54,14 @@ nonzero ID with a valid offset remains usable as `UTC+hh:mm` or `UTC-hh:mm` and
 must be relayed unchanged. Abbreviations are presentation only. IANA's
 [North American source](https://data.iana.org/time-zones/tzdb/northamerica)
 defines `America/Chicago` and its seasonal offsets.
+
+On T096 page 1, replace the UTC label with the three-letter abbreviation and
+apply the transmitted offset to both the digital clock and analog dial. Its
+analog screensaver uses the same local time and label. Unknown or expired TZ
+returns both faces to UTC. For an unfamiliar valid region/offset, use `LOC` in
+the narrow label slot rather than inventing an abbreviation. This is display
+formatting only; stored time, status UTC fields and USB output remain UTC.
+LoRa fallback does not borrow the BLE mesh's TZ metadata.
 
 ID 1 requires offset 0. Missing fields, ID 0, the unavailable sentinel, or an
 invalid metadata combination produce TZ UNKNOWN and a UTC display. Unknown
