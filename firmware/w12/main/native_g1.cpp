@@ -461,8 +461,13 @@ int rc_read_done(uint16_t h,const ble_gatt_error* e,ble_gatt_attr* a,void* arg){
   if(!live(h,arg))return 1;
   admission_trace(25,h,int((uint32_t(a&&a->om?OS_MBUF_PKTLEN(a->om):0)<<16)|uint16_t(e->status)));
   if(e->status){peer.pending=false;peer.dead=true;return 1;}
-  if(!a||!a->om||OS_MBUF_PKTLEN(a->om)!=RC_DYNAMIC_CONTROL_BYTES){peer.pending=false;peer.dead=true;return 1;}
-  Incoming row{};row.at=micros();row.incarnation=peer.incarnation;row.length=RC_DYNAMIC_CONTROL_BYTES;
+  const uint16_t bytes=
+#ifdef PTOB_RC9
+    peer.rc9?rc9::ControlBytes:
+#endif
+    RC_DYNAMIC_CONTROL_BYTES;
+  if(!a||!a->om||OS_MBUF_PKTLEN(a->om)!=bytes){peer.pending=false;peer.dead=true;return 1;}
+  Incoming row{};row.at=micros();row.incarnation=peer.incarnation;row.length=bytes;
   if(os_mbuf_copydata(a->om,0,row.length,row.bytes)||!incoming.push(row)){peer.pending=false;peer.dead=true;return 1;}
   if(peer.stage==2){peer.value=a->handle;}
   peer.read_at=micros()+20000;inc(rx);return 1;

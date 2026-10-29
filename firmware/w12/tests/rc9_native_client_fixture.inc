@@ -8,7 +8,7 @@ void bind_relay_return(){
   reply.root_lo_ns=fake_now*1000-1000000;reply.root_hi_ns=fake_now*1000+1000000;reply.source_expires_ns=fake_now*1000+1500000000;
   v12::peer={};v12::peer.identity=333;v12::peer.handle=22;v12::peer.relay=true;v12::peer.stage=6;
   v12::peer.address=v12::canonical(333);v12::peer.incarnation=++v12::incarnation;conn_arg=v12::callback_arg();
-  v12::Incoming row{};row.at=fake_now;row.incarnation=v12::peer.incarnation;row.length=212;
+  v12::Incoming row{};row.at=fake_now;row.incarnation=v12::peer.incarnation;row.length=RC_DYNAMIC_CONTROL_BYTES;
   assert(!rc7_control_encode(row.bytes,&reply,&v12::provision.group));v12::receive_rc_control(row,fake_now);
   assert(!v12::rc9_bound()&&v12::rc_bound()&&v12::peer.handle==22&&v12::peer.selection_accepted);
   assert(v12::anchor.root==555&&v12::anchor.boot==666&&!v12::corrected_clock.prediction().tick&&!v12::fault);

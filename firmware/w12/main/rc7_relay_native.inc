@@ -316,6 +316,12 @@ int relay_gap(ble_gap_event* e,void*){
   }
   return 0;
 }
+uint16_t relay_control_bytes(){
+#if defined(PTOB_RC9) && defined(PTOB_W12_LORA_RX)
+ if(relay_profile==9)return rc9::ControlBytes;
+#endif
+ return RC_DYNAMIC_CONTROL_BYTES;
+}
 int relay_access(uint16_t h,uint16_t,ble_gatt_access_ctxt* ctx,void* profile){
 #if defined(PTOB_RC9) && defined(PTOB_W12_LORA_RX)
   const auto expected=reinterpret_cast<uintptr_t>(profile)==9?9:7;
@@ -326,12 +332,13 @@ int relay_access(uint16_t h,uint16_t,ble_gatt_access_ctxt* ctx,void* profile){
   if(!relay_admission_locked||h!=relay_session.handle||relay_session.terminating||relay_stopping||closing||fault||!full_listening()||
     micros()>=relay_session.until||ble_att_mtu(h)<226)return BLE_ATT_ERR_UNLIKELY;
   if(ctx->offset)return BLE_ATT_ERR_INVALID_ATTR_VALUE_LEN;
+  const auto bytes=relay_control_bytes();
   if(ctx->op==BLE_GATT_ACCESS_OP_READ_CHR){
-    return os_mbuf_append(ctx->om,relay_session.reply,RC_DYNAMIC_CONTROL_BYTES)?BLE_ATT_ERR_INSUFFICIENT_RES:0;
+    return os_mbuf_append(ctx->om,relay_session.reply,bytes)?BLE_ATT_ERR_INSUFFICIENT_RES:0;
   }
-  if(ctx->op!=BLE_GATT_ACCESS_OP_WRITE_CHR||OS_MBUF_PKTLEN(ctx->om)!=RC_DYNAMIC_CONTROL_BYTES||relay_session.replied)return BLE_ATT_ERR_INVALID_ATTR_VALUE_LEN;
+  if(ctx->op!=BLE_GATT_ACCESS_OP_WRITE_CHR||OS_MBUF_PKTLEN(ctx->om)!=bytes||relay_session.replied)return BLE_ATT_ERR_INVALID_ATTR_VALUE_LEN;
   RelayWrite row{};row.at=micros();row.generation=relay_session.generation;row.handle=h;
-  if(os_mbuf_copydata(ctx->om,0,RC_DYNAMIC_CONTROL_BYTES,row.wire))return BLE_ATT_ERR_UNLIKELY;
+  if(os_mbuf_copydata(ctx->om,0,bytes,row.wire))return BLE_ATT_ERR_UNLIKELY;
   return relay_writes.push(row)?0:BLE_ATT_ERR_INSUFFICIENT_RES;
 }
 const ble_gatt_chr_def relay_chars[]={[]{ble_gatt_chr_def c{};c.uuid=&rc_data_uuid.u;c.access_cb=relay_access;

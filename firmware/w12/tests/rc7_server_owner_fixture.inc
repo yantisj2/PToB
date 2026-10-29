@@ -41,18 +41,18 @@ int ble_gap_periodic_adv_stop(unsigned i){assert(i==0);fake_now+=stop_advance_us
 void server_connect(){assert(ext_active[1]&&v12::relay_acl_available());server_connected=true;ext_active[1]=false;
  ble_gap_event e{};e.type=BLE_GAP_EVENT_CONNECT;e.connect.conn_handle=33;v12::relay_gap(&e,nullptr);assert(v12::relay_session.handle==33);}
 rc7_control server_read(){os_mbuf b;ble_gatt_access_ctxt c{};c.op=BLE_GATT_ACCESS_OP_READ_CHR;c.om=&b;
- assert(!v12::relay_access(33,0,&c,nullptr));assert(b.bytes.size()==RC_DYNAMIC_CONTROL_BYTES);rc7_control out{};
+ assert(!v12::relay_access(33,0,&c,nullptr));assert(b.bytes.size()==v12::relay_control_bytes());rc7_control out{};
  assert(!rc7_control_decode(&out,b.bytes.data(),b.bytes.size(),&v12::provision.group));return out;}
-void server_request(const rc7_control& c,bool bad=false){os_mbuf b;b.bytes.resize(RC_DYNAMIC_CONTROL_BYTES);assert(!rc7_control_encode(b.bytes.data(),&c,&v12::provision.group));
+void server_request(const rc7_control& c,bool bad=false){os_mbuf b;b.bytes.resize(v12::relay_control_bytes());assert(!rc7_control_encode(b.bytes.data(),&c,&v12::provision.group));
  if(bad)b.bytes[RC_DYNAMIC_CONTROL_BYTES-1]^=1;ble_gatt_access_ctxt ctx{};ctx.om=&b;assert(!v12::relay_access(33,0,&ctx,nullptr));v12::relay_poll(fake_now,false);}
 void server_unadmitted(){
  const auto admissions=v12::relay_admissions,generation=v12::relay_generation;const auto challenge=v12::relay_challenge;
  assert(v12::relay_session.handle==UINT16_MAX);
  for(const auto op:{BLE_GATT_ACCESS_OP_READ_CHR,BLE_GATT_ACCESS_OP_WRITE_CHR}){
-   os_mbuf b;if(op==BLE_GATT_ACCESS_OP_WRITE_CHR)b.bytes.resize(RC_DYNAMIC_CONTROL_BYTES);
+   os_mbuf b;if(op==BLE_GATT_ACCESS_OP_WRITE_CHR)b.bytes.resize(v12::relay_control_bytes());
    ble_gatt_access_ctxt c{};c.op=op;c.om=&b;
    assert(v12::relay_access(33,0,&c,nullptr)==BLE_ATT_ERR_UNLIKELY);
-   assert(b.bytes.size()==(op==BLE_GATT_ACCESS_OP_WRITE_CHR?RC_DYNAMIC_CONTROL_BYTES:0u));
+   assert(b.bytes.size()==(op==BLE_GATT_ACCESS_OP_WRITE_CHR?unsigned(v12::relay_control_bytes()):0u));
  }
  assert(v12::relay_admissions==admissions&&v12::relay_challenge==challenge&&v12::relay_generation==generation);
 }

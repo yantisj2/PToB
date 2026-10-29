@@ -2,6 +2,9 @@
 
 ## 0.2.19 — ordered dynamic TZ updates
 
+- Keep the independent RC9 control service at212 bytes in both client and
+  server callbacks while TZ-enabled RC7 uses216 bytes; test both live owners.
+
 - Follow the T096 0.15.206 amendment on the unchanged coarse wire. Accept
   changed pairs and explicit unknown from the fresh authenticated current
   parent; fence metadata on parent/path replacement.
