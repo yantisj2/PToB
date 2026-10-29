@@ -120,6 +120,8 @@ with (nullcontext(str(args.out.resolve())) if args.out else tempfile.TemporaryDi
 
     subprocess.run([*flags,'-DR2_TZ_WIRE=1',str(APP/'src/precision.c'),str(APP/'tests/ui_time_zone_test.c'),'-o',str(out/'ui_time_zone')],check=True,timeout=30)
     subprocess.run([str(out/'ui_time_zone'),str(out)],check=True,timeout=30)
+    subprocess.run([*flags,'-DR2_TZ_WIRE=1','-DR2_LORA=1',str(APP/'src/precision.c'),str(APP/'tests/ui_time_zone_test.c'),'-o',str(out/'ui_time_zone_lora')],check=True,timeout=30)
+    subprocess.run([str(out/'ui_time_zone_lora'),str(out)],check=True,timeout=30)
     subprocess.run([*flags,str(APP/'src/ui_render.c'),str(APP/'src/precision.c'),str(APP/'tests/ui_test.c'),'-o',str(out/'ui')],check=True,timeout=30)
     subprocess.run([str(out/'ui'),str(out)],check=True,timeout=30)
     subprocess.run([*flags,str(APP/'src/precision.c'),str(APP/'tests/ui_precision_test.c'),'-o',str(out/'ui_precision')],check=True,timeout=30)

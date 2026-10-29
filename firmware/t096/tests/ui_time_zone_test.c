@@ -35,6 +35,16 @@ int main(int argc,char **argv){
  s.screensaver=false;m.tz.offset_min=-360;
  assert(!strcmp(r2_ui_clock_zone(&m,1000,m.clock.utc_us,&shown),"CST")&&shown==15042250000LL);
  r2_ui_render(actual,&m,&s,1000);save(argv[1],"clock-cst",actual);
+ /* Known coarse TZ labels survive loss of the precision/time presentation. */
+ struct r2_ui_model blank=m;blank.clock.valid=false;blank.tz=r2_tz_manual();
+ r2_ui_render(actual,&blank,&s,1000);blank.tz_until_us=0;r2_ui_render(reference,&blank,&s,1000);
+ fill(reference,8,20,18,7,C_PANEL);label(reference,8,20,"CDT",1,C_DIM);
+ assert(!memcmp(actual,reference,sizeof actual));
+ /* UTC02:00 is local21:00 on the previous date, shared by both faces. */
+ struct r2_ui_model rollover=m;rollover.tz=r2_tz_manual();rollover.clock.utc_us=7200000000LL;
+ r2_ui_render(actual,&rollover,&s,1000);rollover.clock.utc_us=75600000000LL;rollover.tz_until_us=0;
+ r2_ui_render(reference,&rollover,&s,1000);fill(reference,8,20,18,7,C_PANEL);label(reference,8,20,"CDT",1,C_DIM);
+ assert(!memcmp(actual,reference,sizeof actual));
  /* Local midnight/date wrapping, fractional offsets, unfamiliar IDs. */
  m.tz=(struct r2_tz){2,-300};assert(!strcmp(r2_ui_clock_zone(&m,1000,3600000000LL,&shown),"CDT")&&shown==-14400000000LL);
  m.tz=(struct r2_tz){42,345};assert(!strcmp(r2_ui_clock_zone(&m,1000,0,&shown),"LOC")&&shown==20700000000LL);
@@ -50,5 +60,9 @@ int main(int argc,char **argv){
  r2_ui_render(actual,&m,&s,1000);assert(!memcmp(actual,utc_frame,sizeof actual));
  m.tz=r2_tz_manual();m.tz_until_us=1000000;r2_ui_render(actual,&m,&s,1000);
  assert(!memcmp(actual,utc_frame,sizeof actual));
+#ifdef R2_LORA
+ m.tz=r2_tz_manual();m.tz_until_us=UINT64_MAX;m.lora.choice=RC8_SELECT_LORA;
+ assert(!strcmp(r2_ui_clock_zone(&m,1000,123,&shown),"UTC")&&shown==123);
+#endif
  puts("PASS front clock and saver: CDT/CST shared analog/digital offset, exact label, expiry/unknown UTC fallback, diagnostics/model UTC unchanged");
 }

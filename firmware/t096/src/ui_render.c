@@ -239,6 +239,9 @@ bool r2_ui_display_time(const struct r2_ui_model *m,uint64_t now,int64_t *utc,bo
 /* A label/offset adapter only: the model, USB and timing owner retain UTC. */
 const char *r2_ui_clock_zone(const struct r2_ui_model *m,uint64_t now,int64_t utc,int64_t *shown){
  *shown=utc;
+#ifdef R2_LORA
+ if(m->lora.choice==RC8_SELECT_LORA)return "UTC";
+#endif
  if(now<m->sampled_ms||now-m->sampled_ms>2500||now>UINT64_MAX/1000||
     now*1000>=m->tz_until_us||!r2_tz_local_us(m->tz,utc,shown))return "UTC";
  if(m->tz.id==1)return "UTC";
@@ -341,12 +344,12 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
  if(sync_grace){s.utc_valid=true;display_utc=grace_utc;coarse=true;}
  const char *clock_zone=NULL;
 #ifdef R2_TZ_WIRE
- if(s.utc_valid&&(status->page==0||status->screensaver)){
+ if(status->page==0||status->screensaver){
   int64_t shown;clock_zone=r2_ui_clock_zone(m,now,display_utc,&shown);
   /* Normalize signed local dates before converting to the dial's day seconds. */
   int64_t day=INT64_C(86400000000),tod=shown%day;
   if(tod<0)tod+=day;
-  display_utc=tod;
+  if(s.utc_valid)display_utc=tod;
  }
 #endif
  s.utc_second=s.utc_valid?(uint32_t)(display_utc/1000000):0;

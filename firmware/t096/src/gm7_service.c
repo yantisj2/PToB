@@ -73,7 +73,7 @@ static struct {
  * read; unused RC/retired coordinator fields consume no persistent GM RAM. */
 static struct {
 #ifdef R2_TZ_WIRE
-  struct r2_tz tz;
+  struct r2_tz tz;uint64_t tz_until_us;
 #endif
   struct r2_supervision supervision;
   struct r2_transport_fault transport_fault;
