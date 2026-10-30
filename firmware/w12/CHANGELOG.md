@@ -1,5 +1,17 @@
 # W12 changelog
 
+## 0.2.23 — extended sub-microsecond shadow measurements
+
+- Replace the one-second endpoint ceiling with frozen runs capped at 120s.
+  Score every matched physical BLE event and retain first sampled 1us crossing,
+  preceding safe age and full-run maxima, including tails after crossing.
+- Keep the production servo and P99 error footer. Hold shows elapsed duration
+  and threshold status; P99 uses 100–128 observations within the current run.
+- Integrate causal temperature cumulatively beyond the eight-reading history;
+  train future coefficients continuously without changing held coefficients.
+  Abort missing coverage explicitly. Duration and errors remain BLE-relative
+  sampled observations, with no automatic production promotion.
+
 ## 0.2.22 — measured shadow holdover P99
 
 - Replace the Clock page H forecast with empirical P99 from one-second BLE
