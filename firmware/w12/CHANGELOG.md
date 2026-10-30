@@ -1,5 +1,14 @@
 # W12 changelog
 
+## 0.2.33 — minimum five-second application watchdogs
+
+- Wait five seconds before declaring main or NimBLE host progress stalled.
+- Raise the SDK interrupt watchdog to five seconds; task/boot remain five/nine.
+- Enforce a five-second minimum on every application watchdog timer; preserve
+  the existing 120-second fault and 300-second no-time restart intervals.
+- Verify exact stall boundaries and reject shorter watchdog instantiations.
+  Preserve holdover, temperature shadow, sampling and transaction deadlines.
+
 ## 0.2.32 — compact exact estimator storage
 
 - Preserve the full closed 32-second history using its maximum 129 accepted

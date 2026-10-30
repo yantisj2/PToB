@@ -2,12 +2,17 @@
 #include <cstdint>
 
 namespace v12 {
+// No application watchdog may declare a worker stall or expire a fault timer
+// in less than five seconds. Faster polling does not shorten this interval.
+inline constexpr uint64_t WatchdogMinimumUs=UINT64_C(5000000);
+inline constexpr uint64_t WatchdogWorkerStallUs=WatchdogMinimumUs;
 // Pure policy only. The platform supplies explicit fault/stalled-worker bits,
 // requests the existing immediate drain, records restart evidence and performs
 // the supported reset. The120s fault alias ignores ordinary source loss;
 // N30 supplies that loss separately to its300s instance.
 template<uint64_t Delay> class ContinuousFaultWatchdogModel {
  public:
+  static_assert(Delay>=WatchdogMinimumUs,"Application watchdog interval must be at least five seconds");
   static constexpr uint64_t DelayUs=Delay;
 
   void observe(uint64_t now,uint32_t mask){

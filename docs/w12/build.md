@@ -5,6 +5,15 @@ Copyright (c) 2026 Jonathan Yantis. MIT.
 Native builds [clean compiler output and retain the latest two image bundles](../firmware-storage.md)
 per device/profile, with installed/recovery pins preserved.
 
+Version 0.2.33 enforces a minimum five-second watchdog interval.
+Main and NimBLE completed-progress stalls are declared only after five seconds;
+fault restart remains 120 seconds and continuous no-time restart 300 seconds.
+The SDK interrupt/task watchdogs wait five seconds and the boot watchdog nine
+seconds. The native receipt and inspector bind and verify this policy. `sync_watchdog_tests.py`
+checks the exact five-second boundary in the actual supervisor; shorter model
+instantiations must fail compilation. Sampling/freshness and original bounded
+owner/update drain deadlines are separate from watchdog liveness supervision.
+
 Version 0.2.32 reduces fixed estimator storage by 2792 bytes. All accepted
 history remains: at least 250 ms between points permits at most 129 points in
 the closed 32-second window. Separate channel bytes remove point padding;

@@ -35,6 +35,15 @@ void tick(uint64_t now,bool expected,uint64_t until,uint32_t mask=0){
 }
 }
 int main(){
+ // No worker-stall declaration before five seconds, including the exact
+ // boundary. Fresh progress clears the diagnosis and its sustained timer.
+ static_assert(v12::WatchdogMinimumUs==5000000&&v12::WatchdogWorkerStallUs==5000000);
+ cold();v12::fault_watchdog_host_expected();
+ auto stale_tick=[](uint64_t now){fake::us=now;try{v12::supervise(nullptr);}catch(const fake::Yield&){}catch(const fake::Restart&){};};
+ stale_tick(4999999);assert(v12::fault_watchdog_status().mask==0&&!fake::restarts);
+ stale_tick(5000000);assert(v12::fault_watchdog_status().mask==(v12::FaultMainStalled|v12::FaultHostStalled)&&!fake::restarts);
+ v12::fault_watchdog_host_progress();stale_tick(5000000);assert(v12::fault_watchdog_status().mask==v12::FaultMainStalled);
+ v12::fault_watchdog_main_progress(0,0,0,0,false,false);stale_tick(5000000);assert(v12::fault_watchdog_status().mask==0&&!v12::model.active());
 #ifdef PTOB_W12_SYNC_WATCHDOG
  cold();tick(0,true,0);tick(120000000,true,0);assert(!fake::restarts);
  tick(D-1,true,0);assert(!fake::restarts);tick(D,true,0);assert(fake::restarts==1);

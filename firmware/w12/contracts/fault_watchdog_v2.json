@@ -1,0 +1,27 @@
+{
+  "schema": 2,
+  "policy": "ALL_MIN5S_STALL5S_FAULT120S_NOTIME300S_V2",
+  "minimum_timeout_us": 5000000,
+  "worker_stall_us": 5000000,
+  "fault_restart_us": 120000000,
+  "no_time_restart_us": 300000000,
+  "sdk_timeouts_us": {
+    "interrupt": 5000000,
+    "task": 5000000,
+    "boot": 9000000
+  },
+  "supervisor_poll_us": 100000,
+  "polling": "Observation cadence does not expire or declare a watchdog fault before its timeout.",
+  "other_deadlines": "Source expiry, sampling ages/gaps, protocol transactions and original bounded update/owner drains retain independent contracts.",
+  "historical_contract": "fault_watchdog_v1.json remains frozen with its original source hashes.",
+  "source_sha256": {
+    "main/fault_watchdog_model.hpp": "dc57be5f0be859a23712bfeee76edd2b994175848d459985d38f040524ef7093",
+    "main/fault_watchdog.cpp": "e857ae662f5bffa9ee83764add895219b4362459e5dc0ec5156f76b857ad273d",
+    "tests/sync_watchdog_runtime_test.cpp": "487c5091a45a2d14f0f9e6291035da4e38c9529324ba7053a6aeaebc276f2de2",
+    "sdkconfig.defaults": "d15f35f6d56da279df5937eaaca12f1545abeac5f6383d30add4063123c7226e",
+    "tools/build.py": "6c393ca13f38bc6eeb45bedd56f56a5ee43be597e30be31e7c4774a38fc8aec3",
+    "tools/inspect_build.py": "1bf8619e852729c8262a57dbc2b0526e15c1706656c08bf9355643e6b6b7d3f9",
+    "tools/sync_watchdog_tests.py": "2e32883d668fc7de680f47b1f7a5ea90ae3bab5b78d0f9c883ef0e3ec63f1338"
+  },
+  "qualification": "OFFLINE_POLICY_AND_NATIVE_CONFIG_VERIFICATION_NOT_HARDWARE_ACCEPTANCE"
+}

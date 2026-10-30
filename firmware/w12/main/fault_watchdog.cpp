@@ -47,8 +47,8 @@ void supervise(void*){
     current=input;uint32_t mask=current.mask;
     if(current.fatal)mask|=FaultInit;
     if(current.test)mask|=FaultTest;
-    if(now>=current.main_at&&now-current.main_at>=2000000)mask|=FaultMainStalled;
-    if(current.host_seen&&now>=current.host_at&&now-current.host_at>=2000000)mask|=FaultHostStalled;
+    if(now>=current.main_at&&now-current.main_at>=WatchdogWorkerStallUs)mask|=FaultMainStalled;
+    if(current.host_seen&&now>=current.host_at&&now-current.host_at>=WatchdogWorkerStallUs)mask|=FaultHostStalled;
     model.observe(now,mask);view.mask=mask;view.first_mask=model.first_mask();
     view.since_us=model.active()?model.start_us():0;
     view.elapsed_us=model.active()&&now>=model.start_us()?now-model.start_us():0;

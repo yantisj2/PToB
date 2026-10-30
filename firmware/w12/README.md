@@ -7,11 +7,19 @@ RC role. [Image provenance](../../docs/images/README.md).*
 
 Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
 
-**PToB owns W12 native G1/RC7 development.** Current version **0.2.32** supports
+**PToB owns W12 native G1/RC7 development.** Current version **0.2.33** supports
 **RC**: a BLE50 client or BLE100 receiver with an optional experimental
 estimated-TX relay. It receives from the shared T096/W12/StickS3 mesh; it has no
 GM profile or USB timing stream. Start with the
 [build guide](../../docs/w12/build.md).
+
+Version 0.2.33 requires at least five seconds for every watchdog
+interval. Main and NimBLE worker-stall detection now waits five seconds;
+continuous owner-fault and no-time restart intervals remain 120 and 300 seconds.
+The SDK interrupt watchdog also waits five seconds; task and boot watchdogs
+wait five and nine seconds. A compile-time minimum prevents shorter
+application watchdog models. Measurement freshness,
+probe ages and original transaction/drain deadlines retain their own purposes.
 
 Version 0.2.32 reduces fixed estimator storage by 2792 bytes without changing
 samples or calculations: the closed 32-second window holds at most 129 accepted

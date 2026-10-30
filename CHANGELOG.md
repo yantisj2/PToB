@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-30 — W12 minimum watchdog interval
+
+- Enforce a five-second minimum on application watchdogs and wait five seconds
+  before diagnosing main/host stalls. Raise the SDK interrupt watchdog to five
+  seconds; task/boot remain five/nine. Preserve 120-second fault and 300-second
+  no-time restart intervals, holdover sampling and original owner deadlines.
+
 ## 2026-10-30 — W12 compact exact estimator storage
 
 - Reduce fixed estimator storage by 2792 bytes while retaining every accepted
