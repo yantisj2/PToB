@@ -600,7 +600,11 @@ class G1CorrectedClock {
 };
 // Eight immutable original frame values add64B for RC7 envelope forwarding.
 #if defined(PTOB_N30) || defined(PTOB_W12_FINE_CLOCK)
+#ifdef PTOB_W12_SHADOW_HOLDOVER
+static_assert(sizeof(G1CorrectedClock)<=2144,"W12 fine clock plus96-byte frozen thermal projection RAM allocation");
+#else
 static_assert(sizeof(G1CorrectedClock)<=2048,"Fine frozen capture predictions exceed2KiB clock budget");
+#endif
 #else
 #ifdef PTOB_W12_SHADOW_HOLDOVER
 static_assert(sizeof(G1CorrectedClock)<=1960,"W12 clock plus frozen thermal projection RAM allocation");

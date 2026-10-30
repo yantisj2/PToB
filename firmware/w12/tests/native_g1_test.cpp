@@ -18,6 +18,9 @@ bool adopt(uint16_t,uint32_t){return true;}bool stop(){return true;}
 bool match(uint16_t,const uint8_t*,size_t,uint64_t,Stamp& stamp){stamp={};return false;}
 Stats status(){return {};}RfReference rf_reference(){return {};}
 }
+#ifdef PTOB_W12_FINE_CLOCK
+int w12_fine_receive(v12::periodic_rx::Stamp& stamp){stamp={};return 0;}
+#endif
 #endif
 #ifdef PTOB_W12_SHADOW_HOLDOVER
 extern "C" bool clock_reference_read(uint64_t* count){if(!count)return false;*count=fake_now*20;return true;}

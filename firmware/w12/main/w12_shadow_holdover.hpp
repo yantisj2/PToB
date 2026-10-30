@@ -14,7 +14,8 @@ struct W12ShadowView {
   int32_t temperature_mc=INT32_MIN,slope_mppb_c=0;
   bool holding=false,thermal_ready=false;
 };
-// Experimental numerical holdover only. BLE supplies every frequency label and
+// BLE-trained holdover model and numerical validation. arm() freezes the same
+// coefficients for the production projection. BLE supplies every frequency label and
 // scoring reference; silicon temperature is a covariate, never a time source.
 // A frozen run lasts 120s. Every matched physical BLE event is a witness,
 // never feedback to the held clock. Learning continues for FUTURE runs only.
