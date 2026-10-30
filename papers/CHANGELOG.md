@@ -1,5 +1,16 @@
 # Manuscript history
 
+## 2026-10-30 — main viability preprint approved for public review
+
+- Publish the approved [17-page viability preprint](ptob-viability-preprint.pdf)
+  and matching LaTeX on GitHub for public review, with a separate
+  [approval receipt](editions/viability-2026-10-30-publication.json). Preserve
+  the reviewed source/PDF, preparation manifest and final audit byte for byte.
+- Update current repository research links to the canonical latest PDF and
+  source. Keep prior editions and dated evidence identities in Git.
+- Publish the paper and documentation only. This remains a research draft;
+  no arXiv submission, website deployment or hardware qualification occurs.
+
 ## 2026-10-30 — expanded viability synthesis for author review
 
 - Revise the main paper from 15 to 17 pages at the original 11-point type size

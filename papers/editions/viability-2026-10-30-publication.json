@@ -1,0 +1,104 @@
+{
+  "schema_version": 1,
+  "license": "MIT",
+  "author": "Jonathan Yantis",
+  "edition_date": "2026-10-30",
+  "status": "APPROVED_FOR_PUBLIC_DRAFT_REVIEW",
+  "approval": "Approved, publish the pre-print to the repo for public review and make sure all docs in the repo link to the latest copy.",
+  "prepared_edition": "papers/editions/viability-2026-10-30.json",
+  "prepared_edition_sha256": "74ab9984169a5ec8ad1b4409aa3dca23a66b3129e830c1f2adbe0e0d943170f9",
+  "publication_files": [
+    {
+      "path": "papers/ptob-viability-preprint.tex",
+      "bytes": 67801,
+      "sha256": "100264521e6d551761bd6f424bd007d7948f984bb544dd063e2c1e360f081970",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "papers/ptob-viability-preprint.pdf",
+      "bytes": 108448,
+      "sha256": "a89d7dd7801b5783f991518e160af74e850b95a10b5a4f5e6456ffaadfc5d0a2",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "tools/verify_viability_paper.py",
+      "bytes": 6408,
+      "sha256": "9e3f7efe66ccfea77f4cba9f8af3b0873242b55addecb40532fc91437611fc22",
+      "license": "MIT"
+    },
+    {
+      "path": "tools/verify_research.py",
+      "bytes": 9633,
+      "sha256": "19c8b769f5e66aebdaa548ae048c75819a220a135295f5409222c5000a84b3d5",
+      "license": "MIT"
+    },
+    {
+      "path": "papers/editions/viability-2026-10-30-audit.json",
+      "bytes": 37522,
+      "sha256": "9be6e377c1b26a344ecfbb19140537df646aa4e13cd867197c1805f51c4a1cd4",
+      "license": "MIT"
+    }
+  ],
+  "reviewed_material_unchanged": true,
+  "paper_license": "CC-BY-4.0",
+  "code_and_documentation_license": "MIT",
+  "draft_promoted_to_final": false,
+  "arxiv_submitted": false,
+  "new_hardware_measurements": false,
+  "hardware_accuracy_qualification": "UNCHANGED_UNQUALIFIED",
+  "publication_scope": "Approved main preprint and current documentation on GitHub main for public review; no website deployment or arXiv submission.",
+  "preserved_approval_checkpoint": "The unchanged manuscript and prepared edition retain their earlier author-review and pending-approval labels. This separate receipt records subsequent approval for public draft review.",
+  "canonical_pdf": "papers/ptob-viability-preprint.pdf",
+  "canonical_source": "papers/ptob-viability-preprint.tex",
+  "canonical_repository": "https://github.com/yantisj2/PToB",
+  "canonical_branch": "main",
+  "current_document_links": [
+    {
+      "path": "README.md",
+      "target": "papers/ptob-viability-preprint.pdf"
+    },
+    {
+      "path": "papers/README.md",
+      "target": "papers/ptob-viability-preprint.pdf"
+    },
+    {
+      "path": "docs/README.md",
+      "target": "papers/ptob-viability-preprint.pdf"
+    },
+    {
+      "path": "docs/PUBLICATION_REVIEW.md",
+      "target": "papers/ptob-viability-preprint.pdf"
+    },
+    {
+      "path": "evidence/README.md",
+      "target": "papers/ptob-viability-preprint.pdf"
+    },
+    {
+      "path": "tools/README.md",
+      "target": "papers/ptob-viability-preprint.pdf"
+    },
+    {
+      "path": "papers/CHANGELOG.md",
+      "target": "papers/ptob-viability-preprint.pdf"
+    },
+    {
+      "path": "CHANGELOG.md",
+      "target": "papers/ptob-viability-preprint.pdf"
+    }
+  ],
+  "historical_records": "Frozen evidence records, prior editions, source pins and import receipts retain their original dates, paths and hashes.",
+  "publication_verification": {
+    "checkout_basis": "Public main a3c96db35b1817de534abe4450cfd032ceca77e8 plus the selected paper revision and approval/documentation changes only.",
+    "command": "python3 -B tools/verify_viability_paper.py --replay",
+    "status": "PASS",
+    "supporting_offline_verifiers": 8,
+    "reviewed_source_pdf_and_preparation_hashes": "PASS_UNCHANGED",
+    "tracked_documents_scanned": 130,
+    "local_markdown_destinations_checked": 821,
+    "missing_local_markdown_destinations": 0,
+    "current_document_canonical_pdf_links": 8,
+    "frozen_records_and_pinned_historical_references": "PRESERVED",
+    "firmware_client_registry_changes": "NONE",
+    "scope": "Offline public-source, document, data and numerical verification; no new physical measurement or calibration."
+  }
+}

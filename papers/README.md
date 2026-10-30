@@ -1,5 +1,15 @@
 # Research papers — drafts
 
+**Latest main preprint, approved for public review, 30 October 2026:**
+[PToB Viability: Rooted BLE Timing Meshes for Heterogeneous Edge Networks](ptob-viability-preprint.pdf)
+is the 17-page synthesis of the source-scoped clock service, causal event
+maps, heterogeneous relays, USB delivery and measured holdover.
+[LaTeX source](ptob-viability-preprint.tex),
+[source and evidence audit](editions/viability-2026-10-30-audit.json) and
+[publication approval](editions/viability-2026-10-30-publication.json)
+accompany the unchanged reviewed manuscript. It remains a preprint draft
+and has not been submitted to arXiv.
+
 **Approved experimental research draft, 30 October 2026:**
 [Empirical Sub-Microsecond Holdover on BLE-Trained Software Clocks](mcxo-holdover-duration/ptob-empirical-sub-microsecond-holdover.pdf)
 measures the longest supported hold duration at a fixed sampled 1 microsecond
@@ -13,7 +23,7 @@ under `evidence/w12/`, and large derived tables regenerate locally.
 [Approval and packaging](mcxo-holdover-duration/publication.json) preserve the
 reviewed bytes; GitHub publication and firmware qualification remain separate.
 
-**Latest public review draft, 26 October 2026:**
+**Public review draft, 26 October 2026:**
 [Reducing Timing Tails and Multipath Sensitivity in an Operating BLE Precision Mesh](ble-tail-multipath/main.pdf)
 reviews capture, event association, channel-aware fitting and source ownership,
 then proposes placement, workload, estimator and recovery tests. The nine-page
@@ -70,9 +80,9 @@ The distinct [post-repair W12 baseline](../evidence/s3/2026-10-24-w12-utc-basis/
 publishes all selected PPS/TX rows and an offline verifier for later website
 results. It does not silently replace this approved paper's earlier aggregates.
 
-These are working drafts by **Jonathan Yantis**. The newest approved addition
-is the **30 October 2026** W12 holdover-duration
-study. The BLE timing-tail/multipath, indoor PNT and theoretical PToB-IPS studies
+These are working drafts by **Jonathan Yantis**. The latest approved main
+preprint and W12 holdover-duration study have **30 October 2026** editions.
+The BLE timing-tail/multipath, indoor PNT and theoretical PToB-IPS studies
 retain their **26 October** editions. The low-level
 ESP32-S3 implementation guide retains its **24 October** edition. The robotic
 gPTP/TSN study and ESP32-S3 empirical timing study retain their **22 October**
@@ -82,7 +92,7 @@ Bluetooth timecode compatibility study retains its **22 October** edition.
 The awake timing information and power scheduling pilot retains its
 **19 October 2026** edition. The
 USB/chrony and White Rabbit papers retain their **15–17 October** editions.
-The main viability synthesis has a **30 October author-review revision**.
+The main viability synthesis is **approved for public draft review**.
 The V14 service/profile proposal has a **30 October author-review draft**;
 its companion boundary-clock study retains its **12 October** edition.
 All remain discussion/research drafts, without standards
@@ -94,7 +104,7 @@ byte identities; later editions are recorded separately.
 **[PToB Viability: Rooted BLE Timing Meshes for Heterogeneous Edge Networks](ptob-viability-preprint.pdf)**
 is the starting point for the project's research: protocol architecture,
 experimental evidence, scaling limits and a proposed path to PTP edge extension.
-Read the **30 October 2026 author-review draft** or edit its
+Read the **30 October 2026 approved public-review preprint** or edit its
 [LaTeX source](ptob-viability-preprint.tex). The 17-page revision adds ESP32-S3
 event capture, the W12/T096 relay baseline, USB RC/DC comparison, awake sampling
 and measured frozen-clock holdover. It updates GM7/RC7 architecture, prior art,
@@ -104,7 +114,13 @@ The [edition manifest](editions/viability-2026-10-30.json) preserves the prior
 15-page edition through its Git revision and binds the current source/PDF and
 selected inputs. Run `python3 tools/verify_viability_paper.py` for identity and
 claim checks; add `--replay` for the supporting offline numerical analyses.
-This remains a draft for review toward arXiv; it has not been submitted.
+The separate [publication approval](editions/viability-2026-10-30-publication.json)
+records approval for public draft review. The manuscript and preparation
+receipt retain their earlier author-review labels as the preserved review
+checkpoint; their bytes are unchanged. The
+[final source and evidence audit](editions/viability-2026-10-30-audit.json)
+records reference, link and reproduction checks. This remains a draft
+toward arXiv; it has not been submitted.
 
 ## Supporting research
 

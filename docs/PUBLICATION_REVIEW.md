@@ -2,6 +2,14 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+The **30 October 2026 [PToB Viability preprint](../papers/ptob-viability-preprint.pdf)**
+is approved for repository publication for public draft review. Its
+[publication receipt](../papers/editions/viability-2026-10-30-publication.json)
+binds the unchanged reviewed source/PDF; the
+[source and evidence audit](../papers/editions/viability-2026-10-30-audit.json)
+records the final reference and reproduction checks. It remains a draft
+and has not been submitted to arXiv.
+
 The [16 October public-source review](PUBLIC_RELEASE_REVIEW.md) records completed
 checks and fixes. The repository is ready for experimental source and research
 publication within that scope.

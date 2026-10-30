@@ -86,6 +86,10 @@ hashes, USB delivery and tracking populations, and hypothetical viability model
 outputs. See the [research collection](../evidence/research/2026-10-16/README.md)
 for its reproducible subset and excluded private raw captures.
 
+The latest [PToB Viability preprint](../papers/ptob-viability-preprint.pdf)
+is approved for public draft review; its
+[publication receipt](../papers/editions/viability-2026-10-30-publication.json)
+records approval while preserving the preparation checkpoint.
 Run `python3 tools/verify_viability_paper.py` to check the 30 October viability
 source/PDF edition, two-page expansion limit, pinned public references and
 claim/summary correspondence. Add `--replay` to run the supporting public
