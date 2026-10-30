@@ -1,0 +1,224 @@
+{
+  "schema_version": 1,
+  "license": "MIT",
+  "copyright": "2026 Jonathan Yantis",
+  "author": "Jonathan Yantis",
+  "paper_license": "CC-BY-4.0",
+  "code_and_documentation_license": "MIT",
+  "title": "Passive Precision Time over BLE: V14 Candidate Service and Profile Proposal",
+  "edition_date": "2026-10-30",
+  "status": "AUTHOR_REVIEW_DRAFT_NOT_PUBLISHED",
+  "page_count": 8,
+  "base_repository_commit": "9614cc23ead214d9197521091a7d98fdace2eb52",
+  "scope": "Current-design-only SIG discussion proposal: GM7 broadcast ACTIVE/HOT/COLD succession and lineage, RC7 dynamic paths, selected coarse TZ wire and automatic DST metadata. Local author review; no empirical claims added, firmware/hardware action, commit, submission or publication.",
+  "revision_history": "Supersedes the 12 October SIG proposal at its existing working source/PDF paths. Omits historical design comparisons, frozen wire tables/hex dumps and numerical evidence annex; exact current wire bindings remain in cited public contracts/codecs. The research preprint, frozen contracts, import receipt and evidence remain unchanged.",
+  "protocol_profile": {
+    "gm": "GM7v4+S2+C1+TZ1",
+    "root_timing": "GR3 version3, 190-byte AD (G1 timing engine)",
+    "relay_timing": "RC7 version7/profile5, 190-byte AD",
+    "coarse": "GM revision4; JOIN revision5; relay control/capability revision8",
+    "reference_source_version": "T096 0.15.209",
+    "qualification": "Proposed/implemented/installed/qualified are distinct. No current installation or calibrated accuracy is inferred."
+  },
+  "previous_edition": {
+    "edition_date": "2026-10-12",
+    "revision": "9614cc23ead214d9197521091a7d98fdace2eb52",
+    "page_count": 22,
+    "files": [
+      {
+        "path": "papers/ptob-v14-sig-proposal.tex",
+        "bytes": 65170,
+        "sha256": "134da2e33284b320e93f49f1c1066c22a3a8746cd7e2c2d0e168fb11124f251f"
+      },
+      {
+        "path": "papers/ptob-v14-sig-proposal.pdf",
+        "bytes": 89031,
+        "sha256": "d484bcc8e5891dd9f2b45e64b7bd4861a9e109419c08b91ec61d51e6e81a78e4"
+      }
+    ],
+    "original_receipt": "papers/imports/v14-2026-10-13.json",
+    "preservation": "Exact prior source/PDF remain in public repository Git history. Unchanged evidence and import hashes are not rewritten."
+  },
+  "files": [
+    {
+      "path": "papers/ptob-v14-sig-proposal.tex",
+      "bytes": 27384,
+      "sha256": "ed19fd66ad886b7300134984c5d5c6c24add68b6938a7f0b6ba5a6e870fa236e"
+    },
+    {
+      "path": "papers/ptob-v14-sig-proposal.pdf",
+      "bytes": 56213,
+      "sha256": "c8db9ea9b166ea2b5e42b2bc33c0a90e924436cb97b8500b4b93314d41cacef2"
+    },
+    {
+      "path": "tools/verify_v14_proposal.py",
+      "bytes": 4638,
+      "sha256": "777e5c3a9ada8e48df1fe4f36b77587a7a5f776969920c41897bbfe17b094fa9"
+    },
+    {
+      "path": "tools/check_v14_document.py",
+      "bytes": 6212,
+      "sha256": "8b269927a5ab98acb0ca2fb5ba227ad16273c6022fdb5c8f45c0fde16b875d1a"
+    },
+    {
+      "path": "tools/verify_v14.py",
+      "bytes": 7318,
+      "sha256": "15aa6af8d9f6f106b16cd918081b03f24a830a35c72f867558e8481628973745"
+    }
+  ],
+  "cited_local_sources": [
+    {
+      "path": "docs/t096/gm7-implementation.md",
+      "bytes": 18033,
+      "sha256": "42e405eaf307674c4ead17541b404f4084788756988aeeca7d188f21f48abed6"
+    },
+    {
+      "path": "docs/t096/auto-time-zone-plan.md",
+      "bytes": 18062,
+      "sha256": "84d3a33221b4fa9f03c69189b88f350dc47743ef90b020a0c5c825407ea4425b"
+    },
+    {
+      "path": "docs/esp32-time-zones.md",
+      "bytes": 3934,
+      "sha256": "cb9c4cbbafcd909f294aae37f80fe5de7a3192cc469e5e8c193f0e4c76171679"
+    },
+    {
+      "path": "docs/time-zones.md",
+      "bytes": 10935,
+      "sha256": "9e59bca0adfdb4f08a71f44cfff0c02a1d003e9b966339bc9962dc6ee1689e2a"
+    },
+    {
+      "path": "protocol/time-zone-v1/README.md",
+      "bytes": 4365,
+      "sha256": "e5bd4621ccffd2fe79523ccf9b725eb10fdd70ef5bffd2bd6f1096a6a7b5004e"
+    },
+    {
+      "path": "protocol/time-zone-v1/vectors.json",
+      "bytes": 2317,
+      "sha256": "05ac3e845ca5f6453ec79f370812acce76be7a0063f89f705b87d26235fbab26"
+    },
+    {
+      "path": "protocol/gm7_birth_c1/README.md",
+      "bytes": 5203,
+      "sha256": "4b4e9c838427a82be87e5f5b71b7f1e05876699199535a53776bbcfcc64f0753"
+    },
+    {
+      "path": "firmware/t096/protocol/gm7_codec.h",
+      "bytes": 4674,
+      "sha256": "516c088ddf35a34985d9a90931cffcdfa3a73a1cc2a73046820a36b4e01a913c"
+    },
+    {
+      "path": "firmware/t096/protocol/gm7_codec.c",
+      "bytes": 17174,
+      "sha256": "ae53b4b678498d219a008faa29dbec77422765b77bbbb54d20f65d024e0982f3"
+    },
+    {
+      "path": "firmware/t096/protocol/gm7_owner.h",
+      "bytes": 9351,
+      "sha256": "e8cf74a12da1899beb8713a7c7192a1385194c42a27517d98911183ba71e0d6b"
+    },
+    {
+      "path": "firmware/t096/protocol/gm7_owner.c",
+      "bytes": 54779,
+      "sha256": "2f62af725a902b6dbd8b34d417f94b03dcb883b04570b247f4859ae80df9a6f3"
+    },
+    {
+      "path": "firmware/t096/protocol/rc_dynamic.h",
+      "bytes": 4562,
+      "sha256": "116404b746bed683922d501a1d14022098e01e0577798aae99fceee7be8564bb"
+    },
+    {
+      "path": "firmware/t096/protocol/rc_dynamic.c",
+      "bytes": 21544,
+      "sha256": "ce1a9164f96eeae2798a7b5542ca84d4fd1e995b899f8528d5d8fefde776c151"
+    },
+    {
+      "path": "firmware/t096/protocol/group_join.h",
+      "bytes": 4173,
+      "sha256": "738327a0266808bd31e37d0b6cddbbd47c989835ccca30764522d417b70ba6c0"
+    },
+    {
+      "path": "firmware/t096/protocol/group_join.c",
+      "bytes": 11246,
+      "sha256": "b3c1cb17e00a4bae3baf86550d799bd2a32fc819a0eadd047cb8f1bc77f1959c"
+    },
+    {
+      "path": "firmware/t096/protocol/group_precision.c",
+      "bytes": 11794,
+      "sha256": "a4ef2cbe361201451fa87c6fb168db336c0de4c29cb1583a0582b78e7389faf3"
+    },
+    {
+      "path": "firmware/t096/protocol/relay_codec.c",
+      "bytes": 6804,
+      "sha256": "3fd89655032fa5c444515c58a184aaf1d63d89382271b2facf14ac50bb65a936"
+    },
+    {
+      "path": "firmware/t096/protocol/group_auth.c",
+      "bytes": 3351,
+      "sha256": "a84826aaea8cacb85156fbaae5a51e382b708215ebfa97c3a29f846b4b334ab3"
+    },
+    {
+      "path": "firmware/t096/protocol/time_zone.h",
+      "bytes": 2734,
+      "sha256": "d0f07202ba8a786431bb0dae96f780987022f53284cd90399c3b37fb4cda9d10"
+    },
+    {
+      "path": "firmware/t096/src/radio_service.c",
+      "bytes": 77252,
+      "sha256": "dd5689fc16e59ca78d43b2d8cf31aa1bad392f78af4e3a3cfdcf93321cb2eb65"
+    },
+    {
+      "path": "tools/time_zones/README.md",
+      "bytes": 5049,
+      "sha256": "8042b399db85df608d398321a6570af4da8dcab605f6dcedc8a4c52657c30188"
+    },
+    {
+      "path": "tools/time_zones/zones.json",
+      "bytes": 6293,
+      "sha256": "2c765ff8ec319f11180a9466fcdac2bec8b27697129e0a8b25c1f33302dbbac3"
+    },
+    {
+      "path": "firmware/t096/CHANGELOG.md",
+      "bytes": 83584,
+      "sha256": "c3585944f2eafe58c3957a2342018c40e4e4a5c0bccfe1dd0b02b0115be90151"
+    }
+  ],
+  "evidence_cutoff": null,
+  "evidence_scope": "No new empirical population. No historical precision result is imported into this current protocol proposal; reference validation limits remain explicit.",
+  "build": {
+    "compiler": "Tectonic 0.17.0",
+    "bundle_sha256": "6ffe055852f8faf66c0acbe1a7fb27f87b869a90bad1204f3bf4d9683f597c7c",
+    "command": "tectonic --outdir artifacts/papers papers/ptob-v14-sig-proposal.tex",
+    "local_build": "Used the existing public TeX bundle cache with --only-cached; no network or private source dependencies.",
+    "layout_warnings": "Two underfull bibliography hboxes; visually inspected and readable, no overflow or unresolved references."
+  },
+  "length": {
+    "before_pages": 22,
+    "after_pages": 8,
+    "before_pdf_words": 8776,
+    "after_pdf_words": 3391
+  },
+  "review": {
+    "all_pages_visually_inspected": true,
+    "pages_inspected": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "rendering": "Poppler pdftoppm, 110 dpi; all eight pages inspected; changed pages2/5/6 inspected again after final text fixes.",
+    "compiled_source_sha256": "ed19fd66ad886b7300134984c5d5c6c24add68b6938a7f0b6ba5a6e870fa236e",
+    "exported_pdf_sha256": "c8db9ea9b166ea2b5e42b2bc33c0a90e924436cb97b8500b4b93314d41cacef2",
+    "human_review": "Pending",
+    "offline_checks": [
+      "python3 tools/verify_v14_proposal.py",
+      "python3 tools/verify_v14.py",
+      "git diff --check"
+    ],
+    "verification_scope": "Identity, bibliography/current-design/privacy pattern checks and independent public coarse HMAC/TZ fixtures; historical imported populations and exact prior tables/examples checked separately. No firmware or hardware execution."
+  }
+}

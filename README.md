@@ -35,11 +35,12 @@ Start with the target matching your hardware:
 | macOS | USB time client and chrony bridge | [macOS README](clients/macos/README.md) |
 
 For T096 GMs, follow the **[current GM7 guide](docs/t096/gm7-implementation.md)**
-for ACTIVE/HOT/COLD behavior and compatibility. Source 0.15.206 adds
+for ACTIVE/HOT/COLD behavior and compatibility. Source **0.15.209** supports
 [GM location-based TZ and automatic DST](docs/t096/auto-time-zone-plan.md)
 using the existing four-byte coarse metadata and local clock display;
-[W12 0.2.21 and N30 0.2.37](docs/esp32-time-zones.md) consume these dynamic TZ updates;
-[full T096 certification remains incomplete](docs/t096/time-zone-test-plan.md#local-205-results-29-october-2026).
+[W12 0.2.21+ and N30 0.2.37+](docs/esp32-time-zones.md) consume these dynamic TZ updates.
+[Current T096 results](docs/t096/auto-time-zone-plan.md#four-device-follow-up--29-october-2026)
+retain passed direct-path checks and failed relay availability; full certification remains open.
 
 See the [changelog](CHANGELOG.md) for recent development updates.
 
@@ -89,13 +90,16 @@ results do not qualify later builds. PToB is not an adopted Bluetooth SIG or IEE
 standard.
 
 **Approved research draft, 30 October 2026:**
-[Empirical Sub-Microsecond Holdover on BLE-Trained Software Clocks](papers/mcxo-holdover-duration/main.pdf)
+[Empirical Sub-Microsecond Holdover on BLE-Trained Software Clocks](papers/mcxo-holdover-duration/ptob-empirical-sub-microsecond-holdover.pdf)
 measures how long frozen W12 clock models retain sampled error below 1 µs at
 P99. Fresh BLE-only observations preserve each run's worst sampled error,
 changing duration windows, failures and missing witnesses. Temperature remains
 shadow-only. [Source, selected data and reproduction](papers/mcxo-holdover-duration/README.md)
 accompany the approved MCXO-inspired study. Canonical LaTeX and compact,
 checksummed evidence are prepared for GitHub publication.
+
+The **30 October author-review [V14 SIG proposal](papers/ptob-v14-sig-proposal.pdf)**
+describes GM7 succession, RC7 paths and TZ/DST; it adds no hardware qualification.
 
 **Public review draft, 26 October 2026:**
 [PToB-IPS: Toward GNSS-like Indoor Positioning with Surveyed BLE Timing Beacons](papers/indoor-ips/main.pdf)

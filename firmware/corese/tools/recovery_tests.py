@@ -8,7 +8,7 @@ from pathlib import Path
 from live_build import APP,REPO,RECOVERY_POLICY,RECOVERY_REF,LEADER_POLICY,LEADER_REF,freeze_shared,sha,module
 from prepare_runtime import prepare
 p=argparse.ArgumentParser(description=__doc__);p.add_argument('--out',type=Path,required=True);p.add_argument('--objects',type=Path,required=True);a=p.parse_args()
-out=a.out.resolve();out.mkdir(parents=True,exist_ok=False);root=out/'source';sources=freeze_shared(root)
+out=a.out.resolve();out.mkdir(parents=True,exist_ok=False);root=out/'source';sources=freeze_shared(root,with_precision=False)
 prepare(out/'runtime',root) # Also require every target-local overlay anchor.
 # Freeze the matching reviewed fixtures as other targets advance independently.
 # Production receiver retains the pinned baseline plus the scoped backports.

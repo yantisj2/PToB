@@ -3,13 +3,40 @@
 
 Adapted for the public repository paths. Focused offline checks for this proposal's tables/examples, not the full suite."""
 from pathlib import Path
-import hashlib, hmac, json, re, struct
+import hashlib, hmac, json, re, struct, subprocess
 ROOT=Path(__file__).resolve().parents[1]
+
+def imported_bytes(entry):
+    """Resolve only the replaced proposal pair to its hash-checked Git edition."""
+    path = entry['destination']
+    data = (ROOT/path).read_bytes()
+    if hashlib.sha256(data).hexdigest() == entry['sha256']:
+        return data
+    edition = json.loads((ROOT/'papers/editions/v14-sig-2026-10-30.json').read_text())
+    previous = edition['previous_edition']
+    allowed = {'papers/ptob-v14-sig-proposal.tex', 'papers/ptob-v14-sig-proposal.pdf'}
+    prior = {row['path']: row['sha256'] for row in previous['files']}
+    if path not in allowed or prior.get(path) != entry['sha256']:
+        raise ValueError('Frozen import changed: '+path)
+    revision = previous['revision']
+    if not re.fullmatch(r'[0-9a-f]{40}', revision):
+        raise ValueError('Expected full previous-edition Git revision')
+    try:
+        data = subprocess.check_output(['git', 'show', revision+':'+path], cwd=ROOT,
+                                       stderr=subprocess.PIPE)
+    except (FileNotFoundError, subprocess.CalledProcessError) as exc:
+        raise ValueError('Prior proposal unavailable; use Git history including '+revision) from exc
+    if len(data) != entry['bytes'] or hashlib.sha256(data).hexdigest() != entry['sha256']:
+        raise ValueError('Preserved proposal identity mismatch: '+path)
+    return data
+
 def main():
     contract=json.loads((ROOT/'protocol/v14_rc1/contract.json').read_text())
     vectors=json.loads((ROOT/'protocol/v14_rc1/vectors.json').read_text())
     ledger=json.loads((ROOT/'evidence/v14/2026-10-12/provenance/ptob-v14-sig-wire.json').read_text())
-    tex=(ROOT/'papers/ptob-v14-sig-proposal.tex').read_text()
+    receipt=json.loads((ROOT/'papers/imports/v14-2026-10-13.json').read_text())
+    entry=next(row for row in receipt['files'] if row['destination']=='papers/ptob-v14-sig-proposal.tex')
+    tex=imported_bytes(entry).decode()
     key=bytes.fromhex(vectors['test_key_hex'])
     context=struct.pack('<BQI',1,vectors['group_id'],vectors['group_epoch'])
     def mac(domain,body):return hmac.new(key,domain.encode()+context+body,hashlib.sha256).digest()[:16]

@@ -6,6 +6,10 @@ acceptance or precision qualification from a historical document or simulator.
 
 ## Local work
 
+Mesh selection must be discovered from the local area, never pinned to a single
+mesh ID in a production image. Keep trusted credentials separate from runtime
+mesh selection and require fresh authenticated admission after a context change.
+
 When present, read `.internal/README.md` and `.internal/PLAN.md` for the active
 local migration assignment. `.internal/` is ignored private working material:
 never stage, force-add, publish, or copy it into public documentation. Its absence

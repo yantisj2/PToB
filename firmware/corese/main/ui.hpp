@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 #include "mesh_diagnostics.hpp"
+#include "holdover_view.hpp"
+#include "../../w12/main/coarse_time_zone.hpp"
 
 namespace corese {
 // Compact monotonic intervals; never a UTC or precision claim.
@@ -30,6 +32,8 @@ struct Model {
  Source source=Source::None;State state=State::Search;
  bool utc_valid=false,precision_valid=false,offset_valid=false,rssi_valid=false;
  bool counter_healthy=false,synthetic=false;
+ r2_tz tz=r2_tz_unknown();uint64_t tz_until_us=0;uint16_t tz_received=0,tz_conflicts=0;
+ HoldoverView holdover{};
  mesh::Snapshot mesh{};
 };
 // Presentation history never copies time validity or extends packet deadlines.
@@ -45,6 +49,10 @@ bool time(const Model&,uint64_t now,uint64_t& utc);
 bool retained_time(Model&,uint64_t observed_us,uint64_t snapshot_us,uint64_t utc_us,uint64_t now);
 bool precision(const Model&,uint64_t now);
 bool offset(const Model&,uint64_t now);
+bool shadow_current(const Model&,uint64_t now);
+const char* clock_zone(const Model&,uint64_t now,int64_t& shown);
+void hold_duration(char*,size_t,const HoldoverView&,bool current);
+const char* hold_error(char*,size_t,uint64_t ns,bool known);
 // Modeled UTC phase only; never a physical PPS output or measured display edge.
 bool source_pulse(const Model&,uint64_t now);
 const char* status(const Model&,uint64_t now);

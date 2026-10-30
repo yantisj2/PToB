@@ -2,21 +2,24 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
-Source **0.15.205** uses broadcast GM discovery, ordinary shadow STATUS and the
+Source **0.15.209** uses broadcast GM discovery, ordinary shadow STATUS and the
 existing RC G1 receive/matcher/fitter. A GM follows the selected source without
 JOIN, GATT, REQUEST/ANCHOR, nonces, admission sessions or ANN permission renewal.
 Normal RC client admission, GATT, RC9, relay, USB and LoRa remain supported.
 
 The current coarse profile is **GM7v4+S2+C1+TZ1**, with JOIN revision 5 and RC
 coarse control/capability revision 8. These revisions break coarse compatibility;
-matching T096 GM/RC images are required and other target ports remain deferred.
+matching coarse revisions are required throughout the selected path. The
+[W12/N30 ports](../esp32-time-zones.md) support the same metadata; other targets
+require their own declared compatibility.
 The [TZ contract](../../protocol/time-zone-v1/README.md) preserves G1/RC7 precision
-layouts and UTC coordinates. Manual CDT uses the original periodic advertisement
-cadences with a three-period presence lease. Source .205 adds local digital and
-analog display with UTC fallback; automatic TZ/DST selection remains a proposal.
-The [bounded .205 results](time-zone-test-plan.md#local-205-results-29-october-2026)
-retain failed relay availability and incomplete successor gates. Integration into
-main does not certify GM failover, sustained availability or calibrated accuracy.
+layouts and UTC coordinates. Automatic GNSS zone/calendar selection, manual-zone
+and fixed-offset modes feed the same four-byte pair and three-period presence
+lease. Receivers retain coarse scanning after timing synchronization, allowing
+ordered DST/unknown updates while locked. Local digital/analog clocks fall back
+to UTC on metadata expiry. The [auto-TZ guide and scoped .209 results](auto-time-zone-plan.md#four-device-follow-up--29-october-2026)
+retain passed direct checks and failed relay availability. Integration into main
+does not certify GM failover, sustained availability or calibrated accuracy.
 
 Ordinary RC discovery and JOIN service are enabled only for actual ACTIVE output
 with the existing finite usable source envelope. Non-serving GMs keep management
@@ -29,7 +32,7 @@ no admission exchange and keeps its own GNSS/PPS running.
 
 The register witness described below was enabled in the .188–.196 diagnostic
 checkpoints and disabled in .197. Ordinary retained crash capture and bounded
-follower/HOT diagnostics remain enabled in .205. Preserve the older decoding
+follower/HOT diagnostics remain enabled in .209. Preserve the older decoding
 rules when reviewing records from their exact source version.
 
 Version188 observes the unresolved ARM snapshot call-boundary fault. Its explicit
@@ -93,8 +96,9 @@ An initially qualified GM elects itself after the ordinary30s quiet period
 plus deterministic backoff (up to500ms). This follows the existing independent
 60s GNSS qualification, so a continuous healthy cold startup normally needs
 about90s plus backoff. Only the designated HOT has the fast3s takeover path.
-The first successful reservation records full 64-bit functional UTC mesh birth;
-replacements inherit that birth and founder and advance the leader term. When
+The first valid serving reservation samples full 64-bit functional UTC mesh birth;
+ACTIVE commits only after successful bounded ANN transmission. Possible RF
+exposure preserves lineage even if completion fails. Subsequent replacements inherit that birth and founder and advance the leader term. When
 ACTIVE meshes meet, earlier birth wins. Exact-birth ties use founder, then the
 existing term/identity/boot ordering. Only the newer mesh stops output and
 follows the older one. An older ACTIVE keeps serving and its existing nominee
@@ -148,23 +152,20 @@ keeps receiving time but cannot start output from an expired remote map.
 
 ## Timer and check policy
 
-| Policy | Before .186 | .186 behavior and reason |
-| --- | --- | --- |
-| Control construction | Primary3–25ms; STATUS/ROLE/copy3–7ms before slot | Up to100ms ahead, current or next frame. Native controller executes the original immutable window. |
-| Discovery copy | Wait for primary completion, retain it21ms | Queue the same immutable primary body ahead of time; no completion dependency or retention timer. |
-| GM following | ANN source permission at most1.5s; source-expiry preclose | Removed. Selected identity opens listening; actual authenticated G1 data/fit expiry bounds output. |
-| Silence | Last ANN only | Last advancing selected ANN, self-ACTIVE ROLE or direct G1 header. Duplicate/reordered packets never renew it. |
-| HOT failover |2.5s trigger, first G1 by3s | Retained, measured from last selected-GM communication; immutable YIELD/WITHDRAW takes precedence. |
-| Ordinary STATUS | About2s,4.5s observation lifetime | Retained. Allows a missed ordinary report plus delayed worker service; bounded nomination observations are separate from data permission. |
-| ROLE observation |4.5s and prior matching ANN/generations |4.5s independent bounded discovery observation. It cannot extend a data map or overwrite HOT qualification. |
-| ANN observation | At most2.75s, coupled to source lease |2.75s bounded leader/successor observation spans many250ms reports and the2.5s HOT trigger. It cannot block authorized3s takeover or continuous G1 following. |
-| Ordinary fallback/startup |5s quiet plus backoff |30s quiet plus existing backoff; user-requested conservative behavior in uncertain RF. Only designated HOT uses the fast path. |
-| Shadow readiness | Correction at most250ms old plus continuous5s dwell | Actual GM follower delivered map/fit and live growing phase bound; remove the extra dwell and one-period cliff. Since .189 strict PLL LOCK remains a precision label, independent of functional HOT readiness. Historical blocker bit32 now means missing fit, not an unlocked strict PLL. |
-| Physical phase | Live2ms; retained8ms/5s | Retained physical limits for safe reservation/promotion, separate from ordinary visibility. |
-| Ordinary visibility without remote fit | Suppressed | Use local functional PPS phase, or best-effort native HF windows. These windows make no mesh-UTC/precision claim. GM37 discovery is continuous. |
-| Management RX overflow | Permanently fence clock | Count/drop the lost observation. Existing bounded buffers remain. |
-| GM precision record overflow | Permanent stop/error | Retire tuples/fit and reacquire through the existing receiver. A missed record is not a broken capture clock domain. Ordinary RC policy remains unchanged. |
-| Independent GNSS qualification | Existing60s dwell/source/PPS bounds | Retained; control traffic cannot qualify GNSS or invent UTC accuracy. |
+| Policy | Current behavior |
+| --- | --- |
+| Control construction / copies | Construct up to 100 ms ahead, current or next frame; queue the same immutable discovery body. The native controller executes the original window. |
+| GM following | Selected identity opens listening; actual authenticated G1 data/fit expiry bounds output. ANN source-valid fields do not create a receive-permission session. |
+| Silence | Last advancing selected ANN, self-ACTIVE ROLE or direct G1 header. Duplicate/reordered packets never renew it. |
+| HOT failover | 2.5 s trigger, first completed G1 target by 3 s from last selected-GM communication; immutable YIELD/WITHDRAW takes precedence. Physical qualification remains open. |
+| Ordinary STATUS | About 2 s cadence, 4.5 s observation lifetime. Nominee preference may survive a temporary readiness gap for 30 s; fresh HOT confirmation cannot. |
+| ROLE / ANN observation | ROLE 4.5 s; ANN at most 2.75 s. Discovery observations do not extend maps or replace HOT readiness. |
+| Ordinary fallback/startup | 30 s quiet plus up to 500 ms deterministic backoff after independent source qualification. Only designated HOT uses the fast path. |
+| Shadow readiness | Actual same-scope delivered map/fit, live physical phase enclosure and own source qualification. Strict PLL LOCK is a separate precision label. |
+| Physical phase | Live 2 ms; retained 8 ms / 5 s limits for safe reservation/promotion, separate from ordinary visibility. |
+| Visibility without remote fit | Local functional PPS phase or best-effort native HF windows; neither grants remote precision. Management discovery remains enabled. |
+| RX / precision record overflow | Count/drop management observations; retire incompatible GM timing tuples/fit and reacquire. A missing record is not a capture-domain failure. Ordinary RC policy retains its own guards. |
+| Independent GNSS qualification | 60 s dwell plus actual source/PPS bounds; control traffic cannot qualify GNSS or invent UTC accuracy. |
 
 The same existing PT handoff snapshot can be refreshed while listening, only on
 advancing accepted G1 (or a genuinely new qualified timing scope). Its original
@@ -192,9 +193,13 @@ and drain the service through its existing clock-domain fence.
 
 ## Wire, diagnostics and replay limits
 
-Wire revision/domain3 and the `GM7v3+S2+C1` diagnostic identity remain compatible
-with .185. Existing source-valid fields are still decoded/emitted for wire
-compatibility; they no longer create a GM receive permission session. Frozen
+Normal builds use `G7V4`, revision 4, domain `PTOBTZ04`, and diagnostic identity
+`GM7v4+S2+C1+TZ1`. ANN/STATUS/WITHDRAW are 182-byte bodies / 186-byte AD records;
+ROLE/GNSS keep 168/156-byte bodies under the same selected revision/domain.
+JOIN5 and RC coarse8 carry TZ; GR3 and RC7/profile5 precision bytes are unchanged.
+The [TZ contract](../../protocol/time-zone-v1/README.md) defines exact offsets,
+domains and runtime revision rejection. Source-valid fields remain on wire but
+do not create a GM receive-permission session. Frozen
 [S2](../../protocol/gm7_simplified_s2/README.md),
 [C1](../../protocol/gm7_birth_c1/README.md),
 [A1](../../protocol/gm7_scheduler_a1/README.md) and earlier contracts preserve

@@ -21,30 +21,55 @@ int main(){
  duration_text(interval,sizeof interval,UINT64_MAX);assert(interval[sizeof interval-1]==0||std::strlen(interval)<sizeof interval);
 
  {
-  StatusScan scan;
-  static_assert(StatusScan::WindowUs==12000&&StatusScan::IntervalUs==200000&&StatusScan::CaptureAgeUs==10000);
-  assert(!scan.poll(100000,false,1,0));
-  assert(!scan.poll(100000,true,0,0));
-  assert(!scan.poll(100000,true,1,10000));
-  assert(scan.poll(100000,true,1,9999));
-  const auto deadline=scan.deadline();assert(deadline==112000&&scan.windows()==1);
-  assert(scan.poll(111999,true,1,20000)&&scan.deadline()==deadline);
-  assert(!scan.poll(112000,true,1,0)&&!scan.allows(112000));
-  assert(!scan.observed(99999)&&scan.observed(100000)&&scan.observed(111999)&&!scan.observed(112000));
-  assert(!scan.poll(299999,true,2,0));
-  assert(!scan.poll(300000,true,1,0)); // One captured PA cannot reopen a window.
-  assert(scan.poll(300000,true,2,0)&&scan.windows()==2);
-  assert(!scan.poll(300001,false,2,0)&&!scan.allows(300001));
-  assert(!scan.poll(300002,true,3,0)&&scan.deadline()==312000);
-  assert(scan.observed(300000)&&scan.observed(311999)&&!scan.observed(312000));
-  assert(!scan.poll(500000,true,3,10000));
-  assert(scan.poll(500001,true,3,0));
-  assert(!scan.poll(500000,true,4,0)); // Reversal cannot open a window.
+  StatusScan scan;constexpr uint64_t utc_base=1800000000000000;
+  static_assert(StatusScan::CaptureAgeUs==25000&&StatusScan::LastEndUs==56000&&StatusScan::MaxWindowUs==30000);
+  assert(!scan.poll(1006000,false,1,6000,utc_base+6000));
+  assert(!scan.poll(1006000,true,0,6000,utc_base+6000));
+  assert(!scan.poll(1006000,true,1,25000,utc_base+25000));
+  assert(!scan.poll(1006000,true,1,6000,utc_base+6000));
+  assert(scan.deadline()==1055000&&scan.windows()==0&&!scan.allows(1040999));
+  assert(!scan.poll(1040999,true,1,40999,utc_base+40999));
+  assert(scan.poll(1041000,true,1,41000,utc_base+41000)&&scan.windows()==1);
+  assert(scan.poll(1054999,true,1,54999,utc_base+54999)&&scan.deadline()==1055000);
+  assert(!scan.poll(1055000,true,1,0,utc_base+55000));
+  assert(!scan.observed(1040999)&&scan.observed(1041000)&&scan.observed(1054999)&&!scan.observed(1055000));
+  assert(!scan.poll(1068500,true,2,6000,utc_base+68500));
+  assert(scan.deadline()==1113000&&!scan.allows(1084999));
+  assert(scan.poll(1085000,true,2,22500,utc_base+85000)&&scan.windows()==2);
+  assert(scan.poll(1112999,true,2,50499,utc_base+112999));
+  assert(!scan.poll(1113000,true,2,0,utc_base+113000));
+  assert(!scan.poll(1131000,true,3,6000,utc_base+131000)); // No management slot here.
+  assert(!scan.poll(1256000,true,4,6000,utc_base+256000));
+  assert(!scan.poll(1260000,false,4,10000,utc_base+260000)&&!scan.allows(1286000));
   const auto windows=scan.windows();scan.reset();
-  assert(!scan.observed(500001)&&!scan.allows(500001)&&scan.deadline()==0&&scan.windows()==windows);
-  assert(scan.poll(600000,true,4,0)); // New leader's fresh physical capture can schedule normally.
-  StatusScan edge;assert(!edge.poll(UINT64_MAX-1,true,1,0));
+  assert(!scan.observed(1286000)&&scan.deadline()==0&&scan.windows()==windows);
+  assert(!scan.poll(2006000,true,5,6000,utc_base+1006000));
+  assert(!scan.poll(2005999,true,5,6000,utc_base+1006000)&&!scan.allows(2032000));
+  StatusScan edge;assert(!edge.poll(UINT64_MAX-1,true,1,0,utc_base));
+  StatusScan phase;assert(!phase.poll(1000,true,1,6000,utc_base+62000)); // Would cross next physical PA.
+  // Use the real250ms calendar and complete2ms events. Cover every jittered
+  // STATUS slot in the2s producer cycle, every ROLE frame and the45/50ms ANN discovery copies.
+  StatusScan calendar;unsigned ann=0,diag[8]{},status=0,expected_ann=0,expected_status=0;
+  uint64_t capture=0,physical=0;
+  // Physical PA reception can precede the UTC quarter boundary. Its guard
+  // must still admit complete ROLE events, not only the later STATUS slot.
+  for(uint64_t at=1000000;at<21000000;at+=250){
+   const auto pa=(at+1000)/62500*62500-1000;
+   if(at-pa>=18000){capture=pa+1;physical=pa;}
+   calendar.poll(at,true,capture,capture?at-physical:UINT64_MAX,utc_base+at);
+   const auto quarter=at%250000,cycle=at/2000000;
+   const auto discovery=45000+(at/250000%3)*5000;
+   if(quarter==discovery&&discovery<=50000){++expected_ann;if(calendar.allows(at)&&calendar.observed(at+4000))++ann;}
+   if(quarter==43000&&calendar.allows(at)&&calendar.observed(at+4000))++diag[at/250000%8];
+   const uint64_t status_phase=uint64_t(90000+int64_t(cycle%8)*2500+(int64_t(cycle%3)-1)*250);
+   if(at%2000000==status_phase){++expected_status;if(calendar.allows(at)&&calendar.observed(at+4000))++status;}
+   if(calendar.allows(at))assert(at-pa>=8000&&at-pa<56000);
+  }
+  assert(ann==expected_ann&&expected_ann==53&&status==expected_status&&status==10);
+  for(auto n:diag)assert(n==10);
+  assert(calendar.primary_windows()==80&&calendar.status_windows()==80&&calendar.guard_refused()==0);
  }
+
  auto m=live();uint64_t utc=0;assert(time(m,1000100,utc)&&utc==10000100);
  assert(precision(m,1000100)&&offset(m,1000100));
  {
@@ -101,15 +126,37 @@ int main(){
   assert(!precision(held,1100000)&&!offset(held,1100000)&&!source_pulse(held,1100000));
   assert(!std::strcmp(status(held,1100000),"HOLD")&&!std::strcmp(source_name(held,1100000),"HOLD"));
   // New snapshots cannot renew the last actual delivery's finite limit.
-  assert(retained_time(held,1000000,1499999,10499999,1499999));
+  assert(retained_time(held,1000000,1499999,10549999,1499999));
   assert(held.until_us==1500000&&time(held,1499999,utc));
-  assert(!time(held,1500000,utc)&&!retained_time(held,1000000,1500000,10500000,1500000));
+  assert(!time(held,1500000,utc)&&!retained_time(held,1000000,1500000,10550000,1500000));
   assert(!retained_time(held,1100001,1100000,10000000,1100000));
   assert(!retained_time(held,0,1100000,10000000,1100000));
   assert(!retained_time(held,UINT64_MAX-100,UINT64_MAX-100,10000000,UINT64_MAX-100));
   held=live();held.source=Source::Retained;assert(!time(held,1000100,utc)&&!precision(held,1000100));
  }
  m=live();m.utc_us=UINT64_MAX;assert(!time(m,1000001,utc));
+
+ {char number[20];
+  assert(!std::strcmp(hold_error(number,sizeof number,999,true),"ns")&&!std::strcmp(number,"999"));
+  assert(!std::strcmp(hold_error(number,sizeof number,1000,true),"us")&&!std::strcmp(number,"1.00"));
+  assert(!std::strcmp(hold_error(number,sizeof number,999999,true),"us")&&!std::strcmp(number,"999.99"));
+  assert(!std::strcmp(hold_error(number,sizeof number,1000000,true),"ms")&&!std::strcmp(number,"1.00"));
+  assert(!std::strcmp(hold_error(number,sizeof number,1000000000,true),"s")&&!std::strcmp(number,"1.00"));
+  assert(!std::strcmp(hold_error(number,sizeof number,1000000000000ull,true),"s")&&!std::strcmp(number,"HI"));
+  hold_error(number,sizeof number,UINT64_MAX,true);assert(!std::strcmp(number,"----"));
+ }
+ // TZ affects only clock presentation, with receipt-based expiry and signed rollover.
+ {auto z=live();z.utc_us=1793381400000000ull;z.tz={2,-300};z.tz_until_us=1000200;
+  int64_t shown=0;assert(!std::strcmp(clock_zone(z,1000100,shown),"CDT"));assert(shown==int64_t(z.utc_us+100)-18000000000ll);
+  z.tz.offset_min=-360;assert(!std::strcmp(clock_zone(z,1000100,shown),"CST"));
+  z.tz={77,345};assert(!std::strcmp(clock_zone(z,1000100,shown),"LOC"));
+  assert(!std::strcmp(clock_zone(z,1000200,shown),"UTC"));
+  z.source=Source::Rc9;assert(!std::strcmp(clock_zone(z,1000100,shown),"UTC"));
+  z=live();z.holdover.last20=1000000ull*20;z.holdover.witness_age_us=0;z.holdover.ready=true;z.holdover.duration_ms=24000;
+  assert(shadow_current(z,1000100));char d[20];hold_duration(d,sizeof d,z.holdover,true);assert(!std::strcmp(d,"24.00"));
+  z.source=Source::Retained;assert(!shadow_current(z,1000100));
+  z=live();z.holdover.last20=1;assert(!shadow_current(z,1000100));
+ }
  // Exercise every pixel-producing surface/state with guard words and sanitizers.
  std::array<uint16_t,Pixels+2> buffer{};buffer.front()=0x1234;buffer.back()=0xabcd;
  for(unsigned state=0;state<=unsigned(State::Fault);++state)
@@ -122,6 +169,11 @@ int main(){
      View v;v.screen=Screen(screen);v.face=Face(face);v.diagnostic=mesh::Page(page);render(buffer.data()+1,m,v,1000100);
      assert(buffer.front()==0x1234&&buffer.back()==0xabcd);
     }
+ {auto high=live();high.holdover.last20=1;high.holdover.witness_age_us=0;high.holdover.max_ns=1000000000000ull;
+  View shadow;shadow.screen=Screen::Diagnostics;shadow.diagnostic=mesh::Page::Shadow;render(buffer.data()+1,high,shadow,1000100);
+  constexpr uint16_t amber=((245>>3)<<11)|((196>>2)<<5)|(105>>3);
+  assert(buffer[1+111*Width+236]==amber); // Explicit text HI, not empty seven-segment ghosts.
+ }
  View v;Touch touch;
  assert(touch.update(v,true,20,130)==Action::None&&v.pressed==Action::OpenClock);
  assert(touch.update(v,true,20,130)==Action::None);
@@ -138,12 +190,49 @@ int main(){
  assert(hit(v,160,190)==Action::None&&hit(v,260,190)==Action::OpenClock);
  apply(v,Action::NextDiagnostic);assert(v.diagnostic==mesh::Page::Path);
  apply(v,Action::PreviousDiagnostic);assert(v.diagnostic==mesh::Page::Mesh);
- apply(v,Action::PreviousDiagnostic);assert(v.diagnostic==mesh::Page::Wire);
+ apply(v,Action::PreviousDiagnostic);assert(v.diagnostic==mesh::Page::Shadow);
  apply(v,Action::NextDiagnostic);assert(v.diagnostic==mesh::Page::Mesh);
  // Diagnostics navigation never modifies clock/face selection.
  const auto face=v.face;apply(v,Action::NextDiagnostic);assert(v.face==face&&v.screen==Screen::Diagnostics);
  mesh::Roles roles;roles.known=true;roles.received_us=100;roles.until_us=200;
  assert(mesh::live(roles,100)&&mesh::live(roles,199)&&!mesh::live(roles,200)&&!mesh::live(roles,99));
+ {
+  auto model=live();auto& r=model.mesh.roles;r.known=true;r.wire_version=3;r.root=model.root;r.root_boot=model.boot;r.epoch=model.source_epoch;
+  r.birth_utc_us=1792986374188267;model.utc_us=r.birth_utc_us+7200000000;
+  r.received_us=1000000;r.until_us=3750000;r.term=16;r.announcements=100;r.statuses=300;r.role_reports=99;
+  View wire;wire.screen=Screen::Diagnostics;wire.diagnostic=mesh::Page::Wire;
+  std::array<uint16_t,Pixels> shown{},hidden{};render(shown.data(),model,wire,1000100);
+  constexpr uint16_t green=((182>>3)<<11)|((239>>2)<<5)|(176>>3);
+  for(unsigned loss=0;loss<4;++loss){auto unavailable=model;
+   if(loss==0)unavailable.utc_valid=false;else if(loss==1)++unavailable.source_epoch;
+   else if(loss==2)unavailable.utc_us=r.birth_utc_us-1000000;else unavailable.source=Source::Retained;
+   render(hidden.data(),unavailable,wire,1000100);
+   bool changed=false;for(int y=74;y<85;++y)for(int x=23;x<304;++x){assert(hidden[y*Width+x]!=green);changed=changed||hidden[y*Width+x]!=shown[y*Width+x];}
+   assert(changed); // Signed birth survives, elapsed needs current matched UTC.
+   for(int y=59;y<68;++y)for(int x=23;x<304;++x)assert(hidden[y*Width+x]==shown[y*Width+x]);
+  }
+ }
+ {
+  auto model=live();auto& r=model.mesh.roles;r.known=true;r.wire_version=3;r.hot=4;r.hot_boot=5;r.hot_since_us=100000;
+  r.received_us=500000;r.until_us=3000000;
+  r.hot_report_known=r.hot_confirmed=true;r.hot_role=3;r.hot_received_us=500000;r.hot_until_us=5000000;
+  View mesh;mesh.screen=Screen::Diagnostics;mesh.diagnostic=mesh::Page::Mesh;
+  std::array<uint16_t,Pixels> current{},cached{};render(current.data(),model,mesh,1000100);
+  r.hot_until_us=1000100;r.hot_confirmed=false;render(cached.data(),model,mesh,1000100);
+  assert(mesh::hot_nomination_current(r,1000100));
+  // Self-report expiry cannot recolor or clear the ACTIVE's current nominee.
+  for(int y=120;y<150;++y)for(int x=12;x<181;++x)assert(current[y*Width+x]==cached[y*Width+x]);
+  for(int y=146;y<158;++y)for(int x=191;x<296;++x)assert(current[y*Width+x]==cached[y*Width+x]);
+  bool age_label_changed=false;for(int y=120;y<163;++y)for(int x=12;x<181;++x)age_label_changed=age_label_changed||current[y*Width+x]!=cached[y*Width+x];
+  assert(age_label_changed); // The separate SELF report age labels its freshness.
+  std::array<uint16_t,Pixels> old_nomination{};r.until_us=1000100;render(old_nomination.data(),model,mesh,1000100);
+  assert(!mesh::hot_nomination_current(r,1000100));
+  bool nominee_changed=false;for(int y=120;y<150;++y)for(int x=12;x<181;++x)nominee_changed=nominee_changed||cached[y*Width+x]!=old_nomination[y*Width+x];
+  assert(nominee_changed);
+  for(int y=146;y<158;++y)for(int x=191;x<296;++x)assert(cached[y*Width+x]==old_nomination[y*Width+x]);
+  r.until_us=3000000;r.withdrawn=true;assert(!mesh::hot_nomination_current(r,1000100));
+  r.withdrawn=false;r.hot=0;assert(!mesh::hot_nomination_current(r,1000100));
+ }
  mesh::Capabilities caps{6,7,100,200,2,true};
  assert(mesh::current(caps,6,7,199)&&!mesh::current(caps,1,7,199)&&!mesh::current(caps,6,8,199)&&!mesh::current(caps,6,7,200));
  {

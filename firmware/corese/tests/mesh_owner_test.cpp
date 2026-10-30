@@ -4,6 +4,7 @@
 extern "C" {
 #include "../../t096/protocol/role_announcement.h"
 #include "../../t096/protocol/gnss_diagnostics.h"
+#include "../protocol/gm7_codec.h"
 }
 #include <cassert>
 #include <cstdio>
@@ -49,5 +50,28 @@ int main(){
  owner::scan_state(true,12012000,8,12000000);owner::source_lost(12000001);
  assert(owner::snapshot(o,12000001)&&!o.cap.known&&!o.offset_valid&&!o.offset_at&&!o.offset_scope.root&&!o.scan_allowed&&!o.scan_deadline);
  assert(o.reference.accepted==3&&o.reference.until_us==41000000); // History cannot renew or become authority.
+ // New implementation4 management uses SID14, independently of SID12 timing
+ // locators and the legacy diagnostic AD sizes.
+ gm7_packet p{};p.group=group.id;p.key_epoch=group.epoch;p.kind=GM7_ANNOUNCE;p.flags=GM7_ELIGIBLE;
+ auto& c=p.body.control;c.sender=c.active=1;c.boot=c.active_boot=2;c.sequence=UINT64_C(0x100000001);
+ c.sent_utc_us=1792986375188267;c.birth_us=1792986374188267;c.founder=1;c.term=16;
+ c.timing_epoch=scope.epoch;c.max_age_us=2750000;c.source_valid_us=1500000;c.source_gen=c.capture_gen=c.train_gen=1;
+ uint8_t gm7[GM7_MAX_AD_BYTES];assert(!gm7_ad_encode(gm7,sizeof gm7,&p,&group));
+ owner::advertisement(gm7,sizeof gm7,12,address,scope,group,14000000,14000000);
+ assert(owner::snapshot(o,14000000)&&o.roles.wire_version==1);
+ address[0]^=1;owner::advertisement(gm7,sizeof gm7,14,address,scope,group,14000000,14000000);address[0]^=1;
+ assert(owner::snapshot(o,14000000)&&o.roles.wire_version==1);
+ // Complete HCI reports remain usable after a bounded radio window closes.
+ // The callback is not an RF timestamp; authentication/replay/TTL still apply.
+ owner::advertisement(gm7,sizeof gm7,14,address,scope,group,14000000,14001000,true);
+ assert(owner::snapshot(o,14001000)&&o.roles.wire_version==4&&o.roles.birth_utc_us==c.birth_us&&o.roles.sequence==c.sequence&&o.scan_outside_callbacks==1);
+ const auto g7_until=o.roles.until_us;
+ owner::advertisement(gm7,sizeof gm7,14,address,scope,group,15000000,15000000);
+ assert(owner::snapshot(o,15000000)&&o.roles.replayed==1&&o.roles.until_us==g7_until);
+ // Truncated fields must not be inspected before length validation.
+ uint8_t short_g7[32]{};short_g7[0]=31;short_g7[1]=255;std::memcpy(short_g7+4,"G7V4",4);
+ owner::advertisement(short_g7,sizeof short_g7,14,address,scope,group,16000000,16000000);
+ assert(owner::snapshot(o,16000000)&&o.roles.accepted==1&&o.roles.until_us==g7_until);
+ owner::source_lost(17000000);assert(owner::snapshot(o,17000000)&&o.roles.birth_utc_us==c.birth_us&&!mesh::live(o.roles,17000000));
  std::puts("PASS actual passive owner: canonical advertiser and SID, independent GS/GD dispatch, no GS history reset, publication preserves original GD deadline");
 }

@@ -79,8 +79,11 @@ def main():
         for f in seal['files']:
             p=(repo/f['path']).resolve();assert p.is_relative_to(repo) and p.stat().st_size==f['bytes'] and digest(p)==f['sha256'],('Publication identity',p)
         assert seal['prepared_edition_sha256']==digest(BASE/'edition.json')
+        paths=seal['reviewed_content_paths']
+        assert set(paths)=={'main.tex','main.pdf','results.tex'}
+        assert seal['canonical_manuscript']==paths['main.tex']
         for name in ('main.tex','main.pdf','results.tex'):
-            assert digest(BASE/name)==identities[name]['sha256'],('Approved manuscript changed',name)
+            assert digest(repo/paths[name])==identities[name]['sha256'],('Approved manuscript changed',name)
         assert 5<=prepared['review']['pages']<=7 and prepared['review']['all_pages_visually_inspected']
     subprocess.run([sys.executable,str(BASE/'tools/test_duration_replay.py')],check=True)
     subprocess.run([sys.executable,str(BASE/'tools/test_dataset.py')],check=True)

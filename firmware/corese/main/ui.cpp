@@ -38,6 +38,30 @@ bool offset(const Model& m,uint64_t now){
   m.offset_root==m.root&&m.offset_boot==m.boot&&m.offset_epoch==m.source_epoch&&
   now>=m.offset_sampled_us&&now-m.offset_sampled_us<SnapshotMaxUs&&now<m.offset_until_us;
 }
+bool shadow_current(const Model& m,uint64_t now){
+ uint64_t utc;const auto& h=m.holdover;
+ return time(m,now,utc)&&m.source!=Source::Rc9&&m.source!=Source::Retained&&h.last20&&
+  h.witness_age_us<5000000&&now-m.sampled_us<5000000-h.witness_age_us;
+}
+const char* clock_zone(const Model& m,uint64_t now,int64_t& shown){
+ uint64_t utc=0;shown=0;if(!time(m,now,utc)||utc>uint64_t(INT64_MAX))return "UTC";
+ shown=int64_t(utc);
+ if(m.source==Source::Rc9||m.source==Source::Retained)return "UTC";
+ return v12::clock_zone(m.tz,m.tz_until_us,now,int64_t(utc),shown);
+}
+void hold_duration(char* out,size_t size,const HoldoverView& h,bool current){
+ if(!current||!h.ready){std::snprintf(out,size,"----");return;}
+ std::snprintf(out,size,"%lu.%02lu",(unsigned long)(h.duration_ms/1000),(unsigned long)(h.duration_ms%1000/10));
+}
+const char* hold_error(char* out,size_t size,uint64_t ns,bool known){
+ if(!known||ns==UINT64_MAX){std::snprintf(out,size,"----");return "ns";}
+ const uint64_t scale=ns<1000?1:ns<1000000?1000:ns<1000000000?1000000:1000000000;
+ const char* unit=scale==1?"ns":scale==1000?"us":scale==1000000?"ms":"s";
+ if(ns/scale>999)std::snprintf(out,size,"HI");
+ else if(scale==1)std::snprintf(out,size,"%llu",(unsigned long long)ns);
+ else std::snprintf(out,size,"%llu.%02llu",(unsigned long long)(ns/scale),(unsigned long long)(ns%scale*100/scale));
+ return unit;
+}
 bool source_pulse(const Model& m,uint64_t now){
  uint64_t utc;return m.source!=Source::Retained&&time(m,now,utc)&&utc%1000000<SourcePulseUs;
 }
@@ -123,7 +147,8 @@ struct Canvas {
 };
 void clock_string(const Model& m,uint64_t now,char (&out)[12]){
  uint64_t utc;if(!time(m,now,utc)){std::snprintf(out,sizeof out,"--:--:--");return;}
- const auto seconds=unsigned(utc/1000000%86400);
+ int64_t shown=0;clock_zone(m,now,shown);
+ const auto seconds=unsigned((shown/1000000%86400+86400)%86400);
  std::snprintf(out,sizeof out,"%02u:%02u:%02u",seconds/3600,seconds/60%60,seconds%60);
 }
 void value(char* out,size_t size,int64_t ns,bool valid,bool sign){
@@ -161,7 +186,8 @@ void navigation(Canvas& c,const View& v){
 }
 void launcher(Canvas& c,const Model& m,const View& v,uint64_t now){
  shell(c,m,"INSTRUMENT SELECT",now);
- c.well(12,44,203,67);c.text(21,51,"COORDINATED UNIVERSAL TIME",Dim);
+ c.well(12,44,203,67);int64_t shown=0;const auto* zone=clock_zone(m,now,shown);
+ char zone_title[40];std::snprintf(zone_title,sizeof zone_title,"CLOCK / %s",zone);c.text(21,51,zone_title,Dim);
  char t[12];clock_string(m,now,t);uint64_t utc;const bool valid=time(m,now,utc);
  c.digital(21,66,t,23,32,valid?Green:Amber);
  c.lamp(225,44,83,"SOURCE",valid);c.lamp(225,67,83,status(m,now),true,precision(m,now)?Green:Amber);
@@ -169,7 +195,7 @@ void launcher(Canvas& c,const Model& m,const View& v,uint64_t now){
  c.key(12,122,144,49,"PToB",v.pressed==Action::OpenClock,"TIME / PRECISION");
  c.key(164,122,144,49,"DIAG",v.pressed==Action::OpenDiagnostics,"SOURCE / SYSTEM");
  c.key(12,180,296,41,"",v.pressed==Action::NextFace);
- c.text(22,189,"WATCH FACE");c.text(22,203,v.face==Face::Instrument?"INSTRUMENT 01":"UTC REGISTER 02");
+ c.text(22,189,"WATCH FACE");c.text(22,203,v.face==Face::Instrument?"INSTRUMENT 01":"TIME REGISTER 02");
  c.text(238,197,"NEXT >");
  // The route is textual as well as colored; it never asserts a live link.
  if(valid){char s[32];std::snprintf(s,sizeof s,"%.8s / %s",m.parent,source_name(m,now));c.text(22,113,s);}
@@ -177,18 +203,18 @@ void launcher(Canvas& c,const Model& m,const View& v,uint64_t now){
 void clock(Canvas& c,const Model& m,const View& v,uint64_t now){
  shell(c,m,"TIME + PRECISION",now);rail(c,m,now,42);
  c.well(12,69,296,42);char t[12];clock_string(m,now,t);uint64_t utc;const bool valid=time(m,now,utc);
- c.text(20,77,"UTC",Dim);c.digital(52,74,t,28,29,valid&&m.source!=Source::Retained?Green:Amber);
+ int64_t shown=0;const auto* zone=clock_zone(m,now,shown);c.text(20,77,zone,Dim);c.digital(52,74,t,28,29,valid&&m.source!=Source::Retained?Green:Amber);
  char context[48];
  if(valid&&m.source==Source::Retained)std::snprintf(context,sizeof context,"HOLD ESTIMATE / PRECISION UNKNOWN");
  else if(valid)std::snprintf(context,sizeof context,"ROOT %.8s / %s",m.root_name,m.source==Source::Rc9?"PRECISION UNKNOWN":"INTERNAL QUALITY");
  else std::snprintf(context,sizeof context,"AWAITING LIVE SOURCE / PRECISION WITHHELD");
  c.text(20,113,context,Ink);
  c.well(12,124,142,39);c.well(162,124,146,39);
- const bool rms_live=precision(m,now),offset_live=offset(m,now);
- c.text(20,129,rms_live||!m.observed.rms_at?"CAUSAL RMS":"LAST RMS",Dim);c.text(170,129,offset_live||!m.observed.offset_at?"REL OFFSET":"LAST OFFSET",Dim);
- char a[20],b[20];value(a,sizeof a,rms_live?m.rms_ns:m.observed.rms_ns,rms_live||m.observed.rms_at,false);value(b,sizeof b,offset_live?m.offset_ns:m.observed.offset_ns,offset_live||m.observed.offset_at,true);
- c.digital(22,140,a,12,19,rms_live?Green:Amber);c.digital(172,140,b,12,19,offset_live?Green:Amber);
- c.text(133,150,"ns",Green);c.text(287,150,"ns",Green);
+ const bool rms_live=precision(m,now),hold_live=shadow_current(m,now)&&m.holdover.ready;
+ c.text(20,129,rms_live||!m.observed.rms_at?"CAUSAL RMS":"LAST RMS",Dim);c.text(170,129,m.holdover.lower_bound?"P99 <1us HOLD MIN":"P99 <1us HOLD",Dim);
+ char a[20],b[20];value(a,sizeof a,rms_live?m.rms_ns:m.observed.rms_ns,rms_live||m.observed.rms_at,false);hold_duration(b,sizeof b,m.holdover,hold_live);
+ c.digital(22,140,a,12,19,rms_live?Green:Amber);c.digital(172,140,b,12,19,hold_live?Green:Amber);
+ c.text(133,150,"ns",Green);c.text(294,150,"s",hold_live?Green:Amber);
  if(v.face==Face::UtcRegister){
   c.fill(12,69,296,94,Panel);
   const char* labels[]={"HOURS","MINUTES","SECONDS"};
@@ -197,9 +223,10 @@ void clock(Canvas& c,const Model& m,const View& v,uint64_t now){
   c.well(12,140,296,23);
   // This compact face has no historical-value label: show only currently
   // permitted precision here. Detailed views retain explicitly marked history.
-  value(a,sizeof a,m.rms_ns,rms_live,false);value(b,sizeof b,m.offset_ns,offset_live,true);
+  value(a,sizeof a,m.rms_ns,rms_live,false);hold_duration(b,sizeof b,m.holdover,hold_live);
   char s[48];std::snprintf(s,sizeof s,"RMS %.8s ns",a);c.center(12,148,142,s,rms_live?Green:Amber);
-  std::snprintf(s,sizeof s,"REL %.8s ns",b);c.center(162,148,146,s,offset_live?Green:Amber);
+  std::snprintf(s,sizeof s,"P99 %s%.8s s",m.holdover.lower_bound&&hold_live?"MIN ":"",b);c.center(162,148,146,s,hold_live?Green:Amber);
+  c.center(12,133,296,zone,Dim);
  }
  char hardware[52];const bool counter=m.xtal_hz&&m.counter_hz;
  if(counter)std::snprintf(hardware,sizeof hardware,"XTAL %luMHz / COUNT %luMHz / %.1fns%s",static_cast<unsigned long>(m.xtal_hz/1000000),static_cast<unsigned long>(m.counter_hz/1000000),1e9/double(m.counter_hz),m.counter_healthy?"":" FAULT");
@@ -214,7 +241,7 @@ void diagnostics(Canvas& c,const Model& m,const View& v,uint64_t now){
  const bool path=sampled&&m.utc_valid&&m.source!=Source::Rc9&&mesh::current(p,now)&&p.nodes[0].id==m.root&&p.nodes[0].boot==m.boot&&p.source_epoch==m.source_epoch;
  const bool path_known=p.known&&p.count>=1&&p.count<=3;
  const bool link=sampled&&mesh::current(l,{m.root,m.boot,m.source_epoch},now);
- static const char* pages[]={"MESH / PRIMARY + HOT","PATH / SOURCE LINEAGE","QUALITY / RECEIVED TIME","REFERENCE / GNSS + PTP","WIRE / STATUS INTEGRITY"};
+ static const char* pages[]={"MESH / ACTIVE + HOT","PATH / SOURCE LINEAGE","QUALITY / RECEIVED TIME","REFERENCE / GNSS + PTP","WIRE / EPOCH + INTEGRITY","SHADOW / HOLDOVER SERVO"};
  const auto page=unsigned(v.diagnostic)<unsigned(mesh::Page::Count)?unsigned(v.diagnostic):0;
  shell(c,m,"DIAGNOSTICS",now,pages[page]);
  char s[64];
@@ -236,24 +263,31 @@ void diagnostics(Canvas& c,const Model& m,const View& v,uint64_t now){
  switch(mesh::Page(page)){
  case mesh::Page::Mesh:{
   c.well(12,42,296,17);
-  if(r.known)std::snprintf(s,sizeof s,"GS CACHE / REPORT AGE %llus",static_cast<unsigned long long>(now>=r.received_us?(now-r.received_us)/1000000:0));
-  else std::snprintf(s,sizeof s,"LISTENING FOR AUTHENTICATED GS STATUS");
+  if(r.known)std::snprintf(s,sizeof s,"%s %s / AGE %llus",r.wire_version>=3?"GM7":"GS",mesh::live(r,now)&&!r.withdrawn?"CURRENT REPORT":"LAST REPORT",static_cast<unsigned long long>(now>=r.received_us?(now-r.received_us)/1000000:0));
+  else std::snprintf(s,sizeof s,"LISTENING FOR AUTHENTICATED MESH STATUS");
   c.text(20,47,s,r.known?Green:Amber);
-  framed(12,68,296,44,"PRIMARY / REPORTED");
+  framed(12,68,296,44,r.wire_version>=3?"ACTIVE / REPORTED":"PRIMARY / REPORTED");
   c.box(183,74,112,31,Rim);
   c.text(23,81,r.known?r.primary_name:"--",r.known?Green:Amber,r.known&&std::strlen(r.primary_name)>12?1:2,170);
   c.text(191,78,"UNCHANGED",Dim);stamp(191,95,r.primary_since_us,r.known);
-  c.text(23,101,r.known?"LAST ROLE REPORT":"NO REPORT YET",r.known?Dim:Amber);
+  c.text(23,101,r.withdrawn?"WITHDRAWN":r.wire_version>=3&&(r.flags&8)?"ACTIVE YIELD":r.known?"LAST ROLE REPORT":"NO REPORT YET",r.withdrawn?Amber:r.known?Dim:Amber);
   const bool hot=r.known&&r.hot;
-  framed(12,123,296,41,"HOT / STANDBY");
+  const bool nominated=mesh::hot_nomination_current(r,now);
+  const bool ready=hot&&(r.wire_version!=3||(r.hot_confirmed&&now<r.hot_until_us));
+  framed(12,123,296,41,r.wire_version!=3?"HOT / STANDBY":nominated?"HOT NOMINEE / CURRENT":hot?"HOT NOMINEE / LAST SEEN":"HOT NOMINEE");
   c.box(183,129,112,31,Rim);
-  c.text(23,135,r.known?(r.hot?r.hot_name:"NONE"):"--",hot?Green:Amber,r.hot&&std::strlen(r.hot_name)>12?1:2,170);
+  c.text(23,135,r.known?(r.hot?r.hot_name:"NONE"):"--",(r.wire_version>=3?nominated:ready)?Green:Amber,r.hot&&std::strlen(r.hot_name)>12?1:2,170);
   c.text(191,133,"UNCHANGED",Dim);stamp(191,149,r.hot_since_us,hot);
-  c.text(23,153,hot?"LAST ROLE REPORT":r.known?"NO HOT REPORTED":"STATUS UNAVAILABLE",hot?Dim:Amber);
-  if(r.known){unsigned members=0;for(unsigned i=0;i<4;++i)members+=(r.members>>i)&1;
+  if(hot&&r.wire_version>=3&&r.hot_report_known&&now>=r.hot_received_us){
+   static const char* roles[]={"STANDBY","ACTIVE","PREPARING","HOT","RC"};
+   std::snprintf(s,sizeof s,"SELF %s / AGE %llus",r.hot_role<5?roles[r.hot_role]:"UNKNOWN",(unsigned long long)((now-r.hot_received_us)/1000000));
+  }else std::snprintf(s,sizeof s,"%s",hot?(r.wire_version>=3?"SELF REPORT PENDING":"LAST ROLE REPORT"):r.known?"NO HOT REPORTED":"STATUS UNAVAILABLE");
+  c.text(23,153,s,ready?Dim:Amber,1,180);
+  if(r.known&&r.wire_version>=3){std::snprintf(s,sizeof s,"TERM %llu / ANN %lu STATUS %lu",(unsigned long long)r.term,(unsigned long)r.announcements,(unsigned long)r.statuses);note(s);}
+  else if(r.known){unsigned members=0;for(unsigned i=0;i<4;++i)members+=(r.members>>i)&1;
    std::snprintf(s,sizeof s,"MEMBERS %u / COORD %.12s",members,r.coordinator_name);
   note(s);
-  }else note("ROLE CHANGES RESET / GS GAPS DO NOT");
+  }else note("ROLE CHANGES RESET / REPORT GAPS DO NOT");
   break;
  }
  case mesh::Page::Path:{
@@ -300,7 +334,7 @@ void diagnostics(Canvas& c,const Model& m,const View& v,uint64_t now){
    std::snprintf(s,sizeof s,"RC9 UPLINK %luns / N %u / UTC UNKNOWN",static_cast<unsigned long>(l.upstream_rms_ns),unsigned(l.upstream_samples));
   note(s);
   }else if(!rms_live&&m.observed.rms_at){std::snprintf(s,sizeof s,"LAST QUALITY / AGE %llus / STALE",static_cast<unsigned long long>(now>=m.observed.rms_at?(now-m.observed.rms_at)/1000000:0));note(s,Amber);}
-  else note("RECEIVER METRICS / RF + UTC BOUNDS UNKNOWN");
+  else {int64_t shown=0;std::snprintf(s,sizeof s,"UTC METRICS / CLOCK %s / BOUNDS UNKNOWN",clock_zone(m,now,shown));note(s);}
   break;
  }
  case mesh::Page::Reference:{
@@ -336,6 +370,23 @@ void diagnostics(Canvas& c,const Model& m,const View& v,uint64_t now){
   break;
  }
  case mesh::Page::Wire:{
+  if(r.wire_version>=3){
+   framed(12,47,296,61,"EPOCH START / UTC");
+   char birth[32],age[32]="--",uptime[32];mesh::epoch_start_text(birth,sizeof birth,r.birth_utc_us);
+   c.text(23,60,birth,r.birth_utc_us?Green:Amber);
+   uint64_t utc=0,elapsed=0;
+   const bool same=r.root==m.root&&r.root_boot==m.boot&&r.epoch==m.source_epoch;
+   const bool age_known=same&&m.source!=Source::Retained&&time(m,now,utc)&&mesh::epoch_elapsed(r,utc,elapsed);
+   if(age_known)duration_text(age,sizeof age,elapsed/1000000);
+   std::snprintf(s,sizeof s,"ELAPSED %.31s",age);c.text(23,76,s,age_known?Green:Amber);
+   duration_text(uptime,sizeof uptime,now/1000000);
+   std::snprintf(s,sizeof s,"LOCAL UPTIME %.29s",uptime);c.text(23,94,s,Dim);
+   c.well(12,117,296,47);
+   std::snprintf(s,sizeof s,"GM7 ANN %lu / STATUS %lu / ROLE %lu",(unsigned long)r.announcements,(unsigned long)r.statuses,(unsigned long)r.role_reports);c.text(20,124,s,Green);
+   std::snprintf(s,sizeof s,"MAC %lu / REPLAY %lu / SCOPE %lu",(unsigned long)r.rejected_auth,(unsigned long)r.replayed,(unsigned long)r.rejected_scope);c.text(20,140,s,Green);
+   std::snprintf(s,sizeof s,"TERM %llu / AGE %llus / WD %lu",(unsigned long long)r.term,(unsigned long long)(now>=r.received_us?(now-r.received_us)/1000000:0),(unsigned long)r.withdrawals);c.text(20,154,s,Green);
+   note(age_known?"SIGNED BIRTH / CURRENT UTC ELAPSED":"ELAPSED NEEDS CURRENT MATCHED UTC");break;
+  }
   framed(12,47,296,52,"ORIGINAL GM / TIMEBASE");
   std::snprintf(s,sizeof s,"%.16s / EPOCH %lu",r.primary_name,static_cast<unsigned long>(r.epoch));
   c.text(23,60,r.known?s:"GM -- / EPOCH --",r.known?Green:Amber);
@@ -351,7 +402,7 @@ void diagnostics(Canvas& c,const Model& m,const View& v,uint64_t now){
   std::snprintf(s,sizeof s,"GM UPTIME EST %.26s",uptime);c.text(23,73,s,r.known?Green:Amber);
   std::snprintf(s,sizeof s,"EPOCH SEEN %.26s",epoch);c.text(23,86,s,r.known?Green:Amber);
   c.well(12,108,296,55);
-  std::snprintf(s,sizeof s,"GS AGE %.20s / SEQ %lu",age,static_cast<unsigned long>(r.sequence));
+  std::snprintf(s,sizeof s,"GS AGE %.20s / SEQ %llu",age,static_cast<unsigned long long>(r.sequence));
   c.text(20,115,r.known?s:"GS CACHE EMPTY / LISTENING",r.known?Green:Amber);
   std::snprintf(s,sizeof s,"OK %lu / MAC %lu / REPLAY %lu",static_cast<unsigned long>(r.accepted),static_cast<unsigned long>(r.rejected_auth),static_cast<unsigned long>(r.replayed));
   c.text(20,131,s,Green);
@@ -359,11 +410,31 @@ void diagnostics(Canvas& c,const Model& m,const View& v,uint64_t now){
   c.text(20,149,s,Green);
   note("EPOCH START NOT CARRIED / GS CACHE");break;
  }
+ case mesh::Page::Shadow:{
+  const auto& h=m.holdover;const bool current=shadow_current(m,now);
+  framed(12,47,296,37,h.lower_bound?"P99 <1us HOLD / LOWER BOUND":"P99 <1us HOLD / SAMPLED");
+  char duration[20];hold_duration(duration,sizeof duration,h,current);
+  c.digital(23,58,duration,16,22,current&&h.ready?Green:Amber);c.text(145,73,"s",Dim);
+  std::snprintf(s,sizeof s,"TRIALS %lu",(unsigned long)h.trials);c.text(193,57,s,Dim);
+  std::snprintf(s,sizeof s,"BAD %lu / U %lu",(unsigned long)h.bad,(unsigned long)h.unknown);c.text(193,72,s,Dim);
+  const uint64_t metrics[]={h.p95_ns,h.p99_ns,h.max_ns};const char* labels[]={"P95","P99","MAX"};
+  for(unsigned i=0;i<3;++i){const int x=12+int(i)*101;char n[16],label[16];
+   const bool known=current&&metrics[i]!=UINT64_MAX;const auto* unit=hold_error(n,sizeof n,metrics[i],known);
+   std::snprintf(label,sizeof label,"%s %s",labels[i],unit);framed(x,96,i==2?94:93,35,label);
+   if(!std::strcmp(n,"HI"))c.text(x+22,111,"HI",Amber,2,x+90);
+   else c.digital(x+10,107,n,11,19,known?Green:Amber);
+  }
+  c.well(12,139,296,25);
+  std::snprintf(s,sizeof s,"%s / N %lu/128 / AGE %llus",current?(h.holding?"FROZEN":"COMPLETE"):"WAIT BLE",(unsigned long)h.samples,(unsigned long long)(h.age20/20000000));c.text(20,143,s,current?Green:Amber);
+  char peak[16];const auto* unit=hold_error(peak,sizeof peak,h.run_max_ns,current&&h.samples);
+  std::snprintf(s,sizeof s,"GAPS %lu / RUN MAX %s%s",(unsigned long)h.gaps,peak,unit);c.text(20,155,s,current?Dim:Amber);
+  note("SAMPLED BLE ERRORS / NO UTC BOUND");break;
+ }
  case mesh::Page::Count:break;
  }
  c.key(12,181,64,40,"HOME",v.pressed==Action::Home);
  c.key(82,181,58,40,"< PREV",v.pressed==Action::PreviousDiagnostic);
- std::snprintf(s,sizeof s,"%u/5",page+1);c.center(144,198,36,s);
+ std::snprintf(s,sizeof s,"%u/6",page+1);c.center(144,198,36,s);
  c.key(184,181,58,40,"NEXT >",v.pressed==Action::NextDiagnostic);
  c.key(248,181,60,40,"PToB",v.pressed==Action::OpenClock);
 }

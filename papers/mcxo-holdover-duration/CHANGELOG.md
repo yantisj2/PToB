@@ -1,5 +1,14 @@
 # Manuscript history
 
+## 30 October 2026 — descriptive manuscript filenames
+
+Rename `main.tex` and `main.pdf` to
+`ptob-empirical-sub-microsecond-holdover.tex` and
+`ptob-empirical-sub-microsecond-holdover.pdf`. Both files retain their approved
+bytes, including the original build example printed in the paper. Current
+README commands, links and the publication receipt use the new names. Preserve
+the immutable preparation seal and unchanged numerical results and evidence.
+
 ## 30 October 2026 — approval and compact repository packaging
 
 The author approved the research for GitHub preparation. Preserve the reviewed

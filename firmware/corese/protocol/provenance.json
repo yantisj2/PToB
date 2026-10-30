@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "origin": "PToB GM7 engineering source",
+  "commit": "dc404c3fac34fd0c1c650aa36aeb5e316268b5e3",
+  "protocol": "GM7 implementation4",
+  "selection": "Exact current TZ codec only; no election, radio owner, credentials or history",
+  "license": "MIT",
+  "copyright": "2026 Jonathan Yantis",
+  "files": {
+    "gm7_codec.c": {
+      "source_path": "firmware/t096/protocol/gm7_codec.c",
+      "sha256": "ae53b4b678498d219a008faa29dbec77422765b77bbbb54d20f65d024e0982f3"
+    },
+    "gm7_codec.h": {
+      "source_path": "firmware/t096/protocol/gm7_codec.h",
+      "sha256": "516c088ddf35a34985d9a90931cffcdfa3a73a1cc2a73046820a36b4e01a913c"
+    }
+  }
+}

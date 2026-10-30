@@ -64,6 +64,10 @@ Replace the descriptions with your private group's values; these are not literal
 keys to use. Group ID is 16 lowercase hexadecimal digits; PSK is 64 hexadecimal
 digits from OS randomness; key epoch is a nonzero unsigned 32-bit integer.
 
+These inputs provision trust; they are separate from runtime mesh selection.
+Production mesh/source selection must use local authenticated discovery, not a
+fixed mesh-ID pin. A context change requires fresh authenticated admission.
+
 ```json
 {"group_id":"<16 hex digits>","key_epoch":1,"psk":"<64 random hex digits>"}
 ```
@@ -97,14 +101,14 @@ current validation limits.
 
 The normal image now selects the breaking [coarse TZ wire](../../protocol/time-zone-v1/README.md):
 GM revision 4, JOIN revision 5, and RC control/capability revision 8. GM and RC
-must use matching new-wire images; other targets remain deferred. Manual CDT
+must use matching coarse revisions; [W12/N30 ports](../esp32-time-zones.md)
+support the same metadata. Check other targets' own guides. Manual CDT
 uses ID 2 and offset −300 minutes. Existing authenticated parent advertisements
 renew TZ for three advertising periods, independently of precision timing.
 Page 1 and the analog screensaver display local time while that lease is valid,
-then fall back to UTC. Source .206 adds automatic GNSS zone/DST selection and
-dynamic selected-source metadata updates. All participating T096s need .209 or
-newer for automatic DST after synchronization; old .205 receivers cache their
-first pair and .206–.208 stop normal scanning while timing is usable. See the
+then fall back to UTC. Automatic GNSS zone/DST selection and ordered dynamic
+updates use these same coarse fields. All participating T096s need .209 or
+newer to receive automatic changes after synchronization. See the
 [current automatic-TZ results and remaining gates](auto-time-zone-plan.md#local-209-results--29-october-2026).
 
 Normal GM/RC builds default to `--tz-mode auto`. Geographic ambiguity, stale

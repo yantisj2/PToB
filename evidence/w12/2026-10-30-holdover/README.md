@@ -1,8 +1,8 @@
 # W12 sampled holdover duration — 30 October 2026
 
 Selected inputs for Jonathan Yantis's approved
-[MCXO-inspired holdover preprint](../../../papers/mcxo-holdover-duration/main.pdf).
-The canonical manuscript is [LaTeX](../../../papers/mcxo-holdover-duration/main.tex).
+[MCXO-inspired holdover preprint](../../../papers/mcxo-holdover-duration/ptob-empirical-sub-microsecond-holdover.pdf).
+The canonical manuscript is [LaTeX](../../../papers/mcxo-holdover-duration/ptob-empirical-sub-microsecond-holdover.tex).
 
 | Population | Replayed result | Boundary |
 | --- | --- | --- |

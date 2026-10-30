@@ -47,9 +47,12 @@ verifier checks the current selected data and matching edition.
 This checks all imported evidence files against the [import manifest](imports/2026-10-09.json)
 and recomputes seven PLL capture populations from the included derived samples.
 The V14 command checks its [separate receipt](../papers/imports/v14-2026-10-13.json),
-recomputes both PPS populations and diagnostic deltas, and verifies printed
-proposal tables/examples. Its [verification record](v14/2026-10-12/verification-2026-10-13.json)
-separates fresh checks from historical C, raw-extraction, and hardware results.
+recomputes both PPS populations/diagnostic deltas and verifies the frozen RC1
+tables/examples using the preserved proposal's hash-checked Git revision.
+It also checks the [current V14 proposal](../papers/editions/v14-sig-2026-10-30.json)
+and coarse TZ known answers; include the recorded history when cloning.
+The original [verification record](v14/2026-10-12/verification-2026-10-13.json)
+retains its dated checks, separate from historical C, raw extraction and hardware.
 The v12 model has its own [standalone test instructions](v12/model/README.md).
 The stability command checks the selected public summary hashes and aggregate
 accounting; private raw logs are excluded, so physical extraction is not reproduced.

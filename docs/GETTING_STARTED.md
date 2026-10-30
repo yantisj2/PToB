@@ -34,8 +34,9 @@ failover quality, continuity or UTC accuracy by their mere presence.
 Use the [T096](../firmware/t096/README.md), [W12](../firmware/w12/README.md),
 [SS3](../firmware/ss3/README.md) and [macOS](../clients/macos/README.md) guides
 for the supported board and exact commands. The GM profile's current source
-qualification and multi-GM limitations are recorded in the
-[T096 baseline](t096/baseline.md). A receiver's lock indicator is not evidence
+qualification and multi-GM limits are recorded in the
+[GM7 operations](t096/gm-operations.md) and [implementation](t096/gm7-implementation.md)
+guides. A receiver's lock indicator is not evidence
 that a GM is independently accurate.
 
 ## 2. Create private enrollment and a shared map
@@ -45,6 +46,10 @@ Create a new group using a random 32-byte PSK, nonzero 64-bit group ID and nonze
 key replacement. Use the same enrollment for group members, but a separate device
 configuration for each board. Keep files and build products under ignored,
 owner-only `artifacts/`; keep a private backup of enrollment separately.
+
+Trusted credentials and runtime selection are separate. Discover available
+meshes/sources locally rather than pinning a production image to one mesh ID;
+require fresh authenticated admission after a context change.
 
 Copy [the example registry](../registry/example.json) into your local inputs,
 replace synthetic IDs with verified hardware IDs, and give each device a useful

@@ -151,18 +151,18 @@ Original interface artwork and documentation, Jonathan Yantis, MIT.
 
 ## CoreS3-SE precision diagnostics instrument
 
-The four selected CoreS3-SE 0.1.10 screenshots show the instrument, local receiver
-quality, mesh role history and GM reference pages during a finite development
-field check on 23 October 2026. `corese-reference.png` is the actual completed
-LCD framebuffer. The other three use the on-device production renderer with
-the contemporaneous live model, without changing the visible Reference page.
+The five selected CoreS3-SE 0.1.30 screenshots show the local clock and sampled
+P99 hold seconds, receiver quality, mesh role history, GM reference and shadow
+holdover during finite development checks on 30 October 2026. All five use the
+on-device production renderer and contemporaneous live model, without changing
+the visible instrument page. The earlier0.1.10 edition remains in Git.
 The complete 320×240 PNG files are copied unchanged; they are not photographs.
 
 The [provenance record](corese-provenance.json) identifies every selected image,
 its bytes, capture mode, pixel CRC and renderer sources. Readouts are snapshots:
-causal RMS is internal prediction quality, HDOP is GNSS geometry, and `VAR NONE`
-means unreported variance. Missing HOT and the unavailable delivery denominator
-are retained. These images do not establish calibrated UTC, physical PPS accuracy
+causal RMS and shadow errors describe internal receiver observations, HDOP is
+GNSS geometry, and `VAR NONE` means unreported variance. Cached reports, witness
+gaps and the unavailable delivery denominator are retained. These images do not establish calibrated UTC, physical PPS accuracy
 or continuous availability. Exact hardware identities, private enrollment and
 raw console logs are excluded.
 

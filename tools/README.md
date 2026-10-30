@@ -58,9 +58,18 @@ holdover arithmetic, bibliography keys, and edition/source/PDF identity. This
 standard-library check does not implement a vendor protocol or qualify hardware
 or interoperability. See the [paper catalogue](../papers/README.md).
 
+Run `python3 tools/verify_v14_proposal.py` with Python 3.9+ for the current
+30 October author-review source/PDF identities, cited source pins and four
+independent coarse TZ wire/HMAC known answers. This does not execute firmware
+or qualify failover, RF delivery or accuracy.
+
 Run `python3 tools/verify_v14.py` from the repository root with Python 3.9+ to
-check the V14 import hashes, both separate PPS-phase populations, complete
-opportunity accounting, diagnostic deltas, and proposal tables/examples/HMACs.
+also check the immutable V14 import hashes, both separate PPS-phase populations,
+complete opportunity accounting, diagnostic deltas and frozen RC1
+tables/examples/HMACs. The replaced proposal pair resolves through hash-checked
+Git history at the exact revision recorded in the new edition manifest; include
+that history when cloning. `tools/check_v14_document.py` checks that frozen
+proposal alone. Unchanged imported files are always checked in place.
 The [V14 collection](../evidence/v14/2026-10-12/README.md) documents its scope and
 optional figure reproduction using `tools/derive_v14_figures.py`.
 

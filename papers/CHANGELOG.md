@@ -1,5 +1,12 @@
 # Manuscript history
 
+## 2026-10-30 — holdover paper filenames for GitHub preparation
+
+- Give the approved holdover LaTeX/PDF a descriptive shared filename,
+  `ptob-empirical-sub-microsecond-holdover`, without changing either file.
+- Update live links, build commands and current packaging identities; keep
+  original edition paths/hashes as historical provenance and retain draft status.
+
 ## 2026-10-30 — holdover research approved and packaged
 
 - Record author approval without changing the reviewed LaTeX/PDF or results.
@@ -25,6 +32,26 @@
   Temperature remains shadow-only; independent output/UTC and GM transition
   qualification remain open. This is an author-review draft, with no submission
   or publication promotion.
+
+## 2026-10-30 — current V14 SIG proposal for author review
+
+- Refresh the proposal around GM7 broadcast election, ACTIVE/HOT/COLD behavior,
+  conditional 2.5 s / 3 s succession, immutable YIELD/WITHDRAW and inherited
+  mesh birth; replace coordinator/connected-GM and fixed-route descriptions.
+- Describe RC7 dynamic paths and current G7V4/JOIN5/coarse8 wire bindings,
+  including exact mixed-endian TZ fields and authentication domains. Add
+  concise dynamic TZ/DST, ordering, three-period leases and UTC separation.
+- Keep the proposal current-design-only. Move revision context to this history
+  and the new edition manifest; omit the historical byte-table/hex/evidence
+  annexes and refer readers to public contracts/codecs for detailed bindings.
+- Preserve the 12 October preprint, frozen contracts, original import receipt
+  and all evidence hashes. Historical verification resolves only the replaced
+  proposal pair through its exact hash-checked Git revision; the new checker
+  verifies the current pair and independently checks four public TZ HMAC vectors.
+- Build and visually inspect the matching PDF, with exact source pins and
+  compiler identity in the edition manifest. This is an author-review proposal;
+  physical failover/relay availability and UTC/output qualification remain open.
+  No firmware, hardware, publication, submission, commit or push is part of this edit.
 
 ## 2026-10-26 — latest multipath and indoor PNT drafts approved for public review
 

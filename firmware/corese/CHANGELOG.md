@@ -2,6 +2,118 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 0.1.30 — preserve frozen shadow trials through quality changes
+
+- Apply sub1us qualification when starting a shadow trial, then continue scoring its frozen candidate through later RMS/lock changes. Do not censor tails by cancelling the trial when production quality worsens; retain scope invalidation, original run timeout and explicit witness-gap/unknown outcomes.
+- The0.1.29 device auto-joined and received current CDT metadata, but its finite live check exposed repeated quality-triggered shadow aborts. Preserve that observation alongside the correction and its regression.
+
+## 0.1.29 — automatic local mesh and current TZ admission
+
+- Learn the local group ID/epoch from a keyed canonical G1 locator or authenticated GM4 ANN, using the provisioned trusted PSK without a group-ID allowlist. Start with no selected group; permit another local context after actual source loss and radio cleanup, with a fresh nonce-bound JOIN before timing returns.
+- Replace old RC control/discovery length literals with the selected TZ codec constants (216-byte control,148-byte capability). Test actual admission, ordered DST/unknown updates, rejected foreign keys and mesh changes under ASan/UBSan.
+- Name the alternate face TIME REGISTER because its digits follow the same leased local TZ as the instrument face. Preserve UTC fallback and all shadow/servo behavior.
+
+## 0.1.28 — shadow workspace in PSRAM
+
+- Allocate the bounded shadow/rate/horizon history in PSRAM before receiver admission, keeping it off the NimBLE host stack and out of internal static RAM.
+- Preserve the0.1.27 app-only readback/prefix/tail success and its failed Bluetooth startup observation. Native memory/build checks do not replace a fresh exact-device boot and reception check.
+
+## 0.1.27 — shadow holdover servo, sampled duration and local clock
+
+- Bring forward the previously developed CoreSE0.1.18–0.1.26 receive-only GM7 diagnostics, preserving current builder retention hooks and the pinned receiver/calibration.
+- Add a frozen120s BLE-trained rate-only candidate, bounded16/32s repeated-channel HOLD-rate choice and rolling128 absolute-error P95/P99/MAX. Witnesses score future errors without correcting a held candidate; tails and gaps remain visible.
+- Share W12's sampled-prefix P99 duration estimator: at least100 witnessed trials per age, frequent2s trials and adaptive long probes, unknown outcomes and lower-bound semantics. This does not promote the candidate into delivered HOLD or promise continuous sub1us accuracy.
+- Replace the main clock's relative offset with P99 <1us HOLD seconds; retain signed relative offset in Quality. Add Shadow as diagnostic6/6, console page8, preserving pages0–7.
+- Auto-range shadow errors ns/us/ms/s at1000ns,1e6ns and1e9ns, with units in every label. Keep hold duration in seconds.
+- Consume current GM4/JOIN5/RC8 coarse TZ with authenticated selected-parent ordering, original receipt expiry, DST updates, explicit unknown and UTC fallback. Keep UTC diagnostics, counter coordinates, GPIO6/7 and calibration unchanged.
+- Add actual-renderer synthetic review fixtures, owner/servo/UI regressions and an offline native build. Hardware installation and accuracy acceptance remain separate.
+
+## 0.1.26 — current ACTIVE nomination and separate self-report age
+
+- Show HOT NOMINEE / CURRENT from the current authenticated ACTIVE report, independently of extra HOT self-report expiry or local precision qualification. Show SELF role/age separately; preserve nomination identity and unchanged timer through missing self-reports.
+- Expose hot_nomination_current alongside the original self-report hot_confirmed diagnostic. True withdrawal, cleared nominee and ACTIVE report expiry remain distinct.
+- The0.1.25 finite90s capture had208/209 current ACTIVE nominations and no timer reset, while self-reports were current97/209. ROLE reception improved to19new reports but self-report gaps remain, including21s. Preserve those limitations rather than relabeling self-reports as fresh.
+
+## 0.1.25 — receive ROLE before ANN discovery
+
+- Open the first protected window at41ms, after primary ANN38ms, to receive ROLE43ms before an ANN AUX can occupy that opportunity. Retain45/50ms ANN discovery copies, STATUS85–113ms and physical8ms/56ms guards.
+- Version0.1.24 had197/197 current source snapshots but only2 ROLE receptions in90s; upstream journals confirmed successful ROLE transmission and reception by other GMs. Keep that incomplete observation.
+
+## 0.1.24 — ordinary reports without precision gating
+
+- Schedule ordinary ANN/ROLE/STATUS observation from the current finite source/model and recent authenticated physical reception, independently of raw sub-1us/one-second precision hold qualification. Precision validity is unchanged.
+- Permit planning within25ms of the associated physical PA to accommodate host dispatch latency. Retain the8ms/56ms physical window guard.
+- Version0.1.23 showed scan starvation while source time remained current but precision qualification was absent; retain its finite result.
+
+## 0.1.23 — preserve completed diagnostic callbacks
+
+- Decode complete nonstale passive reports before the protected-window scheduling filter. HCI callback time is not an RF timestamp; an already received ROLE/STATUS report can arrive after scan closure. Parent/RC9 selection keeps the existing filter.
+- Count accepted callbacks outside the scan window; keep advertised TTL, replay and authentication unchanged.
+- Version0.1.22 admitted both windows and advanced ANN155times in90s, but HOT refresh still had gaps during spontaneous upstream reset/selection changes. Retain that incomplete result.
+
+## 0.1.22 — physical guard coverage
+
+- End ANN/ROLE scanning at50ms and STATUS at113ms so a physical PA before the UTC slot boundary does not reject the complete management window. Preserve the8ms/56ms physical guard and original source/timing validity.
+- Expose admitted primary/STATUS windows, physical PA phase and guard refusals in diagnostics.
+- The0.1.21 finite hardware observation still had49.5s HOT report gaps and no admitted primary window; it is not accepted as a reception fix.
+
+## 0.1.21 — cadence-aware HOT diagnostics
+
+- Listen around actual GM7 ANN/ROLE32–56ms and STATUS86–116ms slots in each
+  250ms UTC frame. A current admitted clock schedules passive reception only;
+  fresh associated PA and physical start/end guards remain mandatory. Use50ms
+  protected scan intervals so a complete management window closes before a
+  primary-channel rotation; ordinary discovery/admission parameters stay intact.
+- Accept positive authenticated ROLE=HOT as descriptive evidence alongside
+  STATUS, preserving original4.5s expiry. An older cross-channel remote sample
+  cannot replace newer peer state. One lost2s report does not clear the screen.
+- Base HOT UNCHANGED on its selected identity/boot. Refreshes, report expiry and
+  term/train changes do not restart that timer. Show explicit last-report age
+  after expiry; nomination, reported state and timing authority remain separate.
+- Test complete primary/AUX coverage for all actual STATUS slots and ROLE
+  frames, pending-window health cancellation, original expiry, one lost report,
+  stable timer pixels and real codec/HMAC. Timing precision validity is unchanged.
+
+## 0.1.20 — receive complete management events
+
+- Overlap adjacent12ms diagnostic phases at8/16/24/32/40/44ms. A full
+  primary/gap/AUX event crossing one phase's closing edge can fit in a later
+  phase; point-only calendar coverage was insufficient. Keep the final56ms
+  boundary, quarter-frame shift, current clock gates and minimum200ms spacing.
+- Exercise full2ms management events in the calendar test. Expose the most
+  recently authenticated GD scope separately from accepted Reference data so
+  unknown/current source mismatches remain diagnosable without relaxing scope.
+- Preserve0.1.18/0.1.19 field outcomes separately. No source-permission,
+  fine-counter, enrollment, GPIO or upstream firmware change.
+
+## 0.1.19 — rotating diagnostic receive opportunities
+
+- Fix the persistent management blind spot after timing lock: immediate post-PA
+  windows repeatedly missed the GM7 calendar. Rotate12ms windows through
+  8/20/32/44ms after a fresh associated PA and shift the management-frame quarter
+  after a full cycle. Close by56ms, before the next62.5ms timing reception.
+- Preserve original timing permission and healthy-current-clock gates,
+  200ms minimum spacing, single-use physical captures and bounded cancellation.
+  A pending window cancels on source loss or unhealthy clock; it cannot renew.
+- Test the actual GM7 primary/diagnostic/capability opportunities against the
+  receiver scheduler, plus pending-window, expiry, duplicate and reversal edges.
+  Preserve the0.1.18 field gap and recovery observations as a separate outcome.
+
+## 0.1.18 — GM7 diagnostics and actual epoch reporting
+
+- Observe authenticated implementation3 ANN, STATUS, ROLE, GNSS and WITHDRAW on
+  SID14 with canonical advertiser checks, 64-bit sequence counters, independent
+  replay namespaces and original receipt expiry. Preserve legacy GS/GD reports.
+- Show the actual signed epoch birth in UTC and elapsed time from a current,
+  scope-matched UTC model. Keep local receiver uptime separate; missing current
+  UTC remains unknown. Leadership terms do not reset the epoch's start.
+- Distinguish an ACTIVE nomination from matching reported HOT readiness, expose
+  normal capability STATUS reports, YIELD, explicit withdrawal and raw role
+  blockers. Retain descriptive history without extending timing permission.
+- Preserve the pinned receiver, recovery, scan budget and GPIO6/7 route. Host
+  checks exercise the real codec, dispatcher, replay/expiry and UI withdrawal;
+  native builds and hardware observations retain their own identities.
+
 ## 0.1.17 — acknowledged periodic owner closure
 
 - Retire an exact periodic owner on the pinned SDK's successful HCI terminate

@@ -1,0 +1,44 @@
+{
+  "schema": 1,
+  "commit": "dc404c3fac34fd0c1c650aa36aeb5e316268b5e3",
+  "license": "Preserve each selected file notice (MIT or Apache-2.0)",
+  "copyright": "2026 Jonathan Yantis",
+  "selection": "Explicit W12 rate-only shadow/horizon and coarse TZ dependencies; no receiver coordinate or calibration changes",
+  "files": {
+    "firmware/w12/main/w12_holdover_rate.hpp": {
+      "sha256": "4fee3a94f24af7333d344ad97691412711f352123a95f5c02d564753d8c5c438"
+    },
+    "firmware/w12/main/w12_holdover_horizon.hpp": {
+      "sha256": "cd3e7593149d1b40e70cc183d62cc2a9c8bee921e4cab7f85f606698e3a282a6"
+    },
+    "firmware/w12/main/g1_time_zone.hpp": {
+      "sha256": "54753721ba4b81c7cf74dabe134d2bdf73ab040ecfba6e472679782519339d43"
+    },
+    "firmware/w12/main/coarse_time_zone.hpp": {
+      "sha256": "89e53c1b72c24db3d9d0d2392915aabdbacb3a733e39138aeb4f0d3ade490533"
+    },
+    "firmware/w12/main/r2/r2-g1/time_zone.h": {
+      "sha256": "32c5c86867f8c19f85efe4f19badee55ee7744d2e0164fbd8e79438df163329d"
+    },
+    "firmware/w12/main/r2/r2-g1/group_join.c": {
+      "sha256": "faeedb95492239b3cbb8df2118446ba86f5a830742c3ad721277445411b2cb7c"
+    },
+    "firmware/w12/main/r2/r2-g1/group_join.h": {
+      "sha256": "1067bb13ccb269a7e9bd831fc37d34b6aea54692003c4042b6fbdc8fa1205efd"
+    },
+    "firmware/w12/main/r2/rc7/protocol/rc_dynamic.c": {
+      "sha256": "3ba864290164f6b358a9cc2283b55a31dcdb92cccc45451d33d5a4325593a9cc"
+    },
+    "firmware/w12/main/r2/rc7/protocol/rc_dynamic.h": {
+      "sha256": "e5548c7b5908b7907b2e3d72c49a9e1f19d3d5da245085fef166b7488c12d471"
+    }
+  },
+  "adaptations": {
+    "w12_holdover_rate.hpp": [
+      "Remove delivered-copy receiver-phase subtraction and thermal reset: pinned CoreSE prediction has neither field."
+    ],
+    "w12_holdover_horizon.hpp": [
+      "Remove receiver-phase subtraction and thermal beta rejection: CoreSE candidate is rate-only."
+    ]
+  }
+}

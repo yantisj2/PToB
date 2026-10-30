@@ -1,8 +1,10 @@
 # Design background
 
-For the latest research, read [V14 research status](V14_RESEARCH_STATUS.md) and
-the [frozen V14-RC1 clock specification](V14_CLOCK_SPEC_RC1.md). The status page
-binds the paper, wire, and physical evidence checkpoints separately.
+For the current protocol proposal, read the **30 October author-review
+[V14 SIG draft](../papers/ptob-v14-sig-proposal.pdf)** and
+[V14 research status](V14_RESEARCH_STATUS.md). The
+[V14-RC1 specification](V14_CLOCK_SPEC_RC1.md) is a frozen 12 October reference;
+paper editions, wire revisions and physical evidence retain separate identities.
 
 Start with [From passive precision to v12 and T096 R2](V12_TO_R2.md): why periodic
 advertising became a mesh requirement, how mesh and client services are being
@@ -17,19 +19,18 @@ GM-granted, low-priority T096 exchange, conditional averaging, shadow-PPS
 validation and per-link propagation correction. It includes reproducible
 synthetic arithmetic; ranging and automatic compensation are not implemented.
 
-The [time zone wire plan](time-zones.md) records the proposed four-byte zone ID
-and current UTC offset alongside coarse UTC, with manual GM configuration and
-unchanged RC forwarding. The separate [compact regional database proposal](time-zone-database.md)
-covers later GM offset calendars and rough GNSS selection for North America,
-Central America and Western Europe. Source .206 implements that bounded GM
-database/selector and dynamic receiver updates; hardware qualification is separate.
+The [GM7 operations guide](t096/gm-operations.md) covers ACTIVE/HOT/COLD setup
+and observation; the [implementation guide](t096/gm7-implementation.md) defines
+current source behavior and compatibility.
 
-The [T096 GM auto-TZ guide](t096/auto-time-zone-plan.md) records modes, location
-freshness, DST calendars, receiver update policy, verified data and limits.
-
-The [T096 test plan](t096/time-zone-test-plan.md) stages a breaking manual-CDT
-cohort on TC-01/TC-02/TC-04 before other target ports. Execution on the attached
-cohort is authorized; certification is pending.
+The [time zone contract overview](time-zones.md) describes four authenticated
+coarse bytes, dynamic updates and three-period leases. T096 .209 supports GM
+location/calendar modes and updates after receiver timing lock; the
+[auto-TZ guide](t096/auto-time-zone-plan.md) records coverage and finite results.
+[W12/N30 ports](esp32-time-zones.md) consume the same metadata.
+The [regional design](time-zone-database.md) and
+[manual-wire test plan](t096/time-zone-test-plan.md) retain their dated scope;
+physical DST, failover and full certification remain open.
 
 The [CoreS3-SE instrument](../firmware/corese/README.md) provides a dedicated
 client and five passive diagnostic pages. Its [build guide](corese/build.md) and

@@ -5,6 +5,7 @@ Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT
 import argparse,hashlib,importlib.util,io,json,os,re,shutil,subprocess,sys,tarfile
 from pathlib import Path
 from prepare_runtime import prepare
+from precision_runtime import precision
 APP=Path(__file__).resolve().parents[1];REPO=APP.parents[1]
 SHARED_REF='699f100c4e01db563f8e4b0a9f8d01d15e8600a4'
 RECOVERY_REF='6ac2721becf37b3c5d22919eea9e25e24a4054cf'
@@ -17,6 +18,12 @@ from registry import load,header
 
 def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
 def dump(p,v):p.write_text(json.dumps(v,indent=2,sort_keys=True)+'\n')
+def verify_gm7(root):
+ protocol=Path(root)/'firmware/corese/protocol';p=json.loads((protocol/'provenance.json').read_text())
+ if p['protocol'] not in ('GM7 implementation3','GM7 implementation4') or p['license']!='MIT' or set(p['files'])!={'gm7_codec.c','gm7_codec.h'}:raise ValueError('Unexpected GM7 codec selection')
+ for n,record in p['files'].items():
+  if sha(protocol/n)!=record['sha256']:raise ValueError('Frozen GM7 codec changed: '+n)
+ return p
 def module(name,path):
  spec=importlib.util.spec_from_file_location(name,path);m=importlib.util.module_from_spec(spec);sys.modules[name]=m;spec.loader.exec_module(m);return m
 
@@ -30,7 +37,7 @@ def sources():
  files|={REPO/'firmware/t096/protocol'/n for n in ('gnss_diagnostics.c','gnss_diagnostics.h')}
  return {str(p.relative_to(REPO)):sha(p) for p in sorted(files)}
 
-def freeze_shared(root):
+def freeze_shared(root,with_precision=True):
  # Pin the receiver version tested on this target. Other repository targets
  # may advance independently while a CoreSE hardware comparison is running.
  for n in SHARED_PATHS:
@@ -60,26 +67,40 @@ def freeze_shared(root):
  if set(re.findall(r'^diff --git a/(\S+) b/\1$',patch.read_text(),re.M))!=expected:raise ValueError('Leader patch target scope changed')
  subprocess.run([*args,'--check',str(patch)],check=True,cwd=REPO)
  subprocess.run([*args,str(patch)],check=True,cwd=REPO)
+ if with_precision:precision(root)
  return {str(p.relative_to(root)):sha(p) for p in sorted(root.rglob('*')) if p.is_file()}
 
 def inspect(out):
  out=Path(out);r=json.loads((out/'receipt.json').read_text());
- if r.get('kind')!='CORESE_LIVE_CLIENT' or r.get('version') not in ('0.1.1','0.1.2','0.1.3','0.1.4','0.1.5','0.1.6','0.1.7','0.1.8','0.1.9','0.1.10','0.1.11','0.1.12','0.1.13','0.1.14','0.1.15','0.1.16','0.1.17'):raise ValueError('Wrong client artifact class/version')
+ if r.get('kind')!='CORESE_LIVE_CLIENT' or r.get('version') not in ('0.1.1','0.1.2','0.1.3','0.1.4','0.1.5','0.1.6','0.1.7','0.1.8','0.1.9','0.1.10','0.1.11','0.1.12','0.1.13','0.1.14','0.1.15','0.1.16','0.1.17','0.1.18','0.1.19','0.1.20','0.1.21','0.1.22','0.1.23','0.1.24','0.1.25','0.1.26','0.1.27','0.1.28','0.1.29','0.1.30'):raise ValueError('Wrong client artifact class/version')
  target=out/'target';i=json.loads((target/'v12_build_identity.json').read_text())
  for n,h in r['sources'].items():
   if sha(out/'source'/n)!=h:raise ValueError('Retained source mismatch: '+n)
  for n,h in r['artifacts'].items():
   if sha(out/n)!=h:raise ValueError('Build artifact mismatch: '+n)
- if r['version'] in ('0.1.11','0.1.12','0.1.13','0.1.14','0.1.15','0.1.16','0.1.17'):
+ if r['version'] in ('0.1.27','0.1.28','0.1.29','0.1.30') and r.get('precision_source_selection')!=json.loads((out/'source/firmware/corese/tools/precision_sources.json').read_text()):raise ValueError('Precision provenance mismatch')
+ if r['version'] in ('0.1.27','0.1.28','0.1.29','0.1.30') and (r.get('shadow_policy')!=('BLE_RATE_ONLY_FROZEN_120S_UNCENSORED_ROLLING128_PREFIX_Q99_1US_V3' if r['version']=='0.1.30' else 'BLE_RATE_ONLY_FROZEN_120S_ROLLING128_PREFIX_Q99_1US_V2') or r.get('time_zone_contract')!='TIME_ZONE_V1_GM4_JOIN5_RC8' or verify_gm7(out/'source')['protocol']!='GM7 implementation4'):raise ValueError('Shadow/TZ selection mismatch')
+ if r['version'] in ('0.1.29','0.1.30') and r.get('mesh_discovery_policy')!='VOLATILE_RADIO_GROUP_NO_ID_ALLOWLIST_FRESH_JOIN_V1':raise ValueError('Mesh discovery policy mismatch')
+ if r['version'] in ('0.1.11','0.1.12','0.1.13','0.1.14','0.1.15','0.1.16','0.1.17','0.1.18','0.1.19','0.1.20','0.1.21','0.1.22','0.1.23','0.1.24','0.1.25','0.1.26','0.1.27','0.1.28','0.1.29','0.1.30'):
   recovery=r.get('shared_source_recovery',{})
   if r['shared_source_git_ref']!=SHARED_REF or recovery.get('commit')!=RECOVERY_REF or recovery.get('policy')!=RECOVERY_POLICY or recovery.get('patch_sha256')!=sha(out/'source/firmware/corese/tools/auto_rc9_recovery.patch'):raise ValueError('Recovery backport provenance mismatch')
  if r['version']=='0.1.12' and r.get('diagnostic_scan_policy')!='FRESH_ASSOCIATED_PA_12MS_MIN200MS_V1':raise ValueError('Diagnostic scan policy mismatch')
- if r['version'] in ('0.1.13','0.1.14','0.1.15','0.1.16','0.1.17') and (r.get('diagnostic_scan_policy')!='FRESH_ASSOCIATED_PA_12MS_MIN200MS_AGE10MS_V1' or r.get('retained_display_policy')!='LAST_PHYSICAL_DELIVERY_500MS_NO_PRECISION_V1'):raise ValueError('Scan/HOLD policy mismatch')
- if r['version'] in ('0.1.14','0.1.15','0.1.16','0.1.17'):
+ if r['version'] in ('0.1.13','0.1.14','0.1.15','0.1.16','0.1.17','0.1.18') and (r.get('diagnostic_scan_policy')!='FRESH_ASSOCIATED_PA_12MS_MIN200MS_AGE10MS_V1' or r.get('retained_display_policy')!='LAST_PHYSICAL_DELIVERY_500MS_NO_PRECISION_V1'):raise ValueError('Scan/HOLD policy mismatch')
+ if r['version']=='0.1.21' and (r.get('diagnostic_scan_policy')!='UTC_GM7_SLOT_WINDOWS_24_30MS_PA_GUARD_V1' or r.get('hot_display_policy')!='STABLE_HOT_SELECTION_ID_BOOT_ROLE_STATUS_ORIGINAL_TTL_V1' or r.get('retained_display_policy')!='LAST_PHYSICAL_DELIVERY_500MS_NO_PRECISION_V1'):raise ValueError('GM7 slot/HOT display policy mismatch')
+ if r['version']=='0.1.22' and (r.get('diagnostic_scan_policy')!='UTC_GM7_SLOT_WINDOWS_20_28MS_PA_GUARD_V2' or r.get('hot_display_policy')!='STABLE_HOT_SELECTION_ID_BOOT_ROLE_STATUS_ORIGINAL_TTL_V1' or r.get('retained_display_policy')!='LAST_PHYSICAL_DELIVERY_500MS_NO_PRECISION_V1'):raise ValueError('GM7 slot/HOT display policy mismatch')
+ if r['version']=='0.1.23' and (r.get('diagnostic_scan_policy')!='UTC_GM7_SLOT_WINDOWS_20_28MS_PA_GUARD_CALLBACK_V3' or r.get('hot_display_policy')!='STABLE_HOT_SELECTION_ID_BOOT_ROLE_STATUS_ORIGINAL_TTL_V1' or r.get('retained_display_policy')!='LAST_PHYSICAL_DELIVERY_500MS_NO_PRECISION_V1'):raise ValueError('GM7 slot/HOT display policy mismatch')
+ if r['version']=='0.1.24' and (r.get('diagnostic_scan_policy')!='UTC_GM7_SLOT_WINDOWS_20_28MS_PA25_NO_PRECISION_GATE_V4' or r.get('hot_display_policy')!='STABLE_HOT_SELECTION_ID_BOOT_ROLE_STATUS_ORIGINAL_TTL_V1' or r.get('retained_display_policy')!='LAST_PHYSICAL_DELIVERY_500MS_NO_PRECISION_V1'):raise ValueError('GM7 slot/HOT display policy mismatch')
+ if r['version']=='0.1.25' and (r.get('diagnostic_scan_policy')!='UTC_GM7_ROLE_FIRST_14_28MS_PA25_V5' or r.get('hot_display_policy')!='STABLE_HOT_SELECTION_ID_BOOT_ROLE_STATUS_ORIGINAL_TTL_V1' or r.get('retained_display_policy')!='LAST_PHYSICAL_DELIVERY_500MS_NO_PRECISION_V1'):raise ValueError('GM7 slot/HOT display policy mismatch')
+ if r['version']=='0.1.26' and (r.get('diagnostic_scan_policy')!='UTC_GM7_ROLE_FIRST_14_28MS_PA25_V5' or r.get('hot_display_policy')!='ACTIVE_NOMINATION_CURRENT_INDEPENDENT_SELF_REPORT_TTL_V2' or r.get('retained_display_policy')!='LAST_PHYSICAL_DELIVERY_500MS_NO_PRECISION_V1'):raise ValueError('GM7 slot/HOT display policy mismatch')
+ if r['version']=='0.1.20' and (r.get('diagnostic_scan_policy')!='FRESH_ASSOCIATED_PA_OVERLAP_12MS_MIN200MS_56MS_V1' or r.get('retained_display_policy')!='LAST_PHYSICAL_DELIVERY_500MS_NO_PRECISION_V1'):raise ValueError('Overlapping scan/HOLD policy mismatch')
+ if r['version']=='0.1.19' and (r.get('diagnostic_scan_policy')!='FRESH_ASSOCIATED_PA_ROTATING_12MS_MIN200MS_56MS_V1' or r.get('retained_display_policy')!='LAST_PHYSICAL_DELIVERY_500MS_NO_PRECISION_V1'):raise ValueError('Rotating scan/HOLD policy mismatch')
+ if r['version'] in ('0.1.14','0.1.15','0.1.16','0.1.17','0.1.18','0.1.19','0.1.20','0.1.21','0.1.22','0.1.23','0.1.24','0.1.25','0.1.26','0.1.27','0.1.28','0.1.29','0.1.30'):
   leader=r.get('shared_source_leader_recovery',{})
   refs,policy=({'c98f6f2af41ad4be6a3d505b34a473373c54bf76'},'FENCED_SCOPE_CACHE_CLEAR_1500MS_V1') if r['version']=='0.1.14' else (({'6fd28f952f2787df9491fcda65a71ed0d4f3fa35','677c044e41bd86cdb9d08e5a20806a0b65248c8d'},'FENCED_SCOPE_CACHE_CLEAR_1500MS_V2') if r['version']=='0.1.15' else (({'5840781e6dd4fc7774f13ccdbeaa9069139ec0f3'},'FENCED_SCOPE_CACHE_CLEAR_1500MS_V3') if r['version']=='0.1.16' else ({LEADER_REF},LEADER_POLICY)))
   if leader.get('commit') not in refs or leader.get('policy')!=policy or leader.get('patch_sha256')!=sha(out/'source/firmware/corese/tools/leader_recovery.patch'):raise ValueError('Leader backport provenance mismatch')
- if r['version']=='0.1.17' and r.get('pa_termination_policy')!='SDK_HCI_ACK_EXACT_OWNER_V1':raise ValueError('Periodic termination policy mismatch')
+ if r['version'] in ('0.1.17','0.1.18','0.1.19','0.1.20','0.1.21','0.1.22','0.1.23','0.1.24','0.1.25','0.1.26','0.1.27','0.1.28','0.1.29','0.1.30') and r.get('pa_termination_policy')!='SDK_HCI_ACK_EXACT_OWNER_V1':raise ValueError('Periodic termination policy mismatch')
+ if r['version'] in ('0.1.18','0.1.19','0.1.20','0.1.21','0.1.22','0.1.23','0.1.24','0.1.25','0.1.26','0.1.27','0.1.28','0.1.29','0.1.30') and r.get('gm7_diagnostic_protocol')!=('GM7_IMPLEMENTATION4_TZ_SID14_RECEIVE_ONLY' if r['version'] in ('0.1.27','0.1.28','0.1.29','0.1.30') else 'GM7_IMPLEMENTATION3_SID14_RECEIVE_ONLY'):raise ValueError('GM7 diagnostic policy mismatch')
+ if r['version'] in ('0.1.18','0.1.19','0.1.20','0.1.21','0.1.22','0.1.23','0.1.24','0.1.25','0.1.26','0.1.27','0.1.28','0.1.29','0.1.30') and verify_gm7(out/'source')!=r.get('gm7_codec_provenance'):raise ValueError('GM7 codec provenance mismatch')
  config=(target/'sdkconfig').read_text().splitlines()
  for flag in ('CONFIG_SPIRAM=y','CONFIG_SPIRAM_MODE_QUAD=y','CONFIG_SPIRAM_SPEED_80M=y','CONFIG_SPIRAM_USE_MALLOC=y','CONFIG_BT_ENABLED=y','CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y','CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y','CONFIG_BT_CTRL_BLE_MAX_ACT_EFF=6'):
   if flag not in config:raise ValueError('Required setting missing: '+flag)
@@ -123,6 +144,7 @@ def main():
  if set(e)!={'group_id','key_epoch','psk'} or not re.fullmatch('[0-9a-f]{16}',e['group_id']) or not int(e['group_id'],16) or type(e['key_epoch'])is not int or not 0<e['key_epoch']<2**32 or len(key)!=32 or not any(key):raise ValueError('Invalid enrollment')
  if set(d)!={'board','factory_mac','device_id','label','legacy_wire_id'} or d['board']!='m5stack_cores3_se' or not re.fullmatch('[0-9a-f]{2}(:[0-9a-f]{2}){5}',d['factory_mac']) or d['device_id']!='0000'+d['factory_mac'].replace(':','') or not 1<=d['legacy_wire_id']<=254:raise ValueError('Exact CoreS3-SE input required')
  if registry['devices'].get(d['device_id'],{}).get('target')!='corese' or registry['devices'][d['device_id']]['alias']!=d['label']:raise ValueError('Onboard exact CoreS3-SE identity first')
+ gm7_provenance=verify_gm7(REPO)
  out.mkdir(parents=True,exist_ok=True);local=out/'local';local.mkdir();current_sources=sources()
  for n in current_sources:
   q=out/'source'/n;q.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(REPO/n,q)
@@ -133,7 +155,9 @@ def main():
  (local/'r2-enrollment.h').write_text('/* CoreSE source:'+digest+' */\nstatic const r2_group_enrollment provision={{{'+','.join(map(str,key))+'},UINT64_C(0x'+e['group_id']+'),'+str(e['key_epoch'])+'},UINT64_C(0x'+d['device_id']+'),'+json.dumps(d['label'])+',40000};\n')
  prepare(out/'runtime',out/'source');commit=subprocess.check_output(['git','-C',str(REPO),'rev-parse','HEAD'],text=True).strip()
  dirty=bool(subprocess.check_output(['git','-C',str(REPO),'status','--porcelain']))
- r={'schema':1,'kind':'CORESE_LIVE_CLIENT','version':'0.1.17','pa_termination_policy':'SDK_HCI_ACK_EXACT_OWNER_V1','status':'INCOMPLETE','public_commit':commit,'shared_source_git_ref':SHARED_REF,'diagnostic_scan_policy':'FRESH_ASSOCIATED_PA_12MS_MIN200MS_AGE10MS_V1','retained_display_policy':'LAST_PHYSICAL_DELIVERY_500MS_NO_PRECISION_V1','shared_source_leader_recovery':{'commit':LEADER_REF,'policy':LEADER_POLICY,'patch_sha256':sha(APP/'tools/leader_recovery.patch')},'shared_source_recovery':{'commit':RECOVERY_REF,'policy':RECOVERY_POLICY,'patch_sha256':sha(APP/'tools/auto_rc9_recovery.patch')},'source_dirty':dirty,'sources':snapshot,'source_sha256':digest,'dependencies':pins,'device_id':d['device_id'],'factory_mac':d['factory_mac'],'relay':False,'fine_gpio':[6,7],'calibration':'NONE','precision':'UNQUALIFIED','hardware_access':False,'installed':False}
+ r={'schema':1,'kind':'CORESE_LIVE_CLIENT','version':'0.1.30','gm7_diagnostic_protocol':'GM7_IMPLEMENTATION4_TZ_SID14_RECEIVE_ONLY','shadow_policy':'BLE_RATE_ONLY_FROZEN_120S_UNCENSORED_ROLLING128_PREFIX_Q99_1US_V3','time_zone_contract':'TIME_ZONE_V1_GM4_JOIN5_RC8','mesh_discovery_policy':'VOLATILE_RADIO_GROUP_NO_ID_ALLOWLIST_FRESH_JOIN_V1','pa_termination_policy':'SDK_HCI_ACK_EXACT_OWNER_V1','status':'INCOMPLETE','public_commit':commit,'shared_source_git_ref':SHARED_REF,'diagnostic_scan_policy':'UTC_GM7_ROLE_FIRST_14_28MS_PA25_V5','hot_display_policy':'ACTIVE_NOMINATION_CURRENT_INDEPENDENT_SELF_REPORT_TTL_V2','retained_display_policy':'LAST_PHYSICAL_DELIVERY_500MS_NO_PRECISION_V1','shared_source_leader_recovery':{'commit':LEADER_REF,'policy':LEADER_POLICY,'patch_sha256':sha(APP/'tools/leader_recovery.patch')},'shared_source_recovery':{'commit':RECOVERY_REF,'policy':RECOVERY_POLICY,'patch_sha256':sha(APP/'tools/auto_rc9_recovery.patch')},'source_dirty':dirty,'sources':snapshot,'source_sha256':digest,'dependencies':pins,'device_id':d['device_id'],'factory_mac':d['factory_mac'],'relay':False,'fine_gpio':[6,7],'calibration':'NONE','precision':'UNQUALIFIED','hardware_access':False,'installed':False}
+ r['gm7_codec_provenance']=gm7_provenance
+ r['precision_source_selection']=json.loads((APP/'tools/precision_sources.json').read_text())
  dump(out/'receipt.json',r);target=out/'target';env=os.environ.copy();env.update(IDF_PATH=str(sdk),IDF_COMPONENT_MANAGER='0',PYTHONPYCACHEPREFIX=str(out/'pycache'),IDF_CCACHE_ENABLE='0')
  for k in ('CFLAGS','CXXFLAGS','CPPFLAGS','LDFLAGS','EXTRA_COMPONENT_DIRS','SDKCONFIG_DEFAULTS'):env.pop(k,None)
  values={'SDKCONFIG':str(target/'sdkconfig'),'CORESE_LIVE':'ON','CORESE_DEPENDENCIES':str(deps),'CORESE_RUNTIME':str(out/'runtime'),'CORESE_SOURCE_SHA':digest,'V12_SOURCE_REVISION':commit,'V12_R2_ENROLLMENT_HEADER':str(local/'r2-enrollment.h'),'PTOB_DEVICE_HEADER':str(local/'ptob_device.h'),'PTOB_REGISTRY_HEADER':str(local/'ptob_registry.h'),'PTOB_FINE_HEADER':str(local/'fine_capture_config.h'),'PTOB_LORA_HEADER':str(local/'n30_lora_config.h'),'CCACHE_ENABLE':'OFF'}

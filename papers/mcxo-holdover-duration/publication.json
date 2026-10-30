@@ -6,7 +6,7 @@
   "approval_date": "2026-10-30",
   "approval_timezone": "America/Chicago",
   "approval": "The research is approved, make sure the source is latex and package its data well in the repo to not pollute the repo with 100k+ lines and organize the evidence and paper concisely in the repo so we can prepare for publication to github. Cleanup the W12 target as well.",
-  "canonical_manuscript": "papers/mcxo-holdover-duration/main.tex",
+  "canonical_manuscript": "papers/mcxo-holdover-duration/ptob-empirical-sub-microsecond-holdover.tex",
   "prepared_edition": "papers/mcxo-holdover-duration/edition.json",
   "prepared_edition_sha256": "e0326e2b4a82710debd0b0572910048c41ca9fdf88bb0eb01429ef2e39671b03",
   "prepared_commit": "87b314fa6fa08782ce72f3992c27ed9b27ac2fa1",
@@ -31,8 +31,8 @@
   "files": [
     {
       "path": "evidence/w12/2026-10-30-holdover/README.md",
-      "bytes": 2598,
-      "sha256": "0c21648ef0dc230710f90d93792894d797961a324e9fecb5b1a1d98a4e38decd"
+      "bytes": 2668,
+      "sha256": "447f5d6b40b5fe5795abd6896b47ec712bff3d906df1f8999c6dc6faa3f0698b"
     },
     {
       "path": "evidence/w12/2026-10-30-holdover/manifest.json",
@@ -51,8 +51,8 @@
     },
     {
       "path": "papers/mcxo-holdover-duration/CHANGELOG.md",
-      "bytes": 1514,
-      "sha256": "9c3a3919232322ba10937e55fe4292732d645905f0f0841edc3ca5c874a66c7c"
+      "bytes": 1968,
+      "sha256": "a93602aa77bf2509ceff39f341a59865f1ec59cd5c4eccec7a0bace8418ac702"
     },
     {
       "path": "papers/mcxo-holdover-duration/LICENSE.md",
@@ -61,8 +61,8 @@
     },
     {
       "path": "papers/mcxo-holdover-duration/README.md",
-      "bytes": 3566,
-      "sha256": "64eab47fdcab6c9328f5d65674a6bb1827bc36e2774c453c9d4053c1b3079ecf"
+      "bytes": 3948,
+      "sha256": "86cd66537afe3b7275978db7799ad864fe9e8227d0ab9c821dbb9560af0ff56d"
     },
     {
       "path": "papers/mcxo-holdover-duration/edition.json",
@@ -135,12 +135,12 @@
       "sha256": "db653c3467f19306b24642bf42bf263edeccbd200f30dd6b8b1e8b5e26ca9ec7"
     },
     {
-      "path": "papers/mcxo-holdover-duration/main.pdf",
+      "path": "papers/mcxo-holdover-duration/ptob-empirical-sub-microsecond-holdover.pdf",
       "bytes": 87567,
       "sha256": "701afcb51f758f7de63f657adf923431895c4862f2e0d4f47e6f8d78e73bb2ba"
     },
     {
-      "path": "papers/mcxo-holdover-duration/main.tex",
+      "path": "papers/mcxo-holdover-duration/ptob-empirical-sub-microsecond-holdover.tex",
       "bytes": 22014,
       "sha256": "dd2cc446d938d761775b8d553d57e382c4ff0d42f68fcdfbdc1072d180a7936a"
     },
@@ -181,13 +181,24 @@
     },
     {
       "path": "papers/mcxo-holdover-duration/tools/verify.py",
-      "bytes": 5691,
-      "sha256": "94cc48523c317586dc229ec0383905aae00ddfe3e00c0fbc08fc8fbc803f8e6d"
+      "bytes": 5871,
+      "sha256": "1aeaa29b9ef563b7ccaa80975d4fe5a235b08f7624ed35a3da0957e7fe864779"
     },
     {
       "path": "papers/mcxo-holdover-duration/tools/write_values.py",
       "bytes": 7445,
       "sha256": "cd182a11bc54818d71ba72fdfb7d307aa825e3142d07c3c0b0e89cd1778e7e68"
     }
-  ]
+  ],
+  "reviewed_content_paths": {
+    "main.tex": "papers/mcxo-holdover-duration/ptob-empirical-sub-microsecond-holdover.tex",
+    "main.pdf": "papers/mcxo-holdover-duration/ptob-empirical-sub-microsecond-holdover.pdf",
+    "results.tex": "papers/mcxo-holdover-duration/results.tex"
+  },
+  "filename_update": {
+    "date": "2026-10-30",
+    "reason": "Descriptive manuscript filenames for GitHub preparation",
+    "source_and_pdf_bytes_unchanged": true,
+    "historical_filenames": "Original paths and embedded build example remain in the unchanged preparation seal and reviewed manuscript; current build commands are in README.md."
+  }
 }

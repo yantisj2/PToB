@@ -1,7 +1,7 @@
 # Research papers — drafts
 
 **Approved experimental research draft, 30 October 2026:**
-[Empirical Sub-Microsecond Holdover on BLE-Trained Software Clocks](mcxo-holdover-duration/main.pdf)
+[Empirical Sub-Microsecond Holdover on BLE-Trained Software Clocks](mcxo-holdover-duration/ptob-empirical-sub-microsecond-holdover.pdf)
 measures the longest supported hold duration at a fixed sampled 1 microsecond
 threshold using P99 across frozen run-prefix maxima. Separate W12 devices,
 observation windows, rolling populations, longer failures and unknown-expiry
@@ -82,8 +82,9 @@ Bluetooth timecode compatibility study retains its **22 October** edition.
 The awake timing information and power scheduling pilot retains its
 **19 October 2026** edition. The
 USB/chrony, White Rabbit and viability papers retain their **15–17 October** editions.
-The V14 service/profile proposal retains its
-**12 October** edition. All remain discussion/research drafts, without standards
+The V14 service/profile proposal has a **30 October author-review draft**;
+its companion boundary-clock study retains its **12 October** edition.
+All remain discussion/research drafts, without standards
 adoption or firmware qualification. Earlier import receipts retain their original
 byte identities; later editions are recorded separately.
 
@@ -101,7 +102,7 @@ draft status.
 
 | Draft | Read | Edit | Edition |
 | --- | --- | --- | --- |
-| Empirical Sub-Microsecond Holdover on BLE-Trained Software Clocks | [PDF](mcxo-holdover-duration/main.pdf) | [LaTeX](mcxo-holdover-duration/main.tex) | 30 October 2026, approved research draft; compact selected evidence and offline prefix replay |
+| Empirical Sub-Microsecond Holdover on BLE-Trained Software Clocks | [PDF](mcxo-holdover-duration/ptob-empirical-sub-microsecond-holdover.pdf) | [LaTeX](mcxo-holdover-duration/ptob-empirical-sub-microsecond-holdover.tex) | 30 October 2026, approved research draft; compact selected evidence and offline prefix replay |
 | Reducing Timing Tails and Multipath Sensitivity in an Operating BLE Precision Mesh | [PDF](ble-tail-multipath/main.pdf) | [LaTeX](ble-tail-multipath/main.tex) | 26 October 2026, public review draft; current mechanisms, analytical examples and proposed validation, no new hardware experiment |
 | A Shared Time Base for Indoor PNT: PToB Sensor Fusion, Selective UWB Augmentation, and a Validation Programme | [PDF](indoor-pnt/main.pdf) | [LaTeX](indoor-pnt/main.tex) | 26 October 2026, public review draft; proposed architecture and analytical budgets, no localization qualification |
 | PToB-IPS: Toward GNSS-like Indoor Positioning with Surveyed BLE Timing Beacons | [PDF](indoor-ips/main.pdf) | [LaTeX](indoor-ips/main.tex) | 26 October 2026, approved public research draft; surveyed beacons, aligned multi-rate advertisements and theoretical positioning/refinement limits |
@@ -190,22 +191,32 @@ website deployment or manuscript submission accompanied this import.
 
 | Draft | Read | Edit |
 | --- | --- | --- |
-| Passive Precision Time over BLE: V14-RC1 Candidate Service and Profile Proposal | [PDF](ptob-v14-sig-proposal.pdf) | [LaTeX](ptob-v14-sig-proposal.tex) |
+| Passive Precision Time over BLE: V14 Candidate Service and Profile Proposal | [PDF](ptob-v14-sig-proposal.pdf) | [LaTeX](ptob-v14-sig-proposal.tex) |
 | Passive Precision Time over BLE: V14 Boundary Clocks, Causal Timestamping, and Prospective One-Relay Validation | [PDF](ptob-v14-preprint.pdf) | [LaTeX](ptob-v14-preprint.tex) |
 
-The V14 evidence cutoff is **2026-10-12T18:26:44.293859Z**, with specification
+The **30 October 2026 author-review proposal** describes the current
+GM7 broadcast election/HOT succession, RC7 dynamic paths and coarse TZ/DST
+metadata. It contains no design-history comparison or new empirical accuracy
+claim. Its [edition manifest](editions/v14-sig-2026-10-30.json) binds the matching
+source/PDF and reviewed public source snapshots. Run
+`python3 tools/verify_v14_proposal.py` for offline identity and coarse-wire checks.
+Publication/submission approval is pending; the paper remains a proposal.
+
+The unchanged **12 October boundary-clock study** has evidence cutoff
+**2026-10-12T18:26:44.293859Z**, with specification
 freeze `7995249` and selected application **0.14.43** at
 `566ea2029c7ffc84a7d321df427c5c811fac2730`. The [edition receipt](imports/v14-2026-10-13.json)
-records exact source/PDF identity, original build/review records, rights, selected
-scientific exports, and exclusions. Both PDFs matched the website copies when
-imported; no website deployment was performed.
+records the original proposal/study source/PDF identities, build/review records,
+rights, selected scientific exports and exclusions. The prior proposal remains
+in Git at the revision named in the new edition manifest. The original receipt
+is immutable; both imported PDFs matched the website copies at import.
 
 The [V14 evidence collection](../evidence/v14/2026-10-12/README.md) provides
 sanitized samples, figure/table exports, claim provenance, and offline checks.
 It retains invalid references, expired maps, and missing opportunities. The
-proposal's [known normative issues](../evidence/v14/2026-10-12/provenance/ptob-v14-sig-issues.json)
-remain open. [Research status](../docs/V14_RESEARCH_STATUS.md) distinguishes those
-results from current firmware and calibrated output accuracy.
+frozen RC1 proposal's [known normative issues](../evidence/v14/2026-10-12/provenance/ptob-v14-sig-issues.json)
+retain their original scope. These historical results do not qualify GM7,
+current firmware or calibrated output accuracy.
 
 ## Historical drafts
 
@@ -221,7 +232,7 @@ publication, or adopted standard.
 | Passive Precision Time over BLE: Prospective Edge Calibration, Causal Publication, and Service Availability | [PDF](ptob-preprint.pdf) | [LaTeX](ptob-preprint.tex) |
 | Causal Software Clock Discipline over Wireless Physical Events: Native Lock Evidence, Operating Tiers, and a Tunable-Oscillator Extension | [PDF](oscillator-pll-research-20261003.pdf) | [LaTeX](oscillator-pll-research-20261003.tex) |
 
-All ten papers and their original figures are **CC BY 4.0**, attributed to Jonathan
+All original papers and their figures are **CC BY 4.0**, attributed to Jonathan
 Yantis. See [the license notice](LICENSE.md) and [project credits](../CREDITS.md).
 
 ## Scope and evidence
@@ -303,8 +314,9 @@ tectonic --outdir artifacts/papers papers/ptob-bluetooth-timecode-preprint.tex
 
 Tectonic may download its public TeX bundle on first use. Inspect the generated
 PDFs before replacing the checked-in copies. Different TeX engines or bundle
-versions may change pagination or PDF bytes. The October 2 and V14 proposals/preprints
-retain original exports. The oscillator/PLL PDF was regenerated during migration
+versions may change pagination or PDF bytes. The October 2 manuscripts and V14
+boundary-clock preprint retain original exports. The V14 proposal PDF matches
+its 30 October source. The oscillator/PLL PDF was regenerated during migration
 to match its existing amended source.
 
 ## Cite a draft
@@ -320,8 +332,8 @@ and Wake/Listen Energy Models for PToB.* Research draft, 19 October 2026.
 Use `python3 tools/verify_power.py` to recompute its selected derived-data results
 and verify its edition. No sleep energy or calibrated output qualification is claimed.
 
-Jonathan Yantis. *Passive Precision Time over BLE: V14-RC1 Candidate Service and
-Profile Proposal.* Discussion draft, 12 October 2026.
+Jonathan Yantis. *Passive Precision Time over BLE: V14 Candidate Service and
+Profile Proposal.* Author-review discussion draft, 30 October 2026.
 
 Jonathan Yantis. *Passive Precision Time over BLE: V14 Boundary Clocks, Causal
 Timestamping, and Prospective One-Relay Validation.* Research preprint, draft,

@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-30 — descriptive holdover paper filenames
+
+- Rename the approved holdover source/PDF to
+  `ptob-empirical-sub-microsecond-holdover.tex/pdf`; update current links, build
+  instructions and package verification. Preserve both reviewed files byte-for-byte,
+  all evidence identities and the original immutable edition seal.
+- Replace a real factory MAC in the W12 console-command test fixture with a
+  synthetic address. Preserve historical source identities.
+
 ## 2026-10-30 — approved holdover research packaging and W12 cleanup
 
 - Preserve the approved LaTeX/PDF while archiving selected observations and
@@ -17,6 +26,18 @@
   numerical evidence, replay and the current-code schematic; temperature stays
   shadow-only.
 
+## 2026-10-30 — V14 documentation reconciled
+
+- Point current protocol/research indexes to the 30 October author-review
+  proposal; retain the 12 October RC1 specification, evidence and manifests.
+- Align GM7 implementation/build and operations guidance with T096 .209,
+  broadcast HOT confirmation, conditional succession and current coarse wire.
+- Refresh TZ/DST selection, ordered propagation, independent three-period
+  leases and W12/N30 port status. Preserve direct PASS / relay FAIL populations
+  and open failover, physical DST and UTC/output qualification gates.
+- Keep trusted enrollment separate from discovered runtime mesh selection.
+  This is documentation preparation, with no hardware operation or publication.
+
 ## 2026-10-30 — W12 exact receive history storage
 
 - Save another 2816 bytes without dropping receive records or timestamp bits.
@@ -29,6 +50,15 @@
   before diagnosing main/host stalls. Raise the SDK interrupt watchdog to five
   seconds; task/boot remain five/nine. Preserve 120-second fault and 300-second
   no-time restart intervals, holdover sampling and original owner deadlines.
+
+## 2026-10-30 — CoreS3-SE shadow holdover and local time
+
+Add a PSRAM-backed shadow holdover diagnostic with P95/P99/MAX errors that
+range from ns through seconds, and show sampled P99 sub-1us hold seconds on the
+main clock while retaining relative offset in Quality. The clock consumes fresh
+GM time-zone/DST metadata with UTC fallback and discovers local meshes without
+a fixed mesh-ID pin; sampled holdover is not an
+independent accuracy guarantee.
 
 ## 2026-10-30 — W12 compact exact estimator storage
 

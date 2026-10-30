@@ -2,18 +2,94 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
-The display passively listens to mesh traffic. GD1 requires T0960.15.166 or later; GD2 adds real GGA HDOP with T0960.15.168
+Version0.1.26 passively observes GM7 implementation3 management on SID14:
+ANN, normal capability STATUS, ROLE, GNSS and WITHDRAW. The source remains a
+receive-only client. The exact codec selection is recorded in
+[its provenance](../../firmware/corese/protocol/provenance.json).
+
+Legacy GS/GD remains readable on SID12. GD1 requires T0960.15.166 or later; GD2 adds real GGA HDOP with T0960.15.168
 or later. Older producers leave the corresponding fields unavailable.
 The client never manufactures a PTP dataset or treats display activity as a
 renewed lease.
 
 | Page | Source | Meaning and limits |
 | --- | --- | --- |
-| Mesh | Authenticated GS v1, 116-byte AD | Serving root/boot, source epoch, HOT/boot, coordinator, membership count, sequence and original receipt TTL. PRIMARY/HOT `UNCHANGED` timers track reported identity/boot events independently of packet cadence. |
+| Mesh | GM7 ANN/STATUS/ROLE; legacy GS v1 | Reported ACTIVE/boot, timing epoch, leadership term, nominated HOT/boot and actual matching HOT STATUS. A nomination alone does not establish HOT. `UNCHANGED` timers track observed role events independently of packet cadence. Legacy GS retains its coordinator/membership fields. |
 | Path | Current timing-owner snapshot | Canonical admitted RC7 path, node boots, trains and epochs; direct source has one node. RC9 cannot stand in for an RC7 path. |
 | Quality | Current fine client | Causal RMS, signed prediction residual, matched/refused counts, source receipt age and remaining model/permission TTL. Delivery percentage remains unknown when its event denominator is unavailable. |
-| Reference | Authenticated GD2, 90-byte AD (legacy GD1, 88-byte AD) | Selected root/timing incarnation/mesh epoch; reported GNSS FIX/PPS/source-QUAL lamps, satellites, real GGA HDOP and the current election quality tuple. Reported metadata carries no timing authority or measured UTC accuracy. |
-| Wire | GS decoder/monitor | Accepted, authentication/scope/age rejects and replays; root GM monotonic uptime extrapolated from authenticated `created_us`, locally observed epoch duration, sequence and report age. These are local observer counts; GS carries no epoch start timestamp. |
+| Reference | GM7 GNSS; legacy GD2, 90-byte AD (GD1, 88-byte AD) | Selected root/timing incarnation/mesh epoch; reported GNSS FIX/PPS/source-QUAL lamps, satellites, real GGA HDOP and the current election quality tuple. Reported metadata carries no timing authority or measured UTC accuracy. |
+| Wire | GM7 decoder/monitor | ANN/STATUS/ROLE counts, authentication/scope/age rejects, replay, term, receipt age, signed epoch start UTC, elapsed epoch time from current matching UTC, and separate local receiver uptime. Legacy GS shows only GM uptime estimate and local EPOCH SEEN because GS has no epoch birth. |
+
+GM7 management uses SID14, manufacturer AD companyFFFF and the
+`PToB/GM7/implementation3` authentication domain. The canonical random advertiser
+must match the authenticated sender. ANN/ROLE leadership and GNSS descriptions
+bind to the selected root, boot and timing epoch when selection exists. An empty
+selection may retain an authenticated reported leader as descriptive history;
+it does not become an admitted clock. Normal capability STATUS and non-ACTIVE
+ROLE reports may have no epoch, and are counted without changing the selected
+leader. Control, ROLE and GNSS use independent per-sender/boot sequence fences;
+64-bit sequences are not truncated. The bounded eight-peer fence is RAM-only.
+
+GM7 epoch identity is its UTC birth plus founder. `TERM` changes during leadership
+handover without restarting that epoch. `EPOCH START / UTC` formats the signed
+birth to whole seconds; console `birth_utc_us` retains its exact microseconds.
+`ELAPSED` subtracts that birth from the current scope-matched UTC model; it
+withdraws when UTC is missing, expired, retained-only, earlier than birth or tied
+to a different root/boot/timing epoch. `LOCAL UPTIME` is this receiver's monotonic
+boot duration, never epoch age or GM uptime. No message receipt or UI poll extends
+the timing model. ANN UTC samples are not used to create a clock.
+
+An ACTIVE's HOT field is a nomination. HOT NOMINEE / CURRENT and its green
+identity follow the authenticated current ACTIVE report, independently of extra
+HOT self-report freshness and local precision qualification. After that ACTIVE
+report expires, the unchanged cached identity is labeled LAST SEEN. The UNCHANGED
+timer starts when that identity/boot is selected, and resets only on a changed or
+cleared selection. `hot_nomination_current` exposes the same distinction.
+Matching same-epoch/term/train STATUS=HOT or ROLE=HOT supplies independently
+reported state. Both keep their original4.5s receipt TTL, covering one lost
+nominal2s report. Older cross-channel samples cannot undo newer peer state.
+The SELF role and its real report age remain a separate line; stale self-reports
+turn that line amber without withdrawing a current ACTIVE nomination or resetting
+its timer. An explicit non-HOT report changes reported state;
+term/train changes withdraw current report scope while preserving unchanged
+selection age. Neither a nomination nor a descriptive report grants HOT takeover
+or precision timing authority. ACTIVE YIELD and WITHDRAW are shown explicitly;
+withdrawal expires the descriptive ACTIVE report immediately. GNSS observations
+have their own original deadline and cannot restore a withdrawn timing source.
+`mesh diag` exposes `protocol=3`, exact birth/founder/term, known/elapsed, local
+uptime, nomination/readiness, counters and the most recent peer kind/flags/role/
+blockers. `gd_seen_root/boot/epoch/advertiser/received_us` records the most
+recent authenticated legacy GNSS scope, including a rejected scope; it never
+replaces accepted Reference values or their expiry. GM7 GNSS carries the same FIX/PPS/QUAL/SV/HDOP/PTP fields and optional
+reported UTC error; the latter remains raw diagnostic metadata, not measured
+CoreSE UTC accuracy.
+
+The0.1.26 listener uses current admitted UTC as a scheduling hint for the
+actual250ms GM7 calendar:41–55ms receives ROLE43ms and ANN discovery copies45/50ms and85–113ms covers
+STATUS90–107ms with jitter and a complete primary/gap/AUX event. The first
+window opens after primary ANN38ms, so its AUX reception cannot consume the
+nearby ROLE opportunity. A55ms discovery copy falls outside this protected
+window; normal discovery and the other copies preserve leader observation. A fresh,
+authenticated physical PA receipt younger than25ms is required to reserve each
+window. Physical capture guards require opening at least8ms after that PA and
+closing by56ms, before the next62.5ms timing reception. Original current-parent, physical reception, finite clock-model coverage and
+scope gates remain checked while pending. Ordinary management visibility does
+not require the raw sub-1us/one-second precision hold qualification. Precision
+validity retains its separate requirements. Protected scan intervals are50ms;
+normal discovery/admission keeps its prior parameters. This increases diagnostic
+receive duty to about17%; it does not change fine timing validity or source
+permission. Earlier sparse rotating windows could miss ordinary2s reports for
+tens of seconds despite correct decoding. All reception remains passive, with
+no SCAN_REQ or GM-to-GM GATT exchange.
+
+Complete nonstale passive diagnostic callbacks are decoded even if the radio window
+has since closed. Callback arrival time is not an RF event timestamp. The existing
+window filter still protects parent/RC9 selection actions, and each accepted
+diagnostic keeps its own authentication, replay fence and finite advertised TTL.
+`scan_outside_callbacks` counts accepted reports arriving outside the latest scan
+window while the timing parent is protected.
+
+The following legacy GS/GD semantics remain available for older producers.
 
 The source radio address must match the existing group-derived canonical address.
 The selected root, boot and source epoch must match the timing owner. A replay
@@ -98,3 +174,43 @@ SEEN` starts when this client first accepts the reported mesh epoch label and
 persists across root/timing-incarnation replacements at that same label. A new
 label restarts it; it is not the epoch's actual creation time. Durations use compact day/hour/minute
 notation. Neither GS expiry nor the latest rejected packet clears these values.
+
+## CoreSE0.1.27 shadow holdover and local TZ
+
+The sixth page is a rate-only shadow servo. It freezes phase and BLE-trained
+frequency for120s; a bounded16/32s repeated-channel fit may trim its entry rate.
+Later accepted physical BLE pairs are witnesses, never feedback to that frozen
+candidate. The temperature fit is excluded and the delivered clock is unchanged.
+
+P95/P99/MAX are absolute errors from the latest128 witnesses in the current run.
+Sub1us production qualification admits a new trial; later RMS or lock changes
+do not cancel that frozen trial or censor its tails. Scope replacement still
+clears it, and finite run/witness deadlines preserve missing outcomes.
+P95/P99 require100 witnesses; MAX is available earlier. Errors range from ns to
+us at1000ns, ms at1000000ns and s at1000000000ns. The separate run maximum
+retains tails that have rolled out of the128-event window. Gaps above250ms are
+counted, and their interiors are unmeasured. Missing data is never zero-filled.
+
+**P99 <1us HOLD** is seconds from the separate W12 sampled-prefix-max estimator,
+with at least100 confirmed trials at each qualifying age and a rolling128-trial
+population. Seven short2s lanes feed early results alongside one adaptive long
+lane, up to120s. The first actual witness at/after an age includes sampled prefix
+peaks and overshoot. Failed and unknown ages remain in their denominators.
+**MIN / LOWER BOUND** means longer ages lack evidence; it does not mean a
+measured failure. A numeric0.00 means the first250ms age failed the criterion.
+A fresh percentile or duration is not a continuous bound or independent UTC/PPS
+accuracy measurement. Scope change clears populations; stale/RC9/retained source
+states withhold current shadow values. UI refresh never renews a witness.
+
+The main clock and register use the leased selected-parent coarse TZ, matching
+W12 labels CDT/CST/LOC and UTC fallback. Current GM4 ANN ordering and JOIN5/RC8
+metadata remain distinct from fine timing. Direct metadata has a750ms lease;
+relay metadata has300ms. Original authenticated receipt/presence supplies expiry,
+not lock or polling. Explicit unknown cannot be resurrected by presence. Source
+replacement clears TZ ordering. RC9 and retained HOLD show UTC. Quality residuals,
+Reference and Wire epoch dates remain UTC; Quality names the clock display zone.
+
+`shadow diag` carries quantiles, run maximum, coverage counts, horizon
+population/unknowns, entry-rate selection, and the coarse TZ ID/offset/deadline.
+`production=0 temperature=0` identifies this shadow-only population. Native
+builds, host tests and synthetic previews do not establish hardware acceptance.

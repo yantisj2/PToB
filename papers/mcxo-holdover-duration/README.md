@@ -2,7 +2,7 @@
 
 Jonathan Yantis · 30 October 2026 · approved research draft.
 
-[Read the seven-page paper](main.pdf) or edit its canonical [LaTeX source](main.tex).
+[Read the seven-page paper](ptob-empirical-sub-microsecond-holdover.pdf) or edit its canonical [LaTeX source](ptob-empirical-sub-microsecond-holdover.tex).
 [Approval and current package identities](publication.json) record the author's
 approval without changing the reviewed manuscript, PDF, result text or figures.
 The paper's author-review label describes its preparation checkpoint; it remains
@@ -19,7 +19,7 @@ a continuous bound, calibrated UTC/output or physical GM-transition acceptance.
 
 | Location | Contents |
 | --- | --- |
-| `main.tex`, `results.tex`, `main.pdf` | Approved LaTeX manuscript, generated result text and matching PDF |
+| `ptob-empirical-sub-microsecond-holdover.tex`, `results.tex`, `ptob-empirical-sub-microsecond-holdover.pdf` | Approved LaTeX manuscript, generated result text and matching PDF |
 | `figures/` | Vector plot source and only the small CSV inputs used by the paper |
 | [Dated evidence collection](../../evidence/w12/2026-10-30-holdover/README.md) | Compact summary, checksummed archive, protocol, provenance and exact source snapshots |
 | `tools/` | Standard-library numerical replay, table generation and verification |
@@ -53,11 +53,14 @@ Build the LaTeX with public Tectonic 0.17.0:
 ```sh
 mkdir -p artifacts/mcxo-duration-build
 tectonic --keep-logs --outdir artifacts/mcxo-duration-build \
-  papers/mcxo-holdover-duration/main.tex
-pdfinfo artifacts/mcxo-duration-build/main.pdf
-pdftoppm -scale-to 1600 -png artifacts/mcxo-duration-build/main.pdf \
+  papers/mcxo-holdover-duration/ptob-empirical-sub-microsecond-holdover.tex
+pdfinfo artifacts/mcxo-duration-build/ptob-empirical-sub-microsecond-holdover.pdf
+pdftoppm -scale-to 1600 -png artifacts/mcxo-duration-build/ptob-empirical-sub-microsecond-holdover.pdf \
   artifacts/mcxo-duration-build/page
 ```
+
+The unchanged reviewed paper retains its original `main.tex` build example;
+use the renamed source path above for the current checkout.
 
 First use may download public fonts/packages. Inspect every rendered page before
 replacing the supplied PDF; other engines or bundles can change pagination and

@@ -54,6 +54,7 @@ bool ReferenceMonitor::receive(const uint8_t* bytes,size_t size,const r2_group_c
  Scope selected,uint64_t at,uint64_t now){
  r2_gnss_record r{};
  if(r2_gnss_decode(&r,bytes,size,&group)){count(state_.rejected_auth);state_.result=Result::Auth;return false;}
+ state_.seen_scope={r.root,r.root_boot,r.mesh_epoch};state_.seen_received_us=at;state_.seen_advertiser=advertiser;
  if(!selected.root||!selected.boot||!selected.epoch||advertiser!=r.root||
     selected.root!=r.root||selected.boot!=r.root_boot||selected.epoch!=r.mesh_epoch){
   count(state_.rejected_scope);state_.result=Result::Scope;return false;

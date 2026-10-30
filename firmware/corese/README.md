@@ -1,10 +1,41 @@
 # CoreS3-SE precision diagnostics instrument
 
-**Version 0.1.17** turns the M5Stack CoreS3-SE (K128-SE) into a portable front
+**Version 0.1.30** turns the M5Stack CoreS3-SE (K128-SE) into a portable front
 panel for PToB timing: inspect receiver precision, source lineage, mesh roles and
 the grandmaster's GNSS/PTP quality on a 320×240 touchscreen. It is a dedicated
 client with an instrument-style display. Start with the
 [build guide](../../docs/corese/build.md).
+
+Version 0.1.30 adds a PSRAM-backed shadow holdover servo with P95/P99/MAX errors
+auto-ranging through ns/us/ms/s, a dedicated diagnostic page, and P99 <1us HOLD
+seconds on the main face while relative offset stays in Quality. The front clock
+also follows fresh GM time-zone/DST metadata, falling back to UTC when unavailable;
+shadow estimates remain separate from delivered timing and independent accuracy.
+
+Measured live on 30 October 2026 (v0.1.30): sampled **P99 <1us HOLD ≥1.75 s**
+(128 trials, one unknown); at a 103.4 s frozen-run age, the latest 128 BLE
+witnesses had **P95/P99/MAX 909/936/948 ns**, with 165 gaps >250 ms whose
+interiors remain unmeasured.
+
+Mesh selection is automatic: CoreSE learns the local group ID and key epoch
+from discovery and has no fixed group-ID allowlist. The trusted PSK remains
+provisioned; a fresh authenticated JOIN is required before timing is admitted.
+After source loss and radio cleanup it can discover a different local mesh.
+
+Version 0.1.30 receives GM7 implementation4 ANN, STATUS, ROLE, GNSS and
+WITHDRAW reports on SID14. Mesh distinguishes the ACTIVE's nominated standby
+from a standby's authenticated HOT advertisement. Wire shows the signed epoch
+start in UTC, elapsed time from the current matching UTC model, and separate
+local receiver uptime. A leadership term change does not restart the epoch.
+Unavailable UTC leaves elapsed time unknown. Legacy GS/GD1/GD2 remains readable.
+Diagnostic listening follows the actual management calendar:14ms around
+ROLE/ANN discovery and28ms around STATUS within each250ms frame. Both windows close
+before the next physical periodic timing packet. HOT accepts authenticated
+STATUS or ROLE reports, while its UNCHANGED timer measures the stable selected
+identity/boot. One missed2s report fits inside the original4.5s TTL; later gaps
+show an explicit self-report age without blanking or resetting that timer.
+HOT NOMINEE / CURRENT follows the ACTIVE's authenticated nomination; the
+separate SELF role and age describe the standby's own latest report.
 
 Version 0.1.17 retires the exact periodic owner when the pinned SDK confirms
 HCI termination and removes its live handle. A queued SDK notification cannot
@@ -49,29 +80,34 @@ valid source returns.
 
 | Precision instrument | GM reference diagnostics |
 | :---: | :---: |
-| [<img src="../../docs/images/corese-instrument.png" width="320" alt="CoreS3-SE instrument with UTC, internal causal RMS and relative prediction offset">](../../docs/images/corese-instrument.png) | [<img src="../../docs/images/corese-reference.png" width="320" alt="CoreS3-SE GM reference with FIX, PPS and QUAL indicators, satellite count, HDOP and VAR NONE">](../../docs/images/corese-reference.png) |
+| [<img src="../../docs/images/corese-instrument.png" width="320" alt="CoreS3-SE local clock, internal causal RMS and sampled P99 sub-1us hold seconds">](../../docs/images/corese-instrument.png) | [<img src="../../docs/images/corese-reference.png" width="320" alt="CoreS3-SE GM reference with FIX, PPS and QUAL indicators, satellite count, HDOP and VAR NONE">](../../docs/images/corese-reference.png) |
 
 | Local receiver quality | Mesh role history |
 | :---: | :---: |
 | [<img src="../../docs/images/corese-quality.png" width="320" alt="CoreS3-SE local causal RMS, relative offset, packet counts and source validity">](../../docs/images/corese-quality.png) | [<img src="../../docs/images/corese-mesh.png" width="320" alt="CoreS3-SE cached primary and HOT reports with independent observation timers">](../../docs/images/corese-mesh.png) |
 
-*Selected on-device screenshots from version 0.1.10. Reference is a completed
-LCD framebuffer; the others are production-renderer frames using the live model.
-They are not photographs or calibrated accuracy results. Select an image for
+| Shadow holdover |
+| :---: |
+| [<img src="../../docs/images/corese-shadow.png" width="320" alt="CoreS3-SE shadow holdover with sampled duration, P95, P99, maximum and witness population">](../../docs/images/corese-shadow.png) |
+
+*Selected on-device screenshots from version 0.1.30, 30 October 2026. All five
+are production-renderer frames using the live model; source gaps and cached
+reports remain explicit. They are not photographs or calibrated accuracy results. Select an image for
 native resolution. [Image provenance](../../docs/images/corese-provenance.json).*
 
 ## Read the timing chain
 
 The instrument receives authenticated G1/RC7 timing and the separate RC9
-functional UTC service. Five diagnostic pages answer different questions:
+functional UTC service. Six diagnostic pages answer different questions:
 
 | Page | Readouts |
 | --- | --- |
-| Mesh | Reported PRIMARY/HOT identities, source epoch, membership and independent role-change timers. |
+| Mesh | ACTIVE and current HOT nominee, separate self-reported role/age, leadership term and independent identity/boot timers. |
 | Path | The admitted root-to-client lineage, with node boots, trains and epochs. |
 | Quality | Local causal RMS, signed prediction residual, matched/refused packets and remaining source validity. |
 | Reference | The selected GM's FIX/PPS/source-QUAL indicators, satellites used, real GGA HDOP and actual election quality tuple. |
-| Wire | Authentication/scope/age rejections, replays, sequences and locally observed epoch duration. |
+| Shadow | Frozen holdover P95/P99/MAX, sampled P99 duration, witness counts and coverage gaps. |
+| Wire | GM7 message counts, integrity rejects, signed epoch start UTC, epoch elapsed time and local uptime. |
 
 `CAUSAL RMS` measures internal prediction quality. `REL OFFSET` is the fresh,
 signed prediction residual for the selected root/boot/epoch. Neither establishes
@@ -80,7 +116,7 @@ with 12.5 ns ticks**, presented on a 50 ns grid; counter resolution is a separat
 property. RC9 can supply functional UTC and upstream metadata but cannot populate
 local fine precision or clock lock. Missing delivery denominators stay unknown.
 
-Reference consumes the GM's authenticated occasional GD2 diagnostics, including
+Reference consumes authenticated GM7 GNSS or legacy GD2 diagnostics, including
 real dimensionless HDOP with T096 0.15.168. Legacy GD1 reports leave HDOP unknown.
 `VAR NONE` means the GM has not reported a variance measurement; unknown accuracy
 stays `ACC UNKNOWN`. HDOP describes satellite geometry, not timing accuracy.
@@ -96,16 +132,20 @@ as amber **LAST REPORT / CACHED** after expiry; an empty timing selection can
 show **LAST GM** history. A different selected root, incarnation or epoch hides
 the previous source's values. Cached data never restores clock permission.
 
-PRIMARY/HOT timers measure time since an observed identity/boot change, not remote
-oscillator lock or proof of uninterrupted operation. Passive diagnostic listening
-uses protected 12 ms windows at least 200 ms apart after fresh associated
-periodic reception. Clock qualification, timing
+ACTIVE/HOT timers measure time since an observed identity/boot event, not remote
+oscillator lock or proof of uninterrupted operation. A GM7 HOT timer starts when the ACTIVE selects that identity/boot; a nomination
+alone is not HOT readiness. Matching authenticated STATUS or ROLE reports
+supply the separate state and original receipt deadline. Explicit withdrawal
+changes readiness, while refresh, report loss and train/term changes preserve
+selection age for an unchanged identity/boot. Protected passive listening uses
+current admitted UTC only to place14ms/28ms windows around the ordinary GM7
+management slots; it grants no precision or source permission. Clock qualification, timing
 source expiry and failover rules retain their existing behavior.
 
 ## Controls and build
 
-Choose **PToB** or **DIAG** on the launcher. Use **PREV/NEXT** for the five
-diagnostic pages, **FACE** for the UTC register, and **HOME** to return.
+Choose **PToB** or **DIAG** on the launcher. Use **PREV/NEXT** for the six
+diagnostic pages, **FACE** for the clock register, and **HOME** to return.
 Double-click the left power button within 500 ms to request sleep through the
 bounded timing/Bluetooth drain. A drain fault leaves the instrument awake;
 power-on starts a new receiver session.

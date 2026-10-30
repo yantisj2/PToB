@@ -5,10 +5,10 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'tools'))
 from holdover_production_analyze import analyze
 from shadow_holdover_analyze import tails,UNKNOWN
 from framed_console import mutation_command
-frame={'begin':dict(nonce='0000000000000001',ticket='0000000000000002',factory='44:b1:76:ad:06:68',session='0000000000000003')}
+frame={'begin':dict(nonce='0000000000000001',ticket='0000000000000002',factory='02:00:00:00:00:05',session='0000000000000003')}
 for action in ('holdover test 0','holdover test 1000','holdover test 120000'):
     command=mutation_command(frame,'0000000000000004',action)
-    assert command==('v12 do 0000000000000002 0000000000000004 44:b1:76:ad:06:68 0000000000000003 '+action+'\n').encode()
+    assert command==('v12 do 0000000000000002 0000000000000004 02:00:00:00:00:05 0000000000000003 '+action+'\n').encode()
 for action in ('holdover test 999','holdover test 120001','holdover test -1','holdover test 01000','holdover test 120000\noff'):
     try:mutation_command(frame,'0000000000000004',action)
     except RuntimeError:pass

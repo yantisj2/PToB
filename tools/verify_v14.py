@@ -11,7 +11,8 @@ import json
 import math
 from pathlib import Path
 
-from check_v14_document import main as check_document
+from check_v14_document import imported_bytes, main as check_document
+from verify_v14_proposal import main as check_proposal
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "evidence/v14/2026-10-12"
@@ -59,7 +60,7 @@ def main():
         require(path.is_relative_to(ROOT), "Import path escapes repository")
         require(entry["destination"] not in destinations, "Duplicate import path")
         destinations.add(entry["destination"])
-        data = path.read_bytes()
+        data = imported_bytes(entry)
         require(len(data) == entry["bytes"], f"Size mismatch: {path}")
         require(hashlib.sha256(data).hexdigest() == entry["sha256"], f"Hash mismatch: {path}")
 
@@ -137,6 +138,7 @@ def main():
               for name, layout in contract["wire"].items() for field in layout["fields"]]
     require(csv_rows("wire-layouts.csv") == fields, "Wire table differs from frozen contract")
     check_document()
+    check_proposal()
     print(f"Verified {len(destinations)} V14 imported file hashes; recomputed 436 valid and "
           "501 all-causal samples, 65 invalid-reference and 3 expired edges.")
     print("Full population: 602 = 436 + 65 + 3 + 98 unobserved; sampled RC/leaf counters match.")
