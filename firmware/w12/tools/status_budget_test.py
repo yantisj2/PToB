@@ -41,12 +41,12 @@ def main():
  if args.lora:defs+='#define PTOB_W12_LORA_RX 1\n'
  if args.rc7_estimate:defs+='#define V12_R2_RC7_TX_ESTIMATE_LAB 1\n'
  if args.gps_shadow:defs+='#define V12_GPS_SHADOW_OBSERVER 1\n'
- pp=subprocess.check_output([os.environ.get('CXX','clang++'),'-E','-P','-x','c++','-'],input=defs+status,text=True)
+ pp=subprocess.check_output([os.environ.get('CXX','/opt/homebrew/opt/llvm/bin/clang++' if Path('/opt/homebrew/opt/llvm/bin/clang++').is_file() else 'clang++'),'-E','-P','-x','c++','-'],input=defs+status,text=True)
  fs=formats(pp,'response.format');assert len(fs)==9,len(fs)
  log=(APP/'main/bounded_log.cpp').read_text();begin=log[log.index('void frame_begin('):log.index('bool frame_submit(')]
- bp=subprocess.check_output([os.environ.get('CXX','clang++'),'-E','-P','-x','c++','-'],input=defs+begin,text=True);bfs=formats(bp,'f.format');assert len(bfs)==1
+ bp=subprocess.check_output([os.environ.get('CXX','/opt/homebrew/opt/llvm/bin/clang++' if Path('/opt/homebrew/opt/llvm/bin/clang++').is_file() else 'clang++'),'-E','-P','-x','c++','-'],input=defs+begin,text=True);bfs=formats(bp,'f.format');assert len(bfs)==1
  trailer=log[log.index('const int n=std::snprintf(trailer,'):log.index('if(n<=0||n>=int(sizeof(trailer)))')];trailer=re.sub(r'std::snprintf\(trailer,sizeof\(trailer\),','trailer_format(',trailer)
- tp=subprocess.check_output([os.environ.get('CXX','clang++'),'-E','-P','-x','c++','-'],input=defs+trailer,text=True);tfs=formats(tp,'trailer_format');assert len(tfs)==1
+ tp=subprocess.check_output([os.environ.get('CXX','/opt/homebrew/opt/llvm/bin/clang++' if Path('/opt/homebrew/opt/llvm/bin/clang++').is_file() else 'clang++'),'-E','-P','-x','c++','-'],input=defs+trailer,text=True);tfs=formats(tp,'trailer_format');assert len(tfs)==1
  body_capacity=int(re.search(r'ConsoleFrameBytes-(\d+)',(APP/'main/bounded_log.hpp').read_text())[1]);frame_capacity=int(re.search(r'ConsoleFrameBytes=(\d+)',(APP/'main/console_protocol.hpp').read_text())[1]);body_capacity=frame_capacity-body_capacity
  end_capacity=int(re.search(r'char trailer\[(\d+)\]',log)[1]);end=len(render(tfs[0],True))+len(' end_crc32=ffffffff\n')
  results=[]

@@ -6,7 +6,7 @@ from pathlib import Path
 APP=Path(__file__).resolve().parents[1]
 SDK=Path(os.environ['IDF_PATH'])
 CRYPTO=SDK/'components/bt/host/nimble/nimble/ext/tinycrypt'
-CC=os.environ.get('CC','clang');CXX=os.environ.get('CXX',CC+'++')
+CC=os.environ.get('CC','/opt/homebrew/opt/llvm/bin/clang' if Path('/opt/homebrew/opt/llvm/bin/clang').is_file() else 'clang');CXX=os.environ.get('CXX',CC+'++')
 def sha(p):return hashlib.sha256(p.read_bytes()).hexdigest()
 def verify_sources():
     m=json.loads((APP/'contracts/r2_g1_client.json').read_text());src=APP/'main/r2/r2-g1'

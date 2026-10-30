@@ -7,7 +7,7 @@ from pathlib import Path
 APP=Path(__file__).resolve().parents[1]
 p=argparse.ArgumentParser(description=__doc__);p.add_argument('--out',type=Path,required=True);a=p.parse_args()
 a.out.mkdir(parents=True,exist_ok=False);out=a.out.resolve()
-cxx=os.environ.get('CXX','clang++')
+cxx=os.environ.get('CXX','/opt/homebrew/opt/llvm/bin/clang++' if Path('/opt/homebrew/opt/llvm/bin/clang++').is_file() else 'clang++')
 flags=['-std=c++20','-O1','-g','-Wall','-Wextra','-Werror','-Wno-misleading-indentation','-fsanitize=address,undefined','-fno-sanitize-recover=all','-I'+str(APP/'legacy')]
 for profile,defs in [('disabled-control',[]),('GNSS-BLE50',['-DW12_GNSS_VERIFIED_INPUTS=1']),('GNSS-fine',['-DPTOB_W12_FINE_CLOCK=1','-DW12_GNSS_VERIFIED_INPUTS=1'])]:
  binary=out/profile

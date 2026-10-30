@@ -7,7 +7,7 @@ A=Path(__file__).resolve().parents[1]
 p=argparse.ArgumentParser();p.add_argument('--out',type=Path,required=True);a=p.parse_args();out=a.out.resolve();out.mkdir(parents=True,exist_ok=False)
 s=(A/'main/native_main.cpp').read_text();start=s.index('  w12_lora_view lv;w12_lora_snapshot(lv);uint64_t lora_utc=0;');end=s.index('\n#endif\n#ifdef PTOB_RC9\n  const auto rc9_clock',start)
 (out/'actual_dual_display.inc').write_text(s[start:end])
-cmd=[os.environ.get('CXX','clang++'),'-std=c++20','-O1','-g','-Wall','-Wextra','-Werror','-fsanitize=address,undefined','-fno-sanitize-recover=all','-DPTOB_W12_DUAL_UI=1','-DPTOB_W12_LORA_RX=1','-DPTOB_W12_LORA_TX_FACTORY=1','-I'+str(out),'-I'+str(A/'main'),'-I'+str(A/'main/r2/r2-g1'),'-I'+str(A/'main/r2/rc7/include'),str(A/'tests/dual_display_test.cpp'),'-o',str(out/'selection')]
+cmd=[os.environ.get('CXX','/opt/homebrew/opt/llvm/bin/clang++' if Path('/opt/homebrew/opt/llvm/bin/clang++').is_file() else 'clang++'),'-std=c++20','-O1','-g','-Wall','-Wextra','-Werror','-fsanitize=address,undefined','-fno-sanitize-recover=all','-DPTOB_W12_DUAL_UI=1','-DPTOB_W12_LORA_RX=1','-DPTOB_W12_LORA_TX_FACTORY=1','-I'+str(out),'-I'+str(A/'main'),'-I'+str(A/'main/r2/r2-g1'),'-I'+str(A/'main/r2/rc7/include'),str(A/'tests/dual_display_test.cpp'),'-o',str(out/'selection')]
 subprocess.run(cmd,check=True);subprocess.run([out/'selection'],check=True)
 rc9_cmd=cmd[:-1]+[str(out/'rc9-selection'),'-DPTOB_RC9=1']
 subprocess.run(rc9_cmd,check=True);subprocess.run([out/'rc9-selection'],check=True)

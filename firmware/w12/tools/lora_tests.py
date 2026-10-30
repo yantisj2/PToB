@@ -7,7 +7,7 @@ APP=Path(__file__).resolve().parents[1]
 p=argparse.ArgumentParser();p.add_argument('--idf',type=Path,required=True);p.add_argument('--out',type=Path,required=True);a=p.parse_args();out=a.out.resolve();out.mkdir(parents=True,exist_ok=False)
 c=a.idf.resolve()/'components/bt/host/nimble/nimble/ext/tinycrypt'
 flags=['-O1','-g','-Wall','-Wextra','-Werror','-fsanitize=address,undefined','-fno-sanitize-recover=all','-I'+str(APP/'main'),'-I'+str(APP/'main/rc8'),'-I'+str(c/'include')]
-cc=os.environ.get('CC','clang');cxx=os.environ.get('CXX',cc+'++');objects=[]
+cc=os.environ.get('CC','/opt/homebrew/opt/llvm/bin/clang' if Path('/opt/homebrew/opt/llvm/bin/clang').is_file() else 'clang');cxx=os.environ.get('CXX',cc+'++');objects=[]
 for i,src in enumerate([APP/'main/rc8/lora_rc8.c',APP/'main/rc8/lora_rc8_policy.c',APP/'main/r2/r2-g1/group_auth.c',APP/'main/g1_hmac.c',c/'src/sha256.c',c/'src/utils.c']):
  obj=out/f'{i}.o';subprocess.run([cc,'-std=c11',*flags,'-c',src,'-o',obj],check=True);objects.append(obj)
 subprocess.run([cc,'-std=c11',*flags,APP/'tests/lora_core_test.c',APP/'main/lora_core.c',*objects,'-o',out/'core'],check=True)

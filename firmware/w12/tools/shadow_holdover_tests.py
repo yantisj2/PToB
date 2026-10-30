@@ -13,7 +13,7 @@ def main():
     flags=['-std=c++20','-O1','-g','-Wall','-Wextra','-Werror','-Wno-misleading-indentation','-Wno-unused-parameter','-fsanitize=address,undefined','-fno-sanitize-recover=all','-DPTOB_W12_SHADOW_HOLDOVER=1','-DPTOB_W12_HOLDOVER_PRODUCTION=1','-DPTOB_W12_HOLDOVER_HORIZON=1','-DPTOB_W12_HOLDOVER_RATE=1','-DPTOB_W12_THERMAL_SHADOW_ONLY=1','-DPTOB_W12_FINE_CLOCK=1','-I'+str(out)]
     for path in (A/'main',A/'legacy',A/'main/r2/r2-g1',A/'main/r2/rc7/include'):flags+=['-I'+str(path)]
     for name in ('shadow_holdover','shadow_display','production_holdover','holdover_rate','holdover_horizon'):
-        cmd=[os.environ.get('CXX','clang++'),*flags,A/'tests'/(name+'_test.cpp'),'-o',out/name]
+        cmd=[os.environ.get('CXX','/opt/homebrew/opt/llvm/bin/clang++' if Path('/opt/homebrew/opt/llvm/bin/clang++').is_file() else 'clang++'),*flags,A/'tests'/(name+'_test.cpp'),'-o',out/name]
         with (out/(name+'-build.log')).open('w') as log:subprocess.run(list(map(str,cmd)),stdout=log,stderr=subprocess.STDOUT,check=True)
         with (out/(name+'.log')).open('w') as log:subprocess.run([out/name,out],stdout=log,stderr=subprocess.STDOUT,check=True)
     from holdover_horizon_analyze import analyze as horizon_analyze

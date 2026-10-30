@@ -25,6 +25,19 @@
   individual local timings, not statistical benchmarks or hardware qualification;
   the reference build shared the machine with host tests. A sub-five-second
   focused run remains an optimization target.
+- C-1 app-only installation from source `adaca83` passed actual 1,003,792-byte
+  application readback, protected 64 KiB prefix and 3,824-byte final-sector tail
+  comparisons, and a fresh boot. A bounded 60-second internal smoke observed
+  BLE following with fault zero; 627 duration runs and one copied status replayed
+  with zero difference. Observed minimum host-stack space was 640 bytes, above
+  the existing 512-byte runtime gate. AUTO/page 0/capture OFF and USB release
+  were confirmed. Recovery was reused; no full-flash or installed-app backup
+  was made. This does not qualify independent UTC, failover or endurance.
+- The clean install candidate compiled in 44.12 s and retained output in 13.17 s;
+  a new directory depth/source identity can miss the compiler cache. The earlier
+  16.60 s cached compile is an observed warm case, not a guarantee for every new
+  candidate. Preserve the existing LLVM preference for standalone sanitizer
+  checks while allowing explicit compiler overrides.
 
 ## Documentation — current holdover guide
 

@@ -74,6 +74,6 @@ int main(){
 '''
 with tempfile.TemporaryDirectory() as temp:
     path=Path(temp);(path/'test.cpp').write_text(source)
-    subprocess.run([os.environ.get('CXX','clang++'),'-std=c++20','-O1','-g','-Wall','-Wextra','-Werror','-Wno-misleading-indentation','-fsanitize=address,undefined',path/'test.cpp','-o',path/'test'],check=True)
+    subprocess.run([os.environ.get('CXX','/opt/homebrew/opt/llvm/bin/clang++' if Path('/opt/homebrew/opt/llvm/bin/clang++').is_file() else 'clang++'),'-std=c++20','-O1','-g','-Wall','-Wextra','-Werror','-Wno-misleading-indentation','-fsanitize=address,undefined',path/'test.cpp','-o',path/'test'],check=True)
     subprocess.run([path/'test'],check=True)
 print('PASS actual shared reset callbacks: unused, admitted, pending and sticky failure owners')

@@ -14,7 +14,7 @@ def main():
  device={'board':'meshnology_w12_esp32s3','factory_mac':'00:00:00:00:00:64','device_id':'0000000000000064','label':'Synthetic','legacy_wire_id':2}
  profile={'schema':1,'scope':'AGGREGATE_PATH_RELATIVE_PPS','offset_ns':47000,'root':'000000000000000b','root_boot':'0000000000000016','source_epoch':9,'receiver':'000000000000012c','receiver_source_sha256':'1'*64,'receiver_phase_correction_ns':10543,'evidence_sha256':'2'*64,'baseline_evidence_sha256':'3'*64,'allow_source_epoch_transfer':True}
  objects=[a.objects.resolve()/(n+'.o') for n in ('group_auth','group_join','group_precision','precision_codec','relay_codec','rc_dynamic','rc_boundary','rc_slots','g1_hmac','sha256','utils')]
- compiler=os.environ.get('CXX','clang++');rows=[]
+ compiler=os.environ.get('CXX','/opt/homebrew/opt/llvm/bin/clang++' if Path('/opt/homebrew/opt/llvm/bin/clang++').is_file() else 'clang++');rows=[]
  def run_case(name,d,expected,negative=False):
   path=out/name;path.mkdir();validate_inputs(enrollment,d);header=device_header(d);(path/'ptob_device.h').write_text(header)
   if negative:

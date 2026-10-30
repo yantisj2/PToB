@@ -12,7 +12,7 @@ source=(APP/'main/native_main.cpp').read_text()
 # conditional and helper calls without inventing runtime hardware behavior.
 stripped=re.sub(r'^\s*#include .*$', '',source,flags=re.M)
 defs='#define V12_R2_ENABLED 1\n#define V12_R2_CONFIG 13\n#define PRIu64 "llu"\n#define PRId64 "lld"\n#define PRIx64 "llx"\n#define PRIu32 "u"\n#define PRId32 "d"\n#define PRIx32 "x"\n'
-CXX=os.environ.get('CXX',os.environ.get('CC','clang')+'++')
+CXX=os.environ.get('CXX',os.environ.get('CC','/opt/homebrew/opt/llvm/bin/clang' if Path('/opt/homebrew/opt/llvm/bin/clang').is_file() else 'clang')+'++')
 def preprocess(extra):
  return subprocess.check_output([CXX,'-E','-P','-x','c++','-'],input=defs+extra+stripped,text=True)
 normal=preprocess('#define PTOB_GNSS_INDICATORS 1\n')

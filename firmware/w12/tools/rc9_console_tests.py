@@ -12,7 +12,7 @@ s=(APP/'main/native_main.cpp').read_text();start=s.index('[[gnu::noinline]] void
 flags=['-std=c++20','-O1','-g','-Wall','-Wextra','-Werror','-Wno-sign-compare','-fsanitize=address,undefined','-fno-sanitize-recover=all','-DV12_R2_ENABLED=1','-DPTOB_RC9=1']
 if a.tz:flags+=['-DR2_TZ_WIRE=1']
 for q in (out,APP/'tests/console_fakes',APP/'main',APP/'main/r2/r2-g1',APP/'main/r2/rc7/include'):flags+=['-I'+str(q)]
-subprocess.run([os.environ.get('CXX','clang++'),*flags,APP/'tests/rc9_console_worker_test.cpp','-o',out/'writer'],check=True);subprocess.run([out/'writer',out/'wire.txt'],check=True)
+subprocess.run([os.environ.get('CXX','/opt/homebrew/opt/llvm/bin/clang++' if Path('/opt/homebrew/opt/llvm/bin/clang++').is_file() else 'clang++'),*flags,APP/'tests/rc9_console_worker_test.cpp','-o',out/'writer'],check=True);subprocess.run([out/'writer',out/'wire.txt'],check=True)
 m=dict(factory_mac='02:00:00:00:00:05',source_commit='0'*40,build_id='0'*64,console_frame_bytes=8704,fault_watchdog='SUSTAINED_FAULT_120S_V1',r2_profile='r2-g1',r2_enrollment_sha256='0'*64,r2_group_id='0000000000000011',r2_key_epoch=9,r2_client_identity='0000020000000005')
 wire=(out/'wire.txt').read_bytes();frames=Parser('0000000000000abc',m,'0000000000001234').feed(wire);assert len(frames)==1;require_coverage(frames[0]);assert len(frames[0]['rows'])==10
 # Any changed byte in a body row must fail the complete-frame CRC.

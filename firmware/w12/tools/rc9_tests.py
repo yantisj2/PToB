@@ -9,7 +9,7 @@ p=argparse.ArgumentParser();p.add_argument('--idf',type=Path,required=True);p.ad
 out=a.out.resolve();out.mkdir(parents=True,exist_ok=False)
 crypto=a.idf.resolve()/'components/bt/host/nimble/nimble/ext/tinycrypt'
 flags=['-O1','-g','-Wall','-Wextra','-Werror','-Wno-misleading-indentation','-fsanitize=address,undefined','-fno-sanitize-recover=all','-I'+str(APP/'main'),'-I'+str(crypto/'include')]
-cc=os.environ.get('CC','clang');objects=[]
+cc=os.environ.get('CC','/opt/homebrew/opt/llvm/bin/clang' if Path('/opt/homebrew/opt/llvm/bin/clang').is_file() else 'clang');objects=[]
 for i,src in enumerate([APP/'main/r2/r2-g1/group_auth.c',APP/'main/g1_hmac.c',crypto/'src/sha256.c',crypto/'src/utils.c']):
  obj=out/f'{i}.o';subprocess.run([cc,'-std=c11',*flags,'-c',src,'-o',obj],check=True);objects.append(obj)
 subprocess.run([os.environ.get('CXX',cc+'++'),'-std=c++17',*flags,APP/'main/rc9/rc9.cpp',APP/'tests/rc9_client_test.cpp',*objects,'-o',out/'client'],check=True)
