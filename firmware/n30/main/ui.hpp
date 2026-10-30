@@ -16,7 +16,7 @@ constexpr uint64_t MinimalAfterUs=900000000;
 constexpr uint8_t NormalContrast=0x60,SaverContrast=NormalContrast/2;
 enum class State:uint8_t {Off,Search,Join,Acquire,Follow,Hold,Fault};
 enum class Source:uint8_t {None,Ble,Rc1,Rc2,LoRa,Rc9};
-enum class Action:uint8_t {None,ToggleRelayOnly,ToggleLoRa};
+enum class Action:uint8_t {None,ToggleRelayOnly,ToggleLoRa,PowerOff};
 struct Model {
  r2_tz tz{};uint64_t tz_until_us=0;
  char unit[25]="N30",parent[25]="NONE",root[25]="----";
@@ -125,6 +125,7 @@ class ClockHold {
 };
 class Input {
  bool raw_=false,stable_=false,armed_=false,consumed_=false,wake_=false,main_press_=false,lora_press_=false,lora_eligible_=false;
+ bool powered_=false,cancelled_=false;uint8_t press_page_=0;
  uint64_t changed_=0,down_=0,idle_=0;
  public:
  explicit Input(bool pressed=false):raw_(pressed),stable_(pressed),armed_(!pressed){}

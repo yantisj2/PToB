@@ -60,29 +60,31 @@ void rotate(uint8_t out[FrameBytes],const uint8_t in[FrameBytes],bool cw){
 }
 Action Input::update(bool pressed,uint64_t now,View& v){
  Action action=Action::None;
+ if(stable_&&armed_&&(v.page!=press_page_||now<down_))cancelled_=true;
  if(stable_&&lora_press_&&(v.page!=LoRaPage||v.help||v.blank||v.saver))lora_eligible_=false;
  if(pressed!=raw_){raw_=pressed;changed_=now;}
  if(now>=changed_&&now-changed_>=40000&&raw_!=stable_){
   stable_=raw_;
   if(stable_){
-   if(armed_){down_=changed_;idle_=now;wake_=v.saver||v.blank;main_press_=!v.page&&!v.help;lora_press_=v.page==LoRaPage&&!v.help;lora_eligible_=lora_press_;consumed_=wake_;v.saver=v.blank=false;}
+   if(armed_){down_=changed_;idle_=now;press_page_=v.page;powered_=cancelled_=false;wake_=v.saver||v.blank;main_press_=!v.page&&!v.help;lora_press_=v.page==LoRaPage&&!v.help;lora_eligible_=lora_press_;consumed_=wake_;v.saver=v.blank=false;}
   }else{
-   if(armed_&&!consumed_){
-    if((main_press_||lora_press_)&&now>=down_&&now-down_>=1500000)action=main_press_?Action::ToggleRelayOnly:lora_eligible_?Action::ToggleLoRa:Action::None;
+   if(armed_&&!cancelled_&&!main_press_&&!wake_&&!powered_&&changed_>=down_&&changed_-down_>=4000000){v.blank=true;consumed_=true;powered_=true;action=Action::PowerOff;}
+   if(armed_&&!consumed_&&!cancelled_){
+    if((main_press_||lora_press_)&&changed_>=down_&&changed_-down_>=1500000)action=main_press_?Action::ToggleRelayOnly:lora_eligible_?Action::ToggleLoRa:Action::None;
     else if(v.help)v.help=false;else v.page=(v.page+1)%PageCount;
    }
    armed_=true;consumed_=wake_=false;down_=0;idle_=now;
   }
  }
- if(stable_&&armed_){
+ if(raw_&&stable_&&armed_&&!cancelled_){
   idle_=now;
   if(!consumed_&&now>=down_&&now-down_>=1500000){
    if(main_press_||lora_press_){action=main_press_?Action::ToggleRelayOnly:lora_eligible_?Action::ToggleLoRa:Action::None;consumed_=true;}
    else{v.help=true;consumed_=true;}
   }
-  // Main-screen toggles consume the extended hold, just like W12. RF keeps
-  // its existing4s display blank; a wake press cannot turn into another action.
-  if(!main_press_&&!lora_press_&&!wake_&&now>=down_&&now-down_>=4000000){v.blank=true;consumed_=true;}
+  // Every non-clock page can request real shutdown after four seconds.
+  // A screensaver/blank wake and the main toggle consume their entire press.
+  if(!main_press_&&!wake_&&!powered_&&now>=down_&&now-down_>=4000000){v.blank=true;consumed_=true;powered_=true;action=Action::PowerOff;}
  }
  return action;
 }

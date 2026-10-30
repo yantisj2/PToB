@@ -1,3 +1,4 @@
+#include "../../w12/main/power_off.hpp"
 // Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT
 #include <cassert>
 #include <cstdarg>
@@ -24,6 +25,7 @@ void fault_watchdog_sync_progress(bool,uint64_t){}
 void r2_stop(){mesh.requested=false;mesh.client.stopping=true;}
 void transport_stop(){}void direct_stop(){}void diagnostic_tx_stop(){}void lora_request(bool,uint32_t){}
 }
+w12::PowerOff power_off;bool display_ready=true;bool n30_display_power_ready(){return display_ready;}
 v12::UpdateGate update_gate;uint64_t update_completed_us=0;bool fine_stop_pending=false;
 uint64_t micros(){return fake_now;}
 void n30_timing_stop(){}
@@ -38,16 +40,19 @@ void host_closed(){
 }
 int main(int argc,char** argv){
  assert(argc==2);const bool off=!std::strcmp(argv[1],"off"),timeout=!std::strcmp(argv[1],"timeout"),cleanup=!std::strcmp(argv[1],"cleanup"),fault=!std::strcmp(argv[1],"fault");
+ const bool power=!std::strcmp(argv[1],"power")||!std::strcmp(argv[1],"power-timeout");
+ const bool power_timeout=!std::strcmp(argv[1],"power-timeout");
  assert(n30_fine_backend_start(2,PTOB_N30_FINE_FACTORY,fake_now));
- if(!off)assert(update_gate.begin(fake_now));const auto original_deadline=update_gate.deadline;
+ if(power){assert(power_off.request(update_gate,fake_now));display_ready=false;}else if(!off)assert(update_gate.begin(fake_now));const auto original_deadline=update_gate.deadline;
  stop_all();assert(fine_stop_pending&&active&&!n30_fine_released());
  poll_update_drain(fake_now);assert(active&&!n30_fine_released()&&update_gate.stage==(off?v12::UpdateStage::Idle:v12::UpdateStage::Draining));
  if(timeout){fake_now+=2000000;fake_raw+=160000000;poll_update_drain(fake_now);assert(update_gate.stage==v12::UpdateStage::Fault&&active);}
  host_closed();v12::lora.worker_busy=true;poll_update_drain(fake_now);assert(active&&fine_stop_pending);
  v12::lora.worker_busy=false;if(cleanup)fake_disable_ok=false;if(fault)v12::mesh.fault=true;
  poll_update_drain(fake_now);
+ if(power){assert(n30_fine_released()&&update_gate.stage==v12::UpdateStage::Draining);if(power_timeout)fake_now=original_deadline;else display_ready=true;poll_update_drain(fake_now);}
  if(cleanup){assert(update_gate.stage==v12::UpdateStage::Fault&&!n30_fine_released());fake_disable_ok=true;poll_update_drain(fake_now);}
  assert(n30_fine_released()&&!fine_stop_pending&&update_gate.deadline==original_deadline);
- assert(update_gate.stage==(off?v12::UpdateStage::Idle:((timeout||cleanup||fault)?v12::UpdateStage::Fault:v12::UpdateStage::Ready)));
+ assert(update_gate.stage==(off?v12::UpdateStage::Idle:((timeout||cleanup||fault||power_timeout)?v12::UpdateStage::Fault:v12::UpdateStage::Ready)));
  std::puts("PASS actual stop_all/drain: same production clock survives RX and LoRa close; original2s timeout, fault and failedcleanup never become READY");
 }

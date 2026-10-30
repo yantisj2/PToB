@@ -1,3 +1,4 @@
+#include "../../w12/main/power_off.hpp"
 // Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT
 #include <cassert>
 #include <cstdarg>
@@ -23,6 +24,7 @@ struct Direct {DirectStage stage=DirectStage::Off;};
 struct Lora {bool enabled=false,requested=false,worker_busy=false,off_acknowledged=true,failed=false;};
 Rx transport_status(){return {};}Tx diagnostic_tx_status(){return {};}Direct direct_status(){return {};}Lora lora_status(){return {};}
 }
+w12::PowerOff power_off;bool n30_display_power_ready(){return true;}
 v12::UpdateGate update_gate;uint64_t update_completed_us=0;
 bool fine_stop_pending=false;
 void n30_window_stop(){n30_fine_window_stop();}

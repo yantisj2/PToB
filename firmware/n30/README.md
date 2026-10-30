@@ -1,9 +1,17 @@
 # N30 native RC target
 
-**Version 0.2.36** brings BLE reception, passive LoRa fallback and a portrait
+**Version 0.2.37** brings BLE reception, passive LoRa fallback and a portrait
 OLED to the Meshnology N30 / Heltec WiFi LoRa32 V3. It uses an ESP32-S3,
 8 MiB flash and a 64×128 display. N30 is RC-only, with no GNSS input; WiFi is
 disabled. Start with the [build guide](../../docs/n30/build.md).
+
+Version 0.2.37 replaces four-second display blanking with real deep sleep.
+From any non-clock page, hold the button for four seconds, then release it.
+Radio/capture owners must finish the original two-second drain and the OLED
+worker must stop before sleep. Press the button again to reboot. Clock keeps
+its 1.5-second relay toggle; LoRa cycles at 1.5 seconds and continuing the hold
+to four seconds requests shutdown. This stops ongoing synchronization while off;
+physical sleep current, battery lifetime and wake behavior need hardware checks.
 
 Version 0.2.36 follows T096 0.15.206's ordered TZ updates, including changed
 UTC offsets and explicit unknown withdrawals. Its front digital/analog clock
@@ -158,9 +166,9 @@ show empty bars. Strong-signal thresholds are −85, −70 and −55 dBm.
 | Page | Hold action |
 | --- | --- |
 | Clock | 1.5 s toggles automatic parent selection / relay-only reception. |
-| BLE + LoRa | 1.5 s opens RF help; 4 s blanks the display. |
-| Precision | 1.5 s opens precision help; 4 s blanks the display. |
-| LoRa | 1.5 s overrides AUTO: KEEP ON → KEEP OFF → AUTO. |
+| BLE + LoRa | 1.5 s opens RF help; 4 s requests shutdown. |
+| Precision | 1.5 s opens precision help; 4 s requests shutdown. |
+| LoRa | 1.5 s overrides AUTO: KEEP ON → KEEP OFF → AUTO; 4 s requests shutdown. |
 
 Precision shows the root name, BLE/RC1/RC2 path and PPS indicator, causal RMS,
 `REL ±ppb`, selected clock/tick size and continuous settled-lock duration.

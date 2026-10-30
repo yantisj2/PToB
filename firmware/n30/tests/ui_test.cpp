@@ -41,20 +41,20 @@ int main(){
  home.update(false,5100000,h);assert(home.update(false,5140000,h)==n30::Action::None&&h.page==0);
  home.update(true,5200000,h);home.update(true,5240000,h);assert(home.update(true,6700000,h)==n30::Action::ToggleRelayOnly);
  home.update(false,6800000,h);home.update(false,6840000,h);assert(h.page==0);
- // Release debounce may be the first observation after the threshold.
+ // Release before the threshold cannot become a toggle during debounce.
  n30::Input release;n30::View rel;release.update(true,100000,rel);release.update(true,140000,rel);release.update(false,1590000,rel);
- assert(release.update(false,1630000,rel)==n30::Action::ToggleRelayOnly&&rel.page==0);
+ assert(release.update(false,1630000,rel)==n30::Action::None&&rel.page==1);
  // Page changes during a press cannot reclassify an RF hold into a toggle.
  n30::Input pinned;n30::View p;p.page=1;pinned.update(true,100000,p);pinned.update(true,140000,p);p.page=0;
  assert(pinned.update(true,1600000,p)==n30::Action::None);
  // A screensaver wake consumes a long press too; it cannot change the mode.
  n30::Input wake;n30::View w;w.saver=true;wake.update(true,100000,w);wake.update(true,140000,w);
  assert(wake.update(true,5000000,w)==n30::Action::None&&!w.blank&&!w.help&&!w.saver);
- // Last-page LoRa hold is one-shot, never RF help/blank, and cancels on navigation.
+ // LoRa cycles once at1.5s, then requests real shutdown at4s; navigation cancels.
  n30::Input third;n30::View t;t.page=n30::LoRaPage;third.update(true,100000,t);third.update(true,140000,t);
  assert(third.update(true,1599999,t)==n30::Action::None);
  assert(third.update(true,1600000,t)==n30::Action::ToggleLoRa);
- assert(third.update(true,5000000,t)==n30::Action::None&&!t.blank&&!t.help);
+ assert(third.update(true,5000000,t)==n30::Action::PowerOff&&t.blank&&!t.help);
  third.update(false,5100000,t);third.update(false,5140000,t);assert(t.page==n30::LoRaPage);
  n30::Input cancelled;n30::View cv;cv.page=n30::LoRaPage;cancelled.update(true,100000,cv);cancelled.update(true,140000,cv);cv.page=0;
  assert(cancelled.update(true,150000,cv)==n30::Action::None);cv.page=n30::LoRaPage;

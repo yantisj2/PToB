@@ -1,5 +1,19 @@
 # N30 changelog
 
+## 0.2.37 — real shutdown instead of OLED blanking
+
+- A four-second button hold on any non-clock page requests deep sleep after
+  the original two-second radio/capture drain, OLED worker acknowledgement and
+  40 ms stable release. A new button press wakes by rebooting the application.
+- Retain Clock's one-shot 1.5-second relay toggle and LoRa's 1.5-second cycle;
+  a continued LoRa hold now shuts down at four seconds. Consume wake/release,
+  cancel page changes and prevent release debounce from crossing a threshold.
+- Retain reviewed OLED VEXT/reset/I2C and SX1262 reset off levels through sleep.
+  The display worker stops rendering before those pads change ownership.
+- Host checks cover actual input, main action dispatch, fine-owner drain and
+  display-stop timeout, plus power API error paths. These are offline checks;
+  sleep current, battery lifetime and physical wake remain unmeasured.
+
 ## 0.2.36 — ordered dynamic TZ updates
 
 - Keep the independent RC9 control service at212 bytes in both client and

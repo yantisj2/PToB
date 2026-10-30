@@ -13,3 +13,6 @@ bool n30_display_take_upstream_toggle(uint64_t now);
 
 bool n30_display_take_lora_toggle(uint64_t now);
 bool n30_display_minimal();
+bool n30_display_take_poweroff();
+void n30_display_request_poweroff();
+bool n30_display_power_ready();

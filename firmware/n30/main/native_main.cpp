@@ -28,6 +28,7 @@
 #endif
 #endif
 #include "update_gate.hpp"
+#include "n30_power.hpp"
 #include "fault_watchdog.hpp"
 #include "driver/gptimer.h"
 #include "s3_clock_reference.h"
@@ -90,6 +91,7 @@ uint8_t ui_hold_percentile=95;
 uint32_t ui_hold_ms=0,ui_hold_samples=0;
 uint32_t ui_rms_ns=UINT32_MAX;uint8_t ui_gps_lamps=0;
 v12::UpdateGate update_gate;
+w12::PowerOff power_off;
 bool fine_stop_pending=false;
 v12::ConsoleTicket ticket;
 v12::ConsoleFrame response;
@@ -695,6 +697,7 @@ void input(){
       if(fine_stop_pending&&consumers_closed){n30_window_stop();n30_fine_stop();fine_stop_pending=!n30_fine_released();}
       services.host|=!n30_fine_released();services.fault|=n30_fine_cleanup_fault();
       if(update_gate.stage==v12::UpdateStage::Draining){
+        services.host|=power_off.requested()&&!n30_display_power_ready();
         update_gate.poll(now,services);
         if(update_gate.stage==v12::UpdateStage::Ready||update_gate.stage==v12::UpdateStage::Fault)update_completed_us=micros();
       }
@@ -702,6 +705,9 @@ void input(){
 
 }
 [[gnu::noinline]] void poll_display_action(){
+  if(n30_display_take_poweroff()&&power_off.request(update_gate,micros())){
+    stop_all();v12::capture_stop();n30_display_request_poweroff();
+  }
   // Consume during maintenance too: no deferred radio action after update.
   if(n30_display_take_upstream_toggle(micros())&&!update_gate.latched()){
     const auto radio=v12::r2_activity();(void)v12::r2_set_relay_only(!radio.relay_only);
@@ -805,6 +811,7 @@ extern "C" void app_main(){
   if(!v12::log_start()){v12::fault_watchdog_fatal();std::printf("W12_V12_FATAL reason=CONSOLE_WORKER\n");return;}
   gpio_config_t button{};button.pin_bit_mask=1;button.mode=GPIO_MODE_INPUT;button.pull_up_en=GPIO_PULLUP_ENABLE;
   if(gpio_config(&button)!=ESP_OK){v12::fault_watchdog_fatal();std::printf("W12_V12_FATAL reason=BUTTON\n");return;}
+  if(n30::power_wake_init()!=ESP_OK){v12::fault_watchdog_fatal();std::printf("W12_V12_FATAL reason=POWER_WAKE\n");return;}
   // The N30 display worker is the sole button interpreter.
   gps_ready=gnss_pps::init(clock_timer,pps);
 #ifdef V12_R2_ENABLED
@@ -920,14 +927,18 @@ extern "C" void app_main(){
     g1_task_diagnostics(now);
 #endif
     poll_update_drain(now);
+    if(power_off.ready(update_gate.stage,gpio_get_level(GPIO_NUM_0)==0,now)){
+      const int rc=n30::power_off();update_gate.stage=v12::UpdateStage::Fault;
+      v12::fault_watchdog_fatal();std::printf("W12_V12_FATAL reason=POWER_OFF rc=%d\n",rc);
+    }
     bool update_ui=now-last_ui>=125000;
 #ifdef V12_R2_ENABLED
     // Clear a revoked root/fault promptly;1s is only the routine repaint cadence.
     update_ui|=r2_authority_update_needed();
 #endif
-    if(update_ui){last_ui=now;ui();}
+    if(update_ui&&!power_off.requested()){last_ui=now;ui();}
 #if defined(V12_R2_ENABLED) && V12_R2_CONFIG == 13
-    if(ui_ready&&now-last_indicator_us>=20000){
+    if(ui_ready&&!power_off.requested()&&now-last_indicator_us>=20000){
       last_indicator_us=now;
       if(!n30_display_minimal()){
         const auto now20=ticks();const auto gps=gnss_pps::activity(now20);

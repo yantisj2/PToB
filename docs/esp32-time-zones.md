@@ -2,7 +2,7 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
-W12 0.2.21 and N30 0.2.36 select the same [coarse TZ wire](../protocol/time-zone-v1/README.md)
+W12 0.2.21 and N30 0.2.37 select the same [coarse TZ wire](../protocol/time-zone-v1/README.md)
 as T096 0.15.206: GM7 revision 4, direct JOIN revision 5, and RC capability/control
 revision 8. Earlier coarse revisions are rejected by this profile. G1/GR3/RC7
 precision payloads are unchanged. Other derived targets retain their selected

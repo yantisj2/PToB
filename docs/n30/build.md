@@ -9,6 +9,26 @@ Read [the target README](../../firmware/n30/README.md) for capabilities and
 unverified hardware assumptions. These commands build or inspect files; they do
 not connect, flash, start a serial reader or operate a device.
 
+Version 0.2.37 changes the four-second hold on non-clock pages from OLED
+blanking to real shutdown. Release the button after the screen goes dark.
+The main owner stops BLE, LoRa and capture activity within the original
+two-second drain; the display worker acknowledges that it has stopped I2C and
+rendering. Only then, after GPIO0 is released for 40 ms, does the ESP32-S3 enter
+deep sleep. A fresh GPIO0 press wakes by rebooting. A failed owner drain, display
+stop timeout or power API cannot become a successful shutdown.
+
+Clock keeps its single 1.5-second relay-mode toggle. LoRa keeps its 1.5-second
+mode cycle, and a continued four-second hold now shuts down. Screensaver wake,
+boot-held input and a consumed release cannot trigger another action. Sleep
+retains the reviewed VEXT36 OFF, OLED reset21/I2C17/18 LOW and SX1262 reset12 LOW
+levels; no GNSS route is added. Turning off ends synchronization, unlike the
+previous blank-screen mode. Offline software checks do not measure battery
+lifetime, off-state current or physical wake:
+
+```sh
+python3 firmware/n30/tools/power_tests.py --out artifacts/n30-power-tests-01
+```
+
 Version 0.2.28 consumes the shared [AUTO RC9 recovery fix](../w12/rc9.md#auto-client-return-to-normal-ble). Normal BLE recovery no longer waits for a six-minute fallback lease.
 
 Version 0.2.33 shares [GM successor recovery](../w12/build.md#gm-successor-recovery)
@@ -173,7 +193,7 @@ installation is permitted on the assumption that Meshtastic has that layout.
    app-only updates reuse verified recovery, retain bounded application drain,
    exact write bounds, actual application readback and protected-prefix comparison.
    A full-flash backup is a separately requested operation.
-4. Test the console/framed responses, all four pages/buttons/blank/wake, then direct
+4. Test the console/framed responses, all four pages/buttons/shutdown/wake, then direct
    T096 reception and existing RC paths, loss/reacquisition and several admission/
    authentication renewal cycles. Record failed/missing opportunities.
 5. Compare BLE health with display activity, test both units together and record
@@ -890,7 +910,7 @@ strip shows the actual BLE root alias, BLE/RC1/RC2 path and live display PPS.
 Registry lookup uses the full root identity, independently of parent identity;
 long aliases end with a truncation dot. The monochrome frame, button gestures
 and 4 Hz display schedule remain. A 1.5-second hold opens precision help and a
-four-second hold blanks the display.
+four-second hold requests shutdown from version 0.2.37.
 
 The RMS comes from the active BLE dashboard's settled causal quality, matching
 the clock page. The value remains conditional on current following time and

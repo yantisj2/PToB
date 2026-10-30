@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-29 — N30 real button shutdown
+
+- N30 0.2.37 replaces non-clock four-second OLED blanking with deep sleep
+  after radio/capture drain, OLED worker stop and button release. A fresh press
+  reboots; the radio no longer keeps synchronizing behind an off screen.
+- Keep the main Clock relay toggle and LoRa mode cycle. Add native input,
+  display-owner handoff, original drain/timeout and power API host checks;
+  battery lifetime, sleep current and physical wake remain unmeasured.
+
 ## 2026-10-29 — W12 button shutdown
 
 - W12 0.2.21 adds a four-second hold on non-clock pages to request deep sleep

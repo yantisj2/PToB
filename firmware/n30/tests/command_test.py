@@ -15,6 +15,7 @@ prefix=r'''
 #include <string>
 #include "console_protocol.hpp"
 #include "update_gate.hpp"
+#include "power_off.hpp"
 #include "lora_policy.hpp"
 #include "timing_command.hpp"
 #include "window_command.hpp"
@@ -54,6 +55,9 @@ bool r2_client_start_profile(uint64_t,unsigned){++radio_changes;return true;}
 enum class R2Mode {Passive,Active,Off};
 bool r2_request(R2Mode,uint32_t,uint64_t){++radio_changes;return true;}
 }
+w12::PowerOff power_off;bool power_action=false;unsigned display_stops=0;
+bool n30_display_take_poweroff(){bool value=power_action;power_action=false;return value;}
+void n30_display_request_poweroff(){++display_stops;}
 v12::ConsoleTicket ticket;v12::UpdateGate update_gate;
 struct Result {uint64_t nonce=0,admitted_us=0;bool accepted=false;const char* action="",*reason="";} last_command;
 char factory_text[]="02:00:00:00:30:01";bool identity=true;uint64_t session=3,last_nonce=0;uint32_t commands_rejected=0;
@@ -129,6 +133,10 @@ int main(){
  send(55,"fine start 2000 4");assert(!last_command.accepted&&fine_starts==1);
  send(37,"timing start 2000 4");assert(!last_command.accepted&&timing_starts==1);
  action_pending=true;lora_action=true;poll_display_action();assert(!mode&&radio_changes==2&&!action_pending&&!lora_action&&lora_changes==4);
+ power_action=true;poll_display_action();assert(!power_action&&!power_off.requested()&&!display_stops);
+ update_gate={};power_action=true;action_pending=true;lora_action=true;poll_display_action();
+ assert(power_off.requested()&&display_stops==1&&radio_changes==3&&!power_action&&!action_pending&&!lora_action&&lora_changes==4);
+ const auto deadline=update_gate.deadline;power_action=true;poll_display_action();assert(display_stops==1&&radio_changes==3&&update_gate.deadline==deadline);
  std::puts("PASS actual dispatch: active-radio pages, main-owner upstream toggle, maintenance consumption and identity/ticket fences");
 }
 '''

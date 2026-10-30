@@ -21,7 +21,7 @@ def main():
   with (out/(name+'-'+case+'.log')).open('w') as log:subprocess.run([out/name,case],cwd=out,stdout=log,stderr=subprocess.STDOUT,check=True,timeout=15)
  name='fine_shutdown'
  with (out/(name+'-compile.log')).open('w') as log:subprocess.run([cxx,*flags,APP/'tests'/(name+'_test.cpp'),'-o',out/name],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=40)
- for case in ('clean','off','timeout','cleanup','fault'):
+ for case in ('clean','off','timeout','cleanup','fault','power','power-timeout'):
   with (out/(name+'-'+case+'.log')).open('w') as log:subprocess.run([out/name,case],cwd=out,stdout=log,stderr=subprocess.STDOUT,check=True,timeout=15)
  spec=importlib.util.spec_from_file_location('n30_fine_console',APP/'tools/framed_console.py');console=importlib.util.module_from_spec(spec);spec.loader.exec_module(console)
  for filename in ('fine-frame.txt','fine-native-frame.txt','fine-native-radio-frame.txt','fine-rw-radio-frame.txt','fine-backend-frame.txt'):

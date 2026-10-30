@@ -28,7 +28,7 @@ n30::Model published; n30::Activity activity,lora_activity;n30::DualComparison c
 n30::ActionMailbox upstream_toggle,lora_toggle;
 struct Stats {uint32_t frames=0,errors=0,max_us=0,max_phase_us=0;uint64_t sampled=0;uint8_t page=0;bool ready=false,help=false,saver=false,blank=false,minimal=false;} stats;
 TaskHandle_t ui_task=nullptr;esp_timer_handle_t frame_timer=nullptr;
-bool minimal_wait=false;
+bool minimal_wait=false,power_action=false,power_stopping=false,power_stopped=false;
 struct SurfaceRecord {
  uint64_t at=0,end=0,loss=0,sampled=0,until=0;
  uint32_t sequence=0;uint8_t from=0,saver=0,minimal=0,page=0,due=0,valid=0,locked=0,state=0,source=0,written=0,ok=0;
@@ -62,7 +62,12 @@ void worker(void*){
  n30::Input input(gpio_get_level(GPIO_NUM_0)==0);n30::View view;n30::FrameCadence cadence;n30::SaverTimer saver_timer;
  uint64_t armed_due=0,exit_loss_us=0;bool force=true,off=false,dim=false,attempted=false,attempted_saver=false;
  for(;;){
-  n30::Model m;portENTER_CRITICAL(&mux);m=published;portEXIT_CRITICAL(&mux);
+  n30::Model m;portENTER_CRITICAL(&mux);m=published;const bool stopping=power_stopping;portEXIT_CRITICAL(&mux);
+  if(stopping){
+   command(0xae);if(frame_timer)esp_timer_stop(frame_timer);
+   portENTER_CRITICAL(&mux);stats.blank=true;minimal_wait=false;power_stopped=true;portEXIT_CRITICAL(&mux);
+   vTaskSuspend(nullptr);continue; // No more I2C, rendering or button wake until reboot.
+  }
   const auto now=now_us(); // Evaluate a copied snapshot at/after its publication.
   if(splash.active(m,now)){
    if(!splash.shown()){
@@ -79,6 +84,7 @@ void worker(void*){
   int request;portENTER_CRITICAL(&mux);request=requested_page;requested_page=-1;portEXIT_CRITICAL(&mux);
   const auto prior=view;if(request>=0){view.page=uint8_t(request);view.help=false;view.blank=false;input.activity(now);clock_hold.reset();force=true;}
   const auto action=input.update(gpio_get_level(GPIO_NUM_0)==0,now,view);
+  if(action==n30::Action::PowerOff){portENTER_CRITICAL(&mux);power_action=true;portEXIT_CRITICAL(&mux);}
   if(action==n30::Action::ToggleRelayOnly||action==n30::Action::ToggleLoRa){portENTER_CRITICAL(&mux);(action==n30::Action::ToggleRelayOnly?upstream_toggle:lora_toggle).post(now);portEXIT_CRITICAL(&mux);}
   const auto loss_deadline=saver_timer.deadline();
   n30::update_saver(input,clock_hold,saver_timer,m,view,now);
@@ -198,3 +204,7 @@ bool n30_display_take_upstream_toggle(uint64_t now){portENTER_CRITICAL(&mux);con
 bool n30_display_take_lora_toggle(uint64_t now){portENTER_CRITICAL(&mux);const bool take=lora_toggle.take(now);portEXIT_CRITICAL(&mux);return take;}
 
 bool n30_display_minimal(){portENTER_CRITICAL(&mux);const bool value=minimal_wait;portEXIT_CRITICAL(&mux);return value;}
+
+bool n30_display_take_poweroff(){portENTER_CRITICAL(&mux);const bool value=power_action;power_action=false;portEXIT_CRITICAL(&mux);return value;}
+void n30_display_request_poweroff(){portENTER_CRITICAL(&mux);power_stopping=true;portEXIT_CRITICAL(&mux);if(ui_task)xTaskNotifyGive(ui_task);}
+bool n30_display_power_ready(){portENTER_CRITICAL(&mux);const bool value=power_stopped;portEXIT_CRITICAL(&mux);return value;}
