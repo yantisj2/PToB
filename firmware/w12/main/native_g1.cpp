@@ -38,6 +38,9 @@ extern "C" {
 #include "g1_retained_estimate.hpp"
 #include "g1_receive_loss.hpp"
 #include "g1_corrected_clock.hpp"
+#ifdef PTOB_W12_SHADOW_HOLDOVER
+#include "bounded_log.hpp"
+#endif
 #include "g1_output_correction.hpp"
 #include "rc7_provisional_config.hpp"
 #include "g1_parent_selection.hpp"
@@ -56,6 +59,8 @@ extern "C" {
 #include "freertos/FreeRTOS.h"
 #ifdef V12_R2_RX_SHADOW
 #include "freertos/task.h"
+#endif
+#if defined(V12_R2_RX_SHADOW) || defined(PTOB_W12_SHADOW_HOLDOVER)
 extern "C" bool clock_reference_read(uint64_t*);
 #endif
 #include <cstring>
@@ -135,6 +140,25 @@ G1TimeZoneOrder coarse_tz_order; // Ordered within the admitted parent context.
 #endif
 G1CorrectedClock corrected_clock;
 G1AdmissionPolicy admission_policy;G1RetainedEstimate retained_estimate;G1ReceiveLoss receive_loss;
+#ifdef PTOB_W12_SHADOW_HOLDOVER
+W12ShadowHoldover shadow_holdover;uint32_t shadow_generation=0;uint64_t shadow_device_boot=0;
+uint64_t shadow_temperature20=0,shadow_temperature_consumed20=0;int32_t shadow_temperature_mc=INT32_MIN;
+void shadow_sample(const W12ShadowHoldover::Sample& s){
+  const auto q=shadow_holdover.view();
+  logf("W12_SHADOW boot=%llu seq=%llu start20=%llu local20=%llu reference_ns=%llu predicted_ns=%lld baseline_ns=%lld error_ns=%lld baseline_error_ns=%lld n=%lu p95_ns=%llu p99_ns=%llu max_ns=%llu base_p99_ns=%llu completed=%lu missed=%lu aborted=%lu thermal=%u temp_mc=%ld slope_mppb_c=%ld population=%lu horizon_ms=1000 production=0\n",
+    (unsigned long long)shadow_device_boot,(unsigned long long)s.sequence,(unsigned long long)s.start20,(unsigned long long)s.local20,(unsigned long long)s.reference_ns,
+    (long long)s.prediction_ns,(long long)s.baseline_ns,(long long)s.error_ns,(long long)s.baseline_error_ns,
+    (unsigned long)q.samples,(unsigned long long)q.p95_ns,(unsigned long long)q.p99_ns,(unsigned long long)q.max_ns,
+    (unsigned long long)q.baseline_p99_ns,(unsigned long)q.completed,(unsigned long)q.missed,(unsigned long)q.aborted,
+    unsigned(q.thermal_ready),(long)q.temperature_mc,(long)q.slope_mppb_c,(unsigned long)q.generation);
+}
+void shadow_pair(uint64_t local,uint64_t remote,uint64_t available,const G1ClockPrediction& active,bool trained,uint32_t generation){
+  if(generation!=shadow_generation){shadow_holdover.clear();shadow_generation=generation;shadow_temperature_consumed20=0;}
+  uint64_t at;int32_t temperature;portENTER_CRITICAL(&mux);at=shadow_temperature20;temperature=shadow_temperature_mc;portEXIT_CRITICAL(&mux);
+  if(at&&at!=shadow_temperature_consumed20){shadow_holdover.temperature(at,double(temperature)/1000);shadow_temperature_consumed20=at;}
+  shadow_holdover.observe(local,remote,available,active,trained);
+}
+#endif
 uint32_t retained_accepted=0;bool corrected_was_live=false;
 Rc7Client rc_client;
 #ifndef V12_G1_FAILED_PARENT_RETRY_US
@@ -985,6 +1009,9 @@ bool fresh_envelope(uint64_t created,uint64_t expires,int64_t offset,uint64_t no
     int64_t(expires)+offset>utc+int64_t(anchor.guard(now)*1000);
 }
 void changed_scope(uint64_t now,G1Reason reason,bool preserve_clock,G1ParentReason parent_reason){
+#ifdef PTOB_W12_SHADOW_HOLDOVER
+  shadow_holdover.clear();shadow_temperature_consumed20=0;
+#endif
 #ifdef R2_TZ_WIRE
  coarse_tz={};coarse_tz_order={};
 #endif
@@ -1660,6 +1687,10 @@ void publish(uint64_t begin){const auto now=micros();uint64_t tick=0;
   snap.g1_clock_predictions=corrected_clock.predictions();snap.g1_clock_causal_squares=corrected_clock.causal_squares();snap.g1_clock_nominal_squares=corrected_clock.nominal_squares();snap.g1_clock_causal_max_ns=corrected_clock.causal_max_ns();
   snap.g1_clock_discontinuities=corrected_clock.discontinuities();snap.g1_clock_last_discontinuity_ns=corrected_clock.last_discontinuity_ns();snap.g1_clock_fit_tick20=corrected_clock.fit_tick20();
   snap.g1_relative_quality=relative_quality;
+#ifdef PTOB_W12_SHADOW_HOLDOVER
+  if(!following_now||fault||closing)shadow_holdover.cancel();
+  snap.g1_shadow=shadow_holdover.view(tick);
+#endif
   snap.g1_relative_quality.evaluated20=tick;
   snap.g1_recovery=recovery;
   snap.g1_anchor_deadline_us=clock_anchor.source?clock_anchor.deadline():0;snap.g1_anchor_guard_us=clock_anchor.source?clock_anchor.guard(now):0;
@@ -1707,8 +1738,18 @@ bool r2_init(uint64_t boot,const uint8_t factory[6]){
 #ifdef V12_R2_RC7_TX_ESTIMATE_LAB
   relay_challenge=nonce;
 #endif
+#ifdef PTOB_W12_SHADOW_HOLDOVER
+  shadow_device_boot=boot;shadow_holdover.sink(shadow_sample);w12_shadow::pair_sink=shadow_pair;
+#endif
   initialized=true;snap.self=3;return true;
 }
+#ifdef PTOB_W12_SHADOW_HOLDOVER
+void r2_shadow_temperature(uint64_t tick20,int32_t milli_celsius){
+  portENTER_CRITICAL(&mux);
+  if(tick20>shadow_temperature20){shadow_temperature20=tick20;shadow_temperature_mc=milli_celsius;}
+  portEXIT_CRITICAL(&mux);
+}
+#endif
 bool r2_host_init(){return initialized&&!ble_gatts_count_cfg(services)&&!ble_gatts_add_svcs(services);}
 bool r2_host_sync(){const bool ready=initialized&&!ble_hs_id_set_rnd(own_address.val);const bool reset_sync=ready&&recovery.stage==G1ResetRecovery::AwaitSync;portENTER_CRITICAL(&mux);host_ready=ready;
   if(ready)recovery.synced(micros());
@@ -1920,6 +1961,12 @@ R2Status r2_status(){
   result.clock_valid=coarse;
   if(!coarse){result.g1_clock_origin=0;result.g1_clock_model={};result.g1_relative_quality={};}
   result.g1_retained_estimate=false;
+#ifdef PTOB_W12_SHADOW_HOLDOVER
+  uint64_t shadow_now=0;
+  if(!clock_reference_read(&shadow_now)||!result.requested||result.fault||!result.g1_shadow.last20||
+     shadow_now<result.g1_shadow.last20||shadow_now-result.g1_shadow.last20>5*W12ShadowHoldover::Hz)
+    result.g1_shadow.p95_ns=result.g1_shadow.p99_ns=UINT64_MAX;
+#endif
   result.following=coarse&&result.following&&result.service_until_us&&now<result.service_until_us;
   if(!result.following){result.root_identity=result.root_boot=result.service_until_us=0;result.source_epoch=result.publication=0;result.root=255;}
   bool model=result.following&&result.precision_fit&&result.model_available20&&result.g1_model_until_us&&now<result.g1_model_until_us;

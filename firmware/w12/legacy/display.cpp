@@ -312,7 +312,18 @@ void page_dashboard(const DisplayState& s){
   if(s.timing_source==DisplayState::Lora&&s.rms_ns!=UINT32_MAX)std::snprintf(footer,sizeof footer,"RMS %luns N:%u",(unsigned long)s.rms_ns,unsigned(s.lora_link_samples));
   else
 #endif
-  if(s.rms_ns!=UINT32_MAX&&s.samples){
+  if(s.shadow_holdover){
+   char rms[12],p99[12];
+   auto error=[](char* out,unsigned capacity,uint64_t value){
+    if(value==UINT64_MAX){std::snprintf(out,capacity,"--");return;}
+    const char* units[]={"ns","us","ms","s"};unsigned unit=0;uint64_t divisor=1;
+    while(unit<3&&(value/divisor+unsigned(value%divisor!=0))>=1000){++unit;divisor*=1000;}
+    const auto rounded=value/divisor+unsigned(value%divisor!=0);
+    if(rounded>999)std::snprintf(out,capacity,">999s");else std::snprintf(out,capacity,"%llu%s",(unsigned long long)rounded,units[unit]);
+   };
+   error(rms,sizeof rms,s.rms_ns==UINT32_MAX?UINT64_MAX:s.rms_ns);error(p99,sizeof p99,s.shadow_p99_ns);
+   std::snprintf(footer,sizeof footer,"RMS %s P99:%s",rms,p99);
+  }else if(s.rms_ns!=UINT32_MAX&&s.samples){
    char duration[12];
    if(s.hold_estimated&&s.hold_1us_ms)format_hold_time(duration,sizeof(duration),s.hold_1us_ms);else std::snprintf(duration,sizeof(duration),s.hold_estimated?"0ms":"--");
    const uint32_t divisor=s.rms_ns>=1000000?1000000:s.rms_ns>=1000?1000:1;
@@ -429,6 +440,12 @@ void page_clock(const DisplayState& s){
 void page_hold(const DisplayState& s){
  char n[24];
  if(s.r2_dashboard){
+  if(s.shadow_holdover){
+   text(2,17,"SHADOW HOLDOVER 1s");
+   if(s.shadow_p99_ns!=UINT64_MAX)std::snprintf(n,sizeof n,"%lluns",(unsigned long long)s.shadow_p99_ns);else std::snprintf(n,sizeof n,"WARMUP");
+   field(26,"P99",n);std::snprintf(n,sizeof n,"%lu/100",(unsigned long)s.shadow_samples);field(35,"SAMPLES",n);
+   text(2,44,"BLE SAMPLES / RAM128");text(2,53,"SHADOW ONLY");return;
+  }
   short_num(n,sizeof(n),s.rms_ns);field(17,"CAUSAL NS",n);
   short_num(n,sizeof(n),s.samples);field(26,"SAMPLES",n);
   short_num(n,sizeof(n),s.relative_prediction_ns);field(35,"REL EST NS",n);

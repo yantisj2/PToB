@@ -48,6 +48,9 @@ class R2Dashboard {
     last_root=mesh.root_identity;last_boot=mesh.root_boot;last_clock_origin=mesh.g1_clock_origin;last_source=mesh.source_epoch;last_train=mesh.publication;
     last_parent=mesh.joined_peer;last_parent_boot=mesh.joined_boot;last_depth=mesh.rc7_depth;last_rc_bound=mesh.rc7_bound;
     state.r2_dashboard=true;state.basic_profile=false;
+#ifdef PTOB_W12_SHADOW_HOLDOVER
+    state.shadow_holdover=true;state.shadow_p99_ns=mesh.g1_shadow.p99_ns;state.shadow_samples=mesh.g1_shadow.samples;
+#endif
 #ifdef R2_TZ_WIRE
     last_tz=mesh.tz;state.tz=mesh.tz;state.tz_until_us=mesh.tz_until_us;state.tz_sampled_us=mesh.follower_snapshot_us;
 #endif

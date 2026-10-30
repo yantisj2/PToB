@@ -2,6 +2,9 @@
 #include "g1_client_policy.hpp"
 #include "periodic_rx_model.hpp"
 #include "g1_clock_prediction.hpp"
+#ifdef PTOB_W12_SHADOW_HOLDOVER
+#include "w12_shadow_holdover.hpp"
+#endif
 #ifdef PTOB_N30
 #include "g1_retained_estimate.hpp"
 #endif
@@ -111,6 +114,13 @@ class G1CorrectedClock {
   uint32_t discontinuities_=0;uint64_t last_discontinuity_ns_=0;
   static void inc(uint32_t& n){if(n!=UINT32_MAX)++n;}
   bool refuse(){inc(refused_);return false;}
+  void shadow_pair(uint64_t local,uint64_t remote,uint64_t available){
+#ifdef PTOB_W12_SHADOW_HOLDOVER
+    if(w12_shadow::pair_sink)w12_shadow::pair_sink(local,remote,available,clock_,frequency_trained(available),quality_generation_);
+#else
+    (void)local;(void)remote;(void)available;
+#endif
+  }
   static bool stale(uint64_t now,uint64_t before){return now<before||now-before>uint64_t(periodic_rx::MaxAgeUs)*20;}
   void pending_clear(){for(auto& o:originals_)o={};for(auto& c:corrections_)c={};}
   bool discontinuity(const Original& o,uint64_t remote,uint64_t held20=0){
@@ -463,6 +473,7 @@ class G1CorrectedClock {
     }
     if(!clock_.tick){best->predicted=best->nominal=0;} // Expired/invalid carry uses ordinary cold acquisition.
 #endif
+    shadow_pair(best->local,remote,available20);
     if(discontinuity(*best,remote,held20))return refuse();
     if(last_remote_ns_&&remote<=last_remote_ns_)return refuse();
     until_=now+remaining;
@@ -536,6 +547,7 @@ class G1CorrectedClock {
     if(mapped){
       Original original{stamp.tick20,r.origin.issued,r.origin.expires,r.origin.frame,r.origin.utc_offset,
         r.publication,stamp.map_enclosure_ns,stamp.epoch,r.event,r.channel,true};
+      shadow_pair(stamp.tick20,r.parent_tx_ns,available20);
       if(discontinuity(original,r.parent_tx_ns))return denied();
       scope(anchor);observe_clock(original,r.parent_tx_ns,available20);
       // Establish this once from that mapped original's actual elapsed RX
@@ -571,6 +583,7 @@ class G1CorrectedClock {
     if(!remaining||now>UINT64_MAX-remaining)return refuse();
     Original o{s.tick20,r.origin.issued,r.origin.expires,r.origin.frame,r.origin.utc_offset,r.publication,
       s.map_enclosure_ns,s.epoch,r.event,r.channel,true};
+    shadow_pair(s.tick20,r.parent_tx_ns,available20);
     if(discontinuity(o,r.parent_tx_ns)|| (last_remote_ns_&&r.parent_tx_ns<=last_remote_ns_))return refuse();
     last_original_=s.tick20;last_remote_ns_=r.parent_tx_ns;until_=now+remaining;
     observe_clock(o,r.parent_tx_ns,available20);inc(accepted_);return true;

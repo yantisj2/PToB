@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-30 — W12 shadow holdover display
+
+- W12 0.2.22 replaces the H forecast with sampled one-second shadow P99.
+  The current servo stays active; BLE supplies all training and scoring.
+  Capture records compare candidate and baseline P95/P99/MAX without trimming.
+
 ## 2026-10-29 — N30 real button shutdown
 
 - N30 0.2.37 replaces non-clock four-second OLED blanking with deep sleep

@@ -60,6 +60,8 @@ struct DisplayState {
     uint32_t precision_ns=UINT32_MAX, uncertainty_us=UINT32_MAX;
     uint32_t rate_sigma_ppb=UINT32_MAX;
     uint32_t relative_prediction_ns=UINT32_MAX;
+    bool shadow_holdover=false;
+    uint64_t shadow_p99_ns=UINT64_MAX;uint32_t shadow_samples=0;
     uint32_t hold_trials=0,hold_precision_ns=UINT32_MAX,hold_age_s=UINT32_MAX;
     uint32_t hold_audit_samples=0;
     bool hold_audit_required=false;

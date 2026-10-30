@@ -2,6 +2,9 @@
 #include "native_device_binding.hpp"
 #include "capture_contract.hpp"
 #include "bounded_log.hpp"
+#ifdef PTOB_W12_SHADOW_HOLDOVER
+#include "driver/temperature_sensor.h"
+#endif
 #include "public_observer.hpp"
 #include "native_lora.hpp"
 #ifdef PTOB_W12_LORA_RX
@@ -741,6 +744,13 @@ void stop_all(){
         {const int n=v12::g1_render_recovery(line,sizeof line,mesh);if(n>0&&unsigned(n)<sizeof line){const int printed=std::printf("%s",line);if(printed>0)console_bytes+=unsigned(printed);}}
         {const int n=v12::g1_render_clock(line,sizeof line,mesh,now);if(n>0&&unsigned(n)<sizeof line){const int printed=std::printf("%s",line);if(printed>0)console_bytes+=unsigned(printed);}}
         {const int n=v12::g1_render_fit(line,sizeof line,mesh,now);if(n>0&&unsigned(n)<sizeof line){const int printed=std::printf("%s",line);if(printed>0)console_bytes+=unsigned(printed);}}
+#ifdef PTOB_W12_SHADOW_HOLDOVER
+        {const auto& q=mesh.g1_shadow;const int printed=std::printf("W12_SHADOW_STATUS at_us=%llu population=%lu n=%lu started=%lu completed=%lu missed=%lu aborted=%lu p95_ns=%llu p99_ns=%llu max_ns=%llu baseline_p95_ns=%llu baseline_p99_ns=%llu baseline_max_ns=%llu thermal=%u holding=%u horizon_ms=1000 production=0\n",
+          (unsigned long long)now,(unsigned long)q.generation,(unsigned long)q.samples,(unsigned long)q.started,(unsigned long)q.completed,(unsigned long)q.missed,(unsigned long)q.aborted,
+          (unsigned long long)q.p95_ns,(unsigned long long)q.p99_ns,(unsigned long long)q.max_ns,
+          (unsigned long long)q.baseline_p95_ns,(unsigned long long)q.baseline_p99_ns,(unsigned long long)q.baseline_max_ns,unsigned(q.thermal_ready),unsigned(q.holding));
+          if(printed>0)console_bytes+=unsigned(printed);}
+#endif
         for(unsigned i=0;i<8;i++){const unsigned index=(g1_diagnostic_peer+i)%8;const int n=v12::g1_render_peer(line,sizeof line,mesh.g1_diagnostics.peers[index]);
           if(n>0&&unsigned(n)<sizeof line){const int printed=std::printf("%s",line);if(printed>0)console_bytes+=unsigned(printed);g1_diagnostic_peer=(index+1)%8;break;}}
       }else{const int n=v12::g1_render_live(line,sizeof line,mesh,log,now,v12::g1_hci_status());if(n>0&&unsigned(n)<sizeof line){const int printed=v12::log_live(line);if(printed>0)console_bytes+=unsigned(printed);}
@@ -861,6 +871,19 @@ extern "C" bool IRAM_ATTR clock_reference_bt_bracket(uint64_t* before,uint64_t* 
   time->half_slots=observed.half_slots;time->half_us=observed.half_us;return true;
 #endif
 }
+#ifdef PTOB_W12_SHADOW_HOLDOVER
+[[gnu::noinline]] void shadow_temperature_poll(){
+  static temperature_sensor_handle_t sensor=nullptr;static bool attempted=false;static uint64_t next=0;
+  const auto now=micros();if(now<next)return;next=now+1000000;
+  if(!attempted){attempted=true;temperature_sensor_config_t config=TEMPERATURE_SENSOR_CONFIG_DEFAULT(-10,80);
+    if(temperature_sensor_install(&config,&sensor)!=ESP_OK){sensor=nullptr;return;}
+    if(temperature_sensor_enable(sensor)!=ESP_OK){temperature_sensor_uninstall(sensor);sensor=nullptr;return;}}
+  if(!sensor)return;
+  float celsius=0;uint64_t tick=0;
+  if(temperature_sensor_get_celsius(sensor,&celsius)==ESP_OK&&std::isfinite(celsius)&&clock_reference_read(&tick))
+    v12::r2_shadow_temperature(tick,int32_t(std::llround(double(celsius)*1000)));
+}
+#endif
 extern "C" void app_main(){
   uint8_t factory[6]{};esp_read_mac(factory,ESP_MAC_EFUSE_FACTORY);
   std::snprintf(factory_text,sizeof(factory_text),"%02x:%02x:%02x:%02x:%02x:%02x",
@@ -914,6 +937,9 @@ extern "C" void app_main(){
     v12::fault_watchdog_fatal();std::printf("W12_V12_FATAL reason=UI_OR_NATIVE_HOST_INIT RF=OFF\n");return;}
   v12::fault_watchdog_host_expected();
   while(true){
+#ifdef PTOB_W12_SHADOW_HOLDOVER
+    shadow_temperature_poll();
+#endif
     // Independent of output and the NimBLE task: expiry remains visible even
     // when that owner is yielding inside an HCI enable/stop. This observer only
     // latches/queues cleanup; it cannot certify physical quiet or retry RF.

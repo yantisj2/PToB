@@ -32,7 +32,7 @@ idf_component_register(SRCS "native_main.cpp" "power_off.cpp" "fault_watchdog.cp
   "../legacy/gnss_pps.cpp" "../legacy/display.cpp"
   INCLUDE_DIRS "." "../legacy" "../legacy/reference" ${r2_includes}
   REQUIRES bt mbedtls esp_driver_spi esp_driver_gptimer esp_driver_i2c esp_driver_gpio
-    esp_driver_usb_serial_jtag esp_driver_uart esp_driver_mcpwm esp_pm esp_timer esp_hw_support)
+    esp_driver_usb_serial_jtag esp_driver_uart esp_driver_mcpwm esp_driver_tsens esp_pm esp_timer esp_hw_support)
 if(V12_R2_RX_SHADOW)
   file(SHA256 "$ENV{IDF_PATH}/components/esp_driver_gptimer/src/gptimer_priv.h" timer_abi_sha)
   if(NOT timer_abi_sha STREQUAL "1b75930c75158fd6f32640d0ff094919a786d4057c0b9e9258e71ce6495542d4")
@@ -50,7 +50,7 @@ else()
   set(ptob_board 2)
   set(ptob_gnss 0)
 endif()
-target_compile_definitions(${COMPONENT_LIB} PRIVATE V12_UNIT="W12" PTOB_W12_SYNC_WATCHDOG=1
+target_compile_definitions(${COMPONENT_LIB} PRIVATE V12_UNIT="W12" PTOB_W12_SYNC_WATCHDOG=1 PTOB_W12_SHADOW_HOLDOVER=1
   V12_SOURCE_REVISION="${V12_SOURCE_REVISION}" W12_UNIT_NAME="PToB W12"
   W12_COPY_BOARD_PROFILE=${ptob_board} W12_GNSS_VERIFIED_INPUTS=${ptob_gnss} PTOB_W12_DUAL_UI=1
   W12_GNSS_RX_PIN=39 W12_GNSS_PPS_PIN=41 W12_GNSS_BAUD=9600

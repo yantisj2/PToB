@@ -6,6 +6,9 @@ uint64_t fake_now=1000;
 void test_critical_enter(void*);
 #define V12_TEST_CRITICAL_ENTER(x) test_critical_enter(x)
 #include "../main/native_g1.cpp"
+#ifdef PTOB_W12_SHADOW_HOLDOVER
+extern "C" bool clock_reference_read(uint64_t* count){if(!count)return false;*count=fake_now*20;return true;}
+#endif
 namespace {
 bool scan_active=false,small_mtu=false,rx_blocked=false,late_disconnect=false,marker_bad=false;int scan_error=0,connect_error=0;
 bool cleanup_scheduled=false,sync_cancel_timeout=false;unsigned sync_cancel_calls=0;int sync_terminate_error=0;uint64_t sync_terminate_delay=0;bool sync_pool_held=false;
@@ -14,6 +17,9 @@ bool residual_sync_cache=false,stop_in_cache_check=false,arm_late_stop=false,sto
 unsigned connected=0,terminated=0,last_init_interval=0,last_init_window=0,last_supervision=0;void* conn_arg=nullptr;bool inline_failure=false,inline_success=false,cancel_missing=false,hidden_link=false,sync_late=false,sync_cancel_disallowed=false,sync_cancel_inline=false;unsigned cancel_calls=0;std::vector<std::vector<uint8_t>> output;
 }
 namespace v12 {
+#ifdef PTOB_W12_SHADOW_HOLDOVER
+int logf(const char*,...){return 1;}
+#endif
 #ifdef V12_R2_RC7_TX_ESTIMATE_LAB
 LogStatus fixture_log_status{};
 LogStatus log_status(){return fixture_log_status;}
@@ -90,6 +96,19 @@ int main(int argc,char** argv){assert(argc==2);std::string which=argv[1];
   step();assert(!v12::r2_status().serving&&!v12::r2_status().source);assert(!v12::r2_request(v12::R2Mode::Active,10000,44));
   if(which=="cancel"){assert(v12::r2_status().off_ack);return 0;}if(which=="blocked"||which=="late"){assert(v12::r2_status().fault);return 0;}
   assert(v12::r2_status().client.running);
+#ifdef PTOB_W12_SHADOW_HOLDOVER
+  if(which=="shadow-only"){
+    const auto original=v12::corrected_clock.prediction();
+    const auto at=UINT64_C(40000000);v12::G1ClockPrediction active{at-1000,INT64_C(1000000000000),0,123,0};
+    v12::r2_shadow_temperature(at,25000);assert(v12::w12_shadow::pair_sink);
+    v12::w12_shadow::pair_sink(at-1250000,1,at,active,true,77);
+    v12::r2_shadow_temperature(at+20000000,25000);
+    v12::w12_shadow::pair_sink(at+20000000,uint64_t(active.relative_at(at+20000000))-123,at+20000100,active,true,77);
+    assert(v12::shadow_holdover.view().completed==1&&v12::shadow_holdover.view().max_ns==123);
+    assert(v12::corrected_clock.prediction().tick==original.tick&&!v12::member&&!v12::anchor.source);
+    std::puts("PASS native W12 shadow sink and temperature handoff: no current clock or source mutation");return 0;
+  }
+#endif
   if(which=="boot-empty"){
     // A process boot starts with no learned leader, locator, failure history,
     // timing model or retry budget. Group/address discovery is a locator only.

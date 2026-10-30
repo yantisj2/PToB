@@ -4,6 +4,9 @@
 #include "g1_receive_loss.hpp"
 #include "g1_retained_estimate.hpp"
 #include "g1_relative_quality.hpp"
+#ifdef PTOB_W12_SHADOW_HOLDOVER
+#include "w12_shadow_holdover.hpp"
+#endif
 #include <cstdint>
 #ifdef R2_TZ_WIRE
 #include "r2/r2-g1/time_zone.h"
@@ -106,6 +109,9 @@ struct R2Status {
   uint16_t g1_fit_points=0,g1_fit_span_ms=0;uint8_t g1_fit_reason=0;
   uint32_t g1_quality_missing=0;
   G1RelativeQuality g1_relative_quality{};
+#ifdef PTOB_W12_SHADOW_HOLDOVER
+  W12ShadowView g1_shadow{};
+#endif
   G1ResetRecovery g1_recovery{};
   G1Diagnostics g1_diagnostics{};
   uint32_t discipline_first_refusal=0,discipline_last_refusal=0;
@@ -163,6 +169,9 @@ bool r2_gm_parent(uint64_t identity);
 void r2_stop();
 void r2_observe(uint64_t now);
 R2Status r2_status();
+#ifdef PTOB_W12_SHADOW_HOLDOVER
+void r2_shadow_temperature(uint64_t tick20,int32_t milli_celsius);
+#endif
 // Main-task GNSS observer only. The timebase conversion is coarse, never
 // physical BLE capture or a claim that a PPS edge has a UTC second label.
 void r2_nmea(const uint8_t* bytes,unsigned size,uint64_t now_us);

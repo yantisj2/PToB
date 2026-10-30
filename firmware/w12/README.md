@@ -7,11 +7,21 @@ RC role. [Image provenance](../../docs/images/README.md).*
 
 Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
 
-**PToB owns W12 native G1/RC7 development.** Current version **0.2.21** supports
+**PToB owns W12 native G1/RC7 development.** Current version **0.2.22** supports
 **RC**: a BLE50 client or BLE100 receiver with an optional experimental
 estimated-TX relay. It receives from the shared T096/W12/StickS3 mesh; it has no
 GM profile or USB timing stream. Start with the
 [build guide](../../docs/w12/build.md).
+
+Version 0.2.22 replaces the Clock page's `H:` forecast with `P99:` for an
+experimental one-second BLE shadow holdover model. The current servo remains
+active. Separate trials withhold shadow corrections and temperature-model
+learning, then score the first matched BLE observation at 1–1.125 seconds.
+P99 uses the nearest rank of absolute errors from the latest 128 endpoints,
+with at least 100 required before display. The Hold diagnostic page identifies
+its one-second horizon and sample count. Temperature is a silicon-sensor proxy;
+BLE supplies every timing reference. Sampled error is neither UTC accuracy nor
+a continuous error bound. See the [shadow checks](../../docs/w12/build.md#shadow-holdover).
 
 Version 0.2.21 adds four-second button shutdown from any non-clock page.
 The display goes dark, the existing two-second application drain closes radio

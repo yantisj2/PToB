@@ -1,5 +1,14 @@
 # W12 changelog
 
+## 0.2.22 — measured shadow holdover P99
+
+- Replace the Clock page H forecast with empirical P99 from one-second BLE
+  shadow holdoff endpoints, requiring 100 of the latest 128 samples.
+- Keep the current production servo; learn a bounded temperature proxy only
+  outside holdoff and compare both methods on the same actual BLE observations.
+- Preserve signed tails, missing/aborted counts, population resets and causal
+  temperature history. Sampled error does not qualify UTC or radio-off holdover.
+
 ## 0.2.21 — four-second shutdown away from Clock
 
 - Hold GPIO0 for four seconds on Precision, LoRa or another non-clock page to

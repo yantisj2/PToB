@@ -809,3 +809,33 @@ These use the pinned SDK's public crypto headers through `IDF_PATH` and syntheti
 radio callbacks. Hardware verification must preserve missing/expired samples,
 measure reacquisition separately from precision lock, and test actual GM changes.
 Neither host checks nor internal fit RMS establishes calibrated UTC accuracy.
+
+## Shadow holdover
+
+W12 0.2.22 keeps the existing production servo and adds an experimental
+numerical shadow model. It learns a bounded linear temperature response from
+BLE-derived frequency fits using an eight-second silicon-temperature proxy.
+There is no local GNSS/LoRa training or production cutover. Insufficient thermal
+coverage retains the current fitted rate without inventing a temperature slope.
+
+A trial freezes the current raw clock and candidate coefficients at their actual
+availability time, withholds further BLE corrections and learning for one second,
+and continues causal temperature compensation. The first authenticated matched
+physical BLE observation at 1–1.125 seconds scores both candidate and held current
+method. An interval without that endpoint is missing, never interpolated.
+There is at least one second of training between trials. Source changes reset
+the rolling population; counters retain completed, missed and aborted trials.
+
+`P99:` replaces `H:` on the Clock page. It is the nearest-rank absolute error of
+the latest 128 measured endpoints and requires 100 endpoints. It becomes `--`
+after five seconds without a scored endpoint. The Hold diagnostic page shows
+`SHADOW HOLDOVER 1s` and sample count. This display does not grant lock or source
+permission. Radio-off behavior and independently measured UTC remain unqualified.
+
+During bounded capture, `W12_SHADOW` records retain exact integer reference and
+candidate/baseline predictions, signed errors, local coordinates and population.
+Use `tools/shadow_holdover_tests.py` for causal holdoff, thermal history, tails,
+quantiles, lifecycle and actual framebuffer checks without opening hardware.
+Use `tools/shadow_holdover_analyze.py` on the captured console to reproduce
+sampled P95/P99/MAX and compare both methods. Missing log sequences and partial
+capture populations remain explicit. No detrending or tail removal is applied.
