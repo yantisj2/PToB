@@ -15,8 +15,11 @@ class W12HoldoverRate {
   struct Fit {double rate=0,guard=INFINITY;uint32_t points=0,pairs=0,span_ms=0;bool valid=false;};
   struct Choice {double rate=0,delta=0;bool selected=false;};
  private:
-  struct Point {uint64_t local=0,remote=0,available=0;uint8_t channel=255;};
-  Point points_[160]{};unsigned count_=0;
+  // A closed 32s window at the accepted minimum 250ms spacing contains at
+  // most 129 points. Keep channels separately to avoid padding each point.
+  static constexpr unsigned Capacity=129;
+  struct Point {uint64_t local=0,remote=0,available=0;};
+  Point points_[Capacity]{};uint8_t channels_[Capacity]{};unsigned count_=0;
   double sx_[37]{},sy_[37]{};unsigned n_[37]{};
   uint64_t last_=0,refreshed_=0;uint32_t generation_=0;
   Fit short_{},long_{};
@@ -27,23 +30,23 @@ class W12HoldoverRate {
       if(!origin){origin=&p;}last=p.local;
       const double x=double(p.local-origin->local)/Hz;
       const double y=double(int64_t(p.remote)-int64_t(origin->remote)-int64_t(p.local-origin->local)*50);
-      sx_[p.channel]+=x;sy_[p.channel]+=y;++n_[p.channel];++r.points;}
+      const auto ch=channels_[i];sx_[ch]+=x;sy_[ch]+=y;++n_[ch];++r.points;}
     if(!origin)return r;
     r.span_ms=uint32_t((last-origin->local)/20000);
     if(r.points<32||r.span_ms<seconds*850)return r;
     double xx=0,xy=0;
     for(unsigned ch=0;ch<37;++ch)if(n_[ch]>1)r.pairs+=n_[ch]-1;
     if(r.pairs<8)return r;
-    for(unsigned i=0;i<count_;++i){const auto& p=points_[i];if(p.local<begin||p.available>at||p.local>at||n_[p.channel]<2)continue;
-      const double x=double(p.local-origin->local)/Hz-sx_[p.channel]/n_[p.channel];
-      const double y=double(int64_t(p.remote)-int64_t(origin->remote)-int64_t(p.local-origin->local)*50)-sy_[p.channel]/n_[p.channel];
+    for(unsigned i=0;i<count_;++i){const auto& p=points_[i];const auto ch=channels_[i];if(p.local<begin||p.available>at||p.local>at||n_[ch]<2)continue;
+      const double x=double(p.local-origin->local)/Hz-sx_[ch]/n_[ch];
+      const double y=double(int64_t(p.remote)-int64_t(origin->remote)-int64_t(p.local-origin->local)*50)-sy_[ch]/n_[ch];
       xx+=x*x;xy+=x*y;}
     if(xx<=0)return r;
     r.rate=xy/xx;if(!std::isfinite(r.rate)||std::abs(r.rate)>50000)return r;
     double squares=0;
-    for(unsigned i=0;i<count_;++i){const auto& p=points_[i];if(p.local<begin||p.available>at||p.local>at||n_[p.channel]<2)continue;
-      const double x=double(p.local-origin->local)/Hz-sx_[p.channel]/n_[p.channel];
-      const double y=double(int64_t(p.remote)-int64_t(origin->remote)-int64_t(p.local-origin->local)*50)-sy_[p.channel]/n_[p.channel];
+    for(unsigned i=0;i<count_;++i){const auto& p=points_[i];const auto ch=channels_[i];if(p.local<begin||p.available>at||p.local>at||n_[ch]<2)continue;
+      const double x=double(p.local-origin->local)/Hz-sx_[ch]/n_[ch];
+      const double y=double(int64_t(p.remote)-int64_t(origin->remote)-int64_t(p.local-origin->local)*50)-sy_[ch]/n_[ch];
       const double e=y-r.rate*x;squares+=e*e;}
     r.guard=std::max(50000.0/r.span_ms,3*std::sqrt(squares/(r.pairs-1)/xx));
     r.valid=std::isfinite(r.guard);return r;
@@ -54,9 +57,9 @@ class W12HoldoverRate {
     if(generation!=generation_)clear(generation);
     if(!local||available<local||remote>uint64_t(INT64_MAX)||channel>=37||local<=last_)return false;
     if(last_&&local-last_<Hz/4)return false;
-    while(count_&&(local-points_[0].local>32*Hz||count_==160)){
-      for(unsigned i=1;i<count_;++i){points_[i-1]=points_[i];}--count_;}
-    points_[count_++]={local,remote,available,channel};last_=local;return true;
+    while(count_&&(local-points_[0].local>32*Hz||count_==Capacity)){
+      for(unsigned i=1;i<count_;++i){points_[i-1]=points_[i];channels_[i-1]=channels_[i];}--count_;}
+    points_[count_]={local,remote,available};channels_[count_++]=channel;last_=local;return true;
   }
   void refresh(uint64_t at){
     if(!at||(refreshed_&&at>=refreshed_&&at-refreshed_<Hz))return;
@@ -81,7 +84,7 @@ class W12HoldoverRate {
     clock.phase=phase;clock.rate=rate;clock.thermal={};return true;
   }
 };
-static_assert(sizeof(W12HoldoverRate)<=6400,"Bounded HOLD-only history and fit workspace");
+static_assert(sizeof(W12HoldoverRate)<=4352,"Bounded HOLD-only history and fit workspace");
 namespace w12_hold_rate {
 using PairSink=void(*)(uint64_t,uint64_t,uint64_t,uint8_t,uint32_t);
 inline PairSink pair_sink=nullptr;

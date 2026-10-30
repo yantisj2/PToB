@@ -38,7 +38,10 @@ class W12ShadowHoldover {
   struct Temperature {uint64_t tick=0;double measured=0,lagged=0,integral=0;};
   std::array<Temperature,8> temperatures_{};unsigned temperature_count_=0;
   std::array<int64_t,Capacity> errors_{},baseline_errors_{};
-  std::array<uint64_t,Capacity> scratch_{};
+  // Sort byte indices while retaining every full-width signed error. This
+  // needs no second magnitude array and preserves exact percentile values.
+  std::array<uint8_t,Capacity> scratch_{};
+  static_assert(Capacity<=256);
   W12ShadowView view_{};G1ClockPrediction baseline_{};
   uint64_t start_=0,next_=0,last_label_=0,last_pair_=0,last_witness_=0;
   double weight_=0,sx_=0,sy_=0,sxx_=0,sxy_=0,beta_=0;
@@ -65,10 +68,10 @@ class W12ShadowHoldover {
     return true;
   }
   void quantiles(const std::array<int64_t,Capacity>& values,uint64_t& p95,uint64_t& p99,uint64_t& maximum){
-    for(unsigned i=0;i<view_.samples;++i)scratch_[i]=magnitude(values[i]);
-    std::sort(scratch_.begin(),scratch_.begin()+view_.samples);
-    maximum=scratch_[view_.samples-1];
-    if(view_.samples>=Minimum){p95=scratch_[(95*view_.samples+99)/100-1];p99=scratch_[(99*view_.samples+99)/100-1];}
+    for(unsigned i=0;i<view_.samples;++i)scratch_[i]=uint8_t(i);
+    std::sort(scratch_.begin(),scratch_.begin()+view_.samples,[&](uint8_t a,uint8_t b){return magnitude(values[a])<magnitude(values[b]);});
+    maximum=magnitude(values[scratch_[view_.samples-1]]);
+    if(view_.samples>=Minimum){p95=magnitude(values[scratch_[(95*view_.samples+99)/100-1]]);p99=magnitude(values[scratch_[(99*view_.samples+99)/100-1]]);}
     else p95=p99=UINT64_MAX;
   }
   void learn(uint64_t available,double temperature,double rate){

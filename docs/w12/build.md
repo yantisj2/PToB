@@ -5,6 +5,14 @@ Copyright (c) 2026 Jonathan Yantis. MIT.
 Native builds [clean compiler output and retain the latest two image bundles](../firmware-storage.md)
 per device/profile, with installed/recovery pins preserved.
 
+Version 0.2.32 reduces fixed estimator storage by 2792 bytes. All accepted
+history remains: at least 250 ms between points permits at most 129 points in
+the closed 32-second window. Separate channel bytes remove point padding;
+byte-index sorting preserves the full-width signed-error rings and exact tails.
+No sampler, model, controller or peripheral budget is reduced. Run
+`python3 firmware/w12/tools/shadow_holdover_tests.py --out artifacts/w12-shadow-tests-01`
+for causal rate, frozen shadow, duration, quantile and OLED checks.
+
 Version 0.2.31 uses checked static host-task allocation on the GNSS profile.
 The full configured 8192-byte host stack and its control block are reserved
 before peripheral heap fragmentation; host priority and core remain identical.

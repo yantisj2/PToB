@@ -7,11 +7,18 @@ RC role. [Image provenance](../../docs/images/README.md).*
 
 Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
 
-**PToB owns W12 native G1/RC7 development.** Current version **0.2.31** supports
+**PToB owns W12 native G1/RC7 development.** Current version **0.2.32** supports
 **RC**: a BLE50 client or BLE100 receiver with an optional experimental
 estimated-TX relay. It receives from the shared T096/W12/StickS3 mesh; it has no
 GM profile or USB timing stream. Start with the
 [build guide](../../docs/w12/build.md).
+
+Version 0.2.32 reduces fixed estimator storage by 2792 bytes without changing
+samples or calculations: the closed 32-second window holds at most 129 accepted
+250 ms-spaced pairs, channels avoid per-point padding, and percentile sorting
+uses byte indices into the unchanged full-width error rings. The 48 duration
+clocks, 128-outcome rings, production HOLD and temperature shadow remain intact.
+Offline equivalence is separate from exact-device admission and timing checks.
 
 Version 0.2.31 reserves the existing 8192-byte NimBLE host stack statically on
 GNSS-enabled W12 builds and checks task creation. This avoids a silent missing

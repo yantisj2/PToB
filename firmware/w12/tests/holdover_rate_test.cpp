@@ -14,7 +14,7 @@ static void feed(double rate=100, double acceleration=0){
   history.refresh(800001000);
 }
 int main(){
-  feed();assert(history.points()<=129);
+  feed();assert(history.points()==129);
   assert(history.fit16().valid&&history.fit32().valid);
   assert(std::abs(history.fit32().rate-100)<.001);
   const auto choice=history.choose(800002000,108,20);

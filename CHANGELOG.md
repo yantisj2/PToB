@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-30 — W12 compact exact estimator storage
+
+- Reduce fixed estimator storage by 2792 bytes while retaining every accepted
+  32-second history point and full-width error value. Sort percentile indices
+  and store channel bytes without per-point padding.
+- Preserve production HOLD, temperature shadow, all parallel duration probes and
+  sampler populations. Offline equivalence does not establish hardware admission.
+
 ## 2026-10-30 — W12 GNSS host startup
 
 - Reserve the full configured NimBLE host stack statically on GNSS W12 builds

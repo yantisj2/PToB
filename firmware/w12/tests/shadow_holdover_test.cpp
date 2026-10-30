@@ -17,10 +17,14 @@ void score(Shadow& s,uint64_t start,unsigned eighths,int64_t error){const auto a
 int main(){
   Shadow shadow;shadow.sink(save);const auto start=2*Hz;begin(shadow,start);
   std::vector<uint64_t> errors;
-  for(unsigned i=1;i<=960;++i){const int64_t error=i==138?INT64_C(9000000000):int64_t(i%160);
-    score(shadow,start,i,error);errors.push_back(uint64_t(error));
+  for(unsigned i=1;i<=960;++i){const int64_t error=i==138?INT64_C(9000000000):(i%2?-1:1)*int64_t(i%160);
+    score(shadow,start,i,error);errors.push_back(uint64_t(std::abs(error)));
     assert(rows.back().error_ns==error&&rows.back().baseline_error_ns==error);
     assert(rows.back().prediction_ns==rows.back().baseline_ns);
+    std::vector<uint64_t> window(errors.end()-std::min(errors.size(),size_t(128)),errors.end());
+    std::sort(window.begin(),window.end());const auto n=window.size();
+    assert(shadow.view().max_ns==window.back());
+    if(n>=100){assert(shadow.view().p95_ns==window[(95*n+99)/100-1]&&shadow.view().p99_ns==window[(99*n+99)/100-1]);}
     if(i<100)assert(shadow.view().p99_ns==UINT64_MAX);
     if(i==800)assert(shadow.view().cross20==138*Hz/8&&shadow.view().safe20==137*Hz/8);
   }

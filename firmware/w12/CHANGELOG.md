@@ -1,5 +1,14 @@
 # W12 changelog
 
+## 0.2.32 — compact exact estimator storage
+
+- Preserve the full closed 32-second history using its maximum 129 accepted
+  pairs and separate channel bytes, avoiding unused capacity and point padding.
+- Sort byte indices into the unchanged full-width signed-error rings. Retain
+  exact P95/P99/MAX, outliers, sample populations and every holdover feature.
+- Reduce fixed estimator storage by 2792 bytes; retain the GNSS host stack,
+  peripherals and all sampler budgets. Hardware admission remains to be checked.
+
 ## 0.2.31 — checked GNSS host task allocation
 
 - Reserve the full configured NimBLE host stack statically on GNSS W12 builds
