@@ -99,12 +99,15 @@ def verify_current_edition():
     return previous
 
 
-def imported_bytes(entry, previous):
+def imported_bytes(entry, previous_editions):
     current = (ROOT / entry['path']).read_bytes()
     if hashlib.sha256(current).hexdigest() == entry['sha256']:
         return current
-    prior = {item['path']: item['sha256'] for item in previous['files']}
-    require(prior.get(entry['path']) == entry['sha256'], 'frozen import identity: ' + entry['path'])
+    matches = [edition for edition in previous_editions
+               if any(item['path'] == entry['path'] and item['sha256'] == entry['sha256']
+                      for item in edition['files'])]
+    require(len(matches) == 1, 'frozen import identity: ' + entry['path'])
+    previous = matches[0]
     try:
         return subprocess.check_output(['git', 'show', previous['revision'] + ':' + entry['path']], cwd=ROOT,
                                        stderr=subprocess.PIPE)
@@ -113,10 +116,13 @@ def imported_bytes(entry, previous):
 
 
 def main():
-    previous = verify_current_edition()
+    previous_editions = [verify_current_edition()]
+    viability = ROOT / 'papers/editions/viability-2026-10-30.json'
+    if viability.exists():
+        previous_editions.append(json.loads(viability.read_text())['previous_edition'])
     manifest = json.loads((ROOT / 'papers/imports/research-2026-10-16.json').read_text())
     for entry in manifest['files']:
-        require(hashlib.sha256(imported_bytes(entry, previous)).hexdigest() == entry['sha256'], entry['path'])
+        require(hashlib.sha256(imported_bytes(entry, previous_editions)).hexdigest() == entry['sha256'], entry['path'])
     delivery = list(csv.DictReader((BASE / 'usb-chrony/delivery.csv').open()))
     tracking = list(csv.DictReader((BASE / 'usb-chrony/tracking.csv').open()))
     require(len(tracking) == 323, 'tracking denominator')

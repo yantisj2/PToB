@@ -7,8 +7,9 @@ evidence. [Project website](https://ptob.dev).
 
 **Start with the main paper: [PToB Viability: Rooted BLE Timing Meshes for
 Heterogeneous Edge Networks](papers/ptob-viability-preprint.pdf)** — research
-draft, 16 October 2026. It brings together the architecture, experimental
-evidence, scaling limits and proposed path to a PTP edge extension.
+draft for author review, 30 October 2026. The 17-page revision brings together
+the architecture, heterogeneous timing and holdover evidence, scaling limits
+and proposed path to a PTP edge extension.
 [Supporting research drafts and paper sources](papers/README.md).
 
 **Latest public review draft, 26 October 2026:**
