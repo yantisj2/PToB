@@ -84,10 +84,10 @@ class W12HoldoverHorizon {
       const auto error=uint64_t(std::llabs(prediction-int64_t(reference)));
       r.peak=std::max(r.peak,uint32_t(std::min<uint64_t>(error,UINT32_MAX)));
       for(;r.next<Ages.size()&&Ages[r.next]<=r.probe_ms&&dt>=uint64_t(Ages[r.next])*20000;++r.next){
-        // Score the first actual witness at/after an age, within250ms. Its
-        // prefix includes any overshoot conservatively. Unknown is never pass.
-        const auto over=dt-uint64_t(Ages[r.next])*20000;
-        outcome(r,r.next,r.peak>=1000?Fail:over<=Gap?Pass:Unknown);
+        // The first actual witness at/after an age includes the full sampled
+        // prefix and any overshoot. Gaps stay explicit; no gap is interpolated.
+        // Only expiry without a confirming witness leaves an age unknown.
+        outcome(r,r.next,r.peak>=1000?Fail:Pass);
       }
       if(dt>=uint64_t(r.probe_ms)*20000)finish(r,false);
     }

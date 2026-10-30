@@ -18,6 +18,11 @@ def main():
     from holdover_horizon_analyze import analyze as horizon_analyze
     hh=(out/'horizon-synthetic.log').read_bytes();hr=horizon_analyze(hh)
     assert hr['complete'] and hr['latest']['duration_ms']>=24000 and hr['latest']['lower_bound']
+    lines=hh.splitlines(keepends=True)
+    at=next(i for i,s in enumerate(lines) if b'W12_HORIZON_STATUS' in s)
+    later=next(i for i in range(at+1,len(lines)) if b'W12_HOLDOVER_PAIR' in lines[i])
+    delayed=lines.pop(at);lines.insert(later,delayed)
+    assert horizon_analyze(b''.join(lines))['complete'] # Status copy can precede later printed pair records.
     try:horizon_analyze(hh.replace(b'temperature=0 production=0',b'temperature=1 production=0',1))
     except AssertionError:pass
     else:raise AssertionError('Temperature mixed into the duration population')

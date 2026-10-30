@@ -18,7 +18,7 @@ static void simulate(unsigned seconds,double rate=0){
     if(replay)std::fprintf(replay,"W12_HOLDOVER_PAIR boot=1 seq=%llu local20=%llu reference_ns=%llu available20=%llu channel=0 generation=1\n",(unsigned long long)++sequence,(unsigned long long)at,(unsigned long long)(1000000000000ULL+at*50),(unsigned long long)(at+1000));
     h.observe(at,1000000000000ULL+at*50,at+1000);}
     h.tick(at+1000);h.start(clock_at(at+1000,rate),at+1000);
-    if(replay&&at%Hz==0){const auto v=h.view(at);std::fprintf(replay,"W12_HORIZON_STATUS at_us=%llu duration_ms=%u probe_ms=%u ready=%u lower_bound=%u n=%u bad=%u unknown=%u policy=SAMPLED_PREFIX_Q99_1US_V1 temperature=0 production=0\n",(unsigned long long)(at/20),unsigned(v.duration_ms),unsigned(v.probe_ms),unsigned(v.ready),unsigned(v.lower_bound),unsigned(v.trials),unsigned(v.bad),unsigned(v.unknown));}
+    if(replay&&at%Hz==0){const auto v=h.view(at);std::fprintf(replay,"W12_HORIZON_STATUS at_us=%llu duration_ms=%u probe_ms=%u ready=%u lower_bound=%u n=%u bad=%u unknown=%u last20=%llu policy=SAMPLED_PREFIX_Q99_1US_WITNESS_V2 temperature=0 production=0\n",(unsigned long long)(at/20),unsigned(v.duration_ms),unsigned(v.probe_ms),unsigned(v.ready),unsigned(v.lower_bound),unsigned(v.trials),unsigned(v.bad),unsigned(v.unknown),(unsigned long long)v.last20);}
   }
 }
 int main(int argc,char** argv){
@@ -49,8 +49,14 @@ int main(int argc,char** argv){
   assert(saved.gaps==1&&((saved.outcomes&3)==W12HoldoverHorizon::Pass)); // At250ms overshoot: conservative witness.
   assert(((saved.outcomes>>(2*18))&3)==W12HoldoverHorizon::Unknown);
   h.clear();
-  for(uint64_t at=Hz;at<160*Hz;at+=Hz){h.observe(at,1000000000000ULL+at*50,at+1000);h.tick(at+1000);h.start(clock_at(at+1000),at+1000);}
-  assert(!h.view().ready); // All first-age witnesses missing: --, never a fake short hold.
+  for(uint64_t at=Hz;at<160*Hz;at+=Hz/64){
+    if(at%Hz==0)h.observe(at,1000000000000ULL+at*50,at+1000);
+    h.tick(at+1000);h.start(clock_at(at+1000),at+1000);
+  }
+  assert(h.view().ready&&h.view().duration_ms>=2000&&h.view().gaps>0); // Real later witnesses, with all gaps retained.
+  h.clear();
+  for(uint64_t at=Hz;at<20*Hz;at+=Hz/64){h.tick(at);h.start(clock_at(at),at);}
+  assert(!h.view().ready); // No confirming witnesses: never manufacture success.
   auto thermal=clock_at(200*Hz);thermal.thermal.beta=1;
   assert(!h.start(thermal,200*Hz)); // Temperature cannot contaminate the duration population.
   std::puts("PASS empirical hold seconds, first-crossing memory, sparse evidence, censoring, adaptive cap, reset and temperature exclusion");

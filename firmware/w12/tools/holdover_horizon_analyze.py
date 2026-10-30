@@ -22,8 +22,9 @@ def summary(bins):
     result['lower_bound']=result['ready'] and not bounded
     return result
 def analyze(raw):
+    witness_v2=b'SAMPLED_PREFIX_Q99_1US_WITNESS_V2' in raw
     bins=[collections.deque(maxlen=128) for _ in AGES];slots=[None]*48;states={};finished={};statuses=[];orphans=[];pairs={}
-    complete=0;resets=0;replay_difference=0;population_known=False
+    complete=0;resets=0;replay_difference=0;population_known=False;snapshots={}
     counts=[0]*len(AGES)
     def add(r,i,outcome):
         bins[i].append(outcome);counts[i]+=1;r['bits']|=outcome<<(2*i)
@@ -36,7 +37,7 @@ def analyze(raw):
         if not m:continue
         kind=m[1];v=fields(m[2])
         if kind=='W12_HORIZON_RESET':
-            bins=[collections.deque(maxlen=128) for _ in AGES];slots=[None]*48;states={};complete=0;resets+=1;population_known=True;counts=[0]*len(AGES);continue
+            bins=[collections.deque(maxlen=128) for _ in AGES];slots=[None]*48;states={};complete=0;resets+=1;population_known=True;counts=[0]*len(AGES);snapshots={};continue
         if kind=='W12_HORIZON_START':
             assert v['temperature']=='0' and v['production']=='0'
             key=(int(v['boot']),int(v['trial']));assert key not in states and None in slots
@@ -55,8 +56,9 @@ def analyze(raw):
                 prediction=r['epoch']+dt*50+rounded(t*r['rate']+slew)
                 r['peak']=max(r['peak'],min(2**32-1,abs(prediction-v['reference_ns'])))
                 while r['next']<len(AGES) and AGES[r['next']]<=r['probe'] and dt>=AGES[r['next']]*20000:
-                    over=dt-AGES[r['next']]*20000;add(r,r['next'],2 if r['peak']>=1000 else 1 if over<=HZ//4 else 3);r['next']+=1
+                    over=dt-AGES[r['next']]*20000;add(r,r['next'],2 if r['peak']>=1000 else 1 if witness_v2 or over<=HZ//4 else 3);r['next']+=1
                 if dt>=r['probe']*20000:finish(r)
+            snapshots[local]=(summary(bins),list(counts),population_known)
         elif kind=='W12_HORIZON_END':
             key=(int(v['boot']),int(v['trial']));r=states.get(key)
             if r is None:orphans.append(key);continue
@@ -65,16 +67,19 @@ def analyze(raw):
             difference=abs(r['peak']-int(v['peak_ns']));replay_difference=max(replay_difference,difference);assert difference<=1
             finished[key]=dict(trial=key[1],probe_ms=r['probe'],peak_ns=r['peak'],gaps=r['gaps'],outcomes=r['bits']);complete+=1
         else:
-            assert v['policy']=='SAMPLED_PREFIX_Q99_1US_V1' and v['temperature']=='0' and v['production']=='0'
+            assert v['policy'] in ('SAMPLED_PREFIX_Q99_1US_V1','SAMPLED_PREFIX_Q99_1US_WITNESS_V2') and v['temperature']=='0' and v['production']=='0'
             # Mixed-duration lanes must evict pre-capture evidence separately
             # at each age. Short completions cannot certify a long-age ring.
-            if not population_known:
+            # The main-task status renders a copied host snapshot. Accepted
+            # pairs can arrive before that copy is printed; replay the exact
+            # last20 snapshot rather than the later log-stream state.
+            expected,scored,cold=snapshots.get(int(v.get('last20',0)),(summary(bins),counts,population_known))
+            if not cold:
                 known=True
-                for i,b in enumerate(bins):
-                    if counts[i]<128:known=False;break
-                    if len(b)-b.count(3)<100 or sum(x!=1 for x in b)*100>len(b):break
+                for i,age in enumerate(AGES):
+                    if scored[i]<128:known=False;break
+                    if age>=expected['duration_ms'] and (not expected['ready'] or age>expected['duration_ms']):break
                 if not known:continue
-            expected=summary(bins)
             for k in ('ready','duration_ms','lower_bound','n','bad','unknown'):assert int(v[k])==expected[k],(k,v[k],expected)
             statuses.append({**expected,'at_us':int(v['at_us']),'probe_ms':int(v['probe_ms'])})
     return dict(status='SAMPLED_BLE_SHADOW_HOLD_SECONDS',sha256=hashlib.sha256(raw).hexdigest(),replayed_runs=list(finished.values()),orphan_ends=orphans,resets=resets,verified_statuses=statuses,

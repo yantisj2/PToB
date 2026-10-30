@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-30 — W12 sampled witness coverage repair
+
+- Score each age through the first later actual BLE witness, retaining its full
+  sampled prefix, overshoot and gaps. Keep unsupported expiry unknown; remove
+  the arbitrary endpoint cutoff that suppressed P99 during ordinary BLE gaps.
+- Preserve parallel short/long probes and production HOLD. Replay copied status
+  snapshots at their recorded sample time rather than later log-stream state.
+- Keep application `-Os` and use integer-only command scanning to fit GNSS,
+  LoRa and RC9 features inside the original partition with SDK assertions intact.
+
 ## 2026-10-30 — W12 parallel P99 ramp
 
 - Run 48 offset shadow clocks with frequent two-second lanes alongside the

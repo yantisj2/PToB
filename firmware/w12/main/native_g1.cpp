@@ -150,7 +150,7 @@ void horizon_reset(){
   holdover_horizon.clear();logf("W12_HORIZON_RESET boot=%llu temperature=0 production=0\n",(unsigned long long)shadow_device_boot);
 }
 void horizon_start(const W12HoldoverHorizon::Start& s){
-  logf("W12_HORIZON_START boot=%llu trial=%lu start20=%llu probe_ms=%lu epoch_ns=%lld phase_ns=%ld rate=%.17g temperature=0 production=0\n",
+  logf("W12_HORIZON_START boot=%llu trial=%lu start20=%llu probe_ms=%lu epoch_ns=%lld phase_ns=%ld rate=%.17g policy=SAMPLED_PREFIX_Q99_1US_WITNESS_V2 temperature=0 production=0\n",
     (unsigned long long)shadow_device_boot,(unsigned long)s.id,(unsigned long long)s.at20,(unsigned long)s.probe_ms,(long long)s.epoch,(long)s.phase,s.rate);
 }
 void horizon_end(const W12HoldoverHorizon::End& e){

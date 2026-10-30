@@ -601,11 +601,11 @@ void stop_all(){
   if(!std::strcmp(text,"v12 off")){stop_all();v12::capture_stop();return;}
   char nonce_text[17]{},ticket_text[17]{},mac[18]{},boot_text[17]{};char extra=0;uint64_t nonce=0,permit=0,boot=0;
   const uint64_t admitted=micros();
-  if(std::sscanf(text,"v12 status %16s %c",nonce_text,&extra)==1&&v12::hex_id(nonce_text,nonce)&&nonce!=last_nonce){
+  if(::siscanf(text,"v12 status %16s %c",nonce_text,&extra)==1&&v12::hex_id(nonce_text,nonce)&&nonce!=last_nonce){
     last_nonce=nonce;last_command={nonce,admitted,true,"STATUS","READ_ONLY"};status(nonce,admitted);return;
   }
   int at=0;
-  if(std::sscanf(text,"v12 do %16s %16s %17s %16s %n",ticket_text,nonce_text,mac,boot_text,&at)!=4||at<=0||
+  if(::siscanf(text,"v12 do %16s %16s %17s %16s %n",ticket_text,nonce_text,mac,boot_text,&at)!=4||at<=0||
       !v12::hex_id(nonce_text,nonce))return;
   last_command={nonce,admitted,false,"REFUSE","TICKET_OR_BOOT_BINDING"};
   const bool authorized=identity&&!std::strcmp(mac,factory_text)&&v12::hex_id(boot_text,boot)&&boot==session&&
@@ -618,12 +618,12 @@ void stop_all(){
     last_command={nonce,admitted,ok,"PREPARE_UPDATE",ok?"ORIGINAL_2S_DRAIN":"LATCHED_OR_EXHAUSTED"};
   }else if(update_gate.latched()){last_command.reason="UPDATE_GATE_LATCHED";}
 #ifdef PTOB_W12_HOLDOVER_PRODUCTION
-  else if(std::sscanf(action,"holdover test %" SCNu32 " %c",&duration,&extra)==1){
+  else if(::siscanf(action,"holdover test %" SCNu32 " %c",&duration,&extra)==1){
     const bool ok=v12::r2_holdover_test(duration);last_command={nonce,admitted,ok,"HOLDOVER_TEST",ok?"QUEUED_FINITE_LOCAL_HOLD_BLE_WITNESS":"NOT_READY_OR_BOUND"};
   }
 #endif
 #ifdef PTOB_W12_DUAL_UI
-  else if(std::sscanf(action,"ui page %" SCNu32 " %c",&duration,&extra)==1){
+  else if(::siscanf(action,"ui page %" SCNu32 " %c",&duration,&extra)==1){
    const bool ok=duration==display_pages::Front||duration==display_pages::Precision||duration==display_pages::LoraRx||(gps_ready&&duration==display_pages::Gps);
    if(ok){page=uint8_t(duration);last_ui=0;}last_command={nonce,admitted,ok,"UI_PAGE",ok?"VOLATILE_PAGE":"UNSUPPORTED_PAGE"};
   }
@@ -674,7 +674,7 @@ void stop_all(){
     last_command={nonce,admitted,ok,"R2_CLIENT_PROFILE",ok?"EXACT_OFF_NEW_GENERATION_PROFILE":"R2_RESOURCE_PROFILE_OR_BOOT_SCOPE"};
   }
 #endif
-  else if(std::sscanf(action,"r2 %11s %" SCNu32 " %c",mode,&duration,&extra)==2){
+  else if(::siscanf(action,"r2 %11s %" SCNu32 " %c",mode,&duration,&extra)==2){
     const auto chosen=!std::strcmp(mode,"passive")?v12::R2Mode::Passive:!std::strcmp(mode,"active")?v12::R2Mode::Active:v12::R2Mode::Off;
     const auto ls=v12::lora_status();const bool ok=!ls.enabled&&!ls.requested&&!ls.worker_busy&&ls.off_acknowledged&&!ls.failed&&v12::r2_request(chosen,duration,nonce);last_command={nonce,admitted,ok,"R2",ok?"FINITE_R2_ORIGINAL_LEASE":"R2_RESOURCE_PROFILE_OR_BOUND"};
   }else if(!r2_command_off_ack()&&std::strncmp(action,"capture ",8)){last_command.reason="R2_OWNS_BLE";}
@@ -682,18 +682,18 @@ void stop_all(){
   else if(!std::strcmp(action,"capture stop")){
     v12::capture_stop();last_command={nonce,admitted,true,"CAPTURE_STOP","OBSERVER_ONLY_SERVICE_UNCHANGED"};
   }
-  else if(std::sscanf(action,"capture rolling %" SCNu32 " %c",&duration,&extra)==1){
+  else if(::siscanf(action,"capture rolling %" SCNu32 " %c",&duration,&extra)==1){
     const bool ok=v12::capture_rolling_begin(nonce,duration);last_command={nonce,admitted,ok,"CAPTURE_ROLLING",ok?"BOUNDED_OBSERVER_ORIGINAL_DEADLINE":"BUSY_OR_BOUND"};
   }
-  else if(std::sscanf(action,"capture %" SCNu32 " %c",&duration,&extra)==1){
+  else if(::siscanf(action,"capture %" SCNu32 " %c",&duration,&extra)==1){
     const bool ok=v12::capture_begin(nonce,duration);last_command={nonce,admitted,ok,"CAPTURE",ok?"FINITE_OBSERVER_LEASE":"BUSY_OR_BOUND"};
-  }else if(std::sscanf(action,"tx %11s %" SCNu32 " %c",mode,&duration,&extra)==2){
+  }else if(::siscanf(action,"tx %11s %" SCNu32 " %c",mode,&duration,&extra)==2){
     uint16_t bytes=!std::strcmp(mode,"root")?v12::RootBytes:!std::strcmp(mode,"relay")?v12::RelayBytes:0;
 #ifdef V12_R2_TX_SHADOW
     if(!std::strcmp(mode,"rc7probe"))bytes=190;
 #endif
     const bool ok=v12::diagnostic_tx_request(bytes,duration,nonce);last_command={nonce,admitted,ok,"TX",ok?"ORIGINAL_LEASE":"RESOURCE_OR_BOUND"};
-  }else if(std::sscanf(action,"rx %11s %" SCNu32 " %c",mode,&duration,&extra)==2){
+  }else if(::siscanf(action,"rx %11s %" SCNu32 " %c",mode,&duration,&extra)==2){
     v12::Mode chosen=v12::Mode::Full;bool valid=true;
     if(!std::strcmp(mode,"full"))chosen=v12::Mode::Full;
     else if(!std::strcmp(mode,"half350"))chosen=v12::Mode::Half350;
@@ -702,7 +702,7 @@ void stop_all(){
     else if(!std::strcmp(mode,"coarse"))chosen=v12::Mode::Coarse;
     else valid=false;
     const bool ok=valid&&v12::transport_request(chosen,duration,nonce);last_command={nonce,admitted,ok,"RX",ok?"ORIGINAL_LEASE":"RESOURCE_OR_BOUND"};
-  }else if(std::sscanf(action,"lora_rx %" SCNu32 " %c",&duration,&extra)==1){
+  }else if(::siscanf(action,"lora_rx %" SCNu32 " %c",&duration,&extra)==1){
     const bool ok=!std::strcmp(V12_UNIT,"C1")&&v12::lora_request(true,duration);
     last_command={nonce,admitted,ok,"LORA_RX",ok?"SEPARATE_FUNCTIONAL_LEASE":"CAPABILITY_OR_BOUND"};
   }else{last_command.reason="UNKNOWN_OR_UNAVAILABLE_PROTOCOL";}
@@ -761,7 +761,7 @@ void stop_all(){
           if(printed>0)console_bytes+=unsigned(printed);}
 #endif
 #ifdef PTOB_W12_HOLDOVER_HORIZON
-        {const auto& h=mesh.g1_horizon;const int n=std::printf("W12_HORIZON_STATUS at_us=%llu duration_ms=%lu probe_ms=%lu ready=%u lower_bound=%u n=%u bad=%u unknown=%u started=%lu completed=%lu aborted=%lu gaps=%lu last20=%llu policy=SAMPLED_PREFIX_Q99_1US_V1 temperature=0 production=0\n",
+        {const auto& h=mesh.g1_horizon;const int n=std::printf("W12_HORIZON_STATUS at_us=%llu duration_ms=%lu probe_ms=%lu ready=%u lower_bound=%u n=%u bad=%u unknown=%u started=%lu completed=%lu aborted=%lu gaps=%lu last20=%llu policy=SAMPLED_PREFIX_Q99_1US_WITNESS_V2 temperature=0 production=0\n",
           (unsigned long long)now,(unsigned long)h.duration_ms,(unsigned long)h.probe_ms,unsigned(h.ready),unsigned(h.lower_bound),unsigned(h.trials),unsigned(h.bad),unsigned(h.unknown),
           (unsigned long)h.started,(unsigned long)h.completed,(unsigned long)h.aborted,(unsigned long)h.gaps,(unsigned long long)h.last20);if(n>0)console_bytes+=unsigned(n);}
 #endif

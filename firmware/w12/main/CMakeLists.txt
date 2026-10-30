@@ -107,11 +107,7 @@ set_source_files_properties("../legacy/gnss_pps.cpp" PROPERTIES COMPILE_DEFINITI
 target_link_libraries(${COMPONENT_LIB} INTERFACE "-Wl,--wrap=printf" "-Wl,--wrap=puts")
 # Bound the full GNSS/TZ/LoRa/RC9 application inside the existing 1 MiB slot.
 # Keep SDK/controller options and assertions unchanged.
-if(PTOB_W12_GNSS_INDICATORS)
- target_compile_options(${COMPONENT_LIB} PRIVATE -fstack-usage -Oz)
-else()
- target_compile_options(${COMPONENT_LIB} PRIVATE -fstack-usage -Os)
-endif()
+target_compile_options(${COMPONENT_LIB} PRIVATE -fstack-usage -Os)
 
 if(V12_R2_PROFILE STREQUAL "r2-g1")
   target_link_libraries(${COMPONENT_LIB} INTERFACE "-Wl,--wrap=ble_hs_hci_cmd_tx" "-Wl,--wrap=ble_hs_hci_rx_evt")
