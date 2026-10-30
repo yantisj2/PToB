@@ -101,7 +101,7 @@ draft status.
 The robotics gPTP/TSN paper was **approved for public draft review on
 22 October 2026** and remains a research draft. It has a
 [22 October edition manifest](editions/gptp-tsn-robotics-2026-10-22.json) and
-[offline analytical verifier](../tools/verify_robotics_paper.py). In the style of
+[offline analytical verifier](../tools/verify_robotics_edition.py). In the style of
 the timecode study, it proposes a common domain/source/event/quality contract,
 an Ethernet-PHC-to-radio clock bridge, ROS 2 acquisition-time adapters, explicit
 motion/holdover/schedule budgets and independent validation gates. Its dated

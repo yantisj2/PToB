@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "purpose": "Exact historical cited input for the sealed 22 October robotics paper; not a new manuscript edition",
+  "author": "Jonathan Yantis",
+  "snapshots": [
+    {
+      "bytes": 64031,
+      "path": "papers/ptob-esp32s3-timing-preprint.tex",
+      "sha256": "9b5f6942f41e3056a134eeebe6a5940e555841b4473baf921646f9b88befdde3",
+      "git_commit": "938bdecf6d64c70e88890cf0a109389db8baf5c5",
+      "git_blob": "c8b83bb7844705acf9b07040554e7153c205b31b",
+      "license": "CC-BY-4.0",
+      "snapshot": "papers/editions/robotics-cited-sources/ptob-esp32s3-timing-2026-10-22.tex"
+    }
+  ]
+}

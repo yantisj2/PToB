@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-29 — Preserve robotics citation verification
+
+- Retain the exact earlier S3 LaTeX source cited by the sealed robotics edition.
+  A standalone launcher reproduces its original verifier without Git history.
+- Keep the reviewed robotics source/PDF, original verifier and edition hashes
+  unchanged; reject missing or changed cited snapshots and reviewed files.
+
 ## 2026-10-29 — Fit full W12 TZ profiles in the application slot
 
 - Prepare W12 0.2.20 with application-only size optimization after the GNSS/TZ
