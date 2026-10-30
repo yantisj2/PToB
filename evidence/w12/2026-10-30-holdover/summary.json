@@ -1,0 +1,321 @@
+{
+  "author": "Jonathan Yantis",
+  "license": "CC-BY-4.0",
+  "scope": "Compact navigation summary; exact populations, all ages and original provenance are reproducible from observations.zip.",
+  "populations": [
+    {
+      "id": "historical-confirmation",
+      "device": "C-1",
+      "firmware_version": "0.2.30",
+      "source_commit": "dc404c3fac34fd0c1c650aa36aeb5e316268b5e3",
+      "pairs": 589,
+      "starts": 563,
+      "replayed_ends": 520,
+      "missing_pair_records": 0,
+      "max_numeric_difference_ns": 0,
+      "final_horizon": {
+        "ready": true,
+        "duration_ms": 2000,
+        "lower_bound": true,
+        "n": 128,
+        "bad": 0,
+        "unknown": 0
+      },
+      "longest_replayed_device_status": {
+        "at_us": 30044747,
+        "duration_ms": 2000,
+        "n": 113,
+        "bad": 0,
+        "unknown": 0,
+        "lower_bound": 1,
+        "prefix_statistics": {
+          "n": 113,
+          "scored": 113,
+          "bad": 0,
+          "fail": 0,
+          "unknown": 0,
+          "p95_ns": 232,
+          "p99_ns": 239,
+          "max_ns": 239,
+          "numeric_prefixes": 113,
+          "numeric_censored": false,
+          "quantile_scope": "all prefixes",
+          "ready": true,
+          "passes": true
+        }
+      },
+      "unfinished_trial_count": 43,
+      "orphan_end_count": 0
+    },
+    {
+      "id": "historical-segment01",
+      "device": "C-1",
+      "firmware_version": "0.2.30",
+      "source_commit": "dc404c3fac34fd0c1c650aa36aeb5e316268b5e3",
+      "pairs": 3476,
+      "starts": 917,
+      "replayed_ends": 894,
+      "missing_pair_records": 0,
+      "max_numeric_difference_ns": 0,
+      "final_horizon": {
+        "ready": true,
+        "duration_ms": 32000,
+        "lower_bound": false,
+        "n": 102,
+        "bad": 0,
+        "unknown": 0
+      },
+      "longest_replayed_device_status": null,
+      "unfinished_trial_count": 23,
+      "orphan_end_count": 45
+    },
+    {
+      "id": "historical-segment02",
+      "device": "C-1",
+      "firmware_version": "0.2.30",
+      "source_commit": "dc404c3fac34fd0c1c650aa36aeb5e316268b5e3",
+      "pairs": 3505,
+      "starts": 742,
+      "replayed_ends": 722,
+      "missing_pair_records": 0,
+      "max_numeric_difference_ns": 0,
+      "final_horizon": {
+        "ready": true,
+        "duration_ms": 2000,
+        "lower_bound": true,
+        "n": 128,
+        "bad": 0,
+        "unknown": 0
+      },
+      "longest_replayed_device_status": null,
+      "unfinished_trial_count": 20,
+      "orphan_end_count": 24
+    },
+    {
+      "id": "historical-segment03",
+      "device": "C-1",
+      "firmware_version": "0.2.30",
+      "source_commit": "dc404c3fac34fd0c1c650aa36aeb5e316268b5e3",
+      "pairs": 3556,
+      "starts": 521,
+      "replayed_ends": 501,
+      "missing_pair_records": 0,
+      "max_numeric_difference_ns": 0,
+      "final_horizon": {
+        "ready": true,
+        "duration_ms": 2000,
+        "lower_bound": true,
+        "n": 128,
+        "bad": 0,
+        "unknown": 0
+      },
+      "longest_replayed_device_status": null,
+      "unfinished_trial_count": 20,
+      "orphan_end_count": 21
+    },
+    {
+      "id": "C1-normal",
+      "device": "C-1",
+      "firmware_version": "0.2.33",
+      "source_commit": "9614cc23ead214d9197521091a7d98fdace2eb52",
+      "pairs": 6401,
+      "starts": 3208,
+      "replayed_ends": 3165,
+      "missing_pair_records": 0,
+      "max_numeric_difference_ns": 0,
+      "final_horizon": {
+        "ready": true,
+        "duration_ms": 48000,
+        "lower_bound": true,
+        "n": 128,
+        "bad": 0,
+        "unknown": 0
+      },
+      "longest_replayed_device_status": {
+        "at_us": 390602680,
+        "duration_ms": 48000,
+        "n": 100,
+        "bad": 0,
+        "unknown": 0,
+        "lower_bound": 1,
+        "prefix_statistics": {
+          "n": 100,
+          "scored": 100,
+          "bad": 0,
+          "fail": 0,
+          "unknown": 0,
+          "p95_ns": 719,
+          "p99_ns": 945,
+          "max_ns": 953,
+          "numeric_prefixes": 100,
+          "numeric_censored": false,
+          "quantile_scope": "all prefixes",
+          "ready": true,
+          "passes": true
+        }
+      },
+      "secondary_fixed_mature_cohort": {
+        "selected_starts": 68,
+        "immature_right_censored_starts": 38,
+        "same_cohort_coarse_frontier_ms": null,
+        "longest_consecutive_passing_s": 0,
+        "first_adequately_populated_accuracy_failure_s": null
+      },
+      "unfinished_trial_count": 43,
+      "orphan_end_count": 44
+    },
+    {
+      "id": "C2-frontier01",
+      "device": "C-2",
+      "firmware_version": "0.2.33",
+      "source_commit": "9614cc23ead214d9197521091a7d98fdace2eb52",
+      "pairs": 6444,
+      "starts": 3654,
+      "replayed_ends": 3610,
+      "missing_pair_records": 0,
+      "max_numeric_difference_ns": 0,
+      "final_horizon": {
+        "ready": true,
+        "duration_ms": 48000,
+        "lower_bound": true,
+        "n": 128,
+        "bad": 0,
+        "unknown": 0
+      },
+      "longest_replayed_device_status": {
+        "at_us": 400689913,
+        "duration_ms": 48000,
+        "n": 100,
+        "bad": 0,
+        "unknown": 0,
+        "lower_bound": 1,
+        "prefix_statistics": {
+          "n": 100,
+          "scored": 100,
+          "bad": 0,
+          "fail": 0,
+          "unknown": 0,
+          "p95_ns": 606,
+          "p99_ns": 753,
+          "max_ns": 796,
+          "numeric_prefixes": 100,
+          "numeric_censored": false,
+          "quantile_scope": "all prefixes",
+          "ready": true,
+          "passes": true
+        }
+      },
+      "secondary_fixed_mature_cohort": {
+        "selected_starts": 41,
+        "immature_right_censored_starts": 38,
+        "same_cohort_coarse_frontier_ms": null,
+        "longest_consecutive_passing_s": 0,
+        "first_adequately_populated_accuracy_failure_s": null
+      },
+      "unfinished_trial_count": 44,
+      "orphan_end_count": 0
+    },
+    {
+      "id": "C2-frontier02",
+      "device": "C-2",
+      "firmware_version": "0.2.33",
+      "source_commit": "9614cc23ead214d9197521091a7d98fdace2eb52",
+      "pairs": 6377,
+      "starts": 1878,
+      "replayed_ends": 1834,
+      "missing_pair_records": 0,
+      "max_numeric_difference_ns": 0,
+      "final_horizon": {
+        "ready": true,
+        "duration_ms": 24000,
+        "lower_bound": false,
+        "n": 128,
+        "bad": 1,
+        "unknown": 0
+      },
+      "longest_replayed_device_status": {
+        "at_us": 1122613247,
+        "duration_ms": 32000,
+        "n": 128,
+        "bad": 0,
+        "unknown": 0,
+        "lower_bound": 0,
+        "prefix_statistics": {
+          "n": 128,
+          "scored": 128,
+          "bad": 0,
+          "fail": 0,
+          "unknown": 0,
+          "p95_ns": 588,
+          "p99_ns": 632,
+          "max_ns": 633,
+          "numeric_prefixes": 128,
+          "numeric_censored": false,
+          "quantile_scope": "all prefixes",
+          "ready": true,
+          "passes": true
+        }
+      },
+      "secondary_fixed_mature_cohort": {
+        "selected_starts": 128,
+        "immature_right_censored_starts": 39,
+        "same_cohort_coarse_frontier_ms": 32000,
+        "longest_consecutive_passing_s": 44,
+        "first_adequately_populated_accuracy_failure_s": 45
+      },
+      "unfinished_trial_count": 44,
+      "orphan_end_count": 44
+    },
+    {
+      "id": "C1-frontier02",
+      "device": "C-1",
+      "firmware_version": "0.2.33",
+      "source_commit": "9614cc23ead214d9197521091a7d98fdace2eb52",
+      "pairs": 6417,
+      "starts": 1885,
+      "replayed_ends": 1841,
+      "missing_pair_records": 0,
+      "max_numeric_difference_ns": 0,
+      "final_horizon": {
+        "ready": true,
+        "duration_ms": 24000,
+        "lower_bound": false,
+        "n": 128,
+        "bad": 1,
+        "unknown": 0
+      },
+      "longest_replayed_device_status": {
+        "at_us": 2785509676,
+        "duration_ms": 64000,
+        "n": 128,
+        "bad": 0,
+        "unknown": 0,
+        "lower_bound": 0,
+        "prefix_statistics": {
+          "n": 128,
+          "scored": 128,
+          "bad": 0,
+          "fail": 0,
+          "unknown": 0,
+          "p95_ns": 626,
+          "p99_ns": 760,
+          "max_ns": 879,
+          "numeric_prefixes": 128,
+          "numeric_censored": false,
+          "quantile_scope": "all prefixes",
+          "ready": true,
+          "passes": true
+        }
+      },
+      "secondary_fixed_mature_cohort": {
+        "selected_starts": 128,
+        "immature_right_censored_starts": 39,
+        "same_cohort_coarse_frontier_ms": 64000,
+        "longest_consecutive_passing_s": 75,
+        "first_adequately_populated_accuracy_failure_s": 76
+      },
+      "unfinished_trial_count": 44,
+      "orphan_end_count": 44
+    }
+  ]
+}

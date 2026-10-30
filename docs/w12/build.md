@@ -5,41 +5,20 @@ Copyright (c) 2026 Jonathan Yantis. MIT.
 Native builds [clean compiler output and retain the latest two image bundles](../firmware-storage.md)
 per device/profile, with installed/recovery pins preserved.
 
-Version 0.2.34 compacts the fine receive history by 2816 bytes while retaining
-all 256 records and every accepted field exactly. The raw32 value, incarnation
-and validity already follow from observation validation; separate arrays avoid
-per-record padding. No timestamp is narrowed, and the original association,
-fence, overwrite and stale-event rules remain. `fine_tests.py` checks full-width
-metadata, resets, actual receive/shutdown owners and the existing counter vectors
-with ASan/UBSan. Hardware controller capacity and timing acceptance are separate.
+Current version **0.2.34** preserves exact receive/estimator history while
+reducing fixed storage. GNSS profiles reserve the full 8192-byte host stack
+statically and check creation. Application watchdogs have a five-second minimum;
+fault/no-time restart intervals remain 120/300 seconds. All main-component
+sources use `-Os`, with SDK/controller assertions and the 1 MiB application
+ceiling preserved. [Version history](../../firmware/w12/CHANGELOG.md) records
+individual changes; [holdover](holdover.md) defines the current model and P99.
 
-Version 0.2.33 enforces a minimum five-second watchdog interval.
-Main and NimBLE completed-progress stalls are declared only after five seconds;
-fault restart remains 120 seconds and continuous no-time restart 300 seconds.
-The SDK interrupt/task watchdogs wait five seconds and the boot watchdog nine
-seconds. The native receipt and inspector bind and verify this policy. `sync_watchdog_tests.py`
-checks the exact five-second boundary in the actual supervisor; shorter model
-instantiations must fail compilation. Sampling/freshness and original bounded
-owner/update drain deadlines are separate from watchdog liveness supervision.
+Focused offline checks are `fine_tests.py`, `host_task_tests.py`,
+`sync_watchdog_tests.py`, `size_policy_tests.py` and `shadow_holdover_tests.py`
+under `firmware/w12/tools/`. Passing host checks does not qualify hardware
+controller capacity, precision or source transitions.
 
-Version 0.2.32 reduces fixed estimator storage by 2792 bytes. All accepted
-history remains: at least 250 ms between points permits at most 129 points in
-the closed 32-second window. Separate channel bytes remove point padding;
-byte-index sorting preserves the full-width signed-error rings and exact tails.
-No sampler, model, controller or peripheral budget is reduced. Run
-`python3 firmware/w12/tools/shadow_holdover_tests.py --out artifacts/w12-shadow-tests-01`
-for causal rate, frozen shadow, duration, quantile and OLED checks.
-
-Version 0.2.31 uses checked static host-task allocation on the GNSS profile.
-The full configured 8192-byte host stack and its control block are reserved
-before peripheral heap fragmentation; host priority and core remain identical.
-Creation failure returns initialization failure rather than a silent stalled
-backend. The inspector binds the allocation flag to the selected GNSS profile.
-No SDK/controller configuration, oscillator model or partition change is made.
-Run `python3 firmware/w12/tools/host_task_tests.py --out artifacts/w12-host-task-tests-01`
-for the focused allocation and actual transport-owner regressions.
-
-Version 0.2.21 adds GPIO0 button shutdown on every page except Clock. A hold
+GPIO0 supports button shutdown on every page except Clock. A hold
 of four seconds blanks the OLED and starts the same original two-second drain
 used for maintenance. Deep sleep requires all owners to acknowledge OFF and
 GPIO0 to remain released for 40 ms. Drain timeout/fault or power API failure
@@ -60,17 +39,9 @@ sleep/wake acceptance. Run the actual native button and SDK-faked power paths:
 python3 firmware/w12/tools/power_tests.py --out artifacts/w12-power-tests-01
 ```
 
-Version 0.2.20 uses `-Os` for the W12 main component, including its selected
-RadioLib sources. SDK/controller options and enabled assertions retain their
-original configuration. The builder and inspector check the effective final
-optimization flag for every main-component source; the 1 MiB application
-ceiling and hardware installation gates are unchanged. Run
-`python3 firmware/w12/tools/size_policy_tests.py` for effective-flag and
-assertion-preservation checks.
-
 PToB owns the W12 native G1/RC7 application. The public target supports **RC**:
 a BLE50 or BLE100 receiver, optionally an experimental BLE100 relay. It does
-not provide a GM profile. LoRa defaults OFF; the optional LR2021 receiver is described below. Version 0.2.2 separates LoRa timestamp reads and counter extension from BLE association/fence processing while retaining GNSS capture resources. WiFi and PTS are disabled. GNSS input is disabled
+not provide a GM profile. LoRa defaults OFF; the optional LR2021 receiver is described below. LoRa timestamp reads and counter extension remain separate from BLE association/fence processing, retaining GNSS capture resources. WiFi and PTS are disabled. GNSS input is disabled
 by default; the explicit indicator profile below enables the reviewed Meshnology
 W12 L76K route. This selection does not support arbitrary ESP32-S3 boards or
 GPS-equipped variants.
@@ -846,206 +817,23 @@ Neither host checks nor internal fit RMS establishes calibrated UTC accuracy.
 
 ## Shadow holdover
 
-W12 0.2.22–0.2.24 keep the existing production servo and add an experimental
-numerical shadow model. It learns a bounded linear temperature response from
-BLE-derived frequency fits using an eight-second silicon-temperature proxy.
-There is no local GNSS/LoRa training or production cutover. Insufficient thermal
-coverage retains the fitted rate without inventing a temperature slope.
-Version 0.2.24 anchors frequency to the last trusted BLE fit. It removes the
-0.2.22/0.2.23 blend with a historical absolute temperature-rate intercept, which
-can confound warm-up and aging with temperature. Short BLE gaps now remain
-inside the frozen run and are counted explicitly, rather than restarting it.
-Only temperature changes after freezing modify the anchored rate; no later BLE reference corrects it.
-
-The previous 0.2.22 sampler tested only a single endpoint at one second. That
-was a measurement ceiling, not a measured oscillator limit. An extended trial
-freezes the raw clock, phase and candidate coefficients at their actual availability
-time for 120 seconds. Every later authenticated matched physical BLE event
-scores both candidate and held current method, without correcting either.
-BLE-derived learning continues separately for future trials; it cannot change
-held coefficients. A causal cumulative temperature integral survives eviction
-of the eight-reading history and never uses sensor readings after physical RX.
-
-Each trial retains the first sampled absolute error **>= 1,000 ns**, the last
-preceding sampled age below that threshold and the maximum error over the
-entire run. It continues after a crossing to preserve tails. A no-crossing
-120-second result is censored by the test cap. Gaps above 250 ms increment
-missing-coverage counts without restarting the frozen clock; their interiors remain unmeasured. The Hold page discloses these
-gaps. Missing causal temperature or lost source permission aborts a run, with
-no zero filling or interpolation. Source changes reset the population. Lifetime
-counters retain starts, completed 120-second trials, missed coverage and aborts.
-
-`P99:` remains measured error, not a percentile of holdover duration. It is the
-nearest-rank absolute error of the latest 128 BLE observations **within the
-current trial**, requiring 100 observations. These are correlated samples of
-varying holdover ages, not 100 independent trials or a safe-duration guarantee.
-The window resets each trial and becomes `--` after five seconds without a
-score or immediately on abort. The Hold page shows elapsed age / 120s, P99,
-sample count, and `1us HIT` or `SUB 1us`. Only the latter reports the latest
-sampled safe age before any crossing. It cannot cover errors between samples.
-
-During bounded capture, `W12_SHADOW` records retain exact integer reference and
-candidate/baseline predictions, signed errors, trial/population, physical age,
-first crossing, sampled safe age, cumulative maxima, gap count and maximum
-observed gap. Use
-`tools/shadow_holdover_tests.py` for frozen-clock isolation, 120-second runs,
-100-second threshold crossings, coverage failures, causal thermal history,
-rolling tails and actual framebuffer checks without opening hardware.
-Use `tools/shadow_holdover_analyze.py` on captured console data to reproduce
-P95/P99/MAX and paired comparisons, keeping trial and age-band populations
-separate. It also supports historical 0.2.22 records. Partial starts, missing log
-sequences and tails remain explicit. No detrending or tail removal is applied.
-Radio-off behavior, continuous bounds and independently measured UTC remain
-unqualified. Tuning and production promotion require repeatable matched trials
-across operating temperatures and loads; no automatic cutover is implemented.
+Temperature learning and thermal candidate scoring are separate from production
+HOLD and the BLE-only duration population. Current instructions and historical
+format boundaries are in the [holdover guide](holdover.md).
 
 ## Sampled P99 hold duration
 
-Version 0.2.30 retains the 0.2.28 definition of the clock footer's `P99:`:
-seconds of hold at a fixed absolute error limit of 1000 ns. `P99:2.2s` is the conservative tested age whose
-99th percentile of sampled prefix maxima remains below that limit; `>=12s`
-means the current qualifying evidence reaches that age without locating the
-percentile's limit. `--` means fewer than 100 runs or stale evidence. This is an
-empirical sampled estimate, not a statistical confidence bound on a population.
-The performance floor is two seconds; the display is not capped there.
-
-A separate BLE-only shadow sampler freezes the same rate-choice policy and
-phase used by production HOLD. Later accepted BLE pairs only score each frozen
-clock. Thermal coefficients are always zero in this population; the existing
-experimental temperature model and its error statistics continue separately.
-Calibration and the active servo are unchanged. A root/boot/source/owner fence
-clears the duration population. A five-second witness expiry hides the result.
-
-At each tested age, keep the maximum absolute error from entry through the first
-accepted witness at or after that age, conservatively including its overshoot.
-Version 0.2.30 removes the arbitrary 250 ms endpoint cutoff: every real witness
-scores its entire observed prefix, while gaps stay explicit. A run that expires
-one second after its probe limit without a confirming witness leaves unsupported
-ages unknown, never successful. An early threshold crossing stays in every subsequent prefix even if
-later error improves. Each age keeps the latest 128 complete outcomes, requiring
-100 scored runs, and allows only `floor(n/100)` failed or unknown outcomes. Select a
-contiguous passing prefix of age bins (250 ms spacing through four seconds,
-then 6/8/12/16/24/32/48/64/96/120 seconds). Display tenths round downward.
-Internal gaps over 250 ms remain counted without interpolating their interiors;
-this statistic concerns observed samples and grants no continuous error bound.
-
-Forty-eight frozen clocks and packed outcomes use at most 4096 bytes. Seven
-of every eight offset starts test two seconds; the eighth keeps the adaptive
-12/24/48/96/120-second probes. Weighted spacing bounds occupancy and preserves
-long probes while gathering short-age outcomes sooner. Healthy 16 Hz synthetic
-input yields the first two-second P99 within 12 seconds of sampling; real
-acquisition, rejection and source outages can delay it. The threshold remains
-100 scored runs at each age. Overlapping runs are correlated.
-
-All W12 application components retain `-Os`. Console commands use newlib's
-integer-only `siscanf` because their formats contain only integers, strings,
-characters and `%n`; this avoids linking the unused floating scanner and keeps
-the GNSS-enabled image inside the preserved slot. SDK/controller debug options,
-assertions, command validation and features remain enabled. The inspector checks
-the effective optimization flag; exact-device tests remain necessary.
-
-The Hold page shows the 1 µs criterion, P99 seconds, run count, probe horizon and
-gaps. Existing nine-row status fields `ui_hold_percentile=99`, `ui_hold_ms` and
-`ui_hold_samples` mirror the rendered value without adding response fields or changing frame bounds.
-Capture-only `W12_HORIZON_START/END/RESET/STATUS` records keep this population
-separate from thermal `W12_SHADOW` and selected-output `W12_HOLDOVER` records.
-`tools/holdover_horizon_analyze.py` independently replays frozen clocks from
-accepted pairs, preserves unknowns/early crossings and verifies rolling duration
-results against the copied host snapshot identified by `last20`, after any
-pre-capture history has left each relevant age ring. Original
-P95/P99/MAX error diagnostics, finite production tests and recovery remain.
-No persistence or partition change is enabled.
+`P99:` reports seconds of sampled sub-1 µs hold at empirical P99 across frozen
+run-prefix maxima. It requires 100 scored runs per age, retains 128 outcomes,
+and preserves gaps, unknown expiry and earlier crossings. See
+[continuous duration measurement](holdover.md#continuous-duration-measurement)
+and the [dated research package](../../papers/mcxo-holdover-duration/README.md).
 
 ## Production holdover
 
-**Current 0.2.30 policy: temperature is shadow-only.** Production retains the
-last trusted BLE frequency and phase, with an explicitly zero thermal coefficient.
-Temperature learning and thermal-candidate scoring continue separately. The
-optimized retained-clock selector, continuity through coarse acquisition,
-step-free return, calibration and source/relay expiry remain in place.
-Rate-only HOLD has no temperature dependency, so missing or invalid sensor
-readings do not remove the delivered clock. They still invalidate thermal
-shadow observations. The firmware/compiler receipt binds
-`BLE_RATE_CONSENSUS_TEMPERATURE_SHADOW_V3` and `SHADOW_ONLY`; BEGIN records expose
-the policy and actual zero coefficient. The analyzer refuses nonzero production
-temperature steering under that policy. P99/P95/MAX, sample counts, crossings,
-gaps and the existing finite selected-output tests are preserved.
-
-Version 0.2.27 separates HOLD rate selection from the fast BLE servo. A bounded
-history retains accepted physical pairs at least 250 ms apart over 32 seconds.
-Fixed channel intercepts remove channel offsets in separate 16/32-second rate
-fits. Both require 32 points, 85% span, eight repeated-channel degrees of freedom
-and estimated guards no larger than 10 ppb. The longer guard must improve on the
-fast fit, both rates must agree within 5 ppb, and the median of the three rates
-must lie within 15 ppb of the fast rate. The final change is capped at ±5 ppb.
-Fits refresh at most once per second; stale inputs or cache age over two seconds
-fall back to the fast rate. These gates are engineering policy, not measured
-RF or UTC uncertainty. Phase is reanchored continuously when HOLD is selected.
-Temperature never influences this rate choice. The active BLE actuator is unchanged.
-
-`W12_HOLDOVER_PAIR` records accepted BLE local/reference/availability/channel
-and generation. `W12_HOLDOVER_RATE` records cached fits and both selected and
-fast projector inputs. `W12_HOLDOVER_ENTRY` losslessly encodes the actual fast
-fit's compact points as little-endian U32 local delta, signed I24 residual and
-U8 channel, relative to full-width bases. Bounded capture is required; ordinary
-status frames remain the same size. `holdover_rate_replay.py`, called by the
-production analyzer, reconstructs rate fits using only inputs available before
-the recorded cache time and checks entry provenance. Witness samples score
-frozen projectors; they never train the running HOLD clock. Missing capture
-history cannot certify replay. Keep all rejects, gaps and tail errors.
-
-For the short HOLD target, use repeated finite 12-second selected-output trials
-and report 0–2, 2–4, 4–8 and 8–12 second age bands. A practical initial cohort is
-24 trials after 60 seconds of acquisition, with BLE return between trials.
-Report per-trial and pooled P95/P99/MAX, sample counts, gaps, fallback/selection
-counts and return steps. Samples in one boot share operating conditions; this
-cohort is not independent cold-start, GM-transition or 120-second qualification.
-Do not infer continuous bounds from sampled P99. Separate tuning captures from
-fresh validation captures before increasing the rate-change cap or adding trend.
-
-The following describes the original 0.2.25 thermal production experiment;
-0.2.26 keeps its selector and continuous return while isolating temperature.
-
-Version 0.2.25 selects the same frozen temperature-change model for local
-production HOLD. The last measured BLE rate, phase and learned temperature
-coefficient freeze at entry. Only causal silicon-temperature samples advance
-the eight-second lag and integral. Missing sensor history, a sensor gap above
-three seconds, invalid temperature or an excessive correction refuses delivery.
-The temperature coefficient is zero until sufficient learning is available.
-BLE remains the only timing reference; temperature is a proxy, not a time source.
-
-A trained retained clock takes precedence over a new coarse JOIN until the
-successor has its own trained physical model. On return, the trained BLE servo
-starts from the delivered HOLD time, preserving its target and bounded slew.
-Fresh observations must reestablish quality. A difference above one millisecond
-refuses that continuous handoff. Local HOLD grants no new source, relay or
-authentication permission. A finite test does not qualify actual GM failover.
-
-The ticketed, boot-bound console command `holdover test N` accepts 1,000–120,000
-milliseconds only when following a trained clock; the owning loop also checks
-sub-microsecond quality and remaining phase before starting. `holdover test 0`
-stops it. During the bounded test the **delivered local clock** uses the frozen
-production model while incoming BLE continues as an observation witness.
-No BLE reference updates that delivered model. Ordinary acquisition remains
-ready for return. The original finite capture lease and hardware guards apply.
-
-Capture `W12_HOLDOVER_EVENT`, `W12_HOLDOVER_SENSOR`, `W12_HOLDOVER`,
-`W12_HOLDOVER_STATUS` and `W12_HOLDOVER_RESUME` records together. BEGIN retains
-the exact floating-point entry parameters; sensor records permit independent
-causal replay. STATUS samples the same reader used by the display and records
-selected model, actual UTC output, delivered microseconds and following state.
-Sample records normalize the configured receiver shift for comparison with BLE.
-Use `tools/holdover_production_analyze.py` to check replay, output decomposition,
-rolling percentiles, selection and zero-step return. A completed activation
-check requires a complete bounded trial, at least 100 observations from its
-start, selected-output records, no missing sample sequences and a verified
-zero-step resume. It still reports every sampled error, crossing and coverage gap.
-
-Run `tools/shadow_holdover_tests.py` and
-`tests/holdover_production_analyze_test.py` offline before native preparation.
-These include production/shadow equivalence over 120 seconds, frozen learning,
-stale-sensor rejection, handoff and actual OLED rendering. `P99:` remains the
-latest 100–128 sampled holdover errors; during a production test it scores the
-selected output, and otherwise scores continuous shadow validation. A production
-HOLD page identifies the selected path. Neither the display nor the activation
-checks establish continuous sub-microsecond performance or independent UTC.
+Production uses causal BLE rate consensus with temperature shadow-only,
+continuous entry and step-free trained return. The ticketed finite test selects
+actual output while BLE remains a witness. See
+[production policy](holdover.md#production-clock) and
+[capture/replay](holdover.md#capture-and-replay). Historical thermal production
+and error-footer definitions belong to earlier editions, not current operation.

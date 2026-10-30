@@ -1,0 +1,195 @@
+{
+  "schema": 1,
+  "title": "W12 sampled holdover duration \u2014 selected reproducible inputs",
+  "author": "Jonathan Yantis",
+  "collection_date": "2026-10-30",
+  "archive": {
+    "path": "observations.zip",
+    "format": "ZIP_DEFLATED",
+    "bytes": 1433971,
+    "sha256": "e2d894bb87ad10d0b89ae3138821d2b253cdf3366a19a0611a4f7e7a65502bf1",
+    "uncompressed_bytes": 8490470,
+    "deterministic_metadata": "Sorted paths; fixed 2026-10-30 UTC DOS timestamp; regular0644; no host paths"
+  },
+  "origin": {
+    "commit": "87b314fa6fa08782ce72f3992c27ed9b27ac2fa1",
+    "prepared_edition": "papers/mcxo-holdover-duration/edition.json",
+    "prepared_edition_sha256": "e0326e2b4a82710debd0b0572910048c41ca9fdf88bb0eb01429ef2e39671b03",
+    "policy": "Original prepared receipt and every numeric input byte preserved; prior loose layout remains in Git."
+  },
+  "members": [
+    {
+      "path": "evidence/C1-frontier02-ui.csv",
+      "bytes": 7273,
+      "sha256": "42d5e4c5a13dd80c7ff35062b81815411e823950b839569150981825309b18ed",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "evidence/C1-frontier02.jsonl",
+      "bytes": 1331703,
+      "sha256": "34adc10762729124db9c4d91f6448a8ce91d7282deefdbc2ef964979227ed6e6",
+      "license": "CC-BY-4.0",
+      "records": 10246
+    },
+    {
+      "path": "evidence/C1-normal-ui.csv",
+      "bytes": 7118,
+      "sha256": "e3cc3f6db4ce976e1c47c354c55b0c797938323eb9574c9e1c9c6b5df3c0248f",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "evidence/C1-normal.jsonl",
+      "bytes": 1657157,
+      "sha256": "522b6fbb44a203348a6c239708cb5252fb5e613d9604e0a44fbca2a5686e32ea",
+      "license": "CC-BY-4.0",
+      "records": 12877
+    },
+    {
+      "path": "evidence/C2-frontier01-ui.csv",
+      "bytes": 7070,
+      "sha256": "bb6342cf3c9844e1e2c33b92751cd7257e48f1f397f7cd57977fb361fdbd1bdc",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "evidence/C2-frontier01.jsonl",
+      "bytes": 1766960,
+      "sha256": "e8c8f84d41523285848ae9a9a1a278082652f3b92d667d2ab978bb989624cf8f",
+      "license": "CC-BY-4.0",
+      "records": 13768
+    },
+    {
+      "path": "evidence/C2-frontier02-ui.csv",
+      "bytes": 7176,
+      "sha256": "c0e32321791c6685c1c555efaa9d6b9e0698030e05cdf52e2b82d1c7274804a2",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "evidence/C2-frontier02.jsonl",
+      "bytes": 1317420,
+      "sha256": "ab7d8cb524c26dee24123d2b7e29197ec265481cafd2d5b26d1a8ed4de475c09",
+      "license": "CC-BY-4.0",
+      "records": 10192
+    },
+    {
+      "path": "evidence/README.md",
+      "bytes": 3525,
+      "sha256": "3a1970194bc09f7aa3462a76f9ce37167d7f375c1b7c8c6875a0278bc9495560",
+      "license": "MIT"
+    },
+    {
+      "path": "evidence/expiry-counterfactual.json",
+      "bytes": 1543,
+      "sha256": "2fc5d638b9f79bf3102673f72cc29fc04e53d8be59829aa87cc8fb14754abe41",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "evidence/historical-confirmation.jsonl",
+      "bytes": 210123,
+      "sha256": "ff98dfa5e154035f1e95c647522f02da2fb7db0f629e36c08fb45f57e4f089ee",
+      "license": "CC-BY-4.0",
+      "records": 1678
+    },
+    {
+      "path": "evidence/historical-segment01.jsonl",
+      "bytes": 693307,
+      "sha256": "64b28e646ec0ab6189ca0a1d26353be8b9e6372d940ec9f5803d6a515d5dbdb3",
+      "license": "CC-BY-4.0",
+      "records": 5365
+    },
+    {
+      "path": "evidence/historical-segment02.jsonl",
+      "bytes": 650612,
+      "sha256": "718cea9320f8cf56cca9f10a42d108f07d5be6a81cac077379a8cfa42ef15e9e",
+      "license": "CC-BY-4.0",
+      "records": 5026
+    },
+    {
+      "path": "evidence/historical-segment03.jsonl",
+      "bytes": 600313,
+      "sha256": "56970d8f65d58db6e5edaf425d81835ed4e9cd641b8cb167b19098cc03bf63c8",
+      "license": "CC-BY-4.0",
+      "records": 4632
+    },
+    {
+      "path": "evidence/provenance.json",
+      "bytes": 15819,
+      "sha256": "a5d8aa4c0a1acd15e40f5bfdd71753ca0963aa29a802900b52a95a31c215cf83",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "evidence/secondary-audit.json",
+      "bytes": 8619,
+      "sha256": "742514bc5312a867cae41a6d529cc131ec40099ebf0d1a771cd96ecb5d68a11d",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "evidence/selected-output-witnesses.csv",
+      "bytes": 154394,
+      "sha256": "7e697d93ce258ffc37cf410a38815d0115ab6c55ffc4a571f962f0dc556e44f8",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "protocol.json",
+      "bytes": 8505,
+      "sha256": "60d813f7853a25656a7a679ba58ccb00fbc9a0a3d419daebffad3e4ddb33752f",
+      "license": "MIT"
+    },
+    {
+      "path": "reviewed-code/fine_receiver.hpp",
+      "bytes": 6911,
+      "sha256": "161cbeb1458c69498f4fcf81c856c8741b4e3b05fcea78435f16bbcbc80a5ff4",
+      "license": "MIT"
+    },
+    {
+      "path": "reviewed-code/g1_clock_prediction.hpp",
+      "bytes": 3590,
+      "sha256": "e700d5b9cce09024d93fa43d6e8c6fe4c9cd1835fd61ae448068f655f291f41b",
+      "license": "MIT"
+    },
+    {
+      "path": "reviewed-code/g1_retained_estimate.hpp",
+      "bytes": 1901,
+      "sha256": "c773ed72879b4e3c74d7721068d1d52fafbd4bc29db2ae603198b2786cc9549b",
+      "license": "MIT"
+    },
+    {
+      "path": "reviewed-code/manifest.json",
+      "bytes": 2905,
+      "sha256": "5b5ccfd8ab7bbe1693a4e43b04fea08d51b257ee17612a9bdff2063e97f7925d",
+      "license": "MIT"
+    },
+    {
+      "path": "reviewed-code/w12_holdover_horizon.hpp",
+      "bytes": 6431,
+      "sha256": "cd3e7593149d1b40e70cc183d62cc2a9c8bee921e4cab7f85f606698e3a282a6",
+      "license": "MIT"
+    },
+    {
+      "path": "reviewed-code/w12_holdover_rate.hpp",
+      "bytes": 5417,
+      "sha256": "958d4ff2583cf085a23ff5a2e68797100649e482821b78e6e926ae10e3d29b38",
+      "license": "MIT"
+    },
+    {
+      "path": "reviewed-code/w12_shadow_holdover.hpp",
+      "bytes": 12688,
+      "sha256": "4db4fa01d5abf8cb86877e8ba07c22f40e110cf76948eccbbc8e1636e9a2208e",
+      "license": "MIT"
+    },
+    {
+      "path": "reviewed-code/w12_thermal_projection.hpp",
+      "bytes": 1990,
+      "sha256": "a65afd82c3c995fd08ead052dad89a61e984547d4c9b9bb3f9f5d55a4cb0af50",
+      "license": "MIT"
+    }
+  ],
+  "generated_outputs": {
+    "analysis": {
+      "path": "analysis.json",
+      "bytes": 442249,
+      "sha256": "43da35b7800e363d63ab4d0138451be025cf78054776b0e69f02dc8f8c7b41a3"
+    },
+    "policy": "Recompute analysis, per-age prefix CSVs and unused plot tables locally under ignored artifacts/. Their historical hashes remain in the unchanged prepared edition; no observation was removed."
+  },
+  "license": "Per-member MIT or CC-BY-4.0; credit Jonathan Yantis; archive manifest MIT"
+}

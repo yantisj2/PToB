@@ -1,5 +1,14 @@
 # Manuscript history
 
+## 2026-10-30 — holdover research approved and packaged
+
+- Record author approval without changing the reviewed LaTeX/PDF or results.
+- Keep compact paper sources and figure inputs beside a standalone verifier;
+  move selected observations, protocol and source snapshots to a checksummed
+  evidence archive. Regenerate large derived tables locally.
+- Preserve original seals and prior editions in Git. Prepare for GitHub without
+  pushing, submitting, claiming peer review or upgrading firmware qualification.
+
 ## 2026-10-30 — empirical W12 holdover duration for author review
 
 - Prepare a new MCXO-inspired study around the longest experimentally supported

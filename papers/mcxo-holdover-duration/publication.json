@@ -1,0 +1,193 @@
+{
+  "schema": 1,
+  "author": "Jonathan Yantis",
+  "license": "MIT",
+  "status": "APPROVED_RESEARCH_DRAFT_GITHUB_PREPARATION",
+  "approval_date": "2026-10-30",
+  "approval_timezone": "America/Chicago",
+  "approval": "The research is approved, make sure the source is latex and package its data well in the repo to not pollute the repo with 100k+ lines and organize the evidence and paper concisely in the repo so we can prepare for publication to github. Cleanup the W12 target as well.",
+  "canonical_manuscript": "papers/mcxo-holdover-duration/main.tex",
+  "prepared_edition": "papers/mcxo-holdover-duration/edition.json",
+  "prepared_edition_sha256": "e0326e2b4a82710debd0b0572910048c41ca9fdf88bb0eb01429ef2e39671b03",
+  "prepared_commit": "87b314fa6fa08782ce72f3992c27ed9b27ac2fa1",
+  "reviewed_manuscript_pdf_result_text_and_plot_inputs_unchanged": true,
+  "prepared_checkpoint_policy": "Author-review labels in the unchanged manuscript/preparation seal describe the earlier checkpoint; this receipt records subsequent approval and new packaging.",
+  "evidence_collection": "evidence/w12/2026-10-30-holdover",
+  "packaging": {
+    "canonical_inputs": "26 byte-identical members in observations.zip, independently hashed and licensed",
+    "derived_outputs": "Full analysis and large prefix CSVs regenerate into ignored artifacts/; original hashes remain in the prepared edition and are checked by replay",
+    "historical_layout": "Preserved in Git; original preparation seal is not rewritten",
+    "private_material": "No raw consoles, enrolled images, keys or exact private device bindings"
+  },
+  "scope": {
+    "research_approval": true,
+    "github_push_performed": false,
+    "submission_performed": false,
+    "peer_review_claimed": false,
+    "hardware_qualification_changed": false,
+    "W12_runtime_changes": false
+  },
+  "verification_command": "python3 papers/mcxo-holdover-duration/tools/verify.py",
+  "files": [
+    {
+      "path": "evidence/w12/2026-10-30-holdover/README.md",
+      "bytes": 2598,
+      "sha256": "0c21648ef0dc230710f90d93792894d797961a324e9fecb5b1a1d98a4e38decd"
+    },
+    {
+      "path": "evidence/w12/2026-10-30-holdover/manifest.json",
+      "bytes": 6610,
+      "sha256": "2f6fbf69b35d50bf8285eb4fae424ac988dd84044e9294da2c8e0b1884df3a30"
+    },
+    {
+      "path": "evidence/w12/2026-10-30-holdover/observations.zip",
+      "bytes": 1433971,
+      "sha256": "e2d894bb87ad10d0b89ae3138821d2b253cdf3366a19a0611a4f7e7a65502bf1"
+    },
+    {
+      "path": "evidence/w12/2026-10-30-holdover/summary.json",
+      "bytes": 8814,
+      "sha256": "1258cd209f77dbc1a33e7fc07868fb56d19b885056b74c20acde90a83403aa63"
+    },
+    {
+      "path": "papers/mcxo-holdover-duration/CHANGELOG.md",
+      "bytes": 1514,
+      "sha256": "9c3a3919232322ba10937e55fe4292732d645905f0f0841edc3ca5c874a66c7c"
+    },
+    {
+      "path": "papers/mcxo-holdover-duration/LICENSE.md",
+      "bytes": 625,
+      "sha256": "7d43c3330257c0da41d1be84054500f6141eaf921ea778510eb767f5a486902c"
+    },
+    {
+      "path": "papers/mcxo-holdover-duration/README.md",
+      "bytes": 3566,
+      "sha256": "64eab47fdcab6c9328f5d65674a6bb1827bc36e2774c453c9d4053c1b3079ecf"
+    },
+    {
+      "path": "papers/mcxo-holdover-duration/edition.json",
+      "bytes": 16442,
+      "sha256": "e0326e2b4a82710debd0b0572910048c41ca9fdf88bb0eb01429ef2e39671b03"
+    },
+    {
+      "path": "papers/mcxo-holdover-duration/figures/C1-frontier02-frontier.csv",
+      "bytes": 542,
+      "sha256": "3fe4494a0245fadeb19d284bdfd161345b4897ed3361f5d6d77d4bb2cbc97c4b"
+    },
+    {
+      "path": "papers/mcxo-holdover-duration/figures/C1-frontier02-known.csv",
+      "bytes": 559,
+      "sha256": "9e062ff9654f7344610b0f36c02efecb0c27c6853ab2dbfd62c11a1da989f2ed"
+    },
+    {
+      "path": "papers/mcxo-holdover-duration/figures/C1-frontier02.csv",
+      "bytes": 3314,
+      "sha256": "7e878d140b8aa92a4ad87b8335fc553f07f0697747ebefa1c4cf662d8c433371"
+    },
+    {
+      "path": "papers/mcxo-holdover-duration/figures/C1-normal-frontier.csv",
+      "bytes": 495,
+      "sha256": "39030a35521d0f36df29cc86d22ad15791247bca0f999521ebee0f215ec59d30"
+    },
+    {
+      "path": "papers/mcxo-holdover-duration/figures/C1-normal-known.csv",
+      "bytes": 1447,
+      "sha256": "4050e23dd66b14871dd8f15d4ef4361b7d319f910c16ab4b4161825ec272abb4"
+    },
+    {
+      "path": "papers/mcxo-holdover-duration/figures/C1-normal.csv",
+      "bytes": 3254,
+      "sha256": "15dfcc8e4f9a2396dd5a92bc5945336855e22f38f68756307520b0d4b3d8449f"
+    },
+    {
+      "path": "papers/mcxo-holdover-duration/figures/C2-frontier01-frontier.csv",
+      "bytes": 495,
+      "sha256": "1a5433d3781c04325ca3647978584d51b1b7875d40a55be103e7c20db416bf1e"
+    },
+    {
+      "path": "papers/mcxo-holdover-duration/figures/C2-frontier01-known.csv",
+      "bytes": 1756,
+      "sha256": "9b7a26ea734f71022a61172fdd111584afe700fc97f744caa0244a13a40d8d25"
+    },
+    {
+      "path": "papers/mcxo-holdover-duration/figures/C2-frontier01.csv",
+      "bytes": 3267,
+      "sha256": "1f9b5571faa74d1a85752f4de4bbaff823e76fbefa3b6c1bb65050d2147df497"
+    },
+    {
+      "path": "papers/mcxo-holdover-duration/figures/C2-frontier02-frontier.csv",
+      "bytes": 542,
+      "sha256": "f217b7455459bac43bca3fc8680a81457623ec7c11447cf54b46e239236e3c09"
+    },
+    {
+      "path": "papers/mcxo-holdover-duration/figures/C2-frontier02-known.csv",
+      "bytes": 888,
+      "sha256": "56d6d0b31a14b56f51bbf911fb36f6d8d662bbbd06fb15eb8397deaf42ce96ed"
+    },
+    {
+      "path": "papers/mcxo-holdover-duration/figures/C2-frontier02.csv",
+      "bytes": 3276,
+      "sha256": "851bbb9d1fd49506a601e2a6abfc4a306909207ecbdb2fb3a427ec5ccdcb2fae"
+    },
+    {
+      "path": "papers/mcxo-holdover-duration/figures/primary-duration.tex",
+      "bytes": 3075,
+      "sha256": "db653c3467f19306b24642bf42bf263edeccbd200f30dd6b8b1e8b5e26ca9ec7"
+    },
+    {
+      "path": "papers/mcxo-holdover-duration/main.pdf",
+      "bytes": 87567,
+      "sha256": "701afcb51f758f7de63f657adf923431895c4862f2e0d4f47e6f8d78e73bb2ba"
+    },
+    {
+      "path": "papers/mcxo-holdover-duration/main.tex",
+      "bytes": 22014,
+      "sha256": "dd2cc446d938d761775b8d553d57e382c4ff0d42f68fcdfbdc1072d180a7936a"
+    },
+    {
+      "path": "papers/mcxo-holdover-duration/results.tex",
+      "bytes": 3614,
+      "sha256": "ed13ed49ca27c12ed2c92239643b42d83928aa261616f4ba860d8437507dbb2e"
+    },
+    {
+      "path": "papers/mcxo-holdover-duration/tools/build_analysis.py",
+      "bytes": 8295,
+      "sha256": "681805c47cf8349b5a69d7058276a4212f0a9591f7c2adce95db98801c3ac3bb"
+    },
+    {
+      "path": "papers/mcxo-holdover-duration/tools/dataset.py",
+      "bytes": 2403,
+      "sha256": "a9fafdb8c0197258e6442ae5bca7249558bb080b20fe39a3627d2fdd7eafb9d0"
+    },
+    {
+      "path": "papers/mcxo-holdover-duration/tools/duration_replay.py",
+      "bytes": 10654,
+      "sha256": "b0985ee2a91dbb4a1d87e7284ff72c92fbb53eb3f5df2be8ac07dcfbde6c5e79"
+    },
+    {
+      "path": "papers/mcxo-holdover-duration/tools/fine_frontier.py",
+      "bytes": 3197,
+      "sha256": "2954439cf0652da035b71a1dee163d27290de24c3d377ccb3eb7561b3953505c"
+    },
+    {
+      "path": "papers/mcxo-holdover-duration/tools/test_dataset.py",
+      "bytes": 2220,
+      "sha256": "cc01b8eb85ff68336bd3dd7b51e2b4a14d4c16f5123a0e408d17b42a72cf0986"
+    },
+    {
+      "path": "papers/mcxo-holdover-duration/tools/test_duration_replay.py",
+      "bytes": 2912,
+      "sha256": "b971aca58296edf0ab035b9caaa5c04c234428630c8ef1870b309e40e4a0af31"
+    },
+    {
+      "path": "papers/mcxo-holdover-duration/tools/verify.py",
+      "bytes": 5691,
+      "sha256": "94cc48523c317586dc229ec0383905aae00ddfe3e00c0fbc08fc8fbc803f8e6d"
+    },
+    {
+      "path": "papers/mcxo-holdover-duration/tools/write_values.py",
+      "bytes": 7445,
+      "sha256": "cd182a11bc54818d71ba72fdfb7d307aa825e3142d07c3c0b0e89cd1778e7e68"
+    }
+  ]
+}

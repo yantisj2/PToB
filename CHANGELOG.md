@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-30 — approved holdover research packaging and W12 cleanup
+
+- Preserve the approved LaTeX/PDF while archiving selected observations and
+  reproducible source/protocol inputs compactly under `evidence/w12/`. Generate
+  large analysis/prefix tables locally instead of tracking duplicate rows.
+- Add approval/current-package identities and consolidate W12 holdover guidance.
+  Preserve history, recovery artifacts and firmware behavior; no hardware or push.
+
 ## 2026-10-30 — MCXO-inspired holdover duration draft
 
 - Prepare a seven-page author-review study of the longest sampled sub-1 µs P99

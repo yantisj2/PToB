@@ -1,5 +1,15 @@
 # Manuscript history
 
+## 30 October 2026 — approval and compact repository packaging
+
+The author approved the research for GitHub preparation. Preserve the reviewed
+LaTeX, PDF, result text and plot inputs byte-for-byte. Move selected inputs,
+protocol, provenance and reviewed v34 source snapshots into one deterministic,
+checksummed archive under `evidence/w12/2026-10-30-holdover/`. Regenerate large
+prefix CSVs and full analysis under ignored `artifacts/`; keep the original
+preparation seal and prior loose layout in Git. The new publication receipt
+records approval and current identities. No push or final-publication promotion.
+
 ## 30 October 2026 — new author-review draft
 
 Created a new manuscript around device hold duration at a fixed sampled

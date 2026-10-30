@@ -3,8 +3,10 @@
 Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT
 """
 import json
+import argparse
 from pathlib import Path
 from build_analysis import BASE
+from build_analysis import recompute
 
 IDS=['C1-normal','C2-frontier01','C2-frontier02','C1-frontier02']
 LABELS=['C-1 initial','C-2 initial','C-2 later','C-1 later']
@@ -65,4 +67,7 @@ def make_tex(analysis):
     return '\n'.join(lines)+'\n'
 
 if __name__=='__main__':
-    analysis=json.loads((BASE/'analysis.json').read_text());(BASE/'results.tex').write_text(make_tex(analysis))
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--out',type=Path,default=BASE.parents[1]/'artifacts/mcxo-holdover-duration/results.tex')
+    args=parser.parse_args();args.out.parent.mkdir(parents=True,exist_ok=True)
+    args.out.write_text(make_tex(recompute(False)))

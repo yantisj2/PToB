@@ -1,5 +1,12 @@
 # W12 changelog
 
+## Documentation — current holdover guide
+
+- Consolidate production HOLD, temperature shadow, sampled P99 seconds and
+  capture/replay in `docs/w12/holdover.md`. Replace repeated version narratives
+  with current target behavior and links; retain historical formats here and
+  in Git. Firmware, watchdogs and device state are unchanged.
+
 ## Host tools — v34 console compatibility
 
 - Accept the v34 image in the existing compact LoRa, sampled-duration,

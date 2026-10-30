@@ -1,6 +1,6 @@
 # Research papers — drafts
 
-**Author-review experimental draft, 30 October 2026:**
+**Approved experimental research draft, 30 October 2026:**
 [Empirical Sub-Microsecond Holdover on BLE-Trained Software Clocks](mcxo-holdover-duration/main.pdf)
 measures the longest supported hold duration at a fixed sampled 1 microsecond
 threshold using P99 across frozen run-prefix maxima. Separate W12 devices,
@@ -8,8 +8,10 @@ observation windows, rolling populations, longer failures and unknown-expiry
 display dips remain visible. A separately labeled offline one-second grid
 refines the frontier on fixed mature long-run cohorts.
 [Source, selected evidence and offline replay](mcxo-holdover-duration/README.md)
-accompany this new draft. Preparation does not promote it to public-review or
-firmware qualification.
+accompany the approved draft. LaTeX is canonical; selected inputs are archived
+under `evidence/w12/`, and large derived tables regenerate locally.
+[Approval and packaging](mcxo-holdover-duration/publication.json) preserve the
+reviewed bytes; GitHub publication and firmware qualification remain separate.
 
 **Latest public review draft, 26 October 2026:**
 [Reducing Timing Tails and Multipath Sensitivity in an Operating BLE Precision Mesh](ble-tail-multipath/main.pdf)
@@ -68,9 +70,10 @@ The distinct [post-repair W12 baseline](../evidence/s3/2026-10-24-w12-utc-basis/
 publishes all selected PPS/TX rows and an offline verifier for later website
 results. It does not silently replace this approved paper's earlier aggregates.
 
-These are working drafts by **Jonathan Yantis**. The newest additions are the
-**26 October 2026** BLE timing-tail/multipath, indoor PNT and theoretical PToB-IPS
-studies. The low-level
+These are working drafts by **Jonathan Yantis**. The newest approved addition
+is the **30 October 2026** W12 holdover-duration
+study. The BLE timing-tail/multipath, indoor PNT and theoretical PToB-IPS studies
+retain their **26 October** editions. The low-level
 ESP32-S3 implementation guide retains its **24 October** edition. The robotic
 gPTP/TSN study and ESP32-S3 empirical timing study retain their **22 October**
 editions; the earlier reviewed
@@ -98,6 +101,7 @@ draft status.
 
 | Draft | Read | Edit | Edition |
 | --- | --- | --- | --- |
+| Empirical Sub-Microsecond Holdover on BLE-Trained Software Clocks | [PDF](mcxo-holdover-duration/main.pdf) | [LaTeX](mcxo-holdover-duration/main.tex) | 30 October 2026, approved research draft; compact selected evidence and offline prefix replay |
 | Reducing Timing Tails and Multipath Sensitivity in an Operating BLE Precision Mesh | [PDF](ble-tail-multipath/main.pdf) | [LaTeX](ble-tail-multipath/main.tex) | 26 October 2026, public review draft; current mechanisms, analytical examples and proposed validation, no new hardware experiment |
 | A Shared Time Base for Indoor PNT: PToB Sensor Fusion, Selective UWB Augmentation, and a Validation Programme | [PDF](indoor-pnt/main.pdf) | [LaTeX](indoor-pnt/main.tex) | 26 October 2026, public review draft; proposed architecture and analytical budgets, no localization qualification |
 | PToB-IPS: Toward GNSS-like Indoor Positioning with Surveyed BLE Timing Beacons | [PDF](indoor-ips/main.pdf) | [LaTeX](indoor-ips/main.tex) | 26 October 2026, approved public research draft; surveyed beacons, aligned multi-rate advertisements and theoretical positioning/refinement limits |
