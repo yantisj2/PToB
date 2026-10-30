@@ -22,6 +22,7 @@ int main(int argc,char** argv){
   mesh.g1_shadow.holding=true;mesh.g1_shadow.age20=mesh.g1_shadow.safe20=65*20000000ULL;dashboard.apply(s,mesh);
   assert(s.shadow_age_ms==65000&&s.shadow_safe_ms==65000);s.page=display_pages::Hold;image(s,out+"/shadow-details.pbm");
   mesh.g1_shadow.cross20=66*20000000ULL;dashboard.apply(s,mesh);assert(s.shadow_cross_ms==66000);image(s,out+"/shadow-crossed.pbm");
+  mesh.g1_shadow.gaps=3;dashboard.apply(s,mesh);assert(s.shadow_gaps==3);image(s,out+"/shadow-gaps.pbm");
   mesh.g1_shadow.p99_ns=UINT64_MAX;dashboard.apply(s,mesh);assert(s.shadow_p99_ns==UINT64_MAX);
   std::puts("PASS actual shadow framebuffer: warmup, measured P99 footer pixels, extended run and threshold details and expiry");
 }

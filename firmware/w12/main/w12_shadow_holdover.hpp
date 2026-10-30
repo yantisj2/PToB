@@ -8,9 +8,9 @@ struct W12ShadowView {
   uint64_t last20=0,sequence=0;
   uint64_t p95_ns=UINT64_MAX,p99_ns=UINT64_MAX,max_ns=UINT64_MAX;
   uint64_t baseline_p95_ns=UINT64_MAX,baseline_p99_ns=UINT64_MAX,baseline_max_ns=UINT64_MAX;
-  uint64_t age20=0,safe20=0,cross20=0,baseline_cross20=0;
+  uint64_t age20=0,safe20=0,cross20=0,baseline_cross20=0,max_gap20=0;
   uint64_t run_max_ns=0,baseline_run_max_ns=0;
-  uint32_t samples=0,started=0,completed=0,missed=0,aborted=0,generation=1;
+  uint32_t samples=0,started=0,completed=0,missed=0,aborted=0,generation=1,gaps=0;
   int32_t temperature_mc=INT32_MIN,slope_mppb_c=0;
   bool holding=false,thermal_ready=false;
 };
@@ -33,8 +33,8 @@ class W12ShadowHoldover {
   std::array<uint64_t,Capacity> scratch_{};
   W12ShadowView view_{};G1ClockPrediction baseline_{};
   uint64_t start_=0,next_=0,last_label_=0,last_pair_=0,last_witness_=0;
-  double weight_=0,sx_=0,sy_=0,sxx_=0,sxy_=0,beta_=0,intercept_=0;
-  double start_temperature_=0,start_integral_=0,rate_delta_=0,held_beta_=0;
+  double weight_=0,sx_=0,sy_=0,sxx_=0,sxy_=0,beta_=0;
+  double start_temperature_=0,start_integral_=0,held_beta_=0;
   unsigned head_=0;Sink sink_=nullptr;
   static void inc(uint32_t& n){if(n!=UINT32_MAX)++n;}
   static uint64_t magnitude(int64_t n){return n>=0?uint64_t(n):uint64_t(-(n+1))+1;}
@@ -75,7 +75,7 @@ class W12ShadowHoldover {
     // invent a slope. Held coefficients never change during a run.
     view_.thermal_ready=weight_>=32&&variance/weight_>=.04;
     if(view_.thermal_ready){beta_=std::clamp((sxy_-sx_*sy_/weight_)/variance,-5000.0,5000.0);
-      intercept_=(sy_-beta_*sx_)/weight_;view_.slope_mppb_c=int32_t(std::llround(beta_*1000));}
+      view_.slope_mppb_c=int32_t(std::llround(beta_*1000));}
   }
  public:
   void sink(Sink fn){sink_=fn;}
@@ -83,7 +83,7 @@ class W12ShadowHoldover {
     // Invalidate histories by count instead of constructing a 4KiB temporary
     // on the NimBLE owner's stack. Old slots cannot enter a new population.
     view_={};baseline_={};temperature_count_=head_=0;start_=next_=last_label_=last_pair_=last_witness_=0;
-    weight_=sx_=sy_=sxx_=sxy_=beta_=intercept_=start_temperature_=start_integral_=rate_delta_=held_beta_=0;
+    weight_=sx_=sy_=sxx_=sxy_=beta_=start_temperature_=start_integral_=held_beta_=0;
     view_.sequence=old.sequence;view_.started=old.started;view_.completed=old.completed;view_.missed=old.missed;view_.aborted=old.aborted;
     view_.generation=old.generation==UINT32_MAX?UINT32_MAX:old.generation+1;}
   void cancel(){if(start_)inc(view_.aborted);start_=0;view_.holding=false;next_=0;
@@ -109,13 +109,14 @@ class W12ShadowHoldover {
       temperature_at(available,temperature);
     if(ready)learn(available,temperature,active.rate); // Future runs only.
     if(start_&&local>start_){
-      // Silence cannot prove survival. A coverage failure aborts the trial and
-      // is retained separately from a measured threshold crossing.
-      if(local-last_witness_>MaximumGap){inc(view_.missed);cancel();next_=available+Hz;return;}
+      // A brief missing witness must not correct or restart the held clock.
+      // Count the coverage gap explicitly; its interior remains unmeasured.
+      const auto gap=local-last_witness_;view_.max_gap20=std::max(view_.max_gap20,gap);
+      if(gap>MaximumGap){inc(view_.missed);inc(view_.gaps);}
       last_witness_=local;
       double integral=0;const auto base=baseline_.relative_at(local);
       if(base>0&&thermal_integral(local,integral)){
-        const double correction=double(local-start_)/Hz*rate_delta_+held_beta_*integral;
+        const double correction=held_beta_*integral;
         if(std::isfinite(correction)&&std::abs(correction)<1000000){
           const int64_t adjustment=int64_t(std::llround(correction));
           if((adjustment>0&&base>INT64_MAX-adjustment)||(adjustment<0&&base<=-adjustment)){
@@ -138,19 +139,18 @@ class W12ShadowHoldover {
       if(local-start_>=Horizon){inc(view_.completed);start_=0;view_.holding=false;next_=available+Hz;}
       return;
     }
-    if(start_||!ready||available<next_||available>UINT64_MAX-Horizon-MaximumGap)return;
+    if(start_||!ready||available<next_||available>UINT64_MAX-Horizon-3*Hz)return;
     baseline_=active;start_=last_witness_=available;start_temperature_=temperature;
     temperature_at(available,temperature,&start_integral_);
     view_.holding=true;inc(view_.started);head_=0;view_.samples=0;
     view_.p95_ns=view_.p99_ns=view_.max_ns=UINT64_MAX;
     view_.baseline_p95_ns=view_.baseline_p99_ns=view_.baseline_max_ns=UINT64_MAX;
-    view_.age20=view_.safe20=view_.cross20=view_.baseline_cross20=0;
+    view_.age20=view_.safe20=view_.cross20=view_.baseline_cross20=view_.max_gap20=0;view_.gaps=0;
     view_.run_max_ns=view_.baseline_run_max_ns=0;
     held_beta_=view_.thermal_ready?beta_:0;
-    // Blend the temperature-conditioned estimate with the recent BLE fit;
-    // the initial candidate is deliberately bounded and remains shadow only.
-    const double learned=view_.thermal_ready?intercept_+beta_*temperature:active.rate;
-    rate_delta_=std::clamp(.25*(learned-active.rate),-1000.0,1000.0);
+    // Anchor frequency to the last trusted BLE fit. A historical absolute
+    // temperature intercept includes warm-up/aging bias and must not replace
+    // this measured rate. Only subsequent temperature changes are corrected.
   }
   W12ShadowView view(uint64_t now=0)const {auto v=view_;
     if(now&&(!v.last20||now<v.last20||now-v.last20>5*Hz))v.p95_ns=v.p99_ns=UINT64_MAX;

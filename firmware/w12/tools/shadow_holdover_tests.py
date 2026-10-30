@@ -38,7 +38,7 @@ def main():
     for i in range(1,961):
         error=i*10//8;values.append(error);q=tails(values[-128:])
         row=dict(boot=2,seq=i,population=1,production=0,horizon_ms=120000,trial=1,
-            start20=40000000,local20=40000000+i*2500000,age20=i*2500000,
+            start20=40000000,local20=40000000+i*2500000,age20=i*2500000,gaps=0,max_gap20=2500000,
             safe20=min(i,799)*2500000,cross20=2000000000 if i>=800 else 0,
             base_cross20=2000000000 if i>=800 else 0,run_max_ns=error,base_run_max_ns=error,
             reference_ns=1000000000000,predicted_ns=1000000000000+error,baseline_ns=1000000000000+error,
@@ -50,6 +50,7 @@ def main():
     assert result['rolling_reproduced'] and result['first_crossing_seconds']==100
     assert result['sampled_safe_seconds']==99.875 and result['cap_reached'] and result['from_start']
     assert result['age_bands'][-1]['shadow']['max_ns']==1200
+    assert result['coverage_gaps']==0 and result['maximum_gap_seconds']==.125
     partial=analyze(('\n'.join(lines[500:])+'\n').encode())['populations'][0]
     assert partial['rolling_reproduced'] and not partial['from_start']
     paths=[A/'main/w12_shadow_holdover.hpp',A/'main/g1_corrected_clock.hpp',A/'main/native_g1.cpp',A/'main/native_main.cpp',A/'main/native_dashboard.hpp',A/'legacy/display.cpp',A/'legacy/display.hpp',A/'tests/shadow_holdover_test.cpp',A/'tests/shadow_display_test.cpp',Path(__file__),A/'tools/shadow_holdover_analyze.py']

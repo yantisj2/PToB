@@ -7,18 +7,24 @@ RC role. [Image provenance](../../docs/images/README.md).*
 
 Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
 
-**PToB owns W12 native G1/RC7 development.** Current version **0.2.23** supports
+**PToB owns W12 native G1/RC7 development.** Current version **0.2.24** supports
 **RC**: a BLE50 client or BLE100 receiver with an optional experimental
 estimated-TX relay. It receives from the shared T096/W12/StickS3 mesh; it has no
 GM profile or USB timing stream. Start with the
 [build guide](../../docs/w12/build.md).
+
+Version 0.2.24 anchors each shadow run to the last measured BLE frequency,
+applying the learned temperature slope only to subsequent temperature changes.
+It removes the historical absolute-rate blend that could introduce drift.
+Short BLE gaps are counted and displayed without correcting or restarting
+the held clock; their interiors remain unmeasured.
 
 Version 0.2.23 removes the one-second shadow-test ceiling introduced in 0.2.22.
 A frozen numerical clock now runs for up to 120 seconds, comparing every matched
 physical BLE observation with the held candidate and current method. `P99:` is
 the absolute error of the latest 128 observations within that run (100 required).
 The Hold page shows elapsed time and the first sampled 1 µs crossing, or the
-sampled duration below it. Gaps above 250 ms abort coverage; a run that reaches
+sampled duration below it. Version 0.2.23 aborted gaps above 250 ms; 0.2.24 retains them explicitly. A run that reaches
 120 seconds without crossing is limited by the test cap. Future coefficients
 learn continuously, while the held coefficients and phase remain frozen.
 Temperature is a silicon-sensor proxy; BLE supplies every timing reference.

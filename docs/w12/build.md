@@ -812,15 +812,20 @@ Neither host checks nor internal fit RMS establishes calibrated UTC accuracy.
 
 ## Shadow holdover
 
-W12 0.2.23 keeps the existing production servo and adds an experimental
+W12 0.2.24 keeps the existing production servo and adds an experimental
 numerical shadow model. It learns a bounded linear temperature response from
 BLE-derived frequency fits using an eight-second silicon-temperature proxy.
 There is no local GNSS/LoRa training or production cutover. Insufficient thermal
 coverage retains the fitted rate without inventing a temperature slope.
+Version 0.2.24 anchors frequency to the last trusted BLE fit. It removes the
+0.2.22/0.2.23 blend with a historical absolute temperature-rate intercept, which
+can confound warm-up and aging with temperature. Short BLE gaps now remain
+inside the frozen run and are counted explicitly, rather than restarting it.
+Only temperature changes after freezing modify the anchored rate; no later BLE reference corrects it.
 
 The previous 0.2.22 sampler tested only a single endpoint at one second. That
-was a measurement ceiling, not a measured oscillator limit. A 0.2.23 trial freezes
-the raw clock, phase and candidate coefficients at their actual availability
+was a measurement ceiling, not a measured oscillator limit. An extended trial
+freezes the raw clock, phase and candidate coefficients at their actual availability
 time for 120 seconds. Every later authenticated matched physical BLE event
 scores both candidate and held current method, without correcting either.
 BLE-derived learning continues separately for future trials; it cannot change
@@ -830,10 +835,11 @@ of the eight-reading history and never uses sensor readings after physical RX.
 Each trial retains the first sampled absolute error **>= 1,000 ns**, the last
 preceding sampled age below that threshold and the maximum error over the
 entire run. It continues after a crossing to preserve tails. A no-crossing
-120-second result is censored by the test cap. A gap above 250 ms, missing
-causal temperature or lost source permission aborts coverage, with no zero
-filling or interpolation. Source changes reset the population. Lifetime counters
-retain starts, completed 120-second trials, missed coverage and aborts.
+120-second result is censored by the test cap. Gaps above 250 ms increment
+missing-coverage counts without restarting the frozen clock; their interiors remain unmeasured. The Hold page discloses these
+gaps. Missing causal temperature or lost source permission aborts a run, with
+no zero filling or interpolation. Source changes reset the population. Lifetime
+counters retain starts, completed 120-second trials, missed coverage and aborts.
 
 `P99:` remains measured error, not a percentile of holdover duration. It is the
 nearest-rank absolute error of the latest 128 BLE observations **within the
@@ -846,7 +852,8 @@ sampled safe age before any crossing. It cannot cover errors between samples.
 
 During bounded capture, `W12_SHADOW` records retain exact integer reference and
 candidate/baseline predictions, signed errors, trial/population, physical age,
-first crossing, sampled safe age and cumulative maxima. Use
+first crossing, sampled safe age, cumulative maxima, gap count and maximum
+observed gap. Use
 `tools/shadow_holdover_tests.py` for frozen-clock isolation, 120-second runs,
 100-second threshold crossings, coverage failures, causal thermal history,
 rolling tails and actual framebuffer checks without opening hardware.

@@ -1,5 +1,15 @@
 # W12 changelog
 
+## 0.2.24 — anchor shadow frequency to the last BLE fit
+
+- Remove the historical absolute-rate blend at shadow entry. Keep the last
+  trusted measured BLE frequency and apply the frozen slope only to subsequent
+  temperature changes. Learning still affects future runs only.
+- Count brief missing BLE coverage without restarting or correcting the held
+  clock; disclose gap counts on Hold and in records. Source loss still aborts.
+- Add an isothermal regression with a deliberately biased historical fit.
+  Preserve extended sampled P99/duration measurement and the production servo.
+
 ## 0.2.23 — extended sub-microsecond shadow measurements
 
 - Replace the one-second endpoint ceiling with frozen runs capped at 120s.

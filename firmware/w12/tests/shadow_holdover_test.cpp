@@ -40,8 +40,9 @@ int main(){
   assert(stable.view().safe20==120*Hz&&!stable.view().cross20&&stable.view().completed==1);
   // No interpolation across absent BLE or temperature; no zero-filled scores.
   Shadow missing;begin(missing,start);score(missing,start,1,99);
-  score(missing,start,5,99);assert(missing.view().missed==1&&missing.view().aborted==1&&!missing.view().holding);
-  assert(missing.view().samples==1&&missing.view().p99_ns==UINT64_MAX);
+  score(missing,start,5,99);assert(missing.view().missed==1&&missing.view().gaps==1&&!missing.view().aborted&&missing.view().holding);
+  assert(missing.view().samples==2&&missing.view().p99_ns==UINT64_MAX&&missing.view().max_gap20==Hz/2);
+  missing.cancel();assert(missing.view().aborted==1);
   const auto sequence=missing.view().sequence;missing.clear();assert(!missing.view().samples&&missing.view().sequence==sequence&&missing.view().missed==1);
   Shadow no_temperature;begin(no_temperature,start);
   for(unsigned i=1;i<=25;++i){const auto at=start+i*Hz/8;no_temperature.observe(at,1,at+100,model(at),true);}
@@ -69,8 +70,18 @@ int main(){
   }
   assert(a.view().holding&&a.view().samples==128&&a.view().age20==20*Hz);
   assert(rows.back().prediction_ns!=rows.back().baseline_ns);
-  a.temperature(second+30*Hz,25);assert(!a.view().holding); // Broken thermal history.
+  // Historical absolute-rate bias must not change a new isothermal hold.
+  // Reset the thermal proxy after a sensor gap, retaining the trained slope.
+  a.cancel();const auto anchored=second+30*Hz;a.temperature(anchored,25);
+  const auto fresh=model(anchored,-4000);
+  a.observe(anchored,1,anchored,fresh,true);assert(a.view().thermal_ready);
+  for(unsigned i=1;i<=160;++i){const auto at=anchored+i*Hz/8;
+    if(i%8==0)a.temperature(at,25);
+    a.observe(at,uint64_t(fresh.relative_at(at)),at+100,model(at,49000),true);
+    assert(rows.back().prediction_ns==rows.back().baseline_ns&&rows.back().error_ns==0);
+  }
+  a.temperature(anchored+30*Hz,25);assert(!a.view().holding);
   const auto before=b.view();b.temperature(UINT64_MAX,NAN);b.observe(1,UINT64_MAX,0,{},false);
   assert(b.view().samples==before.samples&&b.view().completed==before.completed);
-  std::puts("PASS 120s frozen runs, 100s crossing, censored duration, coverage gaps, exact rolling tails, 9s outlier retained, cumulative causal thermal history, frozen learning and lifecycle");
+  std::puts("PASS 120s frozen runs, 100s crossing, censored duration, coverage gaps, exact rolling tails, 9s outlier retained, cumulative causal thermal history, frozen learning, measured-rate anchoring and lifecycle");
 }

@@ -446,7 +446,8 @@ void page_hold(const DisplayState& s){
    field(26,"P99",n);std::snprintf(n,sizeof n,"%lu/100",(unsigned long)s.shadow_samples);field(35,"SAMPLES",n);
    format_hold_time(n,sizeof n,s.shadow_cross_ms?s.shadow_cross_ms:s.shadow_safe_ms);
    field(44,s.shadow_cross_ms?"1us HIT":"SUB 1us",n);
-   text(2,53,s.shadow_holding?"BLE SHADOW RUNNING":"SHADOW PAUSED");return;
+   if(s.shadow_gaps){std::snprintf(n,sizeof n,"BLE GAPS %lu",(unsigned long)s.shadow_gaps);text(2,53,n);}
+   else text(2,53,s.shadow_holding?"BLE SHADOW RUNNING":"SHADOW PAUSED");return;
   }
   short_num(n,sizeof(n),s.rms_ns);field(17,"CAUSAL NS",n);
   short_num(n,sizeof(n),s.samples);field(26,"SAMPLES",n);

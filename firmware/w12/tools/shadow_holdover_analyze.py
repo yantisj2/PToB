@@ -19,7 +19,7 @@ def analyze(raw):
         age=row['local20']-row['start20']
         if row['horizon_ms']==1000:assert 20000000<=age<=22500000
         else:
-            assert 0<age<=2405000000 and row['age20']==age
+            assert 0<age<=2460000000 and row['age20']==age
             assert 0<=row['safe20']<=age and 0<=row['cross20']<=age and 0<=row['base_cross20']<=age
             assert row['run_max_ns']>=abs(row['error_ns'])
             assert row['base_run_max_ns']>=abs(row['baseline_error_ns'])
@@ -51,6 +51,7 @@ def analyze(raw):
                 baseline_first_crossing_seconds=latest['base_cross20']/20000000 or None,
                 run_max_ns=latest['run_max_ns'],baseline_run_max_ns=latest['base_run_max_ns'],
                 cap_reached=latest['age20']>=2400000000,
+                coverage_gaps=latest.get('gaps'),maximum_gap_seconds=latest.get('max_gap20',0)/20000000 if 'max_gap20' in latest else None,
                 from_start=rows[0]['n']==1 and not gaps,
                 age_bands=[dict(from_seconds=lo,to_seconds=hi,
                     shadow=tails([x['error_ns'] for x in rows if lo*20000000<x['age20']<=hi*20000000]),

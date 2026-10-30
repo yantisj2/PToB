@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-30 — W12 shadow frequency anchor
+
+- W12 0.2.24 removes the historical absolute-rate blend at shadow entry.
+  Anchor to the latest measured BLE frequency and compensate only subsequent
+  temperature changes; keep held coefficients frozen and production unchanged.
+  Count short BLE coverage gaps without restarting the frozen shadow clock.
+
 ## 2026-10-30 — W12 extended shadow holdover
 
 - W12 0.2.23 replaces fixed one-second endpoints with frozen 120-second runs.
