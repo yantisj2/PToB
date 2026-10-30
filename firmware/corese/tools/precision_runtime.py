@@ -87,4 +87,11 @@ def precision(root):
   h.witness_age_us=elapsed<=UINT64_MAX-h.witness_age_us?h.witness_age_us+elapsed:UINT64_MAX;
   if(!result.requested||result.fault||h.witness_age_us>=5000000){h.ready=false;h.p95_ns=h.p99_ns=h.max_ns=UINT64_MAX;}
 ''')
+ # CoreSE is a continuously listening diagnostic receiver. Give a previously
+ # authenticated GM ten seconds of fresh discovery before relay fallback,
+ # and three minutes to establish sustained precision instead of one.
+ # These are selection preferences only; all source/model/admission deadlines
+ # remain those of the pinned receiver. No other target source is changed.
+ edit('g1_parent_selection.hpp','GmRecoveryUs=3000000','GmRecoveryUs=10000000')
+ edit('g1_parent_selection.hpp','LockDwellUs=60000000','LockDwellUs=180000000')
  return manifest

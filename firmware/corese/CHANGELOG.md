@@ -2,6 +2,53 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 0.1.33 — 30 October 2026
+
+- Raise the automatic brightness floor from32 to150 after operator feedback
+  that the display was too dim in its normal position. Use150/160/192/224/255
+  across the same ambient bands; retain filtering, hysteresis and gradual changes.
+- Keep explicit manual32–255 control and the existing150 sensor-failure fallback.
+- Exact-device app/prefix/tail readback passed. In59.7s of USB AUTO,
+  174/174 statuses followed the same GM with zero faults or sensor/write
+  errors; the low-light setting reached150 with PMIC24 readback. Physical comfort
+  and the operator's planned off-USB test remain to be evaluated.
+
+## 0.1.32 — 30 October 2026
+
+- Detect the optional LTR553 and sample ambient light on the display owner at4Hz,
+  with fixed1x gain/100ms integration and proximity disabled. Median filtering,
+  EMA,20% hysteresis and asymmetric delays suppress short shadows and flicker.
+- Use32–255 brightness steps, PMIC readback verification and150 fallback
+  after stale/missing sensor data. Bounded console commands provide AUTO/manual
+  control and raw-count/health diagnostics. Sleep retains final backlight control.
+- Preserve the031 display grace, GM preference, timing receiver and mesh discovery.
+- One exact-device app-only installation passed full application/prefix/tail
+  readback and fresh boot. The integrated sensor reported92/05 with fresh data;
+  manual32/128/255 settings matched PMIC codes21/24/28. In179.8s of AUTO,
+  501/501 sampled statuses followed the direct GM, with zero sensor/write errors
+  or P99 withdrawals. A real6-to3 count change caused verified64-to32 dimming.
+  The narrow observed light range does not qualify a full dark/daylight sweep
+  or optical brightness/readability; all nine renders and completed LCD CRC passed.
+
+## 0.1.31 — 30 October 2026
+
+- Retain clock numerals and sampled P99/quantile readouts through gaps shorter
+  than500ms, with amber LAST/CACHED labels. Repeated invalid snapshots cannot
+  renew the grace. Clock retention remains bounded by the last physical delivery;
+  original TZ expiry, timing permission, lock, source pulse and scope fences remain.
+- Give an authenticated GM10s of rediscovery before relay fallback and180s to
+  establish sustained precision. These target-local selection preferences never
+  extend an expired timing model or permit admission from a stale locator.
+- Console reports displayed P99 visibility, cached frames and readout withdrawals.
+  Offline boundary/scope tests and finite device observations remain separate
+  from RF, failover and UTC accuracy qualification.
+- Exact-device app-only installation passed full actual app, protected-prefix,
+  final-sector tail and fresh-boot checks. In one179.3s normal-RF capture,
+  1,901/1,901 sampled statuses followed the direct GM with no faults; after
+  warm-up, P99 had zero display withdrawals and one observed cached frame.
+  All nine live-model renders and a completed LCD frame passed pixel CRCs.
+  This is finite internal/framebuffer evidence, not optical or failover acceptance.
+
 ## 0.1.30 — preserve frozen shadow trials through quality changes
 
 - Finite live observation on 30 October 2026: sampled P99 <1us HOLD ≥1.75 s

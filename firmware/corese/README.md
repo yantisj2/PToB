@@ -28,6 +28,7 @@ They are framebuffer captures, not photographs or calibrated accuracy results.
 | Mesh diagnostics | Passive GM7 ANN, STATUS, ROLE, GNSS and WITHDRAW reception; legacy GS/GD reports remain readable. |
 | Holdover diagnostics | BLE-trained frozen shadow clocks; sampled P95/P99/MAX error and P99 sub-1 µs hold duration. Shadow trials do not steer delivered time. |
 | Local time | Instrument and register follow fresh GM time-zone/DST metadata; missing or expired metadata falls back to UTC. Timing calculations and diagnostics stay UTC. |
+| Backlight | Automatic adjustment when an LTR553 is detected; filtered raw light counts, readable minimum and manual override. Missing sensor retains brightness150. |
 | Runtime | LCD/touch and timing have separate owners; graphics and shadow workspace use PSRAM. No GM, relay, local GNSS, LoRa or Wi-Fi service. |
 
 ## Get started
@@ -71,6 +72,24 @@ and Bluetooth must complete their bounded drain; a drain fault leaves the unit
 awake. Power-on starts a new receiver session. Physical sleep/wake behavior
 still needs exact-device validation.
 
+## Automatic brightness
+
+The display task detects the optional LTR553 by part/manufacturer ID and enables
+ambient sensing only, with proximity disabled. It samples at about4Hz, filters
+brief shadows/noise and uses20% hysteresis with faster brightening and slower
+dimming. Automatic brightness stays within150–255; sensor loss returns gradually
+to150. The automatic floor matches the previous fixed brightness; lower settings
+require a manual override. These are driver settings, not percentages of measured luminance. The
+backlight has coarse hardware levels, verified through PMIC register readback.
+The timing owner, GM preference and readout grace remain independent.
+
+Console `ui light` reports raw channels, filtered counts, freshness, requested and
+verified brightness, errors and I/O time. `ui brightness 32` through
+`ui brightness 255` selects a temporary manual setting; `ui brightness auto`
+restores automatic control. Settings are RAM-only and boot starts in AUTO at150.
+Standard CoreS3-SE specifications omit the sensor, so availability is discovered
+on the actual unit rather than inferred from its label. Raw counts are not lux.
+
 ## Interpret precision and history
 
 **Causal RMS** is internal prediction quality. **REL OFFSET** is a fresh signed
@@ -93,8 +112,16 @@ standby's own fresh readiness report are separate evidence.
 
 A labeled amber **HOLD** may retain the last delivered clock for at most
 **500 ms** after physical delivery, with unknown error. It withholds current
-path, precision, offset and source-pulse indications. Neither history, shadow
-trials nor a display refresh extends timing permission.
+path, precision, offset and source-pulse indications. Clock numerals and sampled precision readouts survive brief gaps for less than
+500ms as amber LAST/CACHED values. Repeated invalid snapshots do not renew this
+grace; changed scope, fault and RC9 remove cached fine statistics. Clock numerals
+keep the last physical-delivery deadline and original time-zone expiry. Neither
+history, shadow trials nor a display refresh extends timing permission.
+
+Automatic selection gives a previously authenticated GM10s to reappear before
+relay fallback and180s to establish sustained precision. Discovery still requires
+a fresh locator and authenticated admission; source loss withdraws live timing
+immediately.
 
 ## Development and limits
 

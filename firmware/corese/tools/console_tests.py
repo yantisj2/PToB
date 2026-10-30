@@ -6,11 +6,12 @@ import io,json,zlib
 import console as c
 N='4'*16;BOOT='5'*16
 receipt={'factory_mac':'02:00:00:00:00:01','device_id':'0000020000000001','public_commit':'1'*40,'runtime_identity':{'build_id':'2'*64,'r2_enrollment_sha256':'3'*64}}
-def wire(change=None):
+def wire(change=None,light=False):
  begin=f"W12_V12_BEGIN version=3 nonce={N} ticket={'6'*16} factory={receipt['factory_mac']} session={BOOT} source={'1'*40} build={'2'*64} request_us=1000000 deadline_us=2500000 ticket_deadline_us=3000000"
  rows=[f"W12_R2_STATUS profile=r2-g1 self=3 enrollment_sha={'3'*64} client_identity={receipt['device_id']} source=0 serving=0 client_control=0 client_capabilities=0"]
  rows += [n+' sample=1' for n in ('W12_V12_STATUS','W12_V12_GPS','W12_V12_LORA_STATUS','W12_V12_PUBLIC','W12_V12_CONSOLE','W12_V12_DIRECT','W12_V12_DIAGNOSTIC_TX')]
  rows += [f'W12_V12_COMMAND nonce={N} accepted=1 action=STATUS','N30_UI sample=1']
+ if light:rows=['CORESE_LIGHT present=1 configured=1 verified=1 current=128 pmic_code=24']
  loss=0;deadline=2500000
  if change=='serve':rows[0]=rows[0].replace('serving=0','serving=1')
  if change=='row':rows.pop(3)
@@ -42,4 +43,13 @@ try:
   else:
    if mutation is not None:raise RuntimeError('Accepted invalid fixture: '+mutation)
  print('PASS console: whole-frame CRC, nonce, boot, rows, original deadline, loss, command refusal and client-only permission; no hardware')
+ client=c.Client.__new__(c.Client);client.r=receipt;client.session=BOOT;client.frame=None;client.buffer=b'';client.startup_retries=3;client.log=io.BytesIO();client.port=Port(wire());clock=Clock();c.time.monotonic=clock.tick;c.secrets.token_hex=lambda n:N
+ client.request();client.port=Port(wire(light=True));assert client.request('ui light')['rows']['CORESE_LIGHT']['verified']=='1'
+ for action in ('ui brightness 0','ui brightness 31','ui brightness 256','ui brightness -1','ui brightness 99x'):
+  try:client.request(action)
+  except RuntimeError:pass
+  else:raise AssertionError('Out-of-range brightness accepted')
+ for action in ('ui brightness auto','ui brightness 32','ui brightness 255'):
+  client.port=Port(wire());client.request(action)
+ print('PASS light diagnostic frame and bounded AUTO/manual console commands; no hardware')
 finally:c.secrets.token_hex,c.time.monotonic=saved

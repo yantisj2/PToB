@@ -43,10 +43,33 @@ bool shadow_current(const Model& m,uint64_t now){
  return time(m,now,utc)&&m.source!=Source::Rc9&&m.source!=Source::Retained&&h.last20&&
   h.witness_age_us<5000000&&now-m.sampled_us<5000000-h.witness_age_us;
 }
+bool readout_recent(const Model& m,uint64_t now,uint64_t at){
+ const auto& r=m.readouts;
+ return at&&now>=at&&now-at<ReadoutGraceUs&&now>=m.sampled_us&&now-m.sampled_us<ReadoutGraceUs&&
+  m.state!=State::Fault&&m.source!=Source::Rc9&&r.root&&r.boot&&r.epoch&&
+  r.generation==m.holdover.generation&&
+  ((!m.root&&!m.boot&&!m.source_epoch)||(m.root==r.root&&m.boot==r.boot&&m.source_epoch==r.epoch));
+}
+const HoldoverView& shadow_readout(const Model& m,uint64_t now,bool& visible){
+ if(shadow_current(m,now)){visible=true;return m.holdover;}
+ const auto& r=m.readouts;
+ visible=readout_recent(m,now,r.shadow_at)&&r.shadow.witness_age_us<5000000&&
+  now-r.shadow_at<5000000-r.shadow.witness_age_us;
+ return visible?r.shadow:m.holdover;
+}
+bool readout_time(const Model& m,uint64_t now,uint64_t& utc){
+ if(time(m,now,utc))return true;
+ const auto& r=m.readouts;
+ if(!readout_recent(m,now,r.clock_observed)||!r.clock_utc||now<r.clock_at||now-r.clock_at>UINT64_MAX-r.clock_utc)return false;
+ utc=r.clock_utc+now-r.clock_at;return true;
+}
 const char* clock_zone(const Model& m,uint64_t now,int64_t& shown){
- uint64_t utc=0;shown=0;if(!time(m,now,utc)||utc>uint64_t(INT64_MAX))return "UTC";
+ uint64_t utc=0;shown=0;if(!readout_time(m,now,utc)||utc>uint64_t(INT64_MAX))return "UTC";
  shown=int64_t(utc);
- if(m.source==Source::Rc9||m.source==Source::Retained)return "UTC";
+ if(m.source==Source::Rc9)return "UTC";
+ if(m.source==Source::Retained)return readout_recent(m,now,m.readouts.clock_observed)?
+  v12::clock_zone(m.readouts.tz,m.readouts.tz_until,now,int64_t(utc),shown):"UTC";
+ uint64_t live=0;if(!time(m,now,live))return v12::clock_zone(m.readouts.tz,m.readouts.tz_until,now,int64_t(utc),shown);
  return v12::clock_zone(m.tz,m.tz_until_us,now,int64_t(utc),shown);
 }
 void hold_duration(char* out,size_t size,const HoldoverView& h,bool current){
@@ -66,6 +89,19 @@ bool source_pulse(const Model& m,uint64_t now){
  uint64_t utc;return m.source!=Source::Retained&&time(m,now,utc)&&utc%1000000<SourcePulseUs;
 }
 void DisplayMemory::retain(Model& m){
+ const bool scoped=m.root&&m.boot&&m.source_epoch;
+ if(m.state==State::Fault||m.source==Source::Rc9||readouts_.generation!=m.holdover.generation||
+    (scoped&&(m.root!=readouts_.root||m.boot!=readouts_.boot||m.source_epoch!=readouts_.epoch))){
+  readouts_={};observed_={};
+ }
+ if(scoped){readouts_.root=m.root;readouts_.boot=m.boot;readouts_.epoch=m.source_epoch;readouts_.generation=m.holdover.generation;}
+ uint64_t utc=0;
+ if(m.source!=Source::Retained&&time(m,m.sampled_us,utc)&&m.delivery_observed_us){
+  readouts_.clock_at=m.sampled_us;readouts_.clock_utc=utc;readouts_.clock_observed=m.delivery_observed_us;
+  readouts_.tz=m.tz;readouts_.tz_until=m.tz_until_us;
+ }
+ if(shadow_current(m,m.sampled_us)){readouts_.shadow=m.holdover;readouts_.shadow_at=m.sampled_us;}
+ m.readouts=readouts_;
  if(m.mesh.path.known)path_=m.mesh.path;else m.mesh.path=path_;
  if(m.mesh.link.known)link_=m.mesh.link;else m.mesh.link=link_;
  if(m.mesh.capabilities.known)capabilities_=m.mesh.capabilities;else m.mesh.capabilities=capabilities_;
@@ -146,7 +182,7 @@ struct Canvas {
  }
 };
 void clock_string(const Model& m,uint64_t now,char (&out)[12]){
- uint64_t utc;if(!time(m,now,utc)){std::snprintf(out,sizeof out,"--:--:--");return;}
+ uint64_t utc;if(!readout_time(m,now,utc)){std::snprintf(out,sizeof out,"--:--:--");return;}
  int64_t shown=0;clock_zone(m,now,shown);
  const auto seconds=unsigned((shown/1000000%86400+86400)%86400);
  std::snprintf(out,sizeof out,"%02u:%02u:%02u",seconds/3600,seconds/60%60,seconds%60);
@@ -207,12 +243,14 @@ void clock(Canvas& c,const Model& m,const View& v,uint64_t now){
  char context[48];
  if(valid&&m.source==Source::Retained)std::snprintf(context,sizeof context,"HOLD ESTIMATE / PRECISION UNKNOWN");
  else if(valid)std::snprintf(context,sizeof context,"ROOT %.8s / %s",m.root_name,m.source==Source::Rc9?"PRECISION UNKNOWN":"INTERNAL QUALITY");
+ else if(readout_time(m,now,utc))std::snprintf(context,sizeof context,"LAST CLOCK / PRECISION UNKNOWN");
  else std::snprintf(context,sizeof context,"AWAITING LIVE SOURCE / PRECISION WITHHELD");
  c.text(20,113,context,Ink);
  c.well(12,124,142,39);c.well(162,124,146,39);
- const bool rms_live=precision(m,now),hold_live=shadow_current(m,now)&&m.holdover.ready;
- c.text(20,129,rms_live||!m.observed.rms_at?"CAUSAL RMS":"LAST RMS",Dim);c.text(170,129,m.holdover.lower_bound?"P99 <1us HOLD MIN":"P99 <1us HOLD",Dim);
- char a[20],b[20];value(a,sizeof a,rms_live?m.rms_ns:m.observed.rms_ns,rms_live||m.observed.rms_at,false);hold_duration(b,sizeof b,m.holdover,hold_live);
+ bool hold_visible=false;const auto& h=shadow_readout(m,now,hold_visible);
+ const bool rms_live=precision(m,now),hold_live=shadow_current(m,now)&&h.ready;
+ c.text(20,129,rms_live||!m.observed.rms_at?"CAUSAL RMS":"LAST RMS",Dim);c.text(170,129,!hold_live&&hold_visible?"LAST P99 HOLD":h.lower_bound?"P99 <1us HOLD MIN":"P99 <1us HOLD",Dim);
+ char a[20],b[20];value(a,sizeof a,rms_live?m.rms_ns:m.observed.rms_ns,rms_live||m.observed.rms_at,false);hold_duration(b,sizeof b,h,hold_visible);
  c.digital(22,140,a,12,19,rms_live?Green:Amber);c.digital(172,140,b,12,19,hold_live?Green:Amber);
  c.text(133,150,"ns",Green);c.text(294,150,"s",hold_live?Green:Amber);
  if(v.face==Face::UtcRegister){
@@ -221,11 +259,10 @@ void clock(Canvas& c,const Model& m,const View& v,uint64_t now){
   for(int i=0;i<3;++i){const int x=12+i*101;c.well(x,69,94,62);c.center(x,76,94,labels[i],Dim);
    char digits[3]={t[i*3],t[i*3+1],0};c.digital(x+18,90,digits,25,32,valid?Green:Amber);}
   c.well(12,140,296,23);
-  // This compact face has no historical-value label: show only currently
-  // permitted precision here. Detailed views retain explicitly marked history.
-  value(a,sizeof a,m.rms_ns,rms_live,false);hold_duration(b,sizeof b,m.holdover,hold_live);
-  char s[48];std::snprintf(s,sizeof s,"RMS %.8s ns",a);c.center(12,148,142,s,rms_live?Green:Amber);
-  std::snprintf(s,sizeof s,"P99 %s%.8s s",m.holdover.lower_bound&&hold_live?"MIN ":"",b);c.center(162,148,146,s,hold_live?Green:Amber);
+  const bool rms_held=!rms_live&&readout_recent(m,now,m.observed.rms_at);
+  value(a,sizeof a,rms_live?m.rms_ns:m.observed.rms_ns,rms_live||rms_held,false);hold_duration(b,sizeof b,h,hold_visible);
+  char s[48];std::snprintf(s,sizeof s,"%s %.8s ns",rms_held?"LAST":"RMS",a);c.center(12,148,142,s,rms_live?Green:Amber);
+  std::snprintf(s,sizeof s,"%s %s%.8s s",!hold_live&&hold_visible?"LAST":"P99",h.lower_bound&&hold_live?"MIN ":"",b);c.center(162,148,146,s,hold_live?Green:Amber);
   c.center(12,133,296,zone,Dim);
  }
  char hardware[52];const bool counter=m.xtal_hz&&m.counter_hz;
@@ -411,22 +448,22 @@ void diagnostics(Canvas& c,const Model& m,const View& v,uint64_t now){
   note("EPOCH START NOT CARRIED / GS CACHE");break;
  }
  case mesh::Page::Shadow:{
-  const auto& h=m.holdover;const bool current=shadow_current(m,now);
-  framed(12,47,296,37,h.lower_bound?"P99 <1us HOLD / LOWER BOUND":"P99 <1us HOLD / SAMPLED");
-  char duration[20];hold_duration(duration,sizeof duration,h,current);
+  const bool current=shadow_current(m,now);bool visible=false;const auto& h=shadow_readout(m,now,visible);
+  framed(12,47,296,37,!current&&visible?"LAST P99 HOLD / CACHED <500ms":h.lower_bound?"P99 <1us HOLD / LOWER BOUND":"P99 <1us HOLD / SAMPLED");
+  char duration[20];hold_duration(duration,sizeof duration,h,visible);
   c.digital(23,58,duration,16,22,current&&h.ready?Green:Amber);c.text(145,73,"s",Dim);
   std::snprintf(s,sizeof s,"TRIALS %lu",(unsigned long)h.trials);c.text(193,57,s,Dim);
   std::snprintf(s,sizeof s,"BAD %lu / U %lu",(unsigned long)h.bad,(unsigned long)h.unknown);c.text(193,72,s,Dim);
   const uint64_t metrics[]={h.p95_ns,h.p99_ns,h.max_ns};const char* labels[]={"P95","P99","MAX"};
   for(unsigned i=0;i<3;++i){const int x=12+int(i)*101;char n[16],label[16];
-   const bool known=current&&metrics[i]!=UINT64_MAX;const auto* unit=hold_error(n,sizeof n,metrics[i],known);
+   const bool known=visible&&metrics[i]!=UINT64_MAX;const auto* unit=hold_error(n,sizeof n,metrics[i],known);
    std::snprintf(label,sizeof label,"%s %s",labels[i],unit);framed(x,96,i==2?94:93,35,label);
    if(!std::strcmp(n,"HI"))c.text(x+22,111,"HI",Amber,2,x+90);
-   else c.digital(x+10,107,n,11,19,known?Green:Amber);
+   else c.digital(x+10,107,n,11,19,known&&current?Green:Amber);
   }
   c.well(12,139,296,25);
   std::snprintf(s,sizeof s,"%s / N %lu/128 / AGE %llus",current?(h.holding?"FROZEN":"COMPLETE"):"WAIT BLE",(unsigned long)h.samples,(unsigned long long)(h.age20/20000000));c.text(20,143,s,current?Green:Amber);
-  char peak[16];const auto* unit=hold_error(peak,sizeof peak,h.run_max_ns,current&&h.samples);
+  char peak[16];const auto* unit=hold_error(peak,sizeof peak,h.run_max_ns,visible&&h.samples);
   std::snprintf(s,sizeof s,"GAPS %lu / RUN MAX %s%s",(unsigned long)h.gaps,peak,unit);c.text(20,155,s,current?Dim:Amber);
   note("SAMPLED BLE ERRORS / NO UTC BOUND");break;
  }

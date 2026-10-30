@@ -75,7 +75,8 @@ class Client:
     def request(self, action=None):
         nonce = secrets.token_hex(8)
         if action:
-            require(re.fullmatch('(ui page [0-8]|ui render [0-8]|ui snap|ui capture|ui pixels [0-9]{1,5}|fine read 0|rc9 diag|mesh diag|shadow diag|prepare_update)', action), 'Bounded command only')
+            require(re.fullmatch('(ui page [0-8]|ui render [0-8]|ui light|ui brightness (?:auto|[0-9]{2,3})|ui snap|ui capture|ui pixels [0-9]{1,5}|fine read 0|rc9 diag|mesh diag|shadow diag|prepare_update)', action), 'Bounded command only')
+            if action.startswith('ui brightness ') and action!='ui brightness auto':require(32<=int(action.split()[-1])<=255,'Brightness must be32..255')
             if self.frame is None or time.monotonic() - self.received_at + (int(self.frame['end']['completed_us']) - int(self.frame['begin']['request_us'])) / 1000000.0 > 1.5:
                 self.request()
             b = self.frame['begin']
@@ -121,7 +122,7 @@ class Client:
                     names = [s.split(' ', 1)[0] for s in rows]
                     require(len(names) == len(set(names)), 'Invalid CoreSE response or device binding')
                     if len(rows) == 1:
-                        permitted = ('CORESE_SHADOW',) if action == 'shadow diag' else ('CORESE_MESH',) if action == 'mesh diag' else ('CORESE_SNAPSHOT',) if action in ('ui snap','ui capture') or action and action.startswith('ui render ') else ('CORESE_PIXELS','CORESE_SNAPSHOT') if action and action.startswith('ui pixels ') else ()
+                        permitted = ('CORESE_LIGHT',) if action == 'ui light' else ('CORESE_SHADOW',) if action == 'shadow diag' else ('CORESE_MESH',) if action == 'mesh diag' else ('CORESE_SNAPSHOT',) if action in ('ui snap','ui capture') or action and action.startswith('ui render ') else ('CORESE_PIXELS','CORESE_SNAPSHOT') if action and action.startswith('ui pixels ') else ()
                         require(names[0] in permitted, 'Unexpected diagnostic reply type')
                     else:
                         standard = ('W12_R2_STATUS','W12_V12_STATUS','W12_V12_GPS','W12_V12_LORA_STATUS','W12_V12_PUBLIC','W12_V12_CONSOLE','W12_V12_DIRECT','W12_V12_DIAGNOSTIC_TX','W12_V12_COMMAND','N30_UI')

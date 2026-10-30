@@ -95,16 +95,17 @@ int main(){
  m=live();m.source=Source::Rc9;
  assert(time(m,1000100,utc));assert(!precision(m,1000100)&&!offset(m,1000100));
  assert(!std::strcmp(status(m,1000100),"RC9 UTC"));
- // Regression: history seeded by a fine lock must never color the compact
- // register's withdrawn precision green or expose prior values as current.
+ // Sustained loss and RC9 must never expose prior compact precision. Brief
+ // cached readouts have their separate, explicitly LAST500ms contract below.
  {
   DisplayMemory history;auto locked=live();locked.offset_ns=17;history.retain(locked);
   for(unsigned state=0;state<3;++state){
    auto lost=locked;uint64_t at=1000100;
    if(state==0)lost.source=Source::Rc9;
-   else if(state==1){lost.state=State::Search;lost.utc_valid=false;}
-   else at=1250000;
-   history.retain(lost);assert(lost.observed.rms_at&&lost.observed.offset_at);
+   else if(state==1){lost.state=State::Search;lost.utc_valid=false;at=1500000;}
+   else at=1500000;
+   history.retain(lost);
+   if(state==0)assert(!lost.observed.rms_at&&!lost.observed.offset_at);
    View face;face.screen=Screen::Clock;face.face=Face::UtcRegister;
    std::array<uint16_t,Pixels> with_history{},without_history{};
    render(with_history.data(),lost,face,at);lost.observed={};render(without_history.data(),lost,face,at);
@@ -114,6 +115,43 @@ int main(){
     assert(with_history[y*Width+x]!=green);
    }
   }
+ }
+ // Repeated invalid publications must not restart the500ms numeric grace.
+ // Source/lock/pulse still withdraw immediately, and a new scope never borrows
+ // a prior source's statistics, even within that grace.
+ {
+  DisplayMemory memory;auto good=live();good.holdover.generation=7;good.delivery_observed_us=1000000;
+  good.tz={2,-300};good.tz_until_us=1600000;
+  good.holdover.last20=20000000;good.holdover.witness_age_us=0;
+  good.holdover.ready=true;good.holdover.duration_ms=24000;good.holdover.samples=128;
+  good.holdover.p95_ns=80;good.holdover.p99_ns=99;good.holdover.max_ns=120;
+  memory.retain(good);bool visible=false;
+  for(uint64_t delta:{1ull,250000ull,499999ull,500000ull,750000ull}){
+   auto gap=good;gap.sampled_us+=delta;gap.utc_valid=gap.precision_valid=false;
+   gap.root=gap.boot=gap.source_epoch=0;gap.source=Source::None;gap.state=State::Acquire;
+   memory.retain(gap);const auto& shown=shadow_readout(gap,gap.sampled_us,visible);
+   assert(visible==(delta<500000));
+   if(visible)assert(shown.duration_ms==24000&&shown.p99_ns==99&&shown.samples==128);
+   assert(!time(gap,gap.sampled_us,utc)&&!precision(gap,gap.sampled_us)&&!source_pulse(gap,gap.sampled_us));
+   assert(readout_time(gap,gap.sampled_us,utc)==(delta<500000));
+   if(delta<500000){assert(utc==10000000+delta);int64_t shown=0;assert(!std::strcmp(clock_zone(gap,gap.sampled_us,shown),"CDT"));}
+   assert(readout_recent(gap,gap.sampled_us,gap.observed.rms_at)==(delta<500000));
+  }
+  // Restored live data replaces the cache without a wait.
+  good.sampled_us=good.utc_at_us=good.offset_sampled_us=2000000;
+  good.delivery_observed_us=2000000;
+  good.until_us=good.precision_until_us=good.offset_until_us=2300000;
+  good.holdover.duration_ms=26000;memory.retain(good);
+  assert(shadow_readout(good,2000001,visible).duration_ms==26000&&visible);
+  for(unsigned change=0;change<6;++change){
+   DisplayMemory fence;auto seed=good;fence.retain(seed);auto other=good;
+   other.sampled_us+=100;other.utc_valid=other.precision_valid=false;
+   if(change==0)++other.root;else if(change==1)++other.boot;else if(change==2)++other.source_epoch;
+   else if(change==3)++other.holdover.generation;else if(change==4)other.state=State::Fault;else other.source=Source::Rc9;
+   fence.retain(other);shadow_readout(other,other.sampled_us,visible);assert(!visible&&!other.observed.rms_at);
+  }
+  auto backwards=good;backwards.utc_valid=false;
+  shadow_readout(backwards,1999999,visible);assert(!visible);
  }
  m=live();m.offset_boot=9;assert(!offset(m,1000100));
  m=live();m.offset_epoch=9;assert(!offset(m,1000100));

@@ -20,7 +20,7 @@ print('PASS: expiry, UTC-phase pulse boundaries, RC9/HOLD precision exclusion, n
 from live_build import freeze_shared
 from prepare_runtime import prepare
 frozen=a.out/'source';freeze_shared(frozen);prepare(a.out/'runtime',frozen)
-for test in ('shadow_holdover',):
+for test in ('shadow_holdover','ambient_light'):
  cmd=[os.environ.get('CXX','clang++'),'-std=c++20',*flags,'-I'+str(frozen/'firmware/w12/main'),str(APP/('tests/'+test+'_test.cpp')),'-o',str(a.out/test)]
  subprocess.run(cmd,check=True,timeout=60);subprocess.run([str(a.out/test)],check=True,timeout=30)
 if a.sdk:

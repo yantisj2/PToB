@@ -5,7 +5,7 @@ Copyright (c) 2026 Jonathan Yantis. MIT.
 Native builds [clean compiler output and retain the latest two image bundles](../firmware-storage.md)
 per device/profile, with installed/recovery pins preserved.
 
-Read [the target README](../../firmware/corese/README.md). Version0.1.30 provides
+Read [the target README](../../firmware/corese/README.md). Version0.1.33 provides
 the live client; the earlier UI preparation build remains an offline design tool.
 
 ## Dependencies and offline checks
@@ -190,3 +190,22 @@ CoreSE0.1.28 allocates the complete bounded shadow workspace in PSRAM before
 receiver admission. Its internal static allocation is one pointer; the NimBLE
 host stack carries neither the history nor quantile scratch arrays. Allocation
 failure refuses receiver initialization rather than falling back to internal RAM.
+
+CoreSE0.1.31 records `SCOPE_FENCED_LAST_READOUT_500MS_V1` and
+`RECOVERY10S_PRECISION_TRIAL180S_V1` in its build receipt. These are presentation
+and parent-selection policies only. Cached numeric values never renew timing,
+source, lock, time-zone or authenticated admission deadlines. Console `readout`
+contains current/visible/duration-ms; `cached_frames` and `readout_drops` retain
+finite display observations separately from receiver FOLLOW.
+
+CoreSE0.1.33 records
+`LTR553_RAW_1X100MS_BRIGHT_FLOOR150_PMIC_READBACK_V2`. The CPU1 display
+owner probes only sensor address0x23, verifies its ID/configuration and polls with
+bounded public-driver I2C operations. Backlight changes use M5GFX and verify the
+AXP2101 enable/voltage registers; no direct clock/radio-owner work is added.
+`ui light` is a bounded CRC diagnostic. The brightness commands are
+`ui brightness auto` and `ui brightness N`, where32<=N<=255. No persistent setting
+or new dependency is required. AUTO uses150–255; explicit manual settings may
+use32–255. Ambient counts are uncalibrated; native framebuffer
+captures cannot validate physical brightness. Verify actual sensor availability,
+physical dark/bright response and receiver health on each installed unit.

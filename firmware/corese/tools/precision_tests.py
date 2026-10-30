@@ -38,6 +38,7 @@ bool match(uint16_t,const uint8_t*,size_t,uint64_t,Stamp& stamp){stamp={};return
 Stats status(){return {};}RfReference rf_reference(){return {};}
 }
 #endif''')
+fixture=fixture.replace('  if(which=="boot-empty"){',(APP/'tests/gm_preference_owner.inc').read_text()+'\n  if(which=="boot-empty"){')
 fixture=fixture.replace('  if(which=="boot-empty"){',(APP/'tests/time_zone_owner.inc').read_text()+'\n  if(which=="boot-empty"){')
 fixture=fixture.replace('  if(which=="boot-empty"){',(APP/'tests/mesh_discovery_owner.inc').read_text()+'\n  if(which=="boot-empty"){')
 # Historical lifecycle schedules start in the same group, learned through a
@@ -65,7 +66,7 @@ run([cc,'-std=c11',*flags,REPO/'firmware/w12/tests/time_zone_codec_test.c',*obje
 run([out/'tz-codec'],'tz-codec')
 run([cxx,'-std=c++20',*flags,'-DV12_R2_ENABLED=1','-DV12_R2_FIELD_CLIENT=1','-DV12_R2_CONFIG=13','-DV12_UNIT="C1"','-DV12_R2_G1_LISTENING_PERCENT=100',out/'native.cpp',*objects,'-o',out/'native'],'native-compile')
 run([cxx,'-std=c++20',*flags,'-DV12_R2_RX_SHADOW=1','-DV12_R2_ENABLED=1','-DV12_R2_FIELD_CLIENT=1','-DV12_R2_CONFIG=13','-DV12_UNIT="C1"','-DV12_R2_G1_LISTENING_PERCENT=100',out/'native.cpp',*objects,'-o',out/'native-fine'],'native-fine-compile')
-cases=['corese-mesh','corese-rc-tz','corese-tz','boot-empty','leader-incarnation-boot','leader-incarnation-epoch','leader-incarnation-train','leader-loss','leader-loss-boundary','leader-loss-pin','leader-loss-switch','sync-term-ledger','sync-term-ack-delayed','sync-term-inline','sync-term-error']
+cases=['corese-gm-preference','corese-mesh','corese-rc-tz','corese-tz','boot-empty','leader-incarnation-boot','leader-incarnation-epoch','leader-incarnation-train','leader-loss','leader-loss-boundary','leader-loss-pin','leader-loss-switch','sync-term-ledger','sync-term-ack-delayed','sync-term-inline','sync-term-error']
 for case in cases:run([out/('native-fine' if case in ('corese-mesh','corese-rc-tz') else 'native'),case],case)
 (out/'receipt.json').write_text(json.dumps({'status':'PASS','cases':cases,'hardware_access':False,'scope':'ACTUAL_CORESE_PRECISION_TZ_OVERLAY_PUBLIC_FAKES'},indent=2)+'\n')
 print('PASS actual CoreSE TZ/receiver owner; '+str(len(cases))+' schedules, ASan/UBSan; no hardware')

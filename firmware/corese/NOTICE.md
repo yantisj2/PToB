@@ -29,3 +29,9 @@ Separately acquired pinned dependencies retain their terms:
 
 HP5061A and Apollo are design references only. No HP/Keysight/NASA manual image,
 trademark logo or source asset is copied into the firmware.
+
+The original ambient-light adapter uses public LTR-553ALS-WA register definitions
+and the raw CH0/CH1 mean demonstrated by
+[M5Stack's LTR5XX example](https://github.com/m5stack/M5CoreS3/blob/main/src/utility/LTR5XX.cpp).
+No deprecated M5CoreS3 library is linked; existing pinned M5Unified/M5GFX own
+I2C/backlight access. Sensor counts are not calibrated illuminance.

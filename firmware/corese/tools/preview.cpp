@@ -54,6 +54,15 @@ int main(int argc,char** argv){
  auto history_search=m;history_search.source=Source::None;history_search.state=State::Search;history_search.utc_valid=false;history.retain(history_search);
  save("register-search-history",Screen::Clock,history_search,now,Face::UtcRegister);
  save("register-expired-history",Screen::Clock,m,now+SnapshotMaxUs,Face::UtcRegister);
+ // Explicit brief-loss fixtures use the same presentation cache as hardware.
+ DisplayMemory smoothing;auto seed=m;seed.delivery_observed_us=now;smoothing.retain(seed);
+ for(uint64_t gap:{250000ull,499999ull,500000ull}){
+  auto lost=seed;lost.sampled_us=now+gap;lost.utc_valid=lost.precision_valid=false;
+  lost.root=lost.boot=lost.source_epoch=0;lost.state=State::Acquire;lost.source=Source::None;
+  smoothing.retain(lost);const auto suffix=std::to_string(gap/1000)+"ms";
+  save("clock-gap-"+suffix,Screen::Clock,lost,now+gap);
+  save("shadow-gap-"+suffix,Screen::Diagnostics,lost,now+gap,Face::Instrument,Action::None,mesh::Page::Shadow);
+ }
  auto ble=m;ble.source=Source::Grandmaster;save("ptob-ble",Screen::Clock,ble);
  auto rc2=m;rc2.source=Source::Relay2;save("ptob-rc2",Screen::Clock,rc2);
  auto rc9=m;rc9.source=Source::Rc9;rc9.state=State::Acquire;
