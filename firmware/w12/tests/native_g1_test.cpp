@@ -121,7 +121,7 @@ int main(int argc,char** argv){assert(argc==2);std::string which=argv[1];
     v12::shadow_holdover.temperature(at,25);
     assert(v12::retained_estimate.retain(raw,111,222,3,at,fake_now,true));
     assert(v12::shadow_holdover.arm(v12::retained_estimate.clock,at));
-    v12::retained_estimate.clock.thermal.beta=100; // Exercised nonzero learned response.
+    if(!v12::W12ShadowHoldover::ThermalShadowOnly)v12::retained_estimate.clock.thermal.beta=100;
     v12::r2_shadow_temperature(at+20000000,27000);v12::shadow_temperature_consume();
     fake_now+=2000000;
     v12::snap.requested=true;v12::snap.fault=false;v12::snap.following=false;v12::snap.clock_valid=false;
@@ -129,7 +129,7 @@ int main(int argc,char** argv){assert(argc==2);std::string which=argv[1];
     auto actual=v12::r2_status();const auto frozen=raw.at(fake_now*20);
     assert(actual.clock_valid&&actual.g1_retained_estimate&&actual.g1_holdover_selected&&!actual.following);
     assert(actual.follower_utc_us==uint64_t(v12::retained_estimate.clock.at(fake_now*20))/1000);
-    assert(actual.g1_clock_model.at(fake_now*20)>frozen&&!v12::r2_clock_witness(actual));
+    assert((v12::W12ShadowHoldover::ThermalShadowOnly?actual.g1_clock_model.at(fake_now*20)==frozen:actual.g1_clock_model.at(fake_now*20)>frozen)&&!v12::r2_clock_witness(actual));
     // An authenticated coarse successor must not displace the fine HOLD.
     v12::anchor={true,333,444,1700000000000000ULL,fake_now,fake_now+250000,4,5,1000};
     v12::coarse_hold.retain(v12::anchor);v12::member=true;v12::joined_peer=333;v12::joined_boot=444;
@@ -142,7 +142,7 @@ int main(int argc,char** argv){assert(argc==2);std::string which=argv[1];
     v12::holdover_test_start20=fake_now*20-20000000;v12::holdover_test_until20=fake_now*20+20000000;
     v12::holdover_test_end("OPERATOR",false,fake_now*20);assert(v12::holdover_resume_pending);
     v12::publish(fake_now);actual=v12::r2_status();assert(actual.g1_holdover_selected&&!actual.following);
-    fake_now+=4000000;actual=v12::r2_status();assert(!actual.clock_valid&&!actual.g1_holdover_selected);
+    fake_now+=4000000;actual=v12::r2_status();assert(actual.clock_valid==v12::W12ShadowHoldover::ThermalShadowOnly&&actual.g1_holdover_selected==v12::W12ShadowHoldover::ThermalShadowOnly);
     assert(!v12::r2_holdover_test(999)&&!v12::r2_holdover_test(120001)&&v12::r2_holdover_test(0));
     std::puts("PASS actual production HOLD selection, shared thermal clock, independent sensor updates, source isolation, stale fail-closed and bounded test command");return 0;
   }

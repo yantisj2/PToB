@@ -14,8 +14,9 @@ struct W12ShadowView {
   int32_t temperature_mc=INT32_MIN,slope_mppb_c=0;
   bool holding=false,thermal_ready=false;
 };
-// BLE-trained holdover model and numerical validation. arm() freezes the same
-// coefficients for the production projection. BLE supplies every frequency label and
+// BLE-trained shadow model and numerical validation. Temperature is a shadow
+// covariate; rate-only production entry preserves the measured BLE actuator.
+// BLE supplies every frequency label and
 // scoring reference; silicon temperature is a covariate, never a time source.
 // A frozen run lasts 120s. Every matched physical BLE event is a witness,
 // never feedback to the held clock. Learning continues for FUTURE runs only.
@@ -24,6 +25,11 @@ class W12ShadowHoldover {
  public:
   static constexpr uint64_t Hz=20000000,Horizon=120*Hz,MaximumGap=Hz/4;
   static constexpr unsigned Capacity=128,Minimum=100;
+#ifdef PTOB_W12_THERMAL_SHADOW_ONLY
+  static constexpr bool ThermalShadowOnly=true;
+#else
+  static constexpr bool ThermalShadowOnly=false;
+#endif
   struct Sample {uint64_t sequence=0,start20=0,local20=0,reference_ns=0;
     int64_t prediction_ns=0,baseline_ns=0,error_ns=0,baseline_error_ns=0;
     int64_t output_ns=0,utc_offset_ns=0;int32_t receiver_ns=0,output_correction_ns=0;bool production=false;};
@@ -90,11 +96,24 @@ class W12ShadowHoldover {
     view_.generation=old.generation==UINT32_MAX?UINT32_MAX:old.generation+1;}
   void cancel(){if(start_)inc(view_.aborted);start_=0;view_.holding=false;next_=0;audit_=false;
     view_.p95_ns=view_.p99_ns=UINT64_MAX;}
-  bool arm(G1ClockPrediction& clock,uint64_t at)const {
+  bool arm_shadow(G1ClockPrediction& clock,uint64_t at)const {
     double lagged=0;if(!temperature_at(at,lagged))return false;
     for(unsigned i=temperature_count_;i>0;--i){const auto& t=temperatures_[i-1];
       if(t.tick<=at){clock.thermal.arm(at,t.measured,lagged,view_.thermal_ready?beta_:0);return clock.thermal.valid;}}
     return false;
+  }
+  bool arm(G1ClockPrediction& clock,uint64_t at)const {
+#ifdef PTOB_W12_THERMAL_SHADOW_ONLY
+    // Never copy the experimental fit into the delivered HOLD clock. Keep
+    // context when available, but a missing sensor cannot disable BLE-rate HOLD.
+    double lagged=NAN,measured=NAN;
+    if(temperature_at(at,lagged)){
+      for(unsigned i=temperature_count_;i>0;--i){if(temperatures_[i-1].tick<=at){measured=temperatures_[i-1].measured;break;}}
+    }
+    clock.thermal.arm(at,measured,lagged,0);return clock.thermal.valid;
+#else
+    return arm_shadow(clock,at);
+#endif
   }
   void audit_start(uint64_t at,const G1ClockPrediction& baseline){
     cancel();baseline_=baseline;start_=last_witness_=at;audit_=true;view_.holding=true;inc(view_.started);head_=0;view_.samples=0;

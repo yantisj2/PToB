@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-30 — W12 temperature shadow isolation
+
+- W12 0.2.26 keeps temperature fitting in shadow and removes its steering from
+  production HOLD. Preserve the optimized selector, BLE-rate anchor, continuous
+  return, P99/P95/MAX, threshold crossings and coverage accounting.
+- Keep the independent selected-output replay and finite BLE-witness tests.
+  Missing temperature cannot disable rate-only HOLD. No persistent telemetry
+  writes or partition changes are enabled.
+
 ## 2026-10-30 — W12 production thermal holdover
 
 - W12 0.2.25 promotes the frozen BLE/temperature shadow projection to local

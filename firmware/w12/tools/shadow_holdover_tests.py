@@ -9,7 +9,7 @@ def main():
     p=argparse.ArgumentParser();p.add_argument('--out',type=Path,required=True);a=p.parse_args();out=a.out.resolve();out.mkdir(parents=True,exist_ok=False)
     sys.path.insert(0,str(A.parents[1]/'registry'));from registry import load,header
     (out/'ptob_registry.h').write_text(header(load(A.parents[1]/'registry/example.json')))
-    flags=['-std=c++20','-O1','-g','-Wall','-Wextra','-Werror','-Wno-misleading-indentation','-Wno-unused-parameter','-fsanitize=address,undefined','-fno-sanitize-recover=all','-DPTOB_W12_SHADOW_HOLDOVER=1','-DPTOB_W12_HOLDOVER_PRODUCTION=1','-DPTOB_W12_FINE_CLOCK=1','-I'+str(out)]
+    flags=['-std=c++20','-O1','-g','-Wall','-Wextra','-Werror','-Wno-misleading-indentation','-Wno-unused-parameter','-fsanitize=address,undefined','-fno-sanitize-recover=all','-DPTOB_W12_SHADOW_HOLDOVER=1','-DPTOB_W12_HOLDOVER_PRODUCTION=1','-DPTOB_W12_THERMAL_SHADOW_ONLY=1','-DPTOB_W12_FINE_CLOCK=1','-I'+str(out)]
     for path in (A/'main',A/'legacy',A/'main/r2/r2-g1',A/'main/r2/rc7/include'):flags+=['-I'+str(path)]
     for name in ('shadow_holdover','shadow_display','production_holdover'):
         cmd=['/opt/homebrew/opt/llvm/bin/clang++',*flags,A/'tests'/(name+'_test.cpp'),'-o',out/name]

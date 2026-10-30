@@ -15,13 +15,16 @@ int main(){
  assert(shadow.view().thermal_ready);shadow.cancel();
  const auto start=48*Hz;shadow.temperature(start,23.6);auto raw=model(start,2460);
  shadow.observe(start,1,start,raw,true);auto production=raw;
- assert(shadow.arm(production,start)&&production.thermal.enabled&&production.thermal.beta!=0);
+ assert(shadow.arm_shadow(production,start)&&production.thermal.enabled&&production.thermal.beta!=0);
+ auto delivered=raw;assert(shadow.arm(delivered,start)&&delivered.thermal.beta==0);
  const double coefficient=production.thermal.beta;
  for(unsigned i=1;i<960;++i){const auto at=start+i*Hz/8;const double c=23.6+.001*i;
   if(i%8==0){shadow.temperature(at,c);production.thermal.temperature(at,c);}
+  delivered.thermal.temperature(at,c);
   const auto reference=uint64_t(raw.relative_at(at));shadow.observe(at,reference,at+Hz/16,model(at,-49000),true);
   assert(saved.local20==at&&std::llabs(production.relative_at(at)-saved.prediction_ns)<=1);
   assert(production.thermal.beta==coefficient); // Future learning cannot alter held coefficients.
+  assert(delivered.relative_at(at)==raw.relative_at(at)&&delivered.thermal.beta==0);
  }
  // The selected delivery clock supplies the recorded output, including UTC
  // and the existing receiver adjustment. A later sensor point is not used.
@@ -38,13 +41,16 @@ int main(){
   assert(saved.error_ns==saved.prediction_ns-int64_t(reference));
  }
  shadow.audit_end(true,at+13*Hz);assert(!shadow.view().holding);
- production.thermal.temperature(at+20*Hz,25);assert(!production.at(at+20*Hz));
+ production.thermal.temperature(at+20*Hz,NAN);assert(production.at(at+20*Hz)>0);
+ W12ShadowHoldover no_sensor;auto independent=model(at,100);
+ assert(no_sensor.arm(independent,at)&&independent.thermal.beta==0);
+ assert(independent.at(at+120*Hz)==model(at,100).at(at+120*Hz));
  // Returning to the authenticated servo changes phase by slew, not a step.
  auto target=model(400*Hz,200);auto held=target;held.receiver_phase_ns=7671;held.epoch-=5000;
- const auto edge=401*Hz;const auto delivered=held.at(edge);
+ const auto edge=401*Hz;const auto held_output=held.at(edge);
  assert(target.resume_from(held,edge,7671));auto output=target;output.receiver_phase_ns=7671;
- assert(output.at(edge)==delivered&&target.phase==5000);
- assert(output.at(edge+Hz/8)>delivered+125000000); // Bounded correction progresses.
+ assert(output.at(edge)==held_output&&target.phase==5000);
+ assert(output.at(edge+Hz/8)>held_output+125000000); // Bounded correction progresses.
  auto gross=model(400*Hz,200);held.epoch-=2000000;assert(!gross.resume_from(held,edge,7671));
- std::puts("PASS promoted projection agrees with shadow over120s, frozen coefficients, actual UTC output audit, causal future temperature and missing-sensor fail-closed");
+ std::puts("PASS thermal candidate remains shadow; production preserves BLE-rate over120s despite learned slope, sensor changes/absence; output audit and continuous resume retained");
 }

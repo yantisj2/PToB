@@ -12,14 +12,15 @@ struct W12ThermalProjection {
   bool enabled=false,valid=false;
   void arm(uint64_t at,double measured,double lagged,double slope){
     start20=at;initial=lagged;beta=slope;current={at,measured,lagged,0};previous={};
-    enabled=true;valid=at&&std::isfinite(measured)&&std::isfinite(lagged)&&std::isfinite(slope)&&std::abs(slope)<=5000;
+    enabled=true;valid=at&&std::isfinite(slope)&&std::abs(slope)<=5000&&
+      (slope==0||(std::isfinite(measured)&&std::isfinite(lagged)));
   }
   double area_at(const Point& p,uint64_t at)const {
     const double dt=double(at-p.tick)/Hz,decay=std::exp(-dt/8);
     return p.area+(p.measured-initial)*dt+(p.lagged-p.measured)*8*(1-decay);
   }
   void temperature(uint64_t at,double measured){
-    if(!enabled||!valid||at<=current.tick)return;
+    if(!enabled||!valid||beta==0||at<=current.tick)return;
     if(!std::isfinite(measured)||measured<-40||measured>125||at-current.tick>3*Hz){valid=false;return;}
     const auto old=current;const double dt=double(at-old.tick)/Hz;
     previous=old;current={at,measured,old.measured+(old.lagged-old.measured)*std::exp(-dt/8),area_at(old,at)};
@@ -27,6 +28,7 @@ struct W12ThermalProjection {
   bool correction(uint64_t at,int64_t& ns)const {
     ns=0;if(!enabled)return true;
     if(!valid||at<start20)return false;
+    if(beta==0)return true; // Rate-only HOLD has no temperature dependency.
     const auto& p=at>=current.tick?current:previous;
     if(!p.tick||at<p.tick||at-p.tick>3*Hz)return false;
     const double value=beta*area_at(p,at);

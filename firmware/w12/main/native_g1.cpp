@@ -1678,8 +1678,8 @@ void publish(uint64_t begin){const auto now=micros();uint64_t tick=0;
     if(retained_estimate.retain(corrected_clock.prediction(),anchor.root,anchor.boot,anchor.source_epoch,corrected_clock.original20(),now,
         corrected_clock.frequency_trained(tick))){
 #ifdef PTOB_W12_HOLDOVER_PRODUCTION
-      // This replaces the old constant-rate retained clock. Never silently
-      // select the old projection if the required causal sensor is missing.
+      // Retain the improved HOLD selector/actuator, but keep the unvalidated
+      // temperature fit entirely in shadow. Entry freezes the measured BLE rate.
       if(!shadow_holdover.arm(retained_estimate.clock,tick))retained_estimate.clear();
 #endif
       retained_accepted=corrected_clock.accepted();admission_policy.acquired();
@@ -1700,12 +1700,12 @@ void publish(uint64_t begin){const auto now=micros();uint64_t tick=0;
          shadow_holdover.arm(retained_estimate.clock,tick)){
         holdover_test_start20=tick;holdover_test_until20=tick+uint64_t(test_ms)*20000;if(holdover_test_generation!=UINT32_MAX)++holdover_test_generation;
         baseline.receiver_phase_ns=0;shadow_holdover.audit_start(tick,baseline);
-        logf("W12_HOLDOVER_EVENT event=BEGIN test=%lu start20=%llu until20=%llu duration_ms=%lu production=1 model=1 receiver_ns=%ld beta_mppb_c=%ld clock_tick20=%llu epoch_ns=%lld phase_ns=%lld rate=%.17g beta=%.17g measured=%.17g lagged=%.17g utc_offset_ns=%lld\n",
+        logf("W12_HOLDOVER_EVENT event=BEGIN test=%lu start20=%llu until20=%llu duration_ms=%lu production=1 model=1 receiver_ns=%ld beta_mppb_c=%ld clock_tick20=%llu epoch_ns=%lld phase_ns=%lld rate=%.17g beta=%.17g measured=%.17g lagged=%.17g utc_offset_ns=%lld temperature_shadow_only=%u\n",
           (unsigned long)holdover_test_generation,(unsigned long long)tick,(unsigned long long)holdover_test_until20,(unsigned long)test_ms,
           (long)retained_estimate.clock.receiver_phase_ns,(long)std::llround(retained_estimate.clock.thermal.beta*1000),
           (unsigned long long)retained_estimate.clock.tick,(long long)retained_estimate.clock.epoch,(long long)retained_estimate.clock.phase,
           retained_estimate.clock.rate,retained_estimate.clock.thermal.beta,retained_estimate.clock.thermal.current.measured,
-          retained_estimate.clock.thermal.current.lagged,(long long)retained_estimate.clock.utc_offset);
+          retained_estimate.clock.thermal.current.lagged,(long long)retained_estimate.clock.utc_offset,unsigned(W12ShadowHoldover::ThermalShadowOnly));
       }else {retained_estimate.clear();logf("W12_HOLDOVER_EVENT event=REJECT reason=TEMPERATURE production=1 model=1\n");}
     }else logf("W12_HOLDOVER_EVENT event=REJECT reason=NOT_READY production=1 model=1\n");
   }

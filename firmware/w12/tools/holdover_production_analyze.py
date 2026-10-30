@@ -16,6 +16,11 @@ def rounded(n):return math.floor(n+.5) if n>=0 else math.ceil(n-.5)
 
 def predict(begin,sensors,at):
     start=int(begin['start20']);assert at>=start
+    elapsed=at-int(begin['clock_tick20']);assert elapsed>=0
+    seconds=elapsed/HZ;phase=int(begin['phase_ns']);rate=float(begin['rate'])
+    slew=math.copysign(min(abs(phase),seconds*(1000 if abs(phase)<2000 else min(50000,4*abs(phase)))),phase)
+    base=int(begin['epoch_ns'])+elapsed*50+rounded(seconds*rate+slew)
+    if float(begin['beta'])==0:return base,base
     lagged=float(begin['lagged']);initial=lagged;measured=float(begin['measured']);beta=float(begin['beta'])
     point=start;area=0
     for sensor in sensors:
@@ -27,10 +32,6 @@ def predict(begin,sensors,at):
         lagged=measured+(lagged-measured)*decay;measured=sensor['temperature_mc']/1000;point=tick
     dt=(at-point)/HZ
     area+=(measured-initial)*dt+(lagged-measured)*8*(1-math.exp(-dt/8))
-    elapsed=at-int(begin['clock_tick20']);assert elapsed>=0
-    seconds=elapsed/HZ;phase=int(begin['phase_ns']);rate=float(begin['rate'])
-    slew=math.copysign(min(abs(phase),seconds*(1000 if abs(phase)<2000 else min(50000,4*abs(phase)))),phase)
-    base=int(begin['epoch_ns'])+elapsed*50+rounded(seconds*rate+slew)
     return base+rounded(beta*area),base
 
 def analyze(raw):
@@ -42,6 +43,7 @@ def analyze(raw):
         if kind=='W12_HOLDOVER_EVENT':
             if r['event']=='BEGIN':
                 start=int(r['start20']);assert start not in begins;begins[start]=r
+                if r.get('temperature_shadow_only')=='1':assert float(r['beta'])==0 and int(r['beta_mppb_c'])==0,'Temperature escaped shadow into production'
                 assert int(r['until20'])-start==int(r['duration_ms'])*20000 and 1000<=int(r['duration_ms'])<=120000
             elif r['event']=='END':ends[int(r['start20'])]=r
             else:rejects.append(r)
@@ -92,7 +94,7 @@ def analyze(raw):
             last_sample_age_seconds=(last.get('local20',start)-start)/HZ,
             sampled_safe_seconds=last.get('safe20',0)/HZ,first_crossing_seconds=last.get('cross20',0)/HZ or None,
             baseline_first_crossing_seconds=last.get('base_cross20',0)/HZ or None,
-            beta_mppb_c=int(b['beta_mppb_c']),nonzero_corrections=sum(r['predicted_ns']!=r['baseline_ns'] for r in records)))
+            temperature_shadow_only=b.get('temperature_shadow_only')=='1',beta_mppb_c=int(b['beta_mppb_c']),nonzero_corrections=sum(r['predicted_ns']!=r['baseline_ns'] for r in records)))
     return dict(status='PRODUCTION_HOLDOVER_ACTIVATION_AND_BLE_SAMPLES',sha256=hashlib.sha256(raw).hexdigest(),
                 trials=result,rejects=rejects,complete=bool(result) and all(r['activation_verified'] for r in result) and not rejects,
                 independent_UTC_qualified=False,continuous_error_bound=False)

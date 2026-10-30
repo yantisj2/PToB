@@ -441,7 +441,7 @@ void page_hold(const DisplayState& s){
  char n[24];
  if(s.r2_dashboard){
   if(s.shadow_holdover){
-   std::snprintf(n,sizeof n,s.holdover_production?"THERMAL HOLD %lus":"SHADOW %lus / 120s",(unsigned long)(s.shadow_age_ms/1000));text(2,17,n);
+   std::snprintf(n,sizeof n,s.holdover_selected?"BLE HOLD %lus":"SHADOW %lus / 120s",(unsigned long)(s.shadow_age_ms/1000));text(2,17,n);
    if(s.shadow_p99_ns!=UINT64_MAX)std::snprintf(n,sizeof n,"%lluns",(unsigned long long)s.shadow_p99_ns);else std::snprintf(n,sizeof n,"WARMUP");
    field(26,"P99",n);std::snprintf(n,sizeof n,"%lu/100",(unsigned long)s.shadow_samples);field(35,"SAMPLES",n);
    format_hold_time(n,sizeof n,s.shadow_cross_ms?s.shadow_cross_ms:s.shadow_safe_ms);

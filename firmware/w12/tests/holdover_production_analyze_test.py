@@ -14,7 +14,7 @@ for action in ('holdover test 999','holdover test 120001','holdover test -1','ho
     except RuntimeError:pass
     else:raise AssertionError('Unbounded/malformed HOLD command accepted')
 start=40000000;until=start+400000000;epoch=1000000000000;utc=1700000000000000000;receiver=7671
-lines=[f'W12_HOLDOVER_EVENT event=BEGIN test=1 start20={start} until20={until} duration_ms=20000 production=1 model=1 receiver_ns={receiver} beta_mppb_c=0 clock_tick20={start} epoch_ns={epoch} phase_ns=0 rate=0 beta=0 measured=25 lagged=25 utc_offset_ns={utc}']
+lines=[f'W12_HOLDOVER_EVENT event=BEGIN test=1 start20={start} until20={until} duration_ms=20000 production=1 model=1 receiver_ns={receiver} beta_mppb_c=0 clock_tick20={start} epoch_ns={epoch} phase_ns=0 rate=0 beta=0 measured=25 lagged=25 utc_offset_ns={utc} temperature_shadow_only=1']
 values=[]
 for i in range(1,160):
     tick=start+i*2500000;base=epoch+i*125000000;error=i;values.append(error);q=tails(values[-128:])
@@ -27,6 +27,7 @@ for i in range(1,160):
 lines.append(f'W12_HOLDOVER_EVENT event=END test=1 start20={start} until20={until} at20={until} reason=DEADLINE complete=1 production=1 model=1')
 lines.append('W12_HOLDOVER_RESUME test=1 sample20=440000000 old_output_ns=1700000000000000000 new_output_ns=1700000000000000000 step_ns=0 applied=1 phase_ns=0 production=1 model=1')
 raw=('\n'.join(lines)+'\n').encode();r=analyze(raw)
+assert r['trials'][0]['temperature_shadow_only']
 assert r['complete'] and r['trials'][0]['activation_verified'] and r['trials'][0]['observed']['max_ns']==159
 assert r['trials'][0]['replay_max_difference_ns']==0 and r['trials'][0]['resume_zero_step']
 assert not analyze(raw.replace(b'step_ns=0 applied=1',b'step_ns=7 applied=1'))['complete']
@@ -34,3 +35,7 @@ try:analyze(raw.replace(b'predicted_ns=1000125000000',b'predicted_ns=10001250000
 except AssertionError:pass
 else:raise AssertionError('Corrupt selected output accepted')
 print('PASS production activation certificate, independent input replay, exact tails, actual delivery API and nonzero resume-step rejection')
+
+try:analyze(raw.replace(b'beta=0 measured=',b'beta=1 measured='))
+except AssertionError:pass
+else:raise AssertionError('Nonzero production temperature fit accepted in shadow-only mode')

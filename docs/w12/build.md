@@ -867,6 +867,22 @@ across operating temperatures and loads; no automatic cutover is implemented.
 
 ## Production holdover
 
+**Current 0.2.26 policy: temperature is shadow-only.** Production retains the
+last trusted BLE frequency and phase, with an explicitly zero thermal coefficient.
+Temperature learning and thermal-candidate scoring continue separately. The
+optimized retained-clock selector, continuity through coarse acquisition,
+step-free return, calibration and source/relay expiry remain in place.
+Rate-only HOLD has no temperature dependency, so missing or invalid sensor
+readings do not remove the delivered clock. They still invalidate thermal
+shadow observations. The firmware/compiler receipt binds
+`BLE_RATE_RETAINED_TEMPERATURE_SHADOW_V2` and `SHADOW_ONLY`; BEGIN records expose
+the policy and actual zero coefficient. The analyzer refuses nonzero production
+temperature steering under that policy. P99/P95/MAX, sample counts, crossings,
+gaps and the existing finite selected-output tests are preserved.
+
+The following describes the original 0.2.25 thermal production experiment;
+0.2.26 keeps its selector and continuous return while isolating temperature.
+
 Version 0.2.25 selects the same frozen temperature-change model for local
 production HOLD. The last measured BLE rate, phase and learned temperature
 coefficient freeze at entry. Only causal silicon-temperature samples advance

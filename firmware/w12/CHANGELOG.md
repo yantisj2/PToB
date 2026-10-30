@@ -1,5 +1,18 @@
 # W12 changelog
 
+## 0.2.26 — isolate temperature fitting in shadow
+
+- Remove temperature steering from production HOLD. Freeze the trusted BLE
+  frequency and phase; keep trained-HOLD selection through coarse acquisition,
+  continuous BLE return, calibration, source expiry and the other optimizations.
+- Keep temperature learning, frozen shadow comparisons, sampled P99/P95/MAX,
+  crossings and missing-coverage records. A rate-only clock remains available
+  without temperature readings. Capture explicitly records shadow-only policy
+  and zero production temperature coefficient; replay verifies both.
+- Preserve the P99 footer and distinguish BLE HOLD on the Hold page. Add
+  regression checks for changing, absent and invalid temperature, with separate
+  nonzero thermal shadow and production output. Flash telemetry remains planned.
+
 ## 0.2.25 — production thermal holdover
 
 - Replace the local retained constant-rate projection with the shadow model's
