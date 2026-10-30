@@ -1,5 +1,11 @@
 # W12 changelog
 
+## Host tools — v34 console compatibility
+
+- Accept the v34 image in the existing compact LoRa, sampled-duration,
+  rate-only HOLD and temperature-shadow console contracts. Retain exact
+  source/build/boot, CRC, phase and enrollment checks; firmware bytes are unchanged.
+
 ## 0.2.34 — exact fine receive history storage
 
 - Save 2816 bytes by separating retained callback fields and reconstructing
