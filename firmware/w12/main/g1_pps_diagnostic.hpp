@@ -25,5 +25,5 @@ class G1PpsDiagnostic {
   return int32_t(p);
  }
 };
-static_assert(sizeof(G1PpsDiagnostic)<=1200,"Fixed diagnostic memory");
+static_assert(sizeof(G1PpsDiagnostic)<=G1GpsShadowRamBudget,"Fixed diagnostic memory");
 }

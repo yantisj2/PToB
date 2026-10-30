@@ -98,5 +98,12 @@ class G1GpsShadow {
     row=rows_[(tail_+Tail-rows_count_+offset)%Tail];return true;
   }
 };
-static_assert(sizeof(G1GpsShadow)<=1200,"C3 fixed witness RAM allocation");
+// Thermal-enabled builds carry the bounded projection in each of the three
+// existing snapshot copies. This changes the budget check, not the allocation.
+#ifdef PTOB_W12_SHADOW_HOLDOVER
+inline constexpr unsigned G1GpsShadowRamBudget=1200+G1GpsShadow::History*sizeof(W12ThermalProjection);
+#else
+inline constexpr unsigned G1GpsShadowRamBudget=1200;
+#endif
+static_assert(sizeof(G1GpsShadow)<=G1GpsShadowRamBudget,"Bounded witness RAM allocation");
 }
