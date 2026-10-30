@@ -81,7 +81,11 @@ class W12ShadowHoldover {
   }
  public:
   void sink(Sink fn){sink_=fn;}
-  void clear(){const auto fn=sink_;auto old=view_;if(start_)inc(old.aborted);*this={};sink_=fn;
+  void clear(){auto old=view_;if(start_)inc(old.aborted);
+    // Invalidate histories by count instead of constructing a 4KiB temporary
+    // on the NimBLE owner's stack. Old slots cannot enter a new population.
+    view_={};baseline_={};temperature_count_=head_=0;start_=next_=last_label_=last_pair_=0;
+    weight_=sx_=sy_=sxx_=sxy_=beta_=intercept_=start_temperature_=rate_delta_=held_beta_=0;
     view_.sequence=old.sequence;view_.started=old.started;view_.completed=old.completed;view_.missed=old.missed;view_.aborted=old.aborted;
     view_.generation=old.generation==UINT32_MAX?UINT32_MAX:old.generation+1;}
   void cancel(){if(start_)inc(view_.aborted);start_=0;view_.holding=false;next_=0;}
@@ -92,7 +96,8 @@ class W12ShadowHoldover {
       if(tick<=old.tick)return;
       if(tick-old.tick<=3*Hz)lagged=old.measured+(old.lagged-old.measured)*std::exp(-double(tick-old.tick)/Hz/8);}
     if(temperature_count_==temperatures_.size()){
-      for(unsigned i=1;i<temperature_count_;++i)temperatures_[i-1]=temperatures_[i];--temperature_count_;}
+      for(unsigned i=1;i<temperature_count_;++i){temperatures_[i-1]=temperatures_[i];}
+      --temperature_count_;}
     temperatures_[temperature_count_++]={tick,celsius,lagged};view_.temperature_mc=int32_t(std::llround(celsius*1000));
   }
   void observe(uint64_t local,uint64_t reference,uint64_t available,const G1ClockPrediction& active,bool trained){
@@ -109,7 +114,8 @@ class W12ShadowHoldover {
           const int64_t predicted=base+adjustment;
           const int64_t error=predicted-int64_t(reference),baseline_error=base-int64_t(reference);
           errors_[head_]=error;baseline_errors_[head_]=baseline_error;head_=(head_+1)%Capacity;
-          if(view_.samples<Capacity)++view_.samples;inc(view_.completed);++view_.sequence;view_.last20=local;
+          if(view_.samples<Capacity){++view_.samples;}
+          inc(view_.completed);++view_.sequence;view_.last20=local;
           quantiles(errors_,view_.p95_ns,view_.p99_ns,view_.max_ns);
           quantiles(baseline_errors_,view_.baseline_p95_ns,view_.baseline_p99_ns,view_.baseline_max_ns);
           if(sink_)sink_({view_.sequence,start_,local,reference,predicted,base,error,baseline_error});
