@@ -2,6 +2,9 @@
 #include "g1_client_policy.hpp"
 #include "periodic_rx_model.hpp"
 #include "g1_clock_prediction.hpp"
+#ifdef PTOB_W12_HOLDOVER_RATE
+#include "w12_holdover_rate.hpp"
+#endif
 #ifdef PTOB_W12_SHADOW_HOLDOVER
 #include "w12_shadow_holdover.hpp"
 #endif
@@ -61,7 +64,8 @@ class G1CorrectedClock {
   uint32_t quality_generation_=1;
   uint32_t coarse_enclosure_ns_=UINT32_MAX;
   // Keep64 physical points:62.5ms acquisition spacing gets repeated-channel
-  // evidence promptly; after the first fit,250ms spacing grows toward16s. Offset encoding is lossless: local
+  // evidence promptly. Fine builds keep that spacing; other builds use250ms
+  // after the first fit. Offset encoding is lossless: local
   // ticks stay exact and a signed24-bit residual stores remote_ns-local_ns.
   // The32s expiry and full64-bit base/scope precede every conversion.
   struct Point {uint32_t local=0;uint8_t residual[3]{},channel=255;};
@@ -119,6 +123,13 @@ class G1CorrectedClock {
     if(w12_shadow::pair_sink)w12_shadow::pair_sink(local,remote,available,clock_,frequency_trained(available),quality_generation_);
 #else
     (void)local;(void)remote;(void)available;
+#endif
+  }
+  void hold_pair(uint64_t local,uint64_t remote,uint64_t available,uint8_t channel){
+#ifdef PTOB_W12_HOLDOVER_RATE
+    if(w12_hold_rate::pair_sink)w12_hold_rate::pair_sink(local,remote,available,channel,quality_generation_);
+#else
+    (void)local;(void)remote;(void)available;(void)channel;
 #endif
   }
   static bool stale(uint64_t now,uint64_t before){return now<before||now-before>uint64_t(periodic_rx::MaxAgeUs)*20;}
@@ -213,7 +224,7 @@ class G1CorrectedClock {
       }else{
         auto& point=points_[count_++];point.local=uint32_t(delta);point.channel=o.channel;residual(point,int32_t(innovation));point_at_=o.local;
         // Start only after2s and eight repeated-channel degrees of freedom.
-        // The same64-point history keeps growing to its normal16s span;
+        // The same64-point history retains the selected physical cadence;
         // early rate uncertainty and every delivered error still gate lock.
         fit_reason_=count_<8?1:o.local-local(points_[0])<40000000?2:3;
         if(count_>=8&&o.local-local(points_[0])>=40000000){
@@ -315,6 +326,15 @@ class G1CorrectedClock {
   uint64_t last_discontinuity_ns()const{return last_discontinuity_ns_;}
   uint64_t fit_tick20()const{return phase_fit_tick_;}
   uint32_t fit_points()const{return count_;}
+  uint64_t fit_base_local20()const{return base_local_;}uint64_t fit_base_remote_ns()const{return base_remote_;}
+  bool fit_hex(char* out,size_t capacity)const{
+    if(!out||capacity<count_*16+1)return false;
+    static constexpr char hex[]="0123456789abcdef";
+    for(unsigned i=0;i<count_;++i){const auto& p=points_[i];
+      for(unsigned j=0;j<8;++j){const uint8_t b=j<4?uint8_t(p.local>>(8*j)):j<7?p.residual[j-4]:p.channel;
+        out[i*16+j*2]=hex[b>>4];out[i*16+j*2+1]=hex[b&15];}}
+    out[count_*16]=0;return true;
+  }
   uint32_t fit_span_ms()const{return count_?uint32_t((local(points_[count_-1])-local(points_[0]))/20000):0;}
   uint8_t fit_reason()const{return fit_reason_;}
   uint32_t quality_missing()const{return quality_missing_;}
@@ -485,6 +505,7 @@ class G1CorrectedClock {
     shadow_pair(best->local,remote,available20);
     if(discontinuity(*best,remote,held20))return refuse();
     if(last_remote_ns_&&remote<=last_remote_ns_)return refuse();
+    hold_pair(best->local,remote,available20,best->channel);
     until_=now+remaining;
     last_remote_ns_=remote;
     observe_clock(*best,raw,available20);
@@ -558,7 +579,7 @@ class G1CorrectedClock {
         r.publication,stamp.map_enclosure_ns,stamp.epoch,r.event,r.channel,true};
       shadow_pair(stamp.tick20,r.parent_tx_ns,available20);
       if(discontinuity(original,r.parent_tx_ns))return denied();
-      scope(anchor);observe_clock(original,r.parent_tx_ns,available20);
+      scope(anchor);hold_pair(stamp.tick20,r.parent_tx_ns,available20,r.channel);observe_clock(original,r.parent_tx_ns,available20);
       // Establish this once from that mapped original's actual elapsed RX
       // age plus its inherited age. Later PermissionOnly originals never
       // replace or extend this immutable map-hold deadline.
@@ -594,6 +615,7 @@ class G1CorrectedClock {
       s.map_enclosure_ns,s.epoch,r.event,r.channel,true};
     shadow_pair(s.tick20,r.parent_tx_ns,available20);
     if(discontinuity(o,r.parent_tx_ns)|| (last_remote_ns_&&r.parent_tx_ns<=last_remote_ns_))return refuse();
+    hold_pair(s.tick20,r.parent_tx_ns,available20,r.channel);
     last_original_=s.tick20;last_remote_ns_=r.parent_tx_ns;until_=now+remaining;
     observe_clock(o,r.parent_tx_ns,available20);inc(accepted_);return true;
   }

@@ -1,5 +1,14 @@
 # W12 changelog
 
+## 0.2.27 — bounded BLE HOLD rate consensus
+
+- Separate causal channel-aware 16/32-second HOLD estimation from the fast
+  active servo, with agreement/guard gates, ±5 ppb cap and conservative fallback.
+- Preserve phase, calibration, continuous return, P99 display and temperature
+  shadow-only policy. Capture exact accepted pairs and fit entry state.
+- Independently replay both frozen clocks and causal rate selection; report
+  short age-band P95/P99/MAX alongside full tails and coverage.
+
 ## 0.2.26 — isolate temperature fitting in shadow
 
 - Remove temperature steering from production HOLD. Freeze the trusted BLE

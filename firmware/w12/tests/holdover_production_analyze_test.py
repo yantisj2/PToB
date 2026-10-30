@@ -39,3 +39,37 @@ print('PASS production activation certificate, independent input replay, exact t
 try:analyze(raw.replace(b'beta=0 measured=',b'beta=1 measured='))
 except AssertionError:pass
 else:raise AssertionError('Nonzero production temperature fit accepted in shadow-only mode')
+
+# The fast baseline and selected HOLD rate have different entry epochs after
+# phase-preserving reanchoring. Replay each clock with its own frozen inputs.
+from holdover_production_analyze import predict
+begin=dict(start20=40000000,clock_tick20=40000000,epoch_ns=1000000000000,phase_ns=0,rate=3,beta=0)
+meta=dict(base_tick20=40000000,base_epoch_ns=1000000000000,base_phase_ns=0,fast_rate=8)
+assert predict(begin,[],80000000,meta)==(1002000000006,1002000000016)
+assert r['pooled_age_bands'][0]['to_seconds']==2
+# Independent causal regression replay with channel offsets and exact entry
+# provenance. Future witness values are never supplied to the estimator.
+from holdover_rate_replay import fit,verify,HZ
+import struct
+ps=[]
+for i in range(1,161):
+    tick=i*5000000;ch=(i*13)%37
+    ps.append(dict(boot=1,seq=i,local20=tick,reference_ns=1000000000000+tick*50+i*25+ch*30,available20=tick+1000,channel=ch,generation=1))
+at=800001000;start=800002000;history=ps[-129:]
+fits=[fit(history,at,t) for t in (16,32)]
+meta=dict(start20=str(start),available20=str(at),generation='1',fast_rate='108',selected='1',delta='-5',rate='103')
+for seconds,f in zip((16,32),fits):
+    for key,value in f.items():meta['fit'+str(seconds)+'_'+key]=str(value)
+origin=ps[-64];points=b''
+for p in ps[-64:]:
+    dt=p['local20']-origin['local20'];res=p['reference_ns']-origin['reference_ns']-dt*50
+    points+=struct.pack('<I',dt)+res.to_bytes(3,'little',signed=True)+bytes([p['channel']])
+entry=dict(n='64',base_local20=str(origin['local20']),base_remote_ns=str(origin['reference_ns']),guard='20',points=points.hex())
+assert verify(ps,meta,entry)['selected']
+try:verify(ps,{**meta,'delta':'-4'},entry)
+except AssertionError:pass
+else:raise AssertionError('Changed rate choice accepted')
+try:verify(ps[:-20],meta,entry)
+except AssertionError:pass
+else:raise AssertionError('Missing accepted history accepted')
+print('PASS separate fast baseline, age-band tails, causal accepted-channel replay and corrupt-input rejection')

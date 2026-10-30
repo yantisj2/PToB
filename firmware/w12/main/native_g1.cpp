@@ -142,6 +142,23 @@ G1CorrectedClock corrected_clock;
 G1AdmissionPolicy admission_policy;G1RetainedEstimate retained_estimate;G1ReceiveLoss receive_loss;
 #ifdef PTOB_W12_SHADOW_HOLDOVER
 W12ShadowHoldover shadow_holdover;uint32_t shadow_generation=0;uint64_t shadow_device_boot=0;
+#ifdef PTOB_W12_HOLDOVER_RATE
+W12HoldoverRate holdover_rate;uint64_t holdover_pair_sequence=0;
+G1ClockPrediction holdover_last_live{};uint64_t holdover_last_live_root=0;
+W12HoldoverRate::Choice retained_rate_choice{};char holdover_entry_hex[1025]{};
+void hold_rate_pair(uint64_t local,uint64_t remote,uint64_t available,uint8_t channel,uint32_t generation){
+  holdover_rate.observe(local,remote,available,channel,generation);
+  if(holdover_pair_sequence!=UINT64_MAX)++holdover_pair_sequence;
+  logf("W12_HOLDOVER_PAIR boot=%llu seq=%llu local20=%llu reference_ns=%llu available20=%llu channel=%u generation=%lu\n",
+    (unsigned long long)shadow_device_boot,(unsigned long long)holdover_pair_sequence,(unsigned long long)local,
+    (unsigned long long)remote,(unsigned long long)available,unsigned(channel),(unsigned long)generation);
+}
+W12HoldoverRate::Choice hold_rate_entry(G1ClockPrediction& clock,uint64_t at,uint64_t now){
+  auto choice=holdover_rate.choose(at,clock.rate,corrected_clock.quality(now,at).rate_guard_ppb);
+  if(choice.selected&&!W12HoldoverRate::reanchor(clock,at,choice.rate))choice={clock.rate,0,false};
+  return choice;
+}
+#endif
 uint64_t shadow_temperature20=0,shadow_temperature_consumed20=0;int32_t shadow_temperature_mc=INT32_MIN;
 #ifdef PTOB_W12_HOLDOVER_PRODUCTION
 uint64_t holdover_test_start20=0,holdover_test_until20=0;uint32_t holdover_test_generation=0,holdover_test_ms=0;
@@ -1048,6 +1065,9 @@ void changed_scope(uint64_t now,G1Reason reason,bool preserve_clock,G1ParentReas
   uint64_t endtick=0;clock_reference_read(&endtick);holdover_test_end("SCOPE",false,endtick);
 #endif
   shadow_holdover.clear();shadow_temperature_consumed20=0;
+#ifdef PTOB_W12_HOLDOVER_RATE
+  holdover_rate.clear();
+#endif
 #endif
 #ifdef R2_TZ_WIRE
  coarse_tz={};coarse_tz_order={};
@@ -1652,6 +1672,9 @@ void publish(uint64_t begin){const auto now=micros();uint64_t tick=0;
 #endif
 #ifdef PTOB_W12_HOLDOVER_PRODUCTION
   shadow_temperature_consume();
+#ifdef PTOB_W12_HOLDOVER_RATE
+  holdover_rate.refresh(tick);
+#endif
   if(holdover_test_until20&&(tick>=holdover_test_until20||fault||closing||mode==R2Mode::Off))
     holdover_test_end(tick>=holdover_test_until20?"DEADLINE":"STOP",tick>=holdover_test_until20,tick);
 #endif
@@ -1678,6 +1701,9 @@ void publish(uint64_t begin){const auto now=micros();uint64_t tick=0;
     if(retained_estimate.retain(corrected_clock.prediction(),anchor.root,anchor.boot,anchor.source_epoch,corrected_clock.original20(),now,
         corrected_clock.frequency_trained(tick))){
 #ifdef PTOB_W12_HOLDOVER_PRODUCTION
+#ifdef PTOB_W12_HOLDOVER_RATE
+      retained_rate_choice=hold_rate_entry(retained_estimate.clock,tick,now);
+#endif
       // Retain the improved HOLD selector/actuator, but keep the unvalidated
       // temperature fit entirely in shadow. Entry freezes the measured BLE rate.
       if(!shadow_holdover.arm(retained_estimate.clock,tick))retained_estimate.clear();
@@ -1696,8 +1722,11 @@ void publish(uint64_t begin){const auto now=micros();uint64_t tick=0;
     else if(corrected_valid&&!holdover_test_until20&&current_parent_time(now)&&corrected_clock.frequency_trained(tick)&&
             corrected_clock.quality(now,tick).rms_ns<1000&&std::abs(corrected_clock.prediction().phase_remaining(tick))<1000){
       auto baseline=corrected_clock.prediction();
-      if(retained_estimate.retain(baseline,anchor.root,anchor.boot,anchor.source_epoch,corrected_clock.original20(),now,true)&&
-         shadow_holdover.arm(retained_estimate.clock,tick)){
+      const bool retained=retained_estimate.retain(baseline,anchor.root,anchor.boot,anchor.source_epoch,corrected_clock.original20(),now,true);
+#ifdef PTOB_W12_HOLDOVER_RATE
+      if(retained)retained_rate_choice=hold_rate_entry(retained_estimate.clock,tick,now);
+#endif
+      if(retained&&shadow_holdover.arm(retained_estimate.clock,tick)){
         holdover_test_start20=tick;holdover_test_until20=tick+uint64_t(test_ms)*20000;if(holdover_test_generation!=UINT32_MAX)++holdover_test_generation;
         baseline.receiver_phase_ns=0;shadow_holdover.audit_start(tick,baseline);
         logf("W12_HOLDOVER_EVENT event=BEGIN test=%lu start20=%llu until20=%llu duration_ms=%lu production=1 model=1 receiver_ns=%ld beta_mppb_c=%ld clock_tick20=%llu epoch_ns=%lld phase_ns=%lld rate=%.17g beta=%.17g measured=%.17g lagged=%.17g utc_offset_ns=%lld temperature_shadow_only=%u\n",
@@ -1706,6 +1735,14 @@ void publish(uint64_t begin){const auto now=micros();uint64_t tick=0;
           (unsigned long long)retained_estimate.clock.tick,(long long)retained_estimate.clock.epoch,(long long)retained_estimate.clock.phase,
           retained_estimate.clock.rate,retained_estimate.clock.thermal.beta,retained_estimate.clock.thermal.current.measured,
           retained_estimate.clock.thermal.current.lagged,(long long)retained_estimate.clock.utc_offset,unsigned(W12ShadowHoldover::ThermalShadowOnly));
+#ifdef PTOB_W12_HOLDOVER_RATE
+        const auto& a=holdover_rate.fit16();const auto& b=holdover_rate.fit32();
+        logf("W12_HOLDOVER_RATE test=%lu start20=%llu available20=%llu generation=%lu selected=%u rate=%.17g delta=%.17g fast_rate=%.17g base_tick20=%llu base_epoch_ns=%lld base_phase_ns=%lld fit16_rate=%.17g fit16_guard=%.17g fit16_n=%lu fit16_pairs=%lu fit16_span_ms=%lu fit32_rate=%.17g fit32_guard=%.17g fit32_n=%lu fit32_pairs=%lu fit32_span_ms=%lu\n",
+          (unsigned long)holdover_test_generation,(unsigned long long)tick,(unsigned long long)holdover_rate.refreshed20(),(unsigned long)holdover_rate.generation(),unsigned(retained_rate_choice.selected),retained_estimate.clock.rate,retained_rate_choice.delta,baseline.rate,
+          (unsigned long long)baseline.tick,(long long)baseline.epoch,(long long)baseline.phase,a.rate,a.guard,(unsigned long)a.points,(unsigned long)a.pairs,(unsigned long)a.span_ms,b.rate,b.guard,(unsigned long)b.points,(unsigned long)b.pairs,(unsigned long)b.span_ms);
+        if(corrected_clock.fit_hex(holdover_entry_hex,sizeof holdover_entry_hex))logf("W12_HOLDOVER_ENTRY test=%lu start20=%llu available20=%llu base_local20=%llu base_remote_ns=%llu n=%lu pairs=%lu span_ms=%lu guard=%.17g format=LE_U32_I24_U8 points=%s\n",
+          (unsigned long)holdover_test_generation,(unsigned long long)tick,(unsigned long long)tick,(unsigned long long)corrected_clock.fit_base_local20(),(unsigned long long)corrected_clock.fit_base_remote_ns(),(unsigned long)corrected_clock.fit_points(),(unsigned long)corrected_clock.rate_pairs(),(unsigned long)corrected_clock.fit_span_ms(),corrected_clock.quality(now,tick).rate_guard_ppb,holdover_entry_hex);
+#endif
       }else {retained_estimate.clear();logf("W12_HOLDOVER_EVENT event=REJECT reason=TEMPERATURE production=1 model=1\n");}
     }else logf("W12_HOLDOVER_EVENT event=REJECT reason=NOT_READY production=1 model=1\n");
   }
@@ -1723,6 +1760,17 @@ void publish(uint64_t begin){const auto now=micros();uint64_t tick=0;
 #ifdef PTOB_W12_HOLDOVER_PRODUCTION
   if(force_hold||holdover_resume_pending||(retained_estimate.trained&&(!corrected_valid||!corrected_clock.frequency_trained(tick)))){
     retained_selected=retained_valid;if(retained_selected)following_now=false;
+  }
+#endif
+#ifdef PTOB_W12_HOLDOVER_RATE
+  if(retained_selected&&!production_was_hold&&!force_hold&&holdover_last_live_root==retained_estimate.root&&holdover_last_live.tick){
+    auto entry=holdover_last_live;const auto rate=retained_estimate.clock.rate;
+    if(W12HoldoverRate::reanchor(entry,tick,rate)&&shadow_holdover.arm(entry,tick)){
+      retained_estimate.clock=entry;retained_estimate.deliver(tick,retained_utc);
+    }
+  }
+  if(!retained_selected&&corrected_valid&&corrected_clock.frequency_trained(tick)){
+    holdover_last_live=corrected_clock.prediction();holdover_last_live_root=anchor.root;
   }
 #endif
 #ifdef PTOB_N30
@@ -1844,6 +1892,9 @@ bool r2_init(uint64_t boot,const uint8_t factory[6]){
 #endif
 #ifdef PTOB_W12_SHADOW_HOLDOVER
   shadow_device_boot=boot;shadow_holdover.sink(shadow_sample);w12_shadow::pair_sink=shadow_pair;
+#ifdef PTOB_W12_HOLDOVER_RATE
+  w12_hold_rate::pair_sink=hold_rate_pair;
+#endif
 #endif
   initialized=true;snap.self=3;return true;
 }

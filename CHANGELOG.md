@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-30 — W12 causal HOLD rate estimation
+
+- W12 0.2.27 adds bounded BLE-only HOLD rate consensus, separate from active
+  steering. Preserve temperature shadow-only policy and continuous entry/return.
+- Add accepted-channel/availability diagnostics, independent rate replay and
+  2/4/8/12-second sampled error populations. Hardware accuracy remains unqualified.
+
 ## 2026-10-30 — W12 temperature shadow isolation
 
 - W12 0.2.26 keeps temperature fitting in shadow and removes its steering from

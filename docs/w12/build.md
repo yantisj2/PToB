@@ -867,7 +867,7 @@ across operating temperatures and loads; no automatic cutover is implemented.
 
 ## Production holdover
 
-**Current 0.2.26 policy: temperature is shadow-only.** Production retains the
+**Current 0.2.27 policy: temperature is shadow-only.** Production retains the
 last trusted BLE frequency and phase, with an explicitly zero thermal coefficient.
 Temperature learning and thermal-candidate scoring continue separately. The
 optimized retained-clock selector, continuity through coarse acquisition,
@@ -875,10 +875,42 @@ step-free return, calibration and source/relay expiry remain in place.
 Rate-only HOLD has no temperature dependency, so missing or invalid sensor
 readings do not remove the delivered clock. They still invalidate thermal
 shadow observations. The firmware/compiler receipt binds
-`BLE_RATE_RETAINED_TEMPERATURE_SHADOW_V2` and `SHADOW_ONLY`; BEGIN records expose
+`BLE_RATE_CONSENSUS_TEMPERATURE_SHADOW_V3` and `SHADOW_ONLY`; BEGIN records expose
 the policy and actual zero coefficient. The analyzer refuses nonzero production
 temperature steering under that policy. P99/P95/MAX, sample counts, crossings,
 gaps and the existing finite selected-output tests are preserved.
+
+Version 0.2.27 separates HOLD rate selection from the fast BLE servo. A bounded
+history retains accepted physical pairs at least 250 ms apart over 32 seconds.
+Fixed channel intercepts remove channel offsets in separate 16/32-second rate
+fits. Both require 32 points, 85% span, eight repeated-channel degrees of freedom
+and estimated guards no larger than 10 ppb. The longer guard must improve on the
+fast fit, both rates must agree within 5 ppb, and the median of the three rates
+must lie within 15 ppb of the fast rate. The final change is capped at ±5 ppb.
+Fits refresh at most once per second; stale inputs or cache age over two seconds
+fall back to the fast rate. These gates are engineering policy, not measured
+RF or UTC uncertainty. Phase is reanchored continuously when HOLD is selected.
+Temperature never influences this rate choice. The active BLE actuator is unchanged.
+
+`W12_HOLDOVER_PAIR` records accepted BLE local/reference/availability/channel
+and generation. `W12_HOLDOVER_RATE` records cached fits and both selected and
+fast projector inputs. `W12_HOLDOVER_ENTRY` losslessly encodes the actual fast
+fit's compact points as little-endian U32 local delta, signed I24 residual and
+U8 channel, relative to full-width bases. Bounded capture is required; ordinary
+status frames remain the same size. `holdover_rate_replay.py`, called by the
+production analyzer, reconstructs rate fits using only inputs available before
+the recorded cache time and checks entry provenance. Witness samples score
+frozen projectors; they never train the running HOLD clock. Missing capture
+history cannot certify replay. Keep all rejects, gaps and tail errors.
+
+For the short HOLD target, use repeated finite 12-second selected-output trials
+and report 0–2, 2–4, 4–8 and 8–12 second age bands. A practical initial cohort is
+24 trials after 60 seconds of acquisition, with BLE return between trials.
+Report per-trial and pooled P95/P99/MAX, sample counts, gaps, fallback/selection
+counts and return steps. Samples in one boot share operating conditions; this
+cohort is not independent cold-start, GM-transition or 120-second qualification.
+Do not infer continuous bounds from sampled P99. Separate tuning captures from
+fresh validation captures before increasing the rate-change cap or adding trend.
 
 The following describes the original 0.2.25 thermal production experiment;
 0.2.26 keeps its selector and continuous return while isolating temperature.

@@ -130,6 +130,17 @@ int main(int argc,char** argv){assert(argc==2);std::string which=argv[1];
     assert(actual.clock_valid&&actual.g1_retained_estimate&&actual.g1_holdover_selected&&!actual.following);
     assert(actual.follower_utc_us==uint64_t(v12::retained_estimate.clock.at(fake_now*20))/1000);
     assert((v12::W12ShadowHoldover::ThermalShadowOnly?actual.g1_clock_model.at(fake_now*20)==frozen:actual.g1_clock_model.at(fake_now*20)>frozen)&&!v12::r2_clock_witness(actual));
+#ifdef PTOB_W12_HOLDOVER_RATE
+    assert(v12::w12_hold_rate::pair_sink);
+    // A rate adjusted in the retained copy must not create an entry step when
+    // permission expires later. Seed from the last actually delivered servo.
+    v12::retained_estimate.clock.rate=128;
+    v12::holdover_last_live=raw;v12::holdover_last_live_root=111;
+    v12::production_was_hold=false;v12::publish(fake_now);
+    actual=v12::r2_status();assert(actual.g1_holdover_selected);
+    assert(v12::retained_estimate.clock.at(fake_now*20)==raw.at(fake_now*20));
+    assert(v12::retained_estimate.clock.rate==128);
+#endif
     // An authenticated coarse successor must not displace the fine HOLD.
     v12::anchor={true,333,444,1700000000000000ULL,fake_now,fake_now+250000,4,5,1000};
     v12::coarse_hold.retain(v12::anchor);v12::member=true;v12::joined_peer=333;v12::joined_boot=444;

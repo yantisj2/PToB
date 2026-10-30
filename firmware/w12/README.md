@@ -7,11 +7,19 @@ RC role. [Image provenance](../../docs/images/README.md).*
 
 Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
 
-**PToB owns W12 native G1/RC7 development.** Current version **0.2.26** supports
+**PToB owns W12 native G1/RC7 development.** Current version **0.2.27** supports
 **RC**: a BLE50 client or BLE100 receiver with an optional experimental
 estimated-TX relay. It receives from the shared T096/W12/StickS3 mesh; it has no
 GM profile or USB timing stream. Start with the
 [build guide](../../docs/w12/build.md).
+
+Version 0.2.27 adds a separate BLE-only HOLD rate estimator. Channel-aware
+16/32-second histories choose a bounded consensus with the existing fast rate;
+poor history, stale input or disagreement retains the fast rate. Entry preserves
+delivered phase and calibration. Temperature remains shadow-only. Accepted-pair
+and entry snapshots support causal replay, and selected-output reports include
+0–2, 2–4, 4–8 and 8–12 second P95/P99/MAX populations with all gaps and tails.
+These changes require exact-device sampling; they establish no accuracy claim.
 
 Version 0.2.26 keeps temperature fitting and compensation entirely in shadow.
 Production HOLD freezes the last trusted BLE rate, preserving the improved
