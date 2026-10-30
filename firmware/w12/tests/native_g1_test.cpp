@@ -138,6 +138,10 @@ int main(int argc,char** argv){assert(argc==2);std::string which=argv[1];
     // A new source learner reset cannot erase the retained clock's own thermal history.
     v12::shadow_holdover.clear();v12::r2_shadow_temperature(fake_now*20,27000);v12::shadow_temperature_consume();
     v12::snap.g1_retained_clock=v12::retained_estimate;actual=v12::r2_status();assert(actual.g1_holdover_selected);
+    // Early stop still holds the delivered clock until a continuous resume.
+    v12::holdover_test_start20=fake_now*20-20000000;v12::holdover_test_until20=fake_now*20+20000000;
+    v12::holdover_test_end("OPERATOR",false,fake_now*20);assert(v12::holdover_resume_pending);
+    v12::publish(fake_now);actual=v12::r2_status();assert(actual.g1_holdover_selected&&!actual.following);
     fake_now+=4000000;actual=v12::r2_status();assert(!actual.clock_valid&&!actual.g1_holdover_selected);
     assert(!v12::r2_holdover_test(999)&&!v12::r2_holdover_test(120001)&&v12::r2_holdover_test(0));
     std::puts("PASS actual production HOLD selection, shared thermal clock, independent sensor updates, source isolation, stale fail-closed and bounded test command");return 0;

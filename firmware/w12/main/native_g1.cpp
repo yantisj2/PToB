@@ -153,7 +153,7 @@ void holdover_test_end(const char* reason,bool complete,uint64_t tick){
   logf("W12_HOLDOVER_EVENT event=END test=%lu start20=%llu until20=%llu at20=%llu reason=%s complete=%u n=%lu p95_ns=%llu p99_ns=%llu max_ns=%llu gaps=%lu production=1 model=1\n",
     (unsigned long)holdover_test_generation,(unsigned long long)holdover_test_start20,(unsigned long long)holdover_test_until20,(unsigned long long)tick,reason,unsigned(complete),
     (unsigned long)q.samples,(unsigned long long)q.p95_ns,(unsigned long long)q.p99_ns,(unsigned long long)q.max_ns,(unsigned long)q.gaps);
-  holdover_test_until20=0;holdover_resume_pending=complete;shadow_holdover.audit_end(complete,tick);
+  holdover_test_until20=0;holdover_resume_pending=true;shadow_holdover.audit_end(complete,tick);
 }
 #endif
 void shadow_temperature_consume(){
@@ -1721,7 +1721,7 @@ void publish(uint64_t begin){const auto now=micros();uint64_t tick=0;
   // model until its own first correction, and must never borrow the old one.
   bool retained_selected=retained_valid&&!corrected_valid&&!following_now&&!held;
 #ifdef PTOB_W12_HOLDOVER_PRODUCTION
-  if(force_hold||(retained_estimate.trained&&(!corrected_valid||!corrected_clock.frequency_trained(tick)))){
+  if(force_hold||holdover_resume_pending||(retained_estimate.trained&&(!corrected_valid||!corrected_clock.frequency_trained(tick)))){
     retained_selected=retained_valid;if(retained_selected)following_now=false;
   }
 #endif
