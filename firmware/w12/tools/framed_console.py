@@ -72,9 +72,10 @@ def mutation_command(frame,nonce,action):
     return f"v12 do {b['ticket']} {nonce} {b['factory']} {b['session']} {action}\n".encode()
 
 class Parser:
-    def __init__(self,nonce,manifest,session=None,capture_base=None):
+    def __init__(self,nonce,manifest,session=None,capture_base=None,allow_uninitialized_g1=False):
         require(HEX16.fullmatch(nonce) and int(nonce,16),'Invalid expected nonce')
         self.nonce,self.manifest,self.session,self.capture_base=nonce,manifest,session,capture_base
+        self.allow_uninitialized_g1=allow_uninitialized_g1
         self.expected_rows=('W12_R2_STATUS',*ROWS) if manifest.get('r2_profile') in ('r2-control','r2-p1','r2-a5','r2-a5-16','r2-g1') else ROWS
         self.frame_bytes=manifest.get('console_frame_bytes',8192 if len(self.expected_rows)==9 else 6144)
         require(self.frame_bytes in (6144,8192,8704),'Unreviewed console frame capacity')
@@ -124,18 +125,19 @@ class Parser:
                 status=self.rows['W12_V12_STATUS']
                 if len(self.expected_rows)==9:
                     mesh=self.rows['W12_R2_STATUS']
-                    if self.manifest.get('version') in ('0.2.28','0.2.29','0.2.30'):require(self.manifest.get('holdover_horizon_contract')==('SAMPLED_PREFIX_Q99_1US_WITNESS_V2' if self.manifest['version']=='0.2.30' else 'SAMPLED_PREFIX_Q99_1US_V1'),'Sampled hold-duration UI contract missing')
-                    if self.manifest.get('version') in ('0.2.25','0.2.26','0.2.27','0.2.28','0.2.29','0.2.30'):
-                        rate_only=self.manifest.get('version') in ('0.2.26','0.2.27','0.2.28','0.2.29','0.2.30')
-                        require(self.manifest.get('holdover_servo_contract')==('BLE_RATE_CONSENSUS_TEMPERATURE_SHADOW_V3' if self.manifest.get('version') in ('0.2.27','0.2.28','0.2.29','0.2.30') else 'BLE_RATE_RETAINED_TEMPERATURE_SHADOW_V2' if rate_only else 'BLE_THERMAL_RETAINED_PRODUCTION_V1'),'Production holdover model/readout mismatch')
+                    if self.manifest.get('version') in ('0.2.28','0.2.29','0.2.30','0.2.31'):require(self.manifest.get('holdover_horizon_contract')==('SAMPLED_PREFIX_Q99_1US_WITNESS_V2' if self.manifest['version'] in ('0.2.30','0.2.31') else 'SAMPLED_PREFIX_Q99_1US_V1'),'Sampled hold-duration UI contract missing')
+                    if self.manifest.get('version') in ('0.2.25','0.2.26','0.2.27','0.2.28','0.2.29','0.2.30','0.2.31'):
+                        rate_only=self.manifest.get('version') in ('0.2.26','0.2.27','0.2.28','0.2.29','0.2.30','0.2.31')
+                        require(self.manifest.get('holdover_servo_contract')==('BLE_RATE_CONSENSUS_TEMPERATURE_SHADOW_V3' if self.manifest.get('version') in ('0.2.27','0.2.28','0.2.29','0.2.30','0.2.31') else 'BLE_RATE_RETAINED_TEMPERATURE_SHADOW_V2' if rate_only else 'BLE_THERMAL_RETAINED_PRODUCTION_V1'),'Production holdover model/readout mismatch')
                         if rate_only:require(self.manifest.get('holdover_temperature_policy')=='SHADOW_ONLY','Temperature shadow policy missing')
                     require(mesh.get('profile')==self.manifest['r2_profile'] and mesh.get('enrollment_sha')==self.manifest['r2_enrollment_sha256'] and mesh.get('self')=='3','R2 compiled profile/enrollment/self mismatch')
                     if self.manifest['r2_profile'] in ('r2-a5-16','r2-g1'):
-                        require(mesh.get('precision_interval_units')=='50' and mesh.get('precision_hz')=='16' and mesh.get('schedule_descriptor')==self.manifest.get('r2_fixed_schedule_hex')=='503132020000f424','Compiled16Hz cadence/schedule binding mismatch')
+                        not_started=self.allow_uninitialized_g1 and self.manifest['r2_profile']=='r2-g1' and status.get('host_ready')=='0' and all(mesh.get(k)=='0' for k in ('requested','client_running','host_stack_configured_bytes','precision_interval_units','precision_hz')) and mesh.get('schedule_descriptor')=='0000000000000000'
+                        require(not_started or (mesh.get('precision_interval_units')=='50' and mesh.get('precision_hz')=='16' and mesh.get('schedule_descriptor')==self.manifest.get('r2_fixed_schedule_hex')=='503132020000f424'),'Compiled16Hz cadence/schedule binding mismatch')
                     if self.manifest['r2_profile']=='r2-g1':
                         validate_provisional_profile(mesh,self.manifest)
                         require(mesh.get('client_capabilities')=='0' and mesh.get('client_control')=='0' and mesh.get('serving')=='0' and mesh.get('source')=='0','G1 client-only permission violated')
-                        require(mesh.get('group_id')==self.manifest['r2_group_id'] and mesh.get('key_epoch')==str(self.manifest['r2_key_epoch']) and mesh.get('client_identity')==self.manifest['r2_client_identity'],'G1 group/factory identity mismatch')
+                        require((not_started and mesh.get('group_id')==mesh.get('client_identity')=='0000000000000000' and mesh.get('key_epoch')=='0') or (mesh.get('group_id')==self.manifest['r2_group_id'] and mesh.get('key_epoch')==str(self.manifest['r2_key_epoch']) and mesh.get('client_identity')==self.manifest['r2_client_identity']),'G1 group/factory identity mismatch')
                     if self.manifest.get('r2_g1_connection_owner_revision')==3:
                         require(mesh.get('g1_connection_owner_revision')=='3' and mesh.get('g1_sdk_connect_pending') in ('0','1'),'G1 deferred-connect diagnostics version missing')
                         for key in ('g1_pending_disconnects','g1_pending_link_teardowns','g1_cancel_calls','g1_last_disconnect_at_us'):
@@ -145,7 +147,7 @@ class Parser:
                     if self.manifest.get('r2_g1_discovery_diagnostic_revision')==1:
                         require(mesh.get('g1_discovery_diagnostic_revision')=='1' and mesh.get('g1_sdk_scan_active') in ('0','1'),'G1 discovery diagnostics version missing')
                         compact=self.manifest.get('w12_lora_status_contract')=='W12_RC8_LR2021_COMPACT_DISCOVERY_V1'
-                        if compact:require(self.manifest.get('version') in ('0.2.0','0.2.1','0.2.2','0.2.3','0.2.4','0.2.5','0.2.6','0.2.7','0.2.8','0.2.9','0.2.10','0.2.11','0.2.12','0.2.13','0.2.14','0.2.15','0.2.16','0.2.17','0.2.18','0.2.19','0.2.20','0.2.21','0.2.22','0.2.23','0.2.24','0.2.25','0.2.26','0.2.27','0.2.28','0.2.29','0.2.30') and self.manifest.get('lora_rx') is True,'Compact discovery requires exact W12 LoRa image contract')
+                        if compact:require(self.manifest.get('version') in ('0.2.0','0.2.1','0.2.2','0.2.3','0.2.4','0.2.5','0.2.6','0.2.7','0.2.8','0.2.9','0.2.10','0.2.11','0.2.12','0.2.13','0.2.14','0.2.15','0.2.16','0.2.17','0.2.18','0.2.19','0.2.20','0.2.21','0.2.22','0.2.23','0.2.24','0.2.25','0.2.26','0.2.27','0.2.28','0.2.29','0.2.30','0.2.31') and self.manifest.get('lora_rx') is True,'Compact discovery requires exact W12 LoRa image contract')
                         omitted=('g1_adv_incomplete','g1_adv_long','g1_adv_nonrandom','g1_discovery_checked','g1_group_records','g1_last_adv_at_us','g1_last_group_at_us')
                         if compact:require(all(key not in mesh for key in omitted),'Unexpected mixed compact discovery layout')
                         for key in ('g1_adv_callbacks','g1_last_key_epoch',*(() if compact else omitted)):
@@ -195,9 +197,9 @@ class Parser:
                         for key in ('rx_installed','rx_armed','rx_fault','rx_calls','rx_candidates','rx_matched','rx_missed','rx_ambiguous','rx_overflow','rx_epoch','rx_peak','rx_hook_max_cycles','discipline_accepted','discipline_refused','rms_ns','hold_p99_ms','hold_p99_samples'):
                             require(re.fullmatch(r'[0-9]+',mesh.get(key,'')) is not None,'Missing/invalid periodic RX diagnostic '+key)
                         require(mesh['discipline_accepted']=='0' and mesh['hold_p99_ms']=='0','Unqualified shadow capture fed precision')
-                    if self.manifest.get('version') in ('0.2.8','0.2.9','0.2.10','0.2.11','0.2.12','0.2.13','0.2.14','0.2.15','0.2.16','0.2.17','0.2.18','0.2.19','0.2.20','0.2.21','0.2.22','0.2.23','0.2.24','0.2.25','0.2.26','0.2.27','0.2.28','0.2.29','0.2.30'):
+                    if self.manifest.get('version') in ('0.2.8','0.2.9','0.2.10','0.2.11','0.2.12','0.2.13','0.2.14','0.2.15','0.2.16','0.2.17','0.2.18','0.2.19','0.2.20','0.2.21','0.2.22','0.2.23','0.2.24','0.2.25','0.2.26','0.2.27','0.2.28','0.2.29','0.2.30','0.2.31'):
                         offsets=self.manifest.get('phase_offsets')
-                        require(isinstance(offsets,dict) and offsets.get('receive_ns')==7671 and offsets.get('relay_residual_ns')==(4026 if self.manifest.get('version') in ('0.2.10','0.2.11','0.2.12','0.2.13','0.2.14','0.2.15','0.2.16','0.2.17','0.2.18','0.2.19','0.2.20','0.2.21','0.2.22','0.2.23','0.2.24','0.2.25','0.2.26','0.2.27','0.2.28','0.2.29','0.2.30') else 3030),'Missing phase offset disclosure')
+                        require(isinstance(offsets,dict) and offsets.get('receive_ns')==7671 and offsets.get('relay_residual_ns')==(4026 if self.manifest.get('version') in ('0.2.10','0.2.11','0.2.12','0.2.13','0.2.14','0.2.15','0.2.16','0.2.17','0.2.18','0.2.19','0.2.20','0.2.21','0.2.22','0.2.23','0.2.24','0.2.25','0.2.26','0.2.27','0.2.28','0.2.29','0.2.30','0.2.31') else 3030),'Missing phase offset disclosure')
                         require(mesh.get('rxcal') in ('0','7671'),'Missing/invalid delivered receive phase')
                     if self.manifest.get('r2_rx_reference')=='CONTROLLER_1M_REF_DIRECT_BRACKET_V1':
                         require(mesh.get('cal') in ('0/0','3056/1'),'Missing/invalid experimental output correction status')
@@ -214,6 +216,7 @@ class Parser:
                 frame={'begin':b,'rows':self.rows.copy(),'end':e,'capture_base':base,'capture_delta':delta,'request_delta':request_delta,
                   'historical_loss':{k:int(e[k]) for k in COUNTERS},'ignored_queued_lines':self.ignored,
                   'freshness':'REQUEST_NONCE_COMPLETE_CRC_BOOT_SOURCE_BUILD_ORIGINAL_DEADLINE','physical_RF_time':'UNKNOWN'}
+                frame['host_snapshot_initialized']=self.rows.get('W12_R2_STATUS',{}).get('host_stack_configured_bytes')!='0'
                 results.append(frame);self.begin=None;self.raw=b'';self.rows={};continue
             require(kind in self.expected_rows and kind not in self.rows,'Interleaved/duplicate/unknown control row')
             self.rows[kind]=fields(text);self.raw+=line+b'\n'

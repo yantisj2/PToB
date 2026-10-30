@@ -69,7 +69,7 @@ def check(out):
  if len(files)!=1:raise ValueError('One retained native_main GCC stack-usage file required')
  gnss_usage=None;fast_map_usage=None;receipt=Path(out)/'receipt.json';device=Path(out)/'local/device.json';r=json.loads(receipt.read_text()) if receipt.exists() else {}
  if r.get('version') in ('0.1.22','0.1.23','0.2.0','0.2.1','0.2.2','0.2.3','0.2.4','0.2.5','0.2.6','0.2.7','0.2.8','0.2.9','0.2.10','0.2.11') and type(r.get('gnss_fast_map_diagnostic'))is not bool:raise ValueError('Explicit fast-map stack metadata required')
- if receipt.exists() and device.exists() and r.get('version') in ('0.1.21','0.1.22','0.1.23','0.2.0','0.2.1','0.2.2','0.2.3','0.2.4','0.2.5','0.2.6','0.2.7','0.2.8','0.2.9','0.2.10','0.2.11') and 'gnss_profile' in json.loads(device.read_text()):
+ if receipt.exists() and device.exists() and r.get('version') in ('0.1.21','0.1.22','0.1.23','0.2.0','0.2.1','0.2.2','0.2.3','0.2.4','0.2.5','0.2.6','0.2.7','0.2.8','0.2.9','0.2.10','0.2.11','0.2.31') and 'gnss_profile' in json.loads(device.read_text()):
   gnss=sorted(target.rglob('gnss_pps.cpp.su'))
   if len(gnss)!=1:raise ValueError('One retained GNSS PPS GCC stack-usage file required')
   gnss_usage=gnss[0].read_text()

@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-30 — W12 GNSS host startup
+
+- Reserve the full configured NimBLE host stack statically on GNSS W12 builds
+  and check creation instead of silently accepting a missing dynamic task.
+- Preserve host core/priority/stack budget, SDK options, GNSS, temperature shadow
+  and production HOLD; bind allocation policy in native build inspection.
+
 ## 2026-10-30 — W12 sampled witness coverage repair
 
 - Score each age through the first later actual BLE witness, retaining its full

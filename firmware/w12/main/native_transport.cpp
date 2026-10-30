@@ -15,9 +15,17 @@
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include <cstring>
+#ifdef PTOB_W12_STATIC_NIMBLE_HOST
+#include "w12_host_task.hpp"
+#include "esp_heap_caps.h"
+#include <cstdio>
+#endif
 namespace v12 {
 namespace {
 portMUX_TYPE mux=portMUX_INITIALIZER_UNLOCKED;
+#ifdef PTOB_W12_STATIC_NIMBLE_HOST
+w12::HostTask<CONFIG_BT_NIMBLE_HOST_TASK_STACK_SIZE> host_task;
+#endif
 Ring<Report,16> queue;
 TransportStatus snapshot;ClientLifecycle client;OwnerLease lease;
 uint32_t reports=0,incomplete=0,oversize=0,late=0,api_errors=0,resets=0;
@@ -179,7 +187,13 @@ void sync(){
   if(!ready)client.fail();
   publish();
 }
-void host(void*){nimble_port_run();nimble_port_freertos_deinit();}
+void host(void*){nimble_port_run();
+#ifdef PTOB_W12_STATIC_NIMBLE_HOST
+  host_task.exited();
+#else
+  nimble_port_freertos_deinit();
+#endif
+}
 void command(ble_npl_event*){
   HostWork work;bool stop;Mode mode;uint32_t generation;uint64_t deadline;bool timely=false;
   portENTER_CRITICAL(&mux);stop=command_stop;mode=command_mode;generation=stop_generation;deadline=lease.deadline_us;
@@ -209,7 +223,15 @@ bool transport_init(){
 #endif
   ble_npl_callout_init(&poll_callout,nimble_port_get_dflt_eventq(),poll,nullptr);
   ble_npl_callout_reset(&poll_callout,ble_npl_time_ms_to_ticks32(1));
+#ifdef PTOB_W12_STATIC_NIMBLE_HOST
+  const bool started=host_task.start(host,configMAX_PRIORITIES-4,NIMBLE_CORE);
+  std::printf("W12_NIMBLE_HOST allocation=STATIC started=%u stack_bytes=%u core=%d heap_free=%u largest_block=%u\n",
+    unsigned(started),unsigned(CONFIG_BT_NIMBLE_HOST_TASK_STACK_SIZE),int(NIMBLE_CORE),
+    unsigned(heap_caps_get_free_size(MALLOC_CAP_INTERNAL)),unsigned(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL)));
+  return started;
+#else
   nimble_port_freertos_init(host);return true;
+#endif
 }
 bool transport_request(Mode mode,uint32_t duration_ms,uint64_t request_id){
   if(mode==Mode::GM||mode==Mode::Relay||duration_ms<1000||duration_ms>10000)return false;

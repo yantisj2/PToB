@@ -5,6 +5,15 @@ Copyright (c) 2026 Jonathan Yantis. MIT.
 Native builds [clean compiler output and retain the latest two image bundles](../firmware-storage.md)
 per device/profile, with installed/recovery pins preserved.
 
+Version 0.2.31 uses checked static host-task allocation on the GNSS profile.
+The full configured 8192-byte host stack and its control block are reserved
+before peripheral heap fragmentation; host priority and core remain identical.
+Creation failure returns initialization failure rather than a silent stalled
+backend. The inspector binds the allocation flag to the selected GNSS profile.
+No SDK/controller configuration, oscillator model or partition change is made.
+Run `python3 firmware/w12/tools/host_task_tests.py --out artifacts/w12-host-task-tests-01`
+for the focused allocation and actual transport-owner regressions.
+
 Version 0.2.21 adds GPIO0 button shutdown on every page except Clock. A hold
 of four seconds blanks the OLED and starts the same original two-second drain
 used for maintenance. Deep sleep requires all owners to acknowledge OFF and

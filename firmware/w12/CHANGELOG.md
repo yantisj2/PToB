@@ -1,5 +1,12 @@
 # W12 changelog
 
+## 0.2.31 — checked GNSS host task allocation
+
+- Reserve the full configured NimBLE host stack statically on GNSS W12 builds
+  and check creation instead of silently accepting a missing dynamic task.
+- Preserve host core/priority/stack budget, SDK options, GNSS, temperature shadow
+  and production HOLD; bind allocation policy in native build inspection.
+
 ## 0.2.30 — conservative actual-witness coverage
 
 - Score each age through the first later actual BLE witness, retaining its full
