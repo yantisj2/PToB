@@ -887,7 +887,7 @@ accepted witness at or after that age. A witness up to 250 ms after the target
 conservatively includes its overshoot; an unsupported age is unknown, never a
 success. An early threshold crossing stays in every subsequent prefix even if
 later error improves. Each age keeps the latest 128 complete outcomes, requiring
-100, and allows only `floor(n/100)` failed or unknown outcomes. Select a
+100 scored runs, and allows only `floor(n/100)` failed or unknown outcomes. Select a
 contiguous passing prefix of age bins (250 ms spacing through four seconds,
 then 6/8/12/16/24/32/48/64/96/120 seconds). Display tenths round downward.
 Internal gaps over 250 ms remain counted without interpolating their interiors;

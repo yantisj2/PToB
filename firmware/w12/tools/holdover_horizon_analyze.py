@@ -12,11 +12,13 @@ def rounded(x):return math.floor(x+.5) if x>=0 else math.ceil(x-.5)
 def summary(bins):
     result=dict(ready=False,duration_ms=0,lower_bound=False,n=0,bad=0,unknown=0)
     bounded=False
-    if bins and len(bins[0])>=100:result.update(ready=True,n=len(bins[0]),bad=sum(x!=1 for x in bins[0]),unknown=bins[0].count(3))
+    if bins:result.update(n=len(bins[0]),bad=sum(x!=1 for x in bins[0]),unknown=bins[0].count(3))
     for age,b in zip(AGES,bins):
-        if len(b)<100:break
-        if sum(x!=1 for x in b)*100>len(b):bounded=True;break
-        result.update(duration_ms=age,n=len(b),bad=sum(x!=1 for x in b),unknown=b.count(3))
+        if len(b)-b.count(3)<100:break
+        if sum(x!=1 for x in b)*100>len(b):
+            if b.count(2)*100>len(b):bounded=True;result['ready']=True
+            break
+        result.update(ready=True,duration_ms=age,n=len(b),bad=sum(x!=1 for x in b),unknown=b.count(3))
     result['lower_bound']=result['ready'] and not bounded
     return result
 def analyze(raw):

@@ -32,7 +32,7 @@ class W12HoldoverHorizon {
       if(o==Unknown){++unknown;}
       head=uint8_t((head+1)%Capacity);
     }
-    bool ready()const{return n>=Minimum;}
+    bool ready()const{return unsigned(n)-unknown>=Minimum;}
     bool passes()const{return ready()&&unsigned(bad)*100<=n;} // Q99(prefix peak)<1000ns.
   };
   struct Run {
@@ -92,10 +92,15 @@ class W12HoldoverHorizon {
   }
   W12HorizonView view(uint64_t at=0)const{
     W12HorizonView v;v.last20=last_;v.probe_ms=probe_;v.started=started_;v.completed=completed_;v.aborted=aborted_;v.gaps=gaps_;
-    bool bounded=false;
-    for(const auto& b:bins_)if(b.ready()){v.ready=true;v.trials=b.n;v.bad=b.bad;v.unknown=b.unknown;break;}
+    bool bounded=false;v.trials=bins_[0].n;v.bad=bins_[0].bad;v.unknown=bins_[0].unknown;
     for(unsigned i=0;i<Ages.size();++i){const auto& b=bins_[i];if(!b.ready())break;
-      if(!b.passes()){bounded=true;break;}v.duration_ms=Ages[i];v.trials=b.n;v.bad=b.bad;v.unknown=b.unknown;
+      if(!b.passes()){
+        // Missing evidence can limit a lower bound, but cannot invent an early
+        // accuracy failure or a numeric horizon when no age has qualified.
+        if(unsigned(b.bad-b.unknown)*100>b.n){bounded=true;v.ready=true;}
+        break;
+      }
+      v.ready=true;v.duration_ms=Ages[i];v.trials=b.n;v.bad=b.bad;v.unknown=b.unknown;
     }
     v.lower_bound=v.ready&&!bounded;
     if(at&&(!last_||at<last_||at-last_>5*Hz))v.ready=false;

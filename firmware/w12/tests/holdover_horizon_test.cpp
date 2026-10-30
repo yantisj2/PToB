@@ -43,7 +43,10 @@ int main(int argc,char** argv){
   h.tick(15*Hz);
   assert(saved.gaps==1&&((saved.outcomes&3)==W12HoldoverHorizon::Pass)); // At250ms overshoot: conservative witness.
   assert(((saved.outcomes>>(2*18))&3)==W12HoldoverHorizon::Unknown);
-  auto thermal=clock_at(20*Hz);thermal.thermal.beta=1;
-  assert(!h.start(thermal,20*Hz)); // Temperature cannot contaminate the duration population.
+  h.clear();
+  for(uint64_t at=Hz;at<160*Hz;at+=Hz){h.observe(at,1000000000000ULL+at*50,at+1000);h.tick(at+1000);h.start(clock_at(at+1000),at+1000);}
+  assert(!h.view().ready); // All first-age witnesses missing: --, never a fake short hold.
+  auto thermal=clock_at(200*Hz);thermal.thermal.beta=1;
+  assert(!h.start(thermal,200*Hz)); // Temperature cannot contaminate the duration population.
   std::puts("PASS empirical hold seconds, first-crossing memory, sparse evidence, censoring, adaptive cap, reset and temperature exclusion");
 }
