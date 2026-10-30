@@ -464,7 +464,7 @@ void page_hold(const DisplayState& s){
    if(s.horizon_ready)std::snprintf(n,sizeof n,"%u",unsigned(s.horizon_trials));else std::snprintf(n,sizeof n,"%u/100",unsigned(s.horizon_trials));field(35,"RUNS",n);
    std::snprintf(n,sizeof n,"%lus",(unsigned long)(s.horizon_probe_ms/1000));field(44,"TEST TO",n);
    if(!s.horizon_ready)text(2,53,"SAMPLING / WARMUP");
-   else if(s.horizon_gaps){std::snprintf(n,sizeof n,"SAMPLED / GAPS %lu",(unsigned long)s.horizon_gaps);text(2,53,n);}
+   else if(s.horizon_gaps){std::snprintf(n,sizeof n,"SAMPLED GAPS %u%s",unsigned(std::min<uint32_t>(99999,s.horizon_gaps)),s.horizon_gaps>99999?"+":"");text(2,53,n);}
    else text(2,53,"SAMPLED / TEMP APART");
    return;
 #else

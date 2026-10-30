@@ -28,7 +28,9 @@ class W12HoldoverHorizon {
       const unsigned byte=head/4,shift=(head%4)*2;const auto old=uint8_t((data[byte]>>shift)&3);
       if(n==Capacity){if(old!=Pass)--bad;if(old==Unknown)--unknown;}else ++n;
       data[byte]=uint8_t((data[byte]&~(3u<<shift))|(unsigned(o)<<shift));
-      if(o!=Pass)++bad;if(o==Unknown)++unknown;head=uint8_t((head+1)%Capacity);
+      if(o!=Pass){++bad;}
+      if(o==Unknown){++unknown;}
+      head=uint8_t((head+1)%Capacity);
     }
     bool ready()const{return n>=Minimum;}
     bool passes()const{return ready()&&unsigned(bad)*100<=n;} // Q99(prefix peak)<1000ns.
@@ -62,7 +64,8 @@ class W12HoldoverHorizon {
     for(auto& r:runs_)if(!r.start){
       r={};r.start=r.last=at;r.epoch=value;r.rate=clock.rate;r.phase=int32_t(phase);r.probe_ms=probe_;inc(started_);r.id=started_;
       next_=at+uint64_t(std::max<uint32_t>(1000,(probe_+1000+Slots-1)/Slots))*20000;
-      if(start_sink_)start_sink_({r.id,r.probe_ms,at,r.epoch,r.rate,r.phase});return true;
+      if(start_sink_){start_sink_({r.id,r.probe_ms,at,r.epoch,r.rate,r.phase});}
+      return true;
     }
     return false;
   }

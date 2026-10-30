@@ -901,7 +901,7 @@ independent trials. Error tails continue through each probe after a crossing.
 
 The Hold page shows the 1 µs criterion, P99 seconds, run count, probe horizon and
 gaps. Existing nine-row status fields `ui_hold_percentile=99`, `ui_hold_ms` and
-`ui_hold_samples` mirror the rendered value; they add no response bytes/fields.
+`ui_hold_samples` mirror the rendered value without adding response fields or changing frame bounds.
 Capture-only `W12_HORIZON_START/END/RESET/STATUS` records keep this population
 separate from thermal `W12_SHADOW` and selected-output `W12_HOLDOVER` records.
 `tools/holdover_horizon_analyze.py` independently replays frozen clocks from
