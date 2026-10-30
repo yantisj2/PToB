@@ -2,6 +2,9 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#ifdef PTOB_W12_SHADOW_HOLDOVER
+#include "w12_thermal_projection.hpp"
+#endif
 namespace v12 {
 // Continuous20MHz software-clock actuator. Large acquisition phase uses at
 // most50ppm; N30 and W12 fine builds enter1ppm slew below2us; legacy builds within1us. Frequency remains
@@ -10,6 +13,9 @@ struct G1ClockPrediction {
   uint64_t tick=0;int64_t epoch=0,phase=0;double rate=0;int64_t utc_offset=0;
   int32_t output_correction_ns=0; // Snapshot-only untested experiment; raw fitter always zero.
   int32_t receiver_phase_ns=0; // Delivered-copy adjustment; raw oscillator history remains unshifted.
+#ifdef PTOB_W12_SHADOW_HOLDOVER
+  W12ThermalProjection thermal{};
+#endif
   double phase_slew_ns_s()const {
     const double magnitude=std::abs(double(phase));
 #if defined(PTOB_N30) || defined(PTOB_W12_FINE_CLOCK)
@@ -35,8 +41,28 @@ struct G1ClockPrediction {
     const auto projected=nominal+steer;
     if((receiver_phase_ns>0&&projected>INT64_MAX-receiver_phase_ns)||
        (receiver_phase_ns<0&&projected<=-int64_t(receiver_phase_ns)))return 0;
-    return projected+receiver_phase_ns;
+    const auto delivered=projected+receiver_phase_ns;
+#ifdef PTOB_W12_SHADOW_HOLDOVER
+    int64_t correction=0;if(!thermal.correction(now,correction))return 0;
+    if((correction>0&&delivered>INT64_MAX-correction)||(correction<0&&delivered<=-correction))return 0;
+    return delivered+correction;
+#else
+    return delivered;
+#endif
   }
+#ifdef PTOB_W12_HOLDOVER_PRODUCTION
+  // Seed the current authenticated servo from the clock actually delivered in
+  // HOLD. Preserve its target and fitted rate; existing bounded phase slew
+  // removes the residual without a step. No source permission is changed.
+  bool resume_from(const G1ClockPrediction& held,uint64_t now,int32_t delivered_receiver_ns){
+    const auto target=relative_at(now),held_utc=held.at(now);
+    if(target<=0||held_utc<=utc_offset||output_correction_ns||receiver_phase_ns)return false;
+    const auto value=held_utc-utc_offset-delivered_receiver_ns;
+    if(value<=0||std::abs(double(target-value))>1000000)return false;
+    const auto remaining=phase_remaining(now);
+    tick=now;epoch=value;phase=target-value+remaining;thermal={};return true;
+  }
+#endif
   int64_t at(uint64_t now)const {
     const auto relative=relative_at(now);
     if(relative<=0||utc_offset<0||relative>INT64_MAX-utc_offset)return 0;

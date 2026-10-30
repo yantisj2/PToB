@@ -111,6 +111,10 @@ struct R2Status {
   G1RelativeQuality g1_relative_quality{};
 #ifdef PTOB_W12_SHADOW_HOLDOVER
   W12ShadowView g1_shadow{};
+#ifdef PTOB_W12_HOLDOVER_PRODUCTION
+  bool g1_holdover_model=false,g1_holdover_selected=false,g1_holdover_test=false;
+  uint64_t g1_holdover_test_until20=0;uint32_t g1_holdover_test_generation=0;
+#endif
 #endif
   G1ResetRecovery g1_recovery{};
   G1Diagnostics g1_diagnostics{};
@@ -170,6 +174,9 @@ void r2_stop();
 void r2_observe(uint64_t now);
 R2Status r2_status();
 #ifdef PTOB_W12_SHADOW_HOLDOVER
+#ifdef PTOB_W12_HOLDOVER_PRODUCTION
+bool r2_holdover_test(uint32_t duration_ms); //0 stops; finite1–120s output hold, BLE witnesses remain live.
+#endif
 void r2_shadow_temperature(uint64_t tick20,int32_t milli_celsius);
 #endif
 // Main-task GNSS observer only. The timebase conversion is coarse, never

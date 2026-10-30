@@ -7,11 +7,22 @@ RC role. [Image provenance](../../docs/images/README.md).*
 
 Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
 
-**PToB owns W12 native G1/RC7 development.** Current version **0.2.24** supports
+**PToB owns W12 native G1/RC7 development.** Current version **0.2.25** supports
 **RC**: a BLE50 client or BLE100 receiver with an optional experimental
 estimated-TX relay. It receives from the shared T096/W12/StickS3 mesh; it has no
 GM profile or USB timing stream. Start with the
 [build guide](../../docs/w12/build.md).
+
+Version 0.2.25 promotes the shadow temperature model into the local production
+HOLD clock. It freezes the last BLE frequency and learned coefficient, then
+integrates only causal temperature changes while BLE corrections are absent.
+A trained retained clock continues through coarse successor acquisition;
+return to a trained BLE servo preserves the delivered time and slews the residual.
+An exact-device bounded test can select production HOLD for up to 120 seconds
+while BLE remains a measurement witness. Capture records prove selection,
+replay the actual output and preserve P95/P99/MAX and gaps. `P99:` continues to
+show sampled holdover error. This is no independent UTC or GM-transition
+qualification; see [production checks](../../docs/w12/build.md#production-holdover).
 
 Version 0.2.24 anchors each shadow run to the last measured BLE frequency,
 applying the learned temperature slope only to subsequent temperature changes.
@@ -28,7 +39,7 @@ sampled duration below it. Version 0.2.23 aborted gaps above 250 ms; 0.2.24 reta
 120 seconds without crossing is limited by the test cap. Future coefficients
 learn continuously, while the held coefficients and phase remain frozen.
 Temperature is a silicon-sensor proxy; BLE supplies every timing reference.
-The production servo remains active. Sampled errors and durations establish
+In those shadow-only editions the production servo remains active. Sampled errors and durations establish
 neither UTC accuracy nor a continuous bound. See the [shadow checks](../../docs/w12/build.md#shadow-holdover).
 
 Version 0.2.21 adds four-second button shutdown from any non-clock page.

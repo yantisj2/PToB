@@ -52,6 +52,11 @@ class R2Dashboard {
     state.shadow_holdover=true;state.shadow_p99_ns=mesh.g1_shadow.p99_ns;state.shadow_samples=mesh.g1_shadow.samples;
     state.shadow_age_ms=mesh.g1_shadow.age20/20000;state.shadow_safe_ms=mesh.g1_shadow.safe20/20000;
     state.shadow_cross_ms=mesh.g1_shadow.cross20/20000;state.shadow_holding=mesh.g1_shadow.holding;state.shadow_gaps=mesh.g1_shadow.gaps;
+#ifdef PTOB_W12_HOLDOVER_PRODUCTION
+    state.holdover_production=mesh.g1_holdover_model;state.holdover_selected=mesh.g1_holdover_selected;
+    if(state.holdover_selected&&mesh.g1_clock_model.thermal.start20&&mesh.g1_relative_quality.evaluated20>=mesh.g1_clock_model.thermal.start20)
+      state.shadow_age_ms=uint32_t(std::min<uint64_t>(UINT32_MAX,(mesh.g1_relative_quality.evaluated20-mesh.g1_clock_model.thermal.start20)/20000));
+#endif
 #endif
 #ifdef R2_TZ_WIRE
     last_tz=mesh.tz;state.tz=mesh.tz;state.tz_until_us=mesh.tz_until_us;state.tz_sampled_us=mesh.follower_snapshot_us;

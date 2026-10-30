@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-30 — W12 production thermal holdover
+
+- W12 0.2.25 promotes the frozen BLE/temperature shadow projection to local
+  HOLD, retains it through coarse acquisition, and resumes the trained BLE
+  servo without a time step. Preserve source and relay expiry.
+- Add finite production-output tests with BLE as a witness, independently
+  replayed output and sampled P95/P99/MAX. Keep the P99 footer; distinguish
+  activation verification from GM failover and independent accuracy.
+
 ## 2026-10-30 — W12 shadow frequency anchor
 
 - W12 0.2.24 removes the historical absolute-rate blend at shadow entry.

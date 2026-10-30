@@ -60,7 +60,7 @@ struct DisplayState {
     uint32_t precision_ns=UINT32_MAX, uncertainty_us=UINT32_MAX;
     uint32_t rate_sigma_ppb=UINT32_MAX;
     uint32_t relative_prediction_ns=UINT32_MAX;
-    bool shadow_holdover=false;
+    bool shadow_holdover=false,holdover_production=false,holdover_selected=false;
     uint64_t shadow_p99_ns=UINT64_MAX;uint32_t shadow_samples=0;
     uint32_t shadow_age_ms=0,shadow_safe_ms=0,shadow_cross_ms=0,shadow_gaps=0;bool shadow_holding=false;
     uint32_t hold_trials=0,hold_precision_ns=UINT32_MAX,hold_age_s=UINT32_MAX;

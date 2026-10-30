@@ -24,9 +24,16 @@ struct G1RetainedEstimate {
       clock.output_correction_ns==0&&clock.receiver_phase_ns==0&&clock.at(tick)>0;
   }
   bool deliver(uint64_t tick,uint64_t& utc_us)const{
+#ifdef PTOB_W12_HOLDOVER_PRODUCTION
+    if(!clock.thermal.enabled)return false;
+#endif
     if(!root||!clock.tick||tick<clock.tick)return false;
     const auto ns=clock.at(tick);if(ns<=0)return false;utc_us=uint64_t(ns)/1000;return true;
   }
 };
+#ifdef PTOB_W12_SHADOW_HOLDOVER
+static_assert(sizeof(G1RetainedEstimate)<=208,"W12 thermal retained estimate RAM bound");
+#else
 static_assert(sizeof(G1RetainedEstimate)<=112,"Retained estimate RAM bound");
+#endif
 }

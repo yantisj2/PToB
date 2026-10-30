@@ -1,5 +1,20 @@
 # W12 changelog
 
+## 0.2.25 — production thermal holdover
+
+- Replace the local retained constant-rate projection with the shadow model's
+  frozen BLE frequency and temperature-change integral. Continue sensor updates
+  during source absence; stale or invalid sensor history refuses delivery.
+- Preserve trained local HOLD through coarse successor acquisition. Seed the
+  returning trained BLE servo from delivered time and slew the residual;
+  reacquire quality from fresh samples. Source and relay permission still expire.
+- Add exact-device, ticketed production-HOLD tests capped at 120 seconds. BLE
+  stays a witness; capture actual output, frozen inputs, selection and return
+  step. Independently replay output and P95/P99/MAX without removing tails.
+- Keep the P99 footer and distinguish production HOLD on the Hold page. Add
+  sanitized selection, thermal equivalence, sensor/source isolation and handoff
+  checks. Hardware activation, failover and independent accuracy are separate.
+
 ## 0.2.24 — anchor shadow frequency to the last BLE fit
 
 - Remove the historical absolute-rate blend at shadow entry. Keep the last

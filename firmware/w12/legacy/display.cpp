@@ -441,13 +441,13 @@ void page_hold(const DisplayState& s){
  char n[24];
  if(s.r2_dashboard){
   if(s.shadow_holdover){
-   std::snprintf(n,sizeof n,"SHADOW %lus / 120s",(unsigned long)(s.shadow_age_ms/1000));text(2,17,n);
+   std::snprintf(n,sizeof n,s.holdover_production?"THERMAL HOLD %lus":"SHADOW %lus / 120s",(unsigned long)(s.shadow_age_ms/1000));text(2,17,n);
    if(s.shadow_p99_ns!=UINT64_MAX)std::snprintf(n,sizeof n,"%lluns",(unsigned long long)s.shadow_p99_ns);else std::snprintf(n,sizeof n,"WARMUP");
    field(26,"P99",n);std::snprintf(n,sizeof n,"%lu/100",(unsigned long)s.shadow_samples);field(35,"SAMPLES",n);
    format_hold_time(n,sizeof n,s.shadow_cross_ms?s.shadow_cross_ms:s.shadow_safe_ms);
    field(44,s.shadow_cross_ms?"1us HIT":"SUB 1us",n);
    if(s.shadow_gaps){std::snprintf(n,sizeof n,"BLE GAPS %lu",(unsigned long)s.shadow_gaps);text(2,53,n);}
-   else {text(2,53,s.shadow_holding?"BLE SHADOW RUNNING":"SHADOW PAUSED");}
+   else {text(2,53,s.holdover_production?(s.holdover_selected?"PRODUCTION HOLD":"VALIDATION / FOLLOW"):(s.shadow_holding?"BLE SHADOW RUNNING":"SHADOW PAUSED"));}
    return;
   }
   short_num(n,sizeof(n),s.rms_ns);field(17,"CAUSAL NS",n);

@@ -614,6 +614,11 @@ void stop_all(){
     const bool ok=update_gate.begin(admitted);if(ok){stop_all();v12::capture_stop();}
     last_command={nonce,admitted,ok,"PREPARE_UPDATE",ok?"ORIGINAL_2S_DRAIN":"LATCHED_OR_EXHAUSTED"};
   }else if(update_gate.latched()){last_command.reason="UPDATE_GATE_LATCHED";}
+#ifdef PTOB_W12_HOLDOVER_PRODUCTION
+  else if(std::sscanf(action,"holdover test %" SCNu32 " %c",&duration,&extra)==1){
+    const bool ok=v12::r2_holdover_test(duration);last_command={nonce,admitted,ok,"HOLDOVER_TEST",ok?"QUEUED_FINITE_LOCAL_HOLD_BLE_WITNESS":"NOT_READY_OR_BOUND"};
+  }
+#endif
 #ifdef PTOB_W12_DUAL_UI
   else if(std::sscanf(action,"ui page %" SCNu32 " %c",&duration,&extra)==1){
    const bool ok=duration==display_pages::Front||duration==display_pages::Precision||duration==display_pages::LoraRx||(gps_ready&&duration==display_pages::Gps);
@@ -750,6 +755,14 @@ void stop_all(){
           (unsigned long long)q.p95_ns,(unsigned long long)q.p99_ns,(unsigned long long)q.max_ns,
           (unsigned long long)q.baseline_p95_ns,(unsigned long long)q.baseline_p99_ns,(unsigned long long)q.baseline_max_ns,unsigned(q.thermal_ready),unsigned(q.holding),(unsigned long long)q.age20,(unsigned long long)q.safe20,(unsigned long long)q.cross20,
           (unsigned long long)q.baseline_cross20,(unsigned long long)q.run_max_ns,(unsigned long)q.gaps,(unsigned long long)q.max_gap20);
+          if(printed>0)console_bytes+=unsigned(printed);}
+#endif
+#ifdef PTOB_W12_HOLDOVER_PRODUCTION
+        {const auto edge=mesh.g1_relative_quality.evaluated20;const auto output=mesh.g1_clock_model.at(edge);
+          const int printed=std::printf("W12_HOLDOVER_STATUS at_us=%llu model=1 selected=%u test_active=%u test=%lu start20=%llu until20=%llu sample20=%llu output_ns=%lld delivered_us=%llu following=%u production=1\n",
+            (unsigned long long)now,unsigned(mesh.g1_holdover_selected),unsigned(mesh.g1_holdover_test),(unsigned long)mesh.g1_holdover_test_generation,
+            (unsigned long long)mesh.g1_retained_clock.clock.thermal.start20,(unsigned long long)mesh.g1_holdover_test_until20,
+            (unsigned long long)edge,(long long)output,(unsigned long long)mesh.follower_utc_us,unsigned(mesh.following));
           if(printed>0)console_bytes+=unsigned(printed);}
 #endif
         for(unsigned i=0;i<8;i++){const unsigned index=(g1_diagnostic_peer+i)%8;const int n=v12::g1_render_peer(line,sizeof line,mesh.g1_diagnostics.peers[index]);

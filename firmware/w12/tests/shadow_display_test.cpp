@@ -24,5 +24,6 @@ int main(int argc,char** argv){
   mesh.g1_shadow.cross20=66*20000000ULL;dashboard.apply(s,mesh);assert(s.shadow_cross_ms==66000);image(s,out+"/shadow-crossed.pbm");
   mesh.g1_shadow.gaps=3;dashboard.apply(s,mesh);assert(s.shadow_gaps==3);image(s,out+"/shadow-gaps.pbm");
   mesh.g1_shadow.p99_ns=UINT64_MAX;dashboard.apply(s,mesh);assert(s.shadow_p99_ns==UINT64_MAX);
+  s.holdover_production=true;s.holdover_selected=true;s.shadow_gaps=0;image(s,out+"/production-hold.pbm");
   std::puts("PASS actual shadow framebuffer: warmup, measured P99 footer pixels, extended run and threshold details and expiry");
 }

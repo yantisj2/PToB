@@ -9,9 +9,9 @@ def main():
     p=argparse.ArgumentParser();p.add_argument('--out',type=Path,required=True);a=p.parse_args();out=a.out.resolve();out.mkdir(parents=True,exist_ok=False)
     sys.path.insert(0,str(A.parents[1]/'registry'));from registry import load,header
     (out/'ptob_registry.h').write_text(header(load(A.parents[1]/'registry/example.json')))
-    flags=['-std=c++20','-O1','-g','-Wall','-Wextra','-Werror','-Wno-misleading-indentation','-Wno-unused-parameter','-fsanitize=address,undefined','-fno-sanitize-recover=all','-DPTOB_W12_SHADOW_HOLDOVER=1','-I'+str(out)]
+    flags=['-std=c++20','-O1','-g','-Wall','-Wextra','-Werror','-Wno-misleading-indentation','-Wno-unused-parameter','-fsanitize=address,undefined','-fno-sanitize-recover=all','-DPTOB_W12_SHADOW_HOLDOVER=1','-DPTOB_W12_HOLDOVER_PRODUCTION=1','-I'+str(out)]
     for path in (A/'main',A/'legacy',A/'main/r2/r2-g1',A/'main/r2/rc7/include'):flags+=['-I'+str(path)]
-    for name in ('shadow_holdover','shadow_display'):
+    for name in ('shadow_holdover','shadow_display','production_holdover'):
         cmd=['/opt/homebrew/opt/llvm/bin/clang++',*flags,A/'tests'/(name+'_test.cpp'),'-o',out/name]
         with (out/(name+'-build.log')).open('w') as log:subprocess.run(list(map(str,cmd)),stdout=log,stderr=subprocess.STDOUT,check=True)
         with (out/(name+'.log')).open('w') as log:subprocess.run([out/name,out],stdout=log,stderr=subprocess.STDOUT,check=True)
@@ -53,7 +53,9 @@ def main():
     assert result['coverage_gaps']==0 and result['maximum_gap_seconds']==.125
     partial=analyze(('\n'.join(lines[500:])+'\n').encode())['populations'][0]
     assert partial['rolling_reproduced'] and not partial['from_start']
-    paths=[A/'main/w12_shadow_holdover.hpp',A/'main/g1_corrected_clock.hpp',A/'main/native_g1.cpp',A/'main/native_main.cpp',A/'main/native_dashboard.hpp',A/'legacy/display.cpp',A/'legacy/display.hpp',A/'tests/shadow_holdover_test.cpp',A/'tests/shadow_display_test.cpp',Path(__file__),A/'tools/shadow_holdover_analyze.py']
+    with (out/'production-analysis.log').open('w') as log:
+        subprocess.run([sys.executable,A/'tests/holdover_production_analyze_test.py'],stdout=log,stderr=subprocess.STDOUT,check=True)
+    paths=[A/'main/w12_shadow_holdover.hpp',A/'main/w12_thermal_projection.hpp',A/'main/g1_clock_prediction.hpp',A/'tests/production_holdover_test.cpp',A/'tests/holdover_production_analyze_test.py',A/'tools/holdover_production_analyze.py',A/'main/g1_corrected_clock.hpp',A/'main/native_g1.cpp',A/'main/native_main.cpp',A/'main/native_dashboard.hpp',A/'legacy/display.cpp',A/'legacy/display.hpp',A/'tests/shadow_holdover_test.cpp',A/'tests/shadow_display_test.cpp',Path(__file__),A/'tools/shadow_holdover_analyze.py']
     (out/'receipt.json').write_text(json.dumps(dict(status='PASS',hardware_access=False,sources={str(x):hashlib.sha256(x.read_bytes()).hexdigest() for x in paths}),indent=2)+'\n')
     print('PASS shadow holdoff/thermal/quantiles/tails and actual OLED pixels under ASan/UBSan')
 if __name__=='__main__':main()

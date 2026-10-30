@@ -355,6 +355,15 @@ class G1CorrectedClock {
     const int64_t slew=clock_.phase_slewed(completion);
     clock_={completion,relative,clock_.phase-slew,clock_.rate,clock_.utc_offset};return true;
   }
+#ifdef PTOB_W12_HOLDOVER_PRODUCTION
+  bool resume_holdover(const G1ClockPrediction& held,uint64_t at){
+    if(!frequency_trained(at)||!clock_.resume_from(held,at,prediction().receiver_phase_ns))return false;
+    // Fresh physical quality must describe the newly selected actuator.
+    for(auto& bucket:quality_){bucket={};}
+    quality_second_=0;quality_missing_=0;
+    return true;
+  }
+#endif
   bool covers(uint64_t now,uint64_t through)const{return scope_.valid(now)&&until_>through&&through>=now;}
   bool deliver(uint64_t tick,uint64_t now,uint64_t& utc_us)const {
     // Consumer sees clock validity only. Beyond original signed permission
@@ -593,6 +602,10 @@ class G1CorrectedClock {
 #if defined(PTOB_N30) || defined(PTOB_W12_FINE_CLOCK)
 static_assert(sizeof(G1CorrectedClock)<=2048,"Fine frozen capture predictions exceed2KiB clock budget");
 #else
+#ifdef PTOB_W12_SHADOW_HOLDOVER
+static_assert(sizeof(G1CorrectedClock)<=1960,"W12 clock plus frozen thermal projection RAM allocation");
+#else
 static_assert(sizeof(G1CorrectedClock)<=1864,"Functional clock exceeds its fixed RAM allocation");
+#endif
 #endif
 }

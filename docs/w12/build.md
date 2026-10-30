@@ -812,7 +812,7 @@ Neither host checks nor internal fit RMS establishes calibrated UTC accuracy.
 
 ## Shadow holdover
 
-W12 0.2.24 keeps the existing production servo and adds an experimental
+W12 0.2.22–0.2.24 keep the existing production servo and add an experimental
 numerical shadow model. It learns a bounded linear temperature response from
 BLE-derived frequency fits using an eight-second silicon-temperature proxy.
 There is no local GNSS/LoRa training or production cutover. Insufficient thermal
@@ -864,3 +864,49 @@ sequences and tails remain explicit. No detrending or tail removal is applied.
 Radio-off behavior, continuous bounds and independently measured UTC remain
 unqualified. Tuning and production promotion require repeatable matched trials
 across operating temperatures and loads; no automatic cutover is implemented.
+
+## Production holdover
+
+Version 0.2.25 selects the same frozen temperature-change model for local
+production HOLD. The last measured BLE rate, phase and learned temperature
+coefficient freeze at entry. Only causal silicon-temperature samples advance
+the eight-second lag and integral. Missing sensor history, a sensor gap above
+three seconds, invalid temperature or an excessive correction refuses delivery.
+The temperature coefficient is zero until sufficient learning is available.
+BLE remains the only timing reference; temperature is a proxy, not a time source.
+
+A trained retained clock takes precedence over a new coarse JOIN until the
+successor has its own trained physical model. On return, the trained BLE servo
+starts from the delivered HOLD time, preserving its target and bounded slew.
+Fresh observations must reestablish quality. A difference above one millisecond
+refuses that continuous handoff. Local HOLD grants no new source, relay or
+authentication permission. A finite test does not qualify actual GM failover.
+
+The ticketed, boot-bound console command `holdover test N` accepts 1,000–120,000
+milliseconds only when following a trained clock; the owning loop also checks
+sub-microsecond quality and remaining phase before starting. `holdover test 0`
+stops it. During the bounded test the **delivered local clock** uses the frozen
+production model while incoming BLE continues as an observation witness.
+No BLE reference updates that delivered model. Ordinary acquisition remains
+ready for return. The original finite capture lease and hardware guards apply.
+
+Capture `W12_HOLDOVER_EVENT`, `W12_HOLDOVER_SENSOR`, `W12_HOLDOVER`,
+`W12_HOLDOVER_STATUS` and `W12_HOLDOVER_RESUME` records together. BEGIN retains
+the exact floating-point entry parameters; sensor records permit independent
+causal replay. STATUS samples the same reader used by the display and records
+selected model, actual UTC output, delivered microseconds and following state.
+Sample records normalize the configured receiver shift for comparison with BLE.
+Use `tools/holdover_production_analyze.py` to check replay, output decomposition,
+rolling percentiles, selection and zero-step return. A completed activation
+check requires a complete bounded trial, at least 100 observations from its
+start, selected-output records, no missing sample sequences and a verified
+zero-step resume. It still reports every sampled error, crossing and coverage gap.
+
+Run `tools/shadow_holdover_tests.py` and
+`tests/holdover_production_analyze_test.py` offline before native preparation.
+These include production/shadow equivalence over 120 seconds, frozen learning,
+stale-sensor rejection, handoff and actual OLED rendering. `P99:` remains the
+latest 100–128 sampled holdover errors; during a production test it scores the
+selected output, and otherwise scores continuous shadow validation. A production
+HOLD page identifies the selected path. Neither the display nor the activation
+checks establish continuous sub-microsecond performance or independent UTC.

@@ -5,7 +5,20 @@
 uint64_t fake_now=1000;
 void test_critical_enter(void*);
 #define V12_TEST_CRITICAL_ENTER(x) test_critical_enter(x)
+#if defined(PTOB_W12_HOLDOVER_PRODUCTION) && defined(V12_R2_RX_SHADOW)
+#define CONFIG_BT_NIMBLE_HOST_TASK_STACK_SIZE 8192
+using StackType_t=uint8_t;
+inline unsigned uxTaskGetStackHighWaterMark(void*){return 8192;}
+#endif
 #include "../main/native_g1.cpp"
+#if defined(PTOB_W12_HOLDOVER_PRODUCTION) && defined(V12_R2_RX_SHADOW)
+namespace v12::periodic_rx {
+bool start(){return true;}void poll(){}uint32_t scope(uint16_t,bool){return 1;}
+bool adopt(uint16_t,uint32_t){return true;}bool stop(){return true;}
+bool match(uint16_t,const uint8_t*,size_t,uint64_t,Stamp& stamp){stamp={};return false;}
+Stats status(){return {};}RfReference rf_reference(){return {};}
+}
+#endif
 #ifdef PTOB_W12_SHADOW_HOLDOVER
 extern "C" bool clock_reference_read(uint64_t* count){if(!count)return false;*count=fake_now*20;return true;}
 #endif
@@ -97,6 +110,36 @@ int main(int argc,char** argv){assert(argc==2);std::string which=argv[1];
   if(which=="cancel"){assert(v12::r2_status().off_ack);return 0;}if(which=="blocked"||which=="late"){assert(v12::r2_status().fault);return 0;}
   assert(v12::r2_status().client.running);
 #ifdef PTOB_W12_SHADOW_HOLDOVER
+#ifdef PTOB_W12_HOLDOVER_PRODUCTION
+  if(which=="holdover-production"){
+    fake_now=2000000;const uint64_t at=fake_now*20;
+    v12::G1ClockPrediction raw{at,INT64_C(1000000000000),0,123,INT64_C(1700000000000000000)};
+    raw.receiver_phase_ns=7671;
+    v12::shadow_holdover.temperature(at,25);
+    assert(v12::retained_estimate.retain(raw,111,222,3,at,fake_now,true));
+    assert(v12::shadow_holdover.arm(v12::retained_estimate.clock,at));
+    v12::retained_estimate.clock.thermal.beta=100; // Exercised nonzero learned response.
+    v12::r2_shadow_temperature(at+20000000,27000);v12::shadow_temperature_consume();
+    fake_now+=2000000;
+    v12::snap.requested=true;v12::snap.fault=false;v12::snap.following=false;v12::snap.clock_valid=false;
+    v12::snap.g1_retained_clock=v12::retained_estimate;
+    auto actual=v12::r2_status();const auto frozen=raw.at(fake_now*20);
+    assert(actual.clock_valid&&actual.g1_retained_estimate&&actual.g1_holdover_selected&&!actual.following);
+    assert(actual.follower_utc_us==uint64_t(v12::retained_estimate.clock.at(fake_now*20))/1000);
+    assert(actual.g1_clock_model.at(fake_now*20)>frozen&&!v12::r2_clock_witness(actual));
+    // An authenticated coarse successor must not displace the fine HOLD.
+    v12::anchor={true,333,444,1700000000000000ULL,fake_now,fake_now+250000,4,5,1000};
+    v12::coarse_hold.retain(v12::anchor);v12::member=true;v12::joined_peer=333;v12::joined_boot=444;
+    v12::publish(fake_now);actual=v12::r2_status();
+    assert(actual.g1_holdover_selected&&!actual.following&&actual.g1_clock_origin==111&&!actual.root_identity);
+    // A new source learner reset cannot erase the retained clock's own thermal history.
+    v12::shadow_holdover.clear();v12::r2_shadow_temperature(fake_now*20,27000);v12::shadow_temperature_consume();
+    v12::snap.g1_retained_clock=v12::retained_estimate;actual=v12::r2_status();assert(actual.g1_holdover_selected);
+    fake_now+=4000000;actual=v12::r2_status();assert(!actual.clock_valid&&!actual.g1_holdover_selected);
+    assert(!v12::r2_holdover_test(999)&&!v12::r2_holdover_test(120001)&&v12::r2_holdover_test(0));
+    std::puts("PASS actual production HOLD selection, shared thermal clock, independent sensor updates, source isolation, stale fail-closed and bounded test command");return 0;
+  }
+#endif
   if(which=="shadow-only"){
     const auto original=v12::corrected_clock.prediction();
     const auto at=UINT64_C(40000000);v12::G1ClockPrediction active{at-1000,INT64_C(1000000000000),0,123,0};
