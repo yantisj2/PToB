@@ -1,191 +1,120 @@
-# N30 native RC target
+# N30 · BLE clock with LoRa fallback
 
-**Version 0.2.37** brings BLE reception, passive LoRa fallback and a portrait
-OLED to the Meshnology N30 / Heltec WiFi LoRa32 V3. It uses an ESP32-S3,
-8 MiB flash and a 64×128 display. N30 is RC-only, with no GNSS input; WiFi is
-disabled. Start with the [build guide](../../docs/n30/build.md).
+PToB firmware for the **Meshnology N30 / Heltec WiFi LoRa32 V3**: receive
+mesh time, view a portrait clock and compare BLE with an independent passive
+LoRa timing input. N30 supports **RC (receiver/relay clock)** only. It has no
+GNSS input, and Wi-Fi is disabled.
 
-Version 0.2.37 replaces four-second display blanking with real deep sleep.
-From any non-clock page, hold the button for four seconds, then release it.
-Radio/capture owners must finish the original two-second drain and the OLED
-worker must stop before sleep. Press the button again to reboot. Clock keeps
-its 1.5-second relay toggle; LoRa cycles at 1.5 seconds and continuing the hold
-to four seconds requests shutdown. This stops ongoing synchronization while off;
-physical sleep current, battery lifetime and wake behavior need hardware checks.
-
-Version 0.2.36 follows T096 0.15.206's ordered TZ updates, including changed
-UTC offsets and explicit unknown withdrawals. Its front digital/analog clock
-shows local time and `CDT`, `CST` or `LOC` while metadata is live, then falls back
-to UTC. N30 clock savers follow the same rule. LoRa/RC9 and timing diagnostics retain UTC.
-The GM owns location/DST selection; these receivers need no regional database.
-See [wire compatibility and checks](../../docs/esp32-time-zones.md).
-
-Version 0.2.34 preserves a recently trained local clock through a direct GM
-handoff. The display stays in HOLD through the successor's coarse JOIN; its
-first authenticated physical correction resumes continuous phase steering
-with the learned rate. New source permission, fit points and lock quality are
-acquired independently. Carry expires30s after the last physical observation;
-large time steps still fence the clock and require ordinary acquisition.
-
-Version 0.2.33 consumes authenticated GM7 revision-3 successor announcements.
-Withdrawal, completed timed yield, an observed successor promotion or sustained
-source loss starts fresh recovery with a short preference for the named GM.
-The replacement still requires authenticated admission and new timing samples.
-See the [handoff behavior and offline checks](../../docs/w12/build.md#gm-successor-recovery).
-
-Version 0.2.32 retires an active periodic-sync owner when the pinned SDK
-returns a successful HCI terminate acknowledgement or confirms it is already
-absent. Its later queued notification cannot retire a replacement capture.
-Pending create cancellation still requires its real completion; original drain
-and quiet deadlines remain enforced. The compact fault site distinguishes
-terminate API errors, late acknowledgement and unclosed drain expiry. Native
-regressions establish software behavior only.
-
-Version 0.2.31 also clears obsolete trials and backoff when a freshly
-authenticated RC7 response changes the root, boot, source epoch or publisher
-path through the same relay. Its current response and ACL survive the fence;
-the old PA retains its actual drain deadline. An unchanged-path renewal keeps
-its existing policy. Operator pins and per-device calibration survive.
-
-Version 0.2.30 also clears old normal-source selection history when RC9 fallback
-first takes over, and when a direct root authenticates after an earlier empty
-scope. These transitions retain authenticated fallback expiry and actual radio
-drain ownership; stale trial history cannot defer the replacement leader.
-
-Learned parents, leader sessions, clock models and retry history exist only in
-RAM and start empty on every boot. Bluetooth bonding/NVS persistence is disabled;
-the application does not load or write learned state in flash. A watchdog
-restart can restore only an explicit operator parent pin from its RTC record.
-Enrollment, registry and calibration remain build inputs. Fresh advertisements
-may select the same parent again, but require a new authenticated admission.
-
-Version 0.2.29 retires the old leader's session, timing model, queued timing
-samples, discovery locators, cooldowns and selection history after 1.5 seconds
-of continuous source-permission loss, or immediately after an authenticated
-source-incarnation change. Short gaps retain acquisition. Operator pins and
-per-device calibration survive. Fresh discovery and authenticated admission
-are required before FOLLOW returns; a JOIN alone grants no precision. Repeated
-cache resets cannot grant a recovery admission more often than every five seconds.
-Exact duplicate incoming relay connections retain their existing owner and
-deadline; valid capacity overlaps are refused and drained by the worker.
-Hardware failover and precision remain subject to exact-image verification.
-
-Version 0.2.28 fixes automatic return from RC9 fallback to normal BLE after
-mesh recovery. It reuses bounded passive discovery, requires fresh normal
-admission and preserves fallback expiry, explicit pins and separate clock
-models. See [AUTO recovery](../../docs/w12/rc9.md#auto-client-return-to-normal-ble).
+[Build and set up](../../docs/n30/build.md) ·
+[Group setup](../../docs/GETTING_STARTED.md) ·
+[RC9 fallback](../../docs/n30/rc9.md) · [Changelog](CHANGELOG.md)
 
 | Clock | BLE + LoRa | Precision | LoRa receiver |
 | :---: | :---: | :---: | :---: |
-| [<img src="../../docs/images/n30-clock-preview.png" width="128" alt="N30 clock dashboard">](../../docs/images/n30-clock-preview.png) | [<img src="../../docs/images/n30-rf-preview.png" width="128" alt="Independent BLE and LoRa clocks">](../../docs/images/n30-rf-preview.png) | [<img src="../../docs/images/n30-precision-preview.png" width="128" alt="Casio-style precision page showing 49 ns causal SYNC RMS">](../../docs/images/n30-precision-preview.png) | [<img src="../../docs/images/n30-lora-preview.png" width="128" alt="LoRa receiver status">](../../docs/images/n30-lora-preview.png) |
+| [<img src="../../docs/images/n30-clock-preview.png" width="128" alt="N30 portrait clock dashboard">](../../docs/images/n30-clock-preview.png) | [<img src="../../docs/images/n30-rf-preview.png" width="128" alt="Independent BLE and LoRa clock readouts">](../../docs/images/n30-rf-preview.png) | [<img src="../../docs/images/n30-precision-preview.png" width="128" alt="N30 precision preview with internal causal RMS, relative drift and counter details">](../../docs/images/n30-precision-preview.png) | [<img src="../../docs/images/n30-lora-preview.png" width="128" alt="N30 LoRa receive status">](../../docs/images/n30-lora-preview.png) |
 
-*Production-renderer previews, not hardware photographs. Precision shows a
-recorded **49 ns causal SYNC RMS** from the completed N3-2 research run;
-its other values are illustrative. Select an image for native resolution.
+*Production-renderer previews, not hardware photographs. The precision image's
+RMS is a recorded internal prediction statistic; other values are illustrative.
+These values are not specifications or independent output accuracy.
 [Image provenance](../../docs/images/README.md#n30-precision-preview).*
 
-## BLE and LoRa timing
+## Capabilities and specifications
 
-BLE and LoRa maintain independent clocks. Settled BLE lock takes display
-priority; available LoRa time supplies the `LOR` fallback. LoRa uses its original 20 MHz XTAL counter for DIO1 capture mapping, independently
-of the BLE fine counter. LoRa never trains the BLE clock or grants downstream
-timing authority. Its receiver requires an
-explicitly configured T096 transmitter and uses the fixed 915 MHz profile.
+| Area | Current configuration |
+| --- | --- |
+| Hardware | ESP32-S3, **8 MiB flash** build configuration, **SX1262 LoRa** radio. Fixed board routes; no GNSS profile. |
+| Display | **64 × 128** portrait monochrome OLED with clockwise/counterclockwise mount selection, digital/analog clock and moving savers. |
+| BLE receiver | Authenticated **G1/RC7**. **BLE100** is standard; **BLE50** is client-only. Optional BLE100 relay uses estimated TX timing with unknown RF/UTC bounds. |
+| Fine clock | Optional continuous **80 MHz counter**, **12.5 ns ticks**, delivered on a **50 ns grid**. Requires N30-specific capture routing and calibration; unconfigured builds retain the **20 MHz** backend. |
+| LoRa | Passive **RC8 wire 3**, fixed **915 MHz** receive profile with an independently configured T096 transmitter. Separate **20 MHz XTAL** counter maps DIO1 captures. |
+| Functional fallback | Distinct **RC9** direct-client UTC reception with unknown transport/precision bounds; it cannot relay further or train the BLE fitter. |
+| Time zone | BLE clock and savers follow fresh GM time-zone/DST metadata, then fall back to UTC. LoRa/RC9 and timing diagnostics remain UTC. |
+| Power and console | GPIO0 page/mode controls and bounded deep-sleep request. UART diagnostic console, not a T096 USB timing source. |
 
-LoRa AUTO starts after three accumulated minutes without live BLE lock and
-stops after three continuous minutes of recovery. BLE automatically seeks a
-fresh parent after sustained lock loss. See the [timing and recovery details](../../docs/n30/build.md).
-BLE100 is standard; BLE50 is client-only. Optional BLE100 relay transmission
-uses estimated TX timing with unknown RF/UTC bounds. The UART console is not
-a T096 USB timing source.
+## Get started
 
-Version0.2.25 also consumes the distinct W12 **RC9** direct-client service.
-It carries functional LoRa-derived UTC with unknown transport/precision bounds,
-separately from the normal BLE fitter. Fresh direct LoRa takes priority over
-RC9; settled normal BLE retains priority over both. RC9 cannot relay further.
-See [RC9 behavior and checks](../../docs/n30/rc9.md).
+1. **Verify the board and identity.** Confirm the factory MAC, board revision,
+   display wiring and mounted rotation. Use the [onboarding guide](../../docs/n30/build.md)
+   to bind the device to the shared registry; never substitute an alias or
+   advertised BLE address for factory identity.
+2. **Prepare a compatible source.** Use the [group setup](../../docs/GETTING_STARTED.md)
+   with a T096 GM or compatible relay. Match the current
+   [coarse TZ wire](../../docs/esp32-time-zones.md). Keep trust enrollment separate
+   from runtime discovery; a context change needs fresh authenticated admission.
+3. **Build and preview offline.** Follow the [build guide](../../docs/n30/build.md)
+   for public dependencies, board configuration, both portrait rotations and
+   tests. Enable estimated relay or fine capture only through their explicit
+   profiles. Keep enrollment, device bindings and images in ignored local files.
+4. **Use the exact-device installation path.** Default builds are offline
+   preparation. Commissioning needs verified recovery, physical layout checks,
+   bounded owner drain, app-only write bounds and actual readback. Then check
+   the selected parent, source freshness and relative lock before interpreting RMS.
+5. **Add LoRa if needed.** Configure the matching T096 transmitter and receive
+   profile using the build guide. N30 listens passively; it does not supply the
+   LoRa source. Validate fallback separately from normal BLE reception.
 
-Version0.2.26 aligns AUTO's BLE lock input with the existing controller: current
-source and model permission must be live, while the one-second quality forecast
-uses the original replay horizon. Short permission renewals no longer suppress
-continuous recovery. UTC delivery deadlines and the180s AUTO dwell are unchanged.
-The LoRa diagnostic reports the worker's actual `ble_locked` input.
+## How the timing inputs work
 
-The experimental fine profile associates supported packets with captured
-controller events on one continuous **80 MHz counter (12.5 ns ticks)**, then
-delivers timestamps on a 50 ns grid. It requires its own calibration and GPIO
-review; unconfigured builds retain the 20 MHz backend. Reusable diagnostics
-default OFF and support finite, configurable collection. See the
-[fine-receiver contract](../../docs/n30/build.md#empirical-fine-receiver-candidate)
-and [diagnostics guide](../../docs/n30/build.md#version-029-reusable-timing-diagnostics).
+Settled BLE lock has display priority. Fresh direct LoRa supplies the **LOR**
+fallback, ahead of RC9. Each input keeps its own clock: LoRa and RC9 never train
+the BLE model or grant downstream timing authority. The dual-radio page compares
+clocks only when root, boot and source scope match.
 
-## Latest precision results
+LoRa **AUTO** starts after **3 accumulated minutes** without live BLE lock and
+stops after **3 continuous minutes** of recovery. Overrides reset to AUTO at
+boot. Bounded passive discovery and fresh admission allow normal BLE to return
+during an RC9 lease; root hints or failed admission never renew fallback expiry.
 
-| Measurement | Result | Population and limits |
-| --- | --- | --- |
-| N3-2 internal causal SYNC RMS | **49 ns observed** | Rolling prediction quality; three 49 ns readings among 311 finite readings in 313 status snapshots. |
-| N3-2 downstream relative shadow PPS | **166.590 ns RMS** | Full 660 s window: 657 eligible + 3 invalid, zero nominal missing; mean −106.811 ns, maximum absolute error 1591 ns. All tails retained. |
-| N3-1 same-correction transfer | **150.954 ns RMS** | Separate short check: 48 eligible + 16 invalid, no sequence gaps; mean +115.167 ns, maximum 362 ns; one terminal unread edge. |
+After direct-GM loss, a trained local estimate may remain labeled **HOLD**
+through a successor's coarse JOIN. Reuse ends **30 s** after the original physical
+observation; only a fresh authenticated physical correction resumes steering.
+Source permission, fit samples and lock quality are acquired afresh. This
+continuity mechanism does not establish qualified failover precision.
 
-**Display RMS is internal prediction quality, not downstream PPS accuracy.**
-Counter resolution and calibrated RF/UTC accuracy are also separate. The
-sub-100 ns downstream target remains open.
-
-The full N3-2 run used a fixed 50909 ns relay correction. N3-1 carries the
-revised **51016 ns total correction** derived from that run, with its own
-publisher and direct-root scope. The fresh N3-1 check kept a positive mean:
-the same constant did not transfer zero mean across boards. No refit was made
-during that check.
-
-The [eight-page research draft](../../papers/ptob-esp32s3-timing-preprint.pdf)
-and [selected evidence](../../evidence/s3/2026-10-22-fine/README.md) document
-these results and the remaining TX-event, RX-delay and causal-validation work.
-Earlier results remain in the historical paper editions.
+Learned parents, models and retry history live in RAM and start empty on boot.
+A watchdog can restore an explicit operator pin; it cannot restore learned
+clock authority. Enrollment, registry and calibration remain separate inputs.
 
 ## Screens and controls
 
-Boot shows a PToB splash for up to 1.5 seconds after its first successful OLED
-transfer. BLE reception and clock acquisition start before OLED initialization
-and continue throughout the splash. A current settled BLE lock with internal
-SYNC RMS below 1 µs ends it early. A fresh eligible GM starts admission
-immediately, without the initial discovery collection wait.
-
 A short press cycles **Clock → BLE + LoRa → Precision → LoRa → Clock**.
-
-Version 0.2.23 enters the 1 ppm fine phase slew below 2 µs. The screensaver
-retains its existing 500 ms exit after continuous loss of both timing inputs.
-A brief Precision-header flash on both boards remains under investigation;
-optional console capture now records surface transitions and completed OLED
-write spans without changing that exit policy.
-
-The clock page's bars show fresh RSSI from the active BLE parent, for direct GM
-and relay or RC9 reception. They remain independent of clock lock and expire after
-two seconds without an authenticated packet. Unknown signal and LoRa fallback
-show empty bars. Strong-signal thresholds are −85, −70 and −55 dBm.
+Acquisition runs while the startup splash is displayed.
 
 | Page | Hold action |
 | --- | --- |
-| Clock | 1.5 s toggles automatic parent selection / relay-only reception. |
-| BLE + LoRa | 1.5 s opens RF help; 4 s requests shutdown. |
-| Precision | 1.5 s opens precision help; 4 s requests shutdown. |
-| LoRa | 1.5 s overrides AUTO: KEEP ON → KEEP OFF → AUTO; 4 s requests shutdown. |
+| Clock | **1.5 s** toggles automatic parent selection / relay-only reception. This changes upstream selection, not relay transmission. |
+| BLE + LoRa | **1.5 s** opens RF help; **4 s** requests shutdown. |
+| Precision | **1.5 s** opens precision help; **4 s** requests shutdown. |
+| LoRa | **1.5 s** cycles KEEP ON → KEEP OFF → AUTO; **4 s** requests shutdown. |
 
-Precision shows the root name, BLE/RC1/RC2 path and PPS indicator, causal RMS,
-`REL ±ppb`, selected clock/tick size and continuous settled-lock duration.
-REL estimates the recent prediction-error trend; it does not steer the clock.
-The dual-radio page compares clocks only when their root, boot and source
-scope match. LoRa overrides reset to AUTO on boot.
+Release after the shutdown request. Deep sleep requires the original **2 s**
+radio/capture drain and display-worker stop; a new button press reboots the app.
+A failed drain remains a fault. Sleep current, battery lifetime and physical
+wake behavior need hardware validation.
 
-## Build and verification
+The clock's signal bars describe fresh authenticated parent RSSI, independently
+of lock, and expire after **2 s** without a packet. Precision shows the root,
+BLE/RC1/RC2 path, internal causal RMS, relative drift in ppb, counter/tick size
+and settled-lock duration. Relative drift is diagnostic and does not steer time.
 
-Use the [build and onboarding guide](../../docs/n30/build.md) for pinned public
-dependencies, offline tests, previews and exact-device installation checks.
-The target reuses W12 timing and selected T096 RC8 sources; see
-[source notices](NOTICE.md) and [source provenance](../../docs/n30/source-provenance.json).
+## Precision, evidence and development
 
-N3-1/N3-2 use the [shared registry](../../registry/README.md). Verified factory
-identities, enrollment and enrolled images stay in ignored local files;
-no enrolled binary is distributed. Host tests and native builds establish
-software properties, not hardware acceptance or calibrated output accuracy.
+**Causal RMS is internal prediction quality.** It differs from downstream
+relative PPS error, counter resolution and calibrated RF/UTC accuracy. The
+sub-100 ns downstream goal remains open; calibration constants do not transfer
+between boards without independent checks.
 
-Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
+The [timing research draft](../../papers/ptob-esp32s3-timing-preprint.pdf) and
+[selected evidence](../../evidence/s3/2026-10-22-fine/README.md) retain finite
+measurements, populations, failures and tails. The [changelog](CHANGELOG.md)
+records dated results and firmware changes. Host tests, native builds and
+previews establish software properties, not hardware acceptance.
+
+Use the [build guide](../../docs/n30/build.md) for fine-receiver contracts,
+diagnostics and update checks. [Source provenance](../../docs/n30/source-provenance.json)
+and [notices](NOTICE.md) identify the selected W12/T096 dependencies.
+No enrolled binary is distributed. Independent UTC/output accuracy, RF endpoint
+delay, physical failover and continuous availability remain unqualified.
+
+Copyright (c) 2026 Jonathan Yantis. Original documentation: [MIT](../../LICENSE).
+Preserved dependency notices apply.

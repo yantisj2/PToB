@@ -1,27 +1,45 @@
-# macOS USB / chrony client
+# macOS · USB time client and chrony bridge
 
-The PToB macOS client receives time from a compatible T096 RC or dedicated
-[DC GNSS/USB image](../../docs/t096/direct-connect.md) over USB.
-**Timing comes from hardware-captured USB frame boundaries**, independently
-matched to the Mac's USB frame reference and mapped to its monotonic clock.
-USB packets carry those captured records, so variable delivery latency affects
-freshness rather than defining the clock phase.
+Receive time from a compatible **T096 RC** or dedicated **DC GNSS/USB** image,
+inspect the input stream and feed an experimental user clock through an owned,
+unprivileged chronyd. The macOS system clock stays unchanged.
 
-Read the [USB timing research draft](../../papers/usb-macos-time-transfer-preprint.pdf)
-for the method, measured results and limitations.
+Timing comes from **hardware-captured USB frame boundaries**, matched to the
+Mac's USB frame reference and monotonic clock. USB packets carry captured
+records; variable delivery latency affects freshness rather than defining phase.
 
-The resulting time feeds an experimental user clock through a private,
-unprivileged chronyd, with a live display, source diagnostics and chrony tracking.
-The macOS system clock stays unchanged.
+[Build and set up](../../docs/macos/build.md) ·
+[Chrony integration](chrony/README.md) · [USB contract](usb/README.md) ·
+[Development history](../../CHANGELOG.md)
 
-[Build guide](../../docs/macos/build.md) · [Chrony integration](chrony/README.md) ·
-[USB contract](usb/README.md) · [Group setup](../../docs/GETTING_STARTED.md)
+## Choose a source
 
-## Build and use
+| Source | Timing path | What you need |
+| --- | --- | --- |
+| T096 **RC** | GM → BLE → T096 RC → USB → macOS | Compatible enrolled RC with fresh accepted BLE timing. |
+| T096 **DC** | GNSS → T096 DC → USB → macOS | Separate [DC image](../../docs/t096/direct-connect.md), GNSS fix/PPS and compatible USB maps; no BLE or group enrollment. |
 
-Follow the [standalone build guide](../../docs/macos/build.md) for prerequisites,
-the shared display registry and the complete offline checks. From the repository
-root:
+The normal T096 GM backend does not publish a USB source map. Direct Mac BLE
+and StickS3 CDC timing input are not supplied. Connecting a diagnostic serial
+port is not sufficient; the source must implement the
+[T096 USB timing contract](usb/README.md).
+
+## Capabilities and specifications
+
+| Area | Current configuration |
+| --- | --- |
+| Host | Apple Silicon macOS is the checked build host; Swift/Foundation client with IOKit/IOUSBHost helper. Other hosts remain unvalidated. |
+| Input | Hardware USB frame capture plus immutable device source map and host Mach clock association. Source/root/boot/path and counter changes fence old training. |
+| User clock | Owned foreground **chronyd -x**, unprivileged, fed through a private SOCK refclock. Quarter-second polling, four-sample filter and 64-sample estimator limit. |
+| Diagnostics | Live terminal clock, source status, corrected-source RX USB RMS, chrony tracking, bounded JSONL capture and offline precision replay. |
+| Continuity | Compatible retained estimates appear as **HOLDOVER / LOCAL ONLY** with increasing age and unknown error bounds; they never become chrony measurements. |
+| Isolation | Owner-only local sockets; no OS clock discipline, LAN time serving, LaunchAgent or system synchronization changes. Exit stops the owned daemon. |
+
+## Build and check offline
+
+Follow the [build guide](../../docs/macos/build.md) for Apple's command-line
+tools, public dependencies, registry selection and the complete offline suite.
+From the repository root:
 
 ```sh
 sh clients/macos/chrony/build.sh
@@ -29,20 +47,33 @@ sh clients/macos/build.sh
 clients/macos/ptob --self-test
 ```
 
-After arranging access to a compatible, enrolled T096 RC, launch
-`clients/macos/ptob`. Normal launch opens USB and starts its owned chronyd;
-`--no-chrony` selects USB-only operation. `--self-test`, reports and precision
-replay are offline. In the terminal, `c` opens chrony statistics, `d` diagnostics,
-`h` help and `q` closes the client.
+The build compiles the client, USB helper and pinned chrony; it does not start
+a service. The self-test neither opens USB nor launches chronyd. Use the same
+[display registry](../../registry/README.md) as the firmware when building for
+a deployment. Names never replace device identity or timing permission.
 
-Use an RC USB source for the mesh chain, or DC for local GNSS with zero BLE
-relay hops. DC uses the same USB contract; it has no group enrollment or runtime
-GM/RC toggle. The reviewed normal GM backend does not publish a USB
-source map. Direct Mac BLE, SS3 CDC timing input and network time serving are
-not supplied. The [chrony guide](chrony/README.md) explains the local daemon and
-read-only monitoring options.
+## Connect and use
 
-For a receiver baseline before chrony, use an exact discovered serial:
+Arrange access to a compatible source, then launch:
+
+```sh
+clients/macos/ptob
+```
+
+Normal launch opens USB and starts the owned local chronyd. `--no-chrony`
+selects USB-only operation. Use `--device FULL_USB_SERIAL` to select an exact
+discovered device; a display alias is not a USB identity. The client does not
+flash firmware or change relay roles.
+
+| Key | View or action |
+| --- | --- |
+| `c` | Chrony statistics |
+| `d` | Source and receiver diagnostics |
+| `h` | Help |
+| `q` | Close the client and stop its owned daemon |
+
+For a bounded USB baseline before chrony, use a fresh capture path and your
+source's exact serial:
 
 ```sh
 clients/macos/ptob --no-chrony --no-ntp --device FULL_USB_SERIAL \
@@ -50,108 +81,48 @@ clients/macos/ptob --no-chrony --no-ntp --device FULL_USB_SERIAL \
 clients/macos/ptob --precision-replay clients/macos/runs/NEW-baseline.jsonl
 ```
 
-**RX USB RMS** is the RMS of causal corrected-source prediction errors against
-hardware SOF / Apple Mach frame boundaries. Each prediction uses the previous
-64–1024 valid source observations; the current sample is scored before joining
-the fit. It includes GNSS map corrections, retains residual bias/transients and
-does not retrospectively detrend the errors. The separately reported UTC offset
-is excluded. Exact immutable-map agreement and resolved direct-port frame
-identity are required. Rejected/unavailable samples reset training; gaps over
-500 ms also restart it. Source scope changes start a new RMS population. Counts,
-warm-up, qualification and rejected observations remain explicit in
-`boundary_bridge.rx_corrected_source` and precision replay.
+Replay and self-tests are offline. The baseline command is a live hardware
+operation. [ChronyControl setup](../../docs/macos/chronycontrol.md) provides
+optional GUI monitoring of a separately installed application.
 
-The readout requires four predictions and a source observation younger than
-500 ms. It measures relative stream stability using a preceding affine rate
-fit, with unknown host/PHY bias and UTC association. It is separate from the
-device's SOF span RMS, retrospective source jitter and chrony's estimator RMS;
-it does not establish absolute UTC accuracy.
+## Read the timing statistics
 
-## BLE and USB Direct results — 17 October 2026
+**RX USB RMS** measures causal corrected-source prediction errors against
+hardware USB SOF / Apple Mach frame boundaries, before chrony filtering.
+A preceding **64–1024** valid-observation affine fit predicts each sample before
+that sample enters training. Residual bias and transients remain; the separately
+reported UTC offset is excluded.
 
-[<img src="../../docs/images/chronycontrol-usb-direct-shared-bus-20261017.png" width="760" alt="USB Direct GNSS timing in ChronyControl on the shared USB bus, selected view from 17 October 2026">](../../docs/images/chronycontrol-usb-direct-shared-bus-20261017.png)
+Exact immutable-map agreement and resolved direct-port frame identity are
+required. Rejected/unavailable samples, gaps above **500 ms** and source-scope
+changes restart training. The readout needs four predictions and a source
+observation younger than **500 ms**. Warm-up, rejection, qualification and missing
+observations stay explicit in capture/replay.
 
-Jonathan Yantis supplied this updated **USB Direct** view from
-[ChronyControl by Bryan Christianson](https://www.whatroute.net/chronycontrol.html).
-The log spans 11:37 AM–12:42 PM CDT; the zoomed trace shows roughly
-12:36–12:42 PM. The comparison below comes from the native captures, using a
-later **concurrent 180-second window, approximately 12:42:10–12:45:10 PM CDT**.
+RX USB RMS, the device's SOF span RMS, retrospective source jitter and chrony's
+estimator RMS are different metrics. Chrony-versus-fine-source comparisons
+share their input; they are not independent UTC measurements. Host/PHY bias and
+UTC association remain unknown.
 
-Both paths use the same RX measurement implementation, **32 Hz USB sampling**
-and chrony 4.9 with **quarter-second polling** (`poll -2`, `filter 4`,
-`maxsamples 64`). RC v0.15.81 follows **GNSS → BLE → RC → USB → macOS**;
-DC v0.15.80 follows **GNSS → USB → macOS**, with zero BLE hops. The common
-window starts 60 seconds into the RC chrony trial; all later observations
-within that fixed window are included, regardless of their magnitude.
+## Continuity, evidence and limits
 
-**These are shared-bus results. Our USB setup was not a clean bus.** The
-measurement methods and observation window are comparable; the separate source
-chains and bus conditions do not establish a controlled accuracy comparison.
+Same-source quality expiry pauses chrony input while preserving the owned
+process. Source/counter changes fence old training. Automatic rediscovery uses
+fresh helper instances after stale transport errors, with one reader per silicon
+identity. The **500 ms** display hold affects presentation only; withheld UTC
+is withheld immediately. See the [continuous-estimate contract](../../docs/t096/continuous-estimate.md).
 
-| Measurement, same 180-second window | BLE source through RC | USB Direct source |
-| --- | --- | --- |
-| Valid USB timing replies | **5,760 / 5,760** | **5,760 / 5,760** |
-| Hardware consistency rejections | 12 tuples | 6 tuples |
-| Corrected-source RX RMS, before chrony | **190 ns**, 5,054 predictions | **267 ns**, 5,370 predictions |
-| Chrony estimator RMS, median | **31 ns**, 177 status-sampled readouts | **27 ns**, 177 status-sampled readouts |
-| Delivered chrony minus fine source | **326 ns RMS**, 837 ns absolute p99; 145 comparisons | **345 ns RMS**, 689 ns absolute p99; 119 comparisons |
-| User-clock availability | **147 / 177** status observations; 30 withheld | **119 / 177** status observations; 58 withheld |
+The [USB timing research draft](../../papers/usb-macos-time-transfer-preprint.pdf)
+and [selected comparison evidence](../../evidence/usb/2026-10-17/README.md) retain
+historical measurements, exact populations, rejections and withheld output.
+Their shared-bus observations do not establish a controlled accuracy comparison.
+Clean-bus validation, independent UTC/endpoint accuracy and continuous precision
+availability remain open. Self-tests and successful builds do not qualify them.
 
-RX counts also retain 694 RC and 384 DC warm-up observations following
-consistency rejections. Both paths had one source scope, zero unavailable USB
-timing replies, zero missing replies and zero transport-error events in this
-window. Valid USB input does not imply continuously available user-clock output;
-withholding remains visible above. Delivered-status and comparison counts differ
-when their separately sampled host brackets do not both permit output.
-
-Chrony's tracking RMS uses the latest synchronized readout at each status point;
-it is separate from corrected-source RX RMS and delivered-clock difference.
-The last compares chrony with its own fine input
-source at the same host wall/Mach instant; it is not independent UTC error.
-The screenshot is an after-acquisition display. The numerical window also starts
-after acquisition, while retaining every withheld status within it. RC's earlier
-slow BLE reacquisition capture remains separate from this settled comparison.
-Neither requested two-hour trial was complete when this window was selected.
-
-**Clean-bus validation is pending.** Repeat each source on the same dedicated
-USB controller with one timing device attached at a time, recording topology,
-power, host load and source placement. Keep the sampling/filter settings and
-duration matched, and retain acquisition, rejected samples and withheld output.
-A direct USB port or resolved SOF frame identity alone does not establish an
-isolated bus. These results do not qualify independent UTC accuracy or durability.
-
-The [current comparison record](results/2026-10-17-ble-vs-direct.json) preserves
-exact populations, method/source identities, input hashes and limitations.
-The [sanitized observation data](../../evidence/usb/2026-10-17/README.md) lets
-reviewers recompute the statistics; private raw captures are excluded.
-[Image provenance](../../docs/images/README.md)
-records the supplied bytes and display selection. Use the
-[ChronyControl setup](../../docs/macos/chronycontrol.md) to review a live capture.
-
-## Continuity and source handling
-
-With a compatible T096, the optional UTE1 response supplies a retained local
-clock estimate. The client shows HOLDOVER / LOCAL ONLY and increasing observation
-age separately from valid source observations. Unknown error bounds remain
-unknown, and extrapolations never become chrony measurements.
-
-A compatible same-source quality expiry pauses chrony input while preserving
-the owned process. Source or counter changes still fence old training. Automatic
-rediscovery retries after stale transport errors using fresh helper instances
-and I/O mappings, with a per-silicon reader lock. The 500 ms display hold affects
-presentation only; withheld UTC remains withheld immediately. Read the
-[continuous-estimate contract](../../docs/t096/continuous-estimate.md) and
-[USB observation contract](usb/README.md) for the detailed boundaries.
-
-## Source and provenance
-
-PToB owns this client. Its imported baseline is CLI 0.21
-(`ptob-mac-cli/0.21-sof-map-gap`); the
-[import manifest](imports/2026-10-16.json) records that selection's exact hashes.
-Later development is recorded in Git and the project changelog. Public fixtures
-use synthetic identities and the shared display registry. The
-[image provenance](../../docs/images/README.md) records each display's scope.
+Read [chrony isolation and interpretation](chrony/README.md) before attaching
+another instance. [Source notices](NOTICE.md), [import provenance](imports/2026-10-16.json)
+and the [project changelog](../../CHANGELOG.md) preserve dependency terms and
+source history. Raw captures and generated outputs remain local and ignored.
 
 Copyright (c) 2026 Jonathan Yantis. Original client code and documentation use
-MIT; chrony and other third-party terms are preserved. Screenshot/data rights
-are recorded with the image provenance.
+[MIT](../../LICENSE); chrony and other third-party terms are preserved.

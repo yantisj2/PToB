@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-10-30 — target README organization and current specifications
+
+- Reorganize T096, W12, StickS3, N30, CoreS3-SE and macOS READMEs around device
+  purpose, capabilities/specifications, setup, screens/controls and limits.
+  Remove firmware version banners, patch narratives, import hashes and dated
+  benchmark tables from the entry guides; keep source history in Git and
+  changelogs, with measurement populations linked from their evidence records.
+- Preserve CoreS3-SE's finite shadow observation and N30's selected fine-clock
+  results in their target changelogs. Keep the macOS comparison in its existing
+  results/evidence records and Git, including withheld output and shared-bus limits.
+- Correct the T096 TZ port status, expose StickS3's older coarse-wire
+  compatibility and passive TD startup, and correct its epoch preview alt text.
+  Surface CoreS3-SE discovery prerequisites and distinguish receiver selection
+  controls from enabling relay transmission. Record this README/history boundary
+  in repository guidance. No firmware or hardware changes.
+
 ## 2026-10-30 — descriptive holdover paper filenames
 
 - Rename the approved holdover source/PDF to

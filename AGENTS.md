@@ -32,6 +32,10 @@ use ignored `artifacts/local/firmware-retention.json` for explicit candidate pin
   from a private workspace and no private Git history import.
 - Keep paper editions, wire profiles, source versions, and evidence populations
   distinct. Preserve failures, missing data, denominators, and limitations.
+- Keep target and client READMEs focused on current capabilities, specifications,
+  setup, controls and limits. Put release/version narratives and dated results
+  in changelogs or linked evidence; use Git for superseded instructions. Protocol
+  identifiers needed for compatibility belong in the current specifications.
 - Separate model, controller simulation, hardware observation, relative timing,
   and independently measured output. Checksums establish identity, not accuracy.
 - Use public, obtainable dependencies and reproducible commands. Do not require

@@ -118,4 +118,26 @@ and fresh normal admission replace the former six-minute selection lockout.
 Failed admissions and root hints retain fallback under its original expiry.
 Explicit pins, separate clock models, capture calibration, startup and LoRa
 policies remain unchanged. Earlier releases are recorded in Git and the target
-README. Original documentation: MIT; copyright 2026 Jonathan Yantis.
+history below. Original documentation: MIT; copyright 2026 Jonathan Yantis.
+
+## 2026-10-22 — selected fine-receiver observations
+
+Historical results moved from the target README. The
+[research draft](../../papers/ptob-esp32s3-timing-preprint.pdf) and
+[selected evidence](../../evidence/s3/2026-10-22-fine/README.md) retain exact
+edition, source and measurement identities. These observations do not qualify
+later images or every operating window.
+
+| Measurement | Result | Population and limits |
+| --- | --- | --- |
+| N3-2 internal causal SYNC RMS | **49 ns observed** | Rolling prediction quality; three 49 ns readings among 311 finite readings in 313 status snapshots. |
+| N3-2 downstream relative shadow PPS | **166.590 ns RMS** | Full 660 s window: 657 eligible + 3 invalid, zero nominal missing; mean −106.811 ns, maximum absolute error 1591 ns. All tails retained. |
+| N3-1 same-correction transfer | **150.954 ns RMS** | Separate short check: 48 eligible + 16 invalid, no sequence gaps; mean +115.167 ns, maximum 362 ns; one terminal unread edge. |
+
+The full N3-2 run used a fixed 50909 ns relay correction. N3-1 used a revised
+51016 ns total correction derived from that run, with its own publisher and
+direct-root scope. The fresh N3-1 check retained a positive mean: the constant
+did not transfer zero mean across boards. No refit was made during that check.
+Display RMS, counter resolution and calibrated RF/UTC accuracy are distinct;
+the sub-100 ns downstream target remained open. The precision preview uses the
+recorded internal 49 ns value with otherwise illustrative inputs.

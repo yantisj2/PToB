@@ -1,164 +1,112 @@
-# CoreS3-SE precision diagnostics instrument
+# CoreS3-SE · precision diagnostics instrument
 
-**Version 0.1.30** turns the M5Stack CoreS3-SE (K128-SE) into a portable front
-panel for PToB timing: inspect receiver precision, source lineage, mesh roles and
-the grandmaster's GNSS/PTP quality on a 320×240 touchscreen. It is a dedicated
-client with an instrument-style display. Start with the
-[build guide](../../docs/corese/build.md).
+Turn the **M5Stack CoreS3-SE (K128-SE)** into a portable front panel for PToB:
+inspect local receiver quality, the timing path, mesh roles and the grandmaster's
+reported GNSS reference on a touchscreen. CoreSE receives time and diagnostics;
+it does not act as a grandmaster or relay.
 
-Version 0.1.30 adds a PSRAM-backed shadow holdover servo with P95/P99/MAX errors
-auto-ranging through ns/us/ms/s, a dedicated diagnostic page, and P99 <1us HOLD
-seconds on the main face while relative offset stays in Quality. The front clock
-also follows fresh GM time-zone/DST metadata, falling back to UTC when unavailable;
-shadow estimates remain separate from delivered timing and independent accuracy.
+[Set up and build](../../docs/corese/build.md) ·
+[Understand the readouts](../../docs/corese/diagnostics.md) ·
+[Group setup](../../docs/GETTING_STARTED.md) · [Changelog](CHANGELOG.md)
 
-Measured live on 30 October 2026 (v0.1.30): sampled **P99 <1us HOLD ≥1.75 s**
-(128 trials, one unknown); at a 103.4 s frozen-run age, the latest 128 BLE
-witnesses had **P95/P99/MAX 909/936/948 ns**, with 165 gaps >250 ms whose
-interiors remain unmeasured.
-
-Mesh selection is automatic: CoreSE learns the local group ID and key epoch
-from discovery and has no fixed group-ID allowlist. The trusted PSK remains
-provisioned; a fresh authenticated JOIN is required before timing is admitted.
-After source loss and radio cleanup it can discover a different local mesh.
-
-Version 0.1.30 receives GM7 implementation4 ANN, STATUS, ROLE, GNSS and
-WITHDRAW reports on SID14. Mesh distinguishes the ACTIVE's nominated standby
-from a standby's authenticated HOT advertisement. Wire shows the signed epoch
-start in UTC, elapsed time from the current matching UTC model, and separate
-local receiver uptime. A leadership term change does not restart the epoch.
-Unavailable UTC leaves elapsed time unknown. Legacy GS/GD1/GD2 remains readable.
-Diagnostic listening follows the actual management calendar:14ms around
-ROLE/ANN discovery and28ms around STATUS within each250ms frame. Both windows close
-before the next physical periodic timing packet. HOT accepts authenticated
-STATUS or ROLE reports, while its UNCHANGED timer measures the stable selected
-identity/boot. One missed2s report fits inside the original4.5s TTL; later gaps
-show an explicit self-report age without blanking or resetting that timer.
-HOT NOMINEE / CURRENT follows the ACTIVE's authenticated nomination; the
-separate SELF role and age describe the standby's own latest report.
-
-Version 0.1.17 retires the exact periodic owner when the pinned SDK confirms
-HCI termination and removes its live handle. A queued SDK notification cannot
-retire a replacement owner. Pending-create cancellation and the original drain
-deadline remain mandatory; timeout diagnostics distinguish the failure paths.
-
-Version 0.1.16 completes the cache fence for an authenticated GM change through
-the same relay. The current request and ACL survive, the relay role remains
-explicit, and late periodic-create callbacks drain the actual old owner address
-under its original deadline.
-
-Version 0.1.15 also clears normal-source selection history when authenticated
-RC9 fallback takes over or a direct leader returns after an empty scope. Fresh
-boots retain no learned parent, timing model or retry history; explicit operator
-pins and calibration remain separate from discovery.
-
-Version 0.1.14 clears old leader selection, discovery, retry and estimator state
-on sustained source loss or an authenticated incarnation change. It backports
-the W12 0.2.12 recovery policy to the pinned receiver without importing timing
-offsets. Pending source-bound diagnostics and scan windows are also retired;
-explicit operator pins and the GPIO6/7 counter route survive. Fresh admission
-and matched corrections are required before FOLLOW and precision return.
-
-Version 0.1.11 backports [AUTO RC9 recovery](../../docs/w12/rc9.md#auto-client-return-to-normal-ble)
-to its pinned receiver baseline. Bounded passive discovery can find a normal BLE
-source during a fallback lease; fresh authentication is required before switching.
-Root hints and failed admissions retain the original fallback expiry. Existing
-CoreSE clock coordinates, GPIO6/7 route and calibration policy remain unchanged.
-
-Version 0.1.12 limits optional diagnostic discovery to 12 ms windows after a
-fresh, authenticated, physically associated periodic reception, separated by at
-least 200 ms. It reduces overlap with the 62.5 ms timing train. A discovery
-window never grants or extends clock permission; diagnostic delivery stays
-unqualified.
-
-Version 0.1.13 admits diagnostic windows within 10 ms of the associated PA and
-adds a labeled, amber **HOLD** display for at most 500 ms from the last actual
-physical clock delivery. Polling cannot renew that limit. HOLD withholds current
-source/path, precision, offset and PPS indications; it never grants mesh time
-authority. The clock disappears after that finite presentation allowance if no
-valid source returns.
-
-| Precision instrument | GM reference diagnostics |
+| Clock and receiver precision | Shadow holdover |
 | :---: | :---: |
-| [<img src="../../docs/images/corese-instrument.png" width="320" alt="CoreS3-SE local clock, internal causal RMS and sampled P99 sub-1us hold seconds">](../../docs/images/corese-instrument.png) | [<img src="../../docs/images/corese-reference.png" width="320" alt="CoreS3-SE GM reference with FIX, PPS and QUAL indicators, satellite count, HDOP and VAR NONE">](../../docs/images/corese-reference.png) |
+| [<img src="../../docs/images/corese-instrument.png" width="320" alt="CoreS3-SE clock with local time, internal causal RMS and sampled P99 hold duration">](../../docs/images/corese-instrument.png) | [<img src="../../docs/images/corese-shadow.png" width="320" alt="Shadow diagnostics with sampled duration, error percentiles, witness counts and gaps">](../../docs/images/corese-shadow.png) |
 
-| Local receiver quality | Mesh role history |
-| :---: | :---: |
-| [<img src="../../docs/images/corese-quality.png" width="320" alt="CoreS3-SE local causal RMS, relative offset, packet counts and source validity">](../../docs/images/corese-quality.png) | [<img src="../../docs/images/corese-mesh.png" width="320" alt="CoreS3-SE cached primary and HOT reports with independent observation timers">](../../docs/images/corese-mesh.png) |
+*Recorded on-device frames from the production renderer using the live model.
+They are framebuffer captures, not photographs or calibrated accuracy results.
+[Capture identities and provenance](../../docs/images/corese-provenance.json).*
 
-| Shadow holdover |
-| :---: |
-| [<img src="../../docs/images/corese-shadow.png" width="320" alt="CoreS3-SE shadow holdover with sampled duration, P95, P99, maximum and witness population">](../../docs/images/corese-shadow.png) |
+## Capabilities and specifications
 
-*Selected on-device screenshots from version 0.1.30, 30 October 2026. All five
-are production-renderer frames using the live model; source gaps and cached
-reports remain explicit. They are not photographs or calibrated accuracy results. Select an image for
-native resolution. [Image provenance](../../docs/images/corese-provenance.json).*
-
-## Read the timing chain
-
-The instrument receives authenticated G1/RC7 timing and the separate RC9
-functional UTC service. Six diagnostic pages answer different questions:
-
-| Page | Readouts |
+| Area | Current configuration |
 | --- | --- |
-| Mesh | ACTIVE and current HOT nominee, separate self-reported role/age, leadership term and independent identity/boot timers. |
-| Path | The admitted root-to-client lineage, with node boots, trains and epochs. |
-| Quality | Local causal RMS, signed prediction residual, matched/refused packets and remaining source validity. |
-| Reference | The selected GM's FIX/PPS/source-QUAL indicators, satellites used, real GGA HDOP and actual election quality tuple. |
-| Shadow | Frozen holdover P95/P99/MAX, sampled P99 duration, witness counts and coverage gaps. |
-| Wire | GM7 message counts, integrity rejects, signed epoch start UTC, epoch elapsed time and local uptime. |
+| Board | M5Stack CoreS3-SE K128-SE; ESP32-S3, **16 MiB flash**, **8 MiB quad PSRAM**. |
+| Display | **320 × 240** landscape ILI9342C color LCD with FT6336U touch; instrument and time-register faces. |
+| Timing inputs | Authenticated G1/RC7 BLE reception; separate RC9 functional UTC reception with unknown precision bounds. |
+| Fine counter | **80 MHz**, **12.5 ns ticks**, delivered on a **50 ns grid**. Fixed GPIO6/7 route; both pads must be free on a bare board. |
+| Mesh diagnostics | Passive GM7 ANN, STATUS, ROLE, GNSS and WITHDRAW reception; legacy GS/GD reports remain readable. |
+| Holdover diagnostics | BLE-trained frozen shadow clocks; sampled P95/P99/MAX error and P99 sub-1 µs hold duration. Shadow trials do not steer delivered time. |
+| Local time | Instrument and register follow fresh GM time-zone/DST metadata; missing or expired metadata falls back to UTC. Timing calculations and diagnostics stay UTC. |
+| Runtime | LCD/touch and timing have separate owners; graphics and shadow workspace use PSRAM. No GM, relay, local GNSS, LoRa or Wi-Fi service. |
 
-`CAUSAL RMS` measures internal prediction quality. `REL OFFSET` is the fresh,
-signed prediction residual for the selected root/boot/epoch. Neither establishes
-absolute UTC or physical PPS accuracy. The fine receiver uses an **80 MHz counter
-with 12.5 ns ticks**, presented on a 50 ns grid; counter resolution is a separate
-property. RC9 can supply functional UTC and upstream metadata but cannot populate
-local fine precision or clock lock. Missing delivery denominators stay unknown.
+## Get started
 
-Reference consumes authenticated GM7 GNSS or legacy GD2 diagnostics, including
-real dimensionless HDOP with T096 0.15.168. Legacy GD1 reports leave HDOP unknown.
-`VAR NONE` means the GM has not reported a variance measurement; unknown accuracy
-stays `ACC UNKNOWN`. HDOP describes satellite geometry, not timing accuracy.
-PDOP, VDOP, antenna health and UTC traceability remain unavailable.
-See [diagnostic field provenance](../../docs/corese/diagnostics.md) and the
-[versioned GD2 contract](../../docs/V14_GM_DIAGNOSTICS_V2.md).
+1. **Prepare the bare board and build tools.** Check the board identity and free
+   GPIO6/7, then follow the [build guide](../../docs/corese/build.md) for pinned
+   public dependencies, offline tests and renderer previews.
+2. **Prepare trust and names.** Supply private PSK enrollment, a verified factory
+   binding and the [shared registry](../../registry/README.md). These are local
+   build inputs; enrolled images contain secrets and stay private.
+3. **Provide a discoverable source.** CoreSE learns the local group ID and key
+   epoch from a G1 locator or authenticated GM announcement using its trusted
+   PSK. A fresh authenticated JOIN must succeed before timing is admitted.
+   RC9 capability alone cannot supply the group needed for cold discovery.
+4. **Install through the exact-device procedure.** The build opens no hardware.
+   Installation requires the guide's identity, recovery, bounded drain, app-only
+   write and readback checks. After boot, inspect the selected source and fresh
+   timing before interpreting precision or reference values.
 
-## Fresh reports and useful history
+Mesh selection has no fixed group-ID allowlist. After source loss and completed
+radio cleanup, the receiver can discover another local context and authenticate
+again. It never learns secret keys from advertisements.
 
-Reports retain their original authenticated receipt deadlines. Duplicates and
-screen refreshes cannot renew them. The last same-scope report remains visible
-as amber **LAST REPORT / CACHED** after expiry; an empty timing selection can
-show **LAST GM** history. A different selected root, incarnation or epoch hides
-the previous source's values. Cached data never restores clock permission.
+## Explore the screens
 
-ACTIVE/HOT timers measure time since an observed identity/boot event, not remote
-oscillator lock or proof of uninterrupted operation. A GM7 HOT timer starts when the ACTIVE selects that identity/boot; a nomination
-alone is not HOT readiness. Matching authenticated STATUS or ROLE reports
-supply the separate state and original receipt deadline. Explicit withdrawal
-changes readiness, while refresh, report loss and train/term changes preserve
-selection age for an unchanged identity/boot. Protected passive listening uses
-current admitted UTC only to place14ms/28ms windows around the ordinary GM7
-management slots; it grants no precision or source permission. Clock qualification, timing
-source expiry and failover rules retain their existing behavior.
+Choose **PToB** or **DIAG** on the launcher. **PREV/NEXT** cycles the six diagnostic
+pages; **FACE** changes the clock presentation and **HOME** returns to the launcher.
 
-## Controls and build
+| Screen | What it answers |
+| --- | --- |
+| PToB / Time register | What time is available, from which source? The main face pairs causal RMS with sampled P99 hold seconds. |
+| [Mesh](../../docs/images/corese-mesh.png) | Who is ACTIVE, who is nominated HOT, and what has that standby actually reported? Selection age and self-report freshness are separate. |
+| Path | Which admitted root and relays lead to this receiver? Node boots, trains and epochs identify the path. |
+| [Quality](../../docs/images/corese-quality.png) | How well does the local clock predict received timing? Shows RMS, signed relative offset, matched/refused packets, source age and remaining validity. |
+| [Reference](../../docs/images/corese-reference.png) | What does the selected GM report about fix, PPS, qualification, satellites, HDOP and election quality? |
+| Wire | Which management reports arrived or failed integrity checks? Shows signed epoch birth, elapsed time from matching current UTC and separate local uptime. |
+| Shadow | How long have frozen clock trials stayed within the sampled error criterion? Shows duration, P95/P99/MAX, population and unmeasured gaps. |
 
-Choose **PToB** or **DIAG** on the launcher. Use **PREV/NEXT** for the six
-diagnostic pages, **FACE** for the clock register, and **HOME** to return.
-Double-click the left power button within 500 ms to request sleep through the
-bounded timing/Bluetooth drain. A drain fault leaves the instrument awake;
-power-on starts a new receiver session.
+Double-click the left power button within **500 ms** to request sleep. Timing
+and Bluetooth must complete their bounded drain; a drain fault leaves the unit
+awake. Power-on starts a new receiver session. Physical sleep/wake behavior
+still needs exact-device validation.
 
-The board has 16 MiB flash and 8 MiB quad PSRAM. LCD/touch runs separately from
-the timing owner. Its fixed fine-counter route requires a bare CoreS3-SE with
-**GPIO6/7 free**; no N30 wiring or calibration transfers to this board. There is
-no GM, relay, GNSS, LoRa or Wi-Fi runtime owner.
+## Interpret precision and history
 
-Use the [build and installation guide](../../docs/corese/build.md) for pinned
-public dependencies, offline tests and exact-device app-only checks. Shared
-N30/W12 receiver sources remain pinned; see [source notices](NOTICE.md).
+**Causal RMS** is internal prediction quality. **REL OFFSET** is a fresh signed
+prediction residual for the selected root/boot/epoch. Counter tick size, these
+statistics and sampled holdover duration are different quantities; none proves
+absolute UTC or physical PPS accuracy. Gaps between BLE witnesses remain
+unmeasured. RC9 can provide functional UTC, but cannot populate local fine RMS,
+relative offset or precision lock.
+
+Reference values describe the reporting GM. HDOP is satellite geometry, not
+timing accuracy; legacy reports without HDOP leave it unknown. `VAR NONE` means
+no variance was reported, and `ACC UNKNOWN` preserves unknown accuracy. PDOP,
+VDOP, antenna health and UTC traceability are unavailable.
+
+Expired reports may remain amber **LAST REPORT / CACHED**; an empty timing
+selection may show **LAST GM**. A changed root, incarnation or epoch hides the
+previous source's values. ACTIVE/HOT timers describe observed identity/boot
+continuity, not uninterrupted remote operation. A HOT nomination and the
+standby's own fresh readiness report are separate evidence.
+
+A labeled amber **HOLD** may retain the last delivered clock for at most
+**500 ms** after physical delivery, with unknown error. It withholds current
+path, precision, offset and source-pulse indications. Neither history, shadow
+trials nor a display refresh extends timing permission.
+
+## Development and limits
+
+The [build guide](../../docs/corese/build.md) owns dependency pins, current wire
+selection, source overlays, offline checks and installation details. The
+[diagnostic reference](../../docs/corese/diagnostics.md) defines fields and
+freshness; [source notices](NOTICE.md) and codec provenance identify dependencies.
+See the [changelog](CHANGELOG.md) for version changes and finite observations.
+
+Native tests and captures do not qualify continuous diagnostic reception,
+physical failover, RF endpoint delay or independent UTC/output accuracy.
 Private enrollment, device bindings, recovery images and raw logs stay local.
-Native builds and screen captures do not qualify RF endpoint delay or UTC accuracy.
 
-Copyright (c) 2026 Jonathan Yantis. MIT; preserved dependency notices apply.
+Copyright (c) 2026 Jonathan Yantis. Original documentation: [MIT](../../LICENSE).
+Preserved dependency notices apply.

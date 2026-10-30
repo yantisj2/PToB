@@ -1,72 +1,100 @@
-# W12 native RC example
+# W12 · BLE receiver and holdover clock
 
-<a href="../../docs/images/w12-rc-preview.png"><img src="../../docs/images/w12-rc-preview.png" width="384" alt="W12 OLED preview showing time, relay parent and clock diagnostics"></a>
+PToB firmware for the **Meshnology W12**: receive authenticated mesh time,
+inspect clock quality on an OLED and retain a local clock estimate through
+short source gaps. Optional LoRa reception and an experimental BLE relay add
+separate timing paths. W12 supports **RC (receiver/relay clock)**, with no GM
+profile or USB timing stream.
 
-*Historical illustrative OLED layout. Current firmware reports sampled P99 hold
-seconds; see the [holdover guide](../../docs/w12/holdover.md). RC2 indicates
-relay depth. [Image provenance](../../docs/images/README.md).*
+[Build and set up](../../docs/w12/build.md) ·
+[Understand holdover](../../docs/w12/holdover.md) ·
+[Group setup](../../docs/GETTING_STARTED.md) · [Changelog](CHANGELOG.md)
 
-Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
+<a href="../../docs/images/w12-rc-preview.png"><img src="../../docs/images/w12-rc-preview.png" width="384" alt="Illustrative W12 OLED showing time, selected relay parent and receiver diagnostics"></a>
 
-**PToB owns W12 native G1/RC7 development.** Current version **0.2.34** supports
-**RC**: a BLE50 client or BLE100 receiver with an optional experimental
-estimated-TX relay. It receives from the shared T096/W12/StickS3 mesh; it has no
-GM profile or USB timing stream. Start with the
-[build guide](../../docs/w12/build.md).
+*Historical illustrative layout. The current clock footer reports sampled P99
+hold duration in seconds; the preview's older footer is not current display
+instructions. [Image provenance](../../docs/images/README.md).*
 
-## Current behavior
+## Capabilities and specifications
 
-- **BLE:** authenticated G1/RC7 receiver; optional BLE100 estimated relay.
-  Channel-aware fitting, physical event matching, source expiry and controller
-  ownership remain enforced. Estimated transmit timing has unknown RF/UTC bounds.
-- **Holdover:** causal BLE rate consensus, continuous entry/return, 48 offset
-  shadow clocks and sampled P99 hold duration. Temperature remains shadow-only.
-  [Current model, display meaning and replay](../../docs/w12/holdover.md).
-- **Resources:** full 256-entry receive history and exact estimator samples;
-  checked 8192-byte static NimBLE host stack on the GNSS profile. Application
-  watchdog intervals are at least five seconds; fault/no-time restart intervals
-  remain 120/300 seconds. Sampling and transaction deadlines are separate.
-- **Other inputs:** optional LR2021 passive RC8 and separate RC9 service;
-  explicit L76K GNSS indicators/PPS shadow. Neither trains the normal BLE clock.
-  GNSS defaults disabled; a board alias never establishes its wiring.
-- **State:** learned parents, models and retry history are volatile. Enrollment,
-  registry and calibration are build inputs. No learned-model flash persistence
-  or generic distributable enrolled image is provided.
-
-The [approved holdover paper](../../papers/mcxo-holdover-duration/README.md)
-reports distinct sampled v33 windows and a v34 code audit. Its best window is
-not acceptance of all devices, later images or source transitions. Independent
-UTC/output, calibrated relay delay and physical GM failover remain open.
-
-## Build and validate
-
-Use the [build guide](../../docs/w12/build.md) for pinned public dependencies,
-exact board profiles, registry/enrollment inputs, native checks and app-only
-hardware safeguards. Routine publication cleanup does not operate devices.
-
-| Guide | Contents |
+| Area | Current configuration |
 | --- | --- |
-| [Holdover](../../docs/w12/holdover.md) | Production policy, P99 seconds, shadow experiments and offline replay |
-| [Fine-clock profile](../../docs/w12/build.md#fine-clock-test-profile) | Continuous counter, RX capture, fitting and calibration limits |
-| [Transmit reference](../../docs/w12/tx-reference.md) | Programmed packet/ADDRESS endpoint and provisional offsets |
-| [LR2021](../../docs/w12/lr2021.md) · [RC9](../../docs/w12/rc9.md) | Independent LoRa fallback, service/lease controls and tests |
-| [GM recovery](../../docs/w12/build.md#gm-successor-recovery) | Authentication, scope reset, parent selection and recovery |
-| [Changelog](CHANGELOG.md) | Version history and superseded behavior |
+| Hardware | Meshnology W12 ESP32-S3 board; **16 MiB flash** build configuration, **128 × 64** landscape monochrome OLED. Board profiles have fixed, reviewed pin routes. |
+| BLE receiver | Authenticated **G1/RC7**, **BLE50** or **BLE100** listening. BLE50 is client-only; BLE100 can enable an estimated-TX relay. |
+| Fine clock | Optional continuous **80 MHz counter**, **12.5 ns ticks**, timestamps rounded to a **50 ns grid**; W12-specific capture routing and calibration. |
+| Holdover | BLE-only causal rate consensus and continuous entry/return. Local HOLD estimates do not extend authenticated source or relay permission. |
+| Shadow diagnostics | **48** offset frozen clocks plus long probes; sampled P99 sub-1 µs duration. Temperature learning stays shadow-only. |
+| Time zone | Front clock follows fresh GM time-zone/DST metadata, then falls back to UTC. LoRa/RC9 and timing diagnostics retain UTC. |
+| Optional LoRa | Explicit LR2021 passive RC8 receiver; independent clock and separate RC9 functional UTC service with unknown bounds. Disabled by default. |
+| Optional GNSS | Explicit L76K indicator/PPS-shadow profile with verified RX39/PPS41 wiring. Disabled by default; it does not train the normal BLE clock or make W12 a GM. |
+| Host interface | Diagnostic console; no T096-compatible USB timing stream. Wi-Fi and PTS are disabled. |
 
-Short button presses cycle pages. Clock-page holds toggle relay mode at 1.5 s;
-LoRa-page holds cycle RX mode. A four-second hold on a non-clock page requests
-shutdown through the original bounded drain, then button release permits sleep.
-See the build guide for controls and power-test limits.
+**BLE50/BLE100 are listening profiles.** Choose BLE100 for the optional relay;
+its transmit timing is estimated and has unknown RF/UTC bounds. Consult the
+[transmit reference](../../docs/w12/tx-reference.md) before using downstream timing.
 
-## Timing schematic
+## Get started
 
-[<img src="../../docs/images/esp32-timing-schematic.jpg" width="800" alt="ESP32-S3 / W12 receive, clock discipline and estimated relay paths">](https://ptob.dev/hardware/esp32-s3/timing/)
+1. **Confirm the board and optional modules.** Use the fixed W12 board profile;
+   enable L76K or LR2021 only after verifying the physical wiring. A display
+   alias or enclosure does not establish GNSS capability.
+2. **Prepare the group.** Arrange a compatible T096 GM or relay, private trust
+   enrollment, verified factory binding and the [shared registry](../../registry/README.md).
+   Keep credentials separate from runtime discovery and authenticate afresh
+   after a mesh context change. Current W12 uses the
+   [coarse TZ wire](../../docs/esp32-time-zones.md); match the source's profile.
+3. **Build and check offline.** Follow the [build guide](../../docs/w12/build.md)
+   for public dependencies, BLE50/BLE100 selection, optional modules and tests.
+   Enrolled builds contain secrets and stay in ignored local output.
+4. **Install and inspect.** Follow the guide's exact-device app-only procedure
+   with verified recovery and readback. Start near a compatible source, confirm
+   the selected parent and fresh timing, then inspect clock quality and holdover.
+   Optional relay operation needs its own observed validation.
 
-[Interactive schematic](https://ptob.dev/hardware/esp32-s3/timing/) ·
-[image provenance](../../docs/images/README.md). The paper's final schematic
-separately documents the current HOLD and continuous-shadow dataflow.
+## Screens and controls
 
-See [cutover](../../docs/w12/cutover.md), [import provenance](imports/2026-10-16.json),
-[source notices](NOTICE.md), the [shared registry](../../registry/README.md) and
-[group setup](../../docs/GETTING_STARTED.md). Private keys, factory bindings,
-enrollment, raw captures and firmware images remain in ignored local artifacts.
+Short button presses cycle the available clock, precision, holdover and radio
+pages. Optional profiles determine which diagnostics are available.
+
+| Action | Result |
+| --- | --- |
+| Hold **1.5 s** on Clock | Toggle automatic parent selection / relay-only reception. This selects the upstream policy, not relay transmission. |
+| Hold **1.5 s** on LoRa | Cycle its receive-mode override. |
+| Hold **4 s** on any non-clock page, then release | Request deep sleep after the original **2 s** owner drain and display shutdown. A new GPIO0 press reboots the application. |
+
+A continued LoRa-page hold can request shutdown. Drain or power failures remain
+faults; physical sleep current, battery lifetime and wake behavior need hardware
+validation. See the [build guide](../../docs/w12/build.md) for complete controls.
+
+## Read precision and holdover
+
+**RMS** measures internal causal prediction quality, not independent UTC/output
+accuracy. **P99 hold seconds** describes the supported duration at a sampled
+absolute-error threshold of **1 µs**, with populations, failures and coverage
+limits. `>=` is a lower bound; `--` means insufficient or stale evidence.
+Witness gaps remain unmeasured, and overlapping trials are correlated.
+
+Local HOLD preserves a BLE-trained estimate while ordinary source permission
+expires independently. Temperature experiments never steer production HOLD.
+Learned parents, models and retry history live in RAM; enrollment, names and
+calibration are separate build inputs. Read the
+[holdover guide](../../docs/w12/holdover.md) for the model, display and replay.
+
+## Development and limits
+
+[Holdover research and evidence](../../papers/mcxo-holdover-duration/README.md)
+retain measured windows and their exact populations. Independent UTC/output
+accuracy, calibrated relay delay, physical GM failover and continuous reliability
+remain open. Host checks and native builds do not qualify later images or devices.
+A generic public enrolled image and installer are not supplied.
+
+| Explore further | Guide |
+| --- | --- |
+| Build, test and update | [Build guide](../../docs/w12/build.md) · [Fine-clock profile](../../docs/w12/build.md#fine-clock-test-profile) |
+| Follow source recovery and fallback | [GM recovery](../../docs/w12/build.md#gm-successor-recovery) · [LR2021](../../docs/w12/lr2021.md) · [RC9](../../docs/w12/rc9.md) |
+| Understand capture and relay paths | [Interactive ESP32-S3 timing schematic](https://ptob.dev/hardware/esp32-s3/timing/) · [Transmit reference](../../docs/w12/tx-reference.md) |
+| Review changes and source origins | [Changelog](CHANGELOG.md) · [Import provenance](imports/2026-10-16.json) · [Cutover](../../docs/w12/cutover.md) · [Notices](NOTICE.md) |
+
+Copyright (c) 2026 Jonathan Yantis. Original documentation: [MIT](../../LICENSE).
+Preserved dependency notices apply.

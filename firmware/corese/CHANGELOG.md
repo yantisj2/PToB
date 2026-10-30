@@ -4,6 +4,11 @@ Copyright (c) 2026 Jonathan Yantis. MIT.
 
 ## 0.1.30 — preserve frozen shadow trials through quality changes
 
+- Finite live observation on 30 October 2026: sampled P99 <1us HOLD ≥1.75 s
+  (128 trials, one unknown). At a 103.4 s frozen-run age, the latest 128 BLE
+  witnesses had P95/P99/MAX 909/936/948 ns, with 165 gaps >250 ms whose interiors
+  remain unmeasured. These are sampled shadow diagnostics, not delivered HOLD
+  performance or independently measured UTC/output accuracy.
 - Apply sub1us qualification when starting a shadow trial, then continue scoring its frozen candidate through later RMS/lock changes. Do not censor tails by cancelling the trial when production quality worsens; retain scope invalidation, original run timeout and explicit witness-gap/unknown outcomes.
 - The0.1.29 device auto-joined and received current CDT metadata, but its finite live check exposed repeated quality-triggered shadow aborts. Preserve that observation alongside the correction and its regression.
 
