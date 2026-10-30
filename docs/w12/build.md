@@ -9,7 +9,9 @@ Version 0.2.20 uses `-Os` for the W12 main component, including its selected
 RadioLib sources. SDK/controller options and enabled assertions retain their
 original configuration. The builder and inspector check the effective final
 optimization flag for every main-component source; the 1 MiB application
-ceiling and hardware installation gates are unchanged.
+ceiling and hardware installation gates are unchanged. Run
+`python3 firmware/w12/tools/size_policy_tests.py` for effective-flag and
+assertion-preservation checks.
 
 PToB owns the W12 native G1/RC7 application. The public target supports **RC**:
 a BLE50 or BLE100 receiver, optionally an experimental BLE100 relay. It does

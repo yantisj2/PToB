@@ -587,7 +587,7 @@ void stop_all(){
 // response calls status() from this parser and must not stack both snapshots.
 [[gnu::noinline]] bool r2_command_off_ack(){return v12::r2_status().off_ack;}
 #endif
-void command(const char* text){
+[[gnu::noinline]] void command(const char* text){
   // Unbound OFF is a safety-only stop request. It carries no completed/fresh
   // receipt and cannot admit or prolong any RF/capture operation.
   if(!std::strcmp(text,"v12 off")){stop_all();v12::capture_stop();return;}
@@ -696,7 +696,7 @@ void command(const char* text){
   if(!last_command.accepted&&commands_rejected!=UINT32_MAX)++commands_rejected;
   status(nonce,admitted);
 }
-void input(){
+[[gnu::noinline]] void input(){
   static char line[192]{};static unsigned used=0;static bool discard=false;
   uint8_t bytes[64];const int n=usb_serial_jtag_read_bytes(bytes,sizeof(bytes),0);
   for(int i=0;i<n;++i){const char c=char(bytes[i]);

@@ -4,7 +4,8 @@
 
 - Compile the W12 application component with effective `-Os`, preserving SDK
   controller flags, assertions and the original 1 MiB application ceiling.
-- Retain GNSS, TZ, fine capture, LoRa, RC9 and per-device calibration. Build
+- Preserve explicit console call boundaries for retained GCC stack accounting.
+  Retain GNSS, TZ, fine capture, LoRa, RC9 and per-device calibration. Build
   receipts disclose the policy; native inspection checks every main-component
   compile command and the SDK assertion/optimization configuration.
 - Preserve the failed GNSS-enabled 0.2.19 size check; native size and inspection
