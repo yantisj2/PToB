@@ -1,5 +1,15 @@
 # T096 changelog
 
+## 0.15.210 — Restore configured transmitter on GM entry
+
+The explicitly factory-bound sole LoRa transmitter requests TX ON whenever its
+profile changes from RC to GM. Its existing boot request is ON; a manual OFF
+remains effective during the current GM session. Listener requests and images
+without a transmitter binding retain their existing behavior. All source, fault,
+maintenance and bounded radio-drain gates remain in force. Host regressions cover
+repeated transitions, concurrent flag updates, listeners, disabled configuration
+and fault/drain fences. Exact-device boot defaults remain private build inputs.
+
 ## 0.15.209 — Receive coarse changes while timing is locked
 
 Keep the existing passive scan active for a selected normal TZ parent after

@@ -349,6 +349,38 @@ int main(int argc,char **argv){assert(argc==2);unsigned mode=(unsigned)atoi(argv
   step();assert(!owner.active);r2_lora_json(reply,sizeof reply,0);
   assert(strstr(reply,"\"requested\":true")&&strstr(reply,"\"rx_suppressed\":true"));
  }
+ else if(mode==68){
+  init(true);assert(atomic_get(&flags)&REQUESTED);step();
+  r2_lora_request(false);step();step();assert(!owner.active);
+  r2_lora_control(false,true,false);step();assert(!(atomic_get(&flags)&REQUESTED)&&!owner.active);
+  for(unsigned i=0;i<2;i++){
+   r2_lora_control(true,true,false);step();assert(!owner.active);
+   r2_lora_request(false);cas_inject=MESH_CONTACT;
+   r2_lora_control(false,false,false);step();
+   assert((atomic_get(&flags)&(REQUESTED|MESH_CONTACT))==(REQUESTED|MESH_CONTACT));
+   assert(!owner.active&&!r2_lora_source_needed());
+   r2_lora_control(false,true,false);step();assert(owner.active&&r2_lora_source_needed());
+   r2_lora_request(false);step();step();assert(!owner.active);
+   r2_lora_control(false,true,false);step();assert(!(atomic_get(&flags)&REQUESTED));
+  }
+ }
+ else if(mode==69){
+  init(false);r2_lora_request(false);
+  r2_lora_control(true,true,false);step();r2_lora_control(false,true,false);step();
+  assert(!transmitter&&!(atomic_get(&flags)&REQUESTED)&&!owner.active&&!txs);
+ }
+ else if(mode==70){
+  r2_lora_init(1,22,0,&test_group);r2_lora_control(true,true,false);step();
+  r2_lora_control(false,true,false);step();
+  assert(!transmitter&&!(atomic_get(&flags)&REQUESTED)&&!owner.active&&!starts&&!txs);
+ }
+ else if(mode==71){
+  init(true);step();r2_lora_control(true,true,false);hold_ack=true;step();
+  uint64_t deadline=stop_deadline;r2_lora_request(false);atomic_set(&faulted,1);
+  r2_lora_control(false,true,false);step();
+  assert((atomic_get(&flags)&REQUESTED)&&stop_deadline==deadline&&owner.stopping&&starts==1);
+  hold_ack=false;step();step();assert(!owner.active&&starts==1&&atomic_get(&faulted));
+ }
  else assert(false);
  char json[3072];int n=r2_lora_json(json,sizeof json-96,0);assert(n>0&&n<(int)sizeof json-96);printf("PASS runtime mode%u role=%zu snapshot=%zu worker=%zu json=%d\nJSON %s\n",mode,sizeof role,sizeof published,sizeof worker_stack,n,json);
 }

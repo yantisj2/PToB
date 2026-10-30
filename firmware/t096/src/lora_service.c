@@ -215,7 +215,13 @@ void r2_lora_mesh_contact(bool present){
 void r2_lora_stop(void){atomic_and(&flags,~ALLOWED);if(!atomic_get(&closed))stop_now();}
 void r2_lora_control(bool rc,bool allowed,enum rc8_selected preferred){
  atomic_val_t old=atomic_get(&flags),next;
- do{next=(old&(REQUESTED|SOURCE_PRESENT|MESH_CONTACT))|(rc?PROFILE_RC:0)|(allowed?ALLOWED:0)|(preferred!=RC8_SELECT_NONE?NORMAL:0)|(preferred==RC8_SELECT_LOCAL_GM?LOCAL_GM:0);}while(!atomic_cas(&flags,old,next)&&(old=atomic_get(&flags),true));
+ do{
+  next=(old&(REQUESTED|SOURCE_PRESENT|MESH_CONTACT))|(rc?PROFILE_RC:0)|(allowed?ALLOWED:0)|(preferred!=RC8_SELECT_NONE?NORMAL:0)|(preferred==RC8_SELECT_LOCAL_GM?LOCAL_GM:0);
+  /* Only the explicitly bound sole transmitter re-arms on RC -> GM.
+   * Repeated GM snapshots preserve a manual OFF request; the normal owner,
+   * source, fault and immutable drain gates still control actual radio use. */
+  if(transmitter&&!rc&&(old&PROFILE_RC))next|=REQUESTED;
+ }while(!atomic_cas(&flags,old,next)&&(old=atomic_get(&flags),true));
  if(!allowed||(transmitter&&rc)||rx_suppressed(next))if(!atomic_get(&closed))stop_now();
 }
 void r2_lora_request(bool on){

@@ -5,7 +5,7 @@ Copyright (c) 2026 Jonathan Yantis. MIT.
 Native builds [clean compiler output and retain the latest two image bundles](../firmware-storage.md)
 per device/profile, with installed/recovery pins preserved.
 
-This guide builds and inspects T096 source **0.15.209** without opening hardware.
+This guide builds and inspects T096 source **0.15.210** without opening hardware.
 For profile choices and controls, see the [T096 README](../../firmware/t096/README.md).
 Release-by-release implementation and validation notes are in the
 [T096 changelog](../../firmware/t096/CHANGELOG.md).
@@ -146,8 +146,11 @@ identity verified against ignored T096 registry metadata. It is included in the
 private build/watchdog identity; a display alias grants no permission.
 
 The configured transmitter requests TX ON only in GM profile, including when it
-follows an authenticated locked BLE source without local PPS. An actual serving
-GM retains its qualified local PPS/source requirement. Other enrolled T096s
+follows an authenticated locked BLE source without local PPS. Entering GM from RC
+restores this transmitter's TX request to ON; a manual OFF stays in effect until
+the next RC → GM transition or reboot. This applies only to the exact configured
+transmitter, and does not enable TX on listeners or unconfigured images. An
+actual serving GM retains its qualified local PPS/source requirement. Other enrolled T096s
 request passive RX, subject to the [GM7 participation policy](gm7-implementation.md).
 A configured transmitter in RC profile cannot consume its own stream.
 

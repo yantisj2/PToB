@@ -19,7 +19,7 @@ def main():
  body=a.out/'service_body.c';body.write_text(re.sub(r'^#include[^\n]*\n','',(APP/'src/lora_service.c').read_text(),flags=re.M))
  binary=a.out/'runtime';subprocess.run([*flags,'-DR2_LORA_SERVICE_BODY="'+str(body.resolve())+'"',*map(str,[APP/'tests/lora_service_test.c',*common]),'-o',str(binary)],check=True)
  logs=[]
- for mode in range(1,68):
+ for mode in range(1,72):
   r=subprocess.run([str(binary),str(mode)],check=True,text=True,capture_output=True);print(r.stdout.splitlines()[0]);logs.append(r.stdout)
   payload=json.loads(next(line[5:]for line in r.stdout.splitlines()if line.startswith('JSON ')))
   assert len(payload['hw'])==15 and len(payload['link_fit'])==2
@@ -34,5 +34,5 @@ def main():
  uiworker=a.out/'uiworker';subprocess.run([*flags,'-DR2_LORA=1','-I'+str(a.out.resolve()),str(APP/'tests/lora_ui_worker_test.c'),str(APP/'src/ui_render.c'),str(APP/'src/precision.c'),*map(str,common),'-o',str(uiworker)],check=True)
  for mode in range(42,52):subprocess.run([str(uiworker),str(mode)],check=True)
  (a.out/'runtime.log').write_text(''.join(logs))
- (a.out/'receipt.json').write_text(json.dumps(dict(status='PASS_FAKE_BOUNDARIES_ONLY',modes=67,json_hw_fields=15,json_launch_fields=5,json_payload_limit=3072-96,json_nonzero_abort_fields=[9,7,0x83],source_parity=True,source_hashes={str(x.relative_to(APP)):hashlib.sha256(x.read_bytes()).hexdigest()for x in [APP/'src/lora_service.c',APP/'src/lora_source.c',APP/'include/lora_service.h',APP/'include/lora_watchdog.h',APP/'tests/lora_service_test.c',APP/'tests/lora_source_test.c']}),indent=2)+'\n')
+ (a.out/'receipt.json').write_text(json.dumps(dict(status='PASS_FAKE_BOUNDARIES_ONLY',modes=71,json_hw_fields=15,json_launch_fields=5,json_payload_limit=3072-96,json_nonzero_abort_fields=[9,7,0x83],source_parity=True,source_hashes={str(x.relative_to(APP)):hashlib.sha256(x.read_bytes()).hexdigest()for x in [APP/'src/lora_service.c',APP/'src/lora_source.c',APP/'include/lora_service.h',APP/'include/lora_watchdog.h',APP/'tests/lora_service_test.c',APP/'tests/lora_source_test.c']}),indent=2)+'\n')
 if __name__=='__main__':main()
