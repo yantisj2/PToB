@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-29 — Fit full W12 TZ profiles in the application slot
+
+- Prepare W12 0.2.20 with application-only size optimization after the GNSS/TZ
+  profile exceeded the original 1 MiB ceiling. Preserve every selected feature,
+  SDK/controller optimization, assertions, calibration and flash boundaries.
+- Check actual compiler flags in the builder and retained native inspector.
+  Prepared per-device images remain private and are not hardware acceptance.
+
 ## 2026-10-29 — T096 GM automatic timezone and DST
 
 - Add own-GNSS regional selection, pinned IANA 2026f offset calendars through

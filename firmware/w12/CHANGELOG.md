@@ -1,5 +1,15 @@
 # W12 changelog
 
+## 0.2.20 — fit the complete GNSS/TZ application
+
+- Compile the W12 application component with effective `-Os`, preserving SDK
+  controller flags, assertions and the original 1 MiB application ceiling.
+- Retain GNSS, TZ, fine capture, LoRa, RC9 and per-device calibration. Build
+  receipts disclose the policy; native inspection checks every main-component
+  compile command and the SDK assertion/optimization configuration.
+- Preserve the failed GNSS-enabled 0.2.19 size check; native size and inspection
+  results are offline preparation, not hardware acceptance.
+
 ## 0.2.19 — ordered dynamic TZ updates
 
 - Keep the independent RC9 control service at212 bytes in both client and

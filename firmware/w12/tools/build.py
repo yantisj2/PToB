@@ -2,12 +2,12 @@
 """Build W12 RC with public ESP-IDF and ignored local inputs; never opens USB.
 Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT
 """
-import argparse,hashlib,json,os,re,shutil,subprocess,sys
+import argparse,shlex,hashlib,json,os,re,shutil,subprocess,sys
 from pathlib import Path
 APP=Path(__file__).resolve().parents[1];REPO=APP.parents[1]
 sys.path.insert(0,str(REPO/'registry'))
 from registry import load as load_registry,header as registry_header
-VERSION='0.2.19'
+VERSION='0.2.20'
 GNSS_PROFILE='meshnology_w12_l76k_rx39_pps41'
 def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
 def git(p,*args):return subprocess.check_output(['git','-C',str(p),*args],text=True).strip()
@@ -52,6 +52,16 @@ def validate_map_compilation(receipt,device,compiled,config):
   for flag in ('CONFIG_BT_CTRL_PINNED_TO_CORE=0','CONFIG_ESP_MAIN_TASK_AFFINITY_CPU0=y','CONFIG_ESP_MAIN_TASK_AFFINITY=0x0'):
    if config.splitlines().count(flag)!=1:raise ValueError('Fast-map diagnostic requires the exact validated core0 task/controller configuration')
  return enabled
+
+def validate_size_compilation(receipt,compiled,config):
+ if receipt.get('application_optimization')!='W12_MAIN_OS_SDK_DEBUG_V1':raise ValueError('W12 application size policy missing')
+ rows=[shlex.split(row['command']) for row in compiled if '__idf_main.dir/' in row['command']]
+ if not rows or not any(row['file'].endswith('/native_main.cpp') and '__idf_main.dir/' in row['command'] for row in compiled):raise ValueError('W12 main component compile commands missing')
+ for tokens in rows:
+  optimization=[v for v in tokens if re.fullmatch(r'-O(?:[0-3sgz]|fast)',v)]
+  if not optimization or optimization[-1]!='-Os':raise ValueError('W12 main component must compile with effective -Os')
+ for flag in ('CONFIG_COMPILER_OPTIMIZATION_DEBUG=y','CONFIG_COMPILER_OPTIMIZATION_ASSERTIONS_ENABLE=y','CONFIG_COMPILER_OPTIMIZATION_ASSERTION_LEVEL=2'):
+  if flag not in config.splitlines():raise ValueError('SDK optimization/assertion policy changed: '+flag)
 
 def phase_offsets(version=VERSION):
  return {'schema':1,'receive_ns':7671,'relay_residual_ns':3030 if version in ('0.2.8','0.2.9') else 4026,'scope':'W12_RELATIVE_PPS_PROVISIONAL','training':'W12_FINE_BLE100_AND_T096_CHILD_WITH_EXISTING_RECEIVER_CORRECTION','other_units_profiles':'OPERATOR_REQUESTED_UNMEASURED_TRANSFER','RF_bound':'UNKNOWN','UTC_bound':'UNKNOWN'}
@@ -175,7 +185,7 @@ def main():
  (inputs/'w12_fine_config.h').write_text(fine_header(d,a.fine_clock))
  # Registry/generator/device hashes bind display metadata and local input changes into runtime enrollment identity.
  enrollment_header=inputs/'r2-enrollment.h';enrollment_header.write_text('/* source:'+source_hash+' registry:'+sha(a.registry)+' generator:'+sha(REPO/'registry/registry.py')+' device:'+sha(a.device_config)+' */\nstatic const r2_group_enrollment provision={{{'+','.join(map(str,key))+'},UINT64_C(0x'+e['group_id']+'),'+str(e['key_epoch'])+'},UINT64_C(0x'+d['device_id']+'),'+json.dumps(d['label'])+',40000};\n')
- r={'schema':1,'artifact_class':'PTOB_W12_RC','version':VERSION,'status':'INCOMPLETE','public_commit':git(REPO,'rev-parse','HEAD'),'source_dirty':dirty,'repository_dirty':repository_dirty,'source_sha256':source_hash,'sources':sources,'dependencies':lock,'sdk_path':str(sdk),'app_path':str(APP),'sdk_submodules':modules.splitlines(),'time_zone_contract':'COARSE_TZ_V1_ORDERED_DYNAMIC_LOCAL_DISPLAY','profile':'RC','listening_percent':a.listening_percent,'estimated_relay':a.estimated_relay,'tx_actual_capture':False,'precision':'UNQUALIFIED','installed':False,'fine_clock':a.fine_clock,'no_time_sync_watchdog_us':300000000,'lora_rx':bool(a.radiolib),'rc9':a.rc9,'pa_termination_policy':'SDK_HCI_ACK_EXACT_OWNER_V1','leader_recovery_policy':'FENCED_SCOPE_CACHE_CLEAR_1500MS_V3','gm_successor_policy':'GM7_V3_AUTHENTICATED_NOMINEE_RECOVERY_3S_V1','rc9_server_recovery_policy':'QUALIFIED_BLE_DISPLAY_DRAIN_ORIGINAL_CHILD_LEASE_V1' if a.rc9 else None,'fallback_recovery_policy':'AUTO_RC9_PASSIVE_NORMAL_RETRY_V1' if a.rc9 else None,'lora_transmitter_factory':tx,'radiolib_path':str(a.radiolib.resolve()) if a.radiolib else None,'clock_backend':fine_backend(a.fine_clock),'gnss_fast_map_diagnostic':fast_map,'registry_sha256':sha(a.registry),'registry_generator_sha256':sha(REPO/'registry/registry.py'),'enrollment_mode':'LOCAL_BUILD_TIME_NO_NVS_WRITE','device_config_sha256':sha(a.device_config),'provisional_path_profile':provisional_profile(d),'phase_offsets':phase_offsets(),'bluetooth_clock_map':'FINE_RAW_CURRENT_BRACKET' if a.fine_clock else 'GPTIMER_DRIVER_BRACKET','programmed_clock_projection':'MEAN4_VALIDATED_NO_TRIMMING' if a.estimated_relay else None}
+ r={'schema':1,'artifact_class':'PTOB_W12_RC','version':VERSION,'status':'INCOMPLETE','public_commit':git(REPO,'rev-parse','HEAD'),'source_dirty':dirty,'repository_dirty':repository_dirty,'source_sha256':source_hash,'sources':sources,'dependencies':lock,'sdk_path':str(sdk),'app_path':str(APP),'sdk_submodules':modules.splitlines(),'time_zone_contract':'COARSE_TZ_V1_ORDERED_DYNAMIC_LOCAL_DISPLAY','application_optimization':'W12_MAIN_OS_SDK_DEBUG_V1','profile':'RC','listening_percent':a.listening_percent,'estimated_relay':a.estimated_relay,'tx_actual_capture':False,'precision':'UNQUALIFIED','installed':False,'fine_clock':a.fine_clock,'no_time_sync_watchdog_us':300000000,'lora_rx':bool(a.radiolib),'rc9':a.rc9,'pa_termination_policy':'SDK_HCI_ACK_EXACT_OWNER_V1','leader_recovery_policy':'FENCED_SCOPE_CACHE_CLEAR_1500MS_V3','gm_successor_policy':'GM7_V3_AUTHENTICATED_NOMINEE_RECOVERY_3S_V1','rc9_server_recovery_policy':'QUALIFIED_BLE_DISPLAY_DRAIN_ORIGINAL_CHILD_LEASE_V1' if a.rc9 else None,'fallback_recovery_policy':'AUTO_RC9_PASSIVE_NORMAL_RETRY_V1' if a.rc9 else None,'lora_transmitter_factory':tx,'radiolib_path':str(a.radiolib.resolve()) if a.radiolib else None,'clock_backend':fine_backend(a.fine_clock),'gnss_fast_map_diagnostic':fast_map,'registry_sha256':sha(a.registry),'registry_generator_sha256':sha(REPO/'registry/registry.py'),'enrollment_mode':'LOCAL_BUILD_TIME_NO_NVS_WRITE','device_config_sha256':sha(a.device_config),'provisional_path_profile':provisional_profile(d),'phase_offsets':phase_offsets(),'bluetooth_clock_map':'FINE_RAW_CURRENT_BRACKET' if a.fine_clock else 'GPTIMER_DRIVER_BRACKET','programmed_clock_projection':'MEAN4_VALIDATED_NO_TRIMMING' if a.estimated_relay else None}
  dump(out/'receipt.json',r)
  env=os.environ.copy()
  for k in ['CFLAGS','CXXFLAGS','CPPFLAGS','LDFLAGS','EXTRA_COMPONENT_DIRS','SDKCONFIG_DEFAULTS']:env.pop(k,None)
@@ -197,6 +207,7 @@ def main():
   validate_fine_compilation(r,d,json.loads((target/'compile_commands.json').read_text()))
   validate_gm_successor_compilation(r,json.loads((target/'compile_commands.json').read_text()))
   validate_map_compilation(r,d,json.loads((target/'compile_commands.json').read_text()),config)
+  validate_size_compilation(r,json.loads((target/'compile_commands.json').read_text()),config)
   compiler=next(x for x in json.loads((target/'compile_commands.json').read_text()) if x['file'].endswith('/native_main.cpp'))
   toolchain_version=subprocess.check_output([compiler['command'].split()[0],'-dumpfullversion'],text=True).strip()
   if toolchain_version!='14.2.0':raise ValueError('Expected Xtensa GCC14.2.0')
