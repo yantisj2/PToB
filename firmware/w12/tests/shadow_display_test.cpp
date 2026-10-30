@@ -19,7 +19,9 @@ int main(int argc,char** argv){
   std::array<uint8_t,sizeof fb> actual{};std::copy(std::begin(fb),std::end(fb),actual.begin());
   std::fill(std::begin(fb),std::end(fb),0);text(2,56,"RMS 49ns P99:123ns");
   for(unsigned x=0;x<128;++x)assert(actual[7*128+x]==fb[7*128+x]);
-  s.page=display_pages::Hold;image(s,out+"/shadow-details.pbm");
+  mesh.g1_shadow.holding=true;mesh.g1_shadow.age20=mesh.g1_shadow.safe20=65*20000000ULL;dashboard.apply(s,mesh);
+  assert(s.shadow_age_ms==65000&&s.shadow_safe_ms==65000);s.page=display_pages::Hold;image(s,out+"/shadow-details.pbm");
+  mesh.g1_shadow.cross20=66*20000000ULL;dashboard.apply(s,mesh);assert(s.shadow_cross_ms==66000);image(s,out+"/shadow-crossed.pbm");
   mesh.g1_shadow.p99_ns=UINT64_MAX;dashboard.apply(s,mesh);assert(s.shadow_p99_ns==UINT64_MAX);
-  std::puts("PASS actual shadow framebuffer: warmup, measured P99 footer pixels, one-second detail and expiry");
+  std::puts("PASS actual shadow framebuffer: warmup, measured P99 footer pixels, extended run and threshold details and expiry");
 }

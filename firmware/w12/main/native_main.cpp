@@ -745,10 +745,11 @@ void stop_all(){
         {const int n=v12::g1_render_clock(line,sizeof line,mesh,now);if(n>0&&unsigned(n)<sizeof line){const int printed=std::printf("%s",line);if(printed>0)console_bytes+=unsigned(printed);}}
         {const int n=v12::g1_render_fit(line,sizeof line,mesh,now);if(n>0&&unsigned(n)<sizeof line){const int printed=std::printf("%s",line);if(printed>0)console_bytes+=unsigned(printed);}}
 #ifdef PTOB_W12_SHADOW_HOLDOVER
-        {const auto& q=mesh.g1_shadow;const int printed=std::printf("W12_SHADOW_STATUS at_us=%llu population=%lu n=%lu started=%lu completed=%lu missed=%lu aborted=%lu p95_ns=%llu p99_ns=%llu max_ns=%llu baseline_p95_ns=%llu baseline_p99_ns=%llu baseline_max_ns=%llu thermal=%u holding=%u horizon_ms=1000 production=0\n",
+        {const auto& q=mesh.g1_shadow;const int printed=std::printf("W12_SHADOW_STATUS at_us=%llu population=%lu n=%lu started=%lu completed=%lu missed=%lu aborted=%lu p95_ns=%llu p99_ns=%llu max_ns=%llu baseline_p95_ns=%llu baseline_p99_ns=%llu baseline_max_ns=%llu thermal=%u holding=%u horizon_ms=120000 age20=%llu safe20=%llu cross20=%llu base_cross20=%llu run_max_ns=%llu production=0\n",
           (unsigned long long)now,(unsigned long)q.generation,(unsigned long)q.samples,(unsigned long)q.started,(unsigned long)q.completed,(unsigned long)q.missed,(unsigned long)q.aborted,
           (unsigned long long)q.p95_ns,(unsigned long long)q.p99_ns,(unsigned long long)q.max_ns,
-          (unsigned long long)q.baseline_p95_ns,(unsigned long long)q.baseline_p99_ns,(unsigned long long)q.baseline_max_ns,unsigned(q.thermal_ready),unsigned(q.holding));
+          (unsigned long long)q.baseline_p95_ns,(unsigned long long)q.baseline_p99_ns,(unsigned long long)q.baseline_max_ns,unsigned(q.thermal_ready),unsigned(q.holding),(unsigned long long)q.age20,(unsigned long long)q.safe20,(unsigned long long)q.cross20,
+          (unsigned long long)q.baseline_cross20,(unsigned long long)q.run_max_ns);
           if(printed>0)console_bytes+=unsigned(printed);}
 #endif
         for(unsigned i=0;i<8;i++){const unsigned index=(g1_diagnostic_peer+i)%8;const int n=v12::g1_render_peer(line,sizeof line,mesh.g1_diagnostics.peers[index]);

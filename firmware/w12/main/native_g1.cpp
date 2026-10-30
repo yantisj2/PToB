@@ -145,12 +145,14 @@ W12ShadowHoldover shadow_holdover;uint32_t shadow_generation=0;uint64_t shadow_d
 uint64_t shadow_temperature20=0,shadow_temperature_consumed20=0;int32_t shadow_temperature_mc=INT32_MIN;
 void shadow_sample(const W12ShadowHoldover::Sample& s){
   const auto q=shadow_holdover.view();
-  logf("W12_SHADOW boot=%llu seq=%llu start20=%llu local20=%llu reference_ns=%llu predicted_ns=%lld baseline_ns=%lld error_ns=%lld baseline_error_ns=%lld n=%lu p95_ns=%llu p99_ns=%llu max_ns=%llu base_p99_ns=%llu completed=%lu missed=%lu aborted=%lu thermal=%u temp_mc=%ld slope_mppb_c=%ld population=%lu horizon_ms=1000 production=0\n",
+  logf("W12_SHADOW boot=%llu seq=%llu start20=%llu local20=%llu reference_ns=%llu predicted_ns=%lld baseline_ns=%lld error_ns=%lld baseline_error_ns=%lld n=%lu p95_ns=%llu p99_ns=%llu max_ns=%llu base_p99_ns=%llu completed=%lu missed=%lu aborted=%lu thermal=%u temp_mc=%ld slope_mppb_c=%ld population=%lu horizon_ms=120000 trial=%lu age20=%llu safe20=%llu cross20=%llu base_cross20=%llu run_max_ns=%llu base_run_max_ns=%llu production=0\n",
     (unsigned long long)shadow_device_boot,(unsigned long long)s.sequence,(unsigned long long)s.start20,(unsigned long long)s.local20,(unsigned long long)s.reference_ns,
     (long long)s.prediction_ns,(long long)s.baseline_ns,(long long)s.error_ns,(long long)s.baseline_error_ns,
     (unsigned long)q.samples,(unsigned long long)q.p95_ns,(unsigned long long)q.p99_ns,(unsigned long long)q.max_ns,
     (unsigned long long)q.baseline_p99_ns,(unsigned long)q.completed,(unsigned long)q.missed,(unsigned long)q.aborted,
-    unsigned(q.thermal_ready),(long)q.temperature_mc,(long)q.slope_mppb_c,(unsigned long)q.generation);
+    unsigned(q.thermal_ready),(long)q.temperature_mc,(long)q.slope_mppb_c,(unsigned long)q.generation,(unsigned long)q.started,
+    (unsigned long long)q.age20,(unsigned long long)q.safe20,(unsigned long long)q.cross20,(unsigned long long)q.baseline_cross20,
+    (unsigned long long)q.run_max_ns,(unsigned long long)q.baseline_run_max_ns);
 }
 void shadow_pair(uint64_t local,uint64_t remote,uint64_t available,const G1ClockPrediction& active,bool trained,uint32_t generation){
   if(generation!=shadow_generation){shadow_holdover.clear();shadow_generation=generation;shadow_temperature_consumed20=0;}

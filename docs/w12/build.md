@@ -812,30 +812,48 @@ Neither host checks nor internal fit RMS establishes calibrated UTC accuracy.
 
 ## Shadow holdover
 
-W12 0.2.22 keeps the existing production servo and adds an experimental
+W12 0.2.23 keeps the existing production servo and adds an experimental
 numerical shadow model. It learns a bounded linear temperature response from
 BLE-derived frequency fits using an eight-second silicon-temperature proxy.
 There is no local GNSS/LoRa training or production cutover. Insufficient thermal
-coverage retains the current fitted rate without inventing a temperature slope.
+coverage retains the fitted rate without inventing a temperature slope.
 
-A trial freezes the current raw clock and candidate coefficients at their actual
-availability time, withholds further BLE corrections and learning for one second,
-and continues causal temperature compensation. The first authenticated matched
-physical BLE observation at 1–1.125 seconds scores both candidate and held current
-method. An interval without that endpoint is missing, never interpolated.
-There is at least one second of training between trials. Source changes reset
-the rolling population; counters retain completed, missed and aborted trials.
+The previous 0.2.22 sampler tested only a single endpoint at one second. That
+was a measurement ceiling, not a measured oscillator limit. A 0.2.23 trial freezes
+the raw clock, phase and candidate coefficients at their actual availability
+time for 120 seconds. Every later authenticated matched physical BLE event
+scores both candidate and held current method, without correcting either.
+BLE-derived learning continues separately for future trials; it cannot change
+held coefficients. A causal cumulative temperature integral survives eviction
+of the eight-reading history and never uses sensor readings after physical RX.
 
-`P99:` replaces `H:` on the Clock page. It is the nearest-rank absolute error of
-the latest 128 measured endpoints and requires 100 endpoints. It becomes `--`
-after five seconds without a scored endpoint. The Hold diagnostic page shows
-`SHADOW HOLDOVER 1s` and sample count. This display does not grant lock or source
-permission. Radio-off behavior and independently measured UTC remain unqualified.
+Each trial retains the first sampled absolute error **>= 1,000 ns**, the last
+preceding sampled age below that threshold and the maximum error over the
+entire run. It continues after a crossing to preserve tails. A no-crossing
+120-second result is censored by the test cap. A gap above 250 ms, missing
+causal temperature or lost source permission aborts coverage, with no zero
+filling or interpolation. Source changes reset the population. Lifetime counters
+retain starts, completed 120-second trials, missed coverage and aborts.
+
+`P99:` remains measured error, not a percentile of holdover duration. It is the
+nearest-rank absolute error of the latest 128 BLE observations **within the
+current trial**, requiring 100 observations. These are correlated samples of
+varying holdover ages, not 100 independent trials or a safe-duration guarantee.
+The window resets each trial and becomes `--` after five seconds without a
+score or immediately on abort. The Hold page shows elapsed age / 120s, P99,
+sample count, and `1us HIT` or `SUB 1us`. Only the latter reports the latest
+sampled safe age before any crossing. It cannot cover errors between samples.
 
 During bounded capture, `W12_SHADOW` records retain exact integer reference and
-candidate/baseline predictions, signed errors, local coordinates and population.
-Use `tools/shadow_holdover_tests.py` for causal holdoff, thermal history, tails,
-quantiles, lifecycle and actual framebuffer checks without opening hardware.
-Use `tools/shadow_holdover_analyze.py` on the captured console to reproduce
-sampled P95/P99/MAX and compare both methods. Missing log sequences and partial
-capture populations remain explicit. No detrending or tail removal is applied.
+candidate/baseline predictions, signed errors, trial/population, physical age,
+first crossing, sampled safe age and cumulative maxima. Use
+`tools/shadow_holdover_tests.py` for frozen-clock isolation, 120-second runs,
+100-second threshold crossings, coverage failures, causal thermal history,
+rolling tails and actual framebuffer checks without opening hardware.
+Use `tools/shadow_holdover_analyze.py` on captured console data to reproduce
+P95/P99/MAX and paired comparisons, keeping trial and age-band populations
+separate. It also supports historical 0.2.22 records. Partial starts, missing log
+sequences and tails remain explicit. No detrending or tail removal is applied.
+Radio-off behavior, continuous bounds and independently measured UTC remain
+unqualified. Tuning and production promotion require repeatable matched trials
+across operating temperatures and loads; no automatic cutover is implemented.

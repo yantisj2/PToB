@@ -102,9 +102,9 @@ int main(int argc,char** argv){assert(argc==2);std::string which=argv[1];
     const auto at=UINT64_C(40000000);v12::G1ClockPrediction active{at-1000,INT64_C(1000000000000),0,123,0};
     v12::r2_shadow_temperature(at,25000);assert(v12::w12_shadow::pair_sink);
     v12::w12_shadow::pair_sink(at-1250000,1,at,active,true,77);
-    v12::r2_shadow_temperature(at+20000000,25000);
-    v12::w12_shadow::pair_sink(at+20000000,uint64_t(active.relative_at(at+20000000))-123,at+20000100,active,true,77);
-    assert(v12::shadow_holdover.view().completed==1&&v12::shadow_holdover.view().max_ns==123);
+    v12::r2_shadow_temperature(at+2500000,25000);
+    v12::w12_shadow::pair_sink(at+2500000,uint64_t(active.relative_at(at+2500000))-123,at+2500100,active,true,77);
+    assert(v12::shadow_holdover.view().completed==0&&v12::shadow_holdover.view().max_ns==123&&v12::shadow_holdover.view().holding);
     assert(v12::corrected_clock.prediction().tick==original.tick&&!v12::member&&!v12::anchor.source);
     std::puts("PASS native W12 shadow sink and temperature handoff: no current clock or source mutation");return 0;
   }

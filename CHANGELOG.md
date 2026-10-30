@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-30 — W12 extended shadow holdover
+
+- W12 0.2.23 replaces fixed one-second endpoints with frozen 120-second runs.
+  Record each matched BLE error, first sampled 1 µs crossing, full-run maxima
+  and coverage failures. Keep the production servo and shadow P99 footer.
+- Preserve causal temperature integration beyond the short sensor history and
+  isolate continuous learning from held coefficients. Report trial ages and
+  paired comparisons; sampled duration is not a continuous accuracy bound.
+
 ## 2026-10-30 — W12 shadow holdover display
 
 - W12 0.2.22 replaces the H forecast with sampled one-second shadow P99.
