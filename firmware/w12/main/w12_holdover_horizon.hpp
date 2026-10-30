@@ -10,12 +10,12 @@ struct W12HorizonView {
   uint16_t trials=0,bad=0,unknown=0;bool ready=false,lower_bound=false;
 };
 // Empirical P99 of sampled prefix maxima, inverted at the fixed 1000ns limit.
-// Sixteen frozen clocks; packed rolling128 outcomes per age. No rate forecast,
+// Forty-eight frozen clocks; packed rolling128 outcomes per age. No rate forecast,
 // thermal steering, future corrections, or claim about unobserved gap interiors.
 class W12HoldoverHorizon {
  public:
   static constexpr uint64_t Hz=20000000,Gap=Hz/4;
-  static constexpr unsigned Capacity=128,Minimum=100,Slots=16;
+  static constexpr unsigned Capacity=128,Minimum=100,Slots=48;
   static constexpr std::array<uint32_t,26> Ages{250,500,750,1000,1250,1500,1750,2000,2250,2500,2750,3000,3250,3500,3750,4000,6000,8000,12000,16000,24000,32000,48000,64000,96000,120000};
   enum Outcome:uint8_t {Pass=1,Fail=2,Unknown=3};
   struct Start {uint32_t id=0,probe_ms=0;uint64_t at20=0;int64_t epoch=0;double rate=0;int32_t phase=0;};
@@ -40,7 +40,7 @@ class W12HoldoverHorizon {
     uint32_t id=0,probe_ms=0,peak=0,gaps=0;int32_t phase=0;uint8_t next=0;
   };
   std::array<Bin,Ages.size()> bins_{};std::array<Run,Slots> runs_{};
-  uint64_t next_=0,last_=0;uint32_t probe_=12000,started_=0,completed_=0,aborted_=0,gaps_=0;
+  uint8_t lane_=0;uint64_t next_=0,last_=0;uint32_t probe_=12000,started_=0,completed_=0,aborted_=0,gaps_=0;
   StartSink start_sink_=nullptr;EndSink end_sink_=nullptr;
   static void inc(uint32_t& n){if(n!=UINT32_MAX)++n;}
   void outcome(Run& r,unsigned i,Outcome o){bins_[i].add(o);r.outcomes|=uint64_t(o)<<(2*i);}
@@ -53,7 +53,7 @@ class W12HoldoverHorizon {
  public:
   void sinks(StartSink a,EndSink b){start_sink_=a;end_sink_=b;}
   void clear(){for(auto& r:runs_)if(r.start)finish(r,true);for(auto& b:bins_)b={};
-    next_=last_=0;probe_=12000;}
+    next_=last_=0;probe_=12000;lane_=0;}
   void cancel(){for(auto& r:runs_)if(r.start)finish(r,true);}
   void tick(uint64_t at){for(auto& r:runs_)if(r.start&&at>=r.start&&at-r.start>uint64_t(r.probe_ms+1000)*20000)finish(r,true);}
   bool due(uint64_t at)const{return at&&at>=next_;}
@@ -62,8 +62,12 @@ class W12HoldoverHorizon {
     const auto value=clock.relative_at(at)-clock.receiver_phase_ns,phase=clock.phase_remaining(at);
     if(value<=0||std::abs(double(phase))>=1000)return false;
     for(auto& r:runs_)if(!r.start){
-      r={};r.start=r.last=at;r.epoch=value;r.rate=clock.rate;r.phase=int32_t(phase);r.probe_ms=probe_;inc(started_);r.id=started_;
-      next_=at+uint64_t(std::max<uint32_t>(1000,(probe_+1000+Slots-1)/Slots))*20000;
+      r={};r.start=r.last=at;r.epoch=value;r.rate=clock.rate;r.phase=int32_t(phase);r.probe_ms=lane_?2000:probe_;lane_=uint8_t((lane_+1)%8);inc(started_);r.id=started_;
+      // Seven short lanes feed early P99 while one lane keeps extending the
+      // long horizon. Weighted occupancy leaves four slots for witness delay.
+      constexpr uint64_t divisor=8*(Slots-4);
+      const auto spacing_us=std::max<uint64_t>(62500,(uint64_t(14000+probe_)*1000+divisor-1)/divisor);
+      next_=at+spacing_us*20;
       if(start_sink_){start_sink_({r.id,r.probe_ms,at,r.epoch,r.rate,r.phase});}
       return true;
     }
@@ -107,5 +111,5 @@ class W12HoldoverHorizon {
     return v;
   }
 };
-static_assert(sizeof(W12HoldoverHorizon)<=2560,"Bounded sampled hold-duration RAM");
+static_assert(sizeof(W12HoldoverHorizon)<=4096,"Bounded sampled hold-duration RAM");
 }

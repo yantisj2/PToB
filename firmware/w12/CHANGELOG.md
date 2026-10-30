@@ -1,5 +1,14 @@
 # W12 changelog
 
+## 0.2.29 — faster parallel P99 ramp
+
+- Run 48 offset shadow clocks with frequent two-second lanes alongside the
+  retained adaptive long probes. Preserve 100-run P99, prefix failures, coverage
+  rules, production HOLD and temperature shadow isolation.
+- Replay mixed-duration age populations independently. Retain GNSS features
+  inside the original application partition using application-only `-Oz`;
+  preserve SDK debug options and assertions.
+
 ## 0.2.28 — sampled P99 hold seconds
 
 - Correct the P99 footer from an error percentile to seconds at the fixed1us

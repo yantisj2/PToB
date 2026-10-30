@@ -22,10 +22,11 @@ def summary(bins):
     result['lower_bound']=result['ready'] and not bounded
     return result
 def analyze(raw):
-    bins=[collections.deque(maxlen=128) for _ in AGES];slots=[None]*16;states={};finished={};statuses=[];orphans=[];pairs={}
-    complete=0;resets=0;replay_difference=0
+    bins=[collections.deque(maxlen=128) for _ in AGES];slots=[None]*48;states={};finished={};statuses=[];orphans=[];pairs={}
+    complete=0;resets=0;replay_difference=0;population_known=False
+    counts=[0]*len(AGES)
     def add(r,i,outcome):
-        bins[i].append(outcome);r['bits']|=outcome<<(2*i)
+        bins[i].append(outcome);counts[i]+=1;r['bits']|=outcome<<(2*i)
     def finish(r):
         while r['next']<len(AGES) and AGES[r['next']]<=r['probe']:
             add(r,r['next'],2 if r['peak']>=1000 else 3);r['next']+=1
@@ -35,10 +36,11 @@ def analyze(raw):
         if not m:continue
         kind=m[1];v=fields(m[2])
         if kind=='W12_HORIZON_RESET':
-            bins=[collections.deque(maxlen=128) for _ in AGES];slots=[None]*16;states={};complete=0;resets+=1;continue
+            bins=[collections.deque(maxlen=128) for _ in AGES];slots=[None]*48;states={};complete=0;resets+=1;population_known=True;counts=[0]*len(AGES);continue
         if kind=='W12_HORIZON_START':
             assert v['temperature']=='0' and v['production']=='0'
             key=(int(v['boot']),int(v['trial']));assert key not in states and None in slots
+            if key[1]==1:population_known=True
             r=dict(start=int(v['start20']),last=int(v['start20']),epoch=int(v['epoch_ns']),phase=int(v['phase_ns']),rate=float(v['rate']),probe=int(v['probe_ms']),next=0,bits=0,peak=0,gaps=0,slot=slots.index(None),ended=False)
             states[key]=r;slots[r['slot']]=r
         elif kind=='W12_HOLDOVER_PAIR':
@@ -64,10 +66,14 @@ def analyze(raw):
             finished[key]=dict(trial=key[1],probe_ms=r['probe'],peak_ns=r['peak'],gaps=r['gaps'],outcomes=r['bits']);complete+=1
         else:
             assert v['policy']=='SAMPLED_PREFIX_Q99_1US_V1' and v['temperature']=='0' and v['production']=='0'
-            # Earlier capture-start contributions have left every rolling128
-            # low-age bin after128 fully replayed completions. Higher probes
-            # begin later and already have their complete captured population.
-            if complete<128:continue
+            # Mixed-duration lanes must evict pre-capture evidence separately
+            # at each age. Short completions cannot certify a long-age ring.
+            if not population_known:
+                known=True
+                for i,b in enumerate(bins):
+                    if counts[i]<128:known=False;break
+                    if len(b)-b.count(3)<100 or sum(x!=1 for x in b)*100>len(b):break
+                if not known:continue
             expected=summary(bins)
             for k in ('ready','duration_ms','lower_bound','n','bad','unknown'):assert int(v[k])==expected[k],(k,v[k],expected)
             statuses.append({**expected,'at_us':int(v['at_us']),'probe_ms':int(v['probe_ms'])})

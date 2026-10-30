@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-30 — W12 parallel P99 ramp
+
+- Run 48 offset shadow clocks with frequent two-second lanes alongside the
+  retained adaptive long probes. Preserve 100-run P99, prefix failures, coverage
+  rules, production HOLD and temperature shadow isolation.
+- Replay mixed-duration age populations independently. Retain GNSS features
+  inside the original application partition using application-only `-Oz`;
+  preserve SDK debug options and assertions.
+
 ## 2026-10-30 — W12 P99 hold-duration display
 
 - W12 0.2.28 displays sampled hold seconds at1us rather than error nanoseconds.

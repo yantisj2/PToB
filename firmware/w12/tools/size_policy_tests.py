@@ -21,6 +21,14 @@ class SizePolicyTests(unittest.TestCase):
     def test_sdk_debug_and_final_app_size_option(self):
         self.check_policy()
 
+    def test_gnss_size_policy_preserves_sdk(self):
+        self.receipt['application_optimization'] = 'W12_MAIN_OZ_GNSS_SDK_DEBUG_V1'
+        self.rows[0]['command'] = self.rows[0]['command'].replace('-Os', '-Oz')
+        self.check_policy()
+        self.rows[0]['command'] += ' -Os'
+        with self.assertRaisesRegex(ValueError, 'effective -Oz'):
+            self.check_policy()
+
     def test_later_debug_option_is_refused(self):
         self.rows[0]['command'] += ' -Og'
         with self.assertRaisesRegex(ValueError, 'effective -Os'):

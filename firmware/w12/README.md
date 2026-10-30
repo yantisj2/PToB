@@ -7,11 +7,19 @@ RC role. [Image provenance](../../docs/images/README.md).*
 
 Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
 
-**PToB owns W12 native G1/RC7 development.** Current version **0.2.28** supports
+**PToB owns W12 native G1/RC7 development.** Current version **0.2.29** supports
 **RC**: a BLE50 client or BLE100 receiver with an optional experimental
 estimated-TX relay. It receives from the shared T096/W12/StickS3 mesh; it has no
 GM profile or USB timing stream. Start with the
 [build guide](../../docs/w12/build.md).
+
+Version 0.2.29 accelerates initial duration sampling with 48 parallel offset
+clocks: seven of every eight starts test two seconds while the eighth continues
+the 12-to-120-second adaptive probes. Healthy 16 Hz synthetic input produces an
+initial two-second result within 12 seconds of sampling; actual BLE acquisition,
+rejections and outages add time. The 100-run criterion and production HOLD are
+unchanged. The GNSS-enabled application uses `-Oz` to retain its features inside
+the existing partition; SDK debug options and assertions remain enabled.
 
 Version 0.2.28 corrects `P99:` to show **hold duration in seconds at a fixed
 1 µs limit**, measured by continuously frozen BLE-only shadow clocks that mirror

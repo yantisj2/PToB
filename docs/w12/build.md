@@ -867,8 +867,8 @@ across operating temperatures and loads; no automatic cutover is implemented.
 
 ## Sampled P99 hold duration
 
-Version 0.2.28 defines the clock footer's `P99:` as seconds of hold at a fixed
-absolute error limit of 1000 ns. `P99:2.2s` is the conservative tested age whose
+Version 0.2.29 retains the 0.2.28 definition of the clock footer's `P99:`:
+seconds of hold at a fixed absolute error limit of 1000 ns. `P99:2.2s` is the conservative tested age whose
 99th percentile of sampled prefix maxima remains below that limit; `>=12s`
 means the current qualifying evidence reaches that age without locating the
 percentile's limit. `--` means fewer than 100 runs or stale evidence. This is an
@@ -893,11 +893,18 @@ then 6/8/12/16/24/32/48/64/96/120 seconds). Display tenths round downward.
 Internal gaps over 250 ms remain counted without interpolating their interiors;
 this statistic concerns observed samples and grants no continuous error bound.
 
-Sixteen frozen clocks and packed outcomes use at most 2560 bytes. Start near
-once per second with a 12-second probe, extending to 24/48/96/120 seconds only
-when the current horizon qualifies. Longer probes reduce launch frequency to
-fit the same bounded storage. Overlapping starts are correlated and are not
-independent trials. Error tails continue through each probe after a crossing.
+Forty-eight frozen clocks and packed outcomes use at most 4096 bytes. Seven
+of every eight offset starts test two seconds; the eighth keeps the adaptive
+12/24/48/96/120-second probes. Weighted spacing bounds occupancy and preserves
+long probes while gathering short-age outcomes sooner. Healthy 16 Hz synthetic
+input yields the first two-second P99 within 12 seconds of sampling; real
+acquisition, rejection and source outages can delay it. The threshold remains
+100 scored runs at each age. Overlapping runs are correlated.
+
+GNSS-enabled images compile the application component with `-Oz`; other W12
+images retain `-Os`. The inspector checks the receipt and effective flag.
+SDK/controller debug options, assertions, features and partition bounds remain
+unchanged. This size policy does not qualify timing performance.
 
 The Hold page shows the 1 µs criterion, P99 seconds, run count, probe horizon and
 gaps. Existing nine-row status fields `ui_hold_percentile=99`, `ui_hold_ms` and
@@ -912,7 +919,7 @@ No persistence or partition change is enabled.
 
 ## Production holdover
 
-**Current 0.2.28 policy: temperature is shadow-only.** Production retains the
+**Current 0.2.29 policy: temperature is shadow-only.** Production retains the
 last trusted BLE frequency and phase, with an explicitly zero thermal coefficient.
 Temperature learning and thermal-candidate scoring continue separately. The
 optimized retained-clock selector, continuity through coarse acquisition,
