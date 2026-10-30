@@ -65,7 +65,9 @@ def status_command(nonce):
 
 def mutation_command(frame,nonce,action):
     require(HEX16.fullmatch(nonce) and int(nonce,16) and nonce!=frame['begin']['nonce'],'Fresh mutation nonce required')
-    require(action in ('off','prepare_update','r2 client','r2 client 50','r2 client 100','capture stop','watchdog-test','upstream auto','upstream relay','lora auto','lora on','lora off','ui page 0','ui page 9','ui page 14','ui page 15','rc9 diag') or re.fullmatch(r'((rc|gm|rc9)-parent (auto|[0-9a-f]{16})|capture rolling [0-9]{5,6}|capture [0-9]{1,5}|tx (root|relay|rc7probe) [0-9]{1,5}|rx (full|half350|half400|half450|coarse) [0-9]{1,5}|lora_rx [0-9]{1,5}|r2 (passive|active) [0-9]{1,5})',action),'Known bounded observer/radio or explicit persistent client action required')
+    holdover=re.fullmatch(r'holdover test (0|[1-9][0-9]{3,5})',action)
+    bounded_holdover=bool(holdover) and (int(holdover[1])==0 or 1000<=int(holdover[1])<=120000)
+    require(bounded_holdover or action in ('off','prepare_update','r2 client','r2 client 50','r2 client 100','capture stop','watchdog-test','upstream auto','upstream relay','lora auto','lora on','lora off','ui page 0','ui page 9','ui page 14','ui page 15','rc9 diag') or re.fullmatch(r'((rc|gm|rc9)-parent (auto|[0-9a-f]{16})|capture rolling [0-9]{5,6}|capture [0-9]{1,5}|tx (root|relay|rc7probe) [0-9]{1,5}|rx (full|half350|half400|half450|coarse) [0-9]{1,5}|lora_rx [0-9]{1,5}|r2 (passive|active) [0-9]{1,5})',action),'Known bounded observer/radio or explicit persistent client action required')
     b=frame['begin']
     return f"v12 do {b['ticket']} {nonce} {b['factory']} {b['session']} {action}\n".encode()
 
