@@ -15,14 +15,24 @@ class Receiver {
  struct Status {uint32_t callbacks=0,claimed=0,overwritten=0,late=0,fault=0;};
  private:
  struct Fence {uint64_t lower=0,upper=0;uint32_t sequence=0;};
- Edge rows_[Capacity]{};Fence fences_[Fences]{};
+ // Keep every accepted field without repeating validation invariants in each
+ // row. raw32 is exactly uint32_t(raw80), incarnation is the active scope,
+ // and every stored row is valid. Separate arrays also avoid Edge padding.
+ uint64_t row_raw_[Capacity]{},row_tick_[Capacity]{},row_seen_[Capacity]{};
+ uint32_t row_number_[Capacity]{};uint8_t row_flags_[Capacity]{};
+ Fence fences_[Fences]{};
  uint64_t origin80_=0,from80_=0,overwritten_max80_=0,sealed_max80_=0,last_channel80_[2]{};
  uint32_t incarnation_=0,sequence_=0,count_=0,last_packet_epoch_=0,last_packet_sequence_=0;
  Status status_{};
  static void inc(uint32_t& n){if(n!=UINT32_MAX)++n;}
+ Edge edge(unsigned i)const{
+  if(!row_number_[i])return {};
+  return {row_raw_[i],row_tick_[i],row_seen_[i],row_number_[i],uint32_t(row_raw_[i]),
+    incarnation_,uint8_t(row_flags_[i]&1),uint8_t((row_flags_[i]>>1)&1),true};
+ }
  public:
  void begin(uint64_t origin80,uint64_t capture_from80,uint32_t incarnation){
-  for(auto& e:rows_){e={};}
+  for(unsigned i=0;i<Capacity;++i){row_raw_[i]=row_tick_[i]=row_seen_[i]=0;row_number_[i]=0;row_flags_[i]=0;}
   for(auto& f:fences_){f={};}
   status_={};
   overwritten_max80_=sealed_max80_=0;last_channel80_[0]=last_channel80_[1]=0;
@@ -39,9 +49,10 @@ class Receiver {
   if(e.raw80<=sealed_max80_)for(const auto& f:fences_){
    if(f.sequence&&e.number>f.sequence&&e.raw80>=f.lower&&e.raw80<=f.upper){inc(status_.late);status_.fault|=2;}
   }
-  auto& row=rows_[(e.number-1)%Capacity];
-  if(count_==Capacity){if(row.raw80>overwritten_max80_)overwritten_max80_=row.raw80;inc(status_.overwritten);}else ++count_;
-  row=e;sequence_=e.number;last_channel80_[e.kind]=e.raw80;
+  const unsigned i=(e.number-1)%Capacity;
+  if(count_==Capacity){if(row_raw_[i]>overwritten_max80_)overwritten_max80_=row_raw_[i];inc(status_.overwritten);}else ++count_;
+  row_raw_[i]=e.raw80;row_tick_[i]=e.tick20;row_seen_[i]=e.seen_us;row_number_[i]=e.number;
+  row_flags_[i]=uint8_t(e.kind|(e.polarity<<1));sequence_=e.number;last_channel80_[e.kind]=e.raw80;
  }
  Result claim(uint64_t descriptor20,uint32_t enclosure_ns,uint8_t phy,uint8_t pdu_length,uint8_t ext_header,
               uint32_t packet_epoch,uint32_t packet_sequence,uint64_t current80,uint32_t pending,Match& out){
@@ -59,7 +70,7 @@ class Receiver {
   if(current80-upper>EventAge80||lower<=overwritten_max80_)return Result::Missing;
   unsigned rising=0,falling=0;uint32_t previous=0;
   const auto first=sequence_-count_+1;
-  for(uint32_t i=0;i<count_;++i){const auto& e=rows_[(first+i-1)%Capacity];
+  for(uint32_t i=0;i<count_;++i){const auto e=edge((first+i-1)%Capacity);
    if(e.number!=first+i||(previous&&e.number!=previous+1))return Result::Missing;
    previous=e.number;
    if(e.kind||e.raw80<lower||e.raw80>upper)continue;
@@ -104,5 +115,5 @@ class Receiver {
   return !status_.fault;
  }
 };
-static_assert(sizeof(Receiver)<13312,"Continuous fine callback history exceeds13KiB");
+static_assert(sizeof(Receiver)<=7896,"Exact fine callback history exceeds compact storage budget");
 }

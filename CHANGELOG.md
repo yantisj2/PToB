@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-30 — W12 exact receive history storage
+
+- Save another 2816 bytes without dropping receive records or timestamp bits.
+  Preserve the 256-entry capacity and association/fence rules; reconstruct only
+  fields already guaranteed by validation. Hardware acceptance remains separate.
+
 ## 2026-10-30 — W12 minimum watchdog interval
 
 - Enforce a five-second minimum on application watchdogs and wait five seconds

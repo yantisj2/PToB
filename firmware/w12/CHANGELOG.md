@@ -1,5 +1,13 @@
 # W12 changelog
 
+## 0.2.34 — exact fine receive history storage
+
+- Save 2816 bytes by separating retained callback fields and reconstructing
+  validated duplicate raw32, incarnation and validity values.
+- Preserve all 256 entries, full-width timestamps, edge metadata, association
+  and overwrite/fence rules. Check exact metadata and existing receive owners
+  with sanitizers; hardware capacity and timing acceptance remain separate.
+
 ## 0.2.33 — minimum five-second application watchdogs
 
 - Wait five seconds before declaring main or NimBLE host progress stalled.

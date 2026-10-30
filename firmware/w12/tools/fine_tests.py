@@ -65,8 +65,9 @@ def main():
    # History belongs to the finite N30 observer, outside this W12 port.
    s=s[:s.index(' History ')]+'\n}\n' if ' History ' in s else s
   f=out/(name+'.cpp');f.write_text(s);run([cxx,*flags,f,'-o',out/name],name+'-compile');run([out/name],name)
+ run([cxx,*flags,APP/'tests/fine_receiver_storage_test.cpp','-o',out/'fine-storage'],'fine-storage-compile');run([out/'fine-storage'],'fine-storage')
  run([cxx,*flags,APP/'tests/fine_clock_prediction_test.cpp','-o',out/'slew'],'slew-compile');run([out/'slew'],'slew')
- paths=[APP/'main/native_main.cpp',APP/'tests/fine_shutdown_test.cpp',APP/'tests/fine_clock_prediction_test.cpp',APP/'main/w12_fine_clock.cpp',APP/'main/fine_counter.hpp',APP/'main/fine_receiver.hpp',APP/'tests/fine_clock_test.cpp',Path(__file__),N30/'tests/fine_counter_test.cpp',N30/'tests/fine_receiver_test.cpp',*sorted((N30/'tests/fine_fakes').rglob('*'))]
+ paths=[APP/'main/native_main.cpp',APP/'tests/fine_shutdown_test.cpp',APP/'tests/fine_clock_prediction_test.cpp',APP/'main/w12_fine_clock.cpp',APP/'main/fine_counter.hpp',APP/'main/fine_receiver.hpp',APP/'tests/fine_clock_test.cpp',APP/'tests/fine_receiver_storage_test.cpp',Path(__file__),N30/'tests/fine_counter_test.cpp',N30/'tests/fine_receiver_test.cpp',*sorted((N30/'tests/fine_fakes').rglob('*'))]
  (out/'receipt.json').write_text(json.dumps({'status':'PASS','scope':'W12_ACTUAL_RX_ONLY_OWNER_ASAN_UBSAN_SYNTHETIC_PERIPHERALS','hardware_access':False,'sources':{str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in paths if p.is_file()}},indent=2)+'\n')
  print('PASS W12 fine owner/counter/receiver with ASan/UBSan; hardware untested')
 if __name__=='__main__':main()

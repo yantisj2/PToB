@@ -5,6 +5,14 @@ Copyright (c) 2026 Jonathan Yantis. MIT.
 Native builds [clean compiler output and retain the latest two image bundles](../firmware-storage.md)
 per device/profile, with installed/recovery pins preserved.
 
+Version 0.2.34 compacts the fine receive history by 2816 bytes while retaining
+all 256 records and every accepted field exactly. The raw32 value, incarnation
+and validity already follow from observation validation; separate arrays avoid
+per-record padding. No timestamp is narrowed, and the original association,
+fence, overwrite and stale-event rules remain. `fine_tests.py` checks full-width
+metadata, resets, actual receive/shutdown owners and the existing counter vectors
+with ASan/UBSan. Hardware controller capacity and timing acceptance are separate.
+
 Version 0.2.33 enforces a minimum five-second watchdog interval.
 Main and NimBLE completed-progress stalls are declared only after five seconds;
 fault restart remains 120 seconds and continuous no-time restart 300 seconds.
