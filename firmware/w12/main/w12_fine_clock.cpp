@@ -1,6 +1,7 @@
 // Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT
 // W12 adaptation of N30's persistent MCPWM owner. RX only: GPIO16; no TX pad.
 #include "w12_fine_clock.hpp"
+#include "stack_frame.hpp"
 #include "w12_lora_board.hpp"
 #include "fine_counter.hpp"
 #include "fine_receiver.hpp"
@@ -47,7 +48,7 @@ void capture_off(){
 }
 void contain(){active=false;lora_active=false;capture_off();if(pad_owned)pad_off();}
 // Bounded pinned-driver CURRENT latch. CH2 has no registered ISR.
-bool latch(uint32_t& raw){
+W12_STACK_FRAME bool latch(uint32_t& raw){
   if(!timer_enabled||!timer_started||!enabled[2]||
      timer->fsm!=MCPWM_CAP_TIMER_FSM_ENABLE||channels[2]->fsm!=MCPWM_CAP_CHAN_FSM_ENABLE)return false;
   auto* d=timer->group->hal.dev;
@@ -63,7 +64,7 @@ bool latch(uint32_t& raw){
 }
 // The caller validates both owners before entering this bounded aperture.
 // Keeping it in instruction RAM avoids flash-cache variation between latches.
-[[gnu::noinline]] bool IRAM_ATTR gnss_aperture(mcpwm_dev_t* local,mcpwm_dev_t* gnss,uint32_t& lo,uint32_t& hi){
+W12_STACK_FRAME bool IRAM_ATTR gnss_aperture(mcpwm_dev_t* local,mcpwm_dev_t* gnss,uint32_t& lo,uint32_t& hi){
   const auto start=esp_cpu_get_cycle_count();
   local->int_clr.val=CurrentMask;
   unsigned n=0;
@@ -83,7 +84,7 @@ bool latch(uint32_t& raw){
   hi=mcpwm_ll_capture_get_value(local,2);
   return true;
 }
-bool current(w12::fine::Time& t){
+W12_STACK_FRAME bool current(w12::fine::Time& t){
   uint32_t raw=0;
   return latch(raw)&&counter.current(1,raw,coarse(),t);
 }
@@ -144,7 +145,7 @@ bool on_lora(mcpwm_cap_channel_handle_t,const mcpwm_capture_event_data_t* value,
   portEXIT_CRITICAL_ISR(&mux);
   return deliver?deliver(tick):false;
 }
-bool route(){
+W12_STACK_FRAME bool route(){
   // Claim before the first mutating call so every partial failure retires it.
   pad_owned=true;
   if(gpio_set_direction(gpio_num_t(16),GPIO_MODE_INPUT_OUTPUT)!=ESP_OK||
@@ -159,7 +160,7 @@ bool route(){
     io.sig_out==RW_RX_ON_IDX&&!io.oe_ctrl_by_periph&&!io.oe_inv&&!(output&(1u<<9))&&
     (input&(1u<<7))&&(input&63)==16&&!(input&(1u<<6));
 }
-bool start(uint64_t now){
+W12_STACK_FRAME bool start(uint64_t now){
   mcpwm_capture_timer_config_t cfg{};cfg.group_id=1;cfg.clk_src=MCPWM_CAPTURE_CLK_SRC_APB;
   uint32_t hz=0;
   if(mcpwm_new_capture_timer(&cfg,&timer)!=ESP_OK||

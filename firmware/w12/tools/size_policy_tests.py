@@ -3,10 +3,18 @@
 Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT
 """
 import unittest
-from build import validate_size_compilation
+from build import validate_size_compilation, runtime_sources
 
 
 class SizePolicyTests(unittest.TestCase):
+    def test_audit_only_files_do_not_change_runtime_source_manifest(self):
+        sources = {'main/native_g1.cpp': 'code', 'legacy/display.cpp': 'display',
+                   'CMakeLists.txt': 'config', 'dependencies.lock.json': 'sdk',
+                   'tests/native_g1_test.cpp': 'test', 'tools/test.py': 'runner',
+                   'README.md': 'docs', 'main/r2/r2-g1/README.md': 'wire docs'}
+        self.assertEqual(set(runtime_sources(sources)),
+                         {'main/native_g1.cpp', 'legacy/display.cpp', 'CMakeLists.txt', 'dependencies.lock.json'})
+
     def setUp(self):
         self.receipt = {'application_optimization': 'W12_MAIN_OS_SDK_DEBUG_V1'}
         self.config = '\n'.join(('CONFIG_COMPILER_OPTIMIZATION_DEBUG=y',

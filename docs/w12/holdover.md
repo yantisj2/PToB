@@ -2,7 +2,7 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
-Current W12 0.2.34 uses **BLE-only, rate-only production HOLD**. Temperature
+Current W12 0.2.35 uses **BLE-only, rate-only production HOLD**. Temperature
 learning runs separately in shadow. The clock footer's **`P99:` is hold duration
 in seconds at a fixed sampled absolute-error threshold of 1000 ns**. Error
 P95/P99/MAX, thermal-shadow errors and selected-output tests are separate

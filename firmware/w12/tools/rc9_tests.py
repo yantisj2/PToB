@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Offline RC9 codec/client checks with real group HMAC and independent vectors."""
+import os
 # Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT
 import argparse,hashlib,hmac,json,struct,subprocess
 from pathlib import Path
@@ -8,10 +9,10 @@ p=argparse.ArgumentParser();p.add_argument('--idf',type=Path,required=True);p.ad
 out=a.out.resolve();out.mkdir(parents=True,exist_ok=False)
 crypto=a.idf.resolve()/'components/bt/host/nimble/nimble/ext/tinycrypt'
 flags=['-O1','-g','-Wall','-Wextra','-Werror','-Wno-misleading-indentation','-fsanitize=address,undefined','-fno-sanitize-recover=all','-I'+str(APP/'main'),'-I'+str(crypto/'include')]
-cc='/opt/homebrew/opt/llvm/bin/clang';objects=[]
+cc=os.environ.get('CC','clang');objects=[]
 for i,src in enumerate([APP/'main/r2/r2-g1/group_auth.c',APP/'main/g1_hmac.c',crypto/'src/sha256.c',crypto/'src/utils.c']):
  obj=out/f'{i}.o';subprocess.run([cc,'-std=c11',*flags,'-c',src,'-o',obj],check=True);objects.append(obj)
-subprocess.run([cc+'++','-std=c++17',*flags,APP/'main/rc9/rc9.cpp',APP/'tests/rc9_client_test.cpp',*objects,'-o',out/'client'],check=True)
+subprocess.run([os.environ.get('CXX',cc+'++'),'-std=c++17',*flags,APP/'main/rc9/rc9.cpp',APP/'tests/rc9_client_test.cpp',*objects,'-o',out/'client'],check=True)
 log=subprocess.check_output([out/'client'],text=True);(out/'client.log').write_text(log)
 key=bytes([1,2,3])+bytes(29);context=bytes([1])+struct.pack('<QI',7,9)
 for name,domain,size in [('capability',b'RC9CAP01',144),('response',b'RC9CTRL1',212),('time',b'RC9TIME1',190)]:

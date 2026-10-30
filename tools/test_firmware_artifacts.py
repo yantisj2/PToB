@@ -17,6 +17,39 @@ import firmware_artifacts as storage
 
 
 class RetentionTests(unittest.TestCase):
+    def test_automatic_catalog_limits_mutations_to_completed_group(self):
+        old, previous, latest = [self.build() for _ in range(3)]
+        unrelated = self.build(device='0000000000000002')
+        uncatalogued = self.build(device='0000000000000003')
+        storage.atomic_json(self.repo / 'artifacts' / storage.STATE / 'index.json',
+                            {'builds': list(map(str, (old, previous, latest, unrelated)))})
+        with storage.locked(self.repo), contextlib.redirect_stdout(io.StringIO()), mock.patch.object(storage, 'discover', side_effect=AssertionError('Automatic catalog must avoid discovery')):
+            storage.cleanup_after_build(self.repo, latest, True)
+        self.assertFalse((old / 'target/app.bin').exists())
+        self.assertTrue((unrelated / 'target/code.obj').exists())
+        self.assertTrue((uncatalogued / 'target/code.obj').exists())
+        self.assertIn(str(unrelated), storage.read(self.repo / 'artifacts' / storage.STATE / 'index.json')['builds'])
+        for root in (previous, latest, unrelated, uncatalogued):
+            storage.verify_bundle(root)
+
+    def test_scoped_plan_keeps_all_pins_and_rejects_new_pin(self):
+        old, previous, latest = [self.build() for _ in range(3)]
+        other = self.build(device='0000000000000002')
+        group = storage.grouping(latest, storage.read(latest / 'receipt.json'))
+        plan = storage.make_plan(self.repo, scope_group=group)
+        self.assertTrue(all(row['group'] == group for row in plan['actions']))
+        storage.atomic_json(self.repo / 'artifacts/local/current.json', {'image': str(old / 'target/app.bin')})
+        with self.assertRaisesRegex(ValueError, 'Stale plan'):
+            self.apply(plan)
+        self.assertTrue((old / 'target/app.bin').exists())
+        self.assertTrue((other / 'target/code.obj').exists())
+
+    def test_batched_protected_paths_reject_symlink_ancestor(self):
+        root = self.build()
+        (root / 'source/link').symlink_to(root / 'target', target_is_directory=True)
+        with self.assertRaisesRegex(ValueError, 'Symlink'):
+            storage.protected_files(root, {'sources': {'link/app.bin': '0' * 64}})
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.repo = Path(self.temp.name).resolve()

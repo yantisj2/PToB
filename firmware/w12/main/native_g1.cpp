@@ -1,6 +1,7 @@
 // G1 public client: one transient outgoing ACL, no control participant or source.
 // One NimBLE host-event owner. Callbacks copy fixed records; crypto runs here.
 #include "native_r2.hpp"
+#include "stack_frame.hpp"
 #include "native_device_binding.hpp"
 #include "native_transport.hpp"
 #include "native_direct.hpp"
@@ -1423,7 +1424,7 @@ void coarse_relay_observed(const Discovery& d,uint64_t now){
     }
 }
 #endif
-void active_poll(uint64_t now){
+W12_STACK_FRAME void active_poll(uint64_t now){
   if(now<radio_resume_at)return;
 #ifdef PTOB_GM_SUCCESSOR
   if(gm_successor.due(now)&&gm_successor.bound(anchor))forget_leader(now);

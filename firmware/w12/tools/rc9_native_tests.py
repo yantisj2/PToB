@@ -25,7 +25,7 @@ flags=['-std=c++20','-O1','-g','-Wall','-Wextra','-Werror','-Wno-misleading-inde
 if a.tz:flags+=['-DR2_TZ_WIRE=1']
 for q in (out,APP/'tests',APP/'tests/r2_fakes',APP/'tests/console_fakes',APP/'main',APP/'legacy/reference',APP/'main/r2/r2-g1',APP/'main/r2/rc7/include',crypto):flags+=['-I'+str(q)]
 objects=[a.objects.resolve()/(n+'.o') for n in ('group_auth','group_join','group_precision','precision_codec','relay_codec','rc_dynamic','rc_boundary','rc_slots','g1_hmac','sha256','utils')]
-cmd=[os.environ.get('CXX','/opt/homebrew/opt/llvm/bin/clang++'),*flags,out/'rc9.cpp',APP/'main/rc9/rc9.cpp',*objects,'-o',out/'native']
+cmd=[os.environ.get('CXX','clang++'),*flags,out/'rc9.cpp',APP/'main/rc9/rc9.cpp',*objects,'-o',out/'native']
 (out/'compile-command.json').write_text(json.dumps(list(map(str,cmd)),indent=2)+'\n')
 with (out/'compile.log').open('w') as f:subprocess.run(list(map(str,cmd)),stdout=f,stderr=subprocess.STDOUT,check=True)
 cases=('client-terminate-ack','client-pending-relay-return','client-relay-return','recover','client-cache-fence','client-scan','client-return','client-expired','client-recovery-pin','client-no-source','client-hint','client','client-pin','speculative','race','withdraw','lease','rebind','off')

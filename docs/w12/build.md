@@ -5,7 +5,7 @@ Copyright (c) 2026 Jonathan Yantis. MIT.
 Native builds [clean compiler output and retain the latest two image bundles](../firmware-storage.md)
 per device/profile, with installed/recovery pins preserved.
 
-Current version **0.2.34** preserves exact receive/estimator history while
+Current version **0.2.35** preserves exact receive/estimator history while
 reducing fixed storage. GNSS profiles reserve the full 8192-byte host stack
 statically and check creation. Application watchdogs have a five-second minimum;
 fault/no-time restart intervals remain 120/300 seconds. All main-component
@@ -13,10 +13,44 @@ sources use `-Os`, with SDK/controller assertions and the 1 MiB application
 ceiling preserved. [Version history](../../firmware/w12/CHANGELOG.md) records
 individual changes; [holdover](holdover.md) defines the current model and P99.
 
-Focused offline checks are `fine_tests.py`, `host_task_tests.py`,
-`sync_watchdog_tests.py`, `size_policy_tests.py` and `shadow_holdover_tests.py`
-under `firmware/w12/tools/`. Passing host checks does not qualify hardware
+Use the offline runner for normal iteration. It operates no hardware:
+
+```sh
+# Uncommitted changes, including staged and new files; unknown W12 dependencies
+# select the complete suite. Set IDF_PATH for checks using the pinned SDK.
+python3 firmware/w12/tools/test.py --mode changed --out artifacts/w12-check01
+# Explicitly focus an edit, or run the complete pre-installation checks.
+python3 firmware/w12/tools/test.py --area holdover --out artifacts/w12-hold01
+python3 firmware/w12/tools/test.py --mode full --out artifacts/w12-full01
+```
+
+`--mode core` selects G1, fine capture, holdover, host allocation, watchdog and
+power checks. `--base <revision>` compares the worktree/index against that Git
+revision; `--list` explains the selected suites without compiling. An explicit
+`--area` is a focused check, not a complete installation gate. Each run saves
+its selection, timing, logs and pass/fail receipt under its fresh output.
+
+The G1 runner uses one BLE100 lifecycle fixture and the distinct BLE50 timing
+cases. Identity aliases do not multiply the entire controller matrix. GNSS
+capability, source authority, authentication, original expiry and drain bounds
+retain dedicated checks. Passing host checks does not qualify hardware
 controller capacity, precision or source transitions.
+
+Optional public **ccache** accelerates repeated host and native compilation.
+Supply its executable with `--compiler-cache /path/to/ccache` to either the
+test runner or builder. Caches are local-only, owner-only and limited to
+512 MiB per host/native lane under ignored `artifacts/.compiler-cache/`.
+Generated headers, compiler contents, flags and included sources participate
+in ccache validation; every selected test still executes and links afresh.
+Ordinary uncached verification needs no ccache installation.
+
+Native builds select Ninja when available, otherwise Unix Makefiles. Override
+with `--generator Ninja` or `--generator 'Unix Makefiles'`. Every native run
+still uses fresh output, complete image/layout/runtime/stack checks and the
+shared retention lifecycle. A separate runtime-source manifest excludes tests
+and documentation from the enrollment fingerprint; the full audit snapshot
+and exact Git source/build identity remain recorded. Current stack evidence is
+selected by the actual GNSS/fine/LoRa configuration, not a firmware-version list.
 
 GPIO0 supports button shutdown on every page except Clock. A hold
 of four seconds blanks the OLED and starts the same original two-second drain

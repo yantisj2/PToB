@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Jonathan Yantis.
 // LR2021 RX-only owner for W12. No SetTx opcode, BLE map update or
 // listener transmission. Actual MCPWM DIO1 capture, never an ISR arrival time.
+#include "stack_frame.hpp"
 #include "native_lora.hpp"
 #include "w12_lora.hpp"
 #include "lora_core.h"
@@ -129,7 +130,7 @@ int rearm(){
  if(gpio_get_level(Irq))return -EIO;
  return checked(radio.startReceive());
 }
-int start(){
+W12_STACK_FRAME int start(){
  hardware.stage=1;hal.init();if(cancelled())return -ECANCELED;if(!hal.ready)return -EIO;
  portENTER_CRITICAL(&mux);const bool permit=allowed&&cancel_serial==active_serial;
  if(permit){gpio_set_level(GPIO_NUM_3,0);gpio_set_level(GPIO_NUM_4,1);}portEXIT_CRITICAL(&mux);
@@ -151,7 +152,7 @@ int start(){
  if(!rc)rc=capture_start();
  return rc?rc:rearm();
 }
-int receive(){
+W12_STACK_FRAME int receive(){
  uint64_t edge;uint32_t gen,serial;bool have;
  portENTER_CRITICAL(&mux);have=latched;edge=raw_capture;gen=raw_generation;serial=raw_serial;portEXIT_CRITICAL(&mux);
  if(!have)return 0;
@@ -187,7 +188,7 @@ void publish(){
  portENTER_CRITICAL(&mux);view.requested=owner.requested;view.invalid_capture+=capture_invalid;view.capture_overflow=capture_drops;view.request_generation=owner.generation;view.off_ack_generation=owner.off_ack;view.off_acknowledged=owner.drained();published=view;owned.failed=failed;owned.initialized=resources;owned.packets=hardware.rx_done;owned.crc_errors=hardware.crc_bad;owned.malformed=hardware.malformed;owned.status=int16_t(hardware.error);owned.radio_errors=hardware.spi_error;owned.work_max_us=hardware.work_max_us;basic=owned;portEXIT_CRITICAL(&mux);
 }
 bool configured_receiver(){return PTOB_W12_LORA_TX_FACTORY&&w12_rc8_init(PTOB_W12_FACTORY_ID,PTOB_W12_LORA_TX_FACTORY,PTOB_W12_GROUP_ID,PTOB_W12_KEY_EPOCH,PTOB_W12_GROUP_KEY);}
-void worker_step(bool configured){
+W12_STACK_FRAME void worker_step(bool configured){
   const auto begin=now();bool permit,locked,cycle,change,held,rc9_current;uint8_t mode;uint32_t generation,serial;bool tripped;
   portENTER_CRITICAL(&mux);permit=allowed;serial=cancel_serial;tripped=emergency;locked=ble_locked&&begin>=ble_at&&begin-ble_at<250000;cycle=cycle_pending&&begin>=request_at&&begin-request_at<250000;change=mode_pending&&begin>=request_at&&begin-request_at<250000;mode=requested_mode;cycle_pending=mode_pending=false;portEXIT_CRITICAL(&mux);
   portENTER_CRITICAL(&mux);rc9_hold_observed_until=permit?rc9_client_until:0;held=begin<rc9_hold_observed_until;rc9_current=begin<rc9_source_until;portEXIT_CRITICAL(&mux);

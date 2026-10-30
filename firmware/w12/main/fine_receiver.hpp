@@ -1,6 +1,7 @@
 // Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT
 #pragma once
 #include "fine_counter.hpp"
+#include "stack_frame.hpp"
 namespace w12::fine {
 // Continuous software-callback association. This does not establish that the
 // peripheral did not coalesce physical transitions before interrupt service.
@@ -109,7 +110,7 @@ class Receiver {
   if(delta>(UINT32_MAX-uint64_t(old_ns)-25)/50)return false;
   guard_ns=uint32_t(uint64_t(old_ns)+delta*50+25);return true;
  }
- bool pending(uint64_t raw80){
+ W12_STACK_FRAME bool pending(uint64_t raw80){
   if(raw80<=sealed_max80_)for(const auto& f:fences_)
    if(f.sequence&&raw80>=f.lower&&raw80<=f.upper){status_.fault|=2;return false;}
   return !status_.fault;

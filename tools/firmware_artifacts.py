@@ -25,7 +25,7 @@ SUCCESS = {'BUILD_COMPLETE_PHYSICAL_UNKNOWN', 'BUILD_COMPLETE',
 TERMINAL = SUCCESS | {'FAILED'}
 SKIP = {'.git', '.internal', 'target', 'local', 'cache',
         'pycache', '__pycache__', 'node_modules', 'esp-idf', 'zephyr', 'modules',
-        'dependencies', 'venv', '.venv', 'esp-tools', '.firmware-retention'}
+        'dependencies', 'venv', '.venv', 'esp-tools', '.firmware-retention', '.compiler-cache'}
 OBJECTS = {'.o', '.obj', '.a', '.d'}
 STATE = '.firmware-retention'
 BUNDLE = 'storage-bundle.json'
@@ -191,8 +191,20 @@ def protected_files(root, r):
     result.update(k[len('generated/'):] for k in r.get('compiled_sources', {}) if k.startswith('generated/'))
     if r.get('application'):
         result.add(r['application'])
+    # Validate shared ancestors once per receipt, never across plan/apply or
+    # mutation boundaries. Deletion still calls safe_path immediately before
+    # unlinking each file. Large receipts otherwise repeat millions of lstats.
+    checked = set()
     for name in result:
-        relative(root, name)
+        p = Path(name)
+        if p.is_absolute() or '..' in p.parts:
+            raise ValueError('Unsafe receipt path: ' + name)
+        for part in (root / p, *(root / p).parents):
+            if part in checked:
+                break
+            if part.is_symlink():
+                raise ValueError('Symlink is not cleanup authority: ' + str(part))
+            checked.add(part)
     return result
 
 
@@ -267,6 +279,13 @@ def pins(repo, builds):
     if config.exists():
         seeds.append(config)
     pinned, seen, inputs, unresolved = {}, set(), {}, []
+    build_set = set(builds)
+    descendants = {}
+    for build in builds:
+        for parent in build.parents:
+            if parent == repo / 'artifacts':
+                break
+            descendants.setdefault(parent, []).append(build)
     queue = list(seeds)
     while queue:
         p = queue.pop()
@@ -286,16 +305,15 @@ def pins(repo, builds):
             continue
         # A file inside a build pins the entire compact bundle; don't follow
         # receipt metadata back into the SDK or live source checkout.
-        owners = [b for b in builds if p == b or b in p.parents]
+        owners = build_set.intersection((p, *p.parents))
         if owners:
             for b in owners:
                 pinned[str(b)] = 'Referenced by current/recovery/pin records'
             continue
         if p.is_dir():
             if p != repo / 'artifacts' and p != local:
-                for b in builds:
-                    if p in b.parents:
-                        pinned[str(b)] = 'Within referenced artifact directory'
+                for b in descendants.get(p, ()):
+                    pinned[str(b)] = 'Within referenced artifact directory'
             continue
         if not p.exists():
             unresolved.append(str(p))
@@ -405,7 +423,7 @@ def prune_empty_generated_directories(root):
     return removed
 
 
-def make_plan(repo, mode='retain', roots=None, min_age=3600, just_built=None):
+def make_plan(repo, mode='retain', roots=None, min_age=3600, just_built=None, scope_group=None):
     builds = discover(repo) if roots is None else sorted(set(roots))
     pinned, inputs, unresolved = pins(repo, builds)
     if just_built and Path(just_built) in builds:
@@ -426,6 +444,8 @@ def make_plan(repo, mode='retain', roots=None, min_age=3600, just_built=None):
             if str(root) != just_built and time.time() - (root / 'receipt.json').stat().st_mtime < min_age:
                 raise ValueError('Recent build; wait for minimum age')
             group = retirement['group'] if retirement and retirement.get('group') else grouping(root, r)
+            if scope_group is not None and group != scope_group:
+                continue
             row = {'path': str(root), 'receipt_sha256': digest(root / 'receipt.json'),
                    'status': r['status'], 'group': group,
                    'version': [int(x) for x in re.findall(r'\d+', r.get('version', '0'))],
@@ -466,21 +486,22 @@ def make_plan(repo, mode='retain', roots=None, min_age=3600, just_built=None):
             'created_unix': time.time(), 'just_built': just_built, 'builds': [str(p) for p in builds],
             'pins': pinned, 'pin_inputs': inputs, 'unresolved_references': unresolved,
             'latest': latest, 'actions': actions, 'skipped': skipped,
-            'allocated_candidate_bytes': sum(x['allocated_bytes'] for x in actions)}
+            'allocated_candidate_bytes': sum(x['allocated_bytes'] for x in actions),
+            **({'scope_group': scope_group} if scope_group is not None else {})}
 
 
-def apply_plan(repo, plan):
+def apply_plan(repo, plan, *, catalogued=False):
     if plan['repo'] != str(repo):
         raise ValueError('Plan belongs to another checkout')
     roots = [safe_path(repo / 'artifacts', Path(p)) for p in plan['builds']]
     # Replan under the same lock. Changed files, receipts, pins or new builds
     # invalidate a saved plan before any deletion, rather than racing rotation.
-    fresh = make_plan(repo, plan['mode'], roots, plan['min_age_seconds'], plan.get('just_built'))
+    fresh = make_plan(repo, plan['mode'], roots, plan['min_age_seconds'], plan.get('just_built'), plan.get('scope_group'))
     for key in ('actions', 'pins', 'pin_inputs', 'latest', 'skipped'):
         if fresh[key] != plan[key]:
             raise ValueError('Stale plan (' + key + '); generate a new plan')
     known = set(roots)
-    if set(discover(repo)) - known:
+    if not catalogued and set(discover(repo)) - known:
         raise ValueError('New builds appeared; generate a new plan')
     # All retained successful bundles must verify before retiring any predecessor.
     verification, invalid = {}, {}
@@ -544,8 +565,16 @@ def apply_plan(repo, plan):
             log.write(json.dumps(result) + '\n')
             log.flush()
             print(result['state'], root.relative_to(repo), flush=True)
+    latest = plan['latest']
+    if plan.get('scope_group'):
+        try:
+            previous = read(repo / 'artifacts' / STATE / 'latest.json')
+            latest = {**previous.get('latest', {}), **latest}
+            invalid = {**previous.get('invalid', {}), **invalid}
+        except (OSError, ValueError, TypeError):
+            pass
     atomic_json(repo / 'artifacts' / STATE / 'latest.json',
-                {'schema': 1, 'latest': plan['latest'], 'invalid': invalid,
+                {'schema': 1, 'latest': latest, 'invalid': invalid,
                  'scope': 'BUILD_RETENTION_ONLY_NOT_INSTALLED_DEVICE_STATE'})
     atomic_json(repo / 'artifacts' / STATE / 'index.json', {'builds': plan['builds']})
     return {'journal': str(journal), 'results': results, 'invalid_latest': invalid,
@@ -585,16 +614,33 @@ def run_builder(main, repo):
 
 def cleanup_after_build(repo, out, successful):
     """Caller holds the shared lock; cleanup errors never change native receipts."""
+    started = time.monotonic()
     try:
         safe_path(repo / 'artifacts', out)
         if successful:
             verify_bundle(out)
-        plan = make_plan(repo, just_built=str(out))
+        # Public builders register under the shared lock. Reconcile historical
+        # builders explicitly with plan/apply; uncatalogued output is never a
+        # deletion candidate. A missing/invalid catalog falls back to discovery.
+        roots = None
+        try:
+            catalog = read(repo / 'artifacts' / STATE / 'index.json')
+            if not isinstance(catalog.get('builds'), list):
+                raise ValueError('Invalid build catalog')
+            roots = [safe_path(repo / 'artifacts', Path(p)) for p in catalog['builds']]
+            roots.append(safe_path(repo / 'artifacts', out))
+        except (OSError, ValueError, TypeError, AttributeError):
+            roots = None
+        group = grouping(out, read(out / 'receipt.json'))
+        plan = make_plan(repo, roots=roots, just_built=str(out), scope_group=group)
         # The successfully built output must be retained even after copying
         # an old receipt or when clocks differ. In normal builds it is latest.
         if successful and any(r['path'] == str(out) and r['action'] != 'compact' for r in plan['actions']):
             raise ValueError('New output did not become latest; refusing automatic rotation')
-        result = apply_plan(repo, plan)
+        result = apply_plan(repo, plan, catalogued=roots is not None)
+        atomic_json(out / 'storage-timing.json', {'seconds': round(time.monotonic() - started, 4),
+                    'catalogued': roots is not None, 'scope': 'COMPLETED_RETENTION_GROUP',
+                    'completed': result['completed'], 'skipped': result['skipped']})
         print('Firmware storage: reclaimed %.2f GiB; %d builds skipped' %
               (result['allocated_bytes_unlinked'] / 1024**3, result['skipped']))
     except Exception as e:

@@ -1,5 +1,31 @@
 # W12 changelog
 
+## 0.2.35 — focused offline iteration and profile stack evidence
+
+- Reduce the repeated G1 lifecycle matrix from 251 executions to 54, retaining
+  distinct BLE50 cancellation/quiet timing and BLE100 lifecycle behavior. Retire
+  20 inactive R2 test snapshots and 11 unused imported tests; Git and original
+  import manifests preserve provenance. Shared timezone consumers remain.
+- Add changed-area, core and full offline selections with timings, fresh logs
+  and optional bounded local compiler caching. Select Ninja when available;
+  native output retention and candidate validation remain mandatory.
+- Separate runtime-source and full audit manifests. Test/documentation edits
+  no longer change the enrollment source fingerprint; exact Git provenance and
+  source/build/boot identity remain bound and verified.
+- Require configuration-selected GNSS, fine-clock and LoRa stack evidence for
+  the current contract, retaining historical receipt semantics. Keep selected
+  GCC frame boundaries explicit so optimization cannot hide required evidence.
+- Preserve production HOLD, temperature-shadow policy, calibration, source
+  permission and the original application drain and flash bounds.
+- Local offline observations on 30 October: focused holdover plus actual native
+  handoff checks 9.32/9.55 s; complete suite 106.71 s. Accepted same-configuration
+  development builds compiled in 34.43 s with uncached Make and 16.60 s with
+  cached Ninja, with about 10–12 s automatic retention. Full-tree read-only
+  retention planning was 53.10 s; scoped catalog planning was 6.63 s. These are
+  individual local timings, not statistical benchmarks or hardware qualification;
+  the reference build shared the machine with host tests. A sub-five-second
+  focused run remains an optimization target.
+
 ## Documentation — current holdover guide
 
 - Consolidate production HOLD, temperature shadow, sampled P99 seconds and

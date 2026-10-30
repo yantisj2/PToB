@@ -1,6 +1,6 @@
-import os
 #!/usr/bin/env python3
 """Exact G1 codec/public-NimBLE-boundary checks; never opens hardware."""
+import os
 import argparse,hashlib,json,subprocess
 from pathlib import Path
 APP=Path(__file__).resolve().parents[1]
@@ -23,7 +23,7 @@ def verify_sources():
     assert sha(CRYPTO/'src/hmac.c')==m['crypto_local_fix']['sdk_original_sha256']
     return m
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--out',type=Path,required=True);a=p.parse_args();verify_sources();a.out.mkdir(exist_ok=False,parents=True);out=a.out.resolve();src=APP/'main/r2/r2-g1';records=[]
+    p=argparse.ArgumentParser();p.add_argument('--out',type=Path,required=True);p.add_argument('--selection',choices=['full','holdover'],default='full');a=p.parse_args();verify_sources();a.out.mkdir(exist_ok=False,parents=True);out=a.out.resolve();src=APP/'main/r2/r2-g1';records=[]
     def run(cmd,label):
         with (out/(label+'.log')).open('w') as f:subprocess.run([str(x) for x in cmd],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=40)
         records.append(label)
@@ -33,9 +33,10 @@ def main():
         obj=out/(file.stem+'.o');run([CC,'-std=c11',*flags,'-c',file,'-o',obj],file.stem+'-compile');objects.append(obj)
     # Every public wire vector is independently checked with Python hashlib,
     # and actual compiled C decodes join/direct/relay and refuses changed tags.
-    run([CC,'-std=c11',*flags,APP/'tests/g1_vectors_test.c',*objects,'-o',out/'vectors'],'vectors-build')
-    run([out/'vectors',src/'v14_vectors.json'],'vectors')
-    run(['python3',APP/'tools/g1_vectors.py',src/'v14_vectors.json'],'independent-hmac')
+    if a.selection=='full':
+        run([CC,'-std=c11',*flags,APP/'tests/g1_vectors_test.c',*objects,'-o',out/'vectors'],'vectors-build')
+        run([out/'vectors',src/'v14_vectors.json'],'vectors')
+        run(['python3',APP/'tools/g1_vectors.py',src/'v14_vectors.json'],'independent-hmac')
     # Focused current migration checks. Historical discovery/fixture expectations
     # predate the 3s startup selector and are retained outside this selected run.
     cases=['sync-term-ledger','sync-term-cancel-missing','sync-term-ack-delayed','sync-term-inline','sync-term-enotconn','sync-term-error','sync-term-late','sync-term-quiet-late','sync-term-queued-expired','boot-empty','leader-incarnation-boot','leader-incarnation-epoch','leader-incarnation-train','leader-incarnation-renewal',
@@ -49,23 +50,25 @@ def main():
     sys.path.insert(0,str(APP.parents[1]/'registry'))
     from registry import load,header
     (out/'ptob_registry.h').write_text(header(load(APP.parents[1]/'registry/example.json')))
-    for unit,identity in [('C1',0x020000000005),('C2',0x020000000006),('C3',0x020000000007)]:
-        (out/'ptob_device.h').write_text('#define PTOB_FACTORY_MAC {2,0,0,0,0,'+str(identity&255)+'}\n#define PTOB_DEVICE_LABEL \"C-'+unit[1]+'\"\n#define PTOB_LEGACY_WIRE_ID 3\n')
+    # One production BLE100 lifecycle fixture and one distinct BLE50 timing
+    # fixture. Device aliases do not constitute different controller profiles.
+    for unit,identity,percent in ([('C3',0x020000000007,100),('C1',0x020000000005,50)] if a.selection=='full' else []):
+        (out/'ptob_device.h').write_text('#define PTOB_FACTORY_MAC {2,0,0,0,0,'+str(identity&255)+'}\n#define PTOB_DEVICE_LABEL "C-'+unit[1]+'"\n#define PTOB_LEGACY_WIRE_ID 3\n')
         (out/'r2_bench_enrollment.h').write_text('static const r2_group_enrollment provision={{{'+','.join(map(str,range(32)))+'},UINT64_C(0x123456789abcdef0),1},UINT64_C(0x%016x),"C-%s",40000};\n'%(identity,unit[1]))
         binary=out/unit
-        run([CXX,'-std=c++20',*flags,'-Wno-missing-field-initializers','-DV12_R2_ENABLED=1','-DV12_R2_FIELD_CLIENT=1','-DV12_R2_CONFIG=13','-DV12_UNIT="'+unit+'"','-I'+str(APP/'tests/r2_fakes'),'-I'+str(APP/'tests/console_fakes'),'-I'+str(APP/'main'),'-I'+str(APP/'legacy/reference'),'-I'+str(out),APP/'tests/native_g1_test.cpp',*objects,'-o',binary],unit+'-build')
-        for case in cases:run([binary,case],unit+'-'+case)
-        for case in ('sync-cancel-inline-race','sync-cancel-queued-race','sync-cancel-missing',
-                     'sync-tail-delayed','sync-tail-completion','sync-command-timeout','sync-quiet','quiet-drain-blocked'):
-            run([binary,case],unit+'-'+case)
-        if unit in ('C2','C3'):
-            full=out/(unit+'-default100')
-            run([CXX,'-std=c++20',*flags,'-Wno-missing-field-initializers','-DV12_R2_ENABLED=1','-DV12_R2_FIELD_CLIENT=1','-DV12_R2_CONFIG=13','-DV12_R2_G1_LISTENING_PERCENT=100','-DV12_UNIT="'+unit+'"','-I'+str(APP/'tests/r2_fakes'),'-I'+str(APP/'tests/console_fakes'),'-I'+str(APP/'main'),'-I'+str(APP/'legacy/reference'),'-I'+str(out),APP/'tests/native_g1_test.cpp',*objects,'-o',full],unit+'-default100-build')
-            run([full,'listening-profile'],unit+'-default100-start-sustain-off-select50')
-            for case in cases:run([full,case],unit+'-default100-'+case)
+        run([CXX,'-std=c++20',*flags,'-Wno-missing-field-initializers','-DV12_R2_ENABLED=1','-DV12_R2_FIELD_CLIENT=1','-DV12_R2_CONFIG=13','-DV12_R2_G1_LISTENING_PERCENT='+str(percent),'-DV12_UNIT="'+unit+'"','-I'+str(APP/'tests/r2_fakes'),'-I'+str(APP/'tests/console_fakes'),'-I'+str(APP/'main'),'-I'+str(APP/'legacy/reference'),'-I'+str(out),APP/'tests/native_g1_test.cpp',*objects,'-o',binary],unit+'-build')
+        selected=cases if percent==100 else ('listening-profile','sync-cancel-inline-race','sync-cancel-queued-race','sync-cancel-missing','sync-tail-delayed','sync-tail-completion','sync-command-timeout','sync-quiet','quiet-drain-blocked')
+        for case in selected:run([binary,case],unit+'-'+case)
+    # Production fixture below uses C3's identity.
+    (out/'ptob_device.h').write_text('#define PTOB_FACTORY_MAC {2,0,0,0,0,7}\n#define PTOB_DEVICE_LABEL "C-3"\n#define PTOB_LEGACY_WIRE_ID 3\n')
+    (out/'r2_bench_enrollment.h').write_text('static const r2_group_enrollment provision={{{'+','.join(map(str,range(32)))+'},UINT64_C(0x123456789abcdef0),1},UINT64_C(0x020000000007),"C-3",40000};\n')
     production=out/'C3-production-holdover'
     run([CXX,'-std=c++20',*flags,'-Wno-missing-field-initializers','-DPTOB_W12_SHADOW_HOLDOVER=1','-DPTOB_W12_HOLDOVER_PRODUCTION=1','-DPTOB_W12_HOLDOVER_HORIZON=1','-DPTOB_W12_HOLDOVER_RATE=1','-DPTOB_W12_THERMAL_SHADOW_ONLY=1','-DPTOB_W12_FINE_CLOCK=1','-DV12_R2_RX_SHADOW=1','-DV12_R2_ENABLED=1','-DV12_R2_FIELD_CLIENT=1','-DV12_R2_CONFIG=13','-DV12_UNIT="C3"','-I'+str(APP/'tests/r2_fakes'),'-I'+str(APP/'tests/console_fakes'),'-I'+str(APP/'main'),'-I'+str(APP/'legacy/reference'),APP/'tests/native_g1_test.cpp',*objects,'-o',production],'production-holdover-build')
     run([production,'holdover-production'],'production-holdover-selection-sensor-scope-and-handoff')
+    if a.selection=='holdover':
+        (out/'receipt.json').write_text(json.dumps({'status':'PASSED','scope':'ACTUAL_NATIVE_HOLD_ENTRY_SELECTION_AND_HANDOFF','tests':records,'hardware_access':False},indent=2)+'\n')
+        print('PASS actual native production HOLD entry, selection and continuity')
+        return
     run([CXX,'-std=c++20',*flags,'-I'+str(APP/'legacy'),'-I'+str(APP/'legacy/reference'),'-I'+str(APP/'main'),APP/'tests/r2_timestamp_test.cpp','-o',out/'timestamp-tests'],'timestamp-build')
     run([out/'timestamp-tests'],'timestamp-association-servo-quiet')
     run([CXX,'-std=c++20',*flags,'-I'+str(APP/'main'),APP/'tests/g1_quality_display_test.cpp','-o',out/'quality-display-tests'],'quality-display-build')

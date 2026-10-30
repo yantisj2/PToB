@@ -1,6 +1,6 @@
-import os
 #!/usr/bin/env python3
 """Focused synthetic RC7 permission/model/native checks. Never uses Git or hardware."""
+import os
 import argparse
 import hashlib
 import json
@@ -208,7 +208,7 @@ def main():
             obj = out / (source.stem + '.o')
             run([args.cc, '-std=c11', *flags, '-c', source, '-o', obj], source.stem + '-compile')
             objects.append(obj)
-        run([args.cc + '++', '-std=c++20', *flags, out / 'rc7_permission_test.cpp', *objects, '-o', out / 'model'], 'model-build')
+        run([os.environ.get('CXX',args.cc + '++'), '-std=c++20', *flags, out / 'rc7_permission_test.cpp', *objects, '-o', out / 'model'], 'model-build')
         receipt['model'] = json.loads(run([out / 'model'], 'model-run'))
         if not args.model_only:
             native_fixture(out)
@@ -221,12 +221,12 @@ def main():
             # at100%; the pure model separately recreates a50% RX incarnation.
             for profile in (100,):
                 binary = out / ('native-' + str(profile))
-                run([args.cc + '++', '-std=c++20', *flags, *native_flags, f'-DV12_R2_G1_LISTENING_PERCENT={profile}', out / 'native.cpp', *objects, '-o', binary], f'native-{profile}-build')
+                run([os.environ.get('CXX',args.cc + '++'), '-std=c++20', *flags, *native_flags, f'-DV12_R2_G1_LISTENING_PERCENT={profile}', out / 'native.cpp', *objects, '-o', binary], f'native-{profile}-build')
                 for case in NATIVE_CASES:
                     receipt['native'].append(json.loads(run([binary, case], f'native-{profile}-{case}')))
             server_fixture(out)
             server = out / 'server'
-            run([args.cc + '++', '-std=c++20', *flags, *native_flags,
+            run([os.environ.get('CXX',args.cc + '++'), '-std=c++20', *flags, *native_flags,
                  '-DV12_R2_G1_LISTENING_PERCENT=100', '-DV12_R2_TX_SHADOW=1',
                  '-DV12_R2_RC7_TX_ESTIMATE_LAB=1', out / 'server.cpp', *objects, '-o', server], 'server-build')
             receipt['server_cases'] = []

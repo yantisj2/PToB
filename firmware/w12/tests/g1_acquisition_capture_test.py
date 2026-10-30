@@ -1,5 +1,5 @@
-import os
 """Exact G1/RX-shadow acquisition lifecycle with explicit public-controller/clock stubs; no hardware."""
+import os
 import json,subprocess,hashlib,sys
 from pathlib import Path
 app=Path(__file__).resolve().parents[1];work=app.parent
@@ -78,10 +78,10 @@ flags=['-std=c++20','-O1','-g','-Wall','-Wextra','-Werror','-Wno-misleading-inde
 (out/'r2_bench_enrollment.h').write_text('static const r2_group_enrollment provision={{{'+','.join(map(str,range(32)))+'},UINT64_C(0x123456789abcdef0),1},UINT64_C(0x0000000000000005),"C-1",40000};\n')
 for path in [out,app/'tests/r2_fakes',app/'tests/console_fakes',app/'main',app/'legacy/reference',host,app/'main/r2/r2-g1',Path(os.environ['IDF_PATH'])/'components/bt/host/nimble/nimble/ext/tinycrypt/include']:flags.append('-I'+str(path))
 objects=[host/(n+'.o') for n in ('group_auth','group_join','group_precision','precision_codec','relay_codec','g1_hmac','sha256','utils')]
-binary=out/'native-acquisition';subprocess.run(['/opt/homebrew/opt/llvm/bin/clang++',*flags,str(p),*[str(x) for x in objects],'-o',str(binary)],check=True)
+binary=out/'native-acquisition';subprocess.run([os.environ.get('CXX','clang++'),*flags,str(p),*[str(x) for x in objects],'-o',str(binary)],check=True)
 checks=['capture-first','capture-stale','capture-cancel-repeated','capture-late-success','capture-exhaustion','known-train-first','rebootstrap-retains-acquisition','listening-profile','sync-cancel-grace']
 for c in checks:subprocess.run([str(binary),c],check=True);print('PASS',c)
-full_binary=out/'native-default100';subprocess.run(['/opt/homebrew/opt/llvm/bin/clang++',*flags,'-DV12_R2_G1_LISTENING_PERCENT=100',str(p),*[str(x) for x in objects],'-o',str(full_binary)],check=True)
+full_binary=out/'native-default100';subprocess.run([os.environ.get('CXX','clang++'),*flags,'-DV12_R2_G1_LISTENING_PERCENT=100',str(p),*[str(x) for x in objects],'-o',str(full_binary)],check=True)
 subprocess.run([str(full_binary),'listening-profile'],check=True);print('PASS default100-listening-profile')
 checks.append('default100-listening-profile')
 (out/'native-acquisition-receipt.json').write_text(json.dumps({'status':'PASSED_RX_SHADOW_NATIVE_AND_EXACT_ADAPTER_LIFECYCLE','cases':checks,'native_source_sha256':hashlib.sha256((app/'main/native_g1.cpp').read_bytes()).hexdigest(),'adapter_source_sha256':hashlib.sha256((app/'main/periodic_rx.cpp').read_bytes()).hexdigest(),'stubs':'Public NimBLE/controller descriptors/clock/task are explicit fixtures; no physical RF/actual ISR pass','precision':'UNAVAILABLE;all strict flagsfalse'},indent=2)+'\n')

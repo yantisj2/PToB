@@ -26,7 +26,7 @@ def main():
  for i in range(4):
   rows=[dict(r) for r in compiled];rows[i]['command']='cc';refuses(receipt,rows)
   rows[i]['command']='cc -DPTOB_W12_FINE_CLOCK=1 -DPTOB_W12_FINE_CLOCK=0';refuses(receipt,rows)
- cxx=os.environ.get('CXX','/opt/homebrew/opt/llvm/bin/clang++' if Path('/opt/homebrew/opt/llvm/bin/clang++').exists() else 'clang++')
+ cxx=os.environ.get('CXX','clang++')
  # Reuse the existing synthetic SDK model, adapting only its pin and channel
  # expectations. These fixtures do not establish actual peripheral semantics.
  for f in (N30/'tests/fine_fakes').rglob('*'):

@@ -90,6 +90,22 @@ with a newly written `FAILED` receipt can release their generated output while
 preserving diagnostic logs. Cleanup errors never rewrite a successful native
 receipt as failed, and are reported for attention.
 
+Normal builders use the existing catalog under the shared lock, register their
+new output and rotate only its exact device/profile/configuration group. Fresh
+pin, receipt, candidate-inventory and retained-image checks still run before
+deletion. Other groups and uncatalogued output are untouched. A missing or
+invalid catalog falls back to discovery. Explicit `plan`/`apply` still discovers
+the entire tree and rejects newly appeared builds; use that reconciliation after
+historical builders have stopped. Catalogs are performance aids, not image or
+hardware acceptance. Each builder records cleanup duration separately in
+`storage-timing.json` without rewriting its immutable native receipt.
+
+Optional W12 compiler caches are separate from retained image bundles. They
+contain only disposable local compiler results, remain owner-only and ignored,
+and use ccache's 512 MiB limit per host/native lane with explicit cleanup after
+each successful run. They never replace the latest-two, installed or recovery
+pins, and they do not retain whole compiler trees.
+
 ## Verification
 
 ```sh

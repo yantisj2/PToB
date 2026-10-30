@@ -6,7 +6,7 @@ import argparse,hashlib,json,os,subprocess
 from pathlib import Path
 A=Path(__file__).resolve().parents[1]
 p=argparse.ArgumentParser();p.add_argument('--out',type=Path,required=True);a=p.parse_args();out=a.out.resolve();out.mkdir(parents=True,exist_ok=False)
-flags=[os.environ.get('CXX','/opt/homebrew/opt/llvm/bin/clang++'),'-std=c++20','-O1','-g','-Wall','-Wextra','-Werror','-fsanitize=address,undefined','-fno-sanitize-recover=all','-I'+str(A/'tests/power_fakes'),'-I'+str(A/'main'),'-I'+str(A/'legacy')]
+flags=[os.environ.get('CXX','clang++'),'-std=c++20','-O1','-g','-Wall','-Wextra','-Werror','-fsanitize=address,undefined','-fno-sanitize-recover=all','-I'+str(A/'tests/power_fakes'),'-I'+str(A/'main'),'-I'+str(A/'legacy')]
 commands=[]
 def run(sources,name,defines=()):
  cmd=[*flags,*defines,*map(str,sources),'-o',str(out/name)];commands.append(cmd);subprocess.run(cmd,check=True);subprocess.run([out/name],check=True)

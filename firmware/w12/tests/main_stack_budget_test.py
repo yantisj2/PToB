@@ -92,3 +92,28 @@ with tempfile.TemporaryDirectory() as d:
  except ValueError as e:assert 'requires retained GNSS' in str(e)
  else:raise AssertionError('Fast map without GNSS evidence accepted')
 print('PASS version22 optional C map-bracket path, disabled/historical budgets and unchanged4096B reserve')
+
+# Current contracts select optional evidence by compiled profile, independently
+# of firmware version. Old receipt semantics above remain reproducible.
+with tempfile.TemporaryDirectory() as d:
+ root=Path(d);p=root/'target';p.mkdir();local=root/'local';local.mkdir()
+ (p/'sdkconfig').write_text(CONFIG);(p/'native_main.cpp.su').write_text(usage(small))
+ for version in ('0.2.35','0.3.0'):
+  current={'version':version,'stack_evidence_contract':'W12_PROFILE_STACK_V1'}
+  (local/'device.json').write_text('{}')
+  (root/'receipt.json').write_text(json.dumps(current));assert check(d)==r
+  for option,reason in [('fine_clock','fine-owner'),('lora_rx','LR2021')]:
+   (root/'receipt.json').write_text(json.dumps({**current,option:True}))
+   try:check(d)
+   except ValueError as e:assert reason in str(e)
+   else:raise AssertionError('Current optional compiler evidence missing: '+option)
+  (root/'receipt.json').write_text(json.dumps(current))
+  (local/'device.json').write_text(json.dumps({'gnss_profile':'meshnology_w12_l76k_rx39_pps41'}))
+  try:check(d)
+  except ValueError as e:assert 'GNSS' in str(e)
+  else:raise AssertionError('Current GNSS compiler evidence missing')
+ (root/'receipt.json').write_text(json.dumps({'version':'0.2.35'}))
+ try:check(d)
+ except ValueError as e:assert 'profile-selected' in str(e)
+ else:raise AssertionError('Current stack contract missing')
+print('PASS current and future profile-selected GNSS/fine/radio evidence refusals')
