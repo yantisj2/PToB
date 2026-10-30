@@ -865,9 +865,54 @@ Radio-off behavior, continuous bounds and independently measured UTC remain
 unqualified. Tuning and production promotion require repeatable matched trials
 across operating temperatures and loads; no automatic cutover is implemented.
 
+## Sampled P99 hold duration
+
+Version 0.2.28 defines the clock footer's `P99:` as seconds of hold at a fixed
+absolute error limit of 1000 ns. `P99:2.2s` is the conservative tested age whose
+99th percentile of sampled prefix maxima remains below that limit; `>=12s`
+means the current qualifying evidence reaches that age without locating the
+percentile's limit. `--` means fewer than 100 runs or stale evidence. This is an
+empirical sampled estimate, not a statistical confidence bound on a population.
+The performance floor is two seconds; the display is not capped there.
+
+A separate BLE-only shadow sampler freezes the same rate-choice policy and
+phase used by production HOLD. Later accepted BLE pairs only score each frozen
+clock. Thermal coefficients are always zero in this population; the existing
+experimental temperature model and its error statistics continue separately.
+Calibration and the active servo are unchanged. A root/boot/source/owner fence
+clears the duration population. A five-second witness expiry hides the result.
+
+At each tested age, keep the maximum absolute error from entry through the first
+accepted witness at or after that age. A witness up to 250 ms after the target
+conservatively includes its overshoot; an unsupported age is unknown, never a
+success. An early threshold crossing stays in every subsequent prefix even if
+later error improves. Each age keeps the latest 128 complete outcomes, requiring
+100, and allows only `floor(n/100)` failed or unknown outcomes. Select a
+contiguous passing prefix of age bins (250 ms spacing through four seconds,
+then 6/8/12/16/24/32/48/64/96/120 seconds). Display tenths round downward.
+Internal gaps over 250 ms remain counted without interpolating their interiors;
+this statistic concerns observed samples and grants no continuous error bound.
+
+Sixteen frozen clocks and packed outcomes use at most 2560 bytes. Start near
+once per second with a 12-second probe, extending to 24/48/96/120 seconds only
+when the current horizon qualifies. Longer probes reduce launch frequency to
+fit the same bounded storage. Overlapping starts are correlated and are not
+independent trials. Error tails continue through each probe after a crossing.
+
+The Hold page shows the 1 µs criterion, P99 seconds, run count, probe horizon and
+gaps. Existing nine-row status fields `ui_hold_percentile=99`, `ui_hold_ms` and
+`ui_hold_samples` mirror the rendered value; they add no response bytes/fields.
+Capture-only `W12_HORIZON_START/END/RESET/STATUS` records keep this population
+separate from thermal `W12_SHADOW` and selected-output `W12_HOLDOVER` records.
+`tools/holdover_horizon_analyze.py` independently replays frozen clocks from
+accepted pairs, preserves unknowns/early crossings and verifies rolling duration
+results after capture-start history has left the rolling window. Original
+P95/P99/MAX error diagnostics, finite production tests and recovery remain.
+No persistence or partition change is enabled.
+
 ## Production holdover
 
-**Current 0.2.27 policy: temperature is shadow-only.** Production retains the
+**Current 0.2.28 policy: temperature is shadow-only.** Production retains the
 last trusted BLE frequency and phase, with an explicitly zero thermal coefficient.
 Temperature learning and thermal-candidate scoring continue separately. The
 optimized retained-clock selector, continuity through coarse acquisition,

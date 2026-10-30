@@ -144,14 +144,34 @@ G1AdmissionPolicy admission_policy;G1RetainedEstimate retained_estimate;G1Receiv
 W12ShadowHoldover shadow_holdover;uint32_t shadow_generation=0;uint64_t shadow_device_boot=0;
 #ifdef PTOB_W12_HOLDOVER_RATE
 W12HoldoverRate holdover_rate;uint64_t holdover_pair_sequence=0;
+#ifdef PTOB_W12_HOLDOVER_HORIZON
+W12HoldoverHorizon holdover_horizon;
+void horizon_reset(){
+  holdover_horizon.clear();logf("W12_HORIZON_RESET boot=%llu temperature=0 production=0\n",(unsigned long long)shadow_device_boot);
+}
+void horizon_start(const W12HoldoverHorizon::Start& s){
+  logf("W12_HORIZON_START boot=%llu trial=%lu start20=%llu probe_ms=%lu epoch_ns=%lld phase_ns=%ld rate=%.17g temperature=0 production=0\n",
+    (unsigned long long)shadow_device_boot,(unsigned long)s.id,(unsigned long long)s.at20,(unsigned long)s.probe_ms,(long long)s.epoch,(long)s.phase,s.rate);
+}
+void horizon_end(const W12HoldoverHorizon::End& e){
+  logf("W12_HORIZON_END boot=%llu trial=%lu start20=%llu probe_ms=%lu last20=%llu outcomes=%llu peak_ns=%lu gaps=%lu temperature=0 production=0\n",
+    (unsigned long long)shadow_device_boot,(unsigned long)e.id,(unsigned long long)e.start20,(unsigned long)e.probe_ms,(unsigned long long)e.last20,(unsigned long long)e.outcomes,(unsigned long)e.peak_ns,(unsigned long)e.gaps);
+}
+#endif
 G1ClockPrediction holdover_last_live{};uint64_t holdover_last_live_root=0;
 W12HoldoverRate::Choice retained_rate_choice{};char holdover_entry_hex[1025]{};
 void hold_rate_pair(uint64_t local,uint64_t remote,uint64_t available,uint8_t channel,uint32_t generation){
+#ifdef PTOB_W12_HOLDOVER_HORIZON
+  if(generation!=holdover_rate.generation())horizon_reset();
+#endif
   holdover_rate.observe(local,remote,available,channel,generation);
   if(holdover_pair_sequence!=UINT64_MAX)++holdover_pair_sequence;
   logf("W12_HOLDOVER_PAIR boot=%llu seq=%llu local20=%llu reference_ns=%llu available20=%llu channel=%u generation=%lu\n",
     (unsigned long long)shadow_device_boot,(unsigned long long)holdover_pair_sequence,(unsigned long long)local,
     (unsigned long long)remote,(unsigned long long)available,unsigned(channel),(unsigned long)generation);
+#ifdef PTOB_W12_HOLDOVER_HORIZON
+  holdover_horizon.observe(local,remote,available);
+#endif
 }
 W12HoldoverRate::Choice hold_rate_entry(G1ClockPrediction& clock,uint64_t at,uint64_t now){
   auto choice=holdover_rate.choose(at,clock.rate,corrected_clock.quality(now,at).rate_guard_ppb);
@@ -1067,6 +1087,9 @@ void changed_scope(uint64_t now,G1Reason reason,bool preserve_clock,G1ParentReas
   shadow_holdover.clear();shadow_temperature_consumed20=0;
 #ifdef PTOB_W12_HOLDOVER_RATE
   holdover_rate.clear();
+#ifdef PTOB_W12_HOLDOVER_HORIZON
+  horizon_reset();
+#endif
 #endif
 #endif
 #ifdef R2_TZ_WIRE
@@ -1674,6 +1697,9 @@ void publish(uint64_t begin){const auto now=micros();uint64_t tick=0;
   shadow_temperature_consume();
 #ifdef PTOB_W12_HOLDOVER_RATE
   holdover_rate.refresh(tick);
+#ifdef PTOB_W12_HOLDOVER_HORIZON
+  holdover_horizon.tick(tick);
+#endif
 #endif
   if(holdover_test_until20&&(tick>=holdover_test_until20||fault||closing||mode==R2Mode::Off))
     holdover_test_end(tick>=holdover_test_until20?"DEADLINE":"STOP",tick>=holdover_test_until20,tick);
@@ -1783,6 +1809,14 @@ void publish(uint64_t begin){const auto now=micros();uint64_t tick=0;
   const auto selection=parent_selection.selection_view(now);
   const auto relative_quality=corrected_valid?corrected_clock.quality(now,tick):G1RelativeQuality{};
   const bool selection_locked=lock_protected_quality(relative_quality,corrected_clock.prediction(),tick,now);
+#ifdef PTOB_W12_HOLDOVER_HORIZON
+  if(following_now&&corrected_valid&&corrected_clock.frequency_trained(tick)&&!force_hold&&
+     corrected_clock.quality(now,tick).rms_ns<1000&&retained_estimate.trained&&holdover_horizon.due(tick)){
+    auto candidate=corrected_clock.prediction();hold_rate_entry(candidate,tick,now);
+    holdover_horizon.start(candidate,tick);
+  }
+  if(fault||closing||mode==R2Mode::Off)holdover_horizon.cancel();
+#endif
   portENTER_CRITICAL(&mux);
   snap.mode=mode;snap.lease=lease;snap.client=client;snap.requested=mode!=R2Mode::Off&&!closing;snap.fault=fault;snap.active_used=active_used;snap.self=3;snap.scan=scan;snap.connecting=peer.connecting;snap.connections=(peer.handle!=None)+!relay_acl_available();snap.synced=synced;snap.sync_pending=sync_pending;
   snap.off_ack=client.off()&&!lease.exhausted&&lease.stop_generation==lease.stop_completed&&(!lease.generation||lease.completed_us)&&!command_pending&&!stop_pending&&!closing&&mode==R2Mode::Off&&!relay_owned()&&!scan&&!sdk_scan_active&&!sdk_connect_pending&&!peer.connecting&&peer.handle==None&&!sync_pending&&!synced&&!sync_cleanup_queued&&!fault;
@@ -1841,6 +1875,9 @@ void publish(uint64_t begin){const auto now=micros();uint64_t tick=0;
 #else
   if(!following_now||fault||closing)shadow_holdover.cancel();
 #endif
+#ifdef PTOB_W12_HOLDOVER_HORIZON
+  snap.g1_horizon=holdover_horizon.view(tick);
+#endif
   snap.g1_shadow=shadow_holdover.view(tick);
 #endif
   snap.g1_relative_quality.evaluated20=tick;
@@ -1894,6 +1931,9 @@ bool r2_init(uint64_t boot,const uint8_t factory[6]){
   shadow_device_boot=boot;shadow_holdover.sink(shadow_sample);w12_shadow::pair_sink=shadow_pair;
 #ifdef PTOB_W12_HOLDOVER_RATE
   w12_hold_rate::pair_sink=hold_rate_pair;
+#ifdef PTOB_W12_HOLDOVER_HORIZON
+  holdover_horizon.sinks(horizon_start,horizon_end);
+#endif
 #endif
 #endif
   initialized=true;snap.self=3;return true;
@@ -2133,6 +2173,10 @@ R2Status r2_status(){
   if(!clock_reference_read(&shadow_now)||!result.requested||result.fault||!result.g1_shadow.last20||
      shadow_now<result.g1_shadow.last20||shadow_now-result.g1_shadow.last20>5*W12ShadowHoldover::Hz)
     result.g1_shadow.p95_ns=result.g1_shadow.p99_ns=UINT64_MAX;
+#ifdef PTOB_W12_HOLDOVER_HORIZON
+  if(!result.requested||result.fault||!result.g1_horizon.last20||shadow_now<result.g1_horizon.last20||shadow_now-result.g1_horizon.last20>5*W12HoldoverHorizon::Hz)
+    result.g1_horizon.ready=false;
+#endif
 #endif
   result.following=coarse&&result.following&&result.service_until_us&&now<result.service_until_us;
   if(!result.following){result.root_identity=result.root_boot=result.service_until_us=0;result.source_epoch=result.publication=0;result.root=255;}

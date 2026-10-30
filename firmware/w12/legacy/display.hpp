@@ -62,6 +62,10 @@ struct DisplayState {
     uint32_t relative_prediction_ns=UINT32_MAX;
     bool shadow_holdover=false,holdover_production=false,holdover_selected=false;
     uint64_t shadow_p99_ns=UINT64_MAX;uint32_t shadow_samples=0;
+#ifdef PTOB_W12_HOLDOVER_HORIZON
+    uint32_t horizon_ms=0,horizon_gaps=0,horizon_probe_ms=12000;
+    uint16_t horizon_trials=0,horizon_bad=0,horizon_unknown=0;bool horizon_ready=false,horizon_lower_bound=false;
+#endif
     uint32_t shadow_age_ms=0,shadow_safe_ms=0,shadow_cross_ms=0,shadow_gaps=0;bool shadow_holding=false;
     uint32_t hold_trials=0,hold_precision_ns=UINT32_MAX,hold_age_s=UINT32_MAX;
     uint32_t hold_audit_samples=0;

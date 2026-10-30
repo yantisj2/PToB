@@ -6,6 +6,9 @@
 #include "g1_relative_quality.hpp"
 #ifdef PTOB_W12_SHADOW_HOLDOVER
 #include "w12_shadow_holdover.hpp"
+#ifdef PTOB_W12_HOLDOVER_HORIZON
+#include "w12_holdover_horizon.hpp"
+#endif
 #endif
 #include <cstdint>
 #ifdef R2_TZ_WIRE
@@ -111,6 +114,9 @@ struct R2Status {
   G1RelativeQuality g1_relative_quality{};
 #ifdef PTOB_W12_SHADOW_HOLDOVER
   W12ShadowView g1_shadow{};
+#ifdef PTOB_W12_HOLDOVER_HORIZON
+  W12HorizonView g1_horizon{};
+#endif
 #ifdef PTOB_W12_HOLDOVER_PRODUCTION
   bool g1_holdover_model=false,g1_holdover_selected=false,g1_holdover_test=false;
   uint64_t g1_holdover_test_until20=0;uint32_t g1_holdover_test_generation=0;

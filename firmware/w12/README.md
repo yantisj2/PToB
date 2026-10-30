@@ -7,11 +7,20 @@ RC role. [Image provenance](../../docs/images/README.md).*
 
 Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
 
-**PToB owns W12 native G1/RC7 development.** Current version **0.2.27** supports
+**PToB owns W12 native G1/RC7 development.** Current version **0.2.28** supports
 **RC**: a BLE50 client or BLE100 receiver with an optional experimental
 estimated-TX relay. It receives from the shared T096/W12/StickS3 mesh; it has no
 GM profile or USB timing stream. Start with the
 [build guide](../../docs/w12/build.md).
+
+Version 0.2.28 corrects `P99:` to show **hold duration in seconds at a fixed
+1 µs limit**, measured by continuously frozen BLE-only shadow clocks that mirror
+the production HOLD policy. It no longer labels an error in nanoseconds as the
+requested duration. Each age requires 100 runs; the rolling 99th percentile of
+sampled worst error since entry must stay below 1 µs. Untested ages show no
+invented duration, and a passing test limit shows `>=`. Temperature-shadow
+statistics and error P95/P99/MAX remain separate. Gaps remain recorded; finite
+sampling establishes no continuous bound or independent UTC qualification.
 
 Version 0.2.27 adds a separate BLE-only HOLD rate estimator. Channel-aware
 16/32-second histories choose a bounded consensus with the existing fast rate;

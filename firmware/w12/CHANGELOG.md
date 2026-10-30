@@ -1,5 +1,15 @@
 # W12 changelog
 
+## 0.2.28 — sampled P99 hold seconds
+
+- Correct the P99 footer from an error percentile to seconds at the fixed1us
+  criterion. Continuously evaluate frozen production-equivalent BLE-only clocks;
+  keep temperature shadow statistics separate and preserve the active servo.
+- Require100 runs per age, retain sampled prefix maxima/early failures and unknown
+  coverage, show lower bounds at qualified limits and hide insufficient/stale data.
+- Add independent frozen-clock/duration replay, bounded adaptive probes, OLED
+  pixel checks, and matching UI status units without growing normal frames.
+
 ## 0.2.27 — bounded BLE HOLD rate consensus
 
 - Separate causal channel-aware 16/32-second HOLD estimation from the fast

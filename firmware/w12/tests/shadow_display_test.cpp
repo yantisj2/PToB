@@ -14,10 +14,11 @@ int main(int argc,char** argv){
   mesh.root_identity=1;mesh.root_boot=2;mesh.source_epoch=mesh.publication=1;mesh.follower_utc_us=1793318400000000ULL;
   mesh.model_available20=1;mesh.rms_ns=49;mesh.g1_shadow.samples=99;
   dashboard.apply(s,mesh);assert(s.shadow_holdover&&s.shadow_p99_ns==UINT64_MAX);image(s,out+"/shadow-warmup.pbm");
-  mesh.g1_shadow.samples=100;mesh.g1_shadow.p99_ns=123;dashboard.apply(s,mesh);
+  mesh.g1_shadow.samples=100;mesh.g1_shadow.p99_ns=123;
+  mesh.g1_horizon.ready=true;mesh.g1_horizon.duration_ms=2400;mesh.g1_horizon.trials=100;dashboard.apply(s,mesh);
   assert(s.shadow_samples==100&&s.shadow_p99_ns==123);image(s,out+"/shadow-ready.pbm");
   std::array<uint8_t,sizeof fb> actual{};std::copy(std::begin(fb),std::end(fb),actual.begin());
-  std::fill(std::begin(fb),std::end(fb),0);text(2,56,"RMS 49ns P99:123ns");
+  std::fill(std::begin(fb),std::end(fb),0);text(2,56,"RMS 49ns P99:2.4s");
   for(unsigned x=0;x<128;++x)assert(actual[7*128+x]==fb[7*128+x]);
   mesh.g1_shadow.holding=true;mesh.g1_shadow.age20=mesh.g1_shadow.safe20=65*20000000ULL;dashboard.apply(s,mesh);
   assert(s.shadow_age_ms==65000&&s.shadow_safe_ms==65000);s.page=display_pages::Hold;image(s,out+"/shadow-details.pbm");
@@ -25,5 +26,9 @@ int main(int argc,char** argv){
   mesh.g1_shadow.gaps=3;dashboard.apply(s,mesh);assert(s.shadow_gaps==3);image(s,out+"/shadow-gaps.pbm");
   mesh.g1_shadow.p99_ns=UINT64_MAX;dashboard.apply(s,mesh);assert(s.shadow_p99_ns==UINT64_MAX);
   s.holdover_production=true;s.holdover_selected=true;s.shadow_gaps=0;image(s,out+"/production-hold.pbm");
+  mesh.g1_horizon.lower_bound=true;mesh.g1_horizon.duration_ms=120000;mesh.g1_horizon.gaps=8;dashboard.apply(s,mesh);s.page=0;image(s,out+"/horizon-lower-bound.pbm");
+  char shown[16];horizon_text(shown,sizeof shown,s);assert(std::string(shown)==">=120s");
+  mesh.g1_horizon.duration_ms=2250;dashboard.apply(s,mesh);horizon_text(shown,sizeof shown,s);assert(std::string(shown)==">=2.2s");
+  mesh.g1_horizon.ready=false;dashboard.apply(s,mesh);horizon_text(shown,sizeof shown,s);assert(std::string(shown)=="--");
   std::puts("PASS actual shadow framebuffer: warmup, measured P99 footer pixels, extended run and threshold details and expiry");
 }

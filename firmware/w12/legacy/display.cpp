@@ -19,6 +19,9 @@
 #include "freertos/task.h"
 #endif
 namespace {
+#ifdef PTOB_W12_HOLDOVER_HORIZON
+void horizon_text(char*,unsigned,const DisplayState&);
+#endif
 #ifndef W12_DISPLAY_PREVIEW
 i2c_master_bus_handle_t bus=nullptr;
 i2c_master_dev_handle_t oled=nullptr;
@@ -321,7 +324,12 @@ void page_dashboard(const DisplayState& s){
     const auto rounded=value/divisor+unsigned(value%divisor!=0);
     if(rounded>999)std::snprintf(out,capacity,">999s");else std::snprintf(out,capacity,"%llu%s",(unsigned long long)rounded,units[unit]);
    };
-   error(rms,sizeof rms,s.rms_ns==UINT32_MAX?UINT64_MAX:s.rms_ns);error(p99,sizeof p99,s.shadow_p99_ns);
+   error(rms,sizeof rms,s.rms_ns==UINT32_MAX?UINT64_MAX:s.rms_ns);
+#ifdef PTOB_W12_HOLDOVER_HORIZON
+   horizon_text(p99,sizeof p99,s);
+#else
+   error(p99,sizeof p99,s.shadow_p99_ns);
+#endif
    std::snprintf(footer,sizeof footer,"RMS %s P99:%s",rms,p99);
   }else if(s.rms_ns!=UINT32_MAX&&s.samples){
    char duration[12];
@@ -437,10 +445,29 @@ void page_clock(const DisplayState& s){
  field(44,"REL NS",s.fit?n:"WAIT");
  short_num(n,sizeof(n),s.rms_ns);field(53,"FIT RMS",s.fit?n:"WAIT");
 }
+#ifdef PTOB_W12_HOLDOVER_HORIZON
+void horizon_text(char* out,unsigned capacity,const DisplayState& s){
+ if(!s.horizon_ready){std::snprintf(out,capacity,"--");return;}
+ if(!s.horizon_ms){std::snprintf(out,capacity,"<0.25s");return;}
+ // Floor to a tenth; never round a measured duration upward. Whole seconds
+ // stay compact enough for the128-pixel footer with a three-digit RMS.
+ if(s.horizon_ms%1000==0)std::snprintf(out,capacity,"%s%lus",s.horizon_lower_bound?">=":"",(unsigned long)(s.horizon_ms/1000));
+ else std::snprintf(out,capacity,"%s%lu.%lus",s.horizon_lower_bound?">=":"",(unsigned long)(s.horizon_ms/1000),(unsigned long)((s.horizon_ms/100)%10));
+}
+#endif
 void page_hold(const DisplayState& s){
  char n[24];
  if(s.r2_dashboard){
   if(s.shadow_holdover){
+#ifdef PTOB_W12_HOLDOVER_HORIZON
+   text(2,17,"1us BLE SHADOW HOLD");horizon_text(n,sizeof n,s);field(26,"P99",n);
+   if(s.horizon_ready)std::snprintf(n,sizeof n,"%u",unsigned(s.horizon_trials));else std::snprintf(n,sizeof n,"%u/100",unsigned(s.horizon_trials));field(35,"RUNS",n);
+   std::snprintf(n,sizeof n,"%lus",(unsigned long)(s.horizon_probe_ms/1000));field(44,"TEST TO",n);
+   if(!s.horizon_ready)text(2,53,"SAMPLING / WARMUP");
+   else if(s.horizon_gaps){std::snprintf(n,sizeof n,"SAMPLED / GAPS %lu",(unsigned long)s.horizon_gaps);text(2,53,n);}
+   else text(2,53,"SAMPLED / TEMP APART");
+   return;
+#else
    std::snprintf(n,sizeof n,s.holdover_selected?"BLE HOLD %lus":"SHADOW %lus / 120s",(unsigned long)(s.shadow_age_ms/1000));text(2,17,n);
    if(s.shadow_p99_ns!=UINT64_MAX)std::snprintf(n,sizeof n,"%lluns",(unsigned long long)s.shadow_p99_ns);else std::snprintf(n,sizeof n,"WARMUP");
    field(26,"P99",n);std::snprintf(n,sizeof n,"%lu/100",(unsigned long)s.shadow_samples);field(35,"SAMPLES",n);
@@ -449,6 +476,7 @@ void page_hold(const DisplayState& s){
    if(s.shadow_gaps){std::snprintf(n,sizeof n,"BLE GAPS %lu",(unsigned long)s.shadow_gaps);text(2,53,n);}
    else {text(2,53,s.holdover_production?(s.holdover_selected?"PRODUCTION HOLD":"VALIDATION / FOLLOW"):(s.shadow_holding?"BLE SHADOW RUNNING":"SHADOW PAUSED"));}
    return;
+#endif
   }
   short_num(n,sizeof(n),s.rms_ns);field(17,"CAUSAL NS",n);
   short_num(n,sizeof(n),s.samples);field(26,"SAMPLES",n);

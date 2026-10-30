@@ -566,6 +566,9 @@ void pps(const gnss_pps::Observation& edge){
   for(auto& ch:ui_follow)if(ch==' ')ch='_'; // Console V3 fields remain single tokens; the OLED keeps spaces.
   ui_state=state.role;ui_utc=state.utc;ui_valid=state.valid;
   ui_hold_percentile=state.hold_percentile;ui_hold_ms=state.hold_1us_ms;ui_hold_samples=state.hold_trials;
+#ifdef PTOB_W12_HOLDOVER_HORIZON
+  if(state.shadow_holdover&&state.timing_source!=DisplayState::Lora){ui_hold_percentile=99;ui_hold_ms=state.horizon_ready?state.horizon_ms:0;ui_hold_samples=state.horizon_trials;}
+#endif
   ui_rms_ns=state.rms_ns;
 #if defined(V12_R2_ENABLED) && V12_R2_CONFIG == 13
   if(v12::log_status().capture_active){
@@ -756,6 +759,11 @@ void stop_all(){
           (unsigned long long)q.baseline_p95_ns,(unsigned long long)q.baseline_p99_ns,(unsigned long long)q.baseline_max_ns,unsigned(q.thermal_ready),unsigned(q.holding),(unsigned long long)q.age20,(unsigned long long)q.safe20,(unsigned long long)q.cross20,
           (unsigned long long)q.baseline_cross20,(unsigned long long)q.run_max_ns,(unsigned long)q.gaps,(unsigned long long)q.max_gap20);
           if(printed>0)console_bytes+=unsigned(printed);}
+#endif
+#ifdef PTOB_W12_HOLDOVER_HORIZON
+        {const auto& h=mesh.g1_horizon;const int n=std::printf("W12_HORIZON_STATUS at_us=%llu duration_ms=%lu probe_ms=%lu ready=%u lower_bound=%u n=%u bad=%u unknown=%u started=%lu completed=%lu aborted=%lu gaps=%lu last20=%llu policy=SAMPLED_PREFIX_Q99_1US_V1 temperature=0 production=0\n",
+          (unsigned long long)now,(unsigned long)h.duration_ms,(unsigned long)h.probe_ms,unsigned(h.ready),unsigned(h.lower_bound),unsigned(h.trials),unsigned(h.bad),unsigned(h.unknown),
+          (unsigned long)h.started,(unsigned long)h.completed,(unsigned long)h.aborted,(unsigned long)h.gaps,(unsigned long long)h.last20);if(n>0)console_bytes+=unsigned(n);}
 #endif
 #ifdef PTOB_W12_HOLDOVER_PRODUCTION
         {const auto edge=mesh.g1_relative_quality.evaluated20;const auto output=mesh.g1_clock_model.at(edge);

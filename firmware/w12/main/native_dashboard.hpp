@@ -49,6 +49,11 @@ class R2Dashboard {
     last_parent=mesh.joined_peer;last_parent_boot=mesh.joined_boot;last_depth=mesh.rc7_depth;last_rc_bound=mesh.rc7_bound;
     state.r2_dashboard=true;state.basic_profile=false;
 #ifdef PTOB_W12_SHADOW_HOLDOVER
+#ifdef PTOB_W12_HOLDOVER_HORIZON
+    state.horizon_ms=mesh.g1_horizon.duration_ms;state.horizon_gaps=mesh.g1_horizon.gaps;state.horizon_probe_ms=mesh.g1_horizon.probe_ms;
+    state.horizon_trials=mesh.g1_horizon.trials;state.horizon_bad=mesh.g1_horizon.bad;state.horizon_unknown=mesh.g1_horizon.unknown;
+    state.horizon_ready=mesh.g1_horizon.ready;state.horizon_lower_bound=mesh.g1_horizon.lower_bound;
+#endif
     state.shadow_holdover=true;state.shadow_p99_ns=mesh.g1_shadow.p99_ns;state.shadow_samples=mesh.g1_shadow.samples;
     state.shadow_age_ms=mesh.g1_shadow.age20/20000;state.shadow_safe_ms=mesh.g1_shadow.safe20/20000;
     state.shadow_cross_ms=mesh.g1_shadow.cross20/20000;state.shadow_holding=mesh.g1_shadow.holding;state.shadow_gaps=mesh.g1_shadow.gaps;

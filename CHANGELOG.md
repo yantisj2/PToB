@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-30 — W12 P99 hold-duration display
+
+- W12 0.2.28 displays sampled hold seconds at1us rather than error nanoseconds.
+  Use a continuous production-equivalent BLE-only shadow population, separate
+  from temperature experiments. Preserve optimized production HOLD and diagnostics.
+- Add bounded rolling duration statistics and independent replay, retaining
+  crossings, gaps, test limits and warmup/expiry instead of inventing durations.
+
 ## 2026-10-30 — W12 causal HOLD rate estimation
 
 - W12 0.2.27 adds bounded BLE-only HOLD rate consensus, separate from active
