@@ -81,7 +81,8 @@ edition remains preserved in Git. The shared time base and
 Bluetooth timecode compatibility study retains its **22 October** edition.
 The awake timing information and power scheduling pilot retains its
 **19 October 2026** edition. The
-USB/chrony, White Rabbit and viability papers retain their **15–17 October** editions.
+USB/chrony and White Rabbit papers retain their **15–17 October** editions.
+The main viability synthesis has a **30 October author-review revision**.
 The V14 service/profile proposal has a **30 October author-review draft**;
 its companion boundary-clock study retains its **12 October** edition.
 All remain discussion/research drafts, without standards
@@ -93,10 +94,17 @@ byte identities; later editions are recorded separately.
 **[PToB Viability: Rooted BLE Timing Meshes for Heterogeneous Edge Networks](ptob-viability-preprint.pdf)**
 is the starting point for the project's research: protocol architecture,
 experimental evidence, scaling limits and a proposed path to PTP edge extension.
-Read the **16 October 2026 research draft** or edit its
-[LaTeX source](ptob-viability-preprint.tex). It synthesizes separate experiments;
-it does not turn them into one qualified deployment or promote the paper out of
-draft status.
+Read the **30 October 2026 author-review draft** or edit its
+[LaTeX source](ptob-viability-preprint.tex). The 17-page revision adds ESP32-S3
+event capture, the W12/T096 relay baseline, USB RC/DC comparison, awake sampling
+and measured frozen-clock holdover. It updates GM7/RC7 architecture, prior art,
+application boundaries and public reproduction references. Separate cohorts,
+tails, invalid/missing observations and unqualified UTC/output remain explicit.
+The [edition manifest](editions/viability-2026-10-30.json) preserves the prior
+15-page edition through its Git revision and binds the current source/PDF and
+selected inputs. Run `python3 tools/verify_viability_paper.py` for identity and
+claim checks; add `--replay` for the supporting offline numerical analyses.
+This remains a draft for review toward arXiv; it has not been submitted.
 
 ## Supporting research
 

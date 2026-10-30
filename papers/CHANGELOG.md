@@ -1,5 +1,31 @@
 # Manuscript history
 
+## 2026-10-30 — expanded viability synthesis for author review
+
+- Revise the main paper from 15 to 17 pages at the original 11-point type size
+  and margins; preserve the 16 October source/PDF through exact Git identities.
+- Add the separate ESP32-S3 fine-capture and W12/T096 PPS/TX populations, the
+  shared-bus USB RC/DC comparison, awake sampling pilot and W12 frozen-clock
+  holdover. Retain tails, rejected/withheld observations, failed gates, longer
+  hold failures and later shorter rolling windows.
+- Refresh GM7/RC7 succession, trust, dynamic paths and timezone separation;
+  distinguish implementation from current hardware qualification. Extend the
+  PTP, robotics, media and positioning discussion using the later studies.
+- Clarify the composition-level contribution against prior BLE and secure-time
+  work. Keep random-error hop models hypothetical and remove misleading large
+  arithmetic hop ceilings. Replace obsolete private-path references with pinned
+  public sources, selected data and verifiers.
+- Incorporate two independent research reviews: foreground the service contract,
+  distinguish delayed reconstruction from prospective clock scoring, preserve
+  historical quantile conventions and define the holdover fail/unknown rule.
+- Bind source, PDF, compiler and evidence inputs in a new edition manifest;
+  preserve immutable import receipts and verify superseded imported bytes from
+  recorded Git history. Check all 29 references, 47 PDF destinations, 42 external
+  links and 22 pinned public source-byte matches; record publisher access limits
+  and their metadata cross-checks. Replay the eight supporting offline verifiers,
+  inspect all pages and rebuild the source-only review package independently.
+  No hardware, push, publication or arXiv submission is performed.
+
 ## 2026-10-30 — holdover paper filenames for GitHub preparation
 
 - Give the approved holdover LaTeX/PDF a descriptive shared filename,

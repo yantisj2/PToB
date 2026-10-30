@@ -1,0 +1,383 @@
+{
+  "schema_version": 1,
+  "author": "Jonathan Yantis",
+  "copyright": "2026 Jonathan Yantis",
+  "license": "MIT",
+  "paper_license": "CC-BY-4.0",
+  "title": "PToB Viability: Rooted BLE Timing Meshes for Heterogeneous Edge Networks",
+  "edition_date": "2026-10-30",
+  "evidence_cutoff": "2026-10-30",
+  "status": "AUTHOR_REVIEW_DRAFT_NOT_SUBMITTED",
+  "base_repository_commit": "a3c96db35b1817de534abe4450cfd032ceca77e8",
+  "scope": "Revised system viability synthesis: source-scoped BLE clock service, causal maps, heterogeneous regeneration, USB/macOS, awake sampling and sampled frozen-clock holdover. Separate studies retain their populations and qualification limits.",
+  "previous_edition": {
+    "edition_date": "2026-10-16",
+    "revision": "a3c96db35b1817de534abe4450cfd032ceca77e8",
+    "page_count": 15,
+    "files": [
+      {
+        "path": "papers/ptob-viability-preprint.tex",
+        "bytes": 57050,
+        "sha256": "ead863576330e5b04994c5115c55dda9e1c48d71fa8d8934165a9e9bc30a752b"
+      },
+      {
+        "path": "papers/ptob-viability-preprint.pdf",
+        "bytes": 96178,
+        "sha256": "b3c578ab1222ebe40bb45ee28bce0cb23f58880268d1a3876ba8c6b12460f722"
+      }
+    ],
+    "receipt": "papers/imports/research-2026-10-16.json",
+    "preservation": "Exact source/PDF preserved in Git; original import and evidence receipts unchanged.",
+    "linked_website_pdf": {
+      "url": "https://ptob.dev/papers/ptob-viability-preprint.pdf",
+      "sha256": "b3c578ab1222ebe40bb45ee28bce0cb23f58880268d1a3876ba8c6b12460f722",
+      "matches_original": true
+    }
+  },
+  "files": [
+    {
+      "path": "papers/ptob-viability-preprint.tex",
+      "bytes": 67801,
+      "sha256": "100264521e6d551761bd6f424bd007d7948f984bb544dd063e2c1e360f081970",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "papers/ptob-viability-preprint.pdf",
+      "bytes": 108448,
+      "sha256": "a89d7dd7801b5783f991518e160af74e850b95a10b5a4f5e6456ffaadfc5d0a2",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "tools/verify_viability_paper.py",
+      "bytes": 6408,
+      "sha256": "9e3f7efe66ccfea77f4cba9f8af3b0873242b55addecb40532fc91437611fc22",
+      "license": "MIT"
+    },
+    {
+      "path": "tools/verify_research.py",
+      "bytes": 9633,
+      "sha256": "19c8b769f5e66aebdaa548ae048c75819a220a135295f5409222c5000a84b3d5",
+      "license": "MIT"
+    },
+    {
+      "path": "papers/editions/viability-2026-10-30-audit.json",
+      "bytes": 37522,
+      "sha256": "9be6e377c1b26a344ecfbb19140537df646aa4e13cd867197c1805f51c4a1cd4",
+      "license": "MIT"
+    }
+  ],
+  "inputs": [
+    {
+      "path": "evidence/papers/oscillator-pll-2026-10-03/README.md",
+      "bytes": 2119,
+      "sha256": "7dff97289815ae1f03eb6c730009f97083ac4e6a6057126e8f56aa28d3375b5b",
+      "license": "MIT"
+    },
+    {
+      "path": "evidence/v14/2026-10-12/README.md",
+      "bytes": 6365,
+      "sha256": "fed662aa81e3e36fcbe90627df0e7c4e53dc7c59a5a3600617cc2e7fd5271361",
+      "license": "MIT"
+    },
+    {
+      "path": "evidence/v14/2026-10-12/ptob-v14-evidence.json",
+      "bytes": 18477,
+      "sha256": "7474437ed23e64ed7a16599e082de95024a38d67927113fafa814de2c0666562",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "evidence/research/2026-10-16/provenance/ptob-viability-evidence-20261016.json",
+      "bytes": 3342,
+      "sha256": "385eada493c0a72dd865780aa8244f95a2c7016b1172c155c74931ce341283ab",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "evidence/research/2026-10-16/viability/derive.py",
+      "bytes": 1814,
+      "sha256": "9fb7efc2b0594c4127ab7461284be46ea0e65c0ac761c4a0f268661da9d2c334",
+      "license": "MIT"
+    },
+    {
+      "path": "evidence/research/2026-10-16/viability/model-summary.json",
+      "bytes": 500,
+      "sha256": "d052e589456e30c0260a0861b82bdcb6283650cbf193e903e8c8fca6db5f1438",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "evidence/usb/2026-10-17/manifest.json",
+      "bytes": 3926,
+      "sha256": "e9debfa5d61412074682a9afde01d0fc4768653b45c328473738a3b66a0e1276",
+      "license": "MIT"
+    },
+    {
+      "path": "clients/macos/results/2026-10-17-ble-vs-direct.json",
+      "bytes": 8430,
+      "sha256": "e1193c0e77e39e6770a4a1eb6647f3832d49a0db0eed61cd08523f5fd0c35863",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "evidence/power/2026-10-19/manifest.json",
+      "bytes": 4676,
+      "sha256": "4e0e26c5949b7c28262f119d66fa833cbb09e8f7c6b6784c47c244842747232b",
+      "license": "MIT"
+    },
+    {
+      "path": "evidence/power/2026-10-19/results.json",
+      "bytes": 19477,
+      "sha256": "50199a53931d754c1d417068253de2c0bc881ee332b4da0f4dfaf26d7a266b76",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "evidence/s3/2026-10-22-fine/manifest.json",
+      "bytes": 2125,
+      "sha256": "dd357fb1d0b2be0f5559879d90dad93784d643af2a6f199ff715ce80e06e0aab",
+      "license": "MIT"
+    },
+    {
+      "path": "evidence/s3/2026-10-22-fine/results.json",
+      "bytes": 7140,
+      "sha256": "5983fd09728d6dddda62977d549ae22b53664dcc7b7e7a981a1196c81236a24e",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "evidence/s3/2026-10-24-w12-utc-basis/manifest.json",
+      "bytes": 2480,
+      "sha256": "d8c1c14c1e1eb5874c31908744789ef50b5afaeef3e2c7fae6fc61b87e17373b",
+      "license": "MIT"
+    },
+    {
+      "path": "evidence/s3/2026-10-24-w12-utc-basis/results.json",
+      "bytes": 8164,
+      "sha256": "4e130185c9ec2fa32358bb5ce4e26302fa0c3b613e59c281e9d6af545aa65918",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "evidence/w12/2026-10-30-holdover/manifest.json",
+      "bytes": 6610,
+      "sha256": "2f6fbf69b35d50bf8285eb4fae424ac988dd84044e9294da2c8e0b1884df3a30",
+      "license": "MIT"
+    },
+    {
+      "path": "evidence/w12/2026-10-30-holdover/summary.json",
+      "bytes": 8814,
+      "sha256": "1258cd209f77dbc1a33e7fc07868fb56d19b885056b74c20acde90a83403aa63",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "evidence/w12/2026-10-30-holdover/observations.zip",
+      "bytes": 1433971,
+      "sha256": "e2d894bb87ad10d0b89ae3138821d2b253cdf3366a19a0611a4f7e7a65502bf1",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "papers/mcxo-holdover-duration/publication.json",
+      "bytes": 8633,
+      "sha256": "cf1415f43ab3bf06d605111b70d821faaf64d1c09eac8ad31af511d1cefadf5c",
+      "license": "MIT"
+    },
+    {
+      "path": "papers/mcxo-holdover-duration/results.tex",
+      "bytes": 3614,
+      "sha256": "ed13ed49ca27c12ed2c92239643b42d83928aa261616f4ba860d8437507dbb2e",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "papers/ptob-esp32s3-low-level-timing.tex",
+      "bytes": 30371,
+      "sha256": "cd51bb204b8d72e719ea58662c55253f8c46ade500e52c1ca8a4b3a9cb63ea57",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "papers/ptob-v14-sig-proposal.tex",
+      "bytes": 27384,
+      "sha256": "ed19fd66ad886b7300134984c5d5c6c24add68b6938a7f0b6ba5a6e870fa236e",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "papers/ptob-gptp-tsn-robotics-preprint.tex",
+      "bytes": 56581,
+      "sha256": "0e994f12bdfc1344df65d3d0e79366550cd5003e1308fce056244178ee7c2063",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "papers/ptob-bluetooth-timecode-preprint.tex",
+      "bytes": 58448,
+      "sha256": "390f28244b157a02de8183f43b1c14c449f4b0d2eae9aab29fa8d4c8a5517ae3",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "papers/indoor-pnt/main.tex",
+      "bytes": 47886,
+      "sha256": "405af60d71d0d1d6fe08393ffb9969b4ea4e6471b5c19b23517dde2bb9fdaee9",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "papers/indoor-ips/main.tex",
+      "bytes": 54328,
+      "sha256": "5f7fb6ecec1eeaab46f961880186cdd89ef2088653d34a5de7401af3b54e3b89",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "papers/ble-tail-multipath/main.tex",
+      "bytes": 36382,
+      "sha256": "22e3ed0b0ae7cb70d55ccaa98418c93622d0e6da7f72facaf59a2662bbf44311",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "docs/t096/gm7-implementation.md",
+      "bytes": 17874,
+      "sha256": "f6ca4f32dfb1e2e04d0a66fb054af0c6332b575a3109c3b7562721103ffe96ef",
+      "license": "MIT"
+    }
+  ],
+  "length": {
+    "before_pages": 15,
+    "after_pages": 17,
+    "maximum_additional_pages": 2,
+    "original_font_points": 11,
+    "current_font_points": 11,
+    "original_margin_inches": 0.85,
+    "current_margin_inches": 0.85,
+    "before_pdf_words": 7242,
+    "after_pdf_words": 8505
+  },
+  "compiler": {
+    "engine": "Tectonic",
+    "version": "0.17.0",
+    "public_bundle_sha256": "6ffe055852f8faf66c0acbe1a7fb27f87b869a90bad1204f3bf4d9683f597c7c",
+    "command": "tectonic --keep-logs --keep-intermediates --outdir artifacts/viability-20261030/build papers/ptob-viability-preprint.tex",
+    "standalone": true,
+    "private_dependencies": false,
+    "log_sha256": "a65d66ff9b69730b328354f26e1d80e0a461a7625736e65ac87c83a46a965ada",
+    "diagnostics": "No TeX warnings, overflow or unresolved references.",
+    "desktop_editor_compile": "SUCCESS_ON_EXACT_FINAL_SOURCE"
+  },
+  "verification": {
+    "replay_commands": [
+      "tools/verify_evidence.py",
+      "tools/verify_v14.py",
+      "tools/verify_research.py",
+      "tools/verify_usb_results.py",
+      "tools/verify_power.py",
+      "tools/verify_s3_fine_paper.py",
+      "tools/verify_w12_utc_results.py",
+      "papers/mcxo-holdover-duration/tools/verify.py"
+    ],
+    "numerical_reproduction": "Selected public derived rows, summaries and frozen-clock replay; physical raw extraction/calibration excluded.",
+    "final_source_evidence_link_audit": "papers/editions/viability-2026-10-30-audit.json",
+    "all_pages_visually_inspected": true,
+    "human_review": "PENDING",
+    "rendered_pages": [
+      {
+        "page": 1,
+        "sha256": "1e8140c0668974ca32c28a51084e8ae3c39cdcd658c0cfa3f4a9bd9e754cb224"
+      },
+      {
+        "page": 2,
+        "sha256": "5cc88210b0208820beee5fad305d57ba9576dec91528c0e9a19bf6fee8bebd3a"
+      },
+      {
+        "page": 3,
+        "sha256": "3acd1825751668f3e738c5f0e4443d4ea2854189d83068758a447106a9ef3727"
+      },
+      {
+        "page": 4,
+        "sha256": "184c3e82a0f8549201515b9b0ed39354b4140bf8ac0c06db4edd62abb58921f6"
+      },
+      {
+        "page": 5,
+        "sha256": "ec019ad599b618ad1fec4cc1699d8d63c935d237b24813053e3773a222e741fc"
+      },
+      {
+        "page": 6,
+        "sha256": "142ce796cc3d37613bb9fc291b96c9a1f883a4b96cc8fe2d096a01cc53e0d6c0"
+      },
+      {
+        "page": 7,
+        "sha256": "9caaab7e5f2323636c54c3333eb537c9a4fdc0b84bd396aef4d568f3678eaeb0"
+      },
+      {
+        "page": 8,
+        "sha256": "12254bfa6a8842972101a9e053ab24dd7bbd905070023fd247c28a779ba03cb0"
+      },
+      {
+        "page": 9,
+        "sha256": "67a664f408141388057504246e0906e8d85357809b63612ea575cede530564bf"
+      },
+      {
+        "page": 10,
+        "sha256": "e2bad64200e8ee1302b5e7b7ee6067c99764980eb2584813bbf54912d840345b"
+      },
+      {
+        "page": 11,
+        "sha256": "fdd4e8c5e6e196e9dba4f549c259c52a724e5aa32288ad760ca5e6fb10eee5e6"
+      },
+      {
+        "page": 12,
+        "sha256": "d05500e057b28475e1b28e2c5cde697252059ea2618b374bfa9a8f5bf449f5db"
+      },
+      {
+        "page": 13,
+        "sha256": "39eba92ecab56a00209c850e810cc1372316093434eb7f4ee1ec72d5df3f056b"
+      },
+      {
+        "page": 14,
+        "sha256": "36bbf9a60c518cc01ce38f37475c3ac97ea762d0a932986ba568c797f6ba8653"
+      },
+      {
+        "page": 15,
+        "sha256": "b528bcf430200295d78e9ab9ba401b13176f8e8a43a78146276cf0509d546fcb"
+      },
+      {
+        "page": 16,
+        "sha256": "e2c825d389e1f44fa99ba090907ed958ca214f1c374b56e7579fb61a340a4511"
+      },
+      {
+        "page": 17,
+        "sha256": "87997b171f68d8b7c0799a10bd299341c3bd995faaa889f7631bcf50697c4df3"
+      }
+    ],
+    "source_package": "Standalone source-only archive rebuilt without repository inputs; extracted PDF text/layout equals canonical PDF.",
+    "replay_result": "PASS_ALL_EIGHT_COMMANDS",
+    "pdf_internal_destinations": 47,
+    "external_uris": 42,
+    "public_source_bytes_matched": 22,
+    "unresolved_broken_links": 0
+  },
+  "research_review": {
+    "first": "Fresh GPT-6.1 Sol, extra-high reasoning; completed primary-source novelty assessment.",
+    "second": "Completed independent GPT-6.1 Sol extra-high review: no fatal prior-art conflict or headline numerical correction. Recommendations incorporated.",
+    "position": "Distinctive system composition and failure-aware interface evidence; no priority, primitive novelty, performance superiority, energy or calibrated-UTC claim.",
+    "incorporated_findings": [
+      "Lead on source-scoped service composition; compress prior art to two paragraphs.",
+      "Add operational RX-original/correction/map/relay exchange.",
+      "Separate prospective running-clock scores from delayed event reconstruction.",
+      "Preserve historical linear-interpolation quantiles.",
+      "Define holdover quantile for fully witnessed populations and conservative fail/unknown rule.",
+      "Acknowledge standby/domain-quality and one-way-delay precedents without expanding the survey."
+    ]
+  },
+  "limitations": [
+    "Separate experiments, not one qualified deployment.",
+    "Historical V14 quantiles retain linear interpolation; newer study quantiles use nearest rank.",
+    "Group HMAC does not prove independent origin or defend arbitrary one-way delay.",
+    "Empirical RX compensation and estimated TX retain unknown physical bounds.",
+    "Sampled overlapping holdover prefixes do not bound gaps or establish independent-trial reliability.",
+    "Calibrated UTC/output, physical failover, sleep energy and application interoperability remain open."
+  ],
+  "publication": {
+    "arxiv_submitted": false,
+    "pushed": false,
+    "website_deployed": false,
+    "hardware_operations": false
+  },
+  "review_package": {
+    "source_archive_filename": "ptob-viability-arxiv-source.tar.gz",
+    "bytes": 25644,
+    "sha256": "d15f81bfcb4865a0989a48ec853ecefe7264743b438fbc5a21366b5c93c33f6f",
+    "members": [
+      "ptob-viability-preprint.tex"
+    ],
+    "arxiv_processing_verified": false
+  }
+}

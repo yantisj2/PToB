@@ -86,6 +86,14 @@ hashes, USB delivery and tracking populations, and hypothetical viability model
 outputs. See the [research collection](../evidence/research/2026-10-16/README.md)
 for its reproducible subset and excluded private raw captures.
 
+Run `python3 tools/verify_viability_paper.py` to check the 30 October viability
+source/PDF edition, two-page expansion limit, pinned public references and
+claim/summary correspondence. Add `--replay` to run the supporting public
+numerical verifiers, including holdover prefix replay; allow several minutes.
+The original imported viability pair is checked through its recorded public
+Git revision, with the immutable import hashes preserved. These are document,
+data and numerical checks, not physical calibration or firmware acceptance.
+
 Run `python3 tools/verify_stability.py` to check the selected October 16 stability
 summary hashes and aggregate accounting. The
 [collection](../evidence/stability/2026-10-16/README.md) separates controller

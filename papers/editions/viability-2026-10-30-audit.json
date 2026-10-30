@@ -1,0 +1,875 @@
+{
+  "schema_version": 1,
+  "license": "MIT",
+  "copyright": "2026 Jonathan Yantis",
+  "source_sha256": "100264521e6d551761bd6f424bd007d7948f984bb544dd063e2c1e360f081970",
+  "pdf_sha256": "a89d7dd7801b5783f991518e160af74e850b95a10b5a4f5e6456ffaadfc5d0a2",
+  "pages": 17,
+  "bibliography": {
+    "defined": 29,
+    "all_citations_defined": true,
+    "all_entries_cited": true
+  },
+  "internal_pdf_destinations": {
+    "annotations": 47,
+    "missing": []
+  },
+  "local_public_revision_anchors": [
+    {
+      "path": "papers/ptob-viability-preprint.tex",
+      "revision": "a3c96db35b1817de534abe4450cfd032ceca77e8",
+      "sha256": "ead863576330e5b04994c5115c55dda9e1c48d71fa8d8934165a9e9bc30a752b"
+    },
+    {
+      "path": "evidence/research/2026-10-16/provenance/ptob-viability-evidence-20261016.json",
+      "revision": "a3c96db35b1817de534abe4450cfd032ceca77e8",
+      "sha256": "385eada493c0a72dd865780aa8244f95a2c7016b1172c155c74931ce341283ab"
+    },
+    {
+      "path": "papers/oscillator-pll-research-20261003.tex",
+      "revision": "a3c96db35b1817de534abe4450cfd032ceca77e8",
+      "sha256": "53e809b31da1428892e35829b19a9814d2868561331b34c214c7243d2bcb4a1e"
+    },
+    {
+      "path": "evidence/papers/oscillator-pll-2026-10-03/README.md",
+      "revision": "a3c96db35b1817de534abe4450cfd032ceca77e8",
+      "sha256": "7dff97289815ae1f03eb6c730009f97083ac4e6a6057126e8f56aa28d3375b5b"
+    },
+    {
+      "path": "papers/ptob-v14-preprint.tex",
+      "revision": "a3c96db35b1817de534abe4450cfd032ceca77e8",
+      "sha256": "bea2c7ea55b2842296871de9073554e0ad0bca84b3780afd966145b263365abe"
+    },
+    {
+      "path": "evidence/v14/2026-10-12/README.md",
+      "revision": "a3c96db35b1817de534abe4450cfd032ceca77e8",
+      "sha256": "fed662aa81e3e36fcbe90627df0e7c4e53dc7c59a5a3600617cc2e7fd5271361"
+    },
+    {
+      "path": "papers/ptob-v14-sig-proposal.tex",
+      "revision": "a3c96db35b1817de534abe4450cfd032ceca77e8",
+      "sha256": "ed19fd66ad886b7300134984c5d5c6c24add68b6938a7f0b6ba5a6e870fa236e"
+    },
+    {
+      "path": "docs/t096/gm7-implementation.md",
+      "revision": "a3c96db35b1817de534abe4450cfd032ceca77e8",
+      "sha256": "f6ca4f32dfb1e2e04d0a66fb054af0c6332b575a3109c3b7562721103ffe96ef"
+    },
+    {
+      "path": "evidence/s3/2026-10-22-fine/README.md",
+      "revision": "a3c96db35b1817de534abe4450cfd032ceca77e8",
+      "sha256": "3a5d1a9cadd5d9ed1191413901e5aef0733a6a65640a8cf73480bb7d9a201cce"
+    },
+    {
+      "path": "papers/ptob-esp32s3-low-level-timing.tex",
+      "revision": "a3c96db35b1817de534abe4450cfd032ceca77e8",
+      "sha256": "cd51bb204b8d72e719ea58662c55253f8c46ade500e52c1ca8a4b3a9cb63ea57"
+    },
+    {
+      "path": "evidence/s3/2026-10-24-w12-utc-basis/README.md",
+      "revision": "a3c96db35b1817de534abe4450cfd032ceca77e8",
+      "sha256": "70e08cdf3b3a3f56eacea266717ffa71ff9d045287b481f9f87f387aafc745f1"
+    },
+    {
+      "path": "papers/ble-tail-multipath/README.md",
+      "revision": "a3c96db35b1817de534abe4450cfd032ceca77e8",
+      "sha256": "5110a4b401ad02176bc5cd69fb7ba91030bb7296f5e37b590924da6039f16515"
+    },
+    {
+      "path": "papers/usb-macos-time-transfer-preprint.tex",
+      "revision": "a3c96db35b1817de534abe4450cfd032ceca77e8",
+      "sha256": "b4f21857a9c2842b702da7f78510872d428e3b3749e1d2a7d207ea3817e2d49c"
+    },
+    {
+      "path": "evidence/usb/2026-10-17/README.md",
+      "revision": "a3c96db35b1817de534abe4450cfd032ceca77e8",
+      "sha256": "ac5f01a0df2b9cb310b054bc327e2679f5d53e9b26e891281fb8c9d933da7b09"
+    },
+    {
+      "path": "evidence/research/2026-10-16/README.md",
+      "revision": "a3c96db35b1817de534abe4450cfd032ceca77e8",
+      "sha256": "d743eb5ad7ef99d49973a10c6984444f5ff7ec69d4364051f7c501bfb99072a3"
+    },
+    {
+      "path": "evidence/power/2026-10-19/README.md",
+      "revision": "a3c96db35b1817de534abe4450cfd032ceca77e8",
+      "sha256": "54ae1fc0a37128a59e4dc04c2a8693f475e8acd1e486cbcea78321273d40adda"
+    },
+    {
+      "path": "papers/mcxo-holdover-duration/README.md",
+      "revision": "a3c96db35b1817de534abe4450cfd032ceca77e8",
+      "sha256": "86cd66537afe3b7275978db7799ad864fe9e8227d0ab9c821dbb9560af0ff56d"
+    },
+    {
+      "path": "evidence/w12/2026-10-30-holdover/README.md",
+      "revision": "a3c96db35b1817de534abe4450cfd032ceca77e8",
+      "sha256": "447f5d6b40b5fe5795abd6896b47ec712bff3d906df1f8999c6dc6faa3f0698b"
+    },
+    {
+      "path": "papers/ptob-gptp-tsn-robotics-preprint.tex",
+      "revision": "a3c96db35b1817de534abe4450cfd032ceca77e8",
+      "sha256": "0e994f12bdfc1344df65d3d0e79366550cd5003e1308fce056244178ee7c2063"
+    },
+    {
+      "path": "papers/ptob-bluetooth-timecode-preprint.tex",
+      "revision": "a3c96db35b1817de534abe4450cfd032ceca77e8",
+      "sha256": "390f28244b157a02de8183f43b1c14c449f4b0d2eae9aab29fa8d4c8a5517ae3"
+    },
+    {
+      "path": "papers/indoor-pnt/README.md",
+      "revision": "a3c96db35b1817de534abe4450cfd032ceca77e8",
+      "sha256": "d4e1bccc6d7307840dca283c3266474a918ec4391d313bc067f734b032cc8817"
+    },
+    {
+      "path": "papers/indoor-ips/README.md",
+      "revision": "a3c96db35b1817de534abe4450cfd032ceca77e8",
+      "sha256": "9894d3dab66d6dd17217ba257f2ab2485786329a12c4357658332d2a9844445f"
+    }
+  ],
+  "public_source_bytes": [
+    {
+      "path": "papers/ptob-viability-preprint.tex",
+      "url": "https://raw.githubusercontent.com/yantisj2/PToB/a3c96db35b1817de534abe4450cfd032ceca77e8/papers/ptob-viability-preprint.tex",
+      "curl_exit": 0,
+      "expected_sha256": "ead863576330e5b04994c5115c55dda9e1c48d71fa8d8934165a9e9bc30a752b",
+      "observed_sha256": "ead863576330e5b04994c5115c55dda9e1c48d71fa8d8934165a9e9bc30a752b",
+      "matches_cited_revision": true
+    },
+    {
+      "path": "evidence/research/2026-10-16/provenance/ptob-viability-evidence-20261016.json",
+      "url": "https://raw.githubusercontent.com/yantisj2/PToB/a3c96db35b1817de534abe4450cfd032ceca77e8/evidence/research/2026-10-16/provenance/ptob-viability-evidence-20261016.json",
+      "curl_exit": 0,
+      "expected_sha256": "385eada493c0a72dd865780aa8244f95a2c7016b1172c155c74931ce341283ab",
+      "observed_sha256": "385eada493c0a72dd865780aa8244f95a2c7016b1172c155c74931ce341283ab",
+      "matches_cited_revision": true
+    },
+    {
+      "path": "papers/oscillator-pll-research-20261003.tex",
+      "url": "https://raw.githubusercontent.com/yantisj2/PToB/a3c96db35b1817de534abe4450cfd032ceca77e8/papers/oscillator-pll-research-20261003.tex",
+      "curl_exit": 0,
+      "expected_sha256": "53e809b31da1428892e35829b19a9814d2868561331b34c214c7243d2bcb4a1e",
+      "observed_sha256": "53e809b31da1428892e35829b19a9814d2868561331b34c214c7243d2bcb4a1e",
+      "matches_cited_revision": true
+    },
+    {
+      "path": "evidence/papers/oscillator-pll-2026-10-03/README.md",
+      "url": "https://raw.githubusercontent.com/yantisj2/PToB/a3c96db35b1817de534abe4450cfd032ceca77e8/evidence/papers/oscillator-pll-2026-10-03/README.md",
+      "curl_exit": 0,
+      "expected_sha256": "7dff97289815ae1f03eb6c730009f97083ac4e6a6057126e8f56aa28d3375b5b",
+      "observed_sha256": "7dff97289815ae1f03eb6c730009f97083ac4e6a6057126e8f56aa28d3375b5b",
+      "matches_cited_revision": true
+    },
+    {
+      "path": "papers/ptob-v14-preprint.tex",
+      "url": "https://raw.githubusercontent.com/yantisj2/PToB/a3c96db35b1817de534abe4450cfd032ceca77e8/papers/ptob-v14-preprint.tex",
+      "curl_exit": 0,
+      "expected_sha256": "bea2c7ea55b2842296871de9073554e0ad0bca84b3780afd966145b263365abe",
+      "observed_sha256": "bea2c7ea55b2842296871de9073554e0ad0bca84b3780afd966145b263365abe",
+      "matches_cited_revision": true
+    },
+    {
+      "path": "evidence/v14/2026-10-12/README.md",
+      "url": "https://raw.githubusercontent.com/yantisj2/PToB/a3c96db35b1817de534abe4450cfd032ceca77e8/evidence/v14/2026-10-12/README.md",
+      "curl_exit": 0,
+      "expected_sha256": "fed662aa81e3e36fcbe90627df0e7c4e53dc7c59a5a3600617cc2e7fd5271361",
+      "observed_sha256": "fed662aa81e3e36fcbe90627df0e7c4e53dc7c59a5a3600617cc2e7fd5271361",
+      "matches_cited_revision": true
+    },
+    {
+      "path": "papers/ptob-v14-sig-proposal.tex",
+      "url": "https://raw.githubusercontent.com/yantisj2/PToB/a3c96db35b1817de534abe4450cfd032ceca77e8/papers/ptob-v14-sig-proposal.tex",
+      "curl_exit": 0,
+      "expected_sha256": "ed19fd66ad886b7300134984c5d5c6c24add68b6938a7f0b6ba5a6e870fa236e",
+      "observed_sha256": "ed19fd66ad886b7300134984c5d5c6c24add68b6938a7f0b6ba5a6e870fa236e",
+      "matches_cited_revision": true
+    },
+    {
+      "path": "docs/t096/gm7-implementation.md",
+      "url": "https://raw.githubusercontent.com/yantisj2/PToB/a3c96db35b1817de534abe4450cfd032ceca77e8/docs/t096/gm7-implementation.md",
+      "curl_exit": 0,
+      "expected_sha256": "f6ca4f32dfb1e2e04d0a66fb054af0c6332b575a3109c3b7562721103ffe96ef",
+      "observed_sha256": "f6ca4f32dfb1e2e04d0a66fb054af0c6332b575a3109c3b7562721103ffe96ef",
+      "matches_cited_revision": true
+    },
+    {
+      "path": "evidence/s3/2026-10-22-fine/README.md",
+      "url": "https://raw.githubusercontent.com/yantisj2/PToB/a3c96db35b1817de534abe4450cfd032ceca77e8/evidence/s3/2026-10-22-fine/README.md",
+      "curl_exit": 0,
+      "expected_sha256": "3a5d1a9cadd5d9ed1191413901e5aef0733a6a65640a8cf73480bb7d9a201cce",
+      "observed_sha256": "3a5d1a9cadd5d9ed1191413901e5aef0733a6a65640a8cf73480bb7d9a201cce",
+      "matches_cited_revision": true
+    },
+    {
+      "path": "papers/ptob-esp32s3-low-level-timing.tex",
+      "url": "https://raw.githubusercontent.com/yantisj2/PToB/a3c96db35b1817de534abe4450cfd032ceca77e8/papers/ptob-esp32s3-low-level-timing.tex",
+      "curl_exit": 0,
+      "expected_sha256": "cd51bb204b8d72e719ea58662c55253f8c46ade500e52c1ca8a4b3a9cb63ea57",
+      "observed_sha256": "cd51bb204b8d72e719ea58662c55253f8c46ade500e52c1ca8a4b3a9cb63ea57",
+      "matches_cited_revision": true
+    },
+    {
+      "path": "evidence/s3/2026-10-24-w12-utc-basis/README.md",
+      "url": "https://raw.githubusercontent.com/yantisj2/PToB/a3c96db35b1817de534abe4450cfd032ceca77e8/evidence/s3/2026-10-24-w12-utc-basis/README.md",
+      "curl_exit": 0,
+      "expected_sha256": "70e08cdf3b3a3f56eacea266717ffa71ff9d045287b481f9f87f387aafc745f1",
+      "observed_sha256": "70e08cdf3b3a3f56eacea266717ffa71ff9d045287b481f9f87f387aafc745f1",
+      "matches_cited_revision": true
+    },
+    {
+      "path": "papers/ble-tail-multipath/README.md",
+      "url": "https://raw.githubusercontent.com/yantisj2/PToB/a3c96db35b1817de534abe4450cfd032ceca77e8/papers/ble-tail-multipath/README.md",
+      "curl_exit": 0,
+      "expected_sha256": "5110a4b401ad02176bc5cd69fb7ba91030bb7296f5e37b590924da6039f16515",
+      "observed_sha256": "5110a4b401ad02176bc5cd69fb7ba91030bb7296f5e37b590924da6039f16515",
+      "matches_cited_revision": true
+    },
+    {
+      "path": "papers/usb-macos-time-transfer-preprint.tex",
+      "url": "https://raw.githubusercontent.com/yantisj2/PToB/a3c96db35b1817de534abe4450cfd032ceca77e8/papers/usb-macos-time-transfer-preprint.tex",
+      "curl_exit": 0,
+      "expected_sha256": "b4f21857a9c2842b702da7f78510872d428e3b3749e1d2a7d207ea3817e2d49c",
+      "observed_sha256": "b4f21857a9c2842b702da7f78510872d428e3b3749e1d2a7d207ea3817e2d49c",
+      "matches_cited_revision": true
+    },
+    {
+      "path": "evidence/usb/2026-10-17/README.md",
+      "url": "https://raw.githubusercontent.com/yantisj2/PToB/a3c96db35b1817de534abe4450cfd032ceca77e8/evidence/usb/2026-10-17/README.md",
+      "curl_exit": 0,
+      "expected_sha256": "ac5f01a0df2b9cb310b054bc327e2679f5d53e9b26e891281fb8c9d933da7b09",
+      "observed_sha256": "ac5f01a0df2b9cb310b054bc327e2679f5d53e9b26e891281fb8c9d933da7b09",
+      "matches_cited_revision": true
+    },
+    {
+      "path": "evidence/research/2026-10-16/README.md",
+      "url": "https://raw.githubusercontent.com/yantisj2/PToB/a3c96db35b1817de534abe4450cfd032ceca77e8/evidence/research/2026-10-16/README.md",
+      "curl_exit": 0,
+      "expected_sha256": "d743eb5ad7ef99d49973a10c6984444f5ff7ec69d4364051f7c501bfb99072a3",
+      "observed_sha256": "d743eb5ad7ef99d49973a10c6984444f5ff7ec69d4364051f7c501bfb99072a3",
+      "matches_cited_revision": true
+    },
+    {
+      "path": "evidence/power/2026-10-19/README.md",
+      "url": "https://raw.githubusercontent.com/yantisj2/PToB/a3c96db35b1817de534abe4450cfd032ceca77e8/evidence/power/2026-10-19/README.md",
+      "curl_exit": 0,
+      "expected_sha256": "54ae1fc0a37128a59e4dc04c2a8693f475e8acd1e486cbcea78321273d40adda",
+      "observed_sha256": "54ae1fc0a37128a59e4dc04c2a8693f475e8acd1e486cbcea78321273d40adda",
+      "matches_cited_revision": true
+    },
+    {
+      "path": "papers/mcxo-holdover-duration/README.md",
+      "url": "https://raw.githubusercontent.com/yantisj2/PToB/a3c96db35b1817de534abe4450cfd032ceca77e8/papers/mcxo-holdover-duration/README.md",
+      "curl_exit": 0,
+      "expected_sha256": "86cd66537afe3b7275978db7799ad864fe9e8227d0ab9c821dbb9560af0ff56d",
+      "observed_sha256": "86cd66537afe3b7275978db7799ad864fe9e8227d0ab9c821dbb9560af0ff56d",
+      "matches_cited_revision": true
+    },
+    {
+      "path": "evidence/w12/2026-10-30-holdover/README.md",
+      "url": "https://raw.githubusercontent.com/yantisj2/PToB/a3c96db35b1817de534abe4450cfd032ceca77e8/evidence/w12/2026-10-30-holdover/README.md",
+      "curl_exit": 0,
+      "expected_sha256": "447f5d6b40b5fe5795abd6896b47ec712bff3d906df1f8999c6dc6faa3f0698b",
+      "observed_sha256": "447f5d6b40b5fe5795abd6896b47ec712bff3d906df1f8999c6dc6faa3f0698b",
+      "matches_cited_revision": true
+    },
+    {
+      "path": "papers/ptob-gptp-tsn-robotics-preprint.tex",
+      "url": "https://raw.githubusercontent.com/yantisj2/PToB/a3c96db35b1817de534abe4450cfd032ceca77e8/papers/ptob-gptp-tsn-robotics-preprint.tex",
+      "curl_exit": 0,
+      "expected_sha256": "0e994f12bdfc1344df65d3d0e79366550cd5003e1308fce056244178ee7c2063",
+      "observed_sha256": "0e994f12bdfc1344df65d3d0e79366550cd5003e1308fce056244178ee7c2063",
+      "matches_cited_revision": true
+    },
+    {
+      "path": "papers/ptob-bluetooth-timecode-preprint.tex",
+      "url": "https://raw.githubusercontent.com/yantisj2/PToB/a3c96db35b1817de534abe4450cfd032ceca77e8/papers/ptob-bluetooth-timecode-preprint.tex",
+      "curl_exit": 0,
+      "expected_sha256": "390f28244b157a02de8183f43b1c14c449f4b0d2eae9aab29fa8d4c8a5517ae3",
+      "observed_sha256": "390f28244b157a02de8183f43b1c14c449f4b0d2eae9aab29fa8d4c8a5517ae3",
+      "matches_cited_revision": true
+    },
+    {
+      "path": "papers/indoor-pnt/README.md",
+      "url": "https://raw.githubusercontent.com/yantisj2/PToB/a3c96db35b1817de534abe4450cfd032ceca77e8/papers/indoor-pnt/README.md",
+      "curl_exit": 0,
+      "expected_sha256": "d4e1bccc6d7307840dca283c3266474a918ec4391d313bc067f734b032cc8817",
+      "observed_sha256": "d4e1bccc6d7307840dca283c3266474a918ec4391d313bc067f734b032cc8817",
+      "matches_cited_revision": true
+    },
+    {
+      "path": "papers/indoor-ips/README.md",
+      "url": "https://raw.githubusercontent.com/yantisj2/PToB/a3c96db35b1817de534abe4450cfd032ceca77e8/papers/indoor-ips/README.md",
+      "curl_exit": 0,
+      "expected_sha256": "9894d3dab66d6dd17217ba257f2ab2485786329a12c4357658332d2a9844445f",
+      "observed_sha256": "9894d3dab66d6dd17217ba257f2ab2485786329a12c4357658332d2a9844445f",
+      "matches_cited_revision": true
+    }
+  ],
+  "external_links": [
+    {
+      "url": "https://1.ieee802.org/tsn/802-1asdm/",
+      "http_status": 200,
+      "effective_url": "https://1.ieee802.org/tsn/802-1asdm/",
+      "curl_exit": 0,
+      "result": "REACHABLE"
+    },
+    {
+      "url": "https://1.ieee802.org/tsn/802-1ased/",
+      "http_status": 200,
+      "effective_url": "https://1.ieee802.org/tsn/802-1ased/",
+      "curl_exit": 0,
+      "result": "REACHABLE"
+    },
+    {
+      "url": "https://arxiv.org/abs/1501.06479",
+      "http_status": 200,
+      "effective_url": "https://arxiv.org/abs/1501.06479",
+      "curl_exit": 0,
+      "result": "REACHABLE"
+    },
+    {
+      "url": "https://arxiv.org/abs/1710.05798v3",
+      "http_status": 200,
+      "effective_url": "https://arxiv.org/abs/1710.05798v3",
+      "curl_exit": 0,
+      "result": "REACHABLE"
+    },
+    {
+      "url": "https://chrony-project.org/doc/4.9/chronyd.html",
+      "http_status": 200,
+      "effective_url": "https://chrony-project.org/doc/4.9/chronyd.html",
+      "curl_exit": 0,
+      "result": "REACHABLE"
+    },
+    {
+      "url": "https://creativecommons.org/licenses/by/4.0/",
+      "http_status": 200,
+      "effective_url": "https://creativecommons.org/licenses/by/4.0/",
+      "curl_exit": 0,
+      "result": "REACHABLE"
+    },
+    {
+      "url": "https://doi.org/10.1109/ACCESS.2024.3446668",
+      "http_status": 202,
+      "effective_url": "https://ieeexplore.ieee.org/document/10643061/",
+      "curl_exit": 0,
+      "result": "RESOLVES_TO_CORRECT_PUBLISHER_AUTOMATED_ACCESS_LIMITED"
+    },
+    {
+      "url": "https://doi.org/10.1109/JIOT.2021.3116921",
+      "http_status": 202,
+      "effective_url": "https://ieeexplore.ieee.org/document/9555832/",
+      "curl_exit": 0,
+      "result": "RESOLVES_TO_CORRECT_PUBLISHER_AUTOMATED_ACCESS_LIMITED"
+    },
+    {
+      "url": "https://doi.org/10.1109/JIOT.2026.3680032",
+      "http_status": 202,
+      "effective_url": "https://ieeexplore.ieee.org/document/11471785/",
+      "curl_exit": 0,
+      "result": "RESOLVES_TO_CORRECT_PUBLISHER_AUTOMATED_ACCESS_LIMITED"
+    },
+    {
+      "url": "https://doi.org/10.1109/JSTSP.2018.2835772",
+      "http_status": 202,
+      "effective_url": "https://ieeexplore.ieee.org/document/8357814/",
+      "curl_exit": 0,
+      "result": "RESOLVES_TO_CORRECT_PUBLISHER_AUTOMATED_ACCESS_LIMITED"
+    },
+    {
+      "url": "https://doi.org/10.1109/LWC.2025.3621352",
+      "http_status": 202,
+      "effective_url": "https://ieeexplore.ieee.org/document/11202952/",
+      "curl_exit": 0,
+      "result": "RESOLVES_TO_CORRECT_PUBLISHER_AUTOMATED_ACCESS_LIMITED"
+    },
+    {
+      "url": "https://doi.org/10.1145/1031495.1031501",
+      "http_status": 403,
+      "effective_url": "https://dl.acm.org/doi/10.1145/1031495.1031501",
+      "curl_exit": 0,
+      "result": "RESOLVES_TO_CORRECT_PUBLISHER_AUTOMATED_ACCESS_LIMITED"
+    },
+    {
+      "url": "https://github.com/SMPTE/st2059-2",
+      "http_status": 200,
+      "effective_url": "https://github.com/SMPTE/st2059-2",
+      "curl_exit": 0,
+      "result": "REACHABLE"
+    },
+    {
+      "url": "https://github.com/sukgautamgit/DPCS-SimultaneousTx-Rx-BLE-Demo",
+      "http_status": 200,
+      "effective_url": "https://github.com/sukgautamgit/DPCS-SimultaneousTx-Rx-BLE-Demo",
+      "curl_exit": 0,
+      "result": "REACHABLE"
+    },
+    {
+      "url": "https://github.com/yantisj2/PToB",
+      "http_status": 200,
+      "effective_url": "https://github.com/yantisj2/PToB",
+      "curl_exit": 0,
+      "result": "REACHABLE"
+    },
+    {
+      "url": "https://github.com/yantisj2/PToB/blob/a3c96db35b1817de534abe4450cfd032ceca77e8/docs/t096/gm7-implementation.md",
+      "http_status": 200,
+      "effective_url": "https://github.com/yantisj2/PToB/blob/a3c96db35b1817de534abe4450cfd032ceca77e8/docs/t096/gm7-implementation.md",
+      "curl_exit": 0,
+      "result": "REACHABLE"
+    },
+    {
+      "url": "https://github.com/yantisj2/PToB/blob/a3c96db35b1817de534abe4450cfd032ceca77e8/evidence/papers/oscillator-pll-2026-10-03/README.md",
+      "http_status": 200,
+      "effective_url": "https://github.com/yantisj2/PToB/blob/a3c96db35b1817de534abe4450cfd032ceca77e8/evidence/papers/oscillator-pll-2026-10-03/README.md",
+      "curl_exit": 0,
+      "result": "REACHABLE"
+    },
+    {
+      "url": "https://github.com/yantisj2/PToB/blob/a3c96db35b1817de534abe4450cfd032ceca77e8/evidence/power/2026-10-19/README.md",
+      "http_status": 200,
+      "effective_url": "https://github.com/yantisj2/PToB/blob/a3c96db35b1817de534abe4450cfd032ceca77e8/evidence/power/2026-10-19/README.md",
+      "curl_exit": 0,
+      "result": "REACHABLE"
+    },
+    {
+      "url": "https://github.com/yantisj2/PToB/blob/a3c96db35b1817de534abe4450cfd032ceca77e8/evidence/research/2026-10-16/README.md",
+      "http_status": 200,
+      "effective_url": "https://github.com/yantisj2/PToB/blob/a3c96db35b1817de534abe4450cfd032ceca77e8/evidence/research/2026-10-16/README.md",
+      "curl_exit": 0,
+      "result": "REACHABLE"
+    },
+    {
+      "url": "https://github.com/yantisj2/PToB/blob/a3c96db35b1817de534abe4450cfd032ceca77e8/evidence/research/2026-10-16/provenance/ptob-viability-evidence-20261016.json",
+      "http_status": 200,
+      "effective_url": "https://github.com/yantisj2/PToB/blob/a3c96db35b1817de534abe4450cfd032ceca77e8/evidence/research/2026-10-16/provenance/ptob-viability-evidence-20261016.json",
+      "curl_exit": 0,
+      "result": "REACHABLE"
+    },
+    {
+      "url": "https://github.com/yantisj2/PToB/blob/a3c96db35b1817de534abe4450cfd032ceca77e8/evidence/s3/2026-10-22-fine/README.md",
+      "http_status": 200,
+      "effective_url": "https://github.com/yantisj2/PToB/blob/a3c96db35b1817de534abe4450cfd032ceca77e8/evidence/s3/2026-10-22-fine/README.md",
+      "curl_exit": 0,
+      "result": "REACHABLE"
+    },
+    {
+      "url": "https://github.com/yantisj2/PToB/blob/a3c96db35b1817de534abe4450cfd032ceca77e8/evidence/s3/2026-10-24-w12-utc-basis/README.md",
+      "http_status": 200,
+      "effective_url": "https://github.com/yantisj2/PToB/blob/a3c96db35b1817de534abe4450cfd032ceca77e8/evidence/s3/2026-10-24-w12-utc-basis/README.md",
+      "curl_exit": 0,
+      "result": "REACHABLE"
+    },
+    {
+      "url": "https://github.com/yantisj2/PToB/blob/a3c96db35b1817de534abe4450cfd032ceca77e8/evidence/usb/2026-10-17/README.md",
+      "http_status": 200,
+      "effective_url": "https://github.com/yantisj2/PToB/blob/a3c96db35b1817de534abe4450cfd032ceca77e8/evidence/usb/2026-10-17/README.md",
+      "curl_exit": 0,
+      "result": "REACHABLE"
+    },
+    {
+      "url": "https://github.com/yantisj2/PToB/blob/a3c96db35b1817de534abe4450cfd032ceca77e8/evidence/v14/2026-10-12/README.md",
+      "http_status": 200,
+      "effective_url": "https://github.com/yantisj2/PToB/blob/a3c96db35b1817de534abe4450cfd032ceca77e8/evidence/v14/2026-10-12/README.md",
+      "curl_exit": 0,
+      "result": "REACHABLE"
+    },
+    {
+      "url": "https://github.com/yantisj2/PToB/blob/a3c96db35b1817de534abe4450cfd032ceca77e8/evidence/w12/2026-10-30-holdover/README.md",
+      "http_status": 200,
+      "effective_url": "https://github.com/yantisj2/PToB/blob/a3c96db35b1817de534abe4450cfd032ceca77e8/evidence/w12/2026-10-30-holdover/README.md",
+      "curl_exit": 0,
+      "result": "REACHABLE"
+    },
+    {
+      "url": "https://github.com/yantisj2/PToB/blob/a3c96db35b1817de534abe4450cfd032ceca77e8/papers/ble-tail-multipath/README.md",
+      "http_status": 200,
+      "effective_url": "https://github.com/yantisj2/PToB/blob/a3c96db35b1817de534abe4450cfd032ceca77e8/papers/ble-tail-multipath/README.md",
+      "curl_exit": 0,
+      "result": "REACHABLE"
+    },
+    {
+      "url": "https://github.com/yantisj2/PToB/blob/a3c96db35b1817de534abe4450cfd032ceca77e8/papers/indoor-ips/README.md",
+      "http_status": 200,
+      "effective_url": "https://github.com/yantisj2/PToB/blob/a3c96db35b1817de534abe4450cfd032ceca77e8/papers/indoor-ips/README.md",
+      "curl_exit": 0,
+      "result": "REACHABLE"
+    },
+    {
+      "url": "https://github.com/yantisj2/PToB/blob/a3c96db35b1817de534abe4450cfd032ceca77e8/papers/indoor-pnt/README.md",
+      "http_status": 200,
+      "effective_url": "https://github.com/yantisj2/PToB/blob/a3c96db35b1817de534abe4450cfd032ceca77e8/papers/indoor-pnt/README.md",
+      "curl_exit": 0,
+      "result": "REACHABLE"
+    },
+    {
+      "url": "https://github.com/yantisj2/PToB/blob/a3c96db35b1817de534abe4450cfd032ceca77e8/papers/mcxo-holdover-duration/README.md",
+      "http_status": 200,
+      "effective_url": "https://github.com/yantisj2/PToB/blob/a3c96db35b1817de534abe4450cfd032ceca77e8/papers/mcxo-holdover-duration/README.md",
+      "curl_exit": 0,
+      "result": "REACHABLE"
+    },
+    {
+      "url": "https://github.com/yantisj2/PToB/blob/a3c96db35b1817de534abe4450cfd032ceca77e8/papers/oscillator-pll-research-20261003.tex",
+      "http_status": 200,
+      "effective_url": "https://github.com/yantisj2/PToB/blob/a3c96db35b1817de534abe4450cfd032ceca77e8/papers/oscillator-pll-research-20261003.tex",
+      "curl_exit": 0,
+      "result": "REACHABLE"
+    },
+    {
+      "url": "https://github.com/yantisj2/PToB/blob/a3c96db35b1817de534abe4450cfd032ceca77e8/papers/ptob-bluetooth-timecode-preprint.tex",
+      "http_status": 200,
+      "effective_url": "https://github.com/yantisj2/PToB/blob/a3c96db35b1817de534abe4450cfd032ceca77e8/papers/ptob-bluetooth-timecode-preprint.tex",
+      "curl_exit": 0,
+      "result": "REACHABLE"
+    },
+    {
+      "url": "https://github.com/yantisj2/PToB/blob/a3c96db35b1817de534abe4450cfd032ceca77e8/papers/ptob-esp32s3-low-level-timing.tex",
+      "http_status": 200,
+      "effective_url": "https://github.com/yantisj2/PToB/blob/a3c96db35b1817de534abe4450cfd032ceca77e8/papers/ptob-esp32s3-low-level-timing.tex",
+      "curl_exit": 0,
+      "result": "REACHABLE"
+    },
+    {
+      "url": "https://github.com/yantisj2/PToB/blob/a3c96db35b1817de534abe4450cfd032ceca77e8/papers/ptob-gptp-tsn-robotics-preprint.tex",
+      "http_status": 200,
+      "effective_url": "https://github.com/yantisj2/PToB/blob/a3c96db35b1817de534abe4450cfd032ceca77e8/papers/ptob-gptp-tsn-robotics-preprint.tex",
+      "curl_exit": 0,
+      "result": "REACHABLE"
+    },
+    {
+      "url": "https://github.com/yantisj2/PToB/blob/a3c96db35b1817de534abe4450cfd032ceca77e8/papers/ptob-v14-preprint.tex",
+      "http_status": 200,
+      "effective_url": "https://github.com/yantisj2/PToB/blob/a3c96db35b1817de534abe4450cfd032ceca77e8/papers/ptob-v14-preprint.tex",
+      "curl_exit": 0,
+      "result": "REACHABLE"
+    },
+    {
+      "url": "https://github.com/yantisj2/PToB/blob/a3c96db35b1817de534abe4450cfd032ceca77e8/papers/ptob-v14-sig-proposal.tex",
+      "http_status": 200,
+      "effective_url": "https://github.com/yantisj2/PToB/blob/a3c96db35b1817de534abe4450cfd032ceca77e8/papers/ptob-v14-sig-proposal.tex",
+      "curl_exit": 0,
+      "result": "REACHABLE"
+    },
+    {
+      "url": "https://github.com/yantisj2/PToB/blob/a3c96db35b1817de534abe4450cfd032ceca77e8/papers/ptob-viability-preprint.tex",
+      "http_status": 200,
+      "effective_url": "https://github.com/yantisj2/PToB/blob/a3c96db35b1817de534abe4450cfd032ceca77e8/papers/ptob-viability-preprint.tex",
+      "curl_exit": 0,
+      "result": "REACHABLE"
+    },
+    {
+      "url": "https://github.com/yantisj2/PToB/blob/a3c96db35b1817de534abe4450cfd032ceca77e8/papers/usb-macos-time-transfer-preprint.tex",
+      "http_status": 200,
+      "effective_url": "https://github.com/yantisj2/PToB/blob/a3c96db35b1817de534abe4450cfd032ceca77e8/papers/usb-macos-time-transfer-preprint.tex",
+      "curl_exit": 0,
+      "result": "REACHABLE"
+    },
+    {
+      "url": "https://hdl.handle.net/20.500.14094/0100491658",
+      "http_status": 200,
+      "effective_url": "https://da.lib.kobe-u.ac.jp/da/kernel/0100491658/",
+      "curl_exit": 0,
+      "result": "REACHABLE"
+    },
+    {
+      "url": "https://standards.ieee.org/ieee/1588/6825/",
+      "http_status": 200,
+      "effective_url": "https://standards.ieee.org/ieee/1588/6825/",
+      "curl_exit": 0,
+      "result": "REACHABLE"
+    },
+    {
+      "url": "https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core-61/out/en/low-energy-controller/link-layer-specification.html",
+      "http_status": 200,
+      "effective_url": "https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core-61/out/en/low-energy-controller/link-layer-specification.html",
+      "curl_exit": 0,
+      "result": "REACHABLE"
+    },
+    {
+      "url": "https://www.rfc-editor.org/rfc/rfc6550.html",
+      "http_status": 200,
+      "effective_url": "https://www.rfc-editor.org/rfc/rfc6550.html",
+      "curl_exit": 0,
+      "result": "REACHABLE"
+    },
+    {
+      "url": "https://www.rfc-editor.org/rfc/rfc7384.html",
+      "http_status": 200,
+      "effective_url": "https://www.rfc-editor.org/rfc/rfc7384.html",
+      "curl_exit": 0,
+      "result": "REACHABLE"
+    }
+  ],
+  "limits": "Remote HTTP accessibility and byte identity do not establish scientific validity; publisher access restrictions are crosschecked separately. Physical raw acquisition/calibration are not reconstructed.",
+  "crossref_registered_metadata": [
+    {
+      "doi": "10.1109/ACCESS.2024.3446668",
+      "title": [
+        "MicroSync: Sub-Micro Second Accuracy Wireless Time Synchronization Service"
+      ],
+      "authors": [
+        "Ryotaro Ohara",
+        "Shintaro Izumi",
+        "Shoya Imanaka",
+        "Tetsuo Yamamura",
+        "Ishii Toru",
+        "Hiroshi Kawaguchi"
+      ],
+      "container": [
+        "IEEE Access"
+      ],
+      "issued": {
+        "date-parts": [
+          [
+            2024
+          ]
+        ]
+      },
+      "volume": "12",
+      "issue": null,
+      "page": "124478-124494",
+      "publisher": "Institute of Electrical and Electronics Engineers (IEEE)"
+    },
+    {
+      "doi": "10.1109/JIOT.2021.3116921",
+      "title": [
+        "BlueSync: Time Synchronization in Bluetooth Low Energy With Energy-Efficient Calculations"
+      ],
+      "authors": [
+        "Farzad Asgarian",
+        "Khalil Najafi"
+      ],
+      "container": [
+        "IEEE Internet of Things Journal"
+      ],
+      "issued": {
+        "date-parts": [
+          [
+            2022,
+            6,
+            1
+          ]
+        ]
+      },
+      "volume": "9",
+      "issue": "11",
+      "page": "8633-8645",
+      "publisher": "Institute of Electrical and Electronics Engineers (IEEE)"
+    },
+    {
+      "doi": "10.1109/JIOT.2026.3680032",
+      "title": [
+        "Unlocking Ultralow-Power Bluetooth Low Energy Relays With Periodic Advertisements"
+      ],
+      "authors": [
+        "Sukriti Gautam",
+        "Suman Kumar",
+        "Eirini Eleni Tsiropoulou"
+      ],
+      "container": [
+        "IEEE Internet of Things Journal"
+      ],
+      "issued": {
+        "date-parts": [
+          [
+            2026,
+            6,
+            15
+          ]
+        ]
+      },
+      "volume": "13",
+      "issue": "12",
+      "page": "27717-27735",
+      "publisher": "Institute of Electrical and Electronics Engineers (IEEE)"
+    },
+    {
+      "doi": "10.1109/JSTSP.2018.2835772",
+      "error": "curl: (56) The requested URL returned error: 429\n"
+    },
+    {
+      "doi": "10.1109/LWC.2025.3621352",
+      "title": [
+        "A Comparative Analysis of Periodic Advertisements and Connections in Bluetooth Low Energy"
+      ],
+      "authors": [
+        "Sukriti Gautam",
+        "Suman Kumar",
+        "Pushpendra P. Singh"
+      ],
+      "container": [
+        "IEEE Wireless Communications Letters"
+      ],
+      "issued": {
+        "date-parts": [
+          [
+            2026
+          ]
+        ]
+      },
+      "volume": "15",
+      "issue": null,
+      "page": "96-100",
+      "publisher": "Institute of Electrical and Electronics Engineers (IEEE)"
+    },
+    {
+      "doi": "10.1145/1031495.1031501",
+      "title": [
+        "The flooding time synchronization protocol"
+      ],
+      "authors": [
+        "Mikl\u00f3s Mar\u00f3ti",
+        "Branislav Kusy",
+        "Gyula Simon",
+        "\u00c1kos L\u00e9deczi"
+      ],
+      "container": [
+        "Proceedings of the 2nd international conference on Embedded networked sensor systems"
+      ],
+      "issued": {
+        "date-parts": [
+          [
+            2004,
+            11,
+            3
+          ]
+        ]
+      },
+      "volume": null,
+      "issue": null,
+      "page": "39-49",
+      "publisher": "ACM"
+    }
+  ],
+  "network_checked_utc": "2026-10-30T20:31:13.705578+00:00",
+  "artifact_verified_utc": "2026-10-30T20:34:59.342166+00:00",
+  "artifact_refresh": "Final prose-only edit changed page2; PDF URI set and internal destinations rechecked; remote requests and source-byte checks remain applicable unchanged.",
+  "status": "PASS_SOURCE_EVIDENCE_AND_LINK_AUDIT_WITH_PUBLISHER_ACCESS_LIMITS",
+  "metadata_crosschecks": [
+    {
+      "doi": "10.1109/JSTSP.2018.2835772",
+      "primary_source": "https://arxiv.org/abs/1710.05798v3",
+      "result": "Title, authors and related DOI match; direct primary record checked. Crossref returned429, so no Crossref retrieval success is claimed."
+    },
+    {
+      "doi": "10.1145/1031495.1031501",
+      "primary_source": "https://archive.isis.vanderbilt.edu/sites/default/files/Maroti_M_11_3_2004_The_Floodi.pdf",
+      "result": "Author-institution full text and Crossref registered metadata agree."
+    },
+    {
+      "doi": "10.1109/ACCESS.2024.3446668",
+      "primary_source": "https://da.lib.kobe-u.ac.jp/da/kernel/0100491658/0100491658.pdf",
+      "result": "Institutional version of record and Crossref metadata agree."
+    },
+    {
+      "doi": "10.1109/JIOT.2021.3116921",
+      "primary_source": "https://ieeexplore.ieee.org/document/9555832/",
+      "result": "Publisher/institutional abstract and Crossref metadata agree; full paper not obtained."
+    },
+    {
+      "doi": "10.1109/JIOT.2026.3680032",
+      "primary_source": "https://github.com/sukgautamgit/DPCS-SimultaneousTx-Rx-BLE-Demo",
+      "result": "Author publication metadata, author artifact and Crossref agree; full paper unavailable, as disclosed in manuscript."
+    },
+    {
+      "doi": "10.1109/LWC.2025.3621352",
+      "primary_source": "https://ieeexplore.ieee.org/abstract/document/11202952",
+      "result": "Publisher abstract, official IEEE digest and Crossref metadata agree; no detailed full-paper claim."
+    }
+  ],
+  "claim_evidence_map": [
+    {
+      "claim": "Service, GM7 and causal relay mechanism",
+      "anchors": [
+        "papers/ptob-v14-sig-proposal.tex",
+        "docs/t096/gm7-implementation.md",
+        "papers/ptob-esp32s3-low-level-timing.tex"
+      ],
+      "kind": "design/implementation; physical composed-service validation remains proposed"
+    },
+    {
+      "claim": "Nordic436/602,62.504ns and historical quantiles",
+      "anchors": [
+        "evidence/v14/2026-10-12/pps-sanitized.csv",
+        "evidence/v14/2026-10-12/summary.json"
+      ],
+      "verifier": "tools/verify_v14.py",
+      "kind": "relative-phase numerical replay; linear interpolation retained"
+    },
+    {
+      "claim": "Historical HOT and14Oct functional relay",
+      "anchors": [
+        "papers/ptob-viability-preprint.tex at a3c96db35b1817de534abe4450cfd032ceca77e8",
+        "evidence/research/2026-10-16/provenance/ptob-viability-evidence-20261016.json"
+      ],
+      "kind": "preserved prior synthesis and provenance; private underlying captures unavailable"
+    },
+    {
+      "claim": "N30 fixed660 and second-board transfer",
+      "anchors": [
+        "evidence/s3/2026-10-22-fine/pps-sanitized.csv",
+        "evidence/s3/2026-10-22-fine/results.json"
+      ],
+      "verifier": "tools/verify_s3_fine_paper.py",
+      "kind": "relative PPS; calibration reuse and all tails retained"
+    },
+    {
+      "claim": "W12/T096 PPS and selected TX",
+      "anchors": [
+        "evidence/s3/2026-10-24-w12-utc-basis/w12-pps.csv",
+        "evidence/s3/2026-10-24-w12-utc-basis/downstream-pps.csv",
+        "evidence/s3/2026-10-24-w12-utc-basis/sampled-tx.csv"
+      ],
+      "verifier": "tools/verify_w12_utc_results.py",
+      "kind": "relative timing; estimated TX; all availability classes retained"
+    },
+    {
+      "claim": "USB RC/DC and historical host agreement",
+      "anchors": [
+        "evidence/usb/2026-10-17/rx.csv",
+        "evidence/usb/2026-10-17/status.csv",
+        "evidence/research/2026-10-16/usb-chrony/delivery.csv"
+      ],
+      "verifiers": [
+        "tools/verify_usb_results.py",
+        "tools/verify_research.py"
+      ],
+      "kind": "causal predictions and shared-source agreement; not independent UTC"
+    },
+    {
+      "claim": "Awake pilot and hypothetical energy/scaling",
+      "anchors": [
+        "evidence/power/2026-10-19/results.json",
+        "evidence/research/2026-10-16/viability/derive.py"
+      ],
+      "verifiers": [
+        "tools/verify_power.py",
+        "tools/verify_research.py"
+      ],
+      "kind": "awake hardware evidence vs explicitly hypothetical energy/depth models"
+    },
+    {
+      "claim": "64s rolling, separate75s fixed and76sfail, later24s",
+      "anchors": [
+        "evidence/w12/2026-10-30-holdover/observations.zip",
+        "papers/mcxo-holdover-duration/results.tex"
+      ],
+      "verifier": "papers/mcxo-holdover-duration/tools/verify.py",
+      "kind": "sampled frozen-clock prefix maxima; correlated cohorts; unknowns/gaps retained"
+    },
+    {
+      "claim": "PTP/media/PNT/IPS opportunities",
+      "anchors": [
+        "papers/ptob-gptp-tsn-robotics-preprint.tex",
+        "papers/ptob-bluetooth-timecode-preprint.tex",
+        "papers/indoor-pnt/main.tex",
+        "papers/indoor-ips/main.tex"
+      ],
+      "kind": "proposed application designs/analytical budgets; no added hardware or interoperability qualification"
+    }
+  ],
+  "offline_verification": "All eight supporting offline commands in the edition manifest passed after the final substantive revision. The last prose-only edit changes no evidence/numerical claim; final identity checks passed again.",
+  "unresolved_broken_links": [],
+  "all_pages_visually_inspected": true,
+  "page_bound_text_violations": []
+}
