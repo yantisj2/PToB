@@ -5,6 +5,27 @@ Copyright (c) 2026 Jonathan Yantis. MIT.
 Native builds [clean compiler output and retain the latest two image bundles](../firmware-storage.md)
 per device/profile, with installed/recovery pins preserved.
 
+Version 0.2.21 adds GPIO0 button shutdown on every page except Clock. A hold
+of four seconds blanks the OLED and starts the same original two-second drain
+used for maintenance. Deep sleep requires all owners to acknowledge OFF and
+GPIO0 to remain released for 40 ms. Drain timeout/fault or power API failure
+remains a fault; neither extends the deadline nor claims completed shutdown.
+The next GPIO0 press wakes through ESP-IDF EXT0 and reboots the application.
+A button already held at boot cannot toggle a mode or request another shutdown.
+
+The Clock page keeps its single 1.5-second relay-mode toggle even during an
+extended hold. LoRa keeps its 1.5-second mode cycle; continuing that press to
+four seconds shuts down. A short tap still cycles pages. Press meaning is fixed
+at the initial page; a page change during the hold cancels that gesture.
+The off path retains the reviewed W12 OLED/reset/I2C levels, GNSS supply OFF
+only for the explicit L76K profile, and LoRa reset/enable OFF only when selected.
+These are offline image changes, not measured power consumption or hardware
+sleep/wake acceptance. Run the actual native button and SDK-faked power paths:
+
+```sh
+python3 firmware/w12/tools/power_tests.py --out artifacts/w12-power-tests-01
+```
+
 Version 0.2.20 uses `-Os` for the W12 main component, including its selected
 RadioLib sources. SDK/controller options and enabled assertions retain their
 original configuration. The builder and inspector check the effective final

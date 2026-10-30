@@ -7,11 +7,19 @@ RC role. [Image provenance](../../docs/images/README.md).*
 
 Copyright (c) 2026 Jonathan Yantis. MIT; preserved source notices apply.
 
-**PToB owns W12 native G1/RC7 development.** Current version **0.2.20** supports
+**PToB owns W12 native G1/RC7 development.** Current version **0.2.21** supports
 **RC**: a BLE50 client or BLE100 receiver with an optional experimental
 estimated-TX relay. It receives from the shared T096/W12/StickS3 mesh; it has no
 GM profile or USB timing stream. Start with the
 [build guide](../../docs/w12/build.md).
+
+Version 0.2.21 adds four-second button shutdown from any non-clock page.
+The display goes dark, the existing two-second application drain closes radio
+and capture owners, and a debounced button release permits ESP32-S3 deep sleep.
+Press the button again to reboot. Clock-page holds still toggle relay-only mode
+at 1.5 seconds. LoRa-page holds cycle reception at 1.5 seconds; continuing to
+four seconds requests shutdown. Offline checks cover the gesture and off/wake
+code; physical sleep current and button wake remain unvalidated for these images.
 
 Version 0.2.20 compiles the W12 application component with `-Os` so the
 GNSS, TZ, LoRa and RC9 combination fits the original 1 MiB application limit.

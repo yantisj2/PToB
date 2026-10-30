@@ -38,7 +38,7 @@ For T096 GMs, follow the **[current GM7 guide](docs/t096/gm7-implementation.md)*
 for ACTIVE/HOT/COLD behavior and compatibility. Source 0.15.206 adds
 [GM location-based TZ and automatic DST](docs/t096/auto-time-zone-plan.md)
 using the existing four-byte coarse metadata and local clock display;
-[W12 0.2.20 and N30 0.2.36](docs/esp32-time-zones.md) consume these dynamic TZ updates;
+[W12 0.2.21 and N30 0.2.36](docs/esp32-time-zones.md) consume these dynamic TZ updates;
 [full T096 certification remains incomplete](docs/t096/time-zone-test-plan.md#local-205-results-29-october-2026).
 
 See the [changelog](CHANGELOG.md) for recent development updates.

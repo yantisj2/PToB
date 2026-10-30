@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-29 — W12 button shutdown
+
+- W12 0.2.21 adds a four-second hold on non-clock pages to request deep sleep
+  after the original application drain and button release; a new press reboots.
+- Preserve Clock relay toggling and LoRa cycling. Offline button, drain and
+  off/wake checks accompany private per-device images; hardware acceptance remains separate.
+
 ## 2026-10-29 — Preserve robotics citation verification
 
 - Retain the exact earlier S3 LaTeX source cited by the sealed robotics edition.

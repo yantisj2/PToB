@@ -26,7 +26,7 @@ if(V12_R2_PROFILE)
     endif()
   endif()
 endif()
-idf_component_register(SRCS "native_main.cpp" "fault_watchdog.cpp" "native_transport.cpp" "public_crypto.cpp" "public_receiver.cpp" "bounded_log.cpp" "native_lora.cpp"
+idf_component_register(SRCS "native_main.cpp" "power_off.cpp" "fault_watchdog.cpp" "native_transport.cpp" "public_crypto.cpp" "public_receiver.cpp" "bounded_log.cpp" "native_lora.cpp"
   "native_direct.cpp" "native_credentials.cpp" "native_diagnostic_tx.cpp" "periodic_rx.cpp" "periodic_tx.cpp" "s3_clock_reference.c" "direct_auth.cpp" "${control_source}" ${r2_sources}
   "shared/public_codec.c" "shared/p256_canonical.c" "public_observer.cpp"
   "../legacy/gnss_pps.cpp" "../legacy/display.cpp"

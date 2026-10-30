@@ -28,6 +28,7 @@
 #endif
 #endif
 #include "update_gate.hpp"
+#include "power_off.hpp"
 #include "display_second_deadline.hpp"
 #ifdef PTOB_RC9
 #include "rc9_time.hpp"
@@ -55,7 +56,7 @@ extern "C" bool clock_reference_read(uint64_t*);
 #include "gnss_pps.hpp"
 #include "w12_device_profile.hpp"
 #include "display.hpp"
-#include "button_input.hpp"
+#include "w12_button.hpp"
 #include <cstdio>
 #include <cstring>
 #include <cinttypes>
@@ -94,6 +95,7 @@ uint8_t ui_hold_percentile=95;
 uint32_t ui_hold_ms=0,ui_hold_samples=0;
 uint32_t ui_rms_ns=UINT32_MAX;uint8_t ui_gps_lamps=0;
 v12::UpdateGate update_gate;
+w12::PowerOff power_off;
 v12::ConsoleTicket ticket;
 v12::ConsoleFrame response;
 uint64_t last_nonce=0,update_completed_us=0;
@@ -890,7 +892,8 @@ extern "C" void app_main(){
   if(!v12::log_start()){v12::fault_watchdog_fatal();std::printf("W12_V12_FATAL reason=CONSOLE_WORKER\n");return;}
   gpio_config_t button{};button.pin_bit_mask=1;button.mode=GPIO_MODE_INPUT;button.pull_up_en=GPIO_PULLUP_ENABLE;
   if(gpio_config(&button)!=ESP_OK){v12::fault_watchdog_fatal();std::printf("W12_V12_FATAL reason=BUTTON\n");return;}
-  ButtonInput buttons(gpio_get_level(GPIO_NUM_0)==0);
+  if(w12::power_wake_init()!=ESP_OK){v12::fault_watchdog_fatal();std::printf("W12_V12_FATAL reason=POWER_WAKE\n");return;}
+  w12::MainButton buttons(gpio_get_level(GPIO_NUM_0)==0);
   ui_ready=display_init();gps_ready=gnss_pps::init(clock_timer,pps);
 #ifdef V12_R2_ENABLED
   if(!v12::r2_init(session,factory)){v12::fault_watchdog_fatal();std::printf("W12_V12_FATAL reason=R2_ENROLLMENT\n");return;}
@@ -948,24 +951,20 @@ extern "C" void app_main(){
     shadow_capture=capturing;
 #endif
     const auto button_now=ticks();
+    const auto action=buttons.update(gpio_get_level(GPIO_NUM_0)==0,button_now,page);
+    if(action==w12::MainButton::Sleep&&power_off.request(update_gate,micros())){
+      stop_all();v12::capture_stop();display_blank();
+    }
 #if defined(V12_R2_ENABLED) && V12_R2_CONFIG == 13
-    const bool relay_dashboard=page==display_pages::Front;
-#else
-    const bool relay_dashboard=false;
-#endif
-    const auto edge=buttons.update(gpio_get_level(GPIO_NUM_0)==0,button_now,page==display_pages::LoraRx,false,false,false,false,relay_dashboard);
-    const auto held=buttons.held(button_now,page==display_pages::LoraRx,false,false,false,false,relay_dashboard);
-    const auto action=held!=ButtonInput::None?held:edge;
-#if defined(V12_R2_ENABLED) && V12_R2_CONFIG == 13
-    if(action==ButtonInput::ToggleRelayOnly&&!update_gate.latched()){
+    if(action==w12::MainButton::ToggleRelayOnly&&!update_gate.latched()){
       const auto radio=v12::r2_activity();
       (void)v12::r2_set_relay_only(!radio.relay_only);
     }
 #endif
 #ifdef PTOB_W12_LORA_RX
-    if(action==ButtonInput::ToggleTx&&page==display_pages::LoraRx&&!update_gate.latched()){(void)w12_lora_cycle();last_ui=0;}
+    if(action==w12::MainButton::ToggleTx&&page==display_pages::LoraRx&&!update_gate.latched()){(void)w12_lora_cycle();last_ui=0;}
 #endif
-    if(action==ButtonInput::NextPage){
+    if(action==w12::MainButton::NextPage&&!update_gate.latched()){
 #ifdef V12_R2_ENABLED
       // The R2 client has one clock dashboard; diagnostics stay on serial.
 #ifdef V12_GPS_SHADOW_OBSERVER
@@ -1027,14 +1026,18 @@ extern "C" void app_main(){
     g1_task_diagnostics(now);
 #endif
     poll_update_drain(now);
+    if(power_off.ready(update_gate.stage,gpio_get_level(GPIO_NUM_0)==0,now)){
+      const int rc=w12::power_off();update_gate.stage=v12::UpdateStage::Fault;
+      v12::fault_watchdog_fatal();std::printf("W12_V12_FATAL reason=POWER_OFF rc=%d\n",rc);
+    }
     bool update_ui=!last_ui||ui_deadline.due(now);
 #ifdef V12_R2_ENABLED
     // Clear a revoked root/fault promptly;1s is only the routine repaint cadence.
     update_ui|=r2_authority_update_needed();
 #endif
-    if(update_ui){last_ui=now;ui();}
+    if(update_ui&&!power_off.requested()){last_ui=now;ui();}
 #if defined(V12_R2_ENABLED) && V12_R2_CONFIG == 13
-    if(ui_ready&&now-last_indicator_us>=20000){
+    if(ui_ready&&!power_off.requested()&&now-last_indicator_us>=20000){
       last_indicator_us=now;const auto now20=ticks();const auto gps=gnss_pps::activity(now20);
       const auto radio=v12::r2_activity();
       const auto lamps=indicator_model.update(now20,radio.rx,radio.tx,

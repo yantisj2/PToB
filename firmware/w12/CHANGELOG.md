@@ -1,5 +1,19 @@
 # W12 changelog
 
+## 0.2.21 — four-second shutdown away from Clock
+
+- Hold GPIO0 for four seconds on Precision, LoRa or another non-clock page to
+  blank the display, complete the original bounded application drain and enter
+  deep sleep after a stable release. A fresh button press wakes by rebooting.
+- Preserve the Clock-page 1.5-second relay toggle. LoRa cycles at 1.5 seconds
+  and a continued four-second hold shuts down. Consume the shutdown release;
+  reject boot-held, bouncing, changed-page and discontinuous-clock gestures.
+- Hold the reviewed OLED/I2C, optional GNSS and LoRa off levels through sleep;
+  restore those pads before normal initialization. Failures refuse sleep.
+- Exercise actual button, drain/release gate and power API paths under host
+  sanitizers across GNSS/LoRa selections. Native preparation remains separate
+  from physical sleep current, wake and runtime acceptance.
+
 ## 0.2.20 — fit the complete GNSS/TZ application
 
 - Compile the W12 application component with effective `-Os`, preserving SDK
