@@ -70,7 +70,9 @@ def check(out):
  gnss_usage=None;fast_map_usage=None;receipt=Path(out)/'receipt.json';device=Path(out)/'local/device.json';r=json.loads(receipt.read_text()) if receipt.exists() else {}
  profile_stack=r.get('stack_evidence_contract')=='W12_PROFILE_STACK_V1'
  if r.get('stack_evidence_contract') not in (None,'W12_PROFILE_STACK_V1'):raise ValueError('Unknown stack evidence contract')
- if tuple(int(n) for n in r.get('version','0.0.0').split('.'))>=(0,2,35) and not profile_stack:raise ValueError('Current W12 requires profile-selected stack evidence')
+ # N30 shares this checker but has an independent release sequence. Its
+ # version cannot select a W12-only evidence contract.
+ if r.get('artifact_class')!='PTOB_N30_RC' and tuple(int(n) for n in r.get('version','0.0.0').split('.'))>=(0,2,35) and not profile_stack:raise ValueError('Current W12 requires profile-selected stack evidence')
  if r.get('version') in ('0.1.22','0.1.23','0.2.0','0.2.1','0.2.2','0.2.3','0.2.4','0.2.5','0.2.6','0.2.7','0.2.8','0.2.9','0.2.10','0.2.11') and type(r.get('gnss_fast_map_diagnostic'))is not bool:raise ValueError('Explicit fast-map stack metadata required')
  if receipt.exists() and device.exists() and (profile_stack or r.get('version') in ('0.1.21','0.1.22','0.1.23','0.2.0','0.2.1','0.2.2','0.2.3','0.2.4','0.2.5','0.2.6','0.2.7','0.2.8','0.2.9','0.2.10','0.2.11','0.2.31','0.2.32','0.2.33')) and 'gnss_profile' in json.loads(device.read_text()):
   gnss=sorted(target.rglob('gnss_pps.cpp.su'))

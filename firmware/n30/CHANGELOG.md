@@ -1,5 +1,12 @@
 # N30 changelog
 
+## Build validation — shared stack checker
+
+Keep N30's release sequence independent of W12 when selecting stack-evidence
+contracts. N30 0.2.37 retains the common compiler-frame checks and 4 KiB reserve;
+its version no longer selects W12-only GNSS, fine-owner or LR2021 evidence.
+This tooling correction does not change runtime timing or hardware profiles.
+
 ## 0.2.37 — real shutdown instead of OLED blanking
 
 - A four-second button hold on any non-clock page requests deep sleep after

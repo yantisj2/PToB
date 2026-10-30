@@ -117,3 +117,16 @@ with tempfile.TemporaryDirectory() as d:
  except ValueError as e:assert 'profile-selected' in str(e)
  else:raise AssertionError('Current stack contract missing')
 print('PASS current and future profile-selected GNSS/fine/radio evidence refusals')
+
+# An N30 release number must not opt into W12's optional hardware paths.
+# Its common main-task evidence and unchanged reserve remain mandatory.
+with tempfile.TemporaryDirectory() as d:
+ root=Path(d);p=root/'target';p.mkdir()
+ (p/'sdkconfig').write_text(CONFIG);(p/'native_main.cpp.su').write_text(usage(small))
+ (root/'receipt.json').write_text(json.dumps({'artifact_class':'PTOB_N30_RC','version':'0.2.37'}))
+ assert check(d)==r
+ (p/'native_main.cpp.su').write_text(usage(FAILED))
+ try:check(d)
+ except ValueError as e:assert 'exceeds configured' in str(e)
+ else:raise AssertionError('N30 shared main-task reserve bypassed')
+print('PASS independent N30 version with original shared main-task evidence and reserve')
