@@ -1,5 +1,22 @@
 # Manuscript history
 
+## 2026-10-30 — empirical W12 holdover duration for author review
+
+- Prepare a new MCXO-inspired study around the longest experimentally supported
+  sampled sub-1 µs P99 hold duration. Twelve seconds is historical context,
+  rather than the objective or a stopping rule.
+- Use frozen offset clocks, run-prefix maxima and per-age populations; preserve
+  fresh C-1/C-2 capture windows, longer-age failures, expiry unknowns and changes
+  over time. Keep historical selected-output quantiles separate from duration.
+- Report a fully replayed 64-second device-grid frontier and a separate mature
+  fixed-cohort 75-second frontier, with failure at 76 seconds. Retain the later
+  24-second capture-end results rather than substituting the best window.
+- Package selected numeric records, exact source pins, public replay and a final
+  implementation schematic with matching source/PDF and edition identities.
+  Temperature remains shadow-only; independent output/UTC and GM transition
+  qualification remain open. This is an author-review draft, with no submission
+  or publication promotion.
+
 ## 2026-10-26 — latest multipath and indoor PNT drafts approved for public review
 
 - Publish Jonathan Yantis's nine-page *Reducing Timing Tails and Multipath

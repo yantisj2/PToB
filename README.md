@@ -88,6 +88,14 @@ wire profiles and current firmware versions have separate identities. Historical
 results do not qualify later builds. PToB is not an adopted Bluetooth SIG or IEEE
 standard.
 
+**Author-review draft, 30 October 2026:**
+[Empirical Sub-Microsecond Holdover on BLE-Trained Software Clocks](papers/mcxo-holdover-duration/main.pdf)
+measures how long frozen W12 clock models retain sampled error below 1 µs at
+P99. Fresh BLE-only observations preserve each run's worst sampled error,
+changing duration windows, failures and missing witnesses. Temperature remains
+shadow-only. [Source, selected data and reproduction](papers/mcxo-holdover-duration/README.md)
+accompany the MCXO-inspired study, which awaits author review.
+
 **Public review draft, 26 October 2026:**
 [PToB-IPS: Toward GNSS-like Indoor Positioning with Surveyed BLE Timing Beacons](papers/indoor-ips/main.pdf)
 explores a local constellation of surveyed timing beacons, with aligned periodic

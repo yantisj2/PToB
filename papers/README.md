@@ -1,5 +1,16 @@
 # Research papers — drafts
 
+**Author-review experimental draft, 30 October 2026:**
+[Empirical Sub-Microsecond Holdover on BLE-Trained Software Clocks](mcxo-holdover-duration/main.pdf)
+measures the longest supported hold duration at a fixed sampled 1 microsecond
+threshold using P99 across frozen run-prefix maxima. Separate W12 devices,
+observation windows, rolling populations, longer failures and unknown-expiry
+display dips remain visible. A separately labeled offline one-second grid
+refines the frontier on fixed mature long-run cohorts.
+[Source, selected evidence and offline replay](mcxo-holdover-duration/README.md)
+accompany this new draft. Preparation does not promote it to public-review or
+firmware qualification.
+
 **Latest public review draft, 26 October 2026:**
 [Reducing Timing Tails and Multipath Sensitivity in an Operating BLE Precision Mesh](ble-tail-multipath/main.pdf)
 reviews capture, event association, channel-aware fitting and source ownership,

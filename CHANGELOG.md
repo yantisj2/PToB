@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-30 — MCXO-inspired holdover duration draft
+
+- Prepare a seven-page author-review study of the longest sampled sub-1 µs P99
+  W12 hold duration. Replay a 64-second device-grid frontier and a separate
+  75-second fixed-cohort frontier (76 seconds fails); preserve later 24-second
+  windows, failures, unknowns and exact version identities. Package public
+  numerical evidence, replay and the current-code schematic; temperature stays
+  shadow-only.
+
 ## 2026-10-30 — W12 exact receive history storage
 
 - Save another 2816 bytes without dropping receive records or timestamp bits.

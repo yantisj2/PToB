@@ -1,0 +1,44 @@
+{
+  "status": "OFFLINE_COUNTERFACTUAL_ONLY",
+  "author": "Jonathan Yantis",
+  "license": "CC-BY-4.0",
+  "scope": "Continue only the three actually expired short clocks with their original frozen entry snapshots through the next real accepted BLE witness, provided it arrives before five seconds. Does not rerun full scheduler/48-slot occupancy or qualify changed firmware.",
+  "runs": [
+    {
+      "trial": 3301,
+      "counterfactual_minimum_lifetime_s": 5,
+      "first_later_witness_age_s": 3.5598792,
+      "prefix_peak_ns": 146,
+      "prefix_pass": true,
+      "actual_result": "UNKNOWN_ON_3S_EXPIRY",
+      "used_actual_witness": true,
+      "interpolation": false,
+      "firmware_unchanged": true,
+      "first_later_witness_available_age_s": 3.6905744
+    },
+    {
+      "trial": 3302,
+      "counterfactual_minimum_lifetime_s": 5,
+      "first_later_witness_age_s": 3.24139725,
+      "prefix_peak_ns": 150,
+      "prefix_pass": true,
+      "actual_result": "UNKNOWN_ON_3S_EXPIRY",
+      "used_actual_witness": true,
+      "interpolation": false,
+      "firmware_unchanged": true,
+      "first_later_witness_available_age_s": 3.37209245
+    },
+    {
+      "trial": 3303,
+      "counterfactual_minimum_lifetime_s": 5,
+      "first_later_witness_age_s": 2.9233616,
+      "prefix_peak_ns": 168,
+      "prefix_pass": true,
+      "actual_result": "UNKNOWN_ON_3S_EXPIRY",
+      "used_actual_witness": true,
+      "interpolation": false,
+      "firmware_unchanged": true,
+      "first_later_witness_available_age_s": 3.0540568
+    }
+  ]
+}

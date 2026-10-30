@@ -1,0 +1,35 @@
+% Copyright (c) 2026 Jonathan Yantis. CC-BY-4.0. Standard PGFPlots scientific plots.
+\begin{tikzpicture}
+\begin{axis}[name=top,width=.94\linewidth,height=40mm,xlabel={Elapsed since first captured START (s)},ylabel={$H_{99}$ (s)},xmin=0,xmax=610,ymin=0,ymax=125,ytick={0,24,48,64,96,120},grid=major,grid style={gray!15},tick label style={font=\small},label style={font=\small},legend style={font=\footnotesize,at={(.02,.98)},anchor=north west,draw=none,fill=white,legend columns=2}]
+\addplot[forget plot,ink!45,dashed,thin,const plot] table[x=from_capture_start_s,y=horizon_s,col sep=comma]{figures/C1-normal.csv};
+\addplot[ink,thick,const plot] table[x=from_capture_start_s,y=horizon_s,col sep=comma]{figures/C1-normal-known.csv};\addlegendentry{C-1 initial}
+\ifdefined\HaveCtwo
+\addplot[forget plot,green!45,dashed,thin,const plot] table[x=from_capture_start_s,y=horizon_s,col sep=comma]{figures/C2-frontier01.csv};
+\addplot[green,thick,const plot] table[x=from_capture_start_s,y=horizon_s,col sep=comma]{figures/C2-frontier01-known.csv};\addlegendentry{C-2 acquisition}
+\addplot[forget plot,green!45,dashed,thin,const plot] table[x=from_capture_start_s,y=horizon_s,col sep=comma]{figures/C2-frontier02.csv};
+\addplot[green,dashed,thick,const plot] table[x=from_capture_start_s,y=horizon_s,col sep=comma]{figures/C2-frontier02-known.csv};\addlegendentry{C-2 later}
+\fi
+\ifdefined\HaveWarm
+\addplot[forget plot,amber!45,dashed,thin,const plot] table[x=from_capture_start_s,y=horizon_s,col sep=comma]{figures/C1-frontier02.csv};
+\addplot[amber,thick,const plot] table[x=from_capture_start_s,y=horizon_s,col sep=comma]{figures/C1-frontier02-known.csv};\addlegendentry{C-1 later}
+\fi
+\ifdefined\HaveCap
+\addplot[forget plot,amber!45,dashed,thin,const plot] table[x=from_capture_start_s,y=horizon_s,col sep=comma]{figures/C1-frontier03.csv};
+\addplot[amber,densely dotted,thick,const plot] table[x=from_capture_start_s,y=horizon_s,col sep=comma]{figures/C1-frontier03-known.csv};\addlegendentry{C-1 conditioned}
+\fi
+\end{axis}
+\begin{axis}[at={(top.south west)},anchor=north west,yshift=-12mm,width=.94\linewidth,height=38mm,xlabel={Frozen-clock prefix age (s)},ylabel={Final-ring P99 (ns)},xmin=0,xmax=125,ymode=log,log ticks with fixed point,ymin=50,ytick={100,300,1000,3000,10000},grid=major,grid style={gray!15},tick label style={font=\small},label style={font=\small}]
+\addplot[ink,thick,mark=*] table[x=age_s,y=p99_ns,col sep=comma]{figures/C1-normal-frontier.csv};
+\ifdefined\HaveCtwo
+\addplot[green,thick,mark=square*] table[x=age_s,y=p99_ns,col sep=comma]{figures/C2-frontier01-frontier.csv};
+\addplot[green,dashed,thick,mark=square*] table[x=age_s,y=p99_ns,col sep=comma]{figures/C2-frontier02-frontier.csv};
+\fi
+\ifdefined\HaveWarm
+\addplot[amber,thick,mark=triangle*] table[x=age_s,y=p99_ns,col sep=comma]{figures/C1-frontier02-frontier.csv};
+\fi
+\ifdefined\HaveCap
+\addplot[amber,densely dotted,thick,mark=diamond*] table[x=age_s,y=p99_ns,col sep=comma]{figures/C1-frontier03-frontier.csv};
+\fi
+\addplot[gray,dashed,domain=0:125]{1000};
+\end{axis}
+\end{tikzpicture}

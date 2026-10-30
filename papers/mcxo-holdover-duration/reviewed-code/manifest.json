@@ -1,0 +1,60 @@
+{
+  "source_commit": "ac7681ca4470e5d128832afdd6e65ca06b94c5a1",
+  "selection": "Exact public implementation headers used to audit the final schematic; no private inputs or enrolled images.",
+  "files": [
+    {
+      "source_path": "firmware/w12/main/w12_holdover_horizon.hpp",
+      "snapshot": "reviewed-code/w12_holdover_horizon.hpp",
+      "commit": "ac7681ca4470e5d128832afdd6e65ca06b94c5a1",
+      "sha256": "cd3e7593149d1b40e70cc183d62cc2a9c8bee921e4cab7f85f606698e3a282a6",
+      "measured_v33_identical": true
+    },
+    {
+      "source_path": "firmware/w12/main/w12_holdover_rate.hpp",
+      "snapshot": "reviewed-code/w12_holdover_rate.hpp",
+      "commit": "ac7681ca4470e5d128832afdd6e65ca06b94c5a1",
+      "sha256": "958d4ff2583cf085a23ff5a2e68797100649e482821b78e6e926ae10e3d29b38",
+      "measured_v33_identical": true
+    },
+    {
+      "source_path": "firmware/w12/main/w12_shadow_holdover.hpp",
+      "snapshot": "reviewed-code/w12_shadow_holdover.hpp",
+      "commit": "ac7681ca4470e5d128832afdd6e65ca06b94c5a1",
+      "sha256": "4db4fa01d5abf8cb86877e8ba07c22f40e110cf76948eccbbc8e1636e9a2208e",
+      "measured_v33_identical": true
+    },
+    {
+      "source_path": "firmware/w12/main/g1_clock_prediction.hpp",
+      "snapshot": "reviewed-code/g1_clock_prediction.hpp",
+      "commit": "ac7681ca4470e5d128832afdd6e65ca06b94c5a1",
+      "sha256": "e700d5b9cce09024d93fa43d6e8c6fe4c9cd1835fd61ae448068f655f291f41b",
+      "measured_v33_identical": true
+    },
+    {
+      "source_path": "firmware/w12/main/g1_retained_estimate.hpp",
+      "snapshot": "reviewed-code/g1_retained_estimate.hpp",
+      "commit": "ac7681ca4470e5d128832afdd6e65ca06b94c5a1",
+      "sha256": "c773ed72879b4e3c74d7721068d1d52fafbd4bc29db2ae603198b2786cc9549b",
+      "measured_v33_identical": true
+    },
+    {
+      "source_path": "firmware/w12/main/w12_thermal_projection.hpp",
+      "snapshot": "reviewed-code/w12_thermal_projection.hpp",
+      "commit": "ac7681ca4470e5d128832afdd6e65ca06b94c5a1",
+      "sha256": "a65afd82c3c995fd08ead052dad89a61e984547d4c9b9bb3f9f5d55a4cb0af50",
+      "measured_v33_identical": true
+    },
+    {
+      "source_path": "firmware/w12/main/fine_receiver.hpp",
+      "snapshot": "reviewed-code/fine_receiver.hpp",
+      "commit": "ac7681ca4470e5d128832afdd6e65ca06b94c5a1",
+      "sha256": "161cbeb1458c69498f4fcf81c856c8741b4e3b05fcea78435f16bbcbc80a5ff4",
+      "measured_v33_identical": false,
+      "difference": "Exact receive-history representation compaction, not a measured cohort change."
+    }
+  ],
+  "license": "MIT",
+  "author": "Jonathan Yantis",
+  "measured_source_commit": "9614cc23ead214d9197521091a7d98fdace2eb52",
+  "audit": "Current v34 dataflow; all horizon/rate/temperature/projection headers below byte-identical to installed measured v33. Receive-history storage differs without changing represented callback fields; no performance transfer to v34."
+}

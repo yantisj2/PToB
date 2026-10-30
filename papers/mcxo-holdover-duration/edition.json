@@ -1,0 +1,466 @@
+{
+  "schema": 1,
+  "title": "Empirical Sub-Microsecond Holdover on BLE-Trained Software Clocks",
+  "author": "Jonathan Yantis",
+  "edition": "2026-10-30-author-review-01",
+  "prepared_at_utc": "2026-10-30T18:56:10.834743+00:00",
+  "status": "AUTHOR_REVIEW_RESEARCH_DRAFT_NOT_PROMOTED",
+  "license": {
+    "paper_source_pdf_figures_datasets": "CC-BY-4.0",
+    "code_docs_manifests": "MIT"
+  },
+  "measured_primary_source_commit": "9614cc23ead214d9197521091a7d98fdace2eb52",
+  "measured_historical_source_commit": "dc404c3fac34fd0c1c650aa36aeb5e316268b5e3",
+  "current_code_audit_commit": "ac7681ca4470e5d128832afdd6e65ca06b94c5a1",
+  "primary_estimand": "Nearest-rank empirical P99 across frozen run-prefix maximum absolute BLE-relative errors, inverted at strict <1000ns on the device age grid.",
+  "primary_result": {
+    "device": "C-1",
+    "population": "C1-frontier02",
+    "duration_ms": 64000,
+    "n": 128,
+    "p99_ns": 760,
+    "max_ns": 879,
+    "failed": 0,
+    "unknown": 0,
+    "first_status_uptime_s": 2785.509676,
+    "last_status_uptime_s": 2925.767736
+  },
+  "secondary_fine_grid": {
+    "population": "C1-frontier02 final fixed mature128 long starts",
+    "last_pass_seconds": 75,
+    "pass_p99_ns": 983,
+    "first_fail_seconds": 76,
+    "fail_p99_ns": 1028,
+    "n": 128,
+    "device_UI_grid_changed": false
+  },
+  "population_notes": "Separate device/time windows and versions; late capture-end device frontiers24s preserved. Observational64s onC2 before ring flush not promoted. Unknown expiry, actual timing failures, missing/unfinished evidence and conditional follow-up not-triggered retained.",
+  "files": [
+    {
+      "path": "CHANGELOG.md",
+      "bytes": 899,
+      "sha256": "75de6fc317e8c6c91c5b081538d783ace1ad748f42dcb04aff97ad115137868c"
+    },
+    {
+      "path": "LICENSE.md",
+      "bytes": 625,
+      "sha256": "7d43c3330257c0da41d1be84054500f6141eaf921ea778510eb767f5a486902c"
+    },
+    {
+      "path": "README.md",
+      "bytes": 4082,
+      "sha256": "be57e5fd7385e1deeb3da485a08b766e31e8814a320b8c1501ff47da91833bd5"
+    },
+    {
+      "path": "analysis.json",
+      "bytes": 442249,
+      "sha256": "43da35b7800e363d63ab4d0138451be025cf78054776b0e69f02dc8f8c7b41a3"
+    },
+    {
+      "path": "evidence/C1-frontier02-prefixes.csv",
+      "bytes": 1491325,
+      "sha256": "ea2c8ca212d105e9e66ed24f619e8c62f0aaa87152457a2bb79d4e5c3f68ce8a"
+    },
+    {
+      "path": "evidence/C1-frontier02-ui.csv",
+      "bytes": 7273,
+      "sha256": "42d5e4c5a13dd80c7ff35062b81815411e823950b839569150981825309b18ed"
+    },
+    {
+      "path": "evidence/C1-frontier02.jsonl",
+      "bytes": 1331703,
+      "sha256": "34adc10762729124db9c4d91f6448a8ce91d7282deefdbc2ef964979227ed6e6"
+    },
+    {
+      "path": "evidence/C1-normal-prefixes.csv",
+      "bytes": 2439270,
+      "sha256": "87cd363a255ca44a15941dd14c0b888d32d252f6f1a3b6452d97fbfa3b9df277"
+    },
+    {
+      "path": "evidence/C1-normal-ui.csv",
+      "bytes": 7118,
+      "sha256": "e3cc3f6db4ce976e1c47c354c55b0c797938323eb9574c9e1c9c6b5df3c0248f"
+    },
+    {
+      "path": "evidence/C1-normal.jsonl",
+      "bytes": 1657157,
+      "sha256": "522b6fbb44a203348a6c239708cb5252fb5e613d9604e0a44fbca2a5686e32ea"
+    },
+    {
+      "path": "evidence/C2-frontier01-prefixes.csv",
+      "bytes": 2735928,
+      "sha256": "bc432826168efecd5709b6987ba9238142eab111cfa5b3c4349853c8c14efd99"
+    },
+    {
+      "path": "evidence/C2-frontier01-ui.csv",
+      "bytes": 7070,
+      "sha256": "bb6342cf3c9844e1e2c33b92751cd7257e48f1f397f7cd57977fb361fdbd1bdc"
+    },
+    {
+      "path": "evidence/C2-frontier01.jsonl",
+      "bytes": 1766960,
+      "sha256": "e8c8f84d41523285848ae9a9a1a278082652f3b92d667d2ab978bb989624cf8f"
+    },
+    {
+      "path": "evidence/C2-frontier02-prefixes.csv",
+      "bytes": 1462033,
+      "sha256": "a81f91a56d74247cc298cc109ea84630d3552502344b051636a3a7fbe1a88844"
+    },
+    {
+      "path": "evidence/C2-frontier02-ui.csv",
+      "bytes": 7176,
+      "sha256": "c0e32321791c6685c1c555efaa9d6b9e0698030e05cdf52e2b82d1c7274804a2"
+    },
+    {
+      "path": "evidence/C2-frontier02.jsonl",
+      "bytes": 1317420,
+      "sha256": "ab7d8cb524c26dee24123d2b7e29197ec265481cafd2d5b26d1a8ed4de475c09"
+    },
+    {
+      "path": "evidence/README.md",
+      "bytes": 3525,
+      "sha256": "3a1970194bc09f7aa3462a76f9ce37167d7f375c1b7c8c6875a0278bc9495560"
+    },
+    {
+      "path": "evidence/expiry-counterfactual.json",
+      "bytes": 1543,
+      "sha256": "2fc5d638b9f79bf3102673f72cc29fc04e53d8be59829aa87cc8fb14754abe41"
+    },
+    {
+      "path": "evidence/historical-confirmation-prefixes.csv",
+      "bytes": 380281,
+      "sha256": "9c48ced961e8b45b1e2b811d7dd75402af438b13f53453c16fb8883c9a740a61"
+    },
+    {
+      "path": "evidence/historical-confirmation.jsonl",
+      "bytes": 210123,
+      "sha256": "ff98dfa5e154035f1e95c647522f02da2fb7db0f629e36c08fb45f57e4f089ee"
+    },
+    {
+      "path": "evidence/historical-segment01-prefixes.csv",
+      "bytes": 694175,
+      "sha256": "c0602ef0fc9d01396eb9b13fc6a3657550e106473f8178fe347c05f971a8abdf"
+    },
+    {
+      "path": "evidence/historical-segment01.jsonl",
+      "bytes": 693307,
+      "sha256": "64b28e646ec0ab6189ca0a1d26353be8b9e6372d940ec9f5803d6a515d5dbdb3"
+    },
+    {
+      "path": "evidence/historical-segment02-prefixes.csv",
+      "bytes": 569977,
+      "sha256": "daa94a364a0903c44167ddbe4262c255a6c1df752b0fb99ba8d3b9f77133e5d2"
+    },
+    {
+      "path": "evidence/historical-segment02.jsonl",
+      "bytes": 650612,
+      "sha256": "718cea9320f8cf56cca9f10a42d108f07d5be6a81cac077379a8cfa42ef15e9e"
+    },
+    {
+      "path": "evidence/historical-segment03-prefixes.csv",
+      "bytes": 406242,
+      "sha256": "c142216f5c0447c5e847c9e756bcfc470ba06b41ff057e2fcacab57e0f82a4fa"
+    },
+    {
+      "path": "evidence/historical-segment03.jsonl",
+      "bytes": 600313,
+      "sha256": "56970d8f65d58db6e5edaf425d81835ed4e9cd641b8cb167b19098cc03bf63c8"
+    },
+    {
+      "path": "evidence/provenance.json",
+      "bytes": 15819,
+      "sha256": "a5d8aa4c0a1acd15e40f5bfdd71753ca0963aa29a802900b52a95a31c215cf83"
+    },
+    {
+      "path": "evidence/secondary-audit.json",
+      "bytes": 8619,
+      "sha256": "742514bc5312a867cae41a6d529cc131ec40099ebf0d1a771cd96ecb5d68a11d"
+    },
+    {
+      "path": "evidence/selected-output-witnesses.csv",
+      "bytes": 154394,
+      "sha256": "7e697d93ce258ffc37cf410a38815d0115ab6c55ffc4a571f962f0dc556e44f8"
+    },
+    {
+      "path": "figures/C1-frontier02-frontier.csv",
+      "bytes": 542,
+      "sha256": "3fe4494a0245fadeb19d284bdfd161345b4897ed3361f5d6d77d4bb2cbc97c4b"
+    },
+    {
+      "path": "figures/C1-frontier02-known.csv",
+      "bytes": 559,
+      "sha256": "9e062ff9654f7344610b0f36c02efecb0c27c6853ab2dbfd62c11a1da989f2ed"
+    },
+    {
+      "path": "figures/C1-frontier02.csv",
+      "bytes": 3314,
+      "sha256": "7e878d140b8aa92a4ad87b8335fc553f07f0697747ebefa1c4cf662d8c433371"
+    },
+    {
+      "path": "figures/C1-normal-frontier.csv",
+      "bytes": 495,
+      "sha256": "39030a35521d0f36df29cc86d22ad15791247bca0f999521ebee0f215ec59d30"
+    },
+    {
+      "path": "figures/C1-normal-known.csv",
+      "bytes": 1447,
+      "sha256": "4050e23dd66b14871dd8f15d4ef4361b7d319f910c16ab4b4161825ec272abb4"
+    },
+    {
+      "path": "figures/C1-normal.csv",
+      "bytes": 3254,
+      "sha256": "15dfcc8e4f9a2396dd5a92bc5945336855e22f38f68756307520b0d4b3d8449f"
+    },
+    {
+      "path": "figures/C2-frontier01-frontier.csv",
+      "bytes": 495,
+      "sha256": "1a5433d3781c04325ca3647978584d51b1b7875d40a55be103e7c20db416bf1e"
+    },
+    {
+      "path": "figures/C2-frontier01-known.csv",
+      "bytes": 1756,
+      "sha256": "9b7a26ea734f71022a61172fdd111584afe700fc97f744caa0244a13a40d8d25"
+    },
+    {
+      "path": "figures/C2-frontier01.csv",
+      "bytes": 3267,
+      "sha256": "1f9b5571faa74d1a85752f4de4bbaff823e76fbefa3b6c1bb65050d2147df497"
+    },
+    {
+      "path": "figures/C2-frontier02-frontier.csv",
+      "bytes": 542,
+      "sha256": "f217b7455459bac43bca3fc8680a81457623ec7c11447cf54b46e239236e3c09"
+    },
+    {
+      "path": "figures/C2-frontier02-known.csv",
+      "bytes": 888,
+      "sha256": "56d6d0b31a14b56f51bbf911fb36f6d8d662bbbd06fb15eb8397deaf42ce96ed"
+    },
+    {
+      "path": "figures/C2-frontier02.csv",
+      "bytes": 3276,
+      "sha256": "851bbb9d1fd49506a601e2a6abfc4a306909207ecbdb2fb3a427ec5ccdcb2fae"
+    },
+    {
+      "path": "figures/duration-status.csv",
+      "bytes": 23428,
+      "sha256": "d15d96588bfff3a813526ea30902df154bf96b668fe5172f763189117bc3fc71"
+    },
+    {
+      "path": "figures/historical-confirmation-known.csv",
+      "bytes": 185,
+      "sha256": "bfcaf2b225f23acf828072ff9c81104e0f7ceb5d6be2e14094541af1f453b9fb"
+    },
+    {
+      "path": "figures/historical-confirmation.csv",
+      "bytes": 403,
+      "sha256": "b2ab5b0b3552a54d6a3d21ec093db2f17c10781a1a955e04b66307afd187d114"
+    },
+    {
+      "path": "figures/historical-segment01-known.csv",
+      "bytes": 41,
+      "sha256": "c3b5112eff78f8f4418403842f43dfb2fe7168e172fbfc976dd80d94f0e2c70f"
+    },
+    {
+      "path": "figures/historical-segment01.csv",
+      "bytes": 1894,
+      "sha256": "53719a8108d5a85e779b2306369d1c8a6bf23d2ef9b1e1c1b6107ffdfcc0f08d"
+    },
+    {
+      "path": "figures/historical-segment02-known.csv",
+      "bytes": 41,
+      "sha256": "c3b5112eff78f8f4418403842f43dfb2fe7168e172fbfc976dd80d94f0e2c70f"
+    },
+    {
+      "path": "figures/historical-segment02.csv",
+      "bytes": 1884,
+      "sha256": "d3e4cb48ed05eea71af56a04e625be00ce96794c0c1f3979238f721ded8e421c"
+    },
+    {
+      "path": "figures/historical-segment03-known.csv",
+      "bytes": 41,
+      "sha256": "c3b5112eff78f8f4418403842f43dfb2fe7168e172fbfc976dd80d94f0e2c70f"
+    },
+    {
+      "path": "figures/historical-segment03.csv",
+      "bytes": 1877,
+      "sha256": "b9debfb6fb7cf5a14b3ef7e2dd6302ccfc889bd8d9b82a5ef639a1d2fb3e94e7"
+    },
+    {
+      "path": "figures/primary-duration.tex",
+      "bytes": 3075,
+      "sha256": "db653c3467f19306b24642bf42bf263edeccbd200f30dd6b8b1e8b5e26ca9ec7"
+    },
+    {
+      "path": "main.pdf",
+      "bytes": 87567,
+      "sha256": "701afcb51f758f7de63f657adf923431895c4862f2e0d4f47e6f8d78e73bb2ba"
+    },
+    {
+      "path": "main.tex",
+      "bytes": 22014,
+      "sha256": "dd2cc446d938d761775b8d553d57e382c4ff0d42f68fcdfbdc1072d180a7936a"
+    },
+    {
+      "path": "protocol.json",
+      "bytes": 8505,
+      "sha256": "60d813f7853a25656a7a679ba58ccb00fbc9a0a3d419daebffad3e4ddb33752f"
+    },
+    {
+      "path": "results.tex",
+      "bytes": 3614,
+      "sha256": "ed13ed49ca27c12ed2c92239643b42d83928aa261616f4ba860d8437507dbb2e"
+    },
+    {
+      "path": "reviewed-code/fine_receiver.hpp",
+      "bytes": 6911,
+      "sha256": "161cbeb1458c69498f4fcf81c856c8741b4e3b05fcea78435f16bbcbc80a5ff4"
+    },
+    {
+      "path": "reviewed-code/g1_clock_prediction.hpp",
+      "bytes": 3590,
+      "sha256": "e700d5b9cce09024d93fa43d6e8c6fe4c9cd1835fd61ae448068f655f291f41b"
+    },
+    {
+      "path": "reviewed-code/g1_retained_estimate.hpp",
+      "bytes": 1901,
+      "sha256": "c773ed72879b4e3c74d7721068d1d52fafbd4bc29db2ae603198b2786cc9549b"
+    },
+    {
+      "path": "reviewed-code/manifest.json",
+      "bytes": 2905,
+      "sha256": "5b5ccfd8ab7bbe1693a4e43b04fea08d51b257ee17612a9bdff2063e97f7925d"
+    },
+    {
+      "path": "reviewed-code/w12_holdover_horizon.hpp",
+      "bytes": 6431,
+      "sha256": "cd3e7593149d1b40e70cc183d62cc2a9c8bee921e4cab7f85f606698e3a282a6"
+    },
+    {
+      "path": "reviewed-code/w12_holdover_rate.hpp",
+      "bytes": 5417,
+      "sha256": "958d4ff2583cf085a23ff5a2e68797100649e482821b78e6e926ae10e3d29b38"
+    },
+    {
+      "path": "reviewed-code/w12_shadow_holdover.hpp",
+      "bytes": 12688,
+      "sha256": "4db4fa01d5abf8cb86877e8ba07c22f40e110cf76948eccbbc8e1636e9a2208e"
+    },
+    {
+      "path": "reviewed-code/w12_thermal_projection.hpp",
+      "bytes": 1990,
+      "sha256": "a65afd82c3c995fd08ead052dad89a61e984547d4c9b9bb3f9f5d55a4cb0af50"
+    },
+    {
+      "path": "tools/build_analysis.py",
+      "bytes": 6893,
+      "sha256": "7d11257555755fb83b2da9e343d4d9da66df368b44ef94dc78d49b92e8c133a4"
+    },
+    {
+      "path": "tools/duration_replay.py",
+      "bytes": 10654,
+      "sha256": "b0985ee2a91dbb4a1d87e7284ff72c92fbb53eb3f5df2be8ac07dcfbde6c5e79"
+    },
+    {
+      "path": "tools/fine_frontier.py",
+      "bytes": 3197,
+      "sha256": "2954439cf0652da035b71a1dee163d27290de24c3d377ccb3eb7561b3953505c"
+    },
+    {
+      "path": "tools/test_duration_replay.py",
+      "bytes": 2912,
+      "sha256": "b971aca58296edf0ab035b9caaa5c04c234428630c8ef1870b309e40e4a0af31"
+    },
+    {
+      "path": "tools/verify.py",
+      "bytes": 4232,
+      "sha256": "c598766358f77d0aef58fbc86ff250bef1f814a71637cbea1dcd06640cd915de"
+    },
+    {
+      "path": "tools/write_values.py",
+      "bytes": 7203,
+      "sha256": "c66c3a74594578ceabbeac0464d7957bb018e8c8bd13ee85dd5c6616d4151ca8"
+    }
+  ],
+  "compiler": {
+    "engine": "Tectonic",
+    "version": "0.17.0",
+    "binary_sha256": "b52b5a730e2b0b33087304f7720f649603953f270a6b1c88bb031e1ae01f7f9c",
+    "public_acquisition": "https://github.com/tectonic-typesetting/tectonic/releases/tag/tectonic%400.17.0",
+    "bundle_sha256": "6ffe055852f8faf66c0acbe1a7fb27f87b869a90bad1204f3bf4d9683f597c7c",
+    "reproduction_command": "tectonic --keep-logs --outdir artifacts/mcxo-duration-build papers/mcxo-holdover-duration/main.tex",
+    "compile_log_sha256": "eaee686adb7f5e679e54b426520564bcbbdd2af17f0e58fce34e442cc8335e06",
+    "private_dependencies_required": false
+  },
+  "review": {
+    "pages": 7,
+    "all_pages_visually_inspected": true,
+    "render_tool": "Poppler pdftoppm -scale-to1400 -png",
+    "rendered_pages": [
+      {
+        "page": 1,
+        "sha256": "cbfd96146ed55c80102598ae917a0448979f116a5a31fb7e043003df3c64fa72"
+      },
+      {
+        "page": 2,
+        "sha256": "4ef3e12d8207a98ab9948ecf1c0d97c3f0c076d0f0f046873765523c60cd4a90"
+      },
+      {
+        "page": 3,
+        "sha256": "e03e340a334c54cd8b2df39b779bdb8c82cc0410d74e4f44b5e057e3b891efe2"
+      },
+      {
+        "page": 4,
+        "sha256": "52378dfd67dd3b8cd880c40564f3bd1a18ae2ab48a88b0e3220ee3ff7fad76dc"
+      },
+      {
+        "page": 5,
+        "sha256": "b9092f1fe16daf11acde98daf7c7695f5ea4a18c3f464a9fc10523f77397d12f"
+      },
+      {
+        "page": 6,
+        "sha256": "4dcfa5689808b67560ef306fe9bd95f29a65f70d1fe1a314c63a5ff01eb12458"
+      },
+      {
+        "page": 7,
+        "sha256": "d011ea85b7010bda426e4b2489b3727145e5fcffce4833bbe1429b1457c7958b"
+      }
+    ],
+    "latex_warnings": false,
+    "unresolved_references": false,
+    "source_pdf_match": true,
+    "final_schematic_last": true,
+    "primary_numeric_replay_max_difference_ns": 0,
+    "primary_pairs": 25639,
+    "primary_replayed_ends": 10450,
+    "missing_accepted_pair_records": 0,
+    "capture_loss_deltas": 0,
+    "synthetic_estimand_regressions": 6,
+    "raw_private_data_imported": false
+  },
+  "external_sources": [
+    {
+      "url": "https://www.everythingrf.com/community/microcomputer-compensated-crystal-oscillators-mcxos-deliver-high-temperature-stability",
+      "accessed": "2026-10-30",
+      "scope": "User-requested author-contributed MCXO motivation; inspected compensation/self-thermometry discussion."
+    },
+    {
+      "url": "https://www.ion.org/publications/abstract.cfm?articleID=14540",
+      "accessed": "2026-10-30",
+      "scope": "Publisher abstract only; full1989paper not reviewed."
+    },
+    {
+      "url": "https://q-tech.com/wp-content/uploads/QPDS-0004-QT2010-MCXO.pdf",
+      "accessed": "2026-10-30",
+      "scope": "Manufacturer revisionE2025description and stability-ordering definitions, pages1\u20132; no W12 performance transfer."
+    },
+    {
+      "url": "https://docs.espressif.com/projects/esp-idf/en/v5.5.5/esp32s3/api-reference/peripherals/temp_sensor.html",
+      "accessed": "2026-10-30",
+      "scope": "Official pinned-version silicon sensor limitations."
+    }
+  ],
+  "verification_command": "python3 papers/mcxo-holdover-duration/tools/verify.py",
+  "hardware_release": "All research captures closed and exact USB ownership released; conditional120s follow-up condition not met, so no extra lease opened. Hardware subsequently returned to the root operator.",
+  "publication": "No staging, commit, push, release or submission performed by this preparation."
+}
