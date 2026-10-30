@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-30 — main viability preprint for public review
+
+- Publish the approved [17-page viability preprint](papers/ptob-viability-preprint.pdf)
+  and matching [LaTeX source](papers/ptob-viability-preprint.tex), preserving
+  the reviewed bytes and recording approval in a
+  [separate receipt](papers/editions/viability-2026-10-30-publication.json).
+- Point current research navigation to this edition and its source/evidence
+  audit. Earlier editions and dated evidence remain preserved.
+- Repository publication is for public draft review; arXiv submission and
+  website deployment remain separate.
+
 ## 2026-10-30 — target README organization and current specifications
 
 - Reorganize T096, W12, StickS3, N30, CoreS3-SE and macOS READMEs around device

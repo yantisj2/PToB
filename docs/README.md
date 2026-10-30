@@ -1,5 +1,12 @@
 # Design background
 
+Start with the **30 October 2026 approved public-review
+[PToB Viability preprint](../papers/ptob-viability-preprint.pdf)** for the
+current research synthesis. Its [LaTeX source](../papers/ptob-viability-preprint.tex),
+[source and evidence audit](../papers/editions/viability-2026-10-30-audit.json)
+and [publication approval](../papers/editions/viability-2026-10-30-publication.json)
+preserve the reviewed edition and its limits.
+
 For the current protocol proposal, read the **30 October author-review
 [V14 SIG draft](../papers/ptob-v14-sig-proposal.pdf)** and
 [V14 research status](V14_RESEARCH_STATUS.md). The

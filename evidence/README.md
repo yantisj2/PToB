@@ -3,6 +3,13 @@
 These dated collections support review of specific experiments. They are not a
 single pooled benchmark or a statement of current firmware acceptance.
 
+The **30 October 2026 [PToB Viability preprint](../papers/ptob-viability-preprint.pdf)**
+is the latest approved public-review synthesis across these collections.
+Its [edition manifest](../papers/editions/viability-2026-10-30.json),
+[source and evidence audit](../papers/editions/viability-2026-10-30-audit.json)
+and [publication approval](../papers/editions/viability-2026-10-30-publication.json)
+retain the selected inputs, separate populations and review history.
+
 | Claim or question | Evidence | Boundary |
 | --- | --- | --- |
 | Longest sampled sub-1 µs W12 holdover at P99 | [October 30 holdover](w12/2026-10-30-holdover/README.md) | Replayed 64 s rolling device grid; separate 75 s fixed cohort, failure at 76 s; later 24 s windows retained; BLE-relative sampled shadow, not independent UTC/output |
@@ -33,6 +40,7 @@ python3 papers/mcxo-holdover-duration/tools/verify.py
 python3 tools/verify_evidence.py
 python3 tools/verify_v14.py
 python3 tools/verify_research.py
+python3 tools/verify_viability_paper.py --replay
 python3 tools/verify_stability.py
 python3 tools/verify_usb_results.py
 python3 tools/verify_power.py
