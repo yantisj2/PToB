@@ -596,7 +596,8 @@ int main(void)
       service.follower_clock_valid?RC8_SELECT_BLE:service.serving&&service.source_eligible?RC8_SELECT_LOCAL_GM:RC8_SELECT_NONE);
     if(r2_ui_take_lora_toggle()){
       int result=maintenance.phase==R2_IDLE&&platform_ready&&!service.profile_pending?0:-EACCES;
-      if(!result)r2_lora_toggle();r2_ui_menu_result(R2_MENU_LORA,result);
+      if(!result)r2_lora_toggle();
+      r2_ui_menu_result(R2_MENU_LORA,result);
     }
 #endif
     r2_shadow_serving(service.serving);
