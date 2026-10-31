@@ -2,6 +2,7 @@
  * Actual scanner + LoRa owner/service; explicit flash/IRQ/kernel peripherals. */
 #include "app.h"
 #include "lora_service.h"
+#include "rc_shadow.h"
 #include "crash_record.h"
 #include "actual_hw_fixture.inc"
 static long atomic_and(atomic_t *p,long v){long old=*p;*p&=v;return old;}
@@ -49,6 +50,9 @@ static int r2_diag_record_result(uint64_t token){assert(token==7);return 0;}
 static bool r2_diag_busy(void){return false;}
 static void r2_watchdog_lora(int e,uint32_t s,uint32_t g,uint32_t c,int j){assert(s==256&&!g&&c==31&&!j);reset_calls++;reset_error=e;}
 static bool r2_capture_now_at(struct r2_capture *c,uint64_t *us){*us=mock_us;return r2_capture_now(c);}
+bool r2_shadow_enabled(void){return false;}
+void r2_shadow_normal_map(const struct rc_shadow_map *m){(void)m;assert(false);}
+void r2_shadow_lora_withdraw(void){}
 #include "actual_diag.inc"
 #include "actual_service.inc"
 static const struct r2_group_config test_group={.id=11,.epoch=1,.psk={1,2,3}};

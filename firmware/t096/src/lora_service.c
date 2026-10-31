@@ -483,7 +483,7 @@ void __attribute__((noinline)) r2_lora_shadow_publish(void){
  cal_until=now<s->probe_until?s->probe_until:0;delay=cal_until?s->probe_status[3]:0;
  until=s->view.until_us;if(s->view.tz_until_us<until)until=s->view.tz_until_us;
  if(cal_until&&cal_until<until)until=cal_until;
- if(valid&&s->correction.event_ns<=INT64_MAX-delay){
+ if(valid&&s->correction.event_ns<=(uint64_t)INT64_MAX-delay){
   m=(struct rc_shadow_map){.normal=true,.lora=true,.lora_delay_ns=delay,
    .normal_map={.delivery=tick,.anchor=(int64_t)s->correction.event_ns+delay,.rate=rate,.valid=true},
    .map={.effective=tick,.generation=s->corrected_sequence},.lo=at.tick,.epoch=epoch,

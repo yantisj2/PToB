@@ -55,7 +55,7 @@ typedef struct{int instance;}nrfx_timer_t,nrfx_gpiote_t;
 typedef struct{unsigned frequency,bit_width,interrupt_priority;}nrfx_timer_config_t;
 typedef struct{unsigned drive,input_connect,pull;}nrfx_gpiote_output_config_t;
 typedef struct{unsigned task_ch,polarity,init_val;}nrfx_gpiote_task_config_t;
-struct r2_capture{uint64_t tick,epoch;int kind;};
+#include "precision.h"
 static uint64_t mock_us=1000000,physical_tick=15999999;
 static int pins[64],irq_flags,packet_length=80,busy_high,suppress_dma,alloc_fail,stop_at_attach,stop_at_spi;
 static uint8_t packet_rssi=162,packet_snr=246;
