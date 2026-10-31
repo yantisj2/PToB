@@ -432,6 +432,18 @@ int main(int argc,char **argv){assert(argc==2);unsigned mode=(unsigned)atoi(argv
    struct rc8_packet packet;assert(!rc8_decode(&packet,sent,sent_len,&test_group)&&packet.corrected&&packet.correction.sequence==1&&packet.correction.map_generation==1);
   }
  }
+ else if(mode==87){
+  init(true);struct rc8_export original=source(now_us*16,1);r2_lora_source_publish(&original);step();step();
+  /* Exact tick equality belongs to the new inclusive-from interval. The
+   * prior interval's newly closed until is exclusive, even if its edge was
+   * provisionally projected immediately before the publication cut. */
+  queued=(struct r2_lora_hw_event){.tick=now_us*16,.capture_epoch=7,.generation=sent_generation,.kind=R2_LORA_HW_TX_DONE};have_event=true;
+  struct rc8_export next=source(now_us*16,2);r2_lora_source_publish(&next);
+  assert(!role.tx.captured.sequence&&role.tx.maps[1].until_tick==queued.tick);
+  struct rc8_correction correction;struct rc8_event edge={.tick=queued.tick,.capture_epoch=7,.kind=RC8_EVENT_TX_DONE};
+  assert(!rc8_export_event(&correction,&role.tx.maps[1],1,edge));
+  step();assert(published.accepted==1&&published.correction.map_generation==2&&!published.missing_map);
+ }
  else assert(false);
  char json[3072];int n=r2_lora_json(json,sizeof json-96,0);assert(n>0&&n<(int)sizeof json-96);printf("PASS runtime mode%u role=%zu snapshot=%zu worker=%zu json=%d\nJSON %s\n",mode,sizeof role,sizeof published,sizeof worker_stack,n,json);
 }

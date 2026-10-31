@@ -142,6 +142,8 @@ void r2_lora_source_publish(const struct rc8_export *input){
   if(same){
    if(map.from_tick<=last->from_tick){k_spin_unlock(&lock,key);return;}
    if(last->until_tick>map.from_tick)last->until_tick=map.from_tick;
+   if(t->captured.sequence&&t->captured.map_generation==last->map_generation&&
+     t->captured_edge.tick>=last->until_tick)t->captured=(struct rc8_correction){0};
    t->maps[1]=*last;
   }
   *last=map;
