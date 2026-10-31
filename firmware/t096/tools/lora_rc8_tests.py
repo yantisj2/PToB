@@ -63,6 +63,21 @@ def main():
     subprocess.run([*flags,*map(str,sources+objects),'-o',str(out/'rc8')],check=True,timeout=60)
     result=subprocess.run([str(out/'rc8')],check=True,timeout=30,text=True,capture_output=True)
     print(result.stdout,end='')
+    name_sources=[APP/'tests/lora_name_test.c',APP/'protocol/lora_rc8.c',APP/'protocol/group_auth.c',*objects]
+    subprocess.run([*flags,*map(str,name_sources),'-o',str(out/'name')],check=True,timeout=60)
+    name_result=subprocess.check_output([str(out/'name')],text=True,timeout=30)
+    print(name_result,end='')
+    # Independent name layout/HMAC oracle, with an arbitrary sender label rather
+    # than any deployment alias. Existing timing/companion vectors stay frozen.
+    name_body=bytearray(64);name_body[:4]=b'R8\x03\x03'
+    name_scope=struct.pack('<4sQQQQQQQIBB',b'R8\x03\x01',0x101,0x202,0x303,0x404,0x505,0,0,6,1,2)
+    name_auth=struct.pack('<BQI',1,0x0102030405060708,7)
+    name_key=bytes(range(32))
+    name_body[4:20]=hmac.new(name_key,b'PTOBR8C3'+name_auth+name_scope,hashlib.sha256).digest()[:16]
+    struct.pack_into('<I',name_body,20,17);name_body[24]=7;name_body[25:32]=b'Field-7'
+    name_wire=name_body+hmac.new(name_key,b'PTOBR8N3'+name_auth+name_body,hashlib.sha256).digest()[:16]
+    assert subprocess.check_output([str(out/'name'),'wire'],text=True,timeout=30).strip()==name_wire.hex()
+    (out/'name-codec.log').write_text(name_result)
     fit_sources=[APP/'tests/lora_link_fit_test.c',*sources[1:],*objects]
     subprocess.run([*flags,*map(str,fit_sources),'-o',str(out/'link-fit')],check=True,timeout=60)
     fit=subprocess.check_output([str(out/'link-fit')],text=True,timeout=30)
@@ -121,12 +136,13 @@ def main():
         native={'compiler_frames_bytes':frames,'nested_known_frames_bytes':{name:sum(frames.get(fn,0) for fn in chain) for name,chain in paths.items()},
                 'paths':paths,'limits':'Known C frames only; inlined helpers contribute within caller; excludes worker frame, IRQ/kernel/libc/libgcc/SPI/capture costs and physical high-water. Not stack qualification.'}
     report={'status':'PASS_RC8_WIRE3_OFFLINE','hardware':'NOT_ACCESSED','precision':'UNQUALIFIED','link_fit_decimal_oracle_estimates':checked,
-            'tests':result.stdout.strip(),'metadata_bytes':128,'timing_bytes':80,'metadata_airtime_us':airtime(128),'timing_airtime_us':airtime(80),
+            'tests':result.stdout.strip(),'name_tests':name_result.strip(),'name_wire_sha256':hashlib.sha256(name_wire).hexdigest(),
+            'metadata_bytes':128,'timing_bytes':80,'metadata_airtime_us':airtime(128),'timing_airtime_us':airtime(80),
             'host_abi_sizes':sizes,'occupancy_timing4s_companion120s_percent':airtime(80)/40000+airtime(128)/1200000,
             'object_reserves_bytes':budget,
             'startup_two_timing_us':2*airtime(80),'native':native,
             'vectors_sha256':{k:hashlib.sha256(bytes.fromhex(v)).hexdigest() for k,v in expected.items()},
-            'sources':{str(src.relative_to(REPO)):hashlib.sha256(src.read_bytes()).hexdigest() for src in sources},
+            'sources':{str(src.relative_to(REPO)):hashlib.sha256(src.read_bytes()).hexdigest() for src in dict.fromkeys(sources+name_sources) if src.suffix=='.c'},
             'compiler':subprocess.check_output([compiler,'--version'],text=True).splitlines()[0]}
     (out/'report.json').write_text(json.dumps(report,indent=2,sort_keys=True)+'\n')
     print('Independent Python/C metadata+timing vectors PASS; airtime369152+258560us')

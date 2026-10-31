@@ -18,7 +18,9 @@ static bool atomic_cas(atomic_t *p,long a,long b){if(cas_inject){*p|=cas_inject;
 static long atomic_and(atomic_t *p,long v){long old=*p;*p&=v;return old;}
 static void atomic_or(atomic_t *p,long v){*p|=v;}
 struct k_spinlock{int unused;};typedef int k_spinlock_key_t;
-static int k_spin_lock(struct k_spinlock *p){(void)p;return 0;}
+static uint64_t lock_advance_us;
+static void advance_lock_time(void);
+static int k_spin_lock(struct k_spinlock *p){(void)p;advance_lock_time();return 0;}
 static void k_spin_unlock(struct k_spinlock *p,int k){(void)p;(void)k;}
 struct k_thread{int unused;};
 static int worker_priority=11;static unsigned worker_wakes;
@@ -31,6 +33,7 @@ static void k_wakeup(struct k_thread *t){(void)t;worker_wakes++;}
 static void k_thread_create(struct k_thread *t,void *s,size_t n,void (*fn)(void*,void*,void*),void *a,void *b,void *c,int p,int q,int r){(void)t;(void)s;(void)n;(void)fn;(void)a;(void)b;(void)c;(void)q;(void)r;worker_priority=p;}
 static void k_thread_name_set(struct k_thread *t,const char *n){(void)t;(void)n;}
 static uint64_t now_us=1000000;
+static void advance_lock_time(void){now_us+=lock_advance_us;lock_advance_us=0;}
 static uint64_t k_uptime_ticks(void){return now_us;}
 static uint64_t k_ticks_to_us_floor64(uint64_t t){return t;}
 static uint32_t k_uptime_get_32(void){return (uint32_t)(now_us/1000);}
@@ -53,7 +56,7 @@ static void spi_context_update(void);
 static void spi_turnover(void);
 static bool turnover_during_tx;
 static int start_result,take_result;static struct r2_lora_hw_event queued;
-static bool hide_tx_edge;
+static bool hide_tx_edge,preempt_take;
 static uint32_t fake_launch_aborts;static uint16_t fake_busy_aborts;static uint8_t fake_last_busy_op;
 static uint8_t sent[128];static size_t sent_len;static uint32_t sent_generation;
 bool r2_capture_now(struct r2_capture *c){if(quality_on_capture){quality_on_capture=false;spi_quality_update();}if(withdraw_on_capture&&++capture_calls==2){withdraw_on_capture=false;r2_lora_source_withdraw();}*c=(struct r2_capture){now_us*16,7,R2_CAPTURE_NOW};return capture_valid;}
@@ -61,7 +64,7 @@ bool r2_capture_now_at(struct r2_capture *c,uint64_t *us){*us=now_us;return r2_c
 int r2_lora_hw_start(uint32_t g,bool receive){(void)g;(void)receive;starts++;if(cancel_start){cancel_start=false;r2_lora_request(false);return -ECANCELED;}return start_result;}
 uint32_t r2_lora_hw_budget_us(size_t n){return n==80?360000:n==128?450000:0;}
 int r2_lora_hw_tx_before(const uint8_t *p,size_t n,uint32_t g,uint64_t before){assert(before==UINT64_MAX||now_us+r2_lora_hw_budget_us(n)<=before);if(late_diagnostic&&n==128)return -EAGAIN;if(quality_during_spi&&n==128)spi_quality_update();if(change_during_spi&&n==128){change_during_spi=false;spi_context_update();}txs++;sent_len=n;memcpy(sent,p,n);sent_generation=g;if(turnover_during_tx){turnover_during_tx=false;spi_turnover();}if(abort_tx){abort_tx=false;return -EINTR;}if(cancel_tx){cancel_tx=false;r2_lora_request(false);return -ECANCELED;}return 0;}
-int r2_lora_hw_take(struct r2_lora_hw_event *e){if(cancel_take){cancel_take=false;r2_lora_request(false);return -ECANCELED;}if(take_result)return take_result;if(!have_event)return 0;*e=queued;have_event=false;return 1;}
+int r2_lora_hw_take(struct r2_lora_hw_event *e){if(cancel_take){cancel_take=false;r2_lora_request(false);return -ECANCELED;}if(take_result)return take_result;if(!have_event)return 0;if(preempt_take){preempt_take=false;now_us+=2500;queued.tick=now_us*16;}*e=queued;have_event=false;return 1;}
 bool r2_lora_hw_tx_edge(struct r2_lora_hw_edge *e){if(hide_tx_edge||!have_event||queued.kind!=R2_LORA_HW_TX_DONE)return false;*e=(struct r2_lora_hw_edge){queued.tick,queued.capture_epoch,queued.generation};return true;}
 int r2_lora_hw_rx_rearm(void){rearms++;return 0;}
 void r2_lora_hw_stop_begin(uint64_t deadline){assert(deadline>0);stops++;}
@@ -89,7 +92,16 @@ static struct rc8_export delayed_tx(bool evict){
  if(evict)for(unsigned i=3;i<9;i++){now_us+=50000;b=source(now_us*16,i);r2_lora_source_publish(&b);}
  assert(!published.accepted&&!published.corrected_sequence);return a;
 }
-static void packet(const uint8_t *wire,size_t n,uint64_t at){now_us=at;queued=(struct r2_lora_hw_event){.tick=at*16,.capture_epoch=7,.local_us=at+700,.generation=generation,.kind=R2_LORA_HW_RX_DONE,.length=(uint8_t)n};memcpy(queued.frame,wire,n);have_event=true;step();}
+static bool packet_signal;
+static void packet(const uint8_t *wire,size_t n,uint64_t at){now_us=at;queued=(struct r2_lora_hw_event){.tick=at*16,.capture_epoch=7,.local_us=at+700,.generation=generation,.kind=R2_LORA_HW_RX_DONE,.length=(uint8_t)n,.packet_status_valid=packet_signal,.rssi_half_dbm=-163,.snr_quarter_db=-10};memcpy(queued.frame,wire,n);have_event=true;step();}
+static void companion(struct rc8_scope s,bool valid,uint32_t sequence,uint64_t at){
+ uint8_t wire[128];struct rc8_companion c={.scope=s,.sequence=sequence,.timing_sequence=role.rx.highest_sequence,.time_valid=valid};
+ assert(!rc8_companion_encode(wire,&c,&test_group));packet(wire,128,at);
+}
+static void name_packet(struct rc8_scope s,const char *text,uint32_t sequence,uint64_t at){
+ uint8_t wire[80];struct rc8_name n={.sequence=sequence};assert(strlen(text)<=24);strcpy(n.name,text);
+ assert(!rc8_context_id(n.context,&s,&test_group));assert(!rc8_name_encode(wire,&n,&test_group));packet(wire,80,at);
+}
 static struct rc8_scope coordination_acquire(void){
  init(false);step();uint8_t wire[128];
  struct rc8_scope s={.emitter=1,.emitter_boot=22,.stream=1,.root=3,.root_boot=44,.source_epoch=5,.scale=RC8_UTC,.kind=RC8_SELECTED_BLE};
@@ -450,6 +462,117 @@ int main(int argc,char **argv){assert(argc==2);unsigned mode=(unsigned)atoi(argv
   r2_lora_source_publish(&original);
   assert(role.tx.captured.sequence==1&&role.tx.captured.expires_ns==original.expires_ns);
   step();assert(published.accepted==1&&published.correction.map_generation==1&&published.correction.expires_ns==original.expires_ns);
+ }
+ else if(mode>=89&&mode<=96){
+  struct rc8_scope s=coordination_acquire();uint32_t accepted=role.rx.accepted,sequence=role.rx.highest_sequence;
+  uint64_t endpoint=role.rx.sample.rx.local_us;
+  name_packet(s,"Air Sender",1,5300000);assert(!sender_name.sequence&&sender_name.rejected==1); /* unknown full scope */
+  companion(s,true,1,5400000);name_packet(s,"Clock-OTA",1,5500000);
+  struct r2_lora_view v;uint64_t factory;char name[25];r2_lora_view_named(&v,&factory,name);
+  assert(factory==1&&!strcmp(name,"Clock-OTA")&&sender_name.accepted==1);
+  assert(role.rx.accepted==accepted&&role.rx.highest_sequence==sequence&&role.rx.sample.rx.local_us==endpoint);
+  if(mode==89){
+   name_packet(s,"replay",1,5600000);assert(sender_name.rejected==2&&!strcmp(sender_name.name,"Clock-OTA"));
+   struct rc8_scope wrong=s;wrong.stream++;name_packet(wrong,"wrong context",2,5700000);assert(sender_name.rejected==3&&!strcmp(sender_name.name,"Clock-OTA"));
+   name_packet(s,"\"\\alternate\"",2,5800000);r2_lora_view_named(&v,&factory,name);assert(!strcmp(name,"\"\\alternate\""));
+  }else{
+   if(mode==90)r2_lora_request(false);
+   if(mode==91)atomic_set(&faulted,1);
+   if(mode==92)companion(s,false,2,5600000);
+   if(mode==93){s.stream++;companion(s,true,2,5600000);}
+   if(mode==94)now_us=sender_name.until_us;
+   if(mode==95){companion(s,false,2,5600000);name_packet(s,"invalid time",2,5700000);assert(!sender_name.sequence&&sender_name.rejected==2);}
+   if(mode==96){r2_lora_request(false);step();step();r2_lora_request(true);step();}
+   r2_lora_view_named(&v,&factory,name);assert(!name[0]);
+  }
+ }
+ else if(mode>=97&&mode<=103){
+  struct rc8_scope s=coordination_acquire();companion(s,true,1,5300000);name_packet(s,"Actual Air",1,5400000);
+  uint64_t original=role.rx.sample.rx.local_us;uint32_t accepted=role.rx.accepted;
+  now_us=original+RC8_HOLD_US;step();struct r2_lora_view v;r2_lora_view(&v);
+  assert(v.state==RC8_EXPIRED&&v.choice==RC8_SELECT_NONE&&v.display_held&&v.utc_us&&v.until_us==original+RC8_HOLD_US&&v.display_until_us==original+R2_LORA_DISPLAY_HOLD_US);
+  struct r2_gm_coordination c;r2_lora_coordination(&c);assert(!c.root);
+  if(mode==97){
+   companion(s,true,2,now_us+100000);name_packet(s,"Updated name",2,now_us+100000);
+   r2_lora_view(&v);assert(v.display_held&&v.display_until_us==original+R2_LORA_DISPLAY_HOLD_US&&role.rx.accepted==accepted);
+   now_us=original+R2_LORA_DISPLAY_HOLD_US-1;r2_lora_view(&v);assert(v.display_held&&v.utc_us);
+   now_us++;r2_lora_view(&v);assert(!v.display_held&&!v.utc_us);
+  }else{
+   if(mode==98)r2_lora_request(false);
+   if(mode==99)atomic_set(&faulted,1);
+   if(mode==100)companion(s,false,2,now_us+100000);
+   if(mode==101){s.stream++;companion(s,true,2,now_us+100000);}
+   if(mode==102)r2_lora_control(true,true,false);
+   if(mode==103)r2_lora_control(false,false,false);
+   r2_lora_view(&v);assert(!v.display_held&&!v.utc_us);
+  }
+ }
+ else if(mode==104){
+  packet_signal=true;struct rc8_scope s=coordination_acquire();struct r2_lora_view v;r2_lora_view(&v);
+  assert(v.rssi_valid&&v.rssi_half_dbm==-163&&v.snr_quarter_db==-10&&v.rx_age_ms==2);
+  uint64_t measured=published.rx_us;uint8_t bad[80]={0};packet(bad,80,5300000);r2_lora_view(&v);
+  assert(published.rx_us==measured&&v.rssi_half_dbm==-163&&role.rx.rejected==1);
+  companion(s,true,1,5400000);assert(published.rx_us==5400000);name_packet(s,"Air",1,5500000);assert(published.rx_us==5500000);
+  now_us=5500000+RC8_HOLD_US;step();r2_lora_view(&v);assert(!v.rssi_valid);
+ }
+ else if(mode==105){
+  init(false);step();struct rc8_scope s=source(now_us*16,1).scope;uint8_t wire[80];
+  for(unsigned seq=1;seq<=41;seq++){
+   struct rc8_packet p={.sequence=seq,.root=s.root,.source_epoch=s.source_epoch,.scale=s.scale,.kind=s.kind};
+   assert(!rc8_context_id(p.context,&s,&test_group));
+   if(seq>1){p.corrected=true;p.correction=(struct rc8_correction){.sequence=seq-1,.event_ns=UINT64_C(9000000000)+(uint64_t)(seq-2)*4000000000,.expires_ns=UINT64_C(9100000000)+(uint64_t)(seq-2)*4000000000,.map_generation=9,.upstream_bound_ns=RC8_UNKNOWN};}
+   assert(!rc8_encode(wire,&p,&test_group));packet(wire,80,1200000+(uint64_t)(seq-1)*4000000);
+   struct r2_lora_view v;r2_lora_view(&v);
+   if(seq>=5){assert(v.link_samples>=4&&v.link_rms_ns==0&&v.fit_age_ms<R2_LORA_FIT_HOLD_MS);}
+   if(seq>=18&&seq<=20)assert(v.link_samples==16&&role.rx.fit.n==seq-17&&role.rx.fit.result_sequence==16);
+  }
+  companion(s,false,1,now_us+1);assert(!role.rx.fit.result_n&&!published.view.link_samples);
+ }
+ else if(mode==106){
+  init(true);r2_lora_name_publish("Clock-OTA");struct rc8_export a=source(now_us*16,1);r2_lora_source_publish(&a);step();step();done();assert(sent_len==128);done();
+  assert(!role.tx.name_sequence);now_us=role.tx.diag_not_before;a=source(now_us*16,2);r2_lora_source_publish(&a);step();
+  struct rc8_name n;assert(sent_len==80&&!rc8_name_decode(&n,sent,sent_len,&test_group)&&!strcmp(n.name,"Clock-OTA")&&n.sequence==1);
+  uint64_t cadence=role.tx.next_us;done();assert(role.tx.name_sequence==1&&role.tx.next_us==cadence);
+  now_us=cadence;a=source(now_us*16,3);r2_lora_source_publish(&a);step();struct rc8_packet p;assert(!rc8_decode(&p,sent,sent_len,&test_group)&&p.sequence==2&&p.corrected&&p.correction.sequence==1);
+ }
+ else if(mode==107){
+  init(false);step();struct rc8_scope s=source(now_us*16,1).scope;uint8_t wire[80];
+  struct rc8_packet p={.sequence=1,.root=s.root,.source_epoch=s.source_epoch,.scale=s.scale,.kind=s.kind};assert(!rc8_context_id(p.context,&s,&test_group));assert(!rc8_encode(wire,&p,&test_group));
+  preempt_take=true;packet(wire,80,1200000);assert(role.rx.highest_sequence==1&&role.rx.last_timing_us==1202500);
+  p.sequence=2;p.corrected=true;p.correction=(struct rc8_correction){.sequence=1,.event_ns=9000000000ULL,.expires_ns=9100000000ULL,.map_generation=9,.upstream_bound_ns=RC8_UNKNOWN};assert(!rc8_encode(wire,&p,&test_group));
+  preempt_take=true;packet(wire,80,5200000);struct r2_lora_view v;r2_lora_view(&v);
+  assert(v.utc_us&&v.choice==RC8_SELECT_LORA&&published.view.sampled_us==5202500&&published.view.age_ms==4000&&role.rx.accepted==1&&!role.rx.rejected);
+ }
+ else if(mode==108){
+  (void)coordination_acquire();struct rc8_scope s=role.rx.scope;uint8_t wire[80];
+  /* One lost4s timing frame also loses its correction in the next frame.
+   * Replay the actual codec/policy at20ms UI publication intervals. */
+  for(uint64_t at=5220000;at<=17200000;at+=20000){
+   if(at==13200000||at==17200000){
+    uint32_t seq=at==13200000?4:5;
+    struct rc8_packet p={.sequence=seq,.root=s.root,.source_epoch=s.source_epoch,.scale=s.scale,.kind=s.kind,.corrected=true,
+     .correction={.sequence=seq-1,.event_ns=UINT64_C(9000000000)+(uint64_t)(seq-2)*4000000000,.expires_ns=UINT64_C(9100000000)+(uint64_t)(seq-2)*4000000000,.map_generation=9,.upstream_bound_ns=RC8_UNKNOWN}};
+    memcpy(p.context,role.rx.context,16);assert(!rc8_encode(wire,&p,&test_group));packet(wire,80,at);
+   }else{now_us=at;step();}
+   struct r2_lora_view v;r2_lora_view(&v);assert(v.utc_us==9000000+now_us-1200000);
+   assert(v.display_held==(at>=13200000&&at<17200000));
+   if(v.display_held){assert(v.choice==RC8_SELECT_NONE&&v.state==RC8_EXPIRED);struct r2_gm_coordination c;r2_lora_coordination(&c);assert(!c.root);}
+   else assert(v.choice==RC8_SELECT_LORA&&v.state==RC8_AVAILABLE);
+  }
+  assert(role.rx.accepted==2&&role.rx.unmatched==1&&!role.rx.rejected);
+ }
+ else if(mode==109){
+  struct rc8_scope s=coordination_acquire();companion(s,true,1,5300000);name_packet(s,"Air Sender",1,5400000);
+  now_us=sender_name.until_us-100;lock_advance_us=200;
+  struct r2_lora_view v;char name[25];r2_lora_view_named(&v,NULL,name);assert(!name[0]);
+ }
+ else if(mode==110){
+  (void)coordination_acquire();role.rx.sample.rx.local_us=25000001;
+  role.rx.fit.result_us=1200001;role.rx.fit.result_n=16;role.rx.fit.result_rms_ns=123;
+  now_us=25199001;report(now_us,true);assert(published.view.link_samples==16&&published.view.fit_age_ms==23999);
+  now_us=25200001;struct r2_lora_view v;r2_lora_view(&v);assert(v.state==RC8_AVAILABLE&&!v.link_samples&&!v.link_rms_ns&&v.fit_age_ms==24000);
+  published.view.rx_age_ms=11999;published.view.rssi_valid=true;published.view.sampled_us=now_us;
+  now_us++;r2_lora_view(&v);assert(!v.rssi_valid&&v.rx_age_ms==12000);
  }
  else assert(false);
  char json[3072];int n=r2_lora_json(json,sizeof json-96,0);assert(n>0&&n<(int)sizeof json-96);printf("PASS runtime mode%u role=%zu snapshot=%zu worker=%zu json=%d\nJSON %s\n",mode,sizeof role,sizeof published,sizeof worker_stack,n,json);

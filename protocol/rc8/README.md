@@ -209,6 +209,42 @@ sample/history immediately. A stale floor cannot withdraw newer timing; a
 retired context or reordered diagnostic cannot replace it. A recovery companion
 alone never creates or refreshes a sample.
 
+## Optional sender name:80 bytes
+
+A wire3 receiver may also accept a descriptive name packet. It identifies the
+immediate LoRa emitter, independently of the original timing root or its BLE
+parent. Existing timing and companion layouts, HMACs and vectors are unchanged;
+older receivers reject this optional packet without changing timing acquisition.
+
+| Offset | Bytes | Field |
+| --- | ---: | --- |
+| 0 | 4 | ASCII `R8`, version3, type3 |
+| 4 | 16 | exact immutable context reference |
+| 20 | 4 | nonzero name sequence, increasing within that context |
+| 24 | 1 | UTF-8 name length,1..24 bytes |
+| 25 | 24 | name bytes, followed by zero padding |
+| 49 | 15 | reserved zero |
+| 64 | 16 | name HMAC |
+
+The name HMAC uses domain `PTOBR8N3`, the ordinary group-context prefix, and
+bytes0..63. Names use the existing group-name UTF-8 validation; embedded NUL,
+controls, malformed UTF-8 and noncanonical padding are rejected. A name packet
+cannot introduce a source or resolve an unknown boot/stream. The receiving
+service accepts it only after a companion has authenticated the same complete
+current context, with a newer name sequence. A different context, OFF, fault or
+withdrawal clears the descriptive cache. A name never creates or renews a
+physical timing sample, source hold, coordination constraint, replay assurance,
+RC7 publication or USB authority. Symmetric group authentication still does not
+prove individual hardware ownership.
+
+The transmitter resolves its own advertised custom NAME, or its verified local
+unit label when the advertised name is the generic `Clock-...` default. It sends
+that resolved text over LoRa; listeners do not substitute a registry alias.
+Names repeat nominally every16s and after companions, subject to the existing
+diagnostic gap, timing priority and immediate pre-FEM deadline check. A cold
+listener can acquire timing before the full companion/name and initially shows
+an unknown provider. Names expire with the companion lease that admitted them.
+
 ## Physical events, scheduling and bounded state
 
 Timing cadence is4s; matching uses the prior packet's original physical RxDone,
@@ -220,6 +256,13 @@ same-boot scopes require increasing streams; the immediately retired context
 and boot are remembered. Reboot replacement after a12s gap remains UNKNOWN
 freshness, not an ordering claim about random boot values. Companion descriptive
 metadata ages out after240s without stopping timing acquisition.
+
+The watch may separately continue its coarse UTC projection until20s from the
+same original accepted physical pair. This display-only interval bridges an
+isolated missed packet and never extends the12s functional/coordination hold.
+OFF, fault, source/context replacement and current TIME_INVALID revoke it;
+metadata and names cannot renew it. All first-three-page source indicators use
+the same snapshot. BLE remains preferred; its renderer and rate are unchanged.
 
 Source owners publish two bounded original formula intervals. The new map's
 start is the physical capture inside publication; the old map closes there.
@@ -237,19 +280,24 @@ immediately before FEM enable, after SPI preparation and possible BLE preemption
 Healthy EAGAIN deferral consumes no timing sequence or correction and cannot move
 the original timing deadline. Timing keeps340ms chip/360ms FEM limits;
 companions use420ms/450ms. At SF10/BW500/CR4/6/preamble12, calculated airtime is
-258560us timing and369152us companion:6.7716267% occupation at4s/120s before events.
+258560us timing and369152us companion:6.7716267% baseline occupation at4s/120s.
+Optional80-byte names add nominal1.616% at16s, for8.3876267% before events and
+deferrals. The timing badge is `.25Hz`, derived from1/4s rather than UI refresh.
 These calculations do not qualify radio delivery, regional use or coexistence.
 
-The measured host ABI uses a712-byte exclusive RX/TX union and304-byte latest
+The measured host ABI uses a736-byte exclusive RX/TX union and344-byte latest
 snapshot; target ABI sizes are checked independently. The worker retains2048 bytes
 plus64-byte guard. Complete native ELF
-comparison must prove the4096-byte added-static ceiling. Existing BLE/controller,
+comparison must prove the4096-byte original RC8 added-static ceiling plus the
+separately capped256-byte name/strength/display-provenance addition. All copied
+models count toward that addition. Existing BLE/controller,
 USB and stack reserves cannot shrink. Compiler frame sums are partial estimates;
 actual device stack high-water remains required. No heap is used.
 
 TX/RX OFF suppresses every RF packet of the configured role and withdraws the
-functional selection. ON reacquires. Page7 fires once at1.5s and consumes the press, so extending it cannot poweroff.
-Intentional4s poweroff remains on other pages; wake-only and navigation behavior remain. Stop retains its original
+functional selection. ON reacquires. The ordinary GM/RC image uses the
+[two-second hold menu](../../firmware/t096/README.md#button-controls) for RX/TX,
+profile and power controls. Stop retains its original
 200ms deadline and requires actual DMA, radio quiescence, FEM-off and capture
 release acknowledgments. True SPI/ownership/cutoff faults stay latched; stale
 capture data is dropped/counts rather than promoted into time.
@@ -292,14 +340,18 @@ survive same-image resets, subject to existing journal rotation. A newer image
 retains the existing startup cleanup rule. No fault record proves RF or UTC
 accuracy, and faults remain counted in their original boot populations.
 
-Page7 RX link RMS is the population residual RMS of an affine fit to original
+RX link RMS on the watch, Precision and LoRa pages is the population residual
+RMS of an affine fit to original
 physical RxDone ticks paired with exact corrected TxDone ns. It uses bounded
 nonoverlapping blocks of4..16 accepted pairs,100us X units, and nominal-rate-
 removed Yns. Integer sufficient statistics are exact within the declared120s/
 16ms fit domain; the residual is evaluated in double precision and displayed
 with integer-ns truncation. Numeric overflow/domain or degenerate-X conditions
 start a fresh block. At16 samples, the next pair starts COLLECTING until four
-new pairs exist; an old RMS is never presented as the new block's result.
+new pairs exist. The watch may retain the last completed same-context fit while
+collecting, with its original endpoint, sequence and population, for less than24s
+from that endpoint and only with current12s timing input. It never presents that
+old result as a measurement of the new partial block.
 Context, capture epoch, applicable loss, OFF and original-event gap>=12s reset
 the block. Quality-only metadata preserves it. Expired/unavailable timing shows
 NO TIMING. The independent Decimal test recomputes every centered residual;
@@ -311,6 +363,20 @@ The `lora` console preserves original association/counter fields and adds:
 `parent=[factory,boot]`, `companion=[sequence,snapshot_age_ms,event_mask,local_age_ms,metadata_known,time_valid]`,
 and `quality=[known,values,role,hop,parent_class,parent_accuracy,parent_bound_ns,correction_age_ms,map_life_ms,rate_ppb,residual_ns,losses,recoveries]`.
 Unknown scalar fields require their known bit; output bound is JSON null.
+
+The current display/name diagnostics also expose `sender_name` and
+`sender_name_hex` (the same actual cached UTF-8 bytes), `name_context`, and:
+
+- `name=[accepted,rejected,rx_sequence,tx_sequence,current,original_companion_until_us]`;
+- `display=[held,original_12s_until_us,display_20s_until_us]`;
+- `signal=[valid,rssi_half_dbm,snr_quarter_db,original_rx_age_ms]`;
+- `fit_provenance=[original_final_pair_sequence,original_final_pair_age_ms,current_collecting_n]`.
+
+The existing `link_fit=[displayed_result_n,relative_rms_ns]` may identify the
+previous completed fit during ordinary rollover. Its original age and sequence
+remain visible. `current=false` means the cached name is unavailable for the
+header. Signal validity requires an authenticated current-context reception
+younger than12s; packet arrival and name traffic cannot refresh clock timing.
 Version125 adds `link_fit=[samples,rms_ns]` (RMS usable only for samples>=4 and
 available original timing). Its `hw` array appends `launch_aborts` after
 `invalid_capture`: RXdone, TXdone, CRCbad, overflow, SPIok, SPIerror, cutoffs,

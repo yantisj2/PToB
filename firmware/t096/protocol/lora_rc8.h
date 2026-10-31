@@ -7,6 +7,11 @@
 #define RC8_BYTES 80u
 #define RC8_BODY_BYTES 64u
 #define RC8_CONTEXT_BYTES 16u
+#define RC8_NAME_BYTES RC8_BYTES
+#define RC8_NAME_MAX 24u
+#if RC8_NAME_MAX != R2_GROUP_NAME_MAX
+#error "RC8 name/group name compatibility"
+#endif
 #define RC8_UNKNOWN UINT32_MAX
 #define RC8_MAX_PREP_NS UINT64_C(1000000000)
 enum rc8_scale { RC8_RELATIVE=0, RC8_UTC=1 };
@@ -36,6 +41,15 @@ struct rc8_companion {
  struct rc8_scope scope;struct rc8_quality quality;
  uint32_t sequence,snapshot_age_ms,timing_sequence;uint16_t events;bool time_valid;
 };
+/* Optional descriptive packet. A name never supplies scope, time, source
+ * permission or freshness. The service must match a current full authenticated
+ * context and independently reject reordered name sequences. */
+struct rc8_name {
+ uint8_t context[RC8_CONTEXT_BYTES];uint32_t sequence;char name[RC8_NAME_MAX+1];
+};
+int rc8_name_encode(uint8_t out[RC8_NAME_BYTES],const struct rc8_name *,const struct r2_group_config *);
+/* Output is cleared on every failure. */
+int rc8_name_decode(struct rc8_name *,const uint8_t *,size_t,const struct r2_group_config *);
 int rc8_companion_encode(uint8_t out[RC8_META_BYTES],const struct rc8_companion *,const struct r2_group_config *);
 int rc8_companion_decode(struct rc8_companion *,uint8_t context[RC8_CONTEXT_BYTES],const uint8_t *,size_t,const struct r2_group_config *);
 struct rc8_packet {

@@ -31,17 +31,18 @@ static void block(unsigned scenario){
   uint64_t t=16000000+UINT64_C(64000000)*(i+1);
   int64_t offset=scenario==0?0:(int64_t)(i+1)*(scenario==1?280000:900000)+jitter[(i+1)%16];
   timing(t,1000000000000ULL+UINT64_C(4000000000)*(i+1)+(uint64_t)offset,7,true);
+  if(i>=16&&i<19){assert(rx.fit.n==i-15&&rx.fit.result_n==16&&rx.fit.result_sequence==16&&rx.fit.result_us==61000000);}
   printf("FIT %u %u %llu %llu %u %u\n",scenario,i,(unsigned long long)original_tick,(unsigned long long)original_ns,rx.fit.n,rx.fit.rms_ns);
   if(i==3){struct rc8_link_fit before=rx.fit;companion(true,sequence,1);assert(!memcmp(&before,&rx.fit,sizeof before));companion(false,sequence-1,2);assert(!memcmp(&before,&rx.fit,sizeof before));}
  }
- assert(rx.fit.n==16);companion(false,sequence,3);assert(!rx.fit.n&&!rx.sample.valid);
- rc8_receiver_switch(&rx,false);assert(!rx.fit.n);
+ assert(rx.fit.n==16&&rx.fit.result_n==16);companion(false,sequence,3);assert(!rx.fit.n&&!rx.fit.result_n&&!rx.sample.valid);
+ rc8_receiver_switch(&rx,false);assert(!rx.fit.n&&!rx.fit.result_n);
 }
 int main(void){
  for(unsigned s=0;s<3;s++)block(s);
  init();for(unsigned i=0;i<4;i++)timing(tick+64000000,ns+4000000000ULL,7,true);assert(rx.fit.n==4);
- scope.stream++;timing(tick+64000000,ns+4000000000ULL,7,false);assert(!rx.fit.n);timing(tick+64000000,ns+4000000000ULL,7,true);assert(rx.fit.n==1);
- timing(tick+64000000,ns+4000000000ULL,8,false);assert(!rx.fit.n);timing(tick+64000000,ns+4000000000ULL,8,true);assert(rx.fit.n==1);
+ scope.stream++;timing(tick+64000000,ns+4000000000ULL,7,false);assert(!rx.fit.n&&!rx.fit.result_n);timing(tick+64000000,ns+4000000000ULL,7,true);assert(rx.fit.n==1&&!rx.fit.result_n);
+ timing(tick+64000000,ns+4000000000ULL,8,false);assert(!rx.fit.n&&!rx.fit.result_n);timing(tick+64000000,ns+4000000000ULL,8,true);assert(rx.fit.n==1&&!rx.fit.result_n);
  timing(tick+208000000,ns+13000000000ULL,8,false);timing(tick+64000000,ns+4000000000ULL,8,true);assert(rx.fit.n==1);
  /* A valid admitted17ms source offset is outside the fit numeric domain:
   * collect anew, rather than overflow or discard the accepted timing. */

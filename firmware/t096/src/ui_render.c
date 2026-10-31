@@ -226,24 +226,45 @@ bool r2_ui_ble_current(const struct r2_ui_model *m,uint64_t now)
  return m->ble_time_selected&&now<=UINT64_MAX/1000&&now*1000<m->ble_valid_until_us;
 }
 #ifdef R2_LORA
+static bool lora_selected(const struct r2_ui_model *m){return m->lora.choice==RC8_SELECT_LORA||m->lora.display_held;}
+static bool lora_mode(const struct r2_ui_model *m){return lora_selected(m)||(m->ble_rx_supported&&!m->ble_rx_requested&&m->lora.requested&&!m->lora.transmitter);}
+static bool lora_at(const struct r2_ui_model *m,uint64_t now,uint64_t until,int64_t *utc){
+ const struct r2_lora_view *v=&m->lora;
+ uint64_t at=v->sampled_us/1000,fraction=v->sampled_us%1000;
+ if(now<m->sampled_ms||now-m->sampled_ms>2500||!m->platform_ready||m->profile_switching||
+    !v->requested||!v->active||v->fault||!v->utc_us||now>UINT64_MAX/1000||
+    now<at||v->sampled_us>=until||now>=until/1000||v->utc_us<fraction||
+    (now-at)*1000>(uint64_t)INT64_MAX||v->utc_us-fraction>(uint64_t)INT64_MAX-(now-at)*1000)return false;
+ if(utc)*utc=(int64_t)(v->utc_us-fraction+(now-at)*1000);
+ return true;
+}
+static bool lora_input_current(const struct r2_ui_model *m,uint64_t now){
+ return m->lora.state==RC8_AVAILABLE&&lora_at(m,now,m->lora.until_us,NULL);
+}
 static bool lora_current(const struct r2_ui_model *m,uint64_t now){
  const struct r2_lora_view *v=&m->lora;
- /* The view is sampled in microseconds; render time is a floored millisecond.
-  * Compare buckets, then project UTC back by that same fractional sample.
-  * Floor the original exclusive deadline so quantization cannot renew it. */
- uint64_t at=v->sampled_us/1000,fraction=v->sampled_us%1000;
- return now>=m->sampled_ms&&now-m->sampled_ms<=2500&&m->platform_ready&&!m->profile_switching&&
-  v->choice==RC8_SELECT_LORA&&v->requested&&v->active&&!v->fault&&!v->transmitter&&
-  v->state==RC8_AVAILABLE&&v->utc_us&&now<=UINT64_MAX/1000&&
-  now>=at&&v->sampled_us<v->until_us&&now<v->until_us/1000&&
-  v->utc_us>=fraction&&(now-at)*1000<=(uint64_t)INT64_MAX&&
-  v->utc_us-fraction<=(uint64_t)INT64_MAX-(now-at)*1000;
+ if(!lora_selected(m)||v->transmitter)return false;
+ if(v->choice==RC8_SELECT_LORA&&v->state==RC8_AVAILABLE)return lora_at(m,now,v->until_us,NULL);
+ return v->choice==RC8_SELECT_NONE&&v->state==RC8_EXPIRED&&v->display_held&&
+  v->until_us<=UINT64_MAX-(R2_LORA_DISPLAY_HOLD_US-RC8_HOLD_US)&&
+  v->display_until_us<=v->until_us+R2_LORA_DISPLAY_HOLD_US-RC8_HOLD_US&&lora_at(m,now,v->display_until_us,NULL);
 }
+static bool lora_rms_current(const struct r2_ui_model *m,uint64_t now){
+ return !m->lora.transmitter&&lora_input_current(m,now)&&m->lora.link_samples>=4&&
+  m->lora.fit_age_ms<R2_LORA_FIT_HOLD_MS&&now-m->sampled_ms<R2_LORA_FIT_HOLD_MS-m->lora.fit_age_ms;
+}
+static void lora_header_name(char out[9],const char *name){
+ size_t n=0;while(n<8&&name[n])++n;
+ /* Truncate received UTF-8 only between code points. */
+ while(n&&((unsigned char)name[n]&0xc0)==0x80)--n;
+ memcpy(out,name,n);out[n]=0;
+}
+
 #endif
 bool r2_ui_analog(const struct r2_ui_model *m,uint64_t now)
 {
 #ifdef R2_LORA
- if(m->lora.choice==RC8_SELECT_LORA)return lora_current(m,now);
+ if(lora_selected(m))return lora_current(m,now);
 #endif
  if(now<m->sampled_ms||now-m->sampled_ms>2500||!m->platform_ready||!m->clock.valid||m->clock.utc_us<0||!m->scope_active)return false;
  if(m->role==R2_UI_GM)return m->clock.source_available||m->gm_source_fresh;
@@ -254,7 +275,7 @@ bool r2_ui_face_locked(const struct r2_ui_model *m,uint64_t now)
 {
 #ifdef R2_LORA
  /* Dial permission is presentation, not BLE/PLL lock or source authority. */
- if(m->lora.choice==RC8_SELECT_LORA)return lora_current(m,now);
+ if(lora_selected(m))return lora_current(m,now);
 #endif
  if(m->role==R2_UI_GM||m->boundary_clock)return r2_ui_analog(m,now);
  if(now<m->sampled_ms||now-m->sampled_ms>2500||!m->platform_ready||
@@ -265,7 +286,7 @@ bool r2_ui_face_locked(const struct r2_ui_model *m,uint64_t now)
 const char *r2_ui_servo_state(const struct r2_ui_model *m,uint64_t now)
 {
 #ifdef R2_LORA
- if(m->lora.choice==RC8_SELECT_LORA)return lora_current(m,now)?"LoRa EST":"UNAVAILABLE";
+ if(lora_selected(m))return lora_current(m,now)?(m->lora.display_held?"HOLD":"RECEIVING"):"UNAVAILABLE";
 #endif
  if(m->boundary_clock)return r2_ui_analog(m,now)?(m->rc_source_held?"HELD SOURCE":"RECEIVING"):"ACQUIRING";
  if(r2_ui_face_locked(m,now))return "LOCKED";
@@ -279,7 +300,7 @@ const char *r2_ui_servo_state(const struct r2_ui_model *m,uint64_t now)
 bool r2_ui_saver_allowed(const struct r2_ui_model *m,uint64_t now)
 {
 #ifdef R2_LORA
- if(m->lora.choice==RC8_SELECT_LORA)return lora_current(m,now);
+ if(lora_selected(m))return lora_current(m,now);
 #endif
  /* Saver has no dial loss grace: wake on actual source/map/PLL withdrawal.
   * A follower's local GPS is a witness and cannot stand in for BLE sync. */
@@ -300,7 +321,7 @@ bool r2_ui_display_time(const struct r2_ui_model *m,uint64_t now,int64_t *utc,bo
  *coarse=false;
  if(now<m->sampled_ms||now-m->sampled_ms>2500)return false;
 #ifdef R2_LORA
- if(m->lora.choice==RC8_SELECT_LORA){
+ if(lora_selected(m)){
   if(!lora_current(m,now))return false;
   uint64_t value=m->lora.utc_us-m->lora.sampled_us%1000+(now-m->lora.sampled_us/1000)*1000;
   if(value>INT64_MAX)return false;
@@ -321,7 +342,7 @@ bool r2_ui_display_time(const struct r2_ui_model *m,uint64_t now,int64_t *utc,bo
 const char *r2_ui_clock_zone(const struct r2_ui_model *m,uint64_t now,int64_t utc,int64_t *shown){
  *shown=utc;
 #ifdef R2_LORA
- if(m->lora.choice==RC8_SELECT_LORA)return "UTC";
+ if(lora_mode(m))return "UTC";
 #endif
  if(now<m->sampled_ms||now-m->sampled_ms>2500||now>UINT64_MAX/1000||
     now*1000>=m->tz_until_us||!r2_tz_local_us(m->tz,utc,shown))return "UTC";
@@ -352,7 +373,7 @@ void r2_ui_sync_display_update(struct r2_ui_sync_display *c,const struct r2_ui_m
 }
 bool r2_ui_sync_display_time(const struct r2_ui_sync_display *c,const struct r2_ui_model *m,uint64_t now,int64_t *utc){
 #ifdef R2_LORA
- if(m->lora.choice==RC8_SELECT_LORA)return false;
+ if(lora_selected(m))return false;
 #endif
  if(!sync_display_context(m,now)||!c->at_ms||!c->loss_ms||now<c->at_ms||
     now<c->loss_ms||now-c->loss_ms>=500||c->utc_us<0)return false;
@@ -415,14 +436,16 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
  s.native_analog_eligible=face_visible;
  s.native_ble_time=(face_visible&&m->role!=R2_UI_GM)||(fresh&&m->ble_time_selected);
 #ifdef R2_LORA
- if(m->lora.choice==RC8_SELECT_LORA){
+ if(lora_selected(m)){
   s.native_pll_locked=s.native_rms_valid=s.native_ble_time=false;
+  s.native_rms_valid=lora_rms_current(m,now);
+  r2_precision_format(s.native_rms,sizeof s.native_rms,m->lora.link_rms_ns,s.native_rms_valid);
   s.native_served_time=face_locked;
  }
 #endif
  s.native_hot_standby=fresh&&m->scope_active&&m->role==R2_UI_FOLLOWER&&m->local_hot_standby&&m->precision.authorized&&m->precision.map_valid;
 #ifdef R2_LORA
- if(m->lora.choice==RC8_SELECT_LORA)s.native_hot_standby=false;
+ if(lora_selected(m))s.native_hot_standby=false;
 #endif
  int64_t display_utc=0;bool coarse=false;
  s.utc_valid=r2_ui_display_time(m,now,&display_utc,&coarse);
@@ -453,9 +476,6 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
  s.pulse_indicator=s.pps_seen&&m->clock.pps_age_us>=0&&
      m->clock.pps_age_us<250000&&now-m->sampled_ms<250&&
      (uint64_t)m->clock.pps_age_us+(now-m->sampled_ms)*1000<250000?UI_PULSE_PPS:UI_PULSE_OFF;
-#ifdef R2_LORA
- if(m->lora.choice==RC8_SELECT_LORA)s.pulse_indicator=UI_PULSE_OFF;
-#endif
  s.ble_mode_known=true;s.ble_mode_enabled=m->ble_active;s.ble_tx_active=m->ble_active;
  s.rf_ble_tx_mode=m->ble_active;
  s.ui_role.grandmaster=fresh&&m->scope_active&&m->role==R2_UI_GM;
@@ -466,9 +486,16 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
   snprintf(s.ui_role.header,sizeof(s.ui_role.header),"%s>%.8s",m->unit,m->relay_selected?m->upstream_name:m->root_name);
  else snprintf(s.ui_role.header,sizeof(s.ui_role.header),"%s",m->unit);
 #ifdef R2_LORA
- if(m->lora.choice==RC8_SELECT_LORA){
-  snprintf(s.ui_role.header,sizeof s.ui_role.header,"%s LoRa",m->unit);
+ if(lora_mode(m)){
+  char provider[9];lora_header_name(provider,m->upstream_name[0]?m->upstream_name:"--");
+  snprintf(s.ui_role.header,sizeof s.ui_role.header,"%s>%s",m->unit,provider);
   s.ui_role.grandmaster=false;
+  s.native_lora_source=true;
+  s.native_rms_valid=lora_rms_current(m,now);
+  r2_precision_format(s.native_rms,sizeof s.native_rms,m->lora.link_rms_ns,s.native_rms_valid);
+  bool signal=model_fresh&&m->lora.requested&&m->lora.active&&!m->lora.fault&&m->lora.rssi_valid&&
+   m->lora.rx_age_ms<12000&&now-m->sampled_ms<12000-m->lora.rx_age_ms;
+  s.native_rx_known=signal;s.native_rx_bars=signal?(m->lora.rssi_half_dbm>=-160?4:m->lora.rssi_half_dbm>=-190?3:m->lora.rssi_half_dbm>=-220?2:1):0;
  }
 #endif
  /* DC displays the standard USB client sampling rate. The existing dial
@@ -478,14 +505,22 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
 #else
  /* Beat value comes from timing owner, not display cadence or control traffic. */
  s.active_ble_slots=fresh?m->precision_beat_hz:0;
-#ifdef R2_LORA
- if(m->lora.choice==RC8_SELECT_LORA)s.active_ble_slots=0;
-#endif
 #endif
  s.rf_sources.ble=(ui_rf_source_t){.available=fresh&&m->scope_active&&m->ble_time_selected&&s.utc_valid,
    .fresh=fresh&&m->scope_active&&m->ble_time_selected,.utc=true,.second=s.utc_second};
 #ifdef R2_LORA
- if(m->lora.choice==RC8_SELECT_LORA)s.rf_sources.ble=(ui_rf_source_t){0};
+ if(lora_selected(m))s.rf_sources.ble=(ui_rf_source_t){0};
+ s.lora_enabled=model_fresh&&m->lora.requested;s.lora_active=model_fresh&&m->lora.active&&!m->lora.fault;
+ s.lora_fault=model_fresh&&m->lora.fault;
+ s.lora_tx_mode=s.lora_active&&m->lora.transmitter;
+ int64_t lora_utc=0;bool lora_fresh=lora_input_current(m,now);
+ bool lora_time=lora_fresh||lora_current(m,now);
+ if(lora_time)lora_at(m,now,m->lora.display_held?m->lora.display_until_us:m->lora.until_us,&lora_utc);
+ s.rf_sources.lora=(ui_rf_source_t){.available=lora_time,.fresh=lora_fresh,.utc=true,.second=(uint32_t)(lora_utc/1000000)};
+ if(s.lora_active&&s.lora_enabled&&m->lora.activity_age_ms<250&&now>=m->sampled_ms&&now-m->sampled_ms<250-m->lora.activity_age_ms&&!(now/125%2)){
+  unsigned kind=m->lora.activity_kind==1?UI_RF_TIME:UI_RF_PPS;
+  s.rf_lamps[UI_RF_LORA][kind]=m->lora.transmitter?UI_RF_TX:UI_RF_RX;
+ }
 #endif
  /* Transport activity remains visible while time/map qualification is absent.
   * A stalled model cannot keep lamps on; no time authority is inferred. */
@@ -532,12 +567,9 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
   label(fb,8,top+3,clock_zone?clock_zone:"UTC",1,C_DIM);
  label(fb,36,top+3,
 #ifdef R2_LORA
-    lora_current(m,now)?"LoRa":
+    lora_current(m,now)?"LOR":
 #endif
     s.native_ble_time?(s.native_time_relay_hops==1?"RC1":s.native_time_relay_hops==2?"RC2":"BLE"):"PPS",1,
-#ifdef R2_LORA
-    lora_current(m,now)?C_AMBER:
-#endif
     C_GREEN);
   ui_render_pulse_at(fb,s.pulse_indicator,66,(unsigned)(top+2));
   round_panel(fb,3,top+15,74,62,C_PANEL,C_BEZEL);
@@ -623,22 +655,7 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
   label(fb,5,131,"GM/RC: MODE",1,C_DIM);label(fb,5,148,"PRESS:BACK",1,C_DIM);return;
  }
  if(status->page==0){front_clock(fb,&s,clock_zone);
-#ifdef R2_LORA
-  if(m->lora.choice==RC8_SELECT_LORA||(m->ble_rx_supported&&!m->ble_rx_requested&&m->lora.requested&&!m->lora.transmitter)){
-   /* Keep the watch geometry; describe coarse quality independently of
-    * freshness. A valid RC8 estimate earns a dial, never PPS/BLE/PLL claims. */
-   snprintf(s.ui_role.header,sizeof s.ui_role.header,"%s LoRa",m->unit);role_header(fb,&s);
-   fill(fb,32,19,43,10,C_PANEL);label(fb,36,20,s.utc_valid?"LoRa":"WAIT",1,C_AMBER);
-   fill(fb,24,121,51,20,C_PANEL);label(fb,26,122,"ESTIMATE",1,C_DIM);label(fb,30,134,"ACC --",1,C_DIM);
-   fill(fb,8,146,64,9,C_PANEL);label(fb,19,147,m->lora.fault?"RX FAULT":m->lora.active?"LoRa RX":"RX WAIT",1,C_DIM);
-   if(!s.utc_valid){
-    fill(fb,0,54,80,62,C_BG);round_panel(fb,3,54,74,62,C_PANEL,C_BEZEL);fill(fb,5,55,2,57,C_AMBER);
-    label(fb,13,62,"LoRa WAIT",1,C_AMBER);label(fb,11,83,"TIME",1,C_DIM);label(fb,60,83,"--",1,C_DIM);
-    const char *rx=m->lora.fault?"FAULT":m->lora.active?"ON":"WAIT";
-    label(fb,11,101,"RX",1,C_DIM);label(fb,72-(int)strlen(rx)*6,101,rx,1,C_DIM);
-   }
-  }
-#endif
+
 #ifdef R2_PC_PROFILE
   fill(fb,0,0,80,15,C_BG);label(fb,10,4,"PC AWAKE",1,C_AMBER);
 #endif
@@ -648,6 +665,20 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
   return;}
  if(status->page==1){rf_live(fb,&s);return;}
  if(status->page==2){
+#ifdef R2_LORA
+  if(lora_mode(m)){
+   char value[24];bool live=lora_current(m,now),fit=lora_rms_current(m,now);
+   round_panel(fb,3,1,74,13,C_PANEL,C_BEZEL);label(fb,10,4,"LOR TIMING",1,C_WHITE);
+   label(fb,4,20,m->lora.fault?"RADIO FAULT":live?(m->lora.display_held?"DISPLAY HOLD":"RECEIVING"):"WAIT SOURCE",1,m->lora.fault?C_RED:live?C_GREEN:C_AMBER);
+   label(fb,4,33,"LOR RMS",1,C_DIM);shadow_value(value,m->lora.link_rms_ns,fit);label(fb,4,47,value,1,fit?C_CYAN:C_DIM);
+   snprintf(value,sizeof value,"LINK FIT N%u",fit?m->lora.link_samples:0);label(fb,4,61,value,1,C_DIM);
+   if(s.native_rx_known)snprintf(value,sizeof value,"RSSI %ddBm",m->lora.rssi_half_dbm/2);else snprintf(value,sizeof value,"RSSI --");label(fb,4,77,value,1,C_WHITE);
+   snprintf(value,sizeof value,"AGE %u.%us",m->lora.age_ms/1000,m->lora.age_ms%1000/100);label(fb,4,91,value,1,C_DIM);
+   label(fb,4,106,local_pps_current(m,now)?"PPS LIVE":"PPS WAIT",1,local_pps_current(m,now)?C_GREEN:C_DIM);
+   label(fb,4,121,"UTC ACC --",1,C_DIM);label(fb,4,136,m->profile_rc?"RC MODE":"GM MODE",1,C_DIM);
+   label(fb,4,150,"RELATIVE FIT",1,C_DIM);return;
+  }
+#endif
   bool gm=m->role==R2_UI_GM;
   bool active=active_gm_current(m,now);
   bool authorized=fresh&&m->scope_active&&m->precision.authorized;

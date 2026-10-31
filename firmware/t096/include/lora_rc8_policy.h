@@ -68,8 +68,13 @@ struct rc8_link_fit {
  int32_t x,y;
  uint32_t rms_ns;
  uint8_t n;
+ /* Last completed fit, retained only across ordinary block rollover. Its
+  * physical endpoint is never renewed by partial blocks or metadata. */
+ uint64_t result_us;
+ uint32_t result_sequence,result_rms_ns;
+ uint8_t result_n;
 };
-_Static_assert(sizeof(struct rc8_link_fit)==56,"RC8 link-fit reserve");
+_Static_assert(sizeof(struct rc8_link_fit)==80,"RC8 link-fit reserve");
 enum rc8_input_state {RC8_OFF,RC8_ACQUIRING,RC8_AVAILABLE,RC8_EXPIRED};
 enum rc8_assurance {RC8_FRESHNESS_UNKNOWN,RC8_STREAM_CONTINUITY,RC8_ANCHORED_INTERVAL};
 enum rc8_authority {RC8_AUTHORITY_UNKNOWN,RC8_ORIGINAL_ENVELOPE_CURRENT,RC8_ORIGINAL_ENVELOPE_EXPIRED};
@@ -120,7 +125,7 @@ void rc8_stop_begin(struct rc8_stop *,enum rc8_phase,uint64_t);
 enum rc8_stop_result rc8_stop_poll(struct rc8_stop *,uint64_t,bool dma_retired,bool radio_standby,bool fem_off,bool capture_released);
 struct rc8_gesture {uint64_t started_us;bool pressed,eligible,claimed,consumed;};
 bool rc8_gesture_update(struct rc8_gesture *,bool pressed,bool eligible,uint64_t);
-_Static_assert(sizeof(struct rc8_receiver)<=712,"RC8 receiver reserve");
+_Static_assert(sizeof(struct rc8_receiver)<=736,"RC8 receiver reserve including fit provenance");
 _Static_assert(sizeof(struct rc8_export)<=168,"RC8 export reserve");
 _Static_assert(sizeof(struct rc8_packet)<=80,"RC8 packet reserve");
 _Static_assert(sizeof(struct rc8_transmission)<=320,"RC8 TX reserve");

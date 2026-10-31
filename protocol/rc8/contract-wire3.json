@@ -2,7 +2,7 @@
   "schema": 3,
   "contract": "PTOB_RC8",
   "wire_version": 3,
-  "revision": 5,
+  "revision": 6,
   "status": "RUNTIME_INTEGRATION_UNQUALIFIED",
   "license": "MIT",
   "credit": "Jonathan Yantis",
@@ -22,7 +22,8 @@
     "domains": [
       "PTOBR8C3",
       "PTOBR8D3",
-      "PTOBR8T3"
+      "PTOBR8T3",
+      "PTOBR8N3"
     ],
     "byte_order": "little",
     "metadata_reserved_zero": [
@@ -43,7 +44,28 @@
     "stream": "nonzero monotonic uint64 per unpredictable nonzero emitter boot; no wrap",
     "sequence": "nonzero uint32 timing packets only; no wrap; metadata never resets floor",
     "own_gm_boots": "root factory equals emitter; logical root boot and physical emitter boot independently exact, may differ",
-    "no_source": "Companion only; emitter+boot+stream nonzero, all root/parent/epoch zero, scale0/kind0, mandatory TIME_INVALID; strict timing/export validator rejects."
+    "no_source": "Companion only; emitter+boot+stream nonzero, all root/parent/epoch zero, scale0/kind0, mandatory TIME_INVALID; strict timing/export validator rejects.",
+    "name_bytes": 80,
+    "name_body_bytes": 64,
+    "optional_name": {
+      "header_hex": "52380303",
+      "context_offset": 4,
+      "context_bytes": 16,
+      "sequence_offset": 20,
+      "sequence_bytes": 4,
+      "length_offset": 24,
+      "name_offset": 25,
+      "name_max_bytes": 24,
+      "reserved_zero": [
+        [
+          49,
+          15
+        ]
+      ],
+      "padding": "zero from end of name through byte63",
+      "validation": "existing group-name UTF-8 rules, nonempty; sequence and context nonzero",
+      "meaning": "descriptive immediate emitter label only; no scope/time/authority"
+    }
   },
   "policy": {
     "sole_transmitter": "privately enrolled exact factory identity; never alias",
@@ -86,7 +108,8 @@
     "context_repeat_us": 16000000,
     "context_repeat": "One coalesced repeat after each new context; replaces old pending repeat, timing priority, no catch-up.",
     "parent_quality_age": "Conservative accepted causal HELLO seen age, connected/authenticated/map-valid exact peer and quality identity; known bits clear at10s; oldest included datum sets snapshot age; polls never renew.",
-    "bootstrap_full_scope_required": true
+    "bootstrap_full_scope_required": true,
+    "name_scope": "Accept only matching current full authenticated companion context and newer name sequence; never adopt or complete context from name. Clear on OFF, fault, context replacement or valid withdrawal; no timing/history/lease renewal."
   },
   "phy_calculation": {
     "qualified": false,
@@ -108,7 +131,12 @@
       "metadata": 0,
       "timing": 2
     },
-    "startup_airtime_us": 517120
+    "startup_airtime_us": 517120,
+    "optional_name_airtime_us": 258560,
+    "optional_name_nominal_cadence_s": 16,
+    "optional_name_occupancy_percent": 1.616,
+    "total_with_optional_name_nominal_percent": 8.387626666666668,
+    "occupancy_limits": "Existing total_occupancy_percent is baseline timing+companion only. Names/events/deferrals vary actual occupation; no coexistence or regional qualification."
   },
   "future_owner_budgets": {
     "chip_tx_timeout_us": 340000,
@@ -123,11 +151,11 @@
     "ceiling_added_static_bytes": 4096,
     "minimum_static_free_bytes": 1024,
     "preferred_static_free_bytes": 4096,
-    "role_union": "One bounded RX/TX union; RX adds56B sufficient statistics for a maximum16-event relative affine residual fit; compact view remains48B.",
+    "role_union": "One bounded736B RX/TX union; RX fit80B includes last completed same-context relative fit provenance. Compact display view72B.",
     "measurement": "Version124 whole-image measured4032B added/4708B free; version125 adds driver8B and RX fit56B, projecting4096B added/4644B free. Final complete native ELF/high-water required; original reserves retained.",
     "prior_native_free_baseline_bytes": 8740,
     "stack_limit": "excludes worker/IRQ/kernel/libc/libgcc/driver; integrated high-water required",
-    "runtime_snapshot_bytes": 304,
+    "runtime_snapshot_bytes": 344,
     "runtime_export_bytes": 160,
     "historical_planning_items_bytes": {
       "worker_stack": 2048,
@@ -143,17 +171,29 @@
     },
     "historical_planning_total_bytes": 4252,
     "object_max_bytes": {
-      "exclusive_boot_role_union": 712,
-      "snapshot": 304,
+      "exclusive_boot_role_union": 736,
+      "snapshot": 344,
       "export": 160,
       "packet": 80,
       "transmission": 296
+    },
+    "display_metadata_addition": {
+      "since": "0.15.215",
+      "ceiling_bytes": 256,
+      "baseline": "0.15.213 own-device GM/RC writable ELF objects: main3711,ui_service18193,lora_service1247,lora_hw455; total23606B",
+      "scope": "all added name/RSSI/activity/display-deadline/fit-provenance state including copied views",
+      "count": "linked writable symbols in all four affected translation units; complete native static margin also checked",
+      "original_RC8_ceiling_bytes": 4096,
+      "stack_and_buffer_reserves": "unchanged",
+      "minimum_static_free_bytes": 1024
     }
   },
   "gesture": {
-    "arm_us": 1500000,
-    "toggle": "one shot at1.5s; consume extended press and suppress page7 poweroff",
-    "persistence": "volatile"
+    "runtime_menu_hold_us": 2000000,
+    "runtime_toggle": "Open menu, short press advances, separate2s hold selects once; Exit/5s idle closes",
+    "persistence": "volatile",
+    "unused_legacy_helper_arm_us": 1500000,
+    "legacy_helper": "portable rc8_gesture_update only; ordinary runtime controls use shared watch menu"
   },
   "excluded": [
     "RC7 authority from LoRa",
@@ -226,6 +266,20 @@
       "source_or_RF_silence_is_worker_fault": false,
       "stalled_start_cancel_since": "0.15.128",
       "stalled_start_cancel": "advance original stop_serial before out-of-band inhibition; returning start cannot release reset"
+    },
+    "display_continuation": {
+      "maximum_original_event_age_us": 20000000,
+      "functional_authority_hold_us": 12000000,
+      "time": "coarse display only; bounded original physical RX/TX pair",
+      "withdrawal": [
+        "OFF",
+        "fault",
+        "profile or context replacement",
+        "valid TIME_INVALID",
+        "display deadline"
+      ],
+      "renewed_by": "new accepted physical pair only",
+      "authority": false
     }
   },
   "runtime_link_fit": {
@@ -236,8 +290,8 @@
     "x_quantum_us": 100,
     "elapsed_limit_s": 120,
     "nominal_removed_offset_limit_ns": 16000000,
-    "state_bytes": 56,
-    "view_bytes": 48,
+    "state_bytes": 80,
+    "view_bytes": 72,
     "reset": [
       "context",
       "capture_epoch",
@@ -248,7 +302,14 @@
       "degenerate_X"
     ],
     "quality_only_refresh_resets": false,
-    "absolute_accuracy_claim": false
+    "absolute_accuracy_claim": false,
+    "display_rollover_cache": {
+      "maximum_original_endpoint_age_us": 24000000,
+      "requires": "same context/capture epoch, current original12s physical timing input, no actual fit reset",
+      "use": "last completed fit only while next nonoverlapping block has fewer than4 pairs",
+      "provenance": "original last-pair timestamp, timing sequence and fit population; never relabelled as new-block fit",
+      "authority": false
+    }
   },
   "software_launch_abort": {
     "errno": "EINTR",

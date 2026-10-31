@@ -58,6 +58,7 @@ typedef struct{unsigned task_ch,polarity,init_val;}nrfx_gpiote_task_config_t;
 struct r2_capture{uint64_t tick,epoch;int kind;};
 static uint64_t mock_us=1000000,physical_tick=15999999;
 static int pins[64],irq_flags,packet_length=80,busy_high,suppress_dma,alloc_fail,stop_at_attach,stop_at_spi;
+static uint8_t packet_rssi=162,packet_snr=246;
 static unsigned submissions,attach_count,detach_count;static bool route,watchdog_at_attach;
 static uint32_t delay_after_settx_us,delay_before_settx_callback_us,delay_nss_us;
 static bool done_after_delay;
@@ -142,6 +143,7 @@ static int spi_transceive_cb(const struct device *d,const struct spi_config *c,c
  case 0x1d:b[3]=0x22;b[4]=regs[(a[1]<<8)|a[2]];break;
  case 0x12:b[1]=0x22;b[2]=irq_flags>>8;b[3]=irq_flags;break;
  case 0x13:b[1]=0x22;b[2]=packet_length;b[3]=0;break;
+ case 0x14:assert(n==5);b[1]=0x22;b[2]=packet_rssi;b[3]=packet_snr;b[4]=164;break;
  case 0x1e:b[2]=0x22;memcpy(b+3,payload,n-3);break;
  case 0x02:irq_flags=0;if(!stuck_dio)pins[21]=0;break;
  case 0x82:assert(a[1]==0&&a[2]==0&&a[3]==0);break;
@@ -202,7 +204,15 @@ int main(int argc,char **argv){
   closed();assert(wd.closure==31);return 0;}
  if(mode==59){fail_cs_config=true;assert(r2_lora_hw_start(4,false)==-EIO);assert(!submissions&&!route&&!pins[12]);closed();return 0;}
  bool tx_mode=mode==3||mode==11||mode==14||mode==15||mode==16||mode==17||mode==19||mode==20||mode==21||mode==22||mode==23||mode==24||mode==25||mode==27||mode==28||mode==29||mode==30||mode==31||mode==32||mode==33||mode>=34;
- assert(!r2_lora_hw_start(4,mode>=65?false:!tx_mode));
+ assert(!r2_lora_hw_start(4,mode>=73?true:mode>=65?false:!tx_mode));
+ if(mode>=73&&mode<=75){
+  if(mode==74){packet_rssi=255;packet_snr=127;}
+  if(mode==75){packet_rssi=1;packet_snr=128;}
+  inject(2);struct r2_lora_hw_event event;assert(r2_lora_hw_take(&event)==1);
+  assert(event.packet_status_valid&&event.rssi_half_dbm==-(int16_t)packet_rssi&&event.snr_quarter_db==(int8_t)packet_snr);
+  assert(event.tick==physical_tick&&event.generation==4&&event.capture_epoch==7);
+  r2_lora_hw_stop_begin(mock_us+200000);closed();return 0;
+ }
  if(mode>=65&&mode<=72){
   struct r2_lora_hw_edge peek;
   assert(!r2_lora_hw_tx_edge(&peek)&&!peek.tick);

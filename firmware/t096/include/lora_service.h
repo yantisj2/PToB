@@ -5,13 +5,20 @@
 #include <stddef.h>
 /* This is deliberately independent of normal source/precision/USB owners. */
 struct r2_lora_view {
- uint64_t utc_us,until_us,sampled_us;
- uint32_t age_ms,link_rms_ns;
+ uint64_t utc_us,until_us,sampled_us,display_until_us;
+ uint32_t age_ms,link_rms_ns,rx_age_ms,activity_age_ms,fit_age_ms;
+ int16_t rssi_half_dbm;int8_t snr_quarter_db;uint8_t activity_kind;
  uint16_t root_tag,emitter_tag,parent_tag;
  uint8_t state,assurance,choice,link_samples,kind,parent_class,parent_accuracy;
  uint8_t requested:1,active:1,transmitter:1,fault:1,quality_known:1,time_valid:1,parent_quality:1,coord_follow:1;
+ uint8_t display_held:1,rssi_valid:1;
 };
-_Static_assert(sizeof(struct r2_lora_view)==48,"RC8 view reserve");
+_Static_assert(sizeof(struct r2_lora_view)<=72,"RC8 view reserve");
+/* UI-only maximum from the original accepted physical pair; no authority. */
+#define R2_LORA_DISPLAY_HOLD_US UINT64_C(20000000)
+#define R2_LORA_FIT_HOLD_MS 24000u
+void r2_lora_name_publish(const char *);
+void r2_lora_view_named(struct r2_lora_view *,uint64_t *factory,char name[25]);
 void r2_lora_init(uint64_t factory,uint64_t boot,uint64_t transmitter,const struct r2_group_config *);
 void r2_lora_control(bool profile_rc,bool allowed,enum rc8_selected normal_source);
 /* Computed by serialized BLE owner from original authenticated contact leases. */

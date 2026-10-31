@@ -19,7 +19,7 @@ def main():
  body=a.out/'service_body.c';body.write_text(re.sub(r'^#include[^\n]*\n','',(APP/'src/lora_service.c').read_text(),flags=re.M))
  binary=a.out/'runtime';subprocess.run([*flags,'-DR2_LORA_SERVICE_BODY="'+str(body.resolve())+'"',*map(str,[APP/'tests/lora_service_test.c',*common]),'-o',str(binary)],check=True)
  logs=[]
- for mode in range(1,89):
+ for mode in range(1,111):
   r=subprocess.run([str(binary),str(mode)],check=True,text=True,capture_output=True);print(r.stdout.splitlines()[0]);logs.append(r.stdout)
   payload=json.loads(next(line[5:]for line in r.stdout.splitlines()if line.startswith('JSON ')))
   assert len(payload['hw'])==15 and len(payload['link_fit'])==2
@@ -27,6 +27,8 @@ def main():
   assert len(payload['fault_record'])==16 and len(payload['owner'])==5 and len(payload['watchdog'])==7
   assert len(payload['coordination'])==4 and type(payload['rx_suppressed']) is bool
   assert len(payload['launch'])==5 and all(type(x)is int for x in payload['launch'])
+  assert bytes.fromhex(payload['sender_name_hex']).decode()==payload['sender_name']
+  assert len(payload['name'])==6 and len(payload['display'])==3 and len(payload['signal'])==4 and len(payload['fit_provenance'])==3
   if mode==36:assert payload['hw'][12:]==[9,7,0x83]
  ui=a.out/'ui';subprocess.run([*flags,'-DR2_LORA=1',str(APP/'tests/lora_ui_test.c'),str(APP/'src/ui_render.c'),str(APP/'src/precision.c'),'-o',str(ui)],check=True);subprocess.run([str(ui),str(a.out)],check=True)
  for name in ['zephyr/kernel.h','zephyr/sys/atomic.h','zephyr/random/random.h']:
@@ -35,6 +37,15 @@ def main():
  for mode in range(42,52):subprocess.run([str(uiworker),str(mode)],check=True)
  clockworker=a.out/'clockworker';subprocess.run([*flags,'-DR2_LORA=1','-I'+str(a.out.resolve()),str(APP/'tests/lora_ui_clock_worker_test.c'),str(APP/'src/ui_render.c'),str(APP/'src/precision.c'),*map(str,common),'-o',str(clockworker)],check=True)
  for fraction in [0,1,499,999]:subprocess.run([str(clockworker),str(fraction)],check=True)
+ main=(APP/'src/main.c').read_text()
+ helper=main[main.index('static void lora_ui_view('):main.index('\n#endif',main.index('static void lora_ui_view('))]
+ gm=main[main.index('static uint64_t __attribute__((noinline)) gm7_ui_publish('):main.index('\n#endif\nint main(void)',main.index('static uint64_t __attribute__((noinline)) gm7_ui_publish('))]
+ normal=main[main.index('      struct r2_ui_model m=',main.index('    if(now>=ui_due)')):main.index('\n#endif\n    }',main.index('    if(now>=ui_due)'))]
+ normal=normal.replace('ui_due=m.sampled_ms+20;','(void)(m.sampled_ms+20);')
+ name=main[main.index('    if(r2_lora_source_needed()){'):main.index('\n    r2_lora_control(',main.index('    if(r2_lora_source_needed()){'))]
+ (a.out/'main_lora_ui_under_test.h').write_text(helper+'\n'+gm+'\nstatic void normal_ui_publish(uint64_t now,bool platform_ready){\n'+normal+'\n}\nstatic void publish_lora_name(void){\n'+name+'\n}\n')
+ mainui=a.out/'mainui';subprocess.run([*flags,'-DR2_LORA=1','-DR2_NATIVE_BLE=1','-I'+str(a.out.resolve()),str(APP/'tests/lora_main_ui_test.c'),'-o',str(mainui)],check=True);subprocess.run([str(mainui)],check=True)
+ front3=a.out/'front3';subprocess.run([*flags,'-DR2_LORA=1',str(APP/'tests/lora_front3_test.c'),str(APP/'src/precision.c'),'-o',str(front3)],check=True);subprocess.run([str(front3),str(a.out)],check=True)
  (a.out/'runtime.log').write_text(''.join(logs))
- (a.out/'receipt.json').write_text(json.dumps(dict(status='PASS_FAKE_BOUNDARIES_ONLY',modes=88,json_hw_fields=15,json_launch_fields=5,json_payload_limit=3072-96,json_nonzero_abort_fields=[9,7,0x83],source_parity=True,source_hashes={str(x.relative_to(APP)):hashlib.sha256(x.read_bytes()).hexdigest()for x in [APP/'src/lora_service.c',APP/'src/lora_source.c',APP/'include/lora_service.h',APP/'include/lora_watchdog.h',APP/'tests/lora_service_test.c',APP/'tests/lora_source_test.c',APP/'src/ui_render.c',APP/'src/ui_service.c',APP/'tests/lora_ui_test.c',APP/'tests/lora_ui_clock_worker_test.c']}),indent=2)+'\n')
+ (a.out/'receipt.json').write_text(json.dumps(dict(status='PASS_FAKE_BOUNDARIES_ONLY',modes=110,json_hw_fields=15,json_launch_fields=5,json_payload_limit=3072-96,json_nonzero_abort_fields=[9,7,0x83],source_parity=True,source_hashes={str(x.relative_to(APP)):hashlib.sha256(x.read_bytes()).hexdigest()for x in [APP/'src/lora_service.c',APP/'src/lora_source.c',APP/'include/lora_service.h',APP/'include/lora_watchdog.h',APP/'src/lora_rc8_policy.c',APP/'include/lora_rc8_policy.h',APP/'tests/lora_service_test.c',APP/'tests/lora_source_test.c',APP/'src/main.c',APP/'src/ui_render.c',APP/'src/ui_service.c',APP/'legacy_ui/legacy.h',APP/'legacy_ui/draw.inc',APP/'tests/lora_ui_test.c',APP/'tests/lora_ui_clock_worker_test.c',APP/'tests/lora_main_ui_test.c',APP/'tests/lora_front3_test.c',Path(__file__)]}),indent=2)+'\n')
 if __name__=='__main__':main()

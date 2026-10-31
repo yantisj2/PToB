@@ -23,6 +23,7 @@
 #define LOCAL_GM 16u
 #define SOURCE_PRESENT 32u
 #define MESH_CONTACT 64u
+#define DISPLAY_RESET 128u
 #define DIAGNOSTIC_MIN_US UINT64_C(2000000)
 #define CONTEXT_REPEAT_US UINT64_C(16000000)
 #define CADENCE_US UINT64_C(4000000)
@@ -35,14 +36,18 @@ static struct rc8_enrollment binding;
 static uint64_t physical_boot,stop_deadline;
 static bool transmitter;
 static uint32_t generation;
+static uint32_t display_accept_floor;
+static char own_name[25];
+struct sender_name_cache {uint8_t context[RC8_CONTEXT_BYTES];char name[25];uint32_t sequence,accepted,rejected;uint64_t until_us;};
+static struct sender_name_cache sender_name;
 struct tx_state {
  struct rc8_export maps[2];
  struct rc8_correction previous;
  struct rc8_correction captured;
  struct r2_lora_hw_edge captured_edge;
- uint64_t stream,next_us,meta_us,pending_stream,repeat_us,diag_not_before,parent_seen_us;
- uint32_t sequence,pending_sequence,pending_generation;uint16_t repeat_events;
- bool pending,metadata,previous_valid;
+ uint64_t stream,next_us,meta_us,pending_stream,repeat_us,diag_not_before,parent_seen_us,name_us;
+ uint32_t sequence,pending_sequence,pending_generation,name_sequence;uint16_t repeat_events;
+ bool pending,metadata,naming,previous_valid;
 };
 static union {struct tx_state tx;struct rc8_receiver rx;} role;
 struct snapshot {
@@ -54,7 +59,7 @@ struct snapshot {
  struct r2_lora_view view;
  uint8_t context[RC8_CONTEXT_BYTES];
  uint32_t sequence,corrected_sequence,wire_corrected_sequence,accepted,rejected,replayed,unmatched,overflow,metadata,missing_map;
- uint8_t authority;
+ uint64_t rx_us,activity_us;int16_t rssi_half_dbm;int8_t snr_quarter_db;uint8_t activity_kind,authority;bool rssi_valid;
 };
 static struct snapshot published;
 /* Called with lock held; ordinary source/quality snapshots cannot retain a
@@ -67,6 +72,20 @@ static struct k_thread worker_thread;
 static uint64_t mono(void){return k_ticks_to_us_floor64(k_uptime_ticks());}
 static void inc(uint32_t *n){if(*n<UINT32_MAX)++*n;}
 static uint32_t age_ms(uint64_t now,uint64_t at){uint64_t age=now>=at?(now-at)/1000:UINT64_MAX;return age>UINT32_MAX?UINT32_MAX:(uint32_t)age;}
+static uint64_t ceil_ms(uint64_t us){return us/1000+(us%1000!=0);}
+static uint32_t view_age_ms(uint64_t now,uint64_t at){uint64_t age=now>=at?ceil_ms(now-at):UINT64_MAX;return age>UINT32_MAX?UINT32_MAX:(uint32_t)age;}
+static uint32_t advance_age(uint32_t age,uint64_t elapsed){return elapsed>UINT32_MAX-age?UINT32_MAX:age+(uint32_t)elapsed;}
+void r2_lora_name_publish(const char *name){
+ if(!transmitter||!name)return;
+ size_t n=0;while(n<25&&name[n])++n;if(!r2_group_name(name,n))return;
+ k_spinlock_key_t key=k_spin_lock(&lock);
+ if(strcmp(own_name,name)){memset(own_name,0,sizeof own_name);memcpy(own_name,name,n);role.tx.name_us=0;}
+ k_spin_unlock(&lock,key);
+}
+static void clear_sender_name(void){
+ memset(sender_name.context,0,sizeof sender_name.context);memset(sender_name.name,0,sizeof sender_name.name);
+ sender_name.sequence=0;sender_name.until_us=0;
+}
 /* IRQ observation/poll arrival never supplies a physical event timestamp. */
 static bool physical(const struct r2_lora_hw_event *h,struct rc8_event *e){
  struct r2_capture now;uint64_t us;
@@ -114,7 +133,7 @@ void r2_lora_source_publish(const struct rc8_export *input){
   uint16_t changed=RC8_D_SOURCE;
   if(last->scope.root!=map.scope.root||last->scope.root_boot!=map.scope.root_boot)changed|=RC8_D_ROOT;
   if(last->scope.parent!=map.scope.parent||last->scope.parent_boot!=map.scope.parent_boot)changed|=RC8_D_PARENT;
-  ++t->stream;memset(t->maps,0,sizeof t->maps);t->previous_valid=false;t->captured=(struct rc8_correction){0};
+  ++t->stream;memset(t->maps,0,sizeof t->maps);t->previous_valid=false;t->captured=(struct rc8_correction){0};t->name_us=0;t->name_sequence=0;
   events(changed);t->repeat_us=mono()+CONTEXT_REPEAT_US;t->repeat_events=published.diagnostic_events;
   published.event=(struct rc8_event){0};published.correction=(struct rc8_correction){0};published.corrected_sequence=published.wire_corrected_sequence=0;
   memset(published.context,0,sizeof published.context);
@@ -239,7 +258,8 @@ void r2_lora_stop(void){atomic_and(&flags,~ALLOWED);if(!atomic_get(&closed))stop
 void r2_lora_control(bool rc,bool allowed,enum rc8_selected preferred){
  atomic_val_t old=atomic_get(&flags),next;
  do{
-  next=(old&(REQUESTED|SOURCE_PRESENT|MESH_CONTACT))|(rc?PROFILE_RC:0)|(allowed?ALLOWED:0)|(preferred!=RC8_SELECT_NONE?NORMAL:0)|(preferred==RC8_SELECT_LOCAL_GM?LOCAL_GM:0);
+  next=(old&(REQUESTED|SOURCE_PRESENT|MESH_CONTACT|DISPLAY_RESET))|(rc?PROFILE_RC:0)|(allowed?ALLOWED:0)|(preferred!=RC8_SELECT_NONE?NORMAL:0)|(preferred==RC8_SELECT_LOCAL_GM?LOCAL_GM:0);
+  if(!!(old&PROFILE_RC)!=rc)next|=DISPLAY_RESET;
   /* Only the explicitly bound sole transmitter re-arms on RC -> GM.
    * Repeated GM snapshots preserve a manual OFF request; the normal owner,
    * source, fault and immutable drain gates still control actual radio use. */
@@ -248,7 +268,7 @@ void r2_lora_control(bool rc,bool allowed,enum rc8_selected preferred){
  if(!allowed||(transmitter&&rc)||rx_suppressed(next))if(!atomic_get(&closed))stop_now();
 }
 void r2_lora_request(bool on){
- if(on)atomic_or(&flags,REQUESTED);else{atomic_and(&flags,~REQUESTED);if(!atomic_get(&closed))stop_now();}
+ if(on)atomic_or(&flags,REQUESTED);else{atomic_and(&flags,~REQUESTED);k_spinlock_key_t key=k_spin_lock(&lock);clear_sender_name();k_spin_unlock(&lock,key);if(!atomic_get(&closed))stop_now();}
 }
 void r2_lora_toggle(void){r2_lora_request(!(atomic_get(&flags)&REQUESTED));}
 int r2_lora_close_result(void){return (atomic_get(&faulted)&2)?-EIO:atomic_get(&closed)?0:-EAGAIN;}
@@ -277,27 +297,52 @@ void r2_lora_origin(bool active,uint64_t boot,uint32_t epoch){
  r2_diag_scratch.lora.origin.active=active&&boot&&epoch;
  k_spin_unlock(&lock,key);
 }
-void r2_lora_view(struct r2_lora_view *out){
+void r2_lora_view_named(struct r2_lora_view *out,uint64_t *factory,char name[25]){
  if(!out)return;
- k_spinlock_key_t key=k_spin_lock(&lock);*out=published.view;k_spin_unlock(&lock,key);
+ uint64_t at=mono(),name_until=0;k_spinlock_key_t key=k_spin_lock(&lock);*out=published.view;
+ if(factory)*factory=binding.transmitter_factory;
+ if(name){memset(name,0,25);if(!transmitter&&published.quality_known&&published.time_valid&&sender_name.sequence&&at<sender_name.until_us&&
+   !memcmp(sender_name.context,published.context,RC8_CONTEXT_BYTES)){memcpy(name,sender_name.name,25);name_until=sender_name.until_us;}}
+ k_spin_unlock(&lock,key);
  uint64_t now=mono();
+ if(name&&(!name_until||now>=name_until))name[0]=0;
+ /* Both intervals round upward. A copied floor age plus another floor could
+  * otherwise briefly retain expired metrics after worker publication stalls. */
+ uint64_t elapsed=now>=out->sampled_us?ceil_ms(now-out->sampled_us):UINT64_MAX;
+ out->age_ms=advance_age(out->age_ms,elapsed);out->rx_age_ms=advance_age(out->rx_age_ms,elapsed);
+ out->fit_age_ms=advance_age(out->fit_age_ms,elapsed);out->activity_age_ms=advance_age(out->activity_age_ms,elapsed);
+ if(out->rx_age_ms>=RC8_HOLD_US/1000)out->rssi_valid=false;
  if(out->utc_us&&now>=out->sampled_us)out->utc_us+=now-out->sampled_us;
  out->sampled_us=now;
  if(atomic_get(&faulted)){out->fault=true;out->active=false;}
- if(rx_suppressed(atomic_get(&flags))||atomic_get(&faulted)||!(atomic_get(&flags)&REQUESTED)||!(atomic_get(&flags)&ALLOWED)||!out->until_us||now>=out->until_us){out->utc_us=0;out->choice=(atomic_get(&flags)&NORMAL)?((atomic_get(&flags)&LOCAL_GM)?RC8_SELECT_LOCAL_GM:RC8_SELECT_BLE):RC8_SELECT_NONE;}
+ atomic_val_t f=atomic_get(&flags);
+ bool unavailable=rx_suppressed(f)||atomic_get(&faulted)||!(f&REQUESTED)||!(f&ALLOWED);
+ if(!out->until_us||now>=out->until_us){
+  if(out->state==RC8_AVAILABLE)out->state=RC8_EXPIRED;
+  out->choice=(f&NORMAL)?((f&LOCAL_GM)?RC8_SELECT_LOCAL_GM:RC8_SELECT_BLE):RC8_SELECT_NONE;
+  out->display_held=!unavailable&&!(f&(NORMAL|DISPLAY_RESET))&&out->utc_us&&out->display_until_us&&now<out->display_until_us;
+  if(!out->display_held)out->utc_us=0;
+ }
+ if(unavailable){if(name)name[0]=0;out->utc_us=0;out->display_held=false;out->display_until_us=0;out->rssi_valid=false;out->choice=(f&NORMAL)?((f&LOCAL_GM)?RC8_SELECT_LOCAL_GM:RC8_SELECT_BLE):RC8_SELECT_NONE;}
+ if(unavailable||out->state!=RC8_AVAILABLE||out->fit_age_ms>=R2_LORA_FIT_HOLD_MS)out->link_samples=out->link_rms_ns=0;
  struct r2_gm_coordination c;r2_lora_coordination(&c);out->coord_follow=c.root!=0;
 }
+void r2_lora_view(struct r2_lora_view *out){r2_lora_view_named(out,NULL,NULL);}
 static void __attribute__((noinline)) report(uint64_t now,bool active){
  struct snapshot s={0};atomic_val_t f=atomic_get(&flags);
  k_spinlock_key_t key=k_spin_lock(&lock);if(transmitter)parent_age(mono());s=published;k_spin_unlock(&lock,key);
  s.view=(struct r2_lora_view){.requested=(f&REQUESTED)!=0,.active=active,.transmitter=transmitter,.fault=atomic_get(&faulted)!=0,.sampled_us=now};
+ s.view.rx_age_ms=s.rx_us?view_age_ms(now,s.rx_us):UINT32_MAX;s.view.activity_age_ms=s.activity_us?view_age_ms(now,s.activity_us):UINT32_MAX;
+ s.view.activity_kind=s.activity_kind;s.view.rssi_half_dbm=s.rssi_half_dbm;s.view.snr_quarter_db=s.snr_quarter_db;
+ s.view.rssi_valid=active&&(f&REQUESTED)&&!atomic_get(&faulted)&&s.rssi_valid&&s.view.rx_age_ms<RC8_HOLD_US/1000;
  if(!transmitter){
   struct rc8_receiver *r=&role.rx;
   s.scope=r->scope;memcpy(s.context,r->context,sizeof s.context);
   s.quality=r->quality;s.quality_known=r->metadata_known&&now<r->metadata_until_us;s.time_valid=r->time_valid;
   s.diagnostic_us=r->diagnostic_us;s.diagnostic_sequence=r->diagnostic_sequence;s.snapshot_age_ms=r->snapshot_age_ms;s.diagnostic_events=r->diagnostic_events;
   s.view.state=rc8_receiver_state(r,now);s.view.assurance=rc8_receiver_assurance(r,now);
-  if(s.view.state==RC8_AVAILABLE){s.view.link_samples=r->fit.n;s.view.link_rms_ns=r->fit.rms_ns;}
+  s.view.fit_age_ms=r->fit.result_n?view_age_ms(now,r->fit.result_us):UINT32_MAX;
+  if(s.view.state==RC8_AVAILABLE&&s.view.fit_age_ms<R2_LORA_FIT_HOLD_MS){s.view.link_samples=r->fit.result_n;s.view.link_rms_ns=r->fit.result_rms_ns;}
   s.authority=rc8_receiver_authority(r,now);
   s.view.choice=rc8_select((f&NORMAL)!=0,s.view.state,s.view.assurance,true);
   if(s.view.choice==RC8_SELECT_BLE&&(f&LOCAL_GM))s.view.choice=RC8_SELECT_LOCAL_GM; /* explicit lower-quality policy */
@@ -307,10 +352,13 @@ static void __attribute__((noinline)) report(uint64_t now,bool active){
   if(r->sample.valid){
    s.event=r->sample.rx;s.correction=r->sample.tx;s.corrected_sequence=r->sample.tx.sequence;
    uint64_t age=now>=r->sample.rx.local_us?now-r->sample.rx.local_us:UINT64_MAX;
-   s.view.age_ms=age/1000>UINT32_MAX?UINT32_MAX:(uint32_t)(age/1000);
-   if(s.view.state==RC8_AVAILABLE&&r->scope.scale==RC8_UTC&&age<RC8_HOLD_US&&r->sample.tx.event_ns<=UINT64_MAX-age*1000){
+   s.view.age_ms=ceil_ms(age)>UINT32_MAX?UINT32_MAX:(uint32_t)ceil_ms(age);
+   uint64_t display_limit=r->accepted>display_accept_floor?R2_LORA_DISPLAY_HOLD_US:RC8_HOLD_US;
+   if(r->scope.scale==RC8_UTC&&age<display_limit&&r->sample.tx.event_ns<=UINT64_MAX-age*1000){
     s.view.utc_us=r->sample.tx.event_ns/1000+age;
     s.view.until_us=r->sample.rx.local_us+RC8_HOLD_US;
+    s.view.display_until_us=r->sample.rx.local_us+display_limit;
+    s.view.display_held=s.view.state==RC8_EXPIRED&&!(f&NORMAL);
    }
   }
  }else{
@@ -335,6 +383,7 @@ static void __attribute__((noinline)) tx_done(const struct r2_lora_hw_event *h,s
  k_spinlock_key_t key=k_spin_lock(&lock);
  if(!t->pending||h->generation!=generation){t->captured=(struct rc8_correction){0};k_spin_unlock(&lock,key);return;}
  t->pending=false;
+ published.activity_us=e.local_us;published.activity_kind=t->naming?3:t->metadata?2:1;
  if(t->metadata){k_spin_unlock(&lock,key);return;}
  struct rc8_export map;struct rc8_correction c;
  bool valid=t->captured.sequence==t->pending_sequence&&t->pending_stream==t->stream&&
@@ -362,6 +411,7 @@ static int __attribute__((noinline)) transmit(uint64_t now){
  uint64_t repeat_at=t->repeat_us;bool repeat=repeat_at&&now>=repeat_at;
  bool diagnostic=published.scope.emitter&&now>=t->diag_not_before&&
   (published.diagnostic_events||now>=t->meta_us||repeat);
+ bool naming=valid&&own_name[0]&&now>=t->name_us&&now>=t->diag_not_before&&!diagnostic;
  uint64_t deadline=valid?t->next_us:UINT64_MAX;
  uint32_t sequence=t->sequence;
  bool previous=t->previous_valid&&valid&&t->pending_stream==map.scope.stream;
@@ -369,10 +419,17 @@ static int __attribute__((noinline)) transmit(uint64_t now){
  k_spin_unlock(&lock,key);
  /* Timing and its prior physical correction always win. Diagnostics can also
   * report loss with no valid time map, but remain subject to TX controls. */
- if(!timing&&!diagnostic)return 0;
+ if(!timing&&!diagnostic&&!naming)return 0;
+ naming=naming&&!timing;
  bool metadata=!timing;
  uint32_t diag_sequence=0,event_revision=0,encoded_age=0;uint16_t event_bits=0;
- if(metadata){
+ if(naming){
+  struct rc8_name p={0};key=k_spin_lock(&lock);
+  if(t->name_sequence==UINT32_MAX){k_spin_unlock(&lock,key);return -EOVERFLOW;}
+  p.sequence=t->name_sequence+1;memcpy(p.name,own_name,25);k_spin_unlock(&lock,key);
+  if(rc8_context_id(p.context,&map.scope,group)||rc8_name_encode(wire,&p,group))return -EINVAL;
+  length=RC8_NAME_BYTES;
+ }else if(metadata){
   uint64_t budget=r2_lora_hw_budget_us(RC8_META_BYTES)+R2_LORA_HW_LAUNCH_MARGIN_US;
   if(!budget||now>deadline||budget>deadline-now)return 0;
   struct rc8_companion p;
@@ -416,7 +473,7 @@ static int __attribute__((noinline)) transmit(uint64_t now){
   * driver. A physical edge may arrive before SetTx's worker returns. This is
   * provisional only: errors clear it, and acceptance still requires take(). */
  key=k_spin_lock(&lock);
- t->pending=true;t->metadata=metadata;t->pending_generation=next_generation;
+ t->pending=true;t->metadata=metadata;t->naming=naming;t->pending_generation=next_generation;
  if(!metadata){t->captured=(struct rc8_correction){0};t->pending_stream=map.scope.stream;t->pending_sequence=sequence+1;}
  k_spin_unlock(&lock,key);
  int result=r2_lora_hw_tx_before(wire,length,next_generation,metadata?deadline:UINT64_MAX);
@@ -430,7 +487,8 @@ static int __attribute__((noinline)) transmit(uint64_t now){
   key=k_spin_lock(&lock);
   t->pending=t->previous_valid=false;t->pending_stream=0;t->pending_sequence=0;t->captured=(struct rc8_correction){0};
   t->diag_not_before=now+DIAGNOSTIC_MIN_US;
-  if(metadata)published.diagnostic_sequence=diag_sequence;
+  if(naming){++t->name_sequence;t->name_us=now+CONTEXT_REPEAT_US;}
+  else if(metadata)published.diagnostic_sequence=diag_sequence;
   else{t->sequence=sequence+1;published.sequence=t->sequence;
    if(t->next_us<now+CADENCE_US)t->next_us=now+CADENCE_US;
   }
@@ -439,7 +497,8 @@ static int __attribute__((noinline)) transmit(uint64_t now){
  if(result)return result;
  generation=next_generation;
  key=k_spin_lock(&lock);t->pending=true;t->metadata=metadata;
- if(metadata){t->meta_us=now+RC8_META_REFRESH_US;t->diag_not_before=now+DIAGNOSTIC_MIN_US;
+ if(naming){++t->name_sequence;t->name_us=now+CONTEXT_REPEAT_US;t->diag_not_before=now+DIAGNOSTIC_MIN_US;}
+ else if(metadata){t->name_us=0;t->meta_us=now+RC8_META_REFRESH_US;t->diag_not_before=now+DIAGNOSTIC_MIN_US;
   if(repeat&&t->repeat_us==repeat_at){t->repeat_us=0;t->repeat_events=0;}
   published.diagnostic_sequence=diag_sequence;published.snapshot_age_ms=encoded_age;if(published.event_revision==event_revision)published.diagnostic_events&=(uint16_t)~event_bits;inc(&published.metadata);
  }else{t->pending_stream=map.scope.stream;t->pending_sequence=++t->sequence;t->next_us=now+CADENCE_US;
@@ -459,7 +518,17 @@ static void begin_stop(int error){
  if(error&&!(error==-ECANCELED&&cancelled()))atomic_set(&faulted,1);
  stop_now();owner.stopping=true;
  if(!transmitter)rc8_receiver_switch(&role.rx,false);
- k_spinlock_key_t key=k_spin_lock(&lock);published.view.utc_us=published.view.until_us=0;published.view.active=false;k_spin_unlock(&lock,key);
+ k_spinlock_key_t key=k_spin_lock(&lock);clear_sender_name();published.view.utc_us=published.view.until_us=published.view.display_until_us=0;published.view.display_held=false;published.view.rssi_valid=published.rssi_valid=false;published.view.active=false;k_spin_unlock(&lock,key);
+}
+static bool receive_name(const struct r2_lora_hw_event *h,uint64_t now){
+ struct rc8_name p;struct rc8_receiver *r=&role.rx;
+ bool valid=!rc8_name_decode(&p,h->frame,h->length,group)&&r->cached&&r->metadata_known&&r->time_valid&&now<r->metadata_until_us&&
+  r->scope.emitter==binding.transmitter_factory&&!memcmp(p.context,r->context,RC8_CONTEXT_BYTES);
+ k_spinlock_key_t key=k_spin_lock(&lock);
+ if(valid&&!memcmp(sender_name.context,p.context,RC8_CONTEXT_BYTES)&&p.sequence<=sender_name.sequence)valid=false;
+ if(valid){memcpy(sender_name.context,p.context,RC8_CONTEXT_BYTES);memcpy(sender_name.name,p.name,25);sender_name.sequence=p.sequence;sender_name.until_us=r->metadata_until_us;inc(&sender_name.accepted);}
+ else inc(&sender_name.rejected);
+ k_spin_unlock(&lock,key);return valid;
 }
 /* Keep packet processing off the simultaneous encode/HMAC call chain. */
 static void __attribute__((noinline)) process_event(uint64_t now){
@@ -468,17 +537,31 @@ static void __attribute__((noinline)) process_event(uint64_t now){
   else if(result==1){
    struct rc8_event e;
    if(physical(&h,&e)){
+    now=mono(); /* SPI/capture can yield to a newer physical RX edge. */
     if(transmitter&&h.kind==R2_LORA_HW_TX_DONE)tx_done(&h,e);
     else if(!transmitter&&h.kind==R2_LORA_HW_RX_DONE&&h.generation==generation){
+     uint32_t before_sequence=role.rx.highest_sequence,before_metadata=role.rx.diagnostic_sequence;
+     bool named=h.length==RC8_NAME_BYTES&&h.frame[0]=='R'&&h.frame[1]=='8'&&h.frame[2]==RC8_WIRE_VERSION&&h.frame[3]==3;
+     bool authenticated=named?receive_name(&h,now):false;
+     if(!named){
      (void)rc8_receiver_freeze(&role.rx,h.frame,h.length,e);
      k_spinlock_key_t origin_key=k_spin_lock(&lock);
      uint64_t origin_boot=r2_diag_scratch.lora.origin.active?r2_diag_scratch.lora.origin.boot:0;
      uint32_t origin_epoch=r2_diag_scratch.lora.origin.active?r2_diag_scratch.lora.origin.epoch:0;
      k_spin_unlock(&lock,origin_key);
      (void)rc8_receiver_process_origin(&role.rx,group,now,origin_boot,origin_epoch);
+     authenticated=(role.rx.highest_sequence!=before_sequence&&role.rx.last_timing_us==e.local_us)||
+      (role.rx.diagnostic_sequence!=before_metadata&&role.rx.diagnostic_us==e.local_us);
      if(h.length==RC8_META_BYTES&&role.rx.metadata_known&&role.rx.diagnostic_us==e.local_us){
       k_spinlock_key_t key=k_spin_lock(&lock);inc(&published.metadata);k_spin_unlock(&lock,key);
      }
+     k_spinlock_key_t name_key=k_spin_lock(&lock);
+     if(memcmp(sender_name.context,role.rx.context,RC8_CONTEXT_BYTES)||!role.rx.time_valid)clear_sender_name();
+     k_spin_unlock(&lock,name_key);
+     }
+     k_spinlock_key_t key=k_spin_lock(&lock);published.activity_us=e.local_us;published.activity_kind=named?3:h.length==RC8_META_BYTES?2:1;
+     if(authenticated&&h.packet_status_valid){published.rx_us=e.local_us;published.rssi_half_dbm=h.rssi_half_dbm;published.snr_quarter_db=h.snr_quarter_db;published.rssi_valid=true;}
+     k_spin_unlock(&lock,key);
     }
    }else if(transmitter){
     role.tx.pending=role.tx.previous_valid=false;k_spinlock_key_t key=k_spin_lock(&lock);role.tx.captured=(struct rc8_correction){0};inc(&published.missing_map);k_spin_unlock(&lock,key);
@@ -489,6 +572,7 @@ static void __attribute__((noinline)) process_event(uint64_t now){
 /* One production iteration, also exercised with public fake hardware boundaries. */
 static void __attribute__((noinline)) service_step(void){
  uint64_t now=mono();atomic_val_t f=atomic_get(&flags);
+ if(!transmitter&&(f&DISPLAY_RESET)){display_accept_floor=role.rx.accepted;atomic_and(&flags,~DISPLAY_RESET);}
  bool desired=!rx_suppressed(f)&&!atomic_get(&faulted)&&(f&ALLOWED)&&(f&REQUESTED)&&binding.enrolled&&binding.factory&&binding.transmitter_factory&&group&&group->id&&(!transmitter||!(f&PROFILE_RC));
  r2_diag_scratch.lora.beat=k_uptime_get_32();
  r2_diag_scratch.lora.monitor=desired||owner.active||owner.stopping;
@@ -523,7 +607,7 @@ static void __attribute__((noinline)) service_step(void){
   process_event(now);
   if(transmitter&&!owner.stopping){int rc=transmit(now);if(rc)begin_stop(rc==-EINTR?0:rc);}
  }
- report(now,owner.active&&!owner.stopping);
+ report(mono(),owner.active&&!owner.stopping);
  r2_diag_scratch.lora.beat=k_uptime_get_32();
 }
 static void worker(void *a,void *b,void *c){
@@ -541,6 +625,7 @@ void r2_lora_init(uint64_t factory,uint64_t boot,uint64_t tx,const struct r2_gro
  memset(&r2_diag_scratch.lora.origin,0,sizeof r2_diag_scratch.lora.origin);
  binding=(struct rc8_enrollment){.factory=factory,.transmitter_factory=tx,.enrolled=factory&&boot&&g&&g->id};
  physical_boot=boot;group=g;transmitter=rc8_is_transmitter(&binding);
+ display_accept_floor=0;memset(own_name,0,sizeof own_name);memset(&sender_name,0,sizeof sender_name);
  published.diagnostic_events=RC8_D_BOOT;published.event_revision=1;
  if(transmitter){
   role.tx.stream=1;role.tx.repeat_us=mono()+CONTEXT_REPEAT_US;role.tx.repeat_events=RC8_D_BOOT;
@@ -606,18 +691,27 @@ static uint32_t stack_unused(void){
  return UINT32_MAX;
 }
 int r2_lora_json(char *out,size_t capacity,int result){
- struct snapshot s;k_spinlock_key_t key=k_spin_lock(&lock);s=published;uint64_t deadline=stop_deadline;k_spin_unlock(&lock,key);
+ struct snapshot s;struct sender_name_cache name;uint32_t fit_sequence=0,name_tx_sequence=0;uint8_t fit_collecting=0;
+ k_spinlock_key_t key=k_spin_lock(&lock);s=published;name=sender_name;uint64_t deadline=stop_deadline;
+ if(transmitter)name_tx_sequence=role.tx.name_sequence;
+ else{fit_sequence=role.rx.fit.result_sequence;fit_collecting=role.rx.fit.n;}
+ k_spin_unlock(&lock,key);
  r2_lora_view(&s.view);
  struct r2_lora_hw_diag h;r2_lora_hw_diag(&h);
  struct r2_gm_coordination coord;r2_lora_coordination(&coord);
  struct r2_lora_watchdog_state w;unsigned irqkey=irq_lock();w=r2_diag_scratch.lora;irq_unlock(irqkey);
- char context[33];for(unsigned i=0;i<16;i++)snprintf(context+2*i,3,"%02x",s.context[i]);
+ char context[33],name_context[33],name_hex[49],name_json[49];
+ for(unsigned i=0;i<16;i++){snprintf(context+2*i,3,"%02x",s.context[i]);snprintf(name_context+2*i,3,"%02x",name.context[i]);}
+ unsigned name_len=0,j=0;while(name_len<24&&name.name[name_len]){unsigned char c=name.name[name_len];snprintf(name_hex+2*name_len,3,"%02x",c);if(c=='"'||c=='\\')name_json[j++]='\\';name_json[j++]=(char)c;++name_len;}
+ name_hex[2*name_len]=0;name_json[j]=0;
+ bool name_current=!transmitter&&s.view.requested&&s.view.active&&!s.view.fault&&s.quality_known&&s.time_valid&&name.sequence&&mono()<name.until_us&&!memcmp(name.context,s.context,16);
  return snprintf(out,capacity,
  "{\"rc8\":3,\"result\":%d,\"boot\":\"%016llx\",\"emitter_boot\":\"%016llx\",\"configured_tx\":\"%016llx\",\"transmitter\":%s,\"requested\":%s,\"active\":%s,\"fault\":%s,"
  "\"rx_suppressed\":%s,\"closed\":%s,\"fault_bits\":%ld,\"drain_deadline_us\":%llu,\"stack_unused\":%u,\"context\":\"%s\",\"emitter\":\"%016llx\",\"stream\":%llu,\"root\":\"%016llx\",\"root_boot\":\"%016llx\",\"source_epoch\":%u,\"kind\":%u,\"scale\":%u,"
  "\"sequence\":%u,\"corrected_sequence\":%u,\"wire_corrected_sequence\":%u,\"event_tick\":%llu,\"capture_epoch\":%llu,\"event_mono_us\":%llu,\"event_ns\":%llu,\"created_ns\":%llu,\"expires_ns\":%llu,\"map_generation\":%u,\"map_age_us\":%u,\"upstream_bound_ns\":%u,"
  "\"accepted\":%u,\"rejected\":%u,\"replayed\":%u,\"unmatched\":%u,\"overflow\":%u,\"metadata\":%u,\"missing_map\":%u,\"hold_age_ms\":%u,\"state\":%u,\"assurance\":%u,\"source_authority\":%u,\"choice\":%u,\"output_bound_ns\":null,\"rc7_authority\":false,"
  "\"companion\":[%u,%u,%u,%u,%s,%s],\"parent\":[\"%016llx\",\"%016llx\"],\"quality\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%d,%u,%u,%u],\"link_fit\":[%u,%u],"
+ "\"sender_name\":\"%s\",\"sender_name_hex\":\"%s\",\"name_context\":\"%s\",\"name\":[%u,%u,%u,%u,%s,%llu],\"display\":[%s,%llu,%llu],\"signal\":[%s,%d,%d,%u],\"fit_provenance\":[%u,%u,%u],"
  "\"coordination\":[\"%016llx\",\"%016llx\",%u,%llu],\"launch\":[%u,%u,%u,%u,%u],\"watchdog\":[1,%u,%u,%u,%u,%d,%u],\"fault_record\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u],\"owner\":[%u,%u,%u,%u,%u],"
  "\"hw\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%d,%u,%u,%u,%u,%u]}",
  result,(unsigned long long)physical_boot,(unsigned long long)s.scope.emitter_boot,(unsigned long long)binding.transmitter_factory,transmitter?"true":"false",s.view.requested?"true":"false",s.view.active?"true":"false",atomic_get(&faulted)?"true":"false",
@@ -626,6 +720,7 @@ int r2_lora_json(char *out,size_t capacity,int result){
  s.accepted,s.rejected,s.replayed,s.unmatched,s.overflow,s.metadata,s.missing_map,s.view.age_ms,s.view.state,s.view.assurance,s.authority,s.view.choice,
  s.diagnostic_sequence,s.snapshot_age_ms,s.diagnostic_events,age_ms(mono(),s.diagnostic_us),s.quality_known?"true":"false",s.time_valid?"true":"false",
  (unsigned long long)s.scope.parent,(unsigned long long)s.scope.parent_boot,s.quality.known,s.quality.values,s.quality.role,s.quality.hop,s.quality.parent_class,s.quality.parent_accuracy,s.quality.parent_bound_ns,s.quality.correction_age_ms,s.quality.map_life_ms,s.quality.rate_ppb,s.quality.residual_ns,s.quality.losses,s.quality.recoveries,s.view.link_samples,s.view.link_rms_ns,
+ name_json,name_hex,name_context,name.accepted,name.rejected,name.sequence,name_tx_sequence,name_current?"true":"false",(unsigned long long)name.until_us,s.view.display_held?"true":"false",(unsigned long long)s.view.until_us,(unsigned long long)s.view.display_until_us,s.view.rssi_valid?"true":"false",s.view.rssi_half_dbm,s.view.snr_quarter_db,s.view.rx_age_ms,fit_sequence,s.view.fit_age_ms,fit_collecting,
  (unsigned long long)coord.root,(unsigned long long)coord.boot,coord.epoch,(unsigned long long)coord.until,
  w.launch_budget,w.precommit_us,w.launch_us,w.command_commit_us,w.command_committed,
  w.serial,w.coalesced,w.terminal,w.saved,w.journal_result,w.reset_requested,

@@ -1,6 +1,7 @@
 /* Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT */
 #include "lora_rc8_policy.h"
 #include <limits.h>
+#include <stddef.h>
 #include "precision_servo.h"
 #include <string.h>
 static void count(uint32_t *n){if(*n<UINT32_MAX)++*n;}
@@ -154,9 +155,10 @@ static uint32_t root_u64(uint64_t value){
  while(bit){if(value>=result+bit){value-=result+bit;result=(result>>1)+bit;}else result>>=1;bit>>=2;}
  return (uint32_t)result;
 }
-static void __attribute__((noinline)) link_fit(struct rc8_receiver *s,const struct rc8_event *rx,uint64_t ns){
+static void __attribute__((noinline)) link_fit(struct rc8_receiver *s,const struct rc8_event *rx,uint64_t ns,uint32_t sequence){
  struct rc8_link_fit *f=&s->fit;
- if(f->n>=16||(s->sample.valid&&(rx->capture_epoch!=s->sample.rx.capture_epoch||rx->local_us<=s->sample.rx.local_us||rx->local_us-s->sample.rx.local_us>=RC8_HOLD_US)))memset(f,0,sizeof *f);
+ if(s->sample.valid&&(rx->capture_epoch!=s->sample.rx.capture_epoch||rx->local_us<=s->sample.rx.local_us||rx->local_us-s->sample.rx.local_us>=RC8_HOLD_US))memset(f,0,sizeof *f);
+ else if(f->n>=16)memset(f,0,offsetof(struct rc8_link_fit,result_us));
  if(!f->n){f->tick=rx->tick;f->ns=ns;f->n=1;return;}
  /* Explicit bounds keep every integer sum exact and far from overflow.
   * A discontinuity starts a new block without changing timing admission. */
@@ -171,6 +173,7 @@ static void __attribute__((noinline)) link_fit(struct rc8_receiver *s,const stru
   if(xx<=0)goto restart;
   double variance=(yy-xy*xy/xx)/n;
   f->rms_ns=variance>0?root_u64((uint64_t)variance):0;
+  f->result_us=rx->local_us;f->result_sequence=sequence;f->result_rms_ns=f->rms_ns;f->result_n=f->n;
  }
  return;
 restart:
@@ -268,7 +271,7 @@ bool rc8_receiver_process_origin(struct rc8_receiver *s,const struct r2_group_co
   if(h->occupied&&(now<h->rx.local_us||now-h->rx.local_us>RC8_CORRECTION_US))h->occupied=false;
   if(p.corrected&&h->occupied&&h->sequence==p.correction.sequence){
    if(p.correction.sequence>s->withdrawal_sequence&&candidate(s,h,&p.correction,now)){
-    link_fit(s,&h->rx,p.correction.event_ns);
+    link_fit(s,&h->rx,p.correction.event_ns,h->sequence);
     s->sample=(struct rc8_sample){.rx=h->rx,.tx=p.correction,.valid=true};accepted=true;count(&s->accepted);
    }
    h->occupied=false;

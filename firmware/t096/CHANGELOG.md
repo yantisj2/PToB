@@ -1,5 +1,38 @@
 # T096 changelog
 
+## 0.15.215 — Restore the LoRa watch and coherent front screens
+
+Restore the original Casio watch geometry, **LOR** source, separate live local
+PPS indication, **LOR RMS**, GM/RC footer and RX bars. The dial reads **.25Hz**
+for the unchanged four-second timing cadence. RF and Precision now use the same
+selected LoRa snapshot, actual packet RSSI and valid relative link fit. Ordinary
+BLE rendering and source preference remain unchanged.
+
+An optional authenticated wire3 type3 packet supplies the immediate emitter's
+actual name. It is accepted only against the current full time-valid companion
+context, with its own monotonic sequence and original companion expiry. Names
+never supply time or renew timing, coordination or USB permission. The listener
+does not substitute a local alias; the transmitter supplies its resolved custom
+NAME or verified unit label. Existing timing/companion bytes and vectors remain
+unchanged. Name traffic yields to timing and existing FEM deadline guards.
+
+A separate coarse display continuation lasts at most20 seconds from the original
+physical pair, bridging an isolated miss while retaining the original12-second
+functional/coordination limit. OFF, faults, context changes and applicable source
+withdrawal revoke it. A completed relative fit may remain visible during ordinary
+block rollover for less than24 seconds from its original endpoint, only with
+current12-second timing input. Real fit reset reasons clear that result. The
+publisher also refreshes evaluation time after preemptible event capture, closing
+the same old-timestamp/new-model failure addressed by .214 in the UI worker.
+
+Production-body checks cover authenticated naming, replay/context invalidation,
+actual packet-status conversion, single-miss display continuity, original expiry,
+fit provenance/rollover, timestamp preemption, both main publication paths and
+front-three native pixels. Native inspection separately counts the complete
+name/strength/display-state addition against a256-byte cap. These software
+checks do not establish hardware continuity, optical appearance or UTC accuracy;
+exact-device observations remain separate.
+
 ## 0.15.214 — Keep LoRa display snapshots in one time domain
 
 Refresh the UI evaluation timestamp after copying each immutable model. A

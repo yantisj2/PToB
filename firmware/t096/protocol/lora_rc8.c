@@ -3,6 +3,29 @@
 #include <errno.h>
 #include <string.h>
 static bool nonzero(const uint8_t *p,size_t n){uint8_t b=0;for(size_t i=0;i<n;i++)b|=p[i];return b!=0;}
+int rc8_name_encode(uint8_t w[RC8_NAME_BYTES],const struct rc8_name *p,const struct r2_group_config *g){
+ if(!w)return -EINVAL;
+ memset(w,0,RC8_NAME_BYTES);
+ if(!p||!p->sequence||!nonzero(p->context,RC8_CONTEXT_BYTES))return -EINVAL;
+ size_t n=0;while(n<=RC8_NAME_MAX&&p->name[n])n++;
+ if(!r2_group_name(p->name,n))return -EINVAL;
+ w[0]='R';w[1]='8';w[2]=RC8_WIRE_VERSION;w[3]=3;
+ memcpy(w+4,p->context,RC8_CONTEXT_BYTES);r2_group_put(w+20,p->sequence,4);
+ w[24]=(uint8_t)n;memcpy(w+25,p->name,n);
+ int rc=r2_group_mac(w+64,g,"PTOBR8N3",w,64);if(rc)memset(w,0,RC8_NAME_BYTES);return rc;
+}
+int rc8_name_decode(struct rc8_name *p,const uint8_t *w,size_t n,const struct r2_group_config *g){
+ if(!p)return -EINVAL;
+ memset(p,0,sizeof *p);
+ if(!w||n!=RC8_NAME_BYTES||w[0]!='R'||w[1]!='8'||w[2]!=RC8_WIRE_VERSION||w[3]!=3||
+ !w[24]||w[24]>RC8_NAME_MAX)return -EINVAL;
+ if(!r2_group_verify(w+64,g,"PTOBR8N3",w,64))return -EACCES;
+ size_t length=w[24];
+ if(!nonzero(w+4,RC8_CONTEXT_BYTES)||!r2_group_get(w+20,4)||
+ !r2_group_name((const char *)w+25,length)||nonzero(w+25+length,64-25-length))return -EINVAL;
+ memcpy(p->context,w+4,RC8_CONTEXT_BYTES);p->sequence=r2_group_get(w+20,4);
+ memcpy(p->name,w+25,length);return 0;
+}
 bool rc8_scope_equal(const struct rc8_scope *a,const struct rc8_scope *b){
  return a&&b&&a->emitter==b->emitter&&a->emitter_boot==b->emitter_boot&&a->stream==b->stream&&
  a->root==b->root&&a->root_boot==b->root_boot&&a->parent==b->parent&&a->parent_boot==b->parent_boot&&

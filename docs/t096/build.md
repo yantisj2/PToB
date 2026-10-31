@@ -5,7 +5,7 @@ Copyright (c) 2026 Jonathan Yantis. MIT.
 Native builds [clean compiler output and retain the latest two image bundles](../firmware-storage.md)
 per device/profile, with installed/recovery pins preserved.
 
-This guide builds and inspects T096 source **0.15.214** without opening hardware.
+This guide builds and inspects T096 source **0.15.215** without opening hardware.
 For profile choices and controls, see the [T096 README](../../firmware/t096/README.md).
 Release-by-release implementation and validation notes are in the
 [T096 changelog](../../firmware/t096/CHANGELOG.md).
@@ -260,3 +260,10 @@ The ordinary menu has a separate **128-byte** mutable-state allowance against
 the .210 UI baseline. Native inspection counts the linked UI objects and keeps
 the existing TZ/RC8 limits and absolute 1,024-byte unallocated floor. Display
 buffers, radio/USB allocations and thread stack sizes remain unchanged.
+
+Source .215 separately caps the complete OTA-name, measured RX-strength and
+display/fit-provenance addition at **256 bytes** against the inspected .213
+GM/RC writable objects. Inspection counts all four affected translation units,
+including copied UI models, and retains the original RC8, TZ, menu, stack,
+buffer and absolute free-RAM gates. This is a linked allocation check; actual
+stack high-water and sustained hardware behavior remain separate observations.

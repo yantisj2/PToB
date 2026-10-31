@@ -471,6 +471,18 @@ static void hot_report(const struct r2_service_status *s,const struct r2_clock *
   }else next=now+1000;
 }
 #endif
+#ifdef R2_LORA
+/* Descriptive sender identity only; never timing selection or authority. */
+static void lora_ui_view(struct r2_ui_model *m){
+ uint64_t emitter;char received[25];r2_lora_view_named(&m->lora,&emitter,received);
+ if(m->lora.choice==RC8_SELECT_LORA||m->lora.display_held||
+    (m->ble_rx_supported&&!m->ble_rx_requested&&m->lora.requested&&!m->lora.transmitter)){
+  if(received[0])memcpy(m->upstream_name,received,sizeof m->upstream_name);
+  else if(emitter)snprintf(m->upstream_name,sizeof m->upstream_name,"%04x",(unsigned)(emitter&UINT16_MAX));
+  else snprintf(m->upstream_name,sizeof m->upstream_name,"--");
+ }
+}
+#endif
 #ifdef R2_GM7_NATIVE
 /* Keep temporary UI scratch out of main's unrelated command/reply frame. */
 static uint64_t __attribute__((noinline)) gm7_ui_publish(uint64_t now,bool platform_ready,bool bt_ready){
@@ -488,7 +500,7 @@ static uint64_t __attribute__((noinline)) gm7_ui_publish(uint64_t now,bool platf
       r2_dc_ui(&m);
 #endif
 #ifdef R2_LORA
-      r2_lora_view(&m.lora);
+      lora_ui_view(&m);
 #endif
       m.sampled_ms=k_uptime_get();r2_ui_publish(&m);return m.sampled_ms+20;
 }
@@ -599,6 +611,10 @@ int main(void)
     }
 #endif
 #ifdef R2_LORA
+    if(r2_lora_source_needed()){
+      const char *advertised=service.name[0]&&strncmp(service.name,"Clock-",6)?service.name:identity.unit;
+      r2_lora_name_publish(advertised);
+    }
     r2_lora_control(service.profile_rc,platform_ready&&normal_started&&maintenance.phase==R2_IDLE&&!poweroff_requested&&!r2_ui_poweroff_requested()&&!service.profile_pending,
       service.follower_clock_valid?RC8_SELECT_BLE:service.serving&&service.source_eligible?RC8_SELECT_LOCAL_GM:RC8_SELECT_NONE);
     if(r2_ui_take_lora_toggle()){
@@ -738,7 +754,7 @@ int main(void)
       r2_dc_ui(&m);
 #endif
 #ifdef R2_LORA
-      r2_lora_view(&m.lora);
+      lora_ui_view(&m);
 #endif
       m.sampled_ms=k_uptime_get();r2_ui_publish(&m);ui_due=m.sampled_ms+20;
 #endif

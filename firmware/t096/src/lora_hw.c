@@ -777,6 +777,16 @@ int r2_lora_hw_take(struct r2_lora_hw_event *out) {
           memcpy(out->frame, dma_rx + 3, n);
           out->kind = R2_LORA_HW_RX_DONE;
           count(&counters.rx_done);
+          /* The frozen CRC-valid packet owns these measurements until rearm.
+           * Semtech GetPacketStatus: RSSI half-dBm, signed SNR quarter-dB. */
+          const uint8_t status_dummy[] = {0, 0, 0, 0};
+          rc = command(0x14, status_dummy, sizeof(status_dummy));
+          if (!rc && !status_ok(dma_rx[1])) rc = -EIO;
+          if (!rc) {
+            out->rssi_half_dbm = -(int16_t)dma_rx[2];
+            out->snr_quarter_db = (int8_t)dma_rx[3];
+            out->packet_status_valid = true;
+          }
         }
       }
     } else if (state == 2 && (flags & 0x260)) {

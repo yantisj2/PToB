@@ -462,7 +462,7 @@ static void rf_live(uint8_t *fb, const ui_snapshot_t *s) {
         unsigned y = ui_rf_lamp_y(radio, s->rf_help);
         label(fb, 7, (int)y - 10, radio == UI_RF_BLE ?
               (s->rf_ble_tx_mode ? "BLE RX+TX" : s->ble_mode_known && !s->ble_mode_enabled ? "BLE OFF" : "BLE RX") :
-              (!s->lora_enabled ? "LORA OFF" :
+              (s->lora_fault ? "LORA FAULT" : !s->lora_enabled ? "LORA OFF" :
 #ifdef PTOB_LORA_LS4
                s->lora_tx_capable && s->lora_tx_enabled ? "LORA TX" : s->lora_active ? "LORA TWO-WAY" : "LORA RX"
 #else
@@ -488,7 +488,7 @@ static void rf_live(uint8_t *fb, const ui_snapshot_t *s) {
         label(fb,5,74,"BLE",1,C_DIM);label(fb,26,74,ble_state,1,C_GREEN);
     }else metric(fb,74,"BLE",ble_state,C_BLUE);
     rf_time(fb, 85, &s->rf_sources.ble);
-    metric(fb, 99, "LORA", rf_source_state(&s->rf_sources.lora), C_GREEN);
+    metric(fb, 99, "LORA", s->lora_fault ? "FAULT" : rf_source_state(&s->rf_sources.lora), s->lora_fault ? C_RED : C_GREEN);
     rf_time(fb, 110, &s->rf_sources.lora);
     fill(fb, 5, 122, 70, 1, C_BEZEL);
     label(fb, 5, 126, "DELTA ns", 1, C_DIM);
@@ -526,10 +526,15 @@ static void analog_clock(uint8_t *fb, const ui_snapshot_t *s, int cy) {
     uint16_t rate_color = !s->die_temperature_valid ? C_DIM :
         s->die_temperature_c < 32 ? C_BLUE :
         s->die_temperature_c <= 39 ? C_GREEN : C_AMBER;
-    int rate_width=(int)strlen(rate)*6-1;
+    int rate_width=s->native_lora_source?14:(int)strlen(rate)*6-1;
     int rate_x=cx-(rate_width+1+12)/2;
     inset_badge(fb,cx-14,cy+7,29,13,C_LCD);
-    label(fb,rate_x,cy+10,rate,1,rate_color);
+    if(s->native_lora_source){
+        /* .25 Hz is the four-second physical timing cadence. Compact only
+         * the dot's empty columns to fit the original 29px inset. */
+        label(fb,rate_x-1,cy+10,".",1,rate_color);
+        label(fb,rate_x+3,cy+10,"25",1,rate_color);
+    }else label(fb,rate_x,cy+10,rate,1,rate_color);
     tight_italic_label(fb,rate_x+rate_width+1,cy+10,"Hz",rate_color);
     unsigned hour_index = hour * 5u + minute / 12u;
     line(fb, cx, cy, cx + radial_x(hour_index, 12),
@@ -735,11 +740,11 @@ static void front_clock(uint8_t *fb, const ui_snapshot_t *s,const char *zone_lab
     role_header(fb,s);
     round_panel(fb, 3, 17, 74, 35, C_PANEL, C_BEZEL);
     label(fb, 8, 20, zone_label?zone_label:s->gnss_native_health&&s->native_served_time?"UTC":s->lora_only?"UTC":s->source_provisional?"UTC":s->mesh_profile ? (s->mesh_utc?"UTC":"REL") : s->acquiring_first_lock ? "ACQ" : "UTC", 1, C_DIM);
-    const char *source = s->gnss_native_health&&s->native_reason==UI_NATIVE_NONE&&!s->native_analog_eligible?"SYNC":s->gnss_native_health&&s->native_ble_time?(s->native_time_relay_hops==1?"RC1":s->native_time_relay_hops==2?"RC2":"BLE"):s->gnss_native_health&&s->native_analog_eligible?"PPS":s->gnss_native_health&&s->native_served_time?"COARSE":s->gnss_native_health&&s->utc_valid?"HOLD":s->lora_only?"LOR":s->source_provisional?"PROV":s->acquiring_first_lock ?
+    const char *source = s->native_lora_source?"LOR":s->gnss_native_health&&s->native_reason==UI_NATIVE_NONE&&!s->native_analog_eligible?"SYNC":s->gnss_native_health&&s->native_ble_time?(s->native_time_relay_hops==1?"RC1":s->native_time_relay_hops==2?"RC2":"BLE"):s->gnss_native_health&&s->native_analog_eligible?"PPS":s->gnss_native_health&&s->native_served_time?"COARSE":s->gnss_native_health&&s->utc_valid?"HOLD":s->lora_only?"LOR":s->source_provisional?"PROV":s->acquiring_first_lock ?
                              (s->boot_elapsed_seconds >= 360000u ? "99H+" : "WAIT") :
                          s->utc_valid ? (s->state==CLOCK_HOLDOVER ? "HOLD" : s->network_time ? "NET" : "GPS") :
                          s->cached_time_valid ? "MEM" : "WAIT";
-    label(fb, s->gnss_native_health&&s->native_served_time ? 36 : s->acquiring_first_lock ? 48 :
+    label(fb, s->native_lora_source||(s->gnss_native_health&&s->native_served_time) ? 36 : s->acquiring_first_lock ? 48 :
               s->utc_valid || s->cached_time_valid ? 46 : 48,
           20, source, 1, s->acquiring_first_lock ? C_AMBER :
                           s->utc_valid ? (s->state==CLOCK_LOCKED ? C_GREEN : C_AMBER) :
@@ -805,7 +810,7 @@ static void front_clock(uint8_t *fb, const ui_snapshot_t *s,const char *zone_lab
 #ifdef R2_DC_PROFILE
       "USB RMS"
 #else
-      s->ui_role.grandmaster?"BEAT RMS":"SYNC RMS"
+      s->native_lora_source?"LOR RMS":s->ui_role.grandmaster?"BEAT RMS":"SYNC RMS"
 #endif
       ):s->copy_profile?"PPS PPB":s->basic_profile?"BASIC":"BEAT FRQ",1,C_DIM);
     char rate[16];

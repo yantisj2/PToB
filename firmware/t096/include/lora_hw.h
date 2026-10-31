@@ -10,6 +10,9 @@ struct r2_lora_hw_event {
  uint64_t tick,capture_epoch,local_us;
  uint32_t generation;
  enum r2_lora_hw_kind kind;
+ int16_t rssi_half_dbm;
+ int8_t snr_quarter_db;
+ bool packet_status_valid;
  uint8_t length,frame[R2_LORA_HW_BYTES];
 };
 struct r2_lora_hw_ack {

@@ -78,10 +78,18 @@ uncertainty and grants no RC7 timing or GM takeover authority. See the
 [LoRa contract](../../protocol/rc8/README.md).
 
 A current LoRa UTC estimate can drive the digital and analog watch, including
-while BLE is parked. The watch labels this source **LoRa**, **ESTIMATE** and
-**ACC --**; its dial does not indicate BLE/PLL lock or measured accuracy. Time
-and the dial withdraw at the original **12-second** physical-event hold limit,
-or when reception is disabled or faulted. The LoRa clock uses UTC.
+while BLE is parked. Its original watch layout shows **LOR**, **LOR RMS**, the
+authenticated OTA emitter name, actual GM/RC mode and measured LoRa RX-strength
+bars. The rate badge reads **.25Hz**: one timing packet every four seconds.
+Local PPS remains a separate indication. LOR RMS measures relative physical
+link consistency, not UTC accuracy or BLE/PLL lock. The LoRa clock uses UTC.
+
+An isolated missed packet may continue the coarse watch display for at most
+**20 seconds** from its original physical event. The receiver's functional and
+coordination hold remains **12 seconds**; display continuation grants no source,
+election or USB authority. OFF, fault, source/context replacement and valid
+TIME_INVALID withdrawal remove the old estimate immediately. BLE remains
+preferred while usable, with its existing screens and rate badge.
 
 ## Button controls
 
