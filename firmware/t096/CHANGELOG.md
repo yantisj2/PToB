@@ -1,5 +1,19 @@
 # T096 changelog
 
+## 0.15.224 — continuous coarse watch at rate-fit expiry
+
+At the original24s LoRa rate-fit deadline, retain only the phase accumulated
+up to that deadline and continue coarse watch extrapolation at nominal rate.
+This prevents an artificial clock step when rate confidence expires, including
+a late worker publication and negative oscillator correction. A fresh physical
+pair resets the coarse phase carry. Original12s physical and20s display holds,
+metadata, calibration expiry and source/context fences are unchanged.
+
+The independent LoRa shadow map now expires at that same original fit deadline;
+nominal-rate coarse fallback cannot masquerade as a newly qualified precision
+map. Expired/missing PPS records remain explicit and PPS never trains LoRa.
+The wire5 RF endpoints and driver behavior are unchanged.
+
 ## 0.15.223 — capture TX preamble start and RX explicit header
 
 Move LoRa timestamps to hardware BUSY falling at TX preamble start and first

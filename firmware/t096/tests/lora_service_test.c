@@ -589,6 +589,38 @@ int main(int argc,char **argv){assert(argc==2);unsigned mode=(unsigned)atoi(argv
   char json[3072],expected[80];assert(r2_lora_json(json,sizeof json,0)>0);
   snprintf(expected,sizeof expected,"\"fit_provenance\":[%u,%u,%u]",published_sequence,v.fit_age_ms,published_collecting);assert(strstr(json,expected));
  }
+ else if(mode>=111&&mode<=114){
+  struct rc8_scope s=coordination_acquire();companion(s,true,1,5300000);
+  const uint64_t anchor=15000001,deadline=25200001;
+  const int32_t rate=mode==112?-4553:mode==113?0:4553;
+  role.rx.sample.rx.local_us=anchor;role.rx.sample.rx.tick=anchor*16;
+  role.rx.fit.result_us=1200001;role.rx.fit.result_n=16;role.rx.fit.result_rate_ppb=rate;role.rx.fit.result_sequence=8;
+  now_us=deadline-1;report(now_us,true);
+  assert(published.watch_rate==rate&&!published.watch_coarse_phase_ns&&published.fit_until_us==deadline);
+  assert(published.view.until_us==anchor+RC8_HOLD_US&&published.view.display_until_us==anchor+R2_LORA_DISPLAY_HOLD_US);
+  uint64_t before=published.view.utc_us;
+  witness_enabled=true;r2_lora_shadow_publish();assert(witness_published==1&&witness_map.normal_map.rate==rate);
+  assert(witness_map.normal_until==deadline*16);
+  /* Even a stalled worker cannot publish precision after the ORIGINAL fit
+   * deadline. A genuine fitted zero rate has the same finite lifetime. */
+  now_us=deadline;r2_lora_shadow_publish();assert(witness_published==1&&witness_withdrawn==1);
+  now_us=deadline+(mode==114?100000:0);report(now_us,true);
+  int32_t phase=(int32_t)((int64_t)(deadline-anchor)*rate/1000000);
+  assert(!published.watch_rate&&published.watch_coarse_phase_ns==phase&&!published.fit_until_us);
+  assert(!published.view.link_samples&&!published.view.link_rms_ns);
+  assert(published.view.utc_us==(role.rx.sample.tx.event_ns+(now_us-anchor)*1000+phase)/1000);
+  if(mode!=114)assert(published.view.utc_us>=before&&published.view.utc_us-before<=2);
+  now_us+=100000;report(now_us,true);assert(published.watch_coarse_phase_ns==phase);
+  /* Metadata alone neither resets the carry nor extends the physical holds. */
+  companion(s,true,2,now_us+10000);assert(published.watch_coarse_phase_ns==phase&&!published.fit_until_us);
+  assert(published.view.until_us==anchor+RC8_HOLD_US&&published.view.display_until_us==anchor+R2_LORA_DISPLAY_HOLD_US);
+  r2_lora_shadow_publish();assert(witness_published==1);
+  /* A new physical pair is a new coarse anchor; expired confidence is not
+   * borrowed and neither the old carry nor an observer map is transplanted. */
+  role.rx.sample.rx.local_us=now_us;role.rx.sample.rx.tick=now_us*16;
+  report(now_us,true);assert(!published.watch_coarse_phase_ns&&!published.fit_until_us);
+  r2_lora_shadow_publish();assert(witness_published==1);
+ }
  else assert(false);
  char json[3072];int n=r2_lora_json(json,sizeof json-96,0);assert(n>0&&n<(int)sizeof json-96);printf("PASS runtime mode%u role=%zu snapshot=%zu worker=%zu json=%d\nJSON %s\n",mode,sizeof role,sizeof published,sizeof worker_stack,n,json);
  return 0;

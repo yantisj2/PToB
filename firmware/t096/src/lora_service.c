@@ -64,7 +64,8 @@ struct snapshot {
  struct r2_lora_view view;
  uint8_t context[RC8_CONTEXT_BYTES];
  uint64_t probe_until,probe_lab_until;uint32_t probe_status[9];
- int32_t watch_rate;
+ int32_t watch_rate,watch_coarse_phase_ns;
+ uint64_t fit_until_us;
  uint32_t sequence,corrected_sequence,wire_corrected_sequence,accepted,rejected,replayed,unmatched,overflow,metadata,missing_map;
  uint64_t rx_us,activity_us;uint32_t fit_sequence;int16_t rssi_half_dbm;int8_t snr_quarter_db;uint8_t activity_kind,authority,fit_collecting;bool rssi_valid;
 };
@@ -400,8 +401,10 @@ static void __attribute__((noinline)) report(uint64_t now,bool active){
  struct snapshot s={0};atomic_val_t f=atomic_get(&flags);
  k_spinlock_key_t key=k_spin_lock(&lock);if(transmitter)parent_age(mono());s=published;k_spin_unlock(&lock,key);
  bool had_lora=s.view.choice==RC8_SELECT_LORA;
+ int32_t prior_rate=s.watch_rate,prior_phase=s.watch_coarse_phase_ns;
+ bool same_event=!transmitter&&s.event.tick==role.rx.sample.rx.tick&&s.event.capture_epoch==role.rx.sample.rx.capture_epoch;
  s.view=(struct r2_lora_view){.requested=(f&REQUESTED)!=0,.active=active,.transmitter=transmitter,.fault=atomic_get(&faulted)!=0,.sampled_us=now};
- s.watch_rate=0;
+ s.watch_rate=0;s.watch_coarse_phase_ns=0;s.fit_until_us=0;
  s.view.rx_age_ms=s.rx_us?view_age_ms(now,s.rx_us):UINT32_MAX;s.view.activity_age_ms=s.activity_us?view_age_ms(now,s.activity_us):UINT32_MAX;
  s.view.activity_kind=s.activity_kind;s.view.rssi_half_dbm=s.rssi_half_dbm;s.view.snr_quarter_db=s.snr_quarter_db;
  s.view.rssi_valid=active&&(f&REQUESTED)&&!atomic_get(&faulted)&&s.rssi_valid&&s.view.rx_age_ms<RC8_HOLD_US/1000;
@@ -433,9 +436,26 @@ static void __attribute__((noinline)) report(uint64_t now,bool active){
     if(r2_capture_now_at(&at,&sampled)&&at.epoch==r->sample.rx.capture_epoch&&at.tick>=r->sample.rx.tick&&
        at.tick-r->sample.rx.tick<=R2_LORA_DISPLAY_HOLD_US*16){
      uint64_t ns=(at.tick-r->sample.rx.tick)*125/2;
-     int32_t rate=r->fit.result_n>=4&&r->fit.result_rate_ppb>=-100000&&r->fit.result_rate_ppb<=100000&&now>=r->fit.result_us&&now-r->fit.result_us<24000000?r->fit.result_rate_ppb:0;
-     s.watch_rate=rate;
-     int64_t corrected=(int64_t)ns+(int64_t)ns*rate/INT64_C(1000000000);
+     bool fitted=r->fit.result_n>=4&&r->fit.result_rate_ppb>=-100000&&r->fit.result_rate_ppb<=100000&&
+         r->fit.result_us<=UINT64_MAX-UINT64_C(24000000);
+     uint64_t expiry=fitted?r->fit.result_us+UINT64_C(24000000):0;
+     bool fresh=fitted&&now>=r->fit.result_us&&now<expiry;
+     int32_t rate=fresh?r->fit.result_rate_ppb:0;
+     /* Expired rate confidence cannot become a zero-rate map with the old
+      * anchor: that would step the delivered clock by its accumulated phase.
+      * Keep only the phase already earned up to the ORIGINAL fit deadline;
+      * subsequent coarse extrapolation is nominal. No expiry is renewed.
+      * Derive the crossing from physical event monotonic origins, not the
+      * delayed worker's activation time. New physical pairs clear the carry. */
+     int32_t phase=0;
+     if(!fresh&&same_event){
+      phase=prior_phase;
+      if(prior_rate&&fitted&&now>=expiry&&expiry>=r->sample.rx.local_us&&
+         expiry-r->sample.rx.local_us<=R2_LORA_DISPLAY_HOLD_US)
+       phase=(int32_t)((int64_t)(expiry-r->sample.rx.local_us)*prior_rate/INT64_C(1000000));
+     }
+     s.watch_rate=rate;s.watch_coarse_phase_ns=phase;s.fit_until_us=fresh?expiry:0;
+     int64_t corrected=(int64_t)ns+(int64_t)ns*rate/INT64_C(1000000000)+phase;
      uint64_t delay=now<probe.cal_until?probe.delay_ns:0;
      if(corrected>=0&&r->sample.tx.event_ns<=UINT64_MAX-(uint64_t)corrected-delay){
       s.view.utc_us=(r->sample.tx.event_ns+(uint64_t)corrected+delay)/1000;s.view.sampled_us=sampled;
@@ -478,10 +498,11 @@ void __attribute__((noinline)) r2_lora_shadow_publish(void){
  const struct snapshot *s=&published;
  bool valid=!(atomic_get(&flags)&NORMAL)&&s->view.active&&!atomic_get(&faulted)&&s->view.requested&&
   s->view.choice==RC8_SELECT_LORA&&s->time_valid&&s->quality_known&&s->scope.scale==RC8_UTC&&
-  now<s->view.until_us&&now<s->view.tz_until_us&&s->event.capture_epoch==at.epoch;
+  now<s->view.until_us&&now<s->view.tz_until_us&&now<s->fit_until_us&&s->event.capture_epoch==at.epoch;
  tick=s->event.tick;epoch=s->event.capture_epoch;fit=s->fit_sequence;rate=s->watch_rate;
  cal_until=now<s->probe_until?s->probe_until:0;delay=cal_until?s->probe_status[3]:0;
  until=s->view.until_us;if(s->view.tz_until_us<until)until=s->view.tz_until_us;
+ if(s->fit_until_us<until)until=s->fit_until_us;
  if(cal_until&&cal_until<until)until=cal_until;
  if(valid&&s->correction.event_ns<=(uint64_t)INT64_MAX-delay){
   m=(struct rc_shadow_map){.normal=true,.lora=true,.lora_delay_ns=delay,
@@ -1011,7 +1032,7 @@ int r2_lora_json(char *out,size_t capacity,int result){
  "\"accepted\":%u,\"rejected\":%u,\"replayed\":%u,\"unmatched\":%u,\"overflow\":%u,\"metadata\":%u,\"missing_map\":%u,\"hold_age_ms\":%u,\"state\":%u,\"assurance\":%u,\"source_authority\":%u,\"choice\":%u,\"output_bound_ns\":null,\"rc7_authority\":false,"
  "\"companion\":[%u,%u,%u,%u,%s,%s],\"parent\":[\"%016llx\",\"%016llx\"],\"quality\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%d,%u,%u,%u],\"link_fit\":[%u,%u],"
  "\"sender_name\":\"%s\",\"sender_name_hex\":\"%s\",\"name_context\":\"%s\",\"name\":[%u,%u,%u,%u,%s,%llu],\"display\":[%s,%llu,%llu],\"signal\":[%s,%d,%d,%u],\"fit_provenance\":[%u,%u,%u],"
- "\"tz\":[%u,%d,%llu],\"rtt\":[%u,%u,%u,%u,%d,%u,%u,%u,%llu,%u],\"rtt_lab\":[%s,%llu,%u,%u,%u],\"rtt_reference\":\"TX_BUSY_START_RX_HEADER\",\"rtt_events\":[%llu,%llu,%llu,%llu,%llu,%llu,%u,%d],\"watch_rate_ppb\":%d,\"coordination\":[\"%016llx\",\"%016llx\",%u,%llu],\"launch\":[%u,%u,%u,%u,%u],\"watchdog\":[1,%u,%u,%u,%u,%d,%u],\"fault_record\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u],\"owner\":[%u,%u,%u,%u,%u],"
+ "\"tz\":[%u,%d,%llu],\"rtt\":[%u,%u,%u,%u,%d,%u,%u,%u,%llu,%u],\"rtt_lab\":[%s,%llu,%u,%u,%u],\"rtt_reference\":\"TX_BUSY_START_RX_HEADER\",\"rtt_events\":[%llu,%llu,%llu,%llu,%llu,%llu,%u,%d],\"watch_rate_ppb\":%d,\"watch_coarse_phase_ns\":%d,\"coordination\":[\"%016llx\",\"%016llx\",%u,%llu],\"launch\":[%u,%u,%u,%u,%u],\"watchdog\":[1,%u,%u,%u,%u,%d,%u],\"fault_record\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u],\"owner\":[%u,%u,%u,%u,%u],"
  "\"hw\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%d,%u,%u,%u,%u,%u]}",
  result,(unsigned long long)physical_boot,(unsigned long long)s.scope.emitter_boot,(unsigned long long)binding.transmitter_factory,transmitter?"true":"false",s.view.requested?"true":"false",s.view.active?"true":"false",atomic_get(&faulted)?"true":"false",
  rx_suppressed(atomic_get(&flags))?"true":"false",atomic_get(&closed)?"true":"false",(long)atomic_get(&faulted),(unsigned long long)deadline,stack_unused(),context,(unsigned long long)s.scope.emitter,(unsigned long long)s.scope.stream,(unsigned long long)s.scope.root,(unsigned long long)s.scope.root_boot,s.scope.source_epoch,s.scope.kind,s.scope.scale,
@@ -1024,7 +1045,7 @@ int r2_lora_json(char *out,size_t capacity,int result){
  s.probe_status[0],s.probe_status[1],s.probe_status[2],s.probe_status[3],(int32_t)s.probe_status[4],s.probe_status[5],s.probe_status[6],s.probe_status[7],(unsigned long long)s.probe_until,s.probe_status[8],
  lab?"true":"false",(unsigned long long)s.probe_lab_until,lab?5000u:60000u,lab?15000u:900000u,lab?30000u:1800000u,
  (unsigned long long)audit.t1,(unsigned long long)audit.t2,(unsigned long long)audit.t3,(unsigned long long)audit.t4,
- (unsigned long long)audit.epoch,(unsigned long long)audit.at_us,audit.offer,audit.rate,s.watch_rate,
+ (unsigned long long)audit.epoch,(unsigned long long)audit.at_us,audit.offer,audit.rate,s.watch_rate,s.watch_coarse_phase_ns,
  (unsigned long long)coord.root,(unsigned long long)coord.boot,coord.epoch,(unsigned long long)coord.until,
  w.launch_budget,w.precommit_us,w.launch_us,w.command_commit_us,w.command_committed,
  w.serial,w.coalesced,w.terminal,w.saved,w.journal_result,w.reset_requested,

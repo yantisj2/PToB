@@ -2,7 +2,7 @@
   "schema": 5,
   "contract": "PTOB_RC8_RF_EVENTS5",
   "wire_version": 5,
-  "revision": 1,
+  "revision": 2,
   "status": "RUNTIME_INTEGRATION_UNQUALIFIED",
   "license": "MIT",
   "credit": "Jonathan Yantis",
@@ -354,5 +354,11 @@
     "physical_validation": false,
     "companion_chip_tx_timeout_us": 420000,
     "companion_fem_cutoff_us": 450000
+  },
+  "local_frequency_fit_expiry": {
+    "hold_us": 24000000,
+    "deadline": "original fit result monotonic time plus hold; never renewed by metadata, publication or RTT",
+    "precision": "LoRa shadow maps expire by this deadline even if worker publication stalls; no nominal-rate precision replacement",
+    "coarse_watch": "At expiry retain phase accumulated only through the original deadline, then extrapolate at nominal rate. A new physical pair resets that carry. Original 12s physical and 20s display holds remain."
   }
 }

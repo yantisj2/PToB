@@ -1,5 +1,5 @@
 /* Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT
- * Portable wire3 policy. Hardware ownership remains outside this module. */
+ * Portable wire5 policy. Hardware ownership remains outside this module. */
 #pragma once
 #include "../protocol/lora_rc8.h"
 #define RC8_CORRECTION_US UINT64_C(8000000)

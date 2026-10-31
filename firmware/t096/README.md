@@ -59,7 +59,7 @@ before serving time. COLD can receive BLE timing while qualifying locally.
 | Display behavior | Normal refresh **4 Hz**, RF page **8 Hz**. Eligible screensaver starts after **5 minutes** idle at **50% brightness**. |
 | BLE timing | Authenticated **G1/RC7** precision reception and relay. Current coarse TZ wire uses **GM7 revision 4, JOIN revision 5, RC control/capability revision 8**. |
 | GM coordination | Broadcast ANN/STATUS/ROLE, persistent G1 following without GM admission, local HOT readiness and independent GNSS qualification. Client GATT admission remains required. |
-| LoRa timing | Optional **RC8 timing3/coarse4** fallback with root/source identity. A configured transmitter can export qualified local GM time or its accepted locked BLE source. |
+| LoRa timing | Optional **RC8 wire5** fallback with root/source identity. A configured transmitter can export qualified local GM time or its accepted locked BLE source. |
 | USB | Hardware-captured USB frame boundaries; RC exports BLE time, DC exports local GNSS time to the macOS client. |
 | Time zone | GM uses its GNSS location and pinned IANA offset calendars; manual-zone/fixed-offset overrides. Local display follows leased metadata and returns to UTC on expiry. |
 | Development | Zephyr-based native builds with pinned public dependencies; private device binding and GM/RC enrollment. No enrolled binary is distributed. |

@@ -19,7 +19,7 @@ def main():
  body=a.out/'service_body.c';body.write_text(re.sub(r'^#include[^\n]*\n','',(APP/'src/lora_service.c').read_text(),flags=re.M))
  binary=a.out/'runtime';subprocess.run([*flags,'-DR2_LORA_SERVICE_BODY="'+str(body.resolve())+'"',*map(str,[APP/'tests/lora_service_test.c',*common]),'-o',str(binary)],check=True)
  logs=[]
- for mode in range(1,111):
+ for mode in range(1,115):
   r=subprocess.run([str(binary),str(mode)],check=True,text=True,capture_output=True);print(r.stdout.splitlines()[0]);logs.append(r.stdout)
   payload=json.loads(next(line[5:]for line in r.stdout.splitlines()if line.startswith('JSON ')))
   assert len(payload['hw'])==15 and len(payload['link_fit'])==2
@@ -27,7 +27,7 @@ def main():
   assert len(payload['fault_record'])==16 and len(payload['owner'])==5 and len(payload['watchdog'])==7
   assert len(payload['coordination'])==4 and type(payload['rx_suppressed']) is bool
   assert len(payload['launch'])==5 and all(type(x)is int for x in payload['launch'])
-  assert payload['rtt_reference']=='TX_BUSY_START_RX_HEADER' and len(payload['rtt_events'])==8 and type(payload['watch_rate_ppb']) is int
+  assert payload['rtt_reference']=='TX_BUSY_START_RX_HEADER' and len(payload['rtt_events'])==8 and type(payload['watch_rate_ppb']) is int and type(payload['watch_coarse_phase_ns']) is int
   assert bytes.fromhex(payload['sender_name_hex']).decode()==payload['sender_name']
   assert len(payload['name'])==6 and len(payload['display'])==3 and len(payload['signal'])==4 and len(payload['fit_provenance'])==3
   if mode==36:assert payload['hw'][12:]==[9,7,0x83]
@@ -52,5 +52,5 @@ def main():
  mainui=a.out/'mainui';subprocess.run([*flags,'-DR2_LORA=1','-DR2_NATIVE_BLE=1','-I'+str(a.out.resolve()),str(APP/'tests/lora_main_ui_test.c'),'-o',str(mainui)],check=True);subprocess.run([str(mainui)],check=True)
  front3=a.out/'front3';subprocess.run([*flags,'-DR2_LORA=1',str(APP/'tests/lora_front3_test.c'),str(APP/'src/precision.c'),'-o',str(front3)],check=True);subprocess.run([str(front3),str(a.out)],check=True)
  (a.out/'runtime.log').write_text(''.join(logs))
- (a.out/'receipt.json').write_text(json.dumps(dict(status='PASS_FAKE_BOUNDARIES_ONLY',modes=110,probe_modes=28,json_hw_fields=15,json_launch_fields=5,json_payload_limit=3072-96,json_nonzero_abort_fields=[9,7,0x83],source_parity=True,source_hashes={str(x.relative_to(APP)):hashlib.sha256(x.read_bytes()).hexdigest()for x in [APP/'src/lora_service.c',APP/'src/lora_source.c',APP/'include/lora_service.h',APP/'include/lora_watchdog.h',APP/'src/rc_shadow.c',APP/'include/rc_shadow.h',APP/'include/shadow_settle.h',APP/'tests/shadow_worker_test.c',APP/'tests/shadow_session_test.c',APP/'src/lora_rc8_policy.c',APP/'include/lora_rc8_policy.h',APP/'tests/lora_service_test.c',APP/'tests/lora_probe_test.c',APP/'tests/lora_source_test.c',APP/'src/main.c',APP/'src/ui_render.c',APP/'src/ui_service.c',APP/'legacy_ui/legacy.h',APP/'legacy_ui/draw.inc',APP/'tests/lora_ui_test.c',APP/'tests/lora_ui_clock_worker_test.c',APP/'tests/lora_main_ui_test.c',APP/'tests/lora_front3_test.c',Path(__file__)]}),indent=2)+'\n')
+ (a.out/'receipt.json').write_text(json.dumps(dict(status='PASS_FAKE_BOUNDARIES_ONLY',modes=114,probe_modes=28,json_hw_fields=15,json_launch_fields=5,json_payload_limit=3072-96,json_nonzero_abort_fields=[9,7,0x83],source_parity=True,source_hashes={str(x.relative_to(APP)):hashlib.sha256(x.read_bytes()).hexdigest()for x in [APP/'src/lora_service.c',APP/'src/lora_source.c',APP/'include/lora_service.h',APP/'include/lora_watchdog.h',APP/'src/rc_shadow.c',APP/'include/rc_shadow.h',APP/'include/shadow_settle.h',APP/'tests/shadow_worker_test.c',APP/'tests/shadow_session_test.c',APP/'src/lora_rc8_policy.c',APP/'include/lora_rc8_policy.h',APP/'tests/lora_service_test.c',APP/'tests/lora_probe_test.c',APP/'tests/lora_source_test.c',APP/'src/main.c',APP/'src/ui_render.c',APP/'src/ui_service.c',APP/'legacy_ui/legacy.h',APP/'legacy_ui/draw.inc',APP/'tests/lora_ui_test.c',APP/'tests/lora_ui_clock_worker_test.c',APP/'tests/lora_main_ui_test.c',APP/'tests/lora_front3_test.c',Path(__file__)]}),indent=2)+'\n')
 if __name__=='__main__':main()

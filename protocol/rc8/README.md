@@ -118,6 +118,13 @@ accepted_mono_us,offer,rate_ppb]`; it is zero without a live calibration context
 `rtt_reference=TX_BUSY_START_RX_HEADER` names the measurement endpoint. These diagnostics
 support a bounded PPS comparison; they do not supply an absolute UTC bound.
 
+The original24s rate-fit deadline also bounds each frozen shadow map. At rate
+expiry, precision observation becomes invalid until a fresh valid fit arrives.
+The coarse watch preserves continuity by retaining only phase accumulated up to
+that deadline, then extrapolates at nominal rate; a new physical pair resets that
+carry. `watch_coarse_phase_ns` exposes it. This cannot extend the original12s
+physical hold,20s coarse display limit or any calibration/source permission.
+
 The client performs this calculation only after FOLLOW. It applies rate and
 any live delay estimate to its independent local LoRa watch map, never to BLE
 or GNSS. Successful calibration lasts at most30min; the next request becomes
