@@ -4,6 +4,10 @@
 #include "lora_service_test.c"
 #undef main
 static void feed_probe(struct rc8_probe_packet *p,uint64_t at){uint8_t w[80];assert(!rc8_probe_encode(w,p,&test_group));packet(w,80,at);}
+static void feed_delayed_probe(struct rc8_probe_packet *p,uint64_t edge,uint64_t observed){
+ queued=(struct r2_lora_hw_event){.kind=R2_LORA_HW_RX_DONE,.tick=edge*16,.capture_epoch=7,.generation=generation,.length=80};
+ assert(!rc8_probe_encode(queued.frame,p,&test_group));have_event=true;now_us=observed;step();
+}
 static struct rc8_scope ready_client(void){
  struct rc8_scope s=coordination_acquire();companion(s,true,1,5300000);
  for(unsigned i=3;i<=6;i++){
@@ -167,6 +171,47 @@ int main(int argc,char **argv){
   assert(!memcmp(&fit,&role.rx.fit,sizeof fit)&&role.rx.accepted==accepted);
   r2_lora_control(false,true,RC8_SELECT_BLE);step();r2_lora_shadow_publish();assert(witness_withdrawn&&!shadow_key.tick&&witness_published==1);
   assert(!probe.completed&&!atomic_get(&faulted)); /* Observation grants no time/RTT authority. */
+ }else if(mode==29){
+  (void)ready_client();struct rc8_probe_packet p={.kind=RC8_OFFER,.offer=1,.nonce=7654,.t2=role.rx.highest_sequence};memcpy(p.context,role.rx.context,16);
+  uint64_t edge=21400000,observed=edge+300000;feed_delayed_probe(&p,edge,observed);
+  assert(probe.state==PROBE_CLIENT_READY&&probe.ready_us>=observed+500000&&probe.ready_us<observed+1000000);
+  assert(probe.deadline==observed+PROBE_WINDOW_US&&!probe.t1&&!probe.t4); /* Completion observation is coarse only. */
+ }else if(mode==30||mode==32||mode==33||mode==34||mode>=35){
+  init(true);struct rc8_export map=source(now_us*16,1);r2_lora_source_publish(&map);step();step();done();done();
+  now_us+=60000000;map=source(now_us*16,2);r2_lora_source_publish(&map);step();
+  assert(role.tx.pending&&!role.tx.metadata);uint64_t start=now_us;
+  probe.next_us=now_us;role.tx.diag_not_before=0;published.diagnostic_events=0;role.tx.meta_us=UINT64_MAX;role.tx.repeat_us=0;
+  if(mode==32)events(RC8_D_TZ);
+  if(mode==33)r2_lora_name_publish("Due Sender");
+  if(mode==34)role.tx.next_us=now_us;
+  queued=(struct r2_lora_hw_event){.kind=R2_LORA_HW_TX_DONE,.tick=start*16,.capture_epoch=7,.generation=sent_generation};have_event=true;now_us+=300000;step();
+  if(mode==34){assert(role.tx.pending&&!role.tx.metadata&&!probe.tx_kind);return 0;} /* Ordinary timing still wins. */
+  assert(probe.tx_kind==RC8_OFFER&&!role.tx.pending); /* A due full-slot offer precedes advisory work. */
+  uint64_t offer_start=now_us,observed=offer_start+300000,limit=role.tx.next_us-PROBE_GUARD_US;
+  if(mode==35)observed=limit-100000;
+  if(mode==36)observed=limit+1;
+  queued=(struct r2_lora_hw_event){.kind=R2_LORA_HW_TX_DONE,.tick=offer_start*16,.capture_epoch=7,.generation=sent_generation};have_event=true;now_us=observed;step();
+  if(mode==36){assert(!probe.state&&!probe.tx_kind&&!atomic_get(&faulted));return 0;}
+  assert(probe.state==PROBE_SERVER_LISTEN&&probe.ready_us==observed);
+  assert(probe.deadline==((observed+PROBE_WINDOW_US<limit)?observed+PROBE_WINDOW_US:limit));
+  if(mode>=37){
+   uint64_t close=probe.deadline,edge=close-50000;
+   if(mode==38)edge=close+1;
+   now_us=edge-1;map=source(now_us*16,3);r2_lora_source_publish(&map);
+   struct rc8_probe_packet p={.kind=RC8_REQUEST,.offer=probe.packet.offer,.client=2,.boot=222,.nonce=333};memcpy(p.context,probe.context,16);
+   queued=(struct r2_lora_hw_event){.kind=R2_LORA_HW_RX_DONE,.tick=edge*16,.capture_epoch=mode==40?8:7,.generation=mode==39?generation+1:generation,.length=80};
+   assert(!rc8_probe_encode(queued.frame,&p,&test_group));have_event=hold_completion=true;now_us=mode==41?edge+450001:close+2;step();
+   if(mode!=37){assert(!probe.state&&!probe.tx_kind&&!atomic_get(&faulted));return 0;}
+   assert(probe.state==PROBE_SERVER_LISTEN&&probe.deadline==close); /* Same captured header may still be receiving. */
+   hold_completion=false;now_us=edge+200000;step();
+   assert(probe.state==PROBE_SERVER_REPLY&&probe.packet.t2&&probe.deadline==edge+PROBE_LIFETIME_US&&!atomic_get(&faulted));
+  }
+ }else if(mode==31){
+  struct rc8_probe_packet p=request();uint64_t t1=probe.t1,deadline=probe.deadline;
+  assert(deadline==t1/16+PROBE_LIFETIME_US);
+  p.kind=RC8_RESPONSE;p.t2=UINT64_C(10000000000)+t1*125/2+10000;
+  feed_delayed_probe(&p,t1/16+500020,t1/16+800020);
+  assert(probe.state==PROBE_CLIENT_FOLLOW&&probe.t4==t1+8000320&&probe.deadline==deadline);
  }else assert(false);
  printf("PASS optional probe mode%d; GM/RC watch only, no normal timing authority\n",mode);return 0;
 }

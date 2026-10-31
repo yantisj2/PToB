@@ -1,5 +1,19 @@
 # T096 changelog
 
+## 0.15.226 — keep coarse RTT turnaround after packet completion
+
+Start OFFER request guards and source listening from validated completion
+observed by the worker, separately from the hardware TX_START/RX_HEADER clock
+endpoints. Clamp the source window to its original reservation before ordinary
+timing. Keep the original physical10s transaction deadline for requests,
+responses and follow-ups; completion observations never renew a precision map.
+
+A due full-slot opportunity or admitted reply precedes advisory TZ/name/quality
+traffic; ordinary timing still wins. An on-time provisional request header may
+finish within the existing finite driver bound, requiring the same generation,
+epoch, RxDone and CRC. Late/foreign headers cannot extend the listen window.
+All stacks, cutoffs, physical holds and authority restrictions remain unchanged.
+
 ## 0.15.225 — retain late safe closure without resetting BLE
 
 The original200ms LoRa drain still fails if its acknowledgment arrives late.

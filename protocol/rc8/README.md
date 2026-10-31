@@ -29,6 +29,10 @@ withdraw old time. Preserve the existing source-map, replay, full immutable
 identity/boot/epoch and symmetric group-trust rules described in the historical
 contract. Cold passive freshness and total output uncertainty remain UNKNOWN.
 
+HeaderValid identifies a decoded packet position, analogous in purpose to a
+BLE ADDRESS event; it does not identify first RF arrival. No finer LoRa RX epoch
+has been verified on the documented SX1262 interface or this board's wiring.
+
 ## Optional source-opened RTT
 
 One source opportunity can open at most once per60s. An80-byte authenticated
@@ -36,9 +40,16 @@ OFFER names the current context, latest timing sequence, fresh salt, offer token
 and admission hash width. Only current LoRa-only receivers with a complete
 companion, at least20s without usable BLE, and a current valid passive rate fit
 may request. Other receivers remain passive. Hash admission spreads load;
-requests start500..1000ms after the original physical OFFER RX_HEADER and must
-finish inside its1.75s request window. The source admits its OFFER only when
-that entire window plus250ms guard fits before the next timing deadline.
+requests start500..1000ms after validated OFFER completion is observed and must
+finish inside the following1.75s coarse request window. The source listens for
+at most1.75s after its validated OFFER completion is observed, clamped to the
+original reserved end250ms before ordinary timing. It admits an OFFER only when
+the frame's hardware budget, full window and guard fit before that deadline.
+Completion observation is a coarse scheduling boundary; all precision events
+remain the captured TX_START/RX_HEADER. An on-time provisional request header may
+finish only within the driver's existing450ms partial-header bound, with exact
+generation/epoch and same-packet RxDone/CRC still required. Late or ambiguous
+headers cannot extend the window.
 
 The first admissible request occupies the single global transaction. There is
 no peer roster, waiting queue, mandatory ACK or promised response. Empty/CRC
@@ -172,7 +183,8 @@ Both digital and analog watches use this selected LoRa metadata.
 
 One priority11 worker owns half-duplex RX/TX and yields to BLE. Physical captures
 and FEM cutoffs remain hardware-bound. BLE timing and the ordinary LoRa timing
-packet precede optional responses, follow-ups and metadata. Responses need no
+packet precede optional responses, follow-ups and due full-slot offers, which
+precede advisory TZ/name/quality metadata. Responses need no
 exact turnaround: they may wait across ordinary beacon intervals, within the
 original10s transaction deadline. Every optional launch rechecks its original
 finish deadline immediately before FEM enable. Missed work expires without

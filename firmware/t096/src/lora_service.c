@@ -95,7 +95,7 @@ static struct probe_state probe;
 static struct r2_tz_lease source_tz;
 static struct {uint64_t tick,epoch,cal_until;uint32_t fit,delay;int32_t rate;} shadow_key;
 static void probe_cancel(void);
-static void probe_tx_done(struct rc8_event);
+static void probe_tx_done(struct rc8_event,uint64_t);
 static bool probe_receive(const struct r2_lora_hw_event *,struct rc8_event,uint64_t);
 static int probe_step(uint64_t);
 K_THREAD_STACK_DEFINE(worker_stack,2048);
@@ -700,9 +700,14 @@ static bool probe_receive(const struct r2_lora_hw_event *h,struct rc8_event e,ui
    .nonce=physical_boot+(uint64_t)++probe.serial,.offer=p.offer};
   if(!probe.packet.nonce)probe.packet.nonce=++probe.serial;
   memcpy(probe.packet.context,probe.context,16);
-  probe.ready_us=e.local_us+500000+(hash>>32)%500000;
-  /* Client RF must finish inside the coarse request window. */
-  probe.deadline=e.local_us+PROBE_WINDOW_US;probe.state=PROBE_CLIENT_READY;probe.rate_ppb=role.rx.fit.result_rate_ppb;return true;
+  /* HeaderValid is NOT completion. Coarse half-duplex turnaround starts
+   * only after this packet's validated completion is observed. These MCU
+   * times never replace the physical event or extend clock/map holds. */
+  if(now>=e.local_us+PROBE_LIFETIME_US)return false;
+  probe.ready_us=now+500000+(hash>>32)%500000;
+  probe.deadline=now+PROBE_WINDOW_US;
+  if(probe.deadline>e.local_us+PROBE_LIFETIME_US)probe.deadline=e.local_us+PROBE_LIFETIME_US;
+  probe.state=PROBE_CLIENT_READY;probe.rate_ppb=role.rx.fit.result_rate_ppb;return true;
  }
  if(p.client!=binding.factory||p.boot!=physical_boot||p.nonce!=probe.packet.nonce||p.offer!=probe.packet.offer||
     !probe.state||now>=probe.deadline||e.capture_epoch!=probe.epoch){inc(&probe.rejected);return false;}
@@ -722,12 +727,16 @@ static bool probe_receive(const struct r2_lora_hw_event *h,struct rc8_event e,ui
  }
  inc(&probe.rejected);return false;
 }
-static void probe_tx_done(struct rc8_event e){
+static void probe_tx_done(struct rc8_event e,uint64_t now){
  if(e.generation!=probe.tx_generation){inc(&probe.rejected);return;}
  uint8_t kind=probe.tx_kind;probe.tx_kind=0;
  if(!probe.state)return;
  if(kind==RC8_OFFER){
-  probe.ready_us=e.local_us;probe.deadline=e.local_us+PROBE_WINDOW_US;probe.state=PROBE_SERVER_LISTEN;
+  /* The reserved slot is immutable even if BLE delays completion handling.
+   * Listen for at most one window AFTER completion, never after TX_START. */
+  probe.ready_us=now;
+  if(probe.deadline>now+PROBE_WINDOW_US)probe.deadline=now+PROBE_WINDOW_US;
+  probe.state=PROBE_SERVER_LISTEN;
  }else if(kind==RC8_REQUEST){
   probe.t1=e.tick;probe.epoch=e.capture_epoch;probe.deadline=e.local_us+PROBE_LIFETIME_US;probe.state=PROBE_CLIENT_REPLY;
  }else if(kind==RC8_RESPONSE){
@@ -771,6 +780,21 @@ static void probe_lab_step(uint64_t now){
   probe.next_us=probe_production_next(now);
  }
 }
+/* A header captured inside the original listen window can still be receiving
+ * when that window closes. Retain that SAME provisional ingress only through
+ * the driver's finite partial-header bound. No acceptance/map/expiry renewal:
+ * take() must still prove its exact generation, RxDone and CRC. */
+static bool __attribute__((noinline)) probe_ingress_pending(void){
+ struct r2_lora_hw_edge edge;struct r2_capture capture;uint64_t observed;
+ if(!r2_lora_hw_rx_edge(&edge)||edge.generation!=generation||
+    !r2_capture_now_at(&capture,&observed)||capture.epoch!=edge.capture_epoch||capture.tick<edge.tick)return false;
+ uint64_t delta=capture.tick-edge.tick;
+ if(delta>(uint64_t)r2_lora_hw_budget_us(RC8_META_BYTES)*16)return false;
+ uint64_t age=(delta+15)/16;
+ if(age>observed)return false;
+ uint64_t at=observed-age;
+ return at>=probe.ready_us&&at<probe.deadline;
+}
 static int __attribute__((noinline)) probe_step(uint64_t now){
  atomic_val_t f=atomic_get(&flags);
  if(f&NORMAL){probe.lost_us=0;if(!transmitter)probe_cancel();}
@@ -784,7 +808,7 @@ static int __attribute__((noinline)) probe_step(uint64_t now){
  if(!valid||memcmp(context,probe.context,16)){
   probe_cancel();probe.cal_until=0;probe.seen_offer=0;memcpy(probe.context,context,16);
  }
- if(probe.state&&now>=probe.deadline){
+ if(probe.state&&now>=probe.deadline&&!(probe.state==PROBE_SERVER_LISTEN&&probe_ingress_pending())){
   if(probe.state==PROBE_SERVER_LISTEN){
    struct r2_lora_hw_diag d;r2_lora_hw_diag(&d);
    if(d.crc_bad!=probe.crc_before){if(probe.bits<12)++probe.bits;}
@@ -800,13 +824,16 @@ static int __attribute__((noinline)) probe_step(uint64_t now){
   if(!probe_client_ready(now)&&probe.state)probe_cancel();
  }
  if(probe.tx_kind|| (transmitter&&role.tx.pending))return 0;
+ /* Ordinary timing is submitted below before any optional launch/rearm.
+  * Otherwise a due complete opportunity/reply precedes advisory metadata. */
+ if(transmitter&&valid&&now>=role.tx.next_us)return 0;
  if(transmitter&&valid&&!probe.state&&now>=probe.next_us&&role.tx.sequence&&
     role.tx.next_us>now+360000+PROBE_WINDOW_US+PROBE_GUARD_US+R2_LORA_HW_LAUNCH_MARGIN_US){
   if(probe.offer_sequence==UINT32_MAX)return 0; /* Exhaustion disables optional work. */
   probe.packet=(struct rc8_probe_packet){.kind=RC8_OFFER,.offer=probe.offer_sequence+1,
    .nonce=probe_hash(physical_boot^now)|1,.t2=role.tx.sequence,.t3=probe.bits};
   memcpy(probe.packet.context,context,16);
-  probe.deadline=now+PROBE_LIFETIME_US;probe.state=PROBE_SERVER_LISTEN;
+  probe.deadline=role.tx.next_us-PROBE_GUARD_US;probe.state=PROBE_SERVER_LISTEN;
   struct r2_lora_hw_diag d;r2_lora_hw_diag(&d);probe.crc_before=d.crc_bad;
   return probe_send(role.tx.next_us-PROBE_WINDOW_US-PROBE_GUARD_US);
  }
@@ -855,7 +882,7 @@ static void __attribute__((noinline)) process_event(uint64_t now){
    if(physical(&h,&e)){
     now=mono(); /* SPI/capture can yield to a newer physical RX edge. */
     probe.listening=false;
-    if(h.kind==R2_LORA_HW_TX_DONE&&probe.tx_kind)probe_tx_done(e);
+    if(h.kind==R2_LORA_HW_TX_DONE&&probe.tx_kind)probe_tx_done(e,now);
     else if(h.kind==R2_LORA_HW_RX_DONE&&h.length==RC8_BYTES&&h.frame[2]==RC8_COMPANION_VERSION&&h.frame[3]>=4&&h.frame[3]<=7){
      (void)probe_receive(&h,e,now);
     }
@@ -947,8 +974,8 @@ static void __attribute__((noinline)) service_step(void){
   }
  }else if(owner.active){
   process_event(now);
-  if(transmitter&&!owner.stopping){int rc=transmit(now);if(rc)begin_stop(rc==-EINTR?0:rc);}
   if(!owner.stopping){int rc=probe_step(mono());if(rc)begin_stop(rc==-EINTR?0:rc);}
+  if(transmitter&&!owner.stopping){int rc=transmit(mono());if(rc)begin_stop(rc==-EINTR?0:rc);}
  }
  report(mono(),owner.active&&!owner.stopping);
  r2_diag_scratch.lora.beat=k_uptime_get_32();
