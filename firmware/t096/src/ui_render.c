@@ -14,6 +14,64 @@
 #include "../legacy_ui/draw.inc"
 #pragma GCC diagnostic pop
 
+uint8_t r2_ui_menu_enabled(const struct r2_ui_model *m){
+ uint8_t mask=(1u<<R2_MENU_POWER)|(1u<<R2_MENU_EXIT);
+ if(m->profile_supported)mask|=1u<<R2_MENU_MODE;
+ if(m->ble_rx_supported)mask|=1u<<R2_MENU_BLE;
+#ifdef R2_LORA
+ if(!m->lora.transmitter||!m->profile_rc)mask|=1u<<R2_MENU_LORA;
+#endif
+ return mask;
+}
+static void menu_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_status *s,uint64_t now){
+ char text[24];
+ round_panel(fb,3,1,74,13,C_PANEL,C_BEZEL);label(fb,28,4,"MENU",1,C_WHITE);
+ snprintf(text,sizeof text,"%.5s %s",m->unit,m->profile_rc?"RC":"GM");label(fb,5,20,text,1,C_DIM);
+ snprintf(text,sizeof text,"%us",s->menu.seconds);label(fb,63,20,text,1,C_DIM);
+ fill(fb,5,30,70,1,C_BEZEL);fill(fb,5,30,14*s->menu.seconds,1,C_CYAN);
+ unsigned row=0;uint8_t enabled=r2_ui_menu_enabled(m);
+ for(unsigned i=0;i<R2_MENU_ITEMS;i++){
+  if((i==R2_MENU_MODE&&!m->profile_supported)||(i==R2_MENU_BLE&&!m->ble_rx_supported))continue;
+#ifndef R2_LORA
+  if(i==R2_MENU_LORA)continue;
+#endif
+  const char *name="EXIT";
+  switch(i){
+   case R2_MENU_MODE:name=m->profile_rc?"GM MODE":"RC MODE";break;
+   case R2_MENU_POWER:name="POWER OFF";break;
+   case R2_MENU_BLE:name=m->ble_rx_requested?"BLE RX OFF":"BLE RX ON";break;
+#ifdef R2_LORA
+   case R2_MENU_LORA:
+    snprintf(text,sizeof text,"LoRa %s %s",m->lora.transmitter?"TX":"RX",!(enabled&(1u<<i))?"--":m->lora.requested?"OFF":"ON");name=text;break;
+#endif
+  }
+  int y=35+(int)row++*17;uint16_t ink=enabled&(1u<<i)?C_WHITE:C_DIM;
+  if(i==s->menu.item){uint16_t selected=i==R2_MENU_POWER?C_AMBER:C_CYAN;round_panel(fb,3,y,74,16,selected,selected);ink=C_BG;}
+  label(fb,7,y+4,name,1,ink);
+  if(i==s->menu.item&&s->menu.hold_percent){fill(fb,7,y+13,66,1,C_BEZEL);fill(fb,7,y+13,66*s->menu.hold_percent/100,1,C_BG);}
+ }
+ const char *result=NULL;uint16_t color=C_GREEN;
+ if(m->profile_switching){result="SWITCHING";color=C_AMBER;}
+ else if(now<s->menu_result_until){
+  if(s->menu_result){result="CHANGE FAILED";color=C_AMBER;}
+  else if(s->menu_result_item==R2_MENU_BLE)result=m->ble_rx_requested?"BLE RX ON":"BLE RX OFF";
+  else if(s->menu_result_item==R2_MENU_MODE)result=m->profile_rc?"RC MODE":"GM MODE";
+#ifdef R2_LORA
+  else if(s->menu_result_item==R2_MENU_LORA){snprintf(text,sizeof text,"LoRa %s %s",m->lora.transmitter?"TX":"RX",m->lora.requested?"ON":"OFF");result=text;}
+#endif
+ }
+#ifdef R2_LORA
+ else if(m->lora.transmitter&&m->profile_rc){result="GM ONLY";color=C_AMBER;}
+ else if(s->menu.item==R2_MENU_LORA){
+  if(m->lora.fault){result="RADIO FAULT";color=C_AMBER;}
+  else if(m->lora.requested&&!m->lora.active){result=m->lora.transmitter?"TX WAIT":"RX INHIBITED";color=C_AMBER;}
+  else if(!m->lora.requested&&m->lora.active){result="STOPPING";color=C_AMBER;}
+ }
+#endif
+ if(result)label(fb,(80-((int)strlen(result)*6-1))/2,126,result,1,color);
+ label(fb,16,139,"TAP NEXT",1,C_DIM);label(fb,7,150,"HOLD SELECT",1,C_DIM);
+}
+
 const char *r2_ui_reset_text(unsigned reason)
 {
  switch(reason){
@@ -394,6 +452,7 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
   * A stalled model cannot keep lamps on; no time authority is inferred. */
  r2_ui_rf_lamps(s.rf_lamps[UI_RF_BLE],m,now);
  fill(fb,0,0,80,160,C_BG);
+ if(status->menu.open){menu_render(fb,m,status,now);return;}
 #ifdef R2_DC_PROFILE
  if(status->help){
   label(fb,5,10,"DC GNSS USB",1,C_WHITE);label(fb,5,35,"PRESS: PAGE",1,C_DIM);
@@ -472,7 +531,7 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
   label(fb,4,112,text,1,C_WHITE);
   if(!v->transmitter){if(v->age_ms>=12000)snprintf(text,sizeof text,"AGE >12s");else snprintf(text,sizeof text,"AGE %u.%us",v->age_ms/1000,(v->age_ms%1000)/100);label(fb,4,124,text,1,C_WHITE);}
   label(fb,4,136,v->choice==RC8_SELECT_BLE?"BLE SELECTED":v->choice==RC8_SELECT_LOCAL_GM?"GM SELECTED":v->choice==RC8_SELECT_LORA&&v->requested&&!v->fault?"RC8 SELECTED":"NO CLOCK",1,C_DIM);
-  label(fb,4,150,"HOLD 1.5S",1,C_AMBER);return;
+  label(fb,4,150,"HOLD: MENU",1,C_AMBER);return;
  }
 #endif
  if(status->page==R2_UI_SHADOW_PAGE&&!status->help){
@@ -511,8 +570,8 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
  if(status->help||status->page==5){
   if(status->page==1){rf_live(fb,&s);return;}
   round_panel(fb,3,1,74,13,C_PANEL,C_BEZEL);label(fb,7,4,"CLOCK KEY",1,C_WHITE);
-  label(fb,5,24,"PRESS: NEXT",1,C_WHITE);label(fb,5,40,"HOLD: HELP",1,C_WHITE);
-  label(fb,5,56,"4 SEC: OFF",1,C_AMBER);label(fb,5,79,"DIAL NEEDS",1,C_DIM);
+  label(fb,5,24,"PRESS: NEXT",1,C_WHITE);label(fb,5,40,"HOLD: MENU",1,C_WHITE);
+  label(fb,5,56,"MENU: OFF",1,C_AMBER);label(fb,5,79,"DIAL NEEDS",1,C_DIM);
   label(fb,5,93,"SERVING GM",1,C_WHITE);label(fb,5,107,"OR BLE SYNC",1,C_WHITE);
   label(fb,5,131,"GM/RC: MODE",1,C_DIM);label(fb,5,148,"PRESS:BACK",1,C_DIM);return;
  }
@@ -620,5 +679,5 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
  snprintf(text,sizeof(text),"AUTH %u",m->authenticated);label(fb,5,106,text,1,C_WHITE);
  snprintf(text,sizeof(text),"DROP %u",m->queue_drops);label(fb,5,118,text,1,C_WHITE);
  label(fb,5,134,m->ble_active?"BLE RUNNING":"BLE STOPPED",1,C_CYAN);
- label(fb,5,149,"4 SEC: OFF",1,C_DIM);
+ label(fb,5,149,"HOLD: MENU",1,C_DIM);
 }

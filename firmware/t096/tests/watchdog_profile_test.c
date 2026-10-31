@@ -17,6 +17,8 @@ static unsigned rc_configures,gm_resumes;
 static bool joined=true;
 static bool uc_quiet=true;
 bool r2_uc_quiescent(void){return uc_quiet;}
+static bool receive_policy=true;
+int r2_ble_rx_policy(bool enabled){assert(joined);receive_policy=enabled;return 0;}
 int r2_normal_service_configure(const struct r2_identity *id,const struct r2_enrollment *e)
 {gm=(struct r2_service_status){.configured=true,.closed=true,.profile_incarnation=id->boot};return 0;}
 int r2_dynamic_service_configure(const struct r2_identity *id,const struct r2_enrollment *e)
@@ -69,9 +71,22 @@ int main(void)
  uint64_t before=incarnation;assert(!r2_service_restart(k_uptime_get()));
  rc_state.closed=true;rc_state.active=false;r2_service_supervise();assert(pending&&rc_configures==1);
  joined=true;r2_service_supervise();assert(!pending&&changes==3&&rc_configures==2&&incarnation!=before);
+ /* Turning RX off drains the actual RC owner, parks without a new receive
+  * start, withdraws old timing immediately and disables automatic recovery. */
+ assert(!r2_service_ble_rx(false,k_uptime_get())&&pending&&!r2_service_ble_rx_requested());
+ struct r2_service_status s;rc_state.follower_clock_valid=rc_state.precision.map_valid=true;
+ r2_service_snapshot(&s);assert(!s.follower_clock_valid&&!s.precision.map_valid);
+ r2_service_supervise();assert(pending&&receive_policy);
+ rc_state.closed=true;rc_state.active=false;joined=true;r2_service_supervise();
+ assert(!pending&&rx_suspended&&!receive_policy&&changes==4);
+ r2_service_snapshot(&s);assert(s.closed&&!s.active&&!s.follower_clock_valid);
+ assert(r2_service_run(k_uptime_get())==-EACCES);
+ before=incarnation;assert(!r2_service_ble_rx(true,k_uptime_get()));
+ r2_service_supervise();assert(!pending&&!rx_suspended&&receive_policy&&changes==5&&incarnation!=before);
+ assert(r2_service_ble_rx(false,k_uptime_get()-R2_REPLY_MS)==-EINVAL);
  assert(!r2_service_profile(0,k_uptime_get()));
  rc_state.closed=true;rc_state.active=false;joined=true;uc_quiet=false;
  r2_service_supervise();assert(failure==-EBUSY&&!pending&&gm_resumes==1&&r2_switch_rc_active());
  r2_service_stop();assert(r2_service_restart(k_uptime_get())==-EBUSY);
- puts("PASS actual GM/RC dispatcher: same-profile restart, original drain, RC join, GM acknowledgement, fresh scope and explicit-stop inhibition");
+ puts("PASS actual GM/RC dispatcher: original drain, RC RX park/resume/fresh scope/withdrawal, stale-request refusal, GM acknowledgement and explicit-stop inhibition");
 }

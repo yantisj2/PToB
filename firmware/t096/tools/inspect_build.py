@@ -61,7 +61,7 @@ def inspect(out,allow_development=False):
     payload=b''.join(data[i+32:i+288] for i in range(0,len(data),512))
     binary=(out/'target/zephyr/zephyr.bin').read_bytes()
     require(payload[:len(binary)]==binary and all(x==0 for x in payload[len(binary):]),'UF2/BIN mismatch')
-    flash_end=0;ram_end=0;allocations={}
+    flash_end=0;ram_end=0;allocations={};ui_mutable_bytes=0;linked_names=set()
     with (out/'target/zephyr/zephyr.elf').open('rb') as f:
         elf=ELFFile(f)
         for seg in elf.iter_segments():
@@ -72,7 +72,13 @@ def inspect(out,allow_development=False):
             if seg['p_vaddr']>=0x20000000 and seg['p_memsz']:
                 require(0x20002000<=seg['p_vaddr'] and seg['p_vaddr']+seg['p_memsz']<=0x20040000,'ELF RAM bounds')
                 ram_end=max(ram_end,seg['p_vaddr']+seg['p_memsz'])
+        symbol_owner=''
         for symbol in elf.get_section_by_name('.symtab').iter_symbols():
+            linked_names.add(symbol.name)
+            if symbol['st_info']['type']=='STT_FILE':symbol_owner=symbol.name
+            index=symbol['st_shndx']
+            if symbol_owner=='ui_service.c' and symbol['st_info']['type']=='STT_OBJECT' and isinstance(index,int):
+                if elf.get_section(index)['sh_flags']&1:ui_mutable_bytes+=int(symbol['st_size'])
             if symbol.name not in ('r2_crash_record','z_interrupt_stacks','pt_input','pt_output','r2_tz_data','tz_selector'):continue
             index=symbol['st_shndx']
             require(isinstance(index,int),'Unallocated crash symbol')
@@ -95,6 +101,13 @@ def inspect(out,allow_development=False):
     # Radio/USB buffers, stacks and the absolute1024B floor stay unchanged.
     tz_allowance=(272 if tuple(map(int,r['version'].split('.'))) >= (0,15,205) else 208) if gm7 and 'R2_TZ_WIRE=1' in commands else 0
     auto_tz_allowance=256 if gm7 and 'R2_TZ_AUTO=1' in commands else 0
+    # .210 UI mutable symbols total18145B (including the unchanged12800B
+    # framebuffer). Bound the new menu/control state separately from TZ/RC8;
+    # existing stacks, buffers and the absolute1024B floor do not increase.
+    menu_allowance=128 if gm7 and tuple(map(int,r['version'].split('.')))>=(0,15,211) else 0
+    if menu_allowance:
+        require({'r2_ui_press','r2_ui_menu_result','r2_service_ble_rx'}<=linked_names,'Missing ordinary menu/receive controls')
+        require(0<ui_mutable_bytes<=18145+menu_allowance,'Menu exceeds128B added mutable UI state')
     if auto_tz_allowance:
         require(tuple(map(int,r['version'].split('.')))>=(0,15,206),'Unexpected automatic TZ version')
         data=allocations.get('r2_tz_data',[]);state=allocations.get('tz_selector',[])
@@ -110,7 +123,7 @@ def inspect(out,allow_development=False):
         require(hashlib.sha256(image).hexdigest()==r.get('time_zone',{}).get('database_sha256'),'Linked TZ image identity mismatch')
         # .205 same normal configuration leaves4372B. Charge at most256B for
         # the complete auto feature, including position, queue and snapshots.
-        require(0x20040000-ram_end>=4372-256,'Automatic TZ exceeds256B added static state')
+        require(0x20040000-ram_end+menu_allowance>=4372-256,'Automatic TZ exceeds256B added static state')
         require(r.get('time_zone',{}).get('mode') in ('auto','manual-zone','manual-offset'),'Missing TZ build binding')
         tz=r['time_zone']
         require(tz['mode_number']=={'manual-offset':0,'manual-zone':1,'auto':2}[tz['mode']],'TZ mode binding disagreement')
@@ -331,7 +344,7 @@ def inspect(out,allow_development=False):
         # separately agreed4096B incremental RC8 ceiling as well as1024B gate.
         # .180-.186 GM have a separately verified512B retained crash record and
         #896B ISR allocation; neither changes the RC8 budget or absolute floor.
-        require(0x20040000-ram_end+crash_allowance+hot_allowance+tz_allowance+auto_tz_allowance>=8740-4096,'RC8 exceeds4096B incremental static budget')
+        require(0x20040000-ram_end+crash_allowance+hot_allowance+tz_allowance+auto_tz_allowance+menu_allowance>=8740-4096,'RC8 exceeds4096B incremental static budget')
         private_sha=hashlib.sha256((private_sha+':lora-tx:'+transmitter).encode()).hexdigest()
     if dc or pc:
         with (out/'target/zephyr/zephyr.elf').open('rb') as f:
@@ -341,7 +354,7 @@ def inspect(out,allow_development=False):
     if diagnostic:private_sha=hashlib.sha256((private_sha+':controller-diag:1').encode()).hexdigest()
     binding=hashlib.sha256((r['source_sha256']+':'+private_sha+':'+sha(out/'target/zephyr/.config')).encode()).hexdigest()
     require(binding==r['watchdog_binding_sha256'],'Watchdog binding')
-    return {'status':'PASS','flash_load_end':flash_end,'ram_allocated_end':ram_end,'static_unallocated_bytes':0x20040000-ram_end,'crash_diagnostic_static_allowance_bytes':crash_allowance,'rc8_incremental_static_budget_bytes':4096,'hot_diagnostic_static_budget_bytes':hot_allowance,'tz_static_budget_bytes':tz_allowance,'auto_tz_static_budget_bytes':auto_tz_allowance,'hardware':'NOT_TESTED','deployment_authorized':False}
+    return {'status':'PASS','flash_load_end':flash_end,'ram_allocated_end':ram_end,'static_unallocated_bytes':0x20040000-ram_end,'crash_diagnostic_static_allowance_bytes':crash_allowance,'rc8_incremental_static_budget_bytes':4096,'hot_diagnostic_static_budget_bytes':hot_allowance,'tz_static_budget_bytes':tz_allowance,'auto_tz_static_budget_bytes':auto_tz_allowance,'menu_static_budget_bytes':menu_allowance,'ui_mutable_symbol_bytes':ui_mutable_bytes,'hardware':'NOT_TESTED','deployment_authorized':False}
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)

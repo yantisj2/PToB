@@ -12,5 +12,15 @@ int main(void){
   callbacks.disconnected(&connection,19);r2_ble_poll(1100000);assert(r2_ble_closed()&&connection.refs==1);bt_conn_unref(&connection);assert(connection.refs==0);
   assert(!r2_ble_group_start(1,1,1,own));assert(!peers[1].identity&&!peers[1].authenticated&&!peers[1].conn&&!peers[1].tx_busy&&peers[1].completion[0].peer==&peers[1]);
  }
- assert(queue_purges==1000);puts("PASS actual transport1000 owned stop/restarts: active/pending connection cannot restart, callbacks/references drain, per-peer/auth/tx state and old incoming queue reset, no leaked application connection references");
+ assert(queue_purges==1000);
+ assert(r2_ble_rx_policy(false)==-EBUSY); /* Even before the first scan. */
+ r2_ble_stop();r2_ble_poll(1100000);assert(r2_ble_closed());
+ assert(!r2_ble_rx_policy(false)&&!r2_ble_rx_enabled());
+ assert(!r2_ble_group_start(1,1,1,own));r2_ble_poll(1200000);
+ assert(!scanning&&advertising); /* RX off preserves JOIN/TX service. */
+ assert(r2_ble_rx_policy(true)==-EBUSY);
+ r2_ble_stop();r2_ble_poll(1300000);assert(r2_ble_closed());
+ assert(!r2_ble_rx_policy(true)&&r2_ble_rx_enabled());
+ assert(!r2_ble_group_start(1,1,1,own));r2_ble_poll(1400000);assert(scanning);
+ puts("PASS actual transport1000 stop/restarts plus RX gate: full drain required, no passive scan/initiation while off, advertising retained, fresh reception after re-enable");
 }

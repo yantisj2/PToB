@@ -104,6 +104,10 @@ int r2_service_relay_cancel(uint64_t session);
 uint32_t r2_service_stack_unused(void);
 
 int r2_service_profile(unsigned mode,uint64_t arrival_ms);
+#ifdef R2_GM7_NATIVE
+int r2_service_ble_rx(bool enabled,uint64_t arrival_ms);
+bool r2_service_ble_rx_requested(void);
+#endif
 void r2_service_profile_status(uint32_t out[5]);
 #ifdef R2_RC_PROFILE
 int r2_service_test_parent(uint64_t parent,uint64_t arrival_ms);

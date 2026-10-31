@@ -1,5 +1,28 @@
 # T096 changelog
 
+## 0.15.211 — One-button watch menu and receive controls
+
+A 1.5-second hold on any ordinary GM/RC page opens the watch-style menu.
+Tap advances through the enabled rows and a separate hold selects; the opening
+hold cannot activate an item. Exit or five seconds without a press restores
+the invoking page. The menu exposes opposite GM/RC mode, orderly power off,
+BLE timing RX, the enrolled LoRa RX/TX role and Exit. Action labels update after
+changes, which keep the menu open. TC-03's TX restriction in RC and existing
+GM-entry TX re-arm policy remain intact. DC/PC controls remain separate.
+
+BLE RX changes drain the current owner under its existing deadline, retire
+old timing/admission state and resume in a fresh incarnation. RC parks while
+RX is off; GM disables passive host/native discovery while retaining its
+qualified local GNSS and client-serving path. Re-enabling reception uses local
+discovery and fresh authentication. These volatile receive controls do not
+persist a mesh selection or relax source qualification.
+
+The identity/source/boot-bound `menu` query exposes menu/input/render state.
+Explicit `menu tap` and `menu hold` requests inject bounded 120/1700 ms presses
+through the same debounce/gesture path; `menu cancel` cancels a queued request.
+No console request can latch the button indefinitely. These commands support
+exact-device bench checks; physical button feel remains an operator check.
+
 ## 0.15.210 — Restore configured transmitter on GM entry
 
 The explicitly factory-bound sole LoRa transmitter requests TX ON whenever its

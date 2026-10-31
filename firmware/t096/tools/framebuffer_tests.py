@@ -31,7 +31,7 @@ for line in ['#define UI_FRAME_BYTES R2_UI_FRAME_BYTES\n',
     source=source.replace(line,'')
 source=source.replace('"../legacy_ui/draw.inc"','"'+str(app/'legacy_ui/draw.inc')+'"')
 reference=out/'rgb565_reference.c';reference.write_text(source)
-public=re.findall(r'^(?:void|bool|ui_pulse_t|const char \*)\s*(\w+)\(',
+public=re.findall(r'^(?:void|bool|uint8_t|ui_pulse_t|const char \*)\s*(\w+)\(',
                   source+'\n'+(app/'legacy_ui/draw.inc').read_text(),re.M)
 run([*flags,*['-D'+name+'=rgb565_reference_'+name for name in public],
      '-c',str(reference),'-o',str(out/'reference.o')])

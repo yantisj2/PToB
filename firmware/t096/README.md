@@ -81,10 +81,29 @@ uncertainty and grants no RC7 timing or GM takeover authority. See the
 
 | Action | Result |
 | --- | --- |
-| Short press | Next page; dismiss help. The first press from the screensaver wakes the display. |
-| Hold **1.5 s** on the main clock | Toggle GM ↔ RC in the ordinary mesh image. |
-| Hold **1.5 s** on the LoRa page | Toggle the configured LoRa role's volatile ON/OFF request. This consumes the press, including a longer hold. |
-| Hold **1.5 s** on another page | Show help. Continue to **4 s** to power off. |
+| Short press outside the menu | Next page. A short press from the screensaver only wakes the display. |
+| Hold **1.5 s** on any ordinary page | Open the menu. Release before selecting an item. |
+| Short press in the menu | Next enabled item; wrap after Exit. |
+| Hold **1.5 s** in the menu | Select the highlighted item once. A continued hold cannot select again. |
+| Select **Exit**, or leave the button alone for **5 s** | Close the menu and return to the invoking page. Each press restarts the idle interval; a held button cannot time out. |
+
+The ordinary GM/RC menu contains **GM Mode / RC Mode**, **Power Off**, **BLE RX
+Off / On**, **LoRa RX Off / On**, and **Exit**. Rows name the next action; the
+header shows the current mode. Changes keep the menu open and show a brief
+result. Power Off requires its own selection hold and uses orderly shutdown.
+The separate DC/PC images retain their own controls.
+
+The factory-bound LoRa transmitter has **LoRa TX Off / On** in the LoRa row
+instead of RX. Its TX row is unavailable in RC. Entering GM re-enables its TX
+request; a manual OFF otherwise remains in effect for that GM session.
+
+BLE RX controls timing reception and discovery. RC drains and parks its BLE
+timing service when RX is off. GM restarts without passive mesh reception and
+can serve its independently qualified local GNSS source. Re-enabling reception
+starts a fresh context with local discovery and authentication. This is not a
+whole-radio power switch: GM/client-serving transmissions can remain enabled.
+Radio requests are volatile; an ON request does not prove RF activity or valid
+time. LoRa may still be inhibited by the existing GM participation policy.
 
 The precision page separates stream RMS, local PPS continuity and ACTIVE/HOT
 duration. Shadow-PPS compares received timing with local PPS when eligible.

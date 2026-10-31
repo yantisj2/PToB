@@ -1792,7 +1792,7 @@ static int start(uint64_t arrival, uint32_t seconds) {
   /* The callback lifetime bug is now covered by a targeted regression.
    * Keep ordinary crash capture; disable the per-call register witness. */
   r2_health_gm_witness(false);
-  r2_gm7_controller_scan(true, false, 0);
+  r2_gm7_controller_scan(r2_ble_rx_enabled(), false, 0);
   r2_radio_service_activate();
   used = started = true;
   status.active = true;

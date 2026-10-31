@@ -11,7 +11,19 @@
 static struct r2_ui_model model;
 static struct r2_ui_status status;
 static struct k_spinlock lock;
-static atomic_t stop_requested,profile_toggle;
+static atomic_t stop_requested,profile_toggle,ble_toggle,press_request;
+bool r2_ui_take_ble_toggle(void){return atomic_cas(&ble_toggle,1,0);}
+int r2_ui_press(unsigned kind){
+ if(kind>2)return -EINVAL;
+ k_spinlock_key_t key=k_spin_lock(&lock);
+ int rc=status.stopped||!status.ready?-EACCES:kind&&status.button_down?-EBUSY:0;
+ if(!rc&&!kind)atomic_set(&press_request,0);
+ else if(!rc&&!atomic_cas(&press_request,0,(int)kind))rc=-EBUSY;
+ k_spin_unlock(&lock,key);return rc;
+}
+void r2_ui_menu_result(unsigned item,int result){
+ k_spinlock_key_t key=k_spin_lock(&lock);status.menu_result_item=(uint8_t)item;status.menu_result=result;status.menu_result_until=k_uptime_get()+1500;k_spin_unlock(&lock,key);
+}
 #ifdef R2_LORA
 static atomic_t lora_toggle;
 bool r2_ui_take_lora_toggle(void){return atomic_cas(&lora_toggle,1,0);}
@@ -39,10 +51,10 @@ static void shadow_view(struct r2_shadow_session_view *v){
 K_THREAD_STACK_DEFINE(ui_stack,4096);
 static struct k_thread thread;
 static void add(uint32_t *v){if(*v<UINT32_MAX)++*v;}
-void r2_ui_publish(const struct r2_ui_model *m){k_spinlock_key_t k=k_spin_lock(&lock);r2_ui_holds_update(&status.holds,&model,m->sampled_ms);model=*m;r2_ui_holds_update(&status.holds,m,m->sampled_ms);k_spin_unlock(&lock,k);}
+void r2_ui_publish(const struct r2_ui_model *m){k_spinlock_key_t k=k_spin_lock(&lock);r2_ui_holds_update(&status.holds,&model,m->sampled_ms);if(model.profile_switching&&!m->profile_switching&&status.menu.open)status.menu_result_until=m->sampled_ms+1500;model=*m;r2_ui_holds_update(&status.holds,m,m->sampled_ms);k_spin_unlock(&lock,k);}
 void r2_ui_snapshot(struct r2_ui_status *out){k_spinlock_key_t k=k_spin_lock(&lock);*out=status;k_spin_unlock(&lock,k);}
 static bool shadow_page(const struct r2_ui_model *m,unsigned page){return page==R2_UI_SHADOW_PAGE||(m->profile_rc&&page==R2_UI_PRECISION_PAGE);}
-int r2_ui_page(unsigned page){if(page>=R2_UI_PAGES)return -EINVAL;k_spinlock_key_t k=k_spin_lock(&lock);status.page=page;status.help=false;if(r2_ui_witness_page(&model,page)){status.screensaver=false;status.screensaver_position=0;}if(!shadow_page(&model,page)){status.shadow.active=false;status.shadow.state=R2_SHADOW_OFF;}k_spin_unlock(&lock,k);return 0;}
+int r2_ui_page(unsigned page){if(page>=R2_UI_PAGES)return -EINVAL;k_spinlock_key_t k=k_spin_lock(&lock);status.page=page;status.help=false;status.menu.open=false;if(r2_ui_witness_page(&model,page)){status.screensaver=false;status.screensaver_position=0;}if(!shadow_page(&model,page)){status.shadow.active=false;status.shadow.state=R2_SHADOW_OFF;}k_spin_unlock(&lock,k);return 0;}
 bool r2_ui_shadow_requested(void){k_spinlock_key_t key=k_spin_lock(&lock);bool requested=shadow_page(&model,status.page)&&!status.help&&!status.stopped&&!(model.scope_active&&model.role==R2_UI_GM);k_spin_unlock(&lock,key);return requested;}
 bool r2_ui_take_profile_toggle(void){return atomic_cas(&profile_toggle,1,0);}
 void r2_ui_profile_flash(bool rc){k_spinlock_key_t key=k_spin_lock(&lock);status.profile_target_rc=rc;status.profile_flash_until=k_uptime_get()+4000;k_spin_unlock(&lock,key);}
@@ -127,46 +139,58 @@ static void worker(void *a,void *b,void *c)
  bool initialized=!rc;
  unsigned observed_page;
  k_spinlock_key_t key=k_spin_lock(&lock);status.error=rc;observed_page=status.page;k_spin_unlock(&lock,key);
- uint64_t due=k_uptime_get(),changed=due,pressed=0,last_poll=due,idle_since=due,saver_since=0,saver_period=0;int last=0,stable=0;bool held=false,wake_press=false;
-#ifdef R2_LORA
- struct rc8_gesture lora_gesture={0};
+ uint64_t due=k_uptime_get(),changed=due,last_poll=due,idle_since=due,saver_since=0,saver_period=0,virtual_until=0;int last=0,stable=0;bool wake_press=false;
+#if defined(R2_DC_PROFILE) || defined(R2_PC_PROFILE)
+ uint64_t pressed=0;bool held=false;
+#else
+ struct r2_ui_button_state input={0};
 #endif
  while(!atomic_get(&stop_requested)){
   uint64_t now=k_uptime_get();uint64_t gap=now-last_poll;last_poll=now;
   key=k_spin_lock(&lock);if(gap>status.poll_max_ms)status.poll_max_ms=gap>UINT32_MAX?UINT32_MAX:(uint32_t)gap;k_spin_unlock(&lock,key);
   int button=r2_display_button();
   if(button<0){rc=button;break;}
+  unsigned inject=(unsigned)atomic_get(&press_request);
+  if(inject&&atomic_cas(&press_request,(int)inject,0))virtual_until=now+(inject==1?120:1700);
+  if(now<virtual_until)button=1;
   if(button!=last){last=button;changed=now;}
+#if defined(R2_DC_PROFILE) || defined(R2_PC_PROFILE)
   if(now-changed>=50&&stable!=last){
    stable=last;idle_since=now;
    if(stable){pressed=now;key=k_spin_lock(&lock);wake_press=status.screensaver;status.screensaver=false;if(wake_press)add(&status.buttons);k_spin_unlock(&lock,key);held=wake_press;due=now;}
    else {if(!held&&!wake_press){key=k_spin_lock(&lock);if(status.help)status.help=false;else status.page=(status.page+1)%R2_UI_PAGES;add(&status.buttons);k_spin_unlock(&lock,key);}wake_press=false;}
   }
-#ifdef R2_LORA
-  key=k_spin_lock(&lock);bool lora_page=status.page==R2_UI_LORA_PAGE;
-  bool lora_eligible=lora_page&&!status.help&&!wake_press&&model.platform_ready&&!model.profile_switching;k_spin_unlock(&lock,key);
-  if(rc8_gesture_update(&lora_gesture,stable,lora_eligible,now*1000)){
-   atomic_set(&lora_toggle,1);held=true;due=now;
-   key=k_spin_lock(&lock);add(&status.buttons);k_spin_unlock(&lock,key);
-  }
-  /* Even an inhibited/not-yet-ready LoRa page owns this hold's meaning. It
-   * must not fall through to poweroff merely because a toggle is unavailable. */
-  if(stable&&lora_page)lora_gesture.claimed=true;
-#endif
   if(stable)idle_since=now;
   if(stable&&!held&&now-pressed>=1500){held=true;key=k_spin_lock(&lock);
    if(status.page==0&&!status.help&&model.profile_supported){atomic_set(&profile_toggle,1);add(&status.profile_toggles);status.profile_target_rc=!model.profile_rc;status.profile_flash_until=now+4000;}
-#ifdef R2_LORA
-   else if(status.page==R2_UI_LORA_PAGE){/* Threshold gesture above owns this press. */}
-#endif
    else {status.help=true;}
    k_spin_unlock(&lock,key);}
 
-  bool power_press=true;
+  if(stable&&!wake_press&&now-pressed>=4000&&!atomic_get(&profile_toggle)&&!(status.page==0&&model.profile_supported)){key=k_spin_lock(&lock);status.poweroff=true;k_spin_unlock(&lock,key);}
+#else
+  if(now-changed>=50)stable=last;
+  key=k_spin_lock(&lock);
+  enum r2_ui_menu_action action=r2_ui_menu_step(&status.menu,&input,stable,status.screensaver,r2_ui_menu_enabled(&model),now);
+  status.button_down=stable!=0;
+  if(stable){status.screensaver=false;idle_since=now;}
+  if(action!=R2_MENU_NONE){
+   add(&status.buttons);idle_since=now;due=now;status.help=false;
+   if(action==R2_MENU_PAGE)status.page=(status.page+1)%R2_UI_PAGES;
+   else if(action==R2_MENU_OFF)status.poweroff=true;
+   else if(action==R2_MENU_PROFILE||action==R2_MENU_BLE_TOGGLE||action==R2_MENU_LORA_TOGGLE){
+    status.menu_result_item=status.menu.item;status.menu_result_until=now+1500;
+    status.menu_result=(!model.platform_ready||model.profile_switching)?-EBUSY:0;
+    if(!status.menu_result){
+     if(action==R2_MENU_PROFILE){atomic_set(&profile_toggle,1);add(&status.profile_toggles);}
+     else if(action==R2_MENU_BLE_TOGGLE)atomic_set(&ble_toggle,1);
 #ifdef R2_LORA
-  power_press=!lora_gesture.claimed;
+     else atomic_set(&lora_toggle,1);
 #endif
-  if(stable&&!wake_press&&power_press&&now-pressed>=4000&&!atomic_get(&profile_toggle)&&!(status.page==0&&model.profile_supported)){key=k_spin_lock(&lock);status.poweroff=true;k_spin_unlock(&lock,key);}
+    }
+   }
+  }
+  k_spin_unlock(&lock,key);
+#endif
   /* BLE may delay this low-priority worker beyond a frame deadline. Preserve
    * the failed result and buffer until SPI reports completion; then drop that
    * frame and retry at the ordinary cadence, without extending its deadline. */
@@ -177,7 +201,7 @@ static void worker(void *a,void *b,void *c)
   if(page_changed){observed_page=shadow_status.page;idle_since=now;}
   /* Every page may idle into the saver. Its overlay does not end the
    * selected measurement page's independent witness session. */
-  bool saver=!stable&&!wake_press&&now>=idle_since&&now-idle_since>=R2_UI_IDLE_MS&&r2_ui_saver_allowed(&shadow_model,now);
+  bool saver=!shadow_status.menu.open&&!stable&&!wake_press&&now>=idle_since&&now-idle_since>=R2_UI_IDLE_MS&&r2_ui_saver_allowed(&shadow_model,now);
   uint64_t period=saver&&now>=saver_since?(now-saver_since)/R2_UI_SAVER_MOVE_MS:0;
   bool move=saver&&shadow_status.screensaver&&period!=saver_period;
   /* Existing public PRNG, outside the UI lock; no draw-time RNG or RF work. */
@@ -202,13 +226,14 @@ static void worker(void *a,void *b,void *c)
    if(!rc)rc=r2_display_brightness(s.screensaver?50:100);
    uint64_t end=k_uptime_get();key=k_spin_lock(&lock);
    if(!rc){
-    r2_ui_sync_display_update(&status.sync_display,&m,now,s.page==0&&!s.help&&r2_ui_analog(&m,now));
+    r2_ui_sync_display_update(&status.sync_display,&m,now,s.page==0&&!s.help&&!s.menu.open&&r2_ui_analog(&m,now));
+    status.drawn_menu=s.menu.open;
     status.drawn_screensaver=s.screensaver;status.drawn_screensaver_position=s.screensaver_position;
     memset(status.drawn_lamps,0,sizeof status.drawn_lamps);
-    if(s.page==1&&!s.screensaver)r2_ui_rf_lamps(status.drawn_lamps,&m,now);
-    add(&status.frames);status.ready=true;status.drawn_page=s.page;status.analog=r2_ui_face_locked(&m,now);status.last_frame_ms=(uint32_t)end;status.drawn_model_ms=m.sampled_ms;bool fresh=now>=m.sampled_ms&&now-m.sampled_ms<=2500&&(!m.ble_time_selected||r2_ui_ble_current(&m,now));status.drawn_scope=fresh&&m.scope_active;status.drawn_role=status.drawn_scope?m.role:R2_UI_NO_ROLE;status.drawn_ble=fresh&&r2_ui_ble_current(&m,now);status.drawn_pps=fresh&&m.follower_pps_valid;status.drawn_map=fresh&&m.precision.map_valid;status.drawn_time=r2_ui_display_time(&m,now,&status.drawn_utc_us,&status.drawn_coarse);}
+    if(s.page==1&&!s.screensaver&&!s.menu.open)r2_ui_rf_lamps(status.drawn_lamps,&m,now);
+    add(&status.frames);status.ready=true;status.drawn_page=s.page;status.analog=!s.menu.open&&r2_ui_face_locked(&m,now);status.last_frame_ms=(uint32_t)end;status.drawn_model_ms=m.sampled_ms;bool fresh=now>=m.sampled_ms&&now-m.sampled_ms<=2500&&(!m.ble_time_selected||r2_ui_ble_current(&m,now));status.drawn_scope=fresh&&m.scope_active;status.drawn_role=status.drawn_scope?m.role:R2_UI_NO_ROLE;status.drawn_ble=fresh&&r2_ui_ble_current(&m,now);status.drawn_pps=fresh&&m.follower_pps_valid;status.drawn_map=fresh&&m.precision.map_valid;status.drawn_time=!s.menu.open&&r2_ui_display_time(&m,now,&status.drawn_utc_us,&status.drawn_coarse);}
    if(!rc){
-    status.drawn_sync_grace=r2_ui_sync_display_time(&s.sync_display,&m,now,&status.drawn_utc_us);
+    status.drawn_sync_grace=!s.menu.open&&r2_ui_sync_display_time(&s.sync_display,&m,now,&status.drawn_utc_us);
     if(status.drawn_sync_grace)status.drawn_time=status.drawn_coarse=true;
    }
    uint32_t elapsed=(uint32_t)(end-now);if(elapsed>status.max_frame_ms)status.max_frame_ms=elapsed;

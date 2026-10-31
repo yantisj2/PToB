@@ -18,6 +18,7 @@ static uint64_t applied_parent=UINT64_MAX;
 static bool joined=true;
 static bool uc_quiet=true;
 bool r2_uc_quiescent(void){return uc_quiet;}
+int r2_ble_rx_policy(bool enabled){assert(joined);return 0;}
 int r2_normal_service_configure(const struct r2_identity *id,const struct r2_enrollment *e)
 {gm=(struct r2_service_status){.configured=true,.closed=true,.profile_incarnation=id->boot};return 0;}
 int r2_dynamic_service_configure(const struct r2_identity *id,const struct r2_enrollment *e)

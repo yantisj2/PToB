@@ -18,6 +18,10 @@ int r2_ble_send(unsigned peer,const uint8_t *data);
 void r2_ble_disconnect(unsigned peer);
 void r2_ble_stop(void);
 bool r2_ble_closed(void);
+/* Change only after the existing transport has fully drained. Client JOIN
+ * serving/advertising remains available; passive discovery is separately off. */
+int r2_ble_rx_policy(bool enabled);
+bool r2_ble_rx_enabled(void);
 uint32_t r2_ble_drops(void);
 uint32_t r2_ble_receipts(void);
 uint32_t r2_ble_errors(void);

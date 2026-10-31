@@ -16,6 +16,8 @@ void r2_ui_start(void){}
 void r2_ui_stop(void){++ui_stops;}
 bool r2_ui_take_profile_toggle(void){return false;}
 void r2_ui_profile_flash(bool rc){}
+int r2_ui_press(unsigned kind){return kind>2?-EINVAL:0;}
+void r2_ui_menu_result(unsigned item,int result){}
 bool r2_ui_poweroff_requested(void){return false;}
 bool r2_ui_shadow_requested(void){return false;}
 bool r2_time_source_utc_now(uint32_t epoch,int64_t *utc){(void)epoch;(void)utc;return false;}
@@ -27,7 +29,7 @@ int r2_board_poweroff(void){return -EAGAIN;}
 int r2_ui_close_result(void){return 0;}
 int r2_ui_page(unsigned p){return 0;}
 void r2_ui_publish(const struct r2_ui_model *m){}
-void r2_ui_snapshot(struct r2_ui_status *s){memset(s,0xff,sizeof(*s));s->profile_target_rc=s->screensaver=s->drawn_screensaver=true;s->shadow.active=s->shadow.valid=s->shadow.approximate=true;s->drawn_time=s->drawn_coarse=s->ready=s->stopped=s->analog=s->temperature_valid=s->drawn_scope=s->drawn_ble=s->drawn_pps=s->drawn_map=true;}
+void r2_ui_snapshot(struct r2_ui_status *s){memset(s,0xff,sizeof(*s));s->menu.open=s->button_down=s->drawn_menu=true;s->profile_target_rc=s->screensaver=s->drawn_screensaver=true;s->shadow.active=s->shadow.valid=s->shadow.approximate=true;s->drawn_time=s->drawn_coarse=s->ready=s->stopped=s->analog=s->temperature_valid=s->drawn_scope=s->drawn_ble=s->drawn_pps=s->drawn_map=true;}
 #ifdef R2_NATIVE_BLE
 static bool gm_diagnostic_reply;
 #include "ble_service.h"
@@ -137,6 +139,7 @@ int main(void) {
    assert(strstr(captured,"18446744073709551615,4294967295,-2147483648"));
  }
  request.op=R2_CLOCK;captured[0]=0;reply(&request,1,0);assert(strstr(captured,"POSIX_UTC_ESTIMATE")&&strstr(captured,"R2 END ffffffff"));
+ request.op=R2_MENU;captured[0]=0;reply(&request,1,0);assert(strstr(captured,"\"open\":true")&&strstr(captured,"\"drawn\":true")&&strstr(captured,"\"ble_rx_requested\":false")&&strstr(captured,"R2 END ffffffff"));
 #ifdef R2_NATIVE_BLE
  request.op=R2_RADIO_AUDIT;reply(&request,1,0);assert(strstr(captured,"RAW_ADDRESS_UNCALIBRATED")&&strstr(captured,"18446744073709551615")&&strstr(captured,"R2 END ffffffff"));
  request.op=R2_JOIN;captured[0]=0;reply(&request,1,0);

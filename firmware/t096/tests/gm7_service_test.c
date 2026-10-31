@@ -68,6 +68,9 @@ void r2_ble_poll(uint64_t now) {
 }
 void r2_ble_stop(void) { fake_ble_closed = true; }
 bool r2_ble_closed(void) { return fake_ble_closed; }
+static bool fake_rx_enabled=true;
+bool r2_ble_rx_enabled(void){return fake_rx_enabled;}
+int r2_ble_rx_policy(bool enabled){if(!fake_ble_closed)return -EBUSY;fake_rx_enabled=enabled;return 0;}
 int r2_ble_stop_error(void) { return fake_ble_error; }
 uint32_t r2_ble_backlog(void) { return 0; }
 uint32_t r2_ble_drops(void) { return 0; }

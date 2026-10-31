@@ -82,7 +82,7 @@ try:
  bodies+=dispatcher[dispatcher.index('int r2_service_run('):dispatcher.index('int r2_service_preflight(')]
  bodies+=dispatcher[dispatcher.index('static int transition('):dispatcher.index('int r2_service_restart(')]
  bodies+=dispatcher[dispatcher.index('void r2_service_supervise('):dispatcher.index('int r2_service_name(')]
- names=['physical','enrollment','rc_active','configured','pending','target','resuming','running','until','incarnation','test_parent','changes','failure','now_us']
+ names=['physical','enrollment','rc_active','configured','pending','target','resuming','running','rx_requested','rx_suspended','until','incarnation','test_parent','changes','failure','now_us']
  renamed={n:'dispatch_'+n for n in names}
  renamed.update({'transition':'dispatcher_transition','r2_service_configure':'dispatcher_configure','r2_service_run':'dispatcher_run','r2_service_profile':'dispatcher_profile','r2_service_supervise':'dispatcher_supervise'})
  (out/'gm7_dispatch_under_test.h').write_text(''.join(f'#define {k} {v}\n'for k,v in renamed.items())+bodies+'\n'+''.join(f'#undef {k}\n'for k in renamed))

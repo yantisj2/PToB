@@ -149,6 +149,8 @@ with (nullcontext(str(args.out.resolve())) if args.out else tempfile.TemporaryDi
         subprocess.run([str(out/'ui_service'),mode],check=True,timeout=30)
     subprocess.run([*flags,'-I'+str(out),'-include',str(APP/'tests/ui_service_fake.h'),str(APP/'tests/ui_sync_worker_test.c'),str(out/'ui_render.o'),str(out/'precision.o'),'-o',str(out/'ui_sync_worker')],check=True,timeout=30)
     subprocess.run([str(out/'ui_sync_worker')],check=True,timeout=30)
+    subprocess.run([*flags,'-DR2_LORA=1',str(APP/'tests/ui_menu_test.c'),str(APP/'src/ui_render.c'),str(APP/'src/precision.c'),str(APP/'src/core.c'),'-o',str(out/'ui_menu')],check=True,timeout=30)
+    subprocess.run([str(out/'ui_menu'),str(out)],check=True,timeout=30)
 
     subprocess.run([*flags,'-I'+str(out),'-include',str(APP/'tests/zephyr_fake.h'),str(APP/'tests/time_service_test.c'),str(APP/'src/clock.c'),str(APP/'src/nmea.c'),str(APP/'src/precision.c'),'-o',str(out/'time_service')],check=True,timeout=30)
     subprocess.run([str(out/'time_service')],check=True,timeout=30)

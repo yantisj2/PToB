@@ -112,6 +112,8 @@ static unsigned logical_peer(unsigned physical){
 #endif
 }
 static bool scanning,advertising,stopping,precision_discovery,precision_serving,precision_draining;
+static bool rx_enabled=true;
+bool r2_ble_rx_enabled(void){return rx_enabled;}
 /* The public start API returns EALREADY without replacing live AD data.
  * Keep the existing G1 hint current across local admission/profile changes. */
 static uint8_t advertised_discovery[23];
@@ -1019,7 +1021,7 @@ static void poll_owned(uint64_t now)
    if(state!=trace_state){trace_state=state;bs_trace_raw(0,"FIELD_SCAN t=%llu need=%u pending=%u precision=%u acquiring=%u connected=%u due=%u window=%u interval=%u\n",(unsigned long long)now,need_scan,pending,precision_discovery,sync_acquiring,connected,r2_ble_admission_due(now),wanted_window,wanted_interval);}
   }
 #endif
-  if(precision_draining)need_scan=false;
+  if(precision_draining||!rx_enabled)need_scan=false;
   if((!need_scan||pending||scan_window!=wanted_window||scan_interval!=wanted_interval)&&scanning&&!stop_scan(now))return;
   if(need_scan&&!pending&&!scanning){
     struct bt_le_scan_param param={.type=BT_LE_SCAN_TYPE_PASSIVE,.interval=wanted_interval,.window=wanted_window};
@@ -1042,7 +1044,7 @@ static void poll_owned(uint64_t now)
    }
   }
 #endif
-  if(precision_draining)return;
+  if(precision_draining||!rx_enabled)return;
   if(pending||sync_acquiring||(group_client&&!client_window))return;
   for(unsigned i=0;i<nodes;i++){
     if(server_ready&&!group_client&&(!group_id||i!=CONTROL_PEERS))continue;
@@ -1185,6 +1187,10 @@ void r2_ble_stop(void)
 }
 bool r2_ble_closed(void)
 {k_spinlock_key_t key=k_spin_lock(&lock);bool pending=gatt_request.pending;k_spin_unlock(&lock,key);if(pending||scanning||advertising)return false;for(unsigned d=0;d<4;d++)if(duplicates[d].conn)return false;for(unsigned i=0;i<nodes;i++)if(i!=self&&(peers[i].conn||atomic_get(&peers[i].tx_busy)))return false;return true;}
+int r2_ble_rx_policy(bool enabled){
+ if((transport_started&&!stopping)||!r2_ble_closed())return -EBUSY;
+ rx_enabled=enabled;return 0;
+}
 int r2_ble_stop_error(void){return stop_error;}
 uint32_t r2_ble_drops(void){return atomic_get(&drop_count);}
 uint32_t r2_ble_receipts(void){return atomic_get(&rx_count);}

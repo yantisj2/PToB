@@ -173,6 +173,17 @@ static uint32_t stack_unused(bool system_workqueue)
 #endif
 static void __attribute__((noinline)) reply(const struct r2_request *r,uint64_t arrival,int result)
 {
+  if(r->op==R2_MENU){
+    struct r2_ui_status u;r2_ui_snapshot(&u);bool rx=false;
+#ifdef R2_GM7_NATIVE
+    rx=r2_service_ble_rx_requested();
+#endif
+    int n=snprintf(json,sizeof json,"{\"source\":\"%s\",\"boot\":\"%016llx\",\"silicon\":\"%s\",\"unit\":\"%s\",\"result\":%d,\"open\":%s,\"item\":%u,\"idle_seconds\":%u,\"hold_percent\":%u,\"button_down\":%s,\"drawn\":%s,\"page\":%u,\"ble_rx_requested\":%s,\"action_result\":%d,\"action_item\":%u}",R2_SOURCE_SHA,(unsigned long long)identity.boot,identity.silicon,identity.unit,result,u.menu.open?"true":"false",u.menu.item,u.menu.seconds,u.menu.hold_percent,u.button_down?"true":"false",u.drawn_menu?"true":"false",u.page,rx?"true":"false",u.menu_result,u.menu_result_item);
+    if(n<0||(size_t)n>=sizeof json||reply_sequence==UINT32_MAX)return;
+    n=r2_frame(frame,sizeof frame,r->id,++reply_sequence,json);
+    if(n>0)(void)r2_console_reply(frame,(size_t)n,arrival+R2_REPLY_MS);
+    return;
+  }
 #ifdef R2_PC_PROFILE
   if(r->op==R2_PC||r->op==R2_PC_RUN||r->op==R2_PC_CYCLE||r->op==R2_PC_ALIGN){
     int n=r2_pc_json(json,sizeof json,r->op==R2_PC?(uint32_t)r->nonce:UINT32_MAX,result);
@@ -583,16 +594,26 @@ int main(void)
 #ifdef R2_LORA
     r2_lora_control(service.profile_rc,platform_ready&&normal_started&&maintenance.phase==R2_IDLE&&!poweroff_requested&&!r2_ui_poweroff_requested()&&!service.profile_pending,
       service.follower_clock_valid?RC8_SELECT_BLE:service.serving&&service.source_eligible?RC8_SELECT_LOCAL_GM:RC8_SELECT_NONE);
-    if(maintenance.phase==R2_IDLE&&r2_ui_take_lora_toggle())r2_lora_toggle();
+    if(r2_ui_take_lora_toggle()){
+      int result=maintenance.phase==R2_IDLE&&platform_ready&&!service.profile_pending?0:-EACCES;
+      if(!result)r2_lora_toggle();r2_ui_menu_result(R2_MENU_LORA,result);
+    }
 #endif
     r2_shadow_serving(service.serving);
     hot_report(&service,&local_clock,now);
 #if !defined(R2_BOUNDARY_FIELD) || defined(R2_SWITCHABLE_FIELD)
-    if(maintenance.phase==R2_IDLE&&r2_ui_take_profile_toggle()){
+    if(r2_ui_take_profile_toggle()){
 #ifdef R2_LORA
      r2_lora_stop();
 #endif
-     int profile_rc=r2_service_profile(2,now);if(!profile_rc)r2_ui_profile_flash(!service.profile_rc);
+     int profile_rc=maintenance.phase==R2_IDLE&&platform_ready?r2_service_profile(2,now):-EACCES;
+     r2_ui_menu_result(R2_MENU_MODE,profile_rc);if(!profile_rc)r2_ui_profile_flash(!service.profile_rc);
+    }
+#endif
+#ifdef R2_GM7_NATIVE
+    if(r2_ui_take_ble_toggle()){
+     int result=maintenance.phase==R2_IDLE&&platform_ready?r2_service_ble_rx(!r2_service_ble_rx_requested(),now):-EACCES;
+     r2_ui_menu_result(R2_MENU_BLE,result);
     }
 #endif
 #if !defined(R2_BOUNDARY_FIELD) || defined(R2_SWITCHABLE_FIELD)
@@ -827,6 +848,13 @@ int main(void)
 #ifdef R2_DC_PROFILE
         } else if(r.op==R2_PROFILE||r.op==R2_BLE||r.op==R2_RELAY||r.op==R2_WITNESS||r.op==R2_NAME) {
           rc=-ENOTSUP;
+#endif
+        } else if(r.op==R2_MENU) {
+#if defined(R2_DC_PROFILE) || defined(R2_PC_PROFILE)
+          rc=-ENOTSUP;
+#else
+          rc=maintenance.phase==R2_IDLE&&platform_ready?0:-EACCES;
+          if(!rc&&r.seconds)rc=r2_ui_press((unsigned)r.nonce);
 #endif
         } else if(r.op==R2_UI) {
           if(r.trace_page<R2_UI_PAGES)rc=r2_ui_page(r.trace_page);
