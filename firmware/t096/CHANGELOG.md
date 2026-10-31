@@ -1,5 +1,20 @@
 # T096 changelog
 
+## 0.15.219 — temporary accelerated RTT diagnostics
+
+Boot-bound CDC `lora-rtt 01` enables a five-minute volatile lab cadence:
+5s source opportunities/retry floor, 5–15s failed-client backoff, and 15–30s
+successful refresh. Query `lora-rtt`; `lora-rtt 00`, lease expiry or reboot
+restores production timers. A mode exit preserves the original calibration
+expiry and schedules the next request using production limits. BLE preference,
+20s loss eligibility, physical event checks, radio deadlines and priority stay
+unchanged. TZ cadence and the coarse4/P4 wire remain unchanged.
+
+The .218 production-timer trial retained 359 snapshots (354 completed coarse
+watch frames, 338 LoRa-selected) and no new source opportunity in its finite
+240s RTT window. Its missing measurement is preserved separately from the
+completed GM/RC/TZ/BLE checks and .217 physical RTT observation.
+
 ## 0.15.218 — separate link calibration from time availability
 
 Keep a finite same-context link-delay cache across transient source withdrawal;

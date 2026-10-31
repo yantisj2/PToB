@@ -5,7 +5,7 @@ Copyright (c) 2026 Jonathan Yantis. MIT.
 Native builds [clean compiler output and retain the latest two image bundles](../firmware-storage.md)
 per device/profile, with installed/recovery pins preserved.
 
-This guide builds and inspects T096 source **0.15.218** without opening hardware.
+This guide builds and inspects T096 source **0.15.219** without opening hardware.
 For profile choices and controls, see the [T096 README](../../firmware/t096/README.md).
 Release-by-release implementation and validation notes are in the
 [T096 changelog](../../firmware/t096/CHANGELOG.md).
@@ -158,6 +158,16 @@ The `lora` query and page 7 expose role, source and radio diagnostics; `lora 00/
 or the menu's LoRa row changes the configured role's volatile request. A
 2.0-second hold opens the menu from any ordinary page; taps move between items
 and a separate hold selects. See the [button controls](../../firmware/t096/README.md#button-controls).
+
+For a finite lab RTT test, send boot-bound `lora-rtt 01` to both source and
+listener. Its five-minute volatile lease uses 5s offers/retry floor and 15–30s
+successful refresh. `lora-rtt` queries `rtt_lab` as
+`[active, expiry_us, offer_period_ms, refresh_min_ms, refresh_max_ms]`.
+Send `lora-rtt 00` on both devices after testing; expiry or reboot also restores
+the production 60s offer floor and 15–30min refresh. Eligibility, BLE priority,
+physical timestamp validation, transaction deadlines and TZ cadence are
+unchanged. Mode changes never manufacture or renew calibration/time permission.
+
 Functional LoRa fallback has UNKNOWN freshness/total uncertainty and grants no
 normal RC7 source or future RC9 authority. See the
 [LoRa contract](../../protocol/rc8/README.md) for wire format, metrics and source

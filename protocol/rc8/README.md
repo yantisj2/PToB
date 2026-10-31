@@ -79,6 +79,15 @@ cache; only fresh physical timing can use it again. Local owner/context
 reacquisition permits another request after at least60s, subject to source offers.
 Usable BLE immediately blocks further probes and stage2 updates.
 
+T096's local `lora-rtt 01` diagnostic command temporarily selects 5s offer/retry
+floor, 5–15s failed-client backoff and 15–30s successful refresh for five minutes.
+It is off at boot, expires without renewal and can be ended with `lora-rtt 00`.
+Use it on both endpoints for lab work, then return both to production timers.
+The override changes no wire fields, eligibility, BLE priority, physical checks,
+capture lifetime or transaction deadlines; it neither creates time nor renews
+the original delay cache. Mode exit schedules future requests using production
+limits. TZ remains on its ordinary low-priority schedule.
+
 ## Coarse timezone companion
 
 The128-byte companion retains its scope, ordering floor and quality fields

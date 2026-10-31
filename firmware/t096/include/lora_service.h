@@ -27,6 +27,8 @@ void r2_lora_control(bool profile_rc,bool allowed,enum rc8_selected normal_sourc
 /* Computed by serialized BLE owner from original authenticated contact leases. */
 void r2_lora_mesh_contact(bool present);
 void r2_lora_request(bool on);
+/* Temporary five-minute lab cadence; never changes eligibility or authority. */
+void r2_lora_rtt_lab(bool on);
 void r2_lora_toggle(void);
 void r2_lora_stop(void);
 int r2_lora_close_result(void);

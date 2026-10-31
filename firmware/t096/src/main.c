@@ -194,7 +194,7 @@ static void __attribute__((noinline)) reply(const struct r2_request *r,uint64_t 
   }
 #endif
 #ifdef R2_LORA
-  if(r->op==R2_LORA_CONTROL){
+  if(r->op==R2_LORA_CONTROL||r->op==R2_LORA_RTT){
     int n=r2_lora_json(json,sizeof json,result);
     if(n<=0||(size_t)n>=sizeof json||reply_sequence==UINT32_MAX)return;
     int extra=snprintf(json+n-1,sizeof json-(size_t)n+1,",\"source\":\"%s\"}",R2_SOURCE_SHA);
@@ -827,6 +827,8 @@ int main(void)
 #ifdef R2_LORA
         } else if(r.op==R2_LORA_CONTROL){
           if(r.seconds){rc=maintenance.phase==R2_IDLE&&platform_ready?0:-EACCES;if(!rc)r2_lora_request(r.nonce!=0);}
+        } else if(r.op==R2_LORA_RTT){
+          if(r.seconds){rc=maintenance.phase==R2_IDLE&&platform_ready?0:-EACCES;if(!rc)r2_lora_rtt_lab(r.nonce!=0);}
 #endif
         } else if(r.op==R2_GM_YIELD) {
 #ifdef R2_GM7_NATIVE

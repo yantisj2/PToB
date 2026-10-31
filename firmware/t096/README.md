@@ -84,6 +84,13 @@ bars. The rate badge reads **.25Hz**: one timing packet every four seconds.
 Optional source-opened RTT calibration runs only for LoRa-only listeners, including a GM-profile watch; it grants no GM service, relay or USB timing authority. Local PPS remains a separate indication. LOR RMS measures relative physical
 link consistency, not UTC accuracy or BLE/PLL lock. The LoRa clock keeps UTC internally and displays local time while its own authenticated TZ lease is current.
 
+For bounded RTT diagnostics, the boot-bound `lora-rtt 01` command enables a
+five-minute lab cadence on that device. Use it on source and client; query
+`lora-rtt` and finish with `lora-rtt 00` on both. Lab offers/retry floor are 5s
+and successful refresh is 15–30s; expiry/reboot returns to production timers.
+BLE priority, receiver eligibility and physical timestamp checks are unchanged.
+See the [build guide](../../docs/t096/build.md#optional-lora-configuration).
+
 An isolated missed packet may continue the coarse watch display for at most
 **20 seconds** from its original physical event. The receiver's functional and
 coordination hold remains **12 seconds**; display continuation grants no source,

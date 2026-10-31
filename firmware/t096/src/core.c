@@ -69,6 +69,7 @@ int r2_parse(const char *line, struct r2_request *out)
   else if (!strcmp(parts[5],"trace")) out->op = R2_TRACE;
 #ifdef R2_LORA
   else if (!strcmp(parts[5],"lora")) out->op = R2_LORA_CONTROL;
+  else if (!strcmp(parts[5],"lora-rtt")) out->op = R2_LORA_RTT;
 #endif
   else if (!strcmp(parts[5],"events")) out->op = R2_EVENTS;
   else if (!strcmp(parts[5],"prepare")) out->op = R2_PREPARE;
@@ -94,7 +95,7 @@ int r2_parse(const char *line, struct r2_request *out)
    return 0;
   }
 #ifdef R2_LORA
-  if(out->op==R2_LORA_CONTROL){
+  if(out->op==R2_LORA_CONTROL||out->op==R2_LORA_RTT){
    out->seconds=0;if(count==6)return 0;
    if(count!=7||!hex(parts[6],2,&out->nonce)||out->nonce>1)return -EINVAL;
    out->seconds=1;return 0;
