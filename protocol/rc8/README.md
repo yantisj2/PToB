@@ -205,3 +205,11 @@ python3 firmware/t096/tools/test.py --deps artifacts/deps --out artifacts/check-
 Synthetic codec, physical-event and scheduler cases establish software behavior
 only. Native builds, guarded installation, finite radio coexistence and independent
 output/UTC metrology remain distinct evidence populations.
+
+A drain keeps its original200ms deadline. A fully acknowledged safe closure
+observed late is counted by `drain` diagnostics and returns `ETIMEDOUT` to that
+app/flash drain attempt. The array is
+`[original_deadline_us,promoted_us,first_poll_us,ack_us,late_count,current_late,closure_bits,close_result]`.
+Internal optional recovery may start a new incarnation
+from proven closed resources; it cannot turn the old drain into timely success.
+Any missing DMA/reset/FEM/capture acknowledgment or hardware fault remains fatal.

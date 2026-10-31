@@ -32,6 +32,10 @@ struct r2_lora_watchdog_state {
  struct r2_lora_retained_fault retained;
  /* BLE-owned current actual origin, not a LoRa grant. Unused scan tail. */
  struct {uint64_t boot;uint32_t epoch;bool active;} origin;
+ /* Original drain deadline and actual observations; a late safe closure
+  * fails that app-drain attempt but need not reset unrelated BLE owners. */
+ uint64_t drain_deadline_us,drain_promoted_us,drain_poll_us,drain_ack_us;
+ uint32_t drain_late_count,drain_late;
 };
 union r2_diag_scratch {
  uint32_t scan[128];

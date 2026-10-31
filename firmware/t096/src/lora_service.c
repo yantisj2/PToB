@@ -298,15 +298,22 @@ static bool current_map(struct rc8_export *out,uint64_t tick,uint64_t epoch,uint
  k_spin_unlock(&lock,key);return found&&rc8_export_valid_at(out,tick,epoch);
 }
 static void stop_now(void){
+ /* Promote before creating the immutable drain window. A low-priority
+  * worker must not lose its budget while waiting to execute its promotion. */
+ k_thread_priority_set(&worker_thread,DRAIN_PRIORITY);
  k_spinlock_key_t key=k_spin_lock(&lock);
- if(!stop_deadline)stop_deadline=mono()+RC8_DRAIN_US;
+ if(!stop_deadline){
+  stop_deadline=mono()+RC8_DRAIN_US;
+  r2_diag_scratch.lora.drain_deadline_us=stop_deadline;
+  r2_diag_scratch.lora.drain_promoted_us=mono();
+  r2_diag_scratch.lora.drain_poll_us=r2_diag_scratch.lora.drain_ack_us=0;
+ }
  uint64_t deadline=stop_deadline;k_spin_unlock(&lock,key);
  r2_lora_hw_stop_begin(deadline);
  /* RF is already inhibited. Only drain work temporarily precedes the
   * priority10 console/flash writers; BLE owners retain their priorities.
   * Wake a sleeping owner rather than spending its original200ms bound asleep.
   * No SPI, buffer reuse or deadline extension is admitted by this promotion. */
- k_thread_priority_set(&worker_thread,DRAIN_PRIORITY);
  k_wakeup(&worker_thread);
 }
 static bool rx_suppressed(atomic_val_t f){return !transmitter&&!(f&PROFILE_RC)&&(f&MESH_CONTACT);}
@@ -334,7 +341,10 @@ void r2_lora_request(bool on){
  if(on)atomic_or(&flags,REQUESTED);else{atomic_and(&flags,~REQUESTED);k_spinlock_key_t key=k_spin_lock(&lock);clear_sender_name();k_spin_unlock(&lock,key);if(!atomic_get(&closed))stop_now();}
 }
 void r2_lora_toggle(void){r2_lora_request(!(atomic_get(&flags)&REQUESTED));}
-int r2_lora_close_result(void){return (atomic_get(&faulted)&2)?-EIO:atomic_get(&closed)?0:-EAGAIN;}
+int r2_lora_close_result(void){
+ unsigned key=irq_lock();bool late=r2_diag_scratch.lora.drain_late!=0;irq_unlock(key);
+ return (atomic_get(&faulted)&2)?-EIO:late?-ETIMEDOUT:atomic_get(&closed)?0:-EAGAIN;
+}
 static struct r2_gm_coordination coordination(const struct snapshot *s,uint64_t now){
  atomic_val_t f=atomic_get(&flags);
  /* The receiver already authenticated the sole enrolled emitter, exact
@@ -891,11 +901,28 @@ static void __attribute__((noinline)) service_step(void){
  r2_diag_scratch.lora.monitor=desired||owner.active||owner.stopping;
  if((!desired||cancelled())&&owner.active&&!owner.stopping)begin_stop(0);
  if(owner.stopping){
+  unsigned drainkey=irq_lock();
+  if(!r2_diag_scratch.lora.drain_poll_us)r2_diag_scratch.lora.drain_poll_us=mono();
+  irq_unlock(drainkey);
   struct r2_lora_hw_ack ack={0};r2_lora_hw_stop_poll(&ack);
+  uint64_t observed=mono();
   k_spinlock_key_t key=k_spin_lock(&lock);uint64_t deadline=stop_deadline;k_spin_unlock(&lock,key);
   if(ack.fault)atomic_or(&faulted,1);
-  if(now>=deadline){atomic_or(&faulted,2);r2_lora_hw_watchdog_trip(-ETIMEDOUT);}
-  if(ack.dma_retired&&ack.radio_quiescent&&ack.fem_off&&ack.capture_released){
+  bool complete=ack.dma_retired&&ack.radio_quiescent&&ack.fem_off&&ack.capture_released;
+  if(observed>=deadline&&!complete){atomic_or(&faulted,2);r2_lora_hw_watchdog_trip(-ETIMEDOUT);}
+  if(complete){
+   drainkey=irq_lock();
+   r2_diag_scratch.lora.drain_ack_us=observed;
+   if(observed>=deadline){
+    r2_diag_scratch.lora.drain_late=1;
+    inc(&r2_diag_scratch.lora.drain_late_count);
+   }
+   irq_unlock(drainkey);
+   /* Late observation proves closure only NOW. Preserve the missed original
+    * app/flash deadline via close_result; never reinterpret it as timely.
+    * With every independent safety ACK present, optional LoRa recovery may
+    * yield to BLE and restart from closed resources without a global reset.
+    * Any missing ACK or actual peripheral fault retains terminal handling. */
    owner.active=owner.stopping=false;atomic_set(&closed,1);
    key=k_spin_lock(&lock);stop_deadline=0;
    if(transmitter){role.tx.pending=role.tx.previous_valid=false;role.tx.captured=(struct rc8_correction){0};role.tx.meta_us=0;role.tx.repeat_us=0;role.tx.repeat_events=0;}
@@ -914,6 +941,7 @@ static void __attribute__((noinline)) service_step(void){
     atomic_set(&closed,1); /* Capture not ready; no radio/capture ownership. */
    }else{
     owner.active=true;
+    if(!result){unsigned key=irq_lock();r2_diag_scratch.lora.drain_late=0;irq_unlock(key);}
     if(result)begin_stop(result);
    }
   }
@@ -938,6 +966,9 @@ void r2_lora_init(uint64_t factory,uint64_t boot,uint64_t tx,const struct r2_gro
   offsetof(struct r2_lora_watchdog_state,retained):sizeof r2_diag_scratch.lora);
  r2_diag_scratch.lora.journal_result=-ENODATA;
  memset(&r2_diag_scratch.lora.origin,0,sizeof r2_diag_scratch.lora.origin);
+ r2_diag_scratch.lora.drain_deadline_us=r2_diag_scratch.lora.drain_promoted_us=0;
+ r2_diag_scratch.lora.drain_poll_us=r2_diag_scratch.lora.drain_ack_us=0;
+ r2_diag_scratch.lora.drain_late_count=r2_diag_scratch.lora.drain_late=0;
  binding=(struct rc8_enrollment){.factory=factory,.transmitter_factory=tx,.enrolled=factory&&boot&&g&&g->id};
  physical_boot=boot;group=g;transmitter=rc8_is_transmitter(&binding);
  memset(&probe,0,sizeof probe);atomic_set(&probe_lab_command,0);probe.next_us=transmitter?mono()+PROBE_PERIOD_US:0;
@@ -1032,7 +1063,7 @@ int r2_lora_json(char *out,size_t capacity,int result){
  "\"accepted\":%u,\"rejected\":%u,\"replayed\":%u,\"unmatched\":%u,\"overflow\":%u,\"metadata\":%u,\"missing_map\":%u,\"hold_age_ms\":%u,\"state\":%u,\"assurance\":%u,\"source_authority\":%u,\"choice\":%u,\"output_bound_ns\":null,\"rc7_authority\":false,"
  "\"companion\":[%u,%u,%u,%u,%s,%s],\"parent\":[\"%016llx\",\"%016llx\"],\"quality\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%d,%u,%u,%u],\"link_fit\":[%u,%u],"
  "\"sender_name\":\"%s\",\"sender_name_hex\":\"%s\",\"name_context\":\"%s\",\"name\":[%u,%u,%u,%u,%s,%llu],\"display\":[%s,%llu,%llu],\"signal\":[%s,%d,%d,%u],\"fit_provenance\":[%u,%u,%u],"
- "\"tz\":[%u,%d,%llu],\"rtt\":[%u,%u,%u,%u,%d,%u,%u,%u,%llu,%u],\"rtt_lab\":[%s,%llu,%u,%u,%u],\"rtt_reference\":\"TX_BUSY_START_RX_HEADER\",\"rtt_events\":[%llu,%llu,%llu,%llu,%llu,%llu,%u,%d],\"watch_rate_ppb\":%d,\"watch_coarse_phase_ns\":%d,\"coordination\":[\"%016llx\",\"%016llx\",%u,%llu],\"launch\":[%u,%u,%u,%u,%u],\"watchdog\":[1,%u,%u,%u,%u,%d,%u],\"fault_record\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u],\"owner\":[%u,%u,%u,%u,%u],"
+ "\"tz\":[%u,%d,%llu],\"rtt\":[%u,%u,%u,%u,%d,%u,%u,%u,%llu,%u],\"rtt_lab\":[%s,%llu,%u,%u,%u],\"rtt_reference\":\"TX_BUSY_START_RX_HEADER\",\"rtt_events\":[%llu,%llu,%llu,%llu,%llu,%llu,%u,%d],\"watch_rate_ppb\":%d,\"watch_coarse_phase_ns\":%d,\"coordination\":[\"%016llx\",\"%016llx\",%u,%llu],\"launch\":[%u,%u,%u,%u,%u],\"drain\":[%llu,%llu,%llu,%llu,%u,%u,%u,%d],\"watchdog\":[1,%u,%u,%u,%u,%d,%u],\"fault_record\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u],\"owner\":[%u,%u,%u,%u,%u],"
  "\"hw\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%d,%u,%u,%u,%u,%u]}",
  result,(unsigned long long)physical_boot,(unsigned long long)s.scope.emitter_boot,(unsigned long long)binding.transmitter_factory,transmitter?"true":"false",s.view.requested?"true":"false",s.view.active?"true":"false",atomic_get(&faulted)?"true":"false",
  rx_suppressed(atomic_get(&flags))?"true":"false",atomic_get(&closed)?"true":"false",(long)atomic_get(&faulted),(unsigned long long)deadline,stack_unused(),context,(unsigned long long)s.scope.emitter,(unsigned long long)s.scope.stream,(unsigned long long)s.scope.root,(unsigned long long)s.scope.root_boot,s.scope.source_epoch,s.scope.kind,s.scope.scale,
@@ -1048,6 +1079,9 @@ int r2_lora_json(char *out,size_t capacity,int result){
  (unsigned long long)audit.epoch,(unsigned long long)audit.at_us,audit.offer,audit.rate,s.watch_rate,s.watch_coarse_phase_ns,
  (unsigned long long)coord.root,(unsigned long long)coord.boot,coord.epoch,(unsigned long long)coord.until,
  w.launch_budget,w.precommit_us,w.launch_us,w.command_commit_us,w.command_committed,
+ (unsigned long long)w.drain_deadline_us,(unsigned long long)w.drain_promoted_us,
+ (unsigned long long)w.drain_poll_us,(unsigned long long)w.drain_ack_us,
+ w.drain_late_count,w.drain_late,w.closure,r2_lora_close_result(),
  w.serial,w.coalesced,w.terminal,w.saved,w.journal_result,w.reset_requested,
  w.record[0],w.record[1],w.record[2],w.record[3],w.record[4],w.record[5],w.record[6],w.record[7],w.record[8],w.record[9],w.record[10],w.record[11],w.record[12],w.record[13],w.record[14],w.record[15],
  w.stage,w.stage_at,w.beat,w.monitor,w.closure,

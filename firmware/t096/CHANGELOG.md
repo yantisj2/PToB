@@ -1,5 +1,19 @@
 # T096 changelog
 
+## 0.15.225 — retain late safe closure without resetting BLE
+
+The original200ms LoRa drain still fails if its acknowledgment arrives late.
+When DMA, reset, FEM and capture ownership all independently prove closed, count
+and expose the missed deadline and allow optional internal recovery from those
+closed resources. A late app/flash drain returns ETIMEDOUT; repeated polling or
+metadata cannot turn it into success. Any missing safety acknowledgment or
+peripheral fault retains terminal handling. Drain promotion precedes deadline
+creation; BLE priorities, the deadline and all physical fences are unchanged.
+
+Diagnostics expose the original deadline, promotion, first poll and actual
+closure time in the existing512B scan reserve. No timely closure is inferred
+from a late observation. RF event semantics and rate-expiry behavior are unchanged.
+
 ## 0.15.224 — continuous coarse watch at rate-fit expiry
 
 At the original24s LoRa rate-fit deadline, retain only the phase accumulated

@@ -57,6 +57,7 @@ static void r2_watchdog_lora(int e,uint32_t s,uint32_t g,uint32_t c,int j){(void
 void r2_lora_hw_watchdog_trip(int e){struct r2_lora_watchdog_state *w=&r2_diag_scratch.lora;if(w->terminal)return;w->terminal=1;w->fault_at=k_uptime_get_32();w->serial++;w->record[0]=R2_LORA_FAULT_MAGIC;w->record[1]=(uint32_t)e;}
 static void k_sleep(int n){now_us+=(unsigned)n*1000;}
 static unsigned starts,txs,rearms,stops;static bool have_event,capture_valid=true,cancel_start,cancel_tx,cancel_take,hold_ack;
+static unsigned ack_mask=15;static bool ack_fault;static uint64_t poll_delay_us;
 static bool late_diagnostic,quality_during_spi,quality_on_capture,change_during_spi,withdraw_on_capture,abort_tx;static unsigned capture_calls;
 static void spi_quality_update(void);
 static void spi_context_update(void);
@@ -77,7 +78,7 @@ int r2_lora_hw_idle(void){return 0;}
 bool r2_lora_hw_rx_edge(struct r2_lora_hw_edge *e){*e=(struct r2_lora_hw_edge){0};if(hide_rx_edge||!have_event||queued.kind!=R2_LORA_HW_RX_DONE)return false;*e=(struct r2_lora_hw_edge){queued.tick,queued.capture_epoch,queued.generation};return true;}
 int r2_lora_hw_rx_rearm(void){rearms++;return 0;}
 void r2_lora_hw_stop_begin(uint64_t deadline){assert(deadline>0);stops++;}
-void r2_lora_hw_stop_poll(struct r2_lora_hw_ack *a){*a=(struct r2_lora_hw_ack){!hold_ack,true,true,true,false};}
+void r2_lora_hw_stop_poll(struct r2_lora_hw_ack *a){now_us+=poll_delay_us;poll_delay_us=0;*a=(struct r2_lora_hw_ack){!hold_ack&&(ack_mask&1),(ack_mask&2)!=0,(ack_mask&4)!=0,(ack_mask&8)!=0,ack_fault};}
 void r2_lora_hw_diag(struct r2_lora_hw_diag *d){memset(d,0,sizeof *d);d->launch_aborts=fake_launch_aborts;d->busy_aborts=fake_busy_aborts;d->last_busy_op=fake_last_busy_op;}
 #include R2_LORA_SERVICE_BODY
 static void spi_quality_update(void){now_us+=2000;struct rc8_quality q=published.quality;r2_lora_quality_publish(&published.scope,&q);}
@@ -620,6 +621,48 @@ int main(int argc,char **argv){assert(argc==2);unsigned mode=(unsigned)atoi(argv
   role.rx.sample.rx.local_us=now_us;role.rx.sample.rx.tick=now_us*16;
   report(now_us,true);assert(!published.watch_coarse_phase_ns&&!published.fit_until_us);
   r2_lora_shadow_publish();assert(witness_published==1);
+ }
+ else if(mode==115||mode==121||mode==122||mode==124){
+  init(false);step();r2_lora_request(false);uint64_t original=stop_deadline;
+  if(mode==121){now_us=original-1;poll_delay_us=18001;}else now_us=original+(mode==124?0:18000);
+  step();assert(atomic_get(&closed)&&!owner.stopping&&!atomic_get(&faulted));
+  assert(r2_lora_close_result()==-ETIMEDOUT&&!r2_diag_scratch.lora.terminal);
+  assert(r2_diag_scratch.lora.drain_late_count==1&&r2_diag_scratch.lora.drain_deadline_us==original);
+  assert(r2_diag_scratch.lora.drain_ack_us==original+(mode==124?0:18000));
+  r2_lora_stop();step();r2_lora_watchdog_poll();
+  assert(r2_lora_close_result()==-ETIMEDOUT&&!reset_calls&&r2_diag_scratch.lora.drain_late_count==1);
+  r2_lora_control(false,true,RC8_SELECT_NONE);r2_lora_request(true);
+  if(mode==122){start_result=-EAGAIN;step();assert(r2_lora_close_result()==-ETIMEDOUT);start_result=0;}
+  step();assert(owner.active&&!r2_diag_scratch.lora.drain_late&&r2_lora_close_result()==-EAGAIN);
+  r2_lora_request(false);uint64_t fresh=stop_deadline;assert(fresh>original);step();
+  assert(!r2_lora_close_result()&&r2_diag_scratch.lora.drain_late_count==1&&r2_diag_scratch.lora.drain_deadline_us==fresh);
+ }
+ else if(mode>=116&&mode<=120){
+  init(false);step();r2_lora_request(false);uint64_t original=stop_deadline;
+  if(mode<=119)ack_mask&=~(1u<<(mode-116));else ack_fault=true;
+  now_us=original;step();r2_lora_watchdog_poll();
+  assert(atomic_get(&faulted)&&r2_diag_scratch.lora.terminal);
+  assert((int32_t)r2_diag_scratch.lora.record[1]==(mode<=119?-ETIMEDOUT:-EIO));
+  ack_mask=15;ack_fault=false;step();assert(atomic_get(&closed));
+  unsigned count=starts;r2_lora_request(true);step();assert(starts==count);
+ }
+ else if(mode==123){
+  init(true);struct rc8_export a=source(now_us*16,1);r2_lora_source_publish(&a);step();step();done();done();
+  now_us=role.tx.next_us;a=source(now_us*16,2);r2_lora_source_publish(&a);abort_tx=true;step();
+  assert(owner.stopping&&!atomic_get(&faulted)&&!role.tx.previous_valid&&role.tx.sequence==2);
+  now_us=stop_deadline+18000;step();assert(atomic_get(&closed)&&!r2_diag_scratch.lora.terminal&&r2_lora_close_result()==-ETIMEDOUT);
+  r2_lora_watchdog_poll();assert(!reset_calls);a=source(now_us*16,3);r2_lora_source_publish(&a);assert(r2_lora_close_result()==-ETIMEDOUT);
+  step();assert(owner.active&&!atomic_get(&faulted)&&!r2_diag_scratch.lora.drain_late);
+  assert(r2_diag_scratch.lora.drain_late_count==1&&!role.tx.previous_valid);
+ }
+ else if(mode==125){
+  r2_diag_scratch.lora.retained.record[0]=R2_LORA_FAULT_MAGIC;
+  r2_diag_scratch.lora.drain_late_count=r2_diag_scratch.lora.drain_late=99;
+  r2_diag_scratch.lora.drain_deadline_us=r2_diag_scratch.lora.drain_promoted_us=123;
+  r2_diag_scratch.lora.drain_poll_us=r2_diag_scratch.lora.drain_ack_us=456;
+  init(false);assert(r2_diag_scratch.lora.retained.record[0]==R2_LORA_FAULT_MAGIC);
+  assert(!r2_diag_scratch.lora.drain_late_count&&!r2_diag_scratch.lora.drain_late);
+  assert(!r2_diag_scratch.lora.drain_deadline_us&&!r2_diag_scratch.lora.drain_promoted_us&&!r2_diag_scratch.lora.drain_poll_us&&!r2_diag_scratch.lora.drain_ack_us);
  }
  else assert(false);
  char json[3072];int n=r2_lora_json(json,sizeof json-96,0);assert(n>0&&n<(int)sizeof json-96);printf("PASS runtime mode%u role=%zu snapshot=%zu worker=%zu json=%d\nJSON %s\n",mode,sizeof role,sizeof published,sizeof worker_stack,n,json);
