@@ -6,6 +6,8 @@
 #define R2_LORA_HW_BYTES 128u
 #define R2_LORA_HW_LAUNCH_MARGIN_US 1000u
 enum r2_lora_hw_kind {R2_LORA_HW_NONE,R2_LORA_HW_RX_DONE,R2_LORA_HW_TX_DONE};
+/* kind reports validated completion; tick is TX BUSY preamble-start or RX
+ * first HeaderValid, NOT the completion or callback time. */
 struct r2_lora_hw_event {
  uint64_t tick,capture_epoch,local_us;
  uint32_t generation;
@@ -28,8 +30,10 @@ struct r2_lora_hw_diag {
 };
 _Static_assert(sizeof(struct r2_lora_hw_diag)==52,"LoRa diagnostics reserve");
 /* One low-priority thread owns all calls except stop_begin and diag. The
- * packet engine returns to STBY_RC on the first received packet: the FIFO
- * and physical DIO1 capture remain frozen until take, then explicit rearm.
+ * packet engine returns to STBY_RC on the first received packet. RX first
+ * HeaderValid stays asserted/captured until same-packet CRC/RxDone; TX BUSY
+ * is captured once and later TxDone validates it. FIFO remains frozen until
+ * take, then explicit rearm.
  * Buffers and descriptors have permanent lifetime. Transport faults require
  * the durable watchdog's MCU reset; they never reuse an unretired DMA owner.
  */
@@ -48,7 +52,7 @@ int r2_lora_hw_tx_before(const uint8_t *,size_t,uint32_t,uint64_t latest_finish_
 int r2_lora_hw_take(struct r2_lora_hw_event *);
 /* Read-only physical edge, not a DONE/cause claim. A source publisher may
  * preserve its original map projection before turnover; only take() can
- * subsequently validate the radio cause. No SPI, IRQ clear or rearm. */
+ * subsequently validate packet completion. No SPI, IRQ clear or rearm. */
 struct r2_lora_hw_edge {uint64_t tick,capture_epoch;uint32_t generation;};
 bool r2_lora_hw_tx_edge(struct r2_lora_hw_edge *);
 /* Same provisional read for request ingress; take() alone proves RX_DONE. */

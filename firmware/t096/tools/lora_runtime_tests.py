@@ -27,7 +27,7 @@ def main():
   assert len(payload['fault_record'])==16 and len(payload['owner'])==5 and len(payload['watchdog'])==7
   assert len(payload['coordination'])==4 and type(payload['rx_suppressed']) is bool
   assert len(payload['launch'])==5 and all(type(x)is int for x in payload['launch'])
-  assert payload['rtt_reference']=='DIO1_COMPLETION' and len(payload['rtt_events'])==8 and type(payload['watch_rate_ppb']) is int
+  assert payload['rtt_reference']=='TX_BUSY_START_RX_HEADER' and len(payload['rtt_events'])==8 and type(payload['watch_rate_ppb']) is int
   assert bytes.fromhex(payload['sender_name_hex']).decode()==payload['sender_name']
   assert len(payload['name'])==6 and len(payload['display'])==3 and len(payload['signal'])==4 and len(payload['fit_provenance'])==3
   if mode==36:assert payload['hw'][12:]==[9,7,0x83]

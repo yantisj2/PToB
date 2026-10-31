@@ -140,7 +140,7 @@ static bool physical(const struct r2_lora_hw_event *h,struct rc8_event *e){
  if(delta>RC8_CORRECTION_US*16||delta>UINT64_MAX-15)return false;
  uint64_t age=(delta+15)/16;if(age>us)return false;
  *e=(struct rc8_event){.tick=h->tick,.capture_epoch=h->capture_epoch,.local_us=us-age,
- .generation=h->generation,.kind=h->kind==R2_LORA_HW_TX_DONE?RC8_EVENT_TX_DONE:RC8_EVENT_RX_DONE};return true;
+ .generation=h->generation,.kind=h->kind==R2_LORA_HW_TX_DONE?RC8_EVENT_TX_START:RC8_EVENT_RX_HEADER};return true;
 }
 static bool scope_source_equal(struct rc8_scope a,struct rc8_scope b){a.stream=b.stream=1;return rc8_scope_equal(&a,&b);}
 /* Called before same-context map turnover, with the source lock held. The
@@ -152,21 +152,21 @@ static void preserve_tx_edge(struct tx_state *t){
   struct r2_lora_hw_edge edge;struct rc8_correction c;
   if(r2_lora_hw_rx_edge(&edge)&&edge.generation==generation&&
      (edge.tick!=probe.t1||edge.capture_epoch!=probe.epoch||!probe.packet.t3))
-   for(unsigned i=0;i<2;i++)if(rc8_export_receive(&c,&t->maps[i],(struct rc8_event){.tick=edge.tick,.capture_epoch=edge.capture_epoch,.kind=RC8_EVENT_RX_DONE})){
+   for(unsigned i=0;i<2;i++)if(rc8_export_receive(&c,&t->maps[i],(struct rc8_event){.tick=edge.tick,.capture_epoch=edge.capture_epoch,.kind=RC8_EVENT_RX_HEADER})){
     probe.packet.t3=c.event_ns;probe.t1=edge.tick;probe.epoch=edge.capture_epoch;break;
    }
  }
  if(probe.tx_kind==RC8_RESPONSE&&!probe.packet.t3){
   struct r2_lora_hw_edge edge;struct rc8_correction c;
   if(r2_lora_hw_tx_edge(&edge)&&edge.generation==probe.tx_generation)
-   for(unsigned i=0;i<2;i++)if(rc8_export_event(&c,&t->maps[i],1,(struct rc8_event){.tick=edge.tick,.capture_epoch=edge.capture_epoch,.kind=RC8_EVENT_TX_DONE})){
+   for(unsigned i=0;i<2;i++)if(rc8_export_event(&c,&t->maps[i],1,(struct rc8_event){.tick=edge.tick,.capture_epoch=edge.capture_epoch,.kind=RC8_EVENT_TX_START})){
     probe.packet.t3=c.event_ns;probe.t1=edge.tick;probe.epoch=edge.capture_epoch;break;
    }
  }
  if(!t->pending||t->metadata||t->captured.sequence)return;
  struct r2_lora_hw_edge edge;
  if(!r2_lora_hw_tx_edge(&edge)||edge.generation!=t->pending_generation||t->pending_stream!=t->stream)return;
- struct rc8_event event={.tick=edge.tick,.capture_epoch=edge.capture_epoch,.kind=RC8_EVENT_TX_DONE};
+ struct rc8_event event={.tick=edge.tick,.capture_epoch=edge.capture_epoch,.kind=RC8_EVENT_TX_START};
  for(unsigned i=0;i<2;i++)if(t->maps[i].scope.stream==t->pending_stream&&
     rc8_export_event(&t->captured,&t->maps[i],t->pending_sequence,event)){
   t->captured_edge=edge;return;
@@ -1011,7 +1011,7 @@ int r2_lora_json(char *out,size_t capacity,int result){
  "\"accepted\":%u,\"rejected\":%u,\"replayed\":%u,\"unmatched\":%u,\"overflow\":%u,\"metadata\":%u,\"missing_map\":%u,\"hold_age_ms\":%u,\"state\":%u,\"assurance\":%u,\"source_authority\":%u,\"choice\":%u,\"output_bound_ns\":null,\"rc7_authority\":false,"
  "\"companion\":[%u,%u,%u,%u,%s,%s],\"parent\":[\"%016llx\",\"%016llx\"],\"quality\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%d,%u,%u,%u],\"link_fit\":[%u,%u],"
  "\"sender_name\":\"%s\",\"sender_name_hex\":\"%s\",\"name_context\":\"%s\",\"name\":[%u,%u,%u,%u,%s,%llu],\"display\":[%s,%llu,%llu],\"signal\":[%s,%d,%d,%u],\"fit_provenance\":[%u,%u,%u],"
- "\"tz\":[%u,%d,%llu],\"rtt\":[%u,%u,%u,%u,%d,%u,%u,%u,%llu,%u],\"rtt_lab\":[%s,%llu,%u,%u,%u],\"rtt_reference\":\"DIO1_COMPLETION\",\"rtt_events\":[%llu,%llu,%llu,%llu,%llu,%llu,%u,%d],\"watch_rate_ppb\":%d,\"coordination\":[\"%016llx\",\"%016llx\",%u,%llu],\"launch\":[%u,%u,%u,%u,%u],\"watchdog\":[1,%u,%u,%u,%u,%d,%u],\"fault_record\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u],\"owner\":[%u,%u,%u,%u,%u],"
+ "\"tz\":[%u,%d,%llu],\"rtt\":[%u,%u,%u,%u,%d,%u,%u,%u,%llu,%u],\"rtt_lab\":[%s,%llu,%u,%u,%u],\"rtt_reference\":\"TX_BUSY_START_RX_HEADER\",\"rtt_events\":[%llu,%llu,%llu,%llu,%llu,%llu,%u,%d],\"watch_rate_ppb\":%d,\"coordination\":[\"%016llx\",\"%016llx\",%u,%llu],\"launch\":[%u,%u,%u,%u,%u],\"watchdog\":[1,%u,%u,%u,%u,%d,%u],\"fault_record\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u],\"owner\":[%u,%u,%u,%u,%u],"
  "\"hw\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%d,%u,%u,%u,%u,%u]}",
  result,(unsigned long long)physical_boot,(unsigned long long)s.scope.emitter_boot,(unsigned long long)binding.transmitter_factory,transmitter?"true":"false",s.view.requested?"true":"false",s.view.active?"true":"false",atomic_get(&faulted)?"true":"false",
  rx_suppressed(atomic_get(&flags))?"true":"false",atomic_get(&closed)?"true":"false",(long)atomic_get(&faulted),(unsigned long long)deadline,stack_unused(),context,(unsigned long long)s.scope.emitter,(unsigned long long)s.scope.stream,(unsigned long long)s.scope.root,(unsigned long long)s.scope.root_boot,s.scope.source_epoch,s.scope.kind,s.scope.scale,

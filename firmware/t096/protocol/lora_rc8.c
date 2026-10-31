@@ -12,14 +12,14 @@ int rc8_name_encode(uint8_t w[RC8_NAME_BYTES],const struct rc8_name *p,const str
  w[0]='R';w[1]='8';w[2]=RC8_WIRE_VERSION;w[3]=3;
  memcpy(w+4,p->context,RC8_CONTEXT_BYTES);r2_group_put(w+20,p->sequence,4);
  w[24]=(uint8_t)n;memcpy(w+25,p->name,n);
- int rc=r2_group_mac(w+64,g,"PTOBR8N3",w,64);if(rc)memset(w,0,RC8_NAME_BYTES);return rc;
+ int rc=r2_group_mac(w+64,g,"PTOBR8N5",w,64);if(rc)memset(w,0,RC8_NAME_BYTES);return rc;
 }
 int rc8_name_decode(struct rc8_name *p,const uint8_t *w,size_t n,const struct r2_group_config *g){
  if(!p)return -EINVAL;
  memset(p,0,sizeof *p);
  if(!w||n!=RC8_NAME_BYTES||w[0]!='R'||w[1]!='8'||w[2]!=RC8_WIRE_VERSION||w[3]!=3||
  !w[24]||w[24]>RC8_NAME_MAX)return -EINVAL;
- if(!r2_group_verify(w+64,g,"PTOBR8N3",w,64))return -EACCES;
+ if(!r2_group_verify(w+64,g,"PTOBR8N5",w,64))return -EACCES;
  size_t length=w[24];
  if(!nonzero(w+4,RC8_CONTEXT_BYTES)||!r2_group_get(w+20,4)||
  !r2_group_name((const char *)w+25,length)||nonzero(w+25+length,64-25-length))return -EINVAL;
@@ -51,7 +51,7 @@ static int diagnostic_scope(const struct rc8_scope *s){
 static int companion_context(uint8_t out[RC8_CONTEXT_BYTES],const struct rc8_scope *s,const struct r2_group_config *g){
  if(!out)return -EINVAL;
  memset(out,0,RC8_CONTEXT_BYTES);int rc=diagnostic_scope(s);if(rc)return rc;
- uint8_t w[66];immutable(w,s);return r2_group_mac(out,g,"PTOBR8C3",w,sizeof w);
+ uint8_t w[66];immutable(w,s);return r2_group_mac(out,g,"PTOBR8C5",w,sizeof w);
 }
 int rc8_context_id(uint8_t out[RC8_CONTEXT_BYTES],const struct rc8_scope *s,const struct r2_group_config *g){
  if(!out)return -EINVAL;
@@ -70,13 +70,13 @@ int rc8_companion_encode(uint8_t w[RC8_META_BYTES],const struct rc8_companion *p
  r2_group_put(w+88,q->parent_bound_ns,4);r2_group_put(w+92,q->correction_age_ms,4);r2_group_put(w+96,q->map_life_ms,4);
  r2_group_put(w+100,(uint32_t)q->rate_ppb,4);r2_group_put(w+104,q->residual_ns,4);
  r2_tz_put(w+108,p->tz);
- int rc=r2_group_mac(w+112,g,"PTOBR8D4",w,112);if(rc)memset(w,0,RC8_META_BYTES);return rc;
+ int rc=r2_group_mac(w+112,g,"PTOBR8D5",w,112);if(rc)memset(w,0,RC8_META_BYTES);return rc;
 }
 int rc8_companion_decode(struct rc8_companion *p,uint8_t id[RC8_CONTEXT_BYTES],const uint8_t *w,size_t n,const struct r2_group_config *g){
  if(!p||!id)return -EINVAL;
  memset(p,0,sizeof *p);memset(id,0,RC8_CONTEXT_BYTES);
  if(!w||n!=RC8_META_BYTES||w[0]!='R'||w[1]!='8'||w[2]!=RC8_COMPANION_VERSION||w[3]!=1||(w[65]&124u))return -EINVAL;
- if(!r2_group_verify(w+112,g,"PTOBR8D4",w,112))return -EACCES;
+ if(!r2_group_verify(w+112,g,"PTOBR8D5",w,112))return -EACCES;
  struct rc8_scope *s=&p->scope;s->emitter=r2_group_get(w+4,8);s->emitter_boot=r2_group_get(w+12,8);s->stream=r2_group_get(w+20,8);
  s->root=r2_group_get(w+28,8);s->root_boot=r2_group_get(w+36,8);s->parent=r2_group_get(w+44,8);s->parent_boot=r2_group_get(w+52,8);
  s->source_epoch=r2_group_get(w+60,4);s->scale=w[64];s->kind=w[65]&3u;p->time_valid=(w[65]&128u)!=0;
@@ -118,13 +118,13 @@ int rc8_encode(uint8_t w[RC8_BYTES],const struct rc8_packet *p,const struct r2_g
  const struct rc8_correction *c=&p->correction;r2_group_put(w+36,c->sequence,4);r2_group_put(w+40,c->event_ns,8);
  r2_group_put(w+48,c->map_generation,4);r2_group_put(w+52,(c->event_ns-c->created_ns)/1000,4);
  r2_group_put(w+56,(c->expires_ns-c->event_ns)/1000,4);r2_group_put(w+60,c->map_age_us,4);
- rc=r2_group_mac(w+64,g,"PTOBR8T3",w,64);if(rc)memset(w,0,RC8_BYTES);return rc;
+ rc=r2_group_mac(w+64,g,"PTOBR8T5",w,64);if(rc)memset(w,0,RC8_BYTES);return rc;
 }
 int rc8_decode(struct rc8_packet *p,const uint8_t *w,size_t n,const struct r2_group_config *g){
  if(!p)return -EINVAL;
  memset(p,0,sizeof *p);
  if(!w||n!=RC8_BYTES||w[0]!='R'||w[1]!='8'||w[2]!=RC8_WIRE_VERSION||(w[3]&~30u)||(w[3]&3u)!=2)return -EINVAL;
- if(!r2_group_verify(w+64,g,"PTOBR8T3",w,64))return -EACCES;
+ if(!r2_group_verify(w+64,g,"PTOBR8T5",w,64))return -EACCES;
  memcpy(p->context,w+4,16);p->root=r2_group_get(w+20,8);p->source_epoch=r2_group_get(w+28,4);
  p->sequence=r2_group_get(w+32,4);p->scale=(w[3]>>2)&1u;p->kind=(w[3]>>3)&3u;
  struct rc8_correction *c=&p->correction;c->sequence=r2_group_get(w+36,4);c->event_ns=r2_group_get(w+40,8);
@@ -149,13 +149,13 @@ int rc8_probe_encode(uint8_t w[RC8_BYTES],const struct rc8_probe_packet *p,const
  w[0]='R';w[1]='8';w[2]=RC8_COMPANION_VERSION;w[3]=p->kind;memcpy(w+4,p->context,16);
  r2_group_put(w+20,p->client,8);r2_group_put(w+28,p->boot,8);r2_group_put(w+36,p->nonce,8);
  r2_group_put(w+44,p->offer,4);r2_group_put(w+48,p->t2,8);r2_group_put(w+56,p->t3,8);
- int rc=r2_group_mac(w+64,g,"PTOBR8P4",w,64);if(rc)memset(w,0,RC8_BYTES);return rc;
+ int rc=r2_group_mac(w+64,g,"PTOBR8P5",w,64);if(rc)memset(w,0,RC8_BYTES);return rc;
 }
 int rc8_probe_decode(struct rc8_probe_packet *p,const uint8_t *w,size_t n,const struct r2_group_config *g){
  if(!p)return -EINVAL;
  memset(p,0,sizeof *p);
  if(!w||n!=RC8_BYTES||w[0]!='R'||w[1]!='8'||w[2]!=RC8_COMPANION_VERSION||w[3]<4||w[3]>7)return -EINVAL;
- if(!r2_group_verify(w+64,g,"PTOBR8P4",w,64))return -EACCES;
+ if(!r2_group_verify(w+64,g,"PTOBR8P5",w,64))return -EACCES;
  memcpy(p->context,w+4,16);p->kind=w[3];p->client=r2_group_get(w+20,8);p->boot=r2_group_get(w+28,8);
  p->nonce=r2_group_get(w+36,8);p->offer=r2_group_get(w+44,4);p->t2=r2_group_get(w+48,8);p->t3=r2_group_get(w+56,8);
  int rc=probe_valid(p);if(rc)memset(p,0,sizeof *p);return rc;

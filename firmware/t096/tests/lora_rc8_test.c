@@ -13,7 +13,7 @@ static struct rc8_packet packet(uint32_t seq){struct rc8_scope s=scope();struct 
 static struct rc8_correction correction(uint32_t seq,uint64_t ns){return (struct rc8_correction){.sequence=seq,
  .map_generation=9,.event_ns=ns,.created_ns=ns-100000000,.expires_ns=ns+2000000000,.map_age_us=1100,.upstream_bound_ns=RC8_UNKNOWN};}
 static struct rc8_event event(const struct rc8_receiver *s,uint64_t us){return (struct rc8_event){.tick=us*16,
- .capture_epoch=77,.local_us=us,.generation=s->generation,.kind=RC8_EVENT_RX_DONE};}
+ .capture_epoch=77,.local_us=us,.generation=s->generation,.kind=RC8_EVENT_RX_HEADER};}
 static bool raw(struct rc8_receiver *s,const uint8_t *wire,size_t n,uint64_t rx,uint64_t service){
  assert(rc8_receiver_freeze(s,wire,n,event(s,rx)));return rc8_receiver_process(s,&group,service);}
 static void metadata(struct rc8_receiver *s,struct rc8_scope value,uint64_t rx){uint8_t wire[RC8_META_BYTES];
@@ -49,7 +49,7 @@ static void codec(void){
  p.corrected=false;assert(rc8_encode(wire,&p,&group));p.correction=(struct rc8_correction){0};assert(!rc8_encode(wire,&p,&group));
  p.sequence=0;assert(rc8_encode(wire,&p,&group));p=packet(2);p.corrected=true;p.correction=correction(2,1001000000);assert(rc8_encode(wire,&p,&group));
  s.kind=RC8_OWN_GM;assert(rc8_metadata_encode(meta,&s,&group));s.root=s.emitter;s.root_boot=0x909;assert(!rc8_metadata_encode(meta,&s,&group));assert(!rc8_metadata_decode(&decoded,id,meta,sizeof meta,&group)&&decoded.root_boot!=decoded.emitter_boot);
- meta[65]|=4;assert(!r2_group_mac(meta+112,&group,"PTOBR8D4",meta,112));assert(rc8_metadata_decode(&decoded,id,meta,sizeof meta,&group));
+ meta[65]|=4;assert(!r2_group_mac(meta+112,&group,"PTOBR8D5",meta,112));assert(rc8_metadata_decode(&decoded,id,meta,sizeof meta,&group));
 }
 static void exports_and_permission(void){
  struct rc8_enrollment tx={.factory=0x101,.transmitter_factory=0x101,.enrolled=true},rx=tx;rx.factory=0x707;
@@ -71,9 +71,9 @@ static void exports_and_permission(void){
  assert(!rc8_tx_prepare(&t,&rx,RC8_PROFILE_GM,true,&selected,&group,1,1,16000000,55));
  assert(!rc8_tx_prepare(&t,&tx,RC8_PROFILE_RC,true,&selected,&group,1,1,16000000,55));
  assert(rc8_tx_prepare(&t,&tx,RC8_PROFILE_GM,true,&selected,&group,1,1,16000000,55));assert(!t.packet.corrected);
- struct rc8_event e={.tick=16016000,.capture_epoch=55,.generation=2,.kind=RC8_EVENT_TX_DONE};struct rc8_correction c;
+ struct rc8_event e={.tick=16016000,.capture_epoch=55,.generation=2,.kind=RC8_EVENT_TX_START};struct rc8_correction c;
  assert(!rc8_tx_complete(&c,&t,e)&&t.pending);e.generation=1;e.kind=RC8_EVENT_CALLBACK;assert(!rc8_tx_complete(&c,&t,e)&&t.pending);
- e.kind=RC8_EVENT_TX_DONE;e.capture_epoch=56;assert(!rc8_tx_complete(&c,&t,e)&&t.pending);e.capture_epoch=55;
+ e.kind=RC8_EVENT_TX_START;e.capture_epoch=56;assert(!rc8_tx_complete(&c,&t,e)&&t.pending);e.capture_epoch=55;
  selected.anchor_ns++;assert(rc8_tx_complete(&c,&t,e)&&c.event_ns==1001000000);assert(c.map_age_us==1100);
  assert(!rc8_tx_prepare(&t,&tx,RC8_PROFILE_GM,true,&selected,&group,1,2,16000000,55));
  assert(rc8_tx_prepare(&t,&tx,RC8_PROFILE_GM,true,&selected,&group,2,2,16000000,55));assert(t.packet.corrected&&t.packet.correction.sequence==1);
@@ -265,6 +265,6 @@ int main(int argc,char **argv){
   assert(n);for(size_t i=0;i<n;i++)printf("%02x",wire[i]);puts("");return 0;
  }
  codec();exports_and_permission();functional_and_freshness();cache_and_faults();companion_and_rounding();no_source_diagnostic();closure_and_gesture();
- printf("RC8 companion4 PASS receiver=%zu export=%zu packet=%zu transmission=%zu stop=%zu gesture=%zu bytes;920 events continue beyond1h\n",
+ printf("RC8 wire5 PASS receiver=%zu export=%zu packet=%zu transmission=%zu stop=%zu gesture=%zu bytes;920 events continue beyond1h\n",
  sizeof(struct rc8_receiver),sizeof(struct rc8_export),sizeof(struct rc8_packet),sizeof(struct rc8_transmission),sizeof(struct rc8_stop),sizeof(struct rc8_gesture));return 0;
 }

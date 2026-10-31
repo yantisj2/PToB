@@ -29,7 +29,7 @@ bool r2_lora_source_own(struct rc8_export *out,const struct r2_source_clock *s,s
  if(out->valid&&until<UINT64_MAX){
   struct rc8_export limit=*out;struct rc8_correction at;
   limit.until_tick=until+1;limit.created_ns=0;limit.expires_ns=UINT64_MAX;
-  if(!rc8_export_event(&at,&limit,1,(struct rc8_event){.tick=until,.capture_epoch=now.epoch,.kind=RC8_EVENT_TX_DONE})){memset(out,0,sizeof *out);return false;}
+  if(!rc8_export_event(&at,&limit,1,(struct rc8_event){.tick=until,.capture_epoch=now.epoch,.kind=RC8_EVENT_TX_START})){memset(out,0,sizeof *out);return false;}
   if(at.event_ns<out->expires_ns)out->expires_ns=at.event_ns;
  }
  return out->valid&&out->created_ns<out->expires_ns;

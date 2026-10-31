@@ -9,7 +9,7 @@ static struct rc8_receiver rx;
 static struct rc8_scope scope={.emitter=1,.emitter_boot=22,.stream=1,.root=3,.root_boot=44,.source_epoch=5,.scale=RC8_UTC,.kind=RC8_SELECTED_BLE};
 static uint32_t sequence;static uint64_t tick,ns,epoch;
 static void receive(const uint8_t *wire,size_t length,uint64_t at,uint64_t capture_epoch,bool accepted){
- struct rc8_event event={.tick=at,.capture_epoch=capture_epoch,.local_us=at/16,.generation=rx.generation,.kind=RC8_EVENT_RX_DONE};
+ struct rc8_event event={.tick=at,.capture_epoch=capture_epoch,.local_us=at/16,.generation=rx.generation,.kind=RC8_EVENT_RX_HEADER};
  assert(rc8_receiver_freeze(&rx,wire,length,event));assert(rc8_receiver_process(&rx,&group,event.local_us)==accepted);
 }
 static void timing(uint64_t next_tick,uint64_t next_ns,uint64_t next_epoch,bool accepted){

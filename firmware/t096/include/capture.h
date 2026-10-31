@@ -14,7 +14,9 @@ bool r2_capture_radio(uint32_t raw,uint32_t epoch,struct r2_capture *event);
 #if !defined(R2_DC_PROFILE) && !defined(R2_PC_PROFILE)
 /* DIO1 must already have an allocated public GPIO-driver IN event. The
  * capture owner allocates a controller-excluding PPI route to CC4. */
-int r2_capture_lora_attach(const struct gpio_dt_spec *dio,uint32_t fem_clear_task);
+int r2_capture_lora_attach(const struct gpio_dt_spec *dio);
+/* Hardware one-shot: BUSY falling TX_START or DIO1 rising RX_HEADER. */
+int r2_capture_lora_arm(bool transmit);
 bool r2_capture_lora(struct r2_capture *event);
 int r2_capture_lora_detach(void);
 #endif

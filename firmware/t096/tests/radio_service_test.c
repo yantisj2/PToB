@@ -224,7 +224,7 @@ int main(int argc,char **argv){
     r2_servo_map_t expected;int64_t exact;assert(r2_radio_precision_map(&precision,&expected));
     assert(lora_export.anchor_ns==(uint64_t)expected.anchor+1000000000000ULL&&lora_export.phase_ns==expected.phase&&lora_export.rate_ppb==expected.rate);
     assert(lora_export.created_ns==1001900000000ULL&&lora_export.expires_ns==1003000000000ULL&&lora_export.anchor_tick==expected.delivery&&lora_export.map_generation==12);
-    struct rc8_correction mapped;assert(rc8_export_event(&mapped,&lora_export,1,(struct rc8_event){.tick=capture_tick,.capture_epoch=1,.kind=RC8_EVENT_TX_DONE}));
+    struct rc8_correction mapped;assert(rc8_export_event(&mapped,&lora_export,1,(struct rc8_event){.tick=capture_tick,.capture_epoch=1,.kind=RC8_EVENT_TX_START}));
     assert(r2_servo_mapped(&expected,capture_tick,&exact)&&mapped.event_ns==(uint64_t)exact+1000000000000ULL);
     if(mode==29){int64_t own_utc;assert(r2_source_utc_read(&pt_input.source,(struct r2_capture){capture_tick,1,R2_CAPTURE_NOW},3,&own_utc));assert(mapped.event_ns!=(uint64_t)own_utc);}
     unsigned before=lora_withdraws;struct r2_source_clock no_pps={0};

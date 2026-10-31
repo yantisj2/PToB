@@ -74,7 +74,9 @@ int main(int argc,char **argv){
   }
 
  }else if(mode==9){
-  uint32_t d;assert(rc8_rtt_delay(16000320,0,1000000000,&d)&&d==10000);
+  uint32_t d;assert(rc8_rtt_delay(20000000,0,1000000000,&d)&&d==125000000);
+  assert(!rc8_rtt_delay(20000001,0,1000000000,&d)&&d==0);
+  assert(rc8_rtt_delay(16000320,0,1000000000,&d)&&d==10000);
   assert(rc8_rtt_delay(16000000,10000,999990000,&d)&&d==10000);
   assert(!rc8_rtt_delay(16000000,0,1000000001,&d));assert(!rc8_rtt_delay(1600000001,0,1,&d));
   assert(!rc8_rtt_delay(16000000,100001,1,&d));assert(!rc8_rtt_delay(16000000,0,1,&d));
@@ -119,7 +121,7 @@ int main(int argc,char **argv){
   init(true);struct rc8_export map=source(now_us*16,1);r2_lora_source_publish(&map);r2_lora_tz_publish(r2_tz_manual(),UINT64_MAX,3,44,5);step();step();done();
   struct rc8_companion c;uint8_t context[16];assert(sent_len==128&&!rc8_companion_decode(&c,context,sent,128,&test_group));
   assert(c.tz.id==2&&c.tz.offset_min==-300&&c.time_valid);
-  sent[108]=sent[109]=0;assert(!r2_group_mac(sent+112,&test_group,"PTOBR8D4",sent,112));
+  sent[108]=sent[109]=0;assert(!r2_group_mac(sent+112,&test_group,"PTOBR8D5",sent,112));
   assert(!rc8_companion_decode(&c,context,sent,128,&test_group)&&!c.tz.id&&c.time_valid);
  }else if(mode==14){
   struct rc8_probe_packet p={.kind=RC8_OFFER,.offer=1,.nonce=1,.t2=1};memset(p.context,1,16);

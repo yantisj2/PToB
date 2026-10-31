@@ -12,7 +12,7 @@ bool rc8_rtt_delay(uint64_t ticks,int32_t rate,uint64_t turnaround,uint32_t *out
  int64_t ns=(int64_t)(ticks*125/2);ns+=ns*rate/INT64_C(1000000000);
  if(turnaround>(uint64_t)ns)return false;
  uint64_t rtt=(uint64_t)ns-turnaround;
- if(rtt>100000000)return false;
+ if(rtt>250000000)return false;
  *out=(uint32_t)(rtt/2);return true;
 }
 bool rc8_is_transmitter(const struct rc8_enrollment *e){return e&&e->enrolled&&e->factory&&e->factory==e->transmitter_factory;}
@@ -84,11 +84,11 @@ bool rc8_export_valid_at(const struct rc8_export *s,uint64_t tick,uint64_t epoch
  struct rc8_correction ignored;return project(&ignored,s,1,tick,epoch);
 }
 bool rc8_export_event(struct rc8_correction *c,const struct rc8_export *s,uint32_t sequence,struct rc8_event event){
- if(event.kind!=RC8_EVENT_TX_DONE){if(c)memset(c,0,sizeof *c);return false;}
+ if(event.kind!=RC8_EVENT_TX_START){if(c)memset(c,0,sizeof *c);return false;}
  return project(c,s,sequence,event.tick,event.capture_epoch);
 }
 bool rc8_export_receive(struct rc8_correction *c,const struct rc8_export *s,struct rc8_event event){
- if(event.kind!=RC8_EVENT_RX_DONE){if(c)memset(c,0,sizeof *c);return false;}
+ if(event.kind!=RC8_EVENT_RX_HEADER){if(c)memset(c,0,sizeof *c);return false;}
  return project(c,s,1,event.tick,event.capture_epoch);
 }
 bool rc8_tx_prepare(struct rc8_transmission *t,const struct rc8_enrollment *e,enum rc8_profile profile,
@@ -114,7 +114,7 @@ bool rc8_tx_prepare(struct rc8_transmission *t,const struct rc8_enrollment *e,en
 bool rc8_tx_complete(struct rc8_correction *out,struct rc8_transmission *t,struct rc8_event event){
  if(!out)return false;
  memset(out,0,sizeof *out);
- if(!t||!t->pending||event.generation!=t->generation||event.kind!=RC8_EVENT_TX_DONE||event.capture_epoch!=t->map.capture_epoch)return false;
+ if(!t||!t->pending||event.generation!=t->generation||event.kind!=RC8_EVENT_TX_START||event.capture_epoch!=t->map.capture_epoch)return false;
  t->pending=false;t->previous_valid=false;
  if(event.tick<t->preparation_tick||event.tick-t->preparation_tick>16000000||
   !rc8_export_event(out,&t->map,t->packet.sequence,event))return false;
@@ -153,7 +153,7 @@ bool rc8_receiver_bootstrap(struct rc8_receiver *s,const struct rc8_bootstrap *b
  return true;
 }
 bool rc8_receiver_freeze(struct rc8_receiver *s,const uint8_t *wire,size_t n,struct rc8_event event){
- if(!s||!s->enabled||!wire||(n!=RC8_BYTES&&n!=RC8_META_BYTES)||event.kind!=RC8_EVENT_RX_DONE||
+ if(!s||!s->enabled||!wire||(n!=RC8_BYTES&&n!=RC8_META_BYTES)||event.kind!=RC8_EVENT_RX_HEADER||
  !event.tick||!event.capture_epoch||event.generation!=s->generation){if(s)count(&s->rejected);return false;}
  if(s->queued_valid){count(&s->overflow);return false;}
  memcpy(s->queued,wire,n);s->queued_size=(uint8_t)n;s->queued_event=event;s->queued_valid=true;return true;

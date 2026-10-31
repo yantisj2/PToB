@@ -2,8 +2,8 @@
 #pragma once
 #include "group_auth.h"
 #include "time_zone.h"
-#define RC8_WIRE_VERSION 3u
-#define RC8_COMPANION_VERSION 4u
+#define RC8_WIRE_VERSION 5u
+#define RC8_COMPANION_VERSION 5u
 #define RC8_META_BYTES 128u
 #define RC8_COMPANION_BYTES RC8_META_BYTES
 #define RC8_BYTES 80u

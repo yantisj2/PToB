@@ -64,9 +64,15 @@ static struct r2_capture edge;
 static uint64_t edge_us;
 static uint64_t active_epoch;
 static uint32_t generation, edge_generation;
-static nrf_ppi_channel_t cutoff_channel;
+static nrf_ppi_channel_t cutoff_channel,done_channel;
 static uint8_t task_channel;
 static bool resources, capture_owned, receive_mode;
+/* Init failures are permanent faults, but even a partial owner is inhibited. */
+static uint8_t resource_flags;
+#define HAVE_CUTOFF_CHANNEL 1u
+#define HAVE_CUTOFF_TIMER 2u
+#define HAVE_BUSY_TRIGGER 4u
+#define HAVE_DONE_CHANNEL 8u
 static atomic_t running, dma_inflight, result, fault, latched, phase,
     cutoff_expired, stop_serial, launch_aborted;
 static struct r2_lora_hw_diag counters;
@@ -117,11 +123,11 @@ static void note_fault(int rc,bool terminal) {
 static void inhibit(void) {
   unsigned key = irq_lock();
   atomic_clear(&running);
-  if (resources) {
-    nrfx_gpiote_clr_task_trigger(&gpiote, CSD_PIN);
-    (void)nrfx_ppi_channel_disable(cutoff_channel);
-    nrfx_timer_disable(&cutoff);
-  }
+  if (resources)nrfx_gpiote_clr_task_trigger(&gpiote, CSD_PIN);
+  if(resource_flags&HAVE_CUTOFF_CHANNEL)(void)nrfx_ppi_channel_disable(cutoff_channel);
+  if(resource_flags&HAVE_DONE_CHANNEL)(void)nrfx_ppi_channel_disable(done_channel);
+  if(resource_flags&HAVE_CUTOFF_TIMER)nrfx_timer_disable(&cutoff);
+  if(resource_flags&HAVE_BUSY_TRIGGER)nrfx_gpiote_trigger_disable(&gpiote,NRF_GPIO_PIN_MAP(0,19));
   int rc = gpio_pin_set_dt(&ctx, 0);
   int p = gpio_pin_set_dt(&power, 0), r = gpio_pin_set_dt(&reset, 1);
   if (rc || p || r)
@@ -190,8 +196,9 @@ static void dio_irq(const struct device *dev, struct gpio_callback *cb,
     return;
   if (atomic_cas(&latched, 2, 1))
     return; /* The cutoff ISR already captured this exact pending edge. */
-  /* Single RX/TX plus one IRQ cause: hardware has frozen FIFO and cleared
-   * CSD via PPI before this callback. No callback-time timestamp substitute. */
+  /* TX: DONE has inhibited FEM; timestamp is the earlier one-shot BUSY.
+   * RX: first HeaderValid edge stays HIGH until DONE/error. Leave RX enabled
+   * and keep its physical capture frozen while the packet finishes. */
   if (atomic_get(&latched)) {
     count(&counters.overflow);
     return;
@@ -376,9 +383,11 @@ static int clear_irq(void) {
   return command(0x02, a, sizeof(a));
 }
 static int mask_irq(bool tx) {
-  /* DIO1 gets DONE, CRC/header-error or timeout only; no header/preamble edge
-   * can overwrite CC4. A failed CRC is never exported as a timing event. */
-  uint16_t flags = tx ? 0x201 : 0x262;
+  /* HeaderValid is the first successful RX cause. Do not clear it until
+   * RxDone: DIO remains high and its first edge cannot be replaced. Errors
+   * win over success. PreambleDetected is acquisition-dependent; LoRa has
+   * no SyncWordValid IRQ (that event is GFSK-only). */
+  uint16_t flags = tx ? 0x201 : 0x272;
   uint8_t a[] = {flags >> 8, flags, flags >> 8, flags, 0, 0, 0, 0};
   return command(0x08, a, sizeof(a));
 }
@@ -425,7 +434,13 @@ static int enable_fem(bool transmit, uint32_t budget, uint64_t latest_finish,
        * window immediately before the real NSS command-commit edge. This
        * short GPIO/timer fence contains no SPI or waits. BLE priorities stay
        * unchanged; a delayed worker return cannot renew this window. */
-      rc = atomic_get(&running) ? gpio_pin_set_dt(&chip_select, 0) : -ECANCELED;
+      /* Arm only after the SetTx bytes have retired, immediately before its
+       * NSS commit. No preceding command/internal BUSY fall can masquerade
+       * as this packet's start. BUSY must still be low before commit. */
+      int level=gpio_pin_get_dt(&busy);
+      if(level)rc=level<0?level:-EIO;
+      else rc=r2_capture_lora_arm(true);
+      if(!rc)rc=atomic_get(&running) ? gpio_pin_set_dt(&chip_select, 0) : -ECANCELED;
       if (!rc) {
         wd.command_commit_us = (uint32_t)now_us();
         wd.command_committed = 1;
@@ -461,18 +476,27 @@ static int init_resources(void) {
   nrfx_gpiote_clr_task_trigger(&gpiote, CSD_PIN);
   if (nrfx_ppi_channel_alloc(&cutoff_channel) != NRFX_SUCCESS)
     return -ENOMEM;
+  resource_flags|=HAVE_CUTOFF_CHANNEL;
+  if(nrfx_ppi_channel_disable(cutoff_channel)!=NRFX_SUCCESS)return -EIO;
   nrfx_timer_config_t cfg = NRFX_TIMER_DEFAULT_CONFIG(1000000);
   cfg.bit_width = NRF_TIMER_BIT_WIDTH_32;
   cfg.interrupt_priority = 6;
   IRQ_CONNECT(TIMER4_IRQn, 6, nrfx_isr, nrfx_timer_4_irq_handler, 0);
   if (nrfx_timer_init(&cutoff, &cfg, cutoff_irq) != NRFX_SUCCESS)
     return -EIO;
+  resource_flags|=HAVE_CUTOFF_TIMER;
   if (nrfx_ppi_channel_assign(
           cutoff_channel, nrfx_timer_compare_event_address_get(&cutoff, 0),
           nrfx_gpiote_clr_task_address_get(&gpiote, CSD_PIN)) != NRFX_SUCCESS)
     return -EIO;
   if (nrfx_ppi_channel_fork_assign(cutoff_channel, 0) != NRFX_SUCCESS)
     return -EIO;
+  /* BUSY is a dedicated event, with its IRQ disabled. PPI captures the first
+   * falling edge after SetTx commit even while BLE preempts the CPU. */
+  if (gpio_pin_interrupt_configure_dt(&busy, GPIO_INT_EDGE_FALLING))
+    return -EIO;
+  resource_flags|=HAVE_BUSY_TRIGGER;
+  nrfx_gpiote_trigger_enable(&gpiote, NRF_GPIO_PIN_MAP(0,19), false);
   gpio_init_callback(&dio_callback, dio_irq, BIT(dio.pin));
   if (gpio_add_callback(dio.port, &dio_callback))
     return -EIO;
@@ -481,6 +505,16 @@ static int init_resources(void) {
   if (gpio_pin_interrupt_configure_dt(&dio, GPIO_INT_EDGE_TO_ACTIVE))
     return -EIO;
   if (gpio_pin_interrupt_configure_dt(&dio, GPIO_INT_DISABLE))
+    return -EIO;
+  if (nrfx_ppi_channel_alloc(&done_channel) != NRFX_SUCCESS)
+    return -ENOMEM;
+  resource_flags|=HAVE_DONE_CHANNEL;
+  if(nrfx_ppi_channel_disable(done_channel)!=NRFX_SUCCESS)return -EIO;
+  if (nrfx_ppi_channel_assign(done_channel,
+          nrfx_gpiote_in_event_address_get(&gpiote, NRF_GPIO_PIN_MAP(0,21)),
+          nrfx_gpiote_clr_task_address_get(&gpiote, CSD_PIN)) != NRFX_SUCCESS)
+    return -EIO;
+  if (nrfx_ppi_channel_fork_assign(done_channel, 0) != NRFX_SUCCESS)
     return -EIO;
   resources = true;
   return 0;
@@ -500,10 +534,15 @@ int r2_lora_hw_start(uint32_t gen, bool receive) {
   int rc = init_resources();
   if (rc)
     return fail(rc);
-  rc = r2_capture_lora_attach(
-      &dio, nrfx_gpiote_clr_task_address_get(&gpiote, CSD_PIN));
-  if (rc)
-    return rc == -EAGAIN ? rc : fail(rc);
+  nrfx_gpiote_trigger_enable(&gpiote,NRF_GPIO_PIN_MAP(0,19),false);
+  rc = r2_capture_lora_attach(&dio);
+  if (rc) {
+    /* An allocation/cleanup error may retain a partial capture/group owner.
+     * The ordinary stop path must retry actual release before acknowledging
+     * common-timer closure. EAGAIN allocates nothing and remains deferrable. */
+    if(rc==-EAGAIN)return rc;
+    capture_owned=true;return fail(rc);
+  }
   capture_owned = true;
   active_epoch = current.epoch;
   receive_mode = receive;
@@ -598,6 +637,11 @@ static int arm_edge(uint32_t gen, uint8_t new_phase) {
   irq_unlock(key);
   if (!rc)
     rc = gpio_pin_interrupt_configure_dt(&dio, GPIO_INT_EDGE_TO_ACTIVE);
+  if (!rc)
+    rc = new_phase==4 ? (nrfx_ppi_channel_enable(done_channel)==NRFX_SUCCESS?0:-EIO) :
+        (nrfx_ppi_channel_disable(done_channel)==NRFX_SUCCESS?0:-EIO);
+  if (!rc && new_phase==2)
+    rc = r2_capture_lora_arm(false);
   return rc;
 }
 int r2_lora_hw_rx_rearm(void) {
@@ -747,7 +791,8 @@ static bool physical_edge(struct r2_lora_hw_edge *out,bool receive) {
   } else if (valid) {
     /* PPI has already frozen the physical edge even if its GPIO callback is
      * pending behind this publisher. Do not latch/classify it here. */
-    valid = gpio_pin_get_dt(&dio) > 0 && r2_capture_lora(&captured);
+    valid = (receive ? gpio_pin_get_dt(&dio) > 0 : wd.command_committed) &&
+        r2_capture_lora(&captured);
   }
   valid = valid && captured.tick && captured.epoch == active_epoch;
   if (valid) *out = (struct r2_lora_hw_edge){captured.tick,
@@ -781,7 +826,18 @@ int r2_lora_hw_take(struct r2_lora_hw_event *out) {
     if (state == 3 && flags == 1) {
       out->kind = R2_LORA_HW_TX_DONE;
       count(&counters.tx_done);
-    } else if (state == 2 && (flags & 2) && !(flags & 0x260)) {
+    } else if (state == 2 && flags == 0x10) {
+      /* Do not clear the early IRQ or read/reuse FIFO. HeaderValid is only
+       * provisional until this same single-RX operation proves CRC/RxDone.
+       * A false/foreign header cannot hold the low-priority owner forever. */
+      struct r2_capture current;
+      if (edge.tick && r2_capture_now(&current) && current.epoch==edge.epoch &&
+          current.tick>=edge.tick &&
+          current.tick-edge.tick <= (uint64_t)DIAGNOSTIC_CUTOFF_US*R2_CAPTURE_HZ/1000000u) return 0;
+      const uint8_t standby[]={0};
+      rc=command(0x80,standby,sizeof standby);
+      if(!rc){count(&counters.crc_bad);rc=-EBADMSG;}
+    } else if (state == 2 && flags == 0x12) {
       rc = command(0x13, dummy, sizeof(dummy));
       if (!rc && !status_ok(dma_rx[1]))
         rc = -EIO;
@@ -814,7 +870,7 @@ int r2_lora_hw_take(struct r2_lora_hw_event *out) {
           }
         }
       }
-    } else if (state == 2 && (flags & 0x260)) {
+    } else if (state == 2 && ((flags & 0x260) || (flags & 2))) {
       count(&counters.crc_bad);
       rc = -EBADMSG;
     } else

@@ -5,7 +5,7 @@ Copyright (c) 2026 Jonathan Yantis. MIT.
 Native builds [clean compiler output and retain the latest two image bundles](../firmware-storage.md)
 per device/profile, with installed/recovery pins preserved.
 
-This guide builds and inspects T096 source **0.15.222** without opening hardware.
+This guide builds and inspects T096 source **0.15.223** without opening hardware.
 For profile choices and controls, see the [T096 README](../../firmware/t096/README.md).
 Release-by-release implementation and validation notes are in the
 [T096 changelog](../../firmware/t096/CHANGELOG.md).
@@ -139,7 +139,7 @@ hash and preserves a private build snapshot.
 
 ## Optional LoRa configuration
 
-Normal GM/RC builds include the [RC8 timing3/coarse4 integration](../../protocol/rc8/README.md).
+Normal GM/RC builds include the [RC8 RF-event wire5 integration](../../protocol/rc8/README.md).
 The default transmitter factory is zero, so LoRa hardware does not start. The
 normal-only `--lora-transmitter-factory` option takes a 16-digit exact factory
 identity verified against ignored T096 registry metadata. It is included in the

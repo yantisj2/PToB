@@ -9,18 +9,23 @@ int main(int argc,char **argv){
  assert(!r2_capture_lora(&event));fake_now=1000;assert(!r2_capture_start(&pps,fake_now));
  raw_now=UINT32_C(0xfffff000);fake_now=1100;r2_capture_poll(fake_now);
  assert(accepting&&usb_route&&radio_open&&allocated==((1u<<5)|(1u<<6)|(1u<<7)));
- if(mode>=2&&mode<=5){
-  failure=mode==2?30:mode==3?31:mode==4?32:33;
-  assert(r2_capture_lora_attach(&dio,9876)<0&&!lora_owned&&!lora_fork&&!lora_route);
+ if(mode==2||mode==4||mode==12||mode==13){
+  failure=mode==2?30:mode==4?32:mode==12?36:40;
+  assert(r2_capture_lora_attach(&dio)<0&&!lora_owned&&!lora_group_owned&&!lora_fork&&!lora_route);
   assert(accepting&&usb_route&&radio_open&&r2_capture_now(&current)&&!r2_capture_error());
  }else{
-  if(mode==8){
-   struct gpio_dt_spec wrong={&gpio1,21};
-   assert(r2_capture_lora_attach(&wrong,9876)==-EINVAL);
-   assert(r2_capture_lora_attach(&dio,9877)==-EINVAL);
+  if(mode==8){struct gpio_dt_spec wrong={&gpio1,21};assert(r2_capture_lora_attach(&wrong)==-EINVAL);}
+  assert(!r2_capture_lora_attach(&dio)&&lora_owned&&!lora_route&&lora_fork==9876);
+  assert(!r2_capture_lora(&event));
+  if(mode==3||mode==5){
+    failure=mode==3?31:33;assert(r2_capture_lora_arm(false)==-EIO&&!lora_armed);
+    failure=0;
   }
-  assert(!r2_capture_lora_attach(&dio,9876)&&lora_owned&&lora_route&&lora_fork==9876);
-  unsigned mask=allocated;assert(r2_capture_lora_attach(&dio,9876)==-EALREADY&&allocated==mask);
+  assert(!r2_capture_lora_arm(mode==14)&&lora_route&&lora_armed);
+  /* An armed route with no physical edge never exports an old CC4 value. */
+  assert(!r2_capture_lora(&event));
+  fake_ppi.CHEN&=~(1u<<8);lora_route=false; /* actual edge disables its own group */
+  unsigned mask=allocated;assert(r2_capture_lora_attach(&dio)==-EALREADY&&allocated==mask);
   raw_lora=UINT32_C(0xfffffff0);raw_now=32;fake_now=1400;
   assert(r2_capture_lora(&event)&&event.tick==UINT64_C(0xfffffff0)&&event.kind==R2_CAPTURE_LORA&&event.epoch==1);
   if(mode==9){
@@ -41,12 +46,18 @@ int main(int argc,char **argv){
   }
   /* Common timer/HFXO teardown must refuse while LoRa owns its route. */
   assert(r2_capture_stop()==-EBUSY&&accepting&&requested&&usb_route&&radio_open);
-  if(mode==6||mode==7){
-   failure=mode==6?34:35;assert(r2_capture_lora_detach()==-EIO&&lora_owned);
+  if(mode==6||mode==7||mode>=15){
+   failure=mode==6?34:mode==7?35:mode==15?37:mode==16?38:39;assert(r2_capture_lora_detach()==-EIO&&lora_owned);
    assert(r2_capture_stop()==-EBUSY&&accepting&&usb_route&&radio_open);
    failure=0;
   }
-  assert(!r2_capture_lora_detach()&&!lora_owned&&!lora_fork&&!lora_route);
+  if(mode==14){
+   /* After rearm no prior event is valid; a new edge is required. */
+   assert(!r2_capture_lora_arm(false)&&!r2_capture_lora(&event));
+   fake_ppi.CHEN&=~(1u<<8);lora_route=false;raw_lora=raw_now-16;
+   assert(r2_capture_lora(&event)&&event.tick>UINT64_C(0xfffffff0));
+  }
+  assert(!r2_capture_lora_detach()&&!lora_owned&&!lora_group_owned&&!lora_fork&&!lora_route);
  }
  failure=0;assert(allocated==((1u<<5)|(1u<<6)|(1u<<7))&&usb_route&&radio_open);
  assert(!r2_capture_lora(&event)&&!r2_capture_error());

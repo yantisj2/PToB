@@ -49,7 +49,8 @@ static struct k_spinlock lock;
 static nrf_ppi_channel_t channel;
 #if !defined(R2_DC_PROFILE) && !defined(R2_PC_PROFILE)
 static nrf_ppi_channel_t lora_channel;
-static bool lora_owned;
+static nrf_ppi_channel_group_t lora_group;
+static bool lora_owned,lora_group_owned,lora_armed;
 BUILD_ASSERT(TIMER3_CC_NUM >= 5);
 #endif
 #ifndef R2_DC_PROFILE
@@ -354,28 +355,53 @@ bool r2_capture_radio(uint32_t raw,uint32_t event_epoch,struct r2_capture *event
   k_spin_unlock(&lock,key);return valid;
 }
 #if !defined(R2_DC_PROFILE) && !defined(R2_PC_PROFILE)
-int r2_capture_lora_attach(const struct gpio_dt_spec *dio,uint32_t fem_clear_task)
+/* One hardware capture per operation. Its fork disables its own allocated
+ * PPI group; later BUSY transitions (including the chip's internal IRQ) cannot
+ * overwrite TX_START while BLE delays the worker. No ISR supplies the tick. */
+int r2_capture_lora_attach(const struct gpio_dt_spec *dio)
 {
   if(!dio||dio->port!=DEVICE_DT_GET(DT_NODELABEL(gpio0))||dio->pin!=21)return -EINVAL;
-  if(fem_clear_task!=nrfx_gpiote_clr_task_address_get(&gpiote,NRF_GPIO_PIN_MAP(0,12)))return -EINVAL;
   k_spinlock_key_t key=k_spin_lock(&lock);
   int rc=0;uint8_t gchannel;
   if(!atomic_get(&accepting))rc=-EAGAIN;
-  else if(lora_owned)rc=-EALREADY;
+  else if(lora_owned||lora_group_owned)rc=-EALREADY;
   else if(nrfx_gpiote_channel_get(&gpiote,NRF_GPIO_PIN_MAP(0,21),&gchannel)!=NRFX_SUCCESS)rc=-ENOTSUP;
+  else if(nrfx_ppi_channel_alloc(&lora_channel)!=NRFX_SUCCESS)rc=-ENOMEM;
   else {
-    uint32_t event=nrfx_gpiote_in_event_address_get(&gpiote,NRF_GPIO_PIN_MAP(0,21));
-    if(event!=nrf_gpiote_event_address_get(gpiote.p_reg,nrf_gpiote_in_event_get(gchannel)))rc=-ENOTSUP;
-    else if(nrfx_ppi_channel_alloc(&lora_channel)!=NRFX_SUCCESS)rc=-ENOMEM;
+    lora_owned=true;
+    if(nrfx_ppi_group_alloc(&lora_group)!=NRFX_SUCCESS)rc=-ENOMEM;
     else {
-      lora_owned=true;
-      if(nrfx_ppi_channel_assign(lora_channel,event,
-           nrfx_timer_capture_task_address_get(&timer,4))!=NRFX_SUCCESS||
-         nrfx_ppi_channel_fork_assign(lora_channel,fem_clear_task)!=NRFX_SUCCESS||
-         nrfx_ppi_channel_enable(lora_channel)!=NRFX_SUCCESS)rc=-EIO;
-      if(rc&&nrfx_ppi_channel_disable(lora_channel)==NRFX_SUCCESS&&
-          nrfx_ppi_channel_fork_assign(lora_channel,0)==NRFX_SUCCESS&&
-          nrfx_ppi_channel_free(lora_channel)==NRFX_SUCCESS)lora_owned=false;
+      lora_group_owned=true;
+      if(nrfx_ppi_channel_include_in_group(lora_channel,lora_group)!=NRFX_SUCCESS||
+         nrfx_ppi_channel_fork_assign(lora_channel,nrfx_ppi_task_address_get(
+           nrf_ppi_group_disable_task_get(NRF_PPI,lora_group)))!=NRFX_SUCCESS)rc=-EIO;
+    }
+    if(rc){
+      if(lora_group_owned&&nrfx_ppi_group_clear(lora_group)==NRFX_SUCCESS&&
+         nrfx_ppi_group_free(lora_group)==NRFX_SUCCESS)lora_group_owned=false;
+      if(!lora_group_owned&&nrfx_ppi_channel_disable(lora_channel)==NRFX_SUCCESS&&
+         nrfx_ppi_channel_fork_assign(lora_channel,0)==NRFX_SUCCESS&&
+         nrfx_ppi_channel_free(lora_channel)==NRFX_SUCCESS)lora_owned=false;
+    }
+  }
+  k_spin_unlock(&lock,key);return rc;
+}
+int r2_capture_lora_arm(bool transmit)
+{
+  k_spinlock_key_t key=k_spin_lock(&lock);
+  int rc=0;uint8_t ch;unsigned pin=NRF_GPIO_PIN_MAP(0,transmit?19:21);
+  lora_armed=false;
+  if(!lora_owned||!lora_group_owned||!atomic_get(&accepting))rc=-EAGAIN;
+  else if(nrfx_ppi_channel_disable(lora_channel)!=NRFX_SUCCESS)rc=-EIO;
+  else if(nrfx_gpiote_channel_get(&gpiote,pin,&ch)!=NRFX_SUCCESS)rc=-ENOTSUP;
+  else {
+    uint32_t event=nrfx_gpiote_in_event_address_get(&gpiote,pin);
+    if(event!=nrf_gpiote_event_address_get(gpiote.p_reg,nrf_gpiote_in_event_get(ch)))rc=-ENOTSUP;
+    else if(nrfx_ppi_channel_assign(lora_channel,event,
+             nrfx_timer_capture_task_address_get(&timer,4))!=NRFX_SUCCESS)rc=-EIO;
+    else {
+      lora_armed=true;
+      if(nrfx_ppi_channel_enable(lora_channel)!=NRFX_SUCCESS){lora_armed=false;rc=-EIO;}
     }
   }
   k_spin_unlock(&lock,key);return rc;
@@ -383,7 +409,8 @@ int r2_capture_lora_attach(const struct gpio_dt_spec *dio,uint32_t fem_clear_tas
 bool r2_capture_lora(struct r2_capture *event)
 {
   bool valid=false;k_spinlock_key_t key=k_spin_lock(&lock);
-  if(lora_owned&&atomic_get(&accepting)){
+  if(lora_owned&&lora_armed&&atomic_get(&accepting)&&
+     !(NRF_PPI->CHEN&(1u<<lora_channel))){
     uint32_t raw=nrfx_timer_capture_get(&timer,NRF_TIMER_CC_CHANNEL4);
     uint32_t current=nrfx_timer_capture(&timer,NRF_TIMER_CC_CHANNEL2),age=current-raw;
     /* IRQ arrival is not the event time. A delayed/stale CC only rejects
@@ -397,7 +424,14 @@ bool r2_capture_lora(struct r2_capture *event)
 int r2_capture_lora_detach(void)
 {
   int rc=0;k_spinlock_key_t key=k_spin_lock(&lock);
-  if(lora_owned){
+  lora_armed=false;
+  if(lora_group_owned){
+    if(nrfx_ppi_group_disable(lora_group)!=NRFX_SUCCESS||
+       nrfx_ppi_group_clear(lora_group)!=NRFX_SUCCESS||
+       nrfx_ppi_group_free(lora_group)!=NRFX_SUCCESS)rc=-EIO;
+    else lora_group_owned=false;
+  }
+  if(lora_owned&&!lora_group_owned){
     if(nrfx_ppi_channel_disable(lora_channel)!=NRFX_SUCCESS||
        nrfx_ppi_channel_fork_assign(lora_channel,0)!=NRFX_SUCCESS||
        nrfx_ppi_channel_free(lora_channel)!=NRFX_SUCCESS)rc=-EIO;

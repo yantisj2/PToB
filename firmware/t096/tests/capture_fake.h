@@ -33,6 +33,17 @@ static unsigned allocated;static bool timer_started,route_enabled;
 static uint32_t raw_now,raw_pps;
 static uint32_t raw_lora,lora_fork;
 static bool lora_route;
+static struct {uint32_t CHEN;} fake_ppi;
+#define NRF_PPI (&fake_ppi)
+typedef unsigned nrf_ppi_channel_group_t;
+static bool lora_group_allocated;
+static inline int nrfx_ppi_group_alloc(nrf_ppi_channel_group_t *g){if(failure==36)return 1;*g=4;lora_group_allocated=true;return 0;}
+static inline int nrfx_ppi_group_free(nrf_ppi_channel_group_t g){assert(g==4);if(failure==37)return 1;lora_group_allocated=false;return 0;}
+static inline int nrfx_ppi_group_clear(nrf_ppi_channel_group_t g){assert(g==4);if(failure==38)return 1;return 0;}
+static inline int nrfx_ppi_group_disable(nrf_ppi_channel_group_t g){assert(g==4);if(failure==39)return 1;fake_ppi.CHEN&=~(1u<<8);lora_route=false;return 0;}
+static inline int nrfx_ppi_channel_include_in_group(unsigned ch,nrf_ppi_channel_group_t g){assert(ch==8&&g==4);return failure==40?1:0;}
+static inline unsigned nrf_ppi_group_disable_task_get(void *reg,nrf_ppi_channel_group_t g){assert(reg==NRF_PPI&&g==4);return 9876;}
+static inline uint32_t nrfx_ppi_task_address_get(unsigned t){assert(t==9876);return t;}
 struct sys_notify{int unused;};struct onoff_client{struct sys_notify notify;};
 struct onoff_manager{int unused;};static struct onoff_manager mgr;
 #define CLOCK_CONTROL_NRF_SUBSYS_HF 1
@@ -61,18 +72,18 @@ static inline uint32_t nrfx_timer_capture_get(const nrfx_timer_t *t,unsigned cc)
 static inline uint32_t nrfx_timer_capture_task_address_get(const nrfx_timer_t *t,unsigned cc){(void)t;assert(cc<=1||cc==4);return 1234+cc;}
 typedef unsigned nrf_ppi_channel_t;
 static inline int nrfx_ppi_channel_alloc(nrf_ppi_channel_t *ch){if(failure==3||failure==30)return 1;*ch=!allocated?5:allocated==(1u<<5)?6:8;allocated|=1u<<*ch;return 0;}
-static inline int nrfx_ppi_channel_assign(nrf_ppi_channel_t ch,uint32_t event,uint32_t task){assert((allocated&(1u<<ch))&&((ch==5&&event==5678&&task==1234)||(ch==6&&event==6789&&task==1235)||(ch==8&&event==5680&&task==1238)));return failure==6||failure==31?1:0;}
+static inline int nrfx_ppi_channel_assign(nrf_ppi_channel_t ch,uint32_t event,uint32_t task){assert((allocated&(1u<<ch))&&((ch==5&&event==5678&&task==1234)||(ch==6&&event==6789&&task==1235)||(ch==8&&event==5680&&task==1238)||(ch==8&&event==5681&&task==1238)));return failure==6||failure==31?1:0;}
 static inline int nrfx_ppi_channel_fork_assign(nrf_ppi_channel_t ch,uint32_t task){assert(ch==8&&(allocated&(1u<<ch))&&(task==0||task==9876));if((task&&failure==32)||(!task&&failure==35))return 1;lora_fork=task;return 0;}
-static inline int nrfx_ppi_channel_enable(nrf_ppi_channel_t ch){assert((ch==5||ch==6||ch==8)&&(allocated&(1u<<ch)));if(failure==7||failure==33)return 1;if(ch==8)lora_route=true;else route_enabled=true;return 0;}
-static inline int nrfx_ppi_channel_disable(nrf_ppi_channel_t ch){assert((ch==5||ch==6||ch==8)&&(allocated&(1u<<ch)));if(failure==9||failure==34)return 1;if(ch==5)route_enabled=false;if(ch==8)lora_route=false;return 0;}
+static inline int nrfx_ppi_channel_enable(nrf_ppi_channel_t ch){assert((ch==5||ch==6||ch==8)&&(allocated&(1u<<ch)));if(failure==7||failure==33)return 1;if(ch==8){lora_route=true;fake_ppi.CHEN|=1u<<ch;}else route_enabled=true;return 0;}
+static inline int nrfx_ppi_channel_disable(nrf_ppi_channel_t ch){assert((ch==5||ch==6||ch==8)&&(allocated&(1u<<ch)));if(failure==9||failure==34)return 1;if(ch==5)route_enabled=false;if(ch==8){lora_route=false;fake_ppi.CHEN&=~(1u<<ch);}return 0;}
 static inline int nrfx_ppi_channel_free(nrf_ppi_channel_t ch){assert((allocated&(1u<<ch))&&(ch==8?!lora_route&&!lora_fork:ch==6||!route_enabled));allocated&=~(1u<<ch);return 0;}
 typedef struct{void *p_reg;} nrfx_gpiote_t;
 #define NRFX_GPIOTE_INSTANCE(n) {NULL}
 #define NRF_GPIO_PIN_MAP(p,n) ((p)*32+(n))
-static inline int nrfx_gpiote_channel_get(const nrfx_gpiote_t *g,unsigned pin,uint8_t *ch){(void)g;assert(pin==43||pin==21);if(failure==5)return 1;*ch=pin==43?3:4;return 0;}
-static inline uint32_t nrfx_gpiote_in_event_address_get(const nrfx_gpiote_t *g,unsigned pin){(void)g;assert(pin==43||pin==21);return pin==43?5678:5680;}
-static inline unsigned nrf_gpiote_in_event_get(unsigned ch){assert(ch==3||ch==4);return ch;}
-static inline uint32_t nrf_gpiote_event_address_get(void *reg,unsigned event){(void)reg;assert(event==3||event==4);return event==3?5678:5680;}
+static inline int nrfx_gpiote_channel_get(const nrfx_gpiote_t *g,unsigned pin,uint8_t *ch){(void)g;assert(pin==43||pin==21||pin==19);if(failure==5)return 1;*ch=pin==43?3:pin==21?4:5;return 0;}
+static inline uint32_t nrfx_gpiote_in_event_address_get(const nrfx_gpiote_t *g,unsigned pin){(void)g;assert(pin==43||pin==21||pin==19);return pin==43?5678:pin==21?5680:5681;}
+static inline unsigned nrf_gpiote_in_event_get(unsigned ch){assert(ch==3||ch==4||ch==5);return ch;}
+static inline uint32_t nrf_gpiote_event_address_get(void *reg,unsigned event){(void)reg;assert(event==3||event==4||event==5);return event==3?5678:event==4?5680:5681;}
 static inline uint32_t nrfx_gpiote_clr_task_address_get(const nrfx_gpiote_t *g,unsigned pin){(void)g;assert(pin==12);return 9876;}
 static inline int gpio_pin_interrupt_configure_dt(const struct gpio_dt_spec *p,unsigned mode){assert(p->pin==11);return (failure==4&&mode==GPIO_INT_DISABLE)||(failure==8&&mode==GPIO_INT_EDGE_TO_ACTIVE)?-EIO:0;}
 

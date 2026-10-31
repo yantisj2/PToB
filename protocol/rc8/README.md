@@ -2,18 +2,18 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
-T096 uses timing/name revision3 and **coarse companion/measurement revision4**.
-The companion change is breaking: current receivers accept revision4 only, with
-no negotiation or compatibility broadcast. Other target ports are deferred.
-[Machine contract](contract-wire4.json) · [Synthetic vectors](vectors-wire4.json) ·
-[Historical wire3 contract](wire3-historical.md).
+T096 uses **RF event wire5** for timing, context, name, companion and measurement.
+This is breaking: current receivers accept wire5 only, with no negotiation or
+compatibility broadcast. Other target ports are deferred.
+[Machine contract](contract-wire5.json) · [Synthetic vectors](vectors-wire5.json) ·
+[Historical wire4 contract](contract-wire4.json) · [Historical wire3](wire3-historical.md).
 
 ## Continuous timing and authority
 
 The privately configured exact source emitter sends80-byte timing broadcasts
-nominally every4s. Each carries the preceding packet's actual physical TxDone
+nominally every4s. Each carries the preceding packet's actual physical TX_START
 projected through its original source map. Receivers pair it with that packet's
-original RxDone. Their passive affine fit supplies relative rate and link RMS;
+original RX_HEADER. Their passive affine fit supplies relative rate and link RMS;
 RMS remains relative consistency, not an absolute error bound.
 
 The emitter exports qualified own-GM time or its accepted locked BLE source.
@@ -36,7 +36,7 @@ OFFER names the current context, latest timing sequence, fresh salt, offer token
 and admission hash width. Only current LoRa-only receivers with a complete
 companion, at least20s without usable BLE, and a current valid passive rate fit
 may request. Other receivers remain passive. Hash admission spreads load;
-requests start500..1000ms after the original physical OFFER RxDone and must
+requests start500..1000ms after the original physical OFFER RX_HEADER and must
 finish inside its1.75s request window. The source admits its OFFER only when
 that entire window plus250ms guard fits before the next timing deadline.
 
@@ -52,35 +52,61 @@ admitted OFFER without an extra initial client cooldown. This does not force a
 source opportunity or bypass silence/refusal; later failures and successful
 refreshes retain their ordinary backoff and long intervals.
 
-REQUEST, RESPONSE and FOLLOW are80 bytes, authenticated in domain `PTOBR8P4`.
-Their common body is: header0..3 (`R8`,4,kind), context4..19, client factory20..27,
+REQUEST, RESPONSE and FOLLOW are80 bytes, authenticated in domain `PTOBR8P5`.
+Their common body is: header0..3 (`R8`,5,kind), context4..19, client factory20..27,
 client boot28..35, nonce36..43, offer token44..47, t2 at48..55, t3 at56..63,
 and16-byte tag64..79. Integers are little endian. REQUEST has zero t2/t3;
-RESPONSE supplies original request RxDone source-ns t2; FOLLOW repeats t2 and
-supplies the response's actual TxDone source-ns t3. OFFER uses zero client/boot,
+RESPONSE supplies original request RX_HEADER source-ns t2; FOLLOW repeats t2 and
+supplies the response's actual TX_START source-ns t3. OFFER uses zero client/boot,
 nonzero salt in nonce, current timing sequence in t2 and hash bits0..12 in t3.
 Full context binds emitter/root/parent identities, boots, stream and source epoch.
-Request RxDone and response TxDone projections are preserved before source-map
+Request RX_HEADER and response TX_START projections are preserved before source-map
 turnover; later formulas cannot timestamp earlier events. Processing delay
 consumes the original transaction lifetime. The console RTT tuple appends the
 last refusal reason:1 malformed/auth,2 context,3 admission,4 window,5 missing
 original RX map; it never turns these optional refusals into radio faults.
 
-The client retains actual request TxDone t1 and response RxDone t4 in the same
+The client retains actual request TX_START t1 and response RX_HEADER t4 in the same
 capture incarnation. Only a complete matched exchange computes
 `effective_RTT = rate_corrected(t4 - t1) - (t3 - t2)`. A nonnegative result at
-most100ms yields half that interval as an **estimated effective mean link delay**.
+most250ms yields half that interval as an **estimated effective mean link delay**.
 This includes modem/capture delays; asymmetry and independent accuracy remain
 unqualified. Rate must be within100000ppb; an out-of-domain rate does not erase
 otherwise valid passive residual statistics.
 
-The reference points are **DIO1 TxDone/RxDone**, rather than identical on-air
-symbol boundaries. If `b_CS` and `b_SC` denote propagation plus each direction's
-receive/transmit completion offset, the measured quantity is
-`D = (b_CS + b_SC) / 2`. Applying it to the passive clock leaves a directional
-residual `(b_CS - b_SC) / 2`, in addition to upstream clock/reference error.
-A millisecond-scale `D` at short distance therefore needs endpoint/clock
-measurement; it must not be interpreted as distance or simply forced to zero.
+The TX reference is **BUSY falling at preamble start**; the RX reference is
+**DIO1 rising at HeaderValid**, before payload completion. Both use a dedicated
+GPIOTE event and PPI to the common16MHz capture clock. The PPI fork disables its
+own allocated group at the first edge: a later BUSY transition cannot overwrite
+TX_START while BLE delays software. TX capture arms after SetTx DMA retirement,
+immediately before its actual NSS commit, with BUSY low. Exact TxDone and the
+original generation/capture/map must still validate the timestamp.
+
+RX keeps HeaderValid asserted until the same single-RX packet completes. The
+worker polls completion without clearing the early IRQ or reusing the FIFO;
+only HeaderValid|RxDone with no error exports its original capture. CRC/header
+errors, timeout and missing HeaderValid discard the observation. An incomplete
+header expires450ms after its physical edge. The early RX event cannot inhibit
+the FEM: the separate DIO1/FEM-clear route is enabled only for TX, alongside the
+unchanged independent hardware transmit cutoff.
+
+[Semtech SX1261/2 Rev2.2](https://www.semtech.com/products/wireless-rf/lora-connect/sx1262)
+§8.3.1 identifies BUSY falling with TX preamble start. Its IRQ table exposes
+PreambleDetected and HeaderValid for LoRa; SyncWordValid is GFSK-only.
+PreambleDetected depends on acquisition; HeaderValid supplies a repeatable
+explicit-header marker, still delayed by modem detection/decoding. The
+[Heltec schematic](https://resource.heltec.cn/download/Mesh_Node_T096/Schematic/Mesh_Node_T096_V0.2.pdf)
+connects BUSY and DIO1 to the MCU; DIO2 controls the FEM and DIO3 the TCXO.
+This board exposes no documented matched LoRa chirp-arrival timestamp or
+calibrated antenna epoch. No symbol duration or observed millisecond offset is
+subtracted to invent one.
+
+If `b_CS` and `b_SC` denote propagation plus each direction's RX_HEADER minus
+TX_START offset, the measured quantity remains `D = (b_CS + b_SC) / 2`. It now
+includes the fixed header/detection interval; applying it leaves directional
+residual `(b_CS - b_SC) / 2`, plus upstream reference error. The250ms effective
+RTT ceiling bounds this longer explicit reference interval. It is not a distance
+measurement or a claim of BLE-equivalent RF accuracy.
 
 T096 shadow-PPS observes the frozen LoRa watch map independently. Its schema2
 records identify `input=LORA`, `applied_lora_delay_ns`, signed corrected
@@ -89,7 +115,7 @@ capture incarnation, source scope, missing records and unavailable references
 remain explicit. PPS cannot feed the LoRa fit or RTT calculation. The LoRa
 console `rtt_events` tuple is `[t1_tick,t2_ns,t3_ns,t4_tick,capture_epoch,
 accepted_mono_us,offer,rate_ppb]`; it is zero without a live calibration context.
-`rtt_reference=DIO1_COMPLETION` names the measurement endpoint. These diagnostics
+`rtt_reference=TX_BUSY_START_RX_HEADER` names the measurement endpoint. These diagnostics
 support a bounded PPS comparison; they do not supply an absolute UTC bound.
 
 The client performs this calculation only after FOLLOW. It applies rate and
@@ -114,16 +140,16 @@ limits. TZ remains on its ordinary low-priority schedule.
 
 ## Coarse timezone companion
 
-The128-byte companion retains its scope, ordering floor and quality fields
-through byte107. Revision4 replaces bytes108..111 with the same atomic
+The128-byte wire5 companion retains its scope, ordering floor and quality fields
+through byte107. The retained coarse format uses bytes108..111 with the same atomic
 `uint16_le tz_id, int16_le tz_offset_min` pair used by BLE. TIME_VALID moves to
 bit7 of byte65; source kind occupies bits0..1 and bits2..6 are zero. Source
 loss/recovery counters remain local diagnostics rather than OTA fields.
 
-The companion tag uses `PTOBR8D4` over bytes0..111. The immutable context still
-uses `PTOBR8C3` over the canonical revision3 scope header and unflagged source
-kind; TZ changes cannot rotate a timing context or reset a fit. Timing and name
-layouts/domains remain unchanged. Group authentication proves membership, not
+The companion tag uses `PTOBR8D5` over bytes0..111. The immutable context still
+uses `PTOBR8C5` over the canonical revision5 scope header and unflagged source
+kind; TZ changes cannot rotate a timing context or reset a fit. Timing and name layouts retain their field offsets, with wire5 headers and
+domains `PTOBR8T5` and `PTOBR8N5`. Group authentication proves membership, not
 unique hardware authorship.
 
 The emitter forwards the selected serving source's current metadata. A BLE

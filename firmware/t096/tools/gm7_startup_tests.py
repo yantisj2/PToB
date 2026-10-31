@@ -14,7 +14,7 @@ for n in ['nrfx_timer.h','nrfx_ppi.h','nrfx_gpiote.h','radio_nrf5_resources.h','
 fake=source['tests/capture_fake.h'];fake=fake.replace('assert(cc<=1||cc==4)','assert(cc<=1||cc==4||cc==5)').replace('(ch==8&&event==5680&&task==1238)','(ch==8&&((event==5680&&task==1238)||(event==6790&&task==1239)))').replace('#define NRF_RADIO_EVENT_ADDRESS 1','#define NRF_RADIO_EVENT_ADDRESS 1\n#define NRF_RADIO_EVENT_END 2').replace('assert(r==NRF_RADIO&&event==1);return 6789;','assert(r==NRF_RADIO&&(event==1||event==2));return event==1?6789:6790;')
 fake=fake.replace('static struct onoff_manager mgr;', 'static struct onoff_manager mgr;static unsigned request_count;').replace('(void)m;(void)c;return 0;}', '(void)m;(void)c;++request_count;return 0;}')
 (out/'capture-fake.h').write_text(fake)
-rename='\n'.join('#define '+n+' async_'+n for n in ['r2_capture_start','r2_capture_poll','r2_capture_pps','r2_capture_now','r2_capture_now_at','r2_capture_radio','r2_capture_lora_attach','r2_capture_lora','r2_capture_lora_detach','r2_capture_stop','r2_capture_error'])
+rename='\n'.join('#define '+n+' async_'+n for n in ['r2_capture_start','r2_capture_poll','r2_capture_pps','r2_capture_now','r2_capture_now_at','r2_capture_radio','r2_capture_lora_attach','r2_capture_lora_arm','r2_capture_lora','r2_capture_lora_detach','r2_capture_stop','r2_capture_error'])
 cap='''#include "capture-fake.h"
 '''+rename+f'\n#include "{app}/src/capture.c"\n'+'''
 extern void probe_hf_published(bool valid);

@@ -13,7 +13,7 @@ static struct rc8_name named(void){
  struct rc8_name p={.sequence=17,.name="Field-7"};assert(!rc8_context_id(p.context,&s,&group));return p;
 }
 static void reject(uint8_t *w){
- struct rc8_name p;memset(&p,0xa5,sizeof p);assert(!r2_group_mac(w+64,&group,"PTOBR8N3",w,64));
+ struct rc8_name p;memset(&p,0xa5,sizeof p);assert(!r2_group_mac(w+64,&group,"PTOBR8N5",w,64));
  assert(rc8_name_decode(&p,w,RC8_NAME_BYTES,&group));assert(zero(&p,sizeof p));
 }
 int main(int argc,char **argv){
@@ -30,7 +30,7 @@ int main(int argc,char **argv){
  struct r2_group_config bad=group;bad.id++;assert(rc8_name_decode(&q,w,sizeof w,&bad)==-EACCES&&zero(&q,sizeof q));
  bad=group;bad.epoch++;assert(rc8_name_decode(&q,w,sizeof w,&bad)==-EACCES);
  bad=group;bad.psk[0]++;assert(rc8_name_decode(&q,w,sizeof w,&bad)==-EACCES);
- assert(!r2_group_mac(changed+64,&group,"PTOBR8T3",w,64));memcpy(changed,w,64);
+ assert(!r2_group_mac(changed+64,&group,"PTOBR8T5",w,64));memcpy(changed,w,64);
  assert(rc8_name_decode(&q,changed,sizeof changed,&group)==-EACCES);
  /* Authenticated malformed layouts must still fail; reserved bytes and name
   * padding have exactly one canonical representation. */

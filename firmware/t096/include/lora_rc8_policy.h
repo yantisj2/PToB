@@ -31,7 +31,7 @@ struct rc8_export {
  uint8_t mode;
  bool authenticated,valid;
 };
-enum rc8_event_kind {RC8_EVENT_CALLBACK,RC8_EVENT_RX_DONE,RC8_EVENT_TX_DONE};
+enum rc8_event_kind {RC8_EVENT_CALLBACK,RC8_EVENT_RX_HEADER,RC8_EVENT_TX_START};
 struct rc8_event {uint64_t tick,capture_epoch,local_us;uint32_t generation;enum rc8_event_kind kind;};
 bool rc8_export_select(struct rc8_export *,const struct rc8_export *,const struct rc8_export *,bool actually_gm,uint64_t factory,uint64_t boot);
 bool rc8_export_close(struct rc8_export *,uint64_t cut_tick,uint64_t epoch);

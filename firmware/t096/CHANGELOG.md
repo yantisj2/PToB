@@ -1,5 +1,21 @@
 # T096 changelog
 
+## 0.15.223 — capture TX preamble start and RX explicit header
+
+Move LoRa timestamps to hardware BUSY falling at TX preamble start and first
+HeaderValid rising on RX, preserving original maps/generations and requiring
+exact same-packet completion/CRC. A self-disabling PPI group freezes the first
+edge even when BLE delays software. RX retains the early IRQ until completion;
+its FEM stays enabled. Separate TX-only DIO/FEM-clear and existing independent
+cutoff preserve bounded transmission. Missing/mixed/error events are dropped.
+
+Breaking wire5 headers and authentication domains distinguish these endpoints
+from earlier TxDone/RxDone timing. The measured RTT still includes decoded
+header and modem delay; its bounded effective ceiling is250ms. No inferred RF
+epoch, symbol-airtime subtraction or fixed measured-bias constant is used.
+RX RF-arrival and antenna calibration remain unavailable on the documented
+SX1262 interface. Physical PPS results remain separate from host/native checks.
+
 ## 0.15.222 — separate diagnostic formatting stack lifetimes
 
 Dispatch LoRa, shadow-PPS and clock replies before entering the general console

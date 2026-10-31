@@ -13,10 +13,10 @@ int main(void){
   assert(r2_lora_source_own(&map,&s,scope(true),now,grant));assert(map.mode==RC8_MAP_SOURCE_Q16);
   int64_t exact;assert(r2_source_utc_read(&s,(struct r2_capture){grant,7,R2_CAPTURE_NOW},5,&exact));assert(map.expires_ns==(uint64_t)exact);
   for(uint64_t tick=17000000;tick<grant;tick+=77777){
-   struct rc8_correction out;assert(rc8_export_event(&out,&map,1,(struct rc8_event){.tick=tick,.capture_epoch=7,.kind=RC8_EVENT_TX_DONE}));
+   struct rc8_correction out;assert(rc8_export_event(&out,&map,1,(struct rc8_event){.tick=tick,.capture_epoch=7,.kind=RC8_EVENT_TX_START}));
    assert(r2_source_utc_read(&s,(struct r2_capture){tick,7,R2_CAPTURE_RADIO},5,&exact));assert(out.event_ns==(uint64_t)exact);
   }
-  struct rc8_correction out;assert(!rc8_export_event(&out,&map,1,(struct rc8_event){.tick=grant,.capture_epoch=7,.kind=RC8_EVENT_TX_DONE}));
+  struct rc8_correction out;assert(!rc8_export_event(&out,&map,1,(struct rc8_event){.tick=grant,.capture_epoch=7,.kind=RC8_EVENT_TX_START}));
   assert(!r2_lora_source_own(&map,&s,scope(false),now,grant));
  }
  for(int phase=-500000;phase<=500000;phase+=500000)for(int rate=-50000;rate<=50000;rate+=50000){
@@ -25,7 +25,7 @@ int main(void){
   assert(r2_lora_source_follower(&map,&original,scope(false),now,36000000,2000000000,4000000000,1000000000000LL,12));
   for(uint64_t tick=17000000;tick<36000000;tick+=33333){
    int64_t exact;assert(r2_servo_mapped(&original,tick,&exact));struct rc8_correction c;
-   assert(rc8_export_event(&c,&map,2,(struct rc8_event){.tick=tick,.capture_epoch=9,.kind=RC8_EVENT_TX_DONE}));assert(c.event_ns==(uint64_t)exact+1000000000000ULL);
+   assert(rc8_export_event(&c,&map,2,(struct rc8_event){.tick=tick,.capture_epoch=9,.kind=RC8_EVENT_TX_START}));assert(c.event_ns==(uint64_t)exact+1000000000000ULL);
   }
  }
  r2_servo_map_t equal={.delivery=16000000,.anchor=2000000000,.valid=true};struct rc8_export map;
