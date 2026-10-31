@@ -34,11 +34,28 @@ int main(void){
  r2_shadow_normal_withdraw();assert(history.count==0);
  owner.scope.follower=false;owner.scope.gm=true;assert(!r2_radio_precision_map(&owner,&delivered));
  struct rc5_clock rc={.head=1,.count=1,.map={{.effective=24001000,.anchor_tick=24000000,.anchor_ns=1500000123,.generation=2,.continuous=true}}};
- struct rc5_state path={.routes={.count=2,.node={{.id=1},{.id=2,.parent=0}}},.self=1,.parent_boot=9,.root_boot=9,.root_epoch=3,.parent_epoch=1,.reference={.origin={.root=1,.utc_offset=1000000000000LL}}};
+ struct rc5_state path={.routes={.count=2,.node={{.id=1},{.id=2,.parent=0}}},.self=1,.parent_boot=9,.root_boot=9,.root_epoch=3,.parent_epoch=1,.reference={.origin={.root=1,.expires=4000000000,.utc_offset=1000000000000LL}}};
  now_tick=24002000;r2_shadow_map(&rc,&path,24001000,1);e.tick=32000001;r2_shadow_edge(e,1000);r2_shadow_poll();assert(r2_shadow_read(2,&r,&st)&&r.valid&&r.phase_ns>=185&&r.phase_ns<=186&&!r.map.normal);
  e.tick=24001000;r2_shadow_edge(e,1000);r2_shadow_poll();assert(r2_shadow_read(3,&r,&st)&&r.reason==RC_SHADOW_ACTIVATION_RACE);
  r2_shadow_serving(true);assert(!r2_shadow_enabled());r2_shadow_enable(true);assert(!r2_shadow_enabled());
  unsigned old_edges=stats.edges;e.tick+=16000000;r2_shadow_edge(e,1000);r2_shadow_poll();assert(stats.edges==old_edges&&!qcount&&!history.count);
  r2_shadow_serving(false);assert(r2_shadow_enabled());r2_shadow_enable(false);assert(!r2_shadow_enabled());
+ /* LoRa completion bias is observed, never fitted from these PPS inputs.
+  * A later RTT correction cannot improve the preceding queued PPS edge. */
+ r2_shadow_enable(true);uint32_t cursor=stats.edges;
+ m=(struct rc_shadow_map){.normal=true,.lora=true,.normal_map={16000000,998360000,0,0,true},
+  .normal_until=80000000,.map={.effective=16000000,.generation=8},.lo=16001000,.epoch=1,.root=1,.root_boot=9};
+ now_tick=16002000;r2_shadow_normal_map(&m);e=(struct r2_capture){32000000,1,R2_CAPTURE_PPS};r2_shadow_edge(e,1000);
+ m.lo=32001000;now_tick=32002000;m.normal_map.anchor+=1640000;m.lora_delay_ns=1640000;r2_shadow_normal_map(&m);
+ r2_shadow_poll_normal();assert(r2_shadow_read(cursor,&r,&st)&&r.valid&&r.phase_ns==-1640000&&r.map.lora&&!r.map.lora_delay_ns);cursor=r.sequence;
+ e.tick=48000000;r2_shadow_edge(e,1000);r2_shadow_poll_normal();assert(r2_shadow_read(cursor,&r,&st)&&r.valid&&!r.phase_ns&&r.map.lora_delay_ns==1640000);cursor=r.sequence;
+ r2_shadow_normal_withdraw();assert(history.count==2); /* BLE withdrawal preserves LoRa. */
+ m.lora=false;m.lo=48001000;now_tick=48002000;r2_shadow_normal_map(&m);r2_shadow_lora_withdraw();assert(history.count==3&&!history.map[(history.head+RC_SHADOW_HISTORY-1)%RC_SHADOW_HISTORY].lora);
+ r2_shadow_normal_withdraw();assert(!history.count);
+ m.lora=true;m.lo=16001000;m.lora_delay_ns=0;m.normal_map.rate=75000;now_tick=16002000;r2_shadow_normal_map(&m);
+ e.tick=32000000;r2_shadow_edge(e,1000);r2_shadow_poll_normal();assert(r2_shadow_read(cursor,&r,&st)&&r.valid&&r.phase_ns==75000);cursor=r.sequence;
+ m.normal_map.rate=100001;m.lo=32001000;now_tick=32002000;r2_shadow_normal_map(&m);e.tick=48000000;r2_shadow_edge(e,1000);r2_shadow_poll_normal();
+ assert(r2_shadow_read(cursor,&r,&st)&&!r.valid&&r.reason==RC_SHADOW_ARITHMETIC);
+ r2_shadow_lora_withdraw();assert(!history.count);
  puts("PASS actual normal/RC witness worker: immutable causal maps, metadata deferral, normal1.5s/RC500ms expiry, withdraw and raw PPS association; no witness feedback");
 }

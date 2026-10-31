@@ -36,5 +36,12 @@ int main(void){
  s.samples=UINT32_MAX;s.sum=0;s.squares_hi=0x03782dac;s.squares_lo=UINT64_C(0xe660d25316270000);
  r2_shadow_session_view(&s,&v);assert(v.rms_ns==500000000);
  assert(sizeof(s)<4500);
+ struct r2_shadow_settle settle={0};struct rc_shadow_status st={.epoch=1};r2_shadow_settle_begin(&settle,&st);
+ struct rc_shadow_record r={.edge={.epoch=1,.kind=R2_CAPTURE_PPS},.map={.root=1,.root_boot=2,.root_epoch=3},.phase_ns=-1640000};
+ for(unsigned i=1;i<=10;i++){r.sequence=i;r.edge.tick=(uint64_t)i*16000000;assert(!r2_shadow_settle_observe(&settle,&r,true));}
+ r.sequence=11;r.edge.tick=176000000;r.map.lora=true;
+ assert(!r2_shadow_settle_observe(&settle,&r,true)&&settle.first==r.edge.tick&&settle.resets==1);
+ r.sequence=12;r.edge.tick+=16000000;r.phase_ns=1640000;
+ assert(!r2_shadow_settle_observe(&settle,&r,true)&&settle.resets==1); /* Phase magnitude never gates startup. */
  puts("PASS full-second dwell, actual start boundary, invalid/reference/epoch exclusions, all-session mean and tails, navigation/GM stop, fresh reentry, bounded2000sample quantiles");
 }

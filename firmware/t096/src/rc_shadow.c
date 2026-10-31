@@ -34,8 +34,20 @@ void r2_shadow_normal_map(const struct rc_shadow_map *map){
  }
  k_spin_unlock(&lock,key);
 }
-void r2_shadow_normal_withdraw(void){
- k_spinlock_key_t key=k_spin_lock(&lock);history.count=history.head=0;k_spin_unlock(&lock,key);
+static void withdraw_input(bool lora){
+ /* At most16 flag stores; do not copy/compact200B maps with IRQs masked. */
+ k_spinlock_key_t key=k_spin_lock(&lock);unsigned live=0;
+ for(unsigned i=0;i<history.count;i++){
+  struct rc_shadow_map *m=&history.map[(history.head+RC_SHADOW_HISTORY-1-i)%RC_SHADOW_HISTORY];
+  if(m->lora==lora)m->retired=true;
+  if(!m->retired)++live;
+ }
+ if(!live)history.count=history.head=0;
+ k_spin_unlock(&lock,key);
+}
+void r2_shadow_normal_withdraw(void){withdraw_input(false);}
+void r2_shadow_lora_withdraw(void){
+ withdraw_input(true);
 }
 void r2_shadow_map(const struct rc5_clock *c,const struct rc5_state *s,uint64_t lo,uint64_t epoch){
  if(!c->count||!epoch)return;
@@ -109,7 +121,18 @@ static void shadow_poll(bool allow_field){
   if(r.reason==RC_SHADOW_OK){
    if(r.map.normal){
     int64_t ns=0;
-    if(r2_servo_mapped(&r.map.normal_map,r.edge.tick,&ns)&&ns>=0){
+    bool projected;
+    if(r.map.lora){
+     /* Match the delivered LoRa watch's affine formula, including its100ppm
+      * rate domain. No normal BLE servo/slew or GNSS fit is substituted. */
+     uint64_t ticks=r.edge.tick>=r.map.normal_map.delivery?r.edge.tick-r.map.normal_map.delivery:UINT64_MAX;
+     projected=ticks<=UINT64_C(320000000)&&r.map.normal_map.valid&&r.map.normal_map.anchor>=0&&
+      r.map.normal_map.rate>=-100000&&r.map.normal_map.rate<=100000;
+     if(projected){int64_t elapsed=(int64_t)(ticks*125/2);elapsed+=elapsed*r.map.normal_map.rate/INT64_C(1000000000);
+      projected=elapsed>=0&&r.map.normal_map.anchor<=INT64_MAX-elapsed;
+      if(projected)ns=r.map.normal_map.anchor+elapsed;}
+    }else projected=r2_servo_mapped(&r.map.normal_map,r.edge.tick,&ns);
+    if(projected&&ns>=0){
      r.valid=true;r.relay_ns=(uint64_t)ns;uint64_t fraction=r.relay_ns%1000000000;
      r.phase_ns=fraction>=500000000?(int64_t)fraction-1000000000:(int64_t)fraction;
      if((r.map.utc_offset>0&&ns>INT64_MAX-r.map.utc_offset)||(r.map.utc_offset<0&&ns<INT64_MIN-r.map.utc_offset)){r.valid=false;r.reason=RC_SHADOW_ARITHMETIC;}

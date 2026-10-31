@@ -74,6 +74,24 @@ This includes modem/capture delays; asymmetry and independent accuracy remain
 unqualified. Rate must be within100000ppb; an out-of-domain rate does not erase
 otherwise valid passive residual statistics.
 
+The reference points are **DIO1 TxDone/RxDone**, rather than identical on-air
+symbol boundaries. If `b_CS` and `b_SC` denote propagation plus each direction's
+receive/transmit completion offset, the measured quantity is
+`D = (b_CS + b_SC) / 2`. Applying it to the passive clock leaves a directional
+residual `(b_CS - b_SC) / 2`, in addition to upstream clock/reference error.
+A millisecond-scale `D` at short distance therefore needs endpoint/clock
+measurement; it must not be interpreted as distance or simply forced to zero.
+
+T096 shadow-PPS observes the frozen LoRa watch map independently. Its schema2
+records identify `input=LORA`, `applied_lora_delay_ns`, signed corrected
+`phase_ns` and `uncorrected_phase_ns`. Activation, original physical hold,
+capture incarnation, source scope, missing records and unavailable references
+remain explicit. PPS cannot feed the LoRa fit or RTT calculation. The LoRa
+console `rtt_events` tuple is `[t1_tick,t2_ns,t3_ns,t4_tick,capture_epoch,
+accepted_mono_us,offer,rate_ppb]`; it is zero without a live calibration context.
+`rtt_reference=DIO1_COMPLETION` names the measurement endpoint. These diagnostics
+support a bounded PPS comparison; they do not supply an absolute UTC bound.
+
 The client performs this calculation only after FOLLOW. It applies rate and
 any live delay estimate to its independent local LoRa watch map, never to BLE
 or GNSS. Successful calibration lasts at most30min; the next request becomes

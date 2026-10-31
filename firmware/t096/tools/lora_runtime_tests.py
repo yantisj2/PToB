@@ -27,14 +27,17 @@ def main():
   assert len(payload['fault_record'])==16 and len(payload['owner'])==5 and len(payload['watchdog'])==7
   assert len(payload['coordination'])==4 and type(payload['rx_suppressed']) is bool
   assert len(payload['launch'])==5 and all(type(x)is int for x in payload['launch'])
+  assert payload['rtt_reference']=='DIO1_COMPLETION' and len(payload['rtt_events'])==8 and type(payload['watch_rate_ppb']) is int
   assert bytes.fromhex(payload['sender_name_hex']).decode()==payload['sender_name']
   assert len(payload['name'])==6 and len(payload['display'])==3 and len(payload['signal'])==4 and len(payload['fit_provenance'])==3
   if mode==36:assert payload['hw'][12:]==[9,7,0x83]
  probe=a.out/'probe';subprocess.run([*flags,'-DR2_LORA_SERVICE_BODY="'+str(body.resolve())+'"',*map(str,[APP/'tests/lora_probe_test.c',*common]),'-o',str(probe)],check=True)
- for mode in range(1,27):subprocess.run([str(probe),str(mode)],check=True)
+ for mode in range(1,29):subprocess.run([str(probe),str(mode)],check=True)
  ui=a.out/'ui';subprocess.run([*flags,'-DR2_LORA=1',str(APP/'tests/lora_ui_test.c'),str(APP/'src/ui_render.c'),str(APP/'src/precision.c'),'-o',str(ui)],check=True);subprocess.run([str(ui),str(a.out)],check=True)
  for name in ['zephyr/kernel.h','zephyr/sys/atomic.h','zephyr/random/random.h']:
   h=a.out/name;h.parent.mkdir(parents=True,exist_ok=True);h.write_text('/* Fake UI boundary. */\n')
+ witness=a.out/'witness';subprocess.run([*flags,'-I'+str(a.out.resolve()),str(APP/'tests/shadow_worker_test.c'),str(APP/'src/radio_precision.c'),str(APP/'src/rc_boundary.c'),*map(str,common),'-o',str(witness)],check=True);subprocess.run([str(witness)],check=True)
+ session=a.out/'witness-session';subprocess.run([*flags,str(APP/'tests/shadow_session_test.c'),'-o',str(session)],check=True);subprocess.run([str(session)],check=True)
  uiworker=a.out/'uiworker';subprocess.run([*flags,'-DR2_LORA=1','-I'+str(a.out.resolve()),str(APP/'tests/lora_ui_worker_test.c'),str(APP/'src/ui_render.c'),str(APP/'src/precision.c'),*map(str,common),'-o',str(uiworker)],check=True)
  for mode in range(42,52):subprocess.run([str(uiworker),str(mode)],check=True)
  clockworker=a.out/'clockworker';subprocess.run([*flags,'-DR2_LORA=1','-I'+str(a.out.resolve()),str(APP/'tests/lora_ui_clock_worker_test.c'),str(APP/'src/ui_render.c'),str(APP/'src/precision.c'),*map(str,common),'-o',str(clockworker)],check=True)
@@ -49,5 +52,5 @@ def main():
  mainui=a.out/'mainui';subprocess.run([*flags,'-DR2_LORA=1','-DR2_NATIVE_BLE=1','-I'+str(a.out.resolve()),str(APP/'tests/lora_main_ui_test.c'),'-o',str(mainui)],check=True);subprocess.run([str(mainui)],check=True)
  front3=a.out/'front3';subprocess.run([*flags,'-DR2_LORA=1',str(APP/'tests/lora_front3_test.c'),str(APP/'src/precision.c'),'-o',str(front3)],check=True);subprocess.run([str(front3),str(a.out)],check=True)
  (a.out/'runtime.log').write_text(''.join(logs))
- (a.out/'receipt.json').write_text(json.dumps(dict(status='PASS_FAKE_BOUNDARIES_ONLY',modes=110,probe_modes=26,json_hw_fields=15,json_launch_fields=5,json_payload_limit=3072-96,json_nonzero_abort_fields=[9,7,0x83],source_parity=True,source_hashes={str(x.relative_to(APP)):hashlib.sha256(x.read_bytes()).hexdigest()for x in [APP/'src/lora_service.c',APP/'src/lora_source.c',APP/'include/lora_service.h',APP/'include/lora_watchdog.h',APP/'src/lora_rc8_policy.c',APP/'include/lora_rc8_policy.h',APP/'tests/lora_service_test.c',APP/'tests/lora_probe_test.c',APP/'tests/lora_source_test.c',APP/'src/main.c',APP/'src/ui_render.c',APP/'src/ui_service.c',APP/'legacy_ui/legacy.h',APP/'legacy_ui/draw.inc',APP/'tests/lora_ui_test.c',APP/'tests/lora_ui_clock_worker_test.c',APP/'tests/lora_main_ui_test.c',APP/'tests/lora_front3_test.c',Path(__file__)]}),indent=2)+'\n')
+ (a.out/'receipt.json').write_text(json.dumps(dict(status='PASS_FAKE_BOUNDARIES_ONLY',modes=110,probe_modes=28,json_hw_fields=15,json_launch_fields=5,json_payload_limit=3072-96,json_nonzero_abort_fields=[9,7,0x83],source_parity=True,source_hashes={str(x.relative_to(APP)):hashlib.sha256(x.read_bytes()).hexdigest()for x in [APP/'src/lora_service.c',APP/'src/lora_source.c',APP/'include/lora_service.h',APP/'include/lora_watchdog.h',APP/'src/rc_shadow.c',APP/'include/rc_shadow.h',APP/'include/shadow_settle.h',APP/'tests/shadow_worker_test.c',APP/'tests/shadow_session_test.c',APP/'src/lora_rc8_policy.c',APP/'include/lora_rc8_policy.h',APP/'tests/lora_service_test.c',APP/'tests/lora_probe_test.c',APP/'tests/lora_source_test.c',APP/'src/main.c',APP/'src/ui_render.c',APP/'src/ui_service.c',APP/'legacy_ui/legacy.h',APP/'legacy_ui/draw.inc',APP/'tests/lora_ui_test.c',APP/'tests/lora_ui_clock_worker_test.c',APP/'tests/lora_main_ui_test.c',APP/'tests/lora_front3_test.c',Path(__file__)]}),indent=2)+'\n')
 if __name__=='__main__':main()

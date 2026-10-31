@@ -23,8 +23,9 @@ static struct rc8_probe_packet request(void){
 }
 int main(int argc,char **argv){
  assert(argc==2);int mode=atoi(argv[1]);
- if(mode<=8||mode==20||mode==21||mode==23){
+ if(mode<=8||mode==20||mode==21||mode==23||mode==28){
   struct rc8_probe_packet p=request();uint64_t t1=probe.t1;
+  if(mode==28){witness_enabled=true;r2_lora_shadow_publish();assert(witness_published==1&&witness_map.lora&&!witness_map.lora_delay_ns);}
   if(mode==23){r2_lora_rtt_lab(true);step();assert(probe_lab(now_us));}
   p.kind=RC8_RESPONSE;p.t2=UINT64_C(10000000000)+t1*125/2+10000;
   if(mode==2)p.nonce++;
@@ -40,6 +41,12 @@ int main(int argc,char **argv){
   feed_probe(&p,mode==6?now_us:now_us+400000);
   if(mode>=5&&mode<=7){assert(!probe.completed&&!probe.cal_until&&!atomic_get(&faulted));return 0;}
   assert(probe.completed==1&&probe.delay_ns==10000&&probe.cal_until>now_us&&!probe.state&&!atomic_get(&faulted));
+  if(mode==28){
+   assert(probe.events.t1==t1&&probe.events.t4==t1+8000320&&probe.events.t2==p.t2&&probe.events.t3==p.t3&&probe.events.epoch==7);
+   r2_lora_shadow_publish();assert(witness_published==2&&witness_map.lora&&witness_map.lora_delay_ns==10000);
+   assert(witness_map.normal_map.anchor==(int64_t)role.rx.sample.tx.event_ns+10000);
+   assert(witness_map.normal_until<=role.rx.sample.rx.tick+RC8_HOLD_US*16&&witness_map.lo>role.rx.sample.rx.tick);
+  }
   uint32_t accepted=role.rx.accepted;feed_probe(&p,now_us+1000);assert(probe.completed==1&&role.rx.accepted==accepted);
   struct r2_lora_view v;r2_lora_view(&v);assert(v.choice==RC8_SELECT_LORA); /* GM profile remains a watch receiver. */
   if(mode==8){r2_lora_request(false);step();assert(!probe.cal_until&&!published.view.utc_us&&!atomic_get(&faulted));}
@@ -151,6 +158,13 @@ int main(int argc,char **argv){
   assert(probe.expired==1&&probe.next_us>=at+PROBE_PERIOD_US&&!atomic_get(&faulted));
   struct rc8_probe_packet p={.kind=RC8_OFFER,.offer=2,.nonce=2,.t2=role.rx.highest_sequence};memcpy(p.context,role.rx.context,16);
   feed_probe(&p,now_us+1000);assert(!probe.state&&!probe.tx_kind&&probe.serial==1);
+ }else if(mode==27){
+  (void)ready_client();witness_enabled=true;r2_lora_shadow_publish();assert(witness_published==1&&witness_map.lora);
+  uint32_t accepted=role.rx.accepted;struct rc8_link_fit fit=role.rx.fit;
+  step();r2_lora_shadow_publish();assert(witness_published==1); /* Polling cannot churn history or renew a map. */
+  assert(!memcmp(&fit,&role.rx.fit,sizeof fit)&&role.rx.accepted==accepted);
+  r2_lora_control(false,true,RC8_SELECT_BLE);step();r2_lora_shadow_publish();assert(witness_withdrawn&&!shadow_key.tick&&witness_published==1);
+  assert(!probe.completed&&!atomic_get(&faulted)); /* Observation grants no time/RTT authority. */
  }else assert(false);
  printf("PASS optional probe mode%d; GM/RC watch only, no normal timing authority\n",mode);return 0;
 }

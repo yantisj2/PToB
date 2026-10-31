@@ -800,8 +800,17 @@ stable software map does not establish independently measured output precision.
 
 ### Shadow PPS collection and display idle
 
+T096 0.15.221 also observes the selected LoRa watch through this existing
+history, including with BLE parked and GM selected. Raw schema2 identifies
+`input` as `BLE`, `LORA` or `RC_FIELD`; `applied_lora_delay_ns` and
+`uncorrected_phase_ns` separate the measured DIO1 completion correction from
+the resulting signed PPS phase. A later RTT result cannot rewrite an earlier
+PPS record. No PPS observation trains LoRa or grants serving/USB authority.
+LoRa uses its original physical12s functional hold, rather than extending the
+map through display continuation. BLE and LoRa input changes restart settling.
+
 From 0.15.96, the page first collects ten seconds of consecutive usable local
-PPS observations against frozen BLE maps with the same parent/root identities,
+PPS observations against frozen received maps with the same parent/root identities,
 boots and root source epoch. The screen shows `SETTLING 10S`. Missing records,
 invalid reference/maps, capture-domain changes or a different timing source
 restart startup qualification. The final qualifying PPS edge is the boundary;

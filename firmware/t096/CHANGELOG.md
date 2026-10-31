@@ -1,5 +1,22 @@
 # T096 changelog
 
+## 0.15.221 — observe LoRa clock phase against independent PPS
+
+The existing causal shadow-PPS history can now observe the selected LoRa watch
+map in GM or RC mode. It freezes the actual rate, physical timing anchor and
+live RTT completion-delay correction before each PPS; later maps cannot improve
+an earlier witness. BLE/LoRa withdrawals retire only their own observer input.
+Raw shadow schema2 identifies the input, applied LoRa correction and uncorrected
+phase. Input changes restart phase-blind startup qualification. PPS observations
+never train LoRa or grant normal clock/source authority.
+
+LoRa diagnostics retain the four matched RTT events, rate and capture incarnation
+while their calibration context remains live. The result measures DIO1
+completion delay, including modem receive/transmit offsets and propagation; it
+is not a distance or calibrated propagation measurement. No fixed millisecond
+subtraction, PHY change or new timing reservation is introduced. Hardware
+PPS comparison remains a separate measurement gate.
+
 ## 0.15.220 — first RTT due after passive stabilization
 
 A receiver's first request is immediately due, including across local owner

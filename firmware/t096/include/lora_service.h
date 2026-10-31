@@ -29,6 +29,8 @@ void r2_lora_mesh_contact(bool present);
 void r2_lora_request(bool on);
 /* Temporary five-minute lab cadence; never changes eligibility or authority. */
 void r2_lora_rtt_lab(bool on);
+/* Main-owner bridge into the existing causal PPS observer; no witness feedback. */
+void r2_lora_shadow_publish(void);
 void r2_lora_toggle(void);
 void r2_lora_stop(void);
 int r2_lora_close_result(void);

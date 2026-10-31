@@ -5,6 +5,7 @@
 #include "lora_watchdog.h"
 union r2_diag_scratch r2_diag_scratch;
 #include "capture.h"
+#include "rc_shadow.h"
 #include <assert.h>
 #include <errno.h>
 #include <stdio.h>
@@ -33,6 +34,12 @@ static void k_wakeup(struct k_thread *t){(void)t;worker_wakes++;}
 static void k_thread_create(struct k_thread *t,void *s,size_t n,void (*fn)(void*,void*,void*),void *a,void *b,void *c,int p,int q,int r){(void)t;(void)s;(void)n;(void)fn;(void)a;(void)b;(void)c;(void)q;(void)r;worker_priority=p;}
 static void k_thread_name_set(struct k_thread *t,const char *n){(void)t;(void)n;}
 static uint64_t now_us=1000000;
+static bool witness_enabled;
+static struct rc_shadow_map witness_map;
+static unsigned witness_published,witness_withdrawn;
+bool r2_shadow_enabled(void){return witness_enabled;}
+void r2_shadow_normal_map(const struct rc_shadow_map *m){witness_map=*m;witness_published++;}
+void r2_shadow_lora_withdraw(void){witness_withdrawn++;}
 static void advance_lock_time(void){now_us+=lock_advance_us;lock_advance_us=0;}
 static uint64_t k_uptime_ticks(void){return now_us;}
 static uint64_t k_ticks_to_us_floor64(uint64_t t){return t;}

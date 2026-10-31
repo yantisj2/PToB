@@ -31,7 +31,7 @@ bool r2_ui_take_lora_toggle(void){return atomic_cas(&lora_toggle,1,0);}
 static bool started;
 static uint8_t framebuffer[R2_UI_FRAME_BYTES];
 static struct r2_shadow_session shadow_session;
-static struct {uint64_t root,root_boot,parent,parent_boot;uint32_t root_epoch;bool valid;} shadow_scope;
+static struct {uint64_t root,root_boot,parent,parent_boot;uint32_t root_epoch;bool valid,lora;} shadow_scope;
 static uint64_t shadow_due;
 static void shadow_cache_startup(void){
  const struct r2_shadow_settle *s=&shadow_session.startup;
@@ -62,6 +62,10 @@ static void shadow_tick(const struct r2_ui_model *m,const struct r2_ui_status *s
  bool fresh=now>=m->sampled_ms&&now-m->sampled_ms<=2500;
  bool visible=shadow_page(m,s->page)&&!s->help&&s->ready&&shadow_page(m,s->drawn_page)&&display_ok&&fresh&&!m->profile_switching;
  bool gm=m->scope_active&&m->role==R2_UI_GM;
+ bool map_valid=m->precision.map_valid;
+#ifdef R2_LORA
+ map_valid=map_valid||(m->lora.choice==RC8_SELECT_LORA&&m->lora.state==RC8_AVAILABLE);
+#endif
 #ifdef R2_DC_PROFILE
  gm=true; /* No mesh witness session, including while GNSS is unavailable. */
 #endif
@@ -88,11 +92,11 @@ static void shadow_tick(const struct r2_ui_model *m,const struct r2_ui_status *s
   if(st.enabled&&st.now_tick&&st.epoch){r2_shadow_settle_begin(settle,&st);collecting=true;shadow_scope.valid=false;shadow_due=now;}
  }
  bool warming=collecting&&!shadow_session.active;
- if(warming&&(!pps||!m->precision.map_valid))r2_shadow_settle_reset(settle);
+ if(warming&&(!pps||!map_valid))r2_shadow_settle_reset(settle);
  bool refresh=visible&&now>=shadow_due;
  if(refresh)shadow_due=now+250;
  if(warming&&refresh){
-  if(!pps||!m->precision.map_valid){
+  if(!pps||!map_valid){
    struct rc_shadow_record unused;struct rc_shadow_status st;
    (void)r2_shadow_read(UINT32_MAX,&unused,&st);
    /* Do not restart a ready streak using queued edges from before a loss. */
@@ -102,31 +106,31 @@ static void shadow_tick(const struct r2_ui_model *m,const struct r2_ui_status *s
    struct rc_shadow_record r;struct rc_shadow_status st;
    if(!r2_shadow_read(settle->cursor,&r,&st))break;
    if(r.edge.epoch!=settle->epoch){r2_shadow_session_stop(&shadow_session,now);settle->collecting=false;collecting=false;break;}
-   bool usable=pps&&m->precision.map_valid&&r.valid&&r.reason==RC_SHADOW_OK&&r.reference_seen&&r.reference_fix&&r.reference_pps;
+   bool usable=pps&&map_valid&&r.valid&&r.reason==RC_SHADOW_OK&&r.reference_seen&&r.reference_fix&&r.reference_pps;
    if(!r2_shadow_settle_observe(settle,&r,usable))continue;
    shadow_cache_startup();
    if(r2_shadow_session_begin(&shadow_session,(uint64_t)r.arrival_us/1000,r.edge.tick,r.edge.epoch,r.sequence)){
     /* The last warmup PPS is the exact hardware start boundary. Every later
      * eligible edge is measured, irrespective of its error magnitude. */
     shadow_scope.root=r.map.root;shadow_scope.root_boot=r.map.root_boot;shadow_scope.root_epoch=r.map.root_epoch;
-    shadow_scope.parent=r.map.parent;shadow_scope.parent_boot=r.map.parent_boot;shadow_scope.valid=true;break;
+    shadow_scope.parent=r.map.parent;shadow_scope.parent_boot=r.map.parent_boot;shadow_scope.lora=r.map.lora;shadow_scope.valid=true;break;
    }
   }
  }
- if(collecting&&!shadow_session.active)shadow_session.state=!pps?R2_SHADOW_WAIT_PPS:!m->precision.map_valid?R2_SHADOW_WAIT_MAP:R2_SHADOW_SETTLING;
+ if(collecting&&!shadow_session.active)shadow_session.state=!pps?R2_SHADOW_WAIT_PPS:!map_valid?R2_SHADOW_WAIT_MAP:R2_SHADOW_SETTLING;
  if(shadow_session.active&&refresh){
   for(unsigned i=0;i<RC_SHADOW_RECORDS;i++){
    struct rc_shadow_record r;struct rc_shadow_status st;
    if(!r2_shadow_read(shadow_session.cursor,&r,&st))break;
    if(r.edge.epoch!=shadow_session.epoch){r2_shadow_session_stop(&shadow_session,now);break;}
    bool usable=r.valid&&r.reason==RC_SHADOW_OK&&r.reference_seen&&r.reference_fix&&r.reference_pps;
-   if(usable&&shadow_scope.valid&&(shadow_scope.root!=r.map.root||shadow_scope.root_boot!=r.map.root_boot||shadow_scope.root_epoch!=r.map.root_epoch||shadow_scope.parent!=r.map.parent||shadow_scope.parent_boot!=r.map.parent_boot)){
+   if(usable&&shadow_scope.valid&&(shadow_scope.root!=r.map.root||shadow_scope.root_boot!=r.map.root_boot||shadow_scope.root_epoch!=r.map.root_epoch||shadow_scope.parent!=r.map.parent||shadow_scope.parent_boot!=r.map.parent_boot||shadow_scope.lora!=r.map.lora)){
     r2_shadow_session_stop(&shadow_session,now);break;
    }
-   if(usable&&!shadow_scope.valid){shadow_scope.root=r.map.root;shadow_scope.root_boot=r.map.root_boot;shadow_scope.root_epoch=r.map.root_epoch;shadow_scope.parent=r.map.parent;shadow_scope.parent_boot=r.map.parent_boot;shadow_scope.valid=true;}
+   if(usable&&!shadow_scope.valid){shadow_scope.root=r.map.root;shadow_scope.root_boot=r.map.root_boot;shadow_scope.root_epoch=r.map.root_epoch;shadow_scope.parent=r.map.parent;shadow_scope.parent_boot=r.map.parent_boot;shadow_scope.lora=r.map.lora;shadow_scope.valid=true;}
    r2_shadow_session_sample(&shadow_session,r.sequence,r.edge.tick,r.edge.epoch,usable,r.phase_ns);
   }
-  if(pps&&!m->precision.map_valid)shadow_session.state=R2_SHADOW_WAIT_MAP;
+  if(pps&&!map_valid)shadow_session.state=R2_SHADOW_WAIT_MAP;
  }
  if(refresh||previous!=shadow_session.state||arm){
   struct r2_shadow_session_view v;shadow_view(&v);

@@ -16,14 +16,15 @@ struct rc_shadow_map {
 #endif
  struct rc5_map map;uint64_t lo,active,epoch,parent,parent_boot,root,root_boot,issued,source_expires;
  int64_t utc_offset;uint32_t root_epoch,parent_epoch,train,accepted;
- r2_servo_map_t normal_map;uint64_t normal_until;bool normal;
+ r2_servo_map_t normal_map;uint64_t normal_until;bool normal,lora,retired;
+ uint32_t lora_delay_ns; /* Uses prior trailing padding; observation only. */
 };
 struct rc_shadow_history {struct rc_shadow_map map[RC_SHADOW_HISTORY];unsigned head,count;};
 static inline enum rc_shadow_reason rc_shadow_select(const struct rc_shadow_history *h,struct r2_capture edge,struct rc_shadow_map *out){
  if(!edge.epoch||edge.kind!=R2_CAPTURE_PPS)return RC_SHADOW_BAD_CAPTURE;
  for(unsigned i=0;i<h->count;i++){
   const struct rc_shadow_map *m=&h->map[(h->head+RC_SHADOW_HISTORY-1-i)%RC_SHADOW_HISTORY];
-  if(m->epoch!=edge.epoch)continue;
+  if(m->retired||m->epoch!=edge.epoch)continue;
   /* The actual publication is between these two hardware reads. Do not claim
    * an ordering for a simultaneous edge, even if it could use the old map. */
   if(edge.tick>=m->lo&&edge.tick<=m->active)return RC_SHADOW_ACTIVATION_RACE;
@@ -40,6 +41,8 @@ void r2_shadow_map(const struct rc5_clock *,const struct rc5_state *,uint64_t,ui
 /* Corrected normal follower map, frozen by its owning PT worker only. */
 void r2_shadow_normal_map(const struct rc_shadow_map *);
 void r2_shadow_normal_withdraw(void);
+/* Withdraw only this observer input; never retire a newer BLE map. */
+void r2_shadow_lora_withdraw(void);
 void r2_shadow_edge(struct r2_capture,int64_t); /* IRQ: bounded copy only */
 void r2_shadow_poll(void); /* RC worker: may evaluate the RC witness map */
 void r2_shadow_poll_normal(void); /* Normal owner: refuses RC witness maps */

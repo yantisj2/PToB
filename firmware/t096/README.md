@@ -133,7 +133,9 @@ Radio requests are volatile; an ON request does not prove RF activity or valid
 time. LoRa may still be inhibited by the existing GM participation policy.
 
 The precision page separates stream RMS, local PPS continuity and ACTIVE/HOT
-duration. Shadow-PPS compares received timing with local PPS when eligible.
+duration. Shadow-PPS compares the selected BLE or LoRa clock with local PPS
+when eligible. LoRa records expose raw phase and the phase after its measured
+RTT completion-delay correction; PPS never trains the LoRa clock.
 These are relative timing statistics, not independent UTC accuracy measurements.
 Clock calculations, USB timestamps and diagnostics stay UTC.
 
