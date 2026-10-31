@@ -43,7 +43,7 @@ void precision_digit(uint8_t* f,int x,int y,unsigned digit){
 }
 // A fixed3x5 pixel face keeps the full counter-tick label inside the bezel.
 // Root aliases use compact capitals; an explicit trailing dot marks truncation.
-void small_text(uint8_t* f,int x,int y,const char* s){
+void small_text(uint8_t* f,int x,int y,const char* s,bool on=true){
  static const uint8_t letters3[26][5]={
   {2,5,7,5,5},{6,5,6,5,6},{3,4,4,4,3},{6,5,5,5,6},{7,4,6,4,7},
   {7,4,6,4,4},{3,4,5,5,3},{5,5,7,5,5},{7,2,2,2,7},{1,1,1,5,2},
@@ -63,8 +63,46 @@ void small_text(uint8_t* f,int x,int y,const char* s){
    else std::memcpy(rows,letters3[c-'a'],5);
   }else if(c=='-'){rows[2]=7;}else if(c=='_'){rows[4]=7;}
   else if(c=='.'){rows[4]=2;}else if(c=='/'){rows[0]=1;rows[1]=1;rows[2]=2;rows[3]=4;rows[4]=4;}
-  for(unsigned r=0;r<5;r++)for(unsigned col=0;col<3;col++)if(rows[r]&(4>>col))pixel(f,x+int(col),y+int(r));
+  for(unsigned r=0;r<5;r++)for(unsigned col=0;col<3;col++)if(rows[r]&(4>>col))pixel(f,x+int(col),y+int(r),on);
  }
+}
+void menu_page(uint8_t* f,const Model& m,const View& v,uint64_t now){
+ const auto& menu=v.menu;char out[24];
+ box(f,1,0,62,11);center(f,2,"MENU");
+ std::snprintf(out,sizeof out,"%.4s RC %u",m.unit,unsigned(menu.seconds));center(f,15,out);
+ const auto idle=now>=menu.activity_us?now-menu.activity_us:0;
+ const int left=idle>=MenuIdleUs?0:int((MenuIdleUs-idle)*60/MenuIdleUs);
+ fill(f,2,25,left,1);
+ int y=29;
+ for(unsigned i=0;i<unsigned(MenuItem::Count);++i){
+  if(i==unsigned(MenuItem::LoRa)&&!m.lora_supported)continue;
+  const char* label="EXIT";
+  switch(MenuItem(i)){
+   case MenuItem::Parent:label=m.relay_only?"UPSTR AUTO":"UPSTR RLY";break;
+   case MenuItem::Power:label="POWER OFF";break;
+   case MenuItem::Ble:label=m.ble_requested?"BLE RX OFF":"BLE RX ON";break;
+   case MenuItem::LoRa:label=m.lora.requested?"LoRa RX OFF":"LoRa RX ON";break;
+   case MenuItem::Exit:case MenuItem::Count:break;
+  }
+  const bool selected=i==menu.item;
+  if(selected)fill(f,1,y,62,13);
+  if(i==unsigned(MenuItem::LoRa)){
+   // The established compact face fits the full RX action in64px.
+   small_text(f,5,y+4,label,!selected);
+  }else text(f,3,y+3,label,!selected);
+  if(!(menu.enabled&(1u<<i)))for(int x=3;x<61;x+=2)pixel(f,x,y+11,selected);
+  if(selected&&menu.hold_percent)fill(f,3,y+11,int(menu.hold_percent)*58/100,1,false);
+  y+=14;
+ }
+ const char* result="RC NO GPS";
+ if(menu.result_until_us>now)result=menu.result<0?"REFUSED":menu.result>0?"REQUESTED":"WAIT";
+ else if(!current(m,now))result="STALE";
+ else if(menu.item==unsigned(MenuItem::Power))result="HOLD: OFF";
+ else if(menu.item==unsigned(MenuItem::Parent))result=m.mode_pending?"SWITCHING":!m.ble_requested?"BLE IS OFF":m.relay_only?"UPSTR RLY":"UPSTR AUTO";
+ else if(menu.item==unsigned(MenuItem::Ble))result=m.state==State::Fault?"BLE FAULT":m.ble_requested?"BLE RX ON":"BLE RX OFF";
+ else if(menu.item==unsigned(MenuItem::LoRa))result=m.lora.fault?"LORA FAULT":m.lora.active?"RX ACTIVE":m.lora.requested?"RX WAIT":"RX OFF";
+ center(f,102,result);
+ center(f,113,"TAP NEXT");small_text(f,10,123,"HOLD SELECT");
 }
 void precision_page(uint8_t* f,const Model& m,uint64_t now){
  const auto& p=m.precision;const bool live=precision_current(m,now);
@@ -122,7 +160,7 @@ void lora_page(uint8_t* f,const Model& m,uint64_t now){
  if(l.parent)std::snprintf(out,sizeof out,"P%04X",unsigned(l.parent&65535));else std::snprintf(out,sizeof out,"P----");text(f,33,81,out);
  if(l.parent_quality)std::snprintf(out,sizeof out,"C%u A%u",unsigned(l.parent_class),unsigned(l.parent_accuracy));else std::snprintf(out,sizeof out,"%s META %s",l.kind==2?"BLE":l.kind==1?"GM":"--",l.metadata_known?"OK":"?");center(f,91,out);
  if(l.age_ms==UINT32_MAX)center(f,101,"AGE --");else if(l.age_ms>=12000)center(f,101,"AGE >12s");else{std::snprintf(out,sizeof out,"AGE %u.%us",unsigned(l.age_ms/1000),unsigned(l.age_ms%1000/100));center(f,101,out);}
- uint64_t ble;center(f,111,ble_time(m,now,ble)&&m.ble.following?"BLE SELECT":m.source==Source::LoRa&&valid?"RC8 SELECT":"NO CLOCK");center(f,121,"HOLD 1.5S");
+ uint64_t ble;center(f,111,ble_time(m,now,ble)&&m.ble.following?"BLE SELECT":m.source==Source::LoRa&&valid?"RC8 SELECT":"NO CLOCK");center(f,121,"MENU 2.5S");
 }
 void help(uint8_t* f,const View& v){box(f,1,0,62,11);center(f,2,v.page==PrecisionPage?"PRECISION":v.page?"RF KEY":"CLOCK KEY");if(v.page==PrecisionPage){const char* names[]={"ROOT / HOP","TICK SIZE","NOT ERROR","RMS CAUSAL","REL PPB","TREND EST","LOCK HELD","LOSS RESET"};for(unsigned i=0;i<8;i++)center(f,16+int(i)*11,names[i]);}else if(v.page){const char* names[]={"HEL SCAN","SRC GROUP","PRE PA RX","ACK JOIN","CMT MODEL","SRV TX API","RDY N/A","ERR REJECT"};for(unsigned i=0;i<8;i++)text(f,2,15+int(i)*10,names[i]);center(f,99,"DOT RX");center(f,109,"FILL TX");}else{const char* names[]={"RC ONLY","GPS ABSENT","LOCK EST","RELATIVE","RMS IS NOT","UTC ERROR","HOLD LOCAL","4S OFF"};for(unsigned i=0;i<8;i++)center(f,16+int(i)*11,names[i]);}center(f,120,"PRESS BACK");}
 }
@@ -137,7 +175,7 @@ void render_splash(uint8_t f[FrameBytes]){
  fill(f,9,70,46,1);center(f,81,"PRECISION");center(f,92,"TIME");center(f,103,"OVER BLE");
 }
 void render(uint8_t f[FrameBytes],const Model& m,const View& v,uint64_t now){
- std::memset(f,0,FrameBytes);if(v.blank)return;if(v.help){help(f,v);return;}
+ std::memset(f,0,FrameBytes);if(v.blank)return;if(v.menu.open){menu_page(f,m,v,now);return;}if(v.help){help(f,v);return;}
  if(v.page==LoRaPage&&!v.saver){lora_page(f,m,now);return;}
  if(v.page==PrecisionPage&&!v.saver){precision_page(f,m,now);return;}
  const bool fresh=current(m,now);uint64_t utc=0;const bool valid=time(m,now,utc),locked=analog_time(m,now,utc);
@@ -173,7 +211,7 @@ void render(uint8_t f[FrameBytes],const Model& m,const View& v,uint64_t now){
 }
 void ClockHold::draw(uint8_t frame[FrameBytes],const Model& m,const View& v,uint64_t now)const{
  render(frame,m,v,now);
- if(!v.clock_frozen||!same_zone(m,now)||!active(now)||v.page!=page_||v.saver!=saver_||v.help||v.blank)return;
+ if(!v.clock_frozen||!same_zone(m,now)||!active(now)||v.page!=page_||v.saver!=saver_||v.help||v.blank||v.menu.open)return;
  if(saver_)std::memcpy(frame,image_,FrameBytes);
  else{
   // Only RMS digits and the lock (rows103..115) remain live during grace.

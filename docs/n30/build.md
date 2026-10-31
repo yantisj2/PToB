@@ -9,25 +9,34 @@ Read [the target README](../../firmware/n30/README.md) for capabilities and
 unverified hardware assumptions. These commands build or inspect files; they do
 not connect, flash, start a serial reader or operate a device.
 
-Version 0.2.37 changes the four-second hold on non-clock pages from OLED
-blanking to real shutdown. Release the button after the screen goes dark.
-The main owner stops BLE, LoRa and capture activity within the original
-two-second drain; the display worker acknowledges that it has stopped I2C and
-rendering. Only then, after GPIO0 is released for 40 ms, does the ESP32-S3 enter
-deep sleep. A fresh GPIO0 press wakes by rebooting. A failed owner drain, display
-stop timeout or power API cannot become a successful shutdown.
+GPIO0 uses one watch-menu gesture on every page: release before **2500 ms**
+for a short press; hold **2500 ms** to open the menu. Release the opening hold,
+then tap to cycle enabled rows or hold another 2500 ms to select once. Exit or
+5000 ms idle returns to the invoking page, with no idle timeout while held.
+Raw release timing prevents 40 ms debounce from turning a short press into a
+long one. Parent AUTO/RELAY reception remains separate from the RC-only role.
 
-Clock keeps its single 1.5-second relay-mode toggle. LoRa keeps its 1.5-second
-mode cycle, and a continued four-second hold now shuts down. Screensaver wake,
-boot-held input and a consumed release cannot trigger another action. Sleep
-retains the reviewed VEXT36 OFF, OLED reset21/I2C17/18 LOW and SX1262 reset12 LOW
-levels; no GNSS route is added. Turning off ends synchronization, unlike the
-previous blank-screen mode. Offline software checks do not measure battery
-lifetime, off-state current or physical wake:
+Power Off requests the original two-second BLE/LoRa/capture drain. The display
+worker acknowledges that it has stopped I2C and rendering before power pads
+change ownership. After GPIO0 is released for 40 ms, ESP32-S3 enters deep sleep;
+a fresh press wakes by rebooting. Failed drain, display-stop timeout or power API
+cannot become successful shutdown. The reviewed VEXT36 OFF, OLED reset21/I2C17/18
+LOW and SX1262 reset12 LOW levels remain; no GNSS route is added.
+
+BLE RX OFF stops only the BLE owner and preserves the independent LoRa policy
+and fine-clock owner. BLE RX ON uses the existing fresh client-admission API;
+old timing authority cannot resume. Menu LoRa OFF/ON requests explicit volatile
+KEEP OFF/KEEP ON; the original 180 s AUTO acquisition/recovery behavior remains
+available through `lora auto` and is restored at boot. No LoRa TX mode exists.
+
+Run input, shutdown and display ownership checks offline:
 
 ```sh
-python3 firmware/n30/tools/power_tests.py --out artifacts/n30-power-tests-01
+python3 firmware/n30/tools/power_tests.py --out artifacts/n30-power-tests
 ```
+
+Host checks and renderer previews do not measure battery lifetime, off-state
+current, physical button feel, wake or independently measured timing accuracy.
 
 Version 0.2.28 consumes the shared [AUTO RC9 recovery fix](../w12/rc9.md#auto-client-return-to-normal-ble). Normal BLE recovery no longer waits for a six-minute fallback lease.
 

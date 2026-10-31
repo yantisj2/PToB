@@ -23,7 +23,7 @@ void LockTimer::update(Model& m,uint64_t now){
 }
 void ClockHold::update(const Model& m,View& v,uint64_t now,bool saver_due){
  v.clock_frozen=false;
- if(v.help||v.blank||(seen_&&now<observed_)){reset();return;}
+ if(v.help||v.blank||v.menu.open||(seen_&&now<observed_)){reset();return;}
  if(saved_&&!same_zone(m,now))reset();
  // Real user navigation/wake wins immediately. A quality dip may retain an
  // already displayed saver only while the original idle timer still wants it.
@@ -39,7 +39,7 @@ void ClockHold::update(const Model& m,View& v,uint64_t now,bool saver_due){
  if(saver_){v.saver=true;v.saver_position=position_;}
 }
 void ClockHold::presented(const Model& m,const View& v,uint64_t now,const uint8_t frame[FrameBytes]){
- uint64_t utc;if(!v.help&&!v.blank&&(v.saver||v.page==0)&&!v.clock_frozen&&(v.saver?saver_time(m,now,utc):analog_time(m,now,utc))){
+ uint64_t utc;if(!v.help&&!v.blank&&!v.menu.open&&(v.saver||v.page==0)&&!v.clock_frozen&&(v.saver?saver_time(m,now,utc):analog_time(m,now,utc))){
   saved_tz_=m.tz;saved_tz_until_=m.tz_until_us;saved_source_=m.source;
   saved_local_=m.source!=Source::LoRa&&m.source!=Source::Rc9&&r2_tz_valid(m.tz)&&now<m.tz_until_us;
   std::memcpy(image_,frame,FrameBytes);saved_=true;losing_=false;saver_=v.saver;page_=v.page;position_=v.saver_position;
@@ -61,34 +61,50 @@ void rotate(uint8_t out[FrameBytes],const uint8_t in[FrameBytes],bool cw){
 Action Input::update(bool pressed,uint64_t now,View& v){
  Action action=Action::None;
  if(stable_&&armed_&&(v.page!=press_page_||now<down_))cancelled_=true;
- if(stable_&&lora_press_&&(v.page!=LoRaPage||v.help||v.blank||v.saver))lora_eligible_=false;
- if(pressed!=raw_){raw_=pressed;changed_=now;}
+ // Classify against the raw edges. A release at2499999us must remain short
+ // even though its40ms debounce can finish after the hold threshold.
+ const auto hold=[&](){
+  consumed_=true;v.help=false;v.menu.hold_percent=0;
+  if(!v.menu.open){v.menu.open=true;v.menu.item=uint8_t(menu_next(unsigned(MenuItem::Count)-1,v.menu.enabled));return Action::None;}
+  if(!(v.menu.enabled&(1u<<v.menu.item)))return Action::None;
+  switch(MenuItem(v.menu.item)){
+   case MenuItem::Parent:return Action::ToggleRelayOnly;
+   case MenuItem::Power:v.menu.open=false;v.blank=true;return Action::PowerOff;
+   case MenuItem::Ble:return Action::ToggleBle;
+   case MenuItem::LoRa:return Action::ToggleLoRa;
+   case MenuItem::Exit:v.menu.open=false;return Action::None;
+   case MenuItem::Count:break;
+  }
+  return Action::None;
+ };
+ if(pressed!=raw_){raw_=pressed;changed_=now;if(!pressed)v.menu.hold_percent=0;}
  if(now>=changed_&&now-changed_>=40000&&raw_!=stable_){
   stable_=raw_;
   if(stable_){
-   if(armed_){down_=changed_;idle_=now;press_page_=v.page;powered_=cancelled_=false;wake_=v.saver||v.blank;main_press_=!v.page&&!v.help;lora_press_=v.page==LoRaPage&&!v.help;lora_eligible_=lora_press_;consumed_=wake_;v.saver=v.blank=false;}
+   if(armed_){down_=changed_;idle_=now;press_page_=v.page;cancelled_=consumed_=false;wake_=v.saver||v.blank;v.saver=v.blank=false;}
   }else{
-   if(armed_&&!cancelled_&&!main_press_&&!wake_&&!powered_&&changed_>=down_&&changed_-down_>=4000000){v.blank=true;consumed_=true;powered_=true;action=Action::PowerOff;}
    if(armed_&&!consumed_&&!cancelled_){
-    if((main_press_||lora_press_)&&changed_>=down_&&changed_-down_>=1500000)action=main_press_?Action::ToggleRelayOnly:lora_eligible_?Action::ToggleLoRa:Action::None;
-    else if(v.help)v.help=false;else v.page=(v.page+1)%PageCount;
+    if(changed_>=down_&&changed_-down_>=MenuHoldUs)action=hold();
+    else if(v.menu.open)v.menu.item=uint8_t(menu_next(v.menu.item,v.menu.enabled));
+    else if(!wake_){if(v.help)v.help=false;else v.page=(v.page+1)%PageCount;}
    }
    armed_=true;consumed_=wake_=false;down_=0;idle_=now;
   }
  }
- if(raw_&&stable_&&armed_&&!cancelled_){
-  idle_=now;
-  if(!consumed_&&now>=down_&&now-down_>=1500000){
-   if(main_press_||lora_press_){action=main_press_?Action::ToggleRelayOnly:lora_eligible_?Action::ToggleLoRa:Action::None;consumed_=true;}
-   else{v.help=true;consumed_=true;}
-  }
-  // Every non-clock page can request real shutdown after four seconds.
-  // A screensaver/blank wake and the main toggle consume their entire press.
-  if(!main_press_&&!wake_&&!powered_&&now>=down_&&now-down_>=4000000){v.blank=true;consumed_=true;powered_=true;action=Action::PowerOff;}
+ if(raw_||stable_){idle_=now;v.menu.activity_us=now;}
+ else if(now==idle_)v.menu.activity_us=now;
+ if(raw_&&stable_&&armed_&&!cancelled_&&!consumed_&&now>=down_){
+  const auto duration=now-down_;
+  if(v.menu.open)v.menu.hold_percent=uint8_t(duration>=MenuHoldUs?100:duration*100/MenuHoldUs);
+  if(duration>=MenuHoldUs)action=hold();
  }
+ if(v.menu.open&&!(v.menu.enabled&(1u<<v.menu.item)))v.menu.item=uint8_t(menu_next(v.menu.item,v.menu.enabled));
+ const auto idle=now>=v.menu.activity_us?now-v.menu.activity_us:0;
+ if(v.menu.open&&!raw_&&!stable_&&idle>=MenuIdleUs)v.menu.open=false;
+ v.menu.seconds=uint8_t(idle>=MenuIdleUs?0:(MenuIdleUs-idle+999999)/1000000);
  return action;
 }
-bool Input::saver_due(uint64_t now,const View& v)const{return !v.blank&&!stable_&&!v.help&&now>=idle_&&now-idle_>=IdleUs;}
+bool Input::saver_due(uint64_t now,const View& v)const{return !v.blank&&!raw_&&!stable_&&!v.help&&!v.menu.open&&now>=idle_&&now-idle_>=IdleUs;}
 void Input::idle(uint64_t now,bool eligible,View& v)const{
  v.saver=eligible&&saver_due(now,v);
  if(saver_due(now,v))v.saver_position=uint8_t(((now-idle_-IdleUs)/MoveUs)%3);

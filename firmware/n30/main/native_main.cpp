@@ -93,6 +93,7 @@ uint32_t ui_rms_ns=UINT32_MAX;uint8_t ui_gps_lamps=0;
 v12::UpdateGate update_gate;
 w12::PowerOff power_off;
 bool fine_stop_pending=false;
+bool ble_ui_off=false; // Explicit BLE-only OFF leaves independent LoRa policy alive.
 v12::ConsoleTicket ticket;
 v12::ConsoleFrame response;
 uint64_t last_nonce=0,update_completed_us=0;bool lora_diagnostic_response=false,rc9_diagnostic_response=false;
@@ -484,6 +485,7 @@ void respond_status(uint64_t nonce,uint64_t begin){if(rc9_diagnostic_response||l
   n30_display_publish(mesh,state,micros());
 }
 void stop_all(){
+  ble_ui_off=false;
   // The host still reads the production clock while draining its RX hook.
   // WINDOW stop also stops that clock, so defer both until consumers close.
   fine_stop_pending=n30_fine_backend_selected();
@@ -705,14 +707,26 @@ void input(){
 
 }
 [[gnu::noinline]] void poll_display_action(){
-  if(n30_display_take_poweroff()&&power_off.request(update_gate,micros())){
-    stop_all();v12::capture_stop();n30_display_request_poweroff();
+  if(n30_display_take_poweroff()){
+    if(power_off.request(update_gate,micros())){stop_all();v12::capture_stop();n30_display_request_poweroff();}
+    else n30_display_action_result(n30::Action::PowerOff,false);
   }
   // Consume during maintenance too: no deferred radio action after update.
-  if(n30_display_take_upstream_toggle(micros())&&!update_gate.latched()){
-    const auto radio=v12::r2_activity();(void)v12::r2_set_relay_only(!radio.relay_only);
+  if(n30_display_take_upstream_toggle(micros())){
+    const auto radio=v12::r2_activity();n30_display_action_result(n30::Action::ToggleRelayOnly,!update_gate.latched()&&v12::r2_set_relay_only(!radio.relay_only));
   }
-  if(n30_display_take_lora_toggle(micros())&&!update_gate.latched())(void)n30_lora_cycle();
+  if(n30_display_take_ble_toggle(micros())){
+    const auto radio=v12::r2_activity();bool accepted=false;
+    if(!update_gate.latched()){
+      if(radio.requested){v12::r2_stop();ble_ui_off=true;accepted=true;}
+      else {accepted=v12::r2_client_start(micros());if(accepted)ble_ui_off=false;}
+    }
+    n30_display_action_result(n30::Action::ToggleBle,accepted);
+  }
+  if(n30_display_take_lora_toggle(micros())){
+    n30_lora_view lora;n30_lora_snapshot(lora);
+    n30_display_action_result(n30::Action::ToggleLoRa,!update_gate.latched()&&n30_lora_mode(lora.requested?n30::LoRaMode::KeepOff:n30::LoRaMode::KeepOn));
+  }
 }
 [[gnu::noinline]] void clock_fault_progress(){
   const auto rx=v12::transport_status();const auto tx=v12::diagnostic_tx_status();
@@ -727,7 +741,7 @@ void input(){
   if(update_gate.stage==v12::UpdateStage::Fault)mask|=v12::FaultUpdate;
 #ifdef V12_R2_ENABLED
   const auto mesh=v12::r2_status();const auto source_now=micros();
-  n30_lora_control(n30::ble_locked(mesh,source_now),source_now,mesh.requested&&!mesh.fault&&!update_gate.latched());
+  n30_lora_control(n30::ble_locked(mesh,source_now),source_now,(mesh.requested||ble_ui_off)&&!mesh.fault&&!update_gate.latched());
   n30_lora_view lora_time;n30_lora_snapshot(lora_time);
   const auto rc9_time=v12::r2_rc9_status();
   v12::fault_watchdog_sync_progress(mesh.requested&&!update_gate.latched(),n30::synchronized_until(mesh,lora_time,micros(),rc9_time));

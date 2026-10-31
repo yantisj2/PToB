@@ -13,16 +13,30 @@ constexpr uint8_t PrecisionPage=2,LoRaPage=3;
 constexpr uint64_t SnapshotMaxUs=250000,IdleUs=300000000,MoveUs=30000000;
 constexpr uint64_t ClockGraceUs=500000;
 constexpr uint64_t MinimalAfterUs=900000000;
+constexpr uint64_t MenuHoldUs=2500000,MenuIdleUs=5000000;
 constexpr uint8_t NormalContrast=0x60,SaverContrast=NormalContrast/2;
 enum class State:uint8_t {Off,Search,Join,Acquire,Follow,Hold,Fault};
 enum class Source:uint8_t {None,Ble,Rc1,Rc2,LoRa,Rc9};
-enum class Action:uint8_t {None,ToggleRelayOnly,ToggleLoRa,PowerOff};
+enum class Action:uint8_t {None,ToggleRelayOnly,ToggleLoRa,PowerOff,ToggleBle};
+enum class MenuItem:uint8_t {Parent,Power,Ble,LoRa,Exit,Count};
+constexpr uint8_t MenuAll=(1u<<unsigned(MenuItem::Count))-1;
+struct Menu {
+ uint64_t activity_us=0,result_until_us=0;
+ uint8_t item=0,enabled=MenuAll,hold_percent=0,seconds=5;
+ int8_t result=0; // 0 pending/no result, 1 request accepted, -1 refused.
+ bool open=false;
+};
+inline unsigned menu_next(unsigned item,uint8_t enabled){
+ for(unsigned n=0;n<unsigned(MenuItem::Count);n++){item=(item+1)%unsigned(MenuItem::Count);if(enabled&(1u<<item))return item;}
+ return unsigned(MenuItem::Exit);
+}
 struct Model {
  r2_tz tz{};uint64_t tz_until_us=0;
  char unit[25]="N30",parent[25]="NONE",root[25]="----";
  uint64_t sampled_us=0,utc_at_us=0,utc_us=0,until_us=0;
  uint32_t rms_ns=UINT32_MAX;uint16_t hz=0,delivery=UINT16_MAX;
  bool valid=false,locked=false,serving=false,relay_only=false,mode_pending=false;
+ bool ble_requested=false,lora_supported=false;
  Source source=Source::None;
  Signal signal{};
  struct BleClock {uint64_t at_us=0,utc_us=0,until_us=0,root=0,boot=0;uint32_t epoch=0;bool valid=false,following=false;} ble;
@@ -41,14 +55,15 @@ struct View {
  uint8_t page=0,saver_position=0;bool help=false,saver=false,blank=false;
  bool clock_frozen=false;
  bool minimal=false;
+ Menu menu{};
 };
 // One latched session for both saver layouts, independent of pixel history.
 class SaverTimer {
  uint64_t started_=0,last_=0,loss_at_=0;bool active_=false,losing_=false;
  public:
  void update(uint64_t now,View& v,bool synchronized,bool due){
-  if(!due||v.help||v.blank||(active_&&now<last_))active_=losing_=false;
-  if(due&&!v.help&&!v.blank){
+  if(!due||v.help||v.blank||v.menu.open||(active_&&now<last_))active_=losing_=false;
+  if(due&&!v.help&&!v.blank&&!v.menu.open){
    if(!active_&&v.saver&&synchronized){started_=now;active_=true;losing_=false;}
    if(active_){
     if(synchronized)losing_=false;
@@ -124,8 +139,8 @@ class ClockHold {
  uint64_t deadline()const{return saved_&&losing_?loss_at_+ClockGraceUs:UINT64_MAX;}
 };
 class Input {
- bool raw_=false,stable_=false,armed_=false,consumed_=false,wake_=false,main_press_=false,lora_press_=false,lora_eligible_=false;
- bool powered_=false,cancelled_=false;uint8_t press_page_=0;
+ bool raw_=false,stable_=false,armed_=false,consumed_=false,wake_=false,cancelled_=false;
+ uint8_t press_page_=0;
  uint64_t changed_=0,down_=0,idle_=0;
  public:
  explicit Input(bool pressed=false):raw_(pressed),stable_(pressed),armed_(!pressed){}

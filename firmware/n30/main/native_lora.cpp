@@ -267,4 +267,5 @@ bool n30_lora_cycle(){
  if(!PTOB_N30_LORA_TX_FACTORY)return false;
  portENTER_CRITICAL(&mux);const bool ok=allowed&&!basic.failed&&!cycle_pending&&!mode_pending;if(ok){cycle_pending=true;request_at=now();}portEXIT_CRITICAL(&mux);if(ok&&task)xTaskNotifyGive(task);return ok;
 }
+bool n30_lora_configured(){return PTOB_N30_LORA_TX_FACTORY!=0;}
 void n30_lora_snapshot(n30_lora_view& out){portENTER_CRITICAL(&mux);out=published;if(emergency){out.fault=true;out.active=false;out.until_us=0;out.error=-ETIMEDOUT;out.spi_retired=out.capture_released=out.off_acknowledged=false;}portEXIT_CRITICAL(&mux);}

@@ -25,7 +25,9 @@ namespace {
 i2c_master_bus_handle_t bus=nullptr;i2c_master_dev_handle_t oled=nullptr;
 portMUX_TYPE mux=portMUX_INITIALIZER_UNLOCKED;
 n30::Model published; n30::Activity activity,lora_activity;n30::DualComparison comparison;n30::LockTimer precision_lock; int requested_page=-1;
-n30::ActionMailbox upstream_toggle,lora_toggle;
+n30::ActionMailbox upstream_toggle,lora_toggle,ble_toggle;
+int action_result=0;
+n30::Action result_action=n30::Action::None;
 struct Stats {uint32_t frames=0,errors=0,max_us=0,max_phase_us=0;uint64_t sampled=0;uint8_t page=0;bool ready=false,help=false,saver=false,blank=false,minimal=false;} stats;
 TaskHandle_t ui_task=nullptr;esp_timer_handle_t frame_timer=nullptr;
 bool minimal_wait=false,power_action=false,power_stopping=false,power_stopped=false;
@@ -82,15 +84,26 @@ void worker(void*){
   }
   if(!splash_done){splash_done=true;input.activity(now);force=true;}
   int request;portENTER_CRITICAL(&mux);request=requested_page;requested_page=-1;portEXIT_CRITICAL(&mux);
-  const auto prior=view;if(request>=0){view.page=uint8_t(request);view.help=false;view.blank=false;input.activity(now);clock_hold.reset();force=true;}
+  const auto prior=view;if(request>=0){view.page=uint8_t(request);view.help=false;view.blank=false;view.menu.open=false;input.activity(now);clock_hold.reset();force=true;}
+  view.menu.enabled=n30::MenuAll;
+  if(!m.ble_requested)view.menu.enabled&=uint8_t(~(1u<<unsigned(n30::MenuItem::Parent)));
+  if(!m.lora_supported)view.menu.enabled&=uint8_t(~(1u<<unsigned(n30::MenuItem::LoRa)));
+  int result;n30::Action completed;portENTER_CRITICAL(&mux);result=action_result;completed=result_action;action_result=0;portEXIT_CRITICAL(&mux);
+  if(result){
+   if(result<0&&completed==n30::Action::PowerOff){view.blank=false;view.menu.open=true;view.menu.item=unsigned(n30::MenuItem::Power);view.menu.activity_us=now;input.activity(now);}
+   view.menu.result=int8_t(result);view.menu.result_until_us=now+1500000;force=true;
+  }
   const auto action=input.update(gpio_get_level(GPIO_NUM_0)==0,now,view);
   if(action==n30::Action::PowerOff){portENTER_CRITICAL(&mux);power_action=true;portEXIT_CRITICAL(&mux);}
-  if(action==n30::Action::ToggleRelayOnly||action==n30::Action::ToggleLoRa){portENTER_CRITICAL(&mux);(action==n30::Action::ToggleRelayOnly?upstream_toggle:lora_toggle).post(now);portEXIT_CRITICAL(&mux);}
+  if(action==n30::Action::ToggleRelayOnly||action==n30::Action::ToggleLoRa||action==n30::Action::ToggleBle){
+   portENTER_CRITICAL(&mux);const bool posted=(action==n30::Action::ToggleRelayOnly?upstream_toggle:action==n30::Action::ToggleLoRa?lora_toggle:ble_toggle).post(now);portEXIT_CRITICAL(&mux);
+   view.menu.result=posted?0:-1;view.menu.result_until_us=now+1500000;force=true;
+  }
   const auto loss_deadline=saver_timer.deadline();
   n30::update_saver(input,clock_hold,saver_timer,m,view,now);
   if(prior.saver&&!view.saver)exit_loss_us=loss_deadline!=UINT64_MAX&&loss_deadline>=n30::ClockGraceUs&&now>=loss_deadline-n30::ClockGraceUs?now-(loss_deadline-n30::ClockGraceUs):0;
   portENTER_CRITICAL(&mux);minimal_wait=view.saver&&view.minimal;portEXIT_CRITICAL(&mux);
-  if(prior.page!=view.page||prior.help!=view.help||prior.saver!=view.saver||prior.blank!=view.blank||prior.clock_frozen!=view.clock_frozen||prior.minimal!=view.minimal)force=true;
+  if(prior.page!=view.page||prior.help!=view.help||prior.saver!=view.saver||prior.blank!=view.blank||prior.clock_frozen!=view.clock_frozen||prior.minimal!=view.minimal||prior.menu.open!=view.menu.open||prior.menu.item!=view.menu.item)force=true;
   const auto phase=n30::frame_phase(m,view,now);const auto due=force?cadence.forced_deadline(phase,now):cadence.deadline(phase,now);
   if(now>=due){
    bool ok=true;if(off!=view.blank){ok=command(view.blank?0xae:0xaf);if(ok){off=view.blank;shadow_valid=false;}}
@@ -168,6 +181,7 @@ bool display_init(){
 }
 void n30_display_publish(const v12::R2Status& s,const DisplayState& d,uint64_t now){
  auto m=n30::model(s,d,now,ptob_registry_name(s.root_identity));
+ m.lora_supported=n30_lora_configured();
  // This is the boot-selected delivered counter, independent of raw diagnostics.
  // Fine delivery still rounds to50ns; the label reports counter tick size only.
  m.precision.counter_hz=n30_fine_backend_selected()?80000000:20000000;
@@ -202,6 +216,8 @@ bool n30_display_page(unsigned page){if(page>=n30::PageCount)return false;portEN
 bool n30_display_take_upstream_toggle(uint64_t now){portENTER_CRITICAL(&mux);const bool take=upstream_toggle.take(now);portEXIT_CRITICAL(&mux);return take;}
 
 bool n30_display_take_lora_toggle(uint64_t now){portENTER_CRITICAL(&mux);const bool take=lora_toggle.take(now);portEXIT_CRITICAL(&mux);return take;}
+bool n30_display_take_ble_toggle(uint64_t now){portENTER_CRITICAL(&mux);const bool take=ble_toggle.take(now);portEXIT_CRITICAL(&mux);return take;}
+void n30_display_action_result(n30::Action action,bool accepted){portENTER_CRITICAL(&mux);action_result=accepted?1:-1;result_action=action;portEXIT_CRITICAL(&mux);if(ui_task)xTaskNotifyGive(ui_task);}
 
 bool n30_display_minimal(){portENTER_CRITICAL(&mux);const bool value=minimal_wait;portEXIT_CRITICAL(&mux);return value;}
 

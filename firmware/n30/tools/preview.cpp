@@ -4,6 +4,7 @@
 #include "ui.hpp"
 #include <cstdio>
 #include <cstring>
+#include <initializer_list>
 int main(int argc,char** argv){
  if(argc!=3)return 2;n30::Model m;std::snprintf(m.unit,sizeof m.unit,"%s",argv[2]);
  std::snprintf(m.parent,sizeof m.parent,"TC-02");m.sampled_us=m.utc_at_us=1000000;m.until_us=1250000;
@@ -90,6 +91,24 @@ int main(int argc,char** argv){
   auto f=std::fopen(path,"wb");if(!f)return 3;std::fprintf(f,"P5\n64 128\n255\n");
   for(unsigned y=0;y<128;y++)for(unsigned x=0;x<64;x++)std::fputc(frame[y*8+x/8]&(0x80>>(x%8))?255:0,f);
   std::fclose(f);
+ }
+
+ const char* menu_names[]={"menu-parent","menu-power","menu-ble","menu-lora","menu-exit","menu-power-hold","menu-requested","menu-refused","menu-switching","menu-radios-off","menu-lora-fault","menu-no-lora","menu-stale"};
+ for(unsigned i=0;i<13;i++){
+  n30::Model p;p.sampled_us=1000000;p.ble_requested=p.lora_supported=true;p.lora.requested=p.lora.active=true;
+  std::snprintf(p.unit,sizeof p.unit,"%s",argv[2]);
+  n30::View v;v.page=n30::PrecisionPage;v.menu.open=true;v.menu.activity_us=1000000;v.menu.item=uint8_t(i<5?i:i==5?1:i==10?3:2);v.menu.seconds=5;
+  if(i==5)v.menu.hold_percent=50;
+  if(i==6||i==7){v.menu.result=i==6?1:-1;v.menu.result_until_us=2500000;}
+  if(i==8){v.menu.item=0;p.mode_pending=true;}
+  if(i==9)p.ble_requested=p.lora.requested=p.lora.active=false;
+  if(i==10)p.lora.fault=true;
+  if(i==11)p.lora_supported=false;
+  n30::render(frame,p,v,i==12?1250000:1000000);
+  char path[1024];std::snprintf(path,sizeof path,"%s/%s.pgm",argv[1],menu_names[i]);
+  auto f=std::fopen(path,"wb");if(!f)return 3;std::fprintf(f,"P5\n64 128\n255\n");
+  for(unsigned y=0;y<128;y++)for(unsigned x=0;x<64;x++)std::fputc(frame[y*8+x/8]&(0x80>>(x%8))?255:0,f);std::fclose(f);
+  for(bool cw:{false,true}){uint8_t native[n30::FrameBytes];n30::rotate(native,frame,cw);std::snprintf(path,sizeof path,"%s/%s-%s.bin",argv[1],menu_names[i],cw?"cw":"ccw");f=std::fopen(path,"wb");if(!f)return 3;std::fwrite(native,1,sizeof native,f);std::fclose(f);}
  }
 
 }

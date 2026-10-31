@@ -15,8 +15,8 @@ int main(){
  uint64_t utc;assert(n30::time(m,1000100,utc)&&utc==123456889);assert(!n30::time(m,999999,utc));assert(!n30::time(m,1250000,utc));
  m.state=n30::State::Fault;assert(!n30::time(m,1000100,utc));m.state=n30::State::Follow;
  struct Guard {uint8_t before[32],frame[n30::FrameBytes],after[32];} g;std::memset(&g,0xa5,sizeof g);
- for(unsigned page=0;page<n30::PageCount;page++)for(unsigned state=0;state<7;state++)for(bool help:{false,true}){
-  n30::View v;v.page=page;v.help=help;m.state=n30::State(state);std::memset(m.unit,'X',24);m.unit[24]=0;std::memset(m.parent,'Y',24);m.parent[24]=0;
+ for(unsigned page=0;page<n30::PageCount;page++)for(unsigned state=0;state<7;state++)for(bool help:{false,true})for(bool menu:{false,true}){
+  n30::View v;v.page=page;v.help=help;v.menu.open=menu;v.menu.item=state%5;v.menu.hold_percent=100;m.lora_supported=true;m.state=n30::State(state);std::memset(m.unit,'X',24);m.unit[24]=0;std::memset(m.parent,'Y',24);m.parent[24]=0;
   n30::render(g.frame,m,v,1000001);for(auto b:g.before)assert(b==0xa5);for(auto b:g.after)assert(b==0xa5);
  }
  uint8_t native[1024],portrait[1024]{};
@@ -24,42 +24,8 @@ int main(){
   std::memset(portrait,0,1024);portrait[y*8+x/8]|=0x80>>(x%8);
   for(bool cw:{false,true}){n30::rotate(native,portrait,cw);unsigned count=0;for(auto b:native)count+=__builtin_popcount(b);assert(count==1);unsigned nx=cw?127-y:y,ny=cw?x:63-x;assert(native[(ny/8)*128+nx]&(1<<(ny%8)));}
  }
- n30::View v;n30::Input input;
- input.update(true,100000,v);input.update(true,150000,v);input.update(false,200000,v);input.update(false,250000,v);assert(v.page==1);
- input.update(true,300000,v);input.update(true,350000,v);input.update(true,1850000,v);assert(v.help&&v.page==1);input.update(false,1900000,v);input.update(false,1950000,v);assert(v.help);
- input.update(true,2000000,v);input.update(true,2050000,v);input.update(false,2100000,v);input.update(false,2150000,v);assert(!v.help&&v.page==1);
- input.idle(302150000,true,v);assert(v.saver);input.update(true,302200000,v);input.update(true,302250000,v);assert(!v.saver);input.update(false,302300000,v);input.update(false,302350000,v);assert(v.page==1);
- input.update(true,303000000,v);input.update(true,303050000,v);input.update(true,307050000,v);assert(v.blank);input.update(false,307100000,v);input.update(false,307150000,v);
- input.update(true,307200000,v);input.update(true,307250000,v);assert(!v.blank);input.update(false,307300000,v);input.update(false,307350000,v);assert(v.page==1);
- n30::Input held_at_boot(true);n30::View b;held_at_boot.update(true,5000000,b);held_at_boot.update(false,5100000,b);held_at_boot.update(false,5150000,b);assert(!b.help&&!b.blank&&b.page==0);
- // W12 main gesture: one1.5s toggle, consumed even beyond4s and on release.
- n30::Input home;n30::View h;
- assert(home.update(true,100000,h)==n30::Action::None);home.update(true,140000,h);
- assert(home.update(true,1599999,h)==n30::Action::None);
- assert(home.update(true,1600000,h)==n30::Action::ToggleRelayOnly);
- assert(home.update(true,5000000,h)==n30::Action::None&&!h.blank&&!h.help&&h.page==0);
- home.update(false,5100000,h);assert(home.update(false,5140000,h)==n30::Action::None&&h.page==0);
- home.update(true,5200000,h);home.update(true,5240000,h);assert(home.update(true,6700000,h)==n30::Action::ToggleRelayOnly);
- home.update(false,6800000,h);home.update(false,6840000,h);assert(h.page==0);
- // Release before the threshold cannot become a toggle during debounce.
- n30::Input release;n30::View rel;release.update(true,100000,rel);release.update(true,140000,rel);release.update(false,1590000,rel);
- assert(release.update(false,1630000,rel)==n30::Action::None&&rel.page==1);
- // Page changes during a press cannot reclassify an RF hold into a toggle.
- n30::Input pinned;n30::View p;p.page=1;pinned.update(true,100000,p);pinned.update(true,140000,p);p.page=0;
- assert(pinned.update(true,1600000,p)==n30::Action::None);
- // A screensaver wake consumes a long press too; it cannot change the mode.
- n30::Input wake;n30::View w;w.saver=true;wake.update(true,100000,w);wake.update(true,140000,w);
- assert(wake.update(true,5000000,w)==n30::Action::None&&!w.blank&&!w.help&&!w.saver);
- // LoRa cycles once at1.5s, then requests real shutdown at4s; navigation cancels.
- n30::Input third;n30::View t;t.page=n30::LoRaPage;third.update(true,100000,t);third.update(true,140000,t);
- assert(third.update(true,1599999,t)==n30::Action::None);
- assert(third.update(true,1600000,t)==n30::Action::ToggleLoRa);
- assert(third.update(true,5000000,t)==n30::Action::PowerOff&&t.blank&&!t.help);
- third.update(false,5100000,t);third.update(false,5140000,t);assert(t.page==n30::LoRaPage);
- n30::Input cancelled;n30::View cv;cv.page=n30::LoRaPage;cancelled.update(true,100000,cv);cancelled.update(true,140000,cv);cv.page=0;
- assert(cancelled.update(true,150000,cv)==n30::Action::None);cv.page=n30::LoRaPage;
- assert(cancelled.update(true,1600000,cv)==n30::Action::None);
- cancelled.update(false,5100000,cv);assert(cancelled.update(false,5140000,cv)==n30::Action::None&&cv.page==n30::LoRaPage);
+ // Physical menu boundaries and power selection are covered by power_input_test.
+ n30::Input held_at_boot(true);n30::View b;held_at_boot.update(true,5000000,b);held_at_boot.update(false,5100000,b);held_at_boot.update(false,5150000,b);assert(!b.menu.open&&!b.blank&&b.page==0);
  // Short presses complete the four-screen cycle.
  n30::Input cycle;n30::View cyc;
  for(unsigned n=1;n<=4;n++){auto at=uint64_t(n)*1000000;cycle.update(true,at,cyc);cycle.update(true,at+40000,cyc);cycle.update(false,at+100000,cyc);cycle.update(false,at+140000,cyc);assert(cyc.page==n%n30::PageCount);}

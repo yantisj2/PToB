@@ -1,5 +1,25 @@
 # N30 changelog
 
+## 0.2.38 — single-button watch menu
+
+- Open the menu from any page at exactly 2500 ms; every earlier release is short,
+  including release debounce crossing the threshold. Taps cycle enabled rows;
+  a separate 2500 ms hold selects once. Consume the opening hold and return to
+  the invoking page on Exit or 5000 ms idle, with no timeout while held.
+- Preserve RC-only operation and upstream AUTO/relay-only selection. Add bounded
+  Power Off, BLE RX OFF/ON, enrolled LoRa RX OFF/ON and Exit. No GM or LoRa TX
+  mode is introduced. Requests stay in the menu with owner acceptance/refusal
+  feedback and separate pending/activity/fault states.
+- BLE-only OFF retains the independent LoRa AUTO policy and fine-clock owner;
+  ON uses fresh client admission. LoRa menu overrides remain volatile, with
+  original 180 s AUTO dwell available through the bound console and after boot.
+  Timing models, source expiry, authenticated admission and original shutdown
+  drain/ownership/wake guards are unchanged.
+- Validate raw-button boundaries, all pages, row skipping/wrap, boot/wake,
+  cancellation, idle/held behavior, actual owner dispatch and both renderer
+  rotations offline. Native previews are synthetic; hardware acceptance and
+  independent precision qualification remain separate.
+
 ## Build validation — shared stack checker
 
 Keep N30's release sequence independent of W12 when selecting stack-evidence

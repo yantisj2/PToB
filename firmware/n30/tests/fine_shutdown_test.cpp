@@ -26,7 +26,7 @@ void r2_stop(){mesh.requested=false;mesh.client.stopping=true;}
 void transport_stop(){}void direct_stop(){}void diagnostic_tx_stop(){}void lora_request(bool,uint32_t){}
 }
 w12::PowerOff power_off;bool display_ready=true;bool n30_display_power_ready(){return display_ready;}
-v12::UpdateGate update_gate;uint64_t update_completed_us=0;bool fine_stop_pending=false;
+v12::UpdateGate update_gate;uint64_t update_completed_us=0;bool fine_stop_pending=false,ble_ui_off=true;
 uint64_t micros(){return fake_now;}
 void n30_timing_stop(){}
 void n30_window_stop(){n30_fine_window_stop();}
@@ -44,7 +44,7 @@ int main(int argc,char** argv){
  const bool power_timeout=!std::strcmp(argv[1],"power-timeout");
  assert(n30_fine_backend_start(2,PTOB_N30_FINE_FACTORY,fake_now));
  if(power){assert(power_off.request(update_gate,fake_now));display_ready=false;}else if(!off)assert(update_gate.begin(fake_now));const auto original_deadline=update_gate.deadline;
- stop_all();assert(fine_stop_pending&&active&&!n30_fine_released());
+ stop_all();assert(!ble_ui_off);assert(fine_stop_pending&&active&&!n30_fine_released());
  poll_update_drain(fake_now);assert(active&&!n30_fine_released()&&update_gate.stage==(off?v12::UpdateStage::Idle:v12::UpdateStage::Draining));
  if(timeout){fake_now+=2000000;fake_raw+=160000000;poll_update_drain(fake_now);assert(update_gate.stage==v12::UpdateStage::Fault&&active);}
  host_closed();v12::lora.worker_busy=true;poll_update_drain(fake_now);assert(active&&fine_stop_pending);

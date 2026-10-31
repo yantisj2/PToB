@@ -17,12 +17,13 @@ prefix=r'''
 #include "update_gate.hpp"
 #include "power_off.hpp"
 #include "lora_policy.hpp"
+#include "ui.hpp"
 #include "timing_command.hpp"
 #include "window_command.hpp"
 #define V12_R2_ENABLED 1
 #define V12_R2_CONFIG 13
 uint64_t now=1000;unsigned radio_changes=0,pages=0,statuses=0,lora_changes=0,diag_frames=0;bool lora_diagnostic_response=false,lora_action=false,rc9_diagnostic_response=false;unsigned selected=0;
-bool owner_active=true;
+bool owner_active=true,ble_requested=true,ble_ui_off=false,ble_can_start=true,ble_action=false,lora_requested=false,lora_can_change=true;unsigned ble_stops=0;int ui_result=0;
 bool window_diagnostic_response=false,window_edge_response=false,window_late_response=false;uint32_t window_after=0;unsigned window_starts=0,window_acks=0;
 bool n30_window_start(uint64_t,uint64_t,uint64_t,uint32_t,uint32_t){++window_starts;return true;}
 void n30_window_stop(){}
@@ -44,10 +45,11 @@ bool capture_begin(uint64_t,uint32_t){return true;}
 bool capture_rolling_begin(uint64_t,uint32_t){return true;}
 struct LoRa {bool enabled=false,requested=false,worker_busy=false,off_acknowledged=true,failed=false;};
 LoRa lora_status(){return {};}
-bool r2_client_start(uint64_t){++radio_changes;return true;}
+bool r2_client_start(uint64_t){++radio_changes;if(ble_can_start)ble_requested=true;return ble_can_start;}
+void r2_stop(){++ble_stops;ble_requested=false;}
 bool r2_set_relay_only(bool value){mode=value;++radio_changes;return true;}
-struct Activity {bool relay_only=false;};
-Activity r2_activity(){return {mode};}
+struct Activity {bool relay_only=false,requested=true;};
+Activity r2_activity(){return {mode,ble_requested};}
 bool r2_rc9_parent(uint64_t){++radio_changes;return true;}
 bool r2_rc_parent(uint64_t){++radio_changes;return true;}
 bool r2_gm_parent(uint64_t){++radio_changes;return true;}
@@ -64,7 +66,10 @@ char factory_text[]="02:00:00:00:30:01";bool identity=true;uint64_t session=3,la
 uint64_t micros(){return now;}
 void stop_all(){++radio_changes;}
 void respond_status(uint64_t,uint64_t){++statuses;if(lora_diagnostic_response)diag_frames++;}
-bool n30_lora_mode(n30::LoRaMode){lora_changes++;return true;}
+bool n30_lora_mode(n30::LoRaMode value){lora_changes++;if(lora_can_change)lora_requested=value==n30::LoRaMode::KeepOn;return lora_can_change;}
+void n30_lora_snapshot(n30_lora_view& out){out={};out.requested=lora_requested;}
+bool n30_display_take_ble_toggle(uint64_t){bool take=ble_action;ble_action=false;return take;}
+void n30_display_action_result(n30::Action,bool accepted){ui_result=accepted?1:-1;}
 bool n30_lora_cycle(){lora_changes++;return true;}
 bool n30_display_take_lora_toggle(uint64_t){bool take=lora_action;lora_action=false;return take;}
 bool r2_command_off_ack(){return !owner_active;}
@@ -137,9 +142,18 @@ int main(){
  update_gate={};power_action=true;action_pending=true;lora_action=true;poll_display_action();
  assert(power_off.requested()&&display_stops==1&&radio_changes==3&&!power_action&&!action_pending&&!lora_action&&lora_changes==4);
  const auto deadline=update_gate.deadline;power_action=true;poll_display_action();assert(display_stops==1&&radio_changes==3&&update_gate.deadline==deadline);
+ // Menu BLE OFF uses only the existing BLE stop owner. ON admits a fresh
+ // generation; a refused admission cannot silently clear the operator OFF.
+ update_gate={};power_off={};ble_action=true;const auto prior_radio=radio_changes;
+ poll_display_action();assert(!ble_requested&&ble_ui_off&&ble_stops==1&&radio_changes==prior_radio&&ui_result==1&&!ble_action);
+ ble_can_start=false;ble_action=true;poll_display_action();assert(!ble_requested&&ble_ui_off&&radio_changes==prior_radio+1&&ui_result==-1);
+ ble_can_start=true;ble_action=true;poll_display_action();assert(ble_requested&&!ble_ui_off&&radio_changes==prior_radio+2&&ui_result==1);
+ lora_requested=true;lora_action=true;poll_display_action();assert(!lora_requested&&ui_result==1);
+ lora_can_change=false;lora_action=true;poll_display_action();assert(!lora_requested&&ui_result==-1);
+ update_gate.begin(now);ble_action=true;lora_action=true;const auto changes=radio_changes;poll_display_action();assert(!ble_action&&!lora_action&&ble_requested&&radio_changes==changes);
  std::puts("PASS actual dispatch: active-radio pages, main-owner upstream toggle, maintenance consumption and identity/ticket fences");
 }
 '''
 (a.out/'command-test.cpp').write_text(prefix+command+poll+suffix)
-cmd=[os.environ.get('CXX','clang++'),'-std=c++20','-O1','-Wall','-Wextra','-Werror','-I'+str(APP/'main'),'-I'+str(APP.parent/'w12/main'),str(a.out/'command-test.cpp'),'-o',str(a.out/'command-test')]
+cmd=[os.environ.get('CXX','/opt/homebrew/opt/llvm/bin/clang++' if Path('/opt/homebrew/opt/llvm/bin/clang++').exists() else 'clang++'),'-std=c++20','-O1','-g','-fsanitize=address,undefined','-fno-sanitize-recover=all','-Wall','-Wextra','-Werror','-I'+str(APP/'main'),'-I'+str(APP.parent/'w12/main'),str(a.out/'command-test.cpp'),'-o',str(a.out/'command-test')]
 subprocess.run(cmd,check=True,timeout=20);subprocess.run([a.out/'command-test'],check=True,timeout=10)

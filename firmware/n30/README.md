@@ -29,7 +29,7 @@ These values are not specifications or independent output accuracy.
 | LoRa | Passive **RC8 wire 3**, fixed **915 MHz** receive profile with an independently configured T096 transmitter. Separate **20 MHz XTAL** counter maps DIO1 captures. |
 | Functional fallback | Distinct **RC9** direct-client UTC reception with unknown transport/precision bounds; it cannot relay further or train the BLE fitter. |
 | Time zone | BLE clock and savers follow fresh GM time-zone/DST metadata, then fall back to UTC. LoRa/RC9 and timing diagnostics remain UTC. |
-| Power and console | GPIO0 page/mode controls and bounded deep-sleep request. UART diagnostic console, not a T096 USB timing source. |
+| Power and console | GPIO0 page/menu controls and bounded deep-sleep request. UART diagnostic console, not a T096 USB timing source. |
 
 ## Get started
 
@@ -77,17 +77,29 @@ clock authority. Enrollment, registry and calibration remain separate inputs.
 
 ## Screens and controls
 
-A short press cycles **Clock → BLE + LoRa → Precision → LoRa → Clock**.
-Acquisition runs while the startup splash is displayed.
+A press released before **2.5 s** cycles **Clock → BLE + LoRa → Precision →
+LoRa → Clock**. Hold **2.5 s** on any page to open the watch menu, then release.
+Acquisition continues while the startup splash is displayed.
 
-| Page | Hold action |
+Inside the menu, a short press selects the next enabled row; a separate
+**2.5 s** hold applies it once. The opening hold cannot apply a row. Changes
+keep the menu open. **Exit**, or **5 s** without input, returns to the invoking
+page; a held button cannot time out. A short screensaver press wakes, and a
+continued 2.5 s hold opens the menu.
+
+| Menu row | Action |
 | --- | --- |
-| Clock | **1.5 s** toggles automatic parent selection / relay-only reception. This changes upstream selection, not relay transmission. |
-| BLE + LoRa | **1.5 s** opens RF help; **4 s** requests shutdown. |
-| Precision | **1.5 s** opens precision help; **4 s** requests shutdown. |
-| LoRa | **1.5 s** cycles KEEP ON → KEEP OFF → AUTO; **4 s** requests shutdown. |
+| UPSTR AUTO / UPSTR RLY | Select the opposite upstream parent policy: automatic or relay-only reception. N30 remains RC-only; it has no GM mode. |
+| POWER OFF | Request bounded shutdown. |
+| BLE RX OFF / ON | Stop BLE reception, or request a fresh authenticated client activation. Independent LoRa reception remains available. |
+| LoRa RX OFF / ON | Set a volatile KEEP OFF / KEEP ON override. The row is omitted without an enrolled transmitter. AUTO remains available through the bound `lora auto` console command and is restored at boot. |
+| EXIT | Return to the invoking page. |
 
-Release after the shutdown request. Deep sleep requires the original **2 s**
+Rows describe the requested next action. **REQUESTED** means the owner accepted
+the request; **REFUSED**, **SWITCHING**, radio wait and fault states remain
+separate from active reception or valid time. UPSTR is skipped while BLE is OFF.
+
+Release after selecting Power Off. Deep sleep requires the original **2 s**
 radio/capture drain and display-worker stop; a new button press reboots the app.
 A failed drain remains a fault. Sleep current, battery lifetime and physical
 wake behavior need hardware validation.
