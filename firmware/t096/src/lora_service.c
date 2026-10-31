@@ -126,8 +126,10 @@ void r2_lora_source_publish(const struct rc8_export *input){
   /* Repeated owner snapshots cannot renew original timing/authority expiry. */
   if(map.until_tick<last->until_tick)last->until_tick=map.until_tick;
   if(map.expires_ns<last->expires_ns)last->expires_ns=map.expires_ns;
-  if(t->captured.sequence&&t->captured.map_generation==last->map_generation&&
-    (t->captured_edge.tick>=last->until_tick||t->captured.event_ns>=last->expires_ns))t->captured=(struct rc8_correction){0};
+  if(t->captured.sequence&&t->captured.map_generation==last->map_generation){
+   if(t->captured.expires_ns>last->expires_ns)t->captured.expires_ns=last->expires_ns;
+   if(t->captured_edge.tick>=last->until_tick||t->captured.event_ns>=last->expires_ns)t->captured=(struct rc8_correction){0};
+  }
  }else{
   /* The locked physical capture is the map publication linearization point.
    * Its original formula already exists; it cannot map an earlier event. */

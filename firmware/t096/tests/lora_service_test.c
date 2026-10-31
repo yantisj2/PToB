@@ -444,6 +444,13 @@ int main(int argc,char **argv){assert(argc==2);unsigned mode=(unsigned)atoi(argv
   assert(!rc8_export_event(&correction,&role.tx.maps[1],1,edge));
   step();assert(published.accepted==1&&published.correction.map_generation==2&&!published.missing_map);
  }
+ else if(mode==88){
+  struct rc8_export original=delayed_tx(false);
+  original.expires_ns=role.tx.captured.event_ns+1000000;
+  r2_lora_source_publish(&original);
+  assert(role.tx.captured.sequence==1&&role.tx.captured.expires_ns==original.expires_ns);
+  step();assert(published.accepted==1&&published.correction.map_generation==1&&published.correction.expires_ns==original.expires_ns);
+ }
  else assert(false);
  char json[3072];int n=r2_lora_json(json,sizeof json-96,0);assert(n>0&&n<(int)sizeof json-96);printf("PASS runtime mode%u role=%zu snapshot=%zu worker=%zu json=%d\nJSON %s\n",mode,sizeof role,sizeof published,sizeof worker_stack,n,json);
 }
