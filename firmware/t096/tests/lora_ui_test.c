@@ -31,13 +31,27 @@ int main(int argc,char **argv){assert(argc==2);
   if(deny==2)bad.lora.fault=true;
   if(deny==3)bad.lora.transmitter=true;
   if(deny==4)bad.lora.state=RC8_EXPIRED;
-  if(deny==5)bad.lora.sampled_us=1000001;
+  if(deny==5)bad.lora.sampled_us=1001000;
   if(deny==6)bad.lora.until_us=1000000;
   if(deny==7)bad.lora.utc_us=UINT64_MAX;
   if(deny==8)bad.platform_ready=false;
   if(deny==9)bad.profile_switching=true;
   assert(!r2_ui_display_time(&bad,1000,&utc,&coarse)&&!r2_ui_analog(&bad,1000)&&!r2_ui_face_locked(&bad,1000)&&!r2_ui_saver_allowed(&bad,1000));
  }
+ for(unsigned fraction=0;fraction<1000;fraction++){
+  struct r2_ui_model bucket=m;bucket.lora.sampled_us=1000000+fraction;
+  bucket.lora.utc_us=36642000000ULL+fraction;
+  assert(r2_ui_display_time(&bucket,1000,&utc,&coarse)&&utc==36642000000LL&&coarse&&r2_ui_analog(&bucket,1000));
+  assert(r2_ui_display_time(&bucket,1001,&utc,&coarse)&&utc==36642001000LL);
+ }
+ struct r2_ui_model edge=m;edge.lora.until_us=1001500;
+ assert(r2_ui_display_time(&edge,1000,&utc,&coarse));
+ assert(!r2_ui_display_time(&edge,1001,&utc,&coarse)); /* conservative fractional expiry */
+ edge=m;edge.lora.sampled_us=1000999;edge.lora.utc_us=998;
+ assert(!r2_ui_display_time(&edge,1000,&utc,&coarse)); /* fractional subtraction cannot underflow */
+ edge=m;edge.lora.sampled_us=1000999;edge.lora.utc_us=(uint64_t)INT64_MAX+999;
+ assert(r2_ui_display_time(&edge,1000,&utc,&coarse)&&utc==INT64_MAX);
+ assert(!r2_ui_display_time(&edge,1001,&utc,&coarse));
  /* A full 4 s correction cadence with delayed map retirement. The source
   * owner renews the UI model, while the original event deadline stays 12 s.
   * No BLE role, precision fit, local PPS or link-RMS threshold is required. */

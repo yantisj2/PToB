@@ -1,5 +1,25 @@
 # T096 changelog
 
+## 0.15.214 — Keep LoRa display snapshots in one time domain
+
+Refresh the UI evaluation timestamp after copying each immutable model. A
+publisher can preempt button/recovery work after the loop timestamp; comparing
+its newer model with that earlier time briefly withdrew a valid LoRa clock.
+Normalize microsecond LoRa samples to the renderer's millisecond bucket, with
+the matching fractional UTC subtraction. A valid sample in the same bucket no
+longer looks future-dated. Actual future buckets, arithmetic overflow/underflow,
+faults, disabled reception and the original expiry still withdraw the clock.
+The exclusive deadline is conservatively floored, never extended.
+
+Host regressions exercise all 1,000 fractional microsecond positions, a publisher
+preempting the actual worker before model copies, completed rendered dial pixels,
+and independent negative controls for both original defects. A subsequent .213
+hardware window had exposed a transient display withdrawal while the LoRa sample
+was well inside its hold limit; its failure is retained separately. The .213
+physical transmit-map repair, source leases, RF cadence, menu controls, BLE
+parking and authority remain unchanged. Host tests do not establish hardware
+continuity or independently measured accuracy.
+
 ## 0.15.213 — Preserve LoRa corrections and show the estimate dial
 
 Preserve the original causal map projection of an already captured physical

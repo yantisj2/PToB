@@ -228,12 +228,16 @@ bool r2_ui_ble_current(const struct r2_ui_model *m,uint64_t now)
 #ifdef R2_LORA
 static bool lora_current(const struct r2_ui_model *m,uint64_t now){
  const struct r2_lora_view *v=&m->lora;
+ /* The view is sampled in microseconds; render time is a floored millisecond.
+  * Compare buckets, then project UTC back by that same fractional sample.
+  * Floor the original exclusive deadline so quantization cannot renew it. */
+ uint64_t at=v->sampled_us/1000,fraction=v->sampled_us%1000;
  return now>=m->sampled_ms&&now-m->sampled_ms<=2500&&m->platform_ready&&!m->profile_switching&&
   v->choice==RC8_SELECT_LORA&&v->requested&&v->active&&!v->fault&&!v->transmitter&&
   v->state==RC8_AVAILABLE&&v->utc_us&&now<=UINT64_MAX/1000&&
-  now*1000>=v->sampled_us&&now*1000<v->until_us&&
-  now*1000-v->sampled_us<=(uint64_t)INT64_MAX&&
-  v->utc_us<=(uint64_t)INT64_MAX-(now*1000-v->sampled_us);
+  now>=at&&v->sampled_us<v->until_us&&now<v->until_us/1000&&
+  v->utc_us>=fraction&&(now-at)*1000<=(uint64_t)INT64_MAX&&
+  v->utc_us-fraction<=(uint64_t)INT64_MAX-(now-at)*1000;
 }
 #endif
 bool r2_ui_analog(const struct r2_ui_model *m,uint64_t now)
@@ -298,7 +302,7 @@ bool r2_ui_display_time(const struct r2_ui_model *m,uint64_t now,int64_t *utc,bo
 #ifdef R2_LORA
  if(m->lora.choice==RC8_SELECT_LORA){
   if(!lora_current(m,now))return false;
-  uint64_t value=m->lora.utc_us+(now*1000-m->lora.sampled_us);
+  uint64_t value=m->lora.utc_us-m->lora.sampled_us%1000+(now-m->lora.sampled_us/1000)*1000;
   if(value>INT64_MAX)return false;
   *utc=(int64_t)value;*coarse=true;return true;
  }

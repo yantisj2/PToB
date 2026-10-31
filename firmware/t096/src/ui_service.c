@@ -197,6 +197,9 @@ static void worker(void *a,void *b,void *c)
   if(rc&&initialized&&!r2_display_recover())rc=0;
   struct r2_ui_model shadow_model;struct r2_ui_status shadow_status;
   key=k_spin_lock(&lock);shadow_model=model;shadow_status=status;k_spin_unlock(&lock,key);
+  /* A publisher can preempt button/recovery work after the loop timestamp.
+   * Evaluate this immutable snapshot against time sampled after its copy. */
+  now=k_uptime_get();
   bool page_changed=shadow_status.page!=observed_page;
   if(page_changed){observed_page=shadow_status.page;idle_since=now;}
   /* Every page may idle into the saver. Its overlay does not end the
@@ -219,7 +222,7 @@ static void worker(void *a,void *b,void *c)
   shadow_status=status;k_spin_unlock(&lock,key);
   shadow_tick(&shadow_model,&shadow_status,now,!rc);
   if(!rc&&now>=due){
-   struct r2_ui_model m;struct r2_ui_status s;key=k_spin_lock(&lock);m=model;r2_ui_sync_display_update(&status.sync_display,&m,now,false);s=status;k_spin_unlock(&lock,key);
+   struct r2_ui_model m;struct r2_ui_status s;key=k_spin_lock(&lock);m=model;now=k_uptime_get();r2_ui_sync_display_update(&status.sync_display,&m,now,false);s=status;k_spin_unlock(&lock,key);
    s.screensaver=s.screensaver&&r2_ui_saver_allowed(&m,now);
    m.temperature_valid=!r2_display_temperature(&m.temperature_qc);
    r2_ui_render(framebuffer,&m,&s,now);rc=r2_display_frame(framebuffer);
