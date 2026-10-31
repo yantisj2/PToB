@@ -77,23 +77,28 @@ clock authority. Enrollment, registry and calibration remain separate inputs.
 
 ## Screens and controls
 
-A press released before **2.5 s** cycles **Clock → BLE + LoRa → Precision →
-LoRa → Clock**. Hold **2.5 s** on any page to open the watch menu, then release.
+A press released before **2.0 s** cycles **Clock → BLE + LoRa → Precision →
+LoRa → Clock**. Hold **2.0 s** on any page to open the watch menu, then release.
 Acquisition continues while the startup splash is displayed.
 
 Inside the menu, a short press selects the next enabled row; a separate
-**2.5 s** hold applies it once. The opening hold cannot apply a row. Changes
+**2.0 s** hold applies it once. The opening hold cannot apply a row. Changes
 keep the menu open. **Exit**, or **5 s** without input, returns to the invoking
 page; a held button cannot time out. A short screensaver press wakes, and a
-continued 2.5 s hold opens the menu.
+continued 2.0 s hold opens the menu.
 
 | Menu row | Action |
 | --- | --- |
 | UPSTR AUTO / UPSTR RLY | Select the opposite upstream parent policy: automatic or relay-only reception. N30 remains RC-only; it has no GM mode. |
 | POWER OFF | Request bounded shutdown. |
-| BLE RX OFF / ON | Stop BLE reception, or request a fresh authenticated client activation. Independent LoRa reception remains available. |
+| BLE RX OFF / ON | Park BLE reception, or request a fresh authenticated client activation. AUTO starts independent LoRa RX immediately; manual LoRa ON/OFF choices remain unchanged. |
 | LoRa RX OFF / ON | Set a volatile KEEP OFF / KEEP ON override. The row is omitted without an enrolled transmitter. AUTO remains available through the bound `lora auto` console command and is restored at boot. |
 | EXIT | Return to the invoking page. |
+
+While BLE is parked, only fresh LoRa can supply time. BLE/RC9 clocks and cached
+BLE pixels are withdrawn; missing LoRa time does not trigger a no-time restart.
+BLE ON restores ordinary AUTO recovery with its continuous three-minute dwell.
+Actual faults and maintenance retain their existing fences.
 
 Rows describe the requested next action. **REQUESTED** means the owner accepted
 the request; **REFUSED**, **SWITCHING**, radio wait and fault states remain

@@ -8,7 +8,7 @@
 #include <cstdio>
 #include <cmath>
 namespace n30 {
-inline Model model(const v12::R2Status& s,const DisplayState& d,uint64_t now,const char* root_alias=nullptr){
+inline Model model(const v12::R2Status& s,const DisplayState& d,uint64_t now,const char* root_alias=nullptr,bool ble_parked=false){
  Model m;std::snprintf(m.unit,sizeof m.unit,"%s",d.unit_label);std::snprintf(m.parent,sizeof m.parent,"%s",d.followed_clock);
  if(s.root_identity&&root_alias)std::snprintf(m.root,sizeof m.root,"%s",root_alias);
  m.sampled_us=now;m.utc_at_us=s.follower_snapshot_us;m.utc_us=s.follower_utc_us;
@@ -16,12 +16,12 @@ inline Model model(const v12::R2Status& s,const DisplayState& d,uint64_t now,con
  m.tz=s.tz;m.tz_until_us=s.tz_until_us;
 #endif
  m.until_us=now<=UINT64_MAX-SnapshotMaxUs?now+SnapshotMaxUs:now;
- const bool healthy=s.requested&&!s.fault&&!s.rc7_upstream_mode_pending;
+ const bool healthy=s.requested&&!ble_parked&&!s.fault&&!s.rc7_upstream_mode_pending;
  if(healthy&&s.synced&&!s.rc_parent.pending()&&s.rc_parent.state!=4&&s.n30_signal.peer==s.joined_peer&&s.n30_signal.fresh(now))m.signal=s.n30_signal;
  m.relay_only=s.rc7_relay_only_requested;m.mode_pending=s.rc7_upstream_mode_pending;
- m.ble_requested=s.requested;
+ m.ble_parked=ble_parked;m.ble_requested=s.requested&&!ble_parked;
  m.valid=healthy&&s.clock_valid&&d.valid&&(!s.following||(s.root_identity&&s.root_boot&&s.source_epoch&&s.publication));
- m.state=s.fault?State::Fault:!s.requested?State::Off:s.rc7_upstream_mode_pending?State::Acquire:
+ m.state=s.fault?State::Fault:!m.ble_requested?State::Off:s.rc7_upstream_mode_pending?State::Acquire:
    m.valid?(s.following?State::Follow:State::Hold):(s.connecting||s.connections)?State::Join:s.group_member?State::Acquire:State::Search;
  if(m.state==State::Follow){m.until_us=std::min(m.until_us,std::min(s.g1_anchor_deadline_us,s.g1_corrected_until_us));}
  m.locked=healthy&&s.following&&m.valid&&d.r2_relative_lock&&!s.g1_retained_estimate;

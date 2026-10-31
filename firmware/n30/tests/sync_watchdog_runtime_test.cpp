@@ -57,6 +57,10 @@ int main(){
  // Explicit OFF/maintenance cancels the interval and rearming requires300s.
  cold();tick(0,true,0);tick(D-1,false,0);tick(2*D,false,0);assert(!fake::restarts);
  tick(2*D+1,true,0);tick(3*D,true,0);assert(!fake::restarts);tick(3*D+1,true,0);assert(fake::restarts==1);
+ // Healthy deliberate BLE OFF never accrues a no-time deadline, whether
+ // LoRa alternates between fresh UTC and unavailable. Main/host still advance.
+ cold();tick(0,true,0);tick(D-1,false,0);
+ for(uint64_t at=D;at<=10*D;at+=100000){tick(at,false,(at/100000)%2?at+250000:0);assert(!fake::restarts&&!v12::sync_model.active()&&!(v12::fault_watchdog_status().mask&v12::FaultNoTimeSync));}
  cold();tick(100,true,0);tick(99,true,0);tick(D+100,true,0);assert(!fake::restarts);
  cold();tick(uint64_t(INT64_MAX)-D,true,0);tick(uint64_t(INT64_MAX)-1,true,0);assert(!fake::restarts);tick(uint64_t(INT64_MAX),true,0);assert(fake::restarts==1);
 #else

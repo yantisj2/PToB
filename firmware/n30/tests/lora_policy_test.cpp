@@ -14,6 +14,15 @@ int main(){
  p.update(true,good+2*BleRecoverUs);assert(!p.requested());p.toggle();assert(p.mode()==LoRaMode::KeepOn&&p.requested());p.toggle();assert(p.mode()==LoRaMode::KeepOff&&!p.requested());p.toggle();assert(p.mode()==LoRaMode::Auto&&!p.requested());
  p.update(false,good+2*BleRecoverUs+1);p.update(true,good+2*BleRecoverUs+100);p.update(false,good+2*BleRecoverUs+101);p.update(false,good+3*BleRecoverUs);assert(p.requested());
  p.update(false,1);assert(!p.requested()); // Monotonic clock rollback resets dwell.
+ // Deliberate BLE OFF immediately acquires AUTO without replacing manual
+ // intent, and ordinary180s continuous BLE recovery retires that AUTO RX.
+ LoRaPolicy parked;parked.update(true,start);assert(!parked.requested());
+ parked.update(true,start+1,true);assert(parked.mode()==LoRaMode::Auto&&parked.requested());
+ parked.set(LoRaMode::KeepOff);parked.update(false,start+2,true);assert(!parked.requested()&&parked.mode()==LoRaMode::KeepOff);
+ parked.set(LoRaMode::KeepOn);parked.update(false,start+3,true);assert(parked.requested()&&parked.mode()==LoRaMode::KeepOn);
+ parked.set(LoRaMode::Auto);const auto resumed=start+4;parked.update(true,resumed);
+ parked.update(true,resumed+BleRecoverUs-1);assert(parked.requested());
+ parked.update(true,resumed+BleRecoverUs);assert(!parked.requested()&&parked.mode()==LoRaMode::Auto);
  Model m;m.sampled_us=m.utc_at_us=1000000;m.utc_us=10000000;m.until_us=1250000;m.valid=m.locked=true;m.state=State::Follow;m.source=Source::Ble;
  m.ble={1000000,10000000,1250000,3,44,5,true,true};
  n30_lora_view l{};l.sampled_us=1000000;l.utc_us=10000001;l.until_us=13000000;l.state=2;l.active=l.requested=l.metadata_known=true;l.root=3;l.root_boot=44;l.source_epoch=5;l.capture_epoch=7;l.generation=1;l.corrected_sequence=1;l.event_ns=123;l.context[0]=1;

@@ -4,7 +4,7 @@
 #include "lora_view.h"
 #include "lora_policy.hpp"
 #include "bounded_log.hpp"
-void n30_lora_control(bool ble_locked,uint64_t sampled_us,bool allowed);
+void n30_lora_control(bool ble_locked,uint64_t sampled_us,bool allowed,bool ble_parked=false);
 bool n30_lora_mode(n30::LoRaMode);
 bool n30_lora_cycle();
 bool n30_lora_configured();

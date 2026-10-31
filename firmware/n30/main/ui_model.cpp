@@ -23,6 +23,7 @@ void LockTimer::update(Model& m,uint64_t now){
 }
 void ClockHold::update(const Model& m,View& v,uint64_t now,bool saver_due){
  v.clock_frozen=false;
+ if(m.ble_parked&&saved_source_!=Source::LoRa)reset();
  if(v.help||v.blank||v.menu.open||(seen_&&now<observed_)){reset();return;}
  if(saved_&&!same_zone(m,now))reset();
  // Real user navigation/wake wins immediately. A quality dip may retain an
@@ -61,7 +62,7 @@ void rotate(uint8_t out[FrameBytes],const uint8_t in[FrameBytes],bool cw){
 Action Input::update(bool pressed,uint64_t now,View& v){
  Action action=Action::None;
  if(stable_&&armed_&&(v.page!=press_page_||now<down_))cancelled_=true;
- // Classify against the raw edges. A release at2499999us must remain short
+ // Classify against the raw edges. A release at1999999us must remain short
  // even though its40ms debounce can finish after the hold threshold.
  const auto hold=[&](){
   consumed_=true;v.help=false;v.menu.hold_percent=0;

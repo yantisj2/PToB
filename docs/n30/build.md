@@ -9,9 +9,9 @@ Read [the target README](../../firmware/n30/README.md) for capabilities and
 unverified hardware assumptions. These commands build or inspect files; they do
 not connect, flash, start a serial reader or operate a device.
 
-GPIO0 uses one watch-menu gesture on every page: release before **2500 ms**
-for a short press; hold **2500 ms** to open the menu. Release the opening hold,
-then tap to cycle enabled rows or hold another 2500 ms to select once. Exit or
+GPIO0 uses one watch-menu gesture on every page: release before **2000 ms**
+for a short press; hold **2000 ms** to open the menu. Release the opening hold,
+then tap to cycle enabled rows or hold another 2000 ms to select once. Exit or
 5000 ms idle returns to the invoking page, with no idle timeout while held.
 Raw release timing prevents 40 ms debounce from turning a short press into a
 long one. Parent AUTO/RELAY reception remains separate from the RC-only role.
@@ -23,9 +23,13 @@ a fresh press wakes by rebooting. Failed drain, display-stop timeout or power AP
 cannot become successful shutdown. The reviewed VEXT36 OFF, OLED reset21/I2C17/18
 LOW and SX1262 reset12 LOW levels remain; no GNSS route is added.
 
-BLE RX OFF stops only the BLE owner and preserves the independent LoRa policy
-and fine-clock owner. BLE RX ON uses the existing fresh client-admission API;
-old timing authority cannot resume. Menu LoRa OFF/ON requests explicit volatile
+BLE RX OFF parks only the BLE owner and preserves the independent LoRa policy
+and fine-clock owner. AUTO starts LoRa RX immediately while parked, without
+changing explicit KEEP ON/KEEP OFF choices. BLE and RC9 time and cached BLE
+pixels become ineligible; missing LoRa time cannot arm the no-time restart
+timer. Actual fault/maintenance fences remain. BLE RX ON uses the existing
+fresh client-admission API and ordinary 180 s AUTO recovery; old timing authority
+cannot resume. Menu LoRa OFF/ON requests explicit volatile
 KEEP OFF/KEEP ON; the original 180 s AUTO acquisition/recovery behavior remains
 available through `lora auto` and is restored at boot. No LoRa TX mode exists.
 

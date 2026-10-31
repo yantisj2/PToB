@@ -13,7 +13,7 @@ constexpr uint8_t PrecisionPage=2,LoRaPage=3;
 constexpr uint64_t SnapshotMaxUs=250000,IdleUs=300000000,MoveUs=30000000;
 constexpr uint64_t ClockGraceUs=500000;
 constexpr uint64_t MinimalAfterUs=900000000;
-constexpr uint64_t MenuHoldUs=2500000,MenuIdleUs=5000000;
+constexpr uint64_t MenuHoldUs=2000000,MenuIdleUs=5000000;
 constexpr uint8_t NormalContrast=0x60,SaverContrast=NormalContrast/2;
 enum class State:uint8_t {Off,Search,Join,Acquire,Follow,Hold,Fault};
 enum class Source:uint8_t {None,Ble,Rc1,Rc2,LoRa,Rc9};
@@ -36,7 +36,7 @@ struct Model {
  uint64_t sampled_us=0,utc_at_us=0,utc_us=0,until_us=0;
  uint32_t rms_ns=UINT32_MAX;uint16_t hz=0,delivery=UINT16_MAX;
  bool valid=false,locked=false,serving=false,relay_only=false,mode_pending=false;
- bool ble_requested=false,lora_supported=false;
+ bool ble_requested=false,lora_supported=false,ble_parked=false;
  Source source=Source::None;
  Signal signal{};
  struct BleClock {uint64_t at_us=0,utc_us=0,until_us=0,root=0,boot=0;uint32_t epoch=0;bool valid=false,following=false;} ble;

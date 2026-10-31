@@ -14,7 +14,7 @@ inline bool rc9_time(const v12::Rc9Status& s,uint64_t now,uint64_t& utc){
 // Settled normal BLE and direct RC8 retain priority. This separate functional
 // stream supplies UTC, never BLE fit/precision/lock or downstream permission.
 inline void select_rc9(Model& m,const v12::Rc9Status& s,uint64_t now,const char* server=nullptr,const char* root=nullptr){
- uint64_t utc=0;if(!rc9_time(s,now,utc)||m.mode_pending||m.state==State::Fault||m.state==State::Off)return;
+ uint64_t utc=0;if(m.ble_parked||!rc9_time(s,now,utc)||m.mode_pending||m.state==State::Fault||m.state==State::Off)return;
  if(m.source==Source::LoRa&&time(m,now,utc))return;
  if(m.source!=Source::Rc9&&m.locked&&saver_time(m,now,utc))return;
  const auto fresh=s.sampled_us>UINT64_MAX-SnapshotMaxUs?UINT64_MAX:s.sampled_us+SnapshotMaxUs;

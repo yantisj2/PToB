@@ -179,8 +179,8 @@ bool display_init(){
  if(xTaskCreatePinnedToCore(worker,"n30_ui",4096,nullptr,1,&ui_task,1)==pdPASS)return true;
  esp_timer_delete(frame_timer);frame_timer=nullptr;return false;
 }
-void n30_display_publish(const v12::R2Status& s,const DisplayState& d,uint64_t now){
- auto m=n30::model(s,d,now,ptob_registry_name(s.root_identity));
+void n30_display_publish(const v12::R2Status& s,const DisplayState& d,uint64_t now,bool ble_parked){
+ auto m=n30::model(s,d,now,ptob_registry_name(s.root_identity),ble_parked);
  m.lora_supported=n30_lora_configured();
  // This is the boot-selected delivered counter, independent of raw diagnostics.
  // Fine delivery still rounds to50ns; the label reports counter tick size only.

@@ -13,10 +13,14 @@ class LoRaPolicy {
  v12::G1RecoveryBudget budget_;
  LoRaMode mode_=LoRaMode::Auto;
  public:
- void update(bool locked,uint64_t now){
+ void update(bool locked,uint64_t now,bool ble_parked=false){
+  locked=locked&&!ble_parked;
   if(budget_.observe(locked,now,BleRecoverUs))automatic_=false;
   if(!automatic_&&budget_.lost()>=BleAcquireUs)automatic_=true;
+  // Explicit BLE OFF acquires AUTO immediately without changing a manual
+  // KEEP_ON/KEEP_OFF choice. Ordinary180s recovery still retires AUTO RX.
   if(automatic_&&budget_.stable(now,BleRecoverUs))automatic_=false;
+  if(ble_parked)automatic_=true;
  }
  bool requested()const{return mode_==LoRaMode::KeepOn||(mode_==LoRaMode::Auto&&automatic_);}
  LoRaMode mode()const{return mode_;}

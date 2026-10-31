@@ -87,6 +87,24 @@ int main(int argc,char** argv){
 #endif
 
 #ifdef PTOB_N30
+  if(which=="ble-off"){
+    v12::publish(fake_now);assert(v12::r2_status().requested);
+    v12::r2_stop();assert(v12::boot_client_cancelled&&!v12::r2_status().requested);
+    step(8);assert(v12::r2_status().off_ack&&!v12::fault);
+    assert(!v12::r2_set_relay_only(true));
+    const auto generation=v12::client.generation;const auto connections=connected;
+    auto fresh=locator(777,-30);assert(v12::discoveries.push(fresh));
+    for(unsigned i=0;i<6000;i++){
+      fake_now+=100000;
+      if(i%10==0)assert(v12::r2_host_sync()); // Host resync cannot undo OFF.
+      step();const auto status=v12::r2_status();
+      assert(v12::boot_client_cancelled&&v12::client.generation==generation&&!status.requested&&!status.clock_valid&&!status.following);
+      assert(!status.scan&&!status.connecting&&!status.advertising&&!status.synced&&!status.fault&&connected==connections);
+    }
+    assert(v12::r2_client_start(99));step();const auto restarted=v12::r2_status();
+    assert(restarted.requested&&v12::client.generation==generation+1&&!restarted.clock_valid&&!restarted.following);
+    puts("PASS production N30 deliberate BLE OFF parks10min through host resync/locator, fences old time and resumes only on explicit fresh client request");return 0;
+  }
   if(which=="handoff-join"||which=="handoff-clock-step"){
     v12::Rc7PermissionInspect::physical_update(v12::corrected_clock);
     v12::publish(fake_now);assert(v12::retained_estimate.trained);

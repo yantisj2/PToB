@@ -160,7 +160,7 @@ void lora_page(uint8_t* f,const Model& m,uint64_t now){
  if(l.parent)std::snprintf(out,sizeof out,"P%04X",unsigned(l.parent&65535));else std::snprintf(out,sizeof out,"P----");text(f,33,81,out);
  if(l.parent_quality)std::snprintf(out,sizeof out,"C%u A%u",unsigned(l.parent_class),unsigned(l.parent_accuracy));else std::snprintf(out,sizeof out,"%s META %s",l.kind==2?"BLE":l.kind==1?"GM":"--",l.metadata_known?"OK":"?");center(f,91,out);
  if(l.age_ms==UINT32_MAX)center(f,101,"AGE --");else if(l.age_ms>=12000)center(f,101,"AGE >12s");else{std::snprintf(out,sizeof out,"AGE %u.%us",unsigned(l.age_ms/1000),unsigned(l.age_ms%1000/100));center(f,101,out);}
- uint64_t ble;center(f,111,ble_time(m,now,ble)&&m.ble.following?"BLE SELECT":m.source==Source::LoRa&&valid?"RC8 SELECT":"NO CLOCK");center(f,121,"MENU 2.5S");
+ uint64_t ble;center(f,111,ble_time(m,now,ble)&&m.ble.following?"BLE SELECT":m.source==Source::LoRa&&valid?"RC8 SELECT":"NO CLOCK");center(f,121,"MENU 2.0S");
 }
 void help(uint8_t* f,const View& v){box(f,1,0,62,11);center(f,2,v.page==PrecisionPage?"PRECISION":v.page?"RF KEY":"CLOCK KEY");if(v.page==PrecisionPage){const char* names[]={"ROOT / HOP","TICK SIZE","NOT ERROR","RMS CAUSAL","REL PPB","TREND EST","LOCK HELD","LOSS RESET"};for(unsigned i=0;i<8;i++)center(f,16+int(i)*11,names[i]);}else if(v.page){const char* names[]={"HEL SCAN","SRC GROUP","PRE PA RX","ACK JOIN","CMT MODEL","SRV TX API","RDY N/A","ERR REJECT"};for(unsigned i=0;i<8;i++)text(f,2,15+int(i)*10,names[i]);center(f,99,"DOT RX");center(f,109,"FILL TX");}else{const char* names[]={"RC ONLY","GPS ABSENT","LOCK EST","RELATIVE","RMS IS NOT","UTC ERROR","HOLD LOCAL","4S OFF"};for(unsigned i=0;i<8;i++)center(f,16+int(i)*11,names[i]);}center(f,120,"PRESS BACK");}
 }

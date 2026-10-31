@@ -7,6 +7,7 @@ APP=Path(__file__).resolve().parents[1]
 p=argparse.ArgumentParser();p.add_argument('--out',type=Path,required=True);a=p.parse_args();a.out.mkdir(parents=True,exist_ok=False)
 src=(APP/'main/native_main.cpp').read_text();command=src[src.index('void command(const char* text){'):src.index('void input(){')]
 poll=src[src.index('[[gnu::noinline]] void poll_display_action(){'):src.index('[[gnu::noinline]] void clock_fault_progress(){')]
+fault=src[src.index('[[gnu::noinline]] void clock_fault_progress(){'):src.index('#ifdef V12_R2_ENABLED\n[[gnu::noinline]] bool r2_authority_update_needed()')];policy=fault[fault.index('  const auto mesh='):fault.index('  if(mesh.fault')];
 prefix=r'''
 #include <cassert>
 #include <cinttypes>
@@ -23,7 +24,7 @@ prefix=r'''
 #define V12_R2_ENABLED 1
 #define V12_R2_CONFIG 13
 uint64_t now=1000;unsigned radio_changes=0,pages=0,statuses=0,lora_changes=0,diag_frames=0;bool lora_diagnostic_response=false,lora_action=false,rc9_diagnostic_response=false;unsigned selected=0;
-bool owner_active=true,ble_requested=true,ble_ui_off=false,ble_can_start=true,ble_action=false,lora_requested=false,lora_can_change=true;unsigned ble_stops=0;int ui_result=0;
+bool owner_active=true,ble_requested=true,ble_ui_off=false,ble_can_start=true,ble_action=false,lora_requested=false,lora_can_change=true;unsigned ble_stops=0;int ui_result=0;bool ble_fault=false,policy_permit=false,policy_parked=false,sync_expected=true;
 bool window_diagnostic_response=false,window_edge_response=false,window_late_response=false;uint32_t window_after=0;unsigned window_starts=0,window_acks=0;
 bool n30_window_start(uint64_t,uint64_t,uint64_t,uint32_t,uint32_t){++window_starts;return true;}
 void n30_window_stop(){}
@@ -48,6 +49,10 @@ LoRa lora_status(){return {};}
 bool r2_client_start(uint64_t){++radio_changes;if(ble_can_start)ble_requested=true;return ble_can_start;}
 void r2_stop(){++ble_stops;ble_requested=false;}
 bool r2_set_relay_only(bool value){mode=value;++radio_changes;return true;}
+struct Mesh {bool requested=false,fault=false;};
+Mesh r2_status(){return {ble_requested,ble_fault};}
+int r2_rc9_status(){return 0;}
+void fault_watchdog_sync_progress(bool expected,uint64_t){sync_expected=expected;}
 struct Activity {bool relay_only=false,requested=true;};
 Activity r2_activity(){return {mode,ble_requested};}
 bool r2_rc9_parent(uint64_t){++radio_changes;return true;}
@@ -57,6 +62,11 @@ bool r2_client_start_profile(uint64_t,unsigned){++radio_changes;return true;}
 enum class R2Mode {Passive,Active,Off};
 bool r2_request(R2Mode,uint32_t,uint64_t){++radio_changes;return true;}
 }
+namespace n30 {
+bool ble_locked(const v12::Mesh& mesh,uint64_t){return mesh.requested&&!mesh.fault;}
+uint64_t synchronized_until(const v12::Mesh&,const n30_lora_view&,uint64_t,int){return 0;}
+}
+void n30_lora_control(bool,uint64_t,bool permit,bool parked){policy_permit=permit;policy_parked=parked;}
 w12::PowerOff power_off;bool power_action=false;unsigned display_stops=0;
 bool n30_display_take_poweroff(){bool value=power_action;power_action=false;return value;}
 void n30_display_request_poweroff(){++display_stops;}
@@ -146,14 +156,20 @@ int main(){
  // generation; a refused admission cannot silently clear the operator OFF.
  update_gate={};power_off={};ble_action=true;const auto prior_radio=radio_changes;
  poll_display_action();assert(!ble_requested&&ble_ui_off&&ble_stops==1&&radio_changes==prior_radio&&ui_result==1&&!ble_action);
+ ble_requested=true;menu_radio_policy();assert(!sync_expected&&policy_permit&&policy_parked); // Even a pre-stop snapshot cannot arm the timer.
+ ble_fault=true;menu_radio_policy();assert(!policy_permit&&!sync_expected);ble_fault=false;
+ update_gate.begin(now);menu_radio_policy();assert(!policy_permit&&!sync_expected);update_gate={};ble_requested=false;
  ble_can_start=false;ble_action=true;poll_display_action();assert(!ble_requested&&ble_ui_off&&radio_changes==prior_radio+1&&ui_result==-1);
  ble_can_start=true;ble_action=true;poll_display_action();assert(ble_requested&&!ble_ui_off&&radio_changes==prior_radio+2&&ui_result==1);
+ menu_radio_policy();assert(sync_expected&&policy_permit&&!policy_parked);
  lora_requested=true;lora_action=true;poll_display_action();assert(!lora_requested&&ui_result==1);
  lora_can_change=false;lora_action=true;poll_display_action();assert(!lora_requested&&ui_result==-1);
  update_gate.begin(now);ble_action=true;lora_action=true;const auto changes=radio_changes;poll_display_action();assert(!ble_action&&!lora_action&&ble_requested&&radio_changes==changes);
+ update_gate={};ble_ui_off=true;ble_requested=false;send(++now,"r2 client");assert(last_command.accepted&&!ble_ui_off&&ble_requested);
+ ble_ui_off=true;ble_requested=false;send(++now,"r2 client 100");assert(last_command.accepted&&!ble_ui_off);
  std::puts("PASS actual dispatch: active-radio pages, main-owner upstream toggle, maintenance consumption and identity/ticket fences");
 }
 '''
-(a.out/'command-test.cpp').write_text(prefix+command+poll+suffix)
+(a.out/'command-test.cpp').write_text(prefix+command+poll+'\nvoid menu_radio_policy(){\n'+policy+'}\n'+suffix)
 cmd=[os.environ.get('CXX','/opt/homebrew/opt/llvm/bin/clang++' if Path('/opt/homebrew/opt/llvm/bin/clang++').exists() else 'clang++'),'-std=c++20','-O1','-g','-fsanitize=address,undefined','-fno-sanitize-recover=all','-Wall','-Wextra','-Werror','-I'+str(APP/'main'),'-I'+str(APP.parent/'w12/main'),str(a.out/'command-test.cpp'),'-o',str(a.out/'command-test')]
 subprocess.run(cmd,check=True,timeout=20);subprocess.run([a.out/'command-test'],check=True,timeout=10)

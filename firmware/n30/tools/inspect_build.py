@@ -17,7 +17,11 @@ def validate_layout(out,r):
 
 def inspect(out):
  out=Path(out).resolve();r=json.loads((out/'receipt.json').read_text());inputs=out/'local';target=out/'target'
- if r.get('version')=='0.2.38' and r.get('button_power_contract')!='MENU_HOLD2500_IDLE5000_DRAIN2_UI_STOP_RELEASE40_GPIO0_WAKE_V1':raise ValueError('Menu/power contract missing')
+ if r.get('version')=='0.2.38':
+  # Retained uninstalled0.2.38 candidates keep their original source contract.
+  hold=re.search(r'MenuHoldUs=(2000000|2500000),',(out/'source/firmware/n30/main/ui.hpp').read_text())
+  expected='MENU_HOLD'+str(int(hold.group(1))//1000)+'_IDLE5000_DRAIN2_UI_STOP_RELEASE40_GPIO0_WAKE_V1' if hold else None
+  if not expected or r.get('button_power_contract')!=expected:raise ValueError('Source-bound menu/power contract missing')
  if r.get('version')=='0.2.37' and r.get('button_power_contract')!='OFF_MAIN_HOLD4_DRAIN2_UI_STOP_RELEASE40_GPIO0_WAKE_V1':raise ValueError('Button power contract missing')
  if r.get('version')=='0.2.35' and r.get('time_zone_contract')!='COARSE_TZ_V1_FIXED_MESH_3_PERIOD_LOCAL_DISPLAY':raise ValueError('Coarse TZ contract missing')
  if r.get('version') in ('0.2.36','0.2.37','0.2.38') and r.get('time_zone_contract')!='COARSE_TZ_V1_ORDERED_DYNAMIC_LOCAL_DISPLAY':raise ValueError('Ordered dynamic TZ contract missing')

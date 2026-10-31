@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Jonathan Yantis.
 #include "status_adapter.hpp"
+#include "rc9_time.hpp"
+#include "dual_time.hpp"
 #include <cassert>
 #include <cstring>
 int main(){
@@ -48,4 +50,24 @@ int main(){
  m=n30::model(s,d,1000001);assert(!std::strcmp(m.root,"----")&&!m.precision.relative_known);
  s.requested=s.following=true;s.root_boot=0;m=n30::model(s,d,1000001);assert(!m.valid&&!m.locked);
  s.root_boot=2;s.rc7_upstream_mode_pending=true;m=n30::model(s,d,1000001);assert(!m.valid&&!m.locked&&m.state==n30::State::Acquire&&m.mode_pending&&m.source==n30::Source::None);
+ // Explicit park wins over a stale pre-stop BLE publication and even a fresh
+ // valid RC9 lease. Only independently fresh LoRa can supply the wall clock.
+ s.requested=s.following=s.clock_valid=true;s.fault=s.rc7_upstream_mode_pending=s.g1_retained_estimate=false;
+ s.root_identity=1;s.root_boot=2;s.source_epoch=3;s.publication=4;
+ s.follower_snapshot_us=1000000;s.g1_anchor_deadline_us=s.g1_corrected_until_us=2000000;
+ auto parked=n30::model(s,d,1000001,nullptr,true);uint64_t ignored=0;
+ assert(parked.ble_parked&&!parked.ble_requested&&!parked.valid&&!parked.locked&&!parked.serving&&!parked.ble.valid);
+ assert(!n30::ble_time(parked,1000001,ignored));
+ v12::Rc9Status rc9;rc9.valid=rc9.following=true;rc9.sampled_us=1000000;rc9.until_us=2000000;rc9.utc_us=1700000000000000;
+ rc9.server=1;rc9.server_boot=2;rc9.root=3;rc9.source_epoch=4;rc9.sequence=5;
+ assert(n30::rc9_time(rc9,1000001,ignored));n30::select_rc9(parked,rc9,1000001);assert(!parked.valid&&parked.source==n30::Source::None);
+ n30_lora_view l;l={};l.requested=l.active=true;l.state=2;l.sampled_us=1000000;l.utc_us=1700000000000000;l.until_us=2000000;
+ n30::select_lora(parked,l,1000001);assert(parked.source==n30::Source::LoRa&&n30::time(parked,1000001,ignored));
+ const auto expired=parked.sampled_us+n30::SnapshotMaxUs;rc9.sampled_us=expired;
+ assert(n30::rc9_time(rc9,expired,ignored));n30::select_rc9(parked,rc9,expired);assert(parked.source==n30::Source::LoRa&&!n30::time(parked,expired,ignored));
+ n30::ClockHold pixel_hold;n30::View view;auto live=n30::model(s,d,1000001);uint8_t pixels[n30::FrameBytes]{};
+ pixel_hold.update(live,view,1000001);pixel_hold.presented(live,view,1000001,pixels);
+ auto loss=live;loss.valid=loss.locked=false;pixel_hold.update(loss,view,1000002);assert(view.clock_frozen);
+ parked=n30::model(s,d,1000003,nullptr,true);pixel_hold.update(parked,view,1000003);assert(!view.clock_frozen);
+
 }

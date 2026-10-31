@@ -482,7 +482,7 @@ void respond_status(uint64_t nonce,uint64_t begin){if(rc9_diagnostic_response||l
     const auto work=micros()-begin;console_work+=work;if(work>console_max_us)console_max_us=uint32_t(work);
   }
 #endif
-  n30_display_publish(mesh,state,micros());
+  n30_display_publish(mesh,state,micros(),ble_ui_off);
 }
 void stop_all(){
   ble_ui_off=false;
@@ -586,6 +586,7 @@ void command(const char* text){
 #ifdef V12_R2_ENABLED
   else if(!std::strcmp(action,"r2 client")){
     const auto ls=v12::lora_status();const bool ok=!ls.enabled&&!ls.requested&&!ls.worker_busy&&ls.off_acknowledged&&!ls.failed&&v12::r2_client_start(nonce);
+    if(ok)ble_ui_off=false;
     last_command={nonce,admitted,ok,"R2_CLIENT",ok?"PERSISTENT_COARSE_CLIENT_BOUNDED_START_STOP":"R2_RESOURCE_PROFILE_OR_BOOT_SCOPE"};
   }
 #if V12_R2_CONFIG == 13
@@ -609,6 +610,7 @@ void command(const char* text){
   else if(!std::strcmp(action,"r2 client 50")||!std::strcmp(action,"r2 client 100")){
     const auto ls=v12::lora_status();const auto percent=!std::strcmp(action,"r2 client 50")?50:100;
     const bool ok=!ls.enabled&&!ls.requested&&!ls.worker_busy&&ls.off_acknowledged&&!ls.failed&&v12::r2_client_start_profile(nonce,percent);
+    if(ok)ble_ui_off=false;
     last_command={nonce,admitted,ok,"R2_CLIENT_PROFILE",ok?"EXACT_OFF_NEW_GENERATION_PROFILE":"R2_RESOURCE_PROFILE_OR_BOOT_SCOPE"};
   }
 #endif
@@ -741,10 +743,10 @@ void input(){
   if(update_gate.stage==v12::UpdateStage::Fault)mask|=v12::FaultUpdate;
 #ifdef V12_R2_ENABLED
   const auto mesh=v12::r2_status();const auto source_now=micros();
-  n30_lora_control(n30::ble_locked(mesh,source_now),source_now,(mesh.requested||ble_ui_off)&&!mesh.fault&&!update_gate.latched());
+  n30_lora_control(n30::ble_locked(mesh,source_now),source_now,(mesh.requested||ble_ui_off)&&!mesh.fault&&!update_gate.latched(),ble_ui_off);
   n30_lora_view lora_time;n30_lora_snapshot(lora_time);
   const auto rc9_time=v12::r2_rc9_status();
-  v12::fault_watchdog_sync_progress(mesh.requested&&!update_gate.latched(),n30::synchronized_until(mesh,lora_time,micros(),rc9_time));
+  v12::fault_watchdog_sync_progress(!ble_ui_off&&mesh.requested&&!update_gate.latched(),n30::synchronized_until(mesh,lora_time,micros(),rc9_time));
   if(mesh.fault||mesh.client.deadline_exceeded||mesh.rx_capture.fault)mask|=v12::FaultR2;
   api=uint8_t(mesh.first_error_api);rc=mesh.first_error_rc;
   parent=mesh.rc_parent.target;relay=mesh.rc_parent.relay;

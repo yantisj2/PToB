@@ -5,7 +5,7 @@
 #include "display.hpp"
 #include "bounded_log.hpp"
 #include "ui.hpp"
-void n30_display_publish(const v12::R2Status&,const DisplayState&,uint64_t now);
+void n30_display_publish(const v12::R2Status&,const DisplayState&,uint64_t now,bool ble_parked=false);
 void n30_display_status(v12::ConsoleFrame&);
 void n30_display_trace_poll(); // Main-task capture-only transition output.
 

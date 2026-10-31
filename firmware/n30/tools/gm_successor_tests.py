@@ -42,7 +42,7 @@ def main():
  if a.tz:
   for case in ('tz','tz-updates'):run([out/'native',case],'native-'+case)
  if not a.w12:
-  for case in ('handoff-join','handoff-clock-step'):run([out/'native',case],'native-'+case)
+  for case in ('handoff-join','handoff-clock-step','ble-off'):run([out/'native',case],'native-'+case)
  (out/'receipt.json').write_text(json.dumps({'status':'PASS','checks':records,'native_source_sha256':sha(W12/'main/native_g1.cpp'),'policy_sha256':sha(W12/'main/g1_gm_successor.hpp'),'wire_revision':3,'target':'W12' if a.w12 else 'N30','hardware_access':False,'precision':'UNQUALIFIED'},indent=2)+'\n')
- print('PASS N30 GM7 successor policy and production owner (10 schedules); no hardware access')
+ print('PASS N30 GM7 successor policy and production owner schedules; no hardware access')
 if __name__=='__main__':main()

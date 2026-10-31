@@ -33,7 +33,7 @@ uint64_t ble_at=0,request_at=0,last_map=0,map_pending=0,map_before=0,map_after=0
 uint32_t cancel_serial=0,active_serial=0,core_generation=0,map_serial=0,map_expected=0,map_capture=0;
 uint32_t raw_capture=0,raw_generation=0,raw_serial=0;
 uint64_t capture_epoch=0;
-uint8_t requested_mode=0;bool mode_pending=false,cycle_pending=false,ble_locked=false,allowed=false;
+uint8_t requested_mode=0;bool mode_pending=false,cycle_pending=false,ble_locked=false,allowed=false,ble_parked=false;
 bool ble_lock_observed=false; // Worker-owned actual fresh policy input.
 bool resources=false,capture_active=false,inflight=false,latched=false,failed=false;
 bool timer_enabled=false,timer_started=false,map_enabled=false,edge_enabled=false,emergency=false;
@@ -215,10 +215,10 @@ void publish(){
 }
 bool configured_receiver(){return PTOB_N30_LORA_TX_FACTORY&&n30_rc8_init(PTOB_N30_FACTORY_ID,PTOB_N30_LORA_TX_FACTORY,PTOB_N30_GROUP_ID,PTOB_N30_KEY_EPOCH,PTOB_N30_GROUP_KEY);}
 void worker_step(bool configured){
-  const auto begin=now();bool permit,locked,cycle,change;uint8_t mode;uint32_t generation,serial;bool tripped;
-  portENTER_CRITICAL(&mux);permit=allowed;serial=cancel_serial;tripped=emergency;locked=ble_locked&&begin>=ble_at&&begin-ble_at<250000;cycle=cycle_pending&&begin>=request_at&&begin-request_at<250000;change=mode_pending&&begin>=request_at&&begin-request_at<250000;mode=requested_mode;cycle_pending=mode_pending=false;portEXIT_CRITICAL(&mux);
+  const auto begin=now();bool permit,locked,cycle,change,parked;uint8_t mode;uint32_t generation,serial;bool tripped;
+  portENTER_CRITICAL(&mux);permit=allowed;parked=ble_parked;serial=cancel_serial;tripped=emergency;locked=ble_locked&&begin>=ble_at&&begin-ble_at<250000;cycle=cycle_pending&&begin>=request_at&&begin-request_at<250000;change=mode_pending&&begin>=request_at&&begin-request_at<250000;mode=requested_mode;cycle_pending=mode_pending=false;portEXIT_CRITICAL(&mux);
   if(tripped)fault(-ETIMEDOUT);
-  ble_lock_observed=locked;policy.update(locked,begin);if(cycle)policy.toggle();if(change)policy.set(n30::LoRaMode(mode));
+  ble_lock_observed=locked;policy.update(locked,begin,parked);if(cycle)policy.toggle();if(change)policy.set(n30::LoRaMode(mode));
   bool want=configured&&permit&&!failed&&policy.requested();
   portENTER_CRITICAL(&mux);want=want&&allowed&&serial==cancel_serial;
   if(want!=owner.requested&&!owner.request(want)){failed=true;hardware.error=-EOVERFLOW;want=false;}
@@ -252,8 +252,8 @@ bool lora_request(bool enable,uint32_t){
 }
 LoRaStatus lora_status(){portENTER_CRITICAL(&mux);auto result=basic;result.failed|=emergency;result.requested=owner.requested;result.worker_busy=owner.busy;result.request_generation=owner.generation;result.off_ack_generation=owner.off_ack;result.off_acknowledged=owner.drained();portEXIT_CRITICAL(&mux);return result;}
 }
-void n30_lora_control(bool locked,uint64_t sampled,bool permit){
- portENTER_CRITICAL(&mux);ble_locked=locked;ble_at=sampled;
+void n30_lora_control(bool locked,uint64_t sampled,bool permit,bool parked){
+ portENTER_CRITICAL(&mux);ble_locked=locked;ble_at=sampled;ble_parked=parked&&permit;
  if(allowed&&!permit){if(cancel_serial!=UINT32_MAX)cancel_serial++;else emergency=true;(void)owner.request(false);stop_at=sampled;reset_radio();}
  allowed=permit;
  if(published.active&&sampled/1000>=published.heartbeat_ms&&sampled/1000-published.heartbeat_ms>=30000){reset_radio();emergency=true;allowed=false;if(cancel_serial!=UINT32_MAX)cancel_serial++;(void)owner.request(false);stop_at=sampled;}
