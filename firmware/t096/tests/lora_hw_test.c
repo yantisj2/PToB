@@ -205,6 +205,17 @@ int main(int argc,char **argv){
  if(mode==59){fail_cs_config=true;assert(r2_lora_hw_start(4,false)==-EIO);assert(!submissions&&!route&&!pins[12]);closed();return 0;}
  bool tx_mode=mode==3||mode==11||mode==14||mode==15||mode==16||mode==17||mode==19||mode==20||mode==21||mode==22||mode==23||mode==24||mode==25||mode==27||mode==28||mode==29||mode==30||mode==31||mode==32||mode==33||mode>=34;
  assert(!r2_lora_hw_start(4,mode>=73?true:mode>=65?false:!tx_mode));
+ if(mode>=76&&mode<=80){
+  if(mode==76){
+   assert(!r2_lora_hw_idle()&&atomic_get(&phase)==1&&!pins[12]);assert(!r2_lora_hw_tx(payload,80,5));
+   assert(r2_lora_hw_idle()==-EAGAIN);inject(1);struct r2_lora_hw_event e;assert(r2_lora_hw_take(&e)==1&&e.kind==R2_LORA_HW_TX_DONE);
+   assert(!r2_lora_hw_rx_rearm()&&atomic_get(&phase)==2);assert(!r2_lora_hw_idle());
+  }else if(mode==77){inject(2);assert(r2_lora_hw_idle()==-EAGAIN);struct r2_lora_hw_event e;assert(r2_lora_hw_take(&e)==1&&e.kind==R2_LORA_HW_RX_DONE);}
+  else if(mode==78){pins[21]=1;assert(r2_lora_hw_idle()==-EAGAIN&&atomic_get(&phase)==2);pins[21]=0;}
+  else if(mode==79){atomic_set(&dma_inflight,1);unsigned n=submissions;assert(r2_lora_hw_idle()==-EAGAIN&&submissions==n);atomic_set(&dma_inflight,0);}
+  else{r2_lora_hw_stop_begin(mock_us+200000);assert(r2_lora_hw_idle()==-ECANCELED);}
+  r2_lora_hw_stop_begin(mock_us+200000);closed();return 0;
+ }
  if(mode>=73&&mode<=75){
   if(mode==74){packet_rssi=255;packet_snr=127;}
   if(mode==75){packet_rssi=1;packet_snr=128;}

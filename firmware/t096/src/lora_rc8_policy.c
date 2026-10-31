@@ -6,6 +6,15 @@
 #include <string.h>
 static void count(uint32_t *n){if(*n<UINT32_MAX)++*n;}
 static bool add(uint64_t a,uint64_t b,uint64_t *out){if(b>UINT64_MAX-a)return false;*out=a+b;return true;}
+bool rc8_rtt_delay(uint64_t ticks,int32_t rate,uint64_t turnaround,uint32_t *out){
+ if(out)*out=0;
+ if(!out||!ticks||ticks>UINT64_C(160000000)||rate>100000||rate< -100000)return false;
+ int64_t ns=(int64_t)(ticks*125/2);ns+=ns*rate/INT64_C(1000000000);
+ if(turnaround>(uint64_t)ns)return false;
+ uint64_t rtt=(uint64_t)ns-turnaround;
+ if(rtt>100000000)return false;
+ *out=(uint32_t)(rtt/2);return true;
+}
 bool rc8_is_transmitter(const struct rc8_enrollment *e){return e&&e->enrolled&&e->factory&&e->factory==e->transmitter_factory;}
 struct rc8_requests rc8_requests_default(const struct rc8_enrollment *e){
  bool valid=e&&e->enrolled&&e->factory&&e->transmitter_factory;
@@ -77,6 +86,10 @@ bool rc8_export_valid_at(const struct rc8_export *s,uint64_t tick,uint64_t epoch
 bool rc8_export_event(struct rc8_correction *c,const struct rc8_export *s,uint32_t sequence,struct rc8_event event){
  if(event.kind!=RC8_EVENT_TX_DONE){if(c)memset(c,0,sizeof *c);return false;}
  return project(c,s,sequence,event.tick,event.capture_epoch);
+}
+bool rc8_export_receive(struct rc8_correction *c,const struct rc8_export *s,struct rc8_event event){
+ if(event.kind!=RC8_EVENT_RX_DONE){if(c)memset(c,0,sizeof *c);return false;}
+ return project(c,s,1,event.tick,event.capture_epoch);
 }
 bool rc8_tx_prepare(struct rc8_transmission *t,const struct rc8_enrollment *e,enum rc8_profile profile,
  bool requested,const struct rc8_export *map,const struct r2_group_config *g,uint32_t seq,uint32_t gen,uint64_t tick,uint64_t epoch){
@@ -172,6 +185,8 @@ static void __attribute__((noinline)) link_fit(struct rc8_receiver *s,const stru
   double yy=(double)f->yy-(double)f->y*f->y/n;
   if(xx<=0)goto restart;
   double variance=(yy-xy*xy/xx)/n;
+  double rate=xy/xx*10000.0;
+  f->result_rate_ppb=rate>100000.0||rate< -100000.0?INT32_MIN:(int32_t)rate;
   f->rms_ns=variance>0?root_u64((uint64_t)variance):0;
   f->result_us=rx->local_us;f->result_sequence=sequence;f->result_rms_ns=f->rms_ns;f->result_n=f->n;
  }
@@ -183,7 +198,7 @@ static void adopt(struct rc8_receiver *s,const uint8_t *id){
  if(s->cached)memcpy(s->retired_context,s->context,RC8_CONTEXT_BYTES);
  memcpy(s->context,id,RC8_CONTEXT_BYTES);s->cached=true;s->metadata_known=false;s->metadata_until_us=0;
  s->diagnostic_sequence=0;s->withdrawal_sequence=0;s->highest_sequence=0;s->time_valid=false;
- memset(&s->quality,0,sizeof s->quality);reset_timing(s);
+ memset(&s->quality,0,sizeof s->quality);s->tz=r2_tz_unknown();reset_timing(s);
 }
 static bool metadata(struct rc8_receiver *s,const struct r2_group_config *g,struct rc8_event rx,uint64_t now,uint64_t origin_boot,uint32_t origin_epoch){
  struct rc8_companion p;uint8_t id[RC8_CONTEXT_BYTES];uint64_t until;
@@ -215,7 +230,7 @@ static bool metadata(struct rc8_receiver *s,const struct r2_group_config *g,stru
  if(!same)adopt(s,id);
  /* Filling unknown boots or refreshing quality is not a timing transition. */
  s->scope=p.scope;s->metadata_known=true;s->metadata_until_us=until;
- s->quality=p.quality;s->diagnostic_us=rx.local_us;s->diagnostic_sequence=p.sequence;
+ s->quality=p.quality;s->tz=p.time_valid?p.tz:r2_tz_unknown();s->diagnostic_us=rx.local_us;s->diagnostic_sequence=p.sequence;
  s->snapshot_age_ms=p.snapshot_age_ms;s->diagnostic_events=p.events;s->time_valid=p.time_valid;
  if(!p.time_valid&&p.timing_sequence>=s->highest_sequence&&p.timing_sequence>=s->withdrawal_sequence){
   s->withdrawal_sequence=p.timing_sequence;reset_timing(s);

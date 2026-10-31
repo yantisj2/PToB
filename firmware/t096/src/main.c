@@ -614,6 +614,9 @@ int main(void)
     if(r2_lora_source_needed()){
       const char *advertised=service.name[0]&&strncmp(service.name,"Clock-",6)?service.name:identity.unit;
       r2_lora_name_publish(advertised);
+#ifdef R2_TZ_WIRE
+      r2_lora_tz_publish(service.tz,service.tz_until_us);
+#endif
     }
     r2_lora_control(service.profile_rc,platform_ready&&normal_started&&maintenance.phase==R2_IDLE&&!poweroff_requested&&!r2_ui_poweroff_requested()&&!service.profile_pending,
       service.follower_clock_valid?RC8_SELECT_BLE:service.serving&&service.source_eligible?RC8_SELECT_LOCAL_GM:RC8_SELECT_NONE);

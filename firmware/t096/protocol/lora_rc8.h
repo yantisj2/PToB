@@ -1,7 +1,9 @@
 /* Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT */
 #pragma once
 #include "group_auth.h"
+#include "time_zone.h"
 #define RC8_WIRE_VERSION 3u
+#define RC8_COMPANION_VERSION 4u
 #define RC8_META_BYTES 128u
 #define RC8_COMPANION_BYTES RC8_META_BYTES
 #define RC8_BYTES 80u
@@ -31,7 +33,7 @@ enum rc8_quality_bit {RC8_Q_LOCK=1u,RC8_Q_HOLDOVER=2u,RC8_Q_PARENT_PPS=4u,RC8_Q_
  RC8_Q_PARENT_CLASS=16u,RC8_Q_PARENT_ACCURACY=32u,RC8_Q_PARENT_BOUND=64u,RC8_Q_CORRECTION_AGE=128u,
  RC8_Q_MAP_LIFE=256u,RC8_Q_RATE=512u,RC8_Q_RESIDUAL=1024u,RC8_Q_ROLE=2048u,RC8_Q_HOP=4096u};
 enum rc8_diag_event {RC8_D_BOOT=1u,RC8_D_PARENT=2u,RC8_D_ROOT=4u,RC8_D_SOURCE=8u,RC8_D_LOSS=16u,
- RC8_D_RECOVERY=32u,RC8_D_HOLDOVER=64u,RC8_D_QUALITY=128u,RC8_D_PERIODIC=256u};
+ RC8_D_RECOVERY=32u,RC8_D_HOLDOVER=64u,RC8_D_QUALITY=128u,RC8_D_PERIODIC=256u,RC8_D_TZ=512u};
 struct rc8_quality {
  uint32_t parent_bound_ns,correction_age_ms,map_life_ms;
  int32_t rate_ppb;uint32_t residual_ns;
@@ -39,8 +41,20 @@ struct rc8_quality {
 };
 struct rc8_companion {
  struct rc8_scope scope;struct rc8_quality quality;
+ struct r2_tz tz;
  uint32_t sequence,snapshot_age_ms,timing_sequence;uint16_t events;bool time_valid;
 };
+/* Optional, source-opened measurement. Separate permission from source TX.
+ * The full context binds emitter/root boots, stream and source epoch. */
+enum rc8_probe_kind {RC8_OFFER=4,RC8_REQUEST=5,RC8_RESPONSE=6,RC8_FOLLOW=7};
+struct rc8_probe_packet {
+ uint8_t context[RC8_CONTEXT_BYTES];
+ uint64_t client,boot,nonce,t2,t3;
+ uint32_t offer;
+ uint8_t kind;
+};
+int rc8_probe_encode(uint8_t out[RC8_BYTES],const struct rc8_probe_packet *,const struct r2_group_config *);
+int rc8_probe_decode(struct rc8_probe_packet *,const uint8_t *,size_t,const struct r2_group_config *);
 /* Optional descriptive packet. A name never supplies scope, time, source
  * permission or freshness. The service must match a current full authenticated
  * context and independently reject reordered name sequences. */

@@ -114,14 +114,21 @@ def inspect(out,allow_development=False):
     # Count all affected linked objects (including every copied model), cap the
     # whole addition at256B, and retain the original RC8/TZ/menu/stack floors.
     lora_display_allowance=256 if gm7 and tuple(map(int,r['version'].split('.')))>=(0,15,215) and int(r.get('lora_transmitter_factory','0'),16) else 0
+    # .215 actual GM/RC affected objects total23795B. Bound the entire new
+    # half-duplex/probe/TZ/rate addition, including all copied UI snapshots.
+    lora_stage2_allowance=512 if lora_display_allowance and tuple(map(int,r['version'].split('.')))>=(0,15,216) else 0
+    lora_stage2_added=max(0,sum(lora_display_mutable.values())-23795)
+    if lora_stage2_allowance:
+        require(lora_stage2_added<=lora_stage2_allowance,'LoRa RTT/TZ exceeds512B added mutable state')
+        require({'rc8_probe_encode','rc8_probe_decode','r2_lora_hw_idle','r2_lora_tz_publish'}<=linked_names,'Missing LoRa RTT/TZ integration')
     lora_display_added=max(0,sum(lora_display_mutable.values())-23606)
     if lora_display_allowance:
         require({'r2_lora_name_publish','rc8_name_encode','rc8_name_decode'}<=linked_names,'Missing authenticated LoRa display metadata')
         require(all(lora_display_mutable.values()),'Missing linked LoRa display allocation accounting')
-        require(lora_display_added<=lora_display_allowance,'LoRa name/display state exceeds256B addition')
+        require(lora_display_added<=lora_display_allowance+lora_stage2_allowance,'LoRa name/display state exceeds256B addition')
     if menu_allowance:
         require({'r2_ui_press','r2_ui_menu_result','r2_service_ble_rx'}<=linked_names,'Missing ordinary menu/receive controls')
-        require(0<ui_mutable_bytes<=18145+menu_allowance,'Menu exceeds128B added mutable UI state')
+        require(0<ui_mutable_bytes<=18145+menu_allowance+lora_stage2_allowance,'Menu exceeds128B added mutable UI state')
     if auto_tz_allowance:
         require(tuple(map(int,r['version'].split('.')))>=(0,15,206),'Unexpected automatic TZ version')
         data=allocations.get('r2_tz_data',[]);state=allocations.get('tz_selector',[])
@@ -137,7 +144,7 @@ def inspect(out,allow_development=False):
         require(hashlib.sha256(image).hexdigest()==r.get('time_zone',{}).get('database_sha256'),'Linked TZ image identity mismatch')
         # .205 same normal configuration leaves4372B. Charge at most256B for
         # the complete auto feature, including position, queue and snapshots.
-        require(0x20040000-ram_end+menu_allowance+lora_display_allowance>=4372-256,'Automatic TZ exceeds256B added static state')
+        require(0x20040000-ram_end+menu_allowance+lora_display_allowance+lora_stage2_allowance>=4372-256,'Automatic TZ exceeds256B added static state')
         require(r.get('time_zone',{}).get('mode') in ('auto','manual-zone','manual-offset'),'Missing TZ build binding')
         tz=r['time_zone']
         require(tz['mode_number']=={'manual-offset':0,'manual-zone':1,'auto':2}[tz['mode']],'TZ mode binding disagreement')
@@ -358,7 +365,7 @@ def inspect(out,allow_development=False):
         # separately agreed4096B incremental RC8 ceiling as well as1024B gate.
         # .180-.186 GM have a separately verified512B retained crash record and
         #896B ISR allocation; neither changes the RC8 budget or absolute floor.
-        require(0x20040000-ram_end+crash_allowance+hot_allowance+tz_allowance+auto_tz_allowance+menu_allowance+lora_display_allowance>=8740-4096,'RC8 exceeds4096B incremental static budget')
+        require(0x20040000-ram_end+crash_allowance+hot_allowance+tz_allowance+auto_tz_allowance+menu_allowance+lora_display_allowance+lora_stage2_allowance>=8740-4096,'RC8 exceeds4096B incremental static budget')
         private_sha=hashlib.sha256((private_sha+':lora-tx:'+transmitter).encode()).hexdigest()
     if dc or pc:
         with (out/'target/zephyr/zephyr.elf').open('rb') as f:
@@ -368,7 +375,7 @@ def inspect(out,allow_development=False):
     if diagnostic:private_sha=hashlib.sha256((private_sha+':controller-diag:1').encode()).hexdigest()
     binding=hashlib.sha256((r['source_sha256']+':'+private_sha+':'+sha(out/'target/zephyr/.config')).encode()).hexdigest()
     require(binding==r['watchdog_binding_sha256'],'Watchdog binding')
-    return {'status':'PASS','flash_load_end':flash_end,'ram_allocated_end':ram_end,'static_unallocated_bytes':0x20040000-ram_end,'crash_diagnostic_static_allowance_bytes':crash_allowance,'rc8_incremental_static_budget_bytes':4096,'hot_diagnostic_static_budget_bytes':hot_allowance,'tz_static_budget_bytes':tz_allowance,'auto_tz_static_budget_bytes':auto_tz_allowance,'menu_static_budget_bytes':menu_allowance,'ui_mutable_symbol_bytes':ui_mutable_bytes,'lora_display_static_budget_bytes':lora_display_allowance,'lora_display_added_mutable_bytes':lora_display_added,'lora_display_mutable_by_unit':lora_display_mutable,'hardware':'NOT_TESTED','deployment_authorized':False}
+    return {'status':'PASS','flash_load_end':flash_end,'ram_allocated_end':ram_end,'static_unallocated_bytes':0x20040000-ram_end,'crash_diagnostic_static_allowance_bytes':crash_allowance,'rc8_incremental_static_budget_bytes':4096,'hot_diagnostic_static_budget_bytes':hot_allowance,'tz_static_budget_bytes':tz_allowance,'auto_tz_static_budget_bytes':auto_tz_allowance,'menu_static_budget_bytes':menu_allowance,'ui_mutable_symbol_bytes':ui_mutable_bytes,'lora_stage2_static_budget_bytes':lora_stage2_allowance,'lora_stage2_added_mutable_bytes':lora_stage2_added,'lora_display_static_budget_bytes':lora_display_allowance,'lora_display_added_mutable_bytes':lora_display_added,'lora_display_mutable_by_unit':lora_display_mutable,'hardware':'NOT_TESTED','deployment_authorized':False}
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)

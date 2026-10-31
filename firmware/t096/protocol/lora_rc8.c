@@ -62,35 +62,35 @@ int rc8_companion_encode(uint8_t w[RC8_META_BYTES],const struct rc8_companion *p
  if(!w)return -EINVAL;
  memset(w,0,RC8_META_BYTES);
  if(!p||diagnostic_scope(&p->scope)||(p->scope.kind==RC8_NO_SOURCE&&p->time_valid)||!p->sequence||(p->quality.known&~8191u)||
- (p->quality.values&~15u)||(p->quality.values&~p->quality.known)||(p->events&~511u))return -EINVAL;
- immutable(w,&p->scope);r2_group_put(w+66,p->sequence,4);r2_group_put(w+70,p->snapshot_age_ms,4);
+ (p->quality.values&~15u)||(p->quality.values&~p->quality.known)||(p->events&~1023u))return -EINVAL;
+ immutable(w,&p->scope);w[2]=RC8_COMPANION_VERSION;w[65]|=p->time_valid?128u:0u;r2_group_put(w+66,p->sequence,4);r2_group_put(w+70,p->snapshot_age_ms,4);
  r2_group_put(w+74,p->timing_sequence,4);r2_group_put(w+78,p->events,2);
  const struct rc8_quality *q=&p->quality;r2_group_put(w+80,q->known,2);r2_group_put(w+82,q->values,2);
  w[84]=q->role;w[85]=q->hop;w[86]=q->parent_class;w[87]=q->parent_accuracy;
  r2_group_put(w+88,q->parent_bound_ns,4);r2_group_put(w+92,q->correction_age_ms,4);r2_group_put(w+96,q->map_life_ms,4);
  r2_group_put(w+100,(uint32_t)q->rate_ppb,4);r2_group_put(w+104,q->residual_ns,4);
- w[108]=q->losses;w[109]=q->recoveries;w[111]=p->time_valid;
- int rc=r2_group_mac(w+112,g,"PTOBR8D3",w,112);if(rc)memset(w,0,RC8_META_BYTES);return rc;
+ r2_tz_put(w+108,p->tz);
+ int rc=r2_group_mac(w+112,g,"PTOBR8D4",w,112);if(rc)memset(w,0,RC8_META_BYTES);return rc;
 }
 int rc8_companion_decode(struct rc8_companion *p,uint8_t id[RC8_CONTEXT_BYTES],const uint8_t *w,size_t n,const struct r2_group_config *g){
  if(!p||!id)return -EINVAL;
  memset(p,0,sizeof *p);memset(id,0,RC8_CONTEXT_BYTES);
- if(!w||n!=RC8_META_BYTES||w[0]!='R'||w[1]!='8'||w[2]!=RC8_WIRE_VERSION||w[3]!=1||w[110]||w[111]>1)return -EINVAL;
- if(!r2_group_verify(w+112,g,"PTOBR8D3",w,112))return -EACCES;
+ if(!w||n!=RC8_META_BYTES||w[0]!='R'||w[1]!='8'||w[2]!=RC8_COMPANION_VERSION||w[3]!=1||(w[65]&124u))return -EINVAL;
+ if(!r2_group_verify(w+112,g,"PTOBR8D4",w,112))return -EACCES;
  struct rc8_scope *s=&p->scope;s->emitter=r2_group_get(w+4,8);s->emitter_boot=r2_group_get(w+12,8);s->stream=r2_group_get(w+20,8);
  s->root=r2_group_get(w+28,8);s->root_boot=r2_group_get(w+36,8);s->parent=r2_group_get(w+44,8);s->parent_boot=r2_group_get(w+52,8);
- s->source_epoch=r2_group_get(w+60,4);s->scale=w[64];s->kind=w[65];
+ s->source_epoch=r2_group_get(w+60,4);s->scale=w[64];s->kind=w[65]&3u;p->time_valid=(w[65]&128u)!=0;
  p->sequence=r2_group_get(w+66,4);p->snapshot_age_ms=r2_group_get(w+70,4);p->timing_sequence=r2_group_get(w+74,4);p->events=r2_group_get(w+78,2);
  struct rc8_quality *q=&p->quality;q->known=r2_group_get(w+80,2);q->values=r2_group_get(w+82,2);
  q->role=w[84];q->hop=w[85];q->parent_class=w[86];q->parent_accuracy=w[87];q->parent_bound_ns=r2_group_get(w+88,4);
  q->correction_age_ms=r2_group_get(w+92,4);q->map_life_ms=r2_group_get(w+96,4);q->rate_ppb=(int32_t)(uint32_t)r2_group_get(w+100,4);
- q->residual_ns=r2_group_get(w+104,4);q->losses=w[108];q->recoveries=w[109];p->time_valid=w[111];
+ q->residual_ns=r2_group_get(w+104,4);p->tz=r2_tz_get(w+108);
  int rc=diagnostic_scope(s);
- if((s->kind==RC8_NO_SOURCE&&p->time_valid)||!p->sequence||(q->known&~8191u)||(q->values&~15u)||(q->values&~q->known)||(p->events&~511u))rc=-EINVAL;
+ if((s->kind==RC8_NO_SOURCE&&p->time_valid)||!p->sequence||(q->known&~8191u)||(q->values&~15u)||(q->values&~q->known)||(p->events&~1023u))rc=-EINVAL;
  if(!rc)rc=companion_context(id,s,g);
  if(rc){memset(p,0,sizeof *p);memset(id,0,RC8_CONTEXT_BYTES);}return rc;
 }
-/* Compatibility names describe the wire3 diagnostic packet, never wire2. */
+/* Source API aliases; the runtime accepts only companion revision4. */
 int rc8_metadata_encode(uint8_t w[RC8_META_BYTES],const struct rc8_scope *s,const struct r2_group_config *g){
  if(!s)return -EINVAL;
  struct rc8_companion p={.scope=*s,.sequence=1,.time_valid=true};return rc8_companion_encode(w,&p,g);
@@ -133,4 +133,30 @@ int rc8_decode(struct rc8_packet *p,const uint8_t *w,size_t n,const struct r2_gr
  c->created_ns=c->event_ns-age;c->expires_ns=c->event_ns+remaining;c->map_age_us=r2_group_get(w+60,4);
  p->corrected=c->sequence!=0;if(p->corrected)c->upstream_bound_ns=RC8_UNKNOWN;
  int rc=rc8_packet_validate(p);if(rc)memset(p,0,sizeof *p);return rc;
+}
+
+static int probe_valid(const struct rc8_probe_packet *p){
+ if(!p||p->kind<RC8_OFFER||p->kind>RC8_FOLLOW||!p->offer||!nonzero(p->context,16))return -EINVAL;
+ if(p->kind==RC8_OFFER)return p->client||p->boot||!p->nonce||!p->t2||p->t2>UINT32_MAX||p->t3>12?-EINVAL:0;
+ if(!p->client||!p->boot||!p->nonce)return -EINVAL;
+ if(p->kind==RC8_REQUEST)return p->t2||p->t3?-EINVAL:0;
+ if(!p->t2)return -EINVAL;
+ return p->kind==RC8_RESPONSE?(p->t3?-EINVAL:0):(p->t3>p->t2?0:-EINVAL);
+}
+int rc8_probe_encode(uint8_t w[RC8_BYTES],const struct rc8_probe_packet *p,const struct r2_group_config *g){
+ if(!w)return -EINVAL;
+ memset(w,0,RC8_BYTES);if(probe_valid(p))return -EINVAL;
+ w[0]='R';w[1]='8';w[2]=RC8_COMPANION_VERSION;w[3]=p->kind;memcpy(w+4,p->context,16);
+ r2_group_put(w+20,p->client,8);r2_group_put(w+28,p->boot,8);r2_group_put(w+36,p->nonce,8);
+ r2_group_put(w+44,p->offer,4);r2_group_put(w+48,p->t2,8);r2_group_put(w+56,p->t3,8);
+ int rc=r2_group_mac(w+64,g,"PTOBR8P4",w,64);if(rc)memset(w,0,RC8_BYTES);return rc;
+}
+int rc8_probe_decode(struct rc8_probe_packet *p,const uint8_t *w,size_t n,const struct r2_group_config *g){
+ if(!p)return -EINVAL;
+ memset(p,0,sizeof *p);
+ if(!w||n!=RC8_BYTES||w[0]!='R'||w[1]!='8'||w[2]!=RC8_COMPANION_VERSION||w[3]<4||w[3]>7)return -EINVAL;
+ if(!r2_group_verify(w+64,g,"PTOBR8P4",w,64))return -EACCES;
+ memcpy(p->context,w+4,16);p->kind=w[3];p->client=r2_group_get(w+20,8);p->boot=r2_group_get(w+28,8);
+ p->nonce=r2_group_get(w+36,8);p->offer=r2_group_get(w+44,4);p->t2=r2_group_get(w+48,8);p->t3=r2_group_get(w+56,8);
+ int rc=probe_valid(p);if(rc)memset(p,0,sizeof *p);return rc;
 }

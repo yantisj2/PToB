@@ -38,6 +38,8 @@ bool rc8_export_close(struct rc8_export *,uint64_t cut_tick,uint64_t epoch);
 /* Admission projection only: this does not fabricate a completed radio event. */
 bool rc8_export_valid_at(const struct rc8_export *,uint64_t tick,uint64_t epoch);
 bool rc8_export_event(struct rc8_correction *,const struct rc8_export *,uint32_t,struct rc8_event);
+/* Optional request ingress projection; never labels RX as a transmit event. */
+bool rc8_export_receive(struct rc8_correction *,const struct rc8_export *,struct rc8_event);
 struct rc8_transmission {
  struct rc8_export map;
  struct rc8_packet packet;
@@ -72,9 +74,10 @@ struct rc8_link_fit {
   * physical endpoint is never renewed by partial blocks or metadata. */
  uint64_t result_us;
  uint32_t result_sequence,result_rms_ns;
+ int32_t result_rate_ppb;
  uint8_t result_n;
 };
-_Static_assert(sizeof(struct rc8_link_fit)==80,"RC8 link-fit reserve");
+_Static_assert(sizeof(struct rc8_link_fit)<=88,"RC8 link-fit reserve");
 enum rc8_input_state {RC8_OFF,RC8_ACQUIRING,RC8_AVAILABLE,RC8_EXPIRED};
 enum rc8_assurance {RC8_FRESHNESS_UNKNOWN,RC8_STREAM_CONTINUITY,RC8_ANCHORED_INTERVAL};
 enum rc8_authority {RC8_AUTHORITY_UNKNOWN,RC8_ORIGINAL_ENVELOPE_CURRENT,RC8_ORIGINAL_ENVELOPE_EXPIRED};
@@ -84,6 +87,7 @@ struct rc8_receiver {
  struct rc8_scope scope;
  uint8_t context[RC8_CONTEXT_BYTES],retired_context[RC8_CONTEXT_BYTES];
  struct rc8_quality quality;
+ struct r2_tz tz;
  uint64_t diagnostic_us;
  uint32_t diagnostic_sequence,snapshot_age_ms,withdrawal_sequence;uint16_t diagnostic_events;
  struct rc8_bootstrap trust;
@@ -117,6 +121,9 @@ bool rc8_receiver_read(const struct rc8_receiver *,uint64_t,struct rc8_sample *,
  * normal BLE is unusable and allow_unverified is true. No RC7/GM/RC9 authority. */
 enum rc8_selected rc8_select(bool ble_usable,enum rc8_input_state,enum rc8_assurance,bool allow_unverified);
 uint32_t rc8_output_bound(const struct rc8_receiver *);
+/* All four events must share one context and capture incarnation. Rate is
+ * source-ns per nominal local-ns; result is effective mean link delay only. */
+bool rc8_rtt_delay(uint64_t ticks,int32_t rate_ppb,uint64_t turnaround_ns,uint32_t *delay_ns);
 enum rc8_phase {RC8_PHASE_IDLE,RC8_PHASE_DMA,RC8_PHASE_RX,RC8_PHASE_RX_FROZEN,
  RC8_PHASE_TX_PREP,RC8_PHASE_TX_AIR,RC8_PHASE_TX_DONE,RC8_PHASE_FOLLOW};
 enum rc8_stop_result {RC8_STOP_WAIT,RC8_STOP_QUIESCENT,RC8_STOP_FAULT};
@@ -125,7 +132,7 @@ void rc8_stop_begin(struct rc8_stop *,enum rc8_phase,uint64_t);
 enum rc8_stop_result rc8_stop_poll(struct rc8_stop *,uint64_t,bool dma_retired,bool radio_standby,bool fem_off,bool capture_released);
 struct rc8_gesture {uint64_t started_us;bool pressed,eligible,claimed,consumed;};
 bool rc8_gesture_update(struct rc8_gesture *,bool pressed,bool eligible,uint64_t);
-_Static_assert(sizeof(struct rc8_receiver)<=736,"RC8 receiver reserve including fit provenance");
+_Static_assert(sizeof(struct rc8_receiver)<=760,"RC8 receiver reserve including TZ and rate");
 _Static_assert(sizeof(struct rc8_export)<=168,"RC8 export reserve");
 _Static_assert(sizeof(struct rc8_packet)<=80,"RC8 packet reserve");
 _Static_assert(sizeof(struct rc8_transmission)<=320,"RC8 TX reserve");

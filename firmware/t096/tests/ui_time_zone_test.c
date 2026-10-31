@@ -63,6 +63,11 @@ int main(int argc,char **argv){
 #ifdef R2_LORA
  m.tz=r2_tz_manual();m.tz_until_us=UINT64_MAX;m.lora.choice=RC8_SELECT_LORA;
  assert(!strcmp(r2_ui_clock_zone(&m,1000,123,&shown),"UTC")&&shown==123);
+ m.lora.tz=r2_tz_manual();m.lora.tz_until_us=2000000;
+ assert(!strcmp(r2_ui_clock_zone(&m,1000,3600000000LL,&shown),"CDT")&&shown==-14400000000LL);
+ m.lora.tz.offset_min=-360;assert(!strcmp(r2_ui_clock_zone(&m,1000,123,&shown),"CST"));
+ assert(!strcmp(r2_ui_clock_zone(&m,2000,123,&shown),"UTC")&&shown==123);
+ m.lora.tz=r2_tz_unknown();assert(!strcmp(r2_ui_clock_zone(&m,1000,123,&shown),"UTC"));
 #endif
  puts("PASS front clock and saver: CDT/CST shared analog/digital offset, exact label, expiry/unknown UTC fallback, diagnostics/model UTC unchanged");
 }

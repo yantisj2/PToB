@@ -49,7 +49,7 @@ static void codec(void){
  p.corrected=false;assert(rc8_encode(wire,&p,&group));p.correction=(struct rc8_correction){0};assert(!rc8_encode(wire,&p,&group));
  p.sequence=0;assert(rc8_encode(wire,&p,&group));p=packet(2);p.corrected=true;p.correction=correction(2,1001000000);assert(rc8_encode(wire,&p,&group));
  s.kind=RC8_OWN_GM;assert(rc8_metadata_encode(meta,&s,&group));s.root=s.emitter;s.root_boot=0x909;assert(!rc8_metadata_encode(meta,&s,&group));assert(!rc8_metadata_decode(&decoded,id,meta,sizeof meta,&group)&&decoded.root_boot!=decoded.emitter_boot);
- meta[110]=1;assert(!r2_group_mac(meta+112,&group,"PTOBR8D3",meta,112));assert(rc8_metadata_decode(&decoded,id,meta,sizeof meta,&group));
+ meta[65]|=4;assert(!r2_group_mac(meta+112,&group,"PTOBR8D4",meta,112));assert(rc8_metadata_decode(&decoded,id,meta,sizeof meta,&group));
 }
 static void exports_and_permission(void){
  struct rc8_enrollment tx={.factory=0x101,.transmitter_factory=0x101,.enrolled=true},rx=tx;rx.factory=0x707;
@@ -257,7 +257,7 @@ static void closure_and_gesture(void){
 int main(int argc,char **argv){
  if(argc==2){uint8_t wire[RC8_META_BYTES];size_t n=0;
   if(!strcmp(argv[1],"metadata")){struct rc8_scope s=scope();s.parent=0x606;s.parent_boot=0x808;
-   struct rc8_companion d={.scope=s,.sequence=23,.snapshot_age_ms=17,.timing_sequence=2,.events=175,.time_valid=true,
+   struct rc8_companion d={.scope=s,.tz={2,-300},.sequence=23,.snapshot_age_ms=17,.timing_sequence=2,.events=175,.time_valid=true,
     .quality={.known=8191,.values=13,.role=2,.hop=1,.parent_class=6,.parent_accuracy=34,.parent_bound_ns=9999,
      .correction_age_ms=17,.map_life_ms=1350,.rate_ppb=-421,.residual_ns=3800,.losses=7,.recoveries=8}};
    assert(!rc8_companion_encode(wire,&d,&group));n=RC8_META_BYTES;}
@@ -265,6 +265,6 @@ int main(int argc,char **argv){
   assert(n);for(size_t i=0;i<n;i++)printf("%02x",wire[i]);puts("");return 0;
  }
  codec();exports_and_permission();functional_and_freshness();cache_and_faults();companion_and_rounding();no_source_diagnostic();closure_and_gesture();
- printf("RC8 wire3 PASS receiver=%zu export=%zu packet=%zu transmission=%zu stop=%zu gesture=%zu bytes;920 events continue beyond1h\n",
+ printf("RC8 companion4 PASS receiver=%zu export=%zu packet=%zu transmission=%zu stop=%zu gesture=%zu bytes;920 events continue beyond1h\n",
  sizeof(struct rc8_receiver),sizeof(struct rc8_export),sizeof(struct rc8_packet),sizeof(struct rc8_transmission),sizeof(struct rc8_stop),sizeof(struct rc8_gesture));return 0;
 }

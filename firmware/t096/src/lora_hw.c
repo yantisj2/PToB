@@ -602,10 +602,11 @@ static int arm_edge(uint32_t gen, uint8_t new_phase) {
 }
 int r2_lora_hw_rx_rearm(void) {
   stage(R2_LORA_STAGE_REARM);
-  if (!receive_mode || atomic_get(&phase) != 1)
+  if (atomic_get(&phase) != 1)
     return -EBUSY;
   if (!capture_live())
     return fail(-ESTALE);
+  receive_mode = true;
   const uint8_t standby[] = {0}, single[] = {0, 0, 0};
   int rc = command(0x80, standby, sizeof(standby));
   if (!rc)
@@ -622,6 +623,28 @@ int r2_lora_hw_rx_rearm(void) {
     rc = command(0x82, single, sizeof(single));
   return rc && rc != -ECANCELED ? fail(rc) : rc;
 }
+int r2_lora_hw_idle(void) {
+  if (!atomic_get(&running)) return -ECANCELED;
+  if (atomic_get(&fault)) return atomic_get(&fault);
+  if (atomic_get(&dma_inflight) || atomic_get(&latched)) return -EAGAIN;
+  uint8_t state=atomic_get(&phase);
+  if (state==1) { receive_mode=false; return 0; }
+  if (state!=2) return -EAGAIN;
+  const uint8_t standby[]={0};
+  int rc=command(0x80,standby,sizeof standby);
+  if (rc) return rc==-ECANCELED?rc:fail(rc);
+  /* A packet completing during standby still owns its original edge/FIFO. */
+  unsigned key=irq_lock();
+  int level=gpio_pin_get_dt(&dio);
+  if (!atomic_get(&running)) rc=-ECANCELED;
+  else if (level<0) rc=level;
+  else if (atomic_get(&latched) || level>0) rc=-EAGAIN;
+  else { atomic_set(&phase,1);receive_mode=false; }
+  irq_unlock(key);
+  if (!rc) rc=gpio_pin_interrupt_configure_dt(&dio,GPIO_INT_DISABLE);
+  if (!rc) { nrfx_gpiote_clr_task_trigger(&gpiote,CSD_PIN);rc=gpio_pin_set_dt(&ctx,0); }
+  return rc && rc!=-EAGAIN && rc!=-ECANCELED?fail(rc):rc;
+}
 uint32_t r2_lora_hw_budget_us(size_t n) {
   if (!n || n > R2_LORA_HW_BYTES)
     return 0;
@@ -632,7 +655,7 @@ int r2_lora_hw_tx_before(const uint8_t *bytes, size_t n, uint32_t gen,
   uint32_t budget = r2_lora_hw_budget_us(n);
   if (!bytes || !budget || !gen)
     return -EINVAL;
-  if (receive_mode || atomic_get(&phase) != 1 || atomic_get(&dma_inflight))
+  if (atomic_get(&phase) != 1 || atomic_get(&dma_inflight))
     return -EBUSY;
   if (!capture_live())
     return fail(-ESTALE);

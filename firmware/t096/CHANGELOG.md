@@ -1,5 +1,20 @@
 # T096 changelog
 
+## 0.15.216 — optional LoRa RTT and coarse TZ
+
+- Add bounded source-opened REQUEST/RESPONSE/FOLLOW measurements only for current
+  LoRa-only listeners. One pending transaction, rate-limited opportunities,
+  randomized admission/backoff, actual physical event stamps, optional responses
+  and normal no-reply expiry preserve the BLE and ordinary LoRa timing owners.
+- Keep a separate receiver rate/delay watch map in both GM and RC profiles;
+  grant no serving-GM, HOT/election, BLE relay, RC7/RC9 or USB timing authority.
+- Break the LoRa coarse companion to revision4 and domain PTOBR8D4 for the atomic
+  selected-source TZ pair. Preserve timing/name layouts and all UTC coordinates.
+  Other target ports are deferred; no compatibility path is provided.
+- Retain hardware cutoffs, bounded shutdown and worker allocations; separately
+  cap the complete new RTT/TZ mutable addition at512B against .215. Native and
+  hardware verification remain separate from independent timing qualification.
+
 ## 0.15.215 — Restore the LoRa watch and coherent front screens
 
 Restore the original Casio watch geometry, **LOR** source, separate live local

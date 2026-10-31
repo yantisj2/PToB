@@ -34,8 +34,9 @@ def reference(vector):
     context=hmac.new(key,b'PTOBR8C3'+auth+meta[:66],hashlib.sha256).digest()[:16]
     d=vector['diagnostic'];q=vector['quality']
     struct.pack_into('<IIIHHHBBBBIIIiIBB',meta,66,d['sequence'],d['snapshot_age_ms'],d['timing_sequence'],d['events'],q['known'],q['values'],q['role'],q['hop'],q['parent_class'],q['parent_accuracy'],q['parent_bound_ns'],q['correction_age_ms'],q['map_life_ms'],q['rate_ppb'],q['residual_ns'],q['losses'],q['recoveries'])
-    meta[111]=d['time_valid']
-    tag=hmac.new(key,b'PTOBR8D3'+auth+meta,hashlib.sha256).digest()[:16]
+    meta[2]=4;meta[65]|=128 if d['time_valid'] else 0
+    struct.pack_into('<Hh',meta,108,vector['tz']['id'],vector['tz']['offset_min'])
+    tag=hmac.new(key,b'PTOBR8D4'+auth+meta,hashlib.sha256).digest()[:16]
     timing=bytearray(64);timing[:4]=b'R8\x03'+bytes([2|(scope['scale']<<2)|(scope['kind']<<3)]);timing[4:20]=context
     struct.pack_into('<QIIIQI',timing,20,scope['root'],scope['source_epoch'],2,c['sequence'],c['event_ns'],c['map_generation'])
     struct.pack_into('<III',timing,52,(c['event_ns']-c['created_ns'])//1000,(c['expires_ns']-c['event_ns'])//1000,c['map_age_us'])
@@ -101,13 +102,13 @@ def main():
     assert checked==78 and len(blocks)==6
     print('Independent Decimal OLS residual oracle PASS78 estimates,6 blocks; synthetic events only')
     sizes={key:int(size) for key,size in re.findall(r'(receiver|export|packet|transmission|stop|gesture)=(\d+)',result.stdout)}
-    contract=json.loads((REPO/'protocol/rc8/contract-wire3.json').read_text())
+    contract=json.loads((REPO/'protocol/rc8/contract-wire4.json').read_text())
     budget=contract['memory']['object_max_bytes']
     assert max(sizes['receiver'],sizes['transmission']+sizes['export'])<=budget['exclusive_boot_role_union']
     assert contract['memory']['ceiling_added_static_bytes']==4096
     # The historical planning reserves overlap integrated storage; only a
     # complete native ELF comparison can establish the actual static ceiling.
-    vector=json.loads((REPO/'protocol/rc8/vectors-wire3.json').read_text())
+    vector=json.loads((REPO/'protocol/rc8/vectors-wire4.json').read_text())
     expected=reference(vector)
     assert expected==vector['wire_hex']
     for name,value in expected.items():
@@ -135,7 +136,7 @@ def main():
             'tx_context_final':['rc8_tx_prepare','rc8_context_id','companion_context','r2_group_mac','tc_hmac_final','tc_sha256_final','compress']}
         native={'compiler_frames_bytes':frames,'nested_known_frames_bytes':{name:sum(frames.get(fn,0) for fn in chain) for name,chain in paths.items()},
                 'paths':paths,'limits':'Known C frames only; inlined helpers contribute within caller; excludes worker frame, IRQ/kernel/libc/libgcc/SPI/capture costs and physical high-water. Not stack qualification.'}
-    report={'status':'PASS_RC8_WIRE3_OFFLINE','hardware':'NOT_ACCESSED','precision':'UNQUALIFIED','link_fit_decimal_oracle_estimates':checked,
+    report={'status':'PASS_RC8_COMPANION4_OFFLINE','hardware':'NOT_ACCESSED','precision':'UNQUALIFIED','link_fit_decimal_oracle_estimates':checked,
             'tests':result.stdout.strip(),'name_tests':name_result.strip(),'name_wire_sha256':hashlib.sha256(name_wire).hexdigest(),
             'metadata_bytes':128,'timing_bytes':80,'metadata_airtime_us':airtime(128),'timing_airtime_us':airtime(80),
             'host_abi_sizes':sizes,'occupancy_timing4s_companion120s_percent':airtime(80)/40000+airtime(128)/1200000,

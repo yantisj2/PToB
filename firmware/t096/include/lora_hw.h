@@ -52,6 +52,9 @@ int r2_lora_hw_take(struct r2_lora_hw_event *);
 struct r2_lora_hw_edge {uint64_t tick,capture_epoch;uint32_t generation;};
 bool r2_lora_hw_tx_edge(struct r2_lora_hw_edge *);
 int r2_lora_hw_rx_rearm(void);
+/* Retire an idle RX window without releasing capture ownership. A latched
+ * event wins and must be taken first. No active TX/DMA can be interrupted. */
+int r2_lora_hw_idle(void);
 /* Bounded, no wait/SPI, cancellation fence; immediately reset + inhibit FEM.
  * The worker must still poll actual retirement before declaring closure. */
 void r2_lora_hw_stop_begin(uint64_t original_deadline_us);

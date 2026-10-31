@@ -5,7 +5,7 @@ Copyright (c) 2026 Jonathan Yantis. MIT.
 Native builds [clean compiler output and retain the latest two image bundles](../firmware-storage.md)
 per device/profile, with installed/recovery pins preserved.
 
-This guide builds and inspects T096 source **0.15.215** without opening hardware.
+This guide builds and inspects T096 source **0.15.216** without opening hardware.
 For profile choices and controls, see the [T096 README](../../firmware/t096/README.md).
 Release-by-release implementation and validation notes are in the
 [T096 changelog](../../firmware/t096/CHANGELOG.md).
@@ -139,7 +139,7 @@ hash and preserves a private build snapshot.
 
 ## Optional LoRa configuration
 
-Normal GM/RC builds include the [RC8 wire 3 integration](../../protocol/rc8/README.md).
+Normal GM/RC builds include the [RC8 timing3/coarse4 integration](../../protocol/rc8/README.md).
 The default transmitter factory is zero, so LoRa hardware does not start. The
 normal-only `--lora-transmitter-factory` option takes a 16-digit exact factory
 identity verified against ignored T096 registry metadata. It is included in the
@@ -267,3 +267,11 @@ GM/RC writable objects. Inspection counts all four affected translation units,
 including copied UI models, and retains the original RC8, TZ, menu, stack,
 buffer and absolute free-RAM gates. This is a linked allocation check; actual
 stack high-water and sustained hardware behavior remain separate observations.
+
+Source .216 adds a breaking LoRa companion revision4 (TZ) and optional
+source-opened RTT measurement. Other target client ports are deferred; there is
+no companion compatibility mode. The complete new mutable state is capped at
+512 bytes against the inspected .215 affected objects, including copied views;
+all original stack/buffer/cutoff and absolute1024-byte margin checks remain.
+See the [current LoRa contract](../../protocol/rc8/README.md) for receiver-only
+GM-profile behavior, opportunity limits, timestamps and normal no-reply handling.

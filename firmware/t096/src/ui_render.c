@@ -342,7 +342,13 @@ bool r2_ui_display_time(const struct r2_ui_model *m,uint64_t now,int64_t *utc,bo
 const char *r2_ui_clock_zone(const struct r2_ui_model *m,uint64_t now,int64_t utc,int64_t *shown){
  *shown=utc;
 #ifdef R2_LORA
- if(lora_mode(m))return "UTC";
+ if(lora_mode(m)){
+  if(now<m->sampled_ms||now-m->sampled_ms>2500||now>UINT64_MAX/1000||now*1000>=m->lora.tz_until_us||!r2_tz_local_us(m->lora.tz,utc,shown))return "UTC";
+  if(m->lora.tz.id==1)return "UTC";
+  if(m->lora.tz.id==2&&m->lora.tz.offset_min==-300)return "CDT";
+  if(m->lora.tz.id==2&&m->lora.tz.offset_min==-360)return "CST";
+  return "LOC";
+ }
 #endif
  if(now<m->sampled_ms||now-m->sampled_ms>2500||now>UINT64_MAX/1000||
     now*1000>=m->tz_until_us||!r2_tz_local_us(m->tz,utc,shown))return "UTC";

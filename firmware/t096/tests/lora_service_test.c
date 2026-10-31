@@ -66,6 +66,7 @@ uint32_t r2_lora_hw_budget_us(size_t n){return n==80?360000:n==128?450000:0;}
 int r2_lora_hw_tx_before(const uint8_t *p,size_t n,uint32_t g,uint64_t before){assert(before==UINT64_MAX||now_us+r2_lora_hw_budget_us(n)<=before);if(late_diagnostic&&n==128)return -EAGAIN;if(quality_during_spi&&n==128)spi_quality_update();if(change_during_spi&&n==128){change_during_spi=false;spi_context_update();}txs++;sent_len=n;memcpy(sent,p,n);sent_generation=g;if(turnover_during_tx){turnover_during_tx=false;spi_turnover();}if(abort_tx){abort_tx=false;return -EINTR;}if(cancel_tx){cancel_tx=false;r2_lora_request(false);return -ECANCELED;}return 0;}
 int r2_lora_hw_take(struct r2_lora_hw_event *e){if(cancel_take){cancel_take=false;r2_lora_request(false);return -ECANCELED;}if(take_result)return take_result;if(!have_event)return 0;if(preempt_take){preempt_take=false;now_us+=2500;queued.tick=now_us*16;}*e=queued;have_event=false;return 1;}
 bool r2_lora_hw_tx_edge(struct r2_lora_hw_edge *e){if(hide_tx_edge||!have_event||queued.kind!=R2_LORA_HW_TX_DONE)return false;*e=(struct r2_lora_hw_edge){queued.tick,queued.capture_epoch,queued.generation};return true;}
+int r2_lora_hw_idle(void){return 0;}
 int r2_lora_hw_rx_rearm(void){rearms++;return 0;}
 void r2_lora_hw_stop_begin(uint64_t deadline){assert(deadline>0);stops++;}
 void r2_lora_hw_stop_poll(struct r2_lora_hw_ack *a){*a=(struct r2_lora_hw_ack){!hold_ack,true,true,true,false};}
@@ -582,4 +583,5 @@ int main(int argc,char **argv){assert(argc==2);unsigned mode=(unsigned)atoi(argv
  }
  else assert(false);
  char json[3072];int n=r2_lora_json(json,sizeof json-96,0);assert(n>0&&n<(int)sizeof json-96);printf("PASS runtime mode%u role=%zu snapshot=%zu worker=%zu json=%d\nJSON %s\n",mode,sizeof role,sizeof published,sizeof worker_stack,n,json);
+ return 0;
 }
