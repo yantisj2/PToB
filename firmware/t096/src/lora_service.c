@@ -692,7 +692,10 @@ static int __attribute__((noinline)) probe_step(uint64_t now){
   probe_cancel();
  }
  if(!transmitter){
-  if(!role.rx.time_valid||!role.rx.sample.valid||role.rx.sample.rx.capture_epoch!=probe.epoch)probe.cal_until=0;
+  /* Link calibration is not source permission. A transient same-context
+   * withdrawal stops time immediately but cannot renew or erase this finite
+   * physical-link cache. Context/OFF/fault/capture changes still fence it. */
+  if(role.rx.sample.valid&&role.rx.sample.rx.capture_epoch!=probe.epoch)probe.cal_until=0;
   if(!probe_client_ready(now)&&probe.state)probe_cancel();
  }
  if(probe.tx_kind|| (transmitter&&role.tx.pending))return 0;
@@ -726,6 +729,7 @@ static bool cancelled(void){
 }
 static void begin_stop(int error){
  probe_cancel();probe.tx_kind=0;probe.listening=false;probe.cal_until=0;
+ if(!transmitter)probe.next_us=mono()+PROBE_PERIOD_US;
  if(error&&!(error==-ECANCELED&&cancelled()))atomic_set(&faulted,1);
  stop_now();owner.stopping=true;
  if(!transmitter)rc8_receiver_switch(&role.rx,false);

@@ -72,7 +72,11 @@ The client performs this calculation only after FOLLOW. It applies rate and
 any live delay estimate to its independent local LoRa watch map, never to BLE
 or GNSS. Successful calibration lasts at most30min; the next request becomes
 due after a randomized15..30min. Calibration expiry falls back to coarse LoRa.
-Context/capture replacement, OFF, fault or source withdrawal clear calibration.
+Context/capture replacement, OFF and fault clear calibration. A transient
+same-context source withdrawal immediately stops time but retains the original
+finite link-delay cache. Recovery metadata cannot create time or renew that
+cache; only fresh physical timing can use it again. Local owner/context
+reacquisition permits another request after at least60s, subject to source offers.
 Usable BLE immediately blocks further probes and stage2 updates.
 
 ## Coarse timezone companion

@@ -2,7 +2,7 @@
   "schema": 4,
   "contract": "PTOB_RC8_COARSE4",
   "wire_version": 4,
-  "revision": 2,
+  "revision": 3,
   "status": "RUNTIME_INTEGRATION_UNQUALIFIED",
   "license": "MIT",
   "credit": "Jonathan Yantis",
@@ -393,6 +393,7 @@
     "maximum_rate_ppb": 100000,
     "state": "one globally pending transaction; no queue or peer roster; silence/expiry/refusal healthy",
     "authority": "local LoRa watch only in GM or RC; no BLE/GNSS estimator, USB source, RC7/RC9, serving/election/HOT permission",
-    "causal_ingress": "Preserve original physical request RX map before turnover, validate exact RX_DONE tick/epoch/generation, never use later formula; processing consumes original transaction lifetime."
+    "causal_ingress": "Preserve original physical request RX map before turnover, validate exact RX_DONE tick/epoch/generation, never use later formula; processing consumes original transaction lifetime.",
+    "cache_lifetime": "Original finite same-context physical link delay; source withdrawal stops time but does not renew or erase the cache. Fresh physical timing required for recovery. Context/capture changes, OFF, fault and expiry clear it."
   }
 }

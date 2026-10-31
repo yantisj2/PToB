@@ -1,5 +1,18 @@
 # T096 changelog
 
+## 0.15.218 — separate link calibration from time availability
+
+Keep a finite same-context link-delay cache across transient source withdrawal;
+withdraw time immediately and require new physical timing for recovery. Neither
+metadata nor packets renew calibration. Context/capture change, OFF, fault and
+original expiry remain fences. Local context reacquisition may request after a
+60s cooldown. This client policy uses the unchanged coarse4/P4 source contract.
+
+The .217 finite trial completed one RTT (estimated effective mean link delay
+1640501ns) and a 75s cooldown, retaining availability gaps. Its later RC check
+asserted a completed display frame synchronously with timing acquisition; that
+incomplete field population remains separate. No calibrated UTC claim is made.
+
 ## 0.15.217 — retain causal RTT request ingress
 
 Preserve the original physical request RxDone projection before source-map

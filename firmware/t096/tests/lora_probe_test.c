@@ -23,7 +23,7 @@ static struct rc8_probe_packet request(void){
 }
 int main(int argc,char **argv){
  assert(argc==2);int mode=atoi(argv[1]);
- if(mode<=8){
+ if(mode<=8||mode==20||mode==21){
   struct rc8_probe_packet p=request();uint64_t t1=probe.t1;
   p.kind=RC8_RESPONSE;p.t2=UINT64_C(10000000000)+t1*125/2+10000;
   if(mode==2)p.nonce++;
@@ -42,6 +42,22 @@ int main(int argc,char **argv){
   uint32_t accepted=role.rx.accepted;feed_probe(&p,now_us+1000);assert(probe.completed==1&&role.rx.accepted==accepted);
   struct r2_lora_view v;r2_lora_view(&v);assert(v.choice==RC8_SELECT_LORA); /* GM profile remains a watch receiver. */
   if(mode==8){r2_lora_request(false);step();assert(!probe.cal_until&&!published.view.utc_us&&!atomic_get(&faulted));}
+  if(mode==20){
+   uint64_t original_until=probe.cal_until;struct rc8_scope scope=role.rx.scope;
+   companion(scope,false,2,now_us+1000);assert(!role.rx.sample.valid&&probe.cal_until==original_until);
+   r2_lora_view(&v);assert(!v.utc_us&&v.choice==RC8_SELECT_NONE); /* Cache grants no time. */
+   companion(scope,true,3,now_us+1000);assert(!role.rx.sample.valid&&probe.cal_until==original_until);
+   uint64_t at=now_us+1000000,ns=UINT64_C(10000000000)+at*1000;uint32_t seq=role.rx.highest_sequence+1;
+   struct rc8_packet beacon={.sequence=seq,.root=scope.root,.source_epoch=scope.source_epoch,.scale=scope.scale,.kind=scope.kind};
+   uint8_t w[80];assert(!rc8_context_id(beacon.context,&scope,&test_group));assert(!rc8_encode(w,&beacon,&test_group));packet(w,80,at);
+   beacon.sequence++;beacon.corrected=true;beacon.correction=(struct rc8_correction){.sequence=seq,.event_ns=ns,.expires_ns=ns+1000000000,.map_generation=1};
+   assert(!rc8_encode(w,&beacon,&test_group));packet(w,80,at+4000000);
+   assert(role.rx.sample.valid&&probe.cal_until==original_until&&probe.completed==1);r2_lora_view(&v);assert(v.utc_us&&v.choice==RC8_SELECT_LORA);
+   scope.root=4;scope.root_boot=45;scope.source_epoch=6;beacon.sequence++;beacon.root=4;beacon.source_epoch=6;beacon.corrected=false;beacon.correction=(struct rc8_correction){0};
+   assert(!rc8_context_id(beacon.context,&scope,&test_group));assert(!rc8_encode(w,&beacon,&test_group));packet(w,80,now_us+1000);assert(!probe.cal_until);
+  }
+  if(mode==21){role.rx.sample.rx.capture_epoch++;step();assert(!probe.cal_until);}
+
  }else if(mode==9){
   uint32_t d;assert(rc8_rtt_delay(16000320,0,1000000000,&d)&&d==10000);
   assert(rc8_rtt_delay(16000000,10000,999990000,&d)&&d==10000);

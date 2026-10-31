@@ -32,9 +32,10 @@ The following references retain their own version/evidence boundaries:
 - [GD2 diagnostics](gm_diagnostics_v2/README.md): the 23 October
   T096 0.15.168/CoreS3-SE descriptive report and bounded observations.
   It grants no timing authority; current GM7 ROLE/GNSS use their selected codec.
-- [RC8 LoRa wire 3](rc8/README.md): separate configured functional fallback
-  with unknown uncertainty/freshness and its own authority rules.
-  [Wire 2](rc8/wire2-historical.md) remains historical, not a deployed-service claim.
+- [RC8 LoRa](rc8/README.md): timing/name wire 3, breaking coarse TZ wire 4
+  and optional P4 RTT, with separate local-watch authority and unknown UTC bounds.
+  [Wire 3](rc8/wire3-historical.md) and [wire 2](rc8/wire2-historical.md)
+  preserve their historical contracts.
 - [v12-to-R2 background](../docs/V12_TO_R2.md) and
   [October 2 proposal](../papers/ptob-proposal.pdf): historical architecture and
   protocol editions, not current wire bindings.

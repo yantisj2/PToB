@@ -2,9 +2,10 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
-Current implementation: **T096 0.15.209**, with [W12 0.2.21+ and N30 0.2.37+
-receiver ports](esp32-time-zones.md). The [versioned wire contract](../protocol/time-zone-v1/README.md)
-defines exact coarse layouts, authentication and synthetic fixtures. Full hardware
+Current implementation: **T096 0.15.218**, with [W12 0.2.21+ and N30 0.2.37+
+BLE receiver ports](esp32-time-zones.md). The [BLE wire contract](../protocol/time-zone-v1/README.md)
+and [T096 LoRa contract](../protocol/rc8/README.md) define their separate coarse
+layouts, authentication and synthetic fixtures. Full hardware
 certification remains open; implementation, installation and qualification are
 separate. [Current T096 results](t096/auto-time-zone-plan.md#four-device-follow-up--29-october-2026)
 retain passed direct checks, failed relay availability and untested handover/DST gates.
@@ -72,8 +73,8 @@ unavailable. A TZ edit does not create a new mesh/source epoch or precision fit.
 T096 and the W12/N30 ports apply the received offset to digital/analog clocks
 and their supported savers. Chicago `(2,-300)` displays CDT; `(2,-360)` displays
 CST. Other supported regions use their declared label or `LOC`; unknown/expired
-metadata returns to UTC. Labels are presentation only. LoRa/RC9 fallback does
-not borrow BLE mesh TZ.
+metadata returns to UTC. Labels are presentation only. T096 LoRa uses its own
+authenticated selected-source TZ lease described below. RC9 does not borrow it.
 
 Receivers change offset on fresh reception, including at a DST boundary. There
 is no simultaneous scheduled display transition. Repeated/skipped local hours
@@ -81,7 +82,25 @@ never replace UTC event identity. Every participating T096 needs .209 or newer
 for coarse updates after timing synchronization; a GM update alone cannot add
 that receive lifecycle to older receivers.
 
-## Ordering and presence leases
+## T096 LoRa companion
+
+Breaking coarse wire 4 carries the same four-byte pair at bytes 108–111,
+replacing the old OTA loss counters. Timing/name wire 3 and precision context
+identity are unchanged. There is no compatibility decoder; other client ports
+remain deferred.
+
+The configured LoRa source publishes only its current root/boot/epoch pair.
+The receiver accepts an ordered companion for its selected authenticated
+context, with an original 240s lease. Nominal updates are 120s apart; changed
+metadata is coalesced for at least 2s. Timing and pending RTT work take priority.
+Beacons, names, probes and polling cannot renew the TZ lease; a context change
+clears it. A valid TZ pair grants no time or GM authority.
+
+When LoRa supplies local watch time, GM and RC profiles apply this leased pair
+to digital/analog presentation. Fresh BLE takes preference. LoRa does not grant
+serving, election, relay, precision-source or USB timing authority.
+
+## BLE ordering and presence leases
 
 An RC learns the pair only from its selected authenticated parent and forwards
 it unchanged in coarse capability/admission records. Direct updates require
