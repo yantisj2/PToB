@@ -1,5 +1,29 @@
 # T096 changelog
 
+## 0.15.213 — Preserve LoRa corrections and show the estimate dial
+
+Preserve the original causal map projection of an already captured physical
+TX edge before rapid source-map turnover can evict its formula. The provisional
+projection becomes a correction only after the ordinary radio worker verifies
+TxDone with the exact generation, capture epoch and tick in the same stream.
+This also covers preemption before the transmit call returns. Source withdrawal,
+context changes, shortened original limits, launch failure and closure retire
+the provisional result. Newer formulas never map an earlier event.
+
+A current authenticated LoRa UTC estimate can show the analog dial without BLE
+or PLL qualification. The source remains visibly **LoRa**, with **ESTIMATE** and
+**ACC --**; the clock and saver suppress PPS/BLE/GM authority indications. A real
+expiry displays **LoRa WAIT** and withdraws the time/dial. The original 12-second
+hold, four-second transmission cadence, BLE preference, sole configured
+transmitter and all source/election/USB permissions remain unchanged. Menu holds
+remain two seconds and idle timeout five seconds.
+
+Production-body sanitizer regressions cover delayed map eviction, preempted
+launch retirement, exact-event mismatches, original-limit shortening, withdrawal,
+fault/stop fences, 180 seconds of synthetic display continuity and the exact
+expiry boundary. These are host tests and rendered fixtures, not hardware
+acceptance or independently measured UTC accuracy.
+
 ## 0.15.212 — Park BLE without restarting GM; two-second menu holds
 
 BLE RX OFF now drains and parks the active BLE owner in both profiles. The

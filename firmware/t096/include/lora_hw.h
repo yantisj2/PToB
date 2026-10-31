@@ -43,6 +43,11 @@ uint32_t r2_lora_hw_budget_us(size_t);
 int r2_lora_hw_tx_before(const uint8_t *,size_t,uint32_t,uint64_t latest_finish_us);
 /* 0=no complete packet, 1=immutable event, negative=local radio fault. */
 int r2_lora_hw_take(struct r2_lora_hw_event *);
+/* Read-only physical edge, not a DONE/cause claim. A source publisher may
+ * preserve its original map projection before turnover; only take() can
+ * subsequently validate the radio cause. No SPI, IRQ clear or rearm. */
+struct r2_lora_hw_edge {uint64_t tick,capture_epoch;uint32_t generation;};
+bool r2_lora_hw_tx_edge(struct r2_lora_hw_edge *);
 int r2_lora_hw_rx_rearm(void);
 /* Bounded, no wait/SPI, cancellation fence; immediately reset + inhibit FEM.
  * The worker must still poll actual retirement before declaring closure. */

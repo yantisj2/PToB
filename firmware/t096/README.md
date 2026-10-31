@@ -77,6 +77,12 @@ mesh participation can suppress passive LoRa RX. Fallback has unknown total
 uncertainty and grants no RC7 timing or GM takeover authority. See the
 [LoRa contract](../../protocol/rc8/README.md).
 
+A current LoRa UTC estimate can drive the digital and analog watch, including
+while BLE is parked. The watch labels this source **LoRa**, **ESTIMATE** and
+**ACC --**; its dial does not indicate BLE/PLL lock or measured accuracy. Time
+and the dial withdraw at the original **12-second** physical-event hold limit,
+or when reception is disabled or faulted. The LoRa clock uses UTC.
+
 ## Button controls
 
 | Action | Result |

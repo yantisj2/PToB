@@ -709,6 +709,29 @@ int r2_lora_hw_tx_before(const uint8_t *bytes, size_t n, uint32_t gen,
 int r2_lora_hw_tx(const uint8_t *bytes, size_t n, uint32_t gen) {
   return r2_lora_hw_tx_before(bytes, n, gen, 0);
 }
+bool r2_lora_hw_tx_edge(struct r2_lora_hw_edge *out) {
+  if (!out) return false;
+  *out = (struct r2_lora_hw_edge){0};
+  unsigned key = irq_lock();
+  unsigned state = (unsigned)atomic_get(&phase);
+  bool valid = atomic_get(&running) && !atomic_get(&fault) &&
+      capture_owned && !receive_mode && (state == 3 || state == 4);
+  struct r2_capture captured = {0};
+  uint32_t captured_generation = generation;
+  if (valid && atomic_get(&latched)) {
+    captured = edge;
+    captured_generation = edge_generation;
+  } else if (valid) {
+    /* PPI has already frozen the physical edge even if its GPIO callback is
+     * pending behind this publisher. Do not latch/classify it here. */
+    valid = gpio_pin_get_dt(&dio) > 0 && r2_capture_lora(&captured);
+  }
+  valid = valid && captured.tick && captured.epoch == active_epoch;
+  if (valid) *out = (struct r2_lora_hw_edge){captured.tick,
+      captured.epoch, captured_generation};
+  irq_unlock(key);
+  return valid;
+}
 int r2_lora_hw_take(struct r2_lora_hw_event *out) {
   if (atomic_get(&fault))
     return atomic_get(&fault);

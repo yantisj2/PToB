@@ -202,7 +202,28 @@ int main(int argc,char **argv){
   closed();assert(wd.closure==31);return 0;}
  if(mode==59){fail_cs_config=true;assert(r2_lora_hw_start(4,false)==-EIO);assert(!submissions&&!route&&!pins[12]);closed();return 0;}
  bool tx_mode=mode==3||mode==11||mode==14||mode==15||mode==16||mode==17||mode==19||mode==20||mode==21||mode==22||mode==23||mode==24||mode==25||mode==27||mode==28||mode==29||mode==30||mode==31||mode==32||mode==33||mode>=34;
- assert(!r2_lora_hw_start(4,!tx_mode));
+ assert(!r2_lora_hw_start(4,mode>=65?false:!tx_mode));
+ if(mode>=65&&mode<=72){
+  struct r2_lora_hw_edge peek;
+  assert(!r2_lora_hw_tx_edge(&peek)&&!peek.tick);
+  assert(!r2_lora_hw_tx(payload,80,5));unsigned before=submissions;
+  if(mode==65)inject(1);
+  if(mode==66||mode==68||mode==71||mode==72)pins[21]=1;
+  if(mode==68)invalid_capture=true;
+  if(mode==69)receive_mode=true;
+  if(mode==70)r2_lora_hw_stop_begin(mock_us+200000);
+  if(mode==71)active_epoch++;
+  if(mode==72)atomic_set(&phase,4);
+  bool expected=mode==65||mode==66||mode==72;
+  assert(r2_lora_hw_tx_edge(&peek)==expected&&submissions==before);
+  if(expected)assert(peek.tick==physical_tick&&peek.capture_epoch==7&&peek.generation==5);
+  else assert(!peek.tick&&!peek.capture_epoch&&!peek.generation);
+  /* The provisional reader never clears/latches IRQ, changes phase or
+   * increments TxDone. Only the existing status worker classifies cause. */
+  assert(!counters.tx_done&&(atomic_get(&latched)!=0)==(mode==65));
+  if(mode==65){struct r2_lora_hw_event event;assert(r2_lora_hw_take(&event)==1&&event.tick==peek.tick&&event.capture_epoch==peek.capture_epoch&&event.generation==peek.generation);assert(!r2_lora_hw_tx_edge(&peek));}
+  r2_lora_hw_stop_begin(mock_us+200000);closed();return 0;
+ }
  if(mode>=51&&mode<=64){
   size_t n=mode==52||mode==54?128:80;
   if(mode==51||mode==52){

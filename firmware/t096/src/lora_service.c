@@ -38,8 +38,10 @@ static uint32_t generation;
 struct tx_state {
  struct rc8_export maps[2];
  struct rc8_correction previous;
+ struct rc8_correction captured;
+ struct r2_lora_hw_edge captured_edge;
  uint64_t stream,next_us,meta_us,pending_stream,repeat_us,diag_not_before,parent_seen_us;
- uint32_t sequence,pending_sequence;uint16_t repeat_events;
+ uint32_t sequence,pending_sequence,pending_generation;uint16_t repeat_events;
  bool pending,metadata,previous_valid;
 };
 static union {struct tx_state tx;struct rc8_receiver rx;} role;
@@ -76,6 +78,20 @@ static bool physical(const struct r2_lora_hw_event *h,struct rc8_event *e){
  .generation=h->generation,.kind=h->kind==R2_LORA_HW_TX_DONE?RC8_EVENT_TX_DONE:RC8_EVENT_RX_DONE};return true;
 }
 static bool scope_source_equal(struct rc8_scope a,struct rc8_scope b){a.stream=b.stream=1;return rc8_scope_equal(&a,&b);}
+/* Called before same-context map turnover, with the source lock held. The
+ * low-priority worker may not yet have verified the physical IRQ cause. Save
+ * only the causal formula already valid at that edge, then require the exact
+ * DONE identity in tx_done(). Newer formulas never map an earlier edge. */
+static void preserve_tx_edge(struct tx_state *t){
+ if(!t->pending||t->metadata||t->captured.sequence)return;
+ struct r2_lora_hw_edge edge;
+ if(!r2_lora_hw_tx_edge(&edge)||edge.generation!=t->pending_generation||t->pending_stream!=t->stream)return;
+ struct rc8_event event={.tick=edge.tick,.capture_epoch=edge.capture_epoch,.kind=RC8_EVENT_TX_DONE};
+ for(unsigned i=0;i<2;i++)if(t->maps[i].scope.stream==t->pending_stream&&
+    rc8_export_event(&t->captured,&t->maps[i],t->pending_sequence,event)){
+  t->captured_edge=edge;return;
+ }
+}
 bool r2_lora_source_needed(void){
  atomic_val_t f=atomic_get(&flags);
  return transmitter&&!atomic_get(&faulted)&&(f&ALLOWED)&&(f&REQUESTED)&&!(f&PROFILE_RC);
@@ -98,7 +114,7 @@ void r2_lora_source_publish(const struct rc8_export *input){
   uint16_t changed=RC8_D_SOURCE;
   if(last->scope.root!=map.scope.root||last->scope.root_boot!=map.scope.root_boot)changed|=RC8_D_ROOT;
   if(last->scope.parent!=map.scope.parent||last->scope.parent_boot!=map.scope.parent_boot)changed|=RC8_D_PARENT;
-  ++t->stream;memset(t->maps,0,sizeof t->maps);t->previous_valid=false;
+  ++t->stream;memset(t->maps,0,sizeof t->maps);t->previous_valid=false;t->captured=(struct rc8_correction){0};
   events(changed);t->repeat_us=mono()+CONTEXT_REPEAT_US;t->repeat_events=published.diagnostic_events;
   published.event=(struct rc8_event){0};published.correction=(struct rc8_correction){0};published.corrected_sequence=published.wire_corrected_sequence=0;
   memset(published.context,0,sizeof published.context);
@@ -110,9 +126,12 @@ void r2_lora_source_publish(const struct rc8_export *input){
   /* Repeated owner snapshots cannot renew original timing/authority expiry. */
   if(map.until_tick<last->until_tick)last->until_tick=map.until_tick;
   if(map.expires_ns<last->expires_ns)last->expires_ns=map.expires_ns;
+  if(t->captured.sequence&&t->captured.map_generation==last->map_generation&&
+    (t->captured_edge.tick>=last->until_tick||t->captured.event_ns>=last->expires_ns))t->captured=(struct rc8_correction){0};
  }else{
   /* The locked physical capture is the map publication linearization point.
    * Its original formula already exists; it cannot map an earlier event. */
+  preserve_tx_edge(t);
   struct r2_capture commit;
   if(!r2_capture_now(&commit)||commit.epoch!=map.capture_epoch||commit.tick<map.from_tick||commit.tick>=map.until_tick||
    (commit.tick-map.from_tick)/16>UINT32_MAX-map.map_age_us){
@@ -136,7 +155,7 @@ void r2_lora_source_withdraw(void){
  if(!transmitter||!(atomic_and(&flags,~SOURCE_PRESENT)&SOURCE_PRESENT))return;
  struct r2_capture now;bool valid=r2_capture_now(&now);
  k_spinlock_key_t key=k_spin_lock(&lock);
- role.tx.previous_valid=false;published.time_valid=false;events(RC8_D_LOSS);
+ role.tx.previous_valid=false;role.tx.captured=(struct rc8_correction){0};published.time_valid=false;events(RC8_D_LOSS);
  published.quality.known&=(uint16_t)~(RC8_Q_RATE|RC8_Q_RESIDUAL|RC8_Q_CORRECTION_AGE);
  published.quality.known|=RC8_Q_LOCK|RC8_Q_MAP_LIFE;published.quality.values&=(uint16_t)~RC8_Q_LOCK;published.quality.map_life_ms=0;published.diagnostic_us=mono();
  if(published.quality.losses<255)++published.quality.losses;
@@ -309,12 +328,18 @@ static void __attribute__((noinline)) report(uint64_t now,bool active){
 }
 static void __attribute__((noinline)) tx_done(const struct r2_lora_hw_event *h,struct rc8_event e){
  struct tx_state *t=&role.tx;
- if(!t->pending||h->generation!=generation)return;
- t->pending=false;
- if(t->metadata)return;
- struct rc8_export map;struct rc8_correction c;
- bool valid=current_map(&map,e.tick,e.capture_epoch,t->pending_stream)&&rc8_export_event(&c,&map,t->pending_sequence,e);
  k_spinlock_key_t key=k_spin_lock(&lock);
+ if(!t->pending||h->generation!=generation){t->captured=(struct rc8_correction){0};k_spin_unlock(&lock,key);return;}
+ t->pending=false;
+ if(t->metadata){k_spin_unlock(&lock,key);return;}
+ struct rc8_export map;struct rc8_correction c;
+ bool valid=t->captured.sequence==t->pending_sequence&&t->pending_stream==t->stream&&
+  t->captured_edge.tick==e.tick&&t->captured_edge.capture_epoch==e.capture_epoch&&
+  t->captured_edge.generation==e.generation;
+ if(valid){c=t->captured;map.scope=published.scope;}
+ if(!valid)for(unsigned i=0;i<2;i++)if(t->maps[i].scope.stream==t->pending_stream&&
+    rc8_export_event(&c,&t->maps[i],t->pending_sequence,e)){map.scope=t->maps[i].scope;valid=true;break;}
+ t->captured=(struct rc8_correction){0};
  t->previous_valid=valid;
  if(valid){t->previous=c;published.scope=map.scope;published.event=e;published.correction=c;published.corrected_sequence=c.sequence;inc(&published.accepted);}
  else inc(&published.missing_map);
@@ -383,7 +408,15 @@ static int __attribute__((noinline)) transmit(uint64_t now){
  if(metadata&&(now>deadline||budget>deadline-now))return 0;
  if(!metadata){uint64_t stream=map.scope.stream;if(!r2_capture_now(&capture)||!current_map(&map,capture.tick,capture.epoch,stream))return 0;}
  uint32_t next_generation=generation+1;
+ /* Publish the proposed immutable identity before entering the preemptible
+  * driver. A physical edge may arrive before SetTx's worker returns. This is
+  * provisional only: errors clear it, and acceptance still requires take(). */
+ key=k_spin_lock(&lock);
+ t->pending=true;t->metadata=metadata;t->pending_generation=next_generation;
+ if(!metadata){t->captured=(struct rc8_correction){0};t->pending_stream=map.scope.stream;t->pending_sequence=sequence+1;}
+ k_spin_unlock(&lock,key);
  int result=r2_lora_hw_tx_before(wire,length,next_generation,metadata?deadline:UINT64_MAX);
+ if(result){key=k_spin_lock(&lock);t->pending=false;t->captured=(struct rc8_correction){0};k_spin_unlock(&lock,key);}
  if(result==-EAGAIN&&metadata)return 0;
  if(result==-EINTR){
   /* The reset-aborted command MAY have emitted this frame. Consume its
@@ -391,7 +424,7 @@ static int __attribute__((noinline)) transmit(uint64_t now){
    * Close/retire below before restarting; event bits still need delivery. */
   generation=next_generation;now=mono();
   key=k_spin_lock(&lock);
-  t->pending=t->previous_valid=false;t->pending_stream=0;t->pending_sequence=0;
+  t->pending=t->previous_valid=false;t->pending_stream=0;t->pending_sequence=0;t->captured=(struct rc8_correction){0};
   t->diag_not_before=now+DIAGNOSTIC_MIN_US;
   if(metadata)published.diagnostic_sequence=diag_sequence;
   else{t->sequence=sequence+1;published.sequence=t->sequence;
@@ -444,7 +477,7 @@ static void __attribute__((noinline)) process_event(uint64_t now){
      }
     }
    }else if(transmitter){
-    role.tx.pending=role.tx.previous_valid=false;k_spinlock_key_t key=k_spin_lock(&lock);inc(&published.missing_map);k_spin_unlock(&lock,key);
+    role.tx.pending=role.tx.previous_valid=false;k_spinlock_key_t key=k_spin_lock(&lock);role.tx.captured=(struct rc8_correction){0};inc(&published.missing_map);k_spin_unlock(&lock,key);
    }else inc(&role.rx.rejected);
    if(!transmitter&&h.kind==R2_LORA_HW_RX_DONE){int rc=r2_lora_hw_rx_rearm();if(rc)begin_stop(rc);}
   }
@@ -464,7 +497,7 @@ static void __attribute__((noinline)) service_step(void){
   if(ack.dma_retired&&ack.radio_quiescent&&ack.fem_off&&ack.capture_released){
    owner.active=owner.stopping=false;atomic_set(&closed,1);
    key=k_spin_lock(&lock);stop_deadline=0;
-   if(transmitter){role.tx.pending=role.tx.previous_valid=false;role.tx.meta_us=0;role.tx.repeat_us=0;role.tx.repeat_events=0;}
+   if(transmitter){role.tx.pending=role.tx.previous_valid=false;role.tx.captured=(struct rc8_correction){0};role.tx.meta_us=0;role.tx.repeat_us=0;role.tx.repeat_events=0;}
    k_spin_unlock(&lock,key);
    k_thread_priority_set(&worker_thread,WORKER_PRIORITY);
   }

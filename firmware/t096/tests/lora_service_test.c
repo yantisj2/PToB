@@ -50,15 +50,19 @@ static unsigned starts,txs,rearms,stops;static bool have_event,capture_valid=tru
 static bool late_diagnostic,quality_during_spi,quality_on_capture,change_during_spi,withdraw_on_capture,abort_tx;static unsigned capture_calls;
 static void spi_quality_update(void);
 static void spi_context_update(void);
+static void spi_turnover(void);
+static bool turnover_during_tx;
 static int start_result,take_result;static struct r2_lora_hw_event queued;
+static bool hide_tx_edge;
 static uint32_t fake_launch_aborts;static uint16_t fake_busy_aborts;static uint8_t fake_last_busy_op;
 static uint8_t sent[128];static size_t sent_len;static uint32_t sent_generation;
 bool r2_capture_now(struct r2_capture *c){if(quality_on_capture){quality_on_capture=false;spi_quality_update();}if(withdraw_on_capture&&++capture_calls==2){withdraw_on_capture=false;r2_lora_source_withdraw();}*c=(struct r2_capture){now_us*16,7,R2_CAPTURE_NOW};return capture_valid;}
 bool r2_capture_now_at(struct r2_capture *c,uint64_t *us){*us=now_us;return r2_capture_now(c);}
 int r2_lora_hw_start(uint32_t g,bool receive){(void)g;(void)receive;starts++;if(cancel_start){cancel_start=false;r2_lora_request(false);return -ECANCELED;}return start_result;}
 uint32_t r2_lora_hw_budget_us(size_t n){return n==80?360000:n==128?450000:0;}
-int r2_lora_hw_tx_before(const uint8_t *p,size_t n,uint32_t g,uint64_t before){assert(before==UINT64_MAX||now_us+r2_lora_hw_budget_us(n)<=before);if(late_diagnostic&&n==128)return -EAGAIN;if(quality_during_spi&&n==128)spi_quality_update();if(change_during_spi&&n==128){change_during_spi=false;spi_context_update();}txs++;sent_len=n;memcpy(sent,p,n);sent_generation=g;if(abort_tx){abort_tx=false;return -EINTR;}if(cancel_tx){cancel_tx=false;r2_lora_request(false);return -ECANCELED;}return 0;}
+int r2_lora_hw_tx_before(const uint8_t *p,size_t n,uint32_t g,uint64_t before){assert(before==UINT64_MAX||now_us+r2_lora_hw_budget_us(n)<=before);if(late_diagnostic&&n==128)return -EAGAIN;if(quality_during_spi&&n==128)spi_quality_update();if(change_during_spi&&n==128){change_during_spi=false;spi_context_update();}txs++;sent_len=n;memcpy(sent,p,n);sent_generation=g;if(turnover_during_tx){turnover_during_tx=false;spi_turnover();}if(abort_tx){abort_tx=false;return -EINTR;}if(cancel_tx){cancel_tx=false;r2_lora_request(false);return -ECANCELED;}return 0;}
 int r2_lora_hw_take(struct r2_lora_hw_event *e){if(cancel_take){cancel_take=false;r2_lora_request(false);return -ECANCELED;}if(take_result)return take_result;if(!have_event)return 0;*e=queued;have_event=false;return 1;}
+bool r2_lora_hw_tx_edge(struct r2_lora_hw_edge *e){if(hide_tx_edge||!have_event||queued.kind!=R2_LORA_HW_TX_DONE)return false;*e=(struct r2_lora_hw_edge){queued.tick,queued.capture_epoch,queued.generation};return true;}
 int r2_lora_hw_rx_rearm(void){rearms++;return 0;}
 void r2_lora_hw_stop_begin(uint64_t deadline){assert(deadline>0);stops++;}
 void r2_lora_hw_stop_poll(struct r2_lora_hw_ack *a){*a=(struct r2_lora_hw_ack){!hold_ack,true,true,true,false};}
@@ -71,6 +75,20 @@ static void init(bool tx){r2_lora_init(tx?1:2,22,1,&test_group);r2_lora_control(
 static void done(void){queued=(struct r2_lora_hw_event){.tick=now_us*16,.capture_epoch=7,.generation=sent_generation,.kind=R2_LORA_HW_TX_DONE};have_event=true;step();}
 static struct rc8_export source(uint64_t from,uint64_t gen){return(struct rc8_export){.scope={.emitter=1,.emitter_boot=22,.stream=1,.root=3,.root_boot=44,.source_epoch=5,.scale=RC8_UTC,.kind=RC8_SELECTED_BLE},.from_tick=from,.until_tick=from+24000000,.anchor_tick=from,.anchor_ns=10000000000ULL+from*125/2,.capture_epoch=7,.created_ns=0,.expires_ns=100000000000ULL,.map_generation=(uint32_t)gen,.upstream_bound_ns=RC8_UNKNOWN,.authenticated=true,.valid=true};}
 static void spi_context_update(void){now_us+=2000;struct rc8_export a=source(now_us*16,2);a.scope.root=4;r2_lora_source_publish(&a);}
+static void spi_turnover(void){
+ now_us+=200000;queued=(struct r2_lora_hw_event){.tick=now_us*16,.capture_epoch=7,.generation=sent_generation,.kind=R2_LORA_HW_TX_DONE};have_event=true;
+ for(unsigned i=2;i<9;i++){now_us+=50000;struct rc8_export b=source(now_us*16,i);r2_lora_source_publish(&b);}
+ assert(role.tx.captured.sequence==1&&role.tx.captured.map_generation==1&&!published.accepted);
+}
+static struct rc8_export delayed_tx(bool evict){
+ init(true);struct rc8_export a=source(now_us*16,1);r2_lora_source_publish(&a);step();step();assert(sent_len==80);
+ now_us+=200000;queued=(struct r2_lora_hw_event){.tick=now_us*16,.capture_epoch=7,.generation=sent_generation,.kind=R2_LORA_HW_TX_DONE};have_event=true;
+ if(!evict){preserve_tx_edge(&role.tx);assert(role.tx.captured.sequence==1);return a;}
+ now_us+=50000;struct rc8_export b=source(now_us*16,2);r2_lora_source_publish(&b);
+ if(!hide_tx_edge)assert(role.tx.captured.sequence==1&&role.tx.captured.map_generation==1);
+ if(evict)for(unsigned i=3;i<9;i++){now_us+=50000;b=source(now_us*16,i);r2_lora_source_publish(&b);}
+ assert(!published.accepted&&!published.corrected_sequence);return a;
+}
 static void packet(const uint8_t *wire,size_t n,uint64_t at){now_us=at;queued=(struct r2_lora_hw_event){.tick=at*16,.capture_epoch=7,.local_us=at+700,.generation=generation,.kind=R2_LORA_HW_RX_DONE,.length=(uint8_t)n};memcpy(queued.frame,wire,n);have_event=true;step();}
 static struct rc8_scope coordination_acquire(void){
  init(false);step();uint8_t wire[128];
@@ -380,6 +398,39 @@ int main(int argc,char **argv){assert(argc==2);unsigned mode=(unsigned)atoi(argv
   r2_lora_control(false,true,false);step();
   assert((atomic_get(&flags)&REQUESTED)&&stop_deadline==deadline&&owner.stopping&&starts==1);
   hold_ack=false;step();step();assert(!owner.active&&starts==1&&atomic_get(&faulted));
+ }
+ else if(mode>=72&&mode<=84){
+  hide_tx_edge=mode==73;struct rc8_export original=delayed_tx(mode!=79&&mode!=80);
+  if(mode==74)queued.capture_epoch++;
+  if(mode==75)queued.tick--;
+  if(mode==76)queued.generation++;
+  if(mode==77){struct rc8_export changed=source(now_us*16,9);changed.scope.root_boot++;r2_lora_source_publish(&changed);}
+  if(mode==78){r2_lora_source_withdraw();struct rc8_export recovered=source(now_us*16,9);r2_lora_source_publish(&recovered);}
+  if(mode==79||mode==80){
+   /* Shorten the original formula before validation of its saved edge. */
+   if(mode==79)original.until_tick=queued.tick;else original.expires_ns=role.tx.captured.event_ns;
+   r2_lora_source_publish(&original);assert(!role.tx.captured.sequence);
+  }
+  if(mode==81)now_us+=RC8_CORRECTION_US+1;
+  if(mode==82){begin_stop(-EIO);step();assert(!role.tx.captured.sequence&&!role.tx.previous_valid&&!published.accepted);}
+  else if(mode==83){r2_lora_request(false);step();step();assert(!role.tx.captured.sequence&&!role.tx.previous_valid&&!published.accepted);}
+  else if(mode==84){atomic_set(&faulted,1);step();step();assert(!role.tx.captured.sequence&&!role.tx.previous_valid&&!published.accepted);}
+  else{
+   step();assert(published.accepted==(mode==72?1u:0u));
+   if(mode==72){assert(published.correction.map_generation==1&&published.event.tick==queued.tick&&!published.missing_map);assert(published.correction.expires_ns==original.expires_ns);}
+   if(mode!=76)assert(!role.tx.captured.sequence);
+  }
+ }
+ else if(mode==85||mode==86){
+  init(true);struct rc8_export original=source(now_us*16,1);r2_lora_source_publish(&original);step();
+  turnover_during_tx=true;abort_tx=mode==86;step();
+  if(mode==86){assert(!role.tx.captured.sequence&&!role.tx.pending&&!published.accepted&&owner.stopping);step();assert(!role.tx.previous_valid);}
+  else{
+   assert(role.tx.captured.sequence==1&&!published.accepted);step();
+   assert(published.accepted==1&&published.correction.map_generation==1&&!published.missing_map);
+   done();now_us=role.tx.next_us;struct rc8_export latest=source(now_us*16,9);r2_lora_source_publish(&latest);step();
+   struct rc8_packet packet;assert(!rc8_decode(&packet,sent,sent_len,&test_group)&&packet.corrected&&packet.correction.sequence==1&&packet.correction.map_generation==1);
+  }
  }
  else assert(false);
  char json[3072];int n=r2_lora_json(json,sizeof json-96,0);assert(n>0&&n<(int)sizeof json-96);printf("PASS runtime mode%u role=%zu snapshot=%zu worker=%zu json=%d\nJSON %s\n",mode,sizeof role,sizeof published,sizeof worker_stack,n,json);
