@@ -12,7 +12,7 @@ static struct rc8_scope ready_client(void){
     .expires_ns=UINT64_C(9000000000)+(i-2)*UINT64_C(4000000000)+1000000000,.map_generation=i}};
   uint8_t w[80];assert(!rc8_context_id(p.context,&s,&test_group));assert(!rc8_encode(w,&p,&test_group));packet(w,80,1200000+(i-1)*4000000);
  }
- assert(role.rx.fit.result_n>=4&&probe_client_ready(now_us));probe.next_us=0;return s;
+ assert(role.rx.fit.result_n>=4&&probe_client_ready(now_us)&&probe.next_us<=now_us);return s;
 }
 static struct rc8_probe_packet request(void){
  (void)ready_client();struct rc8_probe_packet offer={.kind=RC8_OFFER,.offer=1,.nonce=7654,.t2=role.rx.highest_sequence};memcpy(offer.context,role.rx.context,16);
@@ -136,15 +136,21 @@ int main(int argc,char **argv){
   assert(!source_tz.value.id);r2_lora_tz_publish(r2_tz_manual(),UINT64_MAX,3,44,5);assert(!source_tz.value.id);
   r2_lora_tz_publish((struct r2_tz){2,-360},UINT64_MAX,4,45,6);assert(source_tz.value.id==2&&source_tz.value.offset_min==-360);
  }else if(mode==22){
-  (void)ready_client();uint64_t at=now_us;r2_lora_rtt_lab(true);step();assert(probe_lab(now_us)&&probe.next_us==at+5000000);
+  (void)ready_client();uint64_t at=now_us;r2_lora_rtt_lab(true);step();assert(probe_lab(now_us)&&probe.next_us==at);
   uint64_t deadline=probe.lab_until;r2_lora_control(false,true,RC8_SELECT_BLE);step();assert(!probe_client_ready(now_us)&&!probe.state);
   r2_lora_request(false);step();step();now_us=deadline;step();assert(!probe.lab_until&&!probe_lab(now_us)&&!atomic_get(&faulted));
-  assert(probe.next_us==deadline+PROBE_PERIOD_US); /* Expiry works even with radio OFF. */
+  assert(probe.next_us==deadline); /* Expiry works OFF; never-armed first request remains due. */
  }else if(mode==24){
   (void)request();r2_lora_rtt_lab(true);step();now_us=probe.deadline+1;uint64_t at=now_us;step();
   assert(probe.expired==1&&!probe.state&&!atomic_get(&faulted));
   assert(probe.next_us>=at+5000000&&probe.next_us<at+15000000);
   at=now_us;r2_lora_rtt_lab(false);step();assert(!probe.lab_until&&probe.next_us==at+PROBE_PERIOD_US);
+ }else if(mode==26){
+  (void)request();assert(now_us<60000000&&probe.serial==1); /* No manual due-time override. */
+  now_us=probe.deadline+1;uint64_t at=now_us;step();
+  assert(probe.expired==1&&probe.next_us>=at+PROBE_PERIOD_US&&!atomic_get(&faulted));
+  struct rc8_probe_packet p={.kind=RC8_OFFER,.offer=2,.nonce=2,.t2=role.rx.highest_sequence};memcpy(p.context,role.rx.context,16);
+  feed_probe(&p,now_us+1000);assert(!probe.state&&!probe.tx_kind&&probe.serial==1);
  }else assert(false);
  printf("PASS optional probe mode%d; GM/RC watch only, no normal timing authority\n",mode);return 0;
 }

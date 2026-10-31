@@ -46,6 +46,12 @@ contention windows adjust the admission width conservatively. Silence,
 refusal, expired work and unmatched replies are normal outcomes, counted
 separately from real radio/transport faults. Failed clients back off60..180s.
 
+A newly online receiver has its first request due immediately after passive
+stabilization and the existing20s BLE-loss qualification. It takes the first
+admitted OFFER without an extra initial client cooldown. This does not force a
+source opportunity or bypass silence/refusal; later failures and successful
+refreshes retain their ordinary backoff and long intervals.
+
 REQUEST, RESPONSE and FOLLOW are80 bytes, authenticated in domain `PTOBR8P4`.
 Their common body is: header0..3 (`R8`,4,kind), context4..19, client factory20..27,
 client boot28..35, nonce36..43, offer token44..47, t2 at48..55, t3 at56..63,

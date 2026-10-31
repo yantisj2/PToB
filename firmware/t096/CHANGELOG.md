@@ -1,5 +1,15 @@
 # T096 changelog
 
+## 0.15.220 — first RTT due after passive stabilization
+
+A receiver's first request is immediately due, including across local owner
+startup before any request has been armed. It can take the first admitted
+source OFFER after its valid four-point rate fit and existing 20s no-BLE gate,
+without an additional initial 60s client wait. Source pacing, hash admission,
+silence/refusal, failed-attempt backoff and later successful refresh intervals
+are unchanged. Temporary lab mode also leaves this initial request due.
+This is a client policy update using the unchanged .219 source/diagnostic wire.
+
 ## 0.15.219 — temporary accelerated RTT diagnostics
 
 Boot-bound CDC `lora-rtt 01` enables a five-minute volatile lab cadence:

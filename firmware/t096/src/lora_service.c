@@ -679,16 +679,20 @@ static int __attribute__((noinline)) probe_send(uint64_t deadline){
  if(rc){probe.tx_kind=0;if(rc==-EAGAIN){if(probe.packet.kind==RC8_OFFER)probe_cancel();return 0;}}
  return rc;
 }
+static uint64_t probe_production_next(uint64_t now){
+ if(!transmitter&&!probe.serial)return now;
+ return now+(!transmitter&&now<probe.cal_until?UINT64_C(900000000)+probe_hash(physical_boot^now)%UINT64_C(900000000):PROBE_PERIOD_US);
+}
 static void probe_lab_step(uint64_t now){
  atomic_val_t command=atomic_get(&probe_lab_command);
  if(command&&atomic_cas(&probe_lab_command,command,0)){
-  if(command==2){probe.lab_until=now+PROBE_LAB_US;probe.next_us=now+PROBE_LAB_PERIOD_US;}
+  if(command==2){probe.lab_until=now+PROBE_LAB_US;probe.next_us=!transmitter&&!probe.serial?now:now+PROBE_LAB_PERIOD_US;}
   else{probe.lab_until=0;probe_cancel();
-   probe.next_us=now+(!transmitter&&now<probe.cal_until?UINT64_C(900000000)+probe_hash(physical_boot^now)%UINT64_C(900000000):PROBE_PERIOD_US);}
+   probe.next_us=probe_production_next(now);}
  }
  if(probe.lab_until&&now>=probe.lab_until){
   probe.lab_until=0;probe_cancel();
-  probe.next_us=now+(!transmitter&&now<probe.cal_until?UINT64_C(900000000)+probe_hash(physical_boot^now)%UINT64_C(900000000):PROBE_PERIOD_US);
+  probe.next_us=probe_production_next(now);
  }
 }
 static int __attribute__((noinline)) probe_step(uint64_t now){
@@ -750,7 +754,7 @@ static bool cancelled(void){
 }
 static void begin_stop(int error){
  probe_cancel();probe.tx_kind=0;probe.listening=false;probe.cal_until=0;
- if(!transmitter)probe.next_us=mono()+probe_period(mono());
+ if(!transmitter)probe.next_us=probe.serial?mono()+probe_period(mono()):0;
  if(error&&!(error==-ECANCELED&&cancelled()))atomic_set(&faulted,1);
  stop_now();owner.stopping=true;
  if(!transmitter)rc8_receiver_switch(&role.rx,false);
@@ -870,7 +874,7 @@ void r2_lora_init(uint64_t factory,uint64_t boot,uint64_t tx,const struct r2_gro
  memset(&r2_diag_scratch.lora.origin,0,sizeof r2_diag_scratch.lora.origin);
  binding=(struct rc8_enrollment){.factory=factory,.transmitter_factory=tx,.enrolled=factory&&boot&&g&&g->id};
  physical_boot=boot;group=g;transmitter=rc8_is_transmitter(&binding);
- memset(&probe,0,sizeof probe);atomic_set(&probe_lab_command,0);probe.next_us=mono()+PROBE_PERIOD_US;
+ memset(&probe,0,sizeof probe);atomic_set(&probe_lab_command,0);probe.next_us=transmitter?mono()+PROBE_PERIOD_US:0;
  source_tz=(struct r2_tz_lease){.value=r2_tz_unknown()};
  display_accept_floor=0;memset(own_name,0,sizeof own_name);memset(&sender_name,0,sizeof sender_name);
  published.diagnostic_events=RC8_D_BOOT;published.event_revision=1;

@@ -2,7 +2,7 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
-Current implementation: **T096 0.15.219**, with [W12 0.2.21+ and N30 0.2.37+
+Current implementation: **T096 0.15.220**, with [W12 0.2.21+ and N30 0.2.37+
 BLE receiver ports](esp32-time-zones.md). The [BLE wire contract](../protocol/time-zone-v1/README.md)
 and [T096 LoRa contract](../protocol/rc8/README.md) define their separate coarse
 layouts, authentication and synthetic fixtures. Full hardware
