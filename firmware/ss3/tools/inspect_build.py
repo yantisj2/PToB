@@ -8,7 +8,7 @@ from build import sha,validate_inputs
 
 def inspect(out,allow_development=False):
  out=Path(out).resolve();r=json.loads((out/'receipt.json').read_text())
- if r.get('artifact_class')!='PTOB_SS3_RC' or r.get('profile')!='RC' or r.get('version') not in ('0.1.1','0.1.2','0.1.3','0.1.4','0.1.5','0.1.6'):raise ValueError('Wrong artifact class/profile/version')
+ if r.get('artifact_class')!='PTOB_SS3_RC' or r.get('profile')!='RC' or r.get('version') not in ('0.1.1','0.1.2','0.1.3','0.1.4','0.1.5','0.1.6','0.1.7'):raise ValueError('Wrong artifact class/profile/version')
  if not re.fullmatch('[0-9a-f]{40}',r.get('public_commit','')):raise ValueError('Exact source commit missing')
  if not 0<r.get('application_bytes',0)<=1048576 or r.get('listening_percent') != 100 or r.get('estimated_relay') is not True:raise ValueError('Profile or application bounds changed')
  source_hash=hashlib.sha256(json.dumps(r['sources'],sort_keys=True,separators=(',',':')).encode()).hexdigest()
@@ -31,6 +31,10 @@ def inspect(out,allow_development=False):
  if binding!=identity['build_id'] or identity!=r['runtime_identity']:raise ValueError('Runtime identity does not bind actual retained configuration/headers')
  if sha(out/r['application'])!=r['application_sha256'] or (out/r['application']).stat().st_size!=r['application_bytes']:raise ValueError('Application identity mismatch')
  compiled=json.loads((target/'compile_commands.json').read_text());snapshot={}
+ if r['version']=='0.1.7':
+  for suffix in ('native_g1.cpp','gm7/gm7_codec.c','r2/r2-g1/group_join.c','r2/rc7/protocol/rc_dynamic.c'):
+   rows=[q for q in compiled if q['file'].endswith('/'+suffix)]
+   if len(rows)!=1 or any(flag not in rows[0]['command'].split() for flag in ('-DR2_TZ_WIRE=1','-DPTOB_SS3_SERVO=1')):raise ValueError('Current wire/servo selection absent: '+suffix)
  for row in compiled:
   file=Path(row['file']).resolve()
   if file.is_relative_to(Path(r['sdk_path'])):snapshot['sdk/'+str(file.relative_to(Path(r['sdk_path'])))]=sha(file)

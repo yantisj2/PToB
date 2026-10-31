@@ -1,12 +1,13 @@
-# W12 and N30 coarse time zones
+# ESP32 receiver coarse time zones
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
 W12 0.2.21 and N30 0.2.37 select the same [coarse TZ wire](../protocol/time-zone-v1/README.md)
 as T096 0.15.206: GM7 revision 4, direct JOIN revision 5, and RC capability/control
 revision 8. Earlier coarse revisions are rejected by this profile. G1/GR3/RC7
-precision payloads are unchanged. Other derived targets retain their selected
-profile; this port does not update SS3, CoreSE, macOS or T096.
+precision payloads are unchanged. SS3 selects this wire profile too, with a
+separate passive diagnostic TZ view.
+Its existing capture hardware and precision limits remain target-specific.
 
 Only a freshly authenticated selected parent supplies the current atomic pair.
 Direct ANN updates require the admitted root/boot/epoch/train, increasing GM
@@ -64,3 +65,13 @@ and conflict counts inside its existing alternate CRC frame; normal status rows
 and byte limits are unchanged. Hardware installation and bounded observations
 need exact-device identity, ownership, recovery, original application drain,
 app-only bounds, actual application readback and protected-prefix/tail comparison.
+
+## SS3 passive diagnostics
+
+The Time Zone page observes current signed GM7 announcements without timing
+admission. It exposes the region ID, signed offset, original 750 ms metadata
+lease and accepted/rejected report counts. Unknown or expired metadata is explicit.
+Epoch UTC projection has its separate original 2.75 s horizon; neither display
+projection grants RC timing permission. In RC mode only the freshly authenticated
+selected parent supplies local clock metadata, with the same ordering and expiry
+policy described above.

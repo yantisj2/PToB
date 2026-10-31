@@ -40,9 +40,10 @@ Start with the target matching your hardware:
 For T096 GMs, follow the **[current GM7 guide](docs/t096/gm7-implementation.md)**
 for ACTIVE/HOT/COLD behavior and compatibility. T096 supports
 [location-based time zones and automatic DST](docs/t096/auto-time-zone-plan.md);
-W12, N30 and CoreS3-SE follow fresh GM metadata for their local clock displays.
-StickS3 retains an earlier coarse-wire profile: check each target's guide before
-pairing images. Passing direct-path windows and failed relay availability remain
+W12, N30, StickS3 and CoreS3-SE follow fresh GM metadata for their local clock displays.
+StickS3 also exposes signed TZ metadata in passive diagnostics. Check each
+target's guide before pairing images. Passing direct-path windows and failed
+relay availability remain
 separate in the linked validation records; full certification remains open.
 
 See the [changelog](CHANGELOG.md) for recent development updates.

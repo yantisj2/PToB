@@ -25,7 +25,7 @@ struct TdTrace {
   uint16_t delivery = UINT16_MAX;
   int8_t rssi=127;
 };
-constexpr unsigned TdPageCount=8;
+constexpr unsigned TdPageCount=9;
 struct TdSnapshot {
   td_mesh::Snapshot mesh{};
   TdPeer peers[8]{};

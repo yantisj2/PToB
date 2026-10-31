@@ -161,7 +161,7 @@ void precision(Canvas& c,const View& s,int y) {
  c.center(y+(s.metric_history?18:21),v,2,number==UINT32_MAX || s.grandmaster?Dim:Cyan);
  if(s.metric_history)c.center(y+35,number==UINT32_MAX?"LEARNING / UNKNOWN":"CAUSAL / UNKNOWN",1,Dim);
 }
-void footer(Canvas& c,const View& s) {for(unsigned i=0;i<8;++i)c.fill(21+int(i)*12,233,6,4,i==s.page?Cyan:Dim);}
+void footer(Canvas& c,const View& s) {for(unsigned i=0;i<v12::TdPageCount;++i)c.fill(16+int(i)*12,233,6,4,i==s.page?Cyan:Dim);}
 void signed_metric(Canvas& c,int y,const char* name,int32_t milli,bool valid) {
  if(!c.intersects(y,7))return;
  char v[20];const double value=double(milli)/1000;
@@ -211,7 +211,7 @@ void td_paint(Canvas &c, const View &s) {
   c.fill(0, 0, Width, 27, Blue);
   c.text(9, 7, "TD", 2, Bg);
   const char *titles[] = {"HEALTH", "STREAM QUALITY", "RELAY TEST", "RF HEALTH",
-                          "SAMPLE DETAIL", "SOURCE HEALTH", "EPOCH", "REFERENCE"};
+                          "SAMPLE DETAIL", "SOURCE HEALTH", "EPOCH", "REFERENCE", "TIME ZONE"};
   c.text(40, 10, titles[s.page % v12::TdPageCount], 1, Bg);
   // One-second LCD activity mark remains visible without a nearby source.
   // Its colour reflects snapshot freshness; it grants no timing permission.
@@ -420,7 +420,7 @@ void td_paint(Canvas &c, const View &s) {
     const bool known=epoch.basis!=v12::td_mesh::EpochBasis::Unknown;
     const bool current=known&&epoch.current&&!d.owner_stale;
     c.text(9,57,"EPOCH START / UTC",1,Dim);
-    if(r.wire_version==3&&std::strlen(birth)==19){
+    if(r.wire_version==4&&std::strlen(birth)==19){
       birth[10]=0;c.text(9,74,birth,2,Cyan);c.text(20,96,birth+11,2,White);
     }else{c.text(9,74,"--",2,Dim);c.text(9,98,"NO SIGNED START",1,Dim);}
     c.text(9,124,epoch.basis==v12::td_mesh::EpochBasis::ReportedUtc?"ELAPSED EST":"ELAPSED",1,Dim);
@@ -436,11 +436,23 @@ void td_paint(Canvas &c, const View &s) {
     c.row(181,"SS3 UP",v,Dim);
     td_name(name,sizeof name,r.known?r.root:0);c.row(197,"GM",name);
     c.text(9,216,known?(current?"GM7 UTC / LIVE":"GM7 UTC / LAST"):"WAIT FOR GM7 UTC",1,current?Green:Dim);
+  } else if(s.page==8) {
+    const auto& r=d.mesh.roles;const auto& z=r.tz;
+    const bool same=r.root==d.mesh.selected.root&&r.root_boot==d.mesh.selected.boot&&r.epoch==d.mesh.selected.epoch;
+    const bool fresh=same&&!d.owner_stale&&d.now_us<z.until_us;
+    const bool known=fresh&&r2_tz_valid(z.value);
+    c.panel(8,35,119,38);c.center(46,known?"LOCAL TIME":z.received?(fresh?"UTC / UNKNOWN":"UTC / EXPIRED"):"UTC / WAIT TZ",1,known?Green:Amber);
+    c.metric(85,"ZONE ID",z.received?z.value.id:UINT32_MAX,Cyan);
+    char offset[20];if(z.received&&r2_tz_valid(z.value))std::snprintf(offset,sizeof offset,"%+d MIN",int(z.value.offset_min));else std::snprintf(offset,sizeof offset,"--");
+    c.row(111,"OFFSET",offset);
+    c.metric(132,"LEASE MS",fresh?uint32_t((z.until_us-d.now_us)/1000):0);
+    c.metric(154,"TZ RX",z.received);c.metric(176,"GM7 REJECT",uint32_t(std::min<uint64_t>(UINT32_MAX,uint64_t(r.rejected_auth)+r.rejected_scope+r.rejected_age+r.replayed)));
+    c.center(205,"GM7 / SIGNED OTA",1,Dim);c.center(219,"DISPLAY METADATA",1,Amber);
   } else if(s.page==7) {
     const auto& q=d.mesh.reference;
     const bool live=!d.owner_stale&&v12::td_mesh::current(q,d.mesh.selected,d.now_us);
     td_name(name,sizeof name,q.reported?q.scope.root:0);c.row(59,live?"GM":"LAST GM",name,q.reported?White:Dim);
-    if(q.reported)std::snprintf(v,sizeof v,"%s %s",q.wire_version==3?"GM7":q.wire_version==2?"GD2":"GD1",live?"LIVE":"LAST");else std::snprintf(v,sizeof v,"WAITING");
+    if(q.reported)std::snprintf(v,sizeof v,"%s %s",q.wire_version==4?"GM7":q.wire_version==2?"GD2":"GD1",live?"LIVE":"LAST");else std::snprintf(v,sizeof v,"WAITING");
     c.row(73,"REPORT",v,live?Green:Dim);
     const auto flag=[&](unsigned bit){return !live||!(q.fields&bit)?"--":q.values&bit?"YES":"NO";};
     std::snprintf(v,sizeof v,"FIX %s / PPS %s",flag(v12::td_mesh::Fix),flag(v12::td_mesh::Pps));c.text(9,91,v,1,live?White:Dim);
@@ -470,7 +482,7 @@ void td_paint(Canvas &c, const View &s) {
 static void native_paint(Canvas& c,const View& s) {
  if(s.td.enabled){td_paint(c,s);return;}
  c.fill(0,0,Width,Height,Bg);
- c.text(12,9,"SS3",2,White);
+ c.text(12,9,"SS3",2,White);c.text(66,12,s.zone,1,Dim);
  char mode[8];if(s.depth)std::snprintf(mode,sizeof mode,"RC%u",unsigned(s.depth));else std::snprintf(mode,sizeof mode,"RC");
  c.text(99,12,mode,1,s.relay_ready?Green:s.relay_online?Amber:Dim);
  c.fill(8,31,119,1,Bezel);c.center(37,s.upstream,1,s.time_valid?Cyan:Dim);
@@ -496,7 +508,7 @@ static void paint(Canvas& c,const View& s) {
  if(s.native_dashboard){native_paint(c,s);return;}
  c.fill(0,0,Width,Height,Bg);header(c,s);
  if(s.page==0){
-  c.panel(8,29,119,47);c.text(14,35,s.relative?"REL":"UTC",1,Dim);
+  c.panel(8,29,119,47);c.text(14,35,s.relative?"REL":s.zone,1,Dim);
   c.text(98,35,!s.time_valid?"WAIT":s.held?"HOLD":"BLE",1,!s.time_valid?Dim:s.held?Amber:Green);time(c,s,48);
   c.panel(8,81,119,94);
   if(s.time_valid)dial(c,s);else{c.center(99,s.presentation_explicit?s.reason:s.ble_enabled?"ACQUIRING":"BLE OFF",1,s.presentation==HeldClock::Fault?Red:Amber);c.center(120,"TIME --",2,Dim);c.center(153,"PUBLIC LISTENER",1,Dim);}

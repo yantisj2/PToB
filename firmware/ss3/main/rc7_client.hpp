@@ -16,6 +16,12 @@ struct Rc7Client {
   uint64_t lease_until=0,renew_at=0,progress_at=0,retry_at=0,request_at=0;
   uint32_t sequence=0,capabilities=0,requests=0,responses=0,pending=0,rejected=0;
   uint32_t local_epoch=0;bool utc_known=false;
+  bool admission_due(uint64_t now,bool poor,bool locked)const {
+    // Five-minute renewal is distinct from recovery. Delivery hysteresis
+    // alone must not reconnect a still-locked clock every cooldown interval.
+    return now>=renew_at||(!locked&&now>=retry_at&&
+      (poor||(now>=progress_at&&now-progress_at>=2000000)));
+  }
   bool path_usable(const rc7_path& p,uint64_t self)const {
     if(rc7_path_empty(&p))return true;
     if(!rc7_path_valid(&p)||!p.depth)return false;

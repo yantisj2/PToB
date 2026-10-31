@@ -29,7 +29,7 @@ struct EpochTime {uint64_t utc_us=0,elapsed_us=0;EpochBasis basis=EpochBasis::Un
 // It never supplies clock training, timing permission or output time.
 inline EpochTime epoch_time(const Snapshot& m,uint64_t now,bool matched=false,uint64_t utc=0){
  EpochTime out;const auto& r=m.roles;
- if(!r.known||r.wire_version!=3||r.withdrawn||r.root!=m.selected.root||r.root_boot!=m.selected.boot||r.epoch!=m.selected.epoch)return out;
+ if(!r.known||r.wire_version!=4||r.withdrawn||r.root!=m.selected.root||r.root_boot!=m.selected.boot||r.epoch!=m.selected.epoch)return out;
  if(matched&&epoch_elapsed(r,utc,out.elapsed_us)){out.utc_us=utc;out.basis=EpochBasis::MatchedUtc;out.current=true;return out;}
  if(!r.utc_sample_us||!r.utc_received_us||now<r.utc_received_us||now-r.utc_received_us>UINT64_MAX-r.utc_sample_us)return out;
  out.utc_us=r.utc_sample_us+now-r.utc_received_us;

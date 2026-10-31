@@ -8,7 +8,7 @@ APP=Path(__file__).resolve().parents[1]
 def main():
  p=argparse.ArgumentParser(description=__doc__);p.add_argument('--sdk',type=Path,required=True);p.add_argument('--out',type=Path,required=True);a=p.parse_args();out=a.out.resolve();out.mkdir(parents=True,exist_ok=False)
  crypto=a.sdk.resolve()/'components/bt/host/nimble/nimble/ext/tinycrypt';src=APP/'main/r2/r2-g1';cc=os.environ.get('CC','clang');cxx=os.environ.get('CXX','clang++')
- flags=['-O1','-g','-Wall','-Wextra','-Werror','-Wno-misleading-indentation','-Wno-missing-field-initializers','-fsanitize=address,undefined','-fno-sanitize-recover=all','-I'+str(APP/'main'),'-I'+str(src),'-I'+str(crypto/'include')]
+ flags=['-DR2_TZ_WIRE=1','-DPTOB_SS3_SERVO=1','-O1','-g','-Wall','-Wextra','-Werror','-Wno-misleading-indentation','-Wno-missing-field-initializers','-fsanitize=address,undefined','-fno-sanitize-recover=all','-I'+str(APP/'main'),'-I'+str(src),'-I'+str(crypto/'include')]
  sources=[src/'group_auth.c',src/'role_announcement.c',src/'gnss_diagnostics.c',APP/'main/gm7/gm7_codec.c',APP/'main/g1_hmac.c',crypto/'src/sha256.c',crypto/'src/utils.c'];objects=[]
  with (out/'test.log').open('x')as log:
   for source in sources:

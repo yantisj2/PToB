@@ -91,9 +91,9 @@ int main(int argc,char** argv){
   gm7_packet p{};p.group=v12::provision.group.id;p.key_epoch=v12::provision.group.epoch;p.kind=GM7_ANNOUNCE;p.flags=GM7_ELIGIBLE;
   auto& c=p.body.control;c.sender=c.active=111;c.boot=c.active_boot=55;c.sequence=UINT64_C(0x100000001);c.sent_utc_us=birth+86400000000;
   c.max_age_us=2750000;c.source_valid_us=1500000;c.source_gen=c.capture_gen=c.train_gen=1;c.birth_us=birth;c.founder=111;c.term=37;c.timing_epoch=2;c.sent_mono_us=5000000;
-  v12::Discovery d{};d.sid=14;d.address=v12::canonical(111);d.length=GM7_CONTROL_BYTES+4;d.at=fake_now=1000000;
+  v12::Discovery d{};d.sid=14;d.address=v12::canonical(111);d.length=gm7_wire_size(p.kind)+4;d.at=fake_now=1000000;
   assert(!gm7_ad_encode(d.bytes,sizeof d.bytes,&p,&v12::provision.group));v12::td_discovery(d);v12::td_mesh_poll(fake_now);
-  auto m=store.model.view.mesh;assert(m.roles.known&&m.roles.wire_version==3&&m.roles.birth_utc_us==birth&&m.roles.term==37);
+  auto m=store.model.view.mesh;assert(m.roles.known&&m.roles.wire_version==4&&m.roles.birth_utc_us==birth&&m.roles.term==37);
   assert(m.selected.root==111&&m.roles.utc_sample_us==birth+86400000000&&m.roles.utc_received_us==1000000);
   // A duplicated signed publication never advances UTC receipt or expiry.
   d.at=fake_now=2000000;v12::td_discovery(d);v12::td_mesh_poll(fake_now);m=store.model.view.mesh;
@@ -116,6 +116,24 @@ int main(int argc,char** argv){
   v12::td_discovery(d);v12::td_mesh_poll(fake_now);m=store.model.view.mesh;
   assert(m.roles.root==555&&m.selected.root==555&&m.roles.birth_utc_us==birth);
 
+ }else if(which=="tz-current-wire"){
+  auto& store=*v12::td_storage;constexpr uint64_t birth=1792986374188267;
+  gm7_packet p{};p.group=v12::provision.group.id;p.key_epoch=v12::provision.group.epoch;p.kind=GM7_ANNOUNCE;p.flags=GM7_ELIGIBLE;
+  auto& c=p.body.control;c.sender=c.active=111;c.boot=c.active_boot=55;c.sequence=1;
+  c.sent_utc_us=birth+86400000000;c.max_age_us=2750000;c.source_valid_us=1500000;
+  c.source_gen=c.capture_gen=c.train_gen=1;c.birth_us=birth;c.founder=111;c.term=37;c.timing_epoch=3;c.tz={2,-300};
+  v12::Discovery d{};d.sid=14;d.address=v12::canonical(111);d.length=gm7_wire_size(p.kind)+4;d.at=fake_now=1000000;
+  assert(!gm7_ad_encode(d.bytes,sizeof d.bytes,&p,&v12::provision.group));
+  v12::td_discovery(d);assert(store.gm7.roles(fake_now).tz.value.offset_min==-300);
+  v12::anchor={true,111,55,c.sent_utc_us,fake_now,fake_now+1500000,3,1,0};v12::joined_peer=111;v12::joined_boot=55;
+  v12::coarse_metadata(d,fake_now);assert(v12::coarse_tz.value.id==2&&v12::coarse_tz.until_us==1750000);
+  const auto deadline=v12::coarse_tz.until_us;
+  c.tz={2,-360};assert(!gm7_ad_encode(d.bytes,sizeof d.bytes,&p,&v12::provision.group));
+  v12::coarse_metadata(d,fake_now);assert(v12::coarse_tz.value.offset_min==-300&&v12::coarse_tz.until_us==deadline);
+  ++c.sequence;d.at=fake_now=1100000;assert(!gm7_ad_encode(d.bytes,sizeof d.bytes,&p,&v12::provision.group));
+  v12::coarse_metadata(d,fake_now);assert(v12::coarse_tz.value.offset_min==-360);
+  d.bytes[d.length-1]^=1;v12::coarse_metadata(d,fake_now);assert(v12::coarse_tz.until_us==1850000);
+  v12::changed_scope(fake_now);assert(!v12::coarse_tz.value.id&&!v12::coarse_tz_order.ordered);
  }else return 2;
  // Synthetic PSRAM is explicitly freed for sanitizer ownership checks.
  v12::td_storage->~TdStorage();heap_caps_free(v12::td_storage);v12::td_storage=nullptr;

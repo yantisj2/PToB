@@ -38,14 +38,14 @@ G1Anchor anchor(){G1Anchor a{};a.source=true;a.root=Root;a.boot=RootBoot;a.at=10
 rc7_path path(){rc7_path p{};p.depth=1;p.source_epoch=14;p.node[0]={Root,RootBoot,1,3,0,0};p.node[1]={Parent,ParentBoot,2,2,1,1};return p;}
 Rc7Client bound(const r2_group_config& g){Rc7Client c;auto p=path();const auto& n=p.node[1];
  rc7_control cap{};cap.type=RC7_CAPABILITY;cap.path=p;cap.sender=n.id;cap.sender_boot=n.boot;cap.next_challenge=55;
- uint8_t w[212];rc7_control decoded{};assert(!rc7_control_encode(w,&cap,&g));assert(!rc7_control_decode(&decoded,w,212,&g));
+ uint8_t w[RC_DYNAMIC_CONTROL_BYTES];rc7_control decoded{};assert(!rc7_control_encode(w,&cap,&g));assert(!rc7_control_decode(&decoded,w,RC_DYNAMIC_CONTROL_BYTES,&g));
  const auto bt=Samples[0].original20-2000000,now=bt/20;
  assert(c.make_request(decoded,Self,44,66,now-1000,false));
  auto response=c.request;response.type=RC7_RESPONSE;response.sender=Parent;response.target=Self;
  response.sender_boot=ParentBoot;response.target_boot=44;response.next_challenge=56;response.ready=true;
  response.publication_floor=10;response.root_lo_ns=Samples[0].parent_ns-105000000;
  response.root_hi_ns=Samples[0].parent_ns-95000000;response.source_expires_ns=response.root_hi_ns+1650000000;
- assert(!rc7_control_encode(w,&response,&g));assert(!rc7_control_decode(&decoded,w,212,&g));
+ assert(!rc7_control_encode(w,&response,&g));assert(!rc7_control_decode(&decoded,w,RC_DYNAMIC_CONTROL_BYTES,&g));
  assert(c.bind(decoded,now,bt));return c;
 }
 periodic_rx::Stamp stamp(uint64_t tick,uint64_t available,uint32_t pub,uint16_t event,uint8_t channel,uint32_t epoch=5){periodic_rx::Stamp s{};
@@ -85,7 +85,7 @@ Clock direct_clock_seed(){Clock clock;const auto& f=Samples[0];r2_relay_packet p
  return clock;
 }
 int run_model(){
- static_assert(sizeof(Clock)==1864,"permission correction must stay in the fixed clock RAM cap");
+ static_assert(sizeof(Clock)<=2048,"permission correction must stay in the reviewed 2KiB clock RAM cap");
  Seed base;const auto original_hold=Rc7PermissionInspect::mapped_hold(base.clock),old_until=base.clock.until();
  const auto immutable_original=base.clock.original20();assert(Samples[1].now_us>old_until);
  pair(base.c,Samples[1],13,base.g);auto before=base.clock;

@@ -14,6 +14,8 @@
 #include "r2_discipline.hpp"
 #include "g1_client_policy.hpp"
 #include "g1_direct_session.hpp"
+#include "g1_time_zone.hpp"
+#include "coarse_tz_scan.hpp"
 #include "g1_corrected_clock.hpp"
 #include "g1_output_correction.hpp"
 #include "g1_parent_selection.hpp"
@@ -42,10 +44,10 @@ extern "C" bool clock_reference_read(uint64_t*);
 extern "C" {
 #include "group_join.h"
 #include "group_precision.h"
+#include "gm7/gm7_codec.h"
 #include "role_announcement.h"
 #ifdef V12_SS3
 #include "gnss_diagnostics.h"
-#include "gm7/gm7_codec.h"
 #endif
 }
 namespace v12 {
@@ -84,6 +86,7 @@ Recent recent[8]{};r2_join_display display[8]{};Anchor anchor;G1StrictDiscipline
 G1PhaseLearning phase_learning;
 G1DirectSession direct_session;
 G1CoarseHold coarse_hold;
+r2_tz_lease coarse_tz{};G1TimeZoneOrder coarse_tz_order;GmControlScan coarse_scan;uint64_t coarse_capture20=0;
 G1CorrectedClock corrected_clock;
 Rc7Client rc_client;G1ParentSelection parent_selection;
 // A callback records one bounded outcome; only the serialized worker updates
@@ -194,7 +197,7 @@ void failed_admission(uint64_t now){
   if(!parent_failure.identity)parent_failure={peer.identity,now,peer.relay};
 }
 void relay_fence();void relay_close(uint64_t now);bool relay_owned();bool relay_acl_available();void relay_poll(uint64_t now,bool upstream_due);
-void begin_close(uint64_t now){if(closing)return;closing=true;relay_fence();member=false;anchor={};direct_session.clear();rc_client.fence();coarse_hold.clear();corrected_clock.clear();corrected_phase_aligned=false;close_until=now+2000000;portENTER_CRITICAL(&mux);if(mode==R2Mode::Client){client.stop(now);close_until=client.stop_deadline_us;}else if(lease.deadline_us&&lease.deadline_us<close_until)close_until=lease.deadline_us;portEXIT_CRITICAL(&mux);}
+void begin_close(uint64_t now){if(closing)return;closing=true;relay_fence();member=false;anchor={};coarse_tz={};coarse_tz_order={};coarse_scan.clear();coarse_capture20=0;direct_session.clear();rc_client.fence();coarse_hold.clear();corrected_clock.clear();corrected_phase_aligned=false;close_until=now+2000000;portENTER_CRITICAL(&mux);if(mode==R2Mode::Client){client.stop(now);close_until=client.stop_deadline_us;}else if(lease.deadline_us&&lease.deadline_us<close_until)close_until=lease.deadline_us;portEXIT_CRITICAL(&mux);}
 void stop_scan(){if(!scan)return;const int rc=ble_gap_disc_cancel();if(!rc||rc==BLE_HS_EALREADY)scan=false;else error(rc,R2Api::ScanStop);}
 int gap(ble_gap_event*,void*);
 struct LinkContext {uint32_t generation=0;
@@ -218,7 +221,7 @@ void sync_trace(uint8_t event,uint16_t handle,int result,const LinkContext* save
   const auto context=saved?*saved:sync_context();admission_trace(event,handle,result,&context);
 }
 void start_scan(){
-  if(!timely()||lock_protected(micros())||micros()<scan_retry_at||(mode==R2Mode::Client&&!client_window_active(micros(),window_phase)))return;
+  if(!timely()||(lock_protected(micros())&&!coarse_scan.allows(micros()))||micros()<scan_retry_at||(mode==R2Mode::Client&&!client_window_active(micros(),window_phase)))return;
   const auto now=micros();if(!scan_retry_until)scan_retry_until=now+2000000;
   if(now>=scan_retry_until){error(BLE_HS_ETIMEOUT,R2Api::ScanStart);return;}
   ble_gap_ext_disc_params p{};p.passive=1;p.itvl=32;p.window=32;
@@ -596,7 +599,7 @@ void scope_trace(const Anchor& old,const Anchor& next,G1Reason reason,uint64_t n
 void receive_rc_control(const Incoming& row,uint64_t now){
   peer.pending=false;
   rc7_control c{};
-  if(row.length!=212||rc7_control_decode(&c,row.bytes,row.length,&provision.group)||
+  if(row.length!=RC_DYNAMIC_CONTROL_BYTES||rc7_control_decode(&c,row.bytes,row.length,&provision.group)||
      !rc_client.path_usable(c.path,provision.identity)){inc(rejected);peer.dead=true;return;}
   inc(auth);
   if(peer.stage==2&&c.type==RC7_CAPABILITY&&c.sender==peer.identity){
@@ -640,6 +643,7 @@ void receive_rc_control(const Incoming& row,uint64_t now){
       joined_peer=c.sender;joined_boot=c.sender_boot;member=true;sync_address=peer.address;
       parent_selection.bind(c.sender,c.sender_boot,c.path.node[c.path.depth].epoch,now);
       parent_selection.authenticated(c.sender,true,c.sender_boot,c.path.node[0].id,c.path.node[0].boot,c.path.source_epoch,now);
+      (void)coarse_tz_order.observe(coarse_tz,c.tz,c.next_challenge,row.at,now,R2_TZ_RC_PERIOD_US,true);
       peer.selection_accepted=true;
       inc(join_accepts);peer.close_at=now+2000;
     }else{++rc_client.pending;if(rc_client.request.operation)changed_scope(now);rc_client.renew_at=now+1000000;peer.close_at=now+2000;}
@@ -648,7 +652,7 @@ void receive_rc_control(const Incoming& row,uint64_t now){
 }
 void send_rc_request(uint64_t now){
   if(!peer.relay||peer.stage!=5||!peer.send_kind||peer.pending||peer.dead||peer.terminating||!timely())return;
-  uint8_t wire[212];if(rc7_control_encode(wire,&rc_client.request,&provision.group)){peer.dead=true;inc(rejected);return;}
+  uint8_t wire[RC_DYNAMIC_CONTROL_BYTES];if(rc7_control_encode(wire,&rc_client.request,&provision.group)){peer.dead=true;inc(rejected);return;}
   peer.pending=true;peer.send_kind=0;rc_client.request_at=now;
   const auto h=peer.handle;const auto generation=peer.incarnation;
   const int rc=ble_gattc_write_flat(h,peer.value,wire,sizeof wire,rc_written,callback_arg());
@@ -701,7 +705,8 @@ void receive_join(uint64_t now){Incoming row{};for(unsigned i=0;i<8&&incoming.po
       cooldown(r.sender,now,500000);
       phase_learning.accepted(next,now);
       if(!anchor.same(next)){scope_trace(anchor,next,G1Reason::None,now);last_origin_ns=relay_train=0;window_corrected=false;cancel_sync(now);}
-      anchor=next;corrected_clock.scope(anchor);coarse_hold.clear();discipline_scope(now);
+      if(!anchor.same(next)){coarse_tz={};coarse_tz_order={};coarse_scan.clear();coarse_capture20=0;}
+      anchor=next;coarse_tz_order.bootstrap(coarse_tz,r.tz,row.at,now);corrected_clock.scope(anchor);coarse_hold.clear();discipline_scope(now);
     }else {diagnostic.reason(G1Reason::JoinTime,now);
       if(coarse_hold.saved.source&&coarse_hold.saved.root==r.sender)coarse_hold.clear();}
     // An unusable bootstrap may retain only the identical still-fresh scope.
@@ -725,7 +730,7 @@ void changed_scope(uint64_t now,G1Reason reason,bool preserve_clock){relay_fence
   parent_selection.unavailable();
   if(reason==G1Reason::Permission){if(usable_utc()&&anchor.valid(now))coarse_hold.retain(anchor);}
   else coarse_hold.clear();
-  diagnostic.reason(reason,now);anchor={};direct_session.clear();rc_client.fence();member=false;admission_root=admission_until=0;last_origin_ns=relay_train=0;window_corrected=false;
+  diagnostic.reason(reason,now);anchor={};coarse_tz={};coarse_tz_order={};coarse_scan.clear();coarse_capture20=0;direct_session.clear();rc_client.fence();member=false;admission_root=admission_until=0;last_origin_ns=relay_train=0;window_corrected=false;
   if(reason==G1Reason::Permission||preserve_clock)corrected_clock.hold();else corrected_clock.withdraw();
   corrected_phase_aligned=false;cancel_sync(now);discipline_scope(now);}
 void renew_permission(uint64_t created,uint64_t expires,int64_t offset,uint64_t now,bool immutable_origin=false){
@@ -745,6 +750,8 @@ void periodic_poll(uint64_t now){Periodic row{};for(unsigned i=0;i<8&&periodic.p
     rc7_packet p{};
     if(row.length!=190||rc7_decode(&p,row.bytes,row.length,&rc_client.receiver.path,&provision.group)){inc(relay_bad);continue;}
     inc(relay_ok);
+    if(row.capture.epoch==sync_capture_epoch&&row.capture.actual&&row.capture.association_observed)coarse_capture20=row.capture.tick20;
+    if(row.identity==joined_peer)r2_tz_renew(&coarse_tz,row.at,R2_TZ_RC_PERIOD_US);
 #ifdef V12_R2_RX_SHADOW
     uint64_t available=0;clock_reference_read(&available);
     // Match T096 RC7: delivery is a current-path authenticated physical PA
@@ -789,6 +796,7 @@ void periodic_poll(uint64_t now){Periodic row{};for(unsigned i=0;i<8&&periodic.p
     if(!anchor_valid(now))continue;
     const bool same=row.identity==anchor.root&&p.boot==anchor.boot&&p.source_epoch==anchor.source_epoch&&p.train==anchor.publication;
     if(!same){if(fresh_envelope(p.created_ns,p.expires_ns,p.utc_offset_ns,now))changed_scope(now);continue;}
+    if(row.identity==joined_peer&&p.boot==joined_boot)r2_tz_renew(&coarse_tz,row.at,R2_TZ_GM_PERIOD_US);
     renew_permission(p.created_ns,p.expires_ns,p.utc_offset_ns,now);discipline_scope(now);
 #ifdef V12_R2_RX_SHADOW
     uint64_t available=0;clock_reference_read(&available);
@@ -806,6 +814,8 @@ void periodic_poll(uint64_t now){Periodic row{};for(unsigned i=0;i<8&&periodic.p
       row.identity==joined_peer&&p.route.boot==joined_boot&&(!relay_train||relay_train==p.route.train);
     if(!same){if(fresh_envelope(p.origin.created_ns,p.origin.expires_ns,p.origin.utc_offset_ns,now,true))changed_scope(now);continue;}
     if(!fresh_envelope(p.origin.created_ns,p.origin.expires_ns,p.origin.utc_offset_ns,now,true)){diagnostic.reason(G1Reason::Permission,now);continue;}
+    if(row.identity==joined_peer&&p.route.boot==joined_boot)r2_tz_renew(&coarse_tz,row.at,R2_TZ_GM_PERIOD_US);
+    if(row.capture.epoch==sync_capture_epoch&&row.capture.actual&&row.capture.association_observed)coarse_capture20=row.capture.tick20;
     relay_train=p.route.train;
     if(row.capture.actual&&row.capture.association_observed)parent_selection.delivered(p.route.train,row.capture.event,now);
     // An authenticated envelope is not a matched corrected observation.
@@ -927,7 +937,7 @@ void td_discovery(const Discovery &d) {
   if(d.sid==14)for(unsigned at=0;at<d.length;){
     const unsigned n=d.bytes[at];if(!n||at+n>=d.length)break;
     const auto* w=d.bytes+at;
-    if(n>=35&&w[1]==0xff&&!std::memcmp(w+4,"G7V3",4)){
+    if(n>=35&&w[1]==0xff&&!std::memcmp(w+4,"G7V4",4)){
       uint64_t id=0;for(unsigned i=28;i<36;++i)id=(id<<8)|w[i];
       if(id&&same_address(d.address,canonical(id))){
         // Passive TD has no admitted timing selection. The GM7 monitor's
@@ -974,8 +984,8 @@ void td_discovery(const Discovery &d) {
       const unsigned n = d.bytes[at];
       if (!n || at + n >= d.length)
         break;
-      if (n == 145 && d.bytes[at + 1] == 0xff &&
-          !rc7_capability_decode(&cap, d.bytes + at + 2, 144, &provision.group) &&
+      if (n == RC_DYNAMIC_CAPABILITY_BYTES+1 && d.bytes[at + 1] == 0xff &&
+          !rc7_capability_decode(&cap, d.bytes + at + 2, RC_DYNAMIC_CAPABILITY_BYTES, &provision.group) &&
           cap.sender != provision.identity && rc_client.path_usable(cap.path, provision.identity)) {
         id = cap.sender;
         relay = true;
@@ -1311,6 +1321,31 @@ void td_poll(uint64_t now) {
     start_scan();
 }
 #endif
+void coarse_metadata(const Discovery& d,uint64_t now){
+  if(!anchor.valid(now)||now<d.at)return;
+  if(!rc_bound()&&d.sid==14){
+    gm7_packet p{};
+    if(!gm7_ad_decode(&p,d.bytes,d.length,&provision.group)&&p.kind==GM7_ANNOUNCE){
+      const auto& c=p.body.control;
+      if(same_address(d.address,canonical(c.sender))&&c.sender==joined_peer&&c.boot==joined_boot&&
+         c.sender==c.active&&c.boot==c.active_boot&&c.active==anchor.root&&c.active_boot==anchor.boot&&
+         c.timing_epoch==anchor.source_epoch&&c.train_gen==anchor.publication&&now>=anchor.at&&
+         now-anchor.at<=UINT64_MAX-anchor.utc){
+        const auto utc=anchor.utc+now-anchor.at;
+        const auto age=utc>=c.sent_utc_us?utc-c.sent_utc_us:c.sent_utc_us-utc;
+        if(age<3*R2_TZ_GM_PERIOD_US)(void)coarse_tz_order.observe(coarse_tz,c.tz,c.sequence,d.at,now,R2_TZ_GM_PERIOD_US,false);
+      }
+    }
+  }else if(rc_bound()&&d.sid==13&&(d.props&1)&&same_address(d.address,canonical(joined_peer))){
+    for(unsigned at=0;at<d.length;){const unsigned n=d.bytes[at];if(!n||at+n>=d.length)break;
+      if(n==RC_DYNAMIC_CAPABILITY_BYTES+1&&d.bytes[at+1]==0xff){rc7_control c{};
+        if(!rc7_capability_decode(&c,d.bytes+at+2,RC_DYNAMIC_CAPABILITY_BYTES,&provision.group)&&
+           c.sender==joined_peer&&c.sender_boot==joined_boot&&rc7_path_same(&c.path,&rc_client.receiver.path))
+          (void)coarse_tz_order.observe(coarse_tz,c.tz,c.next_challenge,d.at,now,R2_TZ_RC_PERIOD_US,true);
+      }at+=n+1;
+    }
+  }
+}
 void active_poll(uint64_t now){
 #ifdef V12_SS3
   if(td_enabled&&!td_test){td_poll(now);return;}
@@ -1364,15 +1399,27 @@ void active_poll(uint64_t now){
     sync_identity=joined_peer;sync_selected=true;
   }
   const bool protected_parent=lock_protected(micros());
-  if(protected_parent){
+  bool control_scan=false;
+#ifdef V12_R2_RX_SHADOW
+  const auto control_now=micros();uint64_t control_tick=0,control_utc=0;
+  const bool control_eligible=following(control_now)&&!fault&&!closing&&peer.handle==None&&!peer.connecting&&
+    !sync_cleanup_queued&&!sync_terminating&&control_now<=UINT64_MAX-200000&&
+    corrected_clock.covers(control_now,control_now+200000)&&clock_reference_read(&control_tick)&&control_tick>=coarse_capture20&&
+    corrected_clock.deliver(control_tick,control_now,control_utc);
+  control_scan=coarse_scan.poll(control_now,control_eligible,coarse_capture20,
+    control_tick>=coarse_capture20?(control_tick-coarse_capture20)/20:UINT64_MAX,control_utc);
+
+#endif
+  if(protected_parent&&!control_scan){
     stop_scan();
     // Retire an abandoned logical BUSY retry only after actual scanner OFF.
     // Missing closure keeps its fault/owner deadline; it is never renewed.
     if(!scan&&!ble_gap_disc_active())scan_retry_at=scan_retry_until=0;
   }
   Discovery d{};for(unsigned i=0;i<16&&discoveries.pop(d);i++){
-    if(protected_parent)continue; // No queued alternatives can evade the scan gate.
     if(now<d.at||now-d.at>250000||(mode==R2Mode::Client&&G1Window::start(d.at,window_phase)!=window_start))continue;
+    coarse_metadata(d,now);
+    if(protected_parent)continue;
     observe_group(d);
 #ifdef V12_SS3
     if(td_enabled)td_discovery(d);
@@ -1380,8 +1427,8 @@ void active_poll(uint64_t now){
     G1Reason filter=G1Reason::None;uint64_t id=discovery_identity(d,&filter);bool relay=false;
     if(!id&&d.sid==13&&(d.props&1))for(unsigned at=0;at<d.length;){
       const unsigned n=d.bytes[at];if(!n||at+n>=d.length)break;
-      if(n==145&&d.bytes[at+1]==0xff){rc7_control cap{};
-        if(!rc7_capability_decode(&cap,d.bytes+at+2,144,&provision.group)&&
+      if(n==RC_DYNAMIC_CAPABILITY_BYTES+1&&d.bytes[at+1]==0xff){rc7_control cap{};
+        if(!rc7_capability_decode(&cap,d.bytes+at+2,RC_DYNAMIC_CAPABILITY_BYTES,&provision.group)&&
            rc_client.path_usable(cap.path,provision.identity)&&cap.sender!=provision.identity){id=cap.sender;relay=true;}
         else ++rc_client.rejected;
       }at+=n+1;
@@ -1423,7 +1470,8 @@ void active_poll(uint64_t now){
     }
   }
   if(!protected_parent&&!peer.connecting&&!scan&&(!synced||due))start_scan();
-  if(protected_parent||(synced&&!due))stop_scan();
+  if(control_scan&&!scan&&!peer.connecting)start_scan();
+  if((protected_parent||(synced&&!due))&&!control_scan)stop_scan();
   if(sync_selected&&peer.handle==None&&!peer.connecting&&!sync_pending&&!synced&&!sync_cleanup_queued&&timely()&&client_window_active(micros(),window_phase)){
     ble_gap_periodic_sync_params p{};p.skip=0;p.sync_timeout=100;sync_selected=false;sync_pending=true;sync_cancelled=false;sync_acquire_until=micros()+2000000;
     sync_requested_at=micros();sync_owner_window_start=G1Window::start(sync_requested_at,window_phase);sync_drain_until=0;sync_phy=0;sync_clock_accuracy=255;sync_trace(15,None,0);
@@ -1528,6 +1576,7 @@ void publish(uint64_t begin){const auto now=micros();uint64_t tick=0;
     output_reference.valid,output_reference.phy,output_reference.extra_us,
     V12_R2_OUTPUT_ROOT,V12_R2_OUTPUT_BOOT,V12_R2_OUTPUT_SOURCE_EPOCH);
 #endif
+  snap.tz=coarse_tz.value;snap.tz_until_us=coarse_tz.until_us;snap.tz_received=coarse_tz.received;snap.tz_conflicts=coarse_tz.conflicts;
   snap.g1_corrected_accepted=corrected_clock.accepted();snap.g1_corrected_refused=corrected_clock.refused();
   snap.g1_corrected_until_us=corrected_clock.until();snap.g1_corrected_original20=corrected_clock.original20();
   snap.g1_frequency_trained=corrected_clock.frequency_trained(tick);snap.g1_frequency_pairs=corrected_clock.rate_pairs();snap.g1_frequency_scatter_ns=corrected_clock.scatter_ns();
@@ -1671,7 +1720,7 @@ void r2_host_poll(){if(!initialized)return;const auto begin=micros();bool start=
       // An explicit restart is a new local activation, never a renewal of the
       // old stop deadline. Preserve the previous window's full quiet interval.
       radio_resume_at=window_start==UINT64_MAX?begin:window_start+G1Window::Cycle;
-      anchor={};direct_session.clear();rc_client.fence();parent_selection.reset();parent_selection.diagnostic(exclude_direct_gm);parent_selection.target(parent_diagnostic.target,parent_diagnostic.relay);member=false;admission_root=admission_until=0;joined_peer=joined_boot=last_origin_ns=relay_train=0;
+      anchor={};coarse_tz={};coarse_tz_order={};coarse_scan.clear();coarse_capture20=0;direct_session.clear();rc_client.fence();parent_selection.reset();parent_selection.diagnostic(exclude_direct_gm);parent_selection.target(parent_diagnostic.target,parent_diagnostic.relay);member=false;admission_root=admission_until=0;joined_peer=joined_boot=last_origin_ns=relay_train=0;
       phase_learning={};coarse_hold.clear();corrected_clock.clear();corrected_phase_aligned=false;
       peer={};sync_identity=0;retry_at=scan_retry_at=scan_retry_until=0;
       Incoming in{};while(incoming.pop(in)){};Discovery d{};while(discoveries.pop(d)){};

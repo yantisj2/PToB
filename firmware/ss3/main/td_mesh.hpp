@@ -2,6 +2,7 @@
 #pragma once
 #include <cstddef>
 #include <cstdint>
+#include "r2/r2-g1/time_zone.h"
 // Keep the wire codec out of presentation/native receiver headers. W12 and
 // T096 carry separate public copies of group_auth.h; including both relies on
 // incidental compiler deduplication of identical #pragma-once files.
@@ -10,6 +11,7 @@ namespace v12::td_mesh {
 enum class Result:uint8_t {Waiting,Accepted,Auth,Scope,Expired,Replay};
 struct Scope {uint64_t root=0,boot=0;uint32_t epoch=0;};
 struct Roles {
+ r2_tz_lease tz{};
  uint64_t root=0,root_boot=0,hot=0,hot_boot=0,coordinator=0;
  uint64_t received_us=0,until_us=0,primary_since_us=0,hot_since_us=0;
  uint64_t created_us=0,epoch_since_us=0;

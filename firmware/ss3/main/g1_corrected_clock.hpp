@@ -2,8 +2,23 @@
 #include "g1_client_policy.hpp"
 #include "periodic_rx_model.hpp"
 #include "g1_clock_prediction.hpp"
+#ifdef PTOB_W12_HOLDOVER_RATE
+#include "w12_holdover_rate.hpp"
+#endif
+#ifdef PTOB_W12_SHADOW_HOLDOVER
+#include "w12_shadow_holdover.hpp"
+#endif
+#ifdef PTOB_N30
+#include "g1_retained_estimate.hpp"
+#endif
+#ifdef PTOB_W12_SYNC_WATCHDOG
+#include "w12_phase_offsets.hpp"
+#endif
 #include "g1_relative_quality.hpp"
 #include "rc7_client.hpp"
+#ifdef PTOB_N30
+#include "n30_timing_probe.hpp"
+#endif
 extern "C" {
 #include "r2/r2-g1/relay_codec.h"
 }
@@ -21,6 +36,9 @@ class G1CorrectedClock {
     uint64_t local=0,created=0,expires=0,frame=0;int64_t offset=0;
     uint32_t publication=0,enclosure=UINT32_MAX,epoch=0;
     uint16_t event=0;uint8_t channel=255;bool used=false;
+#if defined(PTOB_N30) || defined(PTOB_W12_FINE_CLOCK) || defined(PTOB_SS3_SERVO)
+    int64_t predicted=INT64_MIN,nominal=0; // INT64_MIN means no frozen direct capture.
+#endif
   };
   // A valid correction is available after a nonzero captured tick. Zero
   // availability is the inactive marker; no extra padded bool allocation.
@@ -40,13 +58,14 @@ class G1CorrectedClock {
   G1Anchor scope_{};uint32_t remote_epoch_=0,local_epoch_=0;
   uint64_t until_=0,last_original_=0,last_remote_ns_=0;
   // RC7 consumed tuple and mapped original have separate lifetimes. These are
-  // the only16 added bytes; full clock allocation remains<=1864B.
+  // the only16 added bytes; SS3 fast-servo allocation remains within the reviewed2KiB cap.
   uint64_t mapped_original20_=0,mapped_hold_until_us_=0;
   uint32_t accepted_=0,refused_=0;
   uint32_t quality_generation_=1;
   uint32_t coarse_enclosure_ns_=UINT32_MAX;
-  // Keep64 physical points at250ms spacing: about16s of history, with
-  // enough repeated-channel differences. Offset encoding is lossless: local
+  // Keep64 physical points:62.5ms acquisition spacing gets repeated-channel
+  // evidence promptly. Fine builds keep that spacing; other builds use250ms
+  // after the first fit. Offset encoding is lossless: local
   // ticks stay exact and a signed24-bit residual stores remote_ns-local_ns.
   // The32s expiry and full64-bit base/scope precede every conversion.
   struct Point {uint32_t local=0;uint8_t residual[3]{},channel=255;};
@@ -91,26 +110,52 @@ class G1CorrectedClock {
   uint64_t phase_fit_tick_=0;int64_t phase_fit_epoch_=0;
   uint32_t scatter_ns_=UINT32_MAX;
   double rate_guard_=0;
+#if defined(PTOB_N30) || defined(PTOB_W12_FINE_CLOCK) || defined(PTOB_SS3_SERVO)
+  uint64_t acceleration_at_=0;double acceleration_rate_=0;bool acceleration_ready_=false;
+#endif
   uint32_t predictions_=0;uint64_t causal_squares_=0,nominal_squares_=0,causal_max_=0;
   uint32_t quality_missing_=0;
   uint32_t discontinuities_=0;uint64_t last_discontinuity_ns_=0;
   static void inc(uint32_t& n){if(n!=UINT32_MAX)++n;}
   bool refuse(){inc(refused_);return false;}
+  void shadow_pair(uint64_t local,uint64_t remote,uint64_t available){
+#ifdef PTOB_W12_SHADOW_HOLDOVER
+    if(w12_shadow::pair_sink)w12_shadow::pair_sink(local,remote,available,clock_,frequency_trained(available),quality_generation_);
+#else
+    (void)local;(void)remote;(void)available;
+#endif
+  }
+  void hold_pair(uint64_t local,uint64_t remote,uint64_t available,uint8_t channel){
+#ifdef PTOB_W12_HOLDOVER_RATE
+    if(w12_hold_rate::pair_sink)w12_hold_rate::pair_sink(local,remote,available,channel,quality_generation_);
+#else
+    (void)local;(void)remote;(void)available;(void)channel;
+#endif
+  }
   static bool stale(uint64_t now,uint64_t before){return now<before||now-before>uint64_t(periodic_rx::MaxAgeUs)*20;}
   void pending_clear(){for(auto& o:originals_)o={};for(auto& c:corrections_)c={};}
-  bool discontinuity(const Original& o,uint64_t remote){
+  bool discontinuity(const Original& o,uint64_t remote,uint64_t held20=0){
+#if defined(PTOB_N30) || defined(PTOB_W12_FINE_CLOCK) || defined(PTOB_SS3_SERVO)
+    const auto predicted=o.predicted!=INT64_MIN?o.predicted:clock_.relative_at(o.local);
+#else
     if(!clock_.tick||o.local<clock_.tick)return false;
     const auto predicted=clock_.relative_at(o.local);
+#endif
     if(predicted<=0)return false;
     const auto error=uint64_t(std::llabs(int64_t(remote)-predicted));
     // Gross continuity screen only:1ms allowance plus the entire existing
     // +/-50ppm rate envelope over the actual held interval. It never grants
-    // precision. A seconds-scale step must not enter the1ppm phase slew.
-    const auto limit=UINT64_C(1000000)+(o.local-clock_.tick)/400+o.enclosure;
+    // precision. A seconds-scale step must not enter phase steering.
+    const auto elapsed=std::max(held20,o.local>=clock_.tick?o.local-clock_.tick:0);
+    const auto limit=UINT64_C(1000000)+elapsed/400+o.enclosure;
     if(error<=limit)return false;
     inc(predictions_);causal_max_=std::max(causal_max_,error);
     auto nominal=clock_;nominal.rate=0;
+#if defined(PTOB_N30) || defined(PTOB_W12_FINE_CLOCK) || defined(PTOB_SS3_SERVO)
+    const auto baseline=uint64_t(std::llabs(int64_t(remote)-(o.predicted!=INT64_MIN?o.nominal:nominal.relative_at(o.local))));
+#else
     const auto baseline=uint64_t(std::llabs(int64_t(remote)-nominal.relative_at(o.local)));
+#endif
     if(error>UINT32_MAX||baseline>UINT32_MAX||error*error>UINT64_MAX-causal_squares_||baseline*baseline>UINT64_MAX-nominal_squares_)
       causal_squares_=nominal_squares_=UINT64_MAX;
     else {causal_squares_+=error*error;nominal_squares_+=baseline*baseline;}
@@ -122,9 +167,16 @@ class G1CorrectedClock {
     // Score the frozen delivered map before this unseen physical correction
     // can train it. Include signed phase/channel residuals; no detrending.
     uint32_t causal=UINT32_MAX;bool causal_available=false;
+#if defined(PTOB_N30) || defined(PTOB_W12_FINE_CLOCK) || defined(PTOB_SS3_SERVO)
+    auto nominal=clock_;nominal.rate=0;
+    const auto predicted=o.predicted!=INT64_MIN?o.predicted:clock_.relative_at(o.local);
+    const auto raw=o.predicted!=INT64_MIN?o.nominal:nominal.relative_at(o.local);
+    if(predicted>0&&raw>0){
+#else
     if(clock_.tick&&o.local>=clock_.tick){
       const auto predicted=clock_.relative_at(o.local);auto nominal=clock_;nominal.rate=0;
       const auto raw=nominal.relative_at(o.local);
+#endif
       if(predicted>0&&raw>0){
         causal_available=true;
         const uint64_t error=uint64_t(std::llabs(int64_t(remote)-predicted));
@@ -140,9 +192,22 @@ class G1CorrectedClock {
     }
     // All pre-update errors enter physical one-second buckets, independently
     // of channel/time selection for fitting. Full cumulative tails stay above.
+#ifdef PTOB_N30
+    if(n30_probe::pair_sink)n30_probe::pair_sink({scope_.root,scope_.boot,o.local,available,remote,
+      predicted,scope_.source_epoch,scope_.publication,o.epoch,o.publication,o.event,o.channel,causal_available,o.created,o.expires});
+#endif
     quality_add(o.local,causal,causal_available);
     double rate=clock_.rate;bool fitted=false;
-    if(!point_at_||o.local-point_at_>=5000000){
+    // Fine receivers must track oscillator warm-up, not average its rate over sixteen
+    // seconds after the first fit. Keep the same bounded64-point allocation,
+    // physical/channel checks and causal quality history; retain every16Hz
+    // opportunity instead of discarding three of four after acquisition.
+#if defined(PTOB_N30) || defined(PTOB_W12_FINE_CLOCK) || defined(PTOB_SS3_SERVO)
+    constexpr uint64_t spacing=1250000;
+#else
+    const uint64_t spacing=frequency_trained_?5000000u:1250000u;
+#endif
+    if(!point_at_||o.local-point_at_>=spacing){
       while(count_&&(o.local<local(points_[0])||o.local-local(points_[0])>640000000)){
         for(unsigned i=1;i<count_;i++)points_[i-1]=points_[i];
         --count_;
@@ -158,8 +223,11 @@ class G1CorrectedClock {
         count_=0;base_local_=base_remote_=0;frequency_trained_=false;fit_reason_=5;
       }else{
         auto& point=points_[count_++];point.local=uint32_t(delta);point.channel=o.channel;residual(point,int32_t(innovation));point_at_=o.local;
-        fit_reason_=count_<8?1:o.local-local(points_[0])<200000000?2:3;
-        if(count_>=8&&o.local-local(points_[0])>=200000000){
+        // Start only after2s and eight repeated-channel degrees of freedom.
+        // The same64-point history retains the selected physical cadence;
+        // early rate uncertainty and every delivered error still gate lock.
+        fit_reason_=count_<8?1:o.local-local(points_[0])<40000000?2:3;
+        if(count_>=8&&o.local-local(points_[0])>=40000000){
           double sx[37]{},sy[37]{};unsigned n[37]{};
           for(unsigned i=0;i<count_;i++){const auto& p=points_[i];const auto ch=p.channel;
             const double x=double(p.local)/20000000,y=double(residual(p));sx[ch]+=x;sy[ch]+=y;++n[ch];
@@ -182,6 +250,19 @@ class G1CorrectedClock {
               const double span=double(o.local-local(points_[0]))/20000000;
               const double sigma=std::sqrt(squares/(pairs-1)/xx);
               rate_guard_=std::max(50/span,3*sigma+std::abs(candidate-clock_.rate));
+#if defined(PTOB_N30) || defined(PTOB_W12_FINE_CLOCK) || defined(PTOB_SS3_SERVO)
+              // Adjacent overlapping fits amplify channel/quantization noise
+              // into an infinite acceleration guard. Use an observed >=1s
+              // rate baseline; keep the same worst-bucket255/unknown fence.
+              if(acceleration_at_&&o.local>=acceleration_at_&&o.local-acceleration_at_>=20000000){
+                const double dt=double(o.local-acceleration_at_)/20000000;
+                const double drift=std::ceil(std::abs(candidate-acceleration_rate_)/dt);
+                auto& bucket=quality_[(o.local/20000000)%16];
+                const uint8_t guard=std::isfinite(drift)&&drift<=254?uint8_t(drift):255;
+                bucket.accel=std::max(bucket.accel,guard);
+                acceleration_at_=o.local;acceleration_rate_=candidate;acceleration_ready_=true;
+              }else if(!acceleration_at_){acceleration_at_=o.local;acceleration_rate_=candidate;}
+#else
               if(frequency_trained_&&phase_fit_tick_&&o.local>phase_fit_tick_){
                 const double dt=double(o.local-phase_fit_tick_)/20000000;
                 const double drift=std::ceil(std::abs(candidate-clock_.rate)/dt);
@@ -189,6 +270,7 @@ class G1CorrectedClock {
                 const uint8_t guard=std::isfinite(drift)&&drift<=254?uint8_t(drift):255;
                 bucket.accel=std::max(bucket.accel,guard);
               }
+#endif
               rate=candidate;frequency_trained_=fitted=true;fit_reason_=0;
               double phase_sum=0;
               for(unsigned i=0;i<count_;i++){const auto& p=points_[i];const auto dt=o.local-local(p);
@@ -209,22 +291,24 @@ class G1CorrectedClock {
       target=phase_fit_epoch_+int64_t(dt)*50+int64_t(std::llround(double(dt)/20000000*rate));
     }
     const int64_t previous=clock_.tick&&available>=clock_.tick?clock_.relative_at(available):target;
-    // T096 mapped actuator uses1ppm phase slew. Preserve the already delivered
-    // clock through a new sample and steer its rate separately from precision.
+    // Preserve the already delivered clock through every new sample. Large
+    // acquisition phase uses bounded faster steering; fine hold retains1ppm.
     // Exactly the T096 radio_precision/precision_step domain split: the
     // oscillator fits correction.ticks; signed coarse UTC is only an offset.
     // NMEA/coarse UTC jitter cannot enter relative phase/frequency training.
     if(phase_fit_tick_&&available>=phase_fit_tick_&&available-phase_fit_tick_>40000000&&
        clock_.tick&&o.local>=clock_.tick&&o.local-clock_.tick<=40000000){
-      const auto elapsed=double(available-clock_.tick)/20000000;
-      const int64_t remaining=int64_t(std::copysign(std::max(0.0,std::abs(double(clock_.phase))-elapsed*1000),double(clock_.phase)));
-      target=previous+remaining;
+      target=previous+clock_.phase_remaining(available);
     }
     clock_={available,previous,target-previous,rate,o.offset};
     if(fitted)frequency_trained_=true;
   }
  public:
-  void clear(){coarse_enclosure_ns_=UINT32_MAX;mapped_original20_=mapped_hold_until_us_=0;inc(quality_generation_);pending_clear();scope_={};remote_epoch_=local_epoch_=0;until_=last_original_=last_remote_ns_=0;count_=0;point_at_=base_local_=base_remote_=quality_second_=0;for(auto& b:quality_)b={};fit_reason_=0;clock_={};phase_fit_tick_=0;phase_fit_epoch_=0;frequency_trained_=false;rate_pairs_=0;scatter_ns_=UINT32_MAX;rate_guard_=0;}
+  void clear(){
+#if defined(PTOB_N30) || defined(PTOB_W12_FINE_CLOCK) || defined(PTOB_SS3_SERVO)
+    acceleration_at_=0;acceleration_rate_=0;acceleration_ready_=false;
+#endif
+    coarse_enclosure_ns_=UINT32_MAX;mapped_original20_=mapped_hold_until_us_=0;inc(quality_generation_);pending_clear();scope_={};remote_epoch_=local_epoch_=0;until_=last_original_=last_remote_ns_=0;count_=0;point_at_=base_local_=base_remote_=quality_second_=0;for(auto& b:quality_)b={};fit_reason_=0;clock_={};phase_fit_tick_=0;phase_fit_epoch_=0;frequency_trained_=false;rate_pairs_=0;scatter_ns_=UINT32_MAX;rate_guard_=0;}
   void withdraw(){const double rate=clock_.rate;clear();clock_.rate=rate;}
   void scope(const G1Anchor& next){if(!scope_.same(next))withdraw();scope_=next;}
   bool same(const G1Anchor& next)const{return scope_.same(next);}
@@ -242,10 +326,25 @@ class G1CorrectedClock {
   uint64_t last_discontinuity_ns()const{return last_discontinuity_ns_;}
   uint64_t fit_tick20()const{return phase_fit_tick_;}
   uint32_t fit_points()const{return count_;}
+  uint64_t fit_base_local20()const{return base_local_;}uint64_t fit_base_remote_ns()const{return base_remote_;}
+  bool fit_hex(char* out,size_t capacity)const{
+    if(!out||capacity<count_*16+1)return false;
+    static constexpr char hex[]="0123456789abcdef";
+    for(unsigned i=0;i<count_;++i){const auto& p=points_[i];
+      for(unsigned j=0;j<8;++j){const uint8_t b=j<4?uint8_t(p.local>>(8*j)):j<7?p.residual[j-4]:p.channel;
+        out[i*16+j*2]=hex[b>>4];out[i*16+j*2+1]=hex[b&15];}}
+    out[count_*16]=0;return true;
+  }
   uint32_t fit_span_ms()const{return count_?uint32_t((local(points_[count_-1])-local(points_[0]))/20000):0;}
   uint8_t fit_reason()const{return fit_reason_;}
   uint32_t quality_missing()const{return quality_missing_;}
-  G1ClockPrediction prediction()const{return clock_;}
+  G1ClockPrediction prediction()const{
+#ifdef PTOB_W12_SYNC_WATCHDOG
+    return W12PhaseOffsets::delivered(clock_);
+#else
+    return clock_;
+#endif
+  }
   G1RelativeQuality quality(uint64_t now,uint64_t physical20=0)const{
     G1RelativeQuality q;q.original20=phase_fit_tick_;q.rate_guard_ppb=rate_guard_;
     q.scope_generation=quality_generation_==UINT32_MAX?0:quality_generation_;
@@ -261,6 +360,9 @@ class G1CorrectedClock {
       q.accel_guard_ppb_s=std::max(q.accel_guard_ppb_s,b.accel==255?INFINITY:double(b.accel));
     }
     if(q.samples){q.rms_ns=uint32_t(std::ceil(std::sqrt(double(squares)/q.samples)));q.max_ns=maximum;}
+#if defined(PTOB_N30) || defined(PTOB_W12_FINE_CLOCK) || defined(PTOB_SS3_SERVO)
+    if(!acceleration_ready_)q.accel_guard_ppb_s=INFINITY;
+#endif
     if(!frequency_trained(physical20))q.rate_guard_ppb=INFINITY;
     return q;
   }
@@ -270,21 +372,34 @@ class G1CorrectedClock {
     // that the receiver had not yet delivered at that original RF time.
     if(!clock_.tick||completion<clock_.tick){withdraw();return false;}
     const auto relative=clock_.relative_at(completion);if(relative<=0){withdraw();return false;}
-    const int64_t slew=int64_t(std::copysign(std::min(std::abs(double(clock_.phase)),double(completion-clock_.tick)/20000000*1000),double(clock_.phase)));
+    const int64_t slew=clock_.phase_slewed(completion);
     clock_={completion,relative,clock_.phase-slew,clock_.rate,clock_.utc_offset};return true;
   }
+#ifdef PTOB_W12_HOLDOVER_PRODUCTION
+  bool resume_holdover(const G1ClockPrediction& held,uint64_t at){
+    if(!frequency_trained(at)||!clock_.resume_from(held,at,prediction().receiver_phase_ns))return false;
+    // Fresh physical quality must describe the newly selected actuator.
+    for(auto& bucket:quality_){bucket={};}
+    quality_second_=0;quality_missing_=0;
+    return true;
+  }
+#endif
   bool covers(uint64_t now,uint64_t through)const{return scope_.valid(now)&&until_>through&&through>=now;}
   bool deliver(uint64_t tick,uint64_t now,uint64_t& utc_us)const {
     // Consumer sees clock validity only. Beyond original signed permission
     // this is bounded coarse HOLD, never a current followed-GM entitlement.
     if(!scope_.valid(now)||!clock_.tick||tick<clock_.tick)return false;
-    const auto utc=clock_.at(tick);if(utc<=0)return false;utc_us=uint64_t(utc)/1000;return true;
+    const auto utc=prediction().at(tick);if(utc<=0)return false;utc_us=uint64_t(utc)/1000;return true;
   }
   // Caller authenticates O3/R3 and the direct root/boot/source/train first.
   // Expired output may still acquire using the independent live replay anchor,
   // exactly as T096 radio_service precision_step keeps acquisition context.
   bool receive(const r2_relay_packet& p,const periodic_rx::Stamp& capture,
-               uint64_t available20,uint64_t now,const G1Anchor& anchor,rc5_origin* matched_origin=nullptr){
+               uint64_t available20,uint64_t now,const G1Anchor& anchor,rc5_origin* matched_origin=nullptr
+#ifdef PTOB_N30
+               ,const G1RetainedEstimate* handoff=nullptr
+#endif
+               ){
     scope(anchor);
     if(!anchor.valid(now)||!capture.actual||!capture.tick20||!capture.association_observed||
        capture.channel>36||!capture.epoch||!capture.sequence||capture.map_enclosure_ns==UINT32_MAX||
@@ -311,6 +426,27 @@ class G1CorrectedClock {
     if(slot==Pending){pending_clear();return refuse();}
     originals_[slot]={capture.tick20,p.origin.created_ns,p.origin.expires_ns,p.origin.frame_ns,p.origin.utc_offset_ns,
       p.route.publication,capture.map_enclosure_ns,capture.epoch,capture.event,capture.channel,true};
+#if defined(PTOB_N30) || defined(PTOB_W12_FINE_CLOCK) || defined(PTOB_SS3_SERVO)
+    // A later correction can arrive after another map has been published.
+    // Score the original against the map actually available at its capture,
+    // never against a map trained by intervening/newer physical evidence.
+    originals_[slot].predicted=clock_.relative_at(capture.tick20);
+    auto nominal=clock_;nominal.rate=0;
+    originals_[slot].nominal=nominal.relative_at(capture.tick20);
+#ifdef PTOB_N30
+    if(!clock_.tick&&handoff&&p.origin.utc_offset_ns>=0&&handoff->handoff_ready(capture.tick20)){
+      // Freeze the clock actually held at this physical RX. Translate its
+      // UTC value into the successor's signed correction-tick coordinate;
+      // two GMs need not have the same boot-time counter or UTC offset.
+      const auto held=handoff->clock.at(capture.tick20);
+      auto held_nominal=handoff->clock;held_nominal.rate=0;
+      if(held>p.origin.utc_offset_ns&&held_nominal.at(capture.tick20)>p.origin.utc_offset_ns){
+        originals_[slot].predicted=held-p.origin.utc_offset_ns;
+        originals_[slot].nominal=held_nominal.at(capture.tick20)-p.origin.utc_offset_ns;
+      }
+    }
+#endif
+#endif
     for(unsigned k=0;k<p.count;k++){
       const auto& value=p.correction[k];if(value.generation!=p.route.map_generation||value.channel>36)return refuse();
       slot=Pending;bool duplicate=false;
@@ -327,7 +463,11 @@ class G1CorrectedClock {
       corrections_[slot]={value,available20,p.origin.expires_ns};
     }
     Original* best=nullptr;Correction* correction=nullptr;
-    for(auto& o:originals_)if(o.used&&!stale(available20,o.local)&&o.local>last_original_&&o.local>clock_.tick)
+    for(auto& o:originals_)if(o.used&&!stale(available20,o.local)&&o.local>last_original_
+#if !defined(PTOB_N30) && !defined(PTOB_W12_FINE_CLOCK)
+      &&o.local>clock_.tick
+#endif
+    )
       for(auto& c:corrections_)if(c.available&&!stale(available20,c.available)&&o.publication==c.value.publication&&o.event==c.value.event&&o.channel==c.value.channel&&(!best||o.local<best->local)){best=&o;correction=&c;}
     if(!best)return false;
     correction->available=0;last_original_=best->local;
@@ -349,8 +489,23 @@ class G1CorrectedClock {
     // Only an authenticated, matched physical pair with actual remaining
     // permission can retire a map. Preserve the full failed prediction and
     // require a new pair; no corrupt sample trains the replacement clock.
-    if(discontinuity(*best,remote))return refuse();
+    uint64_t held20=0;
+#ifdef PTOB_N30
+    if(!clock_.tick&&handoff&&handoff->handoff_ready(available20)&&
+       handoff->handoff_ready(best->local)&&best->predicted>0){
+      // No old tuples, fit points, quality, source permission or lock cross
+      // this boundary. Seed only the running actuator, after a new admitted,
+      // authenticated physical pair passed all original permission checks.
+      held20=best->local-handoff->original20;
+      clock_={best->local,best->predicted,handoff->clock.phase_remaining(best->local),
+        handoff->clock.rate,best->offset};
+    }
+    if(!clock_.tick){best->predicted=best->nominal=0;} // Expired/invalid carry uses ordinary cold acquisition.
+#endif
+    shadow_pair(best->local,remote,available20);
+    if(discontinuity(*best,remote,held20))return refuse();
     if(last_remote_ns_&&remote<=last_remote_ns_)return refuse();
+    hold_pair(best->local,remote,available20,best->channel);
     until_=now+remaining;
     last_remote_ns_=remote;
     observe_clock(*best,raw,available20);
@@ -422,8 +577,9 @@ class G1CorrectedClock {
     if(mapped){
       Original original{stamp.tick20,r.origin.issued,r.origin.expires,r.origin.frame,r.origin.utc_offset,
         r.publication,stamp.map_enclosure_ns,stamp.epoch,r.event,r.channel,true};
+      shadow_pair(stamp.tick20,r.parent_tx_ns,available20);
       if(discontinuity(original,r.parent_tx_ns))return denied();
-      scope(anchor);observe_clock(original,r.parent_tx_ns,available20);
+      scope(anchor);hold_pair(stamp.tick20,r.parent_tx_ns,available20,r.channel);observe_clock(original,r.parent_tx_ns,available20);
       // Establish this once from that mapped original's actual elapsed RX
       // age plus its inherited age. Later PermissionOnly originals never
       // replace or extend this immutable map-hold deadline.
@@ -457,11 +613,25 @@ class G1CorrectedClock {
     if(!remaining||now>UINT64_MAX-remaining)return refuse();
     Original o{s.tick20,r.origin.issued,r.origin.expires,r.origin.frame,r.origin.utc_offset,r.publication,
       s.map_enclosure_ns,s.epoch,r.event,r.channel,true};
+    shadow_pair(s.tick20,r.parent_tx_ns,available20);
     if(discontinuity(o,r.parent_tx_ns)|| (last_remote_ns_&&r.parent_tx_ns<=last_remote_ns_))return refuse();
+    hold_pair(s.tick20,r.parent_tx_ns,available20,r.channel);
     last_original_=s.tick20;last_remote_ns_=r.parent_tx_ns;until_=now+remaining;
     observe_clock(o,r.parent_tx_ns,available20);inc(accepted_);return true;
   }
 };
 // Eight immutable original frame values add64B for RC7 envelope forwarding.
+#if defined(PTOB_N30) || defined(PTOB_W12_FINE_CLOCK) || defined(PTOB_SS3_SERVO)
+#ifdef PTOB_W12_SHADOW_HOLDOVER
+static_assert(sizeof(G1CorrectedClock)<=2144,"W12 fine clock plus96-byte frozen thermal projection RAM allocation");
+#else
+static_assert(sizeof(G1CorrectedClock)<=2048,"Fine frozen capture predictions exceed2KiB clock budget");
+#endif
+#else
+#ifdef PTOB_W12_SHADOW_HOLDOVER
+static_assert(sizeof(G1CorrectedClock)<=1960,"W12 clock plus frozen thermal projection RAM allocation");
+#else
 static_assert(sizeof(G1CorrectedClock)<=1864,"Functional clock exceeds its fixed RAM allocation");
+#endif
+#endif
 }

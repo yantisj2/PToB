@@ -1,6 +1,7 @@
 /* Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT */
 #pragma once
 #include "group_auth.h"
+#include "r2/r2-g1/time_zone.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -8,7 +9,11 @@ extern "C" {
 #define GM7_CONTROL_BYTES 178u
 #define GM7_ROLE_BYTES 168u
 #define GM7_GNSS_BYTES 156u
+#if defined(R2_TZ_WIRE) && !defined(GM7_CODEC_IMPLEMENTATION)
+#define GM7_MAX_BYTES (GM7_CONTROL_BYTES+4u)
+#else
 #define GM7_MAX_BYTES GM7_CONTROL_BYTES
+#endif
 #define GM7_MAX_AD_BYTES (GM7_MAX_BYTES + 4u)
 #define GM7_UTC_MIN UINT64_C(946684800000000)
 #define GM7_UTC_MAX UINT64_C(4102444800000000)
@@ -74,6 +79,7 @@ struct gm7_control {
   uint32_t shadow_gen;
   uint64_t sent_mono_us;
   uint32_t timing_epoch;
+  struct r2_tz tz;
 };
 struct gm7_role {
   uint64_t sender;
@@ -153,6 +159,20 @@ int gm7_ad_encode(uint8_t *, size_t, const struct gm7_packet *,
                   const struct r2_group_config *);
 int gm7_ad_decode(struct gm7_packet *, const uint8_t *, size_t,
                   const struct r2_group_config *);
+/* Coarse TZ revision 4. Historical implementation3 remains an explicit codec. */
+#define GM7_TZ_MAX_AD_BYTES (GM7_CONTROL_BYTES+8u)
+size_t gm7_tz_wire_size(uint8_t);
+int gm7_tz_encode(uint8_t *,size_t,const struct gm7_packet *,const struct r2_group_config *);
+int gm7_tz_decode(struct gm7_packet *,const uint8_t *,size_t,const struct r2_group_config *);
+int gm7_tz_ad_encode(uint8_t *,size_t,const struct gm7_packet *,const struct r2_group_config *);
+int gm7_tz_ad_decode(struct gm7_packet *,const uint8_t *,size_t,const struct r2_group_config *);
+#if defined(R2_TZ_WIRE) && !defined(GM7_CODEC_IMPLEMENTATION)
+#define gm7_wire_size gm7_tz_wire_size
+#define gm7_encode gm7_tz_encode
+#define gm7_decode gm7_tz_decode
+#define gm7_ad_encode gm7_tz_ad_encode
+#define gm7_ad_decode gm7_tz_ad_decode
+#endif
 #ifdef __cplusplus
 }
 #endif

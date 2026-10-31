@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-10-30 — SS3 current servo and TZ diagnostics
+
+- Select current GM7 revision4, JOIN revision5 and RC coarse revision8 codecs,
+  retaining full ROLE/GNSS diagnostics and unchanged precision payloads.
+- Port W12 software servo fast acquisition/channel fitting and causal continuity
+  to the existing SS3 capture path; W12 wiring/calibration and thermal holdover
+  instrumentation do not transfer. Preserve separate permission and owner gates.
+- Add Time Zone page8, signed OTA ID/offset/receipt expiry and CRC-protected
+  telemetry. Receiver clock uses fresh selected-parent TZ with UTC fallback.
+- Validate actual native discovery, ordered/expired/unknown metadata, corruption,
+  scope changes, permission paths and all108 renderer states offline. Hardware
+  observation and precision qualification remain separately recorded.
+
 ## 2026-10-30 — main viability preprint for public review
 
 - Publish the approved [17-page viability preprint](papers/ptob-viability-preprint.pdf)

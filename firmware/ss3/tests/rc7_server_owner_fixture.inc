@@ -31,7 +31,7 @@ int ble_gap_periodic_adv_stop(unsigned i){assert(i==0);pa_active=false;return 0;
 void server_connect(){assert(ext_active[1]&&v12::relay_acl_available());server_connected=true;ext_active[1]=false;
  ble_gap_event e{};e.type=BLE_GAP_EVENT_CONNECT;e.connect.conn_handle=33;v12::relay_gap(&e,nullptr);assert(v12::relay_session.handle==33);}
 rc7_control server_read(){os_mbuf b;ble_gatt_access_ctxt c{};c.op=BLE_GATT_ACCESS_OP_READ_CHR;c.om=&b;
- assert(!v12::relay_access(33,0,&c,nullptr));assert(b.bytes.size()==212);rc7_control out{};
+ assert(!v12::relay_access(33,0,&c,nullptr));assert(b.bytes.size()==RC_DYNAMIC_CONTROL_BYTES);rc7_control out{};
  assert(!rc7_control_decode(&out,b.bytes.data(),b.bytes.size(),&v12::provision.group));return out;}
 void server_request(const rc7_control& c,bool bad=false){os_mbuf b;b.bytes.resize(212);assert(!rc7_control_encode(b.bytes.data(),&c,&v12::provision.group));
  if(bad)b.bytes[211]^=1;ble_gatt_access_ctxt ctx{};ctx.om=&b;assert(!v12::relay_access(33,0,&ctx,nullptr));v12::relay_poll(fake_now,false);}

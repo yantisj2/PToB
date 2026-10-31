@@ -1,0 +1,50 @@
+{
+  "schema": 1,
+  "source_commit": "533831dd2f5bc2a188325f99206d3295cfb8b351",
+  "source_target": "firmware/w12",
+  "selection": "Current coarse TZ codecs and software servo. SS3 retains its original capture hardware, no W12 calibration or GPIO routing.",
+  "license": "MIT",
+  "credit": "Jonathan Yantis",
+  "files": {
+    "g1_corrected_clock.hpp": "c0dd0726bb07c6d29010cf59b7f4e67f95d559dd9dcac38a8016d335b4c00816",
+    "g1_clock_prediction.hpp": "e700d5b9cce09024d93fa43d6e8c6fe4c9cd1835fd61ae448068f655f291f41b",
+    "g1_relative_quality.hpp": "46f0a226db5235e4ec698641fd07c5eb7574c2de99aaa483dfb47023f1cb1659",
+    "rc7_client.hpp": "ccbb8327aacbdda2bc7b0e4a8bd329134bf740d1760652edb0369bad86bf1852",
+    "g1_time_zone.hpp": "54753721ba4b81c7cf74dabe134d2bdf73ab040ecfba6e472679782519339d43",
+    "coarse_time_zone.hpp": "89e53c1b72c24db3d9d0d2392915aabdbacb3a733e39138aeb4f0d3ade490533",
+    "r2/r2-g1/time_zone.h": "32c5c86867f8c19f85efe4f19badee55ee7744d2e0164fbd8e79438df163329d",
+    "r2/r2-g1/group_join.h": "1067bb13ccb269a7e9bd831fc37d34b6aea54692003c4042b6fbdc8fa1205efd",
+    "r2/r2-g1/group_join.c": "faeedb95492239b3cbb8df2118446ba86f5a830742c3ad721277445411b2cb7c",
+    "r2/rc7/protocol/rc_dynamic.h": "e5548c7b5908b7907b2e3d72c49a9e1f19d3d5da245085fef166b7488c12d471",
+    "r2/rc7/protocol/rc_dynamic.c": "3ba864290164f6b358a9cc2283b55a31dcdb92cccc45451d33d5a4325593a9cc",
+    "gm7/gm7_codec.h": "516c088ddf35a34985d9a90931cffcdfa3a73a1cc2a73046820a36b4e01a913c",
+    "gm7/gm7_codec.c": "8911aacbcb4596e91df28219f73d19edd580d914ccceb925163e6f073e3f9e83"
+  },
+  "diagnostic_codec": {
+    "source": "firmware/corese/protocol/gm7_codec.c",
+    "sha256": "ae53b4b678498d219a008faa29dbec77422765b77bbbb54d20f65d024e0982f3",
+    "reason": "Full ROLE/GNSS diagnostics absent from W12 routing subset"
+  },
+  "target_sha256": {
+    "g1_corrected_clock.hpp": "bbd79ac715b773477b580f06944fc1d7db22634eec3e88ee655a90b580bbf9a4",
+    "g1_clock_prediction.hpp": "56db8f0e0d1533b41203f28ac74e58116eaa0b5c2dbc7ddd1bcb2a8a45651801",
+    "g1_relative_quality.hpp": "46f0a226db5235e4ec698641fd07c5eb7574c2de99aaa483dfb47023f1cb1659",
+    "rc7_client.hpp": "ccbb8327aacbdda2bc7b0e4a8bd329134bf740d1760652edb0369bad86bf1852",
+    "g1_time_zone.hpp": "54753721ba4b81c7cf74dabe134d2bdf73ab040ecfba6e472679782519339d43",
+    "coarse_time_zone.hpp": "89e53c1b72c24db3d9d0d2392915aabdbacb3a733e39138aeb4f0d3ade490533",
+    "r2/r2-g1/time_zone.h": "32c5c86867f8c19f85efe4f19badee55ee7744d2e0164fbd8e79438df163329d",
+    "r2/r2-g1/group_join.h": "1067bb13ccb269a7e9bd831fc37d34b6aea54692003c4042b6fbdc8fa1205efd",
+    "r2/r2-g1/group_join.c": "faeedb95492239b3cbb8df2118446ba86f5a830742c3ad721277445411b2cb7c",
+    "r2/rc7/protocol/rc_dynamic.h": "e5548c7b5908b7907b2e3d72c49a9e1f19d3d5da245085fef166b7488c12d471",
+    "r2/rc7/protocol/rc_dynamic.c": "3ba864290164f6b358a9cc2283b55a31dcdb92cccc45451d33d5a4325593a9cc",
+    "gm7/gm7_codec.h": "c0977a98200d857ab4fbb59dfcdd34944f26ed90edb14194575e0058d3a6e843",
+    "gm7/gm7_codec.c": "ae53b4b678498d219a008faa29dbec77422765b77bbbb54d20f65d024e0982f3"
+  },
+  "management_aperture": {
+    "source": "firmware/w12/main/g1_gm_successor.hpp:GmControlScan",
+    "target": "firmware/ss3/main/coarse_tz_scan.hpp",
+    "period_us": 250000,
+    "window_us": 18000,
+    "eligibility": "Fresh captured PA and model covering 200ms; authenticated context required for metadata"
+  }
+}

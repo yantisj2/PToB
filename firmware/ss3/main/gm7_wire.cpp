@@ -52,7 +52,7 @@ bool Gm7Monitor::receive(const uint8_t* bytes,size_t size,const r2_group_config&
  }
  if(!peer){peer=&peers_[replace];*peer={};peer->id=sender;peer->boot=boot;}
  peer->seen=now;peer->sequence[channel]=sequence;peer->sampled[channel]=sampled;
- roles_.wire_version=3;roles_.result=Result::Accepted;count(roles_.accepted);
+ roles_.wire_version=4;roles_.result=Result::Accepted;count(roles_.accepted);
  roles_.last_peer=sender;roles_.last_boot=boot;roles_.last_sequence=sequence;roles_.last_kind=p.kind;roles_.last_flags=uint8_t(p.flags);
  roles_.last_role=p.kind==GM7_ROLE?p.body.role.role:0;roles_.last_blockers=p.kind==GM7_ROLE?p.body.role.blockers:0;
  const auto hot_report=[&](uint8_t role){
@@ -65,7 +65,7 @@ bool Gm7Monitor::receive(const uint8_t* bytes,size_t size,const r2_group_config&
  };
  if(p.kind==GM7_GNSS){
   const auto& g=p.body.gnss;reference_.scope={active,active_boot,epoch};reference_.received_us=at;reference_.until_us=at+valid;
-  reference_.sequence=sequence;reference_.remote_sampled_us=sampled;reference_.wire_version=3;
+  reference_.sequence=sequence;reference_.remote_sampled_us=sampled;reference_.wire_version=4;
   reference_.fields=uint8_t(g.known&63);reference_.values=uint8_t(g.values);reference_.sats=g.sats;
   reference_.source_kind=1;reference_.hdop_centi=g.hdop_centi;reference_.rmc_age_ms=g.rmc_age_ms;
   reference_.pps_age_ms=g.pps_age_ms;reference_.gga_age_ms=g.gga_age_ms;
@@ -98,14 +98,14 @@ bool Gm7Monitor::receive(const uint8_t* bytes,size_t size,const r2_group_config&
   if(!roles_.known||roles_.birth_utc_us!=birth||roles_.founder!=founder)roles_.epoch_since_us=at;
   roles_.hot_until_us=roles_.hot_received_us=roles_.hot_remote_sampled_us=0;
   roles_.hot_report_known=roles_.hot_confirmed=false;
-  roles_.utc_sample_us=roles_.utc_received_us=roles_.created_us=0;count(roles_.changes);
+  roles_.tz={};roles_.utc_sample_us=roles_.utc_received_us=roles_.created_us=0;count(roles_.changes);
  }
  roles_.known=true;roles_.root=active;roles_.root_boot=active_boot;roles_.epoch=epoch;
  roles_.birth_utc_us=birth;roles_.founder=founder;roles_.term=term;roles_.sequence=sequence;
  roles_.received_us=at;roles_.until_us=at+valid;roles_.kind=p.kind;roles_.flags=uint8_t(p.flags);
  roles_.withdrawn=p.kind==GM7_WITHDRAW;roles_.coordinator=0;roles_.members=0;
  if(p.kind==GM7_WITHDRAW){
-  count(roles_.withdrawals);roles_.until_us=at;roles_.hot_confirmed=roles_.hot_report_known=false;
+  roles_.tz={};count(roles_.withdrawals);roles_.until_us=at;roles_.hot_confirmed=roles_.hot_report_known=false;
   roles_.hot=roles_.hot_boot=roles_.hot_since_us=0;
  }else{
   const auto hot=p.kind==GM7_ANNOUNCE?p.body.control.hot:p.body.role.hot;
@@ -117,6 +117,7 @@ bool Gm7Monitor::receive(const uint8_t* bytes,size_t size,const r2_group_config&
   roles_.train_gen=train;
   if(p.kind==GM7_ANNOUNCE){
    count(roles_.announcements);roles_.created_us=sampled;
+   (void)r2_tz_observe(&roles_.tz,p.body.control.tz,at,now,R2_TZ_GM_PERIOD_US);
    roles_.utc_sample_us=p.body.control.sent_utc_us;roles_.utc_received_us=at;roles_.reported_role=GM7_W_ACTIVE;
   }else{count(roles_.role_reports);roles_.reported_role=p.body.role.role;roles_.blockers=p.body.role.blockers;}
  }

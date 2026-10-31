@@ -1,5 +1,6 @@
 #pragma once
 #include "g1_relative_quality.hpp"
+#include "r2/r2-g1/time_zone.h"
 #ifdef V12_SS3
 #include "ss3_td_model.hpp"
 #endif
@@ -16,6 +17,7 @@ namespace v12 {
 enum class R2Mode:uint8_t {Off,Passive,Active,Client};
 enum class R2Api:uint8_t {None,DataLength,Mtu,Service,Characteristics,ControlWrite,SyncCreate,ScanStart,ScanStop,AdvStop,AdvRemove,Disconnect,ConnectCancel,SyncCancel,SyncTerminate,AdvConfigure,AdvData,AdvStart,Connect};
 struct R2Status {
+  r2_tz tz=r2_tz_unknown();uint64_t tz_until_us=0;uint16_t tz_received=0,tz_conflicts=0;
   R2Mode mode=R2Mode::Off;OwnerLease lease{};R2ClientService client{};
   bool requested=false,scan=false,advertising=false,sync_pending=false,synced=false;
   bool connecting=false,owner_busy=false,off_ack=true,fault=false,active_used=false;

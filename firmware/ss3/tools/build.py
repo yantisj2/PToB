@@ -7,7 +7,7 @@ from pathlib import Path
 APP=Path(__file__).resolve().parents[1];REPO=APP.parents[1]
 sys.path.insert(0,str(REPO/'registry'))
 from registry import load as load_registry,header as registry_header
-VERSION='0.1.6'
+VERSION='0.1.7'
 def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
 def git(p,*args):return subprocess.check_output(['git','-C',str(p),*args],text=True).strip()
 def dump(p,v):p.write_text(json.dumps(v,indent=2,sort_keys=True)+'\n')
@@ -43,7 +43,8 @@ def main():
  if a.estimated_relay and a.listening_percent!=100:p.error('Estimated relay requires BLE100')
  for path in [a.enrollment,a.device_config]:
   if subprocess.run(['git','-C',str(REPO),'check-ignore','--quiet',str(path.resolve())]).returncode:p.error('Enrollment and device inputs must be Git-ignored')
- dirty=bool(git(REPO,'status','--porcelain','--untracked-files=all'))
+ repository_dirty=bool(git(REPO,'status','--porcelain','--untracked-files=all'))
+ dirty=bool(git(REPO,'status','--porcelain','--untracked-files=all','--','firmware/ss3','registry/registry.py'))
  if dirty and not a.development:p.error('Commit reviewed public inputs before a candidate build')
  lock=json.loads((APP/'dependencies.lock.json').read_text());modules=verify_sdk(sdk,lock)
  e=json.loads(a.enrollment.read_text());d=json.loads(a.device_config.read_text());key=validate_inputs(e,d);registry=load_registry(a.registry)
@@ -56,7 +57,7 @@ def main():
  (inputs/'ptob_device.h').write_text('#pragma once\n#define PTOB_FACTORY_MAC {'+','.join('0x'+x for x in d['factory_mac'].split(':'))+'}\n#define PTOB_DEVICE_LABEL '+json.dumps(d['label'])+'\n#define PTOB_LEGACY_WIRE_ID '+str(d['legacy_wire_id'])+'\n')
  # Registry/generator/device hashes bind display metadata and local input changes into runtime enrollment identity.
  enrollment_header=inputs/'r2-enrollment.h';enrollment_header.write_text('/* source:'+source_hash+' registry:'+sha(a.registry)+' generator:'+sha(REPO/'registry/registry.py')+' device:'+sha(a.device_config)+' */\nstatic const r2_group_enrollment provision={{{'+','.join(map(str,key))+'},UINT64_C(0x'+e['group_id']+'),'+str(e['key_epoch'])+'},UINT64_C(0x'+d['device_id']+'),'+json.dumps(d['label'])+',40000};\n')
- r={'schema':1,'artifact_class':'PTOB_SS3_RC','version':VERSION,'status':'INCOMPLETE','public_commit':git(REPO,'rev-parse','HEAD'),'source_dirty':dirty,'source_sha256':source_hash,'sources':sources,'dependencies':lock,'sdk_path':str(sdk),'app_path':str(APP),'sdk_submodules':modules.splitlines(),'profile':'RC','listening_percent':a.listening_percent,'estimated_relay':a.estimated_relay,'tx_actual_capture':False,'precision':'UNQUALIFIED','installed':False,'registry_sha256':sha(a.registry),'registry_generator_sha256':sha(REPO/'registry/registry.py'),'enrollment_mode':'LOCAL_BUILD_TIME_NO_NVS_WRITE','device_config_sha256':sha(a.device_config)}
+ r={'schema':1,'artifact_class':'PTOB_SS3_RC','version':VERSION,'status':'INCOMPLETE','public_commit':git(REPO,'rev-parse','HEAD'),'source_dirty':dirty,'repository_dirty':repository_dirty,'source_sha256':source_hash,'sources':sources,'dependencies':lock,'sdk_path':str(sdk),'app_path':str(APP),'sdk_submodules':modules.splitlines(),'time_zone_contract':'COARSE_TZ_V1_ORDERED_DYNAMIC_LOCAL_DISPLAY','servo_contract':'W12_CAUSAL_CHANNEL_FIT_FAST_ACQUISITION_SS3_CAPTURE_V1','profile':'RC','listening_percent':a.listening_percent,'estimated_relay':a.estimated_relay,'tx_actual_capture':False,'precision':'UNQUALIFIED','installed':False,'registry_sha256':sha(a.registry),'registry_generator_sha256':sha(REPO/'registry/registry.py'),'enrollment_mode':'LOCAL_BUILD_TIME_NO_NVS_WRITE','device_config_sha256':sha(a.device_config)}
  dump(out/'receipt.json',r)
  env=os.environ.copy()
  for k in ['CFLAGS','CXXFLAGS','CPPFLAGS','LDFLAGS','EXTRA_COMPONENT_DIRS','SDKCONFIG_DEFAULTS']:env.pop(k,None)

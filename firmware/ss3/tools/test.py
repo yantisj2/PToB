@@ -10,8 +10,8 @@ def main():
  sys.path.insert(0,str(REPO/'registry'));from registry import load,header
  (out/'ptob_registry.h').write_text(header(load(REPO/'registry/example.json')))
  compiler=os.environ.get('CXX','clang++');records=[]
- flags=['-std=c++20','-O1','-g','-Wall','-Wextra','-Werror','-Wno-misleading-indentation','-Wno-missing-field-initializers','-fsanitize=address,undefined','-I'+str(APP/'main'),'-I'+str(APP/'legacy'),'-I'+str(out)]
- for name in ['ss3_td_model_test','td_health_display_test','td_signal_test','td_publication_test','td_role_update_test','ss3_splash_test','ss3_display_clock','lifecycle_test','update_gate_test','fault_watchdog_test','ss3_lcd_io_test','ss3_durability_model_test']:
+ flags=['-DR2_TZ_WIRE=1','-DPTOB_SS3_SERVO=1','-std=c++20','-O1','-g','-Wall','-Wextra','-Werror','-Wno-misleading-indentation','-Wno-missing-field-initializers','-fsanitize=address,undefined','-I'+str(APP/'main'),'-I'+str(APP/'main/r2/r2-g1'),'-I'+str(APP/'legacy'),'-I'+str(out)]
+ for name in ['servo_test','ss3_td_model_test','td_health_display_test','td_signal_test','td_publication_test','td_role_update_test','ss3_splash_test','ss3_display_clock','lifecycle_test','update_gate_test','fault_watchdog_test','ss3_lcd_io_test','ss3_durability_model_test']:
   files=[APP/'tests'/(name+'.cpp')]
   if name in ('ss3_td_model_test','td_health_display_test','ss3_splash_test'):files.append(APP/'legacy/m5stick_s3/ui.cpp')
   binary=out/name

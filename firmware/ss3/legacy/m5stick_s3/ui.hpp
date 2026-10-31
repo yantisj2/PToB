@@ -9,6 +9,7 @@ namespace sticks3 {
 // Value-owned mailbox: no pointers into the timing engine cross task boundaries.
 struct View {
  v12::TdSnapshot td{};TdHealthBanner td_health_banner{};
+ r2_tz tz=r2_tz_unknown();uint64_t tz_until_us=0;char zone[4]="UTC";
  char header[24]="SS3",role[24]="ACQUIRE";
  bool native_dashboard=false,relay_online=false,relay_ready=false;
  bool relay_only=false;char mode_banner[24]{};

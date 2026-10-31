@@ -1,7 +1,7 @@
 #pragma once
 #include "g1_clock_prediction.hpp"
 namespace v12 {
-// V10's causal relative forecast convention, with the current 1ppm actuator.
+// Causal relative forecast with the same actuator as the delivered map.
 // This estimates agreement with captured GM ticks. Fixed RF/channel/propagation
 // bias, UTC/source error and physical output error remain unqualified.
 struct G1RelativeQuality {
@@ -15,7 +15,8 @@ struct G1RelativeQuality {
     std::isfinite(rate_guard_ppb)&&rate_guard_ppb>0&&std::isfinite(accel_guard_ppb_s)&&accel_guard_ppb_s>=0;}
   double phase_left(uint64_t now,const G1ClockPrediction& clock)const{
     if(!clock.tick||now<clock.tick)return INFINITY;
-    return std::max(0.0,std::abs(double(clock.phase))-double(now-clock.tick)/20000000*1000);
+    // Keep fractional nanoseconds conservative, as in the original forecast.
+    return std::max(0.0,std::abs(double(clock.phase))-double(now-clock.tick)/20000000*clock.phase_slew_ns_s());
   }
   uint32_t legacy_sum_estimate(uint64_t now,const G1ClockPrediction& clock)const{
     if(!ready()||!clock.tick||now<clock.tick||now<original20)return UINT32_MAX;

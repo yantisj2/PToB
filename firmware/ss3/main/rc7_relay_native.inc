@@ -7,9 +7,9 @@ struct RelayChild {uint64_t id=0;rc5_demand demand{};};
 struct RelaySession {
   uint64_t until=0,challenge=0,drain=0;uint32_t generation=0;
   uint16_t handle=None;bool replied=false,terminating=false;
-  ble_addr_t address{};rc7_path issued_path{};uint8_t reply[212]{};
+  ble_addr_t address{};rc7_path issued_path{};uint8_t reply[RC_DYNAMIC_CONTROL_BYTES]{};
 };
-struct RelayWrite {uint64_t at=0;uint32_t generation=0;uint16_t handle=None;uint8_t wire[212]{};};
+struct RelayWrite {uint64_t at=0;uint32_t generation=0;uint16_t handle=None;uint8_t wire[RC_DYNAMIC_CONTROL_BYTES]{};};
 RelayChild relay_children[8]{};RelaySession relay_session;
 Ring<RelayWrite,4> relay_writes;
 uint64_t relay_challenge=0,relay_cap_at=0,relay_start20=0;
@@ -30,7 +30,7 @@ struct RelayQueueDiagnostic {
 };
 RelayQueueDiagnostic relay_queue_diagnostic;
 uint64_t relay_trace_capture=0;
-uint8_t relay_cap[212]{};rc7_path relay_cap_path{};
+uint8_t relay_cap[RC_DYNAMIC_CONTROL_BYTES]{};rc7_path relay_cap_path{};
 bool relay_configured=false,relay_pa=false,relay_discovery=false,relay_advertising=false,relay_cap_dirty=true,relay_data_dirty=false;
 bool relay_stopping=false;uint64_t relay_stop_deadline=0;
 bool relay_rescan_pending=false;
@@ -83,6 +83,8 @@ void relay_close(uint64_t now){
   // stopped-scope estimate may survive as publication or block a fresh start.
   periodic_tx::EstimateRecord discarded{};
   for(unsigned i=0;i<periodic_tx::Capacity&&periodic_tx::pop_estimated(discarded);i++){}
+  const auto tz=r2_tz_current(&coarse_tz,now);const auto previous=r2_tz_get(relay_cap+196);
+  if(!G1TimeZoneOrder::same(tz,previous))relay_cap_dirty=true;
   relay_quarantine_poll(now);
   RelayWrite discard{};while(relay_writes.pop(discard)){}
   if(relay_session.handle!=None&&now>=relay_session.drain&&relay_session.terminating)fault=true;
@@ -128,7 +130,7 @@ int relay_gap(ble_gap_event* e,void*){
     }
     relay_session={};relay_session.handle=e->connect.conn_handle;relay_session.generation=++relay_generation;
     relay_session.until=now+2000000;relay_session.address=d.peer_id_addr;relay_session.challenge=relay_challenge++;
-    relay_session.issued_path=relay_cap_path;std::memcpy(relay_session.reply,relay_cap,212);relay_cap_dirty=true;
+    relay_session.issued_path=relay_cap_path;std::memcpy(relay_session.reply,relay_cap,RC_DYNAMIC_CONTROL_BYTES);relay_cap_dirty=true;
   }else if(e->type==BLE_GAP_EVENT_DISCONNECT){const auto& d=e->disconnect.conn;
     for(unsigned i=0;i<4;i++)if(d.conn_handle==relay_quarantined[i]){
       if(now>=relay_quarantine_until[i]&&!relay_quarantine_timed_out[i]){inc(relay_quarantine_timeouts);error(BLE_HS_ETIMEOUT,R2Api::Disconnect);}
@@ -149,11 +151,11 @@ int relay_access(uint16_t h,uint16_t,ble_gatt_access_ctxt* ctx,void*){
     micros()>=relay_session.until||ble_att_mtu(h)<226)return BLE_ATT_ERR_UNLIKELY;
   if(ctx->offset)return BLE_ATT_ERR_INVALID_ATTR_VALUE_LEN;
   if(ctx->op==BLE_GATT_ACCESS_OP_READ_CHR){
-    return os_mbuf_append(ctx->om,relay_session.reply,212)?BLE_ATT_ERR_INSUFFICIENT_RES:0;
+    return os_mbuf_append(ctx->om,relay_session.reply,RC_DYNAMIC_CONTROL_BYTES)?BLE_ATT_ERR_INSUFFICIENT_RES:0;
   }
-  if(ctx->op!=BLE_GATT_ACCESS_OP_WRITE_CHR||OS_MBUF_PKTLEN(ctx->om)!=212||relay_session.replied)return BLE_ATT_ERR_INVALID_ATTR_VALUE_LEN;
+  if(ctx->op!=BLE_GATT_ACCESS_OP_WRITE_CHR||OS_MBUF_PKTLEN(ctx->om)!=RC_DYNAMIC_CONTROL_BYTES||relay_session.replied)return BLE_ATT_ERR_INVALID_ATTR_VALUE_LEN;
   RelayWrite row{};row.at=micros();row.generation=relay_session.generation;row.handle=h;
-  if(os_mbuf_copydata(ctx->om,0,212,row.wire))return BLE_ATT_ERR_UNLIKELY;
+  if(os_mbuf_copydata(ctx->om,0,RC_DYNAMIC_CONTROL_BYTES,row.wire))return BLE_ATT_ERR_UNLIKELY;
   return relay_writes.push(row)?0:BLE_ATT_ERR_INSUFFICIENT_RES;
 }
 const ble_gatt_chr_def relay_chars[]={[]{ble_gatt_chr_def c{};c.uuid=&rc_data_uuid.u;c.access_cb=relay_access;
@@ -172,8 +174,14 @@ void relay_input(const rc7_path& parent,const rc5_origin& origin,const uint8_t* 
 bool relay_cap_update(uint64_t now){
   if(relay_session.handle!=None||peer.connecting||peer.handle!=None)return false;
   relay_pause_cap();
-  const auto c=relay_map.capability(provision.identity,boot_id,relay_challenge,relay_pa);
-  uint8_t wire[167]={2,1,6,17,7};std::memcpy(wire+5,rc_service.value,16);wire[21]=145;wire[22]=255;
+  auto c=relay_map.capability(provision.identity,boot_id,relay_challenge,relay_pa);
+  c.tz=r2_tz_current(&coarse_tz,now);
+  const auto previous=r2_tz_get(relay_cap+196);
+  if(relay_cap_at&&!G1TimeZoneOrder::same(previous,c.tz)){
+    if(relay_challenge>=UINT64_MAX-1){fault=true;return false;}
+    c.next_challenge=++relay_challenge;
+  }
+  uint8_t wire[23+RC_DYNAMIC_CAPABILITY_BYTES]={2,1,6,17,7};std::memcpy(wire+5,rc_service.value,16);wire[21]=RC_DYNAMIC_CAPABILITY_BYTES+1;wire[22]=255;
   if(rc7_control_encode(relay_cap,&c,&provision.group)||rc7_capability_encode(wire+23,&c,&provision.group)){fault=true;return false;}
   relay_cap_path=c.path;auto* mb=ble_hs_mbuf_from_flat(wire,sizeof wire);
   if(!mb){fault=true;return false;}if(!relay_api(ble_gap_ext_adv_set_data(1,mb),R2Api::AdvData))return false;
@@ -194,7 +202,7 @@ void relay_requests(uint64_t now,uint64_t now20){
     if(row.handle!=relay_session.handle||row.generation!=relay_session.generation||relay_session.replied||
       relay_session.terminating||now<row.at||now>=relay_session.until){inc(relay_refused);continue;}
     rc7_control request{};
-    if(rc7_control_decode(&request,row.wire,212,&provision.group)||request.type!=RC7_REQUEST||
+    if(rc7_control_decode(&request,row.wire,RC_DYNAMIC_CONTROL_BYTES,&provision.group)||request.type!=RC7_REQUEST||
       request.target!=provision.identity||request.target_boot!=boot_id||request.challenge!=relay_session.challenge||
       !rc7_path_same(&request.path,&relay_session.issued_path)){inc(relay_refused);relay_terminate(now);continue;}
     unsigned at=8;for(unsigned i=0;i<8;i++)if(relay_children[i].id==request.sender){at=i;break;}
@@ -207,13 +215,16 @@ void relay_requests(uint64_t now,uint64_t now20){
     rc7_control response{};
     if(!relay_map.response(response,request,relay_challenge,now20)){inc(relay_refused);relay_terminate(now);continue;}
     if(!relay_pa||request.operation){response.ready=false;response.path={};response.publication_floor=0;response.root_lo_ns=response.root_hi_ns=response.source_expires_ns=0;}
-    uint8_t reply[212];if(rc7_control_encode(reply,&response,&provision.group)){inc(relay_refused);relay_terminate(now);continue;}
-    relay_children[at]=child;std::memcpy(relay_session.reply,reply,212);relay_session.replied=true;inc(relay_admissions);
+    response.tz=r2_tz_current(&coarse_tz,now);
+    uint8_t reply[RC_DYNAMIC_CONTROL_BYTES];if(rc7_control_encode(reply,&response,&provision.group)){inc(relay_refused);relay_terminate(now);continue;}
+    relay_children[at]=child;std::memcpy(relay_session.reply,reply,RC_DYNAMIC_CONTROL_BYTES);relay_session.replied=true;inc(relay_admissions);
     relay_rescan_pending|=request.operation!=0;
   }
 }
 void relay_poll(uint64_t now,bool upstream_due){
   if(!full_listening()||closing||fault){if(relay_owned())relay_close(now);return;}
+  const auto tz=r2_tz_current(&coarse_tz,now);const auto previous=r2_tz_get(relay_cap+196);
+  if(!G1TimeZoneOrder::same(tz,previous))relay_cap_dirty=true;
   relay_quarantine_poll(now);
   if(fault)return;
   if(relay_stopping){if(relay_owned())return;relay_stopping=false;relay_stop_deadline=0;relay_cap_dirty=true;}

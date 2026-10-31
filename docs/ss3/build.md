@@ -11,31 +11,23 @@ It has no GM, local election or GNSS input. LoRa, WiFi, PTS and external PPS are
 disabled. Programmed TX estimates carry an unknown bound; actual TX capture,
 physical RF timing and output precision remain unqualified.
 
-The selected source is `56740553885420a7f6f301c12de10696a9c8d432`, V17 with a
-150 ms display-health hold. Initial public successor version 0.1.1 replaced private
-factory/name tables with explicit local binding and the shared display registry.
-These changes create new application bytes; they do not inherit the historical
-installed image's hardware observations.
+The current selected source is the local public SS3 tree; each build records its
+exact Git revision, frozen source hashes and runtime identity. Historical imports
+remain documented by the linked manifests and Git. Source version 0.1.7 selects
+current coarse TZ codecs (GM7 revision4, JOIN revision5, RC control/capability
+revision8), while precision payloads remain unchanged.
 
-Source version 0.1.2 prepares the direct BLE100 authentication-session repair:
-renewal is randomized over 225–240 seconds and authentication expires after six
-minutes. A newly matched GR3 physical correction can maintain the coarse anchor
-only inside the prior live causal interval and exact admitted scope. The
-original JOIN uncertainty plus physical enclosure, signed source/map expiry,
-250 ms uncertainty ceiling and original owner/drain bounds remain. Receipt,
-polls, held predictions and duplicate tuples cannot extend authentication.
-RC7 remains five-minute renewal/six-minute lease. Offline checks include the
-actual matcher and native receive path; SS3 hardware installation/qualification
-requires its own authorized device scope.
+The software servo matches W12's bounded 64-point repeated-channel fit, 2 s
+acquisition minimum, 62.5 ms physical point spacing, causal pre-update scoring,
+continuous phase steering and bounded fast acquisition. It uses the existing
+SS3 descriptor/GPTimer capture path. No W12 pin routing, measured offsets,
+thermal learner or sampled holdover-duration certification is imported. Fine
+model/source expiry, authentication and relay permission remain separate.
 
-Version 0.1.3 updates GM diagnostics during existing passive survey windows.
-The worker checks at most one cached signed report per second, retaining MAC,
-locator, selected-GM, boot, source-epoch, freshness and replay guards. New HOT
-identity/boot observations need ten seconds of dwell; observed withdrawal and
-major scope/membership changes bypass the two-minute routine refresh. This is
-an observed diagnostic dwell across scans, not proof of continuous HOT service.
-No scan windows, radio/task priorities or precision-packet paths change.
-`SS3_GM_STATUS` exposes event counts and the unchanged routine deadline.
+Direct BLE100 authentication renewal remains randomized over 225–240 s with a
+six-minute session. RC7 retains five-minute renewal/six-minute lease. Fresh
+matched physical pairs can maintain the coarse anchor only inside the original
+causal interval and exact admitted scope; poll/duplicate activity cannot renew it.
 
 The PToB splash paints before USB PHY restoration and BLE initialization. The
 LCD task retains it for at least one second without blocking initialization;
@@ -59,10 +51,9 @@ frames, frame errors, worker ms, paint ms, I/O timeouts, I/O errors and pending;
 `tds` lists survey generation, closing ms, sync handle, phase and owner flags.
 The millisecond counters wrap after about 49.7 days; compare ages modulo 32 bits.
 
-## Current GM7 diagnostics and mesh epoch (0.1.6)
+## Current GM7 diagnostics, time zone and mesh epoch
 
-SS3 now uses the receive-only GM7 implementation3 codec and monitor from the
-actual CoreSE 0.1.26 build, with [selected-file provenance](../../firmware/ss3/contracts/gm7_diagnostics_provenance.json).
+SS3 uses the full receive-only current GM7 revision4 diagnostic codec, with [selected-file provenance](../../firmware/ss3/contracts/gm7_diagnostics_provenance.json).
 The two-file codec is vendored in the target and normal builds/tests need no
 other checkout, private source or credentials. SID14 ANN, STATUS, ROLE, WITHDRAW
 and GNSS are distinct from SID12 precision traffic and legacy GS/GD1/GD2.
@@ -89,7 +80,7 @@ tracking, not qualified UTC, RF-delay compensation or output time.
 
 Page7 (Reference) shows reported GM7 GNSS or legacy GD data with original expiry.
 Unknown accuracy/variance stay explicit; GD1 never supplies HDOP. A report's
-qualification flag belongs to the reporting GM. The eight-page side-button and
+qualification flag belongs to the reporting GM. The nine-page side-button and
 ticketed `td ui-next` routes are unchanged. Existing passive radio survey timing,
 controller owners, correction matching and precision permissions are unchanged.
 
@@ -99,9 +90,18 @@ counts, `gm7_utc/utc_at`, `epoch_utc_us`, `epoch_elapsed_us`, `epoch_basis`
 (0unknown/1matched UTC/2reported UTC estimate), and `epoch_current`. These are
 actual receive counts and original UTC coordinates; legacy `epoch_seen` remains
 local first observation for debugging only. GS/GD sequences now retain all64bits
-when the current source is GM7. `gd_wire=3` means GM7 GNSS; 1/2 are legacy GD1/GD2.
-HDOP remains dimensionless centi-units or65535 unknown. `ui_page` and `pages=8`
+when the current source is GM7. `gd_wire=4` means current GM7 GNSS; 1/2 are legacy GD1/GD2.
+HDOP remains dimensionless centi-units or65535 unknown. `ui_page` and `pages=9`
 record presentation metadata, not optical readback.
+
+Page 8 (Time Zone) shows the signed GM ID/offset pair and its original 750 ms
+lease. Missing metadata, explicit unknown, mismatched scope and expiry show UTC
+fallback. Passive TD does not admit a clock. RC metadata is independently scoped
+to the authenticated parent/path: ordered ANN sequence or relay challenge,
+bootstrap precedence, explicit-unknown withdrawal and three-period receipt expiry
+match W12. The front clock uses the current pair; diagnostic/epoch UTC stays UTC.
+`SS3_RC7_ID` includes `tz_id`, `tz_offset_min`, `tz_until`, `tz_rx`, `tz_live` and
+separate `rc_tz_id`, `rc_tz_offset_min`, `rc_tz_until` presentation metadata.
 
 Run the signed monitor/epoch checks in addition to the standard offline suite:
 
@@ -114,7 +114,7 @@ Tests cover actual codec/HMAC, ANN/STATUS/ROLE/GNSS, 64-bit replay, corrupt MAC,
 canonical advertiser, original expiry, independent HOT evidence, YIELD/WITHDRAW,
 signed birth across leader changes, real UTC date/leap boundaries and elapsed
 projection/freshness. Native tests exercise the real SID14 discovery dispatch;
-all eight renderer pages retain empty/expired/maximal states and exact strip/
+all nine renderer pages retain empty/expired/maximal states and exact strip/
 full-frame equivalence. Finite tests do not establish optical, continuous RF,
 endurance, admission-renewal or independent UTC/PPS/output qualification.
 
@@ -169,7 +169,8 @@ python firmware/ss3/tools/build.py --idf "$IDF_PATH" \
 The default registry is the synthetic public example. The selected builder always
 includes BLE100 estimated relay, zero output correction and TD startup. It binds
 source, SDK, effective configuration, factory binding, enrollment, registry and
-compiler into a private receipt and runtime identity. A clean commit is required
+compiler into a private receipt and runtime identity. A clean SS3/registry-generator source scope is required (unrelated working changes
+are separately recorded in `repository_dirty`). A clean commit is required
 for a candidate; `--development` marks a dirty build unflashable. Generated
 headers and images contain the group PSK. Output is owner-only under ignored
 `artifacts/`; do not distribute it. Runtime mutable provisioning is not supplied.

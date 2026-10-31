@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT
-// Public synthetic enrollment, actual frozen GM7 implementation3 codec/HMAC.
+// Public synthetic enrollment, actual frozen GM7 revision4 TZ codec/HMAC.
 #include "td_mesh.hpp"
 #include "td_epoch.hpp"
 extern "C" {
@@ -24,7 +24,7 @@ int main(){
   return m.receive(ad,n,group,sender,scope,at,now?now:at);
  };
  assert(send(1000000));auto r=m.roles(1000000);
- assert(r.known&&r.wire_version==3&&r.birth_utc_us==birth&&r.term==16&&r.sequence==UINT64_C(0x100000001));
+ assert(r.known&&r.wire_version==4&&r.birth_utc_us==birth&&r.term==16&&r.sequence==UINT64_C(0x100000001));
  assert(r.hot==4&&!r.hot_confirmed&&r.hot_since_us==1000000&&r.primary_since_us==1000000);
  uint64_t elapsed=0;assert(epoch_elapsed(r,birth+10000000,elapsed)&&elapsed==10000000);
  assert(!epoch_elapsed(r,birth-1,elapsed)&&!elapsed);
@@ -73,7 +73,7 @@ int main(){
  g.birth_us=birth;g.founder=1;g.term=16;g.timing_epoch=3;g.valid_us=30000000;
  g.known=63;g.values=7;g.sats=19;g.hdop_centi=80;g.clock_class=6;g.accuracy=254;g.variance=UINT16_MAX;g.utc_error_us=UINT32_MAX;
  assert(send(6000000));auto q=m.reference(6000000);
- assert(q.reported&&q.wire_version==3&&q.hdop_centi==80&&q.sequence==1&&q.scope.root==1&&q.until_us==36000000);
+ assert(q.reported&&q.wire_version==4&&q.hdop_centi==80&&q.sequence==1&&q.scope.root==1&&q.until_us==36000000);
  assert(!send(6100000)&&m.reference(6100000).until_us==36000000);
  ++g.sequence;g.sender=7;g.boot=8;assert(!send(6200000));g.sender=1;g.boot=2;
  ++g.term;assert(!send(6200000));
@@ -110,5 +110,20 @@ int main(){
  snap.roles.withdrawn=true;assert(epoch_time(snap,8500000).basis==EpochBasis::Unknown);snap.roles.withdrawn=false;
  snap.roles.utc_sample_us=0;assert(epoch_time(snap,8500000).basis==EpochBasis::Unknown); // ROLE alone cannot invent UTC.
  epoch_start_text(date,sizeof date,1792986374188267);assert(!std::strcmp(date,"2026-10-26 03:46:14"));
- std::puts("PASS actual GM7 implementation3: ANN/STATUS/ROLE/GNSS, canonical scope, 64-bit sequences, independent replay fences, original expiry, HOT nomination/confirmation/withdrawal, YIELD/WITHDRAW, actual UTC birth and epoch age across leadership changes");
+ // Current signed TZ tuple, original receipt expiry, replay and explicit withdrawal.
+ {Gm7Monitor tz;gm7_packet packet=ann;packet.body.control.tz={2,-300};
+  uint8_t wire[GM7_MAX_AD_BYTES]{};const auto size=gm7_wire_size(packet.kind)+4;
+  auto feed=[&](uint64_t received,uint64_t now){assert(!gm7_ad_encode(wire,sizeof wire,&packet,&group));return tz.receive(wire,size,group,1,selected,received,now);};
+  assert(feed(1000000,1000000));auto z=tz.roles(1000000).tz;
+  assert(z.value.id==2&&z.value.offset_min==-300&&z.until_us==1750000&&z.received==1);
+  assert(!r2_tz_current(&z,1750000).id); // A fresh role snapshot cannot renew metadata.
+  assert(!feed(1100000,1100000)&&tz.roles(1100000).tz.until_us==1750000);
+  ++packet.body.control.sequence;packet.body.control.tz={2,-360};assert(feed(1200000,1200000));
+  assert(tz.roles(1200000).tz.value.offset_min==-360);
+  ++packet.body.control.sequence;packet.body.control.tz=r2_tz_unknown();assert(feed(1300000,1300000));
+  z=tz.roles(1300000).tz;r2_tz_renew(&z,1400000,R2_TZ_GM_PERIOD_US);assert(!r2_tz_current(&z,1400000).id);
+  ++packet.body.control.sequence;packet.body.control.tz={2,-300};assert(feed(1400000,2150000));
+  assert(!tz.roles(2150000).tz.value.id);
+ }
+ std::puts("PASS actual GM7 revision4 TZ: ANN/STATUS/ROLE/GNSS, canonical scope, 64-bit sequences, independent replay fences, original expiry, HOT nomination/confirmation/withdrawal, YIELD/WITHDRAW, actual UTC birth and epoch age across leadership changes");
 }

@@ -1,4 +1,5 @@
 #include "ss3_td_model.hpp"
+#include "coarse_time_zone.hpp"
 #include "../legacy/m5stick_s3/ui.hpp"
 #include "../legacy/m5stick_s3/td_chart.hpp"
 #include "../legacy/m5stick_s3/td_controls.hpp"
@@ -81,9 +82,10 @@ int main(int argc,char** argv){
    roles.received_us=view.td.now_us-200000;roles.until_us=roles.received_us+2000000;roles.created_us=state==3?UINT64_MAX-1000000:UINT64_C(7)*86400000000;roles.epoch_since_us=1000000;
    view.td.mesh.selected={roles.root,roles.root_boot,roles.epoch};
    auto& ref=view.td.mesh.reference;ref.reported=true;ref.scope=view.td.mesh.selected;ref.received_us=roles.received_us;ref.until_us=ref.received_us+30000000;ref.wire_version=2;ref.fields=63;ref.values=7;ref.sats=state==3?99:12;ref.hdop_centi=state==3?65534:75;ref.clock_class=state==3?255:6;ref.priority1=ref.priority2=255;
-   roles.wire_version=3;roles.birth_utc_us=1792986374188267;roles.founder=gm.id;roles.term=37;
+   roles.tz.value={2,int16_t(state==3?840:-300)};roles.tz.received=state==3?UINT16_MAX:12;roles.tz.until_us=state==2?1:view.td.now_us+600000;
+   roles.wire_version=4;roles.birth_utc_us=1792986374188267;roles.founder=gm.id;roles.term=37;
    roles.utc_sample_us=roles.birth_utc_us+(state==3?UINT64_C(10000):1)*86400000000+125000000;roles.utc_received_us=view.td.now_us-1000000;
-   ref.wire_version=3;
+   ref.wire_version=4;
    if(state==2){ref.until_us=roles.until_us=1;roles.utc_received_us=1;}
    if(state==3){gm.id=gm.root=view.td.target=0x123456789abcdefULL;view.td.role.root=gm.id;view.td.role.hot=0xfedcba987654321ULL;gm.rssi=-127;gm.signal={};gm.signal.observe(gm.rssi,view.td.now_us);}
    if(state==2){rc.stream_slot=UINT8_MAX;view.td.role.available=false;view.td.role.seen_us=1;view.td.request=true;view.td.request_target=rc.id;view.td.pending=true;gm.jitter_ns=UINT32_MAX-1;rc.jitter_ns=UINT32_MAX-1;gm.packets=gm.matched=gm.missed=UINT32_MAX;gm.rssi_min=-127;gm.rssi_max=126;view.radio_error=UINT32_MAX;}
@@ -108,5 +110,14 @@ int main(int argc,char** argv){
   uint8_t frame[sticks3::FrameBytes]{};sticks3::RenderAudit audit;sticks3::render(frame,view,&audit);
   assert(!audit.clipped_pixels&&!audit.text_overflow);
  }
- puts("PASS passive model event wrap/gaps/consume-once/scope fences/8-row cap;96 real UI cases and strip equivalence");
+ for(unsigned expired=0;expired<2;++expired){
+  sticks3::View v;v.native_dashboard=true;v.time_valid=true;v.native_rms_ns=123;v.hold_ms=1200;
+  std::snprintf(v.role,sizeof v.role,"FOLLOW");std::snprintf(v.upstream,sizeof v.upstream,"SYNTHETIC");
+  int64_t shown=0;const auto zone=v12::clock_zone({2,-300},1750000,expired?1750000:1749999,1792986374000000,shown);
+  std::snprintf(v.zone,sizeof v.zone,"%s",zone);v.utc=uint32_t(shown/1000000);
+  uint8_t frame[sticks3::FrameBytes]{};sticks3::RenderAudit audit;sticks3::render(frame,v,&audit);assert(!audit.clipped_pixels&&!audit.text_overflow);
+  if(argc>1){std::ofstream out(std::string(argv[1])+(expired?"/native-rc-utc.ppm":"/native-rc-local.ppm"),std::ios::binary);out<<"P6\n135 240\n255\n";
+   for(unsigned i=0;i<sticks3::FrameBytes;i+=2){unsigned c=frame[i]*256+frame[i+1];char rgb[]={char((c>>11)*255/31),char(((c>>5)&63)*255/63),char((c&31)*255/31)};out.write(rgb,3);}}
+ }
+ puts("PASS passive model event wrap/gaps/consume-once/scope fences/8-row cap;108 real UI cases and strip equivalence");
 }

@@ -25,16 +25,18 @@ an earlier layout. These are not hardware captures or accuracy measurements.
 | Hardware | M5Stack StickS3 **K150**, ESP32-S3; **8 MiB flash** build configuration and PSRAM-backed LCD storage. |
 | Display | **135 × 240** portrait color LCD with main/side-button navigation. |
 | Profiles | **RC at BLE100** and passive TD startup. Optional receiver/relay operation uses estimated transmit timing with an unknown bound. No GM or local election. |
-| Diagnostics | Eight TD pages: receiver/relay health, stream quality, RF, sample detail, source health, epoch and reference. |
-| Management wire | Receive-only **GM7 implementation 3** plus legacy GS/GD1/GD2. The selected codec is fixed by [provenance](contracts/gm7_diagnostics_provenance.json). |
+| Diagnostics | Nine TD pages: receiver/relay health, stream quality, RF, sample detail, source health, epoch and reference. |
+| Management wire | Receive-only **GM7 revision 4 with TZ** plus legacy GS/GD1/GD2. The selected codec is fixed by [provenance](contracts/gm7_diagnostics_provenance.json). |
 | Reference inputs | Remote GM reports only. No local GNSS, external PPS, LoRa, Wi-Fi or PTS service. |
 | USB | Diagnostic CDC console; not the T096 UTS1 timing interface required by the macOS client. |
 
-**Check wire compatibility before choosing a source.** StickS3 retains its
-selected pre-TZ receiver/diagnostic profile; it does not implement the coarse TZ
-profile used by current T096, W12, N30 and CoreS3-SE. Sharing a G1/RC7 family name
-does not make those images compatible. Use the
-[build guide](../../docs/ss3/build.md) to identify the selected source and contracts.
+The receiver uses the current [coarse TZ profile](../../protocol/time-zone-v1/README.md):
+GM7 revision 4, direct JOIN revision 5 and RC capability/control revision 8.
+G1/GR3/RC7 precision payloads are unchanged. Its software servo uses W12's
+bounded fast acquisition, channel-aware rate fit and continuous phase steering
+with SS3's existing capture path. W12 GPIO routing and calibration do not transfer.
+The receiver front clock follows fresh authenticated parent TZ metadata and
+falls back to UTC when it expires; diagnostic timestamps remain UTC.
 
 ## Get started
 
@@ -67,6 +69,7 @@ A side-button press or main-button tap advances the page. TD provides:
 | Source Health | Reported source and observed GM/HOT state. |
 | Epoch | Signed mesh birth UTC date/time, elapsed estimate, original report freshness and separate local uptime. |
 | Reference | Reported GM fix, PPS, qualification, satellites, HDOP and election quality. |
+| Time Zone | Signed GM zone ID, offset in minutes, remaining lease, accepted reports and rejected management packets; explicit unknown/expired fallback. |
 
 Hold the main button for **1.5 s** on Health to leave TD for Relay Client.
 On the receiver's front page, subsequent holds cycle **Relay Client → Relay Only
@@ -90,6 +93,10 @@ Reference values describe the GM, not StickS3 output. Expired or mismatched
 reference data becomes unknown; reports without HDOP cannot supply it. Observed
 HOT dwell and scan gaps are descriptive evidence, not proof of continuous
 standby readiness. A **150 ms** display hold affects presentation only.
+
+Time Zone reports are passive observations in TD. Their original 750 ms receipt
+lease is separate from the epoch announcement horizon and never admits timing.
+The GM owns seasonal/DST changes; SS3 consumes its current ID/offset pair.
 
 In receiver mode, source expiry, physical correction matching and radio ownership
 remain independent of display activity. Estimated relay TX does not claim actual

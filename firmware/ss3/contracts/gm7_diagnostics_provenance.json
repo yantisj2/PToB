@@ -1,25 +1,27 @@
 {
   "schema": 1,
-  "origin": "Selected PToB CoreSE 0.1.26 implementation verified against its installed-build source manifest",
-  "protocol": "GM7 implementation3",
+  "origin": "Current public W12 coarse TZ codecs with SS3 receive-only diagnostic monitor",
+  "protocol": "GM7 implementation4 coarse TZ",
   "credit": "Jonathan Yantis",
   "license": "MIT",
   "selection": "Receive-only codec and monitor; no GM transmitter/election, private history, keys or enrollment",
   "selected_files": {
     "firmware/ss3/main/gm7/gm7_codec.c": {
       "source": "firmware/corese/protocol/gm7_codec.c",
-      "sha256": "6816a595591f772e96de9f359d097154329b958a609dca779e42cb216dbe673c",
-      "exact_copy": true
+      "sha256": "ae53b4b678498d219a008faa29dbec77422765b77bbbb54d20f65d024e0982f3",
+      "exact_copy": true,
+      "adaptation": "Exact full current diagnostics codec"
     },
     "firmware/ss3/main/gm7/gm7_codec.h": {
       "source": "firmware/corese/protocol/gm7_codec.h",
-      "sha256": "92324b78cfd629b237c3505a497d67420f6ec1130e2cc37214b4189c636890c0",
-      "exact_copy": true
+      "sha256": "c0977a98200d857ab4fbb59dfcdd34944f26ed90edb14194575e0058d3a6e843",
+      "exact_copy": false,
+      "adaptation": "Target-local time_zone.h include"
     },
     "firmware/ss3/main/gm7_wire.cpp": {
       "source": "firmware/corese/main/gm7_wire.cpp",
       "source_sha256": "400c9f0d5957b9e09f8efe73d2e2b2475ea0f49c17d5582faecfdaad3d66f824",
-      "adaptation": "Only target-local includes and namespace; identical monitor behavior"
+      "adaptation": "SS3 receive-only monitor, current GM7 revision4 and independent 750ms TZ receipt lease; original replay/scope guards retained"
     }
   },
   "epoch_helpers": {
@@ -27,5 +29,7 @@
     "source_sha256": "0a942297a3b135e7a4988aac5af9fc99bc1f6e5e17d4d2b5145443ea21ee5a63",
     "adaptation": "Identical UTC birth civil-date/elapsed conversion; passive SS3 TD adds an explicitly estimated signed-ANN UTC projection with independent original-report freshness"
   },
-  "codec_engineering_revision": "fcdabf13d78191beb0ad30fa39fd3c091f769b78"
+  "current_selection": "contracts/w12_servo_tz.json",
+  "source_commit": "533831dd2f5bc2a188325f99206d3295cfb8b351",
+  "historical_codec_engineering_revision": "fcdabf13d78191beb0ad30fa39fd3c091f769b78"
 }
