@@ -84,7 +84,7 @@ int main(int argc,char **argv){
   now_us+=258560;done();assert(probe.state==6&&probe.packet.t3>probe.packet.t2);
   now_us=probe.ready_us;step();assert(probe.tx_kind==RC8_FOLLOW);now_us+=258560;done();assert(probe.completed==1&&!probe.state&&!atomic_get(&faulted));
  }else if(mode==13){
-  init(true);r2_lora_tz_publish(r2_tz_manual(),UINT64_MAX);struct rc8_export map=source(now_us*16,1);r2_lora_source_publish(&map);step();step();done();
+  init(true);struct rc8_export map=source(now_us*16,1);r2_lora_source_publish(&map);r2_lora_tz_publish(r2_tz_manual(),UINT64_MAX,3,44,5);step();step();done();
   struct rc8_companion c;uint8_t context[16];assert(sent_len==128&&!rc8_companion_decode(&c,context,sent,128,&test_group));
   assert(c.tz.id==2&&c.tz.offset_min==-300&&c.time_valid);
   sent[108]=sent[109]=0;assert(!r2_group_mac(sent+112,&test_group,"PTOBR8D4",sent,112));
@@ -101,6 +101,15 @@ int main(int argc,char **argv){
   (void)request();now_us=probe.deadline+1;step();assert(probe.expired==1&&!probe.state&&!probe.tx_kind&&!atomic_get(&faulted)&&probe.next_us>now_us);
  }else if(mode==16){
   (void)request();r2_lora_control(false,true,RC8_SELECT_LOCAL_GM);step();assert(!probe.state&&!probe.cal_until&&!atomic_get(&faulted));
+ }else if(mode==19){
+  init(true);struct rc8_export map=source(now_us*16,1);r2_lora_source_publish(&map);
+  for(unsigned bad=0;bad<4;bad++){
+   r2_lora_tz_publish(r2_tz_manual(),UINT64_MAX,3,44,5);assert(source_tz.value.id==2);
+   r2_lora_tz_publish(r2_tz_manual(),UINT64_MAX,bad==0?0:bad==1?4:3,bad==2?45:44,bad==3?6:5);assert(!source_tz.value.id&&!source_tz.until_us);
+  }
+  r2_lora_tz_publish(r2_tz_manual(),UINT64_MAX,3,44,5);map.scope.root=4;map.scope.root_boot=45;map.scope.source_epoch=6;r2_lora_source_publish(&map);
+  assert(!source_tz.value.id);r2_lora_tz_publish(r2_tz_manual(),UINT64_MAX,3,44,5);assert(!source_tz.value.id);
+  r2_lora_tz_publish((struct r2_tz){2,-360},UINT64_MAX,4,45,6);assert(source_tz.value.id==2&&source_tz.value.offset_min==-360);
  }else assert(false);
  printf("PASS optional probe mode%d; GM/RC watch only, no normal timing authority\n",mode);return 0;
 }

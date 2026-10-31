@@ -90,7 +90,8 @@ layouts/domains remain unchanged. Group authentication proves membership, not
 unique hardware authorship.
 
 The emitter forwards the selected serving source's current metadata. A BLE
-follower never substitutes its own GNSS zone. Companion updates are coalesced,
+follower never substitutes its own GNSS zone. Publication must match the exact
+current root/boot/epoch; a context change clears the prior source's lease. Companion updates are coalesced,
 nominally every120s and on changes, with the existing minimum2s diagnostic gap.
 The receiver's original240s companion lease bounds TZ; timing/name/probe traffic
 cannot renew it. Unknown updates clear it, expiry displays UTC, and invalid TZ

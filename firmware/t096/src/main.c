@@ -615,7 +615,8 @@ int main(void)
       const char *advertised=service.name[0]&&strncmp(service.name,"Clock-",6)?service.name:identity.unit;
       r2_lora_name_publish(advertised);
 #ifdef R2_TZ_WIRE
-      r2_lora_tz_publish(service.tz,service.tz_until_us);
+      r2_lora_tz_publish(service.tz,service.tz_until_us,
+        service.root<4?service.identities[service.root]:0,service.root_boot,service.source_epoch);
 #endif
     }
     r2_lora_control(service.profile_rc,platform_ready&&normal_started&&maintenance.phase==R2_IDLE&&!poweroff_requested&&!r2_ui_poweroff_requested()&&!service.profile_pending,

@@ -20,7 +20,7 @@ _Static_assert(sizeof(struct r2_lora_view)<=88,"RC8 view with coarse TZ");
 #define R2_LORA_DISPLAY_HOLD_US UINT64_C(20000000)
 #define R2_LORA_FIT_HOLD_MS 24000u
 void r2_lora_name_publish(const char *);
-void r2_lora_tz_publish(struct r2_tz,uint64_t until_us);
+void r2_lora_tz_publish(struct r2_tz,uint64_t until_us,uint64_t root,uint64_t root_boot,uint32_t epoch);
 void r2_lora_view_named(struct r2_lora_view *,uint64_t *factory,char name[25]);
 void r2_lora_init(uint64_t factory,uint64_t boot,uint64_t transmitter,const struct r2_group_config *);
 void r2_lora_control(bool profile_rc,bool allowed,enum rc8_selected normal_source);

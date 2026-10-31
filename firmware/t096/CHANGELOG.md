@@ -7,7 +7,9 @@ turnover, then require the exact verified RX event. Account for original ingress
 time while consuming delayed processing from the existing transaction lifetime.
 Widen the coarse request window to1.75s and client jitter to500..1000ms, retaining
 the beacon guard and opportunistic response policy. Append optional refusal
-reasons to diagnostics. No timing/companion packet layout or authority change.
+reasons to diagnostics. Fence forwarded TZ to the exact current root/boot/epoch
+and clear its old lease on source-context replacement. No timing/companion packet
+layout or authority change.
 
 The preceding .216 finite paired test retained working LoRa time/TZ but completed
 zero RTTs: two client expiries, one source RX/refusal, no radio faults. It remains

@@ -105,10 +105,11 @@ void r2_lora_name_publish(const char *name){
  if(strcmp(own_name,name)){memset(own_name,0,sizeof own_name);memcpy(own_name,name,n);role.tx.name_us=0;}
  k_spin_unlock(&lock,key);
 }
-void r2_lora_tz_publish(struct r2_tz value,uint64_t until){
+void r2_lora_tz_publish(struct r2_tz value,uint64_t until,uint64_t root,uint64_t boot,uint32_t epoch){
  if(!transmitter)return;
  uint64_t now=mono();if(now>=until||!r2_tz_valid(value))value=r2_tz_unknown();
  k_spinlock_key_t key=k_spin_lock(&lock);
+ if(!root||!boot||!epoch||root!=published.scope.root||boot!=published.scope.root_boot||epoch!=published.scope.source_epoch){value=r2_tz_unknown();until=0;}
  if(source_tz.value.id!=value.id||source_tz.value.offset_min!=value.offset_min)events(RC8_D_TZ);
  source_tz.value=value;source_tz.until_us=until;
  k_spin_unlock(&lock,key);
@@ -175,6 +176,7 @@ void r2_lora_source_publish(const struct rc8_export *input){
  }
  bool same=last->valid&&scope_source_equal(last->scope,map.scope)&&last->capture_epoch==map.capture_epoch;
  if(!same){
+  source_tz=(struct r2_tz_lease){.value=r2_tz_unknown()};
   if(t->stream==UINT64_MAX){atomic_set(&faulted,1);k_spin_unlock(&lock,key);return;}
   uint16_t changed=RC8_D_SOURCE;
   if(last->scope.root!=map.scope.root||last->scope.root_boot!=map.scope.root_boot)changed|=RC8_D_ROOT;
