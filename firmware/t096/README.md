@@ -91,6 +91,17 @@ and successful refresh is 15–30s; expiry/reboot returns to production timers.
 BLE priority, receiver eligibility and physical timestamp checks are unchanged.
 See the [build guide](../../docs/t096/build.md#optional-lora-configuration).
 
+The LoRa receiver page shows **LoRa RTT EST**, signed **ToF** and **RTT** for
+field comparisons. ToF is the accepted half-RTT endpoint delay minus a fixed,
+provisional **51,363,400ns** nearby-device baseline; RTT is twice that residual.
+The baseline includes modem/header delay for the current wire5 SF10/BW500k/CR4/6
+configuration. Negative residuals remain visible. These are relative propagation
+estimates, not calibrated distance or UTC accuracy. They change only after a
+successful RTT exchange, using the normal15–30min refresh or temporary lab
+cadence above. Missing/expired calibration shows `--`; the compact display lease
+may expire up to8s early and grants no clock authority. Calibration does not
+follow a new context. No extra radio packets are scheduled by the display.
+
 An isolated missed packet may continue the coarse watch display for at most
 **20 seconds** from its original physical event. The receiver's functional and
 coordination hold remains **12 seconds**; display continuation grants no source,

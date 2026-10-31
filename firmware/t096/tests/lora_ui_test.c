@@ -97,5 +97,38 @@ int main(int argc,char **argv){assert(argc==2);
   save(argv[1],mode,&v);
  }
  m.lora.until_us=1000000;assert(!r2_ui_display_time(&m,1000,&utc,&coarse));
+ /* The estimate subtracts the fixed half-RTT baseline; a true zero remains
+  * a measurement, and a negative residual must not be clamped to zero. */
+ m.lora.until_us=13000000;m.lora.rtt_delay_ns=R2_LORA_TOF_BASE_NS;m.lora.rtt_life_8s=1;
+ int32_t tof=123;assert(r2_ui_lora_tof_ns(&m,1000,&tof)&&tof==0);
+ m.lora.rtt_delay_ns+=3336;assert(r2_ui_lora_tof_ns(&m,1000,&tof)&&tof==3336);save(argv[1],20,&m);
+ m.lora.rtt_delay_ns=R2_LORA_TOF_BASE_NS-365;assert(r2_ui_lora_tof_ns(&m,1000,&tof)&&tof==-365);save(argv[1],21,&m);
+ m.lora.rtt_delay_ns=125000000;assert(r2_ui_lora_tof_ns(&m,1000,&tof)&&tof==73636600);save(argv[1],22,&m);
+ for(unsigned deny=0;deny<13;deny++){
+  struct r2_ui_model bad=m;
+  if(deny==0)bad.lora.rtt_life_8s=0;
+  if(deny==1)bad.lora.rtt_delay_ns=UINT32_MAX;
+  if(deny==2)bad.lora.requested=false;
+  if(deny==3)bad.lora.active=false;
+  if(deny==4)bad.lora.fault=true;
+  if(deny==5)bad.lora.transmitter=true;
+  if(deny==6)bad.lora.choice=RC8_SELECT_BLE;
+  if(deny==7)bad.lora.state=RC8_EXPIRED;
+  if(deny==8)bad.platform_ready=false;
+  if(deny==9)bad.profile_switching=true;
+  if(deny==10)bad.sampled_ms=1001;
+  if(deny==11)bad.lora.until_us=1000000;
+  if(deny==12)bad.lora.choice=RC8_SELECT_LOCAL_GM;
+  tof=123;assert(!r2_ui_lora_tof_ns(&bad,1000,&tof)&&tof==123);
+ }
+ assert(!r2_ui_lora_tof_ns(&m,3501,&tof)); /* Stalled UI publication. */
+ m.sampled_ms=8999;assert(r2_ui_lora_tof_ns(&m,8999,&tof));
+ m.sampled_ms=9000;assert(!r2_ui_lora_tof_ns(&m,9000,&tof)); /* Original compact lease expires. */
+ m.sampled_ms=1000;m.lora.rtt_delay_ns=R2_LORA_TOF_BASE_NS;
+ for(unsigned fraction=0;fraction<1000;fraction++){
+  m.lora.sampled_us=1000000+fraction;assert(r2_ui_lora_tof_ns(&m,1000,&tof)&&tof==0);
+ }
+ m.lora.sampled_us=1000000;save(argv[1],23,&m);
+ m.lora.rtt_life_8s=0;save(argv[1],24,&m);
  puts("PASS RC8 estimate dial, 180 s continuity, original 12 s expiry and fail-closed controls; no BLE/PLL/authority claim");
 }

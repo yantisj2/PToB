@@ -1,5 +1,19 @@
 # T096 changelog
 
+## 0.15.228 — display relative ToF and excess RTT estimates
+
+The LoRa receiver page shows signed ToF and RTT under **LoRa RTT EST**.
+ToF subtracts a fixed provisional51,363,400ns nearby-device baseline from the
+accepted half-RTT endpoint delay; displayed excess RTT is twice that residual.
+Negative values remain visible. The baseline is specific to the current wire5
+PHY/endpoints and is not an absolute range or accuracy calibration.
+
+Reuse padding in the existing88B view for the measurement and a conservative
+8s-granularity remaining lease. No added mutable RAM, radio traffic or precision
+work. Stale, disabled, faulted, expired, BLE-selected and source-only displays
+cannot show a current receiver estimate. Link-fit sample count and packet age
+share a row; source metadata and transmitter layout remain available.
+
 ## 0.15.227 — rearm calibration for a fresh authenticated context
 
 A LoRa-only receiver can qualify its first RTT request in a new authenticated

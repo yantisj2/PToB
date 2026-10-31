@@ -253,6 +253,22 @@ static bool lora_rms_current(const struct r2_ui_model *m,uint64_t now){
  return !m->lora.transmitter&&lora_input_current(m,now)&&m->lora.link_samples>=4&&
   m->lora.fit_age_ms<R2_LORA_FIT_HOLD_MS&&now-m->sampled_ms<R2_LORA_FIT_HOLD_MS-m->lora.fit_age_ms;
 }
+bool r2_ui_lora_tof_ns(const struct r2_ui_model *m,uint64_t now,int32_t *ns){
+ const struct r2_lora_view *v=&m->lora;
+ if(!ns||!lora_input_current(m,now)||v->transmitter||v->choice!=RC8_SELECT_LORA||
+    !v->rtt_life_8s||v->rtt_delay_ns>125000000u||
+    (now-v->sampled_us/1000)*1000>=(uint64_t)v->rtt_life_8s*8000000)return false;
+ *ns=(int32_t)v->rtt_delay_ns-R2_LORA_TOF_BASE_NS;return true;
+}
+static void lora_tof_text(char out[24],const char *name,int64_t ns){
+ uint64_t magnitude=ns<0?(uint64_t)-ns:(uint64_t)ns;
+ const char *unit=magnitude<1000?"ns":magnitude<1000000?"us":"ms";
+ uint32_t scale=magnitude<1000?1:magnitude<1000000?1000:1000000;
+ /* At most12 glyphs, including sign and units, on the80px display. */
+ if(scale==1)snprintf(out,24,"%s %c%uns",name,ns<0?'-':'+',(unsigned)magnitude);
+ else if(magnitude/scale<100)snprintf(out,24,"%s %c%u.%02u%s",name,ns<0?'-':'+',(unsigned)(magnitude/scale),(unsigned)(magnitude%scale*100/scale),unit);
+ else snprintf(out,24,"%s %c%u.%u%s",name,ns<0?'-':'+',(unsigned)(magnitude/scale),(unsigned)(magnitude%scale*10/scale),unit);
+}
 static void lora_header_name(char out[9],const char *name){
  size_t n=0;while(n<8&&name[n])++n;
  /* Truncate received UTF-8 only between code points. */
@@ -585,7 +601,7 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
 #ifdef R2_LORA
  if(status->page==R2_UI_LORA_PAGE){
   const struct r2_lora_view *v=&m->lora;char text[24];
-  round_panel(fb,3,1,74,13,C_PANEL,C_BEZEL);label(fb,13,4,"LoRa RC8",1,C_WHITE);
+  round_panel(fb,3,1,74,13,C_PANEL,C_BEZEL);label(fb,v->transmitter?13:4,4,v->transmitter?"LoRa RC8":"LoRa RTT EST",1,C_WHITE);
   snprintf(text,sizeof text,"%s %s",v->transmitter?"TX":"RX",v->requested?"ON":"OFF");
   label(fb,5,22,text,2,v->requested?C_CYAN:C_DIM);
   const char *state=v->fault?"RADIO FAULT":!v->requested?"DISABLED":!v->active?"INHIBITED":v->transmitter?(v->state==RC8_AVAILABLE?"SOURCE READY":"WAIT SOURCE"):v->coord_follow?"COORD FOLLOW":v->state==RC8_AVAILABLE?"MATCHED TIME":v->state==RC8_EXPIRED?"HOLD EXPIRED":"WAIT PACKETS";
@@ -607,15 +623,21 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
     else snprintf(text,sizeof text,"RMS %u.%ums",v->link_rms_ns/1000000,v->link_rms_ns%1000000/100000);
    }else snprintf(text,sizeof text,"%s",v->state==RC8_AVAILABLE&&v->requested&&v->active&&!v->fault?"COLLECTING":"NO TIMING");
    label(fb,4,74,text,1,measured?C_GREEN:C_AMBER);
-   if(measured)snprintf(text,sizeof text,"LINK FIT N%u",v->link_samples);else snprintf(text,sizeof text,"LINK RMS");
+   if(measured)snprintf(text,sizeof text,"N%u A%u.%us",v->link_samples,v->age_ms/1000,v->age_ms%1000/100);
+   else snprintf(text,sizeof text,"LINK RMS");
    label(fb,4,86,text,1,C_DIM);
   }
   if(v->parent_tag)snprintf(text,sizeof text,"R%04X P%04X",v->root_tag,v->parent_tag);else snprintf(text,sizeof text,"R%04X P----",v->root_tag);label(fb,4,100,text,1,C_DIM);
   if(v->parent_quality)snprintf(text,sizeof text,"%s C%uA%u",source,v->parent_class,v->parent_accuracy);
   else snprintf(text,sizeof text,"%s META %s",source,v->quality_known?"OK":"?");
   label(fb,4,112,text,1,C_WHITE);
-  if(!v->transmitter){if(v->age_ms>=12000)snprintf(text,sizeof text,"AGE >12s");else snprintf(text,sizeof text,"AGE %u.%us",v->age_ms/1000,(v->age_ms%1000)/100);label(fb,4,124,text,1,C_WHITE);}
-  label(fb,4,136,v->choice==RC8_SELECT_BLE?"BLE SELECTED":v->choice==RC8_SELECT_LOCAL_GM?"GM SELECTED":v->choice==RC8_SELECT_LORA&&v->requested&&!v->fault?"RC8 SELECTED":"NO CLOCK",1,C_DIM);
+  if(!v->transmitter){
+   int32_t tof;bool estimated=r2_ui_lora_tof_ns(m,now,&tof);
+   if(estimated)lora_tof_text(text,"ToF",tof);else snprintf(text,sizeof text,"ToF --");
+   label(fb,4,124,text,1,estimated?C_CYAN:C_DIM);
+   if(estimated)lora_tof_text(text,"RTT",(int64_t)tof*2);else snprintf(text,sizeof text,"RTT --");
+   label(fb,4,136,text,1,estimated?C_CYAN:C_DIM);
+  }else label(fb,4,136,v->choice==RC8_SELECT_BLE?"BLE SELECTED":v->choice==RC8_SELECT_LOCAL_GM?"GM SELECTED":"NO CLOCK",1,C_DIM);
   label(fb,4,150,"HOLD: MENU",1,C_AMBER);return;
  }
 #endif

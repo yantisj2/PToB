@@ -102,6 +102,10 @@ bool r2_ui_face_locked(const struct r2_ui_model *,uint64_t now_ms);
 bool r2_ui_saver_allowed(const struct r2_ui_model *,uint64_t now_ms);
 bool r2_ui_analog(const struct r2_ui_model *m,uint64_t now);
 bool r2_ui_display_time(const struct r2_ui_model *,uint64_t now_ms,int64_t *utc_us,bool *coarse);
+#ifdef R2_LORA
+/* Signed one-way propagation estimate relative to the fixed endpoint base. */
+bool r2_ui_lora_tof_ns(const struct r2_ui_model *,uint64_t now_ms,int32_t *);
+#endif
 #ifdef R2_TZ_WIRE
 const char *r2_ui_clock_zone(const struct r2_ui_model *,uint64_t now_ms,int64_t utc_us,int64_t *shown_us);
 #endif

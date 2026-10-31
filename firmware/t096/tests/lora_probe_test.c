@@ -53,6 +53,11 @@ int main(int argc,char **argv){
   }
   uint32_t accepted=role.rx.accepted;feed_probe(&p,now_us+1000);assert(probe.completed==1&&role.rx.accepted==accepted);
   struct r2_lora_view v;r2_lora_view(&v);assert(v.choice==RC8_SELECT_LORA); /* GM profile remains a watch receiver. */
+  assert(v.rtt_delay_ns==probe.delay_ns&&v.rtt_life_8s==(probe.cal_until-now_us)/8000000);
+  /* Project a stopped worker without renewing the original calibration. */
+  uint64_t until=published.probe_until,sampled=now_us;
+  now_us=until-7999999;r2_lora_view(&v);assert(!v.rtt_life_8s);
+  now_us=until;r2_lora_view(&v);assert(!v.rtt_life_8s);now_us=sampled;
   if(mode==8){r2_lora_request(false);step();assert(!probe.cal_until&&!published.view.utc_us&&!atomic_get(&faulted));}
   if(mode==20){
    uint64_t original_until=probe.cal_until;struct rc8_scope scope=role.rx.scope;

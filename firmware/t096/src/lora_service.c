@@ -399,12 +399,17 @@ static void project_view(struct r2_lora_view *out,char *name,uint64_t name_until
 }
 void r2_lora_view_named(struct r2_lora_view *out,uint64_t *factory,char name[25]){
  if(!out)return;
- uint64_t at=mono(),name_until=0;k_spinlock_key_t key=k_spin_lock(&lock);*out=published.view;
+ uint64_t at=mono(),name_until=0,probe_until;k_spinlock_key_t key=k_spin_lock(&lock);*out=published.view;
+ probe_until=published.probe_until;out->rtt_delay_ns=published.probe_status[3];
  if(factory)*factory=binding.transmitter_factory;
  if(name){memset(name,0,25);if(!transmitter&&published.quality_known&&published.time_valid&&sender_name.sequence&&at<sender_name.until_us&&
    !memcmp(sender_name.context,published.context,RC8_CONTEXT_BYTES)){memcpy(name,sender_name.name,25);name_until=sender_name.until_us;}}
  k_spin_unlock(&lock,key);
  project_view(out,name,name_until);
+ /* Never renew a calibration by copying it into a newer UI model. Round
+  * down so this compact presentation lease can only expire early (by<8s). */
+ uint64_t life=probe_until>out->sampled_us?(probe_until-out->sampled_us)/8000000:0;
+ out->rtt_life_8s=life>UINT8_MAX?UINT8_MAX:(uint8_t)life;
 }
 void r2_lora_view(struct r2_lora_view *out){r2_lora_view_named(out,NULL,NULL);}
 static void __attribute__((noinline)) report(uint64_t now,bool active){
