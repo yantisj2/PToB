@@ -313,6 +313,19 @@ int main(int argc,char **argv)
  r2_watchdog_observe(&s,false);assert(step_at(lost+R2_WD_RC_HEALTHY_MS+4)&&!policy.armed);
  assert(!step_at(lost+R2_WD_RC_HEALTHY_MS+4+WD_CORE_MS)&&reset_reason==WD_CORE_STALL);
  fed=feeds;if(!setjmp(maintenance_exit))watchdog_owner(NULL,NULL,NULL);assert(feeds==fed);
+ /* Deliberate BLE OFF is not source loss: both profiles remain parked for
+  * beyond the30-minute no-sync window, while the parent is still fed and core stalls still reset. */
+ for(unsigned rc=0;rc<2;rc++){
+  clear_runtime();assert(!r2_watchdog_boot(&id));r2_watchdog_enable(false);
+  s=(struct r2_service_status){.normal=true,.closed=true,.profile_rc=rc};
+  for(unsigned ms=0;ms<=R2_WD_RC_MS+WD_CORE_MS;ms+=125){
+   advance(ms);r2_watchdog_observe(&s,false);
+   assert(step_at(ms)&&!policy.armed&&!reset_reason&&!r2_watchdog_take_restart());
+   unsigned before_feed=feeds;if(!setjmp(maintenance_exit))watchdog_owner(NULL,NULL,NULL);
+   assert(feeds==before_feed+1);
+  }
+  assert(!step_at(R2_WD_RC_MS+2*WD_CORE_MS)&&reset_reason==WD_CORE_STALL);
+ }
  /* Intermittent usable maps postpone continuous-loss recovery. They do not
   * need eight perfect seconds; scope changes alone still do not help. */
  clear_runtime();assert(!r2_watchdog_boot(&id));r2_watchdog_enable(true);

@@ -82,12 +82,12 @@ uncertainty and grants no RC7 timing or GM takeover authority. See the
 | Action | Result |
 | --- | --- |
 | Short press outside the menu | Next page. A short press from the screensaver only wakes the display. |
-| Hold **2.5 s** on any ordinary page | Open the menu. Release before selecting an item. |
+| Hold **2.0 s** on any ordinary page | Open the menu. Release before selecting an item. |
 | Short press in the menu | Next enabled item; wrap after Exit. |
-| Hold **2.5 s** in the menu | Select the highlighted item once. A continued hold cannot select again. |
+| Hold **2.0 s** in the menu | Select the highlighted item once. A continued hold cannot select again. |
 | Select **Exit**, or leave the button alone for **5 s** | Close the menu and return to the invoking page. Each press restarts the idle interval; a held button cannot time out. |
 
-Every release before **2.5 s** is a short press; the hold duration uses the
+Every release before **2.0 s** is a short press; the hold duration uses the
 observed button edges so release debounce cannot turn it into a selection.
 
 The ordinary GM/RC menu contains **GM Mode / RC Mode**, **Power Off**, **BLE RX
@@ -100,11 +100,14 @@ The factory-bound LoRa transmitter has **LoRa TX Off / On** in the LoRa row
 instead of RX. Its TX row is unavailable in RC. Entering GM re-enables its TX
 request; a manual OFF otherwise remains in effect for that GM session.
 
-BLE RX controls timing reception and discovery. RC drains and parks its BLE
-timing service when RX is off. GM restarts without passive mesh reception and
-can serve its independently qualified local GNSS source. Re-enabling reception
-starts a fresh context with local discovery and authentication. This is not a
-whole-radio power switch: GM/client-serving transmissions can remain enabled.
+BLE RX OFF drains and parks the BLE owner in either GM or RC mode. It does
+not restart either profile, elect a GM, or restart the display, GNSS/capture or
+LoRa owners. BLE and local-GNSS timing are unavailable to the watch while OFF;
+only a fresh independent LoRa receive source can supply its time. Intentional
+OFF suppresses automatic BLE recovery and its no-sync watchdog. Core and LoRa
+fault protection remain active. Re-enabling BLE uses a fresh locally discovered,
+authenticated context. Profile selection while OFF does not start BLE.
+
 Radio requests are volatile; an ON request does not prove RF activity or valid
 time. LoRa may still be inhibited by the existing GM participation policy.
 

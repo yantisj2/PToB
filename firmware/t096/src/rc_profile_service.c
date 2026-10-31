@@ -60,6 +60,10 @@ int r2_service_configure(const struct r2_identity *id,
   return 0;
 }
 void r2_service_clock(const struct r2_clock *clock) {
+  if (rx_suspended) {
+    r2_service_supervise();
+    return;
+  }
   if (r2_switch_rc_active())
     r2_dynamic_service_clock(clock);
   else
@@ -67,7 +71,7 @@ void r2_service_clock(const struct r2_clock *clock) {
   r2_service_supervise();
 }
 int r2_service_run(uint64_t at) {
-  if(r2_switch_rc_active()&&!rx_requested)return -EACCES;
+  if(!rx_requested)return -EACCES;
   int rc = r2_switch_rc_active() ? r2_dynamic_service_run(at)
                                  : r2_normal_service_run(at);
   if (!rc)
@@ -77,13 +81,14 @@ int r2_service_run(uint64_t at) {
   return rc;
 }
 int r2_service_preflight(uint32_t seconds, uint64_t at) {
+  if(!rx_requested)return -EACCES;
   if (pending || failure)
     return -EBUSY;
   return r2_switch_rc_active() ? r2_dynamic_service_preflight(seconds, at)
                                : r2_normal_service_preflight(seconds, at);
 }
 int r2_service_start(uint32_t seconds, uint64_t at) {
-  if(seconds&&r2_switch_rc_active()&&!rx_requested)return -EACCES;
+  if(seconds&&!rx_requested)return -EACCES;
   int rc = r2_switch_rc_active() ? r2_dynamic_service_start(seconds, at)
                                : r2_normal_service_start(seconds, at);
   if (!rc) {
@@ -102,6 +107,7 @@ void r2_service_stop(void) {
     r2_normal_service_stop();
 }
 int r2_service_close_result(void) {
+  if(rx_suspended)return failure;
   return failure                 ? failure
          : r2_switch_rc_active() ? r2_dynamic_service_close_result()
                                  : r2_normal_service_close_result();
@@ -116,16 +122,17 @@ void r2_service_snapshot(struct r2_service_status *out) {
   out->profile_changes = changes;
   out->profile_incarnation = incarnation;
   out->profile_pending = pending;
-  if (pending || failure || rx_suspended) {
+  if (pending || failure || !rx_requested) {
     out->serving = out->follower = out->follower_clock_valid = out->hot_ready =
         out->standby_authorized = false;
     out->precision.map_valid = out->precision.authorized =
         out->precision.locked = out->precision.rms_valid = false;
     out->service_until = out->authority_until = out->role_until = 0;
+    out->source_eligible=out->gm_cold=false;
   }
   if (failure)
     out->error = failure;
-  if(rx_suspended){out->active=out->closing=false;out->closed=true;}
+  if(rx_suspended){out->normal=running;out->active=out->closing=false;out->closed=true;}
 }
 void r2_service_ui(struct r2_ui_model *m) {
   if (r2_switch_rc_active())
@@ -136,14 +143,21 @@ void r2_service_ui(struct r2_ui_model *m) {
   m->profile_rc = r2_switch_rc_active();
   m->profile_switching = pending;
   m->ble_rx_supported=true;m->ble_rx_requested=rx_requested;
-  if (pending || failure || rx_suspended) {
+  if (pending || failure || !rx_requested) {
     m->scope_active = m->authenticated_gm = m->gm_source_fresh =
         m->ble_time_selected = false;
-    m->clock.valid = false;
+    m->clock.valid=m->coarse_valid=m->gm_cold=false;
     m->role = R2_UI_NO_ROLE;
     m->precision.map_valid = m->precision.authorized = m->precision.locked =
         false;
     m->ble_active=false;
+    m->sync_attempt=m->local_hot_standby=false;
+    m->precision_beat_hz=0;
+#ifdef R2_GM7_NATIVE
+    m->gm7_known=0;
+    m->gm7_peer_valid=m->gm7_peer_current=m->gm7_peer_fresh=
+        m->gm7_peer_eligible_claim=false;
+#endif
   }
 }
 static int transition(bool next, uint64_t arrival) {
@@ -175,6 +189,12 @@ int r2_service_profile(unsigned mode, uint64_t arrival) {
                                         : mode == R2_PROFILE_RC;
   if (next == r2_switch_rc_active())
     return pending || failure ? -EBUSY : 0;
+  if(rx_suspended){
+    if(enrollment.rc7_leaf&&!next)return -ENOTSUP;
+    target=next;atomic_set(&rc_active,next);++changes;
+    r2_watchdog_enable(false);
+    return 0; /* Select the next profile without starting either BLE owner. */
+  }
   int rc = transition(next, arrival);
   if (!rc)
     r2_watchdog_enable(true); /* An explicit mode change resumes normal service. */
@@ -183,6 +203,7 @@ int r2_service_profile(unsigned mode, uint64_t arrival) {
 int r2_service_restart(uint64_t arrival) {
   /* Separate from the idempotent public mode selector. Same profile, fresh
    * scope; the existing asynchronous close/join/PT-ack gates remain intact. */
+  if(!rx_requested)return -EACCES;
   return transition(r2_switch_rc_active(), arrival);
 }
 int r2_service_ble_rx(bool enabled,uint64_t arrival){
@@ -241,9 +262,10 @@ void r2_service_test_connection_status(uint32_t out[20]) {
     memset(out, 0, 20 * sizeof *out);
 }
 void r2_service_supervise(void) {
-  if (r2_switch_rc_active())
+  if(rx_suspended&&!pending)return;
+  if (!rx_suspended&&r2_switch_rc_active())
     r2_dynamic_service_supervise();
-  else
+  else if(!rx_suspended)
     r2_normal_service_supervise();
   if (!pending)
     return;
@@ -275,7 +297,7 @@ void r2_service_supervise(void) {
     rx_suspended=false;r2_watchdog_enable(true);
     return;
   }
-  int rc = r2_switch_rc_active() ? r2_dynamic_service_close_result()
+  int rc = rx_suspended ? 0 : r2_switch_rc_active() ? r2_dynamic_service_close_result()
                                  : r2_normal_service_close_result();
   if (rc == -EAGAIN) {
     if (now_us() < until)
@@ -295,6 +317,15 @@ void r2_service_supervise(void) {
     pending = false;
     return;
   }
+  /* Deliberate OFF joins the old owner and stays parked. In particular, do
+   * not resume GM election, configure RC, advance incarnation or restart the
+   * UI/time/LoRa owners. Re-enable alone requests fresh authenticated scope. */
+  if(!rx_requested){
+    rc=r2_ble_rx_policy(false);
+    if(rc){failure=rc;pending=false;return;}
+    rx_suspended=true;pending=false;r2_watchdog_enable(false);
+    return;
+  }
   uint64_t next = r2_profile_incarnation(physical.boot, changes + 1);
   if (!next) {
     failure = -EOVERFLOW;
@@ -306,6 +337,7 @@ void r2_service_supervise(void) {
    * Resumption cannot reuse the prior admission, PA map or mesh selection. */
   rc=r2_ble_rx_policy(rx_requested);
   if(rc){failure=rc;pending=false;return;}
+  rx_suspended=false;
   if (target) {
     struct r2_identity id = physical;
     id.boot = next;
@@ -314,8 +346,7 @@ void r2_service_supervise(void) {
       rc = r2_dynamic_service_parent_target(test_parent);
     if (!rc) {
       atomic_set(&rc_active, 1);
-      if(rx_requested)rc = r2_dynamic_service_run(now_us() / 1000);
-      rx_suspended=!rx_requested;
+      rc = r2_dynamic_service_run(now_us() / 1000);
     }
   } else {
     rx_suspended=false;

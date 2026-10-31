@@ -3,7 +3,7 @@
 #define R2_UI_MENU_H
 #include <stdbool.h>
 #include <stdint.h>
-#define R2_UI_MENU_HOLD_MS UINT64_C(2500)
+#define R2_UI_MENU_HOLD_MS UINT64_C(2000)
 #define R2_UI_MENU_IDLE_MS UINT64_C(5000)
 enum r2_ui_menu_item {R2_MENU_MODE,R2_MENU_POWER,R2_MENU_BLE,R2_MENU_LORA,R2_MENU_EXIT,R2_MENU_ITEMS};
 enum r2_ui_menu_action {R2_MENU_NONE,R2_MENU_OPEN,R2_MENU_NEXT,R2_MENU_CLOSE,R2_MENU_PROFILE,R2_MENU_OFF,R2_MENU_BLE_TOGGLE,R2_MENU_LORA_TOGGLE,R2_MENU_PAGE,R2_MENU_WAKE};
@@ -26,7 +26,7 @@ static inline enum r2_ui_menu_action r2_ui_menu_step(struct r2_ui_menu *m,
   b->down=true;m->activity_ms=now;
   b->pressed_ms=now;b->held=false;b->wake=saver;
  }
- /* Classify the release edge too: a release at exactly2500ms is long even
+ /* Classify the release edge too: a release at exactly2000ms is long even
   * when no held sample happened at that instant. */
  if(b->down){
   m->activity_ms=now;
@@ -62,7 +62,7 @@ static inline enum r2_ui_menu_action r2_ui_menu_step(struct r2_ui_menu *m,
  return action;
 }
 /* Use the observed raw edges for duration, after50ms stable admission. Freeze
- * elapsed hold time during release debounce; a2499ms release must stay short. */
+ * elapsed hold time during release debounce; a1999ms release must stay short. */
 static inline enum r2_ui_menu_action r2_ui_menu_sample(struct r2_ui_menu *m,
  struct r2_ui_button_state *b,bool raw,bool stable,bool saver,uint8_t enabled,
  uint64_t changed,uint64_t now){

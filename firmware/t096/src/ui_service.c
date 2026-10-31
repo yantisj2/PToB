@@ -151,7 +151,7 @@ static void worker(void *a,void *b,void *c)
   int button=r2_display_button();
   if(button<0){rc=button;break;}
   unsigned inject=(unsigned)atomic_get(&press_request);
-  if(inject&&atomic_cas(&press_request,(int)inject,0))virtual_until=now+(inject==1?120:2700);
+  if(inject&&atomic_cas(&press_request,(int)inject,0))virtual_until=now+(inject==1?120:2200);
   if(now<virtual_until)button=1;
   if(button!=last){last=button;changed=now;}
 #if defined(R2_DC_PROFILE) || defined(R2_PC_PROFILE)

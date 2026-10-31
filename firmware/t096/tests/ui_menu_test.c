@@ -10,26 +10,26 @@ static uint64_t now;
 static uint8_t mask=31;
 static enum r2_ui_menu_action step(bool down,uint64_t advance,bool saver){now+=advance;return r2_ui_menu_step(&menu,&button,down,saver,mask,now);}
 static enum r2_ui_menu_action tap(void){assert(step(true,100,false)==R2_MENU_NONE);return step(false,120,false);}
-static enum r2_ui_menu_action hold(void){assert(step(true,100,false)==R2_MENU_NONE);enum r2_ui_menu_action a=step(true,2500,false);assert(step(true,4500,false)==R2_MENU_NONE);assert(step(false,100,false)==R2_MENU_NONE);return a;}
+static enum r2_ui_menu_action hold(void){assert(step(true,100,false)==R2_MENU_NONE);enum r2_ui_menu_action a=step(true,2000,false);assert(step(true,4500,false)==R2_MENU_NONE);assert(step(false,100,false)==R2_MENU_NONE);return a;}
 static void boundaries(void){
- for(unsigned duration=2499;duration<=2500;duration++){
+ for(unsigned duration=1999;duration<=2000;duration++){
   struct r2_ui_menu m={0};struct r2_ui_button_state b={0};
   assert(r2_ui_menu_step(&m,&b,true,false,31,100)==R2_MENU_NONE);
-  assert(r2_ui_menu_step(&m,&b,false,false,31,100+duration)==(duration==2499?R2_MENU_PAGE:R2_MENU_OPEN));
-  /* Actual worker's raw/stable adapter: release confirmation crosses2500ms. */
+  assert(r2_ui_menu_step(&m,&b,false,false,31,100+duration)==(duration==1999?R2_MENU_PAGE:R2_MENU_OPEN));
+  /* Actual worker's raw/stable adapter: release confirmation crosses2000ms. */
   m=(struct r2_ui_menu){0};b=(struct r2_ui_button_state){0};
   assert(r2_ui_menu_sample(&m,&b,true,false,false,31,100,100)==R2_MENU_NONE);
   assert(r2_ui_menu_sample(&m,&b,true,true,false,31,100,160)==R2_MENU_NONE);
-  assert(r2_ui_menu_sample(&m,&b,true,true,false,31,100,2590)==R2_MENU_NONE);
-  assert(r2_ui_menu_sample(&m,&b,false,true,false,31,100+duration,100+duration)==(duration==2499?R2_MENU_NONE:R2_MENU_OPEN));
-  assert(r2_ui_menu_sample(&m,&b,false,true,false,31,100+duration,2630)==R2_MENU_NONE);
-  assert(r2_ui_menu_sample(&m,&b,false,false,false,31,100+duration,2660)==(duration==2499?R2_MENU_PAGE:R2_MENU_NONE));
-  assert(m.open==(duration==2500));
+  assert(r2_ui_menu_sample(&m,&b,true,true,false,31,100,2090)==R2_MENU_NONE);
+  assert(r2_ui_menu_sample(&m,&b,false,true,false,31,100+duration,100+duration)==(duration==1999?R2_MENU_NONE:R2_MENU_OPEN));
+  assert(r2_ui_menu_sample(&m,&b,false,true,false,31,100+duration,2130)==R2_MENU_NONE);
+  assert(r2_ui_menu_sample(&m,&b,false,false,false,31,100+duration,2160)==(duration==1999?R2_MENU_PAGE:R2_MENU_NONE));
+  assert(m.open==(duration==2000));
   /* The same edge classification selects only once inside the menu. */
   m=(struct r2_ui_menu){.open=true,.item=R2_MENU_BLE};b=(struct r2_ui_button_state){0};
   assert(r2_ui_menu_step(&m,&b,true,false,31,100)==R2_MENU_NONE);
-  assert(r2_ui_menu_step(&m,&b,false,false,31,100+duration)==(duration==2499?R2_MENU_NEXT:R2_MENU_BLE_TOGGLE));
-  assert(m.item==(duration==2499?R2_MENU_LORA:R2_MENU_BLE));
+  assert(r2_ui_menu_step(&m,&b,false,false,31,100+duration)==(duration==1999?R2_MENU_NEXT:R2_MENU_BLE_TOGGLE));
+  assert(m.item==(duration==1999?R2_MENU_LORA:R2_MENU_BLE));
  }
 }
 static void save(const char *dir,const char *name,struct r2_ui_model *m,struct r2_ui_status *s){
@@ -58,7 +58,7 @@ int main(int argc,char **argv){
  assert(hold()==R2_MENU_CLOSE&&!menu.open);
  /* Wake tap consumes navigation; wake long still opens and consumes hold. */
  assert(step(true,100,true)==R2_MENU_NONE);assert(step(false,120,false)==R2_MENU_WAKE);
- assert(step(true,100,true)==R2_MENU_NONE);assert(step(true,2500,false)==R2_MENU_OPEN);
+ assert(step(true,100,true)==R2_MENU_NONE);assert(step(true,2000,false)==R2_MENU_OPEN);
  assert(step(true,10000,false)==R2_MENU_NONE&&menu.open);assert(step(false,100,false)==R2_MENU_NONE);
  assert(step(false,4999,false)==R2_MENU_NONE&&menu.open);assert(step(false,1,false)==R2_MENU_CLOSE);
  /* A disabled TX row is skipped in RC; capability omissions are bounded. */

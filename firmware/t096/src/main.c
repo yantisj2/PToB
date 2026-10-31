@@ -572,6 +572,9 @@ int main(void)
       false /* Intentional HOLD is not a failed parent; core WDT stays active. */
 #else
       maintenance.phase==R2_IDLE&&!poweroff_requested&&!r2_ui_poweroff_requested()
+#ifdef R2_GM7_NATIVE
+      &&r2_service_ble_rx_requested()
+#endif
 #endif
     );
 #ifndef R2_PC_PROFILE
@@ -579,7 +582,11 @@ int main(void)
      * no-fix, VOID, PPS absence and source expiry never set this latch.
      * Keep RC, PC, maintenance and intentional poweroff outside this policy. */
     if(normal_started&&service.normal&&!service.profile_rc&&!service.profile_pending&&
-       maintenance.phase==R2_IDLE&&!poweroff_requested&&!r2_ui_poweroff_requested()){
+       maintenance.phase==R2_IDLE&&!poweroff_requested&&!r2_ui_poweroff_requested()
+#ifdef R2_GM7_NATIVE
+       &&r2_service_ble_rx_requested()
+#endif
+       ){
       int gnss_error=r2_gnss_input_error();
       if(gnss_error)r2_watchdog_restart_result(gnss_error);
     }

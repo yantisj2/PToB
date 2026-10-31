@@ -1,5 +1,20 @@
 # T096 changelog
 
+## 0.15.212 — Park BLE without restarting GM; two-second menu holds
+
+BLE RX OFF now drains and parks the active BLE owner in both profiles. The
+previous GM OFF path resumed its owner and could elect/serve as GM. OFF no
+longer configures RC, resumes GM, advances incarnation or restarts the UI/time/
+LoRa routines. The watch suppresses BLE/local-GNSS timing while parked and may
+use only fresh independent LoRa reception. Automatic BLE/no-sync recovery stays
+disabled; core/LoRa fault protection and original drain deadlines remain active.
+Profile selection while OFF changes only the next requested profile. BLE ON
+admits a fresh local authenticated context.
+
+Menu holds are now exactly 2.0 seconds; every earlier debounced observed release
+is short. Raw-edge classification retains release-debounce protection. Bounded
+console checks use a 2200 ms hold. These controls do not qualify RF or UTC timing.
+
 ## 0.15.211 — One-button watch menu and receive controls
 
 A 2.5-second hold on any ordinary GM/RC page opens the watch-style menu.
