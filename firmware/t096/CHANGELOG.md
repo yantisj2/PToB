@@ -1,5 +1,15 @@
 # T096 changelog
 
+## 0.15.227 — rearm calibration for a fresh authenticated context
+
+A LoRa-only receiver can qualify its first RTT request in a new authenticated
+context without inheriting the previous context's15–30min refresh cooldown.
+Rearm once on a different nonzero authenticated cached context, including C5
+before the matching full D5 companion. Fresh metadata, four-point rate fit and
+20s without usable BLE still gate transmission. Repeated same-context metadata
+or time withdrawal preserves failed-attempt backoff; serial/boot nonce uniqueness
+and the source's60s opportunity floor are unchanged. No added mutable state.
+
 ## 0.15.226 — keep coarse RTT turnaround after packet completion
 
 Start OFFER request guards and source listening from validated completion

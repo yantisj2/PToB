@@ -176,7 +176,7 @@ int main(int argc,char **argv){
   uint64_t edge=21400000,observed=edge+300000;feed_delayed_probe(&p,edge,observed);
   assert(probe.state==PROBE_CLIENT_READY&&probe.ready_us>=observed+500000&&probe.ready_us<observed+1000000);
   assert(probe.deadline==observed+PROBE_WINDOW_US&&!probe.t1&&!probe.t4); /* Completion observation is coarse only. */
- }else if(mode==30||mode==32||mode==33||mode==34||mode>=35){
+ }else if(mode==30||mode==32||mode==33||mode==34||(mode>=35&&mode<=41)){
   init(true);struct rc8_export map=source(now_us*16,1);r2_lora_source_publish(&map);step();step();done();done();
   now_us+=60000000;map=source(now_us*16,2);r2_lora_source_publish(&map);step();
   assert(role.tx.pending&&!role.tx.metadata);uint64_t start=now_us;
@@ -212,6 +212,30 @@ int main(int argc,char **argv){
   p.kind=RC8_RESPONSE;p.t2=UINT64_C(10000000000)+t1*125/2+10000;
   feed_delayed_probe(&p,t1/16+500020,t1/16+800020);
   assert(probe.state==PROBE_CLIENT_FOLLOW&&probe.t4==t1+8000320&&probe.deadline==deadline);
+ }else if(mode==42||mode==46){
+  struct rc8_scope s=ready_client();probe.serial=9;probe.cal_until=now_us+PROBE_CAL_US;probe.next_us=now_us+900000000;
+  uint64_t lost=probe.lost_us;unsigned tx=txs;s.root=4;s.root_boot=45;s.source_epoch=6;
+  struct rc8_packet p={.sequence=role.rx.highest_sequence+1,.root=4,.source_epoch=6,.scale=s.scale,.kind=s.kind};uint8_t w[80];
+  assert(!rc8_context_id(p.context,&s,&test_group)&&!rc8_encode(w,&p,&test_group));uint64_t changed=now_us+1000;packet(w,80,changed);
+  assert(probe.next_us==changed&&!probe.cal_until&&probe.serial==9&&probe.lost_us==lost&&!role.rx.metadata_known&&tx==txs);
+  if(mode==46){
+   uint64_t armed=probe.next_us;p.sequence++;assert(!rc8_encode(w,&p,&test_group));packet(w,80,now_us+1000);
+   companion(s,true,1,now_us+1000);assert(role.rx.metadata_known&&probe.next_us==armed&&probe.serial==9&&tx==txs&&!probe_client_ready(now_us));
+  }
+ }else if(mode==43){
+  struct rc8_scope s=ready_client();probe.serial=9;probe.next_us=now_us+900000000;uint64_t next=probe.next_us;
+  companion(s,false,2,now_us+1000);companion(s,false,3,now_us+1000);companion(s,true,4,now_us+1000);
+  assert(probe.next_us==next&&probe.serial==9&&!probe.state&&!probe.tx_kind&&!atomic_get(&faulted));
+ }else if(mode==44){
+  (void)request();now_us=probe.deadline+1;step();uint64_t next=probe.next_us;uint32_t serial=probe.serial;
+  assert(probe.expired==1&&next>now_us);
+  struct rc8_scope s=role.rx.scope;struct rc8_packet p={.sequence=role.rx.highest_sequence+1,.root=s.root,.source_epoch=s.source_epoch,.scale=s.scale,.kind=s.kind};uint8_t w[80];
+  assert(!rc8_context_id(p.context,&s,&test_group)&&!rc8_encode(w,&p,&test_group));packet(w,80,now_us+1000);
+  assert(probe.next_us==next&&probe.serial==serial); /* Same context cannot bypass failed-attempt backoff. */
+ }else if(mode==45){
+  init(true);struct rc8_export map=source(now_us*16,1);r2_lora_source_publish(&map);step();step();done();
+  uint64_t next=probe.next_us;map.scope.root=4;map.scope.root_boot=45;map.scope.source_epoch=6;map.from_tick=map.anchor_tick=now_us*16;r2_lora_source_publish(&map);step();
+  assert(probe.next_us==next&&!probe.tx_kind); /* Source opportunity floor survives context turnover. */
  }else assert(false);
  printf("PASS optional probe mode%d; GM/RC watch only, no normal timing authority\n",mode);return 0;
 }

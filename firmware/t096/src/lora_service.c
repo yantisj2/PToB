@@ -806,6 +806,11 @@ static int __attribute__((noinline)) probe_step(uint64_t now){
   uint8_t any=0;for(unsigned i=0;i<16;i++)any|=context[i];valid=valid&&any;
  }else if(role.rx.cached){memcpy(context,role.rx.context,16);valid=true;}
  if(!valid||memcmp(context,probe.context,16)){
+  /* Authenticated C5 may precede its complete D5 companion. A genuinely
+   * different cached context gets its own first attempt, not the old link's
+   * successful-refresh cooldown. Full metadata/fit/BLE-loss eligibility still
+   * gates any REQUEST. Same-context withdrawal cannot reset failed backoff. */
+  if(!transmitter&&valid){uint8_t any=0;for(unsigned i=0;i<16;i++)any|=context[i];if(any)probe.next_us=now;}
   probe_cancel();probe.cal_until=0;probe.seen_offer=0;memcpy(probe.context,context,16);
  }
  if(probe.state&&now>=probe.deadline&&!(probe.state==PROBE_SERVER_LISTEN&&probe_ingress_pending())){

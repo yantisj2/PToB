@@ -59,7 +59,11 @@ separately from real radio/transport faults. Failed clients back off60..180s.
 
 A newly online receiver has its first request due immediately after passive
 stabilization and the existing20s BLE-loss qualification. It takes the first
-admitted OFFER without an extra initial client cooldown. This does not force a
+admitted OFFER without an extra initial client cooldown. A fresh authenticated
+context rearms this first attempt; it cannot inherit a previous context’s long
+refresh interval. C5 may precede its complete D5 companion, but full metadata
+and fit eligibility remain mandatory. Same-context time withdrawal or repeated
+metadata does not reset failed-attempt backoff. This does not force a
 source opportunity or bypass silence/refusal; later failures and successful
 refreshes retain their ordinary backoff and long intervals.
 
