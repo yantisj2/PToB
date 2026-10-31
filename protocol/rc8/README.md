@@ -36,8 +36,8 @@ OFFER names the current context, latest timing sequence, fresh salt, offer token
 and admission hash width. Only current LoRa-only receivers with a complete
 companion, at least20s without usable BLE, and a current valid passive rate fit
 may request. Other receivers remain passive. Hash admission spreads load;
-requests start250..750ms after the original physical OFFER RxDone and must
-finish inside its1.25s request window. The source admits its OFFER only when
+requests start500..1000ms after the original physical OFFER RxDone and must
+finish inside its1.75s request window. The source admits its OFFER only when
 that entire window plus250ms guard fits before the next timing deadline.
 
 The first admissible request occupies the single global transaction. There is
@@ -54,6 +54,11 @@ RESPONSE supplies original request RxDone source-ns t2; FOLLOW repeats t2 and
 supplies the response's actual TxDone source-ns t3. OFFER uses zero client/boot,
 nonzero salt in nonce, current timing sequence in t2 and hash bits0..12 in t3.
 Full context binds emitter/root/parent identities, boots, stream and source epoch.
+Request RxDone and response TxDone projections are preserved before source-map
+turnover; later formulas cannot timestamp earlier events. Processing delay
+consumes the original transaction lifetime. The console RTT tuple appends the
+last refusal reason:1 malformed/auth,2 context,3 admission,4 window,5 missing
+original RX map; it never turns these optional refusals into radio faults.
 
 The client retains actual request TxDone t1 and response RxDone t4 in the same
 capture incarnation. Only a complete matched exchange computes

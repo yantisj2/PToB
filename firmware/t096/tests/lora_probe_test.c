@@ -58,7 +58,7 @@ int main(int argc,char **argv){
   c.sequence++;c.tz=r2_tz_unknown();assert(!rc8_companion_encode(w,&c,&test_group));packet(w,128,now_us+1000);
   r2_lora_view(&v);assert(!v.tz.id&&role.rx.sample.valid);
   w[2]=3;assert(rc8_companion_decode(&c,probe.context,w,128,&test_group));
- }else if(mode==12){
+ }else if(mode==12||mode==17||mode==18){
   init(true);struct rc8_export map=source(now_us*16,1);r2_lora_source_publish(&map);step();step();done();done();
   now_us+=60000000;map=source(now_us*16,2);r2_lora_source_publish(&map);step();done();
   if(role.tx.pending)done();
@@ -66,10 +66,21 @@ int main(int argc,char **argv){
   now_us+=258560;done();assert(probe.state==4);
   uint32_t before=txs;events(RC8_D_TZ);step();assert(txs==before); /* No metadata inside the request window. */
   struct rc8_probe_packet p={.kind=RC8_REQUEST,.offer=offer.offer,.client=2,.boot=222,.nonce=333};memcpy(p.context,offer.context,16);
-  feed_probe(&p,now_us+300000);assert(probe.state==5&&probe.packet.t2);
+  uint64_t original_ns=0;
+  if(mode>=17){
+   hide_rx_edge=mode==18;now_us+=300000;queued=(struct r2_lora_hw_event){.kind=R2_LORA_HW_RX_DONE,.tick=now_us*16,.capture_epoch=7,.generation=generation,.length=80};
+   assert(!rc8_probe_encode(queued.frame,&p,&test_group));have_event=true;uint64_t original_tick=queued.tick;
+   for(unsigned i=4;i<24;i++){now_us+=100000;map=source(now_us*16,i);r2_lora_source_publish(&map);}
+   original_ns=probe.packet.t3;
+   struct rc8_export evicted;assert(!current_map(&evicted,original_tick,7,0));step();
+   if(mode==18){assert(!probe.tx_kind&&probe.rejected==1&&probe.refusal==5&&!atomic_get(&faulted));return 0;}
+   assert(original_ns&&probe.packet.t2==original_ns); /* Original RX map, never a later formula. */
+  }else feed_probe(&p,now_us+300000);
+  assert(probe.state==5&&probe.packet.t2);
   struct rc8_probe_packet competing=p;competing.client=99;competing.nonce++;
   feed_probe(&competing,now_us+1000);assert(probe.state==5&&probe.packet.client==2&&probe.rejected==1&&!atomic_get(&faulted));
-  now_us=probe.ready_us;map=source(now_us*16,3);r2_lora_source_publish(&map);step();assert(probe.tx_kind==RC8_RESPONSE);
+  if(!probe.tx_kind){if(now_us<probe.ready_us)now_us=probe.ready_us;map=source(now_us*16,30);r2_lora_source_publish(&map);step();}
+  assert(probe.tx_kind==RC8_RESPONSE);
   now_us+=258560;done();assert(probe.state==6&&probe.packet.t3>probe.packet.t2);
   now_us=probe.ready_us;step();assert(probe.tx_kind==RC8_FOLLOW);now_us+=258560;done();assert(probe.completed==1&&!probe.state&&!atomic_get(&faulted));
  }else if(mode==13){

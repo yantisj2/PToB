@@ -2,7 +2,7 @@
   "schema": 4,
   "contract": "PTOB_RC8_COARSE4",
   "wire_version": 4,
-  "revision": 1,
+  "revision": 2,
   "status": "RUNTIME_INTEGRATION_UNQUALIFIED",
   "license": "MIT",
   "credit": "Jonathan Yantis",
@@ -379,8 +379,8 @@
     "follow": "same t2 plus actual response TxDone ns in t3",
     "opportunity_min_us": 60000000,
     "client_loss_debounce_us": 20000000,
-    "request_window_us": 1250000,
-    "request_jitter_start_us": 250000,
+    "request_window_us": 1750000,
+    "request_jitter_start_us": 500000,
     "request_jitter_span_us": 500000,
     "source_beacon_guard_us": 250000,
     "transaction_us": 10000000,
@@ -392,6 +392,7 @@
     "maximum_effective_rtt_ns": 100000000,
     "maximum_rate_ppb": 100000,
     "state": "one globally pending transaction; no queue or peer roster; silence/expiry/refusal healthy",
-    "authority": "local LoRa watch only in GM or RC; no BLE/GNSS estimator, USB source, RC7/RC9, serving/election/HOT permission"
+    "authority": "local LoRa watch only in GM or RC; no BLE/GNSS estimator, USB source, RC7/RC9, serving/election/HOT permission",
+    "causal_ingress": "Preserve original physical request RX map before turnover, validate exact RX_DONE tick/epoch/generation, never use later formula; processing consumes original transaction lifetime."
   }
 }

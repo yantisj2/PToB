@@ -56,7 +56,7 @@ static void spi_context_update(void);
 static void spi_turnover(void);
 static bool turnover_during_tx;
 static int start_result,take_result;static struct r2_lora_hw_event queued;
-static bool hide_tx_edge,preempt_take;
+static bool hide_tx_edge,hide_rx_edge,preempt_take;
 static uint32_t fake_launch_aborts;static uint16_t fake_busy_aborts;static uint8_t fake_last_busy_op;
 static uint8_t sent[128];static size_t sent_len;static uint32_t sent_generation;
 bool r2_capture_now(struct r2_capture *c){if(quality_on_capture){quality_on_capture=false;spi_quality_update();}if(withdraw_on_capture&&++capture_calls==2){withdraw_on_capture=false;r2_lora_source_withdraw();}*c=(struct r2_capture){now_us*16,7,R2_CAPTURE_NOW};return capture_valid;}
@@ -67,6 +67,7 @@ int r2_lora_hw_tx_before(const uint8_t *p,size_t n,uint32_t g,uint64_t before){a
 int r2_lora_hw_take(struct r2_lora_hw_event *e){if(cancel_take){cancel_take=false;r2_lora_request(false);return -ECANCELED;}if(take_result)return take_result;if(!have_event)return 0;if(preempt_take){preempt_take=false;now_us+=2500;queued.tick=now_us*16;}*e=queued;have_event=false;return 1;}
 bool r2_lora_hw_tx_edge(struct r2_lora_hw_edge *e){if(hide_tx_edge||!have_event||queued.kind!=R2_LORA_HW_TX_DONE)return false;*e=(struct r2_lora_hw_edge){queued.tick,queued.capture_epoch,queued.generation};return true;}
 int r2_lora_hw_idle(void){return 0;}
+bool r2_lora_hw_rx_edge(struct r2_lora_hw_edge *e){*e=(struct r2_lora_hw_edge){0};if(hide_rx_edge||!have_event||queued.kind!=R2_LORA_HW_RX_DONE)return false;*e=(struct r2_lora_hw_edge){queued.tick,queued.capture_epoch,queued.generation};return true;}
 int r2_lora_hw_rx_rearm(void){rearms++;return 0;}
 void r2_lora_hw_stop_begin(uint64_t deadline){assert(deadline>0);stops++;}
 void r2_lora_hw_stop_poll(struct r2_lora_hw_ack *a){*a=(struct r2_lora_hw_ack){!hold_ack,true,true,true,false};}

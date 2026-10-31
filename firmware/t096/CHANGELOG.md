@@ -1,5 +1,18 @@
 # T096 changelog
 
+## 0.15.217 — retain causal RTT request ingress
+
+Preserve the original physical request RxDone projection before source-map
+turnover, then require the exact verified RX event. Account for original ingress
+time while consuming delayed processing from the existing transaction lifetime.
+Widen the coarse request window to1.75s and client jitter to500..1000ms, retaining
+the beacon guard and opportunistic response policy. Append optional refusal
+reasons to diagnostics. No timing/companion packet layout or authority change.
+
+The preceding .216 finite paired test retained working LoRa time/TZ but completed
+zero RTTs: two client expiries, one source RX/refusal, no radio faults. It remains
+a failed acquisition population; it does not qualify calibrated timing.
+
 ## 0.15.216 — optional LoRa RTT and coarse TZ
 
 - Add bounded source-opened REQUEST/RESPONSE/FOLLOW measurements only for current

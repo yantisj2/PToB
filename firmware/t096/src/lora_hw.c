@@ -732,13 +732,13 @@ int r2_lora_hw_tx_before(const uint8_t *bytes, size_t n, uint32_t gen,
 int r2_lora_hw_tx(const uint8_t *bytes, size_t n, uint32_t gen) {
   return r2_lora_hw_tx_before(bytes, n, gen, 0);
 }
-bool r2_lora_hw_tx_edge(struct r2_lora_hw_edge *out) {
+static bool physical_edge(struct r2_lora_hw_edge *out,bool receive) {
   if (!out) return false;
   *out = (struct r2_lora_hw_edge){0};
   unsigned key = irq_lock();
   unsigned state = (unsigned)atomic_get(&phase);
   bool valid = atomic_get(&running) && !atomic_get(&fault) &&
-      capture_owned && !receive_mode && (state == 3 || state == 4);
+      capture_owned && (receive ? receive_mode && state==2 : !receive_mode && (state==3||state==4));
   struct r2_capture captured = {0};
   uint32_t captured_generation = generation;
   if (valid && atomic_get(&latched)) {
@@ -755,6 +755,8 @@ bool r2_lora_hw_tx_edge(struct r2_lora_hw_edge *out) {
   irq_unlock(key);
   return valid;
 }
+bool r2_lora_hw_tx_edge(struct r2_lora_hw_edge *out){return physical_edge(out,false);}
+bool r2_lora_hw_rx_edge(struct r2_lora_hw_edge *out){return physical_edge(out,true);}
 int r2_lora_hw_take(struct r2_lora_hw_event *out) {
   if (atomic_get(&fault))
     return atomic_get(&fault);

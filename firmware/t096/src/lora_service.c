@@ -59,7 +59,7 @@ struct snapshot {
  struct rc8_correction correction;
  struct r2_lora_view view;
  uint8_t context[RC8_CONTEXT_BYTES];
- uint64_t probe_until;uint32_t probe_status[8];
+ uint64_t probe_until;uint32_t probe_status[9];
  uint32_t sequence,corrected_sequence,wire_corrected_sequence,accepted,rejected,replayed,unmatched,overflow,metadata,missing_map;
  uint64_t rx_us,activity_us;uint32_t fit_sequence;int16_t rssi_half_dbm;int8_t snr_quarter_db;uint8_t activity_kind,authority,fit_collecting;bool rssi_valid;
 };
@@ -69,7 +69,7 @@ static struct snapshot published;
 static void events(uint16_t bits){published.diagnostic_events|=bits;++published.event_revision;}
 /* All bounded exchange/calibration state belongs to this same worker. */
 #define PROBE_PERIOD_US UINT64_C(60000000)
-#define PROBE_WINDOW_US UINT64_C(1250000)
+#define PROBE_WINDOW_US UINT64_C(1750000)
 #define PROBE_GUARD_US UINT64_C(250000)
 #define PROBE_LIFETIME_US UINT64_C(10000000)
 #define PROBE_CAL_US UINT64_C(1800000000)
@@ -80,7 +80,7 @@ struct probe_state {
  uint32_t serial,offer_sequence,seen_offer,delay_ns,completed,expired,rejected,crc_before,tx_generation;
  int32_t rate_ppb;
  uint8_t context[16],tx_kind,state,bits;
- bool listening;
+ uint8_t refusal;bool listening;
 };
 static struct probe_state probe;
 static struct r2_tz_lease source_tz;
@@ -133,6 +133,14 @@ static bool scope_source_equal(struct rc8_scope a,struct rc8_scope b){a.stream=b
  * only the causal formula already valid at that edge, then require the exact
  * DONE identity in tx_done(). Newer formulas never map an earlier edge. */
 static void preserve_tx_edge(struct tx_state *t){
+ if(probe.state==PROBE_SERVER_LISTEN&&!probe.tx_kind){
+  struct r2_lora_hw_edge edge;struct rc8_correction c;
+  if(r2_lora_hw_rx_edge(&edge)&&edge.generation==generation&&
+     (edge.tick!=probe.t1||edge.capture_epoch!=probe.epoch||!probe.packet.t3))
+   for(unsigned i=0;i<2;i++)if(rc8_export_receive(&c,&t->maps[i],(struct rc8_event){.tick=edge.tick,.capture_epoch=edge.capture_epoch,.kind=RC8_EVENT_RX_DONE})){
+    probe.packet.t3=c.event_ns;probe.t1=edge.tick;probe.epoch=edge.capture_epoch;break;
+   }
+ }
  if(probe.tx_kind==RC8_RESPONSE&&!probe.packet.t3){
   struct r2_lora_hw_edge edge;struct rc8_correction c;
   if(r2_lora_hw_tx_edge(&edge)&&edge.generation==probe.tx_generation)
@@ -436,7 +444,7 @@ static void __attribute__((noinline)) report(uint64_t now,bool active){
  s.view.parent_class=s.quality.parent_class;s.view.parent_accuracy=s.quality.parent_accuracy;
  s.probe_until=probe.cal_until;s.probe_status[0]=probe.completed;s.probe_status[1]=probe.expired;s.probe_status[2]=probe.rejected;
  s.probe_status[3]=probe.delay_ns;s.probe_status[4]=(uint32_t)probe.rate_ppb;s.probe_status[5]=probe.state;
- s.probe_status[6]=probe.offer_sequence;s.probe_status[7]=probe.seen_offer;
+ s.probe_status[6]=probe.offer_sequence;s.probe_status[7]=probe.seen_offer;s.probe_status[8]=probe.refusal;
  key=k_spin_lock(&lock);if(transmitter){published.view=s.view;published.probe_until=s.probe_until;memcpy(published.probe_status,s.probe_status,sizeof s.probe_status);}else published=s;k_spin_unlock(&lock,key);
 }
 static void __attribute__((noinline)) tx_done(const struct r2_lora_hw_event *h,struct rc8_event e){
@@ -581,13 +589,19 @@ static bool probe_client_ready(uint64_t now){
 static uint64_t probe_hash(uint64_t x){x^=x>>30;x*=UINT64_C(0xbf58476d1ce4e5b9);x^=x>>27;x*=UINT64_C(0x94d049bb133111eb);return x^(x>>31);}
 static bool probe_receive(const struct r2_lora_hw_event *h,struct rc8_event e,uint64_t now){
  struct rc8_probe_packet p;
- if(rc8_probe_decode(&p,h->frame,h->length,group)||memcmp(p.context,probe.context,16)){inc(&probe.rejected);return false;}
+ if(rc8_probe_decode(&p,h->frame,h->length,group)){probe.refusal=1;inc(&probe.rejected);return false;}
+ if(memcmp(p.context,probe.context,16)){probe.refusal=2;inc(&probe.rejected);return false;}
  if(transmitter){
   if(p.kind!=RC8_REQUEST||probe.state!=PROBE_SERVER_LISTEN||probe.tx_kind||p.offer!=probe.packet.offer||
-     p.client==binding.factory||now>=probe.deadline||e.local_us<probe.ready_us){inc(&probe.rejected);return false;}
+     p.client==binding.factory){probe.refusal=3;inc(&probe.rejected);return false;}
+  /* Processing delay consumes the original transaction lifetime; it cannot
+   * turn an on-time physical ingress into a late RF request. */
+  if(e.local_us>=probe.deadline||e.local_us<probe.ready_us||now>=e.local_us+PROBE_LIFETIME_US){probe.refusal=4;inc(&probe.rejected);return false;}
   struct rc8_export map;struct rc8_correction stamp;
-  if(!current_map(&map,e.tick,e.capture_epoch,0)||!rc8_export_receive(&stamp,&map,e)){inc(&probe.rejected);return false;}
-  uint64_t close=probe.deadline;probe.packet=p;probe.packet.kind=RC8_RESPONSE;probe.packet.t2=stamp.event_ns;
+  uint64_t t2=probe.packet.t3&&probe.t1==e.tick&&probe.epoch==e.capture_epoch?probe.packet.t3:0;
+  if(!t2&&current_map(&map,e.tick,e.capture_epoch,0)&&rc8_export_receive(&stamp,&map,e))t2=stamp.event_ns;
+  if(!t2){probe.refusal=5;inc(&probe.rejected);return false;}
+  uint64_t close=probe.deadline;probe.packet=p;probe.packet.kind=RC8_RESPONSE;probe.packet.t2=t2;
   probe.ready_us=close;probe.deadline=e.local_us+PROBE_LIFETIME_US;probe.state=PROBE_SERVER_REPLY;return true;
  }
  if(!probe_client_ready(now)){inc(&probe.rejected);return false;}
@@ -602,7 +616,7 @@ static bool probe_receive(const struct r2_lora_hw_event *h,struct rc8_event e,ui
    .nonce=physical_boot+(uint64_t)++probe.serial,.offer=p.offer};
   if(!probe.packet.nonce)probe.packet.nonce=++probe.serial;
   memcpy(probe.packet.context,probe.context,16);
-  probe.ready_us=e.local_us+250000+(hash>>32)%500000;
+  probe.ready_us=e.local_us+500000+(hash>>32)%500000;
   /* Client RF must finish inside the coarse request window. */
   probe.deadline=e.local_us+PROBE_WINDOW_US;probe.state=PROBE_CLIENT_READY;probe.rate_ppb=role.rx.fit.result_rate_ppb;return true;
  }
@@ -916,7 +930,7 @@ int r2_lora_json(char *out,size_t capacity,int result){
  "\"accepted\":%u,\"rejected\":%u,\"replayed\":%u,\"unmatched\":%u,\"overflow\":%u,\"metadata\":%u,\"missing_map\":%u,\"hold_age_ms\":%u,\"state\":%u,\"assurance\":%u,\"source_authority\":%u,\"choice\":%u,\"output_bound_ns\":null,\"rc7_authority\":false,"
  "\"companion\":[%u,%u,%u,%u,%s,%s],\"parent\":[\"%016llx\",\"%016llx\"],\"quality\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%d,%u,%u,%u],\"link_fit\":[%u,%u],"
  "\"sender_name\":\"%s\",\"sender_name_hex\":\"%s\",\"name_context\":\"%s\",\"name\":[%u,%u,%u,%u,%s,%llu],\"display\":[%s,%llu,%llu],\"signal\":[%s,%d,%d,%u],\"fit_provenance\":[%u,%u,%u],"
- "\"tz\":[%u,%d,%llu],\"rtt\":[%u,%u,%u,%u,%d,%u,%u,%u,%llu],\"coordination\":[\"%016llx\",\"%016llx\",%u,%llu],\"launch\":[%u,%u,%u,%u,%u],\"watchdog\":[1,%u,%u,%u,%u,%d,%u],\"fault_record\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u],\"owner\":[%u,%u,%u,%u,%u],"
+ "\"tz\":[%u,%d,%llu],\"rtt\":[%u,%u,%u,%u,%d,%u,%u,%u,%llu,%u],\"coordination\":[\"%016llx\",\"%016llx\",%u,%llu],\"launch\":[%u,%u,%u,%u,%u],\"watchdog\":[1,%u,%u,%u,%u,%d,%u],\"fault_record\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u],\"owner\":[%u,%u,%u,%u,%u],"
  "\"hw\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%d,%u,%u,%u,%u,%u]}",
  result,(unsigned long long)physical_boot,(unsigned long long)s.scope.emitter_boot,(unsigned long long)binding.transmitter_factory,transmitter?"true":"false",s.view.requested?"true":"false",s.view.active?"true":"false",atomic_get(&faulted)?"true":"false",
  rx_suppressed(atomic_get(&flags))?"true":"false",atomic_get(&closed)?"true":"false",(long)atomic_get(&faulted),(unsigned long long)deadline,stack_unused(),context,(unsigned long long)s.scope.emitter,(unsigned long long)s.scope.stream,(unsigned long long)s.scope.root,(unsigned long long)s.scope.root_boot,s.scope.source_epoch,s.scope.kind,s.scope.scale,
@@ -926,7 +940,7 @@ int r2_lora_json(char *out,size_t capacity,int result){
  (unsigned long long)s.scope.parent,(unsigned long long)s.scope.parent_boot,s.quality.known,s.quality.values,s.quality.role,s.quality.hop,s.quality.parent_class,s.quality.parent_accuracy,s.quality.parent_bound_ns,s.quality.correction_age_ms,s.quality.map_life_ms,s.quality.rate_ppb,s.quality.residual_ns,s.quality.losses,s.quality.recoveries,s.view.link_samples,s.view.link_rms_ns,
  name_json,name_hex,name_context,name.accepted,name.rejected,name.sequence,name_tx_sequence,name_current?"true":"false",(unsigned long long)name.until_us,s.view.display_held?"true":"false",(unsigned long long)s.view.until_us,(unsigned long long)s.view.display_until_us,s.view.rssi_valid?"true":"false",s.view.rssi_half_dbm,s.view.snr_quarter_db,s.view.rx_age_ms,s.fit_sequence,s.view.fit_age_ms,s.fit_collecting,
  s.view.tz.id,s.view.tz.offset_min,(unsigned long long)s.view.tz_until_us,
- s.probe_status[0],s.probe_status[1],s.probe_status[2],s.probe_status[3],(int32_t)s.probe_status[4],s.probe_status[5],s.probe_status[6],s.probe_status[7],(unsigned long long)s.probe_until,
+ s.probe_status[0],s.probe_status[1],s.probe_status[2],s.probe_status[3],(int32_t)s.probe_status[4],s.probe_status[5],s.probe_status[6],s.probe_status[7],(unsigned long long)s.probe_until,s.probe_status[8],
  (unsigned long long)coord.root,(unsigned long long)coord.boot,coord.epoch,(unsigned long long)coord.until,
  w.launch_budget,w.precommit_us,w.launch_us,w.command_commit_us,w.command_committed,
  w.serial,w.coalesced,w.terminal,w.saved,w.journal_result,w.reset_requested,

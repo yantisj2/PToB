@@ -205,6 +205,21 @@ int main(int argc,char **argv){
  if(mode==59){fail_cs_config=true;assert(r2_lora_hw_start(4,false)==-EIO);assert(!submissions&&!route&&!pins[12]);closed();return 0;}
  bool tx_mode=mode==3||mode==11||mode==14||mode==15||mode==16||mode==17||mode==19||mode==20||mode==21||mode==22||mode==23||mode==24||mode==25||mode==27||mode==28||mode==29||mode==30||mode==31||mode==32||mode==33||mode>=34;
  assert(!r2_lora_hw_start(4,mode>=73?true:mode>=65?false:!tx_mode));
+ if(mode>=81&&mode<=86){
+  struct r2_lora_hw_edge peek;unsigned before=submissions;
+  if(mode==81)inject(2);
+  else pins[21]=1;
+  if(mode==83)active_epoch++;
+  if(mode==84)invalid_capture=true;
+  if(mode==85)r2_lora_hw_stop_begin(mock_us+200000);
+  if(mode==86){pins[21]=0;assert(!r2_lora_hw_idle());assert(!r2_lora_hw_tx(payload,80,5));before=submissions;}
+  bool expected=mode==81||mode==82;
+  assert(r2_lora_hw_rx_edge(&peek)==expected&&submissions==before);
+  if(expected)assert(peek.tick==physical_tick&&peek.capture_epoch==7&&peek.generation==4&&!counters.rx_done);
+  else assert(!peek.tick&&!peek.capture_epoch&&!peek.generation);
+  if(mode==81){struct r2_lora_hw_event e;assert(r2_lora_hw_take(&e)==1&&e.tick==peek.tick&&e.kind==R2_LORA_HW_RX_DONE);}
+  r2_lora_hw_stop_begin(mock_us+200000);closed();return 0;
+ }
  if(mode>=76&&mode<=80){
   if(mode==76){
    assert(!r2_lora_hw_idle()&&atomic_get(&phase)==1&&!pins[12]);assert(!r2_lora_hw_tx(payload,80,5));

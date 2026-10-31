@@ -51,6 +51,8 @@ int r2_lora_hw_take(struct r2_lora_hw_event *);
  * subsequently validate the radio cause. No SPI, IRQ clear or rearm. */
 struct r2_lora_hw_edge {uint64_t tick,capture_epoch;uint32_t generation;};
 bool r2_lora_hw_tx_edge(struct r2_lora_hw_edge *);
+/* Same provisional read for request ingress; take() alone proves RX_DONE. */
+bool r2_lora_hw_rx_edge(struct r2_lora_hw_edge *);
 int r2_lora_hw_rx_rearm(void);
 /* Retire an idle RX window without releasing capture ownership. A latched
  * event wins and must be taken first. No active TX/DMA can be interrupted. */
