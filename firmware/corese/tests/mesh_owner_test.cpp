@@ -73,5 +73,20 @@ int main(){
  owner::advertisement(short_g7,sizeof short_g7,14,address,scope,group,16000000,16000000);
  assert(owner::snapshot(o,16000000)&&o.roles.accepted==1&&o.roles.until_us==g7_until);
  owner::source_lost(17000000);assert(owner::snapshot(o,17000000)&&o.roles.birth_utc_us==c.birth_us&&!mesh::live(o.roles,17000000));
+ // Every accepted reference is visited, even when a NO and recovery both land
+ // between display publications. Replays cannot renew the observation deadline.
+ q.values=3;q.rmc_age_ms=q.pps_age_ms=100;++q.sequence;q.sampled_us=18000000;assert(!r2_gnss_encode(gd,&q,&group));
+ owner::advertisement(gd,sizeof gd,12,address,scope,group,18000000,18000000);
+ assert(owner::snapshot(o,18000000)&&o.reference_observation.tracking&&o.reference_observation.since_us==18000000);
+ const auto observation_until=o.reference_observation.until_us;
+ owner::advertisement(gd,sizeof gd,12,address,scope,group,19000000,19000000);
+ assert(owner::snapshot(o,19000000)&&o.reference_observation.until_us==observation_until);
+ q.values=1;++q.sequence;q.sampled_us=20000000;assert(!r2_gnss_encode(gd,&q,&group));
+ owner::advertisement(gd,sizeof gd,12,address,scope,group,20000000,20000000);
+ assert(owner::snapshot(o,20000000)&&!o.reference_observation.tracking);
+ q.values=3;++q.sequence;q.sampled_us=20000001;assert(!r2_gnss_encode(gd,&q,&group));
+ owner::advertisement(gd,sizeof gd,12,address,scope,group,20000001,20000001);
+ assert(owner::snapshot(o,20000001)&&o.reference_observation.since_us==20000001);
+ owner::source_lost(20000002);assert(owner::snapshot(o,20000002)&&!o.reference_observation.tracking);
  std::puts("PASS actual passive owner: canonical advertiser and SID, independent GS/GD dispatch, no GS history reset, publication preserves original GD deadline");
 }

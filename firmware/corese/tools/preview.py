@@ -27,7 +27,7 @@ def main():
    for y in range(240):
     start=((i//3*240+y)*960+i%3*320)*3;sheet[start:start+960]=rgb[y*960:(y+1)*960]
   png(out/(filename+'.png'),bytes(sheet),960,480)
- sources=[APP/'main/ui.cpp',APP/'main/ui.hpp',APP/'main/holdover_view.hpp',APP.parent/'w12/main/coarse_time_zone.hpp',APP.parent/'w12/main/r2/r2-g1/time_zone.h',APP/'main/mesh_diagnostics.hpp',APP/'main/mesh_diagnostics.cpp',APP/'tools/preview.cpp',APP/'tools/preview.py',APP.parent/'n30/main/font.inc']
+ sources=[APP/'main/watch_faces.inc',APP/'main/ui.cpp',APP/'main/ui.hpp',APP/'main/holdover_view.hpp',APP.parent/'w12/main/coarse_time_zone.hpp',APP.parent/'w12/main/r2/r2-g1/time_zone.h',APP/'main/mesh_diagnostics.hpp',APP/'main/mesh_diagnostics.cpp',APP/'tools/preview.cpp',APP/'tools/preview.py',APP.parent/'n30/main/font.inc']
  receipt={'schema':1,'scope':'ACTUAL_FIRMWARE_RENDERER_SYNTHETIC_FIXTURES','dimensions':[320,240],'hardware_access':False,'precision_evidence':False,'copyright':'2026 Jonathan Yantis','license':'MIT','sources':{str(f.relative_to(APP.parents[1])):hashlib.sha256(f.read_bytes()).hexdigest() for f in sources},'assets':assets}
  (out/'preview.json').write_text(json.dumps(receipt,indent=2)+'\n');print(out/'contact-sheet.png')
 if __name__=='__main__':main()

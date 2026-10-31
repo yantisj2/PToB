@@ -34,11 +34,11 @@ struct Stats {uint64_t sampled=0,snap_model_us=0;uint32_t cached_frames=0,readou
 corese::SleepGate sleep_gate;
 LightState light_stats{};uint32_t light_max_io_us=0;int requested_brightness=-1;bool light_response=false;
 Stats stats;int requested_page=-1,preview_page=-1;bool snap_requested=false,snap_busy=false;
-unsigned shot_offset=0;bool shot_response=false,snapshot_response=false,mesh_response=false,shadow_response=false;
+unsigned shot_offset=0;bool shot_response=false,snapshot_response=false,mesh_response=false,shadow_response=false,watch_response=false;
 uint32_t xtal_hz=0,cpu_hz=0;uint64_t now_us(){return uint64_t(esp_timer_get_time());}
 void name(char* out,size_t size,uint64_t id){const char* known=ptob_registry_name(id);if(known)std::snprintf(out,size,"%s",known);else if(id)std::snprintf(out,size,"%04X",unsigned(id&65535));else std::snprintf(out,size,"UNKNOWN");}
-unsigned page(const View& v){return v.screen==Screen::Launcher?0:v.screen==Screen::Clock?(v.face==Face::Instrument?1:7):v.diagnostic==mesh::Page::Shadow?8:2+unsigned(v.diagnostic);}
-void select(View& v,unsigned p){v.pressed=Action::None;if(p==0)v.screen=Screen::Launcher;else if(p==1||p==7){v.screen=Screen::Clock;v.face=p==7?Face::UtcRegister:Face::Instrument;}else{v.screen=Screen::Diagnostics;v.diagnostic=p==8?mesh::Page::Shadow:mesh::Page(p-2);}}
+unsigned page(const View& v){return presentation_page(v);}
+void select(View& v,unsigned p){select_presentation(v,p);}
 struct LightBus {
  bool read(uint8_t address,uint8_t reg,uint8_t* data,unsigned size){return M5.In_I2C.readRegister(address,reg,data,size,100000);}
  bool write(uint8_t address,uint8_t reg,uint8_t value){return M5.In_I2C.writeRegister8(address,reg,value,100000);}
@@ -125,7 +125,7 @@ void n30_display_publish(const v12::R2Status& s,const DisplayState& d,uint64_t n
  m.psram_total=esp_psram_get_size();m.psram_free=heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
  m.rssi_valid=s.n30_signal.fresh(now);m.rssi_dbm=s.n30_signal.dbm;m.rssi_sampled_us=s.n30_signal.at;
  owner::Observation observations;
- if(owner::snapshot(observations,now)){m.mesh.roles=observations.roles;m.mesh.reference=observations.reference;name(m.mesh.reference.root_name,25,m.mesh.reference.scope.root);m.mesh.capabilities=observations.cap;auto& r=m.mesh.roles;name(r.primary_name,25,r.root);name(r.hot_name,25,r.hot);name(r.coordinator_name,25,r.coordinator);
+ if(owner::snapshot(observations,now)){m.mesh.reference_observation=observations.reference_observation;m.mesh.roles=observations.roles;m.mesh.reference=observations.reference;name(m.mesh.reference.root_name,25,m.mesh.reference.scope.root);m.mesh.capabilities=observations.cap;auto& r=m.mesh.roles;name(r.primary_name,25,r.root);name(r.hot_name,25,r.hot);name(r.coordinator_name,25,r.coordinator);name(r.founder_name,25,r.founder);
   m.offset_ns=observations.offset;m.offset_sampled_us=observations.offset_at;m.offset_until_us=observations.offset_at+SnapshotMaxUs;m.offset_root=observations.offset_scope.root;m.offset_boot=observations.offset_scope.boot;m.offset_epoch=observations.offset_scope.epoch;m.offset_valid=observations.offset_valid;
  }
  auto& p=m.mesh.path;p.sampled_us=now;p.until_us=m.until_us;p.source_epoch=m.source_epoch;
@@ -144,10 +144,11 @@ void n30_display_publish(const v12::R2Status& s,const DisplayState& d,uint64_t n
 }
 void n30_display_trace_poll(){}
 void n30_display_status(v12::ConsoleFrame& f){Stats s;portENTER_CRITICAL(&mux);s=stats;portEXIT_CRITICAL(&mux);f.format("N30_UI profile=CORESE GPS=ABSENT page=%u ready=%u help=0 saver=0 blank=0 frames=%lu errors=%lu max_frame_us=%lu model_us=%llu rotation=LANDSCAPE display=320x240 hardware=LIVE path=CLIENT upstream=AUTO phase_us=0 m=0 snap=%lu crc=%08lx pulse=%u psram=%lu touches=%lu board=%u sleep=%u power_clicks=%lu clock=%u/%u/%u/%u/%lu/%lld readout=%u/%u/%lu cached_frames=%lu readout_drops=%lu\n",s.page,unsigned(s.ready),(unsigned long)s.frames,(unsigned long)s.errors,(unsigned long)s.max_us,(unsigned long long)s.sampled,(unsigned long)s.snap,(unsigned long)s.crc,unsigned(s.pulse),(unsigned long)heap_caps_get_free_size(MALLOC_CAP_SPIRAM),(unsigned long)s.touches,s.board,unsigned(sleep_gate.stage()),(unsigned long)s.power_clicks,unsigned(s.valid),unsigned(s.precise),unsigned(s.offset_valid),s.source,(unsigned long)s.rms,(long long)s.offset,unsigned(s.readout_live),unsigned(s.readout_visible),(unsigned long)s.duration_ms,(unsigned long)s.cached_frames,(unsigned long)s.readout_drops);}
-bool n30_display_page(unsigned p){if(p>8)return false;portENTER_CRITICAL(&mux);requested_page=int(p);portEXIT_CRITICAL(&mux);if(task)xTaskNotifyGive(task);return true;}
+bool n30_display_page(unsigned p){if(p>10)return false;portENTER_CRITICAL(&mux);requested_page=int(p);portEXIT_CRITICAL(&mux);if(task)xTaskNotifyGive(task);return true;}
 bool n30_display_take_upstream_toggle(uint64_t){return false;}bool n30_display_take_lora_toggle(uint64_t){return false;}bool n30_display_minimal(){return false;}
 void display_show(const DisplayState&){}bool display_set_scan(DisplayTiming::Profile){return false;}void display_update_indicators(bool,bool,bool){}void display_sleep(){}void display_wake(){}void display_blank(){}
 bool corese_display_command(const char* action){
+ if(!std::strcmp(action,"ui watch")){watch_response=true;return true;}
  if(!std::strcmp(action,"ui light")){light_response=true;return true;}
  int brightness=0;
  if(corese::brightness_command(action,brightness)){
@@ -156,13 +157,26 @@ bool corese_display_command(const char* action){
  }
  if(!std::strcmp(action,"shadow diag")){shadow_response=true;return true;}
  if(!std::strcmp(action,"mesh diag")){mesh_response=true;return true;}
- if(!std::strncmp(action,"ui render ",10)&&std::strlen(action)==11&&action[10]>='0'&&action[10]<='8'){portENTER_CRITICAL(&mux);preview_page=action[10]-'0';portEXIT_CRITICAL(&mux);snapshot_response=true;if(task)xTaskNotifyGive(task);return true;}
+ if((!std::strncmp(action,"ui render ",10)&&std::strlen(action)==11&&action[10]>='0'&&action[10]<='9')||!std::strcmp(action,"ui render 10")){portENTER_CRITICAL(&mux);preview_page=!std::strcmp(action,"ui render 10")?10:action[10]-'0';portEXIT_CRITICAL(&mux);snapshot_response=true;if(task)xTaskNotifyGive(task);return true;}
  if(!std::strcmp(action,"ui capture")){snapshot_response=true;return true;}
  if(!std::strcmp(action,"ui snap")){portENTER_CRITICAL(&mux);snap_requested=true;portEXIT_CRITICAL(&mux);snapshot_response=true;if(task)xTaskNotifyGive(task);return true;}
  unsigned offset=0;char tail=0;if(std::sscanf(action,"ui pixels %u %c",&offset,&tail)==1&&offset<corese::Pixels){shot_offset=offset;shot_response=true;return true;}return false;
 }
-bool corese_display_response_pending(){return light_response||shot_response||snapshot_response||mesh_response||shadow_response;}
+bool corese_display_response_pending(){return light_response||shot_response||snapshot_response||mesh_response||shadow_response||watch_response;}
 void corese_display_response(v12::ConsoleFrame& f){
+ if(watch_response){
+  const auto now=now_us();const int slot=publication.pin();
+  if(slot<0)f.format("CORESE_WATCH ready=0\n");
+  else{const auto& m=models[slot];const auto& q=m.mesh.reference;const auto& o=m.mesh.reference_observation;const auto& r=m.mesh.roles;const corese::mesh::Scope scope{m.root,m.boot,m.source_epoch};
+   uint64_t utc=0,age=0;const bool clock=corese::time(m,now,utc)&&m.source!=corese::Source::Retained;
+   const bool gnss=corese::fresh(m,now)&&corese::mesh::current(q,scope,now);
+   const bool obs=gnss&&corese::mesh::current(o,scope,now);
+   const bool epoch=clock&&r.wire_version>=3&&r.root==m.root&&r.root_boot==m.boot&&r.epoch==m.source_epoch&&corese::mesh::epoch_elapsed(r,utc,age);
+   f.format("CORESE_WATCH ready=1 now_us=%llu model_us=%llu clock=%u utc_us=%llu ms=%u gnss_live=%u gnss_since_us=%llu gnss_until_us=%llu gnss_observed_us=%llu gnss_tracking=%u fields=%u values=%u sv=%u gnss_received_us=%llu hot_nomination=%u hot=%016llx hot_since_us=%llu hot_report=%u hot_received_us=%llu hot_until_us=%llu epoch_known=%u birth_utc_us=%llu founder=%016llx epoch_age_us=%llu hold_current=%u hold_ready=%u hold_ms=%lu hold_min=%u trials=%lu\n",
+    (unsigned long long)now,(unsigned long long)m.sampled_us,unsigned(clock),(unsigned long long)(clock?utc:0),unsigned(clock?utc%1000000/1000:0),unsigned(gnss),(unsigned long long)o.since_us,(unsigned long long)o.until_us,(unsigned long long)(obs?now-o.since_us:0),unsigned(obs),unsigned(q.fields),unsigned(q.values),unsigned(q.sats),(unsigned long long)q.received_us,unsigned(corese::fresh(m,now)&&r.root==m.root&&r.root_boot==m.boot&&r.epoch==m.source_epoch&&corese::mesh::hot_nomination_current(r,now)),(unsigned long long)r.hot,(unsigned long long)r.hot_since_us,unsigned(r.hot_report_known&&now>=r.hot_received_us&&now<r.hot_until_us),(unsigned long long)r.hot_received_us,(unsigned long long)r.hot_until_us,unsigned(epoch),(unsigned long long)r.birth_utc_us,(unsigned long long)r.founder,(unsigned long long)(epoch?age:0),unsigned(corese::shadow_current(m,now)),unsigned(m.holdover.ready),(unsigned long)m.holdover.duration_ms,unsigned(m.holdover.lower_bound),(unsigned long)m.holdover.trials);
+   publication.release(slot);
+  }watch_response=false;return;
+ }
  if(light_response){corese::LightState l;uint32_t max_io;portENTER_CRITICAL(&mux);l=light_stats;max_io=light_max_io_us;portEXIT_CRITICAL(&mux);const auto now=now_us();
   f.format("CORESE_LIGHT present=%u configured=%u part=%02x manufacturer=%02x auto=%u fresh=%u sample_us=%llu age_us=%llu ch0=%u ch1=%u raw=%u filtered=%u units=RAW_ALS_COUNTS calibrated_lux=0 gain=1 integration_ms=100 current=%u target=%u pmic_code=%u verified=%u samples=%lu errors=%lu invalid=%lu old=%lu writes=%lu write_errors=%lu max_io_us=%lu poll_us=250000 ps=OFF sleep=%u\n",
    unsigned(l.present),unsigned(l.configured),unsigned(l.part),unsigned(l.manufacturer),unsigned(l.automatic),unsigned(l.fresh),

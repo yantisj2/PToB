@@ -28,7 +28,7 @@ struct Roles {
  // Cached descriptive roles persist until replaced. These timers measure
  // unchanged identities during this observer boot, independent of GS TTL.
  bool known=false;
- char primary_name[25]="UNKNOWN",hot_name[25]="UNKNOWN",coordinator_name[25]="UNKNOWN";
+ char primary_name[25]="UNKNOWN",hot_name[25]="UNKNOWN",coordinator_name[25]="UNKNOWN",founder_name[25]="UNKNOWN";
 };
 bool live(const Roles&,uint64_t now);
 // Current ACTIVE nomination is descriptive and independent of HOT self-report
@@ -66,7 +66,18 @@ struct Reference {
  uint8_t priority1=128,clock_class=248,accuracy=254,priority2=128;
  char root_name[25]="UNKNOWN";Result result=Result::Waiting;bool reported=false;
 };
-struct Snapshot {Roles roles{};Path path{};Link link{};Capabilities capabilities{};Reference reference{};};
+struct ReferenceObservation {Scope scope{};uint64_t since_us=0,until_us=0;bool tracking=false;};
+// Descriptive FIX+PPS observation only. Every accepted report is visited on the
+// radio owner; negative reports, expiry gaps and selection changes break it.
+class ReferenceObserver {
+ ReferenceObservation state_{};
+ public:
+ void clear(){state_={};}
+ void observe(const Reference&,Scope,uint64_t now);
+ ReferenceObservation snapshot()const{return state_;}
+};
+bool current(const ReferenceObservation&,const Scope&,uint64_t now);
+struct Snapshot {Roles roles{};Path path{};Link link{};Capabilities capabilities{};Reference reference{};ReferenceObservation reference_observation{};};
 bool current(const Path&,uint64_t now);
 bool current(const Link&,const Scope&,uint64_t now);
 bool current(const Capabilities&,uint64_t peer,uint64_t boot,uint64_t now);

@@ -11,7 +11,7 @@ extern "C" {
 #include <cstring>
 namespace corese::owner {
 namespace {
-mesh::RoleMonitor monitor;mesh::ReferenceMonitor reference;mesh::Gm7Monitor gm7;Observation current;Observation* slots=nullptr;v12::TdPublication publication;
+mesh::RoleMonitor monitor;mesh::ReferenceMonitor reference;mesh::Gm7Monitor gm7;mesh::ReferenceObserver reference_observer;Observation current;Observation* slots=nullptr;v12::TdPublication publication;
 uint64_t last_publication=0;
 void publish(uint64_t now,bool force=false){if(!slots||(!force&&now>=last_publication&&now-last_publication<50000))return;const int slot=publication.reserve();if(slot<0)return;const auto g=gm7.roles(now);const auto q=gm7.reference(now);current.roles=g.known?g:monitor.snapshot(now);current.reference=q.reported?q:reference.snapshot(now);slots[slot]=current;publication.commit(slot);last_publication=now;}
 }
@@ -31,6 +31,7 @@ void advertisement(const uint8_t* data,unsigned size,uint8_t sid,const uint8_t a
    r2_group_pair_key(key,&group,id,id);key[5]|=0xc0;
    if(std::memcmp(key,address,6)){off+=n+1;continue;}
    const bool accepted=g7?gm7.receive(w,n+1,group,id,scope,at,now):gs?monitor.receive(w,R2_ROLE_AD_BYTES,group,id,scope,at,now):reference.receive(w,n+1,group,id,scope,at,now);
+   if(accepted){const auto q=gm7.reference(now);reference_observer.observe(q.reported?q:reference.snapshot(now),scope,now);current.reference_observation=reference_observer.snapshot();}
    if(accepted&&outside_scan&&current.scan_outside_callbacks!=UINT32_MAX)++current.scan_outside_callbacks;
    publish(now,true);
   }off+=n+1;
@@ -39,7 +40,7 @@ void advertisement(const uint8_t* data,unsigned size,uint8_t sid,const uint8_t a
 void source_lost(uint64_t now){
  // Published diagnostics retain explicit historical reports and their original
  // expiry. Current source-bound capability, residual and scan state is retired.
- current.cap={};current.offset_scope={};current.offset=0;current.offset_at=0;
+ reference_observer.clear();current.reference_observation={};current.cap={};current.offset_scope={};current.offset=0;current.offset_at=0;
  current.offset_valid=current.scan_allowed=false;current.scan_deadline=0;publish(now,true);
 }
 void capabilities(uint64_t peer,uint64_t boot,uint8_t flags,uint64_t at,uint64_t until){current.cap={peer,boot,at,until,flags,true};publish(at,true);}

@@ -13,6 +13,14 @@ bool current(const Capabilities& c,uint64_t peer,uint64_t boot,uint64_t now){ret
  c.peer==peer&&c.boot==boot&&now>=c.sampled_us&&now<c.until_us;}
 bool current(const Reference& r,const Scope& s,uint64_t now){return r.reported&&s.root&&s.boot&&s.epoch&&
  r.scope.root==s.root&&r.scope.boot==s.boot&&r.scope.epoch==s.epoch&&now>=r.received_us&&now<r.until_us;}
+bool current(const ReferenceObservation& r,const Scope& s,uint64_t now){return r.tracking&&s.root&&s.boot&&s.epoch&&
+ r.scope.root==s.root&&r.scope.boot==s.boot&&r.scope.epoch==s.epoch&&now>=r.since_us&&now<r.until_us;}
+void ReferenceObserver::observe(const Reference& q,Scope selected,uint64_t now){
+ constexpr uint8_t bits=Fix|Pps;
+ if(!current(q,selected,now)||(q.fields&bits)!=bits||(q.values&bits)!=bits){clear();return;}
+ if(!current(state_,selected,now))state_={selected,now,q.until_us,true};
+ else state_.until_us=q.until_us;
+}
 void epoch_start_text(char* out,size_t size,uint64_t birth){
  if(birth<UINT64_C(946684800000000)||birth>=UINT64_C(4102444800000000)){std::snprintf(out,size,"--");return;}
  // Gregorian civil date from Unix days; bounded above to years 2000..2099.

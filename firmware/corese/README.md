@@ -22,7 +22,7 @@ They are framebuffer captures, not photographs or calibrated accuracy results.
 | Area | Current configuration |
 | --- | --- |
 | Board | M5Stack CoreS3-SE K128-SE; ESP32-S3, **16 MiB flash**, **8 MiB quad PSRAM**. |
-| Display | **320 × 240** landscape ILI9342C color LCD with FT6336U touch; instrument and time-register faces. |
+| Display | **320 × 240** landscape ILI9342C color LCD with FT6336U touch; instrument, time register, Reference Watch and Epoch Counter faces. |
 | Timing inputs | Authenticated G1/RC7 BLE reception; separate RC9 functional UTC reception with unknown precision bounds. |
 | Fine counter | **80 MHz**, **12.5 ns ticks**, delivered on a **50 ns grid**. Fixed GPIO6/7 route; both pads must be free on a bare board. |
 | Mesh diagnostics | Passive GM7 ANN, STATUS, ROLE, GNSS and WITHDRAW reception; legacy GS/GD reports remain readable. |
@@ -60,6 +60,8 @@ pages; **FACE** changes the clock presentation and **HOME** returns to the launc
 | Screen | What it answers |
 | --- | --- |
 | PToB / Time register | What time is available, from which source? The main face pairs causal RMS with sampled P99 hold seconds. |
+| Reference Watch / face3 | Time, reported SV/FIX/PPS/QUAL, GNSS observation duration, HOT nominee and unchanged-selection timer, with independent report ages. |
+| Epoch Counter / face4 | Time through milliseconds, modeled-phase vernier, sampled P99 sub-1us hold duration, mesh age and signed UTC birth/founder. |
 | [Mesh](../../docs/images/corese-mesh.png) | Who is ACTIVE, who is nominated HOT, and what has that standby actually reported? Selection age and self-report freshness are separate. |
 | Path | Which admitted root and relays lead to this receiver? Node boots, trains and epochs identify the path. |
 | [Quality](../../docs/images/corese-quality.png) | How well does the local clock predict received timing? Shows RMS, signed relative offset, matched/refused packets, source age and remaining validity. |

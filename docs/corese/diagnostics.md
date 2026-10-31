@@ -12,6 +12,24 @@ or later. Older producers leave the corresponding fields unavailable.
 The client never manufactures a PTP dataset or treats display activity as a
 renewed lease.
 
+Reference Watch's `OBS` is local elapsed observation of selected-root reports
+with known FIX and PPS both YES. It starts at the local accepted observation,
+not a claimed remote lock time. Every accepted report is checked; NO, missing
+fields, an original-deadline gap or source-context loss resets it. Replays
+cannot renew it. `SAME` remains time since the HOT nominee identity/boot changed,
+independent of HOT self-report freshness. Neither proves unobserved continuity.
+Expired GNSS values say `LAST`; unknown fields stay distinct from known NO/zero.
+The live Reference Watch SV-used numeral is orange below10 and green from10;
+this color threshold does not reset OBS or alter FIX/PPS/QUAL or timing validity.
+
+Epoch Counter milliseconds and its vernier follow modeled UTC, not physical PPS
+or measured LCD edges. `P99 <1us HOLD` is the sampled shadow duration; `MIN`
+marks a lower bound. Labeled LAST values retain only the existing500ms grace.
+Mesh age uses current matched UTC minus signed GM7 birth; the birth/founder strip
+stays UTC (`Z`) even when the clock uses local time. Missing/mismatched UTC or
+legacy reports withdraw age. Long names shorten with a visible `>` marker;
+the complete identity remains in diagnostics/console.
+
 | Page | Source | Meaning and limits |
 | --- | --- | --- |
 | Mesh | GM7 ANN/STATUS/ROLE; legacy GS v1 | Reported ACTIVE/boot, timing epoch, leadership term, nominated HOT/boot and actual matching HOT STATUS. A nomination alone does not establish HOT. `UNCHANGED` timers track observed role events independently of packet cadence. Legacy GS retains its coordinator/membership fields. |

@@ -231,12 +231,15 @@ void launcher(Canvas& c,const Model& m,const View& v,uint64_t now){
  c.key(12,122,144,49,"PToB",v.pressed==Action::OpenClock,"TIME / PRECISION");
  c.key(164,122,144,49,"DIAG",v.pressed==Action::OpenDiagnostics,"SOURCE / SYSTEM");
  c.key(12,180,296,41,"",v.pressed==Action::NextFace);
- c.text(22,189,"WATCH FACE");c.text(22,203,v.face==Face::Instrument?"INSTRUMENT 01":"TIME REGISTER 02");
+ c.text(22,189,"WATCH FACE");static const char* labels[]={"INSTRUMENT 01","TIME REGISTER 02","REFERENCE WATCH 03","EPOCH COUNTER 04"};c.text(22,203,labels[unsigned(v.face)%unsigned(Face::Count)]);
  c.text(238,197,"NEXT >");
  // The route is textual as well as colored; it never asserts a live link.
  if(valid){char s[32];std::snprintf(s,sizeof s,"%.8s / %s",m.parent,source_name(m,now));c.text(22,113,s);}
 }
+#include "watch_faces.inc"
 void clock(Canvas& c,const Model& m,const View& v,uint64_t now){
+ if(v.face==Face::ReferenceWatch){reference_watch(c,m,v,now);return;}
+ if(v.face==Face::EpochCounter){epoch_counter(c,m,v,now);return;}
  shell(c,m,"TIME + PRECISION",now);rail(c,m,now,42);
  c.well(12,69,296,42);char t[12];clock_string(m,now,t);uint64_t utc;const bool valid=time(m,now,utc);
  int64_t shown=0;const auto* zone=clock_zone(m,now,shown);c.text(20,77,zone,Dim);c.digital(52,74,t,28,29,valid&&m.source!=Source::Retained?Green:Amber);
@@ -476,6 +479,19 @@ void diagnostics(Canvas& c,const Model& m,const View& v,uint64_t now){
  c.key(248,181,60,40,"PToB",v.pressed==Action::OpenClock);
 }
 }
+unsigned presentation_page(const View& v){
+ if(v.screen==Screen::Launcher)return 0;
+ if(v.screen==Screen::Diagnostics)return v.diagnostic==mesh::Page::Shadow?8:2+unsigned(v.diagnostic);
+ switch(v.face){case Face::Instrument:return 1;case Face::UtcRegister:return 7;case Face::ReferenceWatch:return 9;case Face::EpochCounter:return 10;case Face::Count:return 1;}return 1;
+}
+bool select_presentation(View& v,unsigned p){
+ if(p>10)return false;
+ v.pressed=Action::None;
+ if(p==0)v.screen=Screen::Launcher;
+ else if(p==1||p==7||p>=9){v.screen=Screen::Clock;v.face=p==1?Face::Instrument:p==7?Face::UtcRegister:p==9?Face::ReferenceWatch:Face::EpochCounter;}
+ else{v.screen=Screen::Diagnostics;v.diagnostic=p==8?mesh::Page::Shadow:mesh::Page(p-2);}
+ return true;
+}
 void render(uint16_t* frame,const Model& m,const View& v,uint64_t now){
  if(!frame)return;
  Canvas c{frame};
@@ -503,7 +519,7 @@ void apply(View& v,Action action){
  v.pressed=Action::None;
  switch(action){case Action::Home:v.screen=Screen::Launcher;break;case Action::OpenClock:v.screen=Screen::Clock;break;
  case Action::OpenDiagnostics:v.screen=Screen::Diagnostics;break;
- case Action::NextFace:v.face=v.face==Face::Instrument?Face::UtcRegister:Face::Instrument;
+ case Action::NextFace:v.face=Face((unsigned(v.face)+1)%unsigned(Face::Count));
   if(v.screen==Screen::Diagnostics)v.screen=Screen::Clock;
   break;
  case Action::PreviousDiagnostic:v.diagnostic=mesh::Page((unsigned(v.diagnostic)+unsigned(mesh::Page::Count)-1)%unsigned(mesh::Page::Count));break;

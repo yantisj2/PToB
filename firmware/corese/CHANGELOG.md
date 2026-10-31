@@ -2,6 +2,43 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+## 0.1.35 — 30 October 2026
+
+- Color only the live Reference Watch SV-used count orange below10;10 and above
+  remain green. Preserve existing stale/unknown colors, FIX/PPS/QUAL and OBS.
+  Satellite count never becomes an OBS reset condition or timing permission.
+- Exact app/prefix/tail readback and fresh boot passed. All94 live watch samples
+  in a bounded30s check retained one OBS start while SV changed between9 and10
+  (seven samples at9,87 at10). Offline pixel comparison changed only the active
+  SV digits; stale/unknown, OBS and every other pixel were identical.
+
+## 0.1.34 — 30 October 2026
+
+- Add Reference Watch and Epoch Counter as faces3/4 in the existing face cycle.
+  Reference Watch centers time above SV/FIX/PPS/QUAL and HOT nomination,
+  unchanged-selection duration and independent report freshness.
+- Track selected-root FIX+PPS observation on every accepted reference report.
+  Missing fields, negative flags, expiry gaps and source-context loss reset it;
+  duplicate/replayed reports never extend its original deadline.
+- Epoch Counter adds milliseconds and a modeled-phase vernier, sampled P99
+  sub-1us hold duration, mesh elapsed age and signed UTC birth/founder.
+  Native bitmap typography, palette, stable40px controls and existing pages0–8
+  remain; new presentations use pages9/10 and bounded `ui watch` diagnostics.
+- Preserve current source/precision gates,500ms labeled readout grace and
+  automatic brightness. Build/software checks and hardware observations remain
+  separate from calibrated timing, optical display and failover qualification.
+- Exact-device app/prefix/tail readback and fresh boot/display/fine checks passed;
+  eleven live-model renders and both new completed LCD frames passed pixel CRCs.
+  The first host watch check exposed a missing reply allowlist entry, corrected
+  with single-row and wrong/missing-reply fixtures without another firmware write.
+- A60s field check verified all reported arithmetic but retained a late source
+  loss: current clock/GNSS/observation/epoch fields160/183, with proper withdrawal.
+  Automatic recovery subsequently gave108/108 full receiver statuses following
+  and107/107 live watch samples over a bounded90s check, without receiver faults.
+  The operator subsequently confirmed physical cycling through all four faces
+  and the HOME/PToB controls. The earlier failed availability population remains;
+  stable availability and independent timing accuracy are not certified.
+
 ## 0.1.33 — 30 October 2026
 
 - Raise the automatic brightness floor from32 to150 after operator feedback

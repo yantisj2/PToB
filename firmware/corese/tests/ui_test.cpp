@@ -200,7 +200,7 @@ int main(){
  for(unsigned state=0;state<=unsigned(State::Fault);++state)
   for(unsigned source=0;source<=unsigned(Source::Retained);++source)
    for(unsigned screen=0;screen<=unsigned(Screen::Diagnostics);++screen)
-    for(unsigned face=0;face<=unsigned(Face::UtcRegister);++face)
+    for(unsigned face=0;face<unsigned(Face::Count);++face)
      for(unsigned page=0;page<unsigned(mesh::Page::Count);++page){
      m=live();m.state=State(state);m.source=Source(source);m.offset_ns=INT64_MIN;m.rms_ns=UINT32_MAX;
      std::memset(m.parent,'W',24);m.parent[24]=0;
@@ -222,6 +222,10 @@ int main(){
  touch.update(v,true,20,190);assert(touch.update(v,false,319,239)==Action::None);
  assert(hit(v,77,190)==Action::None&&hit(v,307,239)==Action::None);
  apply(v,Action::Home);assert(v.screen==Screen::Launcher);
+ apply(v,Action::NextFace);assert(v.face==Face::UtcRegister);
+ apply(v,Action::NextFace);assert(v.face==Face::ReferenceWatch);
+ apply(v,Action::NextFace);assert(v.face==Face::EpochCounter);
+ apply(v,Action::NextFace);assert(v.face==Face::Instrument);
  apply(v,Action::NextFace);assert(v.face==Face::UtcRegister);
  apply(v,Action::OpenDiagnostics);assert(v.screen==Screen::Diagnostics);
  assert(hit(v,100,190)==Action::PreviousDiagnostic&&hit(v,200,190)==Action::NextDiagnostic);
@@ -328,6 +332,26 @@ int main(){
   render(absent.data(),unknown,reference,1000100);
   bool no_retained=false;for(int y=79;y<102;++y)for(int x=12;x<308;++x)no_retained=no_retained||withdrawn[y*Width+x]!=absent[y*Width+x];
   assert(no_retained);
+ }
+ {
+  for(unsigned page=0;page<=10;++page){View selected;assert(select_presentation(selected,page));assert(presentation_page(selected)==page);}
+  View selected;assert(!select_presentation(selected,11)&&selected.screen==Screen::Launcher);
+  mesh::ReferenceObserver observer;mesh::Reference q;q.reported=true;q.scope={1,2,3};q.fields=q.values=mesh::Fix|mesh::Pps;q.received_us=100;q.until_us=1000;
+  observer.observe(q,{1,2,3},100);assert(observer.snapshot().since_us==100);
+  observer.observe(q,{1,2,3},900);assert(observer.snapshot().since_us==100&&observer.snapshot().until_us==1000);
+  q.received_us=950;q.until_us=2000;observer.observe(q,{1,2,3},950);assert(observer.snapshot().since_us==100&&observer.snapshot().until_us==2000);
+  assert(mesh::current(observer.snapshot(),{1,2,3},1999)&&!mesh::current(observer.snapshot(),{1,2,3},2000));
+  // A new good report after a gap must restart, even if no UI poll saw expiry.
+  q.received_us=2100;q.until_us=3000;observer.observe(q,{1,2,3},2100);assert(observer.snapshot().since_us==2100);
+  q.values=mesh::Fix;observer.observe(q,{1,2,3},2200);assert(!observer.snapshot().tracking);
+  q.values=mesh::Fix|mesh::Pps;observer.observe(q,{1,2,3},2201);assert(observer.snapshot().since_us==2201);
+  q.fields=mesh::Fix;observer.observe(q,{1,2,3},2202);assert(!observer.snapshot().tracking);
+  q.fields=mesh::Fix|mesh::Pps;observer.observe(q,{1,2,3},2203);
+  assert(!mesh::current(observer.snapshot(),{1,2,4},2203));
+  observer.observe(q,{1,2,4},2204);assert(!observer.snapshot().tracking);
+  observer.observe(q,{},2205);assert(!observer.snapshot().tracking);
+  observer.observe(q,{1,2,3},2206);observer.clear();assert(!observer.snapshot().tracking);
+  observer.observe(q,{1,2,3},3000);assert(!observer.snapshot().tracking);
  }
  return 0;
 }

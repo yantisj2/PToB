@@ -5,7 +5,7 @@ Copyright (c) 2026 Jonathan Yantis. MIT.
 Native builds [clean compiler output and retain the latest two image bundles](../firmware-storage.md)
 per device/profile, with installed/recovery pins preserved.
 
-Read [the target README](../../firmware/corese/README.md). Version0.1.33 provides
+Read [the target README](../../firmware/corese/README.md). Version0.1.35 provides
 the live client; the earlier UI preparation build remains an offline design tool.
 
 ## Dependencies and offline checks
@@ -157,7 +157,7 @@ presentations with `ui render 0` through `ui render 8` using the on-device live
 model and production renderer, without changing the visible screen. These
 offscreen renders are explicitly identified as `ONDEVICE_LIVE_MODEL_RENDER`;
 `ui snap` identifies `COMPLETED_LCD_FRAME`. Neither is optical readback. The bounded
-presentation commands are `ui page 0` through `ui page 8`, `ui snap`, and
+presentation commands are `ui page 0` through `ui page 10`, `ui snap`, and
 `ui capture` (read frozen metadata), and `ui pixels OFFSET`; they use fresh maintenance tickets and do not change timing
 source, radio permission or model lifetime. Pixel chunks carry a frozen snapshot
 ID and CRC. Page1 is the normal PToB instrument; page0 is the launcher.
@@ -185,6 +185,12 @@ Console `ui page 8` / `ui render 8` selects/renders Shadow; existing pages0–7
 retain their numbers. `shadow diag` returns the shadow population, quantiles,
 run/gap/duration fields and TZ ID, signed offset, original deadline and counters
 inside the existing bounded CRC response. It grants no source permission.
+
+Pages9/10 select or render Reference Watch/Epoch Counter; pages0–8 retain their
+identities. `ui watch` returns the published model's fractional time, selected
+GNSS observation start/original deadline, reported flags/SV, HOT selection and
+self-report timestamps, sampled hold fields and signed epoch birth/founder/age
+inside the same nonce/boot/build/CRC boundary. It changes no source permission.
 
 CoreSE0.1.28 allocates the complete bounded shadow workspace in PSRAM before
 receiver admission. Its internal static allocation is one pointer; the NimBLE

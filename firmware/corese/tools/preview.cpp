@@ -25,6 +25,7 @@ int main(int argc,char** argv){
  auto& r=m.mesh.roles;r.known=true;r.result=mesh::Result::Accepted;
  r.root=1;r.root_boot=2;r.epoch=3;r.hot=4;r.hot_boot=5;r.coordinator=4;r.members=7;r.sequence=12881;r.accepted=12880;r.replayed=2;
  r.wire_version=3;r.birth_utc_us=1792986374188267;r.founder=1;r.term=16;r.announcements=528;r.statuses=1641;r.role_reports=510;
+ std::snprintf(r.founder_name,25,"TC-03");
  r.hot_confirmed=r.hot_report_known=true;r.hot_role=3;r.hot_report_kind=2;r.hot_received_us=now-1000000;r.hot_until_us=now+3500000;
  r.created_us=uint64_t(2*86400+6*3600+10*60)*1000000;r.epoch_since_us=now-312000000;r.received_us=now-180000;r.until_us=now+1820000;r.primary_since_us=now-uint64_t(2*3600+14*60+32)*1000000;r.hot_since_us=now-uint64_t(52*60+8)*1000000;
  std::snprintf(r.primary_name,sizeof r.primary_name,"TC-03");std::snprintf(r.hot_name,sizeof r.hot_name,"TC-02");std::snprintf(r.coordinator_name,sizeof r.coordinator_name,"TC-02");
@@ -48,6 +49,9 @@ int main(int argc,char** argv){
  auto between=m;between.utc_us+=SourcePulseUs;save("ptob-pps-off",Screen::Clock,between);
  save("launcher-pressed",Screen::Launcher,m,now,Face::Instrument,Action::OpenClock);
  save("ptob-register",Screen::Clock,m,now,Face::UtcRegister);
+ m.mesh.reference_observation={{1,2,3},now-8072000000ull,now+29800000,true};
+ save("face3-reference-watch",Screen::Clock,m,now,Face::ReferenceWatch);
+ save("face4-epoch-counter",Screen::Clock,m,now,Face::EpochCounter);
  DisplayMemory history;history.retain(m);
  auto history_rc9=m;history_rc9.source=Source::Rc9;history_rc9.precision_valid=history_rc9.offset_valid=false;history.retain(history_rc9);
  save("register-rc9-history",Screen::Clock,history_rc9,now,Face::UtcRegister);

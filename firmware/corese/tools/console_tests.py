@@ -6,12 +6,13 @@ import io,json,zlib
 import console as c
 N='4'*16;BOOT='5'*16
 receipt={'factory_mac':'02:00:00:00:00:01','device_id':'0000020000000001','public_commit':'1'*40,'runtime_identity':{'build_id':'2'*64,'r2_enrollment_sha256':'3'*64}}
-def wire(change=None,light=False):
+def wire(change=None,light=False,single=None):
  begin=f"W12_V12_BEGIN version=3 nonce={N} ticket={'6'*16} factory={receipt['factory_mac']} session={BOOT} source={'1'*40} build={'2'*64} request_us=1000000 deadline_us=2500000 ticket_deadline_us=3000000"
  rows=[f"W12_R2_STATUS profile=r2-g1 self=3 enrollment_sha={'3'*64} client_identity={receipt['device_id']} source=0 serving=0 client_control=0 client_capabilities=0"]
  rows += [n+' sample=1' for n in ('W12_V12_STATUS','W12_V12_GPS','W12_V12_LORA_STATUS','W12_V12_PUBLIC','W12_V12_CONSOLE','W12_V12_DIRECT','W12_V12_DIAGNOSTIC_TX')]
  rows += [f'W12_V12_COMMAND nonce={N} accepted=1 action=STATUS','N30_UI sample=1']
  if light:rows=['CORESE_LIGHT present=1 configured=1 verified=1 current=128 pmic_code=24']
+ if single:rows=[single]
  loss=0;deadline=2500000
  if change=='serve':rows[0]=rows[0].replace('serving=0','serving=1')
  if change=='row':rows.pop(3)
@@ -52,4 +53,20 @@ try:
  for action in ('ui brightness auto','ui brightness 32','ui brightness 255'):
   client.port=Port(wire());client.request(action)
  print('PASS light diagnostic frame and bounded AUTO/manual console commands; no hardware')
+ for action in ('ui page 9','ui page 10'):
+  client.port=Port(wire());client.request(action)
+ for action in ('ui render 9','ui render 10'):
+  client.port=Port(wire(single='CORESE_SNAPSHOT snap=1 busy=0 page='+action.split()[-1]));client.request(action)
+ client.port=Port(wire(single='CORESE_WATCH ready=1 clock=1 utc_us=1793388728188000 ms=188 gnss_tracking=1 gnss_observed_us=1000000'))
+ assert client.request('ui watch')['rows']['CORESE_WATCH']['ms']=='188'
+ for reply in (wire(),wire(light=True),wire(single='CORESE_UNKNOWN ready=1')):
+  client.port=Port(reply)
+  try:client.request('ui watch')
+  except RuntimeError:pass
+  else:raise AssertionError('Missing/wrong watch diagnostic accepted')
+ for action in ('ui page 11','ui page 01','ui render 11','ui render -1','ui watch extra'):
+  try:client.request(action)
+  except RuntimeError:pass
+  else:raise AssertionError('Unbounded watch command accepted')
+ print('PASS four-face page/render/watch bounds; no hardware')
 finally:c.secrets.token_hex,c.time.monotonic=saved
