@@ -573,6 +573,12 @@ int main(int argc,char **argv){assert(argc==2);unsigned mode=(unsigned)atoi(argv
   now_us=25200001;struct r2_lora_view v;r2_lora_view(&v);assert(v.state==RC8_AVAILABLE&&!v.link_samples&&!v.link_rms_ns&&v.fit_age_ms==24000);
   published.view.rx_age_ms=11999;published.view.rssi_valid=true;published.view.sampled_us=now_us;
   now_us++;r2_lora_view(&v);assert(!v.rssi_valid&&v.rx_age_ms==12000);
+  /* Receiver mutation before its next report cannot mix new provenance
+   * into the console's previous immutable context/time snapshot. */
+  uint32_t published_sequence=published.fit_sequence;uint8_t published_collecting=published.fit_collecting;
+  role.rx.fit.result_sequence=876;role.rx.fit.n=13;
+  char json[3072],expected[80];assert(r2_lora_json(json,sizeof json,0)>0);
+  snprintf(expected,sizeof expected,"\"fit_provenance\":[%u,%u,%u]",published_sequence,v.fit_age_ms,published_collecting);assert(strstr(json,expected));
  }
  else assert(false);
  char json[3072];int n=r2_lora_json(json,sizeof json-96,0);assert(n>0&&n<(int)sizeof json-96);printf("PASS runtime mode%u role=%zu snapshot=%zu worker=%zu json=%d\nJSON %s\n",mode,sizeof role,sizeof published,sizeof worker_stack,n,json);

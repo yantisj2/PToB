@@ -285,7 +285,7 @@ Optional80-byte names add nominal1.616% at16s, for8.3876267% before events and
 deferrals. The timing badge is `.25Hz`, derived from1/4s rather than UI refresh.
 These calculations do not qualify radio delivery, regional use or coexistence.
 
-The measured host ABI uses a736-byte exclusive RX/TX union and344-byte latest
+The measured host ABI uses a736-byte exclusive RX/TX union and352-byte latest
 snapshot; target ABI sizes are checked independently. The worker retains2048 bytes
 plus64-byte guard. Complete native ELF
 comparison must prove the4096-byte original RC8 added-static ceiling plus the

@@ -59,7 +59,7 @@ struct snapshot {
  struct r2_lora_view view;
  uint8_t context[RC8_CONTEXT_BYTES];
  uint32_t sequence,corrected_sequence,wire_corrected_sequence,accepted,rejected,replayed,unmatched,overflow,metadata,missing_map;
- uint64_t rx_us,activity_us;int16_t rssi_half_dbm;int8_t snr_quarter_db;uint8_t activity_kind,authority;bool rssi_valid;
+ uint64_t rx_us,activity_us;uint32_t fit_sequence;int16_t rssi_half_dbm;int8_t snr_quarter_db;uint8_t activity_kind,authority,fit_collecting;bool rssi_valid;
 };
 static struct snapshot published;
 /* Called with lock held; ordinary source/quality snapshots cannot retain a
@@ -297,13 +297,9 @@ void r2_lora_origin(bool active,uint64_t boot,uint32_t epoch){
  r2_diag_scratch.lora.origin.active=active&&boot&&epoch;
  k_spin_unlock(&lock,key);
 }
-void r2_lora_view_named(struct r2_lora_view *out,uint64_t *factory,char name[25]){
- if(!out)return;
- uint64_t at=mono(),name_until=0;k_spinlock_key_t key=k_spin_lock(&lock);*out=published.view;
- if(factory)*factory=binding.transmitter_factory;
- if(name){memset(name,0,25);if(!transmitter&&published.quality_known&&published.time_valid&&sender_name.sequence&&at<sender_name.until_us&&
-   !memcmp(sender_name.context,published.context,RC8_CONTEXT_BYTES)){memcpy(name,sender_name.name,25);name_until=sender_name.until_us;}}
- k_spin_unlock(&lock,key);
+/* Project only the caller's immutable copy. JSON provenance and its view
+ * must not take two independent source/context snapshots. */
+static void project_view(struct r2_lora_view *out,char *name,uint64_t name_until){
  uint64_t now=mono();
  if(name&&(!name_until||now>=name_until))name[0]=0;
  /* Both intervals round upward. A copied floor age plus another floor could
@@ -327,6 +323,15 @@ void r2_lora_view_named(struct r2_lora_view *out,uint64_t *factory,char name[25]
  if(unavailable||out->state!=RC8_AVAILABLE||out->fit_age_ms>=R2_LORA_FIT_HOLD_MS)out->link_samples=out->link_rms_ns=0;
  struct r2_gm_coordination c;r2_lora_coordination(&c);out->coord_follow=c.root!=0;
 }
+void r2_lora_view_named(struct r2_lora_view *out,uint64_t *factory,char name[25]){
+ if(!out)return;
+ uint64_t at=mono(),name_until=0;k_spinlock_key_t key=k_spin_lock(&lock);*out=published.view;
+ if(factory)*factory=binding.transmitter_factory;
+ if(name){memset(name,0,25);if(!transmitter&&published.quality_known&&published.time_valid&&sender_name.sequence&&at<sender_name.until_us&&
+   !memcmp(sender_name.context,published.context,RC8_CONTEXT_BYTES)){memcpy(name,sender_name.name,25);name_until=sender_name.until_us;}}
+ k_spin_unlock(&lock,key);
+ project_view(out,name,name_until);
+}
 void r2_lora_view(struct r2_lora_view *out){r2_lora_view_named(out,NULL,NULL);}
 static void __attribute__((noinline)) report(uint64_t now,bool active){
  struct snapshot s={0};atomic_val_t f=atomic_get(&flags);
@@ -342,6 +347,7 @@ static void __attribute__((noinline)) report(uint64_t now,bool active){
   s.diagnostic_us=r->diagnostic_us;s.diagnostic_sequence=r->diagnostic_sequence;s.snapshot_age_ms=r->snapshot_age_ms;s.diagnostic_events=r->diagnostic_events;
   s.view.state=rc8_receiver_state(r,now);s.view.assurance=rc8_receiver_assurance(r,now);
   s.view.fit_age_ms=r->fit.result_n?view_age_ms(now,r->fit.result_us):UINT32_MAX;
+  s.fit_sequence=r->fit.result_sequence;s.fit_collecting=r->fit.n;
   if(s.view.state==RC8_AVAILABLE&&s.view.fit_age_ms<R2_LORA_FIT_HOLD_MS){s.view.link_samples=r->fit.result_n;s.view.link_rms_ns=r->fit.result_rms_ns;}
   s.authority=rc8_receiver_authority(r,now);
   s.view.choice=rc8_select((f&NORMAL)!=0,s.view.state,s.view.assurance,true);
@@ -691,12 +697,11 @@ static uint32_t stack_unused(void){
  return UINT32_MAX;
 }
 int r2_lora_json(char *out,size_t capacity,int result){
- struct snapshot s;struct sender_name_cache name;uint32_t fit_sequence=0,name_tx_sequence=0;uint8_t fit_collecting=0;
+ struct snapshot s;struct sender_name_cache name;uint32_t name_tx_sequence=0;
  k_spinlock_key_t key=k_spin_lock(&lock);s=published;name=sender_name;uint64_t deadline=stop_deadline;
  if(transmitter)name_tx_sequence=role.tx.name_sequence;
- else{fit_sequence=role.rx.fit.result_sequence;fit_collecting=role.rx.fit.n;}
  k_spin_unlock(&lock,key);
- r2_lora_view(&s.view);
+ project_view(&s.view,NULL,0);
  struct r2_lora_hw_diag h;r2_lora_hw_diag(&h);
  struct r2_gm_coordination coord;r2_lora_coordination(&coord);
  struct r2_lora_watchdog_state w;unsigned irqkey=irq_lock();w=r2_diag_scratch.lora;irq_unlock(irqkey);
@@ -720,7 +725,7 @@ int r2_lora_json(char *out,size_t capacity,int result){
  s.accepted,s.rejected,s.replayed,s.unmatched,s.overflow,s.metadata,s.missing_map,s.view.age_ms,s.view.state,s.view.assurance,s.authority,s.view.choice,
  s.diagnostic_sequence,s.snapshot_age_ms,s.diagnostic_events,age_ms(mono(),s.diagnostic_us),s.quality_known?"true":"false",s.time_valid?"true":"false",
  (unsigned long long)s.scope.parent,(unsigned long long)s.scope.parent_boot,s.quality.known,s.quality.values,s.quality.role,s.quality.hop,s.quality.parent_class,s.quality.parent_accuracy,s.quality.parent_bound_ns,s.quality.correction_age_ms,s.quality.map_life_ms,s.quality.rate_ppb,s.quality.residual_ns,s.quality.losses,s.quality.recoveries,s.view.link_samples,s.view.link_rms_ns,
- name_json,name_hex,name_context,name.accepted,name.rejected,name.sequence,name_tx_sequence,name_current?"true":"false",(unsigned long long)name.until_us,s.view.display_held?"true":"false",(unsigned long long)s.view.until_us,(unsigned long long)s.view.display_until_us,s.view.rssi_valid?"true":"false",s.view.rssi_half_dbm,s.view.snr_quarter_db,s.view.rx_age_ms,fit_sequence,s.view.fit_age_ms,fit_collecting,
+ name_json,name_hex,name_context,name.accepted,name.rejected,name.sequence,name_tx_sequence,name_current?"true":"false",(unsigned long long)name.until_us,s.view.display_held?"true":"false",(unsigned long long)s.view.until_us,(unsigned long long)s.view.display_until_us,s.view.rssi_valid?"true":"false",s.view.rssi_half_dbm,s.view.snr_quarter_db,s.view.rx_age_ms,s.fit_sequence,s.view.fit_age_ms,s.fit_collecting,
  (unsigned long long)coord.root,(unsigned long long)coord.boot,coord.epoch,(unsigned long long)coord.until,
  w.launch_budget,w.precommit_us,w.launch_us,w.command_commit_us,w.command_committed,
  w.serial,w.coalesced,w.terminal,w.saved,w.journal_result,w.reset_requested,

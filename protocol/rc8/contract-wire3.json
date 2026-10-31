@@ -155,7 +155,7 @@
     "measurement": "Version124 whole-image measured4032B added/4708B free; version125 adds driver8B and RX fit56B, projecting4096B added/4644B free. Final complete native ELF/high-water required; original reserves retained.",
     "prior_native_free_baseline_bytes": 8740,
     "stack_limit": "excludes worker/IRQ/kernel/libc/libgcc/driver; integrated high-water required",
-    "runtime_snapshot_bytes": 344,
+    "runtime_snapshot_bytes": 352,
     "runtime_export_bytes": 160,
     "historical_planning_items_bytes": {
       "worker_stack": 2048,
@@ -172,7 +172,7 @@
     "historical_planning_total_bytes": 4252,
     "object_max_bytes": {
       "exclusive_boot_role_union": 736,
-      "snapshot": 344,
+      "snapshot": 352,
       "export": 160,
       "packet": 80,
       "transmission": 296
