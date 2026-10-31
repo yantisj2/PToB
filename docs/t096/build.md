@@ -156,7 +156,7 @@ A configured transmitter in RC profile cannot consume its own stream.
 
 The `lora` query and page 7 expose role, source and radio diagnostics; `lora 00/01`
 or the menu's LoRa row changes the configured role's volatile request. A
-1.5-second hold opens the menu from any ordinary page; taps move between items
+2.5-second hold opens the menu from any ordinary page; taps move between items
 and a separate hold selects. See the [button controls](../../firmware/t096/README.md#button-controls).
 Functional LoRa fallback has UNKNOWN freshness/total uncertainty and grants no
 normal RC7 source or future RC9 authority. See the

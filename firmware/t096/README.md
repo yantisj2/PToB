@@ -82,10 +82,13 @@ uncertainty and grants no RC7 timing or GM takeover authority. See the
 | Action | Result |
 | --- | --- |
 | Short press outside the menu | Next page. A short press from the screensaver only wakes the display. |
-| Hold **1.5 s** on any ordinary page | Open the menu. Release before selecting an item. |
+| Hold **2.5 s** on any ordinary page | Open the menu. Release before selecting an item. |
 | Short press in the menu | Next enabled item; wrap after Exit. |
-| Hold **1.5 s** in the menu | Select the highlighted item once. A continued hold cannot select again. |
+| Hold **2.5 s** in the menu | Select the highlighted item once. A continued hold cannot select again. |
 | Select **Exit**, or leave the button alone for **5 s** | Close the menu and return to the invoking page. Each press restarts the idle interval; a held button cannot time out. |
+
+Every release before **2.5 s** is a short press; the hold duration uses the
+observed button edges so release debounce cannot turn it into a selection.
 
 The ordinary GM/RC menu contains **GM Mode / RC Mode**, **Power Off**, **BLE RX
 Off / On**, **LoRa RX Off / On**, and **Exit**. Rows name the next action; the

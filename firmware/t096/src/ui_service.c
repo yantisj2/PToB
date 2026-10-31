@@ -151,7 +151,7 @@ static void worker(void *a,void *b,void *c)
   int button=r2_display_button();
   if(button<0){rc=button;break;}
   unsigned inject=(unsigned)atomic_get(&press_request);
-  if(inject&&atomic_cas(&press_request,(int)inject,0))virtual_until=now+(inject==1?120:1700);
+  if(inject&&atomic_cas(&press_request,(int)inject,0))virtual_until=now+(inject==1?120:2700);
   if(now<virtual_until)button=1;
   if(button!=last){last=button;changed=now;}
 #if defined(R2_DC_PROFILE) || defined(R2_PC_PROFILE)
@@ -170,7 +170,7 @@ static void worker(void *a,void *b,void *c)
 #else
   if(now-changed>=50)stable=last;
   key=k_spin_lock(&lock);
-  enum r2_ui_menu_action action=r2_ui_menu_step(&status.menu,&input,stable,status.screensaver,r2_ui_menu_enabled(&model),now);
+  enum r2_ui_menu_action action=r2_ui_menu_sample(&status.menu,&input,button!=0,stable!=0,status.screensaver,r2_ui_menu_enabled(&model),changed,now);
   status.button_down=stable!=0;
   if(stable){status.screensaver=false;idle_since=now;}
   if(action!=R2_MENU_NONE){

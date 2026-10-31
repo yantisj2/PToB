@@ -10,6 +10,6 @@ int main(int argc,char **argv){
  r2_ui_start();assert(entry);entry(NULL,NULL,NULL);
  assert(!r2_ui_take_lora_toggle()&&!lora_consumptions&&fake_lora_requested);
  assert(!status.poweroff&&!status.help);
- assert(status.profile_toggles==(mode==49?1u:0u));
+ assert(!status.profile_toggles); /* Both1.7s presses in mode49 are short. */
  puts("PASS actual worker: holds from LoRa/other pages/wake open menu; no direct radio toggle or poweroff; next separate hold selects once");
 }

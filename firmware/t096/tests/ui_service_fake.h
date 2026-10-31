@@ -110,7 +110,7 @@ int r2_display_button(void){
   return mode==45?(fake_now>=300500&&fake_now<306000):(fake_now>=500&&fake_now<(mode==43||mode==47||mode==48||mode==50||mode==51?6000:2700));
  }
 #endif
-if(mode==16)return (fake_now>=360800&&fake_now<365400)||(fake_now>=366000&&fake_now<366200);if(mode>=17)return 0;if(mode==14)return fake_now>=500&&fake_now<2700;if(mode==15)return fake_now>=500&&fake_now<6000;if(mode>=8)return mode==10&&fake_now>=1000&&fake_now<1160;if(mode==4)return fake_now>=500&&fake_now<3000;
+if(mode==16)return (fake_now>=360800&&fake_now<365400)||(fake_now>=366000&&fake_now<366200);if(mode>=17)return 0;if(mode==14)return fake_now>=500&&fake_now<2700;if(mode==15)return fake_now>=500&&fake_now<6000;if(mode>=8)return mode==10&&fake_now>=1000&&fake_now<1160;if(mode==4)return fake_now>=500&&fake_now<3200;
  if(mode==5||mode==6)return fake_now>=500&&fake_now<6000;
  return (fake_now>=1000&&fake_now<1160)||(fake_now>=1800&&fake_now<2860);}
 int r2_display_off(void){++off_calls;if(retained_fb)buffer_changed=memcmp(retained,retained_fb,sizeof(retained))!=0;return mode==3||mode==6?-ETIMEDOUT:0;}

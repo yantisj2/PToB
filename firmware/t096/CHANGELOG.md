@@ -2,7 +2,7 @@
 
 ## 0.15.211 — One-button watch menu and receive controls
 
-A 1.5-second hold on any ordinary GM/RC page opens the watch-style menu.
+A 2.5-second hold on any ordinary GM/RC page opens the watch-style menu.
 Tap advances through the enabled rows and a separate hold selects; the opening
 hold cannot activate an item. Exit or five seconds without a press restores
 the invoking page. The menu exposes opposite GM/RC mode, orderly power off,
@@ -18,7 +18,7 @@ discovery and fresh authentication. These volatile receive controls do not
 persist a mesh selection or relax source qualification.
 
 The identity/source/boot-bound `menu` query exposes menu/input/render state.
-Explicit `menu tap` and `menu hold` requests inject bounded 120/1700 ms presses
+Explicit `menu tap` and `menu hold` requests inject bounded 120/2700 ms presses
 through the same debounce/gesture path; `menu cancel` cancels a queued request.
 No console request can latch the button indefinitely. These commands support
 exact-device bench checks; physical button feel remains an operator check.
