@@ -1,5 +1,14 @@
 # T096 changelog
 
+## 0.15.222 — separate diagnostic formatting stack lifetimes
+
+Dispatch LoRa, shadow-PPS and clock replies before entering the general console
+reply frame. Their temporary snapshots and formatting frames no longer stack
+on top of the general reply's locals. Main, radio and observer stack allocations,
+reply buffers, diagnostic schemas and timing behavior are unchanged. This closes
+the zero main-stack headroom found during the first .221 live PPS capture;
+native frame inspection and repeated live queries remain separate checks.
+
 ## 0.15.221 — observe LoRa clock phase against independent PPS
 
 The existing causal shadow-PPS history can now observe the selected LoRa watch
