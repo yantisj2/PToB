@@ -21,9 +21,9 @@ def run(label,cmd):
  with(O/(label+'.log')).open('x')as f:subprocess.run(cmd,stdout=f,stderr=subprocess.STDOUT,check=True,timeout=45)
 try:
  run('radio-compile',flags+['-DR2_LORA=1']+list(map(str,radio))+['-o',str(O/'radio')])
- for n in list(range(28))+[116,117,120,122,130,131,132,133,134,150,161]:run('radio-'+str(n),[str(O/'radio'),str(n)])
+ for n in list(range(29))+[116,117,120,122,130,131,132,133,134,150,161]:run('radio-'+str(n),[str(O/'radio'),str(n)])
  run('passive-radio-compile',flags+['-DR2_LORA=1','-DR2_LORA_PASSIVE_FAST=1']+list(map(str,radio))+['-o',str(O/'passive-radio')])
- for n in range(28):run('passive-radio-'+str(n),[str(O/'passive-radio'),str(n)])
+ for n in range(29):run('passive-radio-'+str(n),[str(O/'passive-radio'),str(n)])
  run('producer-compile',flags+['-DR2_GM5_NATIVE=1']+list(map(str,producer))+['-o',str(O/'producer')])
  for n in range(6):run('producer-'+str(n),[str(O/'producer'),str(n)])
  assert all(sha(f)==h for f,h in r['inputs'].items());r['status']='PASS'

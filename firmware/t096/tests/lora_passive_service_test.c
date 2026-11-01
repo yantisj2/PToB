@@ -61,6 +61,7 @@ bool r2_capture_now_at(struct r2_capture *c,uint64_t *us){*us=now_us;return r2_c
 int r2_lora_hw_start(uint32_t g,bool rx){(void)g;assert(!rx);if(cancel_on==1){cancel_on=0;r2_lora_source_withdraw();return -ECANCELED;}return 0;}
 uint32_t r2_lora_hw_budget_us(size_t n){for(unsigned k=LP_DISC;k<=LP_FOLLOW;k++)if(lp_size(k)==n)return lp_duration(k);return 0;}
 int r2_lora_hw_tx_before(const uint8_t *p,size_t n,uint32_t g,uint64_t before){assert(now_us+r2_lora_hw_budget_us(n)<=before);++txs;sent_len=n;memcpy(sent,p,n);sent_generation=g;return 0;}
+int r2_lora_hw_tx_before_source(const uint8_t *p,size_t n,uint32_t g,uint64_t before,uint64_t until,uint64_t epoch){assert(epoch==7&&until>now_us*16&&until-now_us*16>=(uint64_t)r2_lora_hw_budget_us(n)*16);return r2_lora_hw_tx_before(p,n,g,before);}
 int r2_lora_hw_take(struct r2_lora_hw_event *e){if(!have_event)return 0;*e=queued;have_event=false;return 1;}
 bool r2_lora_hw_tx_edge(struct r2_lora_hw_edge *e){if(!have_event||queued.kind!=R2_LORA_HW_TX_DONE)return false;*e=(struct r2_lora_hw_edge){queued.tick,queued.capture_epoch,queued.generation};return true;}
 int r2_lora_hw_idle(void){return 0;}
@@ -84,15 +85,16 @@ static void packet(const struct lp_packet *p,const uint8_t ctx[16],uint64_t even
  assert(!lp_encode(queued.frame,sizeof queued.frame,p,ctx,&test_group));have_event=true;step();
 }
 static void tx_case(unsigned mode){
- if(mode==2)storage_valid=false;if(mode==16)storage_qualified=true;
+ if(mode==2)storage_valid=false;if(mode==16||mode==19)storage_qualified=true;
  init(true);step();assert(!owner.active&&!txs);r2_lora_request(true);step();assert(!owner.active&&!txs);
  struct rc8_export m=source();m.scope.root_boot=44;r2_lora_source_publish(&m);step();assert(owner.active);
- if(mode==16){assert(restore()&&owner.quiet_until_us<=now_us&&!(role.tx.store.ready&LP_STORE_INITIAL_QUIET));return;}
+ if(mode==16){assert(restore(now_us+4000000)&&owner.quiet_until_us<=now_us&&!(role.tx.store.ready&LP_STORE_INITIAL_QUIET));return;}
+ if(mode==19){step();uint64_t first=role.tx.core.durable.next_slot_us;assert(first%LP_BEAT_US>=198000&&first%LP_BEAT_US<=202000&&!txs);r2_lora_request(false);step();step();r2_lora_request(true);step();step();assert(role.tx.core.durable.next_slot_us==first&&!txs);return;}
  if(mode==1){now_us=owner.quiet_until_us-10000;transmit(now_us);assert(!txs);return;}
  now_us=owner.quiet_until_us+10000;r2_lora_request(true);
  if(mode==2){step();assert(!txs&&owner.storage_fail);return;}
  if(mode==3){m.scope.kind=RC8_SELECTED_BLE;m.scope.parent=3;r2_lora_source_publish(&m);step();assert(!txs);return;}
- assert(restore());
+ assert(restore(((now_us+LP_BEAT_US-1)/LP_BEAT_US)*LP_BEAT_US));
  if(mode==8){save_delay_us=150000;now_us=role.tx.core.durable.next_slot_us-250000;step();assert(!txs&&owner.stage==3&&stored.pending==1);now_us=role.tx.reservation.slot_us;}
  else now_us=role.tx.core.durable.next_slot_us;
  step();assert(txs==1&&sent_len==LP_META_BYTES);
@@ -137,5 +139,5 @@ static void startup_cancel_case(unsigned mode){
  step();assert(atomic_get(&closed)&&!owner.active&&!r2_diag_scratch.lora.terminal);
  r2_lora_source_publish(&m);step();assert(owner.active&&!owner.stopping&&!atomic_get(&faulted)&&!txs);
 }
-int main(int argc,char **argv){assert(argc==2);unsigned mode=(unsigned)atoi(argv[1]);if(mode==17||mode==18)startup_cancel_case(mode);else if(mode<10||mode==16)tx_case(mode);else rx_case(mode);
+int main(int argc,char **argv){assert(argc==2);unsigned mode=(unsigned)atoi(argv[1]);if(mode==17||mode==18)startup_cancel_case(mode);else if(mode<10||mode==16||mode==19)tx_case(mode);else rx_case(mode);
  char json[3072];int n=r2_lora_json(json,sizeof json,0);assert(n>0&&n<2976);printf("PASS owner %u\nJSON %s\n",mode,json);return 0;}

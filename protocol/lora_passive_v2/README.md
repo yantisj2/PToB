@@ -63,6 +63,15 @@ Reserved durations, including an unqualified10ms reserve, are DISC454416us,
 META1142544us, SYNC231951us and FOLLOW268814us. Full-frame reservations must
 fit1080s per rolling hour. These are engineering limits, not RF authorization.
 
+The native owner freezes the selected source export's original capture-clock
+endpoint for each transmission. Entry and actual SetTx commit require the
+whole hardware frame budget and launch margin to fit; a newer source map cannot
+renew a staged transaction. At boot admission after the proven silence guard,
+the fixed monotonic grid starts200ms after an own-source four-second boundary
+so the long META fits its1.5s PPS horizon. This chooses phase from an unqualified
+UTC label; it does not qualify that label. Service/context restarts retain the
+admitted grid. No cadence, slot index, cursor or airtime debt is reset.
+
 The portable ledger retains61 complete minute buckets and can conservatively
 refuse traffic near hour boundaries. It reserves the whole pair before
 HAS_PAIR, never refunds, preserves control phase and maintains per-channel

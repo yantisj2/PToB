@@ -1200,6 +1200,10 @@ void r2_radio_service_gm7_publish(struct r2_radio_scope scope,const struct r2_gr
  /* First opt-in cannot overtake an unmanaged job's already validated exports.
   * A refused poll changes nothing and cannot renew its original permission. */
  if(!pt_input.gm7_managed&&pt_input.gm7_busy){(void)k_mutex_unlock(&pt_lock);return;}
+ uint64_t now=service_now();
+ bool bounded=scope.root<roster->count&&scope.root_identity&&scope.root_identity==roster->identity[scope.root]&&
+  scope.boot&&scope.source_epoch&&scope.publication_epoch&&sampled<=now&&now<scope.until_us&&now<resume_until;
+ bool own=scope.gm&&!scope.follower&&scope.root==service_self&&pt_input.source_ready&&pt_input.source_epoch==r2_radio_local_epoch(scope);
  bool changed=!same(pt_input.grant,scope)||scope.until_us<pt_input.grant.until_us;
  if(changed){
 #ifdef R2_LORA
@@ -1209,10 +1213,8 @@ void r2_radio_service_gm7_publish(struct r2_radio_scope scope,const struct r2_gr
    * HF/kernel bridge can shorten it by kernel quantization on every refresh.
    * Keep the new earlier PT deadline, but do not turn that bridge adjustment
    * into a source withdrawal. Real context/source/stop/expiry changes fence. */
-  bool same_own=same(pt_input.grant,scope)&&scope.gm&&!scope.follower&&
-    !pt_input.stopped&&pt_input.source_ready&&
-    pt_input.source_epoch==r2_radio_local_epoch(scope)&&
-    sampled<scope.until_us&&sampled<resume_until;
+  bool same_own=same(pt_input.grant,scope)&&bounded&&own&&
+    !pt_input.stopped&&!atomic_get(&error);
   if(!same_own)r2_lora_source_withdraw();
 #else
   r2_lora_source_withdraw();
@@ -1222,10 +1224,6 @@ void r2_radio_service_gm7_publish(struct r2_radio_scope scope,const struct r2_gr
  }
  pt_input.client=*client;pt_input.roster=*roster;pt_input.grant=scope;
  pt_input.utc=utc;pt_input.at=sampled;pt_input.gm7_managed=true;
- uint64_t now=service_now();
- bool bounded=scope.root<roster->count&&scope.root_identity&&scope.root_identity==roster->identity[scope.root]&&
-  scope.boot&&scope.source_epoch&&scope.publication_epoch&&sampled<=now&&now<scope.until_us&&now<resume_until;
- bool own=scope.gm&&!scope.follower&&scope.root==service_self&&pt_input.source_ready&&pt_input.source_epoch==r2_radio_local_epoch(scope);
  bool follow=scope.follower&&!scope.gm&&scope.root!=service_self&&
   scope.root<roster->count&&scope.root_identity&&scope.root_identity==roster->identity[scope.root]&&scope.boot;
  if(follow){pt_input.grant.until_us=INT64_MAX;pt_input.grant.broadcast=true;pt_input.client=(struct r2_group_client){0};}

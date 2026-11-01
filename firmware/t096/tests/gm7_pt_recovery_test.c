@@ -53,6 +53,12 @@ int main(int argc,char **argv){
  assert(argc==2);unsigned test=(unsigned)strtoul(argv[1],NULL,10);
  if(test>=100){char mode_text[16];snprintf(mode_text,sizeof mode_text,"%u",test-100);char *historical[]={argv[0],mode_text};return historical_radio_main(2,historical);}
  setup_pt();
+ if(test==28){
+  publish_own(grant.until_us);unsigned initial=lora_withdraws;uint64_t sampled=fake_time;
+  grant.until_us=fake_time+100;fake_time+=101;
+  struct r2_group_client empty={0};r2_radio_service_gm7_publish(grant,&empty,&path,-1,sampled,grant.until_us);
+  assert(lora_withdraws==initial+1);puts("PASS delayed same-source publication cannot suppress expiry withdrawal");return 0;
+ }
  if(test==27){
   publish_own(grant.until_us);unsigned initial=lora_withdraws,shortened=0;uint64_t prior=grant.until_us;
   for(unsigned i=0;i<200;i++){

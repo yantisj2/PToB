@@ -1,5 +1,20 @@
 # T096 changelog
 
+## 0.15.236 — retain the original physical source endpoint through SetTx
+
+Carry the selected export's capture epoch and original endpoint into passive
+submission. Before SPI and at actual command commit, require the entire frame
+budget and launch margin to fit that frozen capture-clock horizon. Later source
+updates cannot renew a staged transaction. A deferred staged command resets
+before NSS release and drains normally; genuine transport faults stay terminal.
+Use fresh time, roster and error checks for the same-own-source refresh case.
+
+At boot admission after the existing proven silence guard, initialize the fixed
+monotonic slot phase200ms after the own source's four-second boundary, leaving
+room for META inside its1.5s physical PPS horizon. The label remains unqualified
+UTC; it only selects phase. Preserve that phase through service/context restarts;
+keep4/12s cadence,2s SYNC offset,250–300ms FOLLOW gap and all ledgers unchanged.
+
 ## 0.15.235 — distinguish own-source refresh from bridge clipping
 
 For the passive own-GNSS wire, a routine HF/kernel projection of the same live

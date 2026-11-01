@@ -140,11 +140,12 @@ void r2_lora_quality_publish(const struct rc8_scope *s,const struct rc8_quality 
 void r2_lora_parent_quality(uint64_t f,uint64_t b,uint8_t c,uint8_t a,uint64_t s){(void)f;(void)b;(void)c;(void)a;(void)s;}
 void r2_lora_coordination(struct r2_gm_coordination *out){if(out)memset(out,0,sizeof *out);}
 void r2_lora_origin(bool active,uint64_t boot,uint32_t epoch){(void)active;(void)boot;(void)epoch;}
-static bool source_now(struct rc8_correction *out,uint32_t *epoch,uint64_t *root_boot){
+static bool source_now(struct rc8_correction *out,uint32_t *epoch,uint64_t *root_boot,struct r2_capture *limit){
  struct r2_capture at;if(!r2_capture_now(&at))return false;
  bool good=false;k_spinlock_key_t key=k_spin_lock(&lock);
  if(atomic_get(&flags)&SOURCE_PRESENT)for(unsigned i=0;i<2;i++)if(rc8_export_event(out,&role.tx.maps[i],1,
-  (struct rc8_event){.tick=at.tick,.capture_epoch=at.epoch,.kind=RC8_EVENT_TX_START})){*epoch=role.tx.maps[i].scope.source_epoch;*root_boot=role.tx.maps[i].scope.root_boot;good=true;break;}
+  (struct rc8_event){.tick=at.tick,.capture_epoch=at.epoch,.kind=RC8_EVENT_TX_START})){*epoch=role.tx.maps[i].scope.source_epoch;*root_boot=role.tx.maps[i].scope.root_boot;
+   *limit=(struct r2_capture){.tick=role.tx.maps[i].until_tick,.epoch=role.tx.maps[i].capture_epoch,.kind=R2_CAPTURE_NOW};good=true;break;}
  k_spin_unlock(&lock,key);return good;
 }
 static void begin_stop(int error){
@@ -225,7 +226,7 @@ void __attribute__((noinline)) r2_lora_shadow_publish(void){
 withdraw:if(shadow_tick){r2_shadow_lora_withdraw();shadow_tick=0;}
 }
 /* Synchronous precharge can refuse; it must never erase on the launch path. */
-static bool restore(void){
+static bool restore(uint64_t first_slot){
  if(!role.tx.loaded){role.tx.loaded=true;
   if(!lp_store_load(&role.tx.store,factory,&role.tx.core.durable)){inc(&owner.storage_fail);return false;}
   if(role.tx.store.ready&LP_STORE_INITIAL_QUIET)owner.quiet_until_us=mono();}
@@ -238,39 +239,45 @@ static bool restore(void){
   struct lp_checkpoint *s=&role.tx.core.durable;
   if(s->pending){s->fh_disabled=1;s->pending=0;}
   memset(s->buckets,0,sizeof s->buckets);memset(s->channel_end_ms,0,sizeof s->channel_end_ms);
-  s->minute=mono()/LP_MINUTE_US;s->next_slot_us=((mono()+LP_BEAT_US-1)/LP_BEAT_US)*LP_BEAT_US;
+  s->minute=mono()/LP_MINUTE_US;s->next_slot_us=first_slot;
   if(!lp_store_prepare(&role.tx.store)||!lp_store_save(&role.tx.store,s)||!lp_tx_restore(&role.tx.core,s,lp_store_save,&role.tx.store,true)){inc(&owner.storage_fail);return false;}
   role.tx.rebased=true;
  }
  return role.tx.core.ready;
 }
-static int send_packet(struct lp_packet *p,uint64_t finish){
+static int send_packet(struct lp_packet *p,uint64_t finish,struct r2_capture limit){
  uint8_t wire[LP_META_BYTES];int rc=lp_encode(wire,sizeof wire,p,role.tx.context,group);if(rc)return rc;
  k_spinlock_key_t key=k_spin_lock(&lock);role.tx.captured=(struct rc8_correction){0};role.tx.edge=(struct r2_lora_hw_edge){0};owner.tx_kind=p->kind;k_spin_unlock(&lock,key);
- rc=r2_lora_hw_tx_before(wire,lp_size(p->kind),generation,finish);
+ rc=r2_lora_hw_tx_before_source(wire,lp_size(p->kind),generation,finish,limit.tick,limit.epoch);
  if(rc)owner.tx_kind=0;
  return rc;
 }
 static int __attribute__((noinline)) transmit(uint64_t now){
- struct lp_tx *t=&role.tx.core;struct rc8_correction c;uint32_t source_epoch=0;uint64_t root_boot=0;
+ struct lp_tx *t=&role.tx.core;struct rc8_correction c;uint32_t source_epoch=0;uint64_t root_boot=0;struct r2_capture limit;
  uint32_t revision=(uint32_t)atomic_get(&source_revision);
  if(revision!=owner.revision){
   if(t->durable.pending){if(owner.stage==3&&!owner.tx_kind)lp_tx_cancel(t,true);else lp_tx_fault(t);owner.stage=0;}
   role.tx.context_ready=false;owner.revision=revision;
  }
  if(owner.tx_kind)return 0;
- if(!source_now(&c,&source_epoch,&root_boot)){
+ if(!source_now(&c,&source_epoch,&root_boot,&limit)){
   if(t->durable.pending){if(owner.stage==3&&!owner.tx_kind)lp_tx_cancel(t,true);else lp_tx_fault(t);owner.stage=0;}
   return 0;
  }
- if(!restore())return 0;
+ /* Choose the initial fixed monotonic phase200ms after the own source's
+  * four-second boundary. The1.143s META then fits its frozen1.5s PPS horizon.
+  * Never slew/rephase an admitted stream; service restarts retain next_slot.
+  * Boot rebasing requires the existing actual RF-silent hour/initial proof. */
+ uint64_t delay_ns=(UINT64_C(4200000000)-c.event_ns%UINT64_C(4000000000))%UINT64_C(4000000000);
+ if(delay_ns<UINT64_C(300000000))delay_ns+=UINT64_C(4000000000);
+ if(!restore(now+(delay_ns+999)/1000))return 0;
  if(owner.stage==1){
   uint64_t at=role.tx.reservation.slot_us+2000000;
   if(now<at)return 0;
   if(now>at+45000){inc(&owner.late);lp_tx_fault(t);owner.stage=0;return 0;}
   int rc=tune(R2_LORA_FHSS,lp_channel(t->order,role.tx.reservation.cursor),false);if(rc)return rc;
   struct lp_packet p={.kind=LP_SYNC,.schedule=LP_FAST,.cursor=role.tx.reservation.cursor};
-  rc=send_packet(&p,at+50000+lp_duration(LP_SYNC));if(rc)lp_tx_fault(t);return rc;
+  rc=send_packet(&p,at+50000+lp_duration(LP_SYNC),limit);if(rc)lp_tx_fault(t);return rc;
  }
  if(owner.stage==2){
   uint64_t at=owner.last_sync_us+260000;
@@ -278,7 +285,7 @@ static int __attribute__((noinline)) transmit(uint64_t now){
   if(now>owner.last_sync_us+295000){inc(&owner.late);lp_tx_fault(t);owner.stage=0;return 0;}
   int rc=tune(R2_LORA_FHSS,lp_channel(t->order,role.tx.reservation.cursor+1),false);if(rc)return rc;
   struct lp_packet p={.kind=LP_FOLLOW,.schedule=LP_FAST,.cursor=role.tx.reservation.cursor,.utc_ns=role.tx.sync_ns};
-  rc=send_packet(&p,owner.last_sync_us+300000+lp_duration(LP_FOLLOW));if(rc)lp_tx_fault(t);return rc;
+  rc=send_packet(&p,owner.last_sync_us+300000+lp_duration(LP_FOLLOW),limit);if(rc)lp_tx_fault(t);return rc;
  }
  if(owner.stage!=3&&now+300000<t->durable.next_slot_us){
   if(now>owner.last_end_us+100000&&t->durable.next_slot_us-now>400000&&!lp_store_prepare(&role.tx.store)){inc(&owner.storage_fail);return -EIO;}
@@ -310,7 +317,7 @@ static int __attribute__((noinline)) transmit(uint64_t now){
  k_spinlock_key_t key=k_spin_lock(&lock);if(now<source_tz.until_us)p.tz=source_tz.value;k_spin_unlock(&lock,key);
  if(r->has_pair)p.delay_10ms=(uint16_t)((2000000-(lp_duration(p.kind)-10000)+9999)/10000);
  int rc=tune(R2_LORA_DTS,0,false);if(rc)return rc;
- rc=send_packet(&p,r->slot_us+50000+lp_duration(p.kind));
+ rc=send_packet(&p,r->slot_us+50000+lp_duration(p.kind),limit);
  if(rc)lp_tx_cancel(t,rc==-EAGAIN);
  return rc;
 }

@@ -62,6 +62,7 @@ typedef struct{unsigned drive,input_connect,pull;}nrfx_gpiote_output_config_t;
 typedef struct{unsigned task_ch,polarity,init_val;}nrfx_gpiote_task_config_t;
 #include "precision.h"
 static uint64_t mock_us=1000000,physical_tick=15999999;
+static uint64_t mock_capture_epoch=7;static bool change_epoch_at_callback;
 static int pins[64],irq_flags,packet_length=80,busy_high,suppress_dma,alloc_fail,stop_at_attach,stop_at_spi;
 static uint8_t packet_rssi=162,packet_snr=246;
 static unsigned submissions,attach_count,detach_count;static bool route,watchdog_at_attach,missing_start,capture_seen;
@@ -157,7 +158,7 @@ static void nrfx_timer_extended_compare(const nrfx_timer_t *t,int ch,unsigned us
 }
 static int nrfx_timer_init(const nrfx_timer_t *t,const nrfx_timer_config_t *c,void(*fn)(int,void*)){(void)t;(void)fn;assert(c->frequency==1000000&&c->interrupt_priority==6);return 0;}
 static uint32_t nrfx_timer_compare_event_address_get(const nrfx_timer_t *t,int ch){(void)t;(void)ch;return 0x5678;}
-static bool r2_capture_now(struct r2_capture *c){*c=(struct r2_capture){mock_us*16,7,3};return true;}
+static bool r2_capture_now(struct r2_capture *c){*c=(struct r2_capture){mock_us*16,mock_capture_epoch,3};return true;}
 static bool r2_capture_lora(struct r2_capture *c){assert(route);if(invalid_capture||(!capture_seen&&!pins[21]))return false;*c=(struct r2_capture){physical_tick,7,4};return true;}
 static int r2_capture_lora_arm(bool transmit){(void)transmit;capture_seen=false;return arm_error;}
 static int r2_capture_lora_attach(const struct gpio_dt_spec *p){assert(p->pin==21);route=true;++attach_count;if(stop_at_attach)r2_lora_hw_stop_begin(mock_us+200000);if(watchdog_at_attach)r2_lora_hw_watchdog_trip(-ETIMEDOUT);return attach_error;}
@@ -196,7 +197,7 @@ static int spi_transceive_cb(const struct device *d,const struct spi_config *c,c
  default:break;
  }
  if(stop_at_spi)r2_lora_hw_stop_begin(mock_us+200000);
- if(a[0]==0x83){mock_us+=delay_before_settx_callback_us;delay_before_settx_callback_us=0;}
+ if(a[0]==0x83){mock_us+=delay_before_settx_callback_us;delay_before_settx_callback_us=0;if(change_epoch_at_callback)mock_capture_epoch=8;}
  if(a[0]==0x83&&stop_before_settx_callback)r2_lora_hw_stop_begin(mock_us+200000);
  if(a[0]==0x83&&busy_before_start_arm)busy_high=1;
  if(!suppress_dma&&!(withhold_settx&&a[0]==0x83))fn(d,spi_eagain_payload&&a[0]==0x0e?-EAGAIN:a[0]==0x83?settx_error:0,arg);
@@ -204,6 +205,11 @@ static int spi_transceive_cb(const struct device *d,const struct spi_config *c,c
  if(a[0]==0x83){if(!missing_start)capture_seen=true;if(busy_on_settx){busy_on_settx=false;busy_high=1;busy_since=mock_us;}preempt_submission();}return 0;
 }
 #include R2_LORA_OWNER_BODY
+#ifdef R2_LORA_PASSIVE_FAST
+static int unqualified_tx(void){return r2_lora_hw_tx(payload,28,5);}
+#define r2_lora_hw_tx(p,n,g) r2_lora_hw_tx_before_source(p,n,g,0,UINT64_MAX,7)
+#define r2_lora_hw_tx_before(p,n,g,f) r2_lora_hw_tx_before_source(p,n,g,f,UINT64_MAX,7)
+#endif
 static void preempt_before_lock(void){
  if(stop_in_commit&&atomic_get(&phase)==4&&dma_tx[0]==0x83&&
     (wd.stage>>8)==R2_LORA_STAGE_DMA){stop_in_commit=false;r2_lora_hw_stop_begin(mock_us+200000);}
@@ -248,6 +254,23 @@ static void closed(void){struct r2_lora_hw_ack ack;r2_lora_hw_stop_poll(&ack);as
 int main(int argc,char **argv){
  assert(argc==2);int mode=atoi(argv[1]);for(unsigned i=0;i<R2_LORA_HW_BYTES;i++)payload[i]=(uint8_t)(i+11);
 #ifdef R2_LORA_PASSIVE_FAST
+ if(mode>=271&&mode<=279){
+  assert(!r2_lora_hw_start(4,false));assert(!r2_lora_hw_passive_configure(R2_LORA_DTS,0));
+  unsigned before=submissions;uint32_t budget=r2_lora_hw_budget_us(28);uint64_t until=(mock_us+budget+1000)*16;
+  if(mode==271)until=mock_us*16;
+  if(mode==272){assert(r2_lora_hw_tx_before_source(payload,28,5,0,until,8)==-EINVAL&&submissions==before);return 0;}
+  if(mode==273||mode==278)delay_before_settx_callback_us=2000;
+  if(mode==274)delay_before_settx_callback_us=budget+2000;
+  if(mode==276)--until;
+  if(mode==277)change_epoch_at_callback=true;
+  if(mode==278)settx_error=-EIO;
+  if(mode==279){assert(unqualified_tx()==-ENOTSUP&&submissions==before&&!set_tx_commits);return 0;}
+  int rc=r2_lora_hw_tx_before_source(payload,28,5,0,until,7);
+  if(mode==271||mode==276){assert(rc==-EAGAIN&&submissions==before&&!set_tx_commands&&!pins[12]);return 0;}
+  if(mode==275){assert(!rc&&set_tx_commits==1&&pins[12]);r2_lora_hw_stop_begin(mock_us+200000);closed();return 0;}
+  assert(rc==(mode==278?-EIO:-EINTR)&&!set_tx_commits&&!pins[12]&&!pins[16]&&!pins[30]);
+  assert(atomic_get(&fault)==(mode==278?-EIO:0));closed();return 0;
+ }
  if(mode>=201&&mode<=270){
   assert(!r2_lora_hw_start(4,false));assert(!r2_lora_hw_budget_us(80));
   if(mode<=264){

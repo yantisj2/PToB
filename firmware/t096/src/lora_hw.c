@@ -71,6 +71,7 @@ static bool resources, capture_owned, receive_mode;
 static uint8_t resource_flags;
 #ifdef R2_LORA_PASSIVE_FAST
 static uint8_t passive_phy;
+static uint64_t source_until_tick;
 #endif
 #define HAVE_CUTOFF_CHANNEL 1u
 #define HAVE_CUTOFF_TIMER 2u
@@ -404,6 +405,17 @@ static int enable_fem(bool transmit, uint32_t budget, uint64_t latest_finish,
   unsigned key = irq_lock();
   int rc = -ECANCELED;
   if (atomic_get(&running) && !atomic_get(&fault)) {
+#ifdef R2_LORA_PASSIVE_FAST
+    if(transmit){
+      struct r2_capture at;
+      uint64_t required=((uint64_t)budget+R2_LORA_HW_LAUNCH_MARGIN_US)*16;
+      if(!r2_capture_now(&at)||at.epoch!=active_epoch||at.tick>=source_until_tick||
+         required>source_until_tick-at.tick){
+        if(deferred)*deferred=true;
+        irq_unlock(key);return -EAGAIN;
+      }
+    }
+#endif
     uint64_t now = now_us();
     if (transmit && latest_finish &&
         (now >= latest_finish ||
@@ -732,7 +744,7 @@ uint32_t r2_lora_hw_budget_us(size_t n) {
   return n <= 80 ? TIMING_CUTOFF_US : DIAGNOSTIC_CUTOFF_US;
 #endif
 }
-int r2_lora_hw_tx_before(const uint8_t *bytes, size_t n, uint32_t gen,
+static int tx_before(const uint8_t *bytes, size_t n, uint32_t gen,
                        uint64_t latest_finish) {
   uint32_t budget = r2_lora_hw_budget_us(n);
   if (!bytes || !budget || !gen)
@@ -818,6 +830,23 @@ int r2_lora_hw_tx_before(const uint8_t *bytes, size_t n, uint32_t gen,
     rc = -EIO;
   return rc && rc != -ECANCELED ? fail(rc) : rc;
 }
+int r2_lora_hw_tx_before(const uint8_t *bytes,size_t n,uint32_t gen,uint64_t finish){
+#ifdef R2_LORA_PASSIVE_FAST
+  (void)bytes;(void)n;(void)gen;(void)finish;return -ENOTSUP;
+#else
+  return tx_before(bytes,n,gen,finish);
+#endif
+}
+#ifdef R2_LORA_PASSIVE_FAST
+int r2_lora_hw_tx_before_source(const uint8_t *bytes,size_t n,uint32_t gen,uint64_t finish,
+                              uint64_t until,uint64_t epoch){
+  struct r2_capture at;uint32_t budget=r2_lora_hw_budget_us(n);
+  if(!until||!epoch||epoch!=active_epoch)return -EINVAL;
+  if(!r2_capture_now(&at)||at.epoch!=epoch||at.tick>=until||
+     ((uint64_t)budget+R2_LORA_HW_LAUNCH_MARGIN_US)*16>until-at.tick)return -EAGAIN;
+  source_until_tick=until;return tx_before(bytes,n,gen,finish);
+}
+#endif
 int r2_lora_hw_tx(const uint8_t *bytes, size_t n, uint32_t gen) {
   return r2_lora_hw_tx_before(bytes, n, gen, 0);
 }

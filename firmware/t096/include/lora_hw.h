@@ -28,6 +28,11 @@ enum r2_lora_passive_phy {R2_LORA_DTS=1,R2_LORA_FHSS=2};
 /* Idle-only retune. DTS uses captured RxDone; FHSS keeps HeaderValid.
  * No power/FEM setting changes and no implicit transmit/rearm. */
 int r2_lora_hw_passive_configure(enum r2_lora_passive_phy,unsigned channel);
+/* Freeze the selected source's original capture-clock endpoint. Recheck its
+ * epoch and whole frame/cutoff budget at command commit; never renew a staged
+ * transaction from a later map. Ordinary unguarded TX is disabled here. */
+int r2_lora_hw_tx_before_source(const uint8_t *,size_t,uint32_t,uint64_t latest_finish_us,
+                              uint64_t source_until_tick,uint64_t source_capture_epoch);
 #endif
 struct r2_lora_hw_ack {
  bool dma_retired,radio_quiescent,fem_off,capture_released,fault;
