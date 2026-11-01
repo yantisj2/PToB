@@ -119,7 +119,7 @@ BUSY start capture and independent FEM cutoff. This coarse gap measurement is
 not a precision UTC timestamp. Launch, RF tail, retune/capture bias, channel
 effects, temperature and cutoff behavior need physical qualification.
 
-Storage precharge may start750ms before a slot without moving the RF target.
+Storage precharge may start1.2s before a slot without moving the RF target.
 The source snapshot is refreshed after precharge, before guarded submission.
 SYNC's actual mapping and cursor update are retained in RAM; the whole pair
 remains durably pending until FOLLOW commits its final cursor and cooldown.

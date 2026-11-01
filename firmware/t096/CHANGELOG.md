@@ -1,5 +1,15 @@
 # T096 changelog
 
+## 0.15.239 — expose passive launch admission timing
+
+Report reservation lead, launch lateness, frozen-source remaining time and
+source phase using storage otherwise reserved for receiver counts. Keep actual
+receiver counts zero on TX. Begin storage preparation up to1.2s before the
+unchanged slot after observing native commits as long as655ms. Source and RF
+deadline checks remain unchanged.
+Keep a fresh context unpublished until META actually completes; a refused
+META must retry on a later META slot before DISC or a timing pair is allowed.
+
 ## 0.15.238 — precharge the next admissible META after context loss
 
 Select the future META slot before applying the storage lead when a new
