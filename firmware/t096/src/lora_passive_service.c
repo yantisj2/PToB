@@ -27,6 +27,8 @@
 #define MESH_CONTACT 64u
 #define WORKER_PRIORITY 11
 #define DRAIN_PRIORITY 9
+#define TRANSITION_PRIORITY 5
+#define TRANSITION_LEAD_US UINT64_C(350000)
 #define LAB_RUN_US UINT64_C(900000000)
 #define REBOOT_CONTROL_GUARD_US UINT64_C(4000000)
 #define PRECHARGE_LEAD_US UINT64_C(1200000)
@@ -232,6 +234,7 @@ withdraw:if(shadow_tick){r2_shadow_lora_withdraw();shadow_tick=0;}
 }
 /* Synchronous precharge can refuse; it must never erase on the launch path. */
 static bool storage_save(void *arg,const struct lp_checkpoint *s){
+ k_thread_priority_set(&worker_thread,WORKER_PRIORITY);
  uint64_t began=mono();bool ok=lp_store_save(arg,s);uint64_t cost=mono()-began;
  if(cost>owner.storage_max_us)owner.storage_max_us=cost>UINT32_MAX?UINT32_MAX:(uint32_t)cost;
  return ok;
@@ -452,7 +455,19 @@ static void __attribute__((noinline)) service_step(void){
  }
  report(mono());r2_diag_scratch.lora.beat=k_uptime_get_32();
 }
-static void worker(void *a,void *b,void *c){(void)a;(void)b;(void)c;for(;;){service_step();k_sleep(K_MSEC(2));}}
+static int worker_priority(uint64_t now){
+ if(owner.stopping||fenced())return DRAIN_PRIORITY;
+ if(!transmitter||!owner.active)return WORKER_PRIORITY;
+ uint64_t at=UINT64_MAX;
+ if(owner.tx_kind==LP_META||owner.tx_kind==LP_DISC)at=role.tx.reservation.slot_us+lp_duration(owner.tx_kind);
+ else if(owner.tx_kind==LP_SYNC)at=role.tx.reservation.slot_us+2000000+lp_duration(LP_SYNC);
+ else if(owner.tx_kind==LP_FOLLOW)at=owner.last_sync_us+260000+lp_duration(LP_FOLLOW);
+ else if(owner.stage==3)at=role.tx.reservation.slot_us;
+ else if(owner.stage==1)at=role.tx.reservation.slot_us+2000000;
+ else if(owner.stage==2)at=owner.last_sync_us+260000;
+ return at<=now+TRANSITION_LEAD_US?TRANSITION_PRIORITY:WORKER_PRIORITY;
+}
+static void worker(void *a,void *b,void *c){(void)a;(void)b;(void)c;for(;;){service_step();k_thread_priority_set(&worker_thread,worker_priority(mono()));k_sleep(K_MSEC(2));}}
 void r2_lora_init(uint64_t f,uint64_t boot,uint64_t tx,const struct r2_group_config *g){
  atomic_set(&observer_ready,0);memset(&r2_diag_scratch.lora,0,r2_diag_state()>=1?offsetof(struct r2_lora_watchdog_state,retained):sizeof r2_diag_scratch.lora);
  memset((uint8_t *)&r2_diag_scratch.lora+offsetof(struct r2_lora_watchdog_state,retained)+sizeof r2_diag_scratch.lora.retained,0,

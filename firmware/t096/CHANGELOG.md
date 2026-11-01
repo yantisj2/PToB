@@ -1,5 +1,13 @@
 # T096 changelog
 
+## 0.15.240 — protect passive TX transitions from background scheduling delay
+
+Keep priority11 except within350ms of a TX launch or completion, where the
+owner uses priority5 above the priority6 UI renderer. Actual native traces
+showed an89ms late wake despite1.18s precharge lead and555ms maximum storage.
+Flash writes explicitly return to priority11; drain remains priority9, and
+controller/interrupt priorities, RF windows and source checks remain unchanged.
+
 ## 0.15.239 — expose passive launch admission timing
 
 Report reservation lead, launch lateness, frozen-source remaining time and

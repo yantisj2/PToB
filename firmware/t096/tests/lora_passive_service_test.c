@@ -25,7 +25,7 @@ static unsigned lock_depth;
 static int k_spin_lock(struct k_spinlock *p){(void)p;++lock_depth;return 0;}
 static void k_spin_unlock(struct k_spinlock *p,int k){(void)p;(void)k;assert(lock_depth);--lock_depth;}
 struct k_thread{int unused;};
-static void k_thread_priority_set(struct k_thread *t,int p){(void)t;assert(p==9||p==11);}
+static void k_thread_priority_set(struct k_thread *t,int p){(void)t;assert(p==5||p==9||p==11);}
 static void k_wakeup(struct k_thread *t){(void)t;}
 #define K_THREAD_STACK_DEFINE(n,s) unsigned char n[s]
 #define K_THREAD_STACK_SIZEOF(n) sizeof(n)
@@ -96,6 +96,7 @@ static void tx_case(unsigned mode){
  if(mode==2){step();assert(!txs&&owner.storage_fail);return;}
  if(mode==3){m.scope.kind=RC8_SELECTED_BLE;m.scope.parent=3;r2_lora_source_publish(&m);step();assert(!txs);return;}
  assert(restore(((now_us+LP_BEAT_US-1)/LP_BEAT_US)*LP_BEAT_US));
+ if(mode==27){owner.stage=3;role.tx.reservation.slot_us=now_us+400000;assert(worker_priority(now_us)==11);assert(worker_priority(now_us+50000)==5);owner.stage=1;assert(worker_priority(now_us)==11&&worker_priority(role.tx.reservation.slot_us+1650000)==5);owner.tx_kind=LP_SYNC;assert(worker_priority(role.tx.reservation.slot_us+2000000)==5);owner.tx_kind=LP_FOLLOW;owner.last_sync_us=now_us;assert(worker_priority(now_us)==11&&worker_priority(now_us+200000)==5);owner.stopping=true;assert(worker_priority(now_us)==9);return;}
  if(mode==26){uint64_t slot=role.tx.core.durable.next_slot_us;now_us=slot;reject_next_tx=true;step();assert(!txs&&!role.tx.context_ready&&!stored.pending);now_us=slot+12000000-1100000;step();assert(!txs&&owner.stage==3&&role.tx.reservation.control==LP_META);now_us=role.tx.reservation.slot_us;step();assert(txs==1&&!role.tx.context_ready);done(now_us-2000,LP_META);assert(role.tx.context_ready);return;}
  if(mode==25){uint64_t first=role.tx.core.durable.next_slot_us;role.tx.core.durable.slot=stored.slot=1;save_delay_us=500000;now_us=first-700000;step();assert(!txs&&!owner.stage);now_us=first+8000000-700000;step();assert(!txs&&owner.stage==3&&role.tx.reservation.slot_us==first+8000000&&stored.slot==4);now_us=role.tx.reservation.slot_us;}
  else if(mode==24){uint64_t slot=role.tx.core.durable.next_slot_us;m.until_tick=(slot+100000)*16;r2_lora_source_publish(&m);refreshed_source=m;refreshed_source.until_tick=(slot+1500000)*16;refreshed_source.map_generation=2;refresh_during_save=true;save_delay_us=350000;now_us=slot-350000;}
@@ -157,5 +158,5 @@ static void carry_case(unsigned mode){
  assert(lp_checkpoint_carry(s,1000000,5000000,1)&&lp_charged(s,1000000)==LP_CAP_US-100000);
  s->pending=3;assert(!lp_checkpoint_carry(s,1000000,5000000,1));
 }
-int main(int argc,char **argv){assert(argc==2);unsigned mode=(unsigned)atoi(argv[1]);if(mode==22||mode==23)carry_case(mode);else if(mode==17||mode==18)startup_cancel_case(mode);else if(mode<10||mode==16||mode==19||mode==20||mode==21||mode==24||mode==25||mode==26)tx_case(mode);else rx_case(mode);
+int main(int argc,char **argv){assert(argc==2);unsigned mode=(unsigned)atoi(argv[1]);if(mode==22||mode==23)carry_case(mode);else if(mode==17||mode==18)startup_cancel_case(mode);else if(mode<10||mode==16||mode==19||mode==20||mode==21||mode==24||mode==25||mode==26||mode==27)tx_case(mode);else rx_case(mode);
  char json[3072];int n=r2_lora_json(json,sizeof json,0);assert(n>0&&n<2976);printf("PASS owner %u\nJSON %s\n",mode,json);return 0;}

@@ -126,8 +126,10 @@ remains durably pending until FOLLOW commits its final cursor and cooldown.
 A reset before that commit still disables FHSS. Stop
 ACKs precede fault checkpoint writes so those writes cannot extend that drain.
 
-One priority11 worker owns capture, retuning and the radio; its unchanged2KiB
-stack and200ms promoted drain retain BLE priority. Source maps are frozen before
+One priority11 worker owns capture, retuning and the radio. A bounded priority5
+lift within350ms of TX transitions prevents the priority6 UI from delaying
+launch; storage returns to priority11 and drain uses priority9. Its unchanged2KiB
+stack,200ms drain and controller/interrupt priorities remain bounded. Source maps are frozen before
 turnover, and completion must match the original capture. Source withdrawal
 before FOLLOW prevents that FOLLOW and latches the incomplete-pair fault.
 Receivers listen for each DTS control even during successful timing. Their PPS
