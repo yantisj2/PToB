@@ -413,7 +413,11 @@ static void __attribute__((noinline)) service_step(void){
   if(generation==UINT32_MAX)atomic_or(&faulted,1);
   else{++generation;atomic_set(&closed,0);int rc=r2_lora_hw_start(generation,false);
    if(rc==-EAGAIN)atomic_set(&closed,1);
-   else{owner.active=true;if(!rc){r2_diag_scratch.lora.drain_late=0;rc=tune(R2_LORA_DTS,0,!transmitter);}if(rc)begin_stop(rc);}}
+   else{owner.active=true;if(!rc){r2_diag_scratch.lora.drain_late=0;rc=tune(R2_LORA_DTS,0,!transmitter);}
+    /* Source withdrawal may preempt startup's reset/TCXO/SPI waits just as
+     * it can preempt an active transaction. Drain the retained fence without
+     * promoting that deliberate inhibition to a permanent hardware fault. */
+    if(rc)begin_stop(rc==-ECANCELED&&fenced()?0:rc);}}
  }else if(owner.active){
   int rc=process_event(now);
   if(!rc){if(fenced()||(transmitter&&!(atomic_get(&flags)&SOURCE_PRESENT)))begin_stop(0);

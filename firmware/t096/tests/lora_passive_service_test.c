@@ -55,16 +55,16 @@ bool lp_store_save(void *p,const struct lp_checkpoint *s){struct lp_store *store
 bool lp_store_prepare(struct lp_store *s){return s->ready;}
 static unsigned txs,rearms,stops;static uint8_t sent[128];static size_t sent_len;static uint32_t sent_generation;
 static bool have_event;static struct r2_lora_hw_event queued;
-static bool capture_valid=true;static unsigned tuning_phy,tuning_channel;
+static bool capture_valid=true;static unsigned tuning_phy,tuning_channel,cancel_on;
 bool r2_capture_now(struct r2_capture *c){*c=(struct r2_capture){.tick=now_us*16,.epoch=7,.kind=R2_CAPTURE_NOW};return capture_valid;}
 bool r2_capture_now_at(struct r2_capture *c,uint64_t *us){*us=now_us;return r2_capture_now(c);}
-int r2_lora_hw_start(uint32_t g,bool rx){(void)g;assert(!rx);return 0;}
+int r2_lora_hw_start(uint32_t g,bool rx){(void)g;assert(!rx);if(cancel_on==1){cancel_on=0;r2_lora_source_withdraw();return -ECANCELED;}return 0;}
 uint32_t r2_lora_hw_budget_us(size_t n){for(unsigned k=LP_DISC;k<=LP_FOLLOW;k++)if(lp_size(k)==n)return lp_duration(k);return 0;}
 int r2_lora_hw_tx_before(const uint8_t *p,size_t n,uint32_t g,uint64_t before){assert(now_us+r2_lora_hw_budget_us(n)<=before);++txs;sent_len=n;memcpy(sent,p,n);sent_generation=g;return 0;}
 int r2_lora_hw_take(struct r2_lora_hw_event *e){if(!have_event)return 0;*e=queued;have_event=false;return 1;}
 bool r2_lora_hw_tx_edge(struct r2_lora_hw_edge *e){if(!have_event||queued.kind!=R2_LORA_HW_TX_DONE)return false;*e=(struct r2_lora_hw_edge){queued.tick,queued.capture_epoch,queued.generation};return true;}
 int r2_lora_hw_idle(void){return 0;}
-int r2_lora_hw_passive_configure(enum r2_lora_passive_phy p,unsigned c){tuning_phy=p;tuning_channel=c;return 0;}
+int r2_lora_hw_passive_configure(enum r2_lora_passive_phy p,unsigned c){tuning_phy=p;tuning_channel=c;if(cancel_on==2){cancel_on=0;r2_lora_source_withdraw();return -ECANCELED;}return 0;}
 int r2_lora_hw_rx_rearm(void){++rearms;return 0;}
 void r2_lora_hw_stop_begin(uint64_t d){assert(d);++stops;}
 void r2_lora_hw_stop_poll(struct r2_lora_hw_ack *a){*a=(struct r2_lora_hw_ack){true,true,true,true,false};}
@@ -131,5 +131,11 @@ static void rx_case(unsigned mode){
  if(mode==14){r2_lora_control(false,true,RC8_SELECT_BLE);step();assert(published.choice!=RC8_SELECT_LORA&&!txs);return;}
  r2_lora_request(false);step();step();assert(atomic_get(&closed)&&!published.utc_us&&!txs);
 }
-int main(int argc,char **argv){assert(argc==2);unsigned mode=(unsigned)atoi(argv[1]);if(mode<10||mode==16)tx_case(mode);else rx_case(mode);
+static void startup_cancel_case(unsigned mode){
+ init(true);r2_lora_request(true);struct rc8_export m=source();r2_lora_source_publish(&m);
+ cancel_on=mode==17?1:2;step();assert(owner.stopping&&!atomic_get(&faulted)&&stops&&!txs);
+ step();assert(atomic_get(&closed)&&!owner.active&&!r2_diag_scratch.lora.terminal);
+ r2_lora_source_publish(&m);step();assert(owner.active&&!owner.stopping&&!atomic_get(&faulted)&&!txs);
+}
+int main(int argc,char **argv){assert(argc==2);unsigned mode=(unsigned)atoi(argv[1]);if(mode==17||mode==18)startup_cancel_case(mode);else if(mode<10||mode==16)tx_case(mode);else rx_case(mode);
  char json[3072];int n=r2_lora_json(json,sizeof json,0);assert(n>0&&n<2976);printf("PASS owner %u\nJSON %s\n",mode,json);return 0;}

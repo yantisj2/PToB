@@ -1,5 +1,13 @@
 # T096 changelog
 
+## 0.15.234 — drain source cancellation during passive startup
+
+A source withdrawal can inhibit reset/TCXO/SPI startup before any transmission.
+Treat that fenced cancellation as a bounded drain, allowing a later qualified
+source to start normally. Preserve permanent handling for unfenced errors and
+hardware faults. Regression cases withdraw during both startup and initial
+retune, require closure without a fault, then verify fresh source recovery.
+
 ## 0.15.233 — preserve the actual GM source incarnation
 
 Carry the qualified GM runtime root boot separately from the transmitter's
