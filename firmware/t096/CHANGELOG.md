@@ -1,5 +1,13 @@
 # T096 changelog
 
+## 0.15.238 — precharge the next admissible META after context loss
+
+Select the future META slot before applying the storage lead when a new
+context skips intervening DISC slots. Previously that path waited until META's
+RF deadline to begin the durable write, causing a late cancellation. Preserve
+the fixed grid, skipped distribution indices and full airtime reservations.
+Exercise reboot at a non-META index with a500ms storage delay.
+
 ## 0.15.237 — remove flash latency from passive TX deadlines
 
 Precharge up to750ms before the fixed slot and refresh the physical source

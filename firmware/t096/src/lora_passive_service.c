@@ -293,19 +293,20 @@ static int __attribute__((noinline)) transmit(uint64_t now){
   struct lp_packet p={.kind=LP_FOLLOW,.schedule=LP_FAST,.cursor=role.tx.reservation.cursor,.utc_ns=role.tx.sync_ns};
   rc=send_packet(&p,owner.last_sync_us+300000+lp_duration(LP_FOLLOW),limit);if(rc)lp_tx_fault(t);return rc;
  }
- if(owner.stage!=3&&now+PRECHARGE_LEAD_US<t->durable.next_slot_us){
-  if(now>owner.last_end_us+100000&&t->durable.next_slot_us-now>PRECHARGE_LEAD_US+100000&&!lp_store_prepare(&role.tx.store)){inc(&owner.storage_fail);return -EIO;}
+ /* A fresh context may skip DISC slots while awaiting META. Select that
+  * future slot BEFORE applying the precharge lead; a stale next_slot must
+  * not defer its durable reservation until the RF deadline itself. */
+ uint64_t target=t->durable.next_slot_us,skipped=0;
+ if(now>target&&now-target>45000)skipped=(now-target+LP_BEAT_US-1)/LP_BEAT_US;
+ uint64_t index=(uint64_t)t->durable.slot+skipped;
+ if(!role.tx.context_ready&&index%3)skipped+=3-index%3;
+ target+=skipped*LP_BEAT_US;
+ if(owner.stage!=3&&now+PRECHARGE_LEAD_US<target){
+  if(now>owner.last_end_us+100000&&target-now>PRECHARGE_LEAD_US+100000&&!lp_store_prepare(&role.tx.store)){inc(&owner.storage_fail);return -EIO;}
   return 0;
  }
  if(owner.stage!=3){
-  uint64_t reserve_at=now<t->durable.next_slot_us?t->durable.next_slot_us:now;
-  if(reserve_at-t->durable.next_slot_us>50000){
-   uint64_t next=t->durable.next_slot_us+((reserve_at-t->durable.next_slot_us)/LP_BEAT_US)*LP_BEAT_US;
-   if(reserve_at-next>50000)return 0;
-  }
-  uint32_t index=t->durable.slot+(uint32_t)((reserve_at-t->durable.next_slot_us)/LP_BEAT_US);
-  if(!role.tx.context_ready&&index%3)return 0;
-  if(!lp_tx_reserve(t,reserve_at,&role.tx.reservation)){inc(&owner.refused);return 0;}
+  if(!lp_tx_reserve(t,target,&role.tx.reservation)){inc(&owner.refused);return 0;}
   owner.stage=3;
  }
  struct lp_reservation *r=&role.tx.reservation;

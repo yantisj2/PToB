@@ -96,11 +96,13 @@ static void tx_case(unsigned mode){
  if(mode==2){step();assert(!txs&&owner.storage_fail);return;}
  if(mode==3){m.scope.kind=RC8_SELECTED_BLE;m.scope.parent=3;r2_lora_source_publish(&m);step();assert(!txs);return;}
  assert(restore(((now_us+LP_BEAT_US-1)/LP_BEAT_US)*LP_BEAT_US));
- if(mode==24){uint64_t slot=role.tx.core.durable.next_slot_us;m.until_tick=(slot+100000)*16;r2_lora_source_publish(&m);refreshed_source=m;refreshed_source.until_tick=(slot+1500000)*16;refreshed_source.map_generation=2;refresh_during_save=true;save_delay_us=350000;now_us=slot-350000;}
+ if(mode==25){uint64_t first=role.tx.core.durable.next_slot_us;role.tx.core.durable.slot=stored.slot=1;save_delay_us=500000;now_us=first-700000;step();assert(!txs&&!owner.stage);now_us=first+8000000-700000;step();assert(!txs&&owner.stage==3&&role.tx.reservation.slot_us==first+8000000&&stored.slot==4);now_us=role.tx.reservation.slot_us;}
+ else if(mode==24){uint64_t slot=role.tx.core.durable.next_slot_us;m.until_tick=(slot+100000)*16;r2_lora_source_publish(&m);refreshed_source=m;refreshed_source.until_tick=(slot+1500000)*16;refreshed_source.map_generation=2;refresh_during_save=true;save_delay_us=350000;now_us=slot-350000;}
  else if(mode==8||mode==20){save_delay_us=mode==20?350000:150000;now_us=role.tx.core.durable.next_slot_us-(mode==20?600000:250000);step();assert(!txs&&owner.stage==3&&stored.pending==1);now_us=role.tx.reservation.slot_us;}
  else now_us=role.tx.core.durable.next_slot_us;
  step();assert(txs==1&&sent_len==LP_META_BYTES);
  if(mode==24){assert(!refresh_during_save&&owner.storage_max_us==350000);return;}
+ if(mode==25){assert(owner.storage_max_us==500000);return;}
  uint64_t slot=role.tx.reservation.slot_us;assert(stored.pending==1&&saves>=2);
  done(slot,LP_META);assert(owner.stage==1);
  if(mode==4||mode==9){if(mode==9)save_delay_us=500000;r2_lora_source_withdraw();step();assert(stored.fh_disabled&&!stored.pending&&txs==1&&stops&&!atomic_get(&faulted)&&r2_diag_scratch.lora.drain_ack_us<r2_diag_scratch.lora.drain_deadline_us);return;}
@@ -154,5 +156,5 @@ static void carry_case(unsigned mode){
  assert(lp_checkpoint_carry(s,1000000,5000000,1)&&lp_charged(s,1000000)==LP_CAP_US-100000);
  s->pending=3;assert(!lp_checkpoint_carry(s,1000000,5000000,1));
 }
-int main(int argc,char **argv){assert(argc==2);unsigned mode=(unsigned)atoi(argv[1]);if(mode==22||mode==23)carry_case(mode);else if(mode==17||mode==18)startup_cancel_case(mode);else if(mode<10||mode==16||mode==19||mode==20||mode==21||mode==24)tx_case(mode);else rx_case(mode);
+int main(int argc,char **argv){assert(argc==2);unsigned mode=(unsigned)atoi(argv[1]);if(mode==22||mode==23)carry_case(mode);else if(mode==17||mode==18)startup_cancel_case(mode);else if(mode<10||mode==16||mode==19||mode==20||mode==21||mode==24||mode==25)tx_case(mode);else rx_case(mode);
  char json[3072];int n=r2_lora_json(json,sizeof json,0);assert(n>0&&n<2976);printf("PASS owner %u\nJSON %s\n",mode,json);return 0;}
