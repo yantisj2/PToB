@@ -539,6 +539,10 @@ int r2_lora_json(char *out,size_t capacity,int result){
  struct lp_diagnostics d;struct r2_lora_view v;struct lp_audit audit[4];uint64_t until;
  k_spinlock_key_t key=k_spin_lock(&lock);d=diagnostics;v=published;until=lab_until;memcpy(audit,audits,sizeof audit);k_spin_unlock(&lock,key);
  struct r2_lora_hw_diag h;r2_lora_hw_diag(&h);
+ uint32_t fault_words[16]={0};uint64_t fault_boot=0;unsigned fault_key=irq_lock();
+ if(r2_diag_scratch.lora.record[0]==R2_LORA_FAULT_MAGIC){memcpy(fault_words,r2_diag_scratch.lora.record,sizeof fault_words);fault_boot=physical_boot;}
+ else if(r2_diag_scratch.lora.retained.record[0]==R2_LORA_FAULT_MAGIC){memcpy(fault_words,r2_diag_scratch.lora.retained.record,sizeof fault_words);fault_boot=r2_diag_scratch.lora.retained.boot;}
+ irq_unlock(fault_key);
  return snprintf(out,capacity,
  "{\"passive\":2,\"profile\":\"LAB_FAST_4_12\",\"cap_us\":1080000000,\"result\":%d,"
  "\"boot\":\"%016llx\",\"configured_tx\":\"%016llx\",\"transmitter\":%s,\"requested\":%s,\"active\":%s,\"closed\":%s,\"fault\":%s,"
@@ -551,7 +555,8 @@ int r2_lora_json(char *out,size_t capacity,int result){
  "\"refused\":%u,\"late\":%u,\"missing_map\":%u,\"bad\":%u,\"sent\":[%u,%u,%u,%u],\"received\":[%u,%u,%u,%u],"
  "\"at_us\":%llu,\"tx_admission_us\":[%u,%d,%u,%u],"
  "\"audit\":[[%llu,%llu,%llu,%llu,%u,%u,%u,%u],[%llu,%llu,%llu,%llu,%u,%u,%u,%u],[%llu,%llu,%llu,%llu,%u,%u,%u,%u],[%llu,%llu,%llu,%llu,%u,%u,%u,%u]],"
- "\"owner\":[%u,%u,%u],\"hw\":[%u,%u,%u,%u,%u,%u,%u,%d,%u,%u,%u],\"drain_result\":%d}",
+ "\"owner\":[%u,%u,%u],\"hw\":[%u,%u,%u,%u,%u,%u,%u,%d,%u,%u,%u],\"drain_result\":%d,"
+ "\"fault_boot\":\"%016llx\",\"fault_words\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u]}",
  result,(unsigned long long)physical_boot,(unsigned long long)transmitter_factory,transmitter?"true":"false",v.requested?"true":"false",v.active?"true":"false",atomic_get(&closed)?"true":"false",atomic_get(&faulted)?"true":"false",
  (unsigned long long)until,(unsigned long long)owner.quiet_until_us,stack_unused(),d.error,
  (unsigned long long)d.emitter,(unsigned long long)d.boot,d.stream,d.source_epoch,(unsigned long long)(transmitter?d.tx_root_boot:d.root_boot),d.seed,d.cursor,d.serial,
@@ -564,5 +569,6 @@ int r2_lora_json(char *out,size_t capacity,int result){
  AUDIT_ARGS(0),AUDIT_ARGS(1),AUDIT_ARGS(2),AUDIT_ARGS(3),
 #undef AUDIT_ARGS
  d.stage,d.phy,d.channel,
- h.rx_done,h.tx_done,h.crc_bad,h.overflow,h.spi_error,h.cutoffs,h.invalid_capture,h.error,h.phase,h.launch_aborts,h.busy_aborts,r2_lora_close_result());
+ h.rx_done,h.tx_done,h.crc_bad,h.overflow,h.spi_error,h.cutoffs,h.invalid_capture,h.error,h.phase,h.launch_aborts,h.busy_aborts,r2_lora_close_result(),
+ (unsigned long long)fault_boot,fault_words[0],fault_words[1],fault_words[2],fault_words[3],fault_words[4],fault_words[5],fault_words[6],fault_words[7],fault_words[8],fault_words[9],fault_words[10],fault_words[11],fault_words[12],fault_words[13],fault_words[14],fault_words[15]);
 }

@@ -790,12 +790,15 @@ static int tx_before(const uint8_t *bytes, size_t n, uint32_t gen,
   /* SX1262 RTC ticks=15.625us. Timing340ms; diagnostics420ms, within
    * their independent360/450ms hardware FEM cutoffs respectively. */
 #ifdef R2_LORA_PASSIVE_FAST
-  uint32_t modem_us=budget-2000;
-  uint32_t timeout_ticks=(modem_us*64u+999u)/1000u;
-  const uint8_t timeout[]={(uint8_t)(timeout_ticks>>16),(uint8_t)(timeout_ticks>>8),(uint8_t)timeout_ticks};
+  /* Semtech single-packet TX: zero disables the chip's separate RTC timer.
+   * The unchanged MCU compare/PPI FEM cutoff and reset remain the finite
+   * bound. Do not race that bound with a shorter, independent RTC timeout. */
+  const uint8_t timeout[]={0,0,0};
+  const uint32_t launch_margin=2000;
 #else
   uint32_t modem_us=n<=80?340000u:420000u;
   const uint8_t timeout[] = {0, n <= 80 ? 0x55 : 0x69, 0};
+  const uint32_t launch_margin=budget-modem_us;
 #endif
   if (!rc)
     rc = command(0x83, timeout, sizeof(timeout));
@@ -806,7 +809,6 @@ static int tx_before(const uint8_t *bytes, size_t n, uint32_t gen,
   /* The command-commit upper bound comes from GPIO NSS release, not worker
    * wakeup. A timely command remains timely after BLE preempts this thread.
    * Missing/late commit evidence still aborts; no timer is rearmed here. */
-  uint32_t launch_margin=budget-modem_us;
   if(!rc&&!atomic_get(&fault)&&atomic_get(&running)&&
      atomic_get(&phase)==4&&!atomic_get(&latched)&&
      (!wd.command_committed ||
@@ -887,10 +889,10 @@ int r2_lora_hw_take(struct r2_lora_hw_event *out) {
     return -EINVAL;
   const uint8_t dummy[] = {0, 0, 0};
   int rc = command(0x12, dummy, sizeof(dummy));
+  uint16_t flags = ((uint16_t)dma_rx[2] << 8) | dma_rx[3];
+  if(!rc)wd.irq_status=flags|((uint32_t)dma_rx[1]<<24);
   if (!rc && !status_ok(dma_rx[1]))
     rc = -EIO;
-  uint16_t flags = ((uint16_t)dma_rx[2] << 8) | dma_rx[3];
-  if(!rc)wd.irq_status=flags;
   uint8_t state = (uint8_t)atomic_get(&phase);
   if (!rc) {
     *out = (struct r2_lora_hw_event){.tick = edge.tick,

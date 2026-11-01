@@ -77,9 +77,9 @@ def main():
     body.write_text(re.sub(r'^#include[^\n]*\n','',(APP/'src/lora_hw.c').read_text(),flags=re.M))
     driver=a.out/'passive_driver'
     subprocess.run([*flags,'-DR2_LORA_PASSIVE_FAST=1','-DR2_LORA_OWNER_BODY="'+str(body.resolve())+'"',str(APP/'tests/lora_hw_test.c'),'-o',str(driver)],check=True)
-    for mode in range(201,280):subprocess.run([str(driver),str(mode)],check=True)
-    receipt=dict(status='PASS_PRODUCTION_C_FAKE_BOUNDARIES',hardware='NOT_TESTED',deployment_authorized=False,wire_oracle=True,driver_cases=79,offered_hours_per_campaign=2,phases_us=sorted(campaigns),admitted_frames_per_campaign={str(k):len(v[0]) for k,v in campaigns.items()},worst_rolling_hour_us=hour,worst_channel_20s_us=dwell,sources={str(s.relative_to(APP)):hashlib.sha256(s.read_bytes()).hexdigest() for s in [*sources,APP/'src/lora_hw.c',APP/'include/lora_hw.h',APP/'include/lora_passive_core.h',APP/'protocol/lora_passive.h',APP/'tests/lora_hw_test.c',Path(__file__)]})
+    for mode in range(201,282):subprocess.run([str(driver),str(mode)],check=True)
+    receipt=dict(status='PASS_PRODUCTION_C_FAKE_BOUNDARIES',hardware='NOT_TESTED',deployment_authorized=False,wire_oracle=True,driver_cases=81,offered_hours_per_campaign=2,phases_us=sorted(campaigns),admitted_frames_per_campaign={str(k):len(v[0]) for k,v in campaigns.items()},worst_rolling_hour_us=hour,worst_channel_20s_us=dwell,sources={str(s.relative_to(APP)):hashlib.sha256(s.read_bytes()).hexdigest() for s in [*sources,APP/'src/lora_hw.c',APP/'include/lora_hw.h',APP/'include/lora_passive_core.h',APP/'protocol/lora_passive.h',APP/'tests/lora_hw_test.c',Path(__file__)]})
     (a.out/'receipt.json').write_text(json.dumps(receipt,indent=2)+'\n')
     print('\n'.join(line for line in run.stdout.splitlines() if not line.startswith(('RF ','wire','context ','hop '))))
-    print(f'PASS independent wire/hop/occupancy oracles;79 driver cases;hour={hour}us;channel20s={dwell}us')
+    print(f'PASS independent wire/hop/occupancy oracles;81 driver cases;hour={hour}us;channel20s={dwell}us')
 if __name__=='__main__':main()

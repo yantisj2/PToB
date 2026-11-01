@@ -118,6 +118,10 @@ TX DIO TxDone also drives TIMER4 CAPTURE1 while preserving the common timer's
 BUSY start capture and independent FEM cutoff. This coarse gap measurement is
 not a precision UTC timestamp. Launch, RF tail, retune/capture bias, channel
 effects, temperature and cutoff behavior need physical qualification.
+Passive SetTx uses the chip's single-packet zero-timeout mode; the original
+finite MCU compare/PPI FEM cutoff and reset bound remain mandatory. A shorter
+independent chip RTC timer must not race that envelope. Terminal diagnostics
+retain raw IRQ flags and chip status; a missing journal write is not success.
 
 Storage precharge may start1.2s before a slot without moving the RF target.
 The source snapshot is refreshed after precharge, before guarded submission.

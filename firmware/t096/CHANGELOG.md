@@ -1,5 +1,17 @@
 # T096 changelog
 
+## 0.15.241 — retain raw TX completion status and use chip one-shot mode
+
+Use Semtech's zero-timeout single-packet SetTx mode for the passive variant.
+The existing finite MCU compare/PPI FEM cutoff, reset, original source endpoint
+and2ms command-commit bound remain unchanged. This removes a shorter independent
+RTC timeout as a possible competing deadline; it does not establish the cause
+of the observed GetIrqStatus EIO. Genuine IRQ/status errors remain terminal.
+
+Retain raw chip status alongside IRQ flags even when that status rejects the
+read, and expose the existing full16-word fault record with its original boot
+in LoRa diagnostics. This preserves evidence when the ordinary journal is full.
+
 ## 0.15.240 — protect passive TX transitions from background scheduling delay
 
 Keep priority11 except within350ms of a TX launch or completion, where the
