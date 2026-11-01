@@ -1,5 +1,17 @@
 # Research papers — drafts
 
+**Approved public review draft, 1 November 2026:**
+[Trustworthy Hardware Timestamps in Zephyr: Event Association, Clock Continuity, and Service Availability](zephyr-timing/main.pdf)
+is a seven-page implementation study of controller event association, counter
+continuity, bounded snapshots and source publication ordering. A targeted
+primary-source review places the work alongside Zephyr's evolving precision
+timing infrastructure and proposes an accuracy/availability/cost evaluation.
+[LaTeX, source records and verification](zephyr-timing/README.md) and a separate
+[publication approval](zephyr-timing/publication.json) accompany the unchanged
+reviewed manuscript. Historical relative-PPS populations remain separate from
+the examined implementation; no new hardware comparison or current-firmware
+qualification is claimed.
+
 **Latest main preprint, approved for public review, 30 October 2026:**
 [PToB Viability: Rooted BLE Timing Meshes for Heterogeneous Edge Networks](ptob-viability-preprint.pdf)
 is the 17-page synthesis of the source-scoped clock service, causal event
@@ -82,6 +94,7 @@ results. It does not silently replace this approved paper's earlier aggregates.
 
 These are working drafts by **Jonathan Yantis**. The latest approved main
 preprint and W12 holdover-duration study have **30 October 2026** editions.
+The Zephyr implementation study has a **1 November 2026** public-review edition.
 The BLE timing-tail/multipath, indoor PNT and theoretical PToB-IPS studies
 retain their **26 October** editions. The low-level
 ESP32-S3 implementation guide retains its **24 October** edition. The robotic
@@ -126,6 +139,7 @@ toward arXiv; it has not been submitted.
 
 | Draft | Read | Edit | Edition |
 | --- | --- | --- | --- |
+| Trustworthy Hardware Timestamps in Zephyr: Event Association, Clock Continuity, and Service Availability | [PDF](zephyr-timing/main.pdf) | [LaTeX](zephyr-timing/main.tex) | 1 November 2026, approved seven-page public review draft; implementation and prior-art study, comparative hardware evaluation proposed |
 | Empirical Sub-Microsecond Holdover on BLE-Trained Software Clocks | [PDF](mcxo-holdover-duration/ptob-empirical-sub-microsecond-holdover.pdf) | [LaTeX](mcxo-holdover-duration/ptob-empirical-sub-microsecond-holdover.tex) | 30 October 2026, approved research draft; compact selected evidence and offline prefix replay |
 | Reducing Timing Tails and Multipath Sensitivity in an Operating BLE Precision Mesh | [PDF](ble-tail-multipath/main.pdf) | [LaTeX](ble-tail-multipath/main.tex) | 26 October 2026, public review draft; current mechanisms, analytical examples and proposed validation, no new hardware experiment |
 | A Shared Time Base for Indoor PNT: PToB Sensor Fusion, Selective UWB Augmentation, and a Validation Programme | [PDF](indoor-pnt/main.pdf) | [LaTeX](indoor-pnt/main.tex) | 26 October 2026, public review draft; proposed architecture and analytical budgets, no localization qualification |

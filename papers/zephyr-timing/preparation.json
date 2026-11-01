@@ -1,0 +1,92 @@
+{
+  "schema": 1,
+  "title": "Trustworthy Hardware Timestamps in Zephyr: Event Association, Clock Continuity, and Service Availability",
+  "author": "Jonathan Yantis",
+  "edition_date": "2026-11-01",
+  "review_status": "DRAFT_FOR_USER_REVIEW_LIBRARY_INCLUSION_PENDING",
+  "page_count": 7,
+  "bibliography_entries": 21,
+  "paper_license": "CC-BY-4.0",
+  "pseudocode_and_documentation_license": "MIT",
+  "implementation_revision": "a9ae0294cd8fc5b9c919665094a489708442a49b",
+  "compiler": {
+    "engine": "Tectonic",
+    "version": "0.17.0",
+    "bundle": "default_bundle_v33",
+    "terminal_compile": "PASS",
+    "native_editor_compile": "PASS",
+    "warnings": false
+  },
+  "checks": {
+    "page_range": "PASS_7_WITHIN_5_TO_8",
+    "citations": "PASS_ALL_21_RESOLVE",
+    "link_annotations": 63,
+    "private_path_and_placeholder_scan": "PASS",
+    "visual": "ALL_7_PAGES_RENDERED_AND_INSPECTED_FINAL_CHANGED_PAGES_RECHECKED",
+    "historical_archive_replay": "PASS",
+    "source_order_native_regression": "NOT_RERUN",
+    "hardware_experiment": "NOT_PERFORMED"
+  },
+  "historical_population": {
+    "nominal": 602,
+    "usable_reference_valid": 436,
+    "invalid_reference": 65,
+    "expired_reference_valid": 3,
+    "unobserved": 98,
+    "relative_pps_map_rms_ns": 62.50387143972866,
+    "current_firmware_qualification": false
+  },
+  "files": [
+    {
+      "path": "main.tex",
+      "bytes": 31358,
+      "sha256": "bd3c6b9c48014f7d0eff975ed272c6096c0917606278bcb2efa184f7ff4b66f7"
+    },
+    {
+      "path": "ptob-zephyr-hardware-timestamps-review.pdf",
+      "bytes": 100904,
+      "sha256": "71e5973f99190b1539105239fe1ba446cef4fbed43fa420b3325b376e25cc843"
+    },
+    {
+      "path": "source-identity.json",
+      "bytes": 5693,
+      "sha256": "7f79baedb0c427d186ebca58adeb3570f1b06628f4f4d55dc9bcf5c20124d5e5"
+    },
+    {
+      "path": "source-ledger.json",
+      "bytes": 12965,
+      "sha256": "1aa5a8c4ae154b15256a2ed10843450c315cb92fb5a42971dbbc0f6647c91151"
+    },
+    {
+      "path": "evidence-replay.log",
+      "bytes": 1775,
+      "sha256": "6f91c78704850f61bf485da6d2ff5d24f029e9a0f9e774a05b859f7e3c41592a"
+    },
+    {
+      "path": "review-notes.txt",
+      "bytes": 1987,
+      "sha256": "541f32f5a696ecb12e6bf0a708147af97e39a75ad7acec0d1f1cc30c420e1fcd"
+    },
+    {
+      "path": "CHANGELOG.txt",
+      "bytes": 344,
+      "sha256": "e8f008084fba856b04470e1b255e4525e99a7306f4a152827c1666c30e8e0437"
+    },
+    {
+      "path": "prepare_review.py",
+      "bytes": 6566,
+      "sha256": "37fe787560184c4b0791077e9080cfdaaf8cebdf0fd07e153166e8f179ffffc3"
+    },
+    {
+      "path": "build.log",
+      "bytes": 261,
+      "sha256": "65bac75df07cab77611d126f629f8be8da7d0095e310209145ccc9d051836d11"
+    },
+    {
+      "path": "main.log",
+      "bytes": 27042,
+      "sha256": "1def784d7619131feb201fd4242c2f203bd3fab693c033ef30616dbfc9a187a9"
+    }
+  ],
+  "scope": "Local author-review preparation only; tracked research library and firmware unchanged."
+}

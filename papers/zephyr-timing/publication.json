@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "license": "MIT",
+  "author": "Jonathan Yantis",
+  "edition_date": "2026-11-01",
+  "status": "APPROVED_FOR_PUBLIC_DRAFT_REVIEW",
+  "approval": "Approve, add it to the repo in main to the research section for public review and another agent will add it to the website later",
+  "push_scope_approval": "Push all existing main commits and the paper",
+  "prepared_edition": "papers/zephyr-timing/preparation.json",
+  "prepared_edition_sha256": "0d05f63433245bc56cf1e7f1a4b6fbd98cdc98dd65494ea7754939c10da24098",
+  "edition": "papers/zephyr-timing/edition.json",
+  "edition_sha256": "191f9c7d8e4da1c78f69e664481cf2727cf571a43d92ccecbdfb673a8aafa335",
+  "publication_files": [
+    {
+      "path": "papers/zephyr-timing/main.tex",
+      "bytes": 31358,
+      "sha256": "bd3c6b9c48014f7d0eff975ed272c6096c0917606278bcb2efa184f7ff4b66f7",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "papers/zephyr-timing/main.pdf",
+      "bytes": 100904,
+      "sha256": "71e5973f99190b1539105239fe1ba446cef4fbed43fa420b3325b376e25cc843",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "papers/zephyr-timing/source-identity.json",
+      "bytes": 5693,
+      "sha256": "7f79baedb0c427d186ebca58adeb3570f1b06628f4f4d55dc9bcf5c20124d5e5",
+      "license": "MIT"
+    },
+    {
+      "path": "papers/zephyr-timing/source-ledger.json",
+      "bytes": 12965,
+      "sha256": "1aa5a8c4ae154b15256a2ed10843450c315cb92fb5a42971dbbc0f6647c91151",
+      "license": "MIT"
+    },
+    {
+      "path": "papers/zephyr-timing/preparation.json",
+      "bytes": 2976,
+      "sha256": "0d05f63433245bc56cf1e7f1a4b6fbd98cdc98dd65494ea7754939c10da24098",
+      "license": "MIT"
+    },
+    {
+      "path": "papers/zephyr-timing/README.md",
+      "bytes": 4073,
+      "sha256": "a6b68cd975e304e9a1b7931deb09db137bde6f79c3e488c71b1e0331323e7166",
+      "license": "MIT"
+    },
+    {
+      "path": "tools/verify_zephyr_timing_paper.py",
+      "bytes": 4931,
+      "sha256": "0971c652c272271a2c304d63dadd6488da44c3504ba1e65ba44c71c571d18c79",
+      "license": "MIT"
+    },
+    {
+      "path": "papers/zephyr-timing/edition.json",
+      "bytes": 3533,
+      "sha256": "191f9c7d8e4da1c78f69e664481cf2727cf571a43d92ccecbdfb673a8aafa335",
+      "license": "MIT"
+    }
+  ],
+  "reviewed_material_unchanged": true,
+  "preserved_approval_checkpoint": "The unchanged manuscript and preparation receipt retain earlier author-review/pending-library-inclusion labels. This separate receipt records subsequent approval for public draft review.",
+  "draft_promoted_to_final": false,
+  "new_hardware_measurements": false,
+  "hardware_accuracy_qualification": "UNCHANGED_UNQUALIFIED",
+  "publication_scope": "Paper and selected companion records on main and GitHub for public draft review; existing main commits separately authorized by the user. Website integration remains separate.",
+  "source_order_native_regression": "NOT_RERUN",
+  "verification_scope": "Package identities, unchanged reviewed bytes, citation resolution, inspected public source identities and existing historical V14 replay. No hardware or calibration validation."
+}

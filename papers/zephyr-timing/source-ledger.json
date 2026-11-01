@@ -1,0 +1,210 @@
+{
+  "schema": 1,
+  "date": "2026-11-01",
+  "scope": "Prior-art bibliography and access limitations; source inspection only",
+  "sources": [
+    {
+      "id": "zephyr-precision-doc",
+      "title": "Zephyr Precision Timing",
+      "url": "https://docs.zephyrproject.org/latest/kernel/precision_timing.html",
+      "access": "Current documentation text",
+      "finding": "Experimental reusable clock and PI mechanisms explicitly leave synchronization policy, source-loss handling, lock and diagnostics to consumers.",
+      "implication": "Target observation semantics and their evaluation instead of introducing another generic servo or clock abstraction."
+    },
+    {
+      "id": "zephyr-stage2",
+      "title": "timing: add reusable precision timing infrastructure for PTP and gPTP, PR 115363",
+      "url": "https://github.com/zephyrproject-rtos/zephyr/pull/115363",
+      "access": "PR description and visible discussion",
+      "observed_status": "Merged September 28, 2026",
+      "finding": "Checked nanosecond arithmetic, protocol-neutral clock operations, PI instances and a PTP adapter are already merged.",
+      "implication": "A paper must describe its relationship to this implementation."
+    },
+    {
+      "id": "zephyr-roadmap",
+      "title": "RFC: Roadmap for PTP/gPTP, issue 107837",
+      "url": "https://github.com/zephyrproject-rtos/zephyr/issues/107837",
+      "access": "Issue body and visible discussion",
+      "finding": "The roadmap separates clocks, timestamped events, policies and timescales. An October 23 discussion supplies an audio frame-capture use case with IRQ ownership and bounded-latency requirements.",
+      "implication": "Concrete capture lifecycle and concurrency evidence could inform an active upstream design problem; the general architecture is prior art."
+    },
+    {
+      "id": "zephyr-stage4",
+      "title": "precision_timing: add scheduled output and PPS service, PR 121471",
+      "url": "https://github.com/zephyrproject-rtos/zephyr/pull/121471",
+      "access": "PR description and visible discussion",
+      "observed_status": "Draft; roadmap labels the work in review",
+      "finding": "Proposes scheduled output and a PPS service with explicit capability, ownership, continuity and cleanup semantics. This series does not provide the input-capture use case identified in the roadmap.",
+      "implication": "Do not claim lifecycle or continuity concepts are absent from upstream work; focus on measured BLE/PPS/USB input-capture behavior."
+    },
+    {
+      "id": "zephyr-clock-rfc",
+      "title": "RFC: Proposal for a Precision Clock Subsystem Architecture, issue 76335",
+      "year": 2024,
+      "url": "https://github.com/zephyrproject-rtos/zephyr/issues/76335",
+      "access": "Issue body",
+      "finding": "Proposes layered counters, hardware-assisted timestamping, syntonization, explicit timescales and client adapters.",
+      "implication": "Layering, separate clock domains and hybrid counters are established design ideas."
+    },
+    {
+      "id": "zephyr-per-report",
+      "title": "bt_le_per_adv_sync_recv_info",
+      "url": "https://docs.zephyrproject.org/latest/doxygen/html/structbt__le__per__adv__sync__recv__info.html",
+      "access": "API documentation, identified as 4.5.0-rc3",
+      "finding": "The documented periodic report structure supplies addresses, SID, signal fields and configuration-dependent subevent metadata, but no physical-event hardware timestamp.",
+      "implication": "This particular host callback is not by itself the required capture interface. This is not a claim about every controller or vendor API."
+    },
+    {
+      "id": "zephyr-timeutil",
+      "title": "Zephyr Time Utilities",
+      "url": "https://docs.zephyrproject.org/latest/kernel/timeutil.html",
+      "access": "Current documentation text",
+      "finding": "Existing sync-instant/state utilities align local and reference time with offset and estimated skew.",
+      "implication": "Affine time conversion and time-domain separation are not new."
+    },
+    {
+      "id": "zephyr-old-followup",
+      "title": "Highly accurate synchronized clock distribution for BLE mesh network, issue 22860",
+      "year": 2020,
+      "url": "https://github.com/zephyrproject-rtos/zephyr/issues/22860",
+      "access": "Issue and visible maintainer comment",
+      "finding": "The discussion already considers recording a TX timestamp and distributing it in a later packet.",
+      "implication": "Follow-up publication alone is not a new Zephyr idea; Bluetooth Mesh discussion also differs from PToB periodic-advertising transport."
+    },
+    {
+      "id": "nordic-timesync-2016",
+      "title": "Wireless timer synchronization among nRF5 devices",
+      "year": 2016,
+      "url": "https://devzone.nordicsemi.com/guides/short-range-guides/b/bluetooth-low-energy/posts/wireless-timer-synchronization-among-nrf5-devices",
+      "access": "Vendor article and code snippets",
+      "finding": "Uses high-frequency timers, PPI and proprietary-radio timeslots alongside BLE; identifies oscillator, hardware-capture and chain-delay requirements.",
+      "implication": "Hardware-assisted nanosecond-scale Nordic timer synchronization is longstanding prior art."
+    },
+    {
+      "id": "nordic-timesync-code",
+      "title": "nRF5-ble-timesync-demo",
+      "url": "https://github.com/nordic-auko/nRF5-ble-timesync-demo",
+      "access": "Repository README",
+      "finding": "Contains an NCS sample as well as older nRF5 SDK examples; physical GPIO comparison is part of its test procedure.",
+      "implication": "Include this as an implementation comparator, while distinguishing proprietary timing beacons from BLE periodic PDUs."
+    },
+    {
+      "id": "nordic-connection",
+      "title": "Bluetooth: Connection time synchronization",
+      "url": "https://nrfconnectdocs.nordicsemi.com/ncs/latest/nrf/samples/bluetooth/conn_time_sync/README.html",
+      "access": "Vendor documentation",
+      "finding": "Shares connection-anchor timestamps and counters and demonstrates microsecond-scale scheduled GPIO activity.",
+      "implication": "Event identity and connected BLE timing APIs already exist in the Nordic ecosystem; upstream Zephyr and SoftDevice Controller must be distinguished."
+    },
+    {
+      "id": "nordic-trigger",
+      "title": "Bluetooth: Event Trigger",
+      "url": "https://nrfconnectdocs.nordicsemi.com/ncs/latest/nrf/samples/bluetooth/event_trigger/README.html",
+      "access": "Vendor documentation",
+      "finding": "Provides role-synchronized software or hardware triggers; unscheduled radio events can drop triggers.",
+      "implication": "Scheduled-role activity and actual packet-event timing need separately stated semantics."
+    },
+    {
+      "id": "cheepsync",
+      "title": "CheepSync: A Time Synchronization Service for Resource Constrained Bluetooth Low Energy Advertisers",
+      "year": 2015,
+      "url": "https://arxiv.org/abs/1501.06479",
+      "access": "Author abstract",
+      "finding": "Low-level advertising timestamps and compensation for clock and system effects precede PToB.",
+      "implication": "Advertising-based synchronization with drift compensation is established."
+    },
+    {
+      "id": "bluesync",
+      "title": "BlueSync: Time Synchronization in Bluetooth Low Energy With Energy-Efficient Calculations",
+      "year": "2021 online / 2022 issue",
+      "doi": "10.1109/JIOT.2021.3116921",
+      "url": "https://ieeexplore.ieee.org/document/9555832/",
+      "access": "Indexed publisher abstract; direct publisher page requires a browser verification challenge",
+      "finding": "Beacon-based timing, drift management, low-cost tick adjustment and sub-microsecond reported errors are prior art.",
+      "implication": "Do not claim the first accurate passive BLE software clock or holdover method."
+    },
+    {
+      "id": "maiwald-periodic",
+      "title": "Timing Deviations in Wireless Networks using Bluetooth Periodic Advertising",
+      "year": 2022,
+      "doi": "10.1109/I2MTC48687.2022.9806632",
+      "url": "https://cris.fau.de/publications/269905857/",
+      "access": "Author institution abstract, full paper not obtained",
+      "finding": "Studies simultaneous device reactions to periodic-advertising multicast and reports an 11 microsecond maximum delay in the stated configurations.",
+      "implication": "Periodic-advertising synchronization is prior art; its reaction-time endpoint cannot be ranked directly against software-map PPS RMS."
+    },
+    {
+      "id": "microsync",
+      "title": "MicroSync: Sub-Micro Second Accuracy Wireless Time Synchronization Service",
+      "year": 2024,
+      "doi": "10.1109/ACCESS.2024.3446668",
+      "url": "https://da.lib.kobe-u.ac.jp/da/kernel/0100491658/0100491658.pdf",
+      "access": "Version-of-record PDF text, especially implementation and stated results",
+      "finding": "Combines RTC/HF timers and BLE communication scheduling. Reports high-accuracy MAE 272 ns and SD 319.2 ns at 252.1 microwatts.",
+      "implication": "Hybrid timers and precision/energy scheduling need direct comparison before novelty claims. MAE, SD, RMS and endpoints remain distinct."
+    },
+    {
+      "id": "zhou2026",
+      "title": "Multiprotocol Wireless Timer Synchronization for IoT Systems",
+      "year": 2026,
+      "url": "https://arxiv.org/html/2604.07199v1",
+      "access": "Author preprint full HTML",
+      "finding": "Adapts Nordic's demo on nRF52832, uses MPSL proprietary-radio beacons and PPI, and studies RSSI, connection intervals, traffic and synchronization rate.",
+      "implication": "Timing under BLE traffic is already studied. The new evaluation needs capture correctness, lifecycle transitions, causal fault injection and explicit service availability, not a workload sweep alone."
+    },
+    {
+      "id": "ftsp",
+      "title": "The Flooding Time Synchronization Protocol",
+      "year": 2004,
+      "doi": "10.1145/1031495.1031501",
+      "url": "https://www.isis.vanderbilt.edu/sites/isis.vanderbilt.edu/files/bibcite_files/Maroti_M_11_3_2004_The_Floodi_0.pdf",
+      "access": "Author-hosted paper text excerpts",
+      "finding": "Low-level timestamps, regression, multihop time distribution and root transitions are established.",
+      "implication": "A rooted mesh and causal clock estimation alone do not establish a new contribution."
+    },
+    {
+      "id": "rbs",
+      "title": "Fine-Grained Network Time Synchronization Using Reference Broadcasts",
+      "year": 2002,
+      "url": "https://www.usenix.org/conference/osdi-02/fine-grained-network-time-synchronization-using-reference-broadcasts",
+      "access": "Publisher abstract",
+      "finding": "Uses shared physical broadcast events to remove sender nondeterminism.",
+      "implication": "Separating a physical reference event from packet-delivery latency is established."
+    },
+    {
+      "id": "vht",
+      "title": "High-Resolution, Low-Power Time Synchronization",
+      "year": 2010,
+      "url": "https://people.eecs.berkeley.edu/~prabal/pubs/papers/schmid10vht.pdf",
+      "access": "Author-hosted paper text excerpts",
+      "finding": "Virtual High-resolution Time combines fast active and slow sleeping clocks.",
+      "implication": "A generic hybrid high-resolution counter is not a new paper contribution."
+    },
+    {
+      "id": "flopsync3",
+      "title": "Efficient Abstraction of Clock Synchronization at the Operating System Level",
+      "year": 2023,
+      "doi": "10.4230/OASIcs.NG-RES.2023.4",
+      "url": "https://drops.dagstuhl.de/entities/document/10.4230/OASIcs.NG-RES.2023.4",
+      "access": "Publisher abstract and bibliographic record",
+      "finding": "Provides an RTOS virtual-clock interface and addresses feedback effects of applying correction at the driver level.",
+      "implication": "An OS-wide virtual-clock interface is established; use an explicit raw-counter domain for observations and explain relationships to prior control designs."
+    },
+    {
+      "id": "linux-seq",
+      "title": "Linux sequence counters and sequential locks",
+      "url": "https://cdn.kernel.org/doc/html/latest/locking/seqlock.html",
+      "access": "Kernel documentation",
+      "finding": "Documents reader livelock when a sequence-counter writer is preempted by a retrying reader; try-read and latch approaches already exist.",
+      "implication": "The bounded-attempt adaptation is useful implementation work, not a new synchronization primitive."
+    },
+    {
+      "id": "linux-stamp",
+      "title": "Linux Timestamping",
+      "url": "https://cdn.kernel.org/doc/html/latest/networking/timestamping.html",
+      "access": "Kernel documentation excerpts",
+      "finding": "Describes delayed hardware TX timestamp association with original packets, including sequence/message/domain identity and queues.",
+      "implication": "Event association and delayed correction have extensive precedent outside Zephyr."
+    }
+  ]
+}

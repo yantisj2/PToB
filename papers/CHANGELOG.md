@@ -1,5 +1,20 @@
 # Manuscript history
 
+## 2026-11-01 — Zephyr timing paper approved for public review
+
+- Add the seven-page *Trustworthy Hardware Timestamps in Zephyr: Event
+  Association, Clock Continuity, and Service Availability*, with canonical
+  LaTeX, unchanged reviewed PDF, source identities and primary-source ledger.
+- Record subsequent author approval separately from the preserved preparation
+  receipt and manuscript labels. Link the draft from the research catalogue
+  and repository research section; keep original paper/figure CC BY 4.0 credit
+  to Jonathan Yantis and ordinary metadata/verifier MIT.
+- Check publication identities, citation resolution, all 25 inspected public
+  source identities and the historical V14 archive replay. Preserve 602 nominal
+  opportunities, invalid/expired references and missing witnesses. No native
+  source-ordering rerun, new hardware experiment or firmware qualification is
+  claimed. Comparative hardware work remains proposed; website work is separate.
+
 ## 2026-10-30 — main viability preprint approved for public review
 
 - Publish the approved [17-page viability preprint](ptob-viability-preprint.pdf)

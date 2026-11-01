@@ -1,0 +1,132 @@
+{
+  "schema": 1,
+  "git_revision": "a9ae0294cd8fc5b9c919665094a489708442a49b",
+  "source_files": {
+    "docs/t096/diagnostics.md": {
+      "sha256": "0a627e6c828cd4114c492809cc11329d15e1a222e8bf416ec77ddc6d6c07ba64",
+      "bytes": 96223,
+      "git_revision": "a9ae0294cd8fc5b9c919665094a489708442a49b"
+    },
+    "evidence/v14/2026-10-12/README.md": {
+      "sha256": "fed662aa81e3e36fcbe90627df0e7c4e53dc7c59a5a3600617cc2e7fd5271361",
+      "bytes": 6365,
+      "git_revision": "a9ae0294cd8fc5b9c919665094a489708442a49b"
+    },
+    "evidence/v14/2026-10-12/summary.json": {
+      "sha256": "a4ecdefdd9e8f08f266a15ce3ab09bc5419d535cbf02633bd6d7fcd10aca4e4b",
+      "bytes": 2382,
+      "git_revision": "a9ae0294cd8fc5b9c919665094a489708442a49b"
+    },
+    "firmware/t096/cmake/controller-radio-fixes.json": {
+      "sha256": "a17283b7b576ce63659b9b76ec60892111685aa2d62e222dd19cc14dec98c28f",
+      "bytes": 1505,
+      "git_revision": "a9ae0294cd8fc5b9c919665094a489708442a49b"
+    },
+    "firmware/t096/cmake/ticker-backport.json": {
+      "sha256": "3171c1d51ac7fd4d795c2cf118afdf61c60ca3549ed83aaffdaf9ba4ee36a37c",
+      "bytes": 915,
+      "git_revision": "a9ae0294cd8fc5b9c919665094a489708442a49b"
+    },
+    "firmware/t096/dependencies.lock.json": {
+      "sha256": "911e320b4d0bd5361735ce393ca5b6ad8dcdff74d181e35482f5dea36853ee28",
+      "bytes": 2413,
+      "git_revision": "a9ae0294cd8fc5b9c919665094a489708442a49b"
+    },
+    "firmware/t096/include/capture.h": {
+      "sha256": "661bba968e8fd8ebb8901ee3220afab0b5cd6a966708bd742a6b4d39afa0bac1",
+      "bytes": 1429,
+      "git_revision": "a9ae0294cd8fc5b9c919665094a489708442a49b"
+    },
+    "firmware/t096/include/gm7_clock.h": {
+      "sha256": "044497720a275d7e9145b91c9e46ea668ef89e4d0d0bb11c9c3d38f6354a91bf",
+      "bytes": 1454,
+      "git_revision": "a9ae0294cd8fc5b9c919665094a489708442a49b"
+    },
+    "firmware/t096/include/radio_capture.h": {
+      "sha256": "47da8db402512dbd5ea22d6a172e512bc3c47ea728c5fc7f730662e539fb050d",
+      "bytes": 3630,
+      "git_revision": "a9ae0294cd8fc5b9c919665094a489708442a49b"
+    },
+    "firmware/t096/include/timing_events.h": {
+      "sha256": "f3ebf91bad1e57ea73f1b61b09d622ddfe5545ee7f6f275ccaf09e0abcc55a60",
+      "bytes": 2099,
+      "git_revision": "a9ae0294cd8fc5b9c919665094a489708442a49b"
+    },
+    "firmware/t096/src/capture.c": {
+      "sha256": "e7893222219552f27c09c354336cd1a9abaa8e0ee809aecfc22154ef440b0e90",
+      "bytes": 17252,
+      "git_revision": "a9ae0294cd8fc5b9c919665094a489708442a49b"
+    },
+    "firmware/t096/src/gm7_clock.c": {
+      "sha256": "49c590d31229235ad5f20fbfc140261209b01e065402031750309eb7b6d5c8d1",
+      "bytes": 5139,
+      "git_revision": "a9ae0294cd8fc5b9c919665094a489708442a49b"
+    },
+    "firmware/t096/src/gm7_service.c": {
+      "sha256": "6ef0240d0c4dd48b9af44242275a9596e2dea1855a9a64866aa609394b89f885",
+      "bytes": 106385,
+      "git_revision": "a9ae0294cd8fc5b9c919665094a489708442a49b"
+    },
+    "firmware/t096/src/radio_capture.c": {
+      "sha256": "24d72781a21e851aed8251c7a4b6eeacce131e949314f6a5f81db8368aa2c49c",
+      "bytes": 8820,
+      "git_revision": "a9ae0294cd8fc5b9c919665094a489708442a49b"
+    },
+    "firmware/t096/src/timing_events.c": {
+      "sha256": "8d8070153760f13f0c57e819ab6c308e6d9cbc529ed684a13ac209569fd374a3",
+      "bytes": 5023,
+      "git_revision": "a9ae0294cd8fc5b9c919665094a489708442a49b"
+    },
+    "firmware/t096/tests/gm7_clock_test.c": {
+      "sha256": "3665c6a9436fe480124d824351c26a30aa7e0ca717c11b02fb3eb877901139f1",
+      "bytes": 2107,
+      "git_revision": "a9ae0294cd8fc5b9c919665094a489708442a49b"
+    },
+    "firmware/t096/tests/gm7_source_order_test.c": {
+      "sha256": "8114a308bcc86c87ab7574e0f5ee74918a3c66d32ab608628e4921b1db88adcf",
+      "bytes": 3428,
+      "git_revision": "a9ae0294cd8fc5b9c919665094a489708442a49b"
+    },
+    "firmware/t096/tools/gm7_source_order_tests.py": {
+      "sha256": "c3c0b716920d06367aaa5c4cb0480e550871f42e45914d5d5e5db35a40a2299b",
+      "bytes": 3952,
+      "git_revision": "a9ae0294cd8fc5b9c919665094a489708442a49b"
+    },
+    "papers/ptob-esp32s3-low-level-timing.tex": {
+      "sha256": "cd51bb204b8d72e719ea58662c55253f8c46ade500e52c1ca8a4b3a9cb63ea57",
+      "bytes": 30371,
+      "git_revision": "a9ae0294cd8fc5b9c919665094a489708442a49b"
+    },
+    "papers/ptob-v14-preprint.tex": {
+      "sha256": "bea2c7ea55b2842296871de9073554e0ad0bca84b3780afd966145b263365abe",
+      "bytes": 139879,
+      "git_revision": "a9ae0294cd8fc5b9c919665094a489708442a49b"
+    },
+    "papers/ptob-viability-preprint.tex": {
+      "sha256": "100264521e6d551761bd6f424bd007d7948f984bb544dd063e2c1e360f081970",
+      "bytes": 67801,
+      "git_revision": "a9ae0294cd8fc5b9c919665094a489708442a49b"
+    },
+    "papers/usb-macos-time-transfer-preprint.tex": {
+      "sha256": "b4f21857a9c2842b702da7f78510872d428e3b3749e1d2a7d207ea3817e2d49c",
+      "bytes": 35874,
+      "git_revision": "a9ae0294cd8fc5b9c919665094a489708442a49b"
+    },
+    "firmware/t096/protocol/gm7_bridge.c": {
+      "sha256": "f32036e11f7337b9855c63ba99f3b90ba4f316ea8753cfe08f8f93c3b103fa97",
+      "bytes": 1446,
+      "git_revision": "a9ae0294cd8fc5b9c919665094a489708442a49b"
+    },
+    "firmware/t096/protocol/gm7_bridge.h": {
+      "sha256": "39e9cff799c706012000ee9df25f77970aa107773f120ee3583c313303240def",
+      "bytes": 777,
+      "git_revision": "a9ae0294cd8fc5b9c919665094a489708442a49b"
+    },
+    "firmware/t096/src/gm7_source.c": {
+      "sha256": "069daa2a603c6ba2393e14a7a1e6611b678eae17460062b5381b5aede4331a94",
+      "bytes": 11469,
+      "git_revision": "a9ae0294cd8fc5b9c919665094a489708442a49b"
+    }
+  },
+  "hardware_operated": false
+}

@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "license": "MIT",
+  "title": "Trustworthy Hardware Timestamps in Zephyr: Event Association, Clock Continuity, and Service Availability",
+  "author": "Jonathan Yantis",
+  "edition_date": "2026-11-01",
+  "review_status": "APPROVED_FOR_PUBLIC_DRAFT_REVIEW",
+  "page_count": 7,
+  "bibliography_entries": 21,
+  "implementation_revision": "a9ae0294cd8fc5b9c919665094a489708442a49b",
+  "selected_review_files": {
+    "papers/zephyr-timing/main.tex": "main.tex",
+    "papers/zephyr-timing/main.pdf": "ptob-zephyr-hardware-timestamps-review.pdf",
+    "papers/zephyr-timing/source-identity.json": "source-identity.json",
+    "papers/zephyr-timing/source-ledger.json": "source-ledger.json",
+    "papers/zephyr-timing/preparation.json": "edition.json"
+  },
+  "selection_policy": "Five explicitly selected review files copied unchanged; no authoring logs, raw lab data, private workspace, firmware images or Git history imported. Inspected public sources remain available in the recorded PToB revision.",
+  "compiler": {
+    "engine": "Tectonic",
+    "version": "0.17.0",
+    "bundle": "default_bundle_v33",
+    "terminal_compile": "PASS",
+    "native_editor_compile": "PASS",
+    "warnings": false
+  },
+  "preparation_checks": {
+    "page_range": "PASS_7_WITHIN_5_TO_8",
+    "citations": "PASS_ALL_21_RESOLVE",
+    "link_annotations": 63,
+    "private_path_and_placeholder_scan": "PASS",
+    "visual": "ALL_7_PAGES_RENDERED_AND_INSPECTED_FINAL_CHANGED_PAGES_RECHECKED",
+    "historical_archive_replay": "PASS",
+    "source_order_native_regression": "NOT_RERUN",
+    "hardware_experiment": "NOT_PERFORMED"
+  },
+  "files": [
+    {
+      "path": "papers/zephyr-timing/main.tex",
+      "bytes": 31358,
+      "sha256": "bd3c6b9c48014f7d0eff975ed272c6096c0917606278bcb2efa184f7ff4b66f7",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "papers/zephyr-timing/main.pdf",
+      "bytes": 100904,
+      "sha256": "71e5973f99190b1539105239fe1ba446cef4fbed43fa420b3325b376e25cc843",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "papers/zephyr-timing/source-identity.json",
+      "bytes": 5693,
+      "sha256": "7f79baedb0c427d186ebca58adeb3570f1b06628f4f4d55dc9bcf5c20124d5e5",
+      "license": "MIT"
+    },
+    {
+      "path": "papers/zephyr-timing/source-ledger.json",
+      "bytes": 12965,
+      "sha256": "1aa5a8c4ae154b15256a2ed10843450c315cb92fb5a42971dbbc0f6647c91151",
+      "license": "MIT"
+    },
+    {
+      "path": "papers/zephyr-timing/preparation.json",
+      "bytes": 2976,
+      "sha256": "0d05f63433245bc56cf1e7f1a4b6fbd98cdc98dd65494ea7754939c10da24098",
+      "license": "MIT"
+    },
+    {
+      "path": "papers/zephyr-timing/README.md",
+      "bytes": 4073,
+      "sha256": "a6b68cd975e304e9a1b7931deb09db137bde6f79c3e488c71b1e0331323e7166",
+      "license": "MIT"
+    },
+    {
+      "path": "tools/verify_zephyr_timing_paper.py",
+      "bytes": 4931,
+      "sha256": "0971c652c272271a2c304d63dadd6488da44c3504ba1e65ba44c71c571d18c79",
+      "license": "MIT"
+    }
+  ],
+  "paper_license": "CC-BY-4.0",
+  "metadata_documentation_and_verifier_license": "MIT",
+  "cited_and_inspected_sources": "Retain their existing terms; source identity is not a license grant.",
+  "verification_commands": [
+    "python3 tools/verify_zephyr_timing_paper.py",
+    "python3 tools/verify_zephyr_timing_paper.py --replay"
+  ],
+  "measurement_scope": "Implementation/prior-art account and replay of historical V14 relative-PPS evidence; no new hardware comparison or current-firmware/UTC/output qualification."
+}

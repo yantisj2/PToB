@@ -87,6 +87,13 @@ implementing a BLE mesh role. A general GATT time-client service remains planned
 
 ## Research and review
 
+**Approved public review draft, 1 November 2026:**
+[Trustworthy Hardware Timestamps in Zephyr](papers/zephyr-timing/main.pdf)
+examines event association, counter continuity and source publication ordering
+in a seven-page implementation and prior-art study for Zephyr engineers.
+[LaTeX, source records and verification](papers/zephyr-timing/README.md)
+accompany the paper. Comparative hardware evaluation remains proposed.
+
 [Read the draft papers](papers/README.md), [inspect the evidence](evidence/README.md),
 or follow the [architectural background](docs/V12_TO_R2.md). Paper editions,
 wire profiles and current firmware versions have separate identities. Historical
