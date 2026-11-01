@@ -325,32 +325,36 @@ static int __attribute__((noinline)) receive_event(const struct r2_lora_hw_event
  }
  return 0;
 }
+static int __attribute__((noinline)) tx_complete(const struct r2_lora_hw_event *h,uint64_t event){
+ unsigned kind=owner.tx_kind;owner.tx_kind=0;if(!kind)return -ESTALE;
+ k_spinlock_key_t audit_key=k_spin_lock(&lock);
+ audits[kind-1]=(struct lp_audit){.tick=h->tick,.epoch=h->capture_epoch,.start_us=event,.end_us=h->end_local_us,
+ .cursor=role.tx.reservation.cursor+(kind==LP_FOLLOW?1:0),.phy=owner.phy,.channel=owner.channel,.valid=true};
+ k_spin_unlock(&lock,audit_key);
+ inc(&owner.sent[kind-1]);owner.last_end_us=h->end_local_us;
+ if(kind==LP_META||kind==LP_DISC){owner.stage=role.tx.reservation.has_pair?1:0;return 0;}
+ if(!lp_tx_confirm(&role.tx.core,kind,h->end_local_us)){lp_tx_fault(&role.tx.core);owner.stage=0;return 0;}
+ if(kind==LP_SYNC){
+  bool mapped=false;k_spinlock_key_t key=k_spin_lock(&lock);preserve();
+  /* owner.tx_kind was cleared for completion: also map from still-live
+   * original formulas if no earlier publisher preserved it. */
+  if(role.tx.captured.sequence&&role.tx.edge.tick==h->tick&&role.tx.edge.capture_epoch==h->capture_epoch){role.tx.sync_ns=role.tx.captured.event_ns;mapped=true;}
+  else for(unsigned i=0;i<2;i++){struct rc8_correction c;
+   if(rc8_export_event(&c,&role.tx.maps[i],1,(struct rc8_event){.tick=h->tick,.capture_epoch=h->capture_epoch,.kind=RC8_EVENT_TX_START})){role.tx.sync_ns=c.event_ns;mapped=true;break;}}
+  k_spin_unlock(&lock,key);
+  if(!mapped){inc(&owner.missing_map);lp_tx_fault(&role.tx.core);owner.stage=0;return 0;}
+  owner.last_sync_us=h->end_local_us;owner.stage=2;
+ }else owner.stage=0;
+ return 0;
+}
 static int __attribute__((noinline)) process_event(uint64_t now){
  struct r2_lora_hw_event h;int rc=r2_lora_hw_take(&h);if(rc<=0)return rc;
  uint64_t event;if(!physical(&h,&event)){inc(&owner.bad);if(transmitter&&role.tx.core.durable.pending)lp_tx_fault(&role.tx.core);return 0;}
  if(h.kind==R2_LORA_HW_RX_DONE){owner.listening=false;rc=receive_event(&h,event,mono());
   if(!rc&&!owner.listening){rc=r2_lora_hw_rx_rearm();if(!rc)owner.listening=true;}return rc;}
- unsigned kind=owner.tx_kind;owner.tx_kind=0;if(!kind)return -ESTALE;
- k_spinlock_key_t audit_key=k_spin_lock(&lock);
- audits[kind-1]=(struct lp_audit){.tick=h.tick,.epoch=h.capture_epoch,.start_us=event,.end_us=h.end_local_us,
- .cursor=role.tx.reservation.cursor+(kind==LP_FOLLOW?1:0),.phy=owner.phy,.channel=owner.channel,.valid=true};
- k_spin_unlock(&lock,audit_key);
- inc(&owner.sent[kind-1]);owner.last_end_us=h.end_local_us;
- if(kind==LP_META||kind==LP_DISC){owner.stage=role.tx.reservation.has_pair?1:0;return 0;}
- if(!lp_tx_confirm(&role.tx.core,kind,h.end_local_us)){lp_tx_fault(&role.tx.core);owner.stage=0;return 0;}
- if(kind==LP_SYNC){
-  bool mapped=false;k_spinlock_key_t key=k_spin_lock(&lock);preserve();
-  /* owner.tx_kind was cleared for completion: also map from still-live
-   * original formulas if no earlier publisher preserved it. */
-  if(role.tx.captured.sequence&&role.tx.edge.tick==h.tick&&role.tx.edge.capture_epoch==h.capture_epoch){role.tx.sync_ns=role.tx.captured.event_ns;mapped=true;}
-  else for(unsigned i=0;i<2;i++){struct rc8_correction c;
-   if(rc8_export_event(&c,&role.tx.maps[i],1,(struct rc8_event){.tick=h.tick,.capture_epoch=h.capture_epoch,.kind=RC8_EVENT_TX_START})){role.tx.sync_ns=c.event_ns;mapped=true;break;}}
-  k_spin_unlock(&lock,key);
-  if(!mapped){inc(&owner.missing_map);lp_tx_fault(&role.tx.core);owner.stage=0;return 0;}
-  owner.last_sync_us=h.end_local_us;owner.stage=2;
- }else owner.stage=0;
- return 0;
+ return tx_complete(&h,event);
 }
+
 static int receive_step(uint64_t now){
  struct lp_rx *r=&role.rx;lp_rx_expire(r,now);
  /* Return to DTS at EVERY predicted control, even while the fit is healthy. */

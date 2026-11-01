@@ -71,21 +71,26 @@ int lp_decode(struct lp_packet *p,const uint8_t *w,size_t n,const uint8_t contex
  int rc=k==LP_META?r2_group_mac(wanted,g,domains[k-1],w,body):small_mac(wanted,g,domains[k-1],context,w,body);
  if(rc)return rc;
  uint8_t diff=0;for(unsigned i=0;i<16;i++)diff|=wanted[i]^w[body+i];if(diff)return -EACCES;
- struct lp_packet q={.kind=(uint8_t)k,.schedule=w[3],.has_pair=!!(w[2]&0x80),.time_valid=!!(w[2]&0x40)};
+ /* Reject canonical-shape errors before writing the caller's output. Avoid
+  * a second full packet on the native2KiB receiver/crypto call chain. */
+ if(k==LP_META){uint8_t canonical[4];r2_tz_put(canonical,r2_tz_get(w+80));
+  if(memcmp(canonical,w+80,4)||any(w+86,10))return -EINVAL;}
+ if(k==LP_DISC&&any(w+10,2))return -EINVAL;
+ p->kind=(uint8_t)k;p->schedule=w[3];p->has_pair=!!(w[2]&0x80);p->time_valid=!!(w[2]&0x40);
  if(k==LP_META){
-  q.scope=(struct lp_scope){.emitter=r2_group_get(w+4,8),.boot=r2_group_get(w+12,8),.root=r2_group_get(w+20,8),
+  p->scope=(struct lp_scope){.emitter=r2_group_get(w+4,8),.boot=r2_group_get(w+12,8),.root=r2_group_get(w+20,8),
    .root_boot=r2_group_get(w+28,8),.parent=r2_group_get(w+36,8),.parent_boot=r2_group_get(w+44,8),
    .epoch=r2_group_get(w+52,4),.stream=r2_group_get(w+56,4),.seed=r2_group_get(w+60,4)};
-  q.cursor=r2_group_get(w+64,4);q.serial=r2_group_get(w+68,4);q.utc_ns=r2_group_get(w+72,8);
-  q.tz=r2_tz_get(w+80);uint8_t tz_wire[4];r2_tz_put(tz_wire,q.tz);if(memcmp(tz_wire,w+80,4))return -EINVAL;
-  q.delay_10ms=r2_group_get(w+84,2);if(any(w+86,10))return -EINVAL;
- }else{q.cursor=r2_group_get(w+4,4);
-  if(k==LP_DISC){q.delay_10ms=r2_group_get(w+8,2);if(any(w+10,2))return -EINVAL;}
-  if(k==LP_FOLLOW)q.utc_ns=r2_group_get(w+8,8);
+  p->cursor=r2_group_get(w+64,4);p->serial=r2_group_get(w+68,4);p->utc_ns=r2_group_get(w+72,8);
+  p->tz=r2_tz_get(w+80);p->delay_10ms=r2_group_get(w+84,2);
+ }else{p->cursor=r2_group_get(w+4,4);
+  if(k==LP_DISC)p->delay_10ms=r2_group_get(w+8,2);
+  if(k==LP_FOLLOW)p->utc_ns=r2_group_get(w+8,8);
  }
- if(!valid(&q))return -EINVAL;
- *p=q;return 0;
+ if(!valid(p)){memset(p,0,sizeof *p);return -EINVAL;}
+ return 0;
 }
+
 int lp_hop_order(uint8_t out[64],uint32_t seed){
  if(!out||!seed)return -EINVAL;
  for(unsigned i=0;i<64;i++)out[i]=(uint8_t)i;
