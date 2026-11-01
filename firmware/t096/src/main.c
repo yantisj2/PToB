@@ -852,7 +852,11 @@ int main(void)
         } else if(r.op==R2_LORA_CONTROL){
           if(r.seconds){rc=maintenance.phase==R2_IDLE&&platform_ready?0:-EACCES;if(!rc)r2_lora_request(r.nonce!=0);}
         } else if(r.op==R2_LORA_RTT){
+#ifdef R2_LORA_PASSIVE_FAST
+          rc=-ENOTSUP;
+#else
           if(r.seconds){rc=maintenance.phase==R2_IDLE&&platform_ready?0:-EACCES;if(!rc)r2_lora_rtt_lab(r.nonce!=0);}
+#endif
 #endif
         } else if(r.op==R2_GM_YIELD) {
 #ifdef R2_GM7_NATIVE

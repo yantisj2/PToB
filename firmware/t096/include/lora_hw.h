@@ -16,7 +16,19 @@ struct r2_lora_hw_event {
  int8_t snr_quarter_db;
  bool packet_status_valid;
  uint8_t length,frame[R2_LORA_HW_BYTES];
+#ifdef R2_LORA_PASSIVE_FAST
+ /* TX DIO TxDone -> TIMER4 CAPTURE1, independent of callback service.
+  * Relative to FEM timer enable, not a precision UTC/capture timestamp. */
+ uint32_t end_since_enable_us;
+ uint64_t end_local_us; /* Captured TxDone projected onto coarse monotonic time. */
+#endif
 };
+#ifdef R2_LORA_PASSIVE_FAST
+enum r2_lora_passive_phy {R2_LORA_DTS=1,R2_LORA_FHSS=2};
+/* Idle-only retune. DTS uses captured RxDone; FHSS keeps HeaderValid.
+ * No power/FEM setting changes and no implicit transmit/rearm. */
+int r2_lora_hw_passive_configure(enum r2_lora_passive_phy,unsigned channel);
+#endif
 struct r2_lora_hw_ack {
  bool dma_retired,radio_quiescent,fem_off,capture_released,fault;
 };

@@ -137,6 +137,30 @@ Use `--registry artifacts/local/registry.json` to compile your deployment’s sh
 Keep the real map ignored, alongside local enrollment; the receipt records its
 hash and preserves a private build snapshot.
 
+## Passive LoRa fast laboratory variant
+
+Add `--lora-passive-fast` and an exact `--lora-transmitter-factory` binding to a
+normal GM/RC build. This selects the independent passive v2 service instead of
+RC8 wire5. Every device boots LoRa off. `lora 01` selects a bounded15-minute
+`LAB_FAST_4_12` session; `lora 00` closes it. RTT commands are unsupported.
+The source must be its own qualified GNSS-backed GM; BLE source forwarding is
+unsupported. Existing GM/RC and BLE controls remain available.
+
+The executable ends before0xd7000, with32KiB of app-owned tail reserved for a
+factory-bound persistent airtime/cursor ledger. Initial ledger provisioning is
+an explicit exact-device installer operation after checking that range is
+unused; it is not a boot fallback. Existing state must be preserved on updates.
+TX waits an actual RF-silent hour after every boot before conservative time
+rebasing. Neither reboot nor mode/source changes reseed the cursor or mint
+credit. Inspect the variant binding, partition, complete linked RAM budget and
+stack evidence before installation. Enrolled candidates remain ignored locally.
+
+The [passive contract](../../protocol/lora_passive_v2/README.md) defines4/12s
+cadence,6/18s expiry, the30% lab cap and measurement limits. Lab tests cover
+scheduling, relative precision and timers. Range and actual slow-rate behavior
+require later field/slow acceptance; a software profile does not certify RF or
+absolute UTC accuracy.
+
 ## Optional LoRa configuration
 
 Normal GM/RC builds include the [RC8 RF-event wire5 integration](../../protocol/rc8/README.md).

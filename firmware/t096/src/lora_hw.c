@@ -69,6 +69,9 @@ static uint8_t task_channel;
 static bool resources, capture_owned, receive_mode;
 /* Init failures are permanent faults, but even a partial owner is inhibited. */
 static uint8_t resource_flags;
+#ifdef R2_LORA_PASSIVE_FAST
+static uint8_t passive_phy;
+#endif
 #define HAVE_CUTOFF_CHANNEL 1u
 #define HAVE_CUTOFF_TIMER 2u
 #define HAVE_BUSY_TRIGGER 4u
@@ -388,6 +391,9 @@ static int mask_irq(bool tx) {
    * win over success. PreambleDetected is acquisition-dependent; LoRa has
    * no SyncWordValid IRQ (that event is GFSK-only). */
   uint16_t flags = tx ? 0x201 : 0x272;
+#ifdef R2_LORA_PASSIVE_FAST
+  if(!tx&&passive_phy==R2_LORA_DTS)flags=0x262; /* DIO rises at physical RxDone. */
+#endif
   uint8_t a[] = {flags >> 8, flags, flags >> 8, flags, 0, 0, 0, 0};
   return command(0x08, a, sizeof(a));
 }
@@ -514,7 +520,13 @@ static int init_resources(void) {
           nrfx_gpiote_in_event_address_get(&gpiote, NRF_GPIO_PIN_MAP(0,21)),
           nrfx_gpiote_clr_task_address_get(&gpiote, CSD_PIN)) != NRFX_SUCCESS)
     return -EIO;
-  if (nrfx_ppi_channel_fork_assign(done_channel, 0) != NRFX_SUCCESS)
+  if (nrfx_ppi_channel_fork_assign(done_channel,
+#ifdef R2_LORA_PASSIVE_FAST
+          nrfx_timer_task_address_get(&cutoff,NRF_TIMER_TASK_CAPTURE1)
+#else
+          0
+#endif
+          ) != NRFX_SUCCESS)
     return -EIO;
   resources = true;
   return 0;
@@ -528,6 +540,9 @@ int r2_lora_hw_start(uint32_t gen, bool receive) {
     return atomic_get(&fault);
   if (atomic_get(&running) || atomic_get(&dma_inflight) || capture_owned)
     return -EBUSY;
+#ifdef R2_LORA_PASSIVE_FAST
+  passive_phy=0; /* Explicit retune is required after every new owner. */
+#endif
   struct r2_capture current;
   if (!r2_capture_now(&current))
     return -EAGAIN;
@@ -689,10 +704,33 @@ int r2_lora_hw_idle(void) {
   if (!rc) { nrfx_gpiote_clr_task_trigger(&gpiote,CSD_PIN);rc=gpio_pin_set_dt(&ctx,0); }
   return rc && rc!=-EAGAIN && rc!=-ECANCELED?fail(rc):rc;
 }
+#ifdef R2_LORA_PASSIVE_FAST
+int r2_lora_hw_passive_configure(enum r2_lora_passive_phy phy,unsigned channel){
+  if((phy!=R2_LORA_DTS&&phy!=R2_LORA_FHSS)||channel>=64||(phy==R2_LORA_DTS&&channel))return -EINVAL;
+  if(!atomic_get(&running)||atomic_get(&fault))return -ECANCELED;
+  if(atomic_get(&phase)!=1||atomic_get(&dma_inflight)||atomic_get(&latched))return -EBUSY;
+  /* SX1262 SetRfFrequency units=32MHz/2^25; round nearest. The regional
+   * 64-channel raster is902.4MHz+400kHz*i; rendezvous is915MHz. */
+  uint64_t hz=phy==R2_LORA_DTS?UINT64_C(915000000):UINT64_C(902400000)+400000*channel;
+  uint32_t word=(uint32_t)((hz*(UINT64_C(1)<<25)+16000000)/32000000);
+  uint8_t frequency[]={(uint8_t)(word>>24),(uint8_t)(word>>16),(uint8_t)(word>>8),(uint8_t)word};
+  const uint8_t mod[]={phy==R2_LORA_DTS?12:7,phy==R2_LORA_DTS?6:10,2,0};
+  int rc=command(0x86,frequency,sizeof frequency);
+  if(!rc)rc=command(0x8b,mod,sizeof mod);
+  if(rc)return rc==-ECANCELED?rc:fail(rc);
+  passive_phy=(uint8_t)phy;return 0;
+}
+#endif
 uint32_t r2_lora_hw_budget_us(size_t n) {
   if (!n || n > R2_LORA_HW_BYTES)
     return 0;
+#ifdef R2_LORA_PASSIVE_FAST
+  if(passive_phy==R2_LORA_DTS)return n==28?454416:n==112?1142544:0;
+  if(passive_phy==R2_LORA_FHSS)return n==24?231951:n==32?268814:0;
+  return 0; /* This image cannot accidentally transmit the old wire/PHY. */
+#else
   return n <= 80 ? TIMING_CUTOFF_US : DIAGNOSTIC_CUTOFF_US;
+#endif
 }
 int r2_lora_hw_tx_before(const uint8_t *bytes, size_t n, uint32_t gen,
                        uint64_t latest_finish) {
@@ -739,7 +777,14 @@ int r2_lora_hw_tx_before(const uint8_t *bytes, size_t n, uint32_t gen,
   }
   /* SX1262 RTC ticks=15.625us. Timing340ms; diagnostics420ms, within
    * their independent360/450ms hardware FEM cutoffs respectively. */
+#ifdef R2_LORA_PASSIVE_FAST
+  uint32_t modem_us=budget-2000;
+  uint32_t timeout_ticks=(modem_us*64u+999u)/1000u;
+  const uint8_t timeout[]={(uint8_t)(timeout_ticks>>16),(uint8_t)(timeout_ticks>>8),(uint8_t)timeout_ticks};
+#else
+  uint32_t modem_us=n<=80?340000u:420000u;
   const uint8_t timeout[] = {0, n <= 80 ? 0x55 : 0x69, 0};
+#endif
   if (!rc)
     rc = command(0x83, timeout, sizeof(timeout));
   /* Linearize software retirement against the cutoff IRQ. No SPI, waits or
@@ -749,7 +794,7 @@ int r2_lora_hw_tx_before(const uint8_t *bytes, size_t n, uint32_t gen,
   /* The command-commit upper bound comes from GPIO NSS release, not worker
    * wakeup. A timely command remains timely after BLE preempts this thread.
    * Missing/late commit evidence still aborts; no timer is rearmed here. */
-  uint32_t launch_margin=budget-(n<=80?340000u:420000u);
+  uint32_t launch_margin=budget-modem_us;
   if(!rc&&!atomic_get(&fault)&&atomic_get(&running)&&
      atomic_get(&phase)==4&&!atomic_get(&latched)&&
      (!wd.command_committed ||
@@ -824,6 +869,13 @@ int r2_lora_hw_take(struct r2_lora_hw_event *out) {
                                      .local_us = edge_us,
                                      .generation = edge_generation};
     if (state == 3 && flags == 1) {
+#ifdef R2_LORA_PASSIVE_FAST
+      out->end_since_enable_us=nrfx_timer_capture_get(&cutoff,NRF_TIMER_CC_CHANNEL1);
+      if(!out->end_since_enable_us||out->end_since_enable_us>wd.launch_budget)return fail(-ESTALE);
+      uint64_t observed=now_us();uint32_t since=(uint32_t)((uint32_t)observed-wd.launch_us);
+      if(since>2000000u||since<out->end_since_enable_us||observed<since)return fail(-ESTALE);
+      out->end_local_us=observed-since+out->end_since_enable_us;
+#endif
       out->kind = R2_LORA_HW_TX_DONE;
       count(&counters.tx_done);
     } else if (state == 2 && flags == 0x10) {
@@ -837,7 +889,13 @@ int r2_lora_hw_take(struct r2_lora_hw_event *out) {
       const uint8_t standby[]={0};
       rc=command(0x80,standby,sizeof standby);
       if(!rc){count(&counters.crc_bad);rc=-EBADMSG;}
-    } else if (state == 2 && flags == 0x12) {
+    } else if (state == 2 && (
+#ifdef R2_LORA_PASSIVE_FAST
+                (passive_phy==R2_LORA_DTS?flags==2:flags==0x12)
+#else
+                flags==0x12
+#endif
+                )) {
       rc = command(0x13, dummy, sizeof(dummy));
       if (!rc && !status_ok(dma_rx[1]))
         rc = -EIO;

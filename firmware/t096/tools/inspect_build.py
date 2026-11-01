@@ -46,6 +46,9 @@ def inspect(out,allow_development=False):
     dc=r['profile']=='DC'
     pc=r['profile']=='PC'
     gm7=r.get('gm7_native',False)
+    passive=r.get('lora_passive_fast',False)
+    require(type(passive) is bool and (not passive or gm7 and not(dc or pc)), 'Invalid passive variant')
+    executable_end=0xd7000 if passive else 0xdf000
     require(type(gm7) is bool and not (gm7 and (dc or pc)),'Invalid GM7 profile selection')
     require((r['artifact_class']=='PTOB_T096_DC1' if dc else r['artifact_class']=='PTOB_T096_PC1' if pc else r['artifact_class']=='PTOB_T096_RC7' and r['profile'] in ('GM','RC')) and r['usb_source_stream'] is True,'Unknown profile')
     require(r['status']=='BUILD_COMPLETE_PHYSICAL_UNKNOWN' or allow_development and r['status']=='DEVELOPMENT_NOT_FLASHABLE','Unreviewable build')
@@ -57,18 +60,18 @@ def inspect(out,allow_development=False):
     require(version is not None and version[1]==r['version'],'Receipt/application version mismatch')
     require(hashlib.sha256(json.dumps(r['sources'],sort_keys=True,separators=(',',':')).encode()).hexdigest()==r['source_sha256'],'Source binding')
     image=out/'t096.uf2';verify(image,0x26000)
-    data=image.read_bytes();require(0x26000+len(data)//512*256<=0xdf000,'UF2 enters credential reservation')
+    data=image.read_bytes();require(0x26000+len(data)//512*256<=executable_end,'UF2 enters credential reservation')
     payload=b''.join(data[i+32:i+288] for i in range(0,len(data),512))
     binary=(out/'target/zephyr/zephyr.bin').read_bytes()
     require(payload[:len(binary)]==binary and all(x==0 for x in payload[len(binary):]),'UF2/BIN mismatch')
     flash_end=0;ram_end=0;allocations={};ui_mutable_bytes=0;linked_names=set()
-    lora_display_mutable={name:0 for name in ('main.c','ui_service.c','lora_service.c','lora_hw.c')}
+    lora_display_mutable={name:0 for name in (('main.c','ui_service.c','lora_passive_service.c','lora_hw.c') if passive else ('main.c','ui_service.c','lora_service.c','lora_hw.c'))}
     with (out/'target/zephyr/zephyr.elf').open('rb') as f:
         elf=ELFFile(f)
         for seg in elf.iter_segments():
             if seg['p_type']!='PT_LOAD':continue
             if seg['p_filesz']:
-                require(0x26000<=seg['p_paddr'] and seg['p_paddr']+seg['p_filesz']<=0xdf000,'ELF load bounds')
+                require(0x26000<=seg['p_paddr'] and seg['p_paddr']+seg['p_filesz']<=executable_end,'ELF load bounds')
                 flash_end=max(flash_end,seg['p_paddr']+seg['p_filesz'])
             if seg['p_vaddr']>=0x20000000 and seg['p_memsz']:
                 require(0x20002000<=seg['p_vaddr'] and seg['p_vaddr']+seg['p_memsz']<=0x20040000,'ELF RAM bounds')
@@ -120,10 +123,10 @@ def inspect(out,allow_development=False):
     lora_stage2_added=max(0,sum(lora_display_mutable.values())-23795)
     if lora_stage2_allowance:
         require(lora_stage2_added<=lora_stage2_allowance,'LoRa RTT/TZ exceeds512B added mutable state')
-        require({'rc8_probe_encode','rc8_probe_decode','r2_lora_hw_idle','r2_lora_tz_publish'}<=linked_names,'Missing LoRa RTT/TZ integration')
+        require(({'lp_encode','lp_decode','lp_tx_reserve','lp_rx_follow','lp_store_save','r2_lora_hw_passive_configure','r2_lora_shadow_publish'} if passive else {'rc8_probe_encode','rc8_probe_decode','r2_lora_hw_idle','r2_lora_tz_publish'})<=linked_names,'Missing selected LoRa integration')
     lora_display_added=max(0,sum(lora_display_mutable.values())-23606)
     if lora_display_allowance:
-        require({'r2_lora_name_publish','rc8_name_encode','rc8_name_decode'}<=linked_names,'Missing authenticated LoRa display metadata')
+        require(({'r2_lora_name_publish','lp_context'} if passive else {'r2_lora_name_publish','rc8_name_encode','rc8_name_decode'})<=linked_names,'Missing authenticated LoRa metadata')
         require(all(lora_display_mutable.values()),'Missing linked LoRa display allocation accounting')
         require(lora_display_added<=lora_display_allowance+lora_stage2_allowance,'LoRa name/display state exceeds256B addition')
     if menu_allowance:
@@ -163,7 +166,7 @@ def inspect(out,allow_development=False):
             require('# CONFIG_FPU is not set' in config,'Crash capture requires FPU disabled')
         if tuple(map(int,r['version'].split('.'))) >= (0,15,175):
             require('CONFIG_EXTRA_EXCEPTION_INFO=y' in config,'Missing GM7 integer fault capture')
-    for line in ['CONFIG_ROM_END_OFFSET=0x6000','CONFIG_FLASH=y','CONFIG_USB_DEVICE_STACK=y','CONFIG_WATCHDOG=y']:
+    for line in [('CONFIG_ROM_END_OFFSET=0' if passive else 'CONFIG_ROM_END_OFFSET=0x6000'),'CONFIG_FLASH=y','CONFIG_USB_DEVICE_STACK=y','CONFIG_WATCHDOG=y']:
         require(line in config,'Required configuration: '+line)
     if gm7 and tuple(map(int,r['version'].split('.'))) >= (0,15,188):
         require(sum(q['file'].endswith('/src/gm7_snapshot_witness.S')for q in json.loads(commands))==1,'Missing/duplicate snapshot witness translation unit')
@@ -372,10 +375,17 @@ def inspect(out,allow_development=False):
             names={s.name for s in ELFFile(f).get_section_by_name('.symtab').iter_symbols()}
         require(not any(s.startswith('r2_lora_') for s in names),'LoRa owner leaked into DC/PC')
         require('CONFIG_NRFX_SPIM1=y' not in config and 'CONFIG_NRFX_TIMER4=y' not in config,'LoRa peripherals leaked into DC/PC')
+    if passive:
+        require(r.get('secondary_lora_class')=='LAB_FAST_4_12' and 'R2_LORA_PASSIVE_FAST=1' in commands, 'Passive profile binding')
+        require('rc8_probe_encode' not in linked_names and 'rc8_name_encode' not in linked_names,'Active RC8 companion leaked into passive image')
+        require('/src/lora_service.c' not in commands and '/src/lora_passive_store.c' in commands,'Passive owner membership')
+        dts=(out/'target/zephyr/zephyr.dts').read_text()
+        require('passive_lora_state' in dts and '0xd7000' in dts and '0x8000' in dts,'Missing dedicated passive ledger partition')
+        private_sha=hashlib.sha256((private_sha+':lora-passive:LAB_FAST_4_12').encode()).hexdigest()
     if diagnostic:private_sha=hashlib.sha256((private_sha+':controller-diag:1').encode()).hexdigest()
     binding=hashlib.sha256((r['source_sha256']+':'+private_sha+':'+sha(out/'target/zephyr/.config')).encode()).hexdigest()
     require(binding==r['watchdog_binding_sha256'],'Watchdog binding')
-    return {'status':'PASS','flash_load_end':flash_end,'ram_allocated_end':ram_end,'static_unallocated_bytes':0x20040000-ram_end,'crash_diagnostic_static_allowance_bytes':crash_allowance,'rc8_incremental_static_budget_bytes':4096,'hot_diagnostic_static_budget_bytes':hot_allowance,'tz_static_budget_bytes':tz_allowance,'auto_tz_static_budget_bytes':auto_tz_allowance,'menu_static_budget_bytes':menu_allowance,'ui_mutable_symbol_bytes':ui_mutable_bytes,'lora_stage2_static_budget_bytes':lora_stage2_allowance,'lora_stage2_added_mutable_bytes':lora_stage2_added,'lora_display_static_budget_bytes':lora_display_allowance,'lora_display_added_mutable_bytes':lora_display_added,'lora_display_mutable_by_unit':lora_display_mutable,'hardware':'NOT_TESTED','deployment_authorized':False}
+    return {'status':'PASS','flash_load_end':flash_end,'ram_allocated_end':ram_end,'static_unallocated_bytes':0x20040000-ram_end,'crash_diagnostic_static_allowance_bytes':crash_allowance,'rc8_incremental_static_budget_bytes':4096,'hot_diagnostic_static_budget_bytes':hot_allowance,'tz_static_budget_bytes':tz_allowance,'auto_tz_static_budget_bytes':auto_tz_allowance,'menu_static_budget_bytes':menu_allowance,'ui_mutable_symbol_bytes':ui_mutable_bytes,'lora_stage2_static_budget_bytes':lora_stage2_allowance,'lora_stage2_added_mutable_bytes':lora_stage2_added,'lora_display_static_budget_bytes':lora_display_allowance,'lora_display_added_mutable_bytes':lora_display_added,'lora_display_mutable_by_unit':lora_display_mutable,'lora_passive_fast':passive,'executable_end_exclusive':executable_end,'hardware':'NOT_TESTED','deployment_authorized':False}
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)

@@ -1,5 +1,21 @@
 # T096 changelog
 
+## 0.15.230 — explicit passive LoRa fast laboratory variant
+
+Add a default-off native `LAB_FAST_4_12` service with passive DISC/META/SYNC/FOLLOW,
+4/12s cadence, original-event6/18s expiry, bounded fitting and no client TX/RTT.
+A verified append/commit ledger in app-owned flash preserves airtime, hop cursor
+and incomplete-pair faults. Actual one-hour boot quarantine conservatively ages
+prior debt without reseeding. The source accepts only its qualified own-GNSS map;
+BLE forwarding remains unsupported. Driver hooks capture DTS RxDone, FHSS
+HeaderValid, original TX BUSY start and independent TxDone/cutoff timing.
+
+Host checks cover wire/HMAC, rolling occupancy, owner sequences, withdrawal,
+expiry, storage interruption and page crossing. Native variant inspection keeps
+the existing static RAM, stack and BLE reserves. Physical installation, relative
+precision, RF behavior and slow acceptance require their separate measured gates.
+See the [experimental contract](../../protocol/lora_passive_v2/README.md).
+
 ## 0.15.229 — learn a per-receiver RTT baseline and noise floor
 
 Use the first two successful RTT exchanges in each authenticated source context

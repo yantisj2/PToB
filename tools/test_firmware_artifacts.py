@@ -320,6 +320,13 @@ class RetentionTests(unittest.TestCase):
         r['clock_backend']['mode'] = 'LEGACY'
         self.assertNotEqual(first, storage.grouping(root, r))
 
+    def test_passive_variant_has_separate_retention_group(self):
+        root = self.build()
+        r = storage.read(root / 'receipt.json')
+        ordinary = storage.grouping(root, r)
+        r['lora_passive_fast'] = True
+        self.assertNotEqual(ordinary, storage.grouping(root, r))
+
     def test_older_branch_build_still_compacts_without_replacing_newer_images(self):
         self.build(version='3.0.0'); self.build(version='2.0.0')
         output = self.repo / 'artifacts/build-3'

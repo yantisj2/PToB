@@ -77,6 +77,11 @@ mesh participation can suppress passive LoRa RX. Fallback has unknown total
 uncertainty and grants no RC7 timing or GM takeover authority. See the
 [LoRa contract](../../protocol/rc8/README.md).
 
+A separate default-off [passive v2 fast lab variant](../../protocol/lora_passive_v2/README.md)
+uses receive-only clients and DISC/META/SYNC/FOLLOW with4/12s cadence. It requires
+explicit build and per-boot selection, a persistent ledger, and measured lab
+acceptance. Slow protocol and range qualification remain deferred.
+
 A current LoRa UTC estimate can drive the digital and analog watch, including
 while BLE is parked. Its original watch layout shows **LOR**, **LOR RMS**, the
 authenticated OTA emitter name, actual GM/RC mode and measured LoRa RX-strength

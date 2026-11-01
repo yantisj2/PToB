@@ -81,6 +81,7 @@ def main():
     parser.add_argument('--pc-parent', help='Exact direct-GM identity, or auto for authenticated direct-GM discovery')
     parser.add_argument('--registry', type=Path, default=REPO/'registry/example.json')
     parser.add_argument('--lora-transmitter-factory', help='Explicit normal-image sole LoRa TX factory ID; absent disables LoRa')
+    parser.add_argument('--lora-passive-fast', action='store_true', help='Default-off LAB_FAST_4_12 image; explicit per-boot console selection required')
     parser.add_argument('--controller-diagnostics', action='store_true', help='Opt-in normal GM/RC prepare FIFO diagnostic canary')
     parser.add_argument('--development', action='store_true')
     parser.add_argument('--gm7', action='store_true', help='Explicit normal GM7 selection (already the GM/RC default)')
@@ -96,6 +97,8 @@ def main():
     dirty = bool(git(REPO, 'status', '--porcelain', '--untracked-files=all'))
     if dirty and not args.development:
         parser.error('Commit reviewed public inputs before a release-candidate build')
+    if args.lora_passive_fast and (args.profile not in ('GM','RC') or not args.lora_transmitter_factory or args.legacy_gm_regression):
+        parser.error('Passive fast requires normal GM/RC and an exact transmitter binding')
     if args.controller_diagnostics and args.profile not in ('GM','RC'):
         parser.error('Controller diagnostics require normal GM/RC')
     dc = args.profile == 'DC'
@@ -166,7 +169,8 @@ def main():
                'registry_generator_sha256':sha(REPO/'registry/registry.py'),
                'device_config_sha256':sha(args.device_config),
                'lora_transmitter_factory':transmitter,
-               'secondary_lora_class':'RC8' if int(transmitter,16) else 'DISABLED'}
+               'secondary_lora_class':'LAB_FAST_4_12' if args.lora_passive_fast else 'RC8' if int(transmitter,16) else 'DISABLED',
+               'lora_passive_fast':args.lora_passive_fast}
     receipt['time_zone'] = tz
     receipt['gm7_controller'] = None if not args.gm7 else {
         'manifest_sha256':sha(APP/'cmake/gm7-controller.json'),
@@ -237,12 +241,13 @@ def main():
              '-DR2_LEGACY_GM_REGRESSION='+('ON' if args.legacy_gm_regression else 'OFF'),
              '-DR2_CONTROLLER_DIAGNOSTICS='+('ON' if args.controller_diagnostics else 'OFF'),
              '-DR2_SOURCE_DIRTY='+str(int(dirty)),
+             '-DR2_LORA_PASSIVE_FAST='+('ON' if args.lora_passive_fast else 'OFF'),
              *(['-DR2_TZ_MODE='+str(tz['mode_number']),'-DR2_TZ_MANUAL_ID='+str(tz['id']),
                 '-DR2_TZ_MANUAL_MIN='+str(tz['offset_min'])] if tz else []),
              '-DR2_LORA_TRANSMITTER_FACTORY='+transmitter,
              '-DZEPHYR_MODULES='+';'.join(str(deps/p['path']) for p in lock['modules']),
              *(['-DR2_DC_PROFILE=ON','-DCONF_FILE='+str(APP/'dc.conf'),'-DDTC_OVERLAY_FILE='+str(APP/'dc.overlay')] if dc else
-               [*(['-DR2_PC_PROFILE=ON'] if pc else ['-DDTC_OVERLAY_FILE='+str(APP/'lora.overlay')]),*(['-DR2_PC_AUTO_PARENT=ON'] if pc_auto else []),'-DEXTRA_CONF_FILE='+';'.join(str(APP/p) for p in ['rc_dynamic.conf','rc_unicast.conf','watchdog.conf','rc_hf_synth.conf']+([] if pc else ['lora.conf']))])]
+               [*(['-DR2_PC_PROFILE=ON'] if pc else ['-DDTC_OVERLAY_FILE='+str(APP/('lora_passive.overlay' if args.lora_passive_fast else 'lora.overlay'))]),*(['-DR2_PC_AUTO_PARENT=ON'] if pc_auto else []),'-DEXTRA_CONF_FILE='+';'.join(str(APP/p) for p in ['rc_dynamic.conf','rc_unicast.conf','watchdog.conf','rc_hf_synth.conf']+([] if pc else ['lora.conf']+(['lora_passive.conf'] if args.lora_passive_fast else [])))])]
     try:
         run(command,'configure.log');run(['ninja','-C',str(out/'target')],'build.log')
         check_deps()
@@ -250,6 +255,7 @@ def main():
             raise ValueError('Source changed during build')
         target=out/'target/zephyr'
         private_hash=private_binding(sha(secret),transmitter)
+        if args.lora_passive_fast:private_hash=hashlib.sha256((private_hash+':lora-passive:LAB_FAST_4_12').encode()).hexdigest()
         if args.controller_diagnostics:private_hash=hashlib.sha256((private_hash+':controller-diag:1').encode()).hexdigest()
         binding=hashlib.sha256((source_hash+':'+private_hash+':'+sha(target/'.config')).encode()).hexdigest()
         if '#define R2_WATCHDOG_BINDING "'+binding+'"' not in (out/'target/build_identity.h').read_text():

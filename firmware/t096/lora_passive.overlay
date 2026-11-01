@@ -1,0 +1,6 @@
+/* Fast lab variant: shrink executable allocation; preserve all existing tails. */
+&spi1 { status = "okay"; interrupts = <4 6>; };
+&code_partition { reg = <0x26000 0xb1000>; };
+&flash0 { partitions {
+ lora_passive_state: partition@d7000 {label = "passive_lora_state"; reg = <0xd7000 0x8000>;};
+}; };

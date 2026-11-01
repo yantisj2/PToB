@@ -40,6 +40,11 @@ The following references retain their own version/evidence boundaries:
   [October 2 proposal](../papers/ptob-proposal.pdf): historical architecture and
   protocol editions, not current wire bindings.
 
+The [passive LoRa v2 experimental laboratory variant](lora_passive_v2/README.md) implement
+portable fast-cadence codec/policy and conditional driver hooks. Native owner
+and durable storage integration remain pending; no build or installed device
+selects this wire. RC8 wire5 remains the ordinary T096 LoRa implementation.
+
 Proposed, implemented, installed and qualified behavior are distinct. Preserve
 frozen contracts/vectors; assign explicit versions/domains to incompatible
 changes. Synthetic traces and checksums establish neither RF delivery nor accuracy.
