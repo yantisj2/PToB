@@ -1,5 +1,14 @@
 # T096 changelog
 
+## 0.15.235 — distinguish own-source refresh from bridge clipping
+
+For the passive own-GNSS wire, a routine HF/kernel projection of the same live
+GM deadline retains the physical source export. The PT deadline still takes
+the earlier value. Source loss, expired/stopped grants, root incarnation and
+source epoch changes still fence immediately. Ordinary wire5 behavior remains
+unchanged. Exercise the actual bridge and publisher together with quantized
+kernel samples, plus source/context/expiry negatives.
+
 ## 0.15.234 — drain source cancellation during passive startup
 
 A source withdrawal can inhibit reset/TCXO/SPI startup before any transmission.

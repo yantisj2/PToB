@@ -1203,7 +1203,20 @@ void r2_radio_service_gm7_publish(struct r2_radio_scope scope,const struct r2_gr
  bool changed=!same(pt_input.grant,scope)||scope.until_us<pt_input.grant.until_us;
  if(changed){
 #ifdef R2_LORA
+#ifdef R2_LORA_PASSIVE_FAST
+  /* This own-GNSS-only wire exports the physical source map, never a BLE
+   * upstream grant. Re-projecting the same GM deadline through the bounded
+   * HF/kernel bridge can shorten it by kernel quantization on every refresh.
+   * Keep the new earlier PT deadline, but do not turn that bridge adjustment
+   * into a source withdrawal. Real context/source/stop/expiry changes fence. */
+  bool same_own=same(pt_input.grant,scope)&&scope.gm&&!scope.follower&&
+    !pt_input.stopped&&pt_input.source_ready&&
+    pt_input.source_epoch==r2_radio_local_epoch(scope)&&
+    sampled<scope.until_us&&sampled<resume_until;
+  if(!same_own)r2_lora_source_withdraw();
+#else
   r2_lora_source_withdraw();
+#endif
 #endif
   r2_shadow_normal_withdraw();
  }

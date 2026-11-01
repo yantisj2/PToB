@@ -1,6 +1,7 @@
 /* Copyright(c)2026 Jonathan Yantis. SPDX-License-Identifier: MIT
  * Actual PT/mailbox/precision/codec/native-start bodies; fake HAL/HCI only. */
 #include "gm7_pt_radio_fixture.inc"
+#include "gm7_bridge.h"
 static struct r2_enrollment path;
 static struct r2_source_clock local;
 static struct r2_radio_scope grant;
@@ -52,6 +53,29 @@ int main(int argc,char **argv){
  assert(argc==2);unsigned test=(unsigned)strtoul(argv[1],NULL,10);
  if(test>=100){char mode_text[16];snprintf(mode_text,sizeof mode_text,"%u",test-100);char *historical[]={argv[0],mode_text};return historical_radio_main(2,historical);}
  setup_pt();
+ if(test==27){
+  publish_own(grant.until_us);unsigned initial=lora_withdraws,shortened=0;uint64_t prior=grant.until_us;
+  for(unsigned i=0;i<200;i++){
+   uint64_t hf=1000000+i*2000;
+   uint64_t kernel=(hf*32768/1000000)*1000000/32768;
+   struct gm7_bridge b={.hf=hf,.kernel_lo=kernel,.kernel_hi=kernel,.epoch=1};
+   assert(gm7_bridge_to_kernel(b,2000000,&grant.until_us));
+   if(grant.until_us<prior)++shortened;prior=grant.until_us;
+   fake_time=kernel;publish_own(grant.until_us);
+   assert(pt_input.grant.until_us==grant.until_us&&!pt_input.stopped);
+  }
+  assert(shortened>20);
+#ifdef R2_LORA_PASSIVE_FAST
+  assert(lora_withdraws==initial);
+#else
+  assert(lora_withdraws==initial+shortened);
+#endif
+  ++grant.boot;publish_own(grant.until_us);assert(lora_withdraws>initial);initial=lora_withdraws;
+  ++grant.local_source_epoch;publish_own(grant.until_us);assert(lora_withdraws==initial+1);initial=lora_withdraws;
+  pt_input.source_ready=false;--grant.until_us;publish_own(grant.until_us);assert(lora_withdraws==initial+1);initial=lora_withdraws;
+  pt_input.source_ready=true;grant.local_source_epoch=pt_input.source_epoch;grant.until_us=fake_time;publish_own(fake_time);assert(lora_withdraws==initial+1);
+  puts("PASS actual HF/kernel bridge jitter retains passive own source; PT deadline still clips; root/source/expiry changes still withdraw");return 0;
+ }
  if(test==0){
   follower();precision_poll(fake_time,&running);r2_radio_service_gm7_tick(fake_time,NULL);
   assert(!public_client&&pt_output.scope.follower&&native_owned&&sync_object);
