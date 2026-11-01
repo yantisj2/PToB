@@ -1,5 +1,13 @@
 # T096 changelog
 
+## 0.15.242 — prepare the complete durable pair before admission
+
+Ensure the spare-page preparation succeeds before every new reservation, even
+when FOLLOW confirmation leaves little idle time. Preparation stays outside
+active RF and at background priority. If it misses a target, retry admission
+on the next admissible fixed-grid slot without backdating or charging it.
+Storage-latency diagnostics now include preparation as well as record writes.
+
 ## 0.15.241 — retain raw TX completion status and use chip one-shot mode
 
 Use Semtech's zero-timeout single-packet SetTx mode for the passive variant.

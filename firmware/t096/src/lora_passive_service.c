@@ -233,6 +233,12 @@ void __attribute__((noinline)) r2_lora_shadow_publish(void){
 withdraw:if(shadow_tick){r2_shadow_lora_withdraw();shadow_tick=0;}
 }
 /* Synchronous precharge can refuse; it must never erase on the launch path. */
+static bool storage_prepare(void){
+ k_thread_priority_set(&worker_thread,WORKER_PRIORITY);
+ uint64_t began=mono();bool ok=lp_store_prepare(&role.tx.store);uint64_t cost=mono()-began;
+ if(cost>owner.storage_max_us)owner.storage_max_us=cost>UINT32_MAX?UINT32_MAX:(uint32_t)cost;
+ return ok;
+}
 static bool storage_save(void *arg,const struct lp_checkpoint *s){
  k_thread_priority_set(&worker_thread,WORKER_PRIORITY);
  uint64_t began=mono();bool ok=lp_store_save(arg,s);uint64_t cost=mono()-began;
@@ -250,7 +256,7 @@ static bool restore(uint64_t first_slot){
    * Unknown prior clock earns NO aging: retain every bucket's debt for a
    * full new hour, with a20s channel cooldown measured from this boot. */
   struct lp_checkpoint *s=&role.tx.core.durable;
-  if(!lp_checkpoint_carry(s,mono(),first_slot,owner.boot_ms)||!lp_store_prepare(&role.tx.store)||
+  if(!lp_checkpoint_carry(s,mono(),first_slot,owner.boot_ms)||!storage_prepare()||
      !storage_save(&role.tx.store,s)||!lp_tx_restore(&role.tx.core,s,storage_save,&role.tx.store,true)){inc(&owner.storage_fail);return false;}
   role.tx.rebased=true;
  }
@@ -307,10 +313,12 @@ static int __attribute__((noinline)) transmit(uint64_t now){
  if(!role.tx.context_ready&&index%3)skipped+=3-index%3;
  target+=skipped*LP_BEAT_US;
  if(owner.stage!=3&&now+PRECHARGE_LEAD_US<target){
-  if(now>owner.last_end_us+100000&&target-now>PRECHARGE_LEAD_US+100000&&!lp_store_prepare(&role.tx.store)){inc(&owner.storage_fail);return -EIO;}
+  if(now>owner.last_end_us+100000&&target-now>PRECHARGE_LEAD_US+100000&&!storage_prepare()){inc(&owner.storage_fail);return -EIO;}
   return 0;
  }
  if(owner.stage!=3){
+  if(!storage_prepare()){inc(&owner.storage_fail);return -EIO;}
+  if(mono()>target+45000)return 0;
   uint64_t at=mono();owner.reserve_lead_us=target>at?(uint32_t)(target-at):0;
   if(!lp_tx_reserve(t,target,&role.tx.reservation)){inc(&owner.refused);return 0;}
   owner.stage=3;
