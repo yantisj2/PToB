@@ -128,7 +128,7 @@ bool lp_rx_meta(struct lp_rx *r,const struct lp_packet *p,const struct r2_group_
  if(same&&p->serial<=r->serial)return false;
  if(r->cached&&(p->scope.emitter!=r->scope.emitter||p->scope.seed!=r->scope.seed||p->cursor<r->highest||p->utc_ns<=r->last_meta_ns))return false;
  if(r->cached&&!same&&p->scope.boot==r->scope.boot&&
-    (p->scope.stream<=r->scope.stream||p->scope.epoch<r->scope.epoch))return false;
+    (p->scope.stream<=r->scope.stream||(p->scope.root_boot==r->scope.root_boot&&p->scope.epoch<r->scope.epoch)))return false;
  if(same&&p->cursor<r->highest)return false;
  if(!same){withdraw(r);r->highest=p->cursor;r->scope=p->scope;memcpy(r->context,context,16);
   if(lp_hop_order(r->order,p->scope.seed))return false;}

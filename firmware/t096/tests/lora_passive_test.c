@@ -144,4 +144,17 @@ static void receiver(void){
  m.scope.stream=1;++m.serial;m.utc_ns+=1000000000;
  assert(!lp_rx_meta(&r,&m,&group,&a,next+1200000,next+1201000));
 }
-int main(int argc,char **argv){(void)argc;(void)argv;codec();ledger(0);ledger(59900000);receiver();puts("PASS passive codec, persistent admission and physical-event receiver");return 0;}
+static void runtime_root(void){
+ struct lp_rx r={0};struct lp_packet m=meta(1,UINT64_C(1000000000000)),decoded;uint8_t wire[112];
+ m.scope.root_boot=9;m.scope.epoch=7;
+ assert(!lp_encode(wire,sizeof wire,&m,NULL,&group));assert(!lp_decode(&decoded,wire,sizeof wire,NULL,&group));
+ assert(decoded.scope.boot==2&&decoded.scope.root_boot==9&&lp_rx_meta(&r,&decoded,&group,NULL,0,1000));
+ m.scope.root_boot=10;m.scope.epoch=3;m.scope.stream=2;++m.serial;m.utc_ns+=1000000000;
+ assert(lp_rx_meta(&r,&m,&group,NULL,1000000,1001000));
+ m.scope.epoch=2;m.scope.stream=3;++m.serial;m.utc_ns+=1000000000;
+ assert(!lp_rx_meta(&r,&m,&group,NULL,2000000,2001000)); /* Same incarnation cannot roll its epoch back. */
+ m.scope.root_boot=11;assert(lp_rx_meta(&r,&m,&group,NULL,2000000,2001000));
+ m.scope.root_boot=9;m.scope.stream=1;++m.serial;m.utc_ns+=1000000000;
+ assert(!lp_rx_meta(&r,&m,&group,NULL,3000000,3001000)); /* Retired stream cannot return. */
+}
+int main(int argc,char **argv){(void)argc;(void)argv;codec();ledger(0);ledger(59900000);receiver();runtime_root();puts("PASS passive codec, persistent admission and physical-event receiver");return 0;}

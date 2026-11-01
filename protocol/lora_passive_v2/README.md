@@ -34,8 +34,11 @@ seed60:u32, cursor64:u32, serial68:u32, original source snapshot UTC ns72:u64,
 TZ80:u16, signed offset82:i16, delay84:u16, reserved86..95 zero, tag96..111.
 META snapshots the source coordinate before encoding; the actual SYNC BUSY
 start is authenticated later by FOLLOW. TZ may be canonical unknown
-(`id=0, offset=-32768`). Revision one admits own-reference sources only: root/emitter and their boots
-must match, both parent fields are zero, and epoch/stream/seed are nonzero.
+(`id=0, offset=-32768`). Revision one admits own-reference sources only: root and emitter identities
+must match, both boot/incarnation fields are nonzero, both parent fields are
+zero, and epoch/stream/seed are nonzero. The emitter boot is physical; root boot
+is the actual qualified GM runtime incarnation and may differ. A root change
+requires a higher local stream and fresh authenticated META.
 Finite upstream-grant forwarding is unsupported.
 
 Context is the group MAC in domain `PTL2CTX1` over META bytes0..63, with the

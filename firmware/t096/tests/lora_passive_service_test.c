@@ -86,7 +86,7 @@ static void packet(const struct lp_packet *p,const uint8_t ctx[16],uint64_t even
 static void tx_case(unsigned mode){
  if(mode==2)storage_valid=false;if(mode==16)storage_qualified=true;
  init(true);step();assert(!owner.active&&!txs);r2_lora_request(true);step();assert(!owner.active&&!txs);
- struct rc8_export m=source();r2_lora_source_publish(&m);step();assert(owner.active);
+ struct rc8_export m=source();m.scope.root_boot=44;r2_lora_source_publish(&m);step();assert(owner.active);
  if(mode==16){assert(restore()&&owner.quiet_until_us<=now_us&&!(role.tx.store.ready&LP_STORE_INITIAL_QUIET));return;}
  if(mode==1){now_us=owner.quiet_until_us-10000;transmit(now_us);assert(!txs);return;}
  now_us=owner.quiet_until_us+10000;r2_lora_request(true);
@@ -109,7 +109,7 @@ static void tx_case(unsigned mode){
 }
 static void rx_case(unsigned mode){
  init(false);r2_lora_request(true);step();assert(owner.active&&owner.listening&&tuning_phy==R2_LORA_DTS&&!txs);
- struct lp_scope scope={.emitter=1,.boot=99,.root=1,.root_boot=99,.epoch=5,.stream=1,.seed=0x51a7c003};uint8_t context[16];assert(!lp_context(context,&scope,LP_FAST,&test_group));
+ struct lp_scope scope={.emitter=1,.boot=99,.root=1,.root_boot=101,.epoch=5,.stream=1,.seed=0x51a7c003};uint8_t context[16];assert(!lp_context(context,&scope,LP_FAST,&test_group));
  uint64_t base=now_us+1000000;
  for(unsigned i=0;i<65;i++){
   uint64_t slot=base+i*LP_BEAT_US;struct lp_packet p={.kind=i%3?LP_DISC:LP_META,.schedule=LP_FAST,.scope=scope,.serial=i/3+1,.cursor=2*i,.time_valid=true,.has_pair=true,.utc_ns=UINT64_C(1000000000000)+slot*1000,.tz=r2_tz_unknown()};
@@ -125,7 +125,7 @@ static void rx_case(unsigned mode){
  }
  assert(role.rx.trained&&role.rx.fit_count<=16&&role.rx.accepted==65&&!role.rx.bounded);
  report(now_us);assert(published.choice==RC8_SELECT_LORA&&published.assurance==RC8_FRESHNESS_UNKNOWN);
- if(mode==11){witness_enabled=true;r2_lora_shadow_publish();assert(witness_published==1&&witness.lora);r2_lora_shadow_publish();assert(witness_published==1);return;}
+ if(mode==11){witness_enabled=true;r2_lora_shadow_publish();assert(witness_published==1&&witness.lora&&witness.root_boot==101&&witness.parent_boot==99);r2_lora_shadow_publish();assert(witness_published==1);return;}
  if(mode==12){now_us=role.rx.physical_deadline_us;step();assert(!role.rx.have_pair&&!published.time_valid&&!published.utc_us);return;}
  if(mode==13){now_us=role.rx.observed_deadline_us;step();assert(!role.rx.observed_deadline_us||!role.rx.have_pair);return;}
  if(mode==14){r2_lora_control(false,true,RC8_SELECT_BLE);step();assert(published.choice!=RC8_SELECT_LORA&&!txs);return;}

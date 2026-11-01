@@ -11,7 +11,7 @@ size_t lp_size(unsigned k){
 static bool any(const uint8_t *p,size_t n){uint8_t b=0;for(size_t i=0;i<n;i++)b|=p[i];return b!=0;}
 static bool scope_valid(const struct lp_scope *s){
  /* Revision one supports own-reference sources only, never finite-grant forwarding. */
- return s&&s->emitter&&s->boot&&s->root==s->emitter&&s->root_boot==s->boot&&
+ return s&&s->emitter&&s->boot&&s->root==s->emitter&&s->root_boot&&
  !s->parent&&!s->parent_boot&&s->epoch&&s->stream&&s->seed;
 }
 bool lp_scope_equal(const struct lp_scope *a,const struct lp_scope *b){

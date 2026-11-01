@@ -1,5 +1,14 @@
 # T096 changelog
 
+## 0.15.233 — preserve the actual GM source incarnation
+
+Carry the qualified GM runtime root boot separately from the transmitter's
+physical boot. Context rotation fences the radio and requires fresh META;
+a new root incarnation may restart its own epoch only with an increasing local
+stream. Preserve physical seed/cursor/debt across those changes. The causal PPS
+observer and diagnostics retain both identities. Host owner cases now exercise
+a physical boot distinct from its own-GM root incarnation.
+
 ## 0.15.232 — keep durable writes outside radio deadlines
 
 Precharge the upcoming slot up to300ms before its unchanged RF target. Freeze
