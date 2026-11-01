@@ -1,5 +1,15 @@
 # T096 changelog
 
+## 0.15.231 — bound passive status publication and source withdrawal
+
+Compute the rolling ledger and capture projection outside the IRQ-masked
+publication lock. Split reporting from packet/crypto stack frames. The source
+owner immediately inhibits the radio on source withdrawal; the worker then
+performs the original bounded drain without treating legitimate withdrawal as
+a peripheral fault. Keep background priority, RAM and stack reserves unchanged.
+Host regression checks require ledger calculation with interrupts enabled.
+Hardware acceptance remains pending.
+
 ## 0.15.230 — explicit passive LoRa fast laboratory variant
 
 Add a default-off native `LAB_FAST_4_12` service with passive DISC/META/SYNC/FOLLOW,

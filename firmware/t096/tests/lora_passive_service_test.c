@@ -21,8 +21,9 @@ static void atomic_or(atomic_t *p,long v){*p|=v;}
 static void atomic_inc(atomic_t *p){++*p;}
 static bool atomic_cas(atomic_t *p,long a,long b){if(*p!=a)return false;*p=b;return true;}
 struct k_spinlock{int unused;};typedef int k_spinlock_key_t;
-static int k_spin_lock(struct k_spinlock *p){(void)p;return 0;}
-static void k_spin_unlock(struct k_spinlock *p,int k){(void)p;(void)k;}
+static unsigned lock_depth;
+static int k_spin_lock(struct k_spinlock *p){(void)p;++lock_depth;return 0;}
+static void k_spin_unlock(struct k_spinlock *p,int k){(void)p;(void)k;assert(lock_depth);--lock_depth;}
 struct k_thread{int unused;};
 static void k_thread_priority_set(struct k_thread *t,int p){(void)t;assert(p==9||p==11);}
 static void k_wakeup(struct k_thread *t){(void)t;}
@@ -69,7 +70,10 @@ void r2_lora_hw_stop_begin(uint64_t d){assert(d);++stops;}
 void r2_lora_hw_stop_poll(struct r2_lora_hw_ack *a){*a=(struct r2_lora_hw_ack){true,true,true,true,false};}
 void r2_lora_hw_diag(struct r2_lora_hw_diag *h){memset(h,0,sizeof *h);}
 void r2_lora_hw_watchdog_trip(int e){(void)e;r2_diag_scratch.lora.terminal=1;}
+static uint64_t charged_unlocked(const struct lp_checkpoint *s,uint64_t now){assert(!lock_depth);return lp_charged(s,now);}
+#define lp_charged charged_unlocked
 #include R2_PASSIVE_SERVICE_BODY
+#undef lp_charged
 static const struct r2_group_config test_group={.id=11,.epoch=1,.psk={1,2,3}};
 static void step(void){service_step();now_us+=2000;}
 static struct rc8_export source(void){return(struct rc8_export){.scope={.emitter=1,.emitter_boot=22,.stream=1,.root=1,.root_boot=22,.source_epoch=5,.scale=RC8_UTC,.kind=RC8_OWN_GM},.from_tick=0,.until_tick=UINT64_MAX,.anchor_tick=0,.anchor_ns=UINT64_C(1000000000000),.capture_epoch=7,.created_ns=0,.expires_ns=UINT64_MAX,.map_generation=1,.rate_ppb=0,.mode=RC8_MAP_LINEAR,.authenticated=true,.valid=true};}
@@ -80,8 +84,8 @@ static void packet(const struct lp_packet *p,const uint8_t ctx[16],uint64_t even
  assert(!lp_encode(queued.frame,sizeof queued.frame,p,ctx,&test_group));have_event=true;step();
 }
 static void tx_case(unsigned mode){
- init(true);step();assert(!owner.active&&!txs);r2_lora_request(true);step();assert(owner.active&&!txs);
- struct rc8_export m=source();r2_lora_source_publish(&m);
+ init(true);step();assert(!owner.active&&!txs);r2_lora_request(true);step();assert(!owner.active&&!txs);
+ struct rc8_export m=source();r2_lora_source_publish(&m);step();assert(owner.active);
  if(mode==1){now_us=owner.quiet_until_us-10000;transmit(now_us);assert(!txs);return;}
  now_us=owner.quiet_until_us+10000;r2_lora_request(true);
  if(mode==2){storage_valid=false;step();assert(!txs&&owner.storage_fail);return;}
@@ -89,7 +93,7 @@ static void tx_case(unsigned mode){
  assert(restore());now_us=role.tx.core.durable.next_slot_us;step();assert(txs==1&&sent_len==LP_META_BYTES);
  uint64_t slot=role.tx.reservation.slot_us;assert(stored.pending==1&&saves>=2);
  done(slot,LP_META);assert(owner.stage==1);
- if(mode==4){r2_lora_source_withdraw();step();assert(stored.fh_disabled&&!stored.pending&&txs==1);return;}
+ if(mode==4){r2_lora_source_withdraw();step();assert(stored.fh_disabled&&!stored.pending&&txs==1&&stops&&!atomic_get(&faulted));return;}
  now_us=slot+2000000;step();assert(sent_len==LP_SYNC_BYTES&&tuning_phy==R2_LORA_FHSS);
  done(slot+2000000,LP_SYNC);assert(owner.stage==2&&stored.pending==2&&stored.cursor==1);
  if(mode==5){now_us=owner.last_sync_us+301000;step();assert(stored.fh_disabled&&!stored.pending&&txs==2);return;}

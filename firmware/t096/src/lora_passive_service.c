@@ -123,10 +123,14 @@ void r2_lora_source_publish(const struct rc8_export *input){
 void r2_lora_source_withdraw(void){
  if(!transmitter)return;
  k_spinlock_key_t key=k_spin_lock(&lock);preserve();
- if(atomic_and(&flags,~SOURCE_PRESENT)&SOURCE_PRESENT)atomic_inc(&source_revision);
+ bool was_present=(atomic_and(&flags,~SOURCE_PRESENT)&SOURCE_PRESENT)!=0;
+ if(was_present)atomic_inc(&source_revision);
  struct r2_capture now;bool valid=r2_capture_now(&now);
  for(unsigned i=0;i<2;i++)if(valid&&role.tx.maps[i].capture_epoch==now.epoch)(void)rc8_export_close(&role.tx.maps[i],now.tick,now.epoch);else role.tx.maps[i].valid=false;
  k_spin_unlock(&lock,key);
+ /* The high-priority source owner can fence an in-flight launch without
+  * SPI or flash. The worker performs the original bounded drain. */
+ if(was_present&&!atomic_get(&closed))stop_now();
 }
 void r2_lora_quality_publish(const struct rc8_scope *s,const struct rc8_quality *q){(void)s;(void)q;}
 void r2_lora_parent_quality(uint64_t f,uint64_t b,uint8_t c,uint8_t a,uint64_t s){(void)f;(void)b;(void)c;(void)a;(void)s;}
@@ -158,12 +162,13 @@ static int tune(unsigned phy,unsigned channel,bool receive){
  if(!rc&&receive){rc=r2_lora_hw_rx_rearm();if(!rc)owner.listening=true;}
  return rc;
 }
-static void report(uint64_t now){
+static void __attribute__((noinline)) report(uint64_t now){
  struct r2_lora_view v={.requested=(atomic_get(&flags)&REQUESTED)!=0,.active=owner.active&&!owner.stopping,
  .transmitter=transmitter,.fault=atomic_get(&faulted)!=0,.sampled_us=now,.state=RC8_ACQUIRING};
  if(!v.requested||!v.active)v.state=RC8_OFF;
- k_spinlock_key_t key=k_spin_lock(&lock);
- 
+ /* Worker-owned policy is computed with interrupts enabled. Publication
+  * only copies bounded scalars;61 bucket divisions must never mask BLE. */
+ uint64_t charged=transmitter?lp_charged(&role.tx.core.durable,now):0;
  if(!transmitter){
   struct lp_rx *r=&role.rx;struct r2_capture at;uint64_t ns;
   v.link_samples=r->fit_count;v.link_rms_ns=r->rms_ns;v.time_valid=r->have_pair;v.root_tag=(uint16_t)r->scope.root;v.emitter_tag=(uint16_t)r->scope.emitter;
@@ -175,10 +180,11 @@ static void report(uint64_t now){
    /* Unknown freshness cannot issue a TZ authority lease. */
   }
  }
+ k_spinlock_key_t key=k_spin_lock(&lock);
  struct lp_diagnostics *d=&diagnostics;
  if(transmitter){d->emitter=factory;d->boot=physical_boot;d->stream=role.tx.stream;d->source_epoch=role.tx.context_epoch;d->seed=role.tx.core.durable.seed;d->cursor=role.tx.core.durable.cursor;d->serial=role.tx.core.durable.serial;
   d->pending=role.tx.core.durable.pending;d->fh_disabled=role.tx.core.durable.fh_disabled;d->next_slot=role.tx.core.durable.next_slot_us;
-  d->charged=lp_charged(&role.tx.core.durable,now);d->store_sequence=role.tx.store.sequence;
+  d->charged=charged;d->store_sequence=role.tx.store.sequence;
  }else{struct lp_rx *r=&role.rx;d->emitter=r->scope.emitter;d->boot=r->scope.boot;d->stream=r->scope.stream;d->source_epoch=r->scope.epoch;d->seed=r->scope.seed;d->last_tick=r->last_tick;d->last_ns=r->last_tx_ns;d->epoch=r->last_epoch;
   d->last_us=r->last_us;d->physical_until=r->physical_deadline_us;d->meta_until=r->observed_deadline_us;
   d->cursor=r->highest;d->serial=r->serial;d->accepted=r->accepted;d->rejected=r->rejected;d->missing=r->missing;
@@ -374,7 +380,7 @@ static void __attribute__((noinline)) service_step(void){
  uint64_t now=mono();atomic_val_t f=atomic_get(&flags);
  k_spinlock_key_t key=k_spin_lock(&lock);uint64_t until=lab_until;k_spin_unlock(&lock,key);
  if((f&REQUESTED)&&now>=until){r2_lora_request(false);f=atomic_get(&flags);}
- bool desired=!atomic_get(&faulted)&&(f&ALLOWED)&&(f&REQUESTED)&&group&&factory&&transmitter_factory&&(!transmitter||!(f&PROFILE_RC));
+ bool desired=!atomic_get(&faulted)&&(f&ALLOWED)&&(f&REQUESTED)&&group&&factory&&transmitter_factory&&(!transmitter||(!(f&PROFILE_RC)&&(f&SOURCE_PRESENT)));
  r2_diag_scratch.lora.beat=k_uptime_get_32();r2_diag_scratch.lora.monitor=desired||owner.active||owner.stopping;
  if(!desired&&owner.active&&!owner.stopping)begin_stop(0);
  if(owner.stopping){
