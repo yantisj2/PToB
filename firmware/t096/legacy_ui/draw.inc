@@ -532,11 +532,18 @@ static void analog_clock(uint8_t *fb, const ui_snapshot_t *s, int cy) {
     int rate_x=cx-(rate_width+1+12)/2;
     inset_badge(fb,cx-14,cy+7,29,13,C_LCD);
     if(s->native_lora_source){
+#ifdef R2_LORA_PASSIVE_SLOW
+        label(fb,cx-8,cy+10,"60s",1,rate_color);
+#else
         /* .25 Hz is the four-second physical timing cadence. Compact only
          * the dot's empty columns to fit the original 29px inset. */
         label(fb,rate_x-1,cy+10,".",1,rate_color);
         label(fb,rate_x+3,cy+10,"25",1,rate_color);
+#endif
     }else label(fb,rate_x,cy+10,rate,1,rate_color);
+#ifdef R2_LORA_PASSIVE_SLOW
+    if(!s->native_lora_source)
+#endif
     tight_italic_label(fb,rate_x+rate_width+1,cy+10,"Hz",rate_color);
     unsigned hour_index = hour * 5u + minute / 12u;
     line(fb, cx, cy, cx + radial_x(hour_index, 12),

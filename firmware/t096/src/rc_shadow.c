@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 #include "rc_shadow.h"
 #include "capture.h"
+#ifdef R2_LORA_PASSIVE_SLOW
+#include "../protocol/lora_passive_schedule.h"
+#endif
 #ifdef R2_PC_PROFILE
 #include "pc_experiment.h"
 #endif
@@ -126,7 +129,13 @@ static void shadow_poll(bool allow_field){
      /* Match the delivered LoRa watch's affine formula, including its100ppm
       * rate domain. No normal BLE servo/slew or GNSS fit is substituted. */
      uint64_t ticks=r.edge.tick>=r.map.normal_map.delivery?r.edge.tick-r.map.normal_map.delivery:UINT64_MAX;
-     projected=ticks<=UINT64_C(320000000)&&r.map.normal_map.valid&&r.map.normal_map.anchor>=0&&
+     projected=ticks<=
+#ifdef R2_LORA_PASSIVE_SLOW
+      LP_HOLD_US*16&&
+#else
+      UINT64_C(320000000)&&
+#endif
+      r.map.normal_map.valid&&r.map.normal_map.anchor>=0&&
       r.map.normal_map.rate>=-100000&&r.map.normal_map.rate<=100000;
      if(projected){int64_t elapsed=(int64_t)(ticks*125/2);elapsed+=elapsed*r.map.normal_map.rate/INT64_C(1000000000);
       projected=elapsed>=0&&r.map.normal_map.anchor<=INT64_MAX-elapsed;

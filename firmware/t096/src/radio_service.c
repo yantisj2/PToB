@@ -1207,7 +1207,7 @@ void r2_radio_service_gm7_publish(struct r2_radio_scope scope,const struct r2_gr
  bool changed=!same(pt_input.grant,scope)||scope.until_us<pt_input.grant.until_us;
  if(changed){
 #ifdef R2_LORA
-#ifdef R2_LORA_PASSIVE_FAST
+#if defined(R2_LORA_PASSIVE_FAST) || defined(R2_LORA_PASSIVE_SLOW)
   /* This own-GNSS-only wire exports the physical source map, never a BLE
    * upstream grant. Re-projecting the same GM deadline through the bounded
    * HF/kernel bridge can shorten it by kernel quantization on every refresh.

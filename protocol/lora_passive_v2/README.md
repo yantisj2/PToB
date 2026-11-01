@@ -1,4 +1,4 @@
-# Passive LoRa v2 laboratory variant
+# Passive LoRa v2 timing variants
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
@@ -6,15 +6,75 @@ T096 has a separate, explicit `--lora-passive-fast` native variant. Ordinary
 images continue to use RC8 wire5. The lab variant boots with LoRa off; `lora 01`
 selects a15-minute session for this boot. Diagnostics identify `LAB_FAST_4_12`
 and its30% engineering cap. GM/RC changes do not automatically enable it.
-It is experimental and requires measured hardware acceptance. Slow schedules
-and range qualification are deferred. The v2 name is independent of RC8 wire2.
+The separate `--lora-passive-slow` variant implements the production timing
+candidate below. Both require measured hardware acceptance; neither a build nor
+the prior lab variant certifies slow operation. Range testing is a later field
+test. The v2 name is independent of RC8 wire2.
+
+## Production timing candidate
+
+| Setting | Fast lab, schedule1 | Slow, schedule2 |
+| --- | ---: | ---: |
+| Precision/control period | 4s | 60s |
+| Full META period | 12s | 300s |
+| SYNC offset | 2s | 3s |
+| Physical expiry | 6s | 62s |
+| Original control-start context expiry | 18s | 362s |
+| Conservative rolling-hour admission | 1080s | 72s |
+| GM/RC boot request | OFF, 15-minute selection | RX ON, no lab timeout |
+
+Only the selected schedule is admitted by an image. DC and PC reject both
+variants. BLE remains preferred for normal clock authority; passive RX is not
+suppressed by GM participation. An exact configured primary may transmit only
+while actually serving its qualified own GNSS source. An optional exact backup
+may transmit only after an authenticated primary WITHDRAW or physically timed
+YIELD and its own successful GM7 takeover commit. A blackout or cold election
+does not authorize backup LoRa TX. On a new primary serving incarnation, fresh
+authenticated non-serving backup evidence is required before primary LoRa TX
+is admitted. If that peer is absent, TX stays inhibited; RX continues. These
+bindings authorize physical emitters, never select a mesh or replace enrollment.
+
+Slow service retains one armed precision/META obligation across proven
+pre-SYNC cancellations or BLE/CPU deferral. It retries with a fresh META
+rendezvous and actual new SYNC timestamp, subject to unchanged source, storage,
+channel and airtime admission. DISC has no retry obligation. META completion
+cannot clear an owed precision pair. Each retry is fully reserved without a
+refund. After recovery the next regular opportunity is at least60s later;
+elapsed ticks do not create a catch-up queue. Thus 300s is the nominal META
+period, not a delivery guarantee under sustained contention or missing source.
+Eventual delivery requires those admission conditions to become available.
+
+SYNC/FOLLOW software refusals may retry inside their original windows only.
+FOLLOW retains its actual250–300ms gap; a possible incomplete physical pair
+still latches FHSS disabled. No ACKs, client requests, discovery repeats, late
+FOLLOW repair or automatic fault clearing are introduced. Every packet freezes
+the original GM and source-map endpoints and their epoch/capture identity.
+
+Historical debt up to1080s remains valid accounting even when slow admission
+is72s. A reboot carries all debt for a full new hour. Migration accepts old
+zero/fast schedule fields, clears only obsolete scheduler obligation bits and
+retains seed, cursor, serial, debt and faults. Unknown schedule/owed bits reject
+the record. A slow-to-fast migration uses the same rule. The536-byte checkpoint
+layout and dedicated flash allocation are unchanged. Missing or faulted TX
+state inhibits TX without disabling receive-only operation. TX/RX transitions
+require confirmed hardware closure and completion flush; per-emitter replay
+floors and same-boot accounting survive transitions. Slow expiry withdraws the
+estimate but retains same-context fit points within the300s fit window; capture
+or emitter changes require a new fit.
+
+The slow UI shows `60s`, fresh physical signal and trained relative RMS. It does
+not create TZ authority from an unknown-age META. Read-only `lora-diag` provides
+a bounded polling record; `lora` retains the detailed fault/launch record. Slow
+stores the latest physical audit plus per-kind counters to fit the existing
+mutable-state budget. See the [autonomous soak guide](../../docs/t096/lora-soak.md).
 
 ## Wire candidate
 
 Integers are little endian. Each packet starts with `4c 02`, followed by a
 kind/flags byte and schedule ID. Kind is the low four bits; `0x80` means HAS_PAIR
 and `0x40` means TIME_VALID on control packets only. Bits4..5 are reserved zero.
-Only schedule1 (`LAB_FAST_4_12`) is admitted. Unsupported schedules fail closed.
+Schedule1 is `LAB_FAST_4_12`; schedule2 is `PROD_60_300`. Unsupported schedules
+and a schedule other than the image selection fail closed.
 
 | Kind | Bytes including MAC16 | Body after four-byte header | MAC domain |
 | --- | ---: | --- | --- |

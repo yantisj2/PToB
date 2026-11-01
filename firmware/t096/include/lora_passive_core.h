@@ -1,14 +1,6 @@
 /* Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT */
 #pragma once
 #include "../protocol/lora_passive.h"
-#define LP_BEAT_US UINT64_C(4000000)
-#define LP_HOLD_US UINT64_C(6000000)
-#define LP_LEASE_US UINT64_C(18000000)
-#define LP_TRAIN_US UINT64_C(180000000)
-#define LP_WINDOW_US UINT64_C(300000000)
-#define LP_CAP_US UINT64_C(1080000000)
-#define LP_HOUR_US UINT64_C(3600000000)
-#define LP_MINUTE_US UINT64_C(60000000)
 #define LP_FIT_CAPACITY 16u
 /* Rolling accounting conservatively retains complete minute buckets through
  * minute end + one hour. Extra refusals are permitted, undercharging is not. */
@@ -16,7 +8,7 @@ struct lp_checkpoint {
  uint64_t minute,next_slot_us;
  uint32_t buckets[61],channel_end_ms[64];
  uint32_t seed,cursor,slot,serial;
- uint8_t pending,fh_disabled;
+ uint8_t pending,fh_disabled,schedule,owed;
 };
 typedef bool (*lp_save_fn)(void *,const struct lp_checkpoint *);
 struct lp_tx {
@@ -38,6 +30,7 @@ bool lp_checkpoint_carry(struct lp_checkpoint *,uint64_t now_us,uint64_t first_s
  * trustworthy time coordinate; an untrusted reboot must stay inhibited. */
 bool lp_tx_restore(struct lp_tx *,const struct lp_checkpoint *,lp_save_fn,void *,bool time_trusted);
 bool lp_tx_reserve(struct lp_tx *,uint64_t now_us,struct lp_reservation *);
+bool lp_tx_reserve_control(struct lp_tx *,uint64_t now_us,struct lp_reservation *,bool force_meta);
 bool lp_tx_confirm(struct lp_tx *,unsigned kind,uint64_t actual_end_us);
 /* Capture pair progress in RAM. The durable precharge stays pending until
  * the next reservation includes the completed cursor/cooldowns, or a clean
@@ -46,6 +39,10 @@ bool lp_tx_confirm(struct lp_tx *,unsigned kind,uint64_t actual_end_us);
 bool lp_tx_capture_sync(struct lp_tx *,uint64_t actual_end_us);
 bool lp_tx_capture_follow(struct lp_tx *,uint64_t actual_end_us);
 bool lp_tx_flush(struct lp_tx *);
+/* Slow scheduler: preserve an overdue logical obligation across a proven
+ * pre-SYNC cancellation. Completion never replays a historical timestamp. */
+void lp_tx_control_complete(struct lp_tx *);
+bool lp_tx_has_deferred(const struct lp_tx *);
 void lp_tx_cancel(struct lp_tx *,bool proven_no_fh_rf);
 void lp_tx_fault(struct lp_tx *);
 

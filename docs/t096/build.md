@@ -170,6 +170,18 @@ absolute UTC accuracy.
 
 ## Optional LoRa configuration
 
+For the passive production candidate, select `--lora-passive-slow` instead of
+`--lora-passive-fast`, with the exact primary `--lora-transmitter-factory` and
+optional `--lora-backup-transmitter-factory`. These are normal GM/RC options;
+DC/PC reject them. Choose GM defaults for the primary/backup and RC for clients.
+The slow image requests RX at boot with60/300s cadence, preserves historical
+airtime debt and retries locally deferred precision/META through fresh
+rendezvous. It does not retry discovery or request client ACKs. Handoff,
+readmission, expiry and migration rules are in the
+[passive contract](../../protocol/lora_passive_v2/README.md); use the
+[soak guide](lora-soak.md) for autonomous measured reception testing. The RC8
+configuration below applies when neither passive schedule is selected.
+
 Normal GM/RC builds include the [RC8 RF-event wire5 integration](../../protocol/rc8/README.md).
 The default transmitter factory is zero, so LoRa hardware does not start. The
 normal-only `--lora-transmitter-factory` option takes a 16-digit exact factory

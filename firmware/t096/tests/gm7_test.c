@@ -8,6 +8,7 @@
 #include "gm7_schedule.h"
 #include "gm7_air.h"
 #include "gm7_source.h"
+#include "lora_gm_admission.h"
 #include <assert.h>
 #include <errno.h>
 #include <stdio.h>
@@ -257,4 +258,30 @@ static void independent_role(void){
  assert(!receive(&o,r,1000300)&&o.selected_contact==1000300&&o.armed);
  puts("PASS ANN-free self-ACTIVE ROLE suppresses only newer lineage, exact-birth founder/term ties, independent generation churn, duplicate TTL, nonself/follower negatives and simultaneous reboot quarantine");
 }
-int main(void){printf("sizeof owner=%zu peer=%zu control=%zu scheduler=%zu\n",sizeof(struct gm7_owner),sizeof(struct gm7_peer),sizeof(struct gm7_peer_control),sizeof(struct gm7_scheduler));codec();receipt_horizons();ordinary_inventory();newcomer_during_announce_loss();ordinary_schedule();capacity_pressure();terminal_dominance();birth_and_ties();independent_role();phase_policy();promote();return 0;}
+static void lora_handoff_receipt(void){
+ struct r2_group_config g=group();struct gm7_owner o;uint64_t t=100000000;
+ assert(!gm7_owner_init(&o,&g,49,65,true,t));struct gm7_packet ann=fixture("announce");
+ assert(!receive(&o,ann,t));struct gm7_source s=physical_source(t);struct gm7_preparation prep={0};
+ gm7_owner_update(&o,&s,&prep,t+1);
+ /* Existing independently qualified HOT/source boundary; the new restriction
+  * is exercised through real MAC receipt, reservation and physical commit. */
+ o.source=s;o.source_observing=o.eligible=o.armed=true;o.initial_due=false;
+ assert(o.selected.sender==17&&!lp_gm_handoff(&o,17,t+10000,t+1));
+ struct gm7_packet w=ann;w.kind=GM7_WITHDRAW;w.flags=0;w.body.control.sequence++;
+ w.body.control.sent_mono_us++;w.body.control.max_age_us=1000000;w.body.control.source_valid_us=0;
+ struct gm7_packet wrong=w;wrong.body.control.term++;assert(receive(&o,wrong,t+2));
+ assert(!lp_gm_handoff(&o,17,t+10000,t+2));
+ assert(!receive(&o,w,t+1000));assert(o.peer[0].kind==GM7_WITHDRAW);
+ assert(receive(&o,w,t+1100)); // Duplicate cannot renew its original deadline.
+ assert(lp_gm_handoff(&o,17,t+10000,t+1100));
+ assert(!lp_gm_handoff(&o,17,t+10000,t+1001000));
+ assert(!gm7_owner_reserve(&o,t+10000,t+14000,t+1200));
+ struct gm7_packet out;assert(!gm7_owner_planned_control(&o,&out,t+1300));
+ bool handoff=lp_gm_handoff(&o,17,t+10000,t+1300);uint32_t admitted=0;
+ assert(gm7_owner_reservation_commit(&o,t+9999,t+11400,t+11400));assert(!admitted);
+ assert(!gm7_owner_reservation_commit(&o,t+10000,t+11400,t+11400));
+ if(handoff)admitted=o.scope.timing_epoch;
+ assert(admitted&&o.serving&&!o.selected.sender&&gm7_owner_output(&o,t+11400));
+ puts("PASS LoRa exact-primary authenticated WITHDRAW receipt, wrong-scope/duplicate/expiry negatives, failed commit and new committed epoch admission");
+}
+int main(void){printf("sizeof owner=%zu peer=%zu control=%zu scheduler=%zu\n",sizeof(struct gm7_owner),sizeof(struct gm7_peer),sizeof(struct gm7_peer_control),sizeof(struct gm7_scheduler));codec();receipt_horizons();ordinary_inventory();newcomer_during_announce_loss();ordinary_schedule();capacity_pressure();terminal_dominance();birth_and_ties();independent_role();phase_policy();promote();lora_handoff_receipt();return 0;}

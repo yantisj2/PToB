@@ -251,6 +251,9 @@ static bool lora_current(const struct r2_ui_model *m,uint64_t now){
 }
 static bool lora_rms_current(const struct r2_ui_model *m,uint64_t now){
  return !m->lora.transmitter&&lora_input_current(m,now)&&m->lora.link_samples>=4&&
+#if defined(R2_LORA_PASSIVE_FAST)||defined(R2_LORA_PASSIVE_SLOW)
+  m->lora.quality_known&&
+#endif
   m->lora.fit_age_ms<R2_LORA_FIT_HOLD_MS&&now-m->sampled_ms<R2_LORA_FIT_HOLD_MS-m->lora.fit_age_ms;
 }
 bool r2_ui_lora_tof_ns(const struct r2_ui_model *m,uint64_t now,uint32_t *ns){
@@ -261,6 +264,7 @@ bool r2_ui_lora_tof_ns(const struct r2_ui_model *m,uint64_t now,uint32_t *ns){
     (now-v->sampled_us/1000)*1000>=(uint64_t)v->rtt_life_8s*8000000)return false;
  *ns=v->rtt_positive?v->rtt_value_ns:0;return true;
 }
+#if !defined(R2_LORA_PASSIVE_FAST)&&!defined(R2_LORA_PASSIVE_SLOW)
 static void lora_tof_text(char out[24],const char *name,char prefix,uint64_t magnitude){
  const char *unit=magnitude<1000?"ns":magnitude<1000000?"us":"ms";
  uint32_t scale=magnitude<1000?1:magnitude<1000000?1000:1000000;
@@ -270,6 +274,7 @@ static void lora_tof_text(char out[24],const char *name,char prefix,uint64_t mag
  else if(magnitude/scale<100)snprintf(out,24,"%s %c%u.%02u%s",name,prefix,(unsigned)(magnitude/scale),(unsigned)(magnitude%scale*100/scale),unit);
  else snprintf(out,24,"%s %c%u.%u%s",name,prefix,(unsigned)(magnitude/scale),(unsigned)(magnitude%scale*10/scale),unit);
 }
+#endif
 static void lora_header_name(char out[9],const char *name){
  size_t n=0;while(n<8&&name[n])++n;
  /* Truncate received UTF-8 only between code points. */
@@ -517,7 +522,7 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
   s.native_rms_valid=lora_rms_current(m,now);
   r2_precision_format(s.native_rms,sizeof s.native_rms,m->lora.link_rms_ns,s.native_rms_valid);
   bool signal=model_fresh&&m->lora.requested&&m->lora.active&&!m->lora.fault&&m->lora.rssi_valid&&
-   m->lora.rx_age_ms<12000&&now-m->sampled_ms<12000-m->lora.rx_age_ms;
+   m->lora.rx_age_ms<R2_LORA_SIGNAL_HOLD_MS&&now-m->sampled_ms<R2_LORA_SIGNAL_HOLD_MS-m->lora.rx_age_ms;
   s.native_rx_known=signal;s.native_rx_bars=signal?(m->lora.rssi_half_dbm>=-160?4:m->lora.rssi_half_dbm>=-190?3:m->lora.rssi_half_dbm>=-220?2:1):0;
  }
 #endif
@@ -602,7 +607,12 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
 #ifdef R2_LORA
  if(status->page==R2_UI_LORA_PAGE){
   const struct r2_lora_view *v=&m->lora;char text[24];
-  round_panel(fb,3,1,74,13,C_PANEL,C_BEZEL);label(fb,v->transmitter?13:4,4,v->transmitter?"LoRa RC8":"LoRa RTT EST",1,C_WHITE);
+  round_panel(fb,3,1,74,13,C_PANEL,C_BEZEL);
+#if defined(R2_LORA_PASSIVE_FAST)||defined(R2_LORA_PASSIVE_SLOW)
+  label(fb,4,4,"LoRa TIMING",1,C_WHITE);
+#else
+  label(fb,v->transmitter?13:4,4,v->transmitter?"LoRa RC8":"LoRa RTT EST",1,C_WHITE);
+#endif
   snprintf(text,sizeof text,"%s %s",v->transmitter?"TX":"RX",v->requested?"ON":"OFF");
   label(fb,5,22,text,2,v->requested?C_CYAN:C_DIM);
   const char *state=v->fault?"RADIO FAULT":!v->requested?"DISABLED":!v->active?"INHIBITED":v->transmitter?(v->state==RC8_AVAILABLE?"SOURCE READY":"WAIT SOURCE"):v->coord_follow?"COORD FOLLOW":v->state==RC8_AVAILABLE?"MATCHED TIME":v->state==RC8_EXPIRED?"HOLD EXPIRED":"WAIT PACKETS";
@@ -617,7 +627,7 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
    snprintf(text,sizeof text,"%s SOURCE",source);label(fb,4,74,text,1,C_CYAN);
    label(fb,4,86,v->state==RC8_AVAILABLE?"TIME VALID":"TIME INVALID",1,v->state==RC8_AVAILABLE?C_GREEN:C_AMBER);
   }else{
-   bool measured=v->requested&&v->active&&!v->fault&&v->state==RC8_AVAILABLE&&v->link_samples>=4;
+   bool measured=lora_rms_current(m,now);
    if(measured){
     if(v->link_rms_ns<1000)snprintf(text,sizeof text,"RMS %uns",v->link_rms_ns);
     else if(v->link_rms_ns<1000000)snprintf(text,sizeof text,"RMS %u.%uus",v->link_rms_ns/1000,v->link_rms_ns%1000/100);
@@ -633,6 +643,10 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
   else snprintf(text,sizeof text,"%s META %s",source,v->quality_known?"OK":"?");
   label(fb,4,112,text,1,C_WHITE);
   if(!v->transmitter){
+#if defined(R2_LORA_PASSIVE_FAST)||defined(R2_LORA_PASSIVE_SLOW)
+   label(fb,4,124,"PASSIVE RX",1,C_DIM);
+   label(fb,4,136,"UTC UNQUAL",1,C_DIM);
+#else
    uint32_t tof;bool estimated=r2_ui_lora_tof_ns(m,now,&tof);
    bool learning=!estimated&&v->rtt_base_count<2&&v->choice==RC8_SELECT_LORA&&lora_input_current(m,now);
    if(estimated)lora_tof_text(text,"ToF",tof?'+':'<',tof?tof:v->rtt_value_ns);
@@ -644,6 +658,7 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
    else if(learning)snprintf(text,sizeof text,"RTT BASE %u/2",v->rtt_base_count);
    else snprintf(text,sizeof text,"RTT --");
    label(fb,4,136,text,1,color);
+#endif
   }else label(fb,4,136,v->choice==RC8_SELECT_BLE?"BLE SELECTED":v->choice==RC8_SELECT_LOCAL_GM?"GM SELECTED":"NO CLOCK",1,C_DIM);
   label(fb,4,150,"HOLD: MENU",1,C_AMBER);return;
  }

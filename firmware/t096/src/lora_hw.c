@@ -69,7 +69,7 @@ static uint8_t task_channel;
 static bool resources, capture_owned, receive_mode;
 /* Init failures are permanent faults, but even a partial owner is inhibited. */
 static uint8_t resource_flags;
-#ifdef R2_LORA_PASSIVE_FAST
+#if defined(R2_LORA_PASSIVE_FAST) || defined(R2_LORA_PASSIVE_SLOW)
 static uint8_t passive_phy;
 static uint64_t source_until_tick;
 #endif
@@ -392,7 +392,7 @@ static int mask_irq(bool tx) {
    * win over success. PreambleDetected is acquisition-dependent; LoRa has
    * no SyncWordValid IRQ (that event is GFSK-only). */
   uint16_t flags = tx ? 0x201 : 0x272;
-#ifdef R2_LORA_PASSIVE_FAST
+#if defined(R2_LORA_PASSIVE_FAST) || defined(R2_LORA_PASSIVE_SLOW)
   if(!tx&&passive_phy==R2_LORA_DTS)flags=0x262; /* DIO rises at physical RxDone. */
 #endif
   uint8_t a[] = {flags >> 8, flags, flags >> 8, flags, 0, 0, 0, 0};
@@ -405,7 +405,7 @@ static int enable_fem(bool transmit, uint32_t budget, uint64_t latest_finish,
   unsigned key = irq_lock();
   int rc = -ECANCELED;
   if (atomic_get(&running) && !atomic_get(&fault)) {
-#ifdef R2_LORA_PASSIVE_FAST
+#if defined(R2_LORA_PASSIVE_FAST) || defined(R2_LORA_PASSIVE_SLOW)
     if(transmit){
       struct r2_capture at;
       uint64_t required=((uint64_t)budget+R2_LORA_HW_LAUNCH_MARGIN_US)*16;
@@ -533,7 +533,7 @@ static int init_resources(void) {
           nrfx_gpiote_clr_task_address_get(&gpiote, CSD_PIN)) != NRFX_SUCCESS)
     return -EIO;
   if (nrfx_ppi_channel_fork_assign(done_channel,
-#ifdef R2_LORA_PASSIVE_FAST
+#if defined(R2_LORA_PASSIVE_FAST) || defined(R2_LORA_PASSIVE_SLOW)
           nrfx_timer_task_address_get(&cutoff,NRF_TIMER_TASK_CAPTURE1)
 #else
           0
@@ -552,7 +552,7 @@ int r2_lora_hw_start(uint32_t gen, bool receive) {
     return atomic_get(&fault);
   if (atomic_get(&running) || atomic_get(&dma_inflight) || capture_owned)
     return -EBUSY;
-#ifdef R2_LORA_PASSIVE_FAST
+#if defined(R2_LORA_PASSIVE_FAST) || defined(R2_LORA_PASSIVE_SLOW)
   passive_phy=0; /* Explicit retune is required after every new owner. */
 #endif
   struct r2_capture current;
@@ -716,7 +716,7 @@ int r2_lora_hw_idle(void) {
   if (!rc) { nrfx_gpiote_clr_task_trigger(&gpiote,CSD_PIN);rc=gpio_pin_set_dt(&ctx,0); }
   return rc && rc!=-EAGAIN && rc!=-ECANCELED?fail(rc):rc;
 }
-#ifdef R2_LORA_PASSIVE_FAST
+#if defined(R2_LORA_PASSIVE_FAST) || defined(R2_LORA_PASSIVE_SLOW)
 int r2_lora_hw_passive_configure(enum r2_lora_passive_phy phy,unsigned channel){
   if((phy!=R2_LORA_DTS&&phy!=R2_LORA_FHSS)||channel>=64||(phy==R2_LORA_DTS&&channel))return -EINVAL;
   if(!atomic_get(&running)||atomic_get(&fault))return -ECANCELED;
@@ -736,7 +736,7 @@ int r2_lora_hw_passive_configure(enum r2_lora_passive_phy phy,unsigned channel){
 uint32_t r2_lora_hw_budget_us(size_t n) {
   if (!n || n > R2_LORA_HW_BYTES)
     return 0;
-#ifdef R2_LORA_PASSIVE_FAST
+#if defined(R2_LORA_PASSIVE_FAST) || defined(R2_LORA_PASSIVE_SLOW)
   if(passive_phy==R2_LORA_DTS)return n==28?454416:n==112?1142544:0;
   if(passive_phy==R2_LORA_FHSS)return n==24?231951:n==32?268814:0;
   return 0; /* This image cannot accidentally transmit the old wire/PHY. */
@@ -789,7 +789,7 @@ static int tx_before(const uint8_t *bytes, size_t n, uint32_t gen,
   }
   /* SX1262 RTC ticks=15.625us. Timing340ms; diagnostics420ms, within
    * their independent360/450ms hardware FEM cutoffs respectively. */
-#ifdef R2_LORA_PASSIVE_FAST
+#if defined(R2_LORA_PASSIVE_FAST) || defined(R2_LORA_PASSIVE_SLOW)
   /* Semtech single-packet TX: zero disables the chip's separate RTC timer.
    * The unchanged MCU compare/PPI FEM cutoff and reset remain the finite
    * bound. Do not race that bound with a shorter, independent RTC timeout. */
@@ -833,13 +833,13 @@ static int tx_before(const uint8_t *bytes, size_t n, uint32_t gen,
   return rc && rc != -ECANCELED ? fail(rc) : rc;
 }
 int r2_lora_hw_tx_before(const uint8_t *bytes,size_t n,uint32_t gen,uint64_t finish){
-#ifdef R2_LORA_PASSIVE_FAST
+#if defined(R2_LORA_PASSIVE_FAST) || defined(R2_LORA_PASSIVE_SLOW)
   (void)bytes;(void)n;(void)gen;(void)finish;return -ENOTSUP;
 #else
   return tx_before(bytes,n,gen,finish);
 #endif
 }
-#ifdef R2_LORA_PASSIVE_FAST
+#if defined(R2_LORA_PASSIVE_FAST) || defined(R2_LORA_PASSIVE_SLOW)
 int r2_lora_hw_tx_before_source(const uint8_t *bytes,size_t n,uint32_t gen,uint64_t finish,
                               uint64_t until,uint64_t epoch){
   struct r2_capture at;uint32_t budget=r2_lora_hw_budget_us(n);
@@ -900,7 +900,7 @@ int r2_lora_hw_take(struct r2_lora_hw_event *out) {
                                      .local_us = edge_us,
                                      .generation = edge_generation};
     if (state == 3 && flags == 1) {
-#ifdef R2_LORA_PASSIVE_FAST
+#if defined(R2_LORA_PASSIVE_FAST) || defined(R2_LORA_PASSIVE_SLOW)
       out->end_since_enable_us=nrfx_timer_capture_get(&cutoff,NRF_TIMER_CC_CHANNEL1);
       if(!out->end_since_enable_us||out->end_since_enable_us>wd.launch_budget)return fail(-ESTALE);
       uint64_t observed=now_us();uint32_t since=(uint32_t)((uint32_t)observed-wd.launch_us);
@@ -921,7 +921,7 @@ int r2_lora_hw_take(struct r2_lora_hw_event *out) {
       rc=command(0x80,standby,sizeof standby);
       if(!rc){count(&counters.crc_bad);rc=-EBADMSG;}
     } else if (state == 2 && (
-#ifdef R2_LORA_PASSIVE_FAST
+#if defined(R2_LORA_PASSIVE_FAST) || defined(R2_LORA_PASSIVE_SLOW)
                 (passive_phy==R2_LORA_DTS?flags==2:flags==0x12)
 #else
                 flags==0x12

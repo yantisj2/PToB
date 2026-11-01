@@ -37,6 +37,11 @@
 #define R2_LOCK_UNIT 2u
 #include "health_lock.h"
 static struct gm7_owner owner;
+#ifdef R2_LORA_PASSIVE_SLOW
+#include "build_identity.h"
+#include "../protocol/lora_gm_admission.h"
+static uint32_t lora_admitted_epoch;
+#endif
 #ifdef R2_TZ_WIRE
 static struct r2_tz_lease coarse_tz;
 #ifdef R2_TZ_AUTO
@@ -217,6 +222,9 @@ static bool reservation_fence(void *context) {
          r2_gm7_controller_exposed(GM7_PRIMARY, j->ticket);
 }
 static void fence(unsigned reason, uint64_t now) {
+#ifdef R2_LORA_PASSIVE_SLOW
+  lora_admitted_epoch=0;r2_lora_gm_admission(false,0,false,0,0);
+#endif
   gm7_owner_withdraw(&owner, reason, now);
   gm7_scheduler_cancel_positive(&scheduler, now);
   r2_gm7_controller_cancel(now);
@@ -268,6 +276,10 @@ static __attribute__((noinline)) bool source_read(struct gm7_source *s,
   bool captured = r2_capture_now(&current) && current.epoch == b->epoch;
   if (gm7_source_snapshot(s, clock, map, current, b->kernel_hi))
     return false;
+#ifdef R2_LORA_PASSIVE_SLOW
+  if(identity==(uint64_t)R2_LORA_TRANSMITTER_FACTORY)s->quality.priority1=1;
+  else if(identity==(uint64_t)R2_LORA_BACKUP_TRANSMITTER_FACTORY)s->quality.priority1=2;
+#endif
   uint64_t until = 0, pps = 0;
   bool live = gm7_bridge_to_hf(*b, s->until_us, &until);
   if (s->pps_healthy && !gm7_bridge_past(*b, s->pps_at, &pps))
@@ -514,6 +526,9 @@ static void ordinary_controls(struct gm7_bridge b,uint64_t frame_start,
       bool discovery_allowed=owner.serving && !resource_fault &&
           !owner.event.valid && !owner.withdrawn;
       if (diagnostic_due && !owner.event.valid &&
+#ifdef R2_LORA_PASSIVE_SLOW
+          (owner.serving||r2_lora_transmitter_quiescent())&&
+#endif
           !gm7_role_snapshot(&owner,&p,b.hf)) {
         if (!queue(GM7_SECONDARY,&p,window(secondary,enclosure),0,b))
           diag_frame=control_frame;
@@ -575,7 +590,14 @@ static bool results(struct gm7_bridge *current) {
 
       if (owner.reserved && result.slot == GM7_PRIMARY &&
           job->sequence == owner.reserved_sequence) {
+#ifdef R2_LORA_PASSIVE_SLOW
+        bool handoff=identity==(uint64_t)R2_LORA_BACKUP_TRANSMITTER_FACTORY&&
+            lp_gm_handoff(&owner,(uint64_t)R2_LORA_TRANSMITTER_FACTORY,first,b.hf);
+#endif
         int rc = gm7_owner_reservation_commit(&owner, first, end, b.hf);
+#ifdef R2_LORA_PASSIVE_SLOW
+        if(!rc)lora_admitted_epoch=handoff?owner.scope.timing_epoch:0;
+#endif
         if (rc)
           reservation_fail(job->window.nominal, job->sequence, RESERVE_COMPLETE,
                            rc, true, b.hf);
@@ -678,6 +700,10 @@ timing(struct gm7_bridge b, const struct gm7_source *s,
   int64_t utc = -1;
   if (gm7_owner_output(&owner, b.hf) &&
       gm7_bridge_to_kernel(b, s->until_us, &until)) {
+#ifdef R2_LORA_PASSIVE_SLOW
+    uint64_t yield_until;
+    if(owner.yield_deadline&&gm7_bridge_to_kernel(b,owner.yield_deadline,&yield_until)&&yield_until<until)until=yield_until;
+#endif
     scope = (struct r2_radio_scope){.root = 0,
                                     .root_identity = identity,
                                     .boot = boot,
@@ -746,6 +772,14 @@ timing(struct gm7_bridge b, const struct gm7_source *s,
    * lifecycle check. HCI runs without the service lock. */
   r2_radio_service_gm7_tick(b.kernel_hi, scope.gm ? &reference : NULL);
   r2_ble_serving(scope.gm);
+#ifdef R2_LORA_PASSIVE_SLOW
+  if(!scope.gm)lora_admitted_epoch=0;
+  if(scope.gm&&identity==(uint64_t)R2_LORA_TRANSMITTER_FACTORY&&
+     lora_admitted_epoch!=owner.scope.timing_epoch&&
+     lp_gm_readmitted(&owner,(uint64_t)R2_LORA_BACKUP_TRANSMITTER_FACTORY,b.hf))lora_admitted_epoch=owner.scope.timing_epoch;
+  r2_lora_gm_admission(scope.gm&&lora_admitted_epoch==owner.scope.timing_epoch,
+                       scope.until_us,lora_admitted_epoch==owner.scope.timing_epoch,scope.source_epoch,owner.scope.capture_gen);
+#endif
   r2_lora_origin(scope.gm, boot, scope.source_epoch);
 }
 #ifdef R2_TZ_WIRE
@@ -781,6 +815,9 @@ static __attribute__((noinline)) void receive(struct gm7_bridge b, uint64_t utc,
     uint32_t generation = owner.event_generation;
     bool was_serving=owner.serving;
     int received = gm7_owner_receive(&owner, r.ad, r.length, r.address, rx, b.hf);
+#ifdef R2_LORA_PASSIVE_SLOW
+    if(was_serving&&!owner.serving)r2_lora_gm_admission(false,0,false,0,0);
+#endif
     if (!received)
       management_count(&management_accepted);
 #ifdef R2_TZ_WIRE
@@ -1291,6 +1328,9 @@ static void cycle(struct k_work *work) {
     goto finished;
   }
   gm7_owner_update(&owner, &source, &prep, b.hf);
+#ifdef R2_LORA_PASSIVE_SLOW
+  if(!gm7_owner_output(&owner,b.hf))r2_lora_gm_admission(false,0,false,0,0);
+#endif
   if (owner.event_generation != event_generation) {
     event_generation = owner.event_generation;
     gm7_scheduler_cancel_positive(&scheduler, b.hf);

@@ -80,12 +80,18 @@ uncertainty and grants no RC7 timing or GM takeover authority. See the
 A separate default-off [passive v2 fast lab variant](../../protocol/lora_passive_v2/README.md)
 uses receive-only clients and DISC/META/SYNC/FOLLOW with4/12s cadence. It requires
 explicit build and per-boot selection, a persistent ledger, and measured lab
-acceptance. Slow protocol and range qualification remain deferred.
+acceptance. The separate `--lora-passive-slow` production candidate uses60s
+precision and300s META, boots normal GM/RC with RX on, and retains locally
+deferred TX obligations. Configured primary/backup GMs require qualified serving
+GNSS and authenticated handoff/readmission. Slow reception, timing and failover
+still require hardware acceptance. Use the
+[autonomous soak harness](../../docs/t096/lora-soak.md) after initial
+stabilization; range qualification remains a later field test.
 
 A current LoRa UTC estimate can drive the digital and analog watch, including
 while BLE is parked. Its original watch layout shows **LOR**, **LOR RMS**, the
 authenticated OTA emitter name, actual GM/RC mode and measured LoRa RX-strength
-bars. The rate badge reads **.25Hz**: one timing packet every four seconds.
+bars. The RC8/fast badge reads **.25Hz**; passive slow displays **60s**.
 Optional source-opened RTT calibration runs only for LoRa-only listeners, including a GM-profile watch; it grants no GM service, relay or USB timing authority. Local PPS remains a separate indication. LOR RMS measures relative physical
 link consistency, not UTC accuracy or BLE/PLL lock. The LoRa clock keeps UTC internally and displays local time while its own authenticated TZ lease is current.
 

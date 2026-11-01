@@ -2,12 +2,12 @@
 #pragma once
 #include "group_auth.h"
 #include "time_zone.h"
+#include "lora_passive_schedule.h"
 
 /* A new passive wire, independent of RC8 wire2..5. Only FAST is executable.
  * All sizes include MAC16. Small packets authenticate the full cached context.
  * Hints never carry clock authority. No client-to-source packet exists. */
 #define LP_VERSION 2u
-#define LP_FAST 1u
 #define LP_DISC_BYTES 28u
 #define LP_META_BYTES 112u
 #define LP_SYNC_BYTES 24u

@@ -38,6 +38,7 @@ def main():
  for name in ['zephyr/kernel.h','zephyr/sys/atomic.h','zephyr/random/random.h']:
   h=a.out/name;h.parent.mkdir(parents=True,exist_ok=True);h.write_text('/* Fake UI boundary. */\n')
  witness=a.out/'witness';subprocess.run([*flags,'-I'+str(a.out.resolve()),str(APP/'tests/shadow_worker_test.c'),str(APP/'src/radio_precision.c'),str(APP/'src/rc_boundary.c'),*map(str,common),'-o',str(witness)],check=True);subprocess.run([str(witness)],check=True)
+ witness_slow=a.out/'witness-slow';subprocess.run([*flags,'-DR2_LORA_PASSIVE_SLOW=1','-I'+str(a.out.resolve()),str(APP/'tests/shadow_worker_test.c'),str(APP/'src/radio_precision.c'),str(APP/'src/rc_boundary.c'),*map(str,common),'-o',str(witness_slow)],check=True);subprocess.run([str(witness_slow)],check=True)
  session=a.out/'witness-session';subprocess.run([*flags,str(APP/'tests/shadow_session_test.c'),'-o',str(session)],check=True);subprocess.run([str(session)],check=True)
  uiworker=a.out/'uiworker';subprocess.run([*flags,'-DR2_LORA=1','-I'+str(a.out.resolve()),str(APP/'tests/lora_ui_worker_test.c'),str(APP/'src/ui_render.c'),str(APP/'src/precision.c'),*map(str,common),'-o',str(uiworker)],check=True)
  for mode in range(42,52):subprocess.run([str(uiworker),str(mode)],check=True)

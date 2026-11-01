@@ -177,7 +177,12 @@ static uint32_t stack_unused(bool system_workqueue)
 #ifdef R2_LORA
 static void __attribute__((noinline)) lora_reply(const struct r2_request *r,uint64_t arrival,int result)
 {
-    int n=r2_lora_json(json,sizeof json,result);
+    int n;
+#if defined(R2_LORA_PASSIVE_FAST)||defined(R2_LORA_PASSIVE_SLOW)
+    if(r->op==R2_LORA_DIAGNOSTICS)n=r2_lora_diagnostics_json(json,sizeof json,result);
+    else
+#endif
+    n=r2_lora_json(json,sizeof json,result);
     if(n<=0||(size_t)n>=sizeof json||reply_sequence==UINT32_MAX)return;
     int extra=snprintf(json+n-1,sizeof json-(size_t)n+1,",\"source\":\"%s\"}",R2_SOURCE_SHA);
     if(extra<=0||(size_t)extra>=sizeof json-(size_t)n+1)return;
@@ -461,7 +466,7 @@ static void __attribute__((noinline)) reply_body(const struct r2_request *r,uint
 static void __attribute__((noinline)) reply(const struct r2_request *r,uint64_t arrival,int result)
 {
 #ifdef R2_LORA
-  if(r->op==R2_LORA_CONTROL||r->op==R2_LORA_RTT){lora_reply(r,arrival,result);return;}
+  if(r->op==R2_LORA_CONTROL||r->op==R2_LORA_RTT||r->op==R2_LORA_DIAGNOSTICS){lora_reply(r,arrival,result);return;}
 #endif
 #ifdef R2_NATIVE_BLE
   if(r->op==R2_SHADOW){shadow_reply(r,arrival,result);return;}
@@ -852,7 +857,7 @@ int main(void)
         } else if(r.op==R2_LORA_CONTROL){
           if(r.seconds){rc=maintenance.phase==R2_IDLE&&platform_ready?0:-EACCES;if(!rc)r2_lora_request(r.nonce!=0);}
         } else if(r.op==R2_LORA_RTT){
-#ifdef R2_LORA_PASSIVE_FAST
+#if defined(R2_LORA_PASSIVE_FAST) || defined(R2_LORA_PASSIVE_SLOW)
           rc=-ENOTSUP;
 #else
           if(r.seconds){rc=maintenance.phase==R2_IDLE&&platform_ready?0:-EACCES;if(!rc)r2_lora_rtt_lab(r.nonce!=0);}

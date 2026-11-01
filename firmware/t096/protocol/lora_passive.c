@@ -27,11 +27,11 @@ static void immutable(uint8_t w[64],const struct lp_scope *s,unsigned schedule){
 }
 int lp_context(uint8_t out[16],const struct lp_scope *s,unsigned schedule,const struct r2_group_config *g){
  if(!out)return -EINVAL;
- memset(out,0,16);if(schedule!=LP_FAST||!scope_valid(s))return -EINVAL;
+ memset(out,0,16);if(schedule!=LP_SCHEDULE||!scope_valid(s))return -EINVAL;
  uint8_t w[64];immutable(w,s,schedule);return r2_group_mac(out,g,"PTL2CTX1",w,sizeof w);
 }
 static bool valid(const struct lp_packet *p){
- if(!p||p->schedule!=LP_FAST||!lp_size(p->kind)||p->cursor>UINT32_MAX-2)return false;
+ if(!p||p->schedule!=LP_SCHEDULE||!lp_size(p->kind)||p->cursor>UINT32_MAX-2)return false;
  if(p->kind==LP_META&&(!scope_valid(&p->scope)||!p->serial||!p->utc_ns||!(r2_tz_valid(p->tz)||(!p->tz.id&&p->tz.offset_min==INT16_MIN))))return false;
  if(p->kind==LP_FOLLOW&&!p->utc_ns)return false;
  if(p->kind==LP_META||p->kind==LP_DISC){
@@ -65,7 +65,7 @@ int lp_encode(uint8_t *w,size_t capacity,const struct lp_packet *p,const uint8_t
 int lp_decode(struct lp_packet *p,const uint8_t *w,size_t n,const uint8_t context[16],const struct r2_group_config *g){
  if(!p)return -EINVAL;
  memset(p,0,sizeof *p);
- if(!w||n<4||w[0]!='L'||w[1]!=LP_VERSION||w[3]!=LP_FAST||(w[2]&0x30))return -EINVAL;
+ if(!w||n<4||w[0]!='L'||w[1]!=LP_VERSION||w[3]!=LP_SCHEDULE||(w[2]&0x30))return -EINVAL;
  unsigned k=w[2]&15;if(n!=lp_size(k)||!n)return -EINVAL;
  size_t body=n-16;uint8_t wanted[16];
  int rc=k==LP_META?r2_group_mac(wanted,g,domains[k-1],w,body):small_mac(wanted,g,domains[k-1],context,w,body);

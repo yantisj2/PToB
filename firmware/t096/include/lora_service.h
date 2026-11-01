@@ -22,8 +22,15 @@ struct r2_lora_view {
 };
 _Static_assert(sizeof(struct r2_lora_view)<=88,"RC8 view with coarse TZ");
 /* UI-only maximum from the original accepted physical pair; no authority. */
+#ifdef R2_LORA_PASSIVE_SLOW
+#define R2_LORA_DISPLAY_HOLD_US UINT64_C(62000000)
+#define R2_LORA_FIT_HOLD_MS 62000u
+#define R2_LORA_SIGNAL_HOLD_MS 62000u
+#else
 #define R2_LORA_DISPLAY_HOLD_US UINT64_C(20000000)
 #define R2_LORA_FIT_HOLD_MS 24000u
+#define R2_LORA_SIGNAL_HOLD_MS 12000u
+#endif
 /* Minimum deadband for relative propagation estimates; not an accuracy bound. */
 #define R2_LORA_TOF_FLOOR_NS UINT32_C(1000)
 void r2_lora_name_publish(const char *);
@@ -49,4 +56,11 @@ void r2_lora_parent_quality(uint64_t factory,uint64_t boot,uint8_t clock_class,u
 void r2_lora_view(struct r2_lora_view *);
 void r2_lora_coordination(struct r2_gm_coordination *);
 void r2_lora_origin(bool actually_serving,uint64_t incarnation,uint32_t epoch);
+#ifdef R2_LORA_PASSIVE_SLOW
+void r2_lora_gm_admission(bool serving,uint64_t original_until_us,bool explicit_primary_handoff,uint32_t source_epoch,uint32_t capture_epoch);
+bool r2_lora_transmitter_quiescent(void);
+#endif
+#if defined(R2_LORA_PASSIVE_FAST)||defined(R2_LORA_PASSIVE_SLOW)
+int r2_lora_diagnostics_json(char *,size_t,int result);
+#endif
 int r2_lora_json(char *,size_t,int result);

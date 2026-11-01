@@ -98,7 +98,8 @@ def resolve(serial, expected_pid=None):
     port = ports.pop()
     remaining=deadline-time.monotonic()
     if remaining<=0:raise TimeoutError('identity scan deadline')
-    owner = subprocess.run(['/usr/sbin/lsof', '-nPlX', '-Fp', port], text=True, capture_output=True, timeout=remaining)
+    aliases=[port,port.replace('/dev/cu.','/dev/tty.',1)]
+    owner = subprocess.run(['/usr/sbin/lsof', '-nPlX', '-Fp', *aliases], text=True, capture_output=True, timeout=remaining)
     if owner.stderr.strip():
         raise OSError('console ownership unknown')
     pids = set(re.findall(r'^p(\d+)$', owner.stdout, flags=re.M))
@@ -145,10 +146,18 @@ def close_serial(fd):
     return release_errors, close_errors
 
 
-def capture(unit, config, out, seconds, rotate_bytes, stop=None, snapshot_interval=30):
+def capture(unit, config, out, seconds, rotate_bytes, stop=None, snapshot_interval=30,
+            snapshot_ops=None, poll_op=None, poll_interval=2, events=True, observer=None, budget=None):
     folder = out / unit
     folder.mkdir(mode=0o700)
     raw, journal = [Rotating(folder, suffix, rotate_bytes) for suffix in ['raw', 'jsonl']]
+    if budget:
+        for stream in (raw, journal):
+            original = stream.write
+            def bounded(data, write=original):
+                budget(len(data))
+                write(data)
+            stream.write = bounded
     state = dict(unit=unit, status='INCOMPLETE', queries=0, timeouts=0, refused_frames=0,
                  missing_events=0, reset_or_configuration_commands=False)
     started = time.monotonic()
@@ -165,8 +174,10 @@ def capture(unit, config, out, seconds, rotate_bytes, stop=None, snapshot_interv
     identity_at = 0
 
     def record(kind, **values):
-        journal.write((json.dumps(dict(utc=datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                         host_mono_ns=time.monotonic_ns(), kind=kind, **values)) + '\n').encode())
+        entry=dict(utc=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                   host_mono_ns=time.monotonic_ns(), kind=kind, **values)
+        journal.write((json.dumps(entry) + '\n').encode())
+        if observer:observer(unit, entry)
 
     def pump(wait=0.02):
         nonlocal buffer, latest
@@ -215,7 +226,7 @@ def capture(unit, config, out, seconds, rotate_bytes, stop=None, snapshot_interv
         def query(op):
             nonlocal request, boot, latest, timeout_streak
             # Exact allowlist: these variants never alter service/profile/parent.
-            if op not in ('status', 'clock', 'precision', 'network', 'join', 'rc-parent') and not re.fullmatch(r'events [0-9a-f]{8}', op):
+            if op not in ('status', 'clock', 'precision', 'network', 'join', 'rc-parent', 'lora', 'lora-diag') and not re.fullmatch(r'events [0-9a-f]{8}', op):
                 raise ValueError('non-read-only query refused')
             # Keep the same exclusive FD and unit lock. Responses stay bound
             # to source/boot; refresh OS identity/ownership every five seconds.
@@ -246,6 +257,7 @@ def capture(unit, config, out, seconds, rotate_bytes, stop=None, snapshot_interv
                     raise ValueError('unit mismatch')
                 boot = observed
                 timeout_streak = 0
+                record('reply', op=op, payload=value)
                 return value
             state['timeouts'] += 1
             record('query_timeout', request=request, op=op)
@@ -272,15 +284,18 @@ def capture(unit, config, out, seconds, rotate_bytes, stop=None, snapshot_interv
             state.update(boot=f'{boot:016x}', first=first)
             version = tuple(map(int, first['version'].split('.')))
             cursor = 0
-            snapshots_due=events_due=0
+            snapshots_due=events_due=poll_due=0
             while time.monotonic() < deadline - 7:
                 now=time.monotonic()
                 if now>=snapshots_due:
-                    for op in ['network', 'precision', 'rc-parent', 'clock', 'join']:
+                    for op in (snapshot_ops if snapshot_ops is not None else ['network', 'precision', 'rc-parent', 'clock', 'join']):
                         if time.monotonic() >= deadline - 7:break
                         query(op)
                     snapshots_due=now+snapshot_interval
-                if version >= (0, 15, 56) and now>=events_due:
+                if poll_op and now>=poll_due:
+                    query(poll_op)
+                    poll_due=time.monotonic()+poll_interval
+                if events and version >= (0, 15, 56) and now>=events_due:
                     for _ in range(32):
                         if time.monotonic() >= deadline - 7:
                             break
@@ -304,12 +319,14 @@ def capture(unit, config, out, seconds, rotate_bytes, stop=None, snapshot_interv
             state['error'] = repr(e)
             if isinstance(e, InterruptedError) and stop is not None and stop.is_set():
                 state['status'] = 'STOPPED'
-            record('capture_error', error=repr(e))
+            try:record('capture_error', error=repr(e))
+            except OSError:pass  # Storage exhaustion must still release the FD.
         finally:
             errors = []
             release_errors = []
             if buffer or frames.header:
-                record('partial_tail', bytes=len(buffer), frame_pending=frames.header is not None)
+                try:record('partial_tail', bytes=len(buffer), frame_pending=frames.header is not None)
+                except OSError:pass
             if fd is not None:
                 release_errors, serial_errors = close_serial(fd)
                 errors.extend(serial_errors)

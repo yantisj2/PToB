@@ -31,12 +31,14 @@ uint64_t lp_charged(const struct lp_checkpoint *s,uint64_t now){
 static bool checkpoint_valid(const struct lp_checkpoint *s){
  return s&&s->minute<=UINT64_MAX/LP_MINUTE_US&&s->seed&&s->cursor<=UINT32_MAX-2&&s->slot!=UINT32_MAX&&
  s->serial!=UINT32_MAX&&s->pending<=2&&s->fh_disabled<=1&&
- (!((s->cursor&1)&&!s->pending&&!s->fh_disabled))&&lp_charged(s,s->minute*LP_MINUTE_US)<=LP_CAP_US;
+ (s->schedule==0||s->schedule==LP_FAST||s->schedule==LP_SLOW)&&!(s->owed&~(LP_OWED_PAIR|LP_OWED_META))&&
+ (!((s->cursor&1)&&!s->pending&&!s->fh_disabled))&&lp_charged(s,s->minute*LP_MINUTE_US)<=LP_HISTORY_CAP_US;
 }
 bool lp_checkpoint_carry(struct lp_checkpoint *s,uint64_t now,uint64_t first,uint32_t boot_ms){
  if(!checkpoint_valid(s)||first<now||now/1000>UINT32_MAX||!boot_ms||boot_ms>now/1000+1)return false;
  uint64_t debt=0;for(unsigned i=0;i<61;i++)debt+=s->buckets[i];
- if(debt>LP_CAP_US)return false;
+ if(debt>LP_HISTORY_CAP_US)return false;
+ if(s->schedule!=LP_SCHEDULE){s->schedule=LP_SCHEDULE;s->owed=0;}
  if(s->pending){s->fh_disabled=1;s->pending=0;}
  memset(s->buckets,0,sizeof s->buckets);s->minute=now/LP_MINUTE_US;s->buckets[s->minute%61]=(uint32_t)debt;
  for(unsigned i=0;i<64;i++)s->channel_end_ms[i]=boot_ms;
@@ -48,24 +50,49 @@ bool lp_tx_restore(struct lp_tx *t,const struct lp_checkpoint *s,lp_save_fn save
  t->ready=t->pair=false;t->slot_us=t->sync_end_us=0;t->save=NULL;t->storage=NULL;
  if(!save||!trusted||!checkpoint_valid(s))return false;
  t->durable=*s;t->save=save;t->storage=storage;
+ if(t->durable.schedule!=LP_SCHEDULE){t->durable.schedule=LP_SCHEDULE;t->durable.owed=0;}
  if(lp_hop_order(t->order,s->seed))return false;
  t->ready=true;
  if(s->pending){struct lp_checkpoint fault=*s;fault.fh_disabled=1;fault.pending=0;return commit(t,&fault);}
  return true;
 }
-bool lp_tx_reserve(struct lp_tx *t,uint64_t now,struct lp_reservation *out){
- if(!t||!out||!t->ready||t->durable.pending||now<t->durable.next_slot_us||
+bool lp_tx_reserve_control(struct lp_tx *t,uint64_t now,struct lp_reservation *out,bool force_meta){
+ if(!t||!out||!t->ready||t->durable.pending||(now<t->durable.next_slot_us&&!lp_tx_has_deferred(t))||
  now/1000>UINT32_MAX-4000||t->durable.slot==UINT32_MAX||t->durable.serial==UINT32_MAX)return false;
  /* No catch-up: skip missed slots on the original phase and META distribution. */
  uint64_t slot=t->durable.next_slot_us;
+#ifdef R2_LORA_PASSIVE_SLOW
+ if(t->durable.owed)slot=now;
+#endif
  uint64_t skipped=(now-slot)/LP_BEAT_US;
+#ifdef R2_LORA_PASSIVE_SLOW
+ skipped=0; /* A logical due precision/META event is not discarded by load. */
+#endif
  if(skipped>UINT32_MAX-t->durable.slot)return false;
  uint32_t index=t->durable.slot+(uint32_t)skipped;
  slot+=skipped*LP_BEAT_US;
- if(now-slot>50000)return false;
- unsigned control=index%3==0?LP_META:LP_DISC;
+ if(now-slot>50000){
+#ifdef R2_LORA_PASSIVE_SLOW
+  slot=now;force_meta=true; /* Fresh rendezvous for an overdue event. */
+#else
+  return false;
+#endif
+ }
+ unsigned control=index%LP_META_BEATS==0?LP_META:LP_DISC;
  struct lp_checkpoint s=t->durable;
+#ifdef R2_LORA_PASSIVE_SLOW
+ bool retry=s.owed!=0;
+ if(!retry){s.slot=index+1;s.owed=LP_OWED_PAIR|(control==LP_META?LP_OWED_META:0);}
+ else control=LP_META;
+ /* One outstanding periodic event. Resume its recurring timer from the
+  * actual attempt, never drain a stale wall-clock backlog as a TX burst. */
+ s.next_slot_us=slot+LP_BEAT_US;
+ if(force_meta)control=LP_META;
+ s.schedule=LP_SLOW;
+#else
+ (void)force_meta;
  s.slot=index+1;s.next_slot_us=slot+LP_BEAT_US;
+#endif
  if(control==LP_META)++s.serial;
  /* Check old debt at the EARLIEST possible new RF, before aging any bucket
   * at the proposed completion. Otherwise a minute boundary inside the slot
@@ -74,14 +101,20 @@ bool lp_tx_reserve(struct lp_tx *t,uint64_t now,struct lp_reservation *out){
  uint32_t cost=lp_duration(control);
  if(old>LP_CAP_US||cost>LP_CAP_US-old)return false;
  unsigned a=lp_channel(t->order,s.cursor),b=lp_channel(t->order,s.cursor+1);
- uint64_t sync_at=slot+1950000,follow_at=slot+2450000;
+ uint64_t sync_at=slot+LP_SYNC_OFFSET_US-50000,follow_at=slot+LP_SYNC_OFFSET_US+450000;
  bool pair=!s.fh_disabled&&s.cursor<=UINT32_MAX-3&&a!=b&&
  (!s.channel_end_ms[a]||sync_at>=(uint64_t)s.channel_end_ms[a]*1000+20000000)&&
  (!s.channel_end_ms[b]||follow_at>=(uint64_t)s.channel_end_ms[b]*1000+20000000);
  uint32_t pair_cost=lp_duration(LP_SYNC)+lp_duration(LP_FOLLOW);
  if(pair)pair=pair_cost<=LP_CAP_US-old-cost;
+#ifdef R2_LORA_PASSIVE_SLOW
+ /* Do not burn META-only retries while the owed precision cannot fit.
+  * A genuine latched FH fault still permits separately due META only. */
+ if(!pair&&(!s.fh_disabled||control!=LP_META))return false;
+ if(s.fh_disabled&&!(s.owed&LP_OWED_META))return false;
+#endif
  if(pair){cost+=pair_cost;s.pending=1;}
- advance(&s,(slot+3000000)/LP_MINUTE_US);
+ advance(&s,(slot+LP_FRAME_END_US)/LP_MINUTE_US);
  if(s.buckets[s.minute%61]>UINT32_MAX-cost)return false;
  s.buckets[s.minute%61]+=cost;
  if(!commit(t,&s))return false;
@@ -89,11 +122,20 @@ bool lp_tx_reserve(struct lp_tx *t,uint64_t now,struct lp_reservation *out){
  *out=(struct lp_reservation){.cursor=s.cursor,.serial=s.serial,.control=(uint8_t)control,.has_pair=pair,.slot_us=slot};
  return true;
 }
+bool lp_tx_reserve(struct lp_tx *t,uint64_t now,struct lp_reservation *out){return lp_tx_reserve_control(t,now,out,false);}
+bool lp_tx_has_deferred(const struct lp_tx *t){return t&&t->durable.owed;}
+void lp_tx_control_complete(struct lp_tx *t){
+#ifdef R2_LORA_PASSIVE_SLOW
+ if(t)t->durable.owed&=(uint8_t)~LP_OWED_META;
+#else
+ (void)t;
+#endif
+}
 static bool confirm(struct lp_tx *t,unsigned kind,uint64_t end,bool defer){
- if(!t||!t->ready||!t->pair||end<t->slot_us||end>=t->slot_us+3000000)return false;
+ if(!t||!t->ready||!t->pair||end<t->slot_us||end>=t->slot_us+LP_FRAME_END_US)return false;
  struct lp_checkpoint s=t->durable;
  if(kind==LP_SYNC&&s.pending==1){
-  if(end<t->slot_us+1950000+lp_duration(LP_SYNC)-10000||end>t->slot_us+2281951)return false;
+  if(end<t->slot_us+LP_SYNC_OFFSET_US-50000+lp_duration(LP_SYNC)-10000||end>t->slot_us+LP_SYNC_OFFSET_US+50000+lp_duration(LP_SYNC))return false;
   s.channel_end_ms[lp_channel(t->order,s.cursor)]=(uint32_t)((end+999)/1000);
   ++s.cursor;s.pending=2;t->sync_end_us=end;
  }else if(kind==LP_FOLLOW&&s.pending==2){
@@ -101,6 +143,9 @@ static bool confirm(struct lp_tx *t,unsigned kind,uint64_t end,bool defer){
      end>t->sync_end_us+300000+lp_duration(LP_FOLLOW))return false;
   s.channel_end_ms[lp_channel(t->order,s.cursor)]=(uint32_t)((end+999)/1000);
   ++s.cursor;s.pending=0;
+#ifdef R2_LORA_PASSIVE_SLOW
+  s.owed&=(uint8_t)~LP_OWED_PAIR;
+#endif
  }else return false;
  if(defer){t->durable=s;return true;}
  return commit(t,&s);
@@ -136,7 +181,7 @@ static void withdraw(struct lp_rx *r){
 }
 bool lp_rx_meta(struct lp_rx *r,const struct lp_packet *p,const struct r2_group_config *g,const struct lp_age *a,uint64_t event,uint64_t now){
  if(!r||!p||p->kind!=LP_META||!p->serial||event>UINT64_MAX-LP_LEASE_US||
- now<event||now-event>200000||p->schedule!=LP_FAST)return false;
+ now<event||now-event>200000||p->schedule!=LP_SCHEDULE)return false;
  uint8_t context[16];if(lp_context(context,&p->scope,p->schedule,g))return false;
  bool same=r->cached&&memcmp(context,r->context,16)==0;
  /* A physical transmitter keeps its public seed/cursor across context changes.
@@ -144,11 +189,17 @@ bool lp_rx_meta(struct lp_rx *r,const struct lp_packet *p,const struct r2_group_
  uint64_t age=0;bool bounded=lp_age_admit(a,p->utc_ns,now,&age);
  if(r->cached&&(!same&&r->bounded&&!bounded))return false;
  if(same&&p->serial<=r->serial)return false;
- if(r->cached&&(p->scope.emitter!=r->scope.emitter||p->scope.seed!=r->scope.seed||p->cursor<r->highest||p->utc_ns<=r->last_meta_ns))return false;
- if(r->cached&&!same&&p->scope.boot==r->scope.boot&&
+ if(r->cached&&(p->scope.emitter!=r->scope.emitter||p->scope.seed!=r->scope.seed||p->cursor<r->highest||p->utc_ns<=r->last_meta_ns)){
+#ifdef R2_LORA_PASSIVE_SLOW
+  if(p->scope.emitter==r->scope.emitter)return false;
+#else
+  return false;
+#endif
+ }
+ if(r->cached&&!same&&p->scope.emitter==r->scope.emitter&&p->scope.boot==r->scope.boot&&
     (p->scope.stream<=r->scope.stream||(p->scope.root_boot==r->scope.root_boot&&p->scope.epoch<r->scope.epoch)))return false;
  if(same&&p->cursor<r->highest)return false;
- if(!same){withdraw(r);r->highest=p->cursor;r->scope=p->scope;memcpy(r->context,context,16);
+ if(!same){withdraw(r);r->last_tick=r->last_tx_ns=r->last_epoch=0;r->highest=p->cursor;r->scope=p->scope;memcpy(r->context,context,16);
   if(lp_hop_order(r->order,p->scope.seed))return false;}
  r->cached=true;r->serial=p->serial;r->bounded=bounded;r->last_meta_ns=p->utc_ns;
  if(!add(event,LP_LEASE_US,&r->observed_deadline_us))return false;
@@ -163,7 +214,7 @@ bool lp_rx_meta(struct lp_rx *r,const struct lp_packet *p,const struct r2_group_
  return true;
 }
 bool lp_rx_hint(struct lp_rx *r,const struct lp_packet *p,uint64_t end,uint64_t now){
- if(!r||!p||!r->cached||(p->kind!=LP_META&&p->kind!=LP_DISC)||p->schedule!=LP_FAST||
+ if(!r||!p||!r->cached||(p->kind!=LP_META&&p->kind!=LP_DISC)||p->schedule!=LP_SCHEDULE||
  now<end||now-end>200000||now>=r->observed_deadline_us||p->cursor<r->highest)return false;
  pending_clear(r);
  if(!p->time_valid){withdraw(r);return true;}
@@ -215,13 +266,14 @@ static void fit(struct lp_rx *r,uint64_t tick,uint64_t ns){
  r->rms_ns=lo==UINT32_MAX?lo:lo+1;r->rate_ppb=(int32_t)rate;r->trained=true;
 }
 bool lp_rx_follow(struct lp_rx *r,const struct lp_packet *p,const struct lp_age *a,uint64_t epoch,uint64_t now){
- if(!r||!p||p->kind!=LP_FOLLOW||p->schedule!=LP_FAST||!r->pending||p->cursor!=r->pending_cursor||epoch!=r->pending_epoch||
+ if(!r||!p||p->kind!=LP_FOLLOW||p->schedule!=LP_SCHEDULE||!r->pending||p->cursor!=r->pending_cursor||epoch!=r->pending_epoch||
  now<r->pending_us||now>=r->pending_deadline_us||now>=r->observed_deadline_us){if(r){++r->rejected;pending_clear(r);}return false;}
  uint64_t age;bool bounded=lp_age_admit(a,p->utc_ns,now,&age);
- if(r->have_pair&&(p->cursor<=r->highest||p->utc_ns<=r->last_tx_ns||r->pending_tick<=r->last_tick)){++r->rejected;pending_clear(r);return false;}
+ if(r->last_tick&&(p->cursor<=r->highest||p->utc_ns<=r->last_tx_ns||
+    (epoch==r->last_epoch&&r->pending_tick<=r->last_tick))){++r->rejected;pending_clear(r);return false;}
  r->physical_deadline_us=r->pending_us+LP_HOLD_US;
  if(now>=r->physical_deadline_us){pending_clear(r);return false;}
- if(r->have_pair&&epoch!=r->last_epoch)r->fit_count=0;
+ if(r->fit_count&&epoch!=r->last_epoch)r->fit_count=0;
  r->last_tick=r->pending_tick;r->last_tx_ns=p->utc_ns;r->last_us=r->pending_us;
  r->highest=p->cursor;r->have_pair=true;r->bounded=r->bounded&&bounded;r->last_epoch=epoch;
  fit(r,r->last_tick,r->last_tx_ns);++r->accepted;
@@ -232,7 +284,11 @@ void lp_rx_expire(struct lp_rx *r,uint64_t now){
  if(!r)return;
  if(r->pending&&now>=r->pending_deadline_us){++r->missing;pending_clear(r);}
  if(r->hint&&now>r->hint_us+250000){++r->missing;pending_clear(r);}
- if(r->have_pair&&now>=r->physical_deadline_us){r->have_pair=r->trained=false;r->fit_count=0;}
+ if(r->have_pair&&now>=r->physical_deadline_us){r->have_pair=r->trained=false;
+#ifndef R2_LORA_PASSIVE_SLOW
+ r->fit_count=0;
+#endif
+ }
  if(r->cached&&now>=r->observed_deadline_us)withdraw(r); /* Keep replay/context floors. */
  if(r->bounded&&now>=r->meta_deadline_us){r->bounded=false;r->meta_deadline_us=r->tz_deadline_us=0;}
 }

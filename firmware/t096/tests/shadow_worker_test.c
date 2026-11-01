@@ -57,5 +57,17 @@ int main(void){
  m.normal_map.rate=100001;m.lo=32001000;now_tick=32002000;r2_shadow_normal_map(&m);e.tick=48000000;r2_shadow_edge(e,1000);r2_shadow_poll_normal();
  assert(r2_shadow_read(cursor,&r,&st)&&!r.valid&&r.reason==RC_SHADOW_ARITHMETIC);
  r2_shadow_lora_withdraw();assert(!history.count);
+#ifdef R2_LORA_PASSIVE_SLOW
+ cursor=r.sequence;
+ m=(struct rc_shadow_map){.normal=true,.lora=true,.normal_map={16000000,1000000000,0,0,true},
+  .normal_until=16000000+LP_HOLD_US*16,.map={.effective=16000000,.generation=9},.lo=16001000,.epoch=1,.root=1,.root_boot=9};
+ now_tick=16002000;r2_shadow_normal_map(&m);
+ for(unsigned i=0;i<4;i++){
+  const uint64_t age[]={20000000,61000000,61999999,62000000};
+  e.tick=16000000+age[i]*16;r2_shadow_edge(e,1000);r2_shadow_poll_normal();
+  assert(r2_shadow_read(cursor,&r,&st));cursor=r.sequence;
+  assert(i<3?r.valid:!r.valid&&r.reason==RC_SHADOW_EXPIRED);
+ }
+#endif
  puts("PASS actual normal/RC witness worker: immutable causal maps, metadata deferral, normal1.5s/RC500ms expiry, withdraw and raw PPS association; no witness feedback");
 }

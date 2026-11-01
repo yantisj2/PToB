@@ -1,5 +1,20 @@
 # T096 changelog
 
+## 0.15.245 — slow passive timing and autonomous reception diagnostics
+
+Add explicit schedule2 with60s precision,300s META,62s physical expiry and362s
+context expiry. Normal GM/RC slow images request RX at boot; configured own-GNSS
+primary/backup TX is fenced by serving GM7 state and explicit handoff/readmission.
+Deferred precision/META obligations retry through fresh rendezvous and fully
+charged admission, without discovery retries or catch-up bursts. Historical
+debt, persistent faults and original source/FOLLOW deadlines remain binding.
+
+Add bounded `lora-diag`, trained-RMS/60s UI behavior, and an independent read-only
+soak collector with a two-META-cycle gate, retained failures and finite disk/run
+limits. These are implementation changes, not hardware acceptance. See the
+[protocol](../../protocol/lora_passive_v2/README.md) and
+[soak guide](../../docs/t096/lora-soak.md).
+
 ## 0.15.244 — retire proven pre-FHSS cancellations after closure
 
 After verified hardware closure, the live owner may cancel a precharged pair
