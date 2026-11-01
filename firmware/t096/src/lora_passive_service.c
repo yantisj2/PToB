@@ -56,13 +56,13 @@ struct lp_diagnostics {
   struct {uint64_t last_tick,last_ns,epoch,last_us,physical_until,meta_until,root_boot;};
   struct {uint64_t next_slot,charged,tx_root_boot;};
  };
- uint32_t cursor,serial,accepted,rejected,missing,store_sequence,refused,late,missing_map,bad,storage_fail,storage_max_us,sent[4],received[4];
- int32_t rate;int error;uint8_t pending,fh_disabled,stage,phy,channel;bool trained;
+ uint32_t cursor,serial,accepted,rejected,missing,store_sequence,refused,late,missing_map,bad,storage_fail,sent[4],received[4];
+ union {int32_t rate;uint32_t storage_max_us;};int error;uint8_t pending,fh_disabled,stage,phy,channel;bool trained;
 };
 static struct lp_diagnostics diagnostics;
 static struct {bool active,stopping,listening;uint8_t phy,channel,tx_kind,stage;
- uint64_t next_control_us,last_end_us,last_sync_us,quiet_until_us;
- uint32_t sent[4],received[4],refused,late,missing_map,bad,storage_fail,revision,boot_ms,storage_max_us;
+ union {uint64_t next_control_us;struct {uint64_t last_end_us,last_sync_us,quiet_until_us;uint32_t boot_ms,storage_max_us;};};
+ uint32_t sent[4],received[4],refused,late,missing_map,bad,storage_fail,revision;
  int error;int16_t rssi;int8_t snr;} owner;
 K_THREAD_STACK_DEFINE(worker_stack,2048);
 static struct k_thread worker_thread;
@@ -200,7 +200,7 @@ static void __attribute__((noinline)) report(uint64_t now){
   d->cursor=r->highest;d->serial=r->serial;d->accepted=r->accepted;d->rejected=r->rejected;d->missing=r->missing;
   d->pending=r->pending;d->trained=r->trained;d->rate=r->rate_ppb;}
  d->refused=owner.refused;d->late=owner.late;d->missing_map=owner.missing_map;d->bad=owner.bad;
- d->storage_fail=owner.storage_fail;d->storage_max_us=owner.storage_max_us;d->error=owner.error;d->stage=owner.stage;d->phy=owner.phy;d->channel=owner.channel;
+ d->storage_fail=owner.storage_fail;if(transmitter)d->storage_max_us=owner.storage_max_us;d->error=owner.error;d->stage=owner.stage;d->phy=owner.phy;d->channel=owner.channel;
  memcpy(d->sent,owner.sent,sizeof d->sent);memcpy(d->received,owner.received,sizeof d->received);
  published=v;k_spin_unlock(&lock,key);
 }
@@ -533,8 +533,8 @@ int r2_lora_json(char *out,size_t capacity,int result){
  (unsigned long long)until,(unsigned long long)owner.quiet_until_us,stack_unused(),d.error,
  (unsigned long long)d.emitter,(unsigned long long)d.boot,d.stream,d.source_epoch,(unsigned long long)(transmitter?d.tx_root_boot:d.root_boot),d.seed,d.cursor,d.serial,
  (unsigned long long)(transmitter?0:d.last_tick),(unsigned long long)(transmitter?0:d.last_ns),(unsigned long long)(transmitter?0:d.epoch),(unsigned long long)(transmitter?0:d.last_us),(unsigned long long)(transmitter?0:d.physical_until),(unsigned long long)(transmitter?0:d.meta_until),
- d.trained?"true":"false",v.link_samples,v.link_rms_ns,d.rate,d.accepted,d.rejected,d.missing,v.choice,v.state,v.time_valid?"true":"false",
- (unsigned long long)(transmitter?d.charged:0),(unsigned long long)(transmitter?d.next_slot:0),d.pending,d.fh_disabled,d.store_sequence,d.storage_fail,d.storage_max_us,d.refused,d.late,d.missing_map,d.bad,
+ d.trained?"true":"false",v.link_samples,v.link_rms_ns,transmitter?0:d.rate,d.accepted,d.rejected,d.missing,v.choice,v.state,v.time_valid?"true":"false",
+ (unsigned long long)(transmitter?d.charged:0),(unsigned long long)(transmitter?d.next_slot:0),d.pending,d.fh_disabled,d.store_sequence,d.storage_fail,transmitter?d.storage_max_us:0,d.refused,d.late,d.missing_map,d.bad,
  d.sent[0],d.sent[1],d.sent[2],d.sent[3],d.received[0],d.received[1],d.received[2],d.received[3],
 #define AUDIT_ARGS(i) (unsigned long long)audit[i].tick,(unsigned long long)audit[i].epoch,(unsigned long long)audit[i].start_us,(unsigned long long)audit[i].end_us,audit[i].cursor,audit[i].phy,audit[i].channel,audit[i].valid
  AUDIT_ARGS(0),AUDIT_ARGS(1),AUDIT_ARGS(2),AUDIT_ARGS(3),
