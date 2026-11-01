@@ -146,7 +146,6 @@ static bool source_now(struct rc8_correction *out,uint32_t *epoch){
 static void begin_stop(int error){
  if(error){owner.error=error;atomic_or(&faulted,1);}
  stop_now();owner.stopping=true;
- if(transmitter&&role.tx.core.durable.pending)lp_tx_fault(&role.tx.core);
  if(!transmitter){lp_rx_clear(&role.rx);r2_shadow_lora_withdraw();}
  k_spinlock_key_t key=k_spin_lock(&lock);published.active=false;published.utc_us=published.until_us=published.display_until_us=0;k_spin_unlock(&lock,key);
 }
@@ -221,7 +220,8 @@ withdraw:if(shadow_tick){r2_shadow_lora_withdraw();shadow_tick=0;}
 /* Synchronous precharge can refuse; it must never erase on the launch path. */
 static bool restore(void){
  if(!role.tx.loaded){role.tx.loaded=true;
-  if(!lp_store_load(&role.tx.store,factory,&role.tx.core.durable)){inc(&owner.storage_fail);return false;}}
+  if(!lp_store_load(&role.tx.store,factory,&role.tx.core.durable)){inc(&owner.storage_fail);return false;}
+  if(role.tx.store.ready&LP_STORE_INITIAL_QUIET)owner.quiet_until_us=mono();}
  if(!role.tx.store.ready)return false;
  if(!role.tx.rebased){
   if(mono()<owner.quiet_until_us)return false;
@@ -248,12 +248,12 @@ static int __attribute__((noinline)) transmit(uint64_t now){
  struct lp_tx *t=&role.tx.core;struct rc8_correction c;uint32_t source_epoch=0;
  uint32_t revision=(uint32_t)atomic_get(&source_revision);
  if(revision!=owner.revision){
-  if(t->durable.pending){lp_tx_fault(t);owner.stage=0;}
+  if(t->durable.pending){if(owner.stage==3&&!owner.tx_kind)lp_tx_cancel(t,true);else lp_tx_fault(t);owner.stage=0;}
   role.tx.context_ready=false;owner.revision=revision;
  }
  if(owner.tx_kind)return 0;
  if(!source_now(&c,&source_epoch)){
-  if(t->durable.pending){lp_tx_fault(t);owner.stage=0;}
+  if(t->durable.pending){if(owner.stage==3&&!owner.tx_kind)lp_tx_cancel(t,true);else lp_tx_fault(t);owner.stage=0;}
   return 0;
  }
  if(!restore())return 0;
@@ -273,20 +273,24 @@ static int __attribute__((noinline)) transmit(uint64_t now){
   struct lp_packet p={.kind=LP_FOLLOW,.schedule=LP_FAST,.cursor=role.tx.reservation.cursor,.utc_ns=role.tx.sync_ns};
   rc=send_packet(&p,owner.last_sync_us+300000+lp_duration(LP_FOLLOW));if(rc)lp_tx_fault(t);return rc;
  }
- if(now<t->durable.next_slot_us){
+ if(owner.stage!=3&&now+300000<t->durable.next_slot_us){
   if(now>owner.last_end_us+100000&&t->durable.next_slot_us-now>400000&&!lp_store_prepare(&role.tx.store)){inc(&owner.storage_fail);return -EIO;}
   return 0;
  }
- if(now-t->durable.next_slot_us>50000){
-  uint64_t next=t->durable.next_slot_us+((now-t->durable.next_slot_us)/LP_BEAT_US)*LP_BEAT_US;
-  if(now-next>50000)return 0;
+ if(owner.stage!=3){
+  uint64_t reserve_at=now<t->durable.next_slot_us?t->durable.next_slot_us:now;
+  if(reserve_at-t->durable.next_slot_us>50000){
+   uint64_t next=t->durable.next_slot_us+((reserve_at-t->durable.next_slot_us)/LP_BEAT_US)*LP_BEAT_US;
+   if(reserve_at-next>50000)return 0;
+  }
+  uint32_t index=t->durable.slot+(uint32_t)((reserve_at-t->durable.next_slot_us)/LP_BEAT_US);
+  if(!role.tx.context_ready&&index%3)return 0;
+  if(!lp_tx_reserve(t,reserve_at,&role.tx.reservation)){inc(&owner.refused);return 0;}
+  owner.stage=3;
  }
- /* Context updates wait for regular META, never inject a startup packet. */
- uint32_t index=t->durable.slot+(uint32_t)((now-t->durable.next_slot_us)/LP_BEAT_US);
- if(!role.tx.context_ready&&index%3)return 0;
- if(!lp_tx_reserve(t,now,&role.tx.reservation)){inc(&owner.refused);return 0;}
  struct lp_reservation *r=&role.tx.reservation;
- if(mono()>r->slot_us+45000){inc(&owner.late);lp_tx_cancel(t,true);return 0;}
+ if(mono()<r->slot_us)return 0;
+ if(mono()>r->slot_us+45000){inc(&owner.late);lp_tx_cancel(t,true);owner.stage=0;return 0;}
  if(r->control==LP_META&&!role.tx.context_ready){
   if(role.tx.stream==UINT32_MAX)return -EOVERFLOW;
   role.tx.context_epoch=source_epoch;++role.tx.stream;
@@ -332,30 +336,30 @@ static int __attribute__((noinline)) receive_event(const struct r2_lora_hw_event
  return 0;
 }
 static int __attribute__((noinline)) tx_complete(const struct r2_lora_hw_event *h,uint64_t event){
- unsigned kind=owner.tx_kind;owner.tx_kind=0;if(!kind)return -ESTALE;
- k_spinlock_key_t audit_key=k_spin_lock(&lock);
+ unsigned kind=owner.tx_kind;if(!kind)return -ESTALE;
+ bool mapped=false;k_spinlock_key_t key=k_spin_lock(&lock);
+ if(kind==LP_SYNC){
+  if(role.tx.captured.sequence&&role.tx.edge.tick==h->tick&&role.tx.edge.capture_epoch==h->capture_epoch){role.tx.sync_ns=role.tx.captured.event_ns;mapped=true;}
+  else for(unsigned i=0;i<2;i++){struct rc8_correction c;
+   if(rc8_export_event(&c,&role.tx.maps[i],1,(struct rc8_event){.tick=h->tick,.capture_epoch=h->capture_epoch,.kind=RC8_EVENT_TX_START})){role.tx.sync_ns=c.event_ns;mapped=true;break;}}
+ }
+ owner.tx_kind=0;
  audits[kind-1]=(struct lp_audit){.tick=h->tick,.epoch=h->capture_epoch,.start_us=event,.end_us=h->end_local_us,
  .cursor=role.tx.reservation.cursor+(kind==LP_FOLLOW?1:0),.phy=owner.phy,.channel=owner.channel,.valid=true};
- k_spin_unlock(&lock,audit_key);
+ k_spin_unlock(&lock,key);
  inc(&owner.sent[kind-1]);owner.last_end_us=h->end_local_us;
  if(kind==LP_META||kind==LP_DISC){owner.stage=role.tx.reservation.has_pair?1:0;return 0;}
  if(!lp_tx_confirm(&role.tx.core,kind,h->end_local_us)){lp_tx_fault(&role.tx.core);owner.stage=0;return 0;}
  if(kind==LP_SYNC){
-  bool mapped=false;k_spinlock_key_t key=k_spin_lock(&lock);preserve();
-  /* owner.tx_kind was cleared for completion: also map from still-live
-   * original formulas if no earlier publisher preserved it. */
-  if(role.tx.captured.sequence&&role.tx.edge.tick==h->tick&&role.tx.edge.capture_epoch==h->capture_epoch){role.tx.sync_ns=role.tx.captured.event_ns;mapped=true;}
-  else for(unsigned i=0;i<2;i++){struct rc8_correction c;
-   if(rc8_export_event(&c,&role.tx.maps[i],1,(struct rc8_event){.tick=h->tick,.capture_epoch=h->capture_epoch,.kind=RC8_EVENT_TX_START})){role.tx.sync_ns=c.event_ns;mapped=true;break;}}
-  k_spin_unlock(&lock,key);
   if(!mapped){inc(&owner.missing_map);lp_tx_fault(&role.tx.core);owner.stage=0;return 0;}
   owner.last_sync_us=h->end_local_us;owner.stage=2;
  }else owner.stage=0;
  return 0;
 }
+
 static int __attribute__((noinline)) process_event(uint64_t now){
  struct r2_lora_hw_event h;int rc=r2_lora_hw_take(&h);if(rc<=0)return rc;
- uint64_t event;if(!physical(&h,&event)){inc(&owner.bad);if(transmitter&&role.tx.core.durable.pending)lp_tx_fault(&role.tx.core);return 0;}
+ uint64_t event;if(h.generation!=generation||!physical(&h,&event)){inc(&owner.bad);if(transmitter&&role.tx.core.durable.pending)lp_tx_fault(&role.tx.core);return 0;}
  if(h.kind==R2_LORA_HW_RX_DONE){owner.listening=false;rc=receive_event(&h,event,mono());
   if(!rc&&!owner.listening){rc=r2_lora_hw_rx_rearm();if(!rc)owner.listening=true;}return rc;}
  return tx_complete(&h,event);
@@ -376,13 +380,14 @@ static int receive_step(uint64_t now){
  if(owner.phy==R2_LORA_FHSS&&!r->pending&&!r->hint)return tune(R2_LORA_DTS,0,true);
  return 0;
 }
+static bool fenced(void){k_spinlock_key_t key=k_spin_lock(&lock);bool value=stop_deadline!=0;k_spin_unlock(&lock,key);return value;}
 static void __attribute__((noinline)) service_step(void){
  uint64_t now=mono();atomic_val_t f=atomic_get(&flags);
  k_spinlock_key_t key=k_spin_lock(&lock);uint64_t until=lab_until;k_spin_unlock(&lock,key);
  if((f&REQUESTED)&&now>=until){r2_lora_request(false);f=atomic_get(&flags);}
  bool desired=!atomic_get(&faulted)&&(f&ALLOWED)&&(f&REQUESTED)&&group&&factory&&transmitter_factory&&(!transmitter||(!(f&PROFILE_RC)&&(f&SOURCE_PRESENT)));
  r2_diag_scratch.lora.beat=k_uptime_get_32();r2_diag_scratch.lora.monitor=desired||owner.active||owner.stopping;
- if(!desired&&owner.active&&!owner.stopping)begin_stop(0);
+ if(((!desired&&owner.active)||fenced())&&!owner.stopping)begin_stop(0);
  if(owner.stopping){
   if(!r2_diag_scratch.lora.drain_poll_us)r2_diag_scratch.lora.drain_poll_us=mono();
   struct r2_lora_hw_ack ack={0};r2_lora_hw_stop_poll(&ack);uint64_t observed=mono();
@@ -391,17 +396,23 @@ static void __attribute__((noinline)) service_step(void){
   if(observed>=stop_deadline&&!complete){atomic_or(&faulted,2);r2_lora_hw_watchdog_trip(-ETIMEDOUT);}
   if(complete){r2_diag_scratch.lora.drain_ack_us=observed;
    if(observed>=stop_deadline){r2_diag_scratch.lora.drain_late=1;inc(&r2_diag_scratch.lora.drain_late_count);}
+   bool no_rf=owner.stage==3&&!owner.tx_kind;
    owner.active=owner.stopping=owner.listening=false;owner.tx_kind=owner.stage=0;atomic_set(&closed,1);
-   key=k_spin_lock(&lock);stop_deadline=0;k_spin_unlock(&lock,key);k_thread_priority_set(&worker_thread,WORKER_PRIORITY);}
+   key=k_spin_lock(&lock);stop_deadline=0;k_spin_unlock(&lock,key);k_thread_priority_set(&worker_thread,WORKER_PRIORITY);
+   /* Durable pending state already fails closed after reset. Record the
+    * fault only AFTER observing peripheral closure, outside the200ms drain. */
+   if(transmitter&&role.tx.core.durable.pending){if(no_rf)lp_tx_cancel(&role.tx.core,true);else lp_tx_fault(&role.tx.core);}}
  }else if(desired&&!owner.active){
   if(generation==UINT32_MAX)atomic_or(&faulted,1);
   else{++generation;atomic_set(&closed,0);int rc=r2_lora_hw_start(generation,false);
    if(rc==-EAGAIN)atomic_set(&closed,1);
    else{owner.active=true;if(!rc){r2_diag_scratch.lora.drain_late=0;rc=tune(R2_LORA_DTS,0,!transmitter);}if(rc)begin_stop(rc);}}
  }else if(owner.active){
-  int rc=process_event(now);if(!rc)rc=transmitter?transmit(mono()):receive_step(mono());
+  int rc=process_event(now);
+  if(!rc){if(fenced()||(transmitter&&!(atomic_get(&flags)&SOURCE_PRESENT)))begin_stop(0);
+   else rc=transmitter?transmit(mono()):receive_step(mono());}
   if(rc==-EAGAIN){inc(&owner.refused);if(transmitter){owner.stage=0;lp_tx_cancel(&role.tx.core,true);}}
-  else if(rc)begin_stop(rc==-EINTR?0:rc);
+  else if(rc)begin_stop(rc==-EINTR||(rc==-ECANCELED&&fenced())?0:rc);
  }
  report(mono());r2_diag_scratch.lora.beat=k_uptime_get_32();
 }
@@ -412,6 +423,10 @@ void r2_lora_init(uint64_t f,uint64_t boot,uint64_t tx,const struct r2_group_con
   sizeof r2_diag_scratch.lora-(offsetof(struct r2_lora_watchdog_state,retained)+sizeof r2_diag_scratch.lora.retained));
  r2_diag_scratch.lora.journal_result=-ENODATA;factory=f;physical_boot=boot;transmitter_factory=tx;group=g;transmitter=f&&f==tx;
  source_tz.value=r2_tz_unknown();owner.quiet_until_us=mono()+LP_HOUR_US;
+ if(transmitter){role.tx.loaded=true;
+  if(!lp_store_load(&role.tx.store,factory,&role.tx.core.durable))inc(&owner.storage_fail);
+  else if(role.tx.store.ready&LP_STORE_INITIAL_QUIET)owner.quiet_until_us=mono();
+ }
  atomic_set(&flags,0);atomic_set(&observer_ready,1);
  k_thread_create(&worker_thread,worker_stack,K_THREAD_STACK_SIZEOF(worker_stack),worker,NULL,NULL,NULL,WORKER_PRIORITY,0,K_NO_WAIT);
  k_thread_name_set(&worker_thread,"lora-passive-lab");

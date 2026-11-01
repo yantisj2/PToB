@@ -31,6 +31,16 @@ int main(int argc,char **argv){assert(argc==2);unsigned mode=(unsigned)atoi(argv
  if(mode==3||mode==4){state.cursor=2;fail_at=mode==3?1:4;assert(!lp_store_save(&s,&state));assert(lp_store_load(&s,1,&state)&&s.sequence==1&&!state.cursor);assert(!lp_store_save(&s,&state));return 0;}
  if(mode==5){memory[24]^=1;assert(!lp_store_load(&s,1,&state));return 0;}
  if(mode==6){memcpy(memory+LP_STORE_RECORD_BYTES,memory,LP_STORE_RECORD_BYTES);assert(!lp_store_load(&s,1,&state));return 0;}
+ if(mode>=9){
+  uint32_t image[144];memcpy(image,memory,sizeof image);image[1]=2;image[2]=2;
+  if(mode==10)image[6+520/4]=2; /* A cursor cannot be silently cleared. */
+  if(mode==11)image[6+516/4]^=1; /* Original physical seed must match. */
+  image[142]=r2_crc32(image,568);memcpy(memory+576,image,sizeof image);
+  if(mode==10||mode==11){assert(!lp_store_load(&s,1,&state)&&!s.ready);return 0;}
+  assert(lp_store_load(&s,1,&state)&&(s.ready&LP_STORE_INITIAL_QUIET)&&s.sequence==2&&state.seed==0x51a7c003);
+  assert(lp_store_save(&s,&state)&&!(s.ready&LP_STORE_INITIAL_QUIET));
+  assert(lp_store_load(&s,1,&state)&&s.sequence==3&&!(s.ready&LP_STORE_INITIAL_QUIET));return 0;
+ }
  for(unsigned i=1;i<200;i++){
   state.cursor=2*i;state.serial=i;if(i%3==1)assert(lp_store_prepare(&s));assert(lp_store_save(&s,&state));
   struct lp_store recovered;struct lp_checkpoint r;assert(lp_store_load(&recovered,1,&r)&&r.cursor==2*i&&r.serial==i&&recovered.sequence==s.sequence);recovered.prepared_page=s.prepared_page;s=recovered;

@@ -151,7 +151,11 @@ factory-bound persistent airtime/cursor ledger. Initial ledger provisioning is
 an explicit exact-device installer operation after checking that range is
 unused; it is not a boot fallback. Existing state must be preserved on updates.
 TX waits an actual RF-silent hour after every boot before conservative time
-rebasing. Neither reboot nor mode/source changes reseed the cursor or mint
+rebasing. A separately reviewed, exact-device initial migration may append a
+single initial-quiet proof only after measuring a full silent hour and verifying
+the factory-bound ledger has never been used. It preserves the original seed,
+is durably consumed before admission and cannot qualify a used ledger. See the
+passive contract; no runtime console command resets airtime. Neither reboot nor mode/source changes reseed the cursor or mint
 credit. Inspect the variant binding, partition, complete linked RAM budget and
 stack evidence before installation. Enrolled candidates remain ignored locally.
 

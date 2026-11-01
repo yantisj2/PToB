@@ -74,7 +74,18 @@ be explicitly provisioned by the exact-device installer after proving the area
 unused. Boot never manufactures missing state. After every boot, TX requires
 an actual RF-silent hour before rebasing the time coordinate and aging out old
 airtime/cooldown debt. Seed, cursor, pending faults and distribution index remain
-persistent. A fresh session must be selected after this quarantine. Untrusted time,
+persistent. A fresh session must be selected after this quarantine.
+
+A narrowly scoped initial migration may carry an operator-proved silent hour
+forward: an installer-only schema2/sequence2 record in slot1 must preserve the
+byte-identical, otherwise zero, factory-bound checkpoint and public seed from
+schema1/sequence1 in slot0. Qualification needs exact-device physical/boot/build
+and RF-counter evidence for at least3600 actual seconds; an image checksum alone
+is insufficient. Firmware never writes schema2. It consumes the initial proof
+with an ordinary durable record before admission. Any used cursor, slot, debt,
+pending state, altered seed or missing original record rejects this path.
+Subsequent reboots use the normal conservative guard. This is local initial
+state provisioning, not an on-air grant or a runtime debt-reset command. Untrusted time,
 failed commits or absent checkpoints inhibit admission. Interrupted pairs
 disable FHSS; missing checkpoints cannot be synthesized at boot.
 
@@ -92,6 +103,10 @@ TX DIO TxDone also drives TIMER4 CAPTURE1 while preserving the common timer's
 BUSY start capture and independent FEM cutoff. This coarse gap measurement is
 not a precision UTC timestamp. Launch, RF tail, retune/capture bias, channel
 effects, temperature and cutoff behavior need physical qualification.
+
+Storage precharge may start300ms before a slot without moving the RF target.
+The source freezes its actual SYNC mapping before durable confirmation. Stop
+ACKs precede fault checkpoint writes so those writes cannot extend that drain.
 
 One priority11 worker owns capture, retuning and the radio; its unchanged2KiB
 stack and200ms promoted drain retain BLE priority. Source maps are frozen before

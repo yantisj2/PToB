@@ -1,5 +1,21 @@
 # T096 changelog
 
+## 0.15.232 — keep durable writes outside radio deadlines
+
+Precharge the upcoming slot up to300ms before its unchanged RF target. Freeze
+SYNC's original source mapping before durable confirmation can wait for flash.
+On withdrawal, acknowledge peripheral closure before writing the fail-closed
+checkpoint; a latched cancellation prevents another launch even if the source
+recovers while the worker is yielding. Host cases include150ms durable commits
+and500ms fault writes.
+
+Support an installer-only qualification of an otherwise untouched initial
+ledger after a proven actual RF-silent hour. The second record must retain the
+original factory/seed and byte-identical zero-debt checkpoint. Firmware consumes
+this one-use initial proof before admission and never creates it. Ordinary
+reboots and any used ledger retain the conservative hour guard. No seed, cursor,
+airtime debt or pending fault can be reset through this path.
+
 ## 0.15.231 — bound passive status publication and source withdrawal
 
 Compute the rolling ledger and capture projection outside the IRQ-masked
