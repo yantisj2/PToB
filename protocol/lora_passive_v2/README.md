@@ -138,7 +138,10 @@ lift within350ms of TX transitions prevents the priority6 UI from delaying
 launch; storage returns to priority11 and drain uses priority9. Its unchanged2KiB
 stack,200ms drain and controller/interrupt priorities remain bounded. Source maps are frozen before
 turnover, and completion must match the original capture. Source withdrawal
-before FOLLOW prevents that FOLLOW and latches the incomplete-pair fault.
+prevents further RF. After verified closure, a live proof that no FHSS SetTx
+was submitted permits cancellation without refunds or cursor changes. Any
+possible FHSS transmission or reset ambiguity still latches the incomplete-pair
+fault. Existing disables are never cleared by restart or ordinary flashing.
 Receivers listen for each DTS control even during successful timing. Their PPS
 observer uses the existing causal history and never feeds the estimator.
 

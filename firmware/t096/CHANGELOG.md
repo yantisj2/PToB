@@ -1,5 +1,17 @@
 # T096 changelog
 
+## 0.15.244 — retire proven pre-FHSS cancellations after closure
+
+After verified hardware closure, the live owner may cancel a precharged pair
+when it proves no SYNC or FOLLOW SetTx was submitted. DTS traffic stays fully
+charged, with seed/cursor unchanged; fresh source/context admission is still
+required. Possible FHSS transmission, reset ambiguity and existing disables
+remain fault-latched. No installed fault is automatically cleared.
+
+Publish transmitter status at50Hz while retaining2ms hardware polling and
+event capture, reducing diagnostic work in the bounded priority5 interval.
+Receiver publication and the original source/RF limits remain unchanged.
+
 ## 0.15.243 — combine completed-pair persistence with the next precharge
 
 Capture validated FOLLOW completion in RAM, retaining the original durable

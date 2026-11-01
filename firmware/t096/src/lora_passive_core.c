@@ -114,9 +114,9 @@ void lp_tx_fault(struct lp_tx *t){
  struct lp_checkpoint s=t->durable;s.fh_disabled=1;s.pending=0;t->pair=false;
  (void)commit(t,&s);
 }
-void lp_tx_cancel(struct lp_tx *t,bool no_rf){
+void lp_tx_cancel(struct lp_tx *t,bool no_fh_rf){
  if(!t||!t->ready)return;
- if(!no_rf||t->durable.pending==2){lp_tx_fault(t);return;}
+ if(!no_fh_rf||t->durable.pending==2){lp_tx_fault(t);return;}
  if(!t->durable.pending){t->pair=false;return;}
  struct lp_checkpoint s=t->durable;s.pending=0;t->pair=false;(void)commit(t,&s);
 }

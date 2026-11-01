@@ -275,12 +275,12 @@ static int __attribute__((noinline)) transmit(uint64_t now){
  struct lp_tx *t=&role.tx.core;struct rc8_correction c;uint32_t source_epoch=0;uint64_t root_boot=0;struct r2_capture limit;
  uint32_t revision=(uint32_t)atomic_get(&source_revision);
  if(revision!=owner.revision){
-  if(t->durable.pending){if(owner.stage==3&&!owner.tx_kind)lp_tx_cancel(t,true);else lp_tx_fault(t);owner.stage=0;}
+  if(t->durable.pending){begin_stop(0);return 0;}
   role.tx.context_ready=false;owner.revision=revision;
  }
  if(owner.tx_kind)return 0;
  if(!source_now(&c,&source_epoch,&root_boot,&limit)){
-  if(t->durable.pending){if(owner.stage==3&&!owner.tx_kind)lp_tx_cancel(t,true);else lp_tx_fault(t);owner.stage=0;}
+  if(t->durable.pending)begin_stop(0);
   return 0;
  }
  /* Choose the initial fixed monotonic phase200ms after the own source's
@@ -441,12 +441,15 @@ static void __attribute__((noinline)) service_step(void){
   if(observed>=stop_deadline&&!complete){atomic_or(&faulted,2);r2_lora_hw_watchdog_trip(-ETIMEDOUT);}
   if(complete){r2_diag_scratch.lora.drain_ack_us=observed;
    if(observed>=stop_deadline){r2_diag_scratch.lora.drain_late=1;inc(&r2_diag_scratch.lora.drain_late_count);}
-   bool no_rf=owner.stage==3&&!owner.tx_kind;
+   /* The live owner can prove that no FHSS SetTx was submitted before SYNC.
+    * A DTS control may have completed or been cut off; its full reservation
+    * stays charged. Any possible SYNC/FOLLOW transmission still fails closed. */
+   bool no_fh=role.tx.core.durable.pending==1&&(owner.stage==3||owner.stage==1)&&owner.tx_kind!=LP_SYNC&&owner.tx_kind!=LP_FOLLOW;
    owner.active=owner.stopping=owner.listening=false;owner.tx_kind=owner.stage=0;atomic_set(&closed,1);
    key=k_spin_lock(&lock);stop_deadline=0;k_spin_unlock(&lock,key);k_thread_priority_set(&worker_thread,WORKER_PRIORITY);
    /* Durable pending state already fails closed after reset. Record the
     * fault only AFTER observing peripheral closure, outside the200ms drain. */
-   if(transmitter&&role.tx.core.durable.pending){if(no_rf)lp_tx_cancel(&role.tx.core,true);else lp_tx_fault(&role.tx.core);}
+   if(transmitter&&role.tx.core.durable.pending){if(no_fh)lp_tx_cancel(&role.tx.core,true);else lp_tx_fault(&role.tx.core);}
    else if(transmitter&&role.tx.dirty&&!lp_tx_flush(&role.tx.core)){inc(&owner.storage_fail);owner.error=-EIO;atomic_or(&faulted,1);}}
  }else if(desired&&!owner.active){
   if(generation==UINT32_MAX)atomic_or(&faulted,1);
@@ -464,7 +467,8 @@ static void __attribute__((noinline)) service_step(void){
   if(rc==-EAGAIN){inc(&owner.refused);if(transmitter){owner.stage=0;lp_tx_cancel(&role.tx.core,true);}}
   else if(rc)begin_stop(rc==-EINTR||(rc==-ECANCELED&&fenced())?0:rc);
  }
- report(mono());r2_diag_scratch.lora.beat=k_uptime_get_32();
+ now=mono();if(!transmitter||!owner.active||owner.stopping||now-published.sampled_us>=20000)report(now);
+ r2_diag_scratch.lora.beat=k_uptime_get_32();
 }
 static int worker_priority(uint64_t now){
  if(owner.stopping||fenced())return DRAIN_PRIORITY;

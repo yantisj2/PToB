@@ -46,7 +46,7 @@ bool lp_tx_confirm(struct lp_tx *,unsigned kind,uint64_t actual_end_us);
 bool lp_tx_capture_sync(struct lp_tx *,uint64_t actual_end_us);
 bool lp_tx_capture_follow(struct lp_tx *,uint64_t actual_end_us);
 bool lp_tx_flush(struct lp_tx *);
-void lp_tx_cancel(struct lp_tx *,bool proven_no_rf);
+void lp_tx_cancel(struct lp_tx *,bool proven_no_fh_rf);
 void lp_tx_fault(struct lp_tx *);
 
 /* Independent age interval; never filled from the packet being admitted. */
