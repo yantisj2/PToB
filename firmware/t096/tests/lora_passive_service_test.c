@@ -114,7 +114,9 @@ static void tx_case(unsigned mode){
  if(mode==21){struct lp_tx reboot={0};assert(lp_tx_restore(&reboot,&stored,lp_store_save,&role.tx.store,true)&&reboot.durable.fh_disabled&&!reboot.durable.pending&&reboot.durable.cursor==0);return;}
  if(mode==5){now_us=owner.last_sync_us+301000;step();assert(stored.fh_disabled&&!stored.pending&&txs==2);return;}
  now_us=owner.last_sync_us+260000;uint64_t follow=now_us;step();assert(sent_len==LP_FOLLOW_BYTES);
- done(follow,LP_FOLLOW);assert(stored.cursor==2&&!stored.fh_disabled&&txs==3);if(stored.pending)assert(owner.stage==3&&role.tx.reservation.slot_us==slot+LP_BEAT_US);
+ done(follow,LP_FOLLOW);assert(role.tx.core.durable.cursor==2&&!role.tx.core.durable.pending&&role.tx.dirty&&stored.cursor==0&&stored.pending==1&&!stored.fh_disabled&&txs==3);
+ if(mode==29){struct lp_tx reboot={0};assert(lp_tx_restore(&reboot,&stored,lp_store_save,&role.tx.store,true)&&reboot.durable.fh_disabled&&!reboot.durable.pending&&reboot.durable.cursor==0);return;}
+ if(mode==30||mode==31){if(mode==31)save_fails=true;r2_lora_request(false);step();step();assert(atomic_get(&closed));if(mode==30)assert(!role.tx.dirty&&!stored.pending&&stored.cursor==2&&!stored.fh_disabled);else assert(role.tx.dirty&&owner.storage_fail&&!role.tx.core.ready&&role.tx.core.durable.fh_disabled&&stored.pending==1&&atomic_get(&faulted));return;}
  if(mode==20){assert(owner.storage_max_us==350000);return;}
  if(mode==6){r2_lora_request(false);step();step();assert(atomic_get(&closed)&&!owner.active&&stops);return;}
  if(mode==8){now_us=slot+3750000;step();now_us=slot+4000000;}else now_us=slot+4000000;step();assert(sent_len==LP_DISC_BYTES&&role.tx.reservation.control==LP_DISC);
@@ -159,5 +161,5 @@ static void carry_case(unsigned mode){
  assert(lp_checkpoint_carry(s,1000000,5000000,1)&&lp_charged(s,1000000)==LP_CAP_US-100000);
  s->pending=3;assert(!lp_checkpoint_carry(s,1000000,5000000,1));
 }
-int main(int argc,char **argv){assert(argc==2);unsigned mode=(unsigned)atoi(argv[1]);if(mode==22||mode==23)carry_case(mode);else if(mode==17||mode==18)startup_cancel_case(mode);else if(mode<10||mode==16||mode==19||mode==20||mode==21||mode==24||mode==25||mode==26||mode==27||mode==28)tx_case(mode);else rx_case(mode);
+int main(int argc,char **argv){assert(argc==2);unsigned mode=(unsigned)atoi(argv[1]);if(mode==22||mode==23)carry_case(mode);else if(mode==17||mode==18)startup_cancel_case(mode);else if(mode<10||mode==16||mode==19||mode==20||mode==21||mode==24||mode==25||mode==26||mode==27||mode==28||mode==29||mode==30||mode==31)tx_case(mode);else rx_case(mode);
  char json[3072];int n=r2_lora_json(json,sizeof json,0);assert(n>0&&n<2976);printf("PASS owner %u\nJSON %s\n",mode,json);return 0;}

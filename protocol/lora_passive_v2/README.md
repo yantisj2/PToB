@@ -125,9 +125,12 @@ retain raw IRQ flags and chip status; a missing journal write is not success.
 
 Storage precharge may start1.2s before a slot without moving the RF target.
 The source snapshot is refreshed after precharge, before guarded submission.
-SYNC's actual mapping and cursor update are retained in RAM; the whole pair
-remains durably pending until FOLLOW commits its final cursor and cooldown.
-A reset before that commit still disables FHSS. Stop
+SYNC's actual mapping and pair progress are retained in RAM. The whole pair
+remains durably pending until the next precharge includes its completed cursor
+and cooldown, or a clean stop flushes completion after hardware closure. A reset
+before either commit still disables FHSS, even if FOLLOW physically completed.
+Failed flushes fail closed; logical pending and checkpoint_dirty are separate.
+Stop
 ACKs precede fault checkpoint writes so those writes cannot extend that drain.
 
 One priority11 worker owns capture, retuning and the radio. A bounded priority5

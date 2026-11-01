@@ -39,10 +39,13 @@ bool lp_checkpoint_carry(struct lp_checkpoint *,uint64_t now_us,uint64_t first_s
 bool lp_tx_restore(struct lp_tx *,const struct lp_checkpoint *,lp_save_fn,void *,bool time_trusted);
 bool lp_tx_reserve(struct lp_tx *,uint64_t now_us,struct lp_reservation *);
 bool lp_tx_confirm(struct lp_tx *,unsigned kind,uint64_t actual_end_us);
-/* Update SYNC in RAM only. The durable whole-pair precharge remains pending
- * until FOLLOW commits. Reset before then disables FHSS as an interrupted
- * precharged pair; no uncharged RF is enabled. */
+/* Capture pair progress in RAM. The durable precharge stays pending until
+ * the next reservation includes the completed cursor/cooldowns, or a clean
+ * quiescent stop flushes it. Reset before then disables FHSS; no uncharged
+ * RF is enabled. Flush must run only after confirmed radio quiescence. */
 bool lp_tx_capture_sync(struct lp_tx *,uint64_t actual_end_us);
+bool lp_tx_capture_follow(struct lp_tx *,uint64_t actual_end_us);
+bool lp_tx_flush(struct lp_tx *);
 void lp_tx_cancel(struct lp_tx *,bool proven_no_rf);
 void lp_tx_fault(struct lp_tx *);
 

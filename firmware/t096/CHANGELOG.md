@@ -1,5 +1,15 @@
 # T096 changelog
 
+## 0.15.243 — combine completed-pair persistence with the next precharge
+
+Capture validated FOLLOW completion in RAM, retaining the original durable
+pending pair until the next precharge includes its final cursor/cooldowns.
+Clean stop flushes that completion only after hardware closure. Reset before
+either commit still disables FHSS; failed flush still fails closed. Expose
+checkpoint_dirty separately from logical pending state. This removes one flash
+write per beat after a120s run completed25 pairs but missed three launch slots.
+Use the quiescent interval immediately after FOLLOW to prepare the next page.
+
 ## 0.15.242 — prepare the complete durable pair before admission
 
 Ensure the spare-page preparation succeeds before every new reservation, even

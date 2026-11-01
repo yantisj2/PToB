@@ -89,7 +89,7 @@ bool lp_tx_reserve(struct lp_tx *t,uint64_t now,struct lp_reservation *out){
  *out=(struct lp_reservation){.cursor=s.cursor,.serial=s.serial,.control=(uint8_t)control,.has_pair=pair,.slot_us=slot};
  return true;
 }
-static bool confirm(struct lp_tx *t,unsigned kind,uint64_t end,bool defer_sync){
+static bool confirm(struct lp_tx *t,unsigned kind,uint64_t end,bool defer){
  if(!t||!t->ready||!t->pair||end<t->slot_us||end>=t->slot_us+3000000)return false;
  struct lp_checkpoint s=t->durable;
  if(kind==LP_SYNC&&s.pending==1){
@@ -102,11 +102,13 @@ static bool confirm(struct lp_tx *t,unsigned kind,uint64_t end,bool defer_sync){
   s.channel_end_ms[lp_channel(t->order,s.cursor)]=(uint32_t)((end+999)/1000);
   ++s.cursor;s.pending=0;
  }else return false;
- if(defer_sync&&kind==LP_SYNC){t->durable=s;return true;}
+ if(defer){t->durable=s;return true;}
  return commit(t,&s);
 }
 bool lp_tx_confirm(struct lp_tx *t,unsigned kind,uint64_t end){return confirm(t,kind,end,false);}
 bool lp_tx_capture_sync(struct lp_tx *t,uint64_t end){return confirm(t,LP_SYNC,end,true);}
+bool lp_tx_capture_follow(struct lp_tx *t,uint64_t end){return confirm(t,LP_FOLLOW,end,true);}
+bool lp_tx_flush(struct lp_tx *t){return t&&t->ready&&!t->durable.pending&&commit(t,&t->durable);}
 void lp_tx_fault(struct lp_tx *t){
  if(!t||!t->ready)return;
  struct lp_checkpoint s=t->durable;s.fh_disabled=1;s.pending=0;t->pair=false;

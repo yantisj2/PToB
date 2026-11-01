@@ -42,7 +42,7 @@ static union {
  struct {struct lp_tx core;struct lp_store store;struct rc8_export maps[2];
   struct rc8_correction captured;struct r2_lora_hw_edge edge;
   uint64_t context_root_boot;uint32_t context_epoch;struct lp_reservation reservation;
-  uint8_t context[16];uint64_t sync_ns;uint32_t stream;bool context_ready,loaded,rebased;} tx;
+  uint8_t context[16];uint64_t sync_ns;uint32_t stream;bool context_ready,loaded,rebased;volatile bool dirty;} tx;
  struct lp_rx rx;
 } role;
 static struct r2_tz_lease source_tz;
@@ -106,6 +106,7 @@ void r2_lora_toggle(void){r2_lora_request(!(atomic_get(&flags)&REQUESTED));}
 void r2_lora_stop(void){atomic_and(&flags,~ALLOWED);if(!atomic_get(&closed))stop_now();}
 int r2_lora_close_result(void){
  if((atomic_get(&faulted)&2)||r2_diag_scratch.lora.terminal)return -EIO;
+ if(transmitter&&role.tx.dirty)return -EAGAIN;
  return r2_diag_scratch.lora.drain_late?-ETIMEDOUT:atomic_get(&closed)?0:-EAGAIN;
 }
 bool r2_lora_source_needed(void){atomic_val_t f=atomic_get(&flags);return transmitter&&!atomic_get(&faulted)&&(f&ALLOWED)&&(f&REQUESTED)&&!(f&PROFILE_RC);}
@@ -243,6 +244,7 @@ static bool storage_save(void *arg,const struct lp_checkpoint *s){
  k_thread_priority_set(&worker_thread,WORKER_PRIORITY);
  uint64_t began=mono();bool ok=lp_store_save(arg,s);uint64_t cost=mono()-began;
  if(cost>owner.storage_max_us)owner.storage_max_us=cost>UINT32_MAX?UINT32_MAX:(uint32_t)cost;
+ if(ok)role.tx.dirty=false;
  return ok;
 }
 static bool restore(uint64_t first_slot){
@@ -313,7 +315,7 @@ static int __attribute__((noinline)) transmit(uint64_t now){
  if(!role.tx.context_ready&&index%3)skipped+=3-index%3;
  target+=skipped*LP_BEAT_US;
  if(owner.stage!=3&&now+PRECHARGE_LEAD_US<target){
-  if(now>owner.last_end_us+100000&&target-now>PRECHARGE_LEAD_US+100000&&!storage_prepare()){inc(&owner.storage_fail);return -EIO;}
+  if(!storage_prepare()){inc(&owner.storage_fail);return -EIO;}
   return 0;
  }
  if(owner.stage!=3){
@@ -391,12 +393,12 @@ static int __attribute__((noinline)) tx_complete(const struct r2_lora_hw_event *
  k_spin_unlock(&lock,key);
  inc(&owner.sent[kind-1]);owner.last_end_us=h->end_local_us;
  if(kind==LP_META||kind==LP_DISC){if(kind==LP_META)role.tx.context_ready=true;owner.stage=role.tx.reservation.has_pair?1:0;return 0;}
- bool confirmed=kind==LP_SYNC?lp_tx_capture_sync(&role.tx.core,h->end_local_us):lp_tx_confirm(&role.tx.core,kind,h->end_local_us);
+ bool confirmed=kind==LP_SYNC?lp_tx_capture_sync(&role.tx.core,h->end_local_us):lp_tx_capture_follow(&role.tx.core,h->end_local_us);
  if(!confirmed){lp_tx_fault(&role.tx.core);owner.stage=0;return 0;}
  if(kind==LP_SYNC){
   if(!mapped){inc(&owner.missing_map);lp_tx_fault(&role.tx.core);owner.stage=0;return 0;}
   owner.last_sync_us=h->end_local_us;owner.stage=2;
- }else owner.stage=0;
+ }else{role.tx.dirty=true;owner.stage=0;}
  return 0;
 }
 
@@ -444,7 +446,8 @@ static void __attribute__((noinline)) service_step(void){
    key=k_spin_lock(&lock);stop_deadline=0;k_spin_unlock(&lock,key);k_thread_priority_set(&worker_thread,WORKER_PRIORITY);
    /* Durable pending state already fails closed after reset. Record the
     * fault only AFTER observing peripheral closure, outside the200ms drain. */
-   if(transmitter&&role.tx.core.durable.pending){if(no_rf)lp_tx_cancel(&role.tx.core,true);else lp_tx_fault(&role.tx.core);}}
+   if(transmitter&&role.tx.core.durable.pending){if(no_rf)lp_tx_cancel(&role.tx.core,true);else lp_tx_fault(&role.tx.core);}
+   else if(transmitter&&role.tx.dirty&&!lp_tx_flush(&role.tx.core)){inc(&owner.storage_fail);owner.error=-EIO;atomic_or(&faulted,1);}}
  }else if(desired&&!owner.active){
   if(generation==UINT32_MAX)atomic_or(&faulted,1);
   else{++generation;atomic_set(&closed,0);int rc=r2_lora_hw_start(generation,false);
@@ -548,6 +551,7 @@ int r2_lora_json(char *out,size_t capacity,int result){
  k_spinlock_key_t key=k_spin_lock(&lock);d=diagnostics;v=published;until=lab_until;memcpy(audit,audits,sizeof audit);k_spin_unlock(&lock,key);
  struct r2_lora_hw_diag h;r2_lora_hw_diag(&h);
  uint32_t fault_words[16]={0};uint64_t fault_boot=0;unsigned fault_key=irq_lock();
+ bool checkpoint_dirty=transmitter&&role.tx.dirty;
  if(r2_diag_scratch.lora.record[0]==R2_LORA_FAULT_MAGIC){memcpy(fault_words,r2_diag_scratch.lora.record,sizeof fault_words);fault_boot=physical_boot;}
  else if(r2_diag_scratch.lora.retained.record[0]==R2_LORA_FAULT_MAGIC){memcpy(fault_words,r2_diag_scratch.lora.retained.record,sizeof fault_words);fault_boot=r2_diag_scratch.lora.retained.boot;}
  irq_unlock(fault_key);
@@ -564,7 +568,7 @@ int r2_lora_json(char *out,size_t capacity,int result){
  "\"at_us\":%llu,\"tx_admission_us\":[%u,%d,%u,%u],"
  "\"audit\":[[%llu,%llu,%llu,%llu,%u,%u,%u,%u],[%llu,%llu,%llu,%llu,%u,%u,%u,%u],[%llu,%llu,%llu,%llu,%u,%u,%u,%u],[%llu,%llu,%llu,%llu,%u,%u,%u,%u]],"
  "\"owner\":[%u,%u,%u],\"hw\":[%u,%u,%u,%u,%u,%u,%u,%d,%u,%u,%u],\"drain_result\":%d,"
- "\"fault_boot\":\"%016llx\",\"fault_words\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u]}",
+ "\"fault_boot\":\"%016llx\",\"checkpoint_dirty\":%s,\"fault_words\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u]}",
  result,(unsigned long long)physical_boot,(unsigned long long)transmitter_factory,transmitter?"true":"false",v.requested?"true":"false",v.active?"true":"false",atomic_get(&closed)?"true":"false",atomic_get(&faulted)?"true":"false",
  (unsigned long long)until,(unsigned long long)owner.quiet_until_us,stack_unused(),d.error,
  (unsigned long long)d.emitter,(unsigned long long)d.boot,d.stream,d.source_epoch,(unsigned long long)(transmitter?d.tx_root_boot:d.root_boot),d.seed,d.cursor,d.serial,
@@ -578,5 +582,5 @@ int r2_lora_json(char *out,size_t capacity,int result){
 #undef AUDIT_ARGS
  d.stage,d.phy,d.channel,
  h.rx_done,h.tx_done,h.crc_bad,h.overflow,h.spi_error,h.cutoffs,h.invalid_capture,h.error,h.phase,h.launch_aborts,h.busy_aborts,r2_lora_close_result(),
- (unsigned long long)fault_boot,fault_words[0],fault_words[1],fault_words[2],fault_words[3],fault_words[4],fault_words[5],fault_words[6],fault_words[7],fault_words[8],fault_words[9],fault_words[10],fault_words[11],fault_words[12],fault_words[13],fault_words[14],fault_words[15]);
+ (unsigned long long)fault_boot,checkpoint_dirty?"true":"false",fault_words[0],fault_words[1],fault_words[2],fault_words[3],fault_words[4],fault_words[5],fault_words[6],fault_words[7],fault_words[8],fault_words[9],fault_words[10],fault_words[11],fault_words[12],fault_words[13],fault_words[14],fault_words[15]);
 }
