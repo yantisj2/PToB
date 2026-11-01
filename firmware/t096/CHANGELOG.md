@@ -1,5 +1,19 @@
 # T096 changelog
 
+## 0.15.237 — remove flash latency from passive TX deadlines
+
+Precharge up to750ms before the fixed slot and refresh the physical source
+snapshot after storage. Keep the whole pair durably pending while capturing
+SYNC in RAM; commit cursor/cooldown after FOLLOW, outside its250–300ms launch
+gap. Reset during the pair still disables FHSS. Report maximum storage latency.
+
+On a used native checkpoint, conservatively carry every recorded bucket into
+the new boot's current bucket for a full new hour, preserving seed, cursor,
+distribution and faults. Require a4s control guard and20s channel cooldown
+from the default-off boot. Initial migration still requires proven silence.
+This replaces the used-ledger hour wait without crediting any prior elapsed
+time or refunding reserved airtime. Wire cadence and source limits are unchanged.
+
 ## 0.15.236 — retain the original physical source endpoint through SetTx
 
 Carry the selected export's capture epoch and original endpoint into passive

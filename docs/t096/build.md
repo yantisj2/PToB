@@ -150,8 +150,11 @@ The executable ends before0xd7000, with32KiB of app-owned tail reserved for a
 factory-bound persistent airtime/cursor ledger. Initial ledger provisioning is
 an explicit exact-device installer operation after checking that range is
 unused; it is not a boot fallback. Existing state must be preserved on updates.
-TX waits an actual RF-silent hour after every boot before conservative time
-rebasing. A separately reviewed, exact-device initial migration may append a
+For a used native checkpoint, boot rebasing retains all recorded airtime debt
+in the current bucket for a full new hour, with a4s control guard and20s channel
+cooldown from the default-off boot. It credits no elapsed time from the old
+clock. An initial migration requires an actual RF-silent hour; a separately
+reviewed, exact-device installer may append a
 single initial-quiet proof only after measuring a full silent hour and verifying
 the factory-bound ledger has never been used. It preserves the original seed,
 is durably consumed before admission and cannot qualify a used ledger. See the

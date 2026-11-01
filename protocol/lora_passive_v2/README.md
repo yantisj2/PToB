@@ -66,7 +66,7 @@ fit1080s per rolling hour. These are engineering limits, not RF authorization.
 The native owner freezes the selected source export's original capture-clock
 endpoint for each transmission. Entry and actual SetTx commit require the
 whole hardware frame budget and launch margin to fit; a newer source map cannot
-renew a staged transaction. At boot admission after the proven silence guard,
+renew a staged transaction. At boot admission after the applicable guard,
 the fixed monotonic grid starts200ms after an own-source four-second boundary
 so the long META fits its1.5s PPS horizon. This chooses phase from an unqualified
 UTC label; it does not qualify that label. Service/context restarts retain the
@@ -78,15 +78,18 @@ HAS_PAIR, never refunds, preserves control phase and maintains per-channel
 20s no-revisit guards. The T096 backend reserves app-owned flash0xd7000..0xdefff; the executable
 ends before0xd7000. Credential, diagnostic and recovery ranges stay separate.
 It appends576-byte CRC/commit records across eight4KiB pages, verifies writes
-before commit and prepares a spare before a three-commit transaction crosses
+before commit and prepares a spare before a transaction crosses
 pages. It stops at50000 lifetime commits (fewer than1000 full erase cycles per
 page under this append pattern); this is a conservative lab limit, not measured
 flash-endurance qualification. The initial factory-bound seed/checkpoint must
 be explicitly provisioned by the exact-device installer after proving the area
-unused. Boot never manufactures missing state. After every boot, TX requires
-an actual RF-silent hour before rebasing the time coordinate and aging out old
-airtime/cooldown debt. Seed, cursor, pending faults and distribution index remain
-persistent. A fresh session must be selected after this quarantine.
+unused. Boot never manufactures missing state. For a used native checkpoint,
+rebasing sums all61 recorded buckets into the current boot's bucket and keeps
+that entire debt for a full new hour. No old elapsed time is credited. A4s
+control guard and20s per-channel cooldown start at the default-off boot; seed,
+cursor, pending faults and distribution index remain persistent. An initial
+migration with unknown prior RF still requires an actual RF-silent hour.
+A fresh session must be explicitly selected after boot.
 
 A narrowly scoped initial migration may carry an operator-proved silent hour
 forward: an installer-only schema2/sequence2 record in slot1 must preserve the
@@ -96,7 +99,7 @@ and RF-counter evidence for at least3600 actual seconds; an image checksum alone
 is insufficient. Firmware never writes schema2. It consumes the initial proof
 with an ordinary durable record before admission. Any used cursor, slot, debt,
 pending state, altered seed or missing original record rejects this path.
-Subsequent reboots use the normal conservative guard. This is local initial
+Subsequent reboots use conservative debt carry-forward. This is local initial
 state provisioning, not an on-air grant or a runtime debt-reset command. Untrusted time,
 failed commits or absent checkpoints inhibit admission. Interrupted pairs
 disable FHSS; missing checkpoints cannot be synthesized at boot.
@@ -116,8 +119,11 @@ BUSY start capture and independent FEM cutoff. This coarse gap measurement is
 not a precision UTC timestamp. Launch, RF tail, retune/capture bias, channel
 effects, temperature and cutoff behavior need physical qualification.
 
-Storage precharge may start300ms before a slot without moving the RF target.
-The source freezes its actual SYNC mapping before durable confirmation. Stop
+Storage precharge may start750ms before a slot without moving the RF target.
+The source snapshot is refreshed after precharge, before guarded submission.
+SYNC's actual mapping and cursor update are retained in RAM; the whole pair
+remains durably pending until FOLLOW commits its final cursor and cooldown.
+A reset before that commit still disables FHSS. Stop
 ACKs precede fault checkpoint writes so those writes cannot extend that drain.
 
 One priority11 worker owns capture, retuning and the radio; its unchanged2KiB

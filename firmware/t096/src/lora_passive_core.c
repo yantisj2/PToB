@@ -28,13 +28,25 @@ uint64_t lp_charged(const struct lp_checkpoint *s,uint64_t now){
  }
  return total;
 }
+static bool checkpoint_valid(const struct lp_checkpoint *s){
+ return s&&s->minute<=UINT64_MAX/LP_MINUTE_US&&s->seed&&s->cursor<=UINT32_MAX-2&&s->slot!=UINT32_MAX&&
+ s->serial!=UINT32_MAX&&s->pending<=2&&s->fh_disabled<=1&&
+ (!((s->cursor&1)&&!s->pending&&!s->fh_disabled))&&lp_charged(s,s->minute*LP_MINUTE_US)<=LP_CAP_US;
+}
+bool lp_checkpoint_carry(struct lp_checkpoint *s,uint64_t now,uint64_t first,uint32_t boot_ms){
+ if(!checkpoint_valid(s)||first<now||now/1000>UINT32_MAX||!boot_ms||boot_ms>now/1000+1)return false;
+ uint64_t debt=0;for(unsigned i=0;i<61;i++)debt+=s->buckets[i];
+ if(debt>LP_CAP_US)return false;
+ if(s->pending){s->fh_disabled=1;s->pending=0;}
+ memset(s->buckets,0,sizeof s->buckets);s->minute=now/LP_MINUTE_US;s->buckets[s->minute%61]=(uint32_t)debt;
+ for(unsigned i=0;i<64;i++)s->channel_end_ms[i]=boot_ms;
+ s->next_slot_us=first;return true;
+}
 bool lp_tx_restore(struct lp_tx *t,const struct lp_checkpoint *s,lp_save_fn save,void *storage,bool trusted){
  if(!t)return false;
  /* May restore from t->durable itself; never erase that input before reading. */
  t->ready=t->pair=false;t->slot_us=t->sync_end_us=0;t->save=NULL;t->storage=NULL;
- if(!s||!save||!trusted||s->minute>UINT64_MAX/LP_MINUTE_US||!s->seed||s->cursor>UINT32_MAX-2||s->slot==UINT32_MAX||
- s->serial==UINT32_MAX||s->pending>2||s->fh_disabled>1||
- ((s->cursor&1)&&!s->pending&&!s->fh_disabled)||lp_charged(s,s->minute*LP_MINUTE_US)>LP_CAP_US)return false;
+ if(!save||!trusted||!checkpoint_valid(s))return false;
  t->durable=*s;t->save=save;t->storage=storage;
  if(lp_hop_order(t->order,s->seed))return false;
  t->ready=true;
@@ -77,7 +89,7 @@ bool lp_tx_reserve(struct lp_tx *t,uint64_t now,struct lp_reservation *out){
  *out=(struct lp_reservation){.cursor=s.cursor,.serial=s.serial,.control=(uint8_t)control,.has_pair=pair,.slot_us=slot};
  return true;
 }
-bool lp_tx_confirm(struct lp_tx *t,unsigned kind,uint64_t end){
+static bool confirm(struct lp_tx *t,unsigned kind,uint64_t end,bool defer_sync){
  if(!t||!t->ready||!t->pair||end<t->slot_us||end>=t->slot_us+3000000)return false;
  struct lp_checkpoint s=t->durable;
  if(kind==LP_SYNC&&s.pending==1){
@@ -90,8 +102,11 @@ bool lp_tx_confirm(struct lp_tx *t,unsigned kind,uint64_t end){
   s.channel_end_ms[lp_channel(t->order,s.cursor)]=(uint32_t)((end+999)/1000);
   ++s.cursor;s.pending=0;
  }else return false;
+ if(defer_sync&&kind==LP_SYNC){t->durable=s;return true;}
  return commit(t,&s);
 }
+bool lp_tx_confirm(struct lp_tx *t,unsigned kind,uint64_t end){return confirm(t,kind,end,false);}
+bool lp_tx_capture_sync(struct lp_tx *t,uint64_t end){return confirm(t,LP_SYNC,end,true);}
 void lp_tx_fault(struct lp_tx *t){
  if(!t||!t->ready)return;
  struct lp_checkpoint s=t->durable;s.fh_disabled=1;s.pending=0;t->pair=false;
@@ -100,6 +115,7 @@ void lp_tx_fault(struct lp_tx *t){
 void lp_tx_cancel(struct lp_tx *t,bool no_rf){
  if(!t||!t->ready)return;
  if(!no_rf||t->durable.pending==2){lp_tx_fault(t);return;}
+ if(!t->durable.pending){t->pair=false;return;}
  struct lp_checkpoint s=t->durable;s.pending=0;t->pair=false;(void)commit(t,&s);
 }
 

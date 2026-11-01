@@ -29,12 +29,20 @@ struct lp_tx {
 struct lp_reservation {uint32_t cursor,serial;uint8_t control;bool has_pair;uint64_t slot_us;};
 uint32_t lp_duration(unsigned kind);
 uint64_t lp_charged(const struct lp_checkpoint *,uint64_t now_us);
+/* Unknown old clock: retain ALL recorded debt for a full new hour, preserve
+ * seed/cursor/index/serial, and impose channel cooldown from boot. A pending
+ * pair still latches FHSS disabled. No elapsed old time is credited. */
+bool lp_checkpoint_carry(struct lp_checkpoint *,uint64_t now_us,uint64_t first_slot_us,uint32_t boot_ms);
 /* An initial record must be explicitly provisioned, never fabricated by boot.
  * Restoring an interrupted pair disables FHSS. now uses the checkpoint's
  * trustworthy time coordinate; an untrusted reboot must stay inhibited. */
 bool lp_tx_restore(struct lp_tx *,const struct lp_checkpoint *,lp_save_fn,void *,bool time_trusted);
 bool lp_tx_reserve(struct lp_tx *,uint64_t now_us,struct lp_reservation *);
 bool lp_tx_confirm(struct lp_tx *,unsigned kind,uint64_t actual_end_us);
+/* Update SYNC in RAM only. The durable whole-pair precharge remains pending
+ * until FOLLOW commits. Reset before then disables FHSS as an interrupted
+ * precharged pair; no uncharged RF is enabled. */
+bool lp_tx_capture_sync(struct lp_tx *,uint64_t actual_end_us);
 void lp_tx_cancel(struct lp_tx *,bool proven_no_rf);
 void lp_tx_fault(struct lp_tx *);
 

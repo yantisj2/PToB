@@ -28,6 +28,8 @@
 #define WORKER_PRIORITY 11
 #define DRAIN_PRIORITY 9
 #define LAB_RUN_US UINT64_C(900000000)
+#define REBOOT_CONTROL_GUARD_US UINT64_C(4000000)
+#define PRECHARGE_LEAD_US UINT64_C(750000)
 static atomic_t observer_ready,flags,closed=1,faulted,source_revision;
 static struct k_spinlock lock;
 static const struct r2_group_config *group;
@@ -54,17 +56,18 @@ struct lp_diagnostics {
   struct {uint64_t last_tick,last_ns,epoch,last_us,physical_until,meta_until,root_boot;};
   struct {uint64_t next_slot,charged,tx_root_boot;};
  };
- uint32_t cursor,serial,accepted,rejected,missing,store_sequence,refused,late,missing_map,bad,storage_fail,sent[4],received[4];
+ uint32_t cursor,serial,accepted,rejected,missing,store_sequence,refused,late,missing_map,bad,storage_fail,storage_max_us,sent[4],received[4];
  int32_t rate;int error;uint8_t pending,fh_disabled,stage,phy,channel;bool trained;
 };
 static struct lp_diagnostics diagnostics;
 static struct {bool active,stopping,listening;uint8_t phy,channel,tx_kind,stage;
  uint64_t next_control_us,last_end_us,last_sync_us,quiet_until_us;
- uint32_t sent[4],received[4],refused,late,missing_map,bad,storage_fail,revision;
+ uint32_t sent[4],received[4],refused,late,missing_map,bad,storage_fail,revision,boot_ms,storage_max_us;
  int error;int16_t rssi;int8_t snr;} owner;
 K_THREAD_STACK_DEFINE(worker_stack,2048);
 static struct k_thread worker_thread;
 static uint64_t mono(void){return k_ticks_to_us_floor64(k_uptime_ticks());}
+static bool fenced(void);
 static void inc(uint32_t *v){if(*v<UINT32_MAX)++*v;}
 static void stop_now(void){
  k_thread_priority_set(&worker_thread,DRAIN_PRIORITY);
@@ -197,7 +200,7 @@ static void __attribute__((noinline)) report(uint64_t now){
   d->cursor=r->highest;d->serial=r->serial;d->accepted=r->accepted;d->rejected=r->rejected;d->missing=r->missing;
   d->pending=r->pending;d->trained=r->trained;d->rate=r->rate_ppb;}
  d->refused=owner.refused;d->late=owner.late;d->missing_map=owner.missing_map;d->bad=owner.bad;
- d->storage_fail=owner.storage_fail;d->error=owner.error;d->stage=owner.stage;d->phy=owner.phy;d->channel=owner.channel;
+ d->storage_fail=owner.storage_fail;d->storage_max_us=owner.storage_max_us;d->error=owner.error;d->stage=owner.stage;d->phy=owner.phy;d->channel=owner.channel;
  memcpy(d->sent,owner.sent,sizeof d->sent);memcpy(d->received,owner.received,sizeof d->received);
  published=v;k_spin_unlock(&lock,key);
 }
@@ -226,21 +229,24 @@ void __attribute__((noinline)) r2_lora_shadow_publish(void){
 withdraw:if(shadow_tick){r2_shadow_lora_withdraw();shadow_tick=0;}
 }
 /* Synchronous precharge can refuse; it must never erase on the launch path. */
+static bool storage_save(void *arg,const struct lp_checkpoint *s){
+ uint64_t began=mono();bool ok=lp_store_save(arg,s);uint64_t cost=mono()-began;
+ if(cost>owner.storage_max_us)owner.storage_max_us=cost>UINT32_MAX?UINT32_MAX:(uint32_t)cost;
+ return ok;
+}
 static bool restore(uint64_t first_slot){
  if(!role.tx.loaded){role.tx.loaded=true;
   if(!lp_store_load(&role.tx.store,factory,&role.tx.core.durable)){inc(&owner.storage_fail);return false;}
-  if(role.tx.store.ready&LP_STORE_INITIAL_QUIET)owner.quiet_until_us=mono();}
+  if(role.tx.store.sequence>1)owner.quiet_until_us=(uint64_t)owner.boot_ms*1000+REBOOT_CONTROL_GUARD_US;}
  if(!role.tx.store.ready)return false;
  if(!role.tx.rebased){
   if(mono()<owner.quiet_until_us)return false;
-  /* RF was default-off from boot, including all previous active transactions.
-   * A full actual hour ages out old airtime and channel cooldown. Keep the
-   * persistent physical cursor/seed and distribution index, never reseed. */
+  /* Default-off boot plus a full4s control guard prevents a restart burst.
+   * Unknown prior clock earns NO aging: retain every bucket's debt for a
+   * full new hour, with a20s channel cooldown measured from this boot. */
   struct lp_checkpoint *s=&role.tx.core.durable;
-  if(s->pending){s->fh_disabled=1;s->pending=0;}
-  memset(s->buckets,0,sizeof s->buckets);memset(s->channel_end_ms,0,sizeof s->channel_end_ms);
-  s->minute=mono()/LP_MINUTE_US;s->next_slot_us=first_slot;
-  if(!lp_store_prepare(&role.tx.store)||!lp_store_save(&role.tx.store,s)||!lp_tx_restore(&role.tx.core,s,lp_store_save,&role.tx.store,true)){inc(&owner.storage_fail);return false;}
+  if(!lp_checkpoint_carry(s,mono(),first_slot,owner.boot_ms)||!lp_store_prepare(&role.tx.store)||
+     !storage_save(&role.tx.store,s)||!lp_tx_restore(&role.tx.core,s,storage_save,&role.tx.store,true)){inc(&owner.storage_fail);return false;}
   role.tx.rebased=true;
  }
  return role.tx.core.ready;
@@ -267,7 +273,7 @@ static int __attribute__((noinline)) transmit(uint64_t now){
  /* Choose the initial fixed monotonic phase200ms after the own source's
   * four-second boundary. The1.143s META then fits its frozen1.5s PPS horizon.
   * Never slew/rephase an admitted stream; service restarts retain next_slot.
-  * Boot rebasing requires the existing actual RF-silent hour/initial proof. */
+  * Boot rebasing preserves the full previous debt for a new hour. */
  uint64_t delay_ns=(UINT64_C(4200000000)-c.event_ns%UINT64_C(4000000000))%UINT64_C(4000000000);
  if(delay_ns<UINT64_C(300000000))delay_ns+=UINT64_C(4000000000);
  if(!restore(now+(delay_ns+999)/1000))return 0;
@@ -287,8 +293,8 @@ static int __attribute__((noinline)) transmit(uint64_t now){
   struct lp_packet p={.kind=LP_FOLLOW,.schedule=LP_FAST,.cursor=role.tx.reservation.cursor,.utc_ns=role.tx.sync_ns};
   rc=send_packet(&p,owner.last_sync_us+300000+lp_duration(LP_FOLLOW),limit);if(rc)lp_tx_fault(t);return rc;
  }
- if(owner.stage!=3&&now+300000<t->durable.next_slot_us){
-  if(now>owner.last_end_us+100000&&t->durable.next_slot_us-now>400000&&!lp_store_prepare(&role.tx.store)){inc(&owner.storage_fail);return -EIO;}
+ if(owner.stage!=3&&now+PRECHARGE_LEAD_US<t->durable.next_slot_us){
+  if(now>owner.last_end_us+100000&&t->durable.next_slot_us-now>PRECHARGE_LEAD_US+100000&&!lp_store_prepare(&role.tx.store)){inc(&owner.storage_fail);return -EIO;}
   return 0;
  }
  if(owner.stage!=3){
@@ -305,6 +311,10 @@ static int __attribute__((noinline)) transmit(uint64_t now){
  struct lp_reservation *r=&role.tx.reservation;
  if(mono()<r->slot_us)return 0;
  if(mono()>r->slot_us+45000){inc(&owner.late);lp_tx_cancel(t,true);owner.stage=0;return 0;}
+ /* Precharge may yield through a physical PPS/map update. Refresh the source
+  * snapshot after storage, before the guarded launch; never renew a staged TX. */
+ if(fenced()||revision!=(uint32_t)atomic_get(&source_revision))return -ECANCELED;
+ if(!source_now(&c,&source_epoch,&root_boot,&limit)){lp_tx_cancel(t,true);owner.stage=0;return 0;}
  if(r->control==LP_META&&!role.tx.context_ready){
   if(role.tx.stream==UINT32_MAX)return -EOVERFLOW;
   role.tx.context_epoch=source_epoch;role.tx.context_root_boot=root_boot;++role.tx.stream;
@@ -363,7 +373,8 @@ static int __attribute__((noinline)) tx_complete(const struct r2_lora_hw_event *
  k_spin_unlock(&lock,key);
  inc(&owner.sent[kind-1]);owner.last_end_us=h->end_local_us;
  if(kind==LP_META||kind==LP_DISC){owner.stage=role.tx.reservation.has_pair?1:0;return 0;}
- if(!lp_tx_confirm(&role.tx.core,kind,h->end_local_us)){lp_tx_fault(&role.tx.core);owner.stage=0;return 0;}
+ bool confirmed=kind==LP_SYNC?lp_tx_capture_sync(&role.tx.core,h->end_local_us):lp_tx_confirm(&role.tx.core,kind,h->end_local_us);
+ if(!confirmed){lp_tx_fault(&role.tx.core);owner.stage=0;return 0;}
  if(kind==LP_SYNC){
   if(!mapped){inc(&owner.missing_map);lp_tx_fault(&role.tx.core);owner.stage=0;return 0;}
   owner.last_sync_us=h->end_local_us;owner.stage=2;
@@ -440,10 +451,11 @@ void r2_lora_init(uint64_t f,uint64_t boot,uint64_t tx,const struct r2_group_con
  memset((uint8_t *)&r2_diag_scratch.lora+offsetof(struct r2_lora_watchdog_state,retained)+sizeof r2_diag_scratch.lora.retained,0,
   sizeof r2_diag_scratch.lora-(offsetof(struct r2_lora_watchdog_state,retained)+sizeof r2_diag_scratch.lora.retained));
  r2_diag_scratch.lora.journal_result=-ENODATA;factory=f;physical_boot=boot;transmitter_factory=tx;group=g;transmitter=f&&f==tx;
- source_tz.value=r2_tz_unknown();owner.quiet_until_us=mono()+LP_HOUR_US;
+ source_tz.value=r2_tz_unknown();owner.boot_ms=(uint32_t)((mono()+999)/1000);if(!owner.boot_ms)owner.boot_ms=1;
+ owner.quiet_until_us=mono()+LP_HOUR_US;
  if(transmitter){role.tx.loaded=true;
   if(!lp_store_load(&role.tx.store,factory,&role.tx.core.durable))inc(&owner.storage_fail);
-  else if(role.tx.store.ready&LP_STORE_INITIAL_QUIET)owner.quiet_until_us=mono();
+  else if(role.tx.store.sequence>1)owner.quiet_until_us=(uint64_t)owner.boot_ms*1000+REBOOT_CONTROL_GUARD_US;
  }
  atomic_set(&flags,0);atomic_set(&observer_ready,1);
  k_thread_create(&worker_thread,worker_stack,K_THREAD_STACK_SIZEOF(worker_stack),worker,NULL,NULL,NULL,WORKER_PRIORITY,0,K_NO_WAIT);
@@ -513,7 +525,7 @@ int r2_lora_json(char *out,size_t capacity,int result){
  "\"event_tick\":%llu,\"event_ns\":%llu,\"capture_epoch\":%llu,\"event_mono_us\":%llu,\"physical_until_us\":%llu,\"meta_until_us\":%llu,"
  "\"trained\":%s,\"link_fit\":[%u,%u],\"rate_ppb\":%d,\"accepted\":%u,\"rejected\":%u,\"missing\":%u,"
  "\"choice\":%u,\"state\":%u,\"time_valid\":%s,\"assurance\":\"FRESHNESS_UNKNOWN\",\"rc7_authority\":false,\"utc_accuracy\":\"UNQUALIFIED\","
- "\"charged_us\":%llu,\"next_slot_us\":%llu,\"pending\":%u,\"fh_disabled\":%u,\"store_sequence\":%u,\"storage_fail\":%u,"
+ "\"charged_us\":%llu,\"next_slot_us\":%llu,\"pending\":%u,\"fh_disabled\":%u,\"store_sequence\":%u,\"storage_fail\":%u,\"storage_max_us\":%u,"
  "\"refused\":%u,\"late\":%u,\"missing_map\":%u,\"bad\":%u,\"sent\":[%u,%u,%u,%u],\"received\":[%u,%u,%u,%u],"
  "\"audit\":[[%llu,%llu,%llu,%llu,%u,%u,%u,%u],[%llu,%llu,%llu,%llu,%u,%u,%u,%u],[%llu,%llu,%llu,%llu,%u,%u,%u,%u],[%llu,%llu,%llu,%llu,%u,%u,%u,%u]],"
  "\"owner\":[%u,%u,%u],\"hw\":[%u,%u,%u,%u,%u,%u,%u,%d,%u,%u,%u],\"drain_result\":%d}",
@@ -522,7 +534,7 @@ int r2_lora_json(char *out,size_t capacity,int result){
  (unsigned long long)d.emitter,(unsigned long long)d.boot,d.stream,d.source_epoch,(unsigned long long)(transmitter?d.tx_root_boot:d.root_boot),d.seed,d.cursor,d.serial,
  (unsigned long long)(transmitter?0:d.last_tick),(unsigned long long)(transmitter?0:d.last_ns),(unsigned long long)(transmitter?0:d.epoch),(unsigned long long)(transmitter?0:d.last_us),(unsigned long long)(transmitter?0:d.physical_until),(unsigned long long)(transmitter?0:d.meta_until),
  d.trained?"true":"false",v.link_samples,v.link_rms_ns,d.rate,d.accepted,d.rejected,d.missing,v.choice,v.state,v.time_valid?"true":"false",
- (unsigned long long)(transmitter?d.charged:0),(unsigned long long)(transmitter?d.next_slot:0),d.pending,d.fh_disabled,d.store_sequence,d.storage_fail,d.refused,d.late,d.missing_map,d.bad,
+ (unsigned long long)(transmitter?d.charged:0),(unsigned long long)(transmitter?d.next_slot:0),d.pending,d.fh_disabled,d.store_sequence,d.storage_fail,d.storage_max_us,d.refused,d.late,d.missing_map,d.bad,
  d.sent[0],d.sent[1],d.sent[2],d.sent[3],d.received[0],d.received[1],d.received[2],d.received[3],
 #define AUDIT_ARGS(i) (unsigned long long)audit[i].tick,(unsigned long long)audit[i].epoch,(unsigned long long)audit[i].start_us,(unsigned long long)audit[i].end_us,audit[i].cursor,audit[i].phy,audit[i].channel,audit[i].valid
  AUDIT_ARGS(0),AUDIT_ARGS(1),AUDIT_ARGS(2),AUDIT_ARGS(3),
