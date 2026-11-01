@@ -253,21 +253,22 @@ static bool lora_rms_current(const struct r2_ui_model *m,uint64_t now){
  return !m->lora.transmitter&&lora_input_current(m,now)&&m->lora.link_samples>=4&&
   m->lora.fit_age_ms<R2_LORA_FIT_HOLD_MS&&now-m->sampled_ms<R2_LORA_FIT_HOLD_MS-m->lora.fit_age_ms;
 }
-bool r2_ui_lora_tof_ns(const struct r2_ui_model *m,uint64_t now,int32_t *ns){
+bool r2_ui_lora_tof_ns(const struct r2_ui_model *m,uint64_t now,uint32_t *ns){
  const struct r2_lora_view *v=&m->lora;
  if(!ns||!lora_input_current(m,now)||v->transmitter||v->choice!=RC8_SELECT_LORA||
-    !v->rtt_life_8s||v->rtt_delay_ns>125000000u||
+    v->rtt_base_count!=2||!v->rtt_life_8s||v->rtt_value_ns>125000000u||
+    (!v->rtt_positive&&v->rtt_value_ns<R2_LORA_TOF_FLOOR_NS)||
     (now-v->sampled_us/1000)*1000>=(uint64_t)v->rtt_life_8s*8000000)return false;
- *ns=(int32_t)v->rtt_delay_ns-R2_LORA_TOF_BASE_NS;return true;
+ *ns=v->rtt_positive?v->rtt_value_ns:0;return true;
 }
-static void lora_tof_text(char out[24],const char *name,int64_t ns){
- uint64_t magnitude=ns<0?(uint64_t)-ns:(uint64_t)ns;
+static void lora_tof_text(char out[24],const char *name,char prefix,uint64_t magnitude){
  const char *unit=magnitude<1000?"ns":magnitude<1000000?"us":"ms";
  uint32_t scale=magnitude<1000?1:magnitude<1000000?1000:1000000;
  /* At most12 glyphs, including sign and units, on the80px display. */
- if(scale==1)snprintf(out,24,"%s %c%uns",name,ns<0?'-':'+',(unsigned)magnitude);
- else if(magnitude/scale<100)snprintf(out,24,"%s %c%u.%02u%s",name,ns<0?'-':'+',(unsigned)(magnitude/scale),(unsigned)(magnitude%scale*100/scale),unit);
- else snprintf(out,24,"%s %c%u.%u%s",name,ns<0?'-':'+',(unsigned)(magnitude/scale),(unsigned)(magnitude%scale*10/scale),unit);
+ if(scale==1)snprintf(out,24,"%s %c%uns",name,prefix,(unsigned)magnitude);
+ else if(magnitude%scale==0)snprintf(out,24,"%s %c%u%s",name,prefix,(unsigned)(magnitude/scale),unit);
+ else if(magnitude/scale<100)snprintf(out,24,"%s %c%u.%02u%s",name,prefix,(unsigned)(magnitude/scale),(unsigned)(magnitude%scale*100/scale),unit);
+ else snprintf(out,24,"%s %c%u.%u%s",name,prefix,(unsigned)(magnitude/scale),(unsigned)(magnitude%scale*10/scale),unit);
 }
 static void lora_header_name(char out[9],const char *name){
  size_t n=0;while(n<8&&name[n])++n;
@@ -632,11 +633,17 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
   else snprintf(text,sizeof text,"%s META %s",source,v->quality_known?"OK":"?");
   label(fb,4,112,text,1,C_WHITE);
   if(!v->transmitter){
-   int32_t tof;bool estimated=r2_ui_lora_tof_ns(m,now,&tof);
-   if(estimated)lora_tof_text(text,"ToF",tof);else snprintf(text,sizeof text,"ToF --");
-   label(fb,4,124,text,1,estimated?C_CYAN:C_DIM);
-   if(estimated)lora_tof_text(text,"RTT",(int64_t)tof*2);else snprintf(text,sizeof text,"RTT --");
-   label(fb,4,136,text,1,estimated?C_CYAN:C_DIM);
+   uint32_t tof;bool estimated=r2_ui_lora_tof_ns(m,now,&tof);
+   bool learning=!estimated&&v->rtt_base_count<2&&v->choice==RC8_SELECT_LORA&&lora_input_current(m,now);
+   if(estimated)lora_tof_text(text,"ToF",tof?'+':'<',tof?tof:v->rtt_value_ns);
+   else if(learning)snprintf(text,sizeof text,"ToF BASE %u/2",v->rtt_base_count);
+   else snprintf(text,sizeof text,"ToF --");
+   uint16_t color=estimated?(tof?C_CYAN:C_WHITE):learning?C_AMBER:C_DIM;
+   label(fb,4,124,text,1,color);
+   if(estimated)lora_tof_text(text,"RTT",tof?'+':'<',(uint64_t)(tof?tof:v->rtt_value_ns)*2);
+   else if(learning)snprintf(text,sizeof text,"RTT BASE %u/2",v->rtt_base_count);
+   else snprintf(text,sizeof text,"RTT --");
+   label(fb,4,136,text,1,color);
   }else label(fb,4,136,v->choice==RC8_SELECT_BLE?"BLE SELECTED":v->choice==RC8_SELECT_LOCAL_GM?"GM SELECTED":"NO CLOCK",1,C_DIM);
   label(fb,4,150,"HOLD: MENU",1,C_AMBER);return;
  }

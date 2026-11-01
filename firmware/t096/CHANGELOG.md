@@ -1,5 +1,22 @@
 # T096 changelog
 
+## 0.15.229 — learn a per-receiver RTT baseline and noise floor
+
+Use the first two successful RTT exchanges in each authenticated source context
+to freeze a receiver-specific half-RTT baseline (their mean). The second startup
+exchange is due at the next admitted opportunity, without the long client
+cooldown. The floor is the larger of1us and the two measurements' absolute
+difference. Later refreshes retain the baseline and ordinary15–30min cadence.
+
+The watch correction holds at the baseline inside the floor or for negative
+residuals; it adds the full positive excess only when it exceeds the floor.
+The LoRa page shows BASE0/2 or1/2 during learning, then a below-floor indication
+or positive ToF/excess RTT. Raw RF RTT values/events remain unchanged in
+diagnostics, with a separate rtt_base tuple. Reboot, context, capture change,
+OFF or fault clears the baseline; a same-context source outage does not renew
+or erase the finite calibration cache. No receiver PPS requirement, new wire
+format, source opportunity, authority, stack or buffer allowance.
+
 ## 0.15.228 — display relative ToF and excess RTT estimates
 
 The LoRa receiver page shows signed ToF and RTT under **LoRa RTT EST**.

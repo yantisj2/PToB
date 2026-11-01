@@ -64,8 +64,10 @@ context rearms this first attempt; it cannot inherit a previous context’s long
 refresh interval. C5 may precede its complete D5 companion, but full metadata
 and fit eligibility remain mandatory. Same-context time withdrawal or repeated
 metadata does not reset failed-attempt backoff. This does not force a
-source opportunity or bypass silence/refusal; later failures and successful
-refreshes retain their ordinary backoff and long intervals.
+source opportunity or bypass silence/refusal. The receiver uses its first two
+successful exchanges to learn a per-context baseline; the second is due at the
+next admissible opportunity. Failures retain their ordinary backoff, and the
+long successful-refresh interval begins once both samples are complete.
 
 REQUEST, RESPONSE and FOLLOW are80 bytes, authenticated in domain `PTOBR8P5`.
 Their common body is: header0..3 (`R8`,5,kind), context4..19, client factory20..27,
@@ -88,6 +90,16 @@ most250ms yields half that interval as an **estimated effective mean link delay*
 This includes modem/capture delays; asymmetry and independent accuracy remain
 unqualified. Rate must be within100000ppb; an out-of-domain rate does not erase
 otherwise valid passive residual statistics.
+
+The receiver freezes the first two half-RTT measurements' mean as its baseline.
+Its relative propagation deadband is max(1000ns, their absolute difference).
+Subsequent raw measurements remain intact in diagnostics. Applied watch delay
+is the baseline for negative or below-floor excess, and the raw measured delay
+when positive excess exceeds the floor. ToF displays only that positive excess,
+or a below-floor indication; excess RTT is twice the ToF. This is relative to
+the initial connection position, not absolute ranging. Context/capture changes,
+OFF, fault and reboot clear learning; a same-context source withdrawal does not
+renew or erase the original finite calibration. No receiver PPS participates.
 
 The TX reference is **BUSY falling at preamble start**; the RX reference is
 **DIO1 rising at HeaderValid**, before payload completion. Both use a dedicated

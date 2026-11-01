@@ -64,6 +64,7 @@ static const uint8_t lower_m[5]={0x7c,0x04,0x78,0x04,0x78};
 static const uint8_t lower_r[5]={0x7c,0x08,0x04,0x04,0x08};
 static const uint8_t lower_t[5]={0x04,0x3f,0x44,0x40,0x20};
 static const uint8_t arrow_glyph[5]={0,0x22,0x14,0x08,0};
+static const uint8_t less_glyph[5]={0,0x08,0x14,0x22,0};
 static const uint8_t lower_h[5] = {0x7f,0x08,0x04,0x04,0x78};
 static const uint8_t lower_n[5] = {0x7c,0x08,0x04,0x04,0x78};
 static const uint8_t lower_u[5]={0x3c,0x40,0x40,0x20,0x7c};
@@ -75,6 +76,7 @@ static const uint8_t *glyph(char c) {
     switch (c) {
         case 'f': return lower_f;case 'o': return lower_o;
         case '>': return arrow_glyph;
+        case '<': return less_glyph;
         case 'a': return lower_a;case 'd': return lower_d;case 'e': return lower_e;case 'm': return lower_m;case 'r': return lower_r;case 't': return lower_t;
         case ':': return punctuation[1];
         case '-': return punctuation[2];

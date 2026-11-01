@@ -91,16 +91,30 @@ and successful refresh is 15–30s; expiry/reboot returns to production timers.
 BLE priority, receiver eligibility and physical timestamp checks are unchanged.
 See the [build guide](../../docs/t096/build.md#optional-lora-configuration).
 
-The LoRa receiver page shows **LoRa RTT EST**, signed **ToF** and **RTT** for
-field comparisons. ToF is the accepted half-RTT endpoint delay minus a fixed,
-provisional **51,363,400ns** nearby-device baseline; RTT is twice that residual.
-The baseline includes modem/header delay for the current wire5 SF10/BW500k/CR4/6
-configuration. Negative residuals remain visible. These are relative propagation
-estimates, not calibrated distance or UTC accuracy. They change only after a
-successful RTT exchange, using the normal15–30min refresh or temporary lab
-cadence above. Missing/expired calibration shows `--`; the compact display lease
-may expire up to8s early and grants no clock authority. Calibration does not
-follow a new context. No extra radio packets are scheduled by the display.
+The LoRa receiver page shows **LoRa RTT EST**, **ToF** and excess **RTT** for
+field comparisons. Each receiver learns its baseline from its first two
+successful exchanges in the current authenticated context. The second sample
+uses the next admitted source opportunity, without the long client cooldown.
+The baseline is their mean half-RTT endpoint delay; the noise floor is the larger
+of **1us** and their absolute difference. Keep the device at its reference
+position until **BASE0/2** and **BASE1/2** finish. Reboot, context/capture change,
+LoRa OFF or fault starts learning again. No receiver GNSS fix or PPS is required.
+
+Within the floor, ToF shows `<1us` (or its larger learned floor) and excess RTT
+shows twice that threshold. Negative residuals produce no adjustment. Beyond
+the floor, the full positive excess above the frozen baseline is displayed and
+added to the watch's baseline delay correction. The floor is a deadband, not an
+amount subtracted from resolved values. Raw RTT and physical events remain in
+diagnostics; `rtt_base` contains sample count, baseline, floor, applied watch
+delay and positive adjustment, in ns. These are relative propagation estimates
+from the initial connection position, not absolute distance or accuracy bounds.
+
+After the first two samples, successful refresh is normally15–30min, or the
+temporary lab cadence above. Missing/expired calibration shows `--`; the compact
+display lease may expire up to8s early and grants no timing authority. An absent
+valid source stops the watch under the original holds and automatically resumes
+on fresh authenticated LoRa reception. No extra radio packets are scheduled by
+the display, and the source still limits opportunities and may refuse clients.
 
 An isolated missed packet may continue the coarse watch display for at most
 **20 seconds** from its original physical event. The receiver's functional and

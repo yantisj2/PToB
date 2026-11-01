@@ -25,6 +25,12 @@ static struct rc8_probe_packet request(void){
  struct rc8_probe_packet p;assert(!rc8_probe_decode(&p,sent,80,&test_group));
  now_us+=258560;done();assert(probe.state==2&&probe.t1&&probe.epoch==7);return p;
 }
+static void complete(struct rc8_probe_packet p,uint32_t delay){
+ uint64_t t1=probe.t1;p.kind=RC8_RESPONSE;p.t2=UINT64_C(10000000000)+t1*125/2+delay;
+ feed_probe(&p,t1/16+500020);assert(probe.state==PROBE_CLIENT_FOLLOW);
+ p.kind=RC8_FOLLOW;p.t3=p.t2+500020000-2*delay;feed_probe(&p,now_us+400000);
+ assert(!probe.state&&probe.delay_ns==delay);
+}
 int main(int argc,char **argv){
  assert(argc==2);int mode=atoi(argv[1]);
  if(mode<=8||mode==20||mode==21||mode==23||mode==28){
@@ -53,7 +59,8 @@ int main(int argc,char **argv){
   }
   uint32_t accepted=role.rx.accepted;feed_probe(&p,now_us+1000);assert(probe.completed==1&&role.rx.accepted==accepted);
   struct r2_lora_view v;r2_lora_view(&v);assert(v.choice==RC8_SELECT_LORA); /* GM profile remains a watch receiver. */
-  assert(v.rtt_delay_ns==probe.delay_ns&&v.rtt_life_8s==(probe.cal_until-now_us)/8000000);
+  assert(v.rtt_base_count==1&&!v.rtt_positive&&v.rtt_life_8s==(probe.cal_until-now_us)/8000000);
+  assert(probe.baseline_ns==10000&&!probe.floor_ns&&probe.next_us==probe.cal_until-PROBE_CAL_US);
   /* Project a stopped worker without renewing the original calibration. */
   uint64_t until=published.probe_until,sampled=now_us;
   now_us=until-7999999;r2_lora_view(&v);assert(!v.rtt_life_8s);
@@ -76,10 +83,10 @@ int main(int argc,char **argv){
   if(mode==21){role.rx.sample.rx.capture_epoch++;step();assert(!probe.cal_until);}
   if(mode==23){
    uint64_t measured=probe.cal_until-PROBE_CAL_US;
-   assert(probe.next_us>=measured+15000000&&probe.next_us<measured+30000000);
+   assert(probe.next_us==measured); /* Second baseline sample bypasses long refresh. */
    uint64_t original=probe.cal_until,at=now_us;r2_lora_rtt_lab(false);step();
    assert(!probe_lab(now_us)&&!probe.lab_until&&probe.cal_until==original);
-   assert(probe.next_us>=at+900000000&&probe.next_us<at+1800000000);
+   assert(probe.next_us==at); /* Disabling diagnostics cannot postpone sample2. */
   }
 
  }else if(mode==9){
@@ -241,6 +248,55 @@ int main(int argc,char **argv){
   init(true);struct rc8_export map=source(now_us*16,1);r2_lora_source_publish(&map);step();step();done();
   uint64_t next=probe.next_us;map.scope.root=4;map.scope.root_boot=45;map.scope.source_epoch=6;map.from_tick=map.anchor_tick=now_us*16;r2_lora_source_publish(&map);step();
   assert(probe.next_us==next&&!probe.tx_kind); /* Source opportunity floor survives context turnover. */
+ }else if(mode>=47&&mode<=55){
+  struct rc8_probe_packet p=request();complete(p,51363200);
+  assert(probe.base_count==1&&probe.baseline_ns==51363200&&probe.next_us<=now_us);
+  struct rc8_probe_packet offer={.kind=RC8_OFFER,.offer=2,.nonce=7655,.t2=role.rx.highest_sequence};memcpy(offer.context,probe.context,16);
+  feed_probe(&offer,now_us+1000);assert(probe.state==PROBE_CLIENT_READY);
+  now_us=probe.ready_us;step();assert(probe.tx_kind==RC8_REQUEST);assert(!rc8_probe_decode(&p,sent,80,&test_group));
+  assert(probe.serial==2);now_us+=258560;done();complete(p,mode==49?51367200:51363600);
+  uint32_t base=mode==49?51365200:51363400,floor=mode==49?4000:1000;
+  assert(probe.base_count==2&&probe.baseline_ns==base&&probe.floor_ns==floor&&probe.completed==2);
+  assert(probe.next_us>=now_us+900000000&&probe.next_us<now_us+1800000000);
+  if(mode==47||mode==49){
+   const int deltas[]={-1000000,-328,0,999,1000,1001,3999,4000,4001,5000};
+   for(unsigned i=0;i<sizeof deltas/sizeof*deltas;i++){
+    uint32_t raw=(uint32_t)((int64_t)base+deltas[i]);probe_calibrated(raw,now_us+i+1,123+i);
+    assert(probe.baseline_ns==base&&probe.floor_ns==floor&&probe.base_count==2&&probe.delay_ns==raw);
+    uint32_t expected=deltas[i]>(int)floor?raw:base;
+    assert(probe_delay(raw,base,floor,2)==expected);
+   }
+  }
+  if(mode==48){r2_lora_request(false);step();assert(!probe.base_count&&!probe.cal_until&&!probe.baseline_ns&&!probe.floor_ns);}
+  if(mode==50){uint64_t at=now_us;role.rx.sample.rx.capture_epoch++;step();assert(!probe.base_count&&!probe.cal_until&&probe.next_us==at);}
+  if(mode==51){
+   struct rc8_scope scope=role.rx.scope;companion(scope,false,2,now_us+1000);companion(scope,true,3,now_us+1000);
+   assert(probe.base_count==2&&probe.baseline_ns==base&&probe.floor_ns==floor); /* Same-context outage preserves baseline. */
+  }
+  if(mode==52){
+   r2_lora_rtt_lab(true);step();r2_lora_rtt_lab(false);step();
+   assert(probe.base_count==2&&probe.next_us>=now_us+900000000&&probe.next_us<now_us+1800000000);
+  }
+  if(mode==53){
+   struct rc8_scope scope=role.rx.scope;scope.root=4;scope.root_boot=45;scope.source_epoch=6;
+   struct rc8_packet b={.sequence=role.rx.highest_sequence+1,.root=4,.source_epoch=6,.scale=scope.scale,.kind=scope.kind};uint8_t w[80];
+   assert(!rc8_context_id(b.context,&scope,&test_group)&&!rc8_encode(w,&b,&test_group));uint64_t at=now_us+1000;packet(w,80,at);
+   assert(!probe.base_count&&!probe.cal_until&&!probe.baseline_ns&&!probe.floor_ns&&probe.next_us==at);
+  }
+  if(mode==54){
+   probe_base_clear();probe_calibrated(51363000,now_us,1);uint64_t until=probe.cal_until;
+   probe_calibrated(51367000,until,2);assert(probe.base_count==1&&probe.baseline_ns==51367000&&!probe.floor_ns&&probe.next_us==until);
+   probe_calibrated(51367000,until+1,3);assert(probe.base_count==2&&probe.floor_ns==1000);
+  }
+  if(mode==55){
+   witness_enabled=true;
+   probe_calibrated(base+5000,now_us,123);report(now_us,true);r2_lora_shadow_publish();
+   assert(witness_map.lora&&witness_map.lora_delay_ns==base+5000);
+   struct r2_lora_view v;r2_lora_view(&v);assert(v.rtt_positive&&v.rtt_value_ns==5000&&v.rtt_base_count==2);
+   char j[3072];assert(r2_lora_json(j,sizeof j,0)>0&&strstr(j,"\"rtt_base\":[2,51363400,1000,51368400,5000]"));
+   probe_calibrated(base-328,now_us,124);report(now_us,true);r2_lora_shadow_publish();
+   r2_lora_view(&v);assert(!v.rtt_positive&&v.rtt_value_ns==1000&&witness_map.lora_delay_ns==base);
+  }
  }else assert(false);
  printf("PASS optional probe mode%d; GM/RC watch only, no normal timing authority\n",mode);return 0;
 }
