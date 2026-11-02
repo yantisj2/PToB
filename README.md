@@ -36,6 +36,7 @@ Start with the target matching your hardware:
 | Meshnology N30 | BLE RC with passive LoRa timing fallback and portrait OLED | [N30 README](firmware/n30/README.md) |
 | M5Stack CoreS3-SE | Precision diagnostics instrument: receiver quality, mesh lineage and GM reference status | [CoreS3-SE README](firmware/corese/README.md) |
 | macOS | USB time client and chrony bridge | [macOS README](clients/macos/README.md) |
+| Raspberry Pi 5 + M-HAT | Experimental BLE → PPS → chrony → NTP/PTP gateway; private diagnostics | [Pi 5 README](gateways/pi5/README.md) |
 
 For T096 GMs, follow the **[current GM7 guide](docs/t096/gm7-implementation.md)**
 for ACTIVE/HOT/COLD behavior and compatibility. T096 supports

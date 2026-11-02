@@ -12,6 +12,7 @@ retain the selected inputs, separate populations and review history.
 
 | Claim or question | Evidence | Boundary |
 | --- | --- | --- |
+| Pi 5 / M-HAT forward PPS gateway continuity and timing tails | [November 2 Pi final window](pi5/2026-11-02/README.md) | Author-review selection, publication not approved; 600/600 pulses, 872 ns GPIO phase RMS / 4.809 µs absolute P99 / 7.017 µs max; disciplined-clock feedback metric, not independent UTC or Ethernet accuracy |
 | Longest sampled sub-1 µs W12 holdover at P99 | [October 30 holdover](w12/2026-10-30-holdover/README.md) | Replayed 64 s rolling device grid; separate 75 s fixed cohort, failure at 76 s; later 24 s windows retained; BLE-relative sampled shadow, not independent UTC/output |
 | Current W12 delivered clock, UTC-basis repair and downstream TX baseline | [October 24 W12 baseline](s3/2026-10-24-w12-utc-basis/README.md) | 522/600 W12 PPS eligible, 60.328 ns RMS / 180 ns maximum; downstream 451/600 and 211 ns maximum; sampled TX 58/120 and 226 ns maximum. Availability and calibrated UTC/output gate remain open |
 | ESP32-S3 empirical fine capture and completed-window tails | [October 22 fine follow-up](s3/2026-10-22-fine/README.md) | 657 eligible / 660 nominal opportunities, three invalid, no nominal missing; actual 166.590 ns RMS / 1591 ns maximum, all tails retained; empirical RX, estimated TX and output target unqualified |
@@ -46,6 +47,7 @@ python3 tools/verify_usb_results.py
 python3 tools/verify_power.py
 python3 tools/verify_s3_fine_paper.py
 python3 tools/verify_w12_utc_results.py
+python3 tools/verify_pi5_gateway.py
 ```
 
 The previous S3 edition's source/PDF verifier runs at its recorded historical

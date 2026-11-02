@@ -1,0 +1,2 @@
+config BOARD_MHAT_B504E
+    select SOC_NRF52840_QIAA

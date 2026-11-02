@@ -1,0 +1,26 @@
+# Copyright (c) 2026 Jonathan Yantis. MIT.
+[Unit]
+Description=Guarded PToB Ethernet PTP bench (unqualified class 248)
+After=network.target chrony.service ptob-phc2sys.service
+Wants=chrony.service ptob-phc2sys.service
+
+[Service]
+Type=notify
+ExecStart=/usr/bin/python3 /opt/ptob/pi5/clock_chain.py serve
+Restart=on-failure
+RestartSec=3
+WatchdogSec=5
+TimeoutStopSec=3
+KillMode=control-group
+CPUAffinity=0 1 2
+RuntimeDirectory=ptob-clocks
+RuntimeDirectoryPreserve=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes
+ReadWritePaths=/run/ptob-clocks /run
+RestrictAddressFamilies=AF_UNIX AF_PACKET AF_NETLINK AF_INET AF_INET6
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,29 @@
+// Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT
+/dts-v1/;
+/plugin/;
+/ {
+    compatible = "brcm,bcm2712";
+    fragment@0 {
+        target-path = "/";
+        __overlay__ {
+            ptob-pps {
+                compatible = "pps-gpio";
+                gpios = <&gpio 16 0>;
+                pinctrl-names = "default";
+                pinctrl-0 = <&ptob_pps_pins>;
+                status = "okay";
+            };
+        };
+    };
+    fragment@1 {
+        target = <&gpio>;
+        __overlay__ {
+            ptob_pps_pins: ptob-pps-pins {
+                pins = "gpio16";
+                function = "gpio";
+                input-enable;
+                bias-pull-down;
+            };
+        };
+    };
+};

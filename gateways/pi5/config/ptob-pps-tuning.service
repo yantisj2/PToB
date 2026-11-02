@@ -1,0 +1,13 @@
+[Unit]
+Description=PToB GPIO16 PPS interrupt and CPU policy
+After=systemd-udev-trigger.service
+Before=chrony.service
+ConditionPathExists=/dev/pps-ptob
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/python3 /opt/ptob/pi5/pps_tune.py
+
+[Install]
+WantedBy=multi-user.target

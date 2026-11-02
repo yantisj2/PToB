@@ -1,5 +1,70 @@
 # Changelog
 
+## 2026-11-02 — Pi PPS planner and leap-timezone dependency
+
+- Fix an imminent valid M-HAT PPS being discarded when the far search endpoint
+  lies beyond source expiry. Preserve the rise/fall validity and minimum-lead
+  checks, and add production-projection regression cases.
+- Include Debian 13 `tzdata-legacy` for chrony’s `right/UTC` leap database, and
+  reject a missing timezone before timing configuration. Preserve zero/unknown
+  kernel TAI withdrawal rather than hard-coding an offset.
+- Distinguish PToB holdover from current transfer on the dashboard. Use fresh
+  PHC/PTP guard observations for Ethernet readiness and show absent link
+  explicitly, rather than treating an active chrony process as a complete path.
+- Add a seven-page Pi/M-HAT author-review draft with the complete final
+  600-pulse/600-snapshot window, selected deidentified evidence and offline
+  verification. Report 872 ns GPIO phase RMS alongside 4.809 µs P99 and 7.017 µs
+  maximum; retain all tails and distinguish continuity from output accuracy.
+  Linux USB timing and reverse PTP ingress remain proposed and unmeasured;
+  troubleshooting populations remain private. Publication is not approved.
+
+## 2026-11-01 — Pi 5 gateway and M-HAT receiver
+
+- Add an isolated Linux target with exact-device/image SSH guards, private
+  external connection profiles, repeatable package provisioning and a native
+  read-only build/PHC smoke test. SSH keys and host bindings remain outside Git.
+- Add an experimental native B504e receiver reusing current RC7/TZ codecs,
+  hardware radio capture and one-shot PPS to Pi GPIO16. Separate trusted keys
+  from locally discovered mesh context, with fresh authenticated admission.
+- Add chrony PPS/NTP discipline, separate Wi-Fi software and Ethernet hardware
+  PTP services, private Tailscale setup and a read-only Python dashboard with
+  exact-source UART diagnostics, bounded event history and dated wire checks.
+- Add bounded timing charts, full-window CSV exports, RMS/scatter/tail statistics,
+  contiguous PPS block means and correlation. Keep absolute timestamps in
+  integer nanoseconds, status in RAM and disk history in batches; move service
+  queries off UART polling and fix the PTP client socket sandbox path.
+- Limit hardware PPS arm extrapolation to 20 ms and select the nearest timer
+  edge instead of always rounding late. Preserve the T096 numerical clock map,
+  admission/expiry guards and autonomous TIMER/PPI/GPIOTE output. Add a bound
+  host profile for PPS IRQ isolation and CPU frequency policy. Avoid false
+  revision races on repeated immutable clock offers and fence revision
+  saturation before new PPS commits.
+- Keep actual image readback, protected-region comparisons, failed attempts,
+  recovery identities and raw lab observations private. Host qualification is
+  not inferred from an internal fit or from network packet liveness.
+- Preserve the native RC7 search/admission/acquisition budgets in the M-HAT
+  context supervisor instead of restarting an unfinished trial after 30 s.
+  Expose admitted GM versus selected parent, root boot/source epoch, source
+  transitions and recovery state. Keep passive signed role reports descriptive,
+  preserve bounded replay fences and record their cache limits; no additional
+  radio scans or timing authority are introduced by dashboard diagnostics.
+- Register the missing reciprocal R2G1 GATT reply service on the HAT so direct
+  GMs can return authenticated JOIN challenges/acceptance. Keep its handler
+  delegated to the shared RC owner and preserve connection and expiry guards.
+- Incorporate the clock-ownership and recovery lessons from Geerling's Time Pi
+  and Switchberry work with an independent MIT implementation: discipline the
+  Ethernet PHC before link-up, derive the operating UTC/TAI offset from the
+  kernel, and gate Ethernet PTP on fresh admitted timing and PHC readiness.
+  Add bounded supervisor watchdogs, source/transfer change settling and a narrow
+  installer; keep clock quality unknown and distinguish GPIO capture from PHC
+  EXTTS hardware. No third-party timing code or driver patch is imported.
+- During separately authorized lab work, observe PPS selection and recovery,
+  private NTP replies carrying PTOB refid and Wi-Fi PTP packets. Plain Wi-Fi
+  UDP/123 is redirected by the lab network and is not Pi-serving evidence.
+  Ethernet cable testing and sub-microsecond output accuracy remain unmeasured.
+- Offline identity/credential guards, native compilation and read-only hardware
+  inventory are separate checks; they do not establish timing accuracy.
+
 ## 2026-10-30 — SS3 current servo and TZ diagnostics
 
 - Select current GM7 revision4, JOIN revision5 and RC coarse revision8 codecs,

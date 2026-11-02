@@ -1,0 +1,8 @@
+{
+  "schema": 1,
+  "selected_file": "tools/probe.py",
+  "origin": "Original Jonathan Yantis MIT probe embedded in the prepared Pi 5 image; recovered by exact SHA256 readback",
+  "sha256": "53f2ed05e80814a7741e251065858478e8746a3694143c560733dddca877bf7e",
+  "third_party_source_imported": false,
+  "credentials_imported": false
+}

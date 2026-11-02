@@ -1,5 +1,9 @@
 # Design background
 
+The experimental [Pi/M-HAT gateway guide](pi5/timing.md) covers live PPS,
+chrony, private diagnostics and NTP/PTP test limits; it is separate from the
+historical research evidence below.
+
 Start with the **30 October 2026 approved public-review
 [PToB Viability preprint](../papers/ptob-viability-preprint.pdf)** for the
 current research synthesis. Its [LaTeX source](../papers/ptob-viability-preprint.tex),

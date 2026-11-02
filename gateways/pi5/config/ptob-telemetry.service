@@ -1,0 +1,24 @@
+[Unit]
+Description=PToB read-only timing and HAT observations
+After=chrony.service
+
+[Service]
+ExecStart=/usr/bin/python3 /opt/ptob/pi5/dashboard/collector.py
+Restart=on-failure
+RestartSec=3
+CPUAffinity=0 1 2
+StateDirectory=ptob-dashboard
+StateDirectoryMode=0755
+RuntimeDirectory=ptob-dashboard
+RuntimeDirectoryMode=0755
+ReadWritePaths=/var/lib/ptob-dashboard /run/ptob-dashboard
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_NETLINK
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,26 @@
+# Copyright (c) 2026 Jonathan Yantis. MIT.
+[Unit]
+Description=Transfer chrony system time to Ethernet PHC independently of link state
+After=chrony.service
+Wants=chrony.service
+
+[Service]
+Type=notify
+ExecStart=/usr/bin/python3 /opt/ptob/pi5/clock_chain.py transfer
+Restart=on-failure
+RestartSec=3
+WatchdogSec=5
+TimeoutStopSec=3
+KillMode=control-group
+CPUAffinity=0 1 2
+RuntimeDirectory=ptob-clocks
+RuntimeDirectoryPreserve=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes
+ReadWritePaths=/run/ptob-clocks
+RestrictAddressFamilies=AF_UNIX
+
+[Install]
+WantedBy=multi-user.target

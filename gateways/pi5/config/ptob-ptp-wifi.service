@@ -1,0 +1,15 @@
+# Copyright (c) 2026 Jonathan Yantis. MIT.
+[Unit]
+Description=PToB Wi-Fi PTP transport test (software timestamps)
+After=network-online.target chrony.service
+Wants=network-online.target chrony.service
+
+[Service]
+ExecStart=/usr/sbin/ptpd -c /etc/ptob/pi5/ptpd-wifi.conf -l /run/ptob-ptpd-wifi.lock
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE CAP_NET_RAW CAP_NET_ADMIN CAP_SYS_NICE
+NoNewPrivileges=yes
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

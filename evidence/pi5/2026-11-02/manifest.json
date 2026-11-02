@@ -1,0 +1,179 @@
+{
+  "schema": 1,
+  "status": "AUTHOR_REVIEW_DRAFT_NOT_PUBLICATION_APPROVED",
+  "author": "Jonathan Yantis",
+  "observation_license": "CC BY 4.0",
+  "code_license": "MIT",
+  "selection": "Only the complete, final fixed 600.026-second window after a 120.041-second continuous warmup. Every new pulse and every snapshot retained, irrespective of error magnitude. One cached seed excluded from new phase/interval statistics. Protocol health is a separate post-window population.",
+  "deidentification": "Absolute clock/boot times, factory/enrollment/root/parent/boot/context identifiers, network addresses, packet payloads, original sequence counters, service PIDs and local paths excluded. One cohort and one PTP port are local aliases; chronology and all measured values retained.",
+  "provenance": {
+    "private_capture_sha256": "3e60f387cc4061e9288a921bb663dc8ad0ac45100fd123117c5059dbb554e10a",
+    "private_health_sha256": "5e37f0e514192f5433347e43f8baf7d8b4c610aa4da896a78a59fd5a769ebe15",
+    "observer_source_sha256": "1b09af57c77f7e0c9f6a06e374943ec501f9a1c1f46431b520b4e30a3effb602",
+    "code": [
+      {
+        "file": "code/observer.py",
+        "sha256": "1b09af57c77f7e0c9f6a06e374943ec501f9a1c1f46431b520b4e30a3effb602",
+        "origin": "Explicit selected final-capture research source: observer_remote.py",
+        "license": "MIT"
+      },
+      {
+        "file": "code/reduce_private_capture.py",
+        "sha256": "b9f88327ea65365223930e678d6db6dcb818d99940a0b140602ad8a67d2606fe",
+        "origin": "Explicit selected final-capture research source: analyze.py",
+        "license": "MIT"
+      },
+      {
+        "file": "code/health_observer.py",
+        "sha256": "55de857206b02764c64cc10fe4da535027fafb91ad136c27d810b8ae3527d170",
+        "origin": "Explicit selected final-capture research source: health_remote.py",
+        "license": "MIT"
+      }
+    ]
+  },
+  "conditions": {
+    "pi": "Raspberry Pi 5 Model B",
+    "kernel": "6.18.50+rpt-rpi-2712",
+    "hat": "Particle B504e / nRF52840 M-HAT",
+    "firmware_version": "0.5.5",
+    "firmware_source_sha256": "b79783c1c76bf3a357af71700514f5e801cedd1b3529292426ee46fd0eb56429",
+    "application_sha256": "066ca341357bf269b8f33f3ef3bc64082e495f866e0778f6c026bc922e3edc53",
+    "chrony_config_sha256": "0ce86b3a40a8037e25ed6e23f618f2b79d4c3aca7f3a91642284b95e3c3f2ec5",
+    "governor": "performance",
+    "pps_irq_cpu": 3,
+    "observer_cpus": [
+      0,
+      1,
+      2
+    ],
+    "rp1_l1_enabled": true,
+    "ptp_workload": "Fresh running PHC transfer and fresh ready/running Ethernet PTP guard throughout observed window; Ethernet cable absent",
+    "independent_accuracy_measured": false
+  },
+  "run": {
+    "capture_duration_s": 600.0261613289999,
+    "cached_seed_count": 1,
+    "new_assertions": 600,
+    "expected_nominal_pulses": 600,
+    "status_snapshots": 600,
+    "eligible_snapshots": 600,
+    "chain_complete_snapshots": 600,
+    "source_cohorts": 1,
+    "all_new_edge_phase": {
+      "n": 600,
+      "mean_ns": 2.0633333333333335,
+      "rms_ns": 872.0016437293376,
+      "sd_population_ns": 871.9992025926528,
+      "p99_abs_ns": 4809,
+      "max_abs_ns": 7017,
+      "above_1us": 46,
+      "above_2us": 19,
+      "above_5us": 5
+    },
+    "source_bracket_eligible_phase": {
+      "n": 600,
+      "mean_ns": 2.0633333333333335,
+      "rms_ns": 872.0016437293376,
+      "sd_population_ns": 871.9992025926528,
+      "p99_abs_ns": 4809,
+      "max_abs_ns": 7017,
+      "above_1us": 46,
+      "above_2us": 19,
+      "above_5us": 5
+    },
+    "consecutive_new_edge_period_error": {
+      "n": 599,
+      "mean_ns": 1.9048414023372287,
+      "rms_ns": 1106.5405905180826,
+      "sd_population_ns": 1106.5389509833528,
+      "p99_abs_ns": 6606,
+      "max_abs_ns": 7777,
+      "above_1us": 57,
+      "above_2us": 17,
+      "above_5us": 12
+    },
+    "observed_sequence_skips": 0,
+    "gaps": [],
+    "config_hashes_unchanged": true,
+    "effective_chrony_unchanged": true,
+    "service_identity_and_restart_counts_unchanged": true,
+    "service_observation_count": 41,
+    "source_window_availability_criteria_met": true,
+    "measured_window_availability_criteria_met": true,
+    "chrony_distinct_reference_updates": 597,
+    "chrony_distinct_last_offset": {
+      "n": 597,
+      "mean_ns": -9.324958123953099,
+      "rms_ns": 423.38708227877714,
+      "sd_population_ns": 423.28438028885796,
+      "p99_abs_ns": 2521,
+      "max_abs_ns": 3562,
+      "above_1us": 21,
+      "above_2us": 9,
+      "above_5us": 0
+    },
+    "chrony_rms_estimator_snapshots": {
+      "n": 600,
+      "min": 20,
+      "median": 72.0,
+      "max": 1670,
+      "mean": 256.0783333333333
+    },
+    "chrony_source_residual_sd_snapshots": {
+      "n": 600,
+      "min": 98,
+      "median": 371.5,
+      "max": 2893,
+      "mean": 502.62
+    },
+    "hat_fit_rms_snapshots": {
+      "n": 600,
+      "min": 30,
+      "median": 54.0,
+      "max": 88,
+      "mean": 54.69
+    },
+    "workload_good_snapshots": 600,
+    "clock_generation_counts": {
+      "transfer": 1,
+      "server": 1
+    },
+    "workload_transitions_within_window": [],
+    "ethernet_link_snapshots": 0,
+    "acquisition_errors": [],
+    "acquisition_failure": null,
+    "export_errors": [],
+    "log_export_errors": {}
+  },
+  "files": [
+    {
+      "file": "final-edges.csv",
+      "sha256": "35f882b6d3a99c348271e4d2ff815169fb3fdc7776fa5ea8f3252454e2349265",
+      "rows": 600
+    },
+    {
+      "file": "final-status.csv",
+      "sha256": "ae46b85c6ce30b884e2ab168ce31574969cc0d90c37b5e5d221d608b0a1a1fcd",
+      "rows": 600
+    },
+    {
+      "file": "protocol-ptp.csv",
+      "sha256": "8bdde9f5c2cc9320034159f68f92ae6ecab09e77108c45e0270bd45111738ec5",
+      "rows": 204
+    },
+    {
+      "file": "protocol-health.json",
+      "sha256": "d24a6755f6942bf2bd935b216168f00fd7765be1b1512dcd1cc87ece20bbc8bd"
+    }
+  ],
+  "limits": [
+    "Raw phase is GPIO IRQ time relative to the chrony-disciplined Pi UTC second, including IRQ latency and clock slew.",
+    "No independent UTC, upstream GM phase, electrical PPS output or Ethernet accuracy measurement.",
+    "One-Hz eligibility brackets describe lineage around an observed edge; they cannot prove exact-event authentication.",
+    "Cached seed is retained and excluded from new-edge phase and seed-to-first period statistics.",
+    "No filtering or error-magnitude selection. P99 is nearest rank; this finite population cannot bound rare tails.",
+    "Status snapshots repeat estimator values. Chrony estimator RMS, source regression SD and HAT fit RMS differ from raw PPS phase.",
+    "Pulse-gap counts are inferred from integer realtime intervals; clock steps can imitate gaps. Sequence skips count unseen assertions separately.",
+    "Availability criteria apply only to this measured600s window; no endurance or guaranteed submicrosecond claim."
+  ]
+}

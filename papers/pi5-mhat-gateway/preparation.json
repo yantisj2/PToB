@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "status": "PREPARATION_FINAL_RESULTS_PENDING",
+  "author": "Jonathan Yantis",
+  "requested_pages": [
+    6,
+    8
+  ],
+  "publication_approved": false,
+  "measurement_status": "Awaiting operator-provided quiet period; troubleshooting excluded",
+  "source": {
+    "file": "main.tex",
+    "sha256": "c5b7e84481d1d9574298815df92c09dd17112cd1f315930135ca5e004d8325a0"
+  },
+  "license": "CC BY 4.0",
+  "updated_utc": "2026-11-02T13:19:09.648269+00:00"
+}

@@ -1,0 +1,149 @@
+{
+  "status": "AUTHOR_REVIEW_DRAFT_NOT_PUBLICATION_APPROVED",
+  "scope": "Post-window Pi-loopback NTP and passive wlan0 PTP egress; no remote receipt or output accuracy measurement",
+  "ntp": [
+    {
+      "valid_response": true,
+      "stratum": 1,
+      "leap": 0,
+      "refid_hex": "50544f42",
+      "refid_ptob": true,
+      "local_round_trip_ns": 154501
+    },
+    {
+      "valid_response": true,
+      "stratum": 1,
+      "leap": 0,
+      "refid_hex": "50544f42",
+      "refid_ptob": true,
+      "local_round_trip_ns": 68334
+    },
+    {
+      "valid_response": true,
+      "stratum": 1,
+      "leap": 0,
+      "refid_hex": "50544f42",
+      "refid_ptob": true,
+      "local_round_trip_ns": 68149
+    },
+    {
+      "valid_response": true,
+      "stratum": 1,
+      "leap": 0,
+      "refid_hex": "50544f42",
+      "refid_ptob": true,
+      "local_round_trip_ns": 67927
+    }
+  ],
+  "ptp_observation_seconds": 12.005599462999953,
+  "summary": {
+    "ntp_loopback_valid": 4,
+    "ntp_loopback_total": 4,
+    "ntp_loopback_ptob_refid": 4,
+    "ptp_egress_packets": 204,
+    "ptp_egress_sync_follow_up_pairs": 96,
+    "ptp_egress_announces": 12,
+    "remote_client_delivery_measured": false,
+    "independent_accuracy_measured": false
+  },
+  "errors": [],
+  "tai_brackets": [
+    {
+      "bracket_ns": 1870,
+      "tai_minus_realtime_lower_ns": 36999999500,
+      "tai_minus_realtime_upper_ns": 37000001370,
+      "tai_minus_realtime_midpoint_ns": 37000000435
+    },
+    {
+      "bracket_ns": 537,
+      "tai_minus_realtime_lower_ns": 36999999759,
+      "tai_minus_realtime_upper_ns": 37000000296,
+      "tai_minus_realtime_midpoint_ns": 37000000028
+    },
+    {
+      "bracket_ns": 389,
+      "tai_minus_realtime_lower_ns": 36999999815,
+      "tai_minus_realtime_upper_ns": 37000000204,
+      "tai_minus_realtime_midpoint_ns": 37000000010
+    },
+    {
+      "bracket_ns": 351,
+      "tai_minus_realtime_lower_ns": 36999999815,
+      "tai_minus_realtime_upper_ns": 37000000166,
+      "tai_minus_realtime_midpoint_ns": 36999999991
+    },
+    {
+      "bracket_ns": 314,
+      "tai_minus_realtime_lower_ns": 36999999834,
+      "tai_minus_realtime_upper_ns": 37000000148,
+      "tai_minus_realtime_midpoint_ns": 36999999991
+    },
+    {
+      "bracket_ns": 314,
+      "tai_minus_realtime_lower_ns": 36999999834,
+      "tai_minus_realtime_upper_ns": 37000000148,
+      "tai_minus_realtime_midpoint_ns": 36999999991
+    },
+    {
+      "bracket_ns": 315,
+      "tai_minus_realtime_lower_ns": 36999999852,
+      "tai_minus_realtime_upper_ns": 37000000167,
+      "tai_minus_realtime_midpoint_ns": 37000000010
+    },
+    {
+      "bracket_ns": 315,
+      "tai_minus_realtime_lower_ns": 36999999852,
+      "tai_minus_realtime_upper_ns": 37000000167,
+      "tai_minus_realtime_midpoint_ns": 37000000010
+    },
+    {
+      "bracket_ns": 333,
+      "tai_minus_realtime_lower_ns": 36999999833,
+      "tai_minus_realtime_upper_ns": 37000000166,
+      "tai_minus_realtime_midpoint_ns": 37000000000
+    },
+    {
+      "bracket_ns": 315,
+      "tai_minus_realtime_lower_ns": 36999999852,
+      "tai_minus_realtime_upper_ns": 37000000167,
+      "tai_minus_realtime_midpoint_ns": 37000000010
+    },
+    {
+      "bracket_ns": 334,
+      "tai_minus_realtime_lower_ns": 36999999833,
+      "tai_minus_realtime_upper_ns": 37000000167,
+      "tai_minus_realtime_midpoint_ns": 37000000000
+    },
+    {
+      "bracket_ns": 314,
+      "tai_minus_realtime_lower_ns": 36999999852,
+      "tai_minus_realtime_upper_ns": 37000000166,
+      "tai_minus_realtime_midpoint_ns": 37000000009
+    },
+    {
+      "bracket_ns": 315,
+      "tai_minus_realtime_lower_ns": 36999999852,
+      "tai_minus_realtime_upper_ns": 37000000167,
+      "tai_minus_realtime_midpoint_ns": 37000000010
+    },
+    {
+      "bracket_ns": 333,
+      "tai_minus_realtime_lower_ns": 36999999834,
+      "tai_minus_realtime_upper_ns": 37000000167,
+      "tai_minus_realtime_midpoint_ns": 37000000001
+    },
+    {
+      "bracket_ns": 333,
+      "tai_minus_realtime_lower_ns": 36999999833,
+      "tai_minus_realtime_upper_ns": 37000000166,
+      "tai_minus_realtime_midpoint_ns": 37000000000
+    },
+    {
+      "bracket_ns": 315,
+      "tai_minus_realtime_lower_ns": 36999999852,
+      "tai_minus_realtime_upper_ns": 37000000167,
+      "tai_minus_realtime_midpoint_ns": 37000000010
+    }
+  ],
+  "clock_settings_changed": false
+}

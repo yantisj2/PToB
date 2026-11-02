@@ -2,6 +2,12 @@
 
 Copyright (c) 2026 Jonathan Yantis.
 
+The [Pi 5 gateway notice](gateways/pi5/NOTICE.md) covers its separately acquired
+OS, development libraries and Particle USB tools. Their existing terms remain
+authoritative; the MIT target source does not relicense those dependencies.
+The [M-HAT notice](firmware/mhat/NOTICE.md) covers original adapters and reuse of
+current T096 sources plus separately acquired Zephyr/Nordic/TinyCrypt dependencies.
+
 | Material | License |
 | --- | --- |
 | Original software, scripts, and ordinary repository documentation | [MIT](LICENSE) |

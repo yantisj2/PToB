@@ -1,0 +1,53 @@
+{
+  "schema": 1,
+  "status": "AUTHOR_REVIEW_DRAFT_NOT_PUBLICATION_APPROVED",
+  "author": "Jonathan Yantis",
+  "publication_approved": false,
+  "license": "CC BY 4.0",
+  "code_license": "MIT",
+  "pages": 7,
+  "date": "2026-11-02",
+  "selection": "Only the final complete fixed 600.026-second measurement plus separate bounded post-window protocol health. All 600 pulse phases and 600 snapshots retained; troubleshooting excluded.",
+  "compiler": "Tectonic 0.17.0, v33 resource bundle",
+  "verification": "python3 tools/verify_pi5_gateway.py",
+  "visual_review": "All seven rendered pages inspected; source/PDF/figure/table layouts checked; no clipped text, overlap, unresolved citations or TeX warnings observed.",
+  "measurement_boundary": "GPIO IRQ phase against the chrony-disciplined Pi clock; no independent UTC, electrical PPS, remote endpoint, Ethernet output, Pi USB or reverse-path accuracy qualification.",
+  "files": [
+    {
+      "path": "papers/pi5-mhat-gateway/main.tex",
+      "sha256": "d86df57bd7c92e74bb42b04a5991d71f6a9a390cdf1c7b833dc477b6cc617233"
+    },
+    {
+      "path": "papers/pi5-mhat-gateway/main.pdf",
+      "sha256": "32d1bbe9364b787a44804481e370e6431399595336778327c5746f0e0b36584d"
+    },
+    {
+      "path": "papers/pi5-mhat-gateway/figures/final-results.pdf",
+      "sha256": "7e17726c21ef59e0ac8befbe6c407628fbc186589674cff2216247faf0e5fff7"
+    },
+    {
+      "path": "papers/pi5-mhat-gateway/tools/plot_results.py",
+      "sha256": "3e70df1e95ee84885e5ff69f87d539b6b8f0a688bcbd90eda8f55c26de2f844b"
+    },
+    {
+      "path": "papers/pi5-mhat-gateway/README.md",
+      "sha256": "39f0b1021c18c4d17c090b8cee4c1878917fd0ac0911aff33dafca412c672914"
+    },
+    {
+      "path": "evidence/pi5/2026-11-02/manifest.json",
+      "sha256": "2c6da2e6aa9c0fba039afe4f5ec0c9a85b5acd347d007aa183fc733fd8912165"
+    },
+    {
+      "path": "evidence/pi5/2026-11-02/README.md",
+      "sha256": "7c4cd5aed0fa47a83b5311e5d9a7eceb925d382889bd9c5010d1cc40704a41e8"
+    },
+    {
+      "path": "evidence/pi5/2026-11-02/LICENSE.md",
+      "sha256": "8e31007e7519c1e838c57aefa7371612a7790e48933c11d215eff51d47a4f89a"
+    },
+    {
+      "path": "tools/verify_pi5_gateway.py",
+      "sha256": "45e3948f9e9f1726b3b37083f9fc5e58f0ab66fc149f49bdbfccc6fa471085a6"
+    }
+  ]
+}

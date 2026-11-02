@@ -1,0 +1,5 @@
+board:
+  name: mhat_b504e
+  vendor: particle
+  socs:
+    - name: nrf52840

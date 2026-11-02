@@ -1,0 +1,24 @@
+[Unit]
+Description=PToB private gateway dashboard
+After=network.target ptob-telemetry.service
+
+[Service]
+User=ptob-dashboard
+Group=ptob-dashboard
+ExecStart=/usr/bin/python3 /opt/ptob/pi5/dashboard/server.py
+Restart=on-failure
+RestartSec=3
+CPUAffinity=0 1 2
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_INET AF_UNIX
+IPAddressDeny=any
+IPAddressAllow=localhost
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
