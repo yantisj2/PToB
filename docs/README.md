@@ -1,8 +1,10 @@
 # Design background
 
-The experimental [Pi/M-HAT gateway guide](pi5/timing.md) covers live PPS,
-chrony, private diagnostics and NTP/PTP test limits; it is separate from the
-historical research evidence below.
+The experimental [Pi/M-HAT gateway](../gateways/pi5/README.md) has a separate
+[setup guide](pi5/setup.md), [monitoring guide with generic screenshots](../gateways/pi5/dashboard/README.md),
+[timing/clock documentation](pi5/README.md) and [USB/PTP continuation plan](pi5/bridge-work.md).
+Its [approved public-review paper and measured results](../papers/pi5-mhat-gateway/README.md)
+preserve the final fixed-window population and unmeasured output boundaries.
 
 Start with the **30 October 2026 approved public-review
 [PToB Viability preprint](../papers/ptob-viability-preprint.pdf)** for the

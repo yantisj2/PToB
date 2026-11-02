@@ -73,8 +73,32 @@ def main():
  for row in h['tai_brackets']:
   require(row['tai_minus_realtime_lower_ns']<=37000000000<=row['tai_minus_realtime_upper_ns'],'recorded TAI read bracket')
  edition=json.loads((PAPER/'edition.json').read_text());require(edition['status']==m['status'] and 6<=edition['pages']<=8,'6–8 page author-review draft')
+ publication_path=PAPER/'publication.json';publication=None;companions={}
+ if publication_path.exists():
+  publication=json.loads(publication_path.read_text())
+  require(publication['status']=='APPROVED_FOR_PUBLIC_DRAFT_REVIEW' and not publication['draft_promoted_to_final'],'public draft approval')
+  require(publication['prepared_edition_sha256']==digest(PAPER/'edition.json'),'unchanged prepared edition')
+  companions={x['path']:x for x in publication['updated_companions']}
+  allowed={'papers/pi5-mhat-gateway/README.md','evidence/pi5/2026-11-02/README.md','tools/verify_pi5_gateway.py'}
+  require(set(companions)<=allowed,'bounded companion-only updates')
  for entry in edition['files']:
-  p=(ROOT/entry['path']).resolve();require(p.is_relative_to(ROOT) and digest(p)==entry['sha256'],'edition identity '+entry['path'])
+  p=(ROOT/entry['path']).resolve();expected=entry['sha256']
+  if entry['path'] in companions:
+   replacement=companions[entry['path']]
+   require(replacement['prepared_sha256']==expected,'preserved companion checkpoint')
+   expected=replacement['current_sha256']
+  require(p.is_relative_to(ROOT) and digest(p)==expected,'edition identity '+entry['path'])
+ if publication:
+  for entry in publication['publication_files']:
+   p=(ROOT/entry['path']).resolve()
+   require(p.is_relative_to(ROOT) and digest(p)==entry['sha256'],'publication identity '+entry['path'])
+  require(not publication['hardware_accuracy_qualified'],'accuracy remains unqualified')
+  screenshots=json.loads((ROOT/'gateways/pi5/dashboard/images/manifest.json').read_text())
+  require(not screenshots['lab_identifiers_included'] and not screenshots['tailnet_details_included'],'generic documentation screenshots')
+  require(len(screenshots['images'])==2,'overview and chart screenshots')
+  for entry in screenshots['images']+screenshots['frontend']:
+   p=(ROOT/entry['path']).resolve()
+   require(p.is_relative_to(ROOT) and digest(p)==entry['sha256'],'screenshot source identity '+entry['path'])
  source=(PAPER/'main.tex').read_text();require('capture pending' not in source and 'TODO' not in source,'completed draft text')
  cites={v.strip() for c in re.findall(r'\\cite\{([^}]+)\}',source) for v in c.split(',')};bibs=set(re.findall(r'\\bibitem\{([^}]+)\}',source));require(cites<=bibs,'resolved citations')
  print('PASS: final 600 pulses / 600 snapshots, all RMS/tails, 599 periods, 597 chrony updates, source/workload flags, protocol populations and draft identities.')

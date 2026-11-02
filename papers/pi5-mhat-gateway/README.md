@@ -3,10 +3,13 @@
 Jonathan Yantis. Paper and original figures: CC BY 4.0. Ordinary documentation
 and original tooling: MIT.
 
-The [seven-page paper](main.pdf) is an **author-review draft, not approved for
-publication**. [main.tex](main.tex) is canonical. The [edition manifest](edition.json)
-binds its source, PDF, figure, selected evidence and verification tooling.
-No existing approved edition is replaced or promoted.
+The [seven-page paper](main.pdf) is **approved for public draft review**.
+[main.tex](main.tex) is canonical. The [prepared edition manifest](edition.json)
+binds the reviewed source, PDF, figure and measured evidence. The separate
+[publication receipt](publication.json) records the later approval, current
+companion documentation and the authorized scope of publication to GitHub main.
+The manuscript's earlier author-review label is preserved with its exact bytes.
+The paper remains a draft; no final-paper promotion or submission is claimed.
 
 The paper describes authenticated BLE PToB reception on the B504e/nRF52840,
 hardware-timer PPS through the M-HAT bus to Pi GPIO16/chrony, and conservative
@@ -20,7 +23,7 @@ Only this final fixed-window population and its separate protocol-health checks
 enter the paper and [selected evidence](../../evidence/pi5/2026-11-02/README.md).
 Troubleshooting, private identities and raw laboratory logs remain private.
 The original preparation receipt preserves the earlier pending-data checkpoint;
-the completed edition manifest is the current draft record.
+the completed edition and subsequent publication receipt identify this draft.
 
 The Linux USB/SOF bridge inspired by the existing macOS client and external
 PTP-to-PToB ingress are proposed designs. Neither is implemented or measured on

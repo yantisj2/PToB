@@ -36,7 +36,7 @@ Start with the target matching your hardware:
 | Meshnology N30 | BLE RC with passive LoRa timing fallback and portrait OLED | [N30 README](firmware/n30/README.md) |
 | M5Stack CoreS3-SE | Precision diagnostics instrument: receiver quality, mesh lineage and GM reference status | [CoreS3-SE README](firmware/corese/README.md) |
 | macOS | USB time client and chrony bridge | [macOS README](clients/macos/README.md) |
-| Raspberry Pi 5 + M-HAT | Experimental BLE → PPS → chrony → NTP/PTP gateway; private diagnostics | [Pi 5 README](gateways/pi5/README.md) |
+| Raspberry Pi 5 + M-HAT | Experimental BLE → PPS → chrony → NTP/PTP gateway; private diagnostics | [Pi 5 README](gateways/pi5/README.md) · [setup](docs/pi5/setup.md) · [monitor](gateways/pi5/dashboard/README.md) |
 
 For T096 GMs, follow the **[current GM7 guide](docs/t096/gm7-implementation.md)**
 for ACTIVE/HOT/COLD behavior and compatibility. T096 supports
@@ -87,6 +87,18 @@ depend on the role. Conventional clients can consume a host time service without
 implementing a BLE mesh role. A general GATT time-client service remains planned.
 
 ## Research and review
+
+**Approved public review draft, 2 November 2026:**
+[A Raspberry Pi Time Server at the Edge of a BLE Timing Mesh](papers/pi5-mhat-gateway/main.pdf)
+describes the Pi 5/M-HAT PPS gateway in seven pages. Its complete final window
+retains 600/600 pulses, 872 ns GPIO phase RMS, 4.809 µs absolute P99 and 7.017 µs
+maximum. These are observations against the disciplined Pi clock; independent
+UTC/output accuracy and Ethernet endpoint performance remain unmeasured.
+[Source and reproduction](papers/pi5-mhat-gateway/README.md),
+[measured results](evidence/pi5/2026-11-02/README.md) and
+[approval record](papers/pi5-mhat-gateway/publication.json) accompany the draft.
+Linux USB/SOF input from a T096 RC and reverse external-PTP ingress remain
+proposed next steps.
 
 **Approved public review draft, 1 November 2026:**
 [Trustworthy Hardware Timestamps in Zephyr](papers/zephyr-timing/main.pdf)

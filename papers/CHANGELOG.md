@@ -1,5 +1,24 @@
 # Manuscript history
 
+## 2026-11-02 — Pi gateway draft authorized for GitHub main publication
+
+- Record the subsequent push authorization and publish the unchanged seven-page
+  paper with its complete final measurement population and Pi target.
+- Keep unrelated unpublished LoRa history outside the publication ancestry and
+  preserve the prepared source/PDF, draft status and unqualified output bounds.
+
+## 2026-11-02 — Pi / M-HAT gateway draft approved for public review
+
+- Preserve the reviewed seven-page source/PDF and its prepared edition while
+  recording approval in a separate publication receipt. GitHub delivery remains
+  held locally for operator review.
+- Publish-ready selected results retain all 600 final-window pulses, 600 quality
+  snapshots, 599 new-to-new periods and 597 chrony reference updates. GPIO phase
+  RMS is 872 ns, absolute P99 4.809 µs and maximum 7.017 µs; continuity does not
+  qualify sub-microsecond output or independently measured UTC.
+- Keep troubleshooting private. Linux USB/SOF input from a T096 RC and reverse
+  external-PTP-to-PToB operation remain proposed; neither is a measured result.
+
 ## 2026-11-01 — Zephyr timing paper approved for public review
 
 - Add the seven-page *Trustworthy Hardware Timestamps in Zephyr: Event

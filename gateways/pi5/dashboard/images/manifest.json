@@ -1,0 +1,48 @@
+{
+  "schema": 1,
+  "author": "Jonathan Yantis",
+  "license": "MIT",
+  "purpose": "Generic documentation screenshots of the shipped monitoring frontend",
+  "source": "Live browser rendering of preview.py with synthetic observations only; no private status, history, registry, network or profile input",
+  "example_status": "Illustrative synthetic values; no measured performance claim",
+  "lab_identifiers_included": false,
+  "tailnet_details_included": false,
+  "images": [
+    {
+      "path": "gateways/pi5/dashboard/images/overview.jpg",
+      "sha256": "3d8fa09fb815a06403d58fa629886458aad6f9d247daad9400d34204c8fa485b",
+      "width": 1280,
+      "height": 720,
+      "format": "JPEG"
+    },
+    {
+      "path": "gateways/pi5/dashboard/images/charts.jpg",
+      "sha256": "eda09e72cd72c521807bf93113920aad86653c57a3dd3d7df5c74b86f09665de",
+      "width": 1280,
+      "height": 720,
+      "format": "JPEG"
+    }
+  ],
+  "frontend": [
+    {
+      "path": "gateways/pi5/dashboard/preview.py",
+      "sha256": "3017b497eeebf59937e887bf8deff5b8aacc9a38b8cd3799d89566e401ef59db"
+    },
+    {
+      "path": "gateways/pi5/dashboard/static/index.html",
+      "sha256": "a24d7386009c7b899e719cd5eb246ee1c084df67ed1d0ad3a8113fd38d09598a"
+    },
+    {
+      "path": "gateways/pi5/dashboard/static/style.css",
+      "sha256": "dd8ea1451f9aea2368624e0d2996b2b493e0adaa987c6c6d3b132598e9940797"
+    },
+    {
+      "path": "gateways/pi5/dashboard/static/app.js",
+      "sha256": "e3efbc455e789120fd8c71b51a4797903ab251760a01684c717bfb028c1ec37b"
+    },
+    {
+      "path": "gateways/pi5/dashboard/static/charts.js",
+      "sha256": "fa5811194fb55cea498aa3f7f5282b3defce112ad661375a6ebbd3b7090a9425"
+    }
+  ]
+}

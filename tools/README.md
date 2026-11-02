@@ -1,5 +1,13 @@
 # Reproduction tools
 
+Run `python3 -B tools/verify_pi5_gateway.py` for the approved seven-page Pi/M-HAT
+draft, complete 600-pulse/600-snapshot population, all tails, period and chrony
+update accounting, separate protocol-health checks and publication identities.
+It uses the standard library and operates no hardware. Private raw extraction
+and independent UTC/electrical/Ethernet accuracy are outside this check.
+See the [paper](../papers/pi5-mhat-gateway/README.md) and
+[Pi setup/scripts](../gateways/pi5/README.md).
+
 Native firmware builds automatically retain the latest two successful images per
 device/profile and release compiler intermediates. Use
 `python3 -B tools/firmware_artifacts.py plan --out artifacts/storage-plan.json`

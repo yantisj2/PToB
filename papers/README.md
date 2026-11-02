@@ -1,6 +1,6 @@
 # Research papers — drafts
 
-**Author-review draft, 2 November 2026; publication not approved:**
+**Approved public review draft, 2 November 2026:**
 [A Raspberry Pi Time Server at the Edge of a BLE Timing Mesh](pi5-mhat-gateway/main.pdf)
 is a seven-page Pi 5/M-HAT integration study. Its final fixed window retains
 600/600 pulses with one source cohort, 872 ns GPIO phase RMS, 4.809 µs absolute
@@ -9,7 +9,9 @@ clock, not independent UTC or electrical output accuracy. It separates protocol
 health and Ethernet readiness, and proposes unmeasured Linux USB/SOF and
 external-PTP-to-PToB paths. [Source and reproduction](pi5-mhat-gateway/README.md)
 and [selected evidence](../evidence/pi5/2026-11-02/README.md) exclude earlier
-troubleshooting populations and preserve every final-window tail.
+troubleshooting populations and preserve every final-window tail. The separate
+[approval receipt](pi5-mhat-gateway/publication.json) preserves the reviewed
+source/PDF bytes and records the authorized GitHub main publication scope.
 
 **Approved public review draft, 1 November 2026:**
 [Trustworthy Hardware Timestamps in Zephyr: Event Association, Clock Continuity, and Service Availability](zephyr-timing/main.pdf)

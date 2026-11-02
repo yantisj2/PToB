@@ -1,0 +1,771 @@
+{
+  "schema": 1,
+  "author": "Jonathan Yantis",
+  "license": "MIT",
+  "edition_date": "2026-11-02",
+  "status": "APPROVED_FOR_PUBLIC_DRAFT_REVIEW",
+  "approval": "Publish the draft paper for public review in our research section in the repo along with the measured results. We will continue to improve performance and will test a USB connected T096 RC for USB SOF next time. For now wrap up our work and add a Pi target in the repo organized with our scripts and setup guide (separate doc) in the README for the Pi target and future PTP/NTP bridge work on this device.",
+  "delivery_instruction": "Publish main to github leaving out the LoRa branch work going on with the new research and target",
+  "delivery_status": "AUTHORIZED_FOR_GITHUB_MAIN_PUBLICATION",
+  "github_push_authorized": true,
+  "prepared_commit": "ffd09d447c2393984f6edc1e413023fbdf111935",
+  "prepared_edition": "papers/pi5-mhat-gateway/edition.json",
+  "prepared_edition_sha256": "7cf9c6d6e2eec287715c526509d73e1fbf0d94a3c1566c515099faf0c76c8d18",
+  "reviewed_source_pdf_unchanged": true,
+  "draft_promoted_to_final": false,
+  "hardware_accuracy_qualified": false,
+  "hardware_operations_in_this_wrap_up": false,
+  "publication_scope": "GitHub main publication of the approved Pi/M-HAT paper, unchanged measured results, Pi/M-HAT target source, setup guides and generic monitoring screenshots. Exclude unpublished LoRa development; no website deployment or hardware operations.",
+  "preserved_checkpoint": "The immutable prepared edition and manuscript retain their earlier author-review labels. The prepared checkpoint is replayed unchanged onto the public base without unpublished LoRa ancestors. This receipt records subsequent content and push approval; companion documentation/verifier updates are bounded below.",
+  "updated_companions": [
+    {
+      "path": "papers/pi5-mhat-gateway/README.md",
+      "prepared_sha256": "39f0b1021c18c4d17c090b8cee4c1878917fd0ac0911aff33dafca412c672914",
+      "current_sha256": "2bf0016f9b146279357e83cbc1593938ba427fab91b52435c9522d50f23a6df5"
+    },
+    {
+      "path": "evidence/pi5/2026-11-02/README.md",
+      "prepared_sha256": "7c4cd5aed0fa47a83b5311e5d9a7eceb925d382889bd9c5010d1cc40704a41e8",
+      "current_sha256": "362e42d7c8a6b1b8f1ebee8ec658d6d235a4c961a1510a6a548ddd78b77bdbaf"
+    },
+    {
+      "path": "tools/verify_pi5_gateway.py",
+      "prepared_sha256": "45e3948f9e9f1726b3b37083f9fc5e58f0ab66fc149f49bdbfccc6fa471085a6",
+      "current_sha256": "1a26dd081aaea1fcc6b166ad92a059485549544f561ecafab974720aea64382b"
+    }
+  ],
+  "canonical_pdf": "papers/pi5-mhat-gateway/main.pdf",
+  "canonical_source": "papers/pi5-mhat-gateway/main.tex",
+  "canonical_repository": "https://github.com/yantisj2/PToB",
+  "measurement_scope": "Complete final 600.026-second population: 600 new PPS assertions, 600 snapshots, 599 new-to-new periods and 597 chrony reference updates; one cached seed excluded; every timing tail retained. GPIO phase is relative to the disciplined Pi clock, without independent UTC/electrical or Ethernet-client accuracy.",
+  "next_experiment": "USB-connected exact verified T096 RC, shadow Linux USB/SOF association before any clock-feed promotion. No Pi USB/SOF or reverse-PTP result is claimed.",
+  "screenshot_scope": "Production frontend rendered locally with synthetic data only. Generic documentation screenshots include no real source identity, network, tailnet, profile or credential.",
+  "publication_files": [
+    {
+      "path": ".gitignore",
+      "bytes": 430,
+      "sha256": "a9ce227dae1c636e635ca42b639a876419354b597e1e48651a9175d177c76e45",
+      "license": "MIT"
+    },
+    {
+      "path": "CHANGELOG.md",
+      "bytes": 137592,
+      "sha256": "36e2e095ba2c7e966d7b7be8a47cc4ac6c817143b11c53803751a2d052077274",
+      "license": "MIT"
+    },
+    {
+      "path": "LICENSING.md",
+      "bytes": 4322,
+      "sha256": "661d08df40d4269f494d2824b0b6ffade018e0816a44e0f160094bf840f2466c",
+      "license": "MIT"
+    },
+    {
+      "path": "README.md",
+      "bytes": 11189,
+      "sha256": "aa0b6ba672a68ecbb1cddcbfe853d2e90c04f9af7067016b920edf633013db10",
+      "license": "MIT"
+    },
+    {
+      "path": "docs/PUBLICATION_REVIEW.md",
+      "bytes": 3485,
+      "sha256": "76850470bf66f4457b264059a9007e720aec79bdee63f06ff96c65b5c620991f",
+      "license": "MIT"
+    },
+    {
+      "path": "docs/README.md",
+      "bytes": 3070,
+      "sha256": "86b7d5b41244cb25c2f8fad4c4be3264d3bf8594db72e88ca0a5c7b3ad2c2bac",
+      "license": "MIT"
+    },
+    {
+      "path": "docs/pi5/README.md",
+      "bytes": 1165,
+      "sha256": "7d056c69ecac7f6271d0ad77ac9c18a7e2d30d8d4fa308259d172daa4273887f",
+      "license": "MIT"
+    },
+    {
+      "path": "docs/pi5/bridge-work.md",
+      "bytes": 4449,
+      "sha256": "f7d86506fca885d2f0a3a5d95d0392d876bad724e7d2063bb72537e3324b9c46",
+      "license": "MIT"
+    },
+    {
+      "path": "docs/pi5/clock-chain.md",
+      "bytes": 6693,
+      "sha256": "32fd6fc24ffce01097bb33c0a697fdd7063a45c2a9f454c49bf3e18dd3397c22",
+      "license": "MIT"
+    },
+    {
+      "path": "docs/pi5/mhat-access.md",
+      "bytes": 3229,
+      "sha256": "5b05904cce81151da8ec08e9c65c3f9e8501bee711ced2ce72a711bf4124bfde",
+      "license": "MIT"
+    },
+    {
+      "path": "docs/pi5/setup.md",
+      "bytes": 11227,
+      "sha256": "c59262a2971702c25dd5ba95e0efd5d1a5c0459e7f68aacd9be82af01f6d1b31",
+      "license": "MIT"
+    },
+    {
+      "path": "docs/pi5/timing.md",
+      "bytes": 11128,
+      "sha256": "edfdbda26aa7392cb0eeee30a3d4a6654bfc480a8a7fe23fce807f7ae842c348",
+      "license": "MIT"
+    },
+    {
+      "path": "evidence/README.md",
+      "bytes": 7603,
+      "sha256": "0b2d102e93a405fd1eaff3fadd3c9e52d11d68842a7c5c3f66fb41542de8f55e",
+      "license": "MIT"
+    },
+    {
+      "path": "evidence/pi5/2026-11-02/LICENSE.md",
+      "bytes": 409,
+      "sha256": "8e31007e7519c1e838c57aefa7371612a7790e48933c11d215eff51d47a4f89a",
+      "license": "MIT"
+    },
+    {
+      "path": "evidence/pi5/2026-11-02/README.md",
+      "bytes": 4915,
+      "sha256": "362e42d7c8a6b1b8f1ebee8ec658d6d235a4c961a1510a6a548ddd78b77bdbaf",
+      "license": "MIT"
+    },
+    {
+      "path": "evidence/pi5/2026-11-02/code/health_observer.py",
+      "bytes": 6136,
+      "sha256": "55de857206b02764c64cc10fe4da535027fafb91ad136c27d810b8ae3527d170",
+      "license": "MIT"
+    },
+    {
+      "path": "evidence/pi5/2026-11-02/code/observer.py",
+      "bytes": 9551,
+      "sha256": "1b09af57c77f7e0c9f6a06e374943ec501f9a1c1f46431b520b4e30a3effb602",
+      "license": "MIT"
+    },
+    {
+      "path": "evidence/pi5/2026-11-02/code/reduce_private_capture.py",
+      "bytes": 17663,
+      "sha256": "b9f88327ea65365223930e678d6db6dcb818d99940a0b140602ad8a67d2606fe",
+      "license": "MIT"
+    },
+    {
+      "path": "evidence/pi5/2026-11-02/final-edges.csv",
+      "bytes": 28607,
+      "sha256": "35f882b6d3a99c348271e4d2ff815169fb3fdc7776fa5ea8f3252454e2349265",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "evidence/pi5/2026-11-02/final-status.csv",
+      "bytes": 73402,
+      "sha256": "ae46b85c6ce30b884e2ab168ce31574969cc0d90c37b5e5d221d608b0a1a1fcd",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "evidence/pi5/2026-11-02/manifest.json",
+      "bytes": 6840,
+      "sha256": "2c6da2e6aa9c0fba039afe4f5ec0c9a85b5acd347d007aa183fc733fd8912165",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "evidence/pi5/2026-11-02/protocol-health.json",
+      "bytes": 4360,
+      "sha256": "d24a6755f6942bf2bd935b216168f00fd7765be1b1512dcd1cc87ece20bbc8bd",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "evidence/pi5/2026-11-02/protocol-ptp.csv",
+      "bytes": 7317,
+      "sha256": "8bdde9f5c2cc9320034159f68f92ae6ecab09e77108c45e0270bd45111738ec5",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "firmware/mhat/CHANGELOG.md",
+      "bytes": 681,
+      "sha256": "3ea809b65312ef0a98c2b3ded092e1baedadcc2355e95a6667e5827fdb21b4ee",
+      "license": "MIT"
+    },
+    {
+      "path": "firmware/mhat/CMakeLists.txt",
+      "bytes": 2296,
+      "sha256": "31df4e359087ecba68d609efc427078fc5ba5c25ee83f828161ac756830f500f",
+      "license": "MIT"
+    },
+    {
+      "path": "firmware/mhat/NOTICE.md",
+      "bytes": 944,
+      "sha256": "99a225945dabd10bab33b604545dbd6d4aff00361dcda856ac65296ffd7b9608",
+      "license": "MIT"
+    },
+    {
+      "path": "firmware/mhat/README.md",
+      "bytes": 8675,
+      "sha256": "136aeacf18a52caadec0ae838ffba73f7fcbad7a07abfb60f621e01e935d5081",
+      "license": "MIT"
+    },
+    {
+      "path": "firmware/mhat/boards/particle/mhat_b504e/Kconfig.mhat_b504e",
+      "bytes": 53,
+      "sha256": "a2fd89e369f8c5ed8ef39e62ebb5f44cbf9106b7f172db6d93683f97a4e7c01c",
+      "license": "MIT"
+    },
+    {
+      "path": "firmware/mhat/boards/particle/mhat_b504e/board.yml",
+      "bytes": 74,
+      "sha256": "3eb90b93ccc797e37aef8c0ad910fad8887e1917897837de8bbc74819ebc40bd",
+      "license": "MIT"
+    },
+    {
+      "path": "firmware/mhat/boards/particle/mhat_b504e/mhat_b504e.dts",
+      "bytes": 1920,
+      "sha256": "066c39017c1c74b2b1bd7343682862e38783a415f917a10dcc16467f43fd0789",
+      "license": "MIT"
+    },
+    {
+      "path": "firmware/mhat/boards/particle/mhat_b504e/mhat_b504e_defconfig",
+      "bytes": 160,
+      "sha256": "3cab5218b58bcc7456115c9b5674f4e390683b79eb6a7a6ca4d5f7cad5895de5",
+      "license": "MIT"
+    },
+    {
+      "path": "firmware/mhat/include/build_identity.h",
+      "bytes": 124,
+      "sha256": "33a469a43a112b763015e890f7bf717d7304770afeb9b5a0a8ac66a94bcb70a5",
+      "license": "MIT"
+    },
+    {
+      "path": "firmware/mhat/include/pps_offer.h",
+      "bytes": 1269,
+      "sha256": "2d2b4fba94c10a0090c8a8e03f685b473d6229f8be46eaf516e3aabe51365ada",
+      "license": "MIT"
+    },
+    {
+      "path": "firmware/mhat/include/pps_plan.h",
+      "bytes": 2370,
+      "sha256": "4e51aa645be3b9086f4071c594290b820d1601083b2bdd83af43924dfd1e8468",
+      "license": "MIT"
+    },
+    {
+      "path": "firmware/mhat/include/rc_direct_calibration.h",
+      "bytes": 241,
+      "sha256": "3039274065062822a988f3fdadc10b4550fa8ff330cec3343982de3ba9fa04eb",
+      "license": "MIT"
+    },
+    {
+      "path": "firmware/mhat/include/source_monitor.h",
+      "bytes": 2011,
+      "sha256": "d680b8a0ad1d5081f17ab0339e794b7efbf28afa1043aa5e90aca311c7f52403",
+      "license": "MIT"
+    },
+    {
+      "path": "firmware/mhat/module_reserve.ld",
+      "bytes": 169,
+      "sha256": "4c403c08773ae7486af8bbbdf6b1af4326deb65281d049152ad6efd1b8422d67",
+      "license": "MIT"
+    },
+    {
+      "path": "firmware/mhat/prj.conf",
+      "bytes": 2352,
+      "sha256": "fa47cedd87b6164fb64a404653c18cc87c2db86689b165c53ab27d66317c75d4",
+      "license": "MIT"
+    },
+    {
+      "path": "firmware/mhat/src/clock_adapter.c",
+      "bytes": 2834,
+      "sha256": "7715ee3b87fc2dc4277618c30c090c3e6db423074f33bfc4636dbbb355ca503b",
+      "license": "MIT"
+    },
+    {
+      "path": "firmware/mhat/src/gm_control.c",
+      "bytes": 1262,
+      "sha256": "ddc01aa8b2822a5437ff0c88f6ded2e1b554db6aec34aea1f42f0363a45168e6",
+      "license": "MIT"
+    },
+    {
+      "path": "firmware/mhat/src/main.c",
+      "bytes": 10940,
+      "sha256": "8378bcf1e60a16d4056cd17dc2fd0dfd2b8b9389f48f73ee96874d5e5a46104b",
+      "license": "MIT"
+    },
+    {
+      "path": "firmware/mhat/src/mesh.c",
+      "bytes": 8719,
+      "sha256": "4be8cc11aa2f51c37288e0729556014c107f74aea921d7bfc2a383b23146d7b9",
+      "license": "MIT"
+    },
+    {
+      "path": "firmware/mhat/src/pps.c",
+      "bytes": 6466,
+      "sha256": "245ddc494e8de3a0b436a0d9ff84a0051a5a40b9d748c4e2d49f0013fa38b769",
+      "license": "MIT"
+    },
+    {
+      "path": "firmware/mhat/src/support.c",
+      "bytes": 1345,
+      "sha256": "98ddbf75f0ad8c8b919c8eb6dbcf2d1bc84dba357b12aa84d52a83378f3f4dab",
+      "license": "MIT"
+    },
+    {
+      "path": "firmware/mhat/tests/pps_plan_test.c",
+      "bytes": 5229,
+      "sha256": "90229402aa7c1f1d951a2d3c8155a51506c56fef58da919cfcf2ede56cd560e9",
+      "license": "MIT"
+    },
+    {
+      "path": "firmware/mhat/tests/test_image.py",
+      "bytes": 1328,
+      "sha256": "9bd27002f32ec4d502822e3445af2cb2a385dd2336f15e182db556ca6d3aa1c1",
+      "license": "MIT"
+    },
+    {
+      "path": "firmware/mhat/tools/build.py",
+      "bytes": 8399,
+      "sha256": "798aecf17c7f1418464344ef189787b05e9ef5b9962158a1bf9c44f413644769",
+      "license": "MIT"
+    },
+    {
+      "path": "firmware/mhat/tools/dfu.cjs",
+      "bytes": 3526,
+      "sha256": "9b0263d8f70af4d520c1bc2c0cffcdffa88b3cbb43a1ade80c5566420256a77a",
+      "license": "MIT"
+    },
+    {
+      "path": "firmware/mhat/tools/install.cjs",
+      "bytes": 9105,
+      "sha256": "cc80eb56b0ae6eb8055935f06b1c91503547292963923c4477b54a6c36617322",
+      "license": "MIT"
+    },
+    {
+      "path": "firmware/mhat/tools/observe.cjs",
+      "bytes": 3270,
+      "sha256": "35945ad2221ee5a25be1b30600fd3bda49236a74bc743a615100a29e1bec9038",
+      "license": "MIT"
+    },
+    {
+      "path": "firmware/mhat/tools/test_pps.py",
+      "bytes": 1180,
+      "sha256": "e5d66daec5e2e02b2c6535e18d87cb8728bc3d495dd03f9b05ffd377774e0527",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/README.md",
+      "bytes": 836,
+      "sha256": "88dee507b17a29601408708e7649af4e5f51f1dcc30caaeadfe9a2a8a99144e0",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/NOTICE.md",
+      "bytes": 1672,
+      "sha256": "b9d77613221f0d41e071568a803d4e8b948a7ed438681e5c50e40ad8895cd627",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/README.md",
+      "bytes": 5091,
+      "sha256": "46272ec324ecd6eb235ac5a3869f0e36c2be3ae445cb983d84a4e658f8f5a169",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/config/chrony.conf",
+      "bytes": 489,
+      "sha256": "0ce86b3a40a8037e25ed6e23f618f2b79d4c3aca7f3a91642284b95e3c3f2ec5",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/config/ptob-dashboard.service",
+      "bytes": 503,
+      "sha256": "ac7d9b19c2884658f7d063c2cfb564c2a8ae5e59b8347bd49494017389951e35",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/config/ptob-phc2sys.service",
+      "bytes": 600,
+      "sha256": "41031865a51367e30c802640893fd39295f08975028417229ed42471978da12f",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/config/ptob-pps-tuning.service",
+      "bytes": 286,
+      "sha256": "b70103fcf19fa04c7331fb8c2669b8ec205031c449729e96a60a6f8b91f1d0f4",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/config/ptob-pps.dts",
+      "bytes": 722,
+      "sha256": "d04f9363d30b415b5695bf7fe0f86bae7b540e608c39e62351f681877b5f50bd",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/config/ptob-ptp-wifi.service",
+      "bytes": 468,
+      "sha256": "748ed395356f8cc75fccd445dc3ba9e5ae41ce61c0afe3aca35a27a681afe606",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/config/ptob-ptp4l.service",
+      "bytes": 681,
+      "sha256": "e9102b4fbf962b9877b6a6f0a154917757b233fbe98ad8ad3bbedce2c755a027",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/config/ptob-telemetry.service",
+      "bytes": 574,
+      "sha256": "f4eb858c66780c8f67b40209361693434dcf6f1de12783f5128df113449187f9",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/config/ptp4l.conf",
+      "bytes": 645,
+      "sha256": "b2923c0c7af84eb119b1266242107e43cd5880a669126fb3a49fe9f3bdfa597c",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/config/ptpd-wifi.conf",
+      "bytes": 488,
+      "sha256": "b278bc7b3506e3bb3aa66d0e12907e116d7f92730c98dbf8899574911f93f451",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/dashboard/DESIGN.md",
+      "bytes": 3827,
+      "sha256": "32d28378d626d7e3aab16f0967b9f91c9153563ec17657de56dd170edc707b6e",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/dashboard/PRODUCT.md",
+      "bytes": 2759,
+      "sha256": "e7c2c86956e52a0ea7aeea11f55ad8b0889df52c73414eef1f7f5c7d42096616",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/dashboard/README.md",
+      "bytes": 5115,
+      "sha256": "89092ecf0211c67fb9491771f4ea2ed0969a25fa704ff5825f0a36f63e9c1d58",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/dashboard/collector.py",
+      "bytes": 15912,
+      "sha256": "c9cba5dc4a40fd2220f6bdb4a287c7731f576385074db04d7efcae11ea1be72d",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/dashboard/history.py",
+      "bytes": 12587,
+      "sha256": "256a362a9340711fbd8fd94cefcdd95a79d21256ae5bd3a2535060781f8cf193",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/dashboard/images/charts.jpg",
+      "bytes": 84422,
+      "sha256": "eda09e72cd72c521807bf93113920aad86653c57a3dd3d7df5c74b86f09665de",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/dashboard/images/manifest.json",
+      "bytes": 1698,
+      "sha256": "3ea3cc142f6dae67e04bc77aabf4f1b6cdb8cbf2ad8d3a0ac8870a9fe22ac21e",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/dashboard/images/overview.jpg",
+      "bytes": 77062,
+      "sha256": "3d8fa09fb815a06403d58fa629886458aad6f9d247daad9400d34204c8fa485b",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/dashboard/preview.py",
+      "bytes": 6188,
+      "sha256": "3017b497eeebf59937e887bf8deff5b8aacc9a38b8cd3799d89566e401ef59db",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/dashboard/server.py",
+      "bytes": 5861,
+      "sha256": "42e9888108f5ab400c5c480f4558300faa16f6b0e35d66b199d716c175e735e3",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/dashboard/static/app.js",
+      "bytes": 15879,
+      "sha256": "e3efbc455e789120fd8c71b51a4797903ab251760a01684c717bfb028c1ec37b",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/dashboard/static/charts.js",
+      "bytes": 9424,
+      "sha256": "fa5811194fb55cea498aa3f7f5282b3defce112ad661375a6ebbd3b7090a9425",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/dashboard/static/index.html",
+      "bytes": 9956,
+      "sha256": "a24d7386009c7b899e719cd5eb246ee1c084df67ed1d0ad3a8113fd38d09598a",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/dashboard/static/style.css",
+      "bytes": 9927,
+      "sha256": "dd8ea1451f9aea2368624e0d2996b2b493e0adaa987c6c6d3b132598e9940797",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/dashboard/tests/chart_ui_test.cjs",
+      "bytes": 2689,
+      "sha256": "a723cfa5def169e2cbbd9adfb258800b32d58f559f86bb33298ff0a5c6151d60",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/dashboard/tests/output_ui_test.cjs",
+      "bytes": 2225,
+      "sha256": "2ddc389480fc759abccba33edc068878cbb4db7dbad809f1546eb961c2c3e595",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/dashboard/tests/source_ui_test.cjs",
+      "bytes": 2272,
+      "sha256": "b355d831cb5d52ba61afd39fc3288006fc2166c7bf28979e92a55bcc87029b07",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/dashboard/tests/test_history.py",
+      "bytes": 4748,
+      "sha256": "f2a58476fc271c354cc87e2b70755f9212b30f3316bbe7d3f1f896287ad5a001",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/dashboard/tests/test_server.py",
+      "bytes": 2686,
+      "sha256": "da03a8c5731ca456b5880c101404b979fea6c173c1c4e5fc306c013a2a9488c6",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/dashboard/tests/test_state.py",
+      "bytes": 3804,
+      "sha256": "4ff624d9ceff488e98d554baf494c31e22230b802969c3096b629eb584154a80",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/source-provenance.json",
+      "bytes": 330,
+      "sha256": "31391f2030f0dddb1469a3f077ace4bf314533bde64b7019cf0cc1f2540e42a7",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/tests/test_access.py",
+      "bytes": 3076,
+      "sha256": "119ecb7c688b6884363cd1cfddaa25cf8b4118166c379e97919415ccb7757346",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/tests/test_clock_chain.py",
+      "bytes": 8641,
+      "sha256": "5fd78f71dd89aba7a75aeb57e41123284fe5484698c23d68c74200afc97996ea",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/tests/test_clock_install.py",
+      "bytes": 1320,
+      "sha256": "f1b4a65080829910194f20e71afd07d90a8af55fb01a53ecb9883c835cef7e45",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/tests/test_pps_capture.py",
+      "bytes": 6124,
+      "sha256": "4112bf0572904af483523c674a6d203dd6f2361ccc06658990732773cf136295",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/tools/README.md",
+      "bytes": 3529,
+      "sha256": "1e012a31df9eb1993f06dfcc4ca52912b593d9297b3dfcefdc950a1a1f02c7a5",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/tools/clock_chain.py",
+      "bytes": 10292,
+      "sha256": "43ddda847d1c65e2ad421dfe14508652d80e9aec849104418f9172c88baaacc6",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/tools/clock_smoke.c",
+      "bytes": 2339,
+      "sha256": "04b486d73d2d4c5cf534501ab4370b9c731fa4f66aebe9e3f082f79ac4c59bc2",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/tools/dashboard_setup.py",
+      "bytes": 3420,
+      "sha256": "bcdb33e332e3a67c87fbcdca87a9751820f142dcbace763b143f0f0980f8fb1f",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/tools/mhat_usb.cjs",
+      "bytes": 3554,
+      "sha256": "5831a612ada0fdaffc91bbec26d01f67bfebecad9a9551ea8465999468281461",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/tools/ntp_probe.py",
+      "bytes": 2860,
+      "sha256": "1e7619c41dab69294ad62e3d3393e1aacf1d9aa2dce18a5103656a4ba8f462af",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/tools/pps_capture.py",
+      "bytes": 10295,
+      "sha256": "ab741f4b2e2cb41d34d4d622dbfae1b93af0a7d8645cf5883185e6df0de30fb9",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/tools/pps_tune.py",
+      "bytes": 2854,
+      "sha256": "7e3673319df595f63958beeb03916d956f419b3679f9e0ccccc41c2228dbd7fe",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/tools/probe.py",
+      "bytes": 5057,
+      "sha256": "bf7ee0241dd38434e4ba355d0fef9208cca3045acac5ac91b0fd6c648d813f24",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/tools/ptp_observe.py",
+      "bytes": 4429,
+      "sha256": "1ef4e6b9b3931fcea52103f46e3462cdc3844a572a6f2685ac6659313231466e",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/tools/remote.py",
+      "bytes": 9387,
+      "sha256": "024540528c487d4a6c82c2d7c55b27798236831a1de2cde9e215063203524500",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/tools/setup_target.py",
+      "bytes": 4610,
+      "sha256": "03709260525137a6cb76d4a9d642d36f0aa16e2b5e372de5d46c04d575734fe5",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/tools/tailscale_setup.py",
+      "bytes": 2802,
+      "sha256": "5f3033375ab2a656ae192601f3fa35ebfc5d479051b3141e461317fa20757171",
+      "license": "MIT"
+    },
+    {
+      "path": "gateways/pi5/tools/timing_setup.py",
+      "bytes": 9672,
+      "sha256": "4b69dbf1ed5c7b37376087978ecd6d1de128addea6c568a89f1fbc4c374451f9",
+      "license": "MIT"
+    },
+    {
+      "path": "papers/CHANGELOG.md",
+      "bytes": 21671,
+      "sha256": "a522353709282977b3f0e26d6fc3910c4f2a8cc412a0f3b2324928e25da5fb98",
+      "license": "MIT"
+    },
+    {
+      "path": "papers/README.md",
+      "bytes": 28312,
+      "sha256": "fdbb1482d7f3c06b2da8d2f81293a45dc2af06d68f41b9fced6eb33e0228ef23",
+      "license": "MIT"
+    },
+    {
+      "path": "papers/pi5-mhat-gateway/README.md",
+      "bytes": 2917,
+      "sha256": "2bf0016f9b146279357e83cbc1593938ba427fab91b52435c9522d50f23a6df5",
+      "license": "MIT"
+    },
+    {
+      "path": "papers/pi5-mhat-gateway/edition.json",
+      "bytes": 2282,
+      "sha256": "7cf9c6d6e2eec287715c526509d73e1fbf0d94a3c1566c515099faf0c76c8d18",
+      "license": "MIT"
+    },
+    {
+      "path": "papers/pi5-mhat-gateway/figures/final-results.pdf",
+      "bytes": 35437,
+      "sha256": "7e17726c21ef59e0ac8befbe6c407628fbc186589674cff2216247faf0e5fff7",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "papers/pi5-mhat-gateway/main.pdf",
+      "bytes": 129645,
+      "sha256": "32d1bbe9364b787a44804481e370e6431399595336778327c5746f0e0b36584d",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "papers/pi5-mhat-gateway/main.tex",
+      "bytes": 26225,
+      "sha256": "d86df57bd7c92e74bb42b04a5991d71f6a9a390cdf1c7b833dc477b6cc617233",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "path": "papers/pi5-mhat-gateway/preparation.json",
+      "bytes": 468,
+      "sha256": "eb3fac328efb1c269743cb0e3997a89fa1cad3fd38c51de160f3c8f1afc0199e",
+      "license": "MIT"
+    },
+    {
+      "path": "papers/pi5-mhat-gateway/tools/plot_results.py",
+      "bytes": 2116,
+      "sha256": "3e70df1e95ee84885e5ff69f87d539b6b8f0a688bcbd90eda8f55c26de2f844b",
+      "license": "MIT"
+    },
+    {
+      "path": "tools/README.md",
+      "bytes": 7316,
+      "sha256": "581b813b9fb3b7a6c24657604baaeacf5f363d5ff93f478bb722b407975c470e",
+      "license": "MIT"
+    },
+    {
+      "path": "tools/firmware_artifacts.py",
+      "bytes": 32443,
+      "sha256": "9bed5f144607d79589d696b0c93a5633e2cd1f13a994e2b2b338fcf1ad34df65",
+      "license": "MIT"
+    },
+    {
+      "path": "tools/verify_pi5_gateway.py",
+      "bytes": 9338,
+      "sha256": "1a26dd081aaea1fcc6b166ad92a059485549544f561ecafab974720aea64382b",
+      "license": "MIT"
+    }
+  ],
+  "validation": {
+    "python_gateway_tests": 17,
+    "python_dashboard_tests": 13,
+    "mhat_image_tests": 3,
+    "pps_production_projection_ubsan": "PASS",
+    "node_ui_regressions": 3,
+    "paper_pages": 7,
+    "paper_source_pdf_unchanged": true,
+    "scope": "Offline source/data/arithmetic and documentation validation; no new physical measurement or calibration.",
+    "clean_public_copy": "PASS: all offline Pi/M-HAT tests and evidence/publication verifier without .git, ignored private artifacts or credentials",
+    "local_markdown_documents_checked": 28,
+    "local_link_targets": "PASS",
+    "known_private_data_scan": "PASS",
+    "synthetic_preview": "PASS: browser-rendered overview/charts, 60-second window selection and offline status/holdover/statistics",
+    "firmware_retention_tests": 32,
+    "publication_candidate": "Pi/dashboard/M-HAT checks rerun on the public base with all unpublished LoRa commits excluded."
+  },
+  "delivery_history": [
+    {
+      "instruction": "Don't push to github until I have a chance to review and include screenshots from the website in the readme for the monitoring website yet make it generic and do not include our tailscale details.",
+      "status": "HELD_LOCALLY_FOR_OPERATOR_REVIEW",
+      "github_push_authorized": false
+    }
+  ],
+  "publication_boundary": {
+    "base_commit": "be9376ab1c2f5614a40a29f0776c52716073fdfd",
+    "excluded_unpublished_lora_commits": 10,
+    "protected_paths_unchanged": [
+      "firmware/t096/",
+      "docs/t096/",
+      "protocol/lora_passive_v2/",
+      "protocol/lora_passive_v3/",
+      "tools/test_firmware_artifacts.py"
+    ],
+    "shared_tool_change": "tools/firmware_artifacts.py only adds the PTOB_MHAT_RC artifact class"
+  }
+}

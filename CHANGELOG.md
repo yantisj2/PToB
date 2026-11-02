@@ -1,5 +1,27 @@
 # Changelog
 
+## 2026-11-02 — publish Pi research and target independently of LoRa development
+
+- Publish the approved Pi/M-HAT paper, complete measured results, target source,
+  setup guides and generic monitoring screenshots to GitHub main. Preserve the
+  reviewed manuscript/PDF and all timing tails without an accuracy promotion.
+- Replay only the selected Pi/research commits onto the public main baseline;
+  exclude the ten unpublished LoRa commits and leave that development local.
+  Update publication identities and the approval record for this clean boundary.
+
+## 2026-11-02 — Pi gateway public-review package and setup documentation
+
+- Record approval of the unchanged seven-page Pi/M-HAT draft and complete final
+  measured population for public review. Preserve the prepared edition in Git
+  and keep all tails, accuracy limits and CC BY 4.0 attribution. Hold GitHub
+  delivery locally for operator review; no push or website deployment.
+- Organize the Pi target with a separate setup guide, script map, monitoring
+  README and generic screenshots rendered with synthetic data. Keep private
+  network details, source identities, credentials and raw captures excluded.
+- Record the next experiment as a USB-connected T096 RC with shadow Linux
+  USB/SOF association, followed by Ethernet and proposed reverse PTP work.
+  No further device operation or performance tuning is part of this wrap-up.
+
 ## 2026-11-02 — Pi PPS planner and leap-timezone dependency
 
 - Fix an imminent valid M-HAT PPS being discarded when the far search endpoint

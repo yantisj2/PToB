@@ -1,9 +1,11 @@
 # Pi 5 / M-HAT final fixed-window observation
 
 Jonathan Yantis. Original observations and derived datasets: CC BY 4.0;
-original code snapshots: MIT. This selected collection accompanies an
-**author-review draft, not approved for publication**. It is a finite hardware
-observation, not a current acceptance certificate or independent accuracy test.
+original code snapshots: MIT. This selected collection accompanies a paper
+**approved for public draft review**. The [subsequent approval receipt](../../../papers/pi5-mhat-gateway/publication.json)
+preserves the original prepared manifest and data and authorizes publication
+to GitHub main with unrelated LoRa development excluded. It is a finite hardware observation, not a current acceptance
+certificate or independent accuracy test.
 
 The complete final window followed 120.041 seconds of continuous warmup and
 lasted 600.026 seconds. It contains 600 new PPS assertions for 600 nominal

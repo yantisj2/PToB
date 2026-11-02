@@ -2,6 +2,14 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+The **2 November 2026 [Pi/M-HAT gateway draft](../papers/pi5-mhat-gateway/main.pdf)**
+and its complete final measured population are approved for public draft review.
+The [approval record](../papers/pi5-mhat-gateway/publication.json) preserves the
+reviewed source/PDF and records authorization for GitHub main publication,
+with unpublished LoRa development excluded. The package includes the Pi target, separate setup guide,
+scripts and generic monitoring screenshots; private access details and raw lab
+captures are excluded. Ethernet/USB/reverse-mode accuracy remains unqualified.
+
 The **30 October 2026 [PToB Viability preprint](../papers/ptob-viability-preprint.pdf)**
 is approved for repository publication for public draft review. Its
 [publication receipt](../papers/editions/viability-2026-10-30-publication.json)
