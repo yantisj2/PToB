@@ -126,6 +126,26 @@ class RetentionTests(unittest.TestCase):
         self.assertEqual(len(plan['latest']), 4)
         self.assertTrue(all(x['action'] == 'compact' for x in plan['actions']))
 
+    def test_diagnostic_tx_and_normal_fast_have_separate_retention(self):
+        normal, diagnostic = [], []
+        for enabled, rows in ((False, normal), (True, diagnostic)):
+            for _ in range(3):
+                root = self.build(profile='GM')
+                receipt = storage.read(root / 'receipt.json')
+                receipt.update(artifact_class='PTOB_T096_RC7', lora_passive_fast=True,
+                               lora_tx_diagnostic=enabled)
+                stamp = (root / 'receipt.json').stat().st_mtime
+                storage.atomic_json(root / 'receipt.json', receipt)
+                os.utime(root / 'receipt.json', (stamp, stamp))
+                rows.append(root)
+        self.assertNotEqual(storage.grouping(normal[-1], storage.read(normal[-1] / 'receipt.json')),
+                            storage.grouping(diagnostic[-1], storage.read(diagnostic[-1] / 'receipt.json')))
+        self.apply(storage.make_plan(self.repo))
+        for rows in (normal, diagnostic):
+            self.assertFalse((rows[0] / 'target/app.bin').exists())
+            for root in rows[1:]:
+                storage.verify_bundle(root)
+
     def test_failed_build_does_not_displace_good_images(self):
         good = [self.build() for _ in range(2)]
         failed = self.build(status='FAILED')

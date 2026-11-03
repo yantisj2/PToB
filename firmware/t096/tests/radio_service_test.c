@@ -182,6 +182,43 @@ int main(int argc,char **argv){
   puts("PASS actual retained native callback owner: repeated closes preserve first2s deadline, no early reuse, exact timeout stays sticky after real callback drain");return 0;
  }
 #ifdef R2_LORA
+ if(mode==62){
+  /* Same authenticated BLE map, captured between kernel microseconds. Its
+   * permission must not shrink as repeated PT snapshots round paired clocks. */
+  capture_us=64000000;capture_tick=capture_us*16;
+  roster.identity[0]=1;roster.identity[1]=3;enrollment=roster;pt_input.roster=roster;
+  struct r2_radio_scope grant={.root=1,.root_identity=3,.boot=9,.source_epoch=3,
+   .publication_epoch=1,.until_us=INT64_MAX,.follower=true,.broadcast=true};
+  pt_input.stopped=false;pt_input.grant=active_scope=precision.scope=grant;
+  precision.local_epoch=1;precision.train=1;precision.accepted=12;
+  precision.last_available=precision.last_accepted=capture_tick;
+  precision.data_until=capture_tick+R2_CAPTURE_HZ;
+  precision.origin_created_ns=1900000000;precision.origin_expires_ns=4000000000;
+  precision.servo.output=(r2_servo_map_t){capture_tick,2000000000,200,123,true};
+  follower_utc_offset=1000000000000LL;
+  precision.servo.fit_valid=true;precision.servo.quality_count=precision.servo.output_quality.count=32;
+  precision.servo.streak=precision.servo.output_quality.streak=64;
+  precision.servo.last_local=precision.servo.output_quality.last_local=63*R2_CAPTURE_HZ;
+  for(unsigned i=0;i<32;i++){
+   precision.servo.quality_ticks[i]=precision.servo.output_quality.ticks[i]=(32+i)*R2_CAPTURE_HZ;
+   precision.servo.quality_predictions[i]=precision.servo.output_quality.predictions[i]=1;
+  }
+  precision.servo.pll.state=R2_SERVO_PLL_LOCKED;precision.servo.pll.last_update=capture_tick;
+  uint64_t until=0,first=capture_tick;unsigned publishes=0;
+  for(unsigned i=0;i<160;i++){
+   capture_us=64000000+i*31;capture_tick=first+(uint64_t)i*497;
+   precision_step(capture_us);assert(lora_publishes==++publishes&&!lora_withdraws);
+   assert(lora_export.until_tick<=precision.data_until&&lora_export.until_tick>capture_tick);
+   if(i)assert(lora_export.until_tick==until);
+   until=lora_export.until_tick;
+  }
+  /* A genuine upstream expiry reduction must still shorten the export. */
+  precision.data_until=first+R2_CAPTURE_HZ/2;precision_step(capture_us);
+  assert(lora_export.until_tick<until);until=lora_export.until_tick;
+  capture_tick=precision.data_until;capture_us=64500000;precision_step(capture_us);
+  assert(lora_withdraws);
+  puts("PASS actual broadcast BLE export: paired-clock jitter cannot cancel startup; genuine expiry and loss still fence TX");return 0;
+ }
  if(mode>=23&&mode<=29){
   bool gm=mode==23||mode==28;
   if(!gm){capture_us=64000000;capture_tick=64*R2_CAPTURE_HZ;}
@@ -189,7 +226,7 @@ int main(int argc,char **argv){
   struct r2_radio_scope grant={.root=gm?0:1,.root_identity=gm?1:3,.boot=9,.source_epoch=3,.publication_epoch=1,.until_us=capture_us+1000000,.gm=gm,.follower=!gm};
   pt_input.stopped=false;pt_input.grant=grant;pt_input.source_ready=mode==23||mode==25||mode==29;pt_input.source_epoch=3;pt_input.utc=1000000000000LL;pt_input.at=capture_us;
   if(pt_input.source_ready){
-   pt_input.source=(struct r2_source_clock){.epoch=1,.head=1,.count=1,.utc_bound=true,.utc_source_epoch=3,.utc_offset_ns=1000000000000LL};
+   pt_input.source=(struct r2_source_clock){.epoch=1,.last_edge=8000000,.head=1,.count=1,.utc_bound=true,.utc_source_epoch=3,.utc_offset_ns=1000000000000LL};
    pt_input.source.maps[0]=(struct r2_source_map){.from=8000000,.until=32000000,.anchor_ns=1000000000,.generation=11,.rate_q16=16000000*UINT64_C(65536)};
   }
   if(mode==29){
@@ -220,6 +257,14 @@ int main(int argc,char **argv){
   if(mode>=25&&mode!=29)assert(!lora_publishes&&lora_withdraws);
   else{assert(lora_publishes==1&&lora_export.valid&&lora_export.scope.root==grant.root_identity&&lora_export.scope.root_boot==9);
    assert(lora_export.scope.kind==(gm?RC8_OWN_GM:RC8_SELECTED_BLE));
+   if(gm){
+#if defined(R2_LORA_PASSIVE_SLOW) || defined(R2_LORA_PASSIVE_FAST)
+    assert(lora_export.until_tick==pt_input.source.last_edge+R2_LORA_OWN_WINDOW_US*16);
+    assert(lora_export.until_tick>pt_input.source.maps[0].until);
+#else
+    assert(lora_export.until_tick==capture_tick+1000000*16);
+#endif
+   }
    if(mode==24||mode==29){
     r2_servo_map_t expected;int64_t exact;assert(r2_radio_precision_map(&precision,&expected));
     assert(lora_export.anchor_ns==(uint64_t)expected.anchor+1000000000000ULL&&lora_export.phase_ns==expected.phase&&lora_export.rate_ppb==expected.rate);

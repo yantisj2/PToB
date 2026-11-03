@@ -25,7 +25,7 @@ static int k_spin_lock(struct k_spinlock *p){(void)p;advance_lock_time();return 
 static void k_spin_unlock(struct k_spinlock *p,int k){(void)p;(void)k;}
 struct k_thread{int unused;};
 static int worker_priority=11;static unsigned worker_wakes;
-static void k_thread_priority_set(struct k_thread *t,int p){(void)t;assert(p==9||p==11);worker_priority=p;}
+static void k_thread_priority_set(struct k_thread *t,int p){(void)t;assert(p>9);worker_priority=p;}
 static void k_wakeup(struct k_thread *t){(void)t;worker_wakes++;}
 #define K_THREAD_STACK_DEFINE(n,s) unsigned char n[s]
 #define K_THREAD_STACK_SIZEOF(n) sizeof(n)
@@ -249,7 +249,7 @@ int main(int argc,char **argv){assert(argc==2);unsigned mode=(unsigned)atoi(argv
  }
  else if(mode==44){
   init(false);step();r2_lora_request(false);hold_ack=true;step();
-  assert(worker_priority==9);uint64_t original=stop_deadline;
+  assert(worker_priority==10);uint64_t original=stop_deadline;
   r2_lora_stop();assert(stop_deadline==original);now_us=original;step();
   assert(r2_lora_close_result()==-EIO&&r2_diag_scratch.lora.terminal);
   assert((int32_t)r2_diag_scratch.lora.record[1]==-ETIMEDOUT);

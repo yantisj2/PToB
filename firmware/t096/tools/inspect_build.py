@@ -65,7 +65,7 @@ def inspect(out,allow_development=False):
     payload=b''.join(data[i+32:i+288] for i in range(0,len(data),512))
     binary=(out/'target/zephyr/zephyr.bin').read_bytes()
     require(payload[:len(binary)]==binary and all(x==0 for x in payload[len(binary):]),'UF2/BIN mismatch')
-    flash_end=0;ram_end=0;allocations={};ui_mutable_bytes=0;linked_names=set()
+    flash_end=0;ram_end=0;allocations={};ui_mutable_bytes=0;linked_names=set();holdover_mutable_bytes=0;audit_mutable_bytes=0
     lora_display_mutable={name:0 for name in (('main.c','ui_service.c','lora_passive_service.c','lora_hw.c') if passive else ('main.c','ui_service.c','lora_service.c','lora_hw.c'))}
     if slow:lora_display_mutable['gm7_admission']=0
     with (out/'target/zephyr/zephyr.elf').open('rb') as f:
@@ -83,14 +83,18 @@ def inspect(out,allow_development=False):
             linked_names.add(symbol.name)
             if symbol['st_info']['type']=='STT_FILE':symbol_owner=symbol.name
             index=symbol['st_shndx']
+            if symbol_owner=='rc_dynamic_service.c' and symbol.name.startswith('hold_') and symbol['st_info']['type']=='STT_OBJECT' and isinstance(index,int):
+                if elf.get_section(index)['sh_flags']&1:holdover_mutable_bytes+=int(symbol['st_size'])
+            if symbol_owner=='radio_audit.c' and symbol['st_info']['type']=='STT_OBJECT' and isinstance(index,int):
+                if elf.get_section(index)['sh_flags']&1:audit_mutable_bytes+=int(symbol['st_size'])
             if symbol_owner=='ui_service.c' and symbol['st_info']['type']=='STT_OBJECT' and isinstance(index,int):
                 if elf.get_section(index)['sh_flags']&1:ui_mutable_bytes+=int(symbol['st_size'])
-            if slow and symbol_owner=='gm7_service.c' and symbol.name=='lora_admitted_epoch':
-                require(symbol['st_size']==4 and elf.get_section(index)['sh_flags']&1,'GM7 LoRa admission allocation')
+            if slow and symbol_owner=='gm7_service.c' and symbol.name in ('lora_admitted_epoch','lora_readmission'):
+                require(symbol['st_size']>0 and elf.get_section(index)['sh_flags']&1,'GM7 LoRa admission allocation')
                 lora_display_mutable['gm7_admission']+=int(symbol['st_size'])
             if symbol_owner in lora_display_mutable and symbol['st_info']['type']=='STT_OBJECT' and isinstance(index,int):
                 if elf.get_section(index)['sh_flags']&1:lora_display_mutable[symbol_owner]+=int(symbol['st_size'])
-            if symbol.name not in ('r2_crash_record','z_interrupt_stacks','pt_input','pt_output','r2_tz_data','tz_selector'):continue
+            if symbol.name not in ('r2_fault_capsule','r2_watchdog_capsule','r2_crash_record','z_interrupt_stacks','pt_input','pt_output','r2_tz_data','tz_selector'):continue
             index=symbol['st_shndx']
             require(isinstance(index,int),'Unallocated crash symbol')
             section=elf.get_section(index)
@@ -98,6 +102,10 @@ def inspect(out,allow_development=False):
                 size=int(symbol['st_size']),address=int(symbol['st_value']),
                 section=section.name,type=section['sh_type']))
     config=(out/'target/zephyr/.config').read_text()
+    if gm7 and r['profile'] in ('GM','RC') and tuple(map(int,r['version'].split('.')))>=(0,15,269):
+        require(1000<=holdover_mutable_bytes<=1280,'Complete local HOLD state exceeds1280B or is missing')
+    if tuple(map(int,r['version'].split('.')))>=(0,15,271) and not dc:
+        require(0<audit_mutable_bytes<=1108,'Shared audit capture exceeds its existing1108B mutable storage')
     crash_allowance=crash_static_allowance(gm7,r['profile'],tuple(map(int,r['version'].split('.'))),config,allocations)
     # .194 adds64B of linked HOT retention/transition diagnostics (including alignment).
     # Account for it separately from the unchanged RC8 ceiling and absolute RAM floor.
@@ -124,11 +132,11 @@ def inspect(out,allow_development=False):
     lora_display_allowance=256 if gm7 and tuple(map(int,r['version'].split('.')))>=(0,15,215) and int(r.get('lora_transmitter_factory','0'),16) else 0
     # .215 actual GM/RC affected objects total23795B. Bound the entire new
     # half-duplex/probe/TZ/rate addition, including all copied UI snapshots.
-    lora_stage2_allowance=512 if lora_display_allowance and tuple(map(int,r['version'].split('.')))>=(0,15,216) else 0
+    lora_stage2_allowance=(1536 if passive and tuple(map(int,r['version'].split('.')))>=(0,15,251) else 512) if lora_display_allowance and tuple(map(int,r['version'].split('.')))>=(0,15,216) else 0
     lora_stage2_added=max(0,sum(lora_display_mutable.values())-23795)
     if lora_stage2_allowance:
-        require(lora_stage2_added<=lora_stage2_allowance,'LoRa RTT/TZ exceeds512B added mutable state')
-        require(({'lp_encode','lp_decode','lp_tx_reserve_control' if slow else 'lp_tx_reserve','lp_rx_follow','lp_store_save','r2_lora_hw_passive_configure','r2_lora_shadow_publish'} if passive else {'rc8_probe_encode','rc8_probe_decode','r2_lora_hw_idle','r2_lora_tz_publish'})<=linked_names,'Missing selected LoRa integration')
+        require(lora_stage2_added<=lora_stage2_allowance,'LoRa runtime exceeds its bounded mutable state allocation')
+        require((({'lp_decode','lp_tx_reserve_control','lp_rx_follow','lp_tx_start','r2_lora_hw_passive_configure','r2_lora_shadow_publish'}| (set() if r.get('lora_tx_diagnostic') else {'lp_encode'})) if passive else {'rc8_probe_encode','rc8_probe_decode','r2_lora_hw_idle','r2_lora_tz_publish'})<=linked_names,'Missing selected LoRa integration')
     lora_display_added=max(0,sum(lora_display_mutable.values())-23606)
     if lora_display_allowance:
         require(({'r2_lora_name_publish','lp_context'} if passive else {'r2_lora_name_publish','rc8_name_encode','rc8_name_decode'})<=linked_names,'Missing authenticated LoRa metadata')
@@ -308,6 +316,19 @@ def inspect(out,allow_development=False):
                 require(sha(out/'target/gm7_controller'/leaf)==entry['output_sha256'],'GM7 exact composed hook: '+leaf)
                 candidates=[c['file']for c in json.loads(commands)if c['file'].endswith('/'+leaf)]
                 require(len(candidates)==1 and candidates[0].endswith('/gm7_controller/'+leaf),'GM7 unique compiled owner: '+leaf)
+        if 'tools/flash_thread_guard.py' in r['sources']:
+            require(r.get('flash_thread_guard')=={'generator_sha256':sha(out/'source/tools/flash_thread_guard.py')},'Flash THREAD guard generator binding')
+            require('CONFIG_SOC_FLASH_NRF_RADIO_SYNC_TICKER=y' in config.splitlines(),'Native GM flash synchronization backend')
+            spec=importlib.util.spec_from_file_location('flash_thread_bound_generator',out/'source/tools/flash_thread_guard.py')
+            module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+            with tempfile.TemporaryDirectory(prefix='ptob-flash-thread-inspect-') as tmp:
+                original=Path(tmp)/'input/soc_flash_nrf_ticker.c';original.parent.mkdir()
+                original.write_bytes((out/'target/gm7_flash/soc_flash_nrf_ticker.input').read_bytes())
+                generated=module.generate(original,Path(tmp)/'output')
+                require(generated==json.loads((out/'target/gm7_flash/manifest.json').read_text()),'Flash THREAD generated manifest')
+                require(sha(out/'target/gm7_flash/soc_flash_nrf_ticker.c')==generated['output_sha256'],'Flash THREAD exact composed source')
+                candidates=[c['file']for c in json.loads(commands)if c['file'].endswith('/soc_flash_nrf_ticker.c')]
+                require(len(candidates)==1 and candidates[0].endswith('/gm7_flash/soc_flash_nrf_ticker.c'),'Flash THREAD unique compiled owner')
         for leaf in ['gm7_service.c','gm7_controller.c','gm7_clock.c','gm7_capture.c','gm7_owner.c','gm7_control.c','gm7_codec.c']:
             require(sum(c['file'].endswith('/'+leaf)for c in json.loads(commands))==1,'GM7 production membership: '+leaf)
         require('/src/ble_service.c' not in commands,'Retired GM coordinator owner compiled in GM7')
@@ -316,7 +337,7 @@ def inspect(out,allow_development=False):
             symbols={s.name for s in ELFFile(f).get_section_by_name('.symtab').iter_symbols()}
         require('r2_gm7_controller_submit' in symbols and 'r2_network_tick' not in symbols,'GM7 live owner closure')
     else:
-        require(r.get('gm7_controller') is None and '/gm7_controller/' not in commands,'GM7 backend leaked into separate image')
+        require(r.get('gm7_controller') is None and r.get('flash_thread_guard') is None and '/gm7_controller/' not in commands and '/gm7_flash/' not in commands,'GM7 backend leaked into separate image')
     dts=(out/'target/zephyr/zephyr.dts').read_text()
     if dc and 'src/dc_gnss.c' in r['sources']:
         require(r.get('dc_gnss_bridge') is True,'Missing DC GNSS bridge receipt')
@@ -381,18 +402,36 @@ def inspect(out,allow_development=False):
         require(not any(s.startswith('r2_lora_') for s in names),'LoRa owner leaked into DC/PC')
         require('CONFIG_NRFX_SPIM1=y' not in config and 'CONFIG_NRFX_TIMER4=y' not in config,'LoRa peripherals leaked into DC/PC')
     if passive:
-        profile='PROD_60_300' if slow else 'LAB_FAST_4_12'
-        require(r.get('secondary_lora_class')==profile and ('R2_LORA_PASSIVE_SLOW=1' if slow else 'R2_LORA_PASSIVE_FAST=1') in commands, 'Passive profile binding')
+        profile='RAM_60_300' if slow else 'RAM_LAB_4_12'
+        require(r.get('secondary_lora_class')==('RAM_DIAG_4_12' if r.get('lora_tx_diagnostic') else profile) and ('R2_LORA_PASSIVE_SLOW=1' if slow else 'R2_LORA_PASSIVE_FAST=1') in commands, 'Passive profile binding')
+        require(r.get('runtime_state')=='RAM_ONLY' and r.get('passive_wire_version')==3,'RAM/wire cohort receipt')
+        require(not ({'lp_store_load','lp_store_save','lp_store_prepare','lp_tx_restore','lp_checkpoint_carry'}&linked_names),'Persistence leaked into native LoRa owner')
+        require(int(r['lora_backup_transmitter_factory'],16)==0,'Automatic backup emitter prohibited')
+        # Application compilation units may not reference any NV driver API.
+        # Zephyr's generic flash driver can remain linked; it is not a writer caller.
+        import subprocess
+        entries=json.loads(commands)
+        compiler=(entries[0].get('arguments') or __import__('shlex').split(entries[0]['command']))[0]
+        nm=str(Path(compiler).with_name('arm-zephyr-eabi-nm'))
+        archive=out/'target/app/libapp.a'
+        undefined=subprocess.check_output([nm,'-u',str(archive)],text=True)
+        require(not re.search(r'(?:flash_(?:read|write|erase)|nvs_(?:read|write|delete)|settings_(?:load|save|delete))\b',undefined),'Application NV dependency remains')
+        for name in ('r2_fault_capsule','r2_crash_record','r2_watchdog_capsule'):
+            for q in allocations.get(name,[]):require(q['section']!='noinit','Operational retained state: '+name)
         require('rc8_probe_encode' not in linked_names and 'rc8_name_encode' not in linked_names,'Active RC8 companion leaked into passive image')
-        require('/src/lora_service.c' not in commands and '/src/lora_passive_store.c' in commands,'Passive owner membership')
+        require('/src/lora_service.c' not in commands and '/src/lora_passive_store.c' not in commands,'Passive owner membership')
         dts=(out/'target/zephyr/zephyr.dts').read_text()
         require('passive_lora_state' in dts and '0xd7000' in dts and '0x8000' in dts,'Missing dedicated passive ledger partition')
-        suffix=':lora-passive:'+profile+(':backup:'+r['lora_backup_transmitter_factory'] if slow else '')
+        suffix=':lora-passive:'+profile
         private_sha=hashlib.sha256((private_sha+suffix).encode()).hexdigest()
+    if r.get('lora_tx_diagnostic'):
+        require(not slow and r['profile']=='GM' and json.loads((out/'device.json').read_text())['device_id']==transmitter and 'R2_LORA_TX_DIAGNOSTIC=1' in commands,'Diagnostic TX exact/profile binding')
+        private_sha=hashlib.sha256((private_sha+':tx-diagnostic:1').encode()).hexdigest()
+    else:require('R2_LORA_TX_DIAGNOSTIC=1' not in commands,'Unexpected diagnostic TX')
     if diagnostic:private_sha=hashlib.sha256((private_sha+':controller-diag:1').encode()).hexdigest()
     binding=hashlib.sha256((r['source_sha256']+':'+private_sha+':'+sha(out/'target/zephyr/.config')).encode()).hexdigest()
     require(binding==r['watchdog_binding_sha256'],'Watchdog binding')
-    return {'status':'PASS','flash_load_end':flash_end,'ram_allocated_end':ram_end,'static_unallocated_bytes':0x20040000-ram_end,'crash_diagnostic_static_allowance_bytes':crash_allowance,'rc8_incremental_static_budget_bytes':4096,'hot_diagnostic_static_budget_bytes':hot_allowance,'tz_static_budget_bytes':tz_allowance,'auto_tz_static_budget_bytes':auto_tz_allowance,'menu_static_budget_bytes':menu_allowance,'ui_mutable_symbol_bytes':ui_mutable_bytes,'lora_stage2_static_budget_bytes':lora_stage2_allowance,'lora_stage2_added_mutable_bytes':lora_stage2_added,'lora_display_static_budget_bytes':lora_display_allowance,'lora_display_added_mutable_bytes':lora_display_added,'lora_display_mutable_by_unit':lora_display_mutable,'lora_passive_fast':r.get('lora_passive_fast',False),'lora_passive_slow':slow,'executable_end_exclusive':executable_end,'hardware':'NOT_TESTED','deployment_authorized':False}
+    return {'audit_mutable_bytes':audit_mutable_bytes,'audit_mutable_budget_bytes':1108,'holdover_mutable_bytes':holdover_mutable_bytes,'holdover_mutable_budget_bytes':1280,'status':'PASS','flash_load_end':flash_end,'ram_allocated_end':ram_end,'static_unallocated_bytes':0x20040000-ram_end,'crash_diagnostic_static_allowance_bytes':crash_allowance,'rc8_incremental_static_budget_bytes':4096,'hot_diagnostic_static_budget_bytes':hot_allowance,'tz_static_budget_bytes':tz_allowance,'auto_tz_static_budget_bytes':auto_tz_allowance,'menu_static_budget_bytes':menu_allowance,'ui_mutable_symbol_bytes':ui_mutable_bytes,'lora_stage2_static_budget_bytes':lora_stage2_allowance,'lora_stage2_added_mutable_bytes':lora_stage2_added,'lora_display_static_budget_bytes':lora_display_allowance,'lora_display_added_mutable_bytes':lora_display_added,'lora_display_mutable_by_unit':lora_display_mutable,'lora_passive_fast':r.get('lora_passive_fast',False),'lora_passive_slow':slow,'executable_end_exclusive':executable_end,'hardware':'NOT_TESTED','deployment_authorized':False}
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)

@@ -51,11 +51,13 @@ static bool project(struct rc8_correction *c,const struct rc8_export *s,uint32_t
  memset(c,0,sizeof *c);
  if(!s||!s->valid||!s->authenticated||!sequence||!s->map_generation||!epoch||epoch!=s->capture_epoch||
  !tick||tick<s->from_tick||tick>=s->until_tick||tick<s->anchor_tick||
- s->mode>RC8_MAP_DELIVERED)return false;
+ s->mode>RC8_MAP_PASSIVE_Q16)return false;
  uint64_t ticks=tick-s->anchor_tick,delta=0;
- if(s->mode==RC8_MAP_SOURCE_Q16){
+ if(s->mode==RC8_MAP_SOURCE_Q16||s->mode==RC8_MAP_PASSIVE_Q16){
+  if(s->mode==RC8_MAP_PASSIVE_Q16&&s->scope.kind!=RC8_OWN_GM)return false;
   const uint64_t q=65536;
-  if(ticks>24000000||s->rate_q16<15990000*q||s->rate_q16>16010000*q||s->rate_ppb>5000000||s->rate_ppb< -5000000)return false;
+  uint64_t maximum=s->mode==RC8_MAP_PASSIVE_Q16?RC8_PASSIVE_SOURCE_US*16:UINT64_C(24000000);
+  if(ticks>maximum||s->rate_q16<15990000*q||s->rate_q16>16010000*q||s->rate_ppb>5000000||s->rate_ppb< -5000000)return false;
   uint64_t scaled=ticks*q,micro=(scaled%s->rate_q16)*1000000;
   delta=(scaled/s->rate_q16)*1000000000+(micro/s->rate_q16)*1000+(micro%s->rate_q16)*1000/s->rate_q16;
   int64_t adjust=(int64_t)delta*s->rate_ppb/1000000000;

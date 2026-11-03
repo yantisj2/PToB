@@ -50,14 +50,15 @@ bool r2_shadow_enabled(void){return witness_enabled;}
 void r2_shadow_normal_map(const struct rc_shadow_map *m){witness=*m;++witness_published;}
 void r2_shadow_lora_withdraw(void){++witness_withdrawn;}
 static struct lp_checkpoint stored;static unsigned saves;static uint64_t save_delay_us,prepare_delay_us;static bool storage_valid=true,save_fails,storage_qualified,storage_used;
-static bool refresh_during_save;static struct rc8_export refreshed_source;
+static bool refresh_during_save,withdraw_during_save;static struct rc8_export refreshed_source;
 bool lp_store_load(struct lp_store *s,uint64_t f,struct lp_checkpoint *out){if(!storage_valid)return false;*s=(struct lp_store){.factory=f,.sequence=storage_used?10:storage_qualified?2:1,.ready=storage_qualified?(LP_STORE_ACTIVE|LP_STORE_INITIAL_QUIET):LP_STORE_ACTIVE};*out=stored;return true;}
-bool lp_store_save(void *p,const struct lp_checkpoint *s){struct lp_store *store=p;if(save_fails)return false;stored=*s;++saves;++store->sequence;store->ready=LP_STORE_ACTIVE;now_us+=save_delay_us;if(refresh_during_save){refresh_during_save=false;r2_lora_source_publish(&refreshed_source);}return true;}
+bool lp_store_save(void *p,const struct lp_checkpoint *s){struct lp_store *store=p;if(save_fails)return false;stored=*s;++saves;++store->sequence;store->ready=LP_STORE_ACTIVE;now_us+=save_delay_us;if(refresh_during_save){refresh_during_save=false;r2_lora_source_publish(&refreshed_source);}if(withdraw_during_save){withdraw_during_save=false;r2_lora_source_withdraw();}return true;}
 bool lp_store_prepare(struct lp_store *s){now_us+=prepare_delay_us;prepare_delay_us=0;return s->ready;}
 static unsigned txs,rearms,stops;static uint8_t sent[128];static size_t sent_len;static uint32_t sent_generation;
 static bool have_event,reject_next_tx;static struct r2_lora_hw_event queued;
+static uint64_t fake_capture_epoch=7;
 static bool capture_valid=true;static unsigned tuning_phy,tuning_channel,cancel_on;
-bool r2_capture_now(struct r2_capture *c){*c=(struct r2_capture){.tick=now_us*16,.epoch=7,.kind=R2_CAPTURE_NOW};return capture_valid;}
+bool r2_capture_now(struct r2_capture *c){*c=(struct r2_capture){.tick=now_us*16,.epoch=fake_capture_epoch,.kind=R2_CAPTURE_NOW};return capture_valid;}
 bool r2_capture_now_at(struct r2_capture *c,uint64_t *us){*us=now_us;return r2_capture_now(c);}
 int r2_lora_hw_start(uint32_t g,bool rx){(void)g;assert(!rx);if(cancel_on==1){cancel_on=0;r2_lora_source_withdraw();return -ECANCELED;}return 0;}
 uint32_t r2_lora_hw_budget_us(size_t n){for(unsigned k=LP_DISC;k<=LP_FOLLOW;k++)if(lp_size(k)==n)return lp_duration(k);return 0;}
@@ -96,8 +97,22 @@ static void tx_case(unsigned mode){
  if(mode==2){step();assert(!txs&&owner.storage_fail);return;}
  if(mode==3){m.scope.kind=RC8_SELECTED_BLE;m.scope.parent=3;r2_lora_source_publish(&m);step();assert(!txs);return;}
  assert(restore(((now_us+LP_BEAT_US-1)/LP_BEAT_US)*LP_BEAT_US));
+ if(mode==34||mode==35||mode==36){
+  uint64_t slot=role.tx.core.durable.next_slot_us;now_us=slot-1200000;
+  prepare_delay_us=700000;save_delay_us=mode==35?600000:350000;
+  if(mode==36)withdraw_during_save=true;
+  owner.source_room_us=123;owner.source_phase_us=456;step();
+  const struct r2_lora_attempt *a=&r2_diag_scratch.lora.attempt;
+  assert(a->prepare_us==700000&&a->commit_us==save_delay_us&&a->cursor==0&&a->serial==1);
+  assert(a->postcommit_lead_us==(mode==35?-100000:150000));
+  assert(!a->source_room_us&&!a->source_phase_us&&!owner.source_room_us&&!owner.source_phase_us&&!txs);
+  if(mode==34){now_us=slot;step();assert(txs==1&&(a->valid&31)==31&&a->first_due_late_us==0);}
+  else if(mode==35)assert(owner.late==1&&a->valid==7&&!stored.pending&&!stored.fh_disabled&&lp_charged(&stored,now_us)>0);
+  else{step();assert(atomic_get(&closed)&&!stored.pending&&!stored.fh_disabled&&!atomic_get(&faulted)&&a->valid==3);}
+  return;
+ }
  if(mode==28){uint64_t slot=role.tx.core.durable.next_slot_us;unsigned before=saves;now_us=slot-300000;prepare_delay_us=500000;step();assert(!txs&&!owner.stage&&saves==before&&!stored.pending&&role.tx.core.durable.next_slot_us==slot&&owner.storage_max_us==500000);now_us=slot+12000000-1000000;step();assert(!txs&&owner.stage==3&&role.tx.reservation.slot_us==slot+12000000);now_us=role.tx.reservation.slot_us;step();assert(txs==1);return;}
- if(mode==27){owner.stage=3;role.tx.reservation.slot_us=now_us+400000;assert(worker_priority(now_us)==11);assert(worker_priority(now_us+50000)==5);owner.stage=1;assert(worker_priority(now_us)==11&&worker_priority(role.tx.reservation.slot_us+1650000)==5);owner.tx_kind=LP_SYNC;assert(worker_priority(role.tx.reservation.slot_us+2000000)==5);owner.tx_kind=LP_FOLLOW;owner.last_sync_us=now_us;assert(worker_priority(now_us)==11&&worker_priority(now_us+200000)==5);owner.stopping=true;assert(worker_priority(now_us)==9);return;}
+ if(mode==27){owner.stage=3;role.tx.reservation.slot_us=now_us+400000;assert(worker_priority(now_us)==5);assert(worker_priority(now_us+50000)==5);owner.stage=1;assert(worker_priority(now_us)==11&&worker_priority(role.tx.reservation.slot_us+1650000)==5);owner.tx_kind=LP_SYNC;assert(worker_priority(role.tx.reservation.slot_us+2000000)==5);owner.tx_kind=LP_FOLLOW;owner.last_sync_us=now_us;assert(worker_priority(now_us)==11&&worker_priority(now_us+200000)==5);owner.stopping=true;assert(worker_priority(now_us)==9);return;}
  if(mode==26){uint64_t slot=role.tx.core.durable.next_slot_us;now_us=slot;reject_next_tx=true;step();assert(!txs&&!role.tx.context_ready&&!stored.pending);now_us=slot+12000000-1100000;step();assert(!txs&&owner.stage==3&&role.tx.reservation.control==LP_META);now_us=role.tx.reservation.slot_us;step();assert(txs==1&&!role.tx.context_ready);done(now_us-2000,LP_META);assert(role.tx.context_ready);return;}
  if(mode==25){uint64_t first=role.tx.core.durable.next_slot_us;role.tx.core.durable.slot=stored.slot=1;save_delay_us=500000;now_us=first-700000;step();assert(!txs&&!owner.stage);now_us=first+8000000-700000;step();assert(!txs&&owner.stage==3&&role.tx.reservation.slot_us==first+8000000&&stored.slot==4);now_us=role.tx.reservation.slot_us;}
  else if(mode==24){uint64_t slot=role.tx.core.durable.next_slot_us;m.until_tick=(slot+100000)*16;r2_lora_source_publish(&m);refreshed_source=m;refreshed_source.until_tick=(slot+1500000)*16;refreshed_source.map_generation=2;refresh_during_save=true;save_delay_us=350000;now_us=slot-350000;}
@@ -110,6 +125,21 @@ static void tx_case(unsigned mode){
  done(slot,LP_META);assert(owner.stage==1);
  if(mode==4||mode==9||mode==32){if(mode==9)save_delay_us=500000;r2_lora_source_withdraw();step();assert(!stored.fh_disabled&&!stored.pending&&stored.cursor==0&&lp_charged(&stored,now_us)>0&&txs==1&&stops&&!atomic_get(&faulted)&&r2_diag_scratch.lora.drain_ack_us<r2_diag_scratch.lora.drain_deadline_us);if(mode==32){r2_lora_source_publish(&m);step();assert(owner.active&&!owner.stopping);now_us=slot+12000000-1000000;step();now_us=role.tx.reservation.slot_us;step();assert(txs==2&&sent_len==LP_META_BYTES&&!stored.fh_disabled);}return;}
  now_us=slot+2000000;step();assert(sent_len==LP_SYNC_BYTES&&tuning_phy==R2_LORA_FHSS);
+ if(mode>=37&&mode<=40){
+  if(mode==37||mode==40){memset(role.tx.maps,0,sizeof role.tx.maps);role.tx.captured=(struct rc8_correction){0};}
+  if(mode==40)save_fails=true;
+  now_us=slot+2000000+lp_duration(LP_SYNC)-10000;
+  queued=(struct r2_lora_hw_event){.tick=(slot+2000000)*16,.capture_epoch=7,
+   .generation=mode==39?sent_generation+1:sent_generation,.kind=R2_LORA_HW_TX_DONE,
+   .end_local_us=mode==38?slot:now_us};have_event=true;
+  unsigned before=saves;uint64_t debt=lp_charged(&stored,now_us);step();
+  assert(role.tx.core.durable.fh_disabled&&role.tx.core.durable.pending==(mode==40?2u:0u)&&txs==2);
+  assert(lp_charged(&stored,now_us)==debt&&stored.seed==0x51a7c003&&stored.serial==1);
+  if(mode==40){assert(!role.tx.core.ready&&stored.pending==1&&!stored.fh_disabled&&saves==before);}
+  else{assert(stored.fh_disabled&&!stored.pending&&saves==before+1&&stored.cursor==(mode==37?1u:0u));}
+  if(mode==37||mode==40)assert(owner.missing_map==1);if(mode==39)assert(owner.bad==1);
+  return;
+ }
  unsigned before_sync=saves;done(slot+2000000,LP_SYNC);assert(owner.stage==2&&stored.pending==1&&stored.cursor==0&&role.tx.core.durable.pending==2&&role.tx.core.durable.cursor==1&&saves==before_sync);
  if(mode==33){r2_lora_source_withdraw();step();assert(stored.fh_disabled&&!stored.pending&&stored.cursor==1&&txs==2&&atomic_get(&closed));return;}
  if(mode==21){struct lp_tx reboot={0};assert(lp_tx_restore(&reboot,&stored,lp_store_save,&role.tx.store,true)&&reboot.durable.fh_disabled&&!reboot.durable.pending&&reboot.durable.cursor==0);return;}
@@ -162,5 +192,5 @@ static void carry_case(unsigned mode){
  assert(lp_checkpoint_carry(s,1000000,5000000,1)&&lp_charged(s,1000000)==LP_CAP_US-100000);
  s->pending=3;assert(!lp_checkpoint_carry(s,1000000,5000000,1));
 }
-int main(int argc,char **argv){assert(argc==2);unsigned mode=(unsigned)atoi(argv[1]);if(mode==22||mode==23)carry_case(mode);else if(mode==17||mode==18)startup_cancel_case(mode);else if(mode<10||mode==16||mode==19||mode==20||mode==21||mode==24||mode==25||mode==26||mode==27||mode==28||mode==29||mode==30||mode==31||mode==32||mode==33)tx_case(mode);else rx_case(mode);
+int main(int argc,char **argv){assert(argc==2);unsigned mode=(unsigned)atoi(argv[1]);if(mode==22||mode==23)carry_case(mode);else if(mode==17||mode==18)startup_cancel_case(mode);else if(mode<10||mode==16||mode==19||mode==20||mode==21||(mode>=24&&mode<=40))tx_case(mode);else rx_case(mode);
  char json[3072];int n=r2_lora_json(json,sizeof json,0);assert(n>0&&n<2976);printf("PASS owner %u\nJSON %s\n",mode,json);return 0;}

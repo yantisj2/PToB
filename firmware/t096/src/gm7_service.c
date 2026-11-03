@@ -526,9 +526,6 @@ static void ordinary_controls(struct gm7_bridge b,uint64_t frame_start,
       bool discovery_allowed=owner.serving && !resource_fault &&
           !owner.event.valid && !owner.withdrawn;
       if (diagnostic_due && !owner.event.valid &&
-#ifdef R2_LORA_PASSIVE_SLOW
-          (owner.serving||r2_lora_transmitter_quiescent())&&
-#endif
           !gm7_role_snapshot(&owner,&p,b.hf)) {
         if (!queue(GM7_SECONDARY,&p,window(secondary,enclosure),0,b))
           diag_frame=control_frame;

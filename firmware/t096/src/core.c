@@ -51,6 +51,7 @@ int r2_parse(const char *line, struct r2_request *out)
   else if (!strcmp(parts[5],"name")) out->op = R2_NAME;
   else if (!strcmp(parts[5],"relay")) out->op = R2_RELAY;
   else if (!strcmp(parts[5],"shadow")) out->op = R2_SHADOW;
+  else if (!strcmp(parts[5],"holdover")) out->op = R2_HOLDOVER;
   else if (!strcmp(parts[5],"witness")) out->op = R2_WITNESS;
   else if (!strcmp(parts[5],"radio-audit")) out->op = R2_RADIO_AUDIT;
   else if (!strcmp(parts[5],"profile")) out->op = R2_PROFILE;
@@ -71,6 +72,7 @@ int r2_parse(const char *line, struct r2_request *out)
   else if (!strcmp(parts[5],"lora")) out->op = R2_LORA_CONTROL;
   else if (!strcmp(parts[5],"lora-rtt")) out->op = R2_LORA_RTT;
   else if (!strcmp(parts[5],"lora-diag")) out->op = R2_LORA_DIAGNOSTICS;
+  else if (!strcmp(parts[5],"lora-utc")) out->op = R2_LORA_UTC;
 #endif
   else if (!strcmp(parts[5],"events")) out->op = R2_EVENTS;
   else if (!strcmp(parts[5],"prepare")) out->op = R2_PREPARE;
@@ -81,6 +83,19 @@ int r2_parse(const char *line, struct r2_request *out)
   if(out->op==R2_PC_RUN){uint64_t mode;if(count!=8||!hex(parts[6],8,&mode)||mode<1||mode>4||!hex(parts[7],16,&out->nonce))return -EINVAL;out->trace_page=(unsigned)mode;return 0;}
   if(out->op==R2_PC_CYCLE||out->op==R2_PC_ALIGN){uint64_t cycles;if(count!=8||!hex(parts[6],8,&cycles)||!cycles||cycles>128||!hex(parts[7],16,&out->nonce))return -EINVAL;out->seconds=(uint32_t)cycles;return 0;}
 #endif
+  if(out->op==R2_HOLDOVER){
+   if(count==6)return 0;
+   if(count==7&&!strcmp(parts[6],"data")){out->trace_page=1;return 0;}
+   if(count==8&&(!strcmp(parts[6],"trace")||!strcmp(parts[6],"capture"))){
+    if(!hex(parts[7],8,&out->nonce))return -EINVAL;
+    out->trace_page=!strcmp(parts[6],"trace")?2:3;
+    return out->trace_page==3&&out->nonce>900000?-EINVAL:0;
+   }
+   if(count!=7||!hex(parts[6],8,&out->nonce))return -EINVAL;
+   uint64_t duration=out->nonce&UINT64_C(0x7fffffff);
+   if((duration&&duration<1000)||duration>120000)return -EINVAL;
+   out->seconds=1;return 0;
+  }
   if (out->op == R2_STATUS || out->op == R2_CLOCK || out->op == R2_NETWORK || out->op == R2_MARK || out->op == R2_PRECISION || out->op==R2_ROUTE || out->op==R2_JOIN) return count == 6 ? 0 : -EINVAL;
   if(out->op==R2_MENU){
    if(count==6)return 0;
@@ -97,6 +112,13 @@ int r2_parse(const char *line, struct r2_request *out)
   }
 #ifdef R2_LORA
   if(out->op==R2_LORA_DIAGNOSTICS)return count==6?0:-EINVAL;
+  if(out->op==R2_LORA_UTC){
+   if(count==6)return 0;
+   uint64_t options;
+   if(count!=8||!hex(parts[6],16,&out->nonce)||!out->nonce||!hex(parts[7],8,&options)||
+      (options&UINT64_C(0x7fff0000))||(options&65535)>10000)return -EINVAL;
+   out->seconds=(uint32_t)(options&65535);out->trace_page=(unsigned)(options>>31);return 0;
+  }
   if(out->op==R2_LORA_CONTROL||out->op==R2_LORA_RTT){
    out->seconds=0;if(count==6)return 0;
    if(count!=7||!hex(parts[6],2,&out->nonce)||out->nonce>1)return -EINVAL;

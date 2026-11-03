@@ -51,7 +51,20 @@ static void shadow_view(struct r2_shadow_session_view *v){
 K_THREAD_STACK_DEFINE(ui_stack,4096);
 static struct k_thread thread;
 static void add(uint32_t *v){if(*v<UINT32_MAX)++*v;}
-void r2_ui_publish(const struct r2_ui_model *m){k_spinlock_key_t k=k_spin_lock(&lock);r2_ui_holds_update(&status.holds,&model,m->sampled_ms);if(model.profile_switching&&!m->profile_switching&&status.menu.open)status.menu_result_until=m->sampled_ms+1500;model=*m;r2_ui_holds_update(&status.holds,m,m->sampled_ms);k_spin_unlock(&lock,k);}
+void r2_ui_publish(const struct r2_ui_model *m){
+ k_spinlock_key_t k=k_spin_lock(&lock);
+#ifdef R2_TZ_WIRE
+ struct r2_tz learned=model.display_tz;uint8_t source=model.display_tz_source;
+ bool fresh=m->sampled_ms>=model.sampled_ms;
+#endif
+ r2_ui_holds_update(&status.holds,&model,m->sampled_ms);
+ if(model.profile_switching&&!m->profile_switching&&status.menu.open)status.menu_result_until=m->sampled_ms+1500;
+ model=*m;
+#ifdef R2_TZ_WIRE
+ r2_ui_display_tz_update(&model,learned,source,fresh);
+#endif
+ r2_ui_holds_update(&status.holds,m,m->sampled_ms);k_spin_unlock(&lock,k);
+}
 void r2_ui_snapshot(struct r2_ui_status *out){k_spinlock_key_t k=k_spin_lock(&lock);*out=status;k_spin_unlock(&lock,k);}
 static bool shadow_page(const struct r2_ui_model *m,unsigned page){return page==R2_UI_SHADOW_PAGE||(m->profile_rc&&page==R2_UI_PRECISION_PAGE);}
 int r2_ui_page(unsigned page){if(page>=R2_UI_PAGES)return -EINVAL;k_spinlock_key_t k=k_spin_lock(&lock);status.page=page;status.help=false;status.menu.open=false;if(r2_ui_witness_page(&model,page)){status.screensaver=false;status.screensaver_position=0;}if(!shadow_page(&model,page)){status.shadow.active=false;status.shadow.state=R2_SHADOW_OFF;}k_spin_unlock(&lock,k);return 0;}
@@ -231,6 +244,14 @@ static void worker(void *a,void *b,void *c)
    m.temperature_valid=!r2_display_temperature(&m.temperature_qc);
    r2_ui_render(framebuffer,&m,&s,now);rc=r2_display_frame(framebuffer);
    if(!rc)rc=r2_display_brightness(s.screensaver?50:100);
+#ifdef R2_TZ_WIRE
+   /* Calendar lookup stays outside the publication IRQ fence. */
+   int64_t zone_utc=0;bool zone_coarse;
+   bool zone_valid=r2_ui_display_time(&m,now,&zone_utc,&zone_coarse);
+   if(r2_ui_sync_display_time(&s.sync_display,&m,now,&zone_utc))zone_valid=true;
+   uint8_t zone_flags;struct r2_tz zone=r2_ui_display_zone(&m,now,zone_utc,&zone_flags);
+   if(!zone_valid)zone_flags&=(uint8_t)~R2_UI_TZ_LOCAL_VALID;
+#endif
    uint64_t end=k_uptime_get();key=k_spin_lock(&lock);
    if(!rc){
     r2_ui_sync_display_update(&status.sync_display,&m,now,s.page==0&&!s.help&&!s.menu.open&&r2_ui_analog(&m,now));
@@ -242,6 +263,9 @@ static void worker(void *a,void *b,void *c)
    if(!rc){
     status.drawn_sync_grace=!s.menu.open&&r2_ui_sync_display_time(&s.sync_display,&m,now,&status.drawn_utc_us);
     if(status.drawn_sync_grace)status.drawn_time=status.drawn_coarse=true;
+#ifdef R2_TZ_WIRE
+    status.drawn_tz=zone;status.drawn_tz_flags=zone_flags;
+#endif
    }
    uint32_t elapsed=(uint32_t)(end-now);if(elapsed>status.max_frame_ms)status.max_frame_ms=elapsed;
    unsigned cadence=s.page==1&&!s.screensaver?125:250;

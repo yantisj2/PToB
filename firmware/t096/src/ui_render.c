@@ -4,6 +4,9 @@
 /* SPDX-License-Identifier: Apache-2.0
  * Original pre-Zephyr watch/RF drawing, with an R2-only state adapter. */
 #include "ui.h"
+#ifdef R2_TZ_AUTO
+#include "time_zone_config.h"
+#endif
 #include <stdio.h>
 #include <string.h>
 #pragma GCC diagnostic push
@@ -226,7 +229,7 @@ bool r2_ui_ble_current(const struct r2_ui_model *m,uint64_t now)
  return m->ble_time_selected&&now<=UINT64_MAX/1000&&now*1000<m->ble_valid_until_us;
 }
 #ifdef R2_LORA
-static bool lora_selected(const struct r2_ui_model *m){return m->lora.choice==RC8_SELECT_LORA||m->lora.display_held;}
+static bool lora_selected(const struct r2_ui_model *m){return m->lora.choice==RC8_SELECT_LORA||m->lora.display_held||m->lora.display_acquiring;}
 static bool lora_mode(const struct r2_ui_model *m){return lora_selected(m)||(m->ble_rx_supported&&!m->ble_rx_requested&&m->lora.requested&&!m->lora.transmitter);}
 static bool lora_at(const struct r2_ui_model *m,uint64_t now,uint64_t until,int64_t *utc){
  const struct r2_lora_view *v=&m->lora;
@@ -245,9 +248,30 @@ static bool lora_current(const struct r2_ui_model *m,uint64_t now){
  const struct r2_lora_view *v=&m->lora;
  if(!lora_selected(m)||v->transmitter)return false;
  if(v->choice==RC8_SELECT_LORA&&v->state==RC8_AVAILABLE)return lora_at(m,now,v->until_us,NULL);
+ #ifdef R2_LORA_PASSIVE_SLOW
+ /* Explicit same-boot display cache; native freshness remains expired. */
+ return v->choice==RC8_SELECT_NONE&&v->state==RC8_EXPIRED&&(v->display_held||v->display_acquiring)&&
+  !v->time_valid&&!v->quality_known&&v->display_until_us==UINT64_MAX&&lora_at(m,now,v->display_until_us,NULL);
+#else
  return v->choice==RC8_SELECT_NONE&&v->state==RC8_EXPIRED&&v->display_held&&
   v->until_us<=UINT64_MAX-(R2_LORA_DISPLAY_HOLD_US-RC8_HOLD_US)&&
   v->display_until_us<=v->until_us+R2_LORA_DISPLAY_HOLD_US-RC8_HOLD_US&&lora_at(m,now,v->display_until_us,NULL);
+#endif
+}
+#ifdef R2_LORA_PASSIVE_SLOW
+/* Age of the last accepted precision pair, never the frozen fit reference or
+ * DISC/META traffic. Keep the UTC/TZ cache while expiring dial presentation. */
+static bool lora_precision_recent(const struct r2_ui_model *m,uint64_t now,uint32_t limit_ms){
+ const struct r2_lora_view *v=&m->lora;uint64_t at=v->sampled_us/1000;
+ return now>=at&&v->rx_age_ms<=limit_ms&&now-at<=limit_ms-v->rx_age_ms;
+}
+#endif
+static bool lora_face_current(const struct r2_ui_model *m,uint64_t now){
+ return lora_current(m,now)
+#ifdef R2_LORA_PASSIVE_SLOW
+  &&lora_precision_recent(m,now,300000u)
+#endif
+  ;
 }
 static bool lora_rms_current(const struct r2_ui_model *m,uint64_t now){
  return !m->lora.transmitter&&lora_input_current(m,now)&&m->lora.link_samples>=4&&
@@ -286,8 +310,9 @@ static void lora_header_name(char out[9],const char *name){
 bool r2_ui_analog(const struct r2_ui_model *m,uint64_t now)
 {
 #ifdef R2_LORA
- if(lora_selected(m))return lora_current(m,now);
+ if(lora_selected(m))return lora_face_current(m,now);
 #endif
+ if(m->ble_local_holdover)return now>=m->sampled_ms&&now-m->sampled_ms<=2500&&m->platform_ready&&!m->profile_switching&&m->profile_rc&&m->ble_active&&(!m->ble_rx_supported||m->ble_rx_requested)&&m->clock.valid&&m->clock.utc_us>=0&&r2_ui_ble_current(m,now);
  if(now<m->sampled_ms||now-m->sampled_ms>2500||!m->platform_ready||!m->clock.valid||m->clock.utc_us<0||!m->scope_active)return false;
  if(m->role==R2_UI_GM)return m->clock.source_available||m->gm_source_fresh;
  if(m->boundary_clock)return m->role==R2_UI_FOLLOWER&&m->authenticated_gm&&r2_ui_ble_current(m,now)&&m->precision.map_valid;
@@ -297,7 +322,7 @@ bool r2_ui_face_locked(const struct r2_ui_model *m,uint64_t now)
 {
 #ifdef R2_LORA
  /* Dial permission is presentation, not BLE/PLL lock or source authority. */
- if(lora_selected(m))return lora_current(m,now);
+ if(lora_selected(m))return lora_face_current(m,now);
 #endif
  if(m->role==R2_UI_GM||m->boundary_clock)return r2_ui_analog(m,now);
  if(now<m->sampled_ms||now-m->sampled_ms>2500||!m->platform_ready||
@@ -308,9 +333,9 @@ bool r2_ui_face_locked(const struct r2_ui_model *m,uint64_t now)
 const char *r2_ui_servo_state(const struct r2_ui_model *m,uint64_t now)
 {
 #ifdef R2_LORA
- if(lora_selected(m))return lora_current(m,now)?(m->lora.display_held?"HOLD":"RECEIVING"):"UNAVAILABLE";
+ if(lora_selected(m))return lora_current(m,now)?(!lora_face_current(m,now)||m->lora.display_acquiring?"ACQUIRING":m->lora.display_held?"HOLD":"RECEIVING"):"UNAVAILABLE";
 #endif
- if(m->boundary_clock)return r2_ui_analog(m,now)?(m->rc_source_held?"HELD SOURCE":"RECEIVING"):"ACQUIRING";
+ if(m->boundary_clock)return r2_ui_analog(m,now)?(m->ble_local_holdover?"LOCAL HOLD":m->rc_source_held?"HELD SOURCE":"RECEIVING"):"ACQUIRING";
  if(r2_ui_face_locked(m,now))return "LOCKED";
  if(now<m->sampled_ms||now-m->sampled_ms>2500||(m->ble_time_selected&&!r2_ui_ble_current(m,now))||!m->scope_active||
     m->role!=R2_UI_FOLLOWER||!m->precision.authorized)return "UNAVAILABLE";
@@ -322,7 +347,11 @@ const char *r2_ui_servo_state(const struct r2_ui_model *m,uint64_t now)
 bool r2_ui_saver_allowed(const struct r2_ui_model *m,uint64_t now)
 {
 #ifdef R2_LORA
- if(lora_selected(m))return lora_current(m,now);
+ if(lora_selected(m))return lora_current(m,now)
+#ifdef R2_LORA_PASSIVE_SLOW
+  &&lora_precision_recent(m,now,120000u)
+#endif
+  ;
 #endif
  /* Saver has no dial loss grace: wake on actual source/map/PLL withdrawal.
   * A follower's local GPS is a witness and cannot stand in for BLE sync. */
@@ -360,24 +389,59 @@ bool r2_ui_display_time(const struct r2_ui_model *m,uint64_t now,int64_t *utc,bo
  *utc=(int64_t)(m->coarse_utc_us+now*1000-m->coarse_at_us);*coarse=true;return true;
 }
 #ifdef R2_TZ_WIRE
-/* A label/offset adapter only: the model, USB and timing owner retain UTC. */
-const char *r2_ui_clock_zone(const struct r2_ui_model *m,uint64_t now,int64_t utc,int64_t *shown){
- *shown=utc;
+/* Boot-local presentation only. Unknown updates carry no replacement zone. */
+static struct r2_tz display_tz_input(const struct r2_ui_model *m,uint64_t now,uint8_t *source){
+ *source=0;
+ if(now<m->sampled_ms||now-m->sampled_ms>2500||now>UINT64_MAX/1000)return r2_tz_unknown();
 #ifdef R2_LORA
  if(lora_mode(m)){
-  if(now<m->sampled_ms||now-m->sampled_ms>2500||now>UINT64_MAX/1000||now*1000>=m->lora.tz_until_us||!r2_tz_local_us(m->lora.tz,utc,shown))return "UTC";
-  if(m->lora.tz.id==1)return "UTC";
-  if(m->lora.tz.id==2&&m->lora.tz.offset_min==-300)return "CDT";
-  if(m->lora.tz.id==2&&m->lora.tz.offset_min==-360)return "CST";
-  return "LOC";
+  if(now*1000<m->lora.tz_until_us&&r2_tz_valid(m->lora.tz)){
+   *source=R2_UI_TZ_LORA|(m->lora.tz_observed?R2_UI_TZ_OBSERVED:0);return m->lora.tz;
+  }
+  return r2_tz_unknown();
  }
 #endif
- if(now<m->sampled_ms||now-m->sampled_ms>2500||now>UINT64_MAX/1000||
-    now*1000>=m->tz_until_us||!r2_tz_local_us(m->tz,utc,shown))return "UTC";
- if(m->tz.id==1)return "UTC";
- if(m->tz.id==2&&m->tz.offset_min==-300)return "CDT";
- if(m->tz.id==2&&m->tz.offset_min==-360)return "CST";
- return "LOC"; /* Valid forwarded offset; no invented regional abbreviation. */
+ if(now*1000<m->tz_until_us&&r2_tz_valid(m->tz)){
+  *source=m->role==R2_UI_GM&&m->gm_source_fresh?R2_UI_TZ_LOCAL:R2_UI_TZ_NETWORK;return m->tz;
+ }
+ return r2_tz_unknown();
+}
+void r2_ui_display_tz_update(struct r2_ui_model *m,struct r2_tz previous,uint8_t source,bool fresh){
+ m->display_tz=r2_tz_valid(previous)?previous:r2_tz_unknown();m->display_tz_source=m->display_tz.id?source:0;
+ /* Boot lifetime RAM only. Unknown/expired metadata, unavailable UTC and
+  * mode/stop transitions cannot erase a learned geographic preference. */
+ if(!fresh)return;
+ uint8_t incoming;struct r2_tz value=display_tz_input(m,m->sampled_ms,&incoming);
+ if(r2_tz_valid(value)){m->display_tz=value;m->display_tz_source=incoming;}
+}
+struct r2_tz r2_ui_display_zone(const struct r2_ui_model *m,uint64_t now,int64_t utc,uint8_t *flags){
+ *flags=0;
+ if(now<m->sampled_ms||now-m->sampled_ms>2500)return r2_tz_unknown();
+ struct r2_tz value=display_tz_input(m,now,flags);
+ if(!r2_tz_valid(value)&&r2_tz_valid(m->display_tz)){
+  value=m->display_tz;*flags=m->display_tz_source|R2_UI_TZ_CACHED;
+ }
+ if(!r2_tz_valid(value))return r2_tz_unknown();
+#ifdef R2_TZ_AUTO
+ if(!strcmp(r2_tz_db_name(value.id),"Unknown"))*flags|=R2_UI_TZ_FOREIGN;
+ else if(R2_TZ_MODE!=R2_TZ_MANUAL_OFFSET){
+  *flags|=R2_UI_TZ_CALENDAR;
+  /* Keep identity for diagnostics when its calendar cannot safely convert. */
+  if(utc<0||!r2_tz_db_offset(value.id,(uint64_t)utc,&value.offset_min))return value;
+ }
+#endif
+ int64_t local;
+ if(r2_tz_local_us(value,utc,&local))*flags|=R2_UI_TZ_LOCAL_VALID;
+ return value;
+}
+/* The model, USB and every timing owner retain UTC. */
+const char *r2_ui_clock_zone(const struct r2_ui_model *m,uint64_t now,int64_t utc,int64_t *shown){
+ *shown=utc;uint8_t flags;struct r2_tz tz=r2_ui_display_zone(m,now,utc,&flags);
+ if(!(flags&R2_UI_TZ_LOCAL_VALID)||!r2_tz_local_us(tz,utc,shown))return "UTC";
+ if(tz.id==1)return "UTC";
+ if(tz.id==2&&tz.offset_min==-300)return "CDT";
+ if(tz.id==2&&tz.offset_min==-360)return "CST";
+ return "LOC";
 }
 #endif
 static bool sync_display_context(const struct r2_ui_model *m,uint64_t now){
@@ -481,7 +545,7 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
  const char *clock_zone=NULL;
 #ifdef R2_TZ_WIRE
  if(status->page==0||status->screensaver){
-  int64_t shown;clock_zone=r2_ui_clock_zone(m,now,display_utc,&shown);
+  int64_t shown=display_utc;clock_zone=s.utc_valid?r2_ui_clock_zone(m,now,display_utc,&shown):"UTC";
   /* Normalize signed local dates before converting to the dial's day seconds. */
   int64_t day=INT64_C(86400000000),tod=shown%day;
   if(tod<0)tod+=day;
@@ -491,10 +555,17 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
  s.utc_second=s.utc_valid?(uint32_t)(display_utc/1000000):0;
  s.subsecond_quarter=s.utc_valid?(display_utc%1000000)/250000:0;
  s.state=!s.utc_valid?CLOCK_NO_TIME:s.native_analog_eligible?CLOCK_LOCKED:CLOCK_ACQUIRING;
+ if(m->ble_local_holdover&&s.utc_valid)s.state=CLOCK_HOLDOVER;
  bool settling=now>=m->sampled_ms&&now-m->sampled_ms<=2500&&(m->sync_attempt||(m->boundary_clock&&m->ble_active&&!r2_ui_ble_current(m,now)))&&!s.native_analog_eligible;
  if(settling)s.state=CLOCK_ACQUIRING;
  s.native_reason=settling?UI_NATIVE_NONE:coarse&&!face_locked?UI_NATIVE_SOURCE_STALE:!fresh?UI_NATIVE_SOURCE_STALE:!s.utc_valid?UI_NATIVE_NO_TIME:
      m->role==R2_UI_FOLLOWER?UI_NATIVE_PPS_UNASSOCIATED:!m->scope_active?UI_NATIVE_NO_GM:UI_NATIVE_LOCAL_COARSE;
+#ifdef R2_LORA_PASSIVE_SLOW
+ if((m->lora.display_held||m->lora.display_acquiring)&&lora_current(m,now)){
+  s.state=lora_face_current(m,now)?CLOCK_HOLDOVER:CLOCK_ACQUIRING;
+  s.native_reason=lora_face_current(m,now)?UI_NATIVE_SOURCE_STALE:UI_NATIVE_NONE;
+ }
+#endif
  s.boot_elapsed_seconds=now/1000;s.pps_seen=fresh&&m->clock.pps_present;
  s.pps_age_ms=age_ms(m->clock.pps_age_us);s.rmc_age_ms=age_ms(m->clock.gps_age_us);
  s.gnss_bytes_seen=m->clock.rx_age_us>=0;s.gnss_rx_age_ms=age_ms(m->clock.rx_age_us);
@@ -518,12 +589,19 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
   char provider[9];lora_header_name(provider,m->upstream_name[0]?m->upstream_name:"--");
   snprintf(s.ui_role.header,sizeof s.ui_role.header,"%s>%s",m->unit,provider);
   s.ui_role.grandmaster=false;
-  s.native_lora_source=true;
+  s.native_lora_source=true;s.native_lora_acquiring=lora_current(m,now)&&(m->lora.display_acquiring||!lora_face_current(m,now));
   s.native_rms_valid=lora_rms_current(m,now);
   r2_precision_format(s.native_rms,sizeof s.native_rms,m->lora.link_rms_ns,s.native_rms_valid);
   bool signal=model_fresh&&m->lora.requested&&m->lora.active&&!m->lora.fault&&m->lora.rssi_valid&&
    m->lora.rx_age_ms<R2_LORA_SIGNAL_HOLD_MS&&now-m->sampled_ms<R2_LORA_SIGNAL_HOLD_MS-m->lora.rx_age_ms;
   s.native_rx_known=signal;s.native_rx_bars=signal?(m->lora.rssi_half_dbm>=-160?4:m->lora.rssi_half_dbm>=-190?3:m->lora.rssi_half_dbm>=-220?2:1):0;
+#ifdef R2_LORA_PASSIVE_SLOW
+  if((m->lora.display_held||m->lora.display_acquiring)&&lora_current(m,now)){
+  uint64_t age=(uint64_t)m->lora.age_ms+(now-m->sampled_ms);
+  unsigned seconds=age/1000>UINT32_MAX?UINT32_MAX:(unsigned)(age/1000);
+  snprintf(s.native_rms,sizeof s.native_rms,"%us",seconds);
+  }
+#endif
  }
 #endif
  /* DC displays the standard USB client sampling rate. The existing dial
@@ -543,7 +621,7 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
  s.lora_tx_mode=s.lora_active&&m->lora.transmitter;
  int64_t lora_utc=0;bool lora_fresh=lora_input_current(m,now);
  bool lora_time=lora_fresh||lora_current(m,now);
- if(lora_time)lora_at(m,now,m->lora.display_held?m->lora.display_until_us:m->lora.until_us,&lora_utc);
+ if(lora_time)lora_at(m,now,(m->lora.display_held||m->lora.display_acquiring)?m->lora.display_until_us:m->lora.until_us,&lora_utc);
  s.rf_sources.lora=(ui_rf_source_t){.available=lora_time,.fresh=lora_fresh,.utc=true,.second=(uint32_t)(lora_utc/1000000)};
  if(s.lora_active&&s.lora_enabled&&m->lora.activity_age_ms<250&&now>=m->sampled_ms&&now-m->sampled_ms<250-m->lora.activity_age_ms&&!(now/125%2)){
   unsigned kind=m->lora.activity_kind==1?UI_RF_TIME:UI_RF_PPS;
@@ -595,9 +673,12 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
   label(fb,8,top+3,clock_zone?clock_zone:"UTC",1,C_DIM);
  label(fb,36,top+3,
 #ifdef R2_LORA
-    lora_current(m,now)?"LOR":
+    lora_current(m,now)?(m->lora.display_acquiring?"ACQ":m->lora.display_held?"HOLD":"LOR"):
 #endif
     s.native_ble_time?(s.native_time_relay_hops==1?"RC1":s.native_time_relay_hops==2?"RC2":"BLE"):"PPS",1,
+#ifdef R2_LORA
+    (m->lora.display_held||m->lora.display_acquiring)?C_AMBER:
+#endif
     C_GREEN);
   ui_render_pulse_at(fb,s.pulse_indicator,66,(unsigned)(top+2));
   round_panel(fb,3,top+15,74,62,C_PANEL,C_BEZEL);
@@ -615,7 +696,7 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
 #endif
   snprintf(text,sizeof text,"%s %s",v->transmitter?"TX":"RX",v->requested?"ON":"OFF");
   label(fb,5,22,text,2,v->requested?C_CYAN:C_DIM);
-  const char *state=v->fault?"RADIO FAULT":!v->requested?"DISABLED":!v->active?"INHIBITED":v->transmitter?(v->state==RC8_AVAILABLE?"SOURCE READY":"WAIT SOURCE"):v->coord_follow?"COORD FOLLOW":v->state==RC8_AVAILABLE?"MATCHED TIME":v->state==RC8_EXPIRED?"HOLD EXPIRED":"WAIT PACKETS";
+  const char *state=v->fault?"RADIO FAULT":!v->requested?"DISABLED":!v->active?"INHIBITED":v->transmitter?(v->state==RC8_AVAILABLE?"SOURCE READY":"WAIT SOURCE"):v->coord_follow?"COORD FOLLOW":v->state==RC8_AVAILABLE?"MATCHED TIME":v->state==RC8_EXPIRED?(v->display_acquiring?"UTC ESTIMATE":v->display_held?"DISPLAY HOLD":"HOLD EXPIRED"):"WAIT PACKETS";
   label(fb,4,44,state,1,C_WHITE);
   if(v->requested&&v->active&&v->utc_us&&v->until_us>now*1000){
    uint64_t sec=(v->utc_us+(now*1000>=v->sampled_us?now*1000-v->sampled_us:0))/1000000;
@@ -719,7 +800,7 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
   if(lora_mode(m)){
    char value[24];bool live=lora_current(m,now),fit=lora_rms_current(m,now);
    round_panel(fb,3,1,74,13,C_PANEL,C_BEZEL);label(fb,10,4,"LOR TIMING",1,C_WHITE);
-   label(fb,4,20,m->lora.fault?"RADIO FAULT":live?(m->lora.display_held?"DISPLAY HOLD":"RECEIVING"):"WAIT SOURCE",1,m->lora.fault?C_RED:live?C_GREEN:C_AMBER);
+   label(fb,4,20,m->lora.fault?"RADIO FAULT":live?(m->lora.display_acquiring?"UTC ESTIMATE":m->lora.display_held?"DISPLAY HOLD":"RECEIVING"):"WAIT SOURCE",1,m->lora.fault?C_RED:live&&!m->lora.display_held&&!m->lora.display_acquiring?C_GREEN:C_AMBER);
    label(fb,4,33,"LOR RMS",1,C_DIM);shadow_value(value,m->lora.link_rms_ns,fit);label(fb,4,47,value,1,fit?C_CYAN:C_DIM);
    snprintf(value,sizeof value,"LINK FIT N%u",fit?m->lora.link_samples:0);label(fb,4,61,value,1,C_DIM);
    if(s.native_rx_known)snprintf(value,sizeof value,"RSSI %ddBm",m->lora.rssi_half_dbm/2);else snprintf(value,sizeof value,"RSSI --");label(fb,4,77,value,1,C_WHITE);

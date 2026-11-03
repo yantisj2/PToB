@@ -9,6 +9,20 @@ static const char source[]="0123456789abcdef0123456789abcdef0123456789abcdef0123
 static void parse_tests(void)
 {
   struct r2_request r; char command[256];
+  const char *captures[]={"capture 00000000","capture 000dbba0","capture 000dbba1","trace ffffffff"};
+  for(unsigned i=0;i<4;i++){
+   snprintf(command,sizeof command,"r2 00000002 %s %s 000000000000007b holdover %s",silicon,source,captures[i]);
+   if(i==2)assert(r2_parse(command,&r));
+   else assert(!r2_parse(command,&r)&&r.trace_page==(i==3?2u:3u)&&r2_bound(&r,silicon,source,123));
+  }
+  const unsigned holds[]={0,999,1000,12000,120000,120001,0x80000000,0x8000fa00,0x8001d4c1};
+  for(unsigned i=0;i<sizeof holds/sizeof holds[0];i++){
+    snprintf(command,sizeof command,"r2 00000002 %s %s 000000000000007b holdover %08x",silicon,source,holds[i]);
+    unsigned duration=holds[i]&0x7fffffff;
+    bool valid=!duration||(duration>=1000&&duration<=120000);
+    assert(valid?!r2_parse(command,&r)&&r.op==R2_HOLDOVER&&r.nonce==holds[i]&&r.seconds==1:r2_parse(command,&r));
+    if(valid){assert(r2_bound(&r,silicon,source,123));r.boot=0;assert(!r2_bound(&r,silicon,source,123));}
+  }
   snprintf(command,sizeof(command),"r2 00000001 %s %s 0000000000000000 status",silicon,source);
   assert(!r2_parse(command,&r) && r.id==1 && r.op==R2_STATUS);
   assert(r2_bound(&r,silicon,source,123));

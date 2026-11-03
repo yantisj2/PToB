@@ -6,8 +6,8 @@ static bool translated(uint64_t ns,int64_t offset,uint64_t *out){
  if(offset<0||ns>(uint64_t)INT64_MAX-(uint64_t)offset)return false;
  *out=ns+(uint64_t)offset;return true;
 }
-bool r2_lora_source_own(struct rc8_export *out,const struct r2_source_clock *s,struct rc8_scope scope,
- struct r2_capture now,uint64_t until){
+static bool source_own(struct rc8_export *out,const struct r2_source_clock *s,struct rc8_scope scope,
+ struct r2_capture now,uint64_t until,bool passive){
  if(!out)return false;
  memset(out,0,sizeof *out);uint64_t ns,generation,expiry;
  if(!s||scope.kind!=RC8_OWN_GM||rc8_scope_validate(&scope)||scope.scale!=RC8_UTC||!s->utc_bound||
@@ -16,23 +16,37 @@ bool r2_lora_source_own(struct rc8_export *out,const struct r2_source_clock *s,s
  const struct r2_source_map *m=NULL;
  for(unsigned i=0;i<s->count&&i<R2_SOURCE_MAP_HISTORY;i++)if(s->maps[i].generation==generation)m=&s->maps[i];
  if(!m||m->until<=now.tick)return false;
- if(until>m->until)until=m->until;
+ if(!passive&&until>m->until)until=m->until;
  uint64_t created,expires,anchor;
  if(!translated(m->anchor_ns,s->utc_offset_ns,&anchor)||!translated(m->anchor_ns,s->utc_offset_ns,&created)||
  !translated(expiry,s->utc_offset_ns,&expires))return false;
  *out=(struct rc8_export){.scope=scope,.from_tick=m->from,.until_tick=until,.anchor_tick=m->from,
  .anchor_ns=anchor,.capture_epoch=now.epoch,.created_ns=created,.expires_ns=expires,
  .map_generation=(uint32_t)generation,.upstream_bound_ns=RC8_UNKNOWN,.rate_q16=m->rate_q16,
- .rate_ppb=m->phase_ppb,.mode=RC8_MAP_SOURCE_Q16,.authenticated=true,.valid=created<expires};
+ .rate_ppb=m->phase_ppb,.mode=passive?RC8_MAP_PASSIVE_Q16:RC8_MAP_SOURCE_Q16,.authenticated=true,.valid=created<expires};
  /* Project the exclusive grant boundary with the SAME frozen Q16/phase map.
   * No nominal-rate approximation may extend wire source permission. */
  if(out->valid&&until<UINT64_MAX){
   struct rc8_export limit=*out;struct rc8_correction at;
   limit.until_tick=until+1;limit.created_ns=0;limit.expires_ns=UINT64_MAX;
   if(!rc8_export_event(&at,&limit,1,(struct rc8_event){.tick=until,.capture_epoch=now.epoch,.kind=RC8_EVENT_TX_START})){memset(out,0,sizeof *out);return false;}
-  if(at.event_ns<out->expires_ns)out->expires_ns=at.event_ns;
+  if(passive||at.event_ns<out->expires_ns)out->expires_ns=at.event_ns;
  }
  return out->valid&&out->created_ns<out->expires_ns;
+}
+bool r2_lora_source_own(struct rc8_export *out,const struct r2_source_clock *s,struct rc8_scope scope,
+ struct r2_capture now,uint64_t until){return source_own(out,s,scope,now,until,false);}
+bool r2_lora_source_passive_own(struct rc8_export *out,const struct r2_source_clock *s,struct rc8_scope scope,
+ struct r2_capture now){
+ /* Admission still needs the live original source map. Only this independent
+  * LoRa permission uses the wider frozen projection. A repeated snapshot of
+  * that PPS cannot renew it, and source withdrawal still fences in-flight RF. */
+ const uint64_t ticks=R2_LORA_OWN_WINDOW_US*16;
+ if(!s||!s->last_edge||s->last_edge>now.tick||s->last_edge>UINT64_MAX-ticks){
+  if(out)memset(out,0,sizeof *out);
+  return false;
+ }
+ return source_own(out,s,scope,now,s->last_edge+ticks,true);
 }
 bool r2_lora_source_follower(struct rc8_export *out,const r2_servo_map_t *m,struct rc8_scope scope,
  struct r2_capture now,uint64_t until,uint64_t created,uint64_t expires,int64_t offset,uint32_t generation){

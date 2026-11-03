@@ -59,9 +59,10 @@ before serving time. COLD can receive BLE timing while qualifying locally.
 | Display behavior | Normal refresh **4 Hz**, RF page **8 Hz**. Eligible screensaver starts after **5 minutes** idle at **50% brightness**. |
 | BLE timing | Authenticated **G1/RC7** precision reception and relay. Current coarse TZ wire uses **GM7 revision 4, JOIN revision 5, RC control/capability revision 8**. |
 | GM coordination | Broadcast ANN/STATUS/ROLE, persistent G1 following without GM admission, local HOT readiness and independent GNSS qualification. Client GATT admission remains required. |
-| LoRa timing | Optional **RC8 wire5** fallback with root/source identity. A configured transmitter can export qualified local GM time or its accepted locked BLE source. |
+| LoRa timing | **Passive wire3** fallback with one designated transmitter, exporting qualified local GM time or authenticated locked BLE time. |
 | USB | Hardware-captured USB frame boundaries; RC exports BLE time, DC exports local GNSS time to the macOS client. |
-| Time zone | GM uses its GNSS location and pinned IANA offset calendars; manual-zone/fixed-offset overrides. Local display follows leased metadata and returns to UTC on expiry. |
+| Local holdover | BLE-only guarded rate consensus, paired frozen shadow clocks and a120s local watch estimate; [policy and verification](../../docs/t096/holdover.md). |
+| Time zone | GM uses its GNSS location and pinned IANA offset calendars; manual-zone/fixed-offset overrides. Live mesh metadata remains leased. The display retains its learned zone for the current boot, with pinned DST calendars. |
 | Development | Zephyr-based native builds with pinned public dependencies; private device binding and GM/RC enrollment. No enrolled binary is distributed. |
 
 W12, N30 and CoreS3-SE consume the current coarse TZ profile; StickS3 retains
@@ -71,68 +72,60 @@ Precision payload names alone do not establish coarse-wire compatibility.
 [W12/N30 TZ behavior](../../docs/esp32-time-zones.md) ·
 [Automatic time zones and DST](../../docs/t096/auto-time-zone-plan.md).
 
-LoRa is disabled by default and needs build-time configuration and the
-appropriate antenna before transmission. BLE is preferred while usable; GM
-mesh participation can suppress passive LoRa RX. Fallback has unknown total
-uncertainty and grants no RC7 timing or GM takeover authority. See the
-[LoRa contract](../../protocol/rc8/README.md).
+## Passive LoRa fallback
 
-A separate default-off [passive v2 fast lab variant](../../protocol/lora_passive_v2/README.md)
-uses receive-only clients and DISC/META/SYNC/FOLLOW with4/12s cadence. It requires
-explicit build and per-boot selection, a persistent ledger, and measured lab
-acceptance. The separate `--lora-passive-slow` production candidate uses60s
-precision and300s META, boots normal GM/RC with RX on, and retains locally
-deferred TX obligations. Configured primary/backup GMs require qualified serving
-GNSS and authenticated handoff/readmission. Slow reception, timing and failover
-still require hardware acceptance. Use the
-[autonomous soak harness](../../docs/t096/lora-soak.md) after initial
-stabilization; range qualification remains a later field test.
+The [current LoRa design](../../docs/t096/lora-protocol.md) defines passive wire3,
+separate from historical RC8. Select the slow 60/300 s variant and one exact
+transmitter factory at build time. Listeners request RX at boot in both GM and
+RC profiles; GM participation does not suppress passive RX. The designated
+GM-profile device requests TX and may export qualified own-GNSS time or fresh
+authenticated locked BLE time from another GM. Becoming ACTIVE does not enable
+LoRa TX on another device. There is no automatic backup emitter.
 
-A current LoRa UTC estimate can drive the digital and analog watch, including
-while BLE is parked. Its original watch layout shows **LOR**, **LOR RMS**, the
-authenticated OTA emitter name, actual GM/RC mode and measured LoRa RX-strength
-bars. The RC8/fast badge reads **.25Hz**; passive slow displays **60s**.
-Optional source-opened RTT calibration runs only for LoRa-only listeners, including a GM-profile watch; it grants no GM service, relay or USB timing authority. Local PPS remains a separate indication. LOR RMS measures relative physical
-link consistency, not UTC accuracy or BLE/PLL lock. The LoRa clock keeps UTC internally and displays local time while its own authenticated TZ lease is current.
+The slow profile sends precision/control every 60 s and full META nominally every
+300 s. Matched current receivers are required for its 7 s SYNC offset and delay
+validator. GNSS and BLE timing retain priority. Internal precision/META retries
+retain owed work after proven closure; clients send no ACK or retransmission.
+See the [build guide](../../docs/t096/build.md#optional-lora-configuration) for
+selection and the [soak guide](../../docs/t096/lora-soak.md) for measured checks.
 
-For bounded RTT diagnostics, the boot-bound `lora-rtt 01` command enables a
-five-minute lab cadence on that device. Use it on source and client; query
-`lora-rtt` and finish with `lora-rtt 00` on both. Lab offers/retry floor are 5s
-and successful refresh is 15–30s; expiry/reboot returns to production timers.
-BLE priority, receiver eligibility and physical timestamp checks are unchanged.
-See the [build guide](../../docs/t096/build.md#optional-lora-configuration).
+Runtime state is RAM-only: boot resets airtime, cooldown/session state, fits,
+faults and replay history. Profile/source changes within a boot retain airtime.
+Historical flash ledger/journal bytes remain unused and untouched. The 72 s per
+rolling-hour engineering cap has no cross-boot enforcement and establishes no
+FCC compliance. The [design](../../docs/t096/lora-protocol.md#range-and-fcc-compliance-considerations)
+records RF/antenna considerations and future slow-profile range goals; field
+coverage, power and emissions remain unmeasured.
 
-The LoRa receiver page shows **LoRa RTT EST**, **ToF** and excess **RTT** for
-field comparisons. Each receiver learns its baseline from its first two
-successful exchanges in the current authenticated context. The second sample
-uses the next admitted source opportunity, without the long client cooldown.
-The baseline is their mean half-RTT endpoint delay; the noise floor is the larger
-of **1us** and their absolute difference. Keep the device at its reference
-position until **BASE0/2** and **BASE1/2** finish. Reboot, context/capture change,
-LoRa OFF or fault starts learning again. No receiver GNSS fix or PPS is required.
+LoRa can drive the digital and analog watch when BLE is unavailable. The watch
+shows **LOR**, relative **LOR RMS**, authenticated emitter identity, actual mode,
+measured RX-strength bars and a **60 s** badge. UTC remains the internal clock
+coordinate. Native fitting needs four points spanning 180 s. RMS describes
+relative physical-link consistency, not independent UTC accuracy, BLE lock or
+an uncertainty bound. LoRa grants no GM service/election, HOT, BLE relay or USB
+timing authority. Passive wire3 has no RTT/ToF exchange.
 
-Within the floor, ToF shows `<1us` (or its larger learned floor) and excess RTT
-shows twice that threshold. Negative residuals produce no adjustment. Beyond
-the floor, the full positive excess above the frozen baseline is displayed and
-added to the watch's baseline delay correction. The floor is a deadband, not an
-amount subtracted from resolved values. Raw RTT and physical events remain in
-diagnostics; `rtt_base` contains sample count, baseline, floor, applied watch
-delay and positive adjustment, in ns. These are relative propagation estimates
-from the initial connection position, not absolute distance or accuracy bounds.
+A cold slow watch may show amber **ACQ** UTC after its first authenticated pair.
+It uses nominal rate and a frozen reference. Trained maps continue as amber
+**HOLD** through loss/retraining. More than **120 s** without accepted precision
+exits/blocks the screensaver; more than **300 s** hides the dial and shows
+**ACQ/SYNCING**. Cached UTC/TZ remain in RAM. DISC/META cannot renew these limits;
+**REF AGE** measures the frozen reference. A new fit replaces it. OFF,
+context/capture changes, authenticated TIME_INVALID and faults clear the map.
+ACQ/HOLD have unknown uncertainty and grant no export authority.
 
-After the first two samples, successful refresh is normally15–30min, or the
-temporary lab cadence above. Missing/expired calibration shows `--`; the compact
-display lease may expire up to8s early and grants no timing authority. An absent
-valid source stops the watch under the original holds and automatically resumes
-on fresh authenticated LoRa reception. No extra radio packets are scheduled by
-the display, and the source still limits opportunities and may refuse clients.
+Authenticated selected TZ can teach a boot-local display cache before UTC.
+Valid changed metadata replaces it; unknown metadata and timing loss do not
+erase it. Known geographic zones follow pinned calendars at displayed UTC;
+calendar failure hides conversion while retaining identity. Reboot clears the
+cache. It grants no timing authority.
 
-An isolated missed packet may continue the coarse watch display for at most
-**20 seconds** from its original physical event. The receiver's functional and
-coordination hold remains **12 seconds**; display continuation grants no source,
-election or USB authority. OFF, fault, source/context replacement and valid
-TIME_INVALID withdrawal remove the old estimate immediately. BLE remains
-preferred while usable, with its existing screens and rate badge.
+For one bounded lab META/pair, use the boot-bound
+[`lora-utc` diagnostic](../../docs/t096/lora-utc-diagnostic.md). Its explicit
+per-job cap override applies only to that request, never to ordinary
+qualification. It does not bypass source/capture, channel or physical RF guards
+or replace180 s training. The finite fast variant and historical RC8 controls
+are described in the build guide; check the selected image before using them.
 
 ## Button controls
 
@@ -166,7 +159,7 @@ fault protection remain active. Re-enabling BLE uses a fresh locally discovered,
 authenticated context. Profile selection while OFF does not start BLE.
 
 Radio requests are volatile; an ON request does not prove RF activity or valid
-time. LoRa may still be inhibited by the existing GM participation policy.
+time. Source, cap or hardware gates may still inhibit LoRa.
 
 The precision page separates stream RMS, local PPS continuity and ACTIVE/HOT
 duration. Shadow-PPS compares the selected BLE or LoRa clock with local PPS

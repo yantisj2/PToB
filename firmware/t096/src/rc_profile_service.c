@@ -135,6 +135,7 @@ void r2_service_snapshot(struct r2_service_status *out) {
   if(rx_suspended){out->normal=running;out->active=out->closing=false;out->closed=true;}
 }
 void r2_service_ui(struct r2_ui_model *m) {
+  m->ble_local_holdover=false;
   if (r2_switch_rc_active())
     r2_dynamic_service_ui(m);
   else

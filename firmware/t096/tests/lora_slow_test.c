@@ -83,6 +83,14 @@ static void owner_checks(unsigned mode){
  if(mode==109||mode==110){for(unsigned i=0;i<6;i++)step();assert(!transmitter&&owner.active&&owner.listening&&tx_blocked&&!atomic_get(&faulted));return;}
  now_us=owner.quiet_until_us+21000000;assert(restore(now_us+2000000));
  uint64_t first=role.tx.core.durable.next_slot_us;
+ if(mode==115){
+  now_us=first-10000000;prepare_delay_us=700000;step();
+  assert(!owner.stage&&owner.listening&&r2_diag_scratch.lora.attempt.prepare_us==700000);
+  uint64_t idle=now_us;step();assert(now_us==idle+2000); // cached preparation; no repeated flash scan
+  now_us=first-1100000;save_delay_us=350000;step();assert(owner.stage==3&&!txs);
+  assert(r2_diag_scratch.lora.attempt.postcommit_lead_us==750000);
+  now_us=first;step();assert(txs==1&&r2_diag_scratch.lora.attempt.valid==31);return;
+ }
  if(mode==106){
   // Idle RX cannot overwrite the TX checkpoint union.
   struct lp_checkpoint before=role.tx.core.durable;

@@ -46,6 +46,8 @@ struct r2_ui_model {
 #ifdef R2_TZ_WIRE
  /* Coarse mesh metadata expiry in kernel uptime; presentation only. */
  struct r2_tz tz;uint64_t tz_until_us;
+ /* Last learned presentation only; never source/metadata authority. */
+ struct r2_tz display_tz;uint8_t display_tz_source;
 #endif
  struct r2_clock_view clock;
  struct r2_radio_precision_view precision;
@@ -67,7 +69,7 @@ struct r2_ui_model {
  unsigned root,coordinator,standby;
  unsigned relay_upstream;
  bool relay_selected;uint8_t time_relay_hops; /* Actual selected authenticated route depth. */
- bool boundary_clock,rc_source_held;uint32_t rc_update_age_ms,rc_source_age_ms;
+ bool boundary_clock,rc_source_held,ble_local_holdover;uint32_t rc_update_age_ms,rc_source_age_ms;
  struct r2_clock_quality quality;
  uint32_t admission_ms,hot_refusal;
  bool source_eligible,gm_capable,hot_ready,local_hot_standby,gm_cold;
@@ -80,13 +82,23 @@ struct r2_ui_model {
  bool ble_reception_valid;
  bool rc_serving_clients; /* Display-only actual downstream service, never GM authority. */
 };
+#ifdef R2_TZ_WIRE
+/* Low bits identify the learned producer; remaining bits describe this draw. */
+enum {R2_UI_TZ_NETWORK=1,R2_UI_TZ_LORA=2,R2_UI_TZ_LOCAL=3,R2_UI_TZ_SOURCE_MASK=3,
+ R2_UI_TZ_CACHED=4,R2_UI_TZ_LOCAL_VALID=8,R2_UI_TZ_FOREIGN=16,
+ R2_UI_TZ_OBSERVED=32,R2_UI_TZ_CALENDAR=64};
+#endif
 /* Presentation cache only. No timing owner consumes this 500ms loss delay. */
 struct r2_ui_sync_display {int64_t utc_us;uint64_t at_ms,loss_ms;};
 /* Monotonic seconds plus one; zero means unavailable. Presentation only. */
 struct r2_ui_holds {uint32_t pps_since,hot_since,active_since;};
 /* Selected/drawn pages are bounded by R2_UI_PAGES before storage. */
 _Static_assert(R2_UI_PAGES<=UINT8_MAX,"UI page indices must fit their stored type");
-struct r2_ui_status { uint8_t drawn_lamps[8]; uint64_t profile_flash_until;bool profile_target_rc;uint32_t profile_toggles; uint64_t drawn_model_ms;unsigned drawn_role;uint32_t poll_max_ms;bool drawn_scope,drawn_ble,drawn_pps,drawn_map;bool drawn_time,drawn_coarse,drawn_sync_grace;int64_t drawn_utc_us;uint32_t frames,missed,buttons,max_frame_ms,last_frame_ms; int error; uint8_t page,drawn_page; bool ready,stopped,analog,help,poweroff; bool screensaver,drawn_screensaver;uint8_t screensaver_position,drawn_screensaver_position,brightness_percent; int16_t temperature_qc; bool temperature_valid; struct r2_shadow_session_view shadow; struct r2_ui_sync_display sync_display; struct r2_ui_holds holds; struct r2_ui_menu menu;uint64_t menu_result_until;int menu_result;uint8_t menu_result_item;bool button_down,drawn_menu; };
+struct r2_ui_status {
+#ifdef R2_TZ_WIRE
+ struct r2_tz drawn_tz;uint8_t drawn_tz_flags;
+#endif
+ uint8_t drawn_lamps[8]; uint64_t profile_flash_until;bool profile_target_rc;uint32_t profile_toggles; uint64_t drawn_model_ms;unsigned drawn_role;uint32_t poll_max_ms;bool drawn_scope,drawn_ble,drawn_pps,drawn_map;bool drawn_time,drawn_coarse,drawn_sync_grace;int64_t drawn_utc_us;uint32_t frames,missed,buttons,max_frame_ms,last_frame_ms; int error; uint8_t page,drawn_page; bool ready,stopped,analog,help,poweroff; bool screensaver,drawn_screensaver;uint8_t screensaver_position,drawn_screensaver_position,brightness_percent; int16_t temperature_qc; bool temperature_valid; struct r2_shadow_session_view shadow; struct r2_ui_sync_display sync_display; struct r2_ui_holds holds; struct r2_ui_menu menu;uint64_t menu_result_until;int menu_result;uint8_t menu_result_item;bool button_down,drawn_menu; };
 uint8_t r2_ui_menu_enabled(const struct r2_ui_model *);
 /* Volatile, bounded 120ms tap /2200ms hold for exact-device console checks.
  * Uses the physical debounce/gesture path; zero cancels pending injection. */
@@ -102,6 +114,11 @@ bool r2_ui_face_locked(const struct r2_ui_model *,uint64_t now_ms);
 bool r2_ui_saver_allowed(const struct r2_ui_model *,uint64_t now_ms);
 bool r2_ui_analog(const struct r2_ui_model *m,uint64_t now);
 bool r2_ui_display_time(const struct r2_ui_model *,uint64_t now_ms,int64_t *utc_us,bool *coarse);
+#ifdef R2_TZ_WIRE
+void r2_ui_display_tz_update(struct r2_ui_model *,struct r2_tz previous,uint8_t source,
+ bool fresh);
+struct r2_tz r2_ui_display_zone(const struct r2_ui_model *,uint64_t now_ms,int64_t utc_us,uint8_t *flags);
+#endif
 #ifdef R2_LORA
 /* Current learned baseline: positive excess, or zero inside its noise floor. */
 bool r2_ui_lora_tof_ns(const struct r2_ui_model *,uint64_t now_ms,uint32_t *);

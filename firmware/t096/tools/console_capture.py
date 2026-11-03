@@ -16,6 +16,7 @@ import re
 import select
 import subprocess
 import termios
+import threading
 import time
 import tty
 import zlib
@@ -84,10 +85,34 @@ class Rotating:
             self.file.close()
 
 
+class OwnershipError(OSError):
+    """Fail-closed ownership decision with bounded original inspection evidence."""
+    def __init__(self, reason, evidence):
+        super().__init__('console ownership: '+reason)
+        self.evidence=dict(evidence, classification=reason)
+
+
+# A forked inspector briefly inherits all open console descriptors before exec,
+# even when they are non-inheritable. Keep another worker's lsof out of that
+# window. The capture tools launch their other children before opening consoles.
+_IDENTITY_SCAN_LOCK=threading.Lock()
+
+
 def resolve(serial, expected_pid=None):
-    """Fresh exact serial to callout mapping and numeric descriptor ownership."""
+    """Fresh exact mapping/ownership within one shared eight-second deadline."""
     deadline=time.monotonic()+8
-    tree = subprocess.check_output(['/usr/sbin/ioreg', '-r', '-c', 'IOUSBHostDevice', '-l', '-w', '0'], text=True, timeout=8)
+    if not _IDENTITY_SCAN_LOCK.acquire(timeout=max(0,deadline-time.monotonic())):
+        raise TimeoutError('identity scan deadline waiting for inspector')
+    try:
+        return _resolve_locked(serial,expected_pid,deadline)
+    finally:
+        _IDENTITY_SCAN_LOCK.release()
+
+
+def _resolve_locked(serial,expected_pid,deadline):
+    remaining=deadline-time.monotonic()
+    if remaining<=0:raise TimeoutError('identity scan deadline')
+    tree = subprocess.check_output(['/usr/sbin/ioreg', '-r', '-c', 'IOUSBHostDevice', '-l', '-w', '0'], text=True, timeout=remaining)
     ports = set()
     for block in re.split(r'(?=^\+-o )', tree, flags=re.M):
         serials = re.findall(r'"(?:USB Serial Number|kUSBSerialNumberString)" = "([^"]+)"', block)
@@ -99,16 +124,38 @@ def resolve(serial, expected_pid=None):
     remaining=deadline-time.monotonic()
     if remaining<=0:raise TimeoutError('identity scan deadline')
     aliases=[port,port.replace('/dev/cu.','/dev/tty.',1)]
-    owner = subprocess.run(['/usr/sbin/lsof', '-nPlX', '-Fp', *aliases], text=True, capture_output=True, timeout=remaining)
-    if owner.stderr.strip():
-        raise OSError('console ownership unknown')
-    pids = set(re.findall(r'^p(\d+)$', owner.stdout, flags=re.M))
+    command=['/usr/sbin/lsof', '-nPlX', '-Fp', *aliases]
+    evidence=dict(command=command, aliases=aliases, expected_pid=expected_pid,
+                  checked_utc=datetime.datetime.now(datetime.timezone.utc).isoformat())
+    def bounded(value):
+        if isinstance(value,bytes):value=value.decode('utf-8','replace')
+        value=value or ''
+        return value[:4096],len(value)>4096
+    try:
+        owner=subprocess.run(command, text=True, capture_output=True, timeout=remaining)
+    except (OSError,subprocess.TimeoutExpired) as e:
+        stdout,truncated_out=bounded(getattr(e,'stdout',None))
+        stderr,truncated_err=bounded(getattr(e,'stderr',None))
+        evidence.update(returncode=None,stdout=stdout,stderr=stderr,
+                        stdout_truncated=truncated_out,stderr_truncated=truncated_err,error=repr(e))
+        raise OwnershipError('inspection_failure',evidence) from e
+    stdout,truncated_out=bounded(owner.stdout);stderr,truncated_err=bounded(owner.stderr)
+    pids=set(re.findall(r'^p(\d+)$',owner.stdout,flags=re.M))
+    evidence.update(returncode=owner.returncode,stdout=stdout,stderr=stderr,
+                    stdout_truncated=truncated_out,stderr_truncated=truncated_err,pids=sorted(pids))
+    # macOS emits file-descriptor records even with -Fp. They describe the
+    # preceding process; only the complete process-ID set decides ownership.
+    shape=all(re.fullmatch(r'[pf]\d+',line) for line in owner.stdout.splitlines())
+    if owner.stderr.strip() or owner.returncode not in (0,1) or not shape:
+        raise OwnershipError('inspection_failure',evidence)
     if expected_pid is None:
-        safe = owner.returncode == 1 and not owner.stdout.strip()
+        safe=owner.returncode==1 and not owner.stdout.strip()
     else:
-        safe = owner.returncode == 0 and pids == {str(expected_pid)}
+        # macOS may return1 for one absent alias while still reporting this PID.
+        safe=pids=={str(expected_pid)}
     if not safe:
-        raise OSError('foreign or unknown console owner')
+        foreign=pids-({str(expected_pid)} if expected_pid is not None else set())
+        raise OwnershipError('foreign_owner' if foreign else 'ownership_unproven',evidence)
     return port
 
 
@@ -146,8 +193,44 @@ def close_serial(fd):
     return release_errors, close_errors
 
 
+class FaultSnapshot:
+    """One warning and one terminal burst through the same bound owner."""
+    def __init__(self):
+        self.previous=None
+        self.reason=None
+        self.done=set()
+        self.category=None
+
+    def observe(self, p):
+        if self.reason:return
+        fields=('late','storage_fail','missing_map')
+        if (p.get('fault') or p.get('error')) and 'terminal' not in self.done:
+            self.reason='fault/error';self.category='terminal'
+        elif 'warning' not in self.done and self.previous:
+            if any(p.get(k,0)>self.previous.get(k,0) for k in fields):
+                self.reason='timing/storage counter advanced';self.category='warning'
+            elif any(a>b for a,b in zip(p.get('hw_errors',[]),self.previous.get('hw_errors',[]))):
+                self.reason='hardware error counter advanced';self.category='warning'
+        self.previous=p
+
+    def collect(self, query, record):
+        if not self.reason:return
+        self.done.add(self.category)
+        until=time.monotonic()+12
+        record('fault_snapshot_begin',reason=self.reason,commands=['lora','status','clock'],budget_s=12)
+        completed=[]
+        try:
+            for op in ('lora','status','clock'):
+                if time.monotonic()>=until:break
+                if query(op,until) is not None:completed.append(op)
+        finally:
+            record('fault_snapshot_end',completed=completed,complete=len(completed)==3)
+            self.reason=self.category=None
+
+
 def capture(unit, config, out, seconds, rotate_bytes, stop=None, snapshot_interval=30,
-            snapshot_ops=None, poll_op=None, poll_interval=2, events=True, observer=None, budget=None):
+            snapshot_ops=None, poll_op=None, poll_interval=2, events=True, observer=None, budget=None,
+            fault_snapshot=False):
     folder = out / unit
     folder.mkdir(mode=0o700)
     raw, journal = [Rotating(folder, suffix, rotate_bytes) for suffix in ['raw', 'jsonl']]
@@ -172,6 +255,7 @@ def capture(unit, config, out, seconds, rotate_bytes, stop=None, snapshot_interv
     request = int(time.time() * 1000) & 0xffffffff
     timeout_streak = 0
     identity_at = 0
+    first_fault=FaultSnapshot() if fault_snapshot else None
 
     def record(kind, **values):
         entry=dict(utc=datetime.datetime.now(datetime.timezone.utc).isoformat(),
@@ -207,11 +291,11 @@ def capture(unit, config, out, seconds, rotate_bytes, stop=None, snapshot_interv
             raise OSError('unterminated serial record')
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as scanner:
-        def fresh(opened):
+        def fresh(opened, bound=None):
             nonlocal identity_at
             future = scanner.submit(resolve, config['usb_serial'], os.getpid() if opened else None)
             while not future.done():
-                if time.monotonic() >= deadline:
+                if time.monotonic() >= min(deadline,bound if bound is not None else deadline):
                     raise TimeoutError('capture deadline during identity scan')
                 if opened:
                     pump()
@@ -223,14 +307,15 @@ def capture(unit, config, out, seconds, rotate_bytes, stop=None, snapshot_interv
             identity_at=time.monotonic()
             return port
 
-        def query(op):
+        def query(op, bound=None):
             nonlocal request, boot, latest, timeout_streak
             # Exact allowlist: these variants never alter service/profile/parent.
             if op not in ('status', 'clock', 'precision', 'network', 'join', 'rc-parent', 'lora', 'lora-diag') and not re.fullmatch(r'events [0-9a-f]{8}', op):
                 raise ValueError('non-read-only query refused')
             # Keep the same exclusive FD and unit lock. Responses stay bound
             # to source/boot; refresh OS identity/ownership every five seconds.
-            if not boot or time.monotonic()-identity_at>=5:fresh(True)
+            if not boot or time.monotonic()-identity_at>=5:fresh(True,bound)
+            if bound is not None and time.monotonic()>=bound:raise TimeoutError('fault snapshot deadline')
             request += 1
             if request > 0xffffffff:
                 raise OverflowError('request exhausted')
@@ -240,7 +325,7 @@ def capture(unit, config, out, seconds, rotate_bytes, stop=None, snapshot_interv
                 raise OSError('partial command write')
             state['queries'] += 1
             record('query', request=request, op=op,command=command.decode().strip())
-            until = min(deadline, time.monotonic() + 2.5)
+            until = min(deadline, bound if bound is not None else deadline, time.monotonic() + 2.5)
             while time.monotonic() < until:
                 pump()
                 if latest is None or latest[0] != request:
@@ -257,6 +342,7 @@ def capture(unit, config, out, seconds, rotate_bytes, stop=None, snapshot_interv
                     raise ValueError('unit mismatch')
                 boot = observed
                 timeout_streak = 0
+                if first_fault and op=='lora-diag':first_fault.observe(value)
                 record('reply', op=op, payload=value)
                 return value
             state['timeouts'] += 1
@@ -294,6 +380,7 @@ def capture(unit, config, out, seconds, rotate_bytes, stop=None, snapshot_interv
                     snapshots_due=now+snapshot_interval
                 if poll_op and now>=poll_due:
                     query(poll_op)
+                    if first_fault:first_fault.collect(query,record)
                     poll_due=time.monotonic()+poll_interval
                 if events and version >= (0, 15, 56) and now>=events_due:
                     for _ in range(32):
@@ -319,7 +406,8 @@ def capture(unit, config, out, seconds, rotate_bytes, stop=None, snapshot_interv
             state['error'] = repr(e)
             if isinstance(e, InterruptedError) and stop is not None and stop.is_set():
                 state['status'] = 'STOPPED'
-            try:record('capture_error', error=repr(e))
+            if isinstance(e,OwnershipError):state['ownership_failure']=e.evidence
+            try:record('capture_error', error=repr(e), ownership=getattr(e,'evidence',None))
             except OSError:pass  # Storage exhaustion must still release the FD.
         finally:
             errors = []

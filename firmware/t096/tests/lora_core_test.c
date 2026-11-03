@@ -25,6 +25,17 @@ int main(void){
 #else
  assert(r2_parse(line,&r)==-ENOTSUP);strcat(line," 01");assert(r2_parse(line,&r)==-ENOTSUP);
 #endif
+ snprintf(line,sizeof line,"r2 00000001 1111111111111111 %s 2222222222222222 lora-utc",source);
+#ifdef R2_LORA
+ assert(!r2_parse(line,&r)&&r.op==R2_LORA_UTC&&!r.nonce);
+ strcat(line," 0000000000000001 80002710");assert(!r2_parse(line,&r)&&r.nonce==1&&r.seconds==10000&&r.trace_page==1);
+ line[strlen(line)-1]='1';assert(r2_parse(line,&r)==-EINVAL);
+ snprintf(line,sizeof line,"r2 00000001 1111111111111111 %s 2222222222222222 lora-utc 0000000000000001 00010000",source);assert(r2_parse(line,&r)==-EINVAL);
+ snprintf(line,sizeof line,"r2 00000001 1111111111111111 %s 2222222222222222 lora-utc 0000000000000000 00000000",source);assert(r2_parse(line,&r)==-EINVAL);
+ snprintf(line,sizeof line,"r2 00000001 1111111111111111 %s 2222222222222222 lora-utc 0000000000000001",source);assert(r2_parse(line,&r)==-EINVAL);
+#else
+ assert(r2_parse(line,&r)==-ENOTSUP);
+#endif
  uint64_t factory;assert(r2_factory_parse("0123456789abcdef",&factory)&&factory==UINT64_C(0x0123456789abcdef));assert(!r2_factory_parse("TC-01",&factory)&&!factory);assert(!r2_factory_parse("0000000000000000",&factory)&&!factory);
  snprintf(line,sizeof line,"r2 00000001 1111111111111111 %s 2222222222222222 lora-diag",source);
 #ifdef R2_LORA

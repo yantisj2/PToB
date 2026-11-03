@@ -110,7 +110,7 @@ static int probe_step(uint64_t);
 K_THREAD_STACK_DEFINE(worker_stack,2048);
 static struct k_thread worker_thread;
 #define WORKER_PRIORITY 11
-#define DRAIN_PRIORITY 9
+#define DRAIN_PRIORITY 10
 static uint64_t mono(void){return k_ticks_to_us_floor64(k_uptime_ticks());}
 static bool probe_lab(uint64_t now){return now<probe.lab_until;}
 static uint64_t probe_period(uint64_t now){return probe_lab(now)?PROBE_LAB_PERIOD_US:PROBE_PERIOD_US;}
@@ -1153,4 +1153,11 @@ int r2_lora_json(char *out,size_t capacity,int result){
  w.stage,w.stage_at,w.beat,w.monitor,w.closure,
  s.view.rtt_base_count,s.baseline_ns,s.floor_ns,applied,s.view.rtt_base_count==2&&applied>s.baseline_ns?applied-s.baseline_ns:0,
  h.rx_done,h.tx_done,h.crc_bad,h.overflow,h.spi_ok,h.spi_error,h.cutoffs,h.capture_epoch,h.generation,h.error,h.phase,h.invalid_capture,h.launch_aborts,h.busy_aborts,h.last_busy_op);
+}
+
+int r2_lora_utc_request(uint64_t token,uint32_t delay_ms,bool override){
+ (void)token;(void)delay_ms;(void)override;return -ENOTSUP;
+}
+int r2_lora_utc_json(char *out,size_t capacity,int result){
+ return snprintf(out,capacity,"{\"utc_job\":1,\"supported\":false,\"result\":%d,\"boot\":\"%016llx\"}",result?result:-ENOTSUP,(unsigned long long)physical_boot);
 }

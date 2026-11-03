@@ -2,91 +2,86 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
-The read-only harness runs without an active agent. Prepare and review the slow
-firmware first, then separately install and verify the exact devices before
-starting it. It does not flash, reset, clear faults, select profiles, enable RF,
-reconnect after a device reset or discipline a host clock. It tests scheduling,
-reception and relative timing in the existing lab antenna setup. It is not a
-range test or independent UTC/output calibration.
+This read-only harness measures scheduling, reception and relative timing after
+separately reviewed installation. It neither enables RF nor changes firmware,
+roles, faults or clocks. The [wire3 design](lora-protocol.md) defines matched
+slow 60/300 s receivers, one designated GM-profile emitter, source bounds,
+RAM-only accounting and diagnostic fields. Other GMs can supply BLE time without
+becoming LoRa emitters. Bind verified factories privately; no cross-boot airtime,
+range or FCC compliance follows from this test.
 
-The intended lab roles are TC-01 primary GM, TC-02 backup GM and TC-03/TC-04
-LoRa clients. Bind the verified factory identities privately at build time;
-use GM defaults for the first two and RC defaults for the clients. All normal
-GM/RC slow images request RX at boot. Backup TX requires a qualified explicit
-GM7 handoff; a persistent TX fault must be resolved through its separate guarded
-recovery process. Production admission preserves all earlier fast airtime debt,
-so a newly booted transmitter with more than72s debt can remain silent for a
-full hour. The harness must not interpret that interval as passed reception.
-
-Create a private configuration under ignored `artifacts/`. Each selected unit
-has the same exact-device fields used by `console_capture.py`:
+Create an ignored private configuration using `console_capture.py` exact-device
+fields from installed, readback-verified receipts. These placeholders fail validation:
 
 ```json
 {"devices":{"CLOCK":{"usb_serial":"verified serial","silicon_id":"16 lowercase hex digits","source":"64 lowercase hex digits","commit":"40 lowercase hex digits"}}}
 ```
 
-Use the source/commit from the installed, readback-verified candidate receipt.
-The example placeholders intentionally fail validation. The collector freshly
-resolves USB serials, checks both callout and TTY descriptor ownership, takes a
-unit lock and exclusive descriptor, then checks runtime unit/factory/source/
-commit/boot identity. CRC, response sequence and command identity remain checked
-throughout. Disconnect, reset or identity change ends the run for review.
+The collector resolves USB serials, checks callout/TTY ownership, takes exclusive
+unit/descriptor locks and verifies unit/factory/source/commit/boot. CRC, sequence
+and command identity remain checked throughout. Workers serialize ownership
+inspection within one 8 s deadline; unexpected ownership, disconnect, reset or
+identity change ends capture. No competing console reader is permitted.
 
 ```sh
 python3 firmware/t096/tools/lora_soak.py \
   --config artifacts/local/lora-soak-devices.json \
-  --unit TC-01 --unit TC-02 --unit TC-03 --unit TC-04 \
-  --receiver TC-03 --receiver TC-04 \
+  --unit SOURCE --unit CLIENT --receiver CLIENT \
   --max-rms-ns 10000 --duration 604800 \
   --out artifacts/lora-soak-01 --detach
 ```
 
-The10us example RMS threshold is an operator choice, not an established
-acceptance requirement. Set the agreed threshold explicitly. Duration means
-total capture time including stabilization: seven days by default, maximum
-fourteen. Initial stabilization has a separate two-hour timeout
-(`--stabilize-timeout`), allowing debt aging without an unbounded wait for the
-gate. `--detach` returns a PID and launcher log;
-the process survives the chat ending. Keep the Mac powered and awake; sleep
-or USB loss is retained as a gap/failure. Send `kill -TERM PID` for a clean stop.
-Stopping early returns STOPPED, never a passing completed soak.
+Include the designated TX: receiver-only captures cannot exclude manual UTC
+jobs between polls. The 10 µs RMS threshold is an operator example, not an accuracy
+specification. Duration includes stabilization: default seven days, maximum 14;
+`--stabilize-timeout` separately defaults to two hours. `--detach` returns a PID
+and log. Keep the Mac awake; sleep/USB loss remains a gap. `kill -TERM PID`
+closes capture as STOPPED, never a completed PASS.
 
-Every two seconds, `lora-diag` records original accepted event UTC/ticks,
-source/capture context, META serial, pair counts, native fit RMS, expiries and
-TX/RX errors. Detailed LoRa, clock, precision, network and status snapshots run
-every30s. Continuous serial draining retains firmware messages between polls.
-No fast periodic event-journal polling is added. The normal display refresh,
-BLE source deadlines and controller priorities remain independent.
+Compact `lora-diag` polling runs every 2 s; detailed LoRa, clock, precision, network
+and status snapshots run every 30 s. Continuous draining retains unsolicited
+messages. First counter transition and first terminal fault each trigger one
+bounded 12 s diagnostic burst through the same owned console. Neither clears
+state. Display ACQ/HOLD, visibility/progression, host gaps and drawn-TZ retention
+are reported separately; sampled availability cannot establish continuous uptime.
 
-Each required receiver must observe at least600 real continuous seconds and
-three advancing META boundaries in one authenticated source/capture context,
-advancing accepted UTC events, no missed/error counters or host gaps, and native
-training spanning at least180s within the configured RMS limit. Startup
-acquisition failures remain in the journal and restart that gate. A serial jump
-cannot substitute for elapsed time or a missed boundary. After both receivers
-pass, the harness marks SOAK and continues autonomously. Later failures remain
-counted even if service recovers; a recovered display cannot erase them.
+Each required receiver needs 600 real continuous seconds, three advancing
+ordinary META boundaries in one source/capture context, advancing accepted UTC,
+native training spanning 180 s within the chosen RMS limit, and no missed/late/error
+advances or host gaps. Slow cadence is independently bounded at 62.51 s;
+120 s hold and 420 s META lease cannot excuse a missed pair. Startup failures and
+TX errors restart continuity. A serial jump cannot substitute for elapsed time
+or a missed boundary. Every required receiver must pass before SOAK begins.
+Later violations remain counted even after recovery.
 
-`live.json` is atomically refreshed, `samples.csv` retains sampled timing
-metrics, and `failures.jsonl` records discontinuities. Per-device raw/JSONL
-files rotate at16MiB without deleting older evidence. `summary.json` records
-final capture status, all receiver gates and post-gate failures. The default
-total capture budget is2GiB with1GiB free-space reserve; exhaustion stops the
-run and releases descriptors instead of deleting history. Run with larger
-explicit budgets if the intended duration and observed data rate require it.
+A fresh matching TX boot/emitter is required. `manual_jobs` admission invalidates
+the window and `manual_active` blocks qualification; receiver progress must pass
+the latest `manual_serial`/`manual_stream` with an ordinary META before a new
+600 s/three-META gate. [Manual UTC jobs](lora-utc-diagnostic.md), simulated aging
+and advancing display-only ACQ/HOLD never qualify fresh service. Real failover
+changes context and restarts fitting/gating; retain it separately from steady
+source results.
 
-A PASS_RELATIVE_RECEPTION_SOAK requires completed clean captures, the initial
-gate, current qualification and zero post-gate violations. Native RMS values
-are overlapping relative link-fit residuals, not independent samples of UTC
-error. Counter totals and missing intervals stay alongside them. Failover
-changes context and restarts training/gating; preserve that result separately
-from a steady-source soak. No absolute precision or field-range claim follows.
+`live.json` refreshes atomically; `samples.csv` retains metrics and
+`failures.jsonl` discontinuities. Raw/JSONL files rotate at 16 MiB without deletion.
+`summary.json` retains final capture status, receiver gates and violations.
+Default disk allowance is 2 GiB with 1 GiB free reserve; exhaustion stops capture
+and releases descriptors. Preserve failures, missing intervals and denominators.
+
+PASS_RELATIVE_RECEPTION_SOAK requires the full requested duration, clean completed
+captures, current qualification and zero post-gate violations. Native RMS is
+an overlapping relative fit residual, not independent UTC/output error. Early
+stop remains STOPPED even after an initial gate passes. No range or absolute
+accuracy result follows. Dated outcomes belong in the
+[changelog](../../firmware/t096/CHANGELOG.md).
 
 Offline checks operate no hardware:
 
 ```sh
 python3 firmware/t096/tools/lora_soak_tests.py
 python3 firmware/t096/tests/test_console_capture.py
-python3 firmware/t096/tools/lora_slow_tests.py \
-  --deps artifacts/public-review/t096-deps --out artifacts/lora-slow-host-01
+python3 firmware/t096/tools/lora_ram_tests.py \
+  --deps artifacts/deps --out artifacts/lora-ram-host-01
+python3 firmware/t096/tools/lora_display_holdover_tests.py \
+  --deps artifacts/deps --out artifacts/lora-display-holdover-01
 ```

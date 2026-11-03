@@ -43,6 +43,7 @@
 #ifdef R2_RC_PROFILE
 #include "rc_unicast.h"
 #include "rc_dynamic_service.h"
+#include "runtime_profile.h"
 #endif
 #include "r2_enrollment.h"
 #endif
@@ -178,6 +179,8 @@ static uint32_t stack_unused(bool system_workqueue)
 static void __attribute__((noinline)) lora_reply(const struct r2_request *r,uint64_t arrival,int result)
 {
     int n;
+    if(r->op==R2_LORA_UTC)n=r2_lora_utc_json(json,sizeof json,result);
+    else
 #if defined(R2_LORA_PASSIVE_FAST)||defined(R2_LORA_PASSIVE_SLOW)
     if(r->op==R2_LORA_DIAGNOSTICS)n=r2_lora_diagnostics_json(json,sizeof json,result);
     else
@@ -200,7 +203,7 @@ static void __attribute__((noinline)) shadow_reply(const struct r2_request *r,ui
     char raw_phase_json[32];if(q.valid)snprintf(raw_phase_json,sizeof raw_phase_json,"%lld",(long long)raw_phase);else strcpy(raw_phase_json,"null");
     int n=snprintf(json,sizeof json,
       "{\"schema\":2,\"source\":\"%s\",\"commit\":\"%s\",\"silicon\":\"%s\",\"unit\":\"%s\",\"boot\":\"%016llx\",\"result\":%d,\"found\":%s,\"enabled\":%s,\"edges\":%u,\"queue_drops\":%u,\"overwritten\":%u,\"disabled_edges\":%u,\"duplicates\":%u,\"now_tick\":%llu,\"now_epoch\":%llu,\"sequence\":%u,\"edge_tick\":%llu,\"edge_epoch\":%llu,\"arrival_us\":%lld,\"reason\":%u,\"map_valid\":%s,\"map_generation\":%u,\"activation_lo\":%llu,\"activation_tick\":%llu,\"discipline_tick\":%llu,\"relay_ns\":%llu,\"utc_ns\":%lld,\"phase_ns\":%lld,\"pll\":%s,\"parent\":\"%016llx\",\"parent_boot\":\"%016llx\",\"root\":\"%016llx\",\"root_boot\":\"%016llx\",\"root_epoch\":%u,\"parent_epoch\":%u,\"train\":%u,\"accepted\":%u,\"root_issued_ns\":%llu,\"reference_seen\":%s,\"association\":%u,\"reference_fix\":%s,\"reference_pps\":%s,\"reference_reason\":%u,\"rmc_utc_us\":%lld,\"rmc_at_us\":%lld,\"applied_phase_correction_ns\":%d,\"input\":\"%s\",\"applied_lora_delay_ns\":%u,\"uncorrected_phase_ns\":%s,\"absolute_error_ns\":null}",
-      R2_SOURCE_SHA,R2_CHILD_COMMIT,identity.silicon,identity.unit,(unsigned long long)identity.boot,result,found?"true":"false",st.enabled?"true":"false",st.edges,st.drops,st.overwritten,st.disabled,st.duplicates,(unsigned long long)st.now_tick,(unsigned long long)st.epoch,q.sequence,(unsigned long long)q.edge.tick,(unsigned long long)q.edge.epoch,(long long)q.arrival_us,q.reason,q.valid?"true":"false",q.map.map.generation,(unsigned long long)q.map.lo,(unsigned long long)q.map.active,(unsigned long long)q.map.map.effective,(unsigned long long)q.relay_ns,(long long)q.utc_ns,(long long)q.phase_ns,q.pll?"true":"false",(unsigned long long)q.map.parent,(unsigned long long)q.map.parent_boot,(unsigned long long)q.map.root,(unsigned long long)q.map.root_boot,q.map.root_epoch,q.map.parent_epoch,q.map.train,q.map.accepted,(unsigned long long)q.map.issued,q.reference_seen?"true":"false",q.association,q.reference_fix?"true":"false",q.reference_pps?"true":"false",q.reference_reason,(long long)q.rmc_utc_us,(long long)q.rmc_at_us,q.map.lora?0:(r2_enrollment.boundary_field?rc_direct_pps_correction(r2_enrollment.boundary_profile):RC_DIRECT_PPS_CORRECTION_NS),q.map.lora?"LORA":q.map.normal?"BLE":"RC_FIELD",q.map.lora_delay_ns,raw_phase_json);
+      R2_SOURCE_SHA,R2_CHILD_COMMIT,identity.silicon,identity.unit,(unsigned long long)identity.boot,result,found?"true":"false",st.enabled?"true":"false",st.edges,st.drops,st.overwritten,st.disabled,st.duplicates,(unsigned long long)st.now_tick,(unsigned long long)st.epoch,q.sequence,(unsigned long long)q.edge.tick,(unsigned long long)q.edge.epoch,(long long)q.arrival_us,q.reason,q.valid?"true":"false",q.map.map.generation,(unsigned long long)q.map.lo,(unsigned long long)q.map.active,(unsigned long long)q.map.map.effective,(unsigned long long)q.relay_ns,(long long)q.utc_ns,(long long)q.phase_ns,q.pll?"true":"false",(unsigned long long)q.map.parent,(unsigned long long)q.map.parent_boot,(unsigned long long)q.map.root,(unsigned long long)q.map.root_boot,q.map.root_epoch,q.map.parent_epoch,q.map.train,q.map.accepted,(unsigned long long)q.map.issued,q.reference_seen?"true":"false",q.association,q.reference_fix?"true":"false",q.reference_pps?"true":"false",q.reference_reason,(long long)q.rmc_utc_us,(long long)q.rmc_at_us,q.map.lora?0:(r2_enrollment.boundary_field?rc_direct_pps_correction(r2_enrollment.boundary_profile):RC_DIRECT_PPS_CORRECTION_NS),q.map.lora?"LORA":q.map.local_hold?"BLE_LOCAL_HOLD":q.map.normal?"BLE":"RC_FIELD",q.map.lora_delay_ns,raw_phase_json);
     if(n<0||(size_t)n>=sizeof json||reply_sequence==UINT32_MAX)return;
 #ifdef R2_PC_PROFILE
     int extra=snprintf(json+n-1,sizeof json-(size_t)n+1,",\"image_profile\":\"PC\",\"pc_projection\":%s,\"experimental\":true}",q.map.experimental?"true":"false");
@@ -275,6 +278,26 @@ static void __attribute__((noinline)) reply_body(const struct r2_request *r,uint
   }
 #endif
 #ifdef R2_NATIVE_BLE
+  if(r->op==R2_HOLDOVER){
+#ifdef R2_RC_PROFILE
+    int test_result=0,n;
+    if(r->trace_page==3){
+      test_result=!r->nonce||(r2_switch_rc_active()&&maintenance.phase==R2_IDLE)?r2_radio_audit_capture((uint32_t)r->nonce):-EACCES;
+      n=r2_radio_audit_trace(json,sizeof json,UINT32_MAX);
+    }else if(r->trace_page==2)n=r2_radio_audit_trace(json,sizeof json,(uint32_t)r->nonce);
+    else{
+      test_result=r->seconds?(r2_switch_rc_active()&&maintenance.phase==R2_IDLE?r2_dynamic_service_holdover_test((uint32_t)r->nonce):-EACCES):0;
+      n=r2_dynamic_service_holdover_json(json,sizeof json,r->trace_page==1);
+    }
+    if(n>0&&(size_t)n<sizeof json){int extra=snprintf(json+n-1,sizeof json-(size_t)n+1,",\"source\":\"%s\",\"boot\":\"%016llx\",\"result\":%d}",R2_SOURCE_SHA,(unsigned long long)identity.boot,test_result);if(extra<0)n=-1;else n+=extra-1;}
+#else
+    int n=snprintf(json,sizeof json,"{\"available\":false}");
+#endif
+    if(n<=0||reply_sequence==UINT32_MAX)return;
+    n=r2_frame(frame,sizeof frame,r->id,++reply_sequence,json);
+    if(n>0)(void)r2_console_reply(frame,(size_t)n,arrival+R2_REPLY_MS);
+    return;
+  }
   if(r->op==R2_RADIO_AUDIT){
     struct r2_radio_audit_record q={0};struct r2_radio_audit_status st;
     bool found=r2_radio_audit_read((uint32_t)r->nonce,&q,&st);
@@ -357,13 +380,13 @@ static void __attribute__((noinline)) reply_body(const struct r2_request *r,uint
   if(r->op==R2_DIAG){
     uint8_t bytes[64];char encoded[129];int rc=r->trace_page>=256?r2_health_crash_read(r->trace_page-256,bytes):r2_diag_read(r->trace_page/128,r->trace_page%128,bytes);
     for(unsigned i=0;i<64;i++)snprintf(encoded+2*i,3,"%02x",rc?0:bytes[i]);
-    int n=snprintf(json,sizeof(json),"{\"source\":\"%s\",\"commit\":\"%s\",\"silicon\":\"%s\",\"unit\":\"%s\",\"boot\":\"%016llx\",\"result\":%d,\"diag_state\":%d,\"crash_persist_result\":%d,\"chunk\":%u,\"hex\":\"%s\"}",R2_SOURCE_SHA,R2_CHILD_COMMIT,identity.silicon,identity.unit,(unsigned long long)identity.boot,rc,r2_diag_state(),r2_diag_crash_result(),r->trace_page,encoded);
+    int n=snprintf(json,sizeof(json),"{\"source\":\"%s\",\"commit\":\"%s\",\"silicon\":\"%s\",\"unit\":\"%s\",\"boot\":\"%016llx\",\"result\":%d,\"runtime_state\":\"RAM_ONLY\",\"diag_state\":%d,\"crash_persist_result\":%d,\"chunk\":%u,\"hex\":\"%s\"}",R2_SOURCE_SHA,R2_CHILD_COMMIT,identity.silicon,identity.unit,(unsigned long long)identity.boot,rc,r2_diag_state(),r2_diag_crash_result(),r->trace_page,encoded);
     if(n<0||n>=(int)sizeof(json)||reply_sequence==UINT32_MAX)return;
     n=r2_frame(frame,sizeof(frame),r->id,++reply_sequence,json);if(n>0)(void)r2_console_reply(frame,(size_t)n,arrival+R2_REPLY_MS);return;
   }
   if(r->op==R2_NETWORK){
     struct r2_service_status s;r2_service_snapshot(&s);
-    int n=snprintf(json,sizeof(json),"{\"version\":\"%s\",\"source\":\"%s\",\"commit\":\"%s\",\"silicon\":\"%s\",\"unit\":\"%s\",\"boot\":\"%016llx\",\"at_us\":%llu,\"deadline_us\":%llu,\"active\":%s,\"closed\":%s,\"error\":%d,\"self\":%u,\"coordinator\":%u,\"root\":%u,\"standby\":%u,\"serving\":%s,\"peer_delivery_confirmed\":%s,\"follower\":%s,\"rx\":%u,\"authenticated\":%u,\"rejected\":%u,\"drops\":%u,\"transport_errors\":%u,\"transport_fault\":[%u,%d,%u,%llu],\"gatt_bridge\":[%u,%u,%u,%u,%s],\"control\":{\"management_until_us\":%llu,\"pair_until_us\":%llu,\"hot_withdrawals\":%u,\"last_hot_withdrawal_us\":%llu,\"last_hot_withdrawal_reason\":%u,\"record_age_us\":%u,\"record_age_max_us\":%u,\"rx_latency_max_us\":%u,\"rx_queue_peak\":%u,\"backlog\":%u},\"worker_max_us\":%u,\"cycles\":%u,\"members\":%u,\"service_receipts\":%u,\"service_until_us\":%llu,\"root_boot\":\"%016llx\",\"source_epoch\":%u,\"follower_utc_us\":%llu,\"follower_clock_valid\":%s,\"time_source\":\"%s\",\"close_deadline_us\":%llu,\"closed_at_us\":%llu,\"configured\":%s,\"diag_state\":%d,\"stack_unused_main\":%u,\"stack_unused_sysworkq\":%u,\"stack_unused_isr\":%u,\"stack_unused_owner\":%u,\"stack_unused_precision\":%u,\"pt\":[%u,%u,%u],\"supervision\":[%u,%llu,%llu,%u,%u,%u,%llu,%llu,%llu,%u],\"worker_stages\":[%u,%llu,%u,%llu,%u,%u,%u,%u,%u,%u,%u,%u],\"v14\":[%u,%u,%u,%llu,%llu,%llu,%llu],\"precision\":\"UNKNOWN\"}",
+    int n=snprintf(json,sizeof(json),"{\"version\":\"%s\",\"source\":\"%s\",\"commit\":\"%s\",\"silicon\":\"%s\",\"unit\":\"%s\",\"boot\":\"%016llx\",\"at_us\":%llu,\"deadline_us\":%llu,\"active\":%s,\"closed\":%s,\"error\":%d,\"self\":%u,\"coordinator\":%u,\"root\":%u,\"standby\":%u,\"serving\":%s,\"peer_delivery_confirmed\":%s,\"follower\":%s,\"rx\":%u,\"authenticated\":%u,\"rejected\":%u,\"drops\":%u,\"transport_errors\":%u,\"transport_fault\":[%u,%d,%u,%llu],\"gatt_bridge\":[%u,%u,%u,%u,%s],\"control\":{\"management_until_us\":%llu,\"pair_until_us\":%llu,\"hot_withdrawals\":%u,\"last_hot_withdrawal_us\":%llu,\"last_hot_withdrawal_reason\":%u,\"record_age_us\":%u,\"record_age_max_us\":%u,\"rx_latency_max_us\":%u,\"rx_queue_peak\":%u,\"backlog\":%u},\"worker_max_us\":%u,\"cycles\":%u,\"members\":%u,\"service_receipts\":%u,\"service_until_us\":%llu,\"root_boot\":\"%016llx\",\"source_epoch\":%u,\"follower_utc_us\":%llu,\"follower_clock_valid\":%s,\"time_source\":\"%s\",\"close_deadline_us\":%llu,\"closed_at_us\":%llu,\"configured\":%s,\"runtime_state\":\"RAM_ONLY\",\"diag_state\":%d,\"stack_unused_main\":%u,\"stack_unused_sysworkq\":%u,\"stack_unused_isr\":%u,\"stack_unused_owner\":%u,\"stack_unused_precision\":%u,\"pt\":[%u,%u,%u],\"supervision\":[%u,%llu,%llu,%u,%u,%u,%llu,%llu,%llu,%u],\"worker_stages\":[%u,%llu,%u,%llu,%u,%u,%u,%u,%u,%u,%u,%u],\"v14\":[%u,%u,%u,%llu,%llu,%llu,%llu],\"precision\":\"UNKNOWN\"}",
       R2_VERSION,R2_SOURCE_SHA,R2_CHILD_COMMIT,identity.silicon,identity.unit,(unsigned long long)identity.boot,
       (unsigned long long)s.at,(unsigned long long)s.deadline,s.active?"true":"false",s.closed?"true":"false",s.error,s.self,s.coordinator,s.root,s.standby,
       s.serving?"true":"false",s.peer_delivery_confirmed?"true":"false",s.follower?"true":"false",s.rx,s.authenticated,s.rejected,s.drops,s.errors,s.transport_fault.operation,s.transport_fault.error,s.transport_fault.peer,(unsigned long long)s.transport_fault.at,s.transport_fault.bridge_calls,s.transport_fault.bridge_queue_max_us,s.transport_fault.bridge_call_max_us,s.transport_fault.bridge_timeouts,s.transport_fault.bridge_pending?"true":"false",(unsigned long long)s.management_until,(unsigned long long)s.pair_until,s.hot_withdrawals,(unsigned long long)s.hot_withdrawal_at,s.hot_withdrawal_reason,s.record_age_us,s.record_age_max_us,s.rx_latency_max_us,s.rx_queue_peak,s.backlog,s.worker_max_us,s.cycles,s.members,s.service_receipts,(unsigned long long)s.service_until,(unsigned long long)s.root_boot,s.source_epoch,(unsigned long long)s.follower_utc,s.follower_clock_valid?"true":"false",s.serving?"GPS":s.follower&&s.follower_clock_valid?"BLE":"NONE",(unsigned long long)s.close_deadline,(unsigned long long)s.closed_at,s.configured?"true":"false",r2_diag_state(),stack_unused(false),stack_unused(true),isr_stack_unused(),r2_service_stack_unused(),r2_radio_service_stack_unused(),s.precision.pt_cycles,s.precision.pt_wall_max_us,s.precision.pt_capture_age_max_us,s.supervision.state,(unsigned long long)s.supervision.submitted,(unsigned long long)s.supervision.started,s.supervision.queue_max_us,s.supervision.late_queues,s.supervision.fault_site,(unsigned long long)s.supervision.fault_at,(unsigned long long)s.supervision.fault_submitted,(unsigned long long)s.supervision.fault_started,s.supervision.fault_state,s.supervision.stage,(unsigned long long)s.supervision.stage_at,s.supervision.fault_stage,(unsigned long long)s.supervision.fault_stage_at,s.supervision.owner_max_us,s.supervision.stage_max_us[0],s.supervision.stage_max_us[1],s.supervision.stage_max_us[2],s.supervision.stage_max_us[3],s.supervision.stage_max_us[4],s.supervision.stage_max_us[5],s.supervision.stage_max_us[6],s.membership_mask,s.standby_authorized,s.takeover_pending,(unsigned long long)s.root_health_at,(unsigned long long)s.takeover_started,(unsigned long long)s.takeover_not_before,(unsigned long long)s.relay.recovery_until);
@@ -439,12 +462,12 @@ static void __attribute__((noinline)) reply_body(const struct r2_request *r,uint
   if(used+3>sizeof(json)) return;
   memcpy(json+used,"]}",3);
 #if defined(R2_TZ_WIRE) && defined(R2_NATIVE_BLE)
-  struct r2_tz tz=net_status.tz;
+  struct r2_tz tz=u.drawn_tz;
   int64_t local=0;
-  bool local_valid=u.drawn_time&&r2_tz_local_us(tz,u.drawn_utc_us,&local);
+  bool local_valid=u.drawn_time&&(u.drawn_tz_flags&R2_UI_TZ_LOCAL_VALID)&&r2_tz_local_us(u.drawn_tz,u.drawn_utc_us,&local);
   int extra=snprintf(json+used+1,sizeof(json)-used-1,
-    ",\"tz\":{\"id\":%u,\"offset_min\":%d,\"local_valid\":%s,\"local_us\":%lld}}",
-    tz.id,tz.offset_min,local_valid?"true":"false",(long long)local);
+    ",\"tz\":{\"id\":%u,\"offset_min\":%d,\"local_valid\":%s,\"local_us\":%lld,\"display_flags\":%u,\"live\":[%u,%d]}}",
+    tz.id,tz.offset_min,local_valid?"true":"false",(long long)local,u.drawn_tz_flags,net_status.tz.id,net_status.tz.offset_min);
   if(extra<0 || (size_t)extra>=sizeof(json)-used-1)return;
 #ifdef R2_TZ_AUTO
   struct r2_tz_local_status tz_local;
@@ -452,7 +475,7 @@ static void __attribute__((noinline)) reply_body(const struct r2_request *r,uint
   size_t tz_end=used+1+(size_t)extra;
   int detail=snprintf(json+tz_end-2,sizeof(json)-tz_end+2,
     ",\"mode\":%u,\"selected\":%u,\"position_age_us\":%llu,\"confirmed_age_us\":%llu,"
-    "\"hold\":%s,\"reason\":\"%s\",\"database\":\"%s\",\"database_until_utc\":1956528000}}",
+    "\"hold\":%s,\"reason_scope\":\"LOCAL_GNSS\",\"reason\":\"%s\",\"database\":\"%s\",\"database_until_utc\":1956528000}}",
     tz_local.mode,tz_local.selected,(unsigned long long)tz_local.position_age_us,
     (unsigned long long)tz_local.confirmed_age_us,tz_local.hold?"true":"false",
     r2_tz_reason_name(tz_local.reason),r2_tz_db_version());
@@ -466,7 +489,7 @@ static void __attribute__((noinline)) reply_body(const struct r2_request *r,uint
 static void __attribute__((noinline)) reply(const struct r2_request *r,uint64_t arrival,int result)
 {
 #ifdef R2_LORA
-  if(r->op==R2_LORA_CONTROL||r->op==R2_LORA_RTT||r->op==R2_LORA_DIAGNOSTICS){lora_reply(r,arrival,result);return;}
+  if(r->op==R2_LORA_CONTROL||r->op==R2_LORA_RTT||r->op==R2_LORA_DIAGNOSTICS||r->op==R2_LORA_UTC){lora_reply(r,arrival,result);return;}
 #endif
 #ifdef R2_NATIVE_BLE
   if(r->op==R2_SHADOW){shadow_reply(r,arrival,result);return;}
@@ -503,7 +526,7 @@ static void hot_report(const struct r2_service_status *s,const struct r2_clock *
 /* Descriptive sender identity only; never timing selection or authority. */
 static void lora_ui_view(struct r2_ui_model *m){
  uint64_t emitter;char received[25];r2_lora_view_named(&m->lora,&emitter,received);
- if(m->lora.choice==RC8_SELECT_LORA||m->lora.display_held||
+ if(m->lora.choice==RC8_SELECT_LORA||m->lora.display_held||m->lora.display_acquiring||
     (m->ble_rx_supported&&!m->ble_rx_requested&&m->lora.requested&&!m->lora.transmitter)){
   if(received[0])memcpy(m->upstream_name,received,sizeof m->upstream_name);
   else if(emitter)snprintf(m->upstream_name,sizeof m->upstream_name,"%04x",(unsigned)(emitter&UINT16_MAX));
@@ -856,6 +879,9 @@ int main(void)
 #ifdef R2_LORA
         } else if(r.op==R2_LORA_CONTROL){
           if(r.seconds){rc=maintenance.phase==R2_IDLE&&platform_ready?0:-EACCES;if(!rc)r2_lora_request(r.nonce!=0);}
+        } else if(r.op==R2_LORA_UTC){
+          if(r.nonce){rc=maintenance.phase==R2_IDLE&&platform_ready?0:-EACCES;
+            if(!rc)rc=r2_lora_utc_request(r.nonce,r.seconds,r.trace_page!=0);}
         } else if(r.op==R2_LORA_RTT){
 #if defined(R2_LORA_PASSIVE_FAST) || defined(R2_LORA_PASSIVE_SLOW)
           rc=-ENOTSUP;

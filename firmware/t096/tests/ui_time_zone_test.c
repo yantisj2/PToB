@@ -35,10 +35,9 @@ int main(int argc,char **argv){
  s.screensaver=false;m.tz.offset_min=-360;
  assert(!strcmp(r2_ui_clock_zone(&m,1000,m.clock.utc_us,&shown),"CST")&&shown==15042250000LL);
  r2_ui_render(actual,&m,&s,1000);save(argv[1],"clock-cst",actual);
- /* Known coarse TZ labels survive loss of the precision/time presentation. */
+ /* Learned metadata does not convert an unavailable UTC presentation. */
  struct r2_ui_model blank=m;blank.clock.valid=false;blank.tz=r2_tz_manual();
  r2_ui_render(actual,&blank,&s,1000);blank.tz_until_us=0;r2_ui_render(reference,&blank,&s,1000);
- fill(reference,8,20,18,7,C_PANEL);label(reference,8,20,"CDT",1,C_DIM);
  assert(!memcmp(actual,reference,sizeof actual));
  /* UTC02:00 is local21:00 on the previous date, shared by both faces. */
  struct r2_ui_model rollover=m;rollover.tz=r2_tz_manual();rollover.clock.utc_us=7200000000LL;

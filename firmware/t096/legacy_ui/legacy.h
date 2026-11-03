@@ -52,7 +52,7 @@ typedef struct {
     bool native_profile_supported,native_profile_rc,native_rc_serving_clients;uint8_t native_time_relay_hops;
     bool native_hot_standby; /* Current local hot standby, never mere selection. */
     bool native_ble_time; /* Selected network UTC; local GPS remains diagnostic only. */
-    bool native_lora_source; /* Selected/expected LoRa display; no BLE/PLL authority. */
+    bool native_lora_source,native_lora_acquiring; /* Selected/expected LoRa display; no BLE/PLL authority. */
     uint8_t native_rx_bars;
     bool native_rx_known;
     uint8_t native_reason; /* Functional panel reason; no precision-error inference. */
