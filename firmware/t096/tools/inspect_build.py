@@ -133,15 +133,22 @@ def inspect(out,allow_development=False):
     # .215 actual GM/RC affected objects total23795B. Bound the entire new
     # half-duplex/probe/TZ/rate addition, including all copied UI snapshots.
     lora_stage2_allowance=(1536 if passive and tuple(map(int,r['version'].split('.')))>=(0,15,251) else 512) if lora_display_allowance and tuple(map(int,r['version'].split('.')))>=(0,15,216) else 0
+    # .272's exact affected-object increment is1510B. Schedule3 adds only
+    # sparse-fit scalars and a copied committed model, with no history array,
+    # stack or buffer increase. Charge this separately, bounded at128B; the
+    # original stage2 ceiling and absolute1024B RAM floor remain visible.
+    lora_enhanced_allowance=128 if slow and tuple(map(int,r['version'].split('.')))>=(0,15,273) else 0
     lora_stage2_added=max(0,sum(lora_display_mutable.values())-23795)
+    lora_enhanced_added=max(0,lora_stage2_added-1510) if lora_enhanced_allowance else 0
+    require(lora_enhanced_added<=lora_enhanced_allowance,'Sparse LoRa servo exceeds128B added native state')
     if lora_stage2_allowance:
-        require(lora_stage2_added<=lora_stage2_allowance,'LoRa runtime exceeds its bounded mutable state allocation')
+        require(lora_stage2_added<=lora_stage2_allowance+lora_enhanced_allowance,'LoRa runtime exceeds its bounded mutable state allocation')
         require((({'lp_decode','lp_tx_reserve_control','lp_rx_follow','lp_tx_start','r2_lora_hw_passive_configure','r2_lora_shadow_publish'}| (set() if r.get('lora_tx_diagnostic') else {'lp_encode'})) if passive else {'rc8_probe_encode','rc8_probe_decode','r2_lora_hw_idle','r2_lora_tz_publish'})<=linked_names,'Missing selected LoRa integration')
     lora_display_added=max(0,sum(lora_display_mutable.values())-23606)
     if lora_display_allowance:
         require(({'r2_lora_name_publish','lp_context'} if passive else {'r2_lora_name_publish','rc8_name_encode','rc8_name_decode'})<=linked_names,'Missing authenticated LoRa metadata')
         require(all(lora_display_mutable.values()),'Missing linked LoRa display allocation accounting')
-        require(lora_display_added<=lora_display_allowance+lora_stage2_allowance,'LoRa name/display state exceeds256B addition')
+        require(lora_display_added<=lora_display_allowance+lora_stage2_allowance+lora_enhanced_allowance,'LoRa name/display state exceeds bounded addition')
     if menu_allowance:
         require({'r2_ui_press','r2_ui_menu_result','r2_service_ble_rx'}<=linked_names,'Missing ordinary menu/receive controls')
         require(0<ui_mutable_bytes<=18145+menu_allowance+lora_stage2_allowance,'Menu exceeds128B added mutable UI state')
@@ -434,7 +441,7 @@ def inspect(out,allow_development=False):
     if diagnostic:private_sha=hashlib.sha256((private_sha+':controller-diag:1').encode()).hexdigest()
     binding=hashlib.sha256((r['source_sha256']+':'+private_sha+':'+sha(out/'target/zephyr/.config')).encode()).hexdigest()
     require(binding==r['watchdog_binding_sha256'],'Watchdog binding')
-    return {'audit_mutable_bytes':audit_mutable_bytes,'audit_mutable_budget_bytes':1108,'holdover_mutable_bytes':holdover_mutable_bytes,'holdover_mutable_budget_bytes':1280,'status':'PASS','flash_load_end':flash_end,'ram_allocated_end':ram_end,'static_unallocated_bytes':0x20040000-ram_end,'crash_diagnostic_static_allowance_bytes':crash_allowance,'rc8_incremental_static_budget_bytes':4096,'hot_diagnostic_static_budget_bytes':hot_allowance,'tz_static_budget_bytes':tz_allowance,'auto_tz_static_budget_bytes':auto_tz_allowance,'menu_static_budget_bytes':menu_allowance,'ui_mutable_symbol_bytes':ui_mutable_bytes,'lora_stage2_static_budget_bytes':lora_stage2_allowance,'lora_stage2_added_mutable_bytes':lora_stage2_added,'lora_display_static_budget_bytes':lora_display_allowance,'lora_display_added_mutable_bytes':lora_display_added,'lora_display_mutable_by_unit':lora_display_mutable,'lora_passive_fast':r.get('lora_passive_fast',False),'lora_passive_slow':slow,'executable_end_exclusive':executable_end,'hardware':'NOT_TESTED','deployment_authorized':False}
+    return {'lora_enhanced_added_mutable_bytes':lora_enhanced_added,'lora_enhanced_mutable_budget_bytes':lora_enhanced_allowance,'audit_mutable_bytes':audit_mutable_bytes,'audit_mutable_budget_bytes':1108,'holdover_mutable_bytes':holdover_mutable_bytes,'holdover_mutable_budget_bytes':1280,'status':'PASS','flash_load_end':flash_end,'ram_allocated_end':ram_end,'static_unallocated_bytes':0x20040000-ram_end,'crash_diagnostic_static_allowance_bytes':crash_allowance,'rc8_incremental_static_budget_bytes':4096,'hot_diagnostic_static_budget_bytes':hot_allowance,'tz_static_budget_bytes':tz_allowance,'auto_tz_static_budget_bytes':auto_tz_allowance,'menu_static_budget_bytes':menu_allowance,'ui_mutable_symbol_bytes':ui_mutable_bytes,'lora_stage2_static_budget_bytes':lora_stage2_allowance,'lora_stage2_added_mutable_bytes':lora_stage2_added,'lora_display_static_budget_bytes':lora_display_allowance,'lora_display_added_mutable_bytes':lora_display_added,'lora_display_mutable_by_unit':lora_display_mutable,'lora_passive_fast':r.get('lora_passive_fast',False),'lora_passive_slow':slow,'executable_end_exclusive':executable_end,'hardware':'NOT_TESTED','deployment_authorized':False}
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)

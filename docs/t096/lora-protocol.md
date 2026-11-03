@@ -113,6 +113,9 @@ with explicit conversion between local-frequency and LoRa correction signs.
 No BLE/GNSS sample trains this LoRa model. Unlike dense BLE fits, the sparse
 fits cannot center repeated channels within their short history; channel delay
 and propagation remain uncalibrated.
+Native inspection separately bounds the added sparse-fit/model scalars and their
+published copy to128B above the inspected .272 baseline, retaining the existing
+histories, stacks, buffers and absolute1024B static RAM floor.
 
 Phase is the median historical pair projection at the selected causal rate,
 not the latest raw packet timestamp. The owner commits at an actual current
