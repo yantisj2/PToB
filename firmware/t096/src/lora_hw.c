@@ -742,7 +742,7 @@ int r2_lora_hw_passive_configure(enum r2_lora_passive_phy phy,unsigned channel){
   atomic_clear(&prepared_budget);
   if((phy!=R2_LORA_DTS&&phy!=R2_LORA_FHSS
 #ifdef R2_LORA_BW_EXPERIMENT
-      &&phy!=R2_LORA_FHSS_BW500
+      &&phy!=R2_LORA_FHSS_BW500&&phy!=R2_LORA_FHSS_BW62_5&&phy!=R2_LORA_FHSS_BW125&&phy!=R2_LORA_FHSS_BW250
 #endif
       )||channel>=64||(phy==R2_LORA_DTS&&channel))return -EINVAL;
   if(!atomic_get(&running)||atomic_get(&fault))return -ECANCELED;
@@ -754,7 +754,7 @@ int r2_lora_hw_passive_configure(enum r2_lora_passive_phy phy,unsigned channel){
   uint8_t frequency[]={(uint8_t)(word>>24),(uint8_t)(word>>16),(uint8_t)(word>>8),(uint8_t)word};
   const uint8_t mod[]={phy==R2_LORA_DTS?12:7,
 #ifdef R2_LORA_BW_EXPERIMENT
-    phy==R2_LORA_FHSS?10:6,
+    phy==R2_LORA_FHSS?10:phy==R2_LORA_FHSS_BW62_5?3:phy==R2_LORA_FHSS_BW125?4:phy==R2_LORA_FHSS_BW250?5:6,
 #else
     phy==R2_LORA_DTS?6:10,
 #endif
@@ -773,6 +773,9 @@ uint32_t r2_lora_hw_budget_us(size_t n) {
   if(passive_phy==R2_LORA_FHSS)return n==24?231951:n==32?268814:0;
 #ifdef R2_LORA_BW_EXPERIMENT
   if(passive_phy==R2_LORA_FHSS_BW500)return n==24?28496:n==32?31568:0;
+  if(passive_phy==R2_LORA_FHSS_BW62_5)return n==24?157968:n==32?182544:0;
+  if(passive_phy==R2_LORA_FHSS_BW125)return n==24?83984:n==32?96272:0;
+  if(passive_phy==R2_LORA_FHSS_BW250)return n==24?46992:n==32?53136:0;
 #endif
   return 0; /* This image cannot accidentally transmit the old wire/PHY. */
 #else
@@ -843,7 +846,11 @@ static int prepare_tx(const uint8_t *bytes,size_t n,uint32_t gen) {
   uint8_t modulation;
   if(!rc)rc=reg_read(0x0889,&modulation);
   if(!rc){
+#ifdef R2_LORA_BW_EXPERIMENT
+    if(passive_phy!=R2_LORA_DTS&&passive_phy!=R2_LORA_FHSS_BW500)modulation|=4u;
+#else
     if(passive_phy==R2_LORA_FHSS)modulation|=4u;
+#endif
     else modulation&=(uint8_t)~4u;
     rc=reg_write(0x0889,modulation);
   }

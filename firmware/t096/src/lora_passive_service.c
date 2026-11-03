@@ -43,7 +43,7 @@
 #define DIAGNOSTIC_CAPTURE_US UINT64_C(1500000)
 #elif defined(R2_LORA_BW_EXPERIMENT)
 #ifdef R2_LORA_PASSIVE_SLOW
-#define LAB_RUN_US UINT64_C(480000000)
+#define LAB_RUN_US UINT64_C(600000000)
 #else
 #define LAB_RUN_US UINT64_C(240000000)
 #endif
@@ -56,7 +56,11 @@
 #define DIAGNOSTIC_JSON "false"
 #endif
 #ifdef R2_LORA_BW_EXPERIMENT
+#ifdef R2_LORA_PASSIVE_SLOW
+#define BW_EXPERIMENT_JSON "\"bw_experiment\":true,\"bw_rule\":\"FWD_REV_CURSOR_DIV2\",\"precision_sf\":7,\"common_grid_phase_us\":400000,\"bw_hz\":[41667,62500,125000,250000,500000],\"arm_phy\":[2,4,5,6,3],\"precision_channels\":[16,48],"
+#else
 #define BW_EXPERIMENT_JSON "\"bw_experiment\":true,\"bw_rule\":\"ABBA_CURSOR_DIV2\",\"precision_sf\":7,\"common_grid_phase_us\":400000,\"bw_hz\":[41667,500000],"
+#endif
 #define SOURCE_GRID_PHASE_NS UINT64_C(400000000)
 #else
 #define BW_EXPERIMENT_JSON ""
@@ -554,9 +558,12 @@ static bool physical(const struct r2_lora_hw_event *h,uint64_t *event){
 }
 static unsigned precision_phy(uint32_t cursor){
 #ifdef R2_LORA_BW_EXPERIMENT
- /* Authenticated cursor chooses A B B A; SYNC and FOLLOW share one arm.
-  * Original64-hop mapping and20s channel cooldowns are unchanged. */
+#ifdef R2_LORA_PASSIVE_SLOW
+ static const uint8_t phy[5]={R2_LORA_FHSS,R2_LORA_FHSS_BW62_5,R2_LORA_FHSS_BW125,R2_LORA_FHSS_BW250,R2_LORA_FHSS_BW500};
+ return phy[lp_bw_arm(cursor)];
+#else
  return lp_bw_arm(cursor)?R2_LORA_FHSS_BW500:R2_LORA_FHSS;
+#endif
 #else
  (void)cursor;return R2_LORA_FHSS;
 #endif

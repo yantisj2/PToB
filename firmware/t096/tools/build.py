@@ -191,18 +191,18 @@ def main():
                'lora_tx_diagnostic':args.lora_tx_diagnostic,
                'lora_bw_experiment':args.lora_bw_experiment,
                'runtime_state':'RAM_ONLY','passive_wire_version':3,
-               'secondary_lora_class':('RAM_BW_AB_30' if args.lora_passive_slow else 'RAM_BW_AB_4_12') if args.lora_bw_experiment else 'RAM_DIAG_4_12' if args.lora_tx_diagnostic else 'RAM_30_120_300' if args.lora_passive_slow else 'RAM_LAB_4_12' if args.lora_passive_fast else 'RC8' if int(transmitter,16) else 'DISABLED',
+               'secondary_lora_class':('RAM_BW_SWEEP_30' if args.lora_passive_slow else 'RAM_BW_AB_4_12') if args.lora_bw_experiment else 'RAM_DIAG_4_12' if args.lora_tx_diagnostic else 'RAM_30_120_300' if args.lora_passive_slow else 'RAM_LAB_4_12' if args.lora_passive_fast else 'RC8' if int(transmitter,16) else 'DISABLED',
                'lora_passive_fast':args.lora_passive_fast}
     receipt['time_zone'] = tz
     if args.lora_bw_experiment:
-        receipt['bandwidth_experiment'] = dict(schedule=6 if args.lora_passive_slow else 5,arm_us=480000000 if args.lora_passive_slow else 240000000,one_arm_per_boot=True,common_grid_phase_us=400000,
+        receipt['bandwidth_experiment'] = dict(schedule=7 if args.lora_passive_slow else 5,arm_us=600000000 if args.lora_passive_slow else 240000000,one_arm_per_boot=True,common_grid_phase_us=400000,
             default_on=False,precision_sf=7,precision_bandwidth_hz=[41667,500000],
             assignment='ABBA_CURSOR_DIV2',control='SF12_BW500',hopping='UNCHANGED_64',
             accounting='CONSERVATIVE_NARROW_BOTH_ARMS',purpose='RAW_ENDPOINT_CHARACTERIZATION_ONLY')
     if args.lora_bw_experiment and args.lora_passive_slow:
-        receipt['bandwidth_experiment'].update(precision_us=30000000,sync_offset_us=7000000,follow_offset_us=2500000,follow_latest_us=4500000,frame_us=15000000)
+        receipt['bandwidth_experiment'].update(precision_bandwidth_hz=[41667,62500,125000,250000,500000],assignment='FWD_REV_CURSOR_DIV2',hopping='FIXED_2_ACTUAL_ACCOUNTING',precision_channels=[16,48],arm_phy=[2,4,5,6,3],precision_us=30000000,sync_offset_us=7000000,follow_offset_us=2500000,follow_latest_us=4500000,frame_us=15000000)
     if args.lora_passive_slow:
-        receipt['passive_schedule'] = dict(id=6 if args.lora_bw_experiment else 3,precision_us=30000000,discovery_us=120000000,
+        receipt['passive_schedule'] = dict(id=7 if args.lora_bw_experiment else 3,precision_us=30000000,discovery_us=120000000,
                                          metadata_us=300000000,rolling_hour_cap_us=108000000)
     receipt['gm7_controller'] = None if not args.gm7 else {
         'manifest_sha256':sha(APP/'cmake/gm7-controller.json'),
@@ -295,7 +295,7 @@ def main():
         if args.lora_passive_slow:private_hash=hashlib.sha256((private_hash+':lora-passive:RAM_30_120_300').encode()).hexdigest()
         if args.lora_passive_fast:private_hash=hashlib.sha256((private_hash+':lora-passive:RAM_LAB_4_12').encode()).hexdigest()
         if args.lora_tx_diagnostic:private_hash=hashlib.sha256((private_hash+':tx-diagnostic:1').encode()).hexdigest()
-        if args.lora_bw_experiment:private_hash=hashlib.sha256((private_hash+(':bw-experiment:ABBA_SF7_SLOW30_480S' if args.lora_passive_slow else ':bw-experiment:ABBA_SF7_240S')).encode()).hexdigest()
+        if args.lora_bw_experiment:private_hash=hashlib.sha256((private_hash+(':bw-experiment:SWEEP_SF7_SLOW30_600S_FIXED16_48' if args.lora_passive_slow else ':bw-experiment:ABBA_SF7_240S')).encode()).hexdigest()
         if args.controller_diagnostics:private_hash=hashlib.sha256((private_hash+':controller-diag:1').encode()).hexdigest()
         binding=hashlib.sha256((source_hash+':'+private_hash+':'+sha(target/'.config')).encode()).hexdigest()
         if '#define R2_WATCHDOG_BINDING "'+binding+'"' not in (out/'target/build_identity.h').read_text():

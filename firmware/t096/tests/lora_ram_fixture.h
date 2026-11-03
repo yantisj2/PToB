@@ -63,7 +63,15 @@ static bool capture_valid=true;static unsigned tuning_phy,tuning_channel,cancel_
 bool r2_capture_now(struct r2_capture *c){*c=(struct r2_capture){.tick=now_us*16,.epoch=fake_capture_epoch,.kind=R2_CAPTURE_NOW};if(capture_now_hook){void (*hook)(void)=capture_now_hook;capture_now_hook=NULL;hook();}return capture_valid;}
 bool r2_capture_now_at(struct r2_capture *c,uint64_t *us){*us=now_us;return r2_capture_now(c);}
 int r2_lora_hw_start(uint32_t g,bool rx){fake_tx_capture_live=false;(void)g;assert(!rx);if(cancel_on==1){cancel_on=0;r2_lora_source_withdraw();return -ECANCELED;}return 0;}
-uint32_t r2_lora_hw_budget_us(size_t n){for(unsigned k=LP_DISC;k<=LP_FOLLOW;k++)if(lp_size(k)==n)return lp_duration(k);return 0;}
+uint32_t r2_lora_hw_budget_us(size_t n){
+#ifdef R2_LORA_BW_EXPERIMENT
+ if(tuning_phy==R2_LORA_FHSS_BW62_5)return n==24?157968:n==32?182544:0;
+ if(tuning_phy==R2_LORA_FHSS_BW125)return n==24?83984:n==32?96272:0;
+ if(tuning_phy==R2_LORA_FHSS_BW250)return n==24?46992:n==32?53136:0;
+ if(tuning_phy==R2_LORA_FHSS_BW500)return n==24?28496:n==32?31568:0;
+#endif
+ for(unsigned k=LP_DISC;k<=LP_FOLLOW;k++)if(lp_size(k)==n)return lp_duration(k);return 0;
+}
 int r2_lora_hw_tx_before(const uint8_t *p,size_t n,uint32_t g,uint64_t before){assert(now_us+r2_lora_hw_budget_us(n)<=before);++txs;fake_tx_capture_live=true;sent_at_us=now_us;sent_len=n;memcpy(sent,p,n);sent_generation=g;return 0;}
 /* Use the real capture-only admission/diagnostic implementation extracted
  * from lora_hw.c. Only SPI duration and physical completion are synthetic. */

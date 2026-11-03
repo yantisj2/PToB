@@ -16,12 +16,26 @@
 #define LP_MINUTE_US UINT64_C(60000000)
 #ifdef R2_LORA_BW_EXPERIMENT
 static inline unsigned lp_bw_arm(uint32_t cursor){
+#ifdef R2_LORA_PASSIVE_SLOW
+ unsigned step=(cursor/2)%10;return step<5?step:9-step;
+#else
  unsigned slot=(cursor/2)%4;return slot==1||slot==2;
+#endif
+}
+static inline uint32_t lp_bw_packet_budget_us(uint32_t cursor,unsigned bytes){
+ if(bytes!=24&&bytes!=32)return 0;
+#ifdef R2_LORA_PASSIVE_SLOW
+ static const uint32_t sync[5]={231951,157968,83984,46992,28496};
+ static const uint32_t follow[5]={268814,182544,96272,53136,31568};
+ return bytes==24?sync[lp_bw_arm(cursor)]:follow[lp_bw_arm(cursor)];
+#else
+ return lp_bw_arm(cursor)?(bytes==24?28496:31568):(bytes==24?231951:268814);
+#endif
 }
 #endif
 #ifdef R2_LORA_PASSIVE_SLOW
 #ifdef R2_LORA_BW_EXPERIMENT
-#define LP_SCHEDULE 6u
+#define LP_SCHEDULE 7u
 #else
 #define LP_SCHEDULE LP_SLOW
 #endif
@@ -51,7 +65,7 @@ static inline unsigned lp_bw_arm(uint32_t cursor){
 #define LP_LEASE_US UINT64_C(420000000)
 #define LP_CAP_US UINT64_C(108000000)
 #ifdef R2_LORA_BW_EXPERIMENT
-#define LP_PROFILE_NAME "RAM_BW_AB_30"
+#define LP_PROFILE_NAME "RAM_BW_SWEEP_30"
 #else
 #define LP_PROFILE_NAME "RAM_30_120_300"
 #endif

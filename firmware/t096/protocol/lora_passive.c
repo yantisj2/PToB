@@ -105,4 +105,12 @@ int lp_hop_order(uint8_t out[64],uint32_t seed){
  }
  return 0;
 }
-unsigned lp_channel(const uint8_t order[64],uint32_t cursor){return order[(cursor%64+cursor/64)%64];}
+unsigned lp_channel(const uint8_t order[64],uint32_t cursor){
+#if defined(R2_LORA_PASSIVE_SLOW) && defined(R2_LORA_BW_EXPERIMENT)
+ /* Actual lab frequencies, shared by every bandwidth. All reservations,
+  * cooldowns and retirement call this same mapping. Production keeps hops. */
+ (void)order;return cursor&1?48u:16u;
+#else
+ return order[(cursor%64+cursor/64)%64];
+#endif
+}

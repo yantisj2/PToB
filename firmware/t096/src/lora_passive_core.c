@@ -129,13 +129,13 @@ static bool reserve_control(struct lp_tx *t,uint64_t now,struct lp_reservation *
 #ifdef R2_LORA_PASSIVE_SLOW
  uint64_t sync_rf=lp_duration(LP_SYNC)-10000;
 #ifdef R2_LORA_BW_EXPERIMENT
- if(lp_bw_arm(s.cursor))sync_rf=18496;
+ sync_rf=lp_bw_packet_budget_us(s.cursor,24)-10000;
 #endif
  uint64_t follow_at=sync_at+sync_rf+LP_FOLLOW_OFFSET_US;
 #elif defined(R2_LORA_BW_EXPERIMENT)
  /* RX FOLLOW cannot precede250ms after the actual SYNC completion. Use the
   * earliest per-arm RF duration for cooldown; BW500 is shorter thanA. */
- uint64_t sync_rf=lp_bw_arm(s.cursor)?UINT64_C(18496):UINT64_C(221951);
+ uint64_t sync_rf=lp_bw_packet_budget_us(s.cursor,24)-10000;
  uint64_t follow_at=sync_at+sync_rf+250000;
 #else
  uint64_t follow_at=slot+LP_SYNC_OFFSET_US+450000;
@@ -195,7 +195,7 @@ static bool confirm(struct lp_tx *t,unsigned kind,uint64_t end,bool defer){
 #ifdef R2_LORA_BW_EXPERIMENT
  /* Reservations retain narrow charge; completion admits only this packet's
   * actual on-air duration and the original launch/finish window. */
- if(lp_bw_arm(s.cursor))duration=kind==LP_SYNC?28496:kind==LP_FOLLOW?31568:duration;
+ if(kind==LP_SYNC||kind==LP_FOLLOW)duration=lp_bw_packet_budget_us(s.cursor,(unsigned)lp_size(kind));
 #endif
  if(kind==LP_SYNC&&s.pending==1){
   if(end<t->slot_us+LP_SYNC_OFFSET_US-50000+duration-10000||end>t->slot_us+LP_SYNC_OFFSET_US+LP_LAUNCH_PAD_US+duration)return false;
