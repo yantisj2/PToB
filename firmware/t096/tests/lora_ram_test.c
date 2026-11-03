@@ -126,7 +126,7 @@ static void bridge_test(unsigned mode){
   uint64_t until=(now_us+2000000)*16;m.until_tick=until;r2_lora_source_publish(&m);
   assert(role.tx.maps[0].until_tick==until);m.until_tick=UINT64_MAX;r2_lora_source_publish(&m);
   assert(role.tx.maps[0].until_tick==until);now_us=until/16;uint64_t ns,boot;uint32_t ep;struct r2_capture cap;
-  assert(!source_now(&ns,&ep,&boot,&cap));return;
+  assert(!source_now(&ns,&ep,&boot,&cap,NULL));return;
  }
  launch();uint64_t slot=role.tx.reservation.slot_us;done(slot,LP_META);now_us=slot+LP_SYNC_OFFSET_US;step();assert(owner.tx_kind==LP_SYNC);
  if(mode==12){
@@ -186,7 +186,7 @@ static void scheduling_test(unsigned mode){
 #ifndef R2_LORA_TX_DIAGNOSTIC
  if(mode==24){
   projection_hook=r2_lora_source_withdraw;uint64_t ns,boot;uint32_t epoch;struct r2_capture limit;
-  assert(!source_now(&ns,&epoch,&boot,&limit));assert(!(atomic_get(&flags)&SOURCE_PRESENT));return;
+  assert(!source_now(&ns,&epoch,&boot,&limit,NULL));assert(!(atomic_get(&flags)&SOURCE_PRESENT));return;
  }
  launch();uint64_t slot=role.tx.reservation.slot_us;done(slot,LP_META);
  now_us=slot+LP_SYNC_OFFSET_US;step();assert(owner.tx_kind==LP_SYNC);
@@ -294,7 +294,7 @@ static void source_read_test(unsigned mode){
  uint32_t revision=(uint32_t)source_revision;
  if(mode==47||mode==49){
   read_pps=mode==49;read_publications=1;projection_hook=publish_during_read;
-  assert(source_now(&ns,&ep,&boot,&limit)==SOURCE_READY&&source_reads[3]==1&&!source_reads[1]&&!source_reads[2]);
+  assert(source_now(&ns,&ep,&boot,&limit,NULL)==SOURCE_READY&&source_reads[3]==1&&!source_reads[1]&&!source_reads[2]);
  }else if(mode==48){
   uint64_t slot=role.tx.core.durable.next_slot_us;now_us=slot-PRECHARGE_LEAD_US;step();assert(owner.stage==3&&owner.prepared_kind==LP_META);
   uint64_t charge=lp_charged(&role.tx.core.durable,now_us);uint32_t serial=role.tx.core.durable.serial;
@@ -313,13 +313,13 @@ static void source_read_test(unsigned mode){
   now_us=slot;step();assert(txs==1&&owner.tx_kind==LP_META&&source_reads[3]>=500&&!source_reads[1]&&!source_reads[2]);
  }else if(mode==52){
   read_pps=true;read_publications=1;capture_now_hook=publish_during_read;
-  assert(source_now(&ns,&ep,&boot,&limit)==SOURCE_READY&&source_reads[3]==1&&!source_reads[2]);
+  assert(source_now(&ns,&ep,&boot,&limit,NULL)==SOURCE_READY&&source_reads[3]==1&&!source_reads[2]);
  }else if(mode==53){
   projection_hook=r2_lora_source_withdraw;
-  assert(source_now(&ns,&ep,&boot,&limit)==SOURCE_ABSENT&&source_reads[2]==1&&!(flags&SOURCE_PRESENT));return;
+  assert(source_now(&ns,&ep,&boot,&limit,NULL)==SOURCE_ABSENT&&source_reads[2]==1&&!(flags&SOURCE_PRESENT));return;
  }else if(mode==54){
   role.tx.maps[0].until_tick=now_us*16;
-  assert(source_now(&ns,&ep,&boot,&limit)==SOURCE_ABSENT&&source_reads[2]==1);return;
+  assert(source_now(&ns,&ep,&boot,&limit,NULL)==SOURCE_ABSENT&&source_reads[2]==1);return;
  }else if(mode==55){
   read_pps=false;read_publications=3;projection_hook=publish_during_read;
   assert(r2_lora_utc_request(1,0,false)==-EAGAIN&&utc_job.reason==UTC_WAIT_SOURCE&&!utc_job.admitted);

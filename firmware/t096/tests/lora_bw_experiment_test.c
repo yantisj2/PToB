@@ -14,22 +14,42 @@ static void measured_packet(const struct lp_packet *p,const uint8_t ctx[16],uint
   .rssi_half_dbm=-161,.snr_quarter_db=13,.packet_status_valid=true};
  assert(!lp_encode(queued.frame,sizeof queued.frame,p,ctx,&test_group));have_event=true;step();
 }
+static void source_copy_pause(void){now_us+=230000;}
 int main(int argc,char **argv){
  assert(argc==2);unsigned mode=(unsigned)atoi(argv[1]);
  assert(LP_SCHEDULE==5&&LP_BEAT_US==4000000&&LAB_RUN_US==240000000);
  init(mode!=4);assert(!(flags&REQUESTED)&&!lab_until);
  if(mode==1){
   r2_lora_request(true);uint64_t end=lab_until;
+ if(mode==11){
+  struct rc8_export m=source();r2_lora_source_publish(&m);
+  now_us=owner.quiet_until_us+21000000;step();
+  uint64_t entry=now_us;unlock_hook=source_copy_pause;
+  assert(!transmit(entry));
+  assert(role.tx.loaded&&role.tx.core.durable.next_slot_us%1000000==400000);
+  assert(now_us>=entry+230000);
+  puts("PASS230ms preempted source copy binds initial UTC phase to same capture/monotonic sample");return 0;
+ }
   assert(end==now_us+240000000&&r2_diag_scratch.lora.diagnostic.used);
   now_us+=1000000;r2_lora_request(true);assert(lab_until==end);
   r2_lora_request(false);r2_lora_request(true);assert(!lab_until&&!(flags&REQUESTED));
   puts("PASS defaultOFF one nonrenewable240s arm; OFF prevents rearm");return 0;
  }
  r2_lora_request(true);uint64_t end=lab_until;
- if(mode==6||mode==7||mode==8){
+ if(mode==11){
+  struct rc8_export m=source();r2_lora_source_publish(&m);
+  now_us=owner.quiet_until_us+21000000;step();
+  uint64_t entry=now_us;unlock_hook=source_copy_pause;
+  assert(!transmit(entry));
+  assert(role.tx.loaded&&role.tx.core.durable.next_slot_us%1000000==400000);
+  assert(now_us>=entry+230000);
+  puts("PASS230ms preempted source copy binds initial UTC phase to same capture/monotonic sample");return 0;
+ }
+ if(mode==6||mode==7||mode==8||mode==9||mode==10){
   /* Declared feasibility model: original BLE maps arrive at UTC337ms each
    * second with1.312476s permission. No per-poll renewal is permitted. */
-  uint64_t next=1337000,finish=now_us+40000000;unsigned publications=0;
+  uint64_t next=1337000,finish=now_us+(mode>=9?120000000:40000000);unsigned publications=0,wakes=0;
+  if(mode>=9){fake_encode_delay_us=20000;fake_spi_delay_us=6000;}
   while(now_us<finish){
    if(now_us>=next){
     struct rc8_export m=source();m.scope.kind=RC8_SELECTED_BLE;
@@ -49,6 +69,13 @@ int main(int argc,char **argv){
     }
    }
    step();assert(!atomic_get(&faulted)&&!role.tx.core.durable.fh_disabled);
+   if(mode>=9){static const unsigned wake_us[]={120000,260000,170000,100000,290000,150000,210000};now_us+=wake_us[wakes++%7]-2000;}
+  }
+  if(mode>=9){
+   printf("coarse100..300ms wakes%u/encoding20ms/SPI6ms: META%u/SYNC%u/FOLLOW%u late%u refused%u\n",wakes,owner.sent[1],owner.sent[2],owner.sent[3],owner.late,owner.refused);
+   assert(mode==9?owner.sent[LP_META-1]>0:!owner.sent[LP_META-1]);
+   assert(!role.tx.core.durable.fh_disabled&&role.tx.core.durable.next_slot_us>owner.quiet_until_us);
+   return 0;
   }
   if(mode==6){assert(owner.sent[LP_META-1]&&owner.sent[LP_FOLLOW-1]>=4);
    printf("PASS bounded original BLE grant model400ms admits META%u/FOLLOW%u; no source/deadline extension\n",owner.sent[LP_META-1],owner.sent[LP_FOLLOW-1]);}

@@ -58,10 +58,17 @@
 #define BW_EXPERIMENT_JSON ""
 #define SOURCE_GRID_PHASE_NS UINT64_C(200000000)
 #endif
+#if defined(R2_LORA_PASSIVE_SLOW) || defined(R2_LORA_BW_EXPERIMENT)
+#define STAGED_PACKETS 1
+#define PAIR_PREPARE_LEAD_US UINT64_C(1500000)
+#endif
 #define REBOOT_CONTROL_GUARD_US UINT64_C(4000000)
 #ifdef R2_LORA_PASSIVE_SLOW
 #define PRECHARGE_LEAD_US UINT64_C(2000000)
-#define PAIR_PREPARE_LEAD_US UINT64_C(1500000)
+#elif defined(R2_LORA_BW_EXPERIMENT)
+/* The low priority owner can be preempted longer than the old20ms entry
+ * window. Prepare without RF early; original launch/source fences remain. */
+#define PRECHARGE_LEAD_US UINT64_C(500000)
 #else
 #define PRECHARGE_LEAD_US UINT64_C(20000)
 #endif
@@ -392,23 +399,23 @@ void r2_lora_gm_admission(bool active,uint64_t until,bool takeover,uint32_t sour
 }
 #endif
 enum source_result { SOURCE_ABSENT, SOURCE_READY, SOURCE_TRANSIENT };
-static enum source_result __attribute__((noinline)) source_now(uint64_t *phase_ns,uint32_t *epoch,uint64_t *root_boot,struct r2_capture *limit){
+static enum source_result __attribute__((noinline)) source_now(uint64_t *phase_ns,uint32_t *epoch,uint64_t *root_boot,struct r2_capture *limit,uint64_t *phase_at_us){
 #ifdef R2_LORA_TX_DIAGNOSTIC
  struct r2_capture at;if(!r2_capture_now(&at))return SOURCE_ABSENT;
  /* Local monotonic phase only. Never construct/export a UTC source map. */
- *phase_ns=mono()*1000;*epoch=0;*root_boot=0;
+ *phase_ns=mono()*1000;if(phase_at_us)*phase_at_us=mono();*epoch=0;*root_boot=0;
  *limit=(struct r2_capture){.tick=at.tick+DIAGNOSTIC_CAPTURE_US*16,.epoch=at.epoch,.kind=R2_CAPTURE_NOW};
  k_spinlock_key_t key=k_spin_lock(&lock);inc(&source_reads[0]);k_spin_unlock(&lock,key);return SOURCE_READY;
 #else
  for(unsigned attempt=0;attempt<3;attempt++){
-  struct rc8_export map;struct rc8_correction correction;struct r2_capture at;
+  struct rc8_export map;struct rc8_correction correction;struct r2_capture at;uint64_t sampled_us;
   k_spinlock_key_t key=k_spin_lock(&lock);
   bool present=(atomic_get(&flags)&SOURCE_PRESENT)&&!stop_deadline;uint32_t version=map_version;map=role.tx.maps[0];
   if(!present){inc(&source_reads[2]);k_spin_unlock(&lock,key);return SOURCE_ABSENT;}
   k_spin_unlock(&lock,key);
   /* Capture AFTER copying the map: an older NOW cannot precede the freshly
    * published map's from_tick. Projection remains preemptible. */
-  bool good=r2_capture_now(&at)&&rc8_export_event(&correction,&map,1,
+  bool good=r2_capture_now_at(&at,&sampled_us)&&rc8_export_event(&correction,&map,1,
    (struct rc8_event){.tick=at.tick,.capture_epoch=at.epoch,.kind=RC8_EVENT_TX_START});
   key=k_spin_lock(&lock);
   present=(atomic_get(&flags)&SOURCE_PRESENT)&&!stop_deadline;
@@ -416,6 +423,7 @@ static enum source_result __attribute__((noinline)) source_now(uint64_t *phase_n
   if(version!=map_version){inc(&source_reads[3]);k_spin_unlock(&lock,key);continue;}
   inc(&source_reads[good?0:2]);k_spin_unlock(&lock,key);
   if(!good)return SOURCE_ABSENT;
+  if(phase_at_us)*phase_at_us=sampled_us;
   *phase_ns=correction.event_ns;*epoch=map.scope.source_epoch;*root_boot=map.scope.root_boot;
   *limit=(struct r2_capture){.tick=map.until_tick,.epoch=map.capture_epoch,.kind=R2_CAPTURE_NOW};return SOURCE_READY;
  }
@@ -429,7 +437,7 @@ int r2_lora_utc_request(uint64_t token,uint32_t delay_ms,bool override){
 #else
  if(!token||delay_ms>10000)return -EINVAL;
  uint64_t phase=0,root=0;uint32_t epoch=0;struct r2_capture limit={0};
- enum source_result source=source_now(&phase,&epoch,&root,&limit);uint64_t now=mono();
+ enum source_result source=source_now(&phase,&epoch,&root,&limit,NULL);uint64_t now=mono();
  k_spinlock_key_t key=k_spin_lock(&lock);int result=0;unsigned reason=UTC_OK;
  if(token==utc_job.token){k_spin_unlock(&lock,key);return 0;}
  if(token==utc_job.floor){result=utc_job.last_result;k_spin_unlock(&lock,key);return result;}
@@ -658,7 +666,7 @@ static bool restore(uint64_t first_slot){
  role.tx.loaded=lp_tx_start(&role.tx.core,seed,mono(),first_slot,owner.boot_ms);
  return role.tx.loaded;
 }
-#ifdef R2_LORA_PASSIVE_SLOW
+#ifdef STAGED_PACKETS
 static int launch_prepared(unsigned kind,uint64_t finish,struct r2_capture limit){
  if(owner.prepared_kind!=kind)return -EAGAIN;
  /* Waiting for a fresh original grant must not consume staged FIFO work or
@@ -669,7 +677,11 @@ static int launch_prepared(unsigned kind,uint64_t finish,struct r2_capture limit
   * after this check, then fences the final SetTx callback against preemption. */
  int ready=r2_lora_hw_source_preflight(r2_lora_hw_budget_us(lp_size(kind)),generation,finish,
   limit.tick,limit.epoch,mono());
- if(ready)return ready;
+ if(ready){
+#ifdef R2_LORA_BW_EXPERIMENT
+  if(ready==-EAGAIN)inc(&owner.refused);
+#endif
+  return ready;}
  struct r2_capture floor;if(!r2_capture_now(&floor))return -EAGAIN;
  k_spinlock_key_t key=k_spin_lock(&lock);++map_version;role.tx.pinned=false;
  role.tx.edge=(struct r2_lora_hw_edge){.tick=floor.tick,.capture_epoch=floor.epoch,.generation=generation};
@@ -691,7 +703,7 @@ static int send_packet(struct lp_packet *p,uint64_t finish,struct r2_capture lim
 #else
  rc=lp_encode(wire,sizeof wire,p,role.tx.context,group);if(rc)return rc;
 #endif
-#ifdef R2_LORA_PASSIVE_SLOW
+#ifdef STAGED_PACKETS
  (void)finish;(void)limit;
  rc=r2_lora_hw_prepare(wire,lp_size(p->kind),generation);
  if(!rc)owner.prepared_kind=p->kind;
@@ -739,7 +751,7 @@ static int __attribute__((noinline)) launch_control(uint64_t now,uint64_t phase_
  k_spinlock_key_t key=k_spin_lock(&lock);if(now<source_tz.until_us)p.tz=source_tz.value;k_spin_unlock(&lock,key);
  if(r->has_pair)p.delay_10ms=(uint16_t)((LP_SYNC_OFFSET_US-(lp_duration(p.kind)-10000)+9999)/10000);
  int rc=tune(R2_LORA_DTS,0,false);if(rc)return rc;
-#ifndef R2_LORA_PASSIVE_SLOW
+#ifndef STAGED_PACKETS
  struct r2_capture launch;owner.launch_late_us=(int32_t)((int64_t)mono()-(int64_t)r->slot_us);
  owner.source_room_us=r2_capture_now(&launch)&&launch.epoch==limit.epoch&&launch.tick<limit.tick?(uint32_t)((limit.tick-launch.tick)/16):0;
  r2_diag_scratch.lora.attempt.source_room_us=owner.source_room_us;r2_diag_scratch.lora.attempt.valid|=16;
@@ -753,7 +765,7 @@ static int __attribute__((noinline)) transmit(uint64_t now){
 #ifdef R2_LORA_PASSIVE_SLOW
  if(owner.stage==4&&owner.tx_kind==LP_SYNC)return 0; /* Captured completion awaits projection. */
 #endif
- struct lp_tx *t=&role.tx.core;uint64_t phase_ns=0;uint32_t source_epoch=0;uint64_t root_boot=0;struct r2_capture limit;
+ struct lp_tx *t=&role.tx.core;uint64_t phase_ns=0,phase_at_us=now;uint32_t source_epoch=0;uint64_t root_boot=0;struct r2_capture limit;
  uint32_t revision=(uint32_t)atomic_get(&source_revision);
  if(revision!=owner.revision){
   /* utc_check fences the job against the current published scope. A job
@@ -761,13 +773,16 @@ static int __attribute__((noinline)) transmit(uint64_t now){
   if(t->durable.pending){begin_stop(0);return 0;}
   role.tx.context_ready=false;owner.revision=revision;
  }
- enum source_result source=source_now(&phase_ns,&source_epoch,&root_boot,&limit);
+ enum source_result source=source_now(&phase_ns,&source_epoch,&root_boot,&limit,&phase_at_us);
  if(source==SOURCE_TRANSIENT)return 0;
  if(source==SOURCE_ABSENT){
   utc_finish(UTC_EXPIRED,UTC_NO_SOURCE);
   if(t->durable.pending)begin_stop(0);
   return 0;
  }
+ /* Projection may yield through higher priority work. Decisions use current
+  * monotonic time; the UTC phase retains its paired capture time. */
+ now=mono();
  struct r2_capture observed;
  if(r2_capture_now(&observed)&&observed.epoch==limit.epoch&&observed.tick<limit.tick){
   uint64_t room=(limit.tick-observed.tick)/16;uint32_t bounded=room>UINT32_MAX?UINT32_MAX:(uint32_t)room;
@@ -786,14 +801,14 @@ static int __attribute__((noinline)) transmit(uint64_t now){
 #else
  if(delay_ns<UINT64_C(300000000))delay_ns+=period_ns;
 #endif
- if(!restore(now+(delay_ns+999)/1000)){
+ if(!restore(phase_at_us+(delay_ns+999)/1000)){
 #ifdef R2_LORA_PASSIVE_SLOW
   if(!owner.listening)return tune(R2_LORA_DTS,0,true);
 #endif
   return 0;}
  if(owner.stage==1){
   uint64_t at=role.tx.reservation.slot_us+LP_SYNC_OFFSET_US;
-#ifdef R2_LORA_PASSIVE_SLOW
+#ifdef STAGED_PACKETS
   if(owner.prepared_kind!=LP_SYNC&&now+PAIR_PREPARE_LEAD_US>=at){
    int rc=tune(precision_phy(role.tx.reservation.cursor),lp_channel(t->order,role.tx.reservation.cursor),false);if(rc)return rc;
    rc=send_pair(LP_SYNC,0,limit);if(rc)return rc;now=mono();
@@ -802,11 +817,15 @@ static int __attribute__((noinline)) transmit(uint64_t now){
   if(now<at)return 0;
   due_lateness(LP_SYNC,at,now);
   if(now>at+LP_LAUNCH_LATE_US){inc(&owner.late);
-#ifdef R2_LORA_PASSIVE_SLOW
+#ifdef STAGED_PACKETS
  /* DTS already advertised a future SYNC. Preserve pending/stage until
   * actual closure applies the peer's original hint/retune recovery floor.
   * Extra UTC jobs remain manual and cannot create ordinary owed work. */
- utc_finish(UTC_EXPIRED,UTC_FAILED);if(!t->manual)inc(&retry_count);begin_stop(0);return 0;
+ utc_finish(UTC_EXPIRED,UTC_FAILED);
+#ifdef R2_LORA_PASSIVE_SLOW
+ if(!t->manual)inc(&retry_count);
+#endif
+ begin_stop(0);return 0;
 #else
  lp_tx_fault(t);
 #endif
@@ -815,21 +834,21 @@ static int __attribute__((noinline)) transmit(uint64_t now){
  r2_lora_request(false);
 #endif
  return 0;}
-#ifdef R2_LORA_PASSIVE_SLOW
+#ifdef STAGED_PACKETS
   if(fenced()||revision!=(uint32_t)atomic_get(&source_revision))return -ECANCELED;
-  source=source_now(&phase_ns,&source_epoch,&root_boot,&limit);if(source==SOURCE_TRANSIENT)return 0;
+  source=source_now(&phase_ns,&source_epoch,&root_boot,&limit,&phase_at_us);if(source==SOURCE_TRANSIENT)return 0;
   if(source==SOURCE_ABSENT){begin_stop(0);return 0;}
   int rc=0;
 #else
   int rc=tune(precision_phy(role.tx.reservation.cursor),lp_channel(t->order,role.tx.reservation.cursor),false);if(rc)return rc;
 #endif
   owner.source_phase_us=(uint32_t)((phase_ns%UINT64_C(1000000000))/1000);
-#ifdef R2_LORA_PASSIVE_SLOW
+#ifdef STAGED_PACKETS
   rc=launch_prepared(LP_SYNC,at+LP_LAUNCH_PAD_US+lp_duration(LP_SYNC),limit);
 #else
   rc=send_pair(LP_SYNC,at+LP_LAUNCH_PAD_US+lp_duration(LP_SYNC),limit);
 #endif
-#ifdef R2_LORA_PASSIVE_SLOW
+#ifdef STAGED_PACKETS
   if(rc==-EAGAIN)return 0;
   if(rc==-EINTR||(rc==-ECANCELED&&fenced()))return rc; /* Preserve pending for proven closure/retry. */
 #endif
@@ -838,7 +857,7 @@ static int __attribute__((noinline)) transmit(uint64_t now){
  }
  if(owner.stage==2){
   uint64_t at=owner.last_sync_us+LP_FOLLOW_OFFSET_US;
-#ifdef R2_LORA_PASSIVE_SLOW
+#ifdef STAGED_PACKETS
   if(owner.prepared_kind!=LP_FOLLOW){
    int rc=tune(precision_phy(role.tx.reservation.cursor),lp_channel(t->order,role.tx.reservation.cursor+1),false);if(rc)return rc;
    rc=send_pair(LP_FOLLOW,0,limit);if(rc)return rc;now=mono();
@@ -851,21 +870,21 @@ static int __attribute__((noinline)) transmit(uint64_t now){
  r2_lora_request(false);
 #endif
  return 0;}
-#ifdef R2_LORA_PASSIVE_SLOW
+#ifdef STAGED_PACKETS
   if(fenced()||revision!=(uint32_t)atomic_get(&source_revision))return -ECANCELED;
-  source=source_now(&phase_ns,&source_epoch,&root_boot,&limit);if(source==SOURCE_TRANSIENT)return 0;
+  source=source_now(&phase_ns,&source_epoch,&root_boot,&limit,&phase_at_us);if(source==SOURCE_TRANSIENT)return 0;
   if(source==SOURCE_ABSENT){begin_stop(0);return 0;}
   int rc=0;
 #else
   int rc=tune(precision_phy(role.tx.reservation.cursor),lp_channel(t->order,role.tx.reservation.cursor+1),false);if(rc)return rc;
 #endif
   owner.source_phase_us=(uint32_t)((phase_ns%UINT64_C(1000000000))/1000);
-#ifdef R2_LORA_PASSIVE_SLOW
+#ifdef STAGED_PACKETS
   rc=launch_prepared(LP_FOLLOW,owner.last_sync_us+LP_FOLLOW_LATEST_US+lp_duration(LP_FOLLOW),limit);
 #else
   rc=send_pair(LP_FOLLOW,owner.last_sync_us+LP_FOLLOW_LATEST_US+lp_duration(LP_FOLLOW),limit);
 #endif
-#ifdef R2_LORA_PASSIVE_SLOW
+#ifdef STAGED_PACKETS
   if(rc==-EAGAIN)return 0;
   if(rc==-EINTR||(rc==-ECANCELED&&fenced()))return rc; /* Preserve pending for proven closure/retry. */
 #endif
@@ -923,7 +942,7 @@ static int __attribute__((noinline)) transmit(uint64_t now){
   if(!storage_prepare()){inc(&owner.storage_fail);return -EIO;}
   r2_diag_scratch.lora.attempt.valid=1;
   if(mono()>target+LP_LAUNCH_LATE_US)return 0;
-#ifndef R2_LORA_PASSIVE_SLOW
+#ifndef STAGED_PACKETS
   unsigned planned=(!role.tx.context_ready||index%LP_META_BEATS==0)?LP_META:LP_DISC;
   int preflight=r2_lora_hw_source_preflight(lp_duration(planned),generation,
       target+LP_LAUNCH_PAD_US+lp_duration(planned),limit.tick,limit.epoch,target);
@@ -964,7 +983,7 @@ static int __attribute__((noinline)) transmit(uint64_t now){
    * Contention uses the original late/deferred obligation path. */
  }
  struct lp_reservation *r=&role.tx.reservation;
-#ifdef R2_LORA_PASSIVE_SLOW
+#ifdef STAGED_PACKETS
  /* An authenticated context and the preceding FOLLOW predict this slot.
   * No DTS packet is fabricated or charged on precision-only slots. SYNC
   * still stages and rechecks its original physical/source grant normally. */
@@ -979,7 +998,7 @@ static int __attribute__((noinline)) transmit(uint64_t now){
  if(!(r2_diag_scratch.lora.attempt.valid&4)){r2_diag_scratch.lora.attempt.first_due_late_us=owner.launch_late_us;r2_diag_scratch.lora.attempt.valid|=4;}
  due_lateness(r->control,r->slot_us,mono());
  if(mono()>r->slot_us+LP_LAUNCH_LATE_US){inc(&owner.late);
-#ifdef R2_LORA_PASSIVE_SLOW
+#ifdef STAGED_PACKETS
   /* A source-room wait never consumed the staged driver token. Retire at the
    * original deadline, but do not charge nonexistent RF when this exact
    * reservation still has synchronous healthy no-SetTx proof. A possible
@@ -1000,12 +1019,12 @@ static int __attribute__((noinline)) transmit(uint64_t now){
  /* Precharge may yield through a physical PPS/map update. Refresh the source
   * snapshot after storage, before the guarded launch; never renew a staged TX. */
  if(fenced()||revision!=(uint32_t)atomic_get(&source_revision))return -ECANCELED;
- source=source_now(&phase_ns,&source_epoch,&root_boot,&limit);if(source==SOURCE_TRANSIENT)return 0;
+ source=source_now(&phase_ns,&source_epoch,&root_boot,&limit,&phase_at_us);if(source==SOURCE_TRANSIENT)return 0;
  if(source==SOURCE_ABSENT){lp_tx_cancel(t,true);if(job_owned)utc_finish(UTC_EXPIRED,UTC_NO_SOURCE);owner.stage=owner.prepared_kind=0;return 0;}
  owner.source_phase_us=(uint32_t)((phase_ns%UINT64_C(1000000000))/1000);
  r2_diag_scratch.lora.attempt.source_phase_us=owner.source_phase_us;r2_diag_scratch.lora.attempt.valid|=8;
  bool attempted=false;int rc;
-#ifdef R2_LORA_PASSIVE_SLOW
+#ifdef STAGED_PACKETS
  owner.source_room_us=r2_capture_now(&observed)&&observed.epoch==limit.epoch&&observed.tick<limit.tick?(uint32_t)((limit.tick-observed.tick)/16):0;
  r2_diag_scratch.lora.attempt.source_room_us=owner.source_room_us;r2_diag_scratch.lora.attempt.valid|=16;
  attempted=true;rc=launch_prepared(r->control,r->slot_us+LP_LAUNCH_PAD_US+lp_duration(r->control),limit);
