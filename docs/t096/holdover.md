@@ -12,10 +12,10 @@ clock are unchanged.
 
 A 65-point history selects the first real accepted pair per 500 ms bucket, never
 by residual. Channel-centered16/32s fits require24/32 points,85% span and8 repeated-channel
-degrees of freedom. Short/long rate guards must be<=20/10ppb, agree within5ppb and
+degrees of freedom. Short/long rate guards must be<=20/10ppb, agree within10ppb and
 improve on the fast-rate guard. The median with the fast rate must remain
-within three fast guards(bounded15..250ppb); adjustment is capped by that
-guard(bounded5..100ppb). Insufficient, stale or rejected fits
+within three fast guards(bounded15..250ppb); adjustment is capped at150ppb.
+Insufficient, stale or rejected fits
 retain the fast rate. Fits refresh at most once per second outside interrupts,
 spinlocks and formatting. Integer arithmetic uses checked, centered coordinates.
 
@@ -104,6 +104,12 @@ records and retain sequence gaps. Missing
 prehistory or missing records cannot certify full independent replay. The
 production phase correction is an existing empirical calibration input, not a
 new fitted offset or an accuracy bound.
+
+A prospectively declared `--entry-wait-ms 1000` cohort takes the first eligible
+fresh, settled model within one second of each scheduled start. An unmet deadline
+is an unknown outcome. Eligibility uses only entry freshness and delivered phase;
+later errors never select starts. This cohort differs from the original immediate
+entry rule (the default); retain both rules and their failures separately.
 
 ## Offline checks and LoRa reuse
 

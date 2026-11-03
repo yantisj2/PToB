@@ -228,7 +228,7 @@ int r2_dynamic_service_holdover_json(char *out,size_t size,bool data_only){
   k_mutex_unlock(&state_lock);return n<0||(size_t)n>=size?-ENOSPC:n;
  }
  bool available=captured&&hold_view.valid&&now.epoch==hold_view.epoch&&now.tick>=hold_view.map.effective&&now.tick-hold_view.map.effective<=R2_HOLD_MAX_TICKS;
- int n=snprintf(out,size,"{\"schema\":2,\"policy\":\"BLE_RATE_ONLY_T096_V2\",\"now_tick\":%llu,\"available\":%s,\"selected\":%s,\"resets\":%u,\"epoch\":%u,\"pair\":[%llu,%llu,%llu],\"raw_pair\":[%llu,%llu,%llu,%u],\"channel\":%u,\"fit_at\":%llu,\"test_last\":%llu,\"rates\":[%d,%d,%d,%u,%d,%u],\"map\":[%llu,%llu,%d,%d,%u],\"trials\":[",
+ int n=snprintf(out,size,"{\"schema\":2,\"policy\":\"BLE_RATE_ONLY_T096_V3\",\"now_tick\":%llu,\"available\":%s,\"selected\":%s,\"resets\":%u,\"epoch\":%u,\"pair\":[%llu,%llu,%llu],\"raw_pair\":[%llu,%llu,%llu,%u],\"channel\":%u,\"fit_at\":%llu,\"test_last\":%llu,\"rates\":[%d,%d,%d,%u,%d,%u],\"map\":[%llu,%llu,%d,%d,%u],\"trials\":[",
   (unsigned long long)now.tick,available?"true":"false",hold_view.selected?"true":"false",hold_view.resets,hold_view.epoch,
   (unsigned long long)hold_view.pair_tick,(unsigned long long)hold_view.pair_ns,(unsigned long long)hold_view.available,
   (unsigned long long)hold_view.raw_pair[0],(unsigned long long)hold_view.raw_pair[1],(unsigned long long)hold_view.raw_pair[2],hold_view.raw_sequence,

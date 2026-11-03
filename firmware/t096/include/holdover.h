@@ -115,18 +115,18 @@ static inline int32_t r2_hold_choose(const struct r2_hold_rate *s,uint64_t at,in
  *selected=false;
  if(!s->refreshed||at<s->refreshed||at-s->refreshed>2*R2_CAPTURE_HZ||at<s->last_tick||
     at-s->last_tick>2*R2_CAPTURE_HZ||s->short_fit.guard>20||s->long_fit.guard>10||
-    s->long_fit.guard>=fast_guard||r2_hold_abs((int64_t)s->short_fit.rate-s->long_fit.rate)>5)return fast;
+    s->long_fit.guard>=fast_guard||r2_hold_abs((int64_t)s->short_fit.rate-s->long_fit.rate)>10)return fast;
  int32_t a=fast,b=s->short_fit.rate,c=s->long_fit.rate,t;
  if(a>b){t=a;a=b;b=t;}if(b>c){t=b;b=c;c=t;}if(a>b){t=a;a=b;b=t;}
  /* T096's16-pair fast endpoint rate is much noisier than W12's fast fit.
   * Admit only agreement of both slow windows, within the fast error guard;
-  * cap the HOLD-only change at100ppb. Live RF permission is unaffected. */
+  * let that consensus replace the noisy fast rate within the admission band,
+  * capped at150ppb. Live RF permission is unaffected. */
  uint64_t band=(uint64_t)fast_guard*3;
  if(band>250)band=250;
  if(band<15)band=15;
  int64_t delta=(int64_t)b-fast;if(r2_hold_abs(delta)>band)return fast;
- int64_t cap=fast_guard<100?fast_guard:100;
- if(cap<5)cap=5;
+ const int64_t cap=150;
  if(delta>cap)delta=cap;
  if(delta< -cap)delta=-cap;
  *selected=true;return fast+(int32_t)delta;

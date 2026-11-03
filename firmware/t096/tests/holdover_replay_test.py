@@ -30,3 +30,21 @@ assert b['rate_replay']==r['rate_replay']and b['onboard_replay']==r['onboard_rep
 for i in range(0,len(batched)-4,4):batched[i:i+4]=batched[i+1:i+4]+batched[i:i+1]
 assert replay(batched)['groups'][0]['onboard_replay']==r['onboard_replay']
 print('PASS bounded batch expansion and USB reply reordering with no future fit inputs')
+# First eligible entry is an explicit prospective rule, never chosen by a
+# future residual. A short entry wait may settle; a missed deadline stays unknown.
+origin=next(x['payload']['now_tick']for x in rows if x['payload'].get('available'))
+late=copy.deepcopy(rows)
+for row in late:
+ p=row['payload'];age=p['now_tick']-origin
+ if 32*16000000<=age<(32*16000000+12000000):p['available']=False
+immediate=replay(late)['groups'][0]
+deferred=replay(late,entry_wait_ms=1000)['groups'][0]
+assert immediate['ages'][0]['unknown']==1 and deferred['ages'][0]['unknown']==0
+assert deferred['supported_ms']==120000
+late=copy.deepcopy(rows)
+for row in late:
+ p=row['payload'];age=p['now_tick']-origin
+ if any((32+2*i)*16000000<=age<(32+2*i)*16000000+20000000 for i in (0,10,20)):p['available']=False
+expired=replay(late,entry_wait_ms=1000)['groups'][0]
+assert expired['ages'][0]['unknown']==3 and expired['supported_ms']is None
+print('PASS prospective entry wait, first eligible model, explicit missed deadlines and unchanged failure denominators')

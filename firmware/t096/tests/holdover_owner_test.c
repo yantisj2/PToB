@@ -101,7 +101,7 @@ int main(int argc,char **argv){
   if(i<192)assert(!memcmp(&saved,&hold_estimate,sizeof saved));
  }
  assert(!hold_test_until&&hold_test_count==192&&!hold_test_result&&hold_test_max<1000);
- char json[1800];assert(r2_dynamic_service_holdover_json(json,sizeof json,false)>0&&strstr(json,"BLE_RATE_ONLY_T096_V2"));
+ char json[1800];assert(r2_dynamic_service_holdover_json(json,sizeof json,false)>0&&strstr(json,"BLE_RATE_ONLY_T096_V3"));
  assert(r2_dynamic_service_holdover_json(json,sizeof json,true)>0&&strstr(json,"raw_pair"));
  assert(!r2_dynamic_service_holdover_test(UINT32_C(0x8000fa00)));hold_tick(now.tick);
  assert(hold_shadow_probe==64000&&!hold_trial[0].active&&!hold_trial[1].active);

@@ -1,5 +1,20 @@
 # T096 changelog
 
+## 0.15.272 — full bounded slow-consensus correction
+
+Keep the20/10ppb short/long guards and require agreement within10ppb. An
+accepted slow median can replace the noisy fast rate throughout its existing
+three-guard admission band (15..250ppb), with a150ppb adjustment ceiling.
+The earlier one-fast-guard correction cap could leave material fast-rate error
+in an otherwise agreeing slow model. Phase continuity, memory and authority
+gates are unchanged. The policy identifier is `BLE_RATE_ONLY_T096_V3`.
+
+Host replay supports an explicitly declared one-second entry-admission window:
+take the first fresh settled model after each scheduled start, or count the
+missed deadline as unknown. Original immediate-entry populations retain their
+own rule and results. Tuning replays do not qualify this image; use a fresh
+source/boot cohort and preserve all failures.
+
 ## 0.15.271 — bounded witness capture and usable short-rate guard
 
 An explicit at-most15min capture lease records every accepted BLE witness in

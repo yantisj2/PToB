@@ -46,7 +46,7 @@ def table(runs):
     failed_or_unknown=sum(x>=1000 for x in errors),passed=n>=100 and sum(x>=1000 for x in errors)<=n//100 and p99<1000)
   result.append(dict(age_ms=age,outcomes=n,unknown=sum(not v or v['unknown']for v in values),candidate=metric('candidate'),baseline=metric('baseline')))
  return result
-def replay(rows,starts=100,warmup_ms=32000,spacing_ms=2000,bias_ns=10543):
+def replay(rows,starts=100,warmup_ms=32000,spacing_ms=2000,bias_ns=10543,entry_wait_ms=0):
  scopes=defaultdict(list)
  # Batch witness availability, rather than USB reply time, determines order.
  # When a real trace exists, latest-witness snapshots are diagnostics only.
@@ -111,9 +111,11 @@ def replay(rows,starts=100,warmup_ms=32000,spacing_ms=2000,bias_ns=10543):
     origin=now;next_start=origin+warmup_ms*16000
    if origin is not None:
     while len(runs)<starts and now>=next_start:
-     r=dict(start=now,prefix={},witnesses=0,missing=0,maximum=dict(candidate=0,baseline=0));runs.append(r)
      ready=p.get('available')and p['map'][0]<=now and now-p['map'][0]<HZ/4 and abs(p['map'][3])<=250 and not p.get('test',[0])[0]
-     if ready and now-next_start<=HZ/4:
+     deadline=(entry_wait_ms*16000 if entry_wait_ms else HZ/4)
+     if not ready and entry_wait_ms and now-next_start<=deadline:break
+     r=dict(start=now,scheduled=next_start,prefix={},witnesses=0,missing=0,maximum=dict(candidate=0,baseline=0));runs.append(r)
+     if ready and now-next_start<=deadline:
       r['candidate']=freeze(p['map'],now);r['baseline']=freeze(p['map'],now,p['rates'][0]);active.append(r)
      else:r['entry_unknown']=True
      next_start+=spacing_ms*16000
@@ -150,10 +152,10 @@ def replay(rows,starts=100,warmup_ms=32000,spacing_ms=2000,bias_ns=10543):
    rate_replay=dict(checks=rate_checks,rate_disagreements=rate_errors,guard_disagreements=guard_errors),
    all_witness_replay_complete=missing==0 and mismatches==0 and checks>0))
  return dict(metric='PROSPECTIVE_HOST_FROZEN_PREFIX_P99_1000NS',correlated_overlapping_runs=True,
-  physical_outage_test=False,continuous_bound=False,utc_accuracy_qualified=False,groups=output)
+  entry_wait_ms=entry_wait_ms,physical_outage_test=False,continuous_bound=False,utc_accuracy_qualified=False,groups=output)
 def main():
- p=argparse.ArgumentParser(description=__doc__);p.add_argument('capture',type=Path);p.add_argument('--out',type=Path);p.add_argument('--starts',type=int,default=100);a=p.parse_args()
- result=replay([json.loads(x)for x in a.capture.read_text().splitlines()if x.strip()],starts=a.starts);s=json.dumps(result,indent=2)+'\n'
+ p=argparse.ArgumentParser(description=__doc__);p.add_argument('capture',type=Path);p.add_argument('--out',type=Path);p.add_argument('--starts',type=int,default=100);p.add_argument('--entry-wait-ms',type=int,choices=(0,1000),default=0);a=p.parse_args()
+ result=replay([json.loads(x)for x in a.capture.read_text().splitlines()if x.strip()],starts=a.starts,entry_wait_ms=a.entry_wait_ms);s=json.dumps(result,indent=2)+'\n'
  if a.out:a.out.write_text(s)
  print(s,end='')
 if __name__=='__main__':main()
