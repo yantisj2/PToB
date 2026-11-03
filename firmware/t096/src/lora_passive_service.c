@@ -171,11 +171,13 @@ static void utc_finish(unsigned state,unsigned reason){
  }
  utc_retry_us=0;utc_running_token=0;k_spin_unlock(&lock,key);
 }
+#ifdef R2_LORA_PASSIVE_SLOW
 static uint64_t utc_due(void){
  k_spinlock_key_t key=k_spin_lock(&lock);uint64_t due=UINT64_MAX;
  if(utc_job.state==UTC_PENDING){due=utc_job.due_us;if(utc_retry_us>due)due=utc_retry_us;}
  k_spin_unlock(&lock,key);return due;
 }
+#endif
 
 K_THREAD_STACK_DEFINE(worker_stack,2048);
 static struct k_thread worker_thread;
@@ -466,6 +468,7 @@ static bool utc_check(uint64_t now){
  k_spin_unlock(&lock,key);
  if(reason){utc_finish(UTC_EXPIRED,reason);return true;}return false;
 }
+#ifdef R2_LORA_PASSIVE_SLOW
 static bool utc_plan(uint64_t now,struct lp_tx *t,uint64_t *target,bool *override){
  uint64_t due=utc_due();if(due==UINT64_MAX||now<due)return false;
  k_spinlock_key_t key=k_spin_lock(&lock);
@@ -481,17 +484,20 @@ static bool utc_plan(uint64_t now,struct lp_tx *t,uint64_t *target,bool *overrid
  else utc_job.reason=utc_job.wait_reason=UTC_WAIT_SLOT;
  k_spin_unlock(&lock,key);return good;
 }
+#endif
 static void utc_defer(uint64_t now,unsigned reason){
  k_spinlock_key_t key=k_spin_lock(&lock);inc(&utc_job.deferrals);utc_job.reason=utc_job.wait_reason=(uint8_t)reason;
  /* Dedicated job retry: never move the ordinary timer or leave it armed. */
  utc_retry_us=now+ADMISSION_RETRY_US+(uint64_t)(utc_job.deferrals%7)*17000;
  utc_job.state=UTC_PENDING;utc_running_token=0;k_spin_unlock(&lock,key);
 }
+#ifdef R2_LORA_PASSIVE_SLOW
 static void utc_reserved(void){
  k_spinlock_key_t key=k_spin_lock(&lock);utc_job.state=UTC_RESERVED;utc_job.reason=UTC_OK;
  utc_job.reserved_us=lp_duration(LP_META)+lp_duration(LP_SYNC)+lp_duration(LP_FOLLOW);
  utc_running_token=utc_job.token;k_spin_unlock(&lock,key);
 }
+#endif
 static void utc_possible_meta(void){
  k_spinlock_key_t key=k_spin_lock(&lock);utc_job.manual_serial=role.tx.reservation.serial;utc_job.manual_stream=role.tx.stream;k_spin_unlock(&lock,key);
 }
