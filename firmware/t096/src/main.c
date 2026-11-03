@@ -281,7 +281,7 @@ static void __attribute__((noinline)) reply_body(const struct r2_request *r,uint
   if(r->op==R2_HOLDOVER){
 #ifdef R2_RC_PROFILE
     int test_result=r->seconds?(r2_switch_rc_active()&&maintenance.phase==R2_IDLE?r2_dynamic_service_holdover_test((uint32_t)r->nonce):-EACCES):0;
-    int n=r2_dynamic_service_holdover_json(json,sizeof json);
+    int n=r2_dynamic_service_holdover_json(json,sizeof json,r->trace_page==1);
     if(n>0&&(size_t)n<sizeof json){int extra=snprintf(json+n-1,sizeof json-(size_t)n+1,",\"source\":\"%s\",\"boot\":\"%016llx\",\"result\":%d}",R2_SOURCE_SHA,(unsigned long long)identity.boot,test_result);if(extra<0)n=-1;else n+=extra-1;}
 #else
     int n=snprintf(json,sizeof json,"{\"available\":false}");

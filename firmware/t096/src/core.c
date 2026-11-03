@@ -85,7 +85,10 @@ int r2_parse(const char *line, struct r2_request *out)
 #endif
   if(out->op==R2_HOLDOVER){
    if(count==6)return 0;
-   if(count!=7||!hex(parts[6],8,&out->nonce)||(out->nonce&&out->nonce<1000)||out->nonce>120000)return -EINVAL;
+   if(count==7&&!strcmp(parts[6],"data")){out->trace_page=1;return 0;}
+   if(count!=7||!hex(parts[6],8,&out->nonce))return -EINVAL;
+   uint64_t duration=out->nonce&UINT64_C(0x7fffffff);
+   if((duration&&duration<1000)||duration>120000)return -EINVAL;
    out->seconds=1;return 0;
   }
   if (out->op == R2_STATUS || out->op == R2_CLOCK || out->op == R2_NETWORK || out->op == R2_MARK || out->op == R2_PRECISION || out->op==R2_ROUTE || out->op==R2_JOIN) return count == 6 ? 0 : -EINVAL;

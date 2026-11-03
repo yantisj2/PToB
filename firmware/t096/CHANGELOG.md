@@ -1,5 +1,21 @@
 # T096 changelog
 
+## 0.15.270 — cadence-safe frequency selection and complete shadow models
+
+Select the first actual accepted pair in each500ms bucket instead of a minimum
+spacing that aliases a slightly slow native stream. Short/long windows require
+24/32 points with the same span, repeated-channel and rate-agreement guards.
+The HOLD-only correction follows slow consensus within the fast-rate error
+guard, capped at100ppb. The live BLE clock and source permissions are separate.
+
+Compact each frozen shadow model to its actual phase/rate coordinates. Reuse
+the recovered storage for exact entry models, committed rate inputs and a
+monotonic all-witness cursor. The complete feature still fits1280 bytes.
+Completed endpoints remain visible for500ms; compact read-only `holdover data`
+supports host replay without copying diagnostic populations onto the MCU.
+An optional bounded shadow horizon staggers the two paired lanes. Prior
+formats, gaps, unknowns and failed windows remain distinguishable.
+
 ## 0.15.269 — bounded BLE rate holdover and paired shadow verification
 
 RC7 retains a continuous, BLE-only local estimate with guarded16/32s

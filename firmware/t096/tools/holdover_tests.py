@@ -17,14 +17,17 @@ try:
   subprocess.run([str(out/'test')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
   owner=cmd.copy();owner.insert(1,'-DR2_TIMING_EVENTS_TEST=1');owner[owner.index(str(app/'tests/holdover_test.c'))]=str(app/'tests/holdover_owner_test.c');owner[-1]=str(out/'owner')
   subprocess.run(owner,stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
-  subprocess.run([str(out/'owner')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
+  subprocess.run([str(out/'owner'),str(out/'owner-trace.jsonl')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
   flags=cmd[:cmd.index(str(units[0]))]
   for name,files in [('core',['src/core.c','tests/core_test.c']),('ui',['src/ui_render.c','src/precision.c','tests/ui_sync_display_test.c'])]:
    binary=out/name
    subprocess.run([*flags,*[str(app/f)for f in files],'-o',str(binary)],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
    subprocess.run([str(binary),str(out)],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
   subprocess.run([__import__('sys').executable,str(app/'tests/holdover_analyze_test.py')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
+  subprocess.run([__import__('sys').executable,str(app/'tests/holdover_replay_test.py'),str(out/'owner-trace.jsonl')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
  passed=True
 finally:
- (out/'receipt.json').write_text(json.dumps({'passed':passed,'hardware':False,'command':cmd,'sources':{str(f):hashlib.sha256(f.read_bytes()).hexdigest()for f in [Path(__file__).resolve(),app/'include/holdover.h',app/'src/holdover_service.inc',app/'tests/holdover_owner_test.c',*units]if f.is_file()}},indent=2)+'\n')
+ exercised=[Path(__file__).resolve(),app/'include/holdover.h',app/'src/holdover_service.inc',app/'tests/holdover_owner_test.c',*units]
+ exercised += [app/f for f in ['src/core.c','src/ui_render.c','src/precision.c','include/ui.h','tests/core_test.c','tests/ui_sync_display_test.c','tools/holdover_analyze.py','tools/holdover_replay.py','tests/holdover_analyze_test.py','tests/holdover_replay_test.py']]
+ (out/'receipt.json').write_text(json.dumps({'passed':passed,'hardware':False,'command':cmd,'sources':{str(f):hashlib.sha256(f.read_bytes()).hexdigest()for f in exercised if f.is_file()}},indent=2)+'\n')
  print((out/'test.log').read_text())

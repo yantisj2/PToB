@@ -22,12 +22,13 @@ def analyze(rows):
    if not line.startswith('#R2_TIMING '):continue
    p=json.loads(line[len('#R2_TIMING '):]);op='timing'
   source=row.get('source',p.get('source','unknown'));boot=row.get('boot',p.get('boot','unknown'));base=(source,boot)
-  if p.get('policy')=='BLE_RATE_ONLY_T096_V1':
+  if p.get('policy')in('BLE_RATE_ONLY_T096_V1','BLE_RATE_ONLY_T096_V2')and 'trials'in p:
    reset=p['resets'];latest_reset[base]=reset
    for lane in p['trials']:
     ident,probe,active,n,baseline,candidate,cross_b,cross_c,gap,age=lane
     if not ident:continue
     key=base+(ident,);r=runs.setdefault(key,dict(reset=reset,probe=probe,prefix={},gaps=0,ended=False))
+    if p.get('trial_models')and age<=250:r['start_seen']=True
     if r['reset']!=reset or r['probe']!=probe:raise ValueError('trial identity reused across contexts')
     r['gaps']=max(r['gaps'],gap)
     for target in AGES:
@@ -61,7 +62,7 @@ def analyze(rows):
   contiguous=True
   for age in AGES:
    eligible=[(ident,r)for ident,r in sorted(group)if r['probe']>=age][-128:]
-   values=[r['prefix'].get(age)for _,r in eligible];n=len(values)
+   values=[r['prefix'].get(age)if r.get('start_seen')else None for _,r in eligible];n=len(values)
    errors=[v['candidate']if v is not None else math.inf for v in values]
    failed=sum(e>=1000 for e in errors);unknown=sum(v is None for v in values)
    p99=sorted(errors)[math.ceil(n*.99)-1]if n else math.inf

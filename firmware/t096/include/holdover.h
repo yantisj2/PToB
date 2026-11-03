@@ -18,7 +18,8 @@ struct r2_hold_rate {
  struct r2_hold_fit short_fit,long_fit;unsigned count;
 };
 struct r2_hold_trial {
- struct rc5_map baseline;uint64_t start,last;
+ struct {uint64_t anchor_ns;int32_t ppb,phase_ns;} baseline;
+ uint64_t start,last;
  uint32_t id,probe_ms,max_ns[2],cross_ms[2],witnesses,gaps;
  int32_t selected;bool active;
 };
@@ -31,9 +32,10 @@ static inline uint64_t r2_hold_point_tick(const struct r2_hold_rate *s,unsigned 
 static inline bool r2_hold_observe(struct r2_hold_rate *s,uint64_t tick,uint64_t ns,uint64_t available,uint8_t channel){
  if(!s||!tick||ns>INT64_MAX||available<tick||available-tick>R2_CAPTURE_HZ/4||channel>36||
     (s->last_tick&&(tick<=s->last_tick||available<s->last_available)))return false;
- /*450ms avoids selecting only every third250ms event on a slow oscillator;
-  *65 points still cover>=28.8s, above the32s fit's85% span gate. */
- if(s->last_tick&&tick-s->last_tick<R2_CAPTURE_HZ*45/100)return false;
+ /* First real accepted pair per local500ms bucket. A minimum separation can
+  * alias a slightly slow250ms stream and leave the short fit underpopulated.
+  * Never substitute the bucket boundary for the actual physical timestamp. */
+ if(s->last_tick&&tick/(R2_CAPTURE_HZ/2)==s->last_tick/(R2_CAPTURE_HZ/2))return false;
  if(!s->count){s->origin_tick=tick;s->origin_ns=ns;}
  if(tick<s->origin_tick||tick-s->origin_tick>(uint64_t)INT64_MAX/125||ns<s->origin_ns)return false;
  int64_t residual=(int64_t)((tick-s->origin_tick)*125/2)-(int64_t)(ns-s->origin_ns);
@@ -58,7 +60,7 @@ static inline struct r2_hold_fit r2_hold_fit_window(const struct r2_hold_rate *s
  if(first==s->count||at<s->last_available)return f;
  uint64_t origin=r2_hold_point_tick(s,first);int32_t base=s->point[first].residual;
  f.points=(uint16_t)(s->count-first);f.span_ms=(uint32_t)((s->last_tick-origin)/16000);
- if(f.points<32||f.span_ms<seconds*850)return f;
+ if(f.points<(seconds==16?24u:32u)||f.span_ms<seconds*850)return f;
  for(unsigned i=first;i<s->count;i++)if(r2_hold_abs((int64_t)s->point[i].residual-base)>16000000)return f;
  int64_t xx=0,xy=0;
  /* Two bounded passes per channel avoid W12's large per-channel work arrays.
@@ -116,9 +118,17 @@ static inline int32_t r2_hold_choose(const struct r2_hold_rate *s,uint64_t at,in
     s->long_fit.guard>=fast_guard||r2_hold_abs((int64_t)s->short_fit.rate-s->long_fit.rate)>5)return fast;
  int32_t a=fast,b=s->short_fit.rate,c=s->long_fit.rate,t;
  if(a>b){t=a;a=b;b=t;}if(b>c){t=b;b=c;c=t;}if(a>b){t=a;a=b;b=t;}
- int64_t delta=(int64_t)b-fast;if(r2_hold_abs(delta)>15)return fast;
- if(delta>5)delta=5;
- if(delta< -5)delta=-5;
+ /* T096's16-pair fast endpoint rate is much noisier than W12's fast fit.
+  * Admit only agreement of both slow windows, within the fast error guard;
+  * cap the HOLD-only change at100ppb. Live RF permission is unaffected. */
+ uint64_t band=(uint64_t)fast_guard*3;
+ if(band>250)band=250;
+ if(band<15)band=15;
+ int64_t delta=(int64_t)b-fast;if(r2_hold_abs(delta)>band)return fast;
+ int64_t cap=fast_guard<100?fast_guard:100;
+ if(cap<5)cap=5;
+ if(delta>cap)delta=cap;
+ if(delta< -cap)delta=-cap;
  *selected=true;return fast+(int32_t)delta;
 }
 /* Reanchor an exact RC5 map at a causal entry. Shadow and production call the
@@ -138,8 +148,8 @@ static inline bool r2_hold_from_lora(uint64_t tick,uint64_t ns,int32_t correctio
   .bound=RC5_UNKNOWN,.rate_bound=RC5_UNKNOWN,.capture_bound=RC5_UNKNOWN};return true;
 }
 static inline bool r2_hold_trial_value(const struct r2_hold_trial *t,uint64_t tick,unsigned candidate,uint64_t *ns){
- struct rc5_map m=t->baseline;uint64_t elapsed;
- if(candidate&&!r2_hold_freeze(&t->baseline,t->start,t->selected,&m))return false;
+ struct rc5_map m={.effective=t->start,.anchor_tick=t->start,.anchor_ns=t->baseline.anchor_ns,
+  .ppb=candidate?t->selected:t->baseline.ppb,.phase_ns=t->baseline.phase_ns};uint64_t elapsed;
  /* The final real witness may overshoot a120s probe by up to its1s expiry. */
  return tick>=t->start&&tick-t->start<=R2_HOLD_MAX_TICKS+R2_CAPTURE_HZ&&rc5_map_project(&m,tick,ns,&elapsed);
 }

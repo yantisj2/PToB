@@ -10,11 +10,12 @@ clock are unchanged.
 
 ## Frequency and continuity
 
-A65-point history thins accepted physical pairs by450ms, never by residual.
-Channel-centered16/32s fits require32 points,85% span and8 repeated-channel
+A 65-point history selects the first real accepted pair per 500 ms bucket, never
+by residual. Channel-centered16/32s fits require24/32 points,85% span and8 repeated-channel
 degrees of freedom. Both rate guards must be<=10ppb, agree within5ppb and
 improve on the fast-rate guard. The median with the fast rate must remain
-within15ppb; adjustment is capped at5ppb. Insufficient, stale or rejected fits
+within three fast guards(bounded15..250ppb); adjustment is capped by that
+guard(bounded5..100ppb). Insufficient, stale or rejected fits
 retain the fast rate. Fits refresh at most once per second outside interrupts,
 spinlocks and formatting. Integer arithmetic uses checked, centered coordinates.
 
@@ -32,14 +33,28 @@ runtime high-water observations remain separate checks.
 
 ## Shadow and finite output tests
 
-The boot/source-bound `holdover` console query returns physical pair coordinates,
-fit choices, actual local output map and two shadow lanes. One lane probes2s;
+The boot/source-bound `holdover` console query returns committed rate-input
+coordinates, all-witness coordinates/cursor, fit choices, actual local output
+map and the exact frozen entry maps of two shadow lanes. `holdover data` is a
+smaller read-only trace for capturing all witnesses without printing populations.
+The raw witness cursor counts consumed physical pairs, separately from packet
+and protocol acceptance counts. Gaps in capture remain missing records.
+One lane probes2s;
 the other cycles12/32/64/120s. Each freezes candidate and fast-baseline clocks
 at the same delivered phase. Later accepted BLE observations score them before
 training either rate or live map. Earlier1us crossings remain in each prefix
 maximum; gaps>250ms are counted without interpolation. Missing endpoint witnesses
 expire as unknown one second after the probe. Source changes terminate the old
 population. Timing events retain START/END/RESET identities and outcome maxima.
+Completed endpoints stay visible for500ms before the slot is reused.
+
+`holdover 8000fa00` selects64000ms paired shadow probes with staggered starts;
+the high bit selects measurement only, with1000..120000ms supported. High bit
+alone restores the default lanes. A measurement-mode change closes old trials
+as unknown and begins a separate population without changing the delivered
+clock. Host-side overlapping frozen clocks can measure a denser population
+using the same committed output maps and subsequent witness trace, using no
+additional MCU storage. Their populations and correlation must stay explicit.
 
 `holdover 00002ee0` requests a12000ms finite local-output freeze while BLE stays
 a witness. Durations are eight hexadecimal digits,1000..120000ms; zero stops.
@@ -59,6 +74,26 @@ witness at or after each age. Require100 outcomes per age and retain the latest
 devices, boots and contexts separate. Report all tails, witness gaps and
 overshoot. Overlapping runs are correlated; sampled success is not a continuous
 bound or independently calibrated UTC/output accuracy.
+
+`holdover_replay.py` independently projects the recorded integer clocks,
+checks the frozen on-device prefix maxima, and compares committed rate inputs
+against floating-point channel-centered fits. A separate prospective host
+population freezes100 actually delivered models two seconds apart after32 s
+of captured warm-up. Every later accepted witness is scored without training
+those clocks. Missing witness-cursor records make affected prefixes unknown;
+an earlier observed failure remains a failure. This denser host population is
+explicitly correlated and is separate from the two on-device lanes.
+
+```sh
+python3 firmware/t096/tools/holdover_replay.py capture.jsonl \
+  --out holdover-replay.json
+```
+
+Capture the compact `data` trace fast enough to preserve the witness cursor and
+the selected rate inputs. Ordinary console polling need not do so. Missing
+prehistory or missing records cannot certify full independent replay. The
+production phase correction is an existing empirical calibration input, not a
+new fitted offset or an accuracy bound.
 
 ## Offline checks and LoRa reuse
 
