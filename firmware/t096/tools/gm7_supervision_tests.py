@@ -25,7 +25,8 @@ legacy = (app/'tests/gm7_supervision178.h').read_text()
 (out/'production-supervision.inc').write_text(stop+legacy+supervise.replace('void r2_service_supervise(void)', 'static void current_supervise(void)'))
 start = source[source.index('  uint64_t cycle_started = kernel_now();'):source.index('  struct gm7_bridge b;', source.index('static void cycle('))]
 end = source[source.index('  (void)k_mutex_lock(&lock, K_FOREVER);', source.index('finished:\n')):source.index('K_WORK_DEFINE(service_work, cycle);')]
-(out/'production-worker-boundaries.inc').write_text('static uint64_t worker_begin(void) {\n'+start+'  return cycle_started;\n}\nstatic void worker_finish(uint64_t cycle_started) {\n'+end)
+stage=source[source.index('static void worker_stage_locked('):source.index('static void worker_stage(unsigned')]
+(out/'production-worker-boundaries.inc').write_text(stage+'static uint64_t worker_begin(void) {\n'+start+'  return cycle_started;\n}\nstatic void worker_finish(uint64_t cycle_started) {\n'+end)
 fixture = (app/'tests/watchdog_test.c').read_text().replace('int main(int argc,char **argv)', 'int historical_watchdog_main(int argc,char **argv)')
 assert fixture.endswith('}\n')
 fixture = fixture[:-2]+' return 0;\n}\n'

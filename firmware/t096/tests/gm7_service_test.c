@@ -1600,9 +1600,25 @@ static void nomination_diagnostics(void) {
       diagnostic.hot_change_reason==GM7_N_LEADER_CHANGED && !diagnostic.preferred_hot);
   puts("PASS actual console nomination old/new boot identities, causes, count, hold age and leader departure");
 }
+static void worker_stage_accounting(void){
+ struct r2_supervision saved=status.supervision;
+ memset(&status.supervision,0,sizeof status.supervision);
+ status.supervision.stage=1;status.supervision.stage_at=100;
+ for(unsigned i=1;i<=7;i++)worker_stage_locked(100+i*17,i==7?0:i+1);
+ for(unsigned i=0;i<7;i++)assert(status.supervision.stage_max_us[i]==17);
+ status.supervision.stage=1;status.supervision.stage_at=100;
+ worker_stage_locked(105,0);assert(status.supervision.stage_max_us[0]==17);
+ status.supervision.stage=2;status.supervision.stage_at=100;
+ worker_stage_locked(UINT64_MAX,0);assert(status.supervision.stage_max_us[1]==UINT32_MAX);
+ status.supervision.stage=3;status.supervision.stage_at=100;
+ worker_stage_locked(99,0);assert(status.supervision.stage_max_us[2]==17);
+ status.supervision=saved;
+ puts("PASS seven existing GM owner wall-time bins, maxima, saturation and clock regression");
+}
 int main(int argc, char **argv) {
   (void)argc;
   (void)argv;
+  worker_stage_accounting();
   hot_survives_leader_reboot();
   hot_survives_dead_stream();
   promoted_map_keeps_source_dwell();

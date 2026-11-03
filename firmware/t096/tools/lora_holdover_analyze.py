@@ -27,14 +27,14 @@ def analyze(rows):
  groups=defaultdict(list);seen={};missing=defaultdict(int);invalid_snapshots=0
  for row in rows:
   p=row.get('payload',row)
-  if p.get('profile')!='RAM_30_120_300' or p.get('transmitter') or 'hold_rates'not in p:continue
+  if p.get('profile')not in('RAM_30_120_300','RAM_30_120_300_BW500') or p.get('transmitter') or 'hold_rates'not in p:continue
   if not p.get('accepted'):continue
   # Fresh META can retain old event counters while clearing their capture
   # scope and permission. Such a snapshot is not a new physical event in the
   # new stream. Keep its denominator separately instead of inventing a cohort.
   if not p['capture_epoch']or('physical_until_us'in p and p['physical_until_us']<=p['at_us']):
    invalid_snapshots+=1;continue
-  scope=tuple(p[k]for k in ('boot','emitter','emitter_boot','stream','source_epoch','capture_epoch'))
+  scope=(p['profile'],)+tuple(p[k]for k in ('boot','emitter','emitter_boot','stream','source_epoch','capture_epoch'))
   identity=(p['accepted'],p['event_tick'],p['event_ns'])
   previous=seen.get(scope)
   if previous==identity:continue

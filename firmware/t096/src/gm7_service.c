@@ -1099,6 +1099,19 @@ static __attribute__((noinline)) void publish(struct gm7_bridge b) {
     ++status.cycles;
   (void)k_mutex_unlock(&lock);
 }
+/* Existing seven diagnostic bins measure wall time, including preemption and
+ * waits, never CPU occupancy. Stages: source/bridge, results/snapshot,
+ * receive/update, BLE polling, admission/results, timing/control, publish. */
+static void worker_stage_locked(uint64_t now,unsigned next){
+ struct r2_supervision *d=&status.supervision;
+ uint64_t elapsed=now>=d->stage_at?now-d->stage_at:0;
+ uint32_t bounded=elapsed>UINT32_MAX?UINT32_MAX:(uint32_t)elapsed;
+ if(d->stage&&d->stage<=7&&bounded>d->stage_max_us[d->stage-1])d->stage_max_us[d->stage-1]=bounded;
+ d->stage=next;d->stage_at=now;
+}
+static void worker_stage(unsigned next){
+ (void)k_mutex_lock(&lock,K_FOREVER);worker_stage_locked(kernel_now(),next);(void)k_mutex_unlock(&lock);
+}
 static void cycle(struct k_work *work) {
   (void)work;
   uint64_t cycle_started = kernel_now();
@@ -1263,6 +1276,7 @@ static void cycle(struct k_work *work) {
   /* Complete RF evidence must be consumed before update can retire a
    * reservation/consumed handoff solely because callback processing is late.
    * Fresh source and merge negatives still run before publishing any G1. */
+  worker_stage(2);
   if (!results(&b)) {
     goto finished;
   }
@@ -1312,6 +1326,7 @@ static void cycle(struct k_work *work) {
     last_enclosure = enclosure;
     event_evidence.phase_sample_ms = (uint32_t)(b.hf / 1000);
   }
+  worker_stage(3);
   receive(b, utc, frame_start, frame, enclosure, aligned);
   if (promoted_reservation && !promoted_reservation_current(b,&source)) {
     promoted_reservation=false;
@@ -1336,6 +1351,7 @@ static void cycle(struct k_work *work) {
         R2_GM7_JOURNAL(R2_GM7_J_SOURCE,0),
         (uint32_t)owner.source.until_us,(uint32_t)b.hf);
   }
+  worker_stage(4);
   r2_gm7_controller_source(owner.source.until_us, owner.source.physical_ready &&
                                                       owner.eligible &&
                                                       !resource_fault);
@@ -1360,6 +1376,7 @@ static void cycle(struct k_work *work) {
     r2_service_stop();
     goto finished;
   }
+  worker_stage(5);
   r2_group_admission_gm7_tick(&join, kernel_now());
   struct r2_ble_event event;
   for (unsigned count = 0;
@@ -1369,6 +1386,7 @@ static void cycle(struct k_work *work) {
   if (!results(&b)) {
     goto finished;
   }
+  worker_stage(6);
   const uint64_t closure_lead = GM7_CLOSURE_LEAD_US;
   bool fixed_yield_lead = owner.selected.yield_utc_us &&
       owner.remote_yield_sequence == owner.selected.sequence && owner.remote_yield_after &&
@@ -1620,10 +1638,12 @@ static void cycle(struct k_work *work) {
      * timing authority. Precision/HOT primary uses the physical phase above. */
     ordinary_controls(b,b.hf-b.hf%GM7_FRAME_US,b.hf/GM7_FRAME_US,100);
   }
+  worker_stage(7);
   publish(b);
 finished:
   (void)k_mutex_lock(&lock, K_FOREVER);
   uint64_t end = kernel_now();
+  worker_stage_locked(end,0);
   if (end >= cycle_started && end - cycle_started > status.worker_max_us)
     status.worker_max_us = end - cycle_started > UINT32_MAX
                                ? UINT32_MAX

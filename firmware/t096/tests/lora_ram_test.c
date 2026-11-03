@@ -434,7 +434,7 @@ static void timers260_test(unsigned mode){
   bool prepared=false,attempted=false;uint64_t finish=now_us+20000000;
   while(now_us<finish&&!owner.sent[LP_FOLLOW-1]){
    if(mode==58||(!attempted&&!(owner.prepared_kind==LP_META&&now_us+2000>=role.tx.reservation.slot_us)))fresh_ble(1500000);
-   if(mode==59&&owner.prepared_kind==LP_META&&now_us+2000>=role.tx.reservation.slot_us&&!attempted){fresh_ble(1200000);attempted=true;}
+   if(mode==59&&owner.prepared_kind==LP_META&&now_us+2000>=role.tx.reservation.slot_us&&!attempted){fresh_ble(lp_duration(LP_META)+50000);attempted=true;}
    auto_complete();step();
    if(owner.prepared_kind==LP_META){prepared=true;assert(!txs);}
    if(mode==59&&attempted&&owner.stopping){uint64_t charge=lp_charged(&role.tx.core.durable,now_us);step();assert(!txs&&atomic_get(&closed)&&!atomic_get(&faulted)&&!role.tx.core.durable.fh_disabled&&charge>0);puts("PASS original BLE grant expiring during final launch prevents RF and closes conservatively");return;}

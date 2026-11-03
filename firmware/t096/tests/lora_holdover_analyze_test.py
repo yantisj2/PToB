@@ -30,4 +30,8 @@ turnover=m.analyze(rows+[carry,expired,new])
 assert turnover['invalid_event_snapshots']==2 and len(turnover['groups'])==2
 assert turnover['groups'][0]==r and turnover['groups'][1]['accepted_events_observed']==1
 assert all(g['scope'][-1]!=0 for g in turnover['groups'])
+wide=copy.deepcopy(rows)
+for v in wide:v['profile']='RAM_30_120_300_BW500'
+assert len(m.analyze(rows+wide)['groups'])==2
+assert m.analyze(wide)['groups'][0]['frozen_comparisons']==r['frozen_comparisons']
 print('PASS causal frozen LoRa RMS, rate sign, untrimmed tails, missing/censored denominators, invalid META snapshots and context isolation')

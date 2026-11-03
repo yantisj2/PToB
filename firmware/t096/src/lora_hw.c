@@ -748,7 +748,11 @@ int r2_lora_hw_passive_configure(enum r2_lora_passive_phy phy,unsigned channel){
   uint64_t hz=phy==R2_LORA_DTS?UINT64_C(915000000):UINT64_C(902400000)+400000*channel;
   uint32_t word=(uint32_t)((hz*(UINT64_C(1)<<25)+16000000)/32000000);
   uint8_t frequency[]={(uint8_t)(word>>24),(uint8_t)(word>>16),(uint8_t)(word>>8),(uint8_t)word};
+#ifdef R2_LORA_PASSIVE_WIDE
+  const uint8_t mod[]={11,6,2,0};
+#else
   const uint8_t mod[]={phy==R2_LORA_DTS?12:7,phy==R2_LORA_DTS?6:10,2,0};
+#endif
   int rc=command(0x86,frequency,sizeof frequency);
   if(!rc)rc=command(0x8b,mod,sizeof mod);
   if(rc)return rc==-ECANCELED?rc:fail(rc);
@@ -759,8 +763,13 @@ uint32_t r2_lora_hw_budget_us(size_t n) {
   if (!n || n > R2_LORA_HW_BYTES)
     return 0;
 #if defined(R2_LORA_PASSIVE_FAST) || defined(R2_LORA_PASSIVE_SLOW)
+#ifdef R2_LORA_PASSIVE_WIDE
+  if(passive_phy==R2_LORA_DTS)return n==28?256784:n==112?625424:0;
+  if(passive_phy==R2_LORA_FHSS)return n==24?232208:n==32?256784:0;
+#else
   if(passive_phy==R2_LORA_DTS)return n==28?454416:n==112?1142544:0;
   if(passive_phy==R2_LORA_FHSS)return n==24?231951:n==32?268814:0;
+#endif
   return 0; /* This image cannot accidentally transmit the old wire/PHY. */
 #else
   return n <= 80 ? TIMING_CUTOFF_US : DIAGNOSTIC_CUTOFF_US;
@@ -824,6 +833,21 @@ static int prepare_tx(const uint8_t *bytes,size_t n,uint32_t gen) {
   if (!capture_live())return tx_capture_failure(serial);
   const uint8_t standby[] = {0};
   int rc = command(0x80, standby, sizeof(standby));
+#if defined(R2_LORA_PASSIVE_FAST) || defined(R2_LORA_PASSIVE_SLOW)
+  /* Semtech rev2.2 section15.1: configure TxModulation bit2 before EVERY
+   * packet. Retuning invalidates the staged token, so its PHY cannot change
+   * between this preparation and final guarded launch. */
+  uint8_t modulation;
+  if(!rc)rc=reg_read(0x0889,&modulation);
+  if(!rc){
+#ifdef R2_LORA_PASSIVE_WIDE
+    modulation&=(uint8_t)~4u; /* DTS and precision are both500kHz. */
+#else
+    if(passive_phy==R2_LORA_DTS)modulation&=(uint8_t)~4u;else modulation|=4u;
+#endif
+    rc=reg_write(0x0889,modulation);
+  }
+#endif
   if (!rc)
     rc = packet_params((uint8_t)n);
   if (!rc)

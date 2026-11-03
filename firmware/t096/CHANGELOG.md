@@ -1,5 +1,30 @@
 # T096 changelog
 
+## 0.15.276 — matched wide precision PHY experiment and owner profiling
+
+Add explicit `--lora-passive-wide` for matched SF11/BW500 DTS and precision packets,
+authenticated schedule4. The narrow schedule3 remains available. Both keep
+P30/D120/M300, the payloads and TX power, original source/capture deadlines,
+and108s rolling-hour cap. DISC/META reserve256784/625424us and SYNC/FOLLOW
+232208/256784us including the unchanged10ms allowance; nominal accounting is
+73.887648s/hour. Shorter META creates source launch room without extending
+its original grant. SF12→SF11 DTS sacrifices about2.5dB typical demodulation
+SNR threshold; no range equivalence is assumed. Apply Semtech's
+TxModulation bit2 workaround before every passive transmission, for DTS and
+the selected timing bandwidth. Independent HMAC/profile rejection and real
+driver/core budget tests cover both profiles. Timestamp precision, sensitivity
+and range gains remain unproven until separate physical characterization.
+
+Activate the seven existing GM owner wall-time stage maxima without new
+diagnostic storage. They separate source, results, receive, BLE polling,
+admission, timing/control and publication; they include preemption/waits and
+must not be called CPU occupancy. Existing launch/refund accounting stays
+independent of these measurements.
+
+The delivered clock remains the existing sparse model, without endpoint phase
+calibration. Three-state recursive development and mismatch tests are offline;
+the characterized candidate missed the target and is not deployed here.
+
 ## 0.15.275 — bounded delivery work and independent PPS collection
 
 Refund a staged control reservation at its original missed launch deadline only

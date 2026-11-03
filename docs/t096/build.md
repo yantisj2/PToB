@@ -149,6 +149,16 @@ runtime mesh. Do not pass a nonzero `--lora-backup-transmitter-factory`: the RAM
 cohort rejects automatic backup TX. Local authenticated discovery and current
 source admission remain required. DC/PC reject passive variants.
 
+For the experimental matched SF11/BW500 DTS and precision PHY, add
+`--lora-passive-wide` on both ends. It requires slow mode and uses authenticated
+schedule4, profile `RAM_30_120_300_BW500`. Narrow schedule3 images reject it.
+The option leaves payload sizes, cadence, power and original deadlines
+unchanged; shorter DTS packets provide more launch room in the original source
+grant. DTS loses about2.5dB typical demodulation SNR threshold versus SF12;
+timing, range and sensitivity require measurement. Omitting
+the option retains the narrow timing PHY. Receipts and watchdog configuration
+bind the selection.
+
 The slow image requests LoRa ON at boot. Listeners receive in GM and RC profiles;
 GM participation does not suppress passive RX. The designated device transmits
 only in GM profile with an eligible source: qualified own-GNSS time or fresh

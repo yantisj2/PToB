@@ -36,6 +36,16 @@ class Checks(unittest.TestCase):
         p['discovery_us']=60000000
         with self.assertRaises(ValueError):g.observe(p,902000000000)
 
+    def test_wide_profile_is_separate_cadence_context(self):
+        g=Gate(10000,5);p=sample(0)
+        p.update(profile='RAM_30_120_300_BW500',beat_us=30000000,meta_us=300000000,discovery_us=120000000,
+                 hold_us=120000000,lease_us=420000000,cadence_bound_us=32510000)
+        g.observe(p,1000000000)
+        p=copy.deepcopy(p)
+        p.update(profile='RAM_30_120_300',at_us=p['at_us']+1000000)
+        g.observe(p,2000000000)
+        self.assertEqual(g.reason,'source or capture context changed')
+
     def test_learned_TZ_survives_time_loss_and_accepts_changed_zone(self):
         with tempfile.TemporaryDirectory() as folder:
             out=Path(folder);m=Monitor(out,['RX'],['RX'],5000,Budget(out,10**7,0),threading.Event())

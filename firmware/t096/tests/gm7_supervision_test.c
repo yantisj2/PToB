@@ -14,6 +14,8 @@ static struct k_work_q owner_queue;
 static struct k_work service_work;
 static int submit_result=1;
 static uint64_t kernel_now(void) { return k_ticks_to_us_floor64(k_uptime_ticks()); }
+void r2_health_gm_witness(bool enabled){(void)enabled;}
+void r2_ble_gm7_source(bool ready){(void)ready;}
 void r2_radio_service_withdraw(void) {}
 void r2_gm7_controller_cancel(uint64_t now) { (void)now; }
 static int submit_boundary(struct k_work_q *q,struct k_work *w) {(void)q;(void)w;return submit_result;}
