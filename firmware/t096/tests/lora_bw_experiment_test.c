@@ -15,12 +15,22 @@ static void measured_packet(const struct lp_packet *p,const uint8_t ctx[16],uint
  assert(!lp_encode(queued.frame,sizeof queued.frame,p,ctx,&test_group));have_event=true;step();
 }
 static void source_copy_pause(void){now_us+=230000;}
+static void source_projection_pause(void){now_us+=200000;projection_hook=source_projection_pause;}
 int main(int argc,char **argv){
  assert(argc==2);unsigned mode=(unsigned)atoi(argv[1]);
  assert(LP_SCHEDULE==5&&LP_BEAT_US==4000000&&LAB_RUN_US==240000000);
  init(mode!=4);assert(!(flags&REQUESTED)&&!lab_until);
  if(mode==1){
   r2_lora_request(true);uint64_t end=lab_until;
+ if(mode==13||mode==14){
+  struct rc8_export m=source();r2_lora_source_publish(&m);now_us=owner.quiet_until_us+21000000;step();
+  assert(restore(now_us+2500000));uint64_t slot=role.tx.core.durable.next_slot_us;
+  now_us=slot-PRECHARGE_LEAD_US;step();assert(owner.prepared_kind==LP_META&&!owner.tx_kind);
+  if(mode==14){r2_lora_source_withdraw();now_us=slot;step();assert(!txs);puts("PASS prior-pollFIFO staging remains fenced by sourcewithdrawal");return 0;}
+  now_us=slot-120000;projection_hook=source_projection_pause;step();projection_hook=NULL;
+  assert(owner.tx_kind==LP_META&&txs==1&&now_us<slot+LP_LAUNCH_LATE_US);
+  puts("PASS200ms preempted freshentry projection launches prior-pollFIFO withoutduplicatedprojection, originalfinishfence retained");return 0;
+ }
  if(mode==12){
   struct rc8_export m=source();r2_lora_source_publish(&m);now_us=owner.quiet_until_us+21000000;step();
   fake_hop_delay_us=1800000;uint64_t before=now_us;assert(!transmit(now_us));
@@ -45,6 +55,15 @@ int main(int argc,char **argv){
   puts("PASS defaultOFF one nonrenewable240s arm; OFF prevents rearm");return 0;
  }
  r2_lora_request(true);uint64_t end=lab_until;
+ if(mode==13||mode==14){
+  struct rc8_export m=source();r2_lora_source_publish(&m);now_us=owner.quiet_until_us+21000000;step();
+  assert(restore(now_us+2500000));uint64_t slot=role.tx.core.durable.next_slot_us;
+  now_us=slot-PRECHARGE_LEAD_US;step();assert(owner.prepared_kind==LP_META&&!owner.tx_kind);
+  if(mode==14){r2_lora_source_withdraw();now_us=slot;step();assert(!txs);puts("PASS prior-pollFIFO staging remains fenced by sourcewithdrawal");return 0;}
+  now_us=slot-120000;projection_hook=source_projection_pause;step();projection_hook=NULL;
+  assert(owner.tx_kind==LP_META&&txs==1&&now_us<slot+LP_LAUNCH_LATE_US);
+  puts("PASS200ms preempted freshentry projection launches prior-pollFIFO withoutduplicatedprojection, originalfinishfence retained");return 0;
+ }
  if(mode==12){
   struct rc8_export m=source();r2_lora_source_publish(&m);now_us=owner.quiet_until_us+21000000;step();
   fake_hop_delay_us=1800000;uint64_t before=now_us;assert(!transmit(now_us));
@@ -120,6 +139,7 @@ int main(int argc,char **argv){
    if(now_us<slot-PRECHARGE_LEAD_US)now_us=slot-PRECHARGE_LEAD_US;step();now_us=slot;step();
    unsigned control=owner.tx_kind;assert(control==LP_META||control==LP_DISC);
    assert(tuning_phy==R2_LORA_DTS);done(slot,control);
+   if(now_us<slot+LP_SYNC_OFFSET_US-1000000)now_us=slot+LP_SYNC_OFFSET_US-1000000;step();
    now_us=slot+LP_SYNC_OFFSET_US;step();assert(owner.tx_kind==LP_SYNC);
    unsigned expected=i==1||i==2?R2_LORA_FHSS_BW500:R2_LORA_FHSS;
    assert(tuning_phy==expected&&role.tx.reservation.cursor==2*i);

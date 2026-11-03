@@ -15,7 +15,7 @@ def main():
  sources=[APP/'tests/lora_bw_experiment_test.c',APP/'src/lora_passive_core.c',APP/'protocol/lora_passive.c',APP/'src/lora_rc8_policy.c',APP/'protocol/lora_rc8.c',APP/'protocol/group_auth.c',*[tiny/'source'/(n+'.c')for n in ('hmac','sha256','utils')]]
  binary=out/'owner';subprocess.run([*flags,'-DR2_PASSIVE_SERVICE_BODY="'+str(owner)+'"','-DR2_HW_ADMISSION_BODY="'+str(admission)+'"',*map(str,sources),'-o',str(binary)],check=True)
  logs=[]
- for mode in (1,2,3,4,5,6,8,9,11,12):
+ for mode in (1,2,3,4,5,6,8,9,11,12,13,14):
   r=subprocess.run([str(binary),str(mode)],capture_output=True,text=True);logs.append(r.stdout+r.stderr);(out/'owner.log').write_text(''.join(logs));r.check_returncode();print(r.stdout.strip())
  negative=out/'phase200.c';negative.write_text('#undef LP_LAUNCH_LATE_US\n#define LP_LAUNCH_LATE_US UINT64_C(45000)\n#undef LP_LAUNCH_PAD_US\n#define LP_LAUNCH_PAD_US UINT64_C(50000)\n'+owner.read_text().replace('#define SOURCE_GRID_PHASE_NS UINT64_C(400000000)','#define SOURCE_GRID_PHASE_NS UINT64_C(200000000)'))
  old=out/'owner-phase200';subprocess.run([*flags,'-DR2_PASSIVE_SERVICE_BODY="'+str(negative)+'"','-DR2_HW_ADMISSION_BODY="'+str(admission)+'"',*map(str,sources),'-o',str(old)],check=True)
@@ -33,6 +33,6 @@ def main():
  def budget(n):return int((12+4.25+8+((8*n-4*7+28+16+27)//28)*6)*256)+10000
  assert [budget(n)for n in(24,32)]==[28496,31568]
  files=[*sources,APP/'src/lora_passive_service.c',APP/'src/lora_hw.c',APP/'include/lora_hw.h',APP/'protocol/lora_passive_schedule.h',Path(__file__)]
- (out/'receipt.json').write_text(json.dumps(dict(status='PASS_FINITE_LAB_AB_NOT_PHYSICAL_QUALIFICATION',hardware=False,owner_cases=11,driver_arms=4,illegal_combinations=2,grant_model='Original1.312476s maps at337ms per second; modeled acquisition only, no physical feasibility claim; original1.1s room fails META without renewal',source_hashes={str(f):hashlib.sha256(f.read_bytes()).hexdigest()for f in files}),indent=2)+'\n')
+ (out/'receipt.json').write_text(json.dumps(dict(status='PASS_FINITE_LAB_AB_NOT_PHYSICAL_QUALIFICATION',hardware=False,owner_cases=13,driver_arms=4,illegal_combinations=2,grant_model='Original1.312476s maps at337ms per second; modeled acquisition only, no physical feasibility claim; original1.1s room fails META without renewal',source_hashes={str(f):hashlib.sha256(f.read_bytes()).hexdigest()for f in files}),indent=2)+'\n')
  print('PASS sameSF7 PHY/budget oracle, modulation bits, retune token invalidation and illegal builds')
 if __name__=='__main__':main()

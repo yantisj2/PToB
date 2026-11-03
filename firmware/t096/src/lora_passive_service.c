@@ -828,7 +828,12 @@ static int __attribute__((noinline)) transmit(uint64_t now){
 #ifdef STAGED_PACKETS
   if(owner.prepared_kind!=LP_SYNC&&now+PAIR_PREPARE_LEAD_US>=at){
    int rc=tune(precision_phy(role.tx.reservation.cursor),lp_channel(t->order,role.tx.reservation.cursor),false);if(rc)return rc;
-   rc=send_pair(LP_SYNC,0,limit);if(rc)return rc;now=mono();
+   rc=send_pair(LP_SYNC,0,limit);if(rc)return rc;
+#ifdef R2_LORA_BW_EXPERIMENT
+   return 0; /* Next poll qualifies a fresh original grant after staging. */
+#else
+   now=mono();
+#endif
   }
 #endif
   if(now<at)return 0;
@@ -853,8 +858,10 @@ static int __attribute__((noinline)) transmit(uint64_t now){
  return 0;}
 #ifdef STAGED_PACKETS
   if(fenced()||revision!=(uint32_t)atomic_get(&source_revision))return -ECANCELED;
+#ifndef R2_LORA_BW_EXPERIMENT
   source=source_now(&phase_ns,&source_epoch,&root_boot,&limit,&phase_at_us);if(source==SOURCE_TRANSIENT)return 0;
   if(source==SOURCE_ABSENT){begin_stop(0);return 0;}
+#endif
   int rc=0;
 #else
   int rc=tune(precision_phy(role.tx.reservation.cursor),lp_channel(t->order,role.tx.reservation.cursor),false);if(rc)return rc;
@@ -877,7 +884,12 @@ static int __attribute__((noinline)) transmit(uint64_t now){
 #ifdef STAGED_PACKETS
   if(owner.prepared_kind!=LP_FOLLOW){
    int rc=tune(precision_phy(role.tx.reservation.cursor),lp_channel(t->order,role.tx.reservation.cursor+1),false);if(rc)return rc;
-   rc=send_pair(LP_FOLLOW,0,limit);if(rc)return rc;now=mono();
+   rc=send_pair(LP_FOLLOW,0,limit);if(rc)return rc;
+#ifdef R2_LORA_BW_EXPERIMENT
+   return 0; /* FIFO ready; no work is repeated on the launch poll. */
+#else
+   now=mono();
+#endif
   }
 #endif
   if(now<at)return 0;
@@ -889,8 +901,10 @@ static int __attribute__((noinline)) transmit(uint64_t now){
  return 0;}
 #ifdef STAGED_PACKETS
   if(fenced()||revision!=(uint32_t)atomic_get(&source_revision))return -ECANCELED;
+#ifndef R2_LORA_BW_EXPERIMENT
   source=source_now(&phase_ns,&source_epoch,&root_boot,&limit,&phase_at_us);if(source==SOURCE_TRANSIENT)return 0;
   if(source==SOURCE_ABSENT){begin_stop(0);return 0;}
+#endif
   int rc=0;
 #else
   int rc=tune(precision_phy(role.tx.reservation.cursor),lp_channel(t->order,role.tx.reservation.cursor+1),false);if(rc)return rc;
@@ -1015,6 +1029,9 @@ static int __attribute__((noinline)) transmit(uint64_t now){
   (void)prepare_start;
 #endif
   if(rc)return rc;
+#ifdef R2_LORA_BW_EXPERIMENT
+  return 0; /* Staging and current-source qualification are separate polls. */
+#endif
  }
 #endif
  owner.launch_late_us=(int32_t)((int64_t)mono()-(int64_t)r->slot_us);
@@ -1043,8 +1060,10 @@ static int __attribute__((noinline)) transmit(uint64_t now){
  /* Precharge may yield through a physical PPS/map update. Refresh the source
   * snapshot after storage, before the guarded launch; never renew a staged TX. */
  if(fenced()||revision!=(uint32_t)atomic_get(&source_revision))return -ECANCELED;
+#ifndef R2_LORA_BW_EXPERIMENT
  source=source_now(&phase_ns,&source_epoch,&root_boot,&limit,&phase_at_us);if(source==SOURCE_TRANSIENT)return 0;
  if(source==SOURCE_ABSENT){lp_tx_cancel(t,true);if(job_owned)utc_finish(UTC_EXPIRED,UTC_NO_SOURCE);owner.stage=owner.prepared_kind=0;return 0;}
+#endif
  owner.source_phase_us=(uint32_t)((phase_ns%UINT64_C(1000000000))/1000);
  r2_diag_scratch.lora.attempt.source_phase_us=owner.source_phase_us;r2_diag_scratch.lora.attempt.valid|=8;
  bool attempted=false;int rc;
