@@ -664,6 +664,20 @@ static bool restore(uint64_t first_slot){
  if(mono()<owner.quiet_until_us)return false;
  uint32_t seed;do{seed=sys_rand32_get();}while(!seed);
  role.tx.loaded=lp_tx_start(&role.tx.core,seed,mono(),first_slot,owner.boot_ms);
+#ifdef R2_LORA_BW_EXPERIMENT
+ /* Hop-order derivation is preemptible and can consume the initial lead.
+  * Freeze the first grid only after it completes, before any reservation or
+  * RF. Whole seconds preserve the common400ms source phase. */
+ if(role.tx.loaded){
+  uint64_t now=mono();
+  if(now>UINT64_MAX-PRECHARGE_LEAD_US){role.tx.loaded=role.tx.core.ready=false;return false;}
+  uint64_t floor=now+PRECHARGE_LEAD_US;
+  if(first_slot<floor){uint64_t seconds=(floor-first_slot+999999)/1000000;
+   if(seconds>(UINT64_MAX-first_slot)/1000000){role.tx.loaded=role.tx.core.ready=false;return false;}
+   role.tx.core.durable.next_slot_us=first_slot+seconds*1000000;
+  }
+ }
+#endif
  return role.tx.loaded;
 }
 #ifdef STAGED_PACKETS
@@ -806,6 +820,9 @@ static int __attribute__((noinline)) transmit(uint64_t now){
   if(!owner.listening)return tune(R2_LORA_DTS,0,true);
 #endif
   return 0;}
+#ifdef R2_LORA_BW_EXPERIMENT
+ now=mono(); /* Initial hop derivation may have yielded through many clocks. */
+#endif
  if(owner.stage==1){
   uint64_t at=role.tx.reservation.slot_us+LP_SYNC_OFFSET_US;
 #ifdef STAGED_PACKETS

@@ -21,6 +21,15 @@ int main(int argc,char **argv){
  init(mode!=4);assert(!(flags&REQUESTED)&&!lab_until);
  if(mode==1){
   r2_lora_request(true);uint64_t end=lab_until;
+ if(mode==12){
+  struct rc8_export m=source();r2_lora_source_publish(&m);now_us=owner.quiet_until_us+21000000;step();
+  fake_hop_delay_us=1800000;uint64_t before=now_us;assert(!transmit(now_us));
+  assert(now_us>=before+1800000&&role.tx.loaded);
+  assert(role.tx.core.durable.next_slot_us>=now_us+PRECHARGE_LEAD_US);
+  assert(role.tx.core.durable.next_slot_us%1000000==400000);
+  assert(!role.tx.core.durable.pending&&!txs);
+  puts("PASS1.8s actualowner hop-generation delay preserves full2s first preparation lead and400ms phase beforeRF");return 0;
+ }
  if(mode==11){
   struct rc8_export m=source();r2_lora_source_publish(&m);
   now_us=owner.quiet_until_us+21000000;step();
@@ -36,6 +45,15 @@ int main(int argc,char **argv){
   puts("PASS defaultOFF one nonrenewable240s arm; OFF prevents rearm");return 0;
  }
  r2_lora_request(true);uint64_t end=lab_until;
+ if(mode==12){
+  struct rc8_export m=source();r2_lora_source_publish(&m);now_us=owner.quiet_until_us+21000000;step();
+  fake_hop_delay_us=1800000;uint64_t before=now_us;assert(!transmit(now_us));
+  assert(now_us>=before+1800000&&role.tx.loaded);
+  assert(role.tx.core.durable.next_slot_us>=now_us+PRECHARGE_LEAD_US);
+  assert(role.tx.core.durable.next_slot_us%1000000==400000);
+  assert(!role.tx.core.durable.pending&&!txs);
+  puts("PASS1.8s actualowner hop-generation delay preserves full2s first preparation lead and400ms phase beforeRF");return 0;
+ }
  if(mode==11){
   struct rc8_export m=source();r2_lora_source_publish(&m);
   now_us=owner.quiet_until_us+21000000;step();

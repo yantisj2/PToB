@@ -133,6 +133,11 @@ static bool event_unlocked(struct rc8_correction *c,const struct rc8_export *m,u
 static int encode_delayed(uint8_t *w,size_t cap,const struct lp_packet *p,const uint8_t ctx[16],const struct r2_group_config *g){
  now_us+=fake_encode_delay_us;if(fake_encode_hook)fake_encode_hook();return lp_encode(w,cap,p,ctx,g);
 }
+static uint64_t fake_hop_delay_us;
+static bool start_hop_delayed(struct lp_tx *t,uint32_t seed,uint64_t now,uint64_t first,uint32_t boot_ms){
+ bool result=lp_tx_start(t,seed,now,first,boot_ms);now_us+=fake_hop_delay_us;return result;
+}
+#define lp_tx_start start_hop_delayed
 #define lp_encode encode_delayed
 #define lp_charged charged_unlocked
 #define rc8_export_event event_unlocked
@@ -140,6 +145,7 @@ static int encode_delayed(uint8_t *w,size_t cap,const struct lp_packet *p,const 
 #undef rc8_export_event
 #undef lp_charged
 #undef lp_encode
+#undef lp_tx_start
 static const struct r2_group_config test_group={.id=11,.epoch=1,.psk={1,2,3}};
 static void step(void){service_step();now_us+=2000;}
 static struct rc8_export source(void){return(struct rc8_export){.scope={.emitter=1,.emitter_boot=22,.stream=1,.root=1,.root_boot=22,.source_epoch=5,.scale=RC8_UTC,.kind=RC8_OWN_GM},.from_tick=0,.until_tick=UINT64_MAX,.anchor_tick=0,.anchor_ns=UINT64_C(1000000000000),.capture_epoch=7,.created_ns=0,.expires_ns=UINT64_MAX,.map_generation=1,.rate_ppb=0,.mode=RC8_MAP_LINEAR,.authenticated=true,.valid=true};}
