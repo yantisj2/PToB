@@ -824,6 +824,17 @@ static int prepare_tx(const uint8_t *bytes,size_t n,uint32_t gen) {
   if (!capture_live())return tx_capture_failure(serial);
   const uint8_t standby[] = {0};
   int rc = command(0x80, standby, sizeof(standby));
+#if defined(R2_LORA_PASSIVE_FAST) || defined(R2_LORA_PASSIVE_SLOW)
+  /* Semtech TxModulation workaround: BW500 clears bit2; every other LoRa
+   * bandwidth sets it. Select for every packet after an idle-only retune. */
+  uint8_t modulation;
+  if(!rc)rc=reg_read(0x0889,&modulation);
+  if(!rc){
+    if(passive_phy==R2_LORA_DTS)modulation&=(uint8_t)~4u;
+    else modulation|=4u;
+    rc=reg_write(0x0889,modulation);
+  }
+#endif
   if (!rc)
     rc = packet_params((uint8_t)n);
   if (!rc)

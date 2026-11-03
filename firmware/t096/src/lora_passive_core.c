@@ -404,7 +404,15 @@ static void fit(struct lp_rx *r,uint64_t tick,uint64_t ns){
  unsigned n=r->fit_count;
  if(n&&(tick<=r->fit[n-1].tick||ns<=r->fit[n-1].tx_ns)){r->fit_count=0;n=0;}
  while(n&&tick-r->fit[0].tick>LP_WINDOW_US*16){memmove(r->fit,r->fit+1,(n-1)*sizeof r->fit[0]);--n;}
- if(n&&tick-r->fit[n-1].tick<UINT64_C(20000000)*16){r->fit_count=(uint8_t)n;return;}
+ if(n&&tick-r->fit[n-1].tick<UINT64_C(20000000)*16){
+  r->fit_count=(uint8_t)n;
+#ifdef R2_LORA_PASSIVE_SLOW
+  /* FOLLOW has advanced the raw anchor even when this physical pair is too
+   * close to enter history. Express the retained fit at that new anchor. */
+  if(r->trained)hold_phase_fit(r);
+#endif
+  return;
+ }
  if(n==LP_FIT_CAPACITY){memmove(r->fit,r->fit+1,(--n)*sizeof r->fit[0]);}
  r->fit[n++]=(struct lp_pair){tick,ns};r->fit_count=(uint8_t)n;r->trained=r->hold_selected=false;
  if(n<4||tick-r->fit[0].tick<LP_TRAIN_US*16)return;

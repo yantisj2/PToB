@@ -392,7 +392,8 @@ int main(int argc,char **argv){
    assert(r2_lora_hw_budget_us(lp_size(LP_SYNC))==lp_duration(LP_SYNC));
    assert(r2_lora_hw_budget_us(lp_size(LP_FOLLOW))==lp_duration(LP_FOLLOW));
 #endif
-   assert(!r2_lora_hw_tx(payload,24,5)&&last_budget==231951);
+   regs[0x0889]=0xa1;
+   assert(!r2_lora_hw_tx(payload,24,5)&&last_budget==231951&&regs[0x0889]==0xa5);
    assert(r2_lora_hw_passive_configure(R2_LORA_DTS,0)==-EBUSY);
    mock_us+=221951;inject(1);mock_us+=12345;struct r2_lora_hw_event e;assert(r2_lora_hw_take(&e)==1&&e.end_since_enable_us==221951&&e.end_local_us==mock_us-12345);
   }else{
@@ -407,7 +408,7 @@ int main(int argc,char **argv){
 #endif
    if(mode==265){assert(!r2_lora_hw_rx_rearm()&&configured_irq==0x262);packet_length=112;inject(2);
     struct r2_lora_hw_event e;assert(r2_lora_hw_take(&e)==1&&e.kind==R2_LORA_HW_RX_DONE&&e.length==112&&e.tick==physical_tick);
-   }else if(mode==266){assert(!r2_lora_hw_tx(payload,112,5)&&last_budget==1142544);}
+   }else if(mode==266){regs[0x0889]=0xa5;assert(!r2_lora_hw_tx(payload,112,5)&&last_budget==1142544&&regs[0x0889]==0xa1);}
    else if(mode==267){assert(!r2_lora_hw_tx(payload,28,5)&&last_budget==454416);}
    else if(mode==268){assert(r2_lora_hw_tx_before(payload,112,5,mock_us+1000000)==-EAGAIN&&!set_tx_commands&&!pins[12]);}
    else if(mode==269){assert(!r2_lora_hw_tx(payload,112,5));mock_us+=1142545;cutoff_irq(NRF_TIMER_EVENT_COMPARE0,NULL);assert(atomic_get(&fault)==-ETIMEDOUT&&!pins[12]&&!pins[16]);}

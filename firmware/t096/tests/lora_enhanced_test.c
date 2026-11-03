@@ -91,4 +91,33 @@ static void receiver(void){
  assert(!r.trained&&!r.fit_count&&r.display_tick==reference);
  puts("PASS sparse HOLD causal sample span, rate convention, loss, context and schedule rejection");
 }
-int main(int argc,char **argv){assert(argc==2);if(atoi(argv[1])==1)budget();else receiver();}
+static void thinned_phase(void){
+ struct lp_rx r={0};
+ for(unsigned i=0;i<7;i++){
+  uint64_t us=UINT64_C(1000000)+(uint64_t)i*30000000;
+  r.pending=true;r.pending_cursor=2*i;r.pending_tick=us*16;r.pending_epoch=1;
+  r.pending_us=us;r.pending_deadline_us=us+7000000;r.observed_deadline_us=600000000;
+  struct lp_packet f={.kind=LP_FOLLOW,.schedule=LP_SCHEDULE,.cursor=2*i,
+   .utc_ns=UINT64_C(1000000000000)+us*1000};
+  assert(lp_rx_follow(&r,&f,NULL,1,us+3000000));
+ }
+ assert(r.trained&&r.fit_count==7&&!r.phase_offset_ns&&!r.rate_ppb);
+ assert(lp_rx_discipline(&r,UINT64_C(184000000)*16,1,184000000));
+ for(unsigned i=0;i<2;i++){
+  /* A close accepted sample cannot move the unchanged historical phase fit.
+   * Exercise both raw-noise signs and the actual FOLLOW/commit/slew path. */
+  uint64_t us=UINT64_C(191000000)+i*1000000;
+  r.pending=true;r.pending_cursor=14+2*i;r.pending_tick=us*16;r.pending_epoch=1;
+  r.pending_us=us;r.pending_deadline_us=us+7000000;
+  int32_t noise=i?-9000:9000;
+  struct lp_packet f={.kind=LP_FOLLOW,.schedule=LP_SCHEDULE,.cursor=14+2*i,
+   .utc_ns=UINT64_C(1000000000000)+us*1000+noise};
+  assert(lp_rx_follow(&r,&f,NULL,1,us+3000000));
+  assert(r.fit_count==7&&r.trained&&r.phase_offset_ns==-noise);
+  assert(lp_rx_discipline(&r,(us+3000000)*16,1,us+3000000));
+  uint64_t value;assert(lp_rx_display_estimate(&r,(us+4000000)*16,1,us+4000000,&value));
+  assert(value==UINT64_C(1000000000000)+(us+4000000)*1000);
+ }
+ puts("PASS thinned accepted recovery pairs preserve retained historical phase for both noise signs");
+}
+int main(int argc,char **argv){assert(argc==2);if(atoi(argv[1])==1)budget();else{receiver();thinned_phase();}}

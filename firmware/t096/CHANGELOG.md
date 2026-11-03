@@ -14,6 +14,18 @@ recursive work is offline and unqualified; PPS never trains the delivered
 clock. Native/build/readback and independent held-out validation remain
 separate gates.
 
+Close accepted recovery pairs that are thinned from fit history now reexpress
+the retained historical phase at their new raw anchor. An actual-core regression
+keeps seven perfect historical pairs fixed while accepting both signs of9us
+raw noise inside20s; the delivered phase stays fixed after its normal slew.
+Ordinary30s cadence characterization did not exercise this path, so the fix
+does not explain its measured timing variation.
+
+Select SX1262 TxModulation0x0889 bit2 before every passive packet: clear for
+BW500 DTS and set for BW41.67 precision, preserving other bits. This follows
+Semtech's per-packet workaround within the approved PHY. It does not establish
+a measured timing improvement.
+
 ## 0.15.275 — bounded delivery work and independent PPS collection
 
 Refund a staged control reservation at its original missed launch deadline only

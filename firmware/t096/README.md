@@ -163,8 +163,8 @@ time. Source, cap or hardware gates may still inhibit LoRa.
 
 The precision page separates stream RMS, local PPS continuity and ACTIVE/HOT
 duration. Shadow-PPS compares the selected BLE or LoRa clock with local PPS
-when eligible. LoRa records expose raw phase and the phase after its measured
-RTT endpoint-delay correction; PPS never trains the LoRa clock.
+when eligible. LoRa records expose raw phase and any explicitly configured
+endpoint-delay correction; passive wire3 has no RTT exchange. PPS never trains the LoRa clock.
 These are relative timing statistics, not independent UTC accuracy measurements.
 Clock calculations, USB timestamps and diagnostics stay UTC.
 
