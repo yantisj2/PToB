@@ -23,4 +23,11 @@ try:m.analyze(bad);raise AssertionError('mutated event accepted')
 except ValueError:pass
 other=copy.deepcopy(rows);other[0]['stream']=2
 assert len(m.analyze(other)['groups'])==2
-print('PASS causal frozen LoRa RMS, rate sign, untrimmed tails, missing/censored denominators and context isolation')
+carry=copy.deepcopy(rows[-1]);carry.update(stream=2,capture_epoch=0,physical_until_us=0,at_us=400000000)
+expired=copy.deepcopy(rows[-1]);expired.update(physical_until_us=400000000,at_us=400000000)
+new=row(11);new['stream']=2
+turnover=m.analyze(rows+[carry,expired,new])
+assert turnover['invalid_event_snapshots']==2 and len(turnover['groups'])==2
+assert turnover['groups'][0]==r and turnover['groups'][1]['accepted_events_observed']==1
+assert all(g['scope'][-1]!=0 for g in turnover['groups'])
+print('PASS causal frozen LoRa RMS, rate sign, untrimmed tails, missing/censored denominators, invalid META snapshots and context isolation')

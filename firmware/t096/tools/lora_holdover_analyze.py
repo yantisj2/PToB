@@ -24,11 +24,16 @@ def statistics(values):
  return dict(samples=len(values),rms_ns=math.sqrt(sum(x*x for x in values)/len(values)),
              mean_ns=sum(values)/len(values),p99_abs_ns=absolute[math.ceil(.99*len(values))-1],max_abs_ns=absolute[-1])
 def analyze(rows):
- groups=defaultdict(list);seen={};missing=defaultdict(int)
+ groups=defaultdict(list);seen={};missing=defaultdict(int);invalid_snapshots=0
  for row in rows:
   p=row.get('payload',row)
   if p.get('profile')!='RAM_30_120_300' or p.get('transmitter') or 'hold_rates'not in p:continue
   if not p.get('accepted'):continue
+  # Fresh META can retain old event counters while clearing their capture
+  # scope and permission. Such a snapshot is not a new physical event in the
+  # new stream. Keep its denominator separately instead of inventing a cohort.
+  if not p['capture_epoch']or('physical_until_us'in p and p['physical_until_us']<=p['at_us']):
+   invalid_snapshots+=1;continue
   scope=tuple(p[k]for k in ('boot','emitter','emitter_boot','stream','source_epoch','capture_epoch'))
   identity=(p['accepted'],p['event_tick'],p['event_ns'])
   previous=seen.get(scope)
@@ -67,7 +72,8 @@ def analyze(rows):
                        for age,w in windows.items()]))
  return dict(metric='CAUSAL_FROZEN_LORA_PAIR_ERROR',rate_policy='LORA_SPARSE_CONSENSUS_180_300',
              witness_rule='first future pair within target age +/-2.51s; all errors retained',
-             independent_utc_accuracy=False,continuous_output_bound=False,overlapping_correlated_anchors=True,groups=result)
+             independent_utc_accuracy=False,continuous_output_bound=False,overlapping_correlated_anchors=True,
+             invalid_event_snapshots=invalid_snapshots,groups=result)
 def main():
  p=argparse.ArgumentParser(description=__doc__);p.add_argument('capture',type=Path);p.add_argument('--out',type=Path);a=p.parse_args()
  result=analyze([json.loads(x)for x in a.capture.read_text().splitlines()if x.strip()]);text=json.dumps(result,indent=2)+'\n'

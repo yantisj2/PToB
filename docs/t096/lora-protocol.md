@@ -134,6 +134,9 @@ all trained maps. `discovery_us` explicitly reports120000000.
 The engineering target is below1us RMS between updates. Fit residuals alone
 cannot establish it. `lora_holdover_analyze.py` compares frozen causal models
 with later physical pairs, retaining errors, unknowns and censored endpoints.
+Its `invalid_event_snapshots` count retains reports with expired event permission
+or a cleared capture scope after META; old event counters in those reports do
+not create a physical observation in the newly authenticated stream.
 Independent local PPS, when available, witnesses the actually delivered affine
 map and slew without training it. Raw phase bias, uncentered RMS, centered
 variation and packet-age populations must be reported separately. No fixed
