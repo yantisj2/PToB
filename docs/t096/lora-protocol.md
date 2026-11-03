@@ -142,6 +142,16 @@ map and slew without training it. Raw phase bias, uncentered RMS, centered
 variation and packet-age populations must be reported separately. No fixed
 PPS-derived subtraction or UTC qualification is implied.
 
+An explicit `witness 00000001` request survives UI page changes. `shadow`
+reports `request_mask`:1UI and2manual; restore each caller's original request.
+Actual serving-GM exclusion remains final. With BLE OFF, main drains only
+normal/LoRa maps, including NO_MAP outcomes; a serialized bounded consumer
+prevents competing main/RC callers from reordering records during transitions.
+Queue drops, overwritten records, absent reference association, historical
+reference reasons and stale/missing fixes remain visible. A GNSS input reason
+is sticky after recovery; independent phase eligibility must inspect the
+actual edge and fresh reference metadata, not silently relabel that history.
+
 ## Source admission, scheduling and recovery
 
 Own-GNSS LoRa projection receives three seconds from the original physical PPS,
@@ -166,6 +176,9 @@ entry consumes that token; the driver and final callback repeat source and
 finish checks. This avoids restarting preparation after every packet-sized
 grant refusal. Such capture-only waits can increase source rejection diagnostics
 without being actual launch refusals, cancellations or additional reservations.
+At the unchanged control launch deadline, a staged no-RF reservation may use
+the original single-use refund proof. Unknown/possible RF and partial pairs
+keep their full charge; the deadline is never renewed.
 
 A completed physical SYNC retains its exact event/map through bounded projection
 contention retries. Hardware DONE and airtime accounting occur once. First DONE

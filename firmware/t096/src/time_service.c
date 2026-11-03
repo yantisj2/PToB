@@ -148,7 +148,11 @@ void r2_time_service(void)
   if(shadow_edge.epoch)r2_shadow_reference(shadow_edge,&clock_state);
 #ifndef R2_BOUNDARY_FIELD
 #if defined(R2_SWITCHABLE_FIELD)
-  if(!r2_switch_rc_active())
+  /* BLE OFF parks the RC owner that normally drains this observer. Keep
+   * physical PPS records (including explicit NO_MAP outcomes) flowing for
+   * the independent LoRa witness. shadow_poll serializes an overlapping old
+   * RC caller during mode changes; this main path refuses RC field maps. */
+  if(!r2_switch_rc_active()||!r2_service_ble_rx_requested())
 #endif
   r2_shadow_poll_normal();
 #endif

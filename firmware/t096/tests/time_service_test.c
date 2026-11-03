@@ -1,10 +1,14 @@
 /* Actual owner: an IRQ arrives after polling sampled time. */
+#define R2_SWITCHABLE_FIELD 1
 #include <assert.h>
 #include <stdio.h>
 #include "time_service.h"
-/* Diagnostic shadow is disabled at this owner boundary. */
-bool r2_shadow_enabled(void){return false;}
-void r2_shadow_poll_normal(void){}
+static bool witness_enabled,rc_selected,ble_requested=true;
+static unsigned witness_drains;
+bool r2_switch_rc_active(void){return rc_selected;}
+bool r2_service_ble_rx_requested(void){return ble_requested;}
+bool r2_shadow_enabled(void){return witness_enabled;}
+void r2_shadow_poll_normal(void){++witness_drains;}
 void r2_shadow_reference(struct r2_capture c,const struct r2_clock *s){(void)c;(void)s;}
 static int64_t ticks=1000000;
 static bool inject;
@@ -45,6 +49,10 @@ int main(void){
  assert(causal.phase_ns>=-5&&causal.phase_ns<=5); /* Raw source phase, no demeaning. */
  assert(!r2_time_source_read((struct r2_capture){current_capture,2,R2_CAPTURE_RADIO},&ns,&generation));
  ticks+=1500000;r2_time_precision_snapshot(&p);assert(!p.fit_valid&&!p.rate_valid);r2_time_source_pps_snapshot(&causal);assert(!causal.valid);
+ witness_enabled=true;r2_time_service();assert(witness_drains==1);
+ rc_selected=true;r2_time_service();assert(witness_drains==1);
+ ble_requested=false;r2_time_service();assert(witness_drains==2);
+ witness_enabled=false;r2_time_service();assert(witness_drains==2);
  puts("time owner IRQ-after-poll accepted; genuinely stale edge still refused");
  return 0;
 }

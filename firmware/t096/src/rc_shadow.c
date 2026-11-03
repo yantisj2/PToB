@@ -15,9 +15,13 @@ static struct k_spinlock lock;
 static struct rc_shadow_history history;
 static struct rc_shadow_record queue[RC_SHADOW_QUEUE],records[RC_SHADOW_RECORDS];
 static unsigned qhead,qtail,qcount,rhead,rcount;
+/* Main owns NORMAL-only drain when BLE is parked. A mode transition may
+ * overlap the old RC caller; serialize the complete bounded pop/evaluate/push
+ * operation so immutable PPS records retain their FIFO order. */
+static bool polling;
 #if defined(R2_BOUNDARY_FIELD) || defined(R2_SHADOW_TEST_BOTH)
 static atomic_t requested=1;
-static struct rc_shadow_status stats={.enabled=true};
+static struct rc_shadow_status stats={.enabled=true,.request_mask=1};
 #else
 /* Normal clocks collect only during an explicitly started UI session. */
 static atomic_t requested;
@@ -114,6 +118,9 @@ static void __attribute__((noinline)) shadow_field_evaluate(struct rc_shadow_rec
 static void shadow_poll(bool allow_field){
  (void)allow_field;
  if(!r2_shadow_enabled())return;
+ k_spinlock_key_t poll_key=k_spin_lock(&lock);
+ if(polling){k_spin_unlock(&lock,poll_key);return;}
+ polling=true;k_spin_unlock(&lock,poll_key);
  for(unsigned i=0;i<RC_SHADOW_QUEUE;i++){
   struct rc_shadow_record r;bool have=false;
   k_spinlock_key_t key=k_spin_lock(&lock);
@@ -166,6 +173,7 @@ static void shadow_poll(bool allow_field){
   records[rhead]=r;rhead=(rhead+1)%RC_SHADOW_RECORDS;
   k_spin_unlock(&lock,key);
  }
+ poll_key=k_spin_lock(&lock);polling=false;k_spin_unlock(&lock,poll_key);
 }
 void r2_shadow_poll(void){shadow_poll(true);}
 void r2_shadow_poll_normal(void){shadow_poll(false);}
@@ -181,15 +189,17 @@ void r2_shadow_reference(struct r2_capture edge,const struct r2_clock *c){
  k_spin_unlock(&lock,key);
 }
 static void disabled_clear(void){history.count=history.head=0;qcount=qhead=qtail=0;ref_count=ref_head=0;}
-void r2_shadow_enable(bool enabled){
+static void shadow_request(bool enabled,unsigned bit){
 #ifdef R2_PC_PROFILE
  /* PC evidence collection is independent of UI pages and screensaver state. */
- enabled=true;
+ if(bit==1)enabled=true;
 #endif
- if((bool)atomic_get(&requested)==enabled)return;
- k_spinlock_key_t key=k_spin_lock(&lock);atomic_set(&requested,enabled);
- stats.enabled=enabled&&!atomic_get(&serving);if(!stats.enabled)disabled_clear();k_spin_unlock(&lock,key);
+ k_spinlock_key_t key=k_spin_lock(&lock);unsigned mask=(unsigned)atomic_get(&requested);
+ mask=enabled?(mask|bit):(mask&~bit);atomic_set(&requested,(int)mask);stats.request_mask=(uint8_t)mask;
+ stats.enabled=mask&&!atomic_get(&serving);if(!stats.enabled)disabled_clear();k_spin_unlock(&lock,key);
 }
+void r2_shadow_enable(bool enabled){shadow_request(enabled,1);}
+void r2_shadow_manual(bool enabled){shadow_request(enabled,2);}
 void r2_shadow_serving(bool gm){
  if((bool)atomic_get(&serving)==gm)return;
  k_spinlock_key_t key=k_spin_lock(&lock);atomic_set(&serving,gm);

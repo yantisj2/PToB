@@ -14,6 +14,7 @@ if args.out: args.out.resolve().mkdir(parents=True,exist_ok=False)
 with (nullcontext(str(args.out.resolve())) if args.out else tempfile.TemporaryDirectory(prefix='t096-r2-test-')) as directory:
     out=Path(directory)
     compiler=os.environ.get('CC') or ('/opt/homebrew/opt/llvm/bin/clang' if Path('/opt/homebrew/opt/llvm/bin/clang').is_file() else shutil.which('clang'))
+    subprocess.run([sys.executable,str(APP/'tools/servo_equivalence_tests.py'),'--out',str(out/'servo-equivalence')],env={**os.environ,'CC':compiler},check=True,timeout=60)
     subprocess.run([sys.executable,str(APP/'tools/auto_time_zone_tests.py'),'--out',str(out/'auto-time-zone')],env={**os.environ,'CC':compiler},check=True,timeout=90)
     subprocess.run([sys.executable,str(APP/'tests/test_tz_compile_mode.py')],check=True,timeout=30)
     subprocess.run([sys.executable,str(APP/'tests/test_time_zone_build.py')],check=True,timeout=30)

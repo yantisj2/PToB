@@ -12,6 +12,7 @@ static void k_spin_unlock(struct k_spinlock *l,k_spinlock_key_t k){(void)l;(void
 static int64_t k_uptime_ticks(void){return ticks;}
 static int64_t k_ticks_to_us_floor64(int64_t n){return n;}
 bool r2_switch_rc_active(void){return rc_profile;}
+bool r2_service_ble_rx_requested(void){return true;}
 bool r2_gnss_capture_now(struct r2_capture *out){
  if(!capture)return false;
  *out=(struct r2_capture){capture,capture_epoch,R2_CAPTURE_NOW};ticks+=skew;return true;

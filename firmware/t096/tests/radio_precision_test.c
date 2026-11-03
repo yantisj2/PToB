@@ -21,6 +21,9 @@ static void run(int ppm,bool tail) {
   rx=(struct r2_capture){local,2,R2_CAPTURE_RADIO};now=(struct r2_capture){local+80000+(i%7)*16000,2,R2_CAPTURE_NOW};
   assert(r2_radio_precision_rx(&client,&p,rx,event,i%37,now,ns/1000,(int64_t)ns+p.utc_offset_ns));
   (void)r2_radio_precision_step(&client,now,ns/1000);
+  /* Delivered-map commit and source availability share the same actual
+   * processing capture; no physical-original timestamp is substituted. */
+  if(client.servo.output.valid)assert(client.last_available>=client.servo.output.delivery);
   assert(r2_radio_precision_tx(&gm,&p,(struct r2_capture){tx,1,R2_CAPTURE_RADIO},event,i%37,ns,1,p.expires_ns,ns/1000));
  }
  struct r2_radio_precision_view v;r2_radio_precision_view(&client,now,151000000,&v);

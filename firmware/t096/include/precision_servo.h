@@ -691,8 +691,10 @@ static inline bool r2_servo_observe_permitted(r2_servo_clock_t *c,
   r2_math_inc(&c->observations);
   /* Thin by elapsed physical time, never by residual. Keep every observation's
    * causal outcome in counters/logs even if not inserted into the fit. */
+  bool history_changed = false;
   while (c->count && s->local - c->points[0].local > R2_SERVO_SPAN) {
     memmove(c->points, c->points + 1, (--c->count) * sizeof c->points[0]);
+    history_changed = true;
   }
   if (!c->count ||
       s->local - c->points[c->count - 1].local >= R2_CAPTURE_HZ / 2) {
@@ -700,9 +702,13 @@ static inline bool r2_servo_observe_permitted(r2_servo_clock_t *c,
       memmove(c->points, c->points + 1, (--c->count) * sizeof c->points[0]);
     }
     c->points[c->count++] = (r2_servo_point_t){s->local, s->remote};
+    history_changed = true;
   }
   c->peer_pps_below200 = s->peer_pps_below200;
-  if (!r2_servo_fit(c)) {
+  /* A valid fit is a pure function of the retained points. Dense physical
+   * observations still update all causal quality, availability and delivered
+   * phase below; repeating the same division-heavy fit adds no information. */
+  if ((history_changed || !c->fit_valid) && !r2_servo_fit(c)) {
     c->streak = 0;
     r2_servo_quality_clear(c);
     return true;

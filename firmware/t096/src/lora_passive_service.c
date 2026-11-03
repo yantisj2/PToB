@@ -944,7 +944,18 @@ static int __attribute__((noinline)) transmit(uint64_t now){
  if(mono()<r->slot_us)return 0;
  if(!(r2_diag_scratch.lora.attempt.valid&4)){r2_diag_scratch.lora.attempt.first_due_late_us=owner.launch_late_us;r2_diag_scratch.lora.attempt.valid|=4;}
  due_lateness(r->control,r->slot_us,mono());
- if(mono()>r->slot_us+LP_LAUNCH_LATE_US){inc(&owner.late);lp_tx_cancel(t,true);owner.stage=owner.prepared_kind=0;
+ if(mono()>r->slot_us+LP_LAUNCH_LATE_US){inc(&owner.late);
+#ifdef R2_LORA_PASSIVE_SLOW
+  /* A source-room wait never consumed the staged driver token. Retire at the
+   * original deadline, but do not charge nonexistent RF when this exact
+   * reservation still has synchronous healthy no-SetTx proof. A possible
+   * control emission or any SYNC/FOLLOW path retains its complete charge. */
+  if(owner.prepared_kind==r->control&&r2_lora_hw_no_rf(generation)&&lp_tx_refund_no_rf(t,r))inc(&owner.no_rf_refunds);
+  else lp_tx_cancel(t,true);
+#else
+  lp_tx_cancel(t,true);
+#endif
+  owner.stage=owner.prepared_kind=0;
 #ifdef R2_LORA_PASSIVE_SLOW
  if(job_owned)utc_finish(UTC_EXPIRED,UTC_FAILED);else{retry_at_us=mono()+LP_RETRY_US;++retry_count;}
 #endif

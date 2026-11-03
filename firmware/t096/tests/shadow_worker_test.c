@@ -6,8 +6,9 @@
 #include <stdio.h>
 #include <string.h>
 struct k_spinlock {int held;};typedef int k_spinlock_key_t;
+static void (*unlock_hook)(void);
 static int k_spin_lock(struct k_spinlock *s){assert(!s->held);s->held=1;return 0;}
-static void k_spin_unlock(struct k_spinlock *s,int key){assert(s->held);s->held=0;}
+static void k_spin_unlock(struct k_spinlock *s,int key){assert(s->held);s->held=0;if(unlock_hook){void(*hook)(void)=unlock_hook;unlock_hook=NULL;hook();}}
 static uint64_t now_tick,now_us;
 static uint64_t k_uptime_ticks(void){return now_us;}
 static uint64_t k_ticks_to_us_floor64(uint64_t ticks){return ticks;}
@@ -17,6 +18,8 @@ typedef int atomic_t;
 static int atomic_get(atomic_t *v){return *v;}
 static int atomic_set(atomic_t *v,int n){int old=*v;*v=n;return old;}
 #include "../src/rc_shadow.c"
+static unsigned competing_drains;
+static void competing_drain(void){++competing_drains;r2_shadow_poll_normal();}
 int main(void){
  struct r2_radio_precision owner={.scope={.boot=9,.source_epoch=3,.root_identity=1,.until_us=3000000,.follower=true},.servo={.output={16000000,1000000100-RC_DIRECT_PPS_CORRECTION_NS,0,0,true}}};
  r2_servo_map_t delivered;assert(r2_radio_precision_map(&owner,&delivered)&&delivered.anchor-owner.servo.output.anchor==RC_DIRECT_PPS_CORRECTION_NS);
@@ -78,5 +81,25 @@ int main(void){
  assert(r2_shadow_read(cursor,&r,&st)&&r.valid&&r.map.local_hold&&r.phase_ns==100&&!r.pll);cursor=r.sequence;
  e.tick=121*R2_CAPTURE_HZ;r2_shadow_edge(e,1000);r2_shadow_poll_normal();
  assert(r2_shadow_read(cursor,&r,&st)&&!r.valid&&r.reason==RC_SHADOW_EXPIRED);
+ /* The UI may leave its measurement page while a console capture is active.
+  * Each owner clears only its own request; serving still excludes both. */
+ r2_shadow_enable(false);assert(!r2_shadow_enabled());
+ r2_shadow_manual(true);uint32_t previous_sequence=stats.edges;
+ /* Empty-map physical edges must be observable while BLE is parked. */
+ for(unsigned i=0;i<RC_SHADOW_QUEUE;i++){e.tick+=16000000;r2_shadow_edge(e,1000);}
+ unlock_hook=competing_drain;r2_shadow_poll_normal();assert(competing_drains==1&&!polling&&!qcount);
+ for(unsigned i=0;i<RC_SHADOW_QUEUE;i++){
+  assert(r2_shadow_read(previous_sequence,&r,&st)&&r.sequence==previous_sequence+1&&!r.valid&&r.reason==RC_SHADOW_NO_MAP);
+  previous_sequence=r.sequence;
+ }
+ r2_shadow_manual(false);assert(!r2_shadow_enabled());
+ r2_shadow_manual(true);assert(r2_shadow_enabled());
+ r2_shadow_enable(false);assert(r2_shadow_enabled());
+ r2_shadow_read(UINT32_MAX,&r,&st);assert(st.enabled&&st.request_mask==2);
+ r2_shadow_serving(true);assert(!r2_shadow_enabled());
+ r2_shadow_enable(true);r2_shadow_read(UINT32_MAX,&r,&st);assert(!st.enabled&&st.request_mask==3);
+ r2_shadow_manual(false);assert(!r2_shadow_enabled());
+ r2_shadow_serving(false);assert(r2_shadow_enabled());
+ r2_shadow_enable(false);assert(!r2_shadow_enabled());
  puts("PASS immutable normal/RC/LoRa/local-HOLD PPS maps, independent expiry, metadata deferral and no witness feedback");
 }

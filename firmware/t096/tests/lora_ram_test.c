@@ -686,7 +686,12 @@ static void staged_grant_test(unsigned mode){
  step();
  if(action==0){assert(txs==count+1&&owner.tx_kind==kind&&sent_at_us==due+100000);
   assert(lp_charged(&role.tx.core.durable,now_us)==charge&&owner.no_rf_refunds==refunds&&role.tx.stream==stream);
- }else{assert(txs==count&&!owner.tx_kind&&!atomic_get(&faulted));step();assert(txs==count);}
+ }else{assert(txs==count&&!owner.tx_kind&&!atomic_get(&faulted));step();assert(txs==count);
+  if(action==3){
+   if(kind==LP_META)assert(owner.no_rf_refunds==refunds+1&&!lp_charged(&role.tx.core.durable,now_us));
+   else assert(owner.no_rf_refunds==refunds&&lp_charged(&role.tx.core.durable,now_us)==charge);
+  }
+ }
  printf("PASS staged original grant kind=%u action=%u preserves token/debit/context; withdrawal and original deadlines fence RF\n",kind,action);
 }
 #endif

@@ -1,5 +1,27 @@
 # T096 changelog
 
+## 0.15.275 — bounded delivery work and independent PPS collection
+
+Refund a staged control reservation at its original missed launch deadline only
+when the same single-use proof establishes no SetTx/RF. Possible RF and partial
+pairs retain full charge. Cache a valid BLE fit while its thinned point history
+is unchanged; causal scoring, freshness and phase commits still process every
+observation. Differential tests compare complete servo state over20000 physical
+observations and duplicates, reducing fit calls from20000 to3060 without changing
+the result. Native CPU/availability improvement needs separate measurement.
+
+Make console `witness` collection independent of UI page ownership. The existing
+request atomic and status padding expose `request_mask` (1UI,2manual); a serving
+GM still excludes collection. Main drains only normal PPS maps when BLE is
+parked. A serialized bounded consumer preserves FIFO order during caller
+handover, including explicit NO_MAP records. These fixes address live PPS being
+unobservable under BLEOFF despite healthy physical captures.
+
+The delivered LoRa model remains the sparse consensus/median model. A40-byte
+causal recursive candidate and declared-noise/mismatch tests are offline
+development, pending separate dense characterization and held-out validation.
+No sub1us, independent UTC or stability qualification is implied.
+
 ## 0.15.274 — preserve staged LoRa work while awaiting source room
 
 Check the current original grant against the complete physical packet budget

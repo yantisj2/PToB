@@ -36,7 +36,8 @@ struct rc_shadow_record {
  struct r2_capture edge;struct rc_shadow_map map;uint64_t relay_ns;int64_t utc_ns,phase_ns,rmc_utc_us,rmc_at_us,arrival_us;
  uint32_t sequence,reason,association,reference_reason;bool valid,pll,reference_fix,reference_pps,reference_seen;
 };
-struct rc_shadow_status {uint32_t edges,drops,overwritten,disabled,duplicates;bool enabled;uint64_t now_tick,epoch;};
+struct rc_shadow_status {uint32_t edges,drops,overwritten,disabled,duplicates;bool enabled;uint8_t request_mask;uint64_t now_tick,epoch;};
+_Static_assert(sizeof(struct rc_shadow_status)==40,"Witness request mask must use existing padding");
 void r2_shadow_map(const struct rc5_clock *,const struct rc5_state *,uint64_t,uint64_t);
 /* Corrected normal follower map, frozen by its owning PT worker only. */
 void r2_shadow_normal_map(const struct rc_shadow_map *);
@@ -48,6 +49,9 @@ void r2_shadow_poll(void); /* RC worker: may evaluate the RC witness map */
 void r2_shadow_poll_normal(void); /* Normal owner: refuses RC witness maps */
 void r2_shadow_reference(struct r2_capture,const struct r2_clock *);
 void r2_shadow_enable(bool);
+/* Independent explicit diagnostic request. UI changes cannot cancel it.
+ * Bit1 UI and bit2 manual are reported; serving-GM exclusion remains final. */
+void r2_shadow_manual(bool);
 bool r2_shadow_enabled(void);
 void r2_shadow_serving(bool); /* Actual serving role fences collection. */
 bool r2_shadow_read(uint32_t,struct rc_shadow_record *,struct rc_shadow_status *);
