@@ -111,6 +111,22 @@ static struct {
  struct lp_rx rx;
 } role;
 static uint32_t map_version;
+#if defined(R2_LORA_PASSIVE_SLOW) && defined(R2_LORA_BW_EXPERIMENT)
+#define LAB_SOURCE_HOLD_US UINT64_C(5000000)
+static struct {uint64_t original_until_tick,original_expires_ns;} lab_source;
+/* Experimental LoRa permission only. The BLE owner and its original source
+ * maps/leases remain unchanged. A duplicate cannot refresh these fixed bounds. */
+static bool __attribute__((noinline)) lab_hold_source(struct rc8_export *m){
+ if(m->scope.kind!=RC8_SELECTED_BLE)return true;
+ /* The selected-BLE producer has already checked r2_servo_mapped and its
+  * original UTC interval at the paired capture. Keep this priority7 path
+  * capture-only; no second projection on frequent duplicate publications. */
+ struct r2_capture at;
+ if(!r2_capture_now(&at)||at.epoch!=m->capture_epoch||at.tick<m->from_tick||at.tick<m->anchor_tick||at.tick>=m->until_tick||
+    m->created_ns>=m->expires_ns||m->until_tick>UINT64_MAX-LAB_SOURCE_HOLD_US*16||m->expires_ns>UINT64_MAX-LAB_SOURCE_HOLD_US*1000)return false;
+ m->until_tick+=LAB_SOURCE_HOLD_US*16;m->expires_ns+=LAB_SOURCE_HOLD_US*1000;return true;
+}
+#endif
 /* READY, transient contention, actual absence, and rejected snapshot versions. */
 static uint32_t source_reads[4];
 /* Completed, deferred by publication, invalid original map, deadline. */
@@ -323,11 +339,15 @@ void r2_lora_source_publish(const struct rc8_export *input){
  struct rc8_export m=*input;m.scope.emitter=factory;m.scope.emitter_boot=physical_boot;m.scope.stream=1;
  if(!m.valid||!m.authenticated||m.scope.scale!=RC8_UTC||
  (m.scope.kind!=RC8_OWN_GM&&m.scope.kind!=RC8_SELECTED_BLE)||rc8_scope_validate(&m.scope)){r2_lora_source_withdraw();return;}
+#if defined(R2_LORA_PASSIVE_SLOW) && defined(R2_LORA_BW_EXPERIMENT)
+ uint64_t original_until=m.until_tick,original_expires=m.expires_ns;
+ if(!lab_hold_source(&m)){r2_lora_source_withdraw();return;}
+#endif
  k_spinlock_key_t key=k_spin_lock(&lock);
 #ifdef R2_LORA_PASSIVE_SLOW
  if(!transmitter){k_spin_unlock(&lock,key);return;}
 #endif
- ++map_version;
+ bool was_pinned=role.tx.pinned;
  preserve();
  struct rc8_export *last=&role.tx.maps[0];
  bool changed=last->valid&&(!rc8_scope_equal(&last->scope,&m.scope)||last->capture_epoch!=m.capture_epoch);
@@ -340,6 +360,16 @@ void r2_lora_source_publish(const struct rc8_export *input){
  if(duplicate){
   /* Repeated snapshots may shorten the original interval, never renew it. */
   bool shortened=m.until_tick<last->until_tick||m.expires_ns<last->expires_ns;
+  /* A byte-equivalent source snapshot creates no new interval or formula.
+   * Invalidating a concurrent projection here only adds avoidable retries.
+   * Real shortening and a newly pinned physical edge still fence readers. */
+  if(shortened||was_pinned!=role.tx.pinned)++map_version;
+#if defined(R2_LORA_PASSIVE_SLOW) && defined(R2_LORA_BW_EXPERIMENT)
+  if(m.scope.kind==RC8_SELECTED_BLE){
+   if(original_until<lab_source.original_until_tick)lab_source.original_until_tick=original_until;
+   if(original_expires<lab_source.original_expires_ns)lab_source.original_expires_ns=original_expires;
+  }
+#endif
   if(m.until_tick<last->until_tick)last->until_tick=m.until_tick;
   if(m.expires_ns<last->expires_ns)last->expires_ns=m.expires_ns;
   if(role.tx.pinned&&same_formula(&role.tx.maps[1],last)){
@@ -359,6 +389,7 @@ void r2_lora_source_publish(const struct rc8_export *input){
   }
   return;
  }
+ ++map_version;
  if(changed||!(atomic_get(&flags)&SOURCE_PRESENT))atomic_inc(&source_revision);
  /* The existing formula owns every event before this publication edge. */
  struct r2_capture commit;
@@ -377,6 +408,10 @@ void r2_lora_source_publish(const struct rc8_export *input){
  }
  if(!role.tx.pinned)role.tx.maps[1]=*last;
  *last=m;
+#if defined(R2_LORA_PASSIVE_SLOW) && defined(R2_LORA_BW_EXPERIMENT)
+ lab_source.original_until_tick=m.scope.kind==RC8_SELECTED_BLE?original_until:0;
+ lab_source.original_expires_ns=m.scope.kind==RC8_SELECTED_BLE?original_expires:0;
+#endif
  atomic_or(&flags,SOURCE_PRESENT);k_spin_unlock(&lock,key);
  if(changed&&!atomic_get(&closed))stop_now();
 }
@@ -1418,6 +1453,9 @@ static int worker_priority(uint64_t now){
 }
 static void worker(void *a,void *b,void *c){(void)a;(void)b;(void)c;for(;;){service_step();k_thread_priority_set(&worker_thread,worker_priority(mono()));k_sleep(K_MSEC(2));}}
 void r2_lora_init(uint64_t f,uint64_t boot,uint64_t tx,const struct r2_group_config *g){
+#if defined(R2_LORA_PASSIVE_SLOW) && defined(R2_LORA_BW_EXPERIMENT)
+ memset(&lab_source,0,sizeof lab_source);
+#endif
  atomic_set(&observer_ready,0);map_version=0;memset(source_reads,0,sizeof source_reads);memset(sync_map,0,sizeof sync_map);
 #ifdef R2_LORA_PASSIVE_SLOW
  memset(tx_due,0,sizeof tx_due);
@@ -1550,7 +1588,14 @@ int r2_lora_diagnostics_json(char *out,size_t capacity,int result){
 
 int r2_lora_json(char *out,size_t capacity,int result){
  struct lp_diagnostics d;struct r2_lora_view v;struct lp_audit audit[4]={0};uint64_t until;uint32_t reads[4],sync_stats[4],due[2][4]={{0}};
- k_spinlock_key_t key=k_spin_lock(&lock);d=diagnostics;v=published;memcpy(reads,source_reads,sizeof reads);memcpy(sync_stats,sync_map,sizeof sync_stats);
+#if defined(R2_LORA_PASSIVE_SLOW) && defined(R2_LORA_BW_EXPERIMENT)
+ uint64_t original_until,original_expires,held_until;
+#endif
+ k_spinlock_key_t key=k_spin_lock(&lock);
+#if defined(R2_LORA_PASSIVE_SLOW) && defined(R2_LORA_BW_EXPERIMENT)
+ original_until=lab_source.original_until_tick;original_expires=lab_source.original_expires_ns;held_until=transmitter?role.tx.maps[0].until_tick:0;
+#endif
+ d=diagnostics;v=published;memcpy(reads,source_reads,sizeof reads);memcpy(sync_stats,sync_map,sizeof sync_stats);
 #ifdef R2_LORA_PASSIVE_SLOW
  memcpy(due,tx_due,sizeof due);
 #endif
@@ -1598,6 +1643,9 @@ until=lab_until;
  "\"refused\":%u,\"late\":%u,\"missing_map\":%u,\"bad\":%u,\"sent\":[%u,%u,%u,%u],\"received\":[%u,%u,%u,%u],"
  "\"at_us\":%llu,\"tx_admission_us\":[%u,%d,%u,%u],\"tx_attempt\":[%u,%u,%u,%u,%u,%d,%d,%u,%u,%u,%u,%u],"
  "\"tx_source_max_us\":[%u,%u],\"tx_reject\":[%u,%u,%llu,%llu,%llu,%u,%u,%u,%u,%u,%u,%u,%u],\"no_rf_refunds\":%u,\"store_timing\":[%u,%u,%u,%u,%u],\"audit\":[[%llu,%llu,%llu,%llu,%u,%u,%u,%u],[%llu,%llu,%llu,%llu,%u,%u,%u,%u],[%llu,%llu,%llu,%llu,%u,%u,%u,%u],[%llu,%llu,%llu,%llu,%u,%u,%u,%u]],"
+#if defined(R2_LORA_PASSIVE_SLOW) && defined(R2_LORA_BW_EXPERIMENT)
+ "\"lab_source_hold\":[%llu,%llu,%llu,%llu],"
+#endif
 #ifdef R2_LORA_BW_EXPERIMENT
  "\"audit_rf\":[[%d,%d,%u],[%d,%d,%u],[%d,%d,%u],[%d,%d,%u]],"
 #endif
@@ -1618,6 +1666,9 @@ until=lab_until;
 #define AUDIT_ARGS(i) (unsigned long long)audit[i].tick,(unsigned long long)audit[i].epoch,(unsigned long long)audit[i].start_us,(unsigned long long)audit[i].end_us,audit[i].cursor,audit[i].phy,audit[i].channel,audit[i].valid
  AUDIT_ARGS(0),AUDIT_ARGS(1),AUDIT_ARGS(2),AUDIT_ARGS(3),
 #undef AUDIT_ARGS
+#if defined(R2_LORA_PASSIVE_SLOW) && defined(R2_LORA_BW_EXPERIMENT)
+ (unsigned long long)LAB_SOURCE_HOLD_US,(unsigned long long)original_until,(unsigned long long)original_expires,(unsigned long long)held_until,
+#endif
 #ifdef R2_LORA_BW_EXPERIMENT
 #define AUDIT_RF(i) audit[i].rssi,audit[i].snr,audit[i].packet_status_valid?1:0
  AUDIT_RF(0),AUDIT_RF(1),AUDIT_RF(2),AUDIT_RF(3),

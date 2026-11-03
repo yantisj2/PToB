@@ -204,9 +204,15 @@ static void scheduling_test(unsigned mode){
  now_us=queued.end_local_us+1000;
  if(mode==25||mode==26||mode==27){
   projection_hook=mode==25?r2_lora_source_withdraw:mode==26?arm_shrink_at_unlock:repeated_publication;step();step();
+  if(mode==27){
+   /* No-op publications must not manufacture projection contention or lose
+    * the captured SYNC; the genuine pin transition remains versioned. */
+   assert(projection_preemptions>=2&&projection_preemptions<=3&&owner.stage==2&&role.tx.core.durable.pending==2&&!owner.missing_map);
 #ifdef R2_LORA_PASSIVE_SLOW
-  if(mode==27){assert(projection_preemptions==3&&!projection_hook&&owner.stage==2&&role.tx.core.durable.pending==2&&!owner.missing_map&&sync_map[1]==1&&sync_map[0]==1);return;}
+   assert(sync_map[1]==0&&sync_map[0]==1);
 #endif
+   projection_hook=NULL;return;
+  }
   assert(!role.tx.core.durable.pending&&!role.tx.core.durable.fh_disabled&&!atomic_get(&faulted));
   assert(role.tx.core.durable.cursor==2&&lp_charged(&role.tx.core.durable,now_us)>0);
   assert(owner.missing_map==1);if(mode==27)assert(projection_preemptions==3&&!projection_hook);
@@ -294,11 +300,11 @@ static void source_read_test(unsigned mode){
  uint32_t revision=(uint32_t)source_revision;
  if(mode==47||mode==49){
   read_pps=mode==49;read_publications=1;projection_hook=publish_during_read;
-  assert(source_now(&ns,&ep,&boot,&limit,NULL)==SOURCE_READY&&source_reads[3]==1&&!source_reads[1]&&!source_reads[2]);
+  assert(source_now(&ns,&ep,&boot,&limit,NULL)==SOURCE_READY&&source_reads[3]==(mode==49?1u:0u)&&!source_reads[1]&&!source_reads[2]);
  }else if(mode==48){
   uint64_t slot=role.tx.core.durable.next_slot_us;now_us=slot-PRECHARGE_LEAD_US;step();assert(owner.stage==3&&owner.prepared_kind==LP_META);
   uint64_t charge=lp_charged(&role.tx.core.durable,now_us);uint32_t serial=role.tx.core.durable.serial;
-  read_pps=false;read_publications=3;projection_hook=publish_during_read;step();
+  read_pps=true;read_publications=3;projection_hook=publish_during_read;step();
   assert(source_reads[1]==1&&source_reads[3]==3&&owner.stage==3&&owner.prepared_kind==LP_META&&!owner.stopping&&!txs);
   assert(role.tx.core.durable.serial==serial&&role.tx.core.durable.pending==1&&lp_charged(&role.tx.core.durable,now_us)==charge);
   now_us=slot;step();assert(txs==1&&owner.tx_kind==LP_META&&!owner.late);
@@ -310,7 +316,7 @@ static void source_read_test(unsigned mode){
    assert(!owner.stopping&&!stop_deadline&&!atomic_get(&faulted)&&role.tx.core.durable.serial==serial&&role.tx.core.durable.pending==1);
    assert(lp_charged(&role.tx.core.durable,now_us)==charge);
   }
-  now_us=slot;step();assert(txs==1&&owner.tx_kind==LP_META&&source_reads[3]>=500&&!source_reads[1]&&!source_reads[2]);
+  now_us=slot;step();assert(txs==1&&owner.tx_kind==LP_META&&(mode==51?source_reads[3]>=500:source_reads[3]==0)&&!source_reads[1]&&!source_reads[2]);
  }else if(mode==52){
   read_pps=true;read_publications=1;capture_now_hook=publish_during_read;
   assert(source_now(&ns,&ep,&boot,&limit,NULL)==SOURCE_READY&&source_reads[3]==1&&!source_reads[2]);
@@ -321,7 +327,7 @@ static void source_read_test(unsigned mode){
   role.tx.maps[0].until_tick=now_us*16;
   assert(source_now(&ns,&ep,&boot,&limit,NULL)==SOURCE_ABSENT&&source_reads[2]==1);return;
  }else if(mode==55){
-  read_pps=false;read_publications=3;projection_hook=publish_during_read;
+  read_pps=true;read_publications=3;projection_hook=publish_during_read;
   assert(r2_lora_utc_request(1,0,false)==-EAGAIN&&utc_job.reason==UTC_WAIT_SOURCE&&!utc_job.admitted);
   assert(source_reads[1]==1&&!source_reads[2]);
  }
@@ -471,7 +477,11 @@ static void timers260_test(unsigned mode){
 }
 static unsigned completion_races;
 static void race_completion(void){
- struct rc8_export m=role.tx.maps[0];r2_lora_source_publish(&m);assert(completion_races);if(--completion_races)projection_hook=race_completion;
+ /* A genuine replacement must still fence projection, unlike a no-op
+  * duplicate. Advance the publication capture and formula independently. */
+ struct rc8_export m=role.tx.maps[0];++now_us;m.from_tick=m.anchor_tick=now_us*16;
+ m.anchor_ns=UINT64_C(1000000000000)+now_us*1000;++m.map_generation;
+ r2_lora_source_publish(&m);assert(completion_races);if(--completion_races)projection_hook=race_completion;
 }
 static void projection261_test(unsigned mode){
  if(mode==81||mode==86){prepare_tx();launch();done(role.tx.reservation.slot_us,LP_META);now_us=role.tx.reservation.slot_us+LP_SYNC_OFFSET_US;step();

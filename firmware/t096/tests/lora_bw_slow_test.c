@@ -5,6 +5,9 @@ static void measured(const struct lp_packet *p,const uint8_t ctx[16],uint64_t ev
  .kind=R2_LORA_HW_RX_DONE,.length=(uint8_t)lp_size(p->kind),.rssi_half_dbm=-160,.snr_quarter_db=16,.packet_status_valid=true};
  assert(!lp_encode(queued.frame,sizeof queued.frame,p,ctx,&test_group));have_event=true;step();
 }
+static struct rc8_export during_projection;
+static void publish_during_projection(void){r2_lora_source_publish(&during_projection);}
+static void withdraw_during_projection(void){r2_lora_source_withdraw();}
 int main(int argc,char **argv){
  assert(argc==2);unsigned mode=(unsigned)atoi(argv[1]);
  assert(LP_SCHEDULE==7&&LP_BEAT_US==30000000&&LP_SYNC_OFFSET_US==7000000&&LP_FOLLOW_OFFSET_US==2500000&&LAB_RUN_US==600000000);
@@ -12,6 +15,49 @@ int main(int argc,char **argv){
  r2_lora_request(true);uint64_t end=lab_until;assert(end==now_us+600000000);
  if(mode==1){now_us+=1000000;r2_lora_request(true);assert(lab_until==end);r2_lora_request(false);r2_lora_request(true);assert(lab_until==end&&!(flags&REQUESTED));puts("PASS SLOW-derivedLAB defaultOFF and single nonrenewable600s arm");return 0;}
  if(mode==2){now_us=end;step();assert(!(flags&REQUESTED)&&lab_until==end);r2_lora_request(true);assert(lab_until==end&&!(flags&REQUESTED));puts("PASS exact finite600s expiry and no rearm");return 0;}
+ if(mode==7){
+  struct rc8_export m=source();r2_lora_source_publish(&m);uint32_t version=map_version,revision=(uint32_t)atomic_get(&source_revision);
+  for(unsigned i=0;i<20;i++){r2_lora_source_publish(&m);assert(map_version==version&&(uint32_t)atomic_get(&source_revision)==revision);}
+  uint64_t phase,root,at;uint32_t epoch;struct r2_capture limit;uint32_t races=source_reads[3];
+  during_projection=m;projection_hook=publish_during_projection;
+  assert(source_now(&phase,&epoch,&root,&limit,&at)==SOURCE_READY&&limit.tick==m.until_tick&&source_reads[3]==races&&map_version==version);
+  m.until_tick=now_us*16+16000000;during_projection=m;projection_hook=publish_during_projection;
+  assert(source_now(&phase,&epoch,&root,&limit,&at)==SOURCE_READY&&limit.tick==m.until_tick&&source_reads[3]==races+1&&map_version==version+1);
+  version=map_version;races=source_reads[3];m.anchor_ns++;m.map_generation++;now_us++;
+  during_projection=m;projection_hook=publish_during_projection;
+  assert(source_now(&phase,&epoch,&root,&limit,&at)==SOURCE_READY&&source_reads[3]==races+1&&map_version==version+1&&role.tx.maps[0].map_generation==m.map_generation);
+  projection_hook=withdraw_during_projection;
+  assert(source_now(&phase,&epoch,&root,&limit,&at)==SOURCE_ABSENT&&!(flags&SOURCE_PRESENT));
+  puts("PASS exact duplicate DURING projection creates no false race; shortening/replacement/withdrawal still fence");return 0;
+ }
+ if(mode==8||mode==9){
+  struct rc8_export m=source();r2_lora_source_publish(&m);generation=3;owner.tx_kind=LP_SYNC;
+  role.tx.edge=(struct r2_lora_hw_edge){.tick=now_us*16-16,.capture_epoch=7,.generation=generation};
+  queued=(struct r2_lora_hw_event){.tick=now_us*16,.capture_epoch=7,.generation=generation,.kind=R2_LORA_HW_TX_DONE};have_event=true;
+  uint64_t expected=m.anchor_ns+now_us*1000,ns=0;uint32_t version=map_version,mapped=0;bool raced=false;
+  during_projection=m;projection_hook=publish_during_projection;
+  assert(completed_source(&queued,&ns,&mapped,&raced)&&!raced&&ns==expected&&role.tx.pinned&&role.tx.edge.tick==queued.tick&&map_version==version+1);
+  version=map_version;r2_lora_source_publish(&m);assert(map_version==version&&role.tx.pinned);
+  if(mode==9){m.until_tick=queued.tick;r2_lora_source_publish(&m);assert(!role.tx.pinned&&map_version==version+1&&role.tx.maps[1].until_tick==queued.tick);assert(!completed_source(&queued,&ns,&mapped,&raced));puts("PASS shortening pinnedSYNC original interval fences its physical edge");return 0;}
+  now_us+=2000;m.anchor_ns+=100;m.map_generation++;r2_lora_source_publish(&m);
+  assert(role.tx.pinned&&role.tx.maps[1].map_generation==1&&completed_source(&queued,&ns,&mapped,&raced)&&ns==expected);
+  r2_lora_source_withdraw();assert(!completed_source(&queued,&ns,&mapped,&raced));
+  puts("PASS duplicate pin transition fences readers; real replacement preserves exact originalSYNC association; withdrawal fences");return 0;
+ }
+ if(mode==10){
+  struct rc8_export m=source();m.scope.kind=RC8_SELECTED_BLE;m.scope.root=m.scope.parent=3;m.scope.root_boot=m.scope.parent_boot=44;
+  m.from_tick=m.anchor_tick=now_us*16;m.until_tick=m.anchor_tick+1100000*16;m.expires_ns=m.anchor_ns+1100000*1000;m.mode=RC8_MAP_DELIVERED;
+  struct rc8_export original=m;r2_lora_source_publish(&m);assert(!memcmp(&m,&original,sizeof m));
+  uint64_t held=original.until_tick+5000000*16;uint32_t version=map_version;
+  assert(role.tx.maps[0].until_tick==held&&role.tx.maps[0].expires_ns==original.expires_ns+UINT64_C(5000000000)&&lab_source.original_until_tick==original.until_tick&&lab_source.original_expires_ns==original.expires_ns);
+  now_us+=1000000;m.until_tick+=100000*16;m.expires_ns+=100000*1000;r2_lora_source_publish(&m);
+  assert(map_version==version&&role.tx.maps[0].until_tick==held&&lab_source.original_until_tick==original.until_tick);
+  m=original;m.until_tick-=50000*16;m.expires_ns-=50000*1000;r2_lora_source_publish(&m);
+  assert(map_version==version+1&&role.tx.maps[0].until_tick==held-50000*16&&lab_source.original_until_tick==m.until_tick&&lab_source.original_expires_ns==m.expires_ns);
+  now_us+=1000000;r2_lora_source_publish(&m);assert(!(flags&SOURCE_PRESENT));
+  m=original;m.capture_epoch=8;m.until_tick=UINT64_MAX-16;r2_lora_source_publish(&m);assert(!(flags&SOURCE_PRESENT));
+  puts("PASS LAB-only originalexpiry+fixed5s copy; originalBLEmap unchanged; duplicate cannot renew; originalshortening/expiry/captureepoch still fence");return 0;
+ }
  if(mode==3||mode==5){
   uint64_t next=1337000,finish=now_us+340000000;unsigned publications=0;
   while(now_us<finish){
@@ -22,8 +68,7 @@ int main(int argc,char **argv){
     if(now_us>=sent_at_us+duration-10000){queued=(struct r2_lora_hw_event){.tick=sent_at_us*16,.capture_epoch=7,.generation=sent_generation,.kind=R2_LORA_HW_TX_DONE,.end_local_us=sent_at_us+duration-10000};have_event=true;}}
    step();assert(!atomic_get(&faulted)&&!role.tx.core.durable.fh_disabled);
   }
-  if(mode==3){assert(owner.sent[LP_FOLLOW-1]>=10);printf("PASS actual SLOW-derivedLAB owner originalBLEgrants META%u/SYNC%u/FOLLOW%u; no lease extension\n",owner.sent[1],owner.sent[2],owner.sent[3]);}
-  else{assert(!txs&&!owner.sent[1]&&!owner.sent[3]);puts("PASS original1.1s grant cannot admit META; no RF or expiry extension");}return 0;
+  assert(owner.sent[LP_FOLLOW-1]>=10);printf("PASS actual SLOW LAB5shold owner originalBLEgrant%u META%u/SYNC%u/FOLLOW%u; BLElease unchanged\n",mode==3?1312476:1100000,owner.sent[1],owner.sent[2],owner.sent[3]);return 0;
  }
  if(mode==6){
   for(unsigned arm=0;arm<5;arm++){
