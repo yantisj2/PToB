@@ -33,6 +33,29 @@ int r2_lora_hw_passive_configure(enum r2_lora_passive_phy,unsigned channel);
  * transaction from a later map. Ordinary unguarded TX is disabled here. */
 int r2_lora_hw_tx_before_source(const uint8_t *,size_t,uint32_t,uint64_t latest_finish_us,
                               uint64_t source_until_tick,uint64_t source_capture_epoch);
+/* Stage the packet in standby before its due time. No capture arm, SetTx or
+ * FEM enable occurs here. Launch consumes that exact preparation once and
+ * freshly validates source/finish bounds before arming the physical event.
+ * A known stop/replaced incarnation cancels with ECANCELED; an invalid token
+ * while healthy stays ESTALE. Actual hardware faults take precedence. */
+int r2_lora_hw_prepare(const uint8_t *,size_t,uint32_t);
+int r2_lora_hw_launch_before_source(uint32_t,uint64_t latest_finish_us,
+                                  uint64_t source_until_tick,uint64_t source_capture_epoch);
+/* Retained last rejection and per-cause counts; later cap refusals do not
+ * erase it. no_rf describes that rejection; no_rf() separately exposes
+ * synchronous proof only for the most recent call/gen.
+ * Callback source/finish fences occur after SetTx bytes and never refund. */
+enum r2_lora_reject_reason {R2_LORA_REJECT_SOURCE=1,R2_LORA_REJECT_FINISH=2};
+struct r2_lora_hw_rejection {
+ uint64_t at_us,until_tick,finish_us;
+ uint32_t available_us,required_us,finish_room_us,source_count,finish_count,generation;
+ uint8_t reason,point;bool no_rf;
+};
+/* Capture-only preflight, no SPI/RF. earliest_us is the planned start. */
+int r2_lora_hw_source_preflight(uint32_t budget,uint32_t generation,uint64_t finish_us,
+                              uint64_t until_tick,uint64_t epoch,uint64_t earliest_us);
+void r2_lora_hw_rejection(struct r2_lora_hw_rejection *);
+bool r2_lora_hw_no_rf(uint32_t generation);
 #endif
 struct r2_lora_hw_ack {
  bool dma_retired,radio_quiescent,fem_off,capture_released,fault;

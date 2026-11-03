@@ -1,5 +1,7 @@
 /* Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT */
 #include "lora_passive_store.h"
+#include "lora_watchdog.h"
+#include <zephyr/kernel.h>
 #include <zephyr/drivers/flash.h>
 #include <string.h>
 #define MAGIC UINT32_C(0x3253504c)
@@ -65,17 +67,34 @@ static bool verify_bytes(uint32_t at,const void *p,unsigned bytes){
   if(flash_read(flash,at+off,record,n)||memcmp(record,(const uint8_t *)p+off,n))return false;}
  return true;
 }
+static uint64_t store_now(void){return k_ticks_to_us_floor64(k_uptime_ticks());}
+static uint32_t elapsed(uint64_t began){uint64_t cost=store_now()-began;return cost>UINT32_MAX?UINT32_MAX:(uint32_t)cost;}
+static bool save_failure(struct lp_store *s,struct r2_lora_store_timing *trace){if(trace)trace->phase|=128u;return store_failure(s);}
 bool lp_store_save(void *arg,const struct lp_checkpoint *state){
  struct lp_store *s=arg;
  if(!s||!s->ready||!state||s->sequence>=LP_STORE_MAX_COMMITS||!erased(s->next))return false;
- uint32_t head[6]={MAGIC,1,s->sequence+1,sizeof *state,0,0};memcpy(head+4,&s->factory,8);
- uint32_t tail[4]={0,0,0,COMMIT};uint32_t crc=crc_part(UINT32_MAX,head,sizeof head);
- crc=crc_part(crc,state,sizeof *state);tail[2]=crc_part(crc,tail,8)^UINT32_MAX;
- uint32_t at=address(s->next);
- if(flash_write(flash,at,head,sizeof head)||flash_write(flash,at+24,state,sizeof *state)||flash_write(flash,at+560,tail,12)||
- !verify_bytes(at,head,sizeof head)||!verify_bytes(at+24,state,sizeof *state)||!verify_bytes(at+560,tail,12))return store_failure(s);
- uint32_t committed=0;
- if(flash_write(flash,at+572,&tail[3],4)||flash_read(flash,at+572,&committed,4)||committed!=COMMIT)return store_failure(s);
+ /* Exactly the existing576B record, serialized once. One body admission
+  * replaces three independent BLE-synchronized flash_write admissions.
+  * COMMIT stays separate and last, after the entire572B body is verified. */
+ uint32_t record[LP_STORE_RECORD_BYTES/4]={MAGIC,1,s->sequence+1,sizeof *state};
+ memcpy(record+4,&s->factory,8);memcpy(record+6,state,sizeof *state);
+ record[142]=crc_part(UINT32_MAX,record,568)^UINT32_MAX;record[143]=COMMIT;
+ /* Only the current reservation precharge owns this trace. A subsequent
+  * cancellation/flush must not overwrite the timing of its first failure. */
+ struct r2_lora_store_timing *trace=r2_diag_scratch.lora.attempt.valid==1?&r2_diag_scratch.lora.store:NULL;
+ if(trace){trace->phase=0;trace->body_us=trace->verify_us=trace->commit_us=0;trace->sequence=s->sequence+1;trace->phase=1;}
+ uint32_t at=address(s->next);uint64_t began=trace?store_now():0;
+ int rc=flash_write(flash,at,record,572);if(trace)trace->body_us=elapsed(began);
+ if(rc)return save_failure(s,trace);
+ if(trace){trace->phase=2;began=store_now();}
+ bool verified=verify_bytes(at,record,572);if(trace)trace->verify_us=elapsed(began);
+ if(!verified)return save_failure(s,trace);
+ if(trace){trace->phase=3;began=store_now();}uint32_t committed=0;
+ rc=flash_write(flash,at+572,&record[143],4);
+ if(!rc)rc=flash_read(flash,at+572,&committed,4);
+ if(trace)trace->commit_us=elapsed(began);
+ if(rc||committed!=COMMIT)return save_failure(s,trace);
+ if(trace)trace->phase=4;
  if(s->next/7==s->prepared_page)s->prepared_page=UINT8_MAX;
  s->ready=LP_STORE_ACTIVE;
  ++s->sequence;s->latest=s->next;s->next=(uint8_t)((s->next+1)%RECORDS);return true;

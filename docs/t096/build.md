@@ -5,7 +5,7 @@ Copyright (c) 2026 Jonathan Yantis. MIT.
 Native builds [clean compiler output and retain the latest two image bundles](../firmware-storage.md)
 per device/profile, with installed/recovery pins preserved.
 
-This guide builds and inspects T096 source **0.15.229** without opening hardware.
+This guide builds and inspects current T096 source without opening hardware.
 For profile choices and controls, see the [T096 README](../../firmware/t096/README.md).
 Release-by-release implementation and validation notes are in the
 [T096 changelog](../../firmware/t096/CHANGELOG.md).
@@ -105,9 +105,12 @@ must use matching coarse revisions; [W12/N30 ports](../esp32-time-zones.md)
 support the same metadata. Check other targets' own guides. Manual CDT
 uses ID 2 and offset −300 minutes. Existing authenticated parent advertisements
 renew TZ for three advertising periods, independently of precision timing.
-Page 1 and the analog screensaver display local time while that lease is valid,
-then fall back to UTC. Automatic GNSS zone/DST selection and ordered dynamic
-updates use these same coarse fields. All participating T096s need .209 or
+Page 1 and the analog screensaver learn the selected authenticated zone and
+retain it in RAM for the current boot. Live metadata leases still
+expire independently; the cache grants no timing or export authority. Total time
+loss hides local conversion without erasing the learned pair; fresh valid
+metadata replaces it, and physical boot clears it. Automatic GNSS zone/DST selection and ordered dynamic
+updates use these same coarse fields. All participating T096 s need .209 or
 newer to receive automatic changes after synchronization. See the
 [current automatic-TZ results and remaining gates](auto-time-zone-plan.md#local-209-results--29-october-2026).
 
@@ -137,85 +140,56 @@ Use `--registry artifacts/local/registry.json` to compile your deployment’s sh
 Keep the real map ignored, alongside local enrollment; the receipt records its
 hash and preserves a private build snapshot.
 
-## Passive LoRa fast laboratory variant
-
-Add `--lora-passive-fast` and an exact `--lora-transmitter-factory` binding to a
-normal GM/RC build. This selects the independent passive v2 service instead of
-RC8 wire5. Every device boots LoRa off. `lora 01` selects a bounded15-minute
-`LAB_FAST_4_12` session; `lora 00` closes it. RTT commands are unsupported.
-The source must be its own qualified GNSS-backed GM; BLE source forwarding is
-unsupported. Existing GM/RC and BLE controls remain available.
-
-The executable ends before0xd7000, with32KiB of app-owned tail reserved for a
-factory-bound persistent airtime/cursor ledger. Initial ledger provisioning is
-an explicit exact-device installer operation after checking that range is
-unused; it is not a boot fallback. Existing state must be preserved on updates.
-For a used native checkpoint, boot rebasing retains all recorded airtime debt
-in the current bucket for a full new hour, with a4s control guard and20s channel
-cooldown from the default-off boot. It credits no elapsed time from the old
-clock. An initial migration requires an actual RF-silent hour; a separately
-reviewed, exact-device installer may append a
-single initial-quiet proof only after measuring a full silent hour and verifying
-the factory-bound ledger has never been used. It preserves the original seed,
-is durably consumed before admission and cannot qualify a used ledger. See the
-passive contract; no runtime console command resets airtime. Neither reboot nor mode/source changes reseed the cursor or mint
-credit. Inspect the variant binding, partition, complete linked RAM budget and
-stack evidence before installation. Enrolled candidates remain ignored locally.
-
-The [passive contract](../../protocol/lora_passive_v2/README.md) defines4/12s
-cadence,6/18s expiry, the30% lab cap and measurement limits. Lab tests cover
-scheduling, relative precision and timers. Range and actual slow-rate behavior
-require later field/slow acceptance; a software profile does not certify RF or
-absolute UTC accuracy.
-
 ## Optional LoRa configuration
 
-For the passive production candidate, select `--lora-passive-slow` instead of
-`--lora-passive-fast`, with the exact primary `--lora-transmitter-factory` and
-optional `--lora-backup-transmitter-factory`. These are normal GM/RC options;
-DC/PC reject them. Choose GM defaults for the primary/backup and RC for clients.
-The slow image requests RX at boot with60/300s cadence, preserves historical
-airtime debt and retries locally deferred precision/META through fresh
-rendezvous. It does not retry discovery or request client ACKs. Handoff,
-readmission, expiry and migration rules are in the
-[passive contract](../../protocol/lora_passive_v2/README.md); use the
-[soak guide](lora-soak.md) for autonomous measured reception testing. The RC8
-configuration below applies when neither passive schedule is selected.
+Select `--lora-passive-slow` plus one exact `--lora-transmitter-factory` for the
+[current passive wire3 design](lora-protocol.md). Use the same designated binding
+on all devices. It identifies privately verified hardware, never selects a
+runtime mesh. Do not pass a nonzero `--lora-backup-transmitter-factory`: the RAM
+cohort rejects automatic backup TX. Local authenticated discovery and current
+source admission remain required. DC/PC reject passive variants.
 
-Normal GM/RC builds include the [RC8 RF-event wire5 integration](../../protocol/rc8/README.md).
-The default transmitter factory is zero, so LoRa hardware does not start. The
-normal-only `--lora-transmitter-factory` option takes a 16-digit exact factory
-identity verified against ignored T096 registry metadata. It is included in the
-private build/watchdog identity; a display alias grants no permission.
+The slow image requests LoRa ON at boot. Listeners receive in GM and RC profiles;
+GM participation does not suppress passive RX. The designated device transmits
+only in GM profile with an eligible source: qualified own-GNSS time or fresh
+authenticated locked BLE time from another GM. It need not be the serving GM.
+Entering GM restores its TX request; manual OFF lasts until the next RC→GM
+transition or reboot. Other devices cannot become LoRa emitters by changing mode.
 
-The configured transmitter requests TX ON only in GM profile, including when it
-follows an authenticated locked BLE source without local PPS. Entering GM from RC
-restores this transmitter's TX request to ON; a manual OFF stays in effect until
-the next RC → GM transition or reboot. This applies only to the exact configured
-transmitter, and does not enable TX on listeners or unconfigured images. An
-actual serving GM retains its qualified local PPS/source requirement. Other enrolled T096s
-request passive RX, subject to the [GM7 participation policy](gm7-implementation.md).
-A configured transmitter in RC profile cannot consume its own stream.
+Slow uses 60 s precision/control, nominal 300 s META, a 4 s bootstrap guard and 72 s/h
+per-boot engineering accounting. Its 7 s SYNC offset requires matched current
+receivers accepting up to 700 ten-millisecond delay units; earlier 400-unit
+wire3 receivers are incompatible with those controls. The [soak guide](lora-soak.md)
+separates ordinary reception qualification from [manual UTC jobs](lora-utc-diagnostic.md).
 
-The `lora` query and page 7 expose role, source and radio diagnostics; `lora 00/01`
-or the menu's LoRa row changes the configured role's volatile request. A
-2.0-second hold opens the menu from any ordinary page; taps move between items
-and a separate hold selects. See the [button controls](../../firmware/t096/README.md#button-controls).
+All mutable operational state is RAM-only. Physical boot starts zero airtime,
+a fresh random seed and clean cursor/serial/pending/fault state. Service/profile/
+source changes within the boot retain accounting and cooldowns. No ledger
+provisioning, silent-hour proof, historical-state restore or journal erase
+belongs in installation. Preserve historical tail bytes and existing protected
+app-tail, credential and recovery bounds; the executable ends before 0xd7000.
+No cross-boot airtime enforcement or FCC compliance is claimed. Resolve actual
+RF mode, antenna and authorization before any separately scoped transmission;
+see [range/compliance considerations](lora-protocol.md#range-and-fcc-compliance-considerations).
 
-For a finite lab RTT test, send boot-bound `lora-rtt 01` to both source and
-listener. Its five-minute volatile lease uses 5s offers/retry floor and 15–30s
-successful refresh. `lora-rtt` queries `rtt_lab` as
-`[active, expiry_us, offer_period_ms, refresh_min_ms, refresh_max_ms]`.
-Send `lora-rtt 00` on both devices after testing; expiry or reboot also restores
-the production 60s offer floor and 15–30min refresh. Eligibility, BLE priority,
-physical timestamp validation, transaction deadlines and TZ cadence are
-unchanged. Mode changes never manufacture or renew calibration/time permission.
+`lora` queries detailed role/source/radio state; `lora-diag` is compact.
+`lora 00/01` or the menu changes the configured role's volatile request. An ON
+request proves neither RF activity nor valid time. A 2 s hold opens the menu;
+taps move and another hold selects. [Button controls](../../firmware/t096/README.md#button-controls).
 
-Functional LoRa fallback has UNKNOWN freshness/total uncertainty and grants no
-normal RC7 source or future RC9 authority. See the
-[LoRa contract](../../protocol/rc8/README.md) for wire format, metrics and source
-fences. Native inspection retains the 4,096-byte added-static ceiling and all
-existing owner/controller/USB/stack gates.
+For finite fast lab work, choose `--lora-passive-fast` instead of slow with the
+same exact transmitter binding. `RAM_LAB_4_12` boots OFF; `lora 01` selects at
+most 15 min of 4 s precision/12 s META under a 1080 s/h engineering cap; `lora 00`
+closes it. Fast work cannot qualify slow operation. Both passive schedules
+reject RTT commands and grant no normal RC7/RC9, GM or USB timing authority.
+
+When neither passive option is selected, the historical
+[RC8 wire5 implementation](../../protocol/rc8/README.md) remains a distinct
+build configuration. Its default zero transmitter binding leaves LoRa hardware
+off. Its source-opened RTT and `lora-rtt` lab controls do not apply to wire3.
+Do not mix these protocols or infer compatibility from shared target hardware.
+Native inspection retains existing owner/controller/USB/stack and linked-resource
+gates; software checks do not qualify range or absolute UTC accuracy.
 
 ## Optional controller diagnostics
 
@@ -296,35 +270,35 @@ keeps installation, reset latency, source qualification, HOT renewal and physica
 multi-device observations as separate checks. Release records and simulations
 provide context; they do not authorize hardware operations.
 
-Source 0.15.205 inspection separately accounts for the 104-byte HOT diagnostic
-allowance and 272-byte TZ allowance, alongside the existing crash diagnostics
-and 4,096-byte RC8 incremental budget. The absolute 1,024-byte unallocated floor
-and existing stack allocations are unchanged. The four locally installed .205
-images leave 4,372 bytes of linked static RAM unallocated; this is a linker
-result, not a runtime stack or endurance measurement.
+Native inspection preserves the absolute 1,024-byte unallocated RAM floor,
+existing stacks, buffers and owner/controller/USB reserves. It checks the
+selected LoRa, menu, time-zone and display additions against their linked
+baselines. Per-candidate inspector output records actual resources;
+[dated allocations](../../firmware/t096/CHANGELOG.md) are historical checks,
+not runtime stack, endurance or hardware acceptance.
 
-Source .206 separately caps the complete automatic-TZ mutable addition at
-256 bytes against that .205 baseline and generated flash data at 16 KiB.
-These limits include position, discovery queues and copied snapshots; they do
-not increase radio/USB or stack allocations. Actual native resource results
-are recorded with each candidate's inspector output.
+### Finite non-timing TX diagnostic
 
-The ordinary menu has a separate **128-byte** mutable-state allowance against
-the .210 UI baseline. Native inspection counts the linked UI objects and keeps
-the existing TZ/RC8 limits and absolute 1,024-byte unallocated floor. Display
-buffers, radio/USB allocations and thread stack sizes remain unchanged.
+For separately authorized PHY/scheduler fault isolation, add
+`--lora-tx-diagnostic` to an own-device `--profile GM --lora-passive-fast` build.
+The exact `--lora-transmitter-factory` must equal the device configuration's
+verified factory ID. This option is excluded from production slow, RC, DC and PC
+builds and is bound into the receipt, compiled configuration and watchdog hash.
+Its secondary class is `RAM_DIAG_4_12`. Keep the enrolled image local and use the
+normal artifact retention and exact-device installation/readback procedure.
 
-Source .215 separately caps the complete OTA-name, measured RX-strength and
-display/fit-provenance addition at **256 bytes** against the inspected .213
-GM/RC writable objects. Inspection counts all four affected translation units,
-including copied UI models, and retains the original RC8, TZ, menu, stack,
-buffer and absolute free-RAM gates. This is a linked allocation check; actual
-stack high-water and sustained hardware behavior remain separate observations.
+The diagnostic boots with LoRa OFF. After verified installation/readback and the
+short 4 s bootstrap guard, `lora 01` permits one
+36 s arm per boot. Repeating ON cannot renew it; OFF ends it and prevents another
+arm until a separately authorized reset. It has a 72 s rolling-hour total cap,
+starts with zero current-boot airtime and reserves less than 12 s of new airtime. The owner
+stops admitting reservations that cannot finish their original complete frame
+before expiry. A host disconnect cannot leave a 15-minute laboratory run active.
+Channel cooldowns begin after actual or conservatively possible current-boot RF.
 
-Source .216 adds a breaking LoRa companion revision4 (TZ) and optional
-source-opened RTT measurement. Other target client ports are deferred; there is
-no companion compatibility mode. The complete new mutable state is capped at
-512 bytes against the inspected .215 affected objects, including copied views;
-all original stack/buffer/cutoff and absolute1024-byte margin checks remain.
-See the [current LoRa contract](../../protocol/rc8/README.md) for receiver-only
-GM-profile behavior, opportunity limits, timestamps and normal no-reply handling.
+The test uses local monotonic phase, physical capture and the existing production
+PHY, lengths, hopping and scheduler. It requires no GNSS and exports no UTC. All
+frames begin with invalid `DX` bytes and contain no production context or timing
+authentication tag; normal decoders reject them. LoRa reports `time_valid:false`,
+`choice: 0` and `tx_diagnostic:true`. BLE GM operation retains its normal source
+requirements. This mode measures TX mechanics, not client timing or UTC accuracy.

@@ -19,6 +19,10 @@ def generate(ull,scan,aux,sync,out,hci=None):
    s=replace(s,'#include <zephyr/kernel.h>','#include <zephyr/kernel.h>\n#include "gm7_controller.h"')
    s=replace(s,'\tevt = hci_cmd_handle(buf, (void **) &node_rx);',
      '\tr2_gm7_thread_lock();\n\tevt = hci_cmd_handle(buf, (void **) &node_rx);\n\tr2_gm7_thread_unlock();')
+   # ACL enqueue may cancel peripheral latency through the same THREAD ticker user.
+   # Host event delivery stays outside the controller producer lock.
+   s=replace(s,'\terr = hci_acl_handle(buf, &evt);',
+     '\tr2_gm7_thread_lock();\n\terr = hci_acl_handle(buf, &evt);\n\tr2_gm7_thread_unlock();')
   elif path.name=='ull.c':
    s=replace(s,'#include <zephyr/kernel.h>','#include <zephyr/kernel.h>\n#include "gm7_controller.h"')
    s += '''

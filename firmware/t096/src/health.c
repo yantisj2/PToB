@@ -27,7 +27,7 @@ extern uint32_t r2_diag_stack_unused(void);
  * it never recovers pre-kernel-clear SCB validity or grants role authority. */
 #define FAULT_WORDS 64
 #define FAULT_MAGIC 0x52324631u
-volatile uint32_t r2_fault_capsule[FAULT_WORDS] __noinit;
+volatile uint32_t r2_fault_capsule[FAULT_WORDS];
 static uint32_t previous[FAULT_WORDS];
 _Static_assert(sizeof r2_fault_capsule==256&&sizeof previous==256,"Fixed fault storage");
 /* hz, empty-probe min/max cycles, maximum site/cycles, last site/cycles,
@@ -147,9 +147,9 @@ static void fault_registers(unsigned reason,const struct arch_esf *esf,unsigned 
 #endif
 #include "crash_record.h"
 #include "ptob_device.h"
-/* ONE512B retained record; no boot-time second stack dump. Existing256B
+/* ONE512B current-boot record; cleared at boot. Existing256B
  * capsule/previous copy below are unchanged. Normal export never clears it. */
-volatile uint32_t r2_crash_record[R2_CRASH_WORDS] __noinit;
+volatile uint32_t r2_crash_record[R2_CRASH_WORDS];
 _Static_assert(sizeof r2_crash_record==512,"One journal slot only");
 /* Reuses the original one-byte handoff state. Only a verified durable save
  * (or no prior valid record) permits the GM owner to reuse witness payload. */
@@ -186,7 +186,6 @@ K_THREAD_STACK_DECLARE(console_stack,2048);
 K_THREAD_STACK_DECLARE(platform_stack,2048);
 K_THREAD_STACK_DECLARE(gnss_stack,2048);
 K_THREAD_STACK_DECLARE(ui_stack,4096);
-K_THREAD_STACK_DECLARE(diagnostic_stack,2048);
 #if defined(R2_WATCHDOG)
 K_THREAD_STACK_DECLARE(watchdog_stack,1024);
 #endif
@@ -203,7 +202,7 @@ static const struct crash_bound crash_bounds[]={
  CRASH_BOUND(owner_stack,3),CRASH_BOUND(pt_stack,4),
  CRASH_BOUND(supervisor_stack,5),CRASH_BOUND(console_stack,6),
  CRASH_BOUND(platform_stack,7),CRASH_BOUND(gnss_stack,8),
- CRASH_BOUND(ui_stack,9),CRASH_BOUND(diagnostic_stack,10),
+ CRASH_BOUND(ui_stack,9),
 #if defined(R2_WATCHDOG)
  CRASH_BOUND(watchdog_stack,11),
 #endif
@@ -229,7 +228,7 @@ static void crash_capture(unsigned reason,const struct arch_esf *esf,unsigned ma
 {
  /* Fatal-only, IRQs already masked. No locks, driver, allocator, formatting,
   * flash, stack walk, variable-size locals or record-sized automatic arrays. */
- if(r2_health_crash_pending())return; /* preserve first unpersisted crash across another startup fault */
+ if(r2_health_crash_pending())return; /* preserve first crash within this boot */
  /* IRQs are masked: freeze a completed/explicitly partial GM observation.
   * Pending previous crashes were returned above and are never overwritten.
   * RC/inactive/unavailable keeps the complete original192B thread window. */
@@ -323,12 +322,11 @@ int r2_health_crash_read(unsigned chunk,uint8_t out[64]){(void)chunk;(void)out;r
 void r2_health_init(uint64_t boot)
 {
 #if defined(R2_GM7_NATIVE) && defined(CONFIG_EXTRA_EXCEPTION_INFO)
- r2_gm7_witness_state=r2_crash_valid(r2_crash_record,true)?0:R2_WITNESS_HANDOFF;
+ memset((void *)r2_crash_record,0,sizeof r2_crash_record);
+ r2_gm7_witness_state=R2_WITNESS_HANDOFF;
 #endif
- if(r2_fault_capsule[0]==FAULT_MAGIC&&(r2_fault_capsule[1]==2||r2_fault_capsule[1]==3||r2_fault_capsule[1]==4)&&
-    r2_fault_capsule[FAULT_WORDS-1]==crc(r2_fault_capsule))
-  for(unsigned i=0;i<FAULT_WORDS;i++)previous[i]=r2_fault_capsule[i];
- r2_fault_capsule[0]=0;boot_id=boot;timing_setup();detail_due=0;
+ /* Operational diagnostics never restore state after reset. */
+ memset(previous,0,sizeof previous);memset((void *)r2_fault_capsule,0,sizeof r2_fault_capsule);boot_id=boot;timing_setup();detail_due=0;
 }
 void r2_health_beat(void)
 {

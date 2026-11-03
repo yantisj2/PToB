@@ -24,7 +24,7 @@ def main():
         flags.append(arg)
     flags[1:1]=['-I'+str(APP/'include'),'-I'+str(APP/'protocol'),'-DR2_LORA_PASSIVE_FAST=1']
     a.out=a.out.resolve();a.out.mkdir(parents=True,exist_ok=False)
-    sources=[APP/'protocol/lora_passive.c',APP/'src/lora_passive_core.c',APP/'src/lora_hw.c',APP/'src/lora_passive_store.c',APP/'src/lora_passive_service.c']
+    sources=[APP/'protocol/lora_passive.c',APP/'src/lora_passive_core.c',APP/'src/lora_hw.c',APP/'src/lora_passive_service.c']
     frames={}
     for source in sources:
         obj=a.out/(source.stem+'.o')

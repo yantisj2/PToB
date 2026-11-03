@@ -22,6 +22,8 @@
 
 #define SPI_BYTES (R2_LORA_HW_BYTES + 3u)
 #define CSD_PIN NRF_GPIO_PIN_MAP(0, 12)
+/* SX1262 drive into the T096 external PA; nominal board output ~28dBm. */
+#define TX_CHIP_DBM 18
 #define TIMING_CUTOFF_US 360000u
 #define DIAGNOSTIC_CUTOFF_US 450000u
 #define BUSY_MS 30u
@@ -64,6 +66,10 @@ static struct r2_capture edge;
 static uint64_t edge_us;
 static uint64_t active_epoch;
 static uint32_t generation, edge_generation;
+#if defined(R2_LORA_PASSIVE_FAST) || defined(R2_LORA_PASSIVE_SLOW)
+static atomic_t prepared_budget;
+static uint32_t prepared_generation;
+#endif
 static nrf_ppi_channel_t cutoff_channel,done_channel;
 static uint8_t task_channel;
 static bool resources, capture_owned, receive_mode;
@@ -72,6 +78,8 @@ static uint8_t resource_flags;
 #if defined(R2_LORA_PASSIVE_FAST) || defined(R2_LORA_PASSIVE_SLOW)
 static uint8_t passive_phy;
 static uint64_t source_until_tick;
+static void reject_launch(unsigned,unsigned,uint32_t,uint32_t,uint64_t,uint64_t,bool);
+
 #endif
 #define HAVE_CUTOFF_CHANNEL 1u
 #define HAVE_CUTOFF_TIMER 2u
@@ -125,6 +133,9 @@ static void note_fault(int rc,bool terminal) {
   irq_unlock(key);
 }
 static void inhibit(void) {
+#if defined(R2_LORA_PASSIVE_FAST) || defined(R2_LORA_PASSIVE_SLOW)
+  atomic_clear(&prepared_budget);
+#endif
   unsigned key = irq_lock();
   atomic_clear(&running);
   if (resources)nrfx_gpiote_clr_task_trigger(&gpiote, CSD_PIN);
@@ -411,6 +422,7 @@ static int enable_fem(bool transmit, uint32_t budget, uint64_t latest_finish,
       uint64_t required=((uint64_t)budget+R2_LORA_HW_LAUNCH_MARGIN_US)*16;
       if(!r2_capture_now(&at)||at.epoch!=active_epoch||at.tick>=source_until_tick||
          required>source_until_tick-at.tick){
+        reject_launch(R2_LORA_REJECT_SOURCE,4,generation,budget+R2_LORA_HW_LAUNCH_MARGIN_US,source_until_tick,latest_finish,false);
         if(deferred)*deferred=true;
         irq_unlock(key);return -EAGAIN;
       }
@@ -420,6 +432,9 @@ static int enable_fem(bool transmit, uint32_t budget, uint64_t latest_finish,
     if (transmit && latest_finish &&
         (now >= latest_finish ||
          (uint64_t)budget + R2_LORA_HW_LAUNCH_MARGIN_US > latest_finish - now)) {
+      #if defined(R2_LORA_PASSIVE_FAST) || defined(R2_LORA_PASSIVE_SLOW)
+      reject_launch(R2_LORA_REJECT_FINISH,5,generation,budget+R2_LORA_HW_LAUNCH_MARGIN_US,source_until_tick,latest_finish,false);
+#endif
       if (deferred)
         *deferred = true;
       irq_unlock(key);
@@ -433,7 +448,7 @@ static int enable_fem(bool transmit, uint32_t budget, uint64_t latest_finish,
       return -EAGAIN;
     }
     /* Official Heltec bypass RX: CSD=1,CTX=1,DIO2(CPS)=0. In TX DIO2=1.
-     * Initial canary chip drive is0dBm; antenna power is not measured. */
+     * Chip drive is18dBm; nominal PA output is28dBm, not measured power. */
     rc = gpio_pin_set_dt(&ctx, 1);
     if (!rc && transmit) {
       wd.launch_us=(uint32_t)now;wd.launch_ms=(uint32_t)(now/1000u);
@@ -544,6 +559,9 @@ static int init_resources(void) {
   return 0;
 }
 int r2_lora_hw_start(uint32_t gen, bool receive) {
+#if defined(R2_LORA_PASSIVE_FAST) || defined(R2_LORA_PASSIVE_SLOW)
+  atomic_clear(&prepared_budget);
+#endif
   stage(R2_LORA_STAGE_START);
   atomic_val_t serial = atomic_get(&stop_serial);
   if (!gen)
@@ -595,7 +613,7 @@ int r2_lora_hw_start(uint32_t gen, bool receive) {
                 image[] = {0xe1, 0xe9};
   const uint8_t regulator[] = {1}, type[] = {1}, switching[] = {1},
                 bases[] = {0, 0};
-  const uint8_t pa[] = {4, 7, 0, 1}, drive[] = {0, 2},
+  const uint8_t pa[] = {4, 7, 0, 1}, drive[] = {TX_CHIP_DBM, 2},
                 freq[] = {0x39, 0x30, 0, 0};
   const uint8_t mod[] = {10, 6, 2, 0}, fallback[] = {0x20};
 #define CMD(op, a)                                                             \
@@ -672,6 +690,9 @@ static int arm_edge(uint32_t gen, uint8_t new_phase) {
   return rc;
 }
 int r2_lora_hw_rx_rearm(void) {
+#if defined(R2_LORA_PASSIVE_FAST) || defined(R2_LORA_PASSIVE_SLOW)
+  atomic_clear(&prepared_budget);
+#endif
   stage(R2_LORA_STAGE_REARM);
   if (atomic_get(&phase) != 1)
     return -EBUSY;
@@ -718,6 +739,7 @@ int r2_lora_hw_idle(void) {
 }
 #if defined(R2_LORA_PASSIVE_FAST) || defined(R2_LORA_PASSIVE_SLOW)
 int r2_lora_hw_passive_configure(enum r2_lora_passive_phy phy,unsigned channel){
+  atomic_clear(&prepared_budget);
   if((phy!=R2_LORA_DTS&&phy!=R2_LORA_FHSS)||channel>=64||(phy==R2_LORA_DTS&&channel))return -EINVAL;
   if(!atomic_get(&running)||atomic_get(&fault))return -ECANCELED;
   if(atomic_get(&phase)!=1||atomic_get(&dma_inflight)||atomic_get(&latched))return -EBUSY;
@@ -744,15 +766,62 @@ uint32_t r2_lora_hw_budget_us(size_t n) {
   return n <= 80 ? TIMING_CUTOFF_US : DIAGNOSTIC_CUTOFF_US;
 #endif
 }
-static int tx_before(const uint8_t *bytes, size_t n, uint32_t gen,
-                       uint64_t latest_finish) {
+#if defined(R2_LORA_PASSIVE_FAST) || defined(R2_LORA_PASSIVE_SLOW)
+static struct r2_lora_hw_rejection rejected;
+static bool no_rf_proof;
+static uint32_t room_us(uint64_t n){return n>UINT32_MAX?UINT32_MAX:(uint32_t)n;}
+static void reject_launch(unsigned reason,unsigned point,uint32_t gen,uint32_t required,
+                          uint64_t until,uint64_t finish,bool no_rf){
+ struct r2_capture at;bool valid=r2_capture_now(&at)&&at.epoch==active_epoch;
+ uint64_t now=now_us();unsigned key=irq_lock();
+ rejected.at_us=now;rejected.until_tick=until;rejected.finish_us=finish;
+ rejected.available_us=valid&&until>at.tick?room_us((until-at.tick)/16):0;
+ rejected.required_us=required;rejected.finish_room_us=finish>now?room_us(finish-now):0;
+ rejected.generation=gen;rejected.reason=(uint8_t)reason;rejected.point=(uint8_t)point;rejected.no_rf=no_rf;no_rf_proof=no_rf;
+ if(reason==R2_LORA_REJECT_SOURCE)count(&rejected.source_count);else count(&rejected.finish_count);
+ irq_unlock(key);
+}
+void r2_lora_hw_rejection(struct r2_lora_hw_rejection *out){unsigned key=irq_lock();*out=rejected;irq_unlock(key);}
+bool r2_lora_hw_no_rf(uint32_t gen){return no_rf_proof&&rejected.generation==gen;}
+int r2_lora_hw_source_preflight(uint32_t budget,uint32_t gen,uint64_t finish,
+                               uint64_t until,uint64_t epoch,uint64_t earliest){
+ no_rf_proof=false;struct r2_capture at;uint64_t now=now_us();
+ if(!budget||!until||!epoch||epoch!=active_epoch)return -EINVAL;
+ uint64_t lead=earliest>now?earliest-now:0;
+ uint64_t required=(uint64_t)budget+R2_LORA_HW_LAUNCH_MARGIN_US+lead;
+ if(!r2_capture_now(&at)||at.epoch!=epoch||at.tick>=until||required>(until-at.tick)/16){
+  reject_launch(R2_LORA_REJECT_SOURCE,1,gen,room_us(required),until,finish,true);return -EAGAIN;}
+ return 0;
+}
+#endif
+static int tx_state_result(int otherwise,atomic_val_t serial){
+  /* Preserve actual faults and classify stopped/replaced incarnations as
+   * cancellation. Healthy token/phase errors stay diagnostic. EINTR already
+   * denotes an inhibited recoverable launch; retain it unless superseded. */
+  unsigned key=irq_lock();int rc=atomic_get(&fault);
+  if(!rc&&(atomic_get(&stop_serial)!=serial||(!atomic_get(&running)&&otherwise!=-EINTR)))rc=-ECANCELED;
+  irq_unlock(key);return rc?rc:otherwise;
+}
+/* Capture failure is rare. Linearize its terminal decision with stop/fault
+ * classification; fail() only captures state and inhibits pins, never SPI or
+ * waiting. Healthy packet paths gain no wider interrupt mask. */
+static int tx_capture_failure(atomic_val_t serial){
+  unsigned key=irq_lock();int rc=atomic_get(&fault);
+  if(!rc)rc=(!atomic_get(&running)||atomic_get(&stop_serial)!=serial)?-ECANCELED:fail(-ESTALE);
+  irq_unlock(key);return rc;
+}
+static int prepare_tx(const uint8_t *bytes,size_t n,uint32_t gen) {
+#if defined(R2_LORA_PASSIVE_FAST) || defined(R2_LORA_PASSIVE_SLOW)
+  atomic_clear(&prepared_budget);
+#endif
   uint32_t budget = r2_lora_hw_budget_us(n);
   if (!bytes || !budget || !gen)
     return -EINVAL;
+  atomic_val_t serial=atomic_get(&stop_serial);int state_rc=tx_state_result(0,serial);
+  if(state_rc)return state_rc;
   if (atomic_get(&phase) != 1 || atomic_get(&dma_inflight))
-    return -EBUSY;
-  if (!capture_live())
-    return fail(-ESTALE);
+    return tx_state_result(-EBUSY,serial);
+  if (!capture_live())return tx_capture_failure(serial);
   const uint8_t standby[] = {0};
   int rc = command(0x80, standby, sizeof(standby));
   if (!rc)
@@ -769,8 +838,15 @@ static int tx_before(const uint8_t *bytes, size_t n, uint32_t gen,
     memcpy(dma_tx + 2, bytes, n);
     rc = transfer(n + 2);
   }
-  if (!rc)
-    rc = arm_edge(gen, 4);
+  if(rc==-EAGAIN)rc=-EIO;
+  return rc && rc!=-ECANCELED ? fail(rc) : rc;
+}
+static int launch_tx(uint32_t gen,uint32_t budget,uint64_t latest_finish,atomic_val_t serial) {
+  if(!gen||!budget)return -EINVAL;
+  int state_rc=tx_state_result(0,serial);if(state_rc)return state_rc;
+  if(atomic_get(&phase)!=1||atomic_get(&dma_inflight))return tx_state_result(-EBUSY,serial);
+  if(!capture_live())return tx_capture_failure(serial);
+  int rc=arm_edge(gen,4);rc=tx_state_result(rc,serial);
   if (!rc) {
     /* Precommit has its own original finite bound, equal to the existing
      * frame window. RF stays inhibited until completed SetTx bytes commit.
@@ -783,6 +859,9 @@ static int tx_before(const uint8_t *bytes, size_t n, uint32_t gen,
     uint64_t before = now_us();
     if (latest_finish && (before >= latest_finish ||
         (uint64_t)budget + R2_LORA_HW_LAUNCH_MARGIN_US > latest_finish - before)) {
+      #if defined(R2_LORA_PASSIVE_FAST) || defined(R2_LORA_PASSIVE_SLOW)
+      reject_launch(R2_LORA_REJECT_FINISH,3,gen,budget+R2_LORA_HW_LAUNCH_MARGIN_US,source_until_tick,latest_finish,true);
+#endif
       atomic_cas(&phase, 4, 1);
       return -EAGAIN;
     }
@@ -796,8 +875,9 @@ static int tx_before(const uint8_t *bytes, size_t n, uint32_t gen,
   const uint8_t timeout[]={0,0,0};
   const uint32_t launch_margin=2000;
 #else
-  uint32_t modem_us=n<=80?340000u:420000u;
-  const uint8_t timeout[] = {0, n <= 80 ? 0x55 : 0x69, 0};
+  bool timing=budget==TIMING_CUTOFF_US;
+  uint32_t modem_us=timing?340000u:420000u;
+  const uint8_t timeout[] = {0, timing ? 0x55 : 0x69, 0};
   const uint32_t launch_margin=budget-modem_us;
 #endif
   if (!rc)
@@ -832,6 +912,10 @@ static int tx_before(const uint8_t *bytes, size_t n, uint32_t gen,
     rc = -EIO;
   return rc && rc != -ECANCELED ? fail(rc) : rc;
 }
+static int tx_before(const uint8_t *bytes,size_t n,uint32_t gen,uint64_t finish){
+  atomic_val_t serial=atomic_get(&stop_serial);int rc=prepare_tx(bytes,n,gen);
+  return rc?rc:launch_tx(gen,r2_lora_hw_budget_us(n),finish,serial);
+}
 int r2_lora_hw_tx_before(const uint8_t *bytes,size_t n,uint32_t gen,uint64_t finish){
 #if defined(R2_LORA_PASSIVE_FAST) || defined(R2_LORA_PASSIVE_SLOW)
   (void)bytes;(void)n;(void)gen;(void)finish;return -ENOTSUP;
@@ -840,12 +924,38 @@ int r2_lora_hw_tx_before(const uint8_t *bytes,size_t n,uint32_t gen,uint64_t fin
 #endif
 }
 #if defined(R2_LORA_PASSIVE_FAST) || defined(R2_LORA_PASSIVE_SLOW)
+int r2_lora_hw_prepare(const uint8_t *bytes,size_t n,uint32_t gen){
+  no_rf_proof=false;
+  atomic_clear(&prepared_budget);
+  uint32_t serial=(uint32_t)atomic_get(&stop_serial);
+  int rc=prepare_tx(bytes,n,gen);
+  rc=tx_state_result(rc,(atomic_val_t)serial);
+  unsigned key=irq_lock();
+  if(!rc&&(!atomic_get(&running)||atomic_get(&phase)!=1||
+     (uint32_t)atomic_get(&stop_serial)!=serial))rc=-ECANCELED;
+  if(atomic_get(&fault))rc=atomic_get(&fault);
+  if(!rc){prepared_generation=gen;atomic_set(&prepared_budget,r2_lora_hw_budget_us(n));}
+  irq_unlock(key);
+  return rc;
+}
+int r2_lora_hw_launch_before_source(uint32_t gen,uint64_t finish,uint64_t until,uint64_t epoch){
+  no_rf_proof=false;
+  unsigned key=irq_lock();atomic_val_t serial=atomic_get(&stop_serial);
+  uint32_t budget=(uint32_t)atomic_get(&prepared_budget);
+  bool matching=budget&&gen==prepared_generation;
+  atomic_clear(&prepared_budget);irq_unlock(key);
+  int rc=tx_state_result(matching?0:-ESTALE,serial);if(rc)return rc;
+  rc=r2_lora_hw_source_preflight(budget,gen,finish,until,epoch,now_us());
+  rc=tx_state_result(rc,serial);
+  if(rc){if(rc==-EAGAIN)rejected.point=2;else no_rf_proof=false;return rc;}
+  source_until_tick=until;rc=launch_tx(gen,budget,finish,serial);
+  rc=tx_state_result(rc,serial);if(rc!=-EAGAIN)no_rf_proof=false;
+  return rc;
+}
 int r2_lora_hw_tx_before_source(const uint8_t *bytes,size_t n,uint32_t gen,uint64_t finish,
                               uint64_t until,uint64_t epoch){
-  struct r2_capture at;uint32_t budget=r2_lora_hw_budget_us(n);
-  if(!until||!epoch||epoch!=active_epoch)return -EINVAL;
-  if(!r2_capture_now(&at)||at.epoch!=epoch||at.tick>=until||
-     ((uint64_t)budget+R2_LORA_HW_LAUNCH_MARGIN_US)*16>until-at.tick)return -EAGAIN;
+  int rc=r2_lora_hw_source_preflight(r2_lora_hw_budget_us(n),gen,finish,until,epoch,now_us());
+  if(rc){if(rc==-EAGAIN)rejected.point=2;return rc;}
   source_until_tick=until;return tx_before(bytes,n,gen,finish);
 }
 #endif
@@ -888,9 +998,13 @@ int r2_lora_hw_take(struct r2_lora_hw_event *out) {
   if (!out)
     return -EINVAL;
   const uint8_t dummy[] = {0, 0, 0};
+  /* A failed transport must not inherit the preceding IRQ response. Bit22
+   * proves this response completed; bit23 identifies chip-status rejection. */
+  wd.irq_status=0;
   int rc = command(0x12, dummy, sizeof(dummy));
   uint16_t flags = ((uint16_t)dma_rx[2] << 8) | dma_rx[3];
-  if(!rc)wd.irq_status=flags|((uint32_t)dma_rx[1]<<24);
+  if(!rc)wd.irq_status=flags|((uint32_t)dma_rx[1]<<24)|(1u<<22);
+  if(!rc&&!status_ok(dma_rx[1]))wd.irq_status|=1u<<23;
   if (!rc && !status_ok(dma_rx[1]))
     rc = -EIO;
   uint8_t state = (uint8_t)atomic_get(&phase);

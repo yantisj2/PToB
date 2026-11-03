@@ -29,7 +29,13 @@ _Static_assert(WD_PARENT_MS>=30000u&&WD_CORE_MS>=30000u&&WD_RC_WORKER_MS>=30000u
 enum {WD_NO_SYNC=1,WD_RETRIES_EXHAUSTED,WD_CORE_STALL,WD_RECOVERY_FAILED,WD_RC_WORKER_STALL,WD_LORA_FAULT,
  WD_FATAL=16,WD_UF2=256};
 /* CRC/commit, exact source and silicon binding; RAM survival is conditional. */
-volatile uint32_t r2_watchdog_capsule[WD_WORDS] __noinit;
+volatile uint32_t r2_watchdog_capsule[WD_WORDS];
+struct uf2_request {uint32_t magic,checksum;char binding[64],silicon[16];};
+static volatile struct uf2_request uf2_intent __noinit;
+static uint32_t uf2_crc(void){
+ const volatile uint8_t *p=(const volatile uint8_t *)&uf2_intent.binding;
+ uint32_t c=UINT32_MAX;for(unsigned i=0;i<80;i++){c^=p[i];for(unsigned b=0;b<8;b++)c=(c>>1)^(UINT32_C(0xedb88320)&-(c&1u));}return ~c;
+}
 static uint32_t previous[WD_WORDS];
 static uint64_t physical_boot;
 static unsigned reset_kind;
@@ -78,17 +84,14 @@ static void capsule(unsigned reason,uint32_t control_detail)
  r2_watchdog_capsule[33]=crc(r2_watchdog_capsule);
  __DMB();r2_watchdog_capsule[0]=WD_MAGIC;__DSB();
 }
-static bool previous_bound(const struct r2_identity *id)
-{
- return r2_watchdog_capsule[0]==WD_MAGIC&&r2_watchdog_capsule[1]==1&&
-  r2_watchdog_capsule[33]==crc(r2_watchdog_capsule)&&
-  !memcmp((const void *)&r2_watchdog_capsule[12],R2_WATCHDOG_BINDING,64)&&
-  !memcmp((const void *)&r2_watchdog_capsule[28],id->silicon,16);
+static bool updater_bound(const struct r2_identity *id){
+ return uf2_intent.magic==WD_MAGIC&&uf2_intent.checksum==uf2_crc()&&
+ !memcmp((const void *)uf2_intent.binding,R2_WATCHDOG_BINDING,64)&&
+ !memcmp((const void *)uf2_intent.silicon,id->silicon,16);
 }
 bool r2_watchdog_restore_rc(bool *rc)
 {
- if(previous[0]!=WD_MAGIC||previous[4]==WD_UF2||previous[5]>1)return false;
- *rc=previous[5]!=0;return true;
+ (void)rc;return false; /* Boot profile is an immutable image input. */
 }
 void r2_watchdog_main_beat(void){atomic_set(&main_at,(atomic_val_t)k_uptime_get_32());}
 void r2_watchdog_enable(bool enabled)
@@ -227,29 +230,20 @@ int r2_watchdog_boot(const struct r2_identity *id)
 {
  if(!id||id->result)return -EACCES;
  physical_boot=id->boot;memcpy(silicon,id->silicon,16);
- if((id->reset_cause&RESET_WATCHDOG)&&previous_bound(id))
-  for(unsigned i=0;i<WD_WORDS;i++)previous[i]=r2_watchdog_capsule[i];
+ bool updater=(id->reset_cause&RESET_WATCHDOG)&&updater_bound(id);
+ memset(previous,0,sizeof previous);memset((void *)r2_watchdog_capsule,0,sizeof r2_watchdog_capsule);
+ memset((void *)&uf2_intent,0,sizeof uf2_intent); /* consume once, even malformed */
  uint32_t flags=id->reset_cause;reset_flags=flags;
  reset_kind=!flags?R2_UI_RESET_UNKNOWN:(flags&(flags-1))?R2_UI_RESET_MULTIPLE:
   flags==RESET_PIN?R2_UI_RESET_PIN:flags==RESET_SOFTWARE?R2_UI_RESET_SOFTWARE:
   flags==RESET_POR?R2_UI_RESET_POWER:flags==RESET_BROWNOUT?R2_UI_RESET_BROWNOUT:
   flags==RESET_WATCHDOG?R2_UI_RESET_WATCHDOG:flags==RESET_CPU_LOCKUP?R2_UI_RESET_LOCKUP:
   flags==RESET_LOW_POWER_WAKE?R2_UI_RESET_WAKE:flags==RESET_DEBUG?R2_UI_RESET_DEBUG:R2_UI_RESET_UNKNOWN;
- if(flags==RESET_WATCHDOG&&previous[0]==WD_MAGIC){
-  unsigned reason=previous[4];
-  if(reason==WD_RETRIES_EXHAUSTED)reset_kind=R2_UI_RESET_WD_PROFILE;
-  else if(reason==WD_CORE_STALL)reset_kind=R2_UI_RESET_WD_CORE;
-  else if(reason==WD_RECOVERY_FAILED)reset_kind=R2_UI_RESET_WD_RECOVERY;
-  else if(reason==WD_RC_WORKER_STALL||reason==WD_LORA_FAULT)reset_kind=R2_UI_RESET_WD_FAULT;
-  else if(reason>=WD_FATAL&&reason<WD_UF2)reset_kind=R2_UI_RESET_WD_FAULT;
- }
- r2_watchdog_capsule[0]=0;
  int cleared=hwinfo_clear_reset_cause();if(cleared)return cleared;
  /* Watchdog reset clears WDT, unlike a soft reset. A bound one-shot UF2
   * continuation runs BEFORE arming WDT and uses the existing public request.
   * Lost/torn RAM falls back to normal boot; the host still requires real MSC. */
- if(previous[0]==WD_MAGIC&&previous[4]==WD_UF2){
-  previous[0]=0;(void)r2_bootloader_request();
+ if(updater){(void)r2_bootloader_request();
   /* A successful public request never returns. If retention/entry fails,
    * resume ordinary startup with a working parent instead of a dark halt. */
   reset_kind=R2_UI_RESET_WD_RECOVERY;
@@ -272,7 +266,9 @@ int r2_watchdog_bootloader(uint64_t original_deadline_ms)
   * it is not shortened for maintenance and no timing authority is retained.
   * Host tools must allow that reset latency after a successful commit. */
  if(now>=original_deadline_ms||original_deadline_ms-now<250u)return -ETIMEDOUT;
- capsule(WD_UF2,0);atomic_set(&reset_reason,WD_UF2);
+ uf2_intent.magic=0;memcpy((void *)uf2_intent.binding,R2_WATCHDOG_BINDING,64);
+ memcpy((void *)uf2_intent.silicon,silicon,16);uf2_intent.checksum=uf2_crc();
+ __DMB();uf2_intent.magic=WD_MAGIC;__DSB();atomic_set(&reset_reason,WD_UF2);
  /* No flash or USB here. The independent peripheral performs a true reset. */
  for(;;)k_sleep(K_MSEC(WD_POLL_MS));
 }

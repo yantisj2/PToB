@@ -29,7 +29,6 @@ with (nullcontext(str(args.out.resolve())) if args.out else tempfile.TemporaryDi
     subprocess.run([sys.executable,str(APP/'tools/lora_hw_tests.py'),'--out',str(out/'lora-hw')],env={**os.environ,'CC':compiler},check=True,timeout=60)
     subprocess.run([sys.executable,str(APP/'tools/lora_passive_tests.py'),'--deps',str(args.deps),'--out',str(out/'lora-passive')],env={**os.environ,'CC':compiler},check=True,timeout=120)
     subprocess.run([sys.executable,str(APP/'tools/lora_passive_owner_tests.py'),'--deps',str(args.deps),'--out',str(out/'lora-passive-owner')],env={**os.environ,'CC':compiler},check=True,timeout=120)
-    subprocess.run([sys.executable,str(APP/'tools/lora_slow_tests.py'),'--deps',str(args.deps),'--out',str(out/'lora-slow')],env={**os.environ,'CC':compiler},check=True,timeout=120)
     subprocess.run([sys.executable,str(APP/'tools/lora_soak_tests.py')],check=True,timeout=30)
     subprocess.run([sys.executable,str(APP/'tools/gm_input_order_tests.py'),'--deps',str(args.deps),'--out',str(out/'gm-input-order')],env={**os.environ,'CC':compiler},check=True,timeout=60)
     subprocess.run([sys.executable,str(APP/'tools/cold_client_tests.py'),'--out',str(out/'cold-client')],env={**os.environ,'CC':compiler},check=True,timeout=90)
@@ -161,6 +160,5 @@ with (nullcontext(str(args.out.resolve())) if args.out else tempfile.TemporaryDi
     subprocess.run([*flags,'-DR2_TZ_AUTO=1','-DR2_TZ_WIRE=1','-I'+str(out),'-include',str(APP/'tests/zephyr_fake.h'),str(APP/'tests/auto_time_zone_owner_test.c'),*[str(APP/'src'/n)for n in ['clock.c','nmea.c','precision.c','time_zone_selector.c','time_zone_database.c']],'-o',str(out/'auto_time_zone_owner')],check=True,timeout=30)
     subprocess.run([str(out/'auto_time_zone_owner')],check=True,timeout=30)
 
-    subprocess.run([*flags,'-DR2_LORA=1','-I'+str(APP/'protocol'),'-I'+str(out),'-include',str(APP/'tests/zephyr_fake.h'),str(APP/'tests/diagnostic_test.c'),str(APP/'src/core.c'),'-o',str(out/'diagnostic')],check=True,timeout=30)
-    for mode in map(str,range(34)):
-        subprocess.run([str(out/'diagnostic'),mode],check=True,timeout=30)
+    subprocess.run([*flags,'-DR2_LORA=1','-I'+str(APP/'protocol'),'-I'+str(out),'-include',str(APP/'tests/zephyr_fake.h'),str(APP/'tests/diagnostic_ram_test.c'),str(APP/'src/core.c'),'-o',str(out/'diagnostic')],check=True,timeout=30)
+    subprocess.run([str(out/'diagnostic')],check=True,timeout=30)

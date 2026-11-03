@@ -5,6 +5,8 @@
 #include <stddef.h>
 /* This is deliberately independent of normal source/precision/USB owners. */
 struct r2_lora_view {
+ /* Presentation metadata; tz_observed means original observed META lifetime,
+  * with no independently bounded source-age or timing/export permission. */
  uint64_t tz_until_us;
  struct r2_tz tz;
  /* Occupy existing alignment space; display estimates add no mutable RAM.
@@ -17,15 +19,18 @@ struct r2_lora_view {
  uint16_t root_tag,emitter_tag,parent_tag;
  uint8_t state,assurance,choice,link_samples,kind,parent_class,parent_accuracy;
  uint8_t requested:1,active:1,transmitter:1,fault:1,quality_known:1,time_valid:1,parent_quality:1,coord_follow:1;
- uint8_t display_held:1,rssi_valid:1,rtt_base_count:2,rtt_positive:1;
+ uint8_t display_held:1,rssi_valid:1,rtt_base_count:2,rtt_positive:1,display_acquiring:1,tz_observed:1;
  uint8_t rtt_life_8s;
 };
 _Static_assert(sizeof(struct r2_lora_view)<=88,"RC8 view with coarse TZ");
-/* UI-only maximum from the original accepted physical pair; no authority. */
+/* Freshness limits from the original physical pair. Slow mode separately
+ * retains a same-boot UI-only HOLD cache;120s is not its display lifetime.
+ * Legacy/fast display continuation remains bounded by its existing policy. */
 #ifdef R2_LORA_PASSIVE_SLOW
-#define R2_LORA_DISPLAY_HOLD_US UINT64_C(62000000)
-#define R2_LORA_FIT_HOLD_MS 62000u
-#define R2_LORA_SIGNAL_HOLD_MS 62000u
+#include "../protocol/lora_passive_schedule.h"
+#define R2_LORA_DISPLAY_HOLD_US LP_HOLD_US
+#define R2_LORA_FIT_HOLD_MS (LP_HOLD_US/1000)
+#define R2_LORA_SIGNAL_HOLD_MS (LP_HOLD_US/1000)
 #else
 #define R2_LORA_DISPLAY_HOLD_US UINT64_C(20000000)
 #define R2_LORA_FIT_HOLD_MS 24000u
@@ -64,3 +69,8 @@ bool r2_lora_transmitter_quiescent(void);
 int r2_lora_diagnostics_json(char *,size_t,int result);
 #endif
 int r2_lora_json(char *,size_t,int result);
+
+/* Explicit single-job lab request; only passive slow supports transmission.
+ * Query JSON also explains untrained/expired receiver UTC. No persistent mode. */
+int r2_lora_utc_request(uint64_t token,uint32_t delay_ms,bool allow_over_cap);
+int r2_lora_utc_json(char *,size_t,int result);

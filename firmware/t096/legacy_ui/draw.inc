@@ -597,6 +597,12 @@ static void sync_issue(uint8_t *fb, const ui_snapshot_t *s) {
     uint16_t color = s->state == CLOCK_NO_TIME ? C_RED : C_AMBER;
     fill(fb, 5, 55, 70, 57, C_PANEL);
     fill(fb, 5, 55, 2, 57, color);
+    if (s->native_lora_source) {
+        label(fb,19,62,"SYNCING",1,C_AMBER);
+        label(fb,13,82,"ACQUIRING",1,C_AMBER);
+        label(fb,19,101,"LORA RX",1,C_DIM);
+        return;
+    }
     const char *heading = s->gnss_native_health ? native_clock_reason(s) :
                           s->display_aligning && s->state!=CLOCK_HOLDOVER ? "TIME ALIGN" :
                           s->state == CLOCK_HOLDOVER ? "HOLDOVER" :
@@ -749,7 +755,7 @@ static void front_clock(uint8_t *fb, const ui_snapshot_t *s,const char *zone_lab
     role_header(fb,s);
     round_panel(fb, 3, 17, 74, 35, C_PANEL, C_BEZEL);
     label(fb, 8, 20, zone_label?zone_label:s->gnss_native_health&&s->native_served_time?"UTC":s->lora_only?"UTC":s->source_provisional?"UTC":s->mesh_profile ? (s->mesh_utc?"UTC":"REL") : s->acquiring_first_lock ? "ACQ" : "UTC", 1, C_DIM);
-    const char *source = s->native_lora_source?"LOR":s->gnss_native_health&&s->native_reason==UI_NATIVE_NONE&&!s->native_analog_eligible?"SYNC":s->gnss_native_health&&s->native_ble_time?(s->native_time_relay_hops==1?"RC1":s->native_time_relay_hops==2?"RC2":"BLE"):s->gnss_native_health&&s->native_analog_eligible?"PPS":s->gnss_native_health&&s->native_served_time?"COARSE":s->gnss_native_health&&s->utc_valid?"HOLD":s->lora_only?"LOR":s->source_provisional?"PROV":s->acquiring_first_lock ?
+    const char *source = s->native_lora_source?(s->native_lora_acquiring?"ACQ":s->state==CLOCK_HOLDOVER?"HOLD":"LOR"):s->gnss_native_health&&s->native_reason==UI_NATIVE_NONE&&!s->native_analog_eligible?"SYNC":s->gnss_native_health&&s->native_ble_time?(s->native_time_relay_hops==1?"RC1":s->native_time_relay_hops==2?"RC2":"BLE"):s->gnss_native_health&&s->native_analog_eligible?"PPS":s->gnss_native_health&&s->native_served_time?"COARSE":s->gnss_native_health&&s->utc_valid?"HOLD":s->lora_only?"LOR":s->source_provisional?"PROV":s->acquiring_first_lock ?
                              (s->boot_elapsed_seconds >= 360000u ? "99H+" : "WAIT") :
                          s->utc_valid ? (s->state==CLOCK_HOLDOVER ? "HOLD" : s->network_time ? "NET" : "GPS") :
                          s->cached_time_valid ? "MEM" : "WAIT";
@@ -819,7 +825,7 @@ static void front_clock(uint8_t *fb, const ui_snapshot_t *s,const char *zone_lab
 #ifdef R2_DC_PROFILE
       "USB RMS"
 #else
-      s->native_lora_source?"LOR RMS":s->ui_role.grandmaster?"BEAT RMS":"SYNC RMS"
+      s->native_lora_source?(s->state==CLOCK_HOLDOVER?"REF AGE":"LOR RMS"):s->ui_role.grandmaster?"BEAT RMS":"SYNC RMS"
 #endif
       ):s->copy_profile?"PPS PPB":s->basic_profile?"BASIC":"BEAT FRQ",1,C_DIM);
     char rate[16];

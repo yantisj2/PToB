@@ -63,7 +63,7 @@ int main(void){
   .normal_until=16000000+LP_HOLD_US*16,.map={.effective=16000000,.generation=9},.lo=16001000,.epoch=1,.root=1,.root_boot=9};
  now_tick=16002000;r2_shadow_normal_map(&m);
  for(unsigned i=0;i<4;i++){
-  const uint64_t age[]={20000000,61000000,61999999,62000000};
+  const uint64_t age[]={20000000,61000000,LP_HOLD_US-1,LP_HOLD_US};
   e.tick=16000000+age[i]*16;r2_shadow_edge(e,1000);r2_shadow_poll_normal();
   assert(r2_shadow_read(cursor,&r,&st));cursor=r.sequence;
   assert(i<3?r.valid:!r.valid&&r.reason==RC_SHADOW_EXPIRED);

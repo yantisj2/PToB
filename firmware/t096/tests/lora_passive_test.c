@@ -9,7 +9,7 @@ static const struct r2_group_config group={.psk={1,2,3},.id=9,.epoch=1};
 static struct lp_checkpoint saved;static bool storage_ok=true;static unsigned writes;
 static bool save(void *user,const struct lp_checkpoint *s){assert(user==&saved);++writes;if(!storage_ok)return false;saved=*s;return true;}
 static struct lp_packet meta(uint32_t serial,uint64_t ns){
- return (struct lp_packet){.scope={.emitter=1,.boot=2,.root=1,.root_boot=2,.epoch=3,.stream=1,.seed=0x51a7c003},
+ return (struct lp_packet){.scope={.kind=1,.emitter=1,.boot=2,.root=1,.root_boot=2,.epoch=3,.stream=1,.seed=0x51a7c003},
  .cursor=0,.serial=serial,.utc_ns=ns,.kind=LP_META,.schedule=LP_FAST,.has_pair=true,.time_valid=true,
  .delay_10ms=85,.tz={.id=2,.offset_min=-300}};
 }

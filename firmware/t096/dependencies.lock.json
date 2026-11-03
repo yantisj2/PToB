@@ -71,7 +71,7 @@
       536879104,
       537133056
     ],
-    "flash_writes": "BOUNDED_DIAGNOSTICS_ONLY_P1_NOT_IMPLEMENTED",
+    "flash_writes": "NONE_RUNTIME_STATE_RAM_ONLY_STATIC_ENROLLMENT_UNCHANGED",
     "RF_start": "AUTONOMOUS_GM_OR_RC",
     "stock_sources_only": false
   }

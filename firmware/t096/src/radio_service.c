@@ -939,16 +939,33 @@ static void precision_step(uint64_t now){
  bool lvalid=false;
  uint64_t export_until=scope.broadcast?out.valid_until:scope.until_us;
  if(paired&&!in.stopped&&sampled<export_until&&export_until-sampled<=(UINT64_MAX-current.tick)/16){
-  uint64_t until=current.tick+(export_until-sampled)*16;
   if(scope.gm&&in.source_ready&&in.source_epoch==r2_radio_local_epoch(scope)){
    /* Validate the physical source first, then label the authenticated export
     * with its mesh lineage. Neither value can qualify the other. */
    struct rc8_scope own_scope=lscope;own_scope.source_epoch=in.source_epoch;
+#if defined(R2_LORA_PASSIVE_SLOW) || defined(R2_LORA_PASSIVE_FAST)
+   lvalid=r2_lora_source_passive_own(&lora,source,own_scope,current);
+#else
+   uint64_t until=current.tick+(export_until-sampled)*16;
    lvalid=r2_lora_source_own(&lora,source,own_scope,current,until);
+#endif
    if(lvalid)lora.scope.source_epoch=lscope.source_epoch;
   }
   else if(scope.follower&&out.utc_valid&&out.view.locked&&out.valid_until>sampled&&r2_radio_precision_map(&precision,&delivered)){
    uint64_t limit=current.tick+(out.valid_until-sampled)*16;
+   if(scope.broadcast){
+    /* Freeze the BLE-only LoRa cap in capture coordinates. Re-pairing the
+     * same map with kernel microseconds otherwise loses fractional ticks and
+     * repeatedly fences startup. These conservative caps can only shorten
+     * the existing 1.5s guarded permission and authenticated data expiry. */
+    const uint64_t life=UINT64_C(1496998)*16;
+    if(precision.last_available<delivered.delivery||delivered.delivery>UINT64_MAX-life||precision.data_until<16)limit=0;
+    else{
+     uint64_t stable=delivered.delivery+life;
+     if(stable>precision.data_until-16)stable=precision.data_until-16;
+     if(limit>stable)limit=stable;
+    }
+   }
    lvalid=r2_lora_source_follower(&lora,&delivered,lscope,current,limit,
     precision.origin_created_ns,precision.origin_expires_ns,offset,precision.accepted);
   }

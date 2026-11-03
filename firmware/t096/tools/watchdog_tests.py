@@ -10,9 +10,9 @@ flags=[(__import__('os').environ.get('CC') or __import__('shutil').which('clang'
 passed=False
 try:
  with (out/'watchdog.log').open('x') as log:
-  subprocess.run([*flags,str(app/'tests/watchdog_test.c'),str(app/'src/watchdog_policy.c'),'-o',str(out/'watchdog-test')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
+  subprocess.run([*flags,str(app/'tests/watchdog_ram_test.c'),str(app/'src/watchdog_policy.c'),'-o',str(out/'watchdog-test')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
   subprocess.run([str(out/'watchdog-test')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
-  subprocess.run([*flags,'-DR2_LORA=1',str(app/'tests/watchdog_test.c'),str(app/'src/watchdog_policy.c'),'-o',str(out/'watchdog-lora-test')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
+  subprocess.run([*flags,'-DR2_LORA=1',str(app/'tests/watchdog_ram_test.c'),str(app/'src/watchdog_policy.c'),'-o',str(out/'watchdog-lora-test')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
   subprocess.run([str(out/'watchdog-lora-test')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
  with (out/'profile.log').open('x') as log:
   subprocess.run([*flags,str(app/'tests/watchdog_profile_test.c'),str(app/'protocol/group_auth.c'),'-I'+str(a.deps/'modules/crypto/tinycrypt/lib/include'),*[str(a.deps/'modules/crypto/tinycrypt/lib/source'/n) for n in ['hmac.c','sha256.c','utils.c']],'-o',str(out/'profile-test')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
@@ -23,5 +23,5 @@ try:
   subprocess.run([str(out/'auto-profile-test')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
  passed=True
 finally:
- (out/'receipt.json').write_text(json.dumps({'passed':passed,'physical':'UNKNOWN','sources':{str(f.relative_to(app)):hashlib.sha256(f.read_bytes()).hexdigest() for f in [app/'src/watchdog.c',app/'src/watchdog_policy.c',app/'include/watchdog_policy.h',app/'tests/watchdog_test.c',Path(__file__).resolve()]}},indent=2)+'\n')
+ (out/'receipt.json').write_text(json.dumps({'passed':passed,'physical':'UNKNOWN','sources':{str(f.relative_to(app)):hashlib.sha256(f.read_bytes()).hexdigest() for f in [app/'src/watchdog.c',app/'src/watchdog_policy.c',app/'include/watchdog_policy.h',app/'tests/watchdog_ram_test.c',Path(__file__).resolve()]}},indent=2)+'\n')
 print('PASS production watchdog bodies with ASan/UBSan; physical watchdog/reset timing UNKNOWN')

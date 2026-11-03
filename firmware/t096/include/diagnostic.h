@@ -15,11 +15,9 @@
 #define R2_DIAG_START 0xe1000u
 #endif
 #define R2_DIAG_BANKS 2u
-/* Best-effort event journal in bank0. Fresh-image cleanup before controller
- * startup; same-image record retained until a new event. Bank1 untouched.
- * Sixteen512B committed records append within two4KiB pages. Each retains
- * pre/event/post snapshots and three recent state-changing commands.
- * Routine flash logging stops after boot; only selected events cause a write. */
+/* Current-boot RAM event record, schema8, exported over USB in bank0 chunks0..7.
+ * No NV reads/writes/erase, boot restore, or diagnostic storage thread exists.
+ * Historical flash addresses above describe protected old evidence only. */
 int r2_diag_init(const struct r2_identity *id);
 int r2_diag_arm(uint64_t original_arrival_ms,uint32_t seconds);
 int r2_diag_mark(void);
@@ -34,12 +32,12 @@ int r2_diag_record_result(uint64_t token);
 void r2_diag_finish(int error);
 void r2_diag_poll(void);
 int r2_diag_state(void);
-/* Separate optional boot-crash persistence result; does not gate GM startup. */
+/* Always -ENOTSUP: cross-boot crash persistence is disabled. */
 int r2_diag_crash_result(void);
 int r2_diag_read(unsigned bank,unsigned chunk,uint8_t out[64]);
 
 bool r2_diag_busy(void);
-/* Reset/power-off gate: an idle failed writer is not a durable record. */
+/* Reset/power-off gate: current-boot RAM capture is complete. */
 bool r2_diag_saved(void);
 bool r2_diag_maintenance_safe(void);
 bool r2_diag_shutdown_ready(void);

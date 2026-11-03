@@ -20,7 +20,10 @@ bool rc8_command_allowed(const struct rc8_enrollment *,enum rc8_profile,bool,enu
 /* Owner-frozen original map. until_tick is the exclusive MINIMUM original
  * map/source/session/permission limit. Transitions atomically shorten it.
  * All ns fields share scope.scale; tick domain is16MHz TIMER3+capture epoch. */
-enum rc8_map_mode {RC8_MAP_LINEAR,RC8_MAP_SOURCE_Q16,RC8_MAP_DELIVERED};
+/* The passive-only Q16 variant has a separate three-second projection bound;
+ * selecting it does not change the source/BLE map's own validity interval. */
+#define RC8_PASSIVE_SOURCE_US UINT64_C(3000000)
+enum rc8_map_mode {RC8_MAP_LINEAR,RC8_MAP_SOURCE_Q16,RC8_MAP_DELIVERED,RC8_MAP_PASSIVE_Q16};
 struct rc8_export {
  struct rc8_scope scope;
  uint64_t from_tick,until_tick,anchor_tick,anchor_ns,capture_epoch,created_ns,expires_ns;

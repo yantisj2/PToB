@@ -71,6 +71,7 @@ int r2_parse(const char *line, struct r2_request *out)
   else if (!strcmp(parts[5],"lora")) out->op = R2_LORA_CONTROL;
   else if (!strcmp(parts[5],"lora-rtt")) out->op = R2_LORA_RTT;
   else if (!strcmp(parts[5],"lora-diag")) out->op = R2_LORA_DIAGNOSTICS;
+  else if (!strcmp(parts[5],"lora-utc")) out->op = R2_LORA_UTC;
 #endif
   else if (!strcmp(parts[5],"events")) out->op = R2_EVENTS;
   else if (!strcmp(parts[5],"prepare")) out->op = R2_PREPARE;
@@ -97,6 +98,13 @@ int r2_parse(const char *line, struct r2_request *out)
   }
 #ifdef R2_LORA
   if(out->op==R2_LORA_DIAGNOSTICS)return count==6?0:-EINVAL;
+  if(out->op==R2_LORA_UTC){
+   if(count==6)return 0;
+   uint64_t options;
+   if(count!=8||!hex(parts[6],16,&out->nonce)||!out->nonce||!hex(parts[7],8,&options)||
+      (options&UINT64_C(0x7fff0000))||(options&65535)>10000)return -EINVAL;
+   out->seconds=(uint32_t)(options&65535);out->trace_page=(unsigned)(options>>31);return 0;
+  }
   if(out->op==R2_LORA_CONTROL||out->op==R2_LORA_RTT){
    out->seconds=0;if(count==6)return 0;
    if(count!=7||!hex(parts[6],2,&out->nonce)||out->nonce>1)return -EINVAL;

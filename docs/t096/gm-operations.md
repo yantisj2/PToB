@@ -93,7 +93,7 @@ fixed. Receivers inherit the pair and return to UTC on unknown/expired metadata.
 TZ does not qualify a clock or alter precision timestamps, PPS or USB UTC.
 
 LoRa is a separately configured functional fallback with unknown bounds and
-its own [source/authority rules](../../protocol/rc8/README.md); it does not supply
+its own [source/authority rules](lora-protocol.md); it does not supply
 BLE mesh TZ or RC7/GM authority. Review target antenna/radio requirements before
 any separately authorized transmitter operation.
 

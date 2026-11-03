@@ -81,9 +81,10 @@ def main():
     parser.add_argument('--pc-parent', help='Exact direct-GM identity, or auto for authenticated direct-GM discovery')
     parser.add_argument('--registry', type=Path, default=REPO/'registry/example.json')
     parser.add_argument('--lora-transmitter-factory', help='Explicit normal-image sole LoRa TX factory ID; absent disables LoRa')
-    parser.add_argument('--lora-passive-fast', action='store_true', help='Default-off LAB_FAST_4_12 image; explicit per-boot console selection required')
+    parser.add_argument('--lora-passive-fast', action='store_true', help='Default-off RAM_LAB_4_12 image; explicit per-boot console selection required')
+    parser.add_argument('--lora-tx-diagnostic', action='store_true', help='Finite default-off non-timing PHY TX test; requires GM passive-fast and own exact factory')
     parser.add_argument('--lora-passive-slow', action='store_true', help='Production60/300 schedule; normal GM/RC boot with RX on')
-    parser.add_argument('--lora-backup-transmitter-factory', help='Explicit own-GNSS backup GM; requires authenticated primary handoff')
+    parser.add_argument('--lora-backup-transmitter-factory', help='Explicit first own-GNSS backup emitter')
     parser.add_argument('--controller-diagnostics', action='store_true', help='Opt-in normal GM/RC prepare FIFO diagnostic canary')
     parser.add_argument('--development', action='store_true')
     parser.add_argument('--gm7', action='store_true', help='Explicit normal GM7 selection (already the GM/RC default)')
@@ -105,6 +106,8 @@ def main():
         parser.error('Backup binding requires production slow')
     if (args.lora_passive_fast or args.lora_passive_slow) and (args.profile not in ('GM','RC') or not args.lora_transmitter_factory or args.legacy_gm_regression):
         parser.error('Passive fast requires normal GM/RC and an exact transmitter binding')
+    if args.lora_tx_diagnostic and (not args.lora_passive_fast or args.lora_passive_slow or args.profile!='GM'):
+        parser.error('Diagnostic TX requires GM passive-fast only')
     if args.controller_diagnostics and args.profile not in ('GM','RC'):
         parser.error('Controller diagnostics require normal GM/RC')
     dc = args.profile == 'DC'
@@ -147,6 +150,7 @@ def main():
     registry = load_registry(args.registry)
     transmitter = lora_binding(args.lora_transmitter_factory, args.profile, registry)
     backup = lora_binding(args.lora_backup_transmitter_factory, args.profile, registry)
+    if int(backup,16):raise ValueError('RAM profile has one designated emitter; automatic backup TX disabled')
     if int(backup,16) and backup==transmitter:
         parser.error('Primary and backup factories must differ')
     if not dc:
@@ -156,6 +160,8 @@ def main():
                 and int(group,16) and type(epoch) is int and 0 < epoch < 2**32):
             raise ValueError('Invalid local group enrollment')
     identity,label,battery = device['device_id'],device['label'],device['battery']
+    if args.lora_tx_diagnostic and identity!=transmitter:
+        parser.error('Diagnostic TX requires the exact own factory binding')
     if pc and args.pc_parent==identity:
         parser.error('PC parent must differ from the device identity')
     if not (re.fullmatch('[0-9a-f]{16}',identity) and int(identity,16) and
@@ -179,12 +185,15 @@ def main():
                'device_config_sha256':sha(args.device_config),
                'lora_transmitter_factory':transmitter,
                'lora_backup_transmitter_factory':backup,'lora_passive_slow':args.lora_passive_slow,
-               'secondary_lora_class':'PROD_60_300' if args.lora_passive_slow else 'LAB_FAST_4_12' if args.lora_passive_fast else 'RC8' if int(transmitter,16) else 'DISABLED',
+               'lora_tx_diagnostic':args.lora_tx_diagnostic,
+               'runtime_state':'RAM_ONLY','passive_wire_version':3,
+               'secondary_lora_class':'RAM_DIAG_4_12' if args.lora_tx_diagnostic else 'RAM_60_300' if args.lora_passive_slow else 'RAM_LAB_4_12' if args.lora_passive_fast else 'RC8' if int(transmitter,16) else 'DISABLED',
                'lora_passive_fast':args.lora_passive_fast}
     receipt['time_zone'] = tz
     receipt['gm7_controller'] = None if not args.gm7 else {
         'manifest_sha256':sha(APP/'cmake/gm7-controller.json'),
         'generator_sha256':sha(APP/'tools/gm7_controller_hooks.py')}
+    receipt['flash_thread_guard'] = None if not args.gm7 else {'generator_sha256':sha(APP/'tools/flash_thread_guard.py')}
     receipt['controller_fault_diagnostics'] = None if dc or pc else {
         'manifest_sha256':sha(APP/'cmake/controller-fault-diag.json'),
         'patch_sha256':sha(APP/'cmake/controller-fault-diag.patch')}
@@ -252,6 +261,7 @@ def main():
              '-DR2_CONTROLLER_DIAGNOSTICS='+('ON' if args.controller_diagnostics else 'OFF'),
              '-DR2_SOURCE_DIRTY='+str(int(dirty)),
              '-DR2_LORA_PASSIVE_FAST='+('ON' if args.lora_passive_fast else 'OFF'),
+             '-DR2_LORA_TX_DIAGNOSTIC='+('ON' if args.lora_tx_diagnostic else 'OFF'),
              '-DR2_LORA_PASSIVE_SLOW='+('ON' if args.lora_passive_slow else 'OFF'),
              '-DR2_LORA_BACKUP_TRANSMITTER_FACTORY='+backup,
              *(['-DR2_TZ_MODE='+str(tz['mode_number']),'-DR2_TZ_MANUAL_ID='+str(tz['id']),
@@ -267,8 +277,9 @@ def main():
             raise ValueError('Source changed during build')
         target=out/'target/zephyr'
         private_hash=private_binding(sha(secret),transmitter)
-        if args.lora_passive_slow:private_hash=hashlib.sha256((private_hash+':lora-passive:PROD_60_300:backup:'+backup).encode()).hexdigest()
-        if args.lora_passive_fast:private_hash=hashlib.sha256((private_hash+':lora-passive:LAB_FAST_4_12').encode()).hexdigest()
+        if args.lora_passive_slow:private_hash=hashlib.sha256((private_hash+':lora-passive:RAM_60_300').encode()).hexdigest()
+        if args.lora_passive_fast:private_hash=hashlib.sha256((private_hash+':lora-passive:RAM_LAB_4_12').encode()).hexdigest()
+        if args.lora_tx_diagnostic:private_hash=hashlib.sha256((private_hash+':tx-diagnostic:1').encode()).hexdigest()
         if args.controller_diagnostics:private_hash=hashlib.sha256((private_hash+':controller-diag:1').encode()).hexdigest()
         binding=hashlib.sha256((source_hash+':'+private_hash+':'+sha(target/'.config')).encode()).hexdigest()
         if '#define R2_WATCHDOG_BINDING "'+binding+'"' not in (out/'target/build_identity.h').read_text():

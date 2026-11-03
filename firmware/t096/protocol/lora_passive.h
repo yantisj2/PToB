@@ -4,10 +4,10 @@
 #include "time_zone.h"
 #include "lora_passive_schedule.h"
 
-/* A new passive wire, independent of RC8 wire2..5. Only FAST is executable.
+/* A new passive wire, independent of RC8 wire2..5. FAST and SLOW use distinct schedule IDs.
  * All sizes include MAC16. Small packets authenticate the full cached context.
  * Hints never carry clock authority. No client-to-source packet exists. */
-#define LP_VERSION 2u
+#define LP_VERSION 3u
 #define LP_DISC_BYTES 28u
 #define LP_META_BYTES 112u
 #define LP_SYNC_BYTES 24u
@@ -15,7 +15,7 @@
 enum lp_kind { LP_DISC=1, LP_META, LP_SYNC, LP_FOLLOW };
 struct lp_scope {
  uint64_t emitter,boot,root,root_boot,parent,parent_boot;
- uint32_t epoch,stream,seed;
+ uint32_t epoch,stream,seed;uint8_t kind;
 };
 struct lp_packet {
  struct lp_scope scope;

@@ -1,5 +1,461 @@
 # T096 changelog
 
+## 0.15.268 — nominal 28 dBm T096 LoRa output default
+
+Raise SX1262 drive from 9 to 18 dBm through the existing external PA, targeting
+nominal 28 dBm board output using the T096-specific Meshtastic gain curve
+(18 dBm drive plus10 dB modeled gain). Actual output/EIRP remain unmeasured.
+Wire3, PHY, 60/300 s cadence, airtime accounting, source guards, GNSS/BLE
+priorities, RX gain and the .267 client display limits are unchanged.
+Production-driver checks verify the SetTxParams command. This power setting
+adds no range, continuous-reception or independent UTC qualification.
+TC-03 application/protected/tail/journal readback passed. Its first startup
+hit an ESTALE TX-completion validation fault and restarted automatically;
+the bounded follow-up saw no repeat terminal fault, and TC-01 accepted two
+precision pairs. Actual RF output and sustained timing remain unqualified.
+
+## 0.15.267 — bound LoRa analog display after precision loss
+
+The slow LoRa watch leaves and blocks the analog screensaver after more than
+120 seconds without an accepted precision pair. After more than 300 seconds,
+the main dial becomes ACQ/SYNCING while cached UTC/TZ remain in RAM. DISC/META
+and an older frozen fit reference cannot renew either presentation deadline.
+A fresh accepted pair restores eligibility; fresh service still requires the
+original fit/source gates. BLE/GNSS display rules, protocol, timers, power and
+radio priorities are unchanged. Boundary checks cover exact120/300-second
+edges, worker-to-render aging, unknown age and renewed reception. The older
+shadow-worker fixture now checks the unchanged120 s physical lease instead of
+its obsolete62 s expectation; no production lease changed.
+
+The exact RC candidate built from `c6234ce` passed application/protected-prefix/
+tail readback and restored the operator's BLE-OFF/LoRa-RX-ON choice. Subsequent
+reception restored UTC and TZ in acquisition mode. Exact120/300 s loss behavior
+is verified with production renderer boundaries; no new physical five-minute
+outage or continuous reception qualification is claimed. Two separate post-update
+manual UTC jobs expired awaiting a slot/cooldown; both failures remain retained.
+
+## 0.15.266 — nominal 22 dBm T096 LoRa output default
+
+Raise SX1262 chip drive from 0 to 9 dBm through the existing external PA,
+following MeshCore’s T096 nominal 22 dBm output default. Chip drive and board
+output are distinct; no calibrated power, EIRP, range or compliance result is
+claimed. Preserve wire3, SF/BW, 60/300 s cadence, airtime cap, source admission,
+GNSS/BLE priorities, RX gain and RAM-only state. Existing production-driver host
+checks verify the transmitted SetTxParams bytes; hardware acceptance remains
+separate.
+
+A 710.28 s ordinary-cadence capture of the readback-verified .266 TX
+(`21fcff1`) and .263 RX (`e8c5bf0`) recorded TX completions of 6 DISC, 4 META,
+10 SYNC and 10 FOLLOW; the receiver added 6/3/9/9 packets and nine accepted
+pairs. Five advancing trained-fit observations ranged from 1072 to 2607 ns RMS.
+These are overlapping relative residuals, not independent UTC/output accuracy.
+The receiver lost trained status for 13.337 s after a missed pair; one RF CRC
+error was retained. TX reported one late attempt, 40 refusals and 41 retries;
+its stream reached 17 during startup. Neither device reported a terminal fault;
+TX hardware-error counters stayed zero. The initial continuous gate timed out;
+the collector automatically closed both segments as STOPPED and returned
+INCOMPLETE_OR_FAILED. Zero host timeouts or refused frames were recorded.
+This is a reception/power-setting check, not completed stability certification
+or measured RF power. Raw captures and installation proofs remain private.
+
+## Passive LoRa wire3 integration — 2 November 2026
+
+Consolidate the current LoRa goals, packet layouts, source admission, slow
+scheduling, RAM/replay/display lifetime and RF limitations in the
+[wire3 design](../../docs/t096/lora-protocol.md). It replaces the obsolete passive
+v2/v3 design pages; their editions remain in Git. RC8 retains its frozen
+contracts/vectors as a separate historical configuration. Current slow images
+need matched receivers for the 7 s delay hint; fast and older slow windows are
+not interchangeable. Target/build/soak guides are shortened and linked to the
+current contract. Range remains a future slow-profile field test; no distance,
+RF power, emissions or FCC compliance result is asserted.
+
+The .263 slow run used the readback-verified firmware built from `f2b78f9`,
+source `103e112db18e05517f5ad792536647b61406e19c38d3d10c634ea2a84f938585`.
+One designated own-GNSS transmitter and one receiver were captured for
+1627.51/1627.53 s (about 27.13 min). It reached the initial 600 s/three-ordinary-META
+reception gate and observed 27 new precision pairs and six advancing ordinary
+META boundaries. Maximum native relative fit RMS was 5307 ns across 28 overlapping
+fit observations; these are neither independent UTC errors nor output-accuracy
+measurements. The receiver's display was visible/fresh 739/739 sampled times and
+advanced 738/738 sampled intervals, with no HOLD, unavailable sample or backward
+step. Both devices retained known drawn TZ in 56/56 status samples. This sampled
+coverage does not establish every rendered frame or continuous display uptime.
+
+The operator stopped the requested 24 h capture at 2026-11-03 00:38:24 UTC for default
+role restoration. Immediately before the stop it remained qualified with zero
+post-gate violations. The frozen collector then retained two post-gate
+`capture_error` records, both `InterruptedError('capture stop requested')` after
+the authorized termination. Its final result is **STOPPED**, not a completed
+24 h PASS. The earlier pre-gate missing-TX-observation failure and initial
+receiver bad-packet count remain retained. The earlier .262 roughly 74 min run
+**failed with 271 post-gate violations**; recovery in .263 does not remove that
+population. Raw captures/receipts remain private, so these selected aggregates
+cannot be independently recomputed from the public repository.
+
+Host-only follow-up `f482c4f` restarts qualification continuity on TX errors;
+it does not retroactively change the frozen .263 capture. Independent UTC/output
+accuracy, extended stability, field range and regulatory RF measurements remain
+open. No manual UTC job or simulated aging contributes qualification credit.
+
+## 0.15.264 — stabilize BLE-fed LoRa source permission
+
+Freeze broadcast BLE export caps in the physical capture domain, conservatively
+inside the original guarded source/data bounds. Repeated paired-clock rounding
+cannot shorten the same map and continually cancel LoRa startup. Genuine source
+expiry, withdrawal and changed context still fence RF. LoRa/BLE priorities,
+slow cadence, PHY and RAM-only state are unchanged. Startup attempts and duplicate
+bound fences are exposed in the current-boot `lora` diagnostics.
+
+The actual PT publication regression reproduces shrinking permission before the
+fix and checks stable repeated exports, shortened upstream expiry and source loss.
+Hardware validation remains separate from these host checks.
+
+## 0.15.263 — retain learned display zones and allow bounded slow scheduling
+
+The display learns authenticated selected TZ metadata before UTC acquisition
+and retains the zone in boot-local RAM through packet loss, timing loss, UTC
+corrections, logical stops and profile changes. A fresh valid zone replaces it;
+physical reboot clears it. Known zones follow the pinned calendar at displayed
+UTC. Calendar failure hides local conversion while preserving the identity.
+Passive META now supplies its original observational TZ lease to the display;
+the cache never grants or extends timing, relay or USB authority. Status reports
+the zone used for the drawn clock, its conversion flags and live network TZ
+separately from local GNSS selection diagnostics.
+
+Slow60/300 scheduling uses coherent preparation, processing, receive and recovery
+allowances:1s control/SYNC call lateness,1.25s finish pad,7s SYNC offset,
+2.5–4.5s FOLLOW interval,7s pending and15s complete frame. Physical/UI hold is120s
+and META lease420s. Prediction-only receive windows cover independently delayed
+control and SYNC packets with4s retune lead,3s predicted header radius and4s
+predicted retention; fresh authenticated hints keep their tighter bounds.
+These are engineering budgets, not measured delay maxima.
+Original per-packet source grants, physical RF cutoffs, watchdogs and GNSS/BLE
+priority remain mandatory. A late SYNC after advertised control now enters
+proven closure before retry, including the peer's original hint/retune horizon.
+Diagnostics record last/max call lateness per packet kind. The autonomous gate
+uses the advertised62.51s cadence bound independently of the120s hold and retains
+strict missed/late/error checks. Firmware installation and measured certification
+remain separate from offline regression checks.
+
+The bounded UTC diagnostic keeps one immutable deadline, at most31s from
+admission including its requested delay and one preparation retry. Slow7s
+advertised delays require matching .263 receivers; fast limits remain unchanged.
+Slow lateness counters reuse the unused fast-arm/NV-timing scratch slots within
+the existing512-byte RAM reserve. Fault fields, controller observer capacity,
+the1,536-byte LoRa state ceiling and all stack allocations remain unchanged.
+
+## 0.15.262 — classify stopped prepared work as cancellation
+
+Prepared TX carries its stop serial through token consumption, source preflight
+and launch. An ordinary OFF/source stop or replaced incarnation returns ECANCELED
+instead of converting its cleared token or inhibited phase into ESTALE/EBUSY.
+Actual hardware faults take precedence, healthy invalid tokens remain ESTALE,
+and healthy DMA/phase conflicts remain EBUSY. Recoverable scheduling EINTR keeps
+its original meaning and bounded drain. Stop-winning rejection invalidates any
+no-RF proof; no fault clear, reset command or persistent state is added.
+
+The terminal capture-stale decision is linearized with stop/fault checks inside
+a short failure-only interrupt fence. Healthy packet paths gain no wider mask;
+no SPI or waiting occurs in that fence. Source/capture/finish bounds, one-shot
+preparation, airtime accounting, RF budgets, priority and slow timers remain.
+Actual-driver tests inject stop before/after token consumption, during preflight,
+at capture failure, after capture arm and during finish rejection, alongside
+real-fault precedence and healthy token/DMA/epoch/source-expiry negatives.
+Preserved prior driver bodies reproduce the old false-error paths. Native and
+installed stability acceptance remain separate from these offline tests.
+
+## 0.15.261 — retain captured SYNC through publication contention
+
+A completed physical SYNC pins its original event/map and retries raced
+projection on later worker polls. The existing event fields are reused; hardware
+DONE is consumed once, accounting occurs once, and the original FOLLOW deadline
+bounds all retries. Original capture/UTC expiry, source presence, context,
+version and withdrawal fences remain mandatory. Diagnostics expose `sync_map`
+as mapped completions, deferred polls, failed original-map/fence checks and
+expired FOLLOW deadlines; contention alone no longer increments missing_map.
+
+After proven closure of a possible partial FH pair, recovery META waits for the
+receiver's original2.5s pending window plus500ms retune allowance, and the
+prior control's future SYNC-hint/retune horizon if canceled before SYNC. Preparation
+fits inside that RF floor; neither receiver deadlines nor source grants renew.
+Ordinary scheduling retirement keeps the authenticated MAC context and fit;
+a genuine source revision/context change still creates a new stream and requires
+fresh META/retraining. Charge, retired hops and cooldowns survive both paths.
+
+Slow META/hint queue processing allows500ms and control prediction retirement
+uses2.5s, coherently covering400ms start delay plus META airtime and handling.
+Fast timings remain unchanged. PHY-aware production-owner tests include missed
+FOLLOW, actual radio/channel visibility, source turnover,200ms retune,500ms
+processing and subsequent training. Removing the recovery RF floor reproduces
+the missed META while the receiver still awaits the prior FOLLOW. Separate tests
+cover more than three projection races followed by successful reuse of the
+original captured event, and real expiry/withdrawal/epoch/context/deadline fences.
+These offline checks do not establish installed stability or timing accuracy.
+
+## 0.15.260 — coherent slow preparation, receive windows and recovery
+
+Regular admission retries now retain the full1s control preparation lead after
+200–302ms backoff; the first slow grid opportunity also starts at least1s ahead.
+No-RF staging requires a currently valid source snapshot, without requiring
+that map to cover a packet now or at a future target. Every RF launch still refreshes and
+checks the original source interval, UTC expiry and final command-commit bound.
+This avoids a phase blind spot between preparation and fresh short BLE maps
+without extending upstream permission; insufficient real launch headroom still defers.
+
+Slow control/SYNC call lateness stays150ms, with400ms finish pad. FOLLOW targets
+600ms after physical SYNC completion and must launch by1000ms; the complete
+reservation stays5s. Receivers use a500ms physical header radius,2s hint retention,
+one original2.5s FOLLOW pending deadline,500ms retune lead,400ms tune late gate and
+2s control prediction retirement. These permit500ms SYNC processing plus200ms
+retune before the earliest FOLLOW. Captured-event UTC estimation, authentication,
+source expiry,60s/300s cadence, priority ordering and all fast/classic values stay.
+Full LoRa diagnostics expose the selected packet windows in `rf_window_us`.
+
+Known healthy scheduling aborts and fenced source withdrawal retain pending
+CONTROL/SYNC/FOLLOW evidence until the original bounded physical closure ACK.
+Proven on-time closure retains full charge, retires possible FH hops/cooldowns,
+keeps owed precision and permits internal retry. Unknown errors, missing or late
+closure remain inhibited; no fault clear or persistent state is added.
+
+Synthetic production-body tests combine400ms encoding/SPI,150ms due jitter,
+200ms final launch delay,500ms receive processing and200ms retune through native
+training; repeated refusal recovery, fresh finite BLE grants, expiry at final
+launch, partial scheduling abort recovery and failed-closure negatives are
+separate checks. Physical stability/precision acceptance requires installed data.
+
+## 0.15.259 — distinguish source snapshot contention from withdrawal
+
+Passive source reads copy the current immutable map before capturing NOW, then
+project outside interrupt masks and validate the original version/presence
+fence. Three fresh snapshots bound each read. Publication contention returns a
+transient result and preserves prepared work and its reservation for the next
+worker poll; actual missing, expired or withdrawn source still cancels/drains.
+This prevents ordinary repeated/PT/PPS publications from masquerading as source
+loss and consuming charged reservations before RF. The original three-second
+grant, actual withdrawal fences, packet deadlines and GNSS/BLE precedence remain.
+
+Compact/full LoRa diagnostics expose `source_read` as ready, transient, absent
+and rejected-version counts. Synthetic tests inject duplicate/PPS publications
+during projection and prepared waits, capture/publication ordering races and
+real expiry/withdrawal. Physical TX stability remains separately measured.
+
+## 0.15.258 — stage slow LoRa packets before their RF windows
+
+Slow packet encoding, radio configuration and FIFO writes run before the RF
+deadline: controls prepare up to1s early, SYNC up to500ms early, and FOLLOW
+immediately after the confirmed physical SYNC. Launch alone installs the capture
+and SetTx command after fresh source/finish checks. A prepared packet cannot
+survive stop, source/context replacement or radio reconfiguration. GNSS/BLE/GM
+retain precedence; no priority boost or persistent state is added. META UTC is
+context/replay time frozen at preparation; captured SYNC/FOLLOW supplies the
+physical timing observation.
+
+Control/SYNC admission allows150ms lateness with a200ms finish pad. The actual
+control capture anchors its advertised SYNC delay; the recurring60/300s grid is
+unchanged. FOLLOW starts400ms after SYNC completion and must launch by450ms;
+the5s reservation bounds the whole transaction. Slow receivers tune500ms early
+and retain a hint for1s while awaiting CRC/RxDone; physical HeaderValid admission
+remains within250ms and FOLLOW pending remains1s. Earlier receivers can miss a
+late SYNC because their250ms hint retirement precedes its valid completion.
+Wire3 fields, authentication, original source expiry and fast timings remain.
+
+Sanitizer tests include75–200ms encoding plus150–200ms SPI preparation, real
+slow cadence through180s training and three META boundaries, due-time jitter,
+current receiver replay and a negative old-hint-expiry reproduction. These are
+synthetic boundaries; installed TX/RX stability still requires measured evidence.
+
+## 0.15.257 — own-PPS LoRa grant and bounded slow drain
+
+Passive LoRa projects a qualified own-GNSS source for three seconds from its
+original physical PPS. Its grant no longer inherits the shorter BLE/GM control
+lease. Admission still requires a live, UTC-bound original source map; repeated
+snapshots cannot renew the PPS deadline, and withdrawal still fences RF. BLE
+followers and classic RC8 retain their original upstream bounds. GNSS/BLE
+freshness, scheduler priorities, slow cadence and RAM-only state are unchanged.
+
+The slow owner allows two seconds to observe physical quiescence after immediate
+RF inhibition, replacing the inherited200ms guard that could expire while
+priority10 yielded to GNSS/BLE/GM work. The original absolute deadline never
+extends. Missing ACKs still fault, late complete ACKs still fail closure, and
+fast/classic drains remain200ms. Host checks include delayed ACK, exact expiry,
+all missing quiescence conditions, repeated-stop no renewal, and a successful
+ordinary start/stop clearing the latest late result while retaining its count.
+Host checks cover exact frozen-map projection, expiry, no renewal, stale-source
+refusal and both passive publication paths. Physical reception, stability and
+relative timing acceptance require separate installed-device measurements.
+
+## 0.15.256 — keep passive LoRa below GNSS and BLE
+
+Passive packet preparation, reservation, TX/RX and retirement remain at
+priority11; drain uses10, below GNSS main7, BLE precision8 and GM owner9.
+The transition5 boost is removed. Classic RC8 also drains at10. Contention
+retains the original late/deferred obligations and RF bounds.
+
+Passive publication freezes the physical edge's original formula using raw
+capture bounds. Its existing second map stays pinned through later publications.
+Timestamp projection runs outside interrupt masks, with mutation/version,
+source, capture and operation checks at commit. A new packet installs a capture
+floor so a previous packet's BUSY edge cannot be reused. Shortened grants fence
+an in-flight launch; raced completion drains conservatively and retries owed
+precision without converting a publication race into a hardware fault.
+Read-only diagnostics expose actual, normal and drain thread priorities.
+
+Sanitizer fixtures check both cadences, diagnostics, stale physical completion,
+repeated turnover, expiry shortening and withdrawal at completion boundaries.
+Thread ordering and host checks do not prove interrupt latency or GNSS recovery.
+Short capture/hardware fences still need measured timing acceptance; classic
+RC8's masked projection paths remain outside this passive-service correction.
+
+## 0.15.255 — explicit cold acquisition UTC estimate
+
+A cold passive slow receiver can seed a separate frozen display map from its
+first authenticated physical pair. The amber ACQ/UTC ESTIMATE watch uses nominal
+rate0 and the original reference age; later untrained pairs or same-emitter-boot
+source contexts cannot move or renew it. A trained fit alone upgrades that map.
+An existing trained HOLD map is never replaced by acquisition data.
+
+ACQ keeps time_valid and quality_known false, choice NONE, and all source,
+precision, RF, BLE and USB authority absent. Nominal local rate can drift; ACQ
+is not sub-10µs evidence and its freshness/total uncertainty remain unknown.
+All prior identity, capture, OFF, selection, withdrawal and fault invalidations
+remain. Separate diagnostics and sampled acquisition counters preserve that
+provenance. Focused sanitizer and production UI tests include first-pair
+advancement, source turnover, missing META, frozen reference age, trained upgrade
+and return to HOLD. No physical timing acceptance follows from these tests.
+
+## 0.15.254 — retain the trained display map through source retraining
+
+The passive slow receiver keeps a separate RAM-only watch anchor, rate and
+reference time. Authenticated source root/epoch/stream turnover within the same
+emitter factory and physical boot resets fresh timing authority and the fit,
+while the watch continues the prior map as HOLD. Untrained new pairs cannot
+move its anchor, rate or REF AGE. A newly trained fit replaces that map.
+
+Emitter/physical-boot replacement, TIME_INVALID, LoRa OFF, source/profile
+selection, capture discontinuity, backward time and terminal faults still clear
+the cache. Read-only diagnostics export usable display UTC/sample time, HOLD
+and frozen-reference age; capture preserves them in CSV and separate sampled
+durability summaries. No transmitter qualification or timing grant changes. Focused
+sanitizer checks cover turnover, complete180s retraining, reference age, missing
+META, invalidation guards and advancing production UI time. These checks do not
+establish physical clock availability, holdover uncertainty or UTC accuracy.
+
+## 0.15.253 — one-request passive UTC lab diagnostic
+
+The slow RAM profile accepts a boot/source-bound `lora-utc` job for one META
+and physical SYNC/FOLLOW pair. A safe extra event preserves the periodic grid;
+a genuinely due event can coalesce into the request. Explicit per-job lab
+override may exceed the ordinary airtime cap while keeping conservative charge,
+source/capture/physical guards and channel cooldowns. Jobs expire, never persist
+or turn into a periodic lab mode. Receiver training still requires180s.
+
+Compact status explains request state, source and training progress. The
+separate finite operator submits once; the capture remains read-only and excludes
+manual influence from ordinary slow-profile qualification. Focused fake-boundary
+checks cover owner/core/reception scheduling and failure paths. Native builds and
+these checks are preparation, not physical acceptance or UTC accuracy evidence.
+
+## 0.15.252 — finite BLE grant admission and no-RF retry accounting
+
+RAM reservation runs near launch and checks the complete original source
+window before charging. Slow admission retries vary within200–302ms. A healthy
+pre-SetTx rejection can refund its exact single-use reservation and unused META
+serial; possible RF, ordinary cancellation, late callbacks and faults keep
+conservative charge. Original source/capture, finish and FEM bounds are unchanged.
+Retained diagnostics separate source-room and finish-window refusals and record
+maximum observed valid source headroom and its UTC phase.
+
+Finite-grant exporter/owner/guard simulations cover normal BLE transmission,
+short-grant and slow-SPI recovery, phase aliasing and contiguous META retries.
+These checks do not establish physical BLE bridge stability or UTC accuracy.
+
+## 0.15.251 — RAM-only runtime and designated BLE/GM LoRa bridge
+
+Operational state is RAM-only: boot starts clean accounting/session state and
+clients reacquire authenticated wire3 META/precision. Native LoRa and diagnostic
+paths no longer enter the flash ledger/journal. Historical bytes remain untouched;
+current-boot fault evidence is available over USB. A minimal one-shot updater
+request is the only retained-memory control.
+
+The single designated emitter can use own GM or fresh authenticated locked BLE
+time with original source endpoints and root/parent provenance. BLE GM election
+does not select extra LoRa transmitters. Proven-quiescent scheduling/source
+cancellations retire hops conservatively and retry owed precision; unknown
+hardware faults remain inhibited. Native wire2 clients are a separate cohort.
+Offline checks/builds do not establish hardware stability or absolute UTC accuracy.
+
+
+## 0.15.250 — serialize flash THREAD ticker enqueues
+
+The native GM flash backend now shares the existing GM/HCI mutex while it
+enqueues THREAD ticker start and timeout-stop operations. The ticker queue has
+one producer per user; concurrent callers could overwrite an unpublished flash
+operation while both callers reported BUSY. The mutex is released before the
+flash completion wait. ACL submission also joins the same guard because its
+peripheral latency cancellation uses that THREAD queue; host event delivery
+remains outside the guard. ULL callbacks, timeout handling, stack-backed context
+lifetime, commit-last ledger writes and timing bounds stay unchanged.
+
+The backend is generated from the pinned public source and verified during
+native inspection. Other images and targets retain their existing backend.
+An offline interleaving test reproduces lost operations in the prior producer
+path and checks the guarded path. Physical timeout recovery and TX acceptance
+remain separate hardware evidence; no debt or pending-state recovery is added.
+
+## 0.15.249 — separate passive launch and reservation stack use
+
+Construct control/context and SYNC/FOLLOW packets in dedicated launch helpers
+after durable reservation returns. This keeps those locals out of the nested
+commit-last save path without changing packet contents, source checks, launch
+windows, charging or fault handling. Worker and diagnostic memory budgets stay
+unchanged. Event faults unwind to the same service step before their durable
+save, preserving first-fault charging and inhibition with packet locals gone.
+Native call-chain inspection and physical stack margin remain
+separate evidence from host boundary checks.
+
+## 0.15.248 — batch the passive ledger precommit body
+
+Write and verify the existing572B precommit body in one flash admission, followed
+by the separate4B commit word and readback. The record layout, CRC, page bounds,
+charging and interrupted-record safety are unchanged. Reservation diagnostics
+retain body-write, verification and commit wall times, including their original
+record sequence, through a later cancellation or flush. The trace stays inside
+the existing512B scratch allocation. No source, launch or FOLLOW limit changes.
+
+Host cut/failure tests establish software recovery behavior. Physical latency,
+worker stack margin and timing acceptance require separate measurements.
+
+## 0.15.247 — finite non-timing LoRa TX diagnostic
+
+Add an explicit own-device GM diagnostic build for source-independent PHY and
+scheduler isolation. Its default-off, once-per-boot36s arm uses local monotonic
+phase and physical capture, with the original packet lengths, hopping, precharge,
+cutoffs and fault protections. A72s total ledger cap and less than12s new-charge
+limit apply. Admission leaves room for the original complete pair before expiry.
+
+Diagnostic packets carry an invalid `DX` timing header and no UTC, context or
+authentication tag. The LoRa view remains time-invalid with no selected source.
+Production timing source/admission requirements remain unchanged. This is a test
+facility, not source or client timing acceptance.
+
+## 0.15.246 — passive launch attribution and idle flash preparation
+
+Prepare slow-mode ledger pages during idle reception and cache preparation for
+the current store sequence. Both cadences promote the bounded precharge/staged
+transition after flash returns. Original charging, source expiry, launch windows,
+FOLLOW limits and permanent fault protection remain in force.
+
+Per-attempt diagnostics separate prepare/commit cost, postcommit lead, first due
+check and fresh source values, using the existing diagnostic scratch allocation.
+Compact diagnostics expose TX inhibition separately from RX activity. IRQ fault
+records distinguish a completed status response, chip-status rejection and a
+transport failure. The soak collector saves one bounded warning snapshot and a
+separate first terminal snapshot through its existing console owner.
+
+Host boundary tests are software evidence; source and receiver hardware timing
+acceptance is separate. No absolute UTC or range qualification is implied.
+
 ## 0.15.245 — slow passive timing and autonomous reception diagnostics
 
 Add explicit schedule2 with60s precision,300s META,62s physical expiry and362s
@@ -12,7 +468,8 @@ debt, persistent faults and original source/FOLLOW deadlines remain binding.
 Add bounded `lora-diag`, trained-RMS/60s UI behavior, and an independent read-only
 soak collector with a two-META-cycle gate, retained failures and finite disk/run
 limits. These are implementation changes, not hardware acceptance. See the
-[protocol](../../protocol/lora_passive_v2/README.md) and
+historical wire2 contract (`git show
+f482c4f:protocol/lora_passive_v2/README.md`) and the
 [soak guide](../../docs/t096/lora-soak.md).
 
 ## 0.15.244 — retire proven pre-FHSS cancellations after closure
@@ -178,7 +635,8 @@ Host checks cover wire/HMAC, rolling occupancy, owner sequences, withdrawal,
 expiry, storage interruption and page crossing. Native variant inspection keeps
 the existing static RAM, stack and BLE reserves. Physical installation, relative
 precision, RF behavior and slow acceptance require their separate measured gates.
-See the [experimental contract](../../protocol/lora_passive_v2/README.md).
+Reproduce this historical wire2 experimental contract with
+`git show f482c4f:protocol/lora_passive_v2/README.md`.
 
 ## 0.15.229 — learn a per-receiver RTT baseline and noise floor
 
