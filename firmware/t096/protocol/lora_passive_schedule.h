@@ -4,8 +4,8 @@
 #if defined(R2_LORA_TX_DIAGNOSTIC) && (!defined(R2_LORA_PASSIVE_FAST) || defined(R2_LORA_PASSIVE_SLOW))
 #error "Diagnostic TX requires explicit passive fast only"
 #endif
-#if defined(R2_LORA_BW_EXPERIMENT) && (!defined(R2_LORA_PASSIVE_FAST) || defined(R2_LORA_PASSIVE_SLOW) || defined(R2_LORA_TX_DIAGNOSTIC))
-#error "Bandwidth experiment requires explicit passive fast only, without diagnostic TX"
+#if defined(R2_LORA_BW_EXPERIMENT) && ((!defined(R2_LORA_PASSIVE_FAST) && !defined(R2_LORA_PASSIVE_SLOW)) || (defined(R2_LORA_PASSIVE_FAST) && defined(R2_LORA_PASSIVE_SLOW)) || defined(R2_LORA_TX_DIAGNOSTIC))
+#error "Bandwidth experiment requires one passive schedule without diagnostic TX"
 #endif
 #define LP_FAST 1u
 #define LP_SLOW 3u
@@ -20,7 +20,11 @@ static inline unsigned lp_bw_arm(uint32_t cursor){
 }
 #endif
 #ifdef R2_LORA_PASSIVE_SLOW
+#ifdef R2_LORA_BW_EXPERIMENT
+#define LP_SCHEDULE 6u
+#else
 #define LP_SCHEDULE LP_SLOW
+#endif
 /* P30/D120/M300. Schedule2 is deliberately incompatible. Each precision
  * slot retains the original RF/source/capture fences, with or without DTS. */
 #define LP_BEAT_US UINT64_C(30000000)
@@ -46,7 +50,11 @@ static inline unsigned lp_bw_arm(uint32_t cursor){
 #define LP_HOLD_US UINT64_C(120000000)
 #define LP_LEASE_US UINT64_C(420000000)
 #define LP_CAP_US UINT64_C(108000000)
+#ifdef R2_LORA_BW_EXPERIMENT
+#define LP_PROFILE_NAME "RAM_BW_AB_30"
+#else
 #define LP_PROFILE_NAME "RAM_30_120_300"
+#endif
 #define LP_SYNC_PROCESS_US UINT64_C(1000000)
 #define LP_RETRY_US UINT64_C(3000000)
 #else

@@ -142,13 +142,12 @@ def inspect(out,allow_development=False):
     # stack or buffer increase. Charge this separately, bounded at128B; the
     # original stage2 ceiling and absolute1024B RAM floor remain visible.
     lora_enhanced_allowance=128 if (slow or r.get('lora_bw_experiment')) and tuple(map(int,r['version'].split('.')))>=(0,15,273) else 0
-    # Finite lab keeps four per-kind audits versus the .272 slow baseline's
-    # one40B audit. Verify all4x48B records, charging their152B increment to
-    # a separate160B lab-only ceiling; ordinary profile limits do not change.
-    lab_audit_allowance=160 if r.get('lora_bw_experiment') else 0
-    if lab_audit_allowance:require(lab_audit_bytes==192,'Laboratory four-packet audit allocation')
+    # LAB fast keeps4x48B audits; LAB slow keeps1x48B. Compare with the
+    # unchanged40B SLOW baseline and bound each explicit profile increment.
+    lab_audit_allowance=(8 if slow else 160) if r.get('lora_bw_experiment') else 0
+    if lab_audit_allowance:require(lab_audit_bytes==(48 if slow else 192),'Laboratory selected-profile audit allocation')
     lab_audit_added=max(0,lab_audit_bytes-40) if lab_audit_allowance else 0
-    require(lab_audit_added<=lab_audit_allowance,'Laboratory audit exceeds160B increment')
+    require(lab_audit_added<=lab_audit_allowance,'Laboratory audit exceeds its selected-profile increment')
     lora_stage2_added=max(0,sum(lora_display_mutable.values())-23795)
     lora_enhanced_added=max(0,lora_stage2_added-1510-lab_audit_added) if lora_enhanced_allowance else 0
     require(lora_enhanced_added<=lora_enhanced_allowance,'Sparse LoRa servo exceeds128B added native state')
@@ -422,9 +421,9 @@ def inspect(out,allow_development=False):
     if passive:
         profile='RAM_30_120_300' if slow else 'RAM_LAB_4_12'
         if slow:
-            require(r.get('passive_schedule')==dict(id=3,precision_us=30000000,discovery_us=120000000,
+            require(r.get('passive_schedule')==dict(id=6 if r.get('lora_bw_experiment') else 3,precision_us=30000000,discovery_us=120000000,
                     metadata_us=300000000,rolling_hour_cap_us=108000000),'Enhanced passive schedule/cap binding')
-        require(r.get('secondary_lora_class')==('RAM_BW_AB_4_12' if r.get('lora_bw_experiment') else 'RAM_DIAG_4_12' if r.get('lora_tx_diagnostic') else profile) and ('R2_LORA_PASSIVE_SLOW=1' if slow else 'R2_LORA_PASSIVE_FAST=1') in commands, 'Passive profile binding')
+        require(r.get('secondary_lora_class')==(('RAM_BW_AB_30' if slow else 'RAM_BW_AB_4_12') if r.get('lora_bw_experiment') else 'RAM_DIAG_4_12' if r.get('lora_tx_diagnostic') else profile) and ('R2_LORA_PASSIVE_SLOW=1' if slow else 'R2_LORA_PASSIVE_FAST=1') in commands, 'Passive profile binding')
         require(r.get('runtime_state')=='RAM_ONLY' and r.get('passive_wire_version')==3,'RAM/wire cohort receipt')
         require(not ({'lp_store_load','lp_store_save','lp_store_prepare','lp_tx_restore','lp_checkpoint_carry'}&linked_names),'Persistence leaked into native LoRa owner')
         require(int(r['lora_backup_transmitter_factory'],16)==0,'Automatic backup emitter prohibited')
@@ -450,12 +449,14 @@ def inspect(out,allow_development=False):
         private_sha=hashlib.sha256((private_sha+':tx-diagnostic:1').encode()).hexdigest()
     else:require('R2_LORA_TX_DIAGNOSTIC=1' not in commands,'Unexpected diagnostic TX')
     if r.get('lora_bw_experiment'):
-        require(passive and not slow and not r.get('lora_tx_diagnostic') and 'R2_LORA_BW_EXPERIMENT=1' in commands,'Bandwidth experiment profile binding')
-        require(r.get('bandwidth_experiment')==dict(schedule=5,arm_us=240000000,one_arm_per_boot=True,common_grid_phase_us=400000,
+        require(passive and not r.get('lora_tx_diagnostic') and 'R2_LORA_BW_EXPERIMENT=1' in commands,'Bandwidth experiment profile binding')
+        expected_experiment=dict(schedule=6 if slow else 5,arm_us=480000000 if slow else 240000000,one_arm_per_boot=True,common_grid_phase_us=400000,
             default_on=False,precision_sf=7,precision_bandwidth_hz=[41667,500000],
             assignment='ABBA_CURSOR_DIV2',control='SF12_BW500',hopping='UNCHANGED_64',
-            accounting='CONSERVATIVE_NARROW_BOTH_ARMS',purpose='RAW_ENDPOINT_CHARACTERIZATION_ONLY'),'Bandwidth experiment receipt')
-        private_sha=hashlib.sha256((private_sha+':bw-experiment:ABBA_SF7_240S').encode()).hexdigest()
+            accounting='CONSERVATIVE_NARROW_BOTH_ARMS',purpose='RAW_ENDPOINT_CHARACTERIZATION_ONLY')
+        if slow:expected_experiment.update(precision_us=30000000,sync_offset_us=7000000,follow_offset_us=2500000,follow_latest_us=4500000,frame_us=15000000)
+        require(r.get('bandwidth_experiment')==expected_experiment,'Bandwidth experiment receipt')
+        private_sha=hashlib.sha256((private_sha+(':bw-experiment:ABBA_SF7_SLOW30_480S' if slow else ':bw-experiment:ABBA_SF7_240S')).encode()).hexdigest()
     else:require('R2_LORA_BW_EXPERIMENT=1' not in commands,'Unexpected bandwidth experiment')
     if diagnostic:private_sha=hashlib.sha256((private_sha+':controller-diag:1').encode()).hexdigest()
     binding=hashlib.sha256((r['source_sha256']+':'+private_sha+':'+sha(out/'target/zephyr/.config')).encode()).hexdigest()

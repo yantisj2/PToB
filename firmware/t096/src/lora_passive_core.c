@@ -112,7 +112,7 @@ static bool reserve_control(struct lp_tx *t,uint64_t now,struct lp_reservation *
  s.next_slot_us=slot+LP_BEAT_US;
  if(force_meta||manual)control=LP_META;
  if(manual){s.slot=t->durable.slot;s.next_slot_us=t->durable.next_slot_us;s.owed=t->durable.owed;}
- s.schedule=LP_SLOW;
+ s.schedule=LP_SCHEDULE;
 #else
  (void)force_meta;
  s.slot=index+1;s.next_slot_us=slot+LP_BEAT_US;
@@ -127,7 +127,11 @@ static bool reserve_control(struct lp_tx *t,uint64_t now,struct lp_reservation *
  unsigned a=lp_channel(t->order,s.cursor),b=lp_channel(t->order,s.cursor+1);
  uint64_t sync_at=slot+LP_SYNC_OFFSET_US-50000;
 #ifdef R2_LORA_PASSIVE_SLOW
- uint64_t follow_at=sync_at+lp_duration(LP_SYNC)-10000+LP_FOLLOW_OFFSET_US;
+ uint64_t sync_rf=lp_duration(LP_SYNC)-10000;
+#ifdef R2_LORA_BW_EXPERIMENT
+ if(lp_bw_arm(s.cursor))sync_rf=18496;
+#endif
+ uint64_t follow_at=sync_at+sync_rf+LP_FOLLOW_OFFSET_US;
 #elif defined(R2_LORA_BW_EXPERIMENT)
  /* RX FOLLOW cannot precede250ms after the actual SYNC completion. Use the
   * earliest per-arm RF duration for cooldown; BW500 is shorter thanA. */

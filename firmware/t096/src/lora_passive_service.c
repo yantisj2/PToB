@@ -42,7 +42,11 @@
 #define DIAGNOSTIC_CHARGE_US UINT32_C(12000000)
 #define DIAGNOSTIC_CAPTURE_US UINT64_C(1500000)
 #elif defined(R2_LORA_BW_EXPERIMENT)
+#ifdef R2_LORA_PASSIVE_SLOW
+#define LAB_RUN_US UINT64_C(480000000)
+#else
 #define LAB_RUN_US UINT64_C(240000000)
+#endif
 #else
 #define LAB_RUN_US UINT64_C(900000000)
 #endif
@@ -218,14 +222,20 @@ void r2_lora_control(bool rc,bool allowed,enum rc8_selected preferred){
 void r2_lora_mesh_contact(bool present){if(present)atomic_or(&flags,MESH_CONTACT);else atomic_and(&flags,~MESH_CONTACT);}
 void r2_lora_request(bool on){
  k_spinlock_key_t key=k_spin_lock(&lock);
-#if defined(R2_LORA_TX_DIAGNOSTIC)||defined(R2_LORA_BW_EXPERIMENT)
+#if defined(R2_LORA_PASSIVE_SLOW) && defined(R2_LORA_BW_EXPERIMENT)
+ /* Retain the finite deadline even after OFF as the one-arm tombstone. No
+  * extra scratch state is needed; the original slow counters stay intact. */
+ if(on&&lab_until){k_spin_unlock(&lock,key);return;}
+#elif defined(R2_LORA_TX_DIAGNOSTIC)||defined(R2_LORA_BW_EXPERIMENT)
  /* One explicit finite arm per boot; repeated ON cannot renew its budget. */
  if(on&&r2_diag_scratch.lora.diagnostic.used){k_spin_unlock(&lock,key);return;}
  if(on){r2_diag_scratch.lora.diagnostic.used=true;r2_diag_scratch.lora.diagnostic.armed_us=mono();}
 #endif
-#ifdef R2_LORA_PASSIVE_SLOW
+#if defined(R2_LORA_PASSIVE_SLOW) && !defined(R2_LORA_BW_EXPERIMENT)
  lab_until=on?UINT64_MAX:0;
  if(!on){published.utc_us=published.display_until_us=0;published.display_held=published.display_acquiring=false;}
+#elif defined(R2_LORA_PASSIVE_SLOW) && defined(R2_LORA_BW_EXPERIMENT)
+ if(on)lab_until=mono()+LAB_RUN_US;
 #else
  lab_until=on?mono()+LAB_RUN_US:0;
 #endif
@@ -432,7 +442,7 @@ static enum source_result __attribute__((noinline)) source_now(uint64_t *phase_n
 #endif
 }
 int r2_lora_utc_request(uint64_t token,uint32_t delay_ms,bool override){
-#if !defined(R2_LORA_PASSIVE_SLOW) || defined(R2_LORA_TX_DIAGNOSTIC)
+#if !defined(R2_LORA_PASSIVE_SLOW) || defined(R2_LORA_TX_DIAGNOSTIC) || defined(R2_LORA_BW_EXPERIMENT)
  (void)token;(void)delay_ms;(void)override;return -ENOTSUP;
 #else
  if(!token||delay_ms>10000)return -EINVAL;
@@ -518,7 +528,7 @@ int r2_lora_utc_json(char *out,size_t capacity,int result){
  uint32_t span=d.fit_span_us,remain=span>=LP_TRAIN_US?0:(uint32_t)LP_TRAIN_US-span;
  unsigned clock_reason=v.choice==RC8_SELECT_LORA?0:v.display_acquiring?5:v.display_held?4:!v.time_valid?1:!v.quality_known?2:3;
  return snprintf(out,capacity,"{\"utc_job\":1,\"supported\":%s,\"result\":%d,\"boot\":\"%016llx\",\"token\":\"%016llx\",\"floor\":\"%016llx\",\"state\":%u,\"reason\":%u,\"wait_reason\":%u,\"admitted\":%u,\"completed\":%u,\"refused\":%u,\"expired\":%u,\"deferrals\":%u,\"due_us\":%llu,\"deadline_us\":%llu,\"over_cap\":%s,\"reserved_us\":%u,\"source_kind\":%u,\"source_root_boot\":\"%016llx\",\"source_epoch\":%u,\"capture_epoch\":%llu,\"clock_reason\":%u,\"time_valid\":%s,\"trained\":%s,\"fit_n\":%u,\"fit_span_us\":%u,\"train_remaining_us\":%u}",
-#ifdef R2_LORA_PASSIVE_SLOW
+#if defined(R2_LORA_PASSIVE_SLOW) && !defined(R2_LORA_BW_EXPERIMENT)
  "true",
 #else
  "false",
@@ -1409,7 +1419,7 @@ void r2_lora_init(uint64_t f,uint64_t boot,uint64_t tx,const struct r2_group_con
  r2_diag_scratch.lora.journal_result=-ENODATA;factory=f;physical_boot=boot;transmitter_factory=tx;group=g;transmitter=f&&f==tx;
  source_tz.value=r2_tz_unknown();owner.boot_ms=(uint32_t)((mono()+999)/1000);if(!owner.boot_ms)owner.boot_ms=1;
  owner.quiet_until_us=mono()+REBOOT_CONTROL_GUARD_US;
-#ifdef R2_LORA_PASSIVE_SLOW
+#if defined(R2_LORA_PASSIVE_SLOW) && !defined(R2_LORA_BW_EXPERIMENT)
  atomic_set(&flags,REQUESTED);lab_until=UINT64_MAX;
 #else
  atomic_set(&flags,0);
@@ -1552,8 +1562,13 @@ until=lab_until;
  /* No slow lab arm or NV timing backend: legacy fields stay explicit zero. */
  const struct r2_lora_store_timing store={0};
  uint32_t startup0=r2_diag_scratch.lora.startup_counts[0],startup1=r2_diag_scratch.lora.startup_counts[1];
+#ifndef R2_LORA_BW_EXPERIMENT
 #define PASSIVE_DIAGNOSTIC_ARM_US UINT64_C(0)
 #define PASSIVE_DIAGNOSTIC_CHARGE_US 0u
+#else
+#define PASSIVE_DIAGNOSTIC_ARM_US (until?until-LAB_RUN_US:0)
+#define PASSIVE_DIAGNOSTIC_CHARGE_US 0u
+#endif
 #else
  struct r2_lora_store_timing store=r2_diag_scratch.lora.store;
  uint32_t startup0=0,startup1=0;
