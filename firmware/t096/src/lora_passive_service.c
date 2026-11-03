@@ -68,7 +68,7 @@
 #elif defined(R2_LORA_BW_EXPERIMENT)
 /* The low priority owner can be preempted longer than the old20ms entry
  * window. Prepare without RF early; original launch/source fences remain. */
-#define PRECHARGE_LEAD_US UINT64_C(500000)
+#define PRECHARGE_LEAD_US UINT64_C(2000000)
 #else
 #define PRECHARGE_LEAD_US UINT64_C(20000)
 #endif
@@ -796,7 +796,7 @@ static int __attribute__((noinline)) transmit(uint64_t now){
   * Per-boot accounting survives service changes; no prior boot is restored. */
  uint64_t period_ns=UINT64_C(1000000000);
  uint64_t delay_ns=(period_ns+SOURCE_GRID_PHASE_NS-phase_ns%period_ns)%period_ns;
-#ifdef R2_LORA_PASSIVE_SLOW
+#ifdef STAGED_PACKETS
  if(delay_ns<PRECHARGE_LEAD_US*1000)delay_ns+=((PRECHARGE_LEAD_US*1000-delay_ns+period_ns-1)/period_ns)*period_ns;
 #else
  if(delay_ns<UINT64_C(300000000))delay_ns+=period_ns;
@@ -989,7 +989,14 @@ static int __attribute__((noinline)) transmit(uint64_t now){
   * still stages and rechecks its original physical/source grant normally. */
  if(!r->control){owner.stage=1;return 0;}
  if(owner.prepared_kind!=r->control){
-  bool prepared=false;int rc=launch_control(mono(),phase_ns,source_epoch,root_boot,limit,&prepared);
+  bool prepared=false;uint64_t prepare_start=mono();int rc=launch_control(mono(),phase_ns,source_epoch,root_boot,limit,&prepared);
+#ifdef R2_LORA_BW_EXPERIMENT
+  uint64_t prepare_elapsed=mono()-prepare_start;
+  r2_diag_scratch.lora.attempt.prepare_us=prepare_elapsed>UINT32_MAX?UINT32_MAX:(uint32_t)prepare_elapsed;
+  if(r2_diag_scratch.lora.attempt.prepare_max_us<r2_diag_scratch.lora.attempt.prepare_us)r2_diag_scratch.lora.attempt.prepare_max_us=r2_diag_scratch.lora.attempt.prepare_us;
+#else
+  (void)prepare_start;
+#endif
   if(rc)return rc;
  }
 #endif

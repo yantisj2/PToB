@@ -17,7 +17,7 @@ def main():
  logs=[]
  for mode in (1,2,3,4,5,6,8,9,11):
   r=subprocess.run([str(binary),str(mode)],capture_output=True,text=True);logs.append(r.stdout+r.stderr);(out/'owner.log').write_text(''.join(logs));r.check_returncode();print(r.stdout.strip())
- negative=out/'phase200.c';negative.write_text(owner.read_text().replace('#define SOURCE_GRID_PHASE_NS UINT64_C(400000000)','#define SOURCE_GRID_PHASE_NS UINT64_C(200000000)'))
+ negative=out/'phase200.c';negative.write_text('#undef LP_LAUNCH_LATE_US\n#define LP_LAUNCH_LATE_US UINT64_C(45000)\n#undef LP_LAUNCH_PAD_US\n#define LP_LAUNCH_PAD_US UINT64_C(50000)\n'+owner.read_text().replace('#define SOURCE_GRID_PHASE_NS UINT64_C(400000000)','#define SOURCE_GRID_PHASE_NS UINT64_C(200000000)'))
  old=out/'owner-phase200';subprocess.run([*flags,'-DR2_PASSIVE_SERVICE_BODY="'+str(negative)+'"','-DR2_HW_ADMISSION_BODY="'+str(admission)+'"',*map(str,sources),'-o',str(old)],check=True)
  r=subprocess.run([str(old),'7'],capture_output=True,text=True);(out/'phase200.log').write_text(r.stdout+r.stderr);r.check_returncode();print(r.stdout.strip())
  # Full real hardware driver; include a fixture-only extra main to inspect

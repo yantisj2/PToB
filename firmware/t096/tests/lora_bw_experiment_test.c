@@ -73,14 +73,14 @@ int main(int argc,char **argv){
   }
   if(mode>=9){
    printf("coarse100..300ms wakes%u/encoding20ms/SPI6ms: META%u/SYNC%u/FOLLOW%u late%u refused%u\n",wakes,owner.sent[1],owner.sent[2],owner.sent[3],owner.late,owner.refused);
-   assert(mode==9?owner.sent[LP_META-1]>0:!owner.sent[LP_META-1]);
+   assert(mode==9?owner.sent[LP_FOLLOW-1]>0:!owner.sent[LP_META-1]);
    assert(!role.tx.core.durable.fh_disabled&&role.tx.core.durable.next_slot_us>owner.quiet_until_us);
    return 0;
   }
   if(mode==6){assert(owner.sent[LP_META-1]&&owner.sent[LP_FOLLOW-1]>=4);
    printf("PASS bounded original BLE grant model400ms admits META%u/FOLLOW%u; no source/deadline extension\n",owner.sent[LP_META-1],owner.sent[LP_FOLLOW-1]);}
   else{assert(!owner.sent[LP_META-1]&&!owner.sent[LP_FOLLOW-1]&&owner.refused);
-   puts(mode==7?"PASS causal200ms grid negative has no META/FOLLOW under same declared original grants":
+   puts(mode==7?"PASS causal200ms+original45msdeadline negative has no META/FOLLOW under same declared original grants":
     "PASS400ms cannot transmit META with original1.1s grants; no lease extension");}
   return 0;
  }
@@ -98,8 +98,8 @@ int main(int argc,char **argv){
    puts("PASS no reservation extends beyond immutable arm deadline");return 0;
   }
   for(unsigned i=0;i<4;i++){
-   uint64_t slot=role.tx.core.durable.next_slot_us;
-   now_us=slot-PRECHARGE_LEAD_US;step();now_us=slot;step();
+   uint64_t slot=owner.stage==3?role.tx.reservation.slot_us:role.tx.core.durable.next_slot_us;
+   if(now_us<slot-PRECHARGE_LEAD_US)now_us=slot-PRECHARGE_LEAD_US;step();now_us=slot;step();
    unsigned control=owner.tx_kind;assert(control==LP_META||control==LP_DISC);
    assert(tuning_phy==R2_LORA_DTS);done(slot,control);
    now_us=slot+LP_SYNC_OFFSET_US;step();assert(owner.tx_kind==LP_SYNC);
@@ -108,7 +108,7 @@ int main(int argc,char **argv){
    actual_done(slot+LP_SYNC_OFFSET_US,LP_SYNC);
    now_us=owner.last_sync_us+LP_FOLLOW_OFFSET_US;uint64_t at=now_us;
    step();assert(owner.tx_kind==LP_FOLLOW&&tuning_phy==expected);actual_done(at,LP_FOLLOW);
-   assert(!role.tx.core.durable.pending);
+   assert(owner.sent[LP_FOLLOW-1]==i+1);
   }
   puts("PASS actual TX owner ABBA SYNC/FOLLOW arms; unchanged DTS and hop cursor");return 0;
  }

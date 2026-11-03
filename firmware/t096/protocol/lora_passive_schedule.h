@@ -78,6 +78,18 @@ static inline unsigned lp_bw_arm(uint32_t cursor){
 #define LP_LAUNCH_PAD_US UINT64_C(50000)
 #define LP_FOLLOW_OFFSET_US UINT64_C(260000)
 #define LP_FOLLOW_LATEST_US UINT64_C(300000)
+#ifdef R2_LORA_BW_EXPERIMENT
+/* Finite TX acquisition allowance only. Existing schedule5 receivers retain
+ * their250ms header window and1s pending deadline; no lease is extended. */
+#undef LP_FRAME_END_US
+#undef LP_LAUNCH_LATE_US
+#undef LP_LAUNCH_PAD_US
+#undef LP_FOLLOW_LATEST_US
+#define LP_FRAME_END_US UINT64_C(3500000)
+#define LP_LAUNCH_LATE_US UINT64_C(150000)
+#define LP_LAUNCH_PAD_US UINT64_C(160000)
+#define LP_FOLLOW_LATEST_US UINT64_C(400000)
+#endif
 #define LP_HOLD_US UINT64_C(6000000)
 #define LP_LEASE_US UINT64_C(18000000)
 #ifdef R2_LORA_TX_DIAGNOSTIC

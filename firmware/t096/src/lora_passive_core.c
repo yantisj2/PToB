@@ -128,6 +128,11 @@ static bool reserve_control(struct lp_tx *t,uint64_t now,struct lp_reservation *
  uint64_t sync_at=slot+LP_SYNC_OFFSET_US-50000;
 #ifdef R2_LORA_PASSIVE_SLOW
  uint64_t follow_at=sync_at+lp_duration(LP_SYNC)-10000+LP_FOLLOW_OFFSET_US;
+#elif defined(R2_LORA_BW_EXPERIMENT)
+ /* RX FOLLOW cannot precede250ms after the actual SYNC completion. Use the
+  * earliest per-arm RF duration for cooldown; BW500 is shorter thanA. */
+ uint64_t sync_rf=lp_bw_arm(s.cursor)?UINT64_C(18496):UINT64_C(221951);
+ uint64_t follow_at=sync_at+sync_rf+250000;
 #else
  uint64_t follow_at=slot+LP_SYNC_OFFSET_US+450000;
 #endif
